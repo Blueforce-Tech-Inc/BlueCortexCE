@@ -56,3 +56,12 @@ Thumbs.db
 application-local.yml
 application-local.properties
 webui/plugin/scripts/claude-mem
+memory/*.md
+BOOTSTRAP.md
+MEMORY.md
+SOUL.md
+skills/claude-code-controller/SKILL.md
+IDENTITY.md
+TOOLS.md
+USER.md
+HEARTBEAT.md
