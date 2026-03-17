@@ -125,6 +125,98 @@ public class ObservationEntity {
     @JsonProperty("created_at_epoch")
     private Long createdAtEpoch;
 
+    // ===== Quality Score Fields (V11) =====
+
+    /**
+     * Quality score [0, 1] - higher is better.
+     * Computed from feedback type, reasoning trace, output, and tool usage count.
+     * See QualityScorer service for calculation logic.
+     */
+    @Column(name = "quality_score")
+    @JsonProperty("quality_score")
+    private Float qualityScore;
+
+    /**
+     * Feedback type: SUCCESS/PARTIAL/FAILURE/UNKNOWN.
+     * Used for quality assessment and memory refinement decisions.
+     */
+    @Column(name = "feedback_type")
+    @JsonProperty("feedback_type")
+    private String feedbackType;
+
+    /**
+     * Last accessed timestamp for recency scoring.
+     * Updated每次检索时.
+     */
+    @Column(name = "last_accessed_at")
+    @JsonProperty("last_accessed_at")
+    private OffsetDateTime lastAccessedAt;
+
+    /**
+     * Number of times this memory was retrieved.
+     * Used in retrieval scoring (access frequency weight).
+     */
+    @Column(name = "access_count")
+    @JsonProperty("access_count")
+    private Integer accessCount = 0;
+
+    /**
+     * Last refinement timestamp.
+     * Used for cooldown detection (7 days before next refine).
+     */
+    @Column(name = "refined_at")
+    @JsonProperty("refined_at")
+    private OffsetDateTime refinedAt;
+
+    /**
+     * Comma-separated IDs of merged observations.
+     * Used for traceability when memories are consolidated.
+     */
+    @Column(name = "refined_from_ids")
+    @JsonProperty("refined_from_ids")
+    private String refinedFromIds;
+
+    /**
+     * User comment from WebUI feedback.
+     * Manual feedback override for quality assessment.
+     */
+    @Column(name = "user_comment")
+    @JsonProperty("user_comment")
+    private String userComment;
+
+    /**
+     * Timestamp when feedback was last updated.
+     */
+    @Column(name = "feedback_updated_at")
+    @JsonProperty("feedback_updated_at")
+    private OffsetDateTime feedbackUpdatedAt;
+
+    // Getters and Setters for quality fields
+
+    public Float getQualityScore() { return qualityScore; }
+    public void setQualityScore(Float qualityScore) { this.qualityScore = qualityScore; }
+
+    public String getFeedbackType() { return feedbackType; }
+    public void setFeedbackType(String feedbackType) { this.feedbackType = feedbackType; }
+
+    public OffsetDateTime getLastAccessedAt() { return lastAccessedAt; }
+    public void setLastAccessedAt(OffsetDateTime lastAccessedAt) { this.lastAccessedAt = lastAccessedAt; }
+
+    public Integer getAccessCount() { return accessCount; }
+    public void setAccessCount(Integer accessCount) { this.accessCount = accessCount; }
+
+    public OffsetDateTime getRefinedAt() { return refinedAt; }
+    public void setRefinedAt(OffsetDateTime refinedAt) { this.refinedAt = refinedAt; }
+
+    public String getRefinedFromIds() { return refinedFromIds; }
+    public void setRefinedFromIds(String refinedFromIds) { this.refinedFromIds = refinedFromIds; }
+
+    public String getUserComment() { return userComment; }
+    public void setUserComment(String userComment) { this.userComment = userComment; }
+
+    public OffsetDateTime getFeedbackUpdatedAt() { return feedbackUpdatedAt; }
+    public void setFeedbackUpdatedAt(OffsetDateTime feedbackUpdatedAt) { this.feedbackUpdatedAt = feedbackUpdatedAt; }
+
     // Getters and Setters
 
     public UUID getId() { return id; }

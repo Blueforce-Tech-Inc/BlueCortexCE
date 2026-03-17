@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -384,4 +385,111 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         @Param("folderPath") String folderPath,
         @Param("limit") int limit
     );
+
+    // ==========================================================================
+    // Quality Score Support (V11)
+    // ==========================================================================
+
+    /**
+     * Find observations with quality score above threshold.
+     * Used for quality-aware retrieval.
+     *
+     * @param project Project path
+     * @param minQuality Minimum quality score [0, 1]
+     * @param limit Maximum results
+     * @return High-quality observations
+     */
+    @Query(value = """
+        SELECT * FROM mem_observations
+        WHERE project_path = :project
+        AND quality_score >= :minQuality
+        ORDER BY quality_score DESC, created_at_epoch DESC
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<ObservationEntity> findHighQualityObservations(
+        @Param("project") String project,
+        @Param("minQuality") float minQuality,
+        @Param("limit") int limit
+    );
+
+    /**
+     * Find observations with low quality score (candidates for deletion during refine).
+     * Used by MemoryRefineService.
+     *
+     * @param project Project path
+     * @param threshold Quality threshold for deletion
+     * @return Low-quality observations
+     */
+    @Query(value = """
+        SELECT * FROM mem_observations
+        WHERE project_path = :project
+        AND quality_score < :threshold
+        ORDER BY quality_score ASC
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<ObservationEntity> findLowQualityObservations(
+        @Param("project") String project,
+        @Param("threshold") float threshold,
+        @Param("limit") int limit
+    );
+
+    /**
+     * Find stale observations (not accessed for specified days, quality below threshold).
+     * Used for cleanup during refine.
+     *
+     * @param project Project path
+     * @param daysThreshold Days since last access
+     * @param qualityThreshold Quality threshold
+     * @return Stale observations
+     */
+    @Query(value = """
+        SELECT * FROM mem_observations
+        WHERE project_path = :project
+        AND (last_accessed_at IS NULL OR last_accessed_at < :accessThreshold)
+        AND (quality_score IS NULL OR quality_score < :qualityThreshold)
+        ORDER BY quality_score ASC NULLS FIRST
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<ObservationEntity> findStaleObservations(
+        @Param("project") String project,
+        @Param("accessThreshold") OffsetDateTime accessThreshold,
+        @Param("qualityThreshold") float qualityThreshold,
+        @Param("limit") int limit
+    );
+
+    /**
+     * Find observations overdue for refinement (not refined within cooldown period).
+     * Cooldown period is 7 days.
+     *
+     * @param project Project path
+     * @param cooldownThreshold Timestamp for cooldown threshold
+     * @return Observations ready for refinement
+     */
+    @Query(value = """
+        SELECT * FROM mem_observations
+        WHERE project_path = :project
+        AND (refined_at IS NULL OR refined_at < :cooldownThreshold)
+        ORDER BY refined_at ASC NULLS FIRST, quality_score ASC NULLS FIRST
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<ObservationEntity> findOverdueForRefine(
+        @Param("project") String project,
+        @Param("cooldownThreshold") OffsetDateTime cooldownThreshold,
+        @Param("limit") int limit
+    );
+
+    /**
+     * Count observations by quality range.
+     * Used for quality distribution analysis.
+     */
+    @Query(value = """
+        SELECT
+            COUNT(CASE WHEN quality_score >= 0.7 THEN 1 END) as high,
+            COUNT(CASE WHEN quality_score >= 0.4 AND quality_score < 0.7 THEN 1 END) as medium,
+            COUNT(CASE WHEN quality_score < 0.4 AND quality_score IS NOT NULL THEN 1 END) as low,
+            COUNT(CASE WHEN quality_score IS NULL THEN 1 END) as unknown
+        FROM mem_observations
+        WHERE project_path = :project
+        """, nativeQuery = true)
+    Object[] getQualityDistribution(@Param("project") String project);
 }
