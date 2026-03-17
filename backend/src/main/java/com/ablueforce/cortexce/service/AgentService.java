@@ -606,23 +606,54 @@ public class AgentService implements LogHelper {
             // Phase 2: Trigger quality scoring and memory refinement
             // This runs asynchronously after summary generation
             try {
-                // Infer feedback type from session
-                QualityScorer.FeedbackType feedback = inferFeedback(
-                    lastAssistantMessage, 
-                    observations.size(),
-                    session.getCompletedAtEpoch() - session.getStartedAtEpoch()
-                );
+                // Infer feedback type - prefer LLM-based inference
+                QualityScorer.FeedbackType feedback = null;
+                
+                // Try LLM-based inference first (more accurate)
+                if (qualityScorer.isLlmAvailable()) {
+                    // Build summary from parsed content
+                    String sessionSummary = parsed.completed + " " + parsed.learned;
+                    feedback = qualityScorer.inferFeedbackWithLlm(
+                        sessionSummary,
+                        lastAssistantMessage,
+                        observations.size()
+                    );
+                    log.debug("Using LLM-based feedback inference: {}", feedback);
+                }
+                
+                // Fall back to rule-based if LLM failed or not available
+                if (feedback == null) {
+                    feedback = inferFeedback(
+                        lastAssistantMessage, 
+                        observations.size(),
+                        session.getCompletedAtEpoch() - session.getStartedAtEpoch()
+                    );
+                    log.debug("Using rule-based feedback inference: {}", feedback);
+                }
 
                 // Update quality scores for observations
                 OffsetDateTime now = OffsetDateTime.now();
                 for (ObservationEntity obs : observations) {
                     obs.setFeedbackType(feedback.name().toLowerCase());
-                    float quality = qualityScorer.estimateQuality(
-                        feedback,
-                        obs.getContent(),
-                        null,
-                        observations.size()
-                    );
+                    
+                    // Prefer LLM-based quality scoring when available
+                    float quality;
+                    if (qualityScorer.isLlmAvailable()) {
+                        quality = qualityScorer.estimateQualityWithLlm(
+                            obs.getTitle(),
+                            obs.getType(),
+                            obs.getContent(),
+                            obs.getFacts() != null ? obs.getFacts().toString() : null
+                        );
+                    } else {
+                        quality = qualityScorer.estimateQuality(
+                            feedback,
+                            obs.getContent(),
+                            null,
+                            observations.size()
+                        );
+                    }
+                    
                     obs.setQualityScore(quality);
                     obs.setFeedbackUpdatedAt(now);
                 }

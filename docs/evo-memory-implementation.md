@@ -490,8 +490,8 @@ java -jar target/cortex-ce-0.1.0-beta.jar --spring.profiles.active=dev
 ### Current Limitations
 
 1. **Async Refinement**: Refinement happens asynchronously; results aren't immediately visible
-2. **Feedback Inference**: Keyword-based inference is simplistic; could use LLM
-3. **Quality Scoring**: Formula-based; could benefit from ML model
+2. **Feedback Inference**: Keyword-based inference is simplistic; LLM-based version now available ✅
+3. **Quality Scoring**: Formula-based; LLM-based version now available ✅
 4. **No Multi-modal**: Currently text-only
 
 ### Future Improvements

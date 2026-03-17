@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
  * - Base score from feedback type (SUCCESS/PARTIAL/FAILURE/UNKNOWN)
  * - Efficiency bonus (fewer tool uses = higher score)
  * - Content quality bonus (length, structure)
- * - Optional LLM self-evaluation
+ * - Optional LLM self-evaluation (when LlmQualityScorer is available)
  */
 @Service
 public class QualityScorer {
@@ -35,6 +35,22 @@ public class QualityScorer {
     private static final float CONTENT_BONUS_MAX = 0.15f;
     private static final int MIN_CONTENT_LENGTH = 100;
     private static final int OPTIMAL_CONTENT_LENGTH = 500;
+    
+    // LLM-based scoring (optional)
+    private final LlmQualityScorer llmQualityScorer;
+    
+    public QualityScorer() {
+        this(null);
+    }
+    
+    public QualityScorer(LlmQualityScorer llmQualityScorer) {
+        this.llmQualityScorer = llmQualityScorer;
+        if (llmQualityScorer != null) {
+            log.info("QualityScorer initialized with LLM-based scoring");
+        } else {
+            log.info("QualityScorer initialized with rule-based scoring");
+        }
+    }
 
     /**
      * Feedback types for quality assessment.
@@ -88,6 +104,84 @@ public class QualityScorer {
      */
     public float estimateQuality(FeedbackType feedback, int toolUsageCount) {
         return estimateQuality(feedback, null, null, toolUsageCount);
+    }
+
+    /**
+     * Estimate quality using LLM for more accurate assessment.
+     * 
+     * This is the preferred method when LLM is available.
+     * 
+     * @param title Observation title
+     * @param type Observation type
+     * @param content Observation content
+     * @param facts Facts extracted
+     * @return Quality score in range [0, 1]
+     */
+    public float estimateQualityWithLlm(String title, String type, 
+                                        String content, String facts) {
+        // Check if LLM scorer is available
+        if (llmQualityScorer == null || !llmQualityScorer.isAvailable()) {
+            log.debug("LLM not available, falling back to rule-based scoring");
+            return estimateQuality(FeedbackType.UNKNOWN, content, null, 0);
+        }
+        
+        try {
+            LlmQualityScorer.LlmQualityAnalysis analysis = 
+                llmQualityScorer.analyzeQuality(title, type, content, facts);
+            
+            log.debug("LLM quality analysis: score={}, type={}", 
+                analysis.qualityScore(), analysis.feedbackType());
+            
+            return (float) analysis.qualityScore();
+            
+        } catch (Exception e) {
+            log.warn("LLM scoring failed, falling back to rule-based: {}", e.getMessage());
+            return estimateQuality(FeedbackType.UNKNOWN, content, null, 0);
+        }
+    }
+
+    /**
+     * Infer feedback type using LLM.
+     * 
+     * @param sessionSummary Summary of the session
+     * @param lastMessage Last assistant message
+     * @param observationCount Number of observations
+     * @return Inferred feedback type
+     */
+    public FeedbackType inferFeedbackWithLlm(String sessionSummary, 
+                                             String lastMessage,
+                                             int observationCount) {
+        // Check if LLM scorer is available
+        if (llmQualityScorer == null || !llmQualityScorer.isAvailable()) {
+            return null; // Signal to use rule-based inference
+        }
+        
+        try {
+            LlmQualityScorer.FeedbackType llmFeedback = 
+                llmQualityScorer.inferFeedbackLlm(sessionSummary, lastMessage, observationCount);
+            
+            if (llmFeedback == null) {
+                return null; // Signal to use rule-based
+            }
+            
+            // Convert to QualityScorer.FeedbackType
+            return switch (llmFeedback) {
+                case SUCCESS -> FeedbackType.SUCCESS;
+                case FAILURE -> FeedbackType.FAILURE;
+                case PARTIAL -> FeedbackType.PARTIAL;
+            };
+            
+        } catch (Exception e) {
+            log.warn("LLM feedback inference failed: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Check if LLM-based scoring is available.
+     */
+    public boolean isLlmAvailable() {
+        return llmQualityScorer != null && llmQualityScorer.isAvailable();
     }
 
     /**
