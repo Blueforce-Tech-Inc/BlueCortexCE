@@ -1,124 +1,127 @@
 package com.ablueforce.cortexce.controller;
 
-import com.ablueforce.cortexce.entity.ObservationEntity;
-import com.ablueforce.cortexce.entity.SessionEntity;
+import com.ablueforce.cortexce.service.MemoryRefineService;
+import com.ablueforce.cortexce.service.ExpRagService;
+import com.ablueforce.cortexce.service.QualityScorer;
 import com.ablueforce.cortexce.repository.ObservationRepository;
-import com.ablueforce.cortexce.repository.SessionRepository;
-import com.ablueforce.cortexce.service.EmbeddingService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
- * Memory Controller - handles manual memory/observation saving.
- *
- * POST /api/memory/save - Save a manual memory observation
- * Mirrors TypeScript implementation in MemoryRoutes.ts
+ * ReMem API Controller - External integration interface.
+ * 
+ * Based on Evo-Memory paper Section 6.2 - Pseudo-synchronous API for external agents.
+ * 
+ * Provides REST endpoints for external Agent frameworks to:
+ * - Trigger memory refinement
+ * - Retrieve experiences for ICL
+ * - Query quality distribution
  */
 @RestController
 @RequestMapping("/api/memory")
 public class MemoryController {
 
-    private static final Logger log = LoggerFactory.getLogger(MemoryController.class);
+    private final MemoryRefineService memoryRefineService;
+    private final ExpRagService expRagService;
+    private final ObservationRepository observationRepository;
+    private final QualityScorer qualityScorer;
 
-    @Autowired
-    private ObservationRepository observationRepository;
-
-    @Autowired
-    private SessionRepository sessionRepository;
-
-    @Autowired
-    private EmbeddingService embeddingService;
+    public MemoryController(MemoryRefineService memoryRefineService,
+                          ExpRagService expRagService,
+                          ObservationRepository observationRepository,
+                          QualityScorer qualityScorer) {
+        this.memoryRefineService = memoryRefineService;
+        this.expRagService = expRagService;
+        this.observationRepository = observationRepository;
+        this.qualityScorer = qualityScorer;
+    }
 
     /**
-     * POST /api/memory/save - Save a manual memory/observation
-     *
-     * Body: { text: string, title?: string, project?: string }
-     *
-     * Returns: { success: boolean, id?: string, title?: string, project?: string, message?: string, error?: string }
+     * Trigger memory refinement for a project.
+     * POST /api/memory/refine?project=/path/to/project
      */
-    @PostMapping(value = "/save", produces = MediaType.APPLICATION_JSON_VALUE)
-    public Map<String, Object> saveMemory(@RequestBody Map<String, String> body) {
-        String text = body.get("text");
-        String title = body.get("title");
-        String project = body.get("project");
+    @PostMapping("/refine")
+    public ResponseEntity<Map<String, String>> triggerRefine(@RequestParam String project) {
+        memoryRefineService.refineMemory(project);
+        return ResponseEntity.ok(Map.of(
+            "status", "triggered",
+            "project", project,
+            "message", "Memory refinement has been triggered"
+        ));
+    }
 
-        // Default project if not specified
-        String targetProject = (project != null && !project.isBlank()) ? project : "manual-memories";
+    /**
+     * Retrieve experiences for ICL context.
+     * POST /api/memory/experiences
+     * Body: {"task": "current task description", "project": "/path", "count": 4}
+     */
+    @PostMapping("/experiences")
+    public ResponseEntity<List<ExpRagService.Experience>> retrieveExperiences(
+            @RequestBody Map<String, Object> request) {
+        
+        String task = (String) request.get("task");
+        String project = (String) request.get("project");
+        int count = request.get("count") != null ? (Integer) request.get("count") : 4;
+        
+        List<ExpRagService.Experience> experiences = expRagService
+            .retrieveExperiences(task, project, count);
+        
+        return ResponseEntity.ok(experiences);
+    }
 
-        log.info("Memory save request: title={}, project={}", title, targetProject);
+    /**
+     * Build ICL prompt from experiences.
+     * POST /api/memory/icl-prompt
+     */
+    @PostMapping("/icl-prompt")
+    public ResponseEntity<Map<String, String>> buildICLPrompt(@RequestBody Map<String, Object> request) {
+        String task = (String) request.get("task");
+        String project = (String) request.get("project");
+        
+        List<ExpRagService.Experience> experiences = expRagService
+            .retrieveExperiences(task, project, 4);
+        
+        String prompt = expRagService.buildICLPrompt(task, experiences);
+        
+        return ResponseEntity.ok(Map.of(
+            "prompt", prompt,
+            "experienceCount", String.valueOf(experiences.size())
+        ));
+    }
 
-        Map<String, Object> response = new HashMap<>();
+    /**
+     * Get quality distribution for a project.
+     * GET /api/memory/quality-distribution?project=/path
+     */
+    @GetMapping("/quality-distribution")
+    public ResponseEntity<Map<String, Object>> getQualityDistribution(@RequestParam String project) {
+        Object[] distribution = observationRepository.getQualityDistribution(project);
+        
+        // Distribution: [high, medium, low, unknown]
+        return ResponseEntity.ok(Map.of(
+            "project", project,
+            "high", distribution[0],
+            "medium", distribution[1],
+            "low", distribution[2],
+            "unknown", distribution[3]
+        ));
+    }
 
-        // Validate text
-        if (text == null || text.isBlank()) {
-            response.put("success", false);
-            response.put("error", "text is required and must be non-empty");
-            return response;
-        }
-
-        try {
-            // Generate unique session ID for manual memory
-            String memorySessionId = "manual-" + System.currentTimeMillis();
-
-            // Create dummy session first to satisfy FK constraint
-            SessionEntity dummySession = new SessionEntity();
-            dummySession.setContentSessionId(memorySessionId);
-            dummySession.setMemorySessionId(memorySessionId);
-            dummySession.setProjectPath(targetProject);
-            dummySession.setStartedAtEpoch(System.currentTimeMillis());
-            dummySession.setStatus("completed");
-            sessionRepository.save(dummySession);
-
-            // Generate title if not provided (TS: substring 0-60)
-            String effectiveTitle = title;
-            if (effectiveTitle == null || effectiveTitle.isBlank()) {
-                effectiveTitle = text.length() > 60
-                    ? text.substring(0, 60).trim() + "..."
-                    : text.trim();
-            }
-
-            // Create observation entity
-            // TS uses type='discovery' and subtitle='Manual memory'
-            ObservationEntity observation = new ObservationEntity();
-            observation.setContent(text);
-            observation.setTitle(effectiveTitle);
-            observation.setSubtitle("Manual memory");
-            observation.setProjectPath(targetProject);
-            observation.setType("discovery");  // TS uses 'discovery' type
-            observation.setMemorySessionId(memorySessionId);
-            observation.setCreatedAtEpoch(System.currentTimeMillis());
-            observation.setPromptNumber(0);
-            observation.setDiscoveryTokens(0);
-
-            // Generate embedding
-            float[] embedding = embeddingService.embed(text);
-            observation.setEmbedding1024(embedding);
-            observation.setEmbeddingModelId("bge-m3");
-
-            // Save observation
-            ObservationEntity saved = observationRepository.save(observation);
-
-            log.info("Manual observation saved: id={}, project={}, title={}",
-                saved.getId(), targetProject, effectiveTitle);
-
-            response.put("success", true);
-            response.put("id", saved.getId().toString());
-            response.put("title", effectiveTitle);
-            response.put("project", targetProject);
-            response.put("message", "Memory saved as observation #" + saved.getId());
-
-        } catch (Exception e) {
-            log.error("Failed to save memory: {}", e.getMessage());
-            response.put("success", false);
-            response.put("error", "Failed to save memory: " + e.getMessage());
-        }
-
-        return response;
+    /**
+     * Manual feedback submission (WebUI).
+     * POST /api/memory/feedback
+     * Body: {"observationId": "uuid", "feedbackType": "SUCCESS", "comment": "optional"}
+     */
+    @PostMapping("/feedback")
+    public ResponseEntity<Map<String, String>> submitFeedback(@RequestBody Map<String, Object> request) {
+        // This endpoint would need implementation with observation ID lookup
+        // Simplified for now
+        return ResponseEntity.ok(Map.of(
+            "status", "received",
+            "message", "Feedback submission endpoint - requires observation ID lookup"
+        ));
     }
 }
