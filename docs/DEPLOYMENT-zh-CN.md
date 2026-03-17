@@ -95,10 +95,10 @@ curl http://localhost:37777/actuator/health
 
 ```bash
 # 拉取最新版本
-docker pull ghcr.io/wubuku/claude-mem-java:latest
+docker pull ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main
 
 # 拉取特定版本
-docker pull ghcr.io/wubuku/claude-mem-java:v0.1.0
+docker pull ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:v0.1.0
 ```
 
 ### 2.3 自定义构建
@@ -107,11 +107,11 @@ docker pull ghcr.io/wubuku/claude-mem-java:v0.1.0
 
 ```bash
 # 构建镜像
-docker build -t claude-mem-java:custom -f java/Dockerfile .
+docker build -t ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main -f java/Dockerfile .
 
 # 带构建参数
 docker build \
-  -t claude-mem-java:custom \
+  -t ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main \
   --build-arg JAVA_OPTS="-XX:+UseZGC -XX:MaxRAMPercentage=80.0" \
   -f java/Dockerfile .
 ```
@@ -139,7 +139,7 @@ services:
     restart: unless-stopped
 
   claude-mem:
-    image: ${IMAGE_NAME:-ghcr.io/wubuku/claude-mem-java:latest}
+    image: ${IMAGE_NAME:-ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main}
     container_name: claude-mem-java
     depends_on:
       postgres:

@@ -1026,6 +1026,79 @@ curl http://localhost:37777/api/modes
 
 ---
 
+#### POST `/api/memory/refine`
+
+触发记忆精炼（异步）。
+
+**请求体**:
+```json
+{
+  "project_path": "/path/to/project"
+}
+```
+
+**响应示例**:
+```json
+{
+  "status": "triggered",
+  "message": "Memory refinement started"
+}
+```
+
+#### POST `/api/memory/experiences`
+
+获取经验（ExpRAG）。
+
+**请求体**:
+```json
+{
+  "project": "/path/to/project",
+  "query": "database optimization",
+  "limit": 5
+}
+```
+
+#### POST `/api/memory/icl-prompt`
+
+获取上下文学习提示。
+
+**请求体**:
+```json
+{
+  "project": "/path/to/project",
+  "query": "database optimization"
+}
+```
+
+#### GET `/api/memory/quality-distribution`
+
+获取质量分布统计。
+
+**响应示例**:
+```json
+{
+  "project": "/path/to/project",
+  "high": 10,
+  "medium": 5,
+  "low": 2
+}
+```
+
+#### POST `/api/memory/feedback`
+
+提交反馈。
+
+**请求体**:
+```json
+{
+  "session_id": "session-123",
+  "feedback_type": "SUCCESS",
+  "comment": "Task completed successfully"
+}
+```
+
+---
+
 ### Mode 模式
 
 #### GET `/api/mode`

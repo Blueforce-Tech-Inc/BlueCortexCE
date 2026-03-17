@@ -101,6 +101,61 @@ GET /api/memory/{sessionId}
 POST /api/memory/search
 ```
 
+### Trigger Memory Refinement
+
+```
+POST /api/memory/refine
+Content-Type: application/json
+
+{
+  "project_path": "/path/to/project"
+}
+```
+
+### Get Experiences (ExpRAG)
+
+```
+POST /api/memory/experiences
+Content-Type: application/json
+
+{
+  "project": "/path/to/project",
+  "query": "database optimization",
+  "limit": 5
+}
+```
+
+### Get ICL Prompt
+
+```
+POST /api/memory/icl-prompt
+Content-Type: application/json
+
+{
+  "project": "/path/to/project",
+  "query": "database optimization"
+}
+```
+
+### Get Quality Distribution
+
+```
+GET /api/memory/quality-distribution?project=/path/to/project
+```
+
+### Submit Feedback
+
+```
+POST /api/memory/feedback
+Content-Type: application/json
+
+{
+  "session_id": "session-123",
+  "feedback_type": "SUCCESS",
+  "comment": "Task completed successfully"
+}
+```
+
 ## WebUI
 
 ### Get WebUI Status
