@@ -1,45 +1,45 @@
-# Evo-Memory Implementation Documentation
+# Evo-Memory 实现文档
 
-> **Date**: 2026-03-17
-> **Project**: Claude-Mem Java (Cortex Community Edition)
-> **Reference**: [Evo-Memory Paper](https://arxiv.org/abs/2511.20857)
-
----
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [Architecture](#architecture)
-3. [Database Schema](#database-schema)
-4. [Core Services](#core-services)
-5. [API Endpoints](#api-endpoints)
-6. [Quality Scoring System](#quality-scoring-system)
-7. [Memory Refinement](#memory-refinement)
-8. [Experience Retrieval (ExpRAG)](#experience-retrieval-exprag)
-9. [Feature Flags](#feature-flags)
-10. [Testing](#testing)
-11. [Configuration](#configuration)
+> **日期**: 2026-03-17
+> **项目**: Claude-Mem Java (Cortex Community Edition)
+> **参考论文**: [Evo-Memory Paper](https://arxiv.org/abs/2511.20857)
 
 ---
 
-## Overview
+## 目录
 
-This document describes the implementation of Evo-Memory features based on the [Evo-Memory paper](https://arxiv.org/abs/2511.20857) from Google DeepMind. The implementation adds intelligent memory management to the Claude-Mem Java system.
-
-### Key Improvements
-
-| Feature | Description |
-|---------|-------------|
-| **Quality Scoring** | Automatic assessment of observation quality based on feedback |
-| **Memory Refinement** | Automated cleanup and consolidation of low-quality memories |
-| **ExpRAG** | Experience-based retrieval for in-context learning |
-| **Feature Flags** | Configurable toggles for safe deployment |
+1. [概述](#概述)
+2. [架构](#架构)
+3. [数据库 schema](#数据库-schema)
+4. [核心服务](#核心服务)
+5. [API 端点](#api-端点)
+6. [质量评分系统](#质量评分系统)
+7. [记忆精炼](#记忆精炼)
+8. [经验检索 (ExpRAG)](#经验检索-exprag)
+9. [特性开关](#特性开关)
+10. [测试](#测试)
+11. [配置](#配置)
 
 ---
 
-## Architecture
+## 概述
 
-### System Context
+本文档描述了基于 Google DeepMind 发布的 [Evo-Memory 论文](https://arxiv.org/abs/2511.20857) 实现的智能记忆管理功能。该实现为 Claude-Mem Java 系统增添了智能记忆管理能力。
+
+### 核心改进
+
+| 功能 | 描述 |
+|------|------|
+| **质量评分** | 基于反馈自动评估观察质量 |
+| **记忆精炼** | 自动清理和整合低质量记忆 |
+| **ExpRAG** | 基于经验的检索，用于上下文学习 |
+| **特性开关** | 可配置的安全部署选项 |
+
+---
+
+## 架构
+
+### 系统上下文
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -78,110 +78,110 @@ This document describes the implementation of Evo-Memory features based on the [
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Data Flow
+### 数据流程
 
 ```
-Session Start
+会话开始
      │
      ▼
 ┌────────────────┐
-│ Create Session │
+│ 创建会话        │
 └────────────────┘
      │
      ▼
 ┌─────────────────────┐
-│ Agent Works         │
-│ (Tool calls, etc.) │
+│ Agent 工作         │
+│ (工具调用等)       │
 └─────────────────────┘
      │
      ▼
 ┌─────────────────────┐     ┌──────────────────┐
-│ Ingest Observation │────▶│  QualityScorer  │
-└─────────────────────┘     │  (estimate)      │
+│ 摄入观察           │────▶│  QualityScorer  │
+└─────────────────────┘     │  (估算质量)      │
                            └──────────────────┘
      │                            │
      │                            ▼
      │                    ┌──────────────────┐
-     │                    │ Quality Score    │
-     │                    │ (stored in DB)   │
+     │                    │ 质量分数         │
+     │                    │ (存储到数据库)   │
      │                    └──────────────────┘
      │
      ▼
 ┌─────────────────────┐
-│ Session Complete    │
+│ 会话完成            │
 └─────────────────────┘
      │
      ▼
 ┌─────────────────────┐     ┌──────────────────┐
-│ Feedback Inference  │────▶│  QualityScorer  │
-└─────────────────────┘     │  (update scores) │
+│ 反馈推断           │────▶│  QualityScorer  │
+└─────────────────────┘     │  (更新分数)      │
                            └──────────────────┘
                                     │
                                     ▼
                            ┌──────────────────┐
                            │ MemoryRefine     │
-                           │ (async cleanup)  │
+                           │ (异步清理)       │
                            └──────────────────┘
 ```
 
 ---
 
-## Database Schema
+## 数据库 Schema
 
-### V11: Quality Score Fields
+### V11: 质量评分字段
 
-Added to `mem_observations` table:
+添加到 `mem_observations` 表:
 
 ```sql
--- Quality scoring fields
-quality_score FLOAT,           -- 0.0-1.0 quality score
+-- 质量评分字段
+quality_score FLOAT,           -- 0.0-1.0 质量分数
 feedback_type VARCHAR(20),    -- SUCCESS/PARTIAL/FAILURE/UNKNOWN
-last_accessed_at TIMESTAMP,   -- Last retrieval time
-access_count INT DEFAULT 0,  -- Number of retrievals
+last_accessed_at TIMESTAMP,   -- 上次检索时间
+access_count INT DEFAULT 0,  -- 检索次数
 
--- Refinement tracking
-refined_at TIMESTAMP,         -- Last refinement time
-refined_from_ids JSONB,       -- IDs of merged/precursor observations
-user_comment TEXT,            -- User feedback comment
-feedback_updated_at TIMESTAMP -- Last feedback update
+-- 精炼追踪
+refined_at TIMESTAMP,         -- 上次精炼时间
+refined_from_ids JSONB,       -- 合并/前体观察的 ID
+user_comment TEXT,            -- 用户反馈评论
+feedback_updated_at TIMESTAMP -- 上次反馈更新时间
 ```
 
-### V12: Step Efficiency Fields
+### V12: 步骤效率字段
 
-Added to `mem_sessions` table:
+添加到 `mem_sessions` 表:
 
 ```sql
--- Step efficiency tracking
+-- 步骤效率追踪
 total_steps INT DEFAULT 0,
 avg_steps_per_task FLOAT
 ```
 
-Added to `mem_observations`:
+添加到 `mem_observations`:
 
 ```sql
--- Step number within session
+-- 会话内步骤编号
 step_number INT
 ```
 
 ---
 
-## Core Services
+## 核心服务
 
 ### QualityScorer
 
-**Location**: `backend/src/main/java/com/ablueforce/cortexce/service/QualityScorer.java`
+**位置**: `backend/src/main/java/com/ablueforce/cortexce/service/QualityScorer.java`
 
-Evaluates observation quality based on:
+基于以下因素评估观察质量:
 
-1. **Feedback Type** (base score):
+1. **反馈类型** (基础分数):
    - SUCCESS: 0.75
    - PARTIAL: 0.50
    - FAILURE: 0.20
    - UNKNOWN: 0.50
 
-2. **Efficiency Bonus**: Fewer tool uses = higher score
+2. **效率加成**: 工具使用次数越少，分数越高
 
-3. **Content Bonus**: Longer, detailed content gets bonus
+3. **内容加成**: 内容越长、越详细，获得加成
 
 ```java
 public float estimateQuality(FeedbackType feedback, String content, 
@@ -196,13 +196,13 @@ public float estimateQuality(FeedbackType feedback, String content,
 
 ### MemoryRefineService
 
-**Location**: `backend/src/main/java/com/ablueforce/cortexce/service/MemoryRefineService.java`
+**位置**: `backend/src/main/java/com/ablueforce/cortexce/service/MemoryRefineService.java`
 
-Manages memory lifecycle:
+管理记忆生命周期:
 
-1. **Delete**: Removes low-quality observations (< 0.3 threshold)
-2. **Refine**: Rewrites stale observations using LLM
-3. **Cooldown**: 7-day period before re-refinement
+1. **删除**: 移除低质量观察 (< 0.3 阈值)
+2. **精炼**: 使用 LLM 重写陈旧观察
+3. **冷却期**: 7 天后才可再次精炼
 
 ```java
 @Async
@@ -211,15 +211,15 @@ public void refineMemory(String projectPath) {
     
     List<ObservationEntity> candidates = findRefineCandidates(projectPath);
     
-    // Categorize: delete vs refine
+    // 分类: 删除 vs 精炼
     List<ObservationEntity> toDelete = candidates.stream()
         .filter(o -> o.getQualityScore() < deleteThreshold)
         .toList();
     
-    // Delete low quality
+    // 删除低质量
     deleteLowQualityObservations(toDelete);
     
-    // Refine candidates (LLM rewrite)
+    // 精炼候选 (LLM 重写)
     for (ObservationEntity obs : toRefine) {
         if (canRefine(obs)) {
             refineObservation(obs);
@@ -230,15 +230,15 @@ public void refineMemory(String projectPath) {
 
 ### ExpRagService
 
-**Location**: `backend/src/main/java/com/ablueforce/cortexce/service/ExpRagService.java`
+**位置**: `backend/src/main/java/com/ablueforce/cortexce/service/ExpRagService.java`
 
-Retrieves experiences for in-context learning:
+检索用于上下文学习的经验:
 
 ```java
 public List<Experience> retrieveExperiences(String currentTask, 
                                             String projectPath, 
                                             int count) {
-    // Get high-quality observations
+    // 获取高质量观察
     List<ObservationEntity> highQuality = observationRepository
         .findHighQualityObservations(projectPath, MIN_QUALITY_THRESHOLD, count * 3);
     
@@ -248,51 +248,51 @@ public List<Experience> retrieveExperiences(String currentTask,
 }
 
 public String buildICLPrompt(String currentTask, List<Experience> experiences) {
-    // Builds prompt with historical experiences
+    // 构建包含历史经验的提示词
 }
 ```
 
 ---
 
-## API Endpoints
+## API 端点
 
 ### MemoryController
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/memory/refine` | POST | Trigger memory refinement |
-| `/api/memory/experiences` | POST | Retrieve experiences for ICL |
-| `/api/memory/icl-prompt` | POST | Build ICL prompt |
-| `/api/memory/quality-distribution` | GET | Get quality distribution |
+| 端点 | 方法 | 描述 |
+|------|------|------|
+| `/api/memory/refine` | POST | 触发记忆精炼 |
+| `/api/memory/experiences` | POST | 检索用于 ICL 的经验 |
+| `/api/memory/icl-prompt` | POST | 构建 ICL 提示词 |
+| `/api/memory/quality-distribution` | GET | 获取质量分布 |
 
-### Example Usage
+### 使用示例
 
 ```bash
-# Trigger refinement
+# 触发精炼
 curl -X POST "http://localhost:37777/api/memory/refine?project=/path/to/project"
 
-# Retrieve experiences
+# 检索经验
 curl -X POST "http://localhost:37777/api/memory/experiences" \
   -H 'Content-Type: application/json' \
   -d '{"task": "implement auth", "project": "/path", "count": 4}'
 
-# Get quality distribution
+# 获取质量分布
 curl "http://localhost:37777/api/memory/quality-distribution?project=/path"
 ```
 
 ---
 
-## Quality Scoring System
+## 质量评分系统
 
-### Feedback Inference
+### 反馈推断
 
-When a session completes, the system infers feedback from the completion message:
+会话完成时，系统从完成消息推断反馈:
 
 ```java
 private QualityScorer.FeedbackType inferFeedback(String lastAssistantMessage, 
                                                  int observationCount,
                                                  long sessionDurationMs) {
-    // Check for success/failure keywords
+    // 检查成功/失败关键词
     if (lastAssistantMessage.contains("完成") || 
         lastAssistantMessage.contains("completed") ||
         lastAssistantMessage.contains("solved")) {
@@ -304,7 +304,7 @@ private QualityScorer.FeedbackType inferFeedback(String lastAssistantMessage,
         return FeedbackType.FAILURE;
     }
     
-    // Heuristic based on observation count and duration
+    // 基于观察数和时长的启发式判断
     if (observationCount < 3 || sessionDurationMs < 5000) {
         return FeedbackType.FAILURE;
     }
@@ -313,30 +313,30 @@ private QualityScorer.FeedbackType inferFeedback(String lastAssistantMessage,
 }
 ```
 
-### Quality Distribution
+### 质量分布
 
-The system categorizes observations into quality tiers:
+系统将观察分类到不同质量层级:
 
-- **High**: quality_score >= 0.6
-- **Medium**: 0.4 <= quality_score < 0.6
-- **Low**: quality_score < 0.4
-- **Unknown**: quality_score is NULL
+- **高**: quality_score >= 0.6
+- **中**: 0.4 <= quality_score < 0.6
+- **低**: quality_score < 0.4
+- **未知**: quality_score 为 NULL
 
 ---
 
-## Memory Refinement
+## 记忆精炼
 
-### Candidates Selection
+### 候选选择
 
-Memory refinement targets observations based on:
+记忆精炼针对以下观察:
 
-1. **Low Quality**: quality_score < 0.3
-2. **Stale**: Not updated in 30 days
-3. **Overdue**: Not refined in 7 days
+1. **低质量**: quality_score < 0.3
+2. **陈旧**: 30 天未更新
+3. **逾期**: 7 天未精炼
 
-### Cooldown Mechanism
+### 冷却机制
 
-After refinement, observations have a 7-day cooldown before they can be refined again:
+精炼后，观察有 7 天冷却期才能再次精炼:
 
 ```java
 private boolean canRefine(ObservationEntity obs) {
@@ -347,119 +347,119 @@ private boolean canRefine(ObservationEntity obs) {
 
 ---
 
-## Experience Retrieval (ExpRAG)
+## 经验检索 (ExpRAG)
 
-### Retrieval Flow
+### 检索流程
 
 ```
-New Task Request
+新任务请求
        │
        ▼
 ┌──────────────────┐
-│ Find High-Quality│
-│ Observations     │
+│ 查找高质量       │
+│ 观察             │
 │ (quality >= 0.6) │
 └──────────────────┘
        │
        ▼
 ┌──────────────────┐
-│ Convert to       │
-│ Experience Format│
+│ 转换为           │
+│ 经验格式         │
 └──────────────────┘
        │
        ▼
 ┌──────────────────┐
-│ Build ICL Prompt │
-│ with Context     │
+│ 构建 ICL 提示词 │
+│ (含上下文)      │
 └──────────────────┘
 ```
 
-### Experience Format
+### 经验格式
 
 ```java
 public record Experience(
     String id,
-    String task,           // What was the task
-    String strategy,       // How was it solved
-    String outcome,        // What was the result
-    String reuseCondition, // When to reuse
-    float qualityScore,    // Quality rating
+    String task,           // 任务是什么
+    String strategy,       // 如何解决
+    String outcome,        // 结果如何
+    String reuseCondition, // 何时复用
+    float qualityScore,    // 质量评分
     OffsetDateTime createdAt
 ) {}
 ```
 
 ---
 
-## Feature Flags
+## 特性开关
 
-All Evo-Memory features can be toggled via configuration:
+所有 Evo-Memory 功能可通过配置切换:
 
 ```yaml
 app:
   memory:
-    # Enable/disable memory refinement
+    # 启用/禁用记忆精炼
     refine-enabled: true
     
-    # Quality threshold for retrieval
+    # 检索质量阈值
     quality-threshold: 0.6
     
     refine:
-      # Delete threshold
+      # 删除阈值
       delete-threshold: 0.3
-      # Cooldown days
+      # 冷却天数
       cooldown-days: 7
-      # Stale days
+      # 陈旧天数
       stale-days: 30
 ```
 
-### Environment Variables
+### 环境变量
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MEMORY_REFINE_ENABLED` | true | Enable refinement |
-| `MEMORY_QUALITY_THRESHOLD` | 0.6 | Retrieval filter |
-| `MEMORY_REFINE_DELETE_THRESHOLD` | 0.3 | Delete threshold |
-| `MEMORY_REFINE_COOLDOWN_DAYS` | 7 | Cooldown period |
-| `MEMORY_REFINE_STALE_DAYS` | 30 | Stale threshold |
+| 变量 | 默认值 | 描述 |
+|------|--------|------|
+| `MEMORY_REFINE_ENABLED` | true | 启用精炼 |
+| `MEMORY_QUALITY_THRESHOLD` | 0.6 | 检索过滤 |
+| `MEMORY_REFINE_DELETE_THRESHOLD` | 0.3 | 删除阈值 |
+| `MEMORY_REFINE_COOLDOWN_DAYS` | 7 | 冷却期 |
+| `MEMORY_REFINE_STALE_DAYS` | 30 | 陈旧阈值 |
 
 ---
 
-## Testing
+## 测试
 
-### Test Scripts
+### 测试脚本
 
-| Script | Purpose |
-|--------|---------|
-| `scripts/regression-test.sh` | Core API regression tests |
-| `scripts/evo-memory-e2e-test.sh` | Evo-Memory E2E workflow |
-| `scripts/evo-memory-value-test.sh` | Business value validation |
+| 脚本 | 用途 |
+|------|------|
+| `scripts/regression-test.sh` | 核心 API 回归测试 |
+| `scripts/evo-memory-e2e-test.sh` | Evo-Memory 端到端工作流 |
+| `scripts/evo-memory-value-test.sh` | 业务价值验证 |
 
-### Running Tests
+### 运行测试
 
 ```bash
-# Regression tests (24 tests)
+# 回归测试 (24 个测试)
 bash scripts/regression-test.sh
 
-# Evo-Memory E2E tests (16 tests)
+# Evo-Memory E2E 测试 (16 个测试)
 bash scripts/evo-memory-e2e-test.sh
 
-# Business value tests (7 tests)
+# 业务价值测试 (7 个测试)
 bash scripts/evo-memory-value-test.sh
 ```
 
-### Test Results
+### 测试结果
 
-- **Regression Tests**: 23/24 PASS (Test 10 is expected to fail due to cleanup)
-- **E2E Tests**: 16/16 PASS
-- **Value Tests**: 7/7 PASS
+- **回归测试**: 23/24 通过 (Test 10 因清理预期失败)
+- **E2E 测试**: 16/16 通过
+- **价值测试**: 7/7 通过
 
 ---
 
-## Configuration
+## 配置
 
-### Application Properties
+### 应用属性
 
-Location: `backend/src/main/resources/application.yml`
+位置: `backend/src/main/resources/application.yml`
 
 ```yaml
 server:
@@ -475,7 +475,7 @@ app:
       stale-days: ${MEMORY_REFINE_STALE_DAYS:30}
 ```
 
-### Starting the Service
+### 启动服务
 
 ```bash
 cd backend
@@ -485,42 +485,44 @@ java -jar target/cortex-ce-0.1.0-beta.jar --spring.profiles.active=dev
 
 ---
 
-## Limitations and Future Work
+## 局限性与未来工作
 
-### Current Limitations
+### 当前局限性
 
-1. **Async Refinement**: Refinement happens asynchronously; results aren't immediately visible
-2. **Feedback Inference**: Keyword-based inference is simplistic; could use LLM
-3. **Quality Scoring**: Formula-based; could benefit from ML model
-4. **No Multi-modal**: Currently text-only
+1. **异步精炼**: 精炼异步发生;结果不会立即可见
+2. **反馈推断**: 基于关键词的推断较为简单;可使用 LLM
+3. **质量评分**: 基于公式;可受益于机器学习模型
+4. **非多模态**: 目前仅支持文本
 
-### Future Improvements
+### 未来改进
 
-1. **LLM-based Refinement**: Use actual LLM for memory rewriting
-2. **Learned Quality**: Train model on labeled quality data
-3. **Multi-modal**: Support images, code, etc.
-4. **Distributed**: Scale across multiple nodes
-
----
-
-## References
-
-- [Evo-Memory Paper](https://arxiv.org/abs/2511.20857)
-- [Claude-Mem Java Backend](./backend/README.md)
-- [Original Implementation](./proxy/README.md)
+1. **基于 LLM 的精炼**: 使用 LLM 进行记忆重写
+2. **学习质量**: 基于标注数据训练模型
+3. **多模态**: 支持图像、代码等
+4. **分布式**: 多节点扩展
 
 ---
 
-> **Chinese Version**: [evo-memory-implementation-zh.md](./evo-memory-implementation-zh.md)
+## 参考资料
 
-## Changelog
+- [Evo-Memory 论文](https://arxiv.org/abs/2511.20857)
+- [Claude-Mem Java 后端](./backend/README.md)
+- [原始实现](./proxy/README.md)
 
-| Date | Commit | Description |
-|------|--------|-------------|
-| 2026-03-17 | f06452b | Phase 1: Quality scoring implementation |
-| 2026-03-17 | 1599f08 | Phase 2: MemoryRefineService |
-| 2026-03-17 | b841b0e | Phase 2: ExpRAG + SessionEnd |
-| 2026-03-17 | 7a04284 | Phase 3: ReMem API + V12 |
-| 2026-03-17 | 606fafc | Feature flags |
-| 2026-03-17 | 4592ecf | E2E tests |
-| 2026-03-17 | d68510b | Business value tests |
+---
+
+## 文档变更日志
+
+| 日期 | 提交 | 描述 |
+|------|------|------|
+| 2026-03-17 | f06452b | 阶段1: 质量评分实现 |
+| 2026-03-17 | 1599f08 | 阶段2: MemoryRefineService |
+| 2026-03-17 | b841b0e | 阶段2: ExpRAG + SessionEnd |
+| 2026-03-17 | 7a04284 | 阶段3: ReMem API + V12 |
+| 2026-03-17 | 606fafc | 特性开关 |
+| 2026-03-17 | 4592ecf | E2E 测试 |
+| 2026-03-17 | d68510b | 业务价值测试 |
+
+---
+
+> **英文版本**: [evo-memory-implementation.md](./evo-memory-implementation.md)
