@@ -1,4 +1,4 @@
-package ablueforce.server.config;
+package com.ablueforce.cortexce.config;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,12 +29,20 @@ public class SpringAiConfig {
     private static final Logger log = LoggerFactory.getLogger(SpringAiConfig.class);
 
     @Bean("openAiChatModel")
-    @ConditionalOnProperty(prefix = "spring.ai.openai", name = "api-key")
+    // @ConditionalOnProperty(prefix = "spring.ai.openai", name = "api-key") // Temporarily disabled for debugging
     public ChatModel openAiChatModel(
             @Value("${spring.ai.openai.api-key:}") String apiKey,
             @Value("${spring.ai.openai.base-url:https://api.deepseek.com}") String baseUrl,
             @Value("${spring.ai.openai.chat.options.model:deepseek-chat}") String model,
             @Value("${claudemem.llm.provider:openai}") String provider) {
+
+        log.info(">>> openAiChatModel called: apiKey={}, baseUrl={}, model={}, provider={}", 
+            apiKey != null ? "set" : "null", baseUrl, model, provider);
+
+        if (apiKey == null || apiKey.isEmpty()) {
+            log.warn("OpenAI API key not configured, skipping ChatModel");
+            return null;
+        }
 
         if (!"openai".equals(provider)) {
             log.debug("OpenAI ChatModel skipped, provider is: {}", provider);
@@ -43,19 +51,27 @@ public class SpringAiConfig {
 
         log.info("Creating OpenAI-compatible ChatModel: baseUrl={}, model={}", baseUrl, model);
 
-        OpenAiApi openAiApi = OpenAiApi.builder()
-            .apiKey(apiKey)
-            .baseUrl(baseUrl)
-            .build();
+        try {
+            OpenAiApi openAiApi = OpenAiApi.builder()
+                .apiKey(apiKey)
+                .baseUrl(baseUrl)
+                .build();
 
-        OpenAiChatOptions options = OpenAiChatOptions.builder()
-            .model(model)
-            .build();
+            OpenAiChatOptions options = OpenAiChatOptions.builder()
+                .model(model)
+                .build();
 
-        return OpenAiChatModel.builder()
-            .openAiApi(openAiApi)
-            .defaultOptions(options)
-            .build();
+            ChatModel chatModel = OpenAiChatModel.builder()
+                .openAiApi(openAiApi)
+                .defaultOptions(options)
+                .build();
+            
+            log.info(">>> OpenAI ChatModel created successfully: {}", chatModel.getClass().getSimpleName());
+            return chatModel;
+        } catch (Exception e) {
+            log.error(">>> Failed to create OpenAI ChatModel: {}", e.getMessage(), e);
+            return null;
+        }
     }
 
     @Bean("anthropicChatModel")

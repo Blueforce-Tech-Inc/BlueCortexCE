@@ -4,8 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.util.Optional;
-
 /**
  * LLM-based quality scoring service.
  * 
@@ -18,6 +16,7 @@ public class LlmQualityScorer {
     private static final Logger log = LoggerFactory.getLogger(LlmQualityScorer.class);
 
     private final LlmService llmService;
+    private final DirectLlmService directLlmService;
     
     // Prompt template for quality analysis
     private static final String QUALITY_ANALYSIS_PROMPT = """
@@ -33,134 +32,124 @@ public class LlmQualityScorer {
         1. Task completion: Was the task successfully completed?
         2. Technical depth: How detailed and accurate is the solution?
         3. Reusability: Can this experience be reused for similar tasks?
-        4. Error handling: Are edge cases covered?
         
         Respond in JSON format:
-        {
-            "quality_score": 0.0-1.0,
-            "feedback_type": "SUCCESS|PARTIAL|FAILURE",
-            "reasoning": "brief explanation"
-        }
+        {"quality_score": 0.0-1.0, "feedback_type": "SUCCESS|PARTIAL|FAILURE", "reasoning": "..."}
         """;
 
-    public LlmQualityScorer(LlmService llmService) {
+    public LlmQualityScorer(LlmService llmService, DirectLlmService directLlmService) {
         this.llmService = llmService;
+        this.directLlmService = directLlmService;
+        log.info("LlmQualityScorer initialized, LLM available: {}", isAvailable());
+    }
+
+    /**
+     * Check if LLM-based scoring is available.
+     */
+    public boolean isAvailable() {
+        // Check direct LLM first
+        if (directLlmService != null) {
+            boolean available = directLlmService.isAvailable();
+            log.info("DirectLlmService availability: {}", available);
+            return available;
+        }
+        log.info("DirectLlmService is null, LLM not available");
+        return false;
     }
 
     /**
      * Analyze observation quality using LLM.
-     * 
-     * @param title Observation title
-     * @param type Observation type (feature, bugfix, etc.)
-     * @param content Observation content
-     * @param facts Facts extracted
-     * @return Quality analysis result
      */
     public LlmQualityAnalysis analyzeQuality(String title, String type, 
                                              String content, String facts) {
-        // Check if LLM is available
-        if (llmService == null) {
-            log.warn("LlmService not available, returning default analysis");
-            return LlmQualityAnalysis.defaultAnalysis();
+        // Try direct LLM first (more reliable)
+        if (directLlmService != null && directLlmService.isAvailable()) {
+            try {
+                log.debug("Using DirectLlmService for quality analysis");
+                String response = directLlmService.analyzeQuality(
+                    title != null ? title : "N/A",
+                    type != null ? type : "N/A",
+                    content != null ? content : "N/A",
+                    facts != null ? facts : "[]"
+                );
+                
+                if (response != null) {
+                    log.debug("Direct LLM response: {}", response);
+                    return parseAnalysisResponse(response);
+                }
+            } catch (Exception e) {
+                log.warn("Direct LLM failed: {}", e.getMessage());
+            }
         }
         
-        try {
-            String prompt = String.format(QUALITY_ANALYSIS_PROMPT,
-                title != null ? title : "N/A",
-                type != null ? type : "N/A",
-                content != null ? content : "N/A",
-                facts != null ? facts : "[]");
-            
-            String response = llmService.chatCompletion(
-                "You are a software engineering quality analyst.", 
-                prompt
-            );
-            
-            return parseAnalysisResponse(response);
-            
-        } catch (Exception e) {
-            log.error("Failed to analyze quality with LLM: {}", e.getMessage());
-            return LlmQualityAnalysis.defaultAnalysis();
-        }
+        log.warn("No LLM available, returning default analysis");
+        return LlmQualityAnalysis.defaultAnalysis();
     }
 
     /**
      * Infer feedback type from session context using LLM.
-     * 
-     * @param sessionSummary Summary of the session
-     * @param lastMessage Last assistant message
-     * @param observationCount Number of observations
-     * @return Inferred feedback type
      */
     public FeedbackType inferFeedbackLlm(String sessionSummary, 
                                           String lastMessage,
                                           int observationCount) {
-        if (llmService == null) {
-            log.warn("LlmService not available, using rule-based inference");
-            return null; // Fall back to rule-based
+        // Try direct LLM first
+        if (directLlmService != null && directLlmService.isAvailable()) {
+            try {
+                String prompt = String.format("""
+                    Analyze this session and determine the outcome.
+                    
+                    Session Summary: %s
+                    Last Message: %s
+                    Observations: %d
+                    
+                    Respond with ONLY one word: SUCCESS, PARTIAL, or FAILURE
+                    """, 
+                    sessionSummary != null ? sessionSummary : "N/A",
+                    lastMessage != null ? lastMessage : "N/A",
+                    observationCount
+                );
+                
+                String response = directLlmService.chat(
+                    "You are a session outcome analyzer.", 
+                    prompt
+                );
+                
+                if (response != null) {
+                    String trimmed = response.trim().toUpperCase();
+                    log.debug("Direct LLM feedback inference: {}", trimmed);
+                    if (trimmed.contains("SUCCESS")) return FeedbackType.SUCCESS;
+                    if (trimmed.contains("FAILURE")) return FeedbackType.FAILURE;
+                    return FeedbackType.PARTIAL;
+                }
+            } catch (Exception e) {
+                log.warn("Direct LLM feedback inference failed: {}", e.getMessage());
+            }
         }
         
-        try {
-            String prompt = String.format("""
-                Analyze this session and determine the outcome.
-                
-                Session Summary: %s
-                Last Message: %s
-                Observations: %d
-                
-                Determine if the session was successful, partially successful, or failed.
-                
-                Respond with ONLY one word: SUCCESS, PARTIAL, or FAILURE
-                """, 
-                sessionSummary != null ? sessionSummary : "N/A",
-                lastMessage != null ? lastMessage : "N/A",
-                observationCount
-            );
-            
-            String response = llmService.chatCompletion(
-                "You are a session outcome analyzer.", 
-                prompt
-            );
-            
-            String trimmed = response.trim().toUpperCase();
-            if (trimmed.contains("SUCCESS")) {
-                return FeedbackType.SUCCESS;
-            } else if (trimmed.contains("FAILURE")) {
-                return FeedbackType.FAILURE;
-            } else {
-                return FeedbackType.PARTIAL;
-            }
-            
-        } catch (Exception e) {
-            log.error("Failed to infer feedback with LLM: {}", e.getMessage());
-            return null; // Fall back to rule-based
-        }
+        return null; // Fall back to rule-based
     }
 
     private LlmQualityAnalysis parseAnalysisResponse(String response) {
         try {
-            // Simple parsing - look for JSON-like content
-            double score = 0.5; // default
+            double score = 0.5;
             String feedbackType = "UNKNOWN";
             String reasoning = "";
             
-            // Try to extract quality score
             if (response.contains("quality_score")) {
                 int start = response.indexOf("quality_score") + 15;
                 int end = response.indexOf(",", start);
                 if (end < 0) end = response.indexOf("}", start);
                 if (end > start) {
-                    String scoreStr = response.substring(start, end).trim();
-                    score = Double.parseDouble(scoreStr.replaceAll("[^0-9.]", ""));
+                    String scoreStr = response.substring(start, end).trim().replaceAll("[^0-9.]", "");
+                    score = Double.parseDouble(scoreStr);
                 }
             }
             
-            // Try to extract feedback type
             if (response.contains("feedback_type")) {
                 int start = response.indexOf("feedback_type") + 14;
                 int end = response.indexOf("}", start);
                 if (end < 0) end = response.length();
-                String type = response.substring(start, end).trim().replaceAll("[\":,]", "");
+                String type = response.substring(start, end).trim().replaceAll("[\":,]", "").toUpperCase();
                 if (type.contains("SUCCESS")) feedbackType = "SUCCESS";
                 else if (type.contains("FAILURE")) feedbackType = "FAILURE";
                 else feedbackType = "PARTIAL";
@@ -174,16 +163,6 @@ public class LlmQualityScorer {
         }
     }
 
-    /**
-     * Check if LLM-based scoring is available.
-     */
-    public boolean isAvailable() {
-        return llmService != null;
-    }
-
-    /**
-     * Quality analysis result from LLM.
-     */
     public record LlmQualityAnalysis(
         double qualityScore,
         String feedbackType,
