@@ -1,0 +1,19 @@
+spring:
+  ai:
+    openai:
+      api-key: ${SPRING_AI_OPENAI_API_KEY:${OPENAI_API_KEY:}}
+      base-url: ${SPRING_AI_OPENAI_BASE_URL:${OPENAI_BASE_URL:https://api.openai.com}}
+      chat:
+        options:
+          model: ${SPRING_AI_OPENAI_CHAT_MODEL:${OPENAI_MODEL:gpt-4o}}
+      embedding:
+        api-key: ${SPRING_AI_OPENAI_EMBEDDING_API_KEY:${EMBEDDING_API_KEY:}}
+        base-url: ${SPRING_AI_OPENAI_EMBEDDING_BASE_URL:${EMBEDDING_BASE_URL:https://api.openai.com}}
+        options:
+          model: ${SPRING_AI_OPENAI_EMBEDDING_MODEL:${EMBEDDING_MODEL:text-embedding-3-small}}
+          dimensions: ${SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS:${EMBEDDING_DIMENSIONS:1536}}
+
+logging:
+  level:
+    com.claudemem: INFO
+    org.springframework.ai: WARN

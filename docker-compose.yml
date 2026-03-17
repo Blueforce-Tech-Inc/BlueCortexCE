@@ -1,0 +1,94 @@
+# =============================================================================
+# Cortex CE (Cortex Community Edition) Docker Compose for Production
+# =============================================================================
+# Usage:
+#   1. Copy this file and create a .env file:
+#      cp docker-compose.yml docker-compose.prod.yml
+#      cp .env.example .env
+#
+#   2. Edit .env with your configuration:
+#      vim .env
+#
+#   3. Start services:
+#      docker compose -f docker-compose.prod.yml up -d
+#
+#   4. Check health:
+#      curl http://localhost:37777/actuator/health
+#
+# Configuration:
+#   - IMAGE_NAME: Docker image to use (default: ghcr.io/blueforce-tech-inc/bluecortexce:latest)
+#   - DB_PASSWORD: Database password (required)
+#   - API keys: Set your API keys in .env
+# =============================================================================
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: cortex-ce-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-claude_mem}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-}
+    volumes:
+      - ${POSTGRES_DATA_PATH:-postgres_data}:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - claude-mem-network
+    restart: unless-stopped
+
+  claude-mem:
+    image: ${IMAGE_NAME:-ghcr.io/blueforce-tech-inc/bluecortexce:latest}
+    container_name: claude-mem-java
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prd}
+
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-claude_mem}
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-}
+
+      SERVER_PORT: 37777
+      SERVER_ADDRESS: 0.0.0.0
+
+      SPRING_AI_OPENAI_API_KEY: ${SPRING_AI_OPENAI_API_KEY:-}
+      SPRING_AI_OPENAI_BASE_URL: ${SPRING_AI_OPENAI_BASE_URL:-https://api.openai.com}
+      SPRING_AI_OPENAI_CHAT_MODEL: ${SPRING_AI_OPENAI_CHAT_MODEL:-gpt-4o}
+
+      SPRING_AI_OPENAI_EMBEDDING_API_KEY: ${SPRING_AI_OPENAI_EMBEDDING_API_KEY:-}
+      SPRING_AI_OPENAI_EMBEDDING_BASE_URL: ${SPRING_AI_OPENAI_EMBEDDING_BASE_URL:-https://api.openai.com}
+      SPRING_AI_OPENAI_EMBEDDING_MODEL: ${SPRING_AI_OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
+      SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS: ${SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS:-1536}
+
+      CLAUDE_MEM_MODE: ${CLAUDE_MEM_MODE:-code}
+      CLAUDEMEM_LOG_DIR: /app/logs
+
+      JAVA_OPTS: ${JAVA_OPTS:--XX:+UseZGC -XX:MaxRAMPercentage=75.0}
+    volumes:
+      - ${LOGS_PATH:-claude-mem-logs}:/app/logs
+    ports:
+      - "${SERVER_PORT:-37777}:37777"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:37777/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - claude-mem-network
+
+networks:
+  claude-mem-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  claude-mem-logs:

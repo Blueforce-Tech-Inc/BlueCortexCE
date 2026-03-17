@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!--
+        Claude-Mem Logging Configuration
+
+        生成与 TS 版本兼容的日志格式:
+        [timestamp] [LEVEL] [COMPONENT] [correlationId?] message
+
+        示例:
+        [2025-01-02 14:30:45.123] [INFO ] [WORKER] [obs-1-5] → Processing request
+    -->
+
+    <!-- 从 Spring 配置读取日志目录 -->
+    <springProperty name="LOG_DIR" source="claudemem.log.dir" defaultValue="${user.home}/.claude-mem/logs"/>
+    <property name="APP_NAME" value="claude-mem"/>
+
+    <!-- Console Appender (开发环境) -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <!-- 简洁的控制台输出格式 -->
+            <pattern>[%d{yyyy-MM-dd HH:mm:ss.SSS}] [%highlight(%-5level)] [%cyan(%-6logger{6})] %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Claude-Mem File Appender (TS 兼容格式) -->
+    <appender name="CLAUDE_MEM_FILE" class="com.ablueforce.cortexce.logging.ClaudeMemLogAppender">
+        <logDir>${LOG_DIR}</logDir>
+    </appender>
+
+    <!-- 标准 Rolling File Appender (用于第三方工具分析) -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/${APP_NAME}.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <!-- 按日期和大小轮转 -->
+            <fileNamePattern>${LOG_DIR}/${APP_NAME}.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <!-- 自动清理: 保留 30 天 -->
+            <maxHistory>30</maxHistory>
+            <!-- 每个文件最大 100MB -->
+            <maxFileSize>100MB</maxFileSize>
+            <!-- 总日志大小限制 1GB -->
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <!-- 标准格式，便于第三方工具解析 -->
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Async Appender 包装 (提高性能) -->
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <includeCallerData>false</includeCallerData>
+        <appender-ref ref="FILE"/>
+    </appender>
+
+    <!-- Application logger (com.ablueforce) -->
+    <logger name="ablueforce" level="INFO" additivity="true"/>
+
+    <!-- 第三方库日志级别 -->
+    <logger name="org.springframework" level="WARN"/>
+    <logger name="org.springframework.web" level="WARN"/>
+    <!-- SSE timeout is expected behavior, don't log as WARN -->
+    <logger name="org.springframework.web.servlet.mvc.method.annotation.ExceptionHandlerExceptionResolver" level="ERROR"/>
+    <logger name="org.springframework.web.servlet.handler.AbstractHandlerExceptionResolver" level="ERROR"/>
+    <logger name="org.hibernate" level="WARN"/>
+    <logger name="org.hibernate.SQL" level="WARN"/>
+    <logger name="com.zaxxer.hikari" level="WARN"/>
+
+    <!-- 开发环境 Profile: 仅控制台输出 -->
+    <springProfile name="dev">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="CLAUDE_MEM_FILE"/>
+        </root>
+        <!-- 开发环境使用 DEBUG 级别 -->
+        <logger name="ablueforce" level="DEBUG"/>
+    </springProfile>
+
+    <!-- 生产环境 Profile: 文件 + 控制台 -->
+    <springProfile name="prod">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="CLAUDE_MEM_FILE"/>
+            <appender-ref ref="ASYNC_FILE"/>
+        </root>
+    </springProfile>
+
+    <!-- 默认配置 (无 profile 时) -->
+    <springProfile name="!dev &amp; !prod">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="CLAUDE_MEM_FILE"/>
+        </root>
+    </springProfile>
+</configuration>

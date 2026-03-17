@@ -1,0 +1,106 @@
+server:
+  port: ${SERVER_PORT:37777}
+  address: ${SERVER_ADDRESS:127.0.0.1}
+
+spring:
+  application:
+    name: claude-mem-java
+
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration
+      - org.springframework.ai.model.anthropic.autoconfigure.AnthropicChatAutoConfiguration
+      # Note: ChatModel and EmbeddingModel are created manually in SpringAiConfig
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://127.0.0.1/claude_mem_dev}
+    username: ${SPRING_DATASOURCE_USERNAME:${DB_USERNAME:postgres}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:123456}}
+    hikari:
+      maximum-pool-size: 25
+      minimum-idle: 5
+      connection-timeout: 10000
+      idle-timeout: 300000
+      max-lifetime: 1680000
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  threads:
+    virtual:
+      enabled: true
+
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+
+  ai:
+    mcp:
+      server:
+        name: claude-mem-mcp-server
+        version: 0.1.0
+        type: SYNC
+        protocol: STATELESS
+        capabilities:
+          tool: true
+          resource: false
+          prompt: false
+          completion: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,info
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.claudemem: INFO
+    org.springframework.web: WARN
+    org.hibernate.SQL: WARN
+    # Suppress Spring AI MCP BeanPostProcessor warnings (known issue: spring-ai/issues/4694)
+    org.springframework.context.support.PostProcessorRegistrationDelegate: ERROR
+    # Suppress MCP protocol version mismatch warnings (client/server negotiation)
+    io.modelcontextprotocol.server.McpAsyncServer: ERROR
+    io.modelcontextprotocol.server.McpStatelessAsyncServer: ERROR
+
+# Claude-Mem configuration
+claudemem:
+  # LLM provider configuration: 'openai' or 'anthropic'
+  # - openai: Uses OpenAI-compatible API (DeepSeek, etc.)
+  # - anthropic: Uses Anthropic-compatible API (Claude, GLM, etc.)
+  llm:
+    provider: ${CLAUDEMEM_LLM_PROVIDER:openai}
+  # Log directory for structured logs (TS-compatible format)
+  # Default: ~/.claude-mem/logs
+  log.dir: ${CLAUDEMEM_LOG_DIR:${user.home}/.claude-mem/logs}
+  # Stale message recovery settings
+  stale-message:
+    # Minutes after which a processing message is considered stale
+    threshold-minutes: 10
+    # Health indicator: stale count above this triggers Health.down()
+    health-threshold: 5
+    # Recovery task: run every N milliseconds (default: 5 minutes = 300000ms)
+    recovery-interval-ms: 300000
+  # Mode configuration
+  # Mode profiles define observation types, concepts, and prompts for different use cases
+  # Supports inheritance: code--zh (Chinese), code--chill (selective recording), etc.
+  # Environment variable: CLAUDE_MEM_MODE
+  mode: ${CLAUDE_MEM_MODE:code}
+  # Custom modes directory (optional, for development)
+  # Default: classpath:modes/ (JAR embedded) or plugin/modes/ (development)
+  modes-dir: ${CLAUDE_MEM_MODES_DIR:}

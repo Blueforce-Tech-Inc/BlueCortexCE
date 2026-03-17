@@ -1,0 +1,31 @@
+# Dev profile - uses environment variables from .env file
+spring:
+  config:
+    import: optional:file:./.env
+
+  ai:
+    openai:
+      api-key: ${SPRING_AI_OPENAI_API_KEY:${OPENAI_API_KEY:}}
+      base-url: ${SPRING_AI_OPENAI_BASE_URL:${OPENAI_BASE_URL:https://api.deepseek.com}}
+      chat:
+        options:
+          model: ${SPRING_AI_OPENAI_CHAT_MODEL:${OPENAI_MODEL:deepseek-chat}}
+      embedding:
+        api-key: ${SPRING_AI_OPENAI_EMBEDDING_API_KEY:${SILICONFLOW_API_KEY:}}
+        base-url: ${SPRING_AI_OPENAI_EMBEDDING_BASE_URL:${SILICONFLOW_URL:https://api.siliconflow.cn}}
+        options:
+          model: ${SPRING_AI_OPENAI_EMBEDDING_MODEL:${SILICONFLOW_MODEL:BAAI/bge-m3}}
+          dimensions: ${SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS:${SILICONFLOW_DIMENSIONS:1024}}
+    anthropic:
+      api-key: ${SPRING_AI_ANTHROPIC_API_KEY:${ANTHROPIC_API_KEY:}}
+      base-url: ${SPRING_AI_ANTHROPIC_BASE_URL:${ANTHROPIC_BASE_URL:https://api.anthropic.com}}
+      chat:
+        options:
+          model: ${SPRING_AI_ANTHROPIC_CHAT_MODEL:${ANTHROPIC_MODEL:claude-sonnet-4-5}}
+
+logging:
+  level:
+    com.claudemem: DEBUG
+    org.springframework.ai: DEBUG
+    org.springframework.web.client: DEBUG
+    org.springframework.http: DEBUG

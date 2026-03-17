@@ -1,0 +1,34 @@
+{
+  "id": "claude-mem-java",
+  "name": "Claude-Mem (Java Backend)",
+  "version": "1.0.0",
+  "description": "Claude-Mem memory system plugin for OpenClaw, connecting to Java Spring Boot backend",
+  "author": "Claude-Mem Team",
+  "homepage": "https://github.com/wubuku/claude-mem-fork",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wubuku/claude-mem-fork.git"
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "workerPort": {
+        "type": "number",
+        "default": 37777,
+        "description": "Java backend port"
+      },
+      "project": {
+        "type": "string",
+        "default": "openclaw",
+        "description": "Project name for memory tracking"
+      },
+      "syncMemoryFile": {
+        "type": "boolean",
+        "default": true,
+        "description": "Whether to sync MEMORY.md file to workspace"
+      }
+    },
+    "required": []
+  }
+}

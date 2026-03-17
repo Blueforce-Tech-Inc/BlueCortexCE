@@ -1,0 +1,4 @@
+[submodule "webui"]
+	path = webui
+	url = https://github.com/Blueforce-Tech-Inc/claude-mem.git
+	branch = main

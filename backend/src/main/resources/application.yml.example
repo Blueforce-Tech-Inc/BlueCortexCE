@@ -1,0 +1,154 @@
+# ===================================================================
+# Claude-Mem Java Backend 配置文件示例
+# ===================================================================
+# 使用说明：
+# 1. 复制此文件为 application.yml
+# 2. 根据实际环境修改配置项
+# 3. 敏感信息建议通过环境变量配置
+# ===================================================================
+
+server:
+  # 服务器端口，可通过环境变量 SERVER_PORT 覆盖
+  port: ${SERVER_PORT:37777}
+  # 服务器绑定地址
+  address: ${SERVER_ADDRESS:127.0.0.1}
+
+spring:
+  application:
+    # 应用名称
+    name: claude-mem-java
+
+  # 自动配置排除项
+  # 排除不需要的 Spring AI 自动配置
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioSpeechAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiAudioTranscriptionAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiChatAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiEmbeddingAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiImageAutoConfiguration
+      - org.springframework.ai.model.openai.autoconfigure.OpenAiModerationAutoConfiguration
+      - org.springframework.ai.model.anthropic.autoconfigure.AnthropicChatAutoConfiguration
+      # 注意：ChatModel 和 EmbeddingModel 在 SpringAiConfig 中手动创建
+
+  # 数据库连接配置
+  datasource:
+    # 数据库 URL，支持环境变量覆盖
+    # 格式：jdbc:postgresql://主机:端口/数据库名
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://127.0.0.1/claude_mem_dev}
+    username: ${SPRING_DATASOURCE_USERNAME:${DB_USERNAME:postgres}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:123456}}
+    hikari:
+      # 连接池最大连接数
+      maximum-pool-size: 25
+      # 最小空闲连接数
+      minimum-idle: 5
+      # 连接超时时间（毫秒）
+      connection-timeout: 10000
+      # 空闲连接超时时间（毫秒）
+      idle-timeout: 300000
+      # 连接最大生命周期（毫秒）
+      max-lifetime: 1680000
+
+  # JPA/Hibernate 配置
+  jpa:
+    hibernate:
+      # DDL 模式：none（使用 Flyway 迁移）
+      ddl-auto: none
+    # 关闭 Open-in-View 模式，避免懒加载延迟问题
+    open-in-view: false
+
+  # Flyway 数据库迁移配置
+  flyway:
+    enabled: true
+    # 迁移脚本位置
+    locations: classpath:db/migration
+    # 首次迁移时自动执行基线
+    baseline-on-migrate: true
+
+  # 虚拟线程配置（Java 21+）
+  threads:
+    virtual:
+      enabled: true
+
+  # Jackson JSON 序列化配置
+  jackson:
+    # 属性命名策略：SNAKE_CASE（与 TypeScript 兼容）
+    property-naming-strategy: SNAKE_CASE
+
+  # Spring AI MCP 配置
+  ai:
+    mcp:
+      server:
+        # MCP 服务器名称
+        name: claude-mem-mcp-server
+        version: 0.1.0
+        # 传输类型：SYNC
+        type: SYNC
+        # 协议类型：STATELESS
+        protocol: STATELESS
+        capabilities:
+          # 启用工具调用
+          tool: true
+          # 禁用资源
+          resource: false
+          # 禁用提示
+          prompt: false
+          # 禁用补全
+          completion: false
+
+# Spring Boot Actuator 监控端点配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,info
+  endpoint:
+    health:
+      show-details: always
+
+# 日志配置
+logging:
+  level:
+    # 应用日志级别
+    com.claudemem: INFO
+    # Spring Web 日志级别
+    org.springframework.web: WARN
+    # Hibernate SQL 日志级别
+    org.hibernate.SQL: WARN
+    # 抑制 Spring AI MCP BeanPostProcessor 警告
+    org.springframework.context.support.PostProcessorRegistrationDelegate: ERROR
+    # 抑制 MCP 协议版本不匹配警告
+    io.modelcontextprotocol.server.McpAsyncServer: ERROR
+    io.modelcontextprotocol.server.McpStatelessAsyncServer: ERROR
+
+# Claude-Mem 核心配置
+claudemem:
+  # LLM 提供商配置：'openai' 或 'anthropic'
+  # - openai: 使用 OpenAI 兼容 API（DeepSeek 等）
+  # - anthropic: 使用 Anthropic 兼容 API（Claude、GLM 等）
+  llm:
+    provider: ${CLAUDEMEM_LLM_PROVIDER:openai}
+
+  # 结构化日志目录（TS 兼容格式）
+  # 默认：~/.claude-mem/logs
+  log.dir: ${CLAUDEMEM_LOG_DIR:${user.home}/.claude-mem/logs}
+
+  # 陈旧消息恢复配置
+  stale-message:
+    # 处理中的消息超过此分钟数被视为陈旧
+    threshold-minutes: 10
+    # 健康检查阈值：陈旧消息数超过此值触发 Health.down()
+    health-threshold: 5
+    # 恢复任务执行间隔（毫秒，默认 5 分钟 = 300000ms）
+    recovery-interval-ms: 300000
+
+  # Mode 配置
+  # Mode 配置文件定义观察类型、概念和提示词
+  # 支持继承：code--zh（中文）、code--chill（选择性记录）等
+  # 环境变量：CLAUDE_MEM_MODE
+  mode: ${CLAUDE_MEM_MODE:code}
+
+  # 自定义 modes 目录（可选，用于开发）
+  # 默认：classpath:modes/（JAR 内置）或 plugin/modes/（开发环境）
+  modes-dir: ${CLAUDE_MEM_MODES_DIR:}
