@@ -194,6 +194,18 @@ public float estimateQuality(FeedbackType feedback, String content,
 }
 ```
 
+### LlmQualityScorer
+
+**位置**: `backend/src/main/java/com/ablueforce/cortexce/service/LlmQualityScorer.java`
+
+基于 LLM 的质量分析服务。使用现有的 LlmService (Spring AI ChatClient) 进行质量评估:
+
+1. **质量分析**: 使用 LLM 分析观察内容并提供质量分数
+2. **反馈推断**: 使用 LLM 从会话上下文推断反馈类型
+3. **回退**: 如果 LLM 不可用，回退到基于规则的 QualityScorer
+
+使用系统现有的 LlmService，支持 OpenAI 兼容 API (DeepSeek 等) 和 Anthropic 兼容 API (Claude, GLM 等)。
+
 ### MemoryRefineService
 
 **位置**: `backend/src/main/java/com/ablueforce/cortexce/service/MemoryRefineService.java`
@@ -490,9 +502,8 @@ java -jar target/cortex-ce-0.1.0-beta.jar --spring.profiles.active=dev
 ### 当前局限性
 
 1. **异步精炼**: 精炼异步发生;结果不会立即可见
-2. **反馈推断**: 基于关键词的推断较为简单;现已支持 LLM 版本 ✅
-3. **质量评分**: 基于公式;现已支持 LLM 版本 ✅
-4. **非多模态**: 目前仅支持文本
+2. **质量评分**: 支持规则评分 (QualityScorer) 和 LLM评分 (LlmQualityScorer)
+3. **非多模态**: 目前仅支持文本
 
 ### 未来改进
 

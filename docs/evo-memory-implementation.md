@@ -194,6 +194,18 @@ public float estimateQuality(FeedbackType feedback, String content,
 }
 ```
 
+### LlmQualityScorer
+
+**Location**: `backend/src/main/java/com/ablueforce/cortexce/service/LlmQualityScorer.java`
+
+LLM-based quality analysis service. Uses the existing LlmService (Spring AI ChatClient) for quality assessment:
+
+1. **Quality Analysis**: Uses LLM to analyze observation content and provide quality scores
+2. **Feedback Inference**: Uses LLM to infer feedback type from session context
+3. **Fallback**: Falls back to rule-based QualityScorer if LLM is not available
+
+Uses the system's existing LlmService which supports both OpenAI-compatible APIs (DeepSeek, etc.) and Anthropic-compatible APIs (Claude, GLM, etc.).
+
 ### MemoryRefineService
 
 **Location**: `backend/src/main/java/com/ablueforce/cortexce/service/MemoryRefineService.java`
@@ -490,9 +502,8 @@ java -jar target/cortex-ce-0.1.0-beta.jar --spring.profiles.active=dev
 ### Current Limitations
 
 1. **Async Refinement**: Refinement happens asynchronously; results aren't immediately visible
-2. **Feedback Inference**: Keyword-based inference is simplistic; LLM-based version now available ✅
-3. **Quality Scoring**: Formula-based; LLM-based version now available ✅
-4. **No Multi-modal**: Currently text-only
+2. **Quality Scoring**: Both rule-based (QualityScorer) and LLM-based (LlmQualityScorer) available
+3. **No Multi-modal**: Currently text-only
 
 ### Future Improvements
 
