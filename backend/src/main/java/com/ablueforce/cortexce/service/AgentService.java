@@ -685,6 +685,97 @@ public class AgentService implements LogHelper {
     }
 
     /**
+     * Process a pending message by its ID.
+     * Called by PendingMessageEventListener (via Spring Event).
+     */
+    public void processPendingMessage(UUID pendingMessageId) {
+        PendingMessageEntity pending = pendingMessageRepository.findById(pendingMessageId).orElse(null);
+        
+        if (pending == null) {
+            log.warn("Pending message not found: {}", pendingMessageId);
+            return;
+        }
+
+        if (!"pending".equals(pending.getStatus())) {
+            log.debug("Pending message {} already processed, status: {}", pendingMessageId, pending.getStatus());
+            return;
+        }
+
+        log.info("Processing pending message: {}", pendingMessageId);
+
+        // Mark as processing
+        pending.setStatus("processing");
+        pending.setStartedProcessingAtEpoch(System.currentTimeMillis());
+        pendingMessageRepository.save(pending);
+
+        try {
+            // Re-process the tool use by calling the internal logic
+            String contentSessionId = pending.getContentSessionId();
+            String toolName = pending.getToolName();
+            String toolInput = pending.getToolInput();
+            String toolResponse = pending.getToolResponse();
+            String cwd = pending.getCwd();
+            Integer promptNumber = pending.getPromptNumber();
+            UUID sessionDbId = pending.getSessionDbId();
+
+            // Look up session for user prompt context
+            SessionEntity session = sessionRepository.findByContentSessionId(contentSessionId).orElse(null);
+            String userPrompt = session != null ? session.getUserPrompt() : "";
+            String projectPath = session != null ? session.getProjectPath() : cwd;
+
+            // Build the system prompt
+            String now = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(
+                OffsetDateTime.now(ZoneOffset.UTC));
+            String systemPrompt = initPromptTemplate
+                .replace("{{userPrompt}}", escapeTemplateValue(userPrompt))
+                .replace("{{date}}", now);
+
+            // Build the user prompt
+            String userMsg = observationPromptTemplate
+                .replace("{{toolName}}", escapeTemplateValue(toolName))
+                .replace("{{occurredAt}}", now)
+                .replace("{{cwd}}", escapeTemplateValue(cwd))
+                .replace("{{toolInput}}", escapeTemplateValue(truncate(toolInput, Constants.MAX_TOOL_CONTENT_LENGTH)))
+                .replace("{{toolOutput}}", escapeTemplateValue(truncate(toolResponse, Constants.MAX_TOOL_CONTENT_LENGTH)));
+
+            // Call LLM
+            LlmService.LlmResponse llmResponse = llmService.chatCompletionWithUsage(systemPrompt, userMsg);
+            String llmContent = llmResponse.content();
+            int discoveryTokens = llmResponse.totalTokens();
+
+            // Check for skip
+            String skipReason = XmlParser.extractTag(llmContent, "skip");
+            if (skipReason != null) {
+                logHappyPath("LLM skipped observation: {}", skipReason);
+                pending.setStatus("skipped");
+                pending.setCompletedAtEpoch(System.currentTimeMillis());
+                pendingMessageRepository.save(pending);
+                return;
+            }
+
+            // Parse observation XML and save
+            XmlParser.ParsedObservation parsed = XmlParser.parseObservation(llmContent);
+            saveObservation(contentSessionId, projectPath, parsed, promptNumber, discoveryTokens);
+
+            // Mark context cache for refresh
+            contextCacheService.markForRefresh(projectPath);
+
+            // Mark as processed
+            pending.setStatus("processed");
+            pending.setCompletedAtEpoch(System.currentTimeMillis());
+            pendingMessageRepository.save(pending);
+
+            logSuccess("Processed pending message: {}", pendingMessageId);
+
+        } catch (Exception e) {
+            log.error("Failed to process pending message: {}", pendingMessageId, e);
+            pending.setStatus("failed");
+            pending.setCompletedAtEpoch(System.currentTimeMillis());
+            pendingMessageRepository.save(pending);
+        }
+    }
+
+    /**
      * Get the depth of the pending message queue.
      */
     public long getQueueDepth() {
