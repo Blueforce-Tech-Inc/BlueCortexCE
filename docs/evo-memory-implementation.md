@@ -126,6 +126,54 @@ Session Start
 
 ---
 
+## Async Processing Architecture: Spring Event + @Scheduled
+
+The system uses Spring Event + @Scheduled for reliable async processing with fallback:
+
+### Architecture Pattern
+
+```
+New Operation → Database (pending status)
+                    │
+                    ▼
+       @Scheduled (fallback) → Publish Event
+                    │
+                    ▼
+       @Async EventListener → Process
+                    │
+                    ▼
+       Recovery Task → Recover stale messages
+```
+
+### Components
+
+| Component | Purpose |
+|-----------|---------|
+| `PendingMessageEvent` | Spring event class with source (API/SCHEDULED) |
+| `PendingMessageEventListener` | @Async listener for real-time processing |
+| `PendingMessageEventPublisher` | Publishes events for processing |
+| `PendingMessageProcessor` | @Scheduled task (every 5 min) for fallback |
+| `StaleMessageRecoveryTask` | Recovers messages stuck in "processing" state |
+
+### Pending Messages Flow
+
+1. **Observation Processing**: Tool-use events stored as pending messages
+2. **Real-time**: @Async EventListener processes events immediately
+3. **Fallback**: @Scheduled task runs every 5 minutes to catch unprocessed messages
+4. **Recovery**: StaleMessageRecoveryTask recovers messages stuck in "processing" status
+
+### Configuration
+
+```yaml
+app:
+  pending-message:
+    schedule-interval-ms: 300000  # 5 minutes
+  memory:
+    refine-schedule-interval-ms: 300000  # 5 minutes
+```
+
+---
+
 ## Database Schema
 
 ### V11: Quality Score Fields

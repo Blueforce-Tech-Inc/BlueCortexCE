@@ -53,7 +53,7 @@
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/wubuku/claude-mem-java.git
+git clone https://github.com/Blueforce-Tech-Inc/BlueCortexCE.git
 cd claude-mem-java
 
 # 2. 创建环境配置文件
@@ -1061,9 +1061,9 @@ wrk -t4 -c50 -d30s \
 
 ## 联系与支持
 
-- **GitHub Issues**: https://github.com/wubuku/claude-mem-java/issues
-- **文档**: https://docs.claude-mem.ai
-- **社区**: https://discord.gg/claude-mem
+- **GitHub Issues**: https://github.com/Blueforce-Tech-Inc/BlueCortexCE/issues
+- **文档**: https://github.com/Blueforce-Tech-Inc/BlueCortexCE/docs
+- **社区**: (待添加)
 
 ---
 

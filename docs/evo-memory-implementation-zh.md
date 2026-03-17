@@ -126,6 +126,54 @@
 
 ---
 
+## 异步处理架构: Spring Event + @Scheduled
+
+系统使用 Spring Event + @Scheduled 实现可靠的异步处理和兜底机制:
+
+### 架构模式
+
+```
+新操作 → 数据库 (pending 状态)
+                    │
+                    ▼
+       @Scheduled (兜底) → 发布事件
+                    │
+                    ▼
+       @Async 事件监听器 → 处理
+                    │
+                    ▼
+       恢复任务 → 恢复卡住的消息
+```
+
+### 组件
+
+| 组件 | 用途 |
+|------|------|
+| `PendingMessageEvent` | Spring 事件类，带有来源标记 (API/SCHEDULED) |
+| `PendingMessageEventListener` | @Async 监听器，用于实时处理 |
+| `PendingMessageEventPublisher` | 发布事件进行加工 |
+| `PendingMessageProcessor` | @Scheduled 任务 (每5分钟) 用于兜底 |
+| `StaleMessageRecoveryTask` | 恢复卡在 "processing" 状态的消息 |
+
+### 待处理消息流程
+
+1. **观察处理**: 工具调用事件存储为待处理消息
+2. **实时**: @Async EventListener 立即处理事件
+3. **兜底**: @Scheduled 任务每5分钟运行，捕获未处理的消息
+4. **恢复**: StaleMessageRecoveryTask 恢复卡住的消息
+
+### 配置
+
+```yaml
+app:
+  pending-message:
+    schedule-interval-ms: 300000  # 5 分钟
+  memory:
+    refine-schedule-interval-ms: 300000  # 5 分钟
+```
+
+---
+
 ## 数据库 Schema
 
 ### V11: 质量评分字段
