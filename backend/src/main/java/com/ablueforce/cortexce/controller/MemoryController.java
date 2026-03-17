@@ -4,6 +4,8 @@ import com.ablueforce.cortexce.service.MemoryRefineService;
 import com.ablueforce.cortexce.service.ExpRagService;
 import com.ablueforce.cortexce.service.QualityScorer;
 import com.ablueforce.cortexce.repository.ObservationRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,6 +25,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/memory")
 public class MemoryController {
+
+    private static final Logger log = LoggerFactory.getLogger(MemoryController.class);
 
     private final MemoryRefineService memoryRefineService;
     private final ExpRagService expRagService;
@@ -98,16 +102,37 @@ public class MemoryController {
      */
     @GetMapping("/quality-distribution")
     public ResponseEntity<Map<String, Object>> getQualityDistribution(@RequestParam String project) {
-        Object[] distribution = observationRepository.getQualityDistribution(project);
-        
-        // Distribution: [high, medium, low, unknown]
-        return ResponseEntity.ok(Map.of(
-            "project", project,
-            "high", distribution[0],
-            "medium", distribution[1],
-            "low", distribution[2],
-            "unknown", distribution[3]
-        ));
+        try {
+            Object[] distribution = observationRepository.getQualityDistribution(project);
+            
+            if (distribution == null || distribution.length < 4) {
+                return ResponseEntity.ok(Map.of(
+                    "project", project,
+                    "high", 0L,
+                    "medium", 0L,
+                    "low", 0L,
+                    "unknown", 0L
+                ));
+            }
+            
+            return ResponseEntity.ok(Map.of(
+                "project", project,
+                "high", distribution[0],
+                "medium", distribution[1],
+                "low", distribution[2],
+                "unknown", distribution[3]
+            ));
+        } catch (Exception e) {
+            log.error("Failed to get quality distribution", e);
+            return ResponseEntity.ok(Map.of(
+                "project", project,
+                "high", 0L,
+                "medium", 0L,
+                "low", 0L,
+                "unknown", 0L,
+                "error", e.getMessage()
+            ));
+        }
     }
 
     /**
