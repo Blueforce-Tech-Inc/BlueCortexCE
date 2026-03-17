@@ -89,6 +89,9 @@ public class AgentService implements LogHelper {
     private MemoryRefineService memoryRefineService;
 
     @Autowired
+    private com.ablueforce.cortexce.event.MemoryRefineEventPublisher eventPublisher;
+
+    @Autowired
     private QualityScorer qualityScorer;
 
     @Autowired
@@ -660,9 +663,10 @@ public class AgentService implements LogHelper {
                 observationRepository.saveAll(observations);
                 log.debug("Quality scores updated for {} observations", observations.size());
 
-                // Trigger memory refinement (async)
-                memoryRefineService.refineMemory(session.getProjectPath());
-                log.debug("Memory refinement triggered for project {}", session.getProjectPath());
+                // Trigger memory refinement via Spring Event (async processing)
+                // Architecture: Event → @Async EventListener (real-time) → @Scheduled (fallback)
+                eventPublisher.publishRefineEvent(session.getProjectPath(), contentSessionId);
+                log.debug("Memory refinement event published for project {}", session.getProjectPath());
 
             } catch (Exception e) {
                 log.warn("Failed to trigger quality scoring or refinement", e);

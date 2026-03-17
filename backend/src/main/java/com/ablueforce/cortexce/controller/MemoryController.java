@@ -4,6 +4,7 @@ import com.ablueforce.cortexce.service.MemoryRefineService;
 import com.ablueforce.cortexce.service.ExpRagService;
 import com.ablueforce.cortexce.service.QualityScorer;
 import com.ablueforce.cortexce.repository.ObservationRepository;
+import com.ablueforce.cortexce.event.MemoryRefineEventPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -32,15 +33,18 @@ public class MemoryController {
     private final ExpRagService expRagService;
     private final ObservationRepository observationRepository;
     private final QualityScorer qualityScorer;
+    private final MemoryRefineEventPublisher eventPublisher;
 
     public MemoryController(MemoryRefineService memoryRefineService,
                           ExpRagService expRagService,
                           ObservationRepository observationRepository,
-                          QualityScorer qualityScorer) {
+                          QualityScorer qualityScorer,
+                          MemoryRefineEventPublisher eventPublisher) {
         this.memoryRefineService = memoryRefineService;
         this.expRagService = expRagService;
         this.observationRepository = observationRepository;
         this.qualityScorer = qualityScorer;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -49,11 +53,12 @@ public class MemoryController {
      */
     @PostMapping("/refine")
     public ResponseEntity<Map<String, String>> triggerRefine(@RequestParam String project) {
-        memoryRefineService.refineMemory(project);
+        // Publish event for async processing
+        eventPublisher.publishManualRefineEvent(project);
         return ResponseEntity.ok(Map.of(
             "status", "triggered",
             "project", project,
-            "message", "Memory refinement has been triggered"
+            "message", "Memory refinement event has been published"
         ));
     }
 

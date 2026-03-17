@@ -492,4 +492,11 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         WHERE project_path = :project
         """, nativeQuery = true)
     Object[] getQualityDistribution(@Param("project") String project);
+
+    /**
+     * Find all distinct project paths that have observations.
+     * Used by scheduled refinement fallback.
+     */
+    @Query("SELECT DISTINCT o.projectPath FROM ObservationEntity o WHERE o.projectPath IS NOT NULL")
+    List<String> findDistinctProjects();
 }

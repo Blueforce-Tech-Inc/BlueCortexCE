@@ -354,4 +354,45 @@ public class MemoryRefineService {
             log.error("Failed to rewrite observation via LLM: {}", e.getMessage());
         }
     }
+
+    /**
+     * Scheduled task - fallback mechanism for memory refinement.
+     * 
+     * Runs periodically to catch any sessions that weren't processed
+     * by the real-time event listener (e.g., due to failures).
+     * 
+     * This is the "polling/backup" path in our architecture:
+     * Spring Event → @Async EventListener (real-time)
+     *          ↓ (if failed)
+     * @Scheduled (fallback)
+     */
+    // Note: To enable scheduled fallback, add @Scheduled annotation
+    // Example: @Scheduled(fixedRate = 300000) // every 5 minutes
+    // For now, we keep it disabled to avoid duplicate processing
+    // when the event-based flow works correctly.
+    
+    /**
+     * Manual trigger for scheduled refinement (can be called by cron job).
+     * Processes all known projects.
+     */
+    public void scheduledRefineAll() {
+        log.info("Starting scheduled refinement for all projects");
+        
+        try {
+            List<String> projects = observationRepository.findDistinctProjects();
+            
+            for (String project : projects) {
+                try {
+                    quickRefine(project, 10); // Process up to 10 observations per project
+                } catch (Exception e) {
+                    log.error("Scheduled refinement failed for project: {}", project, e);
+                }
+            }
+            
+            log.info("Scheduled refinement completed for {} projects", projects.size());
+            
+        } catch (Exception e) {
+            log.error("Failed to get project list for scheduled refinement", e);
+        }
+    }
 }
