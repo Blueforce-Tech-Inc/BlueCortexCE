@@ -43,7 +43,7 @@ services:
     restart: unless-stopped
 
   claude-mem:
-    image: ${IMAGE_NAME:-ghcr.io/blueforce-tech-inc/bluecortexce:latest}
+    image: ${IMAGE_NAME:-ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main}
     container_name: claude-mem-java
     depends_on:
       postgres:

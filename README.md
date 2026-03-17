@@ -209,14 +209,14 @@ For detailed development guide, see [DEVELOPMENT.md](docs/DEVELOPMENT.md)
 
 ```bash
 # Build image
-docker build -t cortexce:latest .
+docker build -t ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main .
 
 # Run container
 docker run -d \
   -p 37777:37777 \
   -e DATABASE_URL=... \
   -e LLM_API_KEY=... \
-  cortexce:latest
+  ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main
 ```
 
 For detailed deployment guide, see [DEPLOYMENT.md](docs/DEPLOYMENT.md)
@@ -296,7 +296,7 @@ cd ~/.cortexce
 docker compose up -d
 
 # Or specify image
-IMAGE_NAME=ghcr.io/blueforce-tech-inc/bluecortexce:latest docker compose up -d
+IMAGE_NAME=ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main docker compose up -d
 ```
 
 Wait for services to start, verify health:

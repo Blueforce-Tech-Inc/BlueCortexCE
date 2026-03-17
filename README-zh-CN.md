@@ -210,14 +210,14 @@ java -jar backend/target/cortexce-backend-*.jar
 
 ```bash
 # 构建镜像
-docker build -t cortexce:latest .
+docker build -t ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main .
 
 # 运行容器
 docker run -d \
   -p 37777:37777 \
   -e DATABASE_URL=... \
   -e LLM_API_KEY=... \
-  cortexce:latest
+  ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main
 ```
 
 详细部署指南请参考 [DEPLOYMENT.md](docs/DEPLOYMENT.md)
@@ -297,7 +297,7 @@ cd ~/.cortexce
 docker compose up -d
 
 # 或指定镜像
-IMAGE_NAME=ghcr.io/blueforce-tech-inc/bluecortexce:latest docker compose up -d
+IMAGE_NAME=ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main docker compose up -d
 ```
 
 等待服务启动完成，验证健康状态：
