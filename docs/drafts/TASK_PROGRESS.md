@@ -46,11 +46,11 @@
 
 | # | 任务 | 优先级 | 状态 | 备注 |
 |---|------|--------|------|------|
-| 2.1 | MemoryRefineService 框架 | P0 | - | |
-| 2.2 | Refine prompt 模板 | P0 | - | |
-| 2.3 | 合并/删除/重写逻辑 | P1 | - | |
-| 2.4 | ExpRAG 检索增强 | P1 | - | |
-| 2.5 | SessionEnd 集成 Refine | P1 | - | |
+| 2.1 | MemoryRefineService 框架 | P0 | ✅ 完成 | |
+| 2.2 | Refine prompt 模板 | P0 | ⏳ 待开始 | |
+| 2.3 | 合并/删除/重写逻辑 | P1 | ⏳ 待开始 | |
+| 2.4 | ExpRAG 检索增强 | P1 | ⏳ 待开始 | |
+| 2.5 | SessionEnd 集成 Refine | P1 | ⏳ 待开始 | |
 
 ---
 
