@@ -297,14 +297,14 @@ curl http://localhost:37777/actuator/health
 docker build -t claude-mem-java:latest -f Dockerfile .
 
 # Or use pre-built image from GHCR
-docker pull ghcr.io/wubuku/claude-mem-java:latest
+docker pull ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:latest
 ```
 
 ### Docker Compose Services
 
 | Service | Image | Port |
 |---------|-------|------|
-| claude-mem | ghcr.io/wubuku/claude-mem-java:latest | 37777 |
+| claude-mem | ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:latest | 37777 |
 | postgres | pgvector/pgvector:pg16 | 5433 |
 
 ### Environment Variables (Docker)
@@ -315,7 +315,7 @@ docker pull ghcr.io/wubuku/claude-mem-java:latest
 | `SPRING_AI_OPENAI_API_KEY` | LLM API key | - |
 | `SPRING_AI_OPENAI_BASE_URL` | LLM API base URL | https://api.openai.com |
 | `SPRING_AI_OPENAI_CHAT_MODEL` | Chat model | gpt-4o |
-| `IMAGE_NAME` | Docker image to use | ghcr.io/wubuku/claude-mem-java:latest |
+| `IMAGE_NAME` | Docker image to use | ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:latest |
 
 ### Production Features
 
@@ -822,7 +822,7 @@ java -jar target/claude-mem-java-0.1.0-SNAPSHOT.jar --spring.profiles.active=dev
 | Task | Description |
 |------|-------------|
 | Docker 支持 | 添加完整 Dockerfile (多阶段构建)、docker-compose.yml 生产配置 |
-| GitHub Actions | 添加 Docker build & push workflow (ghcr.io/wubuku/claude-mem-java:latest) |
+| GitHub Actions | 添加 Docker build & push workflow (ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main) |
 | WebUI 构建 | Dockerfile 集成 WebUI 构建阶段，开箱即用 |
 | 生产配置 | 添加生产级配置 (ZGC、非root用户、健康检查) |
 

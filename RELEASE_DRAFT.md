@@ -50,7 +50,7 @@ This is the **initial beta release** (v0.1.0-beta).
 
 ```bash
 # 1. Clone and build
-git clone https://github.com/wubuku/claude-mem.git
+git clone https://github.com/Blueforce-Tech-Inc/BlueCortexCE.git
 cd claude-mem/java/backend
 
 # 2. Configure environment
@@ -72,7 +72,7 @@ java -jar target/claude-mem-java-0.1.0-SNAPSHOT.jar
 docker compose -f docker-compose.yml up -d
 
 # Or pull pre-built image
-docker pull ghcr.io/wubuku/claude-mem-java:0.1.0-beta
+docker pull ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:0.1.0-beta
 ```
 
 ---
@@ -109,8 +109,8 @@ See [TASK_TRACKER.md](./TASK_TRACKER.md) for upcoming features:
 ## Links
 
 - Documentation: https://docs.claude-mem.ai
-- GitHub: https://github.com/wubuku/claude-mem
-- Docker Hub: ghcr.io/wubuku/claude-mem-java
+- GitHub: https://github.com/Blueforce-Tech-Inc/BlueCortexCE
+- Docker Hub: ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce
 
 ---
 
@@ -122,4 +122,4 @@ Thanks to all contributors who made this release possible!
 
 ## Full Changelog
 
-Compare with previous commits: https://github.com/wubuku/claude-mem/compare/...v0.1.0-beta
+Compare with previous commits: https://github.com/Blueforce-Tech-Inc/BlueCortexCE/compare/...v0.1.0-beta

@@ -24,7 +24,7 @@
 - [ ] Verify JAR file generated in `target/`
 - [ ] Build Docker image (optional)
   ```bash
-  docker build -t ghcr.io/wubuku/claude-mem-java:0.1.0-beta -f java/Dockerfile .
+  docker build -t ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:0.1.0-beta -f java/Dockerfile .
   ```
 
 ### Testing
@@ -56,7 +56,7 @@
 
 3. **Push Docker image** (if built)
    ```bash
-   docker push ghcr.io/wubuku/claude-mem-java:0.1.0-beta
+   docker push ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:0.1.0-beta
    ```
 
 ### Post-Release
@@ -94,14 +94,14 @@
 
 ```bash
 # Pull the release
-docker pull ghcr.io/wubuku/claude-mem-java:0.1.0-beta
+docker pull ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:0.1.0-beta
 
 # Run the container
 docker run -d \
   --name claude-mem \
   -p 37777:37777 \
   -e DB_PASSWORD=your_password \
-  ghcr.io/wubuku/claude-mem-java:0.1.0-beta
+  ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:0.1.0-beta
 ```
 
 ## Full Changelog

@@ -725,7 +725,7 @@ Any other context, mockups, or examples.
 
 - **GitHub Discussions**: For questions and general discussion
 - **GitHub Issues**: For bug reports and feature requests
-- **Documentation**: [https://docs.cortexce.ai](https://docs.cortexce.ai)
+- **Documentation**: [GitHub Docs](https://github.com/Blueforce-Tech-Inc/BlueCortexCE/docs)
 
 ### Stay Updated
 

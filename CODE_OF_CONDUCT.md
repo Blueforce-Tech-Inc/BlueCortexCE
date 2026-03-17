@@ -190,7 +190,7 @@ For questions or concerns about this Code of Conduct:
 关于本行为准则的问题或疑虑：
 
 * **Report Issues**: [GitHub Issues](https://github.com/yourusername/cortexce/issues)
-* **Documentation**: [https://docs.cortexce.ai](https://docs.cortexce.ai)
+* **Documentation**: [GitHub Docs](https://github.com/Blueforce-Tech-Inc/BlueCortexCE/docs)
 
 ---
 
