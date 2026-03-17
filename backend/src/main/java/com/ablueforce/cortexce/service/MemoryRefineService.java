@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -300,16 +301,57 @@ public class MemoryRefineService {
         
         prompt.append("Provide a consolidated summary that captures the key information from all observations.");
         
-        // Call LLM (simplified - actual implementation would use LlmService)
-        // For now, just mark as refined
-        log.debug("Would merge {} observations via LLM", observations.size());
+        // Call LLM to merge
+        try {
+            String mergedContent = llmService.chatCompletion(
+                "You are a memory consolidation expert. Merge observations into a concise, high-quality summary.",
+                prompt.toString()
+            );
+            
+            if (mergedContent != null && !mergedContent.isEmpty()) {
+                // Update first observation with merged content
+                ObservationEntity primary = observations.get(0);
+                primary.setContent(mergedContent);
+                observationRepository.save(primary);
+                
+                // Delete others - use UUID type
+                List<UUID> toDeleteIds = observations.stream()
+                    .skip(1)
+                    .map(ObservationEntity::getId)
+                    .collect(Collectors.toList());
+                
+                observationRepository.deleteAllById(toDeleteIds);
+                
+                log.info("Merged {} observations into one via LLM", observations.size());
+            }
+        } catch (Exception e) {
+            log.error("Failed to merge observations via LLM: {}", e.getMessage());
+        }
     }
 
     /**
      * Rewrite single observation for better quality.
      */
     private void rewriteObservation(ObservationEntity observation) {
-        // Simplified - actual implementation would use LLM to improve content
-        log.debug("Would rewrite observation: {}", observation.getId());
+        String rewritePrompt = String.format(
+            "Improve the following observation to make it more concise and valuable:\n\nTitle: %s\nContent: %s\n\nProvide an improved version that captures the key insights more clearly.",
+            observation.getTitle() != null ? observation.getTitle() : "Untitled",
+            observation.getContent() != null ? observation.getContent() : ""
+        );
+        
+        try {
+            String improvedContent = llmService.chatCompletion(
+                "You are a memory improvement expert. Rewrite observations to be more valuable.",
+                rewritePrompt
+            );
+            
+            if (improvedContent != null && !improvedContent.isEmpty()) {
+                observation.setContent(improvedContent);
+                observationRepository.save(observation);
+                log.info("Rewrote observation {} via LLM", observation.getId());
+            }
+        } catch (Exception e) {
+            log.error("Failed to rewrite observation via LLM: {}", e.getMessage());
+        }
     }
 }
