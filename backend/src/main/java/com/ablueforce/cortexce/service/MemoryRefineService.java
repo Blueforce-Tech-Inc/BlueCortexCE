@@ -4,6 +4,7 @@ import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.ablueforce.cortexce.repository.ObservationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -18,21 +19,27 @@ import java.util.stream.Collectors;
  * 
  * Architecture: Asynchronous refinement triggered at SessionEnd.
  * Effect: Delayed - visible in next session.
+ * 
+ * Features can be disabled via app.memory.refine-enabled config.
  */
 @Service
 public class MemoryRefineService {
 
     private static final Logger log = LoggerFactory.getLogger(MemoryRefineService.class);
 
-    // Quality thresholds
-    private static final float DELETE_THRESHOLD = 0.3f;
-    private static final float STALE_QUALITY_THRESHOLD = 0.6f;
+    // Configuration from application.yml
+    private final boolean refineEnabled;
     
-    // Time thresholds
-    private static final int STALE_DAYS = 30;
-    private static final int REFINED_COOLDOWN_DAYS = 7;
+    @Value("${app.memory.refine.delete-threshold:0.3}")
+    private float deleteThreshold;
     
-    // Batch sizes
+    @Value("${app.memory.refine.cooldown-days:7}")
+    private int cooldownDays;
+    
+    @Value("${app.memory.refine.stale-days:30}")
+    private int staleDays;
+    
+    // Batch size
     private static final int REFINE_BATCH_SIZE = 20;
 
     private final ObservationRepository observationRepository;
@@ -41,10 +48,20 @@ public class MemoryRefineService {
 
     public MemoryRefineService(ObservationRepository observationRepository,
                              QualityScorer qualityScorer,
-                             LlmService llmService) {
+                             LlmService llmService,
+                             @Value("${app.memory.refine-enabled:true}") boolean refineEnabled) {
         this.observationRepository = observationRepository;
         this.qualityScorer = qualityScorer;
         this.llmService = llmService;
+        this.refineEnabled = refineEnabled;
+        log.info("MemoryRefineService initialized, refine-enabled={}", refineEnabled);
+    }
+
+    /**
+     * Check if refinement is enabled.
+     */
+    public boolean isRefineEnabled() {
+        return refineEnabled;
     }
 
     /**
@@ -55,6 +72,12 @@ public class MemoryRefineService {
      */
     @Async
     public void refineMemory(String projectPath) {
+        // Check if refinement is enabled
+        if (!refineEnabled) {
+            log.debug("Memory refinement is disabled, skipping for project: {}", projectPath);
+            return;
+        }
+        
         log.info("Starting memory refinement for project: {}", projectPath);
         
         try {
@@ -70,7 +93,7 @@ public class MemoryRefineService {
             
             // Step 2: Categorize candidates
             List<ObservationEntity> toDelete = candidates.stream()
-                .filter(o -> o.getQualityScore() != null && o.getQualityScore() < DELETE_THRESHOLD)
+                .filter(o -> o.getQualityScore() != null && o.getQualityScore() < deleteThreshold)
                 .collect(Collectors.toList());
             
             List<ObservationEntity> toRefine = candidates.stream()
@@ -101,12 +124,18 @@ public class MemoryRefineService {
      */
     @Async
     public void quickRefine(String projectPath, int maxCount) {
+        // Check if refinement is enabled
+        if (!refineEnabled) {
+            log.debug("Memory refinement is disabled, skipping quick refine");
+            return;
+        }
+        
         log.debug("Starting quick refinement for project: {}", projectPath);
         
         try {
             // Just process low-quality observations (no LLM call)
             List<ObservationEntity> lowQuality = observationRepository
-                .findLowQualityObservations(projectPath, DELETE_THRESHOLD, maxCount);
+                .findLowQualityObservations(projectPath, deleteThreshold, maxCount);
             
             if (!lowQuality.isEmpty()) {
                 deleteLowQualityObservations(lowQuality);
@@ -124,21 +153,27 @@ public class MemoryRefineService {
      */
     @Async
     public void deepRefineProjectMemories(String projectPath) {
+        // Check if refinement is enabled
+        if (!refineEnabled) {
+            log.debug("Memory refinement is disabled, skipping deep refine");
+            return;
+        }
+        
         log.info("Starting deep refinement for project: {}", projectPath);
         
         try {
             // Step 1: Find all stale observations
             List<ObservationEntity> stale = observationRepository.findStaleObservations(
                 projectPath,
-                OffsetDateTime.now().minusDays(STALE_DAYS),
-                STALE_QUALITY_THRESHOLD,
+                OffsetDateTime.now().minusDays(staleDays),
+                0.6f,
                 50
             );
             
             // Step 2: Find overdue observations
             List<ObservationEntity> overdue = observationRepository.findOverdueForRefine(
                 projectPath,
-                OffsetDateTime.now().minusDays(REFINED_COOLDOWN_DAYS),
+                OffsetDateTime.now().minusDays(cooldownDays),
                 30
             );
             
@@ -168,19 +203,19 @@ public class MemoryRefineService {
         
         // 1. Low quality candidates
         candidates.addAll(observationRepository.findLowQualityObservations(
-            projectPath, DELETE_THRESHOLD, REFINE_BATCH_SIZE));
+            projectPath, deleteThreshold, REFINE_BATCH_SIZE));
         
         // 2. Stale candidates
         candidates.addAll(observationRepository.findStaleObservations(
             projectPath,
-            OffsetDateTime.now().minusDays(STALE_DAYS),
-            STALE_QUALITY_THRESHOLD,
+            OffsetDateTime.now().minusDays(staleDays),
+            0.6f,
             REFINE_BATCH_SIZE));
         
-        // 3. Overdue candidates (not refined in 7 days)
+        // 3. Overdue candidates (not refined in cooldown days)
         candidates.addAll(observationRepository.findOverdueForRefine(
             projectPath,
-            OffsetDateTime.now().minusDays(REFINED_COOLDOWN_DAYS),
+            OffsetDateTime.now().minusDays(cooldownDays),
             REFINE_BATCH_SIZE));
         
         // Filter out recently refined
@@ -198,8 +233,8 @@ public class MemoryRefineService {
         if (obs.getRefinedAt() == null) {
             return true; // Never refined
         }
-        // Allow re-refinement after 7 days
-        return obs.getRefinedAt().isBefore(OffsetDateTime.now().minusDays(REFINED_COOLDOWN_DAYS));
+        // Allow re-refinement after cooldown days
+        return obs.getRefinedAt().isBefore(OffsetDateTime.now().minusDays(cooldownDays));
     }
 
     /**

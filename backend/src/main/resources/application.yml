@@ -2,6 +2,28 @@ server:
   port: ${SERVER_PORT:37777}
   address: ${SERVER_ADDRESS:127.0.0.1}
 
+# ============================================================================
+# Evo-Memory Feature Flags (Section 6.1.1)
+# ============================================================================
+app:
+  memory:
+    # Enable/disable memory refinement (Phase 2)
+    # When disabled, no refinement happens but quality scoring still works
+    refine-enabled: ${MEMORY_REFINE_ENABLED:true}
+    
+    # Quality threshold for retrieval filtering (Phase 1)
+    # Observations with quality below this are filtered out
+    quality-threshold: ${MEMORY_QUALITY_THRESHOLD:0.6}
+    
+    # Refinement thresholds
+    refine:
+      # Delete observations with quality below this
+      delete-threshold: ${MEMORY_REFINE_DELETE_THRESHOLD:0.3}
+      # Cooldown days before allowing re-refinement
+      cooldown-days: ${MEMORY_REFINE_COOLDOWN_DAYS:7}
+      # Days before observation is considered stale
+      stale-days: ${MEMORY_REFINE_STALE_DAYS:30}
+
 spring:
   application:
     name: claude-mem-java
