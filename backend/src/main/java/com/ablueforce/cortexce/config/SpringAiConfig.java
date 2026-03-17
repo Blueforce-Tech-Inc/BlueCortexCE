@@ -36,7 +36,7 @@ public class SpringAiConfig {
             @Value("${spring.ai.openai.chat.options.model:deepseek-chat}") String model,
             @Value("${claudemem.llm.provider:openai}") String provider) {
 
-        log.info(">>> openAiChatModel called: apiKey={}, baseUrl={}, model={}, provider={}", 
+        log.info("OpenAI ChatModel called: apiKey={}, baseUrl={}, model={}, provider={}", 
             apiKey != null ? "set" : "null", baseUrl, model, provider);
 
         if (apiKey == null || apiKey.isEmpty()) {
@@ -66,7 +66,7 @@ public class SpringAiConfig {
                 .defaultOptions(options)
                 .build();
             
-            log.info(">>> OpenAI ChatModel created successfully: {}", chatModel.getClass().getSimpleName());
+            log.info("OpenAI ChatModel created successfully: {}", chatModel.getClass().getSimpleName());
             return chatModel;
         } catch (Exception e) {
             log.error(">>> Failed to create OpenAI ChatModel: {}", e.getMessage(), e);
