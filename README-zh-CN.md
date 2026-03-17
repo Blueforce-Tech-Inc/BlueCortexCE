@@ -298,6 +298,10 @@ docker compose up -d
 
 # 或指定镜像
 IMAGE_NAME=ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main docker compose up -d
+
+# ARM64 Mac (Apple Silicon) 会自动拉取对应版本
+# 如需强制使用 AMD64 (Intel Mac):
+# docker pull --platform linux/amd64 ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main
 ```
 
 等待服务启动完成，验证健康状态：

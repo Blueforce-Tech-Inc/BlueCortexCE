@@ -297,6 +297,10 @@ docker compose up -d
 
 # Or specify image
 IMAGE_NAME=ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main docker compose up -d
+
+# For ARM64 Macs (Apple Silicon), the image will be pulled automatically
+# For Intel Macs, you can force AMD64 platform:
+# docker pull --platform linux/amd64 ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main
 ```
 
 Wait for services to start, verify health:
