@@ -86,6 +86,12 @@ public class AgentService implements LogHelper {
     private LlmService llmService;
 
     @Autowired
+    private MemoryRefineService memoryRefineService;
+
+    @Autowired
+    private QualityScorer qualityScorer;
+
+    @Autowired
     private TokenService tokenService;
 
     @Autowired
@@ -597,6 +603,40 @@ public class AgentService implements LogHelper {
 
             logSuccess("Summary saved for session {}", contentSessionId);
 
+            // Phase 2: Trigger quality scoring and memory refinement
+            // This runs asynchronously after summary generation
+            try {
+                // Infer feedback type from session
+                QualityScorer.FeedbackType feedback = inferFeedback(
+                    lastAssistantMessage, 
+                    observations.size(),
+                    session.getCompletedAtEpoch() - session.getStartedAtEpoch()
+                );
+
+                // Update quality scores for observations
+                OffsetDateTime now = OffsetDateTime.now();
+                for (ObservationEntity obs : observations) {
+                    obs.setFeedbackType(feedback.name().toLowerCase());
+                    float quality = qualityScorer.estimateQuality(
+                        feedback,
+                        obs.getContent(),
+                        null,
+                        observations.size()
+                    );
+                    obs.setQualityScore(quality);
+                    obs.setFeedbackUpdatedAt(now);
+                }
+                observationRepository.saveAll(observations);
+                log.debug("Quality scores updated for {} observations", observations.size());
+
+                // Trigger memory refinement (async)
+                memoryRefineService.refineMemory(session.getProjectPath());
+                log.debug("Memory refinement triggered for project {}", session.getProjectPath());
+
+            } catch (Exception e) {
+                log.warn("Failed to trigger quality scoring or refinement", e);
+            }
+
         } catch (Exception e) {
             logFailure("Failed to generate summary for session {}", contentSessionId, e);
         }
@@ -639,6 +679,51 @@ public class AgentService implements LogHelper {
     private String truncate(String s, int maxLen) {
         if (s == null) return "";
         return s.length() <= maxLen ? s : s.substring(0, maxLen) + "... [truncated]";
+    }
+
+    /**
+     * Infer feedback type from session information.
+     * Based on Evo-Memory paper Section 6.1.2 - Feedback Inference.
+     */
+    private QualityScorer.FeedbackType inferFeedback(String lastAssistantMessage, 
+                                                     int observationCount,
+                                                     long sessionDurationMs) {
+        // 1. Parse success/failure signals from last message
+        if (lastAssistantMessage != null && !lastAssistantMessage.isEmpty()) {
+            String lower = lastAssistantMessage.toLowerCase();
+            
+            // Success signals
+            if (lower.contains("完成") || lower.contains("解决") ||
+                lower.contains("completed") || lower.contains("finished") ||
+                lower.contains("done") || lower.contains("solved") ||
+                lower.contains("已解决") || lower.contains("成功了")) {
+                return QualityScorer.FeedbackType.SUCCESS;
+            }
+            
+            // Failure signals
+            if (lower.contains("无法") || lower.contains("失败") ||
+                lower.contains("failed") || lower.contains("cannot") ||
+                lower.contains("unable") || lower.contains("error") ||
+                lower.contains("无法完成")) {
+                return QualityScorer.FeedbackType.FAILURE;
+            }
+        }
+
+        // 2. Heuristic based on observation count
+        if (observationCount == 0) {
+            return QualityScorer.FeedbackType.FAILURE;
+        }
+        if (observationCount < 3) {
+            return QualityScorer.FeedbackType.FAILURE;
+        }
+
+        // 3. Session duration check
+        if (sessionDurationMs < 5000 && observationCount < 5) {
+            return QualityScorer.FeedbackType.FAILURE;
+        }
+
+        // Default to partial success
+        return QualityScorer.FeedbackType.PARTIAL;
     }
 
     /**
