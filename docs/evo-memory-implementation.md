@@ -499,18 +499,27 @@ java -jar target/cortex-ce-0.1.0-beta.jar --spring.profiles.active=dev
 
 ## Limitations and Future Work
 
+### Current Status (All Implemented ✅)
+
+All Evo-Memory core features have been implemented:
+
+| Feature | Implementation |
+|---------|---------------|
+| **Quality Scoring** | ✅ Rule-based + LLM-based (LlmQualityScorer) |
+| **Feedback Inference** | ✅ Rule-based + LLM-based |
+| **Memory Merging** | ✅ LLM-powered mergeObservations() |
+| **Memory Rewriting** | ✅ LLM-powered rewriteObservation() |
+
 ### Current Limitations
 
 1. **Async Refinement**: Refinement happens asynchronously; results aren't immediately visible
-2. **Quality Scoring**: Both rule-based (QualityScorer) and LLM-based (LlmQualityScorer) available
-3. **No Multi-modal**: Currently text-only
+2. **No Multi-modal**: Currently text-only
 
 ### Future Improvements
 
-1. **LLM-based Refinement**: Use actual LLM for memory rewriting
-2. **Learned Quality**: Train model on labeled quality data
-3. **Multi-modal**: Support images, code, etc.
-4. **Distributed**: Scale across multiple nodes
+1. **Learned Quality**: Train model on labeled quality data
+2. **Multi-modal**: Support images, code, etc.
+3. **Distributed**: Scale across multiple nodes
 
 ---
 
