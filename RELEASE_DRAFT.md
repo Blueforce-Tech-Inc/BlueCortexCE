@@ -108,7 +108,7 @@ See [TASK_TRACKER.md](./TASK_TRACKER.md) for upcoming features:
 
 ## Links
 
-- Documentation: https://docs.claude-mem.ai
+- Documentation: [GitHub Docs](https://github.com/Blueforce-Tech-Inc/BlueCortexCE/docs)
 - GitHub: https://github.com/Blueforce-Tech-Inc/BlueCortexCE
 - Docker Hub: ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce
 
