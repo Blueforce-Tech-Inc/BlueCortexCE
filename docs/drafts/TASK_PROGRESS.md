@@ -65,12 +65,24 @@ All Evo-Memory paper features have been implemented and tested. This document pr
 
 ## Test Coverage Matrix
 
+### Regression Tests
 | Feature | Test Script | Test Name | Status |
 |---------|-------------|-----------|--------|
 | Quality Score Fields (V11) | regression-test.sh | Test 18 | ✅ PASS |
 | Memory Refine API | regression-test.sh | Test 19 | ✅ PASS |
 | Quality Distribution API | regression-test.sh | Test 20 | ✅ PASS |
 | ICL Prompt API | regression-test.sh | Test 21 | ✅ PASS |
+
+### Evo-Memory E2E Tests (New!)
+| Test | Description | Status |
+|------|-------------|--------|
+| Test 1 | Quality Scoring Workflow (create observations, trigger inference) | ✅ PASS |
+| Test 2 | Memory Refinement (trigger refine, check quality distribution) | ✅ PASS |
+| Test 3 | Quality-Based Retrieval (experience retrieval, ICL prompt) | ✅ PASS |
+| Test 4 | Feature Flag Validation (health check, refine toggle) | ✅ PASS |
+| Test 5 | Complete E2E Workflow (session → observations → complete → retrieve) | ✅ PASS |
+
+**E2E Test Command**: `bash scripts/evo-memory-e2e-test.sh`
 
 ---
 
