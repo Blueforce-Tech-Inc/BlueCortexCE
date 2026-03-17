@@ -15,7 +15,7 @@ Cortex Community Edition (cortexce) is a memory-enhanced system that provides pe
 ## Key Features
 
 - 🧠 **Persistent Memory** - Save and reuse context across sessions
-- 🔄 **Intelligent Quality Assessment** - Automatically evaluate memory quality
+- 🔄 **Intelligent Quality Assessment** - Rule-based and LLM-based quality scoring
 - 🎯 **Context-Aware Retrieval** - Vector-based semantic search
 - 📊 **Memory Evolution** - Automatic refinement, merging, and optimization
 - 🔌 **RESTful API** - Simple and easy-to-use HTTP interface
