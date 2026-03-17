@@ -29,7 +29,7 @@ public class SpringAiConfig {
     private static final Logger log = LoggerFactory.getLogger(SpringAiConfig.class);
 
     @Bean("openAiChatModel")
-    // @ConditionalOnProperty(prefix = "spring.ai.openai", name = "api-key") // Temporarily disabled for debugging
+    @ConditionalOnProperty(prefix = "spring.ai.openai", name = "api-key")
     public ChatModel openAiChatModel(
             @Value("${spring.ai.openai.api-key:}") String apiKey,
             @Value("${spring.ai.openai.base-url:https://api.deepseek.com}") String baseUrl,
