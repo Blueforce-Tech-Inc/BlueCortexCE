@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.OffsetDateTime;
@@ -366,16 +367,20 @@ public class MemoryRefineService {
      *          ↓ (if failed)
      * @Scheduled (fallback)
      */
-    // Note: To enable scheduled fallback, add @Scheduled annotation
-    // Example: @Scheduled(fixedRate = 300000) // every 5 minutes
-    // For now, we keep it disabled to avoid duplicate processing
-    // when the event-based flow works correctly.
     
     /**
-     * Manual trigger for scheduled refinement (can be called by cron job).
-     * Processes all known projects.
+     * Scheduled fallback - runs automatically (configurable interval).
+     * Processes all known projects to catch any unprocessed refinements.
+     * 
+     * Configuration: app.memory.refine-schedule-interval-ms (default: 300000 = 5 minutes)
      */
+    @Scheduled(fixedRateString = "${app.memory.refine-schedule-interval-ms:300000}")
     public void scheduledRefineAll() {
+        if (!refineEnabled) {
+            log.debug("Scheduled refinement skipped - refinement is disabled");
+            return;
+        }
+        
         log.info("Starting scheduled refinement for all projects");
         
         try {
