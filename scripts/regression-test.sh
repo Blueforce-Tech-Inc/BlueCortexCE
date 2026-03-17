@@ -763,6 +763,148 @@ test_unified_session_start() {
     fi
 }
 
+# Test Evo-Memory: Quality Score Fields (V11)
+test_quality_score_fields() {
+    log_section "Test 18: Evo-Memory Quality Score Fields (V11)"
+
+    # Create observation
+    local obs_response
+    obs_response=$(curl -sf -X POST "${SERVER_URL}/api/ingest/observation" \
+        -H 'Content-Type: application/json' \
+        -d "{
+            \"memory_session_id\": \"$TEST_SESSION_ID\",
+            \"project_path\": \"$TEST_PROJECT\",
+            \"type\": \"feature\",
+            \"title\": \"Quality Test Feature\",
+            \"content\": \"Testing quality score fields\",
+            \"facts\": [\"quality test\"],
+            \"concepts\": [\"testing\"],
+            \"prompt_number\": 1
+        }" 2>&1) || {
+        log_fail "Failed to create observation for quality test"
+        return 1
+    }
+
+    # Check quality_score field exists in response
+    if echo "$obs_response" | grep -q "quality_score"; then
+        log_success "quality_score field present in observation"
+    else
+        log_fail "quality_score field missing from observation"
+        return 1
+    fi
+
+    # Check feedback_type field exists
+    if echo "$obs_response" | grep -q "feedback_type"; then
+        log_success "feedback_type field present"
+    else
+        log_fail "feedback_type field missing"
+        return 1
+    fi
+
+    # Check access_count field exists
+    if echo "$obs_response" | grep -q "access_count"; then
+        log_success "access_count field present"
+    else
+        log_fail "access_count field missing"
+        return 1
+    fi
+
+    return 0
+}
+
+# Test Evo-Memory: Memory Refine API
+test_memory_refine_api() {
+    log_section "Test 19: Evo-Memory Refine API"
+
+    local response
+    response=$(curl -sf -X POST "${SERVER_URL}/api/memory/refine?project=$TEST_PROJECT" 2>&1) || {
+        log_fail "Memory refine API failed"
+        return 1
+    }
+
+    # Check response contains expected fields
+    if echo "$response" | grep -q "status"; then
+        log_success "Refine API returns status"
+    else
+        log_fail "Refine API missing status field"
+        return 1
+    fi
+
+    if echo "$response" | grep -q "triggered"; then
+        log_success "Refine API triggered successfully"
+    else
+        log_fail "Refine API status not triggered"
+        return 1
+    fi
+
+    return 0
+}
+
+# Test Evo-Memory: Quality Distribution API
+test_quality_distribution_api() {
+    log_section "Test 20: Evo-Memory Quality Distribution API"
+
+    local response
+    response=$(curl -sf "${SERVER_URL}/api/memory/quality-distribution?project=$TEST_PROJECT" 2>&1) || {
+        log_fail "Quality distribution API failed"
+        return 1
+    }
+
+    # Check response contains expected fields
+    if echo "$response" | grep -q "high"; then
+        log_success "Quality distribution has 'high' field"
+    else
+        log_fail "Quality distribution missing 'high' field"
+        return 1
+    fi
+
+    if echo "$response" | grep -q "medium"; then
+        log_success "Quality distribution has 'medium' field"
+    else
+        log_fail "Quality distribution missing 'medium' field"
+        return 1
+    fi
+
+    if echo "$response" | grep -q "low"; then
+        log_success "Quality distribution has 'low' field"
+    else
+        log_fail "Quality distribution missing 'low' field"
+        return 1
+    fi
+
+    return 0
+}
+
+# Test Evo-Memory: ICL Prompt API
+test_icl_prompt_api() {
+    log_section "Test 21: Evo-Memory ICL Prompt API"
+
+    local response
+    response=$(curl -sf -X POST "${SERVER_URL}/api/memory/icl-prompt" \
+        -H 'Content-Type: application/json' \
+        -d "{\"task\": \"fix bug\", \"project\": \"$TEST_PROJECT\"}" 2>&1) || {
+        log_fail "ICL prompt API failed"
+        return 1
+    }
+
+    # Check response contains expected fields
+    if echo "$response" | grep -q "prompt"; then
+        log_success "ICL prompt API returns prompt field"
+    else
+        log_fail "ICL prompt API missing prompt field"
+        return 1
+    fi
+
+    if echo "$response" | grep -q "experienceCount"; then
+        log_success "ICL prompt API returns experienceCount"
+    else
+        log_fail "ICL prompt API missing experienceCount"
+        return 1
+    fi
+
+    return 0
+}
+
 # Verify database state
 verify_database_state() {
     log_section "Test 10: Database State Verification"
@@ -894,6 +1036,13 @@ main() {
     test_hybrid_search  # P2: Hybrid search feature
     test_timeline  # P2: Timeline endpoint feature
     test_search_by_file  # TS Alignment: Search by file endpoint
+    
+    # Evo-Memory Tests (Phase 1-3)
+    test_quality_score_fields  # V11: Quality score fields
+    test_memory_refine_api  # Phase 2: Memory refine API
+    test_quality_distribution_api  # Phase 3: Quality distribution API
+    test_icl_prompt_api  # Phase 3: ICL prompt API
+
     verify_database_state
 
     # Print summary
