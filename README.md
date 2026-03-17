@@ -36,7 +36,7 @@ Cortex Community Edition (cortexce) is a memory-enhanced system that provides pe
 1. **Clone the repository**
 
 ```bash
-git clone https://github.com/yourusername/cortexce.git
+git clone https://github.com/Blueforce-Tech-Inc/BlueCortexCE.git
 cd cortexce
 ```
 
@@ -443,8 +443,8 @@ docker exec cortex-ce-postgres psql -U postgres -d claude_mem -c "SELECT COUNT(*
 
 We welcome all forms of contribution!
 
-- 🐛 Report bugs: [Submit Issue](https://github.com/yourusername/cortexce/issues)
-- 💡 Propose features: [Feature Request](https://github.com/yourusername/cortexce/issues)
+- 🐛 Report bugs: [Submit Issue](https://github.com/Blueforce-Tech-Inc/BlueCortexCE/issues)
+- 💡 Propose features: [Feature Request](https://github.com/Blueforce-Tech-Inc/BlueCortexCE/issues)
 - 📝 Improve documentation: Fork and submit PR
 - 🔧 Contribute code: Please read [CONTRIBUTING.md](CONTRIBUTING.md)
 
@@ -469,5 +469,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Contact
 
-- GitHub Issues: [https://github.com/yourusername/cortexce/issues](https://github.com/yourusername/cortexce/issues)
-- Documentation: [https://docs.cortexce.ai](https://docs.cortexce.ai) (Coming soon)
+- GitHub Issues: [https://github.com/Blueforce-Tech-Inc/BlueCortexCE/issues](https://github.com/Blueforce-Tech-Inc/BlueCortexCE/issues)
+- Documentation: See [docs/](https://github.com/Blueforce-Tech-Inc/BlueCortexCE/docs) folder
