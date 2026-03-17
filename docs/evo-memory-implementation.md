@@ -165,6 +165,36 @@ step_number INT
 
 ---
 
+## LLM Integration Flow
+
+When a session ends, the following LLM-powered operations occur:
+
+```
+AgentService.onSessionEnd()
+    │
+    ├─► 1. inferFeedbackWithLlm()
+    │       → LLM analyzes session summary → returns SUCCESS/PARTIAL/FAILURE
+    │
+    ├─► 2. estimateQualityWithLlm()  
+    │       → LLM analyzes each observation → returns 0.0-1.0 quality score
+    │
+    └─► 3. MemoryRefineService.refineMemory()
+            │
+            ├─► mergeObservations()
+            │       → LLM consolidates multiple observations into one
+            │
+            └─► rewriteObservation()
+                    → LLM improves observation content for clarity
+```
+
+**Key Methods**:
+- `QualityScorer.inferFeedbackWithLlm()` - Feedback inference
+- `QualityScorer.estimateQualityWithLlm()` - Quality scoring
+- `MemoryRefineService.mergeObservations()` - Memory merging
+- `MemoryRefineService.rewriteObservation()` - Memory rewriting
+
+---
+
 ## Core Services
 
 ### QualityScorer

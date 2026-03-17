@@ -165,6 +165,36 @@ step_number INT
 
 ---
 
+## LLM 集成流程
+
+会话结束时，LLM 执行以下操作:
+
+```
+AgentService.onSessionEnd()
+    │
+    ├─► 1. inferFeedbackWithLlm()
+    │       → LLM 分析会话摘要 → 返回 SUCCESS/PARTIAL/FAILURE
+    │
+    ├─► 2. estimateQualityWithLlm()  
+    │       → LLM 分析每个 observation → 返回 0.0-1.0 质量分数
+    │
+    └─► 3. MemoryRefineService.refineMemory()
+            │
+            ├─► mergeObservations()
+            │       → LLM 将多个 observation 合并为一个
+            │
+            └─► rewriteObservation()
+                    → LLM 改进 observation 内容提高可读性
+```
+
+**关键方法**:
+- `QualityScorer.inferFeedbackWithLlm()` - 反馈推断
+- `QualityScorer.estimateQualityWithLlm()` - 质量评分
+- `MemoryRefineService.mergeObservations()` - 记忆合并
+- `MemoryRefineService.rewriteObservation()` - 记忆重写
+
+---
+
 ## 核心服务
 
 ### QualityScorer
