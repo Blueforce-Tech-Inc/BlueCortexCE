@@ -39,16 +39,16 @@ public class QualityScorer {
     // LLM-based scoring (optional)
     private final LlmQualityScorer llmQualityScorer;
     
-    public QualityScorer() {
-        this(null);
-    }
-    
+    /**
+     * Constructor with LLM support (Spring will inject LlmQualityScorer automatically).
+     */
     public QualityScorer(LlmQualityScorer llmQualityScorer) {
         this.llmQualityScorer = llmQualityScorer;
-        if (llmQualityScorer != null) {
-            log.info("QualityScorer initialized with LLM-based scoring");
+        if (llmQualityScorer != null && llmQualityScorer.isAvailable()) {
+            log.info("QualityScorer initialized with LLM-based scoring: available={}", 
+                llmQualityScorer.isAvailable());
         } else {
-            log.info("QualityScorer initialized with rule-based scoring");
+            log.info("QualityScorer initialized with rule-based scoring (LLM not available)");
         }
     }
 
