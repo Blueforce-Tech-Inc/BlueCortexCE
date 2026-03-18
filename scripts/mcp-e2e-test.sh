@@ -3,18 +3,28 @@
 # MCP Server End-to-End Test Script
 # Usage: ./mcp-e2e-test.sh [server_url]
 #
-# Test Spring AI MCP Server (WebMVC/SSE) complete functionality
+# Test Spring AI MCP Server (WebMVC/SSE) complete functionality.
 #
-# SSE Protocol Description:
-# 1. First GET /sse to establish SSE connection, get message endpoint with sessionId
-# 2. Send POST request to message endpoint (request body is JSON-RPC)
-# 3. Response returned via SSE channel (event:message, data:{json})
+# SSE Protocol:
+# 1. GET /sse to establish SSE connection, get message endpoint with sessionId
+# 2. POST JSON-RPC to message endpoint
+# 3. Response via SSE channel (event:message, data:{json})
 #
 
 # Do not use set -e, we need to handle errors ourselves
+#
+# Environment:
+#   SERVER_URL or arg1    - Server base URL (default: http://localhost:37777)
+#   MCP_TEST_PROJECT      - Project path for tool calls (default: /tmp/mcp-e2e-test)
 
-SERVER_URL="${1:-http://localhost:37777}"
+SERVER_URL="${1:-${SERVER_URL:-http://localhost:37777}}"
 SSE_ENDPOINT="${SERVER_URL}/sse"
+TEST_PROJECT="${MCP_TEST_PROJECT:-/tmp/mcp-e2e-test}"
+
+# SSE session (from init_sse_session)
+MESSAGE_ENDPOINT=""
+SSE_OUTPUT_FILE=""
+SSE_PID=""
 
 # Color output
 RED='\033[0;31m'
@@ -26,15 +36,6 @@ NC='\033[0m' # No Color
 # Test counter
 TESTS_PASSED=0
 TESTS_FAILED=0
-
-# Session ID and Message Endpoint (from SSE)
-SESSION_ID=""
-MESSAGE_ENDPOINT=""
-SSE_OUTPUT_FILE=""
-SSE_PID=""
-
-# Request ID counter
-REQUEST_ID=0
 
 # Output function
 pass() {
@@ -85,11 +86,8 @@ check_dependencies() {
 init_sse_session() {
     section "Initialize SSE session"
 
-    # Create temp file to store SSE output
     SSE_OUTPUT_FILE=$(mktemp)
 
-    # Start SSE connection, get endpoint event
-    # Use curl built-in timeout limit
     curl -N "${SSE_ENDPOINT}" \
         -H "Accept: text/event-stream" \
         -o "${SSE_OUTPUT_FILE}" \
@@ -98,7 +96,6 @@ init_sse_session() {
 
     SSE_PID=$!
 
-    # Wait for endpoint event (max 10 seconds)
     local max_attempts=10
     local attempt=1
     while [ $attempt -le $max_attempts ]; do
@@ -109,10 +106,7 @@ init_sse_session() {
         ((attempt++))
     done
 
-    # Extract message endpoint from SSE output
-    # Format: event:endpoint\ndata:/mcp/message?sessionId=xxx
     if grep -A1 "event:endpoint" "${SSE_OUTPUT_FILE}" 2>/dev/null | grep -q "data:/mcp/message"; then
-        # Extract endpoint from data line
         MESSAGE_ENDPOINT=$(grep "data:/mcp/message" "${SSE_OUTPUT_FILE}" | head -1 | sed 's/data://')
         SESSION_ID=$(echo "${MESSAGE_ENDPOINT}" | grep -o 'sessionId=[^&]*' | cut -d= -f2)
 
@@ -148,24 +142,27 @@ send_mcp_request() {
 
     local full_endpoint="${SERVER_URL}${MESSAGE_ENDPOINT}"
 
-    # Build JSON-RPC request
     if [ -n "$params" ] && [ "$params" != "null" ]; then
         local request="{\"jsonrpc\": \"2.0\", \"id\": \"$req_id\", \"method\": \"$method\", \"params\": $params}"
     else
         local request="{\"jsonrpc\": \"2.0\", \"id\": \"$req_id\", \"method\": \"$method\"}"
     fi
 
-    # Send request (response will be returned via SSE)
     curl -s -X POST "${full_endpoint}" \
         -H "Content-Type: application/json" \
         -d "$request" 2>/dev/null
 
-    # Wait for SSE response
-    sleep 1
-
-    # Find response from SSE output
-    # Format: event:message\ndata:{"jsonrpc":"2.0","id":"xxx",...}
-    local response_line=$(grep "data:.*\"id\":\"$req_id\"" "${SSE_OUTPUT_FILE}" | tail -1 | sed 's/data://')
+    local max_wait=10
+    local waited=0
+    local response_line=""
+    while [ $waited -lt $max_wait ]; do
+        sleep 0.5
+        waited=$((waited + 1))
+        response_line=$(grep "data:" "${SSE_OUTPUT_FILE}" 2>/dev/null | grep "\"id\"" | grep "$req_id" | tail -1 | sed 's/^data:\s*//; s/^data://')
+        if [ -n "$response_line" ]; then
+            break
+        fi
+    done
 
     if [ -n "$response_line" ]; then
         RESPONSE="$response_line"
@@ -174,6 +171,26 @@ send_mcp_request() {
         RESPONSE=""
         return 1
     fi
+}
+
+# Send MCP notification (no response needed)
+send_mcp_notification() {
+    local method="$1"
+    local params="$2"
+
+    local full_endpoint="${SERVER_URL}${MESSAGE_ENDPOINT}"
+
+    if [ -n "$params" ] && [ "$params" != "null" ]; then
+        local request="{\"jsonrpc\": \"2.0\", \"method\": \"$method\", \"params\": $params}"
+    else
+        local request="{\"jsonrpc\": \"2.0\", \"method\": \"$method\"}"
+    fi
+
+    curl -s -X POST "${full_endpoint}" \
+        -H "Content-Type: application/json" \
+        -d "$request" 2>/dev/null
+
+    sleep 0.5
 }
 
 # Test server health check
@@ -191,30 +208,6 @@ test_health_check() {
     fi
 }
 
-# Send MCP notification (no response needed)
-# Usage: send_mcp_notification <method> [params_json]
-send_mcp_notification() {
-    local method="$1"
-    local params="$2"
-
-    local full_endpoint="${SERVER_URL}${MESSAGE_ENDPOINT}"
-
-    # Build JSON-RPC notification (no id)
-    if [ -n "$params" ] && [ "$params" != "null" ]; then
-        local request="{\"jsonrpc\": \"2.0\", \"method\": \"$method\", \"params\": $params}"
-    else
-        local request="{\"jsonrpc\": \"2.0\", \"method\": \"$method\"}"
-    fi
-
-    # Send notification (no response)
-    curl -s -X POST "${full_endpoint}" \
-        -H "Content-Type: application/json" \
-        -d "$request" 2>/dev/null
-
-    # Brief wait
-    sleep 0.5
-}
-
 # Test MCP initialize
 test_initialize() {
     section "Test 2: MCP initialize"
@@ -222,7 +215,7 @@ test_initialize() {
     local params='{"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "e2e-test", "version": "1.0.0"}}'
 
     if send_mcp_request "init-1" "initialize" "$params"; then
-        info "Response: $...ho "$RESPONSE" | head -c 200)..."
+        info "Response: $(echo "$RESPONSE" | head -c 200)..."
 
         if [ "$HAS_JQ" = true ]; then
             local server_name=$(echo "$RESPONSE" | jq -r '.result.serverInfo.name // empty')
@@ -230,8 +223,6 @@ test_initialize() {
 
             if [ -n "$server_name" ]; then
                 pass "MCP initialize success: $server_name v$server_version"
-
-                # Send initialized notification to complete handshake
                 send_mcp_notification "notifications/initialized"
                 info "Sent initialized notification"
             else
@@ -240,14 +231,13 @@ test_initialize() {
         else
             if echo "$RESPONSE" | grep -q "serverInfo"; then
                 pass "MCP initialize success"
-                # Send initialized notification to complete handshake
                 send_mcp_notification "notifications/initialized"
             else
                 fail "MCP initialize failed"
             fi
         fi
     else
-        fail "MCP initialize request timeout"
+        fail "MCP initialize request failed"
     fi
 }
 
@@ -256,10 +246,9 @@ test_tools_list() {
     section "Test 3: MCP tools list (tools/list)"
 
     if send_mcp_request "tools-list-1" "tools/list" "{}"; then
-        info "Response: $...ho "$RESPONSE" | head -c 300)..."
+        info "Response: $(echo "$RESPONSE" | head -c 300)..."
 
         if [ "$HAS_JQ" = true ]; then
-            # Verify tools list
             local expected_tools=("search" "timeline" "get_observations" "save_memory" "recent")
             local missing_tools=()
 
@@ -276,7 +265,6 @@ test_tools_list() {
                 fail "Missing tools: ${missing_tools[*]}"
             fi
         else
-            # Simple check if tool name is included
             if echo "$RESPONSE" | grep -q "search"; then
                 pass "Tools list contains search tool"
             else
@@ -284,7 +272,7 @@ test_tools_list() {
             fi
         fi
     else
-        fail "Tools list request timeout"
+        fail "Tools list request failed"
     fi
 }
 
@@ -292,10 +280,10 @@ test_tools_list() {
 test_search_tool() {
     section "Test 4: search tool"
 
-    local params='{"name": "search", "arguments": {"project": "/Users/yangjiefeng/Documents/claude-mem", "limit": 5}}'
+    local params="{\"name\": \"search\", \"arguments\": {\"project\": \"${TEST_PROJECT}\", \"limit\": 5}}"
 
     if send_mcp_request "search-1" "tools/call" "$params"; then
-        info "Response: $...ho "$RESPONSE" | head -c 300)..."
+        info "Response: $(echo "$RESPONSE" | head -c 300)..."
 
         if [ "$HAS_JQ" = true ]; then
             if echo "$RESPONSE" | jq -e '.result.content[0].type == "text"' > /dev/null 2>&1; then
@@ -316,7 +304,7 @@ test_search_tool() {
             fi
         fi
     else
-        fail "search tool request timeout"
+        fail "search tool request failed"
     fi
 }
 
@@ -324,10 +312,10 @@ test_search_tool() {
 test_timeline_tool() {
     section "Test 5: timeline tool"
 
-    local params='{"name": "timeline", "arguments": {"project": "/Users/yangjiefeng/Documents/claude-mem", "depthBefore": 2, "depthAfter": 2}}'
+    local params="{\"name\": \"timeline\", \"arguments\": {\"project\": \"${TEST_PROJECT}\", \"depthBefore\": 2, \"depthAfter\": 2}}"
 
     if send_mcp_request "timeline-1" "tools/call" "$params"; then
-        info "Response: $...ho "$RESPONSE" | head -c 300)..."
+        info "Response: $(echo "$RESPONSE" | head -c 300)..."
 
         if [ "$HAS_JQ" = true ]; then
             if echo "$RESPONSE" | jq -e '.result.content[0].type == "text"' > /dev/null 2>&1; then
@@ -347,7 +335,7 @@ test_timeline_tool() {
             fi
         fi
     else
-        fail "timeline tool request timeout"
+        fail "timeline tool request failed"
     fi
 }
 
@@ -355,10 +343,10 @@ test_timeline_tool() {
 test_get_observations_tool() {
     section "Test 6: get_observations tool"
 
-    local params='{"name": "get_observations", "arguments": {"ids": [], "project": "/Users/yangjiefeng/Documents/claude-mem"}}'
+    local params="{\"name\": \"get_observations\", \"arguments\": {\"ids\": [], \"project\": \"${TEST_PROJECT}\"}}"
 
     if send_mcp_request "get-obs-1" "tools/call" "$params"; then
-        info "Response: $...ho "$RESPONSE" | head -c 300)..."
+        info "Response: $(echo "$RESPONSE" | head -c 300)..."
 
         if [ "$HAS_JQ" = true ]; then
             if echo "$RESPONSE" | jq -e '.result.content[0].type == "text"' > /dev/null 2>&1; then
@@ -378,7 +366,7 @@ test_get_observations_tool() {
             fi
         fi
     else
-        fail "get_observations tool request timeout"
+        fail "get_observations tool request failed"
     fi
 }
 
@@ -387,10 +375,10 @@ test_save_memory_tool() {
     section "Test 7: save_memory tool"
 
     local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    local params="{\"name\": \"save_memory\", \"arguments\": {\"text\": \"E2E test memory entry created at ${timestamp}\", \"title\": \"E2E Test Memory\", \"project\": \"/Users/yangjiefeng/Documents/claude-mem\"}}"
+    local params="{\"name\": \"save_memory\", \"arguments\": {\"text\": \"E2E test memory entry created at ${timestamp}\", \"title\": \"E2E Test Memory\", \"project\": \"${TEST_PROJECT}\"}}"
 
     if send_mcp_request "save-mem-1" "tools/call" "$params"; then
-        info "Response: $...ho "$RESPONSE" | head -c 300)..."
+        info "Response: $(echo "$RESPONSE" | head -c 300)..."
 
         if [ "$HAS_JQ" = true ]; then
             if echo "$RESPONSE" | jq -e '.result.content[0].type == "text"' > /dev/null 2>&1; then
@@ -416,7 +404,7 @@ test_save_memory_tool() {
             fi
         fi
     else
-        fail "save_memory tool request timeout"
+        fail "save_memory tool request failed"
     fi
 }
 
@@ -427,7 +415,7 @@ test_error_handling() {
     local params='{"name": "nonexistent_tool_xyz", "arguments": {}}'
 
     if send_mcp_request "error-1" "tools/call" "$params"; then
-        info "Response: $...ho "$RESPONSE" | head -c 200)..."
+        info "Response: $(echo "$RESPONSE" | head -c 200)..."
 
         if [ "$HAS_JQ" = true ]; then
             if echo "$RESPONSE" | jq -e '.error' > /dev/null 2>&1; then
@@ -444,7 +432,7 @@ test_error_handling() {
             fi
         fi
     else
-        fail "Error handling test request timeout"
+        fail "Error handling test request failed"
     fi
 }
 
@@ -452,56 +440,32 @@ test_error_handling() {
 test_rest_api_compatibility() {
     section "Test 9: REST API compatibility"
 
-    # Test /api/search endpoint
-    local response=$(curl -s -o /dev/null -w "%{http_code}" \
-        "${SERVER_URL}/api/search?project=/Users/yangjiefeng/Documents/claude-mem&limit=5" 2>/dev/null || echo "000")
+    local response
+    response=$(curl -s -o /dev/null -w "%{http_code}" \
+        "${SERVER_URL}/api/search?project=${TEST_PROJECT}&limit=5" 2>/dev/null || echo "000")
+    [ "$response" = "200" ] && pass "REST API /api/search endpoint OK (HTTP $response)" || warn "REST API /api/search returned HTTP $response"
 
-    if [ "$response" = "200" ]; then
-        pass "REST API /api/search endpoint OK (HTTP $response)"
-    else
-        warn "REST API /api/search endpoint returned HTTP $response"
-    fi
-
-    # Test /api/observations endpoint
     response=$(curl -s -o /dev/null -w "%{http_code}" \
         "${SERVER_URL}/api/observations?limit=5" 2>/dev/null || echo "000")
+    [ "$response" = "200" ] && pass "REST API /api/observations endpoint OK (HTTP $response)" || warn "REST API /api/observations returned HTTP $response"
 
-    if [ "$response" = "200" ]; then
-        pass "REST API /api/observations endpoint OK (HTTP $response)"
-    else
-        warn "REST API /api/observations endpoint returned HTTP $response"
-    fi
-
-    # Test /api/context/recent endpoint (new)
     response=$(curl -s -o /dev/null -w "%{http_code}" \
-        "${SERVER_URL}/api/context/recent?project=/Users/yangjiefeng/Documents/claude-mem&limit=3" 2>/dev/null || echo "000")
+        "${SERVER_URL}/api/context/recent?project=${TEST_PROJECT}&limit=3" 2>/dev/null || echo "000")
+    [ "$response" = "200" ] && pass "REST API /api/context/recent endpoint OK (HTTP $response)" || warn "REST API /api/context/recent returned HTTP $response"
 
-    if [ "$response" = "200" ]; then
-        pass "REST API /api/context/recent endpoint OK (HTTP $response)"
-    else
-        warn "REST API /api/context/recent endpoint returned HTTP $response"
-    fi
-
-    # Test /api/context/timeline endpoint (new)
     response=$(curl -s -o /dev/null -w "%{http_code}" \
-        "${SERVER_URL}/api/context/timeline?project=/Users/yangjiefeng/Documents/claude-mem" 2>/dev/null || echo "000")
-
-    if [ "$response" = "200" ] || [ "$response" = "400" ]; then
-        # 400 is normal because no anchor parameter provided
-        pass "REST API /api/context/timeline endpoint OK (HTTP $response)"
-    else
-        warn "REST API /api/context/timeline endpoint returned HTTP $response"
-    fi
+        "${SERVER_URL}/api/context/timeline?project=${TEST_PROJECT}" 2>/dev/null || echo "000")
+    [ "$response" = "200" ] || [ "$response" = "400" ] && pass "REST API /api/context/timeline endpoint OK (HTTP $response)" || warn "REST API /api/context/timeline returned HTTP $response"
 }
 
 # Test recent tool
 test_recent_tool() {
     section "Test 10: recent tool"
 
-    local params='{"name": "recent", "arguments": {"project": "/Users/yangjiefeng/Documents/claude-mem", "limit": 3}}'
+    local params="{\"name\": \"recent\", \"arguments\": {\"project\": \"${TEST_PROJECT}\", \"limit\": 3}}"
 
     if send_mcp_request "recent-1" "tools/call" "$params"; then
-        info "Response: $...ho "$RESPONSE" | head -c 300)..."
+        info "Response: $(echo "$RESPONSE" | head -c 300)..."
 
         if [ "$HAS_JQ" = true ]; then
             if echo "$RESPONSE" | jq -e '.result.content[0].type == "text"' > /dev/null 2>&1; then
@@ -521,21 +485,14 @@ test_recent_tool() {
             fi
         fi
     else
-        fail "recent tool request timeout"
+        fail "recent tool request failed"
     fi
 }
 
-# Cleanup function
+# Cleanup function - terminate SSE connection
 cleanup() {
-    # Terminate background SSE connection
-    if [ -n "$SSE_PID" ]; then
-        kill $SSE_PID 2>/dev/null || true
-    fi
-
-    # Delete temp files
-    if [ -n "$SSE_OUTPUT_FILE" ] && [ -f "$SSE_OUTPUT_FILE" ]; then
-        rm -f "$SSE_OUTPUT_FILE"
-    fi
+    [ -n "$SSE_PID" ] && kill $SSE_PID 2>/dev/null || true
+    [ -n "$SSE_OUTPUT_FILE" ] && [ -f "$SSE_OUTPUT_FILE" ] && rm -f "$SSE_OUTPUT_FILE"
 }
 
 # Print test results summary
@@ -546,7 +503,6 @@ print_summary() {
     echo -e "Failed: ${RED}${TESTS_FAILED}${NC}"
     echo ""
 
-    # Cleanup
     cleanup
 
     if [ $TESTS_FAILED -eq 0 ]; then
@@ -560,36 +516,33 @@ print_summary() {
 
 # Main test flow
 main() {
-    # Set cleanup on exit
     trap cleanup EXIT
 
     echo ""
     echo -e "${BLUE}=========================================="
-    echo "MCP Server end-to-end test"
+    echo "MCP Server end-to-end test (SSE protocol)"
     echo "==========================================${NC}"
     echo ""
     echo "Server address: ${SERVER_URL}"
     echo "SSE endpoint: ${SSE_ENDPOINT}"
+    echo "Test project: ${TEST_PROJECT}"
     echo ""
 
     check_dependencies
 
-    # If server unavailable, exit early
     if ! test_health_check; then
         echo ""
         echo -e "${RED}Server unavailable, please ensure Java MCP Server is started${NC}"
-        echo "Start command: cd java/backend && ./mvnw spring-boot:run"
+        echo "Start command: cd backend && ./mvnw spring-boot:run"
         exit 1
     fi
 
-    # Initialize SSE session
     if ! init_sse_session; then
         echo ""
         echo -e "${RED}Cannot establish SSE session${NC}"
         exit 1
     fi
 
-    # Run tests
     test_initialize
     test_tools_list
     test_search_tool

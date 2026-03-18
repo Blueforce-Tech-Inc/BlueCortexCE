@@ -85,8 +85,10 @@ spring:
         version: 0.1.0
         # 传输类型：SYNC
         type: SYNC
-        # 协议类型：STATELESS
-        protocol: STATELESS
+        # SSE：Spring AI 1.1.2 WebMVC 可用。STATELESS 在本版本未正确注册 /mcp。
+        protocol: SSE
+        sse-endpoint: /sse
+        sse-message-endpoint: /mcp/message
         capabilities:
           # 启用工具调用
           tool: true
