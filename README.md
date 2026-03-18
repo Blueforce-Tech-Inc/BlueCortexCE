@@ -440,6 +440,22 @@ docker exec cortex-ce-postgres psql -U postgres -d claude_mem -c "SELECT COUNT(*
 
 ---
 
+## IDE Integrations
+
+### Cursor IDE
+
+For Cursor IDE integration with the memory system, see:
+- [English版](proxy/CURSOR-INTEGRATION.md)
+- [中文版](proxy/CURSOR-INTEGRATION-zh-CN.md)
+
+### OpenClaw
+
+For OpenClaw integration with the memory system, see:
+- [English版](openclaw-plugin/OPENCLAW-INTEGRATION.md)
+- [中文版](openclaw-plugin/OPENCLAW-INTEGRATION-zh-CN.md)
+
+---
+
 ## Contributing
 
 We welcome all forms of contribution!
