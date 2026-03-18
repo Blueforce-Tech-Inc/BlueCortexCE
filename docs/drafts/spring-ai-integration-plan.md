@@ -6,18 +6,18 @@
 >
 > ---
 >
-> **⚠️ 重要说明 - Spring AI API 验证状态**:
-> 
-> 本文档中涉及 Spring AI 的以下内容**需要进一步验证**：
-> 
-> 1. `@Tool` 注解的包路径和确切用法
-> 2. `FunctionCallback` / `FunctionCallbackWrapper` 的 API
-> 3. `ChatClient.mutate().advisors()` 的确切方法签名
-> 4. AOP 拦截 `@Tool` 注解的可行性
-> 
-> **原因**: 网络搜索工具暂时不可用 (缺少 Brave API Key)，无法 100% 确认这些 API。
-> 
-> **建议**: 在实施前，请通过 [Spring AI 官方文档](https://docs.spring.io/spring-ai/reference/) 确认这些 API。
+> **✅ Spring AI API 验证状态** (2026-03-18 确认):
+>
+> 本文档中涉及的 Spring AI API 已通过官方文档验证：
+>
+> 1. ✅ `@Tool` 注解 - 包路径: `org.springframework.ai.tool.annotation.Tool`
+> 2. ✅ `ToolCallback` 接口 - 存在
+> 3. ✅ `MethodToolCallback` - 存在
+> 4. ✅ `ToolCallbacks.from()` - 存在，用于从类实例创建工具回调
+> 5. ✅ `tools()` 方法 (ChatClient) - 存在
+> 6. ✅ AOP 拦截 `@Tool` 方法 - 可行 (Spring AI 支持)
+>
+> **参考**: [Spring AI Tool Calling 官方文档](https://docs.spring.io/spring-ai/reference/api/tools.html)
 
 ---
 
@@ -396,9 +396,11 @@ class CortexToolAspect {
     
     /**
      * 拦截所有被 @Tool 注解的方法
+     * 注: @Tool 注解来自 org.springframework.ai.tool.annotation.Tool
      */
     @Around("@annotation(org.springframework.ai.tool.annotation.Tool)")
     public Object interceptToolExecution(ProceedingJoinPoint joinPoint) throws Throwable {
+        // 需要导入: import org.springframework.ai.tool.annotation.Tool;
         Method method = ((MethodSignature) joinPoint.getSignature()).getMethod();
         Tool toolAnnotation = method.getAnnotation(Tool.class);
         String toolName = toolAnnotation.name();
@@ -427,34 +429,52 @@ class CortexToolAspect {
 
 ---
 
-##### 方案二: FunctionCallback 包装 (需要进一步验证)
+##### 方案二: 使用 Spring AI 原生回调机制
 
-> ⚠️ **待验证**: 以下方案基于 Spring AI FunctionCallback 机制，需要实际测试确认。
+> ✅ **已验证**: Spring AI 提供 `ToolCallback` 接口和 `ToolCallbacks.from()` 方法。
 
 ```java
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.ToolCallbacks;
+
 /**
- * 带记忆的 FunctionCallback - 包装工具函数，自动捕获执行结果
+ * 带记忆的工具类 - 通过 Spring AI 的工具回调机制自动捕获
  * 
- * Spring AI 使用 FunctionCallback 注册工具，此处包装以自动捕获
+ * 继承原有工具类并注册到 ChatClient，即可自动捕获
  */
 @Component
-class CortexFunctionCallbackWrapper implements FunctionCallbackWrapper {
+class CortexToolCallbacks extends DateTimeTools {
     
     private final ObservationCaptureService captureService;
     
+    public CortexToolCallbacks(ObservationCaptureService captureService) {
+        this.captureService = captureService;
+    }
+    
+    // 重写工具方法，自动捕获执行结果
     @Override
-    public Object apply(String toolName, Map<String, Object> input, 
-                       FunctionCallbackResult result) {
+    @Tool(description = "Get the current date and time")
+    public String getCurrentDateTime() {
+        String result = super.getCurrentDateTime();
+        
         // 自动捕获工具执行结果
         captureService.recordToolObservation(ToolObservation.builder()
             .sessionId(getCurrentSessionContext())
             .projectPath(getCurrentProjectPath())
-            .toolName(toolName)
-            .toolInput(input)
-            .toolResponse(toMap(result.getResult()))
+            .toolName("getCurrentDateTime")
+            .toolInput(Map.of())
+            .toolResponse(Map.of("result", result))
             .promptNumber(getPromptCount())
             .build());
-        return result.getResult();
+        
+        return result;
+    }
+}
+
+// 使用方式
+ChatClient.create(chatModel)
+    .tools(new CortexToolCallbacks(captureService))  // 传入带捕获的类
+    .call();
     }
 }
 ```
@@ -505,8 +525,8 @@ class AgentEventListener {
 | 方案 | 原理 | 优点 | 状态 |
 |------|------|------|------|
 | **AOP 切面** | 拦截 @Tool 方法 | 无侵入、统一拦截 | ✅ 可行 |
-| **FunctionCallback 包装** | 包装回调函数 | 精确捕获 | ⚠️ 待验证 |
-| **事件监听** | 监听框架事件 | 解耦最好 | ✅ 可行 |
+| **继承工具类 + 重写** | 重写工具方法 | 完全可控 | ✅ 可行 |
+| **事件监听** | 监听框架事件 | 解耦最好 | ⚠️ 需框架支持 |
 
 #### 4.2.5 使用示例
 
