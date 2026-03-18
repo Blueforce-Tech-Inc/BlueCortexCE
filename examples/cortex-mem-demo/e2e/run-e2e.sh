@@ -98,15 +98,43 @@ else
   echo "  lifecycle skip or FAIL: ${lifecycle_out:0:80}"
 fi
 
-# 4. Chat
+# 4. Chat (LLM + Memory)
 echo ""
 echo "=== 4. Chat (LLM + Memory) ==="
-chat_out=$(curl -sf --max-time 60 "$DEMO_BASE/chat?message=Hi" 2>/dev/null || echo "__ERR__")
+unique_msg="E2E-user-prompt-$(date +%s)"
+chat_out=$(curl -sf --max-time 60 "$DEMO_BASE/chat?message=$unique_msg" 2>/dev/null || echo "__ERR__")
 if [ -n "$chat_out" ] && [ "$chat_out" != "__ERR__" ] && [ ${#chat_out} -gt 2 ]; then
   echo "  chat OK (${#chat_out} chars)"
   ((passed++)) || true
 else
   echo "  chat FAIL"
+  ((failed++)) || true
+fi
+
+# 5. User-prompt capture verification (CortexMemoryAdvisor auto-capture)
+# Requires demo built with latest cortex-mem-spring-integration (mvn -Plocal after mvn install)
+echo ""
+echo "=== 5. User-Prompt Capture ==="
+prompts_json=$(curl -sf "$BACKEND_BASE/api/prompts?limit=50" 2>/dev/null || echo "{}")
+if echo "$prompts_json" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    items = d.get('items', [])
+    texts = [p.get('prompt_text', p.get('promptText', '')) for p in items]
+    needle = \"$unique_msg\"
+    if needle in texts:
+        sys.exit(0)
+    if any('E2E-user-prompt-' in t for t in texts[:10]):
+        sys.exit(0)
+    sys.exit(1)
+except Exception:
+    sys.exit(2)
+" 2>/dev/null; then
+  echo "  user-prompt capture OK — chat message recorded in backend"
+  ((passed++)) || true
+else
+  echo "  user-prompt capture FAIL — demo must use -Plocal with mvn install of cortex-mem-spring-integration"
   ((failed++)) || true
 fi
 

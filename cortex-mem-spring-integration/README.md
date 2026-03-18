@@ -110,6 +110,27 @@ class AiController {
 
 Each request automatically retrieves relevant experiences from the memory backend and injects them into the system prompt as ICL context.
 
+User prompts are **auto-captured** when `capture-enabled=true` and a session ID is available. Session ID resolution (aligned with Spring AI `ChatMemory.CONVERSATION_ID`):
+
+1. **Spring AI conversation ID** — set via `.advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, id))`
+2. **CortexSessionContext** — fallback when wrapping with `begin`/`end`
+
+```java
+// Option A: Spring AI conversation ID (aligns with MessageChatMemoryAdvisor)
+chatClient.prompt()
+    .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, conversationId))
+    .user(message)
+    .call()
+    .content();
+
+// Option B: CortexSessionContext
+CortexSessionContext.begin(sessionId, projectPath);
+try {
+    CortexSessionContext.incrementAndGetPromptNumber();
+    return chatClient.prompt().user(message).call().content();
+} finally { CortexSessionContext.end(); }
+```
+
 ## Configuration
 
 All properties are under `cortex.mem`:
@@ -121,7 +142,8 @@ All properties are under `cortex.mem`:
 | `connect-timeout` | Duration | `10s` | HTTP connect timeout |
 | `read-timeout` | Duration | `30s` | HTTP read timeout |
 | `default-experience-count` | int | `4` | Max experiences per retrieval |
-| `capture-enabled` | boolean | `true` | Enable observation capture |
+| `capture-enabled` | boolean | `true` | Enable @Tool observation capture |
+| `capture-user-prompt-enabled` | boolean | `true` | Enable user prompt auto-capture in CortexMemoryAdvisor |
 | `retrieval-enabled` | boolean | `true` | Enable memory retrieval |
 | `retry.max-attempts` | int | `3` | Retry attempts for capture calls |
 | `retry.backoff` | Duration | `500ms` | Base backoff between retries |
@@ -131,6 +153,8 @@ All properties are under `cortex.mem`:
 ```bash
 CORTEX_MEM_BASE_URL=http://localhost:37777
 CORTEX_MEM_PROJECT_PATH=/my/project
+CORTEX_MEM_CAPTURE_ENABLED=true
+CORTEX_MEM_CAPTURE_USER_PROMPT_ENABLED=true
 ```
 
 ## Architecture
@@ -143,7 +167,7 @@ CORTEX_MEM_PROJECT_PATH=/my/project
 │  │              Cortex Memory Integration Layer               │  │
 │  │  ┌─────────────────────┐    ┌──────────────────────────┐  │  │
 │  │  │ CortexToolAspect     │    │ CortexMemoryAdvisor      │  │  │
-│  │  │ (@Tool capture)      │    │ (ICL retrieval)          │  │  │
+│  │  │ (@Tool capture)      │    │ (ICL + user-prompt cap)  │  │  │
 │  │  └──────────┬──────────┘    └────────────┬─────────────┘  │  │
 │  │             │                              │                │  │
 │  │             ▼                              ▼                │  │

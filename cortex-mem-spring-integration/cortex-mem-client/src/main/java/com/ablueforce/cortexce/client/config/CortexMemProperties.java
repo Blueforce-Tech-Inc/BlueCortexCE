@@ -14,7 +14,10 @@ public class CortexMemProperties {
     private Duration connectTimeout = Duration.ofSeconds(10);
     private Duration readTimeout = Duration.ofSeconds(30);
     private int defaultExperienceCount = 4;
+    /** Master switch for tool capture (@Tool observations). */
     private boolean captureEnabled = true;
+    /** Fine-grained: enable/disable user prompt auto-capture in CortexMemoryAdvisor. */
+    private boolean captureUserPromptEnabled = true;
     private boolean retrievalEnabled = true;
     private Retry retry = new Retry();
 
@@ -35,6 +38,9 @@ public class CortexMemProperties {
 
     public boolean isCaptureEnabled() { return captureEnabled; }
     public void setCaptureEnabled(boolean captureEnabled) { this.captureEnabled = captureEnabled; }
+
+    public boolean isCaptureUserPromptEnabled() { return captureUserPromptEnabled; }
+    public void setCaptureUserPromptEnabled(boolean captureUserPromptEnabled) { this.captureUserPromptEnabled = captureUserPromptEnabled; }
 
     public boolean isRetrievalEnabled() { return retrievalEnabled; }
     public void setRetrievalEnabled(boolean retrievalEnabled) { this.retrievalEnabled = retrievalEnabled; }

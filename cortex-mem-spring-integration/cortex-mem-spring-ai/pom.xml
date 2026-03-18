@@ -21,7 +21,7 @@
             <artifactId>cortex-mem-client</artifactId>
         </dependency>
 
-        <!-- Spring AI Core (provides ChatClient, Advisor, @Tool, etc.) -->
+        <!-- Spring AI Core (provides ChatClient, Advisor, ChatMemory, @Tool, etc.) -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-client-chat</artifactId>

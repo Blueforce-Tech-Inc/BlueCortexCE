@@ -10,7 +10,10 @@ cortex:
     # Default project path — used for Chat ICL retrieval and Memory default scope
     project-path: ${user.dir}
     default-experience-count: 4
+    # capture-enabled: record @Tool invocations (e.g. readFile) as observations
     capture-enabled: true
+    # capture-user-prompt-enabled: record ChatClient user messages as prompts; set false to skip
+    capture-user-prompt-enabled: true
     retrieval-enabled: true
 
 # Demo multi-project config — project isolation for memory
