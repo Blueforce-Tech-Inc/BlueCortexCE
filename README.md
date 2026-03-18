@@ -90,11 +90,19 @@ mkdir -p ~/.cortexce && cd ~/.cortexce
 ```bash
 cat > .env << 'EOF'
 DB_PASSWORD=your_secure_password
+
+# LLM (对话模型)
 SPRING_AI_OPENAI_API_KEY=your_openai_key
 SPRING_AI_OPENAI_BASE_URL=https://api.deepseek.com
+SPRING_AI_OPENAI_CHAT_MODEL=deepseek-chat
+
+# Embedding (向量化模型)
 SPRING_AI_OPENAI_EMBEDDING_API_KEY=your_siliconflow_key
 SPRING_AI_OPENAI_EMBEDDING_BASE_URL=https://api.siliconflow.cn
 SPRING_AI_OPENAI_EMBEDDING_MODEL=BAAI/bge-m3
+SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS=1024
+
+# Optional: 关闭记忆演化以节省 token
 MEMORY_REFINE_ENABLED=false
 EOF
 ```
