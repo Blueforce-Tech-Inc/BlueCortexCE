@@ -354,9 +354,9 @@ public record UserPromptRequest(
 
 #### 4.2.4 自动捕获拦截器
 
-**核心问题**: Spring AI 的工具执行是通过 `FunctionCallback` 机制实现的，不是传统的事件机制。
+**核心问题**: Spring AI 的工具执行是通过 `FunctionCallback` 或 `@Tool` 注解实现的。
 
-**实现方案**: 使用 **AOP 切面** 拦截工具执行，自动记录前后状态。
+**实现方案**: 使用 **AOP 切面** 拦截工具方法执行。
 
 ---
 
@@ -412,50 +412,34 @@ class CortexToolAspect {
 
 ---
 
-##### 方案二: 包装 ChatClient
+##### 方案二: FunctionCallback 包装 (需要进一步验证)
+
+> ⚠️ **待验证**: 以下方案基于 Spring AI FunctionCallback 机制，需要实际测试确认。
 
 ```java
 /**
- * 带记忆的 ChatClient - 包装原生 ChatClient，自动捕获工具执行
+ * 带记忆的 FunctionCallback - 包装工具函数，自动捕获执行结果
+ * 
+ * Spring AI 使用 FunctionCallback 注册工具，此处包装以自动捕获
  */
 @Component
-class CortexChatClient {
+class CortexFunctionCallbackWrapper implements FunctionCallbackWrapper {
     
-    private final ChatClient delegate;
     private final ObservationCaptureService captureService;
     
-    public CortexChatClient(ChatClient delegate,
-                           ObservationCaptureService captureService) {
-        this.delegate = delegate;
-        this.captureService = captureService;
-    }
-    
-    /**
-     * 调用 AI 并自动捕获工具执行
-     */
-    public PromptResult chat(Prompt prompt) {
-        // 1. 设置工具回调包装器
-        FunctionCallbackWrapper wrapper = new FunctionCallbackWrapper() {
-            @Override
-            public Object apply(String toolName, Map<String, Object> input, 
-                              FunctionCallbackResult result) {
-                // 自动捕获工具执行结果
-                captureService.recordToolObservation(ToolObservation.builder()
-                    .sessionId(getCurrentSessionContext())
-                    .projectPath(getCurrentProjectPath())
-                    .toolName(toolName)
-                    .toolInput(input)
-                    .toolResponse(toMap(result.getResult()))
-                    .promptNumber(getPromptCount())
-                    .build());
-                return result.getResult();
-            }
-        };
-        
-        // 2. 调用 AI
-        return delegate.prompt(prompt)
-            .toolCallbackWrapper(wrapper)  // 注入包装器
-            .call();
+    @Override
+    public Object apply(String toolName, Map<String, Object> input, 
+                       FunctionCallbackResult result) {
+        // 自动捕获工具执行结果
+        captureService.recordToolObservation(ToolObservation.builder()
+            .sessionId(getCurrentSessionContext())
+            .projectPath(getCurrentProjectPath())
+            .toolName(toolName)
+            .toolInput(input)
+            .toolResponse(toMap(result.getResult()))
+            .promptNumber(getPromptCount())
+            .build());
+        return result.getResult();
     }
 }
 ```
@@ -499,11 +483,11 @@ class AgentEventListener {
 
 ##### 自动捕获机制对比
 
-| 方案 | 优点 | 缺点 | 适用场景 |
-|------|------|------|----------|
-| **AOP 切面** | 无侵入，统一拦截 | 需要 AOP 依赖 | 通用场景 |
-| **包装 ChatClient** | 完全可控 | 需要替换 bean | 细粒度控制 |
-| **事件监听** | 解耦最好 | 依赖框架事件 | 自定义框架 |
+| 方案 | 原理 | 优点 | 状态 |
+|------|------|------|------|
+| **AOP 切面** | 拦截 @Tool 方法 | 无侵入、统一拦截 | ✅ 可行 |
+| **FunctionCallback 包装** | 包装回调函数 | 精确捕获 | ⚠️ 待验证 |
+| **事件监听** | 监听框架事件 | 解耦最好 | ✅ 可行 |
         captureService.recordToolObservation(ToolObservation.builder()
             .sessionId(event.getSessionId())
             .projectPath(event.getProjectPath())
