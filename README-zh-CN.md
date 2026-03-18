@@ -268,6 +268,11 @@ SPRING_AI_OPENAI_EMBEDDING_API_KEY=your_siliconflow_key
 SPRING_AI_OPENAI_EMBEDDING_BASE_URL=https://api.siliconflow.cn
 SPRING_AI_OPENAI_EMBEDDING_MODEL=BAAI/bge-m3
 SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS=1024
+
+# ⚡ 可选：关闭自演化记忆（记忆精炼）功能
+# 该功能会自动精炼/合并记忆，但会消耗 LLM token。
+# 设置为 'false' 可关闭此功能，节省 token 消耗。
+MEMORY_REFINE_ENABLED=false
 EOF
 ```
 

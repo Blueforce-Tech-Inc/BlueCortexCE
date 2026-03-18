@@ -268,6 +268,11 @@ SPRING_AI_OPENAI_EMBEDDING_API_KEY=your_siliconflow_key
 SPRING_AI_OPENAI_EMBEDDING_BASE_URL=https://api.siliconflow.cn
 SPRING_AI_OPENAI_EMBEDDING_MODEL=BAAI/bge-m3
 SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS=1024
+
+# ⚡ Optional: Disable Memory Evolution (Self-Refinement)
+# This feature automatically refines/merges memories but consumes LLM tokens.
+# Set to 'false' to disable and save token costs.
+MEMORY_REFINE_ENABLED=false
 EOF
 ```
 

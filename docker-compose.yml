@@ -70,6 +70,10 @@ services:
       CLAUDE_MEM_MODE: ${CLAUDE_MEM_MODE:-code}
       CLAUDEMEM_LOG_DIR: /app/logs
 
+      # Evo-Memory: Disable memory refinement to save LLM tokens
+      # Set to 'false' to disable self-evolution feature
+      MEMORY_REFINE_ENABLED: ${MEMORY_REFINE_ENABLED:-true}
+
       JAVA_OPTS: ${JAVA_OPTS:--XX:+UseZGC -XX:MaxRAMPercentage=75.0}
     volumes:
       - ${LOGS_PATH:-claude-mem-logs}:/app/logs
