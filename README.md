@@ -91,12 +91,12 @@ mkdir -p ~/.cortexce && cd ~/.cortexce
 cat > .env << 'EOF'
 DB_PASSWORD=your_secure_password
 
-# LLM (对话模型)
+# LLM (Chat Model)
 SPRING_AI_OPENAI_API_KEY=your_openai_key
 SPRING_AI_OPENAI_BASE_URL=https://api.deepseek.com
 SPRING_AI_OPENAI_CHAT_MODEL=deepseek-chat
 
-# Embedding (向量化模型)
+# Embedding (Vector Model)
 SPRING_AI_OPENAI_EMBEDDING_API_KEY=your_siliconflow_key
 SPRING_AI_OPENAI_EMBEDDING_BASE_URL=https://api.siliconflow.cn
 SPRING_AI_OPENAI_EMBEDDING_MODEL=BAAI/bge-m3
@@ -220,11 +220,11 @@ docker compose down     # stop
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `DB_PASSWORD` | PostgreSQL password | `your_secure_password` |
-| **LLM (对话模型)** | | |
+| **LLM (Chat Model)** | | |
 | `SPRING_AI_OPENAI_API_KEY` | LLM API Key | `sk-xxx` |
 | `SPRING_AI_OPENAI_BASE_URL` | LLM API URL | `https://api.deepseek.com` |
 | `SPRING_AI_OPENAI_CHAT_MODEL` | Chat model name | `deepseek-chat` |
-| **Embedding (向量化模型)** | | |
+| **Embedding (Vector Model)** | | |
 | `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | Embedding API Key | `sk-xxx` |
 | `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | Embedding API URL | `https://api.siliconflow.cn` |
 | `SPRING_AI_OPENAI_EMBEDDING_MODEL` | Embedding model | `BAAI/bge-m3` |
