@@ -497,7 +497,7 @@ public record UserPromptRequest(
     String sessionId,
     String projectPath,
     String promptText,
-    int promptNumber
+    Integer promptNumber       // 可选
 ) {}
 ```
 
