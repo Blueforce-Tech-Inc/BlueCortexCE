@@ -32,6 +32,7 @@
     - [1.3 目标用户](#13-目标用户)
   - [2. 当前记忆系统 API 概览](#2-当前记忆系统-api-概览)
     - [2.1 核心 API 端点](#21-核心-api-端点)
+    - [2.1.1 会话初始化 (Session Start)](#211-会话初始化-session-start)
     - [2.2 API 详情 (捕获类)](#22-api-详情-捕获类)
       - [2.2.1 记录观察 (Tool Use)](#221-记录观察-tool-use)
       - [2.2.2 会话结束 (Session End)](#222-会话结束-session-end)
@@ -135,6 +136,21 @@
 
 > **⚠️ CORS 说明**: 后端默认关闭 CORS。如需浏览器前端直接调用，需配置 `claudemem.cors.allowed-origins` (多个域名用逗号分隔)。
 
+#### 2.1.1 会话初始化 (Session Start)
+
+```http
+POST /api/session/start
+Content-Type: application/json
+
+{
+  "session_id": "content-session-id",
+  "project_path": "/path/to/project",
+  "cwd": "/path/to/project"
+}
+```
+
+**响应**: 返回 `session_db_id`、`context`、`prompt_number` 等，用于后续 ingest 调用。
+
 ### 2.2 API 详情 (捕获类)
 
 #### 2.2.1 记录观察 (Tool Use)
@@ -148,9 +164,11 @@ Content-Type: application/json
   "tool_name": "Edit|Write|Read|Bash",
   "tool_input": {...},
   "tool_response": {...},
-  "cwd": "/path/to/project"
+  "cwd": "/path/to/project",
+  "prompt_number": 1
 }
 ```
+**注意**: `prompt_number` 可选，表示当前 prompt 序号。
 
 **响应**: `{"status": "accepted"}`
 
@@ -188,15 +206,17 @@ Content-Type: application/json
 
 **注意**: 请求体使用 `task` (非 `query`) 字段。
 
-**响应**:
+**响应**（与 cortex-mem-client 的 Experience 对齐，使用 `createdAt`）:
 ```json
 [
   {
+    "id": "obs-uuid",
     "task": "Task description",
     "strategy": "What strategy was used", 
     "outcome": "What was the outcome",
+    "reuseCondition": "...",
     "qualityScore": 0.85,
-    "timestamp": "2026-01-01T00:00:00Z"
+    "createdAt": "2026-01-01T00:00:00Z"
   }
 ]
 ```
@@ -213,11 +233,11 @@ Content-Type: application/json
 }
 ```
 
-**响应**:
+**响应**（`experienceCount` 后端返回 String，与 ICLPromptResult 对齐）:
 ```json
 {
   "prompt": "Relevant historical experiences:\n\n### Experience 1\n**Task**: ...\n...",
-  "experienceCount": 4
+  "experienceCount": "4"
 }
 ```
 
@@ -530,7 +550,7 @@ class CortexToolAspect {
 
 ##### 方案二: 使用 Spring AI 原生回调机制
 
-> ✅ **已验证**: Spring AI 提供 `ToolCallback` 接口和 `ToolCallbacks.from()` 方法。
+> ✅ **已验证**: Spring AI 提供 `ToolCallback` 接口和 `ToolCallbacks.from()` 方法。若使用 `CortexSessionContext`，将 `getCurrentSessionContext()` 等替换为 `CortexSessionContext.getSessionId()`、`getProjectPath()`、`getPromptNumber()`。
 
 ```java
 import org.springframework.ai.tool.ToolCallback;
@@ -550,7 +570,7 @@ class CortexToolCallbacks extends DateTimeTools {
         this.captureService = captureService;
     }
     
-    // 重写工具方法，自动捕获执行结果
+    // 重写工具方法，自动捕获执行结果（使用 CortexSessionContext 时用 getSessionId/getProjectPath/getPromptNumber）
     @Override
     @Tool(description = "Get the current date and time")
     public String getCurrentDateTime() {
@@ -558,12 +578,12 @@ class CortexToolCallbacks extends DateTimeTools {
         
         // 自动捕获工具执行结果
         captureService.recordToolObservation(ObservationRequest.builder()
-            .sessionId(getCurrentSessionContext())
-            .projectPath(getCurrentProjectPath())
+            .sessionId(CortexSessionContext.getSessionId())
+            .projectPath(CortexSessionContext.getProjectPath())
             .toolName("getCurrentDateTime")
             .toolInput(Map.of())
             .toolResponse(Map.of("result", result))
-            .promptNumber(getPromptCount())
+            .promptNumber(CortexSessionContext.getPromptNumber())
             .build());
         
         return result;
@@ -1174,7 +1194,7 @@ cortex-mem-spring-integration/
 #### Phase 4: 文档与发布 (待做)
 
 - [ ] 编写使用文档
-- [ ] 示例代码
+- [x] 示例代码 (examples/cortex-mem-demo 已存在)
 - [ ] Maven Central 发布配置
 
 ---
@@ -1270,12 +1290,14 @@ class MyAiAgent {
 
     public String process(String userInput, String toolName, 
                           Map<String, Object> toolInput) {
-        // 1. 捕获: 记录观察到记忆系统
+        // 1. 捕获: 记录观察到记忆系统（toolResponse 需从工具执行结果获取，tool_response 为空时后端以 {} 处理）
         cortexMemClient.recordObservation(ObservationRequest.builder()
             .sessionId(getSessionId())
             .toolName(toolName)
             .toolInput(toolInput)
+            .toolResponse(getToolResponse())  // 工具执行后的输出
             .projectPath(getProjectPath())
+            .promptNumber(getPromptNumber())
             .build());
 
         // 2. 检索: 获取相关经验
@@ -1305,6 +1327,7 @@ class MyAiAgent {
         cortexMemClient.recordSessionEnd(SessionEndRequest.builder()
             .sessionId(getSessionId())
             .projectPath(getProjectPath())
+            .lastAssistantMessage(getLastAssistantMessage())  // 可选，会话最后一条 assistant 消息
             .build());
     }
 }
@@ -1345,6 +1368,13 @@ cortex:
     # 可选: 是否创建 CortexSessionContextBridgeAdvisor (默认 true)
     # 启用后，当 ChatMemory.CONVERSATION_ID 存在时自动 begin/end CortexSessionContext，使 @Tool 捕获在纯 ChatClient 场景下无需手动 context
     context-bridge-enabled: true
+    
+    # 可选: 总开关 - 是否启用 @Tool 捕获 (默认 true)
+    capture-enabled: true
+    # 可选: 是否在 Advisor 内自动捕获 user prompt (默认 true)
+    capture-user-prompt-enabled: true
+    # 可选: 是否启用检索注入 (默认 true，设为 false 时 Advisor 不检索)
+    retrieval-enabled: true
 ```
 
 ### 7.2 环境变量
@@ -1460,4 +1490,4 @@ public void recordObservation(...) {
 
 **改进方向**: 见 [4.3.8](#438-旁路型集成vectorstorechatmemoryadvisor-的借鉴与改进方向-2026-03-18) — Session 生命周期 Helper（中优）。
 
-**下一步**: 单元测试覆盖 + 使用文档完善
+**下一步**: 单元测试覆盖 + 使用文档完善；示例见 `examples/cortex-mem-demo/`
