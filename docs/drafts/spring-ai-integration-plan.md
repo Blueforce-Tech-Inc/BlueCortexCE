@@ -1,8 +1,8 @@
 # Spring AI 集成 Cortex CE 记忆系统 - 规划文档
 
-> **版本**: 1.0  
-> **创建日期**: 2026-03-18  
-> **状态**: 规划中 (待审批)
+> **版本**: 1.1  
+> **更新日期**: 2026-03-18  
+> **状态**: ✅ Phase 1-3 已实施 (cortex-mem-spring-integration 三模块完成，已安装到本地 Maven 仓库)
 >
 > ---
 >
@@ -84,8 +84,11 @@
 | `/api/memory/experiences` | POST | 检索经验 (ExpRAG) | 检索 |
 | `/api/memory/icl-prompt` | POST | 构建 ICL 提示 | 检索 |
 | `/api/memory/refine` | POST | 触发记忆精炼 | 演化 |
+| `/api/memory/feedback` | POST | 提交记忆质量反馈 | 演化 |
 | `/api/memory/quality-distribution` | GET | 获取质量分布 | 检索 |
 | `/api/health` | GET | 健康检查 | 系统 |
+
+> **⚠️ CORS 说明**: 后端默认关闭 CORS。如需浏览器前端直接调用，需配置 `claudemem.cors.allowed-origins` (多个域名用逗号分隔)。
 
 ### 2.2 API 详情 (捕获类)
 
@@ -185,6 +188,47 @@ POST /api/memory/refine?project=/path/to/project
   "status": "triggered",
   "project": "/path/to/project",
   "message": "Memory refinement event has been published"
+}
+```
+
+#### 2.3.4 提交记忆质量反馈
+
+```http
+POST /api/memory/feedback
+Content-Type: application/json
+
+{
+  "experienceId": "uuid-of-experience",
+  "rating": 5,
+  "comment": "This was helpful for..."
+}
+```
+
+**响应**:
+```json
+{
+  "status": "accepted",
+  "id": "feedback-id"
+}
+```
+
+**用途**: 用户可以对检索到的经验进行评分，帮助系统学习和改进检索质量。
+
+#### 2.3.5 获取质量分布
+
+```http
+GET /api/memory/quality-distribution?project=/path/to/project
+```
+
+**响应**:
+```json
+{
+  "distribution": {
+    "high": 45,
+    "medium": 30,
+    "low": 25
+  },
+  "total": 100
 }
 ```
 
@@ -965,29 +1009,31 @@ cortex-mem-spring-integration/
 
 ### 5.2 实现阶段
 
-#### Phase 1: 基础客户端 (预计 2 天)
+#### Phase 1: 基础客户端 ✅ 已完成
 
-- [ ] 设计 DTO 模型类
-- [ ] 实现 CortexMemClient 接口 (REST Client)
-- [ ] 使用 Spring REST Client (同步编程，更简单)
-- [ ] 添加重试和超时配置
+- [x] 设计 DTO 模型类 (7 个 record)
+- [x] 实现 CortexMemClient 接口 (REST Client)
+- [x] 使用 Spring REST Client (同步编程，更简单)
+- [x] 添加重试和超时配置
 - [ ] 单元测试
 
-#### Phase 2: Spring AI 集成服务 (预计 3 天)
+#### Phase 2: Spring AI 集成服务 ✅ 已完成
 
-- [ ] 实现 ObservationCaptureService (捕获)
-- [ ] 实现 MemoryRetrievalService (检索)
-- [ ] 实现 CortexMemoryAdvisor (Spring AI 集成)
+- [x] 实现 ObservationCaptureService (捕获)
+- [x] 实现 MemoryRetrievalService (检索)
+- [x] 实现 CortexMemoryAdvisor (Spring AI 1.1 CallAdvisor + StreamAdvisor)
+- [x] 实现 CortexToolAspect (AOP @Tool 自动捕获)
 - [ ] 单元测试
 
-#### Phase 3: Spring Boot Starter (预计 2 天)
+#### Phase 3: Spring Boot Starter ✅ 已完成
 
-- [ ] 定义配置属性类
-- [ ] 实现自动配置
-- [ ] 健康检查集成
+- [x] 定义配置属性类 (CortexMemProperties)
+- [x] 实现自动配置 (CortexMemAutoConfiguration)
+- [x] 健康检查集成 (CortexMemHealthIndicator)
+- [x] @EnableCortexMem 注解
 - [ ] 配置属性验证
 
-#### Phase 4: 文档与发布 (预计 1 天)
+#### Phase 4: 文档与发布 (待做)
 
 - [ ] 编写使用文档
 - [ ] 示例代码
@@ -1259,6 +1305,8 @@ public void recordObservation(...) {
 
 ---
 
-**文档状态**: 🟡 规划中 - 待审批后实施
+**文档状态**: 🟢 Phase 1-3 已实施 — 2026-03-18
 
-**下次检查**: 规划审批后
+**实施进度**: 详见 `docs/drafts/spring-ai-integration-progress.md`
+
+**下一步**: 单元测试 + 使用文档 + 示例代码
