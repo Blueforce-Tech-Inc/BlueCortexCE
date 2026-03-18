@@ -36,6 +36,7 @@
     - [2.2 API 详情 (捕获类)](#22-api-详情-捕获类)
       - [2.2.1 记录观察 (Tool Use)](#221-记录观察-tool-use)
       - [2.2.2 会话结束 (Session End)](#222-会话结束-session-end)
+      - [2.2.3 记录用户提示 (User Prompt)](#223-记录用户提示-user-prompt)
     - [2.3 API 详情 (检索类)](#23-api-详情-检索类)
       - [2.3.1 检索经验 (ExpRAG)](#231-检索经验-exprag)
       - [2.3.2 构建 ICL 提示](#232-构建-icl-提示)
@@ -182,6 +183,22 @@ Content-Type: application/json
   "session_id": "content-session-id",
   "last_assistant_message": "...",
   "cwd": "/path/to/project"
+}
+```
+
+**响应**: `{"status": "ok"}`
+
+#### 2.2.3 记录用户提示 (User Prompt)
+
+```http
+POST /api/ingest/user-prompt
+Content-Type: application/json
+
+{
+  "session_id": "content-session-id",
+  "prompt_text": "用户输入的原始文本",
+  "cwd": "/path/to/project",
+  "prompt_number": 1
 }
 ```
 
@@ -545,6 +562,7 @@ class CortexToolAspect {
     }
 }
 ```
+**注**：实际实现使用 `implements Ordered`，`getOrder()` 返回 `HIGHEST_PRECEDENCE + 100`。
 
 ---
 
@@ -684,6 +702,7 @@ class MyAiAgent {
         captureService.recordSessionEnd(SessionEndRequest.builder()
             .sessionId(getCurrentSessionId())
             .projectPath(getProjectPath())
+            .lastAssistantMessage(null)  // 可选
             .build());
     }
 }
