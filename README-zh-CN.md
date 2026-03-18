@@ -209,13 +209,19 @@ docker compose down     # 停止
 
 ### 环境变量
 
-| 变量名 | 说明 | 默认值 |
-|--------|------|--------|
-| `DB_PASSWORD` | PostgreSQL 密码 | - |
-| `SPRING_AI_OPENAI_API_KEY` | LLM API 密钥 | - |
-| `SPRING_AI_OPENAI_BASE_URL` | LLM API 端点 | - |
+| 变量名 | 说明 | 示例 |
+|--------|------|------|
+| `DB_PASSWORD` | PostgreSQL 密码 | `your_secure_password` |
+| **LLM (对话模型)** | | |
+| `SPRING_AI_OPENAI_API_KEY` | LLM API 密钥 | `sk-xxx` |
+| `SPRING_AI_OPENAI_BASE_URL` | LLM API 地址 | `https://api.deepseek.com` |
+| `SPRING_AI_OPENAI_CHAT_MODEL` | 对话模型名称 | `deepseek-chat` |
+| **Embedding (向量化模型)** | | |
+| `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | 向量 API 密钥 | `sk-xxx` |
+| `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | 向量 API 地址 | `https://api.siliconflow.cn` |
 | `SPRING_AI_OPENAI_EMBEDDING_MODEL` | 向量模型 | `BAAI/bge-m3` |
 | `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | 向量维度 | `1024` |
+| **可选** | | |
 | `MEMORY_REFINE_ENABLED` | 启用记忆演化 | `true` |
 
 完整配置请参考 [`.env.example`](.env.example)

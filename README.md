@@ -209,13 +209,19 @@ docker compose down     # stop
 
 ### Environment Variables
 
-| Variable | Description | Default |
+| Variable | Description | Example |
 |----------|-------------|---------|
-| `DB_PASSWORD` | PostgreSQL password | - |
-| `SPRING_AI_OPENAI_API_KEY` | LLM API key | - |
-| `SPRING_AI_OPENAI_BASE_URL` | LLM API endpoint | - |
+| `DB_PASSWORD` | PostgreSQL password | `your_secure_password` |
+| **LLM (对话模型)** | | |
+| `SPRING_AI_OPENAI_API_KEY` | LLM API Key | `sk-xxx` |
+| `SPRING_AI_OPENAI_BASE_URL` | LLM API URL | `https://api.deepseek.com` |
+| `SPRING_AI_OPENAI_CHAT_MODEL` | Chat model name | `deepseek-chat` |
+| **Embedding (向量化模型)** | | |
+| `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | Embedding API Key | `sk-xxx` |
+| `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | Embedding API URL | `https://api.siliconflow.cn` |
 | `SPRING_AI_OPENAI_EMBEDDING_MODEL` | Embedding model | `BAAI/bge-m3` |
 | `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | Vector dimensions | `1024` |
+| **Optional** | | |
 | `MEMORY_REFINE_ENABLED` | Enable memory evolution | `true` |
 
 For complete configuration, see [`.env.example`](.env.example)
