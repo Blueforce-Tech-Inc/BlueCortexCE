@@ -17,6 +17,7 @@ Cortex CE is a memory backend that stores agent observations, generates summarie
 | **One-line integration** | `@EnableCortexMem` + configuration properties |
 | **Fire-and-forget capture** | Non-blocking, failure-tolerant recording of observations |
 | **Spring AI Advisor** | Automatic ICL context injection into ChatClient calls |
+| **CortexMemoryTools** | On-demand memory retrieval tools (`searchMemories`, `getMemoryContext`) — opt-in |
 | **@Tool auto-capture** | AOP aspect intercepts `@Tool` methods and records executions |
 | **Session context** | ThreadLocal-based session and project scope |
 | **Health indicator** | Actuator integration for monitoring the memory backend |
@@ -180,6 +181,7 @@ All properties are under `cortex.mem`:
 | `capture-enabled` | boolean | `true` | Enable @Tool observation capture (CortexToolAspect) |
 | `capture-user-prompt-enabled` | boolean | `true` | Enable user prompt auto-capture (CortexMemoryAdvisor). Independent of capture-enabled. |
 | `retrieval-enabled` | boolean | `true` | Enable memory retrieval |
+| `memory-tools-enabled` | boolean | `false` | Create CortexMemoryTools bean. Tools are not auto-injected — add via `ChatClient.defaultTools(cortexMemoryTools)`. |
 | `retry.max-attempts` | int | `3` | Retry attempts for capture calls |
 | `retry.backoff` | Duration | `500ms` | Base backoff between retries |
 
@@ -223,7 +225,36 @@ CORTEX_MEM_CAPTURE_USER_PROMPT_ENABLED=true
 
 ## Usage Patterns
 
-### 1. Automatic @Tool Capture (AOP)
+### 1. On-Demand Memory Tools (CortexMemoryTools)
+
+When `memory-tools-enabled=true`, a `CortexMemoryTools` bean is created. Add it to your ChatClient for on-demand retrieval — the AI decides when to call `searchMemories` or `getMemoryContext`.
+
+**Not auto-injected**: Tools are never added to ChatClient by default. You must explicitly call `defaultTools(cortexMemoryTools)`.
+
+```yaml
+# application.yml
+cortex:
+  mem:
+    memory-tools-enabled: true
+```
+
+```java
+@Bean
+public ChatClient chatClient(ChatClient.Builder builder,
+                             CortexMemoryAdvisor advisor,
+                             CortexMemoryTools memoryTools) {
+    return builder
+        .defaultAdvisors(advisor)
+        .defaultTools(memoryTools)  // explicit opt-in
+        .build();
+}
+```
+
+Available tools:
+- `searchMemories(task, count?)` — Search for relevant past experiences
+- `getMemoryContext(task)` — Get ICL-formatted memory prompt
+
+### 2. Automatic @Tool Capture (AOP)
 
 When `capture-enabled=true` and Spring AOP is on the classpath, any `@Tool`-annotated method is intercepted and its input/output is sent to the memory backend.
 
@@ -250,7 +281,7 @@ try {
 }
 ```
 
-### 2. Manual Capture
+### 3. Manual Capture
 
 ```java
 @Service
@@ -277,7 +308,7 @@ class MyAgentService {
 }
 ```
 
-### 3. Manual Retrieval (Without Advisor)
+### 4. Manual Retrieval (Without Advisor)
 
 ```java
 @Service
@@ -362,6 +393,7 @@ The client talks to these Cortex CE endpoints:
 | User prompts not captured | No session ID provided | Use Option A (conversation ID) or Option B (CortexSessionContext) |
 | No ICL context injected | Backend unreachable or `retrieval-enabled=false` | Check `base-url`, ensure backend is running |
 | Advisor not registered | Spring AI not on classpath | Add `spring-ai-starter-model-openai` (or similar) |
+| Memory tools not available | `memory-tools-enabled=false` or not added to ChatClient | Set `memory-tools-enabled: true` and call `defaultTools(cortexMemoryTools)` |
 
 ## Design Notes
 

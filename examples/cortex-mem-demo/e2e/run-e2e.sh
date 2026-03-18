@@ -111,10 +111,24 @@ else
   ((failed++)) || true
 fi
 
-# 5. User-prompt capture verification (CortexMemoryAdvisor auto-capture)
+# 5. Chat with CortexMemoryTools (useTools=true)
+# Requires cortex.mem.memory-tools-enabled=true
+echo ""
+echo "=== 5. Chat with useTools (CortexMemoryTools) ==="
+tools_msg="E2E-useTools-$(date +%s)"
+tools_chat=$(curl -sf --max-time 90 "$DEMO_BASE/chat?message=$tools_msg&useTools=true" 2>/dev/null || echo "__ERR__")
+if [ -n "$tools_chat" ] && [ "$tools_chat" != "__ERR__" ] && [ ${#tools_chat} -gt 2 ]; then
+  echo "  chat?useTools=true OK (${#tools_chat} chars)"
+  ((passed++)) || true
+else
+  echo "  chat?useTools=true FAIL — $tools_chat"
+  ((failed++)) || true
+fi
+
+# 6. User-prompt capture verification (CortexMemoryAdvisor auto-capture)
 # Requires demo built with latest cortex-mem-spring-integration (mvn -Plocal after mvn install)
 echo ""
-echo "=== 5. User-Prompt Capture ==="
+echo "=== 6. User-Prompt Capture ==="
 prompts_json=$(curl -sf "$BACKEND_BASE/api/prompts?limit=50" 2>/dev/null || echo "{}")
 if echo "$prompts_json" | python3 -c "
 import sys, json

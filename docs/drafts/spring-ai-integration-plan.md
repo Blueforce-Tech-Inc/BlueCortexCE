@@ -23,29 +23,71 @@
 
 ## 目录
 
-1. [背景与目标](#1-背景与目标)
-2. [当前记忆系统 API 概览](#2-当前记忆系统-api-概览)
-3. [Spring AI 编程模型](#3-spring-ai-编程模型)
-4. [集成方案设计](#4-集成方案设计)
-   - [4.1 架构设计](#41-架构设计)
-   - [4.2 捕获记忆组件](#42-捕获记忆组件)
-     - [4.2.1 设计理念](#421-设计理念)
-     - [4.2.2 核心组件: ObservationCaptureService](#422-核心组件-observationscaptureservice)
-     - [4.2.3 DTO 模型](#423-dto-模型)
-     - [4.2.4 自动捕获拦截器](#424-自动捕获拦截器)
-     - [4.2.5 使用示例](#425-使用示例)
-     - [4.2.6 ⭐ 最简配置 (一行代码捕获)](#426--最简配置-一行代码捕获记忆)
-   - [4.3 检索记忆组件](#43-检索记忆组件)
-     - [4.3.1 设计理念](#431-设计理念)
-     - [4.3.2 核心组件: MemoryRetrievalService](#432-核心组件-memoryretrievalservice)
-     - [4.3.3 Experience 数据模型](#433-experience-数据模型)
-     - [4.3.4 Spring AI 集成: CortexMemoryAdvisor](#434-spring-ai-集成-cortexmemoryadvisor)
-     - [4.3.5 使用示例](#435-使用示例)
-     - [4.3.6 ⭐ 最简配置 (一行代码检索)](#436--最简配置-一行代码启用记忆增强)
-5. [实现计划](#5-实现计划)
-6. [示例代码](#6-示例代码)
-7. [配置说明](#7-配置说明)
-8. [风险与注意事项](#8-风险与注意事项)
+- [Spring AI 集成 Cortex CE 记忆系统 - 规划文档](#spring-ai-集成-cortex-ce-记忆系统---规划文档)
+  - [目录](#目录)
+  - [1. 背景与目标](#1-背景与目标)
+    - [1.1 问题陈述](#11-问题陈述)
+    - [1.2 目标](#12-目标)
+    - [1.3 目标用户](#13-目标用户)
+  - [2. 当前记忆系统 API 概览](#2-当前记忆系统-api-概览)
+    - [2.1 核心 API 端点](#21-核心-api-端点)
+    - [2.2 API 详情 (捕获类)](#22-api-详情-捕获类)
+      - [2.2.1 记录观察 (Tool Use)](#221-记录观察-tool-use)
+      - [2.2.2 会话结束 (Session End)](#222-会话结束-session-end)
+    - [2.3 API 详情 (检索类)](#23-api-详情-检索类)
+      - [2.3.1 检索经验 (ExpRAG)](#231-检索经验-exprag)
+      - [2.3.2 构建 ICL 提示](#232-构建-icl-提示)
+      - [2.3.3 触发记忆精炼](#233-触发记忆精炼)
+      - [2.3.4 提交记忆质量反馈](#234-提交记忆质量反馈)
+      - [2.3.5 获取质量分布](#235-获取质量分布)
+  - [3. Spring AI 编程模型](#3-spring-ai-编程模型)
+    - [3.1 Spring AI 核心概念](#31-spring-ai-核心概念)
+    - [3.2 ChatClient 使用方式](#32-chatclient-使用方式)
+    - [3.3 RAG (检索增强生成)](#33-rag-检索增强生成)
+    - [3.4 Chat Memory](#34-chat-memory)
+  - [4. 集成方案设计](#4-集成方案设计)
+    - [4.1 架构设计](#41-架构设计)
+    - [4.2 捕获记忆组件](#42-捕获记忆组件)
+      - [4.2.1 设计理念](#421-设计理念)
+      - [4.2.2 核心组件: ObservationCaptureService](#422-核心组件-observationcaptureservice)
+      - [4.2.3 DTO 模型](#423-dto-模型)
+      - [4.2.4 自动捕获拦截器](#424-自动捕获拦截器)
+        - [方案一: AOP 切面拦截 (推荐)](#方案一-aop-切面拦截-推荐)
+        - [方案二: 使用 Spring AI 原生回调机制](#方案二-使用-spring-ai-原生回调机制)
+        - [方案三: 事件驱动 (仅当框架发布事件时可用)](#方案三-事件驱动-仅当框架发布事件时可用)
+        - [自动捕获机制对比](#自动捕获机制对比)
+      - [4.2.5 使用示例](#425-使用示例)
+      - [⭐ 4.2.6 最简配置 (一行代码捕获记忆)](#-426-最简配置-一行代码捕获记忆)
+    - [4.3 检索记忆组件](#43-检索记忆组件)
+      - [4.3.1 设计理念](#431-设计理念)
+      - [4.3.2 核心组件: MemoryRetrievalService](#432-核心组件-memoryretrievalservice)
+      - [4.3.3 Experience 数据模型](#433-experience-数据模型)
+      - [4.3.4 Spring AI 集成: CortexMemoryAdvisor](#434-spring-ai-集成-cortexmemoryadvisor)
+      - [4.3.5 使用示例](#435-使用示例)
+      - [⭐ 4.3.6 最简配置 (一行代码启用记忆增强)](#-436-最简配置-一行代码启用记忆增强)
+      - [4.3.7 CortexMemoryTools：Advisor vs Tool 模式设计讨论 (2026-03-18)](#437-cortexmemorytoolsadvisor-vs-tool-模式设计讨论-2026-03-18)
+    - [4.4 统一的客户端接口](#44-统一的客户端接口)
+  - [5. 实现计划](#5-实现计划)
+    - [5.1 模块划分](#51-模块划分)
+    - [5.2 实现阶段](#52-实现阶段)
+      - [Phase 1: 基础客户端 ✅ 已完成](#phase-1-基础客户端--已完成)
+      - [Phase 2: Spring AI 集成服务 ✅ 已完成](#phase-2-spring-ai-集成服务--已完成)
+      - [Phase 3: Spring Boot Starter ✅ 已完成](#phase-3-spring-boot-starter--已完成)
+      - [Phase 4: 文档与发布 (待做)](#phase-4-文档与发布-待做)
+  - [6. 示例代码](#6-示例代码)
+    - [6.1 快速集成 (最小代码)](#61-快速集成-最小代码)
+    - [6.2 完整集成 (细粒度控制)](#62-完整集成-细粒度控制)
+  - [7. 配置说明](#7-配置说明)
+    - [7.1 配置属性](#71-配置属性)
+    - [7.2 环境变量](#72-环境变量)
+    - [7.3 Docker 部署](#73-docker-部署)
+  - [8. 风险与注意事项](#8-风险与注意事项)
+    - [8.1 风险评估](#81-风险评估)
+    - [8.2 注意事项](#82-注意事项)
+    - [8.3 监控建议](#83-监控建议)
+  - [附录](#附录)
+    - [A. 捕获 → 检索 工作流](#a-捕获--检索-工作流)
+    - [B. 版本规划](#b-版本规划)
 
 ---
 
@@ -908,6 +950,68 @@ cortex:
 | 适用场景 | 快速原型 / MVP | 生产级定制 |
 | 灵活性 | 固定策略 | 完全可控 |
 
+#### 4.3.7 CortexMemoryTools：Advisor vs Tool 模式设计讨论 (2026-03-18)
+
+> **讨论背景**: 检索记忆有两种集成方式——Advisor 被动注入 vs Tool 按需调用。本节记录设计决策与默认行为。
+
+**Advisor vs Tool 模式对比**
+
+| 维度 | Advisor (CortexMemoryAdvisor) | Tool (CortexMemoryTools) |
+|------|------------------------------|--------------------------|
+| **触发时机** | 每次请求自动执行 | 仅当 AI 决定调用工具时执行 |
+| **上下文注入** | 被动注入 ICL 到 System Prompt | AI 主动获取，按需填充上下文 |
+| **Token 消耗** | 每次调用都会检索 + 注入 | 按需检索，更可控 |
+| **适用场景** | 希望对话"自带记忆"的体验 | 希望 AI 自主决定何时查记忆 |
+| **类比** | Spring AI 的 `QuestionAnswerAdvisor` | Spring AI 的 `@Tool` 方法 |
+
+**与 VectorStoreChatMemoryAdvisor 的对比**
+
+- `VectorStoreChatMemoryAdvisor`: 将 VectorStore 中的文档检索注入上下文，用于 RAG
+- `CortexMemoryAdvisor`: 将 Cortex CE 记忆系统（经验、观察）检索注入上下文，用于 ICL
+- 两者都是 "检索 → 注入 System/User Prompt" 的被动模式
+
+**决策：新增 CortexMemoryTools**
+
+除 Advisor 外，增加 `CortexMemoryTools` 作为可选工具集，理由：
+
+1. **按需检索**：AI 可自主决定何时搜索记忆，降低不必要的 Token 消耗
+2. **灵活性**：用户可选择只用 Advisor、只用 Tools、或两者结合
+3. **与 MCP 对齐**：Cortex CE MCP 提供 `search`、`timeline`、`get_observations` 等工具，Tool 模式与之语义一致
+
+**默认注入行为（重要）**
+
+| 问题 | 答案 |
+|------|------|
+| **CortexMemoryTools 默认会直接注入么？** | **不会**。Spring AI 的 Tool 不会自动加入 `ChatClient`。即使用户引入了 `cortex-mem-spring-ai`，Tools 也不会出现在 `defaultTools()` 中。 |
+| **如果用户不想要呢？** | **无需做任何事**。只要不将 `CortexMemoryTools` 传入 `ChatClient.defaultTools(...)` 或 `prompt().tools(...)`，就不会被使用。 |
+
+**Bean 创建策略（可选）**
+
+可提供配置项 `cortex.mem.memory-tools-enabled` 控制是否创建 `CortexMemoryTools` Bean：
+
+- **默认 `false`**：更保守，引入依赖后不会多出任何 Tools 相关 Bean
+- **默认 `true`**：Bean 存在，用户只需 `defaultTools(cortexMemoryTools)` 即可使用；不使用则忽略即可
+
+**推荐**：默认 `false`，显式启用后才有 Tools Bean；使用时需在 ChatClient 中显式添加，双重 opt-in 更清晰。
+
+**使用示例（启用后）**
+
+```java
+// 1. application.yml
+cortex:
+  mem:
+    memory-tools-enabled: true  # 启用 Tools Bean
+
+// 2. ChatClient 显式添加
+@Bean
+public ChatClient chatClient(ChatClient.Builder builder,
+                             CortexMemoryTools memoryTools) {
+    return builder
+        .defaultTools(memoryTools)  // ← 显式添加，用户完全可控
+        .build();
+}
+```
+
 ---
 
 ### 4.4 统一的客户端接口
@@ -1197,6 +1301,10 @@ cortex:
     
     # 可选: 每次请求检索的经验数量 (默认 4)
     default-experience-count: 4
+    
+    # 可选: 是否创建 CortexMemoryTools Bean (默认 false，需显式启用)
+    # 启用后需在 ChatClient 中调用 defaultTools(cortexMemoryTools) 才会生效
+    memory-tools-enabled: false
 ```
 
 ### 7.2 环境变量
@@ -1305,8 +1413,10 @@ public void recordObservation(...) {
 
 ---
 
-**文档状态**: 🟢 Phase 1-3 已实施 — 2026-03-18
+**文档状态**: 🟢 Phase 1-3 已实施 + CortexMemoryTools 已实现 — 2026-03-18
 
 **实施进度**: 详见 `docs/drafts/spring-ai-integration-progress.md`
 
-**下一步**: 单元测试 + 使用文档 + 示例代码
+**CortexMemoryTools** (2026-03-18): `cortex-mem-spring-ai/tools/CortexMemoryTools.java` — `searchMemories`, `getMemoryContext`；配置 `memory-tools-enabled` 控制 Bean 创建；Demo 支持 `?useTools=true`。
+
+**下一步**: 单元测试覆盖 + 使用文档完善

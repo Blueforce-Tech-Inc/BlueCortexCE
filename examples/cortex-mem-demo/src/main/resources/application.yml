@@ -15,6 +15,8 @@ cortex:
     # capture-user-prompt-enabled: record ChatClient user messages as prompts; set false to skip
     capture-user-prompt-enabled: true
     retrieval-enabled: true
+    # memory-tools-enabled: create CortexMemoryTools bean for on-demand retrieval (AI calls tools when needed)
+    memory-tools-enabled: true
 
 # Demo multi-project config — project isolation for memory
 # Switch via ?project=project-a

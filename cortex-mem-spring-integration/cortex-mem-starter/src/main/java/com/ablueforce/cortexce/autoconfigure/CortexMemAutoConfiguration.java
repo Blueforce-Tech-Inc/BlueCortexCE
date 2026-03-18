@@ -6,6 +6,7 @@ import com.ablueforce.cortexce.ai.observation.DefaultObservationCaptureService;
 import com.ablueforce.cortexce.ai.observation.ObservationCaptureService;
 import com.ablueforce.cortexce.ai.retrieval.DefaultMemoryRetrievalService;
 import com.ablueforce.cortexce.ai.retrieval.MemoryRetrievalService;
+import com.ablueforce.cortexce.ai.tools.CortexMemoryTools;
 import com.ablueforce.cortexce.client.CortexMemClient;
 import com.ablueforce.cortexce.client.CortexMemClientImpl;
 import com.ablueforce.cortexce.client.config.CortexMemProperties;
@@ -29,6 +30,7 @@ import org.springframework.context.annotation.Configuration;
  *   <li>{@link ObservationCaptureService} — capture service</li>
  *   <li>{@link MemoryRetrievalService} — retrieval service</li>
  *   <li>{@link CortexMemoryAdvisor} — Spring AI advisor (when Spring AI is on classpath)</li>
+ *   <li>{@link CortexMemoryTools} — Spring AI tools for on-demand memory retrieval (when memory-tools-enabled=true)</li>
  *   <li>{@link CortexToolAspect} — AOP aspect for @Tool auto-capture (when AOP is on classpath)</li>
  * </ul>
  */
@@ -90,6 +92,27 @@ public class CortexMemAutoConfiguration {
         }
 
         private static final Logger log = LoggerFactory.getLogger(SpringAiAdvisorConfiguration.class);
+    }
+
+    /**
+     * Spring AI Tools — on-demand memory retrieval.
+     * Only created when cortex.mem.memory-tools-enabled=true.
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(name = "org.springframework.ai.chat.client.ChatClient")
+    @ConditionalOnProperty(prefix = "cortex.mem", name = "memory-tools-enabled", havingValue = "true")
+    static class SpringAiToolsConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean
+        public CortexMemoryTools cortexMemoryTools(CortexMemClient client, CortexMemProperties properties) {
+            log.info("Configuring CortexMemoryTools for on-demand memory retrieval");
+            return new CortexMemoryTools(client,
+                properties.getProjectPath() != null ? properties.getProjectPath() : "",
+                properties.getDefaultExperienceCount());
+        }
+
+        private static final Logger log = LoggerFactory.getLogger(SpringAiToolsConfiguration.class);
     }
 
     /**

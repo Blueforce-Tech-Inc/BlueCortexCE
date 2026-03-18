@@ -2,7 +2,9 @@ package com.example.cortexmem;
 
 import com.ablueforce.cortexce.ai.advisor.CortexMemoryAdvisor;
 import com.ablueforce.cortexce.ai.context.CortexSessionContext;
+import com.ablueforce.cortexce.ai.tools.CortexMemoryTools;
 import com.ablueforce.cortexce.client.CortexMemClient;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.UUID;
 
 /**
- * Memory-augmented chat — supports ?project= and ?conversationId=.
+ * Memory-augmented chat — supports ?project=, ?conversationId=, ?useTools=.
  *
  * <p>User prompts are auto-captured to memory when cortex.mem.capture-enabled=true.
  * Session ID resolution (in order):
@@ -22,6 +24,9 @@ import java.util.UUID;
  * </ol>
  *
  * <p>?project= may be a demo.projects key (e.g. project-a) or absolute path.
+ *
+ * <p>?useTools=true — when cortex.mem.memory-tools-enabled=true, adds CortexMemoryTools so the AI
+ * can call searchMemories/getMemoryContext on demand.
  */
 @RestController
 public class ChatController {
@@ -30,6 +35,9 @@ public class ChatController {
     private final CortexMemoryAdvisor defaultAdvisor;
     private final CortexMemClient cortexClient;
     private final DemoProperties demoProperties;
+
+    @Autowired(required = false)
+    private CortexMemoryTools memoryTools;
 
     public ChatController(ChatClient.Builder builder, CortexMemoryAdvisor advisor,
                           CortexMemClient cortexClient, DemoProperties demoProperties) {
@@ -43,7 +51,8 @@ public class ChatController {
     public String chat(
             @RequestParam(defaultValue = "Hello") String message,
             @RequestParam(required = false) String project,
-            @RequestParam(required = false) String conversationId) {
+            @RequestParam(required = false) String conversationId,
+            @RequestParam(required = false, defaultValue = "false") boolean useTools) {
         CortexMemoryAdvisor advisor = defaultAdvisor;
         String projectPath = System.getProperty("user.dir");
         if (project != null && !project.isBlank()) {
@@ -59,29 +68,27 @@ public class ChatController {
             ? conversationId
             : "chat-" + UUID.randomUUID();
 
+        var client = chatClientBuilder
+            .defaultSystem("You are a helpful coding assistant with access to relevant past experiences. " +
+                (memoryTools != null && useTools ? "You can call searchMemories or getMemoryContext when you need to look up past experiences." : ""))
+            .defaultAdvisors(advisor)
+            .build();
+
+        if (memoryTools != null && useTools) {
+            client = client.mutate().defaultTools(memoryTools).build();
+        }
+
         if (conversationId != null && !conversationId.isBlank()) {
-            return chatClientBuilder
-                .defaultSystem("You are a helpful coding assistant with access to relevant past experiences.")
-                .defaultAdvisors(advisor)
-                .build()
-                .prompt()
-                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, effectiveConvId))
-                .user(message)
-                .call()
-                .content();
+            var spec = client.prompt()
+                .advisors(spec1 -> spec1.param(ChatMemory.CONVERSATION_ID, effectiveConvId))
+                .user(message);
+            return spec.call().content();
         }
 
         CortexSessionContext.begin(effectiveConvId, projectPath);
         try {
             CortexSessionContext.incrementAndGetPromptNumber();
-            return chatClientBuilder
-                .defaultSystem("You are a helpful coding assistant with access to relevant past experiences.")
-                .defaultAdvisors(advisor)
-                .build()
-                .prompt()
-                .user(message)
-                .call()
-                .content();
+            return client.prompt().user(message).call().content();
         } finally {
             CortexSessionContext.end();
         }

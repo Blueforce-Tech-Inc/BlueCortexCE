@@ -19,6 +19,8 @@ public class CortexMemProperties {
     /** Fine-grained: enable/disable user prompt auto-capture in CortexMemoryAdvisor. */
     private boolean captureUserPromptEnabled = true;
     private boolean retrievalEnabled = true;
+    /** Create CortexMemoryTools bean for on-demand memory retrieval. Default false (opt-in). */
+    private boolean memoryToolsEnabled = false;
     private Retry retry = new Retry();
 
     public String getBaseUrl() { return baseUrl; }
@@ -44,6 +46,9 @@ public class CortexMemProperties {
 
     public boolean isRetrievalEnabled() { return retrievalEnabled; }
     public void setRetrievalEnabled(boolean retrievalEnabled) { this.retrievalEnabled = retrievalEnabled; }
+
+    public boolean isMemoryToolsEnabled() { return memoryToolsEnabled; }
+    public void setMemoryToolsEnabled(boolean memoryToolsEnabled) { this.memoryToolsEnabled = memoryToolsEnabled; }
 
     public Retry getRetry() { return retry; }
     public void setRetry(Retry retry) { this.retry = retry; }

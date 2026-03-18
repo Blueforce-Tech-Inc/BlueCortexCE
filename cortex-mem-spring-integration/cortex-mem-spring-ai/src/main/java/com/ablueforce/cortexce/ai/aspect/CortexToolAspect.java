@@ -40,6 +40,11 @@ public class CortexToolAspect implements Ordered {
         if (!CortexSessionContext.isActive()) {
             return joinPoint.proceed();
         }
+        // Skip capture for memory retrieval tools (CortexMemoryTools) — not user actions to record
+        String className = joinPoint.getTarget().getClass().getName();
+        if (className.startsWith("com.ablueforce.cortexce.ai.tools.")) {
+            return joinPoint.proceed();
+        }
 
         Method method = ((MethodSignature) joinPoint.getSignature()).getMethod();
         Tool toolAnnotation = method.getAnnotation(Tool.class);
