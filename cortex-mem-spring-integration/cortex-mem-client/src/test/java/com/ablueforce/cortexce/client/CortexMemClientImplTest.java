@@ -98,6 +98,24 @@ class CortexMemClientImplTest {
     }
 
     @Test
+    void startSession_sendsCorrectRequest() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("{\"session_db_id\":\"uuid-123\",\"prompt_number\":1}")
+            .addHeader("Content-Type", "application/json"));
+
+        var result = client.startSession(SessionStartRequest.builder()
+            .sessionId("s0")
+            .projectPath("/my/project")
+            .build());
+
+        assertThat(result).containsKey("session_db_id");
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getMethod()).isEqualTo("POST");
+        assertThat(req.getPath()).isEqualTo("/api/session/start");
+        assertThat(req.getBody().readUtf8()).contains("s0", "/my/project");
+    }
+
+    @Test
     void retrieveExperiences_returnsList() throws Exception {
         String json = """
             [

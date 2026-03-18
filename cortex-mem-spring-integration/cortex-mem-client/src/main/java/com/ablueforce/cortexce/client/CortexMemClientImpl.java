@@ -48,7 +48,21 @@ public class CortexMemClientImpl implements CortexMemClient {
         log.info("CortexMemClient initialized → {}", properties.getBaseUrl());
     }
 
-    // ==================== Capture (fire-and-forget) ====================
+    // ==================== Capture ====================
+
+    @Override
+    public Map<String, Object> startSession(SessionStartRequest request) {
+        try {
+            return restClient.post()
+                .uri("/api/session/start")
+                .body(request.toWireFormat())
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+        } catch (Exception e) {
+            log.warn("Failed to start session: {}", e.getMessage());
+            return Map.of("error", e.getMessage());
+        }
+    }
 
     @Override
     public void recordObservation(ObservationRequest request) {

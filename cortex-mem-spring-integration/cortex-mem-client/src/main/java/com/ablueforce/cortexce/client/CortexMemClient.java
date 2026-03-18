@@ -15,6 +15,12 @@ public interface CortexMemClient {
     // ==================== Capture ====================
 
     /**
+     * Start a session (or resume existing). Sends to POST /api/session/start.
+     * Returns backend response (session_db_id, context, prompt_number, etc.).
+     */
+    Map<String, Object> startSession(SessionStartRequest request);
+
+    /**
      * Record a tool-use observation. Sends to POST /api/ingest/tool-use.
      */
     void recordObservation(ObservationRequest request);

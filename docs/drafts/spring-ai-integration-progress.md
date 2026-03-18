@@ -1,7 +1,7 @@
 # Spring AI 集成实施进度
 
 > **创建时间**: 2026-03-18
-> **最后更新**: 2026-03-18 16:21
+> **最后更新**: 2026-03-18 17:50
 
 ## 总体进度
 
@@ -30,6 +30,7 @@
 | `triggerRefinement()` | `POST /api/memory/refine` | ✅ |
 | `submitFeedback()` | `POST /api/memory/feedback` | ✅ |
 | `getQualityDistribution()` | `GET /api/memory/quality-distribution` | ✅ |
+| `startSession()` | `POST /api/session/start` | ✅ |
 | `healthCheck()` | `GET /actuator/health` | ✅ |
 
 ## DTO 修复记录
@@ -116,3 +117,31 @@
 | cortex-mem-starter | CortexMemAutoConfigurationTest | 4 | 条件化 Bean 注册 |
 
 **总计**: 51 个测试，全部通过 (`mvn clean test`)
+
+## E2E 验证 (Phase 9) — 2026-03-18
+
+| 端点 | 方法 | 状态 |
+|------|------|------|
+| `/actuator/health` | GET | ✅ |
+| `/demo/projects` | GET | ✅ |
+| `/memory/quality?project=/` | GET | ✅ |
+| `/memory/experiences?task=...` | GET | ✅ |
+| `/memory/icl?task=...` | GET | ✅ |
+| `/memory/refine?project=/` | GET | ✅ |
+| `/demo/tool?path=...&project=...` | GET | ✅ |
+| `/demo/session/lifecycle?project=...` | POST | ✅ |
+| `/chat?message=...&project=...` | GET | ✅ |
+
+**E2E 结果**: 10/10 通过 (`./e2e/run-e2e.sh`)
+
+**关键修复**: ToolsController 自调用导致 AOP 不生效 → 抽 `FileReadTool` 独立 Bean。
+
+## Phase 10: Demo 增强 — 2026-03-18
+
+| 能力 | 实现 |
+|------|------|
+| 项目配置 | `demo.projects` + `cortex.mem.project-path` |
+| 编程切换 | `?project=` 或 `CortexSessionContext.begin(sessionId, projectPath)` |
+| 会话生命周期 | `POST /demo/session/start`, `prompt`, `tool`, `end`, `lifecycle` |
+| 多种捕获 | user-prompt, tool-use, session-end |
+| startSession | `CortexMemClient.startSession()` + `SessionStartRequest` |

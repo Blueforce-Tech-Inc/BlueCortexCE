@@ -1,0 +1,39 @@
+# Cortex Memory Demo Configuration
+
+server:
+  port: 37778  # Obscure port to avoid conflicts with common 8xxx ports
+
+# Cortex CE memory backend (must be running)
+cortex:
+  mem:
+    base-url: http://localhost:37777
+    # Default project path — used for Chat ICL retrieval and Memory default scope
+    project-path: ${user.dir}
+    default-experience-count: 4
+    capture-enabled: true
+    retrieval-enabled: true
+
+# Demo multi-project config — project isolation for memory
+# Switch via ?project=project-a
+demo:
+  projects:
+    default: ${user.dir}
+    project-a: /tmp/demo-project-a
+    project-b: /tmp/demo-project-b
+
+# Spring AI (OpenAI-compatible API, same env as backend)
+spring:
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:${SPRING_AI_OPENAI_API_KEY:your-api-key}}
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+      chat:
+        options:
+          model: ${OPENAI_MODEL:gpt-4o-mini}
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
