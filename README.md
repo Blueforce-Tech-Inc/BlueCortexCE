@@ -75,176 +75,90 @@ java -jar target/cortex-ce-*.jar
 
 ---
 
-## End User Quick Setup Guide
+## Quick Setup for Claude Code Users (5 minutes)
 
-This section guides you through integrating Claude Code with Cortex CE memory system.
+Just 5 steps to give your Claude Code persistent memory:
 
-### Prerequisites
-
-- **Docker and Docker Compose** installed
-- **Node.js** installed (needed to run `node` command)
-- **Claude Code** installed
-
-### Expected Directory Structure
-
-This guide assumes you will create a deployment directory `.cortexce` under your home directory:
-
-```
-~/.cortexce/                         # Deployment directory
-├── .env                            # Environment configuration
-├── docker-compose.yml               # Docker Compose configuration
-└── proxy/                          # Claude Code Hooks proxy
-    ├── wrapper.js                   # Main entry script
-    ├── package.json
-    └── ...
-```
-
-### Step 1: Create Working Directory and Configure Environment Variables
-
-Create the working directory and `.env` file:
+### Step 1: Create config directory
 
 ```bash
-mkdir -p ~/.cortexce
-cat > ~/.cortexce/.env << 'EOF'
-# Database configuration
-DB_PASSWORD=your_secure_password
+mkdir -p ~/.cortexce && cd ~/.cortexce
+```
 
-# LLM configuration (Spring AI OpenAI format)
+### Step 2: Create .env file
+
+```bash
+cat > .env << 'EOF'
+DB_PASSWORD=your_secure_password
 SPRING_AI_OPENAI_API_KEY=your_openai_key
 SPRING_AI_OPENAI_BASE_URL=https://api.deepseek.com
-SPRING_AI_OPENAI_CHAT_MODEL=deepseek-chat
-
-# Embedding model configuration (Spring AI OpenAI format)
 SPRING_AI_OPENAI_EMBEDDING_API_KEY=your_siliconflow_key
 SPRING_AI_OPENAI_EMBEDDING_BASE_URL=https://api.siliconflow.cn
 SPRING_AI_OPENAI_EMBEDDING_MODEL=BAAI/bge-m3
-SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS=1024
-
-# ⚡ Optional: Disable Memory Evolution (Self-Refinement)
-# This feature automatically refines/merges memories but consumes LLM tokens.
-# Set to 'false' to disable and save token costs.
 MEMORY_REFINE_ENABLED=false
 EOF
 ```
 
-### Step 2: Copy Required Files
-
-Assuming you have cloned the repository to `[git directory]`, navigate to your working directory and copy files:
+### Step 3: Copy files and start
 
 ```bash
-cd ~/.cortexce
-
-# Copy docker-compose.yml
-cp [git directory]/BlueCortexCE/docker-compose.yml .
-
-# Copy proxy directory
-cp -r [git directory]/BlueCortexCE/proxy .
-
-# Install proxy dependencies
-cd proxy && npm install
-```
-
-### Step 3: Start Services
-
-```bash
-cd ~/.cortexce
+# Copy docker-compose.yml and proxy from cloned repo
+cp /path/to/BlueCortexCE/docker-compose.yml .
+cp -r /path/to/BlueCortexCE/proxy .
+cd proxy && npm install && cd ..
 
 # Start services
 docker compose up -d
-
-# Or specify image
-IMAGE_NAME=ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main docker compose up -d
-
-# For ARM64 Macs (Apple Silicon), the image will be pulled automatically
-# For Intel Macs, you can force AMD64 platform:
-# docker pull --platform linux/amd64 ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main
 ```
-
-Wait for services to start, verify health:
-
-```bash
-curl http://localhost:37777/api/health
-```
-
-Should return `{"status":"UP"}`.
 
 ### Step 4: Configure Claude Code Hooks
 
-Edit the project-level configuration file `.claude/settings.local.json` (create if it doesn't exist):
+Add to your project's `.claude/settings.local.json`:
 
 ```json
 {
   "hooks": {
-    "SessionStart": [{
-      "hooks": [{
-        "type": "command",
-        "command": "~/.cortexce/proxy/wrapper.js session-start --url http://127.0.0.1:37777",
-        "async": true
-      }]
-    }],
-    "PostToolUse": [{
-      "matcher": "Edit|Write|Read|Bash",
-      "hooks": [{
-        "type": "command",
-        "command": "~/.cortexce/proxy/wrapper.js tool-use --url http://127.0.0.1:37777",
-        "async": true
-      }]
-    }],
-    "SessionEnd": [{
-      "hooks": [{
-        "type": "command",
-        "command": "~/.cortexce/proxy/wrapper.js session-end --url http://127.0.0.1:37777",
-        "async": true
-      }]
-    }],
-    "UserPromptSubmit": [{
-      "hooks": [{
-        "type": "command",
-        "command": "~/.cortexce/proxy/wrapper.js user-prompt --url http://127.0.0.1:37777",
-        "async": true
-      }]
-    }]
+    "SessionStart": [{"hooks": [{"type": "command", "command": "~/.cortexce/proxy/wrapper.js session-start --url http://127.0.0.1:37777", "async": true}]}],
+    "PostToolUse": [{"matcher": "Edit|Write|Read|Bash", "hooks": [{"type": "command", "command": "~/.cortexce/proxy/wrapper.js tool-use --url http://127.0.0.1:37777", "async": true}]}],
+    "SessionEnd": [{"hooks": [{"type": "command", "command": "~/.cortexce/proxy/wrapper.js session-end --url http://127.0.0.1:37777", "async": true}]}],
+    "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "~/.cortexce/proxy/wrapper.js user-prompt --url http://127.0.0.1:37777", "async": true}]}]
   }
 }
 ```
 
-#### Hook Description
+### Step 5: Verify
 
-| Hook | Trigger |
-|------|---------|
-| SessionStart | When Claude Code starts |
-| PostToolUse | After tool execution (Edit/Write/Read/Bash) |
-| SessionEnd | When session ends |
-| UserPromptSubmit | When user submits prompt |
+```bash
+curl http://localhost:37777/api/health
+# Should return: {"status":"UP"}
+```
 
-### Step 5: Configure MCP Server (for active memory retrieval)
+**Done!** 🎉 Claude Code will now remember everything across sessions.
+
+> 💡 For advanced options (Cursor IDE, MCP, folder CLAUDE.md), see [Advanced Configuration](#advanced-configuration) below.
+
+---
+
+## Advanced Configuration
+
+### Optional: MCP Server
 
 ```bash
 claude mcp add --transport sse cortexce http://127.0.0.1:37777/sse
 ```
 
-Verify configuration:
+### Optional: Cursor IDE
 
-```bash
-claude mcp list
-```
+See [Cursor Integration Guide](proxy/CURSOR-INTEGRATION.md)
 
 ### Common Commands
 
 ```bash
 cd ~/.cortexce
-
-# Start services
-docker compose up -d
-
-# Restart services
-docker compose restart
-
-# View logs
-docker compose logs -f cortex-ce
-
-# Stop services
-docker compose down
+docker compose up -d     # start
+docker compose restart  # restart
+docker compose logs -f   # view logs
+docker compose down     # stop
 ```
 
 ---
