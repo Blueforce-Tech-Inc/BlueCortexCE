@@ -552,6 +552,8 @@ class MyAiAgent {
 }
 ```
 
+```
+
 #### ⭐ 4.2.6 最简配置 (一行代码捕获记忆)
 
 > **📌 设计目标**: 以下配置为 Phase 3 Spring Boot Starter 实现后的使用方式。
