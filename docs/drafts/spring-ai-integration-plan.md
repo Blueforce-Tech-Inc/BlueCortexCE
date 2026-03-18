@@ -66,6 +66,7 @@
       - [4.3.5 使用示例](#435-使用示例)
       - [⭐ 4.3.6 最简配置 (一行代码启用记忆增强)](#-436-最简配置-一行代码启用记忆增强)
       - [4.3.7 CortexMemoryTools：Advisor vs Tool 模式设计讨论 (2026-03-18)](#437-cortexmemorytoolsadvisor-vs-tool-模式设计讨论-2026-03-18)
+      - [4.3.8 旁路型集成：VectorStoreChatMemoryAdvisor 的借鉴与改进方向](#438-旁路型集成vectorstorechatmemoryadvisor-的借鉴与改进方向-2026-03-18)
     - [4.4 统一的客户端接口](#44-统一的客户端接口)
   - [5. 实现计划](#5-实现计划)
     - [5.1 模块划分](#51-模块划分)
@@ -120,6 +121,7 @@
 
 | 端点 | 方法 | 用途 | 分类 |
 |------|------|------|------|
+| `/api/session/start` | POST | 初始化/恢复会话 | 捕获 |
 | `/api/ingest/tool-use` | POST | 记录工具使用 (观察) | 捕获 |
 | `/api/ingest/session-end` | POST | 会话结束处理 | 捕获 |
 | `/api/ingest/user-prompt` | POST | 记录用户提示 | 捕获 |
@@ -240,11 +242,13 @@ POST /api/memory/feedback
 Content-Type: application/json
 
 {
-  "experienceId": "uuid-of-experience",
-  "rating": 5,
+  "observationId": "uuid-of-observation",
+  "feedbackType": "SUCCESS",
   "comment": "This was helpful for..."
 }
 ```
+
+**注意**: `feedbackType` 可取 `SUCCESS`、`FAILURE`、`USEFUL`、`NOT_USEFUL` 等。
 
 **响应**:
 ```json
@@ -262,15 +266,14 @@ Content-Type: application/json
 GET /api/memory/quality-distribution?project=/path/to/project
 ```
 
-**响应**:
+**响应**（扁平结构，与 cortex-mem-client 的 QualityDistribution 对齐）:
 ```json
 {
-  "distribution": {
-    "high": 45,
-    "medium": 30,
-    "low": 25
-  },
-  "total": 100
+  "project": "/path/to/project",
+  "high": 45,
+  "medium": 30,
+  "low": 25,
+  "unknown": 0
 }
 ```
 
@@ -313,7 +316,7 @@ class MyController {
 
 ### 3.3 RAG (检索增强生成)
 
-Spring AI 提供 `QuestionAnswerAdvisor` 用于 RAG：
+Spring AI 提供 `QuestionAnswerAdvisor` 用于 RAG（静态文档检索增强）：
 
 ```java
 // 配合 VectorStore 使用
@@ -326,16 +329,21 @@ chatClient.prompt()
 
 ### 3.4 Chat Memory
 
-Spring AI 提供对话历史管理：
+Spring AI 提供多种对话记忆 Advisor：
+
+- **MessageChatMemoryAdvisor**：从 ChatMemory 取回消息，按对话结构注入
+- **VectorStoreChatMemoryAdvisor**：面向长程对话记忆的 RAG Advisor。**Before** 阶段：嵌入用户查询 → 相似检索 → 注入相关历史到 System 文本；**After** 阶段：自动将新轮次（user+assistant）转为 Document → embed → `vectorStore.add()` 持久化（`persistOnCompletion` 默认 true）。全程自动，无需手动存储。参见 [Spring AI 文档](https://docs.spring.io/spring-ai/reference/api/advisors.html)。
 
 ```java
-// 使用 MessageWindowChatMemory
+// 示例：MessageChatMemoryAdvisor
 chatClient.prompt()
     .advisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
     .user(userText)
     .call()
     .content();
 ```
+
+**重要区分**：Cortex CE 记忆系统与上述**不同**。VectorStoreChatMemoryAdvisor 的数据源是**对话轮次**；Cortex CE 的数据源是**智能体执行轨迹**（工具调用、观察、摘要），用于经验复用（ExpRAG/ICL），二者互补而非替代，详见 [4.3.7](#437-cortexmemorytoolsadvisor-vs-tool-模式设计讨论-2026-03-18)。
 
 ---
 
@@ -408,7 +416,7 @@ public interface ObservationCaptureService {
      * 记录工具执行观察
      * 在工具执行后调用，记录工具输入、输出和结果
      */
-    void recordToolObservation(ToolObservation observation);
+    void recordToolObservation(ObservationRequest observation);
     
     /**
      * 记录会话结束
@@ -426,15 +434,17 @@ public interface ObservationCaptureService {
 
 #### 4.2.3 DTO 模型
 
+以下与 `cortex-mem-client` 的 DTO 对齐（实现类为 `ObservationRequest`、`SessionEndRequest`、`UserPromptRequest`）：
+
 ```java
-// 工具观察请求
-public record ToolObservation(
+// 工具观察请求 (ObservationRequest)
+public record ObservationRequest(
     String sessionId,          // 会话 ID
-    String projectPath,       // 项目路径 (记忆隔离)
-    String toolName,          // 工具名称 (Edit/Write/Read/Bash)
-    Map<String, Object> toolInput,    // 工具输入
-    Map<String, Object> toolResponse, // 工具输出
-    int promptNumber          // 当前是第几个 prompt
+    String projectPath,        // 项目路径 (记忆隔离)
+    String toolName,           // 工具名称 (Edit/Write/Read/Bash)
+    Object toolInput,          // 工具输入
+    Object toolResponse,       // 工具输出
+    Integer promptNumber       // 当前是第几个 prompt
 ) {}
 
 // 会话结束请求
@@ -499,7 +509,7 @@ class CortexToolAspect {
         Object result = joinPoint.proceed();
         
         // 3. 执行后自动捕获 (关键!)
-        captureService.recordToolObservation(ToolObservation.builder()
+        captureService.recordToolObservation(ObservationRequest.builder()
             .sessionId(getCurrentSessionContext())
             .projectPath(getCurrentProjectPath())
             .toolName(toolName)
@@ -544,7 +554,7 @@ class CortexToolCallbacks extends DateTimeTools {
         String result = super.getCurrentDateTime();
         
         // 自动捕获工具执行结果
-        captureService.recordToolObservation(ToolObservation.builder()
+        captureService.recordToolObservation(ObservationRequest.builder()
             .sessionId(getCurrentSessionContext())
             .projectPath(getCurrentProjectPath())
             .toolName("getCurrentDateTime")
@@ -582,7 +592,7 @@ class AgentEventListener {
     @EventListener
     public void onToolUse(YourFrameworkToolUseEvent event) {
         // 框架发布的事件，直接捕获
-        captureService.recordToolObservation(ToolObservation.builder()
+        captureService.recordToolObservation(ObservationRequest.builder()
             .sessionId(event.getSessionId())
             .projectPath(event.getProjectPath())
             .toolName(event.getToolName())
@@ -636,7 +646,7 @@ class MyAiAgent {
         Object result = executeTool(toolName, toolInput);
         
         // 2. 捕获观察 (关键!)
-        captureService.recordToolObservation(ToolObservation.builder()
+        captureService.recordToolObservation(ObservationRequest.builder()
             .sessionId(getCurrentSessionId())
             .projectPath(getProjectPath())
             .toolName(toolName)
@@ -682,7 +692,7 @@ cortex:
     project-path: /my/project
 ```
 
-**效果**: 启用后，所有工具执行和会话结束事件会自动捕获到记忆系统，无需修改任何业务代码。
+**效果**: 启用后，`@Tool` 执行在 `CortexSessionContext` 激活时会自动捕获；会话结束 (session-end) 仍需显式调用 `recordSessionEnd`。参见 [4.3.8](#438-旁路型集成vectorstorechatmemoryadvisor-的借鉴与改进方向-2026-03-18)。
 
 ---
 
@@ -737,9 +747,9 @@ public interface MemoryRetrievalService {
      * 获取记忆质量分布
      *
      * @param projectPath 项目路径
-     * @return 质量分布统计
+     * @return 质量分布统计 (QualityDistribution)
      */
-    Map<String, Long> getQualityDistribution(String projectPath);
+    QualityDistribution getQualityDistribution(String projectPath);
 }
 ```
 
@@ -768,77 +778,38 @@ public record ICLPromptResult(
 
 #### 4.3.4 Spring AI 集成: CortexMemoryAdvisor
 
-自定义 Advisor，无缝集成到 Spring AI ChatClient：
+自定义 Advisor，无缝集成到 Spring AI ChatClient。实现 `CallAdvisor` + `StreamAdvisor`（Spring AI 1.1）：
 
 ```java
 /**
  * Cortex Memory Advisor
  * 
  * 自动将记忆检索结果注入到 AI 对话上下文中
- * 
- * 使用方式:
- * chatClient.prompt()
- *     .advisors(CortexMemoryAdvisor.builder(client).build())
- *     .user("...")
- *     .call()
+ * 使用方式: chatClient.defaultAdvisors(cortexMemoryAdvisor).build()
  */
-public class CortexMemoryAdvisor implements Advisor {
+public class CortexMemoryAdvisor implements CallAdvisor, StreamAdvisor {
     
     private final CortexMemClient cortexClient;
     private final String projectPath;
     private final int maxExperiences;
     
-    // 构造器
     public static Builder builder(CortexMemClient client) {
         return new Builder(client);
     }
     
-    public static class Builder {
-        private CortexMemClient client;
-        private String projectPath;
-        private int maxExperiences = 4;
-        
-        public Builder projectPath(String path) {
-            this.projectPath = path;
-            return this;
-        }
-        
-        public Builder maxExperiences(int count) {
-            this.maxExperiences = count;
-            return this;
-        }
-        
-        public CortexMemoryAdvisor build() {
-            return new CortexMemoryAdvisor(client, projectPath, maxExperiences);
-        }
+    @Override
+    public ChatClientResponse adviseCall(ChatClientRequest request, CallAdvisorChain chain) {
+        ChatClientRequest enriched = enrichRequest(request);  // 检索 + 注入 ICL
+        return chain.nextCall(enriched);
     }
     
-    // 实现 Advisor 接口
     @Override
-    public AdvisedRequest advise(AdvisedRequest request) {
-        // 1. 获取用户输入
-        String userText = request.userText();
-        
-        // 2. 检索相关经验
-        List<Experience> experiences = cortexClient
-            .retrieveExperiences(ExperienceRequest.builder()
-                .task(userText)
-                .project(projectPath)
-                .count(maxExperiences)
-                .build());
-        
-        // 3. 构建 ICL 提示
-        String iclPrompt = cortexClient.buildICLPrompt(
-            ICLPromptRequest.builder()
-                .task(userText)
-                .project(projectPath)
-                .build());
-        
-        // 4. 注入到 System Prompt
-        return request.mutate()
-            .systemText(iclPrompt)
-            .build();
+    public Flux<ChatClientResponse> adviseStream(ChatClientRequest request, StreamAdvisorChain chain) {
+        ChatClientRequest enriched = enrichRequest(request);
+        return chain.nextStream(enriched);
     }
+    
+    // enrichRequest: 1) 提取 userText 2) 检索经验 3) buildICLPrompt 4) 注入 SystemMessage
 }
 ```
 
@@ -942,7 +913,7 @@ cortex:
     default-experience-count: 4
 ```
 
-**效果**: 启用后，ChatClient 的每次调用会自动检索相关经验并注入到 System Prompt，无需修改任何业务代码。
+**效果**: 启用后创建 CortexMemoryAdvisor Bean；需在 ChatClient 中通过 `defaultAdvisors(cortexMemoryAdvisor)` 显式添加后，每次调用才会自动检索并注入。参见 [6.1 快速集成](#61-快速集成-最小代码)。
 
 | 对比 | 最简配置 | 完整配置 |
 |------|---------|---------|
@@ -962,13 +933,22 @@ cortex:
 | **上下文注入** | 被动注入 ICL 到 System Prompt | AI 主动获取，按需填充上下文 |
 | **Token 消耗** | 每次调用都会检索 + 注入 | 按需检索，更可控 |
 | **适用场景** | 希望对话"自带记忆"的体验 | 希望 AI 自主决定何时查记忆 |
-| **类比** | Spring AI 的 `QuestionAnswerAdvisor` | Spring AI 的 `@Tool` 方法 |
+| **模式类比** | 类似 `QuestionAnswerAdvisor` 的被动注入（但数据源是经验，非文档） | Spring AI 的 `@Tool` 方法 |
 
-**与 VectorStoreChatMemoryAdvisor 的对比**
+**与 Spring AI 记忆组件的区别（非竞争关系）**
 
-- `VectorStoreChatMemoryAdvisor`: 将 VectorStore 中的文档检索注入上下文，用于 RAG
-- `CortexMemoryAdvisor`: 将 Cortex CE 记忆系统（经验、观察）检索注入上下文，用于 ICL
-- 两者都是 "检索 → 注入 System/User Prompt" 的被动模式
+Cortex CE 记忆系统与 Spring AI 的 `VectorStoreChatMemoryAdvisor`、`QuestionAnswerAdvisor` 解决的是**不同问题**，可组合使用。
+
+| 维度 | VectorStoreChatMemoryAdvisor | CortexMemoryAdvisor / Cortex CE |
+|------|------------------------------|---------------------------------|
+| **本质** | 聊天历史的 RAG — 对话消息作为知识库存入 VectorStore | 经验记忆的 ICL — 智能体执行轨迹作为经验检索 |
+| **数据源** | 动态累积的对话轮次（user/assistant messages） | 工具执行记录、用户提示、会话摘要 |
+| **存储/嵌入** | **自动**：After 阶段将新轮次转为 Document → embed → vectorStore.add()，无需额外代码 | **显式捕获**：需 AOP（CortexToolAspect）、API 调用等将观察写入后端 |
+| **用途** | 长程语义对话记忆 — 如「用户曾提过 Lion 是猫」→ 查询「动物」时增强连贯性 | 经验复用 — 如「上次修 login bug 用 X 策略成功」→ 当前任务注入类似经验 |
+| **检索对象** | 历史对话片段（chat history chunks） | 过去任务/策略/结果（experiences, observations） |
+| **Spring AI 归类** | [RAG Advisors](https://docs.spring.io/spring-ai/reference/api/retrieval-augmented-generation.html) 之一，与 QuestionAnswerAdvisor 并列 | 独立经验检索，非通用 RAG |
+
+**结论**：`VectorStoreChatMemoryAdvisor` 面向**对话记忆**（chat history RAG）；Cortex CE 面向**智能体经验记忆**（experience ICL）。二者解决不同问题，**互补而非竞争**。可同时使用：前者负责对话语义检索，后者负责跨会话经验注入。
 
 **决策：新增 CortexMemoryTools**
 
@@ -1012,6 +992,40 @@ public ChatClient chatClient(ChatClient.Builder builder,
 }
 ```
 
+#### 4.3.8 旁路型集成：VectorStoreChatMemoryAdvisor 的借鉴与改进方向 (2026-03-18)
+
+> **背景**：VectorStoreChatMemoryAdvisor 提供 Before（检索）+ After（自动持久化）一体化流程，全程自动、零样板代码。本节分析其对 Cortex CE 旁路型集成的借鉴价值及改进空间。
+
+**VectorStoreChatMemoryAdvisor 的可借鉴点**
+
+| 特性 | VectorStoreChatMemoryAdvisor | 对旁路型集成的启发 |
+|------|------------------------------|---------------------|
+| **一体化生命周期** | Before 检索 + After 持久化，同一 Advisor 完成 | 检索已集成在 Advisor；捕获分散在 AOP、Advisor、手动调用，可考虑更统一的入口 |
+| **零 context 样板** | 仅需 `advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, id))`，无需 begin/end | 用户 prompt 已支持 conversationId；**@Tool 捕获**仍强制依赖 `CortexSessionContext.begin/end` |
+| **persistOnCompletion** | 每次响应后自动 persist，默认 true | 我们的「persist」是发送到后端（异步 LLM 提取），语义不同；无直接等价物 |
+| **单一入口** | 添加一个 Advisor 即可获得检索+存储 | 我们需 Advisor + AOP + 可选 session 生命周期调用，入口较多 |
+
+**当前旁路型集成评估**
+
+| 能力 | 状态 | 说明 |
+|------|------|------|
+| **检索** | ✅ 到位 | CortexMemoryAdvisor 自动注入 ICL；CortexMemoryTools 按需检索 |
+| **User prompt 捕获** | ✅ 到位 | Advisor 内自动捕获，支持 conversationId 或 CortexSessionContext |
+| **@Tool 捕获** | ⚠️ 有前置条件 | 需 `CortexSessionContext` 激活，否则 AOP 不记录；用户须手动 begin/end |
+| **Session 生命周期** | ❌ 全手动 | startSession、recordSessionEnd 需显式调用 |
+| **Assistant 响应** | ❌ 无每轮捕获 | 仅 session-end 时传 last_assistant_message，无 per-turn 存储 |
+
+**改进方向（待实施）**
+
+| 改进项 | 价值 | 难度 | 描述 |
+|--------|------|------|------|
+| **CortexSessionContextBridgeAdvisor** | 高 | 低 | 当 `ChatMemory.CONVERSATION_ID` 存在时，在 Advisor 链中自动 `begin/end` CortexSessionContext，使 @Tool 捕获在纯 ChatClient 场景下无需手动 context |
+| **Session 生命周期 Helper** | 中 | 低 | 提供 Filter/注解，如首次请求自动 startSession、超时自动 recordSessionEnd；见 `cortex-mem-integration-capture-analysis.md` 4.3 |
+| **persistOnCompletion 语义扩展** | 中 | 高 | 若后端支持轻量「记录单轮」API，Advisor After 阶段可考虑自动上报；当前依赖 session-end，不宜每轮调用 |
+| **配置与文档** | 中 | 低 | 明确「最小集成」与「完整集成」的差异，降低用户心智负担 |
+
+**结论**：检索与 user prompt 捕获已较完善；@Tool 捕获和 session 生命周期仍有改进空间。优先实现 **CortexSessionContextBridgeAdvisor** 可显著减少样板代码，使「加 Advisor + 传 conversationId」即获得完整捕获能力。
+
 ---
 
 ### 4.4 统一的客户端接口
@@ -1027,6 +1041,11 @@ public ChatClient chatClient(ChatClient.Builder builder,
 public interface CortexMemClient {
     
     // ==================== 捕获相关 ====================
+    
+    /**
+     * 初始化/恢复会话。POST /api/session/start
+     */
+    Map<String, Object> startSession(SessionStartRequest request);
     
     /**
      * 记录工具观察
@@ -1053,7 +1072,7 @@ public interface CortexMemClient {
     /**
      * 构建 ICL 提示
      */
-    String buildICLPrompt(ICLPromptRequest request);
+    ICLPromptResult buildICLPrompt(ICLPromptRequest request);
     
     // ==================== 管理相关 ====================
     
@@ -1065,7 +1084,7 @@ public interface CortexMemClient {
     /**
      * 获取质量分布
      */
-    Map<String, Long> getQualityDistribution(String projectPath);
+    QualityDistribution getQualityDistribution(String projectPath);
     
     /**
      * 健康检查
@@ -1100,8 +1119,12 @@ cortex-mem-spring-integration/
 │   │   │   └── ObservationCaptureService.java
 │   │   ├── retrieval/
 │   │   │   └── MemoryRetrievalService.java
-│   │   └── advisor/
-│   │       └── CortexMemoryAdvisor.java
+│   │   ├── advisor/
+│   │   │   └── CortexMemoryAdvisor.java
+│   │   ├── aspect/
+│   │   │   └── CortexToolAspect.java
+│   │   └── tools/
+│   │       └── CortexMemoryTools.java
 │   └── pom.xml
 │
 └── cortex-mem-starter/         # Spring Boot Starter
@@ -1164,14 +1187,15 @@ public class MyAiApplication {
 
 ```yaml
 # 2. application.yml
+cortex:
+  mem:
+    base-url: http://localhost:37777
+    project-path: /path/to/your/project
+
 spring:
   ai:
     openai:
       api-key: ${OPENAI_API_KEY}
-  cortex:
-    mem:
-      base-url: http://localhost:37777
-      project-path: /path/to/your/project
 ```
 
 ```java
@@ -1180,9 +1204,10 @@ spring:
 class AiController {
     private final ChatClient chatClient;
 
-    public AiController(ChatClient.Builder builder) {
+    public AiController(ChatClient.Builder builder, CortexMemoryAdvisor cortexMemoryAdvisor) {
         this.chatClient = builder
             .defaultSystem("You are a helpful assistant")
+            .defaultAdvisors(cortexMemoryAdvisor)  // 启用自动检索与 user prompt 捕获
             .build();
     }
 
@@ -1248,7 +1273,7 @@ class MyAiAgent {
                 .build());
 
         // 3. 构建增强提示
-        String iclPrompt = cortexMemClient.buildICLPrompt(
+        ICLPromptResult iclResult = cortexMemClient.buildICLPrompt(
             ICLPromptRequest.builder()
                 .task(userInput)
                 .project(getProjectPath())
@@ -1256,7 +1281,7 @@ class MyAiAgent {
 
         // 4. 调用 AI
         return chatClient.prompt()
-            .system(iclPrompt)
+            .system(iclResult != null ? iclResult.prompt() : "")
             .user(userInput)
             .call()
             .content();
@@ -1295,9 +1320,6 @@ cortex:
     # 可选: 重试次数 (默认 3)
     retry:
       max-attempts: 3
-      
-    # 可选: 启用自动记忆精炼 (默认 true)
-    auto-refine-enabled: true
     
     # 可选: 每次请求检索的经验数量 (默认 4)
     default-experience-count: 4
@@ -1418,5 +1440,7 @@ public void recordObservation(...) {
 **实施进度**: 详见 `docs/drafts/spring-ai-integration-progress.md`
 
 **CortexMemoryTools** (2026-03-18): `cortex-mem-spring-ai/tools/CortexMemoryTools.java` — `searchMemories`, `getMemoryContext`；配置 `memory-tools-enabled` 控制 Bean 创建；Demo 支持 `?useTools=true`。
+
+**改进方向**: 见 [4.3.8](#438-旁路型集成vectorstorechatmemoryadvisor-的借鉴与改进方向-2026-03-18) — CortexSessionContextBridgeAdvisor（高优）、Session 生命周期 Helper。
 
 **下一步**: 单元测试覆盖 + 使用文档完善
