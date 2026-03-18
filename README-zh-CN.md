@@ -75,6 +75,180 @@ java -jar target/cortex-ce-*.jar
 
 ---
 
+## 最终用户快速配置指南
+
+本节指导你将 Claude Code 与 Cortex CE 记忆系统进行集成。
+
+### 前置条件
+
+- **Docker 和 Docker Compose** 已安装
+- **Node.js** 已安装（运行 `node` 命令需要）
+- **Claude Code** 已安装
+
+### 预期目录结构
+
+下文假设你将在用户主目录下创建一个子目录 `.cortexce` 部署 Cortex CE 记忆系统：
+
+```
+~/.cortexce/                         # 部署目录
+├── .env                            # 环境变量配置
+├── docker-compose.yml               # Docker Compose 配置
+└── proxy/                          # Claude Code Hooks 代理
+    ├── wrapper.js                   # 主入口脚本
+    ├── package.json
+    └── ...
+```
+
+### 步骤一：创建工作目录并配置环境变量
+
+创建工作目录和 `.env` 文件：
+
+```bash
+mkdir -p ~/.cortexce
+cat > ~/.cortexce/.env << 'EOF'
+# 数据库配置
+DB_PASSWORD=your_secure_password
+
+# LLM 配置（Spring AI OpenAI 格式）
+SPRING_AI_OPENAI_API_KEY=your_openai_key
+SPRING_AI_OPENAI_BASE_URL=https://api.deepseek.com
+SPRING_AI_OPENAI_CHAT_MODEL=deepseek-chat
+
+# 嵌入模型配置（Spring AI OpenAI 格式）
+SPRING_AI_OPENAI_EMBEDDING_API_KEY=your_siliconflow_key
+SPRING_AI_OPENAI_EMBEDDING_BASE_URL=https://api.siliconflow.cn
+SPRING_AI_OPENAI_EMBEDDING_MODEL=BAAI/bge-m3
+SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS=1024
+
+# ⚡ 可选：关闭自演化记忆（记忆精炼）功能
+# 该功能会自动精炼/合并记忆，但会消耗 LLM token。
+# 设置为 'false' 可关闭此功能，节省 token 消耗。
+MEMORY_REFINE_ENABLED=false
+EOF
+```
+
+### 步骤二：拷贝必要文件
+
+假设你已克隆本仓库到本地，目录为 `[git目录]`，进入工作目录并拷贝文件：
+
+```bash
+cd ~/.cortexce
+
+# 拷贝 docker-compose.yml
+cp [git目录]/BlueCortexCE/docker-compose.yml .
+
+# 拷贝 proxy 目录
+cp -r [git目录]/BlueCortexCE/proxy .
+
+# 安装 proxy 依赖
+cd proxy && npm install
+```
+
+### 步骤三：启动服务
+
+```bash
+cd ~/.cortexce
+
+# 启动服务
+docker compose up -d
+
+# 或指定镜像
+IMAGE_NAME=ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main docker compose up -d
+
+# ARM64 Mac (Apple Silicon) 会自动拉取对应版本
+# 如需强制使用 AMD64 (Intel Mac):
+# docker pull --platform linux/amd64 ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main
+```
+
+等待服务启动完成，验证健康状态：
+
+```bash
+curl http://localhost:37777/api/health
+```
+
+应返回 `{"status":"UP"}`。
+
+### 步骤四：配置 Claude Code Hooks
+
+编辑项目级配置文件 `.claude/settings.local.json`（如不存在则创建）：
+
+```json
+{
+  "hooks": {
+    "SessionStart": [{
+      "hooks": [{
+        "type": "command",
+        "command": "~/.cortexce/proxy/wrapper.js session-start --url http://127.0.0.1:37777",
+        "async": true
+      }]
+    }],
+    "PostToolUse": [{
+      "matcher": "Edit|Write|Read|Bash",
+      "hooks": [{
+        "type": "command",
+        "command": "~/.cortexce/proxy/wrapper.js tool-use --url http://127.0.0.1:37777",
+        "async": true
+      }]
+    }],
+    "SessionEnd": [{
+      "hooks": [{
+        "type": "command",
+        "command": "~/.cortexce/proxy/wrapper.js session-end --url http://127.0.0.1:37777",
+        "async": true
+      }]
+    }],
+    "UserPromptSubmit": [{
+      "hooks": [{
+        "type": "command",
+        "command": "~/.cortexce/proxy/wrapper.js user-prompt --url http://127.0.0.1:37777",
+        "async": true
+      }]
+    }]
+  }
+}
+```
+
+#### Hook 说明
+
+| Hook | 触发时机 |
+|------|----------|
+| SessionStart | Claude Code 启动时 |
+| PostToolUse | 工具执行后（Edit/Write/Read/Bash） |
+| SessionEnd | 会话结束时 |
+| UserPromptSubmit | 用户提交提示时 |
+
+### 步骤五：配置 MCP Server（如需主动检索记忆）
+
+```bash
+claude mcp add --transport sse cortexce http://127.0.0.1:37777/sse
+```
+
+验证配置：
+
+```bash
+claude mcp list
+```
+
+### 常用命令
+
+```bash
+cd ~/.cortexce
+
+# 启动服务
+docker compose up -d
+
+# 重启服务
+docker compose restart
+
+# 查看日志
+docker compose logs -f cortex-ce
+
+# 停止服务
+docker compose down
+```
+
+---
+
 ## 架构设计
 
 ```
