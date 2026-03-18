@@ -243,7 +243,7 @@ For complete API documentation, see [API.md](docs/API.md)
 
 ### Claude Code
 
-Integrated via CLI Hooks. See [End User Quick Setup Guide](#end-user-quick-setup-guide) above.
+Integrated via CLI Hooks. See [Quick Setup for Claude Code Users](#quick-setup-for-claude-code-users-5-minutes) above.
 
 ### Cursor IDE
 
