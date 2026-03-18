@@ -1015,16 +1015,16 @@ public ChatClient chatClient(ChatClient.Builder builder,
 | **Session 生命周期** | ❌ 全手动 | startSession、recordSessionEnd 需显式调用 |
 | **Assistant 响应** | ❌ 无每轮捕获 | 仅 session-end 时传 last_assistant_message，无 per-turn 存储 |
 
-**改进方向（待实施）**
+**改进方向**
 
-| 改进项 | 价值 | 难度 | 描述 |
+| 改进项 | 价值 | 难度 | 状态 |
 |--------|------|------|------|
-| **CortexSessionContextBridgeAdvisor** | 高 | 低 | 当 `ChatMemory.CONVERSATION_ID` 存在时，在 Advisor 链中自动 `begin/end` CortexSessionContext，使 @Tool 捕获在纯 ChatClient 场景下无需手动 context |
-| **Session 生命周期 Helper** | 中 | 低 | 提供 Filter/注解，如首次请求自动 startSession、超时自动 recordSessionEnd；见 `cortex-mem-integration-capture-analysis.md` 4.3 |
-| **persistOnCompletion 语义扩展** | 中 | 高 | 若后端支持轻量「记录单轮」API，Advisor After 阶段可考虑自动上报；当前依赖 session-end，不宜每轮调用 |
-| **配置与文档** | 中 | 低 | 明确「最小集成」与「完整集成」的差异，降低用户心智负担 |
+| **CortexSessionContextBridgeAdvisor** | 高 | 低 | ✅ 已实施 (2026-03-18) |
+| **Session 生命周期 Helper** | 中 | 低 | ⏳ 待实施 — Filter/注解，如首次请求自动 startSession、超时自动 recordSessionEnd；见 `cortex-mem-integration-capture-analysis.md` 4.3 |
+| **persistOnCompletion 语义扩展** | 中 | 高 | ⏳ 待实施 — 若后端支持轻量「记录单轮」API，Advisor After 阶段可考虑自动上报 |
+| **配置与文档** | 中 | 低 | ⏳ 待实施 — 明确「最小集成」与「完整集成」的差异 |
 
-**结论**：检索与 user prompt 捕获已较完善；@Tool 捕获和 session 生命周期仍有改进空间。优先实现 **CortexSessionContextBridgeAdvisor** 可显著减少样板代码，使「加 Advisor + 传 conversationId」即获得完整捕获能力。
+**结论**：**CortexSessionContextBridgeAdvisor** 已实施。当 `ChatMemory.CONVERSATION_ID` 存在时，Bridge 自动 `begin/end` CortexSessionContext，使 @Tool 捕获在纯 ChatClient 场景下无需手动 context。配置 `cortex.mem.context-bridge-enabled=true`（默认）启用；在 ChatClient 中将 Bridge 置于 CortexMemoryAdvisor 之前。
 
 ---
 
@@ -1120,7 +1120,8 @@ cortex-mem-spring-integration/
 │   │   ├── retrieval/
 │   │   │   └── MemoryRetrievalService.java
 │   │   ├── advisor/
-│   │   │   └── CortexMemoryAdvisor.java
+│   │   │   ├── CortexMemoryAdvisor.java
+│   │   │   └── CortexSessionContextBridgeAdvisor.java
 │   │   ├── aspect/
 │   │   │   └── CortexToolAspect.java
 │   │   └── tools/
@@ -1204,20 +1205,23 @@ spring:
 class AiController {
     private final ChatClient chatClient;
 
-    public AiController(ChatClient.Builder builder, CortexMemoryAdvisor cortexMemoryAdvisor) {
-        this.chatClient = builder
-            .defaultSystem("You are a helpful assistant")
-            .defaultAdvisors(cortexMemoryAdvisor)  // 启用自动检索与 user prompt 捕获
+    // Bridge 可选 (context-bridge-enabled=true 时存在)：可使 @Tool 捕获在 conversationId 场景下生效
+    public AiController(ChatClient.Builder builder,
+                        @Autowired(required = false) CortexSessionContextBridgeAdvisor bridgeAdvisor,
+                        CortexMemoryAdvisor cortexMemoryAdvisor) {
+        var b = builder.defaultSystem("You are a helpful assistant");
+        this.chatClient = (bridgeAdvisor != null
+            ? b.defaultAdvisors(bridgeAdvisor, cortexMemoryAdvisor)
+            : b.defaultAdvisors(cortexMemoryAdvisor))
             .build();
     }
 
     @GetMapping("/chat")
-    String chat(@RequestParam String message) {
-        // 自动检索相关经验并注入上下文
-        return chatClient.prompt()
-            .user(message)
-            .call()
-            .content();
+    String chat(@RequestParam String message, @RequestParam(required = false) String conversationId) {
+        var spec = conversationId != null && !conversationId.isBlank()
+            ? chatClient.prompt().advisors(s -> s.param(ChatMemory.CONVERSATION_ID, conversationId)).user(message)
+            : chatClient.prompt().user(message);
+        return spec.call().content();
     }
 }
 ```
@@ -1327,6 +1331,10 @@ cortex:
     # 可选: 是否创建 CortexMemoryTools Bean (默认 false，需显式启用)
     # 启用后需在 ChatClient 中调用 defaultTools(cortexMemoryTools) 才会生效
     memory-tools-enabled: false
+    
+    # 可选: 是否创建 CortexSessionContextBridgeAdvisor (默认 true)
+    # 启用后，当 ChatMemory.CONVERSATION_ID 存在时自动 begin/end CortexSessionContext，使 @Tool 捕获在纯 ChatClient 场景下无需手动 context
+    context-bridge-enabled: true
 ```
 
 ### 7.2 环境变量
@@ -1441,6 +1449,8 @@ public void recordObservation(...) {
 
 **CortexMemoryTools** (2026-03-18): `cortex-mem-spring-ai/tools/CortexMemoryTools.java` — `searchMemories`, `getMemoryContext`；配置 `memory-tools-enabled` 控制 Bean 创建；Demo 支持 `?useTools=true`。
 
-**改进方向**: 见 [4.3.8](#438-旁路型集成vectorstorechatmemoryadvisor-的借鉴与改进方向-2026-03-18) — CortexSessionContextBridgeAdvisor（高优）、Session 生命周期 Helper。
+**CortexSessionContextBridgeAdvisor** (2026-03-18): ✅ 已实施 — 当 `ChatMemory.CONVERSATION_ID` 存在时自动 begin/end CortexSessionContext，使 @Tool 捕获在纯 ChatClient 场景下无需手动 context；`cortex.mem.context-bridge-enabled=true`（默认）。
+
+**改进方向**: 见 [4.3.8](#438-旁路型集成vectorstorechatmemoryadvisor-的借鉴与改进方向-2026-03-18) — Session 生命周期 Helper（中优）。
 
 **下一步**: 单元测试覆盖 + 使用文档完善

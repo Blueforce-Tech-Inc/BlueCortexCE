@@ -1,6 +1,7 @@
 package com.example.cortexmem;
 
 import com.ablueforce.cortexce.ai.advisor.CortexMemoryAdvisor;
+import com.ablueforce.cortexce.ai.advisor.CortexSessionContextBridgeAdvisor;
 import com.ablueforce.cortexce.ai.context.CortexSessionContext;
 import com.ablueforce.cortexce.ai.tools.CortexMemoryTools;
 import com.ablueforce.cortexce.client.CortexMemClient;
@@ -16,11 +17,11 @@ import java.util.UUID;
 /**
  * Memory-augmented chat — supports ?project=, ?conversationId=, ?useTools=.
  *
- * <p>User prompts are auto-captured to memory when cortex.mem.capture-enabled=true.
+ * <p>User prompts and @Tool observations are auto-captured when cortex.mem.capture-enabled=true.
  * Session ID resolution (in order):
  * <ol>
- *   <li>?conversationId= — Spring AI ChatMemory.CONVERSATION_ID (aligns with MessageChatMemoryAdvisor)</li>
- *   <li>CortexSessionContext — when wrapping with begin/end</li>
+ *   <li>?conversationId= — Spring AI ChatMemory.CONVERSATION_ID + CortexSessionContextBridgeAdvisor auto begin/end</li>
+ *   <li>CortexSessionContext — when wrapping with begin/end (legacy path)</li>
  * </ol>
  *
  * <p>?project= may be a demo.projects key (e.g. project-a) or absolute path.
@@ -35,6 +36,9 @@ public class ChatController {
     private final CortexMemoryAdvisor defaultAdvisor;
     private final CortexMemClient cortexClient;
     private final DemoProperties demoProperties;
+
+    @Autowired(required = false)
+    private CortexSessionContextBridgeAdvisor contextBridgeAdvisor;
 
     @Autowired(required = false)
     private CortexMemoryTools memoryTools;
@@ -68,10 +72,12 @@ public class ChatController {
             ? conversationId
             : "chat-" + UUID.randomUUID();
 
-        var client = chatClientBuilder
+        var clientBuilder = chatClientBuilder
             .defaultSystem("You are a helpful coding assistant with access to relevant past experiences. " +
-                (memoryTools != null && useTools ? "You can call searchMemories or getMemoryContext when you need to look up past experiences." : ""))
-            .defaultAdvisors(advisor)
+                (memoryTools != null && useTools ? "You can call searchMemories or getMemoryContext when you need to look up past experiences." : ""));
+        var client = (contextBridgeAdvisor != null
+            ? clientBuilder.defaultAdvisors(contextBridgeAdvisor, advisor)
+            : clientBuilder.defaultAdvisors(advisor))
             .build();
 
         if (memoryTools != null && useTools) {

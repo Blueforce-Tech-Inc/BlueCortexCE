@@ -77,9 +77,10 @@
 - `dto/ICLPromptResult.java`
 - `dto/QualityDistribution.java`
 
-### cortex-mem-spring-ai (8 文件)
+### cortex-mem-spring-ai (9 文件)
 - `pom.xml`
 - `advisor/CortexMemoryAdvisor.java` — Spring AI 1.1 CallAdvisor + StreamAdvisor
+- `advisor/CortexSessionContextBridgeAdvisor.java` — 当 CONVERSATION_ID 存在时自动 begin/end CortexSessionContext (2026-03-18)
 - `aspect/CortexToolAspect.java` — @Tool AOP 自动捕获
 - `context/CortexSessionContext.java` — ThreadLocal 会话上下文
 - `observation/ObservationCaptureService.java` — 接口

@@ -146,7 +146,7 @@ Each request automatically **retrieves** relevant experiences (ICL context injec
 
 **For user prompt capture**, provide a session ID via either method. Without it, retrieval works but prompts are not recorded:
 
-Session ID resolution (aligned with Spring AI `ChatMemory.CONVERSATION_ID`):
+Session ID resolution (aligned with Spring AI `ChatMemory.CONVERSATION_ID`). When `context-bridge-enabled=true` (default), `CortexSessionContextBridgeAdvisor` auto activates context:
 
 1. **Spring AI conversation ID** — set via `.advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, id))`
 2. **CortexSessionContext** — fallback when wrapping with `begin`/`end`
@@ -182,6 +182,7 @@ All properties are under `cortex.mem`:
 | `capture-user-prompt-enabled` | boolean | `true` | Enable user prompt auto-capture (CortexMemoryAdvisor). Independent of capture-enabled. |
 | `retrieval-enabled` | boolean | `true` | Enable memory retrieval |
 | `memory-tools-enabled` | boolean | `false` | Create CortexMemoryTools bean. Tools are not auto-injected — add via `ChatClient.defaultTools(cortexMemoryTools)`. |
+| `context-bridge-enabled` | boolean | `true` | Create CortexSessionContextBridgeAdvisor. When CONVERSATION_ID is set, auto begin/end CortexSessionContext so @Tool capture works without manual context. |
 | `retry.max-attempts` | int | `3` | Retry attempts for capture calls |
 | `retry.backoff` | Duration | `500ms` | Base backoff between retries |
 

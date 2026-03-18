@@ -21,6 +21,8 @@ public class CortexMemProperties {
     private boolean retrievalEnabled = true;
     /** Create CortexMemoryTools bean for on-demand memory retrieval. Default false (opt-in). */
     private boolean memoryToolsEnabled = false;
+    /** Enable CortexSessionContextBridgeAdvisor to auto begin/end context when CONVERSATION_ID is set. Default true. */
+    private boolean contextBridgeEnabled = true;
     private Retry retry = new Retry();
 
     public String getBaseUrl() { return baseUrl; }
@@ -49,6 +51,9 @@ public class CortexMemProperties {
 
     public boolean isMemoryToolsEnabled() { return memoryToolsEnabled; }
     public void setMemoryToolsEnabled(boolean memoryToolsEnabled) { this.memoryToolsEnabled = memoryToolsEnabled; }
+
+    public boolean isContextBridgeEnabled() { return contextBridgeEnabled; }
+    public void setContextBridgeEnabled(boolean contextBridgeEnabled) { this.contextBridgeEnabled = contextBridgeEnabled; }
 
     public Retry getRetry() { return retry; }
     public void setRetry(Retry retry) { this.retry = retry; }

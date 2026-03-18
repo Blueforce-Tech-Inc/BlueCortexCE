@@ -1,6 +1,7 @@
 package com.ablueforce.cortexce.autoconfigure;
 
 import com.ablueforce.cortexce.ai.advisor.CortexMemoryAdvisor;
+import com.ablueforce.cortexce.ai.advisor.CortexSessionContextBridgeAdvisor;
 import com.ablueforce.cortexce.ai.aspect.CortexToolAspect;
 import com.ablueforce.cortexce.ai.observation.DefaultObservationCaptureService;
 import com.ablueforce.cortexce.ai.observation.ObservationCaptureService;
@@ -72,12 +73,23 @@ public class CortexMemAutoConfiguration {
     }
 
     /**
-     * Spring AI Advisor — only activated when Spring AI is on the classpath.
+     * Spring AI Advisors — only activated when Spring AI is on the classpath.
      */
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnClass(name = "org.springframework.ai.chat.client.ChatClient")
     @ConditionalOnProperty(prefix = "cortex.mem", name = "retrieval-enabled", matchIfMissing = true)
     static class SpringAiAdvisorConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean
+        @ConditionalOnProperty(prefix = "cortex.mem", name = "context-bridge-enabled", matchIfMissing = true)
+        public CortexSessionContextBridgeAdvisor cortexSessionContextBridgeAdvisor(
+                CortexMemProperties properties) {
+            log.info("Configuring CortexSessionContextBridgeAdvisor for project: {}", properties.getProjectPath());
+            return CortexSessionContextBridgeAdvisor.builder()
+                .projectPath(properties.getProjectPath() != null ? properties.getProjectPath() : "")
+                .build();
+        }
 
         @Bean
         @ConditionalOnMissingBean
