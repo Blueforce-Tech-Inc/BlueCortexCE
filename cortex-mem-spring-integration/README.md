@@ -30,31 +30,64 @@ Cortex CE is a memory backend that stores agent observations, generates summarie
 
 ## Installation
 
-### Maven
+We recommend using [JitPack](https://jitpack.io/#Blueforce-Tech-Inc/BlueCortexCE) for pre-built artifacts. Visit the JitPack page to see available versions (release tags, branch names, or commit hashes).
+
+### Maven (JitPack)
+
+Add the JitPack repository and dependency to your `pom.xml`:
 
 ```xml
-<!-- Full integration: Starter (client + Spring AI + auto-config) -->
+<repositories>
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+</repositories>
+
+<dependencies>
+    <!-- Full integration: cortex-mem-starter (client + Spring AI + auto-config) -->
+    <dependency>
+        <groupId>com.github.Blueforce-Tech-Inc</groupId>
+        <artifactId>BlueCortexCE</artifactId>
+        <version>Tag</version>
+    </dependency>
+</dependencies>
+```
+
+Replace `Tag` with a release tag (e.g. `v1.0.0`), branch name (e.g. `main`), or commit hash. See [JitPack build history](https://jitpack.io/#Blueforce-Tech-Inc/BlueCortexCE) for available versions. For a working example, see [examples/cortex-mem-demo](../examples/cortex-mem-demo).
+
+### Maven (Local build)
+
+To build and install from source:
+
+```bash
+cd cortex-mem-spring-integration
+mvn clean install -DskipTests
+```
+
+Then add the local dependency:
+
+```xml
 <dependency>
     <groupId>com.ablueforce.cortexce</groupId>
     <artifactId>cortex-mem-starter</artifactId>
     <version>1.0.0-SNAPSHOT</version>
 </dependency>
-
-<!-- Client only (no Spring AI, no auto-config) -->
-<dependency>
-    <groupId>com.ablueforce.cortexce</groupId>
-    <artifactId>cortex-mem-client</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
-</dependency>
 ```
-
-> **Note**: Before using, run `mvn install` from the `cortex-mem-spring-integration` directory to install the libraries into your local Maven repository.
 
 ### Gradle (Kotlin DSL)
 
 ```kotlin
-implementation("com.ablueforce.cortexce:cortex-mem-starter:1.0.0-SNAPSHOT")
+repositories {
+    maven { url = uri("https://jitpack.io") }
+}
+
+dependencies {
+    implementation("com.github.Blueforce-Tech-Inc:BlueCortexCE:Tag")
+}
 ```
+
+Replace `Tag` with a release tag, branch name, or commit hash (see [JitPack](https://jitpack.io/#Blueforce-Tech-Inc/BlueCortexCE)).
 
 ## Quick Start
 
@@ -84,6 +117,8 @@ public class MyAiApplication {
 
 ### Step 4: Use ChatClient (memory-augmented)
 
+`CortexMemoryAdvisor` is auto-configured when you use `cortex-mem-starter` with Spring AI on the classpath. Inject it and add it to your ChatClient:
+
 ```java
 @RestController
 class AiController {
@@ -92,9 +127,7 @@ class AiController {
     public AiController(ChatClient.Builder builder, CortexMemoryAdvisor advisor) {
         this.chatClient = builder
             .defaultSystem("You are a helpful assistant.")
-            .build()
-            .mutate()
-            .advisors(advisor)
+            .defaultAdvisors(advisor)
             .build();
     }
 
@@ -108,9 +141,11 @@ class AiController {
 }
 ```
 
-Each request automatically retrieves relevant experiences from the memory backend and injects them into the system prompt as ICL context.
+Each request automatically **retrieves** relevant experiences (ICL context injection). User prompts are **auto-captured** only when `capture-user-prompt-enabled=true` and a session ID is available (see below).
 
-User prompts are **auto-captured** when `capture-enabled=true` and a session ID is available. Session ID resolution (aligned with Spring AI `ChatMemory.CONVERSATION_ID`):
+**For user prompt capture**, provide a session ID via either method. Without it, retrieval works but prompts are not recorded:
+
+Session ID resolution (aligned with Spring AI `ChatMemory.CONVERSATION_ID`):
 
 1. **Spring AI conversation ID** — set via `.advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, id))`
 2. **CortexSessionContext** — fallback when wrapping with `begin`/`end`
@@ -142,8 +177,8 @@ All properties are under `cortex.mem`:
 | `connect-timeout` | Duration | `10s` | HTTP connect timeout |
 | `read-timeout` | Duration | `30s` | HTTP read timeout |
 | `default-experience-count` | int | `4` | Max experiences per retrieval |
-| `capture-enabled` | boolean | `true` | Enable @Tool observation capture |
-| `capture-user-prompt-enabled` | boolean | `true` | Enable user prompt auto-capture in CortexMemoryAdvisor |
+| `capture-enabled` | boolean | `true` | Enable @Tool observation capture (CortexToolAspect) |
+| `capture-user-prompt-enabled` | boolean | `true` | Enable user prompt auto-capture (CortexMemoryAdvisor). Independent of capture-enabled. |
 | `retrieval-enabled` | boolean | `true` | Enable memory retrieval |
 | `retry.max-attempts` | int | `3` | Retry attempts for capture calls |
 | `retry.backoff` | Duration | `500ms` | Base backoff between retries |
@@ -190,7 +225,9 @@ CORTEX_MEM_CAPTURE_USER_PROMPT_ENABLED=true
 
 ### 1. Automatic @Tool Capture (AOP)
 
-When capture is enabled and Spring AOP is on the classpath, any `@Tool`-annotated method is intercepted and its input/output is sent to the memory backend.
+When `capture-enabled=true` and Spring AOP is on the classpath, any `@Tool`-annotated method is intercepted and its input/output is sent to the memory backend.
+
+**Important**: The `@Tool` method must be in a **separate `@Component`** bean. Self-invocation (calling `this.readFile()` from the same class) bypasses Spring AOP and will not be captured.
 
 ```java
 @Component
@@ -291,12 +328,14 @@ class CustomService {
 | **cortex-mem-spring-ai** | Advisor, capture/retrieval services, AOP aspect. Depends on Spring AI and client. |
 | **cortex-mem-starter** | Spring Boot auto-configuration, `@EnableCortexMem`, health indicator. Depends on both above. |
 
-## Build
+## Build & Example
 
 ```bash
 cd cortex-mem-spring-integration
 mvn clean install -DskipTests
 ```
+
+For a full working example (Chat, Tools, Session lifecycle, E2E tests), see `examples/cortex-mem-demo` in this repository.
 
 ## Backend API Alignment
 
@@ -304,6 +343,7 @@ The client talks to these Cortex CE endpoints:
 
 | Client Method | Backend Endpoint |
 |---------------|------------------|
+| `startSession()` | `POST /api/session/start` |
 | `recordObservation()` | `POST /api/ingest/tool-use` |
 | `recordSessionEnd()` | `POST /api/ingest/session-end` |
 | `recordUserPrompt()` | `POST /api/ingest/user-prompt` |
@@ -313,6 +353,15 @@ The client talks to these Cortex CE endpoints:
 | `submitFeedback()` | `POST /api/memory/feedback` |
 | `getQualityDistribution()` | `GET /api/memory/quality-distribution` |
 | `healthCheck()` | `GET /actuator/health` |
+
+## Common Pitfalls
+
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| Tool calls not captured | `@Tool` invoked via self-invocation | Move `@Tool` to a separate `@Component` and inject it |
+| User prompts not captured | No session ID provided | Use Option A (conversation ID) or Option B (CortexSessionContext) |
+| No ICL context injected | Backend unreachable or `retrieval-enabled=false` | Check `base-url`, ensure backend is running |
+| Advisor not registered | Spring AI not on classpath | Add `spring-ai-starter-model-openai` (or similar) |
 
 ## Design Notes
 
