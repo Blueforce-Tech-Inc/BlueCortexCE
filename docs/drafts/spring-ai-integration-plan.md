@@ -354,29 +354,156 @@ public record UserPromptRequest(
 
 #### 4.2.4 自动捕获拦截器
 
-对于框架内置的工具执行，可以使用拦截器自动捕获：
+**核心问题**: Spring AI 的工具执行是通过 `FunctionCallback` 机制实现的，不是传统的事件机制。
+
+**实现方案**: 使用 **AOP 切面** 拦截工具执行，自动记录前后状态。
+
+---
+
+##### 方案一: AOP 切面拦截 (推荐)
 
 ```java
 /**
- * 工具执行拦截器 - 自动捕获工具使用结果
+ * 工具执行切面 - 通过 AOP 自动拦截工具执行并记录观察
  * 
- * 使用方式:
- * 1. 手动调用: 在工具执行后调用 recordToolObservation()
- * 2. 自动拦截: 注入 ToolExecutionInterceptor 作为 Spring Event Listener
+ * 原理: 切面拦截所有 @Tool 注解的方法，在执行前后自动记录
  */
+@Aspect
 @Component
-class ToolExecutionInterceptor {
+@Order(Ordered.HIGHEST_PRECEDENCE)
+class CortexToolAspect {
+    
     private final ObservationCaptureService captureService;
     
-    public ToolExecutionInterceptor(ObservationCaptureService captureService) {
+    public CortexToolAspect(ObservationCaptureService captureService) {
         this.captureService = captureService;
     }
     
     /**
-     * 拦截工具执行并记录观察
-     * 可通过 Spring @EventListener 自动触发
+     * 拦截所有被 @Tool 注解的方法
      */
-    public void onToolExecuted(ToolExecutedEvent event) {
+    @Around("@annotation(org.springframework.ai.tool.annotation.Tool)")
+    public Object interceptToolExecution(ProceedingJoinPoint joinPoint) throws Throwable {
+        Method method = ((MethodSignature) joinPoint.getSignature()).getMethod();
+        Tool toolAnnotation = method.getAnnotation(Tool.class);
+        String toolName = toolAnnotation.name();
+        
+        // 1. 记录执行前状态
+        Object[] args = joinPoint.getArgs();
+        Map<String, Object> toolInput = toMap(args, method.getParameters());
+        
+        // 2. 执行工具
+        Object result = joinPoint.proceed();
+        
+        // 3. 执行后自动捕获 (关键!)
+        captureService.recordToolObservation(ToolObservation.builder()
+            .sessionId(getCurrentSessionContext())
+            .projectPath(getCurrentProjectPath())
+            .toolName(toolName)
+            .toolInput(toolInput)
+            .toolResponse(toMap(result))
+            .promptNumber(getPromptCount())
+            .build());
+        
+        return result;
+    }
+}
+```
+
+---
+
+##### 方案二: 包装 ChatClient
+
+```java
+/**
+ * 带记忆的 ChatClient - 包装原生 ChatClient，自动捕获工具执行
+ */
+@Component
+class CortexChatClient {
+    
+    private final ChatClient delegate;
+    private final ObservationCaptureService captureService;
+    
+    public CortexChatClient(ChatClient delegate,
+                           ObservationCaptureService captureService) {
+        this.delegate = delegate;
+        this.captureService = captureService;
+    }
+    
+    /**
+     * 调用 AI 并自动捕获工具执行
+     */
+    public PromptResult chat(Prompt prompt) {
+        // 1. 设置工具回调包装器
+        FunctionCallbackWrapper wrapper = new FunctionCallbackWrapper() {
+            @Override
+            public Object apply(String toolName, Map<String, Object> input, 
+                              FunctionCallbackResult result) {
+                // 自动捕获工具执行结果
+                captureService.recordToolObservation(ToolObservation.builder()
+                    .sessionId(getCurrentSessionContext())
+                    .projectPath(getCurrentProjectPath())
+                    .toolName(toolName)
+                    .toolInput(input)
+                    .toolResponse(toMap(result.getResult()))
+                    .promptNumber(getPromptCount())
+                    .build());
+                return result.getResult();
+            }
+        };
+        
+        // 2. 调用 AI
+        return delegate.prompt(prompt)
+            .toolCallbackWrapper(wrapper)  // 注入包装器
+            .call();
+    }
+}
+```
+
+---
+
+##### 方案三: 事件驱动 (适用于自定义事件)
+
+如果你的智能体框架本身会发布事件，可以监听这些事件：
+
+```java
+@Component
+class AgentEventListener {
+    private final ObservationCaptureService captureService;
+    
+    @EventListener
+    public void onToolUse(ToolUseEvent event) {
+        // 框架发布的事件，直接捕获
+        captureService.recordToolObservation(ToolObservation.builder()
+            .sessionId(event.getSessionId())
+            .projectPath(event.getProjectPath())
+            .toolName(event.getToolName())
+            .toolInput(event.getInput())
+            .toolResponse(event.getOutput())
+            .promptNumber(event.getPromptNumber())
+            .build());
+    }
+    
+    @EventListener
+    public void onSessionEnd(SessionEndEvent event) {
+        captureService.recordSessionEnd(SessionEndRequest.builder()
+            .sessionId(event.getSessionId())
+            .projectPath(event.getProjectPath())
+            .lastAssistantMessage(event.getLastMessage())
+            .build());
+    }
+}
+```
+
+---
+
+##### 自动捕获机制对比
+
+| 方案 | 优点 | 缺点 | 适用场景 |
+|------|------|------|----------|
+| **AOP 切面** | 无侵入，统一拦截 | 需要 AOP 依赖 | 通用场景 |
+| **包装 ChatClient** | 完全可控 | 需要替换 bean | 细粒度控制 |
+| **事件监听** | 解耦最好 | 依赖框架事件 | 自定义框架 |
         captureService.recordToolObservation(ToolObservation.builder()
             .sessionId(event.getSessionId())
             .projectPath(event.getProjectPath())
