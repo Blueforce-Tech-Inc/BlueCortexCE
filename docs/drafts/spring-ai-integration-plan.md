@@ -21,8 +21,6 @@
 
 ---
 
----
-
 ## 目录
 
 1. [背景与目标](#1-背景与目标)
@@ -465,7 +463,7 @@ class CortexFunctionCallbackWrapper implements FunctionCallbackWrapper {
 
 ##### 方案三: 事件驱动 (仅当框架发布事件时可用)
 
-> ⚠️ **注意**: 此方案要求你的智能体框架会发布 `ToolUseEvent` 和 `SessionEndEvent` 事件。如果框架不发布事件，此方案不可用。
+> ⚠️ **注意**: 此方案要求你的智能体框架会发布事件。以下代码中的 `ToolUseEvent` 和 `SessionEndEvent` 是**假设的事件类**，你需要根据实际框架替换为真实的事件类型。
 
 如果你的智能体框架本身会发布事件 (如自定义事件)，可以监听这些事件：
 
@@ -474,8 +472,9 @@ class CortexFunctionCallbackWrapper implements FunctionCallbackWrapper {
 class AgentEventListener {
     private final ObservationCaptureService captureService;
     
+    // 假设的事件类 - 需要替换为框架实际的类
     @EventListener
-    public void onToolUse(ToolUseEvent event) {
+    public void onToolUse(YourFrameworkToolUseEvent event) {
         // 框架发布的事件，直接捕获
         captureService.recordToolObservation(ToolObservation.builder()
             .sessionId(event.getSessionId())
@@ -487,8 +486,9 @@ class AgentEventListener {
             .build());
     }
     
+    // 假设的事件类 - 需要替换为框架实际的类
     @EventListener
-    public void onSessionEnd(SessionEndEvent event) {
+    public void onSessionEnd(YourFrameworkSessionEndEvent event) {
         captureService.recordSessionEnd(SessionEndRequest.builder()
             .sessionId(event.getSessionId())
             .projectPath(event.getProjectPath())
@@ -976,6 +976,8 @@ cortex-mem-spring-integration/
 ---
 
 ## 6. 示例代码
+
+> **📌 说明**: 以下示例为 Phase 3 Spring Boot Starter 实现后的使用方式。
 
 ### 6.1 快速集成 (最小代码)
 
