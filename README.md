@@ -102,7 +102,7 @@ SPRING_AI_OPENAI_EMBEDDING_BASE_URL=https://api.siliconflow.cn
 SPRING_AI_OPENAI_EMBEDDING_MODEL=BAAI/bge-m3
 SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS=1024
 
-# Optional: 关闭记忆演化以节省 token
+# Optional: Disable memory evolution to save tokens
 MEMORY_REFINE_ENABLED=false
 EOF
 ```
