@@ -3,6 +3,7 @@
 > **版本**: 1.1  
 > **更新日期**: 2026-03-18  
 > **状态**: ✅ Phase 1-3 已实施 (cortex-mem-spring-integration 三模块完成，已安装到本地 Maven 仓库)
+> **实现对齐**: 2026-03-18 与当前代码库核对，已修正过期/误导性表述
 >
 > ---
 >
@@ -130,7 +131,7 @@
 | `/api/memory/refine` | POST | 触发记忆精炼 | 演化 |
 | `/api/memory/feedback` | POST | 提交记忆质量反馈 | 演化 |
 | `/api/memory/quality-distribution` | GET | 获取质量分布 | 检索 |
-| `/api/health` | GET | 健康检查 | 系统 |
+| `/api/health` | GET | 健康检查（CortexMemClient 使用 `/actuator/health`） | 系统 |
 
 > **⚠️ CORS 说明**: 后端默认关闭 CORS。如需浏览器前端直接调用，需配置 `claudemem.cors.allowed-origins` (多个域名用逗号分隔)。
 
@@ -496,10 +497,12 @@ class CortexToolAspect {
      */
     @Around("@annotation(org.springframework.ai.tool.annotation.Tool)")
     public Object interceptToolExecution(ProceedingJoinPoint joinPoint) throws Throwable {
-        // 需要导入: import org.springframework.ai.tool.annotation.Tool;
+        if (!CortexSessionContext.isActive()) return joinPoint.proceed();
+        String className = joinPoint.getTarget().getClass().getName();
+        if (className.startsWith("com.ablueforce.cortexce.ai.tools.")) return joinPoint.proceed();  // 跳过记忆工具，非用户操作
         Method method = ((MethodSignature) joinPoint.getSignature()).getMethod();
         Tool toolAnnotation = method.getAnnotation(Tool.class);
-        String toolName = toolAnnotation.name();
+        String toolName = toolAnnotation.name().isEmpty() ? method.getName() : toolAnnotation.name();
         
         // 1. 记录执行前状态
         Object[] args = joinPoint.getArgs();
@@ -510,12 +513,12 @@ class CortexToolAspect {
         
         // 3. 执行后自动捕获 (关键!)
         captureService.recordToolObservation(ObservationRequest.builder()
-            .sessionId(getCurrentSessionContext())
-            .projectPath(getCurrentProjectPath())
+            .sessionId(CortexSessionContext.getSessionId())
+            .projectPath(CortexSessionContext.getProjectPath())
             .toolName(toolName)
             .toolInput(toolInput)
             .toolResponse(toMap(result))
-            .promptNumber(getPromptCount())
+            .promptNumber(CortexSessionContext.getPromptNumber())
             .build());
         
         return result;
@@ -571,8 +574,6 @@ class CortexToolCallbacks extends DateTimeTools {
 ChatClient.create(chatModel)
     .tools(new CortexToolCallbacks(captureService))  // 传入带捕获的类
     .call();
-    }
-}
 ```
 
 ---
@@ -676,7 +677,7 @@ class MyAiAgent {
 
 ```java
 @SpringBootApplication
-@EnableCortexMem(captureEnabled = true)  // ← 只需这一行！
+@EnableCortexMem  // ← 只需这一行！captureEnabled 默认 true
 public class MyAiApp {
     public static void main(String[] args) {
         SpringApplication.run(MyAiApp.class, args);
@@ -757,22 +758,24 @@ public interface MemoryRetrievalService {
 
 ```java
 /**
- * 经验记录 - 从记忆系统检索的历史经验
+ * 经验记录 - 从记忆系统检索的历史经验（与 cortex-mem-client 对齐）
  */
 public record Experience(
-    String task,           // 任务描述
-    String strategy,       // 使用的策略
-    String outcome,        // 执行结果
-    Float qualityScore,   // 质量分数 (0-1)
-    Instant timestamp     // 时间戳
+    String id,             // 观察 ID
+    String task,
+    String strategy,
+    String outcome,
+    String reuseCondition,
+    float qualityScore,
+    OffsetDateTime createdAt
 ) {}
 
 /**
- * ICL 提示构建结果
+ * ICL 提示构建结果（experienceCount 后端返回 String，可用 experienceCountAsInt() 转为 int）
  */
 public record ICLPromptResult(
-    String prompt,         // 格式化后的提示
-    int experienceCount   // 包含的经验数量
+    String prompt,
+    String experienceCount
 ) {}
 ```
 
@@ -833,24 +836,16 @@ class AiConfig {
 class AiController {
     private final ChatClient chatClient;
     
-    public AiController(ChatClient.Builder builder,
-                        @Qualifier("cortexMemoryAdvisor") 
-                        CortexMemoryAdvisor advisor) {
+    public AiController(ChatClient.Builder builder, CortexMemoryAdvisor advisor) {
         this.chatClient = builder
             .defaultSystem("You are a helpful coding assistant.")
-            .build()
-            .mutate()
-            .advisors(advisor)
+            .defaultAdvisors(advisor)  // 若启用 Bridge，见 6.1 使用 defaultAdvisors(bridgeAdvisor, advisor)
             .build();
     }
     
     @GetMapping("/chat")
     String chat(@RequestParam String message) {
-        // 自动检索相关经验并注入上下文
-        return chatClient.prompt()
-            .user(message)
-            .call()
-            .content();
+        return chatClient.prompt().user(message).call().content();
     }
 }
 ```
@@ -896,7 +891,7 @@ class MyAgentService {
 
 ```java
 @SpringBootApplication
-@EnableCortexMem(retrievalEnabled = true)  // ← 只需这一行！
+@EnableCortexMem  // ← 只需这一行！retrievalEnabled 默认 true
 public class MyAiApp {
     public static void main(String[] args) {
         SpringApplication.run(MyAiApp.class, args);
@@ -1001,7 +996,7 @@ public ChatClient chatClient(ChatClient.Builder builder,
 | 特性 | VectorStoreChatMemoryAdvisor | 对旁路型集成的启发 |
 |------|------------------------------|---------------------|
 | **一体化生命周期** | Before 检索 + After 持久化，同一 Advisor 完成 | 检索已集成在 Advisor；捕获分散在 AOP、Advisor、手动调用，可考虑更统一的入口 |
-| **零 context 样板** | 仅需 `advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, id))`，无需 begin/end | 用户 prompt 已支持 conversationId；**@Tool 捕获**仍强制依赖 `CortexSessionContext.begin/end` |
+| **零 context 样板** | 仅需 `advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, id))`，无需 begin/end | 用户 prompt 与 @Tool 捕获均支持：传 conversationId 时 **CortexSessionContextBridgeAdvisor** 自动 begin/end，无需手动 |
 | **persistOnCompletion** | 每次响应后自动 persist，默认 true | 我们的「persist」是发送到后端（异步 LLM 提取），语义不同；无直接等价物 |
 | **单一入口** | 添加一个 Advisor 即可获得检索+存储 | 我们需 Advisor + AOP + 可选 session 生命周期调用，入口较多 |
 
@@ -1011,7 +1006,7 @@ public ChatClient chatClient(ChatClient.Builder builder,
 |------|------|------|
 | **检索** | ✅ 到位 | CortexMemoryAdvisor 自动注入 ICL；CortexMemoryTools 按需检索 |
 | **User prompt 捕获** | ✅ 到位 | Advisor 内自动捕获，支持 conversationId 或 CortexSessionContext |
-| **@Tool 捕获** | ⚠️ 有前置条件 | 需 `CortexSessionContext` 激活，否则 AOP 不记录；用户须手动 begin/end |
+| **@Tool 捕获** | ✅ 到位（conversationId 路径） | 传 conversationId 时 Bridge 自动激活 context；否则需手动 begin/end |
 | **Session 生命周期** | ❌ 全手动 | startSession、recordSessionEnd 需显式调用 |
 | **Assistant 响应** | ❌ 无每轮捕获 | 仅 session-end 时传 last_assistant_message，无 per-turn 存储 |
 
@@ -1024,16 +1019,9 @@ public ChatClient chatClient(ChatClient.Builder builder,
 | **persistOnCompletion 语义扩展** | 中 | 高 | ⏳ 待实施 — 若后端支持轻量「记录单轮」API，Advisor After 阶段可考虑自动上报 |
 | **配置与文档** | 中 | 低 | ⏳ 待实施 — 明确「最小集成」与「完整集成」的差异 |
 
-**结论**：**CortexSessionContextBridgeAdvisor** 已实施。当 `ChatMemory.CONVERSATION_ID` 存在时，Bridge 自动 `begin/end` CortexSessionContext，使 @Tool 捕获在纯 ChatClient 场景下无需手动 context。配置 `cortex.mem.context-bridge-enabled=true`（默认）启用；在 ChatClient 中将 Bridge 置于 CortexMemoryAdvisor 之前。
+**结论与组件关系**
 
-**Bridge 与现有组件关系（无冲突、无定位重合）**
-
-| 组件 | 职责 | 与 Bridge 关系 |
-|------|------|----------------|
-| **CortexMemoryAdvisor** | ICL 检索注入 + user prompt 捕获；从 CONVERSATION_ID 或 CortexSessionContext 解析 sessionId | 互补：Bridge 激活 context 后，MemoryAdvisor 的 `resolveProjectPath()` 可从 context 取 projectPath；二者顺序固定（Bridge -100，MemoryAdvisor 0） |
-| **CortexToolAspect** | 拦截 @Tool 执行并记录观察；**要求** CortexSessionContext.isActive() | 依赖 Bridge：Bridge 激活 context 后，Aspect 才能捕获；无 Bridge 时需用户手动 begin/end |
-| **CortexSessionContext** | ThreadLocal 会话上下文（sessionId、projectPath、promptNumber） | Bridge 是 context 的**自动化入口**之一；另一入口为用户手动 begin/end |
-| **手动 begin/end** | 用户显式调用 CortexSessionContext.begin/end | 与 Bridge 二选一；使用 conversationId 时用 Bridge，否则用手动。二者不会同时作用（conversationId 存在时 Bridge 接管） |
+**CortexSessionContextBridgeAdvisor** 已实施，与现有组件**无冲突、无定位重合**：Bridge 专职 context 生命周期（CONVERSATION_ID 存在时自动 begin/end），CortexMemoryAdvisor 负责检索与 user prompt 捕获，CortexToolAspect 依赖 context 做 @Tool 捕获。三者互补：Bridge 激活 context 后，MemoryAdvisor 可解析 projectPath，Aspect 可记录工具执行；无 Bridge 时需用户手动 begin/end。Bridge 与手动 begin/end 二选一，顺序固定（Bridge -100，MemoryAdvisor 0）。配置 `cortex.mem.context-bridge-enabled=true`（默认），在 ChatClient 中将 Bridge 置于 MemoryAdvisor 之前。
 
 ---
 
@@ -1091,6 +1079,11 @@ public interface CortexMemClient {
     void triggerRefinement(String projectPath);
     
     /**
+     * 提交记忆质量反馈 (observationId, feedbackType, comment)
+     */
+    void submitFeedback(String observationId, String feedbackType, String comment);
+    
+    /**
      * 获取质量分布
      */
     QualityDistribution getQualityDistribution(String projectPath);
@@ -1116,8 +1109,14 @@ cortex-mem-spring-integration/
 │   │   ├── CortexMemClientImpl.java
 │   │   ├── dto/
 │   │   │   ├── ObservationRequest.java
+│   │   │   ├── SessionEndRequest.java
+│   │   │   ├── UserPromptRequest.java
 │   │   │   ├── ExperienceRequest.java
-│   │   │   └── Experience.java
+│   │   │   ├── ICLPromptRequest.java
+│   │   │   ├── Experience.java
+│   │   │   ├── ICLPromptResult.java
+│   │   │   ├── SessionStartRequest.java
+│   │   │   └── QualityDistribution.java
 │   │   └── config/
 │   │       └── CortexMemProperties.java
 │   └── pom.xml
@@ -1125,9 +1124,11 @@ cortex-mem-spring-integration/
 ├── cortex-mem-spring-ai/       # Spring AI 集成
 │   ├── src/main/java/.../ai/
 │   │   ├── observation/
-│   │   │   └── ObservationCaptureService.java
+│   │   │   ├── ObservationCaptureService.java
+│   │   │   └── DefaultObservationCaptureService.java
 │   │   ├── retrieval/
-│   │   │   └── MemoryRetrievalService.java
+│   │   │   ├── MemoryRetrievalService.java
+│   │   │   └── DefaultMemoryRetrievalService.java
 │   │   ├── advisor/
 │   │   │   ├── CortexMemoryAdvisor.java
 │   │   │   └── CortexSessionContextBridgeAdvisor.java
@@ -1148,7 +1149,7 @@ cortex-mem-spring-integration/
 
 #### Phase 1: 基础客户端 ✅ 已完成
 
-- [x] 设计 DTO 模型类 (7 个 record)
+- [x] 设计 DTO 模型类 (ObservationRequest, SessionEndRequest, UserPromptRequest, ExperienceRequest, ICLPromptRequest, Experience, ICLPromptResult, SessionStartRequest, QualityDistribution)
 - [x] 实现 CortexMemClient 接口 (REST Client)
 - [x] 使用 Spring REST Client (同步编程，更简单)
 - [x] 添加重试和超时配置
@@ -1321,7 +1322,7 @@ cortex:
     # 必需: Cortex CE 后端地址
     base-url: http://localhost:37777
     
-    # 必需: 项目路径 (用于隔离记忆)
+    # 项目路径 (用于隔离记忆，推荐配置)
     project-path: /path/to/project
     
     # 可选: 连接超时 (默认 10s)
@@ -1352,9 +1353,6 @@ cortex:
 # 基础配置
 CORTEX_MEM_BASE_URL=http://localhost:37777
 CORTEX_MEM_PROJECT_PATH=/path/to/project
-
-# 认证 (如果需要)
-CORTEX_MEM_API_KEY=your-api-key
 ```
 
 ### 7.3 Docker 部署
