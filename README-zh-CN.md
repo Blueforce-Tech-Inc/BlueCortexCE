@@ -243,7 +243,7 @@ docker compose down     # 停止
 
 ### Claude Code
 
-通过 CLI Hooks 集成。详见上方的[快速配置指南](#快速开始)。
+通过 CLI Hooks 集成。详见上方的 [Claude Code 用户快速配置（5 分钟）](#claude-code-用户快速配置5-分钟)。
 
 ### Cursor IDE
 
