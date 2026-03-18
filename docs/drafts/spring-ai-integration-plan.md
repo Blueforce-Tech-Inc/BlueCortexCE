@@ -1026,6 +1026,15 @@ public ChatClient chatClient(ChatClient.Builder builder,
 
 **结论**：**CortexSessionContextBridgeAdvisor** 已实施。当 `ChatMemory.CONVERSATION_ID` 存在时，Bridge 自动 `begin/end` CortexSessionContext，使 @Tool 捕获在纯 ChatClient 场景下无需手动 context。配置 `cortex.mem.context-bridge-enabled=true`（默认）启用；在 ChatClient 中将 Bridge 置于 CortexMemoryAdvisor 之前。
 
+**Bridge 与现有组件关系（无冲突、无定位重合）**
+
+| 组件 | 职责 | 与 Bridge 关系 |
+|------|------|----------------|
+| **CortexMemoryAdvisor** | ICL 检索注入 + user prompt 捕获；从 CONVERSATION_ID 或 CortexSessionContext 解析 sessionId | 互补：Bridge 激活 context 后，MemoryAdvisor 的 `resolveProjectPath()` 可从 context 取 projectPath；二者顺序固定（Bridge -100，MemoryAdvisor 0） |
+| **CortexToolAspect** | 拦截 @Tool 执行并记录观察；**要求** CortexSessionContext.isActive() | 依赖 Bridge：Bridge 激活 context 后，Aspect 才能捕获；无 Bridge 时需用户手动 begin/end |
+| **CortexSessionContext** | ThreadLocal 会话上下文（sessionId、projectPath、promptNumber） | Bridge 是 context 的**自动化入口**之一；另一入口为用户手动 begin/end |
+| **手动 begin/end** | 用户显式调用 CortexSessionContext.begin/end | 与 Bridge 二选一；使用 conversationId 时用 Bridge，否则用手动。二者不会同时作用（conversationId 存在时 Bridge 接管） |
+
 ---
 
 ### 4.4 统一的客户端接口

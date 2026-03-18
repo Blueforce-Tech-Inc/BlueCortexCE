@@ -103,11 +103,22 @@ echo ""
 echo "=== 4. Chat (LLM + Memory) ==="
 unique_msg="E2E-user-prompt-$(date +%s)"
 chat_out=$(curl -sf --max-time 60 "$DEMO_BASE/chat?message=$unique_msg" 2>/dev/null || echo "__ERR__")
+
+# 4b. Chat with conversationId (Bridge path — CortexSessionContextBridgeAdvisor)
+conv_id="e2e-conv-$(date +%s)"
+bridge_chat=$(curl -sf --max-time 60 "$DEMO_BASE/chat?message=E2E-bridge-test&conversationId=$conv_id" 2>/dev/null || echo "__ERR__")
 if [ -n "$chat_out" ] && [ "$chat_out" != "__ERR__" ] && [ ${#chat_out} -gt 2 ]; then
   echo "  chat OK (${#chat_out} chars)"
   ((passed++)) || true
 else
   echo "  chat FAIL"
+  ((failed++)) || true
+fi
+if [ -n "$bridge_chat" ] && [ "$bridge_chat" != "__ERR__" ] && [ ${#bridge_chat} -gt 2 ]; then
+  echo "  chat?conversationId= OK (Bridge path, ${#bridge_chat} chars)"
+  ((passed++)) || true
+else
+  echo "  chat?conversationId= FAIL — $bridge_chat"
   ((failed++)) || true
 fi
 
