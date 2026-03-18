@@ -3,6 +3,23 @@
 > **版本**: 1.0  
 > **创建日期**: 2026-03-18  
 > **状态**: 规划中 (待审批)
+>
+> ---
+>
+> **⚠️ 重要说明 - Spring AI API 验证状态**:
+> 
+> 本文档中涉及 Spring AI 的以下内容**需要进一步验证**：
+> 
+> 1. `@Tool` 注解的包路径和确切用法
+> 2. `FunctionCallback` / `FunctionCallbackWrapper` 的 API
+> 3. `ChatClient.mutate().advisors()` 的确切方法签名
+> 4. AOP 拦截 `@Tool` 注解的可行性
+> 
+> **原因**: 网络搜索工具暂时不可用 (缺少 Brave API Key)，无法 100% 确认这些 API。
+> 
+> **建议**: 在实施前，请通过 [Spring AI 官方文档](https://docs.spring.io/spring-ai/reference/) 确认这些 API。
+
+---
 
 ---
 
@@ -446,9 +463,11 @@ class CortexFunctionCallbackWrapper implements FunctionCallbackWrapper {
 
 ---
 
-##### 方案三: 事件驱动 (适用于自定义事件)
+##### 方案三: 事件驱动 (仅当框架发布事件时可用)
 
-如果你的智能体框架本身会发布事件，可以监听这些事件：
+> ⚠️ **注意**: 此方案要求你的智能体框架会发布 `ToolUseEvent` 和 `SessionEndEvent` 事件。如果框架不发布事件，此方案不可用。
+
+如果你的智能体框架本身会发布事件 (如自定义事件)，可以监听这些事件：
 
 ```java
 @Component
@@ -488,17 +507,6 @@ class AgentEventListener {
 | **AOP 切面** | 拦截 @Tool 方法 | 无侵入、统一拦截 | ✅ 可行 |
 | **FunctionCallback 包装** | 包装回调函数 | 精确捕获 | ⚠️ 待验证 |
 | **事件监听** | 监听框架事件 | 解耦最好 | ✅ 可行 |
-        captureService.recordToolObservation(ToolObservation.builder()
-            .sessionId(event.getSessionId())
-            .projectPath(event.getProjectPath())
-            .toolName(event.getToolName())
-            .toolInput(event.getInput())
-            .toolResponse(event.getOutput())
-            .promptNumber(event.getPromptNumber())
-            .build());
-    }
-}
-```
 
 #### 4.2.5 使用示例
 
@@ -544,42 +552,9 @@ class MyAiAgent {
 }
 ```
 
-**方式二: 事件驱动自动捕获**
-
-```java
-@Component
-class AgentEventListener {
-    private final ObservationCaptureService captureService;
-    
-    public AgentEventListener(ObservationCaptureService captureService) {
-        this.captureService = captureService;
-    }
-    
-    @EventListener
-    public void onToolUse(ToolUseEvent event) {
-        // 自动捕获 - 无需手动调用
-        captureService.recordToolObservation(ToolObservation.builder()
-            .sessionId(event.getSessionId())
-            .projectPath(event.getProjectPath())
-            .toolName(event.getToolName())
-            .toolInput(event.getInput())
-            .toolResponse(event.getOutput())
-            .promptNumber(event.getPromptNumber())
-            .build());
-    }
-    
-    @EventListener
-    public void onSessionEnd(SessionEndEvent event) {
-        captureService.recordSessionEnd(SessionEndRequest.builder()
-            .sessionId(event.getSessionId())
-            .projectPath(event.getProjectPath())
-            .lastAssistantMessage(event.getLastMessage())
-            .build());
-    }
-}
-```
-
 #### ⭐ 4.2.6 最简配置 (一行代码捕获记忆)
+
+> **📌 设计目标**: 以下配置为 Phase 3 Spring Boot Starter 实现后的使用方式。
 
 **目标**: 最小化代码改动，一行启用自动捕获
 
@@ -837,6 +812,8 @@ class MyAgentService {
 ```
 
 #### ⭐ 4.3.6 最简配置 (一行代码启用记忆增强)
+
+> **📌 设计目标**: 以下配置为 Phase 3 Spring Boot Starter 实现后的使用方式。
 
 **目标**: 最少代码，让 AI 自动拥有"记忆上下文"能力
 
