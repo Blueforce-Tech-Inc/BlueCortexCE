@@ -2,7 +2,7 @@ package com.ablueforce.cortexce.controller;
 
 import com.ablueforce.cortexce.entity.SessionEntity;
 import com.ablueforce.cortexce.repository.SessionRepository;
-import com.ablueforce.cortexce.service.AgentService;
+import com.ablueforce.cortexce.service.SessionManagementService;
 import com.ablueforce.cortexce.service.ClaudeMdService;
 import com.ablueforce.cortexce.service.ContextCacheService;
 import com.ablueforce.cortexce.service.ContextService;
@@ -42,7 +42,7 @@ public class SessionController {
     private SessionRepository sessionRepository;
 
     @Autowired
-    private AgentService agentService;
+    private SessionManagementService sessionManagementService;
 
     @Autowired
     private ContextService contextService;
@@ -89,7 +89,7 @@ public class SessionController {
     public Map<String, Object> startSession(@RequestBody Map<String, Object> body) {
         String contentSessionId = (String) body.get("session_id");
         String projectPath = (String) body.get("project_path");
-        String cwd = (String) body.get("cwd");
+        String projectPathFromCwd = (String) body.get("cwd"); // fallback when project_path absent
         String projectsParam = (String) body.get("projects");
         Boolean isWorktree = (Boolean) body.get("is_worktree");
         String parentProject = (String) body.get("parent_project");
@@ -99,7 +99,10 @@ public class SessionController {
             return Map.of("error", "Missing required field: session_id");
         }
         if (projectPath == null || projectPath.isBlank()) {
-            return Map.of("error", "Missing required field: project_path");
+            projectPath = projectPathFromCwd; // fallback to cwd for API compatibility
+        }
+        if (projectPath == null || projectPath.isBlank()) {
+            return Map.of("error", "Missing required field: project_path (or cwd)");
         }
 
         // Log worktree info if present
@@ -111,7 +114,7 @@ public class SessionController {
         }
 
         // 1. Initialize or retrieve session
-        SessionEntity session = agentService.initializeSession(contentSessionId, projectPath, null);
+        SessionEntity session = sessionManagementService.initializeSession(contentSessionId, projectPath, null);
         String sessionDbId = session.getId().toString();
 
         // 2. Generate context from observations (try cache first)

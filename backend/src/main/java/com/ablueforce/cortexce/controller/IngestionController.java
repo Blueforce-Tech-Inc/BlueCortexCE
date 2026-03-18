@@ -3,9 +3,10 @@ package com.ablueforce.cortexce.controller;
 import com.ablueforce.cortexce.config.Constants;
 import com.ablueforce.cortexce.entity.SessionEntity;
 import com.ablueforce.cortexce.entity.UserPromptEntity;
-import com.ablueforce.cortexce.repository.SessionRepository;
 import com.ablueforce.cortexce.repository.UserPromptRepository;
 import com.ablueforce.cortexce.service.AgentService;
+import com.ablueforce.cortexce.service.SessionManagementService;
+import com.ablueforce.cortexce.service.SummaryGenerationService;
 import com.ablueforce.cortexce.service.ContextCacheService;
 import com.ablueforce.cortexce.service.RateLimitService;
 import com.ablueforce.cortexce.service.SSEBroadcaster;
@@ -43,7 +44,10 @@ public class IngestionController {
     private AgentService agentService;
 
     @Autowired
-    private SessionRepository sessionRepository;
+    private SessionManagementService sessionManagementService;
+
+    @Autowired
+    private SummaryGenerationService summaryGenerationService;
 
     @Autowired
     private UserPromptRepository userPromptRepository;
@@ -108,7 +112,7 @@ public class IngestionController {
         // Resolve session DB ID from content session ID
         java.util.UUID sessionDbId = null;
         if (contentSessionId != null) {
-            sessionDbId = sessionRepository.findByContentSessionId(contentSessionId)
+            sessionDbId = sessionManagementService.findByContentSessionId(contentSessionId)
                 .map(SessionEntity::getId)
                 .orElse(null);
         }
@@ -147,7 +151,7 @@ public class IngestionController {
         log.debug("Session end: session={}", contentSessionId);
 
         // Fire-and-forget: marks session completed AND generates summary asynchronously
-        agentService.completeSessionAsync(contentSessionId, lastAssistantMessage);
+        summaryGenerationService.completeSessionAsync(contentSessionId, lastAssistantMessage);
 
         // Debug mode: return additional info for testing verification
         if (Boolean.TRUE.equals(debug)) {
@@ -206,7 +210,7 @@ public class IngestionController {
         // This handles the case where SessionStart hook failed or was skipped,
         // but UserPromptSubmit still needs to record the prompt.
         // If session already exists, this is a no-op; otherwise creates a new session.
-        SessionEntity session = agentService.ensureSession(contentSessionId, cwd, promptText);
+        sessionManagementService.ensureSession(contentSessionId, cwd, promptText);
 
         UserPromptEntity prompt = new UserPromptEntity();
         prompt.setContentSessionId(contentSessionId);
@@ -270,7 +274,7 @@ public class IngestionController {
         // P0: Ensure session exists before creating observation (fixes FK constraint error)
         // This handles the case where SessionStart hook failed or was skipped.
         // If session already exists, this is a no-op; otherwise creates a new session.
-        agentService.ensureSession(memorySessionId, projectPath, parsed.title);
+        sessionManagementService.ensureSession(memorySessionId, projectPath, parsed.title);
 
         var observation = agentService.saveObservation(
             memorySessionId,

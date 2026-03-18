@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 /**
  * Publisher for memory refinement events.
  * 
- * Used by AgentService to publish events when session ends.
+ * Used by SummaryGenerationService to publish events when session ends.
  */
 @Component
 public class MemoryRefineEventPublisher {
