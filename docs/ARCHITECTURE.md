@@ -621,6 +621,31 @@ Model Context Protocol for AI assistant integration:
 | `save_memory` | Manual memory save |
 | `recent` | Recent session summaries |
 
+#### MCP Transport Protocols
+
+The MCP Server supports two transport protocols:
+
+| Protocol | Endpoint | Description |
+|----------|----------|-------------|
+| **SSE** (default) | `/sse` + `/mcp/message` | Server-Sent Events - stable |
+| **Streamable HTTP** | `/mcp` | Modern HTTP-based protocol |
+
+**Configuration** (in `application.yml`):
+
+```yaml
+spring:
+  ai:
+    mcp:
+      server:
+        protocol: SSE          # or: STREAMABLE
+```
+
+**Environment Variable Override** (no config file edit needed):
+
+```bash
+export SPRING_AI_MCP_SERVER_PROTOCOL=STREAMABLE
+```
+
 ---
 
 ## Technology Stack

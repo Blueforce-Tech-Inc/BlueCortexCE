@@ -285,143 +285,72 @@ lsof -i :37777
 
 ## MCP 工具配置
 
-Java Port 已实现 MCP Server（基于 Spring AI MCP Server WebMVC），提供以下工具：
+Java 后端支持两种 MCP 传输协议：
 
-| 工具 | 功能 | 说明 |
+| 协议 | 端点 | 说明 |
 |------|------|------|
-| `search` | 搜索记忆索引 | Step 1: 语义搜索，返回 ID 列表 |
-| `timeline` | 获取上下文时间线 | Step 2: 获取锚点周围的观察记录 |
-| `get_observations` | 获取完整观察详情 | Step 3: 根据 ID 获取完整内容 |
-| `save_memory` | 手动保存记忆 | 存储重要信息供后续检索 |
+| **SSE** (默认) | `/sse` | Server-Sent Events，稳定可靠 |
+| **Streamable HTTP** | `/mcp` | 现代 HTTP 协议，适合多实例部署 |
 
-### Claude Code MCP 配置
+### 配置 MCP 协议
 
-#### 方式一：CLI 命令添加 (推荐 ✅)
+MCP 协议配置位于 `backend/src/main/resources/application.yml`：
 
-**这是最可靠的方式，确保 MCP 服务器被正确加载。**
+```yaml
+spring:
+  ai:
+    mcp:
+      server:
+        protocol: SSE          # 或: STREAMABLE
+        sse-endpoint: /sse
+        sse-message-endpoint: /mcp/message
+        streamable-http:
+          mcp-endpoint: /mcp
+```
+
+### 使用 SSE 协议（默认）
 
 ```bash
-# 添加 SSE 类型的 MCP 服务器
+# SSE 是默认协议，无需额外配置
+# 添加 MCP 服务器（SSE 传输）：
 claude mcp add --transport sse cortexce http://127.0.0.1:37777/sse
-
-# 查看已配置的服务器
-claude mcp list
-
-# 使用 /mcp 命令查看当前会话的 MCP 服务器
-/mcp
 ```
 
-#### 方式二：项目级 `.mcp.json` 文件
+### 使用 Streamable HTTP 协议
 
-> ⚠️ **重要提示**：项目级 `.mcp.json` 可能不会自动加载！Claude Code 有时不会自动识别项目根目录的 MCP 配置文件。
+```bash
+# 方式一：环境变量（推荐！无需修改配置文件）
+export SPRING_AI_MCP_SERVER_PROTOCOL=STREAMABLE
+export SPRING_AI_MCP_SERVER_STREAMABLE_HTTP_MCP_ENDPOINT=/mcp
 
-在项目根目录创建 `.mcp.json` (可提交到 Git，团队共享)：
+# 方式二：修改 application.yml 后重新构建
+# 设置: protocol: STREAMABLE
 
-```json
-{
-  "mcpServers": {
-    "cortexce": {
-      "type": "sse",
-      "url": "http://127.0.0.1:37777/sse"
-    }
-  }
-}
+# 添加 MCP 服务器（HTTP 传输）：
+claude mcp add --transport http cortexce http://127.0.0.1:37777/mcp
 ```
 
-如果使用 `.mcp.json` 后 `/mcp` 命令看不到服务器，请改用 **方式一** (`claude mcp add` 命令)。
+> **💡 提示**：统一测试脚本 `scripts/mcp-e2e-test.sh` 会自动检测服务端使用的协议，运行对应的测试，无需手动选择测试脚本！
 
-#### 方式三：用户级配置文件
+### 协议对比
 
-也可以直接编辑 `~/.claude/settings.json`，添加 `mcpServers` 配置：
-
-```json
-{
-  "mcpServers": {
-    "cortexce": {
-      "type": "sse",
-      "url": "http://127.0.0.1:37777/sse"
-    }
-  }
-}
-```
-
-#### 方式对比
-
-| 方式 | 可靠性 | 适用场景 |
-|------|--------|---------|
-| `claude mcp add` | ✅ 最可靠 | 首选方案 |
-| `~/.claude/settings.json` | ✅ 可靠 | 用户级配置 |
-| `.mcp.json` | ⚠️ 可能不生效 | 不保证加载 |
-
-> **💡 建议**：优先使用 `claude mcp add` 命令，这是最稳定的方式。
-
-#### Hooks 配置 (独立于 MCP)
-
-Hooks 配置放在 `~/.claude/settings.json` (用户级) 或 `.claude/settings.local.json` (项目级)：
-
-```json
-{
-  "hooks": {
-    "SessionStart": [{
-      "hooks": [{
-        "type": "command",
-        "command": "~/.cortexce/proxy/wrapper.js session-start --url http://127.0.0.1:37777",
-        "blocking": false
-      }]
-    }],
-    "PostToolUse": [{
-      "matcher": "Edit|Write|Read|Bash",
-      "hooks": [{
-        "type": "command",
-        "command": "~/.cortexce/proxy/wrapper.js tool-use --url http://127.0.0.1:37777",
-        "blocking": false
-      }]
-    }],
-    "SessionEnd": [{
-      "hooks": [{
-        "type": "command",
-        "command": "~/.cortexce/proxy/wrapper.js session-end --url http://127.0.0.1:37777",
-        "blocking": false
-      }]
-    }],
-    "UserPromptSubmit": [{
-      "hooks": [{
-        "type": "command",
-        "command": "~/.cortexce/proxy/wrapper.js user-prompt --url http://127.0.0.1:37777",
-        "blocking": false
-      }]
-    }]
-  }
-}
-```
-
-> **注意**: MCP 配置和 Hooks 配置是独立的。MCP 提供工具调用能力，Hooks 提供自动记录能力
-
-### MCP 工具使用流程
-
-Claude 会自动调用这些工具来检索历史记忆：
-
-```
-用户问: "上次我们怎么解决登录问题的？"
-    ↓
-Claude 调用 search 工具
-    ↓
-返回相关观察记录 ID 列表
-    ↓
-Claude 调用 get_observations 获取详情
-    ↓
-Claude 基于历史上下文回答
-```
+| 特性 | SSE | Streamable HTTP |
+|------|-----|----------------|
+| 端点 | `/sse` + `/mcp/message` | 单端点 `/mcp` |
+| 会话管理 | 需要 sessionId | 需要 Mcp-Session-Id |
+| 多实例支持 | 需要会话黏性 | 原生支持 |
+| 规范版本 | 旧 (2024-11-05) | 新 (2025-03-26+) |
 
 ### 验证 MCP 连接
 
 ```bash
-# 运行 MCP 端到端测试
+# 运行 MCP 端到端测试（自动检测协议）
 cd java/scripts
 ./mcp-e2e-test.sh
 
 # 应看到所有测试通过
-# Tests: 9 passed
+# Protocol tested: SSE/STREAMABLE
+# Tests: X passed
 ```
 
 ---

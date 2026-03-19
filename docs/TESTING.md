@@ -91,8 +91,16 @@ cd java/scripts
 | `DB_PASS` | 123456 | Database password |
 | `OPENAI_API_KEY` | - | OpenAI API key |
 | `DEEPSEEK_API_KEY` | - | DeepSeek API key |
+| `SPRING_AI_MCP_SERVER_PROTOCOL` | SSE | MCP protocol (SSE or STREAMABLE) |
 
-### 4. Test Data
+### 4. MCP Protocol Auto-Detection
+
+The MCP E2E test scripts (`mcp-e2e-test.sh` and `mcp-streamable-e2e-test.sh`) **automatically detect** which protocol your server is running:
+
+- **SSE mode**: `/sse` returns 200, `/mcp` returns 404
+- **STREAMABLE mode**: `/mcp` returns 200, `/sse` returns 404
+
+The unified script runs the appropriate tests automatically. No manual protocol selection needed!
 
 - Test session ID: `e2e-regression-{timestamp}`
 - Test project: `/tmp/claude-mem-test-{pid}`

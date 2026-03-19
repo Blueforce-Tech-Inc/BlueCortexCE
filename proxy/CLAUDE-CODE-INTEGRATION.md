@@ -105,11 +105,58 @@ Create or edit `.claude/settings.local.json`:
 
 ## Optional: Configure MCP Server
 
-For active memory retrieval in conversations:
+The Java backend supports two MCP transport protocols:
+
+| Protocol | Endpoint | Description |
+|----------|----------|-------------|
+| **SSE** (default) | `/sse` | Server-Sent Events - stable, well-tested |
+| **Streamable HTTP** | `/mcp` | Modern HTTP-based protocol, better for multi-instance |
+
+### Configure MCP Protocol
+
+The MCP protocol is configured in `backend/src/main/resources/application.yml`:
+
+```yaml
+spring:
+  ai:
+    mcp:
+      server:
+        protocol: SSE          # or: STREAMABLE
+        sse-endpoint: /sse
+        sse-message-endpoint: /mcp/message
+        streamable-http:
+          mcp-endpoint: /mcp
+```
+
+**⚠️ Important**: You can override ANY Spring Boot configuration property via environment variables!
+
+Spring Boot's relaxed binding converts environment variables to property names:
+- `SPRING_AI_MCP_SERVER_PROTOCOL=STREAMABLE`
+- `SPRING_AI_MCP_SERVER_STREAMABLE_HTTP_MCP_ENDPOINT=/mcp`
+
+### Using SSE Protocol (Default)
 
 ```bash
+# SSE is the default - no extra config needed
+# Add MCP server with SSE transport:
 claude mcp add --transport sse cortexce http://127.0.0.1:37777/sse
 ```
+
+### Using Streamable HTTP Protocol
+
+```bash
+# Option 1: Environment variable (no config file edit needed!)
+export SPRING_AI_MCP_SERVER_PROTOCOL=STREAMABLE
+export SPRING_AI_MCP_SERVER_STREAMABLE_HTTP_MCP_ENDPOINT=/mcp
+
+# Option 2: Edit application.yml and rebuild
+# Set: protocol: STREAMABLE
+
+# Add MCP server with HTTP transport:
+claude mcp add --transport http cortexce http://127.0.0.1:37777/mcp
+```
+
+> **💡 Tip**: The unified test script `scripts/mcp-e2e-test.sh` auto-detects which protocol your server is using and runs the appropriate tests. You don't need to manually select the test script.
 
 Verify:
 ```bash
