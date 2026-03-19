@@ -29,9 +29,9 @@
 
 - 已接入 5 个 MCP tools
 - 已通过端到端测试验证工具链路
-- 当前采用 **STREAMABLE HTTP 传输**（默认协议，2026-03-19 验证通过）
+- 当前采用 **SSE 传输**（默认协议，客户端兼容性最好）
 - 当前配置为**单协议**，不同时暴露 SSE 与 Streamable HTTP 两套入口
-- SSE 作为备选兼容协议仍可用
+- STREAMABLE 作为备选兼容协议仍可用
 
 ### 当前技术判断
 
@@ -80,7 +80,7 @@ spring:
         name: claude-mem-mcp-server
         version: 0.1.0
         type: SYNC
-        protocol: STREAMABLE
+        protocol: SSE
         sse-endpoint: /sse
         sse-message-endpoint: /mcp/message
         streamable-http:
