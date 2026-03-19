@@ -184,16 +184,14 @@ spring:
 
 **根因说明**：`STATELESS` 是 Spring AI 中合法的枚举值（`McpServerProperties.ServerProtocol` 枚举包含 `SSE`、`STREAMABLE`、`STATELESS` 三个值，已从官方 Javadoc 确认）。404 的真实原因更可能是 **Spring AI 1.1.2 中 `STATELESS` 模式的 AutoConfiguration 在 WebMVC 下存在 Bug**，导致端点未被正确注册。Spring AI PR #4179 正是针对这一问题的重构。
 
-**重要更新 (2026-03-19)**：经过实际验证，`STREAMABLE` 协议在 Spring AI 1.1.2 下**完全可用**！
-- 将 `protocol: STREAMABLE` 配置后，`/mcp` 端点正确注册
-- initialize 请求返回 `Mcp-Session-Id` header
-- tools/list 和 tools/call 均正常工作
-- 需要正确的 Accept 头 (`text/event-stream,application/json`) 和 Session ID 管理
+**重要更新 (2026-03-19)**：经过全面评估，最终决定使用 **SSE 作为默认协议**！
+- SSE 无 session 管理要求，兼容所有 MCP 客户端
+- STREAMABLE 要求客户端正确实现 `Mcp-Session-Id` header
+- STATELESS 有 Spring AI 1.1.2 Bug (返回 404)
 
-因此，当前问题不是"Streamable HTTP 无法工作"，而是：
-- **`STREAMABLE` 验证通过** ✅
-- **`STATELESS` 仍有问题** ❌ (404)
-- SSE 是当前唯一已完全验证的方案，但 STREAMABLE 已具备迁移条件
+因此，当前决策是：
+- **SSE 作为默认** ✅（客户端兼容性最好）
+- **STREAMABLE 作为备选**（需客户端支持 session 管理）
 
 ## 5.3 为什么没有采用"双协议并行"
 
