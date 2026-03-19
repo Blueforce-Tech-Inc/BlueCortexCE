@@ -301,7 +301,7 @@ spring:
   ai:
     mcp:
       server:
-        protocol: STREAMABLE  # 或: SSE
+        protocol: SSE  # 或: STREAMABLE
         sse-endpoint: /sse
         sse-message-endpoint: /mcp/message
         streamable-http:

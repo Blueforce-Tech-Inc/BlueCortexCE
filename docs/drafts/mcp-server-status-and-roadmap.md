@@ -96,7 +96,7 @@ spring:
 
 - 当前实现是**工具型 MCP Server**
 - 当前未开放 MCP `resource`、`prompt`、`completion`
-- 当前默认采用 **STREAMABLE HTTP 单端点**模型
+- 当前默认采用 **SSE 传输**模型
 
 ## 3.4 当前工具面
 
@@ -540,9 +540,9 @@ SSE 对下列中间层非常敏感：
 
 为了避免文档或沟通中产生误导，建议当前统一使用如下表述：
 
-> 当前 MCP Server 已可用，基于 Spring AI 1.1.2 的 WebMVC MCP Server 实现，默认采用 **STREAMABLE HTTP 传输**（2026-03-19 验证通过）。
-> 用户可通过环境变量 `SPRING_AI_MCP_SERVER_PROTOCOL=SSE` 切换到 SSE 协议。
-> STREAMABLE 协议符合 MCP 官方规范演进方向，提供更好的多实例支持和协议合规性。
+> 当前 MCP Server 已可用，基于 Spring AI 1.1.2 的 WebMVC MCP Server 实现，默认采用 **SSE 传输**（客户端兼容性最好）。
+> 用户可通过环境变量 `SPRING_AI_MCP_SERVER_PROTOCOL=STREAMABLE` 切换到 STREAMABLE 协议。
+> SSE 无 session 管理要求，STREAMABLE 需要客户端正确实现 session 管理。
 
 这比简单说：
 
