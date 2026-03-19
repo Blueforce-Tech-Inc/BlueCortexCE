@@ -178,13 +178,18 @@ spring:
 - 期望暴露标准单端点 `/mcp`
 - 实际结果是 `/mcp` 未正确可用，返回 404
 
-**根因说明**：`STATELESS` 是 Spring AI 中合法的枚举值（`McpServerProperties.ServerProtocol` 枚举包含 `SSE`、`STREAMABLE`、`STATELESS` 三个值，已从官方 Javadoc 确认）。404 的真实原因更可能是 **Spring AI 1.1.2 中 `STATELESS` 模式的 AutoConfiguration 在 WebMVC 下存在 Bug**，导致端点未被正确注册。Spring AI PR #4179 正是针对这一问题的重构，引入了对 Streamable HTTP 的正式支持。
+**根因说明**：`STATELESS` 是 Spring AI 中合法的枚举值（`McpServerProperties.ServerProtocol` 枚举包含 `SSE`、`STREAMABLE`、`STATELESS` 三个值，已从官方 Javadoc 确认）。404 的真实原因更可能是 **Spring AI 1.1.2 中 `STATELESS` 模式的 AutoConfiguration 在 WebMVC 下存在 Bug**，导致端点未被正确注册。Spring AI PR #4179 正是针对这一问题的重构。
 
-因此，当前问题不是"我们理念上更喜欢 SSE"，而是：
+**重要更新 (2026-03-19)**：经过实际验证，`STREAMABLE` 协议在 Spring AI 1.1.2 下**完全可用**！
+- 将 `protocol: STREAMABLE` 配置后，`/mcp` 端点正确注册
+- initialize 请求返回 `Mcp-Session-Id` header
+- tools/list 和 tools/call 均正常工作
+- 需要正确的 Accept 头 (`text/event-stream,application/json`) 和 Session ID 管理
 
-- **当前依赖版本下，目标方案尚未在本项目成功跑通**
-- **而 SSE 是当前唯一已打通并已回归验证的方案**
-- **下一步迁移方向为 `STREAMABLE` 协议**（非 STATELESS；本项目的工具型 MCP Server 场景下 STREAMABLE 更稳妥，见 `mcp-server-transport-analysis.md` 5.3 节）。可先尝试 `protocol: STREAMABLE` 验证，或升级到 Spring AI 1.1.3+。
+因此，当前问题不是"Streamable HTTP 无法工作"，而是：
+- **`STREAMABLE` 验证通过** ✅
+- **`STATELESS` 仍有问题** ❌ (404)
+- SSE 是当前唯一已完全验证的方案，但 STREAMABLE 已具备迁移条件
 
 ## 5.3 为什么没有采用“双协议并行”
 
@@ -535,7 +540,7 @@ SSE 对下列中间层非常敏感：
 
 > 当前 MCP Server 已可用，基于 Spring AI 1.1.2 的 WebMVC MCP Server 实现，采用 SSE 传输并已通过端到端验证。在本地单机场景下可正常工作。  
 > 但从 MCP 协议演进方向和长期工程目标看，后续仍应迁移到更符合新规范的 Streamable HTTP（目标协议为 `STREAMABLE`，见 `mcp-server-transport-analysis.md`）。  
-> 当前未迁移的原因是：在现有版本栈中，Streamable HTTP 标准单端点实现（`STREAMABLE`/`STATELESS`）尚未在本项目成功跑通（实测 `STATELESS` 返回 404）。
+> **更新 (2026-03-19)**: 已验证 `STREAMABLE` 协议在 Spring AI 1.1.2 下完全可用！`/mcp` 端点正确注册，initialize/tools/list/tools/call 全部成功。需要正确 Accept 头和 Session ID 管理。
 
 这比简单说：
 
