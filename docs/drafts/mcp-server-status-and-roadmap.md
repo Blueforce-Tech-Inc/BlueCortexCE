@@ -36,13 +36,13 @@
 
 1. **SSE 在本项目当前部署模型下可用，但不应被表述为“长期理想方案”。**
 2. **MCP 官方规范已经转向 Streamable HTTP，SSE 仅适合作为兼容层或过渡方案。**
-3. **在 Spring AI 1.1.2 + WebMVC 这一组合下，`protocol: STATELESS` 的实测结果是 `/mcp` 未正确注册，可观察到 404，因此当前无法落地标准单端点 Streamable HTTP。** 根因推测为该版本 AutoConfiguration 存在 Bug（PR #4179 已重构修复）；`STATELESS` 本身是合法枚举值。**
+3. **在 Spring AI 1.1.2 + WebMVC 这一组合下，`protocol: STATELESS` 的实测结果是 `/mcp` 未正确注册，可观察到 404，因此当前无法落地标准单端点 Streamable HTTP。** 根因推测为该版本 AutoConfiguration 存在 Bug（PR #4179 已重构修复）；`STATELESS` 本身是合法枚举值。
 4. **因此，当前“继续使用 SSE”不是因为 SSE 更优，而是因为它是当前版本栈里唯一已验证可工作的方案。**
 
 ### 推荐结论
 
 - **短期**: 保持 SSE 单协议实现，继续作为本地/单机场景的可用方案。
-- **中期**: 跟踪 Spring AI 对 Streamable HTTP 的成熟支持，并准备迁移验证。
+- **中期**: 跟踪 Spring AI 对 Streamable HTTP 的成熟支持，并准备迁移验证（**下一步目标协议：`STREAMABLE`**）。
 - **长期**: 迁移到更符合 MCP 新规范的单端点 HTTP 传输，并补齐会话、重试、恢复、部署拓扑和安全策略。
 
 ## 3. 当前实现快照
@@ -184,7 +184,7 @@ spring:
 
 - **当前依赖版本下，目标方案尚未在本项目成功跑通**
 - **而 SSE 是当前唯一已打通并已回归验证的方案**
-- **后续可尝试 `STREAMABLE` 模式，或升级到 Spring AI 1.1.3+**
+- **下一步迁移方向为 `STREAMABLE` 协议**（非 STATELESS；本项目的工具型 MCP Server 场景下 STREAMABLE 更稳妥，见 `mcp-server-transport-analysis.md` 5.3 节）。可先尝试 `protocol: STREAMABLE` 验证，或升级到 Spring AI 1.1.3+。
 
 ## 5.3 为什么没有采用“双协议并行”
 
@@ -465,7 +465,7 @@ SSE 对下列中间层非常敏感：
 
 ## 10.3 Phase C: 设计真正可迁移的目标态
 
-目标：避免“只是把配置从 SSE 改成 STATELESS”，而是设计一个真正能长期维护的目标实现。
+目标：以 **`STREAMABLE`** 为下一步迁移方向。避免仅做肤浅的配置切换，而应设计一个真正能长期维护的目标实现（含会话、重试、恢复等）。
 
 需要明确的设计问题：
 
@@ -534,8 +534,8 @@ SSE 对下列中间层非常敏感：
 为了避免文档或沟通中产生误导，建议当前统一使用如下表述：
 
 > 当前 MCP Server 已可用，基于 Spring AI 1.1.2 的 WebMVC MCP Server 实现，采用 SSE 传输并已通过端到端验证。在本地单机场景下可正常工作。  
-> 但从 MCP 协议演进方向和长期工程目标看，后续仍应迁移到更符合新规范的 Streamable HTTP。  
-> 当前未迁移的原因是：在现有版本栈中，`STATELESS` 的标准单端点实现尚未在本项目成功跑通。
+> 但从 MCP 协议演进方向和长期工程目标看，后续仍应迁移到更符合新规范的 Streamable HTTP（目标协议为 `STREAMABLE`，见 `mcp-server-transport-analysis.md`）。  
+> 当前未迁移的原因是：在现有版本栈中，Streamable HTTP 标准单端点实现（`STREAMABLE`/`STATELESS`）尚未在本项目成功跑通（实测 `STATELESS` 返回 404）。
 
 这比简单说：
 
@@ -571,6 +571,10 @@ SSE 对下列中间层非常敏感：
   - https://dev.to/miketalbot/server-sent-events-are-still-not-production-ready-after-a-decade-a-lesson-for-me-a-warning-for-you-2gie
   - https://github.com/caddyserver/caddy/issues/6293
 
+### 相关文档
+
+- MCP Server 传输协议分析（STREAMABLE vs STATELESS 选型、迁移步骤）: `docs/drafts/mcp-server-transport-analysis.md`
+
 ## 15. 最终判断
 
 当前 MCP Server 的结论不是“还没做完”，而是：
@@ -578,7 +582,7 @@ SSE 对下列中间层非常敏感：
 - **功能上已经可用**
 - **协议上仍处于过渡态**
 - **短期方案是 SSE**
-- **长期方向应是 Streamable HTTP**
+- **长期方向应是 Streamable HTTP**（采用 **`STREAMABLE`** 协议）
 
 因此，当前最合理的工程策略不是反复切协议，而是：
 
