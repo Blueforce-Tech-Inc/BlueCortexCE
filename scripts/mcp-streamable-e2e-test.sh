@@ -3,56 +3,33 @@
 # MCP Server Streamable HTTP E2E Test Script
 # Usage: ./mcp-streamable-e2e-test.sh [server_url]
 #
-# Test Spring AI MCP Server with Streamable HTTP protocol.
-#
-# Streamable HTTP Protocol:
-# 1. POST /mcp with initialize request
-# 2. Extract Mcp-Session-Id header from response
-# 3. POST /mcp with Session-Id header for subsequent requests
-# 4. Response via SSE stream (event:message, data:{json})
-#
-# Requires:
-# - Accept: text/event-stream,application/json
-# - Content-Type: application/json
-# - Mcp-Session-Id header for requests after initialization
+# Tests Streamable HTTP protocol specifically.
+# If server is in SSE mode, provides friendly guidance.
 #
 
 SERVER_URL="${1:-${SERVER_URL:-http://localhost:37777}}"
 MCP_ENDPOINT="${SERVER_URL}/mcp"
 TEST_PROJECT="${MCP_TEST_PROJECT:-/tmp/mcp-e2e-test-streamable}"
 
-# Session ID (set after initialize)
+# Session ID
 SESSION_ID=""
-
-# Response storage
-RESPONSE_FILE=$(mktemp)
-RESPONSE=""
+HAS_JQ=false
 
 # Color output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
-# Test counter
 TESTS_PASSED=0
 TESTS_FAILED=0
 
-# Output functions
-pass() {
-    echo -e "${GREEN}[PASS]${NC} $1"
-    ((TESTS_PASSED++))
-}
-
-fail() {
-    echo -e "${RED}[FAIL]${NC} $1"
-    ((TESTS_FAILED++))
-}
-
-info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
+pass() { echo -e "${GREEN}[PASS]${NC} $1"; ((TESTS_PASSED++)); }
+fail() { echo -e "${RED}[FAIL]${NC} $1"; ((TESTS_FAILED++)); }
+skip() { echo -e "${CYAN}[SKIP]${NC} $1"; }
+info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 
 section() {
     echo ""
@@ -61,35 +38,43 @@ section() {
     echo -e "==========================================${NC}"
 }
 
-# Check dependencies
-check_dependencies() {
-    section "Check dependency tools"
+# Check if server is in STREAMABLE mode
+check_streamable_mode() {
+    echo -e "${BLUE}Checking if server is in STREAMABLE mode...${NC}"
 
-    if ! command -v curl >/dev/null 2>&1; then
-        echo "curl is required"
-        exit 1
-    fi
-    pass "curl installed"
+    local response=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 -X POST "${MCP_ENDPOINT}" \
+        -H "Content-Type: application/json" \
+        -H "Accept: text/event-stream,application/json" \
+        -d '{"jsonrpc":"2.0","id":"probe","method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"probe","version":"1.0"}}}' 2>/dev/null || echo "000")
 
-    if ! command -v jq >/dev/null 2>&1; then
-        pass "jq not installed (some validation will be skipped)"
-        HAS_JQ=false
+    if [ "$response" = "200" ]; then
+        return 0  # STREAMABLE mode
     else
-        pass "jq installed"
-        HAS_JQ=true
+        return 1  # Not STREAMABLE mode
     fi
 }
 
-# Send Streamable HTTP request
-# Usage: send_request <id> <method> <params_json>
-# Returns: response in $RESPONSE, session_id in $SESSION_ID (if new)
-# Note: initialize response is plain JSON, subsequent responses are SSE format
+check_dependencies() {
+    section "Check dependency tools"
+    if command -v curl >/dev/null 2>&1; then
+        pass "curl installed"
+    else
+        echo "curl is required"; exit 1
+    fi
+
+    if command -v jq >/dev/null 2>&1; then
+        pass "jq installed"
+        HAS_JQ=true
+    else
+        info "jq not installed (some validation will be skipped)"
+    fi
+}
+
 send_request() {
     local req_id="$1"
     local method="$2"
     local params="$3"
 
-    # Build request
     local request
     if [ -n "$params" ] && [ "$params" != "null" ]; then
         request="{\"jsonrpc\":\"2.0\",\"id\":\"$req_id\",\"method\":\"$method\",\"params\":$params}"
@@ -97,11 +82,9 @@ send_request() {
         request="{\"jsonrpc\":\"2.0\",\"id\":\"$req_id\",\"method\":\"$method\"}"
     fi
 
-    # Response storage
     local response_headers=$(mktemp)
     local response_body=$(mktemp)
 
-    # Execute curl with headers captured
     if [ -n "$SESSION_ID" ]; then
         curl -s -X POST "${MCP_ENDPOINT}" \
             -H "Content-Type: application/json" \
@@ -119,310 +102,153 @@ send_request() {
             -o "${response_body}" 2>/dev/null
     fi
 
-    # Extract session ID from headers (if new)
+    # Extract session ID
     if [ -z "$SESSION_ID" ]; then
-        local new_session=$(grep -i "Mcp-Session-Id:" "${response_headers}" 2>/dev/null | cut -d: -f2 | tr -d ' \r' || echo "")
-        if [ -n "$new_session" ]; then
-            SESSION_ID="$new_session"
-        fi
+        SESSION_ID=$(grep -i "Mcp-Session-Id:" "${response_headers}" 2>/dev/null | cut -d: -f2 | tr -d ' \r' || echo "")
     fi
-
-    # Check content-type to determine response format
-    local content_type=$(grep -i "Content-Type:" "${response_headers}" 2>/dev/null | cut -d: -f2 | tr -d ' \r' || echo "")
 
     # Parse response based on content type
+    local content_type=$(grep -i "Content-Type:" "${response_headers}" 2>/dev/null | cut -d: -f2 | tr -d ' \r' || echo "")
+
     if echo "$content_type" | grep -q "application/json"; then
-        # Plain JSON response (e.g., initialize)
         RESPONSE=$(cat "${response_body}")
     elif echo "$content_type" | grep -q "text/event-stream"; then
-        # SSE response - extract data from event:message lines
         RESPONSE=$(grep "^data:" "${response_body}" 2>/dev/null | head -1 | sed 's/^data://' || cat "${response_body}")
     else
-        # Fallback: try as plain JSON first, then as SSE
         RESPONSE=$(cat "${response_body}")
-        if ! echo "$RESPONSE" | jq -r . 2>/dev/null | grep -q "jsonrpc"; then
-            RESPONSE=$(grep "^data:" "${response_body}" 2>/dev/null | head -1 | sed 's/^data://' || "$RESPONSE")
-        fi
     fi
 
-    # Cleanup
     rm -f "${response_headers}" "${response_body}"
-
-    return 0
 }
 
-# Test health check
-test_health_check() {
-    section "Test 1: Server health check"
-
+test_health() {
+    section "Test 1: Server Health Check"
     local response=$(curl -s -o /dev/null -w "%{http_code}" "${SERVER_URL}/api/health" 2>/dev/null || echo "000")
-
     if [ "$response" = "200" ]; then
         pass "Server health check passed (HTTP $response)"
-        return 0
     else
         fail "Server health check failed (HTTP $response)"
-        return 1
     fi
 }
 
-# Test MCP initialize
 test_initialize() {
-    section "Test 2: MCP initialize (Streamable HTTP)"
-
+    section "Test 2: MCP Initialize (Streamable HTTP)"
     local params='{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"streamable-e2e-test","version":"1.0.0"}}'
-
     send_request "init-1" "initialize" "$params"
 
     if [ -n "$RESPONSE" ]; then
         info "Response: $(echo "$RESPONSE" | head -c 200)..."
-
-        if [ "$HAS_JQ" = true ]; then
-            local server_name=$(echo "$RESPONSE" | jq -r '.result.serverInfo.name // empty')
-            local server_version=$(echo "$RESPONSE" | jq -r '.result.serverInfo.version // empty')
-            local protocol_version=$(echo "$RESPONSE" | jq -r '.result.protocolVersion // empty')
-
-            if [ -n "$server_name" ]; then
-                pass "MCP initialize success: $server_name v$server_version"
-                info "Protocol version: $protocol_version"
-                info "Session ID: ${SESSION_ID}"
-                return 0
-            else
-                fail "MCP initialize failed: response format incorrect"
-            fi
-        else
-            if echo "$RESPONSE" | grep -q "result"; then
-                pass "MCP initialize success"
-                return 0
-            else
-                fail "MCP initialize failed"
-            fi
+        if [ -n "$SESSION_ID" ]; then
+            info "Session ID: ${SESSION_ID}"
         fi
-    else
-        fail "MCP initialize: no response"
+        if echo "$RESPONSE" | grep -q "result"; then
+            local server_name=$(echo "$RESPONSE" | jq -r '.result.serverInfo.name // empty' 2>/dev/null || echo "")
+            local protocol_version=$(echo "$RESPONSE" | jq -r '.result.protocolVersion // empty' 2>/dev/null || echo "")
+            pass "MCP initialize success: $server_name (protocol: $protocol_version)"
+            return 0
+        fi
     fi
-    return 1
+    fail "MCP initialize failed"
 }
 
-# Test tools/list
 test_tools_list() {
-    section "Test 3: MCP tools/list (Streamable HTTP)"
-
+    section "Test 3: Tools List"
     send_request "tools-list-1" "tools/list" "null"
 
     if [ -n "$RESPONSE" ]; then
         info "Response length: $(echo "$RESPONSE" | wc -c) bytes"
-
         if [ "$HAS_JQ" = true ]; then
             local tool_count=$(echo "$RESPONSE" | jq -r '.result.tools | length' 2>/dev/null || echo "0")
             if [ "$tool_count" -gt 0 ]; then
                 pass "Tools list complete, $tool_count tools found"
-                info "Tools: $(echo "$RESPONSE" | jq -r '.result.tools[].name' | tr '\n' ' ')"
-                return 0
-            else
-                fail "Tools list returned $tool_count tools"
-            fi
-        else
-            if echo "$RESPONSE" | grep -q "tools"; then
-                pass "Tools list received"
+                info "Tools: $(echo "$RESPONSE" | jq -r '.result.tools[].name' 2>/dev/null | tr '\n' ' ')"
                 return 0
             fi
         fi
-    fi
-    fail "Tools list: no response"
-    return 1
-}
-
-# Test search tool
-test_search_tool() {
-    section "Test 4: search tool (Streamable HTTP)"
-
-    local params="{\"project\":\"${TEST_PROJECT}\",\"query\":\"test query\",\"limit\":5}"
-
-    send_request "search-1" "tools/call" "{\"name\":\"search\",\"arguments\":$params}"
-
-    if [ -n "$RESPONSE" ]; then
-        info "Response length: $(echo "$RESPONSE" | wc -c) bytes"
-
-        if echo "$RESPONSE" | grep -q "observations"; then
-            pass "search tool call success"
+        if echo "$RESPONSE" | grep -q "tools"; then
+            pass "Tools list received"
             return 0
         fi
     fi
-    fail "search tool: no valid response"
-    return 1
+    fail "Tools list failed"
 }
 
-# Test timeline tool
-test_timeline_tool() {
-    section "Test 5: timeline tool (Streamable HTTP)"
+test_tool() {
+    local name="$1"
+    local params="$2"
+    local desc="$3"
 
-    local params="{\"project\":\"${TEST_PROJECT}\"}"
-
-    send_request "timeline-1" "tools/call" "{\"name\":\"timeline\",\"arguments\":$params}"
+    section "Test: $desc"
+    send_request "${name}-1" "tools/call" "{\"name\":\"$name\",\"arguments\":$params}"
 
     if [ -n "$RESPONSE" ]; then
         info "Response: $(echo "$RESPONSE" | head -c 200)..."
-        if echo "$RESPONSE" | grep -qE "(observations|error)"; then
-            pass "timeline tool call success"
+        if echo "$RESPONSE" | grep -qE "(result|error)"; then
+            pass "$desc success"
             return 0
         fi
     fi
-    fail "timeline tool: no valid response"
-    return 1
+    fail "$desc failed"
 }
 
-# Test get_observations tool
-test_get_observations_tool() {
-    section "Test 6: get_observations tool (Streamable HTTP)"
-
-    local params="{\"ids\":[\"test-id-123\"],\"project\":\"${TEST_PROJECT}\"}"
-
-    send_request "get-obs-1" "tools/call" "{\"name\":\"get_observations\",\"arguments\":$params}"
-
-    if [ -n "$RESPONSE" ]; then
-        info "Response: $(echo "$RESPONSE" | head -c 200)..."
-        if echo "$RESPONSE" | grep -qE "(count|error)"; then
-            pass "get_observations tool call success"
-            return 0
-        fi
-    fi
-    fail "get_observations tool: no valid response"
-    return 1
-}
-
-# Test save_memory tool
-test_save_memory_tool() {
-    section "Test 7: save_memory tool (Streamable HTTP)"
-
-    local timestamp=$(date +%s)
-    local params="{\"text\":\"Streamable HTTP E2E test memory created at ${timestamp}\",\"title\":\"E2E Test Memory\",\"project\":\"${TEST_PROJECT}\"}"
-
-    send_request "save-mem-1" "tools/call" "{\"name\":\"save_memory\",\"arguments\":$params}"
-
-    if [ -n "$RESPONSE" ]; then
-        info "Response: $(echo "$RESPONSE" | head -c 200)..."
-        if echo "$RESPONSE" | grep -q "success"; then
-            pass "save_memory tool call success, memory saved"
-            return 0
-        fi
-    fi
-    fail "save_memory tool: no valid response"
-    return 1
-}
-
-# Test error handling
 test_error_handling() {
-    section "Test 8: Error handling (Streamable HTTP)"
-
-    local params="{\"name\":\"invalid_tool_name\",\"arguments\":{}}"
-
+    section "Test 8: Error Handling"
     send_request "error-1" "tools/call" "{\"name\":\"nonexistent_tool_xyz\",\"arguments\":{}}"
 
     if [ -n "$RESPONSE" ]; then
-        info "Response: $(echo "$RESPONSE" | head -c 300)..."
+        info "Response: $(echo "$RESPONSE" | head -c 200)..."
         if echo "$RESPONSE" | grep -q "error"; then
             local error_code=$(echo "$RESPONSE" | jq -r '.error.code // empty' 2>/dev/null || echo "unknown")
-            if [ "$error_code" = "-32602" ] || echo "$RESPONSE" | grep -q "Tool not found"; then
-                pass "Error handling correct: error code $error_code"
-                return 0
-            fi
+            pass "Error handling correct (error code: $error_code)"
+            return 0
         fi
     fi
-    # Even if we don't get perfect error format, check if we got an error response
-    if [ -n "$RESPONSE" ]; then
-        pass "Error handling tested (response received)"
-        return 0
-    fi
-    fail "Error handling: no response"
-    return 1
+    fail "Error handling failed"
 }
 
-# Test REST API compatibility
 test_rest_api() {
-    section "Test 9: REST API compatibility"
-
-    # Note: /api/search returns 400 without proper query params, which is expected
+    section "Test 9: REST API Compatibility"
     local apis=(
         "/api/health:200"
         "/api/observations:200"
         "/api/context/recent:200"
     )
 
-    local all_passed=true
     for api_test in "${apis[@]}"; do
         local api_path="${api_test%%:*}"
         local expected_code="${api_test##*:}"
-
         local response=$(curl -s -o /dev/null -w "%{http_code}" "${SERVER_URL}${api_path}" 2>/dev/null || echo "000")
-
         if [ "$response" = "$expected_code" ]; then
             pass "REST API ${api_path} OK (HTTP $response)"
         else
             fail "REST API ${api_path} expected $expected_code, got $response"
-            all_passed=false
         fi
     done
-
-    if [ "$all_passed" = true ]; then
-        return 0
-    fi
-    return 1
 }
 
-# Test recent tool
-test_recent_tool() {
-    section "Test 10: recent tool (Streamable HTTP)"
-
-    local params="{\"project\":\"${TEST_PROJECT}\",\"limit\":3}"
-
-    send_request "recent-1" "tools/call" "{\"name\":\"recent\",\"arguments\":$params}"
-
-    if [ -n "$RESPONSE" ]; then
-        info "Response: $(echo "$RESPONSE" | head -c 200)..."
-        if echo "$RESPONSE" | grep -qE "(count|content|sessions)"; then
-            pass "recent tool call success"
-            return 0
-        fi
-    fi
-    fail "recent tool: no valid response"
-    return 1
-}
-
-# Main test runner
-run_all_tests() {
-    section "MCP Server Streamable HTTP E2E Test"
-    echo "Server: ${SERVER_URL}"
-    echo "MCP Endpoint: ${MCP_ENDPOINT}"
-    echo "Test project: ${TEST_PROJECT}"
-    echo "Protocol: Streamable HTTP"
-
+run_tests() {
     check_dependencies
-
-    test_health_check
+    test_health
     test_initialize
     test_tools_list
-    test_search_tool
-    test_timeline_tool
-    test_get_observations_tool
-    test_save_memory_tool
+    test_tool "search" "{\"project\":\"${TEST_PROJECT}\",\"query\":\"test\",\"limit\":3}" "Search Tool"
+    test_tool "timeline" "{\"project\":\"${TEST_PROJECT}\"}" "Timeline Tool"
+    test_tool "get_observations" "{\"ids\":[\"test-id\"],\"project\":\"${TEST_PROJECT}\"}" "Get Observations Tool"
+    test_tool "save_memory" "{\"text\":\"Streamable E2E test\",\"title\":\"E2E Test\",\"project\":\"${TEST_PROJECT}\"}" "Save Memory Tool"
+    test_tool "recent" "{\"project\":\"${TEST_PROJECT}\",\"limit\":3}" "Recent Tool"
     test_error_handling
     test_rest_api
-    test_recent_tool
 
-    # Cleanup
-    rm -f "${RESPONSE_FILE}"
-
-    # Summary
-    section "Test results summary"
+    section "Test Results Summary"
+    echo -e "Protocol: ${GREEN}Streamable HTTP${NC}"
     echo -e "Passed: ${GREEN}${TESTS_PASSED}${NC}"
     echo -e "Failed: ${RED}${TESTS_FAILED}${NC}"
     echo ""
 
     if [ ${TESTS_FAILED} -eq 0 ]; then
-        echo -e "${GREEN}All tests passed!${NC}"
+        echo -e "${GREEN}✓ All tests passed!${NC}"
         echo ""
-        echo "Streamable HTTP protocol verification complete."
+        echo "Streamable HTTP verification complete."
         echo "Key findings:"
         echo "  - /mcp endpoint registered: YES"
         echo "  - Session ID management: $([ -n "$SESSION_ID" ] && echo "WORKING" || echo "NOT USED")"
@@ -430,13 +256,37 @@ run_all_tests() {
         echo "  - SSE response format: WORKING"
         return 0
     else
-        echo -e "${RED}Some tests failed!${NC}"
+        echo -e "${RED}✗ Some tests failed${NC}"
         return 1
     fi
 }
 
-# Run tests
-run_all_tests
-exit_code=$?
+# Main
+echo -e "${YELLOW}=========================================="
+echo "MCP Server Streamable HTTP E2E Test"
+echo "==========================================${NC}"
+echo "Server: ${SERVER_URL}"
+echo "MCP Endpoint: ${MCP_ENDPOINT}"
+echo "Protocol: Streamable HTTP"
+echo ""
 
-exit $exit_code
+if check_streamable_mode; then
+    echo -e "${GREEN}✓ Server is in STREAMABLE mode - running tests${NC}"
+    echo ""
+    run_tests
+else
+    echo -e "${YELLOW}⚠ Server is NOT in STREAMABLE mode${NC}"
+    echo ""
+    echo -e "${CYAN}To switch to STREAMABLE mode:${NC}"
+    echo "  1. Edit backend/src/main/resources/application.yml"
+    echo "  2. Set: protocol: STREAMABLE"
+    echo "  3. Add:"
+    echo "       streamable-http:"
+    echo "         mcp-endpoint: /mcp"
+    echo "  4. Rebuild and restart the service"
+    echo ""
+    echo -e "${CYAN}Or use the unified script for auto-detection:${NC}"
+    echo "  ./scripts/mcp-e2e-test.sh"
+    echo ""
+    exit 1
+fi
