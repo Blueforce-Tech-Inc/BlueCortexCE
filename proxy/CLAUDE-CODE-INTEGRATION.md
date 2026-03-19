@@ -134,26 +134,25 @@ Spring Boot's relaxed binding converts environment variables to property names:
 - `SPRING_AI_MCP_SERVER_PROTOCOL=STREAMABLE`
 - `SPRING_AI_MCP_SERVER_STREAMABLE_HTTP_MCP_ENDPOINT=/mcp`
 
-### Using SSE Protocol (Default)
+### Using Streamable HTTP Protocol (Default)
 
 ```bash
-# SSE is the default - no extra config needed
-# Add MCP server with SSE transport:
-claude mcp add --transport sse cortexce http://127.0.0.1:37777/sse
+# STREAMABLE is the default - no extra config needed
+# Add MCP server with HTTP transport:
+claude mcp add --transport http cortexce http://127.0.0.1:37777/mcp
 ```
 
-### Using Streamable HTTP Protocol
+### Using SSE Protocol (Alternative)
 
 ```bash
 # Option 1: Environment variable (no config file edit needed!)
-export SPRING_AI_MCP_SERVER_PROTOCOL=STREAMABLE
-export SPRING_AI_MCP_SERVER_STREAMABLE_HTTP_MCP_ENDPOINT=/mcp
+export SPRING_AI_MCP_SERVER_PROTOCOL=SSE
 
 # Option 2: Edit application.yml and rebuild
-# Set: protocol: STREAMABLE
+# Set: protocol: SSE
 
-# Add MCP server with HTTP transport:
-claude mcp add --transport http cortexce http://127.0.0.1:37777/mcp
+# Add MCP server with SSE transport:
+claude mcp add --transport sse cortexce http://127.0.0.1:37777/sse
 ```
 
 > **💡 Tip**: The unified test script `scripts/mcp-e2e-test.sh` auto-detects which protocol your server is using and runs the appropriate tests. You don't need to manually select the test script.

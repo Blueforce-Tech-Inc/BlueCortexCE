@@ -301,33 +301,32 @@ spring:
   ai:
     mcp:
       server:
-        protocol: SSE          # 或: STREAMABLE
+        protocol: STREAMABLE  # 或: SSE
         sse-endpoint: /sse
         sse-message-endpoint: /mcp/message
         streamable-http:
           mcp-endpoint: /mcp
 ```
 
-### 使用 SSE 协议（默认）
+### 使用 Streamable HTTP 协议（默认）
 
 ```bash
-# SSE 是默认协议，无需额外配置
-# 添加 MCP 服务器（SSE 传输）：
-claude mcp add --transport sse cortexce http://127.0.0.1:37777/sse
-```
-
-### 使用 Streamable HTTP 协议
-
-```bash
-# 方式一：环境变量（推荐！无需修改配置文件）
-export SPRING_AI_MCP_SERVER_PROTOCOL=STREAMABLE
-export SPRING_AI_MCP_SERVER_STREAMABLE_HTTP_MCP_ENDPOINT=/mcp
-
-# 方式二：修改 application.yml 后重新构建
-# 设置: protocol: STREAMABLE
-
+# Streamable HTTP 是默认协议，无需额外配置
 # 添加 MCP 服务器（HTTP 传输）：
 claude mcp add --transport http cortexce http://127.0.0.1:37777/mcp
+```
+
+### 使用 SSE 协议（备选）
+
+```bash
+# 方式一：环境变量（无需修改配置文件）
+export SPRING_AI_MCP_SERVER_PROTOCOL=SSE
+
+# 方式二：修改 application.yml 后重新构建
+# 设置: protocol: SSE
+
+# 添加 MCP 服务器（SSE 传输）：
+claude mcp add --transport sse cortexce http://127.0.0.1:37777/sse
 ```
 
 > **💡 提示**：统一测试脚本 `scripts/mcp-e2e-test.sh` 会自动检测服务端使用的协议，运行对应的测试，无需手动选择测试脚本！

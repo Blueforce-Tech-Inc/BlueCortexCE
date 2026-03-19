@@ -627,8 +627,8 @@ The MCP Server supports two transport protocols:
 
 | Protocol | Endpoint | Description |
 |----------|----------|-------------|
-| **SSE** (default) | `/sse` + `/mcp/message` | Server-Sent Events - stable |
-| **Streamable HTTP** | `/mcp` | Modern HTTP-based protocol |
+| **Streamable HTTP** (default) | `/mcp` | Modern HTTP-based protocol |
+| **SSE** | `/sse` + `/mcp/message` | Server-Sent Events - stable |
 
 **Configuration** (in `application.yml`):
 
@@ -637,13 +637,13 @@ spring:
   ai:
     mcp:
       server:
-        protocol: SSE          # or: STREAMABLE
+        protocol: STREAMABLE  # or: SSE
 ```
 
 **Environment Variable Override** (no config file edit needed):
 
 ```bash
-export SPRING_AI_MCP_SERVER_PROTOCOL=STREAMABLE
+export SPRING_AI_MCP_SERVER_PROTOCOL=SSE  # if you prefer SSE
 ```
 
 ---
