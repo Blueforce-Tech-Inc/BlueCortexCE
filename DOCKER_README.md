@@ -57,7 +57,7 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 | `DB_USERNAME` | Database username | `postgres` |
 | `DB_PASSWORD` | Database password | `postgres` |
 | `OPENAI_API_KEY` | OpenAI/DeepSeek API key | - |
-| `SILICONFLOW_API_KEY` | SiliconFlow API key (embedding) | - |
+| `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | SiliconFlow API key (embedding) | - |
 
 ### Optional Variables
 
@@ -65,7 +65,7 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 |----------|-------------|---------|
 | `OPENAI_BASE_URL` | OpenAI compatible API endpoint | `https://api.deepseek.com` |
 | `OPENAI_MODEL` | Chat model | `deepseek-chat` |
-| `SILICONFLOW_MODEL` | Embedding model | `BAAI/bge-m3` |
+| `SPRING_AI_OPENAI_EMBEDDING_MODEL` | Embedding model | `BAAI/bge-m3` |
 
 ## Commands
 

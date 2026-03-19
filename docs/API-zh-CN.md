@@ -1762,9 +1762,9 @@ def listen_to_stream():
 | `OPENAI_API_KEY` | LLM API Key | (required) |
 | `OPENAI_BASE_URL` | LLM API Base URL | https://api.openai.com |
 | `OPENAI_MODEL` | LLM 模型 | gpt-4o |
-| `SILICONFLOW_API_KEY` | 嵌入 API Key | (required) |
-| `SILICONFLOW_MODEL` | 嵌入模型 | BAAI/bge-m3 |
-| `SILICONFLOW_DIMENSIONS` | 嵌入维度 | 1024 |
+| `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | 嵌入 API Key | (required) |
+| `SPRING_AI_OPENAI_EMBEDDING_MODEL` | 嵌入模型 | BAAI/bge-m3 |
+| `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | 嵌入维度 | 1024 |
 
 #### application.yml 配置
 

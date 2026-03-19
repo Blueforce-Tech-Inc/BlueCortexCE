@@ -20,7 +20,7 @@ cd ~/.cortexce
 
 # Set API keys (loaded from .env file)
 export OPENAI_API_KEY=your_api_key
-export SILICONFLOW_API_KEY=your_embedding_key
+export SPRING_AI_OPENAI_EMBEDDING_API_KEY=your_embedding_key
 
 # Start backend (dev profile auto loads .env)
 java -jar target/cortexce-0.1.0-SNAPSHOT.jar --spring.profiles.active=dev &
@@ -215,9 +215,9 @@ lsof -i :37777
 | `OPENAI_API_KEY` | OpenAI API key | Yes* |
 | `OPENAI_BASE_URL` | API endpoint | Yes* |
 | `OPENAI_CHAT_MODEL` | Chat model | Yes* |
-| `SILICONFLOW_API_KEY` | Embedding API key | Yes* |
-| `SILICONFLOW_BASE_URL` | Embedding endpoint | Yes* |
-| `SILICONFLOW_EMBEDDING_MODEL` | Embedding model | Yes* |
+| `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | Embedding API key | Yes* |
+| `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | Embedding endpoint | Yes* |
+| `SPRING_AI_OPENAI_EMBEDDING_MODEL` | Embedding model | Yes* |
 
 *Required only if using respective services
 

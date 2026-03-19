@@ -11,11 +11,11 @@ spring:
         options:
           model: ${SPRING_AI_OPENAI_CHAT_MODEL:${OPENAI_MODEL:deepseek-chat}}
       embedding:
-        api-key: ${SPRING_AI_OPENAI_EMBEDDING_API_KEY:${SILICONFLOW_API_KEY:}}
-        base-url: ${SPRING_AI_OPENAI_EMBEDDING_BASE_URL:${SILICONFLOW_URL:https://api.siliconflow.cn}}
+        api-key: ${SPRING_AI_OPENAI_EMBEDDING_API_KEY:}
+        base-url: ${SPRING_AI_OPENAI_EMBEDDING_BASE_URL:https://api.siliconflow.cn}
         options:
-          model: ${SPRING_AI_OPENAI_EMBEDDING_MODEL:${SILICONFLOW_MODEL:BAAI/bge-m3}}
-          dimensions: ${SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS:${SILICONFLOW_DIMENSIONS:1024}}
+          model: ${SPRING_AI_OPENAI_EMBEDDING_MODEL:BAAI/bge-m3}
+          dimensions: ${SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS:1024}
     anthropic:
       api-key: ${SPRING_AI_ANTHROPIC_API_KEY:${ANTHROPIC_API_KEY:}}
       base-url: ${SPRING_AI_ANTHROPIC_BASE_URL:${ANTHROPIC_BASE_URL:https://api.anthropic.com}}

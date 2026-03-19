@@ -20,7 +20,7 @@ cd ~/.cortexce
 
 # 设置 API keys (从 .env 文件加载)
 export OPENAI_API_KEY=your_api_key
-export SILICONFLOW_API_KEY=your_embedding_key
+export SPRING_AI_OPENAI_EMBEDDING_API_KEY=your_embedding_key
 
 # 启动后端 (dev profile 会自动加载 .env)
 java -jar target/cortexce-0.1.0-SNAPSHOT.jar --spring.profiles.active=dev &

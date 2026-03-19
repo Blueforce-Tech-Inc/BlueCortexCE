@@ -559,10 +559,10 @@ OPENAI_BASE_URL=https://api.deepseek.com
 OPENAI_MODEL=deepseek-chat
 
 # Embedding (SiliconFlow)
-SILICONFLOW_API_KEY=sk-xxx
-SILICONFLOW_MODEL=BAAI/bge-m3
-SILICONFLOW_DIMENSIONS=1024
-SILICONFLOW_URL=https://api.siliconflow.cn/v1/embeddings
+SPRING_AI_OPENAI_EMBEDDING_API_KEY=sk-xxx
+SPRING_AI_OPENAI_EMBEDDING_MODEL=BAAI/bge-m3
+SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS=1024
+SPRING_AI_OPENAI_EMBEDDING_BASE_URL=https://api.siliconflow.cn/v1/embeddings
 ```
 
 ### 运行命令
