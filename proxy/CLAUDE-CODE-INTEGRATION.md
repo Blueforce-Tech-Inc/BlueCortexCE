@@ -218,6 +218,7 @@ lsof -i :37777
 | `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | Embedding API key | Yes* |
 | `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | Embedding endpoint | Yes* |
 | `SPRING_AI_OPENAI_EMBEDDING_MODEL` | Embedding model | Yes* |
+| `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | Embedding dimensions | Yes* |
 
 *Required only if using respective services
 
