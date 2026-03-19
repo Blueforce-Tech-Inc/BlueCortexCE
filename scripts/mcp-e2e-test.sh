@@ -78,14 +78,18 @@ check_dependencies() {
 detect_protocol() {
     section "Detecting MCP Server Protocol"
 
-    # Test SSE endpoint
-    local sse_status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 "${SERVER_URL}/sse" 2>/dev/null || echo "000")
+    # Test SSE endpoint (don't treat timeout as failure)
+    local sse_status
+    sse_status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 "${SERVER_URL}/sse" 2>/dev/null)
+    # Timeout (28) is still a valid connection - treat as potential SSE
+    [ "$sse_status" = "28" ] && sse_status="200"
 
     # Test STREAMABLE endpoint (proper initialize request)
-    local mcp_status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 -X POST "${SERVER_URL}/mcp" \
+    local mcp_status
+    mcp_status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 -X POST "${SERVER_URL}/mcp" \
         -H "Content-Type: application/json" \
         -H "Accept: text/event-stream,application/json" \
-        -d '{"jsonrpc":"2.0","id":"probe","method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"probe","version":"1.0"}}}' 2>/dev/null || echo "000")
+        -d '{"jsonrpc":"2.0","id":"probe","method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"probe","version":"1.0"}}}' 2>/dev/null)
 
     info "SSE endpoint (/sse): HTTP $sse_status"
     info "STREAMABLE endpoint (/mcp): HTTP $mcp_status"
