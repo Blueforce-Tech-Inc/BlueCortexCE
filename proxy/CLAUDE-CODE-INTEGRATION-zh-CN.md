@@ -316,6 +316,12 @@ spring:
 claude mcp add --transport http cortexce http://127.0.0.1:37777/mcp
 ```
 
+> **⚠️ 客户端要求**：`claude mcp add --transport http` 命令正确实现了 MCP Streamable HTTP 协议，包括：
+> - 发送正确的 `Accept: text/event-stream,application/json` 头
+> - 在所有后续请求中维护并发送 `Mcp-Session-Id` 头
+>
+> 如果遇到 "Session ID missing" 错误，说明 MCP 客户端未正确实现协议。
+
 ### 使用 SSE 协议（备选）
 
 ```bash

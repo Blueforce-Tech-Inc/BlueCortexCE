@@ -257,7 +257,55 @@ curl -X POST http://127.0.0.1:37777/mcp \
 - STREAMABLE 是有状态协议，需要管理 Session ID
 - 后续请求需要携带 `Mcp-Session-Id` header
 
-**下一步**: 准备 Streamable HTTP E2E 测试脚本，验证客户端兼容性
+### 5.5 STREAMABLE 协议客户端要求与健壮性
+
+**重要说明**：以下要求来自 MCP 官方规范 (2025-03-26)，服务端实现是正确的，客户端必须遵守。
+
+#### 协议层面的正确行为
+
+根据 MCP 规范，STREAMABLE HTTP 传输要求：
+
+1. **Accept 头**：客户端必须发送 `Accept: text/event-stream,application/json`
+2. **Session ID 管理**：
+   - `initialize` 请求返回 `Mcp-Session-Id` header
+   - **所有后续请求必须携带 `Mcp-Session-Id` header**
+   - 如果缺少 session ID，服务端正确返回错误
+
+#### 错误场景处理
+
+| 场景 | 服务端行为 | 说明 |
+|------|-----------|------|
+| 缺少 Accept 头 | 返回错误或 JSON 响应 | Accept 头错误导致 SSE 解析失败 |
+| 缺少 `Mcp-Session-Id` | 返回 `"Session ID missing"` | 这是**正确的协议行为**，不是服务端 Bug |
+| Session 过期/丢失 | 返回 session not found | 客户端需要重新初始化 |
+
+#### 为什么服务端这样处理是正确的
+
+MCP 规范明确要求：
+> "clients using the Streamable HTTP transport **MUST include** [Mcp-Session-Id] in the Mcp-Session-Id header on all of their subsequent HTTP requests"
+
+如果客户端不遵守协议：
+- ❌ 这是**客户端 Bug**
+- ❌ 服务端正确地拒绝了无效请求
+- ✅ 我们的服务端实现符合规范
+
+#### 已知兼容性问题
+
+| 客户端 | Session 管理 | 说明 |
+|--------|-------------|------|
+| Claude Code (`claude mcp add --transport http`) | ✅ 自动处理 | 正确发送 Accept 头和 Session ID |
+| Cursor IDE | ✅ 自动处理 | MCP 客户端自动处理会话 |
+| 第三方 MCP 客户端 | ⚠️ 需验证 | 必须遵守 MCP 规范 |
+
+#### 服务端健壮性措施
+
+虽然错误处理是协议正确的，但我们可以：
+
+1. **日志增强**：记录 session 相关错误便于调试
+2. **监控指标**：跟踪 session 错误率
+3. **文档完善**：清晰说明客户端要求
+
+**结论**：服务端实现符合 MCP 协议规范。"Session ID missing" 错误表明客户端未正确实现协议，这是客户端问题，不是服务端 Bug。
 
 ---
 

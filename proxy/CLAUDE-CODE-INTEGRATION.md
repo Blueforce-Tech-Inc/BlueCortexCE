@@ -142,6 +142,12 @@ Spring Boot's relaxed binding converts environment variables to property names:
 claude mcp add --transport http cortexce http://127.0.0.1:37777/mcp
 ```
 
+> **⚠️ Client Requirements**: The `claude mcp add --transport http` command correctly implements the MCP Streamable HTTP protocol, including:
+> - Sending proper `Accept: text/event-stream,application/json` header
+> - Maintaining and sending `Mcp-Session-Id` header on all subsequent requests
+>
+> If you encounter "Session ID missing" errors, the MCP client is not correctly implementing the protocol.
+
 ### Using SSE Protocol (Alternative)
 
 ```bash
