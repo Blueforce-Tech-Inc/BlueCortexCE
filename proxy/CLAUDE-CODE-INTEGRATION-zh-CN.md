@@ -308,30 +308,30 @@ spring:
           mcp-endpoint: /mcp
 ```
 
-### 使用 Streamable HTTP 协议（默认）
+### 使用 SSE 协议（默认）
 
 ```bash
-# Streamable HTTP 是默认协议，无需额外配置
+# SSE 是默认协议，基本配置无需额外设置
+# 添加 MCP 服务器（SSE 传输）：
+claude mcp add --transport sse cortexce http://127.0.0.1:37777/sse
+```
+
+> **✅ 客户端兼容性**：SSE 推荐用于最大兼容性，支持各种 MCP 客户端（Claude Code、Cursor IDE 等），无需会话管理。
+
+### 使用 Streamable HTTP 协议（备选）
+
+```bash
+# 方式一：环境变量
+export SPRING_AI_MCP_SERVER_PROTOCOL=STREAMABLE
+
+# 方式二：修改 application.yml
+# 设置: protocol: STREAMABLE
+
 # 添加 MCP 服务器（HTTP 传输）：
 claude mcp add --transport http cortexce http://127.0.0.1:37777/mcp
 ```
 
-> **⚠️ 客户端要求**：`claude mcp add --transport http` 命令正确实现了 MCP Streamable HTTP 协议，包括：
-> - 发送正确的 `Accept: text/event-stream,application/json` 头
-> - 在所有后续请求中维护并发送 `Mcp-Session-Id` 头
->
-> 如果遇到 "Session ID missing" 错误，说明 MCP 客户端未正确实现协议。
-
-### 使用 SSE 协议（备选）
-
-```bash
-# 方式一：环境变量（无需修改配置文件）
-export SPRING_AI_MCP_SERVER_PROTOCOL=SSE
-
-# 方式二：修改 application.yml 后重新构建
-# 设置: protocol: SSE
-
-# 添加 MCP 服务器（SSE 传输）：
+> **⚠️ STREAMABLE 客户端要求**：MCP 客户端必须正确实现 `Mcp-Session-Id` 头处理。如果遇到 "Session ID missing" 错误，请改用 SSE。
 claude mcp add --transport sse cortexce http://127.0.0.1:37777/sse
 ```
 

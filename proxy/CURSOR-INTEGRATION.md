@@ -96,14 +96,14 @@ When working on this project, Claude can query relevant context from memory usin
 
 ## Option 2: Configure via MCP
 
-### Step 1: Add MCP Server (Default: STREAMABLE)
+### Step 1: Add MCP Server (Default: SSE)
 
 ```bash
-# STREAMABLE protocol (default):
-claude mcp add --transport http cortexce http://127.0.0.1:37777/mcp
-
-# Or SSE protocol (alternative):
+# SSE protocol (default - recommended for best compatibility):
 claude mcp add --transport sse cortexce http://127.0.0.1:37777/sse
+
+# Or STREAMABLE protocol (alternative):
+claude mcp add --transport http cortexce http://127.0.0.1:37777/mcp
 ```
 
 ### Step 2: Verify Configuration

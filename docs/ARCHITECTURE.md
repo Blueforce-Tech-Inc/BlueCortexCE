@@ -637,13 +637,13 @@ spring:
   ai:
     mcp:
       server:
-        protocol: STREAMABLE  # or: SSE
+        protocol: SSE  # or: STREAMABLE (requires session management)
 ```
 
 **Environment Variable Override** (no config file edit needed):
 
 ```bash
-export SPRING_AI_MCP_SERVER_PROTOCOL=SSE  # if you prefer SSE
+export SPRING_AI_MCP_SERVER_PROTOCOL=STREAMABLE  # if you prefer STREAMABLE
 ```
 
 ---

@@ -73,9 +73,10 @@ spring:
         name: claude-mem-mcp-server
         version: 0.1.0
         type: SYNC
-        # SSE: Spring AI 1.1.2 WebMVC 可用。STATELESS 在本版本未正确注册 /mcp 端点。
-        # STREAMABLE: 已验证可用 (2026-03-19)，需要正确的 Accept 头和 Session ID 管理。
-        protocol: STREAMABLE
+        # SSE: Default for maximum client compatibility (no session management required)
+        # STREAMABLE: Requires proper Mcp-Session-Id header handling by clients
+        # STATELESS: Has Spring AI 1.1.2 bug (returns 404)
+        protocol: SSE
         sse-endpoint: /sse
         sse-message-endpoint: /mcp/message
         streamable-http:

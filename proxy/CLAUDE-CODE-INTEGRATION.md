@@ -134,28 +134,30 @@ Spring Boot's relaxed binding converts environment variables to property names:
 - `SPRING_AI_MCP_SERVER_PROTOCOL=STREAMABLE`
 - `SPRING_AI_MCP_SERVER_STREAMABLE_HTTP_MCP_ENDPOINT=/mcp`
 
-### Using Streamable HTTP Protocol (Default)
+### Using SSE Protocol (Default)
 
 ```bash
-# STREAMABLE is the default - no extra config needed
+# SSE is the default - no extra config needed for basic setup
+# Add MCP server with SSE transport:
+claude mcp add --transport sse cortexce http://127.0.0.1:37777/sse
+```
+
+> **✅ Client Compatibility**: SSE is recommended for maximum compatibility with various MCP clients (Claude Code, Cursor IDE, etc.). It has no session management requirements.
+
+### Using Streamable HTTP Protocol (Alternative)
+
+```bash
+# Option 1: Environment variable
+export SPRING_AI_MCP_SERVER_PROTOCOL=STREAMABLE
+
+# Option 2: Edit application.yml
+# Set: protocol: STREAMABLE
+
 # Add MCP server with HTTP transport:
 claude mcp add --transport http cortexce http://127.0.0.1:37777/mcp
 ```
 
-> **⚠️ Client Requirements**: The `claude mcp add --transport http` command correctly implements the MCP Streamable HTTP protocol, including:
-> - Sending proper `Accept: text/event-stream,application/json` header
-> - Maintaining and sending `Mcp-Session-Id` header on all subsequent requests
->
-> If you encounter "Session ID missing" errors, the MCP client is not correctly implementing the protocol.
-
-### Using SSE Protocol (Alternative)
-
-```bash
-# Option 1: Environment variable (no config file edit needed!)
-export SPRING_AI_MCP_SERVER_PROTOCOL=SSE
-
-# Option 2: Edit application.yml and rebuild
-# Set: protocol: SSE
+> **⚠️ Client Requirements for STREAMABLE**: The MCP client must correctly implement the `Mcp-Session-Id` header handling. If you encounter "Session ID missing" errors, use SSE instead.
 
 # Add MCP server with SSE transport:
 claude mcp add --transport sse cortexce http://127.0.0.1:37777/sse
