@@ -229,22 +229,24 @@ private String source;  // Convention: "tool_result", "user_statement", "llm_inf
 - New table = new entity complexity
 - Preference can be derived from existing `facts` field
 
-**Generalized Solution**: **Add `extractedPreferences` JSONB field to `ObservationEntity`** (mem_observations table)
+**Decision**: **No new field needed**
+
+`ObservationEntity.facts` is already a JSONB column (`List<String>`). Using convention-based key-value pairs:
 
 ```java
 // In ObservationEntity.java (mem_observations table)
-@JdbcTypeCode(SqlTypes.JSON)
-@Column(name = "extracted_preferences", columnDefinition = "jsonb")
-private Map<String, Object> extractedPreferences;
-// extractedPreferences = {"price_range": "3000", "brands": ["sony", "bose"], "category": "headphones"}
+// facts is already: @Column(name = "facts", columnDefinition = "jsonb") private List<String> facts;
+
+// Convention: "category:value" format for structured key-value data
+facts = ["price_range:3000", "brand:sony", "category:headphones"]
 ```
 
-**Why Generalized**:
-- Extends existing `ObservationEntity` (no new table)
-- Preferences are extracted from observations, not separate concept
-- Query by JSONB operators if needed
+**Why No New Field**:
+- `facts` is already JSONB - no need for a second JSONB column
+- Convention `key:value` provides structure within the existing field
+- Query by pattern matching or JSONB operators if needed
 
-**Trade-off**: Preference queries need JSONB parsing (acceptable)
+**Trade-off**: Nested structures require JSONB `->` operator (acceptable for current use cases)
 
 ---
 
@@ -284,9 +286,8 @@ private String userId;  // External user identifier
 public record ObservationUpdate(
     String title,
     String content,
-    List<String> facts,
-    List<String> tags,           // Updated tags
-    Map<String, Object> extractedPreferences  // Updated preferences
+    List<String> facts,      // Updated facts (use key:value convention)
+    List<String> tags        // Updated tags
 ) {}
 
 void updateObservation(String id, ObservationUpdate update);
@@ -308,7 +309,8 @@ void deleteObservation(String id);
 | `tags` | `List<String>` (JSONB) | User-defined labels | Gap 1 (Importance) |
 | `source` | `String` | Source attribution | Gap 2 |
 | `userId` | `String` | Multi-user isolation | Gap 4 |
-| `extractedPreferences` | `Map<String, Object>` (JSONB) | Structured preferences | Gap 3 |
+
+**Gap 3 (Structured Preferences)**: No new field needed — use existing `facts` field with convention `key:value` format.
 
 ### 5.2 No New Entities Required
 
@@ -318,7 +320,8 @@ void deleteObservation(String id);
 |-----------------|----------|--------|
 | `MemoryImportance` enum | ❌ Rejected | Use `tags` field on `ObservationEntity` instead |
 | `ObservationSource` enum | ❌ Rejected | Use `source` String field on `ObservationEntity` instead |
-| `UserPreference` table | ❌ Rejected | Use `extractedPreferences` JSONB on `ObservationEntity` instead |
+| `UserPreference` table | ❌ Rejected | Use existing `facts` field with `key:value` convention instead |
+| `extractedData` (new JSONB field) | ❌ Rejected | `facts` already JSONB; no need for duplicate |
 | `UserProfile` table | ❌ Deferred | Use `userId` field on `ObservationEntity` now; add entity only when profile management needed |
 
 ### 5.3 When to Add Entities (Future Decision)
@@ -343,10 +346,10 @@ All changes are **field extensions to `mem_observations` table** (ObservationEnt
 5. Add tags/source to `ObservationRequest` in SDK
 
 ### Phase 2: Enhanced Capabilities (2-4 weeks)
-6. Add `extractedPreferences` (JSONB Map) to `ObservationEntity` (mem_observations)
-7. Implement adaptive truncation in `CortexMemoryAdvisor`
-8. Add `MemoryManagementTools` for active memory edit/delete
-9. Add tag-based filtering to search API
+6. Implement adaptive truncation in `CortexMemoryAdvisor`
+7. Add `MemoryManagementTools` for active memory edit/delete
+8. Add tag-based and source-based filtering to search API
+9. (Gap 3 resolved with existing `facts` field — no new field needed)
 
 ### Phase 3: Future Considerations (when needed)
 10. `UserProfile` **entity** - only if profile management is a requirement
@@ -364,10 +367,10 @@ public record ObservationRequest {
     // ... existing fields ...
     
     // NEW: Generalized fields
-    List<String> tags;                          // User-defined labels
-    String source;                              // "tool_result", "user_statement", etc.
-    String userId;                              // For multi-user isolation
-    Map<String, Object> extractedPreferences;   // Structured preferences
+    List<String> tags;       // User-defined labels
+    String source;          // "tool_result", "user_statement", etc.
+    String userId;          // For multi-user isolation
+    // Note: Use facts with "key:value" convention for structured data (no new field needed)
 }
 ```
 
@@ -377,10 +380,9 @@ public record ObservationRequest {
 public record ObservationUpdate(
     String title,
     String content,
-    List<String> facts,
-    List<String> tags,           // Replace/add tags
-    String source,
-    Map<String, Object> extractedPreferences
+    List<String> facts,     // Use key:value convention for structured data
+    List<String> tags,      // Replace/add tags
+    String source
 ) {}
 ```
 
