@@ -342,7 +342,7 @@ void deleteObservation(String id);
 | `extractedData` (JSONB Map) | ✅ Keep | Needed for true structured data (flat strings insufficient) |
 | `UserPreference` table | ❌ Rejected | Use `extractedData` field |
 | `UserProfile` table | ⏳ Deferred | TBD — depends on use case |
-| `userId` field | ⏳ Deferred | TBD — depends on use case | |
+| `userId` field | ❌ Rejected | Gap 4 solved via session-based approach (no new field needed) | |
 
 ### 5.3 When to Add Entities (Future Decision)
 
