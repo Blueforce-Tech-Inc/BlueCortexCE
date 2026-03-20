@@ -168,27 +168,26 @@ Is this a new concept with independent lifecycle?
 
 **Problem**: User wants to mark "this is critical" vs "this is casual".
 
-**Naive Solution**: Add `MemoryImportance enum { LOW, MEDIUM, HIGH }`
+**Naive Solution**: Add new `tags` field or `MemoryImportance enum { LOW, MEDIUM, HIGH }`
 
-**Problem with Naive Solution**: What when we need "verified", "unverified", "pending-review", "deprecated"? Another enum? Another field?
+**Decision**: **Use existing `concepts` field**
 
-**Generalized Solution**: **Add `tags` field to `ObservationEntity`** (mem_observations table)
+`ObservationEntity.concepts` is already a JSONB `List<String>`. Use `concepts` to store importance tags:
 
 ```java
 // In ObservationEntity.java (mem_observations table)
-@JdbcTypeCode(SqlTypes.JSON)
-@Column(name = "tags", columnDefinition = "jsonb")
-private List<String> tags;
-// Usage: tags = ["important", "user-statement", "verified"]
+// concepts is already: @Column(name = "concepts", columnDefinition = "jsonb") private List<String> concepts;
+
+// Usage: concepts = ["important", "user-statement", "verified"]
+// Usage: concepts = ["core-requirement", "bugfix"]
 ```
 
-**Why Generalized**:
-- Users define their own tags (no code change for new tag types)
-- One observation can have multiple tags
-- Tags are filterable in search
-- Future-proof: "deprecated", "needs-review", "core-requirement" all work
+**Why Reuse `concepts`**:
+- `concepts` is semantically appropriate for "labels/categories describing this observation"
+- Existing field, no schema migration needed
+- One observation can have multiple concept tags
 
-**Trade-off**: No compile-time type safety (but tags are user-defined, not system enum)
+**Trade-off**: No compile-time type safety (acceptable for user-defined tags)
 
 ---
 
@@ -224,29 +223,30 @@ private String source;  // Convention: "tool_result", "user_statement", "llm_inf
 
 **Naive Solution**: New `UserPreference` table
 
-**Problem with Naive Solution**: 
-- Preference is essentially a structured observation
-- New table = new entity complexity
-- Preference can be derived from existing `facts` field
+**Decision**: **Add `extractedData` JSONB Map field**
 
-**Decision**: **No new field needed**
+`facts` and `concepts` are both `List<String>` — **flat string lists**. Using flat strings for structured data like `["price_range:3000", "brand:sony"]` causes problems:
 
-`ObservationEntity.facts` is already a JSONB column (`List<String>`). Using convention-based key-value pairs:
+- **Confusion**: Cannot distinguish "this is a structured fact" vs "this is a plain string"
+- **Parsing complexity**: Java code needs polymorphic handling to interpret "key:value" strings
+- **No type safety**: Cannot store typed values (integers, booleans, nested objects)
+
+**Solution**: Add `extractedData` (JSONB Map<String, Object>) to `ObservationEntity`:
 
 ```java
 // In ObservationEntity.java (mem_observations table)
-// facts is already: @Column(name = "facts", columnDefinition = "jsonb") private List<String> facts;
-
-// Convention: "category:value" format for structured key-value data
-facts = ["price_range:3000", "brand:sony", "category:headphones"]
+@JdbcTypeCode(SqlTypes.JSON)
+@Column(name = "extracted_data", columnDefinition = "jsonb")
+private Map<String, Object> extractedData;
+// extractedData = {"price_range": "3000", "brands": ["sony", "bose"], "category": "headphones"}
 ```
 
-**Why No New Field**:
-- `facts` is already JSONB - no need for a second JSONB column
-- Convention `key:value` provides structure within the existing field
-- Query by pattern matching or JSONB operators if needed
+**Why This Field**:
+- True structured storage with typed values (String, Integer, List, Map)
+- Cannot be replaced by `facts` (flat strings) or `concepts` (labels)
+- Enables PostgreSQL JSONB queries: ` WHERE extracted_data->>'price_range' = '3000'`
 
-**Trade-off**: Nested structures require JSONB `->` operator (acceptable for current use cases)
+**Trade-off**: Additional JSONB column (but no entity complexity)
 
 ---
 
@@ -298,31 +298,34 @@ void deleteObservation(String id);
 
 ---
 
-## 5. Final Recommendation: Minimal Entity Extension
+## 5. Final Recommendation
 
 ### 5.1 Required Changes to ObservationEntity
 
 **Table**: `mem_observations` (via `ObservationEntity.java`)
 
-| Field | Type | Purpose | Gap Addressed |
-|-------|------|---------|---------------|
-| `tags` | `List<String>` (JSONB) | User-defined labels | Gap 1 (Importance) |
-| `source` | `String` | Source attribution | Gap 2 |
-| `userId` | `String` | Multi-user isolation | Gap 4 |
+| Field | Type | Purpose | Gap Addressed | Status |
+|-------|------|---------|---------------|--------|
+| `source` | `String` | Source attribution | Gap 2 | ✅ Add |
+| `extractedData` | `Map<String, Object>` (JSONB) | Structured data (preferences, key-value) | Gap 3 | ✅ Add |
 
-**Gap 3 (Structured Preferences)**: No new field needed — use existing `facts` field with convention `key:value` format.
+**Already solved without new fields**:
+- **Gap 1 (Importance)**: Use existing `concepts` field with tag convention
+- **Gap 4 (Multi-user)**: TBD — depends on whether `memorySessionId` is insufficient
 
 ### 5.2 No New Entities Required
 
 **All fields go to `mem_observations` table (ObservationEntity)**
 
-| Proposed Entity | Decision | Reason |
-|-----------------|----------|--------|
-| `MemoryImportance` enum | ❌ Rejected | Use `tags` field on `ObservationEntity` instead |
-| `ObservationSource` enum | ❌ Rejected | Use `source` String field on `ObservationEntity` instead |
-| `UserPreference` table | ❌ Rejected | Use existing `facts` field with `key:value` convention instead |
-| `extractedData` (new JSONB field) | ❌ Rejected | `facts` already JSONB; no need for duplicate |
-| `UserProfile` table | ❌ Deferred | Use `userId` field on `ObservationEntity` now; add entity only when profile management needed |
+| Proposed Entity/Field | Decision | Reason |
+|----------------------|----------|--------|
+| `tags` field | ❌ Rejected | Use existing `concepts` field instead |
+| `MemoryImportance` enum | ❌ Rejected | Use `concepts` tags |
+| `ObservationSource` enum | ❌ Rejected | Use `source` String field |
+| `extractedData` (JSONB Map) | ✅ Keep | Needed for true structured data (flat strings insufficient) |
+| `UserPreference` table | ❌ Rejected | Use `extractedData` field |
+| `UserProfile` table | ⏳ Deferred | TBD — depends on use case |
+| `userId` field | ⏳ Deferred | TBD — depends on use case | |
 
 ### 5.3 When to Add Entities (Future Decision)
 
@@ -339,17 +342,17 @@ void deleteObservation(String id);
 
 ### Phase 1: Minimal Extension (1-2 weeks)
 All changes are **field extensions to `mem_observations` table** (ObservationEntity).
-1. Add `tags` (JSONB List) to `ObservationEntity` (mem_observations)
-2. Add `source` (String) field to `ObservationEntity` (mem_observations)
-3. Add `userId` (String) field to `ObservationEntity` (mem_observations)
-4. Implement `PATCH /api/memory/observations/{id}` with `ObservationUpdate` DTO
-5. Add tags/source to `ObservationRequest` in SDK
+1. Add `source` (String) field to `ObservationEntity` (mem_observations)
+2. Add `extractedData` (JSONB Map<String, Object>) to `ObservationEntity` (mem_observations)
+3. Implement `PATCH /api/memory/observations/{id}` with `ObservationUpdate` DTO (include source and extractedData)
+4. Add `source` and `extractedData` to `ObservationRequest` in SDK
 
 ### Phase 2: Enhanced Capabilities (2-4 weeks)
-6. Implement adaptive truncation in `CortexMemoryAdvisor`
-7. Add `MemoryManagementTools` for active memory edit/delete
-8. Add tag-based and source-based filtering to search API
-9. (Gap 3 resolved with existing `facts` field — no new field needed)
+5. Implement adaptive truncation in `CortexMemoryAdvisor`
+6. Add `MemoryManagementTools` for active memory edit/delete
+7. Add `source`-based filtering to search API
+8. (Gap 1 resolved with existing `concepts` field — no new field needed)
+9. (Gap 4 TBD — depends on multi-user use case)
 
 ### Phase 3: Future Considerations (when needed)
 10. `UserProfile` **entity** - only if profile management is a requirement
@@ -366,11 +369,10 @@ All changes are **field extensions to `mem_observations` table** (ObservationEnt
 public record ObservationRequest {
     // ... existing fields ...
     
-    // NEW: Generalized fields
-    List<String> tags;       // User-defined labels
-    String source;          // "tool_result", "user_statement", etc.
-    String userId;          // For multi-user isolation
-    // Note: Use facts with "key:value" convention for structured data (no new field needed)
+    // NEW fields
+    String source;                              // "tool_result", "user_statement", etc.
+    Map<String, Object> extractedData;          // Structured data (preferences, key-value pairs)
+    // Note: Use concepts for tags/labels (no new tags field needed)
 }
 ```
 
@@ -380,9 +382,10 @@ public record ObservationRequest {
 public record ObservationUpdate(
     String title,
     String content,
-    List<String> facts,     // Use key:value convention for structured data
-    List<String> tags,      // Replace/add tags
-    String source
+    List<String> facts,
+    List<String> concepts,      // Use concepts for tags/labels
+    String source,
+    Map<String, Object> extractedData  // Structured key-value data
 ) {}
 ```
 
