@@ -932,6 +932,165 @@ test_icl_prompt_api() {
     return 0
 }
 
+# Test V14: maxChars parameter for ICL prompt
+test_icl_prompt_max_chars() {
+    log_section "Test 22: ICL Prompt API - maxChars Parameter (V14)"
+
+    local response
+    # Test with maxChars=500 (should truncate if content exceeds)
+    response=$(curl -sf -X POST "${SERVER_URL}/api/memory/icl-prompt" \
+        -H 'Content-Type: application/json' \
+        -d "{\"task\": \"fix bug\", \"project\": \"$TEST_PROJECT\", \"maxChars\": 500}" 2>&1) || {
+        log_fail "ICL prompt API with maxChars failed"
+        return 1
+    }
+
+    # Check response contains maxChars
+    if echo "$response" | grep -q "maxChars"; then
+        log_success "ICL prompt API returns maxChars"
+    else
+        log_fail "ICL prompt API missing maxChars"
+        return 1
+    fi
+
+    return 0
+}
+
+# Test V14: source and extractedData fields in observation
+test_observation_source_and_extracted_data() {
+    log_section "Test 23: Observation - source and extractedData Fields (V14)"
+
+    local response
+    response=$(curl -sf -X POST "${SERVER_URL}/api/ingest/observation" \
+        -H 'Content-Type: application/json' \
+        -d "{
+            \"session_id\": \"$TEST_SESSION_ID\",
+            \"project_path\": \"$TEST_PROJECT\",
+            \"type\": \"feature\",
+            \"title\": \"V14 Source Test\",
+            \"content\": \"Testing source and extractedData fields\",
+            \"facts\": [\"fact1\"],
+            \"concepts\": [\"v14-test\"],
+            \"source\": \"manual_test\",
+            \"extractedData\": {\"price_range\": \"3000\", \"brands\": [\"sony\", \"bose\"]},
+            \"prompt_number\": 1
+        }" 2>&1) || {
+        log_fail "Observation with source/extractedData failed: $response"
+        return 1
+    }
+
+    # Extract ID for later tests
+    OBS_ID_V14=$(echo "$response" | python3 -c "import sys, json; print(json.load(sys.stdin).get('id', ''))" 2>/dev/null) || OBS_ID_V14=""
+
+    if [ -z "$OBS_ID_V14" ]; then
+        log_fail "No observation ID returned"
+        return 1
+    fi
+
+    # Verify source field is returned
+    if echo "$response" | grep -q "manual_test"; then
+        log_success "Observation created with source field"
+    else
+        log_fail "Observation missing source field"
+        return 1
+    fi
+
+    # Verify extractedData is returned (as JSON string)
+    if echo "$response" | grep -q "extractedData"; then
+        log_success "Observation created with extractedData field"
+    else
+        log_fail "Observation missing extractedData field"
+        return 1
+    fi
+
+    # Store ID for PATCH/DELETE tests
+    echo "$OBS_ID_V14" > /tmp/obs_id_v14.txt
+    log_success "V14 observation created with ID: $OBS_ID_V14"
+    return 0
+}
+
+# Test V14: PATCH observation endpoint
+test_patch_observation() {
+    log_section "Test 24: PATCH Observation - Update source and extractedData (V14)"
+
+    # Read stored observation ID
+    local obs_id
+    obs_id=$(cat /tmp/obs_id_v14.txt 2>/dev/null) || obs_id=""
+
+    if [ -z "$obs_id" ]; then
+        log_skip "Skipping PATCH test (no observation ID from Test 23)"
+        return 0
+    fi
+
+    local response
+    response=$(curl -sf -X PATCH "${SERVER_URL}/api/memory/observations/${obs_id}" \
+        -H 'Content-Type: application/json' \
+        -d "{
+            \"title\": \"Updated Title\",
+            \"source\": \"patched_source\",
+            \"extractedData\": {\"updated\": true, \"tags\": [\"patched\"]}
+        }" 2>&1) || {
+        log_fail "PATCH observation failed: $response"
+        return 1
+    }
+
+    if echo "$response" | grep -q "updated"; then
+        log_success "PATCH observation returned updated status"
+    else
+        log_fail "PATCH observation response invalid: $response"
+        return 1
+    fi
+
+    return 0
+}
+
+# Test V14: Search API with source parameter
+test_search_by_source() {
+    log_section "Test 25: Search API - source Filter (V14)"
+
+    local response
+    # Search by patched_source (since Test 24 changed it from manual_test to patched_source)
+    response=$(curl -sf "${SERVER_URL}/api/search?project=${TEST_PROJECT}&source=patched_source&limit=10" 2>&1) || {
+        log_fail "Search by source failed: $response"
+        return 1
+    }
+
+    local count
+    count=$(echo "$response" | python3 -c "import sys, json; data=json.load(sys.stdin); print(len(data.get('observations', [])))" 2>/dev/null || echo "0")
+
+    if [ "$count" -ge 1 ]; then
+        log_success "Search by source returned $count result(s)"
+    else
+        log_fail "Search by source returned 0 results (expected >= 1)"
+        return 1
+    fi
+
+    return 0
+}
+
+# Test V14: Experience API with source and requiredConcepts filters
+test_experiences_with_filters() {
+    log_section "Test 26: Experiences API - source and requiredConcepts Filters (V14)"
+
+    local response
+    response=$(curl -sf -X POST "${SERVER_URL}/api/memory/experiences" \
+        -H 'Content-Type: application/json' \
+        -d "{\"task\": \"test\", \"project\": \"$TEST_PROJECT\", \"source\": \"manual_test\", \"requiredConcepts\": [\"v14-test\"]}" 2>&1) || {
+        log_fail "Experiences API with filters failed: $response"
+        return 1
+    }
+
+    # Should return list
+    if echo "$response" | python3 -c "import sys, json; data=json.load(sys.stdin); assert isinstance(data, list)" 2>/dev/null; then
+        log_success "Experiences API returned list with filters"
+    else
+        log_fail "Experiences API response invalid"
+        return 1
+    fi
+
+    return 0
+}
+
 # Verify database state
 verify_database_state() {
     log_section "Test 10: Database State Verification"
@@ -1076,6 +1235,11 @@ main() {
     test_memory_refine_api  # Phase 2: Memory refine API
     test_quality_distribution_api  # Phase 3: Quality distribution API
     test_icl_prompt_api  # Phase 3: ICL prompt API
+    test_icl_prompt_max_chars  # V14: maxChars parameter
+    test_observation_source_and_extracted_data  # V14: source and extractedData fields
+    test_patch_observation  # V14: PATCH observation
+    test_search_by_source  # V14: search by source
+    test_experiences_with_filters  # V14: experiences with source/requiredConcepts filters
 
     verify_database_state
 
