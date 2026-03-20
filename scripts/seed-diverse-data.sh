@@ -24,8 +24,7 @@ create_observation() {
     local session_id="diverse-session-$(date +%s%N)"
 
     # First create a session (required for FK constraint)
-    # NOTE: session-start expects "session_id" not "memory_session_id"
-    # The session will have memory_session_id = session_id (same value)
+    # NOTE: session-start expects "session_id"; observations use content_session_id
     curl -s -X POST "http://localhost:37777/api/session/start" \
         -H "Content-Type: application/json" \
         -d "{
@@ -38,7 +37,7 @@ create_observation() {
     curl -s -X POST "$API_BASE/ingest/observation" \
         -H "Content-Type: application/json" \
         -d "{
-            \"memory_session_id\": \"$session_id\",
+            \"content_session_id\": \"$session_id\",
             \"project_path\": \"$PROJECT\",
             \"type\": \"$type\",
             \"title\": \"$title\",
@@ -61,7 +60,7 @@ create_summary() {
 
     local session_id="summary-session-$(date +%s%N)"
 
-    # First create a session (use session_id, not memory_session_id)
+    # First create a session (session_id in /api/session/start)
     curl -s -X POST "http://localhost:37777/api/session/start" \
         -H "Content-Type: application/json" \
         -d "{
@@ -74,7 +73,7 @@ create_summary() {
     curl -s -X POST "$API_BASE/ingest/session-end" \
         -H "Content-Type: application/json" \
         -d "{
-            \"memory_session_id\": \"$session_id\",
+            \"content_session_id\": \"$session_id\",
             \"project_path\": \"$PROJECT\",
             \"request\": \"$request\",
             \"completed\": \"$completed\"

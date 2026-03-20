@@ -258,7 +258,7 @@ public class MemoryRefineService {
     private void refineObservations(List<ObservationEntity> observations, String projectPath) {
         // Group by session for potential merging
         var bySession = observations.stream()
-            .collect(Collectors.groupingBy(ObservationEntity::getMemorySessionId));
+            .collect(Collectors.groupingBy(ObservationEntity::getContentSessionId));
         
         for (var entry : bySession.entrySet()) {
             List<ObservationEntity> sessionObs = entry.getValue();

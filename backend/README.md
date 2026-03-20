@@ -130,7 +130,7 @@ curl -s -X POST http://127.0.0.1:37777/api/ingest/session-start \
     "project_path": "/tmp/test-project",
     "user_prompt": "Implement a REST API for user management"
   }' | python3 -m json.tool
-# {"status": "ok", "session_db_id": "42bfc719-...", "memory_session_id": ""}
+# {"status": "ok", "session_db_id": "42bfc719-...", "content_session_id": "..."}
 ```
 
 ### Step 3: Send Tool-Use Event (triggers LLM + embedding pipeline)
@@ -185,7 +185,7 @@ curl -s -X POST http://127.0.0.1:37777/api/ingest/session-end \
 All steps passed:
 
 - ✅ Flyway V1 + V2 migrations applied successfully
-- ✅ Session created with `memory_session_id`
+- ✅ Session uses `content_session_id` for observation/summary linkage
 - ✅ Tool-use event triggered async LLM call (DeepSeek deepseek-chat)
 - ✅ LLM returned structured XML observation (725 prompt tokens, 287 completion tokens)
 - ✅ Observation saved with `embedding_1024` via SiliconFlow BAAI/bge-m3

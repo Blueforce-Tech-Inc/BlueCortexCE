@@ -45,7 +45,7 @@ test_quality_scoring_workflow() {
     local obs1=$(curl -sf -X POST "${SERVER_URL}/api/ingest/observation" \
         -H 'Content-Type: application/json' \
         -d "{
-            \"memory_session_id\": \"$TEST_SESSION\",
+            \"content_session_id\": \"$TEST_SESSION\",
             \"project_path\": \"$TEST_PROJECT\",
             \"type\": \"feature\",
             \"title\": \"Successful Feature Implementation\",
@@ -58,7 +58,7 @@ test_quality_scoring_workflow() {
     local obs2=$(curl -sf -X POST "${SERVER_URL}/api/ingest/observation" \
         -H 'Content-Type: application/json' \
         -d "{
-            \"memory_session_id\": \"$TEST_SESSION\",
+            \"content_session_id\": \"$TEST_SESSION\",
             \"project_path\": \"$TEST_PROJECT\",
             \"type\": \"bugfix\",
             \"title\": \"Partial Bug Fix\",
@@ -71,7 +71,7 @@ test_quality_scoring_workflow() {
     local obs3=$(curl -sf -X POST "${SERVER_URL}/api/ingest/observation" \
         -H 'Content-Type: application/json' \
         -d "{
-            \"memory_session_id\": \"$TEST_SESSION\",
+            \"content_session_id\": \"$TEST_SESSION\",
             \"project_path\": \"$TEST_PROJECT\",
             \"type\": \"experiment\",
             \"title\": \"Failed Experiment\",
@@ -258,7 +258,7 @@ test_e2e_workflow() {
         curl -sf -X POST "${SERVER_URL}/api/ingest/observation" \
             -H 'Content-Type: application/json' \
             -d "{
-                \"memory_session_id\": \"$workflow_session\",
+                \"content_session_id\": \"$workflow_session\",
                 \"project_path\": \"$workflow_project\",
                 \"type\": \"feature\",
                 \"title\": \"API Implementation Step $i\",

@@ -169,7 +169,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     List<ObservationEntity> findByProjectPathOrderByCreatedAtDesc(String projectPath);
 
     // Find observations for a session, ordered ascending (for summary generation)
-    List<ObservationEntity> findByMemorySessionIdOrderByCreatedAtEpochAsc(String memorySessionId);
+    List<ObservationEntity> findByContentSessionIdOrderByCreatedAtEpochAsc(String contentSessionId);
 
     // P2: Hybrid search combining pgvector semantic + tsvector full-text
     @Query(value = """
@@ -286,10 +286,10 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
             SELECT 1 FROM jsonb_array_elements_text(o.concepts::jsonb) elem
             WHERE elem IN (:concepts)
         ))
-        AND o.memory_session_id IN (
-            SELECT memory_session_id FROM mem_observations
+        AND o.content_session_id IN (
+            SELECT content_session_id FROM mem_observations
             WHERE project_path = :project
-            GROUP BY memory_session_id
+            GROUP BY content_session_id
             ORDER BY MAX(created_at_epoch) DESC
             LIMIT :sessionLimit
         )
@@ -315,7 +315,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      */
     @Query("""
         SELECT o FROM ObservationEntity o
-        WHERE o.memorySessionId = :sessionId
+        WHERE o.contentSessionId = :sessionId
         AND o.title = :title
         AND o.createdAtEpoch = :createdAtEpoch
         """)

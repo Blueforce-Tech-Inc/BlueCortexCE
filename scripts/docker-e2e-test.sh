@@ -369,7 +369,7 @@ test_observation_ingestion() {
     response=$(curl -sf -X POST "http://localhost:$JAVA_PORT/api/ingest/observation" \
         -H 'Content-Type: application/json' \
         -d "{
-            \"memory_session_id\": \"$TEST_SESSION_ID\",
+            \"content_session_id\": \"$TEST_SESSION_ID\",
             \"project_path\": \"$TEST_PROJECT\",
             \"type\": \"feature\",
             \"title\": \"Docker E2E Test Observation\",

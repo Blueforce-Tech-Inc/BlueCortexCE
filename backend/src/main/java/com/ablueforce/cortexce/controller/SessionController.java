@@ -193,7 +193,7 @@ public class SessionController {
         SessionEntity s = session.get();
         return Map.of(
             "session_db_id", s.getId().toString(),
-            "memory_session_id", s.getMemorySessionId() != null ? s.getMemorySessionId() : "",
+            "content_session_id", s.getContentSessionId() != null ? s.getContentSessionId() : "",
             "project_path", s.getProjectPath() != null ? s.getProjectPath() : "",
             "status", s.getStatus() != null ? s.getStatus() : "",
             "started_at", s.getStartedAt() != null ? s.getStartedAt().toString() : ""

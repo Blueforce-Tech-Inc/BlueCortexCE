@@ -97,10 +97,10 @@ echo "Found $OBS_COUNT observations"
 
 # Step 2: Extract session IDs
 echo "Step 2: Extracting session IDs..."
-# Extract unique memory session IDs and build JSON array
-MEMORY_SESSION_IDS=$(echo "$OBSERVATIONS" | jq '[.[].memory_session_id] | unique' 2>/dev/null || echo "[]")
+# Extract unique content session IDs and build JSON array
+CONTENT_SESSION_IDS=$(echo "$OBSERVATIONS" | jq '[.[].content_session_id] | unique' 2>/dev/null || echo "[]")
 
-if [ "$MEMORY_SESSION_IDS" = "[]" ] || [ "$MEMORY_SESSION_IDS" = "null" ]; then
+if [ "$CONTENT_SESSION_IDS" = "[]" ] || [ "$CONTENT_SESSION_IDS" = "null" ]; then
     echo "No sessions found"
     SESSIONS="[]"
     SESSIONS_COUNT=0
@@ -108,7 +108,7 @@ else
     # Step 3: Batch query sessions
     echo "Step 3: Fetching session metadata..."
     # Create JSON payload properly
-    JSON_PAYLOAD=$(jq -n --argjson ids "$MEMORY_SESSION_IDS" '{memorySessionIds: $ids}')
+    JSON_PAYLOAD=$(jq -n --argjson ids "$CONTENT_SESSION_IDS" '{contentSessionIds: $ids}')
     SESSIONS_RESPONSE=$(curl -s -X POST "$API_URL/api/sdk-sessions/batch" \
         -H "Content-Type: application/json" \
         -d "$JSON_PAYLOAD")

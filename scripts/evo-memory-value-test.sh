@@ -49,7 +49,7 @@ test_quality_based_value() {
     local high_quality=$(curl -sf -X POST "${SERVER_URL}/api/ingest/observation" \
         -H 'Content-Type: application/json' \
         -d "{
-            \"memory_session_id\": \"$SESSION\",
+            \"content_session_id\": \"$SESSION\",
             \"project_path\": \"$PROJECT\",
             \"type\": \"feature\",
             \"title\": \"Implemented JWT Authentication\",
@@ -63,7 +63,7 @@ test_quality_based_value() {
     local low_quality=$(curl -sf -X POST "${SERVER_URL}/api/ingest/observation" \
         -H 'Content-Type: application/json' \
         -d "{
-            \"memory_session_id\": \"$SESSION\",
+            \"content_session_id\": \"$SESSION\",
             \"project_path\": \"$PROJECT\",
             \"type\": \"experiment\",
             \"title\": \"Failed:尝试新框架\",
@@ -137,7 +137,7 @@ test_llm_quality_scoring() {
     curl -sf -X POST "${SERVER_URL}/api/ingest/observation" \
         -H 'Content-Type: application/json' \
         -d "{
-            \"memory_session_id\": \"$llm_test_session\",
+            \"content_session_id\": \"$llm_test_session\",
             \"project_path\": \"$llm_test_project\",
             \"type\": \"feature\",
             \"title\": \"Implemented Redis caching layer\",
@@ -249,7 +249,7 @@ test_llm_merge_rewrite() {
     curl -sf -X POST "${SERVER_URL}/api/ingest/observation" \
         -H 'Content-Type: application/json' \
         -d "{
-            \"memory_session_id\": \"$merge_session\",
+            \"content_session_id\": \"$merge_session\",
             \"project_path\": \"$merge_project\",
             \"type\": \"feature\",
             \"title\": \"Step 1: Created user service\",
@@ -262,7 +262,7 @@ test_llm_merge_rewrite() {
     curl -sf -X POST "${SERVER_URL}/api/ingest/observation" \
         -H 'Content-Type: application/json' \
         -d "{
-            \"memory_session_id\": \"$merge_session\",
+            \"content_session_id\": \"$merge_session\",
             \"project_path\": \"$merge_project\",
             \"type\": \"feature\",
             \"title\": \"Step 2: Added user repository\",
@@ -275,7 +275,7 @@ test_llm_merge_rewrite() {
     curl -sf -X POST "${SERVER_URL}/api/ingest/observation" \
         -H 'Content-Type: application/json' \
         -d "{
-            \"memory_session_id\": \"$merge_session\",
+            \"content_session_id\": \"$merge_session\",
             \"project_path\": \"$merge_project\",
             \"type\": \"feature\",
             \"title\": \"Step 3: User controller\",
@@ -328,7 +328,7 @@ test_llm_merge_rewrite() {
     curl -sf -X POST "${SERVER_URL}/api/ingest/observation" \
         -H 'Content-Type: application/json' \
         -d "{
-            \"memory_session_id\": \"$rewrite_session\",
+            \"content_session_id\": \"$rewrite_session\",
             \"project_path\": \"$rewrite_project\",
             \"type\": \"experiment\",
             \"title\": \"Testing various approaches\",
@@ -371,7 +371,7 @@ test_experience_reuse_value() {
         curl -sf -X POST "${SERVER_URL}/api/ingest/observation" \
             -H 'Content-Type: application/json' \
             -d "{
-                \"memory_session_id\": \"reuse-test-$$\",
+                \"content_session_id\": \"reuse-test-$$\",
                 \"project_path\": \"$PROJECT\",
                 \"type\": \"feature\",
                 \"title\": \"API Implementation $i\",
@@ -480,7 +480,7 @@ test_e2e_value_demonstration() {
     curl -sf -X POST "${SERVER_URL}/api/ingest/observation" \
         -H 'Content-Type: application/json' \
         -d "{
-            \"memory_session_id\": \"$wf_session\",
+            \"content_session_id\": \"$wf_session\",
             \"project_path\": \"$wf_project\",
             \"type\": \"feature\",
             \"title\": \"Database Optimization\",

@@ -3,7 +3,7 @@
 > **Date**: 2026-03-20  
 > **Objective**: Analyze Spring AI developer pain points, evaluate how Cortex CE addresses them, and propose **generalized** improvements that avoid entity proliferation  
 > **Key Principle**: Prefer extensible fields (tags, JSONB) over new entities/enums; new entities only when independent CRUD lifecycle or complex relationships exist  
-> **⚠️ Field Names Subject to Refactoring**: The codebase has an ongoing refactoring plan to unify `memorySessionId` with `contentSessionId`. All field/column names in this document reflect **current** names and will be updated after refactoring.  
+> **Session ID naming (2026-03)**: Persistence and APIs use `contentSessionId` / `content_session_id` only (Flyway V13 dropped the extra SDK-style session column). Examples below follow that naming.  
 > **Reference**: `spring-ai-skills-demo/docs/drafts/memory-system-improvement-plan.md`
 
 ---
@@ -257,11 +257,9 @@ private Map<String, Object> extractedData;
 
 **Decision**: **No new `userId` field or `UserProfile` table — use session-based approach**
 
-> ⚠️ **Note**: Field names (e.g., `memorySessionId`) are subject to ongoing refactoring. See Section 6 for the refactoring plan. The design below uses current names for reference only.
-
 **Design**:
 
-1. **Refactor `memorySessionId`**: Currently `memorySessionId = contentSessionId` (both equal the session ID from Claude Code). Future plan: discard the redundant `memorySessionId` name, use only `contentSessionId`.
+1. **Session key**: Use `content_session_id` (and `contentSessionId` in JSON/import DTOs) as the only business session identifier for observations and summaries.
 
 2. **External user as special session**: Create a special session record in `mem_sessions` table:
    ```sql

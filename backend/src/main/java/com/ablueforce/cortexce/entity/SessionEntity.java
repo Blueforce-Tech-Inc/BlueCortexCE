@@ -9,53 +9,14 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 /**
- * Session Entity - represents a Claude Code session.
- *
- * NOTE: Session ID Architecture History
- * ================================
- * This entity has THREE identifier columns due to TypeScript original design:
- *
- * 1. id (UUID) - Physical primary key, stable across migrations
- *    - Used by: mem_pending_messages.session_db_id (FK)
- *    - Design: ✅ Correct - UUID FK is more stable than business keys
- *
- * 2. contentSessionId - Business key from Claude Code
- *    - Used by: mem_user_prompts.content_session_id (FK)
- *    - Design: ✅ Correct - Natural key from external system
- *
- * 3. memorySessionId - Legacy field from @anthropic-ai/claude-agent-sdk
- *    - Used by: mem_observations.memory_session_id (FK)
- *    - Used by: mem_summaries.memory_session_id (FK)
- *    - Design: ⚠️ REDUNDANT - In Java Port, this equals contentSessionId
- *    - History: In TypeScript SDK, memorySessionId is generated LATER (after first response)
- *              requiring complex dual-ID handling. Java Port simplified this by
- *              setting memorySessionId = contentSessionId at initialization.
- *
- * WHY THE REDUNDANCY EXISTS:
- * -------------------------
- * The TypeScript original uses @anthropic-ai/claude-agent-sdk which internally
- * generates its own session_id (memorySessionId) AFTER the first LLM response.
- * This created complex dual-ID architecture requiring careful handling:
- *   - contentSessionId: Available immediately from Claude Code
- *   - memorySessionId: NULL initially, captured after first response
- *   - Observation storage: Must use contentSessionId until memorySessionId is available
- *
- * Java Port Decision:
- * Since we don't use the SDK (direct DeepSeek API calls), there's no SDK-internal
- * session_id concept. We set memorySessionId = contentSessionId at initialization.
- * This maintains API compatibility with TypeScript version while simplifying logic.
- *
- * FUTURE CLEANUP (v2.0 or later):
- * -------------------------------
- * Consider removing memorySessionId and migrating FK references:
- *   1. Add content_session_id to mem_observations/summaries
- *   2. Copy data from memory_session_id to content_session_id
- *   3. Create FK to mem_sessions(content_session_id)
- *   4. Drop memory_session_id column and FKs
- *
- * Impact: ~9 files (Entity, Repository, Service layers) + 2 DB migrations
- * Risk: High - involves FK constraints and data migration
- * Recommendation: Defer until major version upgrade
+ * Session Entity — Claude Code session.
+ * <p>
+ * Identifiers:
+ * <ul>
+ *   <li>{@code id} — UUID primary key; used by {@code mem_pending_messages.session_db_id}</li>
+ *   <li>{@code contentSessionId} — business key from Claude Code; used for prompts,
+ *       observations, and summaries (FK on {@code mem_sessions.content_session_id})</li>
+ * </ul>
  */
 @Entity
 @Table(name = "mem_sessions")
@@ -74,21 +35,6 @@ public class SessionEntity {
     @NotBlank(message = "Content session ID cannot be blank")
     @JsonProperty("session_id")
     private String contentSessionId;
-
-    /**
-     * Legacy field from TypeScript SDK architecture.
-     *
-     * In Java Port: This ALWAYS equals contentSessionId (set at initialization).
-     * No dual-ID complexity because we don't use @anthropic-ai/claude-agent-sdk.
-     *
-     * Referenced by:
-     *   - mem_observations.memory_session_id (FK)
-     *   - mem_summaries.memory_session_id (FK)
-     *
-     * TODO: Consider migrating to content_session_id in future version
-     */
-    @Column(name = "memory_session_id")
-    private String memorySessionId;
 
     @Column(name = "project_path", nullable = false)
     @NotBlank(message = "Project path cannot be blank")
@@ -134,9 +80,6 @@ public class SessionEntity {
 
     public String getContentSessionId() { return contentSessionId; }
     public void setContentSessionId(String contentSessionId) { this.contentSessionId = contentSessionId; }
-
-    public String getMemorySessionId() { return memorySessionId; }
-    public void setMemorySessionId(String memorySessionId) { this.memorySessionId = memorySessionId; }
 
     public String getProjectPath() { return projectPath; }
     public void setProjectPath(String projectPath) { this.projectPath = projectPath; }

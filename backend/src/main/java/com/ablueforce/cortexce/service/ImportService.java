@@ -110,7 +110,6 @@ public class ImportService implements LogHelper {
      */
     public record SessionImportData(
         String contentSessionId,
-        String memorySessionId,
         String projectPath,
         String userPrompt,
         Long startedAtEpoch,
@@ -122,7 +121,7 @@ public class ImportService implements LogHelper {
      * Import observation data.
      */
     public record ObservationImportData(
-        String sessionId,       // memory_session_id
+        String sessionId,       // content_session_id (FK)
         String projectPath,
         String type,
         String title,
@@ -146,7 +145,7 @@ public class ImportService implements LogHelper {
      * Import summary data.
      */
     public record SummaryImportData(
-        String sessionId,       // memory_session_id
+        String sessionId,       // content_session_id (FK)
         String projectPath,
         String request,
         String investigated,
@@ -212,7 +211,6 @@ public class ImportService implements LogHelper {
 
         SessionEntity session = new SessionEntity();
         session.setContentSessionId(data.contentSessionId());
-        session.setMemorySessionId(data.memorySessionId() != null ? data.memorySessionId() : data.contentSessionId());
         session.setProjectPath(data.projectPath());
         session.setUserPrompt(data.userPrompt());
         session.setStartedAtEpoch(data.startedAtEpoch() != null ? data.startedAtEpoch() : System.currentTimeMillis());
@@ -245,7 +243,7 @@ public class ImportService implements LogHelper {
         }
 
         ObservationEntity obs = new ObservationEntity();
-        obs.setMemorySessionId(data.sessionId());
+        obs.setContentSessionId(data.sessionId());
         obs.setProjectPath(data.projectPath());
         obs.setType(data.type() != null ? data.type() : "unknown");
         obs.setTitle(data.title());
@@ -303,7 +301,7 @@ public class ImportService implements LogHelper {
             return ImportResult.error("sessionId is required");
         }
 
-        List<SummaryEntity> existing = summaryRepository.findByMemorySessionId(data.sessionId());
+        List<SummaryEntity> existing = summaryRepository.findByContentSessionId(data.sessionId());
 
         if (!existing.isEmpty()) {
             log.debug("Summary already exists for session: {}", data.sessionId());
@@ -313,7 +311,7 @@ public class ImportService implements LogHelper {
         long createdAtEpoch = data.createdAtEpoch() != null ? data.createdAtEpoch() : System.currentTimeMillis();
 
         SummaryEntity summary = new SummaryEntity();
-        summary.setMemorySessionId(data.sessionId());
+        summary.setContentSessionId(data.sessionId());
         summary.setProjectPath(data.projectPath());
         summary.setRequest(data.request());
         summary.setInvestigated(data.investigated());

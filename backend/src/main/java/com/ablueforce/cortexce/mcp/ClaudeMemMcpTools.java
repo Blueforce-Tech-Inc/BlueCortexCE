@@ -225,18 +225,16 @@ public class ClaudeMemMcpTools {
 
         try {
             // Generate unique session ID for manual memory
-            String memorySessionId = "manual-" + System.currentTimeMillis();
+            String contentSessionId = "manual-" + System.currentTimeMillis();
 
             // E.1 Fix: Create dummy session first to satisfy FK constraint
-            // The observation's memory_session_id must reference mem_sessions table
             SessionEntity dummySession = new SessionEntity();
-            dummySession.setContentSessionId(memorySessionId);
-            dummySession.setMemorySessionId(memorySessionId);
+            dummySession.setContentSessionId(contentSessionId);
             dummySession.setProjectPath(project != null ? project : "manual-memories");
             dummySession.setStartedAtEpoch(System.currentTimeMillis());
             dummySession.setStatus("completed");
             sessionRepository.save(dummySession);
-            log.debug("Created dummy session for manual memory: {}", memorySessionId);
+            log.debug("Created dummy session for manual memory: {}", contentSessionId);
 
             // Create observation entity
             // TS alignment: Use type='discovery' and subtitle='Manual memory' like MemoryRoutes.ts
@@ -246,7 +244,7 @@ public class ClaudeMemMcpTools {
             observation.setSubtitle("Manual memory");
             observation.setProjectPath(project);
             observation.setType("discovery");  // TS uses 'discovery' type
-            observation.setMemorySessionId(memorySessionId);
+            observation.setContentSessionId(contentSessionId);
             observation.setCreatedAtEpoch(System.currentTimeMillis());
             observation.setPromptNumber(0);
             observation.setDiscoveryTokens(0);

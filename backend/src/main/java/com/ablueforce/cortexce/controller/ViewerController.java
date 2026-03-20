@@ -473,31 +473,30 @@ public class ViewerController {
     }
 
     /**
-     * Batch query sessions by memory session IDs.
+     * Batch query sessions by content session IDs (Claude Code session ids).
      * Used by export script to get session metadata.
      *
      * POST /api/sdk-sessions/batch
-     * { "memorySessionIds": ["id1", "id2", ...] }
+     * { "contentSessionIds": ["id1", "id2", ...] }
      */
     @PostMapping("/sdk-sessions/batch")
+    @SuppressWarnings("unchecked")
     public ResponseEntity<List<Map<String, Object>>> batchGetSessions(
             @RequestBody Map<String, Object> request
     ) {
-        @SuppressWarnings("unchecked")
-        List<String> memorySessionIds = (List<String>) request.get("memorySessionIds");
+        List<String> contentSessionIds = (List<String>) request.get("contentSessionIds");
 
-        if (memorySessionIds == null || memorySessionIds.isEmpty()) {
+        if (contentSessionIds == null || contentSessionIds.isEmpty()) {
             return ResponseEntity.ok(List.of());
         }
 
-        List<SessionEntity> sessions = sessionRepository.findByMemorySessionIdIn(memorySessionIds);
+        List<SessionEntity> sessions = sessionRepository.findByContentSessionIdIn(contentSessionIds);
 
         List<Map<String, Object>> result = sessions.stream()
                 .map(s -> {
                     Map<String, Object> map = new HashMap<>();
                     map.put("id", s.getId().toString());
                     map.put("content_session_id", s.getContentSessionId());
-                    map.put("memory_session_id", s.getMemorySessionId() != null ? s.getMemorySessionId() : "");
                     map.put("project", s.getProjectPath() != null ? s.getProjectPath() : "");
                     map.put("user_prompt", s.getUserPrompt() != null ? s.getUserPrompt() : "");
                     map.put("started_at_epoch", s.getStartedAtEpoch());

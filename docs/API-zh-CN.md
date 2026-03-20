@@ -240,7 +240,7 @@ curl http://localhost:37777/api/session/abc-123-def
 ```json
 {
   "session_db_id": "550e8400-e29b-41d4-a716-446655440000",
-  "memory_session_id": "mem-abc-123",
+  "content_session_id": "mem-abc-123",
   "project_path": "/Users/dev/myproject",
   "status": "active",
   "started_at": "2026-03-13T10:15:00Z"
@@ -574,7 +574,7 @@ curl "http://localhost:37777/api/context/prior-messages?project=/Users/dev/mypro
 **请求体**:
 ```json
 {
-  "memory_session_id": "mem-abc-123",
+  "content_session_id": "mem-abc-123",
   "project_path": "/path/to/project",
   "title": "Feature implementation",
   "subtitle": "Added authentication",
@@ -873,7 +873,7 @@ curl "http://localhost:37777/api/timeline?project=/Users/dev/myproject"
 **请求体**:
 ```json
 {
-  "memorySessionIds": ["mem-1", "mem-2", "mem-3"]
+  "contentSessionIds": ["mem-1", "mem-2", "mem-3"]
 }
 ```
 
@@ -883,7 +883,6 @@ curl "http://localhost:37777/api/timeline?project=/Users/dev/myproject"
   {
     "id": "session-uuid",
     "content_session_id": "content-123",
-    "memory_session_id": "mem-1",
     "project": "/Users/dev/myproject",
     "user_prompt": "Add feature",
     "started_at_epoch": 1707878400000,
@@ -1351,7 +1350,6 @@ curl -X POST http://localhost:37777/api/logs/clear
     {
       "id": "session-uuid",
       "contentSessionId": "content-123",
-      "memorySessionId": "mem-123",
       "projectPath": "/path/to/project",
       "userPrompt": "Add feature",
       "startedAtEpoch": 1707878400000,
@@ -1362,7 +1360,7 @@ curl -X POST http://localhost:37777/api/logs/clear
   "observations": [
     {
       "id": "obs-uuid",
-      "memorySessionId": "mem-123",
+      "sessionId": "mem-123",
       "projectPath": "/path/to/project",
       "title": "Feature implementation",
       "narrative": "...",
@@ -1689,7 +1687,6 @@ def listen_to_stream():
 {
   "id": "uuid",
   "contentSessionId": "string",
-  "memorySessionId": "string",
   "projectPath": "string",
   "userPrompt": "string",
   "startedAtEpoch": 1707878400000,
@@ -1704,7 +1701,7 @@ def listen_to_stream():
 ```json
 {
   "id": "uuid",
-  "memorySessionId": "string",
+  "content_session_id": "string",
   "projectPath": "string",
   "title": "string",
   "subtitle": "string",
@@ -1725,7 +1722,7 @@ def listen_to_stream():
 ```json
 {
   "id": "uuid",
-  "memorySessionId": "string",
+  "session_id": "string",
   "projectPath": "string",
   "request": "string",
   "completed": "string",

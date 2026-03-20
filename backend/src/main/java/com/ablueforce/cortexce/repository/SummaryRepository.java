@@ -51,9 +51,9 @@ public interface SummaryRepository extends JpaRepository<SummaryEntity, UUID> {
     List<SummaryEntity> findByProjectPathOrderByCreatedAtDesc(String projectPath);
 
     /**
-     * Find summaries by memory_session_id for duplicate checking.
+     * Find summaries by content session id for duplicate checking.
      * Used by Import API to prevent duplicate imports.
      */
-    @Query("SELECT s FROM SummaryEntity s WHERE s.memorySessionId = :memorySessionId")
-    List<SummaryEntity> findByMemorySessionId(@Param("memorySessionId") String memorySessionId);
+    @Query("SELECT s FROM SummaryEntity s WHERE s.contentSessionId = :contentSessionId")
+    List<SummaryEntity> findByContentSessionId(@Param("contentSessionId") String contentSessionId);
 }

@@ -126,7 +126,7 @@ test_batch_session_api() {
     log_info "Test 3: Batch session API..."
 
     # Get a session ID from the database
-    SESSION_ID=$(PGPASSWORD=123456 psql -h 127.0.0.1 -U postgres -d claude_mem_dev -t -c "SELECT memory_session_id FROM mem_sessions LIMIT 1;" 2>/dev/null | xargs)
+    SESSION_ID=$(PGPASSWORD=123456 psql -h 127.0.0.1 -U postgres -d claude_mem_dev -t -c "SELECT content_session_id FROM mem_sessions LIMIT 1;" 2>/dev/null | xargs)
 
     if [ -z "$SESSION_ID" ]; then
         log_skip "No sessions in database, skipping test"
@@ -136,12 +136,12 @@ test_batch_session_api() {
     # Call the batch API
     RESPONSE=$(curl -s -X POST "$SERVER_URL/api/sdk-sessions/batch" \
         -H "Content-Type: application/json" \
-        -d "{\"memorySessionIds\": [\"$SESSION_ID\"]}")
+        -d "{\"contentSessionIds\": [\"$SESSION_ID\"]}")
 
     # Check if response is valid JSON array
     if echo "$RESPONSE" | jq -e '. | type == "array"' > /dev/null 2>&1; then
         # Check if session ID matches
-        if echo "$RESPONSE" | jq -e ".[0].memory_session_id == \"$SESSION_ID\"" > /dev/null 2>&1; then
+        if echo "$RESPONSE" | jq -e ".[0].content_session_id == \"$SESSION_ID\"" > /dev/null 2>&1; then
             log_success "Batch session API works"
             return 0
         fi

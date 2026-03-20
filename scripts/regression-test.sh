@@ -241,6 +241,33 @@ test_session_creation() {
     fi
 }
 
+# Batch session metadata (export path) — requires contentSessionIds only
+test_sdk_sessions_batch() {
+    log_section "Test 2b: SDK Sessions Batch API (contentSessionIds)"
+
+    local response
+    response=$(curl -sf -X POST "${SERVER_URL}/api/sdk-sessions/batch" \
+        -H 'Content-Type: application/json' \
+        -d "{\"contentSessionIds\": [\"$TEST_SESSION_ID\"]}" 2>&1) || {
+        log_fail "Batch session request failed: $response"
+        return 1
+    }
+
+    if echo "$response" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+assert isinstance(d, list) and len(d) >= 1, 'expected non-empty array'
+assert d[0].get('content_session_id') == '$TEST_SESSION_ID', 'content_session_id mismatch'
+assert 'memory_session_id' not in d[0], 'legacy memory_session_id must not appear'
+sys.exit(0)
+" 2>/dev/null; then
+        log_success "Batch session API returns content_session_id (no legacy fields)"
+        return 0
+    fi
+    log_fail "Batch session API response invalid: $response"
+    return 1
+}
+
 # Test observation ingestion
 test_observation_ingestion() {
     log_section "Test 3: Direct Observation Ingestion"
@@ -249,7 +276,7 @@ test_observation_ingestion() {
     response=$(curl -sf -X POST "${SERVER_URL}/api/ingest/observation" \
         -H 'Content-Type: application/json' \
         -d "{
-            \"memory_session_id\": \"$TEST_SESSION_ID\",
+            \"content_session_id\": \"$TEST_SESSION_ID\",
             \"project_path\": \"$TEST_PROJECT\",
             \"type\": \"feature\",
             \"title\": \"Regression Test Feature\",
@@ -288,7 +315,7 @@ test_observation_dedup() {
     response1=$(curl -sf -X POST "${SERVER_URL}/api/ingest/observation" \
         -H 'Content-Type: application/json' \
         -d "{
-            \"memory_session_id\": \"$dedup_session\",
+            \"content_session_id\": \"$dedup_session\",
             \"project_path\": \"$TEST_PROJECT\",
             \"type\": \"feature\",
             \"title\": \"$dedup_title\",
@@ -316,7 +343,7 @@ test_observation_dedup() {
     response2=$(curl -sf -X POST "${SERVER_URL}/api/ingest/observation" \
         -H 'Content-Type: application/json' \
         -d "{
-            \"memory_session_id\": \"$dedup_session\",
+            \"content_session_id\": \"$dedup_session\",
             \"project_path\": \"$TEST_PROJECT\",
             \"type\": \"feature\",
             \"title\": \"$dedup_title\",
@@ -536,7 +563,7 @@ test_session_summary_generation() {
         log_success "Summary generated for session (P0-1 feature working)"
         # Show the summary
         PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -c "
-            SELECT id, memory_session_id, prompt_number, LEFT(content, 100) as preview
+            SELECT id, content_session_id, prompt_number, LEFT(content, 100) as preview
             FROM mem_summaries WHERE project_path LIKE '%$TEST_PROJECT%' LIMIT 1;
         " 2>/dev/null || true
         return 0
@@ -702,7 +729,7 @@ test_search_by_file() {
     obs_response=$(curl -sf -X POST "${SERVER_URL}/api/ingest/observation" \
         -H 'Content-Type: application/json' \
         -d "{
-            \"memory_session_id\": \"$TEST_SESSION_ID\",
+            \"content_session_id\": \"$TEST_SESSION_ID\",
             \"project_path\": \"$TEST_PROJECT\",
             \"type\": \"feature\",
             \"title\": \"File Search Test\",
@@ -772,7 +799,7 @@ test_quality_score_fields() {
     obs_response=$(curl -sf -X POST "${SERVER_URL}/api/ingest/observation" \
         -H 'Content-Type: application/json' \
         -d "{
-            \"memory_session_id\": \"$TEST_SESSION_ID\",
+            \"content_session_id\": \"$TEST_SESSION_ID\",
             \"project_path\": \"$TEST_PROJECT\",
             \"type\": \"feature\",
             \"title\": \"Quality Test Feature\",
@@ -1020,6 +1047,7 @@ main() {
     test_health_message_queue  # P1-2: New health check feature
     test_unified_session_start  # P0-2: Unified session/start endpoint
     test_session_creation  # Deprecated endpoint, but still works
+    test_sdk_sessions_batch
     test_observation_ingestion
     test_observation_dedup  # V8: Observation deduplication (content_hash)
     test_observation_retrieval

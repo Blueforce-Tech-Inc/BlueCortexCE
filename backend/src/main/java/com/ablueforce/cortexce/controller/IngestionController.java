@@ -240,19 +240,22 @@ public class IngestionController {
      *
      * POST /api/ingest/observation
      * {
-     *   "memory_session_id": "...",
+     *   "content_session_id": "...",
      *   "project_path": "/path/to/project",
-     *   "title": "...",
-     *   "narrative": "..."
+     *   ...
      * }
+     * Also accepts {@code session_id} as an alias for {@code content_session_id}.
      */
     @PostMapping("/observation")
     public ResponseEntity<?> handleObservation(@RequestBody Map<String, Object> body) {
-        // P1: Validate required fields with type-safe extraction
-        String memorySessionId = safeGetString(body, "memory_session_id");
+        String contentSessionId = safeGetString(body, "content_session_id");
+        if (contentSessionId == null || contentSessionId.isBlank()) {
+            contentSessionId = safeGetString(body, "session_id");
+        }
         String projectPath = safeGetString(body, "project_path");
-        if (memorySessionId == null || memorySessionId.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Missing required field: memory_session_id"));
+        if (contentSessionId == null || contentSessionId.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Missing required field: content_session_id (or session_id)"));
         }
         if (projectPath == null || projectPath.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Missing required field: project_path"));
@@ -274,10 +277,10 @@ public class IngestionController {
         // P0: Ensure session exists before creating observation (fixes FK constraint error)
         // This handles the case where SessionStart hook failed or was skipped.
         // If session already exists, this is a no-op; otherwise creates a new session.
-        sessionManagementService.ensureSession(memorySessionId, projectPath, parsed.title);
+        sessionManagementService.ensureSession(contentSessionId, projectPath, parsed.title);
 
         var observation = agentService.saveObservation(
-            memorySessionId,
+            contentSessionId,
             projectPath,
             parsed,
             safeGetInt(body, "prompt_number"),

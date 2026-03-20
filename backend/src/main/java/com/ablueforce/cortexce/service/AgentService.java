@@ -241,7 +241,7 @@ public class AgentService implements LogHelper {
     /**
      * Save an observation directly (from parsed XML or API input).
      */
-    public ObservationEntity saveObservation(String memorySessionId, String projectPath,
+    public ObservationEntity saveObservation(String contentSessionId, String projectPath,
                                               XmlParser.ParsedObservation parsed, Integer promptNumber,
                                               int discoveryTokens) {
         // Calculate content hash for deduplication
@@ -257,7 +257,7 @@ public class AgentService implements LogHelper {
         }
 
         ObservationEntity obs = new ObservationEntity();
-        obs.setMemorySessionId(memorySessionId);
+        obs.setContentSessionId(contentSessionId);
         obs.setProjectPath(projectPath);
         obs.setType(parsed.type != null ? parsed.type : "change");
         obs.setTitle(parsed.title);

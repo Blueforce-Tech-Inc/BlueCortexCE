@@ -15,17 +15,11 @@ public class SummaryEntity {
     private UUID id;
 
     /**
-     * Session identifier - references mem_sessions.memory_session_id.
-     *
-     * NOTE: In Java Port, memory_session_id = content_session_id (both equal
-     * the session_id from Claude Code). This field exists for FK compatibility
-     * with TypeScript version's dual-ID architecture.
-     *
-     * See SessionEntity.java JavaDoc for full architecture explanation.
+     * Session identifier — FK to {@code mem_sessions.content_session_id}.
      */
-    @Column(name = "memory_session_id", nullable = false)
+    @Column(name = "content_session_id", nullable = false)
     @JsonProperty("session_id")
-    private String memorySessionId;
+    private String contentSessionId;
 
     @Column(name = "project_path", nullable = false)
     @JsonProperty("project")
@@ -80,8 +74,8 @@ public class SummaryEntity {
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 
-    public String getMemorySessionId() { return memorySessionId; }
-    public void setMemorySessionId(String memorySessionId) { this.memorySessionId = memorySessionId; }
+    public String getContentSessionId() { return contentSessionId; }
+    public void setContentSessionId(String contentSessionId) { this.contentSessionId = contentSessionId; }
 
     public String getProjectPath() { return projectPath; }
     public void setProjectPath(String projectPath) { this.projectPath = projectPath; }

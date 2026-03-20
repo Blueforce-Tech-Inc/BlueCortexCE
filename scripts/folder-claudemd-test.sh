@@ -6,7 +6,8 @@
 
 set -e
 
-WRAPPER_DIR="/Users/yangjiefeng/Documents/claude-mem/java/proxy"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WRAPPER_DIR="$(cd "$SCRIPT_DIR/../proxy" && pwd)"
 WRAPPER="$WRAPPER_DIR/wrapper.js"
 JAVA_API_URL="${JAVA_API_URL:-http://127.0.0.1:37777}"
 TEST_DIR="/tmp/folder-claudemd-test-$$"

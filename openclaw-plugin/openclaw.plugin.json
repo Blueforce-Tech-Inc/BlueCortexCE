@@ -4,10 +4,10 @@
   "version": "1.0.0",
   "description": "Claude-Mem memory system plugin for OpenClaw, connecting to Java Spring Boot backend",
   "author": "Claude-Mem Team",
-  "homepage": "https://github.com/wubuku/claude-mem-fork",
+  "homepage": "https://github.com/Blueforce-Tech-Inc/BlueCortexCE",
   "repository": {
     "type": "git",
-    "url": "https://github.com/wubuku/claude-mem-fork.git"
+    "url": "https://github.com/Blueforce-Tech-Inc/BlueCortexCE.git"
   },
   "configSchema": {
     "type": "object",

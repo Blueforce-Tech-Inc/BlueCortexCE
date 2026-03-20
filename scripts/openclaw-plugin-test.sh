@@ -34,6 +34,15 @@ PLUGIN_DIR="$(cd "$(dirname "$0")/../openclaw-plugin" && pwd)"
 PROJECT_DIR="$(cd "$PLUGIN_DIR/.." && pwd)"
 TEST_DIR="/tmp/claude-mem-openclaw-test-$$"
 
+# OpenClaw manifest: this repo uses openclaw.plugin.json; some forks use plugin.json
+if [ -f "$PLUGIN_DIR/openclaw.plugin.json" ]; then
+    PLUGIN_MANIFEST="$PLUGIN_DIR/openclaw.plugin.json"
+elif [ -f "$PLUGIN_DIR/plugin.json" ]; then
+    PLUGIN_MANIFEST="$PLUGIN_DIR/plugin.json"
+else
+    PLUGIN_MANIFEST=""
+fi
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -65,10 +74,10 @@ test_plugin_structure() {
         return 1
     fi
 
-    if [ -f "$PLUGIN_DIR/plugin.json" ]; then
-        log_pass "plugin.json exists"
+    if [ -n "$PLUGIN_MANIFEST" ]; then
+        log_pass "plugin manifest exists ($(basename "$PLUGIN_MANIFEST"))"
     else
-        log_fail "plugin.json does not exist"
+        log_fail "neither openclaw.plugin.json nor plugin.json found"
         return 1
     fi
 
@@ -82,7 +91,7 @@ test_plugin_structure() {
     if [ -d "$PLUGIN_DIR/src" ]; then
         log_pass "src directory exists"
     else
-        log_pass "src directory does not exist"
+        log_fail "src directory does not exist"
         return 1
     fi
 }
@@ -115,28 +124,35 @@ test_package_json() {
 }
 
 #######################################
-# Test 3: plugin.json validation
+# Test 3: plugin manifest validation
 #######################################
 test_plugin_json() {
     echo ""
-    echo "=== Test 3: plugin.json validation ==="
+    echo "=== Test 3: plugin manifest validation ==="
 
-    if grep -q '"id"' "$PLUGIN_DIR/plugin.json"; then
-        log_pass "plugin.json has id field"
-    else
-        log_fail "plugin.json missing id field"
+    if [ -z "$PLUGIN_MANIFEST" ]; then
+        log_fail "no plugin manifest file"
+        return 1
     fi
 
-    if grep -q '"name"' "$PLUGIN_DIR/plugin.json"; then
-        log_pass "plugin.json has name field"
+    if grep -q '"id"' "$PLUGIN_MANIFEST"; then
+        log_pass "manifest has id field"
     else
-        log_fail "plugin.json missing name field"
+        log_fail "manifest missing id field"
     fi
 
-    if grep -q '"runtime"' "$PLUGIN_DIR/plugin.json"; then
-        log_pass "plugin.json has runtime field"
+    if grep -q '"name"' "$PLUGIN_MANIFEST"; then
+        log_pass "manifest has name field"
     else
-        log_fail "plugin.json missing runtime field"
+        log_fail "manifest missing name field"
+    fi
+
+    if grep -q '"runtime"' "$PLUGIN_MANIFEST"; then
+        log_pass "manifest has runtime field"
+    elif grep -q '"configSchema"' "$PLUGIN_MANIFEST"; then
+        log_pass "manifest has configSchema (openclaw.plugin.json)"
+    else
+        log_fail "manifest missing runtime and configSchema"
     fi
 }
 

@@ -119,7 +119,6 @@ public class SessionManagementService implements LogHelper {
     private SessionEntity createSession(String contentSessionId, String projectPath, String userPrompt) {
         SessionEntity session = new SessionEntity();
         session.setContentSessionId(contentSessionId);
-        session.setMemorySessionId(contentSessionId);
         session.setProjectPath(projectPath);
         session.setUserPrompt(userPrompt);
         session.setStartedAtEpoch(Instant.now().toEpochMilli());

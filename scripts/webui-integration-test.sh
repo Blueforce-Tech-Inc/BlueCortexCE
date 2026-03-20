@@ -167,8 +167,8 @@ echo "Test 7: Observation Entity (snake_case JSON fields)"
 echo "=========================================="
 
 response=$(curl -s "$BASE_URL/api/observations?offset=0&limit=1")
-# TypeScript expects snake_case: memory_session_id, files_read, files_modified, prompt_number, created_at_epoch
-if echo "$response" | grep -qE '"memory_session_id"|"project"|"narrative"|"prompt_number"|"created_at_epoch"'; then
+# Observations JSON: content_session_id, files_read, files_modified, prompt_number, created_at_epoch
+if echo "$response" | grep -qE '"content_session_id"|"project"|"narrative"|"prompt_number"|"created_at_epoch"'; then
     echo "[PASS] Observation entity uses snake_case JSON field names"
     ((PASSED++))
 else
@@ -184,7 +184,7 @@ echo "Test 8: Summary Entity (snake_case JSON fields)"
 echo "=========================================="
 
 response=$(curl -s "$BASE_URL/api/summaries?offset=0&limit=1")
-# TypeScript expects snake_case: session_id (not memorySessionId!), next_steps, files_read, files_edited
+# Summary JSON uses snake_case: session_id, next_steps, files_read, files_edited
 if echo "$response" | grep -qE '"session_id"|"next_steps"|"files_read"|"files_edited"|"prompt_number"'; then
     echo "[PASS] Summary entity uses snake_case JSON field names"
     ((PASSED++))

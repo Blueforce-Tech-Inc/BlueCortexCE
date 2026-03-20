@@ -15,8 +15,6 @@ public interface SessionRepository extends JpaRepository<SessionEntity, UUID> {
 
     Optional<SessionEntity> findByContentSessionId(String contentSessionId);
 
-    Optional<SessionEntity> findByMemorySessionId(String memorySessionId);
-
     @Query("SELECT DISTINCT s.projectPath FROM SessionEntity s ORDER BY s.projectPath")
     List<String> findAllProjects();
 
@@ -43,7 +41,6 @@ public interface SessionRepository extends JpaRepository<SessionEntity, UUID> {
            "ORDER BY s.completedAtEpoch DESC")
     List<SessionEntity> findLastCompletedSessionWithMessage(@Param("projectPath") String projectPath);
 
-    // Export support: batch query sessions by memory session IDs
-    @Query("SELECT s FROM SessionEntity s WHERE s.memorySessionId IN :memorySessionIds")
-    List<SessionEntity> findByMemorySessionIdIn(@Param("memorySessionIds") List<String> memorySessionIds);
+    // Export support: batch query sessions by content session IDs
+    List<SessionEntity> findByContentSessionIdIn(List<String> contentSessionIds);
 }

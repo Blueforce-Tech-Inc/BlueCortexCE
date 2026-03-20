@@ -88,10 +88,8 @@ public class SummaryGenerationService implements LogHelper {
             }
             SessionEntity session = sessionOpt.get();
 
-            String memorySessionId = session.getMemorySessionId() != null
-                ? session.getMemorySessionId() : contentSessionId;
             List<ObservationEntity> observations = observationRepository
-                .findByMemorySessionIdOrderByCreatedAtEpochAsc(memorySessionId);
+                .findByContentSessionIdOrderByCreatedAtEpochAsc(contentSessionId);
 
             if (observations.isEmpty()) {
                 logDataIn("No observations to summarize for session {}", contentSessionId);
@@ -112,7 +110,7 @@ public class SummaryGenerationService implements LogHelper {
             XmlParser.ParsedSummary parsed = XmlParser.parseSummary(llmResponse);
             int lastPromptNumber = observations.get(observations.size() - 1).getPromptNumber() != null
                 ? observations.get(observations.size() - 1).getPromptNumber() : 0;
-            saveSummary(memorySessionId, session.getProjectPath(), parsed, lastPromptNumber);
+            saveSummary(contentSessionId, session.getProjectPath(), parsed, lastPromptNumber);
 
             contextCacheService.markForRefresh(session.getProjectPath());
 
@@ -129,10 +127,10 @@ public class SummaryGenerationService implements LogHelper {
     /**
      * Save a summary directly (from parsed XML or API input).
      */
-    public SummaryEntity saveSummary(String memorySessionId, String projectPath,
+    public SummaryEntity saveSummary(String contentSessionId, String projectPath,
                                       XmlParser.ParsedSummary parsed, Integer promptNumber) {
         SummaryEntity summary = new SummaryEntity();
-        summary.setMemorySessionId(memorySessionId);
+        summary.setContentSessionId(contentSessionId);
         summary.setProjectPath(projectPath);
         summary.setRequest(parsed.request);
         summary.setInvestigated(parsed.investigated);
