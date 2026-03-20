@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Entity
@@ -185,6 +186,27 @@ public class ObservationEntity {
     @JsonProperty("feedback_updated_at")
     private OffsetDateTime feedbackUpdatedAt;
 
+    // ===== Source and Extracted Data Fields (V14) =====
+
+    /**
+     * Source attribution: where this observation came from.
+     * Examples: "tool_result", "user_statement", "llm_inference", "manual"
+     * Convention: free-form string, no enforced enum.
+     */
+    @Column(name = "source")
+    @JsonProperty("source")
+    private String source;
+
+    /**
+     * Extracted structured data (JSONB Map).
+     * Used for typed key-value data that doesn't fit in flat facts/concepts lists.
+     * Examples: {"price_range": "3000", "brands": ["sony", "bose"]}
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "extracted_data", columnDefinition = "jsonb")
+    @JsonProperty("extractedData")
+    private Map<String, Object> extractedData;
+
     // Getters and Setters for quality fields
 
     public Float getQualityScore() { return qualityScore; }
@@ -211,7 +233,24 @@ public class ObservationEntity {
     public OffsetDateTime getFeedbackUpdatedAt() { return feedbackUpdatedAt; }
     public void setFeedbackUpdatedAt(OffsetDateTime feedbackUpdatedAt) { this.feedbackUpdatedAt = feedbackUpdatedAt; }
 
-    // Getters and Setters
+    // Getters and Setters for new fields (V14)
+
+    public String getSource() { return source; }
+    public void setSource(String source) { this.source = source; }
+
+    @JsonProperty("extractedData")
+    public String getExtractedDataJson() {
+        if (extractedData == null) return null;
+        try {
+            return MAPPER.writeValueAsString(extractedData);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize extractedData to JSON", e);
+            return null;
+        }
+    }
+
+    public Map<String, Object> getExtractedData() { return extractedData; }
+    public void setExtractedData(Map<String, Object> extractedData) { this.extractedData = extractedData; }
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }

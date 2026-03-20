@@ -113,15 +113,21 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         @Param("limit") int limit
     );
 
-    // Filter by type
+    // Filter by source
     @Query(value = """
         SELECT * FROM mem_observations
         WHERE project_path = :project
-        AND type = :type
+        AND source = :source
         ORDER BY created_at_epoch DESC
         LIMIT :limit
         """, nativeQuery = true)
-    List<ObservationEntity> findByType(
+    List<ObservationEntity> findBySource(
+        @Param("project") String project,
+        @Param("source") String source,
+        @Param("limit") int limit
+    );
+
+    // Filter by type
         @Param("project") String project,
         @Param("type") String type,
         @Param("limit") int limit

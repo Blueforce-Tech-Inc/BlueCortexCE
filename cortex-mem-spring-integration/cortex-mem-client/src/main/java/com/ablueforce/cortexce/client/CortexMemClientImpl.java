@@ -185,6 +185,29 @@ public class CortexMemClientImpl implements CortexMemClient {
         }
     }
 
+    // ==================== Observation Management (V14) ====================
+
+    @Override
+    public void updateObservation(String observationId, ObservationUpdate update) {
+        executeWithRetry("updateObservation", () ->
+            restClient.patch()
+                .uri("/api/memory/observations/{id}", observationId)
+                .body(update)
+                .retrieve()
+                .toBodilessEntity()
+        );
+    }
+
+    @Override
+    public void deleteObservation(String observationId) {
+        executeWithRetry("deleteObservation", () ->
+            restClient.delete()
+                .uri("/api/memory/observations/{id}", observationId)
+                .retrieve()
+                .toBodilessEntity()
+        );
+    }
+
     @Override
     public boolean healthCheck() {
         try {

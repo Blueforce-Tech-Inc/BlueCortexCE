@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -157,6 +158,9 @@ public final class XmlParser {
         public List<String> concepts = Collections.emptyList();
         public List<String> filesRead = Collections.emptyList();
         public List<String> filesModified = Collections.emptyList();
+        // V14: Source attribution and structured data
+        public String source;
+        public Map<String, Object> extractedData;
     }
 
     /**

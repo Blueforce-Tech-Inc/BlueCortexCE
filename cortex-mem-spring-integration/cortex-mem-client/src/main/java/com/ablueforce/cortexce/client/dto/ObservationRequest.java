@@ -8,7 +8,11 @@ public record ObservationRequest(
     String toolName,
     Object toolInput,
     Object toolResponse,
-    Integer promptNumber
+    Integer promptNumber,
+    // V14: source attribution
+    String source,
+    // V14: structured key-value data
+    Map<String, Object> extractedData
 ) {
     public static Builder builder() {
         return new Builder();
@@ -21,6 +25,8 @@ public record ObservationRequest(
         private Object toolInput;
         private Object toolResponse;
         private Integer promptNumber;
+        private String source;
+        private Map<String, Object> extractedData;
 
         public Builder sessionId(String sessionId) { this.sessionId = sessionId; return this; }
         public Builder projectPath(String projectPath) { this.projectPath = projectPath; return this; }
@@ -28,9 +34,11 @@ public record ObservationRequest(
         public Builder toolInput(Object toolInput) { this.toolInput = toolInput; return this; }
         public Builder toolResponse(Object toolResponse) { this.toolResponse = toolResponse; return this; }
         public Builder promptNumber(Integer promptNumber) { this.promptNumber = promptNumber; return this; }
+        public Builder source(String source) { this.source = source; return this; }
+        public Builder extractedData(Map<String, Object> extractedData) { this.extractedData = extractedData; return this; }
 
         public ObservationRequest build() {
-            return new ObservationRequest(sessionId, projectPath, toolName, toolInput, toolResponse, promptNumber);
+            return new ObservationRequest(sessionId, projectPath, toolName, toolInput, toolResponse, promptNumber, source, extractedData);
         }
     }
 
@@ -46,6 +54,12 @@ public record ObservationRequest(
         map.put("cwd", projectPath);
         if (promptNumber != null) {
             map.put("prompt_number", promptNumber);
+        }
+        if (source != null) {
+            map.put("source", source);
+        }
+        if (extractedData != null) {
+            map.put("extractedData", extractedData);
         }
         return map;
     }

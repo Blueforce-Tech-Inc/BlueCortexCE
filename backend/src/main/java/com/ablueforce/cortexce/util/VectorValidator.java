@@ -40,7 +40,7 @@ public final class VectorValidator {
 
         // P0: Quick structural check
         if (vectorStr.charAt(0) != '[' || vectorStr.charAt(vectorStr.length() - 1) != ']') {
-            log.warn("Vector must start with '[' and end with ']'");
+            log.debug("Vector must start with '[' and end with ']'");
             return false;
         }
 
@@ -58,7 +58,7 @@ public final class VectorValidator {
 
             // Parse one number
             if (!isValidNumberChar(content.charAt(i))) {
-                log.warn("Invalid number start at position {}: {}", i, content.charAt(i));
+                log.debug("Invalid number start at position {}: {}", i, content.charAt(i));
                 return false;
             }
 
@@ -66,7 +66,7 @@ public final class VectorValidator {
             if (content.charAt(i) == '-' || content.charAt(i) == '+') {
                 i++;
                 if (i >= content.length()) {
-                    log.warn("Unexpected end after sign at position {}", i);
+                    log.debug("Unexpected end after sign at position {}", i);
                     return false;
                 }
             }
@@ -86,7 +86,7 @@ public final class VectorValidator {
                 }
             }
             if (!hasDigit) {
-                log.warn("Missing digits in number at position {}", i);
+                log.debug("Missing digits in number at position {}", i);
                 return false;
             }
 
@@ -94,13 +94,13 @@ public final class VectorValidator {
             if (i < content.length() && (content.charAt(i) == 'e' || content.charAt(i) == 'E')) {
                 i++;
                 if (i >= content.length()) {
-                    log.warn("Unexpected end after exponent marker");
+                    log.debug("Unexpected end after exponent marker");
                     return false;
                 }
                 if (content.charAt(i) == '-' || content.charAt(i) == '+') {
                     i++;
                     if (i >= content.length()) {
-                        log.warn("Unexpected end after exponent sign");
+                        log.debug("Unexpected end after exponent sign");
                         return false;
                     }
                 }
@@ -109,7 +109,7 @@ public final class VectorValidator {
                     i++;
                 }
                 if (i == expStart) {
-                    log.warn("Missing exponent digits");
+                    log.debug("Missing exponent digits");
                     return false;
                 }
             }
@@ -124,7 +124,7 @@ public final class VectorValidator {
             // Expect comma or end
             if (i < content.length()) {
                 if (content.charAt(i) != ',') {
-                    log.warn("Expected comma or end, found: {}", content.charAt(i));
+                    log.debug("Expected comma or end, found: {}", content.charAt(i));
                     return false;
                 }
                 i++; // Skip comma
@@ -133,11 +133,11 @@ public final class VectorValidator {
 
         // P0: Check dimension count
         if (dimension == 0) {
-            log.warn("Vector has no elements");
+            log.debug("Vector has no elements");
             return false;
         }
         if (dimension > MAX_VECTOR_DIMENSION) {
-            log.warn("Vector dimension too high: {} (max: {})", dimension, MAX_VECTOR_DIMENSION);
+            log.debug("Vector dimension too high: {} (max: {})", dimension, MAX_VECTOR_DIMENSION);
             return false;
         }
 
@@ -145,11 +145,11 @@ public final class VectorValidator {
     }
 
     /**
-     * P3: Check if character is valid for number parsing (digit or decimal point).
-     * Renamed from isValidNumberStart to accurately reflect behavior.
+     * True if {@code c} can begin a numeric token (optional sign, digit, or leading '.').
+     * Sign is consumed again below so {@code -.5} and {@code +.1} parse correctly.
      */
     private static boolean isValidNumberChar(char c) {
-        return Character.isDigit(c) || c == '.';
+        return Character.isDigit(c) || c == '.' || c == '-' || c == '+';
     }
 
     /**

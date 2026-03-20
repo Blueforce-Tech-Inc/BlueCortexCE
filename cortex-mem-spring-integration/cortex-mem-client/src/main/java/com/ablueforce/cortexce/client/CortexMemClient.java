@@ -63,6 +63,19 @@ public interface CortexMemClient {
      */
     void submitFeedback(String observationId, String feedbackType, String comment);
 
+    // ==================== Observation Management (V14) ====================
+
+    /**
+     * Update an existing observation. Calls PATCH /api/memory/observations/{id}.
+     * V14: Supports source and extractedData fields.
+     */
+    void updateObservation(String observationId, ObservationUpdate update);
+
+    /**
+     * Delete an observation. Calls DELETE /api/memory/observations/{id}.
+     */
+    void deleteObservation(String observationId);
+
     /**
      * Get memory quality distribution. Calls GET /api/memory/quality-distribution.
      */

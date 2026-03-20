@@ -273,6 +273,9 @@ public class IngestionController {
         parsed.concepts = safeGetStringList(body, "concepts");
         parsed.filesRead = safeGetStringList(body, "files_read");
         parsed.filesModified = safeGetStringList(body, "files_modified");
+        // V14: source and extracted data
+        parsed.source = safeGetString(body, "source");
+        parsed.extractedData = safeGetMap(body, "extractedData");
 
         // P0: Ensure session exists before creating observation (fixes FK constraint error)
         // This handles the case where SessionStart hook failed or was skipped.
@@ -371,5 +374,26 @@ public class IngestionController {
         }
         log.warn("Expected List for key '{}' but got {}", key, value.getClass().getName());
         return java.util.List.of();
+    }
+
+    /**
+     * V14: Safely extract a Map from a Map with type checking.
+     * Used for extractedData field.
+     *
+     * @param body the request body map
+     * @param key the key to extract
+     * @return the map value or null if not present or wrong type
+     */
+    @SuppressWarnings("unchecked")
+    private java.util.Map<String, Object> safeGetMap(java.util.Map<String, Object> body, String key) {
+        Object value = body.get(key);
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof java.util.Map) {
+            return (java.util.Map<String, Object>) value;
+        }
+        log.warn("Expected Map for key '{}' but got {}", key, value.getClass().getName());
+        return null;
     }
 }

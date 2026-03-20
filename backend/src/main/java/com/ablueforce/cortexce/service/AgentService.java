@@ -2,6 +2,7 @@ package com.ablueforce.cortexce.service;
 
 import com.ablueforce.cortexce.config.Constants;
 import com.ablueforce.cortexce.common.LogHelper;
+import com.ablueforce.cortexce.common.LogMarkers;
 import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.ablueforce.cortexce.entity.PendingMessageEntity;
 import com.ablueforce.cortexce.entity.SessionEntity;
@@ -252,7 +253,8 @@ public class AgentService implements LogHelper {
         long windowStart = Instant.now().toEpochMilli() - 30000;
         Optional<ObservationEntity> existing = observationRepository.findDuplicateByContentHash(contentHash, windowStart);
         if (existing.isPresent()) {
-            logHappyPath("Found duplicate observation within 30s window, returning existing: {}", existing.get().getId());
+            log.debug(LogMarkers.HAPPY_PATH + "Duplicate observation within 30s window, returning existing: {}",
+                existing.get().getId());
             return existing.get();
         }
 
@@ -267,6 +269,13 @@ public class AgentService implements LogHelper {
         obs.setConcepts(parsed.concepts);
         obs.setFilesRead(parsed.filesRead);
         obs.setFilesModified(parsed.filesModified);
+        // V14: Source and extracted data
+        if (parsed.source != null) {
+            obs.setSource(parsed.source);
+        }
+        if (parsed.extractedData != null) {
+            obs.setExtractedData(parsed.extractedData);
+        }
         obs.setPromptNumber(promptNumber);
         obs.setCreatedAtEpoch(Instant.now().toEpochMilli());
         obs.setContentHash(contentHash);

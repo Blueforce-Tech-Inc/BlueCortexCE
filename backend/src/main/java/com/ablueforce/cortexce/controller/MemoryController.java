@@ -5,13 +5,16 @@ import com.ablueforce.cortexce.service.ExpRagService;
 import com.ablueforce.cortexce.service.QualityScorer;
 import com.ablueforce.cortexce.repository.ObservationRepository;
 import com.ablueforce.cortexce.event.MemoryRefineEventPublisher;
+import com.ablueforce.cortexce.entity.ObservationEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * ReMem API Controller - External integration interface.
@@ -153,5 +156,84 @@ public class MemoryController {
             "status", "received",
             "message", "Feedback submission endpoint - requires observation ID lookup"
         ));
+    }
+
+    // ==================== Observation Management (V14) ====================
+
+    /**
+     * Update an existing observation.
+     * PATCH /api/memory/observations/{id}
+     * Body: {"title": "...", "content": "...", "facts": [...], "concepts": [...], "source": "...", "extractedData": {...}}
+     */
+    @PatchMapping("/observations/{id}")
+    public ResponseEntity<Map<String, Object>> updateObservation(
+            @PathVariable UUID id,
+            @RequestBody Map<String, Object> body) {
+
+        ObservationEntity observation = observationRepository.findById(id).orElse(null);
+        if (observation == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        // Update fields if present
+        if (body.containsKey("title")) {
+            observation.setTitle((String) body.get("title"));
+        }
+        if (body.containsKey("content") || body.containsKey("narrative")) {
+            observation.setContent((String) body.getOrDefault("content", body.get("narrative")));
+        }
+        if (body.containsKey("subtitle")) {
+            observation.setSubtitle((String) body.get("subtitle"));
+        }
+        if (body.containsKey("facts")) {
+            observation.setFacts(safeGetStringList(body, "facts"));
+        }
+        if (body.containsKey("concepts")) {
+            observation.setConcepts(safeGetStringList(body, "concepts"));
+        }
+        if (body.containsKey("source")) {
+            observation.setSource((String) body.get("source"));
+        }
+        if (body.containsKey("extractedData")) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> extractedData = (Map<String, Object>) body.get("extractedData");
+            observation.setExtractedData(extractedData);
+        }
+
+        ObservationEntity saved = observationRepository.save(observation);
+        return ResponseEntity.ok(Map.of(
+            "status", "updated",
+            "id", saved.getId().toString()
+        ));
+    }
+
+    /**
+     * Delete an observation.
+     * DELETE /api/memory/observations/{id}
+     */
+    @DeleteMapping("/observations/{id}")
+    public ResponseEntity<Map<String, String>> deleteObservation(@PathVariable UUID id) {
+        if (!observationRepository.existsById(id)) {
+            return ResponseEntity.notFound().build();
+        }
+        observationRepository.deleteById(id);
+        return ResponseEntity.ok(Map.of(
+            "status", "deleted",
+            "id", id.toString()
+        ));
+    }
+
+    // Helper: safely extract List<String> from request body
+    @SuppressWarnings("unchecked")
+    private List<String> safeGetStringList(Map<String, Object> body, String key) {
+        Object value = body.get(key);
+        if (value == null) return List.of();
+        if (value instanceof List) {
+            return ((List<?>) value).stream()
+                .filter(item -> item instanceof String)
+                .map(item -> (String) item)
+                .toList();
+        }
+        return List.of();
     }
 }

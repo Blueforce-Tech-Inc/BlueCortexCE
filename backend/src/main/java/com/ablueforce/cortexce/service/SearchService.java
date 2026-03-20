@@ -25,7 +25,6 @@ public class SearchService {
 
     private static final Logger log = LoggerFactory.getLogger(SearchService.class);
     private static final int DEFAULT_LIMIT = 20;
-    private static final long RECENCY_WINDOW_MS = 90L * 24 * 60 * 60 * 1000; // 90 days
 
     @Autowired
     private ObservationRepository observationRepository;
@@ -50,33 +49,30 @@ public class SearchService {
         if (request.queryVector() != null) {
             int dim = request.queryVector().length;
             log.debug("Semantic search with pgvector for project={}, dim={}", project, dim);
-            try {
-                long minEpoch = Instant.now().minus(90, ChronoUnit.DAYS).toEpochMilli();
-                String vectorStr = vectorToString(request.queryVector());
+            long minEpoch = Instant.now().minus(90, ChronoUnit.DAYS).toEpochMilli();
+            String vectorStr = vectorToString(request.queryVector());
 
-                // P2: Validate vector before querying - P0: Prevent SSRF via vector injection
-                if (!com.ablueforce.cortexce.util.VectorValidator.isValidVector(vectorStr)) {
-                    log.warn("Invalid vector format for semantic search, falling back to tsvector");
-                    throw new IllegalArgumentException("Invalid vector format");
+            if (com.ablueforce.cortexce.util.VectorValidator.isValidVector(vectorStr)) {
+                try {
+                    log.debug("Using hybrid search (pgvector + tsvector) for project={}", project);
+                    List<ObservationEntity> results = observationRepository.hybridSearch(
+                        project, query, vectorStr, minEpoch, limit
+                    );
+                    return new SearchResult(results, "hybrid", false);
+                } catch (IllegalArgumentException e) {
+                    log.warn("Hybrid search rejected for project={}, falling back to tsvector: {}",
+                        project, e.getMessage());
+                } catch (Exception e) {
+                    boolean isRetryable = isRetryableException(e);
+                    if (isRetryable) {
+                        log.warn("pgvector transient error for project={}, will retry: {}", project, e.getMessage());
+                        throw e;
+                    }
+                    log.warn("pgvector search failed for project={}, falling back to tsvector: {}",
+                        project, e.getMessage());
                 }
-
-                // P2: Hybrid search when both query text and vector are available
-                log.debug("Using hybrid search (pgvector + tsvector) for project={}", project);
-                List<ObservationEntity> results = observationRepository.hybridSearch(
-                    project, query, vectorStr, minEpoch, limit
-                );
-                return new SearchResult(results, "hybrid", false);
-            } catch (IllegalArgumentException e) {
-                // P1: Schema errors (invalid vector) are not retryable
-                log.warn("pgvector schema error for project={}, falling back to tsvector: {}", project, e.getMessage());
-            } catch (Exception e) {
-                // P1: Classify exception for retry decision - network errors are retryable
-                boolean isRetryable = isRetryableException(e);
-                if (isRetryable) {
-                    log.warn("pgvector transient error for project={}, will retry: {}", project, e.getMessage());
-                    throw e; // Re-throw for retry handling
-                }
-                log.warn("pgvector search failed for project={}, falling back to tsvector: {}", project, e.getMessage());
+            } else {
+                log.debug("Query vector failed validation, falling back to tsvector for project={}", project);
             }
         }
 
@@ -93,8 +89,7 @@ public class SearchService {
     }
 
     /**
-     * P1: Classify exception for retry decision.
-     * Network/timeouts are retryable, schema errors are not.
+     * P1: Classify exception for retry decision (network/timeouts vs. business/DB errors).
      */
     private boolean isRetryableException(Exception e) {
         if (e instanceof java.net.SocketTimeoutException ||
