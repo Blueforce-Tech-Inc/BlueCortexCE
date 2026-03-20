@@ -400,7 +400,7 @@ public record ObservationUpdate(
     String title,
     String content,
     List<String> facts,
-    List<String> concepts,      // Use concepts for tags/labels
+    List<String> concepts,      // Tags/labels: use concepts (no new tags field)
     String source,
     Map<String, Object> extractedData  // Structured key-value data
 ) {}
