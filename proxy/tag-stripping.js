@@ -92,6 +92,12 @@ function stripMemoryTagsFromPrompt(content) {
 /**
  * Check if content is entirely private (strips to empty string)
  * Used to skip processing when user prompt is completely private
+ * NOTE: This only checks <private> tags, NOT system_instruction or context tags
+ * because only <private> means "user wants this to be private"
+ * 
+ * Returns true ONLY if:
+ * 1. There are <private> tags present
+ * 2. After stripping all <private> tags, only whitespace remains
  *
  * @param {string} content - Content to check
  * @returns {boolean} True if content is entirely private
@@ -101,8 +107,17 @@ function isEntirelyPrivate(content) {
     return false;
   }
 
-  const stripped = stripTagsInternal(content);
-  return stripped.length === 0 && content.length > 0;
+  // First check: must have at least one <private> tag
+  const privateCount = (content.match(/<private>/g) || []).length;
+  if (privateCount === 0) {
+    return false;
+  }
+
+  // Only strip <private> tags for this check - other tags don't affect privacy
+  const stripped = content
+    .replace(/<private>[\s\S]*?<\/private>/g, '')
+    .trim();
+  return stripped.length === 0;
 }
 
 export {
