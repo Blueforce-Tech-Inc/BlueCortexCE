@@ -1,7 +1,7 @@
-# SDK Improvement Research - Implementation Complete
+# SDK Improvement Implementation Progress
 
 **Date**: 2026-03-21
-**Based on**: `docs/drafts/sdk-improvement-research.md`
+**Note**: This is a **temporary tracking document**. For authoritative implementation records, see `sdk-improvement-research.md`.
 
 ## Status: ✅ ALL PHASES COMPLETE
 
