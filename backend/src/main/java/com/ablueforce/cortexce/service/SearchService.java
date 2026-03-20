@@ -122,6 +122,13 @@ public class SearchService {
             return new SearchResult(results, "filter", false);
         }
 
+        // V14: Source-based filtering
+        if (request.source() != null && !request.source().isBlank()) {
+            List<ObservationEntity> results = observationRepository.findBySource(
+                project, request.source(), limit);
+            return new SearchResult(results, "filter", false);
+        }
+
         if (request.startEpoch() != null && request.endEpoch() != null) {
             List<ObservationEntity> results = observationRepository.advancedSearch(
                 project, null, request.startEpoch(), request.endEpoch(), limit
@@ -157,6 +164,7 @@ public class SearchService {
         float[] queryVector,
         String type,
         String concept,
+        String source,
         Long startEpoch,
         Long endEpoch,
         int limit

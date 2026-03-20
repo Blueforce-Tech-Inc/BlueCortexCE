@@ -936,15 +936,21 @@ test_icl_prompt_api() {
 verify_database_state() {
     log_section "Test 10: Database State Verification"
 
+    # Use API instead of psql (more portable - works without psql CLI)
+    local obs_response
+    obs_response=$(curl -sf "${SERVER_URL}/api/observations?project=${TEST_PROJECT}&offset=0&limit=100" 2>/dev/null) || obs_response="{}"
+    
     local obs_count
-    obs_count=$(PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -t -c "
-        SELECT COUNT(*) FROM mem_observations WHERE project_path = '$TEST_PROJECT';
-    " 2>/dev/null | tr -d '[:space:]') || obs_count="0"
+    obs_count=$(echo "$obs_response" | python3 -c "import sys, json; data=json.load(sys.stdin); print(len(data.get('items', [])))" 2>/dev/null || echo "0")
 
+    # For session count, we use the SDK sessions batch API
+    local session_response
+    session_response=$(curl -sf -X POST "${SERVER_URL}/api/sdk-sessions/batch" \
+        -H 'Content-Type: application/json' \
+        -d "{\"contentSessionIds\": [\"$TEST_SESSION_ID\"]}" 2>/dev/null) || session_response="[]"
+    
     local session_count
-    session_count=$(PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -U "$DB_USER" -d "$DB_NAME" -t -c "
-        SELECT COUNT(*) FROM mem_sessions WHERE project_path = '$TEST_PROJECT';
-    " 2>/dev/null | tr -d '[:space:]') || session_count="0"
+    session_count=$(echo "$session_response" | python3 -c "import sys, json; data=json.load(sys.stdin); print(len(data) if isinstance(data, list) else 0)" 2>/dev/null || echo "0")
 
     echo "Observations in DB: $obs_count"
     echo "Sessions in DB: $session_count"

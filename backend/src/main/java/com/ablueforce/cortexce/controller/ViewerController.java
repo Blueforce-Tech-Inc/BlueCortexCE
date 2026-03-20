@@ -187,6 +187,7 @@ public class ViewerController {
         @RequestParam(required = false) String query,
         @RequestParam(required = false) String type,
         @RequestParam(required = false) String concept,
+        @RequestParam(required = false) String source,
         @RequestParam(defaultValue = "20") int limit,
         @RequestParam(defaultValue = "0") int offset,
         @RequestParam(required = false) String orderBy
@@ -203,7 +204,7 @@ public class ViewerController {
         }
 
         SearchService.SearchResult result = searchService.search(
-            new SearchService.SearchRequest(project, query, queryVector, type, concept, null, null, limit)
+            new SearchService.SearchRequest(project, query, queryVector, type, concept, source, null, null, limit)
         );
 
         Map<String, Object> response = new HashMap<>();
