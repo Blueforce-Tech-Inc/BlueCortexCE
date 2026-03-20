@@ -128,6 +128,14 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     );
 
     // Filter by type
+    @Query(value = """
+        SELECT * FROM mem_observations
+        WHERE project_path = :project
+        AND type = :type
+        ORDER BY created_at_epoch DESC
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<ObservationEntity> findByType(
         @Param("project") String project,
         @Param("type") String type,
         @Param("limit") int limit
