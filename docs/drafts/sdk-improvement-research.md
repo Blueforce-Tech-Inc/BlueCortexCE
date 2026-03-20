@@ -254,25 +254,39 @@ private Map<String, Object> extractedData;
 
 **Problem**: Different users should not see each other's memories.
 
-**Naive Solution**: New `UserProfile` table
+**Decision**: **No new `userId` field or `UserProfile` table — use session-based approach**
 
-**Problem with Naive Solution**: For simple data isolation, just need a `userId` field. `UserProfile` entity is only needed if we need to manage user profiles as first-class objects (display name, settings, etc.).
+**Design**:
 
-**Generalized Solution**: **Add `userId` field to `ObservationEntity`** (mem_observations table)
+1. **Refactor `memorySessionId`**: Currently `memorySessionId = contentSessionId` (both equal the session ID from Claude Code). Future plan: discard the redundant `memorySessionId` name, use only `contentSessionId`.
 
-```java
-// In ObservationEntity.java (mem_observations table)
-@Column(name = "user_id")
-private String userId;  // External user identifier
-// Filter: WHERE user_id = 'user-123'
-```
+2. **External user as special session**: Create a special session record in `mem_sessions` table:
+   ```sql
+   -- External user session pattern
+   contentSessionId = 'blue-cortex:ext-user-id:USER_XXX'
+   ```
+
+3. **User preferences stored as observations**: When capturing user preferences, create an observation that references this external user session:
+   ```sql
+   -- In mem_observations table
+   memory_session_id = 'blue-cortex:ext-user-id:USER_XXX'
+   project_path = '/user-profile'  -- special project for user data
+   type = 'user_preference'
+   extractedData = {"preference_type": "brand", "value": "sony"}
+   ```
+
+**Why This Approach**:
+- Reuses existing `mem_sessions` table (no new entity)
+- Preferences are stored as observations (already have CRUD, search, quality scoring)
+- No need for separate `userId` field on every observation
+- Consistent with existing architecture (observations already tied to sessions)
+
+**Trade-off**: External user session is a naming convention, not enforced by DB constraints. Fine for current use cases.
 
 **When to elevate to `UserProfile` entity**: Only when:
-- User has profile settings (display name, preferences, avatar)
-- User needs to manage their own profile
-- Profile has independent CRUD operations
-
-**Trade-off**: Complex user management needs separate entity later
+- User needs profile settings (display name, avatar)
+- User needs independent CRUD for profile data
+- Profile has complex relationships beyond observations
 
 ---
 
@@ -311,7 +325,7 @@ void deleteObservation(String id);
 
 **Already solved without new fields**:
 - **Gap 1 (Importance)**: Use existing `concepts` field with tag convention
-- **Gap 4 (Multi-user)**: TBD — depends on whether `memorySessionId` is insufficient
+- **Gap 4 (Multi-user)**: No new field — use session-based approach (external user as special session)
 
 ### 5.2 No New Entities Required
 
@@ -352,7 +366,7 @@ All changes are **field extensions to `mem_observations` table** (ObservationEnt
 6. Add `MemoryManagementTools` for active memory edit/delete
 7. Add `source`-based filtering to search API
 8. (Gap 1 resolved with existing `concepts` field — no new field needed)
-9. (Gap 4 TBD — depends on multi-user use case)
+9. (Gap 4 resolved with session-based approach — no new field needed)
 
 ### Phase 3: Future Considerations (when needed)
 10. `UserProfile` **entity** - only if profile management is a requirement
