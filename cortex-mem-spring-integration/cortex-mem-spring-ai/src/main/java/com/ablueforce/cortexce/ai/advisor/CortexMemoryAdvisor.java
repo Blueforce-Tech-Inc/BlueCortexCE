@@ -62,14 +62,17 @@ public class CortexMemoryAdvisor implements CallAdvisor, StreamAdvisor {
     private final int maxExperiences;
     private final boolean captureEnabled;
     private final int order;
+    private final int maxIclChars;
 
     private CortexMemoryAdvisor(CortexMemClient cortexClient, String projectPath,
-                                int maxExperiences, boolean captureEnabled, int order) {
+                                int maxExperiences, boolean captureEnabled, int order,
+                                int maxIclChars) {
         this.cortexClient = cortexClient;
         this.projectPath = projectPath;
         this.maxExperiences = maxExperiences;
         this.captureEnabled = captureEnabled;
         this.order = order;
+        this.maxIclChars = maxIclChars;
     }
 
     public static Builder builder(CortexMemClient client) {
@@ -119,6 +122,7 @@ public class CortexMemoryAdvisor implements CallAdvisor, StreamAdvisor {
                 ICLPromptRequest.builder()
                     .task(userText)
                     .project(projectPath)
+                    .maxChars(maxIclChars)
                     .build());
 
             if (iclResult == null || iclResult.prompt() == null || iclResult.prompt().isBlank()) {
@@ -209,6 +213,7 @@ public class CortexMemoryAdvisor implements CallAdvisor, StreamAdvisor {
         private int maxExperiences = 4;
         private boolean captureEnabled = true;
         private int order = 0;
+        private int maxIclChars = 4000;
 
         private Builder(CortexMemClient client) {
             this.client = client;
@@ -238,8 +243,23 @@ public class CortexMemoryAdvisor implements CallAdvisor, StreamAdvisor {
             return this;
         }
 
+        /**
+         * Set maximum characters for the ICL prompt.
+         * If the combined memory context exceeds this, it will be truncated.
+         * Default is 4000 characters.
+         * 
+         * Configure based on your model's context window:
+         * - For 128K context models: 8000-12000
+         * - For 32K context models: 4000-6000
+         * - For 8K context models: 2000-3000
+         */
+        public Builder maxIclChars(int maxIclChars) {
+            this.maxIclChars = maxIclChars;
+            return this;
+        }
+
         public CortexMemoryAdvisor build() {
-            return new CortexMemoryAdvisor(client, projectPath, maxExperiences, captureEnabled, order);
+            return new CortexMemoryAdvisor(client, projectPath, maxExperiences, captureEnabled, order, maxIclChars);
         }
     }
 }

@@ -68,7 +68,7 @@ public class MemoryController {
     /**
      * Retrieve experiences for ICL context.
      * POST /api/memory/experiences
-     * Body: {"task": "current task description", "project": "/path", "count": 4}
+     * Body: {"task": "...", "project": "/path", "count": 4, "source": "optional", "requiredConcepts": ["optional"]}
      */
     @PostMapping("/experiences")
     public ResponseEntity<List<ExpRagService.Experience>> retrieveExperiences(
@@ -77,9 +77,12 @@ public class MemoryController {
         String task = (String) request.get("task");
         String project = (String) request.get("project");
         int count = request.get("count") != null ? (Integer) request.get("count") : 4;
+        String source = (String) request.get("source");
+        @SuppressWarnings("unchecked")
+        List<String> requiredConcepts = (List<String>) request.get("requiredConcepts");
         
         List<ExpRagService.Experience> experiences = expRagService
-            .retrieveExperiences(task, project, count);
+            .retrieveExperiences(task, project, count, source, requiredConcepts);
         
         return ResponseEntity.ok(experiences);
     }
@@ -87,20 +90,25 @@ public class MemoryController {
     /**
      * Build ICL prompt from experiences.
      * POST /api/memory/icl-prompt
+     * Body: {"task": "...", "project": "...", "maxChars": 4000}
      */
     @PostMapping("/icl-prompt")
     public ResponseEntity<Map<String, String>> buildICLPrompt(@RequestBody Map<String, Object> request) {
         String task = (String) request.get("task");
         String project = (String) request.get("project");
+        int maxChars = request.get("maxChars") != null 
+            ? ((Number) request.get("maxChars")).intValue() 
+            : 4000;
         
         List<ExpRagService.Experience> experiences = expRagService
             .retrieveExperiences(task, project, 4);
         
-        String prompt = expRagService.buildICLPrompt(task, experiences);
+        String prompt = expRagService.buildICLPrompt(task, experiences, maxChars);
         
         return ResponseEntity.ok(Map.of(
             "prompt", prompt,
-            "experienceCount", String.valueOf(experiences.size())
+            "experienceCount", String.valueOf(experiences.size()),
+            "maxChars", String.valueOf(maxChars)
         ));
     }
 

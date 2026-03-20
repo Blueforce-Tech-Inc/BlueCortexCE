@@ -47,33 +47,83 @@ public class ExpRagService {
      * Retrieve experiences with custom count using high-quality filter.
      */
     public List<Experience> retrieveExperiences(String currentTask, String projectPath, int count) {
-        // Use quality-aware repository method
-        List<ObservationEntity> highQuality = observationRepository
-            .findHighQualityObservations(projectPath, MIN_QUALITY_THRESHOLD, count * 3);
+        return retrieveExperiences(currentTask, projectPath, count, null, null);
+    }
+
+    /**
+     * Retrieve experiences with filters.
+     *
+     * @param currentTask Task description (currently unused for filtering, used for future semantic search)
+     * @param projectPath Project path
+     * @param count Number of experiences to retrieve
+     * @param source Optional source filter (e.g., "tool_result", "user_statement")
+     * @param requiredConcepts Optional concept filter (must contain all specified concepts)
+     */
+    public List<Experience> retrieveExperiences(String currentTask, String projectPath, int count,
+                                                String source, List<String> requiredConcepts) {
+        List<ObservationEntity> results;
+
+        if (source != null && !source.isBlank()) {
+            // Use source-based repository method
+            results = observationRepository.findBySource(projectPath, source, count);
+        } else {
+            // Use quality-aware repository method
+            results = observationRepository
+                .findHighQualityObservations(projectPath, MIN_QUALITY_THRESHOLD, count * 3);
+        }
 
         // If not enough, get recent observations
-        if (highQuality.size() < count) {
+        if (results.size() < count) {
             List<ObservationEntity> recent = observationRepository
                 .findByProjectLimited(projectPath, count);
             
-            // Merge, remove duplicates, limit
-            highQuality.addAll(recent);
-            highQuality = highQuality.stream()
+            // Merge, remove duplicates
+            results.addAll(recent);
+            results = results.stream()
                 .distinct()
-                .limit(count)
                 .toList();
         }
 
+        // Filter by required concepts if specified
+        if (requiredConcepts != null && !requiredConcepts.isEmpty()) {
+            final List<String> conceptsToMatch = requiredConcepts;
+            results = results.stream()
+                .filter(obs -> {
+                    List<String> obsConcepts = obs.getConcepts();
+                    if (obsConcepts == null || obsConcepts.isEmpty()) return false;
+                    // Check if all required concepts are present
+                    return conceptsToMatch.stream().allMatch(obsConcepts::contains);
+                })
+                .toList();
+        }
+
+        // Limit to count
+        results = results.stream().limit(count).toList();
+
         // Convert to experience format
-        return highQuality.stream()
+        return results.stream()
             .map(this::toExperience)
             .toList();
     }
 
     /**
      * Build ICL prompt from retrieved experiences.
+     * @deprecated Use {@link #buildICLPrompt(String, List, int)} with maxChars for adaptive truncation
      */
+    @Deprecated
     public String buildICLPrompt(String currentTask, List<Experience> experiences) {
+        return buildICLPrompt(currentTask, experiences, 4000);
+    }
+
+    /**
+     * Build ICL prompt from retrieved experiences with adaptive truncation.
+     *
+     * @param currentTask The current task description
+     * @param experiences Retrieved experiences to include
+     * @param maxChars Maximum characters for the ICL prompt. If exceeded, truncates experiences.
+     * @return Formatted ICL prompt string
+     */
+    public String buildICLPrompt(String currentTask, List<Experience> experiences, int maxChars) {
         if (experiences.isEmpty()) {
             return "Current task:\n" + currentTask;
         }
@@ -83,16 +133,29 @@ public class ExpRagService {
 
         for (int i = 0; i < experiences.size(); i++) {
             Experience exp = experiences.get(i);
-            sb.append(String.format("### Experience %d\n", i + 1));
-            sb.append(String.format("**Task**: %s\n", exp.task()));
-            sb.append(String.format("**Strategy**: %s\n", exp.strategy()));
-            sb.append(String.format("**Outcome**: %s\n", exp.outcome()));
-            sb.append(String.format("**Quality**: %.2f\n\n", exp.qualityScore()));
+            String expBlock = String.format("### Experience %d\n**Task**: %s\n**Strategy**: %s\n**Outcome**: %s\n**Quality**: %.2f\n\n",
+                i + 1, exp.task(), exp.strategy(), exp.outcome(), exp.qualityScore());
+            
+            // Check if adding this experience would exceed maxChars
+            if (sb.length() + expBlock.length() + currentTask.length() + 50 > maxChars) {
+                log.debug("ICL prompt truncated at experience {} to stay within {} char limit", i, maxChars);
+                break;
+            }
+            
+            sb.append(expBlock);
         }
 
         sb.append("---\n\n");
         sb.append("Current task:\n");
-        sb.append(currentTask);
+        
+        // Final truncation check for currentTask
+        String currentTaskBlock = currentTask;
+        if (sb.length() + currentTaskBlock.length() > maxChars) {
+            currentTaskBlock = currentTaskBlock.substring(0, Math.max(0, maxChars - sb.length() - 10)) + "...";
+            log.debug("Current task truncated to fit within {} char limit", maxChars);
+        }
+        
+        sb.append(currentTaskBlock);
 
         return sb.toString();
     }

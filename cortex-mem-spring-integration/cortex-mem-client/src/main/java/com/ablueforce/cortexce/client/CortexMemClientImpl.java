@@ -102,11 +102,16 @@ public class CortexMemClientImpl implements CortexMemClient {
     @Override
     public List<Experience> retrieveExperiences(ExperienceRequest request) {
         try {
-            var body = Map.of(
-                "task", request.task(),
-                "project", request.project() != null ? request.project() : "",
-                "count", request.count() != null ? request.count() : properties.getDefaultExperienceCount()
-            );
+            var body = new java.util.HashMap<String, Object>();
+            body.put("task", request.task());
+            body.put("project", request.project() != null ? request.project() : "");
+            body.put("count", request.count() != null ? request.count() : properties.getDefaultExperienceCount());
+            if (request.source() != null) {
+                body.put("source", request.source());
+            }
+            if (request.requiredConcepts() != null && !request.requiredConcepts().isEmpty()) {
+                body.put("requiredConcepts", request.requiredConcepts());
+            }
             List<Experience> result = restClient.post()
                 .uri("/api/memory/experiences")
                 .body(body)
@@ -122,10 +127,10 @@ public class CortexMemClientImpl implements CortexMemClient {
     @Override
     public ICLPromptResult buildICLPrompt(ICLPromptRequest request) {
         try {
-            var body = Map.of(
-                "task", request.task(),
-                "project", request.project() != null ? request.project() : ""
-            );
+            var body = new java.util.HashMap<String, Object>();
+            body.put("task", request.task());
+            body.put("project", request.project() != null ? request.project() : "");
+            body.put("maxChars", request.maxChars() != null ? request.maxChars() : 4000);
             ICLPromptResult result = restClient.post()
                 .uri("/api/memory/icl-prompt")
                 .body(body)
