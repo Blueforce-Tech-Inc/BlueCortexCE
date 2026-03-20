@@ -1,16 +1,19 @@
 /**
  * Tag Stripping Utilities (Java Proxy Port)
  *
- * Implements the dual-tag system for meta-observation control:
+ * Implements the tag system for meta-observation control:
  * 1. <claude-mem-context> - System-level tag for auto-injected observations
  *    (prevents recursive storage when context injection is active)
  * 2. <private> - User-level tag for manual privacy control
  *    (allows users to mark content they don't want persisted)
+ * 3. <system_instruction> / <system-instruction> - Conductor-injected system instructions
+ *    (should not be persisted to memory)
  *
  * EDGE PROCESSING PATTERN: Filter at proxy layer before sending to Java backend.
  * This keeps the backend service simple and follows one-way data stream.
  *
  * Ported from: src/utils/tag-stripping.ts
+ * Synced from: claude-mem@51fbb117 (2026-03-20)
  */
 
 /**
@@ -34,7 +37,9 @@ function countTags(content) {
 
   const privateCount = (content.match(/<private>/g) || []).length;
   const contextCount = (content.match(/<claude-mem-context>/g) || []).length;
-  return privateCount + contextCount;
+  const systemInstructionCount = (content.match(/<system_instruction>/g) || []).length;
+  const systemInstructionHyphenCount = (content.match(/<system-instruction>/g) || []).length;
+  return privateCount + contextCount + systemInstructionCount + systemInstructionHyphenCount;
 }
 
 /**
@@ -59,6 +64,8 @@ function stripTagsInternal(content) {
   return content
     .replace(/<claude-mem-context>[\s\S]*?<\/claude-mem-context>/g, '')
     .replace(/<private>[\s\S]*?<\/private>/g, '')
+    .replace(/<system_instruction>[\s\S]*?<\/system_instruction>/g, '')
+    .replace(/<system-instruction>[\s\S]*?<\/system-instruction>/g, '')
     .trim();
 }
 
