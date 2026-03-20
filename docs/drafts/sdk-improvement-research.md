@@ -3,6 +3,7 @@
 > **Date**: 2026-03-20  
 > **Objective**: Analyze Spring AI developer pain points, evaluate how Cortex CE addresses them, and propose **generalized** improvements that avoid entity proliferation  
 > **Key Principle**: Prefer extensible fields (tags, JSONB) over new entities/enums; new entities only when independent CRUD lifecycle or complex relationships exist  
+> **⚠️ Field Names Subject to Refactoring**: The codebase has an ongoing refactoring plan to unify `memorySessionId` with `contentSessionId`. All field/column names in this document reflect **current** names and will be updated after refactoring.  
 > **Reference**: `spring-ai-skills-demo/docs/drafts/memory-system-improvement-plan.md`
 
 ---
@@ -256,20 +257,22 @@ private Map<String, Object> extractedData;
 
 **Decision**: **No new `userId` field or `UserProfile` table — use session-based approach**
 
+> ⚠️ **Note**: Field names (e.g., `memorySessionId`) are subject to ongoing refactoring. See Section 6 for the refactoring plan. The design below uses current names for reference only.
+
 **Design**:
 
 1. **Refactor `memorySessionId`**: Currently `memorySessionId = contentSessionId` (both equal the session ID from Claude Code). Future plan: discard the redundant `memorySessionId` name, use only `contentSessionId`.
 
 2. **External user as special session**: Create a special session record in `mem_sessions` table:
    ```sql
-   -- External user session pattern
+   -- External user session pattern (subject to refactoring)
    contentSessionId = 'blue-cortex:ext-user-id:USER_XXX'
    ```
 
 3. **User preferences stored as observations**: When capturing user preferences, create an observation that references this external user session:
    ```sql
-   -- In mem_observations table
-   memory_session_id = 'blue-cortex:ext-user-id:USER_XXX'
+   -- In mem_observations table (column names subject to refactoring)
+   session_id = 'blue-cortex:ext-user-id:USER_XXX'  -- after refactor: content_session_id
    project_path = '/user-profile'  -- special project for user data
    type = 'user_preference'
    extractedData = {"preference_type": "brand", "value": "sony"}
