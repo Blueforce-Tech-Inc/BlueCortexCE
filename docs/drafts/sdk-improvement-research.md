@@ -398,10 +398,37 @@ client.deleteObservation(id);
 ### ✅ Phase 4: Complete
 - [x] `source` filter in `/api/search`
 
-### ⏳ Phase 3: Deferred
-- [ ] `UserProfile` entity
-- [ ] Preference history tracking
-- [ ] Memory conflict detection
+### ⏳ Phase 3: Deferred (Future Considerations)
+
+These features require deeper architectural changes or AI capabilities. They are recorded here for future planning.
+
+#### 3.1 UserProfile Entity
+- **Description**: Dedicated entity for cross-session user profiles
+- **Status**: Deferred — needs explicit product requirements
+- **Current workaround**: Use session-based isolation with special session IDs (e.g., `blue-cortex:ext-user-id:USER_123`)
+- **Implementation hint**: Only needed when profile management (settings, display name, avatar) is required
+
+#### 3.2 Preference Extraction & History
+- **Description**: Extract and track user preferences over time (e.g., "Sony → Bose" evolution)
+- **Status**: Deferred — requires AI logic for extraction and change tracking
+- **Relation to memory refinement**: Could leverage existing `MemoryRefineService` framework
+- **Implementation approach**:
+  1. Configure extraction rules (what to extract, from which sources)
+  2. Use memory refinement triggers to detect preference changes
+  3. Store preference history as structured observations with `extractedData`
+  4. Query preferences via `/api/search` with filters
+
+#### 3.3 Memory Conflict Detection
+- **Description**: Detect contradictions in stored memories (e.g., "budget is $3000" vs "budget is $5000")
+- **Status**: Deferred — requires semantic understanding (AI-complete problem)
+- **Relation to memory refinement**: Could be a refinement rule that checks consistency
+- **Implementation approach**:
+  1. During memory refinement, compare new observations with existing ones
+  2. Use LLM to evaluate semantic consistency
+  3. Flag conflicts for human review or automatic resolution
+
+#### Design Principle for Phase 3
+The `extractedData` JSONB field provides a flexible foundation for structured data without enum proliferation. Preference extraction and conflict detection could be implemented as **configuration-driven refinement rules** rather than hard-coded entities.
 
 ---
 
@@ -481,5 +508,6 @@ ICLPromptResult result = client.buildICLPrompt(
 
 ## 10. Changelog
 
+- **2026-03-21**: Added Phase 3 deferred items with implementation hints (memory refinement approach)
 - **2026-03-21**: Updated to honest implementation record. Phases 1, 2, 4 complete. Phase 3 deferred.
 - **2026-03-20**: Initial research document with pain point analysis and proposed solutions.

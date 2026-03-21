@@ -54,12 +54,23 @@
 
 ---
 
-## Phase 3: ⏳ DEFERRED (Future)
+## Phase 3: ⏳ DEFERRED (Future Considerations)
 
-These are marked as "Future Considerations" in the research doc - only implement when needed:
-- [ ] `UserProfile` entity - only if profile management is required
-- [ ] Preference history tracking
-- [ ] Memory conflict detection
+These are marked as "Future Considerations" in the research doc - documented for planning:
+
+### 3.1 UserProfile Entity
+- **Status**: Deferred — needs explicit product requirements
+- **Current workaround**: Session-based isolation with special session IDs
+
+### 3.2 Preference Extraction & History
+- **Status**: Deferred — requires AI logic for extraction and change tracking
+- **Relation to memory refinement**: Could leverage existing `MemoryRefineService` framework
+- **Implementation approach**: Configuration-driven extraction rules + refinement triggers
+
+### 3.3 Memory Conflict Detection
+- **Status**: Deferred — requires semantic understanding (AI-complete problem)
+- **Relation to memory refinement**: Could be a refinement rule that checks consistency
+- **Implementation approach**: LLM-based consistency evaluation during refinement
 
 ---
 
