@@ -269,9 +269,10 @@ var result = extractionService.extractByTemplate(projectPath, allergyTemplate, A
 Conflict detection is triggered when a new extraction result differs from the stored one.
 
 ```java
-private void checkAndUpdateEvolution(ExtractionTemplate template, Object newResult) {
+private void checkAndUpdateEvolution(String projectPath, ExtractionTemplate template, Object newResult) {
+    // FIXED: Include projectPath to avoid cross-project pollution
     List<ObservationEntity> existing = observationRepository
-        .findByType("extracted_" + template.name());
+        .findByType(projectPath, "extracted_" + template.name(), 1);  // Most recent
     
     if (existing.isEmpty()) {
         return;
@@ -854,8 +855,161 @@ private String detectLanguage(List<ObservationEntity> candidates) {
 
 ---
 
+## 11. Error Handling & Recovery Strategies
+
+### 11.1 Failure Modes
+
+| Failure Mode | Impact | Recovery Strategy |
+|--------------|--------|-------------------|
+| LLM timeout | Extraction fails | Retry with exponential backoff, mark as failed |
+| Invalid JSON output | Cannot parse result | Retry up to N times, fallback to raw text |
+| Schema validation fails | Result doesn't match schema | Log warning, store raw result, continue |
+| Network error | Cannot reach LLM | Circuit breaker, queue for retry |
+| Rate limit exceeded | Too many calls | Backoff, queue for later |
+
+### 11.2 Retry with Circuit Breaker
+
+```java
+@Service
+public class StructuredExtractionService {
+    
+    private final CircuitBreaker circuitBreaker = CircuitBreaker.of("llm", 
+        CircuitBreakerConfig.custom()
+            .failureRateThreshold(50)
+            .waitDurationInOpenState(Duration.ofSeconds(30))
+            .build());
+    
+    public <T> T extractWithRetry(ExtractionTemplate template, 
+                                   List<ObservationEntity> candidates,
+                                   Class<T> outputType) {
+        return circuitBreaker.executeSupplier(() -> {
+            for (int attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    return extract(template, candidates, outputType);
+                } catch (LLMTimeoutException e) {
+                    long backoff = calculateBackoff(attempt);
+                    log.warn("LLM call failed, retrying in {}ms: {}", backoff, e.getMessage());
+                    sleep(backoff);
+                } catch (InvalidJsonException e) {
+                    log.warn("Invalid JSON from LLM, attempt {}/{}: {}", 
+                        attempt + 1, maxRetries, e.getMessage());
+                }
+            }
+            throw new ExtractionException("Failed after " + maxRetries + " attempts");
+        });
+    }
+    
+    private long calculateBackoff(int attempt) {
+        // Exponential backoff: 1s, 2s, 4s, 8s...
+        return (long) Math.pow(2, attempt) * 1000;
+    }
+}
+```
+
+### 11.3 Dead Letter Queue for Failed Extractions
+
+```java
+/**
+ * Failed extraction requests are queued for manual review or retry.
+ */
+public record FailedExtraction(
+    String requestId,
+    String projectPath,
+    String templateName,
+    List<UUID> observationIds,
+    String errorMessage,
+    int attemptCount,
+    OffsetDateTime failedAt
+) {}
+
+// On failure, save to dead letter queue
+public void handleExtractionFailure(...) {
+    FailedExtraction failed = new FailedExtraction(
+        requestId, projectPath, template.name(), observationIds,
+        error.getMessage(), attemptCount, OffsetDateTime.now()
+    );
+    deadLetterQueue.add(failed);
+    
+    // Alert if threshold exceeded
+    if (deadLetterQueue.size() > threshold) {
+        alertService.alert("Extraction failure rate exceeds threshold");
+    }
+}
+
+// Scheduled task to retry dead letter items
+@Scheduled(fixedRate = 3600000)  // Every hour
+public void retryDeadLetterExtractions() {
+    List<FailedExtraction> toRetry = deadLetterQueue.getPending();
+    for (FailedExtraction failed : toRetry) {
+        if (failed.attemptCount() < maxRetries) {
+            retryExtraction(failed);
+        }
+    }
+}
+```
+
+### 11.4 Schema Validation Failure Handling
+
+```java
+public <T> ExtractionResult<T> extractWithValidation(...) {
+    String rawResponse = llmService.chatCompletion(...);
+    
+    try {
+        T result = objectMapper.readValue(rawResponse, outputType);
+        
+        // Validate against schema
+        if (!schemaValidator.validate(result, template.outputSchema())) {
+            log.warn("Result doesn't match schema, storing raw: requestId={}", requestId);
+            // Store as raw text observation instead of structured
+            storeRawResult(template, rawResponse);
+            return null;  // Or throw
+        }
+        
+        return new ExtractionResult<>(result, extractionObservation);
+        
+    } catch (JsonProcessingException e) {
+        // Try to extract partial information
+        T partial = extractPartial(rawResponse, outputType);
+        if (partial != null) {
+            log.warn("Partial extraction succeeded: requestId={}", requestId);
+            return new ExtractionResult<>(partial, extractionObservation);
+        }
+        throw new ExtractionException("Cannot parse LLM response", e);
+    }
+}
+```
+
+### 11.5 Graceful Degradation
+
+```java
+/**
+ * If extraction completely fails, the system should still function.
+ * Memory refinement should not be blocked by extraction failures.
+ */
+public void deepRefineWithGracefulDegradation(String projectPath) {
+    try {
+        // Run existing refinement (must succeed)
+        refineObservations(projectPath);
+    } catch (Exception e) {
+        log.error("Refinement failed, but continuing: {}", e.getMessage());
+        // Don't fail the whole process
+    }
+    
+    try {
+        // Run extraction (can fail gracefully)
+        runExtraction(projectPath);
+    } catch (Exception e) {
+        log.warn("Extraction failed, will retry later: {}", e.getMessage());
+        // Queue for retry, don't fail the whole process
+    }
+}
+```
+
+---
+
 ## Changelog
 
+- **2026-03-21 v6**: Fixed findByType missing projectPath (cross-project pollution bug). Added error handling & recovery strategies: retry with circuit breaker, dead letter queue, schema validation failure handling, graceful degradation.
 - **2026-03-21 v5**: Added critical implementation considerations: context window batching, prompt injection prevention, cost control (dry-run, rate limiting, caching), observability & audit trail, multi-language support
 - **2026-03-21 v4**: Confirmed existing repository methods (findBySource, findByType) are reusable. Added integration points section.
 - **2026-03-21 v3**: Added incremental extraction, query API, template versioning, LLM validation, cascading extractions considerations
