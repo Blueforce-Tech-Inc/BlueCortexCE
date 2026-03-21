@@ -380,16 +380,217 @@ Extractions of type "user_profile" can be stored with source="profile_update".
 
 ---
 
-## 7. Open Questions
+## 7. Design Deep Dive: Additional Considerations
+
+### 7.1 Incremental Extraction
+
+**Issue**: Currently, every extraction run processes ALL matching observations. This is inefficient and may produce duplicate results.
+
+**Solution**: Track extraction state per template per project.
+
+```java
+/**
+ * Track what has been extracted to avoid re-extraction.
+ */
+public record ExtractionState(
+    String projectPath,
+    String templateName,
+    OffsetDateTime lastExtractedAt,
+    UUID lastExtractedObservationId,
+    int totalExtracted
+) {}
+
+// Repository method to find new observations since last extraction
+List<ObservationEntity> findNewObservations(
+    String projectPath, 
+    OffsetDateTime since
+);
+```
+
+**Incremental extraction flow**:
+```java
+public void runIncrementalExtraction(String projectPath, ExtractionTemplate template) {
+    // Get last extraction state
+    ExtractionState state = getExtractionState(projectPath, template.name());
+    
+    // Only process NEW observations since last extraction
+    List<ObservationEntity> newCandidates = observationRepository
+        .findNewObservations(projectPath, state.lastExtractedAt());
+    
+    if (newCandidates.isEmpty()) {
+        return; // Nothing new to extract
+    }
+    
+    // Extract from new candidates only
+    var result = extractByTemplate(projectPath, template, newCandidates);
+    
+    // Update state
+    updateExtractionState(projectPath, template.name(), OffsetDateTime.now());
+}
+```
+
+### 7.2 Extraction Query API
+
+**Issue**: How to query/retrieve extracted information later?
+
+**Proposed API**:
+
+```java
+/**
+ * Query extracted information by template name.
+ */
+@GetMapping("/api/extraction/{templateName}")
+public List<ExtractionInfo> getExtractions(
+    @PathVariable String templateName,
+    @RequestParam String projectPath,
+    @RequestParam(required = false) OffsetDateTime since) {
+    
+    // Find all observations of type "extracted_{templateName}"
+    List<ObservationEntity> extractions = observationRepository
+        .findByType("extracted_" + templateName);
+    
+    return extractions.stream()
+        .map(this::toExtractionInfo)
+        .collect(Collectors.toList());
+}
+
+/**
+ * Query extraction by specific field value.
+ */
+@GetMapping("/api/extraction/{templateName}/search")
+public List<ExtractionInfo> searchExtractions(
+    @PathVariable String templateName,
+    @RequestParam String projectPath,
+    @RequestParam String fieldPath,    // e.g., "allergens"
+    @RequestParam String value         // e.g., "花生"
+) {
+    // Use JSON path query on extractedData
+    return observationRepository
+        .findByExtractedDataPath(projectPath, "extracted_" + templateName, fieldPath, value);
+}
+```
+
+**Example queries**:
+```bash
+# Get all allergy extractions
+GET /api/extraction/allergy_info?project=/my-project
+
+# Find who is allergic to peanuts
+GET /api/extraction/allergy_info/search?project=/my-project&fieldPath=allergens&value=花生
+```
+
+### 7.3 Template Versioning
+
+**Issue**: What happens when template schema changes?
+
+**Considerations**:
+- Schema changes should not automatically re-extract old data
+- Version the template in storage
+- Allow explicit "re-extract" operation
+
+```java
+public record ExtractionTemplate(
+    String name,
+    int version,                    // Schema version
+    String description,
+    List<String> triggerKeywords,
+    String promptTemplate,
+    String outputSchema,
+    boolean trackEvolution,
+    boolean conflictEnabled
+) {}
+
+// Store with version
+extractionObs.setSource("extraction:" + template.name() + ":v" + template.version());
+
+// Re-extract only if explicitly requested
+public void reExtract(String projectPath, String templateName, int version) { ... }
+```
+
+### 7.4 LLM Output Validation
+
+**Issue**: What if LLM returns invalid JSON or doesn't follow schema?
+
+**Solution**: Validate and retry
+
+```java
+private <T> T extractWithRetry(ExtractionTemplate template, 
+                                List<ObservationEntity> candidates,
+                                Class<T> outputType,
+                                int maxRetries) {
+    for (int i = 0; i < maxRetries; i++) {
+        String response = llmService.chatCompletion(...);
+        try {
+            T result = objectMapper.readValue(response, outputType);
+            if (validateOutput(result, template.outputSchema())) {
+                return result;
+            }
+        } catch (JsonProcessingException e) {
+            log.warn("Invalid JSON from LLM, attempt {}/{}", i+1, maxRetries);
+        }
+    }
+    throw new ExtractionException("Failed to get valid output after " + maxRetries + " attempts");
+}
+
+private boolean validateOutput(Object output, String schema) {
+    // Use JSON Schema validator
+    // Return false if doesn't match schema
+}
+```
+
+### 7.5 Cascading Extractions
+
+**Issue**: Can extractions depend on other extractions?
+
+**Example**: First extract "user_preference", then use that to filter "product_recommendation" extractions.
+
+**Design**:
+```yaml
+templates:
+  - name: "user_preference"
+    # ... basic extraction
+    
+  - name: "product_recommendation"
+    depends-on: ["user_preference"]    # Depends on user_preference extraction
+    prompt: |
+      Based on user's preference: {extracted_user_preference}
+      Extract product recommendations...
+```
+
+```java
+public void runCascadingExtraction(String projectPath, ExtractionTemplate template) {
+    // First, run dependencies
+    for (String depName : template.dependsOn()) {
+        ExtractionTemplate dep = getTemplate(depName);
+        runExtraction(projectPath, dep);  // Recursive
+    }
+    
+    // Get dependency results
+    Map<String, Object> context = getDependencyResults(projectPath, template.dependsOn());
+    
+    // Build prompt with context
+    String prompt = buildPrompt(template, candidates, context);
+    
+    // Proceed with extraction
+}
+```
+
+---
+
+## 8. Open Questions
 
 1. Should extraction run on every `deepRefine` or be scheduled separately?
 2. Should conflicts auto-resolve or require human approval?
 3. What is acceptable latency for extraction?
 4. How to handle cross-project extractions (e.g., user preferences)?
+5. **NEW**: Should we support incremental extraction by default? (Performance vs freshness tradeoff)
+6. **NEW**: How to handle template schema evolution without re-extracting all history?
+7. **NEW**: Do we need cascading extractions or is flat extraction sufficient?
 
 ---
 
 ## Changelog
 
-- **2026-03-21 v2**: Generalized approach - extracted data type is determined by prompt, not code. Renamed from "PreferenceExtractionService" to "StructuredExtractionService". Added allergy_info example.
+- **2026-03-21 v3**: Added incremental extraction, query API, template versioning, LLM validation, cascading extractions considerations
+- **2026-03-21 v2**: Generalized approach - extracted data type is determined by prompt, not code
 - **2026-03-21 v1**: Initial design document created
