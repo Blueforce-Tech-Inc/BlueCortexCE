@@ -583,14 +583,38 @@ public void runCascadingExtraction(String projectPath, ExtractionTemplate templa
 2. Should conflicts auto-resolve or require human approval?
 3. What is acceptable latency for extraction?
 4. How to handle cross-project extractions (e.g., user preferences)?
-5. **NEW**: Should we support incremental extraction by default? (Performance vs freshness tradeoff)
-6. **NEW**: How to handle template schema evolution without re-extracting all history?
-7. **NEW**: Do we need cascading extractions or is flat extraction sufficient?
+5. Should we support incremental extraction by default? (Performance vs freshness tradeoff)
+6. How to handle template schema evolution without re-extracting all history?
+7. Do we need cascading extractions or is flat extraction sufficient?
+
+---
+
+## 9. Implementation Feasibility Check
+
+### 9.1 Existing Repository Methods
+
+**Confirmed**: The following methods already exist in `ObservationRepository`:
+- `findBySource(project, source, limit)` - For filtering by source
+- `findByType(project, type, limit)` - For finding extraction results
+
+**No new repository methods needed** for basic extraction functionality.
+
+### 9.2 Integration Points with MemoryRefineService
+
+**Where to integrate**:
+1. `deepRefineProjectMemories()` - Add extraction call after existing refinement
+2. New scheduled task for periodic extraction (separate from refinement)
+
+**Recommended approach**:
+- Extraction runs as separate phase during `deepRefine`
+- Track extraction state in dedicated table or observation metadata
+- Don't mix extraction with existing merge/rewrite logic (separation of concerns)
 
 ---
 
 ## Changelog
 
+- **2026-03-21 v4**: Confirmed existing repository methods (findBySource, findByType) are reusable. Added integration points section.
 - **2026-03-21 v3**: Added incremental extraction, query API, template versioning, LLM validation, cascading extractions considerations
 - **2026-03-21 v2**: Generalized approach - extracted data type is determined by prompt, not code
 - **2026-03-21 v1**: Initial design document created
