@@ -600,13 +600,41 @@ public void extractForUser(String userId, ExtractionTemplateConfig template) {
 - No `userId` field in current data model
 
 **Recommended Fix**:
-1. Add `userId` to `SessionEntity`
-2. Add `findByUserId()` to `SessionRepository`
-3. Update extraction to query by `userId` across sessions
+
+**Option 1: Session ID Pattern (Simple)**
+
+```java
+// Pattern: "cortex:user:{userId}:preferences"
+contentSessionId = "cortex:user:chen:preferences"
+```
+
+| Pros | Cons |
+|------|------|
+| ✅ No data model change | ❌ Abuses session ID semantics |
+| ✅ Simple query | ❌ Session ID becomes long |
+| ✅ Uses existing mechanism | ❌ Preferences mixed with sessions? |
+
+**Option 2: Add userId Field (Clean)**
+
+```java
+@Entity
+public class SessionEntity {
+    String contentSessionId;
+    String userId;  // NEW
+}
+```
+
+| Pros | Cons |
+|------|------|
+| ✅ Clean design | ❌ Requires Flyway migration |
+| ✅ Proper separation | ❌ More fields |
+| ✅ Explicit | |
+
+**Recommendation**: Start with Option 1 (Session ID pattern) for quick implementation. Migrate to Option 2 (userId field) for long-term cleanliness.
 
 **Impact on Design**:
 - The generalized extraction architecture remains valid
-- Just need to change the **query dimension**: from `projectPath` to `userId` for user-scoped extractions
+- Just need to change the **query dimension**: from `projectPath` to session-based for user-scoped extractions
 - Extraction templates and LLM processing don't need to change
 
 ### Architecture Still Valid
