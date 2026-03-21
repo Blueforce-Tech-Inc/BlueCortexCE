@@ -1,7 +1,7 @@
 # Phase 3 Design Proposal: Structured Information Extraction & Memory Conflict Detection
 
-**Date**: 2026-03-21
-**Status**: Design proposal - iteration 10 (JacksonOutputConverter → BeanOutputConverter fix for Spring AI 1.1.2)
+**Date**: 2026-03-22
+**Status**: Design proposal - iteration 12 (Implementation bootstrap checklist, DLQ fix, config binding strategy)
 **Related to**: `sdk-improvement-research.md` Phase 3 deferred items
 
 ---
@@ -172,6 +172,78 @@ public void deepRefineProjectMemories(String projectPath) {
 
 ---
 
+## 0.2 Critical Design Gaps in v10 (New in v11)
+
+### Gap 1: `outputSchema` (String) Cannot Directly Feed `BeanOutputConverter<T>` (Class)
+
+**Problem**: Section 2.1 defines `outputSchema` as a `String` (JSON Schema text), but `BeanOutputConverter<T>` requires a **Java `Class<T>`** at construction time. There is no built-in bridge from JSON Schema string → Java Class.
+
+```java
+// What the design shows (conceptually):
+BeanOutputConverter<T> converter = new BeanOutputConverter<>(outputType);  // ❌ outputType is String, needs Class!
+```
+
+**Root cause**: `BeanOutputConverter` generates format instructions from a **compile-time Java class**, not from a runtime JSON Schema string. Its `getFormat()` method introspects the class fields to produce the JSON Schema for the prompt.
+
+**Three practical solutions**:
+
+| Solution | Pros | Cons |
+|----------|------|------|
+| **A. Predefined POJO classes** | Type-safe, works with `BeanOutputConverter` | Must define class per template, harder to add new templates dynamically |
+| **B. `Map<String, Object>` fallback** | Flexible, any schema works | No type safety, post-processing needed to extract fields |
+| **C. Dynamic class generation** | Most flexible | Complex, fragile, security concerns |
+
+**Recommended**: **Solution A + B hybrid** — Use `template-class` field for known templates, fall back to `Map<String, Object>` for unknown/generic schemas.
+
+```yaml
+templates:
+  - name: "allergy_info"
+    template-class: "com.example.AllergyInfo"   # Maps to AllergyInfo.class
+    # output-schema is generated from the Java class by BeanOutputConverter
+    
+  - name: "generic_preference"
+    template-class: "java.util.Map"             # Use Map<String, Object> fallback
+```
+
+### Gap 2: Array Schema Handling Is Not Addressed
+
+**Problem**: The design shows array output examples (`"type": "array", "items": {...}`), but `ListOutputConverter` in Spring AI 1.1.2 returns `List<String>`, NOT `List<MyObject>`.
+
+```java
+// ListOutputConverter converts ["a", "b", "c"] → List<String>
+// It does NOT handle: [{"name": "x"}, {"name": "y"}] → List<MyObject>
+```
+
+**Solution for arrays**:
+1. For arrays of primitives (`["string1", "string2"]`): `ListOutputConverter` works
+2. For arrays of objects (`[{"key": "val"}, ...]`): Use `MapOutputConverter` → `List<Map<String, Object>>`, then post-process
+3. Store array results in `extractedData` as JSON array (ObjectMapper handles serialization)
+
+### Gap 3: Repository Methods Listed as "New" Are Still NOT Implemented
+
+**Status**: The following methods are referenced throughout the design but **do not exist** in `ObservationRepository`:
+
+| Method | Status | Purpose |
+|--------|--------|---------|
+| `findBySourceIn(project, List<String>, limit)` | ❌ Not implemented | Bug 1 fix - filter by multiple sources |
+| `findNewObservations(project, sources, sinceEpoch, limit)` | ❌ Not implemented | Incremental extraction |
+
+**Action required**: Add these methods before Phase 3.1 implementation.
+
+### Gap 4: `LlmService.chatCompletionStructured()` Method Does Not Exist
+
+**Status**: The design references `llmService.chatCompletionStructured(systemPrompt, userPrompt, outputType)` but this method is **not implemented** in `LlmService`.
+
+**Action required**: Implement this method before Phase 3.1 implementation.
+
+### Gap 5: `outputSchema` Is Redundant When Using `template-class`
+
+**Problem**: If `template-class` points to a Java class, `BeanOutputConverter` **auto-generates** the JSON Schema from the class at runtime via `getJsonSchema()`. The `output-schema` field in YAML becomes redundant for POJO templates.
+
+**Resolution**: Keep `output-schema` in YAML only for `Map`-type templates (where no class exists). For POJO templates, `output-schema` is optional or can be auto-derived.
+
+---
+
 ## 1. Existing Architecture Analysis
 
 ### 1.1 MemoryRefineService Capabilities
@@ -209,14 +281,19 @@ public void deepRefineProjectMemories(String projectPath) {
  * NOTE: sourceFilter is List<String> — requires findBySourceIn(), not findBySource().
  * This is a common design error: findBySource(project, source, limit) takes String,
  * so a new findBySourceIn(project, List<String>, limit) repository method is needed.
+ * 
+ * NOTE (v11): templateClass is REQUIRED. BeanOutputConverter<T> needs a Java Class<T>,
+ * not a JSON Schema string. outputSchema is only used for Map<String,Object> templates.
  */
 public record ExtractionTemplate(
     String name,                    // Template identifier
+    boolean enabled,                // Per-template enable flag (default: true)
+    String templateClass,           // Java class name for output (e.g., "com.example.AllergyInfo" or "java.util.Map")
     String description,             // Human-readable description
     List<String> triggerKeywords,   // Keywords to filter candidates
     List<String> sourceFilter,      // Which sources to consider (⚠️ List, not String)
     String promptTemplate,           // System prompt for extraction instruction
-    String outputSchema,            // JSON Schema for output format
+    String outputSchema,            // JSON Schema (only for Map templates; auto-derived from templateClass for POJOs)
     boolean trackEvolution,          // Whether to track value changes over time
     boolean conflictEnabled          // Whether to detect conflicts
 ) {}
@@ -231,13 +308,15 @@ app.memory.extraction:
   enabled: true
   templates:
     - name: "user_preference"
+      enabled: true
+      template-class: "java.util.Map"        # Flexible schema → Map<String, Object> output
       description: "Extract user preferences (brand, price, style)"
       trigger-keywords: ["prefer", "like", "更喜欢", "倾向于"]
       source-filter: ["user_statement", "manual"]
       prompt: |   # Maps to promptTemplate field in Java record
         From the following conversation, extract user preferences.
         Look for: brands they like/dislike, budget constraints, style preferences.
-      output-schema: |
+      output-schema: |   # Required for Map templates; BeanOutputConverter<Map> uses this
         {
           "type": "object",
           "properties": {
@@ -250,6 +329,8 @@ app.memory.extraction:
       conflict-enabled: true
       
     - name: "allergy_info"
+      enabled: true
+      template-class: "com.example.AllergyInfo"   # Predefined POJO class
       description: "Extract allergy and dietary information"
       trigger-keywords: ["过敏", "不能吃", "吃了会", "allergic"]
       source-filter: ["user_statement", "manual", "llm_inference"]
@@ -258,7 +339,7 @@ app.memory.extraction:
         - Who has the allergy (person)
         - What allergens
         - Severity if mentioned
-      output-schema: |
+      output-schema: |   # Optional for POJO templates (auto-derived from class), shown for clarity
         {
           "type": "object", 
           "properties": {
@@ -271,6 +352,7 @@ app.memory.extraction:
       conflict-enabled: true
       
     - name: "important_dates"
+      template-class: "java.util.Map"            # Array results stored in Map["dates"]
       description: "Extract important dates and events"
       trigger-keywords: ["生日", "anniversary", "纪念日", "记得"]
       source-filter: ["user_statement", "manual"]
@@ -279,13 +361,18 @@ app.memory.extraction:
         Include: date, occasion, who's involved.
       output-schema: |
         {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "date": {"type": "string"},
-              "occasion": {"type": "string"},
-              "person": {"type": "string"}
+          "type": "object",
+          "properties": {
+            "dates": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "date": {"type": "string"},
+                  "occasion": {"type": "string"},
+                  "person": {"type": "string"}
+                }
+              }
             }
           }
         }
@@ -296,6 +383,13 @@ app.memory.extraction:
 ### 2.3 Generic StructuredExtractionService
 
 **Integration note**: This service uses `LlmService` (not raw `ChatClient`) to stay consistent with `MemoryRefineService`. The `LlmService.chatCompletionStructured()` method must be added — see section 0.1 Bug 2.
+
+**Two Converter Patterns** (v11 clarification):
+
+| templateClass | Converter | Use outputSchema? | Notes |
+|---------------|-----------|-------------------|-------|
+| `"java.util.Map"` | `BeanOutputConverter<Map>` | ✅ Yes (required) | Flexible, any schema works |
+| `"com.example.MyPojo"` | `BeanOutputConverter<MyPojo>` | ❌ No (auto-derived) | Type-safe, schema from class |
 
 ```java
 @Service
@@ -308,12 +402,18 @@ public class StructuredExtractionService {
     private final ObservationRepository observationRepository;
     private final ObjectMapper objectMapper;
     
+    // Classloader for resolving templateClass string → Class<?>
+    private final ClassLoader classLoader = getClass().getClassLoader();
+    
     /**
      * Generic extraction - runs all templates.
      * What is extracted is determined by the template prompts.
      */
     public void runExtraction(String projectPath) {
         for (ExtractionTemplate template : templates) {
+            if (!template.enabled()) {  // Skip disabled templates
+                continue;
+            }
             try {
                 runTemplateExtraction(projectPath, template);
             } catch (Exception e) {
@@ -324,14 +424,19 @@ public class StructuredExtractionService {
     
     /**
      * Extract by specific template using Spring AI structured output.
+     * Supports two patterns: POJO (type-safe) and Map (flexible schema).
+     * 
      * Requires LlmService.chatCompletionStructured() — see Bug 2 fix in section 0.1.
      */
+    @SuppressWarnings("unchecked")
     public <T> ExtractionResult<T> extractByTemplate(
         String projectPath, 
-        ExtractionTemplate template,
-        Class<T> outputType) {
+        ExtractionTemplate template) {
         
-        // 1. Find candidate observations (requires new findBySourceIn method)
+        // 1. Resolve output type from templateClass
+        Class<T> outputClass = resolveOutputClass(template.templateClass());
+        
+        // 2. Find candidate observations (requires new findBySourceIn method)
         List<ObservationEntity> candidates = observationRepository
             .findBySourceIn(projectPath, template.sourceFilter(), 100);
         
@@ -339,21 +444,50 @@ public class StructuredExtractionService {
             return null;
         }
         
-        // 2. Build prompt
-        String prompt = buildPrompt(template, candidates);
+        // 3. Build prompt (schema source depends on template type)
+        String schemaHint = buildSchemaHint(template, outputClass);
+        String prompt = buildPrompt(template, candidates, schemaHint);
         
-        // 3. Call LLM with Spring AI structured output via LlmService
+        // 4. Call LLM with Spring AI structured output via LlmService
         // NOTE: This requires LlmService.chatCompletionStructured() to be implemented.
-        // Bug 2 (section 0.1) recommends adding this method to LlmService.
-        // Until then, use chatClient.prompt()...entity() directly, or implement the method.
         T result = llmService.chatCompletionStructured(
             template.promptTemplate(),  // system prompt
-            prompt,                     // user prompt
-            outputType                  // target class for structured parsing
+            prompt,                    // user prompt
+            outputClass                // target class for structured parsing
         );
         
-        // 4. Store result
+        // 5. Store result
         return storeExtractionResult(template, result, candidates);
+    }
+    
+    /**
+     * Resolve templateClass string to Java Class.
+     * Supports: "java.util.Map", "com.example.AllergyInfo", etc.
+     */
+    @SuppressWarnings("unchecked")
+    private <T> Class<T> resolveOutputClass(String templateClass) {
+        try {
+            if ("java.util.Map".equals(templateClass)) {
+                return (Class<T>) java.util.Map.class;
+            }
+            return (Class<T>) classLoader.loadClass(templateClass);
+        } catch (ClassNotFoundException e) {
+            throw new IllegalArgumentException("Cannot load template class: " + templateClass, e);
+        }
+    }
+    
+    /**
+     * Build schema hint for the user prompt.
+     * - For Map templates: include outputSchema from YAML
+     * - For POJO templates: BeanOutputConverter handles this via getFormat() in the system prompt
+     */
+    private <T> String buildSchemaHint(ExtractionTemplate template, Class<T> outputClass) {
+        if (java.util.Map.class.isAssignableFrom(outputClass)) {
+            // Map template: schema is in YAML, include it in the user prompt
+            return template.outputSchema() != null ? template.outputSchema() : "{}";
+        }
+        // POJO template: schema is auto-derived by BeanOutputConverter.getFormat()
+        return null;
     }
     
     /**
@@ -373,12 +507,13 @@ public class StructuredExtractionService {
         }
         
         // Process and store
-        extractByTemplate(projectPath, template, candidates);
+        extractByTemplate(projectPath, template);
         updateExtractionState(projectPath, template.name(), OffsetDateTime.now());
     }
     
     private String buildPrompt(ExtractionTemplate template, 
-                               List<ObservationEntity> candidates) {
+                               List<ObservationEntity> candidates,
+                               String schemaHint) {
         StringBuilder sb = new StringBuilder();
         sb.append("Extract structured information from the following observations.\n\n");
         sb.append("Observations:\n");
@@ -390,8 +525,11 @@ public class StructuredExtractionService {
                 obs.getContent() != null ? sanitize(obs.getContent()) : ""));
         }
         
-        sb.append("\nOutput JSON according to this schema:\n");
-        sb.append(template.outputSchema());
+        // Include schema hint only for Map templates (POJO templates get schema via BeanOutputConverter)
+        if (schemaHint != null) {
+            sb.append("\nOutput JSON according to this schema:\n");
+            sb.append(schemaHint);
+        }
         
         return sb.toString();
     }
@@ -457,10 +595,42 @@ public class StructuredExtractionService {
 
 ### 2.4 Example: Allergy Extraction (from user's example)
 
+**Two ways to configure** (v11):
+
+**Option A: POJO Template** (type-safe, requires predefined class)
+
 ```java
-// Template configuration (YAML)
+// com.example.AllergyInfo.java
+public class AllergyInfo {
+    public String person;
+    public List<String> allergens;
+    public String severity;
+}
+
+// Template YAML
 templates:
   - name: "allergy_info"
+    template-class: "com.example.AllergyInfo"   # Predefined POJO
+    trigger-keywords: ["过敏", "allergic", "不能吃"]
+    prompt: |
+      从对话中提取过敏信息：
+      - 谁过敏 (person)
+      - 过敏原 (allergens) 
+      - 严重程度（如有）
+    # output-schema: auto-derived from AllergyInfo.class by BeanOutputConverter
+
+// Usage
+var result = extractionService.extractByTemplate(projectPath, allergyTemplate);
+// result.content() is AllergyInfo: {person: "孩子", allergens: ["花生", "虾"], severity: "严重"}
+```
+
+**Option B: Map Template** (flexible, no predefined class needed)
+
+```java
+// Template YAML
+templates:
+  - name: "allergy_info"
+    template-class: "java.util.Map"              # Flexible Map output
     trigger-keywords: ["过敏", "allergic", "不能吃"]
     prompt: |
       从对话中提取过敏信息：
@@ -468,14 +638,11 @@ templates:
       - 过敏原 (allergens) 
       - 严重程度（如有）
     output-schema: |
-      {"type": "object", "properties": {"person": "string", "allergens": ["string"], "severity": "string"}}
+      {"type": "object", "properties": {"person": {"type": "string"}, "allergens": {"type": "array", "items": {"type": "string"}}, "severity": {"type": "string"}}}
 
 // Usage
-ExtractionTemplate allergyTemplate = templates.get("allergy_info");
-var result = extractionService.extractByTemplate(projectPath, allergyTemplate, AllergyInfo.class);
-
-// result.content() contains:
-// {"person": "孩子", "allergens": ["花生", "虾"], "severity": "严重"}
+var result = extractionService.extractByTemplate(projectPath, allergyTemplate);
+// result.content() is Map<String, Object>: {person="孩子", allergens=[花生, 虾], severity="严重"}
 ```
 
 ---
@@ -842,6 +1009,9 @@ public void runCascadingExtraction(String projectPath, ExtractionTemplate templa
 6. How to handle template schema evolution without re-extracting all history?
 7. Do we need cascading extractions or is flat extraction sufficient?
 8. **Spring AI 1.1.2 schema enforcement**: ✅ Answered in v10 — `JacksonOutputConverter` does NOT exist in Spring AI 1.1.2. Correct approach is `BeanOutputConverter` from `org.springframework.ai.converter`. Note: Spring AI 1.1.2 does not provide true schema enforcement at the API level — schema compliance relies on prompt engineering + LLM compliance + retry on parse failure.
+9. **Schema-to-Class bridge (v11)**: ✅ Answered — Use `templateClass` field to specify Java class name. For flexible schemas, use `java.util.Map` with explicit `output-schema`. POJO templates auto-derive schema from class.
+10. **Array schema handling (v11)**: ✅ Answered — `ListOutputConverter` returns `List<String>`, NOT `List<MyObject>`. For arrays of objects, use `MapOutputConverter` → `List<Map<String, Object>>` and post-process, or restructure schema as `{"type": "object", "properties": {"items": {"type": "array", ...}}}`.
+11. **Which templates should be POJO vs Map?**: Open — POJO gives type safety but requires class per template. Map is flexible but loses type safety. Recommend: stable/important data (allergies) = POJO; experimental/new data = Map.
 
 ---
 
@@ -854,7 +1024,55 @@ public void runCascadingExtraction(String projectPath, ExtractionTemplate templa
 - `findByType(project, type, limit)` - For finding extraction results
 - `findDistinctProjects()` - For iterating all projects in scheduled tasks
 
-**New repository methods required**:
+**⚠️ New repository methods STILL NOT IMPLEMENTED** (v11 status: pending):
+
+```java
+// Bug 1 fix: find observations where source is IN a list
+// ⚠️ NOT YET ADDED to ObservationRepository — must be implemented before Phase 3.1
+@Query(value = """
+    SELECT * FROM mem_observations
+    WHERE project_path = :project
+    AND source IN (:sources)
+    ORDER BY created_at_epoch DESC
+    LIMIT :limit
+    """, nativeQuery = true)
+List<ObservationEntity> findBySourceIn(
+    @Param("project") String project,
+    @Param("sources") List<String> sources,
+    @Param("limit") int limit
+);
+
+// Incremental extraction: find observations newer than lastExtractedAt
+// ⚠️ NOT YET ADDED to ObservationRepository — must be implemented before Phase 3.1
+@Query(value = """
+    SELECT * FROM mem_observations
+    WHERE project_path = :project
+    AND source IN (:sources)
+    AND created_at_epoch > :sinceEpoch
+    ORDER BY created_at_epoch ASC
+    LIMIT :limit
+    """, nativeQuery = true)
+List<ObservationEntity> findNewObservations(
+    @Param("project") String project,
+    @Param("sources") List<String> sources,
+    @Param("sinceEpoch") Long sinceEpoch,  // OffsetDateTime.toEpochSecond() * 1000
+    @Param("limit") int limit
+);
+
+// DLQ retry: global (cross-project) query by type
+// ⚠️ NOT YET ADDED — findByType(project, type, limit) requires non-null project
+// This method is needed for the dead letter queue retry scheduled task
+@Query(value = """
+    SELECT * FROM mem_observations
+    WHERE type = :type
+    ORDER BY created_at_epoch DESC
+    LIMIT :limit
+    """, nativeQuery = true)
+List<ObservationEntity> findByTypeGlobal(
+    @Param("type") String type,
+    @Param("limit") int limit
+);
+```
 
 ```java
 // Bug 1 fix: find observations where source is IN a list
@@ -1240,9 +1458,19 @@ public void handleExtractionFailure(String requestId, String projectPath, Extrac
 }
 
 // Scheduled task to retry dead letter items
+// ⚠️ FIX: findByType(null, ...) will NOT work — @Param("project") is non-null.
+// Use findByTypeGlobal() (new method) or findDistinctProjects() + per-project findByType().
 @Scheduled(fixedRate = 3600000)  // Every hour
 public void retryDeadLetterExtractions() {
-    List<ObservationEntity> failedObs = observationRepository.findByType(null, "extraction_failed", 100);
+    // Option A: Use new findByTypeGlobal method (preferred)
+    List<ObservationEntity> failedObs = observationRepository.findByTypeGlobal("extraction_failed", 100);
+    
+    // Option B (fallback): Iterate projects
+    // for (String project : observationRepository.findDistinctProjects()) {
+    //     List<ObservationEntity> failedObs = observationRepository.findByType(project, "extraction_failed", 100);
+    //     // ... process each
+    // }
+    
     for (ObservationEntity obs : failedObs) {
         Map<String, Object> data = obs.getExtractedData();
         int attemptCount = ((Number) data.get("attemptCount")).intValue();
@@ -1686,8 +1914,195 @@ void shouldValidateOutputSchema() {
 
 ---
 
+## 15. Implementation Bootstrap Checklist (Phase 3.1)
+
+This section provides a concrete, step-by-step guide for implementing Phase 3.1.
+
+### 15.1 Prerequisites (Must Complete First)
+
+| # | Task | File | Notes |
+|---|------|------|-------|
+| 1 | Add `findBySourceIn()` | `ObservationRepository.java` | `List<String> sources` param, native SQL with `IN (:sources)` |
+| 2 | Add `findNewObservations()` | `ObservationRepository.java` | `Long sinceEpoch` param for incremental extraction |
+| 3 | Add `findByTypeGlobal()` | `ObservationRepository.java` | Cross-project query for DLQ — `findByType(null, ...)` will NOT work because `@Param("project")` is non-null |
+| 4 | Add `chatCompletionStructured()` | `LlmService.java` | Uses `BeanOutputConverter<T>` from `org.springframework.ai.converter` |
+
+**Critical fix for DLQ (section 11.3)**: The current dead letter queue retry code uses `findByType(null, "extraction_failed", 100)` — this will fail because `findByType` requires a non-null `@Param("project")`. Two options:
+
+```java
+// Option A: New repository method for global (cross-project) queries
+@Query(value = """
+    SELECT * FROM mem_observations
+    WHERE type = :type
+    ORDER BY created_at_epoch DESC
+    LIMIT :limit
+    """, nativeQuery = true)
+List<ObservationEntity> findByTypeGlobal(
+    @Param("type") String type,
+    @Param("limit") int limit
+);
+
+// Option B: Use findDistinctProjects() + per-project findByType() (existing methods)
+// Less efficient but no new repository code needed
+```
+
+### 15.2 New Files to Create
+
+| File | Purpose |
+|------|---------|
+| `service/StructuredExtractionService.java` | Core extraction engine |
+| `model/ExtractionTemplate.java` | Record or POJO for template config |
+| `model/ExtractionResult.java` | Extraction result wrapper |
+| `model/ExtractionState.java` | Incremental extraction state |
+| `config/ExtractionConfig.java` | `@ConfigurationProperties` for templates |
+| `controller/ExtractionController.java` | Query API for extracted data |
+
+### 15.3 Record vs POJO for ExtractionTemplate
+
+**Important architectural decision**: `ExtractionTemplate` as a Java `record` has implications for Spring Boot configuration binding.
+
+**Problem**: Spring Boot `@ConfigurationProperties` with records requires **constructor parameter names** to match YAML keys. With nested lists of records, this can be fragile.
+
+**Recommended approach**: Use a POJO with `@ConfigurationProperties` at the config level, not the record directly.
+
+```java
+// config/ExtractionConfig.java
+@Configuration
+@ConfigurationProperties(prefix = "app.memory.extraction")
+public class ExtractionConfig {
+    private boolean enabled = true;
+    private List<ExtractionTemplate> templates = new ArrayList<>();
+    private CostControl costControl = new CostControl();
+    
+    // Getters/setters required for @ConfigurationProperties binding
+    
+    public static class ExtractionTemplate {
+        private String name;
+        private boolean enabled = true;
+        private String templateClass = "java.util.Map";  // Default to flexible Map
+        private String description;
+        private List<String> triggerKeywords = List.of();
+        private List<String> sourceFilter = List.of();
+        private String prompt;              // Maps from YAML "prompt"
+        private String outputSchema;        // Maps from YAML "output-schema"
+        private boolean trackEvolution = false;
+        private boolean conflictEnabled = false;
+        
+        // Getters/setters...
+        
+        /** Convert to internal model (record) if needed */
+        public com.ablueforce.cortexce.model.ExtractionTemplate toTemplate() {
+            return new com.ablueforce.cortexce.model.ExtractionTemplate(
+                name, enabled, templateClass, description,
+                triggerKeywords, sourceFilter, prompt, outputSchema,
+                trackEvolution, conflictEnabled
+            );
+        }
+    }
+    
+    public static class CostControl {
+        private boolean dryRun = false;
+        private int maxCallsPerRun = 10;
+        private boolean cacheEnabled = true;
+        private int cacheTtlHours = 24;
+        // getters/setters...
+    }
+}
+```
+
+**Why not use record directly?**
+- Spring Boot 3.3 supports records in `@ConfigurationProperties`, but nested `List<Record>` binding is fragile
+- YAML `kebab-case` keys (e.g., `template-class`) need `@JsonProperty` or relaxed binding magic
+- POJO approach is more debuggable and allows default values
+
+### 15.4 LlmService.chatCompletionStructured() Implementation
+
+```java
+// Add to LlmService.java
+@SuppressWarnings("unchecked")
+public <T> T chatCompletionStructured(String systemPrompt, String userPrompt, Class<T> outputType) {
+    ChatClient chatClient = this.chatClient.orElseThrow(() ->
+        new IllegalStateException("AI not configured."));
+
+    if (Map.class.isAssignableFrom(outputType)) {
+        // Flexible Map output — use MapOutputConverter
+        MapOutputConverter converter = new MapOutputConverter();
+        String response = chatClient.prompt()
+            .system(systemPrompt + "\n\n" + converter.getFormat())
+            .user(userPrompt)
+            .call()
+            .content();
+        return (T) converter.convert(response);
+    } else {
+        // POJO output — use BeanOutputConverter
+        BeanOutputConverter<T> converter = new BeanOutputConverter<>(outputType);
+        String response = chatClient.prompt()
+            .system(systemPrompt + "\n\n" + converter.getFormat())
+            .user(userPrompt)
+            .call()
+            .content();
+        return converter.convert(response);
+    }
+}
+```
+
+**Note**: Both converters' `getFormat()` returns a JSON Schema string that gets appended to the system prompt. The LLM sees the schema and (ideally) produces matching JSON. The converter then parses the response.
+
+### 15.5 DeepRefine Integration: Execution Order
+
+**Critical**: Extraction must NOT run during `quickRefine()` — only during `deepRefineProjectMemories()`.
+
+```
+deepRefineProjectMemories(projectPath)
+├── Step 1: Find refinement candidates
+├── Step 2: refineObservations() — merge/rewrite existing memories
+├── Step 3: [NEW] Run structured extraction on refined state
+│   └── StructuredExtractionService.runExtraction(projectPath)
+│       ├── For each enabled template:
+│       │   ├── Get incremental candidates (since last extraction)
+│       │   ├── Call LLM with structured output
+│       │   ├── Store results as extracted_observations
+│       │   └── Update extraction state
+│       └── On failure: log + queue for retry (don't block refinement)
+└── Step 4: Return — extraction failures are non-blocking
+```
+
+```java
+// In MemoryRefineService.deepRefineProjectMemories()
+public void deepRefineProjectMemories(String projectPath) {
+    // ... existing refinement steps ...
+    
+    // Phase 3: Structured extraction (non-blocking)
+    if (extractionConfig.isEnabled()) {
+        try {
+            extractionService.runExtraction(projectPath);
+            log.info("Extraction completed for project: {}", projectPath);
+        } catch (Exception e) {
+            log.warn("Extraction failed for project {}, queued for retry: {}", 
+                projectPath, e.getMessage());
+            // Non-blocking: refinement succeeded even if extraction failed
+        }
+    }
+}
+```
+
+### 15.6 Validation Checklist Before Implementation
+
+Before writing any code, verify:
+
+- [ ] Spring AI 1.1.2 includes `org.springframework.ai.converter` package (check Maven dependency tree)
+- [ ] `BeanOutputConverter` and `MapOutputConverter` are available in the classpath
+- [ ] `ObservationEntity.getExtractedData()` returns `Map<String, Object>` (confirmed in V14)
+- [ ] `ObservationEntity.setExtractedData(Map<String, Object>)` setter exists
+- [ ] `ObjectMapper` bean is available in the Spring context (for `convertToMap()`)
+- [ ] YAML configuration loading works with the chosen config binding approach
+
+---
+
 ## Changelog
 
+- **2026-03-22 v12**: (1) **Section 15**: Added Implementation Bootstrap Checklist — step-by-step Phase 3.1 guide with prerequisites, new files, and validation checklist. (2) **Section 15.1**: Fixed DLQ bug — `findByType(null, ...)` won't work because `@Param("project")` is non-null; added `findByTypeGlobal()` repository method as prerequisite. (3) **Section 15.3**: Added Record vs POJO analysis for `ExtractionTemplate` configuration binding — recommended POJO approach via `@ConfigurationProperties` for Spring Boot 3.3 compatibility. (4) **Section 15.4**: Added concrete `LlmService.chatCompletionStructured()` implementation with `BeanOutputConverter`/`MapOutputConverter` dual pattern. (5) **Section 15.5**: Clarified extraction integration order — must NOT run during `quickRefine()`, only as last step of `deepRefineProjectMemories()`. (6) **Section 11.3**: Fixed DLQ retry code to use `findByTypeGlobal()` instead of broken `findByType(null, ...)`.
+- **2026-03-22 v11**: (1) **Section 0.2**: Added critical design gaps documentation — `outputSchema` (String) cannot feed `BeanOutputConverter<T>` (Class) without a bridge; added three practical solutions (predefined POJO, Map fallback, dynamic generation). (2) **Gap 2**: Clarified `ListOutputConverter` limitation — returns `List<String>`, not `List<MyObject>`; arrays of objects must use `MapOutputConverter` or post-processing. (3) **Gap 3**: Confirmed `findBySourceIn` and `findNewObservations` repository methods are still NOT implemented (status: pending). (4) **Gap 4**: Confirmed `LlmService.chatCompletionStructured()` method does NOT exist (status: pending). (5) **Section 2.1**: Added `templateClass` field to `ExtractionTemplate` record — required for resolving Java Class at runtime. (6) **Section 2.2**: Updated YAML examples to include `template-class` field; clarified `output-schema` is only needed for Map templates. (7) **Section 2.3**: Refactored `extractByTemplate()` to use `resolveOutputClass()` and `buildSchemaHint()` for two-pattern support (POJO vs Map). (8) **Section 2.4**: Updated allergy example to show both POJO and Map template patterns.
 - **2026-03-21 v10**: Critical fix in section 0.1 Bug 2: `JacksonOutputConverter` does NOT exist in Spring AI 1.1.2. Replaced with correct `BeanOutputConverter` approach. The correct Spring AI 1.1.2 structured output converters are `BeanOutputConverter`, `MapOutputConverter`, and `ListOutputConverter` from `org.springframework.ai.converter`. Updated implementation options to reflect actual Spring AI 1.1.2 API.
 - **2026-03-21 v9**: (1) Added missing `convertToMap()` utility method in section 2.3 — handles POJOs, Maps, Lists, and primitives for `extractedData` JSONB storage. (2) Fixed `StructuredExtractionService` to use `LlmService` (consistent with `MemoryRefineService`) instead of raw `ChatClient`. (3) Added `findNewObservations()` repository method to section 9.1 with epoch-based comparison for incremental extraction. (4) Clarified `ExtractionState` persistence — stores as `ObservationEntity` with `type="extraction_state"` to avoid a separate database table.
 - **2026-03-21 v8**: (1) Clarified Spring AI structured output: `ChatClient.call().entity()` does NOT auto-enforce schema - must use `JacksonOutputConverter` for true schema enforcement. Added implementation options for `LlmService.chatCompletionStructured()`. (2) Fixed `tokenService.estimateTokens()` → should be `TokenService.calculateObservationTokens()` (method doesn't exist, must inject TokenService bean). (3) Clarified dead letter queue implementation: store as `ObservationEntity` with type=`extraction_failed` rather than separate queue infrastructure.
