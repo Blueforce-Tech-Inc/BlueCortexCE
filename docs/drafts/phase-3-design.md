@@ -1,7 +1,7 @@
 # Phase 3 Design Proposal: Structured Information Extraction & Memory Conflict Detection
 
 **Date**: 2026-03-21
-**Status**: Design proposal - iteration 7 (critical code-bug fixes + Spring AI structured output)
+**Status**: Design proposal - iteration 9 (utility method gaps + LlmService integration clarity + ExtractionState persistence + Spring AI 1.1.2 schema enforcement)
 **Related to**: `sdk-improvement-research.md` Phase 3 deferred items
 
 ---
@@ -308,6 +308,8 @@ app.memory.extraction:
 
 ### 2.3 Generic StructuredExtractionService
 
+**Integration note**: This service uses `LlmService` (not raw `ChatClient`) to stay consistent with `MemoryRefineService`. The `LlmService.chatCompletionStructured()` method must be added — see section 0.1 Bug 2.
+
 ```java
 @Service
 public class StructuredExtractionService {
@@ -315,7 +317,7 @@ public class StructuredExtractionService {
     @Value("${app.memory.extraction.templates}")
     private List<ExtractionTemplate> templates;
     
-    private final ChatClient chatClient;  // Spring AI ChatClient (not LlmService)
+    private final LlmService llmService;           // ✅ Uses LlmService (consistent with MemoryRefineService)
     private final ObservationRepository observationRepository;
     private final ObjectMapper objectMapper;
     
@@ -335,6 +337,7 @@ public class StructuredExtractionService {
     
     /**
      * Extract by specific template using Spring AI structured output.
+     * Requires LlmService.chatCompletionStructured() — see Bug 2 fix in section 0.1.
      */
     public <T> ExtractionResult<T> extractByTemplate(
         String projectPath, 
@@ -352,12 +355,15 @@ public class StructuredExtractionService {
         // 2. Build prompt
         String prompt = buildPrompt(template, candidates);
         
-        // 3. Call LLM with Spring AI structured output
-        T result = chatClient.prompt()
-            .system(s -> s.text(template.promptTemplate()))  // Extraction instruction
-            .user(prompt)                                    // Observations + schema
-            .call()
-            .entity(outputType);                            // Direct typed parsing
+        // 3. Call LLM with Spring AI structured output via LlmService
+        // NOTE: This requires LlmService.chatCompletionStructured() to be implemented.
+        // Bug 2 (section 0.1) recommends adding this method to LlmService.
+        // Until then, use chatClient.prompt()...entity() directly, or implement the method.
+        T result = llmService.chatCompletionStructured(
+            template.promptTemplate(),  // system prompt
+            prompt,                     // user prompt
+            outputType                  // target class for structured parsing
+        );
         
         // 4. Store result
         return storeExtractionResult(template, result, candidates);
@@ -430,6 +436,34 @@ public class StructuredExtractionService {
         }
         
         return new ExtractionResult<>(result, extractionObs);
+    }
+    
+    /**
+     * Convert extraction result to Map<String, Object> for storage in JSONB column.
+     * Handles: POJOs (via ObjectMapper), Maps, Lists, and primitives.
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> convertToMap(Object result) {
+        if (result == null) {
+            return null;
+        }
+        if (result instanceof Map) {
+            return (Map<String, Object>) result;
+        }
+        try {
+            // ObjectMapper is available as a field in this service
+            return objectMapper.convertValue(result, new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            log.warn("Failed to convert extraction result to Map, storing as raw JSON string: {}", e.getMessage());
+            // Fallback: store as single-field map with JSON string
+            Map<String, Object> fallback = new java.util.HashMap<>();
+            try {
+                fallback.put("_raw", objectMapper.writeValueAsString(result));
+            } catch (Exception ex) {
+                fallback.put("_raw", result.toString());
+            }
+            return fallback;
+        }
     }
 }
 ```
@@ -591,6 +625,8 @@ Extractions of type "user_profile" can be stored with source="profile_update".
 ```java
 /**
  * Track what has been extracted to avoid re-extraction.
+ * Stored as an ObservationEntity with type="extraction_state" (no separate table needed).
+ * Uses projectPath + source + extractedData to encode state fields.
  */
 public record ExtractionState(
     String projectPath,
@@ -600,11 +636,43 @@ public record ExtractionState(
     int totalExtracted
 ) {}
 
-// Repository method to find new observations since last extraction
-List<ObservationEntity> findNewObservations(
-    String projectPath, 
-    OffsetDateTime since
-);
+/**
+ * Store extraction state using existing ObservationEntity infrastructure.
+ * Avoids a separate database table.
+ */
+private void updateExtractionState(String projectPath, String templateName, OffsetDateTime now) {
+    ObservationEntity stateObs = new ObservationEntity();
+    stateObs.setProjectPath(projectPath);
+    stateObs.setType("extraction_state");
+    stateObs.setSource("state:" + templateName);
+    stateObs.setCreatedAt(now);
+    stateObs.setCreatedAtEpoch(now.toEpochSecond() * 1000L);
+    stateObs.setExtractedData(Map.of(
+        "template", templateName,
+        "lastExtractedAt", now.toEpochSecond()
+    ));
+    // Use upsert: delete old state for this project+template, then insert new
+    observationRepository.findByType(projectPath, "extraction_state", 1).stream()
+        .filter(o -> o.getSource().equals("state:" + templateName))
+        .forEach(o -> observationRepository.deleteById(o.getId()));
+    observationRepository.save(stateObs);
+}
+
+private ExtractionState getExtractionState(String projectPath, String templateName) {
+    List<ObservationEntity> states = observationRepository.findByType(projectPath, "extraction_state", 1).stream()
+        .filter(o -> o.getSource().equals("state:" + templateName))
+        .toList();
+    if (states.isEmpty()) return null;
+    
+    Map<String, Object> data = states.get(0).getExtractedData();
+    return new ExtractionState(
+        projectPath,
+        templateName,
+        OffsetDateTime.ofEpochSecond(((Number) data.get("lastExtractedAt")).longValue(), 0, ZoneOffset.UTC),
+        null,  // lastExtractedObservationId not stored in simple version
+        0      // totalExtracted not tracked in simple version
+    );
+}
 ```
 
 **Incremental extraction flow**:
@@ -786,6 +854,7 @@ public void runCascadingExtraction(String projectPath, ExtractionTemplate templa
 5. Should we support incremental extraction by default? (Performance vs freshness tradeoff)
 6. How to handle template schema evolution without re-extracting all history?
 7. Do we need cascading extractions or is flat extraction sufficient?
+8. **Spring AI 1.1.2 schema enforcement**: Does `JacksonOutputConverter` work reliably in 1.1.2, or should we use `ChatModel` JSON mode / `@JsonSchema` approach instead? Need implementation verification before Phase 3.1 coding begins.
 
 ---
 
@@ -796,8 +865,42 @@ public void runCascadingExtraction(String projectPath, ExtractionTemplate templa
 **Confirmed**: The following methods already exist in `ObservationRepository`:
 - `findBySource(project, source, limit)` - For filtering by source
 - `findByType(project, type, limit)` - For finding extraction results
+- `findDistinctProjects()` - For iterating all projects in scheduled tasks
 
-**No new repository methods needed** for basic extraction functionality.
+**New repository methods required**:
+
+```java
+// Bug 1 fix: find observations where source is IN a list
+@Query(value = """
+    SELECT * FROM mem_observations
+    WHERE project_path = :project
+    AND source IN (:sources)
+    ORDER BY created_at_epoch DESC
+    LIMIT :limit
+    """, nativeQuery = true)
+List<ObservationEntity> findBySourceIn(
+    @Param("project") String project,
+    @Param("sources") List<String> sources,
+    @Param("limit") int limit
+);
+
+// Incremental extraction: find observations newer than lastExtractedAt
+// Uses created_at_epoch (Long) for efficient comparison
+@Query(value = """
+    SELECT * FROM mem_observations
+    WHERE project_path = :project
+    AND source IN (:sources)
+    AND created_at_epoch > :sinceEpoch
+    ORDER BY created_at_epoch ASC
+    LIMIT :limit
+    """, nativeQuery = true)
+List<ObservationEntity> findNewObservations(
+    @Param("project") String project,
+    @Param("sources") List<String> sources,
+    @Param("sinceEpoch") Long sinceEpoch,  // OffsetDateTime.toEpochSecond() * 1000
+    @Param("limit") int limit
+);
+```
 
 ### 9.2 Integration Points with MemoryRefineService
 
@@ -1224,6 +1327,7 @@ public void deepRefineWithGracefulDegradation(String projectPath) {
 
 ## Changelog
 
+- **2026-03-21 v9**: (1) Added missing `convertToMap()` utility method in section 2.3 — handles POJOs, Maps, Lists, and primitives for `extractedData` JSONB storage. (2) Fixed `StructuredExtractionService` to use `LlmService` (consistent with `MemoryRefineService`) instead of raw `ChatClient`. (3) Added `findNewObservations()` repository method to section 9.1 with epoch-based comparison for incremental extraction. (4) Clarified `ExtractionState` persistence — stores as `ObservationEntity` with `type="extraction_state"` to avoid a separate database table.
 - **2026-03-21 v8**: (1) Clarified Spring AI structured output: `ChatClient.call().entity()` does NOT auto-enforce schema - must use `JacksonOutputConverter` for true schema enforcement. Added implementation options for `LlmService.chatCompletionStructured()`. (2) Fixed `tokenService.estimateTokens()` → should be `TokenService.calculateObservationTokens()` (method doesn't exist, must inject TokenService bean). (3) Clarified dead letter queue implementation: store as `ObservationEntity` with type=`extraction_failed` rather than separate queue infrastructure.
 - **2026-03-21 v7**: Fixed 3 critical bugs: (1) `findBySource(project, sourceFilter List)` → must use new `findBySourceIn(project, List<String>, limit)` method (findBySource takes String only). (2) Manual JSON parsing → replaced with Spring AI structured output via `ChatClient.call().entity(outputType)`. (3) Integration ambiguity → clarified extraction is a separate pipeline from refinement, only called as last step of deepRefineProjectMemories. Updated all `template.prompt()` references to `template.promptTemplate()`. Added `@JsonProperty` mapping note for YAML.
 - **2026-03-21 v6**: Fixed findByType missing projectPath (cross-project pollution bug). Added error handling & recovery strategies: retry with circuit breaker, dead letter queue, schema validation failure handling, graceful degradation.
