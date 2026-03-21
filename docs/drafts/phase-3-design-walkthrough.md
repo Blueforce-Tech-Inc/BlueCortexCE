@@ -408,11 +408,210 @@ private void checkAndUpdateEvolution(ExtractionTemplateConfig template,
 
 ---
 
+## 4.5 CRITICAL ISSUE: Multi-User Session Aggregation
+
+### Problem Statement
+
+**Current issue**: The walkthrough assumes `projectPath` isolates users, but this is incorrect.
+
+**Real scenario**:
+```
+Session A (session_id="sess-001", user_id="user_chen") → observations
+Session B (session_id="sess-002", user_id="user_chen") → observations (different session, same user)
+Session C (session_id="sess-003", user_id="user_wang") → observations (different user)
+```
+
+**Question**: How do we extract preferences for `user_chen` across sessions A and B?
+
+### Current Data Model
+
+```java
+// ObservationEntity has:
+private String contentSessionId;  // Per-session, not per-user
+private String projectPath;         // Project boundary
+
+// But NO userId field!
+```
+
+### Solution Options
+
+#### Option A: Session-based Aggregation
+
+```java
+// Get all sessions for a user, then aggregate observations
+public List<ObservationEntity> getUserObservations(String userId) {
+    // Step 1: Find all sessions belonging to user
+    List<String> userSessions = sessionRepository.findByUserId(userId);
+    // Returns: ["sess-001", "sess-002"]
+
+    // Step 2: Find all observations for these sessions
+    return observationRepository.findByContentSessionIdIn(userSessions);
+}
+```
+
+**Issue**: Requires `userId` in session, but currently there's no such field.
+
+#### Option B: Project Path Contains User ID
+
+```java
+// If project path encodes user: "/users/user_chen/sessions/..."
+// Then we can parse user from project path
+
+public String extractUserIdFromProjectPath(String projectPath) {
+    // "/users/user_chen/project-x" → "user_chen"
+    // "/users/user_wang/assistant" → "user_wang"
+    Pattern pattern = Pattern.compile("/users/([^/]+)/");
+    Matcher m = pattern.matcher(projectPath);
+    if (m.find()) {
+        return m.group(1);
+    }
+    return null;
+}
+
+public List<ObservationEntity> getUserObservationsByProjectPath(String projectPath) {
+    String userId = extractUserIdFromProjectPath(projectPath);
+    return observationRepository.findByProjectPathStartingWith("/users/" + userId);
+}
+```
+
+**Issue**: Requires naming convention, fragile.
+
+#### Option C: Add userId to Session (Recommended)
+
+```java
+// SessionEntity should have userId
+@Entity
+@Table(name = "mem_sessions")
+public class SessionEntity {
+    @Column(name = "content_session_id")
+    private String contentSessionId;
+
+    @Column(name = "user_id")  // NEW FIELD
+    private String userId;
+
+    @Column(name = "project_path")
+    private String projectPath;
+}
+
+// Repository method
+public interface SessionRepository extends JpaRepository<SessionEntity, String> {
+    List<SessionEntity> findByUserId(String userId);
+}
+
+// Extraction service uses userId
+public void extractForUser(String userId) {
+    List<SessionEntity> userSessions = sessionRepository.findByUserId(userId);
+    List<String> sessionIds = userSessions.stream()
+        .map(SessionEntity::getContentSessionId)
+        .collect(Collectors.toList());
+
+    List<ObservationEntity> userObservations = observationRepository
+        .findByContentSessionIdIn(sessionIds);
+
+    // Now extract preferences from these observations
+    extractPreferences(userObservations);
+}
+```
+
+**Advantage**: Clean separation, no naming convention dependency.
+
+#### Option D: Use Source Attribution
+
+```java
+// When ingesting, tag observations with user_id as source
+// This is already partially supported via the source field
+
+// In ingestion:
+observation.setSource("user:" + userId);  // "user:user_chen"
+
+// In extraction query:
+public List<ObservationEntity> findByUserSource(String userId) {
+    return observationRepository.findBySourceContaining("user:" + userId);
+}
+```
+
+**Issue**: Abuses the `source` field semantics.
+
+### Recommended Solution
+
+**Option C: Add userId to Session** is the cleanest approach.
+
+**However**, the current system uses `projectPath` as the primary isolation boundary. For Cortex CE as a **project-based memory for AI agents** (not a multi-user personal assistant), Option B or the current approach is acceptable.
+
+**For multi-user scenarios**, we need to add:
+
+1. **Add `userId` field to `SessionEntity`**
+2. **Repository method `findByUserId()`**
+3. **Extraction query by userId across sessions**
+
+### Updated Extraction Flow (Multi-User)
+
+```java
+public void extractForUser(String userId, ExtractionTemplateConfig template) {
+    // Step 1: Find all sessions for this user
+    List<String> userSessionIds = sessionRepository.findByUserId(userId)
+        .stream()
+        .map(Session::getContentSessionId)
+        .collect(Collectors.toList());
+
+    // Step 2: Find observations for these sessions
+    List<ObservationEntity> userObservations = observationRepository
+        .findByContentSessionIdIn(userSessionIds);
+
+    // Step 3: Filter by source/tags
+    List<ObservationEntity> candidates = userObservations.stream()
+        .filter(obs -> template.getSourceFilter().contains(obs.getSource()))
+        .collect(Collectors.toList());
+
+    // Step 4: Extract preferences
+    extractByTemplate(userId, template, candidates);
+}
+```
+
+### Migration Path
+
+1. **Phase 1**: Add `userId` to `SessionEntity` (Flyway migration)
+2. **Phase 2**: Update ingestion to set `userId` from authentication context
+3. **Phase 3**: Add `findByUserId()` to `SessionRepository`
+4. **Phase 4**: Update extraction to support multi-user queries
+
+---
+
 ## 5. Conclusion
 
-**Can the generalized architecture extract user preferences?**
+**User Preference Extraction: VERIFIED ✅**
 
-**YES**, with the following verified flow:
+**Multi-User Aggregation: ISSUE FOUND ⚠️**
+
+| Aspect | Status | Notes |
+|--------|--------|-------|
+| YAML template → extraction | ✅ Verified | Works with proper YAML binding |
+| Session → observations | ✅ Verified | Repository methods exist |
+| User → multi-session aggregation | ⚠️ Issue | Requires userId field + migration |
+| Evolution detection | ✅ Verified | Compare same-category extractions |
+
+### Critical Gap Found
+
+**The current design does NOT address multi-user session aggregation.**
+
+**Problem**:
+- `contentSessionId` is per-session, not per-user
+- Different sessions may belong to different users
+- No `userId` field in current data model
+
+**Recommended Fix**:
+1. Add `userId` to `SessionEntity`
+2. Add `findByUserId()` to `SessionRepository`
+3. Update extraction to query by `userId` across sessions
+
+**Impact on Design**:
+- The generalized extraction architecture remains valid
+- Just need to change the **query dimension**: from `projectPath` to `userId` for user-scoped extractions
+- Extraction templates and LLM processing don't need to change
+
+### Architecture Still Valid
+
+The core of the design - **prompt-driven structured extraction** - is verified to work. The multi-user aggregation is a **data model issue**, not an architecture issue.
 
 1. ✅ YAML template defines WHAT to extract (prompt + schema)
 2. ✅ Service iterates templates and finds matching observations
