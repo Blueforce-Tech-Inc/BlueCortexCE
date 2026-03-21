@@ -135,7 +135,7 @@ curl -s http://127.0.0.1:37777/api/health
 1. SDK 模块构建成功 (`mvn clean install -DskipTests`)
 2. Demo 项目编译成功 (`mvn clean compile -Plocal`)
 3. Demo V14 功能测试通过 (4/4 tests passed)
-4. 回归测试通过 (39/39 tests passed)
+4. 回归测试通过 (43/43 tests passed)
 
 **Demo V14 测试结果**:
 ```
@@ -149,6 +149,18 @@ curl -s http://127.0.0.1:37777/api/health
 - `cortex-mem-spring-integration` 安装到本地 Maven 仓库
 - `examples/cortex-mem-demo` 必须使用 `-Plocal` profile
 - Demo 演示了所有 V14 特性端点
+
+### 测试健壮性增强 ✅ (2026-03-21)
+
+**提交: `3c93018`**
+- 问题: 原 V14 测试只检查 API 响应包含字段，未验证数据真正持久化
+- 解决: 添加后端数据库验证，验证真实状态
+- 改进内容:
+  - Test 23: 创建后验证 observation 实际存在于后端
+  - Test 24: PATCH 后验证修改真正持久化
+  - Test 25: 验证搜索结果中所有 observation 的 source 正确
+  - Test 26: 验证 experiences API 能找到 PATCH 后的 observation
+- 测试结果: 43/43 通过 (原 39 + 4 个后端验证步骤)
 
 ---
 
