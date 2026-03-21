@@ -360,6 +360,90 @@ class CustomService {
 | **cortex-mem-spring-ai** | Advisor, capture/retrieval services, AOP aspect. Depends on Spring AI and client. |
 | **cortex-mem-starter** | Spring Boot auto-configuration, `@EnableCortexMem`, health indicator. Depends on both above. |
 
+## V14 Features
+
+### Source Attribution
+
+Track the origin of each observation with the `source` field:
+
+```java
+client.recordObservation(ObservationRequest.builder()
+    .sessionId(sessionId)
+    .projectPath(projectPath)
+    .toolName("search")
+    .toolInput(Map.of("query", "Spring AI memory"))
+    .source("tool_result")  // V14: source attribution
+    .build());
+```
+
+### Structured Data Extraction
+
+Store structured key-value data with `extractedData`:
+
+```java
+client.recordObservation(ObservationRequest.builder()
+    .sessionId(sessionId)
+    .projectPath(projectPath)
+    .toolName("user_preference")
+    .source("user_statement")
+    .extractedData(Map.of(  // V14: structured key-value data
+        "price_range", "3000",
+        "brands", List.of("sony", "bose"),
+        "category", "headphones"
+    ))
+    .build());
+```
+
+### Adaptive Truncation (maxChars)
+
+Control ICL prompt size based on your model's context window:
+
+```java
+// Configure based on your model's context window
+// 128K models: 8000-12000 chars
+// 32K models: 4000-6000 chars
+// 8K models: 2000-3000 chars
+
+ICLPromptResult result = client.buildICLPrompt(ICLPromptRequest.builder()
+    .task("fix login bug")
+    .project("/my-project")
+    .maxChars(4000)  // V14: adaptive truncation
+    .build());
+```
+
+### Source & Concept Filtering
+
+Filter experiences by source or required concepts:
+
+```java
+// Filter by source attribution
+List<Experience> experiences = client.retrieveExperiences(
+    ExperienceRequest.builder()
+        .task("fix bug")
+        .project("/my-project")
+        .source("llm_inference")  // V14: source filtering
+        .build());
+
+// Filter by required concepts
+List<Experience> verified = client.retrieveExperiences(
+    ExperienceRequest.builder()
+        .task("best approach")
+        .project("/my-project")
+        .requiredConcepts(List.of("verified", "tested"))  // V14: concept filtering
+        .build());
+```
+
+### Memory Management Tools
+
+Update or delete memories when the AI uses CortexMemoryTools:
+
+```java
+// updateMemory tool - AI can correct errors or mark important memories
+// deleteMemory tool - AI can remove outdated or irrelevant memories
+```
+
+These tools are available when `memory-tools-enabled=true` and added to ChatClient.
+
 ## Build & Example
 
 ```bash
@@ -373,18 +457,20 @@ For a full working example (Chat, Tools, Session lifecycle, E2E tests), see `exa
 
 The client talks to these Cortex CE endpoints:
 
-| Client Method | Backend Endpoint |
-|---------------|------------------|
-| `startSession()` | `POST /api/session/start` |
-| `recordObservation()` | `POST /api/ingest/tool-use` |
-| `recordSessionEnd()` | `POST /api/ingest/session-end` |
-| `recordUserPrompt()` | `POST /api/ingest/user-prompt` |
-| `retrieveExperiences()` | `POST /api/memory/experiences` |
-| `buildICLPrompt()` | `POST /api/memory/icl-prompt` |
-| `triggerRefinement()` | `POST /api/memory/refine` |
-| `submitFeedback()` | `POST /api/memory/feedback` |
-| `getQualityDistribution()` | `GET /api/memory/quality-distribution` |
-| `healthCheck()` | `GET /actuator/health` |
+| Client Method | Backend Endpoint | V14 |
+|---------------|-----------------|-----|
+| `startSession()` | `POST /api/session/start` | |
+| `recordObservation()` | `POST /api/ingest/tool-use` | ✅ source, extractedData |
+| `recordSessionEnd()` | `POST /api/ingest/session-end` | |
+| `recordUserPrompt()` | `POST /api/ingest/user-prompt` | |
+| `retrieveExperiences()` | `POST /api/memory/experiences` | ✅ source, requiredConcepts |
+| `buildICLPrompt()` | `POST /api/memory/icl-prompt` | ✅ maxChars |
+| `triggerRefinement()` | `POST /api/memory/refine` | |
+| `submitFeedback()` | `POST /api/memory/feedback` | |
+| `updateObservation()` | `PATCH /api/memory/observations/{id}` | ✅ V14 |
+| `deleteObservation()` | `DELETE /api/memory/observations/{id}` | ✅ V14 |
+| `getQualityDistribution()` | `GET /api/memory/quality-distribution` | |
+| `healthCheck()` | `GET /actuator/health` | |
 
 ## Common Pitfalls
 
