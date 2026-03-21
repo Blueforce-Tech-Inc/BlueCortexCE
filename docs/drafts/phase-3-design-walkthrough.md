@@ -608,11 +608,61 @@ public void extractForUser(String userId, ExtractionTemplateConfig template) {
 contentSessionId = "cortex:user:chen:preferences"
 ```
 
+**Key Question**: How does the system know WHEN to create this special session?
+
+**Answer**: **Template's `userScoped` flag decides!**
+
+```java
+// In ExtractionTemplateConfig:
+private boolean userScoped;  // true = create "cortex:user:{userId}:preferences"
+
+private void storeExtractionResult(ExtractionTemplateConfig template, ...) {
+    String targetSessionId;
+
+    if (template.isUserScoped()) {
+        // Auto-create special session for user-scoped extractions
+        String userId = extractUserId(projectPath);
+        targetSessionId = "cortex:user:" + userId + ":" + template.getName();
+
+        // Ensure session exists (auto-create)
+        if (!sessionRepository.existsById(targetSessionId)) {
+            sessionRepository.save(SessionEntity.builder()
+                .contentSessionId(targetSessionId)
+                .userId(userId)
+                .type(template.getName())
+                .build());
+        }
+    } else {
+        targetSessionId = originalSessionId;  // Normal extraction
+    }
+}
+```
+
+```yaml
+# In YAML template
+templates:
+  - name: "user_preference"
+    user-scoped: true   # Template decides: create special session
+
+  - name: "bugfix_summary"
+    user-scoped: false  # Normal extraction
+```
+
+**Extraction Flow**:
+```
+1. Load template (user_preference, userScoped=true)
+2. Find candidate observations (across multiple sessions)
+3. LLM extraction
+4. Template's userScoped=true → Create special session
+5. Store extraction result
+```
+
 | Pros | Cons |
 |------|------|
 | ✅ No data model change | ❌ Abuses session ID semantics |
 | ✅ Simple query | ❌ Session ID becomes long |
 | ✅ Uses existing mechanism | ❌ Preferences mixed with sessions? |
+| ✅ **Template controls behavior** | |
 
 **Option 2: Add userId Field (Clean)**
 
