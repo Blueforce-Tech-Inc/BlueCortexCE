@@ -326,3 +326,89 @@ curl -X POST /api/ingest/observation \
 ## Changelog
 
 - **2026-03-21**: Initial design document created
+
+---
+
+## 8. Design Iterations & Open Questions
+
+### 8.1 Preference Storage Structure
+
+**Issue**: Using `output-field` as top-level key in `extractedData` may conflict with existing data.
+
+**Better approach**: Use nested structure:
+```json
+{
+  "extractedData": {
+    "preference": {
+      "type": "brand",
+      "value": "sony",
+      "confidence": 0.85,
+      "extracted_at": "2026-03-21T10:00:00Z"
+    }
+  }
+}
+```
+
+### 8.2 Conflict Detection Trigger Timing
+
+**Current**: Runs only during `deepRefineProjectMemories()`
+
+**Alternative consideration**: Run lightweight conflict detection during regular `refineMemory()`:
+- Quick check: Compare newly created observation with recent observations
+- Only invoke LLM for deep analysis when quick check flags potential conflict
+
+### 8.3 LLM Call Reliability
+
+**Missing in current design**:
+- Retry mechanism for failed LLM calls
+- Timeout handling (configurable)
+- Partial failure handling (some extractions succeed, some fail)
+- Circuit breaker pattern for LLM service
+
+**Proposed addition**:
+```java
+@Value("${app.memory.llm.retry.max-attempts:3}")
+private int maxRetryAttempts;
+
+@Value("${app.memory.llm.timeout-seconds:30}")
+private int llmTimeoutSeconds;
+```
+
+### 8.4 Repository Method Requirements
+
+**Methods that need to be added to ObservationRepository**:
+
+| Method | Purpose | Note |
+|--------|---------|------|
+| `findByExtractedDataKey(projectPath, key)` | Find observations with specific extractedData key | Not yet implemented |
+| `findByTypeAndProject(type, projectPath)` | Find preference observations | Already exists as `findByType` |
+| `findRecentBySource(projectPath, source, limit)` | Find recent observations by source | Could leverage existing |
+
+### 8.5 Testing Strategy
+
+**Unit tests needed**:
+- `PreferenceExtractionServiceTest`: Mock LLM responses
+- `ConflictDetectorTest`: Various conflict scenarios
+- `ExtractionRuleTest`: Rule parsing and matching
+
+**Integration tests needed**:
+- End-to-end extraction with real LLM (mock or test provider)
+- Conflict detection accuracy evaluation
+- Evolution history tracking
+
+### 8.6 Configuration Complexity vs Flexibility
+
+**Trade-off**: More flexible rules = more complex configuration
+
+**Minimal viable product (MVP)** approach:
+1. Start with simple keyword-based extraction (no LLM)
+2. Add LLM extraction as opt-in feature
+3. Default to low confidence threshold for first release
+
+### 8.7 Open Questions for Review
+
+1. Should preference extraction run on every `deepRefine` or be triggered separately?
+2. Should conflicts automatically resolve or always require human approval?
+3. What is the acceptable latency for extraction/conflict detection?
+4. Should we store failed extraction attempts for later review?
+5. How to handle cross-project preference aggregation (e.g., user preferences across projects)?
