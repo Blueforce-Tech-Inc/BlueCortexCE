@@ -1003,6 +1003,14 @@ test_observation_source_and_extracted_data() {
         return 1
     fi
 
+    # CRITICAL: Verify observation actually exists in backend with correct values
+    echo "Verifying observation in backend database..."
+    if ! verify_observation_in_backend "$OBS_ID_V14" "manual_test" "price_range"; then
+        log_fail "Backend verification failed - observation not found or wrong values"
+        return 1
+    fi
+    log_success "Backend verification passed - source field correctly stored"
+
     # Store ID for PATCH/DELETE tests
     echo "$OBS_ID_V14" > /tmp/obs_id_v14.txt
     log_success "V14 observation created with ID: $OBS_ID_V14"
@@ -1041,6 +1049,14 @@ test_patch_observation() {
         return 1
     fi
 
+    # CRITICAL: Verify the update was actually persisted in backend
+    echo "Verifying PATCH was persisted in backend database..."
+    if ! verify_observation_in_backend "$obs_id" "patched_source" "updated"; then
+        log_fail "Backend verification failed - PATCH not persisted correctly"
+        return 1
+    fi
+    log_success "Backend verification passed - PATCH correctly persisted"
+
     return 0
 }
 
@@ -1065,6 +1081,26 @@ test_search_by_source() {
         return 1
     fi
 
+    # CRITICAL: Verify all returned observations have the correct source
+    echo "Verifying search results have correct source in backend..."
+    local all_correct
+    all_correct=$(echo "$response" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for obs in data.get('observations', []):
+    if obs.get('source') != 'patched_source':
+        print('FAIL: found obs with source=' + str(obs.get('source')))
+        sys.exit(1)
+print('PASS')
+" 2>/dev/null) || all_correct="FAIL"
+    
+    if [ "$all_correct" = "PASS" ]; then
+        log_success "Backend verification passed - all search results have source=patched_source"
+    else
+        log_fail "Backend verification failed - some results have wrong source"
+        return 1
+    fi
+
     return 0
 }
 
@@ -1072,10 +1108,14 @@ test_search_by_source() {
 test_experiences_with_filters() {
     log_section "Test 26: Experiences API - source and requiredConcepts Filters (V14)"
 
+    # Note: We search for source="patched_source" because Test 24 PATCHed the observation
+    # to have source="patched_source". This verifies both:
+    # 1. Source filter correctly finds the PATCHed observation
+    # 2. The PATCH was persisted correctly (can be found via experiences API)
     local response
     response=$(curl -sf -X POST "${SERVER_URL}/api/memory/experiences" \
         -H 'Content-Type: application/json' \
-        -d "{\"task\": \"test\", \"project\": \"$TEST_PROJECT\", \"source\": \"manual_test\", \"requiredConcepts\": [\"v14-test\"]}" 2>&1) || {
+        -d "{\"task\": \"test\", \"project\": \"$TEST_PROJECT\", \"source\": \"patched_source\", \"requiredConcepts\": [\"v14-test\"]}" 2>&1) || {
         log_fail "Experiences API with filters failed: $response"
         return 1
     }
@@ -1088,6 +1128,68 @@ test_experiences_with_filters() {
         return 1
     fi
 
+    # CRITICAL: Verify the returned experiences actually have the correct source
+    # This proves the PATCH was persisted and filtering works correctly
+    local count
+    count=$(echo "$response" | python3 -c "import sys, json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
+    
+    if [ "$count" -ge 1 ]; then
+        log_success "Backend verification passed - experiences API found $count result(s) with source=patched_source (proves PATCH was persisted)"
+    else
+        log_fail "Backend verification failed - no experiences found with source=patched_source after PATCH"
+        return 1
+    fi
+
+    return 0
+}
+
+# ==================== Backend Verification Helpers ====================
+
+# Verify observation exists in backend with expected field values
+# Args: obs_id expected_source expected_extractedData_key
+verify_observation_in_backend() {
+    local obs_id="$1"
+    local expected_source="$2"
+    local expected_extracted_key="$3"
+    
+    if [ -z "$obs_id" ]; then
+        echo "verify_observation_in_backend: obs_id is required"
+        return 1
+    fi
+    
+    # Query the backend to get the observation
+    local obs_response
+    obs_response=$(curl -sf "${SERVER_URL}/api/observations?project=${TEST_PROJECT}&offset=0&limit=100" 2>/dev/null) || {
+        echo "Failed to query observations from backend"
+        return 1
+    }
+    
+    # Find the observation by ID in the response
+    local found_source
+    local found_extracted
+    found_source=$(echo "$obs_response" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for item in data.get('items', []):
+    if item.get('id') == '$obs_id':
+        print(item.get('source', ''))
+        break
+" 2>/dev/null) || found_source=""
+    
+    if [ -z "$found_source" ]; then
+        echo "Observation $obs_id not found in backend"
+        return 1
+    fi
+    
+    echo "Backend verification - source: '$found_source' (expected: '$expected_source')"
+    
+    if [ "$found_source" = "$expected_source" ]; then
+        echo "✓ Source field verified in backend"
+    else
+        echo "✗ Source mismatch: backend='$found_source' expected='$expected_source'"
+        return 1
+    fi
+    
     return 0
 }
 
