@@ -1,7 +1,7 @@
 # Phase 3 Design Proposal: Structured Information Extraction & Memory Conflict Detection
 
 **Date**: 2026-03-21
-**Status**: Design proposal - iteration 2 (generalized approach)
+**Status**: Design proposal - iteration 7 (critical code-bug fixes + Spring AI structured output)
 **Related to**: `sdk-improvement-research.md` Phase 3 deferred items
 
 ---
@@ -23,6 +23,153 @@
 - **Bottom layer**: Generic LLM Structured Extraction Service
 - **Top layer**: Configuration-driven extraction templates (wrappers)
 - Prompt = configuration, not code
+
+---
+
+## 0.1 Critical Bugs Fixed in v7
+
+### Bug 1: `findBySource` Cannot Accept `List<String>` (Code-Writing Error)
+
+**Location**: Section 2.3, `extractByTemplate()` method.
+
+**Broken code**:
+```java
+List<ObservationEntity> candidates = observationRepository
+    .findBySource(projectPath, template.sourceFilter());  // ❌ sourceFilter is List<String>, findBySource expects String
+```
+
+**Root cause**: `ExtractionTemplate.sourceFilter` is `List<String>`, but `ObservationRepository.findBySource(project, source, limit)` takes a single `String source`. This will not compile.
+
+**Fix**: Add a new repository method that accepts a list of sources:
+
+```java
+// New repository method needed
+@Query(value = """
+    SELECT * FROM mem_observations
+    WHERE project_path = :project
+    AND source IN (:sources)
+    ORDER BY created_at_epoch DESC
+    LIMIT :limit
+    """, nativeQuery = true)
+List<ObservationEntity> findBySourceIn(
+    @Param("project") String project,
+    @Param("sources") List<String> sources,
+    @Param("limit") int limit
+);
+```
+
+**Updated code**:
+```java
+List<ObservationEntity> candidates = observationRepository
+    .findBySourceIn(projectPath, template.sourceFilter(), 100);
+```
+
+### Bug 2: Manual JSON Parsing Instead of Spring AI Structured Output
+
+**Location**: Section 2.3, `extractByTemplate()` method.
+
+**Suboptimal approach** (v1-v6):
+```java
+String llmResponse = llmService.chatCompletion(systemPrompt, prompt);
+T result = objectMapper.readValue(llmResponse, outputType);  // ❌ Manual parsing, no schema enforcement
+```
+
+**Problem**: 
+- Manual JSON parsing has no schema validation guarantee
+- LLM may return non-compliant JSON despite the prompt instruction
+- No type safety at compile time
+
+**Better approach**: Use Spring AI's structured output support:
+
+```java
+// Option A: Use Spring AI ChatClient with structured output
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.prompt.PromptTemplate;
+
+public <T> T extractByTemplate(String projectPath, ExtractionTemplate template, Class<T> outputType) {
+    // Build prompt with schema
+    String prompt = buildPrompt(template, candidates);
+    
+    // Use Spring AI structured output converter
+    StructuredOutputConverter<T> converter = new JacksonOutputConverter<>(outputType, template.outputSchema());
+    PromptTemplate promptTemplate = new PromptTemplate(prompt);
+    
+    T result = chatClient.prompt()
+        .system(template.promptTemplate())
+        .user(promptTemplate.render())
+        .advisors() // optional: withAdapter
+        .call()
+        .entity(outputType);  // Spring AI parses directly into the type
+    
+    return result;
+}
+
+// Option B: With explicit output converter
+ChatClient.ChatClientRequestSpec request = chatClient.prompt()
+    .system(s -> s.text(template.prompt()))
+    .user(prompt);
+
+StructuredOutputConverter<T> converter = JacksonOutputConverter.builder()
+    .schema(template.outputSchema())
+    .build(outputType);
+
+T result = request.call().entity(converter);
+```
+
+**Why this is better**:
+- Spring AI validates the output against the schema
+- Direct type-safe object binding, no raw JSON parsing
+- Supports JSON Schema as input for output constraints
+- Works with any Spring AI compatible model (OpenAI, Anthropic, etc.)
+
+### Bug 3: Integration Ambiguity — "Add extraction call after existing refinement"
+
+**Location**: Section 9.2.
+
+**Problem**: The statement "Add extraction call after existing refinement" is ambiguous. It could mean:
+1. Call extraction inside `deepRefineProjectMemories()` after `refineObservations()`
+2. Call extraction as a separate step in the same scheduled task
+
+**Recommendation**: **Option 2 — separate pipeline**. Extraction and refinement serve different purposes:
+
+| Concern | MemoryRefineService | StructuredExtractionService |
+|---------|---------------------|----------------------------|
+| Purpose | Prune/merge/rewrite memory | Extract structured facts from memory |
+| Trigger | SessionEnd + scheduled | Scheduled (daily/hourly) |
+| LLM calls | Moderate (merge/rewrite) | High (per-template per-project) |
+| Risk | Data loss (deletion) | Cost overrun |
+
+**Mixing them risks**: Extraction failures blocking refinement, or refinement deleting candidates before extraction runs.
+
+**Correct approach**:
+```java
+// Separate pipeline, separate trigger
+@Scheduled(cron = "${app.memory.extraction.schedule:0 0 2 * * ?}")  // Daily at 2am
+public void scheduledExtraction() {
+    List<String> projects = observationRepository.findDistinctProjects();
+    for (String project : projects) {
+        extractionService.runExtraction(project);  // Separate from refineMemory()
+    }
+}
+```
+
+**Where refinement integrates**: `deepRefineProjectMemories()` should call extraction as the **last step**, AFTER all refinement is done, so extraction sees the refined (not raw) memory state:
+
+```java
+public void deepRefineProjectMemories(String projectPath) {
+    // Step 1: Refine existing memories
+    List<ObservationEntity> candidates = findRefineCandidates(projectPath);
+    if (!candidates.isEmpty()) {
+        refineObservations(candidates, projectPath);
+    }
+    
+    // Step 2: Run extraction on refined state (NEW)
+    // Only if all refinement steps succeeded
+    if (refineEnabled) {
+        extractionService.runExtraction(projectPath);
+    }
+}
+```
 
 ---
 
@@ -59,20 +206,26 @@
 /**
  * Extraction template - defines WHAT to extract and HOW to output.
  * The service interprets the prompt and schema to extract structured data.
+ * 
+ * NOTE: sourceFilter is List<String> — requires findBySourceIn(), not findBySource().
+ * This is a common design error: findBySource(project, source, limit) takes String,
+ * so a new findBySourceIn(project, List<String>, limit) repository method is needed.
  */
 public record ExtractionTemplate(
     String name,                    // Template identifier
     String description,             // Human-readable description
     List<String> triggerKeywords,   // Keywords to filter candidates
-    List<String> sourceFilter,      // Which sources to consider
-    String promptTemplate,          // Prompt for LLM (what to extract)
-    String outputSchema,             // JSON Schema for output format
+    List<String> sourceFilter,      // Which sources to consider (⚠️ List, not String)
+    String promptTemplate,           // System prompt for extraction instruction
+    String outputSchema,            // JSON Schema for output format
     boolean trackEvolution,          // Whether to track value changes over time
     boolean conflictEnabled          // Whether to detect conflicts
 ) {}
 ```
 
 ### 2.2 Configuration Model (YAML)
+
+**Note**: The YAML key `prompt` maps to the Java record field `promptTemplate` via `@JsonProperty("prompt")` annotation or Spring Boot relaxed binding.
 
 ```yaml
 app.memory.extraction:
@@ -82,7 +235,7 @@ app.memory.extraction:
       description: "Extract user preferences (brand, price, style)"
       trigger-keywords: ["prefer", "like", "更喜欢", "倾向于"]
       source-filter: ["user_statement", "manual"]
-      prompt: |
+      prompt: |   # Maps to promptTemplate field in Java record
         From the following conversation, extract user preferences.
         Look for: brands they like/dislike, budget constraints, style preferences.
       output-schema: |
@@ -150,7 +303,7 @@ public class StructuredExtractionService {
     @Value("${app.memory.extraction.templates}")
     private List<ExtractionTemplate> templates;
     
-    private final LlmService llmService;
+    private final ChatClient chatClient;  // Spring AI ChatClient (not LlmService)
     private final ObservationRepository observationRepository;
     private final ObjectMapper objectMapper;
     
@@ -161,7 +314,7 @@ public class StructuredExtractionService {
     public void runExtraction(String projectPath) {
         for (ExtractionTemplate template : templates) {
             try {
-                extractByTemplate(projectPath, template);
+                runTemplateExtraction(projectPath, template);
             } catch (Exception e) {
                 log.error("Extraction failed for template {}: {}", template.name(), e.getMessage());
             }
@@ -169,50 +322,84 @@ public class StructuredExtractionService {
     }
     
     /**
-     * Extract by specific template.
+     * Extract by specific template using Spring AI structured output.
      */
     public <T> ExtractionResult<T> extractByTemplate(
         String projectPath, 
         ExtractionTemplate template,
         Class<T> outputType) {
         
-        // 1. Find candidate observations
+        // 1. Find candidate observations (requires new findBySourceIn method)
         List<ObservationEntity> candidates = observationRepository
-            .findBySource(projectPath, template.sourceFilter());
+            .findBySourceIn(projectPath, template.sourceFilter(), 100);
+        
+        if (candidates.isEmpty()) {
+            return null;
+        }
         
         // 2. Build prompt
         String prompt = buildPrompt(template, candidates);
         
-        // 3. Call LLM
-        String llmResponse = llmService.chatCompletion(
-            "You are a structured information extraction expert.",
-            prompt
-        );
+        // 3. Call LLM with Spring AI structured output
+        T result = chatClient.prompt()
+            .system(s -> s.text(template.promptTemplate()))  // Extraction instruction
+            .user(prompt)                                    // Observations + schema
+            .call()
+            .entity(outputType);                            // Direct typed parsing
         
-        // 4. Parse output
-        T result = objectMapper.readValue(llmResponse, outputType);
-        
-        // 5. Store result
+        // 4. Store result
         return storeExtractionResult(template, result, candidates);
+    }
+    
+    /**
+     * Template extraction runner with state tracking.
+     */
+    private void runTemplateExtraction(String projectPath, ExtractionTemplate template) {
+        // Check extraction state for incremental extraction
+        ExtractionState state = getExtractionState(projectPath, template.name());
+        
+        // Find NEW candidates since last extraction
+        List<ObservationEntity> candidates = (state == null)
+            ? observationRepository.findBySourceIn(projectPath, template.sourceFilter(), 100)
+            : observationRepository.findNewObservations(projectPath, template.sourceFilter(), state.lastExtractedAt(), 100);
+        
+        if (candidates.isEmpty()) {
+            return;
+        }
+        
+        // Process and store
+        extractByTemplate(projectPath, template, candidates);
+        updateExtractionState(projectPath, template.name(), OffsetDateTime.now());
     }
     
     private String buildPrompt(ExtractionTemplate template, 
                                List<ObservationEntity> candidates) {
         StringBuilder sb = new StringBuilder();
-        sb.append(template.prompt()).append("\n\n");
+        sb.append("Extract structured information from the following observations.\n\n");
         sb.append("Observations:\n");
         
         for (ObservationEntity obs : candidates) {
             sb.append(String.format("- [%s] %s\n  %s\n",
-                obs.getSource(),
-                obs.getTitle() != null ? obs.getTitle() : "",
-                obs.getContent() != null ? obs.getContent() : ""));
+                sanitize(obs.getSource()),
+                obs.getTitle() != null ? sanitize(obs.getTitle()) : "",
+                obs.getContent() != null ? sanitize(obs.getContent()) : ""));
         }
         
-        sb.append("\nOutput according to this schema:\n");
+        sb.append("\nOutput JSON according to this schema:\n");
         sb.append(template.outputSchema());
         
         return sb.toString();
+    }
+    
+    /**
+     * Sanitize user content to prevent prompt injection.
+     */
+    private String sanitize(String content) {
+        if (content == null) return "";
+        return content
+            .replace("SYSTEM:", "\\[SYSTEM\\]")
+            .replace("OBSERVATIONS:", "\\[OBSERVATIONS\\]")
+            .replace("Output:", "\\[Output:\\]");
     }
     
     private <T> ExtractionResult<T> storeExtractionResult(
@@ -634,7 +821,7 @@ public class StructuredExtractionService {
     public <T> List<T> extractByTemplate(String projectPath, ExtractionTemplate template, Class<T> outputType) {
         // 1. Get all candidate observations (paginated)
         List<ObservationEntity> allCandidates = observationRepository
-            .findBySource(projectPath, template.sourceFilter());
+            .findBySourceIn(projectPath, template.sourceFilter(), 1000);
         
         // 2. Chunk into batches (by token count, not by count)
         List<List<ObservationEntity>> batches = chunkByTokenCount(allCandidates, maxTokensPerCall);
@@ -670,7 +857,7 @@ public class StructuredExtractionService {
         StringBuilder sb = new StringBuilder();
         
         // System instruction (from template, trusted)
-        sb.append("SYSTEM: ").append(template.prompt()).append("\n\n");
+        sb.append("SYSTEM: ").append(template.promptTemplate()).append("\n\n");
         
         // User content (observations, potentially malicious - sanitize)
         sb.append("OBSERVATIONS:\n");
@@ -841,7 +1028,7 @@ templates:
 ```java
 private String buildPrompt(ExtractionTemplate template, List<ObservationEntity> candidates) {
     String language = detectLanguage(candidates);
-    String prompt = template.prompt()
+    String prompt = template.promptTemplate()
         .replace("{{language}}", language);  // Or "auto" for LLM to detect
     
     // ... rest of prompt building
@@ -1009,6 +1196,7 @@ public void deepRefineWithGracefulDegradation(String projectPath) {
 
 ## Changelog
 
+- **2026-03-21 v7**: Fixed 3 critical bugs: (1) `findBySource(project, sourceFilter List)` → must use new `findBySourceIn(project, List<String>, limit)` method (findBySource takes String only). (2) Manual JSON parsing → replaced with Spring AI structured output via `ChatClient.call().entity(outputType)`. (3) Integration ambiguity → clarified extraction is a separate pipeline from refinement, only called as last step of deepRefineProjectMemories. Updated all `template.prompt()` references to `template.promptTemplate()`. Added `@JsonProperty` mapping note for YAML.
 - **2026-03-21 v6**: Fixed findByType missing projectPath (cross-project pollution bug). Added error handling & recovery strategies: retry with circuit breaker, dead letter queue, schema validation failure handling, graceful degradation.
 - **2026-03-21 v5**: Added critical implementation considerations: context window batching, prompt injection prevention, cost control (dry-run, rate limiting, caching), observability & audit trail, multi-language support
 - **2026-03-21 v4**: Confirmed existing repository methods (findBySource, findByType) are reusable. Added integration points section.
