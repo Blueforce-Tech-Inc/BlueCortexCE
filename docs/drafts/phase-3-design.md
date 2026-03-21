@@ -79,48 +79,60 @@ T result = objectMapper.readValue(llmResponse, outputType);  // ❌ Manual parsi
 - LLM may return non-compliant JSON despite the prompt instruction
 - No type safety at compile time
 
-**Better approach**: Use Spring AI's structured output support:
+**Better approach**: Extend `LlmService` with structured output support.
+
+Spring AI's `ChatClient.call().entity()` does NOT automatically enforce schema - it just parses JSON into the target type. For true schema enforcement, we need `JacksonOutputConverter` or similar.
+
+**Implementation Option A: Add structured method to LlmService** (Recommended - keeps existing pattern)
 
 ```java
-// Option A: Use Spring AI ChatClient with structured output
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.prompt.PromptTemplate;
+// In LlmService.java - add new method
+public <T> T chatCompletionStructured(String systemPrompt, String userPrompt, Class<T> outputType) {
+    ChatClient chatClient = this.chatClient.orElseThrow(() ->
+        new IllegalStateException("AI not configured."));
 
+    // Use JacksonOutputConverter for schema-enforced parsing
+    JacksonOutputConverter<T> converter = JacksonOutputConverter.builder()
+        .schema(Schema.of(outputType))  // Spring AI infers schema from type
+        .build(outputType);
+
+    return chatClient.prompt()
+        .system(systemPrompt)
+        .user(userPrompt)
+        .call()
+        .entity(converter);
+}
+```
+
+**Implementation Option B: Direct ChatClient with JacksonOutputConverter**
+
+```java
 public <T> T extractByTemplate(String projectPath, ExtractionTemplate template, Class<T> outputType) {
-    // Build prompt with schema
+    // Build prompt
     String prompt = buildPrompt(template, candidates);
     
-    // Use Spring AI structured output converter
-    StructuredOutputConverter<T> converter = new JacksonOutputConverter<>(outputType, template.outputSchema());
-    PromptTemplate promptTemplate = new PromptTemplate(prompt);
+    // Use JacksonOutputConverter for structured output
+    JacksonOutputConverter<T> converter = JacksonOutputConverter.builder()
+        .schema(Schema.of(outputType))  // Infers JSON Schema from Java type
+        .build(outputType);
     
-    T result = chatClient.prompt()
+    T result = llmService.getChatClient().prompt()
         .system(template.promptTemplate())
-        .user(promptTemplate.render())
-        .advisors() // optional: withAdapter
+        .user(prompt)
         .call()
-        .entity(outputType);  // Spring AI parses directly into the type
+        .entity(converter);
     
     return result;
 }
-
-// Option B: With explicit output converter
-ChatClient.ChatClientRequestSpec request = chatClient.prompt()
-    .system(s -> s.text(template.prompt()))
-    .user(prompt);
-
-StructuredOutputConverter<T> converter = JacksonOutputConverter.builder()
-    .schema(template.outputSchema())
-    .build(outputType);
-
-T result = request.call().entity(converter);
 ```
 
 **Why this is better**:
-- Spring AI validates the output against the schema
+- Spring AI validates the output against the schema via JacksonOutputConverter
 - Direct type-safe object binding, no raw JSON parsing
-- Supports JSON Schema as input for output constraints
 - Works with any Spring AI compatible model (OpenAI, Anthropic, etc.)
+- Keeps extraction logic in StructuredExtractionService, not scattered
+
+**Note**: `JacksonOutputConverter` requires Spring AI 1.x. Verify current version in `pom.xml`.
 
 ### Bug 3: Integration Ambiguity — "Add extraction call after existing refinement"
 
@@ -839,7 +851,8 @@ public class StructuredExtractionService {
     
     private <T> List<ObservationEntity> chunkByTokenCount(List<ObservationEntity> observations, int maxTokens) {
         // Group observations until token count would exceed limit
-        // Use tokenService.estimateTokens() for estimation
+        // Use TokenService.calculateObservationTokens() for estimation
+        // Note: tokenService.estimateTokens() does NOT exist - inject TokenService bean instead
     }
 }
 ```
@@ -1095,9 +1108,12 @@ public class StructuredExtractionService {
 
 ### 11.3 Dead Letter Queue for Failed Extractions
 
+**Implementation**: Store failed extractions as `ObservationEntity` records with type=`extraction_failed`. This avoids a separate database table or in-memory queue.
+
 ```java
 /**
  * Failed extraction requests are queued for manual review or retry.
+ * Stored as ObservationEntity with type="extraction_failed" for persistence.
  */
 public record FailedExtraction(
     String requestId,
@@ -1109,27 +1125,39 @@ public record FailedExtraction(
     OffsetDateTime failedAt
 ) {}
 
-// On failure, save to dead letter queue
-public void handleExtractionFailure(...) {
-    FailedExtraction failed = new FailedExtraction(
-        requestId, projectPath, template.name(), observationIds,
-        error.getMessage(), attemptCount, OffsetDateTime.now()
-    );
-    deadLetterQueue.add(failed);
+// On failure, save to dead letter queue as ObservationEntity
+public void handleExtractionFailure(String requestId, String projectPath, ExtractionTemplate template,
+                                    List<UUID> observationIds, Exception error, int attemptCount) {
+    ObservationEntity failedObs = new ObservationEntity();
+    failedObs.setType("extraction_failed");
+    failedObs.setSource("dlq:" + template.name());
+    failedObs.setProjectPath(projectPath);
+    failedObs.setExtractedData(Map.of(
+        "requestId", requestId,
+        "template", template.name(),
+        "observationIds", observationIds.stream().map(UUID::toString).toList(),
+        "error", error.getMessage(),
+        "attemptCount", attemptCount,
+        "failedAt", OffsetDateTime.now().toEpochSecond()
+    ));
+    observationRepository.save(failedObs);
     
-    // Alert if threshold exceeded
-    if (deadLetterQueue.size() > threshold) {
-        alertService.alert("Extraction failure rate exceeds threshold");
+    // Alert if too many failures accumulate
+    long failureCount = observationRepository.findByType(projectPath, "extraction_failed", 1000).size();
+    if (failureCount > threshold) {
+        alertService.alert("Extraction failure rate exceeds threshold: " + failureCount);
     }
 }
 
 // Scheduled task to retry dead letter items
 @Scheduled(fixedRate = 3600000)  // Every hour
 public void retryDeadLetterExtractions() {
-    List<FailedExtraction> toRetry = deadLetterQueue.getPending();
-    for (FailedExtraction failed : toRetry) {
-        if (failed.attemptCount() < maxRetries) {
-            retryExtraction(failed);
+    List<ObservationEntity> failedObs = observationRepository.findByType(null, "extraction_failed", 100);
+    for (ObservationEntity obs : failedObs) {
+        Map<String, Object> data = obs.getExtractedData();
+        int attemptCount = ((Number) data.get("attemptCount")).intValue();
+        if (attemptCount < maxRetries) {
+            retryExtraction(obs);
         }
     }
 }
@@ -1196,6 +1224,7 @@ public void deepRefineWithGracefulDegradation(String projectPath) {
 
 ## Changelog
 
+- **2026-03-21 v8**: (1) Clarified Spring AI structured output: `ChatClient.call().entity()` does NOT auto-enforce schema - must use `JacksonOutputConverter` for true schema enforcement. Added implementation options for `LlmService.chatCompletionStructured()`. (2) Fixed `tokenService.estimateTokens()` → should be `TokenService.calculateObservationTokens()` (method doesn't exist, must inject TokenService bean). (3) Clarified dead letter queue implementation: store as `ObservationEntity` with type=`extraction_failed` rather than separate queue infrastructure.
 - **2026-03-21 v7**: Fixed 3 critical bugs: (1) `findBySource(project, sourceFilter List)` → must use new `findBySourceIn(project, List<String>, limit)` method (findBySource takes String only). (2) Manual JSON parsing → replaced with Spring AI structured output via `ChatClient.call().entity(outputType)`. (3) Integration ambiguity → clarified extraction is a separate pipeline from refinement, only called as last step of deepRefineProjectMemories. Updated all `template.prompt()` references to `template.promptTemplate()`. Added `@JsonProperty` mapping note for YAML.
 - **2026-03-21 v6**: Fixed findByType missing projectPath (cross-project pollution bug). Added error handling & recovery strategies: retry with circuit breaker, dead letter queue, schema validation failure handling, graceful degradation.
 - **2026-03-21 v5**: Added critical implementation considerations: context window batching, prompt injection prevention, cost control (dry-run, rate limiting, caching), observability & audit trail, multi-language support
