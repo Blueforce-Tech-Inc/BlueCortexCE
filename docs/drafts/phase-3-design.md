@@ -612,8 +612,251 @@ public void runCascadingExtraction(String projectPath, ExtractionTemplate templa
 
 ---
 
+## 10. Critical Implementation Considerations
+
+### 10.1 Context Window & Batching
+
+**Issue**: Many observations may exceed LLM context window.
+
+**Solution**: Chunk observations and process in batches.
+
+```java
+@Service
+public class StructuredExtractionService {
+    
+    @Value("${app.memory.extraction.max-tokens-per-call:8000}")
+    private int maxTokensPerCall;
+    
+    @Value("${app.memory.extraction.batch-size:20}")
+    private int batchSize;
+    
+    public <T> List<T> extractByTemplate(String projectPath, ExtractionTemplate template, Class<T> outputType) {
+        // 1. Get all candidate observations (paginated)
+        List<ObservationEntity> allCandidates = observationRepository
+            .findBySource(projectPath, template.sourceFilter());
+        
+        // 2. Chunk into batches (by token count, not by count)
+        List<List<ObservationEntity>> batches = chunkByTokenCount(allCandidates, maxTokensPerCall);
+        
+        // 3. Process each batch
+        List<T> results = new ArrayList<>();
+        for (List<ObservationEntity> batch : batches) {
+            T result = extractSingleBatch(template, batch, outputType);
+            results.add(result);
+        }
+        
+        // 4. Merge results (if multiple batches)
+        return mergeResults(results, template);
+    }
+    
+    private <T> List<ObservationEntity> chunkByTokenCount(List<ObservationEntity> observations, int maxTokens) {
+        // Group observations until token count would exceed limit
+        // Use tokenService.estimateTokens() for estimation
+    }
+}
+```
+
+### 10.2 Prompt Injection Prevention
+
+**Issue**: User content may contain malicious instructions to manipulate extraction.
+
+**Solution**: Separate user content from system instructions.
+
+```java
+public class StructuredExtractionService {
+    
+    private String buildPrompt(ExtractionTemplate template, List<ObservationEntity> candidates) {
+        StringBuilder sb = new StringBuilder();
+        
+        // System instruction (from template, trusted)
+        sb.append("SYSTEM: ").append(template.prompt()).append("\n\n");
+        
+        // User content (observations, potentially malicious - sanitize)
+        sb.append("OBSERVATIONS:\n");
+        for (ObservationEntity obs : candidates) {
+            // Sanitize user content - escape special characters
+            String sanitizedContent = sanitize(obs.getContent());
+            String sanitizedTitle = sanitize(obs.getTitle());
+            sb.append(String.format("- [%s] %s\n  %s\n",
+                sanitize(obs.getSource()),
+                sanitizedTitle,
+                sanitizedContent));
+        }
+        
+        sb.append("\nOutput according to this schema:\n");
+        sb.append(template.outputSchema());
+        
+        return sb.toString();
+    }
+    
+    /**
+     * Sanitize user content to prevent prompt injection.
+     */
+    private String sanitize(String content) {
+        if (content == null) return "";
+        // Remove or escape potential instruction patterns
+        return content
+            .replace("SYSTEM:", "\\[SYSTEM\\]")
+            .replace("OBSERVATIONS:", "\\[OBSERVATIONS\\]")
+            .replace("Output:", "\\[Output:\\]");
+    }
+}
+```
+
+### 10.3 Cost Control
+
+**Issue**: LLM calls can become expensive.
+
+**Solution**: Caching, rate limiting, and dry-run mode.
+
+```yaml
+app.memory.extraction:
+  enabled: true
+  cost-control:
+    # Dry run mode - log what would be extracted but don't call LLM
+    dry-run: false
+    # Maximum LLM calls per extraction run
+    max-calls-per-run: 10
+    # Cache extraction results (by observation hash)
+    cache-enabled: true
+    cache-ttl-hours: 24
+    # Rate limiting
+    rate-limit:
+      calls-per-minute: 20
+      burst-size: 5
+```
+
+```java
+@Service
+public class StructuredExtractionService {
+    
+    @Value("${app.memory.extraction.cost-control.dry-run:false}")
+    private boolean dryRun;
+    
+    @Value("${app.memory.extraction.cost-control.max-calls-per-run:10}")
+    private int maxCallsPerRun;
+    
+    private int callCount = 0;
+    
+    public <T> T extractWithCostControl(...) {
+        if (dryRun) {
+            log.info("Dry run mode - would extract: {}", template.name());
+            return null;
+        }
+        
+        if (callCount >= maxCallsPerRun) {
+            throw new ExtractionException("Max LLM calls reached: " + maxCallsPerRun);
+        }
+        
+        callCount++;
+        return extract(...);
+    }
+}
+```
+
+### 10.4 Observability & Debugging
+
+**Issue**: How to debug what LLM extracted? Did it follow the schema?
+
+**Solution**: Structured logging and extraction audit trail.
+
+```java
+@Service
+public class StructuredExtractionService {
+    
+    private static final Logger log = LoggerFactory.getLogger(StructuredExtractionService.class);
+    
+    public <T> ExtractionResult<T> extractWithAudit(...) {
+        String requestId = UUID.randomUUID().toString();
+        
+        log.info("Extraction started: requestId={}, template={}, candidateCount={}", 
+            requestId, template.name(), candidates.size());
+        
+        long startTime = System.currentTimeMillis();
+        
+        try {
+            // Build and log prompt (truncated for safety)
+            String prompt = buildPrompt(template, candidates);
+            log.debug("Extraction prompt (truncated): {}...", 
+                prompt.substring(0, Math.min(500, prompt.length())));
+            
+            // Call LLM
+            String response = llmService.chatCompletion(...);
+            
+            long duration = System.currentTimeMillis() - startTime;
+            log.info("Extraction completed: requestId={}, duration={}ms, responseLength={}", 
+                requestId, duration, response.length());
+            
+            // Audit log
+            saveExtractionAudit(requestId, template, candidates, response, duration);
+            
+            return parseResult(response);
+            
+        } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
+            log.error("Extraction failed: requestId={}, duration={}ms, error={}", 
+                requestId, duration, e.getMessage());
+            
+            saveExtractionAudit(requestId, template, candidates, null, duration, e);
+            throw e;
+        }
+    }
+    
+    private void saveExtractionAudit(String requestId, ExtractionTemplate template,
+                                    List<ObservationEntity> candidates,
+                                    String response, long durationMs, Exception error) {
+        // Save to audit table or observation metadata
+        ObservationEntity audit = new ObservationEntity();
+        audit.setType("extraction_audit");
+        audit.setSource("audit:" + template.name());
+        audit.setExtractedData(Map.of(
+            "requestId", requestId,
+            "template", template.name(),
+            "candidateCount", candidates.size(),
+            "durationMs", durationMs,
+            "responseLength", response != null ? response.length() : 0,
+            "error", error != null ? error.getMessage() : null
+        ));
+        observationRepository.save(audit);
+    }
+}
+```
+
+### 10.5 Multi-language Support
+
+**Issue**: Observations may be in Chinese, English, or mixed.
+
+**Solution**: Include language hint in prompt.
+
+```yaml
+templates:
+  - name: "user_preference"
+    language: "auto"  # or "zh", "en", "ja"
+    prompt: |
+      [Language: {{language}}]
+      Extract user preferences from the conversation.
+```
+
+```java
+private String buildPrompt(ExtractionTemplate template, List<ObservationEntity> candidates) {
+    String language = detectLanguage(candidates);
+    String prompt = template.prompt()
+        .replace("{{language}}", language);  // Or "auto" for LLM to detect
+    
+    // ... rest of prompt building
+}
+
+private String detectLanguage(List<ObservationEntity> candidates) {
+    // Simple heuristic: check character ranges
+    // Or use LLM to detect
+}
+```
+
+---
+
 ## Changelog
 
+- **2026-03-21 v5**: Added critical implementation considerations: context window batching, prompt injection prevention, cost control (dry-run, rate limiting, caching), observability & audit trail, multi-language support
 - **2026-03-21 v4**: Confirmed existing repository methods (findBySource, findByType) are reusable. Added integration points section.
 - **2026-03-21 v3**: Added incremental extraction, query API, template versioning, LLM validation, cascading extractions considerations
 - **2026-03-21 v2**: Generalized approach - extracted data type is determined by prompt, not code
