@@ -1,7 +1,7 @@
 # Phase 3 Design Proposal: Structured Information Extraction & Memory Conflict Detection
 
 **Date**: 2026-03-21
-**Status**: Design proposal - iteration 9 (utility method gaps + LlmService integration clarity + ExtractionState persistence + Spring AI 1.1.2 schema enforcement)
+**Status**: Design proposal - iteration 10 (JacksonOutputConverter → BeanOutputConverter fix for Spring AI 1.1.2)
 **Related to**: `sdk-improvement-research.md` Phase 3 deferred items
 
 ---
@@ -79,9 +79,14 @@ T result = objectMapper.readValue(llmResponse, outputType);  // ❌ Manual parsi
 - LLM may return non-compliant JSON despite the prompt instruction
 - No type safety at compile time
 
-**Better approach**: Extend `LlmService` with structured output support.
+**Correct approach for Spring AI 1.1.2**: Use `ChatClient.call().entity()` with `BeanOutputConverter`
 
-Spring AI's `ChatClient.call().entity()` does NOT automatically enforce schema - it just parses JSON into the target type. For true schema enforcement, we need `JacksonOutputConverter` or similar.
+Spring AI 1.1.2 provides structured output converters in `org.springframework.ai.converter`:
+- `BeanOutputConverter` - for POJO output
+- `MapOutputConverter` - for Map/JSON object output
+- `ListOutputConverter` - for list/array output
+
+**Important**: `JacksonOutputConverter` does NOT exist in Spring AI 1.1.2 — this was an incorrect reference in earlier versions.
 
 **Implementation Option A: Add structured method to LlmService** (Recommended - keeps existing pattern)
 
@@ -91,48 +96,30 @@ public <T> T chatCompletionStructured(String systemPrompt, String userPrompt, Cl
     ChatClient chatClient = this.chatClient.orElseThrow(() ->
         new IllegalStateException("AI not configured."));
 
-    // Use JacksonOutputConverter for schema-enforced parsing
-    JacksonOutputConverter<T> converter = JacksonOutputConverter.builder()
-        .schema(Schema.of(outputType))  // Spring AI infers schema from type
-        .build(outputType);
+    // Use BeanOutputConverter for schema-enforced parsing
+    BeanOutputConverter<T> converter = new BeanOutputConverter<>(outputType);
 
     return chatClient.prompt()
-        .system(systemPrompt)
+        .system(systemPrompt + "\n\nOutput format: " + converter.getFormat())
         .user(userPrompt)
         .call()
         .entity(converter);
 }
 ```
 
-**Implementation Option B: Direct ChatClient with JacksonOutputConverter**
-
-```java
-public <T> T extractByTemplate(String projectPath, ExtractionTemplate template, Class<T> outputType) {
-    // Build prompt
-    String prompt = buildPrompt(template, candidates);
-    
-    // Use JacksonOutputConverter for structured output
-    JacksonOutputConverter<T> converter = JacksonOutputConverter.builder()
-        .schema(Schema.of(outputType))  // Infers JSON Schema from Java type
-        .build(outputType);
-    
-    T result = llmService.getChatClient().prompt()
-        .system(template.promptTemplate())
-        .user(prompt)
-        .call()
-        .entity(converter);
-    
-    return result;
-}
-```
-
-**Why this is better**:
-- Spring AI validates the output against the schema via JacksonOutputConverter
-- Direct type-safe object binding, no raw JSON parsing
+**Why `BeanOutputConverter` is the right choice**:
+- Automatically generates JSON Schema from the target POJO class
+- Instructs the LLM via the system prompt to output matching JSON
+- Provides parse-with-validation via `converter.toCharFlux()` parsing
 - Works with any Spring AI compatible model (OpenAI, Anthropic, etc.)
 - Keeps extraction logic in StructuredExtractionService, not scattered
 
-**Note**: `JacksonOutputConverter` requires Spring AI 1.x. Verify current version in `pom.xml`.
+**Note**: Spring AI 1.1.2 does NOT provide true schema enforcement at the API level — it relies on:
+1. `BeanOutputConverter` generating schema instructions in the system prompt
+2. LLM compliance with those instructions
+3. The converter parsing the response (may fail if LLM doesn't comply)
+
+For stricter enforcement, implement validation + retry logic in the caller.
 
 ### Bug 3: Integration Ambiguity — "Add extraction call after existing refinement"
 
@@ -854,7 +841,7 @@ public void runCascadingExtraction(String projectPath, ExtractionTemplate templa
 5. Should we support incremental extraction by default? (Performance vs freshness tradeoff)
 6. How to handle template schema evolution without re-extracting all history?
 7. Do we need cascading extractions or is flat extraction sufficient?
-8. **Spring AI 1.1.2 schema enforcement**: Does `JacksonOutputConverter` work reliably in 1.1.2, or should we use `ChatModel` JSON mode / `@JsonSchema` approach instead? Need implementation verification before Phase 3.1 coding begins.
+8. **Spring AI 1.1.2 schema enforcement**: ✅ Answered in v10 — `JacksonOutputConverter` does NOT exist in Spring AI 1.1.2. Correct approach is `BeanOutputConverter` from `org.springframework.ai.converter`. Note: Spring AI 1.1.2 does not provide true schema enforcement at the API level — schema compliance relies on prompt engineering + LLM compliance + retry on parse failure.
 
 ---
 
@@ -1701,6 +1688,7 @@ void shouldValidateOutputSchema() {
 
 ## Changelog
 
+- **2026-03-21 v10**: Critical fix in section 0.1 Bug 2: `JacksonOutputConverter` does NOT exist in Spring AI 1.1.2. Replaced with correct `BeanOutputConverter` approach. The correct Spring AI 1.1.2 structured output converters are `BeanOutputConverter`, `MapOutputConverter`, and `ListOutputConverter` from `org.springframework.ai.converter`. Updated implementation options to reflect actual Spring AI 1.1.2 API.
 - **2026-03-21 v9**: (1) Added missing `convertToMap()` utility method in section 2.3 — handles POJOs, Maps, Lists, and primitives for `extractedData` JSONB storage. (2) Fixed `StructuredExtractionService` to use `LlmService` (consistent with `MemoryRefineService`) instead of raw `ChatClient`. (3) Added `findNewObservations()` repository method to section 9.1 with epoch-based comparison for incremental extraction. (4) Clarified `ExtractionState` persistence — stores as `ObservationEntity` with `type="extraction_state"` to avoid a separate database table.
 - **2026-03-21 v8**: (1) Clarified Spring AI structured output: `ChatClient.call().entity()` does NOT auto-enforce schema - must use `JacksonOutputConverter` for true schema enforcement. Added implementation options for `LlmService.chatCompletionStructured()`. (2) Fixed `tokenService.estimateTokens()` → should be `TokenService.calculateObservationTokens()` (method doesn't exist, must inject TokenService bean). (3) Clarified dead letter queue implementation: store as `ObservationEntity` with type=`extraction_failed` rather than separate queue infrastructure.
 - **2026-03-21 v7**: Fixed 3 critical bugs: (1) `findBySource(project, sourceFilter List)` → must use new `findBySourceIn(project, List<String>, limit)` method (findBySource takes String only). (2) Manual JSON parsing → replaced with Spring AI structured output via `ChatClient.call().entity(outputType)`. (3) Integration ambiguity → clarified extraction is a separate pipeline from refinement, only called as last step of deepRefineProjectMemories. Updated all `template.prompt()` references to `template.promptTemplate()`. Added `@JsonProperty` mapping note for YAML.
