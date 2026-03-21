@@ -1,7 +1,7 @@
 # Phase 3 Design Proposal: Structured Information Extraction & Memory Conflict Detection
 
 **Date**: 2026-03-22
-**Status**: Design proposal - iteration 13 (Transaction safety, ICL integration, concurrency control, quick reference)
+**Status**: Design proposal - iteration 14 (Wildcard query fix, idempotency, type namespace, prerequisite verification)
 **Related to**: `sdk-improvement-research.md` Phase 3 deferred items
 
 ---
@@ -1049,9 +1049,27 @@ public void runCascadingExtraction(String projectPath, ExtractionTemplate templa
 - `findByType(project, type, limit)` - For finding extraction results
 - `findDistinctProjects()` - For iterating all projects in scheduled tasks
 
-**⚠️ New repository methods STILL NOT IMPLEMENTED** (v11 status: pending):
+**⚠️ New repository methods STILL NOT IMPLEMENTED** (v14 status: pending):
 
 ```java
+// v14 NEW: Find observations by type using LIKE pattern.
+// Required because findByType uses exact match (type = :type), NOT LIKE.
+// findByType(project, "extracted_%", 50) will return ZERO results — it looks for type exactly equal to "extracted_%".
+// This method is needed for ICL prompt integration (section 15.8) and experience API.
+// Alternative: iterate known template names with findByType(project, "extracted_" + name, limit) — no new method needed but more queries.
+@Query(value = """
+    SELECT * FROM mem_observations
+    WHERE project_path = :project
+    AND type LIKE :typePattern
+    ORDER BY created_at_epoch DESC
+    LIMIT :limit
+    """, nativeQuery = true)
+List<ObservationEntity> findByTypeLike(
+    @Param("project") String project,
+    @Param("typePattern") String typePattern,  // e.g. "extracted_%"
+    @Param("limit") int limit
+);
+
 // Bug 1 fix: find observations where source is IN a list
 // ⚠️ NOT YET ADDED to ObservationRepository — must be implemented before Phase 3.1
 @Query(value = """
@@ -1950,7 +1968,8 @@ This section provides a concrete, step-by-step guide for implementing Phase 3.1.
 | 1 | Add `findBySourceIn()` | `ObservationRepository.java` | `List<String> sources` param, native SQL with `IN (:sources)` |
 | 2 | Add `findNewObservations()` | `ObservationRepository.java` | `Long sinceEpoch` param for incremental extraction |
 | 3 | Add `findByTypeGlobal()` | `ObservationRepository.java` | Cross-project query for DLQ — `findByType(null, ...)` will NOT work because `@Param("project")` is non-null |
-| 4 | Add `chatCompletionStructured()` | `LlmService.java` | Uses `BeanOutputConverter<T>` from `org.springframework.ai.converter` |
+| 4 | Add `findByTypeLike()` | `ObservationRepository.java` | **NEW (v14)**: Wildcard type query using `LIKE`. `findByType` uses exact match (`type = :type`), so `findByType(project, "extracted_%", 50)` does NOT match `extracted_user_preference`. Either add this method or iterate known template names (see section 15.8). |
+| 5 | Add `chatCompletionStructured()` | `LlmService.java` | Uses `BeanOutputConverter<T>` from `org.springframework.ai.converter` |
 
 **Critical fix for DLQ (section 11.3)**: The current dead letter queue retry code uses `findByType(null, "extraction_failed", 100)` — this will fail because `findByType` requires a non-null `@Param("project")`. Two options:
 
@@ -2239,8 +2258,11 @@ public String buildIclPrompt(String projectPath, String task, int maxChars) {
     StringBuilder context = new StringBuilder();
     
     // Section 1: Extracted structured facts (from Phase 3 extraction)
+    // ⚠️ BUG FIX (v14): findByType uses exact match (type = :type), NOT LIKE.
+    // findByType(project, "extracted_%", 50) will NOT match "extracted_user_preference"!
+    // Solution: Use new findByTypeLike() method with LIKE pattern, OR iterate known templates.
     List<ObservationEntity> extractions = observationRepository
-        .findByType(projectPath, "extracted_%", 50)  // Wildcard for all template types
+        .findByTypeLike(projectPath, "extracted_%", 50)  // Uses LIKE, not exact match
         .stream()
         .filter(o -> o.getSource() != null && o.getSource().startsWith("extraction:"))
         .toList();
@@ -2263,6 +2285,20 @@ public String buildIclPrompt(String projectPath, String task, int maxChars) {
 }
 ```
 
+**Alternative approach** (no new repository method): Iterate known template names instead of wildcard:
+
+```java
+// If findByTypeLike is not added, use template name iteration:
+List<String> templateNames = extractionConfig.getTemplates().stream()
+    .map(ExtractionConfig.ExtractionTemplate::getName)
+    .toList();
+for (String templateName : templateNames) {
+    List<ObservationEntity> extractions = observationRepository
+        .findByType(projectPath, "extracted_" + templateName, 10);  // Exact match, works today
+    // ... append to context
+}
+```
+
 **Also**: Expose extraction data through the existing experience API (`/api/memory/experiences`) by treating `extracted_*` types as a first-class observation category.
 
 ```java
@@ -2277,8 +2313,9 @@ public record ExperienceRequest(
 
 // In MemoryManagementService.getExperiences()
 if (request.includeExtractions()) {
+    // Use findByTypeLike (not findByType) for wildcard pattern
     List<ObservationEntity> extractions = observationRepository
-        .findByType(project, "extracted_%", 20);
+        .findByTypeLike(project, "extracted_%", 20);
     experiences.addAll(extractions.stream().map(this::toExperience).toList());
 }
 ```
@@ -2349,7 +2386,7 @@ Before writing any code, verify:
 - [ ] `ObservationEntity.setExtractedData(Map<String, Object>)` setter exists
 - [ ] `ObjectMapper` bean is available in the Spring context (for `convertToMap()`)
 - [ ] YAML configuration loading works with the chosen config binding approach
-- [ ] `ObservationRepository` has `findByType(project, "extracted_%", limit)` with wildcard support (or iterate known template names)
+- [ ] `ObservationRepository` has `findByTypeLike(project, "extracted_%", limit)` with LIKE support — OR use iteration over known template names with existing `findByType` (see section 15.8 for both approaches)
 - [ ] `@Transactional` support is available (Spring Data JPA, no custom transaction manager)
 
 ---
@@ -2408,8 +2445,128 @@ Captured for future reference — decisions that shaped the design.
 
 ---
 
+## 17. Extraction Idempotency (v14)
+
+### 17.1 Problem: Duplicate Results from Re-running Extraction
+
+**Issue**: If extraction runs twice on the same observations (e.g., due to crash recovery or manual re-trigger), it produces duplicate `extracted_{template}` observations. Over time, this pollutes the observation store with redundant data.
+
+**Current gap**: `runTemplateExtraction()` calls `storeExtractionResult()` which always creates a new `ObservationEntity`. There is no deduplication check.
+
+### 17.2 Idempotency Strategy
+
+**Approach**: Deduplicate by content hash + template name within a time window (aligned with existing `findDuplicateByContentHash` pattern from Migration 22).
+
+```java
+/**
+ * Check if an extraction result already exists for this template + source observations.
+ * Uses observation content hash for deduplication.
+ */
+private boolean extractionAlreadyExists(ExtractionTemplate template, 
+                                         List<ObservationEntity> sourceObservations) {
+    // Build a composite hash from source observation IDs
+    String compositeHash = computeCompositeHash(template.name(), sourceObservations);
+    
+    // Check if an extraction with this hash already exists (within 24h window)
+    long windowStart = OffsetDateTime.now().minusHours(24).toEpochSecond() * 1000L;
+    return observationRepository
+        .findDuplicateByContentHash(compositeHash, windowStart)
+        .isPresent();
+}
+
+/**
+ * Store extraction result with idempotency check.
+ */
+private <T> ExtractionResult<T> storeExtractionResultIdempotent(
+        ExtractionTemplate template, T result, List<ObservationEntity> sourceObservations) {
+    
+    if (extractionAlreadyExists(template, sourceObservations)) {
+        log.info("Extraction already exists for template {}, skipping", template.name());
+        return null;
+    }
+    
+    return storeExtractionResult(template, result, sourceObservations);
+}
+```
+
+**Alternative (simpler)**: Use extraction state (section 7.1) as the idempotency boundary — if state's `lastExtractedAt` is newer than all source observations, skip. This is already partially implemented via incremental extraction, but doesn't protect against re-running within the same time window.
+
+### 17.3 Idempotency for State Updates
+
+The `updateExtractionState()` method (section 15.6) uses delete-then-save, which is NOT idempotent. If called twice rapidly, it could delete and re-create the state unnecessarily. The `@Transactional` wrapper prevents corruption but not duplicate work.
+
+**Recommendation**: Add a guard clause:
+
+```java
+@Transactional
+private void updateExtractionState(String projectPath, String templateName, OffsetDateTime now) {
+    // Guard: skip if state already reflects this timestamp (within 1 second tolerance)
+    ExtractionState existing = getExtractionState(projectPath, templateName);
+    if (existing != null && existing.lastExtractedAt().isAfter(now.minusSeconds(1))) {
+        return; // Already up-to-date
+    }
+    // ... delete-then-save logic
+}
+```
+
+---
+
+## 18. Observation Type Namespace Reservation (v14)
+
+### 18.1 Problem: User-Created Types Collide with System Types
+
+**Issue**: The system uses observation `type` values with special prefixes for internal purposes:
+- `extracted_{template}` — extraction results
+- `extraction_state` — incremental extraction state tracking
+- `extraction_failed` — dead letter queue
+- `extraction_audit` — audit trail
+
+If a user or agent creates observations with these type values, it causes data pollution and query conflicts. For example, `findByType(project, "extraction_state", 100)` would return both system state records AND user-created observations.
+
+### 18.2 Namespace Convention
+
+**Convention**: Reserve the `extraction_*` prefix for system use. User observations should NOT use types starting with `extraction_`.
+
+| Type Pattern | Owner | Purpose |
+|-------------|-------|---------|
+| `extracted_{template}` | System | Extraction results |
+| `extraction_state` | System | Incremental state |
+| `extraction_failed` | System | Dead letter queue |
+| `extraction_audit` | System | Audit trail |
+| Any other type | User/Agent | Normal observations |
+
+### 18.3 Enforcement Options
+
+| Strategy | Implementation | Strictness |
+|----------|---------------|------------|
+| **A. Convention only** | Document in API docs, rely on agent behavior | Soft |
+| **B. Validation in `POST /api/ingest/observation`** | Reject `type` starting with `extraction_` | Hard |
+| **C. Separate prefix** | Use `__system__` prefix instead of `extraction_` | Harder to collide |
+
+**Recommendation**: **Option B** — add validation in the observation creation endpoint to reject reserved type prefixes. This prevents accidental collisions without being overly restrictive.
+
+```java
+// In ObservationController or IngestionService
+private static final Set<String> RESERVED_TYPE_PREFIXES = Set.of("extraction_");
+
+private void validateObservationType(String type) {
+    if (type != null) {
+        for (String prefix : RESERVED_TYPE_PREFIXES) {
+            if (type.startsWith(prefix)) {
+                throw new IllegalArgumentException(
+                    "Type prefix '" + prefix + "' is reserved for system use. " +
+                    "Use a different type name.");
+            }
+        }
+    }
+}
+```
+
+---
+
 ## Changelog
 
+- **2026-03-22 v14**: (1) **Section 15.8 Bug Fix**: Fixed `findByType(project, "extracted_%", 50)` wildcard bug — `findByType` uses exact match (`type = :type`), NOT LIKE. Added `findByTypeLike()` repository method as prerequisite #4, plus alternative approach (iterate known template names). Updated ICL prompt and experience API code examples. (2) **Section 9.1**: Added `findByTypeLike()` to pending repository methods list. (3) **Section 15.1**: Added `findByTypeLike()` as prerequisite #5. (4) **Section 15.10**: Updated validation checklist with `findByTypeLike` or template-iteration alternative. (5) **Section 17**: Extraction idempotency — prevents duplicate `extracted_{template}` observations from re-running extraction. Composite hash deduplication + state guard clause. (6) **Section 18**: Observation type namespace reservation — `extraction_*` prefix reserved for system use. Added validation option to prevent user-created type collisions. (7) **Verified**: Spring AI 1.1.2 classpath includes `BeanOutputConverter`, `MapOutputConverter`, `ListOutputConverter` in `spring-ai-model` jar. Confirmed 5 pending prerequisites still not implemented: `findBySourceIn`, `findNewObservations`, `findByTypeGlobal`, `findByTypeLike`, `chatCompletionStructured`.
 - **2026-03-22 v13**: (1) **Quick Reference**: Added TL;DR summary at top — what, how, when, prerequisites, pipeline diagram. (2) **Section 15.6**: Transaction safety for extraction state management — `@Transactional` wrapper for delete-then-save pattern, plus SQL upsert alternative for production. (3) **Section 15.7**: Concurrency control — per-project `ReentrantLock` to prevent duplicate extraction runs from deepRefine + scheduled task overlap. (4) **Section 15.8**: ICL prompt integration — how extracted data surfaces in `/api/memory/icl-prompt` and experience API (`includeExtractions` flag). (5) **Section 15.9**: Token counting without TokenService — character-based heuristic (CJK-aware) for batching observations. (6) **Section 16**: Architecture Decision Records — 4 key decisions (store as ObservationEntity, BeanOutputConverter, separate pipeline, POJO+Map hybrid) captured with rationale and tradeoffs. (7) **Section 15.10**: Updated validation checklist with `@Transactional` and wildcard `findByType` support.
 - **2026-03-22 v12**: (1) **Section 15**: Added Implementation Bootstrap Checklist — step-by-step Phase 3.1 guide with prerequisites, new files, and validation checklist. (2) **Section 15.1**: Fixed DLQ bug — `findByType(null, ...)` won't work because `@Param("project")` is non-null; added `findByTypeGlobal()` repository method as prerequisite. (3) **Section 15.3**: Added Record vs POJO analysis for `ExtractionTemplate` configuration binding — recommended POJO approach via `@ConfigurationProperties` for Spring Boot 3.3 compatibility. (4) **Section 15.4**: Added concrete `LlmService.chatCompletionStructured()` implementation with `BeanOutputConverter`/`MapOutputConverter` dual pattern. (5) **Section 15.5**: Clarified extraction integration order — must NOT run during `quickRefine()`, only as last step of `deepRefineProjectMemories()`. (6) **Section 11.3**: Fixed DLQ retry code to use `findByTypeGlobal()` instead of broken `findByType(null, ...)`.
 - **2026-03-22 v11**: (1) **Section 0.2**: Added critical design gaps documentation — `outputSchema` (String) cannot feed `BeanOutputConverter<T>` (Class) without a bridge; added three practical solutions (predefined POJO, Map fallback, dynamic generation). (2) **Gap 2**: Clarified `ListOutputConverter` limitation — returns `List<String>`, not `List<MyObject>`; arrays of objects must use `MapOutputConverter` or post-processing. (3) **Gap 3**: Confirmed `findBySourceIn` and `findNewObservations` repository methods are still NOT implemented (status: pending). (4) **Gap 4**: Confirmed `LlmService.chatCompletionStructured()` method does NOT exist (status: pending). (5) **Section 2.1**: Added `templateClass` field to `ExtractionTemplate` record — required for resolving Java Class at runtime. (6) **Section 2.2**: Updated YAML examples to include `template-class` field; clarified `output-schema` is only needed for Map templates. (7) **Section 2.3**: Refactored `extractByTemplate()` to use `resolveOutputClass()` and `buildSchemaHint()` for two-pattern support (POJO vs Map). (8) **Section 2.4**: Updated allergy example to show both POJO and Map template patterns.
