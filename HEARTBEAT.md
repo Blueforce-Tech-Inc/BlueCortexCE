@@ -41,7 +41,7 @@ curl -s http://127.0.0.1:37777/api/health
 - [x] **测试覆盖**: 确认回归测试通过
   ```bash
   bash scripts/regression-test.sh
-  # 预期: 39/39 tests passed
+  # 预期: 43/43 tests passed (2026-03-21: 4 后端验证步骤增强)
   ```
 
 - [x] **文档完整性**: 确认 `sdk-improvement-research.md` 已是"诚实记录"
