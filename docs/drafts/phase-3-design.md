@@ -1,8 +1,33 @@
 # Phase 3 Design Proposal: Structured Information Extraction & Memory Conflict Detection
 
 **Date**: 2026-03-22
-**Status**: Design proposal - iteration 12 (Implementation bootstrap checklist, DLQ fix, config binding strategy)
+**Status**: Design proposal - iteration 13 (Transaction safety, ICL integration, concurrency control, quick reference)
 **Related to**: `sdk-improvement-research.md` Phase 3 deferred items
+
+---
+
+## Quick Reference (TL;DR)
+
+**What**: Generic, prompt-driven structured information extraction from observations.
+**How**: YAML templates define what to extract + output schema. Code is generic.
+**Storage**: Results stored as `ObservationEntity` with `type="extracted_{template}"` + `extractedData` JSONB.
+**When**: Last step of `deepRefineProjectMemories()` (non-blocking) or scheduled daily.
+**Prerequisites**: 4 new methods (findBySourceIn, findNewObservations, findByTypeGlobal, chatCompletionStructured).
+**Key insight**: `BeanOutputConverter<T>` needs Java `Class<T>`, not JSON Schema string. Use `templateClass` field.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ Extraction Pipeline (per template per project)          │
+├─────────────────────────────────────────────────────────┤
+│ 1. Get incremental candidates (since last extraction)   │
+│ 2. Chunk by token count (respect context window)        │
+│ 3. Build prompt (template.prompt + candidate data)      │
+│ 4. Call LLM via BeanOutputConverter<T> (schema-enforced)│
+│ 5. Validate result → store as ObservationEntity         │
+│ 6. Update extraction state (transactional)              │
+│ 7. On failure → DLQ (type=extraction_failed)            │
+└─────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -2097,10 +2122,295 @@ Before writing any code, verify:
 - [ ] `ObjectMapper` bean is available in the Spring context (for `convertToMap()`)
 - [ ] YAML configuration loading works with the chosen config binding approach
 
+### 15.6 Transaction Safety for Extraction State
+
+**Problem**: Section 7.1's `updateExtractionState()` uses delete-then-save without `@Transactional`. If save fails after delete succeeds, extraction state is lost and the next run re-processes everything.
+
+**Fix**: Use `@Transactional` on the state management method. Also consider upsert SQL for atomicity.
+
+```java
+/**
+ * Update extraction state atomically.
+ * Without @Transactional, delete-then-save can corrupt state if save fails.
+ */
+@Transactional
+private void updateExtractionState(String projectPath, String templateName, OffsetDateTime now) {
+    // Delete old state for this project+template
+    observationRepository.findByType(projectPath, "extraction_state", 100).stream()
+        .filter(o -> o.getSource() != null && o.getSource().equals("state:" + templateName))
+        .forEach(o -> observationRepository.deleteById(o.getId()));
+    
+    // Flush delete before insert (ensures delete is committed within same transaction)
+    observationRepository.flush();
+    
+    // Insert new state
+    ObservationEntity stateObs = new ObservationEntity();
+    stateObs.setProjectPath(projectPath);
+    stateObs.setType("extraction_state");
+    stateObs.setSource("state:" + templateName);
+    stateObs.setCreatedAt(now);
+    stateObs.setCreatedAtEpoch(now.toEpochSecond() * 1000L);
+    stateObs.setExtractedData(Map.of(
+        "template", templateName,
+        "lastExtractedAt", now.toEpochSecond()
+    ));
+    observationRepository.save(stateObs);
+}
+```
+
+**Alternative (preferred for production)**: Use raw SQL upsert to avoid the delete-then-save race entirely:
+
+```java
+// Requires new repository method
+@Modifying
+@Query(value = """
+    INSERT INTO mem_observations (id, project_path, type, source, created_at, created_at_epoch, extracted_data)
+    VALUES (gen_random_uuid(), :project, 'extraction_state', :source, :now, :nowEpoch, CAST(:data AS jsonb))
+    ON CONFLICT (source) WHERE type = 'extraction_state'
+    DO UPDATE SET
+        extracted_data = CAST(:data AS jsonb),
+        created_at = :now,
+        created_at_epoch = :nowEpoch
+    """, nativeQuery = true)
+void upsertExtractionState(
+    @Param("project") String project,
+    @Param("source") String source,
+    @Param("now") OffsetDateTime now,
+    @Param("nowEpoch") Long nowEpoch,
+    @Param("data") String extractedDataJson
+);
+```
+
+**NOTE**: The upsert approach requires a partial unique index on `(source) WHERE type = 'extraction_state'` in the database. This is a DB migration step.
+
+### 15.7 Concurrency Control
+
+**Problem**: Extraction could be triggered by both `deepRefine` (on SessionEnd) and the scheduled task simultaneously. Without protection, the same observations get processed twice, producing duplicate or conflicting results.
+
+**Options**:
+
+| Strategy | Mechanism | Complexity | Recommended |
+|----------|-----------|------------|-------------|
+| **A. Spring `@Scheduler` lock** | `@SchedulerLock` (ShedLock) | Medium | ✅ For multi-instance |
+| **B. In-memory `ReentrantLock`** | Per-project lock map | Low | ✅ For single-instance |
+| **C. DB advisory lock** | `pg_try_advisory_lock()` | Medium | ✅ For DB-centric |
+| **D. Optimistic: dedup by observation ID** | Track processed IDs | Low | ❌ Doesn't prevent double work |
+
+**Recommended**: **Option B** for single-instance deployment (current architecture). **Option A** if future multi-instance.
+
+```java
+@Service
+public class StructuredExtractionService {
+
+    // Per-project lock to prevent concurrent extraction
+    private final ConcurrentHashMap<String, ReentrantLock> projectLocks = new ConcurrentHashMap<>();
+
+    public void runExtraction(String projectPath) {
+        ReentrantLock lock = projectLocks.computeIfAbsent(projectPath, k -> new ReentrantLock());
+        
+        if (!lock.tryLock()) {
+            log.info("Extraction already running for project: {}, skipping", projectPath);
+            return;
+        }
+        
+        try {
+            for (ExtractionTemplate template : templates) {
+                if (!template.enabled()) continue;
+                runTemplateExtraction(projectPath, template);
+            }
+        } finally {
+            lock.unlock();
+        }
+    }
+}
+```
+
+### 15.8 ICL Prompt Integration
+
+**Issue**: How does the ICL prompt system (`/api/memory/icl-prompt`) incorporate extracted data?
+
+**Current flow**: ICL prompt builds context from raw observations. Extraction produces structured facts that should be surfaced separately.
+
+**Design**: Add extracted data as a dedicated section in the ICL prompt, separate from raw observations.
+
+```java
+// In ContextService.java (ICL prompt generation)
+public String buildIclPrompt(String projectPath, String task, int maxChars) {
+    StringBuilder context = new StringBuilder();
+    
+    // Section 1: Extracted structured facts (from Phase 3 extraction)
+    List<ObservationEntity> extractions = observationRepository
+        .findByType(projectPath, "extracted_%", 50)  // Wildcard for all template types
+        .stream()
+        .filter(o -> o.getSource() != null && o.getSource().startsWith("extraction:"))
+        .toList();
+    
+    if (!extractions.isEmpty()) {
+        context.append("=== EXTRACTED FACTS ===\n");
+        for (ObservationEntity ext : extractions) {
+            String templateName = ext.getSource().replace("extraction:", "");
+            context.append(String.format("[%s]: %s\n", templateName, formatExtractedData(ext.getExtractedData())));
+        }
+        context.append("\n");
+    }
+    
+    // Section 2: Raw observations (existing behavior)
+    context.append("=== RELEVANT MEMORIES ===\n");
+    // ... existing observation search + formatting
+    
+    // Truncate to maxChars
+    return truncateToMaxChars(context.toString(), maxChars);
+}
+```
+
+**Also**: Expose extraction data through the existing experience API (`/api/memory/experiences`) by treating `extracted_*` types as a first-class observation category.
+
+```java
+// Add to ExperienceRequest
+public record ExperienceRequest(
+    String project,
+    String task,
+    List<String> requiredConcepts,
+    String source,
+    boolean includeExtractions  // NEW: include extracted facts in response
+) {}
+
+// In MemoryManagementService.getExperiences()
+if (request.includeExtractions()) {
+    List<ObservationEntity> extractions = observationRepository
+        .findByType(project, "extracted_%", 20);
+    experiences.addAll(extractions.stream().map(this::toExperience).toList());
+}
+```
+
+### 15.9 Token Counting Without TokenService
+
+**Problem**: Section 10.1 references `TokenService.calculateObservationTokens()` but this method does NOT exist. How to estimate tokens for batching?
+
+**Pragmatic solution**: Use character-based estimation (1 token ≈ 4 chars for English, 1.5-2 chars for Chinese).
+
+```java
+/**
+ * Estimate token count for an observation.
+ * Uses character-based heuristic since TokenService.calculateObservationTokens() doesn't exist.
+ * 
+ * Formula: ~4 chars per token for ASCII, ~2 chars per CJK character.
+ */
+private int estimateTokens(ObservationEntity obs) {
+    String text = (obs.getTitle() != null ? obs.getTitle() : "") + " " + 
+                  (obs.getContent() != null ? obs.getContent() : "");
+    
+    int cjkCount = 0;
+    int asciiCount = 0;
+    for (char c : text.toCharArray()) {
+        if (Character.UnicodeBlock.of(c) == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS) {
+            cjkCount++;
+        } else {
+            asciiCount++;
+        }
+    }
+    
+    return (int) (cjkCount / 1.5 + asciiCount / 4.0);
+}
+
+private List<List<ObservationEntity>> chunkByTokenCount(List<ObservationEntity> observations, int maxTokens) {
+    List<List<ObservationEntity>> batches = new ArrayList<>();
+    List<ObservationEntity> currentBatch = new ArrayList<>();
+    int currentTokens = 0;
+    
+    for (ObservationEntity obs : observations) {
+        int tokens = estimateTokens(obs);
+        if (currentTokens + tokens > maxTokens && !currentBatch.isEmpty()) {
+            batches.add(currentBatch);
+            currentBatch = new ArrayList<>();
+            currentTokens = 0;
+        }
+        currentBatch.add(obs);
+        currentTokens += tokens;
+    }
+    
+    if (!currentBatch.isEmpty()) {
+        batches.add(currentBatch);
+    }
+    
+    return batches;
+}
+```
+
+**NOTE**: This is a pragmatic heuristic. For production, invest in proper tokenization via tiktoken-java or JTokkit.
+
+### 15.10 Validation Checklist Before Implementation (Updated)
+
+Before writing any code, verify:
+
+- [ ] Spring AI 1.1.2 includes `org.springframework.ai.converter` package (check Maven dependency tree)
+- [ ] `BeanOutputConverter` and `MapOutputConverter` are available in the classpath
+- [ ] `ObservationEntity.getExtractedData()` returns `Map<String, Object>` (confirmed in V14)
+- [ ] `ObservationEntity.setExtractedData(Map<String, Object>)` setter exists
+- [ ] `ObjectMapper` bean is available in the Spring context (for `convertToMap()`)
+- [ ] YAML configuration loading works with the chosen config binding approach
+- [ ] `ObservationRepository` has `findByType(project, "extracted_%", limit)` with wildcard support (or iterate known template names)
+- [ ] `@Transactional` support is available (Spring Data JPA, no custom transaction manager)
+
+---
+
+## 16. Architecture Decision Records (ADRs)
+
+Captured for future reference — decisions that shaped the design.
+
+### ADR-1: Store extractions as ObservationEntity (not separate table)
+
+**Decision**: Use existing `ObservationEntity` with `type="extracted_{template}"` for extraction results.
+
+**Rationale**:
+- No new database table needed (avoids schema migration risk)
+- Existing repository methods (`findByType`, `findBySource`) work immediately
+- `extractedData` JSONB column already supports arbitrary structured data
+- Consistent with existing "observation = unit of memory" model
+
+**Tradeoff**: Observation table grows with both raw observations and extraction results. May need partitioning at scale (>10M rows).
+
+### ADR-2: BeanOutputConverter<T> over raw JSON parsing
+
+**Decision**: Use Spring AI's `BeanOutputConverter<T>` instead of manual `ObjectMapper.readValue()`.
+
+**Rationale**:
+- Auto-generates JSON Schema from Java class → better LLM compliance
+- `getFormat()` injects schema instructions into system prompt
+- Handles type coercion and nested objects automatically
+- Industry-standard approach for Spring AI structured output
+
+**Tradeoff**: Schema enforcement is prompt-based, not API-level. LLM may still return non-compliant JSON → needs retry logic.
+
+### ADR-3: Separate pipeline from MemoryRefineService
+
+**Decision**: Extraction runs as a separate step, NOT mixed with refinement logic.
+
+**Rationale**:
+- Refinement and extraction serve different purposes (prune vs extract)
+- Extraction failures should not block refinement (and vice versa)
+- Different cost profiles (refinement = moderate LLM, extraction = high LLM)
+- Independent scheduling (refinement on SessionEnd, extraction on schedule)
+
+**Tradeoff**: No shared context between refinement and extraction. Each runs independently.
+
+### ADR-4: POJO + Map hybrid over dynamic class generation
+
+**Decision**: Use predefined POJO classes for stable templates, `Map<String, Object>` for flexible/experimental schemas.
+
+**Rationale**:
+- Dynamic class generation (bytecode) is fragile and hard to debug
+- POJO gives type safety for critical data (allergies, medical info)
+- Map fallback provides maximum flexibility without code changes
+- YAML `template-class` field controls the pattern per template
+
+**Tradeoff**: New stable template requires a new Java class + recompilation.
+
 ---
 
 ## Changelog
 
+- **2026-03-22 v13**: (1) **Quick Reference**: Added TL;DR summary at top — what, how, when, prerequisites, pipeline diagram. (2) **Section 15.6**: Transaction safety for extraction state management — `@Transactional` wrapper for delete-then-save pattern, plus SQL upsert alternative for production. (3) **Section 15.7**: Concurrency control — per-project `ReentrantLock` to prevent duplicate extraction runs from deepRefine + scheduled task overlap. (4) **Section 15.8**: ICL prompt integration — how extracted data surfaces in `/api/memory/icl-prompt` and experience API (`includeExtractions` flag). (5) **Section 15.9**: Token counting without TokenService — character-based heuristic (CJK-aware) for batching observations. (6) **Section 16**: Architecture Decision Records — 4 key decisions (store as ObservationEntity, BeanOutputConverter, separate pipeline, POJO+Map hybrid) captured with rationale and tradeoffs. (7) **Section 15.10**: Updated validation checklist with `@Transactional` and wildcard `findByType` support.
 - **2026-03-22 v12**: (1) **Section 15**: Added Implementation Bootstrap Checklist — step-by-step Phase 3.1 guide with prerequisites, new files, and validation checklist. (2) **Section 15.1**: Fixed DLQ bug — `findByType(null, ...)` won't work because `@Param("project")` is non-null; added `findByTypeGlobal()` repository method as prerequisite. (3) **Section 15.3**: Added Record vs POJO analysis for `ExtractionTemplate` configuration binding — recommended POJO approach via `@ConfigurationProperties` for Spring Boot 3.3 compatibility. (4) **Section 15.4**: Added concrete `LlmService.chatCompletionStructured()` implementation with `BeanOutputConverter`/`MapOutputConverter` dual pattern. (5) **Section 15.5**: Clarified extraction integration order — must NOT run during `quickRefine()`, only as last step of `deepRefineProjectMemories()`. (6) **Section 11.3**: Fixed DLQ retry code to use `findByTypeGlobal()` instead of broken `findByType(null, ...)`.
 - **2026-03-22 v11**: (1) **Section 0.2**: Added critical design gaps documentation — `outputSchema` (String) cannot feed `BeanOutputConverter<T>` (Class) without a bridge; added three practical solutions (predefined POJO, Map fallback, dynamic generation). (2) **Gap 2**: Clarified `ListOutputConverter` limitation — returns `List<String>`, not `List<MyObject>`; arrays of objects must use `MapOutputConverter` or post-processing. (3) **Gap 3**: Confirmed `findBySourceIn` and `findNewObservations` repository methods are still NOT implemented (status: pending). (4) **Gap 4**: Confirmed `LlmService.chatCompletionStructured()` method does NOT exist (status: pending). (5) **Section 2.1**: Added `templateClass` field to `ExtractionTemplate` record — required for resolving Java Class at runtime. (6) **Section 2.2**: Updated YAML examples to include `template-class` field; clarified `output-schema` is only needed for Map templates. (7) **Section 2.3**: Refactored `extractByTemplate()` to use `resolveOutputClass()` and `buildSchemaHint()` for two-pattern support (POJO vs Map). (8) **Section 2.4**: Updated allergy example to show both POJO and Map template patterns.
 - **2026-03-21 v10**: Critical fix in section 0.1 Bug 2: `JacksonOutputConverter` does NOT exist in Spring AI 1.1.2. Replaced with correct `BeanOutputConverter` approach. The correct Spring AI 1.1.2 structured output converters are `BeanOutputConverter`, `MapOutputConverter`, and `ListOutputConverter` from `org.springframework.ai.converter`. Updated implementation options to reflect actual Spring AI 1.1.2 API.
