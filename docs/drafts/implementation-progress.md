@@ -66,11 +66,13 @@ These are marked as "Future Considerations" in the research doc - documented for
 - **Status**: Deferred — requires AI logic for extraction and change tracking
 - **Relation to memory refinement**: Could leverage existing `MemoryRefineService` framework
 - **Implementation approach**: Configuration-driven extraction rules + refinement triggers
+- **Design document**: See `docs/drafts/phase-3-design.md`
 
 ### 3.3 Memory Conflict Detection
 - **Status**: Deferred — requires semantic understanding (AI-complete problem)
 - **Relation to memory refinement**: Could be a refinement rule that checks consistency
 - **Implementation approach**: LLM-based consistency evaluation during refinement
+- **Design document**: See `docs/drafts/phase-3-design.md`
 
 ---
 

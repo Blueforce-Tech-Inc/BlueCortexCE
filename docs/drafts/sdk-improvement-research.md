@@ -430,6 +430,8 @@ These features require deeper architectural changes or AI capabilities. They are
 #### Design Principle for Phase 3
 The `extractedData` JSONB field provides a flexible foundation for structured data without enum proliferation. Preference extraction and conflict detection could be implemented as **configuration-driven refinement rules** rather than hard-coded entities.
 
+**Detailed Design**: See `docs/drafts/phase-3-design.md`
+
 ---
 
 ## 7. SDK Usage Examples
@@ -508,6 +510,7 @@ ICLPromptResult result = client.buildICLPrompt(
 
 ## 10. Changelog
 
+- **2026-03-21**: Added detailed design document `phase-3-design.md` for deferred items
 - **2026-03-21**: Added Phase 3 deferred items with implementation hints (memory refinement approach)
 - **2026-03-21**: Updated to honest implementation record. Phases 1, 2, 4 complete. Phase 3 deferred.
 - **2026-03-20**: Initial research document with pain point analysis and proposed solutions.
