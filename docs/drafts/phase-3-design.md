@@ -1312,7 +1312,7 @@ public void deepRefineWithGracefulDegradation(String projectPath) {
         log.error("Refinement failed, but continuing: {}", e.getMessage());
         // Don't fail the whole process
     }
-    
+
     try {
         // Run extraction (can fail gracefully)
         runExtraction(projectPath);
@@ -1320,6 +1320,380 @@ public void deepRefineWithGracefulDegradation(String projectPath) {
         log.warn("Extraction failed, will retry later: {}", e.getMessage());
         // Queue for retry, don't fail the whole process
     }
+}
+```
+
+---
+
+## 12. Template Lifecycle Management
+
+### 12.1 Hot Reload Without Restart
+
+**Issue**: How to update templates without restarting the application?
+
+**Solution**: Use Spring's `@RefreshScope` or watch configuration files.
+
+```java
+@RefreshScope
+@Configuration
+@ConfigurationProperties(prefix = "app.memory.extraction")
+public class ExtractionConfig {
+
+    private boolean enabled = true;
+    private List<ExtractionTemplateConfig> templates = new ArrayList<>();
+
+    @PostConstruct
+    public void validateTemplates() {
+        for (ExtractionTemplateConfig template : templates) {
+            validateTemplate(template);
+        }
+    }
+}
+```
+
+```yaml
+# application.yml
+app:
+  memory:
+    extraction:
+      enabled: true
+      templates:
+        - name: "user_preference"
+          # ...
+```
+
+**Or use external config file** (recommended for production):
+
+```yaml
+# extraction-templates.yml (external, watched by Spring Cloud Config)
+app.memory.extraction:
+  templates:
+    - name: "user_preference"
+      # ...
+```
+
+### 12.2 Template Enable/Disable Per Template
+
+```java
+public record ExtractionTemplate(
+    String name,
+    boolean enabled,                    // NEW: per-template enable flag
+    String description,
+    List<String> triggerKeywords,
+    List<String> sourceFilter,
+    String promptTemplate,
+    String outputSchema,
+    boolean trackEvolution,
+    boolean conflictEnabled
+) {}
+
+// In runExtraction
+for (ExtractionTemplate template : templates) {
+    if (!template.enabled()) {
+        log.debug("Template {} is disabled, skipping", template.name());
+        continue;
+    }
+    // ... run extraction
+}
+```
+
+### 12.3 Template Schema Migration
+
+**Issue**: When template schema changes, how to migrate existing extractions?
+
+**Solution**: Version-based migration with explicit re-extract flag.
+
+```java
+public record ExtractionTemplate(
+    String name,
+    int version,                    // Schema version
+    // ...
+) {}
+
+// When schema changes, increment version
+- name: "user_preference"
+  version: 2                       // Incremented from 1
+  prompt: |
+    [v2] Extract user preferences with new fields...
+
+// Existing v1 extractions are NOT automatically migrated
+// Re-extract only when explicitly requested
+@PostMapping("/api/extraction/{templateName}/migrate")
+public MigrationResult migrateExtractions(
+    @PathVariable String templateName,
+    @RequestParam(defaultValue = "false") boolean force) {
+
+    ExtractionTemplate newTemplate = getTemplate(templateName);
+    List<ObservationEntity> oldExtractions = observationRepository
+        .findByType(projectPath, "extracted_" + templateName);
+
+    // Only migrate if versions differ
+    for (ObservationEntity extraction : oldExtractions) {
+        if (extraction.getSource().endsWith(":v" + newTemplate.version())) {
+            continue; // Already migrated
+        }
+
+        if (!force && !needsMigration(extraction)) {
+            continue;
+        }
+
+        // Re-extract with new template
+        reExtract(extraction, newTemplate);
+    }
+}
+```
+
+---
+
+## 13. Extraction Result Usage
+
+### 13.1 How Agent Retrieves Extracted Data
+
+**Issue**: After extraction, how does the agent actually use the extracted structured data?
+
+**Solution**: Dedicated extraction retrieval API + integration with prompts.
+
+```java
+/**
+ * Agent queries extracted data directly.
+ */
+@RestController
+@RequestMapping("/api/extraction")
+public class ExtractionController {
+
+    private final ObservationRepository observationRepository;
+
+    @GetMapping("/{templateName}/latest")
+    public ExtractionInfo getLatestExtraction(
+            @PathVariable String templateName,
+            @RequestParam String projectPath) {
+
+        List<ObservationEntity> extractions = observationRepository
+            .findByType(projectPath, "extracted_" + templateName, 1);
+
+        if (extractions.isEmpty()) {
+            return null;
+        }
+
+        return toExtractionInfo(extractions.get(0));
+    }
+
+    @GetMapping("/{templateName}/history")
+    public List<ExtractionInfo> getExtractionHistory(
+            @PathVariable String templateName,
+            @RequestParam String projectPath,
+            @RequestParam(defaultValue = "10") int limit) {
+
+        List<ObservationEntity> extractions = observationRepository
+            .findByType(projectPath, "extracted_" + templateName, limit);
+
+        return extractions.stream()
+            .map(this::toExtractionInfo)
+            .collect(Collectors.toList());
+    }
+}
+```
+
+### 13.2 Integration with ChatClient Prompts
+
+**Issue**: How to include extracted data in AI prompts?
+
+**Solution**: Provide extracted data as system context.
+
+```java
+@Service
+public class ExtractionPromptService {
+
+    public String buildExtractionContext(String projectPath, List<String> templateNames) {
+        StringBuilder context = new StringBuilder();
+        context.append("=== EXTRACTED INFORMATION ===\n\n");
+
+        for (String templateName : templateNames) {
+            List<ObservationEntity> extractions = observationRepository
+                .findByType(projectPath, "extracted_" + templateName, 5);
+
+            if (!extractions.isEmpty()) {
+                context.append(String.format("[%s]\n", templateName));
+                for (ObservationEntity ext : extractions) {
+                    context.append(formatExtraction(ext));
+                }
+                context.append("\n");
+            }
+        }
+
+        return context.toString();
+    }
+
+    // Agent uses this in prompt
+    public void chatWithContext(String projectPath, String userMessage) {
+        String extractionContext = buildExtractionContext(
+            projectPath,
+            List.of("allergy_info", "important_dates", "user_preference")
+        );
+
+        String prompt = String.format("""
+            %s
+
+            USER: %s
+            """,
+            extractionContext,
+            userMessage
+        );
+
+        // Call AI with enriched context
+        chatClient.prompt().system(prompt).user(userMessage).call();
+    }
+}
+```
+
+### 13.3 Structured Extraction for Specific Use Cases
+
+```java
+// Example: ChatBot for family assistant
+@RestController
+class FamilyAssistantController {
+
+    @GetMapping("/allergies")
+    public String getAllergies(@RequestParam String family) {
+        // Query extracted allergy info
+        List<ObservationEntity> allergies = observationRepository
+            .findByType("/family/" + family, "extracted_allergy_info", 10);
+
+        return allergies.stream()
+            .map(this::formatAllergy)
+            .collect(Collectors.joining("\n"));
+    }
+
+    @GetMapping("/dates")
+    public String getImportantDates(@RequestParam String family) {
+        List<ObservationEntity> dates = observationRepository
+            .findByType("/family/" + family, "extracted_important_dates", 10);
+
+        return dates.stream()
+            .map(this::formatDate)
+            .collect(Collectors.joining("\n"));
+    }
+}
+```
+
+---
+
+## 14. Testing Strategy
+
+### 14.1 Unit Tests
+
+```java
+@ExtendWith(MockitoExtension.class)
+class StructuredExtractionServiceTest {
+
+    @Mock
+    private LlmService llmService;
+
+    @Mock
+    private ObservationRepository observationRepository;
+
+    @InjectMocks
+    private StructuredExtractionService service;
+
+    @Test
+    void shouldExtractWithValidTemplate() {
+        // Given
+        ExtractionTemplate template = new ExtractionTemplate(
+            "test", true, "Test extraction",
+            List.of("test"),
+            List.of("user_statement"),
+            "Extract test info",
+            "{\"type\": \"object\"}",
+            false, false
+        );
+
+        when(observationRepository.findBySourceIn(anyString(), anyList(), anyInt()))
+            .thenReturn(List.of(createTestObservation()));
+        when(llmService.chatCompletionStructured(eq(template), any()))
+            .thenReturn(Map.of("result", "value"));
+
+        // When
+        var result = service.extractByTemplate("/test", template, Map.class);
+
+        // Then
+        assertNotNull(result);
+        verify(observationRepository).save(any());
+    }
+
+    @Test
+    void shouldSkipDisabledTemplate() {
+        ExtractionTemplate template = new ExtractionTemplate(
+            "disabled", false, "Disabled", // disabled=true
+            List.of(), List.of(), "Prompt", "{}", false, false
+        );
+
+        service.runExtraction("/test");
+
+        verifyNoInteractions(llmService);
+    }
+}
+```
+
+### 14.2 Integration Tests with Mock LLM
+
+```java
+@SpringBootTest
+class ExtractionIntegrationTest {
+
+    @Autowired
+    private StructuredExtractionService service;
+
+    @MockBean
+    private LlmService llmService;  // Mock LLM
+
+    @Test
+    void shouldHandleLLMTimeout() {
+        // Given
+        when(llmService.chatCompletionStructured(any(), any()))
+            .thenThrow(new LLMTimeoutException("timeout"));
+
+        ExtractionTemplate template = createTemplate();
+
+        // When & Then
+        assertThrows(ExtractionException.class, () ->
+            service.extractByTemplate("/test", template, Map.class)
+        );
+
+        // Verify dead letter queue
+        List<ObservationEntity> failed = observationRepository
+            .findByType("/test", "extraction_failed");
+        assertEquals(1, failed.size());
+    }
+}
+```
+
+### 14.3 Template Validation Tests
+
+```java
+@Test
+void shouldRejectInvalidTemplate() {
+    ExtractionTemplate invalid = new ExtractionTemplate(
+        "",  // Invalid: empty name
+        true, "", List.of(), List.of(), "", "", false, false
+    );
+
+    assertThrows(IllegalArgumentException.class, () ->
+        validateTemplate(invalid)
+    );
+}
+
+@Test
+void shouldValidateOutputSchema() {
+    String validSchema = """
+        {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"}
+            }
+        }
+        """;
+
+    assertTrue(isValidJsonSchema(validSchema));
 }
 ```
 
