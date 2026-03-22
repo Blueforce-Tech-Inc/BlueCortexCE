@@ -36,27 +36,21 @@ Template config → Find candidates → Build prompt → LLM call → Parse → 
 
 **Situation**: Family "Zhang" has 4 members. Dad prefers Chinese food, Mom is allergic to seafood, Son likes games, Daughter allergic to peanuts.
 
-**Challenge**: Observation says "Mom can't eat shrimp" — who is "Mom"? The observation has no user attribution. This is different from userId — it's about **entities mentioned in conversation**, not the session owner.
+**Challenge**: Observation says "Mom can't eat shrimp" — who is "Mom"? The observation has no user attribution.
 
-**Key Insight**: **First extract WHO, then extract WHAT about them.**
+**Key Insight**: The memory system doesn't need to understand WHO "妈妈" is. It just stores the extracted data. The external application interprets the `person` field.
 
+**Walkthrough**:
 ```
-Step 1: Entity Extraction → Who are the family members? (template: "family_member")
-Step 2: Attribute Extraction → What are their allergies/preferences? (template: "allergy_info")
-```
-
-**Walkthrough against current design**:
-```
-Current design: extractByTemplate() processes observations in batch
-Problem: Step 2 depends on Step 1 output — cascading extraction needed
-Section 7.5 mentions cascading extractions but doesn't implement it
+LLM input: ["妈妈对虾过敏", "爸爸爱吃辣"]
+LLM output: {items: [{person: "妈妈", allergens: ["虾"]}, {person: "爸爸", preferences: {food: "辣"}}]}
+Storage: content_session_id = owner's session, extractedData contains person field
+External app: interprets "妈妈" → maps to family member record
 ```
 
-**Gap**: The current `runTemplateExtraction()` processes templates independently. It does NOT support cascading (template B's input depends on template A's output).
+**Resolution**: Entity naming via `person` field in schema — no cascading extraction needed. The memory system is a generic storage/retrieval layer. External systems handle semantic interpretation.
 
-**Resolution needed**: Add `depends-on` field to ExtractionTemplate + cascading execution logic.
-
-**Status**: ⚠️ Gap identified — cascading extraction not implemented. See Section 7.5 of [phase-3-design.md](phase-3-design.md).
+**Status**: ✅ Resolved — works within current architecture (person field in array schema)
 
 ---
 
@@ -267,7 +261,7 @@ This is correct behavior for zero-shot: nothing to extract yet.
 | Scenario | Can Architecture Handle? | Gap | Priority |
 |----------|-------------------------|-----|----------|
 | 1. User Preference | ✅ Yes | None | — |
-| 2. Family Assistant | ⚠️ Partial | Cascading extraction | Medium |
+| 2. Family Assistant | ✅ Yes | Person field in schema, external interpretation | — |
 | 3. Multi-session Scope | ⚠️ Partial | Session grouping | Low |
 | 4. Temporal Evolution | ⚠️ Partial | History storage in merge | Medium |
 | 5. Conflict Detection | ⏳ Deferred | LLM-based detection | Phase 3.3 |
@@ -275,6 +269,6 @@ This is correct behavior for zero-shot: nothing to extract yet.
 | 7. Privacy Control | ⏳ Deferred | Access control layer | Phase 3.4+ |
 | 8. Zero-shot Bootstrap | ✅ Yes | None | — |
 
-**Architecture generalization: STRONG for core scenarios (1, 8), NEEDS EXTENSION for advanced scenarios (2, 3, 4).**
+**Architecture generalization: STRONG. 3/8 fully supported, 2/8 need minor extension, 3/8 deferred for later phases.**
 
-The architecture's prompt-driven, config-driven design correctly separates "what to extract" (template) from "how to extract" (service). The gaps are in execution order (cascading), data model (session grouping), and merge logic (evolution history) — all addressable within the same architectural framework.
+The architecture's prompt-driven, config-driven design correctly separates "what to extract" (template) from "how to extract" (service). The `person` field pattern in schemas handles entity attribution without cascading. External systems interpret extracted data semantics.
