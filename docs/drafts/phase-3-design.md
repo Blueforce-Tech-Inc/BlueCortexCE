@@ -685,23 +685,34 @@ public class StructuredExtractionService {
         return result;
     }
     
-    private String buildPrompt(ExtractionTemplate template, 
+    @Value("${app.memory.extraction.max-prior-chars:3000}")
+    private int maxPriorChars;
+
+    private String buildPrompt(ExtractionTemplate template,
                                List<ObservationEntity> candidates,
                                String schemaHint,
                                String priorJson) {
         StringBuilder sb = new StringBuilder();
         sb.append("Extract structured information from the following observations.\n\n");
-        
+
         // Include prior extraction as context (LLM re-extraction approach)
+        // Summarize if too large to prevent token cost escalation (Section 24.1)
         if (priorJson != null) {
+            String effectivePrior = summarizePriorExtraction(priorJson);
             sb.append("Previous extraction result (update based on new observations):\n");
-            sb.append(priorJson).append("\n\n");
+            sb.append(effectivePrior).append("\n\n");
             sb.append("Instructions: Based on the previous result and new observations below, ");
             sb.append("produce a complete updated state. If an item is no longer valid ");
             sb.append("(explicitly rejected), remove it. If new items are mentioned, add them. ");
             sb.append("Optionally include removed items in a 'removed' field with reason.\n\n");
         }
-        
+
+        // Hallucination prevention instruction (Section 24.2)
+        sb.append("CRITICAL: Only include items that are:\n");
+        sb.append("(a) explicitly present in the previous summary, OR\n");
+        sb.append("(b) explicitly mentioned in the new observations.\n");
+        sb.append("Do NOT infer, generalize, or fabricate information. If uncertain, exclude the item.\n\n");
+
         sb.append("New observations:\n");
         for (ObservationEntity obs : candidates) {
             sb.append(String.format("- [%s] %s\n  %s\n",
@@ -709,14 +720,55 @@ public class StructuredExtractionService {
                 obs.getTitle() != null ? sanitize(obs.getTitle()) : "",
                 obs.getContent() != null ? sanitize(obs.getContent()) : ""));
         }
-        
+
         // Include schema hint only for Map templates (POJO templates get schema via BeanOutputConverter)
         if (schemaHint != null) {
             sb.append("\nOutput JSON according to this schema:\n");
             sb.append(schemaHint);
         }
-        
+
         return sb.toString();
+    }
+
+    /**
+     * Summarize prior extraction JSON to prevent token cost escalation.
+     * If priorJson exceeds maxPriorChars, truncate to recent items with a summary count.
+     * This prevents the prior context from dominating the prompt budget over time.
+     *
+     * Example output (when truncated):
+     *   "preferences: 20 items total, showing latest 5:
+     *    - {category: "耳机", value: "Bose", sentiment: "positive"}
+     *    ... and 15 more (details truncated for efficiency)"
+     */
+    private String summarizePriorExtraction(String priorJson) {
+        if (priorJson == null || priorJson.length() <= maxPriorChars) {
+            return priorJson;
+        }
+        try {
+            Map<String, Object> data = objectMapper.readValue(priorJson,
+                new TypeReference<Map<String, Object>>() {});
+            StringBuilder summary = new StringBuilder();
+            for (Map.Entry<String, Object> entry : data.entrySet()) {
+                if (entry.getValue() instanceof List<?> list) {
+                    int showCount = Math.min(list.size(), 5);
+                    summary.append(String.format("%s: %d items total, showing latest %d:\n",
+                        entry.getKey(), list.size(), showCount));
+                    for (int i = list.size() - showCount; i < list.size(); i++) {
+                        summary.append(String.format("  * %s\n", list.get(i)));
+                    }
+                    if (list.size() > showCount) {
+                        summary.append(String.format("  ... and %d more (truncated)\n",
+                            list.size() - showCount));
+                    }
+                } else {
+                    summary.append(String.format("%s: %s\n", entry.getKey(), entry.getValue()));
+                }
+            }
+            return summary.toString();
+        } catch (Exception e) {
+            // Fallback: hard truncate at maxPriorChars
+            return priorJson.substring(0, maxPriorChars) + "\n... (truncated)";
+        }
     }
     
     /**
@@ -1056,9 +1108,25 @@ public record ExtractionState(
  * Store extraction state using existing ObservationEntity infrastructure.
  * Per-user state tracking: different users may have different extraction progress.
  * Avoids a separate database table.
+ *
+ * IMPORTANT: Uses @Transactional to ensure delete-then-save is atomic (Section 15.6).
+ * Also includes idempotency guard to prevent duplicate state updates (Section 17.3).
  */
-private void updateExtractionState(String projectPath, String userId, 
+@Transactional
+private void updateExtractionState(String projectPath, String userId,
                                     String templateName, OffsetDateTime now) {
+    // Idempotency guard: skip if state already up-to-date
+    ExtractionState existing = getExtractionState(projectPath, userId, templateName);
+    if (existing != null && existing.lastExtractedAt().isAfter(now.minusSeconds(1))) {
+        return;
+    }
+    // Delete old state for this project+template+user
+    observationRepository.findByType(projectPath, "extraction_state", 100).stream()
+        .filter(o -> o.getSource() != null
+            && o.getSource().equals("state:" + templateName + ":" + userId))
+        .forEach(o -> observationRepository.deleteById(o.getId()));
+    observationRepository.flush();
+    // Insert new state
     ObservationEntity stateObs = new ObservationEntity();
     stateObs.setProjectPath(projectPath);
     stateObs.setType("extraction_state");
@@ -1070,11 +1138,6 @@ private void updateExtractionState(String projectPath, String userId,
         "userId", userId,
         "lastExtractedAt", now.toEpochSecond()
     ));
-    // Upsert: delete old state for this project+template+user, then insert new
-    observationRepository.findByType(projectPath, "extraction_state", 100).stream()
-        .filter(o -> o.getSource() != null 
-            && o.getSource().equals("state:" + templateName + ":" + userId))
-        .forEach(o -> observationRepository.deleteById(o.getId()));
     observationRepository.save(stateObs);
 }
 
@@ -4845,7 +4908,432 @@ bash scripts/regression-test.sh
 
 ---
 
+## 26. Acceptance Test Plan (Test-First)
+
+This section defines the acceptance tests that MUST pass before Phase 3.1 is considered complete. Tests are written BEFORE implementation. Each test maps to a specific scenario from the walkthrough (Part A of `phase-3-design-walkthrough.md`).
+
+**Test philosophy**: Acceptance test driven development. The test script IS the definition of done.
+
+---
+
+### 26.1 Test Infrastructure
+
+**Test script**: `scripts/extraction-acceptance-test.sh`
+
+**Prerequisites**:
+- Backend running on port 37777
+- Demo app running on port 37778 (optional, for SDK tests)
+- PostgreSQL with V15 migration applied
+
+**Test data**: All tests use project path `/tmp/extraction-acceptance-test` (isolated from production).
+
+---
+
+### 26.2 Test Scenarios
+
+#### Test 1: Session Creation with userId (Scenario: SDK Multi-User)
+
+**Purpose**: Verify session can be created with optional userId.
+
+**Steps**:
+```bash
+# 1a. Create session WITH userId
+response=$(curl -sf -X POST "$BACKEND/api/session/start" \
+  -d '{"session_id":"test-alice-001","project_path":"/tmp/ext-test","user_id":"alice"}')
+# Verify: response contains session_db_id
+
+# 1b. Create session WITHOUT userId (hook mode)
+response=$(curl -sf -X POST "$BACKEND/api/session/start" \
+  -d '{"session_id":"test-hook-001","project_path":"/tmp/ext-test"}')
+# Verify: response contains session_db_id, no error
+
+# 1c. Verify userId stored in DB
+psql -c "SELECT user_id FROM mem_sessions WHERE content_session_id='test-alice-001';"
+# Verify: returns "alice"
+
+# 1d. Verify null userId in DB
+psql -c "SELECT user_id FROM mem_sessions WHERE content_session_id='test-hook-001';"
+# Verify: returns NULL
+```
+
+**Pass criteria**: Session creation works with and without userId. DB stores correctly.
+
+---
+
+#### Test 2: PATCH Session userId (Scenario: Late User Binding)
+
+**Purpose**: Verify userId can be set on existing session, and re-extraction is triggered.
+
+**Steps**:
+```bash
+# 2a. Create session without userId
+curl -sf -X POST "$BACKEND/api/session/start" \
+  -d '{"session_id":"test-late-bind","project_path":"/tmp/ext-test"}'
+
+# 2b. Ingest observations under this session
+curl -sf -X POST "$BACKEND/api/ingest/tool-use" \
+  -d '{"session_id":"test-late-bind","project_path":"/tmp/ext-test","tool_name":"chat","tool_response":"我不喜欢苹果手机"}'
+
+# 2c. PATCH userId
+response=$(curl -sf -X PATCH "$BACKEND/api/session/test-late-bind/user" \
+  -d '{"user_id":"bob"}')
+# Verify: response contains "ok"
+
+# 2d. Verify userId updated in DB
+psql -c "SELECT user_id FROM mem_sessions WHERE content_session_id='test-late-bind';"
+# Verify: returns "bob"
+```
+
+**Pass criteria**: PATCH works, DB updated, re-extraction triggered.
+
+---
+
+#### Test 3: Multi-User Observation Isolation (Scenario: User Preference Extraction)
+
+**Purpose**: Verify observations from different users are correctly isolated during extraction.
+
+**Steps**:
+```bash
+# 3a. Create two sessions with different users
+curl -sf -X POST "$BACKEND/api/session/start" \
+  -d '{"session_id":"test-alice-002","project_path":"/tmp/ext-test","user_id":"alice"}'
+curl -sf -X POST "$BACKEND/api/session/start" \
+  -d '{"session_id":"test-bob-002","project_path":"/tmp/ext-test","user_id":"bob"}'
+
+# 3b. Alice's observations
+curl -sf -X POST "$BACKEND/api/ingest/tool-use" \
+  -d '{"session_id":"test-alice-002","project_path":"/tmp/ext-test","tool_name":"chat","tool_response":"我不喜欢苹果手机"}'
+curl -sf -X POST "$BACKEND/api/ingest/tool-use" \
+  -d '{"session_id":"test-alice-002","project_path":"/tmp/ext-test","tool_name":"chat","tool_response":"小米不错，预算3000"}'
+
+# 3c. Bob's observations
+curl -sf -X POST "$BACKEND/api/ingest/tool-use" \
+  -d '{"session_id":"test-bob-002","project_path":"/tmp/ext-test","tool_name":"chat","tool_response":"我老婆对花生过敏"}'
+curl -sf -X POST "$BACKEND/api/ingest/tool-use" \
+  -d '{"session_id":"test-bob-002","project_path":"/tmp/ext-test","tool_name":"chat","tool_response":"她喜欢华为手机"}'
+
+# 3d. Trigger extraction
+curl -sf -X POST "$BACKEND/api/extraction/run?projectPath=/tmp/ext-test"
+
+# 3e. Query Alice's preferences
+alice_result=$(curl -sf "$BACKEND/api/extraction/user_preference/latest?projectPath=/tmp/ext-test&userId=alice")
+# Verify: contains "小米" or "苹果", does NOT contain "花生" or "华为"
+
+# 3f. Query Bob's preferences
+bob_result=$(curl -sf "$BACKEND/api/extraction/user_preference/latest?projectPath=/tmp/ext-test&userId=bob")
+# Verify: contains "花生" or "华为", does NOT contain "小米" or "苹果"
+```
+
+**Pass criteria**: Alice's extraction only contains Alice's data. Bob's extraction only contains Bob's data. No cross-contamination.
+
+---
+
+#### Test 4: Array Schema — Multiple Preferences (Scenario: User Preference)
+
+**Purpose**: Verify multiple preferences from one conversation are all captured.
+
+**Steps**:
+```bash
+# 4a. Create session
+curl -sf -X POST "$BACKEND/api/session/start" \
+  -d '{"session_id":"test-multi-pref","project_path":"/tmp/ext-test","user_id":"charlie"}'
+
+# 4b. Ingest conversation with multiple preferences
+curl -sf -X POST "$BACKEND/api/ingest/tool-use" \
+  -d '{"session_id":"test-multi-pref","project_path":"/tmp/ext-test","tool_name":"chat","tool_response":"我不喜欢苹果手机，更喜欢小米，预算3000-4000"}'
+
+# 4c. Trigger extraction
+curl -sf -X POST "$BACKEND/api/extraction/run?projectPath=/tmp/ext-test"
+
+# 4d. Query result
+result=$(curl -sf "$BACKEND/api/extraction/user_preference/latest?projectPath=/tmp/ext-test&userId=charlie")
+
+# 4e. Verify: extractedData.preferences array has 2+ items
+pref_count=$(echo "$result" | jq '.extractedData.preferences | length')
+# Verify: pref_count >= 2
+```
+
+**Pass criteria**: Array schema captures multiple preferences from one conversation.
+
+---
+
+#### Test 5: LLM Re-Extraction — Preference Evolution (Scenario: Temporal Evolution)
+
+**Purpose**: Verify LLM re-extraction correctly updates state when preferences change.
+
+**Steps**:
+```bash
+# 5a. First extraction: user likes Sony
+curl -sf -X POST "$BACKEND/api/session/start" \
+  -d '{"session_id":"test-evolution-01","project_path":"/tmp/ext-test","user_id":"dave"}'
+curl -sf -X POST "$BACKEND/api/ingest/tool-use" \
+  -d '{"session_id":"test-evolution-01","project_path":"/tmp/ext-test","tool_name":"chat","tool_response":"我超爱索尼耳机"}'
+curl -sf -X POST "$BACKEND/api/extraction/run?projectPath=/tmp/ext-test"
+
+# 5b. Second extraction: user now likes Bose (didn't reject Sony)
+curl -sf -X POST "$BACKEND/api/session/start" \
+  -d '{"session_id":"test-evolution-02","project_path":"/tmp/ext-test","user_id":"dave"}'
+curl -sf -X POST "$BACKEND/api/ingest/tool-use" \
+  -d '{"session_id":"test-evolution-02","project_path":"/tmp/ext-test","tool_name":"chat","tool_response":"Bose降噪确实好"}'
+curl -sf -X POST "$BACKEND/api/extraction/run?projectPath=/tmp/ext-test"
+
+# 5c. Query latest — should contain BOTH Sony and Bose
+result=$(curl -sf "$BACKEND/api/extraction/user_preference/latest?projectPath=/tmp/ext-test&userId=dave")
+# Verify: contains "索尼" AND "Bose"
+
+# 5d. Third extraction: user explicitly rejects Sony
+curl -sf -X POST "$BACKEND/api/session/start" \
+  -d '{"session_id":"test-evolution-03","project_path":"/tmp/ext-test","user_id":"dave"}'
+curl -sf -X POST "$BACKEND/api/ingest/tool-use" \
+  -d '{"session_id":"test-evolution-03","project_path":"/tmp/ext-test","tool_name":"chat","tool_response":"其实我不喜欢索尼了"}'
+curl -sf -X POST "$BACKEND/api/extraction/run?projectPath=/tmp/ext-test"
+
+# 5e. Query latest — should contain Bose, NOT Sony
+result=$(curl -sf "$BACKEND/api/extraction/user_preference/latest?projectPath=/tmp/ext-test&userId=dave")
+# Verify: contains "Bose", does NOT contain "索尼"
+
+# 5f. Historical extractions still exist
+history=$(curl -sf "$BACKEND/api/extraction/user_preference/history?projectPath=/tmp/ext-test&userId=dave&limit=10")
+# Verify: history has 3 extractions (one per run)
+```
+
+**Pass criteria**: 
+- Second run: both Sony and Bose present (LLM didn't remove Sony because user didn't reject it)
+- Third run: Sony removed (LLM understood explicit rejection)
+- History preserved: all 3 extractions exist
+
+---
+
+#### Test 6: Hook Mode — Single User (Scenario: Compatibility)
+
+**Purpose**: Verify hook mode (userId=null) still works correctly.
+
+**Steps**:
+```bash
+# 6a. Create session without userId (hook mode)
+curl -sf -X POST "$BACKEND/api/session/start" \
+  -d '{"session_id":"test-hook-002","project_path":"/tmp/ext-test"}'
+
+# 6b. Ingest observations
+curl -sf -X POST "$BACKEND/api/ingest/tool-use" \
+  -d '{"session_id":"test-hook-002","project_path":"/tmp/ext-test","tool_name":"chat","tool_response":"这个bug需要修复"}'
+
+# 6c. Trigger extraction
+curl -sf -X POST "$BACKEND/api/extraction/run?projectPath=/tmp/ext-test"
+
+# 6d. Verify extraction runs without error
+# Check backend logs for "Extraction completed"
+
+# 6e. Query with __unknown__ userId (or without userId)
+result=$(curl -sf "$BACKEND/api/extraction/user_preference/latest?projectPath=/tmp/ext-test")
+# Verify: no error, may return empty if no preferences found (that's OK)
+```
+
+**Pass criteria**: Hook mode works without errors. No userId-related exceptions.
+
+---
+
+#### Test 7: ICL Prompt with userId (Scenario: SDK Integration)
+
+**Purpose**: Verify ICL prompt includes user-scoped extracted data.
+
+**Steps**:
+```bash
+# 7a. Use existing Alice's extraction from Test 3
+# Alice has preferences: "不喜欢苹果", "喜欢小米"
+
+# 7b. Query ICL prompt WITH userId
+icl_result=$(curl -sf -X POST "$BACKEND/api/memory/icl-prompt" \
+  -d '{"task":"推荐手机","project":"/tmp/ext-test","userId":"alice","maxChars":2000}')
+prompt=$(echo "$icl_result" | jq -r '.prompt')
+# Verify: prompt contains Alice's extracted preferences (小米, 苹果)
+
+# 7c. Query ICL prompt WITHOUT userId
+icl_no_user=$(curl -sf -X POST "$BACKEND/api/memory/icl-prompt" \
+  -d '{"task":"推荐手机","project":"/tmp/ext-test","maxChars":2000}')
+# Verify: no error (backward compatible)
+
+# 7d. Verify Bob's ICL does NOT contain Alice's data
+icl_bob=$(curl -sf -X POST "$BACKEND/api/memory/icl-prompt" \
+  -d '{"task":"推荐零食","project":"/tmp/ext-test","userId":"bob","maxChars":2000}')
+bob_prompt=$(echo "$icl_bob" | jq -r '.prompt')
+# Verify: bob_prompt contains "花生" (Bob's allergy), does NOT contain "小米" (Alice's preference)
+```
+
+**Pass criteria**: 
+- ICL prompt with userId includes only that user's extracted data
+- ICL prompt without userId works (backward compatible)
+- No cross-user contamination
+
+---
+
+#### Test 8: Person Field — Third-Party Entities (Scenario: Family Assistant)
+
+**Purpose**: Verify `person` field in schema handles third-party entities.
+
+**Steps**:
+```bash
+# 8a. Create session
+curl -sf -X POST "$BACKEND/api/session/start" \
+  -d '{"session_id":"test-family","project_path":"/tmp/ext-test","user_id":"dad"}'
+
+# 8b. Ingest family observations
+curl -sf -X POST "$BACKEND/api/ingest/tool-use" \
+  -d '{"session_id":"test-family","project_path":"/tmp/ext-test","tool_name":"chat","tool_response":"妈妈对虾过敏，爸爸爱吃辣"}'
+
+# 8c. Trigger extraction
+curl -sf -X POST "$BACKEND/api/extraction/run?projectPath=/tmp/ext-test"
+
+# 8d. Query result
+result=$(curl -sf "$BACKEND/api/extraction/allergy_info/latest?projectPath=/tmp/ext-test&userId=dad")
+
+# 8e. Verify: extractedData contains person fields
+# Verify: person="妈妈" has allergens=["虾"] or similar
+# Verify: person="爸爸" has food preferences
+```
+
+**Pass criteria**: Extraction captures third-party entities with `person` field. External system interprets "妈妈"/"爸爸".
+
+---
+
+#### Test 9: Extraction History Preservation (Scenario: History)
+
+**Purpose**: Verify old extractions are preserved as history, not overwritten.
+
+**Steps**:
+```bash
+# 9a. Use Dave's extractions from Test 5 (3 extraction runs)
+
+# 9b. Query history
+history=$(curl -sf "$BACKEND/api/extraction/user_preference/history?projectPath=/tmp/ext-test&userId=dave&limit=10")
+count=$(echo "$history" | jq 'length')
+# Verify: count >= 3 (all historical extractions preserved)
+
+# 9c. Query latest returns most recent
+latest=$(curl -sf "$BACKEND/api/extraction/user_preference/latest?projectPath=/tmp/ext-test&userId=dave")
+# Verify: latest matches the most recent extraction in history
+```
+
+**Pass criteria**: History is preserved. Latest returns most recent.
+
+---
+
+#### Test 10: Zero-Shot Bootstrap (Scenario: No Prior Data)
+
+**Purpose**: Verify extraction handles empty candidates gracefully.
+
+**Steps**:
+```bash
+# 10a. Create new project with no observations
+curl -sf -X POST "$BACKEND/api/extraction/run?projectPath=/tmp/ext-test-empty"
+
+# 10b. Verify: no error, no crash, log shows "no candidates"
+# Check backend logs
+
+# 10c. Query extraction for empty project
+result=$(curl -sf "$BACKEND/api/extraction/user_preference/latest?projectPath=/tmp/ext-test-empty&userId=nobody")
+# Verify: returns empty or null (no crash)
+```
+
+**Pass criteria**: No errors. Graceful handling of empty data.
+
+---
+
+### 26.3 Acceptance Test Script
+
+**File**: `scripts/extraction-acceptance-test.sh`
+
+**Structure**:
+```bash
+#!/bin/bash
+# Phase 3.1 Acceptance Test Suite
+# Test-driven development: these tests define "done"
+#
+# Tests:
+#   1. Session creation with userId
+#   2. PATCH session userId
+#   3. Multi-user observation isolation
+#   4. Array schema — multiple preferences
+#   5. LLM re-extraction — preference evolution
+#   6. Hook mode — single user compatibility
+#   7. ICL prompt with userId
+#   8. Person field — third-party entities
+#   9. Extraction history preservation
+#  10. Zero-shot bootstrap
+#
+# Exit code: 0 = all passed, 1 = failures
+```
+
+**Pass criteria**: ALL 10 tests must pass for Phase 3.1 acceptance.
+
+---
+
+### 26.4 SDK Demo Test (Phase 3.1 SDK Verification)
+
+**File**: `scripts/demo-v15-test.sh`
+
+**Tests SDK integration** via the demo project running on port 37778:
+
+```bash
+# Test A: SDK session with userId
+# Use CortexMemClient to start session with userId, verify in backend
+
+# Test B: SDK extraction query
+# Use CortexMemClient to query extraction results
+
+# Test C: SDK ICL prompt with userId
+# Use CortexMemClient to build ICL prompt with userId, verify user isolation
+
+# Test D: SDK updateSessionUserId
+# Use CortexMemClient to update userId, verify PATCH works
+```
+
+**Pass criteria**: ALL 4 SDK demo tests pass.
+
+---
+
+### 26.5 Backward Compatibility Check
+
+**Purpose**: Ensure existing functionality is not broken.
+
+```bash
+# Existing regression tests must still pass
+bash scripts/regression-test.sh
+# Expected: 43/43 tests passed (or more if new tests added)
+
+# Existing demo tests must still pass
+bash scripts/demo-v14-test.sh
+# Expected: 4/4 tests passed
+```
+
+**Pass criteria**: ALL existing tests pass. Zero regressions.
+
+---
+
+### 26.6 Acceptance Criteria Summary
+
+| # | Test | Scenario | Pass Criteria |
+|---|------|----------|---------------|
+| 1 | Session + userId | SDK Multi-User | Session created, DB correct |
+| 2 | PATCH userId | Late Binding | DB updated, re-extraction triggered |
+| 3 | Multi-user isolation | User Preference | No cross-contamination |
+| 4 | Array schema | Multiple Preferences | 2+ items captured |
+| 5 | LLM re-extraction | Temporal Evolution | Correct keep/remove semantics |
+| 6 | Hook mode | Compatibility | No errors, backward compatible |
+| 7 | ICL + userId | SDK Integration | User-scoped context only |
+| 8 | Person field | Family Assistant | Third-party entities captured |
+| 9 | History preservation | History | Old extractions not overwritten |
+| 10 | Zero-shot | Bootstrap | Graceful empty handling |
+| — | Regression | Backward Compat | 43/43 existing tests pass |
+| — | SDK Demo | SDK Integration | 4/4 SDK tests pass |
+
+**Definition of Done**: ALL 12 checks pass.
+
+---
+
 ## Changelog
+
+- **2026-03-22 v26**: (1) **Section 26**: Added comprehensive acceptance test plan — 10 test scenarios with detailed bash steps and pass criteria. (2) **Section 26.1-26.2**: Each test maps to a walkthrough scenario with explicit verification steps. (3) **Section 26.3**: Defined `extraction-acceptance-test.sh` structure (10 tests, exit code 0 = all pass). (4) **Section 26.4**: SDK demo test plan — 4 SDK integration tests. (5) **Section 26.5**: Backward compatibility check — existing regression + demo tests must pass. (6) **Section 26.6**: Acceptance criteria summary — 12 checks define "done". (7) Test-first approach: acceptance tests define completion before any code is written.
 
 - **2026-03-22 v25**: (1) **Section 25**: Added comprehensive implementation plan — 11 steps with verification at each stage. (2) Steps include: DB migration, repository methods, LlmService, Session API, StructuredExtractionService, DeepRefine integration, query API + ICL, YAML config, SDK update, E2E test. (3) Total estimated time: 12-13 hours. (4) Critical path identified: userId flow (Steps 1→2→5) and extraction engine (Steps 3→4→6) can be parallel.
 
