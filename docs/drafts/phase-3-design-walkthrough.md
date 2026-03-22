@@ -106,8 +106,19 @@ LLM output: [{耳机: Bose, positive}]  ← Sony removed by LLM understanding
 **Design change**: `mergeExtractedData()` in Section 2.3 of [phase-3-design.md](phase-3-design.md) is no longer needed. Replace with:
 1. Fetch prior extraction (latest) for this template+session
 2. Include prior result in LLM prompt as context
-3. LLM produces complete new state
+3. LLM produces complete new state, with optional `removed` metadata for tracking what was dropped
 4. Store as new observation (old one becomes history)
+
+**Schema enhancement**: Add optional `removed` field for removal metadata:
+```json
+{
+  "preferences": [{"category": "耳机", "value": "Bose", "sentiment": "positive"}],
+  "removed": [{"category": "耳机", "value": "Sony", "reason": "用户说不再喜欢"}]
+}
+```
+Prompt instruction: "If any previously mentioned item is no longer valid, include it in the `removed` field with a brief reason."
+
+**Information preservation**: Three layers — current state (in `preferences`), removal tracking (in `removed`), full history (old extractions as snapshots).
 
 **Status**: ✅ Resolved — LLM-driven re-extraction with semantic understanding
 
