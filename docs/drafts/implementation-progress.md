@@ -1,9 +1,9 @@
 # SDK Improvement Implementation Progress
 
-**Date**: 2026-03-21
+**Date**: 2026-03-22
 **Note**: This is a **temporary tracking document**. For authoritative implementation records, see `sdk-improvement-research.md`.
 
-## Status: ✅ ALL PHASES COMPLETE
+## Status: ✅ ALL PHASES COMPLETE (Phase 1-4 + Phase 3 Steps 1-11)
 
 ---
 
@@ -26,7 +26,7 @@
 
 ### Testing
 - [x] End-to-end curl test passed
-- [x] Regression tests: 21/22 (later fixed to 32/32)
+- [x] Regression tests: 21/22 (later fixed to 43/43)
 
 **Commits**: `ba393f0`, `6b2b352`
 
@@ -54,25 +54,36 @@
 
 ---
 
-## Phase 3: ⏳ DEFERRED (Future Considerations)
+## Phase 3: ✅ COMPLETED (2026-03-22)
 
-These are marked as "Future Considerations" in the research doc - documented for planning:
+### Step 1-4: Database & Service Layer
+- [x] V15 Migration + SessionEntity.userId
+- [x] SessionRepository user query methods
+- [x] ObservationRepository 5 new query methods
+- [x] LlmService.chatCompletionStructured()
 
-### 3.1 UserProfile Entity
-- **Status**: Deferred — needs explicit product requirements
-- **Current workaround**: Session-based isolation with special session IDs
+**Commit**: `cca84e0`
 
-### 3.2 Preference Extraction & History
-- **Status**: Deferred — requires AI logic for extraction and change tracking
-- **Relation to memory refinement**: Could leverage existing `MemoryRefineService` framework
-- **Implementation approach**: Configuration-driven extraction rules + refinement triggers
-- **Design document**: See `docs/drafts/phase-3-design.md`
+### Step 5-8: Core Implementation
+- [x] Session API — userId support (SessionController.startSession + PATCH)
+- [x] StructuredExtractionService + ExtractionConfig
+- [x] DeepRefine integration (MemoryRefineService)
+- [x] Extraction Query API (ExtractionController: latest/history/run)
 
-### 3.3 Memory Conflict Detection
-- **Status**: Deferred — requires semantic understanding (AI-complete problem)
-- **Relation to memory refinement**: Could be a refinement rule that checks consistency
-- **Implementation approach**: LLM-based consistency evaluation during refinement
-- **Design document**: See `docs/drafts/phase-3-design.md`
+**Commit**: `b337e60`
+
+### Step 9-11: Configuration & Testing
+- [x] YAML configuration + EXTRACTION_ENABLED flag
+- [x] SDK Client update (userId + extraction query methods)
+- [x] E2E acceptance test (phase3-acceptance-test.sh: 13/13 passed)
+
+**Commits**: `ca8d719`, `7173d7a`, `53d75c8`, `1e51737`, `b340986`
+
+### Phase 3 Features
+- Multi-user session isolation (userId-based)
+- Structured data extraction (configurable templates)
+- Extraction query API (latest/history/run)
+- Backward compatible (works without userId)
 
 ---
 
@@ -95,20 +106,25 @@ These are marked as "Future Considerations" in the research doc - documented for
 ## Verification Results
 
 ```bash
-# Source filtering in search API
-GET /api/search?project=/tmp/test&source=manual_test
-→ Returns only observations with source=manual_test
-
-# PATCH update observation
-curl -X PATCH /api/memory/observations/{id} -d '{"source":"patched"}'
-→ {"status":"updated"}
-
-# Adaptive truncation
-POST /api/memory/icl-prompt {"task":"...", "maxChars": 2000}
-→ Returns truncated prompt if exceeds limit
-
 # Regression tests
-✅ All 32 tests passed!
+bash scripts/regression-test.sh
+✅ 43/43 tests passed
+
+# Phase 3 acceptance test
+bash scripts/phase3-acceptance-test.sh
+✅ 13/13 tests passed (4 skipped - EXTRACTION_ENABLED=false)
+
+# Demo V14 test
+bash scripts/demo-v14-test.sh
+✅ 4/4 tests passed
+
+# SDK build
+cd cortex-mem-spring-integration && mvn clean install -DskipTests
+✅ Build successful
+
+# Demo compile
+cd examples/cortex-mem-demo && mvn clean compile -Plocal
+✅ Compilation successful
 ```
 
 ## All Commits
@@ -117,3 +133,10 @@ POST /api/memory/icl-prompt {"task":"...", "maxChars": 2000}
 2. `6b2b352` - fix: restore findByType method
 3. `3baba41` - feat: Phase 2 - adaptive truncation, memory tools, source filtering
 4. `372a70d` - feat: Phase 4 - source-based filtering in search API + Test 10 fix
+5. `cca84e0` - feat: Phase 3 Steps 1-5 - V15 migration + userId support
+6. `b337e60` - feat: Phase 3 Steps 6-8 - extraction service + query API
+7. `ca8d719` - feat: Phase 3 Step 11 - E2E acceptance test
+8. `7173d7a` - feat: Phase 3 Step 10 - SDK client update
+9. `53d75c8` - fix: Phase 3 extraction FK constraint + configurable key-fields
+10. `1e51737` - docs: SDK + Demo README Phase 3 features
+11. `b340986` - test: Phase 3 E2E re-extraction tests
