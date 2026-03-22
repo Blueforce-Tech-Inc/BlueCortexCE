@@ -2791,26 +2791,45 @@ public class StructuredExtractionService {
 
 ```java
 // In ContextService.java (ICL prompt generation)
-public String buildIclPrompt(String projectPath, String task, int maxChars) {
+public String buildIclPrompt(String projectPath, String userId, String task, int maxChars) {
     StringBuilder context = new StringBuilder();
     
     // Section 1: Extracted structured facts (from Phase 3 extraction)
-    // ⚠️ BUG FIX (v14): findByType uses exact match (type = :type), NOT LIKE.
-    // findByType(project, "extracted_%", 50) will NOT match "extracted_user_preference"!
-    // Solution: Use new findByTypeLike() method with LIKE pattern, OR iterate known templates.
-    List<ObservationEntity> extractions = observationRepository
-        .findByTypeLike(projectPath, "extracted_%", 50)  // Uses LIKE, not exact match
-        .stream()
-        .filter(o -> o.getSource() != null && o.getSource().startsWith("extraction:"))
-        .toList();
+    // With LLM re-extraction, each run creates a new observation. 
+    // Only use the LATEST extraction per template (not historical ones).
     
-    if (!extractions.isEmpty()) {
-        context.append("=== EXTRACTED FACTS ===\n");
-        for (ObservationEntity ext : extractions) {
-            String templateName = ext.getSource().replace("extraction:", "");
-            context.append(String.format("[%s]: %s\n", templateName, formatExtractedData(ext.getExtractedData())));
+    // For user-scoped templates: query the user's special preference session
+    if (userId != null) {
+        for (ExtractionTemplate template : extractionConfig.getTemplates()) {
+            if (template.sessionIdPattern() == null) continue;
+            
+            String targetSessionId = template.sessionIdPattern()
+                .replace("{project}", projectPath)
+                .replace("{userId}", userId);
+            
+            List<ObservationEntity> latest = observationRepository
+                .findByContentSessionIdAndType(targetSessionId, 
+                    "extracted_" + template.name(), 1);  // Only latest!
+            
+            if (!latest.isEmpty()) {
+                context.append(String.format("[%s]: %s\n", 
+                    template.name(), 
+                    formatExtractedData(latest.get(0).getExtractedData())));
+            }
         }
-        context.append("\n");
+    }
+    
+    // For non-user-scoped templates: iterate known templates, get latest
+    for (ExtractionTemplate template : extractionConfig.getTemplates()) {
+        if (template.sessionIdPattern() != null) continue;  // Already handled above
+        
+        List<ObservationEntity> latest = observationRepository
+            .findByType(projectPath, "extracted_" + template.name(), 1);  // Only latest
+        if (!latest.isEmpty()) {
+            context.append(String.format("[%s]: %s\n", 
+                template.name(), 
+                formatExtractedData(latest.get(0).getExtractedData())));
+        }
     }
     
     // Section 2: Raw observations (existing behavior)
@@ -2820,6 +2839,7 @@ public String buildIclPrompt(String projectPath, String task, int maxChars) {
     // Truncate to maxChars
     return truncateToMaxChars(context.toString(), maxChars);
 }
+```
 ```
 
 **Alternative approach** (no new repository method): Iterate known template names instead of wildcard:
