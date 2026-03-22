@@ -3943,7 +3943,47 @@ List<ObservationEntity> userExtractions = observationRepository
 5. Later: PATCH `/api/session/{id}/user` sets `userId = "alice"`
 6. Next extraction → correct grouping, but **old results still in `__unknown__`**
 
-**Known Limitation**: Old extractions are not auto-migrated. This is acceptable for MVP.
+**Solution**: On PATCH `/api/session/{sessionId}/user`, trigger re-extraction for that session.
+
+```java
+// PATCH /api/session/{sessionId}/user
+public SessionEntity updateSessionUserId(String sessionId, String userId) {
+    SessionEntity session = sessionRepository.findByContentSessionId(sessionId);
+    String oldUserId = session.getUserId();
+    session.setUserId(userId);
+    sessionRepository.save(session);
+
+    // If userId changed from null to non-null, trigger re-extraction
+    if (oldUserId == null && userId != null) {
+        extractionService.reExtractForSession(sessionId, session.getProjectPath());
+    }
+
+    return session;
+}
+```
+
+```java
+// New method: re-extract for a single session after userId assignment
+public void reExtractForSession(String sessionId, String projectPath) {
+    // 1. Find all observations for this session
+    List<ObservationEntity> sessionObs = observationRepository
+        .findByContentSessionId(sessionId);
+
+    // 2. Cleanup old __unknown__ extractions from this session
+    cleanupUnknownExtractions(sessionId, projectPath);
+
+    // 3. Re-extract with correct userId
+    String userId = sessionRepository.findByContentSessionId(sessionId).getUserId();
+    for (ExtractionTemplate template : templates) {
+        Object result = extractByTemplate(projectPath, template, sessionObs);
+        String targetSessionId = resolveSessionId(
+            template.sessionIdPattern(), projectPath, userId);
+        storeExtractionResult(template, result, sessionObs, targetSessionId);
+    }
+}
+```
+
+**Status**: ✅ Resolved — PATCH API triggers re-extraction, no data loss.
 
 ### 22.5 Summary
 
@@ -3952,15 +3992,17 @@ List<ObservationEntity> userExtractions = observationRepository
 | 1-4 | Session/Observation API | ✅ | Already designed |
 | 5 | Experiences API user filtering | ❌ New | Add `userId` to `ExperienceRequest` |
 | 6 | ICL Prompt API user filtering | ❌ New | Add `userId` to `ICLPromptRequest` |
-| 7 | Session userId update timing | ⚠️ Known limit | Document as known limitation |
+| 7 | Session userId update timing | ✅ Resolved | PATCH API triggers `reExtractForSession()` |
 | 8-9 | Feedback/Update API | ✅ | No change needed |
 | 10 | PATCH session userId | ✅ | Already designed |
 
-**All 7 issues found and documented.**
+**All 10 SDK API issues resolved or designed.**
 
 ---
 
 ## Changelog
+
+- **2026-03-22 v22**: (1) **Section 22.4**: Resolved session userId update timing issue — PATCH API now triggers `reExtractForSession()` to re-extract observations after userId is assigned. (2) **Section 22.5**: Updated summary — all 10 SDK API issues resolved, no known limitations remain.
 
 - **2026-03-22 v21**: (1) **Section 22**: Added SDK API walkthrough findings. (2) **Section 22.2**: Experiences API needs `userId` parameter — added `ExperienceRequest.userId` field. (3) **Section 22.3**: ICL Prompt API needs `userId` parameter — added `ICLPromptRequest.userId` field. (4) **Section 22.4**: Documented known limitation — session userId update after observations created won't migrate old extractions. (5) Updated Section 20.8 summary table to reflect 8 issues resolved (was 6). (6) **Section 22.5**: All 7 SDK walkthrough issues documented.
 
