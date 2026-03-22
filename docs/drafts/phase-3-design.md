@@ -4431,7 +4431,423 @@ app.memory.refine:
 
 ---
 
+## 25. Implementation Plan (Phase 3.1)
+
+This section provides a step-by-step implementation plan with verification at each stage. Each step must pass verification before proceeding to the next.
+
+---
+
+### Step 1: Database Migration — Add `user_id` to SessionEntity
+
+**What**: Flyway V15 migration to add `user_id` column to `mem_sessions`.
+
+**Changes**:
+```sql
+-- V15__add_user_id_to_sessions.sql
+ALTER TABLE mem_sessions ADD COLUMN user_id VARCHAR(255);
+CREATE INDEX idx_mem_sessions_user_id ON mem_sessions(user_id);
+```
+
+**Java changes**:
+- `SessionEntity.java`: Add `@Column(name = "user_id") private String userId;` + getter/setter
+
+**Verification**:
+```bash
+# 1. Build passes
+cd backend && mvn clean compile -DskipTests
+
+# 2. Flyway migration runs without error
+# Check flyway_schema_history for V15 entry
+
+# 3. Column exists in database
+psql -c "SELECT column_name FROM information_schema.columns WHERE table_name='mem_sessions' AND column_name='user_id';"
+```
+
+**Rollback**: `ALTER TABLE mem_sessions DROP COLUMN user_id;`
+
+---
+
+### Step 2: SessionRepository — Add User Query Methods
+
+**What**: Add 2 methods to `SessionRepository.java`.
+
+**Changes**:
+```java
+// SessionRepository.java — add these methods
+List<SessionEntity> findByUserId(String userId);
+
+@Query("SELECT s.contentSessionId FROM SessionEntity s WHERE s.userId = :userId AND s.projectPath = :project")
+List<String> findSessionIdsByUserIdAndProject(@Param("userId") String userId, @Param("project") String project);
+```
+
+**Verification**:
+```bash
+# Build passes
+cd backend && mvn clean compile -DskipTests
+
+# Unit test: save session with userId, query by userId
+# (add to SessionRepositoryTest if exists)
+```
+
+---
+
+### Step 3: ObservationRepository — Add 5 New Query Methods
+
+**What**: Add 5 new methods to `ObservationRepository.java`.
+
+**Changes**:
+```java
+// 1. findBySourceIn — filter by multiple sources
+@Query(value = "SELECT * FROM mem_observations WHERE project_path = :project AND source IN (:sources) ORDER BY created_at_epoch DESC LIMIT :limit", nativeQuery = true)
+List<ObservationEntity> findBySourceIn(@Param("project") String project, @Param("sources") List<String> sources, @Param("limit") int limit);
+
+// 2. findNewObservations — incremental extraction
+@Query(value = "SELECT * FROM mem_observations WHERE project_path = :project AND source IN (:sources) AND created_at_epoch > :sinceEpoch ORDER BY created_at_epoch ASC LIMIT :limit", nativeQuery = true)
+List<ObservationEntity> findNewObservations(@Param("project") String project, @Param("sources") List<String> sources, @Param("sinceEpoch") Long sinceEpoch, @Param("limit") int limit);
+
+// 3. findByTypeGlobal — cross-project DLQ query
+@Query(value = "SELECT * FROM mem_observations WHERE type = :type ORDER BY created_at_epoch DESC LIMIT :limit", nativeQuery = true)
+List<ObservationEntity> findByTypeGlobal(@Param("type") String type, @Param("limit") int limit);
+
+// 4. findByTypeLike — wildcard type query for ICL integration
+@Query(value = "SELECT * FROM mem_observations WHERE project_path = :project AND type LIKE :typePattern ORDER BY created_at_epoch DESC LIMIT :limit", nativeQuery = true)
+List<ObservationEntity> findByTypeLike(@Param("project") String project, @Param("typePattern") String typePattern, @Param("limit") int limit);
+
+// 5. findByContentSessionIdAndType — fetch prior extraction for LLM re-extraction
+@Query(value = "SELECT * FROM mem_observations WHERE content_session_id = :sessionId AND type = :type ORDER BY created_at_epoch DESC LIMIT :limit", nativeQuery = true)
+List<ObservationEntity> findByContentSessionIdAndType(@Param("sessionId") String sessionId, @Param("type") String type, @Param("limit") int limit);
+```
+
+**Verification**:
+```bash
+# Build passes
+cd backend && mvn clean compile -DskipTests
+
+# Regression test still passes (existing queries unaffected)
+bash scripts/regression-test.sh
+# Expected: 43/43 tests passed
+```
+
+---
+
+### Step 4: LlmService — Add chatCompletionStructured()
+
+**What**: Add structured output method to `LlmService.java`.
+
+**Changes**:
+```java
+// LlmService.java — add method
+@SuppressWarnings("unchecked")
+public <T> T chatCompletionStructured(String systemPrompt, String userPrompt, Class<T> outputType) {
+    ChatClient chatClient = this.chatClient.orElseThrow(() -> new IllegalStateException("AI not configured."));
+
+    if (Map.class.isAssignableFrom(outputType)) {
+        MapOutputConverter converter = new MapOutputConverter();
+        String response = chatClient.prompt()
+            .system(systemPrompt + "\n\n" + converter.getFormat())
+            .user(userPrompt)
+            .call()
+            .content();
+        return (T) converter.convert(response);
+    } else {
+        BeanOutputConverter<T> converter = new BeanOutputConverter<>(outputType);
+        String response = chatClient.prompt()
+            .system(systemPrompt + "\n\n" + converter.getFormat())
+            .user(userPrompt)
+            .call()
+            .content();
+        return converter.convert(response);
+    }
+}
+```
+
+**Verification**:
+```bash
+# Build passes (BeanOutputConverter and MapOutputConverter must be on classpath)
+cd backend && mvn clean compile -DskipTests
+
+# Manual test: call with Map.class and verify JSON parsing works
+curl -X POST http://127.0.0.1:37777/api/memory/icl-prompt -d '{"task":"test"}'
+# Existing ICL prompt should still work (backward compatible)
+```
+
+---
+
+### Step 5: Session API — Add userId Support
+
+**What**: Update `SessionController.startSession()` to accept `user_id`, add PATCH endpoint.
+
+**Changes**:
+```java
+// SessionController.java — update startSession()
+@PostMapping(value = "/start", produces = MediaType.APPLICATION_JSON_VALUE)
+public Map<String, Object> startSession(@RequestBody Map<String, Object> body) {
+    // ... existing code ...
+    String userId = (String) body.get("user_id");  // NEW: optional
+    
+    SessionEntity session = sessionManagementService.initializeSession(contentSessionId, projectPath, userId);
+    // ... rest unchanged ...
+}
+
+// NEW: PATCH endpoint to update userId
+@PatchMapping("/{sessionId}/user")
+public ResponseEntity<Map<String, String>> updateSessionUserId(
+        @PathVariable String sessionId,
+        @RequestBody Map<String, Object> body) {
+    String userId = (String) body.get("user_id");
+    SessionEntity session = sessionManagementService.findByContentSessionId(sessionId)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    String oldUserId = session.getUserId();
+    session.setUserId(userId);
+    sessionManagementService.save(session);
+    
+    // If userId changed from null to non-null, trigger re-extraction
+    if (oldUserId == null && userId != null) {
+        extractionService.reExtractForSession(sessionId, session.getProjectPath());
+    }
+    
+    return ResponseEntity.ok(Map.of("status", "ok", "userId", userId != null ? userId : ""));
+}
+```
+
+**Also update**: `SessionManagementService.initializeSession()` signature to accept `userId` parameter.
+
+**Verification**:
+```bash
+# Build passes
+cd backend && mvn clean compile -DskipTests
+
+# Test session creation with userId
+curl -X POST http://127.0.0.1:37777/api/session/start \
+  -d '{"session_id":"test-001","project_path":"/tmp/test","user_id":"alice"}'
+# Verify response includes session_db_id
+
+# Test PATCH endpoint
+curl -X PATCH http://127.0.0.1:37777/api/session/test-001/user \
+  -d '{"user_id":"bob"}'
+
+# Backward compatibility: session without userId still works
+curl -X POST http://127.0.0.1:37777/api/session/start \
+  -d '{"session_id":"test-002","project_path":"/tmp/test"}'
+
+# Regression test
+bash scripts/regression-test.sh
+```
+
+---
+
+### Step 6: StructuredExtractionService — Core Implementation
+
+**What**: Create `StructuredExtractionService.java` with LLM re-extraction flow.
+
+**Changes**: New file `backend/src/main/java/com/ablueforce/cortexce/service/StructuredExtractionService.java`
+
+Core methods:
+1. `runExtraction(projectPath)` — entry point, iterates templates
+2. `runTemplateExtraction(projectPath, template)` — per-template: get candidates → group by user → extract per user
+3. `groupByUser(observations)` — group by session → user_id
+4. `extractByTemplate(projectPath, template, candidates, priorJson)` — LLM call with structured output
+5. `storeExtractionResult(template, result, observations, targetSessionId)` — always create new observation
+6. `buildPrompt(template, candidates, schemaHint, priorJson)` — include prior context
+7. `formatExtractedData(data)` — recursive formatting utility
+8. `resolveSessionId(pattern, projectPath, userId)` — pattern variable substitution
+9. `reExtractForSession(sessionId, projectPath)` — for PATCH userId flow
+
+**Also create**:
+- `ExtractionConfig.java` — `@ConfigurationProperties(prefix = "app.memory.extraction")`
+- `ExtractionController.java` — query API for extracted data
+
+**Verification**:
+```bash
+# Build passes
+cd backend && mvn clean compile -DskipTests
+
+# Service starts without error (extraction disabled by default)
+curl http://127.0.0.1:37777/api/health
+
+# Regression test
+bash scripts/regression-test.sh
+```
+
+---
+
+### Step 7: DeepRefine Integration
+
+**What**: Call extraction at end of `deepRefineProjectMemories()`.
+
+**Changes**:
+```java
+// MemoryRefineService.java — add at end of deepRefineProjectMemories()
+if (extractionConfig.isEnabled()) {
+    try {
+        extractionService.runExtraction(projectPath);
+    } catch (Exception e) {
+        log.warn("Extraction failed, queued for retry: {}", e.getMessage());
+    }
+}
+```
+
+**Verification**:
+```bash
+# Build passes
+cd backend && mvn clean compile -DskipTests
+
+# Regression test
+bash scripts/regression-test.sh
+```
+
+---
+
+### Step 8: Extraction Query API + ICL Integration
+
+**What**: Add extraction query endpoints and integrate with ICL prompt.
+
+**Changes**:
+- `ExtractionController.java`: GET `/api/extraction/{templateName}/latest`, GET `/api/extraction/{templateName}/history`
+- `ContextService.java`: Update ICL prompt to include user-scoped extracted data (Section 2800)
+- `ExperienceRequest.java`: Add `userId` field
+- `ICLPromptRequest.java`: Add `userId` field
+
+**Verification**:
+```bash
+# Build passes
+cd backend && mvn clean compile -DskipTests
+
+# Test extraction query
+curl "http://127.0.0.1:37777/api/extraction/user_preference/latest?projectPath=/tmp/test"
+
+# Test ICL prompt with userId
+curl -X POST http://127.0.0.1:37777/api/memory/icl-prompt \
+  -d '{"task":"test","project":"/tmp/test","userId":"alice"}'
+
+# Regression test
+bash scripts/regression-test.sh
+```
+
+---
+
+### Step 9: YAML Configuration + Enable Extraction
+
+**What**: Add extraction template configuration to `application.yml`.
+
+**Changes**:
+```yaml
+app:
+  memory:
+    extraction:
+      enabled: true
+      schedule: "0 0 2 * * ?"  # Daily at 2am
+      initial-run-max-candidates: 100
+      max-observations-per-batch: 20
+      max-batches-per-template: 10
+      templates:
+        - name: "user_preference"
+          enabled: true
+          template-class: "java.util.Map"
+          session-id-pattern: "pref:{project}:{userId}"
+          source-filter: ["user_statement", "manual"]
+          prompt: |
+            From the following conversation, extract user preferences.
+            Return ALL preferences found. If previously extracted items
+            are no longer valid, remove them and note in 'removed' field.
+          output-schema: |
+            {"type":"object","properties":{"preferences":{"type":"array","items":{"type":"object","properties":{"category":{"type":"string"},"value":{"type":"string"},"sentiment":{"type":"string"},"confidence":{"type":"number"}}}}}}
+```
+
+**Verification**:
+```bash
+# Build + start with extraction enabled
+cd backend && mvn clean package -DskipTests
+java -jar target/cortex-ce-*.jar
+
+# Check logs for extraction startup
+grep "StructuredExtractionService" logs/application.log
+
+# Regression test
+bash scripts/regression-test.sh
+```
+
+---
+
+### Step 10: SDK Client Update
+
+**What**: Update `cortex-mem-client` SDK to support userId.
+
+**Changes**:
+- `SessionStartRequest.java`: Add `userId` field + update `toWireFormat()`
+- `ExperienceRequest.java`: Add `userId` field
+- `ICLPromptRequest.java`: Add `userId` field
+- `CortexMemClient.java`: Add `updateSessionUserId(sessionId, userId)` method
+- `CortexMemClientImpl.java`: Implement the new method
+
+**Verification**:
+```bash
+# Build SDK
+cd cortex-mem-spring-integration/cortex-mem-client && mvn clean install -DskipTests
+
+# Build demo with local SDK
+cd examples/cortex-mem-demo && mvn clean compile -Plocal
+
+# Demo V15 test
+bash scripts/demo-v15-test.sh
+# Expected: all tests passed
+```
+
+---
+
+### Step 11: End-to-End Integration Test
+
+**What**: Full integration test covering the complete extraction flow.
+
+**Test scenario**:
+```
+1. Start session with userId="alice"
+2. Ingest observations: "我不喜欢苹果手机", "小米也不错"
+3. Trigger extraction (or wait for scheduled run)
+4. Query extraction result for alice
+5. Verify ICL prompt includes alice's preferences
+6. Start session without userId (hook mode)
+7. Ingest observation
+8. Verify extraction works with __unknown__ grouping
+```
+
+**Verification**:
+```bash
+# Run full regression
+bash scripts/regression-test.sh
+# Expected: 43+N/43+N tests passed (N = new extraction tests)
+
+# Manual E2E test
+# (create script: scripts/extraction-e2e-test.sh)
+```
+
+---
+
+### Implementation Order Summary
+
+| Step | Task | Depends On | Estimated Time |
+|------|------|------------|----------------|
+| 1 | Flyway V15 migration | — | 30 min |
+| 2 | SessionRepository methods | Step 1 | 15 min |
+| 3 | ObservationRepository methods | — | 30 min |
+| 4 | LlmService.chatCompletionStructured() | — | 1 hour |
+| 5 | Session API userId support | Steps 1, 2 | 1 hour |
+| 6 | StructuredExtractionService | Steps 3, 4 | 3-4 hours |
+| 7 | DeepRefine integration | Step 6 | 30 min |
+| 8 | Query API + ICL integration | Steps 6, 5 | 2 hours |
+| 9 | YAML configuration | Step 6 | 30 min |
+| 10 | SDK client update | Steps 5, 8 | 1 hour |
+| 11 | E2E integration test | All above | 2 hours |
+
+**Total estimated: ~12-13 hours**
+
+**Critical path**: Step 1 → Step 2 → Step 5 (userId flow) and Step 3 → Step 4 → Step 6 (extraction engine) are parallel. Step 7-11 are sequential after both converge.
+
+---
+
 ## Changelog
+
+- **2026-03-22 v25**: (1) **Section 25**: Added comprehensive implementation plan — 11 steps with verification at each stage. (2) Steps include: DB migration, repository methods, LlmService, Session API, StructuredExtractionService, DeepRefine integration, query API + ICL, YAML config, SDK update, E2E test. (3) Total estimated time: 12-13 hours. (4) Critical path identified: userId flow (Steps 1→2→5) and extraction engine (Steps 3→4→6) can be parallel.
 
 - **2026-03-22 v24**: (1) **Section 24**: Added LLM re-extraction edge cases — prior extraction token growth, hallucination risk, utility method placement, race condition between userId PATCH and scheduled extraction. (2) **Section 24.1**: PriorJson size escalation — added `summarizePriorExtraction()` strategy to cap token cost. (3) **Section 24.2**: LLM hallucination during re-extraction — proposed prompt instruction + confidence filtering + source traceability field. (4) **Section 24.3**: `formatExtractedData()` placement — recommended moving to `ExtractionFormatUtil.java` for shared use across services. (5) **Section 24.4**: Race condition fix — `reExtractForSession()` must share the same `projectLocks` map as `runExtraction()`. (6) **Section 8**: Open questions #9-10 marked as resolved.
 
