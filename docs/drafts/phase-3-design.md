@@ -269,6 +269,47 @@ templates:
 
 ---
 
+## 0.3 Refine vs Extraction: Conceptual Clarification
+
+The system contains two distinct LLM-driven operations. Understanding their differences is essential for design decisions.
+
+| Dimension | Refine (精炼) | Extraction (提取) |
+|-----------|---------------|-------------------|
+| Input | Raw observations | Raw observations |
+| Output | Improved observations (same type) | **New type** of structured data (`extracted_*`) |
+| Operation | Merge duplicates, rewrite, delete low-quality, score | Extract structured facts from multiple observations |
+| Granularity | Single or few observations | Batch (multiple observations → one result) |
+| Goal | Clean noise, reduce redundancy | Understand semantics, create new knowledge |
+| Changes format? | ❌ No | ✅ Yes (observation → structured JSON) |
+
+**Core difference**:
+```
+Refine:     observation → observation (optimize)
+Extraction: observations → structured facts (transform)
+```
+
+**Analogy**:
+- Refine = editing an article (fix typos, merge paragraphs)
+- Extraction = extracting key points from an article (summary, keywords, facts)
+
+**Relationship**: Refine is a **prerequisite** for Extraction.
+1. First refine observations (delete noise, merge duplicates)
+2. Then extract structured data from refined observations
+
+This ordering is reflected in `deepRefineProjectMemories()` (Section 9.2):
+```java
+// Step 1: Refine existing memories
+refineObservations(candidates, projectPath);
+// Step 2: Run extraction on refined state
+extractionService.runExtraction(projectPath);
+```
+
+**Token cost profile** (Section 23):
+- Refine dominates cost (97%+) — N LLM calls, one per observation
+- Extraction is cheap (<3%) — M LLM calls, batch of 20 observations per call
+
+---
+
 ## 1. Existing Architecture Analysis
 
 ### 1.1 MemoryRefineService Capabilities
