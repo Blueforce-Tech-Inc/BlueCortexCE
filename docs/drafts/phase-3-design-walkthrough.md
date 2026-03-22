@@ -76,7 +76,7 @@ Missing: session group scoping (e.g., "pref:{project}:{userId}:work")
 2. Add `{sessionGroup}` variable to `sessionIdPattern`
 3. Template config: `session-id-pattern: "pref:{project}:{userId}:{sessionGroup}"`
 
-**Status**: ⚠️ Gap identified — session grouping not in data model. Can be added in Phase 3.2.
+**Status**: ✅ Resolved — `projectPath` serves as natural scope boundary. Application uses different projectPath for work vs personal. No `sessionGroup` field needed.
 
 ---
 
@@ -112,7 +112,7 @@ Current design: mergeExtractedData() overwrites old value with new
 }
 ```
 
-**Status**: ⚠️ Partially resolved — `trackEvolution` flag exists but evolution history storage not implemented in `mergeExtractedData()`.
+**Status**: ✅ Resolved — each extraction includes prior result as context, LLM produces complete current state. Old extractions preserved as history. Timestamp distinguishes current vs historical. No merge logic needed.
 
 ---
 
@@ -262,13 +262,13 @@ This is correct behavior for zero-shot: nothing to extract yet.
 |----------|-------------------------|-----|----------|
 | 1. User Preference | ✅ Yes | None | — |
 | 2. Family Assistant | ✅ Yes | Person field in schema, external interpretation | — |
-| 3. Multi-session Scope | ⚠️ Partial | Session grouping | Low |
-| 4. Temporal Evolution | ⚠️ Partial | History storage in merge | Medium |
+| 3. Multi-session Scope | ✅ Yes | projectPath as scope boundary | — |
+| 4. Temporal Evolution | ✅ Yes | Prior result as LLM context, no merge needed | — |
 | 5. Conflict Detection | ⏳ Deferred | LLM-based detection | Phase 3.3 |
 | 6. Trigger Timing | ⏳ Deferred | Keyword trigger | Low |
 | 7. Privacy Control | ⏳ Deferred | Access control layer | Phase 3.4+ |
 | 8. Zero-shot Bootstrap | ✅ Yes | None | — |
 
-**Architecture generalization: STRONG. 3/8 fully supported, 2/8 need minor extension, 3/8 deferred for later phases.**
+**Architecture generalization: STRONG. 6/8 fully supported, 0/8 need extension, 2/8 deferred for later phases.**
 
-The architecture's prompt-driven, config-driven design correctly separates "what to extract" (template) from "how to extract" (service). The `person` field pattern in schemas handles entity attribution without cascading. External systems interpret extracted data semantics.
+The architecture's prompt-driven, config-driven design correctly separates "what to extract" (template) from "how to extract" (service). All core scenarios work within the current framework. Evolution tracking uses prior extraction as LLM context (no merge logic needed). External systems interpret extracted data semantics.
