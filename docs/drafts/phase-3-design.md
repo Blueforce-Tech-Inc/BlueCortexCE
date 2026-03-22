@@ -3153,9 +3153,9 @@ The `updateExtractionState()` method (section 15.6) uses delete-then-save, which
 
 ```java
 @Transactional
-private void updateExtractionState(String projectPath, String templateName, OffsetDateTime now) {
+private void updateExtractionState(String projectPath, String userId, String templateName, OffsetDateTime now) {
     // Guard: skip if state already reflects this timestamp (within 1 second tolerance)
-    ExtractionState existing = getExtractionState(projectPath, templateName);
+    ExtractionState existing = getExtractionState(projectPath, userId, templateName);
     if (existing != null && existing.lastExtractedAt().isAfter(now.minusSeconds(1))) {
         return; // Already up-to-date
     }
