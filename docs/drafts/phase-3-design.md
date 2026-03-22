@@ -1,7 +1,7 @@
 # Phase 3 Design Proposal: Structured Information Extraction & Memory Conflict Detection
 
 **Date**: 2026-03-22
-**Status**: Design proposal - iteration 27 (Code-design alignment, hallucination prevention, open questions resolved)
+**Status**: Design proposal - iteration 28 (Prior truncation data loss risk identified, append-only extraction proposed)
 **Related to**: `sdk-improvement-research.md` Phase 3 deferred items
 
 ---
@@ -4511,6 +4511,162 @@ app.memory.refine:
 
 ---
 
+## 24.6 Issue: Prior Truncation Causes Silent Data Loss Over Time (v28)
+
+**Problem**: `summarizePriorExtraction()` (Section 2.3) shows only the latest 5 items when the prior exceeds `maxPriorChars`. Over successive extraction runs, older items that are never re-mentioned in new observations silently disappear from the extraction result.
+
+**Concrete Example of Data Loss Trajectory**:
+
+```
+Run 1: User mentions preferences A, B, C, D, E, F
+  → stored: [A, B, C, D, E, F]
+
+Run 2: User mentions preference G (new)
+  → prior shown to LLM: [B, C, D, E, F] (latest 5, A truncated)
+  → LLM output: [B, C, D, E, F, G]
+  → LOST: A (silently dropped, not contradicted, just unseen)
+
+Run 3: User mentions preference H (new)
+  → prior shown to LLM: [C, D, E, F, G] (latest 5)
+  → LLM output: [C, D, E, F, G, H]
+  → LOST: B (dropped), A (already lost)
+
+... after 20 runs with no re-mentions of A:
+  → A is permanently gone from all future extractions
+```
+
+**Root Cause**: The design assumes the LLM instruction "maintain ALL existing items unless explicitly contradicted" is sufficient. But LLMs cannot include items they have never seen. The instruction is a logical impossibility — the LLM cannot "maintain" data it doesn't have access to.
+
+**Why This Is Critical**:
+- Allergy information (e.g., "allergic to peanuts") could be silently lost if not re-mentioned
+- Important dates could disappear
+- User preferences set months ago would be forgotten
+- No error, no warning, no audit trail — silent data corruption
+
+**Proposed Solutions**:
+
+| Solution | Mechanism | Tradeoff |
+|----------|-----------|----------|
+| **A. Full prior in prompt** | Pass complete prior JSON, no truncation | Token cost grows unbounded |
+| **B. Separate prior store** | Store prior items in a separate field, only pass diff to LLM | More complex, needs new storage |
+| **C. Two-pass extraction** | Pass 1: extract new items. Pass 2: merge with full prior programmatically | 2x LLM cost for safety |
+| **D. Append-only with removal** | LLM only outputs NEW/REMOVED items. Service merges with full prior | Best cost/safety balance |
+
+**Recommended: Solution D — Append-only extraction with explicit removal**
+
+Instead of asking the LLM to produce the COMPLETE state (which requires seeing all prior items), change the extraction contract:
+
+**Current contract** (problematic):
+```
+Input: prior (truncated to 5 items) + new observations
+Output: complete current state
+Problem: LLM can't include items it never saw
+```
+
+**New contract** (safe):
+```
+Input: new observations only (no prior context needed for basic extraction)
+Output: {add: [new items], remove: [items explicitly rejected], keep_hint: [items mentioned positively]}
+Post-processing: Service merges add/remove with FULL prior data from DB
+```
+
+**Implementation sketch**:
+
+```java
+// New prompt contract — LLM only processes new observations
+private String buildAppendOnlyPrompt(ExtractionTemplate template,
+                                      List<ObservationEntity> candidates) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("Extract structured information from the following observations.\n\n");
+    sb.append("Output format:\n");
+    sb.append("{\n");
+    sb.append("  \"add\": [ /* NEW items found in observations */ ],\n");
+    sb.append("  \"remove\": [ /* items EXPLICITLY rejected (user said they don't like X) */ ],\n");
+    sb.append("  \"keep_hint\": [ /* items mentioned positively that should be retained */ ]\n");
+    sb.append("}\n\n");
+    sb.append("CRITICAL:\n");
+    sb.append("- 'add': only items EXPLICITLY stated in observations\n");
+    sb.append("- 'remove': only items EXPLICITLY rejected (e.g., 'I don't like X anymore')\n");
+    sb.append("- Do NOT infer, generalize, or fabricate\n\n");
+
+    sb.append("Observations:\n");
+    for (ObservationEntity obs : candidates) {
+        sb.append(String.format("- [%s] %s\n  %s\n",
+            sanitize(obs.getSource()),
+            obs.getTitle() != null ? sanitize(obs.getTitle()) : "",
+            obs.getContent() != null ? sanitize(obs.getContent()) : ""));
+    }
+    return sb.toString();
+}
+
+// Post-processing: merge with full prior from DB (no truncation needed)
+private Map<String, Object> mergeAppendOnly(
+        Map<String, Object> appendResult,
+        Map<String, Object> fullPriorData) {
+
+    List<Map<String, Object>> addItems = (List) appendResult.getOrDefault("add", List.of());
+    List<Map<String, Object>> removeItems = (List) appendResult.getOrDefault("remove", List.of());
+    List<Map<String, Object>> keepHint = (List) appendResult.getOrDefault("keep_hint", List.of());
+
+    // Start with full prior
+    Map<String, Object> merged = new HashMap<>(fullPriorData);
+
+    // Remove explicitly rejected items
+    Set<String> removeKeys = removeItems.stream()
+        .map(item -> item.get("category") + ":" + item.get("value"))
+        .collect(Collectors.toSet());
+
+    for (Map.Entry<String, Object> entry : merged.entrySet()) {
+        if (entry.getValue() instanceof List<?> list) {
+            List<Map<String, Object>> filtered = list.stream()
+                .filter(item -> !(item instanceof Map<?,?> m &&
+                    removeKeys.contains(m.get("category") + ":" + m.get("value"))))
+                .map(item -> (Map<String, Object>) item)
+                .toList();
+            entry.setValue(filtered);
+        }
+    }
+
+    // Add new items
+    for (Map.Entry<String, Object> entry : merged.entrySet()) {
+        if (entry.getValue() instanceof List<?> existingList && !addItems.isEmpty()) {
+            List<Map<String, Object>> combined = new ArrayList<>();
+            for (Object item : existingList) combined.add((Map<String, Object>) item);
+            combined.addAll(addItems);
+            entry.setValue(deduplicate(combined));
+        }
+    }
+
+    // Store removal metadata
+    if (!removeItems.isEmpty()) {
+        merged.put("removed", removeItems);
+    }
+
+    return merged;
+}
+```
+
+**Token cost comparison**:
+
+| Approach | Prior tokens | New obs tokens | Total input | Safety |
+|----------|-------------|----------------|-------------|--------|
+| Current (truncated prior) | ~500 (5 items) | ~2000 | ~2500 | ❌ Data loss |
+| Current (full prior) | ~5000 (50 items) | ~2000 | ~7000 | ✅ Safe but expensive |
+| **Append-only** | **0** | **~2000** | **~2000** | **✅ Safe AND cheap** |
+
+**Key insight**: The append-only approach is BOTH safer and cheaper than the current design. No prior context in the prompt means no truncation risk AND lower token cost.
+
+**Impact on existing design**:
+- Section 2.3 `buildPrompt()`: Replace with `buildAppendOnlyPrompt()`
+- Section 2.3 `extractByTemplate()`: Change return type to `AppendResult` (add/remove/keep_hint)
+- Section 2.3 `storeExtractionResult()`: Add `mergeAppendOnly()` post-processing step
+- Section 24.1 `summarizePriorExtraction()`: No longer needed (prior not passed to LLM)
+- Section 24.2 hallucination mitigation: Simplified (no prior context = no context blending)
+
+**Status**: ⚠️ Open — needs design review before implementation. If accepted, this is a significant change to the extraction contract.
+
+---
+
 ## 25. Implementation Plan (Phase 3.1)
 
 This section provides a step-by-step implementation plan with verification at each stage. Each step must pass verification before proceeding to the next.
@@ -5605,6 +5761,8 @@ bash scripts/demo-v14-test.sh
 ---
 
 ## Changelog
+
+- **2026-03-22 v28**: **Section 24.6**: Identified critical data loss risk in `summarizePriorExtraction()` — when prior is truncated to latest 5 items, older items not re-mentioned in new observations silently disappear over successive extraction runs. Allergy information, important dates, and long-standing preferences could be permanently lost with no error or warning. Proposed **Solution D (append-only extraction)** as both safer AND cheaper alternative: LLM outputs only add/remove/keep_hint, service merges with full prior from DB. Token cost: ~2000 (append-only) vs ~7000 (full prior) vs ~2500 (truncated, lossy). Design status: open for review before implementation.
 
 - **2026-03-22 v27**: (1) **Section 2.3 `buildPrompt()`**: Integrated Section 24 findings — added `summarizePriorExtraction()` for token cost control (Section 24.1) and hallucination prevention instruction in prompt (Section 24.2). (2) **Section 7.1 `updateExtractionState()`**: Added `@Transactional` annotation for atomic delete-then-save (Section 15.6) and idempotency guard (Section 17.3). (3) **Section 8**: Closed all 10 open questions — 8 new resolutions documented with references to answer sections. Previously only #8-10 were marked resolved. (4) **Section 15.2**: Added `ExtractionFormatUtil.java` to new files list and conditional bean loading annotations (`@ConditionalOnProperty`, `@ConditionalOnBean`) from Section 21.10.
 
