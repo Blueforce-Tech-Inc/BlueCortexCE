@@ -84,35 +84,32 @@ Missing: session group scoping (e.g., "pref:{project}:{userId}:work")
 
 **Situation**: 
 - 2025-01: "I love Sony headphones"
-- 2025-06: "Actually, Bose is better"
-- 2026-01: "AirPods are more convenient"
+- 2025-06: "Actually, Bose noise cancellation is better"
+- 2026-01: "AirPods are more convenient lately"
 
-**Challenge**: Track how preferences change over time, not just current value.
+**Challenge**: Track how preferences change over time.
 
-**Walkthrough against current design**:
+**Resolution**: LLM as intelligent merge agent. Each extraction includes prior result + new observations. The LLM produces a complete current state, deciding what to keep/remove based on semantics:
+
 ```
-Current design: mergeExtractedData() overwrites old value with new
-  → "Bose" overwrites "Sony" → "AirPods" overwrites "Bose"
-  → History is lost!
-```
+Prior: [{耳机: Sony, positive}]
+New observation: "Bose也不错" (didn't reject Sony)
+LLM output: [{耳机: Sony, positive}, {耳机: Bose, positive}]
 
-**Finding**: The current `mergeExtractedData()` uses composite key (`category:value`) for dedup. When value changes, the old entry is removed (overwritten), not appended.
-
-**Resolution**: 
-- `trackEvolution: true` in template already exists
-- Need to store evolution history in `extractedData` alongside current value:
-```json
-{
-  "preferences": [{"category": "headphones", "value": "AirPods", ...}],
-  "evolution": [
-    {"value": "Sony", "from": "2025-01"},
-    {"value": "Bose", "from": "2025-06"},
-    {"value": "AirPods", "from": "2026-01"}
-  ]
-}
+Prior: [{耳机: Sony, positive}, {耳机: Bose, positive}]
+New observation: "我不喜欢Sony了"
+LLM output: [{耳机: Bose, positive}]  ← Sony removed by LLM understanding
 ```
 
-**Status**: ✅ Resolved — each extraction includes prior result as context, LLM produces complete current state. Old extractions preserved as history. Timestamp distinguishes current vs historical. No merge logic needed.
+**Key insight**: No programmatic merge logic needed. The LLM interprets semantics and produces the complete current state. Old extractions are preserved as history. Timestamp distinguishes current vs historical.
+
+**Design change**: `mergeExtractedData()` in Section 2.3 of [phase-3-design.md](phase-3-design.md) is no longer needed. Replace with:
+1. Fetch prior extraction (latest) for this template+session
+2. Include prior result in LLM prompt as context
+3. LLM produces complete new state
+4. Store as new observation (old one becomes history)
+
+**Status**: ✅ Resolved — LLM-driven re-extraction with semantic understanding
 
 ---
 
@@ -263,7 +260,7 @@ This is correct behavior for zero-shot: nothing to extract yet.
 | 1. User Preference | ✅ Yes | None | — |
 | 2. Family Assistant | ✅ Yes | Person field in schema, external interpretation | — |
 | 3. Multi-session Scope | ✅ Yes | projectPath as scope boundary | — |
-| 4. Temporal Evolution | ✅ Yes | Prior result as LLM context, no merge needed | — |
+| 4. Temporal Evolution | ✅ Yes | LLM re-extraction with prior context | — |
 | 5. Conflict Detection | ⏳ Deferred | LLM-based detection | Phase 3.3 |
 | 6. Trigger Timing | ⏳ Deferred | Keyword trigger | Low |
 | 7. Privacy Control | ⏳ Deferred | Access control layer | Phase 3.4+ |
