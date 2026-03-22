@@ -3826,7 +3826,143 @@ public class StructuredExtractionService {
 
 ---
 
+## 22. SDK API Walkthrough Findings (v21)
+
+This section documents findings from the full SDK API walkthrough. The walkthrough checks every SDK API endpoint to ensure userId filtering works correctly across all memory operations.
+
+### 22.1 SDK API Endpoint Analysis
+
+| # | API | Function | Needs userId? | Reason |
+|---|-----|----------|---------------|--------|
+| 1 | `POST /api/session/start` | Create session | ✅ Needs | Already designed |
+| 2 | `POST /api/ingest/tool-use` | Record observation | ❌ No | Derived from session |
+| 3 | `POST /api/ingest/session-end` | End session | ❌ No | Derived from session |
+| 4 | `POST /api/ingest/user-prompt` | Record prompt | ❌ No | Derived from session |
+| 5 | `POST /api/memory/experiences` | Retrieve experiences | ⚠️ Needs | See analysis below |
+| 6 | `POST /api/memory/icl-prompt` | Build ICL prompt | ⚠️ Needs | See analysis below |
+| 7 | `POST /api/memory/refine` | Trigger refinement | ❌ No | Project-level operation |
+| 8 | `POST /api/memory/feedback` | Submit feedback | ❌ No | Uses observation ID |
+| 9 | `PATCH /api/memory/observations/{id}` | Update observation | ❌ No | Uses observation ID |
+| 10 | `PATCH /api/session/{sessionId}/user` | Set userId | ✅ New | Already designed |
+
+### 22.2 Issue: Experiences API Not Filtering by User
+
+**Current Design**:
+```java
+POST /api/memory/experiences
+{
+  "task": "...",
+  "project": "/my-project",
+  "count": 4
+}
+```
+
+**Problem**: `ExpRagService.retrieveExperiences()` searches by project only. Returns observations from ALL users in the project. Alice would see Bob's experiences.
+
+**Required Change**: Add `userId` parameter:
+```java
+POST /api/memory/experiences
+{
+  "task": "有什么推荐的零食？",
+  "project": "/customer-service",
+  "userId": "alice",  // ← NEW
+  "count": 4
+}
+```
+
+**SDK DTO Change**:
+```java
+// ExperienceRequest — add userId
+public record ExperienceRequest(
+    String task,
+    String project,
+    Integer count,
+    String source,
+    List<String> requiredConcepts,
+    String userId  // ← NEW, optional
+) {}
+```
+
+### 22.3 Issue: ICL Prompt API Not Filtering by User
+
+**Current Design**:
+```java
+POST /api/memory/icl-prompt
+{
+  "task": "...",
+  "project": "/my-project",
+  "maxChars": 4000
+}
+```
+
+**Problem**: ICL prompt includes:
+1. Extracted facts from ALL users → Alice sees Bob's allergies
+2. Relevant experiences from ALL users
+
+**Required Change**: Add `userId` parameter:
+```java
+POST /api/memory/icl-prompt
+{
+  "task": "有什么推荐的零食？",
+  "project": "/customer-service",
+  "userId": "alice",  // ← NEW
+  "maxChars": 4000
+}
+```
+
+**SDK DTO Change**:
+```java
+// ICLPromptRequest — add userId
+public record ICLPromptRequest(
+    String task,
+    String project,
+    Integer maxChars,
+    String userId  // ← NEW, optional
+) {}
+```
+
+**Internal Logic**:
+```java
+// Section 1: This user's extracted facts (from pref:session)
+List<ObservationEntity> userExtractions = observationRepository
+    .findByContentSessionId("pref:" + project + ":" + userId);
+
+// Section 2: Relevant experiences (from regular observations)
+// Can still include project-level context
+```
+
+### 22.4 Issue: Session Updated After Observations Created
+
+**Scenario**: Observations exist, then session userId is set via PATCH API.
+
+**Timeline**:
+1. Session created with `userId = null` (hook mode or missing userId)
+2. User speaks → observations created, linked to session
+3. Extraction runs → `groupByUser()` returns `__unknown__`
+4. Results stored at `pref:/project:__unknown__`
+5. Later: PATCH `/api/session/{id}/user` sets `userId = "alice"`
+6. Next extraction → correct grouping, but **old results still in `__unknown__`**
+
+**Known Limitation**: Old extractions are not auto-migrated. This is acceptable for MVP.
+
+### 22.5 Summary
+
+| # | Issue | Status | Solution |
+|---|-------|--------|----------|
+| 1-4 | Session/Observation API | ✅ | Already designed |
+| 5 | Experiences API user filtering | ❌ New | Add `userId` to `ExperienceRequest` |
+| 6 | ICL Prompt API user filtering | ❌ New | Add `userId` to `ICLPromptRequest` |
+| 7 | Session userId update timing | ⚠️ Known limit | Document as known limitation |
+| 8-9 | Feedback/Update API | ✅ | No change needed |
+| 10 | PATCH session userId | ✅ | Already designed |
+
+**All 7 issues found and documented.**
+
+---
+
 ## Changelog
+
+- **2026-03-22 v21**: (1) **Section 22**: Added SDK API walkthrough findings. (2) **Section 22.2**: Experiences API needs `userId` parameter — added `ExperienceRequest.userId` field. (3) **Section 22.3**: ICL Prompt API needs `userId` parameter — added `ICLPromptRequest.userId` field. (4) **Section 22.4**: Documented known limitation — session userId update after observations created won't migrate old extractions. (5) Updated Section 20.8 summary table to reflect 8 issues resolved (was 6). (6) **Section 22.5**: All 7 SDK walkthrough issues documented.
 
 - **2026-03-22 v20**: (1) **Section 20.8**: All 8 walkthrough issues now resolved — no more deferred items. (2) **Section 20.9**: Ingestion API user_id resolved — Option B: session creation with optional userId + PATCH API to update existing sessions. (3) **Section 2.3**: Fixed `mergeExtractedData()` sentiment handling — composite key uses category+value only, sentiment changes trigger overwrite (not skip). (4) Confirmed Phase 3.1 design is complete with all issues resolved.
 - **2026-03-22 v18**: (1) **Section 2.2**: Updated `user_preference` template to use array-wrapped schema (was single-object — critical fix from walkthrough). (2) **Section 2.3**: Refactored `runExtraction()` to include user grouping via `groupByUser()` method. (3) **Section 2.3**: Refactored `extractByTemplate()` to accept candidates parameter. (4) **Section 2.3**: Rewrote `storeExtractionResult()` with merge logic (`mergeExtractedData()`) and user-scoped session ID resolution. (5) **Section 2.3**: Added `formatExtractedData()` for ICL prompt integration. (6) **Section 15.1**: Added prerequisites #6-8: `findByContentSessionIdAndType()`, `findByUserId()`, `findSessionIdsByUserIdAndProject()`. (7) **Section 20.9**: Added ingestion API user_id passing design. (8) **Section 20.8**: Updated summary — 6 issues resolved, 2 deferred.
