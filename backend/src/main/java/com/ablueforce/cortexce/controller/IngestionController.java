@@ -269,6 +269,10 @@ public class IngestionController {
         parsed.title = safeGetString(body, "title");
         parsed.subtitle = safeGetString(body, "subtitle");
         parsed.narrative = safeGetString(body, "narrative");
+        // Fallback: accept "content" as alias for "narrative" (SDK compatibility)
+        if (parsed.narrative == null) {
+            parsed.narrative = safeGetString(body, "content");
+        }
         parsed.facts = safeGetStringList(body, "facts");
         parsed.concepts = safeGetStringList(body, "concepts");
         parsed.filesRead = safeGetStringList(body, "files_read");

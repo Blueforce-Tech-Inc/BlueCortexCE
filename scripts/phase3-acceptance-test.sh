@@ -565,11 +565,15 @@ test_regression() {
     local reg_output
     reg_output=$(bash "${script_dir}/regression-test.sh" 2>&1)
 
-    if echo "$reg_output" | grep -q "All tests passed"; then
+    # Strip ANSI color codes for reliable grep matching
+    local clean_output
+    clean_output=$(echo "$reg_output" | sed 's/\x1b\[[0-9;]*m//g')
+
+    if echo "$clean_output" | grep -q "All tests passed"; then
         pass "Test 12: Regression tests passed"
     else
         local passed
-        passed=$(echo "$reg_output" | grep -o "Passed:[[:space:]]*[0-9]*" | grep -o "[0-9]*" | head -1)
+        passed=$(echo "$clean_output" | grep -o "Passed:[[:space:]]*[0-9]*" | grep -o "[0-9]*" | head -1)
         if [ "${passed:-0}" -ge 43 ]; then
             pass "Test 12: Regression tests passed (${passed}/43)"
         else

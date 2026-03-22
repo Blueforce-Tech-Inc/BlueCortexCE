@@ -2,10 +2,12 @@ package com.ablueforce.cortexce.service;
 
 import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.ablueforce.cortexce.repository.ObservationRepository;
+import com.ablueforce.cortexce.repository.SessionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -26,9 +28,11 @@ public class ExpRagService {
     private static final int DEFAULT_RETRIEVAL_COUNT = 4;
 
     private final ObservationRepository observationRepository;
+    private final SessionRepository sessionRepository;
 
-    public ExpRagService(ObservationRepository observationRepository) {
+    public ExpRagService(ObservationRepository observationRepository, SessionRepository sessionRepository) {
         this.observationRepository = observationRepository;
+        this.sessionRepository = sessionRepository;
     }
 
     /**
@@ -233,6 +237,76 @@ public class ExpRagService {
         }
         
         return sb.toString();
+    }
+
+    /**
+     * Retrieve experiences with userId filtering (Phase 3 multi-user support).
+     *
+     * @param currentTask Task description
+     * @param projectPath Project path
+     * @param count Number of experiences to retrieve
+     * @param userId User ID to filter by (optional, null means no filtering)
+     * @param source Optional source filter
+     * @param requiredConcepts Optional concept filter
+     * @return List of experiences
+     */
+    public List<Experience> retrieveExperiences(String currentTask, String projectPath, int count,
+                                                String userId, String source, List<String> requiredConcepts) {
+        // If userId is provided, filter by user's sessions
+        if (userId != null && !userId.isBlank()) {
+            List<String> sessionIds = sessionRepository.findSessionIdsByUserIdAndProject(userId, projectPath);
+            if (sessionIds.isEmpty()) {
+                log.debug("No sessions found for userId={} in project={}", userId, projectPath);
+                return List.of();
+            }
+
+            // Get observations from user's sessions
+            List<ObservationEntity> results = new ArrayList<>();
+            for (String sessionId : sessionIds) {
+                List<ObservationEntity> sessionObs = observationRepository
+                    .findByContentSessionIdOrderByCreatedAtEpochAsc(sessionId);
+                results.addAll(sessionObs);
+            }
+
+            // Apply source filter if specified
+            if (source != null && !source.isBlank()) {
+                results = results.stream()
+                    .filter(obs -> source.equals(obs.getSource()))
+                    .toList();
+            }
+
+            // Apply concept filter if specified
+            if (requiredConcepts != null && !requiredConcepts.isEmpty()) {
+                final List<String> conceptsToMatch = requiredConcepts;
+                results = results.stream()
+                    .filter(obs -> {
+                        if (obs.getConcepts() == null) return false;
+                        return conceptsToMatch.stream()
+                            .allMatch(concept -> obs.getConcepts().contains(concept));
+                    })
+                    .toList();
+            }
+
+            // Sort by quality and recency, limit to count
+            results = results.stream()
+                .sorted((a, b) -> {
+                    int qualityCompare = Double.compare(
+                        b.getQualityScore() != null ? b.getQualityScore() : 0.0,
+                        a.getQualityScore() != null ? a.getQualityScore() : 0.0
+                    );
+                    if (qualityCompare != 0) return qualityCompare;
+                    return Long.compare(b.getCreatedAtEpoch(), a.getCreatedAtEpoch());
+                })
+                .limit(count)
+                .toList();
+
+            return results.stream()
+                .map(this::toExperience)
+                .toList();
+        }
+
+        // No userId, use existing method
+        return retrieveExperiences(currentTask, projectPath, count, source, requiredConcepts);
     }
 
     /**

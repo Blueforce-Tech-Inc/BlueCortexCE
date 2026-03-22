@@ -22,8 +22,51 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         WHERE (:project IS NULL OR o.projectPath = :project)
         ORDER BY o.createdAtEpoch DESC
         """)
-    Page<ObservationEntity> findAllPaged(
-        @Param("project") String project,
+    Page<ObservationEntity> findAllPaged(@Param("project") String project, Pageable pageable);
+
+    // Paged query with userId-based filtering (Phase 3 multi-user support)
+    /**
+     * Find observations by project path and content session IDs.
+     * Used for userId-based filtering (Phase 3 multi-user support).
+     *
+     * @param projectPath Project path
+     * @param sessionIds List of content session IDs
+     * @param pageable Pagination
+     * @return Page of observations
+     */
+    @Query("""
+        SELECT o FROM ObservationEntity o
+        WHERE o.projectPath = :projectPath
+        AND o.contentSessionId IN :sessionIds
+        ORDER BY o.createdAtEpoch DESC
+        """)
+    Page<ObservationEntity> findByProjectPathAndContentSessionIdIn(
+        @Param("projectPath") String projectPath,
+        @Param("sessionIds") List<String> sessionIds,
+        Pageable pageable
+    );
+
+    /**
+     * Find high-quality observations by project path and content session IDs.
+     * Used for userId-based experience retrieval (Phase 3 multi-user support).
+     *
+     * @param projectPath Project path
+     * @param sessionIds List of content session IDs
+     * @param minQuality Minimum quality score
+     * @param pageable Pagination
+     * @return Page of observations
+     */
+    @Query("""
+        SELECT o FROM ObservationEntity o
+        WHERE o.projectPath = :projectPath
+        AND o.contentSessionId IN :sessionIds
+        AND o.qualityScore >= :minQuality
+        ORDER BY o.createdAtEpoch DESC
+        """)
+    Page<ObservationEntity> findByProjectPathAndContentSessionIdInWithQuality(
+        @Param("projectPath") String projectPath,
+        @Param("sessionIds") List<String> sessionIds,
+        @Param("minQuality") double minQuality,
         Pageable pageable
     );
 
@@ -355,12 +398,14 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         SELECT * FROM mem_observations
         WHERE content_hash = :contentHash
         AND created_at_epoch > :windowStart
+        AND project_path = :projectPath
         ORDER BY created_at_epoch DESC
         LIMIT 1
         """, nativeQuery = true)
     Optional<ObservationEntity> findDuplicateByContentHash(
         @Param("contentHash") String contentHash,
-        @Param("windowStart") long windowStart
+        @Param("windowStart") long windowStart,
+        @Param("projectPath") String projectPath
     );
 
     // ==========================================================================

@@ -251,7 +251,7 @@ public class AgentService implements LogHelper {
 
         // Check for duplicate within 30-second window
         long windowStart = Instant.now().toEpochMilli() - 30000;
-        Optional<ObservationEntity> existing = observationRepository.findDuplicateByContentHash(contentHash, windowStart);
+        Optional<ObservationEntity> existing = observationRepository.findDuplicateByContentHash(contentHash, windowStart, projectPath);
         if (existing.isPresent()) {
             log.debug(LogMarkers.HAPPY_PATH + "Duplicate observation within 30s window, returning existing: {}",
                 existing.get().getId());
