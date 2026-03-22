@@ -1,7 +1,7 @@
 # Phase 3 Design Proposal: Structured Information Extraction & Memory Conflict Detection
 
 **Date**: 2026-03-22
-**Status**: Design proposal - iteration 28 (Prior truncation data loss risk identified, append-only extraction proposed)
+**Status**: Design proposal - iteration 29 (Append-only extraction design gaps fixed: mergeAppendOnly, prompt schema, cost analysis updated)
 **Related to**: `sdk-improvement-research.md` Phase 3 deferred items
 
 ---
@@ -734,6 +734,11 @@ public class StructuredExtractionService {
      * Summarize prior extraction JSON to prevent token cost escalation.
      * If priorJson exceeds maxPriorChars, truncate to recent items with a summary count.
      * This prevents the prior context from dominating the prompt budget over time.
+     *
+     * ⚠️ DESIGN NOTE (v28): This approach has a known data loss risk — items truncated
+     * from the prior may silently disappear over successive runs (see Section 24.6).
+     * An append-only alternative (Solution D) is proposed that eliminates this risk
+     * while also being cheaper. If append-only is adopted, this method becomes unused.
      *
      * Example output (when truncated):
      *   "preferences: 20 items total, showing latest 5:
@@ -4368,6 +4373,20 @@ This section provides a comprehensive token consumption analysis for both extrac
 
 **Key insight**: Refinement dominates the cost (97%+). Extraction is cheap by comparison.
 
+### 23.4b Impact of Append-Only Extraction (Section 24.6)
+
+If the append-only approach (Solution D) from Section 24.6 is adopted, extraction costs decrease further because no prior context is passed to the LLM:
+
+| Approach | Prior tokens | New obs tokens | Total input | Cost/Call (GPT-4o-mini) |
+|----------|-------------|----------------|-------------|------------------------|
+| Current (truncated prior) | ~500 | ~2000 | ~2500 | ~$0.0005 |
+| Current (full prior) | ~5000 | ~2000 | ~7000 | ~$0.0014 |
+| **Append-only (proposed)** | **0** | **~2000** | **~2000** | **~$0.0004** |
+
+**Net effect**: ~20% extraction cost reduction + elimination of data loss risk. The append-only approach is strictly better on both dimensions — cheaper AND safer.
+
+**Note**: These extraction costs remain negligible compared to refinement costs regardless of approach. The primary motivation for append-only is safety (Section 24.6), not cost.
+
 ### 23.5 Cost Control Strategies
 
 **Strategy 1: Frequency Control**
@@ -4592,10 +4611,20 @@ private String buildAppendOnlyPrompt(ExtractionTemplate template,
     sb.append("  \"remove\": [ /* items EXPLICITLY rejected (user said they don't like X) */ ],\n");
     sb.append("  \"keep_hint\": [ /* items mentioned positively that should be retained */ ]\n");
     sb.append("}\n\n");
+
+    // Include item schema hint so LLM knows the structure of array elements
+    // This is critical — without it, LLM may invent field names
+    if (schemaHint != null) {
+        sb.append("Each item in add/remove/keep_hint arrays should match this structure:\n");
+        sb.append(schemaHint).append("\n\n");
+    }
+
     sb.append("CRITICAL:\n");
     sb.append("- 'add': only items EXPLICITLY stated in observations\n");
     sb.append("- 'remove': only items EXPLICITLY rejected (e.g., 'I don't like X anymore')\n");
-    sb.append("- Do NOT infer, generalize, or fabricate\n\n");
+    sb.append("- 'keep_hint': items mentioned positively or in passing that should NOT be removed\n");
+    sb.append("- Do NOT infer, generalize, or fabricate\n");
+    sb.append("- Each item MUST have 'category' and 'value' fields (used for deduplication)\n\n");
 
     sb.append("Observations:\n");
     for (ObservationEntity obs : candidates) {
@@ -4619,38 +4648,77 @@ private Map<String, Object> mergeAppendOnly(
     // Start with full prior
     Map<String, Object> merged = new HashMap<>(fullPriorData);
 
-    // Remove explicitly rejected items
+    // Build remove key set (composite: category+value or item identity fields)
     Set<String> removeKeys = removeItems.stream()
-        .map(item -> item.get("category") + ":" + item.get("value"))
+        .map(item -> buildItemKey(item))
         .collect(Collectors.toSet());
 
+    // Build keep_hint key set — items the LLM flagged as still relevant
+    Set<String> keepKeys = keepHint.stream()
+        .map(item -> buildItemKey(item))
+        .collect(Collectors.toSet());
+
+    // Remove explicitly rejected items from all list fields
     for (Map.Entry<String, Object> entry : merged.entrySet()) {
         if (entry.getValue() instanceof List<?> list) {
             List<Map<String, Object>> filtered = list.stream()
                 .filter(item -> !(item instanceof Map<?,?> m &&
-                    removeKeys.contains(m.get("category") + ":" + m.get("value"))))
+                    removeKeys.contains(buildItemKey((Map<String, Object>) item))))
                 .map(item -> (Map<String, Object>) item)
                 .toList();
             entry.setValue(filtered);
         }
     }
 
-    // Add new items
+    // Add new items to matching list fields, with deduplication
     for (Map.Entry<String, Object> entry : merged.entrySet()) {
         if (entry.getValue() instanceof List<?> existingList && !addItems.isEmpty()) {
             List<Map<String, Object>> combined = new ArrayList<>();
             for (Object item : existingList) combined.add((Map<String, Object>) item);
-            combined.addAll(addItems);
-            entry.setValue(deduplicate(combined));
+
+            // Only add items that don't already exist (by key)
+            Set<String> existingKeys = combined.stream()
+                .map(this::buildItemKey)
+                .collect(Collectors.toSet());
+            for (Map<String, Object> newItem : addItems) {
+                if (!existingKeys.contains(buildItemKey(newItem))) {
+                    combined.add(newItem);
+                }
+            }
+            entry.setValue(combined);
         }
     }
 
-    // Store removal metadata
+    // Store removal metadata for audit trail
     if (!removeItems.isEmpty()) {
         merged.put("removed", removeItems);
     }
 
+    // Store keep_hint for debugging / confidence analysis
+    if (!keepHint.isEmpty()) {
+        merged.put("_keep_hint", keepHint);
+    }
+
     return merged;
+}
+
+/**
+ * Build a deduplication key for an extraction item.
+ * Uses category+value as composite key (falls back to all-string-fields join).
+ * This MUST match the keying strategy used in the extraction output schema.
+ */
+private String buildItemKey(Map<String, Object> item) {
+    String category = item.getOrDefault("category", "").toString();
+    String value = item.getOrDefault("value", "").toString();
+    if (!category.isEmpty() || !value.isEmpty()) {
+        return category + "::" + value;
+    }
+    // Fallback: join all string fields
+    return item.entrySet().stream()
+        .filter(e -> e.getValue() instanceof String)
+        .map(e -> e.getKey() + "=" + e.getValue())
+        .sorted()
+        .collect(Collectors.joining(","));
 }
 ```
 
@@ -5769,6 +5837,8 @@ bash scripts/demo-v14-test.sh
 ---
 
 ## Changelog
+
+- **2026-03-22 v29**: (1) **Section 24.6 `mergeAppendOnly()`**: Fixed critical design gaps — `keep_hint` was extracted but never used in merge logic; `deduplicate()` was called but undefined. Replaced with: (a) `buildItemKey()` method for consistent deduplication keying (category+value composite); (b) `keep_hint` now stored as `_keep_hint` in merged result for debugging; (c) existing-key check prevents duplicate adds. (2) **Section 24.6 `buildAppendOnlyPrompt()`**: Added item schema hint and `keep_hint` semantics clarification — LLM now knows the expected structure of array elements and MUST include `category`+`value` fields for deduplication. (3) **Section 23.4b**: Added append-only cost comparison — ~20% cheaper than truncated-prior approach, while eliminating data loss risk. (4) **Section 2.3 `summarizePriorExtraction()`**: Added design note cross-referencing Section 24.6 data loss risk and append-only alternative.
 
 - **2026-03-22 v28**: **Section 24.6**: Identified critical data loss risk in `summarizePriorExtraction()` — when prior is truncated to latest 5 items, older items not re-mentioned in new observations silently disappear over successive extraction runs. Allergy information, important dates, and long-standing preferences could be permanently lost with no error or warning. Proposed **Solution D (append-only extraction)** as both safer AND cheaper alternative: LLM outputs only add/remove/keep_hint, service merges with full prior from DB. Token cost: ~2000 (append-only) vs ~7000 (full prior) vs ~2500 (truncated, lossy). Design status: open for review before implementation.
 
