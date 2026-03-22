@@ -12,7 +12,8 @@ package com.ablueforce.cortexce.client.dto;
 public record ICLPromptRequest(
     String task,
     String project,
-    Integer maxChars
+    Integer maxChars,
+    String userId
 ) {
     public static Builder builder() {
         return new Builder();
@@ -22,13 +23,21 @@ public record ICLPromptRequest(
      * Convenience constructor with default maxChars (4000).
      */
     public ICLPromptRequest(String task, String project) {
-        this(task, project, 4000);
+        this(task, project, 4000, null);
+    }
+
+    /**
+     * Convenience constructor without userId.
+     */
+    public ICLPromptRequest(String task, String project, Integer maxChars) {
+        this(task, project, maxChars, null);
     }
 
     public static class Builder {
         private String task;
         private String project;
         private Integer maxChars = 4000;
+        private String userId;
 
         public Builder task(String task) { this.task = task; return this; }
         public Builder project(String project) { this.project = project; return this; }
@@ -42,8 +51,13 @@ public record ICLPromptRequest(
          */
         public Builder maxChars(Integer maxChars) { this.maxChars = maxChars; return this; }
 
+        /**
+         * Set user ID for user-scoped memory retrieval.
+         */
+        public Builder userId(String userId) { this.userId = userId; return this; }
+
         public ICLPromptRequest build() {
-            return new ICLPromptRequest(task, project, maxChars);
+            return new ICLPromptRequest(task, project, maxChars, userId);
         }
     }
 }

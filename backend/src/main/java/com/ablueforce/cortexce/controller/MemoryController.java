@@ -90,16 +90,17 @@ public class MemoryController {
     /**
      * Build ICL prompt from experiences.
      * POST /api/memory/icl-prompt
-     * Body: {"task": "...", "project": "...", "maxChars": 4000}
+     * Body: {"task": "...", "project": "...", "maxChars": 4000, "userId": "alice"}
      */
     @PostMapping("/icl-prompt")
     public ResponseEntity<Map<String, String>> buildICLPrompt(@RequestBody Map<String, Object> request) {
         String task = (String) request.get("task");
         String project = (String) request.get("project");
-        int maxChars = request.get("maxChars") != null 
-            ? ((Number) request.get("maxChars")).intValue() 
+        String userId = (String) request.get("userId");  // Phase 3: optional userId filter
+        int maxChars = request.get("maxChars") != null
+            ? ((Number) request.get("maxChars")).intValue()
             : 4000;
-        
+
         List<ExpRagService.Experience> experiences = expRagService
             .retrieveExperiences(task, project, 4);
         

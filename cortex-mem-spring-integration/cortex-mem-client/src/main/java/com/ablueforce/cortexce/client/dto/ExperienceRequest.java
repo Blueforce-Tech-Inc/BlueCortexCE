@@ -16,7 +16,8 @@ public record ExperienceRequest(
     String project,
     Integer count,
     String source,
-    List<String> requiredConcepts
+    List<String> requiredConcepts,
+    String userId
 ) {
     public static Builder builder() {
         return new Builder();
@@ -26,7 +27,14 @@ public record ExperienceRequest(
      * Convenience constructor with basic fields.
      */
     public ExperienceRequest(String task, String project, Integer count) {
-        this(task, project, count, null, null);
+        this(task, project, count, null, null, null);
+    }
+
+    /**
+     * Convenience constructor without userId.
+     */
+    public ExperienceRequest(String task, String project, Integer count, String source, List<String> requiredConcepts) {
+        this(task, project, count, source, requiredConcepts, null);
     }
 
     public static class Builder {
@@ -35,6 +43,7 @@ public record ExperienceRequest(
         private Integer count = 4;
         private String source;
         private List<String> requiredConcepts;
+        private String userId;
 
         public Builder task(String task) { this.task = task; return this; }
         public Builder project(String project) { this.project = project; return this; }
@@ -50,8 +59,13 @@ public record ExperienceRequest(
          */
         public Builder requiredConcepts(List<String> requiredConcepts) { this.requiredConcepts = requiredConcepts; return this; }
 
+        /**
+         * Set user ID for user-scoped memory retrieval.
+         */
+        public Builder userId(String userId) { this.userId = userId; return this; }
+
         public ExperienceRequest build() {
-            return new ExperienceRequest(task, project, count, source, requiredConcepts);
+            return new ExperienceRequest(task, project, count, source, requiredConcepts, userId);
         }
     }
 }

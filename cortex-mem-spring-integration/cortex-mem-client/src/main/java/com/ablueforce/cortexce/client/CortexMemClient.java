@@ -85,4 +85,23 @@ public interface CortexMemClient {
      * Health check. Calls GET /api/health or GET /actuator/health.
      */
     boolean healthCheck();
+
+    // ==================== Extraction (Phase 3) ====================
+
+    /**
+     * Get latest extraction result for a template and user.
+     * Calls GET /api/extraction/{templateName}/latest?projectPath=...&userId=...
+     */
+    Map<String, Object> getLatestExtraction(String projectPath, String templateName, String userId);
+
+    /**
+     * Get extraction history for a template and user.
+     * Calls GET /api/extraction/{templateName}/history?projectPath=...&userId=...&limit=...
+     */
+    List<Map<String, Object>> getExtractionHistory(String projectPath, String templateName, String userId, int limit);
+
+    /**
+     * Update session userId. Calls PATCH /api/session/{sessionId}/user.
+     */
+    Map<String, Object> updateSessionUserId(String sessionId, String userId);
 }

@@ -24,6 +24,36 @@ app:
       # Days before observation is considered stale
       stale-days: ${MEMORY_REFINE_STALE_DAYS:30}
 
+    # Phase 3: Structured extraction configuration
+    extraction:
+      enabled: ${EXTRACTION_ENABLED:false}
+      initial-run-max-candidates: ${EXTRACTION_MAX_CANDIDATES:100}
+      max-observations-per-batch: ${EXTRACTION_BATCH_SIZE:20}
+      max-batches-per-template: ${EXTRACTION_MAX_BATCHES:10}
+      templates:
+        - name: "user_preference"
+          enabled: true
+          template-class: "java.util.Map"
+          session-id-pattern: "pref:{project}:{userId}"
+          source-filter: ["user_statement", "manual"]
+          prompt: |
+            From the following conversation observations, extract user preferences.
+            A preference is a stable choice, opinion, or constraint expressed by the user.
+
+            Return a JSON object with a "preferences" array. Each item should have:
+            - "category": the domain (e.g. "phone_brand", "price_range", "food")
+            - "value": what the user prefers
+            - "sentiment": "positive", "negative", or "neutral"
+            - "confidence": 0.0 to 1.0
+
+            If prior extraction is provided:
+            - KEEP items that are still valid
+            - REMOVE items contradicted by new observations
+            - ADD new items from new observations
+            - Do NOT re-add items already in prior unless confidence changed
+          output-schema: |
+            {"type":"object","properties":{"preferences":{"type":"array","items":{"type":"object","properties":{"category":{"type":"string"},"value":{"type":"string"},"sentiment":{"type":"string"},"confidence":{"type":"number"}},"required":["category","value"]}}}}
+
 spring:
   application:
     name: claude-mem-java

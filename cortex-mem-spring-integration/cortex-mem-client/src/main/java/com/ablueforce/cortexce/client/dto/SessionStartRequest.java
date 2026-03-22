@@ -9,21 +9,31 @@ import java.util.Map;
  */
 public record SessionStartRequest(
     String sessionId,
-    String projectPath
+    String projectPath,
+    String userId
 ) {
     public static Builder builder() {
         return new Builder();
     }
 
+    /**
+     * Convenience constructor without userId (backward compatible).
+     */
+    public SessionStartRequest(String sessionId, String projectPath) {
+        this(sessionId, projectPath, null);
+    }
+
     public static class Builder {
         private String sessionId;
         private String projectPath;
+        private String userId;
 
         public Builder sessionId(String sessionId) { this.sessionId = sessionId; return this; }
         public Builder projectPath(String projectPath) { this.projectPath = projectPath; return this; }
+        public Builder userId(String userId) { this.userId = userId; return this; }
 
         public SessionStartRequest build() {
-            return new SessionStartRequest(sessionId, projectPath);
+            return new SessionStartRequest(sessionId, projectPath, userId);
         }
     }
 
@@ -32,6 +42,9 @@ public record SessionStartRequest(
         map.put("session_id", sessionId);
         map.put("project_path", projectPath);
         map.put("cwd", projectPath);
+        if (userId != null) {
+            map.put("user_id", userId);
+        }
         return map;
     }
 }
