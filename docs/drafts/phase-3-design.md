@@ -3557,8 +3557,279 @@ public ObservationEntity ingestObservation(@RequestBody IngestObservationRequest
 
 ---
 
+## 21. Implementation Inspection Findings (v19)
+
+This section documents gaps found during the 2026-03-22 code inspection by comparing the design against the actual codebase state.
+
+### 21.1 Verified Prerequisites Status (2026-03-22)
+
+| # | Prerequisite | Design Reference | Actual Status | File |
+|---|-------------|-----------------|---------------|------|
+| 1 | `findBySourceIn(project, List<String>, limit)` | Section 9.1 | ❌ NOT implemented | ObservationRepository.java |
+| 2 | `findNewObservations(project, sources, sinceEpoch, limit)` | Section 9.1 | ❌ NOT implemented | ObservationRepository.java |
+| 3 | `findByTypeGlobal(type, limit)` | Section 15.1 #3 | ❌ NOT implemented | ObservationRepository.java |
+| 4 | `findByTypeLike(project, typePattern, limit)` | Section 15.1 #4 | ❌ NOT implemented | ObservationRepository.java |
+| 5 | `findByContentSessionIdAndType(sessionId, type, limit)` | Section 15.1 #6 | ❌ NOT implemented | ObservationRepository.java |
+| 6 | `chatCompletionStructured(systemPrompt, userPrompt, outputType)` | Section 15.4 | ❌ NOT implemented | LlmService.java |
+| 7 | `user_id` field in SessionEntity | Section 20.2 | ❌ NOT implemented | SessionEntity.java |
+| 8 | Flyway V15 migration (user_id) | Section 20.2 | ❌ NOT implemented | db/migration/ (latest: V14) |
+| 9 | `findByUserId(userId)` | Section 15.1 #7 | ❌ NOT implemented | SessionRepository.java |
+| 10 | `findSessionIdsByUserIdAndProject(userId, project)` | Section 15.1 #8 | ❌ NOT implemented | SessionRepository.java |
+
+**Conclusion**: ALL 10 prerequisites remain unimplemented. The design is comprehensive but no code has been written for Phase 3.1.
+
+### 21.2 LlmService Availability Guard Missing
+
+**Issue**: The design shows `StructuredExtractionService` calling `llmService.chatCompletionStructured()`, but doesn't address what happens when no ChatClient is configured.
+
+**Current behavior** (LlmService.java line 43-44):
+```java
+public String chatCompletion(String systemPrompt, String userPrompt) {
+    return chatCompletionWithUsage(systemPrompt, userPrompt).content();
+    // ↑ Throws IllegalStateException("AI not configured") if chatClient.isEmpty()
+}
+```
+
+**Problem**: If the application starts without an API key, `LlmService.isAvailable()` returns false, but `chatCompletion()` throws `IllegalStateException`. The extraction service doesn't check availability before calling.
+
+**Fix**: Add availability guard in `runExtraction()`:
+
+```java
+public void runExtraction(String projectPath) {
+    if (!llmService.isAvailable()) {
+        log.debug("LLM not available, skipping extraction for project: {}", projectPath);
+        return;
+    }
+    // ... rest of extraction
+}
+```
+
+### 21.3 mergeExtractedData() Type Safety Issue
+
+**Issue**: Section 2.3's `mergeExtractedData()` performs unsafe casts:
+
+```java
+List<Map<String, Object>> existingList = (List<Map<String, Object>>) existingValue;
+List<Map<String, Object>> newList = (List<Map<String, Object>>) newValue;
+```
+
+**Problem**: If `extractedData` contains a list of primitives (e.g., `{"allergens": ["peanut", "shellfish"]}`), this cast throws `ClassCastException` because the items are `String`, not `Map<String, Object>`.
+
+**Fix**: Add type check before cast:
+
+```java
+if (newValue instanceof List && existingValue instanceof List) {
+    // Check if list elements are Maps (structured data) or primitives
+    List<?> rawExisting = (List<?>) existingValue;
+    List<?> rawNew = (List<?>) newValue;
+    
+    if (!rawExisting.isEmpty() && rawExisting.get(0) instanceof Map) {
+        // Structured list: merge by composite key
+        List<Map<String, Object>> existingList = (List<Map<String, Object>>) existingValue;
+        List<Map<String, Object>> newList = (List<Map<String, Object>>) newValue;
+        // ... existing merge logic
+    } else {
+        // Primitive list: deduplicate by value
+        Set<Object> combined = new LinkedHashSet<>(rawExisting);
+        combined.addAll(rawNew);
+        merged.put(key, new ArrayList<>(combined));
+    }
+}
+```
+
+### 21.4 Transactional Scope on Extraction Storage
+
+**Issue**: `storeExtractionResult()` with merge logic performs: (1) query existing, (2) update extractedData, (3) save. Without `@Transactional`, if step 3 fails, the extraction result is lost but source observations are marked as "processed" (via state update).
+
+**Problem**: The `updateExtractionState()` has `@Transactional` (section 15.6), but `storeExtractionResult()` does not. State update and result storage are separate transactions — inconsistency possible.
+
+**Fix**: Option A (recommended) — wrap the entire template extraction in a single transaction:
+
+```java
+@Transactional
+private void runTemplateExtraction(String projectPath, ExtractionTemplate template) {
+    // 1. Get candidates
+    // 2. Extract via LLM
+    // 3. Store result (with merge)
+    // 4. Update state
+    
+    // All-or-nothing: if any step fails, rollback everything
+}
+```
+
+**Tradeoff**: LLM call (step 2) happens inside a transaction. If the LLM call is slow, the DB transaction stays open. Mitigate by separating LLM call (outside transaction) from storage (inside transaction):
+
+```java
+public void runTemplateExtraction(String projectPath, ExtractionTemplate template) {
+    // Step 1+2: Get candidates + LLM call (NO transaction)
+    List<ObservationEntity> candidates = getCandidates(projectPath, template, state);
+    Object result = extractByTemplate(projectPath, template, candidates);
+    
+    if (result == null) return;
+    
+    // Step 3+4: Store result + update state (IN transaction)
+    storeAndAdvanceState(projectPath, template, result, candidates);
+}
+
+@Transactional
+private void storeAndAdvanceState(...) {
+    storeExtractionResult(template, result, candidates, targetSessionId);
+    updateExtractionState(projectPath, template.name(), OffsetDateTime.now());
+}
+```
+
+### 21.5 ReentrantLock Memory Leak
+
+**Issue**: Section 15.7 uses `ConcurrentHashMap.computeIfAbsent()` to create per-project locks. Locks are never removed from the map.
+
+**Problem**: In long-running applications where projects are created and abandoned, the lock map grows indefinitely. Not a critical leak (locks are small objects) but poor hygiene.
+
+**Fix**: Use `WeakHashMap` wrapper or periodic cleanup:
+
+```java
+// Option A: Cleanup after extraction completes
+public void runExtraction(String projectPath) {
+    ReentrantLock lock = projectLocks.computeIfAbsent(projectPath, k -> new ReentrantLock());
+    lock.lock();
+    try {
+        // ... extraction logic
+    } finally {
+        lock.unlock();
+        // Don't remove — another thread may be waiting
+    }
+}
+
+// Option B: Scheduled cleanup (every hour)
+@Scheduled(fixedRate = 3600000)
+public void cleanupStaleLocks() {
+    projectLocks.entrySet().removeIf(e -> {
+        ReentrantLock lock = e.getValue();
+        return !lock.isLocked() && lock.getQueueLength() == 0;
+    });
+}
+```
+
+### 21.6 ExtractionConfig.ExtractionTemplate vs Record Mismatch
+
+**Issue**: Section 15.3 defines `ExtractionConfig.ExtractionTemplate` as a POJO with `toTemplate()` conversion method, but the extraction service code in section 2.3 uses the `ExtractionTemplate` record directly.
+
+**Problem**: Two different `ExtractionTemplate` types exist:
+- `com.ablueforce.cortexce.config.ExtractionConfig.ExtractionTemplate` (POJO, for YAML binding)
+- `com.ablueforce.cortexce.model.ExtractionTemplate` (record, for service logic)
+
+The `toTemplate()` conversion must happen somewhere, but the design doesn't specify where.
+
+**Fix**: Choose ONE approach. Recommended: **Use the POJO directly** in the service (drop the record):
+
+```java
+// In StructuredExtractionService
+@Autowired
+private ExtractionConfig extractionConfig;
+
+public void runExtraction(String projectPath) {
+    for (ExtractionConfig.ExtractionTemplate template : extractionConfig.getTemplates()) {
+        // Use POJO directly — no conversion needed
+        if (!template.isEnabled()) continue;
+        runTemplateExtraction(projectPath, template);
+    }
+}
+```
+
+This eliminates the record entirely and avoids the conversion layer. The POJO is already Spring-managed and configuration-bound.
+
+### 21.7 Post-Extraction Schema Validation Gap
+
+**Issue**: `BeanOutputConverter` injects schema instructions into the system prompt, but doesn't validate the result. If the LLM returns non-compliant JSON, `converter.convert(response)` may throw or return partially-parsed data.
+
+**Current design** (section 7.4): Shows `extractWithRetry()` with validation, but section 2.3's `extractByTemplate()` doesn't include this.
+
+**Problem**: The retry logic in section 7.4 is designed for manual JSON parsing (`objectMapper.readValue()`), not for `BeanOutputConverter` flow. `BeanOutputConverter.convert()` handles parsing internally — we can't intercept its output for validation.
+
+**Fix**: Add try-catch around `chatCompletionStructured()` with retry:
+
+```java
+private <T> T extractWithRetry(ExtractionTemplate template, 
+                                List<ObservationEntity> candidates,
+                                Class<T> outputType,
+                                int maxRetries) {
+    for (int attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+            return llmService.chatCompletionStructured(
+                template.promptTemplate(), 
+                buildPrompt(template, candidates, null),
+                outputType);
+        } catch (Exception e) {
+            log.warn("Extraction attempt {}/{} failed for template {}: {}", 
+                attempt + 1, maxRetries, template.name(), e.getMessage());
+            if (attempt == maxRetries - 1) {
+                throw new ExtractionException("Failed after " + maxRetries + " attempts", e);
+            }
+        }
+    }
+    throw new ExtractionException("Unreachable"); // satisfy compiler
+}
+```
+
+### 21.8 Null Observation Content Handling
+
+**Issue**: `buildPrompt()` in section 2.3 calls `sanitize(obs.getContent())` and `sanitize(obs.getTitle())`, but `ObservationEntity.content` and `title` can be null.
+
+**Current code**:
+```java
+sb.append(String.format("- [%s] %s\n  %s\n",
+    sanitize(obs.getSource()),
+    obs.getTitle() != null ? sanitize(obs.getTitle()) : "",
+    obs.getContent() != null ? sanitize(obs.getContent()) : ""));
+```
+
+**Analysis**: The null checks exist in the design ✅ — but `sanitize()` returns `""` for null input, so the redundant `obs.getTitle() != null ? ... : ""` check could be simplified to just `sanitize(obs.getTitle())`. Minor style issue, not a bug.
+
+**Real concern**: `obs.getSource()` is called with `sanitize()` but no null check. If source is null (possible for legacy observations before V14), `sanitize(null)` returns `""` — which is safe. No fix needed.
+
+### 21.9 `@Async` + Extraction Concurrency Interaction
+
+**Issue**: `MemoryRefineService.deepRefineProjectMemories()` is annotated with `@Async` (confirmed in code). If extraction is called as the last step of `deepRefine`, it runs in a separate thread pool.
+
+**Problem**: Section 15.7's `ReentrantLock` is in-memory, bound to the JVM. If `@Async` runs in a different thread, the lock works correctly (same JVM). But if the application has multiple instances or thread pool configuration issues, the lock may not work as expected.
+
+**Mitigation**: This is acceptable for single-instance deployment. Document the assumption:
+
+```java
+// NOTE: ReentrantLock is JVM-local. If running multiple instances,
+// use ShedLock or DB advisory locks instead.
+private final ConcurrentHashMap<String, ReentrantLock> projectLocks = new ConcurrentHashMap<>();
+```
+
+### 21.10 ExtractionConfig Conditional Bean Missing
+
+**Issue**: The design assumes `ExtractionConfig` is always loaded. If `app.memory.extraction.enabled=false` or the config section is missing entirely, Spring may fail to bind.
+
+**Fix**: Add `@ConditionalOnProperty` to the configuration class:
+
+```java
+@Configuration
+@ConditionalOnProperty(prefix = "app.memory.extraction", name = "enabled", havingValue = "true", matchIfMissing = false)
+@ConfigurationProperties(prefix = "app.memory.extraction")
+public class ExtractionConfig {
+    // ...
+}
+```
+
+And add `@ConditionalOnBean` to StructuredExtractionService:
+
+```java
+@Service
+@ConditionalOnBean(ExtractionConfig.class)
+public class StructuredExtractionService {
+    // Only created if ExtractionConfig exists
+}
+```
+
+---
+
 ## Changelog
 
+- **2026-03-22 v19**: (1) **Section 21.1**: Verified ALL 10 prerequisites are still unimplemented — no Phase 3.1 code has been written. (2) **Section 21.2**: LlmService availability guard — extraction must check `isAvailable()` before calling LLM. (3) **Section 21.3**: `mergeExtractedData()` type safety — primitive lists cause ClassCastException, added type check. (4) **Section 21.4**: Transactional scope design — separated LLM call (no transaction) from storage (in transaction) to avoid long-lived DB transactions. (5) **Section 21.5**: ReentrantLock memory leak — added scheduled cleanup. (6) **Section 21.6**: ExtractionConfig POJO vs record mismatch — recommend using POJO directly, eliminating record entirely. (7) **Section 21.7**: Post-extraction schema validation gap — BeanOutputConverter.convert() is opaque, added try-catch retry around it. (8) **Section 21.9**: `@Async` + extraction concurrency — documented JVM-local lock assumption for single-instance deployment. (9) **Section 21.10**: Conditional bean loading — ExtractionConfig needs `@ConditionalOnProperty`, service needs `@ConditionalOnBean`.
 - **2026-03-22 v18**: (1) **Section 2.2**: Updated `user_preference` template to use array-wrapped schema (was single-object — critical fix from walkthrough). (2) **Section 2.3**: Refactored `runExtraction()` to include user grouping via `groupByUser()` method. (3) **Section 2.3**: Refactored `extractByTemplate()` to accept candidates parameter. (4) **Section 2.3**: Rewrote `storeExtractionResult()` with merge logic (`mergeExtractedData()`) and user-scoped session ID resolution. (5) **Section 2.3**: Added `formatExtractedData()` for ICL prompt integration. (6) **Section 15.1**: Added prerequisites #6-8: `findByContentSessionIdAndType()`, `findByUserId()`, `findSessionIdsByUserIdAndProject()`. (7) **Section 20.9**: Added ingestion API user_id passing design. (8) **Section 20.8**: Updated summary — 6 issues resolved, 2 deferred.
 - **2026-03-22 v14**: (1) **Section 15.8 Bug Fix**: Fixed `findByType(project, "extracted_%", 50)` wildcard bug — `findByType` uses exact match (`type = :type`), NOT LIKE. Added `findByTypeLike()` repository method as prerequisite #4, plus alternative approach (iterate known template names). Updated ICL prompt and experience API code examples. (2) **Section 9.1**: Added `findByTypeLike()` to pending repository methods list. (3) **Section 15.1**: Added `findByTypeLike()` as prerequisite #5. (4) **Section 15.10**: Updated validation checklist with `findByTypeLike` or template-iteration alternative. (5) **Section 17**: Extraction idempotency — prevents duplicate `extracted_{template}` observations from re-running extraction. Composite hash deduplication + state guard clause. (6) **Section 18**: Observation type namespace reservation — `extraction_*` prefix reserved for system use. Added validation option to prevent user-created type collisions. (7) **Verified**: Spring AI 1.1.2 classpath includes `BeanOutputConverter`, `MapOutputConverter`, `ListOutputConverter` in `spring-ai-model` jar. Confirmed 5 pending prerequisites still not implemented: `findBySourceIn`, `findNewObservations`, `findByTypeGlobal`, `findByTypeLike`, `chatCompletionStructured`.
 - **2026-03-22 v13**: (1) **Quick Reference**: Added TL;DR summary at top — what, how, when, prerequisites, pipeline diagram. (2) **Section 15.6**: Transaction safety for extraction state management — `@Transactional` wrapper for delete-then-save pattern, plus SQL upsert alternative for production. (3) **Section 15.7**: Concurrency control — per-project `ReentrantLock` to prevent duplicate extraction runs from deepRefine + scheduled task overlap. (4) **Section 15.8**: ICL prompt integration — how extracted data surfaces in `/api/memory/icl-prompt` and experience API (`includeExtractions` flag). (5) **Section 15.9**: Token counting without TokenService — character-based heuristic (CJK-aware) for batching observations. (6) **Section 16**: Architecture Decision Records — 4 key decisions (store as ObservationEntity, BeanOutputConverter, separate pipeline, POJO+Map hybrid) captured with rationale and tradeoffs. (7) **Section 15.10**: Updated validation checklist with `@Transactional` and wildcard `findByType` support.
