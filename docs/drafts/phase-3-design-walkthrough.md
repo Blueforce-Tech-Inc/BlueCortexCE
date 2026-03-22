@@ -231,9 +231,9 @@ This is correct behavior for zero-shot: nothing to extract yet.
 
 **Documented in**: Section 2.2 of [phase-3-design.md](phase-3-design.md)
 
-### Decision 4: Incremental Merge
+### Decision 4: Evolution & Re-extraction
 
-**Decision**: `mergeExtractedData()` with composite key dedup + sentiment-aware overwrite.
+**Decision**: LLM re-extraction — each extraction includes prior result as LLM context. LLM produces complete current state, old extractions preserved as history. No programmatic merge logic needed.
 
 **Documented in**: Section 2.3 of [phase-3-design.md](phase-3-design.md)
 
