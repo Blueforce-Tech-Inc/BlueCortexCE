@@ -1,113 +1,280 @@
-# Phase 3 Architecture Walkthrough: Decision Log
+# Phase 3 Architecture Walkthrough: Scenarios & Decision Log
 
 **Date**: 2026-03-21 → 2026-03-22
-**Purpose**: Record the decision process that led to the final Phase 3.1 design.
+**Purpose**: Test the generalization capability of the extraction architecture through diverse scenarios.
 **Full design reference**: [phase-3-design.md](phase-3-design.md)
 
 ---
 
-## 1. Core Question: Can Generic Extraction Actually Work?
+## Part A: Scenario Walkthroughs
 
-**Method**: Pseudocode walkthrough with realistic scenario.
-
-**Scenario**: User says three things in a conversation:
-- "我不喜欢苹果手机" 
-- "我更喜欢小米"
-- "预算3000-4000"
-
-### Walkthrough Flow
-
-```
-Template config → Find candidates → Build prompt → LLM call → Parse → Store → Query
-```
-
-### Key Finding: Single-Object Schema Loses Data
-
-The original schema defined a single `{category, value, confidence}` object. With 3 preferences in one conversation, the LLM could only return one result — losing the other two.
-
-**Resolution**: Array-wrapped schema with `{preferences: [{...}, {...}]}`.
-**Documented in**: Section 2.2 of [phase-3-design.md](phase-3-design.md#22-configuration-model-yaml)
+Each scenario tests whether the generic extraction architecture can handle a specific use case.
 
 ---
 
-## 2. Multi-User Problem: Who Does This Preference Belong To?
+### Scenario 1: User Preference Extraction (Primary Scenario)
 
-**Finding**: The data model had NO user identification. `project_path` was the only isolation boundary.
+**Situation**: User says "我不喜欢苹果手机", "我更喜欢小米", "预算3000-4000" in one conversation.
 
-**Scenario**: Alice and Bob both in `/my-project`. Extraction would mix their data.
+**Challenge**: Single-object schema loses multiple preferences.
 
-### Decision Process
+**Walkthrough**:
+```
+Template config → Find candidates → Build prompt → LLM call → Parse → Store
+```
 
-| Option | Pros | Cons |
-|--------|------|------|
-| A. Add `user_id` to SessionEntity | Clean, explicit | Requires migration |
-| B. Encode user in project path | No migration | Fragile convention |
-| C. Infer from session history | No schema change | Unreliable |
+**Finding**: Original schema defined single `{category, value, confidence}` object. LLM could only return one result.
 
-**Resolution**: Option A — `user_id` field in `SessionEntity` + Flyway V15.
+**Resolution**: Array-wrapped schema: `{preferences: [{...}, {...}]}`.
+**Design location**: Section 2.2 of [phase-3-design.md](phase-3-design.md)
+
+**Status**: ✅ Resolved
+
+---
+
+### Scenario 2: Family Assistant with Multiple Members
+
+**Situation**: Family "Zhang" has 4 members. Dad prefers Chinese food, Mom is allergic to seafood, Son likes games, Daughter allergic to peanuts.
+
+**Challenge**: Observation says "Mom can't eat shrimp" — who is "Mom"? The observation has no user attribution. This is different from userId — it's about **entities mentioned in conversation**, not the session owner.
+
+**Key Insight**: **First extract WHO, then extract WHAT about them.**
+
+```
+Step 1: Entity Extraction → Who are the family members? (template: "family_member")
+Step 2: Attribute Extraction → What are their allergies/preferences? (template: "allergy_info")
+```
+
+**Walkthrough against current design**:
+```
+Current design: extractByTemplate() processes observations in batch
+Problem: Step 2 depends on Step 1 output — cascading extraction needed
+Section 7.5 mentions cascading extractions but doesn't implement it
+```
+
+**Gap**: The current `runTemplateExtraction()` processes templates independently. It does NOT support cascading (template B's input depends on template A's output).
+
+**Resolution needed**: Add `depends-on` field to ExtractionTemplate + cascading execution logic.
+
+**Status**: ⚠️ Gap identified — cascading extraction not implemented. See Section 7.5 of [phase-3-design.md](phase-3-design.md).
+
+---
+
+### Scenario 3: User with Multiple Sessions (Work vs Personal)
+
+**Situation**: User "chen" has work sessions ("I prefer minimalist design") and personal sessions ("I hate mornings"). Should preferences be session-scoped or user-scoped?
+
+**Challenge**: Some preferences should be aggregated across all sessions (global), while others should stay within session groups (work-specific).
+
+**Walkthrough against current design**:
+```
+Current design: sessionIdPattern determines where extraction is stored
+  - null → inherit source session
+  - "pref:{project}:{userId}" → user-global
+
+Missing: session group scoping (e.g., "pref:{project}:{userId}:work")
+```
+
+**Gap**: The `sessionIdPattern` doesn't support session group variables like `{sessionGroup}`. No concept of session grouping exists in the data model.
+
+**Resolution needed**: 
+1. Add `sessionGroup` field to `SessionEntity` (e.g., "work", "personal")
+2. Add `{sessionGroup}` variable to `sessionIdPattern`
+3. Template config: `session-id-pattern: "pref:{project}:{userId}:{sessionGroup}"`
+
+**Status**: ⚠️ Gap identified — session grouping not in data model. Can be added in Phase 3.2.
+
+---
+
+### Scenario 4: Temporal Preference Evolution
+
+**Situation**: 
+- 2025-01: "I love Sony headphones"
+- 2025-06: "Actually, Bose is better"
+- 2026-01: "AirPods are more convenient"
+
+**Challenge**: Track how preferences change over time, not just current value.
+
+**Walkthrough against current design**:
+```
+Current design: mergeExtractedData() overwrites old value with new
+  → "Bose" overwrites "Sony" → "AirPods" overwrites "Bose"
+  → History is lost!
+```
+
+**Finding**: The current `mergeExtractedData()` uses composite key (`category:value`) for dedup. When value changes, the old entry is removed (overwritten), not appended.
+
+**Resolution**: 
+- `trackEvolution: true` in template already exists
+- Need to store evolution history in `extractedData` alongside current value:
+```json
+{
+  "preferences": [{"category": "headphones", "value": "AirPods", ...}],
+  "evolution": [
+    {"value": "Sony", "from": "2025-01"},
+    {"value": "Bose", "from": "2025-06"},
+    {"value": "AirPods", "from": "2026-01"}
+  ]
+}
+```
+
+**Status**: ⚠️ Partially resolved — `trackEvolution` flag exists but evolution history storage not implemented in `mergeExtractedData()`.
+
+---
+
+### Scenario 5: Conflict Detection
+
+**Situation**: 
+- Session 1: "I prefer quiet restaurants"
+- Session 2: "I don't mind loud bars for drinks"
+
+**Challenge**: Are these conflicts? Not necessarily — context matters (restaurant vs bar).
+
+**Walkthrough against current design**:
+```
+Current design: mergeExtractedData() does exact-key comparison
+  - category: "restaurant preference" vs category: "bar preference" 
+  - Different keys → no conflict → both stored
+
+Problem: Semantic similarity isn't detected
+  "quiet restaurant" and "loud bar" aren't exact-key conflicts but could be semantically related
+```
+
+**Gap**: The current merge logic uses exact string comparison on composite keys. It cannot detect semantic conflicts.
+
+**Resolution**: This is the `ConflictDetector` class from Section 3 — LLM-based semantic comparison. Already designed but deferred to Phase 3.3.
+
+**Status**: ⏳ Deferred to Phase 3.3. Design exists in Section 3.2 of [phase-3-design.md](phase-3-design.md).
+
+---
+
+### Scenario 6: Extraction Trigger Timing
+
+**Challenge**: When should extraction run?
+
+**Options analyzed**:
+```
+A. After each observation → Too expensive, many LLM calls
+B. Scheduled batch (daily 2am) → Efficient, might delay extraction  
+C. After session end → Balanced, but session end ≠ conversation end
+D. On-demand → Manual, forgettable
+```
+
+**Walkthrough against current design**:
+```
+Current design: Two triggers
+  1. Last step of deepRefineProjectMemories() (Section 15.5)
+  2. Scheduled daily at 2am (Section 9.1)
+
+Missing: Keyword-triggered extraction (on-demand when trigger keywords appear)
+```
+
+**Gap**: No keyword-based trigger. The `triggerKeywords` field in template exists but isn't used for real-time triggering.
+
+**Status**: ⏳ Keyword trigger deferred. Current design uses scheduled + deepRefine integration, which is sufficient for Phase 3.1.
+
+---
+
+### Scenario 7: Privacy and Access Control
+
+**Situation**: Family members have different access levels. Dad can see financial preferences, teenager cannot.
+
+**Challenge**: Extraction results need access control.
+
+**Walkthrough against current design**:
+```
+Current design: Observations are project-scoped, no access control layer
+  - All users in same project can query all observations
+  - userId isolation only prevents cross-user data mixing
+  - No fine-grained access control within a user's data
+```
+
+**Gap**: No access control concept in the architecture. This is beyond Phase 3.1 scope.
+
+**Status**: ⏳ Deferred — out of scope for Phase 3.1. Can be added via template `accessLevel` field in future.
+
+---
+
+### Scenario 8: Zero-Shot Bootstrap
+
+**Situation**: First conversation with new user. No history, no preferences known.
+
+**Challenge**: How to bootstrap preference extraction with no prior data?
+
+**Walkthrough against current design**:
+```
+Current design: Extraction runs on existing observations
+  - If no observations match sourceFilter → candidates is empty → extraction skips
+  
+This is correct behavior for zero-shot: nothing to extract yet.
+```
+
+**Resolution**: The current design handles zero-shot gracefully — no extraction until sufficient data exists. The `initialRunMaxCandidates` cap (Section 19.3) prevents over-extraction on first run.
+
+**Status**: ✅ Already supported — extraction skips when no candidates exist.
+
+---
+
+## Part B: Decision Log
+
+### Decision 1: User Identification
+
+| Option | Decision |
+|--------|----------|
+| A. `user_id` in SessionEntity | ✅ Chosen |
+| B. Encode in project path | Rejected (fragile) |
+| C. Infer from history | Rejected (unreliable) |
+
 **Documented in**: Section 20.2 of [phase-3-design.md](phase-3-design.md)
 
----
+### Decision 2: Special Session ID
 
-## 3. Special Session ID: How Does Generic System Know?
+**Decision**: `sessionIdPattern` in template config — generic system interprets pattern, doesn't need to understand semantics.
 
-**Finding**: Extraction results for user preferences need a special session ID (e.g., `pref:/project:alice`), but the generic extraction service doesn't know about specific use cases.
-
-**Resolution**: `sessionIdPattern` field in template configuration:
-```yaml
-session-id-pattern: "pref:{project}:{userId}"  # Special session
-session-id-pattern: null                         # Inherit source session
-```
-
-The generic system interprets the pattern via variable substitution — it doesn't need to understand what `pref:` means.
 **Documented in**: Section 20.3 of [phase-3-design.md](phase-3-design.md)
 
----
+### Decision 3: Schema Design
 
-## 4. Incremental Extraction: Duplicate Results Problem
+**Decision**: Array-wrapped schema for multi-item extraction (preference, allergy list, etc.)
 
-**Finding**: Re-running extraction on overlapping observations creates duplicate `extracted_*` observations.
+**Documented in**: Section 2.2 of [phase-3-design.md](phase-3-design.md)
 
-**Resolution**: `mergeExtractedData()` method with composite key deduplication + sentiment-aware overwrite.
+### Decision 4: Incremental Merge
+
+**Decision**: `mergeExtractedData()` with composite key dedup + sentiment-aware overwrite.
+
 **Documented in**: Section 2.3 of [phase-3-design.md](phase-3-design.md)
 
----
+### Decision 5: Usage Modes
 
-## 5. SDK API Walkthrough: Does userId Flow Through All APIs?
+| Mode | userId | Isolation |
+|------|--------|-----------|
+| Hook (wrapper.js) | null | Project-level |
+| SDK (CortexMemClient) | Set by app | User-level |
 
-**Finding**: Only 3 of 10 SDK APIs need userId support:
-- `POST /api/session/start` — pass userId (already designed)
-- `POST /api/memory/experiences` — filter by userId (missing!)
-- `POST /api/memory/icl-prompt` — filter by userId (missing!)
-
-**Resolution**: Add `userId` field to `ExperienceRequest` and `ICLPromptRequest` DTOs.
-**Documented in**: Section 22 of [phase-3-design.md](phase-3-design.md)
-
----
-
-## 6. Two Usage Modes
-
-| Mode | Caller | userId | Behavior |
-|------|--------|--------|----------|
-| Hook mode | wrapper.js (Claude Code/Cursor) | null | Single-user, project isolation |
-| SDK mode | CortexMemClient (web app) | Set by app | Multi-user, per-user isolation |
-
-Both call the same API. The design is backward compatible.
 **Documented in**: Section 20.9 of [phase-3-design.md](phase-3-design.md)
 
+### Decision 6: Cost Control
+
+**Decision**: Scheduled extraction (not real-time), incremental processing, batch size caps.
+
+**Documented in**: Section 23 of [phase-3-design.md](phase-3-design.md)
+
 ---
 
-## 7. Final Verification
+## Part C: Generalization Assessment
 
-**All 8 walkthrough issues resolved. All 10 SDK API issues resolved.**
+| Scenario | Can Architecture Handle? | Gap | Priority |
+|----------|-------------------------|-----|----------|
+| 1. User Preference | ✅ Yes | None | — |
+| 2. Family Assistant | ⚠️ Partial | Cascading extraction | Medium |
+| 3. Multi-session Scope | ⚠️ Partial | Session grouping | Low |
+| 4. Temporal Evolution | ⚠️ Partial | History storage in merge | Medium |
+| 5. Conflict Detection | ⏳ Deferred | LLM-based detection | Phase 3.3 |
+| 6. Trigger Timing | ⏳ Deferred | Keyword trigger | Low |
+| 7. Privacy Control | ⏳ Deferred | Access control layer | Phase 3.4+ |
+| 8. Zero-shot Bootstrap | ✅ Yes | None | — |
 
-| Question | Answer |
-|----------|--------|
-| Can generic extraction work? | ✅ Yes — prompt-driven, config-driven |
-| Can it handle multiple preferences? | ✅ Yes — array-wrapped schema |
-| Can it support multi-user? | ✅ Yes — user_id + session grouping |
-| Can it avoid duplicates? | ✅ Yes — merge with dedup |
-| Can it work with existing hook mode? | ✅ Yes — userId is optional |
-| Is token cost acceptable? | ✅ Yes — extraction is cheap, refinement dominates |
+**Architecture generalization: STRONG for core scenarios (1, 8), NEEDS EXTENSION for advanced scenarios (2, 3, 4).**
 
-**Phase 3.1 design is COMPLETE.**
+The architecture's prompt-driven, config-driven design correctly separates "what to extract" (template) from "how to extract" (service). The gaps are in execution order (cascading), data model (session grouping), and merge logic (evolution history) — all addressable within the same architectural framework.
