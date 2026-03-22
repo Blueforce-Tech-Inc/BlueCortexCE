@@ -355,13 +355,12 @@ public record ExtractionTemplate(
     String name,                    // Template identifier
     boolean enabled,                // Per-template enable flag (default: true)
     String templateClass,           // Java class name for output (e.g., "com.example.AllergyInfo" or "java.util.Map")
+    String sessionIdPattern,        // Target session ID pattern (e.g., "pref:{project}:{userId}", null = inherit source session)
     String description,             // Human-readable description
-    List<String> triggerKeywords,   // Keywords to filter candidates
+    List<String> triggerKeywords,   // Keywords to filter candidates (future use)
     List<String> sourceFilter,      // Which sources to consider (⚠️ List, not String)
     String promptTemplate,           // System prompt for extraction instruction
-    String outputSchema,            // JSON Schema (only for Map templates; auto-derived from templateClass for POJOs)
-    boolean trackEvolution,          // Whether to track value changes over time
-    boolean conflictEnabled          // Whether to detect conflicts
+    String outputSchema             // JSON Schema (only for Map templates; auto-derived from templateClass for POJOs)
 ) {}
 ```
 
@@ -3964,34 +3963,11 @@ This eliminates the record entirely and avoids the conversion layer. The POJO is
 
 **Problem**: The retry logic in section 7.4 is designed for manual JSON parsing (`objectMapper.readValue()`), not for `BeanOutputConverter` flow. `BeanOutputConverter.convert()` handles parsing internally — we can't intercept its output for validation.
 
-**Fix**: Add try-catch around `chatCompletionStructured()` with retry:
+**Fix**: Section 7.4 has been updated with `extractWithRetry()` wrapping `chatCompletionStructured()` with `priorJson` parameter. This section is now consistent.
 
-```java
-private <T> T extractWithRetry(ExtractionTemplate template, 
-                                List<ObservationEntity> candidates,
-                                Class<T> outputType,
-                                int maxRetries) {
-    for (int attempt = 0; attempt < maxRetries; attempt++) {
-        try {
-            return llmService.chatCompletionStructured(
-                template.promptTemplate(), 
-                buildPrompt(template, candidates, null),
-                outputType);
-        } catch (Exception e) {
-            log.warn("Extraction attempt {}/{} failed for template {}: {}", 
-                attempt + 1, maxRetries, template.name(), e.getMessage());
-            if (attempt == maxRetries - 1) {
-                throw new ExtractionException("Failed after " + maxRetries + " attempts", e);
-            }
-        }
-    }
-    throw new ExtractionException("Unreachable"); // satisfy compiler
-}
-```
+### 21.8 ~~Null Observation Content Handling~~ — RESOLVED
 
-### 21.8 Null Observation Content Handling
-
-**Issue**: `buildPrompt()` in section 2.3 calls `sanitize(obs.getContent())` and `sanitize(obs.getTitle())`, but `ObservationEntity.content` and `title` can be null.
+`buildPrompt()` already handles null content with `obs.getContent() != null ? sanitize(obs.getContent()) : ""`. No change needed.
 
 **Current code**:
 ```java
