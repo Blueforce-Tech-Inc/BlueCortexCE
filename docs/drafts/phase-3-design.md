@@ -960,11 +960,10 @@ Extractions of type "user_profile" can be stored with source="profile_update".
 
 | Phase | Content | Changes |
 |-------|---------|---------|
-| **Phase 3.1** | StructuredExtractionService + templates | Generic extraction engine |
-| **Phase 3.2** | Template configurations | YAML configs for various extraction types |
-| **Phase 3.3** | ConflictDetector | Conflict detection during evolution |
-| **Phase 3.4** | DeepRefine integration | Run extraction during deep refine |
-| **Phase 3.5** | Manual review (optional) | API + UI for conflict review |
+| **Phase 3.1** | StructuredExtractionService + templates + user_id | Generic extraction engine with LLM re-extraction |
+| **Phase 3.2** | Template configurations + keyword trigger | YAML configs, trigger enhancement |
+| **Phase 3.3** | DeepRefine integration | Run extraction during deep refine |
+| **Phase 3.4** | Manual review (optional) | API + UI for reviewing extraction history |
 
 ---
 
@@ -3301,68 +3300,16 @@ private String formatExtractedData(Map<String, Object> extractedData) {
 
 ---
 
-### 20.6 Issue: Multi-Level Conflict Detection for Arrays
+### 20.6 Issue: Multi-Level Conflict Detection for Arrays — ✅ RESOLVED
 
-**Scenario**: Preference evolution with array schema.
+**Resolution**: The LLM re-extraction approach (Section 2.3) eliminates the need for a separate `ConflictDetector`. When the LLM receives the prior extraction result + new observations, it naturally understands semantics and handles:
+- Value changes ("Sony" → "Bose")
+- Sentiment changes ("喜欢苹果" → "不喜欢苹果")
+- Context-aware non-conflicts ("安静餐厅" vs "吵闹酒吧" — different contexts)
 
-**First Extraction**:
-```json
-{"preferences": [
-    {"category": "手机品牌", "value": "苹果", "sentiment": "negative"},
-    {"category": "手机品牌", "value": "小米", "sentiment": "positive"}
-]}
-```
+The prompt instruction "If new observations contradict previous preferences, update to reflect the latest stated preference" handles real contradictions. Removed items can be tracked via the `removed` metadata field.
 
-**Second Extraction** (after user changes mind):
-```json
-{"preferences": [
-    {"category": "手机品牌", "value": "苹果", "sentiment": "positive"},
-    {"category": "手机品牌", "value": "小米", "sentiment": "positive"}
-]}
-```
-
-**Current `ConflictDetector.detect()` Logic**:
-```java
-public ConflictResult detect(ExtractionTemplate template, Object oldResult, Object newResult) {
-    // ❌ Assumes oldResult and newResult are simple objects
-    // ❌ Cannot handle array-level comparison
-}
-```
-
-**Multi-Level Comparison Required**:
-1. **Category-level comparison**: Compare same category across old/new
-2. **Array-level diff**: Find added/removed/changed items
-3. **Sentiment change detection**: "苹果" from negative → positive = evolution
-
-**Pseudocode for Array Conflict Detection**:
-```java
-private ConflictResult detectArrayConflict(List<Map<String, Object>> oldPrefs, 
-                                           List<Map<String, Object>> newPrefs) {
-    // Group by category
-    Map<String, Map<String, Object>> oldByCategory = groupByCategory(oldPrefs);
-    Map<String, Map<String, Object>> newByCategory = groupByCategory(newPrefs);
-    
-    for (String category : oldByCategory.keySet()) {
-        Map<String, Object> oldPref = oldByCategory.get(category);
-        Map<String, Object> newPref = newByCategory.get(category);
-        
-        if (newPref == null) {
-            // Category removed
-            return new ConflictResult("EVOLUTION", "keep_both", "Category removed");
-        }
-        
-        if (!oldPref.get("value").equals(newPref.get("value")) ||
-            !oldPref.get("sentiment").equals(newPref.get("sentiment"))) {
-            // Value or sentiment changed
-            return new ConflictResult("EVOLUTION", "keep_both", "Value/sentiment changed");
-        }
-    }
-    
-    return new ConflictResult("NONE", "no_action", "No conflicts");
-}
-```
-
-**Resolution**: Update `ConflictDetector` to support array-level comparison for schema with array properties.
+**No `ConflictDetector` class needed. Phase 3.3 conflict detection phase removed from roadmap.**
 
 ---
 
@@ -3397,7 +3344,7 @@ Option A: Project-scoped userId (CHOSEN)
 | 3 | Special session ID discovery | 🟡 Medium | `sessionIdPattern` + `user_id` | ✅ Resolved (Section 2.3) |
 | 4 | Incremental extraction merging | 🔴 Critical | Merge logic for duplicate detection | ✅ Resolved (Section 2.3) |
 | 5 | ICL prompt data formatting | 🟡 Medium | Add `formatExtractedData()` utility | ✅ Resolved (Section 2.3) |
-| 6 | Array-level conflict detection | 🟡 Medium | Sentiment-aware merge in `mergeExtractedData()` | ✅ Resolved (Section 2.3) |
+| 6 | Array-level conflict detection | 🟡 Medium | Superseded — LLM re-extraction handles semantics | ✅ Resolved (Section 2.3) |
 | 7 | Cross-project user identification | 🟡 Medium | Project-scoped userId | ✅ Decided (Section 20.7) |
 | 8 | Ingestion API user_id passing | 🟡 Medium | Option B: session creation + PATCH API | ✅ Resolved (Section 20.9) |
 
@@ -3521,9 +3468,9 @@ public void runExtraction(String projectPath) {
 }
 ```
 
-### 21.3 mergeExtractedData() Type Safety Issue
+### 21.3 ~~mergeExtractedData() Type Safety Issue~~ — SUPERSEDED
 
-**Issue**: Section 2.3's `mergeExtractedData()` performs unsafe casts:
+**Status**: This issue no longer applies. `mergeExtractedData()` has been removed in favor of the LLM re-extraction approach (Section 2.3). The LLM handles all data merging semantically.
 
 ```java
 List<Map<String, Object>> existingList = (List<Map<String, Object>>) existingValue;
