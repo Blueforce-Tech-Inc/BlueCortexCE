@@ -534,9 +534,15 @@ public class StructuredExtractionService {
             String targetSessionId = resolveSessionId(
                 template.sessionIdPattern(), projectPath, userId);
             
+            // If no sessionIdPattern, fall back to first source observation's session
+            if (targetSessionId == null) {
+                targetSessionId = userObs.get(0).getContentSessionId();
+            }
+            
             // LLM re-extraction: fetch prior result as context for LLM
+            // Only if template has a stable target session (sessionIdPattern is non-null)
             String priorJson = null;
-            if (targetSessionId != null) {
+            if (template.sessionIdPattern() != null) {
                 List<ObservationEntity> prior = observationRepository
                     .findByContentSessionIdAndType(targetSessionId, 
                         "extracted_" + template.name(), 1);
