@@ -360,6 +360,64 @@ class CustomService {
 | **cortex-mem-spring-ai** | Advisor, capture/retrieval services, AOP aspect. Depends on Spring AI and client. |
 | **cortex-mem-starter** | Spring Boot auto-configuration, `@EnableCortexMem`, health indicator. Depends on both above. |
 
+## Phase 3: Multi-User & Structured Extraction
+
+### userId Support
+
+Create sessions with optional `userId` for multi-user memory isolation:
+
+```java
+// Session with userId
+Map<String, Object> result = client.startSession(SessionStartRequest.builder()
+    .sessionId("conv-123")
+    .projectPath("/my-project")
+    .userId("alice")  // Phase 3: multi-user identifier
+    .build());
+
+// Update userId on existing session (late binding)
+client.updateSessionUserId("conv-123", "bob");
+```
+
+### Structured Extraction Query
+
+Query LLM-extracted structured data by template name:
+
+```java
+// Get latest extraction for a user
+Map<String, Object> extraction = client.getLatestExtraction(
+    "/my-project", "user_preference", "alice");
+// Returns: {"preferences": [{"category":"phone_brand","value":"小米","sentiment":"positive"}]}
+
+// Get extraction history (all snapshots)
+List<Map<String, Object>> history = client.getExtractionHistory(
+    "/my-project", "user_preference", "alice", 10);
+```
+
+### ICL with userId
+
+Build ICL prompts scoped to a specific user's extracted data:
+
+```java
+ICLPromptResult result = client.buildICLPrompt(ICLPromptRequest.builder()
+    .task("推荐手机")
+    .project("/my-project")
+    .userId("alice")  // Phase 3: user-scoped context
+    .maxChars(2000)
+    .build());
+```
+
+### Experiences with userId
+
+```java
+List<Experience> experiences = client.retrieveExperiences(
+    ExperienceRequest.builder()
+        .task("推荐手机")
+        .project("/my-project")
+        .userId("alice")  // Phase 3: user-filtered
+        .count(4)
+        .build());
+```
+
 ## V14 Features
 
 ### Source Attribution
@@ -457,20 +515,23 @@ For a full working example (Chat, Tools, Session lifecycle, E2E tests), see `exa
 
 The client talks to these Cortex CE endpoints:
 
-| Client Method | Backend Endpoint | V14 |
-|---------------|-----------------|-----|
-| `startSession()` | `POST /api/session/start` | |
-| `recordObservation()` | `POST /api/ingest/tool-use` | ✅ source, extractedData |
-| `recordSessionEnd()` | `POST /api/ingest/session-end` | |
-| `recordUserPrompt()` | `POST /api/ingest/user-prompt` | |
-| `retrieveExperiences()` | `POST /api/memory/experiences` | ✅ source, requiredConcepts |
-| `buildICLPrompt()` | `POST /api/memory/icl-prompt` | ✅ maxChars |
-| `triggerRefinement()` | `POST /api/memory/refine` | |
-| `submitFeedback()` | `POST /api/memory/feedback` | |
-| `updateObservation()` | `PATCH /api/memory/observations/{id}` | ✅ V14 |
-| `deleteObservation()` | `DELETE /api/memory/observations/{id}` | ✅ V14 |
-| `getQualityDistribution()` | `GET /api/memory/quality-distribution` | |
-| `healthCheck()` | `GET /actuator/health` | |
+| Client Method | Backend Endpoint | V14 | Phase 3 |
+|---------------|-----------------|-----|---------|
+| `startSession()` | `POST /api/session/start` | | ✅ userId |
+| `updateSessionUserId()` | `PATCH /api/session/{id}/user` | | ✅ NEW |
+| `recordObservation()` | `POST /api/ingest/tool-use` | ✅ source, extractedData | |
+| `recordSessionEnd()` | `POST /api/ingest/session-end` | | |
+| `recordUserPrompt()` | `POST /api/ingest/user-prompt` | | |
+| `retrieveExperiences()` | `POST /api/memory/experiences` | ✅ source, requiredConcepts | ✅ userId |
+| `buildICLPrompt()` | `POST /api/memory/icl-prompt` | ✅ maxChars | ✅ userId |
+| `triggerRefinement()` | `POST /api/memory/refine` | | |
+| `submitFeedback()` | `POST /api/memory/feedback` | | |
+| `updateObservation()` | `PATCH /api/memory/observations/{id}` | ✅ V14 | |
+| `deleteObservation()` | `DELETE /api/memory/observations/{id}` | ✅ V14 | |
+| `getQualityDistribution()` | `GET /api/memory/quality-distribution` | | |
+| `getLatestExtraction()` | `GET /api/extraction/{template}/latest` | | ✅ NEW |
+| `getExtractionHistory()` | `GET /api/extraction/{template}/history` | | ✅ NEW |
+| `healthCheck()` | `GET /actuator/health` | | |
 
 ## Common Pitfalls
 
