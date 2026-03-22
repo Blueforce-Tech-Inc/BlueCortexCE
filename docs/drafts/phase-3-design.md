@@ -1185,12 +1185,11 @@ GET /api/extraction/allergy_info/search?project=/my-project&fieldPath=allergens&
 public record ExtractionTemplate(
     String name,
     int version,                    // Schema version
+    String sessionIdPattern,        // Target session ID pattern
     String description,
     List<String> triggerKeywords,
     String promptTemplate,
-    String outputSchema,
-    boolean trackEvolution,
-    boolean conflictEnabled
+    String outputSchema
 ) {}
 
 // Store with version
@@ -2147,14 +2146,14 @@ app.memory.extraction:
 ```java
 public record ExtractionTemplate(
     String name,
-    boolean enabled,                    // NEW: per-template enable flag
+    boolean enabled,                    // Per-template enable flag
+    String templateClass,               // Java class for output
+    String sessionIdPattern,            // Target session ID pattern
     String description,
     List<String> triggerKeywords,
     List<String> sourceFilter,
     String promptTemplate,
-    String outputSchema,
-    boolean trackEvolution,
-    boolean conflictEnabled
+    String outputSchema
 ) {}
 
 // In runExtraction
