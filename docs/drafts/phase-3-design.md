@@ -2783,24 +2783,31 @@ Before writing any code, verify:
 
 ```java
 /**
- * Update extraction state atomically.
+ * Update extraction state atomically (per user).
  * Without @Transactional, delete-then-save can corrupt state if save fails.
  */
 @Transactional
-private void updateExtractionState(String projectPath, String templateName, OffsetDateTime now) {
-    // Delete old state for this project+template
+private void updateExtractionState(String projectPath, String userId, String templateName, OffsetDateTime now) {
+    // Guard: skip if state already reflects this timestamp
+    ExtractionState existing = getExtractionState(projectPath, userId, templateName);
+    if (existing != null && existing.lastExtractedAt().isAfter(now.minusSeconds(1))) {
+        return;
+    }
+    
+    // Delete old state for this project+user+template
+    String stateSource = "state:" + templateName + ":" + userId;
     observationRepository.findByType(projectPath, "extraction_state", 100).stream()
-        .filter(o -> o.getSource() != null && o.getSource().equals("state:" + templateName))
+        .filter(o -> o.getSource() != null && o.getSource().equals(stateSource))
         .forEach(o -> observationRepository.deleteById(o.getId()));
     
-    // Flush delete before insert (ensures delete is committed within same transaction)
+    // Flush delete before insert
     observationRepository.flush();
     
     // Insert new state
     ObservationEntity stateObs = new ObservationEntity();
     stateObs.setProjectPath(projectPath);
     stateObs.setType("extraction_state");
-    stateObs.setSource("state:" + templateName);
+    stateObs.setSource(stateSource);
     stateObs.setCreatedAt(now);
     stateObs.setCreatedAtEpoch(now.toEpochSecond() * 1000L);
     stateObs.setExtractedData(Map.of(
