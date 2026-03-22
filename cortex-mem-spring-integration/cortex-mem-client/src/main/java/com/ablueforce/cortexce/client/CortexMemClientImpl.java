@@ -112,6 +112,9 @@ public class CortexMemClientImpl implements CortexMemClient {
             if (request.requiredConcepts() != null && !request.requiredConcepts().isEmpty()) {
                 body.put("requiredConcepts", request.requiredConcepts());
             }
+            if (request.userId() != null) {
+                body.put("userId", request.userId());
+            }
             List<Experience> result = restClient.post()
                 .uri("/api/memory/experiences")
                 .body(body)
@@ -131,6 +134,9 @@ public class CortexMemClientImpl implements CortexMemClient {
             body.put("task", request.task());
             body.put("project", request.project() != null ? request.project() : "");
             body.put("maxChars", request.maxChars() != null ? request.maxChars() : 4000);
+            if (request.userId() != null) {
+                body.put("userId", request.userId());
+            }
             ICLPromptResult result = restClient.post()
                 .uri("/api/memory/icl-prompt")
                 .body(body)
@@ -224,6 +230,69 @@ public class CortexMemClientImpl implements CortexMemClient {
         } catch (Exception e) {
             log.debug("Health check failed: {}", e.getMessage());
             return false;
+        }
+    }
+
+    // ==================== Extraction (Phase 3) ====================
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getLatestExtraction(String projectPath, String templateName, String userId) {
+        try {
+            return restClient.get()
+                .uri(uriBuilder -> {
+                    var builder = uriBuilder
+                        .path("/api/extraction/{template}/latest")
+                        .queryParam("projectPath", projectPath)
+                        .queryParam("templateName", templateName);
+                    if (userId != null) {
+                        builder.queryParam("userId", userId);
+                    }
+                    return builder.build(templateName);
+                })
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+        } catch (Exception e) {
+            log.warn("Failed to get latest extraction: {}", e.getMessage());
+            return Map.of();
+        }
+    }
+
+    @Override
+    public List<Map<String, Object>> getExtractionHistory(String projectPath, String templateName, String userId, int limit) {
+        try {
+            return restClient.get()
+                .uri(uriBuilder -> {
+                    var builder = uriBuilder
+                        .path("/api/extraction/{template}/history")
+                        .queryParam("projectPath", projectPath)
+                        .queryParam("templateName", templateName)
+                        .queryParam("limit", limit);
+                    if (userId != null) {
+                        builder.queryParam("userId", userId);
+                    }
+                    return builder.build(templateName);
+                })
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+        } catch (Exception e) {
+            log.warn("Failed to get extraction history: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> updateSessionUserId(String sessionId, String userId) {
+        try {
+            return restClient.patch()
+                .uri("/api/session/{sessionId}/user", sessionId)
+                .body(Map.of("user_id", userId))
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+        } catch (Exception e) {
+            log.warn("Failed to update session userId: {}", e.getMessage());
+            return Map.of("error", e.getMessage());
         }
     }
 
