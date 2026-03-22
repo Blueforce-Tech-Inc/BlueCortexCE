@@ -1211,28 +1211,26 @@ public void reExtract(String projectPath, String templateName, int version) { ..
 
 **Issue**: What if LLM returns invalid JSON or doesn't follow schema?
 
-**Solution**: Validate and retry
+**Current approach**: `chatCompletionStructured()` uses `BeanOutputConverter` which handles parsing internally. Retry logic wraps the structured call:
 
 ```java
 private <T> T extractWithRetry(ExtractionTemplate template, 
                                 List<ObservationEntity> candidates,
+                                String priorJson,
                                 Class<T> outputType,
                                 int maxRetries) {
+    String prompt = buildPrompt(template, candidates, null, priorJson);
     for (int i = 0; i < maxRetries; i++) {
-        String response = llmService.chatCompletion(...);
         try {
-            T result = objectMapper.readValue(response, outputType);
-            if (validateOutput(result, template.outputSchema())) {
-                return result;
-            }
-        } catch (JsonProcessingException e) {
-            log.warn("Invalid JSON from LLM, attempt {}/{}", i+1, maxRetries);
+            return llmService.chatCompletionStructured(
+                template.promptTemplate(), prompt, outputType);
+        } catch (Exception e) {
+            log.warn("Extraction attempt {}/{} failed: {}", i+1, maxRetries, e.getMessage());
         }
     }
-    throw new ExtractionException("Failed to get valid output after " + maxRetries + " attempts");
+    throw new ExtractionException("Failed after " + maxRetries + " attempts");
 }
-
-private boolean validateOutput(Object output, String schema) {
+```
     // Use JSON Schema validator
     // Return false if doesn't match schema
 }
