@@ -335,19 +335,30 @@ app.memory.extraction:
     - name: "user_preference"
       enabled: true
       template-class: "java.util.Map"        # Flexible schema → Map<String, Object> output
+      session-id-pattern: "pref:{project}:{userId}"  # Special session for user preferences
       description: "Extract user preferences (brand, price, style)"
       trigger-keywords: ["prefer", "like", "更喜欢", "倾向于"]
       source-filter: ["user_statement", "manual"]
       prompt: |   # Maps to promptTemplate field in Java record
         From the following conversation, extract user preferences.
         Look for: brands they like/dislike, budget constraints, style preferences.
-      output-schema: |   # Required for Map templates; BeanOutputConverter<Map> uses this
+        Return ALL preferences found, not just one.
+      output-schema: |   # Array-wrapped schema for multiple preferences (see Section 20.1)
         {
           "type": "object",
           "properties": {
-            "category": {"type": "string"},
-            "value": {"type": "string"},
-            "confidence": {"type": "number"}
+            "preferences": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "category": {"type": "string"},
+                  "value": {"type": "string"},
+                  "sentiment": {"type": "string", "enum": ["positive", "negative", "neutral"]},
+                  "confidence": {"type": "number"}
+                }
+              }
+            }
           }
         }
       track-evolution: true
@@ -431,12 +442,18 @@ public class StructuredExtractionService {
     private final ClassLoader classLoader = getClass().getClassLoader();
     
     /**
-     * Generic extraction - runs all templates.
+     * Generic extraction - runs all templates, grouped by user.
      * What is extracted is determined by the template prompts.
+     * 
+     * Flow:
+     * 1. Get all candidate observations for project
+     * 2. Group observations by user (via session → user_id)
+     * 3. For each user, run extraction per template
+     * 4. Store results in user-scoped or session-scoped target
      */
     public void runExtraction(String projectPath) {
         for (ExtractionTemplate template : templates) {
-            if (!template.enabled()) {  // Skip disabled templates
+            if (!template.enabled()) {
                 continue;
             }
             try {
@@ -448,41 +465,92 @@ public class StructuredExtractionService {
     }
     
     /**
-     * Extract by specific template using Spring AI structured output.
-     * Supports two patterns: POJO (type-safe) and Map (flexible schema).
-     * 
-     * Requires LlmService.chatCompletionStructured() — see Bug 2 fix in section 0.1.
+     * Template extraction runner with user grouping.
+     * Groups observations by user_id (from SessionEntity), then extracts per user.
      */
-    @SuppressWarnings("unchecked")
-    public <T> ExtractionResult<T> extractByTemplate(
-        String projectPath, 
-        ExtractionTemplate template) {
+    private void runTemplateExtraction(String projectPath, ExtractionTemplate template) {
+        // Check extraction state for incremental extraction
+        ExtractionState state = getExtractionState(projectPath, template.name());
         
-        // 1. Resolve output type from templateClass
-        Class<T> outputClass = resolveOutputClass(template.templateClass());
-        
-        // 2. Find candidate observations (requires new findBySourceIn method)
-        List<ObservationEntity> candidates = observationRepository
-            .findBySourceIn(projectPath, template.sourceFilter(), 100);
+        // Find candidates (new or all)
+        List<ObservationEntity> candidates = (state == null)
+            ? getCandidatesInitial(projectPath, template)
+            : observationRepository.findNewObservations(
+                projectPath, template.sourceFilter(), 
+                state.lastExtractedAt().toEpochSecond() * 1000L, 1000);
         
         if (candidates.isEmpty()) {
-            return null;
+            return;
         }
         
-        // 3. Build prompt (schema source depends on template type)
-        String schemaHint = buildSchemaHint(template, outputClass);
-        String prompt = buildPrompt(template, candidates, schemaHint);
+        // Group observations by user (via session → user_id)
+        Map<String, List<ObservationEntity>> byUser = groupByUser(candidates);
         
-        // 4. Call LLM with Spring AI structured output via LlmService
-        // NOTE: This requires LlmService.chatCompletionStructured() to be implemented.
-        T result = llmService.chatCompletionStructured(
-            template.promptTemplate(),  // system prompt
-            prompt,                    // user prompt
-            outputClass                // target class for structured parsing
-        );
+        // Extract per user
+        for (Map.Entry<String, List<ObservationEntity>> entry : byUser.entrySet()) {
+            String userId = entry.getKey();
+            List<ObservationEntity> userObs = entry.getValue();
+            
+            Object result = extractByTemplate(projectPath, template, userObs);
+            if (result != null) {
+                String targetSessionId = resolveSessionId(
+                    template.sessionIdPattern(), projectPath, userId);
+                storeExtractionResult(template, result, userObs, targetSessionId);
+            }
+        }
         
-        // 5. Store result
-        return storeExtractionResult(template, result, candidates);
+        updateExtractionState(projectPath, template.name(), OffsetDateTime.now());
+    }
+    
+    /**
+     * Group observations by user_id via session lookup.
+     * Observations without a session or user_id are grouped under "__unknown__".
+     */
+    private Map<String, List<ObservationEntity>> groupByUser(List<ObservationEntity> observations) {
+        Map<String, List<ObservationEntity>> byUser = new HashMap<>();
+        
+        for (ObservationEntity obs : observations) {
+            String sessionId = obs.getContentSessionId();
+            String userId = "__unknown__";
+            
+            if (sessionId != null) {
+                try {
+                    SessionEntity session = sessionRepository.findByContentSessionId(sessionId);
+                    if (session != null && session.getUserId() != null) {
+                        userId = session.getUserId();
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to lookup session for user grouping: {}", e.getMessage());
+                }
+            }
+            
+            byUser.computeIfAbsent(userId, k -> new ArrayList<>()).add(obs);
+        }
+        
+        return byUser;
+    }
+    
+    /**
+     * Resolve target session ID from pattern.
+     * - null pattern → inherit from source observation (handled by caller)
+     * - pattern with {project}/{userId} → substitute variables
+     */
+    private String resolveSessionId(String pattern, String projectPath, String userId) {
+        if (pattern == null) {
+            return null;
+        }
+        return pattern
+            .replace("{project}", projectPath)
+            .replace("{userId}", userId);
+    }
+    
+    /**
+     * Get initial candidates with cost cap (see Section 19.3).
+     */
+    private List<ObservationEntity> getCandidatesInitial(
+            String projectPath, ExtractionTemplate template) {
+        return observationRepository.findBySourceIn(
+            projectPath, template.sourceFilter(), initialRunMaxCandidates);
     }
     
     /**
@@ -516,24 +584,37 @@ public class StructuredExtractionService {
     }
     
     /**
-     * Template extraction runner with state tracking.
+     * Extract by specific template using Spring AI structured output.
+     * Supports two patterns: POJO (type-safe) and Map (flexible schema).
+     * 
+     * Requires LlmService.chatCompletionStructured() — see Bug 2 fix in section 0.1.
      */
-    private void runTemplateExtraction(String projectPath, ExtractionTemplate template) {
-        // Check extraction state for incremental extraction
-        ExtractionState state = getExtractionState(projectPath, template.name());
+    @SuppressWarnings("unchecked")
+    public <T> T extractByTemplate(
+        String projectPath, 
+        ExtractionTemplate template,
+        List<ObservationEntity> candidates) {
         
-        // Find NEW candidates since last extraction
-        List<ObservationEntity> candidates = (state == null)
-            ? observationRepository.findBySourceIn(projectPath, template.sourceFilter(), 100)
-            : observationRepository.findNewObservations(projectPath, template.sourceFilter(), state.lastExtractedAt(), 100);
+        // 1. Resolve output type from templateClass
+        Class<T> outputClass = resolveOutputClass(template.templateClass());
         
         if (candidates.isEmpty()) {
-            return;
+            return null;
         }
         
-        // Process and store
-        extractByTemplate(projectPath, template);
-        updateExtractionState(projectPath, template.name(), OffsetDateTime.now());
+        // 2. Build prompt (schema source depends on template type)
+        String schemaHint = buildSchemaHint(template, outputClass);
+        String prompt = buildPrompt(template, candidates, schemaHint);
+        
+        // 3. Call LLM with Spring AI structured output via LlmService
+        // NOTE: This requires LlmService.chatCompletionStructured() to be implemented.
+        T result = llmService.chatCompletionStructured(
+            template.promptTemplate(),  // system prompt
+            prompt,                    // user prompt
+            outputClass                // target class for structured parsing
+        );
+        
+        return result;
     }
     
     private String buildPrompt(ExtractionTemplate template, 
@@ -570,22 +651,147 @@ public class StructuredExtractionService {
             .replace("Output:", "\\[Output:\\]");
     }
     
-    private <T> ExtractionResult<T> storeExtractionResult(
-        ExtractionTemplate template, 
-        T result,
-        List<ObservationEntity> sourceObservations) {
+    /**
+     * Store extraction result with merge logic and user-scoped session ID.
+     * 
+     * Merge behavior:
+     * - If template has sessionIdPattern and an existing extraction exists for that session,
+     *   merge new results with existing ones (deduplicate by category+value).
+     * - If no existing extraction, create new observation.
+     * 
+     * @param template Extraction template configuration
+     * @param result LLM extraction result
+     * @param sourceObservations Source observations used for extraction
+     * @param targetSessionId Target session ID (from resolveSessionId), or null to inherit
+     */
+    private <T> void storeExtractionResult(
+            ExtractionTemplate template, 
+            T result,
+            List<ObservationEntity> sourceObservations,
+            String targetSessionId) {
         
+        Map<String, Object> newExtractedData = convertToMap(result);
+        
+        // If target session is specified, check for existing extraction (merge)
+        if (targetSessionId != null) {
+            String type = "extracted_" + template.name();
+            List<ObservationEntity> existing = observationRepository
+                .findByContentSessionIdAndType(targetSessionId, type, 1);
+            
+            if (!existing.isEmpty()) {
+                // Merge with existing extraction result
+                Map<String, Object> mergedData = mergeExtractedData(
+                    existing.get(0).getExtractedData(), 
+                    newExtractedData,
+                    template);
+                
+                existing.get(0).setExtractedData(mergedData);
+                existing.get(0).setUpdatedAt(OffsetDateTime.now());
+                observationRepository.save(existing.get(0));
+                
+                log.info("Merged extraction result for template {} in session {}", 
+                    template.name(), targetSessionId);
+                return;
+            }
+        }
+        
+        // Create new observation
         ObservationEntity extractionObs = new ObservationEntity();
         extractionObs.setType("extracted_" + template.name());
         extractionObs.setSource("extraction:" + template.name());
-        extractionObs.setExtractedData(convertToMap(result));
+        extractionObs.setExtractedData(newExtractedData);
         extractionObs.setConcepts(List.of("extracted", template.name()));
         
-        if (template.trackEvolution()) {
-            checkAndUpdateEvolution(template, result);
+        if (targetSessionId != null) {
+            extractionObs.setContentSessionId(targetSessionId);
+            extractionObs.setProjectPath(sourceObservations.get(0).getProjectPath());
         }
         
-        return new ExtractionResult<>(result, extractionObs);
+        observationRepository.save(extractionObs);
+        
+        // Track evolution if enabled
+        if (template.trackEvolution()) {
+            checkAndUpdateEvolution(template, newExtractedData);
+        }
+    }
+    
+    /**
+     * Merge new extraction data with existing data.
+     * Supports array-based schemas (e.g., {preferences: [...]}).
+     * 
+     * Merge strategy:
+     * - For array fields: deduplicate by a composite key (category+value for preferences)
+     * - If same category exists with different value → keep newer (overwrite)
+     * - If same category+value exists → skip (dedup)
+     * - Non-array fields: overwrite with new value
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> mergeExtractedData(
+            Map<String, Object> existing, 
+            Map<String, Object> newData,
+            ExtractionTemplate template) {
+        
+        Map<String, Object> merged = new HashMap<>(existing);
+        
+        for (Map.Entry<String, Object> entry : newData.entrySet()) {
+            String key = entry.getKey();
+            Object newValue = entry.getValue();
+            Object existingValue = merged.get(key);
+            
+            if (newValue instanceof List && existingValue instanceof List) {
+                // Array merge: deduplicate by composite key
+                List<Map<String, Object>> existingList = (List<Map<String, Object>>) existingValue;
+                List<Map<String, Object>> newList = (List<Map<String, Object>>) newValue;
+                
+                // Build index by composite key
+                Map<String, Map<String, Object>> index = new LinkedHashMap<>();
+                for (Map<String, Object> item : existingList) {
+                    String compositeKey = buildCompositeKey(item);
+                    index.put(compositeKey, item);
+                }
+                
+                // Merge new items
+                for (Map<String, Object> item : newList) {
+                    String compositeKey = buildCompositeKey(item);
+                    Map<String, Object> existingItem = index.get(compositeKey);
+                    
+                    if (existingItem == null) {
+                        // New item — add
+                        index.put(compositeKey, item);
+                    } else if (!existingItem.get("value").equals(item.get("value"))) {
+                        // Same category, different value — keep newer
+                        log.info("Conflict detected: {} changed from {} to {}", 
+                            compositeKey, existingItem.get("value"), item.get("value"));
+                        index.put(compositeKey, item);
+                    }
+                    // Same category+value — skip (dedup)
+                }
+                
+                merged.put(key, new ArrayList<>(index.values()));
+            } else {
+                // Non-array: overwrite with new value
+                merged.put(key, newValue);
+            }
+        }
+        
+        return merged;
+    }
+    
+    /**
+     * Build composite key for deduplication.
+     * Uses "category:sentiment" for preference-like items.
+     * Falls back to "value" if no category field.
+     */
+    private String buildCompositeKey(Map<String, Object> item) {
+        String category = (String) item.get("category");
+        String value = (String) item.get("value");
+        if (category != null && value != null) {
+            return category + ":" + value;
+        }
+        if (value != null) {
+            return value;
+        }
+        return item.toString();
     }
     
     /**
@@ -613,6 +819,60 @@ public class StructuredExtractionService {
                 fallback.put("_raw", result.toString());
             }
             return fallback;
+        }
+    }
+    
+    /**
+     * Format extracted data as human-readable text for ICL prompts.
+     * Recursively handles nested Maps, Lists, and primitives.
+     * 
+     * Example output:
+     *   preferences:
+     *     - category: 手机品牌(排斥), value: 苹果, sentiment: negative
+     *     - category: 手机品牌(偏好), value: 小米, sentiment: positive
+     */
+    public static String formatExtractedData(Map<String, Object> extractedData) {
+        if (extractedData == null) return "";
+        StringBuilder sb = new StringBuilder();
+        formatMap(extractedData, sb, 0);
+        return sb.toString();
+    }
+    
+    private static void formatMap(Map<?, ?> map, StringBuilder sb, int indent) {
+        String indentStr = "  ".repeat(indent);
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
+            String key = String.valueOf(entry.getKey());
+            Object value = entry.getValue();
+            
+            if (value instanceof List) {
+                sb.append(indentStr).append(key).append(":\n");
+                formatList((List<?>) value, sb, indent + 1);
+            } else if (value instanceof Map) {
+                sb.append(indentStr).append(key).append(":\n");
+                formatMap((Map<?, ?>) value, sb, indent + 1);
+            } else {
+                sb.append(indentStr).append(key).append(": ").append(value).append("\n");
+            }
+        }
+    }
+    
+    private static void formatList(List<?> list, StringBuilder sb, int indent) {
+        String indentStr = "  ".repeat(indent);
+        for (Object item : list) {
+            if (item instanceof Map) {
+                Map<?, ?> itemMap = (Map<?, ?>) item;
+                sb.append(indentStr).append("- ");
+                // Inline format for compact display
+                boolean first = true;
+                for (Map.Entry<?, ?> e : itemMap.entrySet()) {
+                    if (!first) sb.append(", ");
+                    sb.append(e.getKey()).append(": ").append(e.getValue());
+                    first = false;
+                }
+                sb.append("\n");
+            } else {
+                sb.append(indentStr).append("- ").append(item).append("\n");
+            }
         }
     }
 }
@@ -1970,6 +2230,42 @@ This section provides a concrete, step-by-step guide for implementing Phase 3.1.
 | 3 | Add `findByTypeGlobal()` | `ObservationRepository.java` | Cross-project query for DLQ — `findByType(null, ...)` will NOT work because `@Param("project")` is non-null |
 | 4 | Add `findByTypeLike()` | `ObservationRepository.java` | **NEW (v14)**: Wildcard type query using `LIKE`. `findByType` uses exact match (`type = :type`), so `findByType(project, "extracted_%", 50)` does NOT match `extracted_user_preference`. Either add this method or iterate known template names (see section 15.8). |
 | 5 | Add `chatCompletionStructured()` | `LlmService.java` | Uses `BeanOutputConverter<T>` from `org.springframework.ai.converter` |
+| 6 | Add `findByContentSessionIdAndType()` | `ObservationRepository.java` | **NEW (v17)**: Find existing extraction by session ID + type for merge logic |
+| 7 | Add `findByUserId()` | `SessionRepository.java` | **NEW (v17)**: Find sessions by user_id for user grouping |
+| 8 | Add `findSessionIdsByUserIdAndProject()` | `SessionRepository.java` | **NEW (v17)**: Find session IDs by user + project for extraction grouping |
+
+**New repository method #6** (for merge logic):
+```java
+// Find existing extraction result by session ID + type (for merge)
+@Query(value = """
+    SELECT * FROM mem_observations
+    WHERE content_session_id = :sessionId
+    AND type = :type
+    ORDER BY created_at_epoch DESC
+    LIMIT :limit
+    """, nativeQuery = true)
+List<ObservationEntity> findByContentSessionIdAndType(
+    @Param("sessionId") String sessionId,
+    @Param("type") String type,
+    @Param("limit") int limit
+);
+```
+
+**New repository methods #7-8** (SessionRepository, for user grouping):
+```java
+// Find all sessions for a user
+List<SessionEntity> findByUserId(String userId);
+
+// Find session IDs for a user within a project
+@Query("SELECT s.contentSessionId FROM SessionEntity s WHERE s.userId = :userId AND s.projectPath = :project")
+List<String> findSessionIdsByUserIdAndProject(@Param("userId") String userId, @Param("project") String project);
+```
+
+**Flyway Migration V15** (for user_id field):
+```sql
+ALTER TABLE mem_sessions ADD COLUMN user_id VARCHAR(255);
+CREATE INDEX idx_mem_sessions_user_id ON mem_sessions(user_id);
+```
 
 **Critical fix for DLQ (section 11.3)**: The current dead letter queue retry code uses `findByType(null, "extraction_failed", 100)` — this will fail because `findByType` requires a non-null `@Param("project")`. Two options:
 
@@ -3170,31 +3466,100 @@ Option A: Project-scoped userId (CHOSEN)
 
 | # | Issue | Severity | Resolution | Status |
 |---|-------|----------|------------|--------|
-| 1 | Array schema for multiple preferences | 🔴 Critical | Use array-wrapped schema | ✅ Resolved |
-| 2 | Multi-user session aggregation | 🔴 Critical | `user_id` field in SessionEntity | ✅ Decided |
-| 3 | Special session ID discovery | 🟡 Medium | `sessionIdPattern` + `user_id` | ✅ Resolved |
-| 4 | Incremental extraction merging | 🔴 Critical | Merge logic for duplicate detection | ⏳ Design needed |
-| 5 | ICL prompt data formatting | 🟡 Medium | Add `formatExtractedData()` utility | ⏳ Design needed |
+| 1 | Array schema for multiple preferences | 🔴 Critical | Use array-wrapped schema | ✅ Resolved (Section 2.2 updated) |
+| 2 | Multi-user session aggregation | 🔴 Critical | `user_id` field in SessionEntity | ✅ Resolved (Section 2.3 + V15) |
+| 3 | Special session ID discovery | 🟡 Medium | `sessionIdPattern` + `user_id` | ✅ Resolved (Section 2.3) |
+| 4 | Incremental extraction merging | 🔴 Critical | Merge logic for duplicate detection | ✅ Resolved (Section 2.3 `mergeExtractedData()`) |
+| 5 | ICL prompt data formatting | 🟡 Medium | Add `formatExtractedData()` utility | ✅ Resolved (Section 2.3 `formatExtractedData()`) |
 | 6 | Array-level conflict detection | 🟡 Medium | Update ConflictDetector | ⏳ Deferred to Phase 3.3 |
-| 7 | Cross-project user identification | 🟡 Medium | Project-scoped userId | ✅ Decided |
+| 7 | Cross-project user identification | 🟡 Medium | Project-scoped userId | ✅ Decided (Section 20.7) |
+| 8 | Ingestion user_id passing | 🟡 Medium | See Section 20.9 | ⏳ Design needed |
 
 **Confirmed for Phase 3.1**:
-1. ✅ Add `session-id-pattern` to ExtractionTemplate configuration
-2. ✅ Update schema examples to use array-wrapped format
-3. ✅ Add `user_id` to `SessionEntity` (Flyway migration)
-4. ✅ Add `findByUserId()` repository method
-5. ✅ Update extraction to group observations by user
+1. ✅ Add `session-id-pattern` to ExtractionTemplate configuration (Section 2.2)
+2. ✅ Update schema examples to use array-wrapped format (Section 2.2)
+3. ✅ Add `user_id` to `SessionEntity` (Flyway migration V15)
+4. ✅ Add `findByUserId()` and `findByContentSessionIdAndType()` repository methods
+5. ✅ Update extraction to group observations by user (Section 2.3)
+6. ✅ Implement merge logic for extraction results (Section 2.3)
+7. ✅ Implement `formatExtractedData()` for ICL prompts (Section 2.3)
 
 **Deferred Items**:
-1. `formatExtractedData()` utility (can use generic JSON serialization for now)
-2. Multi-level conflict detection for arrays (Phase 3.3)
-3. Incremental extraction merge logic (needs design iteration)
+1. Array-level conflict detection (Phase 3.3)
+2. Ingestion API user_id passing (needs design, see Section 20.9)
+
+---
+
+### 20.9 Issue: Ingestion API user_id Passing
+
+**Problem**: After adding `user_id` to `SessionEntity`, how does the ingestion API receive and store the user ID?
+
+**Current API**:
+```java
+POST /api/ingest/observation
+{
+  "projectPath": "/my-project",
+  "contentSessionId": "abc-123",
+  "type": "user_statement",
+  "source": "user_statement",
+  "content": "我不喜欢苹果手机"
+}
+```
+
+**Missing**: No `userId` field in the request.
+
+**Options**:
+
+| Option | Approach | Complexity |
+|--------|----------|------------|
+| A. Add `userId` to request body | `{..., "userId": "alice"}` | Simple |
+| B. Add `userId` to session creation | Set on SessionEntity when session is created | Medium |
+| C. Infer from auth context | Extract from JWT/cookie/session | Complex |
+
+**Recommendation**: **Option A + B** — add `userId` to both the observation request and session creation:
+- When creating a session: `POST /api/ingest/session` with `userId` field
+- When ingesting observations: `POST /api/ingest/observation` with `userId` field (or infer from session)
+
+**Pseudocode**:
+```java
+// Session creation
+@PostMapping("/api/ingest/session")
+public SessionEntity createSession(@RequestBody CreateSessionRequest request) {
+    SessionEntity session = new SessionEntity();
+    session.setContentSessionId(request.getSessionId());
+    session.setProjectPath(request.getProjectPath());
+    session.setUserId(request.getUserId());  // ← NEW
+    return sessionRepository.save(session);
+}
+
+// Observation ingestion
+@PostMapping("/api/ingest/observation")
+public ObservationEntity ingestObservation(@RequestBody IngestObservationRequest request) {
+    // ... existing logic ...
+    
+    // userId is optional - if provided, ensure session has it
+    if (request.getUserId() != null) {
+        SessionEntity session = sessionRepository.findByContentSessionId(request.getContentSessionId());
+        if (session != null && session.getUserId() == null) {
+            session.setUserId(request.getUserId());
+            sessionRepository.save(session);
+        }
+    }
+    
+    return observationRepository.save(observation);
+}
+```
+
+**Impact**: 
+- Adds `userId` field to `CreateSessionRequest` and `IngestObservationRequest` DTOs
+- Backward compatible (userId is optional)
+- Extraction can then group by userId via session lookup
 
 ---
 
 ## Changelog
 
-- **2026-03-22 v17**: (1) **Section 20.2**: Multi-user session aggregation resolved — confirmed `user_id` field addition to `SessionEntity` with Flyway migration V15, repository methods, and ingestion update. (2) **Section 20.3**: Special session ID fully resolved — `sessionIdPattern` + `user_id` enables complete per-user extraction flow with grouping, special session creation, and isolated query. (3) **Section 20.7**: Cross-project user identification decided — project-scoped userId (Option A). (4) **Section 20.8**: Updated summary table — 4 issues resolved, 3 deferred. (5) Confirmed Phase 3.1 scope includes `user_id` field addition (previously deferred to 3.2+).
+- **2026-03-22 v18**: (1) **Section 2.2**: Updated `user_preference` template to use array-wrapped schema (was single-object — critical fix from walkthrough). (2) **Section 2.3**: Refactored `runExtraction()` to include user grouping via `groupByUser()` method. (3) **Section 2.3**: Refactored `extractByTemplate()` to accept candidates parameter. (4) **Section 2.3**: Rewrote `storeExtractionResult()` with merge logic (`mergeExtractedData()`) and user-scoped session ID resolution. (5) **Section 2.3**: Added `formatExtractedData()` for ICL prompt integration. (6) **Section 15.1**: Added prerequisites #6-8: `findByContentSessionIdAndType()`, `findByUserId()`, `findSessionIdsByUserIdAndProject()`. (7) **Section 20.9**: Added ingestion API user_id passing design. (8) **Section 20.8**: Updated summary — 6 issues resolved, 2 deferred.
 - **2026-03-22 v14**: (1) **Section 15.8 Bug Fix**: Fixed `findByType(project, "extracted_%", 50)` wildcard bug — `findByType` uses exact match (`type = :type`), NOT LIKE. Added `findByTypeLike()` repository method as prerequisite #4, plus alternative approach (iterate known template names). Updated ICL prompt and experience API code examples. (2) **Section 9.1**: Added `findByTypeLike()` to pending repository methods list. (3) **Section 15.1**: Added `findByTypeLike()` as prerequisite #5. (4) **Section 15.10**: Updated validation checklist with `findByTypeLike` or template-iteration alternative. (5) **Section 17**: Extraction idempotency — prevents duplicate `extracted_{template}` observations from re-running extraction. Composite hash deduplication + state guard clause. (6) **Section 18**: Observation type namespace reservation — `extraction_*` prefix reserved for system use. Added validation option to prevent user-created type collisions. (7) **Verified**: Spring AI 1.1.2 classpath includes `BeanOutputConverter`, `MapOutputConverter`, `ListOutputConverter` in `spring-ai-model` jar. Confirmed 5 pending prerequisites still not implemented: `findBySourceIn`, `findNewObservations`, `findByTypeGlobal`, `findByTypeLike`, `chatCompletionStructured`.
 - **2026-03-22 v13**: (1) **Quick Reference**: Added TL;DR summary at top — what, how, when, prerequisites, pipeline diagram. (2) **Section 15.6**: Transaction safety for extraction state management — `@Transactional` wrapper for delete-then-save pattern, plus SQL upsert alternative for production. (3) **Section 15.7**: Concurrency control — per-project `ReentrantLock` to prevent duplicate extraction runs from deepRefine + scheduled task overlap. (4) **Section 15.8**: ICL prompt integration — how extracted data surfaces in `/api/memory/icl-prompt` and experience API (`includeExtractions` flag). (5) **Section 15.9**: Token counting without TokenService — character-based heuristic (CJK-aware) for batching observations. (6) **Section 16**: Architecture Decision Records — 4 key decisions (store as ObservationEntity, BeanOutputConverter, separate pipeline, POJO+Map hybrid) captured with rationale and tradeoffs. (7) **Section 15.10**: Updated validation checklist with `@Transactional` and wildcard `findByType` support.
 - **2026-03-22 v12**: (1) **Section 15**: Added Implementation Bootstrap Checklist — step-by-step Phase 3.1 guide with prerequisites, new files, and validation checklist. (2) **Section 15.1**: Fixed DLQ bug — `findByType(null, ...)` won't work because `@Param("project")` is non-null; added `findByTypeGlobal()` repository method as prerequisite. (3) **Section 15.3**: Added Record vs POJO analysis for `ExtractionTemplate` configuration binding — recommended POJO approach via `@ConfigurationProperties` for Spring Boot 3.3 compatibility. (4) **Section 15.4**: Added concrete `LlmService.chatCompletionStructured()` implementation with `BeanOutputConverter`/`MapOutputConverter` dual pattern. (5) **Section 15.5**: Clarified extraction integration order — must NOT run during `quickRefine()`, only as last step of `deepRefineProjectMemories()`. (6) **Section 11.3**: Fixed DLQ retry code to use `findByTypeGlobal()` instead of broken `findByType(null, ...)`.

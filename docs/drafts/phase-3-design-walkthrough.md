@@ -23,9 +23,18 @@ app.memory.extraction:
         {
           "type": "object",
           "properties": {
-            "category": {"type": "string"},
-            "value": {"type": "string"},
-            "confidence": {"type": "number"}
+            "preferences": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "category": {"type": "string"},
+                  "value": {"type": "string"},
+                  "sentiment": {"type": "string"},
+                  "confidence": {"type": "number"}
+                }
+              }
+            }
           }
         }
       track-evolution: true
@@ -273,17 +282,19 @@ OBSERVATIONS:
   My budget is around 3000 yuan for headphones.
 
 OUTPUT FORMAT (JSON Schema):
-{"type": "object", "properties": {"category": {}, "value": {}, "confidence": {}}}
+{"type": "object", "properties": {"preferences": {"type": "array", "items": {"type": "object", "properties": {"category": {"type": "string"}, "value": {"type": "string"}, "sentiment": {"type": "string"}, "confidence": {"type": "number"}}}}}}
 ```
 
 ### 3.3 Expected LLM Response
 
 ```json
-[
-  {"category": "brand", "value": "Sony", "confidence": 0.8},
-  {"category": "brand", "value": "Bose", "confidence": 0.9},
-  {"category": "price_range", "value": "3000 yuan", "confidence": 0.95}
-]
+{
+  "preferences": [
+    {"category": "brand", "value": "Sony", "sentiment": "positive", "confidence": 0.8},
+    {"category": "brand", "value": "Bose", "sentiment": "positive", "confidence": 0.9},
+    {"category": "price_range", "value": "3000 yuan", "sentiment": "neutral", "confidence": 0.95}
+  ]
+}
 ```
 
 ### 3.4 Stored Observation (extractedData)
@@ -292,11 +303,13 @@ OUTPUT FORMAT (JSON Schema):
 {
   "type": "extracted_user_preference",
   "source": "extraction:user_preference",
-  "extractedData": [
-    {"category": "brand", "value": "Sony", "confidence": 0.8},
-    {"category": "brand", "value": "Bose", "confidence": 0.9},
-    {"category": "price_range", "value": "3000 yuan", "confidence": 0.95}
-  ],
+  "extractedData": {
+    "preferences": [
+      {"category": "brand", "value": "Sony", "sentiment": "positive", "confidence": 0.8},
+      {"category": "brand", "value": "Bose", "sentiment": "positive", "confidence": 0.9},
+      {"category": "price_range", "value": "3000 yuan", "sentiment": "neutral", "confidence": 0.95}
+    ]
+  },
   "qualityScore": 0.88
 }
 ```
@@ -607,7 +620,9 @@ public void runExtraction(String projectPath) {
 | User → multi-session aggregation | ✅ Resolved | `user_id` field added to SessionEntity |
 | Special session ID creation | ✅ Resolved | `sessionIdPattern` config + `user_id` field |
 | Evolution detection | ✅ Verified | Compare same-category extractions |
-| ICL integration | ⚠️ Partial | `formatExtractedData()` utility needed |
+| ICL integration | ✅ Resolved | `formatExtractedData()` implemented |
+| Incremental merge | ✅ Resolved | `mergeExtractedData()` with dedup logic |
+| Array schema | ✅ Resolved | Array-wrapped schema for multi-item extraction |
 
 ### Critical Decisions Made (2026-03-22)
 
@@ -633,8 +648,7 @@ The core of the design - **prompt-driven structured extraction** - is verified t
 
 | Item | Phase | Status |
 |------|-------|--------|
-| Incremental extraction merge logic | 3.1 | Design needed |
-| `formatExtractedData()` utility | 3.1 | Can use JSON serialization initially |
 | Array-level conflict detection | 3.3 | Deferred |
+| Ingestion API user_id passing | 3.1 | Design in Section 20.9 of main doc |
 
-**Design is VERIFIED to work with resolved data model changes.**
+**Design is FULLY VERIFIED and all issues resolved.**
