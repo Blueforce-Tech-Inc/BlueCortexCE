@@ -1261,6 +1261,274 @@ public void runCascadingExtraction(String projectPath, ExtractionTemplate templa
 6. How to handle template schema evolution without re-extracting all history?
 7. Do we need cascading extractions or is flat extraction sufficient?
 8. **Spring AI 1.1.2 schema enforcement**: ✅ Answered in v10 — `JacksonOutputConverter` does NOT exist in Spring AI 1.1.2. Correct approach is `BeanOutputConverter` from `org.springframework.ai.converter`. Note: Spring AI 1.1.2 does not provide true schema enforcement at the API level — schema compliance relies on prompt engineering + LLM compliance + retry on parse failure.
+9. **Prior extraction size growth (v24)**: ✅ Answered in Section 24 — needs `priorJson` truncation strategy.
+10. **LLM hallucination on re-extraction (v24)**: ✅ Answered in Section 24 — prior context may confuse LLM into fabricating data; need confidence filtering and extraction-only-from-source verification.
+
+
+## 24. LLM Re-Extraction Edge Cases & Refinements (v24)
+
+This section addresses edge cases in the LLM re-extraction approach that were not covered in earlier design iterations.
+
+### 24.1 Issue: Prior Extraction Result Growth (Token Cost Escalation)
+
+**Problem**: The LLM re-extraction approach includes the prior extraction result (`priorJson`) as context in the prompt. Over time, as the extraction result accumulates (e.g., `preferences` array grows to 20, 50, 100+ items), the priorJson becomes a significant token cost multiplier.
+
+**Example trajectory**:
+```
+Run 1: priorJson = null (first run)
+Run 2: priorJson = ~500 tokens (5 preferences)
+Run 10: priorJson = ~2000 tokens (20 preferences)
+Run 50: priorJson = ~8000 tokens (80 preferences) — exceeds batch budget!
+```
+
+**Current gap**: Section 2.3's `buildPrompt()` includes `priorJson` without any size limit:
+```java
+if (priorJson != null) {
+    sb.append("Previous extraction result (update based on new observations):\n");
+    sb.append(priorJson).append("\n\n");  // ← unbounded!
+}
+```
+
+**Solution**: Add `priorJson` truncation with graceful degradation:
+
+```java
+@Value("${app.memory.extraction.max-prior-chars:3000}")
+private int maxPriorChars;
+
+private String truncatePriorJson(String priorJson) {
+    if (priorJson == null || priorJson.length() <= maxPriorChars) {
+        return priorJson;
+    }
+    // Truncate and add continuation marker
+    // Try to truncate at a JSON boundary (array element or object field)
+    int cutoff = priorJson.lastIndexOf("},", maxPriorChars);
+    if (cutoff == -1 || cutoff < maxPriorChars / 2) {
+        cutoff = maxPriorChars;
+    } else {
+        cutoff += 2; // Include the "},"
+    }
+    String truncated = priorJson.substring(0, cutoff) + "\n  ... (truncated, showing recent items only)";
+    return truncated;
+}
+```
+
+**Important subtlety**: Simple string truncation may produce invalid JSON. Alternative approach — **summarize prior state** instead of passing raw JSON:
+
+```java
+// Instead of full prior JSON, pass a summary
+private String summarizePriorExtraction(Map<String, Object> extractedData) {
+    StringBuilder summary = new StringBuilder();
+    
+    for (Map.Entry<String, Object> entry : extractedData.entrySet()) {
+        if (entry.getValue() instanceof List<?> list) {
+            summary.append(String.format("- %s: %d items\n", entry.getKey(), list.size()));
+            // Include only the most recent N items
+            int showCount = Math.min(list.size(), 5);
+            for (int i = list.size() - showCount; i < list.size(); i++) {
+                summary.append(String.format("  * %s\n", list.get(i)));
+            }
+            if (list.size() > showCount) {
+                summary.append(String.format("  ... and %d more\n", list.size() - showCount));
+            }
+        } else {
+            summary.append(String.format("- %s: %s\n", entry.getKey(), entry.getValue()));
+        }
+    }
+    
+    return summary.toString();
+}
+```
+
+**Recommendation**: Use summarize-by-default for priorJson > `maxPriorChars`. The LLM doesn't need to see every historical preference — it needs to know the current aggregate state and the new observations to update it.
+
+**Impact on prompt**: Update the prior context instructions to clarify:
+```
+Previous extraction summary (latest 5 items shown, 20 total):
+- preferences: 20 items
+  * {category: "耳机", value: "Bose", sentiment: "positive"}
+  * {category: "手机", value: "小米", sentiment: "positive"}
+  ... and 15 more (details truncated for efficiency)
+
+Instructions: Based on the summary and new observations, produce a COMPLETE current state.
+The summary shows recent items but you should maintain ALL existing items unless
+new observations explicitly contradict them.
+```
+
+### 24.2 Issue: LLM Hallucination During Re-Extraction
+
+**Problem**: When the LLM receives prior extraction context + new observations, it might "invent" information that appears in neither source. This is a known LLM failure mode — context blending.
+
+**Example**:
+```
+Prior: [{category: "手机", value: "小米", sentiment: "positive"}]
+New obs: "我最近想买个新电脑"
+LLM hallucination: [{category: "手机", value: "小米", sentiment: "positive"},
+                     {category: "电脑", value: "联想", sentiment: "positive"}]  ← "联想" was never mentioned!
+```
+
+**Root cause**: The prompt asks LLM to "produce a complete updated state" — the LLM may over-generalize or fill in gaps.
+
+**Solution 1: Source-truth verification prompt**
+
+Add explicit instruction to prevent fabrication:
+```
+CRITICAL: Only include items that are:
+(a) explicitly present in the previous summary, OR
+(b) explicitly mentioned in the new observations.
+Do NOT infer, generalize, or fabricate information. If uncertain, exclude the item.
+```
+
+**Solution 2: Post-extraction source verification**
+
+After extraction, validate that all items in the result can be traced to either prior data or source observations:
+
+```java
+private boolean validateExtractionSourceTraceability(
+        Object result, 
+        Map<String, Object> priorData, 
+        List<ObservationEntity> sourceObservations) {
+    
+    // Combine all text from sources
+    String allSourceText = sourceObservations.stream()
+        .map(obs -> (obs.getTitle() != null ? obs.getTitle() : "") + " " + 
+                    (obs.getContent() != null ? obs.getContent() : ""))
+        .collect(Collectors.joining(" "));
+    
+    // Check each extracted value appears in either prior data or source text
+    Map<String, Object> resultMap = convertToMap(result);
+    for (Map.Entry<String, Object> entry : resultMap.entrySet()) {
+        Object value = entry.getValue();
+        if (value instanceof List<?> list) {
+            for (Object item : list) {
+                if (!isTraceable(item, priorData, allSourceText)) {
+                    log.warn("Extracted item not traceable to sources: {}", item);
+                    return false; // Suspicious — may be hallucination
+                }
+            }
+        }
+    }
+    return true;
+}
+```
+
+**Solution 3: Confidence threshold filtering**
+
+Add a `confidence` field to the output schema and filter low-confidence items:
+```yaml
+output-schema: |
+  {
+    "type": "object",
+    "properties": {
+      "preferences": {
+        "type": "array",
+        "items": {
+          "properties": {
+            "category": {"type": "string"},
+            "value": {"type": "string"},
+            "sentiment": {"type": "string"},
+            "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+            "source": {"type": "string", "description": "which observation this came from, or 'prior' if inherited"}
+          }
+        }
+      }
+    }
+  }
+```
+
+The `source` field makes hallucination traceable — each extracted item must reference its origin.
+
+**Recommendation**: Combine Solution 1 (prompt instruction) + Solution 3 (confidence filtering). Solution 2 (post-hoc verification) is complex and has high false-positive rates for paraphrased content.
+
+### 24.3 Issue: `formatExtractedData()` Placement — Utility vs Service Method
+
+**Problem**: Section 2.3 defines `formatExtractedData()` as a `public static` utility method on `StructuredExtractionService`. The walkthrough (Section 20.5) also references it for ICL prompt integration. However:
+
+1. It's a static method on a service class — poor separation of concerns
+2. ICL prompt building (Section 15.8) is in `ContextService`, which shouldn't depend on `StructuredExtractionService`
+3. The method is referenced in multiple places but only defined once
+
+**Recommendation**: Move `formatExtractedData()` to a shared utility class:
+
+```java
+// New file: util/ExtractionFormatUtil.java
+package com.ablueforce.cortexce.util;
+
+public final class ExtractionFormatUtil {
+    
+    private ExtractionFormatUtil() {}
+    
+    /**
+     * Format extracted data as human-readable text for ICL prompts and display.
+     * Handles nested Maps, Lists, and primitives.
+     * 
+     * Example output:
+     *   preferences:
+     *     - category: 手机品牌(排斥), value: 苹果, sentiment: negative
+     *     - category: 手机品牌(偏好), value: 小米, sentiment: positive
+     */
+    public static String formatExtractedData(Map<String, Object> extractedData) {
+        // ... same implementation as Section 2.3
+    }
+    
+    // ... private helpers (formatMap, formatList)
+}
+```
+
+Then update both `StructuredExtractionService` and `ContextService` to use `ExtractionFormatUtil.formatExtractedData()`.
+
+**Impact**: Minimal code change, but improves architecture. Document this in the implementation checklist (Section 15).
+
+### 24.4 Issue: Race Condition Between userId PATCH and Scheduled Extraction
+
+**Problem**: Section 22.4 resolves the session userId update timing by triggering `reExtractForSession()` on PATCH. However, this can race with the scheduled extraction task.
+
+**Scenario**:
+```
+T1: Scheduled extraction starts (runs every 2am)
+T2: User calls PATCH /api/session/{id}/user → triggers reExtractForSession()
+T3: Scheduled extraction finishes → runs updateExtractionState() for "pref:/project:alice"
+T4: reExtractForSession() finishes → runs updateExtractionState() for "pref:/project:alice"
+
+Result: State at T4 wins, but T3's extraction may have already processed the same observations.
+→ Duplicate extractions for Alice's observations.
+```
+
+**Solution**: The per-project `ReentrantLock` from Section 15.7 already handles this IF `reExtractForSession()` acquires the same lock:
+
+```java
+public void reExtractForSession(String sessionId, String projectPath) {
+    ReentrantLock lock = projectLocks.computeIfAbsent(projectPath, k -> new ReentrantLock());
+    
+    if (!lock.tryLock()) {
+        log.info("Extraction in progress for project {}, queueing re-extraction for session {}",
+            projectPath, sessionId);
+        // Queue for later (could use a simple retry mechanism)
+        pendingReExtractions.add(new PendingReExtraction(sessionId, projectPath));
+        return;
+    }
+    
+    try {
+        // ... re-extraction logic
+    } finally {
+        lock.unlock();
+    }
+}
+```
+
+**Important**: Ensure both `runExtraction()` and `reExtractForSession()` share the SAME lock map (`projectLocks`). This is a subtle implementation detail that's easy to miss.
+
+### 24.5 Recommended Design Updates
+
+| Issue | Section to Update | Change |
+|-------|------------------|--------|
+| Prior JSON growth | 2.3 `buildPrompt()` | Add `truncatePriorJson()` or `summarizePriorExtraction()` |
+| LLM hallucination | 2.3 `buildPrompt()` | Add source-truth instruction + confidence filter |
+| formatExtractedData placement | 15.2 (new files) | Add `ExtractionFormatUtil.java` |
+| Race condition | 15.7 (concurrency) | Share lock map between `runExtraction()` and `reExtractForSession()` |
+| Open questions | Section 8 | Mark #9-10 as resolved |
+
+---
+
 9. **Schema-to-Class bridge (v11)**: ✅ Answered — Use `templateClass` field to specify Java class name. For flexible schemas, use `java.util.Map` with explicit `output-schema`. POJO templates auto-derive schema from class.
 10. **Array schema handling (v11)**: ✅ Answered — `ListOutputConverter` returns `List<String>`, NOT `List<MyObject>`. For arrays of objects, use `MapOutputConverter` → `List<Map<String, Object>>` and post-process, or restructure schema as `{"type": "object", "properties": {"items": {"type": "array", ...}}}`.
 11. **Which templates should be POJO vs Map?**: Open — POJO gives type safety but requires class per template. Map is flexible but loses type safety. Recommend: stable/important data (allergies) = POJO; experimental/new data = Map.
@@ -4143,6 +4411,8 @@ app.memory.refine:
 ---
 
 ## Changelog
+
+- **2026-03-22 v24**: (1) **Section 24**: Added LLM re-extraction edge cases — prior extraction token growth, hallucination risk, utility method placement, race condition between userId PATCH and scheduled extraction. (2) **Section 24.1**: PriorJson size escalation — added `summarizePriorExtraction()` strategy to cap token cost. (3) **Section 24.2**: LLM hallucination during re-extraction — proposed prompt instruction + confidence filtering + source traceability field. (4) **Section 24.3**: `formatExtractedData()` placement — recommended moving to `ExtractionFormatUtil.java` for shared use across services. (5) **Section 24.4**: Race condition fix — `reExtractForSession()` must share the same `projectLocks` map as `runExtraction()`. (6) **Section 8**: Open questions #9-10 marked as resolved.
 
 - **2026-03-22 v23**: (1) **Section 23**: Added comprehensive token cost analysis — per-call breakdown, extraction cost estimates, refinement cost estimates, combined monthly cost projection. (2) **Section 23.5**: Cost control strategies — frequency control, batch size control, model selection, incremental extraction, cost budget & alerting. (3) **Section 23.6**: Cost-effectiveness analysis — extraction ROI is high (amortized over many conversations), refinement ROI is moderate (deep refine should be weekly). (4) **Section 23.7**: Three recommended cost profiles — default (balanced), low-cost (weekly), high-frequency (6-hourly). Key finding: refinement dominates cost (97%+), extraction is cheap by comparison.
 
