@@ -130,23 +130,21 @@ Prompt instruction: "If any previously mentioned item is no longer valid, includ
 - Session 1: "I prefer quiet restaurants"
 - Session 2: "I don't mind loud bars for drinks"
 
-**Challenge**: Are these conflicts? Not necessarily — context matters (restaurant vs bar).
+**Challenge**: Are these conflicts? Context matters (restaurant vs bar).
 
-**Walkthrough against current design**:
+**Resolution**: Under the LLM re-extraction approach, no separate ConflictDetector is needed. The LLM understands context and semantics when producing the new extraction state:
+
 ```
-Current design: mergeExtractedData() does exact-key comparison
-  - category: "restaurant preference" vs category: "bar preference" 
-  - Different keys → no conflict → both stored
-
-Problem: Semantic similarity isn't detected
-  "quiet restaurant" and "loud bar" aren't exact-key conflicts but could be semantically related
+Prior: [{category: "用餐环境", value: "安静", context: "餐厅"}]
+New observation: "酒吧吵一点也没关系"
+LLM output: [{category: "用餐环境", value: "安静", context: "餐厅"}, {category: "用餐环境", value: "可以吵", context: "酒吧"}]
 ```
 
-**Gap**: The current merge logic uses exact string comparison on composite keys. It cannot detect semantic conflicts.
+The LLM naturally resolves context differences. True contradictions (e.g., "不吃辣" vs "无辣不欢") are also detected and handled in the output.
 
-**Resolution**: This is the `ConflictDetector` class from Section 3 — LLM-based semantic comparison. Already designed but deferred to Phase 3.3.
+**Design change**: The `ConflictDetector` class from Section 3.2 of [phase-3-design.md](phase-3-design.md) is no longer needed for Phase 3.1. Conflict handling is implicit in the LLM re-extraction process.
 
-**Status**: ⏳ Deferred to Phase 3.3. Design exists in Section 3.2 of [phase-3-design.md](phase-3-design.md).
+**Status**: ✅ Resolved — conflict detection is implicit in LLM re-extraction
 
 ---
 
@@ -272,11 +270,11 @@ This is correct behavior for zero-shot: nothing to extract yet.
 | 2. Family Assistant | ✅ Yes | Person field in schema, external interpretation | — |
 | 3. Multi-session Scope | ✅ Yes | projectPath as scope boundary | — |
 | 4. Temporal Evolution | ✅ Yes | LLM re-extraction with prior context | — |
-| 5. Conflict Detection | ⏳ Deferred | LLM-based detection | Phase 3.3 |
+| 5. Conflict Detection | ✅ Yes | Implicit in LLM re-extraction, no separate detector needed | — |
 | 6. Trigger Timing | ⏳ Deferred | Keyword trigger | Low |
 | 7. Privacy Control | ⏳ Deferred | Access control layer | Phase 3.4+ |
 | 8. Zero-shot Bootstrap | ✅ Yes | None | — |
 
-**Architecture generalization: STRONG. 6/8 fully supported, 0/8 need extension, 2/8 deferred for later phases.**
+**Architecture generalization: STRONG. 7/8 fully supported, 1/8 deferred for later phases.**
 
 The architecture's prompt-driven, config-driven design correctly separates "what to extract" (template) from "how to extract" (service). All core scenarios work within the current framework. Evolution tracking uses prior extraction as LLM context (no merge logic needed). External systems interpret extracted data semantics.
