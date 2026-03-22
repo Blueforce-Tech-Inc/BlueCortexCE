@@ -490,11 +490,22 @@ public class StructuredExtractionService {
         for (Map.Entry<String, List<ObservationEntity>> entry : byUser.entrySet()) {
             String userId = entry.getKey();
             List<ObservationEntity> userObs = entry.getValue();
+            String targetSessionId = resolveSessionId(
+                template.sessionIdPattern(), projectPath, userId);
             
-            Object result = extractByTemplate(projectPath, template, userObs);
+            // LLM re-extraction: fetch prior result as context for LLM
+            String priorJson = null;
+            if (targetSessionId != null) {
+                List<ObservationEntity> prior = observationRepository
+                    .findByContentSessionIdAndType(targetSessionId, 
+                        "extracted_" + template.name(), 1);
+                if (!prior.isEmpty()) {
+                    priorJson = objectMapper.writeValueAsString(prior.get(0).getExtractedData());
+                }
+            }
+            
+            Object result = extractByTemplate(projectPath, template, userObs, priorJson);
             if (result != null) {
-                String targetSessionId = resolveSessionId(
-                    template.sessionIdPattern(), projectPath, userId);
                 storeExtractionResult(template, result, userObs, targetSessionId);
             }
         }
@@ -587,13 +598,19 @@ public class StructuredExtractionService {
      * Extract by specific template using Spring AI structured output.
      * Supports two patterns: POJO (type-safe) and Map (flexible schema).
      * 
+     * LLM re-extraction approach: If priorJson is provided, the LLM receives the
+     * previous extraction result as context. It produces a complete current state,
+     * deciding what to keep/remove based on new observations. Old extractions are
+     * preserved as history (new observation always created, never merged).
+     * 
      * Requires LlmService.chatCompletionStructured() — see Bug 2 fix in section 0.1.
      */
     @SuppressWarnings("unchecked")
     public <T> T extractByTemplate(
         String projectPath, 
         ExtractionTemplate template,
-        List<ObservationEntity> candidates) {
+        List<ObservationEntity> candidates,
+        String priorJson) {
         
         // 1. Resolve output type from templateClass
         Class<T> outputClass = resolveOutputClass(template.templateClass());
@@ -604,7 +621,7 @@ public class StructuredExtractionService {
         
         // 2. Build prompt (schema source depends on template type)
         String schemaHint = buildSchemaHint(template, outputClass);
-        String prompt = buildPrompt(template, candidates, schemaHint);
+        String prompt = buildPrompt(template, candidates, schemaHint, priorJson);
         
         // 3. Call LLM with Spring AI structured output via LlmService
         // NOTE: This requires LlmService.chatCompletionStructured() to be implemented.
@@ -619,11 +636,22 @@ public class StructuredExtractionService {
     
     private String buildPrompt(ExtractionTemplate template, 
                                List<ObservationEntity> candidates,
-                               String schemaHint) {
+                               String schemaHint,
+                               String priorJson) {
         StringBuilder sb = new StringBuilder();
         sb.append("Extract structured information from the following observations.\n\n");
-        sb.append("Observations:\n");
         
+        // Include prior extraction as context (LLM re-extraction approach)
+        if (priorJson != null) {
+            sb.append("Previous extraction result (update based on new observations):\n");
+            sb.append(priorJson).append("\n\n");
+            sb.append("Instructions: Based on the previous result and new observations below, ");
+            sb.append("produce a complete updated state. If an item is no longer valid ");
+            sb.append("(explicitly rejected), remove it. If new items are mentioned, add them. ");
+            sb.append("Optionally include removed items in a 'removed' field with reason.\n\n");
+        }
+        
+        sb.append("New observations:\n");
         for (ObservationEntity obs : candidates) {
             sb.append(String.format("- [%s] %s\n  %s\n",
                 sanitize(obs.getSource()),
@@ -657,10 +685,13 @@ public class StructuredExtractionService {
      * Merge behavior:
      * - If template has sessionIdPattern and an existing extraction exists for that session,
      *   merge new results with existing ones (deduplicate by category+value).
-     * - If no existing extraction, create new observation.
+     * Store extraction result. Always creates a new observation — old extractions
+     * are preserved as history. The LLM re-extraction approach means each run
+     * produces a complete current state (including prior results as context),
+     * so no programmatic merge is needed.
      * 
      * @param template Extraction template configuration
-     * @param result LLM extraction result
+     * @param result LLM extraction result (complete current state)
      * @param sourceObservations Source observations used for extraction
      * @param targetSessionId Target session ID (from resolveSessionId), or null to inherit
      */
@@ -672,30 +703,7 @@ public class StructuredExtractionService {
         
         Map<String, Object> newExtractedData = convertToMap(result);
         
-        // If target session is specified, check for existing extraction (merge)
-        if (targetSessionId != null) {
-            String type = "extracted_" + template.name();
-            List<ObservationEntity> existing = observationRepository
-                .findByContentSessionIdAndType(targetSessionId, type, 1);
-            
-            if (!existing.isEmpty()) {
-                // Merge with existing extraction result
-                Map<String, Object> mergedData = mergeExtractedData(
-                    existing.get(0).getExtractedData(), 
-                    newExtractedData,
-                    template);
-                
-                existing.get(0).setExtractedData(mergedData);
-                existing.get(0).setUpdatedAt(OffsetDateTime.now());
-                observationRepository.save(existing.get(0));
-                
-                log.info("Merged extraction result for template {} in session {}", 
-                    template.name(), targetSessionId);
-                return;
-            }
-        }
-        
-        // Create new observation
+        // Always create new observation — old one becomes history
         ObservationEntity extractionObs = new ObservationEntity();
         extractionObs.setType("extracted_" + template.name());
         extractionObs.setSource("extraction:" + template.name());
@@ -708,98 +716,6 @@ public class StructuredExtractionService {
         }
         
         observationRepository.save(extractionObs);
-        
-        // Track evolution if enabled
-        if (template.trackEvolution()) {
-            checkAndUpdateEvolution(template, newExtractedData);
-        }
-    }
-    
-    /**
-     * Merge new extraction data with existing data.
-     * Supports array-based schemas (e.g., {preferences: [...]}).
-     * 
-     * Merge strategy:
-     * - For array fields: deduplicate by category+value composite key
-     * - If same category+value exists with different sentiment → update to new sentiment (keep latest)
-     * - If same category+value+sentiment exists → skip (dedup)
-     * - New category+value combinations → add
-     * - Non-array fields: overwrite with new value
-     */
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> mergeExtractedData(
-            Map<String, Object> existing, 
-            Map<String, Object> newData,
-            ExtractionTemplate template) {
-        
-        Map<String, Object> merged = new HashMap<>(existing);
-        
-        for (Map.Entry<String, Object> entry : newData.entrySet()) {
-            String key = entry.getKey();
-            Object newValue = entry.getValue();
-            Object existingValue = merged.get(key);
-            
-            if (newValue instanceof List && existingValue instanceof List) {
-                // Array merge: deduplicate by composite key
-                List<Map<String, Object>> existingList = (List<Map<String, Object>>) existingValue;
-                List<Map<String, Object>> newList = (List<Map<String, Object>>) newValue;
-                
-                // Build index by composite key (category + value only)
-                Map<String, Map<String, Object>> index = new LinkedHashMap<>();
-                for (Map<String, Object> item : existingList) {
-                    String compositeKey = buildCompositeKey(item);
-                    index.put(compositeKey, item);
-                }
-                
-                // Merge new items
-                for (Map<String, Object> item : newList) {
-                    String compositeKey = buildCompositeKey(item);
-                    Map<String, Object> existingItem = index.get(compositeKey);
-                    
-                    if (existingItem == null) {
-                        // New item — add
-                        index.put(compositeKey, item);
-                    } else {
-                        // Same category+value exists — check if sentiment changed
-                        String oldSentiment = (String) existingItem.get("sentiment");
-                        String newSentiment = (String) item.get("sentiment");
-                        
-                        if (oldSentiment != null && newSentiment != null 
-                            && !oldSentiment.equals(newSentiment)) {
-                            // Sentiment changed — keep newer version (overwrite)
-                            log.info("Preference evolution: {} sentiment changed: {} → {}", 
-                                compositeKey, oldSentiment, newSentiment);
-                            index.put(compositeKey, item);
-                        }
-                        // Same sentiment → skip (dedup)
-                    }
-                }
-                
-                merged.put(key, new ArrayList<>(index.values()));
-            } else {
-                // Non-array: overwrite with new value
-                merged.put(key, newValue);
-            }
-        }
-        
-        return merged;
-    }
-    
-    /**
-     * Build composite key for deduplication.
-     * Uses "category:value" for preference-like items (ignores sentiment for dedup key).
-     * Sentiment changes are handled separately in merge logic.
-     */
-    private String buildCompositeKey(Map<String, Object> item) {
-        String category = (String) item.get("category");
-        String value = (String) item.get("value");
-        if (category != null && value != null) {
-            return category + ":" + value;
-        }
-        if (value != null) {
-            return value;
-        }
-        return item.toString();
     }
     
     /**
@@ -941,6 +857,8 @@ var result = extractionService.extractByTemplate(projectPath, allergyTemplate);
 ---
 
 ## 3. Memory Conflict Detection Design
+
+**⚠️ SUPERSEDED**: This section describes a programmatic `ConflictDetector` class. After the walkthrough analysis (2026-03-22), this approach is no longer needed for Phase 3.1. The **LLM re-extraction** approach (Section 2.3) handles conflict detection implicitly — the LLM understands semantics and produces a correct current state. This section is retained for reference only.
 
 **Core Idea**: Detect contradictions when storing extraction results with `track-evolution: true`.
 
