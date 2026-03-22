@@ -5,9 +5,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.converter.BeanOutputConverter;
+import org.springframework.ai.converter.MapOutputConverter;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -95,5 +98,39 @@ public class LlmService {
 
     public boolean isAvailable() {
         return chatClient.isPresent();
+    }
+
+    /**
+     * Structured output completion using Spring AI converters.
+     * For Map output: uses MapOutputConverter with outputSchema in prompt.
+     * For POJO output: uses BeanOutputConverter with auto-derived schema.
+     *
+     * @param systemPrompt system instruction
+     * @param userPrompt user content with observations
+     * @param outputType target class (Map.class or POJO class)
+     * @return parsed structured result
+     */
+    @SuppressWarnings("unchecked")
+    public <T> T chatCompletionStructured(String systemPrompt, String userPrompt, Class<T> outputType) {
+        ChatClient chatClient = this.chatClient.orElseThrow(() ->
+            new IllegalStateException("AI not configured."));
+
+        if (Map.class.isAssignableFrom(outputType)) {
+            MapOutputConverter converter = new MapOutputConverter();
+            String response = chatClient.prompt()
+                .system(systemPrompt + "\n\n" + converter.getFormat())
+                .user(userPrompt)
+                .call()
+                .content();
+            return (T) converter.convert(response);
+        } else {
+            BeanOutputConverter<T> converter = new BeanOutputConverter<>(outputType);
+            String response = chatClient.prompt()
+                .system(systemPrompt + "\n\n" + converter.getFormat())
+                .user(userPrompt)
+                .call()
+                .content();
+            return converter.convert(response);
+        }
     }
 }

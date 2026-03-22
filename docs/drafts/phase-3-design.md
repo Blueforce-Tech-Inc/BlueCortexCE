@@ -358,7 +358,8 @@ public record ExtractionTemplate(
     String sessionIdPattern,        // Target session ID pattern (e.g., "pref:{project}:{userId}", null = inherit source session)
     String description,             // Human-readable description
     List<String> triggerKeywords,   // Keywords to filter candidates (future use)
-    List<String> sourceFilter,      // Which sources to consider (⚠️ List, not String)
+    List<String> sourceFilter,      // Which sources to consider
+    List<String> keyFields,         // Fields for dedup key (e.g., ["category","value"]). Falls back to all-string-fields.
     String promptTemplate,           // System prompt for extraction instruction
     String outputSchema             // JSON Schema (only for Map templates; auto-derived from templateClass for POJOs)
 ) {}
@@ -374,8 +375,9 @@ app.memory.extraction:
   templates:
     - name: "user_preference"
       enabled: true
-      template-class: "java.util.Map"        # Flexible schema → Map<String, Object> output
-      session-id-pattern: "pref:{project}:{userId}"  # Special session for user preferences
+      template-class: "java.util.Map"
+      session-id-pattern: "pref:{project}:{userId}"
+      key-fields: ["category", "value"]     # Dedup key for preference items
       description: "Extract user preferences (brand, price, style)"
       trigger-keywords: ["prefer", "like", "更喜欢", "倾向于"]
       source-filter: ["user_statement", "manual"]
@@ -404,7 +406,8 @@ app.memory.extraction:
       
     - name: "allergy_info"
       enabled: true
-      template-class: "com.example.AllergyInfo"   # Predefined POJO class
+      template-class: "com.example.AllergyInfo"
+      key-fields: ["person", "allergens"]   # Dedup key for allergy items
       description: "Extract allergy and dietary information"
       trigger-keywords: ["过敏", "不能吃", "吃了会", "allergic"]
       source-filter: ["user_statement", "manual", "llm_inference"]
@@ -424,7 +427,8 @@ app.memory.extraction:
         }
       
     - name: "important_dates"
-      template-class: "java.util.Map"            # Array results stored in Map["dates"]
+      template-class: "java.util.Map"
+      key-fields: ["date", "occasion"]      # Dedup key for date items
       description: "Extract important dates and events"
       trigger-keywords: ["生日", "anniversary", "纪念日", "记得"]
       source-filter: ["user_statement", "manual"]
@@ -4704,16 +4708,15 @@ private Map<String, Object> mergeAppendOnly(
 
 /**
  * Build a deduplication key for an extraction item.
- * Uses category+value as composite key (falls back to all-string-fields join).
- * This MUST match the keying strategy used in the extraction output schema.
+ * Uses configurable key fields from template, falls back to all-string-fields join.
  */
-private String buildItemKey(Map<String, Object> item) {
-    String category = item.getOrDefault("category", "").toString();
-    String value = item.getOrDefault("value", "").toString();
-    if (!category.isEmpty() || !value.isEmpty()) {
-        return category + "::" + value;
+private String buildItemKey(Map<String, Object> item, List<String> keyFields) {
+    if (keyFields != null && !keyFields.isEmpty()) {
+        return keyFields.stream()
+            .map(f -> item.getOrDefault(f, "").toString())
+            .collect(Collectors.joining("::"));
     }
-    // Fallback: join all string fields
+    // Fallback: join all string fields (generic, schema-agnostic)
     return item.entrySet().stream()
         .filter(e -> e.getValue() instanceof String)
         .map(e -> e.getKey() + "=" + e.getValue())

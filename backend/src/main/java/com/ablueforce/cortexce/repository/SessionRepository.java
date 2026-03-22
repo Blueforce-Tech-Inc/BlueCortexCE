@@ -43,4 +43,10 @@ public interface SessionRepository extends JpaRepository<SessionEntity, UUID> {
 
     // Export support: batch query sessions by content session IDs
     List<SessionEntity> findByContentSessionIdIn(List<String> contentSessionIds);
+
+    // Phase 3: Multi-user support — find sessions by userId
+    List<SessionEntity> findByUserId(String userId);
+
+    @Query("SELECT s.contentSessionId FROM SessionEntity s WHERE s.userId = :userId AND s.projectPath = :project")
+    List<String> findSessionIdsByUserIdAndProject(@Param("userId") String userId, @Param("project") String project);
 }

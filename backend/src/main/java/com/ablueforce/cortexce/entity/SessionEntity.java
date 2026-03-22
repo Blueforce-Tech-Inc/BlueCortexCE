@@ -41,6 +41,14 @@ public class SessionEntity {
     @JsonProperty("project")
     private String projectPath;
 
+    /**
+     * User identifier for multi-user support. Nullable — null means single-user mode
+     * (e.g., Claude Code hooks). Set by SDK callers to associate sessions with users.
+     * Phase 3: Used by extraction to group observations by user.
+     */
+    @Column(name = "user_id")
+    private String userId;
+
     @Column(name = "user_prompt")
     private String userPrompt;
 
@@ -83,6 +91,9 @@ public class SessionEntity {
 
     public String getProjectPath() { return projectPath; }
     public void setProjectPath(String projectPath) { this.projectPath = projectPath; }
+
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
 
     public String getUserPrompt() { return userPrompt; }
     public void setUserPrompt(String userPrompt) { this.userPrompt = userPrompt; }

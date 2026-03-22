@@ -513,4 +513,83 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      */
     @Query("SELECT DISTINCT o.projectPath FROM ObservationEntity o WHERE o.projectPath IS NOT NULL")
     List<String> findDistinctProjects();
+
+    // ===== Phase 3: Structured Extraction Methods =====
+
+    /**
+     * Find observations where source is IN a list of values.
+     * Required for extraction source filtering (findBySource takes single String).
+     */
+    @Query(value = """
+        SELECT * FROM mem_observations
+        WHERE project_path = :project
+        AND source IN (:sources)
+        ORDER BY created_at_epoch DESC
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<ObservationEntity> findBySourceIn(
+        @Param("project") String project,
+        @Param("sources") List<String> sources,
+        @Param("limit") int limit);
+
+    /**
+     * Find new observations since a given epoch for incremental extraction.
+     */
+    @Query(value = """
+        SELECT * FROM mem_observations
+        WHERE project_path = :project
+        AND source IN (:sources)
+        AND created_at_epoch > :sinceEpoch
+        ORDER BY created_at_epoch ASC
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<ObservationEntity> findNewObservations(
+        @Param("project") String project,
+        @Param("sources") List<String> sources,
+        @Param("sinceEpoch") Long sinceEpoch,
+        @Param("limit") int limit);
+
+    /**
+     * Global type query (cross-project) for dead letter queue retry.
+     */
+    @Query(value = """
+        SELECT * FROM mem_observations
+        WHERE type = :type
+        ORDER BY created_at_epoch DESC
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<ObservationEntity> findByTypeGlobal(
+        @Param("type") String type,
+        @Param("limit") int limit);
+
+    /**
+     * Wildcard type query using LIKE for ICL integration.
+     * findByType uses exact match (=), so findByType(project, "extracted_%", 50) won't work.
+     */
+    @Query(value = """
+        SELECT * FROM mem_observations
+        WHERE project_path = :project
+        AND type LIKE :typePattern
+        ORDER BY created_at_epoch DESC
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<ObservationEntity> findByTypeLike(
+        @Param("project") String project,
+        @Param("typePattern") String typePattern,
+        @Param("limit") int limit);
+
+    /**
+     * Find existing extraction by session ID + type for LLM re-extraction prior context.
+     */
+    @Query(value = """
+        SELECT * FROM mem_observations
+        WHERE content_session_id = :sessionId
+        AND type = :type
+        ORDER BY created_at_epoch DESC
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<ObservationEntity> findByContentSessionIdAndType(
+        @Param("sessionId") String sessionId,
+        @Param("type") String type,
+        @Param("limit") int limit);
 }

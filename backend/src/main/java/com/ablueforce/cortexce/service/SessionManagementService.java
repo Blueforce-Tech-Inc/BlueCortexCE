@@ -68,6 +68,13 @@ public class SessionManagementService implements LogHelper {
     }
 
     /**
+     * Save session entity (for updates like userId assignment).
+     */
+    public SessionEntity save(SessionEntity session) {
+        return sessionRepository.save(session);
+    }
+
+    /**
      * Complete a session (sync — marks status only).
      */
     public void completeSession(String contentSessionId) {

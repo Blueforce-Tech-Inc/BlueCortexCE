@@ -9,7 +9,9 @@ import com.ablueforce.cortexce.service.ContextService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.nio.file.Path;
@@ -93,6 +95,7 @@ public class SessionController {
         String projectsParam = (String) body.get("projects");
         Boolean isWorktree = (Boolean) body.get("is_worktree");
         String parentProject = (String) body.get("parent_project");
+        String userId = (String) body.get("user_id");  // Phase 3: optional user identifier
 
         // P1: Validate required fields
         if (contentSessionId == null || contentSessionId.isBlank()) {
@@ -115,6 +118,12 @@ public class SessionController {
 
         // 1. Initialize or retrieve session
         SessionEntity session = sessionManagementService.initializeSession(contentSessionId, projectPath, null);
+        
+        // Phase 3: Set userId on session (null is OK — means single-user mode)
+        if (userId != null && !userId.isBlank() && session.getUserId() == null) {
+            session.setUserId(userId);
+            sessionManagementService.save(session);
+        }
         String sessionDbId = session.getId().toString();
 
         // 2. Generate context from observations (try cache first)
@@ -318,6 +327,36 @@ public class SessionController {
      * @param projectsParam Comma-separated project names (e.g., "parent,worktree")
      * @return List of project names
      */
+    /**
+     * Update userId for an existing session. Phase 3 multi-user support.
+     * PATCH /api/session/{sessionId}/user
+     */
+    @PatchMapping("/{sessionId}/user")
+    public ResponseEntity<Map<String, String>> updateSessionUserId(
+            @PathVariable String sessionId,
+            @RequestBody Map<String, Object> body) {
+        String userId = (String) body.get("user_id");
+        
+        SessionEntity session = sessionManagementService.findByContentSessionId(sessionId)
+            .orElse(null);
+        if (session == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("error", "Session not found: " + sessionId));
+        }
+        
+        String oldUserId = session.getUserId();
+        session.setUserId(userId);
+        sessionManagementService.save(session);
+        
+        log.info("Updated session {} userId: {} -> {}", sessionId, oldUserId, userId);
+        
+        return ResponseEntity.ok(Map.of(
+            "status", "ok",
+            "sessionId", sessionId,
+            "userId", userId != null ? userId : ""
+        ));
+    }
+
     private List<String> parseProjectsParam(String projectsParam) {
         if (projectsParam == null || projectsParam.isBlank()) {
             return new ArrayList<>();
