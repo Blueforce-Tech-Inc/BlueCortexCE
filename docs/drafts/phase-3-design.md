@@ -1164,13 +1164,14 @@ private ExtractionState getExtractionState(String projectPath, String userId,
 
 **Incremental extraction flow**:
 ```java
-public void runIncrementalExtraction(String projectPath, ExtractionTemplate template) {
-    // Get last extraction state
-    ExtractionState state = getExtractionState(projectPath, template.name());
+public void runIncrementalExtraction(String projectPath, String userId, ExtractionTemplate template) {
+    // Get last extraction state (per user)
+    ExtractionState state = getExtractionState(projectPath, userId, template.name());
     
     // Only process NEW observations since last extraction
     List<ObservationEntity> newCandidates = observationRepository
-        .findNewObservations(projectPath, state.lastExtractedAt());
+        .findNewObservations(projectPath, template.sourceFilter(), 
+            state.lastExtractedAt().toEpochSecond() * 1000L, 1000);
     
     if (newCandidates.isEmpty()) {
         return; // Nothing new to extract
@@ -1180,8 +1181,8 @@ public void runIncrementalExtraction(String projectPath, ExtractionTemplate temp
     String priorJson = fetchPriorExtraction(targetSessionId, template);
     var result = extractByTemplate(projectPath, template, newCandidates, priorJson);
     
-    // Update state
-    updateExtractionState(projectPath, template.name(), OffsetDateTime.now());
+    // Update state (per user)
+    updateExtractionState(projectPath, userId, template.name(), OffsetDateTime.now());
 }
 ```
 
@@ -3973,7 +3974,7 @@ public void runTemplateExtraction(String projectPath, ExtractionTemplate templat
 @Transactional
 private void storeAndAdvanceState(...) {
     storeExtractionResult(template, result, candidates, targetSessionId);
-    updateExtractionState(projectPath, template.name(), OffsetDateTime.now());
+    updateExtractionState(projectPath, userId, template.name(), OffsetDateTime.now());
 }
 ```
 
