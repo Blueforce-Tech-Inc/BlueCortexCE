@@ -510,33 +510,45 @@ public class StructuredExtractionService {
      * Groups observations by user_id (from SessionEntity), then extracts per user.
      */
     private void runTemplateExtraction(String projectPath, ExtractionTemplate template) {
-        // Check extraction state for incremental extraction
-        ExtractionState state = getExtractionState(projectPath, template.name());
+        // Initial candidate cap for first-run cost control
+        List<ObservationEntity> allCandidates = getCandidatesInitial(projectPath, template);
         
-        // Find candidates (new or all)
-        List<ObservationEntity> candidates = (state == null)
-            ? getCandidatesInitial(projectPath, template)
-            : observationRepository.findNewObservations(
-                projectPath, template.sourceFilter(), 
-                state.lastExtractedAt().toEpochSecond() * 1000L, 1000);
-        
-        if (candidates.isEmpty()) {
+        if (allCandidates.isEmpty()) {
             return;
         }
         
         // Group observations by user (via session → user_id)
-        Map<String, List<ObservationEntity>> byUser = groupByUser(candidates);
+        Map<String, List<ObservationEntity>> byUser = groupByUser(allCandidates);
         
-        // Extract per user
+        // Extract per user (each user has independent extraction state)
         for (Map.Entry<String, List<ObservationEntity>> entry : byUser.entrySet()) {
             String userId = entry.getKey();
             List<ObservationEntity> userObs = entry.getValue();
+            
+            // Per-user incremental extraction: only process new observations for this user
+            ExtractionState state = getExtractionState(projectPath, userId, template.name());
+            List<ObservationEntity> candidates;
+            if (state != null) {
+                // Filter to only observations newer than this user's last extraction
+                Long sinceEpoch = state.lastExtractedAt().toEpochSecond() * 1000L;
+                candidates = userObs.stream()
+                    .filter(obs -> obs.getCreatedAtEpoch() != null && obs.getCreatedAtEpoch() > sinceEpoch)
+                    .toList();
+            } else {
+                // First extraction for this user — use all observations (capped)
+                candidates = userObs;
+            }
+            
+            if (candidates.isEmpty()) {
+                continue;
+            }
+            
             String targetSessionId = resolveSessionId(
                 template.sessionIdPattern(), projectPath, userId);
             
             // If no sessionIdPattern, fall back to first source observation's session
             if (targetSessionId == null) {
-                targetSessionId = userObs.get(0).getContentSessionId();
+                targetSessionId = candidates.get(0).getContentSessionId();
             }
             
             // LLM re-extraction: fetch prior result as context for LLM
@@ -551,13 +563,12 @@ public class StructuredExtractionService {
                 }
             }
             
-            Object result = extractByTemplate(projectPath, template, userObs, priorJson);
+            Object result = extractByTemplate(projectPath, template, candidates, priorJson);
             if (result != null) {
-                storeExtractionResult(template, result, userObs, targetSessionId);
+                storeExtractionResult(template, result, candidates, targetSessionId);
+                updateExtractionState(projectPath, userId, template.name(), OffsetDateTime.now());
             }
         }
-        
-        updateExtractionState(projectPath, template.name(), OffsetDateTime.now());
     }
     
     /**
@@ -1041,6 +1052,7 @@ Extractions of type "user_profile" can be stored with source="profile_update".
  */
 public record ExtractionState(
     String projectPath,
+    String userId,            // ← NEW: per-user state tracking
     String templateName,
     OffsetDateTime lastExtractedAt,
     UUID lastExtractedObservationId,
@@ -1049,39 +1061,47 @@ public record ExtractionState(
 
 /**
  * Store extraction state using existing ObservationEntity infrastructure.
+ * Per-user state tracking: different users may have different extraction progress.
  * Avoids a separate database table.
  */
-private void updateExtractionState(String projectPath, String templateName, OffsetDateTime now) {
+private void updateExtractionState(String projectPath, String userId, 
+                                    String templateName, OffsetDateTime now) {
     ObservationEntity stateObs = new ObservationEntity();
     stateObs.setProjectPath(projectPath);
     stateObs.setType("extraction_state");
-    stateObs.setSource("state:" + templateName);
+    stateObs.setSource("state:" + templateName + ":" + userId);  // Per-user state
     stateObs.setCreatedAt(now);
     stateObs.setCreatedAtEpoch(now.toEpochSecond() * 1000L);
     stateObs.setExtractedData(Map.of(
         "template", templateName,
+        "userId", userId,
         "lastExtractedAt", now.toEpochSecond()
     ));
-    // Use upsert: delete old state for this project+template, then insert new
-    observationRepository.findByType(projectPath, "extraction_state", 1).stream()
-        .filter(o -> o.getSource().equals("state:" + templateName))
+    // Upsert: delete old state for this project+template+user, then insert new
+    observationRepository.findByType(projectPath, "extraction_state", 100).stream()
+        .filter(o -> o.getSource() != null 
+            && o.getSource().equals("state:" + templateName + ":" + userId))
         .forEach(o -> observationRepository.deleteById(o.getId()));
     observationRepository.save(stateObs);
 }
 
-private ExtractionState getExtractionState(String projectPath, String templateName) {
-    List<ObservationEntity> states = observationRepository.findByType(projectPath, "extraction_state", 1).stream()
-        .filter(o -> o.getSource().equals("state:" + templateName))
+private ExtractionState getExtractionState(String projectPath, String userId, 
+                                            String templateName) {
+    List<ObservationEntity> states = observationRepository.findByType(projectPath, "extraction_state", 100)
+        .stream()
+        .filter(o -> o.getSource() != null 
+            && o.getSource().equals("state:" + templateName + ":" + userId))
         .toList();
     if (states.isEmpty()) return null;
     
     Map<String, Object> data = states.get(0).getExtractedData();
     return new ExtractionState(
         projectPath,
+        userId,
         templateName,
         OffsetDateTime.ofEpochSecond(((Number) data.get("lastExtractedAt")).longValue(), 0, ZoneOffset.UTC),
-        null,  // lastExtractedObservationId not stored in simple version
-        0      // totalExtracted not tracked in simple version
+        null,
+        0
     );
 }
 ```
