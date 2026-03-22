@@ -23,6 +23,11 @@ spring:
         options:
           model: ${SPRING_AI_ANTHROPIC_CHAT_MODEL:${ANTHROPIC_MODEL:claude-sonnet-4-5}}
 
+app:
+  memory:
+    extraction:
+      enabled: true
+
 logging:
   level:
     com.claudemem: DEBUG
