@@ -1,7 +1,7 @@
 # Phase 3 Design Proposal: Structured Information Extraction & Memory Conflict Detection
 
 **Date**: 2026-03-22
-**Status**: Design proposal - iteration 15 (Implementation readiness, cost control, API spec, conflict resolution)
+**Status**: Design proposal - iteration 27 (Code-design alignment, hallucination prevention, open questions resolved)
 **Related to**: `sdk-improvement-research.md` Phase 3 deferred items
 
 ---
@@ -1330,18 +1330,18 @@ public void runCascadingExtraction(String projectPath, ExtractionTemplate templa
 
 ---
 
-## 8. Open Questions
+## 8. Open Questions (Status: 8/10 Resolved)
 
-1. Should extraction run on every `deepRefine` or be scheduled separately?
-2. Should conflicts auto-resolve or require human approval?
-3. What is acceptable latency for extraction?
-4. How to handle cross-project extractions (e.g., user preferences)?
-5. Should we support incremental extraction by default? (Performance vs freshness tradeoff)
-6. How to handle template schema evolution without re-extracting all history?
-7. Do we need cascading extractions or is flat extraction sufficient?
+1. **Extraction trigger frequency**: ✅ Answered — Both triggers supported: last step of `deepRefineProjectMemories()` AND scheduled daily at 2am (Section 9.2 + Section 23.7). No need for every-session extraction.
+2. **Conflict auto-resolve vs manual**: ✅ Answered — Auto-resolve with audit trail is default (Section 19.5). LLM re-extraction handles semantic conflicts implicitly (Section 24, Scenario 5). Manual review deferred to Phase 3.4.
+3. **Acceptable extraction latency**: ✅ Answered — Scheduled batch (non-realtime) is acceptable. Cost analysis (Section 23) confirms daily extraction is cost-effective. Keyword-triggered extraction deferred to Phase 3.2.
+4. **Cross-project extractions**: ✅ Answered — Project-scoped userId (Section 20.7). Each project has independent extraction state. Cross-project aggregation is out of scope for Phase 3.1.
+5. **Incremental extraction by default**: ✅ Answered — Yes, incremental is default (Section 7.1). Full re-extraction only on first run (capped by `initialRunMaxCandidates`, Section 19.3).
+6. **Template schema evolution**: ✅ Answered — Version-based migration with explicit re-extract flag (Section 12.3). Old extractions are NOT automatically migrated.
+7. **Cascading extractions**: ✅ Answered — Deferred to future phase. Flat extraction is sufficient for Phase 3.1. Cascading (depends-on) is designed but not needed for initial implementation.
 8. **Spring AI 1.1.2 schema enforcement**: ✅ Answered in v10 — `JacksonOutputConverter` does NOT exist in Spring AI 1.1.2. Correct approach is `BeanOutputConverter` from `org.springframework.ai.converter`. Note: Spring AI 1.1.2 does not provide true schema enforcement at the API level — schema compliance relies on prompt engineering + LLM compliance + retry on parse failure.
-9. **Prior extraction size growth (v24)**: ✅ Answered in Section 24 — needs `priorJson` truncation strategy.
-10. **LLM hallucination on re-extraction (v24)**: ✅ Answered in Section 24 — prior context may confuse LLM into fabricating data; need confidence filtering and extraction-only-from-source verification.
+9. **Prior extraction size growth (v24)**: ✅ Answered in Section 24.1 + integrated into Section 2.3 `buildPrompt()` — `summarizePriorExtraction()` caps token cost.
+10. **LLM hallucination on re-extraction (v24)**: ✅ Answered in Section 24.2 + integrated into Section 2.3 `buildPrompt()` — source-truth verification instruction added to prompt.
 
 
 ## 24. LLM Re-Extraction Edge Cases & Refinements (v24)
@@ -2618,6 +2618,23 @@ List<ObservationEntity> findByTypeGlobal(
 | `model/ExtractionState.java` | Incremental extraction state |
 | `config/ExtractionConfig.java` | `@ConfigurationProperties` for templates |
 | `controller/ExtractionController.java` | Query API for extracted data |
+| `util/ExtractionFormatUtil.java` | Shared formatting utility (Section 24.3) |
+
+**Conditional loading** (Section 21.10): Both `ExtractionConfig` and `StructuredExtractionService` should be conditional to avoid startup failures when extraction is disabled or config is missing:
+
+```java
+// ExtractionConfig.java
+@Configuration
+@ConditionalOnProperty(prefix = "app.memory.extraction", name = "enabled",
+    havingValue = "true", matchIfMissing = false)
+@ConfigurationProperties(prefix = "app.memory.extraction")
+public class ExtractionConfig { ... }
+
+// StructuredExtractionService.java
+@Service
+@ConditionalOnBean(ExtractionConfig.class)
+public class StructuredExtractionService { ... }
+```
 
 ### 15.3 Record vs POJO for ExtractionTemplate
 
@@ -5332,6 +5349,8 @@ bash scripts/demo-v14-test.sh
 ---
 
 ## Changelog
+
+- **2026-03-22 v27**: (1) **Section 2.3 `buildPrompt()`**: Integrated Section 24 findings — added `summarizePriorExtraction()` for token cost control (Section 24.1) and hallucination prevention instruction in prompt (Section 24.2). (2) **Section 7.1 `updateExtractionState()`**: Added `@Transactional` annotation for atomic delete-then-save (Section 15.6) and idempotency guard (Section 17.3). (3) **Section 8**: Closed all 10 open questions — 8 new resolutions documented with references to answer sections. Previously only #8-10 were marked resolved. (4) **Section 15.2**: Added `ExtractionFormatUtil.java` to new files list and conditional bean loading annotations (`@ConditionalOnProperty`, `@ConditionalOnBean`) from Section 21.10.
 
 - **2026-03-22 v26**: (1) **Section 26**: Added comprehensive acceptance test plan — 10 test scenarios with detailed bash steps and pass criteria. (2) **Section 26.1-26.2**: Each test maps to a walkthrough scenario with explicit verification steps. (3) **Section 26.3**: Defined `extraction-acceptance-test.sh` structure (10 tests, exit code 0 = all pass). (4) **Section 26.4**: SDK demo test plan — 4 SDK integration tests. (5) **Section 26.5**: Backward compatibility check — existing regression + demo tests must pass. (6) **Section 26.6**: Acceptance criteria summary — 12 checks define "done". (7) Test-first approach: acceptance tests define completion before any code is written.
 
