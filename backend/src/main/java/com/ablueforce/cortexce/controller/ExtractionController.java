@@ -41,6 +41,17 @@ public class ExtractionController {
             @RequestParam String projectPath,
             @RequestParam(required = false) String userId) {
 
+        if (templateName == null || templateName.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "templateName is required"
+            ));
+        }
+        if (projectPath == null || projectPath.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "projectPath is required"
+            ));
+        }
+
         var result = extractionService.getLatestExtraction(projectPath, templateName, userId);
         if (result.isEmpty()) {
             return ResponseEntity.ok(Map.of(
@@ -72,6 +83,12 @@ public class ExtractionController {
             @RequestParam(required = false) String userId,
             @RequestParam(defaultValue = "10") int limit) {
 
+        if (projectPath == null || projectPath.isBlank()) {
+            return ResponseEntity.badRequest().body(List.of());
+        }
+        if (limit < 1) limit = 1;
+        if (limit > 100) limit = 100;
+
         List<ObservationEntity> history = extractionService.getExtractionHistory(
             projectPath, templateName, userId, limit);
 
@@ -91,6 +108,11 @@ public class ExtractionController {
      */
     @PostMapping("/run")
     public ResponseEntity<Map<String, String>> triggerExtraction(@RequestParam String projectPath) {
+        if (projectPath == null || projectPath.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "projectPath is required"
+            ));
+        }
         log.info("Manual extraction triggered for project: {}", projectPath);
         extractionService.runExtraction(projectPath);
         return ResponseEntity.ok(Map.of(

@@ -549,6 +549,52 @@ test_hook_mode_compat() {
 }
 
 # ==========================================================================
+# Test 15: Input Validation (Extraction API)
+# ==========================================================================
+test_input_validation() {
+    log_test "Test 15: Input validation — empty projectPath returns 400"
+
+    # Test latest endpoint with empty projectPath
+    local status_code
+    status_code=$(curl -s -o /dev/null -w "%{http_code}" "${BACKEND_URL}/api/extraction/user_preference/latest?projectPath=" 2>&1)
+    if [ "$status_code" = "400" ]; then
+        pass "Test 15: GET latest with empty projectPath returns 400"
+    else
+        fail "Test 15: GET latest with empty projectPath returned $status_code (expected 400)"
+        return 1
+    fi
+
+    # Test history endpoint with empty projectPath
+    status_code=$(curl -s -o /dev/null -w "%{http_code}" "${BACKEND_URL}/api/extraction/user_preference/history?projectPath=" 2>&1)
+    if [ "$status_code" = "400" ]; then
+        pass "Test 15: GET history with empty projectPath returns 400"
+    else
+        fail "Test 15: GET history with empty projectPath returned $status_code (expected 400)"
+        return 1
+    fi
+
+    # Test run endpoint with empty projectPath
+    status_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${BACKEND_URL}/api/extraction/run?projectPath=" 2>&1)
+    if [ "$status_code" = "400" ]; then
+        pass "Test 15: POST run with empty projectPath returns 400"
+    else
+        fail "Test 15: POST run with empty projectPath returned $status_code (expected 400)"
+        return 1
+    fi
+
+    # Test history with negative limit (should be clamped to 1)
+    status_code=$(curl -s -o /dev/null -w "%{http_code}" "${BACKEND_URL}/api/extraction/user_preference/history?projectPath=${TEST_PROJECT}&limit=-5" 2>&1)
+    if [ "$status_code" = "200" ]; then
+        pass "Test 15: GET history with negative limit returns 200 (clamped)"
+    else
+        fail "Test 15: GET history with negative limit returned $status_code (expected 200)"
+        return 1
+    fi
+
+    pass "Test 15: All input validation tests passed"
+}
+
+# ==========================================================================
 # Test 12: Existing Regression Tests
 # ==========================================================================
 test_regression() {
@@ -620,6 +666,7 @@ main() {
     test_reextraction_add
     test_reextraction_remove
     test_hook_mode_compat
+    test_input_validation
     test_regression
 
     # Summary
