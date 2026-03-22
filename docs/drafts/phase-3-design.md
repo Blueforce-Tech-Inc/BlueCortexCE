@@ -1,7 +1,7 @@
 # Phase 3 Design Proposal: Structured Information Extraction & Memory Conflict Detection
 
 **Date**: 2026-03-22
-**Status**: Design proposal - iteration 14 (Wildcard query fix, idempotency, type namespace, prerequisite verification)
+**Status**: Design proposal - iteration 15 (Implementation readiness, cost control, API spec, conflict resolution)
 **Related to**: `sdk-improvement-research.md` Phase 3 deferred items
 
 ---
@@ -2564,8 +2564,187 @@ private void validateObservationType(String type) {
 
 ---
 
+## 19. Implementation Readiness & Practical Gaps (v15)
+
+This section addresses practical issues discovered during implementation preparation that aren't covered by the design above.
+
+### 19.1 Flyway Migration for Upsert Support
+
+**Issue**: Section 15.6 proposes SQL upsert for atomic state updates, but this requires a **partial unique index** that doesn't exist yet:
+
+```sql
+-- Required: partial unique index for upsert ON CONFLICT clause
+-- Without this, the upsert SQL in section 15.6 will fail
+CREATE UNIQUE INDEX IF NOT EXISTS idx_extraction_state_source
+ON mem_observations (source) WHERE type = 'extraction_state';
+```
+
+**Decision**: This should be a new Flyway migration (V15 or later). However, this is only needed if we choose the upsert approach. The `@Transactional` delete-then-save approach (section 15.6 alternative) works WITHOUT any schema changes.
+
+**Recommendation**: Start with `@Transactional` approach for Phase 3.1. Add upsert migration only if state corruption is observed in testing.
+
+### 19.2 Prerequisite Implementation Sequencing
+
+**Current state**: Section 15.1 lists 5 prerequisites but doesn't specify implementation order or dependencies.
+
+**Recommended order** (least dependencies first):
+
+| Order | Prerequisite | Dependencies | Effort |
+|-------|-------------|--------------|--------|
+| 1 | `findBySourceIn()` | None (new query) | 30 min |
+| 2 | `findByTypeGlobal()` | None (new query) | 15 min |
+| 3 | `findByTypeLike()` | None (new query) | 15 min |
+| 4 | `findNewObservations()` | None (new query) | 30 min |
+| 5 | `chatCompletionStructured()` | Spring AI converters on classpath | 1-2 hours |
+
+**Total estimated effort**: 2.5-3 hours for all prerequisites.
+
+**Note**: Items 1-4 are pure repository methods (add `@Query` annotation to `ObservationRepository`). Item 5 requires understanding Spring AI's converter API and testing with actual LLM calls.
+
+**Verification step**: After implementing prerequisites, run the existing regression test (43/43) to confirm nothing breaks, THEN start StructuredExtractionService.
+
+### 19.3 Initial Run Cost Explosion Prevention
+
+**Issue NOT addressed in current design**: When a new template is added or extraction runs for the first time, `state.lastExtractedAt` is null, so ALL matching observations become candidates. For projects with thousands of observations, this triggers a massive number of LLM calls.
+
+**Example**: Project with 5000 observations matching `sourceFilter: ["user_statement"]` + template with no prior state = 5000 observations ÷ 20 per batch = 250 LLM calls at ~$0.01 each = $2.50 per template. With 5 templates = $12.50 for a single initial run.
+
+**Solution**: Cap initial run size and use progressive extraction.
+
+```java
+@Value("${app.memory.extraction.initial-run-max-candidates:100}")
+private int initialRunMaxCandidates;
+
+private List<ObservationEntity> getCandidates(String projectPath, ExtractionTemplate template, ExtractionState state) {
+    if (state == null) {
+        // First run: cap candidates to prevent cost explosion
+        log.info("First extraction run for template {}, limiting to {} candidates",
+            template.name(), initialRunMaxCandidates);
+        return observationRepository.findBySourceIn(projectPath, template.sourceFilter(), initialRunMaxCandidates);
+    }
+    // Subsequent runs: only new observations
+    return observationRepository.findNewObservations(
+        projectPath, template.sourceFilter(), state.lastExtractedAt().toEpochSecond() * 1000L, 1000);
+}
+```
+
+**Add to YAML config**:
+```yaml
+app.memory.extraction:
+  initial-run-max-candidates: 100    # Cap first run to prevent cost explosion
+```
+
+### 19.4 Extraction Query API Endpoint Specification
+
+**Issue**: Section 7.2 shows conceptual API design but lacks concrete endpoint specification for Phase 3.1.
+
+**Proposed endpoints for ExtractionController**:
+
+```
+GET  /api/extraction/{templateName}/latest?projectPath=...
+     → Returns most recent extraction result for template
+
+GET  /api/extraction/{templateName}/history?projectPath=...&limit=10
+     → Returns extraction history (all extracted_observations of this type)
+
+GET  /api/extraction/{templateName}/search?projectPath=...&field=allergens&value=花生
+     → JSONB path query on extractedData
+
+POST /api/extraction/run?projectPath=...
+     → Manually trigger extraction for a project
+
+GET  /api/extraction/status?projectPath=...
+     → Show extraction state per template (lastExtractedAt, candidate count)
+```
+
+**JSONB search implementation** (for field/value queries):
+```java
+// Requires native SQL with JSONB operator
+@Query(value = """
+    SELECT * FROM mem_observations
+    WHERE project_path = :project
+    AND type = :type
+    AND extracted_data ->> :field = :value
+    ORDER BY created_at_epoch DESC
+    LIMIT :limit
+    """, nativeQuery = true)
+List<ObservationEntity> findByExtractedDataField(
+    @Param("project") String project,
+    @Param("type") String type,
+    @Param("field") String field,
+    @Param("value") String value,
+    @Param("limit") int limit
+);
+```
+
+**NOTE**: `extracted_data ->> :field` works for top-level string fields. For nested queries or array containment (`allergens @> '["花生"]'`), use `@>` JSONB containment operator with a separate method.
+
+### 19.5 Conflict Resolution: Auto vs Manual
+
+**Issue**: Section 3.3 defines conflict types but doesn't specify resolution strategy. The design says "handleConflict" but doesn't answer: auto-resolve or require manual review?
+
+**Recommendation**: **Default to auto-resolve with audit trail**. Manual review adds UX complexity that isn't justified for Phase 3.1.
+
+| Conflict Type | Auto Resolution | Audit |
+|---------------|----------------|-------|
+| DIRECT_CONTRADICTION | Keep newer (most recent extraction) | Log old → new transition |
+| EVOLUTION | Record history, keep both (latest is current) | Log evolution event |
+| NONE | No action | No log |
+
+**Rationale**: Observations already have `qualityScore` and `refinedAt` fields. Auto-resolution with audit logging preserves history while keeping the system simple. Manual review can be added in Phase 3.5 if needed.
+
+### 19.6 `findByTypeLike` vs Template Iteration: Decision
+
+**Issue**: Section 15.8 presents two alternatives for ICL prompt integration: wildcard `findByTypeLike` vs iterating known template names.
+
+**Analysis**:
+
+| Approach | Queries | Flexibility | Complexity |
+|----------|---------|-------------|------------|
+| `findByTypeLike(project, "extracted_%")` | 1 query | Catches ALL extractions including unknown | Requires new method |
+| Template name iteration | N queries (N = template count) | Only known templates | No new method needed |
+
+**Decision**: **Use `findByTypeLike` for ICL prompt integration**. Reasons:
+- ICL prompt needs ALL extracted facts, not just known templates
+- Single query is more efficient than N queries
+- The `findByTypeLike` method is already a prerequisite (section 15.1 #4)
+
+Template iteration is a valid fallback if `findByTypeLike` is delayed, but should be replaced once the method exists.
+
+### 19.7 Implementation Ready Checklist (Consolidated)
+
+Final pre-implementation verification — all items must pass before writing `StructuredExtractionService.java`:
+
+**Prerequisites**:
+- [ ] `findBySourceIn(project, List<String>, limit)` added to `ObservationRepository`
+- [ ] `findByTypeGlobal(type, limit)` added to `ObservationRepository`
+- [ ] `findByTypeLike(project, typePattern, limit)` added with `LIKE` support
+- [ ] `findNewObservations(project, sources, sinceEpoch, limit)` added
+- [ ] `chatCompletionStructured(systemPrompt, userPrompt, outputType)` added to `LlmService`
+
+**Classpath verification**:
+- [ ] `BeanOutputConverter` in `spring-ai-model` jar (verified in v14 ✅)
+- [ ] `MapOutputConverter` in `spring-ai-model` jar (verified in v14 ✅)
+
+**Configuration**:
+- [ ] `ExtractionConfig` class with `@ConfigurationProperties(prefix = "app.memory.extraction")`
+- [ ] YAML template loading with POJO+Map dual pattern
+- [ ] `initial-run-max-candidates` config field
+
+**Integration**:
+- [ ] `deepRefineProjectMemories()` modified to call extraction as last step
+- [ ] Non-blocking: extraction failures don't propagate to refinement
+
+**Testing**:
+- [ ] Existing regression test passes (43/43)
+- [ ] Unit test with mocked LLM for structured extraction
+- [ ] Integration test for full template → LLM → store pipeline
+
+---
+
 ## Changelog
 
+- **2026-03-22 v15**: (1) **Section 19.1**: Flyway migration requirements for upsert — clarified `@Transactional` approach works without schema changes, upsert is optional optimization. (2) **Section 19.2**: Prerequisite implementation sequencing — ordered by dependency and effort (2.5-3 hours total). (3) **Section 19.3**: Initial run cost explosion prevention — `initial-run-max-candidates` config (default 100) to cap first-run when state is null. Critical for preventing $12+ LLM costs on first extraction. (4) **Section 19.4**: Extraction query API concrete endpoint specification — 5 endpoints with JSONB search implementation details. (5) **Section 19.5**: Conflict resolution strategy — default to auto-resolve with audit trail (keep newer for contradictions, record history for evolution). (6) **Section 19.6**: `findByTypeLike` vs template iteration decision — `findByTypeLike` preferred for ICL integration (single query, catches all extractions). (7) **Section 19.7**: Consolidated implementation-ready checklist — 13 verification items across prerequisites, classpath, config, integration, and testing.
 - **2026-03-22 v14**: (1) **Section 15.8 Bug Fix**: Fixed `findByType(project, "extracted_%", 50)` wildcard bug — `findByType` uses exact match (`type = :type`), NOT LIKE. Added `findByTypeLike()` repository method as prerequisite #4, plus alternative approach (iterate known template names). Updated ICL prompt and experience API code examples. (2) **Section 9.1**: Added `findByTypeLike()` to pending repository methods list. (3) **Section 15.1**: Added `findByTypeLike()` as prerequisite #5. (4) **Section 15.10**: Updated validation checklist with `findByTypeLike` or template-iteration alternative. (5) **Section 17**: Extraction idempotency — prevents duplicate `extracted_{template}` observations from re-running extraction. Composite hash deduplication + state guard clause. (6) **Section 18**: Observation type namespace reservation — `extraction_*` prefix reserved for system use. Added validation option to prevent user-created type collisions. (7) **Verified**: Spring AI 1.1.2 classpath includes `BeanOutputConverter`, `MapOutputConverter`, `ListOutputConverter` in `spring-ai-model` jar. Confirmed 5 pending prerequisites still not implemented: `findBySourceIn`, `findNewObservations`, `findByTypeGlobal`, `findByTypeLike`, `chatCompletionStructured`.
 - **2026-03-22 v13**: (1) **Quick Reference**: Added TL;DR summary at top — what, how, when, prerequisites, pipeline diagram. (2) **Section 15.6**: Transaction safety for extraction state management — `@Transactional` wrapper for delete-then-save pattern, plus SQL upsert alternative for production. (3) **Section 15.7**: Concurrency control — per-project `ReentrantLock` to prevent duplicate extraction runs from deepRefine + scheduled task overlap. (4) **Section 15.8**: ICL prompt integration — how extracted data surfaces in `/api/memory/icl-prompt` and experience API (`includeExtractions` flag). (5) **Section 15.9**: Token counting without TokenService — character-based heuristic (CJK-aware) for batching observations. (6) **Section 16**: Architecture Decision Records — 4 key decisions (store as ObservationEntity, BeanOutputConverter, separate pipeline, POJO+Map hybrid) captured with rationale and tradeoffs. (7) **Section 15.10**: Updated validation checklist with `@Transactional` and wildcard `findByType` support.
 - **2026-03-22 v12**: (1) **Section 15**: Added Implementation Bootstrap Checklist — step-by-step Phase 3.1 guide with prerequisites, new files, and validation checklist. (2) **Section 15.1**: Fixed DLQ bug — `findByType(null, ...)` won't work because `@Param("project")` is non-null; added `findByTypeGlobal()` repository method as prerequisite. (3) **Section 15.3**: Added Record vs POJO analysis for `ExtractionTemplate` configuration binding — recommended POJO approach via `@ConfigurationProperties` for Spring Boot 3.3 compatibility. (4) **Section 15.4**: Added concrete `LlmService.chatCompletionStructured()` implementation with `BeanOutputConverter`/`MapOutputConverter` dual pattern. (5) **Section 15.5**: Clarified extraction integration order — must NOT run during `quickRefine()`, only as last step of `deepRefineProjectMemories()`. (6) **Section 11.3**: Fixed DLQ retry code to use `findByTypeGlobal()` instead of broken `findByType(null, ...)`.
