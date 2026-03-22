@@ -4875,31 +4875,287 @@ bash scripts/demo-v15-test.sh
 
 ---
 
-### Step 11: End-to-End Integration Test
+### Step 11: End-to-End Acceptance Tests
 
-**What**: Full integration test covering the complete extraction flow.
+**Philosophy**: Test-driven development — acceptance tests define "done". Each test verifies the complete flow from SDK call to API response. Tests use the demo project (`examples/cortex-mem-demo`) via HTTP, just like `demo-v14-test.sh`.
 
-**Test scenario**:
-```
-1. Start session with userId="alice"
-2. Ingest observations: "我不喜欢苹果手机", "小米也不错"
-3. Trigger extraction (or wait for scheduled run)
-4. Query extraction result for alice
-5. Verify ICL prompt includes alice's preferences
-6. Start session without userId (hook mode)
-7. Ingest observation
-8. Verify extraction works with __unknown__ grouping
-```
+**Test file**: `scripts/demo-v15-extraction-test.sh` (new)
 
-**Verification**:
+---
+
+#### Acceptance Test 1: Session Creation with userId
+
+**Given**: Backend running
+**When**: Create session with `user_id: "alice"`
+**Then**: Session stored with userId, returned in response
+
 ```bash
-# Run full regression
-bash scripts/regression-test.sh
-# Expected: 43+N/43+N tests passed (N = new extraction tests)
-
-# Manual E2E test
-# (create script: scripts/extraction-e2e-test.sh)
+# Test: POST /api/session/start with user_id
+response=$(curl -sf -X POST "${BACKEND_URL}/api/session/start" \
+  -d '{"session_id":"test-alice-001","project_path":"/tmp/ext-test","user_id":"alice"}')
+# Verify: response contains session_db_id
+# Verify: query session → userId == "alice"
 ```
+
+**Backend verification**:
+```bash
+psql -c "SELECT user_id FROM mem_sessions WHERE content_session_id='test-alice-001'"
+# Expected: alice
+```
+
+---
+
+#### Acceptance Test 2: Session Creation without userId (Hook Mode)
+
+**Given**: Backend running
+**When**: Create session WITHOUT `user_id` (like wrapper.js does)
+**Then**: Session stored with null userId, backward compatible
+
+```bash
+response=$(curl -sf -X POST "${BACKEND_URL}/api/session/start" \
+  -d '{"session_id":"test-hook-001","project_path":"/tmp/ext-test"}')
+# Verify: response contains session_db_id
+# Verify: userId is null
+```
+
+---
+
+#### Acceptance Test 3: Update Session userId via PATCH
+
+**Given**: Session created without userId
+**When**: PATCH `/api/session/{id}/user` with `user_id: "bob"`
+**Then**: Session userId updated to "bob"
+
+```bash
+# Create session without userId
+curl -sf -X POST "${BACKEND_URL}/api/session/start" \
+  -d '{"session_id":"test-patch-001","project_path":"/tmp/ext-test"}'
+
+# Update userId
+response=$(curl -sf -X PATCH "${BACKEND_URL}/api/session/test-patch-001/user" \
+  -d '{"user_id":"bob"}')
+# Verify: response contains "bob"
+
+# Backend verification
+psql -c "SELECT user_id FROM mem_sessions WHERE content_session_id='test-patch-001'"
+# Expected: bob
+```
+
+---
+
+#### Acceptance Test 4: Observation Ingestion Linked to userId Session
+
+**Given**: Session with userId="alice"
+**When**: Ingest observations into that session
+**Then**: Observations stored, linked to session, session has userId
+
+```bash
+# Ingest observations
+curl -sf -X POST "${BACKEND_URL}/api/ingest/observation" \
+  -d '{"session_id":"test-alice-001","project_path":"/tmp/ext-test","type":"user_statement","source":"user_statement","content":"我不喜欢苹果手机","prompt_number":1}'
+
+curl -sf -X POST "${BACKEND_URL}/api/ingest/observation" \
+  -d '{"session_id":"test-alice-001","project_path":"/tmp/ext-test","type":"user_statement","source":"user_statement","content":"小米也不错","prompt_number":2}'
+
+# Backend verification: observation → session → userId chain
+psql -c "SELECT s.user_id FROM mem_sessions s JOIN mem_observations o ON s.content_session_id=o.content_session_id WHERE o.content='我不喜欢苹果手机'"
+# Expected: alice
+```
+
+---
+
+#### Acceptance Test 5: Extraction Groups by User
+
+**Given**: Alice has 2 observations, Bob has 1 observation (different sessions, same project)
+**When**: Trigger extraction for project
+**Then**: Results stored in separate preference sessions per user
+
+```bash
+# Setup: Alice's observations (already in Test 4)
+# Setup: Bob's observations
+curl -sf -X POST "${BACKEND_URL}/api/session/start" \
+  -d '{"session_id":"test-bob-001","project_path":"/tmp/ext-test","user_id":"bob"}'
+curl -sf -X POST "${BACKEND_URL}/api/ingest/observation" \
+  -d '{"session_id":"test-bob-001","project_path":"/tmp/ext-test","type":"user_statement","source":"user_statement","content":"我老婆对花生过敏","prompt_number":1}'
+
+# Trigger extraction (via API or scheduled)
+curl -sf -X POST "${BACKEND_URL}/api/extraction/run?projectPath=/tmp/ext-test"
+
+# Verify: Alice's preferences in pref:/tmp/ext-test:alice
+psql -c "SELECT content_session_id, type, extracted_data FROM mem_observations WHERE content_session_id='pref:/tmp/ext-test:alice' AND type='extracted_user_preference'"
+# Expected: extractedData contains Alice's preferences (手机品牌), NOT Bob's
+
+# Verify: Bob's preferences in pref:/tmp/ext-test:bob
+psql -c "SELECT content_session_id, type, extracted_data FROM mem_observations WHERE content_session_id='pref:/tmp/ext-test:bob' AND type='extracted_user_preference'"
+# Expected: extractedData contains Bob's wife's allergy, NOT Alice's
+```
+
+---
+
+#### Acceptance Test 6: ICL Prompt Includes Only Target User's Preferences
+
+**Given**: Alice and Bob both have extracted preferences
+**When**: Build ICL prompt with `userId: "alice"`
+**Then**: ICL prompt includes Alice's preferences, NOT Bob's
+
+```bash
+response=$(curl -sf -X POST "${BACKEND_URL}/api/memory/icl-prompt" \
+  -d '{"task":"推荐手机","project":"/tmp/ext-test","userId":"alice","maxChars":2000}')
+
+# Verify: response.prompt contains Alice's preferences
+echo "$response" | grep -q "小米" && log_info "Contains Alice's preference (小米)"
+echo "$response" | grep -q "花生" && log_fail "LEAKED Bob's allergy!" || log_info "Bob's data correctly excluded"
+```
+
+---
+
+#### Acceptance Test 7: LLM Re-Extraction Updates State
+
+**Given**: Alice has existing extraction: `{preferences: [{耳机: Sony}]}`
+**When**: Ingest new observation "Bose也不错", trigger extraction
+**Then**: New extraction result contains BOTH Sony and Bose
+
+```bash
+# Setup: Alice already has extraction from Test 5
+# Add new observation
+curl -sf -X POST "${BACKEND_URL}/api/ingest/observation" \
+  -d '{"session_id":"test-alice-001","project_path":"/tmp/ext-test","type":"user_statement","source":"user_statement","content":"Bose也不错","prompt_number":3}'
+
+# Trigger extraction
+curl -sf -X POST "${BACKEND_URL}/api/extraction/run?projectPath=/tmp/ext-test"
+
+# Verify: latest extraction for Alice contains both
+latest=$(curl -sf "${BACKEND_URL}/api/extraction/user_preference/latest?projectPath=/tmp/ext-test&userId=alice")
+echo "$latest" | grep -q "Sony" && log_info "Prior preference (Sony) retained"
+echo "$latest" | grep -q "Bose" && log_info "New preference (Bose) added"
+```
+
+---
+
+#### Acceptance Test 8: LLM Re-Extraction Removes Invalidated Preference
+
+**Given**: Alice has extraction: `{preferences: [{耳机: Sony}, {耳机: Bose}]}`
+**When**: Ingest observation "我不喜欢Sony了", trigger extraction
+**Then**: Latest extraction removes Sony, keeps Bose
+
+```bash
+curl -sf -X POST "${BACKEND_URL}/api/ingest/observation" \
+  -d '{"session_id":"test-alice-001","project_path":"/tmp/ext-test","type":"user_statement","source":"user_statement","content":"我不喜欢Sony了","prompt_number":4}'
+
+curl -sf -X POST "${BACKEND_URL}/api/extraction/run?projectPath=/tmp/ext-test"
+
+latest=$(curl -sf "${BACKEND_URL}/api/extraction/user_preference/latest?projectPath=/tmp/ext-test&userId=alice")
+echo "$latest" | grep -q "Sony" && log_fail "Sony should be removed!" || log_info "Sony correctly removed"
+echo "$latest" | grep -q "Bose" && log_info "Bose retained"
+```
+
+---
+
+#### Acceptance Test 9: Historical Extractions Preserved
+
+**Given**: Multiple extraction runs for Alice
+**When**: Query extraction history
+**Then**: All historical extractions returned (not just latest)
+
+```bash
+response=$(curl -sf "${BACKEND_URL}/api/extraction/user_preference/history?projectPath=/tmp/ext-test&userId=alice&limit=10")
+# Verify: returns multiple extractions (at least 3 from tests 5, 7, 8)
+count=$(echo "$response" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")
+[ "$count" -ge 3 ] && log_info "History has $count entries" || log_fail "Expected >=3, got $count"
+```
+
+---
+
+#### Acceptance Test 10: Experiences API with userId Filter
+
+**Given**: Alice and Bob have observations
+**When**: Query experiences with `userId: "alice"`
+**Then**: Only Alice's experiences returned
+
+```bash
+response=$(curl -sf -X POST "${BACKEND_URL}/api/memory/experiences" \
+  -d '{"task":"手机","project":"/tmp/ext-test","userId":"alice","count":10}')
+# Verify: experiences are from Alice's sessions only
+```
+
+---
+
+#### Acceptance Test 11: Hook Mode Still Works (Backward Compatibility)
+
+**Given**: Session without userId (hook mode)
+**When**: Ingest observations, trigger extraction
+**Then**: Extraction works with __unknown__ grouping, no errors
+
+```bash
+# Create session without userId
+curl -sf -X POST "${BACKEND_URL}/api/session/start" \
+  -d '{"session_id":"test-hook-002","project_path":"/tmp/ext-test"}'
+
+# Ingest observation
+curl -sf -X POST "${BACKEND_URL}/api/ingest/observation" \
+  -d '{"session_id":"test-hook-002","project_path":"/tmp/ext-test","type":"user_statement","source":"user_statement","content":"测试hook模式","prompt_number":1}'
+
+# Trigger extraction — should NOT fail
+curl -sf -X POST "${BACKEND_URL}/api/extraction/run?projectPath=/tmp/ext-test"
+
+# Verify: extraction stored with __unknown__ session
+psql -c "SELECT content_session_id FROM mem_observations WHERE content_session_id LIKE 'pref:/tmp/ext-test:%' AND type='extracted_user_preference'"
+# Expected: at least one row with pref:/tmp/ext-test:__unknown__
+```
+
+---
+
+#### Acceptance Test 12: Regression — Existing Tests Still Pass
+
+**Given**: All Phase 3.1 changes applied
+**When**: Run existing regression test
+**Then**: All existing tests still pass (backward compatible)
+
+```bash
+bash scripts/regression-test.sh
+# Expected: 43/43 tests passed (or 43+N with new tests)
+```
+
+---
+
+#### Acceptance Test 13: SDK Demo Integration
+
+**Given**: Demo app running with updated SDK
+**When**: Call demo endpoints that use userId
+**Then**: Demo works correctly with new SDK fields
+
+```bash
+# Demo endpoint: session with userId
+response=$(curl -sf "${DEMO_URL}/memory/experiences?task=手机&project=ext-test")
+# Verify: basic flow works through SDK
+
+# Demo endpoint: ICL with userId (if exposed)
+response=$(curl -sf -X POST "${DEMO_URL}/memory/icl-prompt" \
+  -d '{"task":"推荐","project":"ext-test","userId":"alice"}')
+# Verify: userId flows through SDK → API → response
+```
+
+---
+
+#### Acceptance Test Summary
+
+| # | Test | Covers | Verification Method |
+|---|------|--------|-------------------|
+| 1 | Session + userId | Step 5 | API response + DB query |
+| 2 | Session without userId | Step 5 | API response + DB query |
+| 3 | PATCH userId | Step 5 | API response + DB query |
+| 4 | Observation → session → userId chain | Steps 4-5 | DB join query |
+| 5 | Extraction groups by user | Step 6 | DB query: separate pref sessions |
+| 6 | ICL filters by userId | Step 8 | API response: no cross-user leak |
+| 7 | LLM re-extraction adds new | Step 6 | API response: both old+new |
+| 8 | LLM re-extraction removes invalid | Step 6 | API response: removed item gone |
+| 9 | History preserved | Step 8 | API response: multiple entries |
+| 10 | Experiences + userId | Step 8 | API response: user-filtered |
+| 11 | Hook mode backward compat | All | No errors with null userId |
+| 12 | Regression | All | Existing tests pass |
+| 13 | SDK demo integration | Step 10 | Demo endpoints work |
+
+**All 13 tests must pass before Phase 3.1 is considered complete.**
 
 ---
 
