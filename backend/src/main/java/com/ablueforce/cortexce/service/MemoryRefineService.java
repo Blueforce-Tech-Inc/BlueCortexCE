@@ -5,9 +5,11 @@ import com.ablueforce.cortexce.repository.ObservationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -47,6 +49,11 @@ public class MemoryRefineService {
     private final ObservationRepository observationRepository;
     private final QualityScorer qualityScorer;
     private final LlmService llmService;
+
+    /** Phase 3: Optional extraction service (null when extraction is disabled). */
+    @Lazy
+    @Autowired(required = false)
+    private StructuredExtractionService extractionService;
 
     public MemoryRefineService(ObservationRepository observationRepository,
                              QualityScorer qualityScorer,
@@ -188,7 +195,14 @@ public class MemoryRefineService {
             if (!candidates.isEmpty()) {
                 refineObservations(candidates, projectPath);
             }
-            
+
+            // Phase 3: Run structured extraction after refinement
+            try {
+                extractionService.runExtraction(projectPath);
+            } catch (Exception e) {
+                log.warn("Extraction failed during deep refine, will retry later: {}", e.getMessage());
+            }
+
             log.info("Deep refinement completed for project: {}", projectPath);
             
         } catch (Exception e) {
