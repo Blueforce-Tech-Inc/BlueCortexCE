@@ -720,9 +720,10 @@ public class StructuredExtractionService {
      * Supports array-based schemas (e.g., {preferences: [...]}).
      * 
      * Merge strategy:
-     * - For array fields: deduplicate by a composite key (category+value for preferences)
-     * - If same category exists with different value → keep newer (overwrite)
-     * - If same category+value exists → skip (dedup)
+     * - For array fields: deduplicate by category+value composite key
+     * - If same category+value exists with different sentiment → update to new sentiment (keep latest)
+     * - If same category+value+sentiment exists → skip (dedup)
+     * - New category+value combinations → add
      * - Non-array fields: overwrite with new value
      */
     @SuppressWarnings("unchecked")
@@ -743,7 +744,7 @@ public class StructuredExtractionService {
                 List<Map<String, Object>> existingList = (List<Map<String, Object>>) existingValue;
                 List<Map<String, Object>> newList = (List<Map<String, Object>>) newValue;
                 
-                // Build index by composite key
+                // Build index by composite key (category + value only)
                 Map<String, Map<String, Object>> index = new LinkedHashMap<>();
                 for (Map<String, Object> item : existingList) {
                     String compositeKey = buildCompositeKey(item);
@@ -758,13 +759,20 @@ public class StructuredExtractionService {
                     if (existingItem == null) {
                         // New item — add
                         index.put(compositeKey, item);
-                    } else if (!existingItem.get("value").equals(item.get("value"))) {
-                        // Same category, different value — keep newer
-                        log.info("Conflict detected: {} changed from {} to {}", 
-                            compositeKey, existingItem.get("value"), item.get("value"));
-                        index.put(compositeKey, item);
+                    } else {
+                        // Same category+value exists — check if sentiment changed
+                        String oldSentiment = (String) existingItem.get("sentiment");
+                        String newSentiment = (String) item.get("sentiment");
+                        
+                        if (oldSentiment != null && newSentiment != null 
+                            && !oldSentiment.equals(newSentiment)) {
+                            // Sentiment changed — keep newer version (overwrite)
+                            log.info("Preference evolution: {} sentiment changed: {} → {}", 
+                                compositeKey, oldSentiment, newSentiment);
+                            index.put(compositeKey, item);
+                        }
+                        // Same sentiment → skip (dedup)
                     }
-                    // Same category+value — skip (dedup)
                 }
                 
                 merged.put(key, new ArrayList<>(index.values()));
@@ -779,8 +787,8 @@ public class StructuredExtractionService {
     
     /**
      * Build composite key for deduplication.
-     * Uses "category:sentiment" for preference-like items.
-     * Falls back to "value" if no category field.
+     * Uses "category:value" for preference-like items (ignores sentiment for dedup key).
+     * Sentiment changes are handled separately in merge logic.
      */
     private String buildCompositeKey(Map<String, Object> item) {
         String category = (String) item.get("category");
@@ -3466,94 +3474,85 @@ Option A: Project-scoped userId (CHOSEN)
 
 | # | Issue | Severity | Resolution | Status |
 |---|-------|----------|------------|--------|
-| 1 | Array schema for multiple preferences | 🔴 Critical | Use array-wrapped schema | ✅ Resolved (Section 2.2 updated) |
+| 1 | Array schema for multiple preferences | 🔴 Critical | Use array-wrapped schema | ✅ Resolved (Section 2.2) |
 | 2 | Multi-user session aggregation | 🔴 Critical | `user_id` field in SessionEntity | ✅ Resolved (Section 2.3 + V15) |
 | 3 | Special session ID discovery | 🟡 Medium | `sessionIdPattern` + `user_id` | ✅ Resolved (Section 2.3) |
-| 4 | Incremental extraction merging | 🔴 Critical | Merge logic for duplicate detection | ✅ Resolved (Section 2.3 `mergeExtractedData()`) |
-| 5 | ICL prompt data formatting | 🟡 Medium | Add `formatExtractedData()` utility | ✅ Resolved (Section 2.3 `formatExtractedData()`) |
-| 6 | Array-level conflict detection | 🟡 Medium | Update ConflictDetector | ⏳ Deferred to Phase 3.3 |
+| 4 | Incremental extraction merging | 🔴 Critical | Merge logic for duplicate detection | ✅ Resolved (Section 2.3) |
+| 5 | ICL prompt data formatting | 🟡 Medium | Add `formatExtractedData()` utility | ✅ Resolved (Section 2.3) |
+| 6 | Array-level conflict detection | 🟡 Medium | Sentiment-aware merge in `mergeExtractedData()` | ✅ Resolved (Section 2.3) |
 | 7 | Cross-project user identification | 🟡 Medium | Project-scoped userId | ✅ Decided (Section 20.7) |
-| 8 | Ingestion user_id passing | 🟡 Medium | See Section 20.9 | ⏳ Design needed |
+| 8 | Ingestion API user_id passing | 🟡 Medium | Option B: session creation + PATCH API | ✅ Resolved (Section 20.9) |
+
+**All 8 issues resolved. Phase 3.1 design is complete.**
 
 **Confirmed for Phase 3.1**:
-1. ✅ Add `session-id-pattern` to ExtractionTemplate configuration (Section 2.2)
-2. ✅ Update schema examples to use array-wrapped format (Section 2.2)
-3. ✅ Add `user_id` to `SessionEntity` (Flyway migration V15)
-4. ✅ Add `findByUserId()` and `findByContentSessionIdAndType()` repository methods
-5. ✅ Update extraction to group observations by user (Section 2.3)
-6. ✅ Implement merge logic for extraction results (Section 2.3)
-7. ✅ Implement `formatExtractedData()` for ICL prompts (Section 2.3)
-
-**Deferred Items**:
-1. Array-level conflict detection (Phase 3.3)
-2. Ingestion API user_id passing (needs design, see Section 20.9)
+1. ✅ Array-wrapped schema in Section 2.2
+2. ✅ User grouping via `groupByUser()` in Section 2.3
+3. ✅ Merge logic with sentiment-aware conflict handling in Section 2.3
+4. ✅ `formatExtractedData()` for ICL prompts in Section 2.3
+5. ✅ `user_id` in SessionEntity (Flyway V15)
+6. ✅ Session creation with optional userId + PATCH update API
+7. ✅ 8 repository prerequisites (Section 15.1)
 
 ---
 
-### 20.9 Issue: Ingestion API user_id Passing
+### 20.9 Issue: Ingestion API user_id Passing — ✅ RESOLVED
 
-**Problem**: After adding `user_id` to `SessionEntity`, how does the ingestion API receive and store the user ID?
+**DECISION (2026-03-22)**: **Option B** — set `userId` at session creation (optional field), plus an update API for existing sessions.
 
-**Current API**:
+**Session Creation API**:
 ```java
-POST /api/ingest/observation
-{
-  "projectPath": "/my-project",
-  "contentSessionId": "abc-123",
-  "type": "user_statement",
-  "source": "user_statement",
-  "content": "我不喜欢苹果手机"
-}
-```
-
-**Missing**: No `userId` field in the request.
-
-**Options**:
-
-| Option | Approach | Complexity |
-|--------|----------|------------|
-| A. Add `userId` to request body | `{..., "userId": "alice"}` | Simple |
-| B. Add `userId` to session creation | Set on SessionEntity when session is created | Medium |
-| C. Infer from auth context | Extract from JWT/cookie/session | Complex |
-
-**Recommendation**: **Option A + B** — add `userId` to both the observation request and session creation:
-- When creating a session: `POST /api/ingest/session` with `userId` field
-- When ingesting observations: `POST /api/ingest/observation` with `userId` field (or infer from session)
-
-**Pseudocode**:
-```java
-// Session creation
-@PostMapping("/api/ingest/session")
+// POST /api/ingest/session
 public SessionEntity createSession(@RequestBody CreateSessionRequest request) {
     SessionEntity session = new SessionEntity();
     session.setContentSessionId(request.getSessionId());
     session.setProjectPath(request.getProjectPath());
-    session.setUserId(request.getUserId());  // ← NEW
+    session.setUserId(request.getUserId());  // ← Optional, can be null
     return sessionRepository.save(session);
 }
+```
 
-// Observation ingestion
-@PostMapping("/api/ingest/observation")
-public ObservationEntity ingestObservation(@RequestBody IngestObservationRequest request) {
-    // ... existing logic ...
-    
-    // userId is optional - if provided, ensure session has it
-    if (request.getUserId() != null) {
-        SessionEntity session = sessionRepository.findByContentSessionId(request.getContentSessionId());
-        if (session != null && session.getUserId() == null) {
-            session.setUserId(request.getUserId());
-            sessionRepository.save(session);
-        }
+**Update API** (new):
+```java
+// PATCH /api/ingest/session/{sessionId}/userId
+public SessionEntity updateSessionUserId(
+        @PathVariable String sessionId,
+        @RequestBody UpdateUserIdRequest request) {
+    SessionEntity session = sessionRepository.findByContentSessionId(sessionId);
+    if (session == null) {
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found");
     }
-    
-    return observationRepository.save(observation);
+    session.setUserId(request.getUserId());
+    return sessionRepository.save(session);
+}
+```
+
+**Design**:
+- `userId` is **optional** on session creation (can be null)
+- If not set initially, can be set later via PATCH API
+- Observation ingestion API does NOT need `userId` — it's derived from session
+- Backward compatible (existing sessions have null userId, extraction skips them or groups under `__unknown__`)
+
+**New API Endpoints**:
+```
+POST   /api/ingest/session                    # Create session (with optional userId)
+PATCH  /api/ingest/session/{sessionId}/userId  # Set/update userId for existing session
+```
+
+**New DTO**:
+```java
+public class UpdateUserIdRequest {
+    private String userId;
+    // getter/setter
 }
 ```
 
 **Impact**: 
-- Adds `userId` field to `CreateSessionRequest` and `IngestObservationRequest` DTOs
-- Backward compatible (userId is optional)
-- Extraction can then group by userId via session lookup
+- Adds `userId` field to `CreateSessionRequest` DTO
+- New `UpdateUserIdRequest` DTO
+- New PATCH endpoint in `IngestionController`
+- Backward compatible (userId optional)
+- Extraction groups by userId via session lookup
 
 ---
 
@@ -3829,7 +3828,7 @@ public class StructuredExtractionService {
 
 ## Changelog
 
-- **2026-03-22 v19**: (1) **Section 21.1**: Verified ALL 10 prerequisites are still unimplemented — no Phase 3.1 code has been written. (2) **Section 21.2**: LlmService availability guard — extraction must check `isAvailable()` before calling LLM. (3) **Section 21.3**: `mergeExtractedData()` type safety — primitive lists cause ClassCastException, added type check. (4) **Section 21.4**: Transactional scope design — separated LLM call (no transaction) from storage (in transaction) to avoid long-lived DB transactions. (5) **Section 21.5**: ReentrantLock memory leak — added scheduled cleanup. (6) **Section 21.6**: ExtractionConfig POJO vs record mismatch — recommend using POJO directly, eliminating record entirely. (7) **Section 21.7**: Post-extraction schema validation gap — BeanOutputConverter.convert() is opaque, added try-catch retry around it. (8) **Section 21.9**: `@Async` + extraction concurrency — documented JVM-local lock assumption for single-instance deployment. (9) **Section 21.10**: Conditional bean loading — ExtractionConfig needs `@ConditionalOnProperty`, service needs `@ConditionalOnBean`.
+- **2026-03-22 v20**: (1) **Section 20.8**: All 8 walkthrough issues now resolved — no more deferred items. (2) **Section 20.9**: Ingestion API user_id resolved — Option B: session creation with optional userId + PATCH API to update existing sessions. (3) **Section 2.3**: Fixed `mergeExtractedData()` sentiment handling — composite key uses category+value only, sentiment changes trigger overwrite (not skip). (4) Confirmed Phase 3.1 design is complete with all issues resolved.
 - **2026-03-22 v18**: (1) **Section 2.2**: Updated `user_preference` template to use array-wrapped schema (was single-object — critical fix from walkthrough). (2) **Section 2.3**: Refactored `runExtraction()` to include user grouping via `groupByUser()` method. (3) **Section 2.3**: Refactored `extractByTemplate()` to accept candidates parameter. (4) **Section 2.3**: Rewrote `storeExtractionResult()` with merge logic (`mergeExtractedData()`) and user-scoped session ID resolution. (5) **Section 2.3**: Added `formatExtractedData()` for ICL prompt integration. (6) **Section 15.1**: Added prerequisites #6-8: `findByContentSessionIdAndType()`, `findByUserId()`, `findSessionIdsByUserIdAndProject()`. (7) **Section 20.9**: Added ingestion API user_id passing design. (8) **Section 20.8**: Updated summary — 6 issues resolved, 2 deferred.
 - **2026-03-22 v14**: (1) **Section 15.8 Bug Fix**: Fixed `findByType(project, "extracted_%", 50)` wildcard bug — `findByType` uses exact match (`type = :type`), NOT LIKE. Added `findByTypeLike()` repository method as prerequisite #4, plus alternative approach (iterate known template names). Updated ICL prompt and experience API code examples. (2) **Section 9.1**: Added `findByTypeLike()` to pending repository methods list. (3) **Section 15.1**: Added `findByTypeLike()` as prerequisite #5. (4) **Section 15.10**: Updated validation checklist with `findByTypeLike` or template-iteration alternative. (5) **Section 17**: Extraction idempotency — prevents duplicate `extracted_{template}` observations from re-running extraction. Composite hash deduplication + state guard clause. (6) **Section 18**: Observation type namespace reservation — `extraction_*` prefix reserved for system use. Added validation option to prevent user-created type collisions. (7) **Verified**: Spring AI 1.1.2 classpath includes `BeanOutputConverter`, `MapOutputConverter`, `ListOutputConverter` in `spring-ai-model` jar. Confirmed 5 pending prerequisites still not implemented: `findBySourceIn`, `findNewObservations`, `findByTypeGlobal`, `findByTypeLike`, `chatCompletionStructured`.
 - **2026-03-22 v13**: (1) **Quick Reference**: Added TL;DR summary at top — what, how, when, prerequisites, pipeline diagram. (2) **Section 15.6**: Transaction safety for extraction state management — `@Transactional` wrapper for delete-then-save pattern, plus SQL upsert alternative for production. (3) **Section 15.7**: Concurrency control — per-project `ReentrantLock` to prevent duplicate extraction runs from deepRefine + scheduled task overlap. (4) **Section 15.8**: ICL prompt integration — how extracted data surfaces in `/api/memory/icl-prompt` and experience API (`includeExtractions` flag). (5) **Section 15.9**: Token counting without TokenService — character-based heuristic (CJK-aware) for batching observations. (6) **Section 16**: Architecture Decision Records — 4 key decisions (store as ObservationEntity, BeanOutputConverter, separate pipeline, POJO+Map hybrid) captured with rationale and tradeoffs. (7) **Section 15.10**: Updated validation checklist with `@Transactional` and wildcard `findByType` support.

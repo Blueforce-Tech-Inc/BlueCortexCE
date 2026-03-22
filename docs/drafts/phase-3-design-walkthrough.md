@@ -646,9 +646,11 @@ The core of the design - **prompt-driven structured extraction** - is verified t
 
 ### Remaining Open Items
 
-| Item | Phase | Status |
-|------|-------|--------|
-| Array-level conflict detection | 3.3 | Deferred |
-| Ingestion API user_id passing | 3.1 | Design in Section 20.9 of main doc |
+**None — all issues resolved.**
 
-**Design is FULLY VERIFIED and all issues resolved.**
+| Item | Resolution |
+|------|------------|
+| Array-level conflict detection | ✅ Resolved — `mergeExtractedData()` handles sentiment changes (overwrite) |
+| Ingestion API user_id passing | ✅ Resolved — Option B: session creation + PATCH API (Section 20.9) |
+
+**Phase 3.1 design is COMPLETE. All 8 walkthrough issues resolved.**
