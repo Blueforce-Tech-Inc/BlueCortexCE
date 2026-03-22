@@ -534,46 +534,63 @@ public List<ObservationEntity> findByUserSource(String userId) {
 
 ### Recommended Solution
 
-**Option C: Add userId to Session** is the cleanest approach.
+**DECISION (2026-03-22)**: **Option C: Add userId to SessionEntity** ✅
 
-**However**, the current system uses `projectPath` as the primary isolation boundary. For Cortex CE as a **project-based memory for AI agents** (not a multi-user personal assistant), Option B or the current approach is acceptable.
+The `session-id-pattern` approach (Option 1 in walkthrough) was considered but rejected as the primary solution — it abuses session ID semantics. The clean approach is adding `user_id` to SessionEntity.
 
-**For multi-user scenarios**, we need to add:
-
-1. **Add `userId` field to `SessionEntity`**
-2. **Repository method `findByUserId()`**
-3. **Extraction query by userId across sessions**
-
-### Updated Extraction Flow (Multi-User)
-
+**Implementation**:
 ```java
-public void extractForUser(String userId, ExtractionTemplateConfig template) {
-    // Step 1: Find all sessions for this user
-    List<String> userSessionIds = sessionRepository.findByUserId(userId)
-        .stream()
-        .map(Session::getContentSessionId)
-        .collect(Collectors.toList());
+@Entity
+@Table(name = "mem_sessions")
+public class SessionEntity {
+    @Column(name = "content_session_id")
+    private String contentSessionId;
 
-    // Step 2: Find observations for these sessions
-    List<ObservationEntity> userObservations = observationRepository
-        .findByContentSessionIdIn(userSessionIds);
+    @Column(name = "user_id")  // NEW
+    private String userId;
 
-    // Step 3: Filter by source/tags
-    List<ObservationEntity> candidates = userObservations.stream()
-        .filter(obs -> template.getSourceFilter().contains(obs.getSource()))
-        .collect(Collectors.toList());
+    @Column(name = "project_path")
+    private String projectPath;
+}
+```
 
-    // Step 4: Extract preferences
-    extractByTemplate(userId, template, candidates);
+**Migration**: Flyway V15 — `ALTER TABLE mem_sessions ADD COLUMN user_id VARCHAR(255);`
+
+**Extraction Flow (RESOLVED)**:
+```java
+public void runExtraction(String projectPath) {
+    // 1. Get all candidate observations
+    List<ObservationEntity> allCandidates = observationRepository
+        .findBySourceIn(projectPath, sources, 1000);
+    
+    // 2. Group by user (via session → user_id)
+    Map<String, List<ObservationEntity>> byUser = new HashMap<>();
+    for (ObservationEntity obs : allCandidates) {
+        SessionEntity session = sessionRepository.findBySessionId(obs.getContentSessionId());
+        String userId = session.getUserId();  // ✅ Now available!
+        byUser.computeIfAbsent(userId, k -> new ArrayList<>()).add(obs);
+    }
+    
+    // 3. Extract per user
+    for (Map.Entry<String, List<ObservationEntity>> entry : byUser.entrySet()) {
+        String userId = entry.getKey();
+        List<ObservationEntity> userObs = entry.getValue();
+        
+        for (ExtractionTemplate template : templates) {
+            Object result = extractByTemplate(template, userObs);
+            String targetSessionId = resolveSessionId(template.sessionIdPattern(), projectPath, userId);
+            storeExtractionResult(template, result, targetSessionId);
+        }
+    }
 }
 ```
 
 ### Migration Path
 
-1. **Phase 1**: Add `userId` to `SessionEntity` (Flyway migration)
-2. **Phase 2**: Update ingestion to set `userId` from authentication context
-3. **Phase 3**: Add `findByUserId()` to `SessionRepository`
-4. **Phase 4**: Update extraction to support multi-user queries
+1. **Flyway V15**: Add `user_id` column to `mem_sessions` + index
+2. **SessionRepository**: Add `findByUserId()` and `findSessionIdsByUserIdAndProject()` methods
+3. **Ingestion**: Update to set `userId` from caller context
+4. **Extraction**: Update to group by userId before LLM extraction
 
 ---
 
@@ -581,131 +598,43 @@ public void extractForUser(String userId, ExtractionTemplateConfig template) {
 
 **User Preference Extraction: VERIFIED ✅**
 
-**Multi-User Aggregation: ISSUE FOUND ⚠️**
+**Multi-User Aggregation: RESOLVED ✅**
 
 | Aspect | Status | Notes |
 |--------|--------|-------|
 | YAML template → extraction | ✅ Verified | Works with proper YAML binding |
 | Session → observations | ✅ Verified | Repository methods exist |
-| User → multi-session aggregation | ⚠️ Issue | Requires userId field + migration |
+| User → multi-session aggregation | ✅ Resolved | `user_id` field added to SessionEntity |
+| Special session ID creation | ✅ Resolved | `sessionIdPattern` config + `user_id` field |
 | Evolution detection | ✅ Verified | Compare same-category extractions |
+| ICL integration | ⚠️ Partial | `formatExtractedData()` utility needed |
 
-### Critical Gap Found
+### Critical Decisions Made (2026-03-22)
 
-**The current design does NOT address multi-user session aggregation.**
+1. **`user_id` field in SessionEntity** — confirmed, Flyway V15 migration
+2. **`sessionIdPattern` in template config** — for special session creation (e.g., `pref:{project}:{userId}`)
+3. **Project-scoped userId** — user identity scoped to project, not global
+4. **Array-wrapped schema** — preference templates must use array schema for multiple items
+5. **Per-user extraction grouping** — extraction groups observations by user before LLM call
 
-**Problem**:
-- `contentSessionId` is per-session, not per-user
-- Different sessions may belong to different users
-- No `userId` field in current data model
+### Architecture Verified
 
-**Recommended Fix**:
-
-**Option 1: Session ID Pattern (Simple)**
-
-```java
-// Pattern: "cortex:user:{userId}:preferences"
-contentSessionId = "cortex:user:chen:preferences"
-```
-
-**Key Question**: How does the system know WHEN to create this special session?
-
-**Answer**: **Template's `userScoped` flag decides!**
-
-```java
-// In ExtractionTemplateConfig:
-private boolean userScoped;  // true = create "cortex:user:{userId}:preferences"
-
-private void storeExtractionResult(ExtractionTemplateConfig template, ...) {
-    String targetSessionId;
-
-    if (template.isUserScoped()) {
-        // Auto-create special session for user-scoped extractions
-        String userId = extractUserId(projectPath);
-        targetSessionId = "cortex:user:" + userId + ":" + template.getName();
-
-        // Ensure session exists (auto-create)
-        if (!sessionRepository.existsById(targetSessionId)) {
-            sessionRepository.save(SessionEntity.builder()
-                .contentSessionId(targetSessionId)
-                .userId(userId)
-                .type(template.getName())
-                .build());
-        }
-    } else {
-        targetSessionId = originalSessionId;  // Normal extraction
-    }
-}
-```
-
-```yaml
-# In YAML template
-templates:
-  - name: "user_preference"
-    user-scoped: true   # Template decides: create special session
-
-  - name: "bugfix_summary"
-    user-scoped: false  # Normal extraction
-```
-
-**Extraction Flow**:
-```
-1. Load template (user_preference, userScoped=true)
-2. Find candidate observations (across multiple sessions)
-3. LLM extraction
-4. Template's userScoped=true → Create special session
-5. Store extraction result
-```
-
-| Pros | Cons |
-|------|------|
-| ✅ No data model change | ❌ Abuses session ID semantics |
-| ✅ Simple query | ❌ Session ID becomes long |
-| ✅ Uses existing mechanism | ❌ Preferences mixed with sessions? |
-| ✅ **Template controls behavior** | |
-
-**Option 2: Add userId Field (Clean)**
-
-```java
-@Entity
-public class SessionEntity {
-    String contentSessionId;
-    String userId;  // NEW
-}
-```
-
-| Pros | Cons |
-|------|------|
-| ✅ Clean design | ❌ Requires Flyway migration |
-| ✅ Proper separation | ❌ More fields |
-| ✅ Explicit | |
-
-**Recommendation**: Start with Option 1 (Session ID pattern) for quick implementation. Migrate to Option 2 (userId field) for long-term cleanliness.
-
-**Impact on Design**:
-- The generalized extraction architecture remains valid
-- Just need to change the **query dimension**: from `projectPath` to session-based for user-scoped extractions
-- Extraction templates and LLM processing don't need to change
-
-### Architecture Still Valid
-
-The core of the design - **prompt-driven structured extraction** - is verified to work. The multi-user aggregation is a **data model issue**, not an architecture issue.
+The core of the design - **prompt-driven structured extraction** - is verified to work. The resolved data model changes complete the picture:
 
 1. ✅ YAML template defines WHAT to extract (prompt + schema)
-2. ✅ Service iterates templates and finds matching observations
-3. ✅ Prompt is built from template and observations
-4. ✅ LLM returns structured JSON
-5. ✅ JSON is parsed and validated
-6. ✅ Result is stored in extractedData field
-7. ✅ Evolution tracking works by comparing same-category extractions
+2. ✅ Service groups observations by user (via `user_id`)
+3. ✅ Prompt is built from template and user-specific observations
+4. ✅ LLM returns structured JSON (array-wrapped for multi-item)
+5. ✅ JSON is parsed and validated via BeanOutputConverter
+6. ✅ Result is stored in special session (e.g., `pref:/project:alice`)
+7. ✅ Query returns only the target user's data
 
-**Key Issues Identified and Mitigated**:
+### Remaining Open Items
 
-| Issue | Impact | Mitigation |
-|-------|--------|------------|
-| YAML binding to record | Low | Use class with defaults or @ConstructorBinding |
-| LLM JSON parsing | Medium | Retry + extract JSON from markdown |
-| extractedData array vs object | Low | Store as List, update entity |
-| Evolution detection | Medium | Compare same-category, store history |
+| Item | Phase | Status |
+|------|-------|--------|
+| Incremental extraction merge logic | 3.1 | Design needed |
+| `formatExtractedData()` utility | 3.1 | Can use JSON serialization initially |
+| Array-level conflict detection | 3.3 | Deferred |
 
-**Design is VERIFIED to work.**
+**Design is VERIFIED to work with resolved data model changes.**

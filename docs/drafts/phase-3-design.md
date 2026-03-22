@@ -2742,9 +2742,459 @@ Final pre-implementation verification — all items must pass before writing `St
 
 ---
 
+## 20. Walkthrough Findings (v16)
+
+This section documents findings from pseudocode walkthroughs of the Phase 3 design. Walkthroughs expose gaps between design intent and actual implementation feasibility.
+
+---
+
+### 20.1 Issue: Array Schema Handling for Multiple Preferences
+
+**Scenario**: User provides multiple preferences in a single conversation:
+- "我不喜欢苹果手机" → category: "手机品牌(排斥)", value: "苹果"
+- "我更喜欢小米" → category: "手机品牌(偏好)", value: "小米"  
+- "预算3000-4000" → category: "价格预算", value: "3000-4000"
+
+**Current Schema (Problematic)**:
+```yaml
+output-schema: |
+  {
+    "type": "object",
+    "properties": {
+      "category": {"type": "string"},
+      "value": {"type": "string"},
+      "confidence": {"type": "number"}
+    }
+  }
+```
+
+**Problem**: This schema represents a **single** preference object. LLM can only return one preference, losing the other two.
+
+**LLM Response** (following schema):
+```json
+{"category": "手机品牌", "value": "喜欢小米/安卓，不喜欢苹果，预算3000-4000", "confidence": 0.9}
+```
+→ All preferences merged into single string (no structured data)
+
+**Correct Schema (Array Wrapper)**:
+```yaml
+output-schema: |
+  {
+    "type": "object",
+    "properties": {
+      "preferences": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "category": {"type": "string"},
+            "value": {"type": "string"},
+            "sentiment": {"type": "string"},
+            "confidence": {"type": "number"}
+          }
+        }
+      }
+    }
+  }
+```
+
+**LLM Response** (following array schema):
+```json
+{
+  "preferences": [
+    {"category": "手机品牌(排斥)", "value": "苹果", "sentiment": "negative", "confidence": 0.95},
+    {"category": "手机品牌(偏好)", "value": "小米/安卓", "sentiment": "positive", "confidence": 0.9},
+    {"category": "价格预算", "value": "3000-4000", "sentiment": "neutral", "confidence": 0.85}
+  ]
+}
+```
+
+**Resolution**: Update all template examples in Section 2.2 to use array-wrapped schema for preference-like extractions. Document this pattern in template configuration guidelines.
+
+---
+
+### 20.2 Issue: Multi-User Session Aggregation Problem — ✅ RESOLVED
+
+**Scenario**: Project `/my-project` has multiple users:
+- Alice (Session A): "我不喜欢苹果手机", "预算3000"
+- Bob (Session B): "我老婆对花生过敏", "她喜欢华为"
+
+**Current Design Limitation**:
+- Observations have `content_session_id` (random UUID) and `project_path`
+- **No `user_id` field** — cannot distinguish Alice vs Bob
+
+**Root Cause**: Project-based isolation (`project_path`) is insufficient for multi-user scenarios.
+
+**DECISION (2026-03-22)**: Add `user_id` field to `SessionEntity`.
+
+**Data Model Change**:
+```java
+@Entity
+@Table(name = "mem_sessions")
+public class SessionEntity {
+    @Column(name = "content_session_id")
+    private String contentSessionId;
+
+    @Column(name = "project_path")
+    private String projectPath;
+
+    @Column(name = "user_id")          // ← NEW
+    private String userId;
+    
+    // ... existing fields
+}
+```
+
+**New Repository Methods**:
+```java
+public interface SessionRepository extends JpaRepository<SessionEntity, String> {
+    // Find all session IDs for a user within a project
+    @Query("SELECT s.contentSessionId FROM SessionEntity s WHERE s.userId = :userId AND s.projectPath = :project")
+    List<String> findSessionIdsByUserIdAndProject(@Param("userId") String userId, @Param("project") String project);
+    
+    // Find all sessions for a user (cross-project)
+    List<SessionEntity> findByUserId(String userId);
+}
+```
+
+**Flyway Migration**:
+```sql
+-- V15: Add user_id column to mem_sessions
+ALTER TABLE mem_sessions ADD COLUMN user_id VARCHAR(255);
+CREATE INDEX idx_mem_sessions_user_id ON mem_sessions(user_id);
+```
+
+**Resolution Path**:
+1. **Phase 3.1**: Add `user_id` field + Flyway migration + repository methods
+2. **Phase 3.1**: Update ingestion to set `userId` from caller context
+3. **Phase 3.1**: Update extraction to group by `userId`
+
+---
+
+### 20.3 Issue: Special Session ID for Preference Storage — ✅ RESOLVED
+
+**DECISION (2026-03-22)**: Add `sessionIdPattern` to template configuration + `user_id` in SessionEntity.
+
+**Template Configuration**:
+```yaml
+templates:
+  - name: "user_preference"
+    session-id-pattern: "pref:{project}:{userId}"  # ← Special session
+    # ...
+
+  - name: "allergy_info"
+    session-id-pattern: null  # ← null = inherit source session
+```
+
+**Extraction Flow (RESOLVED)**:
+```java
+// Extraction runs per-project, groups by userId
+runExtraction(projectPath) {
+    // 1. Get all candidate observations
+    allCandidates = observationRepository.findBySourceIn(projectPath, sources, 1000)
+    
+    // 2. Group by user (via session → user_id)
+    Map<String, List<ObservationEntity>> byUser = new HashMap()
+    for (obs : allCandidates) {
+        SessionEntity session = sessionRepository.findBySessionId(obs.getContentSessionId())
+        String userId = session.getUserId()  // ✅ Now available!
+        byUser.computeIfAbsent(userId, k -> new ArrayList()).add(obs)
+    }
+    
+    // 3. Extract per user
+    for (entry : byUser.entrySet()) {
+        String userId = entry.getKey()
+        List<ObservationEntity> userObs = entry.getValue()
+        
+        for (template : templates) {
+            if (!template.enabled()) continue
+            
+            // 4. LLM extraction
+            result = extractByTemplate(template, userObs)
+            
+            // 5. Resolve target session ID
+            targetSessionId = resolveSessionId(template.sessionIdPattern(), projectPath, userId)
+            
+            // 6. Store
+            storeExtractionResult(template, result, targetSessionId)
+        }
+    }
+}
+
+private String resolveSessionId(String pattern, String projectPath, String userId) {
+    if (pattern == null) {
+        return null;  // Inherit from source observation
+    }
+    return pattern
+        .replace("{project}", projectPath)
+        .replace("{userId}", userId);
+}
+
+// Storage:
+private void storeExtractionResult(ExtractionTemplate template, Object result, String targetSessionId) {
+    ObservationEntity obs = new ObservationEntity();
+    obs.setType("extracted_" + template.name());
+    obs.setSource("extraction:" + template.name());
+    obs.setExtractedData(convertToMap(result));
+    
+    if (targetSessionId != null) {
+        obs.setContentSessionId(targetSessionId);  // "pref:/project:alice"
+    }
+    // else: content_session_id inherited from first source observation (handled by caller)
+    
+    observationRepository.save(obs);
+}
+```
+
+**Query Flow**:
+```java
+// Agent needs Alice's preferences
+List<ObservationEntity> alicePrefs = observationRepository
+    .findBySessionId("pref:/my-project:alice")
+// ✅ Returns only Alice's preferences, no contamination from Bob
+```
+
+---
+
+### 20.4 Issue: Incremental Extraction Result Merging
+
+**Scenario**: 
+- First extraction: Alice's preferences extracted from sessions A, C
+- Second extraction (new observations): Additional preferences from session D
+
+**Current Design Gap**:
+```java
+// First extraction
+result1 = extractByTemplate(project, template)  // Returns {preferences: [{苹果, negative}, {小米, positive}]}
+
+// Second extraction (incremental)
+result2 = extractByTemplate(project, template)  // Returns {preferences: [{手机, new-value}]}
+
+// Problem: Both stored as separate observations
+// Query: "What are Alice's preferences?" → Returns 2 results!
+```
+
+**Current Storage Logic**:
+```java
+// Each extraction creates a NEW ObservationEntity
+obs = new ObservationEntity()
+obs.setType("extracted_user_preference")
+obs.setExtractedData({preferences: [...]})  // Each call creates new record
+observationRepository.save(obs)  // ❌ Creates duplicate observations
+```
+
+**Required Logic**:
+1. **Merge** new preferences with existing ones
+2. **Handle conflicts** (same category, different values)
+3. **Deduplicate** by category + value
+
+**Pseudocode for Merge**:
+```java
+private Map<String, Object> mergePreferences(
+        Map<String, Object> oldExtractedData, 
+        Map<String, Object> newExtractedData) {
+    
+    List<Map<String, Object>> oldPrefs = 
+        (List<Map<String, Object>>) oldExtractedData.get("preferences");
+    List<Map<String, Object>> newPrefs = 
+        (List<Map<String, Object>>) newExtractedData.get("preferences");
+    
+    // Merge: keep old, add new (unless duplicate)
+    Map<String, Map<String, Object>> merged = new HashMap<>();
+    
+    for (Map<String, Object> pref : oldPrefs) {
+        String key = pref.get("category") + ":" + pref.get("value");
+        merged.put(key, pref);
+    }
+    
+    for (Map<String, Object> pref : newPrefs) {
+        String key = pref.get("category") + ":" + pref.get("value");
+        // If same category exists with different value → conflict detection
+        if (merged.containsKey(key)) {
+            // Trigger conflict detection or keep newer
+        } else {
+            merged.put(key, pref);
+        }
+    }
+    
+    return Map.of("preferences", new ArrayList<>(merged.values()));
+}
+```
+
+**Resolution**: Update `storeExtractionResult()` to check if extraction result for same template already exists, and merge rather than create duplicate.
+
+---
+
+### 20.5 Issue: ICL Prompt Extracted Data Formatting
+
+**Scenario**: ICL prompt needs to display extracted preferences in readable format.
+
+**Current Code Reference** (Section 15.8):
+```java
+context.append(String.format("[%s]: %s\n", templateName, formatExtractedData(ext.getExtractedData())));
+```
+
+**Problem**: `formatExtractedData()` method not defined in design.
+
+**Required Implementation**:
+```java
+private String formatExtractedData(Map<String, Object> extractedData) {
+    StringBuilder sb = new StringBuilder();
+    
+    for (Map.Entry<String, Object> entry : extractedData.entrySet()) {
+        String key = entry.getKey();
+        Object value = entry.getValue();
+        
+        if (value instanceof List) {
+            // Array values (e.g., preferences, allergens)
+            List<?> list = (List<?>) value;
+            for (Object item : list) {
+                if (item instanceof Map) {
+                    // Each item is a map (e.g., preference object)
+                    Map<?, ?> itemMap = (Map<?, ?>) item;
+                    sb.append("  - ");
+                    itemMap.forEach((k, v) -> sb.append(k).append(": ").append(v).append(", "));
+                    sb.setLength(sb.length() - 2); // Remove trailing comma+space
+                    sb.append("\n");
+                } else {
+                    sb.append("  - ").append(item).append("\n");
+                }
+            }
+        } else if (value instanceof Map) {
+            // Nested map
+            Map<?, ?> map = (Map<?, ?>) value;
+            sb.append(key).append(":\n");
+            map.forEach((k, v) -> sb.append("  ").append(k).append(": ").append(v).append("\n"));
+        } else {
+            // Simple value
+            sb.append(key).append(": ").append(value).append("\n");
+        }
+    }
+    
+    return sb.toString();
+}
+```
+
+**Resolution**: Document `formatExtractedData()` utility method. Required for ICL prompt integration.
+
+---
+
+### 20.6 Issue: Multi-Level Conflict Detection for Arrays
+
+**Scenario**: Preference evolution with array schema.
+
+**First Extraction**:
+```json
+{"preferences": [
+    {"category": "手机品牌", "value": "苹果", "sentiment": "negative"},
+    {"category": "手机品牌", "value": "小米", "sentiment": "positive"}
+]}
+```
+
+**Second Extraction** (after user changes mind):
+```json
+{"preferences": [
+    {"category": "手机品牌", "value": "苹果", "sentiment": "positive"},
+    {"category": "手机品牌", "value": "小米", "sentiment": "positive"}
+]}
+```
+
+**Current `ConflictDetector.detect()` Logic**:
+```java
+public ConflictResult detect(ExtractionTemplate template, Object oldResult, Object newResult) {
+    // ❌ Assumes oldResult and newResult are simple objects
+    // ❌ Cannot handle array-level comparison
+}
+```
+
+**Multi-Level Comparison Required**:
+1. **Category-level comparison**: Compare same category across old/new
+2. **Array-level diff**: Find added/removed/changed items
+3. **Sentiment change detection**: "苹果" from negative → positive = evolution
+
+**Pseudocode for Array Conflict Detection**:
+```java
+private ConflictResult detectArrayConflict(List<Map<String, Object>> oldPrefs, 
+                                           List<Map<String, Object>> newPrefs) {
+    // Group by category
+    Map<String, Map<String, Object>> oldByCategory = groupByCategory(oldPrefs);
+    Map<String, Map<String, Object>> newByCategory = groupByCategory(newPrefs);
+    
+    for (String category : oldByCategory.keySet()) {
+        Map<String, Object> oldPref = oldByCategory.get(category);
+        Map<String, Object> newPref = newByCategory.get(category);
+        
+        if (newPref == null) {
+            // Category removed
+            return new ConflictResult("EVOLUTION", "keep_both", "Category removed");
+        }
+        
+        if (!oldPref.get("value").equals(newPref.get("value")) ||
+            !oldPref.get("sentiment").equals(newPref.get("sentiment"))) {
+            // Value or sentiment changed
+            return new ConflictResult("EVOLUTION", "keep_both", "Value/sentiment changed");
+        }
+    }
+    
+    return new ConflictResult("NONE", "no_action", "No conflicts");
+}
+```
+
+**Resolution**: Update `ConflictDetector` to support array-level comparison for schema with array properties.
+
+---
+
+### 20.7 Cross-Project User Identification — ✅ DECIDED
+
+**DECISION (2026-03-22)**: User ID is **project-scoped** (Option A).
+
+```
+Option A: Project-scoped userId (CHOSEN)
+  - User identifier: {project}:{userId}
+  - Alice in project A: userId = "alice" (different from Alice in project B)
+  - Preference session: "pref:/project-a:alice"
+  - Matches existing project-based isolation
+```
+
+**Rationale**:
+- Simpler implementation — no global user management needed
+- Consistent with existing `project_path` isolation model
+- Each project can have its own user namespace
+- Can upgrade to global userId later if needed
+
+**Implication**: If Alice is a user in both `/project-a` and `/project-b`, she has two separate preference profiles: `pref:/project-a:alice` and `pref:/project-b:alice`.
+
+---
+
+### 20.8 Summary of Walkthrough Findings
+
+| # | Issue | Severity | Resolution | Status |
+|---|-------|----------|------------|--------|
+| 1 | Array schema for multiple preferences | 🔴 Critical | Use array-wrapped schema | ✅ Resolved |
+| 2 | Multi-user session aggregation | 🔴 Critical | `user_id` field in SessionEntity | ✅ Decided |
+| 3 | Special session ID discovery | 🟡 Medium | `sessionIdPattern` + `user_id` | ✅ Resolved |
+| 4 | Incremental extraction merging | 🔴 Critical | Merge logic for duplicate detection | ⏳ Design needed |
+| 5 | ICL prompt data formatting | 🟡 Medium | Add `formatExtractedData()` utility | ⏳ Design needed |
+| 6 | Array-level conflict detection | 🟡 Medium | Update ConflictDetector | ⏳ Deferred to Phase 3.3 |
+| 7 | Cross-project user identification | 🟡 Medium | Project-scoped userId | ✅ Decided |
+
+**Confirmed for Phase 3.1**:
+1. ✅ Add `session-id-pattern` to ExtractionTemplate configuration
+2. ✅ Update schema examples to use array-wrapped format
+3. ✅ Add `user_id` to `SessionEntity` (Flyway migration)
+4. ✅ Add `findByUserId()` repository method
+5. ✅ Update extraction to group observations by user
+
+**Deferred Items**:
+1. `formatExtractedData()` utility (can use generic JSON serialization for now)
+2. Multi-level conflict detection for arrays (Phase 3.3)
+3. Incremental extraction merge logic (needs design iteration)
+
+---
+
 ## Changelog
 
-- **2026-03-22 v15**: (1) **Section 19.1**: Flyway migration requirements for upsert — clarified `@Transactional` approach works without schema changes, upsert is optional optimization. (2) **Section 19.2**: Prerequisite implementation sequencing — ordered by dependency and effort (2.5-3 hours total). (3) **Section 19.3**: Initial run cost explosion prevention — `initial-run-max-candidates` config (default 100) to cap first-run when state is null. Critical for preventing $12+ LLM costs on first extraction. (4) **Section 19.4**: Extraction query API concrete endpoint specification — 5 endpoints with JSONB search implementation details. (5) **Section 19.5**: Conflict resolution strategy — default to auto-resolve with audit trail (keep newer for contradictions, record history for evolution). (6) **Section 19.6**: `findByTypeLike` vs template iteration decision — `findByTypeLike` preferred for ICL integration (single query, catches all extractions). (7) **Section 19.7**: Consolidated implementation-ready checklist — 13 verification items across prerequisites, classpath, config, integration, and testing.
+- **2026-03-22 v17**: (1) **Section 20.2**: Multi-user session aggregation resolved — confirmed `user_id` field addition to `SessionEntity` with Flyway migration V15, repository methods, and ingestion update. (2) **Section 20.3**: Special session ID fully resolved — `sessionIdPattern` + `user_id` enables complete per-user extraction flow with grouping, special session creation, and isolated query. (3) **Section 20.7**: Cross-project user identification decided — project-scoped userId (Option A). (4) **Section 20.8**: Updated summary table — 4 issues resolved, 3 deferred. (5) Confirmed Phase 3.1 scope includes `user_id` field addition (previously deferred to 3.2+).
 - **2026-03-22 v14**: (1) **Section 15.8 Bug Fix**: Fixed `findByType(project, "extracted_%", 50)` wildcard bug — `findByType` uses exact match (`type = :type`), NOT LIKE. Added `findByTypeLike()` repository method as prerequisite #4, plus alternative approach (iterate known template names). Updated ICL prompt and experience API code examples. (2) **Section 9.1**: Added `findByTypeLike()` to pending repository methods list. (3) **Section 15.1**: Added `findByTypeLike()` as prerequisite #5. (4) **Section 15.10**: Updated validation checklist with `findByTypeLike` or template-iteration alternative. (5) **Section 17**: Extraction idempotency — prevents duplicate `extracted_{template}` observations from re-running extraction. Composite hash deduplication + state guard clause. (6) **Section 18**: Observation type namespace reservation — `extraction_*` prefix reserved for system use. Added validation option to prevent user-created type collisions. (7) **Verified**: Spring AI 1.1.2 classpath includes `BeanOutputConverter`, `MapOutputConverter`, `ListOutputConverter` in `spring-ai-model` jar. Confirmed 5 pending prerequisites still not implemented: `findBySourceIn`, `findNewObservations`, `findByTypeGlobal`, `findByTypeLike`, `chatCompletionStructured`.
 - **2026-03-22 v13**: (1) **Quick Reference**: Added TL;DR summary at top — what, how, when, prerequisites, pipeline diagram. (2) **Section 15.6**: Transaction safety for extraction state management — `@Transactional` wrapper for delete-then-save pattern, plus SQL upsert alternative for production. (3) **Section 15.7**: Concurrency control — per-project `ReentrantLock` to prevent duplicate extraction runs from deepRefine + scheduled task overlap. (4) **Section 15.8**: ICL prompt integration — how extracted data surfaces in `/api/memory/icl-prompt` and experience API (`includeExtractions` flag). (5) **Section 15.9**: Token counting without TokenService — character-based heuristic (CJK-aware) for batching observations. (6) **Section 16**: Architecture Decision Records — 4 key decisions (store as ObservationEntity, BeanOutputConverter, separate pipeline, POJO+Map hybrid) captured with rationale and tradeoffs. (7) **Section 15.10**: Updated validation checklist with `@Transactional` and wildcard `findByType` support.
 - **2026-03-22 v12**: (1) **Section 15**: Added Implementation Bootstrap Checklist — step-by-step Phase 3.1 guide with prerequisites, new files, and validation checklist. (2) **Section 15.1**: Fixed DLQ bug — `findByType(null, ...)` won't work because `@Param("project")` is non-null; added `findByTypeGlobal()` repository method as prerequisite. (3) **Section 15.3**: Added Record vs POJO analysis for `ExtractionTemplate` configuration binding — recommended POJO approach via `@ConfigurationProperties` for Spring Boot 3.3 compatibility. (4) **Section 15.4**: Added concrete `LlmService.chatCompletionStructured()` implementation with `BeanOutputConverter`/`MapOutputConverter` dual pattern. (5) **Section 15.5**: Clarified extraction integration order — must NOT run during `quickRefine()`, only as last step of `deepRefineProjectMemories()`. (6) **Section 11.3**: Fixed DLQ retry code to use `findByTypeGlobal()` instead of broken `findByType(null, ...)`.
