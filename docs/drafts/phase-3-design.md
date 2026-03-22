@@ -401,8 +401,6 @@ app.memory.extraction:
             }
           }
         }
-      track-evolution: true
-      conflict-enabled: true
       
     - name: "allergy_info"
       enabled: true
@@ -424,8 +422,6 @@ app.memory.extraction:
             "severity": {"type": "string"}
           }
         }
-      track-evolution: false
-      conflict-enabled: true
       
     - name: "important_dates"
       template-class: "java.util.Map"            # Array results stored in Map["dates"]
@@ -452,8 +448,6 @@ app.memory.extraction:
             }
           }
         }
-      track-evolution: false
-      conflict-enabled: false
 ```
 
 ### 2.3 Generic StructuredExtractionService
@@ -2238,20 +2232,28 @@ public MigrationResult migrateExtractions(
 public class ExtractionController {
 
     private final ObservationRepository observationRepository;
+    private final ExtractionConfig extractionConfig;
 
     @GetMapping("/{templateName}/latest")
     public ExtractionInfo getLatestExtraction(
             @PathVariable String templateName,
-            @RequestParam String projectPath) {
-
+            @RequestParam String projectPath,
+            @RequestParam(required = false) String userId) {
+        
+        // For user-scoped templates: query the special preference session
+        String targetSessionId = resolveTargetSessionId(templateName, projectPath, userId);
+        
+        if (targetSessionId != null) {
+            List<ObservationEntity> extractions = observationRepository
+                .findByContentSessionIdAndType(targetSessionId, 
+                    "extracted_" + templateName, 1);
+            return extractions.isEmpty() ? null : toExtractionInfo(extractions.get(0));
+        }
+        
+        // Fallback: query by type
         List<ObservationEntity> extractions = observationRepository
             .findByType(projectPath, "extracted_" + templateName, 1);
-
-        if (extractions.isEmpty()) {
-            return null;
-        }
-
-        return toExtractionInfo(extractions.get(0));
+        return extractions.isEmpty() ? null : toExtractionInfo(extractions.get(0));
     }
 
     @GetMapping("/{templateName}/history")
@@ -2578,22 +2580,20 @@ public class ExtractionConfig {
         private String name;
         private boolean enabled = true;
         private String templateClass = "java.util.Map";  // Default to flexible Map
+        private String sessionIdPattern;    // Target session ID pattern (null = inherit source session)
         private String description;
         private List<String> triggerKeywords = List.of();
         private List<String> sourceFilter = List.of();
         private String prompt;              // Maps from YAML "prompt"
         private String outputSchema;        // Maps from YAML "output-schema"
-        private boolean trackEvolution = false;
-        private boolean conflictEnabled = false;
         
         // Getters/setters...
         
         /** Convert to internal model (record) if needed */
         public com.ablueforce.cortexce.model.ExtractionTemplate toTemplate() {
             return new com.ablueforce.cortexce.model.ExtractionTemplate(
-                name, enabled, templateClass, description,
-                triggerKeywords, sourceFilter, prompt, outputSchema,
-                trackEvolution, conflictEnabled
+                name, enabled, templateClass, sessionIdPattern, description,
+                triggerKeywords, sourceFilter, prompt, outputSchema
             );
         }
     }
@@ -3215,11 +3215,13 @@ app.memory.extraction:
 **Proposed endpoints for ExtractionController**:
 
 ```
-GET  /api/extraction/{templateName}/latest?projectPath=...
-     → Returns most recent extraction result for template
+GET  /api/extraction/{templateName}/latest?projectPath=...&userId=...
+     → Returns most recent extraction result for template+user
+     → For user-scoped templates: queries pref:{project}:{userId} session
+     → For non-user-scoped: queries by type (latest)
 
-GET  /api/extraction/{templateName}/history?projectPath=...&limit=10
-     → Returns extraction history (all extracted_observations of this type)
+GET  /api/extraction/{templateName}/history?projectPath=...&userId=...&limit=10
+     → Returns extraction history for this template+user
 
 GET  /api/extraction/{templateName}/search?projectPath=...&field=allergens&value=花生
      → JSONB path query on extractedData
@@ -3227,8 +3229,8 @@ GET  /api/extraction/{templateName}/search?projectPath=...&field=allergens&value
 POST /api/extraction/run?projectPath=...
      → Manually trigger extraction for a project
 
-GET  /api/extraction/status?projectPath=...
-     → Show extraction state per template (lastExtractedAt, candidate count)
+GET  /api/extraction/status?projectPath=...&userId=...
+     → Show extraction state per template per user (lastExtractedAt, candidate count)
 ```
 
 **JSONB search implementation** (for field/value queries):
