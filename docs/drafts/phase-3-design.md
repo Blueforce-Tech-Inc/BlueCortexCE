@@ -4000,7 +4000,243 @@ public void reExtractForSession(String sessionId, String projectPath) {
 
 ---
 
+## 23. Token Cost Analysis & Cost Control (v23)
+
+This section provides a comprehensive token consumption analysis for both extraction and refinement pipelines, and proposes cost control strategies.
+
+### 23.1 Token Consumption Model
+
+**Per LLM call breakdown (extraction):**
+
+| Component | Tokens | Notes |
+|-----------|--------|-------|
+| System prompt (template) | ~300 | Template prompt + instructions |
+| Schema hint | ~200 | JSON Schema in user prompt |
+| Per observation | ~100-200 | Title + content + metadata |
+| Batch of 20 observations | ~2000-4000 | 20 × 100-200 |
+| **Total input per batch call** | **~2500-4500** | System + schema + observations |
+| **LLM output per batch** | **~300-800** | Structured JSON response |
+
+**Per LLM call breakdown (refinement):**
+
+| Component | Tokens | Notes |
+|-----------|--------|-------|
+| System prompt | ~200 | Refinement instructions |
+| Observation content | ~100-500 | Single observation to refine |
+| **Total input per call** | **~300-700** | |
+| **LLM output per call** | **~100-300** | Refined content |
+
+### 23.2 Extraction Cost Estimates
+
+**Scenario: 5 templates × 3 projects, medium usage**
+
+| Phase | Observations | Batches/Template | Total Calls | Frequency |
+|-------|-------------|-----------------|-------------|-----------|
+| Initial run (capped) | 100/project | 5 calls | 5 × 5 × 3 = 75 | Once |
+| Daily incremental | ~10 new/project | 1 call | 5 × 3 × 1 = 15/day | Daily |
+
+**Cost per day (incremental only, GPT-4o pricing):**
+
+| Model | Cost/Call | Daily Cost | Monthly Cost |
+|-------|-----------|------------|--------------|
+| SiliconFlow (cheap) | ~$0.0001 | $0.0015 | $0.045 |
+| GPT-4o-mini | ~$0.0005 | $0.0075 | $0.23 |
+| GPT-4o | ~$0.01 | $0.15 | $4.50 |
+| Claude 3.5 Sonnet | ~$0.008 | $0.12 | $3.60 |
+
+**Cost for initial run (one-time):**
+
+| Model | 75 calls | Cost |
+|-------|----------|------|
+| SiliconFlow | 75 × $0.0001 | $0.0075 |
+| GPT-4o-mini | 75 × $0.0005 | $0.0375 |
+| GPT-4o | 75 × $0.01 | $0.75 |
+
+### 23.3 Refinement Cost Estimates
+
+**Scenario: 100 observations/session, 10 sessions/day**
+
+| Operation | Calls/Observation | Calls/Session | Calls/Day |
+|-----------|-------------------|---------------|-----------|
+| Merge (2 obs merged into 1) | 0.5 | 50 | 500 |
+| Rewrite | 1 | 10-20 | 100-200 |
+| Quality scoring | 0 (no LLM) | 0 | 0 |
+| **Total refinement** | | **60-70** | **600-700** |
+
+**Daily refinement cost:**
+
+| Model | Cost/Call | Daily Cost | Monthly Cost |
+|-------|-----------|------------|--------------|
+| SiliconFlow | ~$0.0001 | $0.06 | $1.80 |
+| GPT-4o-mini | ~$0.0005 | $0.30 | $9.00 |
+| GPT-4o | ~$0.01 | $6.00 | $180 |
+
+### 23.4 Total Monthly Cost (Combined)
+
+**Scenario: 5 templates × 3 projects × 10 sessions/day × 100 obs/session**
+
+| Component | GPT-4o-mini | GPT-4o |
+|-----------|-------------|--------|
+| Extraction (incremental) | $0.23 | $4.50 |
+| Refinement | $9.00 | $180 |
+| **Total** | **$9.23** | **$184.50** |
+
+**Key insight**: Refinement dominates the cost (97%+). Extraction is cheap by comparison.
+
+### 23.5 Cost Control Strategies
+
+**Strategy 1: Frequency Control**
+
+| Mechanism | Default | Low-Cost | High-Frequency |
+|-----------|---------|----------|----------------|
+| Extraction schedule | Daily (2am) | Weekly | Every 6 hours |
+| Refinement trigger | Every SessionEnd | Only on deep refine | Every SessionEnd |
+| Deep refine schedule | Daily | Weekly | Daily |
+
+```yaml
+app.memory.extraction:
+  schedule: "0 0 2 * * ?"          # Daily at 2am (default)
+  # schedule: "0 0 2 * * 1"        # Weekly on Monday (low-cost)
+  # schedule: "0 0 */6 * * ?"      # Every 6 hours (high-frequency)
+
+app.memory.refine:
+  deep-refine-schedule: "0 0 3 * * ?"  # Daily at 3am
+  # deep-refine-schedule: "0 0 3 * * 1"  # Weekly (low-cost)
+```
+
+**Strategy 2: Batch Size Control**
+
+```yaml
+app.memory.extraction:
+  initial-run-max-candidates: 100   # Cap first run
+  max-observations-per-batch: 20    # Batch size for LLM calls
+  max-batches-per-template: 10      # Cap per template per run
+```
+
+**Strategy 3: Model Selection**
+
+Use cheaper models for extraction (structured output is schema-driven, less quality-sensitive):
+
+```yaml
+app.memory.extraction:
+  model: "gpt-4o-mini"              # Cheaper for extraction
+  # model: "gpt-4o"                 # Higher quality, higher cost
+
+app.memory.refine:
+  model: "gpt-4o"                   # Higher quality for refinement
+```
+
+**Strategy 4: Incremental Extraction (Already Designed)**
+
+Section 7.1 already implements incremental extraction. Only new observations since last extraction are processed. This is the primary cost reduction mechanism.
+
+**Strategy 5: Cost Budget & Alerting**
+
+```yaml
+app.memory.cost:
+  monthly-budget-usd: 50.00
+  alert-threshold-percent: 80       # Alert at 80% of budget
+  pause-at-budget: true             # Pause extraction when budget exceeded
+```
+
+```java
+// Cost tracker
+private final AtomicReference<BigDecimal> monthlyCost = new AtomicReference<>(BigDecimal.ZERO);
+
+private void checkBudget() {
+    BigDecimal budget = new BigDecimal(costConfig.getMonthlyBudgetUsd());
+    BigDecimal threshold = budget.multiply(new BigDecimal("0.8"));
+    
+    if (monthlyCost.get().compareTo(threshold) > 0) {
+        log.warn("Monthly cost ${} approaching budget ${}", monthlyCost.get(), budget);
+        if (costConfig.isPauseAtBudget() && monthlyCost.get().compareTo(budget) > 0) {
+            log.error("Monthly budget exceeded, pausing extraction");
+            throw new BudgetExceededException("Monthly cost budget exceeded");
+        }
+    }
+}
+```
+
+### 23.6 Cost-Effectiveness Analysis
+
+**Question: Is extraction worth the cost?**
+
+**Extraction value**:
+- ICL prompt includes structured preferences → better AI responses
+- Personalization without re-reading all conversations
+- One-time extraction cost, repeated use in every ICL prompt
+
+**ROI per extraction call**:
+- Cost: $0.0005 (GPT-4o-mini)
+- ICL context: ~500 tokens of structured preferences
+- Used in: Every subsequent conversation (10-100 calls/day)
+- Value: 500 tokens × 10-100 conversations = 5000-50000 tokens of context value
+
+**Conclusion**: Extraction is highly cost-effective. The initial cost is amortized over many subsequent uses.
+
+**Refinement value**:
+- Keeps memory quality high (removes duplicates, merges related observations)
+- Reduces ICL prompt size (fewer redundant observations)
+- Prevents memory pollution
+
+**ROI per refinement call**:
+- Cost: $0.005 (GPT-4o-mini)
+- Value: Removes 1-2 low-quality observations
+- Saves: ~100-200 tokens per future ICL prompt
+
+**Conclusion**: Refinement has moderate cost-effectiveness. Deep refinement should be infrequent (weekly) to balance cost vs quality.
+
+### 23.7 Recommended Cost Configuration
+
+**Default (balanced)**:
+
+```yaml
+app.memory.extraction:
+  enabled: true
+  schedule: "0 0 2 * * ?"              # Daily at 2am
+  initial-run-max-candidates: 100
+  max-observations-per-batch: 20
+  max-batches-per-template: 10
+  cost-control:
+    max-calls-per-run: 50
+    dry-run: false
+
+app.memory.refine:
+  deep-refine-schedule: "0 0 3 * * ?"  # Daily at 3am
+  quick-refine: true                    # Every session end
+```
+
+**Low-cost profile**:
+
+```yaml
+app.memory.extraction:
+  schedule: "0 0 2 * * 1"              # Weekly on Monday
+  initial-run-max-candidates: 50
+  max-batches-per-template: 5
+
+app.memory.refine:
+  deep-refine-schedule: "0 0 3 * * 1"  # Weekly
+  quick-refine: true
+```
+
+**High-frequency profile**:
+
+```yaml
+app.memory.extraction:
+  schedule: "0 0 */6 * * ?"            # Every 6 hours
+  initial-run-max-candidates: 200
+  max-batches-per-template: 20
+
+app.memory.refine:
+  deep-refine-schedule: "0 0 3 * * ?"  # Daily
+  quick-refine: true
+```
+
+---
+
 ## Changelog
+
+- **2026-03-22 v23**: (1) **Section 23**: Added comprehensive token cost analysis — per-call breakdown, extraction cost estimates, refinement cost estimates, combined monthly cost projection. (2) **Section 23.5**: Cost control strategies — frequency control, batch size control, model selection, incremental extraction, cost budget & alerting. (3) **Section 23.6**: Cost-effectiveness analysis — extraction ROI is high (amortized over many conversations), refinement ROI is moderate (deep refine should be weekly). (4) **Section 23.7**: Three recommended cost profiles — default (balanced), low-cost (weekly), high-frequency (6-hourly). Key finding: refinement dominates cost (97%+), extraction is cheap by comparison.
 
 - **2026-03-22 v22**: (1) **Section 22.4**: Resolved session userId update timing issue — PATCH API now triggers `reExtractForSession()` to re-extract observations after userId is assigned. (2) **Section 22.5**: Updated summary — all 10 SDK API issues resolved, no known limitations remain.
 
