@@ -829,8 +829,8 @@ templates:
     # output-schema: auto-derived from AllergyInfo.class by BeanOutputConverter
 
 // Usage
-var result = extractionService.extractByTemplate(projectPath, allergyTemplate);
-// result.content() is AllergyInfo: {person: "孩子", allergens: ["花生", "虾"], severity: "严重"}
+var result = extractionService.extractByTemplate(projectPath, allergyTemplate, candidates, priorJson);
+// result is AllergyInfo: {person: "孩子", allergens: ["花生", "虾"], severity: "严重"}
 ```
 
 **Option B: Map Template** (flexible, no predefined class needed)
@@ -850,8 +850,8 @@ templates:
       {"type": "object", "properties": {"person": {"type": "string"}, "allergens": {"type": "array", "items": {"type": "string"}}, "severity": {"type": "string"}}}
 
 // Usage
-var result = extractionService.extractByTemplate(projectPath, allergyTemplate);
-// result.content() is Map<String, Object>: {person="孩子", allergens=[花生, 虾], severity="严重"}
+var result = extractionService.extractByTemplate(projectPath, allergyTemplate, candidates, priorJson);
+// result is Map<String, Object>: {person="孩子", allergens=[花生, 虾], severity="严重"}
 ```
 
 ---
@@ -1053,8 +1053,9 @@ public void runIncrementalExtraction(String projectPath, ExtractionTemplate temp
         return; // Nothing new to extract
     }
     
-    // Extract from new candidates only
-    var result = extractByTemplate(projectPath, template, newCandidates);
+    // Extract from new candidates only (with prior context for LLM re-extraction)
+    String priorJson = fetchPriorExtraction(targetSessionId, template);
+    var result = extractByTemplate(projectPath, template, newCandidates, priorJson);
     
     // Update state
     updateExtractionState(projectPath, template.name(), OffsetDateTime.now());
@@ -2155,7 +2156,7 @@ This section provides a concrete, step-by-step guide for implementing Phase 3.1.
 | 3 | Add `findByTypeGlobal()` | `ObservationRepository.java` | Cross-project query for DLQ — `findByType(null, ...)` will NOT work because `@Param("project")` is non-null |
 | 4 | Add `findByTypeLike()` | `ObservationRepository.java` | **NEW (v14)**: Wildcard type query using `LIKE`. `findByType` uses exact match (`type = :type`), so `findByType(project, "extracted_%", 50)` does NOT match `extracted_user_preference`. Either add this method or iterate known template names (see section 15.8). |
 | 5 | Add `chatCompletionStructured()` | `LlmService.java` | Uses `BeanOutputConverter<T>` from `org.springframework.ai.converter` |
-| 6 | Add `findByContentSessionIdAndType()` | `ObservationRepository.java` | **NEW (v17)**: Find existing extraction by session ID + type for merge logic |
+| 6 | Add `findByContentSessionIdAndType()` | `ObservationRepository.java` | **NEW (v17)**: Fetch prior extraction result for LLM re-extraction context |
 | 7 | Add `findByUserId()` | `SessionRepository.java` | **NEW (v17)**: Find sessions by user_id for user grouping |
 | 8 | Add `findSessionIdsByUserIdAndProject()` | `SessionRepository.java` | **NEW (v17)**: Find session IDs by user + project for extraction grouping |
 
@@ -3525,9 +3526,10 @@ private void runTemplateExtraction(String projectPath, ExtractionTemplate templa
 
 ```java
 public void runTemplateExtraction(String projectPath, ExtractionTemplate template) {
-    // Step 1+2: Get candidates + LLM call (NO transaction)
+    // Step 1+2: Get candidates + prior result + LLM call (NO transaction)
     List<ObservationEntity> candidates = getCandidates(projectPath, template, state);
-    Object result = extractByTemplate(projectPath, template, candidates);
+    String priorJson = fetchPriorExtraction(targetSessionId, template);
+    Object result = extractByTemplate(projectPath, template, candidates, priorJson);
     
     if (result == null) return;
     
