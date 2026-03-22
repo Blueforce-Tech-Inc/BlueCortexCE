@@ -147,7 +147,7 @@ test_observation_with_userid() {
             \"type\": \"user_statement\",
             \"title\": \"不喜欢苹果\",
             \"source\": \"user_statement\",
-            \"content\": \"我不喜欢苹果手机\",
+            \"narrative\": \"我不喜欢苹果手机\",
             \"concepts\": [\"phone\", \"apple\"],
             \"prompt_number\": 1
         }" 2>&1) || {
@@ -171,7 +171,7 @@ test_observation_with_userid() {
             \"type\": \"user_statement\",
             \"title\": \"喜欢小米\",
             \"source\": \"user_statement\",
-            \"content\": \"小米也不错，预算3000\",
+            \"narrative\": \"小米也不错，预算3000\",
             \"concepts\": [\"phone\", \"xiaomi\"],
             \"prompt_number\": 2
         }" > /dev/null 2>&1
@@ -192,7 +192,7 @@ test_bob_observations() {
             \"type\": \"user_statement\",
             \"title\": \"花生过敏\",
             \"source\": \"user_statement\",
-            \"content\": \"我老婆对花生过敏\",
+            \"narrative\": \"我老婆对花生过敏\",
             \"concepts\": [\"allergy\", \"peanut\"],
             \"prompt_number\": 1
         }" > /dev/null 2>&1
@@ -417,7 +417,7 @@ test_hook_mode_compat() {
             \"type\": \"test\",
             \"title\": \"Hook mode test\",
             \"source\": \"user_statement\",
-            \"content\": \"Testing hook mode compatibility\",
+            \"narrative\": \"Testing hook mode compatibility\",
             \"prompt_number\": 1
         }" 2>&1) || {
         fail "Test 11: Hook observation ingestion failed: $obs"

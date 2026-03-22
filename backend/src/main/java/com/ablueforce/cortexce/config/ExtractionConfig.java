@@ -69,6 +69,8 @@ public class ExtractionConfig {
         private String prompt;
         /** JSON Schema string for structured output (used with Map.class). */
         private String outputSchema;
+        /** Fields used to build deduplication key for append-only merge. */
+        private List<String> keyFields = new ArrayList<>();
 
         public String getName() { return name; }
         public void setName(String name) { this.name = name; }
@@ -90,5 +92,8 @@ public class ExtractionConfig {
 
         public String getOutputSchema() { return outputSchema; }
         public void setOutputSchema(String s) { this.outputSchema = s; }
+
+        public List<String> getKeyFields() { return keyFields; }
+        public void setKeyFields(List<String> kf) { this.keyFields = kf; }
     }
 }

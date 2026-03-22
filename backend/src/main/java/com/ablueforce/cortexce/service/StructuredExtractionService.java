@@ -347,6 +347,18 @@ public class StructuredExtractionService {
             return;
         }
 
+        // Ensure target session exists (FK constraint: mem_observations.content_session_id → mem_sessions)
+        sessionRepository.findByContentSessionId(targetSessionId)
+            .orElseGet(() -> {
+                log.info("Creating extraction session: {}", targetSessionId);
+                com.ablueforce.cortexce.entity.SessionEntity session = new com.ablueforce.cortexce.entity.SessionEntity();
+                session.setContentSessionId(targetSessionId);
+                session.setProjectPath(projectPath);
+                session.setStatus("extraction");
+                session.setStartedAtEpoch(System.currentTimeMillis());
+                return sessionRepository.save(session);
+            });
+
         ObservationEntity extraction = new ObservationEntity();
         extraction.setContentSessionId(targetSessionId);
         extraction.setProjectPath(projectPath);
@@ -424,6 +436,25 @@ public class StructuredExtractionService {
         } catch (NoSuchAlgorithmException e) {
             return projectPath.replaceAll("[^a-zA-Z0-9]", "_");
         }
+    }
+
+    /**
+     * Build a deduplication key from an extracted item using configurable key fields.
+     * If keyFields is configured, concatenates field values with ":".
+     * If not configured, falls back to full item hash.
+     */
+    private String buildItemKey(Map<String, Object> item, List<String> keyFields) {
+        if (keyFields == null || keyFields.isEmpty()) {
+            // Fallback: use sorted entry set hash for stable key
+            String sorted = item.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(e -> e.getKey() + "=" + e.getValue())
+                .collect(Collectors.joining(","));
+            return "hash:" + sorted.hashCode();
+        }
+        return keyFields.stream()
+            .map(f -> String.valueOf(item.getOrDefault(f, "")))
+            .collect(Collectors.joining(":"));
     }
 
     /**

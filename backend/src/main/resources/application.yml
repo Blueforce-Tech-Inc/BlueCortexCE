@@ -36,6 +36,7 @@ app:
           template-class: "java.util.Map"
           session-id-pattern: "pref:{project}:{userId}"
           source-filter: ["user_statement", "manual"]
+          key-fields: ["category", "value"]
           prompt: |
             From the following conversation observations, extract user preferences.
             A preference is a stable choice, opinion, or constraint expressed by the user.
