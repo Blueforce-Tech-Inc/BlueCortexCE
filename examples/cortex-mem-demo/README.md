@@ -39,6 +39,8 @@ Demo runs on `http://localhost:37778`.
 | `GET /memory/icl?task=...&project=project-a` | Build ICL prompt |
 | `GET /memory/icl/truncated?task=...&project=project-a&maxChars=4000` | ICL with adaptive truncation (V14) |
 | `GET /memory/experiences/filtered?task=...&source=...` | Experiences with source filtering (V14) |
+| `GET /memory/extraction/latest?template=...&userId=...` | Latest extraction result for user (V15) |
+| `GET /memory/extraction/history?template=...&userId=...&limit=10` | Extraction history for user (V15) |
 | `GET /memory/health?project=project-a` | Memory health check |
 | `GET /chat?message=...&project=project-a` | Memory-augmented chat by project |
 | `GET /demo/tool?path=...&project=project-a` | Tool call scoped to project |
@@ -51,7 +53,10 @@ Demo runs on `http://localhost:37778`.
 # V14 demo tests (4 tests)
 ./scripts/demo-v14-test.sh
 
-# Phase 3 acceptance tests (18 tests, includes LLM extraction)
+# V15 demo tests (3 tests - extraction endpoints)
+./scripts/demo-v15-test.sh
+
+# Phase 3 acceptance tests (20 tests, all pass with EXTRACTION_ENABLED=true)
 EXTRACTION_ENABLED=true ./scripts/phase3-acceptance-test.sh
 ```
 
@@ -67,6 +72,7 @@ EXTRACTION_ENABLED=true ./scripts/phase3-acceptance-test.sh
 8. **V14: Adaptive truncation** — Control ICL prompt size with `maxChars`
 9. **V14: Source & concept filtering** — Filter experiences by source or concepts
 10. **Phase 3: Multi-user support** — `userId` on sessions for user-scoped memory
+11. **Phase 3: Structured extraction** — LLM-driven extraction of user preferences, health info, etc.
 
 ## Dependency (JitPack)
 

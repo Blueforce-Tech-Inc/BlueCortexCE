@@ -132,6 +132,42 @@ public class MemoryController {
         return cortexClient.retrieveExperiences(request);
     }
 
+    // ===== V15: Extraction API (Phase 3) =====
+
+    /**
+     * Get latest extraction result for a user and template.
+     * Demonstrates V15 StructuredExtractionService integration.
+     *
+     * @param project Project path
+     * @param template Template name (e.g., "user_preferences")
+     * @param userId User identifier for multi-user isolation
+     */
+    @GetMapping("/memory/extraction/latest")
+    public Map<String, Object> getLatestExtraction(
+            @RequestParam(defaultValue = "/") String project,
+            @RequestParam String template,
+            @RequestParam String userId) {
+        return cortexClient.getLatestExtraction(resolveProject(project), template, userId);
+    }
+
+    /**
+     * Get extraction history for a user and template.
+     * Demonstrates V15 extraction history tracking.
+     *
+     * @param project Project path
+     * @param template Template name
+     * @param userId User identifier
+     * @param limit Maximum history entries (default 10)
+     */
+    @GetMapping("/memory/extraction/history")
+    public List<Map<String, Object>> getExtractionHistory(
+            @RequestParam(defaultValue = "/") String project,
+            @RequestParam String template,
+            @RequestParam String userId,
+            @RequestParam(defaultValue = "10") int limit) {
+        return cortexClient.getExtractionHistory(resolveProject(project), template, userId, limit);
+    }
+
     /**
      * Memory health check.
      * Demonstrates V14 observation management.
