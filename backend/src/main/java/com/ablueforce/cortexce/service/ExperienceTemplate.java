@@ -110,7 +110,7 @@ public class ExperienceTemplate {
             if (action.contains("test") || action.contains("Test")) {
                 sb.append("- Testing or verification is required\n");
             }
-            if (action.contains("refactor") || action.contains("refactor")) {
+            if (action.contains("refactor") || action.contains("Refactor")) {
                 sb.append("- Code refactoring is needed\n");
             }
         }

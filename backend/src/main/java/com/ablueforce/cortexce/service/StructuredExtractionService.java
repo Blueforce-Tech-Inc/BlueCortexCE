@@ -591,12 +591,19 @@ public class StructuredExtractionService {
             if (key.length() > 0) key.append("::");
             key.append(str);
         }
-        // Fallback: use full JSON if all key fields are empty (prevents "null::null" collisions)
+        // Fallback: use deterministic content hash if all key fields are empty
         if (allEmpty) {
             try {
-                return "hash::" + Integer.toHexString(MAPPER.writeValueAsString(item).hashCode());
-            } catch (JsonProcessingException e) {
-                return "hash::" + item.hashCode();
+                String json = MAPPER.writeValueAsString(item);
+                MessageDigest md = MessageDigest.getInstance("SHA-256");
+                byte[] hash = md.digest(json.getBytes(StandardCharsets.UTF_8));
+                StringBuilder sb = new StringBuilder("hash::");
+                for (int i = 0; i < 8; i++) {
+                    sb.append(String.format("%02x", hash[i]));
+                }
+                return sb.toString();
+            } catch (JsonProcessingException | NoSuchAlgorithmException e) {
+                return "hash::" + System.identityHashCode(item);
             }
         }
         return key.toString();
