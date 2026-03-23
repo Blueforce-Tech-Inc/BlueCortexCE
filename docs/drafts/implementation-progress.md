@@ -110,6 +110,32 @@
 
 ---
 
+## Phase 5: ✅ COMPLETED (2026-03-23)
+
+### Section 24.6: Append-only Extraction (Solution D)
+- [x] `extractAppendOnly()` — LLM only outputs add/remove/keep_hint
+- [x] `mergeAppendOnly()` — Service merges with full prior from DB
+- [x] `buildItemKey()` — Deduplication by category+value
+- [x] Modified `extractByTemplate()` to use append-only when prior exists
+- [x] Token cost: ~2000 (append-only) vs ~7000 (full prior)
+
+**Commit**: `8880a3a`
+
+### Code Review Improvements (2026-03-23)
+- [x] Type-safe extractedData handling in PATCH handler
+- [x] Fix double-save in MemoryRefineService
+- [x] Improve JSON fence parsing
+- [x] Fix saveAll on deleted entities in refineObservations
+- [x] Hoist resolveUserId out of template loop (N+1 fix)
+- [x] Add null-check for extractionService in MemoryRefineService
+- [x] Fix N+1 query in groupByUser
+- [x] Strict JSON parse error handling
+- [x] Remove dead code buildItemKey (old version)
+
+**Commits**: `7df565b`, `7cbaacc`, `af4c310`, `9398862`, `f4dd148`
+
+---
+
 ## Verification Results
 
 ```bash
@@ -117,9 +143,13 @@
 bash scripts/regression-test.sh
 ✅ 43/43 tests passed
 
-# Phase 3 acceptance test
+# Phase 3 acceptance test (EXTRACTION_ENABLED=true)
+EXTRACTION_ENABLED=true bash scripts/phase3-acceptance-test.sh
+✅ 22/22 passed (ALL EXTRACTION TESTS PASSING!)
+
+# Phase 3 acceptance test (EXTRACTION_ENABLED=false)
 bash scripts/phase3-acceptance-test.sh
-✅ 18/18 passed, 4 skipped (EXTRACTION_ENABLED=false)
+✅ 18/18 passed, 4 skipped
 
 # Demo V14 test
 bash scripts/demo-v14-test.sh
