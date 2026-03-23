@@ -493,6 +493,7 @@ public class StructuredExtractionService {
 
         String json = response.trim();
         if (json.startsWith("```")) {
+            // Handle both ```json\n...\n``` and ```\n...\n``` (with or without language tag)
             int firstNewline = json.indexOf('\n');
             int lastFence = json.lastIndexOf("```");
             if (firstNewline > 0 && lastFence > firstNewline) {

@@ -342,17 +342,15 @@ public class MemoryRefineService {
             );
             
             if (mergedContent != null && !mergedContent.isEmpty()) {
-                // Update first observation with merged content
+                // Update first observation with merged content (caller will save via saveAll)
                 ObservationEntity primary = observations.get(0);
                 primary.setContent(mergedContent);
-                observationRepository.save(primary);
 
-                // Delete others - use UUID type
+                // Delete others immediately (structural change, not just field update)
                 List<UUID> toDeleteIds = observations.stream()
                     .skip(1)
                     .map(ObservationEntity::getId)
                     .collect(Collectors.toList());
-
                 observationRepository.deleteAllById(toDeleteIds);
 
                 log.info("Merged {} observations into one via LLM", observations.size());
@@ -382,7 +380,6 @@ public class MemoryRefineService {
             
             if (improvedContent != null && !improvedContent.isEmpty()) {
                 observation.setContent(improvedContent);
-                observationRepository.save(observation);
                 log.info("Rewrote observation {} via LLM", observation.getId());
             }
         } catch (Exception e) {

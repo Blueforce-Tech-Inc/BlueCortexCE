@@ -228,6 +228,15 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     // Find observations for a session, ordered ascending (for summary generation)
     List<ObservationEntity> findByContentSessionIdOrderByCreatedAtEpochAsc(String contentSessionId);
 
+    // Batch: find observations across multiple sessions (avoids N+1 query)
+    @Query(value = """
+        SELECT * FROM mem_observations
+        WHERE content_session_id IN (:sessionIds)
+        ORDER BY created_at_epoch DESC
+        """, nativeQuery = true)
+    List<ObservationEntity> findByContentSessionIdInOrderByCreatedAtEpochDesc(
+        @Param("sessionIds") List<String> sessionIds);
+
     // P2: Hybrid search combining pgvector semantic + tsvector full-text
     @Query(value = """
         WITH semantic_results AS (

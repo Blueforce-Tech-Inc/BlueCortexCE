@@ -260,13 +260,10 @@ public class ExpRagService {
                 return List.of();
             }
 
-            // Get observations from user's sessions
-            List<ObservationEntity> results = new ArrayList<>();
-            for (String sessionId : sessionIds) {
-                List<ObservationEntity> sessionObs = observationRepository
-                    .findByContentSessionIdOrderByCreatedAtEpochAsc(sessionId);
-                results.addAll(sessionObs);
-            }
+            // Get observations from user's sessions (batch query instead of N+1)
+            List<ObservationEntity> results = new ArrayList<>(
+                observationRepository.findByContentSessionIdInOrderByCreatedAtEpochDesc(sessionIds)
+            );
 
             // Apply source filter if specified
             if (source != null && !source.isBlank()) {
