@@ -397,12 +397,23 @@ public class StructuredExtractionService {
         // Start with full prior
         Map<String, Object> merged = new HashMap<>(fullPriorData);
 
-        // Build remove key set (composite: category+value or item identity fields)
-        Set<String> removeKeys = removeItems.stream()
+        // Build keep_hint key set (items that should NOT be removed)
+        Set<String> keepHintKeys = keepHint.stream()
             .map(this::buildItemKey)
             .collect(Collectors.toSet());
 
-        // Remove explicitly rejected items from all list fields
+        // Build remove key set, excluding keep_hint items (protect from removal)
+        Set<String> removeKeys = removeItems.stream()
+            .map(this::buildItemKey)
+            .filter(key -> !keepHintKeys.contains(key))
+            .collect(Collectors.toSet());
+
+        if (!removeItems.isEmpty() && removeKeys.size() < removeItems.size()) {
+            log.debug("Protected {} items from removal due to keep_hint",
+                removeItems.size() - removeKeys.size());
+        }
+
+        // Remove explicitly rejected items (minus keep_hint protected) from all list fields
         for (Map.Entry<String, Object> entry : merged.entrySet()) {
             if (entry.getValue() instanceof List<?> list) {
                 List<Map<String, Object>> filtered = new ArrayList<>();
@@ -459,8 +470,18 @@ public class StructuredExtractionService {
      * Used by mergeAppendOnly to prevent duplicate entries.
      */
     private String buildItemKey(Map<String, Object> item) {
-        String category = String.valueOf(item.getOrDefault("category", ""));
-        String value = String.valueOf(item.getOrDefault("value", ""));
+        Object cat = item.get("category");
+        Object val = item.get("value");
+        String category = cat != null ? cat.toString() : "";
+        String value = val != null ? val.toString() : "";
+        // Fallback: use full JSON if both category and value are empty (prevents "null::null" collisions)
+        if (category.isEmpty() && value.isEmpty()) {
+            try {
+                return "hash::" + Integer.toHexString(MAPPER.writeValueAsString(item).hashCode());
+            } catch (JsonProcessingException e) {
+                return "hash::" + item.hashCode();
+            }
+        }
         return category + "::" + value;
     }
 
