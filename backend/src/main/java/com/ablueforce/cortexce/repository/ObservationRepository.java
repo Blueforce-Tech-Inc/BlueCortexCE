@@ -170,52 +170,28 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         @Param("limit") int limit
     );
 
-    // Filter by type
-    @Query(value = """
-        SELECT * FROM mem_observations
-        WHERE project_path = :project
-        AND type = :type
-        ORDER BY created_at_epoch DESC
-        LIMIT :limit
-        """, nativeQuery = true)
-    List<ObservationEntity> findByType(
-        @Param("project") String project,
-        @Param("type") String type,
-        @Param("limit") int limit
-    );
-
-    // Filter by concept (JSONB array exact match) - aligned with TS SessionSearch.ts buildFilterClause
-    // Uses jsonb_array_elements_text for proper text comparison (exact match, not LIKE)
-    @Query(value = """
-        SELECT * FROM mem_observations
-        WHERE project_path = :project
-        AND EXISTS (
-            SELECT 1 FROM jsonb_array_elements_text(concepts::jsonb) elem
-            WHERE elem = :concept
-        )
-        ORDER BY created_at_epoch DESC
-        LIMIT :limit
-        """, nativeQuery = true)
-    List<ObservationEntity> findByConceptContaining(
-        @Param("project") String project,
-        @Param("concept") String concept,
-        @Param("limit") int limit
-    );
-
-    // Advanced combined filter
+    // Composable AND filter — all non-null parameters are combined
     @Query(value = """
         SELECT * FROM mem_observations
         WHERE project_path = :project
         AND (:type IS NULL OR type = :type)
-        AND created_at_epoch BETWEEN :startEpoch AND :endEpoch
+        AND (:source IS NULL OR source = :source)
+        AND (:concept IS NULL OR EXISTS (
+            SELECT 1 FROM jsonb_array_elements_text(concepts::jsonb) elem
+            WHERE elem = :concept
+        ))
+        AND (:startEpoch IS NULL OR created_at_epoch >= :startEpoch)
+        AND (:endEpoch IS NULL OR created_at_epoch <= :endEpoch)
         ORDER BY created_at_epoch DESC
         LIMIT :limit
         """, nativeQuery = true)
-    List<ObservationEntity> advancedSearch(
+    List<ObservationEntity> findByAllFilters(
         @Param("project") String project,
         @Param("type") String type,
-        @Param("startEpoch") long startEpoch,
-        @Param("endEpoch") long endEpoch,
+        @Param("source") String source,
+        @Param("concept") String concept,
+        @Param("startEpoch") Long startEpoch,
+        @Param("endEpoch") Long endEpoch,
         @Param("limit") int limit
     );
 
@@ -618,7 +594,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
 
     /**
      * Wildcard type query using LIKE for ICL integration.
-     * findByType uses exact match (=), so findByType(project, "extracted_%", 50) won't work.
+     * findByAllFilters uses exact match (=), so it won't work for patterns like "extracted_%".
      */
     @Query(value = """
         SELECT * FROM mem_observations

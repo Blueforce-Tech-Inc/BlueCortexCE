@@ -105,33 +105,28 @@ public class SearchService {
     }
 
     /**
-     * Filter-only search (type/concept/dateRange).
+     * Filter search with composable AND conditions.
+     * All non-null/non-blank filters are combined: type AND concept AND source AND dateRange.
+     * Uses database-level filtering for better performance.
      */
     private SearchResult filterSearch(SearchRequest request, int limit) {
         String project = request.project();
 
-        if (request.type() != null && !request.type().isBlank()) {
-            List<ObservationEntity> results = observationRepository.findByType(project, request.type(), limit);
-            return new SearchResult(results, "filter", false);
-        }
+        boolean hasAnyFilter = (request.type() != null && !request.type().isBlank())
+            || (request.source() != null && !request.source().isBlank())
+            || (request.concept() != null && !request.concept().isBlank())
+            || request.startEpoch() != null || request.endEpoch() != null;
 
-        if (request.concept() != null && !request.concept().isBlank()) {
-            // Exact match (aligned with TS SessionSearch.ts buildFilterClause)
-            List<ObservationEntity> results = observationRepository.findByConceptContaining(
-                project, request.concept(), limit);
-            return new SearchResult(results, "filter", false);
-        }
-
-        // V14: Source-based filtering
-        if (request.source() != null && !request.source().isBlank()) {
-            List<ObservationEntity> results = observationRepository.findBySource(
-                project, request.source(), limit);
-            return new SearchResult(results, "filter", false);
-        }
-
-        if (request.startEpoch() != null && request.endEpoch() != null) {
-            List<ObservationEntity> results = observationRepository.advancedSearch(
-                project, null, request.startEpoch(), request.endEpoch(), limit
+        if (hasAnyFilter) {
+            // Use database-level composable AND filter
+            List<ObservationEntity> results = observationRepository.findByAllFilters(
+                project,
+                blankToNull(request.type()),
+                blankToNull(request.source()),
+                blankToNull(request.concept()),
+                request.startEpoch(),
+                request.endEpoch(),
+                limit
             );
             return new SearchResult(results, "filter", false);
         }
@@ -153,6 +148,11 @@ public class SearchService {
         }
         sb.append("]");
         return sb.toString();
+    }
+
+    /** Convert blank strings to null for composable AND filter. */
+    private static String blankToNull(String s) {
+        return (s != null && !s.isBlank()) ? s : null;
     }
 
     /**
