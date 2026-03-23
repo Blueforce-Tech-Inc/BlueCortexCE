@@ -106,13 +106,15 @@ public class StructuredExtractionService {
             return;
         }
 
+        // Resolve userId once (avoids N queries when iterating templates)
+        String userId = resolveUserId(sessionId);
+
         for (TemplateConfig template : extractionConfig.getTemplates()) {
             if (!template.isEnabled()) continue;
             try {
                 List<ObservationEntity> filtered = filterBySource(observations, template.getSourceFilter());
                 if (filtered.isEmpty()) continue;
 
-                String userId = resolveUserId(sessionId);
                 String targetSessionId = resolveSessionId(template.getSessionIdPattern(), projectPath, userId);
                 String priorJson = fetchPriorJson(targetSessionId, template.getName());
                 Map<String, Object> result = extractByTemplate(template, filtered, priorJson);
@@ -402,8 +404,21 @@ public class StructuredExtractionService {
      */
     private void storeDLQ(String projectPath, String templateName, String errorMsg) {
         try {
+            // Ensure DLQ session exists (FK constraint)
+            String dlqSessionId = "dlq:extraction";
+            sessionRepository.findByContentSessionId(dlqSessionId)
+                .orElseGet(() -> {
+                    log.info("Creating DLQ session: {}", dlqSessionId);
+                    com.ablueforce.cortexce.entity.SessionEntity session = new com.ablueforce.cortexce.entity.SessionEntity();
+                    session.setContentSessionId(dlqSessionId);
+                    session.setProjectPath(projectPath);
+                    session.setStatus("dlq");
+                    session.setStartedAtEpoch(System.currentTimeMillis());
+                    return sessionRepository.save(session);
+                });
+
             ObservationEntity dlq = new ObservationEntity();
-            dlq.setContentSessionId("dlq:extraction");
+            dlq.setContentSessionId(dlqSessionId);
             dlq.setProjectPath(projectPath);
             dlq.setType("extraction_failed");
             dlq.setTitle("Extraction failed: " + templateName);

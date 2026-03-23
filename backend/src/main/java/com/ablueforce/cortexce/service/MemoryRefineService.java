@@ -197,10 +197,14 @@ public class MemoryRefineService {
             }
 
             // Phase 3: Run structured extraction after refinement
-            try {
-                extractionService.runExtraction(projectPath);
-            } catch (Exception e) {
-                log.warn("Extraction failed during deep refine, will retry later: {}", e.getMessage());
+            if (extractionService != null) {
+                try {
+                    extractionService.runExtraction(projectPath);
+                } catch (Exception e) {
+                    log.warn("Extraction failed during deep refine, will retry later: {}", e.getMessage());
+                }
+            } else {
+                log.debug("Extraction service not available, skipping extraction");
             }
 
             log.info("Deep refinement completed for project: {}", projectPath);
