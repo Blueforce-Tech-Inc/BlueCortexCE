@@ -41,8 +41,7 @@
 - [x] Add `maxIclChars` builder method to `CortexMemoryAdvisor`
 
 ### Memory Management Tools
-- [x] Add `updateMemory()` tool to `CortexMemoryTools`
-- [x] Add `deleteMemory()` tool to `CortexMemoryTools`
+
 
 ### Source-based Filtering (Experience API)
 - [x] Add `source` and `requiredConcepts` to `ExperienceRequest`
