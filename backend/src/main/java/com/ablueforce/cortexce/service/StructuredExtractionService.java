@@ -500,9 +500,8 @@ public class StructuredExtractionService {
         for (Map<String, Object> item : items) {
             String field = (String) item.get("_field");
             String key = buildItemKey(item, keyFields);
-            if (field != null && !field.isBlank()) {
-                byField.computeIfAbsent(field, k -> new HashSet<>()).add(key);
-            }
+            String bucket = (field != null && !field.isBlank()) ? field : "__all__";
+            byField.computeIfAbsent(bucket, k -> new HashSet<>()).add(key);
         }
         return byField;
     }
@@ -531,6 +530,10 @@ public class StructuredExtractionService {
             result.addAll(byField.get(fieldName));
         }
         // Items without _field hint (apply to all)
+        if (byField.containsKey("__all__")) {
+            result.addAll(byField.get("__all__"));
+        }
+        // If no _field hints used at all, fall back to legacy behavior (apply to all)
         if (byField.isEmpty()) {
             result.addAll(allKeys);
         }
