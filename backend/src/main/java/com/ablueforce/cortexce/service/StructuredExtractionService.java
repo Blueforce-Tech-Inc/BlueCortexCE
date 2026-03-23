@@ -372,10 +372,14 @@ public class StructuredExtractionService {
         StringBuilder sb = new StringBuilder();
         sb.append("Observations:\n");
         for (ObservationEntity obs : candidates) {
-            sb.append(String.format("- [%s] %s\n  %s\n",
-                obs.getSource() != null ? obs.getSource() : "unknown",
-                obs.getTitle() != null ? obs.getTitle() : "",
-                obs.getContent() != null ? obs.getContent() : ""));
+            String source = obs.getSource() != null ? obs.getSource() : "unknown";
+            String title = obs.getTitle() != null ? obs.getTitle() : "";
+            String content = obs.getContent() != null ? obs.getContent() : "";
+            if (title.isEmpty()) {
+                sb.append(String.format("- [%s] %s\n", source, content));
+            } else {
+                sb.append(String.format("- [%s] %s\n  %s\n", source, title, content));
+            }
         }
         return sb.toString();
     }
