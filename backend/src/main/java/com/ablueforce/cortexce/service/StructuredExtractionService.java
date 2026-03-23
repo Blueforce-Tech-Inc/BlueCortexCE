@@ -302,8 +302,7 @@ public class StructuredExtractionService {
                 }
                 return MAPPER.convertValue(result, Map.class);
             } catch (ClassNotFoundException e) {
-                log.error("Template class not found: {}", template.getTemplateClass());
-                return Map.of();
+                throw new IllegalStateException("Template class not found: " + template.getTemplateClass(), e);
             }
         }
     }

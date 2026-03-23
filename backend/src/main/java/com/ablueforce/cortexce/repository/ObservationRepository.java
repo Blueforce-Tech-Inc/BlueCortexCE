@@ -232,10 +232,14 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
             LIMIT :limit
         )
         SELECT * FROM (
-            SELECT * FROM semantic_results
-            UNION ALL
-            SELECT * FROM fulltext_results
-        ) combined
+            SELECT DISTINCT ON (id) *
+            FROM (
+                SELECT * FROM semantic_results
+                UNION ALL
+                SELECT * FROM fulltext_results
+            ) combined_inner
+            ORDER BY id, score_type DESC
+        ) deduped
         ORDER BY
             CASE WHEN score_type = 1.0 THEN
                 (1.0 - (embedding_1024 <=> cast(:queryVector as vector)))
