@@ -3,7 +3,7 @@
 **Date**: 2026-03-23
 **Note**: This is a **temporary tracking document**. For authoritative implementation records, see `sdk-improvement-research.md`.
 
-## Status: ✅ ALL PHASES COMPLETE (Phase 1-4 + Phase 3 Steps 1-13)
+## Status: ✅ ALL PHASES COMPLETE (Phase 1-4 + Phase 3 Steps 1-14)
 
 ---
 
@@ -75,9 +75,16 @@
 ### Step 9-11: Configuration & Testing
 - [x] YAML configuration + EXTRACTION_ENABLED flag
 - [x] SDK Client update (userId + extraction query methods)
-- [x] E2E acceptance test (phase3-acceptance-test.sh: 13/13 passed)
+- [x] E2E acceptance test (phase3-acceptance-test.sh: 15 test functions)
 
 **Commits**: `ca8d719`, `7173d7a`, `53d75c8`, `1e51737`, `b340986`
+
+### Step 12-14: EXTRACTION_ENABLED Coverage + Input Validation
+- [x] EXTRACTION_ENABLED=true E2E test coverage (5 compilation fixes + SDK compatibility)
+- [x] Demo V15 extraction endpoints integration test
+- [x] Extraction API input validation + Test 15 (empty projectPath → 400, negative limit → clamped)
+
+**Commits**: `05c122e`, `f09f692`, `cccb92a`
 
 ### Phase 3 Features
 - Multi-user session isolation (userId-based)
@@ -112,7 +119,7 @@ bash scripts/regression-test.sh
 
 # Phase 3 acceptance test
 bash scripts/phase3-acceptance-test.sh
-✅ 13/13 tests passed (4 skipped - EXTRACTION_ENABLED=false)
+✅ 18/18 passed, 4 skipped (EXTRACTION_ENABLED=false)
 
 # Demo V14 test
 bash scripts/demo-v14-test.sh
@@ -140,3 +147,6 @@ cd examples/cortex-mem-demo && mvn clean compile -Plocal
 9. `53d75c8` - fix: Phase 3 extraction FK constraint + configurable key-fields
 10. `1e51737` - docs: SDK + Demo README Phase 3 features
 11. `b340986` - test: Phase 3 E2E re-extraction tests
+12. `05c122e` - fix: resolve 5 compilation errors + SDK compatibility improvements
+13. `f09f692` - feat: Demo V15 extraction endpoints + EXTRACTION_ENABLED test coverage
+14. `cccb92a` - feat: Extraction API input validation + Test 15
