@@ -106,8 +106,10 @@ public class StructuredExtractionService {
             return;
         }
 
-        // Resolve userId once (avoids N queries when iterating templates)
-        String userId = resolveUserId(sessionId);
+        // Resolve userId via batch-compatible helper (avoids N+1 when iterating templates)
+        String userId = sessionRepository.findByContentSessionId(sessionId)
+            .map(s -> s.getUserId() != null && !s.getUserId().isBlank() ? s.getUserId() : "__unknown__")
+            .orElse("__unknown__");
 
         for (TemplateConfig template : extractionConfig.getTemplates()) {
             if (!template.isEnabled()) continue;
@@ -239,16 +241,6 @@ public class StructuredExtractionService {
         }
 
         return grouped;
-    }
-
-    /**
-     * Resolve userId from a single session. Returns "__unknown__" if not found.
-     */
-    private String resolveUserId(String sessionId) {
-        if (sessionId == null) return "__unknown__";
-        return sessionRepository.findByContentSessionId(sessionId)
-            .map(s -> s.getUserId() != null && !s.getUserId().isBlank() ? s.getUserId() : "__unknown__")
-            .orElse("__unknown__");
     }
 
     /**
