@@ -6,6 +6,7 @@ import com.ablueforce.cortexce.service.SessionManagementService;
 import com.ablueforce.cortexce.service.ClaudeMdService;
 import com.ablueforce.cortexce.service.ContextCacheService;
 import com.ablueforce.cortexce.service.ContextService;
+import com.ablueforce.cortexce.service.StructuredExtractionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,6 +55,9 @@ public class SessionController {
 
     @Autowired
     private ClaudeMdService claudeMdService;
+
+    @Autowired(required = false)
+    private StructuredExtractionService extractionService;
 
     // ==========================================================================
     // Session Lifecycle
@@ -349,7 +353,17 @@ public class SessionController {
         sessionManagementService.save(session);
         
         log.info("Updated session {} userId: {} -> {}", sessionId, oldUserId, userId);
-        
+
+        // Phase 3: Re-run extraction when userId changes (user-scoped results need updating)
+        if (extractionService != null && session.getProjectPath() != null) {
+            try {
+                extractionService.reExtractForSession(sessionId, session.getProjectPath());
+                log.info("Re-extraction triggered for session {} after userId update", sessionId);
+            } catch (Exception e) {
+                log.warn("Re-extraction failed for session {} after userId update: {}", sessionId, e.getMessage());
+            }
+        }
+
         return ResponseEntity.ok(Map.of(
             "status", "ok",
             "sessionId", sessionId,
