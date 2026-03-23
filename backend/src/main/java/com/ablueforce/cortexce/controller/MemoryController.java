@@ -204,8 +204,7 @@ public class MemoryController {
             observation.setSource((String) body.get("source"));
         }
         if (body.containsKey("extractedData")) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> extractedData = (Map<String, Object>) body.get("extractedData");
+            Map<String, Object> extractedData = safeGetMap(body, "extractedData");
             observation.setExtractedData(extractedData);
         }
 
@@ -244,5 +243,16 @@ public class MemoryController {
                 .toList();
         }
         return List.of();
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> safeGetMap(Map<String, Object> body, String key) {
+        Object value = body.get(key);
+        if (value == null) return null;
+        if (value instanceof Map) {
+            return (Map<String, Object>) value;
+        }
+        log.warn("Expected Map for key '{}' but got {}", key, value.getClass().getName());
+        return null;
     }
 }
