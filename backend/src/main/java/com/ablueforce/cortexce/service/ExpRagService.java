@@ -68,19 +68,24 @@ public class ExpRagService {
         List<ObservationEntity> results;
 
         if (source != null && !source.isBlank()) {
-            // Use source-based repository method
-            results = observationRepository.findBySource(projectPath, source, count);
+            // Use source-based repository method (fetch extra to reduce need for fallback)
+            results = observationRepository.findBySource(projectPath, source, count * 3);
         } else {
             // Use quality-aware repository method
             results = observationRepository
                 .findHighQualityObservations(projectPath, MIN_QUALITY_THRESHOLD, count * 3);
         }
 
-        // If not enough, get recent observations
+        // If not enough, get recent observations (respect source filter if active)
         if (results.size() < count) {
-            List<ObservationEntity> recent = observationRepository
-                .findByProjectLimited(projectPath, count);
-            
+            List<ObservationEntity> recent;
+            if (source != null && !source.isBlank()) {
+                // CRITICAL: fallback must also respect source filter
+                recent = observationRepository.findBySource(projectPath, source, count);
+            } else {
+                recent = observationRepository.findByProjectLimited(projectPath, count);
+            }
+
             // Merge, remove duplicates
             results.addAll(recent);
             results = results.stream()
