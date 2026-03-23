@@ -209,9 +209,11 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         SELECT * FROM mem_observations
         WHERE content_session_id IN (:sessionIds)
         ORDER BY created_at_epoch DESC
+        LIMIT :limit
         """, nativeQuery = true)
     List<ObservationEntity> findByContentSessionIdInOrderByCreatedAtEpochDesc(
-        @Param("sessionIds") List<String> sessionIds);
+        @Param("sessionIds") List<String> sessionIds,
+        @Param("limit") int limit);
 
     // P2: Hybrid search combining pgvector semantic + tsvector full-text
     @Query(value = """

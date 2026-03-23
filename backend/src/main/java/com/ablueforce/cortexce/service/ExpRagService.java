@@ -202,16 +202,20 @@ public class ExpRagService {
 
     private String extractStrategyFromContent(String content) {
         if (content == null) return "N/A";
-        
+
         int strategyStart = content.indexOf("## Reasoning");
-        if (strategyStart < 0) strategyStart = content.indexOf("## Strategy");
-        
+        int headerLen = 12; // "## Reasoning".length()
+        if (strategyStart < 0) {
+            strategyStart = content.indexOf("## Strategy");
+            headerLen = 11; // "## Strategy".length()
+        }
+
         if (strategyStart >= 0) {
             int sectionEnd = content.indexOf("\n##", strategyStart + 2);
             if (sectionEnd < 0) sectionEnd = content.length();
-            return content.substring(strategyStart + 12, sectionEnd).trim();
+            return content.substring(strategyStart + headerLen, sectionEnd).trim();
         }
-        
+
         return "General approach used";
     }
 
@@ -265,9 +269,9 @@ public class ExpRagService {
                 return List.of();
             }
 
-            // Get observations from user's sessions (batch query instead of N+1)
+            // Get observations from user's sessions (batch query instead of N+1, with limit)
             List<ObservationEntity> results = new ArrayList<>(
-                observationRepository.findByContentSessionIdInOrderByCreatedAtEpochDesc(sessionIds)
+                observationRepository.findByContentSessionIdInOrderByCreatedAtEpochDesc(sessionIds, count * 3)
             );
 
             // Apply source filter if specified
