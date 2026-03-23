@@ -189,14 +189,14 @@ public class ExpRagService {
 
     private String extractTaskFromContent(String content) {
         if (content == null) return "Unknown task";
-        
+
         int taskStart = content.indexOf("## Task");
         if (taskStart >= 0) {
             int sectionEnd = content.indexOf("\n##", taskStart + 2);
             if (sectionEnd < 0) sectionEnd = content.length();
-            return content.substring(taskStart + 8, sectionEnd).trim();
+            return content.substring(taskStart + 7, sectionEnd).trim(); // "## Task".length() = 7
         }
-        
+
         return content.length() > 100 ? content.substring(0, 100) : content;
     }
 
@@ -226,7 +226,7 @@ public class ExpRagService {
         if (outcomeStart >= 0) {
             int sectionEnd = content.indexOf("\n##", outcomeStart + 2);
             if (sectionEnd < 0) sectionEnd = content.length();
-            return content.substring(outcomeStart + 11, sectionEnd).trim();
+            return content.substring(outcomeStart + 10, sectionEnd).trim(); // "## Outcome".length() = 10
         }
         
         return "Task completed";
