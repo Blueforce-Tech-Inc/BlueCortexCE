@@ -212,13 +212,27 @@ public class StructuredExtractionService {
     /**
      * Group observations by user ID (via session lookup).
      * Sessions without userId get "__unknown__" key.
+     * Uses batch lookup to avoid N+1 queries.
      */
     private Map<String, List<ObservationEntity>> groupByUser(List<ObservationEntity> observations) {
-        Map<String, List<ObservationEntity>> grouped = new LinkedHashMap<>();
+        // Collect unique session IDs for batch lookup
+        Set<String> sessionIds = observations.stream()
+            .map(ObservationEntity::getContentSessionId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
 
+        // Batch-resolve userIds in a single query
+        Map<String, String> sessionIdToUserId = sessionRepository.findByContentSessionIdIn(new ArrayList<>(sessionIds)).stream()
+            .collect(Collectors.toMap(
+                com.ablueforce.cortexce.entity.SessionEntity::getContentSessionId,
+                s -> (s.getUserId() != null && !s.getUserId().isBlank()) ? s.getUserId() : "__unknown__"
+            ));
+
+        // Group observations by resolved userId
+        Map<String, List<ObservationEntity>> grouped = new LinkedHashMap<>();
         for (ObservationEntity obs : observations) {
             String sessionId = obs.getContentSessionId();
-            String userId = resolveUserId(sessionId);
+            String userId = (sessionId != null) ? sessionIdToUserId.getOrDefault(sessionId, "__unknown__") : "__unknown__";
             grouped.computeIfAbsent(userId, k -> new ArrayList<>()).add(obs);
         }
 
@@ -226,7 +240,7 @@ public class StructuredExtractionService {
     }
 
     /**
-     * Resolve userId from session. Returns "__unknown__" if no userId set.
+     * Resolve userId from a single session. Returns "__unknown__" if not found.
      */
     private String resolveUserId(String sessionId) {
         if (sessionId == null) return "__unknown__";
@@ -439,25 +453,6 @@ public class StructuredExtractionService {
     }
 
     /**
-     * Build a deduplication key from an extracted item using configurable key fields.
-     * If keyFields is configured, concatenates field values with ":".
-     * If not configured, falls back to full item hash.
-     */
-    private String buildItemKey(Map<String, Object> item, List<String> keyFields) {
-        if (keyFields == null || keyFields.isEmpty()) {
-            // Fallback: use sorted entry set hash for stable key
-            String sorted = item.entrySet().stream()
-                .sorted(Map.Entry.comparingByKey())
-                .map(e -> e.getKey() + "=" + e.getValue())
-                .collect(Collectors.joining(","));
-            return "hash:" + sorted.hashCode();
-        }
-        return keyFields.stream()
-            .map(f -> String.valueOf(item.getOrDefault(f, "")))
-            .collect(Collectors.joining(":"));
-    }
-
-    /**
      * Fetch prior extraction JSON for re-extraction context.
      */
     private String fetchPriorJson(String targetSessionId, String templateName) {
@@ -473,9 +468,13 @@ public class StructuredExtractionService {
 
     /**
      * Parse JSON response from LLM, stripping markdown fences if present.
+     * Throws IllegalStateException if parsing fails, so the caller can handle
+     * the error via DLQ instead of silently storing invalid data.
      */
     private Map<String, Object> parseJsonResponse(String response) {
-        if (response == null || response.isBlank()) return Map.of();
+        if (response == null || response.isBlank()) {
+            throw new IllegalStateException("LLM returned empty response");
+        }
 
         String json = response.trim();
         if (json.startsWith("```")) {
@@ -489,8 +488,8 @@ public class StructuredExtractionService {
         try {
             return MAPPER.readValue(json, Map.class);
         } catch (JsonProcessingException e) {
-            log.warn("Failed to parse LLM response as JSON: {}", e.getMessage());
-            return Map.of("raw", response);
+            throw new IllegalStateException("Failed to parse LLM response as JSON: " + e.getMessage()
+                + " | Response: " + (response.length() > 200 ? response.substring(0, 200) + "..." : response), e);
         }
     }
 

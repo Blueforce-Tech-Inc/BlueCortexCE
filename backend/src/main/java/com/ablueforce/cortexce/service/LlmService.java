@@ -115,22 +115,30 @@ public class LlmService {
         ChatClient chatClient = this.chatClient.orElseThrow(() ->
             new IllegalStateException("AI not configured."));
 
-        if (Map.class.isAssignableFrom(outputType)) {
-            MapOutputConverter converter = new MapOutputConverter();
-            String response = chatClient.prompt()
-                .system(systemPrompt + "\n\n" + converter.getFormat())
-                .user(userPrompt)
-                .call()
-                .content();
-            return (T) converter.convert(response);
-        } else {
-            BeanOutputConverter<T> converter = new BeanOutputConverter<>(outputType);
-            String response = chatClient.prompt()
-                .system(systemPrompt + "\n\n" + converter.getFormat())
-                .user(userPrompt)
-                .call()
-                .content();
-            return converter.convert(response);
+        try {
+            if (Map.class.isAssignableFrom(outputType)) {
+                MapOutputConverter converter = new MapOutputConverter();
+                String response = chatClient.prompt()
+                    .system(systemPrompt + "\n\n" + converter.getFormat())
+                    .user(userPrompt)
+                    .call()
+                    .content();
+                return (T) converter.convert(response);
+            } else {
+                BeanOutputConverter<T> converter = new BeanOutputConverter<>(outputType);
+                String response = chatClient.prompt()
+                    .system(systemPrompt + "\n\n" + converter.getFormat())
+                    .user(userPrompt)
+                    .call()
+                    .content();
+                return converter.convert(response);
+            }
+        } catch (IllegalStateException e) {
+            // Re-throw config errors (e.g., "AI not configured")
+            throw e;
+        } catch (Exception e) {
+            log.error("Structured LLM call failed: {}", e.getMessage(), e);
+            throw new IllegalStateException("Structured LLM call failed: " + e.getMessage(), e);
         }
     }
 }
