@@ -77,14 +77,17 @@ public class ExtractionController {
      * GET /api/extraction/{templateName}/history?projectPath=/path&userId=alice&limit=10
      */
     @GetMapping("/{templateName}/history")
-    public ResponseEntity<List<Map<String, Object>>> getExtractionHistory(
+    public ResponseEntity<?> getExtractionHistory(
             @PathVariable String templateName,
             @RequestParam String projectPath,
             @RequestParam(required = false) String userId,
             @RequestParam(defaultValue = "10") int limit) {
 
+        if (templateName == null || templateName.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "templateName is required"));
+        }
         if (projectPath == null || projectPath.isBlank()) {
-            return ResponseEntity.badRequest().body(List.of());
+            return ResponseEntity.badRequest().body(Map.of("error", "projectPath is required"));
         }
         if (limit < 1) limit = 1;
         if (limit > 100) limit = 100;
