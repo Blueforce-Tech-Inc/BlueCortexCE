@@ -42,32 +42,35 @@ public class SummaryGenerationService implements LogHelper {
         return log;
     }
 
-    @Autowired
-    private SessionManagementService sessionManagementService;
+    private final SessionManagementService sessionManagementService;
+    private final ObservationRepository observationRepository;
+    private final SummaryRepository summaryRepository;
+    private final SSEBroadcaster sseBroadcaster;
+    private final LlmService llmService;
+    private final TemplateService templateService;
+    private final ContextCacheService contextCacheService;
+    private final MemoryRefineEventPublisher eventPublisher;
+    private final QualityScorer qualityScorer;
 
-    @Autowired
-    private ObservationRepository observationRepository;
-
-    @Autowired
-    private SummaryRepository summaryRepository;
-
-    @Autowired
-    private SSEBroadcaster sseBroadcaster;
-
-    @Autowired
-    private LlmService llmService;
-
-    @Autowired
-    private TemplateService templateService;
-
-    @Autowired
-    private ContextCacheService contextCacheService;
-
-    @Autowired
-    private MemoryRefineEventPublisher eventPublisher;
-
-    @Autowired
-    private QualityScorer qualityScorer;
+    public SummaryGenerationService(SessionManagementService sessionManagementService,
+                                   ObservationRepository observationRepository,
+                                   SummaryRepository summaryRepository,
+                                   SSEBroadcaster sseBroadcaster,
+                                   LlmService llmService,
+                                   TemplateService templateService,
+                                   ContextCacheService contextCacheService,
+                                   MemoryRefineEventPublisher eventPublisher,
+                                   QualityScorer qualityScorer) {
+        this.sessionManagementService = sessionManagementService;
+        this.observationRepository = observationRepository;
+        this.summaryRepository = summaryRepository;
+        this.sseBroadcaster = sseBroadcaster;
+        this.llmService = llmService;
+        this.templateService = templateService;
+        this.contextCacheService = contextCacheService;
+        this.eventPublisher = eventPublisher;
+        this.qualityScorer = qualityScorer;
+    }
 
     /**
      * Complete a session and asynchronously generate a summary.

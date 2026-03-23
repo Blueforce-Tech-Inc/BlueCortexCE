@@ -36,17 +36,20 @@ public class ImportService implements LogHelper {
         return log;
     }
 
-    @Autowired
-    private SessionRepository sessionRepository;
+    private final SessionRepository sessionRepository;
+    private final ObservationRepository observationRepository;
+    private final SummaryRepository summaryRepository;
+    private final UserPromptRepository userPromptRepository;
 
-    @Autowired
-    private ObservationRepository observationRepository;
-
-    @Autowired
-    private SummaryRepository summaryRepository;
-
-    @Autowired
-    private UserPromptRepository userPromptRepository;
+    public ImportService(SessionRepository sessionRepository,
+                        ObservationRepository observationRepository,
+                        SummaryRepository summaryRepository,
+                        UserPromptRepository userPromptRepository) {
+        this.sessionRepository = sessionRepository;
+        this.observationRepository = observationRepository;
+        this.summaryRepository = summaryRepository;
+        this.userPromptRepository = userPromptRepository;
+    }
 
     /**
      * Result of an import operation.
