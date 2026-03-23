@@ -277,34 +277,48 @@ public class MemoryRefineService {
         // Group by session for potential merging
         var bySession = observations.stream()
             .collect(Collectors.groupingBy(ObservationEntity::getContentSessionId));
-        
+
+        // Track surviving observations (merge deletes some, so we can't saveAll blindly)
+        List<ObservationEntity> survivors = new java.util.ArrayList<>(observations);
+
         for (var entry : bySession.entrySet()) {
             List<ObservationEntity> sessionObs = entry.getValue();
-            
+
             if (sessionObs.size() > 1) {
-                // Merge observations from same session
-                mergeObservations(sessionObs);
+                // Merge observations from same session — deletes all but the first
+                ObservationEntity primary = mergeObservations(sessionObs);
+                if (primary == null) {
+                    // Merge failed, skip — don't mark as refined
+                    survivors.removeAll(sessionObs);
+                } else {
+                    // Only the primary survives
+                    survivors.removeAll(sessionObs);
+                    survivors.add(primary);
+                }
             } else {
                 // Rewrite single observation
                 rewriteObservation(sessionObs.get(0));
             }
         }
-        
-        // Mark as refined
+
+        // Mark surviving observations as refined
         OffsetDateTime now = OffsetDateTime.now();
-        for (ObservationEntity obs : observations) {
+        for (ObservationEntity obs : survivors) {
             obs.setRefinedAt(now);
         }
-        observationRepository.saveAll(observations);
+        if (!survivors.isEmpty()) {
+            observationRepository.saveAll(survivors);
+        }
         
         log.info("Refined {} observations", observations.size());
     }
 
     /**
      * Merge multiple observations into one.
+     * @return the merged primary observation, or null if merge failed
      */
-    private void mergeObservations(List<ObservationEntity> observations) {
-        if (observations.size() < 2) return;
+    private ObservationEntity mergeObservations(List<ObservationEntity> observations) {
+        if (observations.size() < 2) return null;
         
         // Build merge prompt
         StringBuilder prompt = new StringBuilder();
@@ -332,20 +346,22 @@ public class MemoryRefineService {
                 ObservationEntity primary = observations.get(0);
                 primary.setContent(mergedContent);
                 observationRepository.save(primary);
-                
+
                 // Delete others - use UUID type
                 List<UUID> toDeleteIds = observations.stream()
                     .skip(1)
                     .map(ObservationEntity::getId)
                     .collect(Collectors.toList());
-                
+
                 observationRepository.deleteAllById(toDeleteIds);
-                
+
                 log.info("Merged {} observations into one via LLM", observations.size());
+                return primary;
             }
         } catch (Exception e) {
             log.error("Failed to merge observations via LLM: {}", e.getMessage());
         }
+        return null;
     }
 
     /**
