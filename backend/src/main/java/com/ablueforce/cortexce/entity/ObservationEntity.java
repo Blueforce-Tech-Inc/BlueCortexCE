@@ -238,17 +238,6 @@ public class ObservationEntity {
     public String getSource() { return source; }
     public void setSource(String source) { this.source = source; }
 
-    @JsonProperty("extractedData")
-    public String getExtractedDataJson() {
-        if (extractedData == null) return null;
-        try {
-            return MAPPER.writeValueAsString(extractedData);
-        } catch (JsonProcessingException e) {
-            log.warn("Failed to serialize extractedData to JSON", e);
-            return null;
-        }
-    }
-
     public Map<String, Object> getExtractedData() { return extractedData; }
     public void setExtractedData(Map<String, Object> extractedData) { this.extractedData = extractedData; }
 

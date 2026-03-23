@@ -267,18 +267,24 @@ public class StructuredExtractionService {
 
     /**
      * Call LLM with structured output to extract data from observations.
+     * Uses append-only extraction when prior data exists (Section 24.6).
      */
     @SuppressWarnings("unchecked")
     private Map<String, Object> extractByTemplate(TemplateConfig template,
                                                    List<ObservationEntity> candidates,
                                                    String priorJson) {
-        String systemPrompt = buildSystemPrompt(template);
-        String userPrompt = buildUserPrompt(candidates, priorJson);
-
         log.debug("Calling LLM for template '{}' with {} candidates", template.getName(), candidates.size());
 
+        // Section 24.6: Use append-only extraction when prior data exists
+        if (priorJson != null && !priorJson.isBlank()) {
+            return extractAppendOnly(template, candidates, priorJson);
+        }
+
+        // First extraction (no prior) — use full-state extraction
+        String systemPrompt = buildSystemPrompt(template);
+        String userPrompt = buildUserPrompt(candidates, null);
+
         if (Map.class.getName().equals(template.getTemplateClass()) || "java.util.Map".equals(template.getTemplateClass())) {
-            // Use Map output converter with JSON schema in prompt
             String fullSystemPrompt = systemPrompt;
             if (template.getOutputSchema() != null && !template.getOutputSchema().isBlank()) {
                 fullSystemPrompt += "\n\nRespond with JSON matching this schema:\n" + template.getOutputSchema();
@@ -288,7 +294,6 @@ public class StructuredExtractionService {
             String response = llmService.chatCompletion(fullSystemPrompt, userPrompt);
             return parseJsonResponse(response);
         } else {
-            // Use BeanOutputConverter with typed class
             try {
                 Class<?> clazz = Class.forName(template.getTemplateClass());
                 Object result = llmService.chatCompletionStructured(systemPrompt, userPrompt, (Class<Object>) clazz);
@@ -301,6 +306,162 @@ public class StructuredExtractionService {
                 return Map.of();
             }
         }
+    }
+
+    /**
+     * Section 24.6: Append-only extraction with explicit removal.
+     * LLM only outputs add/remove/keep_hint, service merges with full prior from DB.
+     * This prevents silent data loss from truncation while keeping token costs low.
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> extractAppendOnly(TemplateConfig template,
+                                                   List<ObservationEntity> candidates,
+                                                   String priorJson) {
+        String systemPrompt = buildAppendOnlySystemPrompt(template);
+        String userPrompt = buildAppendOnlyUserPrompt(candidates);
+
+        String fullSystemPrompt = systemPrompt;
+        if (template.getOutputSchema() != null && !template.getOutputSchema().isBlank()) {
+            fullSystemPrompt += "\n\nEach item in add/remove/keep_hint arrays should match this structure:\n"
+                + template.getOutputSchema();
+        }
+        fullSystemPrompt += "\n\nRespond ONLY with valid JSON. No markdown, no explanation.";
+
+        String response = llmService.chatCompletion(fullSystemPrompt, userPrompt);
+        Map<String, Object> appendResult = parseJsonResponse(response);
+
+        // Merge with full prior from DB
+        Map<String, Object> fullPriorData;
+        try {
+            fullPriorData = MAPPER.readValue(priorJson, Map.class);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to parse prior JSON, treating as empty: {}", e.getMessage());
+            fullPriorData = new HashMap<>();
+        }
+
+        return mergeAppendOnly(appendResult, fullPriorData);
+    }
+
+    /**
+     * Build system prompt for append-only extraction (Section 24.6).
+     */
+    private String buildAppendOnlySystemPrompt(TemplateConfig template) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("You are a structured information extraction assistant.\n");
+        sb.append("Extract information from the following observations.\n\n");
+        sb.append("TASK:\n").append(template.getPrompt()).append("\n\n");
+        sb.append("OUTPUT FORMAT:\n");
+        sb.append("{\n");
+        sb.append("  \"add\": [ /* NEW items found in observations */ ],\n");
+        sb.append("  \"remove\": [ /* items EXPLICITLY rejected (user said they don't like X) */ ],\n");
+        sb.append("  \"keep_hint\": [ /* items mentioned positively that should be retained */ ]\n");
+        sb.append("}\n\n");
+        sb.append("RULES:\n");
+        sb.append("- 'add': only items EXPLICITLY stated in observations\n");
+        sb.append("- 'remove': only items EXPLICITLY rejected (e.g., 'I don't like X anymore')\n");
+        sb.append("- 'keep_hint': items mentioned positively or in passing that should NOT be removed\n");
+        sb.append("- Do NOT infer, generalize, or fabricate\n");
+        sb.append("- Each item MUST have 'category' and 'value' fields (used for deduplication)\n");
+        return sb.toString();
+    }
+
+    /**
+     * Build user prompt for append-only extraction (no prior context).
+     */
+    private String buildAppendOnlyUserPrompt(List<ObservationEntity> candidates) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Observations:\n");
+        for (ObservationEntity obs : candidates) {
+            sb.append(String.format("- [%s] %s\n  %s\n",
+                obs.getSource() != null ? obs.getSource() : "unknown",
+                obs.getTitle() != null ? obs.getTitle() : "",
+                obs.getContent() != null ? obs.getContent() : ""));
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Merge append-only extraction result with full prior data from DB (Section 24.6).
+     * This ensures no data loss from truncation while keeping LLM token costs low.
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> mergeAppendOnly(Map<String, Object> appendResult,
+                                                 Map<String, Object> fullPriorData) {
+        List<Map<String, Object>> addItems = (List<Map<String, Object>>)
+            appendResult.getOrDefault("add", List.of());
+        List<Map<String, Object>> removeItems = (List<Map<String, Object>>)
+            appendResult.getOrDefault("remove", List.of());
+        List<Map<String, Object>> keepHint = (List<Map<String, Object>>)
+            appendResult.getOrDefault("keep_hint", List.of());
+
+        // Start with full prior
+        Map<String, Object> merged = new HashMap<>(fullPriorData);
+
+        // Build remove key set (composite: category+value or item identity fields)
+        Set<String> removeKeys = removeItems.stream()
+            .map(this::buildItemKey)
+            .collect(Collectors.toSet());
+
+        // Remove explicitly rejected items from all list fields
+        for (Map.Entry<String, Object> entry : merged.entrySet()) {
+            if (entry.getValue() instanceof List<?> list) {
+                List<Map<String, Object>> filtered = new ArrayList<>();
+                for (Object item : list) {
+                    if (item instanceof Map<?, ?> m) {
+                        Map<String, Object> mapItem = (Map<String, Object>) item;
+                        if (!removeKeys.contains(buildItemKey(mapItem))) {
+                            filtered.add(mapItem);
+                        }
+                    }
+                }
+                entry.setValue(filtered);
+            }
+        }
+
+        // Add new items to matching list fields, with deduplication
+        if (!addItems.isEmpty()) {
+            for (Map.Entry<String, Object> entry : merged.entrySet()) {
+                if (entry.getValue() instanceof List<?> existingList) {
+                    List<Map<String, Object>> combined = new ArrayList<>();
+                    for (Object item : existingList) {
+                        if (item instanceof Map<?, ?>) {
+                            combined.add((Map<String, Object>) item);
+                        }
+                    }
+
+                    // Only add items that don't already exist (by key)
+                    Set<String> existingKeys = combined.stream()
+                        .map(this::buildItemKey)
+                        .collect(Collectors.toSet());
+                    for (Map<String, Object> newItem : addItems) {
+                        if (!existingKeys.contains(buildItemKey(newItem))) {
+                            combined.add(newItem);
+                        }
+                    }
+                    entry.setValue(combined);
+                }
+            }
+        }
+
+        // Store removal metadata for audit trail
+        if (!removeItems.isEmpty()) {
+            merged.put("removed", removeItems);
+        }
+
+        log.debug("Append-only merge: +{} add, -{} remove, {} keep_hint",
+            addItems.size(), removeItems.size(), keepHint.size());
+
+        return merged;
+    }
+
+    /**
+     * Build deduplication key from item fields (category + value).
+     * Used by mergeAppendOnly to prevent duplicate entries.
+     */
+    private String buildItemKey(Map<String, Object> item) {
+        String category = String.valueOf(item.getOrDefault("category", ""));
+        String value = String.valueOf(item.getOrDefault("value", ""));
+        return category + "::" + value;
     }
 
     /**
