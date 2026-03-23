@@ -179,7 +179,10 @@ public class ViewerController {
 
     /**
      * GET /api/search — semantic search endpoint.
-     * P0: Added offset and orderBy parameters for MCP compatibility.
+     * <p>
+     * Note: offset and orderBy parameters are accepted for MCP client compatibility
+     * but are currently not implemented in the search path (filtered at service level).
+     * Use limit to control result size.
      */
     @GetMapping("/search")
     public ResponseEntity<Map<String, Object>> search(
@@ -192,6 +195,9 @@ public class ViewerController {
         @RequestParam(defaultValue = "0") int offset,
         @RequestParam(required = false) String orderBy
     ) {
+        // Validate limit against max page size (consistent with other endpoints)
+        int validatedLimit = Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE);
+
         float[] queryVector = null;
         if (query != null && !query.isBlank()) {
             try {
@@ -204,7 +210,7 @@ public class ViewerController {
         }
 
         SearchService.SearchResult result = searchService.search(
-            new SearchService.SearchRequest(project, query, queryVector, type, concept, source, null, null, limit)
+            new SearchService.SearchRequest(project, query, queryVector, type, concept, source, null, null, validatedLimit)
         );
 
         Map<String, Object> response = new HashMap<>();
