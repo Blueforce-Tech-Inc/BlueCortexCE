@@ -56,9 +56,10 @@ public class SearchService {
                 try {
                     log.debug("Using hybrid search (pgvector + tsvector) for project={}", project);
                     List<ObservationEntity> results = observationRepository.hybridSearch(
-                        project, query, vectorStr, minEpoch, limit
+                        project, query, vectorStr, minEpoch, limit * 2
                     );
-                    return new SearchResult(results, "hybrid", false);
+                    List<ObservationEntity> filtered = applyPostFilters(results, request);
+                    return new SearchResult(filtered, "hybrid", false);
                 } catch (IllegalArgumentException e) {
                     log.warn("Hybrid search rejected for project={}, falling back to tsvector: {}",
                         project, e.getMessage());
@@ -79,8 +80,9 @@ public class SearchService {
         // PATH 3: Full-text search fallback
         log.debug("Full-text search fallback for project={}", project);
         try {
-            List<ObservationEntity> results = observationRepository.fullTextSearch(project, query, limit);
-            return new SearchResult(results, "tsvector", query != null && request.queryVector() != null);
+            List<ObservationEntity> results = observationRepository.fullTextSearch(project, query, limit * 2);
+            List<ObservationEntity> filtered = applyPostFilters(results, request);
+            return new SearchResult(filtered, "tsvector", query != null && request.queryVector() != null);
         } catch (Exception e) {
             // P1: Use WARN level - fallback failure is expected behavior but worth noting
             log.warn("Full-text search also failed for project={}: {}", project, e.getMessage());
@@ -134,6 +136,32 @@ public class SearchService {
         // Default: recent observations
         List<ObservationEntity> results = observationRepository.findByProjectLimited(project, limit);
         return new SearchResult(results, "recent", false);
+    }
+
+    /**
+     * Apply source/type/concept filters as post-processing on semantic search results.
+     * Needed because hybrid and full-text search queries don't support source filtering natively.
+     * Fetches limit*2 results to compensate for filtering reducing the result set.
+     */
+    private List<ObservationEntity> applyPostFilters(List<ObservationEntity> results, SearchRequest request) {
+        String sourceFilter = blankToNull(request.source());
+        String typeFilter = blankToNull(request.type());
+        String conceptFilter = blankToNull(request.concept());
+
+        if (sourceFilter == null && typeFilter == null && conceptFilter == null) {
+            return results;
+        }
+
+        return results.stream()
+            .filter(obs -> sourceFilter == null || sourceFilter.equals(obs.getSource()))
+            .filter(obs -> typeFilter == null || typeFilter.equals(obs.getType()))
+            .filter(obs -> {
+                if (conceptFilter == null) return true;
+                List<String> concepts = obs.getConcepts();
+                return concepts != null && concepts.contains(conceptFilter);
+            })
+            .limit(request.limit())
+            .toList();
     }
 
     /**
