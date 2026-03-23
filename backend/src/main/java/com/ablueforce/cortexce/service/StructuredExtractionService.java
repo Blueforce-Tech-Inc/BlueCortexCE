@@ -431,7 +431,12 @@ public class StructuredExtractionService {
         }
 
         // Partition remove/add items by _field hint
-        Map<String, Set<String>> removeKeysByField = partitionKeysByField(removeItems, keyFields, removeKeys);
+        // IMPORTANT: use filtered removeItems (keep_hint protected excluded) so partition
+        // doesn't re-introduce keys that were already filtered out above.
+        List<Map<String, Object>> filteredRemoveItems = removeItems.stream()
+            .filter(item -> removeKeys.contains(buildItemKey(item, keyFields)))
+            .toList();
+        Map<String, Set<String>> removeKeysByField = partitionKeysByField(filteredRemoveItems, keyFields, removeKeys);
         Map<String, List<Map<String, Object>>> addItemsByField = partitionItemsByField(addItems);
 
         // Remove explicitly rejected items (minus keep_hint protected) from list fields
