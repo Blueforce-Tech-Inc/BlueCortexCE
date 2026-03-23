@@ -344,6 +344,11 @@ public class StructuredExtractionService {
 
     /**
      * Build system prompt for append-only extraction (Section 24.6).
+     *
+     * <p>Each item in add/remove/keep_hint arrays MUST include a "_field" hint
+     * indicating which top-level list field the item belongs to. This enables
+     * correct merge into multi-field schemas (e.g. separate "preferences" and
+     * "allergies" lists).</p>
      */
     private String buildAppendOnlySystemPrompt(TemplateConfig template) {
         StringBuilder sb = new StringBuilder();
@@ -362,6 +367,10 @@ public class StructuredExtractionService {
         sb.append("- 'keep_hint': items mentioned positively or in passing that should NOT be removed\n");
         sb.append("- Do NOT infer, generalize, or fabricate\n");
         sb.append("- Each item MUST have 'category' and 'value' fields (used for deduplication)\n");
+        sb.append("- Each item MUST include '_field' indicating which list it belongs to\n");
+        sb.append("  (e.g. {\"_field\": \"preferences\", \"category\": \"food\", \"value\": \"sushi\"})\n");
+        sb.append("  If the schema has a single list, use its field name.\n");
+        sb.append("  If the schema is flat (no lists), omit '_field'.\n");
         return sb.toString();
     }
 
@@ -383,6 +392,10 @@ public class StructuredExtractionService {
     /**
      * Merge append-only extraction result with full prior data from DB (Section 24.6).
      * This ensures no data loss from truncation while keeping LLM token costs low.
+     *
+     * <p>Items with a "_field" hint are routed to the specified list only.
+     * Items without "_field" are removed from / added to ALL list fields
+     * (legacy behavior for single-field schemas).</p>
      */
     @SuppressWarnings("unchecked")
     private Map<String, Object> mergeAppendOnly(Map<String, Object> appendResult,
@@ -417,14 +430,20 @@ public class StructuredExtractionService {
                 removeItems.size() - removeKeys.size());
         }
 
-        // Remove explicitly rejected items (minus keep_hint protected) from all list fields
+        // Partition remove/add items by _field hint
+        Map<String, Set<String>> removeKeysByField = partitionKeysByField(removeItems, keyFields, removeKeys);
+        Map<String, List<Map<String, Object>>> addItemsByField = partitionItemsByField(addItems);
+
+        // Remove explicitly rejected items (minus keep_hint protected) from list fields
         for (Map.Entry<String, Object> entry : merged.entrySet()) {
             if (entry.getValue() instanceof List<?> list) {
+                String fieldName = entry.getKey();
+                Set<String> applicableRemoveKeys = getApplicableKeys(removeKeysByField, removeKeys, fieldName);
                 List<Map<String, Object>> filtered = new ArrayList<>();
                 for (Object item : list) {
-                    if (item instanceof Map<?, ?> m) {
+                    if (item instanceof Map<?, ?>) {
                         Map<String, Object> mapItem = (Map<String, Object>) item;
-                        if (!removeKeys.contains(buildItemKey(mapItem, keyFields))) {
+                        if (!applicableRemoveKeys.contains(buildItemKey(mapItem, keyFields))) {
                             filtered.add(mapItem);
                         }
                     }
@@ -434,27 +453,28 @@ public class StructuredExtractionService {
         }
 
         // Add new items to matching list fields, with deduplication
-        if (!addItems.isEmpty()) {
-            for (Map.Entry<String, Object> entry : merged.entrySet()) {
-                if (entry.getValue() instanceof List<?> existingList) {
-                    List<Map<String, Object>> combined = new ArrayList<>();
-                    for (Object item : existingList) {
-                        if (item instanceof Map<?, ?>) {
-                            combined.add((Map<String, Object>) item);
-                        }
-                    }
+        for (Map.Entry<String, Object> entry : merged.entrySet()) {
+            if (entry.getValue() instanceof List<?> existingList) {
+                String fieldName = entry.getKey();
+                List<Map<String, Object>> applicableAddItems = getApplicableAddItems(addItemsByField, addItems, fieldName);
+                if (applicableAddItems.isEmpty()) continue;
 
-                    // Only add items that don't already exist (by key)
-                    Set<String> existingKeys = combined.stream()
-                        .map(item -> buildItemKey(item, keyFields))
-                        .collect(Collectors.toSet());
-                    for (Map<String, Object> newItem : addItems) {
-                        if (!existingKeys.contains(buildItemKey(newItem, keyFields))) {
-                            combined.add(newItem);
-                        }
+                List<Map<String, Object>> combined = new ArrayList<>();
+                for (Object item : existingList) {
+                    if (item instanceof Map<?, ?>) {
+                        combined.add((Map<String, Object>) item);
                     }
-                    entry.setValue(combined);
                 }
+
+                Set<String> existingKeys = combined.stream()
+                    .map(item -> buildItemKey(item, keyFields))
+                    .collect(Collectors.toSet());
+                for (Map<String, Object> newItem : applicableAddItems) {
+                    if (!existingKeys.contains(buildItemKey(newItem, keyFields))) {
+                        combined.add(newItem);
+                    }
+                }
+                entry.setValue(combined);
             }
         }
 
@@ -467,6 +487,76 @@ public class StructuredExtractionService {
             addItems.size(), removeItems.size(), keepHint.size(), keyFields);
 
         return merged;
+    }
+
+    /**
+     * Partition remove keys by _field hint. Items without _field go to "__all__" bucket.
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Set<String>> partitionKeysByField(List<Map<String, Object>> items,
+                                                           List<String> keyFields,
+                                                           Set<String> allKeys) {
+        Map<String, Set<String>> byField = new HashMap<>();
+        for (Map<String, Object> item : items) {
+            String field = (String) item.get("_field");
+            String key = buildItemKey(item, keyFields);
+            if (field != null && !field.isBlank()) {
+                byField.computeIfAbsent(field, k -> new HashSet<>()).add(key);
+            }
+        }
+        return byField;
+    }
+
+    /**
+     * Partition add items by _field hint. Items without _field go to "__all__" bucket.
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, List<Map<String, Object>>> partitionItemsByField(List<Map<String, Object>> items) {
+        Map<String, List<Map<String, Object>>> byField = new HashMap<>();
+        for (Map<String, Object> item : items) {
+            String field = (String) item.get("_field");
+            String bucket = (field != null && !field.isBlank()) ? field : "__all__";
+            byField.computeIfAbsent(bucket, k -> new ArrayList<>()).add(item);
+        }
+        return byField;
+    }
+
+    /**
+     * Get applicable remove keys for a field: items targeting this field + items targeting all fields.
+     */
+    private Set<String> getApplicableKeys(Map<String, Set<String>> byField, Set<String> allKeys, String fieldName) {
+        Set<String> result = new HashSet<>();
+        // Items explicitly targeting this field
+        if (byField.containsKey(fieldName)) {
+            result.addAll(byField.get(fieldName));
+        }
+        // Items without _field hint (apply to all)
+        if (byField.isEmpty()) {
+            result.addAll(allKeys);
+        }
+        return result;
+    }
+
+    /**
+     * Get applicable add items for a field: items targeting this field + items targeting all fields.
+     */
+    private List<Map<String, Object>> getApplicableAddItems(Map<String, List<Map<String, Object>>> byField,
+                                                             List<Map<String, Object>> allItems,
+                                                             String fieldName) {
+        List<Map<String, Object>> result = new ArrayList<>();
+        // Items explicitly targeting this field
+        if (byField.containsKey(fieldName)) {
+            result.addAll(byField.get(fieldName));
+        }
+        // Items without _field hint (apply to all)
+        if (byField.containsKey("__all__")) {
+            result.addAll(byField.get("__all__"));
+        }
+        // If no _field hints used at all, fall back to legacy behavior (add to all)
+        if (byField.isEmpty()) {
+            result.addAll(allItems);
+        }
+        return result;
     }
 
     /**
