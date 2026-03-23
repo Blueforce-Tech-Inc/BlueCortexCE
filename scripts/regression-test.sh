@@ -1104,6 +1104,71 @@ print('PASS')
     return 0
 }
 
+# Test V14: Search API source filter WITH query text (hybrid/tsvector path)
+# Regression test for: source filter silently ignored in hybrid/full-text search
+test_search_source_filter_with_query() {
+    log_section "Test 25b: Search API - source Filter with query text (V14 regression)"
+
+    # Search with BOTH query text AND source filter - tests PATH 2/3 post-filtering
+    local response
+    response=$(curl -sf "${SERVER_URL}/api/search?project=${TEST_PROJECT}&query=observation&source=patched_source&limit=10" 2>&1) || {
+        log_fail "Search with query+source failed: $response"
+        return 1
+    }
+
+    local count
+    count=$(echo "$response" | python3 -c "import sys, json; data=json.load(sys.stdin); print(len(data.get('observations', [])))" 2>/dev/null || echo "0")
+
+    if [ "$count" -ge 1 ]; then
+        log_success "Search with query+source returned $count result(s)"
+    else
+        # It's OK if 0 results - query might not match any text
+        # But we must verify that IF there are results, all have correct source
+        log_success "Search with query+source returned 0 results (query may not match)"
+    fi
+
+    # CRITICAL: Verify all returned observations have correct source
+    if [ "$count" -ge 1 ]; then
+        echo "Verifying source filter was applied in semantic search..."
+        local all_correct
+        all_correct=$(echo "$response" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for obs in data.get('observations', []):
+    if obs.get('source') != 'patched_source':
+        print('FAIL: found obs with source=' + str(obs.get('source')))
+        sys.exit(1)
+print('PASS')
+" 2>/dev/null) || all_correct="FAIL"
+
+        if [ "$all_correct" = "PASS" ]; then
+            log_success "Source filter correctly applied in semantic search path"
+        else
+            log_fail "Source filter NOT applied in semantic search - bug regression!"
+            return 1
+        fi
+    fi
+
+    # Also verify: search without source filter returns results (sanity check)
+    local response_no_filter
+    response_no_filter=$(curl -sf "${SERVER_URL}/api/search?project=${TEST_PROJECT}&query=observation&limit=10" 2>&1) || {
+        log_fail "Sanity search without filter failed: $response_no_filter"
+        return 1
+    }
+
+    local count_no_filter
+    count_no_filter=$(echo "$response_no_filter" | python3 -c "import sys, json; data=json.load(sys.stdin); print(len(data.get('observations', [])))" 2>/dev/null || echo "0")
+
+    if [ "$count_no_filter" -ge "$count" ]; then
+        log_success "Sanity check passed - unfiltered search has >= filtered results ($count_no_filter vs $count)"
+    else
+        log_fail "Sanity check failed - unfiltered returned fewer results than filtered"
+        return 1
+    fi
+
+    return 0
+}
+
 # Test V14: Experience API with source and requiredConcepts filters
 test_experiences_with_filters() {
     log_section "Test 26: Experiences API - source and requiredConcepts Filters (V14)"
@@ -1341,6 +1406,7 @@ main() {
     test_observation_source_and_extracted_data  # V14: source and extractedData fields
     test_patch_observation  # V14: PATCH observation
     test_search_by_source  # V14: search by source
+    test_search_source_filter_with_query  # V14: source filter with query text (hybrid path regression)
     test_experiences_with_filters  # V14: experiences with source/requiredConcepts filters
 
     verify_database_state
