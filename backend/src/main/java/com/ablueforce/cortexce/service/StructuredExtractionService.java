@@ -339,7 +339,7 @@ public class StructuredExtractionService {
             fullPriorData = new HashMap<>();
         }
 
-        return mergeAppendOnly(appendResult, fullPriorData);
+        return mergeAppendOnly(appendResult, fullPriorData, template);
     }
 
     /**
@@ -386,7 +386,8 @@ public class StructuredExtractionService {
      */
     @SuppressWarnings("unchecked")
     private Map<String, Object> mergeAppendOnly(Map<String, Object> appendResult,
-                                                 Map<String, Object> fullPriorData) {
+                                                 Map<String, Object> fullPriorData,
+                                                 TemplateConfig template) {
         List<Map<String, Object>> addItems = (List<Map<String, Object>>)
             appendResult.getOrDefault("add", List.of());
         List<Map<String, Object>> removeItems = (List<Map<String, Object>>)
@@ -394,17 +395,20 @@ public class StructuredExtractionService {
         List<Map<String, Object>> keepHint = (List<Map<String, Object>>)
             appendResult.getOrDefault("keep_hint", List.of());
 
+        // Resolve key fields from template config (fallback: category + value)
+        List<String> keyFields = resolveKeyFields(template);
+
         // Start with full prior
         Map<String, Object> merged = new HashMap<>(fullPriorData);
 
         // Build keep_hint key set (items that should NOT be removed)
         Set<String> keepHintKeys = keepHint.stream()
-            .map(this::buildItemKey)
+            .map(item -> buildItemKey(item, keyFields))
             .collect(Collectors.toSet());
 
         // Build remove key set, excluding keep_hint items (protect from removal)
         Set<String> removeKeys = removeItems.stream()
-            .map(this::buildItemKey)
+            .map(item -> buildItemKey(item, keyFields))
             .filter(key -> !keepHintKeys.contains(key))
             .collect(Collectors.toSet());
 
@@ -420,7 +424,7 @@ public class StructuredExtractionService {
                 for (Object item : list) {
                     if (item instanceof Map<?, ?> m) {
                         Map<String, Object> mapItem = (Map<String, Object>) item;
-                        if (!removeKeys.contains(buildItemKey(mapItem))) {
+                        if (!removeKeys.contains(buildItemKey(mapItem, keyFields))) {
                             filtered.add(mapItem);
                         }
                     }
@@ -442,10 +446,10 @@ public class StructuredExtractionService {
 
                     // Only add items that don't already exist (by key)
                     Set<String> existingKeys = combined.stream()
-                        .map(this::buildItemKey)
+                        .map(item -> buildItemKey(item, keyFields))
                         .collect(Collectors.toSet());
                     for (Map<String, Object> newItem : addItems) {
-                        if (!existingKeys.contains(buildItemKey(newItem))) {
+                        if (!existingKeys.contains(buildItemKey(newItem, keyFields))) {
                             combined.add(newItem);
                         }
                     }
@@ -459,30 +463,45 @@ public class StructuredExtractionService {
             merged.put("removed", removeItems);
         }
 
-        log.debug("Append-only merge: +{} add, -{} remove, {} keep_hint",
-            addItems.size(), removeItems.size(), keepHint.size());
+        log.debug("Append-only merge: +{} add, -{} remove, {} keep_hint (keyFields={})",
+            addItems.size(), removeItems.size(), keepHint.size(), keyFields);
 
         return merged;
     }
 
     /**
-     * Build deduplication key from item fields (category + value).
+     * Resolve key fields from template config. Falls back to [category, value] if not configured.
+     */
+    private List<String> resolveKeyFields(TemplateConfig template) {
+        if (template.getKeyFields() != null && !template.getKeyFields().isEmpty()) {
+            return template.getKeyFields();
+        }
+        return List.of("category", "value");
+    }
+
+    /**
+     * Build deduplication key from item fields using configured key fields.
      * Used by mergeAppendOnly to prevent duplicate entries.
      */
-    private String buildItemKey(Map<String, Object> item) {
-        Object cat = item.get("category");
-        Object val = item.get("value");
-        String category = cat != null ? cat.toString() : "";
-        String value = val != null ? val.toString() : "";
-        // Fallback: use full JSON if both category and value are empty (prevents "null::null" collisions)
-        if (category.isEmpty() && value.isEmpty()) {
+    private String buildItemKey(Map<String, Object> item, List<String> keyFields) {
+        StringBuilder key = new StringBuilder();
+        boolean allEmpty = true;
+        for (String field : keyFields) {
+            Object val = item.get(field);
+            String str = val != null ? val.toString() : "";
+            if (!str.isEmpty()) allEmpty = false;
+            if (key.length() > 0) key.append("::");
+            key.append(str);
+        }
+        // Fallback: use full JSON if all key fields are empty (prevents "null::null" collisions)
+        if (allEmpty) {
             try {
                 return "hash::" + Integer.toHexString(MAPPER.writeValueAsString(item).hashCode());
             } catch (JsonProcessingException e) {
                 return "hash::" + item.hashCode();
             }
         }
-        return category + "::" + value;
+        return key.toString();
     }
 
     /**
