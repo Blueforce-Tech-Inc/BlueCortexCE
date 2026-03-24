@@ -273,9 +273,8 @@ func (c *httpClient) GetLatestExtraction(ctx context.Context, projectPath, templ
 func (c *httpClient) GetExtractionHistory(ctx context.Context, projectPath, templateName, userID string, limit int) ([]map[string]any, error) {
 	path := fmt.Sprintf("/api/extraction/%s/history", templateName)
 	params := map[string]string{
-		"projectPath":  projectPath,
-		"templateName": templateName,
-		"limit":        fmt.Sprintf("%d", limit),
+		"projectPath": projectPath,
+		"limit":       fmt.Sprintf("%d", limit),
 	}
 	if userID != "" {
 		params["userId"] = userID
@@ -383,3 +382,4 @@ func (c *httpClient) Close() error {
 	// HTTP client doesn't need explicit close in stdlib
 	return nil
 }
+

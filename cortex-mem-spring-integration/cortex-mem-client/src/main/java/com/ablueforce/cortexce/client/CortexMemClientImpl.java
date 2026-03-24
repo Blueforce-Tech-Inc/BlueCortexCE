@@ -266,7 +266,6 @@ public class CortexMemClientImpl implements CortexMemClient {
                     var builder = uriBuilder
                         .path("/api/extraction/{template}/history")
                         .queryParam("projectPath", projectPath)
-                        .queryParam("templateName", templateName)
                         .queryParam("limit", limit);
                     if (userId != null) {
                         builder.queryParam("userId", userId);
