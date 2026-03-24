@@ -22,7 +22,7 @@ func main() {
 	// Create Genkit Retriever
 	retriever := genkit.NewRetriever(client,
 		genkit.WithRetrieverProject("/tmp/genkit-demo"),
-		genkit.WithMaxResults(10),
+		genkit.WithRetrieverCount(10),
 	)
 
 	fmt.Println("=== Genkit Retriever Demo ===")
@@ -60,14 +60,18 @@ func main() {
 
 	// 3. Use Genkit Retriever
 	fmt.Println("\nRetrieving with Genkit Retriever...")
-	docs, err := retriever.Retrieve(ctx, "What is Genkit?")
+	output, err := retriever.Retrieve(ctx, genkit.RetrieverInput{
+		Query:   "What is Genkit?",
+		Project: "/tmp/genkit-demo",
+		Count:   10,
+	})
 	if err != nil {
 		log.Printf("Retrieve failed: %v", err)
 	} else {
-		fmt.Printf("Found %d documents:\n", len(docs))
-		for _, doc := range docs {
+		fmt.Printf("Found %d documents:\n", len(output.Documents))
+		for _, doc := range output.Documents {
 			fmt.Printf("  - Content: %s\n", doc.Content)
-			fmt.Printf("    Meta: %v\n", doc.Meta)
+			fmt.Printf("    Meta: %v\n", doc.Metadata)
 		}
 	}
 

@@ -33,7 +33,7 @@ func main() {
 
 	// 2. Load memory variables
 	fmt.Println("\nLoading memory variables...")
-	loaded, err := memory.LoadMemoryVars(ctx, map[string]any{"input": "programming"})
+	loaded, err := memory.LoadMemoryVariables(ctx, map[string]any{"input": "programming"})
 	if err != nil {
 		log.Printf("Failed to load memory: %v", err)
 	} else {
@@ -41,7 +41,7 @@ func main() {
 	}
 
 	// 3. Get memory variables
-	fmt.Println("\nMemory variables:", memory.GetMemoryVariables())
+	fmt.Println("\nMemory variables:", memory.MemoryVariables(ctx))
 
 	fmt.Println("\n✅ LangChainGo Memory demo completed!")
 }

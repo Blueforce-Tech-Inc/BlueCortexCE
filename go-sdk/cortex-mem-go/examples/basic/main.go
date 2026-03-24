@@ -36,8 +36,8 @@ func main() {
 	obsReq := dto.ObservationRequest{
 		ProjectPath: "/tmp/go-demo-project",
 		SessionID:   startResp.SessionID,
-		Type:        "tool_use",
-		Content:     "Go SDK demo observation",
+		ToolName:    "demo_tool",
+		ToolInput:   map[string]any{"action": "demo"},
 	}
 	if err := client.RecordObservation(ctx, obsReq); err != nil {
 		log.Printf("Failed to record observation: %v", err)
