@@ -374,6 +374,44 @@ func WithPromptNumber(n int) ObservationOption {
 }
 ```
 
+#### UserPromptRequest
+
+```go
+// dto/user_prompt.go
+package dto
+
+// UserPromptRequest records a user prompt.
+type UserPromptRequest struct {
+    SessionID    string `json:"session_id"`
+    PromptText   string `json:"prompt_text"`
+    ProjectPath  string `json:"cwd"`          // Wire format: "cwd" (matches Java SDK)
+    PromptNumber int    `json:"prompt_number,omitempty"`
+}
+
+// NewUserPromptRequest creates a UserPromptRequest.
+func NewUserPromptRequest(sessionID, promptText string, opts ...UserPromptOption) UserPromptRequest {
+    r := UserPromptRequest{
+        SessionID:    sessionID,
+        PromptText:   promptText,
+        PromptNumber: 1,
+    }
+    for _, opt := range opts {
+        opt(&r)
+    }
+    return r
+}
+
+type UserPromptOption func(*UserPromptRequest)
+
+func WithPromptProjectPath(path string) UserPromptOption {
+    return func(r *UserPromptRequest) { r.ProjectPath = path }
+}
+
+func WithPromptNumber(n int) UserPromptOption {
+    return func(r *UserPromptRequest) { r.PromptNumber = n }
+}
+```
+
 #### ICLPromptRequest / ICLPromptResult
 
 ```go
@@ -441,7 +479,32 @@ func (q QualityDistribution) Total() int64 {
 }
 ```
 
-### 3.4 错误处理
+### 3.4 Wire Format 映射
+
+Go SDK 的 JSON 序列化必须与后端期望的格式精确匹配。以下是从 Java SDK `toWireFormat()` 方法验证的映射：
+
+| Go 结构字段 | JSON key (wire) | 说明 |
+|-------------|-----------------|------|
+| `ObservationRequest.SessionID` | `session_id` | |
+| `ObservationRequest.ProjectPath` | `cwd` | ⚠️ 注意：不是 `project_path` |
+| `ObservationRequest.ToolName` | `tool_name` | |
+| `ObservationRequest.ToolInput` | `tool_input` | any 类型 |
+| `ObservationRequest.ToolResponse` | `tool_response` | any 类型 |
+| `ObservationRequest.PromptNumber` | `prompt_number` | omitempty |
+| `ObservationRequest.Source` | `source` | V14 字段 |
+| `ObservationRequest.ExtractedData` | `extractedData` | ⚠️ camelCase，非 snake_case |
+| `UserPromptRequest.SessionID` | `session_id` | |
+| `UserPromptRequest.PromptText` | `prompt_text` | |
+| `UserPromptRequest.ProjectPath` | `cwd` | ⚠️ 注意：不是 `project_path` |
+| `SessionEndRequest.ProjectPath` | `cwd` | ⚠️ 注意：不是 `project_path` |
+| `ICLPromptRequest.UserID` | `userId` | ⚠️ camelCase |
+
+**关键注意**：
+- 多个 DTO 中 `ProjectPath` 在 wire format 上映射为 `cwd`（而非 `project_path`）
+- `extractedData` 和 `userId` 使用 camelCase（后端约定）
+- Go struct 使用 `json:"cwd"` tag 直接映射，避免运行时转换
+
+### 3.5 错误处理
 
 ```go
 // error.go
@@ -2118,4 +2181,180 @@ func main() {
 - [ ] eino demo: 展示 Eino Retriever 集成
 - [ ] http-server demo: REST API 包装
 - [ ] 各 demo 需要 `go.mod` 和 README
+
+
+---
+
+## 附录 L: Option 模式和 Builder 模式详细设计（迭代 8）
+
+### Go Option 模式标准实践
+
+Go 中 Option 模式有多种实现方式，我们采用最常用的函数式 Option 模式：
+
+```go
+type Client struct {
+    baseURL    string
+    timeout    time.Duration
+    maxRetries int
+    logger     Logger
+}
+
+// Option 函数签名
+type Option func(*Client)
+
+// WithBaseURL 设置服务端地址
+func WithBaseURL(url string) Option {
+    return func(c *Client) {
+        c.baseURL = url
+    }
+}
+
+// WithTimeout 设置请求超时
+func WithTimeout(d time.Duration) Option {
+    return func(c *Client) {
+        c.timeout = d
+    }
+}
+
+// WithMaxRetries 设置最大重试次数
+func WithMaxRetries(n int) Option {
+    return func(c *Client) {
+        c.maxRetries = n
+    }
+}
+
+// WithLogger 设置日志器
+func WithLogger(l Logger) Option {
+    return func(c *Client) {
+        c.logger = l
+    }
+}
+
+// NewClient 使用 Options 创建 Client
+func NewClient(opts ...Option) (*Client, error) {
+    c := &Client{
+        baseURL:    "http://localhost:37777",
+        timeout:    10 * time.Second,
+        maxRetries: 3,
+        logger:     slog.Default(),
+    }
+    for _, opt := range opts {
+        opt(c)
+    }
+    return c, nil
+}
+```
+
+### DTO Builder vs Option 模式
+
+对于 Request DTO，有两种常见模式：
+
+**模式 1: 纯 Option 模式（推荐用于简单 DTO）**
+
+```go
+// 用于 ExperienceRequest
+type ExperienceRequest struct {
+    Task             string
+    Project          string
+    Count            int
+    Source           string
+    RequiredConcepts []string
+    UserID           string
+}
+
+func NewExperienceRequest(task, project string, opts ...ExperienceRequestOption) ExperienceRequest {
+    r := ExperienceRequest{
+        Task:    task,
+        Project: project,
+        Count:   4, // 默认值
+    }
+    for _, opt := range opts {
+        opt(&r)
+    }
+    return r
+}
+
+type ExperienceRequestOption func(*ExperienceRequest)
+
+func WithCount(n int) ExperienceRequestOption {
+    return func(r *ExperienceRequest) { r.Count = n }
+}
+
+func WithSource(source string) ExperienceRequestOption {
+    return func(r *ExperienceRequest) { r.Source = source }
+}
+
+// 使用
+req := NewExperienceRequest("task", "/path",
+    WithCount(10),
+    WithSource("tool_result"),
+)
+```
+
+**模式 2: Builder 模式（用于复杂 DTO）**
+
+```go
+// 用于 ObservationRequest（字段较多）
+type ObservationRequest struct {
+    SessionID     string
+    ProjectPath   string
+    ToolName      string
+    ToolInput     any
+    ToolResponse  any
+    PromptNumber  int
+    Source        string
+    ExtractedData map[string]any
+}
+
+type ObservationRequestBuilder struct {
+    req ObservationRequest
+}
+
+func NewObservationRequest(sessionID, projectPath, toolName string) *ObservationRequestBuilder {
+    return &ObservationRequestBuilder{
+        req: ObservationRequest{
+            SessionID:   sessionID,
+            ProjectPath: projectPath,
+            ToolName:    toolName,
+        },
+    }
+}
+
+func (b *ObservationRequestBuilder) WithToolInput(input any) *ObservationRequestBuilder {
+    b.req.ToolInput = input
+    return b
+}
+
+func (b *ObservationRequestBuilder) WithToolResponse(resp any) *ObservationRequestBuilder {
+    b.req.ToolResponse = resp
+    return b
+}
+
+func (b *ObservationRequestBuilder) WithSource(source string) *ObservationRequestBuilder {
+    b.req.Source = source
+    return b
+}
+
+func (b *ObservationRequestBuilder) Build() ObservationRequest {
+    return b.req
+}
+
+// 使用
+req := NewObservationRequest("session-1", "/path", "Read").
+    WithToolInput(map[string]any{"file": "a.txt"}).
+    WithToolResponse(map[string]any{"content": "..."}).
+    WithSource("tool_result").
+    Build()
+```
+
+### 决策
+
+| DTO | 模式 | 理由 |
+|-----|------|------|
+| ExperienceRequest | Option | 简单，字段少 |
+| ICLPromptRequest | Option | 简单，字段少 |
+| ObservationRequest | Builder | 字段多，链式更清晰 |
+| SessionStartRequest | Option | 简单 |
+| ObservationsRequest | Option | 简单 |
+| SearchRequest | Option | 中等复杂度 |
 
