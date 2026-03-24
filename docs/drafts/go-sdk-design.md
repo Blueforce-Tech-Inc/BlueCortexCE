@@ -4556,3 +4556,182 @@ v4.0: 企业级
 └── 合规报告
 ```
 
+
+---
+
+## 附录 AA: 迁移指南和兼容性问题（迭代 24）
+
+### 从 Java SDK 迁移到 Go SDK
+
+#### 基本映射
+
+| Java SDK | Go SDK | 说明 |
+|----------|--------|------|
+| `CortexMemClient` | `Client` | 接口名 |
+| `new CortexMemClientImpl(props)` | `NewClient(WithBaseURL(...))` | 创建方式 |
+| `client.startSession(req)` | `client.StartSession(ctx, req)` | 方法签名 |
+| `RecordObservation` | `RecordObservation` | 直接映射 |
+| Fire-and-forget | Goroutine | 异步模式 |
+
+#### 代码对比
+
+**Java SDK:**
+```java
+CortexMemProperties props = new CortexMemProperties();
+props.setBaseUrl("http://localhost:37777");
+
+CortexMemClient client = new CortexMemClientImpl(props);
+
+// 同步调用
+List<Experience> experiences = client.retrieveExperiences(
+    new ExperienceRequest("task", "/project", 4)
+);
+
+// Fire-and-forget
+client.recordObservation(request);
+```
+
+**Go SDK:**
+```go
+client, _ := cortexmem.NewClient(
+    cortexmem.WithBaseURL("http://localhost:37777"),
+)
+
+// 同步调用
+experiences, _ := client.RetrieveExperiences(ctx, dto.NewExperienceRequest(
+    "task", "/project",
+    dto.WithCount(4),
+))
+
+// Fire-and-forget (异步)
+go func() {
+    client.RecordObservation(context.Background(), req)
+}()
+```
+
+### 从 LangChain 迁移
+
+#### Python LangChain:
+```python
+from langchain.memory import ConversationMemory
+
+memory = ConversationMemory()
+memory.save_context({"input": "hi"}, {"output": "hi!"})
+```
+
+#### Go LangChainGo + Cortex CE:
+```go
+memory := langchaingo.NewMemory(client, "/project")
+
+// Save context
+memory.SaveContext(ctx, map[string]any{"input": "hi"}, map[string]any{"output": "hi!"})
+
+// Load context
+vars, _ := memory.LoadMemoryVariables(ctx, nil)
+history := vars["history"]
+```
+
+### 从 Spring AI 迁移
+
+#### Spring AI:
+```java
+@Bean
+public CortexMemoryAdvisor cortexMemoryAdvisor(CortexMemClient client) {
+    return CortexMemoryAdvisor.builder(client)
+        .projectPath("/project")
+        .maxExperiences(4)
+        .build();
+}
+```
+
+#### Go + Eino:
+```go
+retriever := eino.NewRetriever(client, "/project",
+    eino.WithRetrieverCount(4),
+)
+
+// 在 Eino chain 中使用 retriever
+```
+
+### 兼容性问题
+
+| 问题 | 解决方案 |
+|------|---------|
+| JSON 字段名不同 | 使用 `json` tag 处理 |
+| Context 传播 | Go 必须显式传递 context |
+| 错误处理 | Go 使用 error 返回值而非异常 |
+| 异步模式 | Go 使用 goroutine 而非 Future |
+
+---
+
+## 附录 AB: 术语表（迭代 25）
+
+### SDK 术语
+
+| 术语 | 定义 |
+|------|------|
+| **Client** | Go SDK 的主入口，提供所有内存操作接口 |
+| **DTO** | Data Transfer Object，用于序列化和反序列化 |
+| **Observation** | 观察记录，代表 AI 执行的一个步骤 |
+| **Experience** | 经验，从观察中提取的可复用策略 |
+| **ICL Prompt** | In-Context Learning Prompt，上下文学习提示 |
+| **Session** | 会话，AI 与用户的一次完整对话 |
+| **Capture** | 捕获，将观察记录到内存系统 |
+| **Retrieval** | 检索，从内存系统获取相关内容 |
+| **Extraction** | 提取，从观察中结构化提取信息 |
+
+### 后端术语
+
+| 术语 | 定义 |
+|------|------|
+| **Content Session ID** | 外部会话标识符 |
+| **Session DB ID** | 数据库内部会话标识符 |
+| **Source** | 来源，标记观察的来源类型 |
+| **Extracted Data** | 提取的结构化数据 |
+| **DLQ** | Dead Letter Queue，死信队列 |
+| **Refinement** | 优化，异步处理观察的流程 |
+
+### 集成层术语
+
+| 术语 | 定义 |
+|------|------|
+| **Retriever** | Eino 的检索器接口 |
+| **Memory** | LangChainGo 的记忆接口 |
+| **Plugin** | Genkit 的插件接口 |
+| **Advisor** | Spring AI 的顾问模式 |
+| **Tool** | AI 可调用的工具 |
+
+---
+
+## 附录 AC: 参考资料（迭代 26）
+
+### 官方文档
+
+1. **Go 标准库**
+   - `net/http`: https://pkg.go.dev/net/http
+   - `context`: https://pkg.go.dev/context
+   - `encoding/json`: https://pkg.go.dev/encoding/json
+   - `slog`: https://pkg.go.dev/log/slog
+
+2. **框架文档**
+   - Eino: https://github.com/cloudwego/eino
+   - Genkit: https://github.com/google/genkit
+   - LangChainGo: https://github.com/tmc/langchaingo
+
+3. **Cortex CE**
+   - 后端 API: `backend/src/main/java/com/ablueforce/cortexce/controller/`
+   - Java SDK: `cortex-mem-spring-integration/cortex-mem-client/`
+
+### 设计模式参考
+
+1. **Option 模式**: Go 标准库 `grpc.DialOption`
+2. **Builder 模式**: `strings.Builder`
+3. **Circuit Breaker**: 熔断器模式，参考 Hystrix
+4. **Repository 模式**: 数据访问抽象
+
+### 社区资源
+
+1. **Go 最佳实践**: https://go.dev/doc/effective_go
+2. **Go 项目结构**: https://github.com/golang-standards/project-layout
+3. **API 设计原则**: https://restfulapi.net/
+
