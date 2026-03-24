@@ -16,11 +16,12 @@ type Option func(*ClientConfig)
 
 // ClientConfig holds client configuration.
 type ClientConfig struct {
-	BaseURL    string
-	APIKey     string
-	HTTPClient *http.Client
-	MaxRetries int
-	Logger     Logger
+	BaseURL     string
+	APIKey      string
+	HTTPClient  *http.Client
+	MaxRetries  int
+	RetryBackoff time.Duration // Base backoff duration for retries (default: 500ms)
+	Logger      Logger
 }
 
 // Logger is the logging interface. Compatible with *slog.Logger.
@@ -51,6 +52,12 @@ func WithMaxRetries(n int) Option {
 	return func(c *ClientConfig) { c.MaxRetries = n }
 }
 
+// WithRetryBackoff sets the base retry backoff duration.
+// Actual backoff per attempt = RetryBackoff * attempt (linear backoff, matching Java SDK).
+func WithRetryBackoff(d time.Duration) Option {
+	return func(c *ClientConfig) { c.RetryBackoff = d }
+}
+
 // WithLogger sets a custom logger.
 func WithLogger(logger Logger) Option {
 	return func(c *ClientConfig) { c.Logger = logger }
@@ -67,8 +74,9 @@ func (nopLogger) Error(string, ...any) {}
 // DefaultClientConfig returns the default configuration.
 func DefaultClientConfig() *ClientConfig {
 	return &ClientConfig{
-		BaseURL:    "http://127.0.0.1:37777",
-		MaxRetries: 3,
+		BaseURL:     "http://127.0.0.1:37777",
+		MaxRetries:  3,
+		RetryBackoff: 500 * time.Millisecond,
 		HTTPClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -170,7 +178,7 @@ func (c *httpClient) doFireAndForget(ctx context.Context, name string, fn func()
 		}
 		// Linear backoff (matching Java SDK: backoff * attempt)
 		if attempt < c.config.MaxRetries {
-			delay := time.Duration(500*attempt) * time.Millisecond
+			delay := c.config.RetryBackoff * time.Duration(attempt)
 			select {
 			case <-ctx.Done():
 				// Fire-and-forget: swallow context cancellation

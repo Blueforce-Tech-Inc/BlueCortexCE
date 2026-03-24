@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
 	"github.com/abforce/cortex-ce/cortex-mem-go/dto"
@@ -1043,6 +1044,53 @@ func TestFireAndForget_ContextCancellation(t *testing.T) {
 	// Fire-and-forget should NEVER return an error, even on context cancellation
 	if err != nil {
 		t.Fatalf("fire-and-forget should swallow context cancellation: %v", err)
+	}
+}
+
+func TestFireAndForget_CustomBackoff(t *testing.T) {
+	attempts := 0
+	var timestamps []time.Time
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		timestamps = append(timestamps, time.Now())
+		if attempts < 3 {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	// Use 100ms base backoff (instead of default 500ms)
+	client := cortexmem.NewClient(
+		cortexmem.WithBaseURL(server.URL),
+		cortexmem.WithMaxRetries(3),
+		cortexmem.WithRetryBackoff(100*time.Millisecond),
+	)
+
+	err := client.RecordObservation(context.Background(), dto.ObservationRequest{
+		SessionID:   "sess-1",
+		ProjectPath: "/project",
+		ToolName:    "Read",
+	})
+	if err != nil {
+		t.Fatalf("RecordObservation should not return error: %v", err)
+	}
+	if attempts != 3 {
+		t.Errorf("expected 3 attempts, got %d", attempts)
+	}
+	// Verify backoff timing: attempt 1→2 delay should be ~100ms, attempt 2→3 delay should be ~200ms
+	if len(timestamps) >= 3 {
+		delay1 := timestamps[1].Sub(timestamps[0])
+		delay2 := timestamps[2].Sub(timestamps[1])
+		// First backoff: 100ms * 1 = 100ms
+		if delay1 < 80*time.Millisecond || delay1 > 200*time.Millisecond {
+			t.Errorf("expected first delay ~100ms, got %v", delay1)
+		}
+		// Second backoff: 100ms * 2 = 200ms
+		if delay2 < 180*time.Millisecond || delay2 > 350*time.Millisecond {
+			t.Errorf("expected second delay ~200ms, got %v", delay2)
+		}
 	}
 }
 

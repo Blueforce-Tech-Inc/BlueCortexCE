@@ -102,7 +102,7 @@
 - [x] Go E2E 测试 test 34 修复 DELETE 204 No Content 响应处理
 
 ### 测试覆盖策略
-- **单元测试**：33 个 wire format + API + error + retry + context cancellation 测试（全部通过）
+- **单元测试**：34 个 wire format + API + error + retry + context cancellation + backoff 测试（全部通过）
 - **E2E 测试**：Java 25 个 + Go 26 个（验证端到端链路）
 - **教训**：新增测试必须严格匹配已有 wire format 定义
 
@@ -277,6 +277,14 @@
     - TestStartSession_ErrorHandling: 验证 503 映射到 IsServiceUnavailable + IsInternal
   - Go SDK 单元测试从 39 → 44 个，全部通过
   - go vet 干净、5/5 examples 编译通过、Java SDK BUILD SUCCESS（42 测试通过）、回归测试 46/46 PASS
+- 2026-03-25 07:31: Phase D 代码审查第二十六轮 — Go SDK RetryBackoff 可配置化
+  - Go SDK: 新增 RetryBackoff 字段到 ClientConfig（默认 500ms，与 Java SDK CortexMemProperties.retry.backoff 一致）
+  - Go SDK: 新增 WithRetryBackoff option 函数
+  - Go SDK: doFireAndForget 使用 c.config.RetryBackoff 替代硬编码 500ms
+  - 之前 Java SDK 允许通过配置调整 retry backoff，Go SDK 不支持，存在功能不对等
+  - 新增 TestFireAndForget_CustomBackoff 测试：使用 100ms backoff 验证线性递增延迟 (100ms, 200ms)
+  - Go SDK 单元测试从 46 → 47 个，全部通过
+  - go vet 干净、5/5 examples 编译通过、Java SDK BUILD SUCCESS（42 测试通过）
 - 2026-03-25 07:01: Phase D 代码审查第二十五轮 — 测试质量改进 + 错误辅助函数
   - Go http-server: /extraction/history limit 参数从静默忽略无效值改为返回 400 错误（之前 limit=abc 会静默使用默认值 5，消费者无法区分有效/无效输入）
   - Go SDK: TestRetrieveExperiences_PathAndBody 修复 — 请求添加 RequiredConcepts 字段，使 wire format 断言不再空转（之前请求不含该字段，断言 required_concepts!=nil 恒为真但无意义）
