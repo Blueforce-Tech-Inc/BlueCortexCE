@@ -2439,3 +2439,39 @@ req := NewObservationRequest("session-1", "/path", "Read").
 | ObservationsRequest | Option | 简单 |
 | SearchRequest | Option | 中等复杂度 |
 
+
+---
+
+## 附录 M: Java SDK 功能缺失说明（迭代 10）
+
+### 发现
+
+Java SDK (`cortex-mem-client`) 未封装以下后端重要 API：
+
+| 后端 API | 说明 | Java SDK | Go SDK Phase |
+|----------|------|----------|-------------|
+| `GET /api/search` | 语义搜索 | ❌ 未封装 | ✅ Phase 2 |
+| `GET /api/observations` | 分页列表 | ❌ 未封装 | ✅ Phase 2 |
+| `GET /api/projects` | 项目列表 | ❌ 未封装 | ❌ 可选 |
+| `GET /api/summaries` | 摘要列表 | ❌ 未封装 | ❌ 可选 |
+| `GET /api/version` | 版本信息 | ❌ 未封装 | ✅ Phase 2 |
+
+### 建议
+
+**Go SDK 应该比 Java SDK 更完整**，在 Phase 2 中添加：
+- `Search` — 语义搜索（核心功能）
+- `ListObservations` — 分页列表（调试/管理）
+- `GetVersion` — 版本检查（调试）
+
+### 是否需要先修复 Java SDK？
+
+**建议**：不需要。理由：
+1. Go SDK 是独立项目，不必等待 Java SDK 修复
+2. Java SDK 主要用于 Spring AI 集成，已有完整的工作流程
+3. Go SDK 的用户可能不需要 Spring AI，因此需要更完整的 API
+
+**但如果将来有人需要修复 Java SDK**：
+1. 添加 `Search` 方法
+2. 添加 `ListObservations` 方法
+3. 添加 `GetVersion` 方法
+
