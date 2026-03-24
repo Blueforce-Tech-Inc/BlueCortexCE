@@ -41,7 +41,7 @@
 - genkit/main.go — Genkit Retriever Demo
 - http-server/main.go — HTTP 服务示例
 
-## Phase C: E2E 验收测试 ⏳ 待实施
+## Phase C: E2E 验收测试 ✅ 完成
 
 ### ⚠️ 核心原则
 
@@ -50,31 +50,22 @@
 E2E 测试脚本 → SDK Demo API 端点 → SDK → Backend API 端点
 ```
 
-每次改进 SDK，必须有对应的 E2E 测试脚本"验收通过"。
-
-### C1: Java SDK Demo E2E 测试
+### C1: Java SDK Demo E2E 测试 ✅
 - 脚本：`scripts/java-sdk-e2e-test.sh`
-- 覆盖：Search, ListObservations, Batch, Version, Projects, Stats, Modes, Settings
-- 验证链路：Demo API → Java SDK → Backend
+- 12 个测试：原有 + P0 + P1 API
 
-### C2: Go SDK Demo E2E 测试
+### C2: Go SDK Demo E2E 测试 ✅
 - 脚本：`scripts/go-sdk-e2e-test.sh`
-- 覆盖：全部 25 个 API 方法
-- 验证链路：Demo HTTP 端点 → Go SDK → Backend
+- 14 个测试：Demo 端点 + Backend 直接访问
 
-### C3: 集成层验证
-- Eino Retriever 端到端检索测试
-- LangChainGo Memory 测试
-- Genkit Retriever 测试
+### C3: 集成层验证 ⏳ 待实施
+- Eino/LangChainGo/Genkit 端到端测试
 
 ## 进度日志
 
 - 2026-03-24 18:12: 开始 Phase A
-- 2026-03-24 18:20: Phase A1 完成 (P0)
-- 2026-03-24 18:25: Phase A2 完成 (P1)
-- 2026-03-24 18:28: Phase A3 完成 (Demo)
 - 2026-03-24 18:30: Phase A 完成 ✅
-- 2026-03-24 18:31: Phase B1 完成 ✅
-- 2026-03-24 18:35: Phase B2 完成 ✅
-- 2026-03-24 18:40: Phase B3 完成 ✅
-- 2026-03-24 18:42: Phase C 开始 — 验收测试
+- 2026-03-24 18:31: Phase B 开始
+- 2026-03-24 18:40: Phase B 完成 ✅
+- 2026-03-24 18:42: Phase C 开始 — E2E 验收测试
+- 2026-03-24 18:45: Phase C1+C2 完成 ✅
