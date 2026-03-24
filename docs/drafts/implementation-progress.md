@@ -131,3 +131,8 @@
   - Java Demo: SearchController、ObservationsController、ManagementController 添加 try-catch 异常处理，避免 backend 宕机时返回原始 500 栈追踪
   - Go E2E 测试: 修复 summary 报告在 supplementary tests (15-26) 之前打印的结构性 bug，统一最终报告
   - go vet 干净、18 单元测试通过、basic/http-server Demo 编译通过、Java Demo BUILD SUCCESS
+- 2026-03-24 21:31: Phase D 代码审查第六轮 — TriggerRefinement 一致性 + 单元测试扩展
+  - Go SDK: TriggerRefinement 改用 doRequestNoContent（与 SubmitFeedback/RecordObservation 一致，消除手动 status 检查冗余代码）
+  - Go SDK: 新增 3 个单元测试 — UpdateObservation_WireFormat（验证 PATCH 方法 + camelCase + pointer omitempty）、DeleteObservation（验证 DELETE 方法 + 路径）、GetExtractionHistory_PathAndParams（验证 template/history 路径 + query params）
+  - Go SDK 单元测试从 18 → 21 个，全部通过
+  - go vet 干净、Java SDK BUILD SUCCESS

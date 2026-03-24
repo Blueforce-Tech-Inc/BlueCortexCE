@@ -595,3 +595,101 @@ func TestIsBadRequest(t *testing.T) {
 		t.Errorf("expected IsBadRequest, got: %v", err)
 	}
 }
+
+func TestUpdateObservation_WireFormat(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Errorf("expected PATCH, got %s", r.Method)
+		}
+		if !strings.HasSuffix(r.URL.Path, "/obs-1") {
+			t.Errorf("expected path to end with /obs-1, got %s", r.URL.Path)
+		}
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+
+		if body["title"] != "Updated Title" {
+			t.Errorf("expected title=Updated Title, got %v", body["title"])
+		}
+		if body["extractedData"] == nil {
+			t.Error("expected extractedData (camelCase)")
+		}
+		if body["extracted_data"] != nil {
+			t.Error("extracted_data should not exist (should be 'extractedData')")
+		}
+		// Nil pointer fields should NOT appear
+		if body["content"] != nil {
+			t.Error("nil content should be omitted")
+		}
+		if body["source"] != nil {
+			t.Error("nil source should be omitted")
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	title := "Updated Title"
+	err := client.UpdateObservation(context.Background(), "obs-1", dto.ObservationUpdate{
+		Title:         &title,
+		ExtractedData: map[string]any{"key": "value"},
+	})
+	if err != nil {
+		t.Fatalf("UpdateObservation failed: %v", err)
+	}
+}
+
+func TestDeleteObservation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("expected DELETE, got %s", r.Method)
+		}
+		if !strings.HasSuffix(r.URL.Path, "/obs-1") {
+			t.Errorf("expected path to end with /obs-1, got %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	err := client.DeleteObservation(context.Background(), "obs-1")
+	if err != nil {
+		t.Fatalf("DeleteObservation failed: %v", err)
+	}
+}
+
+func TestGetExtractionHistory_PathAndParams(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.URL.Path, "user-preferences/history") {
+			t.Errorf("expected template/history in path, got %s", r.URL.Path)
+		}
+		if r.URL.Query().Get("projectPath") != "/project" {
+			t.Errorf("expected projectPath query param, got %s", r.URL.Query().Get("projectPath"))
+		}
+		if r.URL.Query().Get("limit") != "10" {
+			t.Errorf("expected limit=10, got %s", r.URL.Query().Get("limit"))
+		}
+		if r.URL.Query().Get("userId") != "alice" {
+			t.Errorf("expected userId=alice, got %s", r.URL.Query().Get("userId"))
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode([]map[string]any{
+			{"result": "v1"},
+			{"result": "v2"},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	history, err := client.GetExtractionHistory(context.Background(), "/project", "user-preferences", "alice", 10)
+	if err != nil {
+		t.Fatalf("GetExtractionHistory failed: %v", err)
+	}
+	if len(history) != 2 {
+		t.Fatalf("expected 2 history entries, got %d", len(history))
+	}
+	if history[0]["result"] != "v1" {
+		t.Errorf("expected first result=v1, got %v", history[0]["result"])
+	}
+}

@@ -171,14 +171,7 @@ func (c *httpClient) TriggerRefinement(ctx context.Context, projectPath string) 
 	// Verified: POST /api/memory/refine?project=/path
 	return c.doFireAndForget(ctx, "TriggerRefinement", func() error {
 		path := "/api/memory/refine?project=" + url.QueryEscape(projectPath)
-		_, status, err := c.doRequest(ctx, http.MethodPost, path, nil, nil)
-		if err != nil {
-			return err
-		}
-		if status >= 400 {
-			return &APIError{StatusCode: status, Message: fmt.Sprintf("trigger refinement failed with status %d", status)}
-		}
-		return nil
+		return c.doRequestNoContent(ctx, http.MethodPost, path, nil)
 	})
 }
 
