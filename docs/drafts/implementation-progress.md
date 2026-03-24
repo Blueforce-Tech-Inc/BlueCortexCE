@@ -77,6 +77,8 @@
 - [ ] Go SDK Logger 接口完整性（已确认：nopLogger + Option 模式完善）
 - [ ] Java SDK SearchRequest DTO 字段验证（已确认：Builder 模式 + 默认值正确）
 - [ ] Go SDK Demo 代码质量（已修复上述编译错误，已验证 go vet + unit tests）
+- [ ] Go SDK `APIError.Body` 字段声明但未使用（Message 已包含 response body）
+- [ ] Go SDK `doFireAndForget` 对所有管理操作统一行为（与 Java SDK 一致，设计意图）
 
 ### 测试覆盖策略
 - **单元测试**：18 个 wire format 测试（通过）
@@ -110,3 +112,8 @@
   - 修复 genkit: ObservationRequest 字段 + 错误处理
   - 修复 basic/eino/genkit: nil pointer dereference (log.Fatalf)
   - go vet 干净、18 单元测试通过、Java Demo 编译通过
+- 2026-03-24 20:01: Phase D 代码审查第三轮 — SDK API 一致性修复
+  - 修复 Go SDK: GetLatestExtraction/GetExtractionHistory 移除冗余 templateName query param
+  - 修复 Java SDK: 同上（CortexMemClientImpl.java 同样存在此问题）
+  - templateName 已在 URL 路径中传递 (/api/extraction/{templateName}/...)，query param 冗余
+  - go vet 干净、18 单元测试通过、Java SDK BUILD SUCCESS、Demo 编译通过
