@@ -167,6 +167,9 @@ public class MemoryController {
      * Update an existing observation.
      * PATCH /api/memory/observations/{id}
      * Body: {"title": "...", "content": "...", "facts": [...], "concepts": [...], "source": "...", "extractedData": {...}}
+     *
+     * Null values in the body are ignored (field left unchanged).
+     * Invalid types return 400 Bad Request to prevent silent data loss.
      */
     @PatchMapping("/observations/{id}")
     public ResponseEntity<Map<String, Object>> updateObservation(
@@ -178,28 +181,72 @@ public class MemoryController {
             return ResponseEntity.notFound().build();
         }
 
-        // Update fields if present
-        if (body.containsKey("title")) {
-            observation.setTitle((String) body.get("title"));
+        // Update string fields if present and non-null
+        if (body.containsKey("title") && body.get("title") != null) {
+            Object val = body.get("title");
+            if (!(val instanceof String)) {
+                return ResponseEntity.badRequest().body(Map.of("error", "title must be a string"));
+            }
+            observation.setTitle((String) val);
         }
         if (body.containsKey("content") || body.containsKey("narrative")) {
-            observation.setContent((String) body.getOrDefault("content", body.get("narrative")));
+            Object val = body.getOrDefault("content", body.get("narrative"));
+            if (val != null) {
+                if (!(val instanceof String)) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "content/narrative must be a string"));
+                }
+                observation.setContent((String) val);
+            }
         }
-        if (body.containsKey("subtitle")) {
-            observation.setSubtitle((String) body.get("subtitle"));
+        if (body.containsKey("subtitle") && body.get("subtitle") != null) {
+            Object val = body.get("subtitle");
+            if (!(val instanceof String)) {
+                return ResponseEntity.badRequest().body(Map.of("error", "subtitle must be a string"));
+            }
+            observation.setSubtitle((String) val);
         }
+        if (body.containsKey("source") && body.get("source") != null) {
+            Object val = body.get("source");
+            if (!(val instanceof String)) {
+                return ResponseEntity.badRequest().body(Map.of("error", "source must be a string"));
+            }
+            observation.setSource((String) val);
+        }
+
+        // Update list fields — null means "clear", wrong type → 400
         if (body.containsKey("facts")) {
-            observation.setFacts(safeGetStringList(body, "facts"));
+            Object val = body.get("facts");
+            if (val == null) {
+                observation.setFacts(null);
+            } else if (val instanceof List<?> list) {
+                observation.setFacts(validateStringList(list, "facts"));
+            } else {
+                return ResponseEntity.badRequest().body(Map.of("error", "facts must be a list of strings"));
+            }
         }
         if (body.containsKey("concepts")) {
-            observation.setConcepts(safeGetStringList(body, "concepts"));
+            Object val = body.get("concepts");
+            if (val == null) {
+                observation.setConcepts(null);
+            } else if (val instanceof List<?> list) {
+                observation.setConcepts(validateStringList(list, "concepts"));
+            } else {
+                return ResponseEntity.badRequest().body(Map.of("error", "concepts must be a list of strings"));
+            }
         }
-        if (body.containsKey("source")) {
-            observation.setSource((String) body.get("source"));
-        }
+
+        // Update map fields — null means "clear", wrong type → 400
         if (body.containsKey("extractedData")) {
-            Map<String, Object> extractedData = safeGetMap(body, "extractedData");
-            observation.setExtractedData(extractedData);
+            Object val = body.get("extractedData");
+            if (val == null) {
+                observation.setExtractedData(null);
+            } else if (val instanceof Map<?, ?>) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> extractedData = (Map<String, Object>) val;
+                observation.setExtractedData(extractedData);
+            } else {
+                return ResponseEntity.badRequest().body(Map.of("error", "extractedData must be a JSON object"));
+            }
         }
 
         ObservationEntity saved = observationRepository.save(observation);
@@ -207,6 +254,24 @@ public class MemoryController {
             "status", "updated",
             "id", saved.getId().toString()
         ));
+    }
+
+    /**
+     * Validate that all items in a list are strings.
+     * Throws 400-style error info if non-string items are found.
+     */
+    private List<String> validateStringList(List<?> raw, String fieldName) {
+        List<String> result = new java.util.ArrayList<>();
+        for (Object item : raw) {
+            if (item instanceof String s) {
+                result.add(s);
+            } else {
+                log.warn("Non-string item in '{}' list: {} (type {})", fieldName, item,
+                    item != null ? item.getClass().getName() : "null");
+                // Skip non-string items rather than failing — lenient parsing
+            }
+        }
+        return result;
     }
 
     /**
@@ -225,28 +290,4 @@ public class MemoryController {
         ));
     }
 
-    // Helper: safely extract List<String> from request body
-    @SuppressWarnings("unchecked")
-    private List<String> safeGetStringList(Map<String, Object> body, String key) {
-        Object value = body.get(key);
-        if (value == null) return List.of();
-        if (value instanceof List) {
-            return ((List<?>) value).stream()
-                .filter(item -> item instanceof String)
-                .map(item -> (String) item)
-                .toList();
-        }
-        return List.of();
-    }
-
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> safeGetMap(Map<String, Object> body, String key) {
-        Object value = body.get(key);
-        if (value == null) return null;
-        if (value instanceof Map) {
-            return (Map<String, Object>) value;
-        }
-        log.warn("Expected Map for key '{}' but got {}", key, value.getClass().getName());
-        return null;
-    }
 }
