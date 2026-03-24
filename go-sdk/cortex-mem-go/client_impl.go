@@ -141,12 +141,12 @@ func (c *httpClient) doRequest(ctx context.Context, method, path string, body an
 
 // doRequestNoContent makes a request and checks for success (no response body needed).
 func (c *httpClient) doRequestNoContent(ctx context.Context, method, path string, body any) error {
-	_, status, err := c.doRequest(ctx, method, path, body, nil)
+	data, status, err := c.doRequest(ctx, method, path, body, nil)
 	if err != nil {
 		return err
 	}
 	if status >= 400 {
-		return &APIError{StatusCode: status, Message: fmt.Sprintf("request failed with status %d", status)}
+		return &APIError{StatusCode: status, Message: string(data)}
 	}
 	return nil
 }

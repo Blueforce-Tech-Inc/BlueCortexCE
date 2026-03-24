@@ -536,3 +536,62 @@ func TestGetLatestExtraction_PathAndParams(t *testing.T) {
 		t.Errorf("expected result=data, got %v", result["result"])
 	}
 }
+
+func TestGetObservationsByIds(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/observations/batch" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+		ids, ok := body["ids"].([]any)
+		if !ok || len(ids) != 2 {
+			t.Errorf("expected ids array with 2 elements, got %v", body["ids"])
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode([]dto.Observation{
+			{ID: "obs-1", Content: "first"},
+			{ID: "obs-2", Content: "second"},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	obs, err := client.GetObservationsByIds(context.Background(), []string{"obs-1", "obs-2"})
+	if err != nil {
+		t.Fatalf("GetObservationsByIds failed: %v", err)
+	}
+	if len(obs) != 2 {
+		t.Fatalf("expected 2 observations, got %d", len(obs))
+	}
+	if obs[0].ID != "obs-1" {
+		t.Errorf("expected obs-1, got %s", obs[0].ID)
+	}
+	if obs[1].Content != "second" {
+		t.Errorf("expected content=second, got %s", obs[1].Content)
+	}
+}
+
+func TestIsBadRequest(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"error":"invalid input"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.StartSession(context.Background(), dto.SessionStartRequest{
+		SessionID:   "",
+		ProjectPath: "",
+	})
+	if err == nil {
+		t.Fatal("expected error for 400")
+	}
+	if !cortexmem.IsBadRequest(err) {
+		t.Errorf("expected IsBadRequest, got: %v", err)
+	}
+}

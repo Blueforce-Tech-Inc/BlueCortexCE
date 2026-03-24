@@ -74,6 +74,24 @@ func IsNotFound(err error) bool {
 	return errors.Is(err, ErrNotFound)
 }
 
+// IsBadRequest returns true if the error is a 400.
+func IsBadRequest(err error) bool {
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.StatusCode == http.StatusBadRequest
+	}
+	return errors.Is(err, ErrBadRequest)
+}
+
+// IsUnauthorized returns true if the error is a 401.
+func IsUnauthorized(err error) bool {
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.StatusCode == http.StatusUnauthorized
+	}
+	return errors.Is(err, ErrUnauthorized)
+}
+
 // IsConflict returns true if the error is a 409.
 func IsConflict(err error) bool {
 	var apiErr *APIError
@@ -90,4 +108,13 @@ func IsRateLimited(err error) bool {
 		return apiErr.StatusCode == http.StatusTooManyRequests
 	}
 	return errors.Is(err, ErrRateLimited)
+}
+
+// IsInternal returns true if the error is a 5xx server error.
+func IsInternal(err error) bool {
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.StatusCode >= 500
+	}
+	return errors.Is(err, ErrInternal)
 }

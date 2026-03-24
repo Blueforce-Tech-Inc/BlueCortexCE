@@ -40,6 +40,9 @@ type Client interface {
 	// ListObservations lists observations with pagination.
 	ListObservations(ctx context.Context, req dto.ObservationsRequest) (*dto.ObservationsResponse, error)
 
+	// GetObservationsByIds retrieves observations by their IDs.
+	GetObservationsByIds(ctx context.Context, ids []string) ([]dto.Observation, error)
+
 	// ==================== Management ====================
 
 	// TriggerRefinement triggers memory refinement.
