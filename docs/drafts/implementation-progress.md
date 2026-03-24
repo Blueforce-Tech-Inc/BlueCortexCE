@@ -64,12 +64,23 @@
 - [x] Java SearchController: `type` 参数名改为 `observationType`（Java 保留字问题）
 - [x] Go SDK README.md 缺失 → 已创建
 - [x] 集成层 README.md 缺失 → 已创建
+- [x] Go SDK 18 个单元测试全部通过
 
 ### 待审查项
 - [ ] Go SDK Logger 接口完整性
 - [ ] Java SDK SearchRequest DTO 字段验证
-- [ ] E2E 测试脚本增加更多边界测试
 - [ ] Go SDK Demo 代码质量
+
+### 测试覆盖策略
+- **单元测试**：18 个 wire format 测试（通过）
+- **E2E 测试**：Java 14 个 + Go 13 个（验证端到端链路）
+- **教训**：新增测试必须严格匹配已有 wire format 定义
+
+### 已验证项
+- ✅ Go SDK 18 单元测试 PASS
+- ✅ Go vet 干净
+- ✅ Java Demo 编译通过
+- ✅ 回归测试 46/46 PASS
 
 ## 进度日志
 
