@@ -92,7 +92,7 @@
 - [x] Go genkit RetrieverInput 添加 UserID 字段，支持按调用覆盖用户 ID
 
 ### 测试覆盖策略
-- **单元测试**：32 个 wire format + API + error + retry 测试（全部通过）
+- **单元测试**：33 个 wire format + API + error + retry + context cancellation 测试（全部通过）
 - **E2E 测试**：Java 14 个 + Go 26 个（验证端到端链路）
 - **教训**：新增测试必须严格匹配已有 wire format 定义
 
@@ -162,3 +162,9 @@
   - Go eino: 新增 WithRetrieverUserID 选项，Retrieve 方法传递 userID 到 ExperienceRequest
   - Go genkit: 新增 WithRetrieverUserID 选项 + RetrieverInput.UserID 字段，Retrieve 方法支持按调用覆盖 userID
   - go vet 干净、32 Go 测试通过、http-server Demo 编译通过、Java SDK BUILD SUCCESS、回归测试 46/46 PASS
+- 2026-03-24 23:31: Phase D 代码审查第十轮 — fire-and-forget 语义修复 + http-server 改进
+  - Go SDK: 修复 doFireAndForget 上下文取消 bug — 之前在 backoff 期间 context 被取消时返回 ctx.Err()，违反 fire-and-forget 契约（绝不返回错误）。现在吞掉取消错误并返回 nil
+  - Go SDK: 新增 TestFireAndForget_ContextCancellation 测试（33 个单元测试，全部通过）
+  - Go http-server demo: http.Server 添加 ReadTimeout/WriteTimeout/IdleTimeout 超时配置
+  - Go http-server demo: 添加 SIGINT/SIGTERM 优雅关闭
+  - go vet 干净、33 Go 测试通过、5/5 examples 编译通过、Java SDK BUILD SUCCESS、回归测试 46/46 PASS
