@@ -29,7 +29,7 @@ public class SearchController {
     public ResponseEntity<Map<String, Object>> search(
             @RequestParam String project,
             @RequestParam(required = false) String query,
-            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String observationType,
             @RequestParam(required = false) String concept,
             @RequestParam(required = false) String source,
             @RequestParam(defaultValue = "10") Integer limit,
@@ -38,7 +38,7 @@ public class SearchController {
         SearchRequest request = SearchRequest.builder()
                 .project(project)
                 .query(query)
-                .type(type)
+                .type(observationType)
                 .concept(concept)
                 .source(source)
                 .limit(limit)
