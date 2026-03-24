@@ -162,3 +162,18 @@ func IsGatewayTimeout(err error) bool {
 	}
 	return errors.Is(err, ErrGatewayTimeout)
 }
+
+// IsClientError returns true if the error is a 4xx client error.
+func IsClientError(err error) bool {
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.StatusCode >= 400 && apiErr.StatusCode < 500
+	}
+	return false
+}
+
+// IsServerError returns true if the error is a 5xx server error.
+// Alias for IsInternal — both check 5xx range.
+func IsServerError(err error) bool {
+	return IsInternal(err)
+}

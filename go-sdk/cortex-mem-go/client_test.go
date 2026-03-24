@@ -1092,6 +1092,10 @@ func TestRetrieveExperiences_PathAndBody(t *testing.T) {
 		if body["required_concepts"] != nil {
 			t.Error("required_concepts should not be in wire format (should be 'requiredConcepts')")
 		}
+		rc, ok := body["requiredConcepts"].([]any)
+		if !ok || len(rc) != 2 {
+			t.Errorf("expected requiredConcepts array with 2 elements, got %v", body["requiredConcepts"])
+		}
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode([]dto.Experience{
@@ -1106,7 +1110,7 @@ func TestRetrieveExperiences_PathAndBody(t *testing.T) {
 		Project:          "/proj",
 		Count:            5,
 		Source:           "tool_result",
-		RequiredConcepts: []string{"null-safety"},
+		RequiredConcepts: []string{"null-safety", "error-handling"},
 	})
 	if err != nil {
 		t.Fatalf("RetrieveExperiences failed: %v", err)
@@ -1362,5 +1366,46 @@ func TestIsGatewayTimeout(t *testing.T) {
 	}
 	if !cortexmem.IsInternal(err) {
 		t.Errorf("504 should also match IsInternal")
+	}
+}
+
+func TestIsClientError(t *testing.T) {
+	// 400 should match IsClientError
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"error":"bad"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 400")
+	}
+	if !cortexmem.IsClientError(err) {
+		t.Error("400 should match IsClientError")
+	}
+	if cortexmem.IsServerError(err) {
+		t.Error("400 should NOT match IsServerError")
+	}
+}
+
+func TestIsServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error":"internal"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 500")
+	}
+	if !cortexmem.IsServerError(err) {
+		t.Error("500 should match IsServerError")
+	}
+	if cortexmem.IsClientError(err) {
+		t.Error("500 should NOT match IsClientError")
 	}
 }

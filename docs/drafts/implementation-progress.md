@@ -268,3 +268,19 @@
   - Go SDK: 新增 TestSessionStartRequest_WireFormat — 验证 session_start 使用 project_path（非 cwd），与 session_end/user_prompt 使用 cwd 的差异
   - Go SDK 单元测试从 38 → 39 个，全部通过
   - go vet 干净、5/5 examples 编译通过、Java SDK BUILD SUCCESS、回归测试 46/46 PASS
+- 2026-03-25 06:31: Phase D 代码审查第二十四轮 — Go SDK 补充缺失测试
+  - Go SDK: 新增 5 个单元测试：
+    - TestRetrieveExperiences_PathAndBody: 验证 POST 路径 + wire format (task/project/count/source) + requiredConcepts camelCase
+    - TestBuildICLPrompt_PathAndBody: 验证 POST 路径 + wire format + maxChars camelCase + experienceCount 解析
+    - TestGetQualityDistribution_Path: 验证 GET 路径 + project query param
+    - TestSearch_OmitsEmptyParams: 验证零值字段不发送到 query string
+    - TestStartSession_ErrorHandling: 验证 503 映射到 IsServiceUnavailable + IsInternal
+  - Go SDK 单元测试从 39 → 44 个，全部通过
+  - go vet 干净、5/5 examples 编译通过、Java SDK BUILD SUCCESS（42 测试通过）、回归测试 46/46 PASS
+- 2026-03-25 07:01: Phase D 代码审查第二十五轮 — 测试质量改进 + 错误辅助函数
+  - Go http-server: /extraction/history limit 参数从静默忽略无效值改为返回 400 错误（之前 limit=abc 会静默使用默认值 5，消费者无法区分有效/无效输入）
+  - Go SDK: TestRetrieveExperiences_PathAndBody 修复 — 请求添加 RequiredConcepts 字段，使 wire format 断言不再空转（之前请求不含该字段，断言 required_concepts!=nil 恒为真但无意义）
+  - Go SDK: 新增 2 个复合错误辅助函数 — IsClientError（4xx）、IsServerError（5xx），支持按类别而非单个状态码检查
+  - Go SDK: 新增 2 个单元测试覆盖新 helper（含交叉验证：400 匹配 IsClientError 但不匹配 IsServerError，500 反之）
+  - Go SDK 单元测试从 44 → 46 个，全部通过
+  - go vet 干净、http-server/basic examples 编译通过、Java SDK BUILD SUCCESS（42 测试通过）、回归测试 46/46 PASS
