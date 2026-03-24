@@ -513,6 +513,8 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         SELECT * FROM mem_observations
         WHERE project_path = :project
         AND quality_score < :threshold
+        AND type NOT LIKE 'extracted_%'
+        AND type != 'extraction_failed'
         ORDER BY quality_score ASC
         LIMIT :limit
         """, nativeQuery = true)
@@ -536,6 +538,8 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         WHERE project_path = :project
         AND (last_accessed_at IS NULL OR last_accessed_at < :accessThreshold)
         AND (quality_score IS NULL OR quality_score < :qualityThreshold)
+        AND type NOT LIKE 'extracted_%'
+        AND type != 'extraction_failed'
         ORDER BY quality_score ASC NULLS FIRST
         LIMIT :limit
         """, nativeQuery = true)
@@ -558,6 +562,8 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         SELECT * FROM mem_observations
         WHERE project_path = :project
         AND (refined_at IS NULL OR refined_at < :cooldownThreshold)
+        AND type NOT LIKE 'extracted_%'
+        AND type != 'extraction_failed'
         ORDER BY refined_at ASC NULLS FIRST, quality_score ASC NULLS FIRST
         LIMIT :limit
         """, nativeQuery = true)
