@@ -180,9 +180,8 @@ public class ViewerController {
     /**
      * GET /api/search — semantic search endpoint.
      * <p>
-     * Note: offset and orderBy parameters are accepted for MCP client compatibility
-     * but are currently not implemented in the search path (filtered at service level).
-     * Use limit to control result size.
+     * Supports offset for filter-only and post-filtered semantic paths.
+     * orderBy is accepted for MCP client compatibility but not yet implemented.
      */
     @GetMapping("/search")
     public ResponseEntity<Map<String, Object>> search(

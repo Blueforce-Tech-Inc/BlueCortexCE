@@ -141,29 +141,42 @@ public class SearchService {
     }
 
     /**
-     * Apply source/type/concept filters as post-processing on semantic search results.
-     * Needed because hybrid and full-text search queries don't support source filtering natively.
+     * Apply source/type/concept filters and offset as post-processing on semantic search results.
+     * Needed because hybrid and full-text search queries don't support source filtering or offset natively.
      * Fetches limit*2 results to compensate for filtering reducing the result set.
      */
     private List<ObservationEntity> applyPostFilters(List<ObservationEntity> results, SearchRequest request) {
         String sourceFilter = blankToNull(request.source());
         String typeFilter = blankToNull(request.type());
         String conceptFilter = blankToNull(request.concept());
+        int offset = Math.max(0, request.offset());
 
-        if (sourceFilter == null && typeFilter == null && conceptFilter == null) {
+        boolean hasFilter = sourceFilter != null || typeFilter != null || conceptFilter != null;
+
+        if (!hasFilter && offset == 0) {
             return results;
         }
 
-        return results.stream()
-            .filter(obs -> sourceFilter == null || sourceFilter.equals(obs.getSource()))
-            .filter(obs -> typeFilter == null || typeFilter.equals(obs.getType()))
-            .filter(obs -> {
-                if (conceptFilter == null) return true;
+        var stream = results.stream();
+
+        if (sourceFilter != null) {
+            stream = stream.filter(obs -> sourceFilter.equals(obs.getSource()));
+        }
+        if (typeFilter != null) {
+            stream = stream.filter(obs -> typeFilter.equals(obs.getType()));
+        }
+        if (conceptFilter != null) {
+            stream = stream.filter(obs -> {
                 List<String> concepts = obs.getConcepts();
                 return concepts != null && concepts.contains(conceptFilter);
-            })
-            .limit(request.limit())
-            .toList();
+            });
+        }
+
+        if (offset > 0) {
+            stream = stream.skip(offset);
+        }
+
+        return stream.limit(request.limit()).toList();
     }
 
     /**
