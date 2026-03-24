@@ -85,16 +85,22 @@ public class ChatController {
         }
 
         if (conversationId != null && !conversationId.isBlank()) {
-            var spec = client.prompt()
-                .advisors(spec1 -> spec1.param(ChatMemory.CONVERSATION_ID, effectiveConvId))
-                .user(message);
-            return spec.call().content();
+            try {
+                var spec = client.prompt()
+                    .advisors(spec1 -> spec1.param(ChatMemory.CONVERSATION_ID, effectiveConvId))
+                    .user(message);
+                return spec.call().content();
+            } catch (Exception e) {
+                return "Error: Chat failed — " + e.getMessage();
+            }
         }
 
         CortexSessionContext.begin(effectiveConvId, projectPath);
         try {
             CortexSessionContext.incrementAndGetPromptNumber();
             return client.prompt().user(message).call().content();
+        } catch (Exception e) {
+            return "Error: Chat failed — " + e.getMessage();
         } finally {
             CortexSessionContext.end();
         }

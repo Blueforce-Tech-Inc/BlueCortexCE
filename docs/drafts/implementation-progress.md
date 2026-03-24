@@ -234,3 +234,11 @@
   - Go E2E 测试: 修复 /experiences 测试使用 query=test 而非 task=test 的 bug（task 参数始终为空，API 调用实际无效）
   - Java demo SessionLifecycleController: /start 和 /lifecycle 端点添加 try-catch（sessionStartClient.startSession() 在 backend 宕机时会抛异常，是唯一缺少错误处理的控制器）
   - go vet 干净、38 Go 测试通过、http-server 编译通过、Java Demo BUILD SUCCESS、回归测试 46/46 PASS
+- 2026-03-25 04:01: Phase D 代码审查第十九轮 — Java Demo 全面异常处理补齐
+  - 发现并修复 4 个之前遗漏的 Java Demo 控制器缺少 try-catch：
+    - ChatController: /chat 端点两个分支（conversationId 和 CortexSessionContext）均无异常处理，AI 模型不可用时返回原始 500 栈追踪
+    - ToolsController: /demo/tool 端点 fileReadTool.readFile() 可抛 IOException
+    - MemoryController: /memory/experiences、/memory/icl、/memory/quality、/memory/refine、/memory/icl/truncated、/memory/experiences/filtered 共 6 个方法无异常处理
+    - SessionLifecycleController: /prompt、/tool、/end 3 个方法无异常处理
+  - 所有方法统一使用 ResponseEntity 包装，与 SearchController/ObservationsController/ManagementController 一致
+  - Java Demo BUILD SUCCESS、go vet 干净、38 Go 测试通过、40 Java 测试通过、回归测试 46/46 PASS

@@ -42,6 +42,8 @@ public class ToolsController {
             String result = fileReadTool.readFile(path);
             CortexSessionContext.incrementAndGetPromptNumber();
             return "Tool result: " + result + " (captured to memory)";
+        } catch (Exception e) {
+            return "Error: Tool execution failed — " + e.getMessage();
         } finally {
             CortexSessionContext.end();
         }

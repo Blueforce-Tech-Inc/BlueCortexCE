@@ -51,30 +51,48 @@ public class MemoryController {
     // ===== Basic Memory Operations =====
 
     @GetMapping("/memory/experiences")
-    public List<Experience> getExperiences(
+    public ResponseEntity<List<Experience>> getExperiences(
             @RequestParam String task,
             @RequestParam(defaultValue = "/") String project,
             @RequestParam(defaultValue = "4") int count) {
-        return retrievalService.retrieveExperiences(task, resolveProject(project), count);
+        try {
+            return ResponseEntity.ok(retrievalService.retrieveExperiences(task, resolveProject(project), count));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @GetMapping("/memory/icl")
-    public String getIclPrompt(
+    public ResponseEntity<String> getIclPrompt(
             @RequestParam String task,
             @RequestParam(defaultValue = "/") String project) {
-        return retrievalService.buildICLPrompt(task, resolveProject(project));
+        try {
+            return ResponseEntity.ok(retrievalService.buildICLPrompt(task, resolveProject(project)));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body("Error: ICL prompt failed — " + e.getMessage());
+        }
     }
 
     @GetMapping("/memory/quality")
-    public QualityDistribution getQuality(@RequestParam(defaultValue = "/") String project) {
-        return cortexClient.getQualityDistribution(resolveProject(project));
+    public ResponseEntity<QualityDistribution> getQuality(@RequestParam(defaultValue = "/") String project) {
+        try {
+            return ResponseEntity.ok(cortexClient.getQualityDistribution(resolveProject(project)));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @GetMapping("/memory/refine")
-    public String triggerRefine(@RequestParam(defaultValue = "/") String project) {
-        String path = resolveProject(project);
-        cortexClient.triggerRefinement(path);
-        return "Refinement triggered for " + path;
+    public ResponseEntity<String> triggerRefine(@RequestParam(defaultValue = "/") String project) {
+        try {
+            String path = resolveProject(project);
+            cortexClient.triggerRefinement(path);
+            return ResponseEntity.ok("Refinement triggered for " + path);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body("Error: Refinement failed — " + e.getMessage());
+        }
     }
 
     // ===== V14: Advanced Features =====
@@ -92,16 +110,20 @@ public class MemoryController {
      *                 - 8K models: 2000-3000
      */
     @GetMapping("/memory/icl/truncated")
-    public ICLPromptResult getIclPromptTruncated(
+    public ResponseEntity<ICLPromptResult> getIclPromptTruncated(
             @RequestParam String task,
             @RequestParam(defaultValue = "/") String project,
             @RequestParam(defaultValue = "4000") int maxChars) {
-        
-        return cortexClient.buildICLPrompt(ICLPromptRequest.builder()
-            .task(task)
-            .project(resolveProject(project))
-            .maxChars(maxChars)
-            .build());
+        try {
+            return ResponseEntity.ok(cortexClient.buildICLPrompt(ICLPromptRequest.builder()
+                .task(task)
+                .project(resolveProject(project))
+                .maxChars(maxChars)
+                .build()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(new ICLPromptResult("", "0"));
+        }
     }
 
     /**
@@ -115,22 +137,24 @@ public class MemoryController {
      * @param count Number of experiences
      */
     @GetMapping("/memory/experiences/filtered")
-    public List<Experience> getExperiencesFiltered(
+    public ResponseEntity<List<Experience>> getExperiencesFiltered(
             @RequestParam String task,
             @RequestParam(defaultValue = "/") String project,
             @RequestParam(required = false) String source,
             @RequestParam(required = false) List<String> requiredConcepts,
             @RequestParam(defaultValue = "4") int count) {
-        
-        ExperienceRequest request = ExperienceRequest.builder()
-            .task(task)
-            .project(resolveProject(project))
-            .source(source)
-            .requiredConcepts(requiredConcepts)
-            .count(count)
-            .build();
-        
-        return cortexClient.retrieveExperiences(request);
+        try {
+            ExperienceRequest request = ExperienceRequest.builder()
+                .task(task)
+                .project(resolveProject(project))
+                .source(source)
+                .requiredConcepts(requiredConcepts)
+                .count(count)
+                .build();
+            return ResponseEntity.ok(cortexClient.retrieveExperiences(request));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     // ===== V15: Extraction API (Phase 3) =====

@@ -4,6 +4,7 @@ import com.ablueforce.cortexce.ai.context.CortexSessionContext;
 import com.ablueforce.cortexce.ai.observation.ObservationCaptureService;
 import com.ablueforce.cortexce.client.dto.SessionEndRequest;
 import com.ablueforce.cortexce.client.dto.UserPromptRequest;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -68,7 +69,7 @@ public class SessionLifecycleController {
      * 2. Record user prompt — must be called within CortexSessionContext (see lifecycle).
      */
     @PostMapping("/prompt")
-    public String recordPrompt(
+    public ResponseEntity<String> recordPrompt(
             @RequestParam String sessionId,
             @RequestParam String projectPath,
             @RequestParam String prompt,
@@ -81,7 +82,10 @@ public class SessionLifecycleController {
                 .promptText(prompt)
                 .promptNumber(promptNumber)
                 .build());
-            return "Prompt recorded";
+            return ResponseEntity.ok("Prompt recorded");
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body("Error: Failed to record prompt — " + e.getMessage());
         } finally {
             CortexSessionContext.end();
         }
@@ -91,7 +95,7 @@ public class SessionLifecycleController {
      * 3. Tool call (auto-captures observation) — must be within CortexSessionContext.
      */
     @GetMapping("/tool")
-    public String runTool(
+    public ResponseEntity<String> runTool(
             @RequestParam String sessionId,
             @RequestParam String projectPath,
             @RequestParam(defaultValue = "/tmp/hello.txt") String path) {
@@ -99,7 +103,10 @@ public class SessionLifecycleController {
         try {
             String result = fileReadTool.readFile(path);
             CortexSessionContext.incrementAndGetPromptNumber();
-            return "Tool result: " + result + " (captured to memory)";
+            return ResponseEntity.ok("Tool result: " + result + " (captured to memory)");
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body("Error: Tool execution failed — " + e.getMessage());
         } finally {
             CortexSessionContext.end();
         }
@@ -109,16 +116,21 @@ public class SessionLifecycleController {
      * 4. End session — triggers summary generation.
      */
     @PostMapping("/end")
-    public String endSession(
+    public ResponseEntity<String> endSession(
             @RequestParam String sessionId,
             @RequestParam String projectPath,
             @RequestParam(required = false) String lastMessage) {
-        captureService.recordSessionEnd(SessionEndRequest.builder()
-            .sessionId(sessionId)
-            .projectPath(projectPath)
-            .lastAssistantMessage(lastMessage != null ? lastMessage : "")
-            .build());
-        return "Session ended: " + sessionId;
+        try {
+            captureService.recordSessionEnd(SessionEndRequest.builder()
+                .sessionId(sessionId)
+                .projectPath(projectPath)
+                .lastAssistantMessage(lastMessage != null ? lastMessage : "")
+                .build());
+            return ResponseEntity.ok("Session ended: " + sessionId);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body("Error: Failed to end session — " + e.getMessage());
+        }
     }
 
     /**
