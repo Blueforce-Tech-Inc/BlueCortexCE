@@ -85,9 +85,11 @@
 
 ### 已验证项
 - ✅ Go SDK 18 单元测试 PASS
+- ✅ Go SDK examples: 5/5 编译通过
 - ✅ Go vet 干净
 - ✅ Java Demo 编译通过
 - ✅ 回归测试 46/46 PASS
+- ✅ Backend 服务运行中
 
 ## 进度日志
 
