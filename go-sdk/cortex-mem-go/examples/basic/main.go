@@ -27,10 +27,9 @@ func main() {
 	}
 	startResp, err := client.StartSession(ctx, startReq)
 	if err != nil {
-		log.Printf("Failed to start session: %v", err)
-	} else {
-		fmt.Printf("Session started: %s\n", startResp.SessionID)
+		log.Fatalf("Failed to start session: %v", err)
 	}
+	fmt.Printf("Session started: %s\n", startResp.SessionID)
 
 	// 2. Record observation
 	fmt.Println("\n=== Recording observation ===")

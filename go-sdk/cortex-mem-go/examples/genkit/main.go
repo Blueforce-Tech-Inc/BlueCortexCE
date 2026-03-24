@@ -33,24 +33,30 @@ func main() {
 	}
 	startResp, err := client.StartSession(ctx, startReq)
 	if err != nil {
-		log.Printf("Failed to start session: %v", err)
+		log.Fatalf("Failed to start session: %v", err)
 	}
 
 	// 2. Record some observations
 	fmt.Println("Recording observations...")
-	_ = client.RecordObservation(ctx, dto.ObservationRequest{
-		ProjectPath: "/tmp/genkit-demo",
-		SessionID:   startResp.SessionID,
-		Type:        "fact",
-		Content:     "Genkit is Firebase's AI framework for building AI-powered apps",
-	})
+	if err := client.RecordObservation(ctx, dto.ObservationRequest{
+		ProjectPath:  "/tmp/genkit-demo",
+		SessionID:    startResp.SessionID,
+		ToolName:     "fact_record",
+		ToolInput:    map[string]any{"topic": "Genkit"},
+		ToolResponse: map[string]any{"fact": "Genkit is Firebase's AI framework for building AI-powered apps"},
+	}); err != nil {
+		log.Printf("Failed to record: %v", err)
+	}
 
-	_ = client.RecordObservation(ctx, dto.ObservationRequest{
-		ProjectPath: "/tmp/genkit-demo",
-		SessionID:   startResp.SessionID,
-		Type:        "fact",
-		Content:     "Genkit supports Go and JavaScript",
-	})
+	if err := client.RecordObservation(ctx, dto.ObservationRequest{
+		ProjectPath:  "/tmp/genkit-demo",
+		SessionID:    startResp.SessionID,
+		ToolName:     "fact_record",
+		ToolInput:    map[string]any{"topic": "Genkit languages"},
+		ToolResponse: map[string]any{"fact": "Genkit supports Go and JavaScript"},
+	}); err != nil {
+		log.Printf("Failed to record: %v", err)
+	}
 
 	// 3. Use Genkit Retriever
 	fmt.Println("\nRetrieving with Genkit Retriever...")

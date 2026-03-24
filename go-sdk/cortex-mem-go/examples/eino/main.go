@@ -20,9 +20,7 @@ func main() {
 	ctx := context.Background()
 
 	// Create Eino Retriever
-	retriever := eino.NewRetriever(client,
-		eino.WithRetrieverProject("/tmp/eino-demo"),
-	)
+	retriever := eino.NewRetriever(client, "/tmp/eino-demo")
 
 	fmt.Println("=== Eino Retriever Demo ===")
 
@@ -32,7 +30,7 @@ func main() {
 	}
 	startResp, err := client.StartSession(ctx, startReq)
 	if err != nil {
-		log.Printf("Failed to start session: %v", err)
+		log.Fatalf("Failed to start session: %v", err)
 	}
 
 	// 2. Record some observations
@@ -40,20 +38,23 @@ func main() {
 		{
 			ProjectPath: "/tmp/eino-demo",
 			SessionID:   startResp.SessionID,
-			Type:        "fact",
-			Content:     "Eino is a Go AI framework",
+			ToolName:    "fact_record",
+			ToolInput:   map[string]any{"topic": "Eino"},
+			ToolResponse: map[string]any{"fact": "Eino is a Go AI framework"},
 		},
 		{
 			ProjectPath: "/tmp/eino-demo",
 			SessionID:   startResp.SessionID,
-			Type:        "fact",
-			Content:     "Cortex CE provides persistent memory for AI",
+			ToolName:    "fact_record",
+			ToolInput:   map[string]any{"topic": "Cortex CE"},
+			ToolResponse: map[string]any{"fact": "Cortex CE provides persistent memory for AI"},
 		},
 		{
 			ProjectPath: "/tmp/eino-demo",
 			SessionID:   startResp.SessionID,
-			Type:        "preference",
-			Content:     "User prefers Go over Python",
+			ToolName:    "preference_record",
+			ToolInput:   map[string]any{"topic": "language"},
+			ToolResponse: map[string]any{"preference": "User prefers Go over Python"},
 		},
 	}
 
@@ -72,7 +73,7 @@ func main() {
 	} else {
 		fmt.Printf("Found %d experiences:\n", len(experiences))
 		for _, exp := range experiences {
-			fmt.Printf("  - %s: %s\n", exp.Type, exp.Content)
+			fmt.Printf("  - %s: %s\n", exp.Task, exp.Outcome)
 		}
 	}
 

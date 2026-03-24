@@ -19,10 +19,7 @@ func main() {
 	ctx := context.Background()
 
 	// Create LangChainGo Memory
-	memory := langchaingo.NewMemory(client,
-		langchaingo.WithMemoryProject("/tmp/langchaingo-demo"),
-		langchaingo.WithMemorySessionID("demo-session-001"),
-	)
+	memory := langchaingo.NewMemory(client, "/tmp/langchaingo-demo")
 
 	fmt.Println("=== LangChainGo Memory Demo ===")
 
