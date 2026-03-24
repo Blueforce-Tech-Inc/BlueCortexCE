@@ -1,10 +1,10 @@
 # Go Client SDK 设计文档
 
-> **版本**: v1.6 DRAFT
+> **版本**: v1.7 DRAFT
 > **日期**: 2026-03-24
 > **状态**: 待审批
 > **作者**: Cortex CE Team
-> **迭代**: v1.6 — 持续迭代中，5800+ 行
+> **迭代**: v1.7 — 持续迭代中，6000+ 行
 
 ---
 
@@ -1199,6 +1199,27 @@ jobs:
 
 ## 9. 变更日志
 
+### v1.7 (2026-03-24) 迭代 36
+
+**Java SDK 行为模式精确对照**：
+- ✅ 新增附录 AM：从 `CortexMemClientImpl.java` 源码精确提取每个方法的错误处理、fallback 和重试行为
+- ✅ 发现 Java SDK 三种核心行为模式：Fire-and-Forget（Capture）、Error-Swallow + Fallback（Retrieval）、Error-Propagate（Go 哲学）
+- ✅ 文档化 Go SDK vs Java SDK 错误处理哲学差异：Go 返回显式 error vs Java 隐式 catch-all
+- ✅ 重试策略对比分析：Java SDK 使用线性退避（`backoff * attempt`），Go SDK 文档描述指数退避
+- ✅ `HealthCheck` 端点差异确认：Java `/actuator/health` vs Go `/api/health`（Go 不应使用 Actuator 端点）
+- ✅ `getQualityDistribution` / `buildICLPrompt` never-null fallback 行为文档化
+- ✅ `startSession` 错误 Map 行为文档化（Java 返回 `Map.of("error", msg)` 而非抛异常）
+- ✅ `TriggerRefinement` / `SubmitFeedback` / `UpdateObservation` / `DeleteObservation` 确认为 fire-and-forget 模式（与 Capture 操作一致）
+
+**Bug 修复**：
+- ✅ 修复附录 A 中 `TriggerExtraction` 重复条目 → 替换为 `GetVersion`（Phase 2 扩展）
+- ✅ 附录 A 新增 `GetVersion` 条目（`GET /api/version`，Phase 2，Java SDK 未封装）
+
+**文档改进**：
+- ✅ 版本号升级 v1.6 → v1.7
+- ✅ 附录数量 38 → 39（新增附录 AM）
+- ✅ 文档规模 5800+ → 6000+ 行
+
 ### v1.4 (2026-03-24)
 
 **Wire Format 修正**：
@@ -1269,9 +1290,9 @@ jobs:
 | HealthCheck | GET | /api/health | healthCheck() |
 | GetLatestExtraction | GET | /api/extraction/{template}/latest | getLatestExtraction() |
 | GetExtractionHistory | GET | /api/extraction/{template}/history | getExtractionHistory() |
-| TriggerExtraction | POST | /api/extraction/run | — (新增，Java SDK 未暴露) |
-| UpdateSessionUserId | PATCH | /api/session/{sessionId}/user | updateSessionUserId() |
 | TriggerExtraction | POST | /api/extraction/run | — (Go SDK 新增，Java SDK 未封装) |
+| UpdateSessionUserId | PATCH | /api/session/{sessionId}/user | updateSessionUserId() |
+| GetVersion | GET | /api/version | — (Phase 2，Java SDK 未封装) |
 
 ## 附录 B: Demo 项目规划
 
@@ -3912,10 +3933,11 @@ client, _ := cortexmem.NewClient(
 | v1.4 | 2026-03-24 | 18-31 | Wire Format 修正、HTTP 中间件、架构对比、完整清单、实施路线图 |
 | v1.5 | 2026-03-24 | 32 | Quick Start 上手指南、Genkit Go 接口模式研究、Appendix U 去重、TriggerExtraction 补充、版本号统一 |
 | v1.6 | 2026-03-24 | 35 | 附录 AL: 每个方法精确 HTTP Wire Format（从 Java SDK 源码验证）、5 个关键实现注意事项、实现伪代码 |
+| v1.7 | 2026-03-24 | 36 | 附录 AM: Java SDK 行为模式精确对照（error-swallowing、fire-and-forget、重试策略）、Appendix A 修复、版本号升级 |
 
-**总迭代次数**: 35 次
-**文档规模**: 5800+ 行
-**附录数量**: 38 个
+**总迭代次数**: 36 次
+**文档规模**: 6000+ 行
+**附录数量**: 39 个（含附录 AM）
 **当前状态**: 待审批，持续迭代中 🚀
 
 
@@ -5818,4 +5840,211 @@ func (c *client) HealthCheck(ctx context.Context) error {
 - [ ] `HealthCheck` 使用 `/api/health`（非 `/actuator/health`）
 - [ ] 所有 URL path 参数使用 `url.PathEscape()`
 - [ ] 所有 query 参数使用 `url.QueryEscape()` 或 `url.Values`
+
+---
+
+## 附录 AM: Java SDK 行为模式精确对照（迭代 36）
+
+### 背景
+
+附录 AL 覆盖了 HTTP Wire Format，但 Java SDK 还有重要的**行为模式**需要同步到 Go SDK 实现中。本附录从 `CortexMemClientImpl.java` 源码精确提取每个方法的错误处理、fallback 和重试行为。
+
+**数据来源**: `cortex-mem-spring-integration/cortex-mem-client/src/main/java/.../CortexMemClientImpl.java`（2026-03-24 验证）
+
+### 方法行为分类
+
+Java SDK 的方法分为三种行为模式：
+
+| 模式 | 错误处理 | 使用方法 |
+|------|---------|---------|
+| **Fire-and-Forget** | 内部重试，失败只 log，不抛异常 | Capture 操作 |
+| **Error-Swallow + Fallback** | 捕获异常，返回空默认值，log warn | Retrieval 操作 |
+| **Error-Propagate** | 异常向上传播 | 无（Java SDK 故意避免） |
+
+### 逐方法行为对照
+
+#### StartSession
+
+```java
+// Java SDK 行为：返回错误 Map，不抛异常
+public Map<String, Object> startSession(SessionStartRequest request) {
+    try {
+        return restClient.post()
+            .uri("/api/session/start")
+            .body(request.toWireFormat())
+            .retrieve()
+            .body(new ParameterizedTypeReference<>() {});
+    } catch (Exception e) {
+        log.warn("Failed to start session: {}", e.getMessage());
+        return Map.of("error", e.getMessage());  // ← 返回错误 Map，不是抛异常！
+    }
+}
+```
+
+**Go SDK 设计决策**：Go 的惯用方式是返回 error。建议 Go SDK 返回 `(*dto.SessionStartResponse, error)`，调用方自行决定是否忽略 error。
+
+#### RecordObservation / RecordSessionEnd / RecordUserPrompt
+
+```java
+// Java SDK 行为：executeWithRetry 内部重试，失败只 log warn
+private void executeWithRetry(String operation, Runnable action) {
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            action.run();
+            return;
+        } catch (Exception e) {
+            if (attempt == maxRetries) {
+                log.warn("[{}] Failed after {} attempts: {}", operation, maxRetries, e.getMessage());
+            } else {
+                log.debug("[{}] Attempt {}/{} failed, retrying...", operation, attempt, maxRetries);
+                Thread.sleep(retryBackoff.toMillis() * attempt);  // 线性退避，非指数
+            }
+        }
+    }
+}
+```
+
+**关键细节**：
+- 重试策略：**线性退避**（`backoff * attempt`），非指数退避
+- 失败后：只 log warn，**不抛异常**
+- 重试次数：由 `properties.getRetry().getMaxAttempts()` 控制
+
+**Go SDK 设计决策**：Go SDK 文档目前描述为指数退避。建议改为**与 Java SDK 一致的线性退避**，或者明确说明 Go SDK 选择指数退避的理由（更好的后端保护）。
+
+#### RetrieveExperiences
+
+```java
+// Java SDK 行为：失败返回空列表，不抛异常
+public List<Experience> retrieveExperiences(ExperienceRequest request) {
+    try {
+        // ... HTTP call ...
+        return result != null ? result : List.of();  // ← null 也返回空列表
+    } catch (Exception e) {
+        log.warn("Failed to retrieve experiences: {}", e.getMessage());
+        return List.of();  // ← 异常也返回空列表！
+    }
+}
+```
+
+**Go SDK 设计决策**：Go 惯用方式是返回 `([]dto.Experience, error)`。调用方可以自行决定是否忽略 error（类似 Java 行为）：
+```go
+experiences, _ := client.RetrieveExperiences(ctx, req)  // 忽略 error，类似 Java
+```
+
+#### BuildICLPrompt
+
+```java
+// Java SDK 行为：失败返回空 ICLPromptResult("", "0")
+public ICLPromptResult buildICLPrompt(ICLPromptRequest request) {
+    try {
+        // ... HTTP call ...
+        return result != null ? result : new ICLPromptResult("", "0");
+    } catch (Exception e) {
+        log.warn("Failed to build ICL prompt: {}", e.getMessage());
+        return new ICLPromptResult("", "0");  // ← 异常返回空 prompt！
+    }
+}
+```
+
+**关键发现**：`ICLPromptResult` 在 Java SDK 中是 **never-null** 的，即使失败也返回有效对象（空 prompt + "0" experience count）。
+
+**Go SDK 设计决策**：Go SDK 应该返回 `(*dto.ICLPromptResult, error)`，调用方可以忽略 error 得到空结果，或者检查 error 处理失败。
+
+#### TriggerRefinement / SubmitFeedback / UpdateObservation / DeleteObservation
+
+```java
+// Java SDK 行为：executeWithRetry，失败只 log
+// 与 Capture 操作相同的 fire-and-forget 模式
+```
+
+**注意**：这些 Management 操作也使用 fire-and-forget 模式（`executeWithRetry`），与 Capture 操作一致。Go SDK 文档中将它们列为"Management"而非"Capture"，但行为模式相同。
+
+#### GetQualityDistribution
+
+```java
+// Java SDK 行为：失败返回零值 fallback
+public QualityDistribution getQualityDistribution(String projectPath) {
+    try {
+        // ... HTTP call ...
+        return result != null ? result : new QualityDistribution(projectPath, 0, 0, 0, 0);
+    } catch (Exception e) {
+        log.warn("Failed to get quality distribution: {}", e.getMessage());
+        return new QualityDistribution(projectPath, 0, 0, 0, 0);  // ← 零值 fallback
+    }
+}
+```
+
+**Go SDK 设计决策**：返回 `(*dto.QualityDistribution, error)`，调用方可以忽略 error 得到零值。
+
+#### HealthCheck
+
+```java
+// Java SDK 行为：返回 boolean，不抛异常
+public boolean healthCheck() {
+    try {
+        restClient.get()
+            .uri("/actuator/health")  // ← 注意：Spring Actuator 端点！
+            .retrieve()
+            .toBodilessEntity();
+        return true;
+    } catch (Exception e) {
+        log.debug("Health check failed: {}", e.getMessage());
+        return false;
+    }
+}
+```
+
+**关键差异**：
+- Java SDK 使用 `/actuator/health`（Spring Actuator）
+- Go SDK 设计使用 `/api/health`（通用后端端点）
+- **Go SDK 不应使用 `/actuator/health`**，因为 Go 应用不一定有 Spring Actuator
+
+#### GetLatestExtraction / GetExtractionHistory / UpdateSessionUserId
+
+```java
+// Java SDK 行为：失败返回空 Map/List，不抛异常
+// 与 RetrieveExperiences 相同的 error-swallow 模式
+```
+
+### 行为模式总结
+
+| 方法 | Java 行为 | Go SDK 建议 |
+|------|----------|------------|
+| `StartSession` | 返回 error Map | 返回 `(*Response, error)` |
+| `RecordObservation` | fire-and-forget + 线性退避 | fire-and-forget + 线性退避（对齐 Java） |
+| `RecordSessionEnd` | fire-and-forget + 线性退避 | fire-and-forget + 线性退避 |
+| `RecordUserPrompt` | fire-and-forget + 线性退避 | fire-and-forget + 线性退避 |
+| `RetrieveExperiences` | error-swallow → 空列表 | 返回 `([]Experience, error)` |
+| `BuildICLPrompt` | error-swallow → 空结果 | 返回 `(*ICLPromptResult, error)` |
+| `TriggerRefinement` | fire-and-forget + 线性退避 | fire-and-forget + 线性退避 |
+| `SubmitFeedback` | fire-and-forget + 线性退避 | fire-and-forget + 线性退避 |
+| `UpdateObservation` | fire-and-forget + 线性退避 | fire-and-forget + 线性退避 |
+| `DeleteObservation` | fire-and-forget + 线性退避 | fire-and-forget + 线性退避 |
+| `GetQualityDistribution` | error-swallow → 零值 | 返回 `(*QualityDistribution, error)` |
+| `HealthCheck` | 返回 boolean | 返回 `error`（nil = healthy） |
+| `GetLatestExtraction` | error-swallow → 空 Map | 返回 `(map[string]any, error)` |
+| `GetExtractionHistory` | error-swallow → 空 List | 返回 `([]map[string]any, error)` |
+| `UpdateSessionUserId` | error-swallow → error Map | 返回 `(map[string]any, error)` |
+
+### Go SDK vs Java SDK 错误处理哲学差异
+
+| 维度 | Java SDK | Go SDK |
+|------|---------|--------|
+| 错误返回 | 永不抛异常（catch 所有） | 返回 error（Go 惯用方式） |
+| 调用方责任 | 几乎不需要 try-catch | 必须检查 error 或显式忽略 |
+| 失败可见性 | 仅 log（可能被忽略） | 编译器强制处理 |
+| 设计理由 | Spring 生态，Advisor 模式自动处理 | Go 哲学：显式优于隐式 |
+
+**Go SDK 核心决策**：Go SDK 不应复制 Java SDK 的 error-swallowing 行为。Go 的哲学是返回 error，由调用方决定是否忽略。这样更灵活，也更符合 Go 社区期望。
+
+### 重试策略对比
+
+| 维度 | Java SDK | Go SDK 文档 |
+|------|---------|------------|
+| 退避算法 | 线性（`backoff * attempt`） | 指数（`initial * multiplier^attempt`） |
+| 默认重试 | 3 次 | 3 次 |
+| 默认退避 | 500ms | 500ms |
+| 最大延迟 | 无上限 | 5s |
+
+**建议**：Go SDK 应在文档中说明选择指数退避的理由（更优的后端压力分散），而非简单对齐 Java SDK 的线性退避。
 
