@@ -4248,3 +4248,311 @@ func (c *ExperienceCache) Set(key string, experiences []dto.Experience) {
 5. **限流保护** — 防止后端过载
 6. **超时控制** — 防止请求无限等待
 
+
+---
+
+## 附录 Y: 错误恢复和灾难恢复设计（迭代 22）
+
+### 错误恢复策略
+
+#### 重试策略配置
+
+```go
+// 重试配置选项
+type RetryConfig struct {
+    MaxAttempts    int           // 最大重试次数
+    InitialDelay   time.Duration // 初始延迟
+    MaxDelay       time.Duration // 最大延迟
+    Multiplier     float64       // 退避乘数
+    RetryableCodes []int         // 可重试的 HTTP 状态码
+}
+
+// 默认重试配置
+var DefaultRetryConfig = RetryConfig{
+    MaxAttempts:    3,
+    InitialDelay:   500 * time.Millisecond,
+    MaxDelay:       5 * time.Second,
+    Multiplier:     2.0,
+    RetryableCodes: []int{429, 500, 502, 503, 504},
+}
+
+// 指数退避重试
+func retryWithBackoff(ctx context.Context, cfg RetryConfig, fn func() error) error {
+    var lastErr error
+    
+    for attempt := 1; attempt <= cfg.MaxAttempts; attempt++ {
+        lastErr = fn()
+        if lastErr == nil {
+            return nil
+        }
+        
+        // 检查是否是可重试的错误
+        if !isRetryable(lastErr, cfg.RetryableCodes) {
+            return lastErr
+        }
+        
+        // 计算延迟
+        delay := time.Duration(float64(cfg.InitialDelay) * math.Pow(cfg.Multiplier, float64(attempt-1)))
+        if delay > cfg.MaxDelay {
+            delay = cfg.MaxDelay
+        }
+        
+        // 等待或取消
+        select {
+        case <-ctx.Done():
+            return ctx.Err()
+        case <-time.After(delay):
+            // 继续重试
+        }
+    }
+    
+    return fmt.Errorf("retry exhausted after %d attempts: %w", cfg.MaxAttempts, lastErr)
+}
+
+func isRetryable(err error, codes []int) bool {
+    var apiErr *APIError
+    if errors.As(err, &apiErr) {
+        for _, code := range codes {
+            if apiErr.StatusCode == code {
+                return true
+            }
+        }
+    }
+    return false
+}
+```
+
+#### 熔断器模式
+
+```go
+// CircuitBreaker 防止级联故障
+type CircuitBreaker struct {
+    mu           sync.Mutex
+    state        CircuitState
+    failureCount int
+    successCount int
+    lastFailure  time.Time
+    threshold    int           // 失败阈值
+    timeout      time.Duration // 熔断超时
+}
+
+type CircuitState int
+
+const (
+    CircuitClosed CircuitState = iota  // 正常
+    CircuitOpen                        // 熔断
+    CircuitHalfOpen                    // 半开
+)
+
+func (cb *CircuitBreaker) Call(fn func() error) error {
+    cb.mu.Lock()
+    state := cb.state
+    cb.mu.Unlock()
+    
+    if state == CircuitOpen {
+        // 检查是否应该转换到半开
+        if time.Since(cb.lastFailure) > cb.timeout {
+            cb.mu.Lock()
+            cb.state = CircuitHalfOpen
+            cb.mu.Unlock()
+        } else {
+            return fmt.Errorf("circuit breaker is open")
+        }
+    }
+    
+    err := fn()
+    
+    cb.mu.Lock()
+    defer cb.mu.Unlock()
+    
+    if err != nil {
+        cb.failureCount++
+        cb.lastFailure = time.Now()
+        
+        if cb.failureCount >= cb.threshold {
+            cb.state = CircuitOpen
+        }
+        return err
+    }
+    
+    // 成功
+    cb.successCount++
+    if cb.state == CircuitHalfOpen {
+        cb.state = CircuitClosed
+        cb.failureCount = 0
+    }
+    
+    return nil
+}
+```
+
+### 灾难恢复
+
+#### 数据备份策略
+
+```go
+// BackupManager 管理数据备份
+type BackupManager struct {
+    client     *client
+    backupPath string
+    interval   time.Duration
+}
+
+func (bm *BackupManager) Start(ctx context.Context) {
+    ticker := time.NewTicker(bm.interval)
+    defer ticker.Stop()
+    
+    for {
+        select {
+        case <-ctx.Done():
+            return
+        case <-ticker.C:
+            bm.createBackup(context.Background())
+        }
+    }
+}
+
+func (bm *BackupManager) createBackup(ctx context.Context) error {
+    // 1. 获取所有项目
+    projects, err := bm.client.GetProjects(ctx)
+    if err != nil {
+        return fmt.Errorf("failed to get projects: %w", err)
+    }
+    
+    // 2. 导出每个项目的数据
+    for _, project := range projects {
+        observations, _ := bm.client.ListObservations(ctx, dto.NewObservationsRequest(
+            dto.WithObservationsProject(project),
+            dto.WithObservationsLimit(1000),
+        ))
+        
+        // 3. 保存到本地
+        filename := fmt.Sprintf("backup_%s_%s.json", project, time.Now().Format("20060102_150405"))
+        filepath := filepath.Join(bm.backupPath, filename)
+        
+        data, _ := json.Marshal(observations)
+        os.WriteFile(filepath, data, 0644)
+    }
+    
+    return nil
+}
+```
+
+#### 数据恢复
+
+```go
+// RestoreManager 从备份恢复数据
+type RestoreManager struct {
+    client *client
+}
+
+func (rm *RestoreManager) Restore(ctx context.Context, backupFile string) error {
+    data, err := os.ReadFile(backupFile)
+    if err != nil {
+        return fmt.Errorf("failed to read backup file: %w", err)
+    }
+    
+    var observations []dto.Observation
+    if err := json.Unmarshal(data, &observations); err != nil {
+        return fmt.Errorf("failed to parse backup: %w", err)
+    }
+    
+    // 恢复每个观察
+    for _, obs := range observations {
+        update := dto.ObservationUpdate{
+            Title:    obs.Title,
+            Content: obs.Content,
+            Facts:    obs.Facts,
+            Concepts: obs.Concepts,
+        }
+        
+        if err := rm.client.UpdateObservation(ctx, obs.ID, update); err != nil {
+            log.Printf("Failed to restore observation %s: %v", obs.ID, err)
+        }
+    }
+    
+    return nil
+}
+```
+
+---
+
+## 附录 Z: 未来扩展和路线图（迭代 23）
+
+### Phase 4: 高级功能（可选）
+
+| 功能 | 说明 | 优先级 | 工作量 |
+|------|------|--------|--------|
+| Streaming/SSE | 支持 SSE 实时推送 | P1 | 3 天 |
+| WebSocket | 双向实时通信 | P2 | 5 天 |
+| GraphQL | GraphQL API 支持 | P3 | 5 天 |
+| gRPC | gRPC 传输支持 | P3 | 5 天 |
+
+### Streaming API 设计
+
+```go
+// StreamingClient 支持 SSE 实时推送
+type StreamingClient interface {
+    // Subscribe 订阅实时事件
+    Subscribe(ctx context.Context, project string) (<-chan ObservationEvent, error)
+    
+    // Unsubscribe 取消订阅
+    Unsubscribe(project string)
+}
+
+type ObservationEvent struct {
+    Type        string    // "created", "updated", "deleted"
+    Observation *dto.Observation
+    Timestamp   time.Time
+}
+
+// 使用示例
+client := cortexmem.NewStreamingClient(baseURL)
+
+events, err := client.Subscribe(ctx, "/path/to/project")
+if err != nil {
+    log.Fatal(err)
+}
+
+for event := range events {
+    switch event.Type {
+    case "created":
+        fmt.Printf("New observation: %s\n", event.Observation.ID)
+    case "updated":
+        fmt.Printf("Updated observation: %s\n", event.Observation.ID)
+    case "deleted":
+        fmt.Printf("Deleted observation: %s\n", event.Observation.ID)
+    }
+}
+```
+
+### 生态集成扩展
+
+| 集成 | 框架 | 优先级 |
+|------|------|--------|
+| LlamaIndex | LlamaIndex Go | P2 |
+| Dify | Dify API | P3 |
+| Coze | Coze API | P3 |
+
+### 长期愿景
+
+```
+v2.0: 高级功能
+├── Streaming/SSE 支持
+├── WebSocket 支持
+├── GraphQL API
+└── gRPC 传输
+
+v3.0: 生态系统
+├── LlamaIndex 集成
+├── Dify 集成
+├── Coze 集成
+└── 更多框架适配
+
+v4.0: 企业级
+├── 多租户支持
+├── 审计日志
+├── 数据加密
+└── 合规报告
+```
+
