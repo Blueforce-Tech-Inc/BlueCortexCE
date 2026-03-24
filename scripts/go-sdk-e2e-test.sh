@@ -499,3 +499,112 @@ echo "  ✅ Data write → Backend"
 echo "  ✅ Demo HTTP endpoints: Chat, Search, Version, Experiences, ICL, Observations, Projects, Stats, Modes, Settings, Quality"
 echo "  ✅ Backend direct: health, version, search, observations, projects, stats, modes, settings, experiences, icl-prompt, quality"
 echo "  ✅ Chain verification: Test → Demo → Go SDK → Backend"
+
+# ==================== New Endpoint Tests: Complete Backend API Coverage ====================
+
+# Test 27: /observations/batch
+info "Test 27: POST /observations/batch — Batch get observations"
+BATCH_RESP=$(curl -sf --max-time 10 -X POST "$DEMO_BASE/observations/batch" \
+    -H "Content-Type: application/json" \
+    -d "{\"project\": \"$PROJECT\", \"ids\": [\"test-id\"]}" 2>/dev/null || echo "FAIL")
+if [ "$BATCH_RESP" = "FAIL" ]; then
+    fail "POST /observations/batch" "Connection failed or timed out"
+else
+    pass "POST /observations/batch"
+fi
+
+# Test 28: /extraction/latest
+info "Test 28: GET /extraction/latest — Latest extraction result"
+EXTRACT_LATEST=$(curl -sf --max-time 10 "$DEMO_BASE/extraction/latest?template=user_preferences&userId=alice" 2>/dev/null || echo "FAIL")
+if [ "$EXTRACT_LATEST" = "FAIL" ]; then
+    fail "GET /extraction/latest" "Connection failed or timed out"
+else
+    pass "GET /extraction/latest"
+fi
+
+# Test 29: /extraction/history
+info "Test 29: GET /extraction/history — Extraction history"
+EXTRACT_HIST=$(curl -sf --max-time 10 "$DEMO_BASE/extraction/history?template=user_preferences&userId=alice&limit=5" 2>/dev/null || echo "FAIL")
+if [ "$EXTRACT_HIST" = "FAIL" ]; then
+    fail "GET /extraction/history" "Connection failed or timed out"
+else
+    pass "GET /extraction/history"
+fi
+
+# Test 30: /refine
+info "Test 30: POST /refine — Trigger memory refinement"
+REFINE_RESP=$(curl -sf --max-time 10 -X POST "$DEMO_BASE/refine?project=$PROJECT" 2>/dev/null || echo "FAIL")
+if [ "$REFINE_RESP" = "FAIL" ]; then
+    fail "POST /refine" "Connection failed or timed out"
+else
+    pass "POST /refine"
+fi
+
+# Test 31: /feedback
+info "Test 31: POST /feedback — Submit observation feedback"
+FEEDBACK_RESP=$(curl -sf --max-time 10 -X POST "$DEMO_BASE/feedback" \
+    -H "Content-Type: application/json" \
+    -d '{"observation_id": "test-id", "feedback_type": "useful"}' 2>/dev/null || echo "FAIL")
+if [ "$FEEDBACK_RESP" = "FAIL" ]; then
+    fail "POST /feedback" "Connection failed or timed out"
+else
+    pass "POST /feedback"
+fi
+
+# Test 32: /session/user
+info "Test 32: PATCH /session/user — Update session user ID"
+SESSION_USER_RESP=$(curl -sf --max-time 10 -X PATCH "$DEMO_BASE/session/user" \
+    -H "Content-Type: application/json" \
+    -d '{"session_id": "test-session", "user_id": "test-user"}' 2>/dev/null || echo "FAIL")
+if [ "$SESSION_USER_RESP" = "FAIL" ]; then
+    fail "PATCH /session/user" "Connection failed or timed out"
+else
+    pass "PATCH /session/user"
+fi
+
+# Test 33: /observation/patch
+info "Test 33: PATCH /observation/patch — Update observation"
+OBS_PATCH=$(curl -sf --max-time 10 -X PATCH "$DEMO_BASE/observation/patch" \
+    -H "Content-Type: application/json" \
+    -d '{"id": "test-id", "source": "verified"}' 2>/dev/null || echo "FAIL")
+if [ "$OBS_PATCH" = "FAIL" ]; then
+    fail "PATCH /observation/patch" "Connection failed or timed out"
+else
+    pass "PATCH /observation/patch"
+fi
+
+# Test 34: /observation/delete
+info "Test 34: DELETE /observation/delete — Delete observation"
+OBS_DELETE=$(curl -sf --max-time 10 -X DELETE "$DEMO_BASE/observation/delete?id=test-id" 2>/dev/null || echo "FAIL")
+if [ "$OBS_DELETE" = "FAIL" ]; then
+    fail "DELETE /observation/delete" "Connection failed or timed out"
+else
+    pass "DELETE /observation/delete"
+fi
+
+# Test 35: /ingest/prompt
+info "Test 35: POST /ingest/prompt — Ingest user prompt"
+PROMPT_RESP=$(curl -sf --max-time 10 -X POST "$DEMO_BASE/ingest/prompt" \
+    -H "Content-Type: application/json" \
+    -d "{\"project\": \"$PROJECT\", \"prompt\": \"test prompt\", \"session_id\": \"test-session\"}" 2>/dev/null || echo "FAIL")
+if [ "$PROMPT_RESP" = "FAIL" ]; then
+    fail "POST /ingest/prompt" "Connection failed or timed out"
+else
+    pass "POST /ingest/prompt"
+fi
+
+# Test 36: /ingest/session-end
+info "Test 36: POST /ingest/session-end — Ingest session end"
+SESSION_END=$(curl -sf --max-time 10 -X POST "$DEMO_BASE/ingest/session-end" \
+    -H "Content-Type: application/json" \
+    -d "{\"project\": \"$PROJECT\", \"session_id\": \"test-session\"}" 2>/dev/null || echo "FAIL")
+if [ "$SESSION_END" = "FAIL" ]; then
+    fail "POST /ingest/session-end" "Connection failed or timed out"
+else
+    pass "POST /ingest/session-end"
+fi
+
+echo ""
+echo "=========================================="
+echo "Go SDK E2E Final Summary: $PASSED/$TOTAL passed, $FAILED failed"
+echo "=========================================="
