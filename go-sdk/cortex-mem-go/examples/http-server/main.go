@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/abforce/cortex-ce/cortex-mem-go"
+	"github.com/abforce/cortex-ce/cortex-mem-go/dto"
 )
 
 func main() {
@@ -65,7 +66,7 @@ func main() {
 		project := r.URL.Query().Get("project")
 		query := r.URL.Query().Get("query")
 
-		searchReq := cortexmem.SearchRequest{
+		searchReq := dto.SearchRequest{
 			Project: project,
 			Query:  query,
 			Limit:  10,

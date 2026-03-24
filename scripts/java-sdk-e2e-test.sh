@@ -51,7 +51,7 @@ echo ""
 # ==================== 预检查 ====================
 
 info "预检查：Backend 服务..."
-BACKEND_HEALTH=$(curl -sf "$BACKEND_URL/api/health" 2>/dev/null || echo "FAIL")
+BACKEND_HEALTH=$(curl -sf --max-time 10 "$BACKEND_URL/api/health" 2>/dev/null || echo "FAIL")
 if [ "$BACKEND_HEALTH" = "FAIL" ]; then
     echo "❌ Backend 服务未运行! 请先启动: java -jar backend/target/cortex-ce-*.jar"
     exit 1
@@ -68,7 +68,7 @@ fi
 pass "Backend 服务正常 (status=$BACKEND_STATUS)"
 
 info "预检查：Java Demo 服务..."
-DEMO_HEALTH=$(curl -sf "$DEMO_BASE/../actuator/health" 2>/dev/null || echo "FAIL")
+DEMO_HEALTH=$(curl -sf --max-time 10 "$DEMO_BASE/../actuator/health" 2>/dev/null || echo "FAIL")
 if [ "$DEMO_HEALTH" = "FAIL" ]; then
     echo "❌ Java Demo 服务未运行! 请先启动 demo"
     exit 1
@@ -81,7 +81,7 @@ echo ""
 info "数据准备：在 Backend 写入测试数据..."
 
 # 写入 observation
-WRITE_OBS=$(curl -sf -X POST "$BACKEND_URL/api/ingest/tool-use" \
+WRITE_OBS=$(curl -sf --max-time 10 -X POST "$BACKEND_URL/api/ingest/tool-use" \
     -H "Content-Type: application/json" \
     -d "{
         \"project_path\": \"$PROJECT\",
@@ -107,7 +107,7 @@ echo "--- 原有 API 测试 ---"
 
 # Test 1: Memory Experiences (严格验证)
 info "Test 1: Memory Experiences — 验证返回数组结构"
-RESP=$(curl -sf "$DEMO_BASE/memory/experiences?project=$PROJECT&query=测试&limit=5" 2>/dev/null || echo "FAIL")
+RESP=$(curl -sf --max-time 10 "$DEMO_BASE/memory/experiences?project=$PROJECT&query=测试&limit=5" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
     fail "Memory Experiences" "请求失败"
 elif ! contains_field "$RESP" "content"; then
@@ -118,7 +118,7 @@ fi
 
 # Test 2: ICL Prompt (严格验证)
 info "Test 2: ICL Prompt — 验证 prompt 字段存在"
-RESP=$(curl -sf "$DEMO_BASE/memory/icl?project=$PROJECT&task=test&maxChars=500" 2>/dev/null || echo "FAIL")
+RESP=$(curl -sf --max-time 10 "$DEMO_BASE/memory/icl?project=$PROJECT&task=test&maxChars=500" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
     fail "ICL Prompt" "请求失败"
 elif ! echo "$RESP" | grep -qE '"prompt"|"observations"'; then
@@ -129,7 +129,7 @@ fi
 
 # Test 3: Session Start (严格验证 session_id)
 info "Test 3: Session Start — 验证 session_id 返回"
-RESP=$(curl -sf "$DEMO_BASE/session/start?project=$PROJECT" 2>/dev/null || echo "FAIL")
+RESP=$(curl -sf --max-time 10 "$DEMO_BASE/session/start?project=$PROJECT" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
     fail "Session Start" "请求失败"
 elif ! contains_field "$RESP" "session_id"; then
@@ -145,7 +145,7 @@ fi
 
 # Test 4: Projects (验证返回格式)
 info "Test 4: Projects — 验证返回项目列表"
-RESP=$(curl -sf "$DEMO_BASE/projects" 2>/dev/null || echo "FAIL")
+RESP=$(curl -sf --max-time 10 "$DEMO_BASE/projects" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
     fail "Projects" "请求失败"
 else
@@ -154,7 +154,7 @@ fi
 
 # Test 5: Quality Distribution (严格验证字段)
 info "Test 5: Quality Distribution — 验证统计字段"
-RESP=$(curl -sf "$DEMO_BASE/memory/quality?project=$PROJECT" 2>/dev/null || echo "FAIL")
+RESP=$(curl -sf --max-time 10 "$DEMO_BASE/memory/quality?project=$PROJECT" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
     fail "Quality Distribution" "请求失败"
 else
@@ -168,7 +168,7 @@ echo "--- 新增 P0 API 测试 (Search/ListObservations/BatchObservations) ---"
 
 # Test 6: Search API (P0) — 严格验证 observations 结构
 info "Test 6: Search API (P0) — 验证搜索结果结构"
-RESP=$(curl -sf "$DEMO_BASE/search?project=$PROJECT&query=测试&limit=10" 2>/dev/null || echo "FAIL")
+RESP=$(curl -sf --max-time 10 "$DEMO_BASE/search?project=$PROJECT&query=测试&limit=10" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
     fail "Search API (P0)" "请求失败"
 elif ! echo "$RESP" | grep -qE '"observations"|"strategy"'; then
@@ -185,7 +185,7 @@ fi
 
 # Test 7: Search with source filter (P0) — 严格验证过滤效果
 info "Test 7: Search with source filter — 验证 source 过滤"
-RESP=$(curl -sf "$DEMO_BASE/search?project=$PROJECT&source=e2e_test&limit=5" 2>/dev/null || echo "FAIL")
+RESP=$(curl -sf --max-time 10 "$DEMO_BASE/search?project=$PROJECT&source=e2e_test&limit=5" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
     fail "Search with source filter" "请求失败"
 elif ! echo "$RESP" | grep -qE '"observations"|"strategy"'; then
@@ -196,7 +196,7 @@ fi
 
 # Test 8: List Observations (P0) — 严格验证分页结构
 info "Test 8: List Observations (P0) — 验证分页参数"
-RESP=$(curl -sf "$DEMO_BASE/observations?project=$PROJECT&limit=10&offset=0" 2>/dev/null || echo "FAIL")
+RESP=$(curl -sf --max-time 10 "$DEMO_BASE/observations?project=$PROJECT&limit=10&offset=0" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
     fail "List Observations (P0)" "请求失败"
 elif ! echo "$RESP" | grep -qE '"observations"'; then
@@ -207,7 +207,7 @@ fi
 
 # Test 9: Batch Observations (P0) — 严格验证批量结构
 info "Test 9: Batch Observations (P0) — 验证批量查询"
-RESP=$(curl -sf -X POST "$DEMO_BASE/observations/batch" \
+RESP=$(curl -sf --max-time 10 -X POST "$DEMO_BASE/observations/batch" \
     -H "Content-Type: application/json" \
     -d '{"ids": ["e2e-test-1", "e2e-test-2"]}' 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
@@ -223,7 +223,7 @@ echo "--- 新增 P1 API 测试 (Version/Stats/Modes/Settings) ---"
 
 # Test 10: Version API (P1) — 严格验证版本号格式
 info "Test 10: Version API (P1) — 验证版本号"
-RESP=$(curl -sf "$DEMO_BASE/manage/version" 2>/dev/null || echo "FAIL")
+RESP=$(curl -sf --max-time 10 "$DEMO_BASE/manage/version" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
     fail "Version API (P1)" "请求失败"
 elif ! echo "$RESP" | grep -qE '"version"'; then
@@ -235,7 +235,7 @@ fi
 
 # Test 11: Stats API (P1) — 严格验证统计结构
 info "Test 11: Stats API (P1) — 验证统计数据"
-RESP=$(curl -sf "$DEMO_BASE/manage/stats?project=$PROJECT" 2>/dev/null || echo "FAIL")
+RESP=$(curl -sf --max-time 10 "$DEMO_BASE/manage/stats?project=$PROJECT" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
     fail "Stats API (P1)" "请求失败"
 else
@@ -244,7 +244,7 @@ fi
 
 # Test 12: Modes API (P1) — 严格验证模式列表
 info "Test 12: Modes API (P1) — 验证模式列表"
-RESP=$(curl -sf "$DEMO_BASE/manage/modes" 2>/dev/null || echo "FAIL")
+RESP=$(curl -sf --max-time 10 "$DEMO_BASE/manage/modes" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
     fail "Modes API (P1)" "请求失败"
 else
@@ -253,7 +253,7 @@ fi
 
 # Test 13: Settings API (P1) — 严格验证设置结构
 info "Test 13: Settings API (P1) — 验证设置返回"
-RESP=$(curl -sf "$DEMO_BASE/manage/settings" 2>/dev/null || echo "FAIL")
+RESP=$(curl -sf --max-time 10 "$DEMO_BASE/manage/settings" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
     fail "Settings API (P1)" "请求失败"
 else
@@ -267,7 +267,7 @@ echo "--- 链路验证：Demo → SDK → Backend ---"
 
 # Test 14: 通过 Demo 搜索验证数据已写入 Backend
 info "Test 14: 链路验证 — Demo 搜索能查到 Backend 写入的数据"
-RESP=$(curl -sf "$DEMO_BASE/search?project=$PROJECT&query=E2E测试&limit=5" 2>/dev/null || echo "FAIL")
+RESP=$(curl -sf --max-time 10 "$DEMO_BASE/search?project=$PROJECT&query=E2E测试&limit=5" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
     fail "链路验证" "Demo 搜索请求失败"
 else
