@@ -6090,3 +6090,70 @@ b7861fb feat(java-sdk): implement P1 Management APIs
 cc02de8 feat(java-sdk): implement P0 Search/ListObservations APIs
 ```
 
+
+---
+
+## 附录 AM: E2E 验收测试架构（迭代 35）
+
+### 核心原则
+
+每次 SDK 改进必须有端到端测试脚本"验收通过"，覆盖完整链路：
+
+```
+E2E 测试脚本 → SDK Demo API 端点 → SDK → Backend API 端点
+```
+
+**好处**：一次性证明 SDK 和后端的正确性以及 SDK 的可用性。
+
+### 测试脚本清单
+
+| 脚本 | 覆盖 SDK | 测试数 | 验证链路 |
+|------|---------|--------|---------|
+| `scripts/java-sdk-e2e-test.sh` | Java SDK | 12 | Demo → Java SDK → Backend |
+| `scripts/go-sdk-e2e-test.sh` | Go SDK | 14 | Demo HTTP → Go SDK → Backend |
+
+### Java SDK E2E 测试覆盖
+
+| 测试 | API | 状态 |
+|------|-----|------|
+| Memory Experiences | `/demo/memory/experiences` | ✅ |
+| ICL Prompt | `/demo/memory/icl` | ✅ |
+| Session Start | `/demo/session` | ✅ |
+| Projects | `/demo/projects` | ✅ |
+| Quality Distribution | `/demo/memory/quality` | ✅ |
+| Search (P0) | `/demo/search` | ✅ |
+| ListObservations (P0) | `/demo/observations` | ✅ |
+| BatchObservations (P0) | `/demo/observations/batch` | ✅ |
+| Version (P1) | `/demo/manage/version` | ✅ |
+| Stats (P1) | `/demo/manage/stats` | ✅ |
+| Modes (P1) | `/demo/manage/modes` | ✅ |
+| Settings (P1) | `/demo/manage/settings` | ✅ |
+
+### Go SDK E2E 测试覆盖
+
+| 测试 | 端点 | 状态 |
+|------|------|------|
+| StartSession | `POST /chat` | ✅ |
+| Search | `GET /search` | ✅ |
+| GetVersion | `GET /version` | ✅ |
+| HealthCheck | `GET /health` | ✅ |
+| Search (filter) | `GET /search?source=...` | ✅ |
+| Backend health | `GET /api/health` | ✅ |
+| Backend version | `GET /api/version` | ✅ |
+| Backend search | `GET /api/search` | ✅ |
+| Backend observations | `GET /api/observations` | ✅ |
+| Backend projects | `GET /api/projects` | ✅ |
+| Backend stats | `GET /api/stats` | ✅ |
+| Backend modes | `GET /api/modes` | ✅ |
+| Backend settings | `GET /api/settings` | ✅ |
+
+### 运行方式
+
+```bash
+# Java SDK E2E 测试
+bash scripts/java-sdk-e2e-test.sh
+
+# Go SDK E2E 测试
+bash scripts/go-sdk-e2e-test.sh
+```
+
