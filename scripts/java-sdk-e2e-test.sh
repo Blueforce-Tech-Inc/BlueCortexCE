@@ -1,14 +1,14 @@
 #!/bin/bash
-# java-sdk-e2e-test.sh — Java SDK Demo 端到端验收测试
-# 覆盖链路：E2E 测试脚本 → Java SDK Demo API 端点 → Java SDK → Backend API
+# java-sdk-e2e-test.sh — Java SDK Demo End-to-End Acceptance Test
+# Coverage chain: E2E test script → Java SDK Demo API endpoints → Java SDK → Backend API
 #
-# 严格验证：每个测试必须验证实际返回内容，而非仅检查"不为空"
+# Strict validation: each test must verify actual return content, not just check "not empty"
 #
-# 前提条件：
-# 1. Backend 服务运行中 (port 37777)
-# 2. Java Demo 运行中 (port 8080)
+# Prerequisites:
+# 1. Backend service running (port 37777)
+# 2. Java Demo running (port 8080)
 #
-# 运行方式：
+# Run:
 #   bash scripts/java-sdk-e2e-test.sh
 
 set -e
@@ -43,263 +43,263 @@ json_field() {
 }
 
 echo "=========================================="
-echo "Java SDK Demo E2E 验收测试（严格验证版）"
+echo "Java SDK Demo E2E Acceptance Test (Strict Validation)"
 echo "=========================================="
-echo "项目路径: $PROJECT"
+echo "Project path: $PROJECT"
 echo ""
 
-# ==================== 预检查 ====================
+# ==================== Pre-checks ====================
 
-info "预检查：Backend 服务..."
+info "Pre-check: Backend service..."
 BACKEND_HEALTH=$(curl -sf --max-time 10 "$BACKEND_URL/api/health" 2>/dev/null || echo "FAIL")
 if [ "$BACKEND_HEALTH" = "FAIL" ]; then
-    echo "❌ Backend 服务未运行! 请先启动: java -jar backend/target/cortex-ce-*.jar"
+    echo "❌ Backend service not running! Please start it first: java -jar backend/target/cortex-ce-*.jar"
     exit 1
 fi
 if ! contains_field "$BACKEND_HEALTH" "status"; then
-    echo "❌ Backend 响应缺少 'status' 字段"
+    echo "❌ Backend response missing 'status' field"
     exit 1
 fi
 BACKEND_STATUS=$(json_field "$BACKEND_HEALTH" "status")
 if [ "$BACKEND_STATUS" != "ok" ]; then
-    echo "❌ Backend 状态不是 'ok': $BACKEND_STATUS"
+    echo "❌ Backend status is not 'ok': $BACKEND_STATUS"
     exit 1
 fi
-pass "Backend 服务正常 (status=$BACKEND_STATUS)"
+pass "Backend service OK (status=$BACKEND_STATUS)"
 
-info "预检查：Java Demo 服务..."
+info "Pre-check: Java Demo service..."
 DEMO_HEALTH=$(curl -sf --max-time 10 "$DEMO_BASE/../actuator/health" 2>/dev/null || echo "FAIL")
 if [ "$DEMO_HEALTH" = "FAIL" ]; then
-    echo "❌ Java Demo 服务未运行! 请先启动 demo"
+    echo "❌ Java Demo service not running! Please start the demo first"
     exit 1
 fi
-pass "Java Demo 服务正常"
+pass "Java Demo service OK"
 
-# ==================== 数据准备 ====================
+# ==================== Data Preparation ====================
 
 echo ""
-info "数据准备：在 Backend 写入测试数据..."
+info "Data preparation: Writing test data to Backend..."
 
-# 写入 observation
+# Write observation
 WRITE_OBS=$(curl -sf --max-time 10 -X POST "$BACKEND_URL/api/ingest/tool-use" \
     -H "Content-Type: application/json" \
     -d "{
         \"project_path\": \"$PROJECT\",
         \"session_id\": \"e2e-test-session\",
         \"type\": \"fact\",
-        \"content\": \"Java SDK E2E 测试验证数据\",
+        \"content\": \"Java SDK E2E test verification data\",
         \"source\": \"e2e_test\"
     }" 2>/dev/null || echo "FAIL")
 
 if [ "$WRITE_OBS" = "FAIL" ]; then
-    fail "数据准备: 写入 observation" "Backend 写入失败"
+    fail "Data preparation: Write observation" "Backend write failed"
 else
-    pass "数据准备: 写入 observation"
+    pass "Data preparation: Write observation"
 fi
 
-# 等待数据生效
+# Wait for data to take effect
 sleep 2
 
-# ==================== 原有 API 测试 ====================
+# ==================== Existing API Tests ====================
 
 echo ""
-echo "--- 原有 API 测试 ---"
+echo "--- Existing API Tests ---"
 
-# Test 1: Memory Experiences (严格验证)
-info "Test 1: Memory Experiences — 验证返回数组结构"
-RESP=$(curl -sf --max-time 10 "$DEMO_BASE/memory/experiences?project=$PROJECT&query=测试&limit=5" 2>/dev/null || echo "FAIL")
+# Test 1: Memory Experiences (Strict validation)
+info "Test 1: Memory Experiences — Verify returned array structure"
+RESP=$(curl -sf --max-time 10 "$DEMO_BASE/memory/experiences?project=$PROJECT&query=test&limit=5" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
-    fail "Memory Experiences" "请求失败"
+    fail "Memory Experiences" "Request failed"
 elif ! contains_field "$RESP" "content"; then
-    fail "Memory Experiences" "返回缺少 'content' 字段"
+    fail "Memory Experiences" "Response missing 'content' field"
 else
-    pass "Memory Experiences — 返回包含 experiences"
+    pass "Memory Experiences — Response contains experiences"
 fi
 
-# Test 2: ICL Prompt (严格验证)
-info "Test 2: ICL Prompt — 验证 prompt 字段存在"
+# Test 2: ICL Prompt (Strict validation)
+info "Test 2: ICL Prompt — Verify prompt field exists"
 RESP=$(curl -sf --max-time 10 "$DEMO_BASE/memory/icl?project=$PROJECT&task=test&maxChars=500" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
-    fail "ICL Prompt" "请求失败"
+    fail "ICL Prompt" "Request failed"
 elif ! echo "$RESP" | grep -qE '"prompt"|"observations"'; then
-    fail "ICL Prompt" "返回缺少 'prompt' 或 'observations' 字段"
+    fail "ICL Prompt" "Response missing 'prompt' or 'observations' field"
 else
-    pass "ICL Prompt — 返回包含 prompt 结构"
+    pass "ICL Prompt — Response contains prompt structure"
 fi
 
-# Test 3: Session Start (严格验证 session_id)
-info "Test 3: Session Start — 验证 session_id 返回"
+# Test 3: Session Start (Strict session_id validation)
+info "Test 3: Session Start — Verify session_id returned"
 RESP=$(curl -sf --max-time 10 "$DEMO_BASE/session/start?project=$PROJECT" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
-    fail "Session Start" "请求失败"
+    fail "Session Start" "Request failed"
 elif ! contains_field "$RESP" "session_id"; then
-    fail "Session Start" "返回缺少 'session_id' 字段"
+    fail "Session Start" "Response missing 'session_id' field"
 else
     SESSION_ID=$(json_field "$RESP" "session_id")
     if [ -z "$SESSION_ID" ]; then
-        fail "Session Start" "session_id 为空"
+        fail "Session Start" "session_id is empty"
     else
         pass "Session Start — session_id=$SESSION_ID"
     fi
 fi
 
-# Test 4: Projects (验证返回格式)
-info "Test 4: Projects — 验证返回项目列表"
+# Test 4: Projects (Verify return format)
+info "Test 4: Projects — Verify project list returned"
 RESP=$(curl -sf --max-time 10 "$DEMO_BASE/projects" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
-    fail "Projects" "请求失败"
+    fail "Projects" "Request failed"
 else
-    pass "Projects — 返回项目数据"
+    pass "Projects — Project data returned"
 fi
 
-# Test 5: Quality Distribution (严格验证字段)
-info "Test 5: Quality Distribution — 验证统计字段"
+# Test 5: Quality Distribution (Strict field validation)
+info "Test 5: Quality Distribution — Verify stats fields"
 RESP=$(curl -sf --max-time 10 "$DEMO_BASE/memory/quality?project=$PROJECT" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
-    fail "Quality Distribution" "请求失败"
+    fail "Quality Distribution" "Request failed"
 else
-    pass "Quality Distribution — 返回统计信息"
+    pass "Quality Distribution — Stats info returned"
 fi
 
-# ==================== 新增 P0 API 测试 ====================
+# ==================== New P0 API Tests ====================
 
 echo ""
-echo "--- 新增 P0 API 测试 (Search/ListObservations/BatchObservations) ---"
+echo "--- New P0 API Tests (Search/ListObservations/BatchObservations) ---"
 
-# Test 6: Search API (P0) — 严格验证 observations 结构
-info "Test 6: Search API (P0) — 验证搜索结果结构"
-RESP=$(curl -sf --max-time 10 "$DEMO_BASE/search?project=$PROJECT&query=测试&limit=10" 2>/dev/null || echo "FAIL")
+# Test 6: Search API (P0) — Strict observations structure validation
+info "Test 6: Search API (P0) — Verify search result structure"
+RESP=$(curl -sf --max-time 10 "$DEMO_BASE/search?project=$PROJECT&query=test&limit=10" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
-    fail "Search API (P0)" "请求失败"
+    fail "Search API (P0)" "Request failed"
 elif ! echo "$RESP" | grep -qE '"observations"|"strategy"'; then
-    fail "Search API (P0)" "返回缺少 'observations' 或 'strategy' 字段"
+    fail "Search API (P0)" "Response missing 'observations' or 'strategy' field"
 else
-    # 验证搜索策略标识
+    # Verify search strategy identifier
     if echo "$RESP" | grep -qE '"strategy"'; then
         STRATEGY=$(json_field "$RESP" "strategy")
         pass "Search API (P0) — strategy=$STRATEGY"
     else
-        pass "Search API (P0) — 返回搜索结果"
+        pass "Search API (P0) — Search results returned"
     fi
 fi
 
-# Test 7: Search with source filter (P0) — 严格验证过滤效果
-info "Test 7: Search with source filter — 验证 source 过滤"
+# Test 7: Search with source filter (P0) — Strict filter effect validation
+info "Test 7: Search with source filter — Verify source filter"
 RESP=$(curl -sf --max-time 10 "$DEMO_BASE/search?project=$PROJECT&source=e2e_test&limit=5" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
-    fail "Search with source filter" "请求失败"
+    fail "Search with source filter" "Request failed"
 elif ! echo "$RESP" | grep -qE '"observations"|"strategy"'; then
-    fail "Search with source filter" "返回缺少搜索结果结构"
+    fail "Search with source filter" "Response missing search result structure"
 else
-    pass "Search with source filter — 过滤生效"
+    pass "Search with source filter — Filter applied"
 fi
 
-# Test 8: List Observations (P0) — 严格验证分页结构
-info "Test 8: List Observations (P0) — 验证分页参数"
+# Test 8: List Observations (P0) — Strict pagination structure validation
+info "Test 8: List Observations (P0) — Verify pagination parameters"
 RESP=$(curl -sf --max-time 10 "$DEMO_BASE/observations?project=$PROJECT&limit=10&offset=0" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
-    fail "List Observations (P0)" "请求失败"
+    fail "List Observations (P0)" "Request failed"
 elif ! echo "$RESP" | grep -qE '"observations"'; then
-    fail "List Observations (P0)" "返回缺少 'observations' 字段"
+    fail "List Observations (P0)" "Response missing 'observations' field"
 else
-    pass "List Observations (P0) — 分页查询成功"
+    pass "List Observations (P0) — Pagination query successful"
 fi
 
-# Test 9: Batch Observations (P0) — 严格验证批量结构
-info "Test 9: Batch Observations (P0) — 验证批量查询"
+# Test 9: Batch Observations (P0) — Strict batch structure validation
+info "Test 9: Batch Observations (P0) — Verify batch query"
 RESP=$(curl -sf --max-time 10 -X POST "$DEMO_BASE/observations/batch" \
     -H "Content-Type: application/json" \
     -d '{"ids": ["e2e-test-1", "e2e-test-2"]}' 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
-    fail "Batch Observations (P0)" "请求失败"
+    fail "Batch Observations (P0)" "Request failed"
 else
-    pass "Batch Observations (P0) — 批量查询响应"
+    pass "Batch Observations (P0) — Batch query response"
 fi
 
-# ==================== 新增 P1 API 测试 ====================
+# ==================== New P1 API Tests ====================
 
 echo ""
-echo "--- 新增 P1 API 测试 (Version/Stats/Modes/Settings) ---"
+echo "--- New P1 API Tests (Version/Stats/Modes/Settings) ---"
 
-# Test 10: Version API (P1) — 严格验证版本号格式
-info "Test 10: Version API (P1) — 验证版本号"
+# Test 10: Version API (P1) — Strict version format validation
+info "Test 10: Version API (P1) — Verify version number"
 RESP=$(curl -sf --max-time 10 "$DEMO_BASE/manage/version" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
-    fail "Version API (P1)" "请求失败"
+    fail "Version API (P1)" "Request failed"
 elif ! echo "$RESP" | grep -qE '"version"'; then
-    fail "Version API (P1)" "返回缺少 'version' 字段"
+    fail "Version API (P1)" "Response missing 'version' field"
 else
     VERSION=$(json_field "$RESP" "version")
     pass "Version API (P1) — version=$VERSION"
 fi
 
-# Test 11: Stats API (P1) — 严格验证统计结构
-info "Test 11: Stats API (P1) — 验证统计数据"
+# Test 11: Stats API (P1) — Strict stats structure validation
+info "Test 11: Stats API (P1) — Verify stats data"
 RESP=$(curl -sf --max-time 10 "$DEMO_BASE/manage/stats?project=$PROJECT" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
-    fail "Stats API (P1)" "请求失败"
+    fail "Stats API (P1)" "Request failed"
 else
-    pass "Stats API (P1) — 统计数据返回"
+    pass "Stats API (P1) — Stats data returned"
 fi
 
-# Test 12: Modes API (P1) — 严格验证模式列表
-info "Test 12: Modes API (P1) — 验证模式列表"
+# Test 12: Modes API (P1) — Strict mode list validation
+info "Test 12: Modes API (P1) — Verify mode list"
 RESP=$(curl -sf --max-time 10 "$DEMO_BASE/manage/modes" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
-    fail "Modes API (P1)" "请求失败"
+    fail "Modes API (P1)" "Request failed"
 else
-    pass "Modes API (P1) — 模式列表返回"
+    pass "Modes API (P1) — Mode list returned"
 fi
 
-# Test 13: Settings API (P1) — 严格验证设置结构
-info "Test 13: Settings API (P1) — 验证设置返回"
+# Test 13: Settings API (P1) — Strict settings structure validation
+info "Test 13: Settings API (P1) — Verify settings returned"
 RESP=$(curl -sf --max-time 10 "$DEMO_BASE/manage/settings" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
-    fail "Settings API (P1)" "请求失败"
+    fail "Settings API (P1)" "Request failed"
 else
-    pass "Settings API (P1) — 设置返回"
+    pass "Settings API (P1) — Settings returned"
 fi
 
-# ==================== 链路验证 ====================
+# ==================== Chain Verification ====================
 
 echo ""
-echo "--- 链路验证：Demo → SDK → Backend ---"
+echo "--- Chain Verification: Demo → SDK → Backend ---"
 
-# Test 14: 通过 Demo 搜索验证数据已写入 Backend
-info "Test 14: 链路验证 — Demo 搜索能查到 Backend 写入的数据"
-RESP=$(curl -sf --max-time 10 "$DEMO_BASE/search?project=$PROJECT&query=E2E测试&limit=5" 2>/dev/null || echo "FAIL")
+# Test 14: Verify data written to Backend via Demo search
+info "Test 14: Chain verification — Demo search can find data written to Backend"
+RESP=$(curl -sf --max-time 10 "$DEMO_BASE/search?project=$PROJECT&query=E2Etest&limit=5" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
-    fail "链路验证" "Demo 搜索请求失败"
+    fail "Chain verification" "Demo search request failed"
 else
-    pass "链路验证 — Demo → SDK → Backend 链路畅通"
+    pass "Chain verification — Demo → SDK → Backend chain OK"
 fi
 
-# ==================== 报告 ====================
+# ==================== Report ====================
 
 echo ""
 echo "=========================================="
-echo "测试结果: $PASSED/$TOTAL passed, $FAILED failed"
+echo "Test results: $PASSED/$TOTAL passed, $FAILED failed"
 echo "=========================================="
 
 if [ $FAILED -gt 0 ]; then
     echo ""
-    echo "❌ 失败详情:"
+    echo "❌ Failure details:"
     echo -e "$ERRORS"
     echo ""
-    echo "请检查:"
-    echo "  1. Backend 是否启动: curl $BACKEND_URL/api/health"
-    echo "  2. Demo 是否启动: curl $DEMO_BASE/../actuator/health"
-    echo "  3. 查看 Backend 日志: tail -f logs/cortex-ce.log"
+    echo "Please check:"
+    echo "  1. Is Backend running? curl $BACKEND_URL/api/health"
+    echo "  2. Is Demo running? curl $DEMO_BASE/../actuator/health"
+    echo "  3. Check Backend logs: tail -f logs/cortex-ce.log"
     exit 1
 fi
 
 echo ""
-echo "🎉 Java SDK Demo E2E 测试全部通过!"
+echo "🎉 Java SDK Demo E2E test all passed!"
 echo ""
-echo "覆盖的验证点:"
-echo "  ✅ Backend 健康检查 (status=ok)"
-echo "  ✅ 数据写入 → Backend"
-echo "  ✅ 原有 API: Experiences, ICL, Session, Projects, Quality"
+echo "Verified checkpoints:"
+echo "  ✅ Backend health check (status=ok)"
+echo "  ✅ Data write → Backend"
+echo "  ✅ Existing API: Experiences, ICL, Session, Projects, Quality"
 echo "  ✅ P0 API: Search, ListObservations, BatchObservations"
 echo "  ✅ P1 API: Version, Stats, Modes, Settings"
-echo "  ✅ 链路验证: Demo → SDK → Backend 数据流通"
+echo "  ✅ Chain verification: Demo → SDK → Backend data flow"

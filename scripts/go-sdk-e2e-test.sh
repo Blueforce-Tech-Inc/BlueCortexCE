@@ -1,14 +1,14 @@
 #!/bin/bash
-# go-sdk-e2e-test.sh — Go SDK Demo 端到端验收测试
-# 覆盖链路：E2E 测试脚本 → Go SDK Demo HTTP 端点 → Go SDK → Backend API
+# go-sdk-e2e-test.sh — Go SDK Demo End-to-End Acceptance Test
+# Coverage chain: E2E test script → Go SDK Demo HTTP endpoints → Go SDK → Backend API
 #
-# 严格验证：每个测试必须验证实际返回内容，而非仅检查"不为空"
+# Strict validation: each test must verify actual return content, not just check "not empty"
 #
-# 前提条件：
-# 1. Backend 服务运行中 (port 37777)
-# 2. Go SDK http-server Demo 运行中 (port 8080)
+# Prerequisites:
+# 1. Backend service running (port 37777)
+# 2. Go SDK http-server Demo running (port 8080)
 #
-# 运行方式：
+# Run:
 #   bash scripts/go-sdk-e2e-test.sh
 
 set -e
@@ -43,255 +43,255 @@ json_field() {
 }
 
 echo "=========================================="
-echo "Go SDK Demo E2E 验收测试（严格验证版）"
+echo "Go SDK Demo E2E Acceptance Test (Strict Validation)"
 echo "=========================================="
-echo "项目路径: $PROJECT"
+echo "Project path: $PROJECT"
 echo ""
 
-# ==================== 预检查 ====================
+# ==================== Pre-checks ====================
 
-info "预检查：Backend 服务..."
+info "Pre-check: Backend service..."
 BACKEND_HEALTH=$(curl -sf "$BACKEND_URL/api/health" 2>/dev/null || echo "FAIL")
 if [ "$BACKEND_HEALTH" = "FAIL" ]; then
-    echo "❌ Backend 服务未运行! 请先启动: java -jar backend/target/cortex-ce-*.jar"
+    echo "❌ Backend service not running! Please start it first: java -jar backend/target/cortex-ce-*.jar"
     exit 1
 fi
 if ! contains_field "$BACKEND_HEALTH" "status"; then
-    echo "❌ Backend 响应缺少 'status' 字段"
+    echo "❌ Backend response missing 'status' field"
     exit 1
 fi
 BACKEND_STATUS=$(json_field "$BACKEND_HEALTH" "status")
 if [ "$BACKEND_STATUS" != "ok" ]; then
-    echo "❌ Backend 状态不是 'ok': $BACKEND_STATUS"
+    echo "❌ Backend status is not 'ok': $BACKEND_STATUS"
     exit 1
 fi
-pass "Backend 服务正常 (status=$BACKEND_STATUS)"
+pass "Backend service OK (status=$BACKEND_STATUS)"
 
-info "预检查：Go SDK HTTP Demo..."
+info "Pre-check: Go SDK HTTP Demo..."
 DEMO_HEALTH=$(curl -sf "$DEMO_BASE/health" 2>/dev/null || echo "FAIL")
 if [ "$DEMO_HEALTH" = "FAIL" ]; then
-    echo "❌ Go SDK Demo 未运行! 请先启动: cd go-sdk/cortex-mem-go/examples/http-server && go run ."
+    echo "❌ Go SDK Demo not running! Please start it first: cd go-sdk/cortex-mem-go/examples/http-server && go run ."
     exit 1
 fi
 if ! contains_field "$DEMO_HEALTH" "service"; then
-    fail "Demo Health" "响应缺少 'service' 字段"
+    fail "Demo Health" "Response missing 'service' field"
     exit 1
 fi
 DEMO_SERVICE=$(json_field "$DEMO_HEALTH" "service")
 if [ "$DEMO_SERVICE" != "go-sdk-http-server" ]; then
-    fail "Demo Health" "service 不匹配: $DEMO_SERVICE"
+    fail "Demo Health" "service mismatch: $DEMO_SERVICE"
     exit 1
 fi
-pass "Go SDK Demo 正常 (service=$DEMO_SERVICE)"
+pass "Go SDK Demo OK (service=$DEMO_SERVICE)"
 
-# ==================== 数据准备 ====================
+# ==================== Data Preparation ====================
 
 echo ""
-info "数据准备：在 Backend 写入测试数据..."
+info "Data preparation: Writing test data to Backend..."
 
-# 写入 observation
+# Write observation
 WRITE_OBS=$(curl -sf -X POST "$BACKEND_URL/api/ingest/tool-use" \
     -H "Content-Type: application/json" \
     -d "{
         \"project_path\": \"$PROJECT\",
         \"session_id\": \"go-e2e-session\",
         \"type\": \"fact\",
-        \"content\": \"Go SDK E2E 测试验证数据\",
+        \"content\": \"Go SDK E2E test verification data\",
         \"source\": \"go_e2e_test\"
     }" 2>/dev/null || echo "FAIL")
 
 if [ "$WRITE_OBS" = "FAIL" ]; then
-    fail "数据准备: 写入 observation" "Backend 写入失败"
+    fail "Data preparation: Write observation" "Backend write failed"
 else
-    pass "数据准备: 写入 observation"
+    pass "Data preparation: Write observation"
 fi
 
-# 等待数据生效
+# Wait for data to take effect
 sleep 2
 
-# ==================== Demo HTTP 端点测试 ====================
+# ==================== Demo HTTP Endpoint Tests ====================
 
 echo ""
-echo "--- Demo HTTP 端点测试 (间接验证 Go SDK) ---"
+echo "--- Demo HTTP Endpoint Tests (Indirect Go SDK Verification) ---"
 
-# Test 1: Chat 端点 (验证 StartSession + RecordObservation)
-info "Test 1: Chat 端点 — 验证 Session + Observation 链路"
+# Test 1: Chat endpoint (Verify StartSession + RecordObservation)
+info "Test 1: Chat endpoint — Verify Session + Observation chain"
 CHAT_RESP=$(curl -sf -X POST "$DEMO_BASE/chat" \
     -H "Content-Type: application/json" \
-    -d "{\"project\":\"$PROJECT\",\"message\":\"Go E2E 测试消息\"}" 2>/dev/null || echo "FAIL")
+    -d "{\"project\":\"$PROJECT\",\"message\":\"Go E2E test message\"}" 2>/dev/null || echo "FAIL")
 if [ "$CHAT_RESP" = "FAIL" ]; then
-    fail "Chat 端点" "请求失败"
+    fail "Chat endpoint" "Request failed"
 elif ! echo "$CHAT_RESP" | grep -qE '"response"'; then
-    fail "Chat 端点" "返回缺少 'response' 字段"
+    fail "Chat endpoint" "Response missing 'response' field"
 else
     CHAT_RESPONSE=$(json_field "$CHAT_RESP" "response")
     if [ -z "$CHAT_RESPONSE" ]; then
-        fail "Chat 端点" "response 为空"
+        fail "Chat endpoint" "response is empty"
     else
-        pass "Chat 端点 — response=$CHAT_RESPONSE"
+        pass "Chat endpoint — response=$CHAT_RESPONSE"
     fi
 fi
 
-# Test 2: Search 端点 (验证 Search API)
-info "Test 2: Search 端点 — 验证搜索结果结构"
-SEARCH_RESP=$(curl -sf "$DEMO_BASE/search?project=$PROJECT&query=测试&limit=5" 2>/dev/null || echo "FAIL")
+# Test 2: Search endpoint (Verify search result structure)
+info "Test 2: Search endpoint — Verify search result structure"
+SEARCH_RESP=$(curl -sf "$DEMO_BASE/search?project=$PROJECT&query=test&limit=5" 2>/dev/null || echo "FAIL")
 if [ "$SEARCH_RESP" = "FAIL" ]; then
-    fail "Search 端点" "请求失败"
+    fail "Search endpoint" "Request failed"
 elif ! echo "$SEARCH_RESP" | grep -qE '"observations"|"strategy"'; then
-    fail "Search 端点" "返回缺少搜索结果结构"
+    fail "Search endpoint" "Response missing search result structure"
 else
     if echo "$SEARCH_RESP" | grep -qE '"strategy"'; then
         STRATEGY=$(json_field "$SEARCH_RESP" "strategy")
-        pass "Search 端点 — strategy=$STRATEGY"
+        pass "Search endpoint — strategy=$STRATEGY"
     else
-        pass "Search 端点 — 返回搜索结果"
+        pass "Search endpoint — Search results returned"
     fi
 fi
 
 # Test 3: Search with source filter
-info "Test 3: Search with source filter — 验证过滤生效"
+info "Test 3: Search with source filter — Verify filter applied"
 FILTER_RESP=$(curl -sf "$DEMO_BASE/search?project=$PROJECT&source=go_e2e_test&limit=3" 2>/dev/null || echo "FAIL")
 if [ "$FILTER_RESP" = "FAIL" ]; then
-    fail "Search with source filter" "请求失败"
+    fail "Search with source filter" "Request failed"
 else
-    pass "Search with source filter — 过滤查询成功"
+    pass "Search with source filter — Filter query successful"
 fi
 
-# Test 4: Version 端点 (验证 GetVersion)
-info "Test 4: Version 端点 — 验证版本号"
+# Test 4: Version endpoint (Verify GetVersion)
+info "Test 4: Version endpoint — Verify version number"
 VERSION_RESP=$(curl -sf "$DEMO_BASE/version" 2>/dev/null || echo "FAIL")
 if [ "$VERSION_RESP" = "FAIL" ]; then
-    fail "Version 端点" "请求失败"
+    fail "Version endpoint" "Request failed"
 elif ! echo "$VERSION_RESP" | grep -qE '"version"'; then
-    fail "Version 端点" "返回缺少 'version' 字段"
+    fail "Version endpoint" "Response missing 'version' field"
 else
     VERSION=$(json_field "$VERSION_RESP" "version")
-    pass "Version 端点 — version=$VERSION"
+    pass "Version endpoint — version=$VERSION"
 fi
 
-# ==================== Backend 直接访问测试 ====================
+# ==================== Backend Direct Access Tests ====================
 
 echo ""
-echo "--- Backend 直接访问测试 (验证 Go SDK 通信的 Backend 端点) ---"
+echo "--- Backend Direct Access Tests (Verify Backend Endpoints Used by Go SDK) ---"
 
 # Test 5: Backend /api/health
-info "Test 5: Backend /api/health — 严格验证状态"
+info "Test 5: Backend /api/health — Strict status validation"
 HEALTH_RESP=$(curl -sf "$BACKEND_URL/api/health" 2>/dev/null || echo "FAIL")
 if [ "$HEALTH_RESP" = "FAIL" ]; then
-    fail "Backend /api/health" "请求失败"
+    fail "Backend /api/health" "Request failed"
 elif ! contains_field "$HEALTH_RESP" "status"; then
-    fail "Backend /api/health" "响应缺少 'status'"
+    fail "Backend /api/health" "Response missing 'status'"
 else
     STATUS=$(json_field "$HEALTH_RESP" "status")
     if [ "$STATUS" != "ok" ]; then
-        fail "Backend /api/health" "status=$STATUS (期望 ok)"
+        fail "Backend /api/health" "status=$STATUS (expected ok)"
     else
         pass "Backend /api/health — status=$STATUS"
     fi
 fi
 
 # Test 6: Backend /api/version
-info "Test 6: Backend /api/version — 验证版本格式"
+info "Test 6: Backend /api/version — Verify version format"
 VER_RESP=$(curl -sf "$BACKEND_URL/api/version" 2>/dev/null || echo "FAIL")
 if [ "$VER_RESP" = "FAIL" ]; then
-    fail "Backend /api/version" "请求失败"
+    fail "Backend /api/version" "Request failed"
 elif ! echo "$VER_RESP" | grep -qE '"version"'; then
-    fail "Backend /api/version" "响应缺少 'version'"
+    fail "Backend /api/version" "Response missing 'version'"
 else
     VERSION=$(json_field "$VER_RESP" "version")
     pass "Backend /api/version — version=$VERSION"
 fi
 
 # Test 7: Backend /api/search
-info "Test 7: Backend /api/search — 验证搜索端点"
+info "Test 7: Backend /api/search — Verify search endpoint"
 SRCH_RESP=$(curl -sf "$BACKEND_URL/api/search?project=$PROJECT&limit=3" 2>/dev/null || echo "FAIL")
 if [ "$SRCH_RESP" = "FAIL" ]; then
-    fail "Backend /api/search" "请求失败"
+    fail "Backend /api/search" "Request failed"
 elif ! echo "$SRCH_RESP" | grep -qE '"observations"'; then
-    fail "Backend /api/search" "响应缺少 'observations'"
+    fail "Backend /api/search" "Response missing 'observations'"
 else
-    pass "Backend /api/search — 搜索端点正常"
+    pass "Backend /api/search — Search endpoint OK"
 fi
 
 # Test 8: Backend /api/observations
-info "Test 8: Backend /api/observations — 验证分页端点"
+info "Test 8: Backend /api/observations — Verify pagination endpoint"
 OBS_RESP=$(curl -sf "$BACKEND_URL/api/observations?project=$PROJECT&limit=3" 2>/dev/null || echo "FAIL")
 if [ "$OBS_RESP" = "FAIL" ]; then
-    fail "Backend /api/observations" "请求失败"
+    fail "Backend /api/observations" "Request failed"
 elif ! echo "$OBS_RESP" | grep -qE '"observations"'; then
-    fail "Backend /api/observations" "响应缺少 'observations'"
+    fail "Backend /api/observations" "Response missing 'observations'"
 else
-    pass "Backend /api/observations — 分页端点正常"
+    pass "Backend /api/observations — Pagination endpoint OK"
 fi
 
 # Test 9: Backend /api/projects
-info "Test 9: Backend /api/projects — 验证项目端点"
+info "Test 9: Backend /api/projects — Verify projects endpoint"
 PROJ_RESP=$(curl -sf "$BACKEND_URL/api/projects" 2>/dev/null || echo "FAIL")
 if [ "$PROJ_RESP" = "FAIL" ]; then
-    fail "Backend /api/projects" "请求失败"
+    fail "Backend /api/projects" "Request failed"
 else
-    pass "Backend /api/projects — 项目端点正常"
+    pass "Backend /api/projects — Projects endpoint OK"
 fi
 
 # Test 10: Backend /api/stats
-info "Test 10: Backend /api/stats — 验证统计端点"
+info "Test 10: Backend /api/stats — Verify stats endpoint"
 STATS_RESP=$(curl -sf "$BACKEND_URL/api/stats?project=$PROJECT" 2>/dev/null || echo "FAIL")
 if [ "$STATS_RESP" = "FAIL" ]; then
-    fail "Backend /api/stats" "请求失败"
+    fail "Backend /api/stats" "Request failed"
 else
-    pass "Backend /api/stats — 统计端点正常"
+    pass "Backend /api/stats — Stats endpoint OK"
 fi
 
 # Test 11: Backend /api/modes
-info "Test 11: Backend /api/modes — 验证模式端点"
+info "Test 11: Backend /api/modes — Verify modes endpoint"
 MODES_RESP=$(curl -sf "$BACKEND_URL/api/modes" 2>/dev/null || echo "FAIL")
 if [ "$MODES_RESP" = "FAIL" ]; then
-    fail "Backend /api/modes" "请求失败"
+    fail "Backend /api/modes" "Request failed"
 else
-    pass "Backend /api/modes — 模式端点正常"
+    pass "Backend /api/modes — Modes endpoint OK"
 fi
 
 # Test 12: Backend /api/settings
-info "Test 12: Backend /api/settings — 验证设置端点"
+info "Test 12: Backend /api/settings — Verify settings endpoint"
 SETTINGS_RESP=$(curl -sf "$BACKEND_URL/api/settings" 2>/dev/null || echo "FAIL")
 if [ "$SETTINGS_RESP" = "FAIL" ]; then
-    fail "Backend /api/settings" "请求失败"
+    fail "Backend /api/settings" "Request failed"
 else
-    pass "Backend /api/settings — 设置端点正常"
+    pass "Backend /api/settings — Settings endpoint OK"
 fi
 
-# ==================== 链路验证 ====================
+# ==================== Chain Verification ====================
 
 echo ""
-echo "--- 链路验证：Test Script → Demo → Go SDK → Backend ---"
+echo "--- Chain Verification: Test Script → Demo → Go SDK → Backend ---"
 
-# Test 13: 通过 Demo 搜索验证数据已写入 Backend
-info "Test 13: 链路验证 — Demo 搜索能查到 Backend 写入的数据"
+# Test 13: Verify data written to Backend via Demo search
+info "Test 13: Chain verification — Demo search can find data written to Backend"
 CHAIN_RESP=$(curl -sf "$DEMO_BASE/search?project=$PROJECT&query=GoSDK&limit=5" 2>/dev/null || echo "FAIL")
 if [ "$CHAIN_RESP" = "FAIL" ]; then
-    fail "链路验证" "Demo 搜索请求失败"
+    fail "Chain verification" "Demo search request failed"
 else
-    pass "链路验证 — Test → Demo → Go SDK → Backend 链路畅通"
+    pass "Chain verification — Test → Demo → Go SDK → Backend chain OK"
 fi
 
-# ==================== Go SDK 方法覆盖清单 ====================
+# ==================== Go SDK Method Coverage Checklist ====================
 
 echo ""
-echo "--- Go SDK 方法覆盖清单 ---"
-echo "通过 Demo HTTP 端点间接覆盖的方法："
+echo "--- Go SDK Method Coverage Checklist ---"
+echo "Methods indirectly covered via Demo HTTP endpoints:"
 echo "  ✅ StartSession (via /chat)"
 echo "  ✅ RecordObservation (via /chat)"
 echo "  ✅ Search (via /search)"
 echo "  ✅ GetVersion (via /version)"
 echo "  ✅ HealthCheck (via /health)"
 echo ""
-echo "通过 Backend 直接访问验证的方法："
+echo "Methods verified via direct Backend access:"
 echo "  ✅ GetProjects (via /api/projects)"
 echo "  ✅ GetStats (via /api/stats)"
 echo "  ✅ GetModes (via /api/modes)"
 echo "  ✅ GetSettings (via /api/settings)"
 echo ""
-echo "未覆盖的方法（需通过 Go 测试补充）："
+echo "Uncovered methods (need Go tests to supplement):"
 echo "  ⬜ RecordSessionEnd"
 echo "  ⬜ RecordUserPrompt"
 echo "  ⬜ RetrieveExperiences"
@@ -306,97 +306,97 @@ echo "  ⬜ GetLatestExtraction"
 echo "  ⬜ GetExtractionHistory"
 echo "  ⬜ UpdateSessionUserId"
 
-# ==================== 报告 ====================
+# ==================== Report ====================
 
 echo ""
 echo "=========================================="
-echo "测试结果: $PASSED/$TOTAL passed, $FAILED failed"
+echo "Test results: $PASSED/$TOTAL passed, $FAILED failed"
 echo "=========================================="
 
 if [ $FAILED -gt 0 ]; then
     echo ""
-    echo "❌ 失败详情:"
+    echo "❌ Failure details:"
     echo -e "$ERRORS"
     echo ""
-    echo "请检查:"
-    echo "  1. Backend 是否启动: curl $BACKEND_URL/api/health"
-    echo "  2. Demo 是否启动: cd go-sdk/cortex-mem-go/examples/http-server && go run ."
-    echo "  3. 查看 Backend 日志: tail -f logs/cortex-ce.log"
+    echo "Please check:"
+    echo "  1. Is Backend running? curl $BACKEND_URL/api/health"
+    echo "  2. Is Demo running? cd go-sdk/cortex-mem-go/examples/http-server && go run ."
+    echo "  3. Check Backend logs: tail -f logs/cortex-ce.log"
     exit 1
 fi
 
 echo ""
-echo "🎉 Go SDK Demo E2E 测试全部通过!"
+echo "🎉 Go SDK Demo E2E test all passed!"
 echo ""
-echo "覆盖的验证点:"
-echo "  ✅ Backend 健康检查 (status=ok)"
-echo "  ✅ Demo 健康检查 (service=go-sdk-http-server)"
-echo "  ✅ 数据写入 → Backend"
-echo "  ✅ Demo HTTP 端点: Chat, Search, Version"
-echo "  ✅ Backend 直接: health, version, search, observations, projects, stats, modes, settings"
-echo "  ✅ 链路验证: Test → Demo → Go SDK → Backend"
+echo "Verified checkpoints:"
+echo "  ✅ Backend health check (status=ok)"
+echo "  ✅ Demo health check (service=go-sdk-http-server)"
+echo "  ✅ Data write → Backend"
+echo "  ✅ Demo HTTP endpoints: Chat, Search, Version"
+echo "  ✅ Backend direct: health, version, search, observations, projects, stats, modes, settings"
+echo "  ✅ Chain verification: Test → Demo → Go SDK → Backend"
 
-# ==================== 补充测试：Go SDK 未覆盖的方法 ====================
+# ==================== Supplementary Tests: Go SDK Uncovered Methods ====================
 
 echo ""
-echo "--- Go SDK 补充方法覆盖测试 ---"
+echo "--- Go SDK Supplementary Method Coverage Tests ---"
 
 # Test 15: UpdateSessionUserId
-info "Test 15: Backend /api/session/{id}/user — 验证 PATCH"
+info "Test 15: Backend /api/session/{id}/user — Verify PATCH"
 SESSION_UPDATE_RESP=$(curl -sf --max-time 10 -X PATCH "$BACKEND_URL/api/session/test-session/user" \
     -H "Content-Type: application/json" \
     -d '{"user_id": "e2e-user"}' 2>/dev/null || echo "FAIL")
 if [ "$SESSION_UPDATE_RESP" = "FAIL" ]; then
-    fail "Backend PATCH /api/session/{id}/user" "请求超时或失败"
+    fail "Backend PATCH /api/session/{id}/user" "Request timed out or failed"
 elif echo "$SESSION_UPDATE_RESP" | grep -qE '"session_id"|"error"'; then
     pass "Backend PATCH /api/session/{id}/user"
 else
-    fail "Backend PATCH /api/session/{id}/user" "响应格式异常"
+    fail "Backend PATCH /api/session/{id}/user" "Unexpected response format"
 fi
 
 # Test 16: Backend /api/memory/experiences
-info "Test 16: Backend /api/memory/experiences — 验证检索"
+info "Test 16: Backend /api/memory/experiences — Verify retrieval"
 EXPERIENCES_RESP=$(curl -sf --max-time 10 -X POST "$BACKEND_URL/api/memory/experiences" \
     -H "Content-Type: application/json" \
     -d "{\"project\": \"$PROJECT\", \"task\": \"test\"}" 2>/dev/null || echo "FAIL")
 if [ "$EXPERIENCES_RESP" = "FAIL" ]; then
-    fail "Backend POST /api/memory/experiences" "请求超时或失败"
+    fail "Backend POST /api/memory/experiences" "Request timed out or failed"
 else
     pass "Backend POST /api/memory/experiences"
 fi
 
 # Test 17: Backend /api/memory/icl-prompt
-info "Test 17: Backend /api/memory/icl-prompt — 验证 ICL"
+info "Test 17: Backend /api/memory/icl-prompt — Verify ICL"
 ICL_RESP=$(curl -sf --max-time 10 -X POST "$BACKEND_URL/api/memory/icl-prompt" \
     -H "Content-Type: application/json" \
     -d "{\"project\": \"$PROJECT\", \"task\": \"test\"}" 2>/dev/null || echo "FAIL")
 if [ "$ICL_RESP" = "FAIL" ]; then
-    fail "Backend POST /api/memory/icl-prompt" "请求超时或失败"
+    fail "Backend POST /api/memory/icl-prompt" "Request timed out or failed"
 else
     pass "Backend POST /api/memory/icl-prompt"
 fi
 
 # Test 18: Backend /api/memory/quality-distribution
-info "Test 18: Backend /api/memory/quality-distribution — 验证质量统计"
+info "Test 18: Backend /api/memory/quality-distribution — Verify quality stats"
 QUALITY_RESP=$(curl -sf --max-time 10 "$BACKEND_URL/api/memory/quality-distribution?project=$PROJECT" 2>/dev/null || echo "FAIL")
 if [ "$QUALITY_RESP" = "FAIL" ]; then
-    fail "Backend GET /api/memory/quality-distribution" "请求超时或失败"
+    fail "Backend GET /api/memory/quality-distribution" "Request timed out or failed"
 else
     pass "Backend GET /api/memory/quality-distribution"
 fi
 
-# ==================== 更新覆盖清单 ====================
+# ==================== Updated Coverage Checklist ====================
 
 echo ""
-echo "--- 更新后的 Go SDK 方法覆盖清单 ---"
-echo "通过 Demo HTTP 端点间接覆盖的方法："
+echo "--- Updated Go SDK Method Coverage Checklist ---"
+echo "Methods indirectly covered via Demo HTTP endpoints:"
 echo "  ✅ StartSession (via /chat)"
 echo "  ✅ RecordObservation (via /chat)"
 echo "  ✅ Search (via /search)"
 echo "  ✅ GetVersion (via /version)"
 echo "  ✅ HealthCheck (via /health)"
 echo ""
-echo "通过 Backend 直接访问验证的方法："
+echo "Methods verified via direct Backend access:"
 echo "  ✅ GetProjects (via /api/projects)"
 echo "  ✅ GetStats (via /api/stats)"
 echo "  ✅ GetModes (via /api/modes)"
@@ -406,7 +406,7 @@ echo "  ✅ RetrieveExperiences (via POST /api/memory/experiences)"
 echo "  ✅ BuildICLPrompt (via POST /api/memory/icl-prompt)"
 echo "  ✅ GetQualityDistribution (via /api/memory/quality-distribution)"
 echo ""
-echo "未覆盖的方法（需通过 Go 测试或额外 Demo 补充）："
+echo "Uncovered methods (need Go tests or additional Demo to supplement):"
 echo "  ⬜ RecordSessionEnd"
 echo "  ⬜ RecordUserPrompt"
 echo "  ⬜ ListObservations (via Backend /api/observations)"
@@ -417,95 +417,95 @@ echo "  ⬜ DeleteObservation"
 echo "  ⬜ GetLatestExtraction"
 echo "  ⬜ GetExtractionHistory"
 
-# ==================== 新增端点测试：Demo → SDK → Backend ====================
+# ==================== New Endpoint Tests: Demo → SDK → Backend ====================
 
 # Test 19: /experiences endpoint
 info "Test 19: Demo /experiences → RetrieveExperiences"
 EXPS=$(curl -sf --max-time 10 "$DEMO_BASE/experiences?project=$PROJECT&query=test" 2>/dev/null || echo "FAIL")
 if [ "$EXPS" = "FAIL" ]; then
-    fail "GET /experiences" "连接失败或超时"
+    fail "GET /experiences" "Connection failed or timed out"
 elif echo "$EXPS" | grep -q "experiences\|count"; then
     pass "GET /experiences"
 else
-    fail "GET /experiences" "响应格式异常"
+    fail "GET /experiences" "Unexpected response format"
 fi
 
 # Test 20: /iclprompt endpoint
 info "Test 20: Demo /iclprompt → BuildICLPrompt"
 ICL=$(curl -sf --max-time 10 "$DEMO_BASE/iclprompt?project=$PROJECT&task=test" 2>/dev/null || echo "FAIL")
 if [ "$ICL" = "FAIL" ]; then
-    fail "GET /iclprompt" "连接失败或超时"
+    fail "GET /iclprompt" "Connection failed or timed out"
 elif echo "$ICL" | grep -q "prompt\|experienceCount"; then
     pass "GET /iclprompt"
 else
-    fail "GET /iclprompt" "响应格式异常"
+    fail "GET /iclprompt" "Unexpected response format"
 fi
 
 # Test 21: /observations endpoint
 info "Test 21: Demo /observations → ListObservations"
 OBSS=$(curl -sf --max-time 10 "$DEMO_BASE/observations?project=$PROJECT" 2>/dev/null || echo "FAIL")
 if [ "$OBSS" = "FAIL" ]; then
-    fail "GET /observations" "连接失败或超时"
+    fail "GET /observations" "Connection failed or timed out"
 elif echo "$OBSS" | grep -q "observations\|ids"; then
     pass "GET /observations"
 else
-    fail "GET /observations" "响应格式异常"
+    fail "GET /observations" "Unexpected response format"
 fi
 
 # Test 22: /projects endpoint
 info "Test 22: Demo /projects → GetProjects"
 PROJS=$(curl -sf --max-time 10 "$DEMO_BASE/projects" 2>/dev/null || echo "FAIL")
 if [ "$PROJS" = "FAIL" ]; then
-    fail "GET /projects" "连接失败或超时"
+    fail "GET /projects" "Connection failed or timed out"
 elif echo "$PROJS" | grep -q "projects"; then
     pass "GET /projects"
 else
-    fail "GET /projects" "响应格式异常"
+    fail "GET /projects" "Unexpected response format"
 fi
 
 # Test 23: /stats endpoint
 info "Test 23: Demo /stats → GetStats"
 STATS=$(curl -sf --max-time 10 "$DEMO_BASE/stats?project=$PROJECT" 2>/dev/null || echo "FAIL")
 if [ "$STATS" = "FAIL" ]; then
-    fail "GET /stats" "连接失败或超时"
+    fail "GET /stats" "Connection failed or timed out"
 elif echo "$STATS" | grep -q "total\|count"; then
     pass "GET /stats"
 else
-    fail "GET /stats" "响应格式异常"
+    fail "GET /stats" "Unexpected response format"
 fi
 
 # Test 24: /modes endpoint
 info "Test 24: Demo /modes → GetModes"
 MODES=$(curl -sf --max-time 10 "$DEMO_BASE/modes" 2>/dev/null || echo "FAIL")
 if [ "$MODES" = "FAIL" ]; then
-    fail "GET /modes" "连接失败或超时"
+    fail "GET /modes" "Connection failed or timed out"
 elif echo "$MODES" | grep -q "modes"; then
     pass "GET /modes"
 else
-    fail "GET /modes" "响应格式异常"
+    fail "GET /modes" "Unexpected response format"
 fi
 
 # Test 25: /settings endpoint
 info "Test 25: Demo /settings → GetSettings"
 SETTINGS=$(curl -sf --max-time 10 "$DEMO_BASE/settings" 2>/dev/null || echo "FAIL")
 if [ "$SETTINGS" = "FAIL" ]; then
-    fail "GET /settings" "连接失败或超时"
+    fail "GET /settings" "Connection failed or timed out"
 elif echo "$SETTINGS" | grep -q "embedding_model\|model"; then
     pass "GET /settings"
 else
-    fail "GET /settings" "响应格式异常"
+    fail "GET /settings" "Unexpected response format"
 fi
 
 # Test 26: /quality endpoint
 info "Test 26: Demo /quality → GetQualityDistribution"
 QUAL=$(curl -sf --max-time 10 "$DEMO_BASE/quality?project=$PROJECT" 2>/dev/null || echo "FAIL")
 if [ "$QUAL" = "FAIL" ]; then
-    fail "GET /quality" "连接失败或超时"
+    fail "GET /quality" "Connection failed or timed out"
 elif echo "$QUAL" | grep -q "distribution\|score"; then
     pass "GET /quality"
 else
-    pass "GET /quality (API 可能未实现)"
+    pass "GET /quality (API may not be implemented)"
 fi
 
 echo ""
-echo "=== Go SDK E2E 测试完成 ==="
+echo "=== Go SDK E2E test complete ==="
