@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Extraction query API controller (Phase 3).
@@ -95,12 +94,12 @@ public class ExtractionController {
         List<ObservationEntity> history = extractionService.getExtractionHistory(
             projectPath, templateName, userId, limit);
 
-        List<Map<String, Object>> result = history.stream().map(obs -> Map.of(
-            "sessionId", (Object) obs.getContentSessionId(),
+        List<Map<String, Object>> result = history.stream().map(obs -> Map.<String, Object>of(
+            "sessionId", obs.getContentSessionId(),
             "extractedData", obs.getExtractedData() != null ? obs.getExtractedData() : Map.of(),
             "createdAt", obs.getCreatedAtEpoch(),
             "observationId", obs.getId().toString()
-        )).collect(Collectors.toList());
+        )).toList();
 
         return ResponseEntity.ok(result);
     }

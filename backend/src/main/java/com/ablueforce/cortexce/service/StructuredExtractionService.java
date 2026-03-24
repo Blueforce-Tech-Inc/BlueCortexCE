@@ -170,6 +170,7 @@ public class StructuredExtractionService {
         }
 
         // Get candidates (all matching observations, up to limit)
+        // Note: inner loop enforces per-user maxTotal = maxObservationsPerBatch * maxBatchesPerTemplate
         List<ObservationEntity> candidates = observationRepository.findBySourceIn(
             projectPath, sources, extractionConfig.getInitialRunMaxCandidates());
 
