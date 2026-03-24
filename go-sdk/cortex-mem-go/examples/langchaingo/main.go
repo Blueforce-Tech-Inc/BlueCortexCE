@@ -1,0 +1,50 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+
+	"github.com/abforce/cortex-ce/cortex-mem-go"
+	"github.com/abforce/cortex-ce/cortex-mem-go/langchaingo"
+)
+
+func main() {
+	// Create a new client
+	client := cortexmem.NewClient(
+		cortexmem.WithBaseURL("http://127.0.0.1:37777"),
+	)
+	defer client.Close()
+
+	ctx := context.Background()
+
+	// Create LangChainGo Memory
+	memory := langchaingo.NewMemory(client,
+		langchaingo.WithMemoryProject("/tmp/langchaingo-demo"),
+		langchaingo.WithMemorySessionID("demo-session-001"),
+	)
+
+	fmt.Println("=== LangChainGo Memory Demo ===")
+
+	// 1. Save context (simulate conversation)
+	fmt.Println("Saving context...")
+	inputs := map[string]any{"input": "What is your favorite programming language?"}
+	outputs := map[string]any{"output": "I prefer Go because it's fast and concurrent."}
+	if err := memory.SaveContext(ctx, inputs, outputs); err != nil {
+		log.Printf("Failed to save context: %v", err)
+	}
+
+	// 2. Load memory variables
+	fmt.Println("\nLoading memory variables...")
+	loaded, err := memory.LoadMemoryVars(ctx, map[string]any{"input": "programming"})
+	if err != nil {
+		log.Printf("Failed to load memory: %v", err)
+	} else {
+		fmt.Printf("History: %s\n", loaded["history"])
+	}
+
+	// 3. Get memory variables
+	fmt.Println("\nMemory variables:", memory.GetMemoryVariables())
+
+	fmt.Println("\n✅ LangChainGo Memory demo completed!")
+}

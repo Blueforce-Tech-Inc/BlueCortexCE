@@ -29,13 +29,17 @@
 - client_methods.go — 全部方法实现
 - dto/ — 8 个 DTO 文件
 
-### B2: 集成层 🔄 开始
-- eino/go.mod — Eino Retriever 集成骨架
-- langchaingo — 待实施
-- genkit — 待实施
+### B2: 集成层 ✅ 完成
+- eino/retriever.go — Eino Retriever 集成
+- langchaingo/memory.go — LangChainGo Memory 集成
+- genkit/retriever.go — Genkit Retriever 集成
 
-### B3: Demo 项目 ⏳ 待实施
-- basic/, eino/, genkit/, langchaingo/, http-server/
+### B3: Demo 项目 ✅ 完成
+- basic/main.go — 纯 SDK 使用 Demo
+- eino/main.go — Eino Retriever Demo
+- langchaingo/main.go — LangChainGo Memory Demo
+- genkit/main.go — Genkit Retriever Demo
+- http-server/main.go — HTTP 服务示例
 
 ## 进度日志
 
@@ -47,3 +51,7 @@
 - 2026-03-24 18:31: Phase B1 开始 — Go SDK 核心包
 - 2026-03-24 18:32: Phase B1 完成 — Go SDK 核心包编译通过 ✅
 - 2026-03-24 18:33: Phase B2 开始 — 集成层
+- 2026-03-24 18:35: Phase B2 完成 — 3 个集成层完成 ✅
+- 2026-03-24 18:36: Phase B3 开始 — Demo 项目
+- 2026-03-24 18:40: Phase B3 完成 — 5 个 Demo 项目完成 ✅
+- 2026-03-24 18:41: Go SDK v1.0.0 实施完成 🎉

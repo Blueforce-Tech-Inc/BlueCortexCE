@@ -1,50 +1,44 @@
 package dto
 
-// ExperienceRequest is used for retrieving experiences.
+// ExperienceRequest retrieves relevant experiences from memory.
 // POST /api/memory/experiences
+//
+// Wire format (verified against backend MemoryController.java):
+//   {"task":"...", "project":"/path", "count":4, "source":"...", "requiredConcepts":[...], "userId":"..."}
 type ExperienceRequest struct {
-	ProjectPath    string   `json:"project_path"`
-	Query          string   `json:"query,omitempty"`
-	Concept        string   `json:"concept,omitempty"`
-	Type           string   `json:"type,omitempty"`
-	Source         string   `json:"source,omitempty"`
-	RequiredConcepts []string `json:"required_concepts,omitempty"`
-	Limit          int      `json:"limit,omitempty"`
-	Offset         int      `json:"offset,omitempty"`
-	SessionID      string   `json:"session_id,omitempty"`
-	UserID         string   `json:"user_id,omitempty"`
+	Task             string   `json:"task"`
+	Project          string   `json:"project"`                  // Wire: "project" (not "project_path")
+	Count            int      `json:"count,omitempty"`
+	Source           string   `json:"source,omitempty"`
+	RequiredConcepts []string `json:"requiredConcepts,omitempty"` // Wire: camelCase!
+	UserID           string   `json:"userId,omitempty"`           // Wire: camelCase!
 }
 
-// Experience represents a retrieved experience.
+// Experience represents a retrieved experience from the backend.
 type Experience struct {
-	SessionID      string   `json:"session_id"`
-	Type           string   `json:"type"`
-	Content        string   `json:"content"`
-	Quality        string   `json:"quality,omitempty"`
-	Source         string   `json:"source,omitempty"`
-	CreatedAt      int64    `json:"created_at,omitempty"`
-	Similarity     float64  `json:"similarity,omitempty"`
-	Concepts       []string `json:"concepts,omitempty"`
-	ObservationID  string   `json:"observation_id,omitempty"`
+	ID              string  `json:"id"`
+	Task            string  `json:"task"`
+	Strategy        string  `json:"strategy"`
+	Outcome         string  `json:"outcome"`
+	ReuseCondition  string  `json:"reuseCondition"`
+	QualityScore    float32 `json:"qualityScore"`
+	CreatedAt       string  `json:"createdAt,omitempty"`
 }
 
-// ICLPromptRequest is used for building an ICL prompt.
+// ICLPromptRequest builds an ICL prompt from historical experiences.
 // POST /api/memory/icl-prompt
+//
+// Wire format (verified against backend MemoryController.java):
+//   {"task":"...", "project":"/path", "maxChars":4000, "userId":"..."}
 type ICLPromptRequest struct {
-	ProjectPath string   `json:"project_path"`
-	Task        string   `json:"task"`
-	MaxChars    int      `json:"max_chars,omitempty"`
-	Types       []string `json:"types,omitempty"`
-	Concepts    []string `json:"concepts,omitempty"`
-	SessionID   string   `json:"session_id,omitempty"`
-	UserID      string   `json:"user_id,omitempty"`
-	IncludeInsights bool `json:"include_insights,omitempty"`
+	Task     string `json:"task"`
+	Project  string `json:"project"`             // Wire: "project" (not "project_path")
+	MaxChars int    `json:"maxChars,omitempty"`   // Wire: camelCase!
+	UserID   string `json:"userId,omitempty"`     // Wire: camelCase!
 }
 
-// ICLPromptResult contains the generated ICL prompt.
+// ICLPromptResult is the result from the ICL prompt builder.
 type ICLPromptResult struct {
-	Prompt       string   `json:"prompt"`
-	Observations []Experience `json:"observations"`
-	TotalChars   int      `json:"total_chars"`
-	Strategy     string   `json:"strategy"`
+	Prompt          string `json:"prompt"`
+	ExperienceCount string `json:"experienceCount"`
 }

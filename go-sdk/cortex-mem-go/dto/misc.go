@@ -1,44 +1,26 @@
 package dto
 
-// QualityDistribution contains quality statistics.
+// QualityDistribution contains quality statistics for a project.
 type QualityDistribution struct {
-	ProjectPath string `json:"project_path"`
-	Total       int64  `json:"total"`
-	High        int64  `json:"high"`
-	Medium      int64  `json:"medium"`
-	Low         int64  `json:"low"`
-	Unknown     int64  `json:"unknown"`
+	Project string `json:"project"`
+	High    int64  `json:"high"`
+	Medium  int64  `json:"medium"`
+	Low     int64  `json:"low"`
+	Unknown int64  `json:"unknown"`
 }
 
-// UserPromptRequest is sent when recording a user prompt.
-// POST /api/ingest/user-prompt
-type UserPromptRequest struct {
-	ProjectPath string `json:"project_path"`
-	SessionID   string `json:"session_id"`
-	Content     string `json:"content"`
-	Timestamp   int64  `json:"timestamp,omitempty"`
+// Total returns the total number of observations.
+func (q QualityDistribution) Total() int64 {
+	return q.High + q.Medium + q.Low + q.Unknown
 }
 
-// SessionEndRequest is sent when a session ends.
-// POST /api/ingest/session-end
-type SessionEndRequest struct {
-	ProjectPath string `json:"project_path"`
-	SessionID   string `json:"session_id"`
-	Reason      string `json:"reason,omitempty"`
-	Timestamp   int64  `json:"timestamp,omitempty"`
-}
-
-// RefineRequest is sent when triggering refinement.
-// POST /api/memory/refine
-type RefineRequest struct {
-	ProjectPath string `json:"project_path"`
-	SessionID   string `json:"session_id,omitempty"`
-}
-
-// FeedbackRequest is sent when submitting feedback.
+// FeedbackRequest submits feedback for an observation.
 // POST /api/memory/feedback
+//
+// Wire format (verified against backend MemoryController.java):
+//   {"observationId":"...", "feedbackType":"SUCCESS", "comment":"..."}
 type FeedbackRequest struct {
-	ObservationID string `json:"observation_id"`
-	FeedbackType  string `json:"feedback_type"`
+	ObservationID string `json:"observationId"`  // Wire: camelCase!
+	FeedbackType  string `json:"feedbackType"`   // Wire: camelCase!
 	Comment       string `json:"comment,omitempty"`
 }
