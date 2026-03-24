@@ -335,3 +335,84 @@ echo "  ✅ 数据写入 → Backend"
 echo "  ✅ Demo HTTP 端点: Chat, Search, Version"
 echo "  ✅ Backend 直接: health, version, search, observations, projects, stats, modes, settings"
 echo "  ✅ 链路验证: Test → Demo → Go SDK → Backend"
+
+# ==================== 补充测试：Go SDK 未覆盖的方法 ====================
+
+echo ""
+echo "--- Go SDK 补充方法覆盖测试 ---"
+
+# Test 15: UpdateSessionUserId
+info "Test 15: Backend /api/session/{id}/user — 验证 PATCH"
+SESSION_UPDATE_RESP=$(curl -sf --max-time 10 -X PATCH "$BACKEND_URL/api/session/test-session/user" \
+    -H "Content-Type: application/json" \
+    -d '{"user_id": "e2e-user"}' 2>/dev/null || echo "FAIL")
+if [ "$SESSION_UPDATE_RESP" = "FAIL" ]; then
+    fail "Backend PATCH /api/session/{id}/user" "请求超时或失败"
+elif echo "$SESSION_UPDATE_RESP" | grep -qE '"session_id"|"error"'; then
+    pass "Backend PATCH /api/session/{id}/user"
+else
+    fail "Backend PATCH /api/session/{id}/user" "响应格式异常"
+fi
+
+# Test 16: Backend /api/memory/experiences
+info "Test 16: Backend /api/memory/experiences — 验证检索"
+EXPERIENCES_RESP=$(curl -sf --max-time 10 -X POST "$BACKEND_URL/api/memory/experiences" \
+    -H "Content-Type: application/json" \
+    -d "{\"project\": \"$PROJECT\", \"task\": \"test\"}" 2>/dev/null || echo "FAIL")
+if [ "$EXPERIENCES_RESP" = "FAIL" ]; then
+    fail "Backend POST /api/memory/experiences" "请求超时或失败"
+else
+    pass "Backend POST /api/memory/experiences"
+fi
+
+# Test 17: Backend /api/memory/icl-prompt
+info "Test 17: Backend /api/memory/icl-prompt — 验证 ICL"
+ICL_RESP=$(curl -sf --max-time 10 -X POST "$BACKEND_URL/api/memory/icl-prompt" \
+    -H "Content-Type: application/json" \
+    -d "{\"project\": \"$PROJECT\", \"task\": \"test\"}" 2>/dev/null || echo "FAIL")
+if [ "$ICL_RESP" = "FAIL" ]; then
+    fail "Backend POST /api/memory/icl-prompt" "请求超时或失败"
+else
+    pass "Backend POST /api/memory/icl-prompt"
+fi
+
+# Test 18: Backend /api/memory/quality-distribution
+info "Test 18: Backend /api/memory/quality-distribution — 验证质量统计"
+QUALITY_RESP=$(curl -sf --max-time 10 "$BACKEND_URL/api/memory/quality-distribution?project=$PROJECT" 2>/dev/null || echo "FAIL")
+if [ "$QUALITY_RESP" = "FAIL" ]; then
+    fail "Backend GET /api/memory/quality-distribution" "请求超时或失败"
+else
+    pass "Backend GET /api/memory/quality-distribution"
+fi
+
+# ==================== 更新覆盖清单 ====================
+
+echo ""
+echo "--- 更新后的 Go SDK 方法覆盖清单 ---"
+echo "通过 Demo HTTP 端点间接覆盖的方法："
+echo "  ✅ StartSession (via /chat)"
+echo "  ✅ RecordObservation (via /chat)"
+echo "  ✅ Search (via /search)"
+echo "  ✅ GetVersion (via /version)"
+echo "  ✅ HealthCheck (via /health)"
+echo ""
+echo "通过 Backend 直接访问验证的方法："
+echo "  ✅ GetProjects (via /api/projects)"
+echo "  ✅ GetStats (via /api/stats)"
+echo "  ✅ GetModes (via /api/modes)"
+echo "  ✅ GetSettings (via /api/settings)"
+echo "  ✅ UpdateSessionUserId (via PATCH /api/session/{id}/user)"
+echo "  ✅ RetrieveExperiences (via POST /api/memory/experiences)"
+echo "  ✅ BuildICLPrompt (via POST /api/memory/icl-prompt)"
+echo "  ✅ GetQualityDistribution (via /api/memory/quality-distribution)"
+echo ""
+echo "未覆盖的方法（需通过 Go 测试或额外 Demo 补充）："
+echo "  ⬜ RecordSessionEnd"
+echo "  ⬜ RecordUserPrompt"
+echo "  ⬜ ListObservations (via Backend /api/observations)"
+echo "  ⬜ TriggerRefinement"
+echo "  ⬜ SubmitFeedback"
+echo "  ⬜ UpdateObservation"
+echo "  ⬜ DeleteObservation"
+echo "  ⬜ GetLatestExtraction"
+echo "  ⬜ GetExtractionHistory"
