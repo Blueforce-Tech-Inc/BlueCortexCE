@@ -5031,3 +5031,102 @@ retriever := eino.NewRetriever(client, "/project",
 2. P0/P1 扩展（与 Java SDK Phase A 对齐）
 3. Demo 项目
 
+
+---
+
+## 附录 AH: 实施路线图 — Java SDK 先行（迭代 31）
+
+### 核心决策
+
+**实施顺序**：先完善 Java SDK → 再实施 Go SDK
+
+**原因**：
+1. Java SDK 是 Go SDK 的"参照物"，参照物应该先完善
+2. Java SDK 缺失的 API 补全后，Go SDK 可直接对齐
+3. 避免 Go SDK "反超" Java SDK 造成混淆
+
+### 总体路线图
+
+```
+Phase A: Java SDK 补充（2-3 天）
+├── A1: P0 功能（Search, ListObservations, Batch）   1 天
+├── A2: P1 功能（Projects, Summaries, Stats 等）     1 天
+└── A3: Demo 更新 + 测试                              0.5-1 天
+
+Phase B: Go SDK 实施（7.5-9.5 天）
+├── B1: 核心包（15 方法 + P0/P1 扩展）               4-5 天
+├── B2: 集成层（Eino/LangChainGo/Genkit）            2-3 天
+└── B3: Demo 项目 + 文档 + 发布                       1.5 天
+
+总计: 9.5-12.5 天
+```
+
+### Phase A: Java SDK 补充详细计划
+
+#### A1: P0 功能（1 天）
+
+| 任务 | 方法 | 端点 | 产出 |
+|------|------|------|------|
+| Search API | `search(SearchRequest)` | `GET /api/search` | SearchRequest.java + 方法 |
+| ListObservations | `listObservations(ObservationsRequest)` | `GET /api/observations` | ObservationsRequest.java + 方法 |
+| BatchObservations | `getObservationsByIds(List<String>)` | `POST /api/observations/batch` | 方法 |
+
+#### A2: P1 功能（1 天）
+
+| 任务 | 方法 | 端点 | 产出 |
+|------|------|------|------|
+| Projects | `getProjects()` | `GET /api/projects` | 方法 |
+| Summaries | `listSummaries()` | `GET /api/summaries` | SummariesRequest.java |
+| Prompts | `listPrompts()` | `GET /api/prompts` | PromptsRequest.java |
+| Stats | `getStats(projectPath)` | `GET /api/stats` | 方法 |
+| Version | `getVersion()` | `GET /api/version` | 方法 |
+
+#### A3: Demo 更新（0.5-1 天）
+
+| 任务 | 产出 |
+|------|------|
+| 更新 Demo 使用新 API | Search/List/Projects 示例 |
+| 更新 Demo 测试 | 验证新功能 |
+
+### Phase B: Go SDK 实施详细计划
+
+#### B1: 核心包（4-5 天）
+
+| 任务 | 天数 | 产出 |
+|------|------|------|
+| 项目骨架 + go.mod | 0.5 | 项目结构 |
+| DTO 包（所有数据类型） | 0.5 | dto/*.go |
+| Client 接口 + Option 模式 | 0.5 | client.go |
+| HTTP 实现（15 核心方法 + P0/P1 扩展） | 1.5 | client.go |
+| 错误处理 + 重试 + 熔断 | 0.5 | error.go |
+| 单元测试 | 1.0 | client_test.go |
+
+#### B2: 集成层（2-3 天）
+
+| 任务 | 天数 | 产出 |
+|------|------|------|
+| Eino Retriever | 1.0 | eino/retriever.go |
+| LangChainGo Memory | 1.0 | langchaingo/memory.go |
+| Genkit 预留骨架 | 0.5 | genkit/plugin.go |
+
+#### B3: Demo + 文档 + 发布（1.5 天）
+
+| 任务 | 天数 | 产出 |
+|------|------|------|
+| basic demo | 0.5 | examples/basic/ |
+| eino demo | 0.5 | examples/eino/ |
+| http-server demo | 0.5 | examples/http-server/ |
+| README.md | 0.5 | 文档 |
+| Git tag v1.0.0 | 0.25 | 发布 |
+
+### 关键里程碑
+
+| 里程碑 | 日期 | 内容 |
+|--------|------|------|
+| M0 | Day 0 | Go SDK 设计文档审批通过 |
+| M1 | Day 1-2 | Java SDK P0+P1 功能补充完成 |
+| M2 | Day 3 | Java Demo 更新 + 测试通过 |
+| M3 | Day 6-7 | Go SDK 核心包完成 |
+| M4 | Day 9-10 | Go SDK 集成层 + Demo 完成 |
+| M5 | Day 10-12 | Go SDK v1.0.0 发布 |
+
