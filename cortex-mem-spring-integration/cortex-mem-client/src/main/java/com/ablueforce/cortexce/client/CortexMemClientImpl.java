@@ -228,10 +228,20 @@ public class CortexMemClientImpl implements CortexMemClient {
     @Override
     public boolean healthCheck() {
         try {
-            restClient.get()
+            @SuppressWarnings("unchecked")
+            Map<String, Object> resp = restClient.get()
                 .uri("/api/health")
                 .retrieve()
-                .toBodilessEntity();
+                .body(new ParameterizedTypeReference<Map<String, Object>>() {});
+            if (resp == null) {
+                log.debug("Health check returned null body");
+                return false;
+            }
+            Object status = resp.get("status");
+            if (!"ok".equals(status)) {
+                log.debug("Health check returned degraded status: {}", status);
+                return false;
+            }
             return true;
         } catch (Exception e) {
             log.debug("Health check failed: {}", e.getMessage());

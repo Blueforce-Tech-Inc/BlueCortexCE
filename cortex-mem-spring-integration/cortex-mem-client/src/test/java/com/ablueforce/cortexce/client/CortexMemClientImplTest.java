@@ -236,13 +236,29 @@ class CortexMemClientImplTest {
 
     @Test
     void healthCheck_returnsTrueWhenOk() {
-        server.enqueue(new MockResponse().setResponseCode(200));
+        server.enqueue(new MockResponse()
+            .setBody("{\"status\":\"ok\"}")
+            .addHeader("Content-Type", "application/json"));
         assertThat(client.healthCheck()).isTrue();
     }
 
     @Test
     void healthCheck_returnsFalseWhenError() {
         server.enqueue(new MockResponse().setResponseCode(500));
+        assertThat(client.healthCheck()).isFalse();
+    }
+
+    @Test
+    void healthCheck_returnsFalseWhenDegraded() {
+        server.enqueue(new MockResponse()
+            .setBody("{\"status\":\"degraded\"}")
+            .addHeader("Content-Type", "application/json"));
+        assertThat(client.healthCheck()).isFalse();
+    }
+
+    @Test
+    void healthCheck_returnsFalseWhenNullBody() {
+        server.enqueue(new MockResponse().setResponseCode(200));
         assertThat(client.healthCheck()).isFalse();
     }
 
