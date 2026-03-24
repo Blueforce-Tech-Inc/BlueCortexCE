@@ -229,3 +229,8 @@
   - 更新 Client 接口签名 + client_methods.go 实现 + client_test.go 测试（mock 响应从 raw array 改为正确格式）
   - 移除 E2E 测试中的 "known issue" 注释（bug 已修复）
   - go vet 干净、38 Go 测试通过、http-server/basic examples 编译通过、Java SDK BUILD SUCCESS
+- 2026-03-25 03:31: Phase D 代码审查第十八轮 — 输入验证漏洞 + E2E 测试 Bug + Java Demo 异常处理
+  - Go http-server: /experiences 端点添加 task 必填校验（是唯一缺少 task 校验的端点，与 /iclprompt 不一致）
+  - Go E2E 测试: 修复 /experiences 测试使用 query=test 而非 task=test 的 bug（task 参数始终为空，API 调用实际无效）
+  - Java demo SessionLifecycleController: /start 和 /lifecycle 端点添加 try-catch（sessionStartClient.startSession() 在 backend 宕机时会抛异常，是唯一缺少错误处理的控制器）
+  - go vet 干净、38 Go 测试通过、http-server 编译通过、Java Demo BUILD SUCCESS、回归测试 46/46 PASS
