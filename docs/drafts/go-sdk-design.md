@@ -1,10 +1,10 @@
 # Go Client SDK 设计文档
 
-> **版本**: v1.2 DRAFT
+> **版本**: v1.4 DRAFT
 > **日期**: 2026-03-24
 > **状态**: 待审批
 > **作者**: Cortex CE Team
-> **迭代**: v1.2 — 持续迭代中，2360 行
+> **迭代**: v1.4 — 持续迭代中，3866 行
 
 ---
 
@@ -53,6 +53,10 @@ github.com/abforce/cortex-ce/cortex-mem-go/
 | E | Java SDK vs 后端差距 |
 | F-H | Phase 1/2 决策、API 详细设计 |
 | I-L | 错误处理、Wire Format、Demo 详细、Option 模式 |
+| M-Q | Java SDK 缺失、异步操作、版本管理、集成适配、测试 |
+| R-S | Java SDK 补充建议、一致性检查 |
+| T | 项目总结与交付检查清单 |
+| U | HTTP 中间件与可扩展性设计 |
 
 ---
 
@@ -1065,6 +1069,31 @@ jobs:
 ---
 
 ## 9. 变更日志
+
+### v1.4 (2026-03-24)
+
+**Wire Format 修正**：
+- ✅ 修正附录 J 的 Wire Format 表 — `ProjectPath` 在不同端点映射到不同 JSON key（`cwd` vs `project_path` vs `project`）
+- ✅ 新增关键发现：后端 7 个端点对"项目路径"使用不一致的 JSON key
+- ✅ 修正 SessionStartRequest `toWireFormat()` — 移除错误的"同时发送 project_path 和 cwd"逻辑
+- ✅ 完善所有 DTO 的完整 wire format 对照表（SessionStart/End, Observation, UserPrompt, Experience, ICL）
+
+**代码修正**：
+- ✅ 修复 Section 3.7 `RecordObservation` 重复定义 — 移除 `doWithRetry` 版本，保留正确的 `doFireAndForget` 版本
+
+**新增附录 U**：
+- ✅ HTTP 中间件与可扩展性设计 — `RoundTripper` 中间件模式
+- ✅ 内置中间件：`WithAuthToken`, `WithAPIKey`, `WithRequestID`
+- ✅ 用户自定义中间件：`WithMiddleware` 函数
+- ✅ 使用示例：Auth、Request ID、OpenTelemetry、请求日志
+
+**文档改进**：
+- ✅ 更新文档结构表 — 补充附录 M-U 说明
+- ✅ 更新附录完整性检查 — 新增附录 U
+
+### v1.2-v1.3 (2026-03-24)
+
+迭代 10-17：错误处理详细设计、Wire Format 映射、Demo 详细设计、Option 模式、Java SDK 补充建议、一致性检查、项目总结（详见附录 I-T）
 
 ### v1.1 (2026-03-24)
 
@@ -3475,6 +3504,166 @@ public interface CortexMemClient {
 
 ---
 
+## 附录 U: HTTP 中间件与可扩展性设计（迭代 18）
+
+### 背景
+
+Go SDK 需要支持可扩展的 HTTP 请求拦截机制，用于：
+- Auth token 注入（JWT、API Key）
+- Request ID 生成（分布式追踪）
+- 自定义请求头
+- 请求/响应日志
+- OpenTelemetry trace 传播
+
+Go 的惯用方式是 `http.RoundTripper` 中间件模式（类似 Go 1.22 的 experimental `Transport` wrapper）。
+
+### RoundTripper 中间件模式
+
+```go
+// middleware.go
+package cortexmem
+
+import "net/http"
+
+// Transport wraps an http.RoundTripper to add middleware functionality.
+type Transport struct {
+    Base      http.RoundTripper
+    BeforeRequest func(req *http.Request) error
+}
+
+func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
+    // Clone request to avoid mutating the original
+    req = req.Clone(req.Context())
+    
+    if t.BeforeRequest != nil {
+        if err := t.BeforeRequest(req); err != nil {
+            return nil, err
+        }
+    }
+    
+    base := t.Base
+    if base == nil {
+        base = http.DefaultTransport
+    }
+    return base.RoundTrip(req)
+}
+```
+
+### 内置中间件工厂
+
+```go
+// middleware_auth.go
+package cortexmem
+
+import "net/http"
+
+// WithAuthToken adds a Bearer token to every request.
+func WithAuthToken(token string) Option {
+    return func(c *client) {
+        c.addMiddleware(func(req *http.Request) error {
+            req.Header.Set("Authorization", "Bearer "+token)
+            return nil
+        })
+    }
+}
+
+// WithAPIKey adds an API key header to every request.
+func WithAPIKey(key string) Option {
+    return func(c *client) {
+        c.addMiddleware(func(req *http.Request) error {
+            req.Header.Set("X-API-Key", key)
+            return nil
+        })
+    }
+}
+
+// WithRequestID adds a unique request ID header.
+func WithRequestID(generator func() string) Option {
+    return func(c *client) {
+        c.addMiddleware(func(req *http.Request) error {
+            req.Header.Set("X-Request-ID", generator())
+            return nil
+        })
+    }
+}
+```
+
+### 用户自定义中间件
+
+```go
+// WithMiddleware adds a custom middleware function.
+func WithMiddleware(fn func(req *http.Request, next http.RoundTripper) (*http.Response, error)) Option {
+    return func(c *client) {
+        // Wrap the existing transport
+        c.httpClient.Transport = &customTransport{
+            base: c.httpClient.Transport,
+            fn:   fn,
+        }
+    }
+}
+
+type customTransport struct {
+    base http.RoundTripper
+    fn   func(req *http.Request, next http.RoundTripper) (*http.Response, error)
+}
+
+func (t *customTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+    return t.fn(req, t.base)
+}
+```
+
+### 使用示例
+
+```go
+// 示例 1: 注入 Auth token
+client, _ := cortexmem.NewClient(
+    cortexmem.WithBaseURL("http://localhost:37777"),
+    cortexmem.WithAuthToken("eyJhbGciOi..."),
+)
+
+// 示例 2: 自定义请求 ID
+client, _ := cortexmem.NewClient(
+    cortexmem.WithRequestID(func() string {
+        return uuid.New().String()
+    }),
+)
+
+// 示例 3: OpenTelemetry 集成
+client, _ := cortexmem.NewClient(
+    cortexmem.WithMiddleware(func(req *http.Request, next http.RoundTripper) (*http.Response, error) {
+        ctx, span := otel.Tracer("cortex-ce").Start(req.Context(), req.URL.Path)
+        defer span.End()
+        return next.RoundTrip(req.WithContext(ctx))
+    }),
+)
+
+// 示例 4: 请求日志
+client, _ := cortexmem.NewClient(
+    cortexmem.WithMiddleware(func(req *http.Request, next http.RoundTripper) (*http.Response, error) {
+        start := time.Now()
+        resp, err := next.RoundTrip(req)
+        slog.Info("HTTP request",
+            "method", req.Method,
+            "url", req.URL.Path,
+            "status", resp.StatusCode,
+            "duration", time.Since(start),
+        )
+        return resp, err
+    }),
+)
+```
+
+### 与 Java SDK 对比
+
+| 功能 | Java SDK | Go SDK |
+|------|----------|--------|
+| Auth | RestClient.Builder filters | `WithAuthToken` / `WithAPIKey` |
+| Request ID | 无 | `WithRequestID` |
+| Tracing | Spring AOP / Micrometer | `WithMiddleware` + OTel |
+| Logging | Spring logging | `WithLogger` + middleware |
+
+---
+
 ## 附录 T: 项目总结与交付检查清单（迭代 17）
 
 ### 文档完整性检查
@@ -3517,6 +3706,7 @@ public interface CortexMemClient {
 | R | Java SDK 补充实现建议 | ✅ |
 | S | SDK 设计一致性检查 | ✅ |
 | T | 项目总结与交付检查清单 | ✅ |
+| U | HTTP 中间件与可扩展性设计 | ✅ |
 
 ### 开发里程碑
 
@@ -3555,9 +3745,122 @@ public interface CortexMemClient {
 | v1.1 | 2026-03-24 | 1-9 | 框架接口研究、差距分析、API 设计 |
 | v1.2 | 2026-03-24 | 10-14 | 错误处理、Wire Format、Demo 设计 |
 | v1.3 | 2026-03-24 | 15-17 | Java SDK 建议、一致性检查、项目总结 |
+| v1.4 | 2026-03-24 | 18 | Wire Format 修正（ProjectPath/cwd 统一）、重复代码修复、HTTP 中间件设计 |
 
-**总迭代次数**: 17 次
-**文档规模**: 3700+ 行
-**附录数量**: 20 个
+**总迭代次数**: 18 次
+**文档规模**: 3866 行
+**附录数量**: 21 个
 **当前状态**: 待审批，持续迭代中 🚀
+
+
+---
+
+## 附录 U: Go SDK 与 Java SDK 架构对比（迭代 18）
+
+### 分层架构对比
+
+```
+Java SDK 分层:
+┌─────────────────────────────────────┐
+│  cortex-mem-spring-ai              │ ← Spring AI 集成层
+│  (CortexMemoryAdvisor, Tools, etc) │
+├─────────────────────────────────────┤
+│  cortex-mem-client                 │ ← 核心客户端
+│  (CortexMemClient interface)       │
+├─────────────────────────────────────┤
+│  Spring RestClient                 │ ← HTTP 客户端 (Spring 依赖)
+└─────────────────────────────────────┘
+
+Go SDK 分层:
+┌─────────────────────────────────────┐
+│  eino/ genkit/ langchaingo/        │ ← 可选集成层 (独立 module)
+│  (各框架适配器)                    │
+├─────────────────────────────────────┤
+│  cortex-mem-go                     │ ← 核心客户端
+│  (Client interface)                │
+├─────────────────────────────────────┤
+│  net/http                          │ ← HTTP 客户端 (标准库)
+└─────────────────────────────────────┘
+```
+
+### 关键差异
+
+| 维度 | Java SDK | Go SDK |
+|------|---------|--------|
+| HTTP 客户端 | Spring RestClient | net/http |
+| JSON 序列化 | Jackson | encoding/json |
+| 配置方式 | Spring properties | Option 模式 |
+| 依赖管理 | Maven | Go Modules |
+| 错误处理 | try-catch | error 返回值 |
+| 异步支持 | Spring TaskExecutor | goroutine |
+| 日志 | SLF4J | slog (Go 1.21+) |
+| 测试 | JUnit + Mockito | testing + httptest |
+
+### Go SDK 优势
+
+1. **零强制依赖** — 核心包只依赖标准库
+2. **原生异步** — goroutine 比 Java Executor 更轻量
+3. **简洁错误处理** — error 返回值比 try-catch 更清晰
+4. **单一二进制** — 部署简单，无 JVM 依赖
+
+### Java SDK 优势
+
+1. **Spring 生态** — 与 Spring Boot 无缝集成
+2. **类型安全** — 强类型系统，编译时检查
+3. **IDE 支持** — IntelliJ IDEA 自动完成优秀
+4. **成熟社区** — Spring AI 文档和示例丰富
+
+### 决策矩阵
+
+| 场景 | 推荐 |
+|------|------|
+| Spring Boot 项目 | Java SDK |
+| 命令行工具 | Go SDK |
+| 微服务 (Go) | Go SDK |
+| 微服务 (Java) | Java SDK |
+| 无框架项目 | Go SDK |
+| 需要 AI 框架集成 | 看语言选择 |
+
+---
+
+## 附录 V: 常见问题解答（迭代 19）
+
+### Q1: 为什么 Go SDK 不直接支持 Spring AI？
+
+**A**: Go 生态没有 Spring 这样的统一框架。强制依赖任何一个框架会排斥其他用户。Go SDK 通过可选集成层支持各种框架。
+
+### Q2: 为什么 Java SDK 使用 Spring RestClient 而不是 OkHttp？
+
+**A**: Spring RestClient 是 Spring 6 引入的现代 HTTP 客户端，与 Spring 生态完美集成。对于 Spring Boot 项目，这是最佳选择。
+
+### Q3: Go SDK 的 Option 模式与 Builder 模式有何区别？
+
+**A**: 
+- **Option 模式**: 用于 Client 创建和简单 DTO（函数式，简洁）
+- **Builder 模式**: 用于复杂 DTO（链式调用，可读性强）
+
+### Q4: 为什么 Capture 操作是 fire-and-forget？
+
+**A**: 
+1. 不阻塞调用方的 AI 管道
+2. 内部有重试机制保证可靠性
+3. 失败只记录日志，不影响主流程
+
+### Q5: Go SDK 支持哪些 Go 版本？
+
+**A**: Go 1.22+（使用 slog 标准库）
+
+### Q6: 如何处理并发安全？
+
+**A**: 
+1. Client 是并发安全的（所有方法可并发调用）
+2. CaptureHandler 内部使用 sync.WaitGroup
+3. 不共享可变状态
+
+### Q7: 为什么集成层是独立 module？
+
+**A**: 
+1. 可独立版本化
+2. 可独立依赖（只依赖需要的框架）
+3. 不影响核心包的零依赖特性
 
