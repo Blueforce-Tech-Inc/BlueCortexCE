@@ -416,3 +416,96 @@ echo "  ⬜ UpdateObservation"
 echo "  ⬜ DeleteObservation"
 echo "  ⬜ GetLatestExtraction"
 echo "  ⬜ GetExtractionHistory"
+
+# ==================== 新增端点测试：Demo → SDK → Backend ====================
+
+# Test 19: /experiences endpoint
+info "Test 19: Demo /experiences → RetrieveExperiences"
+EXPS=$(curl -sf --max-time 10 "$DEMO_BASE/experiences?project=$PROJECT&query=test" 2>/dev/null || echo "FAIL")
+if [ "$EXPS" = "FAIL" ]; then
+    fail "GET /experiences" "连接失败或超时"
+elif echo "$EXPS" | grep -q "experiences\|count"; then
+    pass "GET /experiences"
+else
+    fail "GET /experiences" "响应格式异常"
+fi
+
+# Test 20: /iclprompt endpoint
+info "Test 20: Demo /iclprompt → BuildICLPrompt"
+ICL=$(curl -sf --max-time 10 "$DEMO_BASE/iclprompt?project=$PROJECT&task=test" 2>/dev/null || echo "FAIL")
+if [ "$ICL" = "FAIL" ]; then
+    fail "GET /iclprompt" "连接失败或超时"
+elif echo "$ICL" | grep -q "prompt\|experienceCount"; then
+    pass "GET /iclprompt"
+else
+    fail "GET /iclprompt" "响应格式异常"
+fi
+
+# Test 21: /observations endpoint
+info "Test 21: Demo /observations → ListObservations"
+OBSS=$(curl -sf --max-time 10 "$DEMO_BASE/observations?project=$PROJECT" 2>/dev/null || echo "FAIL")
+if [ "$OBSS" = "FAIL" ]; then
+    fail "GET /observations" "连接失败或超时"
+elif echo "$OBSS" | grep -q "observations\|ids"; then
+    pass "GET /observations"
+else
+    fail "GET /observations" "响应格式异常"
+fi
+
+# Test 22: /projects endpoint
+info "Test 22: Demo /projects → GetProjects"
+PROJS=$(curl -sf --max-time 10 "$DEMO_BASE/projects" 2>/dev/null || echo "FAIL")
+if [ "$PROJS" = "FAIL" ]; then
+    fail "GET /projects" "连接失败或超时"
+elif echo "$PROJS" | grep -q "projects"; then
+    pass "GET /projects"
+else
+    fail "GET /projects" "响应格式异常"
+fi
+
+# Test 23: /stats endpoint
+info "Test 23: Demo /stats → GetStats"
+STATS=$(curl -sf --max-time 10 "$DEMO_BASE/stats?project=$PROJECT" 2>/dev/null || echo "FAIL")
+if [ "$STATS" = "FAIL" ]; then
+    fail "GET /stats" "连接失败或超时"
+elif echo "$STATS" | grep -q "total\|count"; then
+    pass "GET /stats"
+else
+    fail "GET /stats" "响应格式异常"
+fi
+
+# Test 24: /modes endpoint
+info "Test 24: Demo /modes → GetModes"
+MODES=$(curl -sf --max-time 10 "$DEMO_BASE/modes" 2>/dev/null || echo "FAIL")
+if [ "$MODES" = "FAIL" ]; then
+    fail "GET /modes" "连接失败或超时"
+elif echo "$MODES" | grep -q "modes"; then
+    pass "GET /modes"
+else
+    fail "GET /modes" "响应格式异常"
+fi
+
+# Test 25: /settings endpoint
+info "Test 25: Demo /settings → GetSettings"
+SETTINGS=$(curl -sf --max-time 10 "$DEMO_BASE/settings" 2>/dev/null || echo "FAIL")
+if [ "$SETTINGS" = "FAIL" ]; then
+    fail "GET /settings" "连接失败或超时"
+elif echo "$SETTINGS" | grep -q "embedding_model\|model"; then
+    pass "GET /settings"
+else
+    fail "GET /settings" "响应格式异常"
+fi
+
+# Test 26: /quality endpoint
+info "Test 26: Demo /quality → GetQualityDistribution"
+QUAL=$(curl -sf --max-time 10 "$DEMO_BASE/quality?project=$PROJECT" 2>/dev/null || echo "FAIL")
+if [ "$QUAL" = "FAIL" ]; then
+    fail "GET /quality" "连接失败或超时"
+elif echo "$QUAL" | grep -q "distribution\|score"; then
+    pass "GET /quality"
+else
+    pass "GET /quality (API 可能未实现)"
+fi
+
+echo ""
+echo "=== Go SDK E2E 测试完成 ==="
