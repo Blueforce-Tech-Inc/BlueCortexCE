@@ -242,3 +242,18 @@
     - SessionLifecycleController: /prompt、/tool、/end 3 个方法无异常处理
   - 所有方法统一使用 ResponseEntity 包装，与 SearchController/ObservationsController/ManagementController 一致
   - Java Demo BUILD SUCCESS、go vet 干净、38 Go 测试通过、40 Java 测试通过、回归测试 46/46 PASS
+- 2026-03-25 04:31: Phase D 代码审查第二十轮 — Java SDK healthCheck 响应体验证修复
+  - Java SDK healthCheck() 修复：之前仅检查 HTTP 200 状态码，不验证响应体
+  - 后端可返回 200 + {"status":"degraded"}，此时 Java SDK 会错误地返回 true
+  - Go SDK 已正确验证响应体中 status=="ok"，Java SDK 现在与 Go SDK 行为一致
+  - 新增 healthCheck 解析 response JSON，验证 status=="ok"
+  - 测试修复：healthCheck_returnsTrueWhenOk 改为返回 {"status":"ok"} JSON body
+  - 新增 2 个测试：healthCheck_returnsFalseWhenDegraded、healthCheck_returnsFalseWhenNullBody
+  - Java SDK 单元测试从 40 → 42 个，全部通过
+  - Java SDK BUILD SUCCESS、go vet 干净、38 Go 测试通过、5/5 Go examples 编译通过、Java Demo BUILD SUCCESS
+- 2026-03-25 05:01: Phase D 代码审查第二十一轮 — Go SDK HTTP 客户端健壮性改进
+  - Go SDK doRequest: Content-Type: application/json 改为仅在有请求体时设置（GET/DELETE 请求不再发送无意义的 Content-Type 头）
+  - Go SDK TriggerRefinement: 从手动 url.QueryEscape 拼接 URL 改为使用 params map 模式（与 Search/ListObservations/GetQualityDistribution 一致）
+  - 新增 doRequestNoContentWithParams 辅助方法，支持带 query params 的无响应体请求
+  - 移除 client_methods.go 中不再需要的 net/url import
+  - go vet 干净、38 Go 测试通过、basic/http-server examples 编译通过

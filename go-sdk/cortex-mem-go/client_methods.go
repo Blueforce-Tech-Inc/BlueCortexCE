@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/url"
 
 	"github.com/abforce/cortex-ce/cortex-mem-go/dto"
 )
@@ -170,8 +169,8 @@ func (c *httpClient) TriggerRefinement(ctx context.Context, projectPath string) 
 	// Backend expects "project" as QUERY PARAM (not body).
 	// Verified: POST /api/memory/refine?project=/path
 	return c.doFireAndForget(ctx, "TriggerRefinement", func() error {
-		path := "/api/memory/refine?project=" + url.QueryEscape(projectPath)
-		return c.doRequestNoContent(ctx, http.MethodPost, path, nil)
+		return c.doRequestNoContentWithParams(ctx, http.MethodPost, "/api/memory/refine", nil,
+			map[string]string{"project": projectPath})
 	})
 }
 

@@ -120,7 +120,10 @@ func (c *httpClient) doRequest(ctx context.Context, method, path string, body an
 		return nil, 0, fmt.Errorf("cortex-ce: failed to create request: %w", err)
 	}
 
-	req.Header.Set("Content-Type", "application/json")
+	// Only set Content-Type when there's a body (not for GET/DELETE with no body)
+	if reqBody != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	if c.config.APIKey != "" {
 		req.Header.Set("Authorization", "Bearer "+c.config.APIKey)
 	}
@@ -141,7 +144,12 @@ func (c *httpClient) doRequest(ctx context.Context, method, path string, body an
 
 // doRequestNoContent makes a request and checks for success (no response body needed).
 func (c *httpClient) doRequestNoContent(ctx context.Context, method, path string, body any) error {
-	data, status, err := c.doRequest(ctx, method, path, body, nil)
+	return c.doRequestNoContentWithParams(ctx, method, path, body, nil)
+}
+
+// doRequestNoContentWithParams makes a request with optional query params and checks for success.
+func (c *httpClient) doRequestNoContentWithParams(ctx context.Context, method, path string, body any, queryParams map[string]string) error {
+	data, status, err := c.doRequest(ctx, method, path, body, queryParams)
 	if err != nil {
 		return err
 	}
