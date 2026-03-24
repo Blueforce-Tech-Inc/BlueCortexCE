@@ -1,9 +1,10 @@
 # Go Client SDK 设计文档
 
-> **版本**: v1.0 DRAFT
+> **版本**: v1.1 DRAFT
 > **日期**: 2026-03-24
 > **状态**: 待审批
 > **作者**: Cortex CE Team
+> **迭代**: v1.1 — Eino/LangChainGo 接口精确定义，Java SDK 对齐审查
 
 ---
 
@@ -575,27 +576,53 @@ github.com/abforce/cortex-ce/cortex-mem-go/langchaingo # v1.x.x (独立版本)
 
 ### 4.2 Eino 集成
 
+**接口来源**: `github.com/cloudwego/eino/components/retriever` (2026-03-24 验证)
+
+Eino 的 `Retriever` 接口签名：
+```go
+type Retriever interface {
+    Retrieve(ctx context.Context, query string, opts ...Option) ([]*schema.Document, error)
+}
+```
+
+其中 `schema.Document` 定义：
+```go
+type Document struct {
+    ID       string         `json:"id"`
+    Content  string         `json:"content"`
+    MetaData map[string]any `json:"meta_data"`
+}
+```
+
+Eino Retriever 的 `Option` 支持：`WithTopK(n)`, `WithScoreThreshold(f)`, `WithIndex(s)`, `WithSubIndex(s)`, `WithEmbedding(emb)`, `WithDSLInfo(dsl)`。
+
+**实现**：
+
 ```go
 // eino/retriever.go
 package eino
 
 import (
     "context"
+    "fmt"
+
     cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
     "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+    "github.com/cloudwego/eino/components/retriever"
     "github.com/cloudwego/eino/schema"
 )
 
-// Retriever wraps the Cortex CE client as an Eino Retriever.
+// Retriever wraps the Cortex CE client as an Eino-compatible retriever.
 type Retriever struct {
-    client  cortexmem.Client
-    project string
-    count   int
+    client     cortexmem.Client
+    project    string
+    defaultTopK int
+    source     string
 }
 
 // NewRetriever creates a new Eino-compatible retriever.
 func NewRetriever(client cortexmem.Client, project string, opts ...RetrieverOption) *Retriever {
-    r := &Retriever{client: client, project: project, count: 4}
+    r := &Retriever{client: client, project: project, defaultTopK: 4}
     for _, opt := range opts {
         opt(r)
     }
@@ -605,31 +632,73 @@ func NewRetriever(client cortexmem.Client, project string, opts ...RetrieverOpti
 type RetrieverOption func(*Retriever)
 
 func WithRetrieverCount(n int) RetrieverOption {
-    return func(r *Retriever) { r.count = n }
+    return func(r *Retriever) { r.defaultTopK = n }
 }
 
-// Retrieve implements eino's Retriever interface.
-func (r *Retriever) Retrieve(ctx context.Context, query string) ([]*schema.Document, error) {
+func WithRetrieverSource(source string) RetrieverOption {
+    return func(r *Retriever) { r.source = source }
+}
+
+// Retrieve implements eino's retriever.Retriever interface.
+// It maps Eino options (TopK, ScoreThreshold) to Cortex CE parameters.
+func (r *Retriever) Retrieve(ctx context.Context, query string, opts ...retriever.Option) ([]*schema.Document, error) {
+    // Extract Eino options
+    options := retriever.GetCommonOptions(&retriever.Options{
+        TopK: &r.defaultTopK,
+    }, opts...)
+
+    count := r.defaultTopK
+    if options.TopK != nil {
+        count = *options.TopK
+    }
+
+    // Build request
+    reqOpts := []dto.ExperienceRequestOption{dto.WithCount(count)}
+    if r.source != "" {
+        reqOpts = append(reqOpts, dto.WithSource(r.source))
+    }
+
     experiences, err := r.client.RetrieveExperiences(ctx, dto.NewExperienceRequest(
-        query, r.project, dto.WithCount(r.count),
+        query, r.project, reqOpts...,
     ))
     if err != nil {
-        return nil, err
+        return nil, fmt.Errorf("cortex-ce retrieve: %w", err)
     }
+
+    // Convert to Eino Document format
     docs := make([]*schema.Document, 0, len(experiences))
     for _, exp := range experiences {
-        docs = append(docs, &schema.Document{
+        doc := &schema.Document{
+            ID:      exp.ID,
             Content: exp.Strategy + "\n" + exp.Outcome,
             MetaData: map[string]any{
-                "id":            exp.ID,
-                "task":          exp.Task,
-                "qualityScore":  exp.QualityScore,
+                "task":           exp.Task,
+                "qualityScore":   exp.QualityScore,
                 "reuseCondition": exp.ReuseCondition,
+                "createdAt":      exp.CreatedAt,
             },
-        })
+        }
+        // Map qualityScore to Eino's score accessor
+        doc.WithScore(float64(exp.QualityScore))
+        docs = append(docs, doc)
     }
+
+    // Apply score threshold filter if specified
+    if options.ScoreThreshold != nil {
+        filtered := make([]*schema.Document, 0, len(docs))
+        for _, doc := range docs {
+            if doc.Score() >= *options.ScoreThreshold {
+                filtered = append(filtered, doc)
+            }
+        }
+        docs = filtered
+    }
+
     return docs, nil
 }
+
+// Compile-time check: Retriever implements eino's retriever.Retriever interface.
+var _ retriever.Retriever = (*Retriever)(nil)
 ```
 
 ### 4.3 LangChainGo 集成
@@ -1352,4 +1421,351 @@ type Client interface {
 | Phase 5: 发布 | 0.5 | v1.0.0 |
 
 **总计**: 7.5-9.5 天（比原计划更聚焦）
+
+
+---
+
+## 附录 I: 错误处理和重试机制详细设计（迭代 5）
+
+### Java SDK 的错误处理模式
+
+```java
+// Capture 操作：fire-and-forget
+public void recordObservation(ObservationRequest request) {
+    executeWithRetry("recordObservation", () ->
+        restClient.post()
+            .uri("/api/ingest/tool-use")
+            .body(request.toWireFormat())
+            .retrieve()
+            .toBodilessEntity()
+    );
+}
+
+// Retrieval 操作：返回错误
+public List<Experience> retrieveExperiences(ExperienceRequest request) {
+    try {
+        // ...
+        return result;
+    } catch (Exception e) {
+        log.warn("Failed to retrieve experiences: {}", e.getMessage());
+        return List.of();  // 失败返回空列表
+    }
+}
+```
+
+### Go SDK 的错误处理设计
+
+**核心原则**：
+1. **Capture 操作**：异步 fire-and-forget，失败只记录日志
+2. **Retrieval 操作**：同步，返回 error
+3. **所有操作**：支持 context timeout
+
+### Retry 机制设计
+
+```go
+// retry.go
+package cortexmem
+
+import (
+    "context"
+    "time"
+)
+
+// RetryConfig configures retry behavior.
+type RetryConfig struct {
+    MaxAttempts int           // 最大重试次数
+    InitialDelay time.Duration // 初始延迟
+    MaxDelay     time.Duration // 最大延迟
+    Multiplier   float64      // 延迟乘数
+}
+
+func (c *RetryConfig) backoff(attempt int) time.Duration {
+    delay := c.InitialDelay * time.Duration(math.Pow(c.Multiplier, float64(attempt-1)))
+    if delay > c.MaxDelay {
+        delay = c.MaxDelay
+    }
+    return delay
+}
+
+// IsRetryable 判断错误是否可重试
+func IsRetryable(err *APIError) bool {
+    // 5xx 错误可重试
+    if err.StatusCode >= 500 && err.StatusCode < 600 {
+        return true
+    }
+    // 429 Too Many Requests 可重试
+    if err.StatusCode == 429 {
+        return true
+    }
+    return false
+}
+```
+
+### Capture 操作的 Fire-and-Forget 实现
+
+```go
+// client.go - Capture 异步包装
+func (c *client) RecordObservation(ctx context.Context, req dto.ObservationRequest) error {
+    // 启动 goroutine，context 只用于初始验证
+    go func() {
+        // 创建不带 context 的 background context
+        bgCtx := context.Background()
+        
+        // 使用指数退避重试
+        for attempt := 1; attempt <= c.maxRetries; attempt++ {
+            if err := c.post(bgCtx, "/api/ingest/tool-use", req, nil); err == nil {
+                return  // 成功
+            }
+            
+            if attempt < c.maxRetries {
+                time.Sleep(c.retryDelay * time.Duration(attempt))
+            }
+        }
+        
+        c.logger.Warn("RecordObservation failed after retries",
+            "toolName", req.ToolName,
+            "sessionID", req.SessionID)
+    }()
+    
+    return nil  // 立即返回，不等待
+}
+```
+
+### HTTP 错误码映射
+
+| HTTP 状态码 | Go Error 类型 | 是否可重试 | 说明 |
+|------------|--------------|-----------|------|
+| 200 | nil | - | 成功 |
+| 400 | ErrBadRequest | ❌ | 参数错误 |
+| 401 | ErrUnauthorized | ❌ | 认证失败 |
+| 403 | ErrForbidden | ❌ | 权限不足 |
+| 404 | ErrNotFound | ❌ | 资源不存在 |
+| 409 | ErrConflict | ❌ | 资源冲突 |
+| 422 | ErrUnprocessable | ❌ | 请求格式正确但无法处理 |
+| 429 | ErrRateLimited | ✅ | 限流，等待后重试 |
+| 500 | ErrInternal | ✅ | 服务器错误 |
+| 502 | ErrBadGateway | ✅ | 网关错误 |
+| 503 | ErrServiceUnavailable | ✅ | 服务不可用 |
+| 504 | ErrGatewayTimeout | ✅ | 网关超时 |
+
+### Error 类型定义
+
+```go
+// error.go
+package cortexmem
+
+import (
+    "errors"
+    "fmt"
+    "net/http"
+)
+
+// Sentinel errors
+var (
+    ErrBadRequest       = errors.New("cortex-ce: bad request")
+    ErrUnauthorized     = errors.New("cortex-ce: unauthorized")
+    ErrForbidden       = errors.New("cortex-ce: forbidden")
+    ErrNotFound        = errors.New("cortex-ce: not found")
+    ErrConflict        = errors.New("cortex-ce: conflict")
+    ErrUnprocessable   = errors.New("cortex-ce: unprocessable entity")
+    ErrRateLimited     = errors.New("cortex-ce: rate limited")
+    ErrInternal        = errors.New("cortex-ce: internal server error")
+    ErrBadGateway      = errors.New("cortex-ce: bad gateway")
+    ErrServiceUnavailable = errors.New("cortex-ce: service unavailable")
+    ErrGatewayTimeout  = errors.New("cortex-ce: gateway timeout")
+)
+
+// APIError represents an error response from the Cortex CE backend.
+type APIError struct {
+    StatusCode int
+    Message    string
+    Body       string
+}
+
+func (e *APIError) Error() string {
+    return fmt.Sprintf("cortex-ce: API error %d: %s", e.StatusCode, e.Message)
+}
+
+func (e *APIError) Unwrap() error {
+    return statusCodeToError(e.StatusCode)
+}
+
+func statusCodeToError(code int) error {
+    switch code {
+    case http.StatusBadRequest:
+        return ErrBadRequest
+    case http.StatusUnauthorized:
+        return ErrUnauthorized
+    case http.StatusForbidden:
+        return ErrForbidden
+    case http.StatusNotFound:
+        return ErrNotFound
+    case http.StatusConflict:
+        return ErrConflict
+    case 422:
+        return ErrUnprocessable
+    case http.StatusTooManyRequests:
+        return ErrRateLimited
+    case http.StatusInternalServerError:
+        return ErrInternal
+    case http.StatusBadGateway:
+        return ErrBadGateway
+    case http.StatusServiceUnavailable:
+        return ErrServiceUnavailable
+    case http.StatusGatewayTimeout:
+        return ErrGatewayTimeout
+    default:
+        return fmt.Errorf("cortex-ce: unknown error %d", code)
+    }
+}
+```
+
+### 错误处理使用示例
+
+```go
+// 示例 1: 检测特定错误
+experiences, err := client.RetrieveExperiences(ctx, req)
+if err != nil {
+    if errors.Is(err, cortexmem.ErrNotFound) {
+        // 处理未找到
+        return nil
+    }
+    if errors.Is(err, cortexmem.ErrRateLimited) {
+        // 限流，等待后重试
+        time.Sleep(1 * time.Second)
+        return client.RetrieveExperiences(ctx, req)
+    }
+    return err
+}
+
+// 示例 2: 获取原始状态码
+var apiErr *cortexmem.APIError
+if errors.As(err, &apiErr) {
+    fmt.Printf("Status: %d, Message: %s\n", apiErr.StatusCode, apiErr.Message)
+}
+```
+
+
+---
+
+## 附录 J: Wire Format 映射详细设计（迭代 6）
+
+### 背景
+
+Java SDK 使用 `toWireFormat()` 方法将 DTO 转换为后端期望的 JSON 格式。Go SDK 需要做同样的映射。
+
+### Wire Format 对照表
+
+| Go 字段 | JSON 字段 | 后端期望类型 | 示例 |
+|---------|-----------|-------------|------|
+| `SessionID` | `session_id` | string | `"abc123"` |
+| `ProjectPath` | `project_path` | string | `"/path/to/project"` |
+| `UserID` | `user_id` | string | `"user_456"` |
+| `ToolName` | `tool_name` | string | `"Read"` |
+| `ToolInput` | `tool_input` | any | `{"file": "a.txt"}` |
+| `ToolResponse` | `tool_response` | any | `{"content": "..."}` |
+| `PromptNumber` | `prompt_number` | int | `1` |
+| `Source` | `source` | string | `"tool_result"` |
+| `ExtractedData` | `extractedData` | map | `{"key": "value"}` |
+
+### Go DTO Wire Format 实现
+
+```go
+// dto/observation.go
+package dto
+
+// ObservationRequest records a tool-use observation.
+type ObservationRequest struct {
+    SessionID     string         `json:"session_id"`      // wire: session_id
+    ProjectPath   string         `json:"cwd"`             // wire: cwd (不是 project_path!)
+    ToolName      string         `json:"tool_name"`       // wire: tool_name
+    ToolInput     any            `json:"tool_input,omitempty"`
+    ToolResponse  any            `json:"tool_response,omitempty"`
+    PromptNumber  int            `json:"prompt_number,omitempty"`
+    Source        string         `json:"source,omitempty"`
+    ExtractedData map[string]any `json:"extractedData,omitempty"`
+}
+```
+
+**注意**: `ProjectPath` 在 wire format 中映射到 `cwd`，而不是 `project_path`！
+
+### Session Wire Format
+
+```go
+// dto/session.go
+package dto
+
+// SessionStartRequest is a request to start or resume a session.
+type SessionStartRequest struct {
+    SessionID   string `json:"session_id"`
+    ProjectPath string `json:"project_path"`
+    UserID      string `json:"user_id,omitempty"`
+    // Wire format also includes "cwd" = project_path
+}
+
+// toWireFormat converts to backend wire format.
+func (r SessionStartRequest) toWireFormat() map[string]any {
+    m := map[string]any{
+        "session_id":   r.SessionID,
+        "project_path": r.ProjectPath,
+        "cwd":         r.ProjectPath,  // 后端期望 cwd = project_path
+    }
+    if r.UserID != "" {
+        m["user_id"] = r.UserID
+    }
+    return m
+}
+```
+
+### Experience Wire Format
+
+```go
+// dto/experience_request.go
+package dto
+
+// ExperienceRequest is a request for retrieving relevant experiences.
+type ExperienceRequest struct {
+    Task             string   `json:"task"`
+    Project          string   `json:"project"`
+    Count            int      `json:"count,omitempty"`
+    Source           string   `json:"source,omitempty"`
+    RequiredConcepts []string `json:"requiredConcepts,omitempty"`
+    UserID           string   `json:"userId,omitempty"`
+}
+```
+
+### 后端 SessionStart 响应
+
+```go
+// dto/session_response.go
+package dto
+
+// SessionStartResponse is the response from starting a session.
+type SessionStartResponse struct {
+    SessionDBID  string `json:"session_db_id"`
+    SessionID    string `json:"session_id"`
+    Context      string `json:"context,omitempty"`
+    PromptNumber int    `json:"prompt_number"`
+}
+```
+
+### JSON 序列化注意事项
+
+1. **Omitempty**: 对于 optional 字段，使用 `omitempty` tag
+2. **蛇形命名**: 后端使用蛇形命名，Go DTO 也使用蛇形
+3. **Null vs 空**: optional 字段为 nil 时序列化为 null，Go 会忽略空字符串
+
+```go
+// 正确：omitempty 会忽略空字符串
+type Foo struct {
+    Name string `json:"name,omitempty"`
+}
+
+// Wire format 不包含空字段
+f := Foo{Name: ""}
+json.Marshal(f) // {}
+
+f := Foo{Name: "bar"}
+json.Marshal(f) // {"name": "bar"}
+```
 
