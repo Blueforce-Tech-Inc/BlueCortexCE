@@ -6065,19 +6065,21 @@ public boolean healthCheck() {
 
 **Java SDK 从 15 个方法扩展到 20 个方法。**
 
-### Phase B: Go SDK 实施 🔄 进行中
+### Phase B: Go SDK 实施 ✅ 已完成
 
 | 里程碑 | 状态 | 提交 | 说明 |
 |--------|------|------|------|
 | B1: 核心包 | ✅ | `2109ff8` | 25 个方法 + DTO + HTTP 客户端 |
-| B2: Eino Retriever | 🔄 进行中 | — | 集成层骨架 |
-| B2: LangChainGo Memory | ⏳ 待实施 | — | — |
-| B2: Genkit Plugin | ⏳ 待实施 | — | — |
-| B3: basic Demo | ⏳ 待实施 | — | — |
-| B3: eino Demo | ⏳ 待实施 | — | — |
-| B3: genkit Demo | ⏳ 待实施 | — | — |
-| B3: langchaingo Demo | ⏳ 待实施 | — | — |
-| B3: http-server Demo | ⏳ 待实施 | — | — |
+| B2: Eino Retriever | ✅ | `730e93f` | 集成层 |
+| B2: LangChainGo Memory | ✅ | `730e93f` | 集成层 |
+| B2: Genkit Plugin | ✅ | `730e93f` | 集成层 |
+| B3: basic Demo | ✅ | `71093f7` | 纯 SDK 使用 |
+| B3: eino Demo | ✅ | `71093f7` | Eino 集成 |
+| B3: genkit Demo | ✅ | `71093f7` | Genkit 集成 |
+| B3: langchaingo Demo | ✅ | `71093f7` | LangChainGo 集成 |
+| B3: http-server Demo | ✅ | `71093f7` | HTTP 服务 |
+
+**Go SDK v1.0.0 实施完成 🎉**
 
 ### 最新提交
 
