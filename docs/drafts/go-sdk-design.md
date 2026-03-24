@@ -6157,3 +6157,73 @@ bash scripts/java-sdk-e2e-test.sh
 bash scripts/go-sdk-e2e-test.sh
 ```
 
+
+---
+
+## 附录 AN: E2E 测试严格验证设计（迭代 36）
+
+### 严格验证原则
+
+E2E 测试脚本必须满足以下标准：
+
+1. **预检查**：服务不可用时立即失败，给出明确提示
+2. **数据准备**：测试前写入测试数据，确保有数据可查
+3. **字段验证**：每个测试必须验证具体 JSON 字段值，而非仅检查"不为空"
+4. **链路验证**：验证 Demo 能查到 Backend 写入的数据
+5. **错误报告**：详细失败原因 + 排障建议
+
+### 严格验证示例
+
+```bash
+# ❌ 错误方式（太宽松）
+RESP=$(curl -sf "$URL" 2>/dev/null || echo "FAIL")
+if [ "$RESP" != "FAIL" ]; then
+    pass "API 正常"
+fi
+
+# ✅ 正确方式（严格验证）
+BACKEND_HEALTH=$(curl -sf "$BACKEND_URL/api/health" 2>/dev/null || echo "FAIL")
+BACKEND_STATUS=$(json_field "$BACKEND_HEALTH" "status")
+if [ "$BACKEND_STATUS" != "ok" ]; then
+    fail "Backend 状态异常" "status=$BACKEND_STATUS (期望 ok)"
+    exit 1
+fi
+pass "Backend 服务正常 (status=$BACKEND_STATUS)"
+```
+
+### 验证层次
+
+| 层次 | 验证内容 | 失败处理 |
+|------|---------|---------|
+| L0: 服务可用性 | Backend/Demo 是否运行 | 立即退出 |
+| L1: 响应格式 | JSON 字段存在性 | 记录失败 |
+| L2: 响应值 | 实际值匹配 (status=ok) | 记录失败 |
+| L3: 数据一致性 | Demo 能查到 Backend 数据 | 验证链路 |
+
+### Go SDK 方法覆盖状态
+
+| 方法 | 覆盖方式 | 状态 |
+|------|---------|------|
+| StartSession | Demo /chat | ✅ |
+| RecordObservation | Demo /chat | ✅ |
+| Search | Demo /search | ✅ |
+| GetVersion | Demo /version | ✅ |
+| HealthCheck | Demo /health | ✅ |
+| GetProjects | Backend /api/projects | ✅ |
+| GetStats | Backend /api/stats | ✅ |
+| GetModes | Backend /api/modes | ✅ |
+| GetSettings | Backend /api/settings | ✅ |
+| RecordSessionEnd | 需 Go 测试 | ⬜ |
+| RecordUserPrompt | 需 Go 测试 | ⬜ |
+| RetrieveExperiences | 需 Go 测试 | ⬜ |
+| BuildICLPrompt | 需 Go 测试 | ⬜ |
+| ListObservations | 需 Go 测试 | ⬜ |
+| TriggerRefinement | 需 Go 测试 | ⬜ |
+| SubmitFeedback | 需 Go 测试 | ⬜ |
+| UpdateObservation | 需 Go 测试 | ⬜ |
+| DeleteObservation | 需 Go 测试 | ⬜ |
+| GetQualityDistribution | 需 Go 测试 | ⬜ |
+| GetLatestExtraction | 需 Go 测试 | ⬜ |
+| GetExtractionHistory | 需 Go 测试 | ⬜ |
+| UpdateSessionUserId | 需 Go 测试 | ⬜ |
+
