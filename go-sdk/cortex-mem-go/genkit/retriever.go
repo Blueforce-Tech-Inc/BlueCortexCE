@@ -16,6 +16,7 @@ type RetrieverInput struct {
 	Project string
 	Count   int
 	Source  string
+	UserID  string
 }
 
 // Document represents a retrieved document for Genkit.
@@ -35,6 +36,7 @@ type Retriever struct {
 	project string
 	source  string
 	count   int
+	userID  string
 }
 
 // RetrieverOption configures the Retriever.
@@ -53,6 +55,11 @@ func WithRetrieverSource(source string) RetrieverOption {
 // WithRetrieverCount sets the maximum number of results.
 func WithRetrieverCount(n int) RetrieverOption {
 	return func(r *Retriever) { r.count = n }
+}
+
+// WithRetrieverUserID sets the user ID for user-scoped memory.
+func WithRetrieverUserID(userID string) RetrieverOption {
+	return func(r *Retriever) { r.userID = userID }
 }
 
 // NewRetriever creates a new Retriever for Cortex CE memory.
@@ -82,12 +89,17 @@ func (r *Retriever) Retrieve(ctx context.Context, input RetrieverInput) (Retriev
 	if source == "" {
 		source = r.source
 	}
+	userID := input.UserID
+	if userID == "" {
+		userID = r.userID
+	}
 
 	experiences, err := r.client.RetrieveExperiences(ctx, dto.ExperienceRequest{
 		Task:    input.Query,
 		Project: project,
 		Count:   count,
 		Source:  source,
+		UserID:  userID,
 	})
 	if err != nil {
 		return RetrieverOutput{}, fmt.Errorf("cortex-ce retrieve: %w", err)

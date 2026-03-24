@@ -87,6 +87,9 @@
 - [x] Go http-server demo `/chat` 端点添加 project/message 必填校验（与 /search, /observations, /experiences 一致）
 - [x] Go SDK dto 包 wire format 文档一致性（search.go, observations.go, observation.go 添加 wire format 注释）
 - [x] Java SDK 单元测试扩展（15 个新测试覆盖 P0/P1 API + Extraction + Observation Management）
+- [x] Go http-server `/quality` 端点添加 project 必填校验（与 /search, /observations, /experiences, /iclprompt 一致）
+- [x] Go 集成层（eino/genkit）添加 WithRetrieverUserID 选项，支持用户级记忆（与 langchaingo Memory 一致）
+- [x] Go genkit RetrieverInput 添加 UserID 字段，支持按调用覆盖用户 ID
 
 ### 测试覆盖策略
 - **单元测试**：32 个 wire format + API + error + retry 测试（全部通过）
@@ -154,3 +157,8 @@
   - Java SDK: 新增 15 个单元测试 — search、listObservations、getObservationsByIds、getVersion、getProjects、getStats(2)、getModes、getSettings、getLatestExtraction(2)、getExtractionHistory、updateObservation、deleteObservation、updateSessionUserId
   - Java SDK 单元测试从 14 → 29 个（总 39 含 DtoTest），全部通过
   - go vet 干净、32 Go 测试通过、basic/http-server Demo 编译通过、回归测试 46/46 PASS
+- 2026-03-24 23:01: Phase D 代码审查第九轮 — http-server 验证 + 集成层 userID 支持
+  - Go http-server: /quality 端点添加 project 必填校验（与 /search, /observations, /experiences, /iclprompt 一致）
+  - Go eino: 新增 WithRetrieverUserID 选项，Retrieve 方法传递 userID 到 ExperienceRequest
+  - Go genkit: 新增 WithRetrieverUserID 选项 + RetrieverInput.UserID 字段，Retrieve 方法支持按调用覆盖 userID
+  - go vet 干净、32 Go 测试通过、http-server Demo 编译通过、Java SDK BUILD SUCCESS、回归测试 46/46 PASS

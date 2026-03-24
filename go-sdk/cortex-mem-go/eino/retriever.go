@@ -15,6 +15,7 @@ type Retriever struct {
 	project string
 	source  string
 	count   int
+	userID  string
 }
 
 // RetrieverOption configures the Retriever.
@@ -33,6 +34,11 @@ func WithRetrieverSource(source string) RetrieverOption {
 // WithRetrieverCount sets the number of results to retrieve.
 func WithRetrieverCount(n int) RetrieverOption {
 	return func(r *Retriever) { r.count = n }
+}
+
+// WithRetrieverUserID sets the user ID for user-scoped memory.
+func WithRetrieverUserID(userID string) RetrieverOption {
+	return func(r *Retriever) { r.userID = userID }
 }
 
 // NewRetriever creates a new Retriever for Cortex CE memory.
@@ -56,6 +62,7 @@ func (r *Retriever) Retrieve(ctx context.Context, query string, opts ...any) ([]
 		Project: r.project,
 		Count:   r.count,
 		Source:  r.source,
+		UserID:  r.userID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("cortex-ce retrieve: %w", err)
