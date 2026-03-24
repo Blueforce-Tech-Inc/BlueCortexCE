@@ -6048,3 +6048,43 @@ public boolean healthCheck() {
 
 **建议**：Go SDK 应在文档中说明选择指数退避的理由（更优的后端压力分散），而非简单对齐 Java SDK 的线性退避。
 
+
+---
+
+## 附录 AL: 实施状态（实时更新）
+
+> ⚠️ 此附录随实施进度实时更新，记录每个里程碑的完成状态。
+
+### Phase A: Java SDK 补充 ✅ 已完成
+
+| 里程碑 | 状态 | 提交 | 说明 |
+|--------|------|------|------|
+| A1: P0 功能 | ✅ | `cc02de8` | Search, ListObservations, BatchObservations |
+| A2: P1 功能 | ✅ | `b7861fb` | Version, Projects, Stats, Modes, Settings |
+| A3: Demo 更新 | ✅ | `aa8597b` | 3 个新控制器 |
+
+**Java SDK 从 15 个方法扩展到 20 个方法。**
+
+### Phase B: Go SDK 实施 🔄 进行中
+
+| 里程碑 | 状态 | 提交 | 说明 |
+|--------|------|------|------|
+| B1: 核心包 | ✅ | `2109ff8` | 25 个方法 + DTO + HTTP 客户端 |
+| B2: Eino Retriever | 🔄 进行中 | — | 集成层骨架 |
+| B2: LangChainGo Memory | ⏳ 待实施 | — | — |
+| B2: Genkit Plugin | ⏳ 待实施 | — | — |
+| B3: basic Demo | ⏳ 待实施 | — | — |
+| B3: eino Demo | ⏳ 待实施 | — | — |
+| B3: genkit Demo | ⏳ 待实施 | — | — |
+| B3: langchaingo Demo | ⏳ 待实施 | — | — |
+| B3: http-server Demo | ⏳ 待实施 | — | — |
+
+### 最新提交
+
+```
+2109ff8 feat(go-sdk): Phase B1 - Core package skeleton complete
+aa8597b feat(java-sdk): Phase A complete - Java SDK and Demo updated
+b7861fb feat(java-sdk): implement P1 Management APIs
+cc02de8 feat(java-sdk): implement P0 Search/ListObservations APIs
+```
+
