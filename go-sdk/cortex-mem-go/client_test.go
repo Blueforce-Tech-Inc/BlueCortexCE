@@ -1063,6 +1063,209 @@ func TestHealthCheck_Unhealthy(t *testing.T) {
 	}
 }
 
+// ==================== Retrieval Method Tests ====================
+
+func TestRetrieveExperiences_PathAndBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/memory/experiences" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+
+		if body["task"] != "How to fix null pointer?" {
+			t.Errorf("expected task, got %v", body["task"])
+		}
+		if body["project"] != "/proj" {
+			t.Errorf("expected project=/proj, got %v", body["project"])
+		}
+		if body["count"] != float64(5) {
+			t.Errorf("expected count=5, got %v", body["count"])
+		}
+		if body["source"] != "tool_result" {
+			t.Errorf("expected source=tool_result, got %v", body["source"])
+		}
+		// requiredConcepts should be camelCase
+		if body["required_concepts"] != nil {
+			t.Error("required_concepts should not be in wire format (should be 'requiredConcepts')")
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode([]dto.Experience{
+			{ID: "exp-1", Task: "How to fix null pointer?", Strategy: "check-for-null", Outcome: "Added null check", QualityScore: 0.95},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	exps, err := client.RetrieveExperiences(context.Background(), dto.ExperienceRequest{
+		Task:             "How to fix null pointer?",
+		Project:          "/proj",
+		Count:            5,
+		Source:           "tool_result",
+		RequiredConcepts: []string{"null-safety"},
+	})
+	if err != nil {
+		t.Fatalf("RetrieveExperiences failed: %v", err)
+	}
+	if len(exps) != 1 {
+		t.Fatalf("expected 1 experience, got %d", len(exps))
+	}
+	if exps[0].ID != "exp-1" {
+		t.Errorf("expected ID=exp-1, got %s", exps[0].ID)
+	}
+	if exps[0].QualityScore != 0.95 {
+		t.Errorf("expected qualityScore=0.95, got %f", exps[0].QualityScore)
+	}
+}
+
+func TestBuildICLPrompt_PathAndBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/memory/icl-prompt" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+
+		if body["task"] != "Write a parser" {
+			t.Errorf("expected task=Write a parser, got %v", body["task"])
+		}
+		if body["project"] != "/proj" {
+			t.Errorf("expected project=/proj, got %v", body["project"])
+		}
+		// maxChars should be camelCase (not max_chars)
+		if body["max_chars"] != nil {
+			t.Error("max_chars should not be in wire format (should be 'maxChars')")
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(dto.ICLPromptResult{
+			Prompt:           "Here are relevant experiences...",
+			ExperienceCount:  "3",
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	result, err := client.BuildICLPrompt(context.Background(), dto.ICLPromptRequest{
+		Task:     "Write a parser",
+		Project:  "/proj",
+		MaxChars: 4000,
+	})
+	if err != nil {
+		t.Fatalf("BuildICLPrompt failed: %v", err)
+	}
+	if result.Prompt != "Here are relevant experiences..." {
+		t.Errorf("unexpected prompt: %s", result.Prompt)
+	}
+	if result.ExperienceCount != "3" {
+		t.Errorf("expected experienceCount=3, got %s", result.ExperienceCount)
+	}
+}
+
+func TestGetQualityDistribution_Path(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/memory/quality-distribution" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET, got %s", r.Method)
+		}
+		if r.URL.Query().Get("project") != "/my/proj" {
+			t.Errorf("expected project=/my/proj, got %s", r.URL.Query().Get("project"))
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(dto.QualityDistribution{
+			Project: "/my/proj",
+			High:    20,
+			Medium:  10,
+			Low:     5,
+			Unknown: 2,
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	dist, err := client.GetQualityDistribution(context.Background(), "/my/proj")
+	if err != nil {
+		t.Fatalf("GetQualityDistribution failed: %v", err)
+	}
+	if dist.Total() != 37 {
+		t.Errorf("expected total=37, got %d", dist.Total())
+	}
+	if dist.Project != "/my/proj" {
+		t.Errorf("expected project=/my/proj, got %s", dist.Project)
+	}
+}
+
+func TestSearch_OmitsEmptyParams(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		// Only "project" should be present (other fields are empty and should be omitted)
+		if q.Get("project") != "/proj" {
+			t.Errorf("expected project=/proj, got %s", q.Get("project"))
+		}
+		if q.Get("query") != "" {
+			t.Errorf("expected no query param, got %s", q.Get("query"))
+		}
+		if q.Get("type") != "" {
+			t.Errorf("expected no type param, got %s", q.Get("type"))
+		}
+		if q.Get("concept") != "" {
+			t.Errorf("expected no concept param, got %s", q.Get("concept"))
+		}
+		if q.Get("source") != "" {
+			t.Errorf("expected no source param, got %s", q.Get("source"))
+		}
+		if q.Get("limit") != "" {
+			t.Errorf("expected no limit param (zero value), got %s", q.Get("limit"))
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(dto.SearchResult{Count: 0})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.Search(context.Background(), dto.SearchRequest{
+		Project: "/proj",
+		// All other fields left as zero values
+	})
+	if err != nil {
+		t.Fatalf("Search failed: %v", err)
+	}
+}
+
+func TestStartSession_ErrorHandling(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte(`{"error":"service temporarily unavailable"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.StartSession(context.Background(), dto.SessionStartRequest{
+		SessionID:   "sess-1",
+		ProjectPath: "/project",
+	})
+	if err == nil {
+		t.Fatal("expected error for 503")
+	}
+	if !cortexmem.IsServiceUnavailable(err) {
+		t.Errorf("expected IsServiceUnavailable, got: %v", err)
+	}
+	if !cortexmem.IsInternal(err) {
+		t.Errorf("503 should also match IsInternal")
+	}
+}
+
 // ==================== Error Helper Tests ====================
 
 func TestIsForbidden(t *testing.T) {
