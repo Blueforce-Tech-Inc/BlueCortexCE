@@ -303,3 +303,98 @@ echo "  ✅ Existing API: Experiences, ICL, Session, Projects, Quality"
 echo "  ✅ P0 API: Search, ListObservations, BatchObservations"
 echo "  ✅ P1 API: Version, Stats, Modes, Settings"
 echo "  ✅ Chain verification: Demo → SDK → Backend data flow"
+
+# ==================== Supplementary Tests: Missing Endpoints ====================
+
+echo ""
+echo "--- Supplementary E2E Tests: Java SDK Demo Missing Coverage ---"
+
+# Test N+1: /memory/experiences/filtered
+info "Test N+1: GET /memory/experiences/filtered — source and requiredConcepts filtering"
+FILTEXPS=$(curl -sf --max-time 10 "$DEMO_BASE/../memory/experiences/filtered?project=$PROJECT&source=java_test&limit=5" 2>/dev/null || echo "FAIL")
+if [ "$FILTEXPS" = "FAIL" ]; then
+    fail "GET /memory/experiences/filtered" "Request timed out or failed"
+elif echo "$FILTEXPS" | grep -qE "observations\|experiences\|experience"; then
+    pass "GET /memory/experiences/filtered"
+else
+    fail "GET /memory/experiences/filtered" "Unexpected response format"
+fi
+
+# Test N+2: /memory/icl/truncated
+info "Test N+2: GET /memory/icl/truncated — maxChars truncation"
+TRUNCICL=$(curl -sf --max-time 10 "$DEMO_BASE/../memory/icl/truncated?project=$PROJECT&task=test&maxChars=500" 2>/dev/null || echo "FAIL")
+if [ "$TRUNCICL" = "FAIL" ]; then
+    fail "GET /memory/icl/truncated" "Request timed out or failed"
+elif echo "$TRUNCICL" | grep -qE "prompt\|truncated"; then
+    pass "GET /memory/icl/truncated"
+else
+    fail "GET /memory/icl/truncated" "Unexpected response format"
+fi
+
+# Test N+3: /memory/refine
+info "Test N+3: POST /memory/refine — trigger refinement"
+REFINE=$(curl -sf --max-time 10 -X POST "$DEMO_BASE/../memory/refine?project=$PROJECT" 2>/dev/null || echo "FAIL")
+if [ "$REFINE" = "FAIL" ]; then
+    fail "POST /memory/refine" "Request timed out or failed"
+else
+    pass "POST /memory/refine"
+fi
+
+# Test N+4: /memory/extraction/latest
+info "Test N+4: GET /memory/extraction/latest — extraction result query"
+EXTRACTLATEST=$(curl -sf --max-time 10 "$DEMO_BASE/../memory/extraction/latest?project=$PROJECT&templateName=user_preferences&userId=alice" 2>/dev/null || echo "FAIL")
+if [ "$EXTRACTLATEST" = "FAIL" ]; then
+    fail "GET /memory/extraction/latest" "Request timed out or failed"
+else
+    pass "GET /memory/extraction/latest"
+fi
+
+# Test N+5: /memory/extraction/history
+info "Test N+5: GET /memory/extraction/history — extraction history query"
+EXTRACTHIST=$(curl -sf --max-time 10 "$DEMO_BASE/../memory/extraction/history?project=$PROJECT&templateName=user_preferences&userId=alice&limit=5" 2>/dev/null || echo "FAIL")
+if [ "$EXTRACTHIST" = "FAIL" ]; then
+    fail "GET /memory/extraction/history" "Request timed out or failed"
+else
+    pass "GET /memory/extraction/history"
+fi
+
+# Test N+6: /memory/health
+info "Test N+6: GET /memory/health — memory system health check"
+MEMHEALTH=$(curl -sf --max-time 10 "$DEMO_BASE/../memory/health" 2>/dev/null || echo "FAIL")
+if [ "$MEMHEALTH" = "FAIL" ]; then
+    fail "GET /memory/health" "Request timed out or failed"
+elif echo "$MEMHEALTH" | grep -qE "status\|ok\|healthy"; then
+    pass "GET /memory/health"
+else
+    fail "GET /memory/health" "Unexpected response format"
+fi
+
+# Test N+7: /chat
+info "Test N+7: GET /chat — chat endpoint"
+CHATGET=$(curl -sf --max-time 10 "$DEMO_BASE/../chat?project=$PROJECT" 2>/dev/null || echo "FAIL")
+if [ "$CHATGET" = "FAIL" ]; then
+    fail "GET /chat" "Request timed out or failed"
+else
+    pass "GET /chat"
+fi
+
+# Test N+8: POST /demo/session/prompt
+info "Test N+8: POST /demo/session/prompt — record user prompt"
+PROMPTRESP=$(curl -sf --max-time 10 -X POST "$DEMO_BASE/session/prompt?project=$PROJECT&session_id=e2e-session&prompt=E2E+test+prompt" 2>/dev/null || echo "FAIL")
+if [ "$PROMPTRESP" = "FAIL" ]; then
+    fail "POST /demo/session/prompt" "Request timed out or failed"
+else
+    pass "POST /demo/session/prompt"
+fi
+
+# Test N+9: POST /demo/session/end
+info "Test N+9: POST /demo/session/end — end session"
+ENDRESP=$(curl -sf --max-time 10 -X POST "$DEMO_BASE/session/end?project=$PROJECT&session_id=e2e-session" 2>/dev/null || echo "FAIL")
+if [ "$ENDRESP" = "FAIL" ]; then
+    fail "POST /demo/session/end" "Request timed out or failed"
+else
+    pass "POST /demo/session/end"
+fi
+
+echo ""
+echo "=== Java SDK E2E Test Complete ==="
