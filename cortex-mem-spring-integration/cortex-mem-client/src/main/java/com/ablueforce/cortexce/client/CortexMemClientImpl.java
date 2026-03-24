@@ -223,7 +223,7 @@ public class CortexMemClientImpl implements CortexMemClient {
     public boolean healthCheck() {
         try {
             restClient.get()
-                .uri("/actuator/health")
+                .uri("/api/health")
                 .retrieve()
                 .toBodilessEntity();
             return true;

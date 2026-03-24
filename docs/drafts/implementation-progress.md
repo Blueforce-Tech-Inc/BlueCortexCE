@@ -82,17 +82,20 @@
 - [x] Go http-server 输入验证一致性（/search + /observations 添加 project 必填校验）
 - [x] Java Demo 控制器异常处理（SearchController/ObservationsController/ManagementController 添加 try-catch）
 - [x] Go E2E 测试结构完整性（summary 报告移至所有测试之后）
+- [x] Java SDK healthCheck() 端点一致性（/actuator/health → /api/health，与 Go SDK 和后端一致）
+- [x] Go SDK 测试覆盖完整性（新增 11 个测试覆盖 P1 API + fire-and-forget 重试 + error helpers）
 
 ### 测试覆盖策略
-- **单元测试**：18 个 wire format 测试（通过）
+- **单元测试**：32 个 wire format + API + error + retry 测试（全部通过）
 - **E2E 测试**：Java 14 个 + Go 26 个（验证端到端链路）
 - **教训**：新增测试必须严格匹配已有 wire format 定义
 
 ### 已验证项
-- ✅ Go SDK 18 单元测试 PASS
+- ✅ Go SDK 32 单元测试 PASS
 - ✅ Go SDK examples: 5/5 编译通过
 - ✅ Go vet 干净
 - ✅ Java Demo 编译通过
+- ✅ Java SDK BUILD SUCCESS（含 healthCheck 修复）
 - ✅ 回归测试 46/46 PASS
 - ✅ Backend 服务运行中
 
@@ -135,4 +138,10 @@
   - Go SDK: TriggerRefinement 改用 doRequestNoContent（与 SubmitFeedback/RecordObservation 一致，消除手动 status 检查冗余代码）
   - Go SDK: 新增 3 个单元测试 — UpdateObservation_WireFormat（验证 PATCH 方法 + camelCase + pointer omitempty）、DeleteObservation（验证 DELETE 方法 + 路径）、GetExtractionHistory_PathAndParams（验证 template/history 路径 + query params）
   - Go SDK 单元测试从 18 → 21 个，全部通过
+  - go vet 干净、Java SDK BUILD SUCCESS
+- 2026-03-24 22:01: Phase D 代码审查第七轮 — Java SDK healthCheck 修复 + Go SDK 测试扩展
+  - Java SDK: healthCheck() 修复 — 从 /actuator/health 改为 /api/health（与 Go SDK 和后端一致）
+  - Java SDK: CortexMemClient.java JavaDoc 修正 — 移除 "/actuator/health" 歧义描述
+  - Go SDK: 新增 11 个单元测试 — UpdateSessionUserId、GetProjects、GetStats、GetStats_EmptyProject、GetModes、GetSettings、IsRateLimited、IsInternal、FireAndForget_RetryOnFailure、FireAndForget_ExhaustsRetries、HealthCheck_Success、HealthCheck_Unhealthy
+  - Go SDK 单元测试从 21 → 32 个，全部通过
   - go vet 干净、Java SDK BUILD SUCCESS

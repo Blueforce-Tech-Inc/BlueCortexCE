@@ -693,3 +693,280 @@ func TestGetExtractionHistory_PathAndParams(t *testing.T) {
 		t.Errorf("expected first result=v1, got %v", history[0]["result"])
 	}
 }
+
+// ==================== P1 Management & Additional Tests ====================
+
+func TestUpdateSessionUserId(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Errorf("expected PATCH, got %s", r.Method)
+		}
+		if !strings.HasSuffix(r.URL.Path, "/sess-1/user") {
+			t.Errorf("expected path to end with /sess-1/user, got %s", r.URL.Path)
+		}
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+		if body["user_id"] != "user-42" {
+			t.Errorf("expected user_id=user-42, got %v", body["user_id"])
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	resp, err := client.UpdateSessionUserId(context.Background(), "sess-1", "user-42")
+	if err != nil {
+		t.Fatalf("UpdateSessionUserId failed: %v", err)
+	}
+	if resp["status"] != "ok" {
+		t.Errorf("expected status=ok, got %v", resp["status"])
+	}
+}
+
+func TestGetProjects(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/projects" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET, got %s", r.Method)
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]any{
+			"projects": []string{"/proj-a", "/proj-b"},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	result, err := client.GetProjects(context.Background())
+	if err != nil {
+		t.Fatalf("GetProjects failed: %v", err)
+	}
+	projects, ok := result["projects"].([]any)
+	if !ok || len(projects) != 2 {
+		t.Errorf("expected 2 projects, got %v", result["projects"])
+	}
+}
+
+func TestGetStats(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/stats" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		project := r.URL.Query().Get("project")
+		if project != "/my-project" {
+			t.Errorf("expected project=/my-project, got %s", project)
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]any{
+			"totalObservations": float64(100),
+			"totalExperiences":  float64(50),
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	result, err := client.GetStats(context.Background(), "/my-project")
+	if err != nil {
+		t.Fatalf("GetStats failed: %v", err)
+	}
+	if result["totalObservations"] != float64(100) {
+		t.Errorf("expected totalObservations=100, got %v", result["totalObservations"])
+	}
+}
+
+func TestGetStats_EmptyProject(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("project") != "" {
+			t.Errorf("expected no project query param for empty projectPath")
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]any{"totalObservations": float64(0)})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	result, err := client.GetStats(context.Background(), "")
+	if err != nil {
+		t.Fatalf("GetStats failed: %v", err)
+	}
+	if result["totalObservations"] != float64(0) {
+		t.Errorf("expected totalObservations=0, got %v", result["totalObservations"])
+	}
+}
+
+func TestGetModes(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/modes" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]any{
+			"modes": []map[string]any{
+				{"name": "default", "enabled": true},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	result, err := client.GetModes(context.Background())
+	if err != nil {
+		t.Fatalf("GetModes failed: %v", err)
+	}
+	modes, ok := result["modes"].([]any)
+	if !ok || len(modes) != 1 {
+		t.Errorf("expected 1 mode, got %v", result["modes"])
+	}
+}
+
+func TestGetSettings(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/settings" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]any{
+			"embeddingModel": "text-embedding-3-small",
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	result, err := client.GetSettings(context.Background())
+	if err != nil {
+		t.Fatalf("GetSettings failed: %v", err)
+	}
+	if result["embeddingModel"] != "text-embedding-3-small" {
+		t.Errorf("expected embeddingModel=text-embedding-3-small, got %v", result["embeddingModel"])
+	}
+}
+
+func TestIsRateLimited(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+		w.Write([]byte(`{"error":"rate limited"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 429")
+	}
+	if !cortexmem.IsRateLimited(err) {
+		t.Errorf("expected IsRateLimited, got: %v", err)
+	}
+}
+
+func TestIsInternal(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error":"internal"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 500")
+	}
+	if !cortexmem.IsInternal(err) {
+		t.Errorf("expected IsInternal, got: %v", err)
+	}
+}
+
+func TestFireAndForget_RetryOnFailure(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		if attempts < 3 {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := cortexmem.NewClient(
+		cortexmem.WithBaseURL(server.URL),
+		cortexmem.WithMaxRetries(3),
+	)
+
+	err := client.RecordObservation(context.Background(), dto.ObservationRequest{
+		SessionID:   "sess-1",
+		ProjectPath: "/project",
+		ToolName:    "Read",
+	})
+	if err != nil {
+		t.Fatalf("RecordObservation should not return error (fire-and-forget): %v", err)
+	}
+	if attempts != 3 {
+		t.Errorf("expected 3 attempts, got %d", attempts)
+	}
+}
+
+func TestFireAndForget_ExhaustsRetries(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client := cortexmem.NewClient(
+		cortexmem.WithBaseURL(server.URL),
+		cortexmem.WithMaxRetries(3),
+	)
+
+	// Fire-and-forget should NOT return error even after exhausting retries
+	err := client.RecordObservation(context.Background(), dto.ObservationRequest{
+		SessionID:   "sess-1",
+		ProjectPath: "/project",
+		ToolName:    "Read",
+	})
+	if err != nil {
+		t.Fatalf("fire-and-forget should swallow error: %v", err)
+	}
+	if attempts != 3 {
+		t.Errorf("expected 3 attempts, got %d", attempts)
+	}
+}
+
+func TestHealthCheck_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/health" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	err := client.HealthCheck(context.Background())
+	if err != nil {
+		t.Fatalf("HealthCheck should succeed: %v", err)
+	}
+}
+
+func TestHealthCheck_Unhealthy(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "degraded"})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	err := client.HealthCheck(context.Background())
+	if err == nil {
+		t.Fatal("HealthCheck should fail for degraded status")
+	}
+	if !strings.Contains(err.Error(), "unhealthy") {
+		t.Errorf("expected unhealthy error, got: %v", err)
+	}
+}

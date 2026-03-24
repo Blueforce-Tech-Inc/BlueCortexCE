@@ -82,7 +82,7 @@ public interface CortexMemClient {
     QualityDistribution getQualityDistribution(String projectPath);
 
     /**
-     * Health check. Calls GET /api/health or GET /actuator/health.
+     * Health check. Calls GET /api/health.
      */
     boolean healthCheck();
 
