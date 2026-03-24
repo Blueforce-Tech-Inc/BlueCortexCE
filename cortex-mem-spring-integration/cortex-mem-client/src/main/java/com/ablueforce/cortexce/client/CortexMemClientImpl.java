@@ -104,7 +104,9 @@ public class CortexMemClientImpl implements CortexMemClient {
         try {
             var body = new java.util.HashMap<String, Object>();
             body.put("task", request.task());
-            body.put("project", request.project() != null ? request.project() : "");
+            if (request.project() != null && !request.project().isBlank()) {
+                body.put("project", request.project());
+            }
             body.put("count", request.count() != null ? request.count() : properties.getDefaultExperienceCount());
             if (request.source() != null) {
                 body.put("source", request.source());
@@ -132,8 +134,12 @@ public class CortexMemClientImpl implements CortexMemClient {
         try {
             var body = new java.util.HashMap<String, Object>();
             body.put("task", request.task());
-            body.put("project", request.project() != null ? request.project() : "");
-            body.put("maxChars", request.maxChars() != null ? request.maxChars() : 4000);
+            if (request.project() != null && !request.project().isBlank()) {
+                body.put("project", request.project());
+            }
+            if (request.maxChars() != null) {
+                body.put("maxChars", request.maxChars());
+            }
             if (request.userId() != null) {
                 body.put("userId", request.userId());
             }

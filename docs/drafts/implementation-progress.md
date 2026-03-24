@@ -175,3 +175,8 @@
   - /health 端点添加 method 检查（之前不检查，与其他端点不一致）
   - /iclprompt 验证风格统一：从 compound check (project=="" || task=="") 改为 separate checks（与其他端点一致）
   - go vet 干净、33 Go 测试通过、http-server 编译通过
+- 2026-03-25 00:31: Phase D 代码审查第十二轮 — Java SDK 客户端默认值修复
+  - Java SDK CortexMemClientImpl.retrieveExperiences(): 修复空 project 发送 "" 而非省略参数的 bug（与 Go SDK 和 search/listObservations 一致）
+  - Java SDK CortexMemClientImpl.buildICLPrompt(): 移除硬编码 maxChars=4000 默认值，让后端决定默认值（避免 SDK 与后端默认值不同步）
+  - 同步修复 project 为空时发送 "" 的问题（与 retrieveExperiences 一致）
+  - SDK BUILD SUCCESS、Demo BUILD SUCCESS、go vet 干净、33 Go 测试通过
