@@ -352,7 +352,7 @@ fi
 
 # Test 19: /experiences endpoint
 info "Test 19: Demo /experiences → RetrieveExperiences"
-EXPS=$(curl -sf --max-time 10 "$DEMO_BASE/experiences?project=$PROJECT&query=test" 2>/dev/null || echo "FAIL")
+EXPS=$(curl -sf --max-time 10 "$DEMO_BASE/experiences?project=$PROJECT&task=test" 2>/dev/null || echo "FAIL")
 if [ "$EXPS" = "FAIL" ]; then
     fail "GET /experiences" "Connection failed or timed out"
 elif echo "$EXPS" | grep -q "experiences\|count"; then

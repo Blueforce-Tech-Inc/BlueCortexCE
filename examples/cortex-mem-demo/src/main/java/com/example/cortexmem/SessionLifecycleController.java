@@ -48,12 +48,20 @@ public class SessionLifecycleController {
         if (projectPath == null) projectPath = System.getProperty("user.dir");
 
         String sessionId = "demo-session-" + UUID.randomUUID();
-        var result = sessionStartClient.startSession(sessionId, projectPath);
-
-        result.put("session_id", sessionId);
-        result.put("project", project);
-        result.put("project_path", projectPath);
-        return result;
+        try {
+            var result = sessionStartClient.startSession(sessionId, projectPath);
+            result.put("session_id", sessionId);
+            result.put("project", project);
+            result.put("project_path", projectPath);
+            return result;
+        } catch (Exception e) {
+            return Map.of(
+                "error", "Failed to start session: " + e.getMessage(),
+                "session_id", sessionId,
+                "project", project,
+                "project_path", projectPath
+            );
+        }
     }
 
     /**
@@ -129,7 +137,15 @@ public class SessionLifecycleController {
         String sessionId = "demo-lifecycle-" + UUID.randomUUID();
 
         // 1. Start
-        var startResult = sessionStartClient.startSession(sessionId, projectPath);
+        Map<String, Object> startResult;
+        try {
+            startResult = sessionStartClient.startSession(sessionId, projectPath);
+        } catch (Exception e) {
+            return Map.of(
+                "error", "Failed to start session: " + e.getMessage(),
+                "session_id", sessionId
+            );
+        }
 
         // 2. Prompt + 3. Tool + 4. End (within context)
         CortexSessionContext.begin(sessionId, projectPath);

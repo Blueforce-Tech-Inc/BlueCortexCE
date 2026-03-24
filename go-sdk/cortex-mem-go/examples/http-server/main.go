@@ -146,6 +146,10 @@ func main() {
 			return
 		}
 		task := r.URL.Query().Get("task")
+		if task == "" {
+			writeJSONError(w, http.StatusBadRequest, "task is required")
+			return
+		}
 		exps, err := client.RetrieveExperiences(r.Context(), dto.ExperienceRequest{
 			Project: project,
 			Task:    task,
