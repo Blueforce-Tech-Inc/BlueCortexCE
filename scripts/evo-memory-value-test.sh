@@ -104,7 +104,7 @@ test_quality_based_value() {
 # VALUE 1B: LLM-Based Quality Scoring Verification
 # ==============================================================================
 test_llm_quality_scoring() {
-    log_section "VALUE 1B: LLM-Based Quality Scoring (基于LLM的质量评分)"
+    log_section "VALUE 1B: LLM-Based Quality Scoring (LLM-Based Quality Scoring)"
     
     log_value "Scenario: Verify LLM-based quality analysis is working"
     
@@ -192,7 +192,7 @@ test_llm_quality_scoring() {
 # VALUE 2: Automatic Memory Refinement - Clean Up Low-Quality Memories
 # ==============================================================================
 test_memory_refinement_value() {
-    log_section "VALUE 2: Memory Refinement (自动清理低质量记忆)"
+    log_section "VALUE 2: Memory Refinement (Auto-Cleanup of Low-Quality Memory)"
     
     log_value "Scenario: Trigger refinement and verify low-quality memories are handled"
     
@@ -227,7 +227,7 @@ test_memory_refinement_value() {
 # VALUE 2B: LLM-Based Merge/Rewrite Verification
 # ==============================================================================
 test_llm_merge_rewrite() {
-    log_section "VALUE 2B: LLM Merge/Rewrite (LLM驱动的记忆合并与重写)"
+    log_section "VALUE 2B: LLM Merge/Rewrite (LLM-Driven Memory Merge and Rewrite)"
     
     log_value "Scenario: Verify LLM actually modifies content during merge/rewrite"
     
@@ -362,7 +362,7 @@ test_llm_merge_rewrite() {
 # VALUE 3: Experience Reuse - Leverage Past Successes
 # ==============================================================================
 test_experience_reuse_value() {
-    log_section "VALUE 3: Experience Reuse (复用历史成功经验)"
+    log_section "VALUE 3: Experience Reuse (Reuse Historical Successful Experiences)"
     
     log_value "Scenario: Retrieve relevant experiences for a new similar task"
     
@@ -418,7 +418,7 @@ test_experience_reuse_value() {
 # VALUE 4: Feature Flags - Toggle Features On/Off
 # ==============================================================================
 test_feature_flags_value() {
-    log_section "VALUE 4: Feature Flags (特性开关)"
+    log_section "VALUE 4: Feature Flags (Feature Flags)"
     
     log_value "Scenario: Verify features can be toggled for safety"
     
@@ -447,7 +447,7 @@ test_feature_flags_value() {
 # VALUE 5: End-to-End Workflow Value Demonstration
 # ==============================================================================
 test_e2e_value_demonstration() {
-    log_section "VALUE 5: Complete Workflow (完整工作流演示)"
+    log_section "VALUE 5: Complete Workflow (Complete Workflow Demo)"
     
     log_value "Demonstrating full Evo-Memory workflow:"
     log_value "  1. Create observations with different quality levels"
