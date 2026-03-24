@@ -193,6 +193,9 @@ type Client interface {
     // GetExtractionHistory gets extraction history. GET /api/extraction/{template}/history
     GetExtractionHistory(ctx context.Context, projectPath, templateName, userID string, limit int) ([]map[string]any, error)
 
+    // TriggerExtraction manually triggers extraction for a project. POST /api/extraction/run
+    TriggerExtraction(ctx context.Context, projectPath string) error
+
     // UpdateSessionUserId updates session userId. PATCH /api/session/{sessionId}/user
     UpdateSessionUserId(ctx context.Context, sessionID, userID string) (map[string]any, error)
 
@@ -703,27 +706,50 @@ var _ retriever.Retriever = (*Retriever)(nil)
 
 ### 4.3 LangChainGo 集成
 
+**接口来源**: `github.com/tmc/langchaingo/schema` (2026-03-24 验证)
+
+LangChainGo 的 `Memory` 接口签名：
+```go
+type Memory interface {
+    GetMemoryKey(ctx context.Context) string
+    MemoryVariables(ctx context.Context) []string
+    LoadMemoryVariables(ctx context.Context, inputs map[string]any) (map[string]any, error)
+    SaveContext(ctx context.Context, inputs map[string]any, outputs map[string]any) error
+    Clear(ctx context.Context) error
+}
+```
+
+**实现**：
+
 ```go
 // langchaingo/memory.go
 package langchaingo
 
 import (
     "context"
+    "fmt"
+
     cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
     "github.com/abforce/cortex-ce/cortex-mem-go/dto"
-    "github.com/tmc/langchaingo/memory"
-    "github.com/tmc/langchaigo/schema"
+    "github.com/tmc/langchaingo/schema"
 )
 
-// Memory implements langchaingo's memory.Memory interface.
+// Memory implements langchaingo's schema.Memory interface backed by Cortex CE.
 type Memory struct {
-    client  cortexmem.Client
-    project string
-    maxChars int
+    client    cortexmem.Client
+    project   string
+    maxChars  int
+    memoryKey string
+    userID    string
 }
 
 func NewMemory(client cortexmem.Client, project string, opts ...MemoryOption) *Memory {
-    m := &Memory{client: client, project: project, maxChars: 4000}
+    m := &Memory{
+        client:    client,
+        project:   project,
+        maxChars:  4000,
+        memoryKey: "history",
+    }
     for _, opt := range opts {
         opt(m)
     }
@@ -736,29 +762,68 @@ func WithMemoryMaxChars(n int) MemoryOption {
     return func(m *Memory) { m.maxChars = n }
 }
 
-// LoadMemoryVariables loads memory variables from Cortex CE.
-func (m *Memory) LoadMemoryVariables(ctx context.Context, _ map[string]any) (map[string]any, error) {
+func WithMemoryKey(key string) MemoryOption {
+    return func(m *Memory) { m.memoryKey = key }
+}
+
+func WithMemoryUserID(userID string) MemoryOption {
+    return func(m *Memory) { m.userID = userID }
+}
+
+// GetMemoryKey returns the key used to store memory variables in the chain's I/O map.
+func (m *Memory) GetMemoryKey(_ context.Context) string {
+    return m.memoryKey
+}
+
+// MemoryVariables returns the list of memory variable keys.
+func (m *Memory) MemoryVariables(_ context.Context) []string {
+    return []string{m.memoryKey}
+}
+
+// LoadMemoryVariables fetches an ICL prompt from Cortex CE and returns it
+// as a memory variable map. The "task" from inputs is used as the search query.
+func (m *Memory) LoadMemoryVariables(ctx context.Context, inputs map[string]any) (map[string]any, error) {
+    task := ""
+    if t, ok := inputs["input"]; ok {
+        task = fmt.Sprintf("%v", t)
+    }
+
+    opts := []dto.ICLOption{dto.WithMaxChars(m.maxChars)}
+    if m.userID != "" {
+        opts = append(opts, dto.WithICLUserID(m.userID))
+    }
+
     result, err := m.client.BuildICLPrompt(ctx, dto.NewICLPromptRequest(
-        "", m.project, dto.WithMaxChars(m.maxChars),
+        task, m.project, opts...,
     ))
     if err != nil {
-        return map[string]any{"history": ""}, nil
+        // Return empty memory on error — don't break the chain
+        return map[string]any{m.memoryKey: ""}, nil
     }
-    return map[string]any{"history": result.Prompt}, nil
+
+    return map[string]any{m.memoryKey: result.Prompt}, nil
 }
 
-// SaveContext saves the context to Cortex CE.
-func (m *Memory) SaveContext(ctx context.Context, inputValues, outputValues map[string]any) {
-    // Defer to the session lifecycle — observations are recorded via RecordObservation
+// SaveContext is a no-op. Cortex CE captures observations via its own
+// session lifecycle (RecordObservation), not via SaveContext calls.
+func (m *Memory) SaveContext(_ context.Context, _, _ map[string]any) error {
+    return nil
 }
 
-// Clear clears the memory.
+// Clear is a no-op. Memory clearing is managed by Cortex CE's refine cycle.
 func (m *Memory) Clear(_ context.Context) error {
     return nil
 }
 
-var _ memory.Memory = (*Memory)(nil)
+// Compile-time check: Memory implements schema.Memory.
+var _ schema.Memory = (*Memory)(nil)
 ```
+
+**关键设计决策**：
+- `LoadMemoryVariables` 从 `inputs["input"]` 提取当前任务作为检索查询
+- `SaveContext` 是 no-op，因为 Cortex CE 通过 `RecordObservation` 捕获经验
+- `Clear` 是 no-op，因为 Cortex CE 通过 refine 周期管理记忆生命周期
+- `memoryKey` 默认为 `"history"`，与 LangChainGo 约定一致
 
 ### 4.4 Genkit 集成（预留）
 
@@ -910,6 +975,7 @@ jobs:
 | HealthCheck | GET | /api/health | healthCheck() |
 | GetLatestExtraction | GET | /api/extraction/{template}/latest | getLatestExtraction() |
 | GetExtractionHistory | GET | /api/extraction/{template}/history | getExtractionHistory() |
+| TriggerExtraction | POST | /api/extraction/run | — (新增，Java SDK 未暴露) |
 | UpdateSessionUserId | PATCH | /api/session/{sessionId}/user | updateSessionUserId() |
 
 ## 附录 B: Demo 项目规划
@@ -1005,61 +1071,104 @@ examples/
 
 ---
 
-## 附录 D: 集成框架接口研究（迭代 1）
+## 附录 D: 集成框架接口研究（迭代 2 — 已验证）
 
 ### Eino (CloudWeGo)
 
-**状态**: 🔍 需要进一步研究
+**状态**: ✅ 接口已验证 (2026-03-24，源码: `cloudwego/eino`)
 
-Eino 是字节跳动 CloudWeGo 团队推出的 Go LLM 应用框架。
+**Retriever 接口** (来自 `components/retriever/interface.go`)：
+```go
+type Retriever interface {
+    Retrieve(ctx context.Context, query string, opts ...Option) ([]*schema.Document, error)
+}
+```
 
-**已知接口模式**:
-- `Retriever` 接口：`Retrieve(ctx context.Context, query string) ([]*schema.Document, error)`
-- `Document` 结构：`Content string`, `MetaData map[string]any`
-- 支持自定义 Retriever 实现
+**Option 结构** (来自 `components/retriever/option.go`)：
+- `WithTopK(n int)` — 返回结果数量上限
+- `WithScoreThreshold(f float64)` — 分数阈值过滤
+- `WithIndex(index string)` — 索引选择
+- `WithSubIndex(subIndex string)` — 子索引选择
+- `WithEmbedding(emb embedding.Embedder)` — 嵌入器
+- `WithDSLInfo(dsl map[string]any)` — 后端特定查询 DSL
 
-**待确认**:
-- [ ] Eino 的 `Retriever` 接口是否已稳定
-- [ ] 是否有 `RetrieverOption` 模式
-- [ ] `schema.Document` 的完整字段定义
+实现者必须调用 `retriever.GetCommonOptions(base, opts...)` 来提取标准选项。
+
+**schema.Document** (来自 `schema/document.go`)：
+```go
+type Document struct {
+    ID       string         `json:"id"`
+    Content  string         `json:"content"`
+    MetaData map[string]any `json:"meta_data"`
+}
+```
+
+Document 有类型化访问器方法：
+- `WithScore(score float64)` / `Score() float64` — 相关性分数
+- `WithSubIndexes(indexes []string)` / `SubIndexes() []string` — 子索引
+- `WithExtraInfo(info string)` / `ExtraInfo() string` — 额外信息
+- `WithDSLInfo(dsl string)` / `DSLInfo() string` — DSL 信息
+- `WithDenseVector(vector []float64)` / `DenseVector() []float64`
+- `WithSparseVector(vector map[int]float64)` / `SparseVector() map[int]float64`
+
+**集成策略**：
+- Eino Retriever 的 `Retrieve` 方法需要接受 `...retriever.Option` 参数
+- 使用 `retriever.GetCommonOptions()` 解析 TopK、ScoreThreshold
+- 使用 `WrapImplSpecificOptFn` 支持自定义选项（如 source 过滤）
+- Experience → Document 映射：Content = strategy + outcome, MetaData 保留 task/qualityScore/reuseCondition
 
 ### Genkit (Google)
 
-**状态**: 🔍 需要进一步研究
+**状态**: 🔍 待进一步研究
 
-Google 的 Genkit 框架已进入 Go 生态。
+Google 的 Genkit 框架已进入 Go 生态。截至 2026-03-24，Genkit Go 的 API 仍在快速迭代中。
 
-**已知接口模式**:
-- 提供 `Retriever` 和 `Indexer` 接口
+**已知信息**：
+- 提供 Retriever/Indexer 接口模式
 - Plugin 系统设计
 - 与 Firebase 集成
 
-**待确认**:
-- [ ] Genkit Go 的 `Retriever` 接口签名
+**待确认**：
+- [ ] Genkit Go 的 `Retriever` 接口签名（需查阅 `firebase/genkit-go` 源码）
 - [ ] Plugin 注册机制
 - [ ] 是否支持自定义 metadata
+- [ ] 版本稳定性评估
+
+**策略**: 保留 `genkit/plugin.go` 为 placeholder，等待 API 稳定后实现。v0.1.0 发布。
 
 ### LangChainGo
 
-**状态**: 🔍 需要进一步研究
+**状态**: ✅ 接口已验证 (2026-03-24，源码: `tmc/langchaingo`)
 
-LangChainGo 是 LangChain 的 Go 移植版本。
+**Memory 接口** (来自 `schema/memory.go`)：
+```go
+type Memory interface {
+    GetMemoryKey(ctx context.Context) string
+    MemoryVariables(ctx context.Context) []string
+    LoadMemoryVariables(ctx context.Context, inputs map[string]any) (map[string]any, error)
+    SaveContext(ctx context.Context, inputs map[string]any, outputs map[string]any) error
+    Clear(ctx context.Context) error
+}
+```
 
-**已知接口模式**:
-- `memory.Memory` 接口：`LoadMemoryVariables`, `SaveContext`, `Clear`
-- 支持多种 Memory 实现（Buffer, Summary, Vector）
-- 与 Chain/Agent 集成
+注意：接口在 `schema` 包中，不在 `memory` 包中。`memory.Simple` 等是具体实现。
 
-**待确认**:
-- [ ] `memory.Memory` 接口的完整签名
-- [ ] 是否支持自定义 metadata
-- [ ] 与 VectorStore 的集成方式
+**集成策略**：
+- `GetMemoryKey` 返回 `"history"`（LangChainGo 约定）
+- `MemoryVariables` 返回 `[]string{"history"}`
+- `LoadMemoryVariables` 从 `inputs["input"]` 提取当前任务，调用 `BuildICLPrompt` 获取记忆上下文
+- `SaveContext` 为 no-op（Cortex CE 通过 `RecordObservation` 捕获经验）
+- `Clear` 为 no-op（Cortex CE 通过 refine 周期管理）
+- 编译时检查：`var _ schema.Memory = (*Memory)(nil)`
 
 ### 下一步行动
 
-1. 阅读各框架的源码或文档，获取精确接口定义
-2. 更新 Go SDK 设计文档中的集成层代码
-3. 如果接口不明确，考虑使用适配器模式隔离变化
+1. ✅ Eino Retriever 接口已验证 — 更新文档
+2. ✅ LangChainGo Memory 接口已验证 — 更新文档
+3. 🔍 Genkit Go 接口待 API 稳定
+4. 📋 考虑为 Eino Retriever 添加 `WrapImplSpecificOptFn` 支持（source 过滤等自定义选项）
+5. 📋 编写集成层单元测试（mock Client → 验证 Document 转换）
+6. 📋 编写集成层单元测试（mock Client → 验证 Memory 接口合规性）
 
 
 ---
@@ -1768,4 +1877,245 @@ json.Marshal(f) // {}
 f := Foo{Name: "bar"}
 json.Marshal(f) // {"name": "bar"}
 ```
+
+
+---
+
+## 附录 K: Demo 项目详细设计（迭代 7）
+
+### Java Demo 核心功能分析
+
+**ChatController** (`/chat` endpoint):
+- 接收用户消息，调用 Spring AI ChatClient
+- 自动注入 CortexMemoryAdvisor 获取相关经验
+- 支持 `?project=` 选择不同项目
+- 支持 `?useTools=` 使用 CortexMemoryTools
+
+**关键依赖**:
+- `CortexMemoryAdvisor` — 自动管理 ICL prompt
+- `CortexSessionContextBridgeAdvisor` — 自动 session 管理
+- `CortexMemoryTools` — AI 主动搜索记忆的工具
+
+### Go Basic Demo 设计
+
+```go
+// examples/basic/main.go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    
+    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
+    "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+)
+
+func main() {
+    client, err := cortexmem.NewClient(
+        cortexmem.WithBaseURL("http://localhost:37777"),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer client.Close()
+    
+    ctx := context.Background()
+    
+    // 1. Start session
+    session, err := client.StartSession(ctx, dto.NewSessionStartRequest(
+        "session-123",
+        "/path/to/project",
+    ))
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("Session started: %s\n", session.SessionID)
+    
+    // 2. Record observation
+    err = client.RecordObservation(ctx, dto.NewObservationRequest(
+        session.SessionID,
+        "/path/to/project",
+        "Read",
+        dto.WithToolInput(map[string]any{"file": "main.go"}),
+        dto.WithToolResponse(map[string]any{"content": "..."}),
+        dto.WithObservationSource("tool_result"),
+    ))
+    if err != nil {
+        log.Printf("RecordObservation failed: %v", err)
+    }
+    
+    // 3. Retrieve experiences
+    experiences, err := client.RetrieveExperiences(ctx, dto.NewExperienceRequest(
+        "How to parse JSON in Go?",
+        "/path/to/project",
+        dto.WithCount(3),
+    ))
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("Found %d experiences\n", len(experiences))
+    
+    // 4. Build ICL prompt
+    result, err := client.BuildICLPrompt(ctx, dto.NewICLPromptRequest(
+        "How to parse JSON in Go?",
+        "/path/to/project",
+        dto.WithMaxChars(4000),
+    ))
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("ICL prompt (%d chars, %d experiences):\n%s\n",
+        len(result.Prompt), result.ExperienceCountAsInt(), result.Prompt)
+    
+    // 5. End session
+    err = client.RecordSessionEnd(ctx, dto.SessionEndRequest{
+        SessionID:   session.SessionID,
+        ProjectPath: "/path/to/project",
+    })
+    if err != nil {
+        log.Printf("RecordSessionEnd failed: %v", err)
+    }
+}
+```
+
+### Go Eino Demo 设计
+
+```go
+// examples/eino/main.go
+package main
+
+import (
+    "context"
+    "log"
+    
+    "github.com/cloudwego/eino/chat"
+    "github.com/cloudwego/eino/chat/_messages"
+    "github.com/cloudwego/eino/chat/model"
+    
+    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
+    eino "github.com/abforce/cortex-ce/cortex-mem-go/eino"
+)
+
+func main() {
+    client, err := cortexmem.NewClient(
+        cortexmem.WithBaseURL("http://localhost:37777"),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer client.Close()
+    
+    ctx := context.Background()
+    
+    // Create Eino Retriever from Cortex CE
+    retriever := eino.NewRetriever(client, "/path/to/project",
+        eino.WithRetrieverCount(4),
+    )
+    
+    // Build Eino ChatModel
+    chatModel, err := model.OpenAI("gpt-4o-mini")
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // Build prompt with retrieved memories
+    experiences, err := retriever.Retrieve(ctx, "How to parse JSON in Go?")
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // Create messages with memory context
+    var systemMsg = messages.SystemMessage{
+        Content: "You are a helpful coding assistant.",
+    }
+    var userMsg = messages.UserMessage{
+        Content: "How to parse JSON in Go?",
+    }
+    
+    messages := []messages.Messages{systemMsg, userMsg}
+    
+    // Call the model
+    resp, err := chatModel.Generate(ctx, messages)
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    log.Printf("Response: %s", resp.String())
+}
+```
+
+### Go HTTP Server Demo 设计
+
+```go
+// examples/http-server/main.go
+package main
+
+import (
+    "net/http"
+    "github.com/gin-gonic/gin"
+    
+    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
+)
+
+func main() {
+    client, err := cortexmem.NewClient(
+        cortexmem.WithBaseURL("http://localhost:37777"),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer client.Close()
+    
+    r := gin.Default()
+    
+    // Health check
+    r.GET("/health", func(c *gin.Context) {
+        if err := client.HealthCheck(c.Request.Context()); err != nil {
+            c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unhealthy"})
+            return
+        }
+        c.JSON(http.StatusOK, gin.H{"status": "healthy"})
+    })
+    
+    // Chat endpoint with memory
+    r.POST("/chat", func(c *gin.Context) {
+        var req struct {
+            Message string `json:"message"`
+            Project string `json:"project"`
+        }
+        if err := c.ShouldBindJSON(&req); err != nil {
+            c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+            return
+        }
+        
+        // Retrieve experiences and build ICL prompt
+        experiences, err := client.RetrieveExperiences(c.Request.Context(), dto.NewExperienceRequest(
+            req.Message,
+            req.Project,
+        ))
+        // ... build response with experiences
+        c.JSON(http.StatusOK, gin.H{"experiences": experiences})
+    })
+    
+    // Memory management
+    r.GET("/mem/experiences", func(c *gin.Context) {
+        project := c.Query("project")
+        experiences, err := client.RetrieveExperiences(c.Request.Context(), dto.NewExperienceRequest(
+            c.Query("task"),
+            project,
+        ))
+        // ...
+    })
+    
+    r.Run(":8080")
+}
+```
+
+### Demo 开发检查清单
+
+- [ ] basic demo: 完整展示 15 个 Phase 1 方法
+- [ ] eino demo: 展示 Eino Retriever 集成
+- [ ] http-server demo: REST API 包装
+- [ ] 各 demo 需要 `go.mod` 和 README
 
