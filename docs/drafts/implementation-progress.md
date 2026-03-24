@@ -168,3 +168,10 @@
   - Go http-server demo: http.Server 添加 ReadTimeout/WriteTimeout/IdleTimeout 超时配置
   - Go http-server demo: 添加 SIGINT/SIGTERM 优雅关闭
   - go vet 干净、33 Go 测试通过、5/5 examples 编译通过、Java SDK BUILD SUCCESS、回归测试 46/46 PASS
+- 2026-03-25 00:01: Phase D 代码审查第十一轮 — http-server API 一致性改进
+  - Go http-server demo: 添加 writeJSON/writeJSONError/checkMethod 辅助函数，统一 JSON 错误响应格式
+  - 之前所有错误响应使用 text/plain (http.Error)，与 success 的 application/json 不一致，API 消费者无法可靠解析错误
+  - 现在所有响应（包括错误）统一返回 JSON: {"error": "..."} 格式
+  - /health 端点添加 method 检查（之前不检查，与其他端点不一致）
+  - /iclprompt 验证风格统一：从 compound check (project=="" || task=="") 改为 separate checks（与其他端点一致）
+  - go vet 干净、33 Go 测试通过、http-server 编译通过
