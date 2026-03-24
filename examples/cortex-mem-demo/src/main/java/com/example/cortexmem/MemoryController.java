@@ -8,6 +8,7 @@ import com.ablueforce.cortexce.client.dto.ExperienceRequest;
 import com.ablueforce.cortexce.client.dto.ObservationUpdate;
 import com.ablueforce.cortexce.ai.retrieval.MemoryRetrievalService;
 import com.ablueforce.cortexce.client.dto.Experience;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -143,11 +144,17 @@ public class MemoryController {
      * @param userId User identifier for multi-user isolation
      */
     @GetMapping("/memory/extraction/latest")
-    public Map<String, Object> getLatestExtraction(
+    public ResponseEntity<Map<String, Object>> getLatestExtraction(
             @RequestParam(defaultValue = "/") String project,
             @RequestParam String template,
             @RequestParam String userId) {
-        return cortexClient.getLatestExtraction(resolveProject(project), template, userId);
+        try {
+            Map<String, Object> result = cortexClient.getLatestExtraction(resolveProject(project), template, userId);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Get latest extraction failed: " + e.getMessage()));
+        }
     }
 
     /**
@@ -160,12 +167,17 @@ public class MemoryController {
      * @param limit Maximum history entries (default 10)
      */
     @GetMapping("/memory/extraction/history")
-    public List<Map<String, Object>> getExtractionHistory(
+    public ResponseEntity<List<Map<String, Object>>> getExtractionHistory(
             @RequestParam(defaultValue = "/") String project,
             @RequestParam String template,
             @RequestParam String userId,
             @RequestParam(defaultValue = "10") int limit) {
-        return cortexClient.getExtractionHistory(resolveProject(project), template, userId, limit);
+        try {
+            List<Map<String, Object>> result = cortexClient.getExtractionHistory(resolveProject(project), template, userId, limit);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     /**
@@ -181,11 +193,11 @@ public class MemoryController {
                     .project(resolveProject(project))
                     .count(1)
                     .build());
-            
+
             return Map.of(
                 "status", "ok",
                 "project", resolveProject(project),
-                "sample_retrieval", experiences.size() >= 0 ? "working" : "empty"
+                "sample_retrieval", experiences.size() > 0 ? "working" : "empty"
             );
         } catch (Exception e) {
             return Map.of(

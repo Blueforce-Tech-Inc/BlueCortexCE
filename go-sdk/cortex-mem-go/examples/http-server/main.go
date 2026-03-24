@@ -310,11 +310,12 @@ func main() {
 			writeJSONError(w, http.StatusBadRequest, "template is required")
 			return
 		}
-		userId := r.URL.Query().Get("userId")
 		project := r.URL.Query().Get("project")
 		if project == "" {
-			project = "/tmp/go-demo-project"
+			writeJSONError(w, http.StatusBadRequest, "project is required")
+			return
 		}
+		userId := r.URL.Query().Get("userId")
 		result, err := client.GetLatestExtraction(r.Context(), project, template, userId)
 		if err != nil {
 			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get extraction: %v", err))
@@ -333,14 +334,15 @@ func main() {
 			writeJSONError(w, http.StatusBadRequest, "template is required")
 			return
 		}
+		project := r.URL.Query().Get("project")
+		if project == "" {
+			writeJSONError(w, http.StatusBadRequest, "project is required")
+			return
+		}
 		userId := r.URL.Query().Get("userId")
 		limit := 5
 		if l := r.URL.Query().Get("limit"); l != "" {
 			fmt.Sscanf(l, "%d", &limit)
-		}
-		project := r.URL.Query().Get("project")
-		if project == "" {
-			project = "/tmp/go-demo-project"
 		}
 		result, err := client.GetExtractionHistory(r.Context(), project, template, userId, limit)
 		if err != nil {

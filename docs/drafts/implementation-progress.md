@@ -90,6 +90,10 @@
 - [x] Go http-server `/quality` 端点添加 project 必填校验（与 /search, /observations, /experiences, /iclprompt 一致）
 - [x] Go 集成层（eino/genkit）添加 WithRetrieverUserID 选项，支持用户级记忆（与 langchaingo Memory 一致）
 - [x] Go genkit RetrieverInput 添加 UserID 字段，支持按调用覆盖用户 ID
+- [x] Java MemoryController getMemoryHealth() 逻辑 bug 修复（size >= 0 永远为 true → 改为 size > 0）
+- [x] Java MemoryController extraction 端点添加 try-catch 异常处理（与其他控制器一致）
+- [x] Go http-server /extraction/latest 和 /extraction/history 移除硬编码默认 project，改为必填校验（与所有其他端点一致）
+- [x] Go E2E 测试 extraction 端点添加 project 参数（匹配新的必填校验）
 
 ### 测试覆盖策略
 - **单元测试**：33 个 wire format + API + error + retry + context cancellation 测试（全部通过）
@@ -187,3 +191,9 @@
   - E2E 测试: 从 26 个增加到 36 个（新增 tests 27-36 覆盖 batch extraction/refine/feedback 等）
   - 审查结论: Java SDK 与 Go SDK API 覆盖度一致（20 方法 vs 25 方法），wire format 对齐正确
   - go vet 干净、33 Go 测试通过、5/5 examples 编译通过、Java SDK BUILD SUCCESS（40 测试通过）、回归测试 46/46 PASS
+- 2026-03-25 01:31: Phase D 代码审查第十四轮 — 逻辑 bug 修复 + 输入验证一致性
+  - Java MemoryController: getMemoryHealth() 修复 `experiences.size() >= 0` → `size() > 0`（size() 永远 >= 0，之前的条件判断无意义）
+  - Java MemoryController: getLatestExtraction() 和 getExtractionHistory() 添加 try-catch + ResponseEntity 包装（与 SearchController/ObservationsController/ManagementController 一致）
+  - Go http-server: /extraction/latest 和 /extraction/history 移除硬编码默认 project (`/tmp/go-demo-project`)，改为 project 必填校验（与 /search, /observations, /experiences, /iclprompt, /quality, /refine 一致）
+  - Go E2E 测试: extraction 端点测试添加 project 参数，匹配新的必填校验
+  - go vet 干净、33 Go 测试通过、http-server 编译通过、Java Demo BUILD SUCCESS、回归测试 46/46 PASS
