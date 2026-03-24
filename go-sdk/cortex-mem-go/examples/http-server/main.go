@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/abforce/cortex-ce/cortex-mem-go"
@@ -287,7 +291,7 @@ func main() {
 		json.NewEncoder(w).Encode(result)
 	})
 
-	// Start HTTP server
+	// Start HTTP server with timeouts
 	addr := ":8080"
 	fmt.Printf("🚀 Go SDK HTTP server starting on %s\n", addr)
 	fmt.Println("Endpoints:")
@@ -304,5 +308,24 @@ func main() {
 	fmt.Println("  GET  /settings      - Get settings")
 	fmt.Println("  GET  /quality       - Quality distribution")
 
-	log.Fatal(http.ListenAndServe(addr, mux))
+	srv := &http.Server{
+		Addr:         addr,
+		Handler:      mux,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	// Graceful shutdown on SIGINT/SIGTERM
+	go func() {
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		<-sigCh
+		fmt.Println("\n🛑 Shutting down gracefully...")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		srv.Shutdown(shutdownCtx)
+	}()
+
+	log.Fatal(srv.ListenAndServe())
 }

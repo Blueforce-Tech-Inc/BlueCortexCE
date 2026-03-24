@@ -165,7 +165,12 @@ func (c *httpClient) doFireAndForget(ctx context.Context, name string, fn func()
 			delay := time.Duration(500*attempt) * time.Millisecond
 			select {
 			case <-ctx.Done():
-				return ctx.Err()
+				// Fire-and-forget: swallow context cancellation
+				c.config.Logger.Warn("cortex-ce: "+name+" cancelled during retry",
+					"attempt", attempt,
+					"attempts", c.config.MaxRetries,
+				)
+				return nil
 			case <-time.After(delay):
 			}
 		}
@@ -174,7 +179,7 @@ func (c *httpClient) doFireAndForget(ctx context.Context, name string, fn func()
 		"error", lastErr,
 		"attempts", c.config.MaxRetries,
 	)
-	return nil // Fire-and-forget: swallow error after retries
+	return nil // Fire-and-forget: swallow all errors (including ctx.Err) after retries
 }
 
 func (c *httpClient) unmarshalJSON(data []byte, v any) error {

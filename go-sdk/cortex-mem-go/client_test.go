@@ -954,6 +954,35 @@ func TestHealthCheck_Success(t *testing.T) {
 	}
 }
 
+func TestFireAndForget_ContextCancellation(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		// Always fail to force retries
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client := cortexmem.NewClient(
+		cortexmem.WithBaseURL(server.URL),
+		cortexmem.WithMaxRetries(5),
+	)
+
+	// Create a context that gets cancelled immediately
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	err := client.RecordObservation(ctx, dto.ObservationRequest{
+		SessionID:   "sess-1",
+		ProjectPath: "/project",
+		ToolName:    "Read",
+	})
+	// Fire-and-forget should NEVER return an error, even on context cancellation
+	if err != nil {
+		t.Fatalf("fire-and-forget should swallow context cancellation: %v", err)
+	}
+}
+
 func TestHealthCheck_Unhealthy(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
