@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/abforce/cortex-ce/cortex-mem-go"
 	"github.com/abforce/cortex-ce/cortex-mem-go/eino"
@@ -64,6 +65,9 @@ func main() {
 			log.Printf("Failed to record: %v", err)
 		}
 	}
+
+	// Allow time for fire-and-forget ingestion to complete
+	time.Sleep(500 * time.Millisecond)
 
 	// 3. Use Eino Retriever
 	fmt.Println("\nRetrieving with Eino Retriever...")

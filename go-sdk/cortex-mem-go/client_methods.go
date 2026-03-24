@@ -250,8 +250,7 @@ func (c *httpClient) HealthCheck(ctx context.Context) error {
 func (c *httpClient) GetLatestExtraction(ctx context.Context, projectPath, templateName, userID string) (map[string]any, error) {
 	path := fmt.Sprintf("/api/extraction/%s/latest", templateName)
 	params := map[string]string{
-		"projectPath":  projectPath,
-		"templateName": templateName,
+		"projectPath": projectPath,
 	}
 	if userID != "" {
 		params["userId"] = userID

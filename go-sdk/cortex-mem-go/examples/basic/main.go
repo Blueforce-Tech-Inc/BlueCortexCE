@@ -45,6 +45,9 @@ func main() {
 		fmt.Println("Observation recorded successfully")
 	}
 
+	// Allow time for fire-and-forget ingestion to complete
+	time.Sleep(500 * time.Millisecond)
+
 	// 3. Search
 	fmt.Println("\n=== Searching ===")
 	searchReq := dto.SearchRequest{

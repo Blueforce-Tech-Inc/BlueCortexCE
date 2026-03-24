@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/abforce/cortex-ce/cortex-mem-go"
 	"github.com/abforce/cortex-ce/cortex-mem-go/langchaingo"
@@ -30,6 +31,9 @@ func main() {
 	if err := memory.SaveContext(ctx, inputs, outputs); err != nil {
 		log.Printf("Failed to save context: %v", err)
 	}
+
+	// Allow time for fire-and-forget ingestion to complete
+	time.Sleep(500 * time.Millisecond)
 
 	// 2. Load memory variables
 	fmt.Println("\nLoading memory variables...")

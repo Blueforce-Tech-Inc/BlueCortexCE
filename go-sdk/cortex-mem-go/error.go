@@ -10,7 +10,6 @@ import (
 type APIError struct {
 	StatusCode int
 	Message    string
-	Body       string
 }
 
 func (e *APIError) Error() string {
