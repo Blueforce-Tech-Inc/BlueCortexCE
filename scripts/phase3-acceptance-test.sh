@@ -451,9 +451,9 @@ test_reextraction_add() {
         echo "$latest" | grep -qi "小米" && has_xiaomi=1 || has_xiaomi=0
 
         if [ "$has_sony" -eq 1 ] && [ "$has_xiaomi" -eq 1 ]; then
-            pass "Test 13: Re-extraction contains both old (小米) and new (Sony)"
+            pass "Test 13: Re-extraction contains both old (Xiaomi) and new (Sony)"
         elif [ "$has_sony" -eq 1 ]; then
-            pass "Test 13: Re-extraction contains new (Sony), old (小米) may have been replaced"
+            pass "Test 13: Re-extraction contains new (Sony), old (Xiaomi) may have been replaced"
         elif [ "$has_prefs" -eq 1 ]; then
             pass "Test 13: Re-extraction produced non-empty preferences (LLM may not have extracted Sony — acceptable)"
         else
@@ -477,7 +477,7 @@ test_reextraction_remove() {
         return 0
     fi
 
-    # Add contradicting observation — Alice no longer likes 小米
+    # Add contradicting observation — Alice no longer likes Xiaomi
     curl -sf -X POST "${BACKEND_URL}/api/ingest/observation" \
         -H 'Content-Type: application/json' \
         -d "{
@@ -499,7 +499,7 @@ test_reextraction_remove() {
     latest=$(curl -sf "${BACKEND_URL}/api/extraction/user_preference/latest?projectPath=${TEST_PROJECT}&userId=alice" 2>&1)
 
     if echo "$latest" | grep -q '"status":"ok"'; then
-        # LLM re-extraction may or may not remove小米 — depends on LLM understanding
+        # LLM re-extraction may or may not remove Xiaomi — depends on LLM understanding
         # Key validation: extraction was updated (new timestamp) and contains structured data
         local pref_count
         pref_count=$(echo "$latest" | python3 -c "
@@ -514,9 +514,9 @@ except:
 
         if [ "${pref_count:-0}" -ge 1 ]; then
             pass "Test 14: Re-extraction updated with ${pref_count} preferences (LLM re-extraction working)"
-            # Bonus: check if小米 was removed (not guaranteed)
+            # Bonus: check if Xiaomi was removed (not guaranteed)
             if ! echo "$latest" | grep -qi "小米"; then
-                pass "Test 14: Bonus —小米 correctly removed by LLM"
+                pass "Test 14: Bonus — Xiaomi correctly removed by LLM"
             fi
         else
             fail "Test 14: Re-extraction has no preferences after contradiction: $latest"

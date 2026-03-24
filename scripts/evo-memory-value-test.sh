@@ -41,7 +41,7 @@ log_section() { echo -e "\n${YELLOW}══════════════�
 # VALUE 1: Quality-Based Memory - Focus on High-Value Experiences
 # ==============================================================================
 test_quality_based_value() {
-    log_section "VALUE 1: Quality-Based Memory (高价值经验优先)"
+    log_section "VALUE 1: Quality-Based Memory (High-Value Experience Priority)"
     
     log_value "Scenario: Create mixed quality observations and verify quality scoring"
     
