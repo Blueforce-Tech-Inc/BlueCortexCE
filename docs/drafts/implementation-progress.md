@@ -74,11 +74,14 @@
   - basic/eino/genkit demo: StartSession 失败后 nil pointer dereference
 
 ### 待审查项
-- [ ] Go SDK Logger 接口完整性（已确认：nopLogger + Option 模式完善）
-- [ ] Java SDK SearchRequest DTO 字段验证（已确认：Builder 模式 + 默认值正确）
-- [ ] Go SDK Demo 代码质量（已修复上述编译错误，已验证 go vet + unit tests）
-- [ ] Go SDK `APIError.Body` 字段声明但未使用（Message 已包含 response body）
-- [ ] Go SDK `doFireAndForget` 对所有管理操作统一行为（与 Java SDK 一致，设计意图）
+- [x] Go SDK Logger 接口完整性（已确认：nopLogger + Option 模式完善）
+- [x] Java SDK SearchRequest DTO 字段验证（已确认：Builder 模式 + 默认值正确）
+- [x] Go SDK Demo 代码质量（已修复上述编译错误，已验证 go vet + unit tests）
+- [x] Go SDK `APIError.Body` 字段声明但未使用（Message 已包含 response body）
+- [x] Go SDK `doFireAndForget` 对所有管理操作统一行为（与 Java SDK 一致，设计意图）
+- [x] Go http-server 输入验证一致性（/search + /observations 添加 project 必填校验）
+- [x] Java Demo 控制器异常处理（SearchController/ObservationsController/ManagementController 添加 try-catch）
+- [x] Go E2E 测试结构完整性（summary 报告移至所有测试之后）
 
 ### 测试覆盖策略
 - **单元测试**：18 个 wire format 测试（通过）
@@ -117,3 +120,14 @@
   - 修复 Java SDK: 同上（CortexMemClientImpl.java 同样存在此问题）
   - templateName 已在 URL 路径中传递 (/api/extraction/{templateName}/...)，query param 冗余
   - go vet 干净、18 单元测试通过、Java SDK BUILD SUCCESS、Demo 编译通过
+- 2026-03-24 20:31: Phase D 代码审查第四轮 — APIError 清理 + Demo 竞态修复
+  - Go SDK: 移除 APIError.Body 未使用字段（Message 已包含原始响应体）
+  - Go SDK: 再次确认 GetLatestExtraction 冗余 templateName query param 已修复
+  - Java SDK: 同步修复 getLatestExtraction 冗余 templateName query param
+  - 4 个集成 Demo（basic/eino/genkit/langchaingo）添加 time.Sleep(500ms) 避免 fire-and-forget 竞态
+  - go vet 干净、18 单元测试通过、5/5 Demo 编译通过、Java SDK BUILD SUCCESS
+- 2026-03-24 21:01: Phase D 代码审查第五轮 — 输入验证 + 异常处理 + E2E测试修复
+  - Go http-server: /search 和 /observations 端点添加 project 参数缺失验证（与 /experiences 一致）
+  - Java Demo: SearchController、ObservationsController、ManagementController 添加 try-catch 异常处理，避免 backend 宕机时返回原始 500 栈追踪
+  - Go E2E 测试: 修复 summary 报告在 supplementary tests (15-26) 之前打印的结构性 bug，统一最终报告
+  - go vet 干净、18 单元测试通过、basic/http-server Demo 编译通过、Java Demo BUILD SUCCESS

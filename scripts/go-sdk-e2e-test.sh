@@ -291,50 +291,15 @@ echo "  ✅ GetStats (via /api/stats)"
 echo "  ✅ GetModes (via /api/modes)"
 echo "  ✅ GetSettings (via /api/settings)"
 echo ""
-echo "Uncovered methods (need Go tests to supplement):"
+echo "Uncovered methods (need Go tests or additional Demo to supplement):"
 echo "  ⬜ RecordSessionEnd"
 echo "  ⬜ RecordUserPrompt"
-echo "  ⬜ RetrieveExperiences"
-echo "  ⬜ BuildICLPrompt"
-echo "  ⬜ ListObservations"
 echo "  ⬜ TriggerRefinement"
 echo "  ⬜ SubmitFeedback"
 echo "  ⬜ UpdateObservation"
 echo "  ⬜ DeleteObservation"
-echo "  ⬜ GetQualityDistribution"
 echo "  ⬜ GetLatestExtraction"
 echo "  ⬜ GetExtractionHistory"
-echo "  ⬜ UpdateSessionUserId"
-
-# ==================== Report ====================
-
-echo ""
-echo "=========================================="
-echo "Test results: $PASSED/$TOTAL passed, $FAILED failed"
-echo "=========================================="
-
-if [ $FAILED -gt 0 ]; then
-    echo ""
-    echo "❌ Failure details:"
-    echo -e "$ERRORS"
-    echo ""
-    echo "Please check:"
-    echo "  1. Is Backend running? curl $BACKEND_URL/api/health"
-    echo "  2. Is Demo running? cd go-sdk/cortex-mem-go/examples/http-server && go run ."
-    echo "  3. Check Backend logs: tail -f logs/cortex-ce.log"
-    exit 1
-fi
-
-echo ""
-echo "🎉 Go SDK Demo E2E test all passed!"
-echo ""
-echo "Verified checkpoints:"
-echo "  ✅ Backend health check (status=ok)"
-echo "  ✅ Demo health check (service=go-sdk-http-server)"
-echo "  ✅ Data write → Backend"
-echo "  ✅ Demo HTTP endpoints: Chat, Search, Version"
-echo "  ✅ Backend direct: health, version, search, observations, projects, stats, modes, settings"
-echo "  ✅ Chain verification: Test → Demo → Go SDK → Backend"
 
 # ==================== Supplementary Tests: Go SDK Uncovered Methods ====================
 
@@ -384,40 +349,6 @@ if [ "$QUALITY_RESP" = "FAIL" ]; then
 else
     pass "Backend GET /api/memory/quality-distribution"
 fi
-
-# ==================== Updated Coverage Checklist ====================
-
-echo ""
-echo "--- Updated Go SDK Method Coverage Checklist ---"
-echo "Methods indirectly covered via Demo HTTP endpoints:"
-echo "  ✅ StartSession (via /chat)"
-echo "  ✅ RecordObservation (via /chat)"
-echo "  ✅ Search (via /search)"
-echo "  ✅ GetVersion (via /version)"
-echo "  ✅ HealthCheck (via /health)"
-echo ""
-echo "Methods verified via direct Backend access:"
-echo "  ✅ GetProjects (via /api/projects)"
-echo "  ✅ GetStats (via /api/stats)"
-echo "  ✅ GetModes (via /api/modes)"
-echo "  ✅ GetSettings (via /api/settings)"
-echo "  ✅ UpdateSessionUserId (via PATCH /api/session/{id}/user)"
-echo "  ✅ RetrieveExperiences (via POST /api/memory/experiences)"
-echo "  ✅ BuildICLPrompt (via POST /api/memory/icl-prompt)"
-echo "  ✅ GetQualityDistribution (via /api/memory/quality-distribution)"
-echo ""
-echo "Uncovered methods (need Go tests or additional Demo to supplement):"
-echo "  ⬜ RecordSessionEnd"
-echo "  ⬜ RecordUserPrompt"
-echo "  ⬜ ListObservations (via Backend /api/observations)"
-echo "  ⬜ TriggerRefinement"
-echo "  ⬜ SubmitFeedback"
-echo "  ⬜ UpdateObservation"
-echo "  ⬜ DeleteObservation"
-echo "  ⬜ GetLatestExtraction"
-echo "  ⬜ GetExtractionHistory"
-
-# ==================== New Endpoint Tests: Demo → SDK → Backend ====================
 
 # Test 19: /experiences endpoint
 info "Test 19: Demo /experiences → RetrieveExperiences"
@@ -507,5 +438,64 @@ else
     pass "GET /quality (API may not be implemented)"
 fi
 
+# ==================== Updated Coverage Checklist ====================
+
 echo ""
-echo "=== Go SDK E2E test complete ==="
+echo "--- Updated Go SDK Method Coverage Checklist ---"
+echo "Methods covered via Demo HTTP endpoints:"
+echo "  ✅ StartSession (via /chat)"
+echo "  ✅ RecordObservation (via /chat)"
+echo "  ✅ Search (via /search)"
+echo "  ✅ GetVersion (via /version)"
+echo "  ✅ HealthCheck (via /health)"
+echo ""
+echo "Methods covered via direct Backend access:"
+echo "  ✅ GetProjects (via /api/projects)"
+echo "  ✅ GetStats (via /api/stats)"
+echo "  ✅ GetModes (via /api/modes)"
+echo "  ✅ GetSettings (via /api/settings)"
+echo "  ✅ UpdateSessionUserId (via PATCH /api/session/{id}/user)"
+echo "  ✅ RetrieveExperiences (via POST /api/memory/experiences)"
+echo "  ✅ BuildICLPrompt (via POST /api/memory/icl-prompt)"
+echo "  ✅ GetQualityDistribution (via /api/memory/quality-distribution)"
+echo "  ✅ ListObservations (via /api/observations)"
+echo ""
+echo "Uncovered methods (need Go unit tests or additional Demo to supplement):"
+echo "  ⬜ RecordSessionEnd"
+echo "  ⬜ RecordUserPrompt"
+echo "  ⬜ TriggerRefinement"
+echo "  ⬜ SubmitFeedback"
+echo "  ⬜ UpdateObservation"
+echo "  ⬜ DeleteObservation"
+echo "  ⬜ GetLatestExtraction"
+echo "  ⬜ GetExtractionHistory"
+
+# ==================== Final Report ====================
+
+echo ""
+echo "=========================================="
+echo "Test results: $PASSED/$TOTAL passed, $FAILED failed"
+echo "=========================================="
+
+if [ $FAILED -gt 0 ]; then
+    echo ""
+    echo "❌ Failure details:"
+    echo -e "$ERRORS"
+    echo ""
+    echo "Please check:"
+    echo "  1. Is Backend running? curl $BACKEND_URL/api/health"
+    echo "  2. Is Demo running? cd go-sdk/cortex-mem-go/examples/http-server && go run ."
+    echo "  3. Check Backend logs: tail -f logs/cortex-ce.log"
+    exit 1
+fi
+
+echo ""
+echo "🎉 Go SDK Demo E2E test all passed! ($TOTAL tests)"
+echo ""
+echo "Verified checkpoints:"
+echo "  ✅ Backend health check (status=ok)"
+echo "  ✅ Demo health check (service=go-sdk-http-server)"
+echo "  ✅ Data write → Backend"
+echo "  ✅ Demo HTTP endpoints: Chat, Search, Version, Experiences, ICL, Observations, Projects, Stats, Modes, Settings, Quality"
+echo "  ✅ Backend direct: health, version, search, observations, projects, stats, modes, settings, experiences, icl-prompt, quality"
+echo "  ✅ Chain verification: Test → Demo → Go SDK → Backend"

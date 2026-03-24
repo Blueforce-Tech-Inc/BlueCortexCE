@@ -35,18 +35,23 @@ public class SearchController {
             @RequestParam(defaultValue = "10") Integer limit,
             @RequestParam(defaultValue = "0") Integer offset) {
 
-        SearchRequest request = SearchRequest.builder()
-                .project(project)
-                .query(query)
-                .type(observationType)
-                .concept(concept)
-                .source(source)
-                .limit(limit)
-                .offset(offset)
-                .build();
+        try {
+            SearchRequest request = SearchRequest.builder()
+                    .project(project)
+                    .query(query)
+                    .type(observationType)
+                    .concept(concept)
+                    .source(source)
+                    .limit(limit)
+                    .offset(offset)
+                    .build();
 
-        Map<String, Object> result = client.search(request);
-        return ResponseEntity.ok(result);
+            Map<String, Object> result = client.search(request);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Search failed: " + e.getMessage()));
+        }
     }
 
     /**

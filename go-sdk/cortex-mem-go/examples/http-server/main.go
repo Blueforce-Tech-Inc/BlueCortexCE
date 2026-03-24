@@ -64,6 +64,10 @@ func main() {
 		}
 
 		project := r.URL.Query().Get("project")
+		if project == "" {
+			http.Error(w, "project is required", http.StatusBadRequest)
+			return
+		}
 		query := r.URL.Query().Get("query")
 
 		searchReq := dto.SearchRequest{
@@ -162,6 +166,10 @@ func main() {
 		}
 
 		project := r.URL.Query().Get("project")
+		if project == "" {
+			http.Error(w, "project is required", http.StatusBadRequest)
+			return
+		}
 		limit := 10
 
 		result, err := client.ListObservations(r.Context(), dto.ObservationsRequest{

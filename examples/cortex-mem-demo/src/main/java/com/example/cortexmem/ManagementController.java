@@ -26,8 +26,13 @@ public class ManagementController {
      */
     @GetMapping(value = "/version", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> getVersion() {
-        Map<String, Object> result = client.getVersion();
-        return ResponseEntity.ok(result);
+        try {
+            Map<String, Object> result = client.getVersion();
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Get version failed: " + e.getMessage()));
+        }
     }
 
     /**
@@ -35,8 +40,13 @@ public class ManagementController {
      */
     @GetMapping(value = "/stats", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> getStats(@RequestParam(required = false) String project) {
-        Map<String, Object> result = client.getStats(project);
-        return ResponseEntity.ok(result);
+        try {
+            Map<String, Object> result = client.getStats(project);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Get stats failed: " + e.getMessage()));
+        }
     }
 
     /**
@@ -44,8 +54,13 @@ public class ManagementController {
      */
     @GetMapping(value = "/modes", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> getModes() {
-        Map<String, Object> result = client.getModes();
-        return ResponseEntity.ok(result);
+        try {
+            Map<String, Object> result = client.getModes();
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Get modes failed: " + e.getMessage()));
+        }
     }
 
     /**
@@ -53,8 +68,13 @@ public class ManagementController {
      */
     @GetMapping(value = "/settings", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> getSettings() {
-        Map<String, Object> result = client.getSettings();
-        return ResponseEntity.ok(result);
+        try {
+            Map<String, Object> result = client.getSettings();
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Get settings failed: " + e.getMessage()));
+        }
     }
 
     /**

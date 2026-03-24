@@ -32,14 +32,19 @@ public class ObservationsController {
             @RequestParam(defaultValue = "10") Integer limit,
             @RequestParam(defaultValue = "0") Integer offset) {
 
-        ObservationsRequest request = ObservationsRequest.builder()
-                .project(project)
-                .limit(limit)
-                .offset(offset)
-                .build();
+        try {
+            ObservationsRequest request = ObservationsRequest.builder()
+                    .project(project)
+                    .limit(limit)
+                    .offset(offset)
+                    .build();
 
-        Map<String, Object> result = client.listObservations(request);
-        return ResponseEntity.ok(result);
+            Map<String, Object> result = client.listObservations(request);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "List observations failed: " + e.getMessage()));
+        }
     }
 
     /**
@@ -53,8 +58,13 @@ public class ObservationsController {
             return ResponseEntity.badRequest().body(Map.of("error", "ids is required"));
         }
 
-        Map<String, Object> result = client.getObservationsByIds(ids);
-        return ResponseEntity.ok(result);
+        try {
+            Map<String, Object> result = client.getObservationsByIds(ids);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Batch observations failed: " + e.getMessage()));
+        }
     }
 
     /**
