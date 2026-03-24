@@ -2,7 +2,6 @@ package com.ablueforce.cortexce.controller;
 
 import com.ablueforce.cortexce.service.MemoryRefineService;
 import com.ablueforce.cortexce.service.ExpRagService;
-import com.ablueforce.cortexce.service.QualityScorer;
 import com.ablueforce.cortexce.repository.ObservationRepository;
 import com.ablueforce.cortexce.event.MemoryRefineEventPublisher;
 import com.ablueforce.cortexce.entity.ObservationEntity;
@@ -35,18 +34,15 @@ public class MemoryController {
     private final MemoryRefineService memoryRefineService;
     private final ExpRagService expRagService;
     private final ObservationRepository observationRepository;
-    private final QualityScorer qualityScorer;
     private final MemoryRefineEventPublisher eventPublisher;
 
     public MemoryController(MemoryRefineService memoryRefineService,
                           ExpRagService expRagService,
                           ObservationRepository observationRepository,
-                          QualityScorer qualityScorer,
                           MemoryRefineEventPublisher eventPublisher) {
         this.memoryRefineService = memoryRefineService;
         this.expRagService = expRagService;
         this.observationRepository = observationRepository;
-        this.qualityScorer = qualityScorer;
         this.eventPublisher = eventPublisher;
     }
 
@@ -97,7 +93,7 @@ public class MemoryController {
         String task = (String) request.get("task");
         String project = (String) request.get("project");
         int maxChars = request.get("maxChars") != null
-            ? ((Number) request.get("maxChars")).intValue()
+            ? Math.max(100, ((Number) request.get("maxChars")).intValue())
             : 4000;
 
         List<ExpRagService.Experience> experiences = expRagService
@@ -158,11 +154,10 @@ public class MemoryController {
      */
     @PostMapping("/feedback")
     public ResponseEntity<Map<String, String>> submitFeedback(@RequestBody Map<String, Object> request) {
-        // This endpoint would need implementation with observation ID lookup
-        // Simplified for now
-        return ResponseEntity.ok(Map.of(
-            "status", "received",
-            "message", "Feedback submission endpoint - requires observation ID lookup"
+        // TODO: Full implementation requires observation ID lookup and feedback persistence
+        return ResponseEntity.status(501).body(Map.of(
+            "status", "not_implemented",
+            "message", "Feedback submission endpoint is not yet implemented"
         ));
     }
 
