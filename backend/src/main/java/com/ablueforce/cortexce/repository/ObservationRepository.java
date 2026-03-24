@@ -183,41 +183,13 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         @Param("limit") int limit
     );
 
-    // Composable AND filter — all non-null parameters are combined
-    @Query(value = """
-        SELECT * FROM mem_observations
-        WHERE project_path = :project
-        AND (:type IS NULL OR type = :type)
-        AND (:source IS NULL OR source = :source)
-        AND (:concept IS NULL OR EXISTS (
-            SELECT 1 FROM jsonb_array_elements_text(concepts::jsonb) elem
-            WHERE elem = :concept
-        ))
-        AND (:startEpoch IS NULL OR created_at_epoch >= :startEpoch)
-        AND (:endEpoch IS NULL OR created_at_epoch <= :endEpoch)
-        ORDER BY created_at_epoch DESC
-        LIMIT :limit
-        """, nativeQuery = true)
-    List<ObservationEntity> findByAllFilters(
-        @Param("project") String project,
-        @Param("type") String type,
-        @Param("source") String source,
-        @Param("concept") String concept,
-        @Param("startEpoch") Long startEpoch,
-        @Param("endEpoch") Long endEpoch,
-        @Param("limit") int limit
-    );
-
     // Composable AND filter with offset
     @Query(value = """
         SELECT * FROM mem_observations
         WHERE project_path = :project
         AND (:type IS NULL OR type = :type)
         AND (:source IS NULL OR source = :source)
-        AND (:concept IS NULL OR EXISTS (
-            SELECT 1 FROM jsonb_array_elements_text(concepts::jsonb) elem
-            WHERE elem = :concept
-        ))
+        AND (:concept IS NULL OR concepts @> to_jsonb(:concept))
         AND (:startEpoch IS NULL OR created_at_epoch >= :startEpoch)
         AND (:endEpoch IS NULL OR created_at_epoch <= :endEpoch)
         ORDER BY created_at_epoch DESC
@@ -645,7 +617,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
 
     /**
      * Wildcard type query using LIKE for ICL integration.
-     * findByAllFilters uses exact match (=), so it won't work for patterns like "extracted_%".
+     * findByAllFiltersWithOffset uses exact match (=), so it won't work for patterns like "extracted_%".
      */
     @Query(value = """
         SELECT * FROM mem_observations
