@@ -3240,3 +3240,200 @@ func BenchmarkBuildICLPrompt(b *testing.B) {
 }
 ```
 
+
+---
+
+## 附录 R: Java SDK 补充实现建议（迭代 15）
+
+### 背景
+
+通过对比分析，发现 Java SDK 缺少以下重要功能。**建议在 Go SDK 开发前先补充到 Java SDK**，确保两个 SDK 功能对齐。
+
+### 需要补充的功能
+
+| # | 功能 | 后端端点 | 优先级 | 理由 |
+|---|------|---------|--------|------|
+| 1 | Search | GET /api/search | P0 | 语义搜索是核心功能 |
+| 2 | ListObservations | GET /api/observations | P1 | 分页列表，调试/管理必备 |
+| 3 | GetVersion | GET /api/version | P2 | 版本检查，调试用 |
+
+### Search API Java 实现建议
+
+```java
+// CortexMemClient.java 新增方法
+public interface CortexMemClient {
+    // ... 现有方法 ...
+    
+    /**
+     * Search observations by query, type, source, or concept.
+     * Calls GET /api/search
+     */
+    Map<String, Object> search(SearchRequest request);
+}
+
+// dto/SearchRequest.java
+public record SearchRequest(
+    String project,
+    String query,
+    String type,
+    String concept,
+    String source,
+    Integer limit,
+    Integer offset
+) {
+    public static Builder builder() {
+        return new Builder();
+    }
+    
+    public static class Builder {
+        private String project;
+        private String query;
+        private String type;
+        private String concept;
+        private String source;
+        private Integer limit = 20;
+        private Integer offset = 0;
+        
+        public Builder project(String project) { this.project = project; return this; }
+        public Builder query(String query) { this.query = query; return this; }
+        public Builder type(String type) { this.type = type; return this; }
+        public Builder concept(String concept) { this.concept = concept; return this; }
+        public Builder source(String source) { this.source = source; return this; }
+        public Builder limit(Integer limit) { this.limit = limit; return this; }
+        public Builder offset(Integer offset) { this.offset = offset; return this; }
+        
+        public SearchRequest build() {
+            return new SearchRequest(project, query, type, concept, source, limit, offset);
+        }
+    }
+}
+```
+
+### ListObservations API Java 实现建议
+
+```java
+// CortexMemClient.java 新增方法
+public interface CortexMemClient {
+    // ... 现有方法 ...
+    
+    /**
+     * List observations with pagination.
+     * Calls GET /api/observations
+     */
+    PagedResponse<Observation> listObservations(ObservationsRequest request);
+}
+
+// dto/ObservationsRequest.java
+public record ObservationsRequest(
+    String project,
+    Integer offset,
+    Integer limit
+) {
+    public static Builder builder() {
+        return new Builder();
+    }
+    
+    public static class Builder {
+        private String project;
+        private Integer offset = 0;
+        private Integer limit = 20;
+        
+        public Builder project(String project) { this.project = project; return this; }
+        public Builder offset(Integer offset) { this.offset = offset; return this; }
+        public Builder limit(Integer limit) { this.limit = limit; return this; }
+        
+        public ObservationsRequest build() {
+            return new ObservationsRequest(project, offset, limit);
+        }
+    }
+}
+
+// dto/PagedResponse.java
+public record PagedResponse<T>(
+    List<T> items,
+    boolean hasMore,
+    long total,
+    int offset,
+    int limit
+) {}
+```
+
+### GetVersion API Java 实现建议
+
+```java
+// CortexMemClient.java 新增方法
+public interface CortexMemClient {
+    // ... 现有方法 ...
+    
+    /**
+     * Get backend version information.
+     * Calls GET /api/version
+     */
+    Map<String, Object> getVersion();
+}
+```
+
+### 实现优先级建议
+
+| 阶段 | 内容 | 工作量 |
+|------|------|--------|
+| 1 | Search + SearchRequest | 2 小时 |
+| 2 | ListObservations + ObservationsRequest | 2 小时 |
+| 3 | GetVersion | 0.5 小时 |
+| 4 | 测试 + 文档 | 2 小时 |
+| **总计** | | **6.5 小时** |
+
+### 决策
+
+**建议**：在 Go SDK Phase 1 完成前，先将这些功能补充到 Java SDK。
+
+**原因**：
+1. 确保 Go SDK 与 Java SDK 功能对齐
+2. Java SDK 用户也能受益
+3. 避免 Go SDK "超过" Java SDK 造成混淆
+
+---
+
+## 附录 S: SDK 设计一致性检查（迭代 16）
+
+### Go SDK 与 Java SDK 功能对照
+
+| 功能 | Java SDK | Go SDK Phase 1 | 状态 |
+|------|----------|----------------|------|
+| StartSession | ✅ | ✅ | 对齐 ✅ |
+| RecordObservation | ✅ | ✅ | 对齐 ✅ |
+| RecordSessionEnd | ✅ | ✅ | 对齐 ✅ |
+| RecordUserPrompt | ✅ | ✅ | 对齐 ✅ |
+| RetrieveExperiences | ✅ | ✅ | 对齐 ✅ |
+| BuildICLPrompt | ✅ | ✅ | 对齐 ✅ |
+| TriggerRefinement | ✅ | ✅ | 对齐 ✅ |
+| SubmitFeedback | ✅ | ✅ | 对齐 ✅ |
+| UpdateObservation | ✅ | ✅ | 对齐 ✅ |
+| DeleteObservation | ✅ | ✅ | 对齐 ✅ |
+| GetQualityDistribution | ✅ | ✅ | 对齐 ✅ |
+| HealthCheck | ✅ | ✅ | 对齐 ✅ |
+| GetLatestExtraction | ✅ | ✅ | 对齐 ✅ |
+| GetExtractionHistory | ✅ | ✅ | 对齐 ✅ |
+| UpdateSessionUserId | ✅ | ✅ | 对齐 ✅ |
+
+### Go SDK Phase 2 扩展功能
+
+| 功能 | Java SDK | Go SDK Phase 2 | 备注 |
+|------|----------|----------------|------|
+| Search | ❌ 未封装 | ✅ | 建议先补充到 Java SDK |
+| ListObservations | ❌ 未封装 | ✅ | 建议先补充到 Java SDK |
+| GetVersion | ❌ 未封装 | ✅ | 建议先补充到 Java SDK |
+
+### 一致性结论
+
+✅ **Phase 1 完全对齐** — 15 个核心方法一一对应
+⚠️ **Phase 2 扩展** — 3 个方法 Java SDK 缺失，建议先补充
+
+### 集成层对照
+
+| 集成层 | Java (Spring AI) | Go (Eino) | Go (LangChainGo) | Go (Genkit) |
+|--------|-----------------|-----------|------------------|-------------|
+| Retriever | CortexMemoryAdvisor | ✅ Retriever | ✅ Memory | ✅ Retriever |
+| Tools | CortexMemoryTools | ❌ 可选 | ❌ 可选 | ❌ 可选 |
+| Session | CortexSessionContext | ❌ 可选 | ❌ 可选 | ❌ 可选 |
+
