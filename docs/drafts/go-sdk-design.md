@@ -4903,3 +4903,131 @@ retriever := eino.NewRetriever(client, "/project",
 **文档规模**: 5100+ 行
 **附录数量**: 32 个（A- AF）
 **下一步**: 技术审查 → 产品审查 → 实施
+---
+
+## 附录 AG: Java SDK 未封装后端 API 完整清单（迭代 30）
+
+### 背景
+
+后端提供 ~50 个 API 端点，Java SDK 只封装了 15 个。此清单列出所有未封装的 API，作为 **Java SDK 先行改进** 的参考。
+
+**实施顺序建议**：
+1. 先实施 Java SDK 缺失功能（P0/P1）
+2. 再实施 Go SDK（对齐最新 Java SDK）
+
+### Java SDK 已封装（15 个）
+
+| # | Java 方法 | 后端端点 | 状态 |
+|---|-----------|---------|------|
+| 1 | `startSession` | `POST /api/session/start` | ✅ |
+| 2 | `recordObservation` | `POST /api/ingest/tool-use` | ✅ |
+| 3 | `recordSessionEnd` | `POST /api/ingest/session-end` | ✅ |
+| 4 | `recordUserPrompt` | `POST /api/ingest/user-prompt` | ✅ |
+| 5 | `retrieveExperiences` | `POST /api/memory/experiences` | ✅ |
+| 6 | `buildICLPrompt` | `POST /api/memory/icl-prompt` | ✅ |
+| 7 | `triggerRefinement` | `POST /api/memory/refine` | ✅ |
+| 8 | `submitFeedback` | `POST /api/memory/feedback` | ✅ |
+| 9 | `updateObservation` | `PATCH /api/memory/observations/{id}` | ✅ |
+| 10 | `deleteObservation` | `DELETE /api/memory/observations/{id}` | ✅ |
+| 11 | `getQualityDistribution` | `GET /api/memory/quality-distribution` | ✅ |
+| 12 | `healthCheck` | `GET /api/health` 或 `/actuator/health` | ✅ |
+| 13 | `getLatestExtraction` | `GET /api/extraction/{template}/latest` | ✅ |
+| 14 | `getExtractionHistory` | `GET /api/extraction/{template}/history` | ✅ |
+| 15 | `updateSessionUserId` | `PATCH /api/session/{sessionId}/user` | ✅ |
+
+### 后端有但 Java SDK 未封装的 API
+
+#### P0: 核心功能（强烈建议补充）
+
+| # | 后端端点 | 方法 | 说明 | 建议 Java 方法名 |
+|---|---------|------|------|----------------|
+| 16 | `/api/search` | GET | 语义搜索（query + type + concept + source + offset + limit） | `search(SearchRequest)` |
+| 17 | `/api/observations` | GET | 分页获取 observation 列表（project + offset + limit） | `listObservations(ObservationsRequest)` |
+| 18 | `/api/observations/batch` | POST | 批量获取 observation（按 ID 列表） | `getObservationsByIds(List<String>)` |
+
+#### P1: 管理功能（建议补充）
+
+| # | 后端端点 | 方法 | 说明 | 建议 Java 方法名 |
+|---|---------|------|------|----------------|
+| 19 | `/api/projects` | GET | 获取项目列表 | `getProjects()` |
+| 20 | `/api/summaries` | GET | 分页获取摘要列表 | `listSummaries(SummariesRequest)` |
+| 21 | `/api/prompts` | GET | 分页获取 prompt 列表 | `listPrompts(PromptsRequest)` |
+| 22 | `/api/stats` | GET | 获取统计信息 | `getStats(String projectPath)` |
+| 23 | `/api/modes` | GET | 获取模式列表 | `getModes()` |
+| 24 | `/api/modes` | POST | 创建/更新模式 | `createMode(ModeRequest)` |
+| 25 | `/api/settings` | GET | 获取设置 | `getSettings()` |
+| 26 | `/api/settings` | POST | 更新设置 | `updateSettings(SettingsRequest)` |
+| 27 | `/api/version` | GET | 获取后端版本 | `getVersion()` |
+
+#### P2: 上下文和注册功能（可选补充）
+
+| # | 后端端点 | 方法 | 说明 | 建议 Java 方法名 |
+|---|---------|------|------|----------------|
+| 28 | `/api/context/inject` | GET | 上下文注入 | `injectContext(project, type, mode)` |
+| 29 | `/api/context/preview` | GET | 上下文预览 | `previewContext(project, mode)` |
+| 30 | `/api/context/recent` | GET | 最近上下文 | `getRecentContext(project, count)` |
+| 31 | `/api/context/prior-messages` | GET | 前一次会话消息 | `getPriorMessages(project, sessionId)` |
+| 32 | `/api/context/{projectName}` | POST | 注册项目上下文 | `registerContext(projectName)` |
+| 33 | `/api/context/{projectName}/custom` | POST | 自定义上下文 | `createCustomContext(projectName, config)` |
+| 34 | `/api/context/generate` | POST | 生成上下文 | `generateContext(project, options)` |
+| 35 | `/api/register/{projectName}` | GET | 项目注册状态 | `getRegistrationStatus(projectName)` |
+| 36 | `/api/register` | POST | 注册项目 | `registerProject(RegisterRequest)` |
+| 37 | `/api/register/{projectName}` | DELETE | 取消注册 | `unregisterProject(projectName)` |
+
+#### P3: 高级功能（按需补充）
+
+| # | 后端端点 | 方法 | 说明 | 建议 Java 方法名 |
+|---|---------|------|------|----------------|
+| 38 | `/api/search/by-file` | GET | 按文件搜索 | `searchByFile(project, filePath)` |
+| 39 | `/api/concepts` | GET | 获取概念列表 | `getConcepts(project)` |
+| 40 | `/api/concepts/valid` | GET | 获取有效概念 | `getValidConcepts()` |
+| 41 | `/api/types` | GET | 获取类型列表 | `getTypes(project)` |
+| 42 | `/api/types/valid` | GET | 获取有效类型 | `getValidTypes()` |
+| 43 | `/api/types/{typeId}/emoji` | GET | 类型图标 | `getTypeEmoji(typeId)` |
+| 44 | `/api/types/{typeId}/validate` | GET | 验证类型 | `validateType(typeId)` |
+| 45 | `/api/timeline` | GET | 时间线 | `getTimeline(project, options)` |
+| 46 | `/api/processing-status` | GET | 处理状态 | `getProcessingStatus()` |
+| 47 | `/api/readiness` | GET | 就绪检查 | `isReady()` |
+| 48 | `/api/llm` | GET | LLM 信息 | `getLlmInfo()` |
+| 49 | `/api/embedding` | GET | 嵌入信息 | `getEmbeddingInfo()` |
+| 50 | `/api/sdk-sessions/batch` | POST | 批量获取会话 | `getSessionsByIds(List<String>)` |
+
+#### P3: 数据导入功能（可选补充）
+
+| # | 后端端点 | 方法 | 说明 | 建议 Java 方法名 |
+|---|---------|------|------|----------------|
+| 51 | `/api/import/sessions` | POST | 导入会话 | `importSessions(ImportRequest)` |
+| 52 | `/api/import/observations` | POST | 导入观察 | `importObservations(ImportRequest)` |
+| 53 | `/api/import/prompts` | POST | 导入提示 | `importPrompts(ImportRequest)` |
+| 54 | `/api/import/summaries` | POST | 导入摘要 | `importSummaries(ImportRequest)` |
+| 55 | `/api/import/all` | GET | 获取所有导入 | `getAllImports(project)` |
+| 56 | `/api/test/observation` | POST | 测试观察 | `testObservation(TestRequest)` |
+| 57 | `/api/mode/{id}` | PATCH | 更新模式 | `updateMode(id, request)` |
+| 58 | `/api/mode/{id}` | DELETE | 删除模式 | `deleteMode(id)` |
+| 59 | `/api/extraction/run` | POST | 手动触发提取 | `runExtraction(projectPath)` |
+| 60 | `/api/session/{sessionId}` | GET | 获取会话详情 | `getSession(sessionId)` |
+| 61 | `/api/memory/clear` | POST | 清空记忆 | `clearMemory(projectPath)` |
+
+### 总计
+
+| 类别 | 数量 |
+|------|------|
+| 已封装 | 15 |
+| P0 未封装 | 3 |
+| P1 未封装 | 9 |
+| P2 未封装 | 10 |
+| P3 未封装 | 24 |
+| **总计** | **61** |
+
+### 实施建议
+
+**Phase A: Java SDK 补充（建议在 Go SDK 之前）**
+1. P0: Search + ListObservations + BatchObservations
+2. P1: Projects + Summaries + Prompts + Stats + Version
+3. 测试 + Demo 更新
+
+**Phase B: Go SDK（对齐最新 Java SDK）**
+1. 核心 15 方法（与当前 Java SDK 对齐）
+2. P0/P1 扩展（与 Java SDK Phase A 对齐）
+3. Demo 项目
+
