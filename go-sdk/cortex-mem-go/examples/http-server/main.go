@@ -11,12 +11,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/abforce/cortex-ce/cortex-mem-go"
+	cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
 	"github.com/abforce/cortex-ce/cortex-mem-go/dto"
 )
 
 // writeJSON encodes v as JSON and sets the Content-Type header.
-// Returns true on success; on failure it writes a JSON error response.
 func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(v); err != nil {
@@ -29,6 +28,11 @@ func writeJSONError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(map[string]string{"error": message})
+}
+
+// readJSON decodes the request body into dst.
+func readJSON(r *http.Request, dst any) error {
+	return json.NewDecoder(r.Body).Decode(dst)
 }
 
 // checkMethod verifies the request method matches expected; returns false if not.
@@ -50,9 +54,13 @@ func main() {
 	// Setup HTTP handlers
 	mux := http.NewServeMux()
 
-	// Health endpoint
+	// --- GET /health ---
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		if !checkMethod(w, r, http.MethodGet) {
+			return
+		}
+		if err := client.HealthCheck(r.Context()); err != nil {
+			writeJSONError(w, http.StatusServiceUnavailable, fmt.Sprintf("unhealthy: %v", err))
 			return
 		}
 		writeJSON(w, map[string]any{
@@ -62,22 +70,19 @@ func main() {
 		})
 	})
 
-	// Chat endpoint
+	// --- POST /chat ---
 	mux.HandleFunc("/chat", func(w http.ResponseWriter, r *http.Request) {
 		if !checkMethod(w, r, http.MethodPost) {
 			return
 		}
-
 		var req struct {
 			Project string `json:"project"`
 			Message string `json:"message"`
 		}
-
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := readJSON(r, &req); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
-
 		if req.Project == "" {
 			writeJSONError(w, http.StatusBadRequest, "project is required")
 			return
@@ -86,7 +91,6 @@ func main() {
 			writeJSONError(w, http.StatusBadRequest, "message is required")
 			return
 		}
-
 		writeJSON(w, map[string]any{
 			"response":  fmt.Sprintf("Received: %s", req.Message),
 			"project":   req.Project,
@@ -94,80 +98,70 @@ func main() {
 		})
 	})
 
-	// Search endpoint
+	// --- GET /search ---
 	mux.HandleFunc("/search", func(w http.ResponseWriter, r *http.Request) {
 		if !checkMethod(w, r, http.MethodGet) {
 			return
 		}
-
 		project := r.URL.Query().Get("project")
 		if project == "" {
 			writeJSONError(w, http.StatusBadRequest, "project is required")
 			return
 		}
 		query := r.URL.Query().Get("query")
-
 		searchReq := dto.SearchRequest{
 			Project: project,
 			Query:   query,
 			Limit:   10,
 		}
-
 		result, err := client.Search(r.Context(), searchReq)
 		if err != nil {
 			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("search failed: %v", err))
 			return
 		}
-
 		writeJSON(w, result)
 	})
 
-	// Version endpoint
+	// --- GET /version ---
 	mux.HandleFunc("/version", func(w http.ResponseWriter, r *http.Request) {
 		if !checkMethod(w, r, http.MethodGet) {
 			return
 		}
-
-		version, err := client.GetVersion(r.Context())
+		result, err := client.GetVersion(r.Context())
 		if err != nil {
 			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get version: %v", err))
 			return
 		}
-
-		writeJSON(w, version)
+		writeJSON(w, result)
 	})
 
-	// Experiences endpoint
+	// --- GET /experiences ---
 	mux.HandleFunc("/experiences", func(w http.ResponseWriter, r *http.Request) {
 		if !checkMethod(w, r, http.MethodGet) {
 			return
 		}
-
 		project := r.URL.Query().Get("project")
-		query := r.URL.Query().Get("query")
 		if project == "" {
 			writeJSONError(w, http.StatusBadRequest, "project is required")
 			return
 		}
-
+		task := r.URL.Query().Get("task")
 		exps, err := client.RetrieveExperiences(r.Context(), dto.ExperienceRequest{
 			Project: project,
-			Task:    query,
+			Task:    task,
 		})
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed: %v", err))
+			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to retrieve experiences: %v", err))
 			return
 		}
-
 		writeJSON(w, map[string]any{"experiences": exps, "count": len(exps)})
 	})
 
-	// ICL Prompt endpoint
+	// --- GET /iclprompt ---
 	mux.HandleFunc("/iclprompt", func(w http.ResponseWriter, r *http.Request) {
 		if !checkMethod(w, r, http.MethodGet) {
 			return
 		}
-
 		project := r.URL.Query().Get("project")
 		if project == "" {
 			writeJSONError(w, http.StatusBadRequest, "project is required")
@@ -178,144 +172,378 @@ func main() {
 			writeJSONError(w, http.StatusBadRequest, "task is required")
 			return
 		}
-
 		result, err := client.BuildICLPrompt(r.Context(), dto.ICLPromptRequest{
 			Project:  project,
 			Task:     task,
 			MaxChars: 2000,
 		})
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed: %v", err))
+			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to build ICL prompt: %v", err))
 			return
 		}
-
 		writeJSON(w, result)
 	})
 
-	// Observations list endpoint
+	// --- GET /observations ---
 	mux.HandleFunc("/observations", func(w http.ResponseWriter, r *http.Request) {
 		if !checkMethod(w, r, http.MethodGet) {
 			return
 		}
-
 		project := r.URL.Query().Get("project")
 		if project == "" {
 			writeJSONError(w, http.StatusBadRequest, "project is required")
 			return
 		}
-		limit := 10
-
 		result, err := client.ListObservations(r.Context(), dto.ObservationsRequest{
 			Project: project,
-			Limit:   limit,
+			Limit:   10,
 		})
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed: %v", err))
+			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list observations: %v", err))
 			return
 		}
-
 		writeJSON(w, result)
 	})
 
-	// Projects endpoint
+	// --- POST /observations/batch ---
+	mux.HandleFunc("/observations/batch", func(w http.ResponseWriter, r *http.Request) {
+		if !checkMethod(w, r, http.MethodPost) {
+			return
+		}
+		var req struct {
+			Ids []string `json:"ids"`
+		}
+		if err := readJSON(r, &req); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if len(req.Ids) == 0 {
+			writeJSONError(w, http.StatusBadRequest, "ids is required")
+			return
+		}
+		result, err := client.GetObservationsByIds(r.Context(), req.Ids)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get observations: %v", err))
+			return
+		}
+		writeJSON(w, result)
+	})
+
+	// --- GET /projects ---
 	mux.HandleFunc("/projects", func(w http.ResponseWriter, r *http.Request) {
 		if !checkMethod(w, r, http.MethodGet) {
 			return
 		}
-
 		result, err := client.GetProjects(r.Context())
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed: %v", err))
+			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get projects: %v", err))
 			return
 		}
-
 		writeJSON(w, result)
 	})
 
-	// Stats endpoint
+	// --- GET /stats ---
 	mux.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
 		if !checkMethod(w, r, http.MethodGet) {
 			return
 		}
-
 		project := r.URL.Query().Get("project")
-
 		result, err := client.GetStats(r.Context(), project)
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed: %v", err))
+			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get stats: %v", err))
 			return
 		}
-
 		writeJSON(w, result)
 	})
 
-	// Modes endpoint
+	// --- GET /modes ---
 	mux.HandleFunc("/modes", func(w http.ResponseWriter, r *http.Request) {
 		if !checkMethod(w, r, http.MethodGet) {
 			return
 		}
-
 		result, err := client.GetModes(r.Context())
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed: %v", err))
+			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get modes: %v", err))
 			return
 		}
-
 		writeJSON(w, result)
 	})
 
-	// Settings endpoint
+	// --- GET /settings ---
 	mux.HandleFunc("/settings", func(w http.ResponseWriter, r *http.Request) {
 		if !checkMethod(w, r, http.MethodGet) {
 			return
 		}
-
 		result, err := client.GetSettings(r.Context())
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed: %v", err))
+			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get settings: %v", err))
 			return
 		}
-
 		writeJSON(w, result)
 	})
 
-	// Quality distribution endpoint
+	// --- GET /quality ---
 	mux.HandleFunc("/quality", func(w http.ResponseWriter, r *http.Request) {
 		if !checkMethod(w, r, http.MethodGet) {
 			return
 		}
-
 		project := r.URL.Query().Get("project")
 		if project == "" {
 			writeJSONError(w, http.StatusBadRequest, "project is required")
 			return
 		}
-
 		result, err := client.GetQualityDistribution(r.Context(), project)
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed: %v", err))
+			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get quality distribution: %v", err))
 			return
 		}
-
 		writeJSON(w, result)
+	})
+
+	// --- GET /extraction/latest ---
+	mux.HandleFunc("/extraction/latest", func(w http.ResponseWriter, r *http.Request) {
+		if !checkMethod(w, r, http.MethodGet) {
+			return
+		}
+		template := r.URL.Query().Get("template")
+		if template == "" {
+			writeJSONError(w, http.StatusBadRequest, "template is required")
+			return
+		}
+		userId := r.URL.Query().Get("userId")
+		project := r.URL.Query().Get("project")
+		if project == "" {
+			project = "/tmp/go-demo-project"
+		}
+		result, err := client.GetLatestExtraction(r.Context(), project, template, userId)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get extraction: %v", err))
+			return
+		}
+		writeJSON(w, result)
+	})
+
+	// --- GET /extraction/history ---
+	mux.HandleFunc("/extraction/history", func(w http.ResponseWriter, r *http.Request) {
+		if !checkMethod(w, r, http.MethodGet) {
+			return
+		}
+		template := r.URL.Query().Get("template")
+		if template == "" {
+			writeJSONError(w, http.StatusBadRequest, "template is required")
+			return
+		}
+		userId := r.URL.Query().Get("userId")
+		limit := 5
+		if l := r.URL.Query().Get("limit"); l != "" {
+			fmt.Sscanf(l, "%d", &limit)
+		}
+		project := r.URL.Query().Get("project")
+		if project == "" {
+			project = "/tmp/go-demo-project"
+		}
+		result, err := client.GetExtractionHistory(r.Context(), project, template, userId, limit)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get extraction history: %v", err))
+			return
+		}
+		writeJSON(w, result)
+	})
+
+	// --- POST /refine ---
+	mux.HandleFunc("/refine", func(w http.ResponseWriter, r *http.Request) {
+		if !checkMethod(w, r, http.MethodPost) {
+			return
+		}
+		project := r.URL.Query().Get("project")
+		if project == "" {
+			writeJSONError(w, http.StatusBadRequest, "project is required")
+			return
+		}
+		if err := client.TriggerRefinement(r.Context(), project); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to trigger refinement: %v", err))
+			return
+		}
+		writeJSON(w, map[string]string{"status": "refined"})
+	})
+
+	// --- POST /feedback ---
+	mux.HandleFunc("/feedback", func(w http.ResponseWriter, r *http.Request) {
+		if !checkMethod(w, r, http.MethodPost) {
+			return
+		}
+		var req struct {
+			ObservationId string `json:"observation_id"`
+			FeedbackType  string `json:"feedback_type"`
+			Comment       string `json:"comment,omitempty"`
+		}
+		if err := readJSON(r, &req); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if req.ObservationId == "" || req.FeedbackType == "" {
+			writeJSONError(w, http.StatusBadRequest, "observation_id and feedback_type are required")
+			return
+		}
+		if err := client.SubmitFeedback(r.Context(), req.ObservationId, req.FeedbackType, req.Comment); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to submit feedback: %v", err))
+			return
+		}
+		writeJSON(w, map[string]string{"status": "submitted"})
+	})
+
+	// --- PATCH /session/user ---
+	mux.HandleFunc("/session/user", func(w http.ResponseWriter, r *http.Request) {
+		if !checkMethod(w, r, http.MethodPatch) {
+			return
+		}
+		var req struct {
+			SessionId string `json:"session_id"`
+			UserId    string `json:"user_id"`
+		}
+		if err := readJSON(r, &req); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if req.SessionId == "" || req.UserId == "" {
+			writeJSONError(w, http.StatusBadRequest, "session_id and user_id are required")
+			return
+		}
+		result, err := client.UpdateSessionUserId(r.Context(), req.SessionId, req.UserId)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update session user: %v", err))
+			return
+		}
+		writeJSON(w, result)
+	})
+
+	// --- PATCH /observation/patch ---
+	mux.HandleFunc("/observation/patch", func(w http.ResponseWriter, r *http.Request) {
+		if !checkMethod(w, r, http.MethodPatch) {
+			return
+		}
+		var req struct {
+			Id      string `json:"id"`
+			Title   string `json:"title,omitempty"`
+			Content string `json:"content,omitempty"`
+			Source  string `json:"source,omitempty"`
+		}
+		if err := readJSON(r, &req); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if req.Id == "" {
+			writeJSONError(w, http.StatusBadRequest, "id is required")
+			return
+		}
+		update := dto.ObservationUpdate{}
+		if req.Title != "" {
+			update.Title = &req.Title
+		}
+		if req.Content != "" {
+			update.Content = &req.Content
+		}
+		if req.Source != "" {
+			update.Source = &req.Source
+		}
+		if err := client.UpdateObservation(r.Context(), req.Id, update); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update observation: %v", err))
+			return
+		}
+		writeJSON(w, map[string]string{"status": "updated"})
+	})
+
+	// --- DELETE /observation/delete ---
+	mux.HandleFunc("/observation/delete", func(w http.ResponseWriter, r *http.Request) {
+		if !checkMethod(w, r, http.MethodDelete) {
+			return
+		}
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			writeJSONError(w, http.StatusBadRequest, "id is required")
+			return
+		}
+		if err := client.DeleteObservation(r.Context(), id); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to delete observation: %v", err))
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	// --- POST /ingest/prompt ---
+	mux.HandleFunc("/ingest/prompt", func(w http.ResponseWriter, r *http.Request) {
+		if !checkMethod(w, r, http.MethodPost) {
+			return
+		}
+		var req struct {
+			Project string `json:"project"`
+			Prompt  string `json:"prompt"`
+			Session string `json:"session_id"`
+		}
+		if err := readJSON(r, &req); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if err := client.RecordUserPrompt(r.Context(), dto.UserPromptRequest{
+			ProjectPath: req.Project,
+			SessionID:   req.Session,
+			PromptText:  req.Prompt,
+		}); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to record prompt: %v", err))
+			return
+		}
+		writeJSON(w, map[string]string{"status": "recorded"})
+	})
+
+	// --- POST /ingest/session-end ---
+	mux.HandleFunc("/ingest/session-end", func(w http.ResponseWriter, r *http.Request) {
+		if !checkMethod(w, r, http.MethodPost) {
+			return
+		}
+		var req struct {
+			Project string `json:"project"`
+			Session string `json:"session_id"`
+		}
+		if err := readJSON(r, &req); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if err := client.RecordSessionEnd(r.Context(), dto.SessionEndRequest{
+			ProjectPath: req.Project,
+			SessionID:   req.Session,
+		}); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to record session end: %v", err))
+			return
+		}
+		writeJSON(w, map[string]string{"status": "ended"})
 	})
 
 	// Start HTTP server with timeouts
 	addr := ":8080"
 	fmt.Printf("🚀 Go SDK HTTP server starting on %s\n", addr)
 	fmt.Println("Endpoints:")
-	fmt.Println("  GET  /health        - Health check")
-	fmt.Println("  POST /chat          - Chat with memory")
-	fmt.Println("  GET  /search        - Search observations")
-	fmt.Println("  GET  /version       - Backend version")
-	fmt.Println("  GET  /experiences   - Retrieve experiences")
-	fmt.Println("  GET  /iclprompt     - Build ICL prompt")
-	fmt.Println("  GET  /observations  - List observations")
-	fmt.Println("  GET  /projects      - Get projects")
-	fmt.Println("  GET  /stats         - Get stats")
-	fmt.Println("  GET  /modes         - Get modes")
-	fmt.Println("  GET  /settings      - Get settings")
-	fmt.Println("  GET  /quality       - Quality distribution")
+	fmt.Println("  GET    /health              - Health check")
+	fmt.Println("  POST   /chat                - Chat with memory")
+	fmt.Println("  GET    /search              - Search observations")
+	fmt.Println("  GET    /version             - Backend version")
+	fmt.Println("  GET    /experiences         - Retrieve experiences")
+	fmt.Println("  GET    /iclprompt           - Build ICL prompt")
+	fmt.Println("  GET    /observations        - List observations")
+	fmt.Println("  POST   /observations/batch  - Batch get observations by IDs")
+	fmt.Println("  GET    /projects            - Get projects")
+	fmt.Println("  GET    /stats               - Get stats")
+	fmt.Println("  GET    /modes               - Get modes")
+	fmt.Println("  GET    /settings            - Get settings")
+	fmt.Println("  GET    /quality             - Quality distribution")
+	fmt.Println("  GET    /extraction/latest   - Latest extraction result")
+	fmt.Println("  GET    /extraction/history  - Extraction history")
+	fmt.Println("  POST   /refine              - Trigger memory refinement")
+	fmt.Println("  POST   /feedback            - Submit observation feedback")
+	fmt.Println("  PATCH  /session/user        - Update session user ID")
+	fmt.Println("  PATCH  /observation/patch   - Update observation")
+	fmt.Println("  DELETE /observation/delete  - Delete observation")
+	fmt.Println("  POST   /ingest/prompt       - Ingest user prompt")
+	fmt.Println("  POST   /ingest/session-end  - Ingest session end")
 
 	srv := &http.Server{
 		Addr:         addr,

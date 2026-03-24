@@ -121,4 +121,18 @@ class DtoTest {
         var q = new QualityDistribution("/p", 10, 5, 3, 2);
         assertThat(q.total()).isEqualTo(20);
     }
+
+    @Test
+    void observationUpdate_omitsNullFields() throws Exception {
+        // Verify @JsonInclude(NON_NULL) — only title is set, others should be omitted
+        var update = new ObservationUpdate("New Title", null, null, null, null, null);
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        String json = mapper.writeValueAsString(update);
+        assertThat(json).contains("\"title\":\"New Title\"");
+        assertThat(json).doesNotContain("\"content\"");
+        assertThat(json).doesNotContain("\"facts\"");
+        assertThat(json).doesNotContain("\"concepts\"");
+        assertThat(json).doesNotContain("\"source\"");
+        assertThat(json).doesNotContain("\"extractedData\"");
+    }
 }

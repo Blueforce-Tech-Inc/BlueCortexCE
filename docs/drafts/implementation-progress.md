@@ -93,7 +93,7 @@
 
 ### 测试覆盖策略
 - **单元测试**：33 个 wire format + API + error + retry + context cancellation 测试（全部通过）
-- **E2E 测试**：Java 14 个 + Go 26 个（验证端到端链路）
+- **E2E 测试**：Java 25 个 + Go 26 个（验证端到端链路）
 - **教训**：新增测试必须严格匹配已有 wire format 定义
 
 ### 已验证项

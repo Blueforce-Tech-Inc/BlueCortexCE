@@ -1,12 +1,18 @@
 package com.ablueforce.cortexce.client.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 import java.util.List;
 import java.util.Map;
 
 /**
  * DTO for updating an existing observation.
  * V14: Supports source and extractedData fields.
+ * <p>
+ * Null fields are omitted from the JSON body (via @JsonInclude NON_NULL),
+ * so PATCH requests only modify explicitly set fields.
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record ObservationUpdate(
     String title,
     String content,
