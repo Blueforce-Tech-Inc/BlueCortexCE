@@ -2475,3 +2475,258 @@ Java SDK (`cortex-mem-client`) 未封装以下后端重要 API：
 2. 添加 `ListObservations` 方法
 3. 添加 `GetVersion` 方法
 
+
+---
+
+## 附录 N: Context 管理和异步操作详细设计（迭代 11）
+
+### Context 使用场景
+
+Go SDK 所有公开方法都接受 `context.Context` 作为第一个参数。以下是主要使用场景：
+
+| 场景 | Context 用途 | 超时设置 |
+|------|-------------|----------|
+| Capture 操作 | 仅用于初始验证，实际发送在 goroutine 中 | 10s |
+| Retrieval 操作 | 同步等待响应 | 30s |
+| Health Check | 同步等待 | 5s |
+| Batch 操作 | 控制整个批次超时 | 60s |
+
+### 异步 Capture 实现
+
+```go
+// capture.go
+package cortexmem
+
+import (
+    "context"
+    "sync"
+)
+
+// CaptureHandler manages asynchronous capture operations.
+type CaptureHandler struct {
+    client   *client
+    wg       sync.WaitGroup
+    ctx      context.Context
+    cancel   context.CancelFunc
+    done     chan struct{}
+}
+
+// NewCaptureHandler creates a new capture handler.
+func NewCaptureHandler(client *client) *CaptureHandler {
+    ctx, cancel := context.WithCancel(context.Background())
+    return &CaptureHandler{
+        client: client,
+        ctx:    ctx,
+        cancel: cancel,
+        done:   make(chan struct{}),
+    }
+}
+
+// RecordObservation asynchronously records an observation.
+// Returns immediately, actual send happens in background.
+func (h *CaptureHandler) RecordObservation(req dto.ObservationRequest) {
+    h.wg.Add(1)
+    go func() {
+        defer h.wg.Done()
+        
+        for attempt := 1; attempt <= h.client.maxRetries; attempt++ {
+            // Use background context, not the caller's context
+            if err := h.client.post(h.ctx, "/api/ingest/tool-use", req, nil); err == nil {
+                return  // Success
+            }
+            
+            // Check if we should stop
+            select {
+            case <-h.ctx.Done():
+                h.client.logger.Warn("CaptureHandler stopped, abandoning observation")
+                return
+            default:
+            }
+            
+            // Exponential backoff
+            delay := h.client.retryDelay * time.Duration(1<<uint(attempt-1))
+            if delay > h.client.maxRetryDelay {
+                delay = h.client.maxRetryDelay
+            }
+            
+            select {
+            case <-h.ctx.Done():
+                return
+            case <-time.After(delay):
+                // Continue retry
+            }
+        }
+        
+        h.client.logger.Warn("RecordObservation failed after retries",
+            "toolName", req.ToolName,
+            "sessionID", req.SessionID)
+    }()
+}
+
+// Wait waits for all pending capture operations to complete.
+func (h *CaptureHandler) Wait() {
+    h.wg.Wait()
+    close(h.done)
+}
+
+// Stop stops the capture handler, abandoning pending operations.
+func (h *CaptureHandler) Stop() {
+    h.cancel()
+    <-h.done
+}
+```
+
+### 使用示例
+
+```go
+// 示例：在 AI 对话中记录多个观察
+func handleChat(client cortexmem.Client) {
+    ctx := context.Background()
+    
+    // 创建 CaptureHandler
+    handler := cortexmem.NewCaptureHandler(client)
+    defer handler.Stop()
+    
+    // 开始会话
+    session, _ := client.StartSession(ctx, dto.NewSessionStartRequest(
+        "session-1", "/path/to/project",
+    ))
+    
+    // 异步记录多个观察
+    handler.RecordObservation(dto.NewObservationRequest(
+        session.SessionID, "/path/to/project", "Read",
+        dto.WithToolInput(map[string]any{"file": "main.go"}),
+    ))
+    
+    handler.RecordObservation(dto.NewObservationRequest(
+        session.SessionID, "/path/to/project", "Write",
+        dto.WithToolInput(map[string]any{"file": "main.go"}),
+    ))
+    
+    // 获取经验（同步）
+    experiences, _ := client.RetrieveExperiences(ctx, dto.NewExperienceRequest(
+        "How to parse JSON?", "/path/to/project",
+    ))
+    
+    // 等待所有异步操作完成
+    handler.Wait()
+    
+    // 结束会话
+    client.RecordSessionEnd(ctx, dto.SessionEndRequest{
+        SessionID:   session.SessionID,
+        ProjectPath: "/path/to/project",
+    })
+}
+```
+
+### 批量操作设计
+
+```go
+// BatchObservationRequest records multiple observations at once.
+type BatchObservationRequest struct {
+    SessionID string
+    ProjectPath string
+    Observations []SingleObservation
+}
+
+// Client 接口补充
+type Client interface {
+    // ... 其他方法 ...
+    
+    // RecordBatchObservations records multiple observations at once.
+    // POST /api/ingest/batch
+    RecordBatchObservations(ctx context.Context, req dto.BatchObservationRequest) error
+}
+```
+
+---
+
+## 附录 O: SDK 发布和版本管理详细设计（迭代 12）
+
+### Go Module 版本管理
+
+```go
+// go.mod
+module github.com/abforce/cortex-ce/cortex-mem-go
+
+go 1.22
+
+require (
+    // 核心包：零依赖
+)
+```
+
+### 发布流程
+
+1. **版本号规范**: `v1.0.0`, `v1.1.0`, `v2.0.0`
+2. **Git Tag**: `git tag v1.0.0`
+3. **自动发布**: GitHub Actions 自动构建和发布
+
+### CI/CD 配置
+
+```yaml
+# .github/workflows/go-sdk.yml
+name: Go SDK CI
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cortex-mem-go/**'
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: '1.22' }
+      
+      # 核心包测试
+      - name: Test core
+        run: go test -v -race ./...
+        working-directory: cortex-mem-go
+      
+      # 集成层测试（如果有 eino 依赖）
+      - name: Test eino integration
+        run: go test -v -race ./...
+        working-directory: cortex-mem-go/eino
+      
+      # 代码检查
+      - name: Vet
+        run: go vet ./...
+        working-directory: cortex-mem-go
+      
+      # 基准测试
+      - name: Benchmark
+        run: go test -bench=. -benchmem ./...
+        working-directory: cortex-mem-go
+```
+
+### 版本兼容性保证
+
+| 版本 | 变更类型 | 说明 |
+|------|---------|------|
+| v1.0.0 → v1.0.1 | Patch | Bug 修复 |
+| v1.0.0 → v1.1.0 | Minor | 新功能，向后兼容 |
+| v1.0.0 → v2.0.0 | Major | 破坏性变更 |
+
+### 版本迁移指南
+
+```go
+// v1.0.0
+client, err := cortexmem.NewClient(
+    cortexmem.WithBaseURL("http://localhost:37777"),
+)
+
+// v1.1.0 (向后兼容)
+client, err := cortexmem.NewClient(
+    cortexmem.WithBaseURL("http://localhost:37777"),
+    cortexmem.WithSearch(),  // 新功能
+)
+
+// v2.0.0 (破坏性变更)
+// 需要重新适配
+```
+
