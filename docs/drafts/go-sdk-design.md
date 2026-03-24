@@ -1,10 +1,58 @@
 # Go Client SDK 设计文档
 
-> **版本**: v1.1 DRAFT
+> **版本**: v1.2 DRAFT
 > **日期**: 2026-03-24
 > **状态**: 待审批
 > **作者**: Cortex CE Team
-> **迭代**: v1.1 — Eino/LangChainGo 接口精确定义，Java SDK 对齐审查
+> **迭代**: v1.2 — 持续迭代中，2360 行
+
+---
+
+## 执行摘要
+
+### 核心决策
+
+1. **零强制依赖** — 核心包只依赖 Go 标准库
+2. **与 Java SDK 对齐** — Phase 1 封装 15 个核心方法
+3. **可选集成层** — Eino、Genkit、LangChainGo 独立 module
+4. **Demo 项目** — basic、eino、http-server、langchaingo、genkit
+
+### 目录结构
+
+```
+github.com/abforce/cortex-ce/cortex-mem-go/
+├── client.go              # 核心 Client 接口
+├── dto/                   # 数据传输对象
+├── eino/                  # Eino Retriever 集成
+├── langchaingo/           # LangChainGo Memory 集成
+├── genkit/                # Genkit 插件（预留）
+└── examples/              # Demo 项目
+```
+
+### 开发周期
+
+| Phase | 内容 | 天数 |
+|-------|------|------|
+| 1 | 核心包（15 方法） | 3-4 |
+| 2 | 扩展（Search, List, Version） | 1 |
+| 3 | Demo 项目（5 个） | 2-3 |
+| 4 | 文档 | 1 |
+| 5 | 发布 | 0.5 |
+| **总计** | | **7.5-9.5** |
+
+### 文档结构
+
+| 章节 | 内容 |
+|------|------|
+| 1-7 | 核心设计（原则、结构、API、集成层、测试、版本、计划） |
+| 8 | 待讨论事项 |
+| A | API 端点映射 |
+| B | Demo 项目规划 |
+| C | Go 惯例参考 |
+| D | 框架接口研究 |
+| E | Java SDK vs 后端差距 |
+| F-H | Phase 1/2 决策、API 详细设计 |
+| I-L | 错误处理、Wire Format、Demo 详细、Option 模式 |
 
 ---
 
@@ -293,8 +341,8 @@ type SessionStartResponse struct {
 
 // SessionEndRequest is a request to end a session.
 type SessionEndRequest struct {
-    SessionID           string `json:"session_id"`
-    ProjectPath         string `json:"cwd"`
+    SessionID            string `json:"session_id"`
+    ProjectPath          string `json:"cwd"`                     // Wire format: "cwd"
     LastAssistantMessage string `json:"last_assistant_message,omitempty"`
 }
 
@@ -554,7 +602,7 @@ func IsRateLimited(err error) bool {
 }
 ```
 
-### 3.5 Logger 接口
+### 3.6 Logger 接口
 
 ```go
 // logger.go
@@ -569,7 +617,7 @@ type Logger interface {
 }
 ```
 
-### 3.6 内部实现要点
+### 3.7 内部实现要点
 
 ```go
 // client.go (实现)
