@@ -203,6 +203,12 @@
   - Go http-server: /extraction/latest 和 /extraction/history 移除硬编码默认 project (`/tmp/go-demo-project`)，改为 project 必填校验（与 /search, /observations, /experiences, /iclprompt, /quality, /refine 一致）
   - Go E2E 测试: extraction 端点测试添加 project 参数，匹配新的必填校验
   - go vet 干净、33 Go 测试通过、http-server 编译通过、Java Demo BUILD SUCCESS、回归测试 46/46 PASS
+- 2026-03-25 02:31: Phase D 代码审查第十六轮 — Go SDK Error Helper 完善
+  - Go SDK error.go: 新增 5 个缺失的错误辅助函数 — IsForbidden、IsUnprocessable、IsBadGateway、IsServiceUnavailable、IsGatewayTimeout
+  - 之前这些 sentinel error 已声明但无对应的 helper，与 IsNotFound/IsBadRequest/IsRateLimited/IsInternal 不一致
+  - 新增 5 个单元测试覆盖所有新 helper（含交叉验证：502/503/504 同时匹配 IsInternal）
+  - Go SDK 单元测试从 33 → 38 个，全部通过
+  - go vet 干净、5/5 examples 编译通过、Java SDK BUILD SUCCESS（40 测试通过）
 - 2026-03-25 02:01: Phase D 代码审查第十五轮 — 输入验证一致性 + E2E 测试修复
   - Go http-server: /feedback 拆分复合校验为独立检查（observation_id, feedback_type），与 /iclprompt 一致
   - Go http-server: /session/user 同样拆分复合校验（session_id, user_id）

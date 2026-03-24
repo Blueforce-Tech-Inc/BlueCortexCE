@@ -999,3 +999,102 @@ func TestHealthCheck_Unhealthy(t *testing.T) {
 		t.Errorf("expected unhealthy error, got: %v", err)
 	}
 }
+
+// ==================== Error Helper Tests ====================
+
+func TestIsForbidden(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte(`{"error":"forbidden"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 403")
+	}
+	if !cortexmem.IsForbidden(err) {
+		t.Errorf("expected IsForbidden, got: %v", err)
+	}
+	if cortexmem.IsNotFound(err) {
+		t.Error("403 should not match IsNotFound")
+	}
+}
+
+func TestIsUnprocessable(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(422)
+		w.Write([]byte(`{"error":"unprocessable"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 422")
+	}
+	if !cortexmem.IsUnprocessable(err) {
+		t.Errorf("expected IsUnprocessable, got: %v", err)
+	}
+}
+
+func TestIsBadGateway(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+		w.Write([]byte(`{"error":"bad gateway"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 502")
+	}
+	if !cortexmem.IsBadGateway(err) {
+		t.Errorf("expected IsBadGateway, got: %v", err)
+	}
+	if !cortexmem.IsInternal(err) {
+		t.Errorf("502 should also match IsInternal")
+	}
+}
+
+func TestIsServiceUnavailable(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte(`{"error":"unavailable"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 503")
+	}
+	if !cortexmem.IsServiceUnavailable(err) {
+		t.Errorf("expected IsServiceUnavailable, got: %v", err)
+	}
+	if !cortexmem.IsInternal(err) {
+		t.Errorf("503 should also match IsInternal")
+	}
+}
+
+func TestIsGatewayTimeout(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusGatewayTimeout)
+		w.Write([]byte(`{"error":"timeout"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 504")
+	}
+	if !cortexmem.IsGatewayTimeout(err) {
+		t.Errorf("expected IsGatewayTimeout, got: %v", err)
+	}
+	if !cortexmem.IsInternal(err) {
+		t.Errorf("504 should also match IsInternal")
+	}
+}

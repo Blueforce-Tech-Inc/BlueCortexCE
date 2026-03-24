@@ -109,6 +109,24 @@ func IsRateLimited(err error) bool {
 	return errors.Is(err, ErrRateLimited)
 }
 
+// IsForbidden returns true if the error is a 403.
+func IsForbidden(err error) bool {
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.StatusCode == http.StatusForbidden
+	}
+	return errors.Is(err, ErrForbidden)
+}
+
+// IsUnprocessable returns true if the error is a 422.
+func IsUnprocessable(err error) bool {
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.StatusCode == 422
+	}
+	return errors.Is(err, ErrUnprocessable)
+}
+
 // IsInternal returns true if the error is a 5xx server error.
 func IsInternal(err error) bool {
 	var apiErr *APIError
@@ -116,4 +134,31 @@ func IsInternal(err error) bool {
 		return apiErr.StatusCode >= 500
 	}
 	return errors.Is(err, ErrInternal)
+}
+
+// IsBadGateway returns true if the error is a 502.
+func IsBadGateway(err error) bool {
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.StatusCode == http.StatusBadGateway
+	}
+	return errors.Is(err, ErrBadGateway)
+}
+
+// IsServiceUnavailable returns true if the error is a 503.
+func IsServiceUnavailable(err error) bool {
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.StatusCode == http.StatusServiceUnavailable
+	}
+	return errors.Is(err, ErrServiceUnavailable)
+}
+
+// IsGatewayTimeout returns true if the error is a 504.
+func IsGatewayTimeout(err error) bool {
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.StatusCode == http.StatusGatewayTimeout
+	}
+	return errors.Is(err, ErrGatewayTimeout)
 }
