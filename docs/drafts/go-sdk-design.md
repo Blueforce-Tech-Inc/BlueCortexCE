@@ -2730,3 +2730,513 @@ client, err := cortexmem.NewClient(
 // 需要重新适配
 ```
 
+
+---
+
+## 附录 P: 集成层接口精确适配（迭代 13）
+
+### Eino (CloudWeGo) 接口适配
+
+**Eino Retriever 接口签名** (参考 CloudWeGo/eino):
+
+```go
+// Eino 的 Retriever 接口定义
+type Retriever interface {
+    Retrieve(ctx context.Context, query string, opts ...Option) ([]*schema.Document, error)
+}
+
+// Eino 的 Document 结构
+type Document struct {
+    ID       string
+    Content  string
+    MetaData map[string]any
+}
+```
+
+**我们的适配**:
+
+```go
+// eino/retriever.go
+package eino
+
+import (
+    "context"
+    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
+    "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+)
+
+// Retriever 实现 eino 的 Retriever 接口
+type Retriever struct {
+    client  cortexmem.Client
+    project string
+    count   int
+    source  string
+}
+
+func NewRetriever(client cortexmem.Client, project string, opts ...Option) *Retriever {
+    r := &Retriever{client: client, project: project, count: 4}
+    for _, opt := range opts {
+        opt(r)
+    }
+    return r
+}
+
+type Option func(*Retriever)
+
+func WithCount(n int) Option        { return func(r *Retriever) { r.count = n } }
+func WithSource(s string) Option    { return func(r *Retriever) { r.source = s } }
+
+// Retrieve 实现 eino.Retriever 接口
+func (r *Retriever) Retrieve(ctx context.Context, query string, opts ...interface{}) ([]*Document, error) {
+    req := dto.NewExperienceRequest(query, r.project,
+        dto.WithCount(r.count),
+        dto.WithSource(r.source),
+    )
+    
+    experiences, err := r.client.RetrieveExperiences(ctx, req)
+    if err != nil {
+        return nil, err
+    }
+    
+    docs := make([]*Document, 0, len(experiences))
+    for _, exp := range experiences {
+        docs = append(docs, &Document{
+            ID:      exp.ID,
+            Content: exp.Strategy + "\n" + exp.Outcome,
+            MetaData: map[string]any{
+                "task":           exp.Task,
+                "qualityScore":   exp.QualityScore,
+                "reuseCondition": exp.ReuseCondition,
+                "createdAt":      exp.CreatedAt,
+            },
+        })
+    }
+    return docs, nil
+}
+```
+
+### LangChainGo 接口适配
+
+**LangChainGo Memory 接口** (参考 tmc/langchaingo):
+
+```go
+// LangChainGo 的 Memory 接口
+type Memory interface {
+    // LoadMemoryVariables loads memory variables for the chain
+    LoadMemoryVariables(ctx context.Context, inputValues map[string]any) (map[string]any, error)
+    
+    // SaveContext saves the context of the chain after a run
+    SaveContext(ctx context.Context, inputValues, outputValues map[string]any) error
+    
+    // Clear clears the memory
+    Clear(ctx context.Context) error
+}
+```
+
+**我们的适配**:
+
+```go
+// langchaingo/memory.go
+package langchaingo
+
+import (
+    "context"
+    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
+    "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+)
+
+// Memory 实现 langchaingo.memory.Memory 接口
+type Memory struct {
+    client   cortexmem.Client
+    project  string
+    maxChars int
+}
+
+func NewMemory(client cortexmem.Client, project string, opts ...Option) *Memory {
+    m := &Memory{client: client, project: project, maxChars: 4000}
+    for _, opt := range opts {
+        opt(m)
+    }
+    return m
+}
+
+type Option func(*Memory)
+
+func WithMaxChars(n int) Option { return func(m *Memory) { m.maxChars = n } }
+
+// LoadMemoryVariables 从 Cortex CE 加载记忆变量
+func (m *Memory) LoadMemoryVariables(ctx context.Context, inputValues map[string]any) (map[string]any, error) {
+    task := ""
+    if t, ok := inputValues["input"]; ok {
+        task, _ = t.(string)
+    }
+    
+    result, err := m.client.BuildICLPrompt(ctx, dto.NewICLPromptRequest(
+        task, m.project, dto.WithMaxChars(m.maxChars),
+    ))
+    if err != nil {
+        return map[string]any{"history": ""}, nil
+    }
+    
+    return map[string]any{
+        "history": result.Prompt,
+    }, nil
+}
+
+// SaveContext 保存对话上下文到 Cortex CE
+func (m *Memory) SaveContext(ctx context.Context, inputValues, outputValues map[string]any) error {
+    // Context saving is handled by the session lifecycle
+    // Observations are recorded via RecordObservation
+    return nil
+}
+
+// Clear 清空记忆
+func (m *Memory) Clear(_ context.Context) error {
+    return nil
+}
+```
+
+### Genkit (Google) 接口适配
+
+**Genkit Go Retriever 接口** (参考 firebase/genkit-go):
+
+```go
+// Genkit 的 Retriever 接口
+type Retriever[In, Out any] interface {
+    Retrieve(ctx context.Context, input In) (Out, error)
+}
+```
+
+**我们的适配**:
+
+```go
+// genkit/retriever.go
+package genkit
+
+import (
+    "context"
+    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
+    "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+)
+
+// RetrieverInput is the input for Cortex CE retriever
+type RetrieverInput struct {
+    Query   string
+    Project string
+    Count   int
+    Source  string
+}
+
+// RetrieverOutput is the output from Cortex CE retriever
+type RetrieverOutput struct {
+    Documents []Document
+}
+
+// Document represents a retrieved document
+type Document struct {
+    Content  string
+    Metadata map[string]any
+}
+
+// Retriever 实现 Genkit 的 Retriever 接口
+type Retriever struct {
+    client cortexmem.Client
+}
+
+func NewRetriever(client cortexmem.Client) *Retriever {
+    return &Retriever{client: client}
+}
+
+// Retrieve 实现 genkit.Retriever[RetrieverInput, RetrieverOutput] 接口
+func (r *Retriever) Retrieve(ctx context.Context, input RetrieverInput) (RetrieverOutput, error) {
+    count := input.Count
+    if count <= 0 {
+        count = 4
+    }
+    
+    req := dto.NewExperienceRequest(input.Query, input.Project,
+        dto.WithCount(count),
+        dto.WithSource(input.Source),
+    )
+    
+    experiences, err := r.client.RetrieveExperiences(ctx, req)
+    if err != nil {
+        return RetrieverOutput{}, err
+    }
+    
+    docs := make([]Document, 0, len(experiences))
+    for _, exp := range experiences {
+        docs = append(docs, Document{
+            Content: exp.Strategy + "\n" + exp.Outcome,
+            Metadata: map[string]any{
+                "task":          exp.Task,
+                "qualityScore":  exp.QualityScore,
+            },
+        })
+    }
+    
+    return RetrieverOutput{Documents: docs}, nil
+}
+```
+
+
+---
+
+## 附录 Q: 测试策略详细设计（迭代 14）
+
+### 测试层次
+
+```
+测试金字塔
+├── 单元测试 (70%)        — 使用 httptest，无需后端
+├── 集成测试 (20%)        — 使用真实后端
+└── 端到端测试 (10%)      — 完整生命周期
+```
+
+### 单元测试设计
+
+```go
+// client_test.go
+package cortexmem_test
+
+import (
+    "context"
+    "encoding/json"
+    "net/http"
+    "net/http/httptest"
+    "testing"
+    
+    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
+    "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+)
+
+func TestStartSession(t *testing.T) {
+    // 创建 mock server
+    server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        if r.URL.Path != "/api/session/start" {
+            t.Errorf("unexpected path: %s", r.URL.Path)
+        }
+        
+        var body map[string]any
+        json.NewDecoder(r.Body).Decode(&body)
+        
+        if body["session_id"] == nil {
+            t.Error("session_id is required")
+        }
+        
+        w.WriteHeader(http.StatusOK)
+        json.NewEncoder(w).Encode(map[string]any{
+            "session_db_id":  "db-123",
+            "session_id":     body["session_id"],
+            "prompt_number":  0,
+        })
+    }))
+    defer server.Close()
+    
+    // 创建 client
+    client, _ := cortexmem.NewClient(
+        cortexmem.WithBaseURL(server.URL),
+    )
+    
+    // 测试
+    resp, err := client.StartSession(context.Background(), dto.NewSessionStartRequest(
+        "session-1", "/path/to/project",
+    ))
+    
+    if err != nil {
+        t.Fatalf("StartSession failed: %v", err)
+    }
+    if resp.SessionID != "session-1" {
+        t.Errorf("expected session-1, got %s", resp.SessionID)
+    }
+}
+
+func TestRetrieveExperiences(t *testing.T) {
+    server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        if r.URL.Path != "/api/memory/experiences" {
+            t.Errorf("unexpected path: %s", r.URL.Path)
+        }
+        
+        experiences := []map[string]any{
+            {"id": "exp-1", "task": "task-1", "strategy": "strategy-1"},
+            {"id": "exp-2", "task": "task-2", "strategy": "strategy-2"},
+        }
+        w.WriteHeader(http.StatusOK)
+        json.NewEncoder(w).Encode(experiences)
+    }))
+    defer server.Close()
+    
+    client, _ := cortexmem.NewClient(cortexmem.WithBaseURL(server.URL))
+    
+    experiences, err := client.RetrieveExperiences(context.Background(), dto.NewExperienceRequest(
+        "test task", "/path/to/project",
+    ))
+    
+    if err != nil {
+        t.Fatalf("RetrieveExperiences failed: %v", err)
+    }
+    if len(experiences) != 2 {
+        t.Errorf("expected 2 experiences, got %d", len(experiences))
+    }
+}
+
+func TestHealthCheck(t *testing.T) {
+    server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.WriteHeader(http.StatusOK)
+    }))
+    defer server.Close()
+    
+    client, _ := cortexmem.NewClient(cortexmem.WithBaseURL(server.URL))
+    
+    err := client.HealthCheck(context.Background())
+    if err != nil {
+        t.Errorf("HealthCheck failed: %v", err)
+    }
+}
+
+func TestAPIError(t *testing.T) {
+    server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.WriteHeader(http.StatusNotFound)
+        json.NewEncoder(w).Encode(map[string]string{"error": "not found"})
+    }))
+    defer server.Close()
+    
+    client, _ := cortexmem.NewClient(cortexmem.WithBaseURL(server.URL))
+    
+    _, err := client.StartSession(context.Background(), dto.NewSessionStartRequest(
+        "session-1", "/path/to/project",
+    ))
+    
+    if err == nil {
+        t.Fatal("expected error")
+    }
+    
+    if !cortexmem.IsNotFound(err) {
+        t.Errorf("expected IsNotFound, got: %v", err)
+    }
+}
+```
+
+### 集成测试设计
+
+```go
+// integration_test.go (需要后端运行)
+package cortexmem_test
+
+import (
+    "context"
+    "os"
+    "testing"
+    "time"
+    
+    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
+    "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+)
+
+func TestFullLifecycle(t *testing.T) {
+    baseURL := os.Getenv("CORTEX_CE_URL")
+    if baseURL == "" {
+        baseURL = "http://localhost:37777"
+    }
+    
+    client, err := cortexmem.NewClient(
+        cortexmem.WithBaseURL(baseURL),
+        cortexmem.WithTimeout(30*time.Second),
+    )
+    if err != nil {
+        t.Fatal(err)
+    }
+    
+    ctx := context.Background()
+    
+    // 1. Health check
+    if err := client.HealthCheck(ctx); err != nil {
+        t.Skipf("Backend not available: %v", err)
+    }
+    
+    // 2. Start session
+    session, err := client.StartSession(ctx, dto.NewSessionStartRequest(
+        "test-session", "/tmp/test-project",
+    ))
+    if err != nil {
+        t.Fatalf("StartSession failed: %v", err)
+    }
+    
+    // 3. Record observation
+    err = client.RecordObservation(ctx, dto.NewObservationRequest(
+        session.SessionID, "/tmp/test-project", "TestTool",
+        dto.WithObservationSource("tool_result"),
+    ))
+    // Note: fire-and-forget, error might be nil
+    
+    // 4. Wait for observation to be processed
+    time.Sleep(2 * time.Second)
+    
+    // 5. Retrieve experiences
+    experiences, err := client.RetrieveExperiences(ctx, dto.NewExperienceRequest(
+        "test query", "/tmp/test-project",
+    ))
+    if err != nil {
+        t.Errorf("RetrieveExperiences failed: %v", err)
+    }
+    t.Logf("Found %d experiences", len(experiences))
+    
+    // 6. Build ICL prompt
+    result, err := client.BuildICLPrompt(ctx, dto.NewICLPromptRequest(
+        "test query", "/tmp/test-project",
+    ))
+    if err != nil {
+        t.Errorf("BuildICLPrompt failed: %v", err)
+    }
+    t.Logf("ICL prompt: %d chars, %d experiences", len(result.Prompt), result.ExperienceCountAsInt())
+    
+    // 7. End session
+    err = client.RecordSessionEnd(ctx, dto.SessionEndRequest{
+        SessionID:   session.SessionID,
+        ProjectPath: "/tmp/test-project",
+    })
+    // Note: fire-and-forget
+    
+    t.Log("Full lifecycle test completed")
+}
+```
+
+### Benchmark 测试
+
+```go
+// benchmark_test.go
+package cortexmem_test
+
+import (
+    "context"
+    "testing"
+    
+    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
+    "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+)
+
+func BenchmarkRetrieveExperiences(b *testing.B) {
+    client, _ := cortexmem.NewClient()
+    ctx := context.Background()
+    
+    b.ResetTimer()
+    for i := 0; i < b.N; i++ {
+        client.RetrieveExperiences(ctx, dto.NewExperienceRequest(
+            "test query", "/tmp/test-project",
+        ))
+    }
+}
+
+func BenchmarkBuildICLPrompt(b *testing.B) {
+    client, _ := cortexmem.NewClient()
+    ctx := context.Background()
+    
+    b.ResetTimer()
+    for i := 0; i < b.N; i++ {
+        client.BuildICLPrompt(ctx, dto.NewICLPromptRequest(
+            "test query", "/tmp/test-project",
+        ))
+    }
+}
+```
+
