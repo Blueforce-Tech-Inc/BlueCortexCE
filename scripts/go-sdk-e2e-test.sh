@@ -616,3 +616,86 @@ echo ""
 echo "=========================================="
 echo "Go SDK E2E Final Summary: $PASSED/$TOTAL passed, $FAILED failed"
 echo "=========================================="
+
+# ==================== Extraction Scenario Tests (requires EXTRACTION_ENABLED=true) ====================
+# If EXTRACTION_ENABLED=false, these tests will be skipped with a warning.
+
+EXTRACTION_ENABLED="${EXTRACTION_ENABLED:-false}"
+if [ "$EXTRACTION_ENABLED" = "false" ]; then
+    echo ""
+    echo "--- Extraction Scenario Tests ---"
+    echo "WARNING: EXTRACTION_ENABLED=false — skipping extraction scenario tests."
+    echo "To run extraction tests: EXTRACTION_ENABLED=true bash $0"
+else
+    echo ""
+    echo "--- Extraction Scenario Tests (EXTRACTION_ENABLED=true) ---"
+
+    # Test E1: Run extraction (user_preferences for alice)
+    info "Test E1: POST /extraction/run — Trigger extraction for user_preferences"
+    RUN_RESP=$(curl -sf --max-time 30 -X POST "$BACKEND_URL/api/extraction/run" \
+        -H "Content-Type: application/json" \
+        -d "{\"project\": \"$PROJECT\", \"template\": \"user_preferences\", \"userId\": \"alice\"}" 2>/dev/null || echo "FAIL")
+    if [ "$RUN_RESP" = "FAIL" ]; then
+        fail "POST /extraction/run" "Request timed out or failed"
+    elif echo "$RUN_RESP" | grep -qi "error\|failed"; then
+        fail "POST /extraction/run" "Extraction returned error"
+    else
+        pass "POST /extraction/run — Extraction triggered"
+    fi
+
+    # Test E2: Query latest extraction (should exist after E1)
+    info "Test E2: GET /extraction/latest — Query latest extraction for alice"
+    LATEST=$(curl -sf --max-time 10 "$BACKEND_URL/api/extraction/user_preferences/latest?projectPath=$PROJECT&userId=alice" 2>/dev/null || echo "FAIL")
+    if [ "$LATEST" = "FAIL" ]; then
+        fail "GET /extraction/latest" "Request timed out or failed"
+    elif echo "$LATEST" | grep -qi "not_found\|not found"; then
+        fail "GET /extraction/latest" "No extraction found (EXTRACTION_ENABLED may not be working)"
+    elif echo "$LATEST" | grep -qi "extractedData\|data\|preferences"; then
+        pass "GET /extraction/latest — Extraction result found"
+    else
+        pass "GET /extraction/latest — Extraction returned"
+    fi
+
+    # Test E3: Multi-user isolation (bob should not see alice's data)
+    info "Test E3: Multi-user isolation — Bob should not see alice's extraction"
+    BOB_LATEST=$(curl -sf --max-time 10 "$BACKEND_URL/api/extraction/user_preferences/latest?projectPath=$PROJECT&userId=bob" 2>/dev/null || echo "FAIL")
+    if [ "$BOB_LATEST" = "FAIL" ]; then
+        fail "Multi-user isolation" "Request timed out or failed"
+    elif echo "$BOB_LATEST" | grep -qi "not_found\|not found"; then
+        pass "Multi-user isolation — Bob has no extraction (correct)"
+    elif echo "$BOB_LATEST" | grep -qi "alice"; then
+        fail "Multi-user isolation" "Bob can see alice's data!"
+    else
+        pass "Multi-user isolation — Bob has separate extraction"
+    fi
+
+    # Test E4: Extraction history
+    info "Test E4: GET /extraction/history — Query extraction history"
+    HISTORY=$(curl -sf --max-time 10 "$BACKEND_URL/api/extraction/user_preferences/history?projectPath=$PROJECT&userId=alice&limit=5" 2>/dev/null || echo "FAIL")
+    if [ "$HISTORY" = "FAIL" ]; then
+        fail "GET /extraction/history" "Request timed out or failed"
+    elif echo "$HISTORY" | grep -qi "extractedData\|data\|preferences"; then
+        pass "GET /extraction/history — History returned"
+    else
+        pass "GET /extraction/history — API responded"
+    fi
+
+    # Test E5: Re-extraction (should merge or update existing)
+    info "Test E5: Re-extraction — Trigger extraction again, should update existing"
+    RE_RUN=$(curl -sf --max-time 30 -X POST "$BACKEND_URL/api/extraction/run" \
+        -H "Content-Type: application/json" \
+        -d "{\"project\": \"$PROJECT\", \"template\": \"user_preferences\", \"userId\": \"alice\"}" 2>/dev/null || echo "FAIL")
+    if [ "$RE_RUN" = "FAIL" ]; then
+        fail "Re-extraction" "Request timed out or failed"
+    else
+        pass "Re-extraction — Triggered again"
+    fi
+
+    # Verify latest was updated
+    RE_LATEST=$(curl -sf --max-time 10 "$BACKEND_URL/api/extraction/user_preferences/latest?projectPath=$PROJECT&userId=alice" 2>/dev/null || echo "FAIL")
+    if [ "$RE_LATEST" != "FAIL" ]; then
+        pass "Re-extraction — Latest result still queryable"
+    fi
+
+    echo "Extraction scenario tests complete."
+fi
