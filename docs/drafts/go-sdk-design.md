@@ -3864,3 +3864,387 @@ Go SDK 分层:
 2. 可独立依赖（只依赖需要的框架）
 3. 不影响核心包的零依赖特性
 
+
+---
+
+## 附录 W: 安全性和可观测性设计（迭代 20）
+
+### 安全性设计
+
+#### 传输层安全
+
+```go
+// 安全最佳实践
+// 1. 使用 HTTPS
+client, _ := cortexmem.NewClient(
+    cortexmem.WithBaseURL("https://api.example.com"),  // HTTPS
+)
+
+// 2. 自定义 TLS 配置（可选）
+tlsConfig := &tls.Config{
+    MinVersion: tls.VersionTLS12,
+    CurvePreferences: []tls.CurveID{tls.CurveP256},
+}
+
+// 3. 证书固定（可选）
+certPool := x509.NewCertPool()
+cert, _ := pem.Decode([]byte(rootCA))
+certPool.AddCert(cert)
+
+transport := &http.Transport{
+    TLSClientConfig: &tls.Config{
+        RootCAs: certPool,
+    },
+}
+
+client, _ := cortexmem.NewClient(
+    cortexmem.WithHTTPClient(&http.Client{Transport: transport}),
+)
+```
+
+#### 请求验证
+
+```go
+// 请求参数验证
+func validateProjectPath(path string) error {
+    if path == "" {
+        return fmt.Errorf("project path is required")
+    }
+    // 防止路径遍历
+    if strings.Contains(path, "..") {
+        return fmt.Errorf("invalid project path: %s", path)
+    }
+    return nil
+}
+
+// Session ID 验证
+func validateSessionID(id string) error {
+    if id == "" {
+        return fmt.Errorf("session ID is required")
+    }
+    // UUID 格式检查
+    if _, err := uuid.Parse(id); err != nil {
+        return fmt.Errorf("invalid session ID format: %s", id)
+    }
+    return nil
+}
+```
+
+#### 敏感信息处理
+
+```go
+// 不记录敏感信息
+type safeLogger struct {
+    logger *slog.Logger
+}
+
+func (l *safeLogger) LogObservation(req dto.ObservationRequest) {
+    // 只记录非敏感信息
+    l.logger.Info("Recording observation",
+        "sessionID", maskSessionID(req.SessionID),
+        "toolName", req.ToolName,
+        // 不记录: ToolInput, ToolResponse
+    )
+}
+
+func maskSessionID(id string) string {
+    if len(id) < 8 {
+        return "***"
+    }
+    return id[:4] + "..." + id[len(id)-4:]
+}
+```
+
+### 可观测性设计
+
+#### OpenTelemetry 集成（可选）
+
+```go
+// observability.go
+package cortexmem
+
+import (
+    "context"
+    "go.opentelemetry.io/otel"
+    "go.opentelemetry.io/otel/attribute"
+    "go.opentelemetry.io/otel/trace"
+)
+
+// TracedClient wraps Client with OpenTelemetry tracing
+type TracedClient struct {
+    client *client
+    tracer trace.Tracer
+}
+
+func NewTracedClient(client *client) *TracedClient {
+    return &TracedClient{
+        client: client,
+        tracer: otel.Tracer("cortex-mem-go"),
+    }
+}
+
+func (c *TracedClient) RetrieveExperiences(ctx context.Context, req dto.ExperienceRequest) ([]dto.Experience, error) {
+    ctx, span := c.tracer.Start(ctx, "CortexMemClient.RetrieveExperiences",
+        trace.WithAttributes(
+            attribute.String("project", req.Project),
+            attribute.String("task", req.Task),
+            attribute.Int("count", req.Count),
+        ),
+    )
+    defer span.End()
+    
+    result, err := c.client.RetrieveExperiences(ctx, req)
+    if err != nil {
+        span.RecordError(err)
+    }
+    return result, err
+}
+```
+
+#### Metrics 收集（可选）
+
+```go
+// metrics.go
+package cortexmem
+
+import (
+    "github.com/prometheus/client_golang/prometheus"
+    "github.com/prometheus/client_golang/prometheus/promauto"
+)
+
+var (
+    httpRequestsTotal = promauto.NewCounterVec(
+        prometheus.CounterOpts{
+            Name: "cortex_mem_http_requests_total",
+            Help: "Total HTTP requests",
+        },
+        []string{"method", "endpoint", "status"},
+    )
+    
+    httpRequestDuration = promauto.NewHistogramVec(
+        prometheus.HistogramOpts{
+            Name:    "cortex_mem_http_request_duration_seconds",
+            Help:    "HTTP request duration",
+            Buckets: prometheus.DefBuckets,
+        },
+        []string{"method", "endpoint"},
+    )
+    
+    observationsRecorded = promauto.NewCounter(
+        prometheus.CounterOpts{
+            Name: "cortex_mem_observations_recorded_total",
+            Help: "Total observations recorded",
+        },
+    )
+)
+```
+
+#### 结构化日志
+
+```go
+// 结构化日志配置
+logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+    Level: slog.LevelInfo,
+}))
+
+client, _ := cortexmem.NewClient(
+    cortexmem.WithLogger(logger),
+)
+
+// 输出示例:
+// {"time":"2026-03-24T16:00:00Z","level":"INFO","msg":"Recording observation","sessionID":"sess...1234","toolName":"Read","source":"tool_result"}
+// {"time":"2026-03-24T16:00:01Z","level":"INFO","msg":"Retrieving experiences","project":"/path/to/project","count":4,"duration_ms":45}
+```
+
+### 限流和熔断设计
+
+```go
+// rate_limiter.go
+package cortexmem
+
+import (
+    "sync"
+    "time"
+)
+
+// RateLimiter 限制请求速率
+type RateLimiter struct {
+    mu       sync.Mutex
+    tokens   float64
+    capacity float64
+    rate     float64 // tokens per second
+    lastRefill time.Time
+}
+
+func NewRateLimiter(capacity int, rate float64) *RateLimiter {
+    return &RateLimiter{
+        tokens:   float64(capacity),
+        capacity: float64(capacity),
+        rate:     rate,
+        lastRefill: time.Now(),
+    }
+}
+
+func (r *RateLimiter) Allow() bool {
+    r.mu.Lock()
+    defer r.mu.Unlock()
+    
+    r.refill()
+    
+    if r.tokens >= 1 {
+        r.tokens -= 1
+        return true
+    }
+    return false
+}
+
+func (r *RateLimiter) refill() {
+    now := time.Now()
+    elapsed := now.Sub(r.lastRefill).Seconds()
+    r.tokens += elapsed * r.rate
+    if r.tokens > r.capacity {
+        r.tokens = r.capacity
+    }
+    r.lastRefill = now
+}
+
+// Client 配置限流
+client, _ := cortexmem.NewClient(
+    cortexmem.WithRateLimiter(cortexmem.NewRateLimiter(100, 50)), // 100 QPS
+)
+```
+
+---
+
+## 附录 X: 性能优化和最佳实践（迭代 21）
+
+### 连接池优化
+
+```go
+// 连接池配置
+transport := &http.Transport{
+    MaxIdleConns:        100,           // 最大空闲连接
+    MaxIdleConnsPerHost: 10,            // 每个主机的最大空闲连接
+    IdleConnTimeout:     90 * time.Second,  // 空闲连接超时
+    DialContext: (&net.Dialer{
+        Timeout:   30 * time.Second,
+        KeepAlive: 30 * time.Second,
+    }).DialContext,
+}
+
+client, _ := cortexmem.NewClient(
+    cortexmem.WithHTTPClient(&http.Client{
+        Transport: transport,
+        Timeout:   30 * time.Second,
+    }),
+)
+```
+
+### 批量操作优化
+
+```go
+// 批量记录观察（减少 HTTP 请求）
+type BatchRecorder struct {
+    client    *client
+    buffer    []dto.ObservationRequest
+    maxSize   int
+    flushInterval time.Duration
+    mu       sync.Mutex
+}
+
+func NewBatchRecorder(client *client, maxSize int, interval time.Duration) *BatchRecorder {
+    br := &BatchRecorder{
+        client:    client,
+        buffer:    make([]dto.ObservationRequest, 0, maxSize),
+        maxSize:   maxSize,
+        flushInterval: interval,
+    }
+    
+    // 定期刷新
+    go br.periodicFlush()
+    
+    return br
+}
+
+func (br *BatchRecorder) Record(req dto.ObservationRequest) {
+    br.mu.Lock()
+    br.buffer = append(br.buffer, req)
+    shouldFlush := len(br.buffer) >= br.maxSize
+    br.mu.Unlock()
+    
+    if shouldFlush {
+        br.flush()
+    }
+}
+
+func (br *BatchRecorder) flush() {
+    br.mu.Lock()
+    defer br.mu.Unlock()
+    
+    if len(br.buffer) == 0 {
+        return
+    }
+    
+    // 批量发送到后端
+    br.client.RecordBatchObservations(context.Background(), br.buffer)
+    br.buffer = br.buffer[:0]
+}
+```
+
+### 缓存策略
+
+```go
+// Experience 缓存（减少重复检索）
+type ExperienceCache struct {
+    mu       sync.RWMutex
+    data     map[string]*cacheEntry
+    maxAge   time.Duration
+    maxSize  int
+}
+
+type cacheEntry struct {
+    experiences []dto.Experience
+    timestamp   time.Time
+}
+
+func (c *ExperienceCache) Get(key string) ([]dto.Experience, bool) {
+    c.mu.RLock()
+    defer c.mu.RUnlock()
+    
+    entry, ok := c.data[key]
+    if !ok {
+        return nil, false
+    }
+    
+    if time.Since(entry.timestamp) > c.maxAge {
+        return nil, false
+    }
+    
+    return entry.experiences, true
+}
+
+func (c *ExperienceCache) Set(key string, experiences []dto.Experience) {
+    c.mu.Lock()
+    defer c.mu.Unlock()
+    
+    // LRU 淘汰
+    if len(c.data) >= c.maxSize {
+        c.evictOldest()
+    }
+    
+    c.data[key] = &cacheEntry{
+        experiences: experiences,
+        timestamp:   time.Now(),
+    }
+}
+```
+
+### 最佳实践总结
+
+1. **使用连接池** — 减少 TCP 连接建立开销
+2. **批量操作** — 减少 HTTP 请求次数
+3. **合理缓存** — 减少重复检索
+4. **异步记录** — 不阻塞主流程
+5. **限流保护** — 防止后端过载
+6. **超时控制** — 防止请求无限等待
+
