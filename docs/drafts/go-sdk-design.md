@@ -654,18 +654,10 @@ func NewClient(opts ...Option) (Client, error) {
     return c, nil
 }
 
-// 每个方法的标准模式:
-func (c *client) RecordObservation(ctx context.Context, req dto.ObservationRequest) error {
-    return c.doWithRetry(ctx, "RecordObservation", func() error {
-        return c.post(ctx, "/api/ingest/tool-use", req, nil)
-    })
-}
-
 // Capture 操作使用 fire-and-forget 模式（与 Java SDK 一致）：
 // - 内部有重试
 // - 失败只记录日志，不向上传播
 // - 除非是 context.Canceled
-
 func (c *client) RecordObservation(ctx context.Context, req dto.ObservationRequest) error {
     return c.doFireAndForget(ctx, "RecordObservation", func() error {
         return c.post(ctx, "/api/ingest/tool-use", req, nil)
@@ -1901,25 +1893,81 @@ if errors.As(err, &apiErr) {
 
 ---
 
-## 附录 J: Wire Format 映射详细设计（迭代 6）
+## 附录 J: Wire Format 映射详细设计（迭代 7）
 
 ### 背景
 
-Java SDK 使用 `toWireFormat()` 方法将 DTO 转换为后端期望的 JSON 格式。Go SDK 需要做同样的映射。
+Java SDK 使用 `toWireFormat()` 方法将 DTO 转换为后端期望的 JSON 格式。Go SDK 使用 struct tag 直接映射（避免运行时转换），但需要精确验证每个端点的 wire format。
 
-### Wire Format 对照表
+### ⚠️ 关键发现：ProjectPath 的 Wire Format 不统一
 
-| Go 字段 | JSON 字段 | 后端期望类型 | 示例 |
-|---------|-----------|-------------|------|
-| `SessionID` | `session_id` | string | `"abc123"` |
-| `ProjectPath` | `project_path` | string | `"/path/to/project"` |
-| `UserID` | `user_id` | string | `"user_456"` |
-| `ToolName` | `tool_name` | string | `"Read"` |
-| `ToolInput` | `tool_input` | any | `{"file": "a.txt"}` |
-| `ToolResponse` | `tool_response` | any | `{"content": "..."}` |
-| `PromptNumber` | `prompt_number` | int | `1` |
-| `Source` | `source` | string | `"tool_result"` |
-| `ExtractedData` | `extractedData` | map | `{"key": "value"}` |
+后端不同端点对"项目路径"使用**不同的 JSON key 名**：
+
+| 端点 | JSON key | 说明 |
+|------|----------|------|
+| `POST /api/ingest/tool-use` | `cwd` | Observation 捕获 |
+| `POST /api/ingest/user-prompt` | `cwd` | 用户 prompt |
+| `POST /api/ingest/session-end` | `cwd` | 会话结束 |
+| `POST /api/session/start` | `project_path` | 会话开始 |
+| `POST /api/memory/experiences` | `project` | 经验检索 |
+| `POST /api/memory/icl-prompt` | `project` | ICL prompt |
+| `POST /api/extraction/run` | `projectPath` | 提取触发 |
+
+**结论**：Go SDK 必须为每个 DTO 精确设置对应的 JSON tag，不能统一命名。
+
+### Wire Format 完整对照表
+
+**SessionStartRequest**：
+| Go 字段 | JSON 字段 | 说明 |
+|---------|-----------|------|
+| `SessionID` | `session_id` | |
+| `ProjectPath` | `project_path` | ⚠️ 不是 `cwd`！ |
+| `UserID` | `user_id` | omitempty |
+
+**SessionEndRequest**：
+| Go 字段 | JSON 字段 | 说明 |
+|---------|-----------|------|
+| `SessionID` | `session_id` | |
+| `ProjectPath` | `cwd` | ⚠️ 是 `cwd`！ |
+| `LastAssistantMessage` | `last_assistant_message` | omitempty |
+
+**ObservationRequest**：
+| Go 字段 | JSON 字段 | 说明 |
+|---------|-----------|------|
+| `SessionID` | `session_id` | |
+| `ProjectPath` | `cwd` | ⚠️ 是 `cwd`！ |
+| `ToolName` | `tool_name` | |
+| `ToolInput` | `tool_input` | any 类型 |
+| `ToolResponse` | `tool_response` | any 类型 |
+| `PromptNumber` | `prompt_number` | omitempty |
+| `Source` | `source` | V14 字段 |
+| `ExtractedData` | `extractedData` | ⚠️ camelCase |
+
+**UserPromptRequest**：
+| Go 字段 | JSON 字段 | 说明 |
+|---------|-----------|------|
+| `SessionID` | `session_id` | |
+| `PromptText` | `prompt_text` | |
+| `ProjectPath` | `cwd` | ⚠️ 是 `cwd`！ |
+| `PromptNumber` | `prompt_number` | omitempty |
+
+**ExperienceRequest**：
+| Go 字段 | JSON 字段 | 说明 |
+|---------|-----------|------|
+| `Task` | `task` | |
+| `Project` | `project` | |
+| `Count` | `count` | omitempty |
+| `Source` | `source` | omitempty |
+| `RequiredConcepts` | `requiredConcepts` | ⚠️ camelCase |
+| `UserID` | `userId` | ⚠️ camelCase |
+
+**ICLPromptRequest**：
+| Go 字段 | JSON 字段 | 说明 |
+|---------|-----------|------|
+| `Task` | `task` | |
+| `Project` | `project` | |
+| `MaxChars` | `maxChars` | ⚠️ camelCase |
+| `UserID` | `userId` | ⚠️ camelCase |
 
 ### Go DTO Wire Format 实现
 
@@ -1949,24 +1997,11 @@ type ObservationRequest struct {
 package dto
 
 // SessionStartRequest is a request to start or resume a session.
+// Note: SessionStart uses "project_path", NOT "cwd" (unlike other endpoints).
 type SessionStartRequest struct {
     SessionID   string `json:"session_id"`
-    ProjectPath string `json:"project_path"`
+    ProjectPath string `json:"project_path"` // Wire: project_path (not cwd!)
     UserID      string `json:"user_id,omitempty"`
-    // Wire format also includes "cwd" = project_path
-}
-
-// toWireFormat converts to backend wire format.
-func (r SessionStartRequest) toWireFormat() map[string]any {
-    m := map[string]any{
-        "session_id":   r.SessionID,
-        "project_path": r.ProjectPath,
-        "cwd":         r.ProjectPath,  // 后端期望 cwd = project_path
-    }
-    if r.UserID != "" {
-        m["user_id"] = r.UserID
-    }
-    return m
 }
 ```
 
@@ -3436,4 +3471,93 @@ public interface CortexMemClient {
 | Retriever | CortexMemoryAdvisor | ✅ Retriever | ✅ Memory | ✅ Retriever |
 | Tools | CortexMemoryTools | ❌ 可选 | ❌ 可选 | ❌ 可选 |
 | Session | CortexSessionContext | ❌ 可选 | ❌ 可选 | ❌ 可选 |
+
+
+---
+
+## 附录 T: 项目总结与交付检查清单（迭代 17）
+
+### 文档完整性检查
+
+| 检查项 | 状态 | 说明 |
+|--------|------|------|
+| 设计原则 | ✅ | 零依赖、地道 Go 风格 |
+| 目录结构 | ✅ | 核心包 + 3 集成层 + 5 Demo |
+| 核心 API | ✅ | 15 个方法（与 Java SDK 对齐） |
+| DTO 定义 | ✅ | 所有数据类型 |
+| 错误处理 | ✅ | 11 个错误类型 + 重试机制 |
+| Wire Format | ✅ | JSON 映射表 |
+| 测试策略 | ✅ | 单元测试 + 集成测试 + 基准测试 |
+| Demo 设计 | ✅ | 5 个 Demo 项目 |
+| 集成层 | ✅ | Eino/LangChainGo/Genkit |
+| 版本管理 | ✅ | 语义化版本 + CI/CD |
+| 开发计划 | ✅ | 5 个阶段，7.5-9.5 天 |
+
+### 附录完整性检查
+
+| 附录 | 内容 | 状态 |
+|------|------|------|
+| A | API 端点映射 | ✅ |
+| B | Demo 项目规划 | ✅ |
+| C | Go 惯例参考 | ✅ |
+| D | 框架接口研究 | ✅ |
+| E | Java SDK vs 后端差距 | ✅ |
+| F | Search API 详细设计 | ✅ |
+| G | Observations API 详细设计 | ✅ |
+| H | Phase 1/2 决策 | ✅ |
+| I | 错误处理详细设计 | ✅ |
+| J | Wire Format 映射 | ✅ |
+| K | Demo 详细设计 | ✅ |
+| L | Option/Builder 模式 | ✅ |
+| M | Java SDK 缺失功能说明 | ✅ |
+| N | Context 管理和异步操作 | ✅ |
+| O | SDK 发布和版本管理 | ✅ |
+| P | 集成层精确适配 | ✅ |
+| Q | 测试策略详细设计 | ✅ |
+| R | Java SDK 补充实现建议 | ✅ |
+| S | SDK 设计一致性检查 | ✅ |
+| T | 项目总结与交付检查清单 | ✅ |
+
+### 开发里程碑
+
+| 里程碑 | 日期 | 内容 |
+|--------|------|------|
+| M1 | Day 3-4 | 核心包完成（15 方法） |
+| M2 | Day 5 | 扩展功能完成（+3 方法） |
+| M3 | Day 7-8 | Demo 项目完成 |
+| M4 | Day 9 | 文档完成 |
+| M5 | Day 9.5 | v1.0.0 发布 |
+
+### 质量保证
+
+| 项目 | 标准 | 检查方法 |
+|------|------|---------|
+| 代码覆盖率 | >80% | `go test -cover` |
+| 无 race conditions | 0 | `go test -race` |
+| 文档完整性 | 100% | 所有公开函数有 godoc |
+| 示例可运行 | 100% | 所有 demo 通过编译 |
+
+### 待办事项
+
+- [ ] 设计文档审批通过
+- [ ] Java SDK 补充 Search/ListObservations/GetVersion（如需要）
+- [ ] 开始 Phase 1 实施
+- [ ] 设置 GitHub CI/CD
+- [ ] 准备 v1.0.0 发布
+
+---
+
+**文档版本历史**
+
+| 版本 | 日期 | 迭代 | 内容 |
+|------|------|------|------|
+| v1.0 | 2026-03-24 | 0 | 初始版本 |
+| v1.1 | 2026-03-24 | 1-9 | 框架接口研究、差距分析、API 设计 |
+| v1.2 | 2026-03-24 | 10-14 | 错误处理、Wire Format、Demo 设计 |
+| v1.3 | 2026-03-24 | 15-17 | Java SDK 建议、一致性检查、项目总结 |
+
+**总迭代次数**: 17 次
+**文档规模**: 3700+ 行
+**附录数量**: 20 个
+**当前状态**: 待审批，持续迭代中 🚀
 
