@@ -1066,6 +1066,39 @@ jobs:
 4. **指标收集**: 是否集成 OpenTelemetry metrics？
    - 建议：可选 middleware 模式，不强制
 
+5. **SubmitFeedback 实现状态**: 后端 `POST /api/memory/feedback` 返回 501 (Not Implemented)
+   - Go SDK 应暴露此方法但文档标注为 "experimental"
+   - Java SDK 已暴露但后端未实现
+
+---
+
+## 9. 变更日志
+
+### v1.1 (2026-03-24)
+
+**接口验证迭代**：
+- ✅ 验证 Eino `Retriever` 接口：`Retrieve(ctx, query, opts ...Option)` — 修正了 v1.0 中缺少 `opts` 参数的错误
+- ✅ 验证 Eino `schema.Document`：`ID`, `Content`, `MetaData` + 类型化访问器
+- ✅ 验证 Eino `retriever.Option`：`WithTopK`, `WithScoreThreshold`, `WithIndex`, `WithSubIndex`, `WithEmbedding`, `WithDSLInfo`
+- ✅ 验证 LangChainGo `schema.Memory`：完整 5 方法接口（v1.0 缺少 `GetMemoryKey` 和 `MemoryVariables`）
+- ✅ 更新 Eino 集成层代码：支持 `Option` 透传、`ScoreThreshold` 过滤、编译时接口检查
+- ✅ 更新 LangChainGo 集成层代码：完整实现 5 个方法、`LoadMemoryVariables` 从 inputs 提取 task、编译时接口检查
+
+**Java SDK 对齐**：
+- ✅ 新增 `TriggerExtraction` 方法（`POST /api/extraction/run`，Java SDK 未暴露）
+- ✅ 新增 `UserPromptRequest` DTO 设计
+- ✅ 新增 Wire Format 映射表（Section 3.4）：`cwd` vs `project_path`、`extractedData` camelCase
+- ✅ 标注 `SubmitFeedback` 后端 501 状态
+
+**文档改进**：
+- ✅ 附录 D 升级为"迭代 2 — 已验证"状态
+- ✅ Eino/LangChainGo 接口来源标注源码路径和验证日期
+- ✅ 增加 Genkit 待确认事项列表
+
+### v1.0 (2026-03-24)
+
+初始设计文档
+
 ---
 
 ## 附录 A: API 端点映射
