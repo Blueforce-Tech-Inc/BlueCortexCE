@@ -41,7 +41,7 @@ type Client interface {
 	ListObservations(ctx context.Context, req dto.ObservationsRequest) (*dto.ObservationsResponse, error)
 
 	// GetObservationsByIds retrieves observations by their IDs.
-	GetObservationsByIds(ctx context.Context, ids []string) ([]dto.Observation, error)
+	GetObservationsByIds(ctx context.Context, ids []string) (*dto.BatchObservationsResponse, error)
 
 	// ==================== Management ====================
 

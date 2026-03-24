@@ -217,3 +217,15 @@
   - Go E2E 测试: tests 28-29 硬编码 /tmp/go-demo-project → $PROJECT 变量（与 round 14 的 http-server 修复一致）
   - Go E2E 测试: test 34 修复 DELETE 204 No Content 响应处理（检查 HTTP 状态码而非响应体）
   - go vet 干净、33 Go 测试通过、5/5 examples 编译通过、Java SDK BUILD SUCCESS、回归测试 46/46 PASS
+- 2026-03-25 02:31: Phase D 代码审查第十六轮 — Go SDK Error Helper 完善
+  - Go SDK error.go: 新增 5 个缺失的错误辅助函数 — IsForbidden、IsUnprocessable、IsBadGateway、IsServiceUnavailable、IsGatewayTimeout
+  - 新增 5 个单元测试覆盖所有新 helper（含交叉验证：502/503/504 同时匹配 IsInternal）
+  - Go SDK 单元测试从 33 → 38 个，全部通过
+  - go vet 干净、5/5 examples 编译通过、Java SDK BUILD SUCCESS（40 测试通过）
+- 2026-03-25 03:01: Phase D 代码审查第十七轮 — GetObservationsByIds wire format 修复
+  - Go SDK: GetObservationsByIds 返回类型从 []dto.Observation 修正为 *dto.BatchObservationsResponse
+  - 后端返回 {"observations":[], "count":0} 而非原始数组，之前返回类型不匹配导致 JSON 反序列化失败
+  - 新增 BatchObservationsResponse DTO（observations + count 字段）
+  - 更新 Client 接口签名 + client_methods.go 实现 + client_test.go 测试（mock 响应从 raw array 改为正确格式）
+  - 移除 E2E 测试中的 "known issue" 注释（bug 已修复）
+  - go vet 干净、38 Go 测试通过、http-server/basic examples 编译通过、Java SDK BUILD SUCCESS

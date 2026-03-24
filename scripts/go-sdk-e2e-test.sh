@@ -500,10 +500,6 @@ echo "  ✅ Demo HTTP endpoints: Chat, Search, Version, Experiences, ICL, Observ
 echo "  ✅ Backend direct: health, version, search, observations, projects, stats, modes, settings, experiences, icl-prompt, quality"
 echo "  ✅ Chain verification: Test → Demo → Go SDK → Backend"
 
-# Note: POST /observations/batch fails due to Go SDK GetObservationsByIds return type mismatch
-# Backend returns {"observations":[],"count":0} but Go SDK expects []Observation
-# This is a known Go SDK issue - not a Demo or test problem
-
 # ==================== New Endpoint Tests: Complete Backend API Coverage ====================
 
 # Test 27: /observations/batch

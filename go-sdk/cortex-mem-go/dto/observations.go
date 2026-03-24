@@ -28,3 +28,12 @@ type ObservationsResponse struct {
 type BatchObservationsRequest struct {
 	IDs []string `json:"ids"`
 }
+
+// BatchObservationsResponse is the response from batch observation retrieval.
+//
+// Wire format (verified against backend ObservationController.java):
+//   {"observations":[...], "count":0}
+type BatchObservationsResponse struct {
+	Observations []Observation `json:"observations"`
+	Count        int           `json:"count,omitempty"`
+}

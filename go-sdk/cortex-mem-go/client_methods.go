@@ -148,7 +148,7 @@ func (c *httpClient) ListObservations(ctx context.Context, req dto.ObservationsR
 	return &resp, nil
 }
 
-func (c *httpClient) GetObservationsByIds(ctx context.Context, ids []string) ([]dto.Observation, error) {
+func (c *httpClient) GetObservationsByIds(ctx context.Context, ids []string) (*dto.BatchObservationsResponse, error) {
 	req := dto.BatchObservationsRequest{IDs: ids}
 	data, status, err := c.doRequest(ctx, http.MethodPost, "/api/observations/batch", req, nil)
 	if err != nil {
@@ -157,11 +157,11 @@ func (c *httpClient) GetObservationsByIds(ctx context.Context, ids []string) ([]
 	if status >= 400 {
 		return nil, &APIError{StatusCode: status, Message: string(data)}
 	}
-	var resp []dto.Observation
+	var resp dto.BatchObservationsResponse
 	if err := c.unmarshalJSON(data, &resp); err != nil {
 		return nil, fmt.Errorf("cortex-ce: failed to parse batch observations: %w", err)
 	}
-	return resp, nil
+	return &resp, nil
 }
 
 // ==================== Management ====================

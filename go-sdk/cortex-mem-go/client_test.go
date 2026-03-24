@@ -553,26 +553,32 @@ func TestGetObservationsByIds(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode([]dto.Observation{
-			{ID: "obs-1", Content: "first"},
-			{ID: "obs-2", Content: "second"},
+		json.NewEncoder(w).Encode(dto.BatchObservationsResponse{
+			Observations: []dto.Observation{
+				{ID: "obs-1", Content: "first"},
+				{ID: "obs-2", Content: "second"},
+			},
+			Count: 2,
 		})
 	}))
 	defer server.Close()
 
 	client := newTestClient(server)
-	obs, err := client.GetObservationsByIds(context.Background(), []string{"obs-1", "obs-2"})
+	resp, err := client.GetObservationsByIds(context.Background(), []string{"obs-1", "obs-2"})
 	if err != nil {
 		t.Fatalf("GetObservationsByIds failed: %v", err)
 	}
-	if len(obs) != 2 {
-		t.Fatalf("expected 2 observations, got %d", len(obs))
+	if resp.Count != 2 {
+		t.Errorf("expected count=2, got %d", resp.Count)
 	}
-	if obs[0].ID != "obs-1" {
-		t.Errorf("expected obs-1, got %s", obs[0].ID)
+	if len(resp.Observations) != 2 {
+		t.Fatalf("expected 2 observations, got %d", len(resp.Observations))
 	}
-	if obs[1].Content != "second" {
-		t.Errorf("expected content=second, got %s", obs[1].Content)
+	if resp.Observations[0].ID != "obs-1" {
+		t.Errorf("expected obs-1, got %s", resp.Observations[0].ID)
+	}
+	if resp.Observations[1].Content != "second" {
+		t.Errorf("expected content=second, got %s", resp.Observations[1].Content)
 	}
 }
 
