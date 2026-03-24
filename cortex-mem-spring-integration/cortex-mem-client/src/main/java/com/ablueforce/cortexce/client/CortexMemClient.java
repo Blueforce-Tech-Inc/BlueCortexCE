@@ -104,4 +104,33 @@ public interface CortexMemClient {
      * Update session userId. Calls PATCH /api/session/{sessionId}/user.
      */
     Map<String, Object> updateSessionUserId(String sessionId, String userId);
+
+    // ==================== Search & List (P0) ====================
+
+    /**
+     * Search observations by query, type, source, or concept.
+     * Calls GET /api/search
+     *
+     * @param request search parameters
+     * @return search result with observations, strategy, and metadata
+     */
+    Map<String, Object> search(SearchRequest request);
+
+    /**
+     * List observations with pagination.
+     * Calls GET /api/observations
+     *
+     * @param request list parameters with pagination
+     * @return paginated list of observations
+     */
+    Map<String, Object> listObservations(ObservationsRequest request);
+
+    /**
+     * Get observations by IDs.
+     * Calls POST /api/observations/batch
+     *
+     * @param ids list of observation IDs
+     * @return list of observations
+     */
+    Map<String, Object> getObservationsByIds(java.util.List<String> ids);
 }

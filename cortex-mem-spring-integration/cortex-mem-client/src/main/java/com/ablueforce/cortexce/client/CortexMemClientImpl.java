@@ -296,6 +296,86 @@ public class CortexMemClientImpl implements CortexMemClient {
         }
     }
 
+    // ==================== Search & List (P0) ====================
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> search(SearchRequest request) {
+        try {
+            return restClient.get()
+                .uri(uriBuilder -> {
+                    var builder = uriBuilder
+                        .path("/api/search")
+                        .queryParam("project", request.project());
+                    if (request.query() != null && !request.query().isBlank()) {
+                        builder.queryParam("query", request.query());
+                    }
+                    if (request.type() != null && !request.type().isBlank()) {
+                        builder.queryParam("type", request.type());
+                    }
+                    if (request.concept() != null && !request.concept().isBlank()) {
+                        builder.queryParam("concept", request.concept());
+                    }
+                    if (request.source() != null && !request.source().isBlank()) {
+                        builder.queryParam("source", request.source());
+                    }
+                    if (request.limit() != null) {
+                        builder.queryParam("limit", request.limit());
+                    }
+                    if (request.offset() != null && request.offset() > 0) {
+                        builder.queryParam("offset", request.offset());
+                    }
+                    return builder.build();
+                })
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+        } catch (Exception e) {
+            log.warn("Failed to search: {}", e.getMessage());
+            return Map.of("observations", List.of(), "strategy", "none", "fell_back", true, "count", 0);
+        }
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> listObservations(ObservationsRequest request) {
+        try {
+            return restClient.get()
+                .uri(uriBuilder -> {
+                    var builder = uriBuilder.path("/api/observations");
+                    if (request.project() != null && !request.project().isBlank()) {
+                        builder.queryParam("project", request.project());
+                    }
+                    if (request.offset() != null && request.offset() > 0) {
+                        builder.queryParam("offset", request.offset());
+                    }
+                    if (request.limit() != null) {
+                        builder.queryParam("limit", request.limit());
+                    }
+                    return builder.build();
+                })
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+        } catch (Exception e) {
+            log.warn("Failed to list observations: {}", e.getMessage());
+            return Map.of("observations", List.of(), "total", 0);
+        }
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getObservationsByIds(java.util.List<String> ids) {
+        try {
+            return restClient.post()
+                .uri("/api/observations/batch")
+                .body(Map.of("ids", ids))
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+        } catch (Exception e) {
+            log.warn("Failed to get observations by IDs: {}", e.getMessage());
+            return Map.of("observations", List.of());
+        }
+    }
+
     // ==================== Internal ====================
 
     private void executeWithRetry(String operation, Runnable action) {
