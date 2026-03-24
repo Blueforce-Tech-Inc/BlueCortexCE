@@ -1,19 +1,40 @@
+// Package genkit provides Cortex CE integration for Google's Genkit (Go).
+// Status: placeholder — waiting for Genkit Go API stabilization.
 package genkit
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/abforce/cortex-ce/cortex-mem-go"
+	cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
 	"github.com/abforce/cortex-ce/cortex-mem-go/dto"
 )
 
-// Retriever adapts Cortex CE memory to Genkit's Retriever interface.
+// RetrieverInput is the input for Cortex CE retriever.
+type RetrieverInput struct {
+	Query   string
+	Project string
+	Count   int
+	Source  string
+}
+
+// Document represents a retrieved document for Genkit.
+type Document struct {
+	Content  string         `json:"content"`
+	Metadata map[string]any `json:"metadata"`
+}
+
+// RetrieverOutput is the output from Cortex CE retriever.
+type RetrieverOutput struct {
+	Documents []Document `json:"documents"`
+}
+
+// Retriever adapts Cortex CE memory to Genkit's Retriever pattern.
 type Retriever struct {
-	client    cortexmem.Client
-	project   string
-	source    string
-	maxResults int
+	client  cortexmem.Client
+	project string
+	source  string
+	count   int
 }
 
 // RetrieverOption configures the Retriever.
@@ -29,17 +50,16 @@ func WithRetrieverSource(source string) RetrieverOption {
 	return func(r *Retriever) { r.source = source }
 }
 
-// WithMaxResults sets the maximum number of results.
-func WithMaxResults(max int) RetrieverOption {
-	return func(r *Retriever) { r.maxResults = max }
+// WithRetrieverCount sets the maximum number of results.
+func WithRetrieverCount(n int) RetrieverOption {
+	return func(r *Retriever) { r.count = n }
 }
 
 // NewRetriever creates a new Retriever for Cortex CE memory.
 func NewRetriever(client cortexmem.Client, opts ...RetrieverOption) *Retriever {
 	r := &Retriever{
-		client:     client,
-		project:    "default",
-		maxResults: 20,
+		client: client,
+		count:  4,
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -47,44 +67,44 @@ func NewRetriever(client cortexmem.Client, opts ...RetrieverOption) *Retriever {
 	return r
 }
 
-// Document represents a retrieved document for Genkit.
-type Document struct {
-	Content string                 `json:"content"`
-	Meta    map[string]interface{} `json:"meta"`
-}
-
-// Retrieve implements Genkit's Retriever interface.
-func (r *Retriever) Retrieve(ctx context.Context, query string) ([]Document, error) {
-	// Build search request
-	searchReq := dto.SearchRequest{
-		Project: r.project,
-		Query:  query,
-		Source:  r.source,
-		Limit:   r.maxResults,
+// Retrieve performs a semantic search and returns Genkit-compatible documents.
+// This is designed to be compatible with Genkit Go's Retriever[In, Out] pattern.
+func (r *Retriever) Retrieve(ctx context.Context, input RetrieverInput) (RetrieverOutput, error) {
+	project := input.Project
+	if project == "" {
+		project = r.project
+	}
+	count := input.Count
+	if count <= 0 {
+		count = r.count
+	}
+	source := input.Source
+	if source == "" {
+		source = r.source
 	}
 
-	// Perform search
-	result, err := r.client.Search(ctx, searchReq)
+	experiences, err := r.client.RetrieveExperiences(ctx, dto.ExperienceRequest{
+		Task:    input.Query,
+		Project: project,
+		Count:   count,
+		Source:  source,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("search failed: %w", err)
+		return RetrieverOutput{}, fmt.Errorf("cortex-ce retrieve: %w", err)
 	}
 
-	// Convert to Genkit documents
-	docs := make([]Document, 0, len(result.Observations))
-	for _, obs := range result.Observations {
+	docs := make([]Document, 0, len(experiences))
+	for _, exp := range experiences {
 		docs = append(docs, Document{
-			Content: obs.Content,
-			Meta: map[string]interface{}{
-				"id":       obs.ID,
-				"type":     obs.Type,
-				"source":   obs.Source,
-				"concepts": obs.Concepts,
+			Content: exp.Strategy + "\n" + exp.Outcome,
+			Metadata: map[string]any{
+				"id":            exp.ID,
+				"task":          exp.Task,
+				"qualityScore":  exp.QualityScore,
+				"reuseCondition": exp.ReuseCondition,
 			},
 		})
 	}
 
-	return docs, nil
+	return RetrieverOutput{Documents: docs}, nil
 }
-
-// Compile-time check
-var _ Retriever = Retriever{}

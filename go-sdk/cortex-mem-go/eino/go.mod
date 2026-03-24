@@ -2,7 +2,6 @@ module github.com/abforce/cortex-ce/cortex-mem-go/eino
 
 go 1.22
 
-require (
-	github.com/abforce/cortex-ce/cortex-mem-go v0.0.0
-	github.com/cloudengineai/eino v0.1.0
-)
+require github.com/abforce/cortex-ce/cortex-mem-go v0.0.0
+
+replace github.com/abforce/cortex-ce/cortex-mem-go => ../
