@@ -257,3 +257,14 @@
   - 新增 doRequestNoContentWithParams 辅助方法，支持带 query params 的无响应体请求
   - 移除 client_methods.go 中不再需要的 net/url import
   - go vet 干净、38 Go 测试通过、basic/http-server examples 编译通过
+- 2026-03-25 05:31: Phase D 代码审查第二十二轮 — Go http-server 中间件改进
+  - Go http-server demo: 添加 panic recovery 中间件 — handler panic 时返回 500 JSON 而非崩溃
+  - Go http-server demo: 添加 request logging 中间件 — 记录 method、path、duration
+  - 中间件链: requestLogger → recovery → mux
+  - go vet 干净、38 Go 测试通过、http-server/basic examples 编译通过、Java SDK BUILD SUCCESS（42 测试通过）
+- 2026-03-25 06:01: Phase D 代码审查第二十三轮 — http-server 安全加固 + Go SDK 测试补充
+  - Go http-server: readJSON 添加 maxRequestBodySize (1MB) 限制 — 防止恶意客户端发送超大 JSON body 导致 OOM
+  - Go http-server: /extraction/history limit 参数从 fmt.Sscanf 改为 strconv.Atoi，添加边界校验 (1-100)
+  - Go SDK: 新增 TestSessionStartRequest_WireFormat — 验证 session_start 使用 project_path（非 cwd），与 session_end/user_prompt 使用 cwd 的差异
+  - Go SDK 单元测试从 38 → 39 个，全部通过
+  - go vet 干净、5/5 examples 编译通过、Java SDK BUILD SUCCESS、回归测试 46/46 PASS

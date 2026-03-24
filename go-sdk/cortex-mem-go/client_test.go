@@ -285,6 +285,63 @@ func TestFeedbackRequest_CamelCase(t *testing.T) {
 
 // ==================== API Method Tests ====================
 
+func TestSessionStartRequest_WireFormat(t *testing.T) {
+	// Backend expects: session_id, project_path, user_id (NOT cwd for session start!)
+	// Verified: SessionStartRequest uses "project_path" while SessionEndRequest/UserPromptRequest use "cwd"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		if r.URL.Path != "/api/session/start" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+
+		if body["session_id"] != "sess-1" {
+			t.Errorf("expected session_id=sess-1, got %v", body["session_id"])
+		}
+		// Session start uses "project_path", NOT "cwd"!
+		if body["project_path"] != "/project" {
+			t.Errorf("expected project_path=/project, got %v", body["project_path"])
+		}
+		if body["user_id"] != "user-42" {
+			t.Errorf("expected user_id=user-42, got %v", body["user_id"])
+		}
+		// Should NOT have these
+		if body["sessionId"] != nil {
+			t.Error("sessionId should not be in wire format (should be 'session_id')")
+		}
+		if body["cwd"] != nil {
+			t.Error("cwd should not be in wire format for session start (should be 'project_path')")
+		}
+		if body["userId"] != nil {
+			t.Error("userId should not be in wire format (should be 'user_id')")
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]any{
+			"session_db_id": "db-123",
+			"session_id":    "sess-1",
+			"prompt_number": 0,
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	resp, err := client.StartSession(context.Background(), dto.SessionStartRequest{
+		SessionID:   "sess-1",
+		ProjectPath: "/project",
+		UserID:      "user-42",
+	})
+	if err != nil {
+		t.Fatalf("StartSession failed: %v", err)
+	}
+	if resp.SessionDBID != "db-123" {
+		t.Errorf("expected session_db_id=db-123, got %s", resp.SessionDBID)
+	}
+}
+
 func TestStartSession(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/session/start" {

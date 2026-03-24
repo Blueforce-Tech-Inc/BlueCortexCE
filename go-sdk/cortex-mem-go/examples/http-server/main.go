@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -30,9 +32,19 @@ func writeJSONError(w http.ResponseWriter, status int, message string) {
 	json.NewEncoder(w).Encode(map[string]string{"error": message})
 }
 
-// readJSON decodes the request body into dst.
+// maxRequestBodySize is the maximum request body size (1 MB).
+const maxRequestBodySize = 1 << 20
+
+// readJSON decodes the request body into dst, enforcing a size limit.
 func readJSON(r *http.Request, dst any) error {
-	return json.NewDecoder(r.Body).Decode(dst)
+	r.Body = http.MaxBytesReader(nil, r.Body, maxRequestBodySize)
+	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
+		if strings.Contains(err.Error(), "http: request body too large") {
+			return fmt.Errorf("request body too large (max %d bytes)", maxRequestBodySize)
+		}
+		return err
+	}
+	return nil
 }
 
 // checkMethod verifies the request method matches expected; returns false if not.
@@ -368,7 +380,9 @@ func main() {
 		userId := r.URL.Query().Get("userId")
 		limit := 5
 		if l := r.URL.Query().Get("limit"); l != "" {
-			fmt.Sscanf(l, "%d", &limit)
+			if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 100 {
+				limit = parsed
+			}
 		}
 		result, err := client.GetExtractionHistory(r.Context(), project, template, userId, limit)
 		if err != nil {
