@@ -133,4 +133,47 @@ public interface CortexMemClient {
      * @return list of observations
      */
     Map<String, Object> getObservationsByIds(java.util.List<String> ids);
+
+    // ==================== P1 Management APIs ====================
+
+    /**
+     * Get backend version info.
+     * Calls GET /api/version
+     *
+     * @return version info including build time, Java version, etc.
+     */
+    Map<String, Object> getVersion();
+
+    /**
+     * Get all projects.
+     * Calls GET /api/projects
+     *
+     * @return list of projects
+     */
+    Map<String, Object> getProjects();
+
+    /**
+     * Get project statistics.
+     * Calls GET /api/stats
+     *
+     * @param projectPath optional project path filter
+     * @return statistics for the project
+     */
+    Map<String, Object> getStats(String projectPath);
+
+    /**
+     * Get memory mode settings.
+     * Calls GET /api/modes
+     *
+     * @return list of memory modes
+     */
+    Map<String, Object> getModes();
+
+    /**
+     * Get settings.
+     * Calls GET /api/settings
+     *
+     * @return current settings
+     */
+    Map<String, Object> getSettings();
 }

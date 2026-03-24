@@ -376,6 +376,84 @@ public class CortexMemClientImpl implements CortexMemClient {
         }
     }
 
+    // ==================== P1 Management APIs ====================
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getVersion() {
+        try {
+            return restClient.get()
+                .uri("/api/version")
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+        } catch (Exception e) {
+            log.warn("Failed to get version: {}", e.getMessage());
+            return Map.of("error", e.getMessage());
+        }
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getProjects() {
+        try {
+            return restClient.get()
+                .uri("/api/projects")
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+        } catch (Exception e) {
+            log.warn("Failed to get projects: {}", e.getMessage());
+            return Map.of("projects", List.of());
+        }
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getStats(String projectPath) {
+        try {
+            return restClient.get()
+                .uri(uriBuilder -> {
+                    var builder = uriBuilder.path("/api/stats");
+                    if (projectPath != null && !projectPath.isBlank()) {
+                        builder.queryParam("project", projectPath);
+                    }
+                    return builder.build();
+                })
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+        } catch (Exception e) {
+            log.warn("Failed to get stats: {}", e.getMessage());
+            return Map.of("error", e.getMessage());
+        }
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getModes() {
+        try {
+            return restClient.get()
+                .uri("/api/modes")
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+        } catch (Exception e) {
+            log.warn("Failed to get modes: {}", e.getMessage());
+            return Map.of("modes", List.of());
+        }
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getSettings() {
+        try {
+            return restClient.get()
+                .uri("/api/settings")
+                .retrieve()
+                .body(new ParameterizedTypeReference<>() {});
+        } catch (Exception e) {
+            log.warn("Failed to get settings: {}", e.getMessage());
+            return Map.of("error", e.getMessage());
+        }
+    }
+
     // ==================== Internal ====================
 
     private void executeWithRetry(String operation, Runnable action) {
