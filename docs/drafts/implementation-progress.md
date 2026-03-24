@@ -94,6 +94,12 @@
 - [x] Java MemoryController extraction 端点添加 try-catch 异常处理（与其他控制器一致）
 - [x] Go http-server /extraction/latest 和 /extraction/history 移除硬编码默认 project，改为必填校验（与所有其他端点一致）
 - [x] Go E2E 测试 extraction 端点添加 project 参数（匹配新的必填校验）
+- [x] Go http-server /feedback 拆分复合校验为独立检查（与 /iclprompt 一致）
+- [x] Go http-server /session/user 拆分复合校验为独立检查
+- [x] Go http-server /ingest/prompt 新增 project/session_id/prompt 必填校验
+- [x] Go http-server /ingest/session-end 新增 project/session_id 必填校验
+- [x] Go E2E 测试 tests 28-29 硬编码 project 替换为 $PROJECT 变量
+- [x] Go E2E 测试 test 34 修复 DELETE 204 No Content 响应处理
 
 ### 测试覆盖策略
 - **单元测试**：33 个 wire format + API + error + retry + context cancellation 测试（全部通过）
@@ -197,3 +203,11 @@
   - Go http-server: /extraction/latest 和 /extraction/history 移除硬编码默认 project (`/tmp/go-demo-project`)，改为 project 必填校验（与 /search, /observations, /experiences, /iclprompt, /quality, /refine 一致）
   - Go E2E 测试: extraction 端点测试添加 project 参数，匹配新的必填校验
   - go vet 干净、33 Go 测试通过、http-server 编译通过、Java Demo BUILD SUCCESS、回归测试 46/46 PASS
+- 2026-03-25 02:01: Phase D 代码审查第十五轮 — 输入验证一致性 + E2E 测试修复
+  - Go http-server: /feedback 拆分复合校验为独立检查（observation_id, feedback_type），与 /iclprompt 一致
+  - Go http-server: /session/user 同样拆分复合校验（session_id, user_id）
+  - Go http-server: /ingest/prompt 新增 project/session_id/prompt 必填校验
+  - Go http-server: /ingest/session-end 新增 project/session_id 必填校验
+  - Go E2E 测试: tests 28-29 硬编码 /tmp/go-demo-project → $PROJECT 变量（与 round 14 的 http-server 修复一致）
+  - Go E2E 测试: test 34 修复 DELETE 204 No Content 响应处理（检查 HTTP 状态码而非响应体）
+  - go vet 干净、33 Go 测试通过、5/5 examples 编译通过、Java SDK BUILD SUCCESS、回归测试 46/46 PASS
