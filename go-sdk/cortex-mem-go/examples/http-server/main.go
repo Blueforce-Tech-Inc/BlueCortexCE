@@ -48,10 +48,19 @@ func main() {
 			return
 		}
 
+		if req.Project == "" {
+			http.Error(w, "project is required", http.StatusBadRequest)
+			return
+		}
+		if req.Message == "" {
+			http.Error(w, "message is required", http.StatusBadRequest)
+			return
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
-			"response": fmt.Sprintf("Received: %s", req.Message),
-			"project":  req.Project,
+			"response":  fmt.Sprintf("Received: %s", req.Message),
+			"project":   req.Project,
 			"timestamp": time.Now().Format(time.RFC3339),
 		})
 	})

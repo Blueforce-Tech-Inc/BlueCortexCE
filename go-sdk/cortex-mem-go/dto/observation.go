@@ -18,6 +18,10 @@ type ObservationRequest struct {
 
 // ObservationUpdate updates an existing observation.
 // PATCH /api/memory/observations/{id}
+//
+// Wire format (verified against backend MemoryController.java):
+//   {"title":"...", "content":"...", "facts":[...], "concepts":[...], "source":"...", "extractedData":{...}}
+//   Pointer fields (*string) use "omitempty" — nil values are omitted from JSON.
 type ObservationUpdate struct {
 	Title         *string        `json:"title,omitempty"`
 	Content       *string        `json:"content,omitempty"`

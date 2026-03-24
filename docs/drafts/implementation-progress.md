@@ -84,6 +84,9 @@
 - [x] Go E2E 测试结构完整性（summary 报告移至所有测试之后）
 - [x] Java SDK healthCheck() 端点一致性（/actuator/health → /api/health，与 Go SDK 和后端一致）
 - [x] Go SDK 测试覆盖完整性（新增 11 个测试覆盖 P1 API + fire-and-forget 重试 + error helpers）
+- [x] Go http-server demo `/chat` 端点添加 project/message 必填校验（与 /search, /observations, /experiences 一致）
+- [x] Go SDK dto 包 wire format 文档一致性（search.go, observations.go, observation.go 添加 wire format 注释）
+- [x] Java SDK 单元测试扩展（15 个新测试覆盖 P0/P1 API + Extraction + Observation Management）
 
 ### 测试覆盖策略
 - **单元测试**：32 个 wire format + API + error + retry 测试（全部通过）
@@ -145,3 +148,9 @@
   - Go SDK: 新增 11 个单元测试 — UpdateSessionUserId、GetProjects、GetStats、GetStats_EmptyProject、GetModes、GetSettings、IsRateLimited、IsInternal、FireAndForget_RetryOnFailure、FireAndForget_ExhaustsRetries、HealthCheck_Success、HealthCheck_Unhealthy
   - Go SDK 单元测试从 21 → 32 个，全部通过
   - go vet 干净、Java SDK BUILD SUCCESS
+- 2026-03-24 22:31: Phase D 代码审查第八轮 — Java SDK 测试补充 + Go Demo + DTO 文档
+  - Go http-server demo: /chat 端点添加 project/message 必填校验（与其他端点一致）
+  - Go SDK dto 包: search.go, observations.go 添加 wire format 注释；observation.go ObservationUpdate 添加 wire format 注释
+  - Java SDK: 新增 15 个单元测试 — search、listObservations、getObservationsByIds、getVersion、getProjects、getStats(2)、getModes、getSettings、getLatestExtraction(2)、getExtractionHistory、updateObservation、deleteObservation、updateSessionUserId
+  - Java SDK 单元测试从 14 → 29 个（总 39 含 DtoTest），全部通过
+  - go vet 干净、32 Go 测试通过、basic/http-server Demo 编译通过、回归测试 46/46 PASS

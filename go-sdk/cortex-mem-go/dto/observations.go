@@ -2,6 +2,9 @@ package dto
 
 // ObservationsRequest lists observations with pagination.
 // GET /api/observations?project=...&offset=...&limit=...
+//
+// Wire format: all fields are passed as query parameters (not JSON body).
+// Verified against backend ObservationController.java.
 type ObservationsRequest struct {
 	Project string `json:"project,omitempty"`
 	Offset  int    `json:"offset,omitempty"`
@@ -19,6 +22,9 @@ type ObservationsResponse struct {
 
 // BatchObservationsRequest gets observations by IDs.
 // POST /api/observations/batch
+//
+// Wire format (verified against backend ObservationController.java):
+//   {"ids":["id1", "id2", ...]}
 type BatchObservationsRequest struct {
 	IDs []string `json:"ids"`
 }

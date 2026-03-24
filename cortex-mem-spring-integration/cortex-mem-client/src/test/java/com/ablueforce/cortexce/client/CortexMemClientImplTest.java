@@ -14,6 +14,7 @@ import org.springframework.web.client.RestClient;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -243,5 +244,228 @@ class CortexMemClientImplTest {
     void healthCheck_returnsFalseWhenError() {
         server.enqueue(new MockResponse().setResponseCode(500));
         assertThat(client.healthCheck()).isFalse();
+    }
+
+    // ==================== P0 API Tests ====================
+
+    @Test
+    void search_sendsCorrectParams() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("{\"observations\":[],\"strategy\":\"hybrid\",\"count\":0}")
+            .addHeader("Content-Type", "application/json"));
+
+        client.search(SearchRequest.builder()
+            .project("/proj")
+            .query("test")
+            .source("manual")
+            .limit(10)
+            .build());
+
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getMethod()).isEqualTo("GET");
+        assertThat(req.getPath()).startsWith("/api/search");
+        assertThat(req.getPath()).contains("project=");
+        assertThat(req.getPath()).contains("query=test");
+        assertThat(req.getPath()).contains("source=manual");
+    }
+
+    @Test
+    void listObservations_sendsCorrectParams() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("{\"items\":[],\"total\":0,\"hasMore\":false}")
+            .addHeader("Content-Type", "application/json"));
+
+        client.listObservations(ObservationsRequest.builder()
+            .project("/proj")
+            .limit(20)
+            .offset(0)
+            .build());
+
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getMethod()).isEqualTo("GET");
+        assertThat(req.getPath()).startsWith("/api/observations?");
+        assertThat(req.getPath()).contains("project=");
+    }
+
+    @Test
+    void getObservationsByIds_sendsCorrectBody() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("[]")
+            .addHeader("Content-Type", "application/json"));
+
+        client.getObservationsByIds(List.of("id1", "id2"));
+
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getMethod()).isEqualTo("POST");
+        assertThat(req.getPath()).isEqualTo("/api/observations/batch");
+        assertThat(req.getBody().readUtf8()).contains("id1", "id2");
+    }
+
+    // ==================== P1 Management API Tests ====================
+
+    @Test
+    void getVersion_returnsResult() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("{\"version\":\"1.0.0\",\"buildTime\":\"2026-01-01\"}")
+            .addHeader("Content-Type", "application/json"));
+
+        Map<String, Object> result = client.getVersion();
+
+        assertThat(result).containsKey("version");
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getMethod()).isEqualTo("GET");
+        assertThat(req.getPath()).isEqualTo("/api/version");
+    }
+
+    @Test
+    void getProjects_returnsResult() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("{\"projects\":[\"/proj-a\",\"/proj-b\"]}")
+            .addHeader("Content-Type", "application/json"));
+
+        Map<String, Object> result = client.getProjects();
+
+        assertThat(result).containsKey("projects");
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getMethod()).isEqualTo("GET");
+        assertThat(req.getPath()).isEqualTo("/api/projects");
+    }
+
+    @Test
+    void getStats_withProject_sendsQueryParam() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("{\"totalObservations\":100}")
+            .addHeader("Content-Type", "application/json"));
+
+        client.getStats("/my-project");
+
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getMethod()).isEqualTo("GET");
+        assertThat(req.getPath()).startsWith("/api/stats");
+        assertThat(req.getPath()).contains("project=");
+    }
+
+    @Test
+    void getStats_nullProject_omitsParam() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("{\"totalObservations\":0}")
+            .addHeader("Content-Type", "application/json"));
+
+        client.getStats(null);
+
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getPath()).isEqualTo("/api/stats");
+    }
+
+    @Test
+    void getModes_returnsResult() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("{\"modes\":[{\"name\":\"default\"}]}")
+            .addHeader("Content-Type", "application/json"));
+
+        Map<String, Object> result = client.getModes();
+
+        assertThat(result).containsKey("modes");
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getPath()).isEqualTo("/api/modes");
+    }
+
+    @Test
+    void getSettings_returnsResult() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("{\"embeddingModel\":\"text-embedding-3-small\"}")
+            .addHeader("Content-Type", "application/json"));
+
+        Map<String, Object> result = client.getSettings();
+
+        assertThat(result).containsKey("embeddingModel");
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getPath()).isEqualTo("/api/settings");
+    }
+
+    // ==================== Extraction API Tests ====================
+
+    @Test
+    void getLatestExtraction_sendsCorrectPath() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("{\"result\":\"data\"}")
+            .addHeader("Content-Type", "application/json"));
+
+        client.getLatestExtraction("/proj", "user-preferences", "alice");
+
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getMethod()).isEqualTo("GET");
+        assertThat(req.getPath()).contains("/api/extraction/user-preferences/latest");
+        assertThat(req.getPath()).contains("projectPath=");
+        assertThat(req.getPath()).contains("userId=alice");
+        // templateName should NOT be duplicated as query param
+        assertThat(req.getPath()).doesNotContain("templateName=");
+    }
+
+    @Test
+    void getExtractionHistory_sendsCorrectParams() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("[{\"result\":\"v1\"}]")
+            .addHeader("Content-Type", "application/json"));
+
+        client.getExtractionHistory("/proj", "user-preferences", "alice", 10);
+
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getPath()).contains("/api/extraction/user-preferences/history");
+        assertThat(req.getPath()).contains("limit=10");
+        assertThat(req.getPath()).contains("userId=alice");
+    }
+
+    @Test
+    void getLatestExtraction_nullUserId_omitsParam() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("{}")
+            .addHeader("Content-Type", "application/json"));
+
+        client.getLatestExtraction("/proj", "user-preferences", null);
+
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getPath()).doesNotContain("userId=");
+    }
+
+    // ==================== Observation Management Tests ====================
+
+    @Test
+    void updateObservation_sendsPatch() throws Exception {
+        server.enqueue(new MockResponse().setResponseCode(200));
+
+        client.updateObservation("obs-1", ObservationUpdate.builder()
+            .source("manual")
+            .build());
+
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getMethod()).isEqualTo("PATCH");
+        assertThat(req.getPath()).isEqualTo("/api/memory/observations/obs-1");
+    }
+
+    @Test
+    void deleteObservation_sendsDelete() throws Exception {
+        server.enqueue(new MockResponse().setResponseCode(200));
+
+        client.deleteObservation("obs-1");
+
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getMethod()).isEqualTo("DELETE");
+        assertThat(req.getPath()).isEqualTo("/api/memory/observations/obs-1");
+    }
+
+    @Test
+    void updateSessionUserId_sendsPatch() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("{\"status\":\"ok\"}")
+            .addHeader("Content-Type", "application/json"));
+
+        Map<String, Object> result = client.updateSessionUserId("sess-1", "user-42");
+
+        assertThat(result).containsKey("status");
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getMethod()).isEqualTo("PATCH");
+        assertThat(req.getPath()).isEqualTo("/api/session/sess-1/user");
+        assertThat(req.getBody().readUtf8()).contains("user-42");
     }
 }

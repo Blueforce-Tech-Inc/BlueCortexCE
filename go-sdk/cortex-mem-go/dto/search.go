@@ -2,6 +2,9 @@ package dto
 
 // SearchRequest performs semantic search over observations.
 // GET /api/search?project=...&query=...&type=...&concept=...&source=...&limit=...&offset=...
+//
+// Wire format: all fields are passed as query parameters (not JSON body).
+// Verified against backend SearchController.java.
 type SearchRequest struct {
 	Project string `json:"project"`
 	Query   string `json:"query,omitempty"`
