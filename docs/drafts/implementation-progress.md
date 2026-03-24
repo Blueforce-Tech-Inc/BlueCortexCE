@@ -180,3 +180,10 @@
   - Java SDK CortexMemClientImpl.buildICLPrompt(): 移除硬编码 maxChars=4000 默认值，让后端决定默认值（避免 SDK 与后端默认值不同步）
   - 同步修复 project 为空时发送 "" 的问题（与 retrieveExperiences 一致）
   - SDK BUILD SUCCESS、Demo BUILD SUCCESS、go vet 干净、33 Go 测试通过
+- 2026-03-25 01:01: Phase D 代码审查第十三轮 — ObservationUpdate null 序列化修复 + http-server 扩展
+  - Java SDK: ObservationUpdate 添加 @JsonInclude(NON_NULL) 注解（已由 round 12 同期提交的 fc7b057 引入）
+  - Java SDK: 新增 DtoTest.observationUpdate_omitsNullFields 测试验证 Jackson 序列化行为（同上）
+  - Go SDK http-server: 从 12 个端点扩展到 22 个端点（已由 e5cfc20 提交）
+  - E2E 测试: 从 26 个增加到 36 个（新增 tests 27-36 覆盖 batch extraction/refine/feedback 等）
+  - 审查结论: Java SDK 与 Go SDK API 覆盖度一致（20 方法 vs 25 方法），wire format 对齐正确
+  - go vet 干净、33 Go 测试通过、5/5 examples 编译通过、Java SDK BUILD SUCCESS（40 测试通过）、回归测试 46/46 PASS
