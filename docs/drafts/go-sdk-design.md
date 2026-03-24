@@ -1060,3 +1060,234 @@ LangChainGo 是 LangChain 的 Go 移植版本。
 - [ ] 决定是否需要 Observation 列表 API
 - [ ] 决定是否需要 Projects API
 
+
+---
+
+## 附录 F: Search API 详细设计（迭代 2）
+
+### 后端 Search API 分析
+
+**端点**: `GET /api/search`
+
+**参数**:
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| project | string | ✅ | - | 项目路径 |
+| query | string | ❌ | null | 搜索文本 |
+| type | string | ❌ | null | 类型过滤 |
+| concept | string | ❌ | null | 概念过滤 |
+| source | string | ❌ | null | 源过滤 (V14) |
+| limit | int | ❌ | 20 | 结果数量 (最大100) |
+| offset | int | ❌ | 0 | 偏移量 (V16) |
+| orderBy | string | ❌ | null | 排序（未实现） |
+
+**响应**:
+```json
+{
+  "observations": [...],
+  "strategy": "filter|hybrid|tsvector|none",
+  "fell_back": true|false,
+  "count": 5
+}
+```
+
+### SearchRequest Go 设计
+
+```go
+// dto/search_request.go
+package dto
+
+// SearchRequest is a request for searching observations.
+type SearchRequest struct {
+    Project   string `json:"project"`
+    Query     string `json:"query,omitempty"`
+    Type      string `json:"type,omitempty"`
+    Concept   string `json:"concept,omitempty"`
+    Source    string `json:"source,omitempty"`
+    Limit     int    `json:"limit,omitempty"`
+    Offset    int    `json:"offset,omitempty"`
+    OrderBy   string `json:"orderBy,omitempty"`
+}
+
+func NewSearchRequest(project string, opts ...SearchOption) SearchRequest {
+    r := SearchRequest{Project: project, Limit: 20, Offset: 0}
+    for _, opt := range opts {
+        opt(&r)
+    }
+    return r
+}
+
+type SearchOption func(*SearchRequest)
+
+func WithSearchQuery(q string) SearchOption {
+    return func(r *SearchRequest) { r.Query = q }
+}
+
+func WithSearchSource(s string) SearchOption {
+    return func(r *SearchRequest) { r.Source = s }
+}
+
+func WithSearchType(t string) SearchOption {
+    return func(r *SearchRequest) { r.Type = t }
+}
+
+func WithSearchConcept(c string) SearchOption {
+    return func(r *SearchRequest) { r.Concept = c }
+}
+
+func WithSearchLimit(n int) SearchOption {
+    return func(r *SearchRequest) { r.Limit = n }
+}
+
+func WithSearchOffset(n int) SearchOption {
+    return func(r *SearchRequest) { r.Offset = n }
+}
+```
+
+### SearchResult Go 设计
+
+```go
+// dto/search_result.go
+package dto
+
+// SearchResult is the result from the search API.
+type SearchResult struct {
+    Observations []*Observation `json:"observations"`
+    Strategy     string         `json:"strategy"`
+    FellBack    bool           `json:"fell_back"`
+    Count       int            `json:"count"`
+}
+
+// Observation is a simplified observation DTO for search results.
+type Observation struct {
+    ID            string                 `json:"id"`
+    SessionID     string                 `json:"sessionId"`
+    ProjectPath   string                 `json:"projectPath"`
+    Type         string                 `json:"type"`
+    Title        string                 `json:"title,omitempty"`
+    Content       string                 `json:"content"`
+    Facts         []string               `json:"facts,omitempty"`
+    Concepts      []string               `json:"concepts,omitempty"`
+    QualityScore  float32                `json:"qualityScore,omitempty"`
+    Source        string                 `json:"source,omitempty"`
+    ExtractedData map[string]any         `json:"extractedData,omitempty"`
+    CreatedAt     time.Time              `json:"createdAt"`
+}
+```
+
+### Client 接口补充
+
+```go
+// 在 Client 接口中添加 Search 方法
+type Client interface {
+    // ... 其他方法 ...
+
+    // Search performs a semantic search over observations.
+    // GET /api/search
+    Search(ctx context.Context, req dto.SearchRequest) (*dto.SearchResult, error)
+}
+```
+
+### 待办
+
+- [ ] 决定 Search API 是否加入 Go SDK Phase 1
+- [ ] 决定是否需要 Observation 列表 API
+- [ ] 完善 SearchResult 的 Observation 结构
+
+
+---
+
+## 附录 G: Observation 列表 API 设计（迭代 3）
+
+### 后端 Observations API 分析
+
+**端点**: `GET /api/observations`
+
+**参数**:
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| project | string | ❌ | null | 项目过滤 |
+| offset | int | ❌ | 0 | 偏移量 |
+| limit | int | ❌ | 20 | 结果数量 (最大100) |
+
+**响应**:
+```json
+{
+  "items": [...],
+  "hasMore": true,
+  "total": 100,
+  "offset": 0,
+  "limit": 20
+}
+```
+
+### PagedResponse Go 设计
+
+```go
+// dto/paged_response.go
+package dto
+
+// PagedResponse is a generic paginated response.
+type PagedResponse[T any] struct {
+    Items   []T   `json:"items"`
+    HasMore bool  `json:"hasMore"`
+    Total   int64 `json:"total,omitempty"`
+    Offset  int   `json:"offset"`
+    Limit   int   `json:"limit"`
+}
+```
+
+### ObservationsRequest Go 设计
+
+```go
+// dto/observations_request.go
+package dto
+
+// ObservationsRequest is a request for listing observations.
+type ObservationsRequest struct {
+    Project string `json:"project,omitempty"`
+    Offset  int    `json:"offset,omitempty"`
+    Limit   int    `json:"limit,omitempty"`
+}
+
+func NewObservationsRequest(opts ...ObservationsOption) ObservationsRequest {
+    r := ObservationsRequest{Limit: 20, Offset: 0}
+    for _, opt := range opts {
+        opt(&r)
+    }
+    return r
+}
+
+type ObservationsOption func(*ObservationsRequest)
+
+func WithObservationsProject(p string) ObservationsOption {
+    return func(r *ObservationsRequest) { r.Project = p }
+}
+
+func WithObservationsOffset(n int) ObservationsOption {
+    return func(r *ObservationsRequest) { r.Offset = n }
+}
+
+func WithObservationsLimit(n int) ObservationsOption {
+    return func(r *ObservationsRequest) { r.Limit = n }
+}
+```
+
+### Client 接口补充
+
+```go
+// 在 Client 接口中添加 ListObservations 方法
+type Client interface {
+    // ... 其他方法 ...
+
+    // ListObservations lists observations with pagination.
+    // GET /api/observations
+    ListObservations(ctx context.Context, req dto.ObservationsRequest) (*dto.PagedResponse[*dto.Observation], error)
+}
+```
+
+### 待办
+
+- [ ] 决定是否在 Go SDK Phase 1 包含 Search 和 ListObservations
+- [ ] 完善 Session/Project 管理 API
+
