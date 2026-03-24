@@ -383,8 +383,12 @@ func main() {
 			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
-		if req.ObservationId == "" || req.FeedbackType == "" {
-			writeJSONError(w, http.StatusBadRequest, "observation_id and feedback_type are required")
+		if req.ObservationId == "" {
+			writeJSONError(w, http.StatusBadRequest, "observation_id is required")
+			return
+		}
+		if req.FeedbackType == "" {
+			writeJSONError(w, http.StatusBadRequest, "feedback_type is required")
 			return
 		}
 		if err := client.SubmitFeedback(r.Context(), req.ObservationId, req.FeedbackType, req.Comment); err != nil {
@@ -407,8 +411,12 @@ func main() {
 			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
-		if req.SessionId == "" || req.UserId == "" {
-			writeJSONError(w, http.StatusBadRequest, "session_id and user_id are required")
+		if req.SessionId == "" {
+			writeJSONError(w, http.StatusBadRequest, "session_id is required")
+			return
+		}
+		if req.UserId == "" {
+			writeJSONError(w, http.StatusBadRequest, "user_id is required")
 			return
 		}
 		result, err := client.UpdateSessionUserId(r.Context(), req.SessionId, req.UserId)
@@ -486,6 +494,18 @@ func main() {
 			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
+		if req.Project == "" {
+			writeJSONError(w, http.StatusBadRequest, "project is required")
+			return
+		}
+		if req.Session == "" {
+			writeJSONError(w, http.StatusBadRequest, "session_id is required")
+			return
+		}
+		if req.Prompt == "" {
+			writeJSONError(w, http.StatusBadRequest, "prompt is required")
+			return
+		}
 		if err := client.RecordUserPrompt(r.Context(), dto.UserPromptRequest{
 			ProjectPath: req.Project,
 			SessionID:   req.Session,
@@ -508,6 +528,14 @@ func main() {
 		}
 		if err := readJSON(r, &req); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if req.Project == "" {
+			writeJSONError(w, http.StatusBadRequest, "project is required")
+			return
+		}
+		if req.Session == "" {
+			writeJSONError(w, http.StatusBadRequest, "session_id is required")
 			return
 		}
 		if err := client.RecordSessionEnd(r.Context(), dto.SessionEndRequest{
