@@ -1291,3 +1291,65 @@ type Client interface {
 - [ ] 决定是否在 Go SDK Phase 1 包含 Search 和 ListObservations
 - [ ] 完善 Session/Project 管理 API
 
+
+---
+
+## 附录 H: Go SDK Phase 1 vs Phase 2 决策（迭代 4）
+
+### Phase 1: 与 Java SDK 完全对齐（必须）
+
+**目标**: Go SDK Phase 1 只封装 Java SDK 已有的 15 个方法
+
+| # | 方法 | 端点 | 优先级 |
+|---|------|------|--------|
+| 1 | StartSession | POST /api/session/start | P0 |
+| 2 | RecordObservation | POST /api/ingest/tool-use | P0 |
+| 3 | RecordSessionEnd | POST /api/ingest/session-end | P0 |
+| 4 | RecordUserPrompt | POST /api/ingest/user-prompt | P0 |
+| 5 | RetrieveExperiences | POST /api/memory/experiences | P0 |
+| 6 | BuildICLPrompt | POST /api/memory/icl-prompt | P0 |
+| 7 | TriggerRefinement | POST /api/memory/refine | P1 |
+| 8 | SubmitFeedback | POST /api/memory/feedback | P1 |
+| 9 | UpdateObservation | PATCH /api/memory/observations/{id} | P1 |
+| 10 | DeleteObservation | DELETE /api/memory/observations/{id} | P1 |
+| 11 | GetQualityDistribution | GET /api/memory/quality-distribution | P1 |
+| 12 | HealthCheck | GET /api/health | P0 |
+| 13 | GetLatestExtraction | GET /api/extraction/{template}/latest | P1 |
+| 14 | GetExtractionHistory | GET /api/extraction/{template}/history | P1 |
+| 15 | UpdateSessionUserId | PATCH /api/session/{sessionId}/user | P1 |
+
+### Phase 2: 重要扩展（推荐）
+
+| # | 方法 | 端点 | 理由 |
+|---|------|------|------|
+| 16 | Search | GET /api/search | 语义搜索是核心功能 |
+| 17 | ListObservations | GET /api/observations | 分页列表，必备 |
+| 18 | GetVersion | GET /api/version | 版本检查 |
+
+### Phase 3: 高级功能（可选）
+
+| # | 方法 | 端点 | 说明 |
+|---|------|------|------|
+| 19 | GetProjects | GET /api/projects | 项目管理 |
+| 20 | GetSummaries | GET /api/summaries | 摘要列表 |
+| 21 | GetModes | GET/POST /api/modes | 模式管理 |
+| 22 | GetSettings | GET /api/settings | 设置管理 |
+| 23 | ContextInject | POST /api/context/{project} | 上下文注入 |
+
+### 决策建议
+
+**Go SDK Phase 1**: 15 个方法（与 Java SDK 对齐）
+**Go SDK Phase 2**: +3 个方法（Search, ListObservations, GetVersion）
+
+### 更新的开发计划
+
+| Phase | 天数 | 产出 |
+|-------|------|------|
+| Phase 1: 核心包（15 方法） | 3-4 | 核心功能 |
+| Phase 2: 扩展（+3 方法） | 1 | Search, List, Version |
+| Phase 3: Demo 项目 | 2-3 | 5 个 demo |
+| Phase 4: 文档 | 1 | README |
+| Phase 5: 发布 | 0.5 | v1.0.0 |
+
+**总计**: 7.5-9.5 天（比原计划更聚焦）
+
