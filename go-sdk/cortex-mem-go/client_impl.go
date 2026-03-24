@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"slices"
 	"time"
 )
 
@@ -21,6 +20,15 @@ type ClientConfig struct {
 	APIKey     string
 	HTTPClient *http.Client
 	MaxRetries int
+	Logger     Logger
+}
+
+// Logger is the logging interface. Compatible with *slog.Logger.
+type Logger interface {
+	Debug(msg string, args ...any)
+	Info(msg string, args ...any)
+	Warn(msg string, args ...any)
+	Error(msg string, args ...any)
 }
 
 // WithBaseURL sets the base URL of the backend.
@@ -38,10 +46,23 @@ func WithHTTPClient(client *http.Client) Option {
 	return func(c *ClientConfig) { c.HTTPClient = client }
 }
 
-// WithMaxRetries sets the maximum number of retries.
+// WithMaxRetries sets the maximum number of retries for fire-and-forget operations.
 func WithMaxRetries(n int) Option {
 	return func(c *ClientConfig) { c.MaxRetries = n }
 }
+
+// WithLogger sets a custom logger.
+func WithLogger(logger Logger) Option {
+	return func(c *ClientConfig) { c.Logger = logger }
+}
+
+// nopLogger is a no-op logger for when no logger is provided.
+type nopLogger struct{}
+
+func (nopLogger) Debug(string, ...any) {}
+func (nopLogger) Info(string, ...any)  {}
+func (nopLogger) Warn(string, ...any)  {}
+func (nopLogger) Error(string, ...any) {}
 
 // DefaultClientConfig returns the default configuration.
 func DefaultClientConfig() *ClientConfig {
@@ -51,6 +72,7 @@ func DefaultClientConfig() *ClientConfig {
 		HTTPClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		Logger: nopLogger{},
 	}
 }
 
@@ -69,35 +91,33 @@ type httpClient struct {
 }
 
 func (c *httpClient) doRequest(ctx context.Context, method, path string, body any, queryParams map[string]string) ([]byte, int, error) {
-	baseURL := c.config.BaseURL
-	if !slices.Contains([]string{"http://", "https://"}, baseURL[:7]) {
-		baseURL = "http://" + baseURL
-	}
-	u, err := url.Parse(baseURL + path)
+	u, err := url.Parse(c.config.BaseURL + path)
 	if err != nil {
-		return nil, 0, fmt.Errorf("invalid URL: %w", err)
+		return nil, 0, fmt.Errorf("cortex-ce: invalid URL: %w", err)
 	}
 
-	q := u.Query()
-	for k, v := range queryParams {
-		if v != "" {
-			q.Set(k, v)
+	if queryParams != nil {
+		q := u.Query()
+		for k, v := range queryParams {
+			if v != "" {
+				q.Set(k, v)
+			}
 		}
+		u.RawQuery = q.Encode()
 	}
-	u.RawQuery = q.Encode()
 
 	var reqBody io.Reader
 	if body != nil {
 		data, err := json.Marshal(body)
 		if err != nil {
-			return nil, 0, fmt.Errorf("failed to marshal body: %w", err)
+			return nil, 0, fmt.Errorf("cortex-ce: failed to marshal body: %w", err)
 		}
 		reqBody = bytes.NewReader(data)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, method, u.String(), reqBody)
 	if err != nil {
-		return nil, 0, fmt.Errorf("failed to create request: %w", err)
+		return nil, 0, fmt.Errorf("cortex-ce: failed to create request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -107,27 +127,54 @@ func (c *httpClient) doRequest(ctx context.Context, method, path string, body an
 
 	resp, err := c.config.HTTPClient.Do(req)
 	if err != nil {
-		return nil, 0, fmt.Errorf("request failed: %w", err)
+		return nil, 0, fmt.Errorf("cortex-ce: request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, resp.StatusCode, fmt.Errorf("failed to read response: %w", err)
+		return nil, resp.StatusCode, fmt.Errorf("cortex-ce: failed to read response: %w", err)
 	}
 
 	return respBody, resp.StatusCode, nil
 }
 
+// doRequestNoContent makes a request and checks for success (no response body needed).
 func (c *httpClient) doRequestNoContent(ctx context.Context, method, path string, body any) error {
 	_, status, err := c.doRequest(ctx, method, path, body, nil)
 	if err != nil {
 		return err
 	}
 	if status >= 400 {
-		return fmt.Errorf("request failed with status %d", status)
+		return &APIError{StatusCode: status, Message: fmt.Sprintf("request failed with status %d", status)}
 	}
 	return nil
+}
+
+// doFireAndForget executes a capture operation with retry and error swallowing.
+// Matches Java SDK's executeWithRetry behavior: retries internally, logs on failure.
+func (c *httpClient) doFireAndForget(ctx context.Context, name string, fn func() error) error {
+	var lastErr error
+	for attempt := 1; attempt <= c.config.MaxRetries; attempt++ {
+		lastErr = fn()
+		if lastErr == nil {
+			return nil
+		}
+		// Linear backoff (matching Java SDK: backoff * attempt)
+		if attempt < c.config.MaxRetries {
+			delay := time.Duration(500*attempt) * time.Millisecond
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(delay):
+			}
+		}
+	}
+	c.config.Logger.Warn("cortex-ce: "+name+" failed after retries",
+		"error", lastErr,
+		"attempts", c.config.MaxRetries,
+	)
+	return nil // Fire-and-forget: swallow error after retries
 }
 
 func (c *httpClient) unmarshalJSON(data []byte, v any) error {
