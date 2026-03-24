@@ -141,7 +141,7 @@ public class ObservationEntity {
 
     /**
      * Last accessed timestamp for recency scoring.
-     * Updated每次检索时.
+     * Updated on each retrieval.
      */
     @Column(name = "last_accessed_at")
     @JsonProperty("last_accessed_at")
