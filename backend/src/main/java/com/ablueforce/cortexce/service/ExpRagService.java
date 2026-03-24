@@ -259,6 +259,12 @@ public class ExpRagService {
      * @param requiredConcepts Optional concept filter
      * @return List of experiences
      */
+    // ============================================================================
+    // ⚠️ DEAD CODE: This method is not called from anywhere in the codebase.
+    // It was designed for Phase 3 userId-based filtering but is not yet wired up.
+    // Keep it for future use — do not remove.
+    // TODO: Connect this method when userId-based experience retrieval is implemented.
+    // ============================================================================
     public List<Experience> retrieveExperiences(String currentTask, String projectPath, int count,
                                                 String userId, String source, List<String> requiredConcepts) {
         // If userId is provided, filter by user's sessions
