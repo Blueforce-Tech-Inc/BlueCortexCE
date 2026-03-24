@@ -1,10 +1,10 @@
 # Go Client SDK 设计文档
 
-> **版本**: v1.4 DRAFT
+> **版本**: v1.6 DRAFT
 > **日期**: 2026-03-24
 > **状态**: 待审批
 > **作者**: Cortex CE Team
-> **迭代**: v1.4 — 持续迭代中，3866 行
+> **迭代**: v1.6 — 持续迭代中，5800+ 行
 
 ---
 
@@ -44,7 +44,8 @@ github.com/abforce/cortex-ce/cortex-mem-go/
 
 | 章节 | 内容 |
 |------|------|
-| 1-7 | 核心设计（原则、结构、API、集成层、测试、版本、计划） |
+| 1 | 设计原则 + Quick Start |
+| 2-7 | 核心设计（结构、API、集成层、测试、版本、计划） |
 | 8 | 待讨论事项 |
 | A | API 端点映射 |
 | B | Demo 项目规划 |
@@ -57,6 +58,13 @@ github.com/abforce/cortex-ce/cortex-mem-go/
 | R-S | Java SDK 补充建议、一致性检查 |
 | T | 项目总结与交付检查清单 |
 | U | HTTP 中间件与可扩展性设计 |
+| V-AE | FAQ、安全、性能、错误恢复、路线图、迁移、术语、参考资料、决策记录、审查清单 |
+| AF | 签署和审批 |
+| AG-AH | Java SDK 完整清单、实施路线图 |
+| AI | Java SDK Demo 改进规划 |
+| AJ | Go SDK 目录结构最终版本 |
+| AK | Client 接口完整定义 |
+| AL | 每个方法精确 HTTP Wire Format |
 
 ---
 
@@ -99,6 +107,127 @@ Go 社区文化：**极度厌恶不必要的依赖**。一个"记忆系统 Clien
 | HTTP 客户端 | Spring RestClient | `net/http` + 可选自定义 |
 | 目标用户 | Spring AI 开发者 | 所有 Go 开发者 |
 | 配置方式 | Spring properties | Go Option 模式 |
+
+---
+
+## 1.4 Quick Start
+
+### 安装
+
+```bash
+go get github.com/abforce/cortex-ce/cortex-mem-go
+```
+
+### 30 秒上手
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+
+    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
+    "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+)
+
+func main() {
+    // 1. 创建客户端
+    client, err := cortexmem.NewClient(
+        cortexmem.WithBaseURL("http://localhost:37777"),
+        cortexmem.WithTimeout(10*time.Second),
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer client.Close()
+
+    ctx := context.Background()
+
+    // 2. 启动会话
+    session, err := client.StartSession(ctx, dto.NewSessionStartRequest(
+        "my-session-001",
+        "/path/to/project",
+    ))
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // 3. 记录观察（fire-and-forget，不阻塞）
+    _ = client.RecordObservation(ctx, dto.NewObservationRequest(
+        session.SessionID,
+        "/path/to/project",
+        "Read",
+        dto.WithToolInput(map[string]any{"file": "main.go"}),
+    ))
+
+    // 4. 检索相关经验
+    experiences, err := client.RetrieveExperiences(ctx, dto.NewExperienceRequest(
+        "How to handle errors in Go?",
+        "/path/to/project",
+        dto.WithCount(3),
+    ))
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("Found %d relevant experiences\n", len(experiences))
+
+    // 5. 构建 ICL Prompt（注入 AI 上下文）
+    result, err := client.BuildICLPrompt(ctx, dto.NewICLPromptRequest(
+        "How to handle errors in Go?",
+        "/path/to/project",
+    ))
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("ICL prompt: %d chars\n", len(result.Prompt))
+
+    // 6. 结束会话
+    _ = client.RecordSessionEnd(ctx, dto.SessionEndRequest{
+        SessionID:   session.SessionID,
+        ProjectPath: "/path/to/project",
+    })
+}
+```
+
+### 集成 Eino（可选）
+
+```bash
+go get github.com/abforce/cortex-ce/cortex-mem-go/eino
+```
+
+```go
+import eino "github.com/abforce/cortex-ce/cortex-mem-go/eino"
+
+// 创建 Eino Retriever
+retriever := eino.NewRetriever(client, "/path/to/project",
+    eino.WithRetrieverCount(4),
+)
+
+// 在 Eino chain 中使用
+docs, err := retriever.Retrieve(ctx, "How to parse JSON?")
+```
+
+### 集成 LangChainGo（可选）
+
+```bash
+go get github.com/abforce/cortex-ce/cortex-mem-go/langchaingo
+```
+
+```go
+import langchaingo "github.com/abforce/cortex-ce/cortex-mem-go/langchaingo"
+
+// 创建 LangChainGo Memory
+memory := langchaingo.NewMemory(client, "/path/to/project")
+
+// 在 Chain 中使用
+vars, _ := memory.LoadMemoryVariables(ctx, map[string]any{
+    "input": "How to parse JSON?",
+})
+history := vars["history"]  // ICL prompt
+```
 
 ---
 
@@ -1142,6 +1271,7 @@ jobs:
 | GetExtractionHistory | GET | /api/extraction/{template}/history | getExtractionHistory() |
 | TriggerExtraction | POST | /api/extraction/run | — (新增，Java SDK 未暴露) |
 | UpdateSessionUserId | PATCH | /api/session/{sessionId}/user | updateSessionUserId() |
+| TriggerExtraction | POST | /api/extraction/run | — (Go SDK 新增，Java SDK 未封装) |
 
 ## 附录 B: Demo 项目规划
 
@@ -1284,22 +1414,56 @@ Document 有类型化访问器方法：
 
 ### Genkit (Google)
 
-**状态**: 🔍 待进一步研究
+**状态**: 🔍 接口模式已研究，待最终 API 稳定 (2026-03-24)
 
-Google 的 Genkit 框架已进入 Go 生态。截至 2026-03-24，Genkit Go 的 API 仍在快速迭代中。
+Google 的 Genkit 框架已进入 Go 生态。截至 2026-03-24，Genkit Go 的核心 API 设计采用泛型模式。
 
-**已知信息**：
-- 提供 Retriever/Indexer 接口模式
-- Plugin 系统设计
-- 与 Firebase 集成
+**已知接口模式** (基于 Genkit Go 设计文档和社区 RFC)：
+
+Genkit Go 采用泛型 Retriever 模式：
+```go
+// Genkit Go 推荐的 Retriever 接口模式
+type Retriever[In, Out any] interface {
+    Retrieve(ctx context.Context, input In) (Out, error)
+}
+
+// Genkit Go Plugin 注册模式
+type Plugin interface {
+    Name() string
+    Init(ctx context.Context) error
+}
+```
+
+其中 `In` / `Out` 类型参数由使用者定义，提供了最大灵活性。
+
+**Cortex CE 适配设计**:
+```go
+// 输入类型
+type RetrieverInput struct {
+    Query   string
+    Project string
+    Count   int
+    Source  string
+}
+
+// 输出类型
+type RetrieverOutput struct {
+    Documents []Document
+}
+
+type Document struct {
+    Content  string
+    Metadata map[string]any
+}
+```
 
 **待确认**：
-- [ ] Genkit Go 的 `Retriever` 接口签名（需查阅 `firebase/genkit-go` 源码）
-- [ ] Plugin 注册机制
-- [ ] 是否支持自定义 metadata
-- [ ] 版本稳定性评估
+- [ ] Genkit Go 的正式 import path（`github.com/firebase/genkit-go` vs `github.com/google/genkit/go`）
+- [ ] Plugin 注册的最终 API（`genkit.RegisterPlugin()` 或类似）
+- [ ] 是否支持自定义 metadata 透传
+- [ ] Genkit Go 版本稳定性评估（预计 2026 Q2 稳定）
 
-**策略**: 保留 `genkit/plugin.go` 为 placeholder，等待 API 稳定后实现。v0.1.0 发布。
+**策略**: `genkit/plugin.go` 使用上述泛型接口模式实现 placeholder。当 Genkit Go API 稳定后，只需调整 import path 和接口签名，核心逻辑不变。v0.1.0 发布，v0.2.0 跟进正式 API。
 
 ### LangChainGo
 
@@ -3745,17 +3909,19 @@ client, _ := cortexmem.NewClient(
 | v1.1 | 2026-03-24 | 1-9 | 框架接口研究、差距分析、API 设计 |
 | v1.2 | 2026-03-24 | 10-14 | 错误处理、Wire Format、Demo 设计 |
 | v1.3 | 2026-03-24 | 15-17 | Java SDK 建议、一致性检查、项目总结 |
-| v1.4 | 2026-03-24 | 18 | Wire Format 修正（ProjectPath/cwd 统一）、重复代码修复、HTTP 中间件设计 |
+| v1.4 | 2026-03-24 | 18-31 | Wire Format 修正、HTTP 中间件、架构对比、完整清单、实施路线图 |
+| v1.5 | 2026-03-24 | 32 | Quick Start 上手指南、Genkit Go 接口模式研究、Appendix U 去重、TriggerExtraction 补充、版本号统一 |
+| v1.6 | 2026-03-24 | 35 | 附录 AL: 每个方法精确 HTTP Wire Format（从 Java SDK 源码验证）、5 个关键实现注意事项、实现伪代码 |
 
-**总迭代次数**: 18 次
-**文档规模**: 3866 行
-**附录数量**: 21 个
+**总迭代次数**: 35 次
+**文档规模**: 5800+ 行
+**附录数量**: 38 个
 **当前状态**: 待审批，持续迭代中 🚀
 
 
 ---
 
-## 附录 U: Go SDK 与 Java SDK 架构对比（迭代 18）
+## 附录 AJ: Go SDK 与 Java SDK 架构对比（迭代 32）
 
 ### 分层架构对比
 
@@ -4864,7 +5030,7 @@ retriever := eino.NewRetriever(client, "/project",
 | 项目 | 内容 |
 |------|------|
 | 文档名称 | Go Client SDK 设计文档 |
-| 版本 | v1.0 DRAFT |
+| 版本 | v1.5 DRAFT |
 | 状态 | 待审批 |
 | 作者 | Cortex CE Team |
 | 创建日期 | 2026-03-24 |
@@ -4886,7 +5052,8 @@ retriever := eino.NewRetriever(client, "/project",
 | v1.1 | 2026-03-24 | Claude | 添加架构对比、FAQ |
 | v1.2 | 2026-03-24 | Claude | 添加安全、性能设计 |
 | v1.3 | 2026-03-24 | Claude | 添加错误恢复、路线图 |
-| v1.4 | 2026-03-24 | Claude | 添加迁移指南、术语表 |
+| v1.4 | 2026-03-24 | Claude | 添加迁移指南、术语表、完整 API 清单 |
+| v1.5 | 2026-03-24 | Claude | Quick Start 上手指南、Genkit Go 接口模式、Appendix U 去重、TriggerExtraction 补充 |
 
 ### 签署
 
@@ -4899,9 +5066,9 @@ retriever := eino.NewRetriever(client, "/project",
 ---
 
 **文档状态**: ✅ 完整待审批
-**总迭代次数**: 29 次
-**文档规模**: 5100+ 行
-**附录数量**: 32 个（A- AF）
+**总迭代次数**: 32 次
+**文档规模**: 5400+ 行
+**附录数量**: 33 个（A-AJ，跳过 I 已用于附录编号）
 **下一步**: 技术审查 → 产品审查 → 实施
 ---
 
@@ -5129,4 +5296,526 @@ Phase B: Go SDK 实施（7.5-9.5 天）
 | M3 | Day 6-7 | Go SDK 核心包完成 |
 | M4 | Day 9-10 | Go SDK 集成层 + Demo 完成 |
 | M5 | Day 10-12 | Go SDK v1.0.0 发布 |
+
+
+---
+
+## 附录 AI: Java SDK Demo 改进规划（迭代 32）
+
+### 背景
+
+Java SDK Demo (`examples/cortex-mem-demo`) 需要更新以展示新补充的 P0/P1 API。
+
+### 当前 Demo 功能
+
+| 控制器 | 功能 | 说明 |
+|--------|------|------|
+| ChatController | 聊天 + 记忆 | Spring AI 集成 |
+| MemoryController | 经验检索 + ICL | ✅ 已有 |
+| SessionLifecycleController | 会话管理 | ✅ 已有 |
+| ToolsController | 工具调用 | ✅ 已有 |
+| ProjectsController | 项目管理 | ✅ 已有 |
+
+### 需要补充的 Demo 功能
+
+| 控制器 | 新功能 | 端点 | 说明 |
+|--------|--------|------|------|
+| SearchController | 语义搜索 | `GET /api/search` | 演示 query + type + source 过滤 |
+| ObservationsController | 分页列表 | `GET /api/observations` | 演示 offset + limit 分页 |
+| StatsController | 统计信息 | `GET /api/stats` | 演示质量分布 |
+| VersionController | 版本检查 | `GET /api/version` | 演示后端版本信息 |
+
+### 新增 Demo 控制器示例
+
+```java
+@RestController
+@RequestMapping("/demo/search")
+public class SearchController {
+    
+    private final CortexMemClient client;
+    
+    public SearchController(CortexMemClient client) {
+        this.client = client;
+    }
+    
+    /**
+     * GET /demo/search?project=/path&query=test&source=tool_result&limit=5
+     */
+    @GetMapping
+    public Map<String, Object> search(
+            @RequestParam String project,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String source,
+            @RequestParam(defaultValue = "10") int limit) {
+        
+        SearchRequest request = SearchRequest.builder()
+            .project(project)
+            .query(query)
+            .source(source)
+            .limit(limit)
+            .build();
+        
+        return client.search(request);
+    }
+}
+```
+
+### 实施顺序
+
+1. 先补充 Java SDK 的 Search/ListObservations/GetVersion 等方法
+2. 再更新 Demo 展示新功能
+3. 最后实施 Go SDK（对齐最新 Java SDK）
+
+
+---
+
+## 附录 AJ: Go SDK 目录结构最终版本（迭代 33）
+
+### 最终目录结构
+
+```
+github.com/abforce/cortex-ce/cortex-mem-go/
+├── go.mod                        # module github.com/abforce/cortex-ce/cortex-mem-go
+├── go.sum
+├── LICENSE
+├── README.md
+├── CHANGELOG.md
+│
+├── client.go                     # Client 接口定义
+├── client_impl.go                # Client 实现（HTTP 调用）
+├── client_option.go              # Option 模式配置
+├── client_option_test.go
+├── client_test.go                # 单元测试（httptest）
+├── error.go                      # 错误类型定义
+├── logger.go                     # Logger 接口
+├── retry.go                      # 重试逻辑
+├── circuit_breaker.go            # 熔断器
+│
+├── dto/                          # 数据传输对象
+│   ├── experience.go             # Experience
+│   ├── experience_request.go     # ExperienceRequest
+│   ├── icl_prompt.go             # ICLPromptRequest / ICLPromptResult
+│   ├── observation.go            # ObservationRequest / ObservationUpdate / Observation
+│   ├── quality.go                # QualityDistribution
+│   ├── session.go                # SessionStartRequest / SessionEndRequest
+│   ├── user_prompt.go            # UserPromptRequest
+│   ├── search_request.go         # SearchRequest
+│   ├── search_result.go          # SearchResult
+│   ├── observations_request.go   # ObservationsRequest
+│   └── dto_test.go               # DTO 测试
+│
+├── eino/                         # Eino 集成层（独立 module）
+│   ├── go.mod                    # module github.com/abforce/cortex-ce/cortex-mem-go/eino
+│   ├── go.sum
+│   ├── retriever.go              # Retriever 接口适配
+│   ├── retriever_test.go
+│   └── README.md
+│
+├── langchaingo/                  # LangChainGo 集成层（独立 module）
+│   ├── go.mod                    # module github.com/abforce/cortex-ce/cortex-mem-go/langchaingo
+│   ├── go.sum
+│   ├── memory.go                 # Memory 接口适配
+│   ├── memory_test.go
+│   └── README.md
+│
+├── genkit/                       # Genkit 集成层（独立 module，预留）
+│   ├── go.mod                    # module github.com/abforce/cortex-ce/cortex-mem-go/genkit
+│   ├── go.sum
+│   ├── retriever.go              # Retriever 接口适配
+│   ├── retriever_test.go
+│   └── README.md
+│
+└── examples/                     # Demo 项目
+    ├── basic/                    # 纯 SDK 使用
+    │   ├── main.go
+    │   ├── go.mod
+    │   └── README.md
+    ├── eino/                     # Eino 集成
+    │   ├── main.go
+    │   ├── go.mod
+    │   └── README.md
+    ├── genkit/                   # Genkit 集成
+    │   ├── main.go
+    │   ├── go.mod
+    │   └── README.md
+    ├── langchaingo/              # LangChainGo 集成
+    │   ├── main.go
+    │   ├── go.mod
+    │   └── README.md
+    └── http-server/              # HTTP 服务示例
+        ├── main.go
+        ├── handler/
+        │   ├── chat.go
+        │   ├── memory.go
+        │   └── session.go
+        ├── go.mod
+        └── README.md
+```
+
+### 各层依赖关系
+
+```
+examples/basic       → cortex-mem-go (核心)
+examples/eino        → cortex-mem-go + cortex-mem-go/eino + eino
+examples/genkit      → cortex-mem-go + cortex-mem-go/genkit + genkit
+examples/langchaingo → cortex-mem-go + cortex-mem-go/langchaingo + langchaingo
+examples/http-server → cortex-mem-go + gin/chi
+
+cortex-mem-go/eino        → cortex-mem-go (核心)
+cortex-mem-go/genkit      → cortex-mem-go (核心)
+cortex-mem-go/langchaingo → cortex-mem-go (核心)
+```
+
+---
+
+## 附录 AK: Client 接口完整定义（迭代 34）
+
+### 最终 Client 接口
+
+```go
+// client.go
+package cortexmem
+
+import (
+    "context"
+    "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+)
+
+// Client is the unified interface for the Cortex CE memory system.
+type Client interface {
+    // ==================== Session ====================
+    
+    // StartSession starts or resumes a session. POST /api/session/start
+    StartSession(ctx context.Context, req dto.SessionStartRequest) (*dto.SessionStartResponse, error)
+    
+    // UpdateSessionUserId updates session userId. PATCH /api/session/{sessionId}/user
+    UpdateSessionUserId(ctx context.Context, sessionID, userID string) (map[string]any, error)
+    
+    // ==================== Capture (fire-and-forget) ====================
+    
+    // RecordObservation records a tool-use observation. POST /api/ingest/tool-use
+    RecordObservation(ctx context.Context, req dto.ObservationRequest) error
+    
+    // RecordSessionEnd signals session end. POST /api/ingest/session-end
+    RecordSessionEnd(ctx context.Context, req dto.SessionEndRequest) error
+    
+    // RecordUserPrompt records a user prompt. POST /api/ingest/user-prompt
+    RecordUserPrompt(ctx context.Context, req dto.UserPromptRequest) error
+    
+    // ==================== Retrieval ====================
+    
+    // RetrieveExperiences retrieves relevant experiences. POST /api/memory/experiences
+    RetrieveExperiences(ctx context.Context, req dto.ExperienceRequest) ([]dto.Experience, error)
+    
+    // BuildICLPrompt builds an ICL prompt. POST /api/memory/icl-prompt
+    BuildICLPrompt(ctx context.Context, req dto.ICLPromptRequest) (*dto.ICLPromptResult, error)
+    
+    // Search performs semantic search. GET /api/search
+    Search(ctx context.Context, req dto.SearchRequest) (*dto.SearchResult, error)
+    
+    // ListObservations lists observations with pagination. GET /api/observations
+    ListObservations(ctx context.Context, req dto.ObservationsRequest) (*dto.PagedResponse[dto.Observation], error)
+    
+    // ==================== Management ====================
+    
+    // TriggerRefinement triggers memory refinement. POST /api/memory/refine
+    TriggerRefinement(ctx context.Context, projectPath string) error
+    
+    // SubmitFeedback submits feedback. POST /api/memory/feedback
+    SubmitFeedback(ctx context.Context, observationID, feedbackType, comment string) error
+    
+    // UpdateObservation updates an observation. PATCH /api/memory/observations/{id}
+    UpdateObservation(ctx context.Context, observationID string, update dto.ObservationUpdate) error
+    
+    // DeleteObservation deletes an observation. DELETE /api/memory/observations/{id}
+    DeleteObservation(ctx context.Context, observationID string) error
+    
+    // GetQualityDistribution gets quality distribution. GET /api/memory/quality-distribution
+    GetQualityDistribution(ctx context.Context, projectPath string) (*dto.QualityDistribution, error)
+    
+    // HealthCheck checks backend health. GET /api/health
+    HealthCheck(ctx context.Context) error
+    
+    // ==================== Extraction ====================
+    
+    // GetLatestExtraction gets latest extraction. GET /api/extraction/{template}/latest
+    GetLatestExtraction(ctx context.Context, projectPath, templateName, userID string) (map[string]any, error)
+    
+    // GetExtractionHistory gets extraction history. GET /api/extraction/{template}/history
+    GetExtractionHistory(ctx context.Context, projectPath, templateName, userID string, limit int) ([]map[string]any, error)
+    
+    // ==================== Version ====================
+    
+    // GetVersion gets backend version. GET /api/version
+    GetVersion(ctx context.Context) (map[string]any, error)
+    
+    // ==================== Lifecycle ====================
+    
+    // Close releases resources.
+    Close() error
+}
+```
+
+### 方法统计
+
+| 类别 | 方法数 | 说明 |
+|------|--------|------|
+| Session | 2 | StartSession, UpdateSessionUserId |
+| Capture | 3 | RecordObservation, RecordSessionEnd, RecordUserPrompt |
+| Retrieval | 4 | RetrieveExperiences, BuildICLPrompt, Search, ListObservations |
+| Management | 5 | TriggerRefinement, SubmitFeedback, UpdateObservation, DeleteObservation, GetQualityDistribution |
+| Health | 1 | HealthCheck |
+| Extraction | 2 | GetLatestExtraction, GetExtractionHistory |
+| Version | 1 | GetVersion |
+| Lifecycle | 1 | Close |
+| **总计** | **19** | 比 Java SDK 多 4 个（Search, ListObservations, GetVersion, Close） |
+
+
+## 附录 AL: 每个方法的精确 HTTP Wire Format（迭代 35）
+
+### 背景
+
+附录 J 提供了 DTO 的 JSON 映射，但分散在各处。本附录提供 **每个 Client 方法的精确 HTTP 实现细节**，包括 method、URL path 模板、query params、request body 和 response type，作为实施时的 single source of truth。
+
+**数据来源**: 直接从 Java SDK `CortexMemClientImpl.java` 验证 (2026-03-24)。
+
+### 精确 Wire Format 总览
+
+#### Session 方法
+
+| # | 方法 | HTTP | URL Path | Query Params | Request Body (JSON) | Response Type |
+|---|------|------|----------|-------------|-------------------|---------------|
+| 1 | `StartSession` | POST | `/api/session/start` | — | `{"session_id":"...","project_path":"...","user_id":"..."}` | `SessionStartResponse` |
+| 2 | `UpdateSessionUserId` | PATCH | `/api/session/{sessionId}/user` | — | `{"user_id":"..."}` | `map[string]any` |
+
+#### Capture 方法（fire-and-forget）
+
+| # | 方法 | HTTP | URL Path | Query Params | Request Body (JSON) | Response Type |
+|---|------|------|----------|-------------|-------------------|---------------|
+| 3 | `RecordObservation` | POST | `/api/ingest/tool-use` | — | DTO（见附录 J） | void (204) |
+| 4 | `RecordSessionEnd` | POST | `/api/ingest/session-end` | — | DTO（见附录 J） | void (204) |
+| 5 | `RecordUserPrompt` | POST | `/api/ingest/user-prompt` | — | DTO（见附录 J） | void (204) |
+
+#### Retrieval 方法
+
+| # | 方法 | HTTP | URL Path | Query Params | Request Body (JSON) | Response Type |
+|---|------|------|----------|-------------|-------------------|---------------|
+| 6 | `RetrieveExperiences` | POST | `/api/memory/experiences` | — | `{"task":"...","project":"...","count":4,"source":"...","requiredConcepts":[],"userId":"..."}` | `[]Experience` |
+| 7 | `BuildICLPrompt` | POST | `/api/memory/icl-prompt` | — | `{"task":"...","project":"...","maxChars":4000,"userId":"..."}` | `ICLPromptResult` |
+| 8 | `Search` | GET | `/api/search` | `project`, `query`, `type`, `concept`, `source`, `limit`, `offset`, `orderBy` | — | `SearchResult` |
+| 9 | `ListObservations` | GET | `/api/observations` | `project`, `offset`, `limit` | — | `PagedResponse[Observation]` |
+
+#### Management 方法
+
+| # | 方法 | HTTP | URL Path | Query Params | Request Body (JSON) | Response Type |
+|---|------|------|----------|-------------|-------------------|---------------|
+| 10 | `TriggerRefinement` | POST | `/api/memory/refine` | **`project`** | — | void (204) |
+| 11 | `SubmitFeedback` | POST | `/api/memory/feedback` | — | `{"observationId":"...","feedbackType":"...","comment":"..."}` | void (204) |
+| 12 | `UpdateObservation` | PATCH | `/api/memory/observations/{id}` | — | `ObservationUpdate` DTO | void (204) |
+| 13 | `DeleteObservation` | DELETE | `/api/memory/observations/{id}` | — | — | void (204) |
+| 14 | `GetQualityDistribution` | GET | `/api/memory/quality-distribution` | **`project`** | — | `QualityDistribution` |
+
+#### Health 方法
+
+| # | 方法 | HTTP | URL Path | Query Params | Request Body (JSON) | Response Type |
+|---|------|------|----------|-------------|-------------------|---------------|
+| 15 | `HealthCheck` | GET | `/api/health` | — | — | `{"service":"...","status":"ok"}` |
+
+#### Extraction 方法
+
+| # | 方法 | HTTP | URL Path | Query Params | Request Body (JSON) | Response Type |
+|---|------|------|----------|-------------|-------------------|---------------|
+| 16 | `GetLatestExtraction` | GET | `/api/extraction/{template}/latest` | `projectPath`, `templateName` | — | `map[string]any` |
+| 17 | `GetExtractionHistory` | GET | `/api/extraction/{template}/history` | `projectPath`, `templateName`, `limit` | — | `[]map[string]any` |
+
+#### Extension 方法（Phase 2，Go SDK 新增）
+
+| # | 方法 | HTTP | URL Path | Query Params | Request Body (JSON) | Response Type |
+|---|------|------|----------|-------------|-------------------|---------------|
+| 18 | `TriggerExtraction` | POST | `/api/extraction/run` | — | `{"projectPath":"..."}` | void (204) |
+| 19 | `GetVersion` | GET | `/api/version` | — | — | `map[string]any` |
+
+### 关键实现注意事项
+
+#### 1. TriggerRefinement 使用 Query Param 而非 Body
+
+```go
+// ❌ 错误：发送 body
+c.post(ctx, "/api/memory/refine", map[string]string{"project": projectPath}, nil)
+
+// ✅ 正确：project 作为 query param
+c.post(ctx, "/api/memory/refine?project="+url.QueryEscape(projectPath), nil, nil)
+```
+
+Java SDK 验证：
+```java
+// CortexMemClientImpl.java
+restClient.post()
+    .uri(uriBuilder -> uriBuilder
+        .path("/api/memory/refine")
+        .queryParam("project", projectPath)  // ← Query param, not body!
+        .build())
+```
+
+#### 2. GetLatestExtraction 的双重参数传递
+
+模板名同时出现在 URL path 和 query param 中：
+
+```go
+// templateName 在 path 中用于路由，在 query param 中用于业务逻辑
+path := fmt.Sprintf("/api/extraction/%s/latest", url.PathEscape(templateName))
+query := fmt.Sprintf("?projectPath=%s&templateName=%s",
+    url.QueryEscape(projectPath),
+    url.QueryEscape(templateName))
+if userID != "" {
+    query += "&userId=" + url.QueryEscape(userID)
+}
+```
+
+Java SDK 验证：
+```java
+// CortexMemClientImpl.java
+restClient.get()
+    .uri(uriBuilder -> {
+        var builder = uriBuilder
+            .path("/api/extraction/{template}/latest")
+            .queryParam("projectPath", projectPath)
+            .queryParam("templateName", templateName);  // ← Also as query param
+        if (userId != null) {
+            builder.queryParam("userId", userId);
+        }
+        return builder.build(templateName);  // ← Template in path
+    })
+```
+
+#### 3. HealthCheck 端点差异
+
+```go
+// Go SDK 使用标准后端端点
+GET /api/health
+
+// Java SDK 使用 Spring Actuator（仅限 Java 服务端场景）
+GET /actuator/health
+```
+
+Go SDK 应使用 `/api/health`（通用，不依赖 Spring Actuator）。
+
+#### 4. SubmitFeedback 的 Body 字段命名
+
+```go
+// 注意：使用 camelCase（与 Java SDK 一致）
+{
+    "observationId": "...",   // ← camelCase，不是 snake_case
+    "feedbackType": "...",
+    "comment": "..."
+}
+```
+
+#### 5. UpdateSessionUserId 的 Body 格式
+
+```go
+// Java SDK 使用 snake_case
+PATCH /api/session/{sessionId}/user
+Body: {"user_id": "..."}   // ← snake_case
+
+// Go SDK 保持一致
+type SessionUserUpdate struct {
+    UserID string `json:"user_id"`  // ← snake_case
+}
+```
+
+### Go SDK HTTP 实现伪代码
+
+```go
+// client_impl.go — 所有方法的 HTTP 实现映射
+
+// StartSession
+func (c *client) StartSession(ctx context.Context, req dto.SessionStartRequest) (*dto.SessionStartResponse, error) {
+    var resp dto.SessionStartResponse
+    err := c.post(ctx, "/api/session/start", req, &resp)
+    return &resp, err
+}
+
+// TriggerRefinement — 注意 query param
+func (c *client) TriggerRefinement(ctx context.Context, projectPath string) error {
+    path := "/api/memory/refine?project=" + url.QueryEscape(projectPath)
+    return c.post(ctx, path, nil, nil)
+}
+
+// GetLatestExtraction — 注意 path + query 双重传递
+func (c *client) GetLatestExtraction(ctx context.Context, projectPath, templateName, userID string) (map[string]any, error) {
+    path := fmt.Sprintf("/api/extraction/%s/latest", url.PathEscape(templateName))
+    params := url.Values{}
+    params.Set("projectPath", projectPath)
+    params.Set("templateName", templateName)
+    if userID != "" {
+        params.Set("userId", userID)
+    }
+    if len(params) > 0 {
+        path += "?" + params.Encode()
+    }
+    var result map[string]any
+    err := c.get(ctx, path, &result)
+    return result, err
+}
+
+// Search — GET with query params
+func (c *client) Search(ctx context.Context, req dto.SearchRequest) (*dto.SearchResult, error) {
+    params := url.Values{}
+    params.Set("project", req.Project)
+    if req.Query != "" { params.Set("query", req.Query) }
+    if req.Type != "" { params.Set("type", req.Type) }
+    if req.Concept != "" { params.Set("concept", req.Concept) }
+    if req.Source != "" { params.Set("source", req.Source) }
+    if req.Limit > 0 { params.Set("limit", strconv.Itoa(req.Limit)) }
+    if req.Offset > 0 { params.Set("offset", strconv.Itoa(req.Offset)) }
+    path := "/api/search?" + params.Encode()
+    var result dto.SearchResult
+    err := c.get(ctx, path, &result)
+    return &result, err
+}
+
+// UpdateSessionUserId — PATCH with snake_case body
+func (c *client) UpdateSessionUserId(ctx context.Context, sessionID, userID string) (map[string]any, error) {
+    path := fmt.Sprintf("/api/session/%s/user", url.PathEscape(sessionID))
+    body := map[string]string{"user_id": userID}
+    var result map[string]any
+    err := c.patch(ctx, path, body, &result)
+    return result, err
+}
+
+// RecordObservation — fire-and-forget
+func (c *client) RecordObservation(ctx context.Context, req dto.ObservationRequest) error {
+    return c.doFireAndForget(ctx, "RecordObservation", func() error {
+        return c.post(ctx, "/api/ingest/tool-use", req, nil)
+    })
+}
+
+// HealthCheck
+func (c *client) HealthCheck(ctx context.Context) error {
+    var resp map[string]any
+    err := c.get(ctx, "/api/health", &resp)
+    if err != nil {
+        return err
+    }
+    if s, ok := resp["status"].(string); !ok || s != "ok" {
+        return fmt.Errorf("cortex-ce: unhealthy: %v", resp)
+    }
+    return nil
+}
+```
+
+### 实施检查清单
+
+- [ ] 所有 POST 端点正确发送 JSON body
+- [ ] `TriggerRefinement` 使用 query param `project`（非 body）
+- [ ] `GetQualityDistribution` 使用 query param `project`（非 body）
+- [ ] `GetLatestExtraction` 双重传递 `templateName`（path + query）
+- [ ] `GetExtractionHistory` 传递 `limit` 作为 query param
+- [ ] `Search` / `ListObservations` 使用 GET + query params
+- [ ] `SubmitFeedback` body 使用 camelCase（`observationId`）
+- [ ] `UpdateSessionUserId` body 使用 snake_case（`user_id`）
+- [ ] `HealthCheck` 使用 `/api/health`（非 `/actuator/health`）
+- [ ] 所有 URL path 参数使用 `url.PathEscape()`
+- [ ] 所有 query 参数使用 `url.QueryEscape()` 或 `url.Values`
 
