@@ -65,11 +65,18 @@
 - [x] Go SDK README.md 缺失 → 已创建
 - [x] 集成层 README.md 缺失 → 已创建
 - [x] Go SDK 18 个单元测试全部通过
+- [x] Go SDK Demo 编译错误修复（5 个 demo 全部修复）：
+  - eino demo: NewRetriever() 参数位置错误（project 应为位置参数，非 option）
+  - eino demo: ObservationRequest 字段名错误（Type/Content → ToolName/ToolInput/ToolResponse）
+  - eino demo: Experience 显示字段错误（Type/Content → Task/Outcome）
+  - langchaingo demo: NewMemory() 参数位置错误 + 使用了不存在的 WithMemorySessionID
+  - genkit demo: ObservationRequest 字段名错误 + 错误被 `_=` 忽略
+  - basic/eino/genkit demo: StartSession 失败后 nil pointer dereference
 
 ### 待审查项
-- [ ] Go SDK Logger 接口完整性
-- [ ] Java SDK SearchRequest DTO 字段验证
-- [ ] Go SDK Demo 代码质量
+- [ ] Go SDK Logger 接口完整性（已确认：nopLogger + Option 模式完善）
+- [ ] Java SDK SearchRequest DTO 字段验证（已确认：Builder 模式 + 默认值正确）
+- [ ] Go SDK Demo 代码质量（已修复上述编译错误，已验证 go vet + unit tests）
 
 ### 测试覆盖策略
 - **单元测试**：18 个 wire format 测试（通过）
@@ -95,3 +102,9 @@
 - 2026-03-24 19:00: 创建 Go SDK 完整 README.md
 - 2026-03-24 19:02: Go SDK 18 测试通过
 - 2026-03-24 19:05: 创建集成层 README
+- 2026-03-24 19:31: Phase D 代码审查第二轮 — 修复 Go SDK Demo 编译错误（5 个 demo）
+  - 修复 eino: NewRetriever() 参数 + ObservationRequest 字段 + Experience 字段
+  - 修复 langchaingo: NewMemory() 参数 + 移除不存在的 WithMemorySessionID
+  - 修复 genkit: ObservationRequest 字段 + 错误处理
+  - 修复 basic/eino/genkit: nil pointer dereference (log.Fatalf)
+  - go vet 干净、18 单元测试通过、Java Demo 编译通过
