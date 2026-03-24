@@ -82,6 +82,19 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         @Param("limit") int limit
     );
 
+    // Find recent observations for a project with offset
+    @Query(value = """
+        SELECT * FROM mem_observations
+        WHERE project_path = :project
+        ORDER BY created_at_epoch DESC
+        LIMIT :limit OFFSET :offset
+        """, nativeQuery = true)
+    List<ObservationEntity> findByProjectLimitedWithOffset(
+        @Param("project") String project,
+        @Param("limit") int limit,
+        @Param("offset") int offset
+    );
+
     // Find by multiple projects (worktree support)
     @Query(value = """
         SELECT * FROM mem_observations
@@ -193,6 +206,32 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         @Param("startEpoch") Long startEpoch,
         @Param("endEpoch") Long endEpoch,
         @Param("limit") int limit
+    );
+
+    // Composable AND filter with offset
+    @Query(value = """
+        SELECT * FROM mem_observations
+        WHERE project_path = :project
+        AND (:type IS NULL OR type = :type)
+        AND (:source IS NULL OR source = :source)
+        AND (:concept IS NULL OR EXISTS (
+            SELECT 1 FROM jsonb_array_elements_text(concepts::jsonb) elem
+            WHERE elem = :concept
+        ))
+        AND (:startEpoch IS NULL OR created_at_epoch >= :startEpoch)
+        AND (:endEpoch IS NULL OR created_at_epoch <= :endEpoch)
+        ORDER BY created_at_epoch DESC
+        LIMIT :limit OFFSET :offset
+        """, nativeQuery = true)
+    List<ObservationEntity> findByAllFiltersWithOffset(
+        @Param("project") String project,
+        @Param("type") String type,
+        @Param("source") String source,
+        @Param("concept") String concept,
+        @Param("startEpoch") Long startEpoch,
+        @Param("endEpoch") Long endEpoch,
+        @Param("limit") int limit,
+        @Param("offset") int offset
     );
 
     // Count by project

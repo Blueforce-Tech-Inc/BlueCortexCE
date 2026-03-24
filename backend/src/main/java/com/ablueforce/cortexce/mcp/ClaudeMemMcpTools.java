@@ -92,7 +92,7 @@ public class ClaudeMemMcpTools {
         }
 
         SearchService.SearchResult result = searchService.search(
-            new SearchService.SearchRequest(project, query, queryVector, type, concept, null, null, null, effectiveLimit)
+            new SearchService.SearchRequest(project, query, queryVector, type, concept, null, null, null, effectiveLimit, 0)
         );
 
         Map<String, Object> response = new HashMap<>();

@@ -210,7 +210,7 @@ public class ViewerController {
         }
 
         SearchService.SearchResult result = searchService.search(
-            new SearchService.SearchRequest(project, query, queryVector, type, concept, source, null, null, validatedLimit)
+            new SearchService.SearchRequest(project, query, queryVector, type, concept, source, null, null, validatedLimit, offset)
         );
 
         Map<String, Object> response = new HashMap<>();

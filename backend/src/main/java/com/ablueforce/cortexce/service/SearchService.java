@@ -113,6 +113,7 @@ public class SearchService {
      */
     private SearchResult filterSearch(SearchRequest request, int limit) {
         String project = request.project();
+        int offset = Math.max(0, request.offset());
 
         boolean hasAnyFilter = (request.type() != null && !request.type().isBlank())
             || (request.source() != null && !request.source().isBlank())
@@ -120,21 +121,22 @@ public class SearchService {
             || request.startEpoch() != null || request.endEpoch() != null;
 
         if (hasAnyFilter) {
-            // Use database-level composable AND filter
-            List<ObservationEntity> results = observationRepository.findByAllFilters(
+            // Use database-level composable AND filter with offset
+            List<ObservationEntity> results = observationRepository.findByAllFiltersWithOffset(
                 project,
                 blankToNull(request.type()),
                 blankToNull(request.source()),
                 blankToNull(request.concept()),
                 request.startEpoch(),
                 request.endEpoch(),
-                limit
+                limit,
+                offset
             );
             return new SearchResult(results, "filter", false);
         }
 
-        // Default: recent observations
-        List<ObservationEntity> results = observationRepository.findByProjectLimited(project, limit);
+        // Default: recent observations with offset
+        List<ObservationEntity> results = observationRepository.findByProjectLimitedWithOffset(project, limit, offset);
         return new SearchResult(results, "recent", false);
     }
 
@@ -195,7 +197,8 @@ public class SearchService {
         String source,
         Long startEpoch,
         Long endEpoch,
-        int limit
+        int limit,
+        int offset
     ) {}
 
     /**
