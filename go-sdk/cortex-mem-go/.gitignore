@@ -1,0 +1,16 @@
+# Compiled binaries
+*/basic
+*/eino
+*/genkit
+*/http-server
+*/langchaingo
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
