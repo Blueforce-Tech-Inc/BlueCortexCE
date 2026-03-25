@@ -202,13 +202,13 @@ public class RateLimitService {
 
     /**
      * P1: Validate IP address format to prevent header injection via X-Forwarded-For.
-     * Simple regex validation to ensure only valid IPv4 addresses are accepted.
+     * Supports both IPv4 and IPv6 addresses.
      */
     private boolean isValidIpAddress(String ip) {
         if (ip == null || ip.isEmpty() || ip.length() > 45) {
             return false;
         }
-        // Reject if contains anything other than digits, dots, and single colons
+        // IPv4 validation
         if (ip.matches("^[0-9.]+$")) {
             String[] parts = ip.split("\\.");
             if (parts.length == 4) {
@@ -221,6 +221,17 @@ public class RateLimitService {
                 } catch (NumberFormatException e) {
                     return false;
                 }
+            }
+            return false;
+        }
+        // IPv6 validation (compressed and full forms)
+        if (ip.contains(":")) {
+            // Use InetAddress for robust IPv6 parsing
+            try {
+                java.net.InetAddress addr = java.net.InetAddress.getByName(ip);
+                return addr instanceof java.net.Inet6Address;
+            } catch (java.net.UnknownHostException e) {
+                return false;
             }
         }
         return false;

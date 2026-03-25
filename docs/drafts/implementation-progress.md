@@ -107,6 +107,22 @@
 - [x] 确认 errors.Is() 通过 Unwrap() 链正确匹配 sentinel errors（ErrInternal 仅匹配 500，不交叉匹配 503）
 - Go SDK 单元测试从 47 → 58 个，全部通过
 
+### 第二十九轮（2026-03-25 09:01）
+- [x] Java SDK ICLPromptRequest.Builder maxChars 默认值修复（round 12 遗留问题）
+  - Builder 默认 maxChars=4000 导致 round 12 的实现修复无效（实现检查 null 但 Builder 永远不产生 null）
+  - 移除 Builder 硬编码默认值，改为 null（让后端决定默认值）
+  - 移除 2 个便利构造函数（强制 4000 的 2-arg 和 3-arg 版本）
+  - 新增 2 个测试：defaultMaxChars_omitsFromRequest + explicitMaxChars_includedInRequest
+- [x] Java SDK 单元测试 42 → 44 个，全部通过
+- [x] Go SDK 58 测试通过、go vet 干净、5/5 examples 编译通过
+- [x] 回归测试 46/46 PASS
+
+### 第三十轮（2026-03-25 09:31）— Java Backend 代码审查
+- [x] Java IngestionController.handleSessionEnd() 添加 session_id 必填校验（之前传递 null 到 completeSessionAsync 导致静默失败，与 handleUserPrompt 不一致）
+- [x] Java IngestionController.handleToolUse() 移除冗余 null 检查（blank 校验后 contentSessionId 已保证非 null）
+- [x] Java RateLimitService.isValidIpAddress() 支持 IPv6（之前仅验证 IPv4，X-Forwarded-For 中的 IPv6 客户端地址被静默拒绝，fallback 到 getRemoteAddr）
+- [x] Java Demo BUILD SUCCESS、Go SDK 58 测试通过、go vet 干净、回归测试 46/46 PASS
+
 ### 测试覆盖策略
 - **单元测试**：58 个 wire format + API + error + retry + context cancellation + backoff + omitempty + Unwrap/As + edge case 测试（全部通过）
 - **E2E 测试**：Java 25 个 + Go 26 个（验证端到端链路）

@@ -103,19 +103,16 @@ public class IngestionController {
         log.debug("Tool use: session={}, tool={}", contentSessionId, toolName);
 
         // Rate limit check (10 requests per 60 seconds per session)
-        if (contentSessionId != null && !rateLimitService.tryAcquire("tool-use:" + contentSessionId)) {
+        if (!rateLimitService.tryAcquire("tool-use:" + contentSessionId)) {
             log.warn("Rate limit exceeded for session: {}", contentSessionId);
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .body(Map.of("error", "Rate limit exceeded", "retry_after", String.valueOf(rateLimitService.getResetSeconds("tool-use:" + contentSessionId))));
         }
 
         // Resolve session DB ID from content session ID
-        java.util.UUID sessionDbId = null;
-        if (contentSessionId != null) {
-            sessionDbId = sessionManagementService.findByContentSessionId(contentSessionId)
-                .map(SessionEntity::getId)
-                .orElse(null);
-        }
+        java.util.UUID sessionDbId = sessionManagementService.findByContentSessionId(contentSessionId)
+            .map(SessionEntity::getId)
+            .orElse(null);
 
         // Fire and forget — async observation extraction
         agentService.processToolUseAsync(
@@ -147,6 +144,11 @@ public class IngestionController {
         String contentSessionId = (String) body.get("session_id");
         String lastAssistantMessage = (String) body.get("last_assistant_message");
         Boolean debug = (Boolean) body.get("debug");
+
+        // Validate session_id (consistent with handleUserPrompt)
+        if (contentSessionId == null || contentSessionId.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Missing required field: session_id"));
+        }
 
         log.debug("Session end: session={}", contentSessionId);
 
