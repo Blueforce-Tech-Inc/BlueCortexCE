@@ -241,6 +241,7 @@ func (c *httpClient) TriggerExtraction(ctx context.Context, projectPath string) 
 }
 
 func (c *httpClient) GetLatestExtraction(ctx context.Context, projectPath, templateName, userID string) (map[string]any, error) {
+	// templateName is a @PathVariable in the backend — included in URL path only, not as query param.
 	path := fmt.Sprintf("/api/extraction/%s/latest", templateName)
 	params := map[string]string{
 		"projectPath": projectPath,
