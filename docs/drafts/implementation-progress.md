@@ -328,3 +328,21 @@
   - 关键发现：ErrInternal 仅映射到 500，不匹配 503/504 等其他 5xx（通过 Unwrap 链）。IsInternal() helper 则匹配所有 >= 500。用户应使用 helper 而非 errors.Is 检查 5xx 范围
   - Go SDK 单元测试从 47 → 58 个，全部通过
   - go vet 干净、5/5 examples 编译通过、Java SDK BUILD SUCCESS（42 测试通过）、回归测试 46/46 PASS
+- 2026-03-25 09:01: Phase D 代码审查第二十九轮 — Java SDK ICLPromptRequest.Builder maxChars 默认值修复
+  - Java SDK ICLPromptRequest.Builder 默认 maxChars=4000 导致 round 12 的实现修复无效（实现检查 null 但 Builder 永远不产生 null）
+  - 移除 Builder 硬编码默认值，改为 null（让后端决定默认值）
+  - 移除 2 个便利构造函数（强制 4000 的 2-arg 和 3-arg 版本）
+  - 新增 2 个测试：defaultMaxChars_omitsFromRequest + explicitMaxChars_includedInRequest
+  - Java SDK 单元测试 42 → 44 个，全部通过
+  - Go SDK 58 测试通过、go vet 干净、5/5 examples 编译通过、回归测试 46/46 PASS
+- 2026-03-25 09:31: Phase D 代码审查第三十轮 — Java Backend 代码审查
+  - Java IngestionController.handleSessionEnd() 添加 session_id 必填校验（之前传递 null 到 completeSessionAsync 导致静默失败，与 handleUserPrompt 不一致）
+  - Java IngestionController.handleToolUse() 移除冗余 null 检查（blank 校验后 contentSessionId 已保证非 null）
+  - Java RateLimitService.isValidIpAddress() 支持 IPv6（之前仅验证 IPv4，X-Forwarded-For 中的 IPv6 客户端地址被静默拒绝，fallback 到 getRemoteAddr）
+  - Java Demo BUILD SUCCESS、Go SDK 58 测试通过、go vet 干净、回归测试 46/46 PASS
+- 2026-03-25 10:01: Phase D 代码审查第三十一轮 — Go E2E 测试脚本修复
+  - Go E2E 测试脚本: 修复 stale "Uncovered methods" 清单（tests 27-36 已覆盖全部 25 个 Go SDK 方法，但清单仍列出 8 个"未覆盖"方法）
+  - Go E2E 测试脚本: 移除重复的 final summary（test 36 后和脚本末尾各打印一次）
+  - Go E2E 测试脚本: 新增 comprehensive Final Coverage Summary 列出全部 25 个方法及其覆盖方式
+  - Go E2E 测试脚本: 最终报告移至脚本末尾（唯一真实来源）
+  - Go SDK 59 测试通过、go vet 干净、5/5 examples 编译通过、Java SDK BUILD SUCCESS（44 测试通过）
