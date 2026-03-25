@@ -2642,3 +2642,167 @@ func TestMaxResponseBytes_ConstantValue(t *testing.T) {
 		t.Errorf("expected MaxResponseBytes=%d, got %d", expected, cortexmem.MaxResponseBytes)
 	}
 }
+
+// ==================== Is* Helper Sentinel Fallback Tests ====================
+// These tests verify that Is* helpers work with direct sentinel errors
+// (not just APIError-wrapped errors), exercising the second `return` path.
+
+func TestIsNotFound_SentinelFallback(t *testing.T) {
+	// Direct sentinel error (not wrapped in APIError) should match IsNotFound
+	if !cortexmem.IsNotFound(cortexmem.ErrNotFound) {
+		t.Error("IsNotFound(ErrNotFound) should be true")
+	}
+	// Should not match other sentinels
+	if cortexmem.IsNotFound(cortexmem.ErrBadRequest) {
+		t.Error("IsNotFound(ErrBadRequest) should be false")
+	}
+}
+
+func TestIsBadRequest_SentinelFallback(t *testing.T) {
+	if !cortexmem.IsBadRequest(cortexmem.ErrBadRequest) {
+		t.Error("IsBadRequest(ErrBadRequest) should be true")
+	}
+	if cortexmem.IsBadRequest(cortexmem.ErrNotFound) {
+		t.Error("IsBadRequest(ErrNotFound) should be false")
+	}
+}
+
+func TestIsUnauthorized_SentinelFallback(t *testing.T) {
+	if !cortexmem.IsUnauthorized(cortexmem.ErrUnauthorized) {
+		t.Error("IsUnauthorized(ErrUnauthorized) should be true")
+	}
+	if cortexmem.IsUnauthorized(cortexmem.ErrForbidden) {
+		t.Error("IsUnauthorized(ErrForbidden) should be false")
+	}
+}
+
+func TestIsForbidden_SentinelFallback(t *testing.T) {
+	if !cortexmem.IsForbidden(cortexmem.ErrForbidden) {
+		t.Error("IsForbidden(ErrForbidden) should be true")
+	}
+	if cortexmem.IsForbidden(cortexmem.ErrUnauthorized) {
+		t.Error("IsForbidden(ErrUnauthorized) should be false")
+	}
+}
+
+func TestIsConflict_SentinelFallback(t *testing.T) {
+	if !cortexmem.IsConflict(cortexmem.ErrConflict) {
+		t.Error("IsConflict(ErrConflict) should be true")
+	}
+	if cortexmem.IsConflict(cortexmem.ErrNotFound) {
+		t.Error("IsConflict(ErrNotFound) should be false")
+	}
+}
+
+func TestIsRateLimited_SentinelFallback(t *testing.T) {
+	if !cortexmem.IsRateLimited(cortexmem.ErrRateLimited) {
+		t.Error("IsRateLimited(ErrRateLimited) should be true")
+	}
+	if cortexmem.IsRateLimited(cortexmem.ErrInternal) {
+		t.Error("IsRateLimited(ErrInternal) should be false")
+	}
+}
+
+func TestIsInternal_SentinelFallback(t *testing.T) {
+	if !cortexmem.IsInternal(cortexmem.ErrInternal) {
+		t.Error("IsInternal(ErrInternal) should be true")
+	}
+	if cortexmem.IsInternal(cortexmem.ErrBadRequest) {
+		t.Error("IsInternal(ErrBadRequest) should be false")
+	}
+}
+
+func TestIsServiceUnavailable_SentinelFallback(t *testing.T) {
+	if !cortexmem.IsServiceUnavailable(cortexmem.ErrServiceUnavailable) {
+		t.Error("IsServiceUnavailable(ErrServiceUnavailable) should be true")
+	}
+}
+
+func TestIsBadGateway_SentinelFallback(t *testing.T) {
+	if !cortexmem.IsBadGateway(cortexmem.ErrBadGateway) {
+		t.Error("IsBadGateway(ErrBadGateway) should be true")
+	}
+}
+
+func TestIsGatewayTimeout_SentinelFallback(t *testing.T) {
+	if !cortexmem.IsGatewayTimeout(cortexmem.ErrGatewayTimeout) {
+		t.Error("IsGatewayTimeout(ErrGatewayTimeout) should be true")
+	}
+}
+
+func TestIsUnprocessable_SentinelFallback(t *testing.T) {
+	if !cortexmem.IsUnprocessable(cortexmem.ErrUnprocessable) {
+		t.Error("IsUnprocessable(ErrUnprocessable) should be true")
+	}
+}
+
+// ==================== Is* Helper Nil/Error Tests ====================
+
+func TestIsHelpers_NilError(t *testing.T) {
+	// All Is* helpers should return false for nil errors
+	if cortexmem.IsNotFound(nil) {
+		t.Error("IsNotFound(nil) should be false")
+	}
+	if cortexmem.IsBadRequest(nil) {
+		t.Error("IsBadRequest(nil) should be false")
+	}
+	if cortexmem.IsInternal(nil) {
+		t.Error("IsInternal(nil) should be false")
+	}
+	if cortexmem.IsRateLimited(nil) {
+		t.Error("IsRateLimited(nil) should be false")
+	}
+	if cortexmem.IsClientError(nil) {
+		t.Error("IsClientError(nil) should be false")
+	}
+	if cortexmem.IsServerError(nil) {
+		t.Error("IsServerError(nil) should be false")
+	}
+}
+
+func TestIsHelpers_GenericError(t *testing.T) {
+	// Generic errors (not APIError or sentinel) should return false for all Is* helpers
+	genericErr := errors.New("some random error")
+	if cortexmem.IsNotFound(genericErr) {
+		t.Error("IsNotFound should return false for generic error")
+	}
+	if cortexmem.IsBadRequest(genericErr) {
+		t.Error("IsBadRequest should return false for generic error")
+	}
+	if cortexmem.IsInternal(genericErr) {
+		t.Error("IsInternal should return false for generic error")
+	}
+	if cortexmem.IsClientError(genericErr) {
+		t.Error("IsClientError should return false for generic error")
+	}
+	if cortexmem.IsServerError(genericErr) {
+		t.Error("IsServerError should return false for generic error")
+	}
+}
+
+// ==================== DefaultConfig Verification ====================
+
+func TestDefaultClientConfig_VerifyAllDefaults(t *testing.T) {
+	cfg := cortexmem.DefaultClientConfig()
+	if cfg.BaseURL != "http://127.0.0.1:37777" {
+		t.Errorf("expected default BaseURL, got %s", cfg.BaseURL)
+	}
+	if cfg.Timeout != 30*time.Second {
+		t.Errorf("expected 30s timeout, got %v", cfg.Timeout)
+	}
+	if cfg.ConnectTimeout != 10*time.Second {
+		t.Errorf("expected 10s connect timeout, got %v", cfg.ConnectTimeout)
+	}
+	if cfg.MaxRetries != 3 {
+		t.Errorf("expected 3 max retries, got %d", cfg.MaxRetries)
+	}
+	if cfg.RetryBackoff != 500*time.Millisecond {
+		t.Errorf("expected 500ms retry backoff, got %v", cfg.RetryBackoff)
+	}
+	if cfg.APIKey != "" {
+		t.Errorf("expected empty API key, got %s", cfg.APIKey)
+	}
+	if cfg.HTTPClient != nil {
+		t.Error("expected nil HTTPClient in default config")
+	}
+}
