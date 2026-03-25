@@ -725,6 +725,45 @@ func TestExtractedData_CamelCase(t *testing.T) {
 	}
 }
 
+func TestTriggerExtraction_PathAndParams(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/extraction/run" {
+			t.Errorf("expected /api/extraction/run, got %s", r.URL.Path)
+		}
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		if r.URL.Query().Get("projectPath") != "/my-project" {
+			t.Errorf("expected projectPath=/my-project, got %s", r.URL.Query().Get("projectPath"))
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	err := client.TriggerExtraction(context.Background(), "/my-project")
+	if err != nil {
+		t.Fatalf("TriggerExtraction failed: %v", err)
+	}
+}
+
+func TestTriggerExtraction_PropagatesError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error":"extraction failed"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	err := client.TriggerExtraction(context.Background(), "/project")
+	if err == nil {
+		t.Fatal("TriggerExtraction should propagate error")
+	}
+	if !cortexmem.IsInternal(err) {
+		t.Errorf("expected IsInternal, got: %v", err)
+	}
+}
+
 func TestGetLatestExtraction_PathAndParams(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Template name should be in path

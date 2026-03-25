@@ -235,6 +235,11 @@ func (c *httpClient) HealthCheck(ctx context.Context) error {
 
 // ==================== Extraction ====================
 
+func (c *httpClient) TriggerExtraction(ctx context.Context, projectPath string) error {
+	return c.doRequestNoContentWithParams(ctx, http.MethodPost, "/api/extraction/run", nil,
+		map[string]string{"projectPath": projectPath})
+}
+
 func (c *httpClient) GetLatestExtraction(ctx context.Context, projectPath, templateName, userID string) (map[string]any, error) {
 	path := fmt.Sprintf("/api/extraction/%s/latest", templateName)
 	params := map[string]string{
