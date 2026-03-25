@@ -183,6 +183,42 @@ class CortexMemClientImplTest {
     }
 
     @Test
+    void buildICLPrompt_defaultMaxChars_omitsFromRequest() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("{\"prompt\":\"ok\",\"experienceCount\":\"2\"}")
+            .addHeader("Content-Type", "application/json"));
+
+        // Builder default: maxChars is null → should NOT appear in request body
+        client.buildICLPrompt(ICLPromptRequest.builder()
+            .task("fix bug")
+            .project("/app")
+            .build());
+
+        RecordedRequest req = server.takeRequest();
+        String body = req.getBody().readUtf8();
+        assertThat(body).contains("fix bug");
+        assertThat(body).doesNotContain("maxChars");
+    }
+
+    @Test
+    void buildICLPrompt_explicitMaxChars_includedInRequest() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("{\"prompt\":\"ok\",\"experienceCount\":\"2\"}")
+            .addHeader("Content-Type", "application/json"));
+
+        client.buildICLPrompt(ICLPromptRequest.builder()
+            .task("fix bug")
+            .project("/app")
+            .maxChars(8000)
+            .build());
+
+        RecordedRequest req = server.takeRequest();
+        String body = req.getBody().readUtf8();
+        assertThat(body).contains("maxChars");
+        assertThat(body).contains("8000");
+    }
+
+    @Test
     void triggerRefinement_sendsCorrectRequest() throws Exception {
         server.enqueue(new MockResponse().setResponseCode(200));
 
