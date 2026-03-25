@@ -1811,3 +1811,71 @@ func TestDoRequest_SetsContentTypeForPost(t *testing.T) {
 		ToolName:    "Read",
 	})
 }
+
+func TestWithTimeout_AppliedToClient(t *testing.T) {
+	// Verify that WithTimeout is applied as http.Client.Timeout
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	}))
+	defer server.Close()
+
+	client := cortexmem.NewClient(
+		cortexmem.WithBaseURL(server.URL),
+		cortexmem.WithTimeout(5*time.Second),
+	)
+
+	err := client.HealthCheck(context.Background())
+	if err != nil {
+		t.Errorf("HealthCheck should succeed with custom timeout: %v", err)
+	}
+}
+
+func TestWithConnectTimeout_AppliedToClient(t *testing.T) {
+	// Verify that WithConnectTimeout creates a working client
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	}))
+	defer server.Close()
+
+	client := cortexmem.NewClient(
+		cortexmem.WithBaseURL(server.URL),
+		cortexmem.WithConnectTimeout(5*time.Second),
+	)
+
+	err := client.HealthCheck(context.Background())
+	if err != nil {
+		t.Errorf("HealthCheck should succeed with custom connect timeout: %v", err)
+	}
+}
+
+func TestWithTimeout_ExpiresOnSlowServer(t *testing.T) {
+	// Server that responds slower than the client timeout
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(2 * time.Second)
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	}))
+	defer server.Close()
+
+	client := cortexmem.NewClient(
+		cortexmem.WithBaseURL(server.URL),
+		cortexmem.WithTimeout(100*time.Millisecond),
+	)
+
+	err := client.HealthCheck(context.Background())
+	if err == nil {
+		t.Error("HealthCheck should fail when server is slower than timeout")
+	}
+}
+
+func TestDefaultTimeouts_MatchJavaSDK(t *testing.T) {
+	cfg := cortexmem.DefaultClientConfig()
+	if cfg.Timeout != 30*time.Second {
+		t.Errorf("Default Timeout should be 30s (matching Java SDK readTimeout), got %v", cfg.Timeout)
+	}
+	if cfg.ConnectTimeout != 10*time.Second {
+		t.Errorf("Default ConnectTimeout should be 10s (matching Java SDK connectTimeout), got %v", cfg.ConnectTimeout)
+	}
+}

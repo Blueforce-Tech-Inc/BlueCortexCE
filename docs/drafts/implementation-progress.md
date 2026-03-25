@@ -384,3 +384,13 @@
 - [x] 统一所有字符串字段处理模式：containsKey 检查 → val==null 则清空 → instanceof String 验证（与 facts/concepts/extractedData 列表/Map 字段一致）
 - [x] Go http-server `/observation/patch` 端点修复：请求结构体从 `string` 改为 `*string`，nil 检查替代空字符串检查（用户发送 `{"title":""}` 现在可以清空 title，之前被 `!= ""` 检查跳过）
 - [x] Java Backend BUILD SUCCESS、Go SDK 88 测试通过、go vet 干净、5/5 examples 编译通过
+
+### 第三十七轮（2026-03-25 13:31）— Go SDK HTTP 超时配置可配置化
+- [x] Go SDK: 新增 `Timeout` 和 `ConnectTimeout` 字段到 ClientConfig（匹配 Java SDK CortexMemProperties 的 connectTimeout=10s + readTimeout=30s）
+- [x] Go SDK: 新增 `WithTimeout` 和 `WithConnectTimeout` option 函数
+- [x] Go SDK: NewClient() 现在从 timeout 配置自动构建 http.Client + http.Transport（含 DialContext、TLSHandshakeTimeout、IdleConnTimeout 等合理默认值）
+- [x] Go SDK: 之前 Timeout=30s 硬编码且无法配置 ConnectTimeout，Java SDK 支持独立配置两者，存在功能不对等
+- [x] Go SDK README.md: 新增完整的 Option 文档表格（含所有 8 个选项的默认值和描述）
+- [x] 新增 4 个单元测试：WithTimeout_AppliedToClient、WithConnectTimeout_AppliedToClient、WithTimeout_ExpiresOnSlowServer、DefaultTimeouts_MatchJavaSDK
+- [x] Go SDK 单元测试 63 → 67 个（core），全部通过
+- [x] go vet 干净、5/5 examples 编译通过、Java SDK BUILD SUCCESS（44 测试通过）

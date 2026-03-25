@@ -92,9 +92,23 @@ Configure client behavior with options:
 client := cortexmem.NewClient(
     cortexmem.WithBaseURL("http://127.0.0.1:37777"),
     cortexmem.WithAPIKey("my-api-key"),
+    cortexmem.WithTimeout(30*time.Second),       // overall request timeout (default: 30s)
+    cortexmem.WithConnectTimeout(10*time.Second), // connection timeout (default: 10s)
     cortexmem.WithMaxRetries(5),
+    cortexmem.WithRetryBackoff(500*time.Millisecond),
 )
 ```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `WithBaseURL` | `http://127.0.0.1:37777` | Backend base URL |
+| `WithAPIKey` | *(none)* | Bearer token for authentication |
+| `WithTimeout` | `30s` | Overall request timeout (matches Java SDK `readTimeout`) |
+| `WithConnectTimeout` | `10s` | Connection timeout (matches Java SDK `connectTimeout`) |
+| `WithHTTPClient` | *(auto-built)* | Custom `http.Client` (overrides timeout options) |
+| `WithMaxRetries` | `3` | Max retries for fire-and-forget operations |
+| `WithRetryBackoff` | `500ms` | Base retry backoff (linear: `backoff × attempt`) |
+| `WithLogger` | *(nop)* | Custom logger (compatible with `*slog.Logger`) |
 
 ## Framework Integrations
 

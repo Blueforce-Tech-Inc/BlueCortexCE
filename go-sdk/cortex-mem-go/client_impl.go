@@ -3,9 +3,11 @@ package cortexmem
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"time"
@@ -16,12 +18,14 @@ type Option func(*ClientConfig)
 
 // ClientConfig holds client configuration.
 type ClientConfig struct {
-	BaseURL     string
-	APIKey      string
-	HTTPClient  *http.Client
-	MaxRetries  int
-	RetryBackoff time.Duration // Base backoff duration for retries (default: 500ms)
-	Logger      Logger
+	BaseURL       string
+	APIKey        string
+	HTTPClient    *http.Client
+	Timeout       time.Duration // Overall request timeout (default: 30s)
+	ConnectTimeout time.Duration // Connection timeout via custom Transport (default: 10s)
+	MaxRetries    int
+	RetryBackoff  time.Duration // Base backoff duration for retries (default: 500ms)
+	Logger        Logger
 }
 
 // Logger is the logging interface. Compatible with *slog.Logger.
@@ -43,8 +47,21 @@ func WithAPIKey(apiKey string) Option {
 }
 
 // WithHTTPClient sets a custom HTTP client.
+// When set, Timeout and ConnectTimeout options are ignored (caller owns the http.Client).
 func WithHTTPClient(client *http.Client) Option {
 	return func(c *ClientConfig) { c.HTTPClient = client }
+}
+
+// WithTimeout sets the overall request timeout (default: 30s, matching Java SDK readTimeout).
+// Ignored if WithHTTPClient is used.
+func WithTimeout(d time.Duration) Option {
+	return func(c *ClientConfig) { c.Timeout = d }
+}
+
+// WithConnectTimeout sets the connection timeout (default: 10s, matching Java SDK connectTimeout).
+// Applied via a custom http.Transport.DialContext. Ignored if WithHTTPClient is used.
+func WithConnectTimeout(d time.Duration) Option {
+	return func(c *ClientConfig) { c.ConnectTimeout = d }
 }
 
 // WithMaxRetries sets the maximum number of retries for fire-and-forget operations.
@@ -72,15 +89,15 @@ func (nopLogger) Warn(string, ...any)  {}
 func (nopLogger) Error(string, ...any) {}
 
 // DefaultClientConfig returns the default configuration.
+// Timeouts match Java SDK defaults: connectTimeout=10s, readTimeout=30s.
 func DefaultClientConfig() *ClientConfig {
 	return &ClientConfig{
-		BaseURL:     "http://127.0.0.1:37777",
-		MaxRetries:  3,
-		RetryBackoff: 500 * time.Millisecond,
-		HTTPClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
-		Logger: nopLogger{},
+		BaseURL:        "http://127.0.0.1:37777",
+		Timeout:        30 * time.Second,
+		ConnectTimeout: 10 * time.Second,
+		MaxRetries:     3,
+		RetryBackoff:   500 * time.Millisecond,
+		Logger:         nopLogger{},
 	}
 }
 
@@ -89,6 +106,23 @@ func NewClient(opts ...Option) Client {
 	cfg := DefaultClientConfig()
 	for _, opt := range opts {
 		opt(cfg)
+	}
+	// If caller did not provide a custom http.Client, build one from timeout settings.
+	if cfg.HTTPClient == nil {
+		cfg.HTTPClient = &http.Client{
+			Timeout: cfg.Timeout,
+			Transport: &http.Transport{
+				DialContext: (&net.Dialer{
+					Timeout: cfg.ConnectTimeout,
+				}).DialContext,
+				TLSHandshakeTimeout: 10 * time.Second,
+				IdleConnTimeout:     90 * time.Second,
+				MaxIdleConnsPerHost: 10,
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: false,
+				},
+			},
+		}
 	}
 	return &httpClient{config: cfg}
 }
