@@ -36,5 +36,5 @@ type BatchObservationsRequest struct {
 //   {"observations":[...], "count":0}
 type BatchObservationsResponse struct {
 	Observations []Observation `json:"observations"`
-	Count        int           `json:"count,omitempty"`
+	Count        int           `json:"count"`
 }
