@@ -143,3 +143,30 @@ func TestClear_NoOp(t *testing.T) {
 		t.Errorf("expected nil error, got: %v", err)
 	}
 }
+
+func TestLoadMemoryVariables_NonStringInput(t *testing.T) {
+	// When "input" is not a string (e.g., a map), fmt.Sprintf should convert it
+	m := NewMemory(&mockClient{}, "/tmp/test")
+	result, err := m.LoadMemoryVariables(context.Background(), map[string]any{
+		"input": map[string]any{"key": "value"},
+	})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	// Should produce a non-empty string representation
+	if result["history"] == "" {
+		t.Error("expected non-empty history for non-string input")
+	}
+}
+
+func TestLoadMemoryVariables_InputNotPresent(t *testing.T) {
+	// When "input" key is absent, query should be empty string
+	m := NewMemory(&mockClient{}, "/tmp/test")
+	result, err := m.LoadMemoryVariables(context.Background(), map[string]any{"other_key": "value"})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if result["history"] != "" {
+		t.Errorf("expected empty history when 'input' key is absent, got %q", result["history"])
+	}
+}

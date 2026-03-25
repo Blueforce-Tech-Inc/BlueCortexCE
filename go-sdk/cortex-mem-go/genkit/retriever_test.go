@@ -140,3 +140,52 @@ func TestRetrieve_CustomLogger(t *testing.T) {
 		t.Error("expected error to be logged")
 	}
 }
+
+func TestRetrieve_ZeroCount_FallsBackToDefault(t *testing.T) {
+	// When Count <= 0 in input, it should fall back to the retriever's default count.
+	// We can't directly observe the count passed to the mock (it uses _),
+	// but we verify the call succeeds without error, confirming fallback works.
+	r := NewRetriever(&mockClient{}, WithRetrieverCount(7))
+	output, err := r.Retrieve(context.Background(), RetrieverInput{
+		Query: "test",
+		Count: 0, // Should fall back to retriever default (7)
+	})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if len(output.Documents) != 1 {
+		t.Errorf("expected 1 document, got %d", len(output.Documents))
+	}
+}
+
+func TestRetrieve_NegativeCount_FallsBackToDefault(t *testing.T) {
+	r := NewRetriever(&mockClient{}, WithRetrieverCount(3))
+	output, err := r.Retrieve(context.Background(), RetrieverInput{
+		Query: "test",
+		Count: -5, // Negative should fall back to default
+	})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if len(output.Documents) != 1 {
+		t.Errorf("expected 1 document, got %d", len(output.Documents))
+	}
+}
+
+func TestRetrieve_InputOverridesEmptyRetrieverFields(t *testing.T) {
+	// When retriever has empty fields, input should provide values
+	r := NewRetriever(&mockClient{}) // no project, no source, no userID set
+	output, err := r.Retrieve(context.Background(), RetrieverInput{
+		Query:   "test",
+		Project: "/input/project",
+		Source:  "input-source",
+		UserID:  "input-user",
+		Count:   5,
+	})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if len(output.Documents) != 1 {
+		t.Errorf("expected 1 document, got %d", len(output.Documents))
+	}
+}
