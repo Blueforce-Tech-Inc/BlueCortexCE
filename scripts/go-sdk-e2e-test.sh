@@ -89,11 +89,11 @@ pass "Go SDK Demo OK (service=$DEMO_SERVICE)"
 echo ""
 info "Data preparation: Writing test data to Backend..."
 
-# Write observation
+# Write observation (backend /tool-use expects "cwd", not "project_path")
 WRITE_OBS=$(curl -sf -X POST "$BACKEND_URL/api/ingest/tool-use" \
     -H "Content-Type: application/json" \
     -d "{
-        \"project_path\": \"$PROJECT\",
+        \"cwd\": \"$PROJECT\",
         \"session_id\": \"go-e2e-session\",
         \"tool_name\": \"fact\",
         \"tool_response\": \"Go SDK E2E test verification data\",

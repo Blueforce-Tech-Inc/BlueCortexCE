@@ -80,14 +80,14 @@ pass "Java Demo service OK"
 echo ""
 info "Data preparation: Writing test data to Backend..."
 
-# Write observation
+# Write observation (backend /tool-use expects "cwd", not "project_path", and "tool_name"/"tool_response", not "type"/"content")
 WRITE_OBS=$(curl -sf --max-time 10 -X POST "$BACKEND_URL/api/ingest/tool-use" \
     -H "Content-Type: application/json" \
     -d "{
-        \"project_path\": \"$PROJECT\",
+        \"cwd\": \"$PROJECT\",
         \"session_id\": \"e2e-test-session\",
-        \"type\": \"fact\",
-        \"content\": \"Java SDK E2E test verification data\",
+        \"tool_name\": \"fact\",
+        \"tool_response\": \"Java SDK E2E test verification data\",
         \"source\": \"e2e_test\"
     }" 2>/dev/null || echo "FAIL")
 
