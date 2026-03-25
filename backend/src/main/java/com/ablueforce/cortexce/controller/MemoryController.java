@@ -92,9 +92,11 @@ public class MemoryController {
     public ResponseEntity<Map<String, String>> buildICLPrompt(@RequestBody Map<String, Object> request) {
         String task = (String) request.get("task");
         String project = (String) request.get("project");
-        int maxChars = request.get("maxChars") != null
-            ? Math.max(100, ((Number) request.get("maxChars")).intValue())
-            : 4000;
+        int maxChars = 4000;
+        Object maxCharsObj = request.get("maxChars");
+        if (maxCharsObj instanceof Number n) {
+            maxChars = Math.max(100, n.intValue());
+        }
 
         List<ExpRagService.Experience> experiences = expRagService
             .retrieveExperiences(task, project, 4);
@@ -196,6 +198,9 @@ public class MemoryController {
                     return ResponseEntity.badRequest().body(Map.of("error", "content/narrative must be a string"));
                 }
                 observation.setContent((String) val);
+            } else {
+                // Explicit null means clear the field
+                observation.setContent(null);
             }
         }
         if (body.containsKey("subtitle") && body.get("subtitle") != null) {

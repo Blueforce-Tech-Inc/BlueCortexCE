@@ -188,8 +188,11 @@ public class IngestionController {
         String contentSessionId = (String) body.get("session_id");
         String promptText = (String) body.get("prompt_text");
         String cwd = (String) body.get("cwd");
-        Integer promptNumber = body.get("prompt_number") != null
-            ? ((Number) body.get("prompt_number")).intValue() : 1;
+        Integer promptNumber = 1;
+        Object promptNumObj = body.get("prompt_number");
+        if (promptNumObj instanceof Number n) {
+            promptNumber = n.intValue();
+        }
 
         // P1: Validate session_id is provided
         if (contentSessionId == null || contentSessionId.isBlank()) {

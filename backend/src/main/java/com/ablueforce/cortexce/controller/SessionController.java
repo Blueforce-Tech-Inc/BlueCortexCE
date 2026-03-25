@@ -92,7 +92,7 @@ public class SessionController {
      * }
      */
     @PostMapping(value = "/start", produces = MediaType.APPLICATION_JSON_VALUE)
-    public Map<String, Object> startSession(@RequestBody Map<String, Object> body) {
+    public ResponseEntity<Map<String, Object>> startSession(@RequestBody Map<String, Object> body) {
         String contentSessionId = (String) body.get("session_id");
         String projectPath = (String) body.get("project_path");
         String projectPathFromCwd = (String) body.get("cwd"); // fallback when project_path absent
@@ -103,13 +103,13 @@ public class SessionController {
 
         // P1: Validate required fields
         if (contentSessionId == null || contentSessionId.isBlank()) {
-            return Map.of("error", "Missing required field: session_id");
+            return ResponseEntity.badRequest().body(Map.of("error", "Missing required field: session_id"));
         }
         if (projectPath == null || projectPath.isBlank()) {
             projectPath = projectPathFromCwd; // fallback to cwd for API compatibility
         }
         if (projectPath == null || projectPath.isBlank()) {
-            return Map.of("error", "Missing required field: project_path (or cwd)");
+            return ResponseEntity.badRequest().body(Map.of("error", "Missing required field: project_path (or cwd)"));
         }
 
         // Log worktree info if present
@@ -126,7 +126,8 @@ public class SessionController {
             session = sessionManagementService.initializeSession(contentSessionId, projectPath, null);
         } catch (Exception e) {
             log.error("Failed to initialize session {}: {}", contentSessionId, e.getMessage());
-            return Map.of("error", "Failed to initialize session: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Failed to initialize session: " + e.getMessage()));
         }
         
         // Phase 3: Set userId on session (null is OK — means single-user mode)
@@ -186,12 +187,12 @@ public class SessionController {
         log.debug("Session start completed: session_db_id={}, context_length={}, updateFiles_count={}",
             sessionDbId, context.length(), updateFiles.size());
 
-        return Map.of(
+        return ResponseEntity.ok(Map.of(
             "context", context,
             "updateFiles", updateFiles,
             "session_db_id", sessionDbId,
             "prompt_number", 1
-        );
+        ));
     }
 
     /**
@@ -202,25 +203,27 @@ public class SessionController {
      * Returns session details or error if not found.
      */
     @GetMapping("/{sessionId}")
-    public Map<String, Object> getSession(@PathVariable String sessionId) {
+    public ResponseEntity<Map<String, Object>> getSession(@PathVariable String sessionId) {
         try {
             Optional<SessionEntity> session = sessionRepository.findByContentSessionId(sessionId);
 
             if (session.isEmpty()) {
-                return Map.of("error", "Session not found", "session_id", sessionId);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Session not found", "session_id", sessionId));
             }
 
             SessionEntity s = session.get();
-            return Map.of(
+            return ResponseEntity.ok(Map.of(
                 "session_db_id", s.getId().toString(),
                 "content_session_id", s.getContentSessionId() != null ? s.getContentSessionId() : "",
                 "project_path", s.getProjectPath() != null ? s.getProjectPath() : "",
                 "status", s.getStatus() != null ? s.getStatus() : "",
                 "started_at", s.getStartedAt() != null ? s.getStartedAt().toString() : ""
-            );
+            ));
         } catch (Exception e) {
             log.error("Failed to get session {}: {}", sessionId, e.getMessage());
-            return Map.of("error", "Failed to get session: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Failed to get session: " + e.getMessage()));
         }
     }
 
