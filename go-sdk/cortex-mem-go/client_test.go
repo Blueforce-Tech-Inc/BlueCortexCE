@@ -1962,3 +1962,86 @@ func TestMaxRetries_NegativeClampsToOne(t *testing.T) {
 		t.Errorf("MaxRetries=-5 should clamp to 1 attempt, got %d", attempts)
 	}
 }
+
+// ==================== Management Methods: Error Propagation ====================
+// Management methods (TriggerRefinement, SubmitFeedback, UpdateObservation,
+// DeleteObservation) are NOT fire-and-forget — they must propagate errors.
+
+func TestTriggerRefinement_PropagatesError(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error":"refinement failed"}`))
+	}))
+	defer server.Close()
+
+	client := cortexmem.NewClient(
+		cortexmem.WithBaseURL(server.URL),
+		cortexmem.WithMaxRetries(3),
+	)
+
+	err := client.TriggerRefinement(context.Background(), "/project")
+	if err == nil {
+		t.Fatal("TriggerRefinement should return error on failure")
+	}
+	if !cortexmem.IsInternal(err) {
+		t.Errorf("expected IsInternal, got: %v", err)
+	}
+	// Should NOT retry — management methods don't use doFireAndForget
+	if attempts != 1 {
+		t.Errorf("expected 1 attempt (no retry), got %d", attempts)
+	}
+}
+
+func TestSubmitFeedback_PropagatesError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"error":"observation not found"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	err := client.SubmitFeedback(context.Background(), "nonexistent", "SUCCESS", "comment")
+	if err == nil {
+		t.Fatal("SubmitFeedback should return error on 404")
+	}
+	if !cortexmem.IsNotFound(err) {
+		t.Errorf("expected IsNotFound, got: %v", err)
+	}
+}
+
+func TestUpdateObservation_PropagatesError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte(`{"error":"insufficient permissions"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	title := "Updated"
+	err := client.UpdateObservation(context.Background(), "obs-1", dto.ObservationUpdate{Title: &title})
+	if err == nil {
+		t.Fatal("UpdateObservation should return error on 403")
+	}
+	if !cortexmem.IsForbidden(err) {
+		t.Errorf("expected IsForbidden, got: %v", err)
+	}
+}
+
+func TestDeleteObservation_PropagatesError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"error":"observation not found"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	err := client.DeleteObservation(context.Background(), "nonexistent")
+	if err == nil {
+		t.Fatal("DeleteObservation should return error on 404")
+	}
+	if !cortexmem.IsNotFound(err) {
+		t.Errorf("expected IsNotFound, got: %v", err)
+	}
+}

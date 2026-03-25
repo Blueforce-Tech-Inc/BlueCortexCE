@@ -168,36 +168,32 @@ func (c *httpClient) GetObservationsByIds(ctx context.Context, ids []string) (*d
 func (c *httpClient) TriggerRefinement(ctx context.Context, projectPath string) error {
 	// Backend expects "project" as QUERY PARAM (not body).
 	// Verified: POST /api/memory/refine?project=/path
-	return c.doFireAndForget(ctx, "TriggerRefinement", func() error {
-		return c.doRequestNoContentWithParams(ctx, http.MethodPost, "/api/memory/refine", nil,
-			map[string]string{"project": projectPath})
-	})
+	// NOT fire-and-forget: this is an explicit user action, errors must propagate.
+	return c.doRequestNoContentWithParams(ctx, http.MethodPost, "/api/memory/refine", nil,
+		map[string]string{"project": projectPath})
 }
 
 func (c *httpClient) SubmitFeedback(ctx context.Context, observationID, feedbackType, comment string) error {
 	// Backend expects camelCase: observationId, feedbackType
+	// NOT fire-and-forget: explicit user action, errors must propagate.
 	req := dto.FeedbackRequest{
 		ObservationID: observationID,
 		FeedbackType:  feedbackType,
 		Comment:       comment,
 	}
-	return c.doFireAndForget(ctx, "SubmitFeedback", func() error {
-		return c.doRequestNoContent(ctx, http.MethodPost, "/api/memory/feedback", req)
-	})
+	return c.doRequestNoContent(ctx, http.MethodPost, "/api/memory/feedback", req)
 }
 
 func (c *httpClient) UpdateObservation(ctx context.Context, observationID string, update dto.ObservationUpdate) error {
+	// NOT fire-and-forget: explicit user action, errors must propagate.
 	path := fmt.Sprintf("/api/memory/observations/%s", observationID)
-	return c.doFireAndForget(ctx, "UpdateObservation", func() error {
-		return c.doRequestNoContent(ctx, http.MethodPatch, path, update)
-	})
+	return c.doRequestNoContent(ctx, http.MethodPatch, path, update)
 }
 
 func (c *httpClient) DeleteObservation(ctx context.Context, observationID string) error {
+	// NOT fire-and-forget: explicit user action, errors must propagate.
 	path := fmt.Sprintf("/api/memory/observations/%s", observationID)
-	return c.doFireAndForget(ctx, "DeleteObservation", func() error {
-		return c.doRequestNoContent(ctx, http.MethodDelete, path, nil)
-	})
+	return c.doRequestNoContent(ctx, http.MethodDelete, path, nil)
 }
 
 func (c *httpClient) GetQualityDistribution(ctx context.Context, projectPath string) (*dto.QualityDistribution, error) {
