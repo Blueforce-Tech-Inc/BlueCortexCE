@@ -4,7 +4,7 @@ package dto
 // GET /api/observations?project=...&offset=...&limit=...
 //
 // Wire format: all fields are passed as URL query parameters (not JSON body).
-// The json tags are for documentation only — the client builds query params manually.
+// The client constructs query params manually from these fields (no json tags needed).
 // Verified against backend ObservationController.java.
 type ObservationsRequest struct {
 	Project string // Optional: project path filter

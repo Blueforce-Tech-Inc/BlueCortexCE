@@ -1836,6 +1836,78 @@ func TestAPIError_Unwrap_UnknownStatusCode(t *testing.T) {
 	}
 }
 
+func TestAPIError_ErrorString(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`resource not found`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 404")
+	}
+
+	// APIError.Error() should include status code and message
+	errStr := err.Error()
+	if !strings.Contains(errStr, "404") {
+		t.Errorf("Error() should contain status code 404, got: %s", errStr)
+	}
+	if !strings.Contains(errStr, "resource not found") {
+		t.Errorf("Error() should contain the response body, got: %s", errStr)
+	}
+}
+
+func TestIsUnauthorized(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Authorization", r.Header.Get("Authorization"))
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"error":"unauthorized"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 401")
+	}
+	if !cortexmem.IsUnauthorized(err) {
+		t.Errorf("expected IsUnauthorized, got: %v", err)
+	}
+	if cortexmem.IsNotFound(err) {
+		t.Error("401 should not match IsNotFound")
+	}
+	// Verify errors.Is also works through Unwrap
+	if !errors.Is(err, cortexmem.ErrUnauthorized) {
+		t.Error("errors.Is(err, ErrUnauthorized) should be true for 401")
+	}
+}
+
+func TestIsConflict(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusConflict)
+		w.Write([]byte(`{"error":"conflict"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 409")
+	}
+	if !cortexmem.IsConflict(err) {
+		t.Errorf("expected IsConflict, got: %v", err)
+	}
+	if cortexmem.IsNotFound(err) {
+		t.Error("409 should not match IsNotFound")
+	}
+	// Verify errors.Is also works through Unwrap
+	if !errors.Is(err, cortexmem.ErrConflict) {
+		t.Error("errors.Is(err, ErrConflict) should be true for 409")
+	}
+}
+
 func TestAPIError_Unwrap_AllSentinelErrors(t *testing.T) {
 	// Verify all sentinel errors are reachable through Unwrap()
 	testCases := []struct {
