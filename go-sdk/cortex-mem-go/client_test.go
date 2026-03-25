@@ -2472,3 +2472,173 @@ func TestFireAndForget_ContextCancelledDuringRetry(t *testing.T) {
 		t.Errorf("expected 1 attempt before context cancellation, got %d", attempts)
 	}
 }
+
+// ==================== Additional Coverage Tests ====================
+
+func TestSearch_WithTypeParam(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if q.Get("type") != "tool_result" {
+			t.Errorf("expected type=tool_result, got %s", q.Get("type"))
+		}
+		if q.Get("concept") != "error-handling" {
+			t.Errorf("expected concept=error-handling, got %s", q.Get("concept"))
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(dto.SearchResult{Count: 0})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.Search(context.Background(), dto.SearchRequest{
+		Project: "/proj",
+		Type:    "tool_result",
+		Concept: "error-handling",
+	})
+	if err != nil {
+		t.Fatalf("Search failed: %v", err)
+	}
+}
+
+func TestGetObservationsByIds_PropagatesError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error":"internal"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetObservationsByIds(context.Background(), []string{"obs-1"})
+	if err == nil {
+		t.Fatal("GetObservationsByIds should propagate error")
+	}
+	if !cortexmem.IsInternal(err) {
+		t.Errorf("expected IsInternal, got: %v", err)
+	}
+}
+
+func TestGetExtractionHistory_ZeroLimit(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// limit=0 should still be sent (it's a meaningful value in the API)
+		if r.URL.Query().Get("limit") != "0" {
+			t.Errorf("expected limit=0, got %s", r.URL.Query().Get("limit"))
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode([]map[string]any{})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	history, err := client.GetExtractionHistory(context.Background(), "/project", "user-prefs", "user-1", 0)
+	if err != nil {
+		t.Fatalf("GetExtractionHistory failed: %v", err)
+	}
+	if history == nil {
+		t.Fatal("history should not be nil")
+	}
+}
+
+func TestGetLatestExtraction_OmitsEmptyUserId(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// When userId is empty, it should NOT be in query params
+		if r.URL.Query().Get("userId") != "" {
+			t.Errorf("expected no userId param for empty userId, got %s", r.URL.Query().Get("userId"))
+		}
+		if r.URL.Query().Get("projectPath") != "/project" {
+			t.Errorf("expected projectPath=/project, got %s", r.URL.Query().Get("projectPath"))
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]any{"result": "data"})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	result, err := client.GetLatestExtraction(context.Background(), "/project", "user-prefs", "")
+	if err != nil {
+		t.Fatalf("GetLatestExtraction failed: %v", err)
+	}
+	if result["result"] != "data" {
+		t.Errorf("expected result=data, got %v", result["result"])
+	}
+}
+
+func TestRecordUserPrompt_UsesCorrectEndpoint(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/ingest/user-prompt" {
+			t.Errorf("expected /api/ingest/user-prompt, got %s", r.URL.Path)
+		}
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+		if body["prompt_text"] != "test prompt" {
+			t.Errorf("expected prompt_text=test prompt, got %v", body["prompt_text"])
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	err := client.RecordUserPrompt(context.Background(), dto.UserPromptRequest{
+		SessionID:   "sess-1",
+		PromptText:  "test prompt",
+		ProjectPath: "/proj",
+	})
+	if err != nil {
+		t.Fatalf("RecordUserPrompt failed: %v", err)
+	}
+}
+
+func TestRecordSessionEnd_UsesCorrectEndpoint(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/ingest/session-end" {
+			t.Errorf("expected /api/ingest/session-end, got %s", r.URL.Path)
+		}
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+		if body["last_assistant_message"] != "Goodbye" {
+			t.Errorf("expected last_assistant_message=Goodbye, got %v", body["last_assistant_message"])
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	err := client.RecordSessionEnd(context.Background(), dto.SessionEndRequest{
+		SessionID:            "sess-1",
+		ProjectPath:          "/proj",
+		LastAssistantMessage: "Goodbye",
+	})
+	if err != nil {
+		t.Fatalf("RecordSessionEnd failed: %v", err)
+	}
+}
+
+func TestGetQualityDistribution_PropagatesError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte(`{"error":"forbidden"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetQualityDistribution(context.Background(), "/proj")
+	if err == nil {
+		t.Fatal("GetQualityDistribution should propagate error")
+	}
+	if !cortexmem.IsForbidden(err) {
+		t.Errorf("expected IsForbidden, got: %v", err)
+	}
+}
+
+func TestMaxResponseBytes_ConstantValue(t *testing.T) {
+	expected := int64(10 << 20) // 10MB
+	if cortexmem.MaxResponseBytes != expected {
+		t.Errorf("expected MaxResponseBytes=%d, got %d", expected, cortexmem.MaxResponseBytes)
+	}
+}
