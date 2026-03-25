@@ -107,6 +107,11 @@ func NewClient(opts ...Option) Client {
 	for _, opt := range opts {
 		opt(cfg)
 	}
+	// Validate configuration
+	if cfg.MaxRetries < 1 {
+		cfg.MaxRetries = 1 // At least one attempt (no retries is valid)
+	}
+
 	// If caller did not provide a custom http.Client, build one from timeout settings.
 	if cfg.HTTPClient == nil {
 		cfg.HTTPClient = &http.Client{
@@ -167,6 +172,7 @@ func (c *httpClient) doRequest(ctx context.Context, method, path string, body an
 		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "cortex-mem-go/1.0.0")
 	if c.config.APIKey != "" {
 		req.Header.Set("Authorization", "Bearer "+c.config.APIKey)
 	}

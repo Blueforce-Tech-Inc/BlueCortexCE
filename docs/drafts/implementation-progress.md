@@ -394,3 +394,11 @@
 - [x] 新增 4 个单元测试：WithTimeout_AppliedToClient、WithConnectTimeout_AppliedToClient、WithTimeout_ExpiresOnSlowServer、DefaultTimeouts_MatchJavaSDK
 - [x] Go SDK 单元测试 63 → 67 个（core），全部通过
 - [x] go vet 干净、5/5 examples 编译通过、Java SDK BUILD SUCCESS（44 测试通过）
+
+### 第三十八轮（2026-03-25 14:01）— SDK HTTP 客户端可观测性 + 配置健壮性
+- [x] Go SDK doRequest(): 添加 `User-Agent: cortex-mem-go/1.0.0` 请求头（服务器端日志可识别 SDK 客户端及其版本，与 Java SDK 行为一致）
+- [x] Go SDK NewClient(): 添加 MaxRetries 配置校验（MaxRetries < 1 时 clamp 到 1，防止无效配置导致零次请求或负数循环）
+- [x] Java SDK RestClient: 添加 `User-Agent: cortex-mem-java/1.0.0` 默认请求头（与 Go SDK 对称）
+- [x] 新增 4 个单元测试：TestDoRequest_SetsUserAgent、TestDoRequest_SetsUserAgentOnPost、TestMaxRetries_ZeroClampsToOne、TestMaxRetries_NegativeClampsToOne
+- [x] Go SDK 单元测试 67 → 71 个（core），全部通过
+- [x] go vet 干净、5/5 examples 编译通过、Java SDK BUILD SUCCESS（44 测试通过）、回归测试 46/46 PASS

@@ -1879,3 +1879,86 @@ func TestDefaultTimeouts_MatchJavaSDK(t *testing.T) {
 		t.Errorf("Default ConnectTimeout should be 10s (matching Java SDK connectTimeout), got %v", cfg.ConnectTimeout)
 	}
 }
+
+// ==================== User-Agent & Configuration Tests ====================
+
+func TestDoRequest_SetsUserAgent(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ua := r.Header.Get("User-Agent")
+		if !strings.HasPrefix(ua, "cortex-mem-go/") {
+			t.Errorf("expected User-Agent starting with cortex-mem-go/, got %q", ua)
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_ = client.HealthCheck(context.Background())
+}
+
+func TestDoRequest_SetsUserAgentOnPost(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ua := r.Header.Get("User-Agent")
+		if ua != "cortex-mem-go/1.0.0" {
+			t.Errorf("expected User-Agent=cortex-mem-go/1.0.0, got %q", ua)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_ = client.RecordObservation(context.Background(), dto.ObservationRequest{
+		SessionID:   "sess-1",
+		ProjectPath: "/proj",
+		ToolName:    "Read",
+	})
+}
+
+func TestMaxRetries_ZeroClampsToOne(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	// MaxRetries=0 should be clamped to 1 (single attempt, no retries)
+	client := cortexmem.NewClient(
+		cortexmem.WithBaseURL(server.URL),
+		cortexmem.WithMaxRetries(0),
+	)
+
+	_ = client.RecordObservation(context.Background(), dto.ObservationRequest{
+		SessionID:   "sess-1",
+		ProjectPath: "/proj",
+		ToolName:    "Read",
+	})
+	if attempts != 1 {
+		t.Errorf("MaxRetries=0 should clamp to 1 attempt, got %d", attempts)
+	}
+}
+
+func TestMaxRetries_NegativeClampsToOne(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	// MaxRetries=-5 should be clamped to 1
+	client := cortexmem.NewClient(
+		cortexmem.WithBaseURL(server.URL),
+		cortexmem.WithMaxRetries(-5),
+	)
+
+	_ = client.RecordObservation(context.Background(), dto.ObservationRequest{
+		SessionID:   "sess-1",
+		ProjectPath: "/proj",
+		ToolName:    "Read",
+	})
+	if attempts != 1 {
+		t.Errorf("MaxRetries=-5 should clamp to 1 attempt, got %d", attempts)
+	}
+}

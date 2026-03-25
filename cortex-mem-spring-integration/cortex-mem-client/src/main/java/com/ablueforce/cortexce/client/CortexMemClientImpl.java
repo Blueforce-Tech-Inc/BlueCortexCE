@@ -43,6 +43,7 @@ public class CortexMemClientImpl implements CortexMemClient {
         this.restClient = restClientBuilder
             .baseUrl(properties.getBaseUrl())
             .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+            .defaultHeader("User-Agent", "cortex-mem-java/1.0.0")
             .build();
 
         log.info("CortexMemClient initialized → {}", properties.getBaseUrl());
