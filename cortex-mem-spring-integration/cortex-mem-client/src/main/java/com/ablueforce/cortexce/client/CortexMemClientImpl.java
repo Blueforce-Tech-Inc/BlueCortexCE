@@ -67,7 +67,7 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     @Override
     public void recordObservation(ObservationRequest request) {
-        executeWithRetry("recordObservation", () ->
+        executeWithRetrySilent("recordObservation", () ->
             restClient.post()
                 .uri("/api/ingest/tool-use")
                 .body(request.toWireFormat())
@@ -78,7 +78,7 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     @Override
     public void recordSessionEnd(SessionEndRequest request) {
-        executeWithRetry("recordSessionEnd", () ->
+        executeWithRetrySilent("recordSessionEnd", () ->
             restClient.post()
                 .uri("/api/ingest/session-end")
                 .body(request.toWireFormat())
@@ -89,7 +89,7 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     @Override
     public void recordUserPrompt(UserPromptRequest request) {
-        executeWithRetry("recordUserPrompt", () ->
+        executeWithRetrySilent("recordUserPrompt", () ->
             restClient.post()
                 .uri("/api/ingest/user-prompt")
                 .body(request.toWireFormat())
@@ -471,7 +471,38 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     // ==================== Internal ====================
 
+    /**
+     * Execute with retry. On final failure, throws the last exception.
+     * Use for explicit user actions where the caller needs to know the outcome.
+     */
     private void executeWithRetry(String operation, Runnable action) {
+        Exception lastException = null;
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                action.run();
+                return;
+            } catch (Exception e) {
+                lastException = e;
+                if (attempt < maxRetries) {
+                    log.debug("[{}] Attempt {}/{} failed, retrying...", operation, attempt, maxRetries);
+                    try {
+                        Thread.sleep(retryBackoff.toMillis() * attempt);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException("Interrupted during retry", ie);
+                    }
+                }
+            }
+        }
+        log.warn("[{}] Failed after {} attempts: {}", operation, maxRetries, lastException.getMessage());
+        throw new RuntimeException(operation + " failed after " + maxRetries + " attempts", lastException);
+    }
+
+    /**
+     * Execute with retry. On final failure, logs a warning and swallows the error.
+     * Use for background/hook operations where fire-and-forget is appropriate.
+     */
+    private void executeWithRetrySilent(String operation, Runnable action) {
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
             try {
                 action.run();
