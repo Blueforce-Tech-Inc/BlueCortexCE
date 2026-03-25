@@ -33,6 +33,34 @@ class DtoTest {
     }
 
     @Test
+    void observationRequest_toWireFormat_includesV14Fields() {
+        var req = ObservationRequest.builder()
+            .sessionId("sess-1")
+            .projectPath("/proj")
+            .toolName("Write")
+            .source("tool_result")
+            .extractedData(Map.of("preference", "dark mode", "priority", 5))
+            .build();
+
+        Map<String, Object> wire = req.toWireFormat();
+        assertThat(wire).containsEntry("source", "tool_result");
+        assertThat(wire).containsEntry("extractedData", Map.of("preference", "dark mode", "priority", 5));
+    }
+
+    @Test
+    void observationRequest_toWireFormat_omitsNullV14Fields() {
+        var req = ObservationRequest.builder()
+            .sessionId("s")
+            .projectPath("/p")
+            .toolName("Edit")
+            .build();
+
+        Map<String, Object> wire = req.toWireFormat();
+        assertThat(wire).doesNotContainKey("source");
+        assertThat(wire).doesNotContainKey("extractedData");
+    }
+
+    @Test
     void observationRequest_toWireFormat_omitsNullPromptNumber() {
         var req = ObservationRequest.builder()
             .sessionId("s")
@@ -135,6 +163,55 @@ class DtoTest {
         assertThat(json).doesNotContain("\"concepts\"");
         assertThat(json).doesNotContain("\"source\"");
         assertThat(json).doesNotContain("\"extractedData\"");
+    }
+
+    @Test
+    void observationUpdate_withExtractedData() throws Exception {
+        var extractedData = Map.<String, Object>of("preference", "vim", "theme", "dark");
+        var update = ObservationUpdate.builder()
+            .source("manual")
+            .extractedData(extractedData)
+            .build();
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        String json = mapper.writeValueAsString(update);
+        assertThat(json).contains("\"source\":\"manual\"");
+        assertThat(json).contains("\"extractedData\"");
+        assertThat(json).contains("\"preference\":\"vim\"");
+        // title/content/facts/concepts should be omitted
+        assertThat(json).doesNotContain("\"title\"");
+        assertThat(json).doesNotContain("\"content\"");
+    }
+
+    @Test
+    void searchRequest_builder() {
+        var req = SearchRequest.builder()
+            .project("/proj")
+            .query("debug")
+            .type("observation")
+            .source("manual")
+            .concept("error")
+            .limit(20)
+            .offset(10)
+            .build();
+        assertThat(req.project()).isEqualTo("/proj");
+        assertThat(req.query()).isEqualTo("debug");
+        assertThat(req.type()).isEqualTo("observation");
+        assertThat(req.source()).isEqualTo("manual");
+        assertThat(req.concept()).isEqualTo("error");
+        assertThat(req.limit()).isEqualTo(20);
+        assertThat(req.offset()).isEqualTo(10);
+    }
+
+    @Test
+    void observationsRequest_builder() {
+        var req = ObservationsRequest.builder()
+            .project("/proj")
+            .limit(50)
+            .offset(100)
+            .build();
+        assertThat(req.project()).isEqualTo("/proj");
+        assertThat(req.limit()).isEqualTo(50);
+        assertThat(req.offset()).isEqualTo(100);
     }
 
     @Test

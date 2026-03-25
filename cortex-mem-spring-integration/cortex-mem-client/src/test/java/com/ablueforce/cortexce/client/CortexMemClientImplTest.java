@@ -66,6 +66,43 @@ class CortexMemClientImplTest {
     }
 
     @Test
+    void recordObservation_withV14Fields_sendsSourceAndExtractedData() throws Exception {
+        server.enqueue(new MockResponse().setResponseCode(200));
+
+        client.recordObservation(ObservationRequest.builder()
+            .sessionId("s1")
+            .projectPath("/proj")
+            .toolName("Write")
+            .source("manual")
+            .extractedData(Map.of("pref", "dark"))
+            .build());
+
+        RecordedRequest req = server.takeRequest();
+        String body = req.getBody().readUtf8();
+        assertThat(body).contains("\"source\":\"manual\"");
+        assertThat(body).contains("\"extractedData\"");
+        assertThat(body).contains("\"pref\":\"dark\"");
+    }
+
+    @Test
+    void updateObservation_withExtractedData_sendsCorrectBody() throws Exception {
+        server.enqueue(new MockResponse().setResponseCode(200));
+
+        client.updateObservation("obs-1", ObservationUpdate.builder()
+            .source("user_statement")
+            .extractedData(Map.of("theme", "light", "lang", "en"))
+            .build());
+
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getMethod()).isEqualTo("PATCH");
+        assertThat(req.getPath()).isEqualTo("/api/memory/observations/obs-1");
+        String body = req.getBody().readUtf8();
+        assertThat(body).contains("\"source\":\"user_statement\"");
+        assertThat(body).contains("\"theme\":\"light\"");
+        assertThat(body).contains("\"lang\":\"en\"");
+    }
+
+    @Test
     void recordSessionEnd_sendsCorrectRequest() throws Exception {
         server.enqueue(new MockResponse().setResponseCode(200));
 
@@ -481,20 +518,6 @@ class CortexMemClientImplTest {
     }
 
     // ==================== Observation Management Tests ====================
-
-    @Test
-    void updateObservation_sendsPatch() throws Exception {
-        server.enqueue(new MockResponse().setResponseCode(200));
-
-        client.updateObservation("obs-1", ObservationUpdate.builder()
-            .source("manual")
-            .build());
-
-        RecordedRequest req = server.takeRequest();
-        assertThat(req.getMethod()).isEqualTo("PATCH");
-        assertThat(req.getPath()).isEqualTo("/api/memory/observations/obs-1");
-    }
-
     @Test
     void deleteObservation_sendsDelete() throws Exception {
         server.enqueue(new MockResponse().setResponseCode(200));
