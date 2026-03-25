@@ -132,6 +132,11 @@ func NewClient(opts ...Option) Client {
 	return &httpClient{config: cfg}
 }
 
+const (
+	// Version is the SDK version, used in User-Agent header.
+	Version = "1.0.0"
+)
+
 // httpClient is the HTTP implementation of Client.
 type httpClient struct {
 	config *ClientConfig
@@ -172,7 +177,7 @@ func (c *httpClient) doRequest(ctx context.Context, method, path string, body an
 		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "cortex-mem-go/1.0.0")
+	req.Header.Set("User-Agent", "cortex-mem-go/"+Version)
 	if c.config.APIKey != "" {
 		req.Header.Set("Authorization", "Bearer "+c.config.APIKey)
 	}

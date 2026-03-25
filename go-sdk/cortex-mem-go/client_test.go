@@ -1870,6 +1870,15 @@ func TestWithTimeout_ExpiresOnSlowServer(t *testing.T) {
 	}
 }
 
+func TestVersion_Exported(t *testing.T) {
+	if cortexmem.Version == "" {
+		t.Error("Version constant should not be empty")
+	}
+	if cortexmem.Version != "1.0.0" {
+		t.Errorf("expected Version=1.0.0, got %s", cortexmem.Version)
+	}
+}
+
 func TestDefaultTimeouts_MatchJavaSDK(t *testing.T) {
 	cfg := cortexmem.DefaultClientConfig()
 	if cfg.Timeout != 30*time.Second {
