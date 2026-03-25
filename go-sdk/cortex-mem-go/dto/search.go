@@ -3,16 +3,17 @@ package dto
 // SearchRequest performs semantic search over observations.
 // GET /api/search?project=...&query=...&type=...&concept=...&source=...&limit=...&offset=...
 //
-// Wire format: all fields are passed as query parameters (not JSON body).
+// Wire format: all fields are passed as URL query parameters (not JSON body).
+// The json tags are for documentation only — the client builds query params manually.
 // Verified against backend SearchController.java.
 type SearchRequest struct {
-	Project string `json:"project"`
-	Query   string `json:"query,omitempty"`
-	Type    string `json:"type,omitempty"`
-	Concept string `json:"concept,omitempty"`
-	Source  string `json:"source,omitempty"`
-	Limit   int    `json:"limit,omitempty"`
-	Offset  int    `json:"offset,omitempty"`
+	Project string // Required: project path for scoping
+	Query   string // Optional: semantic search query
+	Type    string // Optional: observation type filter
+	Concept string // Optional: concept filter
+	Source  string // Optional: source filter (V14)
+	Limit   int    // Optional: max results to return (0 = backend default)
+	Offset  int    // Optional: pagination offset
 }
 
 // SearchResult is the response from the search API.

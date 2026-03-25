@@ -3,12 +3,13 @@ package dto
 // ObservationsRequest lists observations with pagination.
 // GET /api/observations?project=...&offset=...&limit=...
 //
-// Wire format: all fields are passed as query parameters (not JSON body).
+// Wire format: all fields are passed as URL query parameters (not JSON body).
+// The json tags are for documentation only — the client builds query params manually.
 // Verified against backend ObservationController.java.
 type ObservationsRequest struct {
-	Project string `json:"project,omitempty"`
-	Offset  int    `json:"offset,omitempty"`
-	Limit   int    `json:"limit,omitempty"`
+	Project string // Optional: project path filter
+	Offset  int    // Optional: pagination offset (0 = start)
+	Limit   int    // Optional: max results per page (0 = backend default)
 }
 
 // ObservationsResponse is the paginated response from listing observations.
