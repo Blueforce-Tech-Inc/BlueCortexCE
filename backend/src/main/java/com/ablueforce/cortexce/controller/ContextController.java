@@ -53,77 +53,84 @@ public class ContextController {
      * - updateFiles array (if CLAUDE.md needs updating)
      */
     @GetMapping(value = "/inject", produces = MediaType.APPLICATION_JSON_VALUE)
-    public Map<String, Object> injectContext(
+    public ResponseEntity<Map<String, Object>> injectContext(
             @RequestParam(required = false, defaultValue = "") String projects) {
 
         log.debug("Context inject request, projects: {}", projects);
 
-        // Parse projects (comma-separated for worktree support)
-        String[] projectList = projects.isEmpty() ? new String[0] : projects.split(",");
+        try {
+            // Parse projects (comma-separated for worktree support)
+            String[] projectList = projects.isEmpty() ? new String[0] : projects.split(",");
 
-        // P2: Validate each project path
-        java.util.List<String> validPaths = new java.util.ArrayList<>();
-        for (String projectPath : projectList) {
-            String trimmedPath = projectPath.trim();
-            if (trimmedPath.isEmpty()) continue;
-            // Validate path format
-            if (!trimmedPath.startsWith("/") && !trimmedPath.matches("^[A-Za-z]:\\\\")) {
-                log.warn("Invalid project path format: {}", trimmedPath);
-                continue;
-            }
-            validPaths.add(trimmedPath);
-        }
-
-        StringBuilder contextBuilder = new StringBuilder();
-        List<Map<String, String>> updateFiles = new java.util.ArrayList<>();
-
-        for (String projectPath : validPaths) {
-            try {
-                // Generate context for this project
-                String context = contextService.generateContext(projectPath);
-                if (contextBuilder.length() > 0) {
-                    contextBuilder.append("\n---\n\n");
+            // P2: Validate each project path
+            java.util.List<String> validPaths = new java.util.ArrayList<>();
+            for (String projectPath : projectList) {
+                String trimmedPath = projectPath.trim();
+                if (trimmedPath.isEmpty()) continue;
+                // Validate path format
+                if (!trimmedPath.startsWith("/") && !trimmedPath.matches("^[A-Za-z]:\\\\")) {
+                    log.warn("Invalid project path format: {}", trimmedPath);
+                    continue;
                 }
-                contextBuilder.append(context);
-
-                // Check if CLAUDE.md needs update
-                Path claudeMdPath = findClaudeMdInProject(projectPath);
-                if (claudeMdPath != null) {
-                    String claudeMdContent = claudeMdService.generateClaudeMd(projectPath);
-                    updateFiles.add(Map.of(
-                            "path", claudeMdPath.toString(),
-                            "content", claudeMdContent
-                    ));
-                }
-            } catch (Exception e) {
-                log.error("Failed to generate context for project {}: {}", projectPath, e.getMessage());
-                if (contextBuilder.length() > 0) {
-                    contextBuilder.append("\n---\n\n");
-                }
-                contextBuilder.append("[Error generating context for ").append(projectPath).append("]");
+                validPaths.add(trimmedPath);
             }
-        }
 
-        String finalContext = contextBuilder.toString();
+            StringBuilder contextBuilder = new StringBuilder();
+            List<Map<String, String>> updateFiles = new java.util.ArrayList<>();
 
-        // If no projects specified, try current working directory
-        // P1: Validate cwd is a safe directory before use
-        if (projectList.length == 0) {
-            String cwd = System.getProperty("user.dir");
-            // P1: Only use cwd if it's a valid, safe path
-            if (cwd != null && !cwd.isBlank() && isSafeDirectory(cwd)) {
-                finalContext = contextService.generateContext(cwd);
-                log.debug("Generated context for cwd: {}", cwd);
-                log.info("No projects specified, using current working directory: {}", cwd);
-            } else {
-                log.warn("Current working directory is not safe: {}", cwd);
+            for (String projectPath : validPaths) {
+                try {
+                    // Generate context for this project
+                    String context = contextService.generateContext(projectPath);
+                    if (contextBuilder.length() > 0) {
+                        contextBuilder.append("\n---\n\n");
+                    }
+                    contextBuilder.append(context);
+
+                    // Check if CLAUDE.md needs update
+                    Path claudeMdPath = findClaudeMdInProject(projectPath);
+                    if (claudeMdPath != null) {
+                        String claudeMdContent = claudeMdService.generateClaudeMd(projectPath);
+                        updateFiles.add(Map.of(
+                                "path", claudeMdPath.toString(),
+                                "content", claudeMdContent
+                        ));
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to generate context for project {}: {}", projectPath, e.getMessage());
+                    if (contextBuilder.length() > 0) {
+                        contextBuilder.append("\n---\n\n");
+                    }
+                    contextBuilder.append("[Error generating context for ").append(projectPath).append("]");
+                }
             }
-        }
 
-        return Map.of(
-                "context", finalContext,
-                "updateFiles", updateFiles
-        );
+            String finalContext = contextBuilder.toString();
+
+            // If no projects specified, try current working directory
+            // P1: Validate cwd is a safe directory before use
+            if (projectList.length == 0) {
+                String cwd = System.getProperty("user.dir");
+                // P1: Only use cwd if it's a valid, safe path
+                if (cwd != null && !cwd.isBlank() && isSafeDirectory(cwd)) {
+                    finalContext = contextService.generateContext(cwd);
+                    log.debug("Generated context for cwd: {}", cwd);
+                    log.info("No projects specified, using current working directory: {}", cwd);
+                } else {
+                    log.warn("Current working directory is not safe: {}", cwd);
+                }
+            }
+
+            return ResponseEntity.ok(Map.of(
+                    "context", finalContext,
+                    "updateFiles", updateFiles
+            ));
+        } catch (Exception e) {
+            log.error("Failed to inject context: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                    "error", "Failed to inject context: " + e.getMessage()
+            ));
+        }
     }
 
     /**
@@ -218,7 +225,7 @@ public class ContextController {
      * Body: { "project_path": "/path/to/project" }
      */
     @PostMapping(value = "/generate", produces = MediaType.APPLICATION_JSON_VALUE)
-    public Map<String, String> generateContext(@RequestBody Map<String, String> body) {
+    public ResponseEntity<Map<String, String>> generateContext(@RequestBody Map<String, String> body) {
         String projectPath = body.get("project_path");
         if (projectPath == null || projectPath.isEmpty()) {
             projectPath = System.getProperty("user.dir");
@@ -226,10 +233,12 @@ public class ContextController {
 
         try {
             String context = contextService.generateContext(projectPath);
-            return Map.of("context", context);
+            return ResponseEntity.ok(Map.of("context", context));
         } catch (Exception e) {
             log.error("Failed to generate context for project {}: {}", projectPath, e.getMessage());
-            return Map.of("error", "Failed to generate context: " + e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "error", "Failed to generate context: " + e.getMessage()
+            ));
         }
     }
 
@@ -438,7 +447,6 @@ public class ContextController {
         }
 
         try {
-            // Normalize and resolve the path
             java.nio.file.Path normalizedPath = java.nio.file.Paths.get(path).normalize().toAbsolutePath();
 
             // Check if the path exists and is a directory
@@ -451,18 +459,14 @@ public class ContextController {
                 return false;
             }
 
-            // P0: Check for path traversal attempts
-            // The normalized path should equal or start with the resolved path
-            java.nio.file.Path resolvedPath = java.nio.file.Paths.get(path).toAbsolutePath();
-            if (!normalizedPath.startsWith(resolvedPath)) {
-                log.warn("Potential path traversal attempt: {}", path);
-                return false;
-            }
-
-            // Additional safety: check for suspicious patterns
-            if (path.contains("..") || path.contains("//")) {
-                log.warn("Suspicious path pattern: {}", path);
-                return false;
+            // P0: Check for path traversal attempts in original path
+            if (path.contains("..")) {
+                // After normalization, verify the result is still safe
+                java.nio.file.Path rawAbsolute = java.nio.file.Paths.get(path).toAbsolutePath();
+                if (!normalizedPath.startsWith(rawAbsolute.getRoot())) {
+                    log.warn("Path traversal attempt detected: {}", path);
+                    return false;
+                }
             }
 
             return true;

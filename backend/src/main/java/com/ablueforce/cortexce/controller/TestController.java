@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -32,7 +33,7 @@ public class TestController {
      * Test LLM (DeepSeek) connectivity.
      */
     @GetMapping("/llm")
-    public Map<String, Object> testLlm() {
+    public ResponseEntity<Map<String, Object>> testLlm() {
         Map<String, Object> result = new HashMap<>();
         result.put("status", "testing");
         result.put("message", "Testing LLM (DeepSeek)...");
@@ -42,20 +43,20 @@ public class TestController {
             result.put("status", "success");
             result.put("message", "LLM (DeepSeek) is working!");
             result.put("response", response);
+            return ResponseEntity.ok(result);
         } catch (Exception e) {
+            log.error("LLM test failed", e);
             result.put("status", "error");
             result.put("message", "LLM (DeepSeek) failed: " + e.getMessage());
-            log.error("LLM test failed", e);
+            return ResponseEntity.status(500).body(result);
         }
-
-        return result;
     }
 
     /**
      * Test Embedding (SiliconFlow BGE-M3) connectivity.
      */
     @GetMapping("/embedding")
-    public Map<String, Object> testEmbedding() {
+    public ResponseEntity<Map<String, Object>> testEmbedding() {
         Map<String, Object> result = new HashMap<>();
         result.put("status", "testing");
         result.put("message", "Testing Embedding (SiliconFlow BGE-M3)...");
@@ -66,30 +67,30 @@ public class TestController {
                 result.put("status", "disabled");
                 result.put("message", "Embedding is not configured (no API key)");
                 result.put("hint", "Set spring.ai.openai.embedding.api-key in application-dev.yml");
-                return result;
+                return ResponseEntity.ok(result);
             }
 
             float[] embedding = embeddingService.embed("Test document for embedding");
             result.put("status", "success");
             result.put("message", "Embedding (SiliconFlow BGE-M3) is working!");
             result.put("dimensions", embedding.length);
+            return ResponseEntity.ok(result);
         } catch (Exception e) {
+            log.error("Embedding test failed", e);
             result.put("status", "error");
             result.put("message", "Embedding failed: " + e.getMessage());
-            log.error("Embedding test failed", e);
+            return ResponseEntity.status(500).body(result);
         }
-
-        return result;
     }
 
     /**
      * Test both LLM and Embedding.
      */
     @GetMapping("/all")
-    public Map<String, Object> testAll() {
+    public ResponseEntity<Map<String, Object>> testAll() {
         Map<String, Object> result = new HashMap<>();
-        result.put("llm", testLlm());
-        result.put("embedding", testEmbedding());
-        return result;
+        result.put("llm", testLlm().getBody());
+        result.put("embedding", testEmbedding().getBody());
+        return ResponseEntity.ok(result);
     }
 }

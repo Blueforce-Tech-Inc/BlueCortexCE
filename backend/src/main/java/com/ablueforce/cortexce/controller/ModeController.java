@@ -72,7 +72,9 @@ public class ModeController {
             ));
         } catch (Exception e) {
             return ResponseEntity.badRequest()
-                .body(null);
+                .body(new ModeResponse(
+                    modeId, "error", "Invalid mode: " + modeId, null, null, null
+                ));
         }
     }
 

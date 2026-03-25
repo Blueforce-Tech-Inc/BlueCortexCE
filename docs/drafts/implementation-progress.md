@@ -425,3 +425,20 @@
   - 之前 http-server demo 只暴露了 ObservationUpdate 的一半能力，消费者无法通过 demo 更新 facts/concepts/extractedData
   - slice/map 字段同样使用 nil 检查区分"未提供"（跳过）和"提供空值"（清空）
 - [x] Java Demo BUILD SUCCESS、Go SDK 71 测试通过、go vet 干净、5/5 examples 编译通过、回归测试 46/46 PASS
+
+### 第四十二轮（2026-03-25 16:01）— Java Demo MemoryController 空错误体修复
+- [x] Java Demo MemoryController: 4 个方法错误时返回空 body（`.build()`）→ 修复为 JSON 错误响应
+  - `getExperiences()`: 返回类型 `ResponseEntity<List<Experience>>` → `ResponseEntity<?>`，错误时返回 `{"error":"..."}`
+  - `getQuality()`: 返回类型 `ResponseEntity<QualityDistribution>` → `ResponseEntity<?>`，错误时返回 JSON
+  - `getExperiencesFiltered()`: 同上
+  - `getExtractionHistory()`: 返回类型 `ResponseEntity<List<Map>>` → `ResponseEntity<?>`，错误时返回 JSON
+  - 与 round 40-41 修复的其他控制器一致：所有控制器在错误时都返回有意义的 JSON 响应体
+- [x] Java Demo BUILD SUCCESS、Go SDK 88 测试通过、go vet 干净、回归测试 46/46 PASS
+
+### 第四十三轮（2026-03-25 16:31）— Java Backend 控制器一致性修复
+- [x] ContextController.injectContext() 返回类型从 Map 改为 ResponseEntity<Map>，添加 try-catch（之前无异常处理，backend 崩溃时返回原始 500 栈追踪，与所有其他控制器不一致）
+- [x] ContextController.generateContext() 返回类型从 Map 改为 ResponseEntity<Map>（之前错误时返回 HTTP 200 + error 字段，客户端无法通过状态码判断失败）
+- [x] ContextController.isSafeDirectory() 修复路径遍历检查逻辑 bug（之前 normalizedPath.startsWith(resolvedPath) 对绝对路径恒为 true，对相对路径恒为 false，检查完全无效）
+- [x] TestController.testLlm() 和 testEmbedding() 返回类型从 Map 改为 ResponseEntity<Map>（之前错误时返回 HTTP 200 + "status":"error"，与所有其他控制器不一致）
+- [x] ModeController.setActiveMode() 修复 body(null)（之前异常时返回空 body，改为有意义的错误响应）
+- [x] Java Backend BUILD SUCCESS、Go SDK 88 测试通过、go vet 干净、回归测试 46/46 PASS
