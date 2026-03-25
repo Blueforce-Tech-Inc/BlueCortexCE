@@ -7,7 +7,7 @@ package dto
 //   {"task":"...", "project":"/path", "count":4, "source":"...", "requiredConcepts":[...], "userId":"..."}
 type ExperienceRequest struct {
 	Task             string   `json:"task"`
-	Project          string   `json:"project"`                  // Wire: "project" (not "project_path")
+	Project          string   `json:"project,omitempty"`        // Wire: "project" (not "project_path"); omitempty matches Java SDK behavior
 	Count            int      `json:"count,omitempty"`
 	Source           string   `json:"source,omitempty"`
 	RequiredConcepts []string `json:"requiredConcepts,omitempty"` // Wire: camelCase!
@@ -32,9 +32,9 @@ type Experience struct {
 //   {"task":"...", "project":"/path", "maxChars":4000, "userId":"..."}
 type ICLPromptRequest struct {
 	Task     string `json:"task"`
-	Project  string `json:"project"`             // Wire: "project" (not "project_path")
-	MaxChars int    `json:"maxChars,omitempty"`   // Wire: camelCase!
-	UserID   string `json:"userId,omitempty"`     // Wire: camelCase!
+	Project  string `json:"project,omitempty"`     // Wire: "project" (not "project_path"); omitempty matches Java SDK behavior
+	MaxChars int    `json:"maxChars,omitempty"`    // Wire: camelCase!
+	UserID   string `json:"userId,omitempty"`      // Wire: camelCase!
 }
 
 // ICLPromptResult is the result from the ICL prompt builder.

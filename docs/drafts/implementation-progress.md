@@ -101,13 +101,16 @@
 - [x] Go E2E 测试 tests 28-29 硬编码 project 替换为 $PROJECT 变量
 - [x] Go E2E 测试 test 34 修复 DELETE 204 No Content 响应处理
 
+- [x] Go SDK ExperienceRequest.Project 和 ICLPromptRequest.Project 添加 omitempty（与 Java SDK 行为一致，空项目不发送到后端）
+- [x] 新增 2 个单元测试验证空项目省略行为
+
 ### 测试覆盖策略
-- **单元测试**：34 个 wire format + API + error + retry + context cancellation + backoff 测试（全部通过）
+- **单元测试**：50 个 wire format + API + error + retry + context cancellation + backoff + omitempty 测试（全部通过）
 - **E2E 测试**：Java 25 个 + Go 26 个（验证端到端链路）
 - **教训**：新增测试必须严格匹配已有 wire format 定义
 
 ### 已验证项
-- ✅ Go SDK 32 单元测试 PASS
+- ✅ Go SDK 50 单元测试 PASS
 - ✅ Go SDK examples: 5/5 编译通过
 - ✅ Go vet 干净
 - ✅ Java Demo 编译通过

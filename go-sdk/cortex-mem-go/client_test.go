@@ -232,6 +232,64 @@ func TestICLPromptRequest_WireFormat(t *testing.T) {
 	}
 }
 
+func TestExperienceRequest_OmitsEmptyProject(t *testing.T) {
+	// When project is empty, it should be omitted from JSON (matches Java SDK behavior)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+
+		if _, exists := body["project"]; exists {
+			t.Error("empty project should be omitted from wire format")
+		}
+		if body["task"] != "test" {
+			t.Errorf("expected task, got %v", body["task"])
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`[]`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	req := dto.ExperienceRequest{
+		Task:    "test",
+		Project: "", // empty project should be omitted
+	}
+	_, err := client.RetrieveExperiences(context.Background(), req)
+	if err != nil {
+		t.Fatalf("RetrieveExperiences failed: %v", err)
+	}
+}
+
+func TestICLPromptRequest_OmitsEmptyProject(t *testing.T) {
+	// When project is empty, it should be omitted from JSON (matches Java SDK behavior)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+
+		if _, exists := body["project"]; exists {
+			t.Error("empty project should be omitted from wire format")
+		}
+		if body["task"] != "test" {
+			t.Errorf("expected task, got %v", body["task"])
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"prompt":"test","experienceCount":"0"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	req := dto.ICLPromptRequest{
+		Task:    "test",
+		Project: "", // empty project should be omitted
+	}
+	_, err := client.BuildICLPrompt(context.Background(), req)
+	if err != nil {
+		t.Fatalf("BuildICLPrompt failed: %v", err)
+	}
+}
+
 func TestTriggerRefinement_QueryParam(t *testing.T) {
 	// Backend expects project as QUERY PARAM, not body
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
