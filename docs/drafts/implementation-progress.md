@@ -361,3 +361,20 @@
   - 测试覆盖：nil client panic、默认值、选项应用、空输入、成功路径、错误路径（含日志验证）、per-call 覆盖
   - Go SDK 总计 88 个单元测试（63 core + 25 integration），全部通过
   - go vet 干净、5/5 examples 编译通过、回归测试 46/46 PASS
+
+### 第三十四轮（2026-03-25 12:01）— Java Backend 控制器健壮性改进
+- [x] SessionController.startSession() 返回正确的 HTTP 状态码（之前总是 200，现在验证失败返回 400，异常返回 500）
+- [x] SessionController.getSession() 未找到返回 404（之前返回 200 + error 字段）
+- [x] SessionController 两个方法都改为返回 ResponseEntity<Map> 而非原始 Map（与其他控制器一致）
+- [x] MemoryController.updateObservation() 修复 content/narrative 字段无法清空的 bug（之前 explicit null 被 val != null 检查跳过，现在显式 null 会清空字段）
+- [x] MemoryController.buildICLPrompt() maxChars 类型转换安全化（instanceof Number 替代直接 Number 强转，防止 ClassCastException）
+- [x] IngestionController.handleUserPrompt() prompt_number 类型转换安全化（同样修复）
+- [x] Java Backend BUILD SUCCESS、Go SDK tests PASS、go vet 干净、回归测试 46/46 PASS
+
+### 第三十五轮（2026-03-25 12:31）— Java Backend 控制器输入验证补全
+- [x] MemoryController.triggerRefine() 添加 project 参数必填校验（之前 null/blank 会传递到 eventPublisher，与 retrieveExperiences/buildICLPrompt 不一致）
+- [x] MemoryController.retrieveExperiences() 添加 task 参数必填校验（之前 null 会传递到 expRagService 导致下游 NPE 风险）
+- [x] MemoryController.retrieveExperiences() 修复 (Integer) 强转 ClassCastException（Jackson 可能反序列化为 Long，改为 ((Number).intValue())）
+- [x] MemoryController.buildICLPrompt() 添加 task 参数必填校验（同样修复）
+- [x] SessionController.parseProjectsParam() 修复重复 Javadoc 注释（之前有两个 /** 块，第一个是孤立的旧注释）
+- [x] Java Backend BUILD SUCCESS、Go SDK 88 测试通过、go vet 干净、回归测试 46/46 PASS

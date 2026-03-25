@@ -52,6 +52,9 @@ public class MemoryController {
      */
     @PostMapping("/refine")
     public ResponseEntity<Map<String, String>> triggerRefine(@RequestParam String project) {
+        if (project == null || project.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "project is required"));
+        }
         // Publish event for async processing
         eventPublisher.publishManualRefineEvent(project);
         return ResponseEntity.ok(Map.of(
@@ -67,12 +70,15 @@ public class MemoryController {
      * Body: {"task": "...", "project": "/path", "count": 4, "source": "optional", "requiredConcepts": ["optional"]}
      */
     @PostMapping("/experiences")
-    public ResponseEntity<List<ExpRagService.Experience>> retrieveExperiences(
+    public ResponseEntity<?> retrieveExperiences(
             @RequestBody Map<String, Object> request) {
-        
+
         String task = (String) request.get("task");
+        if (task == null || task.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "task is required"));
+        }
         String project = (String) request.get("project");
-        int count = request.get("count") != null ? (Integer) request.get("count") : 4;
+        int count = request.get("count") != null ? ((Number) request.get("count")).intValue() : 4;
         String source = (String) request.get("source");
         @SuppressWarnings("unchecked")
         List<String> requiredConcepts = (List<String>) request.get("requiredConcepts");
@@ -89,8 +95,11 @@ public class MemoryController {
      * Body: {"task": "...", "project": "...", "maxChars": 4000}
      */
     @PostMapping("/icl-prompt")
-    public ResponseEntity<Map<String, String>> buildICLPrompt(@RequestBody Map<String, Object> request) {
+    public ResponseEntity<?> buildICLPrompt(@RequestBody Map<String, Object> request) {
         String task = (String) request.get("task");
+        if (task == null || task.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "task is required"));
+        }
         String project = (String) request.get("project");
         int maxChars = 4000;
         Object maxCharsObj = request.get("maxChars");

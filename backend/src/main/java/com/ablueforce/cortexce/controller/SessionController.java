@@ -339,13 +339,6 @@ public class SessionController {
     }
 
     /**
-     * Parse comma-separated projects parameter.
-     * Used for worktree multi-project context queries.
-     *
-     * @param projectsParam Comma-separated project names (e.g., "parent,worktree")
-     * @return List of project names
-     */
-    /**
      * Update userId for an existing session. Phase 3 multi-user support.
      * PATCH /api/session/{sessionId}/user
      */
@@ -385,6 +378,13 @@ public class SessionController {
         ));
     }
 
+    /**
+     * Parse comma-separated projects parameter.
+     * Used for worktree multi-project context queries.
+     *
+     * @param projectsParam Comma-separated project names (e.g., "parent,worktree")
+     * @return List of project names
+     */
     private List<String> parseProjectsParam(String projectsParam) {
         if (projectsParam == null || projectsParam.isBlank()) {
             return new ArrayList<>();
