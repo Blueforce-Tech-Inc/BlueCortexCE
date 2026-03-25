@@ -417,3 +417,11 @@
 - [x] Java Demo ToolsController.runToolWithCapture() 同样修复（String → ResponseEntity<String>）
 - [x] 修复前 5 个控制器中有 5 个方法在错误时返回 HTTP 200，现在全部控制器统一返回正确的 HTTP 状态码
 - [x] Java Demo BUILD SUCCESS、Go SDK 88 测试通过、go vet 干净、5/5 examples 编译通过、回归测试 46/46 PASS
+
+### 第四十一轮（2026-03-25 15:31）— Demo 全面 ResponseEntity + http-server 字段覆盖补齐
+- [x] Java Demo ProjectsController.listProjects() 从 Map<String, Object> 改为 ResponseEntity<Map<String, Object>>（round 40 遗漏的最后一个 controller）
+- [x] Java Demo SessionLifecycleController.fullLifecycle() 添加 catch 异常处理（try-finally 中缺少 catch，fileReadTool.readFile() 抛 IOException 时直接 500 原始栈追踪）
+- [x] Go http-server `/observation/patch` 端点扩展：从只支持 title/content/source 增加到支持全部 6 个 dto.ObservationUpdate 字段（新增 facts/concepts/extractedData）
+  - 之前 http-server demo 只暴露了 ObservationUpdate 的一半能力，消费者无法通过 demo 更新 facts/concepts/extractedData
+  - slice/map 字段同样使用 nil 检查区分"未提供"（跳过）和"提供空值"（清空）
+- [x] Java Demo BUILD SUCCESS、Go SDK 71 测试通过、go vet 干净、5/5 examples 编译通过、回归测试 46/46 PASS

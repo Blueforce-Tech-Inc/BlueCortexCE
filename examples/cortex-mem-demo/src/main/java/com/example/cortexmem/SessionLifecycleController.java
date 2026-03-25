@@ -138,7 +138,7 @@ public class SessionLifecycleController {
      * Verifies all capture types.
      */
     @PostMapping("/lifecycle")
-    public Map<String, Object> fullLifecycle(
+    public ResponseEntity<Map<String, Object>> fullLifecycle(
             @RequestParam(defaultValue = "default") String project,
             @RequestParam(defaultValue = "How to fix a bug?") String prompt,
             @RequestParam(defaultValue = "/tmp/hello.txt") String toolPath) {
@@ -153,10 +153,10 @@ public class SessionLifecycleController {
         try {
             startResult = sessionStartClient.startSession(sessionId, projectPath);
         } catch (Exception e) {
-            return Map.of(
+            return ResponseEntity.internalServerError().body(Map.of(
                 "error", "Failed to start session: " + e.getMessage(),
                 "session_id", sessionId
-            );
+            ));
         }
 
         // 2. Prompt + 3. Tool + 4. End (within context)
@@ -171,7 +171,7 @@ public class SessionLifecycleController {
                 .sessionId(sessionId).projectPath(projectPath)
                 .lastAssistantMessage("Processed: " + toolPath).build());
 
-            return Map.of(
+            return ResponseEntity.ok(Map.of(
                 "session_id", sessionId,
                 "project", project,
                 "project_path", projectPath,
@@ -179,7 +179,12 @@ public class SessionLifecycleController {
                 "prompt_recorded", true,
                 "tool_result", toolResult,
                 "session_ended", true
-            );
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of(
+                "error", "Lifecycle step failed: " + e.getMessage(),
+                "session_id", sessionId
+            ));
         } finally {
             CortexSessionContext.end();
         }

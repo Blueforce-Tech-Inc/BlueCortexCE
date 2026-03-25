@@ -476,10 +476,13 @@ func main() {
 			return
 		}
 		var req struct {
-			Id      string  `json:"id"`
-			Title   *string `json:"title,omitempty"`
-			Content *string `json:"content,omitempty"`
-			Source  *string `json:"source,omitempty"`
+			Id            string            `json:"id"`
+			Title         *string           `json:"title,omitempty"`
+			Content       *string           `json:"content,omitempty"`
+			Facts         []string          `json:"facts,omitempty"`
+			Concepts      []string          `json:"concepts,omitempty"`
+			Source        *string           `json:"source,omitempty"`
+			ExtractedData map[string]any    `json:"extractedData,omitempty"`
 		}
 		if err := readJSON(r, &req); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
@@ -490,7 +493,7 @@ func main() {
 			return
 		}
 		update := dto.ObservationUpdate{}
-		// Use pointer checks: nil = field absent (skip), non-nil = field present (set, even if empty string)
+		// Use pointer checks for string fields: nil = field absent (skip), non-nil = field present (set, even if empty string)
 		if req.Title != nil {
 			update.Title = req.Title
 		}
@@ -499,6 +502,16 @@ func main() {
 		}
 		if req.Source != nil {
 			update.Source = req.Source
+		}
+		// Slice and map fields: nil = absent (skip), non-nil = present (set, even if empty)
+		if req.Facts != nil {
+			update.Facts = req.Facts
+		}
+		if req.Concepts != nil {
+			update.Concepts = req.Concepts
+		}
+		if req.ExtractedData != nil {
+			update.ExtractedData = req.ExtractedData
 		}
 		if err := client.UpdateObservation(r.Context(), req.Id, update); err != nil {
 			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update observation: %v", err))

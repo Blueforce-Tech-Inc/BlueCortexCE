@@ -1,5 +1,6 @@
 package com.example.cortexmem;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -24,7 +25,7 @@ public class ProjectsController {
      * List configured demo projects. Used for multi-project isolation demo.
      */
     @GetMapping("/demo/projects")
-    public Map<String, Object> listProjects() {
+    public ResponseEntity<Map<String, Object>> listProjects() {
         Map<String, Object> result = new HashMap<>();
         result.put("configured_projects", demoProperties.getProjects());
         result.put("default_project", System.getProperty("user.dir"));
@@ -34,6 +35,6 @@ public class ProjectsController {
             "memory_query", "GET /memory/experiences?task=...&project=<path>",
             "chat", "GET /chat?message=...&project=<key>"
         ));
-        return result;
+        return ResponseEntity.ok(result);
     }
 }
