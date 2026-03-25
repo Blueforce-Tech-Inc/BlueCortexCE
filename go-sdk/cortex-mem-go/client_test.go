@@ -483,6 +483,9 @@ func TestListObservations(t *testing.T) {
 		if r.URL.Path != "/api/observations" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET, got %s", r.Method)
+		}
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(dto.ObservationsResponse{
@@ -505,6 +508,67 @@ func TestListObservations(t *testing.T) {
 	}
 	if resp.Total != 1 {
 		t.Errorf("expected total=1, got %d", resp.Total)
+	}
+}
+
+func TestListObservations_QueryParams(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if q.Get("project") != "/my-proj" {
+			t.Errorf("expected project=/my-proj, got %s", q.Get("project"))
+		}
+		if q.Get("limit") != "50" {
+			t.Errorf("expected limit=50, got %s", q.Get("limit"))
+		}
+		if q.Get("offset") != "10" {
+			t.Errorf("expected offset=10, got %s", q.Get("offset"))
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(dto.ObservationsResponse{
+			Items:   []dto.Observation{},
+			Total:   0,
+			HasMore: false,
+			Offset:  10,
+			Limit:   50,
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.ListObservations(context.Background(), dto.ObservationsRequest{
+		Project: "/my-proj",
+		Limit:   50,
+		Offset:  10,
+	})
+	if err != nil {
+		t.Fatalf("ListObservations failed: %v", err)
+	}
+}
+
+func TestListObservations_OmitsZeroParams(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		// Zero-value limit and offset should be omitted
+		if q.Get("limit") != "" {
+			t.Errorf("expected no limit param for zero value, got %s", q.Get("limit"))
+		}
+		if q.Get("offset") != "" {
+			t.Errorf("expected no offset param for zero value, got %s", q.Get("offset"))
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(dto.ObservationsResponse{Items: []dto.Observation{}})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.ListObservations(context.Background(), dto.ObservationsRequest{
+		Project: "/proj",
+		// Limit and Offset left as zero values
+	})
+	if err != nil {
+		t.Fatalf("ListObservations failed: %v", err)
 	}
 }
 
@@ -1314,6 +1378,35 @@ func TestGetQualityDistribution_Path(t *testing.T) {
 	}
 	if dist.Project != "/my/proj" {
 		t.Errorf("expected project=/my/proj, got %s", dist.Project)
+	}
+}
+
+func TestSearch_WithOffset(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		if q.Get("project") != "/proj" {
+			t.Errorf("expected project=/proj, got %s", q.Get("project"))
+		}
+		if q.Get("limit") != "10" {
+			t.Errorf("expected limit=10, got %s", q.Get("limit"))
+		}
+		if q.Get("offset") != "20" {
+			t.Errorf("expected offset=20, got %s", q.Get("offset"))
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(dto.SearchResult{Count: 0})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.Search(context.Background(), dto.SearchRequest{
+		Project: "/proj",
+		Limit:   10,
+		Offset:  20,
+	})
+	if err != nil {
+		t.Fatalf("Search failed: %v", err)
 	}
 }
 
