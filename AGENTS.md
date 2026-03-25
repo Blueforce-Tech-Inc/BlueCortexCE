@@ -97,9 +97,24 @@ Integrated via `openclaw-plugin/`, provides search Skill.
 
 ## Documentation
 
-- `docs/` - Project documentation
+- `docs/` - Project documentation (stable reference)
+- `docs/drafts/` - Active design documents under iteration
+- `docs/archive/` - Historical snapshots (read-only, date-prefixed filenames)
 - `backend/README.md` - Backend detailed documentation
 - `proxy/README.md` - Proxy layer documentation
+
+### Documentation Management Rules
+
+**⚠️ BEFORE creating or moving any .md file**, activate `skills/doc-management/SKILL.md` and classify the document:
+
+| Type | Location | Example |
+|------|----------|---------|
+| Live (periodically updated) | Appropriate dir + purpose header | `docs/performance-test-results.md` |
+| Historical (point-in-time) | `docs/archive/YYYY-MM-DD_<name>.md` | Test reports, completed trackers |
+| Draft (under iteration) | `docs/drafts/` | Phase design docs |
+| Reference (stable) | `docs/` | API, Architecture docs |
+
+**Never scatter documents** — no `backend/TASK_PROGRESS.md`, no root-level test reports, no duplicates.
 
 ## Key Files
 
