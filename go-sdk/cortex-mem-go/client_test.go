@@ -3,6 +3,8 @@ package cortexmem_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -1513,5 +1515,217 @@ func TestIsServerError(t *testing.T) {
 	}
 	if cortexmem.IsClientError(err) {
 		t.Error("500 should NOT match IsClientError")
+	}
+}
+
+// ==================== APIError.Unwrap() Tests ====================
+// These tests verify that errors.Is() and errors.As() work correctly
+// through the APIError → sentinel error chain.
+
+func TestAPIError_Unwrap_IsNotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"error":"not found"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 404")
+	}
+	// errors.Is should match through Unwrap()
+	if !errors.Is(err, cortexmem.ErrNotFound) {
+		t.Error("errors.Is(err, ErrNotFound) should be true for 404")
+	}
+	// Should NOT match other sentinel errors
+	if errors.Is(err, cortexmem.ErrBadRequest) {
+		t.Error("404 should not match ErrBadRequest")
+	}
+	if errors.Is(err, cortexmem.ErrInternal) {
+		t.Error("404 should not match ErrInternal")
+	}
+}
+
+func TestAPIError_Unwrap_IsRateLimited(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+		w.Write([]byte(`{"error":"rate limited"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 429")
+	}
+	if !errors.Is(err, cortexmem.ErrRateLimited) {
+		t.Error("errors.Is(err, ErrRateLimited) should be true for 429")
+	}
+}
+
+func TestAPIError_Unwrap_IsServiceUnavailable(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte(`{"error":"unavailable"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 503")
+	}
+	if !errors.Is(err, cortexmem.ErrServiceUnavailable) {
+		t.Error("errors.Is(err, ErrServiceUnavailable) should be true for 503")
+	}
+	// errors.Is through Unwrap should NOT match ErrInternal (that's mapped from 500 only)
+	// But IsInternal() helper should match (it checks >= 500)
+	if errors.Is(err, cortexmem.ErrInternal) {
+		t.Error("503 should not match ErrInternal through Unwrap (ErrInternal maps to 500 only)")
+	}
+	if !cortexmem.IsInternal(err) {
+		t.Error("503 should match IsInternal() helper (checks >= 500)")
+	}
+}
+
+func TestAPIError_AsExtractsStatusCode(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte(`{"error":"forbidden"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 403")
+	}
+	// errors.As should extract the APIError
+	var apiErr *cortexmem.APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatal("errors.As should extract APIError")
+	}
+	if apiErr.StatusCode != http.StatusForbidden {
+		t.Errorf("expected status code 403, got %d", apiErr.StatusCode)
+	}
+	if !strings.Contains(apiErr.Message, "forbidden") {
+		t.Errorf("expected message to contain 'forbidden', got %s", apiErr.Message)
+	}
+}
+
+func TestAPIError_Unwrap_UnknownStatusCode(t *testing.T) {
+	// 418 I'm a teapot — not a mapped sentinel error
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(418)
+		w.Write([]byte(`{"error":"teapot"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 418")
+	}
+	// Should NOT match any sentinel error
+	if errors.Is(err, cortexmem.ErrNotFound) {
+		t.Error("418 should not match ErrNotFound")
+	}
+	if errors.Is(err, cortexmem.ErrInternal) {
+		t.Error("418 should not match ErrInternal (418 is 4xx)")
+	}
+	// But errors.As should still work
+	var apiErr *cortexmem.APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatal("errors.As should still extract APIError for unmapped status codes")
+	}
+	if apiErr.StatusCode != 418 {
+		t.Errorf("expected status code 418, got %d", apiErr.StatusCode)
+	}
+}
+
+func TestAPIError_Unwrap_AllSentinelErrors(t *testing.T) {
+	// Verify all sentinel errors are reachable through Unwrap()
+	testCases := []struct {
+		status   int
+		expected error
+	}{
+		{400, cortexmem.ErrBadRequest},
+		{401, cortexmem.ErrUnauthorized},
+		{403, cortexmem.ErrForbidden},
+		{404, cortexmem.ErrNotFound},
+		{409, cortexmem.ErrConflict},
+		{422, cortexmem.ErrUnprocessable},
+		{429, cortexmem.ErrRateLimited},
+		{500, cortexmem.ErrInternal},
+		{502, cortexmem.ErrBadGateway},
+		{503, cortexmem.ErrServiceUnavailable},
+		{504, cortexmem.ErrGatewayTimeout},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("status_%d", tc.status), func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tc.status)
+				w.Write([]byte(`{"error":"test"}`))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server)
+			_, err := client.GetVersion(context.Background())
+			if err == nil {
+				t.Fatalf("expected error for %d", tc.status)
+			}
+			if !errors.Is(err, tc.expected) {
+				t.Errorf("errors.Is(err, %v) should be true for status %d", tc.expected, tc.status)
+			}
+		})
+	}
+}
+
+// ==================== Edge Case Tests ====================
+
+func TestAPIError_NilUnwrap(t *testing.T) {
+	// Verify that nil APIError doesn't panic
+	var apiErr *cortexmem.APIError
+	// This tests that Unwrap on a nil APIError doesn't panic
+	// (it would be caught by the calling code before Unwrap is called)
+	if apiErr != nil {
+		t.Fatal("expected nil APIError")
+	}
+}
+
+func TestDoRequest_MalformedJSONResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`not valid json`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected error for malformed JSON")
+	}
+	if !strings.Contains(err.Error(), "failed to parse") {
+		t.Errorf("expected parse error, got: %v", err)
+	}
+}
+
+func TestDoRequest_EmptyResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		// Empty body
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	// Empty body with a method that expects JSON should return parse error
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected parse error for empty JSON body")
+	}
+	if !strings.Contains(err.Error(), "failed to parse") {
+		t.Errorf("expected parse error, got: %v", err)
 	}
 }

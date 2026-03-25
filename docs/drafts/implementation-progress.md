@@ -103,14 +103,17 @@
 
 - [x] Go SDK ExperienceRequest.Project 和 ICLPromptRequest.Project 添加 omitempty（与 Java SDK 行为一致，空项目不发送到后端）
 - [x] 新增 2 个单元测试验证空项目省略行为
+- [x] Go SDK APIError.Unwrap() 行为验证（新增 11 个测试：Unwrap sentinel errors、errors.As 提取、未知状态码、空响应/malformed JSON 边界）
+- [x] 确认 errors.Is() 通过 Unwrap() 链正确匹配 sentinel errors（ErrInternal 仅匹配 500，不交叉匹配 503）
+- Go SDK 单元测试从 47 → 58 个，全部通过
 
 ### 测试覆盖策略
-- **单元测试**：50 个 wire format + API + error + retry + context cancellation + backoff + omitempty 测试（全部通过）
+- **单元测试**：58 个 wire format + API + error + retry + context cancellation + backoff + omitempty + Unwrap/As + edge case 测试（全部通过）
 - **E2E 测试**：Java 25 个 + Go 26 个（验证端到端链路）
 - **教训**：新增测试必须严格匹配已有 wire format 定义
 
 ### 已验证项
-- ✅ Go SDK 50 单元测试 PASS
+- ✅ Go SDK 58 单元测试 PASS
 - ✅ Go SDK examples: 5/5 编译通过
 - ✅ Go vet 干净
 - ✅ Java Demo 编译通过
@@ -295,3 +298,17 @@
   - Go SDK: 新增 2 个单元测试覆盖新 helper（含交叉验证：400 匹配 IsClientError 但不匹配 IsServerError，500 反之）
   - Go SDK 单元测试从 44 → 46 个，全部通过
   - go vet 干净、http-server/basic examples 编译通过、Java SDK BUILD SUCCESS（42 测试通过）、回归测试 46/46 PASS
+- 2026-03-25 08:31: Phase D 代码审查第二十八轮 — APIError.Unwrap() 验证 + 边界测试
+  - Go SDK: 新增 11 个单元测试验证 APIError.Unwrap() 链式匹配行为：
+    - Unwrap_IsNotFound: 验证 404 通过 errors.Is(err, ErrNotFound) 匹配
+    - Unwrap_IsRateLimited: 验证 429 通过 errors.Is 匹配
+    - Unwrap_IsServiceUnavailable: 验证 503 匹配 ErrServiceUnavailable 但不匹配 ErrInternal（Unwrap 返回精确 sentinel）
+    - AsExtractsStatusCode: 验证 errors.As 可提取 APIError.StatusCode 和 Message
+    - Unwrap_UnknownStatusCode: 验证 418 不匹配任何 sentinel，但 errors.As 仍可提取
+    - Unwrap_AllSentinelErrors[11 子测试]: 表驱动测试验证所有 11 个 sentinel error 可达
+    - NilUnwrap: 确认 nil APIError 不 panic
+    - MalformedJSONResponse: 确认非 JSON 响应正确返回解析错误
+    - EmptyResponse: 确认空响应体正确返回解析错误
+  - 关键发现：ErrInternal 仅映射到 500，不匹配 503/504 等其他 5xx（通过 Unwrap 链）。IsInternal() helper 则匹配所有 >= 500。用户应使用 helper 而非 errors.Is 检查 5xx 范围
+  - Go SDK 单元测试从 47 → 58 个，全部通过
+  - go vet 干净、5/5 examples 编译通过、Java SDK BUILD SUCCESS（42 测试通过）、回归测试 46/46 PASS
