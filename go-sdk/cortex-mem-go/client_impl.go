@@ -108,6 +108,9 @@ func NewClient(opts ...Option) Client {
 		opt(cfg)
 	}
 	// Validate configuration
+	if cfg.BaseURL == "" {
+		cfg.BaseURL = "http://127.0.0.1:37777"
+	}
 	if cfg.MaxRetries < 1 {
 		cfg.MaxRetries = 1 // At least one attempt (no retries is valid)
 	}

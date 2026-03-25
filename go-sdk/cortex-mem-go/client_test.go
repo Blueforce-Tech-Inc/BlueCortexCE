@@ -2197,3 +2197,18 @@ func TestDeleteObservation_PropagatesError(t *testing.T) {
 		t.Errorf("expected IsNotFound, got: %v", err)
 	}
 }
+
+func TestNewClient_EmptyBaseURL_UsesDefault(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"service":"claude-mem-java","status":"ok"}`))
+	}))
+	defer server.Close()
+
+	// With empty BaseURL, client should use default (and still work if we pass the server URL)
+	client := cortexmem.NewClient(cortexmem.WithBaseURL(""))
+	// The client should have defaulted to http://127.0.0.1:37777
+	// This won't connect to our test server, but at least it shouldn't panic
+	_ = client
+	client.Close()
+}

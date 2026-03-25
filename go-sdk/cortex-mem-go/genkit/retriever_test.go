@@ -3,7 +3,6 @@ package genkit
 import (
 	"context"
 	"errors"
-	"log"
 	"testing"
 
 	cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
@@ -27,14 +26,15 @@ func (m *mockClient) RetrieveExperiences(_ context.Context, _ dto.ExperienceRequ
 
 func (m *mockClient) Close() error { return nil }
 
-type testWriter struct {
-	output *string
+// testLogger captures log messages for assertions.
+type testLogger struct {
+	msgs []string
 }
 
-func (w *testWriter) Write(p []byte) (int, error) {
-	*w.output += string(p)
-	return len(p), nil
-}
+func (l *testLogger) Debug(msg string, args ...any) { l.msgs = append(l.msgs, msg) }
+func (l *testLogger) Info(msg string, args ...any)  { l.msgs = append(l.msgs, msg) }
+func (l *testLogger) Warn(msg string, args ...any)  { l.msgs = append(l.msgs, msg) }
+func (l *testLogger) Error(msg string, args ...any)  { l.msgs = append(l.msgs, msg) }
 
 func TestNewRetriever_NilClient_Panics(t *testing.T) {
 	defer func() {
@@ -132,12 +132,11 @@ func TestRetrieve_Error_ReturnsError(t *testing.T) {
 }
 
 func TestRetrieve_CustomLogger(t *testing.T) {
-	var logged string
-	customLogger := log.New(&testWriter{output: &logged}, "", 0)
+	logger := &testLogger{}
 	mock := &mockClient{retrieveErr: errors.New("fail")}
-	r := NewRetriever(mock, WithRetrieverLogger(customLogger))
+	r := NewRetriever(mock, WithRetrieverLogger(logger))
 	r.Retrieve(context.Background(), RetrieverInput{Query: "q"})
-	if logged == "" {
+	if len(logger.msgs) == 0 {
 		t.Error("expected error to be logged")
 	}
 }

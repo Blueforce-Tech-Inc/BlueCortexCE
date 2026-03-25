@@ -3,7 +3,7 @@ package langchaingo
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 
 	cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
@@ -18,7 +18,7 @@ type Memory struct {
 	maxChars  int
 	memoryKey string
 	userID    string
-	logger    *log.Logger
+	logger    cortexmem.Logger
 }
 
 // MemoryOption configures the Memory.
@@ -45,8 +45,8 @@ func WithMemoryUserID(userID string) MemoryOption {
 }
 
 // WithMemoryLogger sets a custom logger for error reporting.
-// By default, errors during LoadMemoryVariables are logged to stderr.
-func WithMemoryLogger(l *log.Logger) MemoryOption {
+// The logger must implement the cortexmem.Logger interface (compatible with *slog.Logger).
+func WithMemoryLogger(l cortexmem.Logger) MemoryOption {
 	return func(m *Memory) { m.logger = l }
 }
 
@@ -60,7 +60,7 @@ func NewMemory(client cortexmem.Client, project string, opts ...MemoryOption) *M
 		project:   project,
 		maxChars:  4000,
 		memoryKey: "history",
-		logger:    log.New(os.Stderr, "[cortex-ce] ", log.LstdFlags),
+		logger:    slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})),
 	}
 	for _, opt := range opts {
 		opt(m)
@@ -100,7 +100,7 @@ func (m *Memory) LoadMemoryVariables(ctx context.Context, inputs map[string]any)
 	if err != nil {
 		// Log the error for observability — callers can't distinguish
 		// empty memory from "backend unavailable" without this.
-		m.logger.Printf("BuildICLPrompt failed (project=%q): %v", m.project, err)
+		m.logger.Warn("BuildICLPrompt failed", "project", m.project, "error", err)
 		// Return empty memory on error — don't break the chain.
 		// Downstream AI models will operate without memory context,
 		// but at least the error is visible in logs.

@@ -3,7 +3,6 @@ package langchaingo
 import (
 	"context"
 	"errors"
-	"log"
 	"testing"
 
 	cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
@@ -25,14 +24,15 @@ func (m *mockClient) BuildICLPrompt(_ context.Context, _ dto.ICLPromptRequest) (
 
 func (m *mockClient) Close() error { return nil }
 
-type testWriter struct {
-	output *string
+// testLogger captures log messages for assertions.
+type testLogger struct {
+	msgs []string
 }
 
-func (w *testWriter) Write(p []byte) (int, error) {
-	*w.output += string(p)
-	return len(p), nil
-}
+func (l *testLogger) Debug(msg string, args ...any) { l.msgs = append(l.msgs, msg) }
+func (l *testLogger) Info(msg string, args ...any)  { l.msgs = append(l.msgs, msg) }
+func (l *testLogger) Warn(msg string, args ...any)  { l.msgs = append(l.msgs, msg) }
+func (l *testLogger) Error(msg string, args ...any)  { l.msgs = append(l.msgs, msg) }
 
 func TestNewMemory_NilClient_Panics(t *testing.T) {
 	defer func() {
@@ -94,9 +94,8 @@ func TestLoadMemoryVariables_Success(t *testing.T) {
 
 func TestLoadMemoryVariables_Error_ReturnsEmpty(t *testing.T) {
 	mock := &mockClient{iclErr: errors.New("backend unavailable")}
-	var logged string
-	customLogger := log.New(&testWriter{output: &logged}, "", 0)
-	m := NewMemory(mock, "/tmp/test", WithMemoryLogger(customLogger))
+	logger := &testLogger{}
+	m := NewMemory(mock, "/tmp/test", WithMemoryLogger(logger))
 
 	result, err := m.LoadMemoryVariables(context.Background(), map[string]any{"input": "test query"})
 	// Should NOT return error (graceful degradation)
@@ -108,7 +107,7 @@ func TestLoadMemoryVariables_Error_ReturnsEmpty(t *testing.T) {
 		t.Errorf("expected empty history on error, got %q", result["history"])
 	}
 	// Should log the error
-	if logged == "" {
+	if len(logger.msgs) == 0 {
 		t.Error("expected error to be logged")
 	}
 }

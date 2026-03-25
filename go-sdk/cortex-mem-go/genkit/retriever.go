@@ -5,7 +5,7 @@ package genkit
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 
 	cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
@@ -39,7 +39,7 @@ type Retriever struct {
 	source  string
 	count   int
 	userID  string
-	logger  *log.Logger
+	logger  cortexmem.Logger
 }
 
 // RetrieverOption configures the Retriever.
@@ -66,7 +66,8 @@ func WithRetrieverUserID(userID string) RetrieverOption {
 }
 
 // WithRetrieverLogger sets a custom logger for error reporting.
-func WithRetrieverLogger(l *log.Logger) RetrieverOption {
+// The logger must implement the cortexmem.Logger interface (compatible with *slog.Logger).
+func WithRetrieverLogger(l cortexmem.Logger) RetrieverOption {
 	return func(r *Retriever) { r.logger = l }
 }
 
@@ -78,7 +79,7 @@ func NewRetriever(client cortexmem.Client, opts ...RetrieverOption) *Retriever {
 	r := &Retriever{
 		client: client,
 		count:  4,
-		logger: log.New(os.Stderr, "[cortex-ce/genkit] ", log.LstdFlags),
+		logger: slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})),
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -117,7 +118,7 @@ func (r *Retriever) Retrieve(ctx context.Context, input RetrieverInput) (Retriev
 		UserID:  userID,
 	})
 	if err != nil {
-		r.logger.Printf("RetrieveExperiences failed (project=%q): %v", project, err)
+		r.logger.Warn("RetrieveExperiences failed", "project", project, "error", err)
 		return RetrieverOutput{}, fmt.Errorf("cortex-ce retrieve: %w", err)
 	}
 
@@ -126,9 +127,9 @@ func (r *Retriever) Retrieve(ctx context.Context, input RetrieverInput) (Retriev
 		docs = append(docs, Document{
 			Content: exp.Strategy + "\n" + exp.Outcome,
 			Metadata: map[string]any{
-				"id":            exp.ID,
-				"task":          exp.Task,
-				"qualityScore":  exp.QualityScore,
+				"id":             exp.ID,
+				"task":           exp.Task,
+				"qualityScore":   exp.QualityScore,
 				"reuseCondition": exp.ReuseCondition,
 			},
 		})

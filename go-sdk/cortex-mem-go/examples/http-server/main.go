@@ -151,6 +151,15 @@ func main() {
 			}
 			limit = parsed
 		}
+		offset := 0
+		if o := r.URL.Query().Get("offset"); o != "" {
+			parsed, err := strconv.Atoi(o)
+			if err != nil || parsed < 0 {
+				writeJSONError(w, http.StatusBadRequest, "offset must be a non-negative integer")
+				return
+			}
+			offset = parsed
+		}
 		searchReq := dto.SearchRequest{
 			Project: project,
 			Query:   r.URL.Query().Get("query"),
@@ -158,6 +167,7 @@ func main() {
 			Concept: r.URL.Query().Get("concept"),
 			Source:  r.URL.Query().Get("source"),
 			Limit:   limit,
+			Offset:  offset,
 		}
 		result, err := client.Search(r.Context(), searchReq)
 		if err != nil {
@@ -243,9 +253,28 @@ func main() {
 			writeJSONError(w, http.StatusBadRequest, "project is required")
 			return
 		}
+		limit := 10
+		if l := r.URL.Query().Get("limit"); l != "" {
+			parsed, err := strconv.Atoi(l)
+			if err != nil || parsed < 1 || parsed > 100 {
+				writeJSONError(w, http.StatusBadRequest, "limit must be an integer between 1 and 100")
+				return
+			}
+			limit = parsed
+		}
+		offset := 0
+		if o := r.URL.Query().Get("offset"); o != "" {
+			parsed, err := strconv.Atoi(o)
+			if err != nil || parsed < 0 {
+				writeJSONError(w, http.StatusBadRequest, "offset must be a non-negative integer")
+				return
+			}
+			offset = parsed
+		}
 		result, err := client.ListObservations(r.Context(), dto.ObservationsRequest{
 			Project: project,
-			Limit:   10,
+			Limit:   limit,
+			Offset:  offset,
 		})
 		if err != nil {
 			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list observations: %v", err))
@@ -485,6 +514,51 @@ func main() {
 		writeJSON(w, result)
 	})
 
+	// --- POST /observation ---
+	mux.HandleFunc("/observation", func(w http.ResponseWriter, r *http.Request) {
+		if !checkMethod(w, r, http.MethodPost) {
+			return
+		}
+		var req struct {
+			Project       string         `json:"project"`
+			SessionID     string         `json:"session_id"`
+			ToolName      string         `json:"tool_name"`
+			ToolInput     any            `json:"tool_input,omitempty"`
+			ToolResponse  any            `json:"tool_response,omitempty"`
+			Source        string         `json:"source,omitempty"`
+			ExtractedData map[string]any `json:"extractedData,omitempty"`
+		}
+		if err := readJSON(r, &req); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if req.Project == "" {
+			writeJSONError(w, http.StatusBadRequest, "project is required")
+			return
+		}
+		if req.SessionID == "" {
+			writeJSONError(w, http.StatusBadRequest, "session_id is required")
+			return
+		}
+		if req.ToolName == "" {
+			writeJSONError(w, http.StatusBadRequest, "tool_name is required")
+			return
+		}
+		if err := client.RecordObservation(r.Context(), dto.ObservationRequest{
+			ProjectPath:   req.Project,
+			SessionID:     req.SessionID,
+			ToolName:      req.ToolName,
+			ToolInput:     req.ToolInput,
+			ToolResponse:  req.ToolResponse,
+			Source:        req.Source,
+			ExtractedData: req.ExtractedData,
+		}); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to record observation: %v", err))
+			return
+		}
+		writeJSON(w, map[string]string{"status": "recorded"})
+	})
+
 	// --- PATCH /observation/patch ---
 	mux.HandleFunc("/observation/patch", func(w http.ResponseWriter, r *http.Request) {
 		if !checkMethod(w, r, http.MethodPatch) {
@@ -630,7 +704,7 @@ func main() {
 	fmt.Println("  GET    /version             - Backend version")
 	fmt.Println("  GET    /experiences         - Retrieve experiences")
 	fmt.Println("  GET    /iclprompt           - Build ICL prompt")
-	fmt.Println("  GET    /observations        - List observations")
+	fmt.Println("  GET    /observations        - List observations (limit, offset)")
 	fmt.Println("  POST   /observations/batch  - Batch get observations by IDs")
 	fmt.Println("  GET    /projects            - Get projects")
 	fmt.Println("  GET    /stats               - Get stats")
@@ -644,6 +718,7 @@ func main() {
 	fmt.Println("  PATCH  /session/user        - Update session user ID")
 	fmt.Println("  PATCH  /observation/patch   - Update observation")
 	fmt.Println("  DELETE /observation/delete  - Delete observation")
+	fmt.Println("  POST   /observation         - Record observation")
 	fmt.Println("  POST   /ingest/prompt       - Ingest user prompt")
 	fmt.Println("  POST   /ingest/session-end  - Ingest session end")
 
