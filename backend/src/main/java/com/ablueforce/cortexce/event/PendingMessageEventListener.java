@@ -35,9 +35,11 @@ public class PendingMessageEventListener {
         log.info("Received PendingMessageEvent: {}", event);
 
         try {
-            if (event.getMessageType().equals("observation")) {
+            if ("observation".equals(event.getMessageType())) {
                 agentService.processPendingMessage(event.getPendingMessageId());
                 log.info("Processed pending message: {}", event.getPendingMessageId());
+            } else {
+                log.warn("Unsupported pending message type: {}, skipping", event.getMessageType());
             }
         } catch (Exception e) {
             log.error("Failed to process PendingMessageEvent: {}", event, e);

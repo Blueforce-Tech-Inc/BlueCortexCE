@@ -68,12 +68,14 @@ public class LogsController {
     public ResponseEntity<Map<String, Object>> getLogs(
             @RequestParam(defaultValue = "1000") int lines) {
 
+        int validatedLines = Math.min(Math.max(1, lines), 10000);
+
         List<String> logLines = new ArrayList<>();
         int totalLines = 0;
         List<String> searchedFiles = new ArrayList<>();
 
         // Collect logs from today and yesterday files
-        for (int dayOffset = 0; dayOffset <= 1 && logLines.size() < lines; dayOffset++) {
+        for (int dayOffset = 0; dayOffset <= 1 && logLines.size() < validatedLines; dayOffset++) {
             Path logFile = getLogFile(dayOffset);
             if (!Files.exists(logFile)) {
                 continue;
@@ -93,7 +95,7 @@ public class LogsController {
         }
 
         // Get last N lines
-        int start = Math.max(0, logLines.size() - lines);
+        int start = Math.max(0, logLines.size() - validatedLines);
         List<String> recentLines = logLines.subList(start, logLines.size());
         String result = String.join("\n", recentLines);
 

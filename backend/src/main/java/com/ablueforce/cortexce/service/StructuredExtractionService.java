@@ -815,6 +815,7 @@ public class StructuredExtractionService {
         try {
             return MAPPER.writeValueAsString(obj);
         } catch (JsonProcessingException e) {
+            log.error("Failed to serialize object to JSON: {}", e.getMessage(), e);
             return "{}";
         }
     }

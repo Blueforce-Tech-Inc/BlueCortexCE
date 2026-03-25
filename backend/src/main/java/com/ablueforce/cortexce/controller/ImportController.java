@@ -140,6 +140,18 @@ public class ImportController {
             );
         }
 
+        public ImportStats addError(String message) {
+            List<String> newErrors = new ArrayList<>(this.errorMessages);
+            newErrors.add(message);
+            return new ImportStats(
+                sessionsImported, sessionsSkipped,
+                observationsImported, observationsSkipped,
+                summariesImported, summariesSkipped,
+                promptsImported, promptsSkipped,
+                errors + 1, newErrors
+            );
+        }
+
         private static List<String> mergeErrors(List<String> existing, List<String> newErrors) {
             List<String> merged = new ArrayList<>(existing);
             if (newErrors != null) {
@@ -180,6 +192,7 @@ public class ImportController {
                 }
             } catch (Exception e) {
                 log.error("Error importing session: {}", e.getMessage());
+                stats = stats.addError(e.getMessage());
             }
         }
 
@@ -200,6 +213,7 @@ public class ImportController {
                 }
             } catch (Exception e) {
                 log.error("Error importing summary: {}", e.getMessage());
+                stats = stats.addError(e.getMessage());
             }
         }
 

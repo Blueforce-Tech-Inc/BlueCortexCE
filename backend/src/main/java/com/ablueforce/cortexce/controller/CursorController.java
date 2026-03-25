@@ -144,7 +144,7 @@ public class CursorController {
         CursorProjectEntry entry = cursorService.getProject(projectName);
 
         if (entry == null) {
-            return ResponseEntity.ok(Map.of(
+            return ResponseEntity.status(404).body(Map.of(
                 "success", false,
                 "error", "Project not registered: " + projectName
             ));
@@ -209,7 +209,7 @@ public class CursorController {
         CursorProjectEntry entry = cursorService.getProject(projectName);
 
         if (entry == null) {
-            return ResponseEntity.ok(Map.of(
+            return ResponseEntity.status(404).body(Map.of(
                 "success", false,
                 "error", "Project not registered: " + projectName
             ));
