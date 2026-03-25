@@ -378,3 +378,9 @@
 - [x] MemoryController.buildICLPrompt() 添加 task 参数必填校验（同样修复）
 - [x] SessionController.parseProjectsParam() 修复重复 Javadoc 注释（之前有两个 /** 块，第一个是孤立的旧注释）
 - [x] Java Backend BUILD SUCCESS、Go SDK 88 测试通过、go vet 干净、回归测试 46/46 PASS
+
+### 第三十六轮（2026-03-25 13:01）— updateObservation null 清除一致性修复
+- [x] Java Backend updateObservation() `title`/`subtitle`/`source` 字段修复 null 清除行为（round 34 只修复了 content/narrative，这三个字段仍用 `!= null` 检查跳过显式 null，无法清空）
+- [x] 统一所有字符串字段处理模式：containsKey 检查 → val==null 则清空 → instanceof String 验证（与 facts/concepts/extractedData 列表/Map 字段一致）
+- [x] Go http-server `/observation/patch` 端点修复：请求结构体从 `string` 改为 `*string`，nil 检查替代空字符串检查（用户发送 `{"title":""}` 现在可以清空 title，之前被 `!= ""` 检查跳过）
+- [x] Java Backend BUILD SUCCESS、Go SDK 88 测试通过、go vet 干净、5/5 examples 编译通过

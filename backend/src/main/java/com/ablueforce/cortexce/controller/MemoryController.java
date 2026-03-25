@@ -192,39 +192,46 @@ public class MemoryController {
             return ResponseEntity.notFound().build();
         }
 
-        // Update string fields if present and non-null
-        if (body.containsKey("title") && body.get("title") != null) {
+        // Update string fields — explicit null means "clear", absent means "skip"
+        if (body.containsKey("title")) {
             Object val = body.get("title");
-            if (!(val instanceof String)) {
+            if (val == null) {
+                observation.setTitle(null);
+            } else if (val instanceof String s) {
+                observation.setTitle(s);
+            } else {
                 return ResponseEntity.badRequest().body(Map.of("error", "title must be a string"));
             }
-            observation.setTitle((String) val);
         }
         if (body.containsKey("content") || body.containsKey("narrative")) {
             Object val = body.getOrDefault("content", body.get("narrative"));
-            if (val != null) {
-                if (!(val instanceof String)) {
-                    return ResponseEntity.badRequest().body(Map.of("error", "content/narrative must be a string"));
-                }
-                observation.setContent((String) val);
-            } else {
-                // Explicit null means clear the field
+            if (val == null) {
                 observation.setContent(null);
+            } else if (val instanceof String s) {
+                observation.setContent(s);
+            } else {
+                return ResponseEntity.badRequest().body(Map.of("error", "content/narrative must be a string"));
             }
         }
-        if (body.containsKey("subtitle") && body.get("subtitle") != null) {
+        if (body.containsKey("subtitle")) {
             Object val = body.get("subtitle");
-            if (!(val instanceof String)) {
+            if (val == null) {
+                observation.setSubtitle(null);
+            } else if (val instanceof String s) {
+                observation.setSubtitle(s);
+            } else {
                 return ResponseEntity.badRequest().body(Map.of("error", "subtitle must be a string"));
             }
-            observation.setSubtitle((String) val);
         }
-        if (body.containsKey("source") && body.get("source") != null) {
+        if (body.containsKey("source")) {
             Object val = body.get("source");
-            if (!(val instanceof String)) {
+            if (val == null) {
+                observation.setSource(null);
+            } else if (val instanceof String s) {
+                observation.setSource(s);
+            } else {
                 return ResponseEntity.badRequest().body(Map.of("error", "source must be a string"));
             }
-            observation.setSource((String) val);
         }
 
         // Update list fields — null means "clear", wrong type → 400

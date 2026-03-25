@@ -476,10 +476,10 @@ func main() {
 			return
 		}
 		var req struct {
-			Id      string `json:"id"`
-			Title   string `json:"title,omitempty"`
-			Content string `json:"content,omitempty"`
-			Source  string `json:"source,omitempty"`
+			Id      string  `json:"id"`
+			Title   *string `json:"title,omitempty"`
+			Content *string `json:"content,omitempty"`
+			Source  *string `json:"source,omitempty"`
 		}
 		if err := readJSON(r, &req); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
@@ -490,14 +490,15 @@ func main() {
 			return
 		}
 		update := dto.ObservationUpdate{}
-		if req.Title != "" {
-			update.Title = &req.Title
+		// Use pointer checks: nil = field absent (skip), non-nil = field present (set, even if empty string)
+		if req.Title != nil {
+			update.Title = req.Title
 		}
-		if req.Content != "" {
-			update.Content = &req.Content
+		if req.Content != nil {
+			update.Content = req.Content
 		}
-		if req.Source != "" {
-			update.Source = &req.Source
+		if req.Source != nil {
+			update.Source = req.Source
 		}
 		if err := client.UpdateObservation(r.Context(), req.Id, update); err != nil {
 			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update observation: %v", err))
