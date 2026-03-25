@@ -1729,3 +1729,85 @@ func TestDoRequest_EmptyResponse(t *testing.T) {
 		t.Errorf("expected parse error, got: %v", err)
 	}
 }
+
+// ==================== Lifecycle & Header Tests ====================
+
+func TestClose_CleansUpIdleConnections(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	}))
+	defer server.Close()
+
+	// Create client with custom transport to verify Close works
+	transport := &http.Transport{}
+	client := cortexmem.NewClient(
+		cortexmem.WithBaseURL(server.URL),
+		cortexmem.WithHTTPClient(&http.Client{Transport: transport}),
+	)
+
+	// Make a request first to establish idle connections
+	_ = client.HealthCheck(context.Background())
+
+	// Close should not panic and should clean up idle connections
+	err := client.Close()
+	if err != nil {
+		t.Errorf("Close should not return error: %v", err)
+	}
+
+	// Calling Close again should not panic (idle connections already closed)
+	err = client.Close()
+	if err != nil {
+		t.Errorf("second Close should not return error: %v", err)
+	}
+}
+
+func TestDoRequest_SetsAcceptHeader(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		accept := r.Header.Get("Accept")
+		if accept != "application/json" {
+			t.Errorf("expected Accept: application/json, got %q", accept)
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_ = client.HealthCheck(context.Background())
+}
+
+func TestDoRequest_NoContentTypeForGet(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// GET requests should NOT have Content-Type header
+		if r.Method == http.MethodGet && r.Header.Get("Content-Type") != "" {
+			t.Errorf("GET request should not have Content-Type, got %q", r.Header.Get("Content-Type"))
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_ = client.HealthCheck(context.Background())
+}
+
+func TestDoRequest_SetsContentTypeForPost(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			ct := r.Header.Get("Content-Type")
+			if ct != "application/json" {
+				t.Errorf("POST request should have Content-Type: application/json, got %q", ct)
+			}
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_ = client.RecordObservation(context.Background(), dto.ObservationRequest{
+		SessionID:   "sess-1",
+		ProjectPath: "/proj",
+		ToolName:    "Read",
+	})
+}

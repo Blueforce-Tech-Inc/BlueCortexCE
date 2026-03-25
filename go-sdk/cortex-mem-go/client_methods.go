@@ -370,7 +370,9 @@ func (c *httpClient) GetSettings(ctx context.Context) (map[string]any, error) {
 // ==================== Lifecycle ====================
 
 func (c *httpClient) Close() error {
-	// HTTP client doesn't need explicit close in stdlib
+	if t, ok := c.config.HTTPClient.Transport.(*http.Transport); ok {
+		t.CloseIdleConnections()
+	}
 	return nil
 }
 

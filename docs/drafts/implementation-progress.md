@@ -124,12 +124,12 @@
 - [x] Java Demo BUILD SUCCESS、Go SDK 58 测试通过、go vet 干净、回归测试 46/46 PASS
 
 ### 测试覆盖策略
-- **单元测试**：58 个 wire format + API + error + retry + context cancellation + backoff + omitempty + Unwrap/As + edge case 测试（全部通过）
+- **单元测试**：63 个 wire format + API + error + retry + context cancellation + backoff + omitempty + Unwrap/As + lifecycle + header 测试（全部通过）
 - **E2E 测试**：Java 25 个 + Go 26 个（验证端到端链路）
 - **教训**：新增测试必须严格匹配已有 wire format 定义
 
 ### 已验证项
-- ✅ Go SDK 58 单元测试 PASS
+- ✅ Go SDK 63 单元测试 PASS
 - ✅ Go SDK examples: 5/5 编译通过
 - ✅ Go vet 干净
 - ✅ Java Demo 编译通过
@@ -346,3 +346,10 @@
   - Go E2E 测试脚本: 新增 comprehensive Final Coverage Summary 列出全部 25 个方法及其覆盖方式
   - Go E2E 测试脚本: 最终报告移至脚本末尾（唯一真实来源）
   - Go SDK 59 测试通过、go vet 干净、5/5 examples 编译通过、Java SDK BUILD SUCCESS（44 测试通过）
+- 2026-03-25 11:01: Phase D 代码审查第三十二轮 — Go SDK HTTP 客户端健壮性改进
+  - Go SDK Close(): 修复资源泄漏 — 之前返回 nil 不清理 idle connections，现在调用 Transport.CloseIdleConnections()
+  - Go SDK doRequest(): 添加 Accept: application/json 请求头（HTTP 最佳实践，明确告知服务器期望的响应格式）
+  - Go SDK doFireAndForget(): 添加中间重试日志（之前仅在最终失败时记录，现在每次重试都会 warn，与 Java SDK 行为一致）
+  - 新增 4 个单元测试：Close_CleansUpIdleConnections、DoRequest_SetsAcceptHeader、DoRequest_NoContentTypeForGet、DoRequest_SetsContentTypeForPost
+  - Go SDK 单元测试从 59 → 63 个，全部通过
+  - go vet 干净、5/5 examples 编译通过、Java SDK BUILD SUCCESS

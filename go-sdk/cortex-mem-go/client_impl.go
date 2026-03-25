@@ -132,6 +132,7 @@ func (c *httpClient) doRequest(ctx context.Context, method, path string, body an
 	if reqBody != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	req.Header.Set("Accept", "application/json")
 	if c.config.APIKey != "" {
 		req.Header.Set("Authorization", "Bearer "+c.config.APIKey)
 	}
@@ -176,8 +177,14 @@ func (c *httpClient) doFireAndForget(ctx context.Context, name string, fn func()
 		if lastErr == nil {
 			return nil
 		}
-		// Linear backoff (matching Java SDK: backoff * attempt)
+		// Log intermediate retry failures
 		if attempt < c.config.MaxRetries {
+			c.config.Logger.Warn("cortex-ce: "+name+" failed, retrying",
+				"error", lastErr,
+				"attempt", attempt,
+				"maxAttempts", c.config.MaxRetries,
+			)
+			// Linear backoff (matching Java SDK: backoff * attempt)
 			delay := c.config.RetryBackoff * time.Duration(attempt)
 			select {
 			case <-ctx.Done():
