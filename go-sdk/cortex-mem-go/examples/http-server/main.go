@@ -205,10 +205,26 @@ func main() {
 			writeJSONError(w, http.StatusBadRequest, "task is required")
 			return
 		}
-		exps, err := client.RetrieveExperiences(r.Context(), dto.ExperienceRequest{
+		count := 4
+		if c := r.URL.Query().Get("count"); c != "" {
+			parsed, err := strconv.Atoi(c)
+			if err != nil || parsed < 1 || parsed > 100 {
+				writeJSONError(w, http.StatusBadRequest, "count must be an integer between 1 and 100")
+				return
+			}
+			count = parsed
+		}
+		req := dto.ExperienceRequest{
 			Project: project,
 			Task:    task,
-		})
+			Count:   count,
+			Source:  r.URL.Query().Get("source"),
+			UserID:  r.URL.Query().Get("userId"),
+		}
+		if concepts := r.URL.Query().Get("requiredConcepts"); concepts != "" {
+			req.RequiredConcepts = strings.Split(concepts, ",")
+		}
+		exps, err := client.RetrieveExperiences(r.Context(), req)
 		if err != nil {
 			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to retrieve experiences: %v", err))
 			return
@@ -231,10 +247,20 @@ func main() {
 			writeJSONError(w, http.StatusBadRequest, "task is required")
 			return
 		}
+		maxChars := 2000
+		if mc := r.URL.Query().Get("maxChars"); mc != "" {
+			parsed, err := strconv.Atoi(mc)
+			if err != nil || parsed < 0 {
+				writeJSONError(w, http.StatusBadRequest, "maxChars must be a non-negative integer")
+				return
+			}
+			maxChars = parsed
+		}
 		result, err := client.BuildICLPrompt(r.Context(), dto.ICLPromptRequest{
 			Project:  project,
 			Task:     task,
-			MaxChars: 2000,
+			MaxChars: maxChars,
+			UserID:   r.URL.Query().Get("userId"),
 		})
 		if err != nil {
 			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to build ICL prompt: %v", err))

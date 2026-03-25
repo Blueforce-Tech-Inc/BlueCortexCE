@@ -173,7 +173,8 @@ func IsClientError(err error) bool {
 }
 
 // IsServerError returns true if the error is a 5xx server error.
-// Alias for IsInternal — both check 5xx range.
+// Note: this checks >= 500 range, while IsInternal also checks >= 500.
+// Both are equivalent, but IsServerError is the more descriptive name.
 func IsServerError(err error) bool {
 	return IsInternal(err)
 }
