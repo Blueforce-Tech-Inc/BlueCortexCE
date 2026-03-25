@@ -144,9 +144,12 @@ func main() {
 		}
 		limit := 10
 		if l := r.URL.Query().Get("limit"); l != "" {
-			if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
-				limit = parsed
+			parsed, err := strconv.Atoi(l)
+			if err != nil || parsed < 1 || parsed > 100 {
+				writeJSONError(w, http.StatusBadRequest, "limit must be an integer between 1 and 100")
+				return
 			}
+			limit = parsed
 		}
 		searchReq := dto.SearchRequest{
 			Project: project,
@@ -265,6 +268,10 @@ func main() {
 		}
 		if len(req.Ids) == 0 {
 			writeJSONError(w, http.StatusBadRequest, "ids is required")
+			return
+		}
+		if len(req.Ids) > 100 {
+			writeJSONError(w, http.StatusBadRequest, "batch size exceeds maximum of 100")
 			return
 		}
 		result, err := client.GetObservationsByIds(r.Context(), req.Ids)
