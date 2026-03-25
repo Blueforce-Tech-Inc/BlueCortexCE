@@ -1248,6 +1248,10 @@ func TestFireAndForget_ContextCancellation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fire-and-forget should swallow context cancellation: %v", err)
 	}
+	// With the pre-cancelled context optimization, no HTTP request should be made
+	if attempts != 0 {
+		t.Errorf("expected 0 attempts for pre-cancelled context, got %d", attempts)
+	}
 }
 
 func TestFireAndForget_CustomBackoff(t *testing.T) {

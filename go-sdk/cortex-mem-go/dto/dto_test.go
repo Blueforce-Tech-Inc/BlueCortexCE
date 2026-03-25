@@ -1,0 +1,383 @@
+package dto
+
+import (
+	"encoding/json"
+	"testing"
+)
+
+// ==================== QualityDistribution Tests ====================
+
+func TestQualityDistribution_Total(t *testing.T) {
+	dist := QualityDistribution{
+		Project: "/project",
+		High:    10,
+		Medium:  5,
+		Low:     3,
+		Unknown: 2,
+	}
+	if got := dist.Total(); got != 20 {
+		t.Errorf("Total() = %d, want 20", got)
+	}
+}
+
+func TestQualityDistribution_Total_Zeros(t *testing.T) {
+	dist := QualityDistribution{}
+	if got := dist.Total(); got != 0 {
+		t.Errorf("Total() = %d, want 0", got)
+	}
+}
+
+func TestQualityDistribution_Total_SingleCategory(t *testing.T) {
+	dist := QualityDistribution{High: 42}
+	if got := dist.Total(); got != 42 {
+		t.Errorf("Total() = %d, want 42", got)
+	}
+}
+
+func TestQualityDistribution_WireFormat(t *testing.T) {
+	dist := QualityDistribution{
+		Project: "/proj",
+		High:    10,
+		Medium:  5,
+		Low:     2,
+		Unknown: 1,
+	}
+	data, err := json.Marshal(dist)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if decoded["project"] != "/proj" {
+		t.Errorf("expected project=/proj, got %v", decoded["project"])
+	}
+	if decoded["high"] != float64(10) {
+		t.Errorf("expected high=10, got %v", decoded["high"])
+	}
+}
+
+// ==================== FeedbackRequest Wire Format Tests ====================
+
+func TestFeedbackRequest_CamelCase(t *testing.T) {
+	req := FeedbackRequest{
+		ObservationID: "obs-1",
+		FeedbackType:  "SUCCESS",
+		Comment:       "great work",
+	}
+	data, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	// Must be camelCase for Java backend
+	if decoded["observationId"] != "obs-1" {
+		t.Errorf("expected observationId=obs-1, got %v", decoded["observationId"])
+	}
+	if decoded["feedbackType"] != "SUCCESS" {
+		t.Errorf("expected feedbackType=SUCCESS, got %v", decoded["feedbackType"])
+	}
+	// Should NOT have snake_case
+	if decoded["observation_id"] != nil {
+		t.Error("observation_id should not exist (should be 'observationId')")
+	}
+	if decoded["feedback_type"] != nil {
+		t.Error("feedback_type should not exist (should be 'feedbackType')")
+	}
+}
+
+// ==================== ObservationRequest Wire Format Tests ====================
+
+func TestObservationRequest_UsesCWD(t *testing.T) {
+	req := ObservationRequest{
+		SessionID:   "sess-1",
+		ProjectPath: "/path/to/project",
+		ToolName:    "Read",
+	}
+	data, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	// ProjectPath should serialize as "cwd", not "project_path"
+	if decoded["cwd"] != "/path/to/project" {
+		t.Errorf("expected cwd=/path/to/project, got %v", decoded["cwd"])
+	}
+	if decoded["project_path"] != nil {
+		t.Error("project_path should not exist (should be 'cwd')")
+	}
+	if decoded["projectPath"] != nil {
+		t.Error("projectPath should not exist (should be 'cwd')")
+	}
+}
+
+func TestObservationRequest_OmitsEmptyFields(t *testing.T) {
+	req := ObservationRequest{
+		SessionID:   "sess-1",
+		ProjectPath: "/project",
+		ToolName:    "Read",
+		// ToolInput, ToolResponse, Source, ExtractedData all zero values
+	}
+	data, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if _, ok := decoded["tool_input"]; ok {
+		t.Error("empty tool_input should be omitted")
+	}
+	if _, ok := decoded["tool_response"]; ok {
+		t.Error("empty tool_response should be omitted")
+	}
+	if _, ok := decoded["source"]; ok {
+		t.Error("empty source should be omitted")
+	}
+	if _, ok := decoded["extractedData"]; ok {
+		t.Error("empty extractedData should be omitted")
+	}
+}
+
+// ==================== ObservationUpdate Wire Format Tests ====================
+
+func TestObservationUpdate_NilPointerFields(t *testing.T) {
+	update := ObservationUpdate{
+		ExtractedData: map[string]any{"key": "value"},
+		// Title, Content, Source are nil pointers
+	}
+	data, err := json.Marshal(update)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if _, ok := decoded["title"]; ok {
+		t.Error("nil title pointer should be omitted")
+	}
+	if _, ok := decoded["content"]; ok {
+		t.Error("nil content pointer should be omitted")
+	}
+	if decoded["extractedData"] == nil {
+		t.Error("non-nil extractedData should be present")
+	}
+}
+
+func TestObservationUpdate_EmptyStringPointerIsSent(t *testing.T) {
+	// Empty string through pointer should be sent (allows clearing)
+	emptyStr := ""
+	update := ObservationUpdate{
+		Source: &emptyStr,
+	}
+	data, err := json.Marshal(update)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	source, ok := decoded["source"]
+	if !ok {
+		t.Error("pointer source with empty string should be present")
+	}
+	if source != "" {
+		t.Errorf("expected empty string source, got %v", source)
+	}
+}
+
+// ==================== Session DTO Wire Format Tests ====================
+
+func TestSessionStartRequest_UsesProjectPath(t *testing.T) {
+	req := SessionStartRequest{
+		SessionID:   "sess-1",
+		ProjectPath: "/project",
+		UserID:      "user-1",
+	}
+	data, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	// Session start uses "project_path", NOT "cwd"
+	if decoded["project_path"] != "/project" {
+		t.Errorf("expected project_path=/project, got %v", decoded["project_path"])
+	}
+	if decoded["cwd"] != nil {
+		t.Error("cwd should not exist for session start (should be 'project_path')")
+	}
+	if decoded["sessionId"] != nil {
+		t.Error("sessionId should not exist (should be 'session_id')")
+	}
+}
+
+func TestSessionEndRequest_UsesCWD(t *testing.T) {
+	req := SessionEndRequest{
+		SessionID:            "sess-1",
+		ProjectPath:          "/project",
+		LastAssistantMessage: "Done!",
+	}
+	data, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if decoded["cwd"] != "/project" {
+		t.Errorf("expected cwd=/project, got %v", decoded["cwd"])
+	}
+	if decoded["last_assistant_message"] != "Done!" {
+		t.Errorf("expected last_assistant_message=Done!, got %v", decoded["last_assistant_message"])
+	}
+}
+
+func TestUserPromptRequest_UsesCWD(t *testing.T) {
+	req := UserPromptRequest{
+		SessionID:   "sess-1",
+		PromptText:  "Hello",
+		ProjectPath: "/project",
+	}
+	data, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if decoded["cwd"] != "/project" {
+		t.Errorf("expected cwd=/project, got %v", decoded["cwd"])
+	}
+	if decoded["prompt_text"] != "Hello" {
+		t.Errorf("expected prompt_text=Hello, got %v", decoded["prompt_text"])
+	}
+}
+
+// ==================== Experience Wire Format Tests ====================
+
+func TestExperienceRequest_OmitsEmptyProject(t *testing.T) {
+	req := ExperienceRequest{
+		Task:    "test",
+		Project: "", // empty should be omitted
+	}
+	data, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if _, ok := decoded["project"]; ok {
+		t.Error("empty project should be omitted")
+	}
+}
+
+func TestExperienceRequest_RequiredConcepts_CamelCase(t *testing.T) {
+	req := ExperienceRequest{
+		Task:             "test",
+		RequiredConcepts: []string{"json", "parsing"},
+	}
+	data, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	// Must be camelCase
+	if _, ok := decoded["required_concepts"]; ok {
+		t.Error("required_concepts should not exist (should be 'requiredConcepts')")
+	}
+	rc, ok := decoded["requiredConcepts"].([]any)
+	if !ok || len(rc) != 2 {
+		t.Errorf("expected requiredConcepts with 2 elements, got %v", decoded["requiredConcepts"])
+	}
+}
+
+// ==================== BatchObservations Wire Format Tests ====================
+
+func TestBatchObservationsRequest_WireFormat(t *testing.T) {
+	req := BatchObservationsRequest{
+		IDs: []string{"obs-1", "obs-2", "obs-3"},
+	}
+	data, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	ids, ok := decoded["ids"].([]any)
+	if !ok {
+		t.Fatal("expected ids array")
+	}
+	if len(ids) != 3 {
+		t.Errorf("expected 3 ids, got %d", len(ids))
+	}
+}
+
+func TestBatchObservationsRequest_EmptyIDs(t *testing.T) {
+	req := BatchObservationsRequest{
+		IDs: []string{},
+	}
+	data, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	// Empty slice should still produce "ids": [] (not omitted)
+	ids, ok := decoded["ids"]
+	if !ok {
+		t.Error("ids field should be present even when empty")
+	}
+	if arr, ok := ids.([]any); ok && len(arr) != 0 {
+		t.Errorf("expected empty array, got %v", arr)
+	}
+}

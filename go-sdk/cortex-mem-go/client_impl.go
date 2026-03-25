@@ -218,7 +218,16 @@ func (c *httpClient) doRequestNoContentWithParams(ctx context.Context, method, p
 
 // doFireAndForget executes a capture operation with retry and error swallowing.
 // Matches Java SDK's executeWithRetry behavior: retries internally, logs on failure.
+// If the context is already cancelled, skips execution entirely (fire-and-forget optimization).
 func (c *httpClient) doFireAndForget(ctx context.Context, name string, fn func() error) error {
+	// Check context before wasting effort on an already-cancelled request
+	select {
+	case <-ctx.Done():
+		c.config.Logger.Warn("cortex-ce: "+name+" skipped, context already cancelled")
+		return nil
+	default:
+	}
+
 	var lastErr error
 	for attempt := 1; attempt <= c.config.MaxRetries; attempt++ {
 		lastErr = fn()
