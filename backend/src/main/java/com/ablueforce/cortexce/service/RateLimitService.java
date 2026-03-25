@@ -266,12 +266,11 @@ public class RateLimitService {
      */
     private String getRemoteAddr() {
         try {
-            // Try to get from InRequestContextHolder if available
-            jakarta.servlet.http.HttpServletRequest request =
-                org.springframework.web.context.request.RequestContextHolder.getRequestAttributes() != null
-                    ? (jakarta.servlet.http.HttpServletRequest) org.springframework.web.context.request.RequestContextHolder.getRequestAttributes().resolveReference("request")
-                    : null;
-            if (request != null) {
+            // Get HttpServletRequest from Spring's RequestContextHolder
+            org.springframework.web.context.request.RequestAttributes attrs =
+                org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+            if (attrs instanceof org.springframework.web.context.request.ServletRequestAttributes servletAttrs) {
+                jakarta.servlet.http.HttpServletRequest request = servletAttrs.getRequest();
                 String addr = request.getRemoteAddr();
                 // P1: Validate X-Forwarded-For header to prevent injection
                 String forwarded = request.getHeader("X-Forwarded-For");

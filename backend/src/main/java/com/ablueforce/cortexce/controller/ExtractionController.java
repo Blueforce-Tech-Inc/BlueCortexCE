@@ -40,11 +40,7 @@ public class ExtractionController {
             @RequestParam String projectPath,
             @RequestParam(required = false) String userId) {
 
-        if (templateName == null || templateName.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "error", "templateName is required"
-            ));
-        }
+        // templateName from @PathVariable is never null (Spring returns 404 before this method)
         if (projectPath == null || projectPath.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
                 "error", "projectPath is required"
@@ -89,9 +85,7 @@ public class ExtractionController {
             @RequestParam(required = false) String userId,
             @RequestParam(defaultValue = "10") int limit) {
 
-        if (templateName == null || templateName.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "templateName is required"));
-        }
+        // templateName from @PathVariable is never null
         if (projectPath == null || projectPath.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "projectPath is required"));
         }
