@@ -279,9 +279,21 @@ public class IngestionController {
             parsed.narrative = safeGetString(body, "content");
         }
         parsed.facts = safeGetStringList(body, "facts");
+        if (parsed.facts == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "facts must be a list of strings"));
+        }
         parsed.concepts = safeGetStringList(body, "concepts");
+        if (parsed.concepts == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "concepts must be a list of strings"));
+        }
         parsed.filesRead = safeGetStringList(body, "files_read");
+        if (parsed.filesRead == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "files_read must be a list of strings"));
+        }
         parsed.filesModified = safeGetStringList(body, "files_modified");
+        if (parsed.filesModified == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "files_modified must be a list of strings"));
+        }
         // V14: source and extracted data
         parsed.source = safeGetString(body, "source");
         parsed.extractedData = safeGetMap(body, "extractedData");
@@ -362,7 +374,7 @@ public class IngestionController {
      *
      * @param body the request body map
      * @param key the key to extract
-     * @return the list value or empty list if not present or wrong type
+     * @return the list value or empty list if not present, null if type mismatch or non-string items found
      */
     private java.util.List<String> safeGetStringList(Map<String, Object> body, String key) {
         Object value = body.get(key);
@@ -373,16 +385,17 @@ public class IngestionController {
             java.util.List<?> list = (java.util.List<?>) value;
             java.util.List<String> result = new java.util.ArrayList<>();
             for (Object item : list) {
-                if (item instanceof String) {
-                    result.add((String) item);
+                if (item instanceof String s) {
+                    result.add(s);
                 } else {
                     log.warn("Expected String in list for key '{}' but got {}", key, item.getClass().getName());
+                    return null; // Fail-fast: caller should return 400
                 }
             }
             return result;
         }
         log.warn("Expected List for key '{}' but got {}", key, value.getClass().getName());
-        return java.util.List.of();
+        return null;
     }
 
     /**

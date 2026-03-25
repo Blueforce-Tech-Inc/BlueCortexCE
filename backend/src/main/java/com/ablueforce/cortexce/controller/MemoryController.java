@@ -240,7 +240,11 @@ public class MemoryController {
             if (val == null) {
                 observation.setFacts(null);
             } else if (val instanceof List<?> list) {
-                observation.setFacts(validateStringList(list, "facts"));
+                var result = validateStringList(list, "facts");
+                if (result == null) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "facts must be a list of strings"));
+                }
+                observation.setFacts(result);
             } else {
                 return ResponseEntity.badRequest().body(Map.of("error", "facts must be a list of strings"));
             }
@@ -250,7 +254,11 @@ public class MemoryController {
             if (val == null) {
                 observation.setConcepts(null);
             } else if (val instanceof List<?> list) {
-                observation.setConcepts(validateStringList(list, "concepts"));
+                var result = validateStringList(list, "concepts");
+                if (result == null) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "concepts must be a list of strings"));
+                }
+                observation.setConcepts(result);
             } else {
                 return ResponseEntity.badRequest().body(Map.of("error", "concepts must be a list of strings"));
             }
@@ -279,7 +287,8 @@ public class MemoryController {
 
     /**
      * Validate that all items in a list are strings.
-     * Throws 400-style error info if non-string items are found.
+     * Returns the validated list if all items are strings, or null if any non-string item is found.
+     * Caller should return 400 Bad Request when null is returned.
      */
     private List<String> validateStringList(List<?> raw, String fieldName) {
         List<String> result = new java.util.ArrayList<>();
@@ -289,7 +298,7 @@ public class MemoryController {
             } else {
                 log.warn("Non-string item in '{}' list: {} (type {})", fieldName, item,
                     item != null ? item.getClass().getName() : "null");
-                // Skip non-string items rather than failing — lenient parsing
+                return null; // Fail-fast: caller returns 400
             }
         }
         return result;

@@ -402,3 +402,9 @@
 - [x] 新增 4 个单元测试：TestDoRequest_SetsUserAgent、TestDoRequest_SetsUserAgentOnPost、TestMaxRetries_ZeroClampsToOne、TestMaxRetries_NegativeClampsToOne
 - [x] Go SDK 单元测试 67 → 71 个（core），全部通过
 - [x] go vet 干净、5/5 examples 编译通过、Java SDK BUILD SUCCESS（44 测试通过）、回归测试 46/46 PASS
+
+### 第三十九轮（2026-03-25 14:31）— Java Backend 类型校验一致性修复
+- [x] Java MemoryController.updateObservation() `validateStringList` 改为严格模式：非字符串元素返回 null 触发 400（之前静默丢弃非字符串元素，与其他字段类型校验不一致）
+- [x] Java IngestionController.handleObservation() `safeGetStringList` 改为严格模式：非字符串元素返回 null（与 MemoryController 一致）
+- [x] IngestionController.handleObservation() 添加 null 检查：facts/concepts/files_read/files_modified 无效时返回 400（之前静默接受无效数据）
+- [x] Java Backend BUILD SUCCESS、Go SDK 71 测试通过、go vet 干净、5/5 examples 编译通过、回归测试 46/46 PASS
