@@ -1351,6 +1351,13 @@ func TestRetrieveExperiences_PathAndBody(t *testing.T) {
 		if !ok || len(rc) != 2 {
 			t.Errorf("expected requiredConcepts array with 2 elements, got %v", body["requiredConcepts"])
 		}
+		// userId should be camelCase (not user_id)
+		if body["user_id"] != nil {
+			t.Error("user_id should not be in wire format (should be 'userId')")
+		}
+		if body["userId"] != "alice" {
+			t.Errorf("expected userId=alice, got %v", body["userId"])
+		}
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode([]dto.Experience{
@@ -1366,6 +1373,7 @@ func TestRetrieveExperiences_PathAndBody(t *testing.T) {
 		Count:            5,
 		Source:           "tool_result",
 		RequiredConcepts: []string{"null-safety", "error-handling"},
+		UserID:           "alice",
 	})
 	if err != nil {
 		t.Fatalf("RetrieveExperiences failed: %v", err)
@@ -1402,6 +1410,13 @@ func TestBuildICLPrompt_PathAndBody(t *testing.T) {
 		if body["max_chars"] != nil {
 			t.Error("max_chars should not be in wire format (should be 'maxChars')")
 		}
+		// userId should be camelCase (not user_id)
+		if body["user_id"] != nil {
+			t.Error("user_id should not be in wire format (should be 'userId')")
+		}
+		if body["userId"] != "alice" {
+			t.Errorf("expected userId=alice, got %v", body["userId"])
+		}
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(dto.ICLPromptResult{
@@ -1416,6 +1431,7 @@ func TestBuildICLPrompt_PathAndBody(t *testing.T) {
 		Task:     "Write a parser",
 		Project:  "/proj",
 		MaxChars: 4000,
+		UserID:   "alice",
 	})
 	if err != nil {
 		t.Fatalf("BuildICLPrompt failed: %v", err)
