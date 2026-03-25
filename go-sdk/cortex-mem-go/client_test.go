@@ -660,6 +660,41 @@ func TestAPIError_StatusCode(t *testing.T) {
 	}
 }
 
+func TestObservationRequest_V14Fields_WireFormat(t *testing.T) {
+	// Verify source, prompt_number, and extractedData are correctly sent
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+
+		if body["source"] != "tool_result" {
+			t.Errorf("expected source=tool_result, got %v", body["source"])
+		}
+		if body["prompt_number"] != float64(5) {
+			t.Errorf("expected prompt_number=5, got %v", body["prompt_number"])
+		}
+		ed, ok := body["extractedData"].(map[string]any)
+		if !ok || ed["allergies"] == nil {
+			t.Error("expected extractedData with allergies")
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	err := client.RecordObservation(context.Background(), dto.ObservationRequest{
+		SessionID:     "sess-1",
+		ProjectPath:   "/project",
+		ToolName:      "Edit",
+		Source:        "tool_result",
+		PromptNumber:  5,
+		ExtractedData: map[string]any{"allergies": []string{"peanuts"}},
+	})
+	if err != nil {
+		t.Fatalf("RecordObservation failed: %v", err)
+	}
+}
+
 func TestExtractedData_CamelCase(t *testing.T) {
 	// Verify extractedData is camelCase in wire format
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -821,6 +856,50 @@ func TestUpdateObservation_WireFormat(t *testing.T) {
 	err := client.UpdateObservation(context.Background(), "obs-1", dto.ObservationUpdate{
 		Title:         &title,
 		ExtractedData: map[string]any{"key": "value"},
+	})
+	if err != nil {
+		t.Fatalf("UpdateObservation failed: %v", err)
+	}
+}
+
+func TestObservationUpdate_PointerFieldsVsSlices(t *testing.T) {
+	// Pointer fields (*string) with empty values ARE sent (allows clearing)
+	// Slice fields ([]string) with empty values are OMITTED (Go omitempty behavior)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+
+		// Pointer source with empty string should be sent (clearing the field)
+		source, hasSource := body["source"]
+		if !hasSource {
+			t.Error("pointer source should be present even when empty string")
+		}
+		if source != "" {
+			t.Errorf("expected empty source, got %v", source)
+		}
+		// Slice facts with empty value is omitted by Go's omitempty (expected behavior)
+		if _, hasFacts := body["facts"]; hasFacts {
+			t.Error("empty facts slice should be omitted by omitempty (Go behavior)")
+		}
+		// Non-empty concepts should be present
+		concepts, hasConcepts := body["concepts"]
+		if !hasConcepts {
+			t.Error("non-empty concepts should be present")
+		}
+		if c, ok := concepts.([]any); !ok || len(c) != 1 {
+			t.Errorf("expected 1 concept, got %v", concepts)
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	emptyStr := ""
+	err := client.UpdateObservation(context.Background(), "obs-1", dto.ObservationUpdate{
+		Source:   &emptyStr,
+		Facts:    []string{},  // will be omitted
+		Concepts: []string{"test"},
 	})
 	if err != nil {
 		t.Fatalf("UpdateObservation failed: %v", err)
