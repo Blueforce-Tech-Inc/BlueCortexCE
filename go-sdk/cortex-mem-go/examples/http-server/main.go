@@ -142,11 +142,19 @@ func main() {
 			writeJSONError(w, http.StatusBadRequest, "project is required")
 			return
 		}
-		query := r.URL.Query().Get("query")
+		limit := 10
+		if l := r.URL.Query().Get("limit"); l != "" {
+			if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+				limit = parsed
+			}
+		}
 		searchReq := dto.SearchRequest{
 			Project: project,
-			Query:   query,
-			Limit:   10,
+			Query:   r.URL.Query().Get("query"),
+			Type:    r.URL.Query().Get("type"),
+			Concept: r.URL.Query().Get("concept"),
+			Source:  r.URL.Query().Get("source"),
+			Limit:   limit,
 		}
 		result, err := client.Search(r.Context(), searchReq)
 		if err != nil {

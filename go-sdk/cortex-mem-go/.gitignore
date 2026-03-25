@@ -1,9 +1,9 @@
-# Compiled binaries
-*/basic
-*/eino
-*/genkit
-*/http-server
-*/langchaingo
+# Compiled binaries (inside example dirs, not the dirs themselves)
+examples/basic/basic
+examples/eino/eino
+examples/genkit/genkit
+examples/http-server/http-server
+examples/langchaingo/langchaingo
 
 # IDE
 .idea/
