@@ -442,3 +442,9 @@
 - [x] TestController.testLlm() 和 testEmbedding() 返回类型从 Map 改为 ResponseEntity<Map>（之前错误时返回 HTTP 200 + "status":"error"，与所有其他控制器不一致）
 - [x] ModeController.setActiveMode() 修复 body(null)（之前异常时返回空 body，改为有意义的错误响应）
 - [x] Java Backend BUILD SUCCESS、Go SDK 88 测试通过、go vet 干净、回归测试 46/46 PASS
+
+### 第四十四轮（2026-03-25 17:31）— ImportController/CursorController/LogsController 修复
+- [x] ImportController.bulkImport(): session 和 summary 导入错误现在正确追踪到 ImportStats（之前异常被 catch 但仅 log，调用方收到不准确的 error 计数）。新增 ImportStats.addError() 方法。
+- [x] CursorController.updateContext() 和 updateContextCustom(): 未注册项目返回 404（之前返回 200 + success=false，与 round 34 修复的 SessionController 不一致）
+- [x] LogsController.getLogs(): lines 参数校验为 1-10000 范围（之前负数/零可导致空 subList，极大值可导致 OOM）
+- [x] Java Backend BUILD SUCCESS、Go SDK 测试通过、go vet 干净、5/5 examples 编译通过、回归测试 46/46 PASS

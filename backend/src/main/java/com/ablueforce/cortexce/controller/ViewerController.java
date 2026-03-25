@@ -208,16 +208,25 @@ public class ViewerController {
             }
         }
 
-        SearchService.SearchResult result = searchService.search(
-            new SearchService.SearchRequest(project, query, queryVector, type, concept, source, null, null, validatedLimit, offset)
-        );
+        try {
+            SearchService.SearchResult result = searchService.search(
+                new SearchService.SearchRequest(project, query, queryVector, type, concept, source, null, null, validatedLimit, offset)
+            );
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("observations", result.observations());
-        response.put("strategy", result.strategy());
-        response.put("fell_back", result.fellBack());
-        response.put("count", result.observations().size());
-        return ResponseEntity.ok(response);
+            Map<String, Object> response = new HashMap<>();
+            response.put("observations", result.observations());
+            response.put("strategy", result.strategy());
+            response.put("fell_back", result.fellBack());
+            response.put("count", result.observations().size());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Search failed for project {}: {}", project, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "error", "Search failed: " + e.getMessage(),
+                "observations", List.of(),
+                "count", 0
+            ));
+        }
     }
 
     /**
@@ -228,20 +237,32 @@ public class ViewerController {
     public ResponseEntity<Map<String, Object>> batchGetObservations(
         @RequestBody Map<String, Object> request
     ) {
-        @SuppressWarnings("unchecked")
-        List<String> idStrings = (List<String>) request.get("ids");
-        String project = (String) request.get("project");
-        String orderBy = (String) request.get("orderBy");
-        Integer limit = request.get("limit") != null
-            ? ((Number) request.get("limit")).intValue() : null;
-
-        if (idStrings == null || idStrings.isEmpty()) {
+        Object idsObj = request.get("ids");
+        if (!(idsObj instanceof List<?> idsList) || idsList.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of(
                 "error", "Missing required field: ids",
                 "observations", List.of(),
                 "count", 0
             ));
         }
+
+        // Validate all elements are strings
+        List<String> idStrings = idsList.stream()
+            .filter(String.class::isInstance)
+            .map(String.class::cast)
+            .toList();
+
+        if (idStrings.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "ids must be a non-empty list of strings",
+                "observations", List.of(),
+                "count", 0
+            ));
+        }
+
+        String project = request.get("project") instanceof String s ? s : null;
+        String orderBy = request.get("orderBy") instanceof String s ? s : null;
+        Integer limit = request.get("limit") instanceof Number n ? n.intValue() : null;
 
         // Convert string IDs to UUIDs
         List<java.util.UUID> ids = idStrings.stream()
@@ -256,34 +277,51 @@ public class ViewerController {
             .filter(id -> id != null)
             .toList();
 
-        List<ObservationEntity> observations = observationRepository.findAllById(ids);
-
-        // Apply project filter if specified
-        if (project != null && !project.isBlank()) {
-            observations = observations.stream()
-                .filter(o -> project.equals(o.getProjectPath()))
-                .toList();
+        if (ids.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "No valid UUIDs provided",
+                "observations", List.of(),
+                "count", 0
+            ));
         }
 
-        // Apply ordering if specified
-        if ("created_at_epoch".equals(orderBy) || "createdAtEpoch".equals(orderBy)) {
-            observations = observations.stream()
-                .sorted((a, b) -> Long.compare(
-                    b.getCreatedAtEpoch() != null ? b.getCreatedAtEpoch() : 0,
-                    a.getCreatedAtEpoch() != null ? a.getCreatedAtEpoch() : 0
-                ))
-                .toList();
-        }
+        try {
+            List<ObservationEntity> observations = observationRepository.findAllById(ids);
 
-        // Apply limit if specified
-        if (limit != null && limit > 0 && observations.size() > limit) {
-            observations = observations.subList(0, limit);
-        }
+            // Apply project filter if specified
+            if (project != null && !project.isBlank()) {
+                observations = observations.stream()
+                    .filter(o -> project.equals(o.getProjectPath()))
+                    .toList();
+            }
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("observations", observations);
-        response.put("count", observations.size());
-        return ResponseEntity.ok(response);
+            // Apply ordering if specified
+            if ("created_at_epoch".equals(orderBy) || "createdAtEpoch".equals(orderBy)) {
+                observations = observations.stream()
+                    .sorted((a, b) -> Long.compare(
+                        b.getCreatedAtEpoch() != null ? b.getCreatedAtEpoch() : 0,
+                        a.getCreatedAtEpoch() != null ? a.getCreatedAtEpoch() : 0
+                    ))
+                    .toList();
+            }
+
+            // Apply limit if specified
+            if (limit != null && limit > 0 && observations.size() > limit) {
+                observations = observations.subList(0, limit);
+            }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("observations", observations);
+            response.put("count", observations.size());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Batch get observations failed: {}", e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "error", "Failed to get observations: " + e.getMessage(),
+                "observations", List.of(),
+                "count", 0
+            ));
+        }
     }
 
     /**
@@ -370,7 +408,7 @@ public class ViewerController {
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {
             log.error("Failed to save settings: {}", e.getMessage());
-            return ResponseEntity.ok(Map.of(
+            return ResponseEntity.status(500).body(Map.of(
                 "success", false,
                 "error", e.getMessage()
             ));
@@ -411,17 +449,24 @@ public class ViewerController {
             return ResponseEntity.badRequest().body(Map.of("error", "Date range exceeds 1 year maximum"));
         }
 
-        List<Object[]> results = observationRepository.findTimelineByDate(project, start, end);
+        try {
+            List<Object[]> results = observationRepository.findTimelineByDate(project, start, end);
 
-        List<Map<String, Object>> timeline = results.stream().map(row -> {
-            Map<String, Object> entry = new HashMap<>();
-            entry.put("date", row[0].toString());
-            entry.put("count", ((Number) row[1]).intValue());
-            entry.put("ids", row[2]);
-            return entry;
-        }).toList();
+            List<Map<String, Object>> timeline = results.stream().map(row -> {
+                Map<String, Object> entry = new HashMap<>();
+                entry.put("date", row[0].toString());
+                entry.put("count", ((Number) row[1]).intValue());
+                entry.put("ids", row[2]);
+                return entry;
+            }).toList();
 
-        return ResponseEntity.ok(timeline);
+            return ResponseEntity.ok(timeline);
+        } catch (Exception e) {
+            log.error("Timeline query failed for project {}: {}", project, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "error", "Timeline query failed: " + e.getMessage()
+            ));
+        }
     }
 
     /**
@@ -458,24 +503,33 @@ public class ViewerController {
         if (debug) {
             log.info("[DEBUG] Searching with normalizedPath='{}', folderPath will be='{}%'", normalizedPath, normalizedPath);
         }
-        
-        List<ObservationEntity> observations = observationRepository.findByFolderPath(
-            project, normalizedPath, validatedLimit
-        );
 
-        if (debug) {
-            log.info("[DEBUG] Found {} observations", observations.size());
-            for (ObservationEntity obs : observations) {
-                log.info("[DEBUG] Observation: id={}, files_modified={}", obs.getId(), obs.getFilesModified());
+        try {
+            List<ObservationEntity> observations = observationRepository.findByFolderPath(
+                project, normalizedPath, validatedLimit
+            );
+
+            if (debug) {
+                log.info("[DEBUG] Found {} observations", observations.size());
+                for (ObservationEntity obs : observations) {
+                    log.info("[DEBUG] Observation: id={}, files_modified={}", obs.getId(), obs.getFilesModified());
+                }
             }
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("observations", observations);
+            response.put("count", observations.size());
+            response.put("filePath", filePath);
+            response.put("isFolder", isFolder);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Search by file failed for project={}, filePath={}: {}", project, filePath, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "error", "Search by file failed: " + e.getMessage(),
+                "observations", List.of(),
+                "count", 0
+            ));
         }
-        
-        Map<String, Object> response = new HashMap<>();
-        response.put("observations", observations);
-        response.put("count", observations.size());
-        response.put("filePath", filePath);
-        response.put("isFolder", isFolder);
-        return ResponseEntity.ok(response);
     }
 
     /**
@@ -486,33 +540,45 @@ public class ViewerController {
      * { "contentSessionIds": ["id1", "id2", ...] }
      */
     @PostMapping("/sdk-sessions/batch")
-    @SuppressWarnings("unchecked")
     public ResponseEntity<List<Map<String, Object>>> batchGetSessions(
             @RequestBody Map<String, Object> request
     ) {
-        List<String> contentSessionIds = (List<String>) request.get("contentSessionIds");
-
-        if (contentSessionIds == null || contentSessionIds.isEmpty()) {
+        Object idsObj = request.get("contentSessionIds");
+        if (!(idsObj instanceof List<?> idsList) || idsList.isEmpty()) {
             return ResponseEntity.ok(List.of());
         }
 
-        List<SessionEntity> sessions = sessionRepository.findByContentSessionIdIn(contentSessionIds);
+        List<String> contentSessionIds = idsList.stream()
+            .filter(String.class::isInstance)
+            .map(String.class::cast)
+            .toList();
 
-        List<Map<String, Object>> result = sessions.stream()
-                .map(s -> {
-                    Map<String, Object> map = new HashMap<>();
-                    map.put("id", s.getId().toString());
-                    map.put("content_session_id", s.getContentSessionId());
-                    map.put("project", s.getProjectPath() != null ? s.getProjectPath() : "");
-                    map.put("user_prompt", s.getUserPrompt() != null ? s.getUserPrompt() : "");
-                    map.put("started_at_epoch", s.getStartedAtEpoch());
-                    map.put("completed_at_epoch", s.getCompletedAtEpoch() != null ? s.getCompletedAtEpoch() : 0);
-                    map.put("status", s.getStatus() != null ? s.getStatus() : "");
-                    return map;
-                })
-                .toList();
+        if (contentSessionIds.isEmpty()) {
+            return ResponseEntity.ok(List.of());
+        }
 
-        return ResponseEntity.ok(result);
+        try {
+            List<SessionEntity> sessions = sessionRepository.findByContentSessionIdIn(contentSessionIds);
+
+            List<Map<String, Object>> result = sessions.stream()
+                    .map(s -> {
+                        Map<String, Object> map = new HashMap<>();
+                        map.put("id", s.getId().toString());
+                        map.put("content_session_id", s.getContentSessionId());
+                        map.put("project", s.getProjectPath() != null ? s.getProjectPath() : "");
+                        map.put("user_prompt", s.getUserPrompt() != null ? s.getUserPrompt() : "");
+                        map.put("started_at_epoch", s.getStartedAtEpoch());
+                        map.put("completed_at_epoch", s.getCompletedAtEpoch() != null ? s.getCompletedAtEpoch() : 0);
+                        map.put("status", s.getStatus() != null ? s.getStatus() : "");
+                        return map;
+                    })
+                    .toList();
+
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Batch get sessions failed: {}", e.getMessage());
+            return ResponseEntity.status(500).body(List.of());
+        }
     }
 
     /**
