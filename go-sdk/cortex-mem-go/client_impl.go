@@ -138,6 +138,10 @@ func NewClient(opts ...Option) Client {
 const (
 	// Version is the SDK version, used in User-Agent header.
 	Version = "1.0.0"
+
+	// MaxResponseBytes is the maximum response body size (10 MB).
+	// Prevents OOM from malicious or broken servers.
+	MaxResponseBytes = 10 << 20
 )
 
 // httpClient is the HTTP implementation of Client.
@@ -191,7 +195,8 @@ func (c *httpClient) doRequest(ctx context.Context, method, path string, body an
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	// Limit response body to MaxResponseBytes to prevent OOM from misbehaving servers.
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, MaxResponseBytes))
 	if err != nil {
 		return nil, resp.StatusCode, fmt.Errorf("cortex-ce: failed to read response: %w", err)
 	}

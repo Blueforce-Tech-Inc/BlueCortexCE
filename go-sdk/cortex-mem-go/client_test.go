@@ -2311,3 +2311,92 @@ func TestNewClient_EmptyBaseURL_UsesDefault(t *testing.T) {
 	_ = client
 	client.Close()
 }
+
+// ==================== Response Body Limit Tests ====================
+
+func TestDoRequest_ResponseBodyLimit(t *testing.T) {
+	// Server sends a response larger than MaxResponseBytes.
+	// The client should still succeed (reads up to the limit), but the response
+	// should be truncated. In practice, the JSON parse will fail on truncated data.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		// Write a 11MB response (> 10MB MaxResponseBytes)
+		chunk := make([]byte, 1024*1024) // 1MB
+		for i := range chunk {
+			chunk[i] = 'x'
+		}
+		for i := 0; i < 11; i++ {
+			w.Write(chunk)
+		}
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	// Should get a parse error because the truncated response isn't valid JSON
+	if err == nil {
+		t.Fatal("expected parse error for oversized response")
+	}
+	if !strings.Contains(err.Error(), "failed to parse") {
+		t.Errorf("expected parse error, got: %v", err)
+	}
+}
+
+func TestDoRequest_ResponseWithinLimit(t *testing.T) {
+	// Verify normal responses within the limit still work fine
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{
+			"version": "2.0.0",
+			"status":  "ok",
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	result, err := client.GetVersion(context.Background())
+	if err != nil {
+		t.Fatalf("GetVersion should succeed for normal response: %v", err)
+	}
+	if result["version"] != "2.0.0" {
+		t.Errorf("expected version=2.0.0, got %v", result["version"])
+	}
+}
+
+// ==================== Context Cancellation During Retry ====================
+
+func TestFireAndForget_ContextCancelledDuringRetry(t *testing.T) {
+	// Test that context cancellation during retry backoff is handled gracefully.
+	// The first request fails, then the context is cancelled during backoff.
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		w.WriteHeader(http.StatusInternalServerError) // Always fail
+	}))
+	defer server.Close()
+
+	// Use a long backoff so we can cancel during the sleep
+	client := cortexmem.NewClient(
+		cortexmem.WithBaseURL(server.URL),
+		cortexmem.WithMaxRetries(5),
+		cortexmem.WithRetryBackoff(5*time.Second),
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	err := client.RecordObservation(ctx, dto.ObservationRequest{
+		SessionID:   "sess-1",
+		ProjectPath: "/project",
+		ToolName:    "Read",
+	})
+
+	// Fire-and-forget should NEVER return error
+	if err != nil {
+		t.Fatalf("fire-and-forget should swallow context cancellation during retry: %v", err)
+	}
+	// Should have attempted 1 request (failed), then cancelled during backoff
+	if attempts != 1 {
+		t.Errorf("expected 1 attempt before context cancellation, got %d", attempts)
+	}
+}
