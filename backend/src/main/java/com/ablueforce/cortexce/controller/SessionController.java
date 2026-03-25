@@ -121,7 +121,13 @@ public class SessionController {
         }
 
         // 1. Initialize or retrieve session
-        SessionEntity session = sessionManagementService.initializeSession(contentSessionId, projectPath, null);
+        SessionEntity session;
+        try {
+            session = sessionManagementService.initializeSession(contentSessionId, projectPath, null);
+        } catch (Exception e) {
+            log.error("Failed to initialize session {}: {}", contentSessionId, e.getMessage());
+            return Map.of("error", "Failed to initialize session: " + e.getMessage());
+        }
         
         // Phase 3: Set userId on session (null is OK — means single-user mode)
         if (userId != null && !userId.isBlank() && session.getUserId() == null) {
@@ -197,20 +203,25 @@ public class SessionController {
      */
     @GetMapping("/{sessionId}")
     public Map<String, Object> getSession(@PathVariable String sessionId) {
-        Optional<SessionEntity> session = sessionRepository.findByContentSessionId(sessionId);
+        try {
+            Optional<SessionEntity> session = sessionRepository.findByContentSessionId(sessionId);
 
-        if (session.isEmpty()) {
-            return Map.of("error", "Session not found", "session_id", sessionId);
+            if (session.isEmpty()) {
+                return Map.of("error", "Session not found", "session_id", sessionId);
+            }
+
+            SessionEntity s = session.get();
+            return Map.of(
+                "session_db_id", s.getId().toString(),
+                "content_session_id", s.getContentSessionId() != null ? s.getContentSessionId() : "",
+                "project_path", s.getProjectPath() != null ? s.getProjectPath() : "",
+                "status", s.getStatus() != null ? s.getStatus() : "",
+                "started_at", s.getStartedAt() != null ? s.getStartedAt().toString() : ""
+            );
+        } catch (Exception e) {
+            log.error("Failed to get session {}: {}", sessionId, e.getMessage());
+            return Map.of("error", "Failed to get session: " + e.getMessage());
         }
-
-        SessionEntity s = session.get();
-        return Map.of(
-            "session_db_id", s.getId().toString(),
-            "content_session_id", s.getContentSessionId() != null ? s.getContentSessionId() : "",
-            "project_path", s.getProjectPath() != null ? s.getProjectPath() : "",
-            "status", s.getStatus() != null ? s.getStatus() : "",
-            "started_at", s.getStartedAt() != null ? s.getStartedAt().toString() : ""
-        );
     }
 
     // ==========================================================================

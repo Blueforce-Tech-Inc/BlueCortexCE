@@ -61,15 +61,23 @@ public class CursorController {
             ));
         }
 
-        cursorService.registerProject(projectName, workspacePath);
+        try {
+            cursorService.registerProject(projectName, workspacePath);
 
-        log.info("Registered Cursor project via API: {} -> {}", projectName, workspacePath);
+            log.info("Registered Cursor project via API: {} -> {}", projectName, workspacePath);
 
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "projectName", projectName,
-            "workspacePath", workspacePath
-        ));
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "projectName", projectName,
+                "workspacePath", workspacePath
+            ));
+        } catch (Exception e) {
+            log.error("Failed to register Cursor project {}: {}", projectName, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "error", "Failed to register project: " + e.getMessage()
+            ));
+        }
     }
 
     /**
@@ -142,30 +150,38 @@ public class CursorController {
             ));
         }
 
-        // Generate context
-        String context = contextService.generateContext(projectName);
+        try {
+            // Generate context
+            String context = contextService.generateContext(projectName);
 
-        if (context == null || context.isBlank()) {
-            return ResponseEntity.ok(Map.of(
+            if (context == null || context.isBlank()) {
+                return ResponseEntity.ok(Map.of(
+                    "success", false,
+                    "error", "No context generated for project: " + projectName
+                ));
+            }
+
+            // Write to Cursor rules file
+            boolean written = cursorService.writeContextFile(entry.workspacePath(), context);
+
+            if (written) {
+                log.info("Updated Cursor context for project: {}", projectName);
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "projectName", projectName,
+                    "workspacePath", entry.workspacePath()
+                ));
+            } else {
+                return ResponseEntity.ok(Map.of(
+                    "success", false,
+                    "error", "Failed to write context file"
+                ));
+            }
+        } catch (Exception e) {
+            log.error("Failed to update Cursor context for project {}: {}", projectName, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
                 "success", false,
-                "error", "No context generated for project: " + projectName
-            ));
-        }
-
-        // Write to Cursor rules file
-        boolean written = cursorService.writeContextFile(entry.workspacePath(), context);
-
-        if (written) {
-            log.info("Updated Cursor context for project: {}", projectName);
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "projectName", projectName,
-                "workspacePath", entry.workspacePath()
-            ));
-        } else {
-            return ResponseEntity.ok(Map.of(
-                "success", false,
-                "error", "Failed to write context file"
+                "error", "Failed to update context: " + e.getMessage()
             ));
         }
     }
@@ -199,17 +215,25 @@ public class CursorController {
             ));
         }
 
-        boolean written = cursorService.writeContextFile(entry.workspacePath(), context);
+        try {
+            boolean written = cursorService.writeContextFile(entry.workspacePath(), context);
 
-        if (written) {
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "projectName", projectName
-            ));
-        } else {
-            return ResponseEntity.ok(Map.of(
+            if (written) {
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "projectName", projectName
+                ));
+            } else {
+                return ResponseEntity.ok(Map.of(
+                    "success", false,
+                    "error", "Failed to write context file"
+                ));
+            }
+        } catch (Exception e) {
+            log.error("Failed to write custom context for project {}: {}", projectName, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
                 "success", false,
-                "error", "Failed to write context file"
+                "error", "Failed to write context: " + e.getMessage()
             ));
         }
     }

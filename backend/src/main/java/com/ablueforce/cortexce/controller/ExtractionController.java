@@ -51,24 +51,31 @@ public class ExtractionController {
             ));
         }
 
-        var result = extractionService.getLatestExtraction(projectPath, templateName, userId);
-        if (result.isEmpty()) {
+        try {
+            var result = extractionService.getLatestExtraction(projectPath, templateName, userId);
+            if (result.isEmpty()) {
+                return ResponseEntity.ok(Map.of(
+                    "status", "not_found",
+                    "template", templateName,
+                    "message", "No extraction found"
+                ));
+            }
+
+            ObservationEntity obs = result.get();
             return ResponseEntity.ok(Map.of(
-                "status", "not_found",
+                "status", "ok",
                 "template", templateName,
-                "message", "No extraction found"
+                "sessionId", obs.getContentSessionId(),
+                "extractedData", obs.getExtractedData() != null ? obs.getExtractedData() : Map.of(),
+                "createdAt", obs.getCreatedAtEpoch(),
+                "observationId", obs.getId().toString()
+            ));
+        } catch (Exception e) {
+            log.error("Failed to get latest extraction for template {}: {}", templateName, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "error", "Failed to get extraction: " + e.getMessage()
             ));
         }
-
-        ObservationEntity obs = result.get();
-        return ResponseEntity.ok(Map.of(
-            "status", "ok",
-            "template", templateName,
-            "sessionId", obs.getContentSessionId(),
-            "extractedData", obs.getExtractedData() != null ? obs.getExtractedData() : Map.of(),
-            "createdAt", obs.getCreatedAtEpoch(),
-            "observationId", obs.getId().toString()
-        ));
     }
 
     /**
@@ -91,17 +98,24 @@ public class ExtractionController {
         if (limit < 1) limit = 1;
         if (limit > 100) limit = 100;
 
-        List<ObservationEntity> history = extractionService.getExtractionHistory(
-            projectPath, templateName, userId, limit);
+        try {
+            List<ObservationEntity> history = extractionService.getExtractionHistory(
+                projectPath, templateName, userId, limit);
 
-        List<Map<String, Object>> result = history.stream().map(obs -> Map.<String, Object>of(
-            "sessionId", obs.getContentSessionId(),
-            "extractedData", obs.getExtractedData() != null ? obs.getExtractedData() : Map.of(),
-            "createdAt", obs.getCreatedAtEpoch(),
-            "observationId", obs.getId().toString()
-        )).toList();
+            List<Map<String, Object>> result = history.stream().map(obs -> Map.<String, Object>of(
+                "sessionId", obs.getContentSessionId(),
+                "extractedData", obs.getExtractedData() != null ? obs.getExtractedData() : Map.of(),
+                "createdAt", obs.getCreatedAtEpoch(),
+                "observationId", obs.getId().toString()
+            )).toList();
 
-        return ResponseEntity.ok(result);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Failed to get extraction history for template {}: {}", templateName, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "error", "Failed to get extraction history: " + e.getMessage()
+            ));
+        }
     }
 
     /**
@@ -115,12 +129,20 @@ public class ExtractionController {
                 "error", "projectPath is required"
             ));
         }
-        log.info("Manual extraction triggered for project: {}", projectPath);
-        extractionService.runExtraction(projectPath);
-        return ResponseEntity.ok(Map.of(
-            "status", "ok",
-            "projectPath", projectPath,
-            "message", "Extraction completed"
-        ));
+
+        try {
+            log.info("Manual extraction triggered for project: {}", projectPath);
+            extractionService.runExtraction(projectPath);
+            return ResponseEntity.ok(Map.of(
+                "status", "ok",
+                "projectPath", projectPath,
+                "message", "Extraction completed"
+            ));
+        } catch (Exception e) {
+            log.error("Failed to trigger extraction for project {}: {}", projectPath, e.getMessage());
+            return ResponseEntity.status(500).body(Map.of(
+                "error", "Failed to trigger extraction: " + e.getMessage()
+            ));
+        }
     }
 }

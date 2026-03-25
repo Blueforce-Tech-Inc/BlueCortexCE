@@ -78,21 +78,29 @@ public class ContextController {
         List<Map<String, String>> updateFiles = new java.util.ArrayList<>();
 
         for (String projectPath : validPaths) {
-            // Generate context for this project
-            String context = contextService.generateContext(projectPath);
-            if (contextBuilder.length() > 0) {
-                contextBuilder.append("\n---\n\n");
-            }
-            contextBuilder.append(context);
+            try {
+                // Generate context for this project
+                String context = contextService.generateContext(projectPath);
+                if (contextBuilder.length() > 0) {
+                    contextBuilder.append("\n---\n\n");
+                }
+                contextBuilder.append(context);
 
-            // Check if CLAUDE.md needs update
-            Path claudeMdPath = findClaudeMdInProject(projectPath);
-            if (claudeMdPath != null) {
-                String claudeMdContent = claudeMdService.generateClaudeMd(projectPath);
-                updateFiles.add(Map.of(
-                        "path", claudeMdPath.toString(),
-                        "content", claudeMdContent
-                ));
+                // Check if CLAUDE.md needs update
+                Path claudeMdPath = findClaudeMdInProject(projectPath);
+                if (claudeMdPath != null) {
+                    String claudeMdContent = claudeMdService.generateClaudeMd(projectPath);
+                    updateFiles.add(Map.of(
+                            "path", claudeMdPath.toString(),
+                            "content", claudeMdContent
+                    ));
+                }
+            } catch (Exception e) {
+                log.error("Failed to generate context for project {}: {}", projectPath, e.getMessage());
+                if (contextBuilder.length() > 0) {
+                    contextBuilder.append("\n---\n\n");
+                }
+                contextBuilder.append("[Error generating context for ").append(projectPath).append("]");
             }
         }
 
@@ -216,8 +224,13 @@ public class ContextController {
             projectPath = System.getProperty("user.dir");
         }
 
-        String context = contextService.generateContext(projectPath);
-        return Map.of("context", context);
+        try {
+            String context = contextService.generateContext(projectPath);
+            return Map.of("context", context);
+        } catch (Exception e) {
+            log.error("Failed to generate context for project {}: {}", projectPath, e.getMessage());
+            return Map.of("error", "Failed to generate context: " + e.getMessage());
+        }
     }
 
     /**
@@ -280,17 +293,22 @@ public class ContextController {
                     .collect(java.util.stream.Collectors.toList());
 
         // Generate full context as plain text with filtering support
-        return contextService.generateContextWithFilters(
-                project,
-                typeList,
-                conceptList,
-                includeObservations,
-                includeSummaries,
-                maxObservations,
-                maxSummaries,
-                sessionCount,
-                fullCount
-        );
+        try {
+            return contextService.generateContextWithFilters(
+                    project,
+                    typeList,
+                    conceptList,
+                    includeObservations,
+                    includeSummaries,
+                    maxObservations,
+                    maxSummaries,
+                    sessionCount,
+                    fullCount
+            );
+        } catch (Exception e) {
+            log.error("Failed to generate context preview for project {}: {}", project, e.getMessage());
+            return "Error: Failed to generate context preview";
+        }
     }
 
     /**
@@ -391,12 +409,20 @@ public class ContextController {
 
         log.debug("Prior messages request, project: {}, currentSessionId: {}", project, currentSessionId);
 
-        ContextService.PriorMessages priorMessages = contextService.getPriorSessionMessages(project, currentSessionId);
+        try {
+            ContextService.PriorMessages priorMessages = contextService.getPriorSessionMessages(project, currentSessionId);
 
-        return Map.of(
-                "userMessage", priorMessages.userMessage(),
-                "assistantMessage", priorMessages.assistantMessage()
-        );
+            return Map.of(
+                    "userMessage", priorMessages.userMessage(),
+                    "assistantMessage", priorMessages.assistantMessage()
+            );
+        } catch (Exception e) {
+            log.error("Failed to get prior messages for project {}: {}", project, e.getMessage());
+            return Map.of(
+                    "userMessage", "",
+                    "assistantMessage", ""
+            );
+        }
     }
 
     /**
