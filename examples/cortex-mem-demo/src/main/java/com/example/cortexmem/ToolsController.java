@@ -1,6 +1,7 @@
 package com.example.cortexmem;
 
 import com.ablueforce.cortexce.ai.context.CortexSessionContext;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,7 +29,7 @@ public class ToolsController {
      * Tool call — auto-captured to memory. Supports ?project= to switch project.
      */
     @GetMapping("/demo/tool")
-    public String runToolWithCapture(
+    public ResponseEntity<String> runToolWithCapture(
             @RequestParam(defaultValue = "/tmp/hello.txt") String path,
             @RequestParam(required = false) String project) {
         String sessionId = "demo-" + UUID.randomUUID();
@@ -41,9 +42,10 @@ public class ToolsController {
         try {
             String result = fileReadTool.readFile(path);
             CortexSessionContext.incrementAndGetPromptNumber();
-            return "Tool result: " + result + " (captured to memory)";
+            return ResponseEntity.ok("Tool result: " + result + " (captured to memory)");
         } catch (Exception e) {
-            return "Error: Tool execution failed — " + e.getMessage();
+            return ResponseEntity.internalServerError()
+                    .body("Error: Tool execution failed — " + e.getMessage());
         } finally {
             CortexSessionContext.end();
         }

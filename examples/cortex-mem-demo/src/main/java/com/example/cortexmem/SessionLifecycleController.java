@@ -43,25 +43,25 @@ public class SessionLifecycleController {
      * @param project Project key (e.g. project-a) or absolute path
      */
     @PostMapping("/start")
-    public Map<String, Object> startSession(
+    public ResponseEntity<Map<String, Object>> startSession(
             @RequestParam(defaultValue = "default") String project) {
         String projectPath = demoProperties.resolveProjectPath(project);
         if (projectPath == null) projectPath = System.getProperty("user.dir");
 
         String sessionId = "demo-session-" + UUID.randomUUID();
         try {
-            var result = sessionStartClient.startSession(sessionId, projectPath);
+            Map<String, Object> result = sessionStartClient.startSession(sessionId, projectPath);
             result.put("session_id", sessionId);
             result.put("project", project);
             result.put("project_path", projectPath);
-            return result;
+            return ResponseEntity.ok(result);
         } catch (Exception e) {
-            return Map.of(
+            return ResponseEntity.internalServerError().body(Map.of(
                 "error", "Failed to start session: " + e.getMessage(),
                 "session_id", sessionId,
                 "project", project,
                 "project_path", projectPath
-            );
+            ));
         }
     }
 

@@ -8,6 +8,7 @@ import com.ablueforce.cortexce.client.CortexMemClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -52,7 +53,7 @@ public class ChatController {
     }
 
     @GetMapping("/chat")
-    public String chat(
+    public ResponseEntity<String> chat(
             @RequestParam(defaultValue = "Hello") String message,
             @RequestParam(required = false) String project,
             @RequestParam(required = false) String conversationId,
@@ -89,18 +90,20 @@ public class ChatController {
                 var spec = client.prompt()
                     .advisors(spec1 -> spec1.param(ChatMemory.CONVERSATION_ID, effectiveConvId))
                     .user(message);
-                return spec.call().content();
+                return ResponseEntity.ok(spec.call().content());
             } catch (Exception e) {
-                return "Error: Chat failed — " + e.getMessage();
+                return ResponseEntity.internalServerError()
+                        .body("Error: Chat failed — " + e.getMessage());
             }
         }
 
         CortexSessionContext.begin(effectiveConvId, projectPath);
         try {
             CortexSessionContext.incrementAndGetPromptNumber();
-            return client.prompt().user(message).call().content();
+            return ResponseEntity.ok(client.prompt().user(message).call().content());
         } catch (Exception e) {
-            return "Error: Chat failed — " + e.getMessage();
+            return ResponseEntity.internalServerError()
+                    .body("Error: Chat failed — " + e.getMessage());
         } finally {
             CortexSessionContext.end();
         }

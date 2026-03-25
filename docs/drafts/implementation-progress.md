@@ -408,3 +408,12 @@
 - [x] Java IngestionController.handleObservation() `safeGetStringList` 改为严格模式：非字符串元素返回 null（与 MemoryController 一致）
 - [x] IngestionController.handleObservation() 添加 null 检查：facts/concepts/files_read/files_modified 无效时返回 400（之前静默接受无效数据）
 - [x] Java Backend BUILD SUCCESS、Go SDK 71 测试通过、go vet 干净、5/5 examples 编译通过、回归测试 46/46 PASS
+
+### 第四十轮（2026-03-25 15:01）— Java Demo ResponseEntity 一致性修复
+- [x] Java Demo MemoryController.getMemoryHealth() 返回类型从 Map 改为 ResponseEntity<Map>（之前错误时 HTTP 200 + "status":"error"，客户端无法通过 HTTP 状态码判断失败）
+- [x] Java Demo SessionLifecycleController.startSession() 同样修复（Map → ResponseEntity<Map>）
+- [x] Java Demo SessionLifecycleController.fullLifecycle() 同样修复（Map → ResponseEntity<Map>）+ 添加 try-catch 异常处理（之前工具调用失败会导致未捕获异常）
+- [x] Java Demo ChatController.chat() 返回类型从 String 改为 ResponseEntity<String>（之前错误时 HTTP 200 + "Error:" 前缀文本，现在返回 HTTP 500）
+- [x] Java Demo ToolsController.runToolWithCapture() 同样修复（String → ResponseEntity<String>）
+- [x] 修复前 5 个控制器中有 5 个方法在错误时返回 HTTP 200，现在全部控制器统一返回正确的 HTTP 状态码
+- [x] Java Demo BUILD SUCCESS、Go SDK 88 测试通过、go vet 干净、5/5 examples 编译通过、回归测试 46/46 PASS

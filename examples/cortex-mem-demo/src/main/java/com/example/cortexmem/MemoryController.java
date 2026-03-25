@@ -209,7 +209,7 @@ public class MemoryController {
      * Demonstrates V14 observation management.
      */
     @GetMapping("/memory/health")
-    public Map<String, Object> getMemoryHealth(@RequestParam(defaultValue = "/") String project) {
+    public ResponseEntity<Map<String, Object>> getMemoryHealth(@RequestParam(defaultValue = "/") String project) {
         try {
             List<Experience> experiences = cortexClient.retrieveExperiences(
                 ExperienceRequest.builder()
@@ -218,17 +218,17 @@ public class MemoryController {
                     .count(1)
                     .build());
 
-            return Map.of(
+            return ResponseEntity.ok(Map.of(
                 "status", "ok",
                 "project", resolveProject(project),
                 "sample_retrieval", experiences.size() > 0 ? "working" : "empty"
-            );
+            ));
         } catch (Exception e) {
-            return Map.of(
+            return ResponseEntity.internalServerError().body(Map.of(
                 "status", "error",
                 "project", resolveProject(project),
                 "error", e.getMessage()
-            );
+            ));
         }
     }
 }
