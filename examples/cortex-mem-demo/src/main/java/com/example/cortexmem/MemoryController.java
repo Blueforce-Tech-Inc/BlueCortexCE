@@ -51,14 +51,15 @@ public class MemoryController {
     // ===== Basic Memory Operations =====
 
     @GetMapping("/memory/experiences")
-    public ResponseEntity<List<Experience>> getExperiences(
+    public ResponseEntity<?> getExperiences(
             @RequestParam String task,
             @RequestParam(defaultValue = "/") String project,
             @RequestParam(defaultValue = "4") int count) {
         try {
             return ResponseEntity.ok(retrievalService.retrieveExperiences(task, resolveProject(project), count));
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to retrieve experiences: " + e.getMessage()));
         }
     }
 
@@ -75,11 +76,12 @@ public class MemoryController {
     }
 
     @GetMapping("/memory/quality")
-    public ResponseEntity<QualityDistribution> getQuality(@RequestParam(defaultValue = "/") String project) {
+    public ResponseEntity<?> getQuality(@RequestParam(defaultValue = "/") String project) {
         try {
             return ResponseEntity.ok(cortexClient.getQualityDistribution(resolveProject(project)));
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to get quality distribution: " + e.getMessage()));
         }
     }
 
@@ -137,7 +139,7 @@ public class MemoryController {
      * @param count Number of experiences
      */
     @GetMapping("/memory/experiences/filtered")
-    public ResponseEntity<List<Experience>> getExperiencesFiltered(
+    public ResponseEntity<?> getExperiencesFiltered(
             @RequestParam String task,
             @RequestParam(defaultValue = "/") String project,
             @RequestParam(required = false) String source,
@@ -153,7 +155,8 @@ public class MemoryController {
                 .build();
             return ResponseEntity.ok(cortexClient.retrieveExperiences(request));
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to retrieve filtered experiences: " + e.getMessage()));
         }
     }
 
@@ -191,7 +194,7 @@ public class MemoryController {
      * @param limit Maximum history entries (default 10)
      */
     @GetMapping("/memory/extraction/history")
-    public ResponseEntity<List<Map<String, Object>>> getExtractionHistory(
+    public ResponseEntity<?> getExtractionHistory(
             @RequestParam(defaultValue = "/") String project,
             @RequestParam String template,
             @RequestParam String userId,
@@ -200,7 +203,8 @@ public class MemoryController {
             List<Map<String, Object>> result = cortexClient.getExtractionHistory(resolveProject(project), template, userId, limit);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to get extraction history: " + e.getMessage()));
         }
     }
 
