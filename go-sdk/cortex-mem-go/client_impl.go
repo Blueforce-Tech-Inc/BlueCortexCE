@@ -123,6 +123,8 @@ func NewClient(opts ...Option) Client {
 				DialContext: (&net.Dialer{
 					Timeout: cfg.ConnectTimeout,
 				}).DialContext,
+				// Deprecated since Go 1.21; replacement would require DialTLSContext
+				// which adds unnecessary complexity for a simple timeout wrapper.
 				TLSHandshakeTimeout: 10 * time.Second,
 				IdleConnTimeout:     90 * time.Second,
 				MaxIdleConnsPerHost: 10,

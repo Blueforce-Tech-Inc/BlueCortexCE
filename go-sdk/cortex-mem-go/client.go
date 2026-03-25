@@ -68,7 +68,6 @@ type Client interface {
 	// ==================== Extraction ====================
 
 	// TriggerExtraction manually triggers extraction for a project. POST /api/extraction/run
-	// Designed in go-sdk-design.md but not yet implemented in Go SDK (Java SDK does not expose this).
 	TriggerExtraction(ctx context.Context, projectPath string) error
 
 	// GetLatestExtraction gets latest extraction result.
