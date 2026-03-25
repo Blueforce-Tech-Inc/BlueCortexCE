@@ -3,6 +3,8 @@ package langchaingo
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
 
 	cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
 	"github.com/abforce/cortex-ce/cortex-mem-go/dto"
@@ -16,6 +18,7 @@ type Memory struct {
 	maxChars  int
 	memoryKey string
 	userID    string
+	logger    *log.Logger
 }
 
 // MemoryOption configures the Memory.
@@ -41,13 +44,23 @@ func WithMemoryUserID(userID string) MemoryOption {
 	return func(m *Memory) { m.userID = userID }
 }
 
+// WithMemoryLogger sets a custom logger for error reporting.
+// By default, errors during LoadMemoryVariables are logged to stderr.
+func WithMemoryLogger(l *log.Logger) MemoryOption {
+	return func(m *Memory) { m.logger = l }
+}
+
 // NewMemory creates a new Memory backed by Cortex CE.
 func NewMemory(client cortexmem.Client, project string, opts ...MemoryOption) *Memory {
+	if client == nil {
+		panic("langchaingo.NewMemory: client must not be nil")
+	}
 	m := &Memory{
 		client:    client,
 		project:   project,
 		maxChars:  4000,
 		memoryKey: "history",
+		logger:    log.New(os.Stderr, "[cortex-ce] ", log.LstdFlags),
 	}
 	for _, opt := range opts {
 		opt(m)
@@ -85,7 +98,12 @@ func (m *Memory) LoadMemoryVariables(ctx context.Context, inputs map[string]any)
 		UserID:   m.userID,
 	})
 	if err != nil {
-		// Return empty memory on error — don't break the chain
+		// Log the error for observability — callers can't distinguish
+		// empty memory from "backend unavailable" without this.
+		m.logger.Printf("BuildICLPrompt failed (project=%q): %v", m.project, err)
+		// Return empty memory on error — don't break the chain.
+		// Downstream AI models will operate without memory context,
+		// but at least the error is visible in logs.
 		return map[string]any{m.memoryKey: ""}, nil
 	}
 

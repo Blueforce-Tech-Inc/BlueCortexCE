@@ -5,6 +5,8 @@ package genkit
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
 
 	cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
 	"github.com/abforce/cortex-ce/cortex-mem-go/dto"
@@ -37,6 +39,7 @@ type Retriever struct {
 	source  string
 	count   int
 	userID  string
+	logger  *log.Logger
 }
 
 // RetrieverOption configures the Retriever.
@@ -62,11 +65,20 @@ func WithRetrieverUserID(userID string) RetrieverOption {
 	return func(r *Retriever) { r.userID = userID }
 }
 
+// WithRetrieverLogger sets a custom logger for error reporting.
+func WithRetrieverLogger(l *log.Logger) RetrieverOption {
+	return func(r *Retriever) { r.logger = l }
+}
+
 // NewRetriever creates a new Retriever for Cortex CE memory.
 func NewRetriever(client cortexmem.Client, opts ...RetrieverOption) *Retriever {
+	if client == nil {
+		panic("genkit.NewRetriever: client must not be nil")
+	}
 	r := &Retriever{
 		client: client,
 		count:  4,
+		logger: log.New(os.Stderr, "[cortex-ce/genkit] ", log.LstdFlags),
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -77,6 +89,9 @@ func NewRetriever(client cortexmem.Client, opts ...RetrieverOption) *Retriever {
 // Retrieve performs a semantic search and returns Genkit-compatible documents.
 // This is designed to be compatible with Genkit Go's Retriever[In, Out] pattern.
 func (r *Retriever) Retrieve(ctx context.Context, input RetrieverInput) (RetrieverOutput, error) {
+	if input.Query == "" {
+		return RetrieverOutput{}, nil
+	}
 	project := input.Project
 	if project == "" {
 		project = r.project
@@ -102,6 +117,7 @@ func (r *Retriever) Retrieve(ctx context.Context, input RetrieverInput) (Retriev
 		UserID:  userID,
 	})
 	if err != nil {
+		r.logger.Printf("RetrieveExperiences failed (project=%q): %v", project, err)
 		return RetrieverOutput{}, fmt.Errorf("cortex-ce retrieve: %w", err)
 	}
 
