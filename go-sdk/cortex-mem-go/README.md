@@ -49,10 +49,11 @@ func main() {
 
     // Record an observation
     err = client.RecordObservation(ctx, dto.ObservationRequest{
-        ProjectPath: "/my-project",
-        SessionID:   resp.SessionID,
-        Type:        "tool_use",
-        Content:     "Used Read tool to read file.txt",
+        ProjectPath:  "/my-project",
+        SessionID:    resp.SessionID,
+        ToolName:     "Read",
+        ToolInput:    map[string]any{"file_path": "file.txt"},
+        ToolResponse: map[string]any{"content": "file contents..."},
     })
     if err != nil {
         log.Fatal(err)
@@ -77,7 +78,7 @@ func main() {
 |----------|---------|
 | Session | `StartSession`, `UpdateSessionUserId` |
 | Capture | `RecordObservation`, `RecordSessionEnd`, `RecordUserPrompt` |
-| Retrieval | `RetrieveExperiences`, `BuildICLPrompt`, `Search`, `ListObservations` |
+| Retrieval | `RetrieveExperiences`, `BuildICLPrompt`, `Search`, `ListObservations`, `GetObservationsByIds` |
 | Management | `TriggerRefinement`, `SubmitFeedback`, `UpdateObservation`, `DeleteObservation`, `GetQualityDistribution` |
 | Health | `HealthCheck` |
 | Extraction | `GetLatestExtraction`, `GetExtractionHistory` |
@@ -152,7 +153,7 @@ import (
 client := cortexmem.NewClient()
 retriever := genkit.NewRetriever(client,
     genkit.WithRetrieverProject("/my-project"),
-    genkit.WithMaxResults(20),
+    genkit.WithRetrieverCount(20),
 )
 ```
 
