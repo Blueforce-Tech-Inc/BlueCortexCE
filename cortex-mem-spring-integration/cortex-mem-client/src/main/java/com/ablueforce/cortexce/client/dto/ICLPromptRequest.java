@@ -1,5 +1,8 @@
 package com.ablueforce.cortexce.client.dto;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Request for building an ICL (In-Context Learning) prompt from memory.
  *
@@ -48,5 +51,24 @@ public record ICLPromptRequest(
         public ICLPromptRequest build() {
             return new ICLPromptRequest(task, project, maxChars, userId);
         }
+    }
+
+    /**
+     * Convert to the wire format expected by /api/memory/icl-prompt.
+     * Null/blank fields are omitted from the resulting map.
+     */
+    public Map<String, Object> toWireFormat() {
+        var map = new HashMap<String, Object>();
+        map.put("task", task);
+        if (project != null && !project.isBlank()) {
+            map.put("project", project);
+        }
+        if (maxChars != null) {
+            map.put("maxChars", maxChars);
+        }
+        if (userId != null) {
+            map.put("userId", userId);
+        }
+        return map;
     }
 }

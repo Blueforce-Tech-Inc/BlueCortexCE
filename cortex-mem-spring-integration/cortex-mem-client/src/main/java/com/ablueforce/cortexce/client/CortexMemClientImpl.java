@@ -103,24 +103,9 @@ public class CortexMemClientImpl implements CortexMemClient {
     @Override
     public List<Experience> retrieveExperiences(ExperienceRequest request) {
         try {
-            var body = new java.util.HashMap<String, Object>();
-            body.put("task", request.task());
-            if (request.project() != null && !request.project().isBlank()) {
-                body.put("project", request.project());
-            }
-            body.put("count", request.count() != null ? request.count() : properties.getDefaultExperienceCount());
-            if (request.source() != null) {
-                body.put("source", request.source());
-            }
-            if (request.requiredConcepts() != null && !request.requiredConcepts().isEmpty()) {
-                body.put("requiredConcepts", request.requiredConcepts());
-            }
-            if (request.userId() != null) {
-                body.put("userId", request.userId());
-            }
             List<Experience> result = restClient.post()
                 .uri("/api/memory/experiences")
-                .body(body)
+                .body(request.toWireFormat())
                 .retrieve()
                 .body(new ParameterizedTypeReference<>() {});
             return result != null ? result : List.of();
@@ -133,20 +118,9 @@ public class CortexMemClientImpl implements CortexMemClient {
     @Override
     public ICLPromptResult buildICLPrompt(ICLPromptRequest request) {
         try {
-            var body = new java.util.HashMap<String, Object>();
-            body.put("task", request.task());
-            if (request.project() != null && !request.project().isBlank()) {
-                body.put("project", request.project());
-            }
-            if (request.maxChars() != null) {
-                body.put("maxChars", request.maxChars());
-            }
-            if (request.userId() != null) {
-                body.put("userId", request.userId());
-            }
             ICLPromptResult result = restClient.post()
                 .uri("/api/memory/icl-prompt")
-                .body(body)
+                .body(request.toWireFormat())
                 .retrieve()
                 .body(ICLPromptResult.class);
             return result != null ? result : new ICLPromptResult("", "0");

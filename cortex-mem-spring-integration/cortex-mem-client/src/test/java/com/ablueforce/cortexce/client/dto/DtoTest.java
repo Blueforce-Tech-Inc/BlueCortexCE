@@ -2,6 +2,7 @@ package com.ablueforce.cortexce.client.dto;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -134,5 +135,79 @@ class DtoTest {
         assertThat(json).doesNotContain("\"concepts\"");
         assertThat(json).doesNotContain("\"source\"");
         assertThat(json).doesNotContain("\"extractedData\"");
+    }
+
+    @Test
+    void experienceRequest_toWireFormat() {
+        var req = ExperienceRequest.builder()
+            .task("add feature")
+            .project("/proj")
+            .count(6)
+            .source("tool_result")
+            .requiredConcepts(List.of("feature", "design"))
+            .userId("alice")
+            .build();
+
+        Map<String, Object> wire = req.toWireFormat();
+        assertThat(wire).containsEntry("task", "add feature");
+        assertThat(wire).containsEntry("project", "/proj");
+        assertThat(wire).containsEntry("count", 6);
+        assertThat(wire).containsEntry("source", "tool_result");
+        assertThat(wire).containsEntry("requiredConcepts", List.of("feature", "design"));
+        assertThat(wire).containsEntry("userId", "alice");
+    }
+
+    @Test
+    void experienceRequest_toWireFormat_omitsOptionalFields() {
+        var req = ExperienceRequest.builder()
+            .task("fix bug")
+            .project("/p")
+            .build();
+
+        Map<String, Object> wire = req.toWireFormat();
+        assertThat(wire).doesNotContainKey("source");
+        assertThat(wire).doesNotContainKey("requiredConcepts");
+        assertThat(wire).doesNotContainKey("userId");
+        // Default count should be included
+        assertThat(wire).containsEntry("count", 4);
+    }
+
+    @Test
+    void experienceRequest_toWireFormat_omitsBlankProject() {
+        var req = ExperienceRequest.builder()
+            .task("test")
+            .project("")
+            .build();
+
+        Map<String, Object> wire = req.toWireFormat();
+        assertThat(wire).doesNotContainKey("project");
+    }
+
+    @Test
+    void iclPromptRequest_toWireFormat() {
+        var req = ICLPromptRequest.builder()
+            .task("debug")
+            .project("/app")
+            .maxChars(5000)
+            .userId("bob")
+            .build();
+
+        Map<String, Object> wire = req.toWireFormat();
+        assertThat(wire).containsEntry("task", "debug");
+        assertThat(wire).containsEntry("project", "/app");
+        assertThat(wire).containsEntry("maxChars", 5000);
+        assertThat(wire).containsEntry("userId", "bob");
+    }
+
+    @Test
+    void iclPromptRequest_toWireFormat_omitsNullOptional() {
+        var req = ICLPromptRequest.builder()
+            .task("test")
+            .project("/p")
+            .build();
+
+        Map<String, Object> wire = req.toWireFormat();
+        assertThat(wire).doesNotContainKey("maxChars");
+        assertThat(wire).doesNotContainKey("userId");
     }
 }

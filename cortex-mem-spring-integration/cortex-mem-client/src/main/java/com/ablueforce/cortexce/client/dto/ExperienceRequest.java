@@ -1,6 +1,8 @@
 package com.ablueforce.cortexce.client.dto;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Request for retrieving relevant experiences from memory.
@@ -10,6 +12,7 @@ import java.util.List;
  * @param count Number of experiences to retrieve
  * @param source Optional: filter by source attribution (e.g., "tool_result", "user_statement")
  * @param requiredConcepts Optional: filter to experiences containing these concepts/tags
+ * @param userId Optional: user ID for user-scoped memory retrieval
  */
 public record ExperienceRequest(
     String task,
@@ -67,5 +70,28 @@ public record ExperienceRequest(
         public ExperienceRequest build() {
             return new ExperienceRequest(task, project, count, source, requiredConcepts, userId);
         }
+    }
+
+    /**
+     * Convert to the wire format expected by /api/memory/experiences.
+     * Null/blank fields are omitted from the resulting map.
+     */
+    public Map<String, Object> toWireFormat() {
+        var map = new HashMap<String, Object>();
+        map.put("task", task);
+        if (project != null && !project.isBlank()) {
+            map.put("project", project);
+        }
+        map.put("count", count != null ? count : 4);
+        if (source != null) {
+            map.put("source", source);
+        }
+        if (requiredConcepts != null && !requiredConcepts.isEmpty()) {
+            map.put("requiredConcepts", requiredConcepts);
+        }
+        if (userId != null) {
+            map.put("userId", userId);
+        }
+        return map;
     }
 }
