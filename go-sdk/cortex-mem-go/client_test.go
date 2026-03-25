@@ -1778,13 +1778,63 @@ func TestAPIError_Unwrap_AllSentinelErrors(t *testing.T) {
 
 // ==================== Edge Case Tests ====================
 
-func TestAPIError_NilUnwrap(t *testing.T) {
-	// Verify that nil APIError doesn't panic
-	var apiErr *cortexmem.APIError
-	// This tests that Unwrap on a nil APIError doesn't panic
-	// (it would be caught by the calling code before Unwrap is called)
-	if apiErr != nil {
-		t.Fatal("expected nil APIError")
+func TestRetrieveExperiences_PropagatesError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error":"internal"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.RetrieveExperiences(context.Background(), dto.ExperienceRequest{
+		Task:    "test",
+		Project: "/proj",
+	})
+	if err == nil {
+		t.Fatal("RetrieveExperiences should propagate error")
+	}
+	if !cortexmem.IsInternal(err) {
+		t.Errorf("expected IsInternal, got: %v", err)
+	}
+}
+
+func TestBuildICLPrompt_PropagatesError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte(`{"error":"unavailable"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.BuildICLPrompt(context.Background(), dto.ICLPromptRequest{
+		Task:    "test",
+		Project: "/proj",
+	})
+	if err == nil {
+		t.Fatal("BuildICLPrompt should propagate error")
+	}
+	if !cortexmem.IsServiceUnavailable(err) {
+		t.Errorf("expected IsServiceUnavailable, got: %v", err)
+	}
+}
+
+func TestSearch_PropagatesError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+		w.Write([]byte(`{"error":"bad gateway"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.Search(context.Background(), dto.SearchRequest{
+		Project: "/proj",
+		Query:   "test",
+	})
+	if err == nil {
+		t.Fatal("Search should propagate error")
+	}
+	if !cortexmem.IsBadGateway(err) {
+		t.Errorf("expected IsBadGateway, got: %v", err)
 	}
 }
 

@@ -438,31 +438,17 @@ else
     pass "GET /quality (API may not be implemented)"
 fi
 
-# ==================== Updated Coverage Checklist ====================
+# ==================== Preliminary Coverage (Before Supplementary Tests) ====================
 
 echo ""
-echo "--- Updated Go SDK Method Coverage Checklist ---"
+echo "--- Preliminary Coverage (Tests 1-26) ---"
 echo "Methods covered via Demo HTTP endpoints:"
-echo "  ✅ StartSession (via /chat)"
-echo "  ✅ RecordObservation (via /chat)"
-echo "  ✅ Search (via /search)"
-echo "  ✅ GetVersion (via /version)"
-echo "  ✅ HealthCheck (via /health)"
-echo ""
+echo "  ✅ StartSession, RecordObservation, Search, GetVersion, HealthCheck"
 echo "Methods covered via direct Backend access:"
-echo "  ✅ GetProjects (via /api/projects)"
-echo "  ✅ GetStats (via /api/stats)"
-echo "  ✅ GetModes (via /api/modes)"
-echo "  ✅ GetSettings (via /api/settings)"
-echo "  ✅ UpdateSessionUserId (via PATCH /api/session/{id}/user)"
-echo "  ✅ RetrieveExperiences (via POST /api/memory/experiences)"
-echo "  ✅ BuildICLPrompt (via POST /api/memory/icl-prompt)"
-echo "  ✅ GetQualityDistribution (via /api/memory/quality-distribution)"
-echo "  ✅ ListObservations (via /api/observations)"
+echo "  ✅ GetProjects, GetStats, GetModes, GetSettings, UpdateSessionUserId"
+echo "  ✅ RetrieveExperiences, BuildICLPrompt, GetQualityDistribution, ListObservations"
 echo ""
-echo "Note: Remaining methods (RecordSessionEnd, RecordUserPrompt, TriggerRefinement,"
-echo "SubmitFeedback, UpdateObservation, DeleteObservation, GetLatestExtraction,"
-echo "GetExtractionHistory) are covered by supplementary tests 27-36 below."
+echo "Note: Remaining methods tested in supplementary tests below."
 
 # ==================== Final Report ====================
 
