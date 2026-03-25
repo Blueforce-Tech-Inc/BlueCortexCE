@@ -124,7 +124,7 @@
 - [x] Java Demo BUILD SUCCESS、Go SDK 58 测试通过、go vet 干净、回归测试 46/46 PASS
 
 ### 测试覆盖策略
-- **单元测试**：63 个 wire format + API + error + retry + context cancellation + backoff + omitempty + Unwrap/As + lifecycle + header 测试（全部通过）
+- **单元测试**：88 个 wire format + API + error + retry + context cancellation + backoff + omitempty + Unwrap/As + lifecycle + header + 集成层测试（全部通过）
 - **E2E 测试**：Java 25 个 + Go 26 个（验证端到端链路）
 - **教训**：新增测试必须严格匹配已有 wire format 定义
 
@@ -353,3 +353,11 @@
   - 新增 4 个单元测试：Close_CleansUpIdleConnections、DoRequest_SetsAcceptHeader、DoRequest_NoContentTypeForGet、DoRequest_SetsContentTypeForPost
   - Go SDK 单元测试从 59 → 63 个，全部通过
   - go vet 干净、5/5 examples 编译通过、Java SDK BUILD SUCCESS
+- 2026-03-25 11:31: Phase D 代码审查第三十三轮 — 集成层健壮性改进 + 单元测试补充
+  - Eino Retriever: 添加 nil client panic guard、空 query guard（返回 nil 而非发起无意义请求）、logger + WithRetrieverLogger、命名未使用的 opts 参数
+  - Genkit Retriever: 添加 nil client panic guard、空 query guard、logger + WithRetrieverLogger、error 日志
+  - LangChainGo Memory: 修复关键 bug — LoadMemoryVariables 之前静默吞掉所有错误（包括 429/503/network），现在记录到 stderr 并返回空 memory（graceful degradation）；添加 nil client panic guard、logger + WithMemoryLogger
+  - 新增 25 个集成层单元测试：eino 7 个 + genkit 8 个 + langchaingo 10 个
+  - 测试覆盖：nil client panic、默认值、选项应用、空输入、成功路径、错误路径（含日志验证）、per-call 覆盖
+  - Go SDK 总计 88 个单元测试（63 core + 25 integration），全部通过
+  - go vet 干净、5/5 examples 编译通过、回归测试 46/46 PASS
