@@ -20,10 +20,11 @@ type ObservationRequest struct {
 // PATCH /api/memory/observations/{id}
 //
 // Wire format (verified against backend MemoryController.java):
-//   {"title":"...", "content":"...", "facts":[...], "concepts":[...], "source":"...", "extractedData":{...}}
+//   {"title":"...", "subtitle":"...", "content":"...", "facts":[...], "concepts":[...], "source":"...", "extractedData":{...}}
 //   Pointer fields (*string) use "omitempty" — nil values are omitted from JSON.
 type ObservationUpdate struct {
 	Title         *string        `json:"title,omitempty"`
+	Subtitle      *string        `json:"subtitle,omitempty"`
 	Content       *string        `json:"content,omitempty"`
 	Facts         []string       `json:"facts,omitempty"`
 	Concepts      []string       `json:"concepts,omitempty"`
@@ -38,6 +39,7 @@ type Observation struct {
 	ProjectPath   string         `json:"projectPath"`
 	Type          string         `json:"type"`
 	Title         string         `json:"title,omitempty"`
+	Subtitle      string         `json:"subtitle,omitempty"`
 	Content       string         `json:"content"`
 	Facts         []string       `json:"facts,omitempty"`
 	Concepts      []string       `json:"concepts,omitempty"`

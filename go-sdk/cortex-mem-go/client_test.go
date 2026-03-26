@@ -907,6 +907,9 @@ func TestUpdateObservation_WireFormat(t *testing.T) {
 		if body["title"] != "Updated Title" {
 			t.Errorf("expected title=Updated Title, got %v", body["title"])
 		}
+		if body["subtitle"] != "A new subtitle" {
+			t.Errorf("expected subtitle=A new subtitle, got %v", body["subtitle"])
+		}
 		if body["extractedData"] == nil {
 			t.Error("expected extractedData (camelCase)")
 		}
@@ -927,8 +930,10 @@ func TestUpdateObservation_WireFormat(t *testing.T) {
 
 	client := newTestClient(server)
 	title := "Updated Title"
+	subtitle := "A new subtitle"
 	err := client.UpdateObservation(context.Background(), "obs-1", dto.ObservationUpdate{
 		Title:         &title,
+		Subtitle:      &subtitle,
 		ExtractedData: map[string]any{"key": "value"},
 	})
 	if err != nil {

@@ -5,6 +5,9 @@ import (
 	"testing"
 )
 
+// stringPtr returns a pointer to the given string value.
+func stringPtr(s string) *string { return &s }
+
 // ==================== SearchResult Wire Format Tests ====================
 
 func TestSearchResult_FellBack_Deserialization(t *testing.T) {
@@ -183,6 +186,53 @@ func TestObservationRequest_OmitsEmptyFields(t *testing.T) {
 }
 
 // ==================== ObservationUpdate Wire Format Tests ====================
+
+func TestObservationUpdate_SubtitleField(t *testing.T) {
+	subtitle := "A subtitle"
+	update := ObservationUpdate{
+		Subtitle: &subtitle,
+	}
+	data, err := json.Marshal(update)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if decoded["subtitle"] != "A subtitle" {
+		t.Errorf("expected subtitle=A subtitle, got %v", decoded["subtitle"])
+	}
+	// Other nil pointer fields should be omitted
+	if _, ok := decoded["title"]; ok {
+		t.Error("nil title should be omitted")
+	}
+}
+
+func TestObservationUpdate_NilSubtitleOmitted(t *testing.T) {
+	update := ObservationUpdate{
+		Title: stringPtr("has title"),
+		// Subtitle is nil — should be omitted
+	}
+	data, err := json.Marshal(update)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	if _, ok := decoded["subtitle"]; ok {
+		t.Error("nil subtitle should be omitted")
+	}
+	if decoded["title"] != "has title" {
+		t.Errorf("expected title=has title, got %v", decoded["title"])
+	}
+}
 
 func TestObservationUpdate_NilPointerFields(t *testing.T) {
 	update := ObservationUpdate{
