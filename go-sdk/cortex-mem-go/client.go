@@ -13,7 +13,7 @@ type Client interface {
 	StartSession(ctx context.Context, req dto.SessionStartRequest) (*dto.SessionStartResponse, error)
 
 	// UpdateSessionUserId updates session userId.
-	UpdateSessionUserId(ctx context.Context, sessionID, userID string) (map[string]any, error)
+	UpdateSessionUserId(ctx context.Context, sessionID, userID string) (*dto.SessionUserUpdateResponse, error)
 
 	// ==================== Capture ====================
 
@@ -71,28 +71,28 @@ type Client interface {
 	TriggerExtraction(ctx context.Context, projectPath string) error
 
 	// GetLatestExtraction gets latest extraction result.
-	GetLatestExtraction(ctx context.Context, projectPath, templateName, userID string) (map[string]any, error)
+	GetLatestExtraction(ctx context.Context, projectPath, templateName, userID string) (*dto.ExtractionResult, error)
 
 	// GetExtractionHistory gets extraction history.
-	GetExtractionHistory(ctx context.Context, projectPath, templateName, userID string, limit int) ([]map[string]any, error)
+	GetExtractionHistory(ctx context.Context, projectPath, templateName, userID string, limit int) ([]dto.ExtractionResult, error)
 
 	// ==================== Version ====================
 
 	// GetVersion gets backend version info.
-	GetVersion(ctx context.Context) (map[string]any, error)
+	GetVersion(ctx context.Context) (*dto.VersionResponse, error)
 
 	// ==================== P1 Management ====================
 
 	// GetProjects gets all projects.
-	GetProjects(ctx context.Context) (map[string]any, error)
+	GetProjects(ctx context.Context) (*dto.ProjectsResponse, error)
 
 	// GetStats gets project statistics.
-	GetStats(ctx context.Context, projectPath string) (map[string]any, error)
+	GetStats(ctx context.Context, projectPath string) (*dto.StatsResponse, error)
 
 	// GetModes gets memory mode settings.
-	GetModes(ctx context.Context) (map[string]any, error)
+	GetModes(ctx context.Context) (*dto.ModesResponse, error)
 
-	// GetSettings gets current settings.
+	// GetSettings gets current settings. Returns the raw map since settings are dynamic.
 	GetSettings(ctx context.Context) (map[string]any, error)
 
 	// ==================== Lifecycle ====================

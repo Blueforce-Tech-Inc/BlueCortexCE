@@ -659,6 +659,7 @@ func TestGetVersion(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]any{
 			"version": "1.0.0",
+			"service": "claude-mem-java",
 		})
 	}))
 	defer server.Close()
@@ -668,8 +669,11 @@ func TestGetVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetVersion failed: %v", err)
 	}
-	if version["version"] != "1.0.0" {
-		t.Errorf("expected version=1.0.0, got %v", version["version"])
+	if version.Version != "1.0.0" {
+		t.Errorf("expected version=1.0.0, got %v", version.Version)
+	}
+	if version.Service != "claude-mem-java" {
+		t.Errorf("expected service=claude-mem-java, got %v", version.Service)
 	}
 }
 
@@ -814,7 +818,14 @@ func TestGetLatestExtraction_PathAndParams(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]any{"result": "data"})
+		json.NewEncoder(w).Encode(map[string]any{
+			"status":        "ok",
+			"template":      "user-preferences",
+			"sessionId":     "sess-1",
+			"extractedData": map[string]any{"name": "Alice"},
+			"createdAt":     1700000000000,
+			"observationId": "obs-1",
+		})
 	}))
 	defer server.Close()
 
@@ -823,8 +834,11 @@ func TestGetLatestExtraction_PathAndParams(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetLatestExtraction failed: %v", err)
 	}
-	if result["result"] != "data" {
-		t.Errorf("expected result=data, got %v", result["result"])
+	if result.Status != "ok" {
+		t.Errorf("expected status=ok, got %v", result.Status)
+	}
+	if result.ExtractedData["name"] != "Alice" {
+		t.Errorf("expected extractedData.name=Alice, got %v", result.ExtractedData["name"])
 	}
 }
 
@@ -1021,8 +1035,8 @@ func TestGetExtractionHistory_PathAndParams(t *testing.T) {
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode([]map[string]any{
-			{"result": "v1"},
-			{"result": "v2"},
+			{"sessionId": "sess-1", "extractedData": map[string]any{"key": "v1"}, "createdAt": 1000, "observationId": "obs-1"},
+			{"sessionId": "sess-2", "extractedData": map[string]any{"key": "v2"}, "createdAt": 2000, "observationId": "obs-2"},
 		})
 	}))
 	defer server.Close()
@@ -1033,10 +1047,13 @@ func TestGetExtractionHistory_PathAndParams(t *testing.T) {
 		t.Fatalf("GetExtractionHistory failed: %v", err)
 	}
 	if len(history) != 2 {
-		t.Fatalf("expected 2 history entries, got %d", len(history))
+		t.Fatalf("expected 2 results, got %d", len(history))
 	}
-	if history[0]["result"] != "v1" {
-		t.Errorf("expected first result=v1, got %v", history[0]["result"])
+	if history[0].ExtractedData["key"] != "v1" {
+		t.Errorf("expected first result key=v1, got %v", history[0].ExtractedData["key"])
+	}
+	if history[1].ObservationID != "obs-2" {
+		t.Errorf("expected second result observationId=obs-2, got %v", history[1].ObservationID)
 	}
 }
 
@@ -1057,7 +1074,7 @@ func TestUpdateSessionUserId(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]any{"status": "ok"})
+		json.NewEncoder(w).Encode(map[string]any{"status": "ok", "sessionId": "sess-1", "userId": "user-42"})
 	}))
 	defer server.Close()
 
@@ -1066,8 +1083,11 @@ func TestUpdateSessionUserId(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpdateSessionUserId failed: %v", err)
 	}
-	if resp["status"] != "ok" {
-		t.Errorf("expected status=ok, got %v", resp["status"])
+	if resp.Status != "ok" {
+		t.Errorf("expected status=ok, got %v", resp.Status)
+	}
+	if resp.UserID != "user-42" {
+		t.Errorf("expected userId=user-42, got %v", resp.UserID)
 	}
 }
 
@@ -1091,9 +1111,8 @@ func TestGetProjects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetProjects failed: %v", err)
 	}
-	projects, ok := result["projects"].([]any)
-	if !ok || len(projects) != 2 {
-		t.Errorf("expected 2 projects, got %v", result["projects"])
+	if len(result.Projects) != 2 {
+		t.Errorf("expected 2 projects, got %d", len(result.Projects))
 	}
 }
 
@@ -1109,8 +1128,8 @@ func TestGetStats(t *testing.T) {
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]any{
-			"totalObservations": float64(100),
-			"totalExperiences":  float64(50),
+			"worker":   map[string]any{"isProcessing": false, "queueDepth": 0},
+			"database": map[string]any{"totalObservations": float64(100), "totalSummaries": float64(5), "totalSessions": float64(10), "totalProjects": float64(2)},
 		})
 	}))
 	defer server.Close()
@@ -1120,8 +1139,8 @@ func TestGetStats(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetStats failed: %v", err)
 	}
-	if result["totalObservations"] != float64(100) {
-		t.Errorf("expected totalObservations=100, got %v", result["totalObservations"])
+	if result.Database.TotalObservations != 100 {
+		t.Errorf("expected totalObservations=100, got %v", result.Database.TotalObservations)
 	}
 }
 
@@ -1131,7 +1150,10 @@ func TestGetStats_EmptyProject(t *testing.T) {
 			t.Errorf("expected no project query param for empty projectPath")
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]any{"totalObservations": float64(0)})
+		json.NewEncoder(w).Encode(map[string]any{
+			"worker":   map[string]any{"isProcessing": false, "queueDepth": 0},
+			"database": map[string]any{"totalObservations": float64(0), "totalSummaries": float64(0), "totalSessions": float64(0), "totalProjects": float64(0)},
+		})
 	}))
 	defer server.Close()
 
@@ -1140,8 +1162,8 @@ func TestGetStats_EmptyProject(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetStats failed: %v", err)
 	}
-	if result["totalObservations"] != float64(0) {
-		t.Errorf("expected totalObservations=0, got %v", result["totalObservations"])
+	if result.Database.TotalObservations != 0 {
+		t.Errorf("expected totalObservations=0, got %v", result.Database.TotalObservations)
 	}
 }
 
@@ -1152,9 +1174,12 @@ func TestGetModes(t *testing.T) {
 		}
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]any{
-			"modes": []map[string]any{
-				{"name": "default", "enabled": true},
-			},
+			"id":                  "default",
+			"name":                "Default Mode",
+			"description":         "Standard mode",
+			"version":             "1.0",
+			"observationTypes":    []string{"tool-use", "user-prompt"},
+			"observationConcepts": []string{"code", "test"},
 		})
 	}))
 	defer server.Close()
@@ -1164,9 +1189,11 @@ func TestGetModes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetModes failed: %v", err)
 	}
-	modes, ok := result["modes"].([]any)
-	if !ok || len(modes) != 1 {
-		t.Errorf("expected 1 mode, got %v", result["modes"])
+	if result.ID != "default" {
+		t.Errorf("expected id=default, got %v", result.ID)
+	}
+	if len(result.ObservationTypes) != 2 {
+		t.Errorf("expected 2 observation types, got %d", len(result.ObservationTypes))
 	}
 }
 
@@ -2755,8 +2782,8 @@ func TestDoRequest_ResponseWithinLimit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetVersion should succeed for normal response: %v", err)
 	}
-	if result["version"] != "2.0.0" {
-		t.Errorf("expected version=2.0.0, got %v", result["version"])
+	if result.Version != "2.0.0" {
+		t.Errorf("expected version=2.0.0, got %v", result.Version)
 	}
 }
 
@@ -2850,7 +2877,7 @@ func TestGetExtractionHistory_ZeroLimit(t *testing.T) {
 			t.Errorf("expected limit=0, got %s", r.URL.Query().Get("limit"))
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode([]map[string]any{})
+		json.NewEncoder(w).Encode([]dto.ExtractionResult{})
 	}))
 	defer server.Close()
 
@@ -2874,7 +2901,14 @@ func TestGetLatestExtraction_OmitsEmptyUserId(t *testing.T) {
 			t.Errorf("expected projectPath=/project, got %s", r.URL.Query().Get("projectPath"))
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]any{"result": "data"})
+		json.NewEncoder(w).Encode(map[string]any{
+			"status":        "ok",
+			"template":      "user-prefs",
+			"sessionId":     "sess-1",
+			"extractedData": map[string]any{"result": "data"},
+			"createdAt":     1700000000000,
+			"observationId": "obs-1",
+		})
 	}))
 	defer server.Close()
 
@@ -2883,8 +2917,8 @@ func TestGetLatestExtraction_OmitsEmptyUserId(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetLatestExtraction failed: %v", err)
 	}
-	if result["result"] != "data" {
-		t.Errorf("expected result=data, got %v", result["result"])
+	if result.ExtractedData["result"] != "data" {
+		t.Errorf("expected extractedData.result=data, got %v", result.ExtractedData["result"])
 	}
 }
 

@@ -25,7 +25,7 @@ func (c *httpClient) StartSession(ctx context.Context, req dto.SessionStartReque
 	return &resp, nil
 }
 
-func (c *httpClient) UpdateSessionUserId(ctx context.Context, sessionID, userID string) (map[string]any, error) {
+func (c *httpClient) UpdateSessionUserId(ctx context.Context, sessionID, userID string) (*dto.SessionUserUpdateResponse, error) {
 	path := fmt.Sprintf("/api/session/%s/user", sessionID)
 	data, status, err := c.doRequest(ctx, http.MethodPatch, path, map[string]string{"user_id": userID}, nil)
 	if err != nil {
@@ -34,11 +34,11 @@ func (c *httpClient) UpdateSessionUserId(ctx context.Context, sessionID, userID 
 	if status >= 400 {
 		return nil, &APIError{StatusCode: status, Message: string(data)}
 	}
-	var resp map[string]any
+	var resp dto.SessionUserUpdateResponse
 	if err := c.unmarshalJSON(data, &resp); err != nil {
-		return nil, fmt.Errorf("cortex-ce: failed to parse response: %w", err)
+		return nil, fmt.Errorf("cortex-ce: failed to parse UpdateSessionUserId response: %w", err)
 	}
-	return resp, nil
+	return &resp, nil
 }
 
 // ==================== Capture (fire-and-forget) ====================
@@ -255,8 +255,7 @@ func (c *httpClient) TriggerExtraction(ctx context.Context, projectPath string) 
 		map[string]string{"projectPath": projectPath})
 }
 
-func (c *httpClient) GetLatestExtraction(ctx context.Context, projectPath, templateName, userID string) (map[string]any, error) {
-	// templateName is a @PathVariable in the backend — included in URL path only, not as query param.
+func (c *httpClient) GetLatestExtraction(ctx context.Context, projectPath, templateName, userID string) (*dto.ExtractionResult, error) {
 	path := fmt.Sprintf("/api/extraction/%s/latest", templateName)
 	params := map[string]string{
 		"projectPath": projectPath,
@@ -271,14 +270,14 @@ func (c *httpClient) GetLatestExtraction(ctx context.Context, projectPath, templ
 	if status >= 400 {
 		return nil, &APIError{StatusCode: status, Message: string(data)}
 	}
-	var resp map[string]any
+	var resp dto.ExtractionResult
 	if err := c.unmarshalJSON(data, &resp); err != nil {
 		return nil, fmt.Errorf("cortex-ce: failed to parse extraction: %w", err)
 	}
-	return resp, nil
+	return &resp, nil
 }
 
-func (c *httpClient) GetExtractionHistory(ctx context.Context, projectPath, templateName, userID string, limit int) ([]map[string]any, error) {
+func (c *httpClient) GetExtractionHistory(ctx context.Context, projectPath, templateName, userID string, limit int) ([]dto.ExtractionResult, error) {
 	path := fmt.Sprintf("/api/extraction/%s/history", templateName)
 	params := map[string]string{
 		"projectPath": projectPath,
@@ -294,7 +293,7 @@ func (c *httpClient) GetExtractionHistory(ctx context.Context, projectPath, temp
 	if status >= 400 {
 		return nil, &APIError{StatusCode: status, Message: string(data)}
 	}
-	var resp []map[string]any
+	var resp []dto.ExtractionResult
 	if err := c.unmarshalJSON(data, &resp); err != nil {
 		return nil, fmt.Errorf("cortex-ce: failed to parse extraction history: %w", err)
 	}
@@ -303,7 +302,7 @@ func (c *httpClient) GetExtractionHistory(ctx context.Context, projectPath, temp
 
 // ==================== Version ====================
 
-func (c *httpClient) GetVersion(ctx context.Context) (map[string]any, error) {
+func (c *httpClient) GetVersion(ctx context.Context) (*dto.VersionResponse, error) {
 	data, status, err := c.doRequest(ctx, http.MethodGet, "/api/version", nil, nil)
 	if err != nil {
 		return nil, err
@@ -311,16 +310,16 @@ func (c *httpClient) GetVersion(ctx context.Context) (map[string]any, error) {
 	if status >= 400 {
 		return nil, &APIError{StatusCode: status, Message: string(data)}
 	}
-	var resp map[string]any
+	var resp dto.VersionResponse
 	if err := c.unmarshalJSON(data, &resp); err != nil {
 		return nil, fmt.Errorf("cortex-ce: failed to parse version: %w", err)
 	}
-	return resp, nil
+	return &resp, nil
 }
 
 // ==================== P1 Management ====================
 
-func (c *httpClient) GetProjects(ctx context.Context) (map[string]any, error) {
+func (c *httpClient) GetProjects(ctx context.Context) (*dto.ProjectsResponse, error) {
 	data, status, err := c.doRequest(ctx, http.MethodGet, "/api/projects", nil, nil)
 	if err != nil {
 		return nil, err
@@ -328,14 +327,14 @@ func (c *httpClient) GetProjects(ctx context.Context) (map[string]any, error) {
 	if status >= 400 {
 		return nil, &APIError{StatusCode: status, Message: string(data)}
 	}
-	var resp map[string]any
+	var resp dto.ProjectsResponse
 	if err := c.unmarshalJSON(data, &resp); err != nil {
 		return nil, fmt.Errorf("cortex-ce: failed to parse projects: %w", err)
 	}
-	return resp, nil
+	return &resp, nil
 }
 
-func (c *httpClient) GetStats(ctx context.Context, projectPath string) (map[string]any, error) {
+func (c *httpClient) GetStats(ctx context.Context, projectPath string) (*dto.StatsResponse, error) {
 	params := map[string]string{}
 	if projectPath != "" {
 		params["project"] = projectPath
@@ -347,14 +346,14 @@ func (c *httpClient) GetStats(ctx context.Context, projectPath string) (map[stri
 	if status >= 400 {
 		return nil, &APIError{StatusCode: status, Message: string(data)}
 	}
-	var resp map[string]any
+	var resp dto.StatsResponse
 	if err := c.unmarshalJSON(data, &resp); err != nil {
 		return nil, fmt.Errorf("cortex-ce: failed to parse stats: %w", err)
 	}
-	return resp, nil
+	return &resp, nil
 }
 
-func (c *httpClient) GetModes(ctx context.Context) (map[string]any, error) {
+func (c *httpClient) GetModes(ctx context.Context) (*dto.ModesResponse, error) {
 	data, status, err := c.doRequest(ctx, http.MethodGet, "/api/modes", nil, nil)
 	if err != nil {
 		return nil, err
@@ -362,11 +361,11 @@ func (c *httpClient) GetModes(ctx context.Context) (map[string]any, error) {
 	if status >= 400 {
 		return nil, &APIError{StatusCode: status, Message: string(data)}
 	}
-	var resp map[string]any
+	var resp dto.ModesResponse
 	if err := c.unmarshalJSON(data, &resp); err != nil {
 		return nil, fmt.Errorf("cortex-ce: failed to parse modes: %w", err)
 	}
-	return resp, nil
+	return &resp, nil
 }
 
 func (c *httpClient) GetSettings(ctx context.Context) (map[string]any, error) {
