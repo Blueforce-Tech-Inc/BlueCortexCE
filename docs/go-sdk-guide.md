@@ -436,7 +436,7 @@ for _, obs := range observations {
 
 #### UpdateObservation
 
-Updates an existing observation. Fire-and-forget.
+Updates an existing observation. Returns an error if the request fails.
 
 ```go
 func UpdateObservation(ctx context.Context, observationID string, update dto.ObservationUpdate) error
@@ -469,7 +469,7 @@ err := client.UpdateObservation(ctx, "obs-123", dto.ObservationUpdate{
 
 #### DeleteObservation
 
-Deletes an observation. Fire-and-forget.
+Deletes an observation. Returns an error if the request fails.
 
 ```go
 func DeleteObservation(ctx context.Context, observationID string) error
@@ -580,7 +580,7 @@ fmt.Printf("ICL Prompt (%s experiences):\n%s\n", result.ExperienceCount, result.
 
 #### TriggerRefinement
 
-Triggers memory refinement for a project. Fire-and-forget.
+Triggers memory refinement for a project. Returns an error if the request fails.
 
 ```go
 func TriggerRefinement(ctx context.Context, projectPath string) error
@@ -628,7 +628,7 @@ fmt.Printf("Quality: High=%d, Medium=%d, Low=%d, Total=%d\n",
 
 #### SubmitFeedback
 
-Submits feedback for an observation. Fire-and-forget.
+Submits feedback for an observation. Returns an error if the request fails.
 
 ```go
 func SubmitFeedback(ctx context.Context, observationID, feedbackType, comment string) error
@@ -901,10 +901,6 @@ The following methods use fire-and-forget semantics (retry + error swallowing):
 - `RecordObservation`
 - `RecordSessionEnd`
 - `RecordUserPrompt`
-- `TriggerRefinement`
-- `SubmitFeedback`
-- `UpdateObservation`
-- `DeleteObservation`
 
 These methods **always return `nil`** after exhausting retries. Errors are logged via the configured `Logger`. This matches the Java SDK's behavior: capture operations must never block the AI pipeline.
 
