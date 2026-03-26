@@ -142,11 +142,11 @@ func main() {
 			writeJSONError(w, http.StatusBadRequest, "project is required")
 			return
 		}
-		limit := 10
+		limit := 0 // 0 = backend default
 		if l := r.URL.Query().Get("limit"); l != "" {
 			parsed, err := strconv.Atoi(l)
-			if err != nil || parsed < 1 || parsed > 100 {
-				writeJSONError(w, http.StatusBadRequest, "limit must be an integer between 1 and 100")
+			if err != nil || parsed < 0 || parsed > 100 {
+				writeJSONError(w, http.StatusBadRequest, "limit must be a non-negative integer (0=default) up to 100")
 				return
 			}
 			limit = parsed
@@ -247,7 +247,7 @@ func main() {
 			writeJSONError(w, http.StatusBadRequest, "task is required")
 			return
 		}
-		maxChars := 2000
+		maxChars := 0 // 0 = backend default
 		if mc := r.URL.Query().Get("maxChars"); mc != "" {
 			parsed, err := strconv.Atoi(mc)
 			if err != nil || parsed < 0 {
@@ -279,11 +279,11 @@ func main() {
 			writeJSONError(w, http.StatusBadRequest, "project is required")
 			return
 		}
-		limit := 10
+		limit := 0 // 0 = backend default
 		if l := r.URL.Query().Get("limit"); l != "" {
 			parsed, err := strconv.Atoi(l)
-			if err != nil || parsed < 1 || parsed > 100 {
-				writeJSONError(w, http.StatusBadRequest, "limit must be an integer between 1 and 100")
+			if err != nil || parsed < 0 || parsed > 100 {
+				writeJSONError(w, http.StatusBadRequest, "limit must be a non-negative integer (0=default) up to 100")
 				return
 			}
 			limit = parsed
