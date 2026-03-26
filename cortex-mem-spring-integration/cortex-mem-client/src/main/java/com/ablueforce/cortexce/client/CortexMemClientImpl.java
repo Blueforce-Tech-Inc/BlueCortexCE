@@ -7,9 +7,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
+import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -44,7 +46,16 @@ public class CortexMemClientImpl implements CortexMemClient {
         if (restClientBuilder == null) {
             restClientBuilder = RestClient.builder();
         }
+
+        // Apply timeout configuration from properties
+        HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(properties.getConnectTimeout())
+            .build();
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
+        requestFactory.setReadTimeout((int) properties.getReadTimeout().toMillis());
+
         this.restClient = restClientBuilder
+            .requestFactory(requestFactory)
             .baseUrl(properties.getBaseUrl())
             .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
             .defaultHeader("User-Agent", "cortex-mem-java/1.0.0")
