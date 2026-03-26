@@ -465,6 +465,23 @@ func main() {
 		writeJSON(w, result)
 	})
 
+	// --- POST /extraction/run ---
+	mux.HandleFunc("/extraction/run", func(w http.ResponseWriter, r *http.Request) {
+		if !checkMethod(w, r, http.MethodPost) {
+			return
+		}
+		project := r.URL.Query().Get("projectPath")
+		if project == "" {
+			writeJSONError(w, http.StatusBadRequest, "projectPath is required")
+			return
+		}
+		if err := client.TriggerExtraction(r.Context(), project); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to trigger extraction: %v", err))
+			return
+		}
+		writeJSON(w, map[string]string{"status": "extraction triggered"})
+	})
+
 	// --- POST /refine ---
 	mux.HandleFunc("/refine", func(w http.ResponseWriter, r *http.Request) {
 		if !checkMethod(w, r, http.MethodPost) {
@@ -743,6 +760,7 @@ func main() {
 	fmt.Println("  GET    /quality             - Quality distribution")
 	fmt.Println("  GET    /extraction/latest   - Latest extraction result")
 	fmt.Println("  GET    /extraction/history  - Extraction history")
+	fmt.Println("  POST   /extraction/run      - Trigger extraction")
 	fmt.Println("  POST   /refine              - Trigger memory refinement")
 	fmt.Println("  POST   /feedback            - Submit observation feedback")
 	fmt.Println("  PATCH  /session/user        - Update session user ID")
