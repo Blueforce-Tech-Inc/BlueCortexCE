@@ -1328,6 +1328,37 @@ func TestFireAndForget_ContextCancellation(t *testing.T) {
 	}
 }
 
+func TestDoRequest_ContextCancelledBeforeMarshal(t *testing.T) {
+	// Verify doRequest fast-fails on cancelled context without making HTTP requests
+	requestsReceived := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestsReceived++
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+
+	// Pre-cancelled context should fail immediately without hitting the server
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := client.StartSession(ctx, dto.SessionStartRequest{
+		SessionID:   "sess-1",
+		ProjectPath: "/project",
+	})
+	if err == nil {
+		t.Fatal("expected error for cancelled context")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("expected context.Canceled, got: %v", err)
+	}
+	if requestsReceived != 0 {
+		t.Errorf("expected 0 HTTP requests for pre-cancelled context, got %d", requestsReceived)
+	}
+}
+
 func TestFireAndForget_CustomBackoff(t *testing.T) {
 	attempts := 0
 	var timestamps []time.Time

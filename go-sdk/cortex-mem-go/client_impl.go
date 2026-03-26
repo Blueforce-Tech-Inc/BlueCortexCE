@@ -152,6 +152,13 @@ type httpClient struct {
 }
 
 func (c *httpClient) doRequest(ctx context.Context, method, path string, body any, queryParams map[string]string) ([]byte, int, error) {
+	// Fast-fail: avoid JSON marshaling if context is already cancelled
+	select {
+	case <-ctx.Done():
+		return nil, 0, ctx.Err()
+	default:
+	}
+
 	u, err := url.Parse(c.config.BaseURL + path)
 	if err != nil {
 		return nil, 0, fmt.Errorf("cortex-ce: invalid URL: %w", err)
