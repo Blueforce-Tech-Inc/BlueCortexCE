@@ -699,6 +699,73 @@ func TestAPIError_StatusCode(t *testing.T) {
 	}
 }
 
+func TestAPIError_ExtractsErrorMessage(t *testing.T) {
+	// Verify that JSON error responses have their "error" field extracted into Message
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"error":"project is required","status":400}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.Search(context.Background(), dto.SearchRequest{Project: "/test"})
+	if err == nil {
+		t.Fatal("expected error for 400")
+	}
+	var apiErr *cortexmem.APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected APIError, got: %T", err)
+	}
+	// Message should be the extracted "error" field, not the raw JSON
+	if apiErr.Message != "project is required" {
+		t.Errorf("expected extracted message 'project is required', got: %q", apiErr.Message)
+	}
+}
+
+func TestAPIError_ExtractsMessageField(t *testing.T) {
+	// Verify that "message" field is extracted when "error" is absent
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte(`{"message":"service temporarily unavailable"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	err := client.HealthCheck(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 503")
+	}
+	var apiErr *cortexmem.APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected APIError, got: %T", err)
+	}
+	if apiErr.Message != "service temporarily unavailable" {
+		t.Errorf("expected extracted message, got: %q", apiErr.Message)
+	}
+}
+
+func TestAPIError_FallbackForNonJSON(t *testing.T) {
+	// Non-JSON response body should be returned as-is
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Internal Server Error"))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	err := client.HealthCheck(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 500")
+	}
+	var apiErr *cortexmem.APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected APIError, got: %T", err)
+	}
+	if apiErr.Message != "Internal Server Error" {
+		t.Errorf("expected raw body, got: %q", apiErr.Message)
+	}
+}
+
 func TestObservationRequest_V14Fields_WireFormat(t *testing.T) {
 	// Verify source, prompt_number, and extractedData are correctly sent
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

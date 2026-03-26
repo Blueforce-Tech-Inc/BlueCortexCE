@@ -16,7 +16,7 @@ func (c *httpClient) StartSession(ctx context.Context, req dto.SessionStartReque
 		return nil, err
 	}
 	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: string(data)}
+		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
 	}
 	var resp dto.SessionStartResponse
 	if err := c.unmarshalJSON(data, &resp); err != nil {
@@ -32,7 +32,7 @@ func (c *httpClient) UpdateSessionUserId(ctx context.Context, sessionID, userID 
 		return nil, err
 	}
 	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: string(data)}
+		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
 	}
 	var resp dto.SessionUserUpdateResponse
 	if err := c.unmarshalJSON(data, &resp); err != nil {
@@ -72,7 +72,7 @@ func (c *httpClient) RetrieveExperiences(ctx context.Context, req dto.Experience
 		return nil, err
 	}
 	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: string(data)}
+		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
 	}
 	var resp []dto.Experience
 	if err := c.unmarshalJSON(data, &resp); err != nil {
@@ -90,7 +90,7 @@ func (c *httpClient) BuildICLPrompt(ctx context.Context, req dto.ICLPromptReques
 		return nil, err
 	}
 	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: string(data)}
+		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
 	}
 	var resp dto.ICLPromptResult
 	if err := c.unmarshalJSON(data, &resp); err != nil {
@@ -122,7 +122,7 @@ func (c *httpClient) Search(ctx context.Context, req dto.SearchRequest) (*dto.Se
 		return nil, err
 	}
 	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: string(data)}
+		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
 	}
 	var resp dto.SearchResult
 	if err := c.unmarshalJSON(data, &resp); err != nil {
@@ -150,7 +150,7 @@ func (c *httpClient) ListObservations(ctx context.Context, req dto.ObservationsR
 		return nil, err
 	}
 	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: string(data)}
+		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
 	}
 	var resp dto.ObservationsResponse
 	if err := c.unmarshalJSON(data, &resp); err != nil {
@@ -172,7 +172,7 @@ func (c *httpClient) GetObservationsByIds(ctx context.Context, ids []string) (*d
 		return nil, err
 	}
 	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: string(data)}
+		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
 	}
 	var resp dto.BatchObservationsResponse
 	if err := c.unmarshalJSON(data, &resp); err != nil {
@@ -240,7 +240,7 @@ func (c *httpClient) GetQualityDistribution(ctx context.Context, projectPath str
 		return nil, err
 	}
 	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: string(data)}
+		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
 	}
 	var resp dto.QualityDistribution
 	if err := c.unmarshalJSON(data, &resp); err != nil {
@@ -257,7 +257,7 @@ func (c *httpClient) HealthCheck(ctx context.Context) error {
 		return err
 	}
 	if status >= 400 {
-		return &APIError{StatusCode: status, Message: string(data)}
+		return &APIError{StatusCode: status, Message: extractErrorMessage(data)}
 	}
 	// Verify response body contains status:ok
 	var resp map[string]any
@@ -298,7 +298,7 @@ func (c *httpClient) GetLatestExtraction(ctx context.Context, projectPath, templ
 		return nil, err
 	}
 	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: string(data)}
+		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
 	}
 	var resp dto.ExtractionResult
 	if err := c.unmarshalJSON(data, &resp); err != nil {
@@ -330,7 +330,7 @@ func (c *httpClient) GetExtractionHistory(ctx context.Context, projectPath, temp
 		return nil, err
 	}
 	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: string(data)}
+		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
 	}
 	var resp []dto.ExtractionResult
 	if err := c.unmarshalJSON(data, &resp); err != nil {
@@ -347,7 +347,7 @@ func (c *httpClient) GetVersion(ctx context.Context) (*dto.VersionResponse, erro
 		return nil, err
 	}
 	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: string(data)}
+		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
 	}
 	var resp dto.VersionResponse
 	if err := c.unmarshalJSON(data, &resp); err != nil {
@@ -364,7 +364,7 @@ func (c *httpClient) GetProjects(ctx context.Context) (*dto.ProjectsResponse, er
 		return nil, err
 	}
 	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: string(data)}
+		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
 	}
 	var resp dto.ProjectsResponse
 	if err := c.unmarshalJSON(data, &resp); err != nil {
@@ -383,7 +383,7 @@ func (c *httpClient) GetStats(ctx context.Context, projectPath string) (*dto.Sta
 		return nil, err
 	}
 	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: string(data)}
+		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
 	}
 	var resp dto.StatsResponse
 	if err := c.unmarshalJSON(data, &resp); err != nil {
@@ -398,7 +398,7 @@ func (c *httpClient) GetModes(ctx context.Context) (*dto.ModesResponse, error) {
 		return nil, err
 	}
 	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: string(data)}
+		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
 	}
 	var resp dto.ModesResponse
 	if err := c.unmarshalJSON(data, &resp); err != nil {
@@ -413,7 +413,7 @@ func (c *httpClient) GetSettings(ctx context.Context) (map[string]any, error) {
 		return nil, err
 	}
 	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: string(data)}
+		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
 	}
 	var resp map[string]any
 	if err := c.unmarshalJSON(data, &resp); err != nil {

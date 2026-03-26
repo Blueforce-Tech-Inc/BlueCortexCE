@@ -228,9 +228,38 @@ func (c *httpClient) doRequestNoContentWithParams(ctx context.Context, method, p
 		return err
 	}
 	if status >= 400 {
-		return &APIError{StatusCode: status, Message: string(data)}
+		return &APIError{StatusCode: status, Message: extractErrorMessage(data)}
 	}
 	return nil
+}
+
+// extractErrorMessage parses a JSON error response body and extracts a human-readable message.
+// Falls back to raw body string if parsing fails.
+// Supports common patterns: {"error":"..."}, {"message":"..."}, {"detail":"..."}.
+func extractErrorMessage(data []byte) string {
+	var parsed map[string]any
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		// Not JSON — return raw body (truncated to 200 chars for readability)
+		s := string(data)
+		if len(s) > 200 {
+			return s[:200] + "..."
+		}
+		return s
+	}
+	// Try common error field names (in priority order)
+	for _, key := range []string{"error", "message", "detail"} {
+		if v, ok := parsed[key]; ok {
+			if s, ok := v.(string); ok && s != "" {
+				return s
+			}
+		}
+	}
+	// Fallback: compact JSON representation
+	data2, err := json.Marshal(parsed)
+	if err != nil {
+		return string(data)
+	}
+	return string(data2)
 }
 
 // doFireAndForget executes a capture operation with retry and error swallowing.
