@@ -476,7 +476,7 @@ func main() {
 			return
 		}
 		userId := r.URL.Query().Get("userId")
-		limit := 5
+		limit := 0 // 0 = backend default (10)
 		if l := r.URL.Query().Get("limit"); l != "" {
 			parsed, err := strconv.Atoi(l)
 			if err != nil || parsed < 1 || parsed > 100 {

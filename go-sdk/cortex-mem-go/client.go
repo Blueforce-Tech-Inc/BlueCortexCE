@@ -80,7 +80,7 @@ type Client interface {
 	GetLatestExtraction(ctx context.Context, projectPath, templateName, userID string) (*dto.ExtractionResult, error)
 
 	// GetExtractionHistory gets extraction history.
-	// projectPath and templateName are required. limit must not be negative (0 = backend default).
+	// projectPath and templateName are required. limit <= 0 means use backend default (10).
 	GetExtractionHistory(ctx context.Context, projectPath, templateName, userID string, limit int) ([]dto.ExtractionResult, error)
 
 	// ==================== Version ====================

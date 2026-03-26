@@ -320,7 +320,11 @@ func (c *httpClient) GetExtractionHistory(ctx context.Context, projectPath, temp
 	path := fmt.Sprintf("/api/extraction/%s/history", templateName)
 	params := map[string]string{
 		"projectPath": projectPath,
-		"limit":       fmt.Sprintf("%d", limit),
+	}
+	// Only send limit when > 0; omitting it lets the backend use its default (10).
+	// Sending limit=0 would be clamped to 1 by the backend (not "use default").
+	if limit > 0 {
+		params["limit"] = fmt.Sprintf("%d", limit)
 	}
 	if userID != "" {
 		params["userId"] = userID

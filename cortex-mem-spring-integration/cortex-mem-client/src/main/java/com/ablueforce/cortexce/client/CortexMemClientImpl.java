@@ -286,8 +286,12 @@ public class CortexMemClientImpl implements CortexMemClient {
                 .uri(uriBuilder -> {
                     var builder = uriBuilder
                         .path("/api/extraction/{template}/history")
-                        .queryParam("projectPath", projectPath)
-                        .queryParam("limit", limit);
+                        .queryParam("projectPath", projectPath);
+                    // Only send limit when > 0; omitting lets the backend use its default (10).
+                    // Sending 0 would be clamped to 1 by the backend (not "use default").
+                    if (limit > 0) {
+                        builder.queryParam("limit", limit);
+                    }
                     if (userId != null) {
                         builder.queryParam("userId", userId);
                     }
