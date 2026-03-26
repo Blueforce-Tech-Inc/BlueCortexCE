@@ -303,8 +303,8 @@ func (c *httpClient) unmarshalJSON(data []byte, v any) error {
 }
 
 // isTransient returns true if the error is likely transient and worth retrying.
-// Transient errors: network failures, HTTP 429 (rate limited), HTTP 5xx (server errors).
-// Non-transient errors: HTTP 4xx client errors (bad request, unauthorized, forbidden, etc.).
+// Consistent with IsRetryable(): retries on 429, 502, 503, 504 and network errors.
+// Does NOT retry on 500 (typically a code bug, not a transient failure) or 4xx.
 func isTransient(err error) bool {
 	if err == nil {
 		return false
@@ -314,6 +314,9 @@ func isTransient(err error) bool {
 	if !errors.As(err, &apiErr) {
 		return true
 	}
-	// Retry on 429 (rate limited) and 5xx (server errors)
-	return apiErr.StatusCode == http.StatusTooManyRequests || apiErr.StatusCode >= 500
+	// Retry on 429 (rate limited), 502, 503, 504 — NOT 500
+	return apiErr.StatusCode == http.StatusTooManyRequests ||
+		apiErr.StatusCode == http.StatusBadGateway ||
+		apiErr.StatusCode == http.StatusServiceUnavailable ||
+		apiErr.StatusCode == http.StatusGatewayTimeout
 }

@@ -46,15 +46,19 @@ type Client interface {
 	// ==================== Management ====================
 
 	// TriggerRefinement triggers memory refinement.
+	// projectPath is required.
 	TriggerRefinement(ctx context.Context, projectPath string) error
 
 	// SubmitFeedback submits feedback.
+	// observationID and feedbackType are required.
 	SubmitFeedback(ctx context.Context, observationID, feedbackType, comment string) error
 
 	// UpdateObservation updates an observation.
+	// observationID is required.
 	UpdateObservation(ctx context.Context, observationID string, update dto.ObservationUpdate) error
 
 	// DeleteObservation deletes an observation.
+	// observationID is required.
 	DeleteObservation(ctx context.Context, observationID string) error
 
 	// GetQualityDistribution gets quality distribution.
@@ -68,12 +72,15 @@ type Client interface {
 	// ==================== Extraction ====================
 
 	// TriggerExtraction manually triggers extraction for a project. POST /api/extraction/run
+	// projectPath is required.
 	TriggerExtraction(ctx context.Context, projectPath string) error
 
 	// GetLatestExtraction gets latest extraction result.
+	// projectPath and templateName are required.
 	GetLatestExtraction(ctx context.Context, projectPath, templateName, userID string) (*dto.ExtractionResult, error)
 
 	// GetExtractionHistory gets extraction history.
+	// projectPath and templateName are required. limit must not be negative (0 = backend default).
 	GetExtractionHistory(ctx context.Context, projectPath, templateName, userID string, limit int) ([]dto.ExtractionResult, error)
 
 	// ==================== Version ====================

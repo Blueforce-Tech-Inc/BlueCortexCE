@@ -192,6 +192,12 @@ func (c *httpClient) TriggerRefinement(ctx context.Context, projectPath string) 
 }
 
 func (c *httpClient) SubmitFeedback(ctx context.Context, observationID, feedbackType, comment string) error {
+	if observationID == "" {
+		return fmt.Errorf("cortex-ce: observationID is required")
+	}
+	if feedbackType == "" {
+		return fmt.Errorf("cortex-ce: feedbackType is required")
+	}
 	// Backend expects camelCase: observationId, feedbackType
 	// NOT fire-and-forget: explicit user action, errors must propagate.
 	req := dto.FeedbackRequest{
@@ -203,12 +209,18 @@ func (c *httpClient) SubmitFeedback(ctx context.Context, observationID, feedback
 }
 
 func (c *httpClient) UpdateObservation(ctx context.Context, observationID string, update dto.ObservationUpdate) error {
+	if observationID == "" {
+		return fmt.Errorf("cortex-ce: observationID is required")
+	}
 	// NOT fire-and-forget: explicit user action, errors must propagate.
 	path := fmt.Sprintf("/api/memory/observations/%s", observationID)
 	return c.doRequestNoContent(ctx, http.MethodPatch, path, update)
 }
 
 func (c *httpClient) DeleteObservation(ctx context.Context, observationID string) error {
+	if observationID == "" {
+		return fmt.Errorf("cortex-ce: observationID is required")
+	}
 	// NOT fire-and-forget: explicit user action, errors must propagate.
 	path := fmt.Sprintf("/api/memory/observations/%s", observationID)
 	return c.doRequestNoContent(ctx, http.MethodDelete, path, nil)
@@ -257,11 +269,20 @@ func (c *httpClient) HealthCheck(ctx context.Context) error {
 // ==================== Extraction ====================
 
 func (c *httpClient) TriggerExtraction(ctx context.Context, projectPath string) error {
+	if projectPath == "" {
+		return fmt.Errorf("cortex-ce: projectPath is required")
+	}
 	return c.doRequestNoContentWithParams(ctx, http.MethodPost, "/api/extraction/run", nil,
 		map[string]string{"projectPath": projectPath})
 }
 
 func (c *httpClient) GetLatestExtraction(ctx context.Context, projectPath, templateName, userID string) (*dto.ExtractionResult, error) {
+	if projectPath == "" {
+		return nil, fmt.Errorf("cortex-ce: projectPath is required")
+	}
+	if templateName == "" {
+		return nil, fmt.Errorf("cortex-ce: templateName is required")
+	}
 	path := fmt.Sprintf("/api/extraction/%s/latest", templateName)
 	params := map[string]string{
 		"projectPath": projectPath,
@@ -284,6 +305,15 @@ func (c *httpClient) GetLatestExtraction(ctx context.Context, projectPath, templ
 }
 
 func (c *httpClient) GetExtractionHistory(ctx context.Context, projectPath, templateName, userID string, limit int) ([]dto.ExtractionResult, error) {
+	if projectPath == "" {
+		return nil, fmt.Errorf("cortex-ce: projectPath is required")
+	}
+	if templateName == "" {
+		return nil, fmt.Errorf("cortex-ce: templateName is required")
+	}
+	if limit < 0 {
+		return nil, fmt.Errorf("cortex-ce: limit must not be negative")
+	}
 	path := fmt.Sprintf("/api/extraction/%s/history", templateName)
 	params := map[string]string{
 		"projectPath": projectPath,

@@ -1258,7 +1258,7 @@ func TestFireAndForget_RetryOnFailure(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		attempts++
 		if attempts < 3 {
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(http.StatusServiceUnavailable) // 503 — transient, retryable
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -1287,7 +1287,7 @@ func TestFireAndForget_ExhaustsRetries(t *testing.T) {
 	attempts := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		attempts++
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusServiceUnavailable) // 503 — transient, retryable
 	}))
 	defer server.Close()
 
@@ -1366,6 +1366,33 @@ func TestFireAndForget_RetryOn429(t *testing.T) {
 	}
 	if attempts != 3 {
 		t.Errorf("expected 3 attempts (retry on 429), got %d", attempts)
+	}
+}
+
+func TestFireAndForget_NoRetryOn500(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		w.WriteHeader(http.StatusInternalServerError) // 500 — code bug, NOT retryable
+		w.Write([]byte("internal error"))
+	}))
+	defer server.Close()
+
+	client := cortexmem.NewClient(
+		cortexmem.WithBaseURL(server.URL),
+		cortexmem.WithMaxRetries(3),
+	)
+
+	err := client.RecordObservation(context.Background(), dto.ObservationRequest{
+		SessionID:   "sess-1",
+		ProjectPath: "/project",
+		ToolName:    "Read",
+	})
+	if err != nil {
+		t.Fatalf("fire-and-forget should swallow error: %v", err)
+	}
+	if attempts != 1 {
+		t.Errorf("expected 1 attempt (no retry on 500), got %d", attempts)
 	}
 }
 
@@ -1457,7 +1484,7 @@ func TestFireAndForget_CustomBackoff(t *testing.T) {
 		attempts++
 		timestamps = append(timestamps, time.Now())
 		if attempts < 3 {
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(http.StatusServiceUnavailable) // 503 — transient, retryable
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
