@@ -1815,6 +1815,161 @@ func TestIsServerError(t *testing.T) {
 	}
 }
 
+// ==================== IsRetryable Tests ====================
+
+func TestIsRetryable_RateLimited(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+		w.Write([]byte(`{"error":"rate limited"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 429")
+	}
+	if !cortexmem.IsRetryable(err) {
+		t.Error("429 should be retryable")
+	}
+}
+
+func TestIsRetryable_BadGateway(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+		w.Write([]byte(`{"error":"bad gateway"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 502")
+	}
+	if !cortexmem.IsRetryable(err) {
+		t.Error("502 should be retryable")
+	}
+}
+
+func TestIsRetryable_ServiceUnavailable(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte(`{"error":"unavailable"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 503")
+	}
+	if !cortexmem.IsRetryable(err) {
+		t.Error("503 should be retryable")
+	}
+}
+
+func TestIsRetryable_GatewayTimeout(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusGatewayTimeout)
+		w.Write([]byte(`{"error":"timeout"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 504")
+	}
+	if !cortexmem.IsRetryable(err) {
+		t.Error("504 should be retryable")
+	}
+}
+
+func TestIsRetryable_NotRetryable_ClientErrors(t *testing.T) {
+	testCases := []struct {
+		status int
+		name   string
+	}{
+		{400, "BadRequest"},
+		{401, "Unauthorized"},
+		{403, "Forbidden"},
+		{404, "NotFound"},
+		{409, "Conflict"},
+		{422, "Unprocessable"},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tc.status)
+				w.Write([]byte(`{"error":"test"}`))
+			}))
+			defer server.Close()
+
+			client := newTestClient(server)
+			_, err := client.GetVersion(context.Background())
+			if cortexmem.IsRetryable(err) {
+				t.Errorf("status %d should NOT be retryable", tc.status)
+			}
+		})
+	}
+}
+
+func TestIsRetryable_NotRetryable_Internal500(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error":"internal"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 500")
+	}
+	// 500 is NOT retryable (it's a code bug, not a transient failure)
+	if cortexmem.IsRetryable(err) {
+		t.Error("500 should NOT be retryable (code bug, not transient)")
+	}
+}
+
+func TestIsRetryable_SentinelFallback(t *testing.T) {
+	// Direct sentinel errors should also match
+	if !cortexmem.IsRetryable(cortexmem.ErrRateLimited) {
+		t.Error("ErrRateLimited should be retryable")
+	}
+	if !cortexmem.IsRetryable(cortexmem.ErrBadGateway) {
+		t.Error("ErrBadGateway should be retryable")
+	}
+	if !cortexmem.IsRetryable(cortexmem.ErrServiceUnavailable) {
+		t.Error("ErrServiceUnavailable should be retryable")
+	}
+	if !cortexmem.IsRetryable(cortexmem.ErrGatewayTimeout) {
+		t.Error("ErrGatewayTimeout should be retryable")
+	}
+	// Non-retryable sentinels
+	if cortexmem.IsRetryable(cortexmem.ErrInternal) {
+		t.Error("ErrInternal should NOT be retryable")
+	}
+	if cortexmem.IsRetryable(cortexmem.ErrNotFound) {
+		t.Error("ErrNotFound should NOT be retryable")
+	}
+	if cortexmem.IsRetryable(cortexmem.ErrBadRequest) {
+		t.Error("ErrBadRequest should NOT be retryable")
+	}
+}
+
+func TestIsRetryable_NilError(t *testing.T) {
+	if cortexmem.IsRetryable(nil) {
+		t.Error("IsRetryable(nil) should be false")
+	}
+}
+
+func TestIsRetryable_GenericError(t *testing.T) {
+	if cortexmem.IsRetryable(errors.New("random error")) {
+		t.Error("IsRetryable should return false for generic error")
+	}
+}
+
 // ==================== APIError.Unwrap() Tests ====================
 // These tests verify that errors.Is() and errors.As() work correctly
 // through the APIError → sentinel error chain.

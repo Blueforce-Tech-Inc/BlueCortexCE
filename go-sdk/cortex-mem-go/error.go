@@ -127,13 +127,20 @@ func IsUnprocessable(err error) bool {
 	return errors.Is(err, ErrUnprocessable)
 }
 
-// IsInternal returns true if the error is a 5xx server error.
+// IsInternal returns true if the error is a 5xx server error (500, 502, 503, 504, etc).
 func IsInternal(err error) bool {
 	var apiErr *APIError
 	if errors.As(err, &apiErr) {
 		return apiErr.StatusCode >= 500
 	}
 	return errors.Is(err, ErrInternal)
+}
+
+// IsRetryable returns true if the error is likely transient and the request can be retried.
+// Matches: 429 (rate limited), 502 (bad gateway), 503 (service unavailable), 504 (gateway timeout).
+// Does NOT match 500 (internal server error) — that's typically a code bug, not a transient failure.
+func IsRetryable(err error) bool {
+	return IsRateLimited(err) || IsBadGateway(err) || IsServiceUnavailable(err) || IsGatewayTimeout(err)
 }
 
 // IsBadGateway returns true if the error is a 502.
@@ -173,8 +180,7 @@ func IsClientError(err error) bool {
 }
 
 // IsServerError returns true if the error is a 5xx server error.
-// Note: this checks >= 500 range, while IsInternal also checks >= 500.
-// Both are equivalent, but IsServerError is the more descriptive name.
+// This is an alias for IsInternal — prefer IsInternal for clarity.
 func IsServerError(err error) bool {
 	return IsInternal(err)
 }
