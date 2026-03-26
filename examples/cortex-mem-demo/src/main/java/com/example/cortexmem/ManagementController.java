@@ -78,6 +78,20 @@ public class ManagementController {
     }
 
     /**
+     * GET /demo/manage/projects
+     */
+    @GetMapping(value = "/projects", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> getProjects() {
+        try {
+            Map<String, Object> result = client.getProjects();
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Get projects failed: " + e.getMessage()));
+        }
+    }
+
+    /**
      * GET /demo/manage/health
      */
     @GetMapping(value = "/health", produces = MediaType.APPLICATION_JSON_VALUE)
