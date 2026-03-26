@@ -181,6 +181,9 @@ func (c *httpClient) GetObservationsByIds(ctx context.Context, ids []string) (*d
 // ==================== Management ====================
 
 func (c *httpClient) TriggerRefinement(ctx context.Context, projectPath string) error {
+	if projectPath == "" {
+		return fmt.Errorf("cortex-ce: projectPath is required")
+	}
 	// Backend expects "project" as QUERY PARAM (not body).
 	// Verified: POST /api/memory/refine?project=/path
 	// NOT fire-and-forget: this is an explicit user action, errors must propagate.
@@ -212,6 +215,9 @@ func (c *httpClient) DeleteObservation(ctx context.Context, observationID string
 }
 
 func (c *httpClient) GetQualityDistribution(ctx context.Context, projectPath string) (*dto.QualityDistribution, error) {
+	if projectPath == "" {
+		return nil, fmt.Errorf("cortex-ce: projectPath is required")
+	}
 	// Backend expects "project" as QUERY PARAM
 	params := map[string]string{"project": projectPath}
 	data, status, err := c.doRequest(ctx, http.MethodGet, "/api/memory/quality-distribution", nil, params)

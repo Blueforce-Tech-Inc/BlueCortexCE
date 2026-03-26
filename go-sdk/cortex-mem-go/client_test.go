@@ -3218,6 +3218,28 @@ func TestGetObservationsByIds_Validation_NilIDs(t *testing.T) {
 	}
 }
 
+func TestTriggerRefinement_Validation_EmptyProjectPath(t *testing.T) {
+	client := cortexmem.NewClient()
+	err := client.TriggerRefinement(context.Background(), "")
+	if err == nil {
+		t.Fatal("TriggerRefinement should fail with empty projectPath")
+	}
+	if !strings.Contains(err.Error(), "projectPath is required") {
+		t.Errorf("expected validation error about projectPath, got: %v", err)
+	}
+}
+
+func TestGetQualityDistribution_Validation_EmptyProjectPath(t *testing.T) {
+	client := cortexmem.NewClient()
+	_, err := client.GetQualityDistribution(context.Background(), "")
+	if err == nil {
+		t.Fatal("GetQualityDistribution should fail with empty projectPath")
+	}
+	if !strings.Contains(err.Error(), "projectPath is required") {
+		t.Errorf("expected validation error about projectPath, got: %v", err)
+	}
+}
+
 // ==================== DefaultConfig Verification ====================
 
 func TestDefaultClientConfig_VerifyAllDefaults(t *testing.T) {
