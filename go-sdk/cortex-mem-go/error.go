@@ -137,6 +137,29 @@ func IsInternal(err error) bool {
 }
 
 // IsRetryable returns true if the error is likely transient and the request can be retried.
+//
+// Knowledge: HTTP status codes and retry strategy
+//
+//   - 429 (Too Many Requests): The server is rate-limiting us. This is explicitly transient —
+//     retrying after a delay (ideally respecting Retry-After header) will likely succeed.
+//
+//   - 502 (Bad Gateway): The upstream server (e.g., a reverse proxy like Nginx) received an
+//     invalid response from the backend server. This usually means the backend crashed or
+//     restarted mid-request. Retrying will route to a (hopefully healthy) new instance.
+//
+//   - 503 (Service Unavailable): The server is temporarily unable to handle the request,
+//     often due to being overloaded or undergoing maintenance. This is explicitly designed
+//     to be temporary — RFC 7231 says clients SHOULD retry after the delay in Retry-After.
+//
+//   - 504 (Gateway Timeout): The upstream server didn't get a response from the backend
+//     in time. Similar to 502, the backend may be slow or crashed. Retrying gives it
+//     another chance to respond within the timeout window.
+//
+//   - 500 (Internal Server Error): NOT retryable by default. This is a code bug on the
+//     server side — retrying the same request will almost certainly produce the same error.
+//     Only retry 500 if you have specific knowledge that the error is transient (e.g.,
+//     database connection pool exhaustion).
+//
 // Matches:
 //   - Network/transport errors (non-HTTP, non-sentinel): connection refused, timeouts, DNS failures, etc.
 //   - 429 (rate limited), 502 (bad gateway), 503 (service unavailable), 504 (gateway timeout).

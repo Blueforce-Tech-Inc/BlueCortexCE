@@ -305,6 +305,12 @@ func (c *httpClient) unmarshalJSON(data []byte, v any) error {
 // isTransient returns true if the error is likely transient and worth retrying.
 // Consistent with IsRetryable(): retries on 429, 502, 503, 504 and network errors.
 // Does NOT retry on 500 (typically a code bug, not a transient failure) or 4xx.
+//
+// Why these specific codes are retryable:
+//   - 429: Rate limiting — back off and retry after delay.
+//   - 502: Reverse proxy got invalid response from backend (crash/restart).
+//   - 503: Server temporarily overloaded or in maintenance (RFC 7231: SHOULD retry).
+//   - 504: Backend didn't respond in time (slow/crashed) — retry gives another chance.
 func isTransient(err error) bool {
 	if err == nil {
 		return false

@@ -35,6 +35,15 @@ public class SearchController {
             @RequestParam(defaultValue = "10") Integer limit,
             @RequestParam(defaultValue = "0") Integer offset) {
 
+        if (limit < 0 || limit > 100) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "limit must be between 0 and 100"));
+        }
+        if (offset < 0) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "offset must be non-negative"));
+        }
+
         try {
             SearchRequest request = SearchRequest.builder()
                     .project(project)

@@ -573,8 +573,8 @@ func main() {
 		writeJSON(w, result)
 	})
 
-	// --- POST /observation ---
-	mux.HandleFunc("/observation", func(w http.ResponseWriter, r *http.Request) {
+	// --- POST /observations/create ---
+	mux.HandleFunc("/observations/create", func(w http.ResponseWriter, r *http.Request) {
 		if !checkMethod(w, r, http.MethodPost) {
 			return
 		}
@@ -618,8 +618,8 @@ func main() {
 		writeJSON(w, map[string]string{"status": "recorded"})
 	})
 
-	// --- PATCH /observation/patch ---
-	mux.HandleFunc("/observation/patch", func(w http.ResponseWriter, r *http.Request) {
+	// --- PATCH /observations/update ---
+	mux.HandleFunc("/observations/update", func(w http.ResponseWriter, r *http.Request) {
 		if !checkMethod(w, r, http.MethodPatch) {
 			return
 		}
@@ -672,8 +672,8 @@ func main() {
 		writeJSON(w, map[string]string{"status": "updated"})
 	})
 
-	// --- DELETE /observation/delete ---
-	mux.HandleFunc("/observation/delete", func(w http.ResponseWriter, r *http.Request) {
+	// --- DELETE /observations/delete ---
+	mux.HandleFunc("/observations/delete", func(w http.ResponseWriter, r *http.Request) {
 		if !checkMethod(w, r, http.MethodDelete) {
 			return
 		}
@@ -780,9 +780,9 @@ func main() {
 	fmt.Println("  POST   /refine              - Trigger memory refinement")
 	fmt.Println("  POST   /feedback            - Submit observation feedback")
 	fmt.Println("  PATCH  /session/user        - Update session user ID")
-	fmt.Println("  PATCH  /observation/patch   - Update observation")
-	fmt.Println("  DELETE /observation/delete  - Delete observation")
-	fmt.Println("  POST   /observation         - Record observation")
+	fmt.Println("  PATCH  /observations/update - Update observation")
+	fmt.Println("  DELETE /observations/delete - Delete observation")
+	fmt.Println("  POST   /observations/create - Record observation")
 	fmt.Println("  POST   /ingest/prompt       - Ingest user prompt")
 	fmt.Println("  POST   /ingest/session-end  - Ingest session end")
 

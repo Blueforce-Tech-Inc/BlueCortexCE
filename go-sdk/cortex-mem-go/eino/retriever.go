@@ -71,7 +71,7 @@ func NewRetriever(client cortexmem.Client, project string, opts ...RetrieverOpti
 // as Experience objects compatible with Eino's retriever pattern.
 func (r *Retriever) Retrieve(ctx context.Context, query string, _ ...any) ([]dto.Experience, error) {
 	if query == "" {
-		return nil, nil
+		return []dto.Experience{}, nil
 	}
 	experiences, err := r.client.RetrieveExperiences(ctx, dto.ExperienceRequest{
 		Task:    query,

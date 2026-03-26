@@ -32,6 +32,19 @@ public class ObservationsController {
             @RequestParam(defaultValue = "10") Integer limit,
             @RequestParam(defaultValue = "0") Integer offset) {
 
+        if (project == null || project.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "project is required"));
+        }
+        if (limit < 0 || limit > 100) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "limit must be between 0 and 100"));
+        }
+        if (offset < 0) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "offset must be non-negative"));
+        }
+
         try {
             ObservationsRequest request = ObservationsRequest.builder()
                     .project(project)
@@ -59,6 +72,9 @@ public class ObservationsController {
         List<String> ids = body.get("ids");
         if (ids == null || ids.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "ids must not be empty"));
+        }
+        if (ids.size() > 100) {
+            return ResponseEntity.badRequest().body(Map.of("error", "batch size exceeds maximum of 100"));
         }
 
         try {
