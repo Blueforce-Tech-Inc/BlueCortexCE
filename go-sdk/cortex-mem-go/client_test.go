@@ -456,6 +456,7 @@ func TestSearch(t *testing.T) {
 				{ID: "obs-1", Content: "test"},
 			},
 			Strategy: "hybrid",
+			FellBack: false,
 			Count:    1,
 		})
 	}))
@@ -475,6 +476,40 @@ func TestSearch(t *testing.T) {
 	}
 	if result.Strategy != "hybrid" {
 		t.Errorf("expected strategy=hybrid, got %s", result.Strategy)
+	}
+	if result.FellBack {
+		t.Error("expected fell_back=false for hybrid strategy")
+	}
+}
+
+func TestSearch_FellBack_True(t *testing.T) {
+	// When vector search fails, backend falls back to keyword search (fell_back=true)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(dto.SearchResult{
+			Observations: []dto.Observation{
+				{ID: "obs-1", Content: "keyword match"},
+			},
+			Strategy: "keyword",
+			FellBack: true,
+			Count:    1,
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	result, err := client.Search(context.Background(), dto.SearchRequest{
+		Project: "/project",
+		Query:   "test",
+	})
+	if err != nil {
+		t.Fatalf("Search failed: %v", err)
+	}
+	if !result.FellBack {
+		t.Error("expected fell_back=true when vector search falls back to keyword")
+	}
+	if result.Strategy != "keyword" {
+		t.Errorf("expected strategy=keyword, got %s", result.Strategy)
 	}
 }
 

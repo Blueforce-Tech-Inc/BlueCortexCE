@@ -5,6 +5,33 @@ import (
 	"testing"
 )
 
+// ==================== SearchResult Wire Format Tests ====================
+
+func TestSearchResult_FellBack_Deserialization(t *testing.T) {
+	jsonData := `{"observations":[],"strategy":"keyword","fell_back":true,"count":0}`
+	var result SearchResult
+	if err := json.Unmarshal([]byte(jsonData), &result); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if !result.FellBack {
+		t.Error("expected fell_back=true from JSON deserialization")
+	}
+	if result.Strategy != "keyword" {
+		t.Errorf("expected strategy=keyword, got %s", result.Strategy)
+	}
+}
+
+func TestSearchResult_FellBack_False_Default(t *testing.T) {
+	jsonData := `{"observations":[],"strategy":"hybrid","count":0}`
+	var result SearchResult
+	if err := json.Unmarshal([]byte(jsonData), &result); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if result.FellBack {
+		t.Error("expected fell_back=false when not present in JSON")
+	}
+}
+
 // ==================== QualityDistribution Tests ====================
 
 func TestQualityDistribution_Total(t *testing.T) {

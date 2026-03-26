@@ -119,3 +119,52 @@ func TestRetrieve_CustomLogger(t *testing.T) {
 		t.Error("expected error to be logged")
 	}
 }
+
+func TestRetrieve_PassesProjectAndOptions(t *testing.T) {
+	// Verify that project and options from retriever config are passed to the client
+	var capturedReq dto.ExperienceRequest
+	mock := &mockClient{}
+	mock.retrieveErr = nil
+	// Override to capture the request
+	captureMock := &captureClient{req: &capturedReq}
+	r := NewRetriever(captureMock, "/eino/project",
+		WithRetrieverCount(8),
+		WithRetrieverSource("eino-source"),
+		WithRetrieverUserID("eino-user"),
+	)
+	result, err := r.Retrieve(context.Background(), "test query")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if capturedReq.Project != "/eino/project" {
+		t.Errorf("expected project='/eino/project', got %q", capturedReq.Project)
+	}
+	if capturedReq.Task != "test query" {
+		t.Errorf("expected task='test query', got %q", capturedReq.Task)
+	}
+	if capturedReq.Count != 8 {
+		t.Errorf("expected count=8, got %d", capturedReq.Count)
+	}
+	if capturedReq.Source != "eino-source" {
+		t.Errorf("expected source='eino-source', got %q", capturedReq.Source)
+	}
+	if capturedReq.UserID != "eino-user" {
+		t.Errorf("expected userID='eino-user', got %q", capturedReq.UserID)
+	}
+	if len(result) != 1 {
+		t.Errorf("expected 1 result, got %d", len(result))
+	}
+}
+
+// captureClient captures the ExperienceRequest for assertion.
+type captureClient struct {
+	cortexmem.Client
+	req *dto.ExperienceRequest
+}
+
+func (m *captureClient) RetrieveExperiences(_ context.Context, req dto.ExperienceRequest) ([]dto.Experience, error) {
+	*m.req = req
+	return []dto.Experience{{Task: "test", Strategy: "s", Outcome: "o"}}, nil
+}
+
+func (m *captureClient) Close() error { return nil }
