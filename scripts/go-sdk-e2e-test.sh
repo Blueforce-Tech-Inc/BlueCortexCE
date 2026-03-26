@@ -486,7 +486,7 @@ echo "  ✅ Chain verification: Test → Demo → Go SDK → Backend"
 info "Test 27: POST /observations/batch — Batch get observations"
 BATCH_RESP=$(curl -sf --max-time 10 -X POST "$DEMO_BASE/observations/batch" \
     -H "Content-Type: application/json" \
-    -d "{\"project\": \"$PROJECT\", \"ids\": [\"test-id\"]}" 2>/dev/null || echo "FAIL")
+    -d '{"ids": ["test-id"]}' 2>/dev/null || echo "FAIL")
 if [ "$BATCH_RESP" = "FAIL" ]; then
     fail "POST /observations/batch" "Connection failed or timed out"
 else
@@ -632,11 +632,9 @@ else
     echo ""
     echo "--- Extraction Scenario Tests (EXTRACTION_ENABLED=true) ---"
 
-    # Test E1: Run extraction (user_preferences for alice)
-    info "Test E1: POST /extraction/run — Trigger extraction for user_preferences"
-    RUN_RESP=$(curl -sf --max-time 30 -X POST "$BACKEND_URL/api/extraction/run" \
-        -H "Content-Type: application/json" \
-        -d "{\"project\": \"$PROJECT\", \"template\": \"user_preferences\", \"userId\": \"alice\"}" 2>/dev/null || echo "FAIL")
+    # Test E1: Run extraction for project
+    info "Test E1: POST /extraction/run — Trigger extraction"
+    RUN_RESP=$(curl -sf --max-time 30 -X POST "$BACKEND_URL/api/extraction/run?projectPath=$PROJECT" 2>/dev/null || echo "FAIL")
     if [ "$RUN_RESP" = "FAIL" ]; then
         fail "POST /extraction/run" "Request timed out or failed"
     elif echo "$RUN_RESP" | grep -qi "error\|failed"; then
@@ -684,9 +682,7 @@ else
 
     # Test E5: Re-extraction (should merge or update existing)
     info "Test E5: Re-extraction — Trigger extraction again, should update existing"
-    RE_RUN=$(curl -sf --max-time 30 -X POST "$BACKEND_URL/api/extraction/run" \
-        -H "Content-Type: application/json" \
-        -d "{\"project\": \"$PROJECT\", \"template\": \"user_preferences\", \"userId\": \"alice\"}" 2>/dev/null || echo "FAIL")
+    RE_RUN=$(curl -sf --max-time 30 -X POST "$BACKEND_URL/api/extraction/run?projectPath=$PROJECT" 2>/dev/null || echo "FAIL")
     if [ "$RE_RUN" = "FAIL" ]; then
         fail "Re-extraction" "Request timed out or failed"
     else
