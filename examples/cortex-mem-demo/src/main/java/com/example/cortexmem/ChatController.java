@@ -5,10 +5,10 @@ import com.ablueforce.cortexce.ai.advisor.CortexSessionContextBridgeAdvisor;
 import com.ablueforce.cortexce.ai.context.CortexSessionContext;
 import com.ablueforce.cortexce.ai.tools.CortexMemoryTools;
 import com.ablueforce.cortexce.client.CortexMemClient;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -37,19 +37,19 @@ public class ChatController {
     private final CortexMemoryAdvisor defaultAdvisor;
     private final CortexMemClient cortexClient;
     private final DemoProperties demoProperties;
-
-    @Autowired(required = false)
-    private CortexSessionContextBridgeAdvisor contextBridgeAdvisor;
-
-    @Autowired(required = false)
-    private CortexMemoryTools memoryTools;
+    private final CortexSessionContextBridgeAdvisor contextBridgeAdvisor; // nullable
+    private final CortexMemoryTools memoryTools; // nullable
 
     public ChatController(ChatClient.Builder builder, CortexMemoryAdvisor advisor,
-                          CortexMemClient cortexClient, DemoProperties demoProperties) {
+                          CortexMemClient cortexClient, DemoProperties demoProperties,
+                          @Nullable CortexSessionContextBridgeAdvisor contextBridgeAdvisor,
+                          @Nullable CortexMemoryTools memoryTools) {
         this.chatClientBuilder = builder;
         this.defaultAdvisor = advisor;
         this.cortexClient = cortexClient;
         this.demoProperties = demoProperties;
+        this.contextBridgeAdvisor = contextBridgeAdvisor;
+        this.memoryTools = memoryTools;
     }
 
     @GetMapping("/chat")

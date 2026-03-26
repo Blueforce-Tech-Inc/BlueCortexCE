@@ -138,14 +138,15 @@ public class MemoryController {
             @RequestParam String task,
             @RequestParam(defaultValue = "/") String project,
             @RequestParam(defaultValue = "4000") int maxChars) {
+        String projectPath = resolveProject(project);
         try {
             return ResponseEntity.ok(cortexClient.buildICLPrompt(ICLPromptRequest.builder()
                 .task(task)
-                .project(resolveProject(project))
+                .project(projectPath)
                 .maxChars(maxChars)
                 .build()));
         } catch (Exception e) {
-            log.error("ICL prompt truncated failed for project={}", resolveProject(project), e);
+            log.error("ICL prompt truncated failed for project={}", projectPath, e);
             return ResponseEntity.internalServerError()
                     .body(new ICLPromptResult("", 0));
         }
@@ -237,23 +238,24 @@ public class MemoryController {
      */
     @GetMapping("/memory/health")
     public ResponseEntity<Map<String, Object>> getMemoryHealth(@RequestParam(defaultValue = "/") String project) {
+        String projectPath = resolveProject(project);
         try {
             List<Experience> experiences = cortexClient.retrieveExperiences(
                 ExperienceRequest.builder()
                     .task("health check")
-                    .project(resolveProject(project))
+                    .project(projectPath)
                     .count(1)
                     .build());
 
             return ResponseEntity.ok(Map.of(
                 "status", "ok",
-                "project", resolveProject(project),
+                "project", projectPath,
                 "sample_retrieval", experiences.size() > 0 ? "working" : "empty"
             ));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of(
                 "status", "error",
-                "project", resolveProject(project),
+                "project", projectPath,
                 "error", e.getMessage()
             ));
         }
