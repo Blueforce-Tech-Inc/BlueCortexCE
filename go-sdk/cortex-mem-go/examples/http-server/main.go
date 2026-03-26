@@ -110,8 +110,10 @@ func main() {
 			return
 		}
 		var req struct {
-			Project string `json:"project"`
-			Message string `json:"message"`
+			Project  string `json:"project"`
+			Message  string `json:"message"`
+			UserId   string `json:"userId,omitempty"`
+			MaxChars int    `json:"maxChars,omitempty"`
 		}
 		if err := readJSON(r, &req); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
@@ -125,11 +127,25 @@ func main() {
 			writeJSONError(w, http.StatusBadRequest, "message is required")
 			return
 		}
-		writeJSON(w, map[string]any{
+
+		// Build ICL prompt from memory to augment the response with context.
+		iclResult, iclErr := client.BuildICLPrompt(r.Context(), dto.ICLPromptRequest{
+			Task:     req.Message,
+			Project:  req.Project,
+			MaxChars: req.MaxChars,
+			UserID:   req.UserId,
+		})
+
+		resp := map[string]any{
 			"response":  fmt.Sprintf("Received: %s", req.Message),
 			"project":   req.Project,
 			"timestamp": time.Now().Format(time.RFC3339),
-		})
+		}
+		if iclErr == nil && iclResult.Prompt != "" {
+			resp["memoryContext"] = iclResult.Prompt
+			resp["experienceCount"] = iclResult.ExperienceCount
+		}
+		writeJSON(w, resp)
 	})
 
 	// --- GET /search ---
@@ -746,7 +762,7 @@ func main() {
 	fmt.Printf("🚀 Go SDK HTTP server starting on %s\n", addr)
 	fmt.Println("Endpoints:")
 	fmt.Println("  GET    /health              - Health check")
-	fmt.Println("  POST   /chat                - Chat with memory")
+	fmt.Println("  POST   /chat                - Chat with memory (project, message, userId?, maxChars?)")
 	fmt.Println("  GET    /search              - Search observations")
 	fmt.Println("  GET    /version             - Backend version")
 	fmt.Println("  GET    /experiences         - Retrieve experiences")
