@@ -69,12 +69,24 @@ func recovery(next http.Handler) http.Handler {
 	})
 }
 
-// requestLogger wraps an http.Handler to log request method, path, and duration.
+// statusRecorder wraps http.ResponseWriter to capture the response status code.
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (sr *statusRecorder) WriteHeader(code int) {
+	sr.status = code
+	sr.ResponseWriter.WriteHeader(code)
+}
+
+// requestLogger wraps an http.Handler to log request method, path, status, and duration.
 func requestLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		start := time.Now()
-		next.ServeHTTP(w, r)
-		log.Printf("%s %s (%s)", r.Method, r.URL.Path, time.Since(start))
+		next.ServeHTTP(rec, r)
+		log.Printf("%s %s %d (%s)", r.Method, r.URL.Path, rec.status, time.Since(start))
 	})
 }
 
