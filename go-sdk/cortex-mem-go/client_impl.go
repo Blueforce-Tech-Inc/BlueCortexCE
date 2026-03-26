@@ -260,7 +260,11 @@ func (c *httpClient) doFireAndForget(ctx context.Context, name string, fn func()
 			// Linear backoff with jitter (±25%) to prevent thundering herd.
 			// Base delay = RetryBackoff * attempt, jittered to [0.75x, 1.25x].
 			baseDelay := c.config.RetryBackoff * time.Duration(attempt)
-			jitter := time.Duration(rand.Int63n(int64(baseDelay)/2)) - baseDelay/4
+			jitterRange := int64(baseDelay) / 2
+			var jitter time.Duration
+			if jitterRange > 0 {
+				jitter = time.Duration(rand.Int63n(jitterRange)) - baseDelay/4
+			}
 			delay := baseDelay + jitter
 			if delay < 0 {
 				delay = 0
