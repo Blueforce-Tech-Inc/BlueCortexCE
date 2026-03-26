@@ -7,7 +7,7 @@ package dto
 // The client constructs query params manually from these fields (no json tags needed).
 // Verified against backend ObservationController.java.
 type ObservationsRequest struct {
-	Project string // Optional: project path filter
+	Project string // Required: project path for scoping (validated by client)
 	Offset  int    // Optional: pagination offset (0 = start)
 	Limit   int    // Optional: max results per page (0 = backend default)
 }

@@ -2980,6 +2980,17 @@ func TestGetObservationsByIds_PropagatesError(t *testing.T) {
 	}
 }
 
+func TestGetExtractionHistory_NegativeLimit(t *testing.T) {
+	client := cortexmem.NewClient()
+	_, err := client.GetExtractionHistory(context.Background(), "/project", "user-prefs", "user-1", -1)
+	if err == nil {
+		t.Fatal("GetExtractionHistory should fail with negative limit")
+	}
+	if !strings.Contains(err.Error(), "limit must not be negative") {
+		t.Errorf("expected negative limit error, got: %v", err)
+	}
+}
+
 func TestGetExtractionHistory_ZeroLimit(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// limit=0 should be omitted (backend clamps 0→1, so we let it use the default)
