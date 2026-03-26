@@ -5,7 +5,6 @@ import com.ablueforce.cortexce.service.AgentService;
 import com.ablueforce.cortexce.service.SSEBroadcaster;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,14 +27,17 @@ public class StreamController {
     @Value("${claudemem.sse.timeout-ms:1800000}")
     private long sseTimeout;
 
-    @Autowired
-    private SSEBroadcaster sseBroadcaster;
+    private final SSEBroadcaster sseBroadcaster;
+    private final SessionRepository sessionRepository;
+    private final AgentService agentService;
 
-    @Autowired
-    private SessionRepository sessionRepository;
-
-    @Autowired
-    private AgentService agentService;
+    public StreamController(SSEBroadcaster sseBroadcaster,
+                            SessionRepository sessionRepository,
+                            AgentService agentService) {
+        this.sseBroadcaster = sseBroadcaster;
+        this.sessionRepository = sessionRepository;
+        this.agentService = agentService;
+    }
 
     /**
      * GET /stream — SSE endpoint.

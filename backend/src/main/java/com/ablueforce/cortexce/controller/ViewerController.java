@@ -17,7 +17,6 @@ import com.ablueforce.cortexce.service.SettingsService;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
@@ -44,35 +43,38 @@ public class ViewerController {
 
     private static final Logger log = LoggerFactory.getLogger(ViewerController.class);
 
-    @Autowired
-    private ObservationRepository observationRepository;
+    private final ObservationRepository observationRepository;
+    private final SummaryRepository summaryRepository;
+    private final UserPromptRepository userPromptRepository;
+    private final SessionRepository sessionRepository;
+    private final AgentService agentService;
+    private final EmbeddingService embeddingService;
+    private final SearchService searchService;
+    private final ModeService modeService;
+    private final SettingsService settingsService;
+    private final TimelineService timelineService;
 
-    @Autowired
-    private SummaryRepository summaryRepository;
-
-    @Autowired
-    private UserPromptRepository userPromptRepository;
-
-    @Autowired
-    private SessionRepository sessionRepository;
-
-    @Autowired
-    private AgentService agentService;
-
-    @Autowired
-    private EmbeddingService embeddingService;
-
-    @Autowired
-    private SearchService searchService;
-
-    @Autowired
-    private ModeService modeService;
-
-    @Autowired
-    private SettingsService settingsService;
-
-    @Autowired
-    private TimelineService timelineService;
+    public ViewerController(ObservationRepository observationRepository,
+                            SummaryRepository summaryRepository,
+                            UserPromptRepository userPromptRepository,
+                            SessionRepository sessionRepository,
+                            AgentService agentService,
+                            EmbeddingService embeddingService,
+                            SearchService searchService,
+                            ModeService modeService,
+                            SettingsService settingsService,
+                            TimelineService timelineService) {
+        this.observationRepository = observationRepository;
+        this.summaryRepository = summaryRepository;
+        this.userPromptRepository = userPromptRepository;
+        this.sessionRepository = sessionRepository;
+        this.agentService = agentService;
+        this.embeddingService = embeddingService;
+        this.searchService = searchService;
+        this.modeService = modeService;
+        this.settingsService = settingsService;
+        this.timelineService = timelineService;
+    }
 
     /**
      * GET /api/observations — paginated observation list.

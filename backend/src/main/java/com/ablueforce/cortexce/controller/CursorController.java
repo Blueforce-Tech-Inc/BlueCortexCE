@@ -5,7 +5,6 @@ import com.ablueforce.cortexce.service.CursorService;
 import com.ablueforce.cortexce.service.CursorService.CursorProjectEntry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,11 +27,13 @@ public class CursorController {
 
     private static final Logger log = LoggerFactory.getLogger(CursorController.class);
 
-    @Autowired
-    private CursorService cursorService;
+    private final CursorService cursorService;
+    private final ContextService contextService;
 
-    @Autowired
-    private ContextService contextService;
+    public CursorController(CursorService cursorService, ContextService contextService) {
+        this.cursorService = cursorService;
+        this.contextService = contextService;
+    }
 
     /**
      * Register a project for auto-context updates.

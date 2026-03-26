@@ -12,7 +12,6 @@ import com.ablueforce.cortexce.service.RateLimitService;
 import com.ablueforce.cortexce.service.SSEBroadcaster;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -40,26 +39,29 @@ public class IngestionController {
 
     private static final Logger log = LoggerFactory.getLogger(IngestionController.class);
 
-    @Autowired
-    private AgentService agentService;
+    private final AgentService agentService;
+    private final SessionManagementService sessionManagementService;
+    private final SummaryGenerationService summaryGenerationService;
+    private final UserPromptRepository userPromptRepository;
+    private final ContextCacheService contextCacheService;
+    private final RateLimitService rateLimitService;
+    private final SSEBroadcaster sseBroadcaster;
 
-    @Autowired
-    private SessionManagementService sessionManagementService;
-
-    @Autowired
-    private SummaryGenerationService summaryGenerationService;
-
-    @Autowired
-    private UserPromptRepository userPromptRepository;
-
-    @Autowired
-    private ContextCacheService contextCacheService;
-
-    @Autowired
-    private RateLimitService rateLimitService;
-
-    @Autowired
-    private SSEBroadcaster sseBroadcaster;
+    public IngestionController(AgentService agentService,
+                               SessionManagementService sessionManagementService,
+                               SummaryGenerationService summaryGenerationService,
+                               UserPromptRepository userPromptRepository,
+                               ContextCacheService contextCacheService,
+                               RateLimitService rateLimitService,
+                               SSEBroadcaster sseBroadcaster) {
+        this.agentService = agentService;
+        this.sessionManagementService = sessionManagementService;
+        this.summaryGenerationService = summaryGenerationService;
+        this.userPromptRepository = userPromptRepository;
+        this.contextCacheService = contextCacheService;
+        this.rateLimitService = rateLimitService;
+        this.sseBroadcaster = sseBroadcaster;
+    }
 
     // ==========================================================================
     // Hook Event Handlers (called by wrapper.js)

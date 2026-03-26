@@ -9,7 +9,6 @@ import com.ablueforce.cortexce.service.ContextService;
 import com.ablueforce.cortexce.service.StructuredExtractionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -41,23 +40,26 @@ public class SessionController {
 
     private static final Logger log = LoggerFactory.getLogger(SessionController.class);
 
-    @Autowired
-    private SessionRepository sessionRepository;
+    private final SessionRepository sessionRepository;
+    private final SessionManagementService sessionManagementService;
+    private final ContextService contextService;
+    private final ContextCacheService contextCacheService;
+    private final ClaudeMdService claudeMdService;
+    private final Optional<StructuredExtractionService> extractionService;
 
-    @Autowired
-    private SessionManagementService sessionManagementService;
-
-    @Autowired
-    private ContextService contextService;
-
-    @Autowired
-    private ContextCacheService contextCacheService;
-
-    @Autowired
-    private ClaudeMdService claudeMdService;
-
-    @Autowired(required = false)
-    private StructuredExtractionService extractionService;
+    public SessionController(SessionRepository sessionRepository,
+                             SessionManagementService sessionManagementService,
+                             ContextService contextService,
+                             ContextCacheService contextCacheService,
+                             ClaudeMdService claudeMdService,
+                             Optional<StructuredExtractionService> extractionService) {
+        this.sessionRepository = sessionRepository;
+        this.sessionManagementService = sessionManagementService;
+        this.contextService = contextService;
+        this.contextCacheService = contextCacheService;
+        this.claudeMdService = claudeMdService;
+        this.extractionService = extractionService;
+    }
 
     // ==========================================================================
     // Session Lifecycle
@@ -362,9 +364,9 @@ public class SessionController {
         log.info("Updated session {} userId: {} -> {}", sessionId, oldUserId, userId);
 
         // Phase 3: Re-run extraction when userId changes (user-scoped results need updating)
-        if (extractionService != null && session.getProjectPath() != null) {
+        if (extractionService.isPresent() && session.getProjectPath() != null) {
             try {
-                extractionService.reExtractForSession(sessionId, session.getProjectPath());
+                extractionService.get().reExtractForSession(sessionId, session.getProjectPath());
                 log.info("Re-extraction triggered for session {} after userId update", sessionId);
             } catch (Exception e) {
                 log.warn("Re-extraction failed for session {} after userId update: {}", sessionId, e.getMessage());

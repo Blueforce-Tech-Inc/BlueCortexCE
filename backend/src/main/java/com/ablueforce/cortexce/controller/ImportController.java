@@ -3,7 +3,6 @@ package com.ablueforce.cortexce.controller;
 import com.ablueforce.cortexce.service.ImportService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,8 +32,11 @@ public class ImportController {
 
     private static final Logger log = LoggerFactory.getLogger(ImportController.class);
 
-    @Autowired
-    private ImportService importService;
+    private final ImportService importService;
+
+    public ImportController(ImportService importService) {
+        this.importService = importService;
+    }
 
     // ==========================================================================
     // Request/Response DTOs

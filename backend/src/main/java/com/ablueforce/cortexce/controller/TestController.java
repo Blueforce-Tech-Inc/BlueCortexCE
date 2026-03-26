@@ -4,7 +4,6 @@ import com.ablueforce.cortexce.service.EmbeddingService;
 import com.ablueforce.cortexce.service.LlmService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -23,11 +22,13 @@ public class TestController {
 
     private static final Logger log = LoggerFactory.getLogger(TestController.class);
 
-    @Autowired
-    private LlmService llmService;
+    private final LlmService llmService;
+    private final EmbeddingService embeddingService;
 
-    @Autowired
-    private EmbeddingService embeddingService;
+    public TestController(LlmService llmService, EmbeddingService embeddingService) {
+        this.llmService = llmService;
+        this.embeddingService = embeddingService;
+    }
 
     /**
      * Test LLM (DeepSeek) connectivity.

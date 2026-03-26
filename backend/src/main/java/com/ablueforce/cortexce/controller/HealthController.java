@@ -3,7 +3,6 @@ package com.ablueforce.cortexce.controller;
 import com.ablueforce.cortexce.service.AgentService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,11 +28,13 @@ public class HealthController {
 
     private static final Logger log = LoggerFactory.getLogger(HealthController.class);
 
-    @Autowired
-    private DataSource dataSource;
+    private final DataSource dataSource;
+    private final AgentService agentService;
 
-    @Autowired
-    private AgentService agentService;
+    public HealthController(DataSource dataSource, AgentService agentService) {
+        this.dataSource = dataSource;
+        this.agentService = agentService;
+    }
 
     /**
      * GET /api/health - Basic health check endpoint.

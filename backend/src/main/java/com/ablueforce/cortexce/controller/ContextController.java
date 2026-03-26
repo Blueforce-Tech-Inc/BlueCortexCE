@@ -7,7 +7,6 @@ import com.ablueforce.cortexce.service.ContextService;
 import com.ablueforce.cortexce.service.TimelineService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -31,17 +30,20 @@ public class ContextController {
 
     private static final Logger log = LoggerFactory.getLogger(ContextController.class);
 
-    @Autowired
-    private ContextService contextService;
+    private final ContextService contextService;
+    private final ClaudeMdService claudeMdService;
+    private final TimelineService timelineService;
+    private final SummaryRepository summaryRepository;
 
-    @Autowired
-    private ClaudeMdService claudeMdService;
-
-    @Autowired
-    private TimelineService timelineService;
-
-    @Autowired
-    private SummaryRepository summaryRepository;
+    public ContextController(ContextService contextService,
+                             ClaudeMdService claudeMdService,
+                             TimelineService timelineService,
+                             SummaryRepository summaryRepository) {
+        this.contextService = contextService;
+        this.claudeMdService = claudeMdService;
+        this.timelineService = timelineService;
+        this.summaryRepository = summaryRepository;
+    }
 
     /**
      * Generate context for injection into Claude Code session.
@@ -63,7 +65,7 @@ public class ContextController {
             String[] projectList = projects.isEmpty() ? new String[0] : projects.split(",");
 
             // P2: Validate each project path
-            java.util.List<String> validPaths = new java.util.ArrayList<>();
+            List<String> validPaths = new java.util.ArrayList<>();
             for (String projectPath : projectList) {
                 String trimmedPath = projectPath.trim();
                 if (trimmedPath.isEmpty()) continue;
