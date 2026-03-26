@@ -14,7 +14,7 @@ The **Cortex CE Go Client SDK** (`cortex-mem-go`) is a pure Go client library fo
 **Key design goals:**
 
 - **Zero mandatory dependencies** — only the Go standard library
-- **Full API coverage** — 25+ methods covering all backend endpoints
+- **Full API coverage** — 26 methods covering all backend endpoints
 - **Wire format compatible** — JSON field names match the backend API exactly
 - **Fire-and-forget capture** — non-blocking recording with built-in retry
 - **Framework integrations** — optional adapters for Eino, LangChainGo, and Genkit
@@ -689,6 +689,26 @@ for _, snapshot := range history {
 ```
 
 **Backend endpoint:** `GET /api/extraction/{templateName}/history?projectPath=...&userId=...&limit=...`
+
+#### TriggerExtraction
+
+Manually triggers structured data extraction for a project. Returns an error if the request fails.
+
+```go
+func TriggerExtraction(ctx context.Context, projectPath string) error
+```
+
+**Example:**
+
+```go
+err := client.TriggerExtraction(ctx, "/my-project")
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Println("Extraction triggered successfully")
+```
+
+**Backend endpoint:** `POST /api/extraction/run?projectPath=...`
 
 ---
 
