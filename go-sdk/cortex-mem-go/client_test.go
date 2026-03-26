@@ -2982,9 +2982,9 @@ func TestGetObservationsByIds_PropagatesError(t *testing.T) {
 
 func TestGetExtractionHistory_ZeroLimit(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// limit=0 should still be sent (it's a meaningful value in the API)
-		if r.URL.Query().Get("limit") != "0" {
-			t.Errorf("expected limit=0, got %s", r.URL.Query().Get("limit"))
+		// limit=0 should be omitted (backend clamps 0→1, so we let it use the default)
+		if r.URL.Query().Has("limit") {
+			t.Errorf("limit should be omitted when 0, got limit=%s", r.URL.Query().Get("limit"))
 		}
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode([]dto.ExtractionResult{})

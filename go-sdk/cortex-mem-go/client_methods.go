@@ -11,34 +11,12 @@ import (
 // ==================== Session ====================
 
 func (c *httpClient) StartSession(ctx context.Context, req dto.SessionStartRequest) (*dto.SessionStartResponse, error) {
-	data, status, err := c.doRequest(ctx, http.MethodPost, "/api/session/start", req, nil)
-	if err != nil {
-		return nil, err
-	}
-	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
-	}
-	var resp dto.SessionStartResponse
-	if err := c.unmarshalJSON(data, &resp); err != nil {
-		return nil, fmt.Errorf("cortex-ce: failed to parse StartSession response: %w", err)
-	}
-	return &resp, nil
+	return doRequestJSON[dto.SessionStartResponse](c, ctx, http.MethodPost, "/api/session/start", req, nil)
 }
 
 func (c *httpClient) UpdateSessionUserId(ctx context.Context, sessionID, userID string) (*dto.SessionUserUpdateResponse, error) {
 	path := fmt.Sprintf("/api/session/%s/user", sessionID)
-	data, status, err := c.doRequest(ctx, http.MethodPatch, path, map[string]string{"user_id": userID}, nil)
-	if err != nil {
-		return nil, err
-	}
-	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
-	}
-	var resp dto.SessionUserUpdateResponse
-	if err := c.unmarshalJSON(data, &resp); err != nil {
-		return nil, fmt.Errorf("cortex-ce: failed to parse UpdateSessionUserId response: %w", err)
-	}
-	return &resp, nil
+	return doRequestJSON[dto.SessionUserUpdateResponse](c, ctx, http.MethodPatch, path, map[string]string{"user_id": userID}, nil)
 }
 
 // ==================== Capture (fire-and-forget) ====================
@@ -85,18 +63,7 @@ func (c *httpClient) BuildICLPrompt(ctx context.Context, req dto.ICLPromptReques
 	if req.Task == "" {
 		return nil, fmt.Errorf("cortex-ce: ICLPromptRequest.Task is required")
 	}
-	data, status, err := c.doRequest(ctx, http.MethodPost, "/api/memory/icl-prompt", req, nil)
-	if err != nil {
-		return nil, err
-	}
-	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
-	}
-	var resp dto.ICLPromptResult
-	if err := c.unmarshalJSON(data, &resp); err != nil {
-		return nil, fmt.Errorf("cortex-ce: failed to parse ICL prompt result: %w", err)
-	}
-	return &resp, nil
+	return doRequestJSON[dto.ICLPromptResult](c, ctx, http.MethodPost, "/api/memory/icl-prompt", req, nil)
 }
 
 func (c *httpClient) Search(ctx context.Context, req dto.SearchRequest) (*dto.SearchResult, error) {
@@ -116,19 +83,7 @@ func (c *httpClient) Search(ctx context.Context, req dto.SearchRequest) (*dto.Se
 	if req.Offset > 0 {
 		params["offset"] = fmt.Sprintf("%d", req.Offset)
 	}
-
-	data, status, err := c.doRequest(ctx, http.MethodGet, "/api/search", nil, params)
-	if err != nil {
-		return nil, err
-	}
-	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
-	}
-	var resp dto.SearchResult
-	if err := c.unmarshalJSON(data, &resp); err != nil {
-		return nil, fmt.Errorf("cortex-ce: failed to parse search result: %w", err)
-	}
-	return &resp, nil
+	return doRequestJSON[dto.SearchResult](c, ctx, http.MethodGet, "/api/search", nil, params)
 }
 
 func (c *httpClient) ListObservations(ctx context.Context, req dto.ObservationsRequest) (*dto.ObservationsResponse, error) {
@@ -144,19 +99,7 @@ func (c *httpClient) ListObservations(ctx context.Context, req dto.ObservationsR
 	if req.Limit > 0 {
 		params["limit"] = fmt.Sprintf("%d", req.Limit)
 	}
-
-	data, status, err := c.doRequest(ctx, http.MethodGet, "/api/observations", nil, params)
-	if err != nil {
-		return nil, err
-	}
-	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
-	}
-	var resp dto.ObservationsResponse
-	if err := c.unmarshalJSON(data, &resp); err != nil {
-		return nil, fmt.Errorf("cortex-ce: failed to parse observations: %w", err)
-	}
-	return &resp, nil
+	return doRequestJSON[dto.ObservationsResponse](c, ctx, http.MethodGet, "/api/observations", nil, params)
 }
 
 func (c *httpClient) GetObservationsByIds(ctx context.Context, ids []string) (*dto.BatchObservationsResponse, error) {
@@ -167,18 +110,7 @@ func (c *httpClient) GetObservationsByIds(ctx context.Context, ids []string) (*d
 		return nil, fmt.Errorf("cortex-ce: batch size exceeds maximum of 100 (got %d)", len(ids))
 	}
 	req := dto.BatchObservationsRequest{IDs: ids}
-	data, status, err := c.doRequest(ctx, http.MethodPost, "/api/observations/batch", req, nil)
-	if err != nil {
-		return nil, err
-	}
-	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
-	}
-	var resp dto.BatchObservationsResponse
-	if err := c.unmarshalJSON(data, &resp); err != nil {
-		return nil, fmt.Errorf("cortex-ce: failed to parse batch observations: %w", err)
-	}
-	return &resp, nil
+	return doRequestJSON[dto.BatchObservationsResponse](c, ctx, http.MethodPost, "/api/observations/batch", req, nil)
 }
 
 // ==================== Management ====================
@@ -233,20 +165,8 @@ func (c *httpClient) GetQualityDistribution(ctx context.Context, projectPath str
 	if projectPath == "" {
 		return nil, fmt.Errorf("cortex-ce: projectPath is required")
 	}
-	// Backend expects "project" as QUERY PARAM
-	params := map[string]string{"project": projectPath}
-	data, status, err := c.doRequest(ctx, http.MethodGet, "/api/memory/quality-distribution", nil, params)
-	if err != nil {
-		return nil, err
-	}
-	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
-	}
-	var resp dto.QualityDistribution
-	if err := c.unmarshalJSON(data, &resp); err != nil {
-		return nil, fmt.Errorf("cortex-ce: failed to parse quality distribution: %w", err)
-	}
-	return &resp, nil
+	return doRequestJSON[dto.QualityDistribution](c, ctx, http.MethodGet, "/api/memory/quality-distribution", nil,
+		map[string]string{"project": projectPath})
 }
 
 // ==================== Health ====================
@@ -287,24 +207,11 @@ func (c *httpClient) GetLatestExtraction(ctx context.Context, projectPath, templ
 		return nil, fmt.Errorf("cortex-ce: templateName is required")
 	}
 	path := fmt.Sprintf("/api/extraction/%s/latest", templateName)
-	params := map[string]string{
-		"projectPath": projectPath,
-	}
+	params := map[string]string{"projectPath": projectPath}
 	if userID != "" {
 		params["userId"] = userID
 	}
-	data, status, err := c.doRequest(ctx, http.MethodGet, path, nil, params)
-	if err != nil {
-		return nil, err
-	}
-	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
-	}
-	var resp dto.ExtractionResult
-	if err := c.unmarshalJSON(data, &resp); err != nil {
-		return nil, fmt.Errorf("cortex-ce: failed to parse extraction: %w", err)
-	}
-	return &resp, nil
+	return doRequestJSON[dto.ExtractionResult](c, ctx, http.MethodGet, path, nil, params)
 }
 
 func (c *httpClient) GetExtractionHistory(ctx context.Context, projectPath, templateName, userID string, limit int) ([]dto.ExtractionResult, error) {
@@ -346,35 +253,13 @@ func (c *httpClient) GetExtractionHistory(ctx context.Context, projectPath, temp
 // ==================== Version ====================
 
 func (c *httpClient) GetVersion(ctx context.Context) (*dto.VersionResponse, error) {
-	data, status, err := c.doRequest(ctx, http.MethodGet, "/api/version", nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
-	}
-	var resp dto.VersionResponse
-	if err := c.unmarshalJSON(data, &resp); err != nil {
-		return nil, fmt.Errorf("cortex-ce: failed to parse version: %w", err)
-	}
-	return &resp, nil
+	return doRequestJSON[dto.VersionResponse](c, ctx, http.MethodGet, "/api/version", nil, nil)
 }
 
 // ==================== P1 Management ====================
 
 func (c *httpClient) GetProjects(ctx context.Context) (*dto.ProjectsResponse, error) {
-	data, status, err := c.doRequest(ctx, http.MethodGet, "/api/projects", nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
-	}
-	var resp dto.ProjectsResponse
-	if err := c.unmarshalJSON(data, &resp); err != nil {
-		return nil, fmt.Errorf("cortex-ce: failed to parse projects: %w", err)
-	}
-	return &resp, nil
+	return doRequestJSON[dto.ProjectsResponse](c, ctx, http.MethodGet, "/api/projects", nil, nil)
 }
 
 func (c *httpClient) GetStats(ctx context.Context, projectPath string) (*dto.StatsResponse, error) {
@@ -382,33 +267,11 @@ func (c *httpClient) GetStats(ctx context.Context, projectPath string) (*dto.Sta
 	if projectPath != "" {
 		params["project"] = projectPath
 	}
-	data, status, err := c.doRequest(ctx, http.MethodGet, "/api/stats", nil, params)
-	if err != nil {
-		return nil, err
-	}
-	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
-	}
-	var resp dto.StatsResponse
-	if err := c.unmarshalJSON(data, &resp); err != nil {
-		return nil, fmt.Errorf("cortex-ce: failed to parse stats: %w", err)
-	}
-	return &resp, nil
+	return doRequestJSON[dto.StatsResponse](c, ctx, http.MethodGet, "/api/stats", nil, params)
 }
 
 func (c *httpClient) GetModes(ctx context.Context) (*dto.ModesResponse, error) {
-	data, status, err := c.doRequest(ctx, http.MethodGet, "/api/modes", nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
-	}
-	var resp dto.ModesResponse
-	if err := c.unmarshalJSON(data, &resp); err != nil {
-		return nil, fmt.Errorf("cortex-ce: failed to parse modes: %w", err)
-	}
-	return &resp, nil
+	return doRequestJSON[dto.ModesResponse](c, ctx, http.MethodGet, "/api/modes", nil, nil)
 }
 
 func (c *httpClient) GetSettings(ctx context.Context) (map[string]any, error) {
