@@ -13,7 +13,12 @@ This document describes the REST API for Cortex Community Edition backend.
 - [Sessions](#sessions)
 - [Messages](#messages)
 - [Memory](#memory)
+- [Observations](#observations)
+- [Extraction](#extraction)
 - [Search](#search)
+- [Management](#management)
+- [Health & Version](#health--version)
+- [Ingest](#ingest)
 - [WebUI](#webui)
 - [Error Codes](#error-codes)
 
@@ -153,6 +158,156 @@ Content-Type: application/json
   "session_id": "session-123",
   "feedback_type": "SUCCESS",
   "comment": "Task completed successfully"
+}
+```
+
+## Observations
+
+### List Observations
+
+```
+GET /api/observations?project=/path/to/project&type=tool_use&limit=50&offset=0
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `project` | string | Project path filter (required) |
+| `type` | string | Observation type filter |
+| `limit` | int | Max results to return |
+| `offset` | int | Pagination offset |
+| `session_id` | string | Filter by session |
+
+### Get Observations by IDs
+
+```
+POST /api/observations/batch
+Content-Type: application/json
+
+{
+  "ids": ["obs-1", "obs-2", "obs-3"]
+}
+```
+
+### Update Observation
+
+```
+PATCH /api/memory/observations/{observationId}
+Content-Type: application/json
+
+{
+  "quality_score": 0.95,
+  "content": "Updated observation content"
+}
+```
+
+### Delete Observation
+
+```
+DELETE /api/memory/observations/{observationId}
+```
+
+## Extraction
+
+### Trigger Extraction
+
+```
+POST /api/extraction/run?project=/path/to/project
+```
+
+Triggers structured data extraction from conversation observations.
+
+### Get Latest Extraction
+
+```
+GET /api/extraction/latest?project=/path/to/project&template=user_preference&userId=user-123
+```
+
+### Get Extraction History
+
+```
+GET /api/extraction/history?project=/path/to/project&template=user_preference&userId=user-123&limit=10
+```
+
+## Search
+
+### Search Memory
+
+```
+POST /api/memory/search
+```
+
+## Management
+
+### Get Projects
+
+```
+GET /api/projects
+```
+
+### Get Project Statistics
+
+```
+GET /api/stats?project=/path/to/project
+```
+
+### Get Memory Modes
+
+```
+GET /api/modes
+```
+
+### Get Settings
+
+```
+GET /api/settings
+```
+
+## Health & Version
+
+### Health Check
+
+```
+GET /api/health
+```
+
+Response:
+
+```json
+{"service":"cortex-ce","status":"ok"}
+```
+
+### Get Version
+
+```
+GET /api/version
+```
+
+## Ingest
+
+### Record User Prompt
+
+```
+POST /api/ingest/user-prompt
+Content-Type: application/json
+
+{
+  "sessionId": "session-123",
+  "projectPath": "/path/to/project",
+  "content": "User prompt text"
+}
+```
+
+### Signal Session End
+
+```
+POST /api/ingest/session-end
+Content-Type: application/json
+
+{
+  "sessionId": "session-123",
+  "projectPath": "/path/to/project"
 }
 ```
 

@@ -8,7 +8,7 @@ The Go SDK ships with five demo projects that demonstrate different usage patter
 
 | Demo | Directory | Description |
 |------|-----------|-------------|
-| **HTTP Server** | `http-server/` | Full REST API wrapping all SDK methods — 22 endpoints |
+| **HTTP Server** | `http-server/` | Full REST API wrapping all SDK methods — 24 endpoints |
 | **Basic** | `basic/` | Minimal SDK usage — session, observation, search |
 | **Eino** | `eino/` | Eino framework retriever integration |
 | **LangChainGo** | `langchaingo/` | LangChainGo memory integration |
@@ -51,7 +51,7 @@ Endpoints:
 
 The server starts on port **8080** with graceful shutdown support (SIGINT/SIGTERM).
 
-### All 22 Endpoints
+### All 24 Endpoints
 
 #### Health & Version
 
@@ -258,6 +258,16 @@ curl "http://localhost:8080/extraction/history?template=user_preference&project=
   {"extractedAt":"2026-03-25T02:00:00Z","data":{...}},
   {"extractedAt":"2026-03-24T02:00:00Z","data":{...}}
 ]
+```
+
+**POST /extraction/run** — Manually trigger structured data extraction
+
+```bash
+curl -X POST "http://localhost:8080/extraction/run?project=/my-project"
+```
+
+```json
+{"status":"triggered"}
 ```
 
 ---
@@ -516,7 +526,7 @@ The E2E script runs 36 tests covering:
 | Backend direct | Health, Version, Search, Observations, Projects, Stats, Modes, Settings |
 | Chain verification | Test → Demo → Go SDK → Backend data flow |
 | SDK methods | UpdateSessionUserId, RetrieveExperiences, BuildICLPrompt, GetQualityDistribution |
-| All 22 endpoints | Every HTTP Demo endpoint is tested |
+| All 24 endpoints | Every HTTP Demo endpoint is tested |
 | Ingest | User prompt, Session end |
 
 **Expected output:**
@@ -549,6 +559,7 @@ After E2E testing, the following SDK methods are verified:
 - ✅ GetQualityDistribution (via /quality)
 - ✅ GetLatestExtraction (via /extraction/latest)
 - ✅ GetExtractionHistory (via /extraction/history)
+- ✅ TriggerExtraction (via /extraction/run)
 - ✅ TriggerRefinement (via /refine)
 - ✅ SubmitFeedback (via /feedback)
 - ✅ UpdateSessionUserId (via /session/user)
