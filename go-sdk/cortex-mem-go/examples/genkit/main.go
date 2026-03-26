@@ -63,11 +63,11 @@ func main() {
 	time.Sleep(500 * time.Millisecond)
 
 	// 3. Use Genkit Retriever
+	// Note: WithRetrieverProject sets the default; RetrieverInput.Project can override it.
 	fmt.Println("\nRetrieving with Genkit Retriever...")
 	output, err := retriever.Retrieve(ctx, genkit.RetrieverInput{
-		Query:   "What is Genkit?",
-		Project: "/tmp/genkit-demo",
-		Count:   10,
+		Query: "What is Genkit?",
+		Count: 10,
 	})
 	if err != nil {
 		log.Printf("Retrieve failed: %v", err)

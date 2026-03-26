@@ -1,5 +1,5 @@
 // Package genkit provides Cortex CE integration for Google's Genkit (Go).
-// Status: placeholder — waiting for Genkit Go API stabilization.
+// It wraps the Cortex CE client to implement Genkit's Retriever pattern.
 package genkit
 
 import (
