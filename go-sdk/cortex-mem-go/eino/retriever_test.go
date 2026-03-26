@@ -70,14 +70,14 @@ func TestNewRetriever_OptionsApplied(t *testing.T) {
 	}
 }
 
-func TestRetrieve_EmptyQuery_ReturnsNil(t *testing.T) {
+func TestRetrieve_EmptyQuery_ReturnsEmpty(t *testing.T) {
 	r := NewRetriever(&mockClient{}, "/tmp/test")
 	result, err := r.Retrieve(context.Background(), "")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if result != nil {
-		t.Errorf("expected nil for empty query, got %v", result)
+	if len(result) != 0 {
+		t.Errorf("expected empty result for empty query, got %v", result)
 	}
 }
 
