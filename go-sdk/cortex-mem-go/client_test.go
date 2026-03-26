@@ -3105,6 +3105,85 @@ func TestIsHelpers_GenericError(t *testing.T) {
 	}
 }
 
+// ==================== Input Validation Tests ====================
+
+func TestSearch_Validation_EmptyProject(t *testing.T) {
+	client := cortexmem.NewClient()
+	_, err := client.Search(context.Background(), dto.SearchRequest{
+		Project: "", // empty project should fail client-side
+		Query:   "test",
+	})
+	if err == nil {
+		t.Fatal("Search should fail with empty project")
+	}
+	if !strings.Contains(err.Error(), "Project is required") {
+		t.Errorf("expected validation error about Project, got: %v", err)
+	}
+}
+
+func TestRetrieveExperiences_Validation_EmptyTask(t *testing.T) {
+	client := cortexmem.NewClient()
+	_, err := client.RetrieveExperiences(context.Background(), dto.ExperienceRequest{
+		Task:    "", // empty task should fail client-side
+		Project: "/proj",
+	})
+	if err == nil {
+		t.Fatal("RetrieveExperiences should fail with empty task")
+	}
+	if !strings.Contains(err.Error(), "Task is required") {
+		t.Errorf("expected validation error about Task, got: %v", err)
+	}
+}
+
+func TestBuildICLPrompt_Validation_EmptyTask(t *testing.T) {
+	client := cortexmem.NewClient()
+	_, err := client.BuildICLPrompt(context.Background(), dto.ICLPromptRequest{
+		Task:    "", // empty task should fail client-side
+		Project: "/proj",
+	})
+	if err == nil {
+		t.Fatal("BuildICLPrompt should fail with empty task")
+	}
+	if !strings.Contains(err.Error(), "Task is required") {
+		t.Errorf("expected validation error about Task, got: %v", err)
+	}
+}
+
+func TestListObservations_Validation_EmptyProject(t *testing.T) {
+	client := cortexmem.NewClient()
+	_, err := client.ListObservations(context.Background(), dto.ObservationsRequest{
+		Project: "", // empty project should fail client-side
+	})
+	if err == nil {
+		t.Fatal("ListObservations should fail with empty project")
+	}
+	if !strings.Contains(err.Error(), "Project is required") {
+		t.Errorf("expected validation error about Project, got: %v", err)
+	}
+}
+
+func TestGetObservationsByIds_Validation_EmptyIDs(t *testing.T) {
+	client := cortexmem.NewClient()
+	_, err := client.GetObservationsByIds(context.Background(), []string{})
+	if err == nil {
+		t.Fatal("GetObservationsByIds should fail with empty IDs")
+	}
+	if !strings.Contains(err.Error(), "ids must not be empty") {
+		t.Errorf("expected validation error about ids, got: %v", err)
+	}
+}
+
+func TestGetObservationsByIds_Validation_NilIDs(t *testing.T) {
+	client := cortexmem.NewClient()
+	_, err := client.GetObservationsByIds(context.Background(), nil)
+	if err == nil {
+		t.Fatal("GetObservationsByIds should fail with nil IDs")
+	}
+	if !strings.Contains(err.Error(), "ids must not be empty") {
+		t.Errorf("expected validation error about ids, got: %v", err)
+	}
+}
+
 // ==================== DefaultConfig Verification ====================
 
 func TestDefaultClientConfig_VerifyAllDefaults(t *testing.T) {

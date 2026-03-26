@@ -64,6 +64,9 @@ func (c *httpClient) RecordUserPrompt(ctx context.Context, req dto.UserPromptReq
 // ==================== Retrieval ====================
 
 func (c *httpClient) RetrieveExperiences(ctx context.Context, req dto.ExperienceRequest) ([]dto.Experience, error) {
+	if req.Task == "" {
+		return nil, fmt.Errorf("cortex-ce: ExperienceRequest.Task is required")
+	}
 	data, status, err := c.doRequest(ctx, http.MethodPost, "/api/memory/experiences", req, nil)
 	if err != nil {
 		return nil, err
@@ -79,6 +82,9 @@ func (c *httpClient) RetrieveExperiences(ctx context.Context, req dto.Experience
 }
 
 func (c *httpClient) BuildICLPrompt(ctx context.Context, req dto.ICLPromptRequest) (*dto.ICLPromptResult, error) {
+	if req.Task == "" {
+		return nil, fmt.Errorf("cortex-ce: ICLPromptRequest.Task is required")
+	}
 	data, status, err := c.doRequest(ctx, http.MethodPost, "/api/memory/icl-prompt", req, nil)
 	if err != nil {
 		return nil, err
@@ -94,6 +100,9 @@ func (c *httpClient) BuildICLPrompt(ctx context.Context, req dto.ICLPromptReques
 }
 
 func (c *httpClient) Search(ctx context.Context, req dto.SearchRequest) (*dto.SearchResult, error) {
+	if req.Project == "" {
+		return nil, fmt.Errorf("cortex-ce: SearchRequest.Project is required")
+	}
 	params := map[string]string{
 		"project": req.Project,
 		"query":   req.Query,
@@ -123,6 +132,9 @@ func (c *httpClient) Search(ctx context.Context, req dto.SearchRequest) (*dto.Se
 }
 
 func (c *httpClient) ListObservations(ctx context.Context, req dto.ObservationsRequest) (*dto.ObservationsResponse, error) {
+	if req.Project == "" {
+		return nil, fmt.Errorf("cortex-ce: ObservationsRequest.Project is required")
+	}
 	params := map[string]string{
 		"project": req.Project,
 	}
@@ -148,6 +160,9 @@ func (c *httpClient) ListObservations(ctx context.Context, req dto.ObservationsR
 }
 
 func (c *httpClient) GetObservationsByIds(ctx context.Context, ids []string) (*dto.BatchObservationsResponse, error) {
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("cortex-ce: ids must not be empty")
+	}
 	req := dto.BatchObservationsRequest{IDs: ids}
 	data, status, err := c.doRequest(ctx, http.MethodPost, "/api/observations/batch", req, nil)
 	if err != nil {
