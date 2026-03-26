@@ -2057,8 +2057,24 @@ func TestIsRetryable_NilError(t *testing.T) {
 }
 
 func TestIsRetryable_GenericError(t *testing.T) {
-	if cortexmem.IsRetryable(errors.New("random error")) {
-		t.Error("IsRetryable should return false for generic error")
+	// Generic (non-API) errors are network/transport errors — always retryable
+	if !cortexmem.IsRetryable(errors.New("connection refused")) {
+		t.Error("IsRetryable should return true for generic network error")
+	}
+}
+
+func TestIsRetryable_NetworkErrors(t *testing.T) {
+	// Network errors like timeouts, DNS failures, connection refused are all retryable
+	testCases := []string{
+		"connection refused",
+		"no such host",
+		"i/o timeout",
+		"dial tcp: lookup failed",
+	}
+	for _, msg := range testCases {
+		if !cortexmem.IsRetryable(errors.New(msg)) {
+			t.Errorf("IsRetryable should return true for network error: %q", msg)
+		}
 	}
 }
 

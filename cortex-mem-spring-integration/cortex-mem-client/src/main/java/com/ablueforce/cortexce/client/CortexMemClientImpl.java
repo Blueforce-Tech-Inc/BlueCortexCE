@@ -5,8 +5,10 @@ import com.ablueforce.cortexce.client.dto.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.time.Duration;
 import java.util.List;
@@ -499,6 +501,8 @@ public class CortexMemClientImpl implements CortexMemClient {
     /**
      * Execute with retry. On final failure, throws the last exception.
      * Use for explicit user actions where the caller needs to know the outcome.
+     * Only retries on transient errors (network failures, 429 rate limited, 5xx server errors).
+     * Skips retry on 4xx client errors (bad request, unauthorized, forbidden, etc.).
      * Backoff includes ±25% jitter to prevent thundering herd.
      */
     private void executeWithRetry(String operation, Runnable action) {
@@ -509,6 +513,10 @@ public class CortexMemClientImpl implements CortexMemClient {
                 return;
             } catch (Exception e) {
                 lastException = e;
+                if (!isRetryable(e)) {
+                    log.debug("[{}] Non-retryable error ({}), giving up", operation, e.getMessage());
+                    break;
+                }
                 if (attempt < maxRetries) {
                     log.debug("[{}] Attempt {}/{} failed, retrying...", operation, attempt, maxRetries);
                     long jitteredMs = jitteredBackoff(attempt);
@@ -521,13 +529,15 @@ public class CortexMemClientImpl implements CortexMemClient {
                 }
             }
         }
-        log.warn("[{}] Failed after {} attempts: {}", operation, maxRetries, lastException.getMessage());
-        throw new RuntimeException(operation + " failed after " + maxRetries + " attempts", lastException);
+        log.warn("[{}] Failed after attempts: {}", operation, lastException.getMessage());
+        throw new RuntimeException(operation + " failed", lastException);
     }
 
     /**
      * Execute with retry. On final failure, logs a warning and swallows the error.
      * Use for background/hook operations where fire-and-forget is appropriate.
+     * Only retries on transient errors (network failures, 429 rate limited, 5xx server errors).
+     * Skips retry on 4xx client errors (bad request, unauthorized, forbidden, etc.).
      * Backoff includes ±25% jitter to prevent thundering herd.
      */
     private void executeWithRetrySilent(String operation, Runnable action) {
@@ -536,6 +546,10 @@ public class CortexMemClientImpl implements CortexMemClient {
                 action.run();
                 return;
             } catch (Exception e) {
+                if (!isRetryable(e)) {
+                    log.warn("[{}] Failed with non-retryable error: {}", operation, e.getMessage());
+                    return;
+                }
                 if (attempt == maxRetries) {
                     log.warn("[{}] Failed after {} attempts: {}", operation, maxRetries, e.getMessage());
                 } else {
@@ -550,6 +564,22 @@ public class CortexMemClientImpl implements CortexMemClient {
                 }
             }
         }
+    }
+
+    /**
+     * Check if an error is transient and worth retrying.
+     * Transient: network errors (non-HTTP), 429 (rate limited), 5xx (server errors).
+     * Non-transient: 4xx client errors (bad request, unauthorized, forbidden, not found, etc.).
+     */
+    private static boolean isRetryable(Exception e) {
+        if (e instanceof RestClientResponseException httpEx) {
+            HttpStatusCode status = httpEx.getStatusCode();
+            int code = status.value();
+            // Retry on 429 (rate limited) and 5xx (server errors), except 500 (code bug)
+            return code == 429 || (code >= 500 && code != 500);
+        }
+        // Non-HTTP errors (network failures, timeouts) are always worth retrying
+        return true;
     }
 
     /**

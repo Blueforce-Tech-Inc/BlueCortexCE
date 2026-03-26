@@ -137,10 +137,45 @@ func IsInternal(err error) bool {
 }
 
 // IsRetryable returns true if the error is likely transient and the request can be retried.
-// Matches: 429 (rate limited), 502 (bad gateway), 503 (service unavailable), 504 (gateway timeout).
+// Matches:
+//   - Network/transport errors (non-HTTP, non-sentinel): connection refused, timeouts, DNS failures, etc.
+//   - 429 (rate limited), 502 (bad gateway), 503 (service unavailable), 504 (gateway timeout).
+//
 // Does NOT match 500 (internal server error) — that's typically a code bug, not a transient failure.
 func IsRetryable(err error) bool {
-	return IsRateLimited(err) || IsBadGateway(err) || IsServiceUnavailable(err) || IsGatewayTimeout(err)
+	if err == nil {
+		return false
+	}
+	// Check for specific HTTP status errors (APIError or sentinel)
+	if IsRateLimited(err) || IsBadGateway(err) || IsServiceUnavailable(err) || IsGatewayTimeout(err) {
+		return true
+	}
+	// If it's an APIError or matches any sentinel error, it's an HTTP error — not retryable
+	// unless matched above.
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return false
+	}
+	if isSentinelError(err) {
+		return false
+	}
+	// Non-HTTP, non-sentinel errors are network/transport errors — always retryable
+	return true
+}
+
+// isSentinelError returns true if the error matches any of the known sentinel errors.
+func isSentinelError(err error) bool {
+	return errors.Is(err, ErrBadRequest) ||
+		errors.Is(err, ErrUnauthorized) ||
+		errors.Is(err, ErrForbidden) ||
+		errors.Is(err, ErrNotFound) ||
+		errors.Is(err, ErrConflict) ||
+		errors.Is(err, ErrUnprocessable) ||
+		errors.Is(err, ErrRateLimited) ||
+		errors.Is(err, ErrInternal) ||
+		errors.Is(err, ErrBadGateway) ||
+		errors.Is(err, ErrServiceUnavailable) ||
+		errors.Is(err, ErrGatewayTimeout)
 }
 
 // IsBadGateway returns true if the error is a 502.
