@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -234,6 +235,7 @@ func (c *httpClient) doRequestNoContentWithParams(ctx context.Context, method, p
 
 // doFireAndForget executes a capture operation with retry and error swallowing.
 // Matches Java SDK's executeWithRetry behavior: retries internally, logs on failure.
+// Only retries on transient errors (network failures, 429, 5xx); skips retry on 4xx client errors.
 // If the context is already cancelled, skips execution entirely (fire-and-forget optimization).
 func (c *httpClient) doFireAndForget(ctx context.Context, name string, fn func() error) error {
 	// Check context before wasting effort on an already-cancelled request
@@ -249,6 +251,14 @@ func (c *httpClient) doFireAndForget(ctx context.Context, name string, fn func()
 		lastErr = fn()
 		if lastErr == nil {
 			return nil
+		}
+		// Don't retry on non-retryable errors (4xx client errors, etc.)
+		if !isTransient(lastErr) {
+			c.config.Logger.Warn("cortex-ce: "+name+" failed with non-retryable error, giving up",
+				"error", lastErr,
+				"attempt", attempt,
+			)
+			return nil // Fire-and-forget: swallow error
 		}
 		// Log intermediate retry failures
 		if attempt < c.config.MaxRetries {
@@ -290,4 +300,20 @@ func (c *httpClient) doFireAndForget(ctx context.Context, name string, fn func()
 
 func (c *httpClient) unmarshalJSON(data []byte, v any) error {
 	return json.Unmarshal(data, v)
+}
+
+// isTransient returns true if the error is likely transient and worth retrying.
+// Transient errors: network failures, HTTP 429 (rate limited), HTTP 5xx (server errors).
+// Non-transient errors: HTTP 4xx client errors (bad request, unauthorized, forbidden, etc.).
+func isTransient(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Network/transport errors (no HTTP status) are always worth retrying
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) {
+		return true
+	}
+	// Retry on 429 (rate limited) and 5xx (server errors)
+	return apiErr.StatusCode == http.StatusTooManyRequests || apiErr.StatusCode >= 500
 }

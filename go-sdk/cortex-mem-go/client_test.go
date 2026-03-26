@@ -1283,6 +1283,65 @@ func TestFireAndForget_ExhaustsRetries(t *testing.T) {
 	}
 }
 
+func TestFireAndForget_NoRetryOn4xx(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		w.WriteHeader(http.StatusBadRequest) // 400 — non-retryable client error
+		w.Write([]byte("bad request"))
+	}))
+	defer server.Close()
+
+	client := cortexmem.NewClient(
+		cortexmem.WithBaseURL(server.URL),
+		cortexmem.WithMaxRetries(3),
+	)
+
+	// Fire-and-forget should NOT retry on 4xx client errors
+	err := client.RecordObservation(context.Background(), dto.ObservationRequest{
+		SessionID:   "sess-1",
+		ProjectPath: "/project",
+		ToolName:    "Read",
+	})
+	if err != nil {
+		t.Fatalf("fire-and-forget should swallow error: %v", err)
+	}
+	if attempts != 1 {
+		t.Errorf("expected 1 attempt (no retry on 4xx), got %d", attempts)
+	}
+}
+
+func TestFireAndForget_RetryOn429(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		if attempts < 3 {
+			w.WriteHeader(http.StatusTooManyRequests) // 429 — retryable
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := cortexmem.NewClient(
+		cortexmem.WithBaseURL(server.URL),
+		cortexmem.WithMaxRetries(3),
+		cortexmem.WithRetryBackoff(1*time.Millisecond), // Fast backoff for test
+	)
+
+	err := client.RecordObservation(context.Background(), dto.ObservationRequest{
+		SessionID:   "sess-1",
+		ProjectPath: "/project",
+		ToolName:    "Read",
+	})
+	if err != nil {
+		t.Fatalf("fire-and-forget should succeed: %v", err)
+	}
+	if attempts != 3 {
+		t.Errorf("expected 3 attempts (retry on 429), got %d", attempts)
+	}
+}
+
 func TestHealthCheck_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/health" {
