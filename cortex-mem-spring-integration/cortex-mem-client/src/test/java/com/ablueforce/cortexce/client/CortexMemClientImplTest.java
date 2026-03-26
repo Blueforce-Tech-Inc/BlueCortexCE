@@ -391,6 +391,13 @@ class CortexMemClientImplTest {
     }
 
     @Test
+    void listObservations_emptyProject_throws() {
+        org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> client.listObservations(ObservationsRequest.builder().build()));
+    }
+
+    @Test
     void getObservationsByIds_emptyIds_throws() {
         org.junit.jupiter.api.Assertions.assertThrows(
             IllegalArgumentException.class,
