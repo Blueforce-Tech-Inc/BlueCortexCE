@@ -543,4 +543,17 @@ class CortexMemClientImplTest {
         assertThat(req.getPath()).isEqualTo("/api/session/sess-1/user");
         assertThat(req.getBody().readUtf8()).contains("user-42");
     }
+
+    @Test
+    void triggerExtraction_sendsCorrectRequest() throws Exception {
+        server.enqueue(new MockResponse().setResponseCode(200));
+
+        client.triggerExtraction("/my/project");
+
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getMethod()).isEqualTo("POST");
+        assertThat(req.getPath()).startsWith("/api/extraction/run");
+        assertThat(req.getPath()).contains("projectPath=");
+        assertThat(req.getPath()).contains("/my/project");
+    }
 }

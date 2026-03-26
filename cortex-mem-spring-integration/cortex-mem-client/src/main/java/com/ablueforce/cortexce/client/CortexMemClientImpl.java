@@ -286,6 +286,19 @@ public class CortexMemClientImpl implements CortexMemClient {
         }
     }
 
+    @Override
+    public void triggerExtraction(String projectPath) {
+        executeWithRetry("triggerExtraction", () ->
+            restClient.post()
+                .uri(uriBuilder -> uriBuilder
+                    .path("/api/extraction/run")
+                    .queryParam("projectPath", projectPath)
+                    .build())
+                .retrieve()
+                .toBodilessEntity()
+        );
+    }
+
     // ==================== Search & List (P0) ====================
 
     @Override
@@ -504,10 +517,11 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     /**
      * Calculate jittered backoff: base = backoff * attempt, jittered to [0.75x, 1.25x].
+     * Minimum 1ms to avoid zero-delay busy loops.
      */
     private long jitteredBackoff(int attempt) {
         long baseMs = retryBackoff.toMillis() * attempt;
         long jitter = ThreadLocalRandom.current().nextLong(baseMs / 4) - baseMs / 8;
-        return Math.max(0, baseMs + jitter);
+        return Math.max(1, baseMs + jitter);
     }
 }

@@ -105,6 +105,14 @@ public interface CortexMemClient {
      */
     Map<String, Object> updateSessionUserId(String sessionId, String userId);
 
+    /**
+     * Manually trigger extraction for a project.
+     * Calls POST /api/extraction/run?projectPath=...
+     *
+     * @param projectPath project path to extract for
+     */
+    void triggerExtraction(String projectPath);
+
     // ==================== Search & List (P0) ====================
 
     /**
