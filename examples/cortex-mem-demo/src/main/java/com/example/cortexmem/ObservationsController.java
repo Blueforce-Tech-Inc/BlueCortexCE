@@ -53,9 +53,12 @@ public class ObservationsController {
      */
     @PostMapping(value = "/batch", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> getByIds(@RequestBody Map<String, List<String>> body) {
+        if (body == null || !body.containsKey("ids")) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Request body must contain 'ids' field"));
+        }
         List<String> ids = body.get("ids");
         if (ids == null || ids.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "ids is required"));
+            return ResponseEntity.badRequest().body(Map.of("error", "ids must not be empty"));
         }
 
         try {

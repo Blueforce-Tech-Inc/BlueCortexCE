@@ -97,6 +97,24 @@ public class MemoryController {
         }
     }
 
+    /**
+     * Trigger structured extraction for a project.
+     * Demonstrates Phase 3 manual extraction trigger.
+     *
+     * @param project Project path
+     */
+    @PostMapping("/memory/extract")
+    public ResponseEntity<String> triggerExtraction(@RequestParam(defaultValue = "/") String project) {
+        try {
+            String path = resolveProject(project);
+            cortexClient.triggerExtraction(path);
+            return ResponseEntity.ok("Extraction triggered for " + path);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body("Error: Extraction failed — " + e.getMessage());
+        }
+    }
+
     // ===== V14: Advanced Features =====
 
     /**
