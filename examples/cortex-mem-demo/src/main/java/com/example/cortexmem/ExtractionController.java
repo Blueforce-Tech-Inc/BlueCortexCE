@@ -53,24 +53,27 @@ public class ExtractionController {
      * GET /demo/extraction/history?project=/test&template=user_preferences&userId=alice&limit=10
      */
     @GetMapping(value = "/history", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<List<Map<String, Object>>> getHistory(
+    public ResponseEntity<?> getHistory(
             @RequestParam String project,
             @RequestParam String template,
             @RequestParam(required = false) String userId,
             @RequestParam(defaultValue = "0") Integer limit) {
 
         if (project == null || project.isBlank()) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "project is required"));
         }
         if (template == null || template.isBlank()) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "template is required"));
         }
 
         try {
             List<Map<String, Object>> result = client.getExtractionHistory(project, template, userId, limit);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Get extraction history failed: " + e.getMessage()));
         }
     }
 
