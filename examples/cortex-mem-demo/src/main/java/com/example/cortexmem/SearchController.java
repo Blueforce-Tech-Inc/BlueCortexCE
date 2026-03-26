@@ -35,6 +35,10 @@ public class SearchController {
             @RequestParam(defaultValue = "10") Integer limit,
             @RequestParam(defaultValue = "0") Integer offset) {
 
+        if (project == null || project.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "project is required"));
+        }
         if (limit < 0 || limit > 100) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "limit must be between 0 and 100"));

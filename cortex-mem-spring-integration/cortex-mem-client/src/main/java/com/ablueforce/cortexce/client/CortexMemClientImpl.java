@@ -376,6 +376,7 @@ public class CortexMemClientImpl implements CortexMemClient {
     @Override
     @SuppressWarnings("unchecked")
     public Map<String, Object> listObservations(ObservationsRequest request) {
+        Objects.requireNonNull(request, "request must not be null");
         try {
             return restClient.get()
                 .uri(uriBuilder -> {
@@ -405,6 +406,9 @@ public class CortexMemClientImpl implements CortexMemClient {
         Objects.requireNonNull(ids, "ids must not be null");
         if (ids.isEmpty()) {
             throw new IllegalArgumentException("ids must not be empty");
+        }
+        if (ids.size() > 100) {
+            throw new IllegalArgumentException("batch size exceeds maximum of 100 (got " + ids.size() + ")");
         }
         try {
             return restClient.post()

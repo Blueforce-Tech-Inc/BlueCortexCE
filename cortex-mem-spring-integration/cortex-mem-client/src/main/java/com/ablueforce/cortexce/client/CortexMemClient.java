@@ -137,8 +137,9 @@ public interface CortexMemClient {
      * Get observations by IDs.
      * Calls POST /api/observations/batch
      *
-     * @param ids list of observation IDs
+     * @param ids list of observation IDs (max 100)
      * @return list of observations
+     * @throws IllegalArgumentException if ids is empty or exceeds 100
      */
     Map<String, Object> getObservationsByIds(java.util.List<String> ids);
 

@@ -390,6 +390,23 @@ class CortexMemClientImplTest {
         assertThat(req.getBody().readUtf8()).contains("id1", "id2");
     }
 
+    @Test
+    void getObservationsByIds_emptyIds_throws() {
+        org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> client.getObservationsByIds(List.of()));
+    }
+
+    @Test
+    void getObservationsByIds_exceedsBatchLimit_throws() {
+        List<String> tooMany = java.util.stream.IntStream.range(0, 101)
+            .mapToObj(i -> "id-" + i)
+            .toList();
+        org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> client.getObservationsByIds(tooMany));
+    }
+
     // ==================== P1 Management API Tests ====================
 
     @Test
