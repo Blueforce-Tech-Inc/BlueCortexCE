@@ -192,7 +192,7 @@ class CortexMemClientImplTest {
     @Test
     void buildICLPrompt_returnsResult() throws Exception {
         server.enqueue(new MockResponse()
-            .setBody("{\"prompt\":\"Relevant experiences...\",\"experienceCount\":\"4\"}")
+            .setBody("{\"prompt\":\"Relevant experiences...\",\"experienceCount\":4}")
             .addHeader("Content-Type", "application/json"));
 
         ICLPromptResult result = client.buildICLPrompt(ICLPromptRequest.builder()
@@ -222,7 +222,7 @@ class CortexMemClientImplTest {
     @Test
     void buildICLPrompt_defaultMaxChars_omitsFromRequest() throws Exception {
         server.enqueue(new MockResponse()
-            .setBody("{\"prompt\":\"ok\",\"experienceCount\":\"2\"}")
+            .setBody("{\"prompt\":\"ok\",\"experienceCount\":2}")
             .addHeader("Content-Type", "application/json"));
 
         // Builder default: maxChars is null → should NOT appear in request body

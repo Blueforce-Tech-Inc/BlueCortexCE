@@ -4,7 +4,8 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 /**
  * Result from the ICL prompt builder endpoint.
- * Note: backend returns experienceCount as a String.
+ * Note: experienceCount is stored as String for backward compatibility.
+ * The backend returns it as an integer (Jackson auto-converts to String).
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record ICLPromptResult(

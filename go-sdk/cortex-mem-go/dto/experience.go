@@ -40,5 +40,6 @@ type ICLPromptRequest struct {
 // ICLPromptResult is the result from the ICL prompt builder.
 type ICLPromptResult struct {
 	Prompt          string `json:"prompt"`
-	ExperienceCount string `json:"experienceCount"`
+	ExperienceCount int    `json:"experienceCount"`
+	MaxChars        int    `json:"maxChars,omitempty"`
 }

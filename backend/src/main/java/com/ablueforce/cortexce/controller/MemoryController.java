@@ -114,8 +114,8 @@ public class MemoryController {
         
         return ResponseEntity.ok(Map.of(
             "prompt", prompt,
-            "experienceCount", String.valueOf(experiences.size()),
-            "maxChars", String.valueOf(maxChars)
+            "experienceCount", experiences.size(),
+            "maxChars", maxChars
         ));
     }
 

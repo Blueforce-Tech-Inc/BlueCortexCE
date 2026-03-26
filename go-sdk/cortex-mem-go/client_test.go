@@ -215,7 +215,7 @@ func TestICLPromptRequest_WireFormat(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"prompt":"test","experienceCount":"0"}`))
+		w.Write([]byte(`{"prompt":"test","experienceCount":0}`))
 	}))
 	defer server.Close()
 
@@ -277,7 +277,7 @@ func TestICLPromptRequest_OmitsEmptyProject(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"prompt":"test","experienceCount":"0"}`))
+		w.Write([]byte(`{"prompt":"test","experienceCount":0}`))
 	}))
 	defer server.Close()
 
@@ -1532,7 +1532,7 @@ func TestBuildICLPrompt_PathAndBody(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(dto.ICLPromptResult{
 			Prompt:           "Here are relevant experiences...",
-			ExperienceCount:  "3",
+			ExperienceCount:  3,
 		})
 	}))
 	defer server.Close()
@@ -1550,8 +1550,8 @@ func TestBuildICLPrompt_PathAndBody(t *testing.T) {
 	if result.Prompt != "Here are relevant experiences..." {
 		t.Errorf("unexpected prompt: %s", result.Prompt)
 	}
-	if result.ExperienceCount != "3" {
-		t.Errorf("expected experienceCount=3, got %s", result.ExperienceCount)
+	if result.ExperienceCount != 3 {
+		t.Errorf("expected experienceCount=3, got %d", result.ExperienceCount)
 	}
 }
 

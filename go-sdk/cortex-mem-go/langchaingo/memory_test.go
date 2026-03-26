@@ -19,7 +19,7 @@ func (m *mockClient) BuildICLPrompt(_ context.Context, _ dto.ICLPromptRequest) (
 	if m.iclErr != nil {
 		return nil, m.iclErr
 	}
-	return &dto.ICLPromptResult{Prompt: "test prompt", ExperienceCount: "3"}, nil
+	return &dto.ICLPromptResult{Prompt: "test prompt", ExperienceCount: 3}, nil
 }
 
 func (m *mockClient) Close() error { return nil }
