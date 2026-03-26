@@ -124,10 +124,10 @@ public class CortexMemClientImpl implements CortexMemClient {
                 .body(request.toWireFormat())
                 .retrieve()
                 .body(ICLPromptResult.class);
-            return result != null ? result : new ICLPromptResult("", "0");
+            return result != null ? result : new ICLPromptResult("", 0);
         } catch (Exception e) {
             log.warn("Failed to build ICL prompt: {}", e.getMessage());
-            return new ICLPromptResult("", "0");
+            return new ICLPromptResult("", 0);
         }
     }
 

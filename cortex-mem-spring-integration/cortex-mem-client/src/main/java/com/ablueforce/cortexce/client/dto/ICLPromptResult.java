@@ -4,19 +4,17 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 /**
  * Result from the ICL prompt builder endpoint.
- * Note: experienceCount is stored as String for backward compatibility.
- * The backend returns it as an integer (Jackson auto-converts to String).
+ * experienceCount is an integer matching the backend wire format and Go SDK.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record ICLPromptResult(
     String prompt,
-    String experienceCount
+    int experienceCount
 ) {
-    public int experienceCountAsInt() {
-        try {
-            return Integer.parseInt(experienceCount);
-        } catch (NumberFormatException e) {
-            return 0;
-        }
+    /**
+     * Convenience constructor for fallback/default values.
+     */
+    public ICLPromptResult(String prompt) {
+        this(prompt, 0);
     }
 }

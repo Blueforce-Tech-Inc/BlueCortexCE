@@ -139,10 +139,10 @@ class DtoTest {
     }
 
     @Test
-    void iclPromptResult_experienceCountAsInt() {
-        assertThat(new ICLPromptResult("", "3").experienceCountAsInt()).isEqualTo(3);
-        assertThat(new ICLPromptResult("", "0").experienceCountAsInt()).isEqualTo(0);
-        assertThat(new ICLPromptResult("", "invalid").experienceCountAsInt()).isEqualTo(0);
+    void iclPromptResult_experienceCount() {
+        assertThat(new ICLPromptResult("", 3).experienceCount()).isEqualTo(3);
+        assertThat(new ICLPromptResult("", 0).experienceCount()).isEqualTo(0);
+        assertThat(new ICLPromptResult("prompt").experienceCount()).isEqualTo(0);
     }
 
     @Test

@@ -201,7 +201,7 @@ class CortexMemClientImplTest {
             .build());
 
         assertThat(result.prompt()).isEqualTo("Relevant experiences...");
-        assertThat(result.experienceCountAsInt()).isEqualTo(4);
+        assertThat(result.experienceCount()).isEqualTo(4);
         RecordedRequest req = server.takeRequest();
         assertThat(req.getPath()).isEqualTo("/api/memory/icl-prompt");
     }
@@ -216,7 +216,7 @@ class CortexMemClientImplTest {
             .build());
 
         assertThat(result.prompt()).isEmpty();
-        assertThat(result.experienceCountAsInt()).isEqualTo(0);
+        assertThat(result.experienceCount()).isEqualTo(0);
     }
 
     @Test
@@ -240,7 +240,7 @@ class CortexMemClientImplTest {
     @Test
     void buildICLPrompt_explicitMaxChars_includedInRequest() throws Exception {
         server.enqueue(new MockResponse()
-            .setBody("{\"prompt\":\"ok\",\"experienceCount\":\"2\"}")
+            .setBody("{\"prompt\":\"ok\",\"experienceCount\":2}")
             .addHeader("Content-Type", "application/json"));
 
         client.buildICLPrompt(ICLPromptRequest.builder()

@@ -54,7 +54,7 @@ class BridgeMemoryAdvisorIntegrationTest {
             .captureEnabled(true)
             .build();
 
-        when(cortexClient.buildICLPrompt(any())).thenReturn(new ICLPromptResult("", "0"));
+        when(cortexClient.buildICLPrompt(any())).thenReturn(new ICLPromptResult("", 0));
         ChatClientResponse mockResponse = ChatClientResponse.builder().build();
         when(terminalChain.nextCall(any())).thenReturn(mockResponse);
 

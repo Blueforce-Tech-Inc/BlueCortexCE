@@ -130,7 +130,7 @@ public class CortexMemoryAdvisor implements CallAdvisor, StreamAdvisor {
                 return request;
             }
 
-            log.debug("Injecting {} experience(s) as memory context", iclResult.experienceCountAsInt());
+            log.debug("Injecting {} experience(s) as memory context", iclResult.experienceCount());
 
             var messages = new ArrayList<>(request.prompt().getInstructions());
             messages.addFirst(new SystemMessage(iclResult.prompt()));

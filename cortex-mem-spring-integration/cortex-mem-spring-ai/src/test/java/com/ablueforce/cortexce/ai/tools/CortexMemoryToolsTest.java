@@ -80,7 +80,7 @@ class CortexMemoryToolsTest {
     @Test
     void getMemoryContext_returns_icl_prompt() {
         when(client.buildICLPrompt(any()))
-            .thenReturn(new ICLPromptResult("Here are past experiences: ...", "2"));
+            .thenReturn(new ICLPromptResult("Here are past experiences: ...", 2));
 
         String result = tools.getMemoryContext("fix bug");
 

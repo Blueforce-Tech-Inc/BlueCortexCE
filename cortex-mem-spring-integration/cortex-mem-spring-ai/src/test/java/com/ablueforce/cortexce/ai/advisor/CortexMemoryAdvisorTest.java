@@ -74,7 +74,7 @@ class CortexMemoryAdvisorTest {
     @Test
     void adviseCall_whenClientReturnsIclPrompt_injectsIntoRequest() {
         when(cortexClient.buildICLPrompt(any())).thenReturn(
-            new ICLPromptResult("Relevant historical experiences:\n\n### 1\n**Task**: past", "2"));
+            new ICLPromptResult("Relevant historical experiences:\n\n### 1\n**Task**: past", 2));
         when(chain.nextCall(any())).thenReturn(realResponse());
 
         var prompt = new Prompt(List.of(new UserMessage("How do I fix the bug?")));
@@ -93,7 +93,7 @@ class CortexMemoryAdvisorTest {
 
     @Test
     void adviseCall_whenClientReturnsEmpty_doesNotEnrich() {
-        when(cortexClient.buildICLPrompt(any())).thenReturn(new ICLPromptResult("", "0"));
+        when(cortexClient.buildICLPrompt(any())).thenReturn(new ICLPromptResult("", 0));
         when(chain.nextCall(any())).thenReturn(realResponse());
 
         var prompt = new Prompt(List.of(new UserMessage("fix bug")));
@@ -138,7 +138,7 @@ class CortexMemoryAdvisorTest {
         CortexSessionContext.begin("sess-99", "/app/proj");
         CortexSessionContext.incrementAndGetPromptNumber();
 
-        when(cortexClient.buildICLPrompt(any())).thenReturn(new ICLPromptResult("", "0"));
+        when(cortexClient.buildICLPrompt(any())).thenReturn(new ICLPromptResult("", 0));
         when(chain.nextCall(any())).thenReturn(realResponse());
 
         var prompt = new Prompt(List.of(new UserMessage("How do I fix the login bug?")));
@@ -158,7 +158,7 @@ class CortexMemoryAdvisorTest {
     @Test
     void adviseCall_whenContextInactive_doesNotRecordUserPrompt() {
         // No CortexSessionContext.begin() - context inactive
-        when(cortexClient.buildICLPrompt(any())).thenReturn(new ICLPromptResult("", "0"));
+        when(cortexClient.buildICLPrompt(any())).thenReturn(new ICLPromptResult("", 0));
         when(chain.nextCall(any())).thenReturn(realResponse());
 
         var prompt = new Prompt(List.of(new UserMessage("fix bug")));
@@ -172,7 +172,7 @@ class CortexMemoryAdvisorTest {
 
     @Test
     void adviseCall_whenSpringAiConversationIdInContext_recordsUserPrompt() {
-        when(cortexClient.buildICLPrompt(any())).thenReturn(new ICLPromptResult("", "0"));
+        when(cortexClient.buildICLPrompt(any())).thenReturn(new ICLPromptResult("", 0));
         when(chain.nextCall(any())).thenReturn(realResponse());
 
         var prompt = new Prompt(List.of(new UserMessage("Hello from Spring AI conversation")));
@@ -200,7 +200,7 @@ class CortexMemoryAdvisorTest {
 
         CortexSessionContext.begin("sess-1", "/x");
 
-        when(cortexClient.buildICLPrompt(any())).thenReturn(new ICLPromptResult("", "0"));
+        when(cortexClient.buildICLPrompt(any())).thenReturn(new ICLPromptResult("", 0));
         when(chain.nextCall(any())).thenReturn(realResponse());
 
         var prompt = new Prompt(List.of(new UserMessage("hello")));

@@ -142,7 +142,7 @@ public class MemoryController {
                 .build()));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                    .body(new ICLPromptResult("", "0"));
+                    .body(new ICLPromptResult("", 0));
         }
     }
 

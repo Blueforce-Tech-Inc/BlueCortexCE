@@ -59,7 +59,7 @@ class DefaultMemoryRetrievalServiceTest {
     @Test
     void buildICLPrompt_delegatesAndReturnsPrompt() {
         when(client.buildICLPrompt(any())).thenReturn(
-            new com.ablueforce.cortexce.client.dto.ICLPromptResult("Relevant...", "3"));
+            new com.ablueforce.cortexce.client.dto.ICLPromptResult("Relevant...", 3));
         String result = service.buildICLPrompt("task", "/proj");
         assertThat(result).isEqualTo("Relevant...");
     }
