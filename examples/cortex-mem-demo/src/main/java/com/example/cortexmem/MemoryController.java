@@ -8,6 +8,8 @@ import com.ablueforce.cortexce.client.dto.ExperienceRequest;
 import com.ablueforce.cortexce.client.dto.ObservationUpdate;
 import com.ablueforce.cortexce.ai.retrieval.MemoryRetrievalService;
 import com.ablueforce.cortexce.client.dto.Experience;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,6 +32,8 @@ import java.util.Map;
  */
 @RestController
 public class MemoryController {
+
+    private static final Logger log = LoggerFactory.getLogger(MemoryController.class);
 
     private final MemoryRetrievalService retrievalService;
     private final CortexMemClient cortexClient;
@@ -141,6 +145,7 @@ public class MemoryController {
                 .maxChars(maxChars)
                 .build()));
         } catch (Exception e) {
+            log.error("ICL prompt truncated failed for project={}", resolveProject(project), e);
             return ResponseEntity.internalServerError()
                     .body(new ICLPromptResult("", 0));
         }

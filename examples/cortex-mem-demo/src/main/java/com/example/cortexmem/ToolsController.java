@@ -33,11 +33,11 @@ public class ToolsController {
             @RequestParam(defaultValue = "/tmp/hello.txt") String path,
             @RequestParam(required = false) String project) {
         String sessionId = "demo-" + UUID.randomUUID();
-        String projectPath = project != null && !project.isBlank()
-            ? (demoProperties.resolveProjectPath(project) != null
-                ? demoProperties.resolveProjectPath(project)
-                : project)
-            : System.getProperty("user.dir");
+        String projectPath = System.getProperty("user.dir");
+        if (project != null && !project.isBlank()) {
+            String resolved = demoProperties.resolveProjectPath(project);
+            projectPath = resolved != null ? resolved : project;
+        }
         CortexSessionContext.begin(sessionId, projectPath);
         try {
             String result = fileReadTool.readFile(path);

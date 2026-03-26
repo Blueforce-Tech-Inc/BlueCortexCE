@@ -22,15 +22,20 @@ public class SessionStartClient {
             .build();
     }
 
+    @SuppressWarnings("unchecked")
     public Map<String, Object> startSession(String sessionId, String projectPath) {
-        return restClient.post()
-            .uri("/api/session/start")
-            .body(Map.of(
-                "session_id", sessionId,
-                "project_path", projectPath,
-                "cwd", projectPath
-            ))
-            .retrieve()
-            .body(new org.springframework.core.ParameterizedTypeReference<>() {});
+        try {
+            return restClient.post()
+                .uri("/api/session/start")
+                .body(Map.of(
+                    "session_id", sessionId,
+                    "project_path", projectPath,
+                    "cwd", projectPath
+                ))
+                .retrieve()
+                .body(Map.class);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to start session " + sessionId + ": " + e.getMessage(), e);
+        }
     }
 }
