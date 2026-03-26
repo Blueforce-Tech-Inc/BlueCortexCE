@@ -45,18 +45,11 @@ func (c *httpClient) RetrieveExperiences(ctx context.Context, req dto.Experience
 	if req.Task == "" {
 		return nil, fmt.Errorf("cortex-ce: ExperienceRequest.Task is required")
 	}
-	data, status, err := c.doRequest(ctx, http.MethodPost, "/api/memory/experiences", req, nil)
+	result, err := doRequestJSON[[]dto.Experience](c, ctx, http.MethodPost, "/api/memory/experiences", req, nil)
 	if err != nil {
 		return nil, err
 	}
-	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
-	}
-	var resp []dto.Experience
-	if err := c.unmarshalJSON(data, &resp); err != nil {
-		return nil, fmt.Errorf("cortex-ce: failed to parse experiences: %w", err)
-	}
-	return resp, nil
+	return *result, nil
 }
 
 func (c *httpClient) BuildICLPrompt(ctx context.Context, req dto.ICLPromptRequest) (*dto.ICLPromptResult, error) {
@@ -236,18 +229,11 @@ func (c *httpClient) GetExtractionHistory(ctx context.Context, projectPath, temp
 	if userID != "" {
 		params["userId"] = userID
 	}
-	data, status, err := c.doRequest(ctx, http.MethodGet, path, nil, params)
+	result, err := doRequestJSON[[]dto.ExtractionResult](c, ctx, http.MethodGet, path, nil, params)
 	if err != nil {
 		return nil, err
 	}
-	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
-	}
-	var resp []dto.ExtractionResult
-	if err := c.unmarshalJSON(data, &resp); err != nil {
-		return nil, fmt.Errorf("cortex-ce: failed to parse extraction history: %w", err)
-	}
-	return resp, nil
+	return *result, nil
 }
 
 // ==================== Version ====================
@@ -275,18 +261,11 @@ func (c *httpClient) GetModes(ctx context.Context) (*dto.ModesResponse, error) {
 }
 
 func (c *httpClient) GetSettings(ctx context.Context) (map[string]any, error) {
-	data, status, err := c.doRequest(ctx, http.MethodGet, "/api/settings", nil, nil)
+	result, err := doRequestJSON[map[string]any](c, ctx, http.MethodGet, "/api/settings", nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	if status >= 400 {
-		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
-	}
-	var resp map[string]any
-	if err := c.unmarshalJSON(data, &resp); err != nil {
-		return nil, fmt.Errorf("cortex-ce: failed to parse settings: %w", err)
-	}
-	return resp, nil
+	return *result, nil
 }
 
 // ==================== Lifecycle ====================
