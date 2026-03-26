@@ -593,6 +593,7 @@ func main() {
 		var req struct {
 			Id            string            `json:"id"`
 			Title         *string           `json:"title,omitempty"`
+			Subtitle      *string           `json:"subtitle,omitempty"`
 			Content       *string           `json:"content,omitempty"`
 			Facts         []string          `json:"facts,omitempty"`
 			Concepts      []string          `json:"concepts,omitempty"`
@@ -611,6 +612,9 @@ func main() {
 		// Use pointer checks for string fields: nil = field absent (skip), non-nil = field present (set, even if empty string)
 		if req.Title != nil {
 			update.Title = req.Title
+		}
+		if req.Subtitle != nil {
+			update.Subtitle = req.Subtitle
 		}
 		if req.Content != nil {
 			update.Content = req.Content

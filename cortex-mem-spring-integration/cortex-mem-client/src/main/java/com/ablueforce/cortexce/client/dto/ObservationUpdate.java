@@ -15,6 +15,7 @@ import java.util.Map;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record ObservationUpdate(
     String title,
+    String subtitle,
     String content,
     List<String> facts,
     List<String> concepts,
@@ -27,6 +28,7 @@ public record ObservationUpdate(
 
     public static class Builder {
         private String title;
+        private String subtitle;
         private String content;
         private List<String> facts;
         private List<String> concepts;
@@ -34,6 +36,7 @@ public record ObservationUpdate(
         private Map<String, Object> extractedData;
 
         public Builder title(String title) { this.title = title; return this; }
+        public Builder subtitle(String subtitle) { this.subtitle = subtitle; return this; }
         public Builder content(String content) { this.content = content; return this; }
         public Builder facts(List<String> facts) { this.facts = facts; return this; }
         public Builder concepts(List<String> concepts) { this.concepts = concepts; return this; }
@@ -41,7 +44,7 @@ public record ObservationUpdate(
         public Builder extractedData(Map<String, Object> extractedData) { this.extractedData = extractedData; return this; }
 
         public ObservationUpdate build() {
-            return new ObservationUpdate(title, content, facts, concepts, source, extractedData);
+            return new ObservationUpdate(title, subtitle, content, facts, concepts, source, extractedData);
         }
     }
 }

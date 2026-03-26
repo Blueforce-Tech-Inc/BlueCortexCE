@@ -154,10 +154,11 @@ class DtoTest {
     @Test
     void observationUpdate_omitsNullFields() throws Exception {
         // Verify @JsonInclude(NON_NULL) — only title is set, others should be omitted
-        var update = new ObservationUpdate("New Title", null, null, null, null, null);
+        var update = new ObservationUpdate("New Title", null, null, null, null, null, null);
         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
         String json = mapper.writeValueAsString(update);
         assertThat(json).contains("\"title\":\"New Title\"");
+        assertThat(json).doesNotContain("\"subtitle\"");
         assertThat(json).doesNotContain("\"content\"");
         assertThat(json).doesNotContain("\"facts\"");
         assertThat(json).doesNotContain("\"concepts\"");
@@ -178,6 +179,18 @@ class DtoTest {
         assertThat(json).contains("\"extractedData\"");
         assertThat(json).contains("\"preference\":\"vim\"");
         // title/content/facts/concepts should be omitted
+        assertThat(json).doesNotContain("\"title\"");
+        assertThat(json).doesNotContain("\"content\"");
+    }
+
+    @Test
+    void observationUpdate_withSubtitle() throws Exception {
+        var update = ObservationUpdate.builder()
+            .subtitle("A subtitle")
+            .build();
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        String json = mapper.writeValueAsString(update);
+        assertThat(json).contains("\"subtitle\":\"A subtitle\"");
         assertThat(json).doesNotContain("\"title\"");
         assertThat(json).doesNotContain("\"content\"");
     }
