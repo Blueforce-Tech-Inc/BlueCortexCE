@@ -20,7 +20,7 @@ func (m *mockClient) RetrieveExperiences(_ context.Context, _ dto.ExperienceRequ
 		return nil, m.retrieveErr
 	}
 	return []dto.Experience{
-		{ID: "1", Task: "test", Strategy: "use Go", Outcome: "works well", QualityScore: 0.9},
+		{ID: "1", Task: "test", Strategy: "use Go", Outcome: "works well", QualityScore: 0.9, CreatedAt: "2026-03-26T10:00:00Z"},
 	}, nil
 }
 
@@ -99,6 +99,15 @@ func TestRetrieve_Success(t *testing.T) {
 	}
 	if doc.Metadata["task"] != "test" {
 		t.Errorf("expected task 'test' in metadata, got %v", doc.Metadata["task"])
+	}
+	if doc.Metadata["id"] != "1" {
+		t.Errorf("expected id '1' in metadata, got %v", doc.Metadata["id"])
+	}
+	if doc.Metadata["qualityScore"] != float32(0.9) {
+		t.Errorf("expected qualityScore 0.9 in metadata, got %v", doc.Metadata["qualityScore"])
+	}
+	if doc.Metadata["createdAt"] != "2026-03-26T10:00:00Z" {
+		t.Errorf("expected createdAt in metadata, got %v", doc.Metadata["createdAt"])
 	}
 }
 
@@ -220,7 +229,7 @@ type captureClient struct {
 
 func (m *captureClient) RetrieveExperiences(_ context.Context, req dto.ExperienceRequest) ([]dto.Experience, error) {
 	*m.req = req
-	return []dto.Experience{{ID: "1", Task: "test", Strategy: "s", Outcome: "o", QualityScore: 0.9}}, nil
+	return []dto.Experience{{ID: "1", Task: "test", Strategy: "s", Outcome: "o", QualityScore: 0.9, CreatedAt: "2026-03-26T10:00:00Z"}}, nil
 }
 
 func (m *captureClient) Close() error { return nil }

@@ -131,6 +131,7 @@ func (r *Retriever) Retrieve(ctx context.Context, input RetrieverInput) (Retriev
 				"task":           exp.Task,
 				"qualityScore":   exp.QualityScore,
 				"reuseCondition": exp.ReuseCondition,
+				"createdAt":      exp.CreatedAt,
 			},
 		})
 	}
