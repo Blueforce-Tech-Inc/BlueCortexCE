@@ -27,18 +27,34 @@ public class DefaultMemoryRetrievalService implements MemoryRetrievalService {
 
     @Override
     public List<Experience> retrieveExperiences(String currentTask, String projectPath, int count) {
+        return retrieveExperiences(currentTask, projectPath, count, null, null, null);
+    }
+
+    @Override
+    public List<Experience> retrieveExperiences(String currentTask, String projectPath, int count,
+                                                  String source, List<String> requiredConcepts, String userId) {
         return client.retrieveExperiences(ExperienceRequest.builder()
             .task(currentTask)
             .project(projectPath)
             .count(count > 0 ? count : defaultCount)
+            .source(source)
+            .requiredConcepts(requiredConcepts)
+            .userId(userId)
             .build());
     }
 
     @Override
     public String buildICLPrompt(String currentTask, String projectPath) {
+        return buildICLPrompt(currentTask, projectPath, null, null);
+    }
+
+    @Override
+    public String buildICLPrompt(String currentTask, String projectPath, Integer maxChars, String userId) {
         var result = client.buildICLPrompt(ICLPromptRequest.builder()
             .task(currentTask)
             .project(projectPath)
+            .maxChars(maxChars)
+            .userId(userId)
             .build());
         return result.prompt();
     }
