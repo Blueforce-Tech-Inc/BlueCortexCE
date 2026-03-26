@@ -4,7 +4,6 @@ import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.ablueforce.cortexce.repository.ObservationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
@@ -26,14 +25,17 @@ public class TimelineService {
 
     private static final Logger log = LoggerFactory.getLogger(TimelineService.class);
 
-    @Autowired
-    private ObservationRepository observationRepository;
+    private final ObservationRepository observationRepository;
+    private final EmbeddingService embeddingService;
+    private final SearchService searchService;
 
-    @Autowired
-    private EmbeddingService embeddingService;
-
-    @Autowired
-    private SearchService searchService;
+    public TimelineService(ObservationRepository observationRepository,
+                           EmbeddingService embeddingService,
+                           SearchService searchService) {
+        this.observationRepository = observationRepository;
+        this.embeddingService = embeddingService;
+        this.searchService = searchService;
+    }
 
     /**
      * Get timeline context around an anchor point (REST endpoint wrapper).

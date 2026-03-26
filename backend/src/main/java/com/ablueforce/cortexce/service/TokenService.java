@@ -3,7 +3,6 @@ package com.ablueforce.cortexce.service;
 import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -22,8 +21,11 @@ public class TokenService {
     private static final double CHARS_PER_TOKEN = 4.0;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    @Autowired
-    private ModeService modeService;
+    private final ModeService modeService;
+
+    public TokenService(ModeService modeService) {
+        this.modeService = modeService;
+    }
 
     /**
      * Calculate token count for a single observation.

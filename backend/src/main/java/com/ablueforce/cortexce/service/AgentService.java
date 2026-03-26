@@ -13,7 +13,6 @@ import com.ablueforce.cortexce.repository.PendingMessageRepository;
 import com.ablueforce.cortexce.util.XmlParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.scheduling.annotation.Async;
@@ -65,35 +64,38 @@ public class AgentService implements LogHelper {
     // Dependencies (repositories and infrastructure)
     // ========================================================================
 
-    @Autowired
-    private SessionManagementService sessionManagementService;
-
-    @Autowired
-    private TemplateService templateService;
-
-    @Autowired
-    private ObservationRepository observationRepository;
-
-    @Autowired
-    private PendingMessageRepository pendingMessageRepository;
-
-    @Autowired
-    private SSEBroadcaster sseBroadcaster;
-
-    @Autowired
-    private EmbeddingService embeddingService;
-
-    @Autowired
-    private LlmService llmService;
-
-    @Autowired
-    private TokenService tokenService;
-
-    @Autowired
-    private ContextCacheService contextCacheService;
+    private final SessionManagementService sessionManagementService;
+    private final TemplateService templateService;
+    private final ObservationRepository observationRepository;
+    private final PendingMessageRepository pendingMessageRepository;
+    private final SSEBroadcaster sseBroadcaster;
+    private final EmbeddingService embeddingService;
+    private final LlmService llmService;
+    private final TokenService tokenService;
+    private final ContextCacheService contextCacheService;
 
     @Value("${claudemem.max-retries:3}")
     private int maxRetries;
+
+    public AgentService(SessionManagementService sessionManagementService,
+                        TemplateService templateService,
+                        ObservationRepository observationRepository,
+                        PendingMessageRepository pendingMessageRepository,
+                        SSEBroadcaster sseBroadcaster,
+                        EmbeddingService embeddingService,
+                        LlmService llmService,
+                        TokenService tokenService,
+                        ContextCacheService contextCacheService) {
+        this.sessionManagementService = sessionManagementService;
+        this.templateService = templateService;
+        this.observationRepository = observationRepository;
+        this.pendingMessageRepository = pendingMessageRepository;
+        this.sseBroadcaster = sseBroadcaster;
+        this.embeddingService = embeddingService;
+        this.llmService = llmService;
+        this.tokenService = tokenService;
+        this.contextCacheService = contextCacheService;
+    }
 
     // ========================================================================
     // Tool use processing

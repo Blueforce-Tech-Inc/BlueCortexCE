@@ -4,7 +4,6 @@ import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.ablueforce.cortexce.repository.ObservationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -26,8 +25,11 @@ public class SearchService {
     private static final Logger log = LoggerFactory.getLogger(SearchService.class);
     private static final int DEFAULT_LIMIT = 20;
 
-    @Autowired
-    private ObservationRepository observationRepository;
+    private final ObservationRepository observationRepository;
+
+    public SearchService(ObservationRepository observationRepository) {
+        this.observationRepository = observationRepository;
+    }
 
     /**
      * Main search entry point.

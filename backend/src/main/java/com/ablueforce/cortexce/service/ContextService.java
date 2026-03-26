@@ -9,7 +9,6 @@ import com.ablueforce.cortexce.repository.SummaryRepository;
 import com.ablueforce.cortexce.common.LogHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.nio.file.Path;
@@ -46,20 +45,23 @@ public class ContextService implements LogHelper {
     private static final DateTimeFormatter DAY_FMT =
         DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
-    @Autowired
-    private ObservationRepository observationRepository;
+    private final ObservationRepository observationRepository;
+    private final SummaryRepository summaryRepository;
+    private final SessionRepository sessionRepository;
+    private final TokenService tokenService;
+    private final ModeService modeService;
 
-    @Autowired
-    private SummaryRepository summaryRepository;
-
-    @Autowired
-    private SessionRepository sessionRepository;
-
-    @Autowired
-    private TokenService tokenService;
-
-    @Autowired
-    private ModeService modeService;
+    public ContextService(ObservationRepository observationRepository,
+                          SummaryRepository summaryRepository,
+                          SessionRepository sessionRepository,
+                          TokenService tokenService,
+                          ModeService modeService) {
+        this.observationRepository = observationRepository;
+        this.summaryRepository = summaryRepository;
+        this.sessionRepository = sessionRepository;
+        this.tokenService = tokenService;
+        this.modeService = modeService;
+    }
 
     // ===== Timeline Types =====
 

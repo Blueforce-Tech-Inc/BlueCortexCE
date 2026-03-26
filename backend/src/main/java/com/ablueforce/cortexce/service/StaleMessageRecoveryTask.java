@@ -4,7 +4,6 @@ import com.ablueforce.cortexce.repository.PendingMessageRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,15 +25,15 @@ public class StaleMessageRecoveryTask {
     private static final Logger log = LoggerFactory.getLogger(StaleMessageRecoveryTask.class);
 
     private final PendingMessageRepository pendingMessageRepository;
+    private final TransactionTemplate transactionTemplate;
 
     @Value("${claudemem.stale-message.threshold-minutes:10}")
     private int staleThresholdMinutes;
 
-    @Autowired
-    private TransactionTemplate transactionTemplate;
-
-    public StaleMessageRecoveryTask(PendingMessageRepository pendingMessageRepository) {
+    public StaleMessageRecoveryTask(PendingMessageRepository pendingMessageRepository,
+                                    TransactionTemplate transactionTemplate) {
         this.pendingMessageRepository = pendingMessageRepository;
+        this.transactionTemplate = transactionTemplate;
     }
 
     /**

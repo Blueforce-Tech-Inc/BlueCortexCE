@@ -397,12 +397,9 @@ public class StructuredExtractionService {
     private Map<String, Object> mergeAppendOnly(Map<String, Object> appendResult,
                                                  Map<String, Object> fullPriorData,
                                                  TemplateConfig template) {
-        List<Map<String, Object>> addItems = (List<Map<String, Object>>)
-            appendResult.getOrDefault("add", List.of());
-        List<Map<String, Object>> removeItems = (List<Map<String, Object>>)
-            appendResult.getOrDefault("remove", List.of());
-        List<Map<String, Object>> keepHint = (List<Map<String, Object>>)
-            appendResult.getOrDefault("keep_hint", List.of());
+        List<Map<String, Object>> addItems = safeListOfMaps(appendResult.get("add"), "add");
+        List<Map<String, Object>> removeItems = safeListOfMaps(appendResult.get("remove"), "remove");
+        List<Map<String, Object>> keepHint = safeListOfMaps(appendResult.get("keep_hint"), "keep_hint");
 
         // Resolve key fields from template config (fallback: category + value)
         List<String> keyFields = resolveKeyFields(template);
@@ -824,5 +821,32 @@ public class StructuredExtractionService {
         return extractionConfig.getTemplates().stream()
             .filter(t -> t.getName().equals(name))
             .findFirst();
+    }
+
+    /**
+     * Safely extract a List&lt;Map&lt;String, Object&gt;&gt; from an LLM response field.
+     * Returns empty list if the value is null, not a List, or contains non-Map items.
+     * Prevents ClassCastException from malformed LLM responses.
+     */
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> safeListOfMaps(Object value, String fieldName) {
+        if (value == null) {
+            return List.of();
+        }
+        if (!(value instanceof List<?> raw)) {
+            log.warn("Expected List for '{}' in LLM response, got {}. Ignoring.", fieldName,
+                value.getClass().getSimpleName());
+            return List.of();
+        }
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Object item : raw) {
+            if (item instanceof Map<?, ?>) {
+                result.add((Map<String, Object>) item);
+            } else {
+                log.warn("Non-Map item in '{}' list: {} (type {}). Skipping.", fieldName, item,
+                    item != null ? item.getClass().getSimpleName() : "null");
+            }
+        }
+        return result;
     }
 }

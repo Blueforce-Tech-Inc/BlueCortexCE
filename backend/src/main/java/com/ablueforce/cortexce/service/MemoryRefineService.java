@@ -51,18 +51,18 @@ public class MemoryRefineService {
     private final LlmService llmService;
 
     /** Phase 3: Optional extraction service (null when extraction is disabled). */
-    @Lazy
-    @Autowired(required = false)
-    private StructuredExtractionService extractionService;
+    private final StructuredExtractionService extractionService;
 
     public MemoryRefineService(ObservationRepository observationRepository,
                              QualityScorer qualityScorer,
                              LlmService llmService,
-                             @Value("${app.memory.refine-enabled:true}") boolean refineEnabled) {
+                             @Value("${app.memory.refine-enabled:true}") boolean refineEnabled,
+                             @Lazy @Autowired(required = false) StructuredExtractionService extractionService) {
         this.observationRepository = observationRepository;
         this.qualityScorer = qualityScorer;
         this.llmService = llmService;
         this.refineEnabled = refineEnabled;
+        this.extractionService = extractionService;
         log.info("MemoryRefineService initialized, refine-enabled={}", refineEnabled);
     }
 

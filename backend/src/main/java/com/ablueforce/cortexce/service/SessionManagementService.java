@@ -5,7 +5,6 @@ import com.ablueforce.cortexce.repository.SessionRepository;
 import com.ablueforce.cortexce.common.LogHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -32,8 +31,11 @@ public class SessionManagementService implements LogHelper {
         return log;
     }
 
-    @Autowired
-    private SessionRepository sessionRepository;
+    private final SessionRepository sessionRepository;
+
+    public SessionManagementService(SessionRepository sessionRepository) {
+        this.sessionRepository = sessionRepository;
+    }
 
     /**
      * Initialize or retrieve a session.
