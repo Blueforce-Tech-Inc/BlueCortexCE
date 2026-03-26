@@ -50,6 +50,49 @@ public class ManagementController {
     }
 
     /**
+     * GET /demo/manage/quality?project=/test
+     */
+    @GetMapping(value = "/quality", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> getQuality(@RequestParam String project) {
+        if (project == null || project.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "project is required"));
+        }
+        try {
+            var result = client.getQualityDistribution(project);
+            return ResponseEntity.ok(Map.of(
+                "project", result.project(),
+                "high", result.high(),
+                "medium", result.medium(),
+                "low", result.low(),
+                "unknown", result.unknown(),
+                "total", result.total()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Get quality distribution failed: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * POST /demo/manage/refine?project=/test
+     */
+    @PostMapping(value = "/refine", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> triggerRefinement(@RequestParam String project) {
+        if (project == null || project.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "project is required"));
+        }
+        try {
+            client.triggerRefinement(project);
+            return ResponseEntity.ok(Map.of("status", "refinement triggered", "project", project));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Trigger refinement failed: " + e.getMessage()));
+        }
+    }
+
+    /**
      * GET /demo/manage/modes
      */
     @GetMapping(value = "/modes", produces = MediaType.APPLICATION_JSON_VALUE)

@@ -630,13 +630,14 @@ func main() {
 		writeJSON(w, map[string]string{"status": "recorded"})
 	})
 
-	// --- PATCH /observations/update ---
-	mux.HandleFunc("/observations/update", func(w http.ResponseWriter, r *http.Request) {
-		if !checkMethod(w, r, http.MethodPatch) {
+	// --- PATCH /observations/{id} ---
+	mux.HandleFunc("PATCH /observations/{id}", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		if id == "" {
+			writeJSONError(w, http.StatusBadRequest, "observation id is required")
 			return
 		}
 		var req struct {
-			Id            string            `json:"id"`
 			Title         *string           `json:"title,omitempty"`
 			Subtitle      *string           `json:"subtitle,omitempty"`
 			Content       *string           `json:"content,omitempty"`
@@ -647,10 +648,6 @@ func main() {
 		}
 		if err := readJSON(r, &req); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
-			return
-		}
-		if req.Id == "" {
-			writeJSONError(w, http.StatusBadRequest, "id is required")
 			return
 		}
 		update := dto.ObservationUpdate{}
@@ -677,21 +674,18 @@ func main() {
 		if req.ExtractedData != nil {
 			update.ExtractedData = req.ExtractedData
 		}
-		if err := client.UpdateObservation(r.Context(), req.Id, update); err != nil {
+		if err := client.UpdateObservation(r.Context(), id, update); err != nil {
 			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update observation: %v", err))
 			return
 		}
 		writeJSON(w, map[string]string{"status": "updated"})
 	})
 
-	// --- DELETE /observations/delete ---
-	mux.HandleFunc("/observations/delete", func(w http.ResponseWriter, r *http.Request) {
-		if !checkMethod(w, r, http.MethodDelete) {
-			return
-		}
-		id := r.URL.Query().Get("id")
+	// --- DELETE /observations/{id} ---
+	mux.HandleFunc("DELETE /observations/{id}", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
 		if id == "" {
-			writeJSONError(w, http.StatusBadRequest, "id is required")
+			writeJSONError(w, http.StatusBadRequest, "observation id is required")
 			return
 		}
 		if err := client.DeleteObservation(r.Context(), id); err != nil {
@@ -792,8 +786,8 @@ func main() {
 	fmt.Println("  POST   /refine              - Trigger memory refinement")
 	fmt.Println("  POST   /feedback            - Submit observation feedback")
 	fmt.Println("  PATCH  /session/user        - Update session user ID")
-	fmt.Println("  PATCH  /observations/update - Update observation")
-	fmt.Println("  DELETE /observations/delete - Delete observation")
+	fmt.Println("  PATCH  /observations/{id}   - Update observation")
+	fmt.Println("  DELETE /observations/{id}   - Delete observation")
 	fmt.Println("  POST   /observations/create - Record observation")
 	fmt.Println("  POST   /ingest/prompt       - Ingest user prompt")
 	fmt.Println("  POST   /ingest/session-end  - Ingest session end")
