@@ -11,6 +11,7 @@ import org.springframework.web.client.RestClient;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * REST-based implementation of {@link CortexMemClient}.
@@ -448,6 +449,7 @@ public class CortexMemClientImpl implements CortexMemClient {
     /**
      * Execute with retry. On final failure, throws the last exception.
      * Use for explicit user actions where the caller needs to know the outcome.
+     * Backoff includes ±25% jitter to prevent thundering herd.
      */
     private void executeWithRetry(String operation, Runnable action) {
         Exception lastException = null;
@@ -459,8 +461,9 @@ public class CortexMemClientImpl implements CortexMemClient {
                 lastException = e;
                 if (attempt < maxRetries) {
                     log.debug("[{}] Attempt {}/{} failed, retrying...", operation, attempt, maxRetries);
+                    long jitteredMs = jitteredBackoff(attempt);
                     try {
-                        Thread.sleep(retryBackoff.toMillis() * attempt);
+                        Thread.sleep(jitteredMs);
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         throw new RuntimeException("Interrupted during retry", ie);
@@ -475,6 +478,7 @@ public class CortexMemClientImpl implements CortexMemClient {
     /**
      * Execute with retry. On final failure, logs a warning and swallows the error.
      * Use for background/hook operations where fire-and-forget is appropriate.
+     * Backoff includes ±25% jitter to prevent thundering herd.
      */
     private void executeWithRetrySilent(String operation, Runnable action) {
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
@@ -486,8 +490,9 @@ public class CortexMemClientImpl implements CortexMemClient {
                     log.warn("[{}] Failed after {} attempts: {}", operation, maxRetries, e.getMessage());
                 } else {
                     log.debug("[{}] Attempt {}/{} failed, retrying...", operation, attempt, maxRetries);
+                    long jitteredMs = jitteredBackoff(attempt);
                     try {
-                        Thread.sleep(retryBackoff.toMillis() * attempt);
+                        Thread.sleep(jitteredMs);
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         return;
@@ -495,5 +500,14 @@ public class CortexMemClientImpl implements CortexMemClient {
                 }
             }
         }
+    }
+
+    /**
+     * Calculate jittered backoff: base = backoff * attempt, jittered to [0.75x, 1.25x].
+     */
+    private long jitteredBackoff(int attempt) {
+        long baseMs = retryBackoff.toMillis() * attempt;
+        long jitter = ThreadLocalRandom.current().nextLong(baseMs / 4) - baseMs / 8;
+        return Math.max(0, baseMs + jitter);
     }
 }
