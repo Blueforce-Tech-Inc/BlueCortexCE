@@ -3261,6 +3261,40 @@ func TestGetObservationsByIds_Validation_NilIDs(t *testing.T) {
 	}
 }
 
+func TestGetObservationsByIds_Validation_ExceedsMaxBatch(t *testing.T) {
+	client := cortexmem.NewClient()
+	ids := make([]string, 101)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("obs-%d", i)
+	}
+	_, err := client.GetObservationsByIds(context.Background(), ids)
+	if err == nil {
+		t.Fatal("GetObservationsByIds should fail with >100 IDs")
+	}
+	if !strings.Contains(err.Error(), "batch size exceeds maximum of 100") {
+		t.Errorf("expected batch size error, got: %v", err)
+	}
+}
+
+func TestGetObservationsByIds_Validation_ExactlyMaxBatch(t *testing.T) {
+	// 100 IDs should be accepted (passes client-side validation)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(dto.BatchObservationsResponse{Count: 0, Observations: []dto.Observation{}})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	ids := make([]string, 100)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("obs-%d", i)
+	}
+	_, err := client.GetObservationsByIds(context.Background(), ids)
+	if err != nil {
+		t.Fatalf("GetObservationsByIds should succeed with exactly 100 IDs: %v", err)
+	}
+}
+
 func TestTriggerRefinement_Validation_EmptyProjectPath(t *testing.T) {
 	client := cortexmem.NewClient()
 	err := client.TriggerRefinement(context.Background(), "")
