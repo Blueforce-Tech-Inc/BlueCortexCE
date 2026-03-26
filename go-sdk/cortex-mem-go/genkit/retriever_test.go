@@ -143,9 +143,9 @@ func TestRetrieve_CustomLogger(t *testing.T) {
 
 func TestRetrieve_ZeroCount_FallsBackToDefault(t *testing.T) {
 	// When Count <= 0 in input, it should fall back to the retriever's default count.
-	// We can't directly observe the count passed to the mock (it uses _),
-	// but we verify the call succeeds without error, confirming fallback works.
-	r := NewRetriever(&mockClient{}, WithRetrieverCount(7))
+	var capturedReq dto.ExperienceRequest
+	mock := &captureClient{req: &capturedReq}
+	r := NewRetriever(mock, WithRetrieverCount(7))
 	output, err := r.Retrieve(context.Background(), RetrieverInput{
 		Query: "test",
 		Count: 0, // Should fall back to retriever default (7)
@@ -153,19 +153,27 @@ func TestRetrieve_ZeroCount_FallsBackToDefault(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
+	if capturedReq.Count != 7 {
+		t.Errorf("expected count=7 (fallback to default), got %d", capturedReq.Count)
+	}
 	if len(output.Documents) != 1 {
 		t.Errorf("expected 1 document, got %d", len(output.Documents))
 	}
 }
 
 func TestRetrieve_NegativeCount_FallsBackToDefault(t *testing.T) {
-	r := NewRetriever(&mockClient{}, WithRetrieverCount(3))
+	var capturedReq dto.ExperienceRequest
+	mock := &captureClient{req: &capturedReq}
+	r := NewRetriever(mock, WithRetrieverCount(3))
 	output, err := r.Retrieve(context.Background(), RetrieverInput{
 		Query: "test",
 		Count: -5, // Negative should fall back to default
 	})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
+	}
+	if capturedReq.Count != 3 {
+		t.Errorf("expected count=3 (fallback to default), got %d", capturedReq.Count)
 	}
 	if len(output.Documents) != 1 {
 		t.Errorf("expected 1 document, got %d", len(output.Documents))
@@ -174,7 +182,9 @@ func TestRetrieve_NegativeCount_FallsBackToDefault(t *testing.T) {
 
 func TestRetrieve_InputOverridesEmptyRetrieverFields(t *testing.T) {
 	// When retriever has empty fields, input should provide values
-	r := NewRetriever(&mockClient{}) // no project, no source, no userID set
+	var capturedReq dto.ExperienceRequest
+	mock := &captureClient{req: &capturedReq}
+	r := NewRetriever(mock) // no project, no source, no userID set
 	output, err := r.Retrieve(context.Background(), RetrieverInput{
 		Query:   "test",
 		Project: "/input/project",
@@ -185,7 +195,32 @@ func TestRetrieve_InputOverridesEmptyRetrieverFields(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
+	if capturedReq.Project != "/input/project" {
+		t.Errorf("expected project='/input/project', got %q", capturedReq.Project)
+	}
+	if capturedReq.Source != "input-source" {
+		t.Errorf("expected source='input-source', got %q", capturedReq.Source)
+	}
+	if capturedReq.UserID != "input-user" {
+		t.Errorf("expected userID='input-user', got %q", capturedReq.UserID)
+	}
+	if capturedReq.Count != 5 {
+		t.Errorf("expected count=5, got %d", capturedReq.Count)
+	}
 	if len(output.Documents) != 1 {
 		t.Errorf("expected 1 document, got %d", len(output.Documents))
 	}
 }
+
+// captureClient captures the ExperienceRequest for assertion.
+type captureClient struct {
+	cortexmem.Client
+	req *dto.ExperienceRequest
+}
+
+func (m *captureClient) RetrieveExperiences(_ context.Context, req dto.ExperienceRequest) ([]dto.Experience, error) {
+	*m.req = req
+	return []dto.Experience{{ID: "1", Task: "test", Strategy: "s", Outcome: "o", QualityScore: 0.9}}, nil
+}
+
+func (m *captureClient) Close() error { return nil }

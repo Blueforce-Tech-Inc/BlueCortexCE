@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -70,7 +71,8 @@ func WithMaxRetries(n int) Option {
 }
 
 // WithRetryBackoff sets the base retry backoff duration.
-// Actual backoff per attempt = RetryBackoff * attempt (linear backoff, matching Java SDK).
+// Actual backoff per attempt = RetryBackoff * attempt (linear backoff with ±25% jitter).
+// Jitter prevents thundering herd when multiple clients retry simultaneously.
 func WithRetryBackoff(d time.Duration) Option {
 	return func(c *ClientConfig) { c.RetryBackoff = d }
 }
@@ -255,8 +257,14 @@ func (c *httpClient) doFireAndForget(ctx context.Context, name string, fn func()
 				"attempt", attempt,
 				"maxAttempts", c.config.MaxRetries,
 			)
-			// Linear backoff (matching Java SDK: backoff * attempt)
-			delay := c.config.RetryBackoff * time.Duration(attempt)
+			// Linear backoff with jitter (±25%) to prevent thundering herd.
+			// Base delay = RetryBackoff * attempt, jittered to [0.75x, 1.25x].
+			baseDelay := c.config.RetryBackoff * time.Duration(attempt)
+			jitter := time.Duration(rand.Int63n(int64(baseDelay)/2)) - baseDelay/4
+			delay := baseDelay + jitter
+			if delay < 0 {
+				delay = 0
+			}
 			select {
 			case <-ctx.Done():
 				// Fire-and-forget: swallow context cancellation

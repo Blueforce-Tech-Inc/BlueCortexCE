@@ -1391,17 +1391,18 @@ func TestFireAndForget_CustomBackoff(t *testing.T) {
 	if attempts != 3 {
 		t.Errorf("expected 3 attempts, got %d", attempts)
 	}
-	// Verify backoff timing: attempt 1→2 delay should be ~100ms, attempt 2→3 delay should be ~200ms
+	// Verify backoff timing with jitter: base delays are 100ms and 200ms,
+	// jittered to [75ms, 125ms] and [150ms, 250ms] respectively.
 	if len(timestamps) >= 3 {
 		delay1 := timestamps[1].Sub(timestamps[0])
 		delay2 := timestamps[2].Sub(timestamps[1])
-		// First backoff: 100ms * 1 = 100ms
-		if delay1 < 80*time.Millisecond || delay1 > 200*time.Millisecond {
-			t.Errorf("expected first delay ~100ms, got %v", delay1)
+		// First backoff: 100ms * 1 = 100ms, jittered to [75ms, 125ms]
+		if delay1 < 60*time.Millisecond || delay1 > 160*time.Millisecond {
+			t.Errorf("expected first delay ~100ms (±jitter), got %v", delay1)
 		}
-		// Second backoff: 100ms * 2 = 200ms
-		if delay2 < 180*time.Millisecond || delay2 > 350*time.Millisecond {
-			t.Errorf("expected second delay ~200ms, got %v", delay2)
+		// Second backoff: 100ms * 2 = 200ms, jittered to [150ms, 250ms]
+		if delay2 < 130*time.Millisecond || delay2 > 300*time.Millisecond {
+			t.Errorf("expected second delay ~200ms (±jitter), got %v", delay2)
 		}
 	}
 }
