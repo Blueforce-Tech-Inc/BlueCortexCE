@@ -391,6 +391,9 @@ Map<String, Object> extraction = client.getLatestExtraction(
 // Get extraction history (all snapshots)
 List<Map<String, Object>> history = client.getExtractionHistory(
     "/my-project", "user_preference", "alice", 10);
+
+// Manually trigger extraction
+client.triggerExtraction("/my-project");
 ```
 
 ### ICL with userId
@@ -531,6 +534,7 @@ The client talks to these Cortex CE endpoints:
 | `getQualityDistribution()` | `GET /api/memory/quality-distribution` | | |
 | `getLatestExtraction()` | `GET /api/extraction/{template}/latest` | | ✅ NEW |
 | `getExtractionHistory()` | `GET /api/extraction/{template}/history` | | ✅ NEW |
+| `triggerExtraction()` | `POST /api/extraction/run` | | ✅ NEW |
 | `healthCheck()` | `GET /actuator/health` | | |
 
 ## Common Pitfalls
