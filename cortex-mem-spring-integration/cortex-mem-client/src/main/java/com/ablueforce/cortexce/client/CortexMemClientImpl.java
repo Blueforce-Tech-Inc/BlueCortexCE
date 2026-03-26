@@ -11,6 +11,7 @@ import org.springframework.web.client.RestClient;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -54,6 +55,9 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     @Override
     public Map<String, Object> startSession(SessionStartRequest request) {
+        Objects.requireNonNull(request, "request must not be null");
+        requireNonBlank(request.sessionId(), "sessionId");
+        requireNonBlank(request.projectPath(), "projectPath");
         try {
             return restClient.post()
                 .uri("/api/session/start")
@@ -68,6 +72,10 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     @Override
     public void recordObservation(ObservationRequest request) {
+        Objects.requireNonNull(request, "request must not be null");
+        requireNonBlank(request.sessionId(), "sessionId");
+        requireNonBlank(request.projectPath(), "projectPath");
+        requireNonBlank(request.toolName(), "toolName");
         executeWithRetrySilent("recordObservation", () ->
             restClient.post()
                 .uri("/api/ingest/tool-use")
@@ -79,6 +87,8 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     @Override
     public void recordSessionEnd(SessionEndRequest request) {
+        Objects.requireNonNull(request, "request must not be null");
+        requireNonBlank(request.sessionId(), "sessionId");
         executeWithRetrySilent("recordSessionEnd", () ->
             restClient.post()
                 .uri("/api/ingest/session-end")
@@ -90,6 +100,9 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     @Override
     public void recordUserPrompt(UserPromptRequest request) {
+        Objects.requireNonNull(request, "request must not be null");
+        requireNonBlank(request.sessionId(), "sessionId");
+        requireNonBlank(request.promptText(), "promptText");
         executeWithRetrySilent("recordUserPrompt", () ->
             restClient.post()
                 .uri("/api/ingest/user-prompt")
@@ -103,6 +116,8 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     @Override
     public List<Experience> retrieveExperiences(ExperienceRequest request) {
+        Objects.requireNonNull(request, "request must not be null");
+        requireNonBlank(request.task(), "task");
         try {
             List<Experience> result = restClient.post()
                 .uri("/api/memory/experiences")
@@ -118,6 +133,8 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     @Override
     public ICLPromptResult buildICLPrompt(ICLPromptRequest request) {
+        Objects.requireNonNull(request, "request must not be null");
+        requireNonBlank(request.task(), "task");
         try {
             ICLPromptResult result = restClient.post()
                 .uri("/api/memory/icl-prompt")
@@ -135,6 +152,7 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     @Override
     public void triggerRefinement(String projectPath) {
+        requireNonBlank(projectPath, "projectPath");
         executeWithRetry("triggerRefinement", () ->
             restClient.post()
                 .uri(uriBuilder -> uriBuilder
@@ -148,6 +166,8 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     @Override
     public void submitFeedback(String observationId, String feedbackType, String comment) {
+        requireNonBlank(observationId, "observationId");
+        requireNonBlank(feedbackType, "feedbackType");
         executeWithRetry("submitFeedback", () ->
             restClient.post()
                 .uri("/api/memory/feedback")
@@ -163,6 +183,7 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     @Override
     public QualityDistribution getQualityDistribution(String projectPath) {
+        requireNonBlank(projectPath, "projectPath");
         try {
             QualityDistribution result = restClient.get()
                 .uri(uriBuilder -> uriBuilder
@@ -182,6 +203,8 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     @Override
     public void updateObservation(String observationId, ObservationUpdate update) {
+        requireNonBlank(observationId, "observationId");
+        Objects.requireNonNull(update, "update must not be null");
         executeWithRetry("updateObservation", () ->
             restClient.patch()
                 .uri("/api/memory/observations/{id}", observationId)
@@ -193,6 +216,7 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     @Override
     public void deleteObservation(String observationId) {
+        requireNonBlank(observationId, "observationId");
         executeWithRetry("deleteObservation", () ->
             restClient.delete()
                 .uri("/api/memory/observations/{id}", observationId)
@@ -230,6 +254,8 @@ public class CortexMemClientImpl implements CortexMemClient {
     @Override
     @SuppressWarnings("unchecked")
     public Map<String, Object> getLatestExtraction(String projectPath, String templateName, String userId) {
+        requireNonBlank(projectPath, "projectPath");
+        requireNonBlank(templateName, "templateName");
         try {
             return restClient.get()
                 .uri(uriBuilder -> {
@@ -251,6 +277,8 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     @Override
     public List<Map<String, Object>> getExtractionHistory(String projectPath, String templateName, String userId, int limit) {
+        requireNonBlank(projectPath, "projectPath");
+        requireNonBlank(templateName, "templateName");
         try {
             return restClient.get()
                 .uri(uriBuilder -> {
@@ -274,6 +302,8 @@ public class CortexMemClientImpl implements CortexMemClient {
     @Override
     @SuppressWarnings("unchecked")
     public Map<String, Object> updateSessionUserId(String sessionId, String userId) {
+        requireNonBlank(sessionId, "sessionId");
+        requireNonBlank(userId, "userId");
         try {
             return restClient.patch()
                 .uri("/api/session/{sessionId}/user", sessionId)
@@ -288,6 +318,7 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     @Override
     public void triggerExtraction(String projectPath) {
+        requireNonBlank(projectPath, "projectPath");
         executeWithRetry("triggerExtraction", () ->
             restClient.post()
                 .uri(uriBuilder -> uriBuilder
@@ -304,6 +335,8 @@ public class CortexMemClientImpl implements CortexMemClient {
     @Override
     @SuppressWarnings("unchecked")
     public Map<String, Object> search(SearchRequest request) {
+        Objects.requireNonNull(request, "request must not be null");
+        requireNonBlank(request.project(), "project");
         try {
             return restClient.get()
                 .uri(uriBuilder -> {
@@ -367,6 +400,10 @@ public class CortexMemClientImpl implements CortexMemClient {
     @Override
     @SuppressWarnings("unchecked")
     public Map<String, Object> getObservationsByIds(java.util.List<String> ids) {
+        Objects.requireNonNull(ids, "ids must not be null");
+        if (ids.isEmpty()) {
+            throw new IllegalArgumentException("ids must not be empty");
+        }
         try {
             return restClient.post()
                 .uri("/api/observations/batch")
@@ -523,5 +560,18 @@ public class CortexMemClientImpl implements CortexMemClient {
         long baseMs = retryBackoff.toMillis() * attempt;
         long jitter = ThreadLocalRandom.current().nextLong(baseMs / 4) - baseMs / 8;
         return Math.max(1, baseMs + jitter);
+    }
+
+    /**
+     * Validate that a required string field is not null or blank.
+     *
+     * @param value     the value to check
+     * @param fieldName the field name for the error message
+     * @throws IllegalArgumentException if value is null or blank
+     */
+    private static void requireNonBlank(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(fieldName + " must not be null or blank");
+        }
     }
 }
