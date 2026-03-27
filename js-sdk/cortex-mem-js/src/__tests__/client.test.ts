@@ -436,6 +436,15 @@ describe('CortexMemClient', () => {
       const [url] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(url).toContain('/api/memory/observations/obs%2F1');
     });
+
+    it('should reject empty update', async () => {
+      fetchMock = mockFetch(204, null);
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+
+      await expect(client.updateObservation('obs-1', {})).rejects.toThrow('at least one field');
+      // Should NOT make HTTP call
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
   });
 
   describe('deleteObservation', () => {

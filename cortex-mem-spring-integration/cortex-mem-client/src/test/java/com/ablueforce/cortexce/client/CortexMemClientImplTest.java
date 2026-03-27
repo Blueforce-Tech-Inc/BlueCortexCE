@@ -85,6 +85,15 @@ class CortexMemClientImplTest {
     }
 
     @Test
+    void updateObservation_emptyUpdate_throws() {
+        // Empty update (all null fields) should be rejected before making HTTP call
+        org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> client.updateObservation("obs-1", new ObservationUpdate(null, null, null, null, null, null, null, null))
+        );
+    }
+
+    @Test
     void updateObservation_withExtractedData_sendsCorrectBody() throws Exception {
         server.enqueue(new MockResponse().setResponseCode(200));
 

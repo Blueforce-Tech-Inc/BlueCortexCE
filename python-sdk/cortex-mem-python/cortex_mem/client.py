@@ -194,7 +194,7 @@ class CortexMemClient:
         }
         if user_id:
             body["user_id"] = user_id
-        data = self._request_json("POST", "/api/session/start", json_body=body)
+        data = self._request_json("POST", "/api/session/start", json_body=body) or {}
         return SessionStartResponse(
             session_db_id=data.get("session_db_id", ""),
             session_id=data.get("session_id", ""),
@@ -210,7 +210,7 @@ class CortexMemClient:
         if not user_id:
             raise CortexError("user_id is required")
         path = f"/api/session/{quote(session_id, safe='')}/user"
-        return self._request_json("PATCH", path, json_body={"user_id": user_id})
+        return self._request_json("PATCH", path, json_body={"user_id": user_id}) or {}
 
     # ==================== Capture (fire-and-forget) ====================
 

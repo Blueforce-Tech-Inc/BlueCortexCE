@@ -240,6 +240,11 @@ export class CortexMemClient {
   async updateObservation(observationId: string, update: ObservationUpdate): Promise<void> {
     this.assertNotClosed();
     this.validateRequired('observationId', observationId);
+    // Validate at least one field is set (PATCH semantics: empty update is a no-op).
+    const hasField = Object.values(update).some(v => v !== undefined && v !== null);
+    if (!hasField) {
+      throw new Error('cortex-ce: at least one field must be provided for update');
+    }
     await this.requestNoContent(
       'PATCH',
       `/api/memory/observations/${encodeURIComponent(observationId)}`,

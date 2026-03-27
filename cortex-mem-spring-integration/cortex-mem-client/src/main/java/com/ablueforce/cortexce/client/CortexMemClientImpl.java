@@ -225,6 +225,12 @@ public class CortexMemClientImpl implements CortexMemClient {
     public void updateObservation(String observationId, ObservationUpdate update) {
         requireNonBlank(observationId, "observationId");
         Objects.requireNonNull(update, "update must not be null");
+        // Validate at least one field is set (PATCH semantics: empty update is a no-op).
+        if (update.title() == null && update.subtitle() == null && update.content() == null &&
+            update.narrative() == null && update.facts() == null && update.concepts() == null &&
+            update.source() == null && update.extractedData() == null) {
+            throw new IllegalArgumentException("at least one field must be provided for update");
+        }
         executeWithRetry("updateObservation", () ->
             restClient.patch()
                 .uri("/api/memory/observations/{id}", observationId)

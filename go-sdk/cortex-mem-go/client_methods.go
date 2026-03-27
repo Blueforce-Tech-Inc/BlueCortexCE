@@ -173,6 +173,12 @@ func (c *httpClient) UpdateObservation(ctx context.Context, observationID string
 	if strings.TrimSpace(observationID) == "" {
 		return fmt.Errorf("cortex-ce: observationID is required")
 	}
+	// Validate at least one field is set (PATCH semantics: empty update is a no-op).
+	if update.Title == nil && update.Subtitle == nil && update.Content == nil &&
+		update.Narrative == nil && update.Facts == nil && update.Concepts == nil &&
+		update.Source == nil && update.ExtractedData == nil {
+		return fmt.Errorf("cortex-ce: at least one field must be provided for update")
+	}
 	// NOT fire-and-forget: explicit user action, errors must propagate.
 	path := fmt.Sprintf("/api/memory/observations/%s", url.PathEscape(observationID))
 	return c.doRequestNoContent(ctx, http.MethodPatch, path, update)

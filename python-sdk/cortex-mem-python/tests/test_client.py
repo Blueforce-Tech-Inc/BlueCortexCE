@@ -863,6 +863,38 @@ class TestJSONDecodeResilience:
         result = c._request_json("GET", "/api/version")
         assert result is None
 
+    @responses.activate
+    def test_start_session_non_json_response_graceful(self):
+        """start_session should return default SessionStartResponse on non-JSON 200 response."""
+        responses.add(
+            responses.POST,
+            f"{BASE}/api/session/start",
+            body="not json",
+            status=200,
+            content_type="text/plain",
+        )
+        c = _client()
+        resp = c.start_session("s1", "/p")
+        # Should NOT crash — returns default values
+        assert isinstance(resp, SessionStartResponse)
+        assert resp.session_id == ""
+        assert resp.session_db_id == ""
+
+    @responses.activate
+    def test_update_session_user_id_non_json_response_graceful(self):
+        """update_session_user_id should return empty dict on non-JSON 200 response."""
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/api/session/s1/user",
+            body="not json",
+            status=200,
+            content_type="text/plain",
+        )
+        c = _client()
+        resp = c.update_session_user_id("s1", "u1")
+        # Should NOT crash — returns empty dict
+        assert resp == {}
+
 
 # ==================== DTO Tests ====================
 

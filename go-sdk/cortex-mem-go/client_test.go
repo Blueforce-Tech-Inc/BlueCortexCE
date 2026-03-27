@@ -3742,12 +3742,29 @@ func TestUpdateObservation_Error_Response(t *testing.T) {
 	defer server.Close()
 
 	client := newTestClient(server)
-	err := client.UpdateObservation(context.Background(), "nonexistent", dto.ObservationUpdate{})
+	title := "New Title"
+	err := client.UpdateObservation(context.Background(), "nonexistent", dto.ObservationUpdate{Title: &title})
 	if err == nil {
 		t.Fatal("UpdateObservation should fail on 404")
 	}
 	if !cortexmem.IsNotFound(err) {
 		t.Errorf("expected IsNotFound, got: %v", err)
+	}
+}
+
+func TestUpdateObservation_EmptyUpdate_Rejected(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("server should not be called for empty update validation")
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	err := client.UpdateObservation(context.Background(), "obs-123", dto.ObservationUpdate{})
+	if err == nil {
+		t.Fatal("UpdateObservation should fail with empty update")
+	}
+	if !strings.Contains(err.Error(), "at least one field") {
+		t.Errorf("expected 'at least one field' error, got: %v", err)
 	}
 }
 
