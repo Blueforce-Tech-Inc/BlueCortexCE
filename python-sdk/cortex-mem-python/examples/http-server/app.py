@@ -60,9 +60,13 @@ def _error(status: int, message: str):
 
 
 def _require(fields: dict):
-    """Return first missing required field name, or None."""
+    """Return first missing required field name, or None.
+
+    Checks for None and empty strings only. Does NOT reject falsy values
+    like 0, False, or empty lists — callers must handle those separately.
+    """
     for name, value in fields.items():
-        if not value:
+        if value is None or (isinstance(value, str) and not value.strip()):
             return name
     return None
 
@@ -291,6 +295,8 @@ def observations_create():
 
 @app.patch("/observations/<obs_id>")
 def observations_update(obs_id: str):
+    if not obs_id or not obs_id.strip():
+        return _error(400, "observation id is required")
     data = request.get_json(force=True)
     kwargs = {}
     for key in ("title", "subtitle", "content", "facts", "concepts", "source"):
@@ -308,6 +314,8 @@ def observations_update(obs_id: str):
 
 @app.delete("/observations/<obs_id>")
 def observations_delete(obs_id: str):
+    if not obs_id or not obs_id.strip():
+        return _error(400, "observation id is required")
     client.delete_observation(obs_id)
     return "", 204
 
