@@ -216,7 +216,6 @@ func (c *httpClient) doRequest(ctx context.Context, method, path string, body an
 	return respBody, resp.StatusCode, nil
 }
 
-// doRequestNoContent makes a request and checks for success (no response body needed).
 // doRequestJSON makes a request and unmarshals the JSON response body into T.
 // Returns an APIError for 4xx/5xx status codes.
 // This eliminates the repeated doRequest → status check → unmarshal pattern.
@@ -235,6 +234,7 @@ func doRequestJSON[T any](c *httpClient, ctx context.Context, method, path strin
 	return &resp, nil
 }
 
+// doRequestNoContent makes a request and checks for success (no response body needed).
 func (c *httpClient) doRequestNoContent(ctx context.Context, method, path string, body any) error {
 	return c.doRequestNoContentWithParams(ctx, method, path, body, nil)
 }

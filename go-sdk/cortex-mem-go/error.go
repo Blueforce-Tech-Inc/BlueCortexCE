@@ -169,20 +169,26 @@ func IsRetryable(err error) bool {
 	if err == nil {
 		return false
 	}
-	// Check for specific HTTP status errors (APIError or sentinel)
-	if IsRateLimited(err) || IsBadGateway(err) || IsServiceUnavailable(err) || IsGatewayTimeout(err) {
-		return true
-	}
-	// If it's an APIError or matches any sentinel error, it's an HTTP error — not retryable
-	// unless matched above.
+	// Check for specific HTTP status errors that are transient.
 	var apiErr *APIError
 	if errors.As(err, &apiErr) {
-		return false
+		// Retry on 429 (rate limited), 502 (bad gateway), 503 (unavailable), 504 (timeout).
+		// Do NOT retry on 500 (code bug) or any 4xx client error.
+		return apiErr.StatusCode == http.StatusTooManyRequests ||
+			apiErr.StatusCode == http.StatusBadGateway ||
+			apiErr.StatusCode == http.StatusServiceUnavailable ||
+			apiErr.StatusCode == http.StatusGatewayTimeout
 	}
+	// Check retryable sentinel errors (reached via Unwrap chain or direct reference).
+	if errors.Is(err, ErrRateLimited) || errors.Is(err, ErrBadGateway) ||
+		errors.Is(err, ErrServiceUnavailable) || errors.Is(err, ErrGatewayTimeout) {
+		return true
+	}
+	// Non-retryable sentinel errors (4xx, 500, etc.) are known HTTP errors.
 	if isSentinelError(err) {
 		return false
 	}
-	// Non-HTTP, non-sentinel errors are network/transport errors — always retryable
+	// Non-HTTP, non-sentinel errors are network/transport errors — always retryable.
 	return true
 }
 
