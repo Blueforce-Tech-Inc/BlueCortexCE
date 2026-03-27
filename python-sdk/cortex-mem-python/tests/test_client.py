@@ -106,6 +106,30 @@ class TestCapture:
         # Should not raise
         c.record_observation("s1", "/p", "Read")
 
+    def test_record_observation_empty_session_id_raises(self):
+        """Empty session_id should raise CortexError."""
+        c = _client()
+        with pytest.raises(Exception, match="session_id is required"):
+            c.record_observation("", "/p", "Read")
+
+    def test_record_session_end_empty_session_id_raises(self):
+        """Empty session_id should raise CortexError."""
+        c = _client()
+        with pytest.raises(Exception, match="session_id is required"):
+            c.record_session_end("", "/p")
+
+    def test_record_user_prompt_empty_session_id_raises(self):
+        """Empty session_id should raise CortexError."""
+        c = _client()
+        with pytest.raises(Exception, match="session_id is required"):
+            c.record_user_prompt("", "hello")
+
+    def test_record_user_prompt_empty_prompt_text_raises(self):
+        """Empty prompt_text should raise CortexError."""
+        c = _client()
+        with pytest.raises(Exception, match="prompt_text is required"):
+            c.record_user_prompt("s1", "")
+
 
 # ==================== Retrieval ====================
 

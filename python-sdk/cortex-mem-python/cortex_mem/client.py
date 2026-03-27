@@ -232,6 +232,8 @@ class CortexMemClient:
         extracted_data → "extractedData" (camelCase).
         """
         self._assert_not_closed()
+        if not session_id:
+            raise CortexError("session_id is required")
         body: dict[str, Any] = {
             "session_id": session_id,
             "cwd": project_path,
@@ -260,6 +262,8 @@ class CortexMemClient:
         Wire format: project_path → "cwd".
         """
         self._assert_not_closed()
+        if not session_id:
+            raise CortexError("session_id is required")
         body: dict[str, Any] = {
             "session_id": session_id,
             "cwd": project_path,
@@ -280,6 +284,10 @@ class CortexMemClient:
         Wire format: project_path → "cwd".
         """
         self._assert_not_closed()
+        if not session_id:
+            raise CortexError("session_id is required")
+        if not prompt_text:
+            raise CortexError("prompt_text is required")
         body: dict[str, Any] = {
             "session_id": session_id,
             "prompt_text": prompt_text,
