@@ -174,13 +174,22 @@ public class ModeController {
 
     // Response records
     public record ModeResponse(
+        @Schema(description = "Configured mode ID", example = "code")
         String modeId,
+        @Schema(description = "Mode display name", example = "Code")
         String name,
+        @Schema(description = "Mode description", example = "Tracks code evolution")
         String description,
+        @Schema(description = "Mode version", example = "1.0")
         String version,
+        @Schema(description = "List of valid observation types for this mode")
         List<ObservationType> observationTypes,
+        @Schema(description = "List of valid observation concepts for this mode")
         List<ObservationConcept> observationConcepts
     ) {}
 
-    public record ModeSwitchRequest(String modeId) {}
+    public record ModeSwitchRequest(
+        @Schema(description = "Mode ID to activate (e.g., 'code', 'code--zh')", example = "code", requiredMode = Schema.RequiredMode.REQUIRED)
+        String modeId
+    ) {}
 }

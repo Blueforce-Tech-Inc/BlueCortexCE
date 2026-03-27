@@ -54,9 +54,13 @@ public class ImportController {
      * Bulk import request containing all data types.
      */
     public record BulkImportRequest(
+        @Schema(description = "Session records to import")
         List<ImportService.SessionImportData> sessions,
+        @Schema(description = "Observation records to import")
         List<ImportService.ObservationImportData> observations,
+        @Schema(description = "Summary records to import")
         List<ImportService.SummaryImportData> summaries,
+        @Schema(description = "User prompt records to import")
         List<ImportService.UserPromptImportData> prompts
     ) {
         public BulkImportRequest {

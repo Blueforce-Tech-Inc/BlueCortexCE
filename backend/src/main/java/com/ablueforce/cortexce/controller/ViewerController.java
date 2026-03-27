@@ -695,7 +695,9 @@ public class ViewerController {
      * Web UI expects: {items: [...], hasMore: boolean}
      */
     public record PagedResponse<T>(
+        @Schema(description = "Page items")
         @JsonProperty("items") List<T> items,
+        @Schema(description = "Whether more pages are available", example = "true")
         @JsonProperty("hasMore") boolean hasMore
     ) {
         public static <T> PagedResponse<T> of(Page<T> page) {
