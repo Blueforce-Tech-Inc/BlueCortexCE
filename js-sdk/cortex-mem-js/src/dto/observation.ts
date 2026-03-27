@@ -25,11 +25,14 @@ export interface ObservationRequest {
  * PATCH /api/memory/observations/{id}
  *
  * Wire format: extractedData is camelCase.
+ * Both "content" and "narrative" are accepted by the backend for the narrative field.
  */
 export interface ObservationUpdate {
   title?: string;
   subtitle?: string;
   content?: string;
+  /** Alias for content — backend accepts both "content" and "narrative" */
+  narrative?: string;
   facts?: string[];
   concepts?: string[];
   source?: string;

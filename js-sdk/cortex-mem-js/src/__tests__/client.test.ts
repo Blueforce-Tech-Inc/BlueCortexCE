@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { CortexMemClient, APIError, isNotFound, isRateLimited, isRetryable, parseObservation, parseExperience } from '../index';
+import { CortexMemClient, APIError, isNotFound, isRateLimited, isRetryable, isForbidden, isUnprocessable, isConflict, isBadRequest, isUnauthorized, isClientError, isServerError, parseObservation, parseExperience } from '../index';
 
 // Mock fetch
 function mockFetch(status: number, body: unknown): typeof globalThis.fetch {
@@ -404,6 +404,28 @@ describe('CortexMemClient', () => {
       expect(opts.method).toBe('PATCH');
       const body = JSON.parse(opts.body);
       expect(body.title).toBe('Updated');
+      expect(body.content).toBe('New content');
+    });
+
+    it('should send narrative field (backend alias for content)', async () => {
+      fetchMock = mockFetch(204, null);
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+
+      await client.updateObservation('obs-1', { narrative: 'Updated narrative' });
+      const [, opts] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
+      const body = JSON.parse(opts.body);
+      expect(body.narrative).toBe('Updated narrative');
+    });
+
+    it('should send extractedData in update', async () => {
+      fetchMock = mockFetch(204, null);
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+
+      await client.updateObservation('obs-1', { source: 'manual', extractedData: { key: 'val' } });
+      const [, opts] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
+      const body = JSON.parse(opts.body);
+      expect(body.source).toBe('manual');
+      expect(body.extractedData).toEqual({ key: 'val' });
     });
 
     it('should URL-encode observationId', async () => {
@@ -425,6 +447,15 @@ describe('CortexMemClient', () => {
       const [url, opts] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(url).toContain('/api/memory/observations/obs-1');
       expect(opts.method).toBe('DELETE');
+    });
+
+    it('should URL-encode observationId', async () => {
+      fetchMock = mockFetch(204, null);
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+
+      await client.deleteObservation('obs/with/slash');
+      const [url] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/api/memory/observations/obs%2Fwith%2Fslash');
     });
   });
 
@@ -683,6 +714,57 @@ describe('CortexMemClient', () => {
       const genericErr = new Error('something went wrong');
       expect(isRetryable(genericErr)).toBe(false);
     });
+
+    it('should detect 400 Bad Request', async () => {
+      fetchMock = mockFetch(400, { error: 'bad request' });
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+      try { await client.healthCheck(); } catch (err) {
+        expect(isBadRequest(err)).toBe(true);
+        expect(isClientError(err)).toBe(true);
+        expect(isServerError(err)).toBe(false);
+      }
+    });
+
+    it('should detect 401 Unauthorized', async () => {
+      fetchMock = mockFetch(401, { error: 'unauthorized' });
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+      try { await client.healthCheck(); } catch (err) {
+        expect(isUnauthorized(err)).toBe(true);
+        expect(isRetryable(err)).toBe(false);
+      }
+    });
+
+    it('should detect 403 Forbidden', async () => {
+      fetchMock = mockFetch(403, { error: 'forbidden' });
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+      try { await client.healthCheck(); } catch (err) {
+        expect(isForbidden(err)).toBe(true);
+      }
+    });
+
+    it('should detect 409 Conflict', async () => {
+      fetchMock = mockFetch(409, { error: 'conflict' });
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+      try { await client.healthCheck(); } catch (err) {
+        expect(isConflict(err)).toBe(true);
+      }
+    });
+
+    it('should detect 422 Unprocessable Entity', async () => {
+      fetchMock = mockFetch(422, { error: 'unprocessable' });
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+      try { await client.healthCheck(); } catch (err) {
+        expect(isUnprocessable(err)).toBe(true);
+      }
+    });
+
+    it('should extract error from detail field', async () => {
+      fetchMock = mockFetch(500, { detail: 'db timeout' });
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+      try { await client.healthCheck(); } catch (err) {
+        expect((err as APIError).message).toContain('db timeout');
+      }
+    });
   });
 
   // ==================== Fire-and-forget ====================
@@ -764,6 +846,16 @@ describe('CortexMemClient', () => {
       await expect(client.getStats()).rejects.toThrow('client is closed');
       await expect(client.getModes()).rejects.toThrow('client is closed');
       await expect(client.getSettings()).rejects.toThrow('client is closed');
+    });
+
+    it('should show closed in toString', () => {
+      expect(String(client)).toContain('open');
+      client.close();
+      expect(String(client)).toContain('closed');
+    });
+
+    it('should include base URL in toString', () => {
+      expect(String(client)).toContain('http://localhost:37777');
     });
   });
 

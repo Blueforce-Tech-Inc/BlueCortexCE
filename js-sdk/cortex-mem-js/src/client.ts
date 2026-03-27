@@ -414,6 +414,14 @@ export class CortexMemClient {
     this.closed = true;
   }
 
+  /**
+   * Debug representation. Useful for logging.
+   */
+  toString(): string {
+    const status = this.closed ? 'closed' : 'open';
+    return `CortexMemClient(${this.config.baseURL}, ${status})`;
+  }
+
   // ============================================================
   // Private HTTP layer
   // ============================================================
