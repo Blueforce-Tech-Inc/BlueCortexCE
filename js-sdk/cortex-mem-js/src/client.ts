@@ -183,6 +183,11 @@ export class CortexMemClient {
     if (ids.length > 100) {
       throw new Error(`cortex-ce: batch size exceeds maximum of 100 (got ${ids.length})`);
     }
+    for (let i = 0; i < ids.length; i++) {
+      if (!ids[i]) {
+        throw new Error(`cortex-ce: ids[${i}] is empty`);
+      }
+    }
     return this.requestJSON<BatchObservationsResponse>(
       'POST',
       '/api/observations/batch',

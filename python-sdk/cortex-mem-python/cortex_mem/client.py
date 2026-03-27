@@ -409,6 +409,9 @@ class CortexMemClient:
             raise CortexError("ids must not be empty")
         if len(ids) > 100:
             raise CortexError(f"batch size exceeds maximum of 100 (got {len(ids)})")
+        for i, id_ in enumerate(ids):
+            if not id_:
+                raise CortexError(f"ids[{i}] is empty")
         data = self._request_json("POST", "/api/observations/batch", json_body={"ids": ids})
         return BatchObservationsResponse.from_wire(data or {})
 

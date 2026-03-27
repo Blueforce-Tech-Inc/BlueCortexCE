@@ -230,6 +230,10 @@ describe('CortexMemClient', () => {
       const [url] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(url).toContain('concept=error-handling');
     });
+
+    it('should throw on missing project', async () => {
+      await expect(client.search({ project: '' })).rejects.toThrow('project is required');
+    });
   });
 
   describe('listObservations', () => {
@@ -280,6 +284,10 @@ describe('CortexMemClient', () => {
     it('should reject > 100 ids', async () => {
       const ids = Array.from({ length: 101 }, (_, i) => String(i));
       await expect(client.getObservationsByIds(ids)).rejects.toThrow('exceeds maximum of 100');
+    });
+
+    it('should reject empty string in ids', async () => {
+      await expect(client.getObservationsByIds(['valid', ''])).rejects.toThrow('ids[1] is empty');
     });
   });
 
@@ -590,8 +598,14 @@ describe('CortexMemClient', () => {
       }
     });
 
-    it('should treat timeout AbortError as retryable', () => {
+    it('should treat timeout AbortError (DOMException) as retryable', () => {
       const abortErr = new DOMException('The operation was aborted.', 'AbortError');
+      expect(isRetryable(abortErr)).toBe(true);
+    });
+
+    it('should treat AbortError by name as retryable (Node.js compat)', () => {
+      const abortErr = new Error('The operation was aborted.');
+      abortErr.name = 'AbortError';
       expect(isRetryable(abortErr)).toBe(true);
     });
 

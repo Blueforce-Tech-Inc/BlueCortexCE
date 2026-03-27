@@ -82,8 +82,10 @@ export function isRetryable(err: unknown): boolean {
   if (err instanceof TypeError) {
     return true;
   }
-  // Timeout-triggered AbortController errors are retryable
-  if (err instanceof DOMException && err.name === 'AbortError') {
+  // Timeout-triggered AbortController errors are retryable.
+  // Check by name rather than instanceof DOMException for Node.js compatibility
+  // (DOMException exists in Node 18+ but err.name === 'AbortError' is more portable).
+  if (err instanceof Error && err.name === 'AbortError') {
     return true;
   }
   return false;
