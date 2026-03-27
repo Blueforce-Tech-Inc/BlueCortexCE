@@ -100,17 +100,20 @@ public class IngestionController {
         @ApiResponse(responseCode = "400", description = "Missing required fields: session_id or tool_name"),
         @ApiResponse(responseCode = "429", description = "Rate limit exceeded (10 requests per 60 seconds per session)")
     })
-    @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Tool use event payload. Fields: session_id (required), cwd (project path), tool_name (required, e.g. 'Read', 'Edit'), tool_input (JSON object), tool_response (JSON object), source (attribution), extractedData (JSON object)")
-    public ResponseEntity<Map<String, String>> handleToolUse(@org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
-        String contentSessionId = (String) body.get("session_id");
-        String toolName = (String) body.get("tool_name");
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+        description = "Tool use event request",
+        required = true,
+        content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.ToolUseRequest.class)))
+    public ResponseEntity<Map<String, String>> handleToolUse(@org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.ToolUseRequest body) {
+        String contentSessionId = body.sessionId();
+        String toolName = body.toolName();
         
         // Handle both string and object types for tool_input and tool_response
-        Object toolInputObj = body.get("tool_input");
-        Object toolResponseObj = body.get("tool_response");
+        Object toolInputObj = body.toolInput();
+        Object toolResponseObj = body.toolResponse();
         String toolInput = toolInputObj != null ? (toolInputObj instanceof String ? (String) toolInputObj : toolInputObj.toString()) : "{}";
         String toolResponse = toolResponseObj != null ? (toolResponseObj instanceof String ? (String) toolResponseObj : toolResponseObj.toString()) : "{}";
-        String cwd = (String) body.get("cwd");
+        String cwd = body.cwd();
 
         // P2: Validate required fields
         if (contentSessionId == null || contentSessionId.isBlank()) {
@@ -166,11 +169,14 @@ public class IngestionController {
         @ApiResponse(responseCode = "200", description = "Session end event accepted"),
         @ApiResponse(responseCode = "400", description = "Missing required field: session_id")
     })
-    @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Session end event payload. Fields: session_id (required), cwd (project path), last_assistant_message (optional)")
-    public ResponseEntity<Map<String, String>> handleSessionEnd(@org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
-        String contentSessionId = (String) body.get("session_id");
-        String lastAssistantMessage = (String) body.get("last_assistant_message");
-        Boolean debug = (Boolean) body.get("debug");
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+        description = "Session end event request",
+        required = true,
+        content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.SessionEndRequest.class)))
+    public ResponseEntity<Map<String, String>> handleSessionEnd(@org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.SessionEndRequest body) {
+        String contentSessionId = body.sessionId();
+        String lastAssistantMessage = body.lastAssistantMessage();
+        Boolean debug = null;
 
         // Validate session_id (consistent with handleUserPrompt)
         if (contentSessionId == null || contentSessionId.isBlank()) {
@@ -217,16 +223,15 @@ public class IngestionController {
         @ApiResponse(responseCode = "200", description = "User prompt recorded successfully"),
         @ApiResponse(responseCode = "400", description = "Missing required field: session_id")
     })
-    @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "User prompt event payload. Fields: session_id (required), prompt_text (required, the user's input), cwd (project path), prompt_number (optional int)")
-    public ResponseEntity<Map<String, String>> handleUserPrompt(@org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
-        String contentSessionId = (String) body.get("session_id");
-        String promptText = (String) body.get("prompt_text");
-        String cwd = (String) body.get("cwd");
-        Integer promptNumber = 1;
-        Object promptNumObj = body.get("prompt_number");
-        if (promptNumObj instanceof Number n) {
-            promptNumber = n.intValue();
-        }
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+        description = "User prompt event request",
+        required = true,
+        content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.UserPromptRequest.class)))
+    public ResponseEntity<Map<String, String>> handleUserPrompt(@org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.UserPromptRequest body) {
+        String contentSessionId = body.sessionId();
+        String promptText = body.promptText();
+        String cwd = body.cwd();
+        Integer promptNumber = body.promptNumber() != null ? body.promptNumber() : 1;
 
         // P1: Validate session_id is provided
         if (contentSessionId == null || contentSessionId.isBlank()) {
