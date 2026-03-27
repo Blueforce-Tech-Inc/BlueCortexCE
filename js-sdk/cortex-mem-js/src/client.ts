@@ -27,6 +27,7 @@ import type {
   ObservationsResponse,
   BatchObservationsResponse,
   QualityDistribution,
+  FeedbackRequest,
   ExtractionResult,
   VersionResponse,
   ProjectsResponse,
@@ -207,7 +208,7 @@ export class CortexMemClient {
    * Submit feedback for an observation.
    * POST /api/memory/feedback
    */
-  async submitFeedback(req: { observationId: string; feedbackType: string; comment?: string }): Promise<void> {
+  async submitFeedback(req: FeedbackRequest): Promise<void> {
     this.assertNotClosed();
     this.validateRequired('observationId', req.observationId);
     this.validateRequired('feedbackType', req.feedbackType);
@@ -508,11 +509,12 @@ export class CortexMemClient {
     queryParams?: Record<string, string>,
   ): Promise<T> {
     const { data, status } = await this.doFetch(method, path, body, queryParams);
+    const text = new TextDecoder().decode(data);
     if (status >= 400) {
-      throw new APIError(status, this.extractErrorMessage(data), new TextDecoder().decode(data));
+      throw new APIError(status, this.extractErrorMessage(text), text);
     }
     try {
-      return JSON.parse(new TextDecoder().decode(data)) as T;
+      return JSON.parse(text) as T;
     } catch {
       throw new Error(`cortex-ce: failed to parse ${path} response`);
     }
@@ -526,12 +528,12 @@ export class CortexMemClient {
   ): Promise<void> {
     const { data, status } = await this.doFetch(method, path, body, queryParams);
     if (status >= 400) {
-      throw new APIError(status, this.extractErrorMessage(data), new TextDecoder().decode(data));
+      const text = new TextDecoder().decode(data);
+      throw new APIError(status, this.extractErrorMessage(text), text);
     }
   }
 
-  private extractErrorMessage(data: Uint8Array): string {
-    const text = new TextDecoder().decode(data);
+  private extractErrorMessage(text: string): string {
     try {
       const parsed = JSON.parse(text) as Record<string, unknown>;
       for (const key of ['error', 'message', 'detail']) {

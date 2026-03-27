@@ -49,8 +49,9 @@ app.get('/health', async (_req: Request, res: Response) => {
       status: 'ok',
       time: new Date().toISOString(),
     });
-  } catch (e: any) {
-    errorJson(res, 503, `unhealthy: ${e.message}`);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    errorJson(res, 503, `unhealthy: ${msg}`);
   }
 });
 
@@ -68,8 +69,9 @@ app.post('/chat', async (req: Request, res: Response) => {
       maxChars: req.body.maxChars ?? 0,
       userId: req.body.userId,
     });
-  } catch (e: any) {
-    console.warn('ICL prompt failed:', e.message);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn('ICL prompt failed:', msg);
   }
 
   const resp: Record<string, unknown> = {
@@ -90,14 +92,21 @@ app.get('/search', async (req: Request, res: Response) => {
   const project = req.query.project as string;
   if (!project) return errorJson(res, 400, 'project is required');
 
+  const query = req.query.query as string | undefined;
+  const type = req.query.type as string | undefined;
+  const concept = req.query.concept as string | undefined;
+  const source = req.query.source as string | undefined;
+  const limit = parseInt(req.query.limit as string ?? '0', 10) || undefined;
+  const offset = parseInt(req.query.offset as string ?? '0', 10) || undefined;
+
   const result = await client.search({
     project,
-    query: (req.query.query as string) ?? '',
-    type: (req.query.type as string) ?? '',
-    concept: (req.query.concept as string) ?? '',
-    source: (req.query.source as string) ?? '',
-    limit: parseInt(req.query.limit as string ?? '0', 10) || 0,
-    offset: parseInt(req.query.offset as string ?? '0', 10) || 0,
+    ...(query && { query }),
+    ...(type && { type }),
+    ...(concept && { concept }),
+    ...(source && { source }),
+    ...(limit && { limit }),
+    ...(offset && { offset }),
   });
   res.json(result);
 });
@@ -328,11 +337,11 @@ app.post('/ingest/session-end', async (req: Request, res: Response) => {
 
 // Express 4 does not catch async rejections automatically.
 // Wrap all routes that don't have try-catch with this handler.
-app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   console.error('Unhandled error:', err);
-  const status = err?.statusCode ?? 500;
-  const message = err?.message ?? 'Internal server error';
-  errorJson(res, status, message);
+  const status = (err as Record<string, unknown>)?.statusCode ?? 500;
+  const message = err instanceof Error ? err.message : 'Internal server error';
+  errorJson(res, status as number, message);
 });
 
 // ==================== Start ====================
