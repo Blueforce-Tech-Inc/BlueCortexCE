@@ -283,7 +283,7 @@ public class CortexMemClientImpl implements CortexMemClient {
                 .body(new ParameterizedTypeReference<>() {});
         } catch (Exception e) {
             log.warn("Failed to get latest extraction: {}", e.getMessage());
-            return Map.of();
+            return Map.of("error", e.getMessage(), "template", templateName);
         }
     }
 
@@ -510,7 +510,7 @@ public class CortexMemClientImpl implements CortexMemClient {
                 .body(new ParameterizedTypeReference<>() {});
         } catch (Exception e) {
             log.warn("Failed to get settings: {}", e.getMessage());
-            return Map.of();
+            return Map.of("settings", Map.of(), "error", e.getMessage());
         }
     }
 
