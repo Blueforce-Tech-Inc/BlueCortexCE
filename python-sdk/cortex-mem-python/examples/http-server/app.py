@@ -263,6 +263,7 @@ def observations_create():
         tool_name=data["tool_name"],
         tool_input=data.get("tool_input"),
         tool_response=data.get("tool_response"),
+        prompt_number=data.get("prompt_number", 0),
         source=data.get("source", ""),
         extracted_data=data.get("extractedData"),
     )

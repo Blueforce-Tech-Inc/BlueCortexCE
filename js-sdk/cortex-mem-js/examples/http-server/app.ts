@@ -199,6 +199,7 @@ app.post('/observations/create', asyncHandler(async (req: Request, res: Response
     tool_name: req.body.tool_name,
     tool_input: req.body.tool_input,
     tool_response: req.body.tool_response,
+    prompt_number: req.body.prompt_number,
     source: req.body.source,
     extractedData: req.body.extractedData,
   });
