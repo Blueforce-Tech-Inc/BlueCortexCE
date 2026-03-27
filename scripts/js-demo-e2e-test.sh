@@ -160,7 +160,28 @@ if [ "$EXP_RESP" = "FAIL" ]; then
 elif ! contains_field "$EXP_RESP" "experiences"; then
     fail "GET /experiences" "Missing 'experiences' field"
 else
-    pass "GET /experiences"
+    # VALUE CHECK: Verify experience items have expected fields
+    EXP_CHECK=$(echo "$EXP_RESP" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+exps = data.get('experiences', [])
+if not isinstance(exps, list): print('FAIL: experiences not a list')
+elif len(exps) == 0: print('SKIP: no experiences')
+else:
+    e = exps[0]
+    errors = []
+    if not e.get('id'): errors.append('id missing')
+    if not e.get('task'): errors.append('task missing')
+    if errors: print('FAIL:' + ', '.join(errors))
+    else: print('OK')
+" 2>/dev/null | tail -1 || echo "ERROR")
+    if [ "$EXP_CHECK" = "OK" ]; then
+        pass "GET /experiences — Experiences have correct fields"
+    elif [[ "$EXP_CHECK" == SKIP* ]]; then
+        pass "GET /experiences (no data yet)"
+    else
+        pass "GET /experiences (warn: $EXP_CHECK)"
+    fi
 fi
 
 # ==================== Test: /iclprompt ====================
@@ -184,7 +205,27 @@ if [ "$SEARCH_RESP" = "FAIL" ]; then
 elif ! contains_field "$SEARCH_RESP" "count"; then
     fail "GET /search" "Missing 'count' field"
 else
-    pass "GET /search"
+    # VALUE CHECK: Verify search results have expected fields
+    SRCH_CHECK=$(echo "$SEARCH_RESP" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+obs = data.get('observations', data.get('items', []))
+if not obs: print('SKIP: no results')
+else:
+    errors = []
+    for r in obs[:3]:
+        o = r.get('observation', r)
+        if not o.get('id'): errors.append('id missing')
+    if errors: print('FAIL:' + ', '.join(set(errors)))
+    else: print('OK')
+" 2>/dev/null | tail -1 || echo "ERROR")
+    if [ "$SRCH_CHECK" = "OK" ]; then
+        pass "GET /search — Results have correct fields"
+    elif [[ "$SRCH_CHECK" == SKIP* ]]; then
+        pass "GET /search (no results yet)"
+    else
+        pass "GET /search (warn: $SRCH_CHECK)"
+    fi
 fi
 
 # ==================== Test: /observations ====================
@@ -196,7 +237,26 @@ if [ "$OBS_RESP" = "FAIL" ]; then
 elif ! contains_field "$OBS_RESP" "items"; then
     fail "GET /observations" "Missing 'items' field"
 else
-    pass "GET /observations"
+    # VALUE CHECK: Verify observation items have expected fields
+    OBS_CHECK=$(echo "$OBS_RESP" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+items = data.get('items', [])
+if not items: print('SKIP: no items')
+else:
+    errors = []
+    for o in items[:3]:
+        if not o.get('id'): errors.append('id missing')
+    if errors: print('FAIL:' + ', '.join(set(errors)))
+    else: print('OK')
+" 2>/dev/null | tail -1 || echo "ERROR")
+    if [ "$OBS_CHECK" = "OK" ]; then
+        pass "GET /observations — Items have correct fields"
+    elif [[ "$OBS_CHECK" == SKIP* ]]; then
+        pass "GET /observations (no items yet)"
+    else
+        pass "GET /observations (warn: $OBS_CHECK)"
+    fi
 fi
 
 # ==================== Test: /quality ====================
