@@ -89,7 +89,7 @@ public class MemoryController {
         }
     }
 
-    @GetMapping("/memory/refine")
+    @PostMapping("/memory/refine")
     public ResponseEntity<String> triggerRefine(@RequestParam(defaultValue = "/") String project) {
         try {
             String path = resolveProject(project);
