@@ -192,7 +192,7 @@ class TestRetrieval:
         responses.add(
             responses.GET,
             f"{BASE}/api/search",
-            json={"observations": [{"id": "o1", "content": "test"}], "strategy": "filter", "count": 1},
+            json={"observations": [{"id": "o1", "narrative": "test content", "content_session_id": "s1", "project": "/p"}], "strategy": "filter", "count": 1},
             status=200,
         )
         c = _client()
@@ -200,31 +200,37 @@ class TestRetrieval:
         assert isinstance(result, SearchResult)
         assert result.count == 1
         assert result.strategy == "filter"
+        assert len(result.observations) == 1
+        assert result.observations[0].content == "test content"
+        assert result.observations[0].session_id == "s1"
 
     @responses.activate
     def test_list_observations(self):
         responses.add(
             responses.GET,
             f"{BASE}/api/observations",
-            json={"items": [{"id": "o1", "content": "c"}], "hasMore": False, "offset": 0, "limit": 20},
+            json={"items": [{"id": "o1", "narrative": "content", "content_session_id": "s1"}], "hasMore": False, "offset": 0, "limit": 20},
             status=200,
         )
         c = _client()
         resp = c.list_observations("/p")
         assert isinstance(resp, ObservationsResponse)
         assert len(resp.items) == 1
+        assert resp.items[0].content == "content"
+        assert resp.items[0].session_id == "s1"
 
     @responses.activate
     def test_get_observations_by_ids(self):
         responses.add(
             responses.POST,
             f"{BASE}/api/observations/batch",
-            json={"observations": [{"id": "o1", "content": "c"}], "count": 1},
+            json={"observations": [{"id": "o1", "narrative": "content", "content_session_id": "s1"}], "count": 1},
             status=200,
         )
         c = _client()
         resp = c.get_observations_by_ids(["o1"])
         assert resp.count == 1
+        assert resp.observations[0].content == "content"
 
 
 # ==================== Management ====================

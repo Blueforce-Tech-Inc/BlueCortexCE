@@ -80,7 +80,7 @@ class TestDTOFromWire:
 
     def test_search_result_from_wire(self):
         data = {
-            "observations": [{"id": "o1", "content": "test"}],
+            "observations": [{"id": "o1", "narrative": "test", "content_session_id": "s1"}],
             "strategy": "hybrid",
             "fell_back": False,
             "count": 1,
@@ -89,10 +89,11 @@ class TestDTOFromWire:
         assert sr.count == 1
         assert sr.strategy == "hybrid"
         assert len(sr.observations) == 1
+        assert sr.observations[0].content == "test"
 
     def test_observations_response_from_wire(self):
         data = {
-            "items": [{"id": "o1", "content": "test"}],
+            "items": [{"id": "o1", "narrative": "test", "content_session_id": "s1"}],
             "hasMore": True,
             "total": 100,
             "offset": 0,
@@ -101,6 +102,7 @@ class TestDTOFromWire:
         resp = ObservationsResponse.from_wire(data)
         assert resp.has_more is True
         assert resp.total == 100
+        assert resp.items[0].content == "test"
 
     def test_quality_distribution_from_wire(self):
         data = {"project": "/p", "high": 10, "medium": 5, "low": 2, "unknown": 1}
