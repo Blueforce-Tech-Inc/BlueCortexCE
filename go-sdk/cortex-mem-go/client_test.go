@@ -1241,12 +1241,12 @@ func TestGetModes(t *testing.T) {
 		}
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]any{
-			"id":                  "default",
-			"name":                "Default Mode",
-			"description":         "Standard mode",
-			"version":             "1.0",
-			"observationTypes":    []string{"tool-use", "user-prompt"},
-			"observationConcepts": []string{"code", "test"},
+			"id":                    "default",
+			"name":                  "Default Mode",
+			"description":           "Standard mode",
+			"version":               "1.0",
+			"observation_types":     []string{"tool-use", "user-prompt"},
+			"observation_concepts":  []string{"code", "test"},
 		})
 	}))
 	defer server.Close()
@@ -3391,7 +3391,7 @@ func TestListObservations_EmptyProject_OmitsParam(t *testing.T) {
 			t.Errorf("project param should be omitted when empty, got: %q", r.URL.Query().Get("project"))
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"items":[],"total":0,"hasMore":false}`))
+		w.Write([]byte(`{"items":[],"total":0,"has_more":false}`))
 	}))
 	defer server.Close()
 

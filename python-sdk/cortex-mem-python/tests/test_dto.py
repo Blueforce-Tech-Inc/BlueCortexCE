@@ -94,7 +94,7 @@ class TestDTOFromWire:
     def test_observations_response_from_wire(self):
         data = {
             "items": [{"id": "o1", "narrative": "test", "content_session_id": "s1"}],
-            "hasMore": True,
+            "has_more": True,
             "total": 100,
             "offset": 0,
             "limit": 20,
@@ -147,8 +147,8 @@ class TestDTOFromWire:
             "name": "default",
             "description": "Default mode",
             "version": "1.0",
-            "observationTypes": ["feature", "bug"],
-            "observationConcepts": ["testing"],
+            "observation_types": ["feature", "bug"],
+            "observation_concepts": ["testing"],
         }
         mr = ModesResponse.from_wire(data)
         assert mr.name == "default"

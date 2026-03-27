@@ -217,7 +217,7 @@ class ObservationsResponse:
     def from_wire(cls, data: dict) -> ObservationsResponse:
         return cls(
             items=[Observation.from_wire(o) for o in data.get("items", [])],
-            has_more=data.get("hasMore", False),
+            has_more=data.get("has_more", data.get("hasMore", False)),
             total=data.get("total", 0),
             offset=data.get("offset", 0),
             limit=data.get("limit", 0),
@@ -385,6 +385,6 @@ class ModesResponse:
             name=data.get("name", ""),
             description=data.get("description", ""),
             version=data.get("version", ""),
-            observation_types=data.get("observationTypes", []),
-            observation_concepts=data.get("observationConcepts", []),
+            observation_types=data.get("observation_types", data.get("observationTypes", [])),
+            observation_concepts=data.get("observation_concepts", data.get("observationConcepts", [])),
         )

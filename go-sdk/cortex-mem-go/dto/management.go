@@ -43,8 +43,8 @@ type ModesResponse struct {
 	Name                string   `json:"name"`
 	Description         string   `json:"description"`
 	Version             string   `json:"version"`
-	ObservationTypes    []string `json:"observationTypes"`
-	ObservationConcepts []string `json:"observationConcepts"`
+	ObservationTypes    []string `json:"observation_types"`
+	ObservationConcepts []string `json:"observation_concepts"`
 }
 
 // SessionUserUpdateResponse contains the result of updating a session's userId.

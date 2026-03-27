@@ -219,7 +219,7 @@ class TestRetrieval:
         responses.add(
             responses.GET,
             f"{BASE}/api/observations",
-            json={"items": [{"id": "o1", "narrative": "content", "content_session_id": "s1"}], "hasMore": False, "offset": 0, "limit": 20},
+            json={"items": [{"id": "o1", "narrative": "content", "content_session_id": "s1"}], "has_more": False, "offset": 0, "limit": 20},
             status=200,
         )
         c = _client()
@@ -392,7 +392,7 @@ class TestVersionAndP1:
         responses.add(
             responses.GET,
             f"{BASE}/api/modes",
-            json={"id": "m1", "name": "default", "observationTypes": ["feature"], "observationConcepts": ["test"]},
+            json={"id": "m1", "name": "default", "observation_types": ["feature"], "observation_concepts": ["test"]},
             status=200,
         )
         c = _client()
@@ -708,7 +708,7 @@ class TestRetrievalExtended:
     @responses.activate
     def test_list_observations_pagination(self):
         """Verify offset and limit are sent as query params."""
-        responses.add(responses.GET, f"{BASE}/api/observations", json={"items": [], "hasMore": False, "offset": 50, "limit": 25}, status=200)
+        responses.add(responses.GET, f"{BASE}/api/observations", json={"items": [], "has_more": False, "offset": 50, "limit": 25}, status=200)
         c = _client()
         resp = c.list_observations("/p", offset=50, limit=25)
         url = responses.calls[0].request.url

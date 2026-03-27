@@ -255,7 +255,7 @@ describe('CortexMemClient', () => {
 
   describe('listObservations', () => {
     it('should call GET /api/observations with params', async () => {
-      const resp = { items: [], hasMore: false, offset: 0, limit: 20 };
+      const resp = { items: [], has_more: false, offset: 0, limit: 20 };
       fetchMock = mockFetch(200, resp);
       client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
 
@@ -268,7 +268,7 @@ describe('CortexMemClient', () => {
     });
 
     it('should skip zero offset', async () => {
-      const resp = { items: [], hasMore: false, offset: 0, limit: 20 };
+      const resp = { items: [], has_more: false, offset: 0, limit: 20 };
       fetchMock = mockFetch(200, resp);
       client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
 
@@ -539,7 +539,7 @@ describe('CortexMemClient', () => {
 
   describe('getModes', () => {
     it('should call GET /api/modes', async () => {
-      const resp = { id: 'full', name: 'Full', description: 'Full mode', version: '1.0', observationTypes: [], observationConcepts: [] };
+      const resp = { id: 'full', name: 'Full', description: 'Full mode', version: '1.0', observation_types: [], observation_concepts: [] };
       fetchMock = mockFetch(200, resp);
       client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
 
@@ -734,7 +734,7 @@ describe('CortexMemClient', () => {
           id: 'o1', content_session_id: 's1', project: '/p', type: 'tool',
           narrative: 'c', quality_score: 0.85, prompt_number: 42, created_at_epoch: 1711488000,
         }],
-        hasMore: false, offset: 0, limit: 20,
+        has_more: false, offset: 0, limit: 20,
       };
       fetchMock = mockFetch(200, resp);
       client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });

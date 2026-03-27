@@ -386,7 +386,8 @@ export class CortexMemClient {
    */
   async getModes(): Promise<ModesResponse> {
     this.assertNotClosed();
-    return this.requestJSON<ModesResponse>('GET', '/api/modes');
+    const raw = await this.requestJSONRaw('GET', '/api/modes');
+    return this.parseModesResponse(raw);
   }
 
   /**
@@ -643,7 +644,7 @@ export class CortexMemClient {
       : [];
     return {
       items,
-      hasMore: (r.hasMore as boolean) ?? false,
+      hasMore: (r.has_more as boolean) ?? false,
       total: r.total as number | undefined,
       offset: (r.offset as number) ?? 0,
       limit: (r.limit as number) ?? 0,
@@ -661,6 +662,22 @@ export class CortexMemClient {
     return {
       observations,
       count: (r.count as number) ?? 0,
+    };
+  }
+
+  /**
+   * Parse raw modes response, mapping snake_case wire fields to camelCase.
+   * Backend returns observation_types/observation_concepts (SNAKE_CASE).
+   */
+  private parseModesResponse(raw: unknown): ModesResponse {
+    const r = raw as Record<string, unknown>;
+    return {
+      id: (r.id as string) ?? '',
+      name: (r.name as string) ?? '',
+      description: (r.description as string) ?? '',
+      version: (r.version as string) ?? '',
+      observationTypes: (r.observation_types as string[]) ?? (r.observationTypes as string[]) ?? [],
+      observationConcepts: (r.observation_concepts as string[]) ?? (r.observationConcepts as string[]) ?? [],
     };
   }
 

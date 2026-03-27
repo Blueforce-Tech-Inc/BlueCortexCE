@@ -15,7 +15,7 @@ type ObservationsRequest struct {
 // ObservationsResponse is the paginated response from listing observations.
 type ObservationsResponse struct {
 	Items   []Observation `json:"items"`
-	HasMore bool          `json:"hasMore"`
+	HasMore bool          `json:"has_more"`
 	Total   int64         `json:"total,omitempty"`
 	Offset  int           `json:"offset"`
 	Limit   int           `json:"limit"`
