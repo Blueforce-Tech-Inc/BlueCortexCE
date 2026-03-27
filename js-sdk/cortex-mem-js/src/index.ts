@@ -47,7 +47,6 @@ export type {
   SearchResult,
   ObservationsRequest,
   ObservationsResponse,
-  BatchObservationsRequest,
   BatchObservationsResponse,
   // Management
   QualityDistribution,

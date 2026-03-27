@@ -72,28 +72,6 @@ export interface Observation {
 }
 
 /**
- * Raw wire format from backend.
- * Backend uses Jackson SNAKE_CASE naming strategy with @JsonProperty overrides.
- */
-interface ObservationWire {
-  id: string;
-  content_session_id: string;
-  project: string;
-  type: string;
-  title?: string;
-  subtitle?: string;
-  narrative: string;
-  facts?: string[];
-  concepts?: string[];
-  quality_score?: number;
-  source?: string;
-  extractedData?: Record<string, unknown>;
-  prompt_number?: number;
-  created_at?: string;
-  created_at_epoch?: number;
-}
-
-/**
  * Parse a raw wire-format observation into the canonical Observation type.
  * Matches Go's dto.Observation.UnmarshalJSON and Python's Observation.from_wire.
  */

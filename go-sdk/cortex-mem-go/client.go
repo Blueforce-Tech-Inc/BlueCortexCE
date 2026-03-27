@@ -106,4 +106,7 @@ type Client interface {
 
 	// Close releases resources.
 	Close() error
+
+	// String returns a debug representation of the client.
+	String() string
 }

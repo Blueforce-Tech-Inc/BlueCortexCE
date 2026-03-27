@@ -2566,6 +2566,20 @@ func TestClose_CleansUpIdleConnections(t *testing.T) {
 	}
 }
 
+func TestString_ReturnsDebugRepresentation(t *testing.T) {
+	client := cortexmem.NewClient(cortexmem.WithBaseURL("http://localhost:37777"))
+	s := client.String()
+	if !strings.Contains(s, "CortexMemClient") {
+		t.Errorf("String() should contain 'CortexMemClient', got %q", s)
+	}
+	if !strings.Contains(s, "http://localhost:37777") {
+		t.Errorf("String() should contain base URL, got %q", s)
+	}
+	if !strings.Contains(s, "open") {
+		t.Errorf("String() should contain 'open', got %q", s)
+	}
+}
+
 func TestDoRequest_SetsAcceptHeader(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		accept := r.Header.Get("Accept")

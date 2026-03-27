@@ -54,16 +54,6 @@ export interface ObservationsResponse {
 }
 
 /**
- * Request to get observations by IDs.
- * POST /api/observations/batch
- *
- * Wire format: {"ids":["id1", "id2", ...]}
- */
-export interface BatchObservationsRequest {
-  ids: string[];
-}
-
-/**
  * Response from batch observation retrieval.
  */
 export interface BatchObservationsResponse {

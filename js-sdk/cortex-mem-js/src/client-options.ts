@@ -4,6 +4,9 @@
 
 import type { Logger } from './client';
 
+/** Custom fetch function type */
+type FetchFn = (input: URL | RequestInfo, init?: RequestInit) => Promise<Response>;
+
 /**
  * Options for creating a CortexMemClient.
  */
@@ -27,15 +30,11 @@ export interface CortexMemClientOptions {
   logger?: Logger;
 
   /** Custom fetch implementation (for testing or polyfills) */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  fetch?: any;
+  fetch?: FetchFn;
 
   /** Custom headers to include in every request */
   headers?: Record<string, string>;
 }
-
-/** Custom fetch function type */
-type FetchFn = (input: URL | RequestInfo, init?: RequestInit) => Promise<Response>;
 
 /** Resolved client config with all defaults applied. */
 export interface ResolvedClientConfig {
@@ -68,7 +67,7 @@ export function resolveConfig(options?: CortexMemClientOptions): ResolvedClientC
     maxRetries: Math.max(1, options?.maxRetries ?? 3),
     retryBackoff: options?.retryBackoff ?? 500,
     logger: options?.logger ?? { debug() {}, info() {}, warn() {}, error() {} },
-    fetch: (options?.fetch as FetchFn | undefined) ?? fallbackFetch,
+    fetch: options?.fetch ?? fallbackFetch,
     headers: options?.headers ?? {},
   };
 }

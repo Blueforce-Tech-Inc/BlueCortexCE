@@ -312,3 +312,8 @@ func (c *httpClient) Close() error {
 	return nil
 }
 
+// String returns a debug representation of the client. Implements fmt.Stringer.
+func (c *httpClient) String() string {
+	return fmt.Sprintf("CortexMemClient(%s, open)", c.config.BaseURL)
+}
+
