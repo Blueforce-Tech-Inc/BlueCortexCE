@@ -637,42 +637,13 @@ func main() {
 			writeJSONError(w, http.StatusBadRequest, "observation id is required")
 			return
 		}
-		var req struct {
-			Title         *string           `json:"title,omitempty"`
-			Subtitle      *string           `json:"subtitle,omitempty"`
-			Content       *string           `json:"content,omitempty"`
-			Facts         []string          `json:"facts,omitempty"`
-			Concepts      []string          `json:"concepts,omitempty"`
-			Source        *string           `json:"source,omitempty"`
-			ExtractedData map[string]any    `json:"extractedData,omitempty"`
-		}
-		if err := readJSON(r, &req); err != nil {
+		// Reuse dto.ObservationUpdate directly — pointer fields (*string) with omitempty
+		// naturally distinguish absent (nil) from present (non-nil), which is exactly
+		// the PATCH semantics we need.
+		var update dto.ObservationUpdate
+		if err := readJSON(r, &update); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
 			return
-		}
-		update := dto.ObservationUpdate{}
-		// Use pointer checks for string fields: nil = field absent (skip), non-nil = field present (set, even if empty string)
-		if req.Title != nil {
-			update.Title = req.Title
-		}
-		if req.Subtitle != nil {
-			update.Subtitle = req.Subtitle
-		}
-		if req.Content != nil {
-			update.Content = req.Content
-		}
-		if req.Source != nil {
-			update.Source = req.Source
-		}
-		// Slice and map fields: nil = absent (skip), non-nil = present (set, even if empty)
-		if req.Facts != nil {
-			update.Facts = req.Facts
-		}
-		if req.Concepts != nil {
-			update.Concepts = req.Concepts
-		}
-		if req.ExtractedData != nil {
-			update.ExtractedData = req.ExtractedData
 		}
 		if err := client.UpdateObservation(r.Context(), id, update); err != nil {
 			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update observation: %v", err))
