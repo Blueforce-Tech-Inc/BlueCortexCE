@@ -74,6 +74,64 @@ class ICLPromptResult:
 
 
 @dataclass
+class ObservationUpdate:
+    """Partial update for an existing observation (PATCH semantics).
+
+    Only non-None fields are sent to the backend, matching Go's
+    pointer-field-with-omitempty pattern.
+
+    Usage::
+
+        # Dataclass style (recommended for IDE autocomplete & type checking)
+        update = ObservationUpdate(title="New Title", source="manual")
+        client.update_observation("obs-123", update)
+
+        # Kwargs style (convenience)
+        client.update_observation("obs-123", title="New Title", source="manual")
+    """
+
+    title: str | None = None
+    subtitle: str | None = None
+    content: str | None = None
+    facts: list[str] | None = None
+    concepts: list[str] | None = None
+    source: str | None = None
+    extracted_data: dict | None = None
+
+    def to_wire(self) -> dict:
+        """Convert to wire format, omitting None fields."""
+        body: dict = {}
+        if self.title is not None:
+            body["title"] = self.title
+        if self.subtitle is not None:
+            body["subtitle"] = self.subtitle
+        if self.content is not None:
+            body["content"] = self.content
+        if self.facts is not None:
+            body["facts"] = self.facts
+        if self.concepts is not None:
+            body["concepts"] = self.concepts
+        if self.source is not None:
+            body["source"] = self.source
+        if self.extracted_data is not None:
+            body["extractedData"] = self.extracted_data
+        return body
+
+    @classmethod
+    def from_kwargs(cls, **kwargs: "str | list[str] | dict | None") -> "ObservationUpdate":
+        """Create from keyword arguments."""
+        return cls(
+            title=kwargs.get("title"),
+            subtitle=kwargs.get("subtitle"),
+            content=kwargs.get("content"),
+            facts=kwargs.get("facts"),
+            concepts=kwargs.get("concepts"),
+            source=kwargs.get("source"),
+            extracted_data=kwargs.get("extracted_data"),
+        )
+
+
+@dataclass
 class Observation:
     """A single observation record."""
 

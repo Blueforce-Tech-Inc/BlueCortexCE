@@ -11,11 +11,13 @@ from cortex_mem.dto import (
     ICLPromptResult,
     SearchResult,
     ObservationsResponse,
+    ObservationUpdate,
     QualityDistribution,
     VersionResponse,
     ProjectsResponse,
     StatsResponse,
     ModesResponse,
+    ExtractionResult,
 )
 
 BASE = "http://localhost:37777"
@@ -403,3 +405,279 @@ class TestLifecycle:
     def test_close(self):
         c = CortexMemClient(base_url=BASE)
         c.close()
+
+
+# ==================== Extended Management ====================
+
+
+class TestManagementExtended:
+    @responses.activate
+    def test_update_observation_with_dataclass(self):
+        """ObservationUpdate dataclass style — only non-None fields sent."""
+        responses.add(responses.PATCH, f"{BASE}/api/memory/observations/o1", status=204)
+        c = _client()
+        update = ObservationUpdate(title="New Title", source="manual", concepts=["important"])
+        c.update_observation("o1", update)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["title"] == "New Title"
+        assert body["source"] == "manual"
+        assert body["concepts"] == ["important"]
+        # None fields should NOT be present
+        assert "subtitle" not in body
+        assert "content" not in body
+
+    @responses.activate
+    def test_update_observation_kwargs_override_dataclass(self):
+        """When both dataclass and kwargs provided, kwargs win."""
+        responses.add(responses.PATCH, f"{BASE}/api/memory/observations/o1", status=204)
+        c = _client()
+        update = ObservationUpdate(title="From Dataclass")
+        c.update_observation("o1", update, title="From Kwargs")
+        body = json.loads(responses.calls[0].request.body)
+        assert body["title"] == "From Kwargs"
+
+    @responses.activate
+    def test_update_observation_extracted_data_wire_format(self):
+        """Verify extractedData stays camelCase in wire format."""
+        responses.add(responses.PATCH, f"{BASE}/api/memory/observations/o1", status=204)
+        c = _client()
+        update = ObservationUpdate(extracted_data={"preference": "dark_mode"})
+        c.update_observation("o1", update)
+        body = json.loads(responses.calls[0].request.body)
+        assert "extractedData" in body
+        assert body["extractedData"] == {"preference": "dark_mode"}
+
+    @responses.activate
+    def test_update_observation_empty_raises(self):
+        """Empty observation_id should raise."""
+        c = _client()
+        with pytest.raises(Exception):
+            c.update_observation("", title="x")
+
+    @responses.activate
+    def test_delete_observation_empty_raises(self):
+        """Empty observation_id should raise."""
+        c = _client()
+        with pytest.raises(Exception):
+            c.delete_observation("")
+
+    @responses.activate
+    def test_trigger_refinement_empty_raises(self):
+        """Empty project_path should raise."""
+        c = _client()
+        with pytest.raises(Exception):
+            c.trigger_refinement("")
+
+    @responses.activate
+    def test_submit_feedback_empty_raises(self):
+        """Empty observation_id or feedback_type should raise."""
+        c = _client()
+        with pytest.raises(Exception):
+            c.submit_feedback("", "useful")
+        with pytest.raises(Exception):
+            c.submit_feedback("o1", "")
+
+    @responses.activate
+    def test_get_quality_distribution_empty_raises(self):
+        """Empty project_path should raise."""
+        c = _client()
+        with pytest.raises(Exception):
+            c.get_quality_distribution("")
+
+    @responses.activate
+    def test_quality_distribution_total_property(self):
+        """QualityDistribution.total is a computed property."""
+        responses.add(
+            responses.GET,
+            f"{BASE}/api/memory/quality-distribution",
+            json={"project": "/p", "high": 10, "medium": 5, "low": 3, "unknown": 2},
+            status=200,
+        )
+        c = _client()
+        qd = c.get_quality_distribution("/p")
+        assert qd.total == 20
+        assert qd.high == 10
+        assert qd.medium == 5
+        assert qd.low == 3
+        assert qd.unknown == 2
+
+
+# ==================== Extended Extraction ====================
+
+
+class TestExtractionExtended:
+    @responses.activate
+    def test_trigger_extraction_empty_raises(self):
+        """Empty project_path should raise."""
+        c = _client()
+        with pytest.raises(Exception):
+            c.trigger_extraction("")
+
+    @responses.activate
+    def test_get_latest_extraction_with_all_fields(self):
+        """Verify all ExtractionResult fields are parsed."""
+        responses.add(
+            responses.GET,
+            f"{BASE}/api/extraction/user_pref/latest",
+            json={
+                "status": "ok",
+                "template": "user_pref",
+                "message": "extracted 3 preferences",
+                "extractedData": {"lang": "zh", "theme": "dark"},
+                "sessionId": "s-123",
+                "createdAt": 1710000000,
+                "observationId": "obs-456",
+            },
+            status=200,
+        )
+        c = _client()
+        result = c.get_latest_extraction("/p", "user_pref", user_id="u1")
+        assert isinstance(result, ExtractionResult)
+        assert result.status == "ok"
+        assert result.template == "user_pref"
+        assert result.message == "extracted 3 preferences"
+        assert result.extracted_data == {"lang": "zh", "theme": "dark"}
+        assert result.session_id == "s-123"
+        assert result.created_at == 1710000000
+        assert result.observation_id == "obs-456"
+
+    @responses.activate
+    def test_get_latest_extraction_query_params(self):
+        """Verify userId and projectPath are passed as query params."""
+        responses.add(responses.GET, f"{BASE}/api/extraction/tpl/latest", json={}, status=200)
+        c = _client()
+        c.get_latest_extraction("/my/project", "tpl", user_id="user-1")
+        url = responses.calls[0].request.url
+        assert "userId=user-1" in url
+        assert "projectPath=" in url
+
+    @responses.activate
+    def test_get_extraction_history_limit(self):
+        """Verify limit query param is sent."""
+        responses.add(responses.GET, f"{BASE}/api/extraction/tpl/history", json=[], status=200)
+        c = _client()
+        c.get_extraction_history("/p", "tpl", user_id="u1", limit=25)
+        url = responses.calls[0].request.url
+        assert "limit=25" in url
+        assert "userId=u1" in url
+
+    @responses.activate
+    def test_get_extraction_history_multiple_results(self):
+        """Verify multiple extraction results are parsed."""
+        responses.add(
+            responses.GET,
+            f"{BASE}/api/extraction/tpl/history",
+            json=[
+                {"extractedData": {"v": 1}, "sessionId": "s1", "createdAt": 1, "observationId": "o1"},
+                {"extractedData": {"v": 2}, "sessionId": "s2", "createdAt": 2, "observationId": "o2"},
+                {"extractedData": {"v": 3}, "sessionId": "s3", "createdAt": 3, "observationId": "o3"},
+            ],
+            status=200,
+        )
+        c = _client()
+        results = c.get_extraction_history("/p", "tpl")
+        assert len(results) == 3
+        assert all(isinstance(r, ExtractionResult) for r in results)
+        assert results[0].extracted_data == {"v": 1}
+        assert results[2].extracted_data == {"v": 3}
+
+
+# ==================== Extended Session ====================
+
+
+class TestSessionExtended:
+    @responses.activate
+    def test_start_session_with_user_id(self):
+        """Verify user_id is sent in wire format."""
+        responses.add(responses.POST, f"{BASE}/api/session/start", json={"session_db_id": "db-1", "session_id": "s1", "prompt_number": 0}, status=200)
+        c = _client()
+        c.start_session("s1", "/project", user_id="u1")
+        body = json.loads(responses.calls[0].request.body)
+        assert body["user_id"] == "u1"
+        assert body["project_path"] == "/project"
+
+    @responses.activate
+    def test_update_session_user_id_empty_raises(self):
+        """Empty session_id or user_id should raise."""
+        c = _client()
+        with pytest.raises(Exception):
+            c.update_session_user_id("", "u1")
+        with pytest.raises(Exception):
+            c.update_session_user_id("s1", "")
+
+
+# ==================== Extended Retrieval ====================
+
+
+class TestRetrievalExtended:
+    @responses.activate
+    def test_retrieve_experiences_with_source_filter(self):
+        """Verify source filter is sent in wire format."""
+        responses.add(responses.POST, f"{BASE}/api/memory/experiences", json=[], status=200)
+        c = _client()
+        c.retrieve_experiences("t", "/p", source="manual")
+        body = json.loads(responses.calls[0].request.body)
+        assert body["source"] == "manual"
+
+    @responses.activate
+    def test_search_with_source_filter(self):
+        """Verify source filter is sent as query param."""
+        responses.add(responses.GET, f"{BASE}/api/search", json={"observations": [], "count": 0}, status=200)
+        c = _client()
+        c.search("/p", query="test", source="tool_result")
+        url = responses.calls[0].request.url
+        assert "source=tool_result" in url
+
+    @responses.activate
+    def test_list_observations_pagination(self):
+        """Verify offset and limit are sent as query params."""
+        responses.add(responses.GET, f"{BASE}/api/observations", json={"items": [], "hasMore": False, "offset": 50, "limit": 25}, status=200)
+        c = _client()
+        resp = c.list_observations("/p", offset=50, limit=25)
+        url = responses.calls[0].request.url
+        assert "offset=50" in url
+        assert "limit=25" in url
+        assert resp.offset == 50
+        assert resp.limit == 25
+
+    @responses.activate
+    def test_get_observations_by_ids_empty_raises(self):
+        """Empty ids list should raise."""
+        c = _client()
+        with pytest.raises(Exception):
+            c.get_observations_by_ids([])
+
+    @responses.activate
+    def test_build_icl_prompt_with_max_chars(self):
+        """Verify maxChars is sent in wire format."""
+        responses.add(responses.POST, f"{BASE}/api/memory/icl-prompt", json={"prompt": "", "experienceCount": 0}, status=200)
+        c = _client()
+        c.build_icl_prompt("t", "/p", max_chars=2000)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["maxChars"] == 2000
+
+
+# ==================== DTO Tests ====================
+
+
+class TestDTOs:
+    def test_observation_update_to_wire_omits_none(self):
+        """ObservationUpdate.to_wire() should only include non-None fields."""
+        update = ObservationUpdate(title="T", source="s")
+        wire = update.to_wire()
+        assert wire == {"title": "T", "source": "s"}
+        assert "subtitle" not in wire
+        assert "content" not in wire
+        assert "extracted_data" not in wire
+
+    def test_observation_update_from_kwargs(self):
+        """ObservationUpdate.from_kwargs() should create a valid update."""
+        update = ObservationUpdate.from_kwargs(title="T", extracted_data={"k": "v"})
+        assert update.title == "T"
+        assert update.extracted_data == {"k": "v"}
+        assert update.source is None
+
+    def test_observation_update_empty_to_wire(self):
+        """Empty ObservationUpdate should produce empty dict."""
+        update = ObservationUpdate()
+        assert update.to_wire() == {}

@@ -16,6 +16,7 @@ from .dto import (
     ExtractionResult,
     ICLPromptResult,
     ModesResponse,
+    ObservationUpdate,
     ObservationsResponse,
     ProjectsResponse,
     QualityDistribution,
@@ -410,29 +411,40 @@ class CortexMemClient:
             body["comment"] = comment
         self._request_no_content("POST", "/api/memory/feedback", json_body=body)
 
-    def update_observation(self, observation_id: str, **kwargs: Any) -> None:
+    def update_observation(
+        self, observation_id: str, update: "ObservationUpdate | None" = None, **kwargs: Any
+    ) -> None:
         """Update an observation. PATCH /api/memory/observations/{id}.
 
-        Kwargs: title, subtitle, content, facts, concepts, source, extracted_data.
-        Wire format: extracted_data → "extractedData".
+        Supports two calling styles::
+
+            # Dataclass style (recommended — IDE autocomplete + type checking)
+            from cortex_mem import ObservationUpdate
+            client.update_observation("obs-123", ObservationUpdate(title="New", source="manual"))
+
+            # Kwargs style (convenience)
+            client.update_observation("obs-123", title="New", source="manual")
+
+        If both ``update`` and ``kwargs`` are provided, kwargs override update fields.
         """
         if not observation_id:
             raise CortexError("observation_id is required")
         body: dict[str, Any] = {}
-        if "title" in kwargs:
-            body["title"] = kwargs["title"]
-        if "subtitle" in kwargs:
-            body["subtitle"] = kwargs["subtitle"]
-        if "content" in kwargs:
-            body["content"] = kwargs["content"]
-        if "facts" in kwargs:
-            body["facts"] = kwargs["facts"]
-        if "concepts" in kwargs:
-            body["concepts"] = kwargs["concepts"]
-        if "source" in kwargs:
-            body["source"] = kwargs["source"]
-        if "extracted_data" in kwargs:
-            body["extractedData"] = kwargs["extracted_data"]
+        if update is not None:
+            body.update(update.to_wire())
+        # Kwargs override (or used standalone)
+        kwarg_map = {
+            "title": "title",
+            "subtitle": "subtitle",
+            "content": "content",
+            "facts": "facts",
+            "concepts": "concepts",
+            "source": "source",
+            "extracted_data": "extractedData",
+        }
+        for kwarg, wire_key in kwarg_map.items():
+            if kwarg in kwargs:
+                body[wire_key] = kwargs[kwarg]
         path = f"/api/memory/observations/{observation_id}"
         self._request_no_content("PATCH", path, json_body=body)
 
