@@ -406,6 +406,25 @@ class TestLifecycle:
         c = CortexMemClient(base_url=BASE)
         c.close()
 
+    def test_closed_client_raises(self):
+        """Operations on a closed client should raise CortexError."""
+        c = CortexMemClient(base_url=BASE)
+        c.close()
+        with pytest.raises(Exception, match="closed"):
+            c.health_check()
+        with pytest.raises(Exception, match="closed"):
+            c.get_version()
+        with pytest.raises(Exception, match="closed"):
+            c.search("/p", query="test")
+
+    def test_context_manager_closes(self):
+        """Client should be closed after exiting context."""
+        c = CortexMemClient(base_url=BASE)
+        with c:
+            pass
+        with pytest.raises(Exception, match="closed"):
+            c.get_projects()
+
 
 # ==================== Extended Management ====================
 

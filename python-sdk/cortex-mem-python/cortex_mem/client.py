@@ -83,7 +83,14 @@ class CortexMemClient:
         if api_key:
             self._session.headers["Authorization"] = f"Bearer {api_key}"
 
+        self._closed = False
+
     # ==================== HTTP helpers ====================
+
+    def _assert_not_closed(self) -> None:
+        """Raise if the client has been closed."""
+        if self._closed:
+            raise CortexError("client is closed")
 
     def _request(
         self,
@@ -176,6 +183,7 @@ class CortexMemClient:
         user_id: str | None = None,
     ) -> SessionStartResponse:
         """Start or resume a session. POST /api/session/start."""
+        self._assert_not_closed()
         body: dict[str, Any] = {
             "session_id": session_id,
             "project_path": project_path,
@@ -192,6 +200,7 @@ class CortexMemClient:
 
     def update_session_user_id(self, session_id: str, user_id: str) -> dict:
         """Update session userId. PATCH /api/session/{session_id}/user."""
+        self._assert_not_closed()
         path = f"/api/session/{session_id}/user"
         return self._request_json("PATCH", path, json_body={"user_id": user_id})
 
@@ -214,6 +223,7 @@ class CortexMemClient:
         Wire format: project_path → "cwd", tool_name → "tool_name",
         extracted_data → "extractedData" (camelCase).
         """
+        self._assert_not_closed()
         body: dict[str, Any] = {
             "session_id": session_id,
             "cwd": project_path,
@@ -241,6 +251,7 @@ class CortexMemClient:
 
         Wire format: project_path → "cwd".
         """
+        self._assert_not_closed()
         body: dict[str, Any] = {
             "session_id": session_id,
             "cwd": project_path,
@@ -260,6 +271,7 @@ class CortexMemClient:
 
         Wire format: project_path → "cwd".
         """
+        self._assert_not_closed()
         body: dict[str, Any] = {
             "session_id": session_id,
             "prompt_text": prompt_text,
@@ -286,6 +298,7 @@ class CortexMemClient:
 
         Wire format: required_concepts → "requiredConcepts", user_id → "userId".
         """
+        self._assert_not_closed()
         body: dict[str, Any] = {"task": task}
         if project:
             body["project"] = project
@@ -314,6 +327,7 @@ class CortexMemClient:
 
         Wire format: max_chars → "maxChars", user_id → "userId".
         """
+        self._assert_not_closed()
         body: dict[str, Any] = {"task": task}
         if project:
             body["project"] = project
@@ -336,6 +350,7 @@ class CortexMemClient:
         offset: int = 0,
     ) -> SearchResult:
         """Semantic search. GET /api/search with query params."""
+        self._assert_not_closed()
         params: dict[str, str] = {"project": project}
         if query:
             params["query"] = query
@@ -360,6 +375,7 @@ class CortexMemClient:
         limit: int = 0,
     ) -> ObservationsResponse:
         """List observations with pagination. GET /api/observations."""
+        self._assert_not_closed()
         params: dict[str, str] = {}
         if project:
             params["project"] = project
@@ -372,6 +388,7 @@ class CortexMemClient:
 
     def get_observations_by_ids(self, ids: list[str]) -> BatchObservationsResponse:
         """Batch get observations by IDs. POST /api/observations/batch."""
+        self._assert_not_closed()
         if not ids:
             raise CortexError("ids must not be empty")
         if len(ids) > 100:
@@ -383,6 +400,7 @@ class CortexMemClient:
 
     def trigger_refinement(self, project_path: str) -> None:
         """Trigger memory refinement. POST /api/memory/refine?project=..."""
+        self._assert_not_closed()
         if not project_path:
             raise CortexError("project_path is required")
         self._request_no_content(
@@ -399,6 +417,7 @@ class CortexMemClient:
 
         Wire format: observation_id → "observationId", feedback_type → "feedbackType".
         """
+        self._assert_not_closed()
         if not observation_id:
             raise CortexError("observation_id is required")
         if not feedback_type:
@@ -427,6 +446,7 @@ class CortexMemClient:
 
         If both ``update`` and ``kwargs`` are provided, kwargs override update fields.
         """
+        self._assert_not_closed()
         if not observation_id:
             raise CortexError("observation_id is required")
         body: dict[str, Any] = {}
@@ -450,6 +470,7 @@ class CortexMemClient:
 
     def delete_observation(self, observation_id: str) -> None:
         """Delete an observation. DELETE /api/memory/observations/{id}."""
+        self._assert_not_closed()
         if not observation_id:
             raise CortexError("observation_id is required")
         path = f"/api/memory/observations/{observation_id}"
@@ -457,6 +478,7 @@ class CortexMemClient:
 
     def get_quality_distribution(self, project_path: str) -> QualityDistribution:
         """Get quality distribution. GET /api/memory/quality-distribution?project=..."""
+        self._assert_not_closed()
         if not project_path:
             raise CortexError("project_path is required")
         data = self._request_json(
@@ -471,6 +493,7 @@ class CortexMemClient:
 
         Raises APIError if backend is unhealthy.
         """
+        self._assert_not_closed()
         data = self._request_json("GET", "/api/health")
         if isinstance(data, dict):
             status = data.get("status")
@@ -481,6 +504,7 @@ class CortexMemClient:
 
     def trigger_extraction(self, project_path: str) -> None:
         """Manually trigger extraction. POST /api/extraction/run."""
+        self._assert_not_closed()
         if not project_path:
             raise CortexError("project_path is required")
         self._request_no_content(
@@ -494,6 +518,7 @@ class CortexMemClient:
         user_id: str = "",
     ) -> ExtractionResult:
         """Get latest extraction result. GET /api/extraction/{template}/latest."""
+        self._assert_not_closed()
         if not project_path:
             raise CortexError("project_path is required")
         if not template_name:
@@ -513,6 +538,7 @@ class CortexMemClient:
         limit: int = 0,
     ) -> list[ExtractionResult]:
         """Get extraction history. GET /api/extraction/{template}/history."""
+        self._assert_not_closed()
         if not project_path:
             raise CortexError("project_path is required")
         if not template_name:
@@ -532,6 +558,7 @@ class CortexMemClient:
 
     def get_version(self) -> VersionResponse:
         """Get backend version info. GET /api/version."""
+        self._assert_not_closed()
         data = self._request_json("GET", "/api/version")
         return VersionResponse.from_wire(data or {})
 
@@ -539,11 +566,13 @@ class CortexMemClient:
 
     def get_projects(self) -> ProjectsResponse:
         """Get all projects. GET /api/projects."""
+        self._assert_not_closed()
         data = self._request_json("GET", "/api/projects")
         return ProjectsResponse.from_wire(data or {})
 
     def get_stats(self, project_path: str = "") -> StatsResponse:
         """Get project statistics. GET /api/stats."""
+        self._assert_not_closed()
         params: dict[str, str] = {}
         if project_path:
             params["project"] = project_path
@@ -552,11 +581,13 @@ class CortexMemClient:
 
     def get_modes(self) -> ModesResponse:
         """Get memory mode settings. GET /api/modes."""
+        self._assert_not_closed()
         data = self._request_json("GET", "/api/modes")
         return ModesResponse.from_wire(data or {})
 
     def get_settings(self) -> dict:
         """Get current settings. GET /api/settings."""
+        self._assert_not_closed()
         data = self._request_json("GET", "/api/settings")
         return data if isinstance(data, dict) else {}
 
@@ -564,6 +595,7 @@ class CortexMemClient:
 
     def close(self) -> None:
         """Close the underlying HTTP session."""
+        self._closed = True
         if self._owns_session:
             self._session.close()
 
