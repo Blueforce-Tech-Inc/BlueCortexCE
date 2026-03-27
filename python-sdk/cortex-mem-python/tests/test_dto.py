@@ -241,3 +241,66 @@ class TestDTOFromWire:
         assert len(resp.observations) == 2
         assert resp.observations[0].content == "content1"
         assert resp.observations[1].project_path == "/p2"
+
+    def test_observation_from_wire_null_strings(self):
+        """Backend may return null for string fields — SDK must return '' not None."""
+        data = {
+            "id": None,
+            "content_session_id": None,
+            "project": None,
+            "type": None,
+            "title": None,
+            "subtitle": None,
+            "narrative": None,
+            "source": None,
+            "created_at": None,
+        }
+        obs = Observation.from_wire(data)
+        # All string fields must be "" (not None)
+        assert obs.id == ""
+        assert obs.session_id == ""
+        assert obs.project_path == ""
+        assert obs.type == ""
+        assert obs.title == ""
+        assert obs.subtitle == ""
+        assert obs.content == ""
+        assert obs.source == ""
+        assert obs.created_at == ""
+
+    def test_experience_from_wire_null_strings(self):
+        """Backend may return null for string fields in Experience."""
+        data = {
+            "id": None,
+            "task": None,
+            "strategy": None,
+            "outcome": None,
+            "reuse_condition": None,
+            "quality_score": None,
+            "created_at": None,
+        }
+        exp = Experience.from_wire(data)
+        assert exp.id == ""
+        assert exp.task == ""
+        assert exp.strategy == ""
+        assert exp.outcome == ""
+        assert exp.reuse_condition == ""
+        assert exp.quality_score == 0.0
+        assert exp.created_at == ""
+
+    def test_extraction_result_from_wire_null_strings(self):
+        """Backend may return null for string fields in ExtractionResult."""
+        data = {
+            "status": None,
+            "template": None,
+            "message": None,
+            "sessionId": None,
+            "extractedData": None,
+            "observationId": None,
+        }
+        er = ExtractionResult.from_wire(data)
+        assert er.status == ""
+        assert er.template == ""
+        assert er.message == ""
+        assert er.session_id == ""
+        assert er.extracted_data is None  # Optional field — None is correct
+        assert er.observation_id == ""

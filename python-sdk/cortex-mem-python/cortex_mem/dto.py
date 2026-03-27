@@ -61,15 +61,16 @@ class Experience:
 
     @classmethod
     def from_wire(cls, data: dict) -> Experience:
-        # Wire format uses Jackson SNAKE_CASE naming strategy
+        # Wire format uses Jackson SNAKE_CASE naming strategy.
+        # Use `or ""` instead of default "" to handle null values from backend.
         return cls(
-            id=data.get("id", ""),
-            task=data.get("task", ""),
-            strategy=data.get("strategy", ""),
-            outcome=data.get("outcome", ""),
-            reuse_condition=data.get("reuse_condition", ""),
-            quality_score=_to_float(data.get("quality_score", 0.0)),
-            created_at=data.get("created_at", ""),
+            id=data.get("id") or "",
+            task=data.get("task") or "",
+            strategy=data.get("strategy") or "",
+            outcome=data.get("outcome") or "",
+            reuse_condition=data.get("reuse_condition") or "",
+            quality_score=_to_float(data.get("quality_score"), 0.0),
+            created_at=data.get("created_at") or "",
         )
 
 
@@ -84,7 +85,7 @@ class ICLPromptResult:
     @classmethod
     def from_wire(cls, data: dict) -> ICLPromptResult:
         return cls(
-            prompt=data.get("prompt", ""),
+            prompt=data.get("prompt") or "",
             experience_count=_to_int(data.get("experienceCount", 0)),
             max_chars=_to_int(data.get("maxChars", 0)),
         )
@@ -161,21 +162,22 @@ class Observation:
     def from_wire(cls, data: dict) -> Observation:
         # Wire format uses Jackson SNAKE_CASE naming strategy.
         # Key field renames: sessionId→content_session_id, projectPath→project, content→narrative
+        # Use `or ""` for string fields to handle null values from backend.
         return cls(
-            id=data.get("id", ""),
-            session_id=data.get("content_session_id", ""),
-            project_path=data.get("project", ""),
-            type=data.get("type", ""),
-            title=data.get("title", ""),
-            subtitle=data.get("subtitle", ""),
-            content=data.get("narrative", ""),
+            id=data.get("id") or "",
+            session_id=data.get("content_session_id") or "",
+            project_path=data.get("project") or "",
+            type=data.get("type") or "",
+            title=data.get("title") or "",
+            subtitle=data.get("subtitle") or "",
+            content=data.get("narrative") or "",
             facts=data.get("facts") or [],
             concepts=data.get("concepts") or [],
             quality_score=_to_float(data.get("quality_score", 0.0)),
-            source=data.get("source", ""),
+            source=data.get("source") or "",
             extracted_data=data.get("extractedData"),
             prompt_number=_to_int(data.get("prompt_number", 0)),
-            created_at=data.get("created_at", ""),
+            created_at=data.get("created_at") or "",
             created_at_epoch=_to_int(data.get("created_at_epoch", 0)),
         )
 
@@ -196,7 +198,7 @@ class SearchResult:
     def from_wire(cls, data: dict) -> SearchResult:
         return cls(
             observations=[Observation.from_wire(o) for o in data.get("observations", [])],
-            strategy=data.get("strategy", ""),
+            strategy=data.get("strategy") or "",
             fell_back=data.get("fell_back", False),
             count=data.get("count", 0),
         )
@@ -261,7 +263,7 @@ class QualityDistribution:
     @classmethod
     def from_wire(cls, data: dict) -> QualityDistribution:
         return cls(
-            project=data.get("project", ""),
+            project=data.get("project") or "",
             high=data.get("high", 0),
             medium=data.get("medium", 0),
             low=data.get("low", 0),
@@ -287,13 +289,13 @@ class ExtractionResult:
     @classmethod
     def from_wire(cls, data: dict) -> ExtractionResult:
         return cls(
-            status=data.get("status", ""),
-            template=data.get("template", ""),
-            message=data.get("message", ""),
-            session_id=data.get("sessionId", ""),
+            status=data.get("status") or "",
+            template=data.get("template") or "",
+            message=data.get("message") or "",
+            session_id=data.get("sessionId") or "",
             extracted_data=data.get("extractedData"),
             created_at=data.get("createdAt", 0),
-            observation_id=data.get("observationId", ""),
+            observation_id=data.get("observationId") or "",
         )
 
 
@@ -312,10 +314,10 @@ class VersionResponse:
     @classmethod
     def from_wire(cls, data: dict) -> VersionResponse:
         return cls(
-            version=data.get("version", ""),
-            service=data.get("service", ""),
-            java=data.get("java", ""),
-            spring_boot=data.get("springBoot", ""),
+            version=data.get("version") or "",
+            service=data.get("service") or "",
+            java=data.get("java") or "",
+            spring_boot=data.get("springBoot") or "",
         )
 
 
@@ -383,10 +385,10 @@ class ModesResponse:
     @classmethod
     def from_wire(cls, data: dict) -> ModesResponse:
         return cls(
-            id=data.get("id", ""),
-            name=data.get("name", ""),
-            description=data.get("description", ""),
-            version=data.get("version", ""),
-            observation_types=data.get("observation_types", data.get("observationTypes", [])),
-            observation_concepts=data.get("observation_concepts", data.get("observationConcepts", [])),
+            id=data.get("id") or "",
+            name=data.get("name") or "",
+            description=data.get("description") or "",
+            version=data.get("version") or "",
+            observation_types=data.get("observation_types") or data.get("observationTypes") or [],
+            observation_concepts=data.get("observation_concepts") or data.get("observationConcepts") or [],
         )

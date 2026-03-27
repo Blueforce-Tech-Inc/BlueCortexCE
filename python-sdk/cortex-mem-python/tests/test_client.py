@@ -146,6 +146,27 @@ class TestCapture:
         c.record_observation("s1", "/p", "Read")
         assert len(responses.calls) == 3
 
+    @responses.activate
+    def test_fire_and_forget_connection_error_retries(self):
+        """Fire-and-forget should retry on connection errors and swallow after exhaustion."""
+        import responses as resp_lib
+        responses.add(responses.POST, f"{BASE}/api/ingest/tool-use", body=resp_lib.ConnectionError("connection refused"))
+        responses.add(responses.POST, f"{BASE}/api/ingest/tool-use", body=resp_lib.ConnectionError("connection refused"))
+        responses.add(responses.POST, f"{BASE}/api/ingest/tool-use", body=resp_lib.ConnectionError("connection refused"))
+        c = CortexMemClient(base_url=BASE, max_retries=3, retry_backoff=0.01)
+        # Should NOT raise even on connection errors (fire-and-forget)
+        c.record_observation("s1", "/p", "Read")
+
+    @responses.activate
+    def test_retrieval_connection_error_propagates(self):
+        """Retrieval operations should propagate connection errors (not fire-and-forget)."""
+        import responses as resp_lib
+        responses.add(responses.GET, f"{BASE}/api/search", body=resp_lib.ConnectionError("connection refused"))
+        c = _client()
+        import requests
+        with pytest.raises(requests.ConnectionError):
+            c.search("/p", query="test")
+
     def test_record_observation_empty_session_id_raises(self):
         """Empty session_id should raise CortexError."""
         c = _client()
