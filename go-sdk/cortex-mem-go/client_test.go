@@ -3420,6 +3420,17 @@ func TestGetObservationsByIds_Validation_NilIDs(t *testing.T) {
 	}
 }
 
+func TestGetObservationsByIds_Validation_EmptyStringInIDs(t *testing.T) {
+	client := cortexmem.NewClient()
+	_, err := client.GetObservationsByIds(context.Background(), []string{"obs-1", "", "obs-3"})
+	if err == nil {
+		t.Fatal("GetObservationsByIds should fail with empty string in IDs")
+	}
+	if !strings.Contains(err.Error(), "ids[1] is empty") {
+		t.Errorf("expected empty string error for ids[1], got: %v", err)
+	}
+}
+
 func TestGetObservationsByIds_Validation_ExceedsMaxBatch(t *testing.T) {
 	client := cortexmem.NewClient()
 	ids := make([]string, 101)

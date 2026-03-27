@@ -47,7 +47,7 @@ func statusCodeToError(code int) error {
 		return ErrNotFound
 	case http.StatusConflict:
 		return ErrConflict
-	case 422:
+	case http.StatusUnprocessableEntity:
 		return ErrUnprocessable
 	case http.StatusTooManyRequests:
 		return ErrRateLimited
@@ -122,7 +122,7 @@ func IsForbidden(err error) bool {
 func IsUnprocessable(err error) bool {
 	var apiErr *APIError
 	if errors.As(err, &apiErr) {
-		return apiErr.StatusCode == 422
+		return apiErr.StatusCode == http.StatusUnprocessableEntity
 	}
 	return errors.Is(err, ErrUnprocessable)
 }

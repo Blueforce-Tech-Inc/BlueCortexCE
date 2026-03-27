@@ -114,6 +114,11 @@ func (c *httpClient) GetObservationsByIds(ctx context.Context, ids []string) (*d
 	if len(ids) > 100 {
 		return nil, fmt.Errorf("cortex-ce: batch size exceeds maximum of 100 (got %d)", len(ids))
 	}
+	for i, id := range ids {
+		if id == "" {
+			return nil, fmt.Errorf("cortex-ce: ids[%d] is empty", i)
+		}
+	}
 	req := dto.BatchObservationsRequest{IDs: ids}
 	return doRequestJSON[dto.BatchObservationsResponse](c, ctx, http.MethodPost, "/api/observations/batch", req, nil)
 }
