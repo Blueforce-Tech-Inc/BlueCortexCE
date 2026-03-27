@@ -1,0 +1,356 @@
+/**
+ * Cortex CE JS SDK — Demo HTTP Server (Express).
+ *
+ * Exposes all 26 SDK methods as REST endpoints,
+ * mirroring the Go http-server and Python Flask demos.
+ *
+ * Usage:
+ *   npm install express
+ *   CORTEX_BASE_URL=http://127.0.0.1:37777 PORT=8080 npx tsx examples/http-server/app.ts
+ */
+
+import express, { Request, Response, NextFunction } from 'express';
+import { CortexMemClient } from '../../src';
+
+const CORTEX_BASE_URL = process.env.CORTEX_BASE_URL ?? 'http://127.0.0.1:37777';
+const PORT = parseInt(process.env.PORT ?? '8080', 10);
+
+const client = new CortexMemClient({ baseURL: CORTEX_BASE_URL });
+const app = express();
+
+app.use(express.json({ limit: '1mb' }));
+
+// ==================== Middleware ====================
+
+function requireFields(data: Record<string, unknown>, fields: string[]): string | null {
+  for (const f of fields) {
+    if (!data[f]) return f;
+  }
+  return null;
+}
+
+function errorJson(res: Response, status: number, message: string) {
+  res.status(status).json({ error: message });
+}
+
+// Request logger
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  console.log(`${new Date().toISOString()} ${req.method} ${req.path}`);
+  next();
+});
+
+// ==================== Health ====================
+
+app.get('/health', async (_req: Request, res: Response) => {
+  try {
+    await client.healthCheck();
+    res.json({
+      service: 'js-sdk-http-server',
+      status: 'ok',
+      time: new Date().toISOString(),
+    });
+  } catch (e: any) {
+    errorJson(res, 503, `unhealthy: ${e.message}`);
+  }
+});
+
+// ==================== Chat ====================
+
+app.post('/chat', async (req: Request, res: Response) => {
+  const missing = requireFields(req.body, ['project', 'message']);
+  if (missing) return errorJson(res, 400, `${missing} is required`);
+
+  let iclResult = null;
+  try {
+    iclResult = await client.buildICLPrompt({
+      task: req.body.message,
+      project: req.body.project,
+      maxChars: req.body.maxChars ?? 0,
+      userId: req.body.userId,
+    });
+  } catch (e: any) {
+    console.warn('ICL prompt failed:', e.message);
+  }
+
+  const resp: Record<string, unknown> = {
+    response: `Received: ${req.body.message}`,
+    project: req.body.project,
+    timestamp: new Date().toISOString(),
+  };
+  if (iclResult?.prompt) {
+    resp.memoryContext = iclResult.prompt;
+    resp.experienceCount = iclResult.experienceCount;
+  }
+  res.json(resp);
+});
+
+// ==================== Search ====================
+
+app.get('/search', async (req: Request, res: Response) => {
+  const project = req.query.project as string;
+  if (!project) return errorJson(res, 400, 'project is required');
+
+  const result = await client.search({
+    project,
+    query: (req.query.query as string) ?? '',
+    type: (req.query.type as string) ?? '',
+    concept: (req.query.concept as string) ?? '',
+    source: (req.query.source as string) ?? '',
+    limit: parseInt(req.query.limit as string ?? '0', 10) || 0,
+    offset: parseInt(req.query.offset as string ?? '0', 10) || 0,
+  });
+  res.json(result);
+});
+
+// ==================== Version ====================
+
+app.get('/version', async (_req: Request, res: Response) => {
+  const v = await client.getVersion();
+  res.json(v);
+});
+
+// ==================== Experiences ====================
+
+app.get('/experiences', async (req: Request, res: Response) => {
+  const project = req.query.project as string;
+  const task = req.query.task as string;
+  if (!project) return errorJson(res, 400, 'project is required');
+  if (!task) return errorJson(res, 400, 'task is required');
+
+  const conceptsStr = (req.query.requiredConcepts as string) ?? '';
+  const requiredConcepts = conceptsStr
+    ? conceptsStr.split(',').map(c => c.trim()).filter(Boolean)
+    : undefined;
+
+  const experiences = await client.retrieveExperiences({
+    task,
+    project,
+    count: parseInt(req.query.count as string ?? '4', 10) || 4,
+    source: (req.query.source as string) ?? undefined,
+    requiredConcepts,
+    userId: (req.query.userId as string) ?? undefined,
+  });
+  res.json({ experiences, count: experiences.length });
+});
+
+// ==================== ICL Prompt ====================
+
+app.get('/iclprompt', async (req: Request, res: Response) => {
+  const project = req.query.project as string;
+  const task = req.query.task as string;
+  if (!project) return errorJson(res, 400, 'project is required');
+  if (!task) return errorJson(res, 400, 'task is required');
+
+  const result = await client.buildICLPrompt({
+    task,
+    project,
+    maxChars: parseInt(req.query.maxChars as string ?? '0', 10) || 0,
+    userId: (req.query.userId as string) ?? undefined,
+  });
+  res.json(result);
+});
+
+// ==================== Observations ====================
+
+app.get('/observations', async (req: Request, res: Response) => {
+  const project = req.query.project as string;
+  if (!project) return errorJson(res, 400, 'project is required');
+
+  const result = await client.listObservations({
+    project,
+    limit: parseInt(req.query.limit as string ?? '0', 10) || 0,
+    offset: parseInt(req.query.offset as string ?? '0', 10) || 0,
+  });
+  res.json(result);
+});
+
+app.post('/observations/batch', async (req: Request, res: Response) => {
+  const ids: string[] = req.body.ids ?? [];
+  if (!ids.length) return errorJson(res, 400, 'ids is required');
+  if (ids.length > 100) return errorJson(res, 400, 'batch size exceeds maximum of 100');
+
+  const result = await client.getObservationsByIds(ids);
+  res.json(result);
+});
+
+app.post('/observations/create', async (req: Request, res: Response) => {
+  const missing = requireFields(req.body, ['project', 'session_id', 'tool_name']);
+  if (missing) return errorJson(res, 400, `${missing} is required`);
+
+  await client.recordObservation({
+    session_id: req.body.session_id,
+    cwd: req.body.project,
+    tool_name: req.body.tool_name,
+    tool_input: req.body.tool_input,
+    tool_response: req.body.tool_response,
+    source: req.body.source,
+    extractedData: req.body.extractedData,
+  });
+  res.json({ status: 'recorded' });
+});
+
+app.patch('/observations/:id', async (req: Request, res: Response) => {
+  const update: Record<string, unknown> = {};
+  for (const key of ['title', 'subtitle', 'content', 'facts', 'concepts', 'source']) {
+    if (key in req.body) update[key] = req.body[key];
+  }
+  if ('extractedData' in req.body) update.extractedData = req.body.extractedData;
+
+  await client.updateObservation(req.params.id, update);
+  res.json({ status: 'updated' });
+});
+
+app.delete('/observations/:id', async (req: Request, res: Response) => {
+  await client.deleteObservation(req.params.id);
+  res.status(204).end();
+});
+
+// ==================== Projects / Stats / Modes / Settings ====================
+
+app.get('/projects', async (_req: Request, res: Response) => {
+  const result = await client.getProjects();
+  res.json(result);
+});
+
+app.get('/stats', async (req: Request, res: Response) => {
+  const result = await client.getStats((req.query.project as string) ?? undefined);
+  res.json(result);
+});
+
+app.get('/modes', async (_req: Request, res: Response) => {
+  const result = await client.getModes();
+  res.json(result);
+});
+
+app.get('/settings', async (_req: Request, res: Response) => {
+  const result = await client.getSettings();
+  res.json(result);
+});
+
+// ==================== Quality ====================
+
+app.get('/quality', async (req: Request, res: Response) => {
+  const project = req.query.project as string;
+  if (!project) return errorJson(res, 400, 'project is required');
+  const result = await client.getQualityDistribution(project);
+  res.json(result);
+});
+
+// ==================== Extraction ====================
+
+app.get('/extraction/latest', async (req: Request, res: Response) => {
+  const template = req.query.template as string;
+  const project = req.query.project as string;
+  if (!template) return errorJson(res, 400, 'template is required');
+  if (!project) return errorJson(res, 400, 'project is required');
+
+  const result = await client.getLatestExtraction(
+    project,
+    template,
+    (req.query.userId as string) ?? '',
+  );
+  res.json(result);
+});
+
+app.get('/extraction/history', async (req: Request, res: Response) => {
+  const template = req.query.template as string;
+  const project = req.query.project as string;
+  if (!template) return errorJson(res, 400, 'template is required');
+  if (!project) return errorJson(res, 400, 'project is required');
+
+  const results = await client.getExtractionHistory(
+    project,
+    template,
+    (req.query.userId as string) ?? '',
+    parseInt(req.query.limit as string ?? '0', 10) || 0,
+  );
+  res.json(results);
+});
+
+app.post('/extraction/run', async (req: Request, res: Response) => {
+  const projectPath = req.query.projectPath as string;
+  if (!projectPath) return errorJson(res, 400, 'projectPath is required');
+  await client.triggerExtraction(projectPath);
+  res.json({ status: 'extraction triggered' });
+});
+
+// ==================== Refine / Feedback ====================
+
+app.post('/refine', async (req: Request, res: Response) => {
+  const project = req.query.project as string;
+  if (!project) return errorJson(res, 400, 'project is required');
+  await client.triggerRefinement(project);
+  res.json({ status: 'refined' });
+});
+
+app.post('/feedback', async (req: Request, res: Response) => {
+  const missing = requireFields(req.body, ['observation_id', 'feedback_type']);
+  if (missing) return errorJson(res, 400, `${missing} is required`);
+  await client.submitFeedback(req.body.observation_id, req.body.feedback_type, req.body.comment);
+  res.json({ status: 'submitted' });
+});
+
+// ==================== Session ====================
+
+app.patch('/session/user', async (req: Request, res: Response) => {
+  const missing = requireFields(req.body, ['session_id', 'user_id']);
+  if (missing) return errorJson(res, 400, `${missing} is required`);
+  const result = await client.updateSessionUserId(req.body.session_id, req.body.user_id);
+  res.json(result);
+});
+
+// ==================== Ingest ====================
+
+app.post('/ingest/prompt', async (req: Request, res: Response) => {
+  const missing = requireFields(req.body, ['project', 'session_id', 'prompt']);
+  if (missing) return errorJson(res, 400, `${missing} is required`);
+  await client.recordUserPrompt({
+    session_id: req.body.session_id,
+    prompt_text: req.body.prompt,
+    cwd: req.body.project,
+  });
+  res.json({ status: 'recorded' });
+});
+
+app.post('/ingest/session-end', async (req: Request, res: Response) => {
+  const missing = requireFields(req.body, ['project', 'session_id']);
+  if (missing) return errorJson(res, 400, `${missing} is required`);
+  await client.recordSessionEnd({
+    session_id: req.body.session_id,
+    cwd: req.body.project,
+  });
+  res.json({ status: 'ended' });
+});
+
+// ==================== Start ====================
+
+app.listen(PORT, () => {
+  console.log(`🚀 JS SDK HTTP server starting on :${PORT}`);
+  console.log(`   Backend: ${CORTEX_BASE_URL}`);
+  console.log();
+  console.log('Endpoints:');
+  console.log('  GET    /health              - Health check');
+  console.log('  POST   /chat                - Chat with memory');
+  console.log('  GET    /search              - Search observations');
+  console.log('  GET    /version             - Backend version');
+  console.log('  GET    /experiences         - Retrieve experiences');
+  console.log('  GET    /iclprompt           - Build ICL prompt');
+  console.log('  GET    /observations        - List observations');
+  console.log('  POST   /observations/batch  - Batch get observations by IDs');
+  console.log('  GET    /projects            - Get projects');
+  console.log('  GET    /stats               - Get stats');
+  console.log('  GET    /modes               - Get modes');
+  console.log('  GET    /settings            - Get settings');
+  console.log('  GET    /quality             - Quality distribution');
+  console.log('  GET    /extraction/latest   - Latest extraction result');
+  console.log('  GET    /extraction/history  - Extraction history');
+  console.log('  POST   /extraction/run      - Trigger extraction');
+  console.log('  POST   /refine              - Trigger memory refinement');
+  console.log('  POST   /feedback            - Submit observation feedback');
+  console.log('  PATCH  /session/user        - Update session user ID');
+  console.log('  PATCH  /observations/:id    - Update observation');
+  console.log('  DELETE /observations/:id    - Delete observation');
+  console.log('  POST   /observations/create - Record observation');
+  console.log('  POST   /ingest/prompt       - Ingest user prompt');
+  console.log('  POST   /ingest/session-end  - Ingest session end');
+});
