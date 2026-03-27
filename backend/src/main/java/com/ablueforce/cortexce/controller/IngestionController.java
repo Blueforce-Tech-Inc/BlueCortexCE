@@ -100,6 +100,7 @@ public class IngestionController {
         @ApiResponse(responseCode = "400", description = "Missing required fields: session_id or tool_name"),
         @ApiResponse(responseCode = "429", description = "Rate limit exceeded (10 requests per 60 seconds per session)")
     })
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Tool use event payload. Fields: session_id (required), cwd (project path), tool_name (required, e.g. 'Read', 'Edit'), tool_input (JSON object), tool_response (JSON object), source (attribution), extractedData (JSON object)")
     public ResponseEntity<Map<String, String>> handleToolUse(@org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
         String contentSessionId = (String) body.get("session_id");
         String toolName = (String) body.get("tool_name");
@@ -165,6 +166,7 @@ public class IngestionController {
         @ApiResponse(responseCode = "200", description = "Session end event accepted"),
         @ApiResponse(responseCode = "400", description = "Missing required field: session_id")
     })
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Session end event payload. Fields: session_id (required), cwd (project path), last_assistant_message (optional)")
     public ResponseEntity<Map<String, String>> handleSessionEnd(@org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
         String contentSessionId = (String) body.get("session_id");
         String lastAssistantMessage = (String) body.get("last_assistant_message");
@@ -215,6 +217,7 @@ public class IngestionController {
         @ApiResponse(responseCode = "200", description = "User prompt recorded successfully"),
         @ApiResponse(responseCode = "400", description = "Missing required field: session_id")
     })
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "User prompt event payload. Fields: session_id (required), prompt_text (required, the user's input), cwd (project path), prompt_number (optional int)")
     public ResponseEntity<Map<String, String>> handleUserPrompt(@org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
         String contentSessionId = (String) body.get("session_id");
         String promptText = (String) body.get("prompt_text");
@@ -289,6 +292,7 @@ public class IngestionController {
         @ApiResponse(responseCode = "200", description = "Observation created successfully"),
         @ApiResponse(responseCode = "400", description = "Missing required fields (content_session_id, project_path) or invalid field types (facts/concepts/files_read/files_modified must be lists of strings)")
     })
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Observation payload. Fields: content_session_id (or session_id, required), project_path (or cwd, required), type (e.g. 'feature'), title, subtitle, narrative (or content), facts (string list), concepts (string list), source, extractedData (JSON object), files_read (string list), files_modified (string list), prompt_number (int)")
     public ResponseEntity<?> handleObservation(@org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
         String contentSessionId = safeGetString(body, "content_session_id");
         if (contentSessionId == null || contentSessionId.isBlank()) {

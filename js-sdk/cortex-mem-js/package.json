@@ -2,14 +2,14 @@
   "name": "@cortex-mem/js-sdk",
   "version": "1.0.0",
   "description": "JavaScript/TypeScript client SDK for Cortex CE memory system",
-  "main": "./dist/index.cjs",
+  "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "require": "./dist/index.js"
     }
   },
   "files": [

@@ -110,6 +110,7 @@ public class SessionController {
         @ApiResponse(responseCode = "400", description = "Missing required fields: session_id and project_path (or cwd)"),
         @ApiResponse(responseCode = "500", description = "Failed to initialize session due to internal error")
     })
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Session start payload. Fields: session_id (required, unique session identifier), project_path (required, absolute path), user_id (optional, for multi-user), projects (optional, comma-separated paths for worktree)")
     public ResponseEntity<Map<String, Object>> startSession(@org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
         String contentSessionId = (String) body.get("session_id");
         String projectPath = (String) body.get("project_path");
@@ -379,6 +380,7 @@ public class SessionController {
     public ResponseEntity<Map<String, String>> updateSessionUserId(
             @Parameter(description = "Content session ID to update", required = true, example = "sess-abc123")
             @PathVariable String sessionId,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "User ID update payload. Fields: user_id (required, the new user identifier)")
             @org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
         String userId = (String) body.get("user_id");
         

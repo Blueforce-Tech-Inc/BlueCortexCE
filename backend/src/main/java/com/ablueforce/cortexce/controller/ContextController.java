@@ -260,6 +260,7 @@ public class ContextController {
         @ApiResponse(responseCode = "200", description = "Context generated successfully"),
         @ApiResponse(responseCode = "500", description = "Failed to generate context for the specified project")
     })
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Context generation payload. Fields: project_path (optional, absolute path; defaults to current working directory)")
     public ResponseEntity<Map<String, String>> generateContext(
             @org.springframework.web.bind.annotation.RequestBody Map<String, String> body) {
         String projectPath = body.get("project_path");

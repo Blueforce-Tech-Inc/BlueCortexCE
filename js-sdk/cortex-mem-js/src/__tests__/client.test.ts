@@ -206,6 +206,30 @@ describe('CortexMemClient', () => {
       expect(url).toContain('query=test');
       expect(url).toContain('limit=5');
     });
+
+    it('should pass source filter parameter', async () => {
+      const searchResult = { observations: [], strategy: 'hybrid', fell_back: false, count: 0 };
+      fetchMock = mockFetch(200, searchResult);
+      client = new CortexMemClient({
+        fetch: fetchMock as unknown as typeof globalThis.fetch,
+      });
+
+      await client.search({ project: '/tmp', query: 'test', source: 'manual' });
+      const [url] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('source=manual');
+    });
+
+    it('should pass concept filter parameter', async () => {
+      const searchResult = { observations: [], strategy: 'hybrid', fell_back: false, count: 0 };
+      fetchMock = mockFetch(200, searchResult);
+      client = new CortexMemClient({
+        fetch: fetchMock as unknown as typeof globalThis.fetch,
+      });
+
+      await client.search({ project: '/tmp', query: 'test', concept: 'error-handling' });
+      const [url] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('concept=error-handling');
+    });
   });
 
   describe('listObservations', () => {
