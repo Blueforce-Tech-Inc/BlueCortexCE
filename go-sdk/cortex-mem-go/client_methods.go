@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/abforce/cortex-ce/cortex-mem-go/dto"
 )
@@ -130,7 +131,7 @@ func (c *httpClient) GetObservationsByIds(ctx context.Context, ids []string) (*d
 		return nil, fmt.Errorf("cortex-ce: batch size exceeds maximum of 100 (got %d)", len(ids))
 	}
 	for i, id := range ids {
-		if id == "" {
+		if strings.TrimSpace(id) == "" {
 			return nil, fmt.Errorf("cortex-ce: ids[%d] is empty", i)
 		}
 	}

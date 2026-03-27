@@ -323,6 +323,10 @@ describe('CortexMemClient', () => {
     it('should reject empty string in ids', async () => {
       await expect(client.getObservationsByIds(['valid', ''])).rejects.toThrow('ids[1] is empty');
     });
+
+    it('should reject whitespace-only string in ids', async () => {
+      await expect(client.getObservationsByIds(['valid', '   '])).rejects.toThrow('ids[1] is empty');
+    });
   });
 
   // ==================== Management ====================
@@ -486,6 +490,10 @@ describe('CortexMemClient', () => {
       const [url] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(url).toContain('/api/extraction/user_pref/history');
       expect(url).toContain('limit=5');
+    });
+
+    it('should reject negative limit', async () => {
+      await expect(client.getExtractionHistory('/tmp', 't', undefined, -1)).rejects.toThrow('limit must not be negative');
     });
   });
 

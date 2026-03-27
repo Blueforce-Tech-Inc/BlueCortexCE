@@ -188,7 +188,7 @@ export class CortexMemClient {
       throw new Error(`cortex-ce: batch size exceeds maximum of 100 (got ${ids.length})`);
     }
     for (let i = 0; i < ids.length; i++) {
-      if (!ids[i]) {
+      if (!ids[i] || !ids[i].trim()) {
         throw new Error(`cortex-ce: ids[${i}] is empty`);
       }
     }
@@ -336,6 +336,9 @@ export class CortexMemClient {
     this.assertNotClosed();
     this.validateRequired('projectPath', projectPath);
     this.validateRequired('templateName', templateName);
+    if (limit !== undefined && limit < 0) {
+      throw new Error('cortex-ce: limit must not be negative');
+    }
     const params: Record<string, string> = { projectPath };
     if (userId) params.userId = userId;
     if (limit !== undefined && limit > 0) params.limit = String(limit);
