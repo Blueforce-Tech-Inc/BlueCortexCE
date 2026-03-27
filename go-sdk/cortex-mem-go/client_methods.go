@@ -18,10 +18,10 @@ func (c *httpClient) StartSession(ctx context.Context, req dto.SessionStartReque
 }
 
 func (c *httpClient) UpdateSessionUserId(ctx context.Context, sessionID, userID string) (*dto.SessionUserUpdateResponse, error) {
-	if sessionID == "" {
+	if strings.TrimSpace(sessionID) == "" {
 		return nil, fmt.Errorf("cortex-ce: sessionID is required")
 	}
-	if userID == "" {
+	if strings.TrimSpace(userID) == "" {
 		return nil, fmt.Errorf("cortex-ce: userID is required")
 	}
 	path := fmt.Sprintf("/api/session/%s/user", url.PathEscape(sessionID))
@@ -31,7 +31,7 @@ func (c *httpClient) UpdateSessionUserId(ctx context.Context, sessionID, userID 
 // ==================== Capture (fire-and-forget) ====================
 
 func (c *httpClient) RecordObservation(ctx context.Context, req dto.ObservationRequest) error {
-	if req.SessionID == "" {
+	if strings.TrimSpace(req.SessionID) == "" {
 		return fmt.Errorf("cortex-ce: ObservationRequest.SessionID is required")
 	}
 	return c.doFireAndForget(ctx, "RecordObservation", func() error {
@@ -40,7 +40,7 @@ func (c *httpClient) RecordObservation(ctx context.Context, req dto.ObservationR
 }
 
 func (c *httpClient) RecordSessionEnd(ctx context.Context, req dto.SessionEndRequest) error {
-	if req.SessionID == "" {
+	if strings.TrimSpace(req.SessionID) == "" {
 		return fmt.Errorf("cortex-ce: SessionEndRequest.SessionID is required")
 	}
 	return c.doFireAndForget(ctx, "RecordSessionEnd", func() error {
@@ -49,10 +49,10 @@ func (c *httpClient) RecordSessionEnd(ctx context.Context, req dto.SessionEndReq
 }
 
 func (c *httpClient) RecordUserPrompt(ctx context.Context, req dto.UserPromptRequest) error {
-	if req.SessionID == "" {
+	if strings.TrimSpace(req.SessionID) == "" {
 		return fmt.Errorf("cortex-ce: UserPromptRequest.SessionID is required")
 	}
-	if req.PromptText == "" {
+	if strings.TrimSpace(req.PromptText) == "" {
 		return fmt.Errorf("cortex-ce: UserPromptRequest.PromptText is required")
 	}
 	return c.doFireAndForget(ctx, "RecordUserPrompt", func() error {
@@ -63,7 +63,7 @@ func (c *httpClient) RecordUserPrompt(ctx context.Context, req dto.UserPromptReq
 // ==================== Retrieval ====================
 
 func (c *httpClient) RetrieveExperiences(ctx context.Context, req dto.ExperienceRequest) ([]dto.Experience, error) {
-	if req.Task == "" {
+	if strings.TrimSpace(req.Task) == "" {
 		return nil, fmt.Errorf("cortex-ce: ExperienceRequest.Task is required")
 	}
 	result, err := doRequestJSON[[]dto.Experience](c, ctx, http.MethodPost, "/api/memory/experiences", req, nil)
@@ -74,14 +74,14 @@ func (c *httpClient) RetrieveExperiences(ctx context.Context, req dto.Experience
 }
 
 func (c *httpClient) BuildICLPrompt(ctx context.Context, req dto.ICLPromptRequest) (*dto.ICLPromptResult, error) {
-	if req.Task == "" {
+	if strings.TrimSpace(req.Task) == "" {
 		return nil, fmt.Errorf("cortex-ce: ICLPromptRequest.Task is required")
 	}
 	return doRequestJSON[dto.ICLPromptResult](c, ctx, http.MethodPost, "/api/memory/icl-prompt", req, nil)
 }
 
 func (c *httpClient) Search(ctx context.Context, req dto.SearchRequest) (*dto.SearchResult, error) {
-	if req.Project == "" {
+	if strings.TrimSpace(req.Project) == "" {
 		return nil, fmt.Errorf("cortex-ce: SearchRequest.Project is required")
 	}
 	// Build query params — only include fields that are set.
@@ -142,7 +142,7 @@ func (c *httpClient) GetObservationsByIds(ctx context.Context, ids []string) (*d
 // ==================== Management ====================
 
 func (c *httpClient) TriggerRefinement(ctx context.Context, projectPath string) error {
-	if projectPath == "" {
+	if strings.TrimSpace(projectPath) == "" {
 		return fmt.Errorf("cortex-ce: projectPath is required")
 	}
 	// Backend expects "project" as QUERY PARAM (not body).
@@ -153,10 +153,10 @@ func (c *httpClient) TriggerRefinement(ctx context.Context, projectPath string) 
 }
 
 func (c *httpClient) SubmitFeedback(ctx context.Context, observationID, feedbackType, comment string) error {
-	if observationID == "" {
+	if strings.TrimSpace(observationID) == "" {
 		return fmt.Errorf("cortex-ce: observationID is required")
 	}
-	if feedbackType == "" {
+	if strings.TrimSpace(feedbackType) == "" {
 		return fmt.Errorf("cortex-ce: feedbackType is required")
 	}
 	// Backend expects camelCase: observationId, feedbackType
@@ -170,7 +170,7 @@ func (c *httpClient) SubmitFeedback(ctx context.Context, observationID, feedback
 }
 
 func (c *httpClient) UpdateObservation(ctx context.Context, observationID string, update dto.ObservationUpdate) error {
-	if observationID == "" {
+	if strings.TrimSpace(observationID) == "" {
 		return fmt.Errorf("cortex-ce: observationID is required")
 	}
 	// NOT fire-and-forget: explicit user action, errors must propagate.
@@ -179,7 +179,7 @@ func (c *httpClient) UpdateObservation(ctx context.Context, observationID string
 }
 
 func (c *httpClient) DeleteObservation(ctx context.Context, observationID string) error {
-	if observationID == "" {
+	if strings.TrimSpace(observationID) == "" {
 		return fmt.Errorf("cortex-ce: observationID is required")
 	}
 	// NOT fire-and-forget: explicit user action, errors must propagate.
@@ -188,7 +188,7 @@ func (c *httpClient) DeleteObservation(ctx context.Context, observationID string
 }
 
 func (c *httpClient) GetQualityDistribution(ctx context.Context, projectPath string) (*dto.QualityDistribution, error) {
-	if projectPath == "" {
+	if strings.TrimSpace(projectPath) == "" {
 		return nil, fmt.Errorf("cortex-ce: projectPath is required")
 	}
 	return doRequestJSON[dto.QualityDistribution](c, ctx, http.MethodGet, "/api/memory/quality-distribution", nil,
@@ -218,7 +218,7 @@ func (c *httpClient) HealthCheck(ctx context.Context) error {
 // ==================== Extraction ====================
 
 func (c *httpClient) TriggerExtraction(ctx context.Context, projectPath string) error {
-	if projectPath == "" {
+	if strings.TrimSpace(projectPath) == "" {
 		return fmt.Errorf("cortex-ce: projectPath is required")
 	}
 	return c.doRequestNoContentWithParams(ctx, http.MethodPost, "/api/extraction/run", nil,
@@ -226,10 +226,10 @@ func (c *httpClient) TriggerExtraction(ctx context.Context, projectPath string) 
 }
 
 func (c *httpClient) GetLatestExtraction(ctx context.Context, projectPath, templateName, userID string) (*dto.ExtractionResult, error) {
-	if projectPath == "" {
+	if strings.TrimSpace(projectPath) == "" {
 		return nil, fmt.Errorf("cortex-ce: projectPath is required")
 	}
-	if templateName == "" {
+	if strings.TrimSpace(templateName) == "" {
 		return nil, fmt.Errorf("cortex-ce: templateName is required")
 	}
 	path := fmt.Sprintf("/api/extraction/%s/latest", url.PathEscape(templateName))
@@ -241,10 +241,10 @@ func (c *httpClient) GetLatestExtraction(ctx context.Context, projectPath, templ
 }
 
 func (c *httpClient) GetExtractionHistory(ctx context.Context, projectPath, templateName, userID string, limit int) ([]dto.ExtractionResult, error) {
-	if projectPath == "" {
+	if strings.TrimSpace(projectPath) == "" {
 		return nil, fmt.Errorf("cortex-ce: projectPath is required")
 	}
-	if templateName == "" {
+	if strings.TrimSpace(templateName) == "" {
 		return nil, fmt.Errorf("cortex-ce: templateName is required")
 	}
 	if limit < 0 {

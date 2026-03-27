@@ -3549,6 +3549,17 @@ func TestTriggerRefinement_Validation_EmptyProjectPath(t *testing.T) {
 	}
 }
 
+func TestTriggerRefinement_Validation_WhitespaceProjectPath(t *testing.T) {
+	client := cortexmem.NewClient()
+	err := client.TriggerRefinement(context.Background(), "   ")
+	if err == nil {
+		t.Fatal("TriggerRefinement should fail with whitespace-only projectPath")
+	}
+	if !strings.Contains(err.Error(), "projectPath is required") {
+		t.Errorf("expected validation error about projectPath, got: %v", err)
+	}
+}
+
 func TestGetQualityDistribution_Validation_EmptyProjectPath(t *testing.T) {
 	client := cortexmem.NewClient()
 	_, err := client.GetQualityDistribution(context.Background(), "")
@@ -3612,6 +3623,17 @@ func TestTriggerExtraction_Validation_EmptyProjectPath(t *testing.T) {
 	err := client.TriggerExtraction(context.Background(), "")
 	if err == nil {
 		t.Fatal("TriggerExtraction should fail with empty projectPath")
+	}
+	if !strings.Contains(err.Error(), "projectPath is required") {
+		t.Errorf("expected validation error about projectPath, got: %v", err)
+	}
+}
+
+func TestTriggerExtraction_Validation_WhitespaceProjectPath(t *testing.T) {
+	client := cortexmem.NewClient()
+	err := client.TriggerExtraction(context.Background(), "   ")
+	if err == nil {
+		t.Fatal("TriggerExtraction should fail with whitespace-only projectPath")
 	}
 	if !strings.Contains(err.Error(), "projectPath is required") {
 		t.Errorf("expected validation error about projectPath, got: %v", err)
@@ -3738,6 +3760,74 @@ func TestGetVersion_Error_Response(t *testing.T) {
 	}
 	if !cortexmem.IsBadGateway(err) {
 		t.Errorf("expected IsBadGateway, got: %v", err)
+	}
+}
+
+// ==================== Whitespace Validation Tests ====================
+
+func TestSubmitFeedback_Validation_WhitespaceObservationID(t *testing.T) {
+	client := cortexmem.NewClient()
+	err := client.SubmitFeedback(context.Background(), "   ", "SUCCESS", "")
+	if err == nil {
+		t.Fatal("SubmitFeedback should fail with whitespace-only observationID")
+	}
+	if !strings.Contains(err.Error(), "observationID is required") {
+		t.Errorf("expected validation error about observationID, got: %v", err)
+	}
+}
+
+func TestSubmitFeedback_Validation_WhitespaceFeedbackType(t *testing.T) {
+	client := cortexmem.NewClient()
+	err := client.SubmitFeedback(context.Background(), "obs-1", "   ", "")
+	if err == nil {
+		t.Fatal("SubmitFeedback should fail with whitespace-only feedbackType")
+	}
+	if !strings.Contains(err.Error(), "feedbackType is required") {
+		t.Errorf("expected validation error about feedbackType, got: %v", err)
+	}
+}
+
+func TestUpdateObservation_Validation_WhitespaceObservationID(t *testing.T) {
+	client := cortexmem.NewClient()
+	err := client.UpdateObservation(context.Background(), "   ", dto.ObservationUpdate{})
+	if err == nil {
+		t.Fatal("UpdateObservation should fail with whitespace-only observationID")
+	}
+	if !strings.Contains(err.Error(), "observationID is required") {
+		t.Errorf("expected validation error about observationID, got: %v", err)
+	}
+}
+
+func TestDeleteObservation_Validation_WhitespaceObservationID(t *testing.T) {
+	client := cortexmem.NewClient()
+	err := client.DeleteObservation(context.Background(), "   ")
+	if err == nil {
+		t.Fatal("DeleteObservation should fail with whitespace-only observationID")
+	}
+	if !strings.Contains(err.Error(), "observationID is required") {
+		t.Errorf("expected validation error about observationID, got: %v", err)
+	}
+}
+
+func TestUpdateSessionUserId_Validation_WhitespaceSessionID(t *testing.T) {
+	client := cortexmem.NewClient()
+	_, err := client.UpdateSessionUserId(context.Background(), "   ", "user-1")
+	if err == nil {
+		t.Fatal("UpdateSessionUserId should fail with whitespace-only sessionID")
+	}
+	if !strings.Contains(err.Error(), "sessionID is required") {
+		t.Errorf("expected validation error about sessionID, got: %v", err)
+	}
+}
+
+func TestUpdateSessionUserId_Validation_WhitespaceUserID(t *testing.T) {
+	client := cortexmem.NewClient()
+	_, err := client.UpdateSessionUserId(context.Background(), "sess-1", "   ")
+	if err == nil {
+		t.Fatal("UpdateSessionUserId should fail with whitespace-only userID")
+	}
+	if !strings.Contains(err.Error(), "userID is required") {
+		t.Errorf("expected validation error about userID, got: %v", err)
 	}
 }
 
