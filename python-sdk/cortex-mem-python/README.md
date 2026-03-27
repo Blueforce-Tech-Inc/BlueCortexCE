@@ -75,9 +75,31 @@ with CortexMemClient(base_url="http://localhost:37777") as client:
 |--------|-------------|
 | `trigger_refinement(project_path)` | Trigger memory refinement |
 | `submit_feedback(observation_id, feedback_type, comment="")` | Submit feedback |
-| `update_observation(observation_id, **kwargs)` | Update an observation |
+| `update_observation(observation_id, update=None, **kwargs)` | Update an observation (supports dataclass or kwargs) |
 | `delete_observation(observation_id)` | Delete an observation |
 | `get_quality_distribution(project_path)` | Get quality distribution |
+
+#### ObservationUpdate — Dual-Mode Support
+
+The `update_observation` method supports two calling styles:
+
+```python
+from cortex_mem import ObservationUpdate
+
+# Style 1: Dataclass (recommended — IDE autocomplete + type checking)
+update = ObservationUpdate(title="New Title", source="manual", extracted_data={"pref": "dark"})
+client.update_observation("obs-123", update)
+
+# Style 2: Kwargs (convenience)
+client.update_observation("obs-123", title="New Title", source="manual")
+
+# Style 3: Both (kwargs override dataclass fields)
+update = ObservationUpdate(title="From Dataclass")
+client.update_observation("obs-123", update, title="From Kwargs")
+```
+
+Supported fields: `title`, `subtitle`, `content`, `narrative`, `facts`, `concepts`, `source`, `extracted_data`.
+Only non-None fields are sent to the backend (PATCH semantics).
 
 ### Health / Extraction / Version
 
