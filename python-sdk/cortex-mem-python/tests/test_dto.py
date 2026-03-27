@@ -54,13 +54,24 @@ class TestDTOFromWire:
             "qualityScore": 0.9,
             "source": "manual",
             "extractedData": {"key": "val"},
+            "prompt_number": 5,
             "createdAt": "2026-01-01",
+            "created_at_epoch": 1710000000,
         }
         obs = Observation.from_wire(data)
         assert obs.id == "o1"
         assert obs.session_id == "s1"
         assert obs.project_path == "/p"
         assert obs.extracted_data == {"key": "val"}
+        assert obs.prompt_number == 5
+        assert obs.created_at_epoch == 1710000000
+
+    def test_observation_from_wire_missing_optional_fields(self):
+        """Optional fields (prompt_number, created_at_epoch) default to 0."""
+        data = {"id": "o1"}
+        obs = Observation.from_wire(data)
+        assert obs.prompt_number == 0
+        assert obs.created_at_epoch == 0
 
     def test_search_result_from_wire(self):
         data = {

@@ -147,7 +147,9 @@ class Observation:
     quality_score: float = 0.0
     source: str = ""
     extracted_data: dict | None = None
+    prompt_number: int = 0
     created_at: str = ""
+    created_at_epoch: int = 0
 
     @classmethod
     def from_wire(cls, data: dict) -> Observation:
@@ -164,7 +166,9 @@ class Observation:
             quality_score=data.get("qualityScore", 0.0),
             source=data.get("source", ""),
             extracted_data=data.get("extractedData"),
+            prompt_number=data.get("prompt_number", 0),
             created_at=data.get("createdAt", ""),
+            created_at_epoch=data.get("created_at_epoch", 0),
         )
 
 
