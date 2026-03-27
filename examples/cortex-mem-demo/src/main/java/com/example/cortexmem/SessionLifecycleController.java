@@ -4,6 +4,8 @@ import com.ablueforce.cortexce.ai.context.CortexSessionContext;
 import com.ablueforce.cortexce.ai.observation.ObservationCaptureService;
 import com.ablueforce.cortexce.client.dto.SessionEndRequest;
 import com.ablueforce.cortexce.client.dto.UserPromptRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,6 +23,8 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/demo/session")
 public class SessionLifecycleController {
+
+    private static final Logger log = LoggerFactory.getLogger(SessionLifecycleController.class);
 
     private final SessionStartClient sessionStartClient;
     private final ObservationCaptureService captureService;
@@ -56,6 +60,7 @@ public class SessionLifecycleController {
             result.put("project_path", projectPath);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
+            log.error("Failed to start session for project={}", project, e);
             return ResponseEntity.internalServerError().body(Map.of(
                 "error", "Failed to start session: " + e.getMessage(),
                 "session_id", sessionId,
@@ -84,6 +89,7 @@ public class SessionLifecycleController {
                 .build());
             return ResponseEntity.ok("Prompt recorded");
         } catch (Exception e) {
+            log.error("Failed to record prompt for sessionId={}", sessionId, e);
             return ResponseEntity.internalServerError()
                     .body("Error: Failed to record prompt — " + e.getMessage());
         } finally {
@@ -105,6 +111,7 @@ public class SessionLifecycleController {
             CortexSessionContext.incrementAndGetPromptNumber();
             return ResponseEntity.ok("Tool result: " + result + " (captured to memory)");
         } catch (Exception e) {
+            log.error("Tool execution failed for sessionId={}, path={}", sessionId, path, e);
             return ResponseEntity.internalServerError()
                     .body("Error: Tool execution failed — " + e.getMessage());
         } finally {
@@ -128,6 +135,7 @@ public class SessionLifecycleController {
                 .build());
             return ResponseEntity.ok("Session ended: " + sessionId);
         } catch (Exception e) {
+            log.error("Failed to end session for sessionId={}", sessionId, e);
             return ResponseEntity.internalServerError()
                     .body("Error: Failed to end session — " + e.getMessage());
         }
@@ -153,6 +161,7 @@ public class SessionLifecycleController {
         try {
             startResult = sessionStartClient.startSession(sessionId, projectPath);
         } catch (Exception e) {
+            log.error("Failed to start session in lifecycle for project={}", project, e);
             return ResponseEntity.internalServerError().body(Map.of(
                 "error", "Failed to start session: " + e.getMessage(),
                 "session_id", sessionId
@@ -181,6 +190,7 @@ public class SessionLifecycleController {
                 "session_ended", true
             ));
         } catch (Exception e) {
+            log.error("Lifecycle step failed for sessionId={}", sessionId, e);
             return ResponseEntity.internalServerError().body(Map.of(
                 "error", "Lifecycle step failed: " + e.getMessage(),
                 "session_id", sessionId

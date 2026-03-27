@@ -3,6 +3,8 @@ package com.example.cortexmem;
 import com.ablueforce.cortexce.client.CortexMemClient;
 import com.ablueforce.cortexce.client.dto.ObservationsRequest;
 import com.ablueforce.cortexce.client.dto.ObservationUpdate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
@@ -17,6 +19,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/demo/observations")
 public class ObservationsController {
+
+    private static final Logger log = LoggerFactory.getLogger(ObservationsController.class);
 
     private final CortexMemClient client;
 
@@ -56,6 +60,7 @@ public class ObservationsController {
             Map<String, Object> result = client.listObservations(request);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
+            log.error("List observations failed for project={}", project, e);
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "List observations failed: " + e.getMessage()));
         }
@@ -82,6 +87,7 @@ public class ObservationsController {
             Map<String, Object> result = client.getObservationsByIds(ids);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
+            log.error("Batch observations failed (ids count={})", ids.size(), e);
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Batch observations failed: " + e.getMessage()));
         }
@@ -118,26 +124,36 @@ public class ObservationsController {
                 builder.content((String) body.get("content"));
             }
             if (body.containsKey("facts")) {
-                @SuppressWarnings("unchecked")
-                List<String> facts = (List<String>) body.get("facts");
-                builder.facts(facts);
+                Object factsObj = body.get("facts");
+                if (!(factsObj instanceof List)) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("error", "facts must be a list of strings"));
+                }
+                builder.facts((List<String>) factsObj);
             }
             if (body.containsKey("concepts")) {
-                @SuppressWarnings("unchecked")
-                List<String> concepts = (List<String>) body.get("concepts");
-                builder.concepts(concepts);
+                Object conceptsObj = body.get("concepts");
+                if (!(conceptsObj instanceof List)) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("error", "concepts must be a list of strings"));
+                }
+                builder.concepts((List<String>) conceptsObj);
             }
             if (body.containsKey("source")) {
                 builder.source((String) body.get("source"));
             }
             if (body.containsKey("extractedData")) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> extractedData = (Map<String, Object>) body.get("extractedData");
-                builder.extractedData(extractedData);
+                Object extractedDataObj = body.get("extractedData");
+                if (!(extractedDataObj instanceof Map)) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("error", "extractedData must be a map"));
+                }
+                builder.extractedData((Map<String, Object>) extractedDataObj);
             }
             client.updateObservation(id, builder.build());
             return ResponseEntity.ok(Map.of("status", "updated", "id", id));
         } catch (Exception e) {
+            log.error("Update observation failed for id={}", id, e);
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Update observation failed: " + e.getMessage()));
         }
@@ -158,6 +174,7 @@ public class ObservationsController {
             client.deleteObservation(id);
             return ResponseEntity.ok(Map.of("status", "deleted", "id", id));
         } catch (Exception e) {
+            log.error("Delete observation failed for id={}", id, e);
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Delete observation failed: " + e.getMessage()));
         }

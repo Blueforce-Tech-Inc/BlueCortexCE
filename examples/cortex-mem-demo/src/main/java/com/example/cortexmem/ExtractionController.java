@@ -1,6 +1,8 @@
 package com.example.cortexmem;
 
 import com.ablueforce.cortexce.client.CortexMemClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
@@ -15,6 +17,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/demo/extraction")
 public class ExtractionController {
+
+    private static final Logger log = LoggerFactory.getLogger(ExtractionController.class);
 
     private final CortexMemClient client;
 
@@ -44,6 +48,7 @@ public class ExtractionController {
             Map<String, Object> result = client.getLatestExtraction(project, template, userId);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
+            log.error("Get latest extraction failed for project={}, template={}", project, template, e);
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Get latest extraction failed: " + e.getMessage()));
         }
@@ -76,6 +81,7 @@ public class ExtractionController {
             List<Map<String, Object>> result = client.getExtractionHistory(project, template, userId, limit);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
+            log.error("Get extraction history failed for project={}, template={}", project, template, e);
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Get extraction history failed: " + e.getMessage()));
         }
@@ -97,6 +103,7 @@ public class ExtractionController {
             client.triggerExtraction(projectPath);
             return ResponseEntity.ok(Map.of("status", "extraction triggered", "projectPath", projectPath));
         } catch (Exception e) {
+            log.error("Trigger extraction failed for projectPath={}", projectPath, e);
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Trigger extraction failed: " + e.getMessage()));
         }

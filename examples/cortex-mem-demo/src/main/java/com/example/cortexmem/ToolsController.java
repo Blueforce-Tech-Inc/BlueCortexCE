@@ -1,6 +1,8 @@
 package com.example.cortexmem;
 
 import com.ablueforce.cortexce.ai.context.CortexSessionContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -16,6 +18,8 @@ import java.util.UUID;
  */
 @RestController
 public class ToolsController {
+
+    private static final Logger log = LoggerFactory.getLogger(ToolsController.class);
 
     private final FileReadTool fileReadTool;
     private final DemoProperties demoProperties;
@@ -44,6 +48,7 @@ public class ToolsController {
             CortexSessionContext.incrementAndGetPromptNumber();
             return ResponseEntity.ok("Tool result: " + result + " (captured to memory)");
         } catch (Exception e) {
+            log.error("Tool execution failed for path={}", path, e);
             return ResponseEntity.internalServerError()
                     .body("Error: Tool execution failed — " + e.getMessage());
         } finally {

@@ -5,6 +5,8 @@ import com.ablueforce.cortexce.ai.advisor.CortexSessionContextBridgeAdvisor;
 import com.ablueforce.cortexce.ai.context.CortexSessionContext;
 import com.ablueforce.cortexce.ai.tools.CortexMemoryTools;
 import com.ablueforce.cortexce.client.CortexMemClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.http.ResponseEntity;
@@ -32,6 +34,8 @@ import java.util.UUID;
  */
 @RestController
 public class ChatController {
+
+    private static final Logger log = LoggerFactory.getLogger(ChatController.class);
 
     private final ChatClient.Builder chatClientBuilder;
     private final CortexMemoryAdvisor defaultAdvisor;
@@ -92,6 +96,7 @@ public class ChatController {
                     .user(message);
                 return ResponseEntity.ok(spec.call().content());
             } catch (Exception e) {
+                log.error("Chat failed for conversationId={}", effectiveConvId, e);
                 return ResponseEntity.internalServerError()
                         .body("Error: Chat failed — " + e.getMessage());
             }
@@ -102,6 +107,7 @@ public class ChatController {
             CortexSessionContext.incrementAndGetPromptNumber();
             return ResponseEntity.ok(client.prompt().user(message).call().content());
         } catch (Exception e) {
+            log.error("Chat failed for sessionId={}", effectiveConvId, e);
             return ResponseEntity.internalServerError()
                     .body("Error: Chat failed — " + e.getMessage());
         } finally {

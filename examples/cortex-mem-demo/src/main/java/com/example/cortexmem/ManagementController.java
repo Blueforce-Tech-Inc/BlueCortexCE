@@ -1,6 +1,8 @@
 package com.example.cortexmem;
 
 import com.ablueforce.cortexce.client.CortexMemClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
@@ -14,6 +16,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/demo/manage")
 public class ManagementController {
+
+    private static final Logger log = LoggerFactory.getLogger(ManagementController.class);
 
     private final CortexMemClient client;
 
@@ -30,6 +34,7 @@ public class ManagementController {
             Map<String, Object> result = client.getVersion();
             return ResponseEntity.ok(result);
         } catch (Exception e) {
+            log.error("Get version failed", e);
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Get version failed: " + e.getMessage()));
         }
@@ -44,6 +49,7 @@ public class ManagementController {
             Map<String, Object> result = client.getStats(project);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
+            log.error("Get stats failed for project={}", project, e);
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Get stats failed: " + e.getMessage()));
         }
@@ -69,6 +75,7 @@ public class ManagementController {
                 "total", result.total()
             ));
         } catch (Exception e) {
+            log.error("Get quality distribution failed for project={}", project, e);
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Get quality distribution failed: " + e.getMessage()));
         }
@@ -87,6 +94,7 @@ public class ManagementController {
             client.triggerRefinement(project);
             return ResponseEntity.ok(Map.of("status", "refinement triggered", "project", project));
         } catch (Exception e) {
+            log.error("Trigger refinement failed for project={}", project, e);
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Trigger refinement failed: " + e.getMessage()));
         }
@@ -101,6 +109,7 @@ public class ManagementController {
             Map<String, Object> result = client.getModes();
             return ResponseEntity.ok(result);
         } catch (Exception e) {
+            log.error("Get modes failed", e);
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Get modes failed: " + e.getMessage()));
         }
@@ -115,6 +124,7 @@ public class ManagementController {
             Map<String, Object> result = client.getSettings();
             return ResponseEntity.ok(result);
         } catch (Exception e) {
+            log.error("Get settings failed", e);
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Get settings failed: " + e.getMessage()));
         }
@@ -129,6 +139,7 @@ public class ManagementController {
             Map<String, Object> result = client.getProjects();
             return ResponseEntity.ok(result);
         } catch (Exception e) {
+            log.error("Get projects failed", e);
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Get projects failed: " + e.getMessage()));
         }

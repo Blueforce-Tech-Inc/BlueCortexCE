@@ -2,6 +2,8 @@ package com.example.cortexmem;
 
 import com.ablueforce.cortexce.client.CortexMemClient;
 import com.ablueforce.cortexce.client.dto.SearchRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
@@ -15,6 +17,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/demo/search")
 public class SearchController {
+
+    private static final Logger log = LoggerFactory.getLogger(SearchController.class);
 
     private final CortexMemClient client;
 
@@ -62,6 +66,7 @@ public class SearchController {
             Map<String, Object> result = client.search(request);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
+            log.error("Search failed for project={}", project, e);
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Search failed: " + e.getMessage()));
         }
