@@ -4,7 +4,8 @@ import json
 import pytest
 import responses
 
-from cortex_mem import CortexMemClient, APIError, NotFoundError, RateLimitError
+from cortex_mem import CortexMemClient, APIError, NotFoundError, RateLimitError, CortexError
+from cortex_mem.error import is_retryable, raise_for_status, ServerError, ConflictError
 from cortex_mem.dto import (
     SessionStartResponse,
     Experience,
@@ -818,3 +819,81 @@ class TestDTOs:
         assert obs.extracted_data == {"key": "val"}
         assert obs.prompt_number == 3
         assert obs.created_at_epoch == 1700000000
+
+
+# ==================== Error Module ====================
+
+
+class TestIsRetryable:
+    """Tests for is_retryable() error classification."""
+
+    def test_429_is_retryable(self):
+        assert is_retryable(429) is True
+
+    def test_502_is_retryable(self):
+        assert is_retryable(502) is True
+
+    def test_503_is_retryable(self):
+        assert is_retryable(503) is True
+
+    def test_504_is_retryable(self):
+        assert is_retryable(504) is True
+
+    def test_400_not_retryable(self):
+        assert is_retryable(400) is False
+
+    def test_404_not_retryable(self):
+        assert is_retryable(404) is False
+
+    def test_500_not_retryable(self):
+        assert is_retryable(500) is False
+
+    def test_200_not_retryable(self):
+        assert is_retryable(200) is False
+
+
+class TestRaiseForStatus:
+    """Tests for raise_for_status() dispatching."""
+
+    def test_2xx_does_not_raise(self):
+        # Should not raise for 200-299
+        raise_for_status(200, b'{"ok": true}')
+        raise_for_status(201, b'')
+        raise_for_status(204, b'')
+
+    def test_404_raises_not_found(self):
+        with pytest.raises(NotFoundError):
+            raise_for_status(404, b'{"error": "not found"}')
+
+    def test_409_raises_conflict(self):
+        with pytest.raises(ConflictError):
+            raise_for_status(409, b'{"error": "conflict"}')
+
+    def test_429_raises_rate_limit(self):
+        with pytest.raises(RateLimitError):
+            raise_for_status(429, b'{"error": "rate limited"}')
+
+    def test_500_raises_server_error(self):
+        with pytest.raises(ServerError):
+            raise_for_status(500, b'{"error": "internal"}')
+
+    def test_502_raises_server_error(self):
+        with pytest.raises(ServerError):
+            raise_for_status(502, b'bad gateway')
+
+    def test_400_raises_api_error(self):
+        with pytest.raises(APIError):
+            raise_for_status(400, b'{"error": "bad request"}')
+
+    def test_error_message_from_json(self):
+        with pytest.raises(APIError, match="custom message"):
+            raise_for_status(400, b'{"error": "custom message"}')
+
+    def test_error_message_from_text(self):
+        with pytest.raises(APIError, match="raw text"):
+            raise_for_status(400, b'raw text error')
+
+    def test_server_error_preserves_status_code(self):
+        with pytest.raises(ServerError) as exc_info:
+            raise_for_status(503, b'service unavailable')
+        assert exc_info.value.status_code == 503
