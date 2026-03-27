@@ -250,7 +250,17 @@ func main() {
 			UserID:  r.URL.Query().Get("userId"),
 		}
 		if concepts := r.URL.Query().Get("requiredConcepts"); concepts != "" {
-			req.RequiredConcepts = strings.Split(concepts, ",")
+			parts := strings.Split(concepts, ",")
+			// Filter out empty strings from split (e.g., "a,,b" → ["a","b"])
+			filtered := make([]string, 0, len(parts))
+			for _, p := range parts {
+				if p = strings.TrimSpace(p); p != "" {
+					filtered = append(filtered, p)
+				}
+			}
+			if len(filtered) > 0 {
+				req.RequiredConcepts = filtered
+			}
 		}
 		exps, err := client.RetrieveExperiences(r.Context(), req)
 		if err != nil {
