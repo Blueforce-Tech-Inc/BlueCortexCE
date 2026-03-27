@@ -231,7 +231,7 @@ func doRequestJSON[T any](c *httpClient, ctx context.Context, method, path strin
 		return nil, &APIError{StatusCode: status, Message: extractErrorMessage(data)}
 	}
 	var resp T
-	if err := c.unmarshalJSON(data, &resp); err != nil {
+	if err := json.Unmarshal(data, &resp); err != nil {
 		return nil, fmt.Errorf("cortex-ce: failed to parse %s response: %w", path, err)
 	}
 	return &resp, nil
@@ -346,10 +346,6 @@ func (c *httpClient) doFireAndForget(ctx context.Context, name string, fn func()
 		"attempts", c.config.MaxRetries,
 	)
 	return nil // Fire-and-forget: swallow all errors (including ctx.Err) after retries
-}
-
-func (c *httpClient) unmarshalJSON(data []byte, v any) error {
-	return json.Unmarshal(data, v)
 }
 
 // isTransient returns true if the error is likely transient and worth retrying.

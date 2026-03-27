@@ -2,6 +2,7 @@ package cortexmem
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -205,7 +206,7 @@ func (c *httpClient) HealthCheck(ctx context.Context) error {
 	}
 	// Verify response body contains status:ok
 	var resp map[string]any
-	if err := c.unmarshalJSON(data, &resp); err == nil {
+	if err := json.Unmarshal(data, &resp); err == nil {
 		if s, ok := resp["status"].(string); !ok || s != "ok" {
 			return fmt.Errorf("cortex-ce: unhealthy: %v", resp)
 		}
