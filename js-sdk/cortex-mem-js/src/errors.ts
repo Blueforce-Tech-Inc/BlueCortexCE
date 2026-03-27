@@ -14,6 +14,8 @@ export class APIError extends Error {
     this.name = 'APIError';
     this.statusCode = statusCode;
     this.body = body;
+    // Required for instanceof to work correctly when compiled to CJS
+    Object.setPrototypeOf(this, APIError.prototype);
   }
 }
 
