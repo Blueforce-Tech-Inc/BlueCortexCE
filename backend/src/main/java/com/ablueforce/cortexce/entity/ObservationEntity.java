@@ -76,11 +76,9 @@ public class ObservationEntity {
     private List<String> filesModified;
 
     @Column(name = "content_hash")
-    @JsonProperty("contentHash")
     private String contentHash;
 
     @Column(name = "discovery_tokens")
-    @JsonProperty("discoveryTokens")
     private Integer discoveryTokens = 0;
 
     @Column(name = "prompt_number")
@@ -90,23 +88,22 @@ public class ObservationEntity {
     @JdbcTypeCode(SqlTypes.VECTOR)
     @Array(length = 768)
     @Column(name = "embedding_768", columnDefinition = "vector(768)")
-    @JsonProperty("embedding768")
+    @JsonProperty("embedding_768")
     private float[] embedding768;
 
     @JdbcTypeCode(SqlTypes.VECTOR)
     @Array(length = 1024)
     @Column(name = "embedding_1024", columnDefinition = "vector(1024)")
-    @JsonProperty("embedding1024")
+    @JsonProperty("embedding_1024")
     private float[] embedding1024;
 
     @JdbcTypeCode(SqlTypes.VECTOR)
     @Array(length = 1536)
     @Column(name = "embedding_1536", columnDefinition = "vector(1536)")
-    @JsonProperty("embedding1536")
+    @JsonProperty("embedding_1536")
     private float[] embedding1536;
 
     @Column(name = "embedding_model_id")
-    @JsonProperty("embeddingModelId")
     private String embeddingModelId;
 
     // search_vector is GENERATED ALWAYS, read-only from JPA perspective
