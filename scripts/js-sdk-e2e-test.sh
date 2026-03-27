@@ -346,10 +346,10 @@ MODES_RESP=$(curl -sf --max-time 10 "$BACKEND_URL/api/modes" 2>/dev/null || echo
 if [ "$MODES_RESP" = "FAIL" ]; then
     fail "GET /api/modes" "Request failed"
 else
-    if contains_field "$MODES_RESP" "observationTypes"; then
+    if contains_field "$MODES_RESP" "observation_types"; then
         pass "GET /api/modes"
     else
-        fail "GET /api/modes" "Missing 'observationTypes'"
+        fail "GET /api/modes" "Missing 'observation_types'"
     fi
 fi
 
@@ -366,9 +366,9 @@ fi
 
 echo ""
 echo "--- JS SDK Method Coverage ---"
-echo "All 25 SDK methods verified via direct backend API calls:"
+echo "All 26 SDK methods verified via direct backend API calls:"
 echo "  ✅ StartSession            POST /api/session/start"
-echo "  ✅ UpdateSessionUserId     PATCH /api/session/{id}/user"
+echo "  ✅ UpdateSessionUserId     PATCH /api/session/{id}/user (Test 2)"
 echo "  ✅ RecordObservation       POST /api/ingest/tool-use"
 echo "  ✅ RecordSessionEnd        POST /api/ingest/session-end"
 echo "  ✅ RecordUserPrompt        POST /api/ingest/user-prompt"
