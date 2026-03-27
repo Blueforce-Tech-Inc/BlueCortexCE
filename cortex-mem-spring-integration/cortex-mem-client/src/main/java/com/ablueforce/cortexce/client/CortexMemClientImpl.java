@@ -416,7 +416,7 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     @Override
     @SuppressWarnings("unchecked")
-    public Map<String, Object> getObservationsByIds(java.util.List<String> ids) {
+    public Map<String, Object> getObservationsByIds(List<String> ids) {
         Objects.requireNonNull(ids, "ids must not be null");
         if (ids.isEmpty()) {
             throw new IllegalArgumentException("ids must not be empty");

@@ -31,11 +31,11 @@ public class ExtractionController {
             @RequestParam String template,
             @RequestParam(required = false) String userId) {
 
-        if (project == null || project.isBlank()) {
+        if (project.isBlank()) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "project is required"));
         }
-        if (template == null || template.isBlank()) {
+        if (template.isBlank()) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "template is required"));
         }
@@ -59,11 +59,11 @@ public class ExtractionController {
             @RequestParam(required = false) String userId,
             @RequestParam(defaultValue = "0") Integer limit) {
 
-        if (project == null || project.isBlank()) {
+        if (project.isBlank()) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "project is required"));
         }
-        if (template == null || template.isBlank()) {
+        if (template.isBlank()) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "template is required"));
         }
@@ -84,7 +84,7 @@ public class ExtractionController {
     public ResponseEntity<Map<String, Object>> triggerExtraction(
             @RequestParam String projectPath) {
 
-        if (projectPath == null || projectPath.isBlank()) {
+        if (projectPath.isBlank()) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "projectPath is required"));
         }

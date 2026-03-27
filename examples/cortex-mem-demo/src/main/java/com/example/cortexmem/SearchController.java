@@ -35,7 +35,7 @@ public class SearchController {
             @RequestParam(defaultValue = "10") Integer limit,
             @RequestParam(defaultValue = "0") Integer offset) {
 
-        if (project == null || project.isBlank()) {
+        if (project.isBlank()) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "project is required"));
         }

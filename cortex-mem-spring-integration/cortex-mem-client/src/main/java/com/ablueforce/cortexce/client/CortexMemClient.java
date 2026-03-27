@@ -142,7 +142,7 @@ public interface CortexMemClient {
      * @return list of observations
      * @throws IllegalArgumentException if ids is empty or exceeds 100
      */
-    Map<String, Object> getObservationsByIds(java.util.List<String> ids);
+    Map<String, Object> getObservationsByIds(List<String> ids);
 
     // ==================== P1 Management APIs ====================
 
