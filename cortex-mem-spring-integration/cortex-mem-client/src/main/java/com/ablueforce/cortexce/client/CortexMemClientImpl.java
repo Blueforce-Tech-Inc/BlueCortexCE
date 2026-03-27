@@ -448,7 +448,7 @@ public class CortexMemClientImpl implements CortexMemClient {
                 .body(new ParameterizedTypeReference<>() {});
         } catch (Exception e) {
             log.warn("Failed to get version: {}", e.getMessage());
-            return Map.of("error", e.getMessage());
+            return Map.of("service", "unknown", "version", "unknown");
         }
     }
 
@@ -510,7 +510,7 @@ public class CortexMemClientImpl implements CortexMemClient {
                 .body(new ParameterizedTypeReference<>() {});
         } catch (Exception e) {
             log.warn("Failed to get settings: {}", e.getMessage());
-            return Map.of("error", e.getMessage());
+            return Map.of();
         }
     }
 
