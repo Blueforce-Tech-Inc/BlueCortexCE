@@ -18,6 +18,13 @@ class APIError(CortexError):
         super().__init__(f"cortex-ce: API error {status_code}: {message}")
 
 
+class AuthError(APIError):
+    """401 Unauthorized."""
+
+    def __init__(self, message: str = "unauthorized") -> None:
+        super().__init__(401, message)
+
+
 class NotFoundError(APIError):
     """404 Not Found."""
 
@@ -53,6 +60,8 @@ def raise_for_status(status_code: int, body: bytes) -> None:
 
     message = _extract_error_message(body)
 
+    if status_code == 401:
+        raise AuthError(message)
     if status_code == 404:
         raise NotFoundError(message)
     if status_code == 409:

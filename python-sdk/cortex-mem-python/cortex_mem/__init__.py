@@ -21,6 +21,7 @@ from .dto import (
 )
 from .error import (
     APIError,
+    AuthError,
     ConflictError,
     CortexError,
     NotFoundError,
@@ -52,6 +53,7 @@ __all__ = [
     # Errors
     "CortexError",
     "APIError",
+    "AuthError",
     "NotFoundError",
     "ConflictError",
     "RateLimitError",

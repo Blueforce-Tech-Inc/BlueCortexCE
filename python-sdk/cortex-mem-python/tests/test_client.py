@@ -5,7 +5,7 @@ import pytest
 import responses
 
 from cortex_mem import CortexMemClient, APIError, NotFoundError, RateLimitError, CortexError
-from cortex_mem.error import is_retryable, raise_for_status, ServerError, ConflictError
+from cortex_mem.error import is_retryable, raise_for_status, ServerError, ConflictError, AuthError
 from cortex_mem.dto import (
     SessionStartResponse,
     Experience,
@@ -106,6 +106,15 @@ class TestCapture:
         c = _client()
         # Should not raise
         c.record_observation("s1", "/p", "Read")
+
+    @responses.activate
+    def test_fire_and_forget_no_retry_on_non_retryable(self):
+        """Fire-and-forget should NOT retry on 400/401/404 (only on 429/502-504)."""
+        responses.add(responses.POST, f"{BASE}/api/ingest/tool-use", status=400)
+        c = CortexMemClient(base_url=BASE, max_retries=3)
+        # Should not raise, and should not retry (only 1 call made)
+        c.record_observation("s1", "/p", "Read")
+        assert len(responses.calls) == 1  # No retries for non-retryable errors
 
     def test_record_observation_empty_session_id_raises(self):
         """Empty session_id should raise CortexError."""
@@ -860,6 +869,15 @@ class TestRaiseForStatus:
         raise_for_status(200, b'{"ok": true}')
         raise_for_status(201, b'')
         raise_for_status(204, b'')
+
+    def test_401_raises_auth_error(self):
+        with pytest.raises(AuthError):
+            raise_for_status(401, b'{"error": "unauthorized"}')
+        # Verify status code is preserved
+        try:
+            raise_for_status(401, b'bad token')
+        except AuthError as e:
+            assert e.status_code == 401
 
     def test_404_raises_not_found(self):
         with pytest.raises(NotFoundError):
