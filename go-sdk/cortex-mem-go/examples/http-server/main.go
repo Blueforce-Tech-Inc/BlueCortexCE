@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -39,7 +40,8 @@ const maxRequestBodySize = 1 << 20
 func readJSON(r *http.Request, dst any) error {
 	r.Body = http.MaxBytesReader(nil, r.Body, maxRequestBodySize)
 	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		if strings.Contains(err.Error(), "http: request body too large") {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
 			return fmt.Errorf("request body too large (max %d bytes)", maxRequestBodySize)
 		}
 		return err
