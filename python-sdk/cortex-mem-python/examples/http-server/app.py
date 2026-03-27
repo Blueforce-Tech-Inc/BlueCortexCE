@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 
 from flask import Flask, jsonify, request
 
-from cortex_mem import CortexMemClient
+from cortex_mem import APIError, CortexError, CortexMemClient
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("demo")
@@ -25,6 +25,24 @@ CORTEX_BASE_URL = os.environ.get("CORTEX_BASE_URL", "http://127.0.0.1:37777")
 PORT = int(os.environ.get("PORT", "8080"))
 
 client = CortexMemClient(base_url=CORTEX_BASE_URL)
+
+
+# ==================== Error Handlers ====================
+
+
+@app.errorhandler(APIError)
+def handle_api_error(exc: APIError):
+    """Return structured JSON for SDK API errors."""
+    status = exc.status_code if 400 <= exc.status_code < 600 else 502
+    logger.warning("API error %d: %s", exc.status_code, exc.message)
+    return jsonify(error=exc.message, status_code=exc.status_code), status
+
+
+@app.errorhandler(CortexError)
+def handle_cortex_error(exc: CortexError):
+    """Return structured JSON for SDK logic errors (validation, closed client, etc.)."""
+    logger.warning("SDK error: %s", exc)
+    return jsonify(error=str(exc)), 400
 
 
 # ==================== Helpers ====================

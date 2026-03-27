@@ -467,11 +467,20 @@ class TestManagementExtended:
         assert body["extractedData"] == {"preference": "dark_mode"}
 
     @responses.activate
-    def test_update_observation_empty_raises(self):
+    def test_update_observation_empty_id_raises(self):
         """Empty observation_id should raise."""
         c = _client()
         with pytest.raises(Exception):
             c.update_observation("", title="x")
+
+    @responses.activate
+    def test_update_observation_no_fields_raises(self):
+        """Calling update_observation with no fields should raise."""
+        c = _client()
+        with pytest.raises(Exception, match="at least one field"):
+            c.update_observation("o1")
+        with pytest.raises(Exception, match="at least one field"):
+            c.update_observation("o1", ObservationUpdate())
 
     @responses.activate
     def test_delete_observation_empty_raises(self):

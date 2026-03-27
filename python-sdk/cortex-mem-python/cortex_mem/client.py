@@ -465,6 +465,8 @@ class CortexMemClient:
         for kwarg, wire_key in kwarg_map.items():
             if kwarg in kwargs:
                 body[wire_key] = kwargs[kwarg]
+        if not body:
+            raise CortexError("at least one field must be provided for update")
         path = f"/api/memory/observations/{observation_id}"
         self._request_no_content("PATCH", path, json_body=body)
 
