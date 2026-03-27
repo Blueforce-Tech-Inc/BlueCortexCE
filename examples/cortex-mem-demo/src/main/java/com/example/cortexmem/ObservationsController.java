@@ -65,8 +65,8 @@ public class ObservationsController {
      * POST /demo/observations/batch
      * Body: {"ids": ["id1", "id2", "id3"]}
      */
-    @PostMapping(value = "/batch", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, Object>> getByIds(@RequestBody Map<String, List<String>> body) {
+    @PostMapping(value = "/batch", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> getByIds(@RequestBody(required = false) Map<String, List<String>> body) {
         if (body == null || !body.containsKey("ids")) {
             return ResponseEntity.badRequest().body(Map.of("error", "Request body must contain 'ids' field"));
         }
@@ -97,10 +97,14 @@ public class ObservationsController {
     @PatchMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> updateObservation(
             @PathVariable String id,
-            @RequestBody Map<String, Object> body) {
+            @RequestBody(required = false) Map<String, Object> body) {
         if (id == null || id.isBlank()) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "observation id is required"));
+        }
+        if (body == null || body.isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "request body must contain at least one field to update"));
         }
         try {
             ObservationUpdate.Builder builder = ObservationUpdate.builder();
