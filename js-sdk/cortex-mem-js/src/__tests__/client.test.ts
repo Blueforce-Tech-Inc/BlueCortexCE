@@ -623,6 +623,24 @@ describe('CortexMemClient', () => {
 
   // ==================== URL building ====================
 
+  describe('Observation DTO fields', () => {
+    it('should parse promptNumber and createdAtEpoch from response', async () => {
+      const resp = {
+        items: [{
+          id: 'o1', sessionId: 's1', projectPath: '/p', type: 'tool',
+          content: 'c', promptNumber: 42, createdAtEpoch: 1711488000,
+        }],
+        hasMore: false, offset: 0, limit: 20,
+      };
+      fetchMock = mockFetch(200, resp);
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+
+      const result = await client.listObservations({ project: '/tmp', limit: 20 });
+      expect(result.items[0].promptNumber).toBe(42);
+      expect(result.items[0].createdAtEpoch).toBe(1711488000);
+    });
+  });
+
   describe('URL building', () => {
     it('should strip trailing slash from baseURL', async () => {
       fetchMock = mockFetch(200, { status: 'ok', service: 'test' });

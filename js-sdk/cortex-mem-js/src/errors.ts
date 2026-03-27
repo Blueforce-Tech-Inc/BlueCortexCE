@@ -17,24 +17,6 @@ export class APIError extends Error {
   }
 }
 
-// Sentinel error factory
-function apiError(statusCode: number): APIError {
-  const messages: Record<number, string> = {
-    400: 'Bad request',
-    401: 'Unauthorized',
-    403: 'Forbidden',
-    404: 'Not found',
-    409: 'Conflict',
-    422: 'Unprocessable entity',
-    429: 'Rate limited',
-    500: 'Internal server error',
-    502: 'Bad gateway',
-    503: 'Service unavailable',
-    504: 'Gateway timeout',
-  };
-  return new APIError(statusCode, messages[statusCode] ?? `HTTP ${statusCode}`);
-}
-
 // Error predicate functions
 
 /** Returns true if the error is a 400 Bad Request. */

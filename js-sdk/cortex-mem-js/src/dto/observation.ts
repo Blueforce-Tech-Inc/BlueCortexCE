@@ -53,5 +53,7 @@ export interface Observation {
   qualityScore?: number;
   source?: string;
   extractedData?: Record<string, unknown>;
+  promptNumber?: number;
   createdAt?: string;
+  createdAtEpoch?: number;
 }

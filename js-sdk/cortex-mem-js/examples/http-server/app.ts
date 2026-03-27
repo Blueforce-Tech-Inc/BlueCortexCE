@@ -33,6 +33,13 @@ function errorJson(res: Response, status: number, message: string) {
   res.status(status).json({ error: message });
 }
 
+// Express 4 does not catch async rejections — wrap async handlers
+function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    fn(req, res, next).catch(next);
+  };
+}
+
 // Request logger
 app.use((req: Request, _res: Response, next: NextFunction) => {
   console.log(`${new Date().toISOString()} ${req.method} ${req.path}`);
@@ -41,7 +48,7 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 
 // ==================== Health ====================
 
-app.get('/health', async (_req: Request, res: Response) => {
+app.get('/health', asyncHandler(async (_req: Request, res: Response) => {
   try {
     await client.healthCheck();
     res.json({
@@ -57,7 +64,7 @@ app.get('/health', async (_req: Request, res: Response) => {
 
 // ==================== Chat ====================
 
-app.post('/chat', async (req: Request, res: Response) => {
+app.post('/chat', asyncHandler(async (req: Request, res: Response) => {
   const missing = requireFields(req.body, ['project', 'message']);
   if (missing) return errorJson(res, 400, `${missing} is required`);
 
@@ -88,7 +95,7 @@ app.post('/chat', async (req: Request, res: Response) => {
 
 // ==================== Search ====================
 
-app.get('/search', async (req: Request, res: Response) => {
+app.get('/search', asyncHandler(async (req: Request, res: Response) => {
   const project = req.query.project as string;
   if (!project) return errorJson(res, 400, 'project is required');
 
@@ -113,14 +120,14 @@ app.get('/search', async (req: Request, res: Response) => {
 
 // ==================== Version ====================
 
-app.get('/version', async (_req: Request, res: Response) => {
+app.get('/version', asyncHandler(async (_req: Request, res: Response) => {
   const v = await client.getVersion();
   res.json(v);
 });
 
 // ==================== Experiences ====================
 
-app.get('/experiences', async (req: Request, res: Response) => {
+app.get('/experiences', asyncHandler(async (req: Request, res: Response) => {
   const project = req.query.project as string;
   const task = req.query.task as string;
   if (!project) return errorJson(res, 400, 'project is required');
@@ -144,7 +151,7 @@ app.get('/experiences', async (req: Request, res: Response) => {
 
 // ==================== ICL Prompt ====================
 
-app.get('/iclprompt', async (req: Request, res: Response) => {
+app.get('/iclprompt', asyncHandler(async (req: Request, res: Response) => {
   const project = req.query.project as string;
   const task = req.query.task as string;
   if (!project) return errorJson(res, 400, 'project is required');
@@ -161,7 +168,7 @@ app.get('/iclprompt', async (req: Request, res: Response) => {
 
 // ==================== Observations ====================
 
-app.get('/observations', async (req: Request, res: Response) => {
+app.get('/observations', asyncHandler(async (req: Request, res: Response) => {
   const project = req.query.project as string;
   if (!project) return errorJson(res, 400, 'project is required');
 
@@ -173,7 +180,7 @@ app.get('/observations', async (req: Request, res: Response) => {
   res.json(result);
 });
 
-app.post('/observations/batch', async (req: Request, res: Response) => {
+app.post('/observations/batch', asyncHandler(async (req: Request, res: Response) => {
   const ids: string[] = req.body.ids ?? [];
   if (!ids.length) return errorJson(res, 400, 'ids is required');
   if (ids.length > 100) return errorJson(res, 400, 'batch size exceeds maximum of 100');
@@ -182,7 +189,7 @@ app.post('/observations/batch', async (req: Request, res: Response) => {
   res.json(result);
 });
 
-app.post('/observations/create', async (req: Request, res: Response) => {
+app.post('/observations/create', asyncHandler(async (req: Request, res: Response) => {
   const missing = requireFields(req.body, ['project', 'session_id', 'tool_name']);
   if (missing) return errorJson(res, 400, `${missing} is required`);
 
@@ -198,7 +205,7 @@ app.post('/observations/create', async (req: Request, res: Response) => {
   res.json({ status: 'recorded' });
 });
 
-app.patch('/observations/:id', async (req: Request, res: Response) => {
+app.patch('/observations/:id', asyncHandler(async (req: Request, res: Response) => {
   const update: Record<string, unknown> = {};
   for (const key of ['title', 'subtitle', 'content', 'facts', 'concepts', 'source']) {
     if (key in req.body) update[key] = req.body[key];
@@ -209,36 +216,36 @@ app.patch('/observations/:id', async (req: Request, res: Response) => {
   res.json({ status: 'updated' });
 });
 
-app.delete('/observations/:id', async (req: Request, res: Response) => {
+app.delete('/observations/:id', asyncHandler(async (req: Request, res: Response) => {
   await client.deleteObservation(req.params.id);
   res.status(204).end();
 });
 
 // ==================== Projects / Stats / Modes / Settings ====================
 
-app.get('/projects', async (_req: Request, res: Response) => {
+app.get('/projects', asyncHandler(async (_req: Request, res: Response) => {
   const result = await client.getProjects();
   res.json(result);
 });
 
-app.get('/stats', async (req: Request, res: Response) => {
+app.get('/stats', asyncHandler(async (req: Request, res: Response) => {
   const result = await client.getStats((req.query.project as string) ?? undefined);
   res.json(result);
 });
 
-app.get('/modes', async (_req: Request, res: Response) => {
+app.get('/modes', asyncHandler(async (_req: Request, res: Response) => {
   const result = await client.getModes();
   res.json(result);
 });
 
-app.get('/settings', async (_req: Request, res: Response) => {
+app.get('/settings', asyncHandler(async (_req: Request, res: Response) => {
   const result = await client.getSettings();
   res.json(result);
 });
 
 // ==================== Quality ====================
 
-app.get('/quality', async (req: Request, res: Response) => {
+app.get('/quality', asyncHandler(async (req: Request, res: Response) => {
   const project = req.query.project as string;
   if (!project) return errorJson(res, 400, 'project is required');
   const result = await client.getQualityDistribution(project);
@@ -247,7 +254,7 @@ app.get('/quality', async (req: Request, res: Response) => {
 
 // ==================== Extraction ====================
 
-app.get('/extraction/latest', async (req: Request, res: Response) => {
+app.get('/extraction/latest', asyncHandler(async (req: Request, res: Response) => {
   const template = req.query.template as string;
   const project = req.query.project as string;
   if (!template) return errorJson(res, 400, 'template is required');
@@ -258,7 +265,7 @@ app.get('/extraction/latest', async (req: Request, res: Response) => {
   res.json(result);
 });
 
-app.get('/extraction/history', async (req: Request, res: Response) => {
+app.get('/extraction/history', asyncHandler(async (req: Request, res: Response) => {
   const template = req.query.template as string;
   const project = req.query.project as string;
   if (!template) return errorJson(res, 400, 'template is required');
@@ -274,7 +281,7 @@ app.get('/extraction/history', async (req: Request, res: Response) => {
   res.json(results);
 });
 
-app.post('/extraction/run', async (req: Request, res: Response) => {
+app.post('/extraction/run', asyncHandler(async (req: Request, res: Response) => {
   const projectPath = req.query.projectPath as string;
   if (!projectPath) return errorJson(res, 400, 'projectPath is required');
   await client.triggerExtraction(projectPath);
@@ -283,14 +290,14 @@ app.post('/extraction/run', async (req: Request, res: Response) => {
 
 // ==================== Refine / Feedback ====================
 
-app.post('/refine', async (req: Request, res: Response) => {
+app.post('/refine', asyncHandler(async (req: Request, res: Response) => {
   const project = req.query.project as string;
   if (!project) return errorJson(res, 400, 'project is required');
   await client.triggerRefinement(project);
   res.json({ status: 'refined' });
 });
 
-app.post('/feedback', async (req: Request, res: Response) => {
+app.post('/feedback', asyncHandler(async (req: Request, res: Response) => {
   const missing = requireFields(req.body, ['observation_id', 'feedback_type']);
   if (missing) return errorJson(res, 400, `${missing} is required`);
   await client.submitFeedback({
@@ -303,7 +310,7 @@ app.post('/feedback', async (req: Request, res: Response) => {
 
 // ==================== Session ====================
 
-app.patch('/session/user', async (req: Request, res: Response) => {
+app.patch('/session/user', asyncHandler(async (req: Request, res: Response) => {
   const missing = requireFields(req.body, ['session_id', 'user_id']);
   if (missing) return errorJson(res, 400, `${missing} is required`);
   const result = await client.updateSessionUserId(req.body.session_id, req.body.user_id);
@@ -312,7 +319,7 @@ app.patch('/session/user', async (req: Request, res: Response) => {
 
 // ==================== Ingest ====================
 
-app.post('/ingest/prompt', async (req: Request, res: Response) => {
+app.post('/ingest/prompt', asyncHandler(async (req: Request, res: Response) => {
   const missing = requireFields(req.body, ['project', 'session_id', 'prompt']);
   if (missing) return errorJson(res, 400, `${missing} is required`);
   await client.recordUserPrompt({
@@ -323,7 +330,7 @@ app.post('/ingest/prompt', async (req: Request, res: Response) => {
   res.json({ status: 'recorded' });
 });
 
-app.post('/ingest/session-end', async (req: Request, res: Response) => {
+app.post('/ingest/session-end', asyncHandler(async (req: Request, res: Response) => {
   const missing = requireFields(req.body, ['project', 'session_id']);
   if (missing) return errorJson(res, 400, `${missing} is required`);
   await client.recordSessionEnd({
@@ -335,8 +342,7 @@ app.post('/ingest/session-end', async (req: Request, res: Response) => {
 
 // ==================== Async error handler ====================
 
-// Express 4 does not catch async rejections automatically.
-// Wrap all routes that don't have try-catch with this handler.
+// Global error handler (asyncHandler catches async rejections, this catches sync errors)
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   console.error('Unhandled error:', err);
   const status = (err as Record<string, unknown>)?.statusCode ?? 500;
