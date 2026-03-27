@@ -63,3 +63,6 @@ export type {
   ModesResponse,
   HealthResponse,
 } from './dto';
+
+// Re-export parseObservation (runtime function, not just a type)
+export { parseObservation } from './dto';

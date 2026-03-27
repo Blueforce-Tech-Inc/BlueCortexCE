@@ -34,7 +34,9 @@ import type {
   StatsResponse,
   ModesResponse,
   HealthResponse,
+  Observation,
 } from './dto';
+import { parseObservation } from './dto';
 
 // ============================================================
 // Logger interface
@@ -155,7 +157,8 @@ export class CortexMemClient {
     this.assertNotClosed();
     this.validateRequired('project', req.project);
     const params = this.buildSearchParams(req);
-    return this.requestJSON<SearchResult>('GET', '/api/search', undefined, params);
+    const raw = await this.requestJSON<SearchResult>('GET', '/api/search', undefined, params);
+    return this.parseSearchResult(raw);
   }
 
   /**
@@ -168,7 +171,8 @@ export class CortexMemClient {
     if (req.project) params.project = req.project;
     if (req.offset !== undefined && req.offset > 0) params.offset = String(req.offset);
     if (req.limit !== undefined && req.limit > 0) params.limit = String(req.limit);
-    return this.requestJSON<ObservationsResponse>('GET', '/api/observations', undefined, params);
+    const raw = await this.requestJSON<ObservationsResponse>('GET', '/api/observations', undefined, params);
+    return this.parseObservationsResponse(raw);
   }
 
   /**
@@ -188,11 +192,12 @@ export class CortexMemClient {
         throw new Error(`cortex-ce: ids[${i}] is empty`);
       }
     }
-    return this.requestJSON<BatchObservationsResponse>(
+    const raw = await this.requestJSON<BatchObservationsResponse>(
       'POST',
       '/api/observations/batch',
       { ids },
     );
+    return this.parseBatchObservationsResponse(raw);
   }
 
   // ==================== Management ====================
@@ -596,6 +601,54 @@ export class CortexMemClient {
 
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  // ============================================================
+  // Response parsers (wire format → canonical types)
+  // ============================================================
+
+  /**
+   * Parse raw search result, remapping observation fields from wire format.
+   */
+  private parseSearchResult(raw: Record<string, unknown>): SearchResult {
+    const observations = Array.isArray(raw.observations)
+      ? (raw.observations as Record<string, unknown>[]).map(parseObservation)
+      : [];
+    return {
+      observations,
+      strategy: (raw.strategy as string) ?? '',
+      fell_back: (raw.fell_back as boolean) ?? false,
+      count: (raw.count as number) ?? 0,
+    };
+  }
+
+  /**
+   * Parse raw paginated observations response.
+   */
+  private parseObservationsResponse(raw: Record<string, unknown>): ObservationsResponse {
+    const items = Array.isArray(raw.items)
+      ? (raw.items as Record<string, unknown>[]).map(parseObservation)
+      : [];
+    return {
+      items,
+      hasMore: (raw.hasMore as boolean) ?? false,
+      total: raw.total as number | undefined,
+      offset: (raw.offset as number) ?? 0,
+      limit: (raw.limit as number) ?? 0,
+    };
+  }
+
+  /**
+   * Parse raw batch observations response.
+   */
+  private parseBatchObservationsResponse(raw: Record<string, unknown>): BatchObservationsResponse {
+    const observations = Array.isArray(raw.observations)
+      ? (raw.observations as Record<string, unknown>[]).map(parseObservation)
+      : [];
+    return {
+      observations,
+      count: (raw.count as number) ?? 0,
+    };
   }
 
   // ============================================================

@@ -189,16 +189,16 @@ public class SettingsService {
         if (updates.containsKey("session_count")) {
             settings.setContextSessionCount(String.valueOf(updates.get("session_count")));
         }
-        if (updates.containsKey("observationTypes")) {
-            Object types = updates.get("observationTypes");
+        if (updates.containsKey("observation_types")) {
+            Object types = updates.get("observation_types");
             if (types instanceof java.util.List<?> list) {
                 settings.setContextObservationTypes(String.join(",", list.stream().map(String::valueOf).toList()));
             } else {
                 settings.setContextObservationTypes(String.valueOf(types));
             }
         }
-        if (updates.containsKey("observationConcepts")) {
-            Object concepts = updates.get("observationConcepts");
+        if (updates.containsKey("observation_concepts")) {
+            Object concepts = updates.get("observation_concepts");
             if (concepts instanceof java.util.List<?> list) {
                 settings.setContextObservationConcepts(String.join(",", list.stream().map(String::valueOf).toList()));
             } else {

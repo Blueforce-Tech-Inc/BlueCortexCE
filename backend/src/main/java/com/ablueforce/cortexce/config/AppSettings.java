@@ -377,8 +377,8 @@ public class AppSettings {
         map.put("full_observation_count", getContextFullCountInt());
         map.put("total_observation_count", getContextObservationsInt());
         map.put("session_count", getContextSessionCountInt());
-        map.put("observationTypes", getContextObservationTypesList());
-        map.put("observationConcepts", getContextObservationConceptsList());
+        map.put("observation_types", getContextObservationTypesList());
+        map.put("observation_concepts", getContextObservationConceptsList());
         map.put("CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS", getContextMaxObservations());
         map.put("showReadTokens", isContextShowReadTokens());
         map.put("showWorkTokens", isContextShowWorkTokens());

@@ -140,7 +140,7 @@ public class ContextController {
 
             return ResponseEntity.ok(Map.of(
                     "context", finalContext,
-                    "updateFiles", updateFiles
+                    "update_files", updateFiles
             ));
         } catch (Exception e) {
             log.error("Failed to inject context: {}", e.getMessage());

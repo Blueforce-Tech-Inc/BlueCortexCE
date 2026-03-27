@@ -97,7 +97,7 @@ public class SessionController {
      * Returns:
      * {
      *   "context": "...",
-     *   "updateFiles": [...],
+     *   "update_files": [...],
      *   "session_db_id": "uuid",
      *   "prompt_number": 1
      * }
@@ -211,7 +211,7 @@ public class SessionController {
 
         return ResponseEntity.ok(Map.of(
             "context", context,
-            "updateFiles", updateFiles,
+            "update_files", updateFiles,
             "session_db_id", sessionDbId,
             "prompt_number", 1
         ));

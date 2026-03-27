@@ -286,10 +286,10 @@ async function handleRequest(req, res) {
     // Forward request to Java
     const javaResponse = await forwardToJava(req);
 
-    // Process updateFiles if present
-    if (javaResponse.data && javaResponse.data.updateFiles) {
+    // Process update_files if present
+    if (javaResponse.data && javaResponse.data.update_files) {
       const cwd = req.body?.cwd || process.cwd();
-      const result = processUpdateFiles(cwd, javaResponse.data.updateFiles);
+      const result = processUpdateFiles(cwd, javaResponse.data.update_files);
 
       // Add file operation results to response
       javaResponse.data.fileOperations = result;

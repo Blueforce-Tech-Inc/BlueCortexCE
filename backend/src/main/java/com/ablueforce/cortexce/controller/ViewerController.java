@@ -417,8 +417,8 @@ public class ViewerController {
         response.put("name", mode.name());
         response.put("description", mode.description());
         response.put("version", mode.version());
-        response.put("observationTypes", mode.observation_types());
-        response.put("observationConcepts", mode.observation_concepts());
+        response.put("observation_types", mode.observation_types());
+        response.put("observation_concepts", mode.observation_concepts());
         return ResponseEntity.ok(response);
     }
 
@@ -692,13 +692,13 @@ public class ViewerController {
 
     /**
      * Generic paged response wrapper matching Web UI expectations.
-     * Web UI expects: {items: [...], hasMore: boolean}
+     * Web UI expects: {items: [...], has_more: boolean}
      */
     public record PagedResponse<T>(
         @Schema(description = "Page items")
         @JsonProperty("items") List<T> items,
         @Schema(description = "Whether more pages are available", example = "true")
-        @JsonProperty("hasMore") boolean hasMore
+        @JsonProperty("has_more") boolean hasMore
     ) {
         public static <T> PagedResponse<T> of(Page<T> page) {
             return new PagedResponse<>(

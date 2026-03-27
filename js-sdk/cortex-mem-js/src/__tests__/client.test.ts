@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { CortexMemClient, APIError, isNotFound, isRateLimited, isRetryable } from '../index';
+import { CortexMemClient, APIError, isNotFound, isRateLimited, isRetryable, parseObservation } from '../index';
 
 // Mock fetch
 function mockFetch(status: number, body: unknown): typeof globalThis.fetch {
@@ -157,8 +157,9 @@ describe('CortexMemClient', () => {
 
   describe('retrieveExperiences', () => {
     it('should call POST /api/memory/experiences', async () => {
+      // Wire format uses SNAKE_CASE (backend Jackson naming strategy)
       const experiences = [
-        { id: 'e1', task: 't1', strategy: 's1', outcome: 'o1', reuseCondition: '', qualityScore: 0.9 },
+        { id: 'e1', task: 't1', strategy: 's1', outcome: 'o1', reuse_condition: '', quality_score: 0.9 },
       ];
       fetchMock = mockFetch(200, experiences);
       client = new CortexMemClient({
@@ -168,6 +169,7 @@ describe('CortexMemClient', () => {
       const result = await client.retrieveExperiences({ task: 'test', project: '/tmp' });
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe('e1');
+      expect(result[0].quality_score).toBe(0.9);
     });
   });
 
@@ -234,6 +236,21 @@ describe('CortexMemClient', () => {
     it('should throw on missing project', async () => {
       await expect(client.search({ project: '' })).rejects.toThrow('project is required');
     });
+
+    it('should remap observation fields from wire format', async () => {
+      // Wire format: content_session_id, project, narrative (NOT sessionId, projectPath, content)
+      const searchResult = {
+        observations: [{ id: 'o1', content_session_id: 's1', project: '/p', narrative: 'test content' }],
+        strategy: 'hybrid', fell_back: false, count: 1,
+      };
+      fetchMock = mockFetch(200, searchResult);
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+
+      const result = await client.search({ project: '/tmp', query: 'test' });
+      expect(result.observations[0].sessionId).toBe('s1');
+      expect(result.observations[0].projectPath).toBe('/p');
+      expect(result.observations[0].content).toBe('test content');
+    });
   });
 
   describe('listObservations', () => {
@@ -263,7 +280,8 @@ describe('CortexMemClient', () => {
 
   describe('getObservationsByIds', () => {
     it('should call POST /api/observations/batch', async () => {
-      const resp = { observations: [{ id: 'obs-1', sessionId: 's1', projectPath: '/p', type: 'tool', content: 'c' }], count: 1 };
+      // Wire format: content_session_id, project, narrative (NOT sessionId, projectPath, content)
+      const resp = { observations: [{ id: 'obs-1', content_session_id: 's1', project: '/p', type: 'tool', narrative: 'c' }], count: 1 };
       fetchMock = mockFetch(200, resp);
       client = new CortexMemClient({
         fetch: fetchMock as unknown as typeof globalThis.fetch,
@@ -271,6 +289,10 @@ describe('CortexMemClient', () => {
 
       const result = await client.getObservationsByIds(['obs-1']);
       expect(result.count).toBe(1);
+      // Verify field remapping from wire format to canonical types
+      expect(result.observations[0].sessionId).toBe('s1');
+      expect(result.observations[0].projectPath).toBe('/p');
+      expect(result.observations[0].content).toBe('c');
       const [url, opts] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(url).toContain('/api/observations/batch');
       const body = JSON.parse(opts.body);
@@ -705,11 +727,12 @@ describe('CortexMemClient', () => {
   // ==================== URL building ====================
 
   describe('Observation DTO fields', () => {
-    it('should parse promptNumber and createdAtEpoch from response', async () => {
+    it('should parse wire format fields into canonical types', async () => {
+      // Wire format from backend: content_session_id, project, narrative, quality_score, prompt_number, created_at_epoch
       const resp = {
         items: [{
-          id: 'o1', sessionId: 's1', projectPath: '/p', type: 'tool',
-          content: 'c', promptNumber: 42, createdAtEpoch: 1711488000,
+          id: 'o1', content_session_id: 's1', project: '/p', type: 'tool',
+          narrative: 'c', quality_score: 0.85, prompt_number: 42, created_at_epoch: 1711488000,
         }],
         hasMore: false, offset: 0, limit: 20,
       };
@@ -717,8 +740,14 @@ describe('CortexMemClient', () => {
       client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
 
       const result = await client.listObservations({ project: '/tmp', limit: 20 });
-      expect(result.items[0].promptNumber).toBe(42);
-      expect(result.items[0].createdAtEpoch).toBe(1711488000);
+      const obs = result.items[0];
+      // Verify all wire→canonical field mappings
+      expect(obs.sessionId).toBe('s1');
+      expect(obs.projectPath).toBe('/p');
+      expect(obs.content).toBe('c');
+      expect(obs.qualityScore).toBe(0.85);
+      expect(obs.promptNumber).toBe(42);
+      expect(obs.createdAtEpoch).toBe(1711488000);
     });
   });
 

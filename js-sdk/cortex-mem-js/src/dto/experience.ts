@@ -19,16 +19,18 @@ export interface ExperienceRequest {
 
 /**
  * A retrieved experience from the backend.
- * All fields are camelCase.
+ *
+ * Wire format uses SNAKE_CASE (backend Jackson naming strategy).
+ * Field names match the wire format directly.
  */
 export interface Experience {
   id: string;
   task: string;
   strategy: string;
   outcome: string;
-  reuseCondition: string;
-  qualityScore: number;
-  createdAt?: string;
+  reuse_condition: string;
+  quality_score: number;
+  created_at?: string;
 }
 
 /**
