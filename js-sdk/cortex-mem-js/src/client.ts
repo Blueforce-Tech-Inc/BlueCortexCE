@@ -531,8 +531,8 @@ export class CortexMemClient {
   }
 
   private extractErrorMessage(data: Uint8Array): string {
+    const text = new TextDecoder().decode(data);
     try {
-      const text = new TextDecoder().decode(data);
       const parsed = JSON.parse(text) as Record<string, unknown>;
       for (const key of ['error', 'message', 'detail']) {
         const val = parsed[key];
@@ -540,7 +540,6 @@ export class CortexMemClient {
       }
       return JSON.stringify(parsed);
     } catch {
-      const text = new TextDecoder().decode(data);
       return text.length > 200 ? text.slice(0, 200) + '...' : text;
     }
   }

@@ -244,11 +244,8 @@ app.get('/extraction/latest', async (req: Request, res: Response) => {
   if (!template) return errorJson(res, 400, 'template is required');
   if (!project) return errorJson(res, 400, 'project is required');
 
-  const result = await client.getLatestExtraction(
-    project,
-    template,
-    (req.query.userId as string) ?? '',
-  );
+  const userId = (req.query.userId as string) || undefined;
+  const result = await client.getLatestExtraction(project, template, userId);
   res.json(result);
 });
 
@@ -258,11 +255,12 @@ app.get('/extraction/history', async (req: Request, res: Response) => {
   if (!template) return errorJson(res, 400, 'template is required');
   if (!project) return errorJson(res, 400, 'project is required');
 
+  const userId = (req.query.userId as string) || undefined;
   const results = await client.getExtractionHistory(
     project,
     template,
-    (req.query.userId as string) ?? '',
-    parseInt(req.query.limit as string ?? '0', 10) || 0,
+    userId,
+    parseInt(req.query.limit as string ?? '0', 10) || undefined,
   );
   res.json(results);
 });
@@ -324,6 +322,17 @@ app.post('/ingest/session-end', async (req: Request, res: Response) => {
     cwd: req.body.project,
   });
   res.json({ status: 'ended' });
+});
+
+// ==================== Async error handler ====================
+
+// Express 4 does not catch async rejections automatically.
+// Wrap all routes that don't have try-catch with this handler.
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('Unhandled error:', err);
+  const status = err?.statusCode ?? 500;
+  const message = err?.message ?? 'Internal server error';
+  errorJson(res, status, message);
 });
 
 // ==================== Start ====================
