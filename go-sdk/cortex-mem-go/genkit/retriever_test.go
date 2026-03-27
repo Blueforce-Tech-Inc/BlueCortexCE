@@ -189,7 +189,7 @@ func TestRetrieve_NegativeCount_FallsBackToDefault(t *testing.T) {
 }
 
 func TestRetrieve_EmptyStrategy_HandlesGracefully(t *testing.T) {
-	// When Strategy is empty, content should just be Outcome (no leading newline)
+	// When Strategy is empty, content should include Task + Outcome (no Strategy line)
 	mock := &emptyStrategyClient{}
 	r := NewRetriever(mock, "/tmp/test")
 	output, err := r.Retrieve(context.Background(), RetrieverInput{Query: "test"})
@@ -200,20 +200,21 @@ func TestRetrieve_EmptyStrategy_HandlesGracefully(t *testing.T) {
 		t.Fatalf("expected 1 document, got %d", len(output.Documents))
 	}
 	doc := output.Documents[0]
-	if doc.Content != "outcome only" {
-		t.Errorf("expected 'outcome only', got %q", doc.Content)
+	if doc.Content != "Task: test\nOutcome: outcome only" {
+		t.Errorf("expected 'Task: test\\nOutcome: outcome only', got %q", doc.Content)
 	}
 }
 
-func TestRetrieve_BothEmpty_ProducesEmptyContent(t *testing.T) {
+func TestRetrieve_BothEmpty_ProducesTaskOnlyContent(t *testing.T) {
 	mock := &bothEmptyClient{}
 	r := NewRetriever(mock, "/tmp/test")
 	output, err := r.Retrieve(context.Background(), RetrieverInput{Query: "test"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if output.Documents[0].Content != "" {
-		t.Errorf("expected empty content, got %q", output.Documents[0].Content)
+	// When Strategy and Outcome are empty, content should still include Task
+	if output.Documents[0].Content != "Task: test" {
+		t.Errorf("expected 'Task: test', got %q", output.Documents[0].Content)
 	}
 }
 

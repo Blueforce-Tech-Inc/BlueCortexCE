@@ -122,12 +122,16 @@ func (r *Retriever) Retrieve(ctx context.Context, input RetrieverInput) (Retriev
 
 	docs := make([]Document, 0, len(experiences))
 	for _, exp := range experiences {
-		parts := make([]string, 0, 2)
+		// Build content from task + strategy + outcome so the LLM has full context.
+		parts := make([]string, 0, 3)
+		if exp.Task != "" {
+			parts = append(parts, "Task: "+exp.Task)
+		}
 		if exp.Strategy != "" {
-			parts = append(parts, exp.Strategy)
+			parts = append(parts, "Strategy: "+exp.Strategy)
 		}
 		if exp.Outcome != "" {
-			parts = append(parts, exp.Outcome)
+			parts = append(parts, "Outcome: "+exp.Outcome)
 		}
 		docs = append(docs, Document{
 			Content: strings.Join(parts, "\n"),
