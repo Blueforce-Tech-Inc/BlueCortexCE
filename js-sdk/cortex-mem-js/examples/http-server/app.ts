@@ -327,6 +327,7 @@ app.post('/ingest/prompt', asyncHandler(async (req: Request, res: Response) => {
     session_id: req.body.session_id,
     prompt_text: req.body.prompt,
     cwd: req.body.project,
+    prompt_number: req.body.prompt_number ?? 0,
   });
   res.json({ status: 'recorded' });
 });

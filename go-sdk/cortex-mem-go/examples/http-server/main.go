@@ -684,9 +684,10 @@ func main() {
 			return
 		}
 		var req struct {
-			Project string `json:"project"`
-			Prompt  string `json:"prompt"`
-			Session string `json:"session_id"`
+			Project       string `json:"project"`
+			Prompt        string `json:"prompt"`
+			Session       string `json:"session_id"`
+			PromptNumber  int    `json:"prompt_number,omitempty"`
 		}
 		if err := readJSON(r, &req); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
@@ -708,6 +709,7 @@ func main() {
 			ProjectPath: req.Project,
 			SessionID:   req.Session,
 			PromptText:  req.Prompt,
+			PromptNumber: req.PromptNumber,
 		}); err != nil {
 			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to record prompt: %v", err))
 			return

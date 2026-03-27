@@ -495,6 +495,7 @@ def ingest_prompt():
         session_id=data["session_id"],
         prompt_text=data["prompt"],
         project_path=data["project"],
+        prompt_number=data.get("prompt_number", 0),
     )
     return jsonify(status="recorded")
 
