@@ -257,6 +257,9 @@ def observations_batch():
         return _error(400, "ids is required")
     if len(ids) > 100:
         return _error(400, "batch size exceeds maximum of 100")
+    for i, id_ in enumerate(ids):
+        if not id_ or not str(id_).strip():
+            return _error(400, f"ids[{i}] is empty")
 
     result = client.get_observations_by_ids(ids)
     return jsonify(observations=[vars(o) for o in result.observations], count=result.count)

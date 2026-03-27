@@ -303,6 +303,7 @@ class TestManagement:
         body = json.loads(responses.calls[0].request.body)
         assert body["title"] == "New Title"
         assert "extractedData" in body
+        assert body["extractedData"] == {"k": "v"}
 
     @responses.activate
     def test_delete_observation(self):
