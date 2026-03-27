@@ -692,13 +692,13 @@ public class ViewerController {
 
     /**
      * Generic paged response wrapper matching Web UI expectations.
-     * Web UI expects: {items: [...], has_more: boolean}
+     * Web UI expects: {items: [...], hasMore: boolean}
      */
     public record PagedResponse<T>(
         @Schema(description = "Page items")
         @JsonProperty("items") List<T> items,
         @Schema(description = "Whether more pages are available", example = "true")
-        @JsonProperty("has_more") boolean hasMore
+        @JsonProperty("hasMore") boolean hasMore
     ) {
         public static <T> PagedResponse<T> of(Page<T> page) {
             return new PagedResponse<>(

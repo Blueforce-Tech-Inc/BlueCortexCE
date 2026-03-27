@@ -211,7 +211,7 @@ public class SessionController {
 
         return ResponseEntity.ok(Map.of(
             "context", context,
-            "update_files", updateFiles,
+            "updateFiles", updateFiles,
             "session_db_id", sessionDbId,
             "prompt_number", 1
         ));

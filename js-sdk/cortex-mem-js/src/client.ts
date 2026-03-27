@@ -157,7 +157,7 @@ export class CortexMemClient {
     this.assertNotClosed();
     this.validateRequired('project', req.project);
     const params = this.buildSearchParams(req);
-    const raw = await this.requestJSON<SearchResult>('GET', '/api/search', undefined, params);
+    const raw = await this.requestJSONRaw('GET', '/api/search', undefined, params);
     return this.parseSearchResult(raw);
   }
 
@@ -171,7 +171,7 @@ export class CortexMemClient {
     if (req.project) params.project = req.project;
     if (req.offset !== undefined && req.offset > 0) params.offset = String(req.offset);
     if (req.limit !== undefined && req.limit > 0) params.limit = String(req.limit);
-    const raw = await this.requestJSON<ObservationsResponse>('GET', '/api/observations', undefined, params);
+    const raw = await this.requestJSONRaw('GET', '/api/observations', undefined, params);
     return this.parseObservationsResponse(raw);
   }
 
@@ -192,7 +192,7 @@ export class CortexMemClient {
         throw new Error(`cortex-ce: ids[${i}] is empty`);
       }
     }
-    const raw = await this.requestJSON<BatchObservationsResponse>(
+    const raw = await this.requestJSONRaw(
       'POST',
       '/api/observations/batch',
       { ids },
@@ -530,6 +530,16 @@ export class CortexMemClient {
     }
   }
 
+  /** Request returning raw parsed JSON (for wire-format observation parsing). */
+  private async requestJSONRaw(
+    method: string,
+    path: string,
+    body?: unknown,
+    queryParams?: Record<string, string>,
+  ): Promise<unknown> {
+    return this.requestJSON(method, path, body, queryParams);
+  }
+
   private async requestNoContent(
     method: string,
     path: string,
@@ -610,44 +620,47 @@ export class CortexMemClient {
   /**
    * Parse raw search result, remapping observation fields from wire format.
    */
-  private parseSearchResult(raw: Record<string, unknown>): SearchResult {
-    const observations = Array.isArray(raw.observations)
-      ? (raw.observations as Record<string, unknown>[]).map(parseObservation)
+  private parseSearchResult(raw: unknown): SearchResult {
+    const r = raw as Record<string, unknown>;
+    const observations = Array.isArray(r.observations)
+      ? (r.observations as Record<string, unknown>[]).map(parseObservation)
       : [];
     return {
       observations,
-      strategy: (raw.strategy as string) ?? '',
-      fell_back: (raw.fell_back as boolean) ?? false,
-      count: (raw.count as number) ?? 0,
+      strategy: (r.strategy as string) ?? '',
+      fell_back: (r.fell_back as boolean) ?? false,
+      count: (r.count as number) ?? 0,
     };
   }
 
   /**
    * Parse raw paginated observations response.
    */
-  private parseObservationsResponse(raw: Record<string, unknown>): ObservationsResponse {
-    const items = Array.isArray(raw.items)
-      ? (raw.items as Record<string, unknown>[]).map(parseObservation)
+  private parseObservationsResponse(raw: unknown): ObservationsResponse {
+    const r = raw as Record<string, unknown>;
+    const items = Array.isArray(r.items)
+      ? (r.items as Record<string, unknown>[]).map(parseObservation)
       : [];
     return {
       items,
-      hasMore: (raw.hasMore as boolean) ?? false,
-      total: raw.total as number | undefined,
-      offset: (raw.offset as number) ?? 0,
-      limit: (raw.limit as number) ?? 0,
+      hasMore: (r.hasMore as boolean) ?? false,
+      total: r.total as number | undefined,
+      offset: (r.offset as number) ?? 0,
+      limit: (r.limit as number) ?? 0,
     };
   }
 
   /**
    * Parse raw batch observations response.
    */
-  private parseBatchObservationsResponse(raw: Record<string, unknown>): BatchObservationsResponse {
-    const observations = Array.isArray(raw.observations)
-      ? (raw.observations as Record<string, unknown>[]).map(parseObservation)
+  private parseBatchObservationsResponse(raw: unknown): BatchObservationsResponse {
+    const r = raw as Record<string, unknown>;
+    const observations = Array.isArray(r.observations)
+      ? (r.observations as Record<string, unknown>[]).map(parseObservation)
       : [];
     return {
       observations,
-      count: (raw.count as number) ?? 0,
+      count: (r.count as number) ?? 0,
     };
   }
 

@@ -765,3 +765,47 @@ describe('CortexMemClient', () => {
     });
   });
 });
+
+// ==================== parseObservation ====================
+
+describe('parseObservation', () => {
+  it('should remap all wire format fields', () => {
+    const raw = {
+      id: 'o1',
+      content_session_id: 'sess-1',
+      project: '/my/project',
+      type: 'feature',
+      title: 'Title',
+      subtitle: 'Sub',
+      narrative: 'the content',
+      facts: ['f1', 'f2'],
+      concepts: ['c1'],
+      quality_score: 0.95,
+      source: 'manual',
+      extractedData: { key: 'val' },
+      prompt_number: 7,
+      created_at: '2026-01-01T00:00:00Z',
+      created_at_epoch: 1700000000,
+    };
+
+    const obs = parseObservation(raw);
+    expect(obs.id).toBe('o1');
+    expect(obs.sessionId).toBe('sess-1');
+    expect(obs.projectPath).toBe('/my/project');
+    expect(obs.content).toBe('the content');
+    expect(obs.qualityScore).toBe(0.95);
+    expect(obs.promptNumber).toBe(7);
+    expect(obs.createdAtEpoch).toBe(1700000000);
+    expect(obs.extractedData).toEqual({ key: 'val' });
+  });
+
+  it('should handle missing optional fields', () => {
+    const obs = parseObservation({ id: 'o1' });
+    expect(obs.id).toBe('o1');
+    expect(obs.sessionId).toBe('');
+    expect(obs.projectPath).toBe('');
+    expect(obs.content).toBe('');
+    expect(obs.qualityScore).toBeUndefined();
+    expect(obs.promptNumber).toBeUndefined();
+  });
+});

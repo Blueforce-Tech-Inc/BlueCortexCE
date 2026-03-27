@@ -887,7 +887,7 @@ test_unified_session_start() {
 
     echo "$response" | python3 -m json.tool 2>/dev/null || echo "$response"
 
-    # Should return session_db_id and update_files (context)
+    # Should return session_db_id and updateFiles (context)
     if echo "$response" | python3 -c "import sys, json; d=json.load(sys.stdin); sys.exit(0 if 'session_db_id' in d else 1)" 2>/dev/null; then
         log_success "Unified session/start returns session_db_id"
         return 0

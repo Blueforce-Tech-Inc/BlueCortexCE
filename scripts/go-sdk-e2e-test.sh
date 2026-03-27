@@ -489,7 +489,7 @@ info "Test 24: Demo /modes → GetModes"
 MODES=$(curl -sf --max-time 10 "$DEMO_BASE/modes" 2>/dev/null || echo "FAIL")
 if [ "$MODES" = "FAIL" ]; then
     fail "GET /modes" "Connection failed or timed out"
-elif echo "$MODES" | grep -qE "observation_types|observationTypes"; then
+elif echo "$MODES" | grep -q "observation_types"; then
     pass "GET /modes"
 else
     fail "GET /modes" "Unexpected response format"
