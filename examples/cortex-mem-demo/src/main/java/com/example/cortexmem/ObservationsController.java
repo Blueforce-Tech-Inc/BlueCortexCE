@@ -123,6 +123,9 @@ public class ObservationsController {
             if (body.containsKey("content")) {
                 builder.content((String) body.get("content"));
             }
+            if (body.containsKey("narrative")) {
+                builder.narrative((String) body.get("narrative"));
+            }
             if (body.containsKey("facts")) {
                 Object factsObj = body.get("facts");
                 if (!(factsObj instanceof List)) {
