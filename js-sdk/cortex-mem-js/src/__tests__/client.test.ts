@@ -276,6 +276,18 @@ describe('CortexMemClient', () => {
       const [url] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(url).not.toContain('offset=');
     });
+
+    it('should handle hasMore camelCase from real backend', async () => {
+      // Real backend returns "hasMore" (camelCase) via Map.of()
+      const resp = { items: [{ id: 'o1', narrative: 'test', content_session_id: 's1' }], hasMore: true, total: 50, offset: 0, limit: 20 };
+      fetchMock = mockFetch(200, resp);
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+
+      const result = await client.listObservations({ project: '/tmp' });
+      expect(result.hasMore).toBe(true);
+      expect(result.total).toBe(50);
+      expect(result.items).toHaveLength(1);
+    });
   });
 
   describe('getObservationsByIds', () => {

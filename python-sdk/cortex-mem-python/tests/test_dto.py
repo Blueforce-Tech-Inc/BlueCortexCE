@@ -15,7 +15,46 @@ from cortex_mem.dto import (
     StatsResponse,
     ModesResponse,
     SessionStartResponse,
+    _to_int,
+    _to_float,
 )
+
+
+class TestTypeConversionHelpers:
+    """Tests for _to_int and _to_float wire format helpers."""
+
+    def test_to_int_with_int(self):
+        assert _to_int(42) == 42
+
+    def test_to_int_with_string_number(self):
+        assert _to_int("42") == 42
+
+    def test_to_int_with_invalid_string(self):
+        assert _to_int("not_a_number") == 0
+        assert _to_int("not_a_number", default=99) == 99
+
+    def test_to_int_with_none(self):
+        assert _to_int(None) == 0
+
+    def test_to_int_with_float_string(self):
+        """Float string like '3.14' should return default (int() rejects it)."""
+        assert _to_int("3.14") == 0
+
+    def test_to_float_with_float(self):
+        assert _to_float(3.14) == 3.14
+
+    def test_to_float_with_int(self):
+        assert _to_float(42) == 42.0
+
+    def test_to_float_with_string_number(self):
+        assert _to_float("3.14") == 3.14
+
+    def test_to_float_with_invalid_string(self):
+        assert _to_float("bad") == 0.0
+        assert _to_float("bad", default=9.9) == 9.9
+
+    def test_to_float_with_none(self):
+        assert _to_float(None) == 0.0
 
 
 class TestDTOFromWire:
@@ -153,6 +192,31 @@ class TestDTOFromWire:
         mr = ModesResponse.from_wire(data)
         assert mr.name == "default"
         assert len(mr.observation_types) == 2
+
+    def test_modes_response_from_wire_camelcase_fallback(self):
+        """Backend Map.of() responses use camelCase keys — fallback must work."""
+        data = {
+            "id": "m1",
+            "name": "default",
+            "observationTypes": ["feature"],
+            "observationConcepts": ["test"],
+        }
+        mr = ModesResponse.from_wire(data)
+        assert mr.observation_types == ["feature"]
+        assert mr.observation_concepts == ["test"]
+
+    def test_observations_response_has_more_camelcase_fallback(self):
+        """Backend Map.of() uses 'hasMore' (camelCase) — SDK must accept both."""
+        data = {
+            "items": [],
+            "hasMore": True,
+            "total": 50,
+            "offset": 0,
+            "limit": 20,
+        }
+        resp = ObservationsResponse.from_wire(data)
+        assert resp.has_more is True
+        assert resp.total == 50
 
     def test_session_start_response(self):
         data = {"session_db_id": "db-1", "session_id": "s-1", "prompt_number": 0}

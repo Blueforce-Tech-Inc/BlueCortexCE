@@ -15,7 +15,7 @@ type ObservationsRequest struct {
 // ObservationsResponse is the paginated response from listing observations.
 type ObservationsResponse struct {
 	Items   []Observation `json:"items"`
-	HasMore bool          `json:"has_more"`
+	HasMore bool          `json:"hasMore"` // ⚠️ WebUI compat: backend uses "hasMore" (camelCase) via Map.of()
 	Total   int64         `json:"total,omitempty"`
 	Offset  int           `json:"offset"`
 	Limit   int           `json:"limit"`

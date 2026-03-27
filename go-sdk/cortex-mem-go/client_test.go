@@ -3391,7 +3391,7 @@ func TestListObservations_EmptyProject_OmitsParam(t *testing.T) {
 			t.Errorf("project param should be omitted when empty, got: %q", r.URL.Query().Get("project"))
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"items":[],"total":0,"has_more":false}`))
+		w.Write([]byte(`{"items":[],"total":0,"hasMore":false}`))
 	}))
 	defer server.Close()
 
@@ -3401,6 +3401,34 @@ func TestListObservations_EmptyProject_OmitsParam(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("ListObservations with empty project should succeed: %v", err)
+	}
+}
+
+func TestListObservations_HasMore_CamelCase(t *testing.T) {
+	// Backend returns "hasMore" (camelCase) via Map.of() for WebUI compatibility.
+	// Verify the Go SDK correctly parses this field.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"items":[{"id":"o1"}],"total":50,"hasMore":true,"offset":0,"limit":20}`))
+	}))
+	defer server.Close()
+
+	client := cortexmem.NewClient(cortexmem.WithBaseURL(server.URL))
+	resp, err := client.ListObservations(context.Background(), dto.ObservationsRequest{
+		Project: "/p",
+		Limit:   20,
+	})
+	if err != nil {
+		t.Fatalf("ListObservations failed: %v", err)
+	}
+	if !resp.HasMore {
+		t.Error("expected HasMore=true from camelCase backend response")
+	}
+	if resp.Total != 50 {
+		t.Errorf("expected total=50, got %d", resp.Total)
+	}
+	if len(resp.Items) != 1 || resp.Items[0].ID != "o1" {
+		t.Errorf("expected 1 item with id=o1, got %v", resp.Items)
 	}
 }
 

@@ -644,7 +644,7 @@ export class CortexMemClient {
       : [];
     return {
       items,
-      hasMore: (r.has_more as boolean) ?? false,
+      hasMore: (r.hasMore as boolean) ?? (r.has_more as boolean) ?? false,
       total: r.total as number | undefined,
       offset: (r.offset as number) ?? 0,
       limit: (r.limit as number) ?? 0,

@@ -116,6 +116,36 @@ class TestCapture:
         c.record_observation("s1", "/p", "Read")
         assert len(responses.calls) == 1  # No retries for non-retryable errors
 
+    @responses.activate
+    def test_fire_and_forget_retries_on_429(self):
+        """Fire-and-forget should retry on 429 (rate limited)."""
+        responses.add(responses.POST, f"{BASE}/api/ingest/tool-use", status=429)
+        responses.add(responses.POST, f"{BASE}/api/ingest/tool-use", status=204)
+        c = CortexMemClient(base_url=BASE, max_retries=3, retry_backoff=0.01)
+        c.record_observation("s1", "/p", "Read")
+        assert len(responses.calls) == 2  # First 429, then retry succeeds
+
+    @responses.activate
+    def test_fire_and_forget_retries_on_503(self):
+        """Fire-and-forget should retry on 503 (service unavailable)."""
+        responses.add(responses.POST, f"{BASE}/api/ingest/tool-use", status=503)
+        responses.add(responses.POST, f"{BASE}/api/ingest/tool-use", status=503)
+        responses.add(responses.POST, f"{BASE}/api/ingest/tool-use", status=204)
+        c = CortexMemClient(base_url=BASE, max_retries=3, retry_backoff=0.01)
+        c.record_observation("s1", "/p", "Read")
+        assert len(responses.calls) == 3  # Two 503s, then success
+
+    @responses.activate
+    def test_fire_and_forget_exhausts_retries(self):
+        """Fire-and-forget should swallow error after exhausting retries."""
+        responses.add(responses.POST, f"{BASE}/api/ingest/tool-use", status=502)
+        responses.add(responses.POST, f"{BASE}/api/ingest/tool-use", status=502)
+        responses.add(responses.POST, f"{BASE}/api/ingest/tool-use", status=502)
+        c = CortexMemClient(base_url=BASE, max_retries=3, retry_backoff=0.01)
+        # Should NOT raise even after all retries exhausted (fire-and-forget)
+        c.record_observation("s1", "/p", "Read")
+        assert len(responses.calls) == 3
+
     def test_record_observation_empty_session_id_raises(self):
         """Empty session_id should raise CortexError."""
         c = _client()
