@@ -299,7 +299,7 @@ def observations_update(obs_id: str):
         return _error(400, "observation id is required")
     data = request.get_json(force=True)
     kwargs = {}
-    for key in ("title", "subtitle", "content", "facts", "concepts", "source"):
+    for key in ("title", "subtitle", "content", "narrative", "facts", "concepts", "source"):
         if key in data:
             kwargs[key] = data[key]
     if "extractedData" in data:

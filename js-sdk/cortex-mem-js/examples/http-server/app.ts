@@ -208,7 +208,7 @@ app.post('/observations/create', asyncHandler(async (req: Request, res: Response
 
 app.patch('/observations/:id', asyncHandler(async (req: Request, res: Response) => {
   const update: Record<string, unknown> = {};
-  for (const key of ['title', 'subtitle', 'content', 'facts', 'concepts', 'source']) {
+  for (const key of ['title', 'subtitle', 'content', 'narrative', 'facts', 'concepts', 'source']) {
     if (key in req.body) update[key] = req.body[key];
   }
   if ('extractedData' in req.body) update.extractedData = req.body.extractedData;
