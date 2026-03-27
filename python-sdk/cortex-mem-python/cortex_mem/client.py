@@ -623,6 +623,10 @@ class CortexMemClient:
         if self._owns_session:
             self._session.close()
 
+    def __repr__(self) -> str:
+        status = "closed" if self._closed else "open"
+        return f"CortexMemClient({self._base_url!r}, {status})"
+
     def __enter__(self) -> CortexMemClient:
         return self
 

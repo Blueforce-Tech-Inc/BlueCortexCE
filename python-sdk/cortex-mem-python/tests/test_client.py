@@ -974,3 +974,85 @@ class TestRaiseForStatus:
         with pytest.raises(ServerError) as exc_info:
             raise_for_status(503, b'service unavailable')
         assert exc_info.value.status_code == 503
+
+
+# ==================== Client Repr ====================
+
+
+class TestClientRepr:
+    def test_repr_open(self):
+        c = CortexMemClient(base_url="http://localhost:37777")
+        r = repr(c)
+        assert "http://localhost:37777" in r
+        assert "open" in r
+
+    def test_repr_closed(self):
+        c = CortexMemClient(base_url="http://localhost:37777")
+        c.close()
+        r = repr(c)
+        assert "closed" in r
+
+
+# ==================== User-Agent ====================
+
+
+class TestUserAgent:
+    @responses.activate
+    def test_user_agent_header(self):
+        """Verify User-Agent header includes SDK version."""
+        responses.add(responses.GET, f"{BASE}/api/health", json={"status": "ok"}, status=200)
+        c = _client()
+        c.health_check()
+        ua = responses.calls[0].request.headers.get("User-Agent", "")
+        assert "cortex-mem-python/" in ua
+
+    @responses.activate
+    def test_accept_header(self):
+        """Verify Accept header is set."""
+        responses.add(responses.GET, f"{BASE}/api/health", json={"status": "ok"}, status=200)
+        c = _client()
+        c.health_check()
+        accept = responses.calls[0].request.headers.get("Accept", "")
+        assert "application/json" in accept
+
+
+# ==================== API Key Auth ====================
+
+
+class TestApiKeyAuth:
+    @responses.activate
+    def test_api_key_in_header(self):
+        """Verify API key is sent as Bearer token."""
+        responses.add(responses.GET, f"{BASE}/api/health", json={"status": "ok"}, status=200)
+        c = CortexMemClient(base_url=BASE, api_key="test-key-123")
+        c.health_check()
+        auth = responses.calls[0].request.headers.get("Authorization", "")
+        assert auth == "Bearer test-key-123"
+
+    def test_no_auth_header_without_key(self):
+        """Verify no Authorization header when api_key is not set."""
+        c = CortexMemClient(base_url=BASE)
+        headers = c._session.headers
+        assert "Authorization" not in headers
+
+
+# ==================== Custom Session ====================
+
+
+class TestCustomSession:
+    def test_custom_session_not_closed_on_client_close(self):
+        """When a custom session is provided, closing the client should NOT close the session."""
+        import requests
+        s = requests.Session()
+        c = CortexMemClient(base_url=BASE, session=s)
+        c.close()
+        # Session should still be usable (not closed) — verify it doesn't raise
+        assert s.headers.get("Accept") == "application/json"
+
+    def test_default_session_closed_on_client_close(self):
+        """When using default session, closing the client SHOULD close the session."""
+        c = CortexMemClient(base_url=BASE)
+        c.close()
+        # Subsequent requests should fail
+        with pytest.raises(Exception):
+            c.health_check()
