@@ -45,11 +45,6 @@ type Retriever struct {
 // RetrieverOption configures the Retriever.
 type RetrieverOption func(*Retriever)
 
-// WithRetrieverProject sets the project path.
-func WithRetrieverProject(project string) RetrieverOption {
-	return func(r *Retriever) { r.project = project }
-}
-
 // WithRetrieverSource sets the source filter.
 func WithRetrieverSource(source string) RetrieverOption {
 	return func(r *Retriever) { r.source = source }
@@ -72,14 +67,16 @@ func WithRetrieverLogger(l cortexmem.Logger) RetrieverOption {
 }
 
 // NewRetriever creates a new Retriever for Cortex CE memory.
-func NewRetriever(client cortexmem.Client, opts ...RetrieverOption) *Retriever {
+// project is required and sets the default project path.
+func NewRetriever(client cortexmem.Client, project string, opts ...RetrieverOption) *Retriever {
 	if client == nil {
 		panic("genkit.NewRetriever: client must not be nil")
 	}
 	r := &Retriever{
-		client: client,
-		count:  4,
-		logger: slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})),
+		client:  client,
+		project: project,
+		count:   4,
+		logger:  slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})),
 	}
 	for _, opt := range opts {
 		opt(r)

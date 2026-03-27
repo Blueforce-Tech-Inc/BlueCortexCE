@@ -21,8 +21,7 @@ func main() {
 	ctx := context.Background()
 
 	// Create Genkit Retriever
-	retriever := genkit.NewRetriever(client,
-		genkit.WithRetrieverProject("/tmp/genkit-demo"),
+	retriever := genkit.NewRetriever(client, "/tmp/genkit-demo",
 		genkit.WithRetrieverCount(10),
 	)
 
@@ -63,7 +62,7 @@ func main() {
 	time.Sleep(500 * time.Millisecond)
 
 	// 3. Use Genkit Retriever
-	// Note: WithRetrieverProject sets the default; RetrieverInput.Project can override it.
+	// Note: The first argument sets the default project; RetrieverInput.Project can override it.
 	fmt.Println("\nRetrieving with Genkit Retriever...")
 	output, err := retriever.Retrieve(ctx, genkit.RetrieverInput{
 		Query: "What is Genkit?",

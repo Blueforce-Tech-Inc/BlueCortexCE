@@ -42,19 +42,18 @@ func TestNewRetriever_NilClient_Panics(t *testing.T) {
 			t.Error("expected panic for nil client")
 		}
 	}()
-	NewRetriever(nil)
+	NewRetriever(nil, "/tmp/test")
 }
 
 func TestNewRetriever_DefaultCount(t *testing.T) {
-	r := NewRetriever(&mockClient{})
+	r := NewRetriever(&mockClient{}, "/tmp/test")
 	if r.count != 4 {
 		t.Errorf("expected default count 4, got %d", r.count)
 	}
 }
 
 func TestNewRetriever_OptionsApplied(t *testing.T) {
-	r := NewRetriever(&mockClient{},
-		WithRetrieverProject("/tmp/test"),
+	r := NewRetriever(&mockClient{}, "/tmp/test",
 		WithRetrieverCount(10),
 		WithRetrieverSource("manual"),
 		WithRetrieverUserID("user1"),
@@ -74,7 +73,7 @@ func TestNewRetriever_OptionsApplied(t *testing.T) {
 }
 
 func TestRetrieve_EmptyQuery_ReturnsEmpty(t *testing.T) {
-	r := NewRetriever(&mockClient{})
+	r := NewRetriever(&mockClient{}, "/tmp/test")
 	output, err := r.Retrieve(context.Background(), RetrieverInput{})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -85,7 +84,7 @@ func TestRetrieve_EmptyQuery_ReturnsEmpty(t *testing.T) {
 }
 
 func TestRetrieve_Success(t *testing.T) {
-	r := NewRetriever(&mockClient{}, WithRetrieverProject("/tmp/test"))
+	r := NewRetriever(&mockClient{}, "/tmp/test")
 	output, err := r.Retrieve(context.Background(), RetrieverInput{Query: "What is Go?"})
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -112,7 +111,7 @@ func TestRetrieve_Success(t *testing.T) {
 }
 
 func TestRetrieve_PerCallOverride(t *testing.T) {
-	r := NewRetriever(&mockClient{}, WithRetrieverProject("/tmp/default"))
+	r := NewRetriever(&mockClient{}, "/tmp/default")
 	output, err := r.Retrieve(context.Background(), RetrieverInput{
 		Query:   "test",
 		Project: "/tmp/override",
@@ -130,7 +129,7 @@ func TestRetrieve_PerCallOverride(t *testing.T) {
 
 func TestRetrieve_Error_ReturnsError(t *testing.T) {
 	mock := &mockClient{retrieveErr: errors.New("backend unavailable")}
-	r := NewRetriever(mock)
+	r := NewRetriever(mock, "/tmp/test")
 	output, err := r.Retrieve(context.Background(), RetrieverInput{Query: "test"})
 	if err == nil {
 		t.Error("expected error")
@@ -143,7 +142,7 @@ func TestRetrieve_Error_ReturnsError(t *testing.T) {
 func TestRetrieve_CustomLogger(t *testing.T) {
 	logger := &testLogger{}
 	mock := &mockClient{retrieveErr: errors.New("fail")}
-	r := NewRetriever(mock, WithRetrieverLogger(logger))
+	r := NewRetriever(mock, "/tmp/test", WithRetrieverLogger(logger))
 	r.Retrieve(context.Background(), RetrieverInput{Query: "q"})
 	if len(logger.msgs) == 0 {
 		t.Error("expected error to be logged")
@@ -154,7 +153,7 @@ func TestRetrieve_ZeroCount_FallsBackToDefault(t *testing.T) {
 	// When Count <= 0 in input, it should fall back to the retriever's default count.
 	var capturedReq dto.ExperienceRequest
 	mock := &captureClient{req: &capturedReq}
-	r := NewRetriever(mock, WithRetrieverCount(7))
+	r := NewRetriever(mock, "/tmp/test", WithRetrieverCount(7))
 	output, err := r.Retrieve(context.Background(), RetrieverInput{
 		Query: "test",
 		Count: 0, // Should fall back to retriever default (7)
@@ -173,7 +172,7 @@ func TestRetrieve_ZeroCount_FallsBackToDefault(t *testing.T) {
 func TestRetrieve_NegativeCount_FallsBackToDefault(t *testing.T) {
 	var capturedReq dto.ExperienceRequest
 	mock := &captureClient{req: &capturedReq}
-	r := NewRetriever(mock, WithRetrieverCount(3))
+	r := NewRetriever(mock, "/tmp/test", WithRetrieverCount(3))
 	output, err := r.Retrieve(context.Background(), RetrieverInput{
 		Query: "test",
 		Count: -5, // Negative should fall back to default
@@ -193,7 +192,7 @@ func TestRetrieve_InputOverridesEmptyRetrieverFields(t *testing.T) {
 	// When retriever has empty fields, input should provide values
 	var capturedReq dto.ExperienceRequest
 	mock := &captureClient{req: &capturedReq}
-	r := NewRetriever(mock) // no project, no source, no userID set
+	r := NewRetriever(mock, "/tmp/test") // project set, but input overrides it
 	output, err := r.Retrieve(context.Background(), RetrieverInput{
 		Query:   "test",
 		Project: "/input/project",
