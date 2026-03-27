@@ -60,13 +60,19 @@ def _require(fields: dict):
     return None
 
 
-def _parse_int_param(key: str, default: int = 0) -> int | None:
-    """Parse an integer query param, returning error string on failure."""
-    raw = request.args.get(key, str(default))
+def _parse_int_param(key: str, default: int = 0) -> int:
+    """Parse an optional integer query param.
+
+    Returns default if param is missing.
+    Raises ValueError if param is present but not a valid integer.
+    """
+    raw = request.args.get(key)
+    if raw is None:
+        return default
     try:
         return int(raw)
     except (ValueError, TypeError):
-        return None
+        raise ValueError(f"{key} must be an integer")
 
 
 # ==================== Health ====================
@@ -125,12 +131,11 @@ def search():
     project = request.args.get("project")
     if not project:
         return _error(400, "project is required")
-    limit = _parse_int_param("limit")
-    if limit is None:
-        return _error(400, "limit must be an integer")
-    offset = _parse_int_param("offset")
-    if offset is None:
-        return _error(400, "offset must be an integer")
+    try:
+        limit = _parse_int_param("limit")
+        offset = _parse_int_param("offset")
+    except ValueError as e:
+        return _error(400, str(e))
 
     result = client.search(
         project=project,
@@ -169,8 +174,9 @@ def experiences():
         return _error(400, "project is required")
     if not task:
         return _error(400, "task is required")
-    count = _parse_int_param("count", 4)
-    if count is None:
+    try:
+        count = _parse_int_param("count", default=4)
+    except ValueError:
         return _error(400, "count must be an integer")
 
     concepts_str = request.args.get("requiredConcepts", "")
@@ -198,8 +204,9 @@ def iclprompt():
         return _error(400, "project is required")
     if not task:
         return _error(400, "task is required")
-    max_chars = _parse_int_param("maxChars")
-    if max_chars is None:
+    try:
+        max_chars = _parse_int_param("maxChars")
+    except ValueError:
         return _error(400, "maxChars must be an integer")
 
     result = client.build_icl_prompt(
@@ -219,12 +226,11 @@ def observations_list():
     project = request.args.get("project")
     if not project:
         return _error(400, "project is required")
-    limit = _parse_int_param("limit")
-    if limit is None:
-        return _error(400, "limit must be an integer")
-    offset = _parse_int_param("offset")
-    if offset is None:
-        return _error(400, "offset must be an integer")
+    try:
+        limit = _parse_int_param("limit")
+        offset = _parse_int_param("offset")
+    except ValueError as e:
+        return _error(400, str(e))
 
     result = client.list_observations(project=project, limit=limit, offset=offset)
     return jsonify(
@@ -380,8 +386,9 @@ def extraction_history():
         return _error(400, "template is required")
     if not project:
         return _error(400, "project is required")
-    limit = _parse_int_param("limit")
-    if limit is None:
+    try:
+        limit = _parse_int_param("limit")
+    except ValueError:
         return _error(400, "limit must be an integer")
 
     results = client.get_extraction_history(project, template, user_id=request.args.get("userId", ""), limit=limit)
@@ -434,6 +441,28 @@ def feedback():
 
 
 # ==================== Session ====================
+
+
+@app.post("/session/start")
+def session_start():
+    data = request.get_json(force=True)
+    missing = _require({
+        "session_id": data.get("session_id"),
+        "project": data.get("project"),
+    })
+    if missing:
+        return _error(400, f"{missing} is required")
+    result = client.start_session(
+        session_id=data["session_id"],
+        project_path=data["project"],
+        user_id=data.get("user_id"),
+    )
+    return jsonify(
+        session_db_id=result.session_db_id,
+        session_id=result.session_id,
+        context=result.context,
+        prompt_number=result.prompt_number,
+    )
 
 
 @app.patch("/session/user")
@@ -498,6 +527,8 @@ if __name__ == "__main__":
     print("  GET    /iclprompt           - Build ICL prompt")
     print("  GET    /observations        - List observations")
     print("  POST   /observations/batch  - Batch get observations by IDs")
+    print("  POST   /session/start       - Start/resume session")
+    print("  PATCH  /session/user        - Update session user ID")
     print("  GET    /projects            - Get projects")
     print("  GET    /stats               - Get stats")
     print("  GET    /modes               - Get modes")
@@ -508,7 +539,6 @@ if __name__ == "__main__":
     print("  POST   /extraction/run      - Trigger extraction")
     print("  POST   /refine              - Trigger memory refinement")
     print("  POST   /feedback            - Submit observation feedback")
-    print("  PATCH  /session/user        - Update session user ID")
     print("  PATCH  /observations/<id>   - Update observation")
     print("  DELETE /observations/<id>   - Delete observation")
     print("  POST   /observations/create - Record observation")
