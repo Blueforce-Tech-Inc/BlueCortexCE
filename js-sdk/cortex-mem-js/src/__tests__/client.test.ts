@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { CortexMemClient, APIError, isNotFound, isRateLimited, isRetryable, parseObservation } from '../index';
+import { CortexMemClient, APIError, isNotFound, isRateLimited, isRetryable, parseObservation, parseExperience } from '../index';
 
 // Mock fetch
 function mockFetch(status: number, body: unknown): typeof globalThis.fetch {
@@ -77,6 +77,12 @@ describe('CortexMemClient', () => {
         client.startSession({ session_id: '', project_path: '/tmp' }),
       ).rejects.toThrow('session_id is required');
     });
+
+    it('should reject whitespace-only session_id', async () => {
+      await expect(
+        client.startSession({ session_id: '   ', project_path: '/tmp' }),
+      ).rejects.toThrow('session_id is required');
+    });
   });
 
   describe('updateSessionUserId', () => {
@@ -101,6 +107,14 @@ describe('CortexMemClient', () => {
       const [url] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(url).toContain('/api/session/s%2F1/user');
     });
+
+    it('should throw on missing userId', async () => {
+      await expect(client.updateSessionUserId('sess-1', '')).rejects.toThrow('userId is required');
+    });
+
+    it('should throw on whitespace-only userId', async () => {
+      await expect(client.updateSessionUserId('sess-1', '   ')).rejects.toThrow('userId is required');
+    });
   });
 
   // ==================== Capture (fire-and-forget) ====================
@@ -119,6 +133,12 @@ describe('CortexMemClient', () => {
     it('should throw on missing session_id', async () => {
       await expect(
         client.recordObservation({ session_id: '', cwd: '/tmp', tool_name: 'Read' }),
+      ).rejects.toThrow('session_id is required');
+    });
+
+    it('should reject whitespace-only session_id', async () => {
+      await expect(
+        client.recordObservation({ session_id: '   ', cwd: '/tmp', tool_name: 'Read' }),
       ).rejects.toThrow('session_id is required');
     });
   });
@@ -159,7 +179,7 @@ describe('CortexMemClient', () => {
     it('should call POST /api/memory/experiences', async () => {
       // Wire format uses SNAKE_CASE (backend Jackson naming strategy)
       const experiences = [
-        { id: 'e1', task: 't1', strategy: 's1', outcome: 'o1', reuse_condition: '', quality_score: 0.9 },
+        { id: 'e1', task: 't1', strategy: 's1', outcome: 'o1', reuse_condition: 'when X', quality_score: 0.9, created_at: '2026-01-01' },
       ];
       fetchMock = mockFetch(200, experiences);
       client = new CortexMemClient({
@@ -169,7 +189,10 @@ describe('CortexMemClient', () => {
       const result = await client.retrieveExperiences({ task: 'test', project: '/tmp' });
       expect(result).toHaveLength(1);
       expect(result[0].id).toBe('e1');
-      expect(result[0].quality_score).toBe(0.9);
+      // Verify wire → canonical field mapping
+      expect(result[0].qualityScore).toBe(0.9);
+      expect(result[0].reuseCondition).toBe('when X');
+      expect(result[0].createdAt).toBe('2026-01-01');
     });
   });
 
@@ -783,6 +806,35 @@ describe('CortexMemClient', () => {
       const [url] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(url).toBe('http://localhost:37777/api/health');
     });
+  });
+});
+
+// ==================== parseExperience ====================
+
+describe('parseExperience', () => {
+  it('should remap all wire format fields', () => {
+    const raw = {
+      id: 'e1',
+      task: 'build auth',
+      strategy: 'use JWT',
+      outcome: 'success',
+      reuse_condition: 'similar auth tasks',
+      quality_score: 0.95,
+      created_at: '2026-01-01T00:00:00Z',
+    };
+
+    const exp = parseExperience(raw);
+    expect(exp.id).toBe('e1');
+    expect(exp.reuseCondition).toBe('similar auth tasks');
+    expect(exp.qualityScore).toBe(0.95);
+    expect(exp.createdAt).toBe('2026-01-01T00:00:00Z');
+  });
+
+  it('should handle missing optional fields', () => {
+    const exp = parseExperience({ id: 'e1', task: 't', strategy: 's', outcome: 'o' });
+    expect(exp.reuseCondition).toBe('');
+    expect(exp.qualityScore).toBe(0);
+    expect(exp.createdAt).toBeUndefined();
   });
 });
 

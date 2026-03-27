@@ -36,7 +36,7 @@ import type {
   HealthResponse,
   Observation,
 } from './dto';
-import { parseObservation } from './dto';
+import { parseObservation, parseExperience } from './dto';
 
 // ============================================================
 // Logger interface
@@ -81,6 +81,7 @@ export class CortexMemClient {
   async updateSessionUserId(sessionId: string, userId: string): Promise<SessionUserUpdateResponse> {
     this.assertNotClosed();
     this.validateRequired('sessionId', sessionId);
+    this.validateRequired('userId', userId);
     return this.requestJSON<SessionUserUpdateResponse>(
       'PATCH',
       `/api/session/${encodeURIComponent(sessionId)}/user`,
@@ -136,7 +137,9 @@ export class CortexMemClient {
   async retrieveExperiences(req: ExperienceRequest): Promise<Experience[]> {
     this.assertNotClosed();
     this.validateRequired('task', req.task);
-    return this.requestJSON<Experience[]>('POST', '/api/memory/experiences', req);
+    const raw = await this.requestJSONRaw('POST', '/api/memory/experiences', req);
+    const arr = Array.isArray(raw) ? raw as Record<string, unknown>[] : [];
+    return arr.map(parseExperience);
   }
 
   /**
@@ -422,7 +425,7 @@ export class CortexMemClient {
   }
 
   private validateRequired(field: string, value: string | undefined): void {
-    if (!value) {
+    if (!value || !value.trim()) {
       throw new Error(`cortex-ce: ${field} is required`);
     }
   }

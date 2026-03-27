@@ -21,16 +21,34 @@ export interface ExperienceRequest {
  * A retrieved experience from the backend.
  *
  * Wire format uses SNAKE_CASE (backend Jackson naming strategy).
- * Field names match the wire format directly.
+ * Field names are normalized to camelCase via parseExperience.
  */
 export interface Experience {
   id: string;
   task: string;
   strategy: string;
   outcome: string;
-  reuse_condition: string;
-  quality_score: number;
-  created_at?: string;
+  /** Parsed from wire field "reuse_condition" */
+  reuseCondition: string;
+  /** Parsed from wire field "quality_score" */
+  qualityScore: number;
+  /** Parsed from wire field "created_at" */
+  createdAt?: string;
+}
+
+/**
+ * Parse a raw wire-format experience into the canonical Experience type.
+ */
+export function parseExperience(raw: Record<string, unknown>): Experience {
+  return {
+    id: (raw.id as string) ?? '',
+    task: (raw.task as string) ?? '',
+    strategy: (raw.strategy as string) ?? '',
+    outcome: (raw.outcome as string) ?? '',
+    reuseCondition: (raw.reuse_condition as string) ?? '',
+    qualityScore: (raw.quality_score as number) ?? 0,
+    createdAt: raw.created_at as string | undefined,
+  };
 }
 
 /**
