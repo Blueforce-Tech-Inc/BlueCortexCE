@@ -311,6 +311,17 @@ app.post('/feedback', asyncHandler(async (req: Request, res: Response) => {
 
 // ==================== Session ====================
 
+app.post('/session/start', asyncHandler(async (req: Request, res: Response) => {
+  const missing = requireFields(req.body, ['session_id', 'project']);
+  if (missing) return errorJson(res, 400, `${missing} is required`);
+  const result = await client.startSession({
+    session_id: req.body.session_id,
+    project_path: req.body.project,
+    user_id: req.body.user_id,
+  });
+  res.json(result);
+});
+
 app.patch('/session/user', asyncHandler(async (req: Request, res: Response) => {
   const missing = requireFields(req.body, ['session_id', 'user_id']);
   if (missing) return errorJson(res, 400, `${missing} is required`);
@@ -380,6 +391,7 @@ app.listen(PORT, () => {
   console.log('  POST   /extraction/run      - Trigger extraction');
   console.log('  POST   /refine              - Trigger memory refinement');
   console.log('  POST   /feedback            - Submit observation feedback');
+  console.log('  POST   /session/start       - Start/resume session');
   console.log('  PATCH  /session/user        - Update session user ID');
   console.log('  PATCH  /observations/:id    - Update observation');
   console.log('  DELETE /observations/:id    - Delete observation');

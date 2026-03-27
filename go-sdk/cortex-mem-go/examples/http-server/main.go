@@ -568,6 +568,40 @@ func main() {
 		writeJSON(w, map[string]string{"status": "submitted"})
 	})
 
+	// --- POST /session/start ---
+	mux.HandleFunc("/session/start", func(w http.ResponseWriter, r *http.Request) {
+		if !checkMethod(w, r, http.MethodPost) {
+			return
+		}
+		var req struct {
+			SessionID string `json:"session_id"`
+			Project   string `json:"project"`
+			UserId    string `json:"user_id,omitempty"`
+		}
+		if err := readJSON(r, &req); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
+			return
+		}
+		if req.SessionID == "" {
+			writeJSONError(w, http.StatusBadRequest, "session_id is required")
+			return
+		}
+		if req.Project == "" {
+			writeJSONError(w, http.StatusBadRequest, "project is required")
+			return
+		}
+		result, err := client.StartSession(r.Context(), dto.SessionStartRequest{
+			SessionID:   req.SessionID,
+			ProjectPath: req.Project,
+			UserID:      req.UserId,
+		})
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to start session: %v", err))
+			return
+		}
+		writeJSON(w, result)
+	})
+
 	// --- PATCH /session/user ---
 	mux.HandleFunc("/session/user", func(w http.ResponseWriter, r *http.Request) {
 		if !checkMethod(w, r, http.MethodPatch) {
@@ -772,6 +806,7 @@ func main() {
 	fmt.Println("  POST   /extraction/run      - Trigger extraction")
 	fmt.Println("  POST   /refine              - Trigger memory refinement")
 	fmt.Println("  POST   /feedback            - Submit observation feedback")
+	fmt.Println("  POST   /session/start       - Start/resume session")
 	fmt.Println("  PATCH  /session/user        - Update session user ID")
 	fmt.Println("  PATCH  /observations/{id}   - Update observation")
 	fmt.Println("  DELETE /observations/{id}   - Delete observation")
