@@ -3495,6 +3495,187 @@ func TestGetQualityDistribution_Validation_EmptyProjectPath(t *testing.T) {
 
 // ==================== DefaultConfig Verification ====================
 
+// ==================== WithAPIKey Verification ====================
+
+func TestWithAPIKey_SetsAuthorizationHeader(t *testing.T) {
+	receivedAuth := ""
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedAuth = r.Header.Get("Authorization")
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"status":"ok"}`)
+	}))
+	defer server.Close()
+
+	client := cortexmem.NewClient(
+		cortexmem.WithBaseURL(server.URL),
+		cortexmem.WithAPIKey("my-secret-key"),
+	)
+	err := client.HealthCheck(context.Background())
+	if err != nil {
+		t.Fatalf("HealthCheck failed: %v", err)
+	}
+	if receivedAuth != "Bearer my-secret-key" {
+		t.Errorf("expected Authorization header 'Bearer my-secret-key', got %q", receivedAuth)
+	}
+}
+
+func TestWithAPIKey_EmptyKey_OmitsAuthHeader(t *testing.T) {
+	receivedAuth := ""
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedAuth = r.Header.Get("Authorization")
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"status":"ok"}`)
+	}))
+	defer server.Close()
+
+	client := cortexmem.NewClient(
+		cortexmem.WithBaseURL(server.URL),
+		cortexmem.WithAPIKey(""), // Explicitly empty
+	)
+	_ = client.HealthCheck(context.Background())
+	if receivedAuth != "" {
+		t.Errorf("expected no Authorization header for empty API key, got %q", receivedAuth)
+	}
+}
+
+// ==================== Extraction Validation ====================
+
+func TestTriggerExtraction_Validation_EmptyProjectPath(t *testing.T) {
+	client := cortexmem.NewClient()
+	err := client.TriggerExtraction(context.Background(), "")
+	if err == nil {
+		t.Fatal("TriggerExtraction should fail with empty projectPath")
+	}
+	if !strings.Contains(err.Error(), "projectPath is required") {
+		t.Errorf("expected validation error about projectPath, got: %v", err)
+	}
+}
+
+func TestGetLatestExtraction_Validation_EmptyProjectPath(t *testing.T) {
+	client := cortexmem.NewClient()
+	_, err := client.GetLatestExtraction(context.Background(), "", "template", "")
+	if err == nil {
+		t.Fatal("GetLatestExtraction should fail with empty projectPath")
+	}
+	if !strings.Contains(err.Error(), "projectPath is required") {
+		t.Errorf("expected validation error about projectPath, got: %v", err)
+	}
+}
+
+func TestGetLatestExtraction_Validation_EmptyTemplateName(t *testing.T) {
+	client := cortexmem.NewClient()
+	_, err := client.GetLatestExtraction(context.Background(), "/project", "", "")
+	if err == nil {
+		t.Fatal("GetLatestExtraction should fail with empty templateName")
+	}
+	if !strings.Contains(err.Error(), "templateName is required") {
+		t.Errorf("expected validation error about templateName, got: %v", err)
+	}
+}
+
+func TestGetExtractionHistory_Validation_EmptyProjectPath(t *testing.T) {
+	client := cortexmem.NewClient()
+	_, err := client.GetExtractionHistory(context.Background(), "", "template", "", 10)
+	if err == nil {
+		t.Fatal("GetExtractionHistory should fail with empty projectPath")
+	}
+	if !strings.Contains(err.Error(), "projectPath is required") {
+		t.Errorf("expected validation error about projectPath, got: %v", err)
+	}
+}
+
+func TestGetExtractionHistory_Validation_EmptyTemplateName(t *testing.T) {
+	client := cortexmem.NewClient()
+	_, err := client.GetExtractionHistory(context.Background(), "/project", "", "", 10)
+	if err == nil {
+		t.Fatal("GetExtractionHistory should fail with empty templateName")
+	}
+	if !strings.Contains(err.Error(), "templateName is required") {
+		t.Errorf("expected validation error about templateName, got: %v", err)
+	}
+}
+
+func TestGetExtractionHistory_Validation_NegativeLimit(t *testing.T) {
+	client := cortexmem.NewClient()
+	_, err := client.GetExtractionHistory(context.Background(), "/project", "template", "", -1)
+	if err == nil {
+		t.Fatal("GetExtractionHistory should fail with negative limit")
+	}
+	if !strings.Contains(err.Error(), "limit must not be negative") {
+		t.Errorf("expected validation error about negative limit, got: %v", err)
+	}
+}
+
+func TestUpdateObservation_Error_Response(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprint(w, `{"error":"observation not found"}`)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	err := client.UpdateObservation(context.Background(), "nonexistent", dto.ObservationUpdate{})
+	if err == nil {
+		t.Fatal("UpdateObservation should fail on 404")
+	}
+	if !cortexmem.IsNotFound(err) {
+		t.Errorf("expected IsNotFound, got: %v", err)
+	}
+}
+
+func TestDeleteObservation_Error_Response(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprint(w, `{"error":"observation not found"}`)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	err := client.DeleteObservation(context.Background(), "nonexistent")
+	if err == nil {
+		t.Fatal("DeleteObservation should fail on 404")
+	}
+	if !cortexmem.IsNotFound(err) {
+		t.Errorf("expected IsNotFound, got: %v", err)
+	}
+}
+
+func TestGetSettings_Error_Response(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprint(w, `{"error":"internal error"}`)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetSettings(context.Background())
+	if err == nil {
+		t.Fatal("GetSettings should fail on 500")
+	}
+	if !cortexmem.IsInternal(err) {
+		t.Errorf("expected IsInternal, got: %v", err)
+	}
+}
+
+func TestGetVersion_Error_Response(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+		fmt.Fprint(w, `{"error":"bad gateway"}`)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetVersion(context.Background())
+	if err == nil {
+		t.Fatal("GetVersion should fail on 502")
+	}
+	if !cortexmem.IsBadGateway(err) {
+		t.Errorf("expected IsBadGateway, got: %v", err)
+	}
+}
+
+// ==================== DefaultConfig Verification ====================
+
 func TestDefaultClientConfig_VerifyAllDefaults(t *testing.T) {
 	cfg := cortexmem.DefaultClientConfig()
 	if cfg.BaseURL != "http://127.0.0.1:37777" {
