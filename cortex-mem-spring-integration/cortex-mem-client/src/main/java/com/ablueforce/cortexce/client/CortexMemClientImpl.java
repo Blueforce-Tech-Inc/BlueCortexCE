@@ -603,11 +603,16 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     /**
      * Calculate jittered backoff: base = backoff * attempt, jittered to [0.75x, 1.25x].
+     * Jitter = random(0, baseMs/2) - baseMs/4, giving range [-25%, +25%].
      * Minimum 1ms to avoid zero-delay busy loops.
+     * Matches Go SDK jitter calculation for consistent behavior across SDKs.
      */
     private long jitteredBackoff(int attempt) {
         long baseMs = retryBackoff.toMillis() * attempt;
-        long jitter = ThreadLocalRandom.current().nextLong(baseMs / 4) - baseMs / 8;
+        long jitterRange = baseMs / 2;
+        long jitter = jitterRange > 0
+            ? ThreadLocalRandom.current().nextLong(jitterRange) - baseMs / 4
+            : 0;
         return Math.max(1, baseMs + jitter);
     }
 
