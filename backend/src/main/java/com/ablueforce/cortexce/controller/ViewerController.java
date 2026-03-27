@@ -693,6 +693,10 @@ public class ViewerController {
     /**
      * Generic paged response wrapper matching Web UI expectations.
      * Web UI expects: {items: [...], hasMore: boolean}
+     *
+     * ⚠️ WEBUI COMPATIBILITY: "hasMore" MUST stay camelCase — the WebUI submodule
+     * (webui/src/ui/viewer/hooks/usePagination.ts) reads data.hasMore directly.
+     * Do NOT change to "has_more" without updating the WebUI first.
      */
     public record PagedResponse<T>(
         @Schema(description = "Page items")

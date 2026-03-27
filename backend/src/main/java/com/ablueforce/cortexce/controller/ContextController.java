@@ -140,6 +140,7 @@ public class ContextController {
 
             return ResponseEntity.ok(Map.of(
                     "context", finalContext,
+                    // ⚠️ WEBUI COMPATIBILITY: "updateFiles" MUST stay camelCase — proxy.js reads this.
                     "updateFiles", updateFiles
             ));
         } catch (Exception e) {

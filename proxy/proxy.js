@@ -287,6 +287,9 @@ async function handleRequest(req, res) {
     const javaResponse = await forwardToJava(req);
 
     // Process updateFiles if present
+    // ⚠️ WEBUI COMPATIBILITY: The key name "updateFiles" (camelCase) is a contract with the
+    // backend SessionController/ContextController. Do NOT change to "update_files" here
+    // without also changing the backend response format.
     if (javaResponse.data && javaResponse.data.updateFiles) {
       const cwd = req.body?.cwd || process.cwd();
       const result = processUpdateFiles(cwd, javaResponse.data.updateFiles);

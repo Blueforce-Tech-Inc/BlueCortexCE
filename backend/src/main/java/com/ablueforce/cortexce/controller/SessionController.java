@@ -211,6 +211,8 @@ public class SessionController {
 
         return ResponseEntity.ok(Map.of(
             "context", context,
+            // ⚠️ WEBUI COMPATIBILITY: "updateFiles" MUST stay camelCase — the proxy (proxy.js)
+            // reads javaResponse.data.updateFiles directly. Do NOT change to "update_files".
             "updateFiles", updateFiles,
             "session_db_id", sessionDbId,
             "prompt_number", 1

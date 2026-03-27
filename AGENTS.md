@@ -121,3 +121,34 @@ Integrated via `openclaw-plugin/`, provides search Skill.
 - `backend/pom.xml` - Maven configuration
 - `backend/src/main/resources/application.properties` - Application configuration
 - `docker-compose.yml` - Docker deployment configuration
+
+## ⚠️ WebUI 子模块 API 契约
+
+WebUI 通过 git 子模块引入（`https://github.com/Blueforce-Tech-Inc/claude-mem.git`），路径 `webui/`。
+
+**修改任何 API 响应字段名前，必须先检查 WebUI 是否引用。**
+
+### 不可修改的 camelCase 字段（WebUI 硬契约）
+
+| 端点 | 字段 | WebUI 引用 |
+|------|------|-----------|
+| `/api/observations` | `hasMore` | `src/ui/viewer/hooks/usePagination.ts` |
+| `/api/summaries` | `hasMore` | 同上 |
+| `/api/prompts` | `hasMore` | 同上 |
+| `/api/session/start` | `updateFiles` | `proxy/proxy.js` |
+| `/api/context/generate` | `updateFiles` | `proxy/proxy.js` |
+| `/api/settings` | `CLAUDE_MEM_*` | `src/ui/viewer/hooks/useSettings.ts` |
+
+### 可安全修改为 snake_case 的字段
+
+| 端点 | 字段 | 原因 |
+|------|------|------|
+| `/api/modes` | `observation_types/concepts` | WebUI 从本地 ModeManager 读取 |
+| `/api/settings` | `observation_types/concepts` | WebUI 不读此字段 |
+
+### 检查方式
+
+```bash
+# 修改前搜索 WebUI 引用
+grep -rn "hasMore\|updateFiles\|observationTypes" webui/src/
+```
