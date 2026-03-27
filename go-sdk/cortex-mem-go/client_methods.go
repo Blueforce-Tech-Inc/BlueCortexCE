@@ -75,12 +75,20 @@ func (c *httpClient) Search(ctx context.Context, req dto.SearchRequest) (*dto.Se
 	if req.Project == "" {
 		return nil, fmt.Errorf("cortex-ce: SearchRequest.Project is required")
 	}
-	params := map[string]string{
-		"project": req.Project,
-		"query":   req.Query,
-		"type":    req.Type,
-		"concept": req.Concept,
-		"source":  req.Source,
+	// Build query params — only include fields that are set.
+	// Backend accepts: project (required), query, type, concept, source, limit, offset, orderBy.
+	params := map[string]string{"project": req.Project}
+	if req.Query != "" {
+		params["query"] = req.Query
+	}
+	if req.Type != "" {
+		params["type"] = req.Type
+	}
+	if req.Concept != "" {
+		params["concept"] = req.Concept
+	}
+	if req.Source != "" {
+		params["source"] = req.Source
 	}
 	if req.Limit > 0 {
 		params["limit"] = fmt.Sprintf("%d", req.Limit)
@@ -95,9 +103,8 @@ func (c *httpClient) ListObservations(ctx context.Context, req dto.ObservationsR
 	if req.Project == "" {
 		return nil, fmt.Errorf("cortex-ce: ObservationsRequest.Project is required")
 	}
-	params := map[string]string{
-		"project": req.Project,
-	}
+	// Build query params — only include optional fields when set.
+	params := map[string]string{"project": req.Project}
 	if req.Offset > 0 {
 		params["offset"] = fmt.Sprintf("%d", req.Offset)
 	}
