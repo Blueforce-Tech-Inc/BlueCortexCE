@@ -67,6 +67,10 @@ public class ExtractionController {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "template is required"));
         }
+        if (limit < 0) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "limit must be non-negative"));
+        }
 
         try {
             List<Map<String, Object>> result = client.getExtractionHistory(project, template, userId, limit);

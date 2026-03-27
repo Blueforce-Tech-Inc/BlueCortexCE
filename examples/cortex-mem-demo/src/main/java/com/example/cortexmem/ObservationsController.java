@@ -117,6 +117,16 @@ public class ObservationsController {
             if (body.containsKey("content")) {
                 builder.content((String) body.get("content"));
             }
+            if (body.containsKey("facts")) {
+                @SuppressWarnings("unchecked")
+                List<String> facts = (List<String>) body.get("facts");
+                builder.facts(facts);
+            }
+            if (body.containsKey("concepts")) {
+                @SuppressWarnings("unchecked")
+                List<String> concepts = (List<String>) body.get("concepts");
+                builder.concepts(concepts);
+            }
             if (body.containsKey("source")) {
                 builder.source((String) body.get("source"));
             }

@@ -196,6 +196,26 @@ class DtoTest {
     }
 
     @Test
+    void observationUpdate_withFactsAndConcepts() throws Exception {
+        var update = ObservationUpdate.builder()
+            .facts(List.of("Spring Boot is fast", "Java 21 is required"))
+            .concepts(List.of("backend", "java"))
+            .build();
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        String json = mapper.writeValueAsString(update);
+        assertThat(json).contains("\"facts\"");
+        assertThat(json).contains("Spring Boot is fast");
+        assertThat(json).contains("Java 21 is required");
+        assertThat(json).contains("\"concepts\"");
+        assertThat(json).contains("backend");
+        assertThat(json).contains("java");
+        // title/source/extractedData should be omitted
+        assertThat(json).doesNotContain("\"title\"");
+        assertThat(json).doesNotContain("\"source\"");
+        assertThat(json).doesNotContain("\"extractedData\"");
+    }
+
+    @Test
     void searchRequest_builder() {
         var req = SearchRequest.builder()
             .project("/proj")
