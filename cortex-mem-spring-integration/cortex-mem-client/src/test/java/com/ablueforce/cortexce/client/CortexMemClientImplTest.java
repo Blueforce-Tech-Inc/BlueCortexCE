@@ -471,6 +471,13 @@ class CortexMemClientImplTest {
             () -> client.getObservationsByIds(java.util.Arrays.asList("id-1", null, "id-3")));
     }
 
+    @Test
+    void getObservationsByIds_whitespaceOnlyInList_throws() {
+        org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> client.getObservationsByIds(List.of("id-1", "   ", "id-3")));
+    }
+
     // ==================== P1 Management API Tests ====================
 
     @Test

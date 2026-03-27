@@ -426,7 +426,7 @@ public class CortexMemClientImpl implements CortexMemClient {
             throw new IllegalArgumentException("batch size exceeds maximum of 100 (got " + ids.size() + ")");
         }
         for (int i = 0; i < ids.size(); i++) {
-            if (ids.get(i) == null || ids.get(i).isEmpty()) {
+            if (ids.get(i) == null || ids.get(i).isBlank()) {
                 throw new IllegalArgumentException("ids[" + i + "] is empty");
             }
         }
