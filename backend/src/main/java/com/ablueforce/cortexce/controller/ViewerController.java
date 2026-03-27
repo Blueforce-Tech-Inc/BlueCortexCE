@@ -473,7 +473,7 @@ public class ViewerController {
         @ApiResponse(responseCode = "500", description = "Failed to save settings due to internal error")
     })
     public ResponseEntity<Map<String, Object>> saveSettings(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Settings key-value map to update. Supports 'mode' or 'CLAUDE_MEM_MODE' for mode switching.", required = true)
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Settings key-value map to update. Supported keys: mode (or CLAUDE_MEM_MODE, sets active mode), and any other key-value pairs to persist. Example: {\"mode\": \"code\", \"embedding_model\": \"bge-m3\"}", required = true)
             @org.springframework.web.bind.annotation.RequestBody Map<String, Object> updates) {
         try {
             settingsService.updateSettings(updates);

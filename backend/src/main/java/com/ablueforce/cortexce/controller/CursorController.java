@@ -59,7 +59,7 @@ public class CursorController {
         @ApiResponse(responseCode = "500", description = "Failed to register project due to internal error")
     })
     public ResponseEntity<Map<String, Object>> registerProject(
-        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Request body with projectName (unique identifier) and workspacePath (absolute path)", required = true)
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Project registration payload. Fields: projectName (required, unique identifier), workspacePath (required, absolute path to project root)", required = true)
         @org.springframework.web.bind.annotation.RequestBody Map<String, String> request
     ) {
         String projectName = request.get("projectName");

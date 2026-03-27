@@ -72,7 +72,7 @@ public class ModeController {
         @ApiResponse(responseCode = "400", description = "Invalid mode ID or empty modeId provided")
     })
     public ResponseEntity<ModeResponse> setActiveMode(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Request body with modeId field containing the mode ID to activate", required = true)
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Mode switch payload. Fields: modeId (required, mode ID to activate, e.g. 'code' or 'code--zh')", required = true)
             @org.springframework.web.bind.annotation.RequestBody ModeSwitchRequest request) {
         String modeId = request.modeId();
         if (modeId == null || modeId.isBlank()) {
