@@ -68,7 +68,7 @@ export function isServerError(err: unknown): boolean {
 
 /**
  * Returns true if the error is likely transient and the request can be retried.
- * Retryable: 429, 502, 503, 504 and network errors (TypeError).
+ * Retryable: 429, 502, 503, 504, network errors (TypeError), and timeout aborts.
  * NOT retryable: 500 (code bug), 4xx (client error).
  */
 export function isRetryable(err: unknown): boolean {
@@ -80,6 +80,10 @@ export function isRetryable(err: unknown): boolean {
   }
   // Network errors (fetch TypeError) are retryable
   if (err instanceof TypeError) {
+    return true;
+  }
+  // Timeout-triggered AbortController errors are retryable
+  if (err instanceof DOMException && err.name === 'AbortError') {
     return true;
   }
   return false;

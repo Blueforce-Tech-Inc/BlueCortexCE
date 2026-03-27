@@ -589,6 +589,21 @@ describe('CortexMemClient', () => {
         expect(isRetryable(err)).toBe(true);
       }
     });
+
+    it('should treat timeout AbortError as retryable', () => {
+      const abortErr = new DOMException('The operation was aborted.', 'AbortError');
+      expect(isRetryable(abortErr)).toBe(true);
+    });
+
+    it('should treat TypeError (network error) as retryable', () => {
+      const netErr = new TypeError('Failed to fetch');
+      expect(isRetryable(netErr)).toBe(true);
+    });
+
+    it('should not treat generic Error as retryable', () => {
+      const genericErr = new Error('something went wrong');
+      expect(isRetryable(genericErr)).toBe(false);
+    });
   });
 
   // ==================== Fire-and-forget ====================
@@ -624,6 +639,34 @@ describe('CortexMemClient', () => {
       });
       // Only 1 call (no retries for 4xx)
       expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
+    it('should retry on timeout AbortError', async () => {
+      let callCount = 0;
+      const abortFetch = vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount < 3) {
+          return Promise.reject(new DOMException('The operation was aborted.', 'AbortError'));
+        }
+        return Promise.resolve({
+          status: 204,
+          body: null,
+          text() { return Promise.resolve(''); },
+        });
+      });
+
+      client = new CortexMemClient({
+        fetch: abortFetch as unknown as typeof globalThis.fetch,
+        maxRetries: 3,
+        retryBackoff: 1, // minimal backoff for fast test
+      });
+
+      await client.recordObservation({
+        session_id: 'sess-1',
+        cwd: '/tmp',
+        tool_name: 'Read',
+      });
+      expect(callCount).toBe(3);
     });
   });
 
