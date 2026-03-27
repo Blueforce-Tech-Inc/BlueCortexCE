@@ -2831,6 +2831,28 @@ func TestDeleteObservation_PropagatesError(t *testing.T) {
 	}
 }
 
+func TestNewClient_TrailingSlashNormalization(t *testing.T) {
+	// Trailing slash in BaseURL should be stripped to prevent //api/ paths
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify no double-slash in URL
+		if strings.Contains(r.URL.Path, "//") {
+			t.Errorf("URL path should not contain double-slash: %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	}))
+	defer server.Close()
+
+	// Pass URL with trailing slash — should be normalized
+	client := cortexmem.NewClient(cortexmem.WithBaseURL(server.URL + "/"))
+	defer client.Close()
+
+	err := client.HealthCheck(context.Background())
+	if err != nil {
+		t.Fatalf("HealthCheck should succeed with trailing slash: %v", err)
+	}
+}
+
 func TestNewClient_EmptyBaseURL_UsesDefault(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -3261,6 +3283,65 @@ func TestIsHelpers_GenericError(t *testing.T) {
 }
 
 // ==================== Input Validation Tests ====================
+
+func TestRecordObservation_Validation_EmptySessionID(t *testing.T) {
+	client := cortexmem.NewClient()
+	err := client.RecordObservation(context.Background(), dto.ObservationRequest{
+		SessionID:   "", // empty should fail
+		ProjectPath: "/proj",
+		ToolName:    "Read",
+	})
+	if err == nil {
+		t.Fatal("RecordObservation should fail with empty sessionID")
+	}
+	if !strings.Contains(err.Error(), "SessionID is required") {
+		t.Errorf("expected validation error about SessionID, got: %v", err)
+	}
+}
+
+func TestRecordSessionEnd_Validation_EmptySessionID(t *testing.T) {
+	client := cortexmem.NewClient()
+	err := client.RecordSessionEnd(context.Background(), dto.SessionEndRequest{
+		SessionID:   "", // empty should fail
+		ProjectPath: "/proj",
+	})
+	if err == nil {
+		t.Fatal("RecordSessionEnd should fail with empty sessionID")
+	}
+	if !strings.Contains(err.Error(), "SessionID is required") {
+		t.Errorf("expected validation error about SessionID, got: %v", err)
+	}
+}
+
+func TestRecordUserPrompt_Validation_EmptySessionID(t *testing.T) {
+	client := cortexmem.NewClient()
+	err := client.RecordUserPrompt(context.Background(), dto.UserPromptRequest{
+		SessionID:   "", // empty should fail
+		PromptText:  "test",
+		ProjectPath: "/proj",
+	})
+	if err == nil {
+		t.Fatal("RecordUserPrompt should fail with empty sessionID")
+	}
+	if !strings.Contains(err.Error(), "SessionID is required") {
+		t.Errorf("expected validation error about SessionID, got: %v", err)
+	}
+}
+
+func TestRecordUserPrompt_Validation_EmptyPromptText(t *testing.T) {
+	client := cortexmem.NewClient()
+	err := client.RecordUserPrompt(context.Background(), dto.UserPromptRequest{
+		SessionID:   "sess-1",
+		PromptText:  "", // empty should fail
+		ProjectPath: "/proj",
+	})
+	if err == nil {
+		t.Fatal("RecordUserPrompt should fail with empty promptText")
+	}
+	if !strings.Contains(err.Error(), "PromptText is required") {
+		t.Errorf("expected validation error about PromptText, got: %v", err)
+	}
+}
 
 func TestSearch_Validation_EmptyProject(t *testing.T) {
 	client := cortexmem.NewClient()

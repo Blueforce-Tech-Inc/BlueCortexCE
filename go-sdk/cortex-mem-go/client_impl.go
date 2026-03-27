@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -114,6 +115,8 @@ func NewClient(opts ...Option) Client {
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = "http://127.0.0.1:37777"
 	}
+	// Normalize: strip trailing slash to prevent double-slash in URLs (e.g., //api/health)
+	cfg.BaseURL = strings.TrimSuffix(cfg.BaseURL, "/")
 	if cfg.MaxRetries < 1 {
 		cfg.MaxRetries = 1 // At least one attempt (no retries is valid)
 	}

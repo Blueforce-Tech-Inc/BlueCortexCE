@@ -22,18 +22,30 @@ func (c *httpClient) UpdateSessionUserId(ctx context.Context, sessionID, userID 
 // ==================== Capture (fire-and-forget) ====================
 
 func (c *httpClient) RecordObservation(ctx context.Context, req dto.ObservationRequest) error {
+	if req.SessionID == "" {
+		return fmt.Errorf("cortex-ce: ObservationRequest.SessionID is required")
+	}
 	return c.doFireAndForget(ctx, "RecordObservation", func() error {
 		return c.doRequestNoContent(ctx, http.MethodPost, "/api/ingest/tool-use", req)
 	})
 }
 
 func (c *httpClient) RecordSessionEnd(ctx context.Context, req dto.SessionEndRequest) error {
+	if req.SessionID == "" {
+		return fmt.Errorf("cortex-ce: SessionEndRequest.SessionID is required")
+	}
 	return c.doFireAndForget(ctx, "RecordSessionEnd", func() error {
 		return c.doRequestNoContent(ctx, http.MethodPost, "/api/ingest/session-end", req)
 	})
 }
 
 func (c *httpClient) RecordUserPrompt(ctx context.Context, req dto.UserPromptRequest) error {
+	if req.SessionID == "" {
+		return fmt.Errorf("cortex-ce: UserPromptRequest.SessionID is required")
+	}
+	if req.PromptText == "" {
+		return fmt.Errorf("cortex-ce: UserPromptRequest.PromptText is required")
+	}
 	return c.doFireAndForget(ctx, "RecordUserPrompt", func() error {
 		return c.doRequestNoContent(ctx, http.MethodPost, "/api/ingest/user-prompt", req)
 	})
