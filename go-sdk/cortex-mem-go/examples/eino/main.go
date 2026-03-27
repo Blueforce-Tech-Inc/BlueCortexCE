@@ -37,25 +37,33 @@ func main() {
 	// 2. Record some observations
 	observations := []dto.ObservationRequest{
 		{
-			ProjectPath: "/tmp/eino-demo",
-			SessionID:   startResp.SessionID,
-			ToolName:    "fact_record",
-			ToolInput:   map[string]any{"topic": "Eino"},
+			ProjectPath:  "/tmp/eino-demo",
+			SessionID:    startResp.SessionID,
+			ToolName:     "fact_record",
+			ToolInput:    map[string]any{"topic": "Eino"},
 			ToolResponse: map[string]any{"fact": "Eino is a Go AI framework"},
+			Source:       "documentation",
 		},
 		{
-			ProjectPath: "/tmp/eino-demo",
-			SessionID:   startResp.SessionID,
-			ToolName:    "fact_record",
-			ToolInput:   map[string]any{"topic": "Cortex CE"},
+			ProjectPath:  "/tmp/eino-demo",
+			SessionID:    startResp.SessionID,
+			ToolName:     "fact_record",
+			ToolInput:    map[string]any{"topic": "Cortex CE"},
 			ToolResponse: map[string]any{"fact": "Cortex CE provides persistent memory for AI"},
+			Source:       "documentation",
+			ExtractedData: map[string]any{"category": "architecture"},
 		},
 		{
-			ProjectPath: "/tmp/eino-demo",
-			SessionID:   startResp.SessionID,
-			ToolName:    "preference_record",
-			ToolInput:   map[string]any{"topic": "language"},
+			ProjectPath:  "/tmp/eino-demo",
+			SessionID:    startResp.SessionID,
+			ToolName:     "preference_record",
+			ToolInput:    map[string]any{"topic": "language"},
 			ToolResponse: map[string]any{"preference": "User prefers Go over Python"},
+			Source:       "user_input",
+			ExtractedData: map[string]any{
+				"language": "Go",
+				"reason":   "concurrency",
+			},
 		},
 	}
 

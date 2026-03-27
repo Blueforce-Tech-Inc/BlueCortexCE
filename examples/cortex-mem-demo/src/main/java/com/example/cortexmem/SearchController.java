@@ -27,7 +27,7 @@ public class SearchController {
      */
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> search(
-            @RequestParam String project,
+            @RequestParam(required = false) String project,
             @RequestParam(required = false) String query,
             @RequestParam(required = false) String observationType,
             @RequestParam(required = false) String concept,
@@ -35,6 +35,10 @@ public class SearchController {
             @RequestParam(defaultValue = "10") Integer limit,
             @RequestParam(defaultValue = "0") Integer offset) {
 
+        if (project == null || project.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "project is required"));
+        }
         if (limit < 0 || limit > 100) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "limit must be between 0 and 100"));

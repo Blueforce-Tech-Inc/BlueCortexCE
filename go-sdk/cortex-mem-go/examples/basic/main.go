@@ -31,18 +31,23 @@ func main() {
 	}
 	fmt.Printf("Session started: %s\n", startResp.SessionID)
 
-	// 2. Record observation
-	fmt.Println("\n=== Recording observation ===")
+	// 2. Record observation with V14 features (source + extractedData)
+	fmt.Println("\n=== Recording observation (V14: source + extractedData) ===")
 	obsReq := dto.ObservationRequest{
-		ProjectPath: "/tmp/go-demo-project",
-		SessionID:   startResp.SessionID,
-		ToolName:    "demo_tool",
-		ToolInput:   map[string]any{"action": "demo"},
+		ProjectPath:  "/tmp/go-demo-project",
+		SessionID:    startResp.SessionID,
+		ToolName:     "demo_tool",
+		ToolInput:    map[string]any{"action": "demo"},
+		Source:       "manual",
+		ExtractedData: map[string]any{
+			"category": "demo",
+			"priority": "high",
+		},
 	}
 	if err := client.RecordObservation(ctx, obsReq); err != nil {
 		log.Printf("Failed to record observation: %v", err)
 	} else {
-		fmt.Println("Observation recorded successfully")
+		fmt.Println("Observation recorded successfully (with source='manual' and extractedData)")
 	}
 
 	// Allow time for fire-and-forget ingestion to complete
@@ -65,7 +70,22 @@ func main() {
 		}
 	}
 
-	// 4. List observations
+	// 4. Search with source filter (V14)
+	fmt.Println("\n=== Searching with source filter (V14) ===")
+	filteredSearch := dto.SearchRequest{
+		Project: "/tmp/go-demo-project",
+		Query:   "demo",
+		Source:  "manual",
+		Limit:   5,
+	}
+	filteredResp, err := client.Search(ctx, filteredSearch)
+	if err != nil {
+		log.Printf("Failed filtered search: %v", err)
+	} else {
+		fmt.Printf("Source-filtered results: %d (strategy: %s)\n", filteredResp.Count, filteredResp.Strategy)
+	}
+
+	// 5. List observations
 	fmt.Println("\n=== Listing observations ===")
 	listReq := dto.ObservationsRequest{
 		Project: "/tmp/go-demo-project",
@@ -78,7 +98,7 @@ func main() {
 		fmt.Printf("Total observations: %d\n", listResp.Total)
 	}
 
-	// 5. Get version
+	// 6. Get version
 	fmt.Println("\n=== Getting version ===")
 	version, err := client.GetVersion(ctx)
 	if err != nil {
@@ -87,7 +107,7 @@ func main() {
 		fmt.Printf("Backend version: %v\n", version)
 	}
 
-	// 6. Health check
+	// 7. Health check
 	fmt.Println("\n=== Health check ===")
 	if err := client.HealthCheck(ctx); err != nil {
 		log.Printf("Health check failed: %v", err)
