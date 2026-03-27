@@ -606,6 +606,7 @@ func main() {
 			ToolName      string         `json:"tool_name"`
 			ToolInput     any            `json:"tool_input,omitempty"`
 			ToolResponse  any            `json:"tool_response,omitempty"`
+			PromptNumber  int            `json:"prompt_number,omitempty"`
 			Source        string         `json:"source,omitempty"`
 			ExtractedData map[string]any `json:"extractedData,omitempty"`
 		}
@@ -631,6 +632,7 @@ func main() {
 			ToolName:      req.ToolName,
 			ToolInput:     req.ToolInput,
 			ToolResponse:  req.ToolResponse,
+			PromptNumber:  req.PromptNumber,
 			Source:        req.Source,
 			ExtractedData: req.ExtractedData,
 		}); err != nil {

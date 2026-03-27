@@ -76,7 +76,7 @@ func (c *httpClient) Search(ctx context.Context, req dto.SearchRequest) (*dto.Se
 		return nil, fmt.Errorf("cortex-ce: SearchRequest.Project is required")
 	}
 	// Build query params — only include fields that are set.
-	// Backend accepts: project (required), query, type, concept, source, limit, offset, orderBy.
+	// Backend accepts: project (required), query, type, concept, source, limit, offset.
 	params := map[string]string{"project": req.Project}
 	if req.Query != "" {
 		params["query"] = req.Query

@@ -458,3 +458,156 @@ func TestBatchObservationsRequest_EmptyIDs(t *testing.T) {
 		t.Errorf("expected empty array, got %v", arr)
 	}
 }
+
+// ==================== ExtractionResult Wire Format Tests ====================
+
+func TestExtractionResult_LatestDeserialization(t *testing.T) {
+	jsonData := `{"status":"ok","template":"user-preferences","sessionId":"sess-1","extractedData":{"name":"Alice","allergies":["peanuts"]},"createdAt":1700000000000,"observationId":"obs-1"}`
+	var result ExtractionResult
+	if err := json.Unmarshal([]byte(jsonData), &result); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if result.Status != "ok" {
+		t.Errorf("expected status=ok, got %s", result.Status)
+	}
+	if result.Template != "user-preferences" {
+		t.Errorf("expected template=user-preferences, got %s", result.Template)
+	}
+	if result.SessionID != "sess-1" {
+		t.Errorf("expected sessionId=sess-1, got %s", result.SessionID)
+	}
+	if result.ExtractedData["name"] != "Alice" {
+		t.Errorf("expected extractedData.name=Alice, got %v", result.ExtractedData["name"])
+	}
+	if result.CreatedAt != 1700000000000 {
+		t.Errorf("expected createdAt=1700000000000, got %d", result.CreatedAt)
+	}
+	if result.ObservationID != "obs-1" {
+		t.Errorf("expected observationId=obs-1, got %s", result.ObservationID)
+	}
+}
+
+func TestExtractionResult_NotFoundDeserialization(t *testing.T) {
+	jsonData := `{"status":"not_found","message":"no extraction found for template"}`
+	var result ExtractionResult
+	if err := json.Unmarshal([]byte(jsonData), &result); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if result.Status != "not_found" {
+		t.Errorf("expected status=not_found, got %s", result.Status)
+	}
+	if result.Message != "no extraction found for template" {
+		t.Errorf("expected message, got %s", result.Message)
+	}
+}
+
+func TestExtractionResult_HistoryDeserialization(t *testing.T) {
+	// History results may not have status/template fields
+	jsonData := `{"sessionId":"sess-2","extractedData":{"key":"v2"},"createdAt":1700001000000,"observationId":"obs-2"}`
+	var result ExtractionResult
+	if err := json.Unmarshal([]byte(jsonData), &result); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if result.SessionID != "sess-2" {
+		t.Errorf("expected sessionId=sess-2, got %s", result.SessionID)
+	}
+	if result.ExtractedData["key"] != "v2" {
+		t.Errorf("expected extractedData.key=v2, got %v", result.ExtractedData["key"])
+	}
+	if result.ObservationID != "obs-2" {
+		t.Errorf("expected observationId=obs-2, got %s", result.ObservationID)
+	}
+	// Status and Template should be empty for history results
+	if result.Status != "" {
+		t.Errorf("expected empty status for history result, got %s", result.Status)
+	}
+}
+
+func TestExtractionResult_CamelCaseFields(t *testing.T) {
+	// Verify the wire format uses camelCase for sessionId, extractedData, createdAt, observationId
+	req := ExtractionResult{
+		SessionID:     "sess-1",
+		ExtractedData: map[string]any{"pref": "value"},
+		CreatedAt:     1700000000000,
+		ObservationID: "obs-1",
+	}
+	data, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	// Must be camelCase
+	if decoded["session_id"] != nil {
+		t.Error("session_id should not exist (should be 'sessionId')")
+	}
+	if decoded["extracted_data"] != nil {
+		t.Error("extracted_data should not exist (should be 'extractedData')")
+	}
+	if decoded["created_at"] != nil {
+		t.Error("created_at should not exist (should be 'createdAt')")
+	}
+	if decoded["observation_id"] != nil {
+		t.Error("observation_id should not exist (should be 'observationId')")
+	}
+	if decoded["sessionId"] != "sess-1" {
+		t.Errorf("expected sessionId=sess-1, got %v", decoded["sessionId"])
+	}
+	if decoded["observationId"] != "obs-1" {
+		t.Errorf("expected observationId=obs-1, got %v", decoded["observationId"])
+	}
+}
+
+// ==================== SessionUserUpdateResponse Wire Format Tests ====================
+
+func TestSessionUserUpdateResponse_Deserialization(t *testing.T) {
+	jsonData := `{"status":"ok","sessionId":"sess-1","userId":"user-42"}`
+	var resp SessionUserUpdateResponse
+	if err := json.Unmarshal([]byte(jsonData), &resp); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if resp.Status != "ok" {
+		t.Errorf("expected status=ok, got %s", resp.Status)
+	}
+	if resp.SessionID != "sess-1" {
+		t.Errorf("expected sessionId=sess-1, got %s", resp.SessionID)
+	}
+	if resp.UserID != "user-42" {
+		t.Errorf("expected userId=user-42, got %s", resp.UserID)
+	}
+}
+
+func TestSessionUserUpdateResponse_CamelCaseFields(t *testing.T) {
+	resp := SessionUserUpdateResponse{
+		Status:    "ok",
+		SessionID: "sess-1",
+		UserID:    "user-42",
+	}
+	data, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+
+	var decoded map[string]any
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+
+	// Must be camelCase
+	if decoded["session_id"] != nil {
+		t.Error("session_id should not exist (should be 'sessionId')")
+	}
+	if decoded["user_id"] != nil {
+		t.Error("user_id should not exist (should be 'userId')")
+	}
+	if decoded["sessionId"] != "sess-1" {
+		t.Errorf("expected sessionId=sess-1, got %v", decoded["sessionId"])
+	}
+	if decoded["userId"] != "user-42" {
+		t.Errorf("expected userId=user-42, got %v", decoded["userId"])
+	}
+}

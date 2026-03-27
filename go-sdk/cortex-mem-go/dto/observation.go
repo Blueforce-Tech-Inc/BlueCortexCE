@@ -34,17 +34,19 @@ type ObservationUpdate struct {
 
 // Observation is a single observation record returned from the backend.
 type Observation struct {
-	ID            string         `json:"id"`
-	SessionID     string         `json:"sessionId"`
-	ProjectPath   string         `json:"projectPath"`
-	Type          string         `json:"type"`
-	Title         string         `json:"title,omitempty"`
-	Subtitle      string         `json:"subtitle,omitempty"`
-	Content       string         `json:"content"`
-	Facts         []string       `json:"facts,omitempty"`
-	Concepts      []string       `json:"concepts,omitempty"`
-	QualityScore  float32        `json:"qualityScore,omitempty"`
-	Source        string         `json:"source,omitempty"`
-	ExtractedData map[string]any `json:"extractedData,omitempty"`
-	CreatedAt     string         `json:"createdAt,omitempty"`
+	ID              string         `json:"id"`
+	SessionID       string         `json:"sessionId"`
+	ProjectPath     string         `json:"projectPath"`
+	Type            string         `json:"type"`
+	Title           string         `json:"title,omitempty"`
+	Subtitle        string         `json:"subtitle,omitempty"`
+	Content         string         `json:"content"`
+	Facts           []string       `json:"facts,omitempty"`
+	Concepts        []string       `json:"concepts,omitempty"`
+	QualityScore    float32        `json:"qualityScore,omitempty"`
+	Source          string         `json:"source,omitempty"`
+	ExtractedData   map[string]any `json:"extractedData,omitempty"`
+	PromptNumber    int            `json:"promptNumber,omitempty"`
+	CreatedAt       string         `json:"createdAt,omitempty"`
+	CreatedAtEpoch  int64          `json:"createdAtEpoch,omitempty"`
 }
