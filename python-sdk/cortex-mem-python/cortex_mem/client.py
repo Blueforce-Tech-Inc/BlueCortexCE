@@ -7,6 +7,7 @@ import logging
 import random
 import time
 from typing import Any
+from urllib.parse import quote
 
 import requests
 
@@ -204,7 +205,11 @@ class CortexMemClient:
     def update_session_user_id(self, session_id: str, user_id: str) -> dict:
         """Update session userId. PATCH /api/session/{session_id}/user."""
         self._assert_not_closed()
-        path = f"/api/session/{session_id}/user"
+        if not session_id:
+            raise CortexError("session_id is required")
+        if not user_id:
+            raise CortexError("user_id is required")
+        path = f"/api/session/{quote(session_id, safe='')}/user"
         return self._request_json("PATCH", path, json_body={"user_id": user_id})
 
     # ==================== Capture (fire-and-forget) ====================
@@ -470,7 +475,7 @@ class CortexMemClient:
                 body[wire_key] = kwargs[kwarg]
         if not body:
             raise CortexError("at least one field must be provided for update")
-        path = f"/api/memory/observations/{observation_id}"
+        path = f"/api/memory/observations/{quote(observation_id, safe='')}"
         self._request_no_content("PATCH", path, json_body=body)
 
     def delete_observation(self, observation_id: str) -> None:
@@ -478,7 +483,7 @@ class CortexMemClient:
         self._assert_not_closed()
         if not observation_id:
             raise CortexError("observation_id is required")
-        path = f"/api/memory/observations/{observation_id}"
+        path = f"/api/memory/observations/{quote(observation_id, safe='')}"
         self._request_no_content("DELETE", path)
 
     def get_quality_distribution(self, project_path: str) -> QualityDistribution:
@@ -528,7 +533,7 @@ class CortexMemClient:
             raise CortexError("project_path is required")
         if not template_name:
             raise CortexError("template_name is required")
-        path = f"/api/extraction/{template_name}/latest"
+        path = f"/api/extraction/{quote(template_name, safe='')}/latest"
         params: dict[str, str] = {"projectPath": project_path}
         if user_id:
             params["userId"] = user_id
@@ -548,7 +553,7 @@ class CortexMemClient:
             raise CortexError("project_path is required")
         if not template_name:
             raise CortexError("template_name is required")
-        path = f"/api/extraction/{template_name}/history"
+        path = f"/api/extraction/{quote(template_name, safe='')}/history"
         params: dict[str, str] = {"projectPath": project_path}
         if user_id:
             params["userId"] = user_id

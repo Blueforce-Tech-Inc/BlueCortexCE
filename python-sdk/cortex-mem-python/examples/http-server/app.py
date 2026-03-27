@@ -277,20 +277,14 @@ def observations_create():
 def observations_update(obs_id: str):
     data = request.get_json(force=True)
     kwargs = {}
-    if "title" in data:
-        kwargs["title"] = data["title"]
-    if "subtitle" in data:
-        kwargs["subtitle"] = data["subtitle"]
-    if "content" in data:
-        kwargs["content"] = data["content"]
-    if "facts" in data:
-        kwargs["facts"] = data["facts"]
-    if "concepts" in data:
-        kwargs["concepts"] = data["concepts"]
-    if "source" in data:
-        kwargs["source"] = data["source"]
+    for key in ("title", "subtitle", "content", "facts", "concepts", "source"):
+        if key in data:
+            kwargs[key] = data[key]
     if "extractedData" in data:
         kwargs["extracted_data"] = data["extractedData"]
+
+    if not kwargs:
+        return _error(400, "at least one field must be provided for update")
 
     client.update_observation(obs_id, **kwargs)
     return jsonify(status="updated")

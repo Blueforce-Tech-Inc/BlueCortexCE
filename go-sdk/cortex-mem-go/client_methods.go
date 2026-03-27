@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/abforce/cortex-ce/cortex-mem-go/dto"
 )
@@ -15,7 +16,13 @@ func (c *httpClient) StartSession(ctx context.Context, req dto.SessionStartReque
 }
 
 func (c *httpClient) UpdateSessionUserId(ctx context.Context, sessionID, userID string) (*dto.SessionUserUpdateResponse, error) {
-	path := fmt.Sprintf("/api/session/%s/user", sessionID)
+	if sessionID == "" {
+		return nil, fmt.Errorf("cortex-ce: sessionID is required")
+	}
+	if userID == "" {
+		return nil, fmt.Errorf("cortex-ce: userID is required")
+	}
+	path := fmt.Sprintf("/api/session/%s/user", url.PathEscape(sessionID))
 	return doRequestJSON[dto.SessionUserUpdateResponse](c, ctx, http.MethodPatch, path, map[string]string{"user_id": userID}, nil)
 }
 
@@ -165,7 +172,7 @@ func (c *httpClient) UpdateObservation(ctx context.Context, observationID string
 		return fmt.Errorf("cortex-ce: observationID is required")
 	}
 	// NOT fire-and-forget: explicit user action, errors must propagate.
-	path := fmt.Sprintf("/api/memory/observations/%s", observationID)
+	path := fmt.Sprintf("/api/memory/observations/%s", url.PathEscape(observationID))
 	return c.doRequestNoContent(ctx, http.MethodPatch, path, update)
 }
 
@@ -174,7 +181,7 @@ func (c *httpClient) DeleteObservation(ctx context.Context, observationID string
 		return fmt.Errorf("cortex-ce: observationID is required")
 	}
 	// NOT fire-and-forget: explicit user action, errors must propagate.
-	path := fmt.Sprintf("/api/memory/observations/%s", observationID)
+	path := fmt.Sprintf("/api/memory/observations/%s", url.PathEscape(observationID))
 	return c.doRequestNoContent(ctx, http.MethodDelete, path, nil)
 }
 
@@ -223,7 +230,7 @@ func (c *httpClient) GetLatestExtraction(ctx context.Context, projectPath, templ
 	if templateName == "" {
 		return nil, fmt.Errorf("cortex-ce: templateName is required")
 	}
-	path := fmt.Sprintf("/api/extraction/%s/latest", templateName)
+	path := fmt.Sprintf("/api/extraction/%s/latest", url.PathEscape(templateName))
 	params := map[string]string{"projectPath": projectPath}
 	if userID != "" {
 		params["userId"] = userID
@@ -241,7 +248,7 @@ func (c *httpClient) GetExtractionHistory(ctx context.Context, projectPath, temp
 	if limit < 0 {
 		return nil, fmt.Errorf("cortex-ce: limit must not be negative")
 	}
-	path := fmt.Sprintf("/api/extraction/%s/history", templateName)
+	path := fmt.Sprintf("/api/extraction/%s/history", url.PathEscape(templateName))
 	params := map[string]string{
 		"projectPath": projectPath,
 	}

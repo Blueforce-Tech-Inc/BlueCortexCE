@@ -627,11 +627,12 @@ class TestSessionExtended:
 
     @responses.activate
     def test_update_session_user_id_empty_raises(self):
-        """Empty session_id or user_id should raise."""
+        """Empty session_id or user_id should raise CortexError with clear message."""
+        from cortex_mem import CortexError
         c = _client()
-        with pytest.raises(Exception):
+        with pytest.raises(CortexError, match="session_id is required"):
             c.update_session_user_id("", "u1")
-        with pytest.raises(Exception):
+        with pytest.raises(CortexError, match="user_id is required"):
             c.update_session_user_id("s1", "")
 
 
@@ -759,3 +760,31 @@ class TestDTOs:
         """Empty ObservationUpdate should produce empty dict."""
         update = ObservationUpdate()
         assert update.to_wire() == {}
+
+    def test_observation_from_wire_field_mapping(self):
+        """Observation.from_wire correctly maps backend field names."""
+        from cortex_mem.dto import Observation
+        obs = Observation.from_wire({
+            "id": "o1",
+            "content_session_id": "s1",
+            "project": "/my/project",
+            "type": "feature",
+            "title": "Test",
+            "narrative": "the content",
+            "facts": ["f1"],
+            "concepts": ["c1"],
+            "quality_score": 0.85,
+            "source": "manual",
+            "extractedData": {"key": "val"},
+            "prompt_number": 3,
+            "created_at": "2026-01-01T00:00:00Z",
+            "created_at_epoch": 1700000000,
+        })
+        assert obs.id == "o1"
+        assert obs.session_id == "s1"       # content_session_id → session_id
+        assert obs.project_path == "/my/project"  # project → project_path
+        assert obs.content == "the content"  # narrative → content
+        assert obs.source == "manual"
+        assert obs.extracted_data == {"key": "val"}
+        assert obs.prompt_number == 3
+        assert obs.created_at_epoch == 1700000000
