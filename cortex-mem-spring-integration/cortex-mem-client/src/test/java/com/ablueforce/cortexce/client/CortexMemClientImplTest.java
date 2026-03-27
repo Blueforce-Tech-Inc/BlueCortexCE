@@ -644,4 +644,51 @@ class CortexMemClientImplTest {
         assertThat(req.getPath()).contains("projectPath=");
         assertThat(req.getPath()).contains("/my/project");
     }
+
+    // ==================== Null Body Handling Tests ====================
+
+    @Test
+    void startSession_nullBody_throwsIllegalState() {
+        // Server returns 200 with empty body → deserialized as null
+        server.enqueue(new MockResponse().setResponseCode(200));
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalStateException.class,
+            () -> client.startSession(SessionStartRequest.builder()
+                .sessionId("s1")
+                .projectPath("/proj")
+                .build()));
+    }
+
+    @Test
+    void updateSessionUserId_nullBody_throwsIllegalState() {
+        server.enqueue(new MockResponse().setResponseCode(200));
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalStateException.class,
+            () -> client.updateSessionUserId("sess-1", "user-1"));
+    }
+
+    // ==================== Error Propagation Tests ====================
+
+    @Test
+    void startSession_serverError_propagatesException() {
+        server.enqueue(new MockResponse().setResponseCode(500));
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+            Exception.class,
+            () -> client.startSession(SessionStartRequest.builder()
+                .sessionId("s1")
+                .projectPath("/proj")
+                .build()));
+    }
+
+    @Test
+    void updateSessionUserId_serverError_propagatesException() {
+        server.enqueue(new MockResponse().setResponseCode(500));
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+            Exception.class,
+            () -> client.updateSessionUserId("sess-1", "user-1"));
+    }
 }

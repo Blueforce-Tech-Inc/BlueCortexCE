@@ -79,11 +79,15 @@ public class CortexMemClientImpl implements CortexMemClient {
         // Propagates errors (not fire-and-forget): the caller MUST know the session
         // was created successfully to obtain session_db_id and prompt_number.
         // Matches Go SDK behavior: StartSession propagates errors.
-        return restClient.post()
+        Map<String, Object> result = restClient.post()
             .uri("/api/session/start")
             .body(request.toWireFormat())
             .retrieve()
             .body(new ParameterizedTypeReference<>() {});
+        if (result == null) {
+            throw new IllegalStateException("startSession returned null response body");
+        }
+        return result;
     }
 
     @Override
@@ -325,11 +329,15 @@ public class CortexMemClientImpl implements CortexMemClient {
         requireNonBlank(sessionId, "sessionId");
         requireNonBlank(userId, "userId");
         // Propagates errors: caller needs to know if the update succeeded.
-        return restClient.patch()
+        Map<String, Object> result = restClient.patch()
             .uri("/api/session/{sessionId}/user", sessionId)
             .body(Map.of("user_id", userId))
             .retrieve()
             .body(new ParameterizedTypeReference<>() {});
+        if (result == null) {
+            throw new IllegalStateException("updateSessionUserId returned null response body");
+        }
+        return result;
     }
 
     @Override
