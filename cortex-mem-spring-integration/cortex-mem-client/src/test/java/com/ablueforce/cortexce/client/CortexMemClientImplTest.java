@@ -335,6 +335,41 @@ class CortexMemClientImplTest {
         assertThat(client.healthCheck()).isFalse();
     }
 
+    @Test
+    void apiKey_sendsAuthorizationHeader() throws Exception {
+        // Create a new client with apiKey set
+        var authProps = new CortexMemProperties();
+        authProps.setBaseUrl(server.url("").toString().replaceAll("/$", ""));
+        authProps.setApiKey("test-api-key-123");
+        authProps.getRetry().setMaxAttempts(1);
+        authProps.getRetry().setBackoff(Duration.ZERO);
+        RestClient.Builder builder = RestClient.builder()
+            .baseUrl(authProps.getBaseUrl())
+            .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE);
+        var authClient = new CortexMemClientImpl(authProps, builder);
+
+        server.enqueue(new MockResponse()
+            .setBody("{\"status\":\"ok\"}")
+            .addHeader("Content-Type", "application/json"));
+
+        authClient.healthCheck();
+
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getHeader("Authorization")).isEqualTo("Bearer test-api-key-123");
+    }
+
+    @Test
+    void noApiKey_omitsAuthorizationHeader() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("{\"status\":\"ok\"}")
+            .addHeader("Content-Type", "application/json"));
+
+        client.healthCheck();
+
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getHeader("Authorization")).isNull();
+    }
+
     // ==================== P0 API Tests ====================
 
     @Test

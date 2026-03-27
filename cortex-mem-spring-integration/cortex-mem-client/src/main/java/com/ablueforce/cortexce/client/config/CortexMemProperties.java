@@ -11,6 +11,8 @@ public class CortexMemProperties {
 
     private String baseUrl = "http://localhost:37777";
     private String projectPath;
+    /** API key for authentication (sent as Bearer token). Null/blank = no auth. */
+    private String apiKey;
     private Duration connectTimeout = Duration.ofSeconds(10);
     private Duration readTimeout = Duration.ofSeconds(30);
     private int defaultExperienceCount = 4;
@@ -30,6 +32,9 @@ public class CortexMemProperties {
 
     public String getProjectPath() { return projectPath; }
     public void setProjectPath(String projectPath) { this.projectPath = projectPath; }
+
+    public String getApiKey() { return apiKey; }
+    public void setApiKey(String apiKey) { this.apiKey = apiKey; }
 
     public Duration getConnectTimeout() { return connectTimeout; }
     public void setConnectTimeout(Duration connectTimeout) { this.connectTimeout = connectTimeout; }

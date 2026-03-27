@@ -53,12 +53,18 @@ public class CortexMemClientImpl implements CortexMemClient {
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout((int) properties.getReadTimeout().toMillis());
 
-        this.restClient = restClientBuilder
+        var builder = restClientBuilder
             .requestFactory(requestFactory)
             .baseUrl(properties.getBaseUrl())
             .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-            .defaultHeader("User-Agent", "cortex-mem-java/1.0.0")
-            .build();
+            .defaultHeader("User-Agent", "cortex-mem-java/1.0.0");
+
+        // Bearer token auth when apiKey is configured (matches JS/Go SDK behavior)
+        if (properties.getApiKey() != null && !properties.getApiKey().isBlank()) {
+            builder.defaultHeader("Authorization", "Bearer " + properties.getApiKey());
+        }
+
+        this.restClient = builder.build();
 
         log.info("CortexMemClient initialized → {}", properties.getBaseUrl());
     }
