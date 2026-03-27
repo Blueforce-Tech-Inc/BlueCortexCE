@@ -2,6 +2,7 @@ package com.example.cortexmem;
 
 import com.ablueforce.cortexce.client.CortexMemClient;
 import com.ablueforce.cortexce.client.dto.ObservationsRequest;
+import com.ablueforce.cortexce.client.dto.ObservationUpdate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
@@ -83,6 +84,68 @@ public class ObservationsController {
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Batch observations failed: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * PATCH /demo/observations/{id}
+     * Body: {"title":"...", "source":"...", "extractedData":{...}}
+     *
+     * Demonstrates V14 observation update with partial fields.
+     * Only non-null fields are updated (PATCH semantics).
+     */
+    @PatchMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> updateObservation(
+            @PathVariable String id,
+            @RequestBody Map<String, Object> body) {
+        if (id == null || id.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "observation id is required"));
+        }
+        try {
+            ObservationUpdate.Builder builder = ObservationUpdate.builder();
+            if (body.containsKey("title")) {
+                builder.title((String) body.get("title"));
+            }
+            if (body.containsKey("subtitle")) {
+                builder.subtitle((String) body.get("subtitle"));
+            }
+            if (body.containsKey("content")) {
+                builder.content((String) body.get("content"));
+            }
+            if (body.containsKey("source")) {
+                builder.source((String) body.get("source"));
+            }
+            if (body.containsKey("extractedData")) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> extractedData = (Map<String, Object>) body.get("extractedData");
+                builder.extractedData(extractedData);
+            }
+            client.updateObservation(id, builder.build());
+            return ResponseEntity.ok(Map.of("status", "updated", "id", id));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Update observation failed: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * DELETE /demo/observations/{id}
+     *
+     * Demonstrates V14 observation deletion.
+     */
+    @DeleteMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> deleteObservation(@PathVariable String id) {
+        if (id == null || id.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "observation id is required"));
+        }
+        try {
+            client.deleteObservation(id);
+            return ResponseEntity.ok(Map.of("status", "deleted", "id", id));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Delete observation failed: " + e.getMessage()));
         }
     }
 
