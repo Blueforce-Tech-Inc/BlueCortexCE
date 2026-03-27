@@ -45,6 +45,13 @@ def handle_cortex_error(exc: CortexError):
     return jsonify(error=str(exc)), 400
 
 
+@app.errorhandler(Exception)
+def handle_generic_error(exc: Exception):
+    """Catch-all: return JSON instead of Flask's default HTML 500 page."""
+    logger.error("Unhandled exception: %s", exc, exc_info=True)
+    return jsonify(error="internal server error"), 500
+
+
 # ==================== Helpers ====================
 
 

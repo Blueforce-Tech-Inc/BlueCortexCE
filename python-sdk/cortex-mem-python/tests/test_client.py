@@ -505,6 +505,13 @@ class TestManagementExtended:
             c.update_observation("", title="x")
 
     @responses.activate
+    def test_update_observation_unknown_kwargs_raises(self):
+        """Unknown kwargs should raise CortexError with clear message."""
+        c = _client()
+        with pytest.raises(Exception, match="unknown update fields.*typo_field"):
+            c.update_observation("o1", typo_field="value")
+
+    @responses.activate
     def test_update_observation_no_fields_raises(self):
         """Calling update_observation with no fields should raise."""
         c = _client()

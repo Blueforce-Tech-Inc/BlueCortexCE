@@ -478,6 +478,9 @@ class CortexMemClient:
             "source": "source",
             "extracted_data": "extractedData",
         }
+        unknown = set(kwargs) - set(kwarg_map)
+        if unknown:
+            raise CortexError(f"unknown update fields: {', '.join(sorted(unknown))}")
         for kwarg, wire_key in kwarg_map.items():
             if kwarg in kwargs:
                 body[wire_key] = kwargs[kwarg]
