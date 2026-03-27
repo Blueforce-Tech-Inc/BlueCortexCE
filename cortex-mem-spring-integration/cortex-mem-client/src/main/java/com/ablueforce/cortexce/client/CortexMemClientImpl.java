@@ -70,16 +70,14 @@ public class CortexMemClientImpl implements CortexMemClient {
         Objects.requireNonNull(request, "request must not be null");
         requireNonBlank(request.sessionId(), "sessionId");
         requireNonBlank(request.projectPath(), "projectPath");
-        try {
-            return restClient.post()
-                .uri("/api/session/start")
-                .body(request.toWireFormat())
-                .retrieve()
-                .body(new ParameterizedTypeReference<>() {});
-        } catch (Exception e) {
-            log.warn("Failed to start session: {}", e.getMessage());
-            return Map.of("error", e.getMessage());
-        }
+        // Propagates errors (not fire-and-forget): the caller MUST know the session
+        // was created successfully to obtain session_db_id and prompt_number.
+        // Matches Go SDK behavior: StartSession propagates errors.
+        return restClient.post()
+            .uri("/api/session/start")
+            .body(request.toWireFormat())
+            .retrieve()
+            .body(new ParameterizedTypeReference<>() {});
     }
 
     @Override
@@ -320,16 +318,12 @@ public class CortexMemClientImpl implements CortexMemClient {
     public Map<String, Object> updateSessionUserId(String sessionId, String userId) {
         requireNonBlank(sessionId, "sessionId");
         requireNonBlank(userId, "userId");
-        try {
-            return restClient.patch()
-                .uri("/api/session/{sessionId}/user", sessionId)
-                .body(Map.of("user_id", userId))
-                .retrieve()
-                .body(new ParameterizedTypeReference<>() {});
-        } catch (Exception e) {
-            log.warn("Failed to update session userId: {}", e.getMessage());
-            return Map.of("error", e.getMessage());
-        }
+        // Propagates errors: caller needs to know if the update succeeded.
+        return restClient.patch()
+            .uri("/api/session/{sessionId}/user", sessionId)
+            .body(Map.of("user_id", userId))
+            .retrieve()
+            .body(new ParameterizedTypeReference<>() {});
     }
 
     @Override
