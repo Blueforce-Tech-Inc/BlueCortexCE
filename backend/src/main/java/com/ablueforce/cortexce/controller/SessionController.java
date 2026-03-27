@@ -110,15 +110,18 @@ public class SessionController {
         @ApiResponse(responseCode = "400", description = "Missing required fields: session_id and project_path (or cwd)"),
         @ApiResponse(responseCode = "500", description = "Failed to initialize session due to internal error")
     })
-    @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Session start payload. Fields: session_id (required, unique session identifier), project_path (required, absolute path), user_id (optional, for multi-user), projects (optional, comma-separated paths for worktree)")
-    public ResponseEntity<Map<String, Object>> startSession(@org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
-        String contentSessionId = (String) body.get("session_id");
-        String projectPath = (String) body.get("project_path");
-        String projectPathFromCwd = (String) body.get("cwd"); // fallback when project_path absent
-        String projectsParam = (String) body.get("projects");
-        Boolean isWorktree = (Boolean) body.get("is_worktree");
-        String parentProject = (String) body.get("parent_project");
-        String userId = (String) body.get("user_id");  // Phase 3: optional user identifier
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+        description = "Session start request",
+        required = true,
+        content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.SessionStartRequest.class)))
+    public ResponseEntity<Map<String, Object>> startSession(@org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.SessionStartRequest body) {
+        String contentSessionId = body.sessionId();
+        String projectPath = body.projectPath();
+        String projectPathFromCwd = body.cwd(); // fallback when project_path absent
+        String projectsParam = body.projects();
+        Boolean isWorktree = body.isWorktree();
+        String parentProject = body.parentProject();
+        String userId = body.userId();  // Phase 3: optional user identifier
 
         // P1: Validate required fields
         if (contentSessionId == null || contentSessionId.isBlank()) {
@@ -380,9 +383,12 @@ public class SessionController {
     public ResponseEntity<Map<String, String>> updateSessionUserId(
             @Parameter(description = "Content session ID to update", required = true, example = "sess-abc123")
             @PathVariable String sessionId,
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "User ID update payload. Fields: user_id (required, the new user identifier)")
-            @org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
-        String userId = (String) body.get("user_id");
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                description = "Session user ID update request",
+                required = true,
+                content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.SessionUserUpdateRequest.class)))
+            @org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.SessionUserUpdateRequest body) {
+        String userId = body.userId();
         
         SessionEntity session = sessionManagementService.findByContentSessionId(sessionId)
             .orElse(null);

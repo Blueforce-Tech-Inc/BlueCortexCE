@@ -94,18 +94,20 @@ public class MemoryController {
         @ApiResponse(responseCode = "400", description = "Missing required field: task")
     })
     public ResponseEntity<?> retrieveExperiences(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Request body with task (required), project, count (default 4), source, and requiredConcepts", required = true)
-            @org.springframework.web.bind.annotation.RequestBody Map<String, Object> request) {
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                description = "Experience retrieval request",
+                required = true,
+                content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.ExperienceRequest.class)))
+            @org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.ExperienceRequest request) {
 
-        String task = (String) request.get("task");
+        String task = request.task();
         if (task == null || task.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "task is required"));
         }
-        String project = (String) request.get("project");
-        int count = request.get("count") != null ? ((Number) request.get("count")).intValue() : 4;
-        String source = (String) request.get("source");
-        @SuppressWarnings("unchecked")
-        List<String> requiredConcepts = (List<String>) request.get("requiredConcepts");
+        String project = request.project();
+        int count = request.count() != null ? request.count() : 4;
+        String source = request.source();
+        List<String> requiredConcepts = request.requiredConcepts();
         
         List<ExpRagService.Experience> experiences = expRagService
             .retrieveExperiences(task, project, count, source, requiredConcepts);
@@ -126,18 +128,17 @@ public class MemoryController {
         @ApiResponse(responseCode = "400", description = "Missing required field: task")
     })
     public ResponseEntity<?> buildICLPrompt(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Request body with task (required), project, and maxChars (default 4000)", required = true)
-            @org.springframework.web.bind.annotation.RequestBody Map<String, Object> request) {
-        String task = (String) request.get("task");
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                description = "ICL prompt build request",
+                required = true,
+                content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.ICLPromptRequest.class)))
+            @org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.ICLPromptRequest request) {
+        String task = request.task();
         if (task == null || task.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "task is required"));
         }
-        String project = (String) request.get("project");
-        int maxChars = 4000;
-        Object maxCharsObj = request.get("maxChars");
-        if (maxCharsObj instanceof Number n) {
-            maxChars = Math.max(100, n.intValue());
-        }
+        String project = request.project();
+        int maxChars = request.maxChars() != null ? Math.max(100, request.maxChars()) : 4000;
 
         List<ExpRagService.Experience> experiences = expRagService
             .retrieveExperiences(task, project, 4);
@@ -205,8 +206,11 @@ public class MemoryController {
         description = "Allows manual feedback submission for observations via WebUI. Currently returns 501 Not Implemented.")
     @ApiResponse(responseCode = "501", description = "Feedback submission endpoint is not yet implemented")
     public ResponseEntity<Map<String, String>> submitFeedback(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Request body with observationId (UUID), feedbackType (e.g., SUCCESS), and optional comment", required = true)
-            @org.springframework.web.bind.annotation.RequestBody Map<String, Object> request) {
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                description = "Feedback submission request",
+                required = true,
+                content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.FeedbackRequest.class)))
+            @org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.FeedbackRequest request) {
         // TODO: Full implementation requires observation ID lookup and feedback persistence
         return ResponseEntity.status(501).body(Map.of(
             "status", "not_implemented",

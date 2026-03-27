@@ -27,7 +27,11 @@ public class ApiRequests {
         @Schema(description = "User ID for multi-user isolation")
         @JsonProperty("user_id") String userId,
         @Schema(description = "Comma-separated project paths for worktree support")
-        @JsonProperty("projects") String projects
+        @JsonProperty("projects") String projects,
+        @Schema(description = "Flag indicating worktree mode (rare, internal use)")
+        @JsonProperty("is_worktree") Boolean isWorktree,
+        @Schema(description = "Parent project path for worktree (rare, internal use)")
+        @JsonProperty("parent_project") String parentProject
     ) {}
 
     @Schema(description = "Update session user ID request")
