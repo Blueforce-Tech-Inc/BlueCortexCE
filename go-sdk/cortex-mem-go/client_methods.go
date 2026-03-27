@@ -100,11 +100,11 @@ func (c *httpClient) Search(ctx context.Context, req dto.SearchRequest) (*dto.Se
 }
 
 func (c *httpClient) ListObservations(ctx context.Context, req dto.ObservationsRequest) (*dto.ObservationsResponse, error) {
-	if req.Project == "" {
-		return nil, fmt.Errorf("cortex-ce: ObservationsRequest.Project is required")
+	// project is optional per backend contract — omit to list all projects.
+	params := map[string]string{}
+	if req.Project != "" {
+		params["project"] = req.Project
 	}
-	// Build query params — only include optional fields when set.
-	params := map[string]string{"project": req.Project}
 	if req.Offset > 0 {
 		params["offset"] = fmt.Sprintf("%d", req.Offset)
 	}

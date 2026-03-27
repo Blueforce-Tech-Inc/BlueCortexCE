@@ -385,13 +385,14 @@ public class CortexMemClientImpl implements CortexMemClient {
     @SuppressWarnings("unchecked")
     public Map<String, Object> listObservations(ObservationsRequest request) {
         Objects.requireNonNull(request, "request must not be null");
-        requireNonBlank(request.project(), "project");
+        // project is optional per DTO contract — null means all projects
         try {
             return restClient.get()
                 .uri(uriBuilder -> {
-                    var builder = uriBuilder
-                        .path("/api/observations")
-                        .queryParam("project", request.project());
+                    var builder = uriBuilder.path("/api/observations");
+                    if (request.project() != null && !request.project().isBlank()) {
+                        builder.queryParam("project", request.project());
+                    }
                     if (request.offset() != null && request.offset() > 0) {
                         builder.queryParam("offset", request.offset());
                     }

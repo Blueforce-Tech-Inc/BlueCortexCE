@@ -3385,16 +3385,22 @@ func TestBuildICLPrompt_Validation_EmptyTask(t *testing.T) {
 	}
 }
 
-func TestListObservations_Validation_EmptyProject(t *testing.T) {
-	client := cortexmem.NewClient()
+func TestListObservations_EmptyProject_OmitsParam(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("project") != "" {
+			t.Errorf("project param should be omitted when empty, got: %q", r.URL.Query().Get("project"))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"items":[],"total":0,"hasMore":false}`))
+	}))
+	defer server.Close()
+
+	client := cortexmem.NewClient(cortexmem.WithBaseURL(server.URL))
 	_, err := client.ListObservations(context.Background(), dto.ObservationsRequest{
-		Project: "", // empty project should fail client-side
+		Project: "", // empty project should succeed, omitting project query param
 	})
-	if err == nil {
-		t.Fatal("ListObservations should fail with empty project")
-	}
-	if !strings.Contains(err.Error(), "Project is required") {
-		t.Errorf("expected validation error about Project, got: %v", err)
+	if err != nil {
+		t.Fatalf("ListObservations with empty project should succeed: %v", err)
 	}
 }
 

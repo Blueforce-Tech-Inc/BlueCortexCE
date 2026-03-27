@@ -391,10 +391,18 @@ class CortexMemClientImplTest {
     }
 
     @Test
-    void listObservations_emptyProject_throws() {
-        org.junit.jupiter.api.Assertions.assertThrows(
-            IllegalArgumentException.class,
-            () -> client.listObservations(ObservationsRequest.builder().build()));
+    void listObservations_emptyProject_omitsParam() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("{\"observations\":[],\"total\":0,\"hasMore\":false}")
+            .addHeader("Content-Type", "application/json"));
+
+        // project is optional — null should omit the project query param
+        client.listObservations(ObservationsRequest.builder().build());
+
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getMethod()).isEqualTo("GET");
+        assertThat(req.getPath()).startsWith("/api/observations");
+        assertThat(req.getPath()).doesNotContain("project=");
     }
 
     @Test
