@@ -20,9 +20,9 @@ type Experience struct {
 	Task            string  `json:"task"`
 	Strategy        string  `json:"strategy"`
 	Outcome         string  `json:"outcome"`
-	ReuseCondition  string  `json:"reuseCondition"`
-	QualityScore    float32 `json:"qualityScore"`
-	CreatedAt       string  `json:"createdAt,omitempty"`
+	ReuseCondition  string  `json:"reuse_condition"` // Backend uses SNAKE_CASE naming strategy
+	QualityScore    float32 `json:"quality_score"`    // Backend uses SNAKE_CASE naming strategy
+	CreatedAt       string  `json:"created_at"`       // Backend uses SNAKE_CASE naming strategy
 }
 
 // ICLPromptRequest builds an ICL prompt from historical experiences.

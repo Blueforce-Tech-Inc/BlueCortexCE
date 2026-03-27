@@ -33,20 +33,25 @@ type ObservationUpdate struct {
 }
 
 // Observation is a single observation record returned from the backend.
+//
+// Wire format (verified against backend ObservationEntity.java + SNAKE_CASE naming strategy):
+//   - content_session_id (@JsonProperty override), project (@JsonProperty override),
+//     narrative (@JsonProperty override), extractedData (@JsonProperty override)
+//   - quality_score, prompt_number, created_at, created_at_epoch (SNAKE_CASE strategy)
 type Observation struct {
 	ID              string         `json:"id"`
-	SessionID       string         `json:"sessionId"`
-	ProjectPath     string         `json:"projectPath"`
+	SessionID       string         `json:"content_session_id"` // @JsonProperty("content_session_id") on entity
+	ProjectPath     string         `json:"project"`             // @JsonProperty("project") on entity
 	Type            string         `json:"type"`
 	Title           string         `json:"title,omitempty"`
 	Subtitle        string         `json:"subtitle,omitempty"`
-	Content         string         `json:"content"`
+	Content         string         `json:"narrative"` // @JsonProperty("narrative") on entity
 	Facts           []string       `json:"facts,omitempty"`
 	Concepts        []string       `json:"concepts,omitempty"`
-	QualityScore    float32        `json:"qualityScore,omitempty"`
+	QualityScore    float32        `json:"quality_score,omitempty"`    // SNAKE_CASE naming strategy
 	Source          string         `json:"source,omitempty"`
-	ExtractedData   map[string]any `json:"extractedData,omitempty"`
-	PromptNumber    int            `json:"promptNumber,omitempty"`
-	CreatedAt       string         `json:"createdAt,omitempty"`
-	CreatedAtEpoch  int64          `json:"createdAtEpoch,omitempty"`
+	ExtractedData   map[string]any `json:"extractedData,omitempty"`    // @JsonProperty("extractedData") on entity
+	PromptNumber    int            `json:"prompt_number,omitempty"`    // SNAKE_CASE naming strategy
+	CreatedAt       string         `json:"created_at,omitempty"`       // SNAKE_CASE naming strategy
+	CreatedAtEpoch  int64          `json:"created_at_epoch,omitempty"` // SNAKE_CASE naming strategy
 }

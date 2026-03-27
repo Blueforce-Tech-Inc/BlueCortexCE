@@ -749,13 +749,6 @@ class TestDTOs:
         assert "content" not in wire
         assert "extracted_data" not in wire
 
-    def test_observation_update_from_kwargs(self):
-        """ObservationUpdate.from_kwargs() should create a valid update."""
-        update = ObservationUpdate.from_kwargs(title="T", extracted_data={"k": "v"})
-        assert update.title == "T"
-        assert update.extracted_data == {"k": "v"}
-        assert update.source is None
-
     def test_observation_update_empty_to_wire(self):
         """Empty ObservationUpdate should produce empty dict."""
         update = ObservationUpdate()

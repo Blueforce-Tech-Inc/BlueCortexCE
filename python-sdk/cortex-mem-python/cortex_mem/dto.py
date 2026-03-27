@@ -81,17 +81,10 @@ class ICLPromptResult:
 
     @classmethod
     def from_wire(cls, data: dict) -> ICLPromptResult:
-        # experienceCount may come as string or int
-        ec = data.get("experienceCount", 0)
-        if isinstance(ec, str):
-            try:
-                ec = int(ec)
-            except ValueError:
-                ec = 0
         return cls(
             prompt=data.get("prompt", ""),
-            experience_count=ec,
-            max_chars=data.get("maxChars", 0),
+            experience_count=_to_int(data.get("experienceCount", 0)),
+            max_chars=_to_int(data.get("maxChars", 0)),
         )
 
 
@@ -141,20 +134,6 @@ class ObservationUpdate:
         if self.extracted_data is not None:
             body["extractedData"] = self.extracted_data
         return body
-
-    @classmethod
-    def from_kwargs(cls, **kwargs: "str | list[str] | dict | None") -> "ObservationUpdate":
-        """Create from keyword arguments."""
-        return cls(
-            title=kwargs.get("title"),
-            subtitle=kwargs.get("subtitle"),
-            content=kwargs.get("content"),
-            facts=kwargs.get("facts"),
-            concepts=kwargs.get("concepts"),
-            source=kwargs.get("source"),
-            extracted_data=kwargs.get("extracted_data"),
-        )
-
 
 @dataclass
 class Observation:
