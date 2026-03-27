@@ -5,12 +5,19 @@ import com.ablueforce.cortexce.service.ExpRagService;
 import com.ablueforce.cortexce.repository.ObservationRepository;
 import com.ablueforce.cortexce.event.MemoryRefineEventPublisher;
 import com.ablueforce.cortexce.entity.ObservationEntity;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -27,6 +34,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/memory")
+@Tag(name = "Memory", description = "ReMem API for memory refinement, experience retrieval, and ICL prompt building. Based on Evo-Memory paper Section 6.2.")
 public class MemoryController {
 
     private static final Logger log = LoggerFactory.getLogger(MemoryController.class);
@@ -51,7 +59,15 @@ public class MemoryController {
      * POST /api/memory/refine?project=/path/to/project
      */
     @PostMapping("/refine")
-    public ResponseEntity<Map<String, String>> triggerRefine(@RequestParam String project) {
+    @Operation(summary = "Trigger memory refinement",
+        description = "Publishes a memory refinement event for async processing. Refinement re-evaluates observation quality and updates the quality distribution for the project.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Refinement event published successfully"),
+        @ApiResponse(responseCode = "400", description = "Missing required parameter: project")
+    })
+    public ResponseEntity<Map<String, String>> triggerRefine(
+            @Parameter(description = "Absolute project path to trigger refinement for", required = true, example = "/Users/dev/my-project")
+            @RequestParam String project) {
         if (project == null || project.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "project is required"));
         }
@@ -70,8 +86,15 @@ public class MemoryController {
      * Body: {"task": "...", "project": "/path", "count": 4, "source": "optional", "requiredConcepts": ["optional"]}
      */
     @PostMapping("/experiences")
+    @Operation(summary = "Retrieve experiences for ICL",
+        description = "Retrieves relevant past experiences (observations) for in-context learning. Uses vector similarity search against the task description. Optionally filters by source and required concepts. Returns ordered list of relevant experiences.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Experiences retrieved successfully"),
+        @ApiResponse(responseCode = "400", description = "Missing required field: task")
+    })
     public ResponseEntity<?> retrieveExperiences(
-            @RequestBody Map<String, Object> request) {
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Request body with task (required), project, count (default 4), source, and requiredConcepts", required = true)
+            @org.springframework.web.bind.annotation.RequestBody Map<String, Object> request) {
 
         String task = (String) request.get("task");
         if (task == null || task.isBlank()) {
@@ -95,7 +118,15 @@ public class MemoryController {
      * Body: {"task": "...", "project": "...", "maxChars": 4000}
      */
     @PostMapping("/icl-prompt")
-    public ResponseEntity<?> buildICLPrompt(@RequestBody Map<String, Object> request) {
+    @Operation(summary = "Build ICL prompt from experiences",
+        description = "Retrieves relevant experiences and formats them as an in-context learning (ICL) prompt. The prompt is constructed by combining the task description with the retrieved experiences, truncated to maxChars.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "ICL prompt built successfully"),
+        @ApiResponse(responseCode = "400", description = "Missing required field: task")
+    })
+    public ResponseEntity<?> buildICLPrompt(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Request body with task (required), project, and maxChars (default 4000)", required = true)
+            @org.springframework.web.bind.annotation.RequestBody Map<String, Object> request) {
         String task = (String) request.get("task");
         if (task == null || task.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "task is required"));
@@ -124,7 +155,12 @@ public class MemoryController {
      * GET /api/memory/quality-distribution?project=/path
      */
     @GetMapping("/quality-distribution")
-    public ResponseEntity<Map<String, Object>> getQualityDistribution(@RequestParam String project) {
+    @Operation(summary = "Get quality distribution",
+        description = "Returns the quality distribution (high/medium/low/unknown counts) for observations in a project. Used by WebUI quality charts and memory refinement monitoring.")
+    @ApiResponse(responseCode = "200", description = "Quality distribution retrieved (returns zeros if no data)")
+    public ResponseEntity<Map<String, Object>> getQualityDistribution(
+            @Parameter(description = "Absolute project path to query quality distribution for", required = true, example = "/Users/dev/my-project")
+            @RequestParam String project) {
         try {
             Object[] distribution = observationRepository.getQualityDistribution(project);
             
@@ -164,7 +200,12 @@ public class MemoryController {
      * Body: {"observationId": "uuid", "feedbackType": "SUCCESS", "comment": "optional"}
      */
     @PostMapping("/feedback")
-    public ResponseEntity<Map<String, String>> submitFeedback(@RequestBody Map<String, Object> request) {
+    @Operation(summary = "Submit manual feedback (not yet implemented)",
+        description = "Allows manual feedback submission for observations via WebUI. Currently returns 501 Not Implemented.")
+    @ApiResponse(responseCode = "501", description = "Feedback submission endpoint is not yet implemented")
+    public ResponseEntity<Map<String, String>> submitFeedback(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Request body with observationId (UUID), feedbackType (e.g., SUCCESS), and optional comment", required = true)
+            @org.springframework.web.bind.annotation.RequestBody Map<String, Object> request) {
         // TODO: Full implementation requires observation ID lookup and feedback persistence
         return ResponseEntity.status(501).body(Map.of(
             "status", "not_implemented",
@@ -183,9 +224,18 @@ public class MemoryController {
      * Invalid types return 400 Bad Request to prevent silent data loss.
      */
     @PatchMapping("/observations/{id}")
+    @Operation(summary = "Update an observation (V14)",
+        description = "Partially updates an existing observation. Only fields present in the request body are updated; null values clear the field, absent fields are left unchanged. Supports: title, content/narrative, subtitle, source, facts, concepts, extractedData. Returns 404 if observation not found.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Observation updated successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid field types in request body"),
+        @ApiResponse(responseCode = "404", description = "Observation with given UUID not found")
+    })
     public ResponseEntity<Map<String, Object>> updateObservation(
+            @Parameter(description = "UUID of the observation to update", required = true, example = "550e8400-e29b-41d4-a716-446655440000")
             @PathVariable UUID id,
-            @RequestBody Map<String, Object> body) {
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Partial update body. Supports: title, content/narrative, subtitle, source, facts (list of strings), concepts (list of strings), extractedData (JSON object). Null = clear field, absent = no change.", required = true)
+            @org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
 
         ObservationEntity observation = observationRepository.findById(id).orElse(null);
         if (observation == null) {
@@ -309,7 +359,15 @@ public class MemoryController {
      * DELETE /api/memory/observations/{id}
      */
     @DeleteMapping("/observations/{id}")
-    public ResponseEntity<Map<String, String>> deleteObservation(@PathVariable UUID id) {
+    @Operation(summary = "Delete an observation",
+        description = "Permanently deletes an observation by its UUID. Returns 404 if the observation does not exist.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Observation deleted successfully"),
+        @ApiResponse(responseCode = "404", description = "Observation with given UUID not found")
+    })
+    public ResponseEntity<Map<String, String>> deleteObservation(
+            @Parameter(description = "UUID of the observation to delete", required = true, example = "550e8400-e29b-41d4-a716-446655440000")
+            @PathVariable UUID id) {
         if (!observationRepository.existsById(id)) {
             return ResponseEntity.notFound().build();
         }

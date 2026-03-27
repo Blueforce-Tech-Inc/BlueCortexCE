@@ -10,6 +10,14 @@ import com.ablueforce.cortexce.service.SummaryGenerationService;
 import com.ablueforce.cortexce.service.ContextCacheService;
 import com.ablueforce.cortexce.service.RateLimitService;
 import com.ablueforce.cortexce.service.SSEBroadcaster;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -35,6 +43,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/ingest")
+@Tag(name = "Ingestion", description = "Hook event ingestion endpoints for Claude Code integration via thin proxy (wrapper.js)")
 public class IngestionController {
 
     private static final Logger log = LoggerFactory.getLogger(IngestionController.class);
@@ -83,7 +92,15 @@ public class IngestionController {
      * }
      */
     @PostMapping("/tool-use")
-    public ResponseEntity<Map<String, String>> handleToolUse(@RequestBody Map<String, Object> body) {
+    @Operation(summary = "Ingest tool use event",
+        description = "Receives PostToolUse hook events from the thin proxy (wrapper.js). Enqueues the tool use for async observation extraction. Called after Edit, Write, Read, and Bash tool invocations.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Tool use event accepted for processing",
+            content = @Content(schema = @Schema(example = "{\"status\":\"accepted\"}"))),
+        @ApiResponse(responseCode = "400", description = "Missing required fields: session_id or tool_name"),
+        @ApiResponse(responseCode = "429", description = "Rate limit exceeded (10 requests per 60 seconds per session)")
+    })
+    public ResponseEntity<Map<String, String>> handleToolUse(@org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
         String contentSessionId = (String) body.get("session_id");
         String toolName = (String) body.get("tool_name");
         
@@ -142,7 +159,13 @@ public class IngestionController {
      * @return Response with status and debug info if debug=true
      */
     @PostMapping("/session-end")
-    public ResponseEntity<Map<String, String>> handleSessionEnd(@RequestBody Map<String, Object> body) {
+    @Operation(summary = "Ingest session end event",
+        description = "Receives SessionEnd hook events from the thin proxy. Marks the session as completed and triggers async summary generation. Supports debug mode for testing.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Session end event accepted"),
+        @ApiResponse(responseCode = "400", description = "Missing required field: session_id")
+    })
+    public ResponseEntity<Map<String, String>> handleSessionEnd(@org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
         String contentSessionId = (String) body.get("session_id");
         String lastAssistantMessage = (String) body.get("last_assistant_message");
         Boolean debug = (Boolean) body.get("debug");
@@ -186,7 +209,13 @@ public class IngestionController {
      * }
      */
     @PostMapping("/user-prompt")
-    public ResponseEntity<Map<String, String>> handleUserPrompt(@RequestBody Map<String, Object> body) {
+    @Operation(summary = "Ingest user prompt event",
+        description = "Receives UserPromptSubmit hook events from the thin proxy. Records the user prompt for conversation tracking. Automatically ensures the session exists before recording. Prompt text is truncated if it exceeds max length.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "User prompt recorded successfully"),
+        @ApiResponse(responseCode = "400", description = "Missing required field: session_id")
+    })
+    public ResponseEntity<Map<String, String>> handleUserPrompt(@org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
         String contentSessionId = (String) body.get("session_id");
         String promptText = (String) body.get("prompt_text");
         String cwd = (String) body.get("cwd");
@@ -254,7 +283,13 @@ public class IngestionController {
      * Also accepts {@code session_id} as an alias for {@code content_session_id}.
      */
     @PostMapping("/observation")
-    public ResponseEntity<?> handleObservation(@RequestBody Map<String, Object> body) {
+    @Operation(summary = "Create observation directly",
+        description = "Creates a new observation with auto-embedding. For testing and direct SDK integration. Accepts content_session_id (or session_id alias) and project_path. Supports V14 fields: source, extractedData. Also accepts 'content' as alias for 'narrative'.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Observation created successfully"),
+        @ApiResponse(responseCode = "400", description = "Missing required fields (content_session_id, project_path) or invalid field types (facts/concepts/files_read/files_modified must be lists of strings)")
+    })
+    public ResponseEntity<?> handleObservation(@org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
         String contentSessionId = safeGetString(body, "content_session_id");
         if (contentSessionId == null || contentSessionId.isBlank()) {
             contentSessionId = safeGetString(body, "session_id");

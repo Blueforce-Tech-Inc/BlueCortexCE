@@ -5,6 +5,13 @@ import com.ablueforce.cortexce.repository.SummaryRepository;
 import com.ablueforce.cortexce.service.ClaudeMdService;
 import com.ablueforce.cortexce.service.ContextService;
 import com.ablueforce.cortexce.service.TimelineService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -26,6 +33,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/context")
+@Tag(name = "Context", description = "Context generation and injection endpoints for Claude Code sessions")
 public class ContextController {
 
     private static final Logger log = LoggerFactory.getLogger(ContextController.class);
@@ -55,7 +63,14 @@ public class ContextController {
      * - updateFiles array (if CLAUDE.md needs updating)
      */
     @GetMapping(value = "/inject", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Inject context for Claude Code session",
+        description = "Generates context from observations for one or more projects. Returns plain text context for stdout injection and updateFiles array if CLAUDE.md needs updating. Supports comma-separated project paths for worktree mode. Falls back to current working directory if no projects specified.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Context generated successfully"),
+        @ApiResponse(responseCode = "500", description = "Failed to generate context due to internal error")
+    })
     public ResponseEntity<Map<String, Object>> injectContext(
+            @Parameter(description = "Comma-separated project paths for context injection (e.g., '/path/to/project1,/path/to/project2'). Empty string uses current working directory.", required = false, example = "/Users/dev/my-project")
             @RequestParam(required = false, defaultValue = "") String projects) {
 
         log.debug("Context inject request, projects: {}", projects);
@@ -142,8 +157,13 @@ public class ContextController {
      * Returns recent sessions with their summaries for context display.
      */
     @GetMapping(value = "/recent", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Get recent session context",
+        description = "Returns recent session summaries for a project, formatted as markdown for display. Used to provide historical context at the start of new sessions. Defaults to current directory basename if project not specified.")
+    @ApiResponse(responseCode = "200", description = "Recent context retrieved (may contain empty content if no sessions found)")
     public ResponseEntity<?> getRecentContext(
+            @Parameter(description = "Project name to query. Defaults to current directory basename if not specified.", required = false, example = "my-project")
             @RequestParam(required = false) String project,
+            @Parameter(description = "Maximum number of recent sessions to return", required = false, example = "3")
             @RequestParam(required = false, defaultValue = "3") int limit) {
 
         // Default to current directory basename if project not specified
@@ -206,10 +226,17 @@ public class ContextController {
      * Returns observations around a specified anchor point (by ID, session, or timestamp).
      */
     @GetMapping(value = "/timeline", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Get context timeline around anchor point",
+        description = "Returns observations around a specified anchor point (by ID, session, or timestamp). Used for exploring context around specific observations. Delegates to TimelineService which handles anchor resolution.")
+    @ApiResponse(responseCode = "200", description = "Timeline retrieved successfully")
     public ResponseEntity<?> getContextTimeline(
+            @Parameter(description = "Anchor point: observation UUID, session ID, or query string to find anchor", required = false, example = "550e8400-e29b-41d4-a716-446655440000")
             @RequestParam(required = false) String anchor,
+            @Parameter(description = "Number of observations to return before the anchor point", required = false, example = "10")
             @RequestParam(required = false, defaultValue = "10") int depth_before,
+            @Parameter(description = "Number of observations to return after the anchor point", required = false, example = "10")
             @RequestParam(required = false, defaultValue = "10") int depth_after,
+            @Parameter(description = "Project path to filter observations", required = false, example = "/Users/dev/my-project")
             @RequestParam(required = false) String project) {
 
         log.debug("Context timeline request, anchor: {}, project: {}, before: {}, after: {}",
@@ -227,7 +254,14 @@ public class ContextController {
      * Body: { "project_path": "/path/to/project" }
      */
     @PostMapping(value = "/generate", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, String>> generateContext(@RequestBody Map<String, String> body) {
+    @Operation(summary = "Generate context for a project",
+        description = "Generates context for a single project. Simpler alternative to /inject endpoint. Falls back to current working directory if project_path is not provided in the request body.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Context generated successfully"),
+        @ApiResponse(responseCode = "500", description = "Failed to generate context for the specified project")
+    })
+    public ResponseEntity<Map<String, String>> generateContext(
+            @org.springframework.web.bind.annotation.RequestBody Map<String, String> body) {
         String projectPath = body.get("project_path");
         if (projectPath == null || projectPath.isEmpty()) {
             projectPath = System.getProperty("user.dir");
@@ -264,15 +298,27 @@ public class ContextController {
      * - fullCount: Number of observations to show full details (default: 5)
      */
     @GetMapping(value = "/preview", produces = MediaType.TEXT_PLAIN_VALUE)
+    @Operation(summary = "Preview context for display",
+        description = "Generates a formatted plain text context preview for WebUI display. Supports filtering by observation types, concepts, and configurable limits for observations, summaries, sessions, and full-detail count. Returns plain text (not JSON).")
+    @ApiResponse(responseCode = "200", description = "Plain text context preview generated")
     public String previewContext(
+            @Parameter(description = "Project path to generate preview for (required, must be absolute path)", required = true, example = "/Users/dev/my-project")
             @RequestParam String project,
+            @Parameter(description = "Comma-separated observation types to include (empty = all)", required = false, example = "bugfix,feature")
             @RequestParam(required = false, defaultValue = "") String observationTypes,
+            @Parameter(description = "Comma-separated concepts to filter by (empty = all)", required = false, example = "how-it-works,architecture")
             @RequestParam(required = false, defaultValue = "") String concepts,
+            @Parameter(description = "Include observations in preview", required = false, example = "true")
             @RequestParam(required = false, defaultValue = "true") boolean includeObservations,
+            @Parameter(description = "Include summaries in preview", required = false, example = "true")
             @RequestParam(required = false, defaultValue = "true") boolean includeSummaries,
+            @Parameter(description = "Maximum number of observations to include", required = false, example = "50")
             @RequestParam(required = false, defaultValue = "50") int maxObservations,
+            @Parameter(description = "Maximum number of summaries to include", required = false, example = "2")
             @RequestParam(required = false, defaultValue = "2") int maxSummaries,
+            @Parameter(description = "Number of recent sessions to query from", required = false, example = "10")
             @RequestParam(required = false, defaultValue = "10") int sessionCount,
+            @Parameter(description = "Number of observations to show full details for", required = false, example = "5")
             @RequestParam(required = false, defaultValue = "5") int fullCount) {
 
         log.debug("Context preview request, project: {}, types: {}, concepts: {}, includeObs: {}, includeSum: {}, maxObs: {}, sessions: {}, fullCount: {}",
@@ -405,8 +451,13 @@ public class ContextController {
      * - assistantMessage: Last assistant message for continuity
      */
     @GetMapping(value = "/prior-messages", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Get prior session messages",
+        description = "Retrieves the last user and assistant messages from the most recent completed session for a project. Used for context continuity across sessions. Returns empty strings if no prior session exists.")
+    @ApiResponse(responseCode = "200", description = "Prior messages retrieved (may contain empty strings if no prior session found)")
     public Map<String, String> getPriorMessages(
+            @Parameter(description = "Project path to query prior messages for", required = true, example = "/Users/dev/my-project")
             @RequestParam String project,
+            @Parameter(description = "Current session ID to exclude from the search", required = false, example = "sess-abc123")
             @RequestParam(required = false, defaultValue = "") String currentSessionId) {
 
         // P2: Validate project parameter is not null or empty

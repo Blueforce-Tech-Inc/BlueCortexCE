@@ -1,6 +1,13 @@
 package com.ablueforce.cortexce.controller;
 
 import com.ablueforce.cortexce.service.ImportService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -28,6 +35,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/import")
+@Tag(name = "Import", description = "Bulk data import API with duplicate checking. Aligned with TS DataRoutes. Supports importing sessions, observations, summaries, and user prompts.")
 public class ImportController {
 
     private static final Logger log = LoggerFactory.getLogger(ImportController.class);
@@ -174,7 +182,12 @@ public class ImportController {
      */
     @Transactional
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, Object>> bulkImport(@RequestBody BulkImportRequest request) {
+    @Operation(summary = "Bulk import all data types",
+        description = "Imports sessions, observations, summaries, and user prompts in a single atomic transaction. Sessions are imported first (as other imports depend on them), then observations, summaries, and prompts in parallel where possible. Duplicate checking is applied to prevent data duplication.")
+    @ApiResponse(responseCode = "200", description = "Bulk import completed, returns statistics for each data type")
+    public ResponseEntity<Map<String, Object>> bulkImport(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "BulkImportRequest containing lists of sessions, observations, summaries, and prompts to import. All fields are optional (empty lists are handled gracefully).", required = true)
+            @org.springframework.web.bind.annotation.RequestBody BulkImportRequest request) {
         log.info("Bulk import request: {} sessions, {} observations, {} summaries, {} prompts",
             request.sessions().size(),
             request.observations().size(),
@@ -253,7 +266,12 @@ public class ImportController {
      * POST /api/import/sessions
      */
     @PostMapping(value = "/sessions", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, Object>> importSessions(@RequestBody List<ImportService.SessionImportData> sessions) {
+    @Operation(summary = "Import sessions only",
+        description = "Imports a list of session records. Sessions with duplicate session IDs are skipped. Returns import statistics including count of imported, skipped, and errored sessions.")
+    @ApiResponse(responseCode = "200", description = "Sessions import completed")
+    public ResponseEntity<Map<String, Object>> importSessions(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "List of SessionImportData records to import", required = true)
+            @org.springframework.web.bind.annotation.RequestBody List<ImportService.SessionImportData> sessions) {
         log.info("Importing {} sessions", sessions.size());
 
         int imported = 0;
@@ -288,7 +306,12 @@ public class ImportController {
      * POST /api/import/observations
      */
     @PostMapping(value = "/observations", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, Object>> importObservations(@RequestBody List<ImportService.ObservationImportData> observations) {
+    @Operation(summary = "Import observations only",
+        description = "Imports a list of observation records in bulk. Includes duplicate checking to prevent importing the same observation twice. Returns statistics: imported count, skipped duplicates, errors.")
+    @ApiResponse(responseCode = "200", description = "Observations import completed")
+    public ResponseEntity<Map<String, Object>> importObservations(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "List of ObservationImportData records to import", required = true)
+            @org.springframework.web.bind.annotation.RequestBody List<ImportService.ObservationImportData> observations) {
         log.info("Importing {} observations", observations.size());
 
         ImportService.BulkImportResult result = importService.importObservations(observations);
@@ -308,7 +331,12 @@ public class ImportController {
      * POST /api/import/summaries
      */
     @PostMapping(value = "/summaries", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, Object>> importSummaries(@RequestBody List<ImportService.SummaryImportData> summaries) {
+    @Operation(summary = "Import summaries only",
+        description = "Imports a list of summary records. Duplicates are skipped. Returns statistics including imported count, skipped count, and error messages.")
+    @ApiResponse(responseCode = "200", description = "Summaries import completed")
+    public ResponseEntity<Map<String, Object>> importSummaries(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "List of SummaryImportData records to import", required = true)
+            @org.springframework.web.bind.annotation.RequestBody List<ImportService.SummaryImportData> summaries) {
         log.info("Importing {} summaries", summaries.size());
 
         int imported = 0;
@@ -343,7 +371,12 @@ public class ImportController {
      * POST /api/import/prompts
      */
     @PostMapping(value = "/prompts", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, Object>> importPrompts(@RequestBody List<ImportService.UserPromptImportData> prompts) {
+    @Operation(summary = "Import user prompts only",
+        description = "Imports a list of user prompt records in bulk. Includes duplicate checking to prevent importing the same prompt twice. Returns statistics: imported count, skipped duplicates, errors.")
+    @ApiResponse(responseCode = "200", description = "User prompts import completed")
+    public ResponseEntity<Map<String, Object>> importPrompts(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "List of UserPromptImportData records to import", required = true)
+            @org.springframework.web.bind.annotation.RequestBody List<ImportService.UserPromptImportData> prompts) {
         log.info("Importing {} user prompts", prompts.size());
 
         ImportService.BulkImportResult result = importService.importUserPrompts(prompts);

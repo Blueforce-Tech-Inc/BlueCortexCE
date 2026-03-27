@@ -1,6 +1,12 @@
 package com.ablueforce.cortexce.controller;
 
 import com.ablueforce.cortexce.service.AgentService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +30,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api")
+@Tag(name = "Health", description = "Service health and readiness monitoring endpoints")
 public class HealthController {
 
     private static final Logger log = LoggerFactory.getLogger(HealthController.class);
@@ -43,6 +50,10 @@ public class HealthController {
      * This is a lightweight check suitable for load balancers and kube probes.
      */
     @GetMapping("/health")
+    @Operation(summary = "Basic health check",
+        description = "Returns service status if the application is running. Suitable for load balancers and Kubernetes liveness probes.")
+    @ApiResponse(responseCode = "200", description = "Service is healthy",
+        content = @Content(schema = @Schema(example = "{\"status\":\"ok\",\"timestamp\":1709000000000,\"service\":\"claude-mem-java\"}")))
     public ResponseEntity<Map<String, Object>> health() {
         Map<String, Object> response = new HashMap<>();
         response.put("status", "ok");
@@ -62,6 +73,13 @@ public class HealthController {
      * Returns 503 if not ready.
      */
     @GetMapping("/readiness")
+    @Operation(summary = "Readiness check",
+        description = "Returns 200 only if the service is fully ready to accept traffic. Checks database connectivity and processing queue depth. Returns 503 if not ready.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Service is ready to accept traffic",
+            content = @Content(schema = @Schema(example = "{\"status\":\"ready\",\"checks\":{\"database\":\"ready\",\"queueDepth\":0,\"queueStatus\":\"ready\"},\"timestamp\":1709000000000}"))),
+        @ApiResponse(responseCode = "503", description = "Service is not ready (database unreachable or queue overloaded)")
+    })
     public ResponseEntity<Map<String, Object>> readiness() {
         Map<String, Object> checks = new HashMap<>();
         boolean allReady = true;
@@ -93,6 +111,9 @@ public class HealthController {
      * GET /api/version - Version information endpoint.
      */
     @GetMapping("/version")
+    @Operation(summary = "Get version information",
+        description = "Returns the application version, Java version, and Spring Boot version.")
+    @ApiResponse(responseCode = "200", description = "Version information retrieved successfully")
     public ResponseEntity<Map<String, Object>> version() {
         Map<String, Object> response = new HashMap<>();
         response.put("version", getVersion());

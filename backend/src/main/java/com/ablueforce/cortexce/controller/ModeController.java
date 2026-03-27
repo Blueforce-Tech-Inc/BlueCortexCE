@@ -5,6 +5,14 @@ import com.ablueforce.cortexce.config.ModeConfig.ObservationType;
 import com.ablueforce.cortexce.config.ModeConfig.ObservationConcept;
 import com.ablueforce.cortexce.service.ModeService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,6 +32,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/mode")
+@Tag(name = "Mode", description = "Mode management API for runtime configuration of observation types and concepts")
 public class ModeController {
 
     private final ModeService modeService;
@@ -36,6 +45,9 @@ public class ModeController {
      * Get current active mode information.
      */
     @GetMapping
+    @Operation(summary = "Get current active mode",
+        description = "Returns the currently active mode configuration including mode ID, name, description, version, observation types, and observation concepts.")
+    @ApiResponse(responseCode = "200", description = "Active mode configuration returned")
     public ResponseEntity<ModeResponse> getActiveMode() {
         Mode mode = modeService.getActiveMode();
         return ResponseEntity.ok(new ModeResponse(
@@ -53,7 +65,15 @@ public class ModeController {
      * Supports both base modes (e.g., "code") and inherited modes (e.g., "code--zh").
      */
     @PutMapping
-    public ResponseEntity<ModeResponse> setActiveMode(@RequestBody ModeSwitchRequest request) {
+    @Operation(summary = "Set active mode",
+        description = "Switches the active mode at runtime. Supports base modes (e.g., 'code') and inherited modes (e.g., 'code--zh'). Returns error if the mode ID is invalid.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Mode switched successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid mode ID or empty modeId provided")
+    })
+    public ResponseEntity<ModeResponse> setActiveMode(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Request body with modeId field containing the mode ID to activate", required = true)
+            @org.springframework.web.bind.annotation.RequestBody ModeSwitchRequest request) {
         String modeId = request.modeId();
         if (modeId == null || modeId.isBlank()) {
             return ResponseEntity.badRequest().build();
@@ -82,6 +102,9 @@ public class ModeController {
      * Get observation types for current mode.
      */
     @GetMapping("/types")
+    @Operation(summary = "Get observation types",
+        description = "Returns the list of valid observation types for the current active mode (e.g., bugfix, feature, architecture, how-it-works, gotcha).")
+    @ApiResponse(responseCode = "200", description = "Observation types list returned")
     public ResponseEntity<List<ObservationType>> getObservationTypes() {
         return ResponseEntity.ok(modeService.getObservationTypes());
     }
@@ -90,6 +113,9 @@ public class ModeController {
      * Get observation concepts for current mode.
      */
     @GetMapping("/concepts")
+    @Operation(summary = "Get observation concepts",
+        description = "Returns the list of valid observation concepts for the current active mode.")
+    @ApiResponse(responseCode = "200", description = "Observation concepts list returned")
     public ResponseEntity<List<ObservationConcept>> getObservationConcepts() {
         return ResponseEntity.ok(modeService.getObservationConcepts());
     }
@@ -98,7 +124,12 @@ public class ModeController {
      * Validate an observation type ID.
      */
     @GetMapping("/types/{typeId}/validate")
-    public ResponseEntity<Map<String, Boolean>> validateType(@PathVariable String typeId) {
+    @Operation(summary = "Validate observation type ID",
+        description = "Checks whether a given observation type ID is valid for the current active mode.")
+    @ApiResponse(responseCode = "200", description = "Validation result returned")
+    public ResponseEntity<Map<String, Boolean>> validateType(
+            @Parameter(description = "Observation type ID to validate", required = true, example = "bugfix")
+            @PathVariable String typeId) {
         return ResponseEntity.ok(Map.of("valid", modeService.isValidType(typeId)));
     }
 
@@ -106,7 +137,12 @@ public class ModeController {
      * Get emoji for an observation type.
      */
     @GetMapping("/types/{typeId}/emoji")
-    public ResponseEntity<Map<String, String>> getTypeEmoji(@PathVariable String typeId) {
+    @Operation(summary = "Get emoji and label for observation type",
+        description = "Returns the emoji (icon), work emoji (for active state), and human-readable label for a given observation type ID.")
+    @ApiResponse(responseCode = "200", description = "Emoji and label returned")
+    public ResponseEntity<Map<String, String>> getTypeEmoji(
+            @Parameter(description = "Observation type ID", required = true, example = "bugfix")
+            @PathVariable String typeId) {
         return ResponseEntity.ok(Map.of(
             "emoji", modeService.getTypeEmoji(typeId),
             "workEmoji", modeService.getWorkEmoji(typeId),
@@ -118,6 +154,9 @@ public class ModeController {
      * Get valid type IDs for current mode.
      */
     @GetMapping("/types/valid")
+    @Operation(summary = "Get all valid observation type IDs",
+        description = "Returns a list of all valid observation type IDs for the current active mode.")
+    @ApiResponse(responseCode = "200", description = "Valid type IDs returned")
     public ResponseEntity<List<String>> getValidTypeIds() {
         return ResponseEntity.ok(modeService.getValidTypeIds());
     }
@@ -126,6 +165,9 @@ public class ModeController {
      * Get valid concept IDs for current mode.
      */
     @GetMapping("/concepts/valid")
+    @Operation(summary = "Get all valid observation concept IDs",
+        description = "Returns a list of all valid observation concept IDs for the current active mode.")
+    @ApiResponse(responseCode = "200", description = "Valid concept IDs returned")
     public ResponseEntity<List<String>> getValidConceptIds() {
         return ResponseEntity.ok(modeService.getValidConceptIds());
     }

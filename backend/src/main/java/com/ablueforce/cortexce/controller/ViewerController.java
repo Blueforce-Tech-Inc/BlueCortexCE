@@ -15,6 +15,14 @@ import com.ablueforce.cortexce.service.AgentService;
 import com.ablueforce.cortexce.service.ModeService;
 import com.ablueforce.cortexce.service.SettingsService;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -39,6 +47,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api")
+@Tag(name = "Viewer", description = "Viewer REST API for the React WebUI — provides all endpoints for browsing observations, summaries, prompts, projects, search, settings, and modes")
 public class ViewerController {
 
     private static final Logger log = LoggerFactory.getLogger(ViewerController.class);
@@ -81,9 +90,15 @@ public class ViewerController {
      * Web UI expects offset/limit parameters and items/hasMore response format.
      */
     @GetMapping("/observations")
+    @Operation(summary = "List observations (paginated)",
+        description = "Returns a paginated list of observations, optionally filtered by project. Offset and limit are validated against MAX_PAGE_SIZE. Returns items and hasMore for WebUI pagination.")
+    @ApiResponse(responseCode = "200", description = "Paginated observation list")
     public ResponseEntity<PagedResponse<ObservationEntity>> getObservations(
+        @Parameter(description = "Project path to filter observations (optional, returns all if not specified)", required = false, example = "/Users/dev/my-project")
         @RequestParam(required = false) String project,
+        @Parameter(description = "Offset for pagination (0-based)", required = false, example = "0")
         @RequestParam(defaultValue = "0") int offset,
+        @Parameter(description = "Number of items per page (max 100)", required = false, example = "20")
         @RequestParam(defaultValue = "20") int limit
     ) {
         // Validate pagination parameters
@@ -98,9 +113,15 @@ public class ViewerController {
      * Web UI expects offset/limit parameters and items/hasMore response format.
      */
     @GetMapping("/summaries")
+    @Operation(summary = "List summaries (paginated)",
+        description = "Returns a paginated list of session summaries, optionally filtered by project.")
+    @ApiResponse(responseCode = "200", description = "Paginated summary list")
     public ResponseEntity<PagedResponse<SummaryEntity>> getSummaries(
+        @Parameter(description = "Project path to filter summaries", required = false, example = "/Users/dev/my-project")
         @RequestParam(required = false) String project,
+        @Parameter(description = "Offset for pagination (0-based)", required = false, example = "0")
         @RequestParam(defaultValue = "0") int offset,
+        @Parameter(description = "Number of items per page (max 100)", required = false, example = "20")
         @RequestParam(defaultValue = "20") int limit
     ) {
         int validatedLimit = Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE);
@@ -114,9 +135,15 @@ public class ViewerController {
      * Web UI expects offset/limit parameters and items/hasMore response format.
      */
     @GetMapping("/prompts")
+    @Operation(summary = "List user prompts (paginated)",
+        description = "Returns a paginated list of user prompts, optionally filtered by project.")
+    @ApiResponse(responseCode = "200", description = "Paginated user prompt list")
     public ResponseEntity<PagedResponse<UserPromptEntity>> getPrompts(
+        @Parameter(description = "Project path to filter prompts", required = false, example = "/Users/dev/my-project")
         @RequestParam(required = false) String project,
+        @Parameter(description = "Offset for pagination (0-based)", required = false, example = "0")
         @RequestParam(defaultValue = "0") int offset,
+        @Parameter(description = "Number of items per page (max 100)", required = false, example = "20")
         @RequestParam(defaultValue = "20") int limit
     ) {
         int validatedLimit = Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE);
@@ -130,6 +157,9 @@ public class ViewerController {
      * Web UI expects {projects: [...]} format.
      */
     @GetMapping("/projects")
+    @Operation(summary = "List all projects",
+        description = "Returns all known project paths that have active or completed sessions.")
+    @ApiResponse(responseCode = "200", description = "Project list retrieved")
     public ResponseEntity<Map<String, Object>> getProjects() {
         return ResponseEntity.ok(Map.of("projects", sessionRepository.findAllProjects()));
     }
@@ -153,6 +183,9 @@ public class ViewerController {
      * Web UI expects nested {worker: {...}, database: {...}} structure.
      */
     @GetMapping("/stats")
+    @Operation(summary = "Get service statistics",
+        description = "Returns worker and database statistics including processing status, queue depth, and entity counts.")
+    @ApiResponse(responseCode = "200", description = "Statistics retrieved")
     public ResponseEntity<Map<String, Object>> getStats() {
         Map<String, Object> worker = Map.of(
             "isProcessing", agentService.isAnySessionProcessing(),
@@ -172,6 +205,9 @@ public class ViewerController {
      * Web UI expects camelCase field names.
      */
     @GetMapping("/processing-status")
+    @Operation(summary = "Get processing status",
+        description = "Returns current processing state and queue depth. Useful for real-time UI updates.")
+    @ApiResponse(responseCode = "200", description = "Processing status retrieved")
     public ResponseEntity<Map<String, Object>> getProcessingStatus() {
         return ResponseEntity.ok(Map.of(
             "isProcessing", agentService.isAnySessionProcessing(),
@@ -186,14 +222,28 @@ public class ViewerController {
      * orderBy is accepted for MCP client compatibility but not yet implemented.
      */
     @GetMapping("/search")
+    @Operation(summary = "Semantic search observations",
+        description = "Performs semantic vector search for observations within a project. Falls back to text-based search if embedding fails. Supports filtering by type, concept, and source. If no query is provided, returns filter-only results.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Search results returned (with observations list, strategy, and fell_back flag)"),
+        @ApiResponse(responseCode = "500", description = "Search failed due to internal error")
+    })
     public ResponseEntity<Map<String, Object>> search(
+        @Parameter(description = "Project path to search within (required)", required = true, example = "/Users/dev/my-project")
         @RequestParam String project,
+        @Parameter(description = "Search query text for semantic search. If empty, returns all observations matching filters.", required = false, example = "how to fix authentication bug")
         @RequestParam(required = false) String query,
+        @Parameter(description = "Filter by observation type (e.g., 'bugfix', 'feature', 'architecture')", required = false, example = "bugfix")
         @RequestParam(required = false) String type,
+        @Parameter(description = "Filter by observation concept (e.g., 'how-it-works', 'gotcha')", required = false, example = "how-it-works")
         @RequestParam(required = false) String concept,
+        @Parameter(description = "Filter by source (e.g., 'manual', 'auto')", required = false, example = "auto")
         @RequestParam(required = false) String source,
+        @Parameter(description = "Maximum number of results to return (max 100)", required = false, example = "20")
         @RequestParam(defaultValue = "20") int limit,
+        @Parameter(description = "Offset for pagination", required = false, example = "0")
         @RequestParam(defaultValue = "0") int offset,
+        @Parameter(description = "Order by field (accepted for MCP compatibility, not yet fully implemented)", required = false, example = "createdAtEpoch")
         @RequestParam(required = false) String orderBy
     ) {
         // Validate limit against max page size (consistent with other endpoints)
@@ -236,8 +286,15 @@ public class ViewerController {
      * P0: MCP compatibility - used by get_observations tool.
      */
     @PostMapping("/observations/batch")
+    @Operation(summary = "Batch get observations by IDs",
+        description = "Retrieves multiple observations by their UUIDs. Supports optional project filtering, ordering by createdAtEpoch, and result limit. Used by MCP compatibility layer.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Observations retrieved"),
+        @ApiResponse(responseCode = "400", description = "Missing or invalid ids field")
+    })
     public ResponseEntity<Map<String, Object>> batchGetObservations(
-        @RequestBody Map<String, Object> request
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Request body containing ids (list of UUID strings), optional project filter, orderBy field, and limit", required = true)
+        @org.springframework.web.bind.annotation.RequestBody Map<String, Object> request
     ) {
         Object idsObj = request.get("ids");
         if (!(idsObj instanceof List<?> idsList) || idsList.isEmpty()) {
@@ -331,6 +388,9 @@ public class ViewerController {
      * Returns current settings from file with environment variable overrides applied.
      */
     @GetMapping("/settings")
+    @Operation(summary = "Get current settings",
+        description = "Returns current application settings from file with environment variable overrides applied. Includes mode information.")
+    @ApiResponse(responseCode = "200", description = "Settings retrieved successfully")
     public ResponseEntity<Map<String, Object>> getSettings() {
         AppSettings appSettings = settingsService.getSettings();
         Map<String, Object> response = appSettings.toMap();
@@ -347,6 +407,9 @@ public class ViewerController {
      * GET /api/modes — get active mode configuration.
      */
     @GetMapping("/modes")
+    @Operation(summary = "Get active mode configuration",
+        description = "Returns the current active mode configuration including name, description, version, observation types, and observation concepts.")
+    @ApiResponse(responseCode = "200", description = "Mode configuration retrieved")
     public ResponseEntity<Map<String, Object>> getActiveMode() {
         Mode mode = modeService.getActiveMode();
         Map<String, Object> response = new HashMap<>();
@@ -363,7 +426,15 @@ public class ViewerController {
      * POST /api/modes — set active mode.
      */
     @PostMapping("/modes")
-    public ResponseEntity<Map<String, Object>> setActiveMode(@RequestBody Map<String, String> request) {
+    @Operation(summary = "Set active mode",
+        description = "Switches the active observation mode at runtime. Mode changes affect which observation types and concepts are considered valid for new observations.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Mode set successfully"),
+        @ApiResponse(responseCode = "400", description = "Invalid mode ID provided")
+    })
+    public ResponseEntity<Map<String, Object>> setActiveMode(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Request body with 'mode' field containing the mode ID to activate", required = true)
+            @org.springframework.web.bind.annotation.RequestBody Map<String, String> request) {
         String modeId = request.get("mode");
         if (modeId == null || modeId.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
@@ -395,7 +466,15 @@ public class ViewerController {
      * WebUI expects: {success: boolean, error?: string}
      */
     @PostMapping("/settings")
-    public ResponseEntity<Map<String, Object>> saveSettings(@RequestBody Map<String, Object> updates) {
+    @Operation(summary = "Save settings",
+        description = "Persists settings updates to the settings file. If 'mode' or 'CLAUDE_MEM_MODE' is changed, also updates the active ModeService mode.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Settings saved successfully"),
+        @ApiResponse(responseCode = "500", description = "Failed to save settings due to internal error")
+    })
+    public ResponseEntity<Map<String, Object>> saveSettings(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Settings key-value map to update. Supports 'mode' or 'CLAUDE_MEM_MODE' for mode switching.", required = true)
+            @org.springframework.web.bind.annotation.RequestBody Map<String, Object> updates) {
         try {
             settingsService.updateSettings(updates);
 
@@ -424,14 +503,27 @@ public class ViewerController {
      * P0: Added anchor query support for MCP compatibility.
      */
     @GetMapping("/timeline")
+    @Operation(summary = "Get observation timeline",
+        description = "Returns observations grouped by date for the viewer UI timeline. Supports date range queries and anchor-based queries for MCP compatibility. Date range is limited to 1 year maximum.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Timeline retrieved"),
+        @ApiResponse(responseCode = "400", description = "Date range exceeds 1 year maximum or invalid anchor parameters")
+    })
     public ResponseEntity<?> getTimeline(
+        @Parameter(description = "Project path to query timeline for", required = true, example = "/Users/dev/my-project")
         @RequestParam String project,
+        @Parameter(description = "Start timestamp (epoch milliseconds)", required = false, example = "1704067200000")
         @RequestParam(required = false) Long startEpoch,
+        @Parameter(description = "End timestamp (epoch milliseconds)", required = false, example = "1706745600000")
         @RequestParam(required = false) Long endEpoch,
-        @RequestParam(required = false) String anchorId,      // P0: Anchor observation ID
-        @RequestParam(required = false) Integer depthBefore,  // P0: Items before anchor
-        @RequestParam(required = false) Integer depthAfter,   // P0: Items after anchor
-        @RequestParam(required = false) String query          // P0: Query to find anchor
+        @Parameter(description = "Anchor observation UUID for MCP timeline tool", required = false, example = "550e8400-e29b-41d4-a716-446655440000")
+        @RequestParam(required = false) String anchorId,
+        @Parameter(description = "Number of items to return before the anchor", required = false, example = "10")
+        @RequestParam(required = false) Integer depthBefore,
+        @Parameter(description = "Number of items to return after the anchor", required = false, example = "10")
+        @RequestParam(required = false) Integer depthAfter,
+        @Parameter(description = "Query string to find anchor observation (MCP compatibility)", required = false, example = "authentication bug")
+        @RequestParam(required = false) String query
     ) {
         // P0: Anchor-based query mode (for MCP timeline tool)
         if (anchorId != null || query != null) {
@@ -482,11 +574,22 @@ public class ViewerController {
      * @param limit Maximum results (default 20)
      */
     @GetMapping("/search/by-file")
+    @Operation(summary = "Search observations by file path",
+        description = "Finds observations where files_read or files_modified contain a given file or folder path. Used for CLAUDE.md generation and file-level history. When isFolder=true, matches all files under the specified directory prefix.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Search results returned"),
+        @ApiResponse(responseCode = "500", description = "Search failed due to internal error")
+    })
     public ResponseEntity<Map<String, Object>> searchByFile(
+        @Parameter(description = "Project path to search within", required = true, example = "/Users/dev/my-project")
         @RequestParam String project,
+        @Parameter(description = "File or folder path to search for (must be absolute path)", required = true, example = "/Users/dev/my-project/src/auth/login.ts")
         @RequestParam String filePath,
+        @Parameter(description = "If true, match folder prefix (e.g., /src/ matches /src/foo.ts)", required = false, example = "false")
         @RequestParam(defaultValue = "false") boolean isFolder,
+        @Parameter(description = "Maximum number of results to return (max 100)", required = false, example = "20")
         @RequestParam(defaultValue = "20") int limit,
+        @Parameter(description = "Enable debug logging for this request", required = false, example = "false")
         @RequestParam(defaultValue = "false") boolean debug
     ) {
         if (debug) {
@@ -542,8 +645,12 @@ public class ViewerController {
      * { "contentSessionIds": ["id1", "id2", ...] }
      */
     @PostMapping("/sdk-sessions/batch")
+    @Operation(summary = "Batch get sessions by content session IDs",
+        description = "Retrieves multiple sessions by their Claude Code content session IDs. Used by the export script to get session metadata. Returns session DB ID, content session ID, project, user prompt, timestamps, and status.")
+    @ApiResponse(responseCode = "200", description = "Sessions retrieved (empty list if no matching sessions found)")
     public ResponseEntity<List<Map<String, Object>>> batchGetSessions(
-            @RequestBody Map<String, Object> request
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Request body with 'contentSessionIds' field containing a list of Claude Code session ID strings", required = true)
+            @org.springframework.web.bind.annotation.RequestBody Map<String, Object> request
     ) {
         Object idsObj = request.get("contentSessionIds");
         if (!(idsObj instanceof List<?> idsList) || idsList.isEmpty()) {

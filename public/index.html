@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Training Platform</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <header>
+        <h1>Video Training Platform</h1>
+        <nav>
+            <a href="#upload">Upload</a>
+            <a href="#videos">Browse</a>
+            <a href="#search">Search</a>
+        </nav>
+    </header>
+
+    <main>
+        <!-- Upload Section -->
+        <section id="upload" class="card">
+            <h2>Upload Video</h2>
+            <form id="uploadForm">
+                <div class="form-group">
+                    <label for="title">Title</label>
+                    <input type="text" id="title" name="title" required placeholder="Video title">
+                </div>
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" placeholder="Video description"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="tags">Tags (comma separated)</label>
+                    <input type="text" id="tags" name="tags" placeholder="training, safety, compliance">
+                </div>
+                <div class="form-group">
+                    <label for="category">Category</label>
+                    <select id="category" name="category">
+                        <option value="">Select a category</option>
+                        <option value="safety">Safety</option>
+                        <option value="compliance">Compliance</option>
+                        <option value="technical">Technical</option>
+                        <option value="onboarding">Onboarding</option>
+                        <option value="general">General</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="video">Video File</label>
+                    <input type="file" id="video" name="video" accept="video/*" required>
+                </div>
+                <div class="form-group">
+                    <label for="thumbnail">Thumbnail (optional)</label>
+                    <input type="file" id="thumbnail" name="thumbnail" accept="image/*">
+                </div>
+                <button type="submit" id="uploadBtn">Upload Video</button>
+                <div id="uploadProgress" class="progress-bar" style="display:none;">
+                    <div class="progress-fill"></div>
+                </div>
+                <div id="uploadMessage"></div>
+            </form>
+        </section>
+
+        <!-- Search Section -->
+        <section id="search" class="card">
+            <h2>Search Videos</h2>
+            <div class="search-bar">
+                <input type="text" id="searchQuery" placeholder="Search by title, description, or tags...">
+                <select id="searchCategory">
+                    <option value="">All Categories</option>
+                    <option value="safety">Safety</option>
+                    <option value="compliance">Compliance</option>
+                    <option value="technical">Technical</option>
+                    <option value="onboarding">Onboarding</option>
+                    <option value="general">General</option>
+                </select>
+                <button onclick="performSearch()">Search</button>
+            </div>
+            <div id="searchResults" class="video-grid"></div>
+        </section>
+
+        <!-- Videos Section -->
+        <section id="videos" class="card">
+            <h2>All Videos</h2>
+            <div id="videoList" class="video-grid">
+                <p>Loading videos...</p>
+            </div>
+        </section>
+
+        <!-- Player Modal -->
+        <div id="playerModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closePlayer()">&times;</span>
+                <h2 id="playerTitle"></h2>
+                <div class="player-container">
+                    <video id="videoPlayer" controls>
+                        <track kind="subtitles" srclang="en" label="English">
+                        Your browser does not support the video tag.
+                    </video>
+                    <div class="player-info">
+                        <p id="playerDescription"></p>
+                        <div class="player-meta">
+                            <span id="playerCategory"></span>
+                            <span id="playerTags"></span>
+                        </div>
+                    </div>
+                    <!-- Subtitle Controls -->
+                    <div class="subtitle-controls">
+                        <button onclick="toggleSubtitles()">Toggle CC</button>
+                        <button onclick="downloadSubtitles()">Download SRT</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="/app.js"></script>
+</body>
+</html>

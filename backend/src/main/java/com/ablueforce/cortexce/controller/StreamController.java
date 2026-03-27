@@ -3,6 +3,11 @@ package com.ablueforce.cortexce.controller;
 import com.ablueforce.cortexce.repository.SessionRepository;
 import com.ablueforce.cortexce.service.AgentService;
 import com.ablueforce.cortexce.service.SSEBroadcaster;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,6 +24,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/stream")
+@Tag(name = "Stream", description = "Server-Sent Events (SSE) streaming endpoint for real-time event push to the Viewer WebUI")
 public class StreamController {
 
     private static final Logger log = LoggerFactory.getLogger(StreamController.class);
@@ -44,6 +50,10 @@ public class StreamController {
      * Web UI expects type field and camelCase field names.
      */
     @GetMapping
+    @Operation(summary = "SSE stream for real-time events",
+        description = "Establishes a Server-Sent Events (SSE) connection for real-time event push to the Viewer WebUI. Sends an initial_load event with project list and processing_status event. Configurable timeout via claudemem.sse.timeout-ms (default: 30 minutes). Events include: new_observation, new_prompt, new_summary.")
+    @ApiResponse(responseCode = "200", description = "SSE stream established. Returns SseEmitter which pushes events.",
+        content = @Content(schema = @Schema(example = "event: data:{\"type\":\"initial_load\",\"projects\":[...],\"timestamp\":1709000000000}")))
     public SseEmitter stream() {
         SseEmitter emitter = new SseEmitter(sseTimeout);
 

@@ -7,6 +7,14 @@ import com.ablueforce.cortexce.service.ClaudeMdService;
 import com.ablueforce.cortexce.service.ContextCacheService;
 import com.ablueforce.cortexce.service.ContextService;
 import com.ablueforce.cortexce.service.StructuredExtractionService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -36,6 +44,7 @@ import java.util.Optional;
  */
 @RestController
 @RequestMapping("/api/session")
+@Tag(name = "Session", description = "Session lifecycle management and context injection for Claude Code hooks")
 public class SessionController {
 
     private static final Logger log = LoggerFactory.getLogger(SessionController.class);
@@ -94,7 +103,14 @@ public class SessionController {
      * }
      */
     @PostMapping(value = "/start", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, Object>> startSession(@RequestBody Map<String, Object> body) {
+    @Operation(summary = "Start or resume a session",
+        description = "Initializes a new session or retrieves an existing one. Generates context for Claude Code injection and optionally updates CLAUDE.md files. Supports worktree multi-project context via the 'projects' parameter. Called by wrapper.js session-start hook.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Session started successfully, returns context and updateFiles"),
+        @ApiResponse(responseCode = "400", description = "Missing required fields: session_id and project_path (or cwd)"),
+        @ApiResponse(responseCode = "500", description = "Failed to initialize session due to internal error")
+    })
+    public ResponseEntity<Map<String, Object>> startSession(@org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
         String contentSessionId = (String) body.get("session_id");
         String projectPath = (String) body.get("project_path");
         String projectPathFromCwd = (String) body.get("cwd"); // fallback when project_path absent
@@ -205,7 +221,16 @@ public class SessionController {
      * Returns session details or error if not found.
      */
     @GetMapping("/{sessionId}")
-    public ResponseEntity<Map<String, Object>> getSession(@PathVariable String sessionId) {
+    @Operation(summary = "Get session by ID",
+        description = "Retrieves session details by content session ID (the ID used by Claude Code). Returns session metadata including project path, status, and start time.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Session found and returned"),
+        @ApiResponse(responseCode = "404", description = "Session not found for the given content session ID"),
+        @ApiResponse(responseCode = "500", description = "Internal error retrieving session")
+    })
+    public ResponseEntity<Map<String, Object>> getSession(
+            @Parameter(description = "Content session ID (Claude Code session identifier)", required = true, example = "sess-abc123")
+            @PathVariable String sessionId) {
         try {
             Optional<SessionEntity> session = sessionRepository.findByContentSessionId(sessionId);
 
@@ -345,9 +370,16 @@ public class SessionController {
      * PATCH /api/session/{sessionId}/user
      */
     @PatchMapping("/{sessionId}/user")
+    @Operation(summary = "Update session user ID",
+        description = "Updates the user identifier for an existing session. Used for Phase 3 multi-user support. Triggers re-extraction of user-scoped results when userId changes.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "User ID updated successfully"),
+        @ApiResponse(responseCode = "404", description = "Session not found for the given content session ID")
+    })
     public ResponseEntity<Map<String, String>> updateSessionUserId(
+            @Parameter(description = "Content session ID to update", required = true, example = "sess-abc123")
             @PathVariable String sessionId,
-            @RequestBody Map<String, Object> body) {
+            @org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
         String userId = (String) body.get("user_id");
         
         SessionEntity session = sessionManagementService.findByContentSessionId(sessionId)

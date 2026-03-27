@@ -3,6 +3,14 @@ package com.ablueforce.cortexce.controller;
 import com.ablueforce.cortexce.service.ContextService;
 import com.ablueforce.cortexce.service.CursorService;
 import com.ablueforce.cortexce.service.CursorService.CursorProjectEntry;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +31,7 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/cursor")
+@Tag(name = "Cursor", description = "Cursor IDE integration API for project registry management and context file updates")
 public class CursorController {
 
     private static final Logger log = LoggerFactory.getLogger(CursorController.class);
@@ -42,8 +51,16 @@ public class CursorController {
      * Body: { "projectName": "my-project", "workspacePath": "/path/to/workspace" }
      */
     @PostMapping("/register")
+    @Operation(summary = "Register a Cursor project",
+        description = "Registers a project for automatic Cursor context file updates. The context file (.cursor/rules/claude-mem-context.mdc) will be updated when new observations are recorded.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Project registered successfully"),
+        @ApiResponse(responseCode = "400", description = "Missing required fields: projectName or workspacePath"),
+        @ApiResponse(responseCode = "500", description = "Failed to register project due to internal error")
+    })
     public ResponseEntity<Map<String, Object>> registerProject(
-        @RequestBody Map<String, String> request
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Request body with projectName (unique identifier) and workspacePath (absolute path)", required = true)
+        @org.springframework.web.bind.annotation.RequestBody Map<String, String> request
     ) {
         String projectName = request.get("projectName");
         String workspacePath = request.get("workspacePath");
@@ -87,7 +104,11 @@ public class CursorController {
      * DELETE /api/cursor/register/{projectName}
      */
     @DeleteMapping("/register/{projectName}")
+    @Operation(summary = "Unregister a Cursor project",
+        description = "Removes a project from the Cursor auto-context update registry. The project's context file will no longer be automatically updated.")
+    @ApiResponse(responseCode = "200", description = "Unregister request processed (success=true if was registered, success=false if was not registered)")
     public ResponseEntity<Map<String, Object>> unregisterProject(
+        @Parameter(description = "Project name to unregister", required = true, example = "my-project")
         @PathVariable String projectName
     ) {
         boolean removed = cursorService.unregisterProject(projectName);
@@ -111,6 +132,9 @@ public class CursorController {
      * GET /api/cursor/projects
      */
     @GetMapping("/projects")
+    @Operation(summary = "List all registered Cursor projects",
+        description = "Returns a list of all projects currently registered for Cursor auto-context updates, including their workspace paths and registration timestamps.")
+    @ApiResponse(responseCode = "200", description = "Registered projects list returned")
     public ResponseEntity<Map<String, Object>> getProjects() {
         Map<String, CursorProjectEntry> projects = cursorService.getAllProjects();
 
@@ -139,7 +163,15 @@ public class CursorController {
      * Fetches fresh context from ContextService and writes to .cursor/rules/claude-mem-context.mdc
      */
     @PostMapping("/context/{projectName}")
+    @Operation(summary = "Update Cursor context file",
+        description = "Generates fresh context from observations for a registered project and writes it to .cursor/rules/claude-mem-context.mdc. Returns success=false if project is not registered or no context is generated.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Context update processed (success=true if written, false if failed)"),
+        @ApiResponse(responseCode = "404", description = "Project is not registered"),
+        @ApiResponse(responseCode = "500", description = "Failed to update context due to internal error")
+    })
     public ResponseEntity<Map<String, Object>> updateContext(
+        @Parameter(description = "Registered project name", required = true, example = "my-project")
         @PathVariable String projectName
     ) {
         CursorProjectEntry entry = cursorService.getProject(projectName);
@@ -194,9 +226,19 @@ public class CursorController {
      * Body: { "context": "..." }
      */
     @PostMapping("/context/{projectName}/custom")
+    @Operation(summary = "Write custom context to Cursor file",
+        description = "Writes a custom context string directly to the .cursor/rules/claude-mem-context.mdc file for a registered project. Useful for providing manually curated context that differs from auto-generated observations.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Context written successfully"),
+        @ApiResponse(responseCode = "400", description = "Missing required field: context"),
+        @ApiResponse(responseCode = "404", description = "Project is not registered"),
+        @ApiResponse(responseCode = "500", description = "Failed to write context file due to internal error")
+    })
     public ResponseEntity<Map<String, Object>> updateContextCustom(
+        @Parameter(description = "Registered project name", required = true, example = "my-project")
         @PathVariable String projectName,
-        @RequestBody Map<String, String> request
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Request body with 'context' field containing the custom context string to write", required = true)
+        @org.springframework.web.bind.annotation.RequestBody Map<String, String> request
     ) {
         String context = request.get("context");
 
@@ -245,7 +287,11 @@ public class CursorController {
      * GET /api/cursor/register/{projectName}
      */
     @GetMapping("/register/{projectName}")
+    @Operation(summary = "Check if a project is registered",
+        description = "Checks whether a project is currently registered for Cursor auto-context updates. Returns registered=true with details if registered, registered=false if not.")
+    @ApiResponse(responseCode = "200", description = "Registration status returned")
     public ResponseEntity<Map<String, Object>> checkRegistered(
+        @Parameter(description = "Project name to check", required = true, example = "my-project")
         @PathVariable String projectName
     ) {
         CursorProjectEntry entry = cursorService.getProject(projectName);
