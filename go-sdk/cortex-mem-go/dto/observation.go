@@ -20,12 +20,14 @@ type ObservationRequest struct {
 // PATCH /api/memory/observations/{id}
 //
 // Wire format (verified against backend MemoryController.java):
-//   {"title":"...", "subtitle":"...", "content":"...", "facts":[...], "concepts":[...], "source":"...", "extractedData":{...}}
+//   {"title":"...", "subtitle":"...", "content":"...", "narrative":"...", "facts":[...], "concepts":[...], "source":"...", "extractedData":{...}}
 //   Pointer fields (*string) use "omitempty" — nil values are omitted from JSON.
+//   The backend accepts both "content" and "narrative" as aliases for the body text.
 type ObservationUpdate struct {
 	Title         *string        `json:"title,omitempty"`
 	Subtitle      *string        `json:"subtitle,omitempty"`
 	Content       *string        `json:"content,omitempty"`
+	Narrative     *string        `json:"narrative,omitempty"` // Alias for content — cross-SDK consistency
 	Facts         []string       `json:"facts,omitempty"`
 	Concepts      []string       `json:"concepts,omitempty"`
 	Source        *string        `json:"source,omitempty"`

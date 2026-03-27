@@ -114,13 +114,17 @@ class ObservationUpdate:
     title: str | None = None
     subtitle: str | None = None
     content: str | None = None
+    narrative: str | None = None  # Alias for content — cross-SDK consistency (Go/JS/Java)
     facts: list[str] | None = None
     concepts: list[str] | None = None
     source: str | None = None
     extracted_data: dict | None = None
 
     def to_wire(self) -> dict:
-        """Convert to wire format, omitting None fields."""
+        """Convert to wire format, omitting None fields.
+
+        Both 'content' and 'narrative' are sent if set — backend accepts either.
+        """
         body: dict = {}
         if self.title is not None:
             body["title"] = self.title
@@ -128,6 +132,8 @@ class ObservationUpdate:
             body["subtitle"] = self.subtitle
         if self.content is not None:
             body["content"] = self.content
+        if self.narrative is not None:
+            body["narrative"] = self.narrative
         if self.facts is not None:
             body["facts"] = self.facts
         if self.concepts is not None:

@@ -1050,6 +1050,31 @@ func TestUpdateObservation_WireFormat(t *testing.T) {
 	}
 }
 
+func TestObservationUpdate_NarrativeField(t *testing.T) {
+	// Verify the Narrative field is sent as "narrative" in wire format
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+		if body["narrative"] != "updated narrative" {
+			t.Errorf("expected narrative='updated narrative', got %v", body["narrative"])
+		}
+		if _, hasContent := body["content"]; hasContent {
+			t.Error("nil content should be omitted when only narrative is set")
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	narrative := "updated narrative"
+	err := client.UpdateObservation(context.Background(), "obs-1", dto.ObservationUpdate{
+		Narrative: &narrative,
+	})
+	if err != nil {
+		t.Fatalf("UpdateObservation with narrative failed: %v", err)
+	}
+}
+
 func TestObservationUpdate_PointerFieldsVsSlices(t *testing.T) {
 	// Pointer fields (*string) with empty values ARE sent (allows clearing)
 	// Slice fields ([]string) with empty values are OMITTED (Go omitempty behavior)

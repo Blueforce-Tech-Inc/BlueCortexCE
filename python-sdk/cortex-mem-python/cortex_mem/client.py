@@ -476,6 +476,7 @@ class CortexMemClient:
             "title": "title",
             "subtitle": "subtitle",
             "content": "content",
+            "narrative": "narrative",
             "facts": "facts",
             "concepts": "concepts",
             "source": "source",
