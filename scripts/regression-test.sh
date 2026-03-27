@@ -294,11 +294,66 @@ test_observation_ingestion() {
 
     echo "$response" | python3 -m json.tool 2>/dev/null || echo "$response"
 
-    if echo "$response" | python3 -c "import sys, json; d=json.load(sys.stdin); sys.exit(0 if d.get('id') else 1)" 2>/dev/null; then
-        log_success "Observation created with ID"
-        return 0
-    else
+    # Verify ID exists
+    if ! echo "$response" | python3 -c "import sys, json; d=json.load(sys.stdin); sys.exit(0 if d.get('id') else 1)" 2>/dev/null; then
         log_fail "Observation creation did not return ID"
+        return 1
+    fi
+
+    # VALUE CHECK: Verify observation fields are present in the response
+    local obs_id=$(echo "$response" | python3 -c "import sys, json; print(json.load(sys.stdin).get('id', ''))" 2>/dev/null)
+    if [ -z "$obs_id" ]; then
+        log_fail "Observation ID is empty"
+        return 1
+    fi
+
+    # VALUE CHECK: Verify the observation actually exists in the backend with correct data
+    sleep 1  # Allow database commit
+    local backend_check
+    backend_check=$(curl -sf "${SERVER_URL}/api/observations?project=${TEST_PROJECT}&offset=0&limit=10" 2>/dev/null) || {
+        log_fail "Failed to query backend for observation verification"
+        return 1
+    }
+
+    # Verify the observation exists in backend with correct fields
+    local verified
+    verified=$(echo "$backend_check" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+for item in data.get('items', []):
+    if item.get('id') == '$obs_id':
+        title = item.get('title', '')
+        obs_type = item.get('type', '')
+        content = item.get('narrative', item.get('content', ''))
+        facts = item.get('facts', [])
+        concepts = item.get('concepts', [])
+        # Verify expected field values
+        errors = []
+        if title != 'Regression Test Feature':
+            errors.append(f'title={title}')
+        if obs_type != 'feature':
+            errors.append(f'type={obs_type}')
+        if not facts:
+            errors.append('facts empty')
+        if not concepts:
+            errors.append('concepts empty')
+        if errors:
+            print('FAIL:' + ', '.join(errors))
+        else:
+            print('OK')
+        break
+else:
+    print('NOT_FOUND')
+" 2>/dev/null || echo "ERROR")
+
+    if [ "$verified" = "OK" ]; then
+        log_success "Observation created with ID and verified in backend (title, type, facts, concepts all correct)"
+        return 0
+    elif [[ "$verified" == FAIL* ]]; then
+        log_fail "Observation field values incorrect: $verified"
+        return 1
+    else
+        log_fail "Observation not found in backend after creation: $verified"
         return 1
     fi
 }
@@ -388,7 +443,34 @@ test_observation_retrieval() {
     count=$(echo "$response" | python3 -c "import sys, json; data=json.load(sys.stdin); print(len(data.get('items', [])))" 2>/dev/null || echo "0")
 
     if [ "$count" -ge 1 ]; then
-        log_success "Retrieved $count observation(s)"
+        # VALUE CHECK: Verify observations have expected fields with non-zero values
+        local field_check
+        field_check=$(echo "$response" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+items = data.get('items', [])
+errors = []
+for item in items:
+    if not item.get('id'):
+        errors.append('id missing')
+    if not item.get('content_session_id', item.get('sessionId')):
+        errors.append('session_id missing')
+    if not item.get('project', item.get('projectPath')):
+        errors.append('project missing')
+    if not item.get('title') and not item.get('narrative') and not item.get('content'):
+        errors.append('title/narrative/content missing')
+if errors:
+    print('FAIL:' + ', '.join(set(errors)))
+else:
+    print('OK')
+" 2>/dev/null | tail -1 || echo "ERROR")
+
+        if [ "$field_check" = "OK" ]; then
+            log_success "Retrieved $count observation(s) with correct field values"
+        else
+            log_fail "Observation field check failed: $field_check"
+            return 1
+        fi
         return 0
     else
         log_fail "Expected at least 1 observation, got $count"
@@ -413,6 +495,31 @@ test_search() {
     strategy=$(echo "$response" | python3 -c "import sys, json; print(json.load(sys.stdin).get('strategy', 'unknown'))" 2>/dev/null || echo "unknown")
 
     if [ "$count" -ge 1 ]; then
+        # VALUE CHECK: Verify search results have non-zero field values
+        local search_field_check
+        search_field_check=$(echo "$response" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+results = data.get('observations', data.get('items', []))
+errors = []
+for r in results[:3]:  # Check first 3 results
+    obs = r.get('observation', r)  # Hybrid search wraps in 'observation'
+    if not obs.get('id'):
+        errors.append('id missing')
+    if not obs.get('content_session_id', obs.get('sessionId', obs.get('session_id'))):
+        errors.append('session_id missing')
+    if not obs.get('project', obs.get('projectPath')):
+        errors.append('project missing')
+if errors:
+    print('FAIL:' + ', '.join(set(errors)))
+else:
+    print('OK')
+" 2>/dev/null | tail -1 || echo "ERROR")
+
+        if [ "$search_field_check" != "OK" ]; then
+            log_warn "Search field check: $search_field_check"
+        fi
+
         log_success "Search returned $count result(s) using strategy: $strategy"
         return 0
     else
