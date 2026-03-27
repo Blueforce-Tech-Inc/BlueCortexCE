@@ -123,7 +123,10 @@ class CortexMemClient:
         resp = self._request(method, path, json_body, params)
         if resp.status_code == 204 or not resp.content:
             return None
-        return resp.json()
+        try:
+            return resp.json()
+        except (json.JSONDecodeError, ValueError):
+            return None
 
     def _request_no_content(
         self,

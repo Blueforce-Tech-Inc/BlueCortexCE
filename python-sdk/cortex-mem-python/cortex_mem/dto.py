@@ -5,6 +5,30 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 
+def _to_int(v: object, default: int = 0) -> int:
+    """Safely convert wire value to int (handles string numbers)."""
+    if isinstance(v, int):
+        return v
+    if isinstance(v, str):
+        try:
+            return int(v)
+        except ValueError:
+            return default
+    return default
+
+
+def _to_float(v: object, default: float = 0.0) -> float:
+    """Safely convert wire value to float (handles string numbers)."""
+    if isinstance(v, (int, float)):
+        return float(v)
+    if isinstance(v, str):
+        try:
+            return float(v)
+        except ValueError:
+            return default
+    return default
+
+
 # ==================== Session ====================
 
 
@@ -35,14 +59,15 @@ class Experience:
 
     @classmethod
     def from_wire(cls, data: dict) -> Experience:
+        # Wire format uses Jackson SNAKE_CASE naming strategy
         return cls(
             id=data.get("id", ""),
             task=data.get("task", ""),
             strategy=data.get("strategy", ""),
             outcome=data.get("outcome", ""),
-            reuse_condition=data.get("reuseCondition", ""),
-            quality_score=data.get("qualityScore", 0.0),
-            created_at=data.get("createdAt", ""),
+            reuse_condition=data.get("reuse_condition", ""),
+            quality_score=_to_float(data.get("quality_score", 0.0)),
+            created_at=data.get("created_at", ""),
         )
 
 
@@ -153,22 +178,24 @@ class Observation:
 
     @classmethod
     def from_wire(cls, data: dict) -> Observation:
+        # Wire format uses Jackson SNAKE_CASE naming strategy.
+        # Key field renames: sessionId→content_session_id, projectPath→project, content→narrative
         return cls(
             id=data.get("id", ""),
-            session_id=data.get("sessionId", ""),
-            project_path=data.get("projectPath", ""),
+            session_id=data.get("content_session_id", ""),
+            project_path=data.get("project", ""),
             type=data.get("type", ""),
             title=data.get("title", ""),
             subtitle=data.get("subtitle", ""),
-            content=data.get("content", ""),
+            content=data.get("narrative", ""),
             facts=data.get("facts") or [],
             concepts=data.get("concepts") or [],
-            quality_score=data.get("qualityScore", 0.0),
+            quality_score=_to_float(data.get("quality_score", 0.0)),
             source=data.get("source", ""),
             extracted_data=data.get("extractedData"),
-            prompt_number=data.get("prompt_number", 0),
-            created_at=data.get("createdAt", ""),
-            created_at_epoch=data.get("created_at_epoch", 0),
+            prompt_number=_to_int(data.get("prompt_number", 0)),
+            created_at=data.get("created_at", ""),
+            created_at_epoch=_to_int(data.get("created_at_epoch", 0)),
         )
 
 

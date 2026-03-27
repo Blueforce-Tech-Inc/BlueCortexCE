@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 
 class CortexError(Exception):
     """Base exception for Cortex CE SDK."""
@@ -70,8 +72,6 @@ def is_retryable(status_code: int) -> bool:
 
 def _extract_error_message(body: bytes) -> str:
     """Extract a human-readable message from an error response body."""
-    import json
-
     try:
         parsed = json.loads(body)
     except (json.JSONDecodeError, UnicodeDecodeError):

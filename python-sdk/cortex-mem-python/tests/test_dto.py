@@ -20,14 +20,15 @@ from cortex_mem.dto import (
 
 class TestDTOFromWire:
     def test_experience_from_wire(self):
+        # Wire format uses Jackson SNAKE_CASE naming strategy
         data = {
             "id": "e1",
             "task": "t1",
             "strategy": "s1",
             "outcome": "o1",
-            "reuseCondition": "r1",
-            "qualityScore": 0.85,
-            "createdAt": "2026-01-01",
+            "reuse_condition": "r1",
+            "quality_score": 0.85,
+            "created_at": "2026-01-01",
         }
         exp = Experience.from_wire(data)
         assert exp.id == "e1"
@@ -42,26 +43,30 @@ class TestDTOFromWire:
         assert result.prompt == "hello"
 
     def test_observation_from_wire(self):
+        # Wire format uses Jackson SNAKE_CASE naming strategy:
+        # content_session_id (not sessionId), project (not projectPath), narrative (not content)
         data = {
             "id": "o1",
-            "sessionId": "s1",
-            "projectPath": "/p",
+            "content_session_id": "s1",
+            "project": "/p",
             "type": "feature",
             "title": "Test",
-            "content": "Content",
+            "narrative": "Content",
             "facts": ["f1"],
             "concepts": ["c1"],
-            "qualityScore": 0.9,
+            "quality_score": 0.9,
             "source": "manual",
             "extractedData": {"key": "val"},
             "prompt_number": 5,
-            "createdAt": "2026-01-01",
+            "created_at": "2026-01-01",
             "created_at_epoch": 1710000000,
         }
         obs = Observation.from_wire(data)
         assert obs.id == "o1"
         assert obs.session_id == "s1"
         assert obs.project_path == "/p"
+        assert obs.content == "Content"
+        assert obs.quality_score == 0.9
         assert obs.extracted_data == {"key": "val"}
         assert obs.prompt_number == 5
         assert obs.created_at_epoch == 1710000000
@@ -151,3 +156,18 @@ class TestDTOFromWire:
         data = {"session_db_id": "db-1", "session_id": "s-1", "prompt_number": 0}
         sr = SessionStartResponse(**data)
         assert sr.session_id == "s-1"
+
+    def test_batch_observations_response_from_wire(self):
+        data = {
+            "observations": [
+                {"id": "o1", "project": "/p", "narrative": "content1"},
+                {"id": "o2", "project": "/p2", "narrative": "content2"},
+            ],
+            "count": 2,
+        }
+        from cortex_mem.dto import BatchObservationsResponse
+        resp = BatchObservationsResponse.from_wire(data)
+        assert resp.count == 2
+        assert len(resp.observations) == 2
+        assert resp.observations[0].content == "content1"
+        assert resp.observations[1].project_path == "/p2"

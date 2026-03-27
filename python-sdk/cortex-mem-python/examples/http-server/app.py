@@ -60,6 +60,15 @@ def _require(fields: dict):
     return None
 
 
+def _parse_int_param(key: str, default: int = 0) -> int | None:
+    """Parse an integer query param, returning error string on failure."""
+    raw = request.args.get(key, str(default))
+    try:
+        return int(raw)
+    except (ValueError, TypeError):
+        return None
+
+
 # ==================== Health ====================
 
 
@@ -116,13 +125,11 @@ def search():
     project = request.args.get("project")
     if not project:
         return _error(400, "project is required")
-    try:
-        limit = int(request.args.get("limit", "0") or "0")
-    except ValueError:
+    limit = _parse_int_param("limit")
+    if limit is None:
         return _error(400, "limit must be an integer")
-    try:
-        offset = int(request.args.get("offset", "0") or "0")
-    except ValueError:
+    offset = _parse_int_param("offset")
+    if offset is None:
         return _error(400, "offset must be an integer")
 
     result = client.search(
@@ -162,9 +169,8 @@ def experiences():
         return _error(400, "project is required")
     if not task:
         return _error(400, "task is required")
-    try:
-        count = int(request.args.get("count", "4") or "4")
-    except ValueError:
+    count = _parse_int_param("count", 4)
+    if count is None:
         return _error(400, "count must be an integer")
 
     concepts_str = request.args.get("requiredConcepts", "")
@@ -192,9 +198,8 @@ def iclprompt():
         return _error(400, "project is required")
     if not task:
         return _error(400, "task is required")
-    try:
-        max_chars = int(request.args.get("maxChars", "0") or "0")
-    except ValueError:
+    max_chars = _parse_int_param("maxChars")
+    if max_chars is None:
         return _error(400, "maxChars must be an integer")
 
     result = client.build_icl_prompt(
@@ -214,13 +219,11 @@ def observations_list():
     project = request.args.get("project")
     if not project:
         return _error(400, "project is required")
-    try:
-        limit = int(request.args.get("limit", "0") or "0")
-    except ValueError:
+    limit = _parse_int_param("limit")
+    if limit is None:
         return _error(400, "limit must be an integer")
-    try:
-        offset = int(request.args.get("offset", "0") or "0")
-    except ValueError:
+    offset = _parse_int_param("offset")
+    if offset is None:
         return _error(400, "offset must be an integer")
 
     result = client.list_observations(project=project, limit=limit, offset=offset)
@@ -383,9 +386,8 @@ def extraction_history():
         return _error(400, "template is required")
     if not project:
         return _error(400, "project is required")
-    try:
-        limit = int(request.args.get("limit", "0") or "0")
-    except ValueError:
+    limit = _parse_int_param("limit")
+    if limit is None:
         return _error(400, "limit must be an integer")
 
     results = client.get_extraction_history(project, template, user_id=request.args.get("userId", ""), limit=limit)

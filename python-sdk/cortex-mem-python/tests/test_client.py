@@ -113,12 +113,13 @@ class TestCapture:
 class TestRetrieval:
     @responses.activate
     def test_retrieve_experiences(self):
+        # Wire format uses Jackson SNAKE_CASE naming strategy
         responses.add(
             responses.POST,
             f"{BASE}/api/memory/experiences",
             json=[
-                {"id": "e1", "task": "t1", "strategy": "s1", "outcome": "o1", "reuseCondition": "r1", "qualityScore": 0.9},
-                {"id": "e2", "task": "t2", "strategy": "s2", "outcome": "o2", "reuseCondition": "r2", "qualityScore": 0.5},
+                {"id": "e1", "task": "t1", "strategy": "s1", "outcome": "o1", "reuse_condition": "r1", "quality_score": 0.9},
+                {"id": "e2", "task": "t2", "strategy": "s2", "outcome": "o2", "reuse_condition": "r2", "quality_score": 0.5},
             ],
             status=200,
         )
@@ -712,6 +713,26 @@ class TestRetrievalExtended:
         assert "source=manual" in url
         assert "limit=10" in url
         assert "offset=5" in url
+
+
+# ==================== JSON Decode Resilience ====================
+
+
+class TestJSONDecodeResilience:
+    @responses.activate
+    def test_non_json_response_returns_none(self):
+        """_request_json should return None for non-JSON responses instead of raising."""
+        responses.add(
+            responses.GET,
+            f"{BASE}/api/version",
+            body="<html>Internal Server Error</html>",
+            status=200,
+            content_type="text/html",
+        )
+        c = _client()
+        # Should return None instead of raising JSONDecodeError
+        result = c._request_json("GET", "/api/version")
+        assert result is None
 
 
 # ==================== DTO Tests ====================
