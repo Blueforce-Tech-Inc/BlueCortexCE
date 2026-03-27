@@ -419,6 +419,11 @@ public class CortexMemClientImpl implements CortexMemClient {
         if (ids.size() > 100) {
             throw new IllegalArgumentException("batch size exceeds maximum of 100 (got " + ids.size() + ")");
         }
+        for (int i = 0; i < ids.size(); i++) {
+            if (ids.get(i) == null || ids.get(i).isEmpty()) {
+                throw new IllegalArgumentException("ids[" + i + "] is empty");
+            }
+        }
         try {
             return restClient.post()
                 .uri("/api/observations/batch")

@@ -422,6 +422,20 @@ class CortexMemClientImplTest {
             () -> client.getObservationsByIds(tooMany));
     }
 
+    @Test
+    void getObservationsByIds_emptyStringInList_throws() {
+        org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> client.getObservationsByIds(List.of("id-1", "", "id-3")));
+    }
+
+    @Test
+    void getObservationsByIds_nullInList_throws() {
+        org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> client.getObservationsByIds(java.util.Arrays.asList("id-1", null, "id-3")));
+    }
+
     // ==================== P1 Management API Tests ====================
 
     @Test
