@@ -766,6 +766,34 @@ func TestAPIError_FallbackForNonJSON(t *testing.T) {
 	}
 }
 
+func TestAPIError_FallbackForEmptyBody(t *testing.T) {
+	// Server returns error status with no body — should produce a meaningful error message
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+		// No body written
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	err := client.HealthCheck(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 502")
+	}
+	var apiErr *cortexmem.APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected APIError, got: %T", err)
+	}
+	if apiErr.StatusCode != http.StatusBadGateway {
+		t.Errorf("expected status 502, got %d", apiErr.StatusCode)
+	}
+	if apiErr.Message == "" {
+		t.Error("error message should not be empty for empty response body")
+	}
+	if !strings.Contains(apiErr.Message, "empty") {
+		t.Errorf("expected message to mention empty body, got: %q", apiErr.Message)
+	}
+}
+
 func TestObservationRequest_V14Fields_WireFormat(t *testing.T) {
 	// Verify source, prompt_number, and extractedData are correctly sent
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

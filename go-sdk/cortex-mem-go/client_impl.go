@@ -258,6 +258,10 @@ func (c *httpClient) doRequestNoContentWithParams(ctx context.Context, method, p
 // Falls back to raw body string if parsing fails.
 // Supports common patterns: {"error":"..."}, {"message":"..."}, {"detail":"..."}.
 func extractErrorMessage(data []byte) string {
+	// Handle empty response body (server returned status code with no body)
+	if len(data) == 0 {
+		return "(empty response body)"
+	}
 	var parsed map[string]any
 	if err := json.Unmarshal(data, &parsed); err != nil {
 		// Not JSON — return raw body (truncated to 200 chars for readability)
