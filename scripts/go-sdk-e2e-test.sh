@@ -435,7 +435,7 @@ if [ "$QUAL" = "FAIL" ]; then
 elif echo "$QUAL" | grep -q "distribution\|score"; then
     pass "GET /quality"
 else
-    pass "GET /quality (API may not be implemented)"
+    fail "GET /quality" "Unexpected response format - expected 'distribution' or 'score'"
 fi
 
 # ==================== Preliminary Coverage (Before Supplementary Tests) ====================
@@ -450,11 +450,11 @@ echo "  ✅ RetrieveExperiences, BuildICLPrompt, GetQualityDistribution, ListObs
 echo ""
 echo "Note: Remaining methods tested in supplementary tests below."
 
-# ==================== Final Report ====================
+# ==================== First Checkpoint ====================
 
 echo ""
 echo "=========================================="
-echo "Test results: $PASSED/$TOTAL passed, $FAILED failed"
+echo "First Checkpoint: $PASSED/$TOTAL passed, $FAILED failed (more tests below)"
 echo "=========================================="
 
 if [ $FAILED -gt 0 ]; then
@@ -470,7 +470,7 @@ if [ $FAILED -gt 0 ]; then
 fi
 
 echo ""
-echo "🎉 Go SDK Demo E2E test all passed! ($TOTAL tests)"
+echo "🎉 First checkpoint passed! ($TOTAL tests so far, more to come)"
 echo ""
 echo "Verified checkpoints:"
 echo "  ✅ Backend health check (status=ok)"
@@ -495,7 +495,7 @@ fi
 
 # Test 28: /extraction/latest
 info "Test 28: GET /extraction/latest — Latest extraction result"
-EXTRACT_LATEST=$(curl -sf --max-time 10 "$DEMO_BASE/extraction/latest?template=user_preferences&userId=alice&project=$PROJECT" 2>/dev/null || echo "FAIL")
+EXTRACT_LATEST=$(curl -sf --max-time 10 "$DEMO_BASE/extraction/latest?template=user_preference&userId=alice&project=$PROJECT" 2>/dev/null || echo "FAIL")
 if [ "$EXTRACT_LATEST" = "FAIL" ]; then
     fail "GET /extraction/latest" "Connection failed or timed out"
 else
@@ -504,7 +504,7 @@ fi
 
 # Test 29: /extraction/history
 info "Test 29: GET /extraction/history — Extraction history"
-EXTRACT_HIST=$(curl -sf --max-time 10 "$DEMO_BASE/extraction/history?template=user_preferences&userId=alice&limit=5&project=$PROJECT" 2>/dev/null || echo "FAIL")
+EXTRACT_HIST=$(curl -sf --max-time 10 "$DEMO_BASE/extraction/history?template=user_preference&userId=alice&limit=5&project=$PROJECT" 2>/dev/null || echo "FAIL")
 if [ "$EXTRACT_HIST" = "FAIL" ]; then
     fail "GET /extraction/history" "Connection failed or timed out"
 else
@@ -561,9 +561,10 @@ if [ "$OBS_DELETE_STATUS" = "000" ]; then
     fail "DELETE /observation/delete" "Connection failed or timed out"
 elif [ "$OBS_DELETE_STATUS" -ge 200 ] && [ "$OBS_DELETE_STATUS" -lt 300 ]; then
     pass "DELETE /observation/delete (HTTP $OBS_DELETE_STATUS)"
+elif [ "$OBS_DELETE_STATUS" = "404" ]; then
+    pass "DELETE /observation/delete (HTTP 404 — test ID not found, endpoint works)"
 else
-    # Non-2xx is acceptable if backend returned error (e.g. 404 not found)
-    pass "DELETE /observation/delete (HTTP $OBS_DELETE_STATUS — backend error acceptable)"
+    fail "DELETE /observation/delete" "Unexpected HTTP $OBS_DELETE_STATUS"
 fi
 
 # Test 35: /ingest/prompt
@@ -645,7 +646,7 @@ else
 
     # Test E2: Query latest extraction (should exist after E1)
     info "Test E2: GET /extraction/latest — Query latest extraction for alice"
-    LATEST=$(curl -sf --max-time 10 "$BACKEND_URL/api/extraction/user_preferences/latest?projectPath=$PROJECT&userId=alice" 2>/dev/null || echo "FAIL")
+    LATEST=$(curl -sf --max-time 10 "$BACKEND_URL/api/extraction/user_preference/latest?projectPath=$PROJECT&userId=alice" 2>/dev/null || echo "FAIL")
     if [ "$LATEST" = "FAIL" ]; then
         fail "GET /extraction/latest" "Request timed out or failed"
     elif echo "$LATEST" | grep -qi "not_found\|not found"; then
@@ -658,7 +659,7 @@ else
 
     # Test E3: Multi-user isolation (bob should not see alice's data)
     info "Test E3: Multi-user isolation — Bob should not see alice's extraction"
-    BOB_LATEST=$(curl -sf --max-time 10 "$BACKEND_URL/api/extraction/user_preferences/latest?projectPath=$PROJECT&userId=bob" 2>/dev/null || echo "FAIL")
+    BOB_LATEST=$(curl -sf --max-time 10 "$BACKEND_URL/api/extraction/user_preference/latest?projectPath=$PROJECT&userId=bob" 2>/dev/null || echo "FAIL")
     if [ "$BOB_LATEST" = "FAIL" ]; then
         fail "Multi-user isolation" "Request timed out or failed"
     elif echo "$BOB_LATEST" | grep -qi "not_found\|not found"; then
@@ -671,7 +672,7 @@ else
 
     # Test E4: Extraction history
     info "Test E4: GET /extraction/history — Query extraction history"
-    HISTORY=$(curl -sf --max-time 10 "$BACKEND_URL/api/extraction/user_preferences/history?projectPath=$PROJECT&userId=alice&limit=5" 2>/dev/null || echo "FAIL")
+    HISTORY=$(curl -sf --max-time 10 "$BACKEND_URL/api/extraction/user_preference/history?projectPath=$PROJECT&userId=alice&limit=5" 2>/dev/null || echo "FAIL")
     if [ "$HISTORY" = "FAIL" ]; then
         fail "GET /extraction/history" "Request timed out or failed"
     elif echo "$HISTORY" | grep -qi "extractedData\|data\|preferences"; then
@@ -690,7 +691,7 @@ else
     fi
 
     # Verify latest was updated
-    RE_LATEST=$(curl -sf --max-time 10 "$BACKEND_URL/api/extraction/user_preferences/latest?projectPath=$PROJECT&userId=alice" 2>/dev/null || echo "FAIL")
+    RE_LATEST=$(curl -sf --max-time 10 "$BACKEND_URL/api/extraction/user_preference/latest?projectPath=$PROJECT&userId=alice" 2>/dev/null || echo "FAIL")
     if [ "$RE_LATEST" != "FAIL" ]; then
         pass "Re-extraction — Latest result still queryable"
     fi

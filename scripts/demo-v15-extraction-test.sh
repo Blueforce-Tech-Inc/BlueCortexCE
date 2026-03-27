@@ -389,7 +389,7 @@ test_regression() {
     script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
     if bash "${script_dir}/regression-test.sh" 2>&1 | tail -5 | grep -q "All tests passed"; then
-        log_info "Regression test: 43/43 passed"
+        log_info "Regression test: 46/46 passed"
     else
         log_fail "Regression test failed"
         ((TESTS_FAILED++)); return 1
