@@ -542,29 +542,29 @@ else
     pass "PATCH /session/user"
 fi
 
-# Test 33: /observation/patch
-info "Test 33: PATCH /observation/patch — Update observation"
-OBS_PATCH=$(curl -sf --max-time 10 -X PATCH "$DEMO_BASE/observation/patch" \
+# Test 33: PATCH /observations/{id}
+info "Test 33: PATCH /observations/{id} — Update observation"
+OBS_PATCH=$(curl -sf --max-time 10 -X PATCH "$DEMO_BASE/observations/test-id" \
     -H "Content-Type: application/json" \
-    -d '{"id": "test-id", "source": "verified"}' 2>/dev/null || echo "FAIL")
+    -d '{"source": "verified"}' 2>/dev/null || echo "FAIL")
 if [ "$OBS_PATCH" = "FAIL" ]; then
-    fail "PATCH /observation/patch" "Connection failed or timed out"
+    fail "PATCH /observations/{id}" "Connection failed or timed out"
 else
-    pass "PATCH /observation/patch"
+    pass "PATCH /observations/{id}"
 fi
 
-# Test 34: /observation/delete
-info "Test 34: DELETE /observation/delete — Delete observation"
+# Test 34: DELETE /observations/{id}
+info "Test 34: DELETE /observations/{id} — Delete observation"
 # DELETE returns 204 No Content on success or JSON error; curl -sf succeeds on 2xx
-OBS_DELETE_STATUS=$(curl -so /dev/null -w "%{http_code}" --max-time 10 -X DELETE "$DEMO_BASE/observation/delete?id=test-id" 2>/dev/null || echo "000")
+OBS_DELETE_STATUS=$(curl -so /dev/null -w "%{http_code}" --max-time 10 -X DELETE "$DEMO_BASE/observations/test-id" 2>/dev/null || echo "000")
 if [ "$OBS_DELETE_STATUS" = "000" ]; then
-    fail "DELETE /observation/delete" "Connection failed or timed out"
+    fail "DELETE /observations/{id}" "Connection failed or timed out"
 elif [ "$OBS_DELETE_STATUS" -ge 200 ] && [ "$OBS_DELETE_STATUS" -lt 300 ]; then
-    pass "DELETE /observation/delete (HTTP $OBS_DELETE_STATUS)"
+    pass "DELETE /observations/{id} (HTTP $OBS_DELETE_STATUS)"
 elif [ "$OBS_DELETE_STATUS" = "404" ]; then
-    pass "DELETE /observation/delete (HTTP 404 — test ID not found, endpoint works)"
+    pass "DELETE /observations/{id} (HTTP 404 — test ID not found, endpoint works)"
 else
-    fail "DELETE /observation/delete" "Unexpected HTTP $OBS_DELETE_STATUS"
+    fail "DELETE /observations/{id}" "Unexpected HTTP $OBS_DELETE_STATUS"
 fi
 
 # Test 35: /ingest/prompt
@@ -612,8 +612,8 @@ echo "  ✅ RecordSessionEnd (via /ingest/session-end)"
 echo "  ✅ TriggerRefinement (via /refine)"
 echo "  ✅ SubmitFeedback (via /feedback)"
 echo "  ✅ UpdateSessionUserId (via /session/user)"
-echo "  ✅ UpdateObservation (via /observation/patch)"
-echo "  ✅ DeleteObservation (via /observation/delete)"
+echo "  ✅ UpdateObservation (via PATCH /observations/{id})"
+echo "  ✅ DeleteObservation (via DELETE /observations/{id})"
 echo "  ✅ GetObservationsByIds (via /observations/batch)"
 echo "  ✅ GetLatestExtraction (via /extraction/latest)"
 echo "  ✅ GetExtractionHistory (via /extraction/history)"
