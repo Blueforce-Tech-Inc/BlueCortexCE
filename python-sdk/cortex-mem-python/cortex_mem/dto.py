@@ -6,12 +6,14 @@ from dataclasses import dataclass, field
 
 
 def _to_int(v: object, default: int = 0) -> int:
-    """Safely convert wire value to int (handles string numbers)."""
+    """Safely convert wire value to int (handles string numbers and floats)."""
     if isinstance(v, int):
         return v
+    if isinstance(v, float):
+        return int(v)
     if isinstance(v, str):
         try:
-            return int(v)
+            return int(float(v))  # handles "3.14" → 3, "42" → 42
         except ValueError:
             return default
     return default

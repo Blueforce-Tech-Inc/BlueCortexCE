@@ -37,8 +37,12 @@ class TestTypeConversionHelpers:
         assert _to_int(None) == 0
 
     def test_to_int_with_float_string(self):
-        """Float string like '3.14' should return default (int() rejects it)."""
-        assert _to_int("3.14") == 0
+        """Float string like '3.14' should truncate to 3 (via float conversion)."""
+        assert _to_int("3.14") == 3
+
+    def test_to_int_with_float_value(self):
+        """Float value 3.7 should truncate to 3."""
+        assert _to_int(3.7) == 3
 
     def test_to_float_with_float(self):
         assert _to_float(3.14) == 3.14

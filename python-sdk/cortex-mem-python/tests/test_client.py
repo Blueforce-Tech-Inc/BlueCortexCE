@@ -762,6 +762,13 @@ class TestRetrievalExtended:
             c.get_observations_by_ids([f"id-{i}" for i in range(101)])
 
     @responses.activate
+    def test_get_observations_by_ids_whitespace_raises(self):
+        """Whitespace-only ID should raise CortexError."""
+        c = _client()
+        with pytest.raises(Exception, match="ids.*empty"):
+            c.get_observations_by_ids(["valid-id", "   "])
+
+    @responses.activate
     def test_build_icl_prompt_with_max_chars(self):
         """Verify maxChars is sent in wire format."""
         responses.add(responses.POST, f"{BASE}/api/memory/icl-prompt", json={"prompt": "", "experienceCount": 0}, status=200)
