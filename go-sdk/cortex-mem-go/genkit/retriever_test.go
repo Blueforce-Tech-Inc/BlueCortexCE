@@ -188,6 +188,35 @@ func TestRetrieve_NegativeCount_FallsBackToDefault(t *testing.T) {
 	}
 }
 
+func TestRetrieve_EmptyStrategy_HandlesGracefully(t *testing.T) {
+	// When Strategy is empty, content should just be Outcome (no leading newline)
+	mock := &emptyStrategyClient{}
+	r := NewRetriever(mock, "/tmp/test")
+	output, err := r.Retrieve(context.Background(), RetrieverInput{Query: "test"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(output.Documents) != 1 {
+		t.Fatalf("expected 1 document, got %d", len(output.Documents))
+	}
+	doc := output.Documents[0]
+	if doc.Content != "outcome only" {
+		t.Errorf("expected 'outcome only', got %q", doc.Content)
+	}
+}
+
+func TestRetrieve_BothEmpty_ProducesEmptyContent(t *testing.T) {
+	mock := &bothEmptyClient{}
+	r := NewRetriever(mock, "/tmp/test")
+	output, err := r.Retrieve(context.Background(), RetrieverInput{Query: "test"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if output.Documents[0].Content != "" {
+		t.Errorf("expected empty content, got %q", output.Documents[0].Content)
+	}
+}
+
 func TestRetrieve_InputOverridesEmptyRetrieverFields(t *testing.T) {
 	// When retriever has empty fields, input should provide values
 	var capturedReq dto.ExperienceRequest
@@ -232,3 +261,25 @@ func (m *captureClient) RetrieveExperiences(_ context.Context, req dto.Experienc
 }
 
 func (m *captureClient) Close() error { return nil }
+
+// emptyStrategyClient returns an experience with empty Strategy.
+type emptyStrategyClient struct {
+	cortexmem.Client
+}
+
+func (m *emptyStrategyClient) RetrieveExperiences(_ context.Context, _ dto.ExperienceRequest) ([]dto.Experience, error) {
+	return []dto.Experience{{ID: "1", Task: "test", Strategy: "", Outcome: "outcome only", QualityScore: 0.9, CreatedAt: "2026-03-26T10:00:00Z"}}, nil
+}
+
+func (m *emptyStrategyClient) Close() error { return nil }
+
+// bothEmptyClient returns an experience with both Strategy and Outcome empty.
+type bothEmptyClient struct {
+	cortexmem.Client
+}
+
+func (m *bothEmptyClient) RetrieveExperiences(_ context.Context, _ dto.ExperienceRequest) ([]dto.Experience, error) {
+	return []dto.Experience{{ID: "1", Task: "test", Strategy: "", Outcome: "", QualityScore: 0.5, CreatedAt: "2026-03-26T10:00:00Z"}}, nil
+}
+
+func (m *bothEmptyClient) Close() error { return nil }

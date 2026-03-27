@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
 	"github.com/abforce/cortex-ce/cortex-mem-go/dto"
@@ -121,8 +122,15 @@ func (r *Retriever) Retrieve(ctx context.Context, input RetrieverInput) (Retriev
 
 	docs := make([]Document, 0, len(experiences))
 	for _, exp := range experiences {
+		parts := make([]string, 0, 2)
+		if exp.Strategy != "" {
+			parts = append(parts, exp.Strategy)
+		}
+		if exp.Outcome != "" {
+			parts = append(parts, exp.Outcome)
+		}
 		docs = append(docs, Document{
-			Content: exp.Strategy + "\n" + exp.Outcome,
+			Content: strings.Join(parts, "\n"),
 			Metadata: map[string]any{
 				"id":             exp.ID,
 				"task":           exp.Task,
