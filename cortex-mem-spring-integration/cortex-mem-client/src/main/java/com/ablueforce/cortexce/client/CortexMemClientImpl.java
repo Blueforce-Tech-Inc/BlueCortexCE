@@ -5,7 +5,6 @@ import com.ablueforce.cortexce.client.dto.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
@@ -592,10 +591,11 @@ public class CortexMemClientImpl implements CortexMemClient {
      */
     private static boolean isRetryable(Exception e) {
         if (e instanceof RestClientResponseException httpEx) {
-            HttpStatusCode status = httpEx.getStatusCode();
-            int code = status.value();
-            // Retry on 429 (rate limited) and 5xx (server errors), except 500 (code bug)
-            return code == 429 || (code >= 500 && code != 500);
+            int code = httpEx.getStatusCode().value();
+            // Retry on 429 (rate limited), 502 (bad gateway), 503 (unavailable), 504 (timeout).
+            // Do NOT retry on 500 (code bug) or other 5xx/4xx.
+            // Matches Go SDK isTransient() for consistent behavior across SDKs.
+            return code == 429 || code == 502 || code == 503 || code == 504;
         }
         // Non-HTTP errors (network failures, timeouts) are always worth retrying
         return true;
