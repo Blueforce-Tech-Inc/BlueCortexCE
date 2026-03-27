@@ -203,25 +203,60 @@ else
 fi
 
 # Test 7: Backend /api/search
-info "Test 7: Backend /api/search — Verify search endpoint"
+info "Test 7: Backend /api/search — Verify search endpoint with field values"
 SRCH_RESP=$(curl -sf "$BACKEND_URL/api/search?project=$PROJECT&limit=3" 2>/dev/null || echo "FAIL")
 if [ "$SRCH_RESP" = "FAIL" ]; then
     fail "Backend /api/search" "Request failed"
 elif ! echo "$SRCH_RESP" | grep -qE '"observations"'; then
     fail "Backend /api/search" "Response missing 'observations'"
 else
-    pass "Backend /api/search — Search endpoint OK"
+    # VALUE CHECK: Verify search result structure
+    SRCH_CHECK=$(echo "$SRCH_RESP" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+obs = data.get('observations', [])
+errors = []
+for r in obs[:3]:
+    o = r.get('observation', r)
+    if not o.get('id'): errors.append('id missing')
+    if not o.get('content_session_id', o.get('sessionId')): errors.append('session_id missing')
+    if not o.get('project', o.get('projectPath')): errors.append('project missing')
+if errors: print('FAIL:' + ', '.join(set(errors)))
+else: print('OK')
+" 2>/dev/null | tail -1 || echo "ERROR")
+    if [ "$SRCH_CHECK" = "OK" ]; then
+        pass "Backend /api/search — Observations have correct fields"
+    else
+        fail "Backend /api/search" "Field check: $SRCH_CHECK"
+    fi
 fi
 
 # Test 8: Backend /api/observations
-info "Test 8: Backend /api/observations — Verify pagination endpoint"
+info "Test 8: Backend /api/observations — Verify pagination with field values"
 OBS_RESP=$(curl -sf "$BACKEND_URL/api/observations?project=$PROJECT&limit=3" 2>/dev/null || echo "FAIL")
 if [ "$OBS_RESP" = "FAIL" ]; then
     fail "Backend /api/observations" "Request failed"
 elif ! echo "$OBS_RESP" | grep -qE '"items"'; then
     fail "Backend /api/observations" "Response missing 'items'"
 else
-    pass "Backend /api/observations — Pagination endpoint OK"
+    # VALUE CHECK: Verify observations have expected fields
+    OBS_CHECK=$(echo "$OBS_RESP" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+items = data.get('items', [])
+errors = []
+for o in items[:3]:
+    if not o.get('id'): errors.append('id missing')
+    if not o.get('content_session_id', o.get('sessionId')): errors.append('session_id missing')
+    if not o.get('project', o.get('projectPath')): errors.append('project missing')
+if errors: print('FAIL:' + ', '.join(set(errors)))
+else: print('OK')
+" 2>/dev/null | tail -1 || echo "ERROR")
+    if [ "$OBS_CHECK" = "OK" ]; then
+        pass "Backend /api/observations — Items have correct fields"
+    else
+        fail "Backend /api/observations" "Field check: $OBS_CHECK"
+    fi
 fi
 
 # Test 9: Backend /api/projects
@@ -239,7 +274,51 @@ STATS_RESP=$(curl -sf "$BACKEND_URL/api/stats?project=$PROJECT" 2>/dev/null || e
 if [ "$STATS_RESP" = "FAIL" ]; then
     fail "Backend /api/stats" "Request failed"
 else
-    pass "Backend /api/stats — Stats endpoint OK"
+    # VALUE CHECK: Verify stats has expected fields
+    if echo "$STATS_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if 'totalObservations' in d or 'observations' in d else 1)" 2>/dev/null; then
+        pass "Backend /api/stats — Stats have observation count"
+    else
+        fail "Backend /api/stats" "Stats missing observation counts"
+    fi
+fi
+
+# Test 10b: Backend /api/memory/experiences — VALUE CHECK
+info "Test 10b: Backend /api/memory/experiences — Verify experience fields"
+EXP_RESP=$(curl -sf -X POST "$BACKEND_URL/api/memory/experiences" \
+    -H "Content-Type: application/json" \
+    -d "{\"task\":\"test\", \"project\":\"$PROJECT\", \"count\":2}" 2>/dev/null || echo "FAIL")
+if [ "$EXP_RESP" = "FAIL" ]; then
+    fail "Backend /api/memory/experiences" "Request failed"
+else
+    # VALUE CHECK: Verify experience field names and values
+    EXP_CHECK=$(echo "$EXP_RESP" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+if not isinstance(data, list):
+    print('FAIL: not a list')
+    sys.exit(0)
+if len(data) == 0:
+    print('SKIP: no experiences')
+    sys.exit(0)
+exp = data[0]
+errors = []
+if not exp.get('id'): errors.append('id missing')
+if not exp.get('task'): errors.append('task missing')
+if not exp.get('strategy'): errors.append('strategy missing')
+# Verify snake_case field names (not camelCase)
+if 'qualityScore' in exp: errors.append('qualityScore should be quality_score')
+if 'reuseCondition' in exp: errors.append('reuseCondition should be reuse_condition')
+if 'createdAt' in exp: errors.append('createdAt should be created_at')
+if errors: print('FAIL:' + ', '.join(set(errors)))
+else: print('OK')
+" 2>/dev/null | tail -1 || echo "ERROR")
+    if [ "$EXP_CHECK" = "OK" ]; then
+        pass "Backend /api/memory/experiences — Experience has correct snake_case fields"
+    elif [[ "$EXP_CHECK" == SKIP* ]]; then
+        info "Backend /api/memory/experiences — $EXP_CHECK"
+    else
+        fail "Backend /api/memory/experiences" "Field check: $EXP_CHECK"
+    fi
 fi
 
 # Test 11: Backend /api/modes

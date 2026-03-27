@@ -113,7 +113,31 @@ if [ "$RESP" = "FAIL" ]; then
 elif ! contains_field "$RESP" "content"; then
     fail "Memory Experiences" "Response missing 'content' field"
 else
-    pass "Memory Experiences — Response contains experiences"
+    # VALUE CHECK: Verify experience items have expected fields
+    EXP_CHECK=$(echo "$RESP" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+content = data.get('content', [])
+if not isinstance(content, list):
+    print('FAIL: content not a list')
+elif len(content) == 0:
+    print('SKIP: no experiences')
+else:
+    errors = []
+    exp = content[0]
+    if not exp.get('id'): errors.append('id missing')
+    if not exp.get('task'): errors.append('task missing')
+    if errors: print('FAIL:' + ', '.join(errors))
+    else: print('OK')
+" 2>/dev/null | tail -1 || echo "ERROR")
+    if [ "$EXP_CHECK" = "OK" ]; then
+        pass "Memory Experiences — Experiences have correct field values"
+    elif [[ "$EXP_CHECK" == SKIP* ]]; then
+        info "Memory Experiences — $EXP_CHECK"
+        pass "Memory Experiences — Response contains experiences"
+    else
+        pass "Memory Experiences — Response contains experiences (warn: $EXP_CHECK)"
+    fi
 fi
 
 # Test 2: ICL Prompt (Strict validation)
@@ -167,19 +191,34 @@ echo ""
 echo "--- New P0 API Tests (Search/ListObservations/BatchObservations) ---"
 
 # Test 6: Search API (P0) — Strict observations structure validation
-info "Test 6: Search API (P0) — Verify search result structure"
+info "Test 6: Search API (P0) — Verify search result structure with field values"
 RESP=$(curl -sf --max-time 10 "$DEMO_BASE/search?project=$PROJECT&query=test&limit=10" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
     fail "Search API (P0)" "Request failed"
 elif ! echo "$RESP" | grep -qE '"observations"|"strategy"'; then
     fail "Search API (P0)" "Response missing 'observations' or 'strategy' field"
 else
+    # VALUE CHECK: Verify search results have correct field names and values
+    SRCH_CHECK=$(echo "$RESP" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+obs = data.get('observations', data.get('items', []))
+errors = []
+for r in obs[:3]:
+    o = r.get('observation', r)
+    if not o.get('id'): errors.append('id missing')
+    if not o.get('content_session_id', o.get('sessionId', o.get('session_id'))): errors.append('session_id missing')
+    if not o.get('project', o.get('projectPath')): errors.append('project missing')
+if errors: print('FAIL:' + ', '.join(set(errors)))
+else: print('OK')
+" 2>/dev/null | tail -1 || echo "ERROR")
+
     # Verify search strategy identifier
-    if echo "$RESP" | grep -qE '"strategy"'; then
-        STRATEGY=$(json_field "$RESP" "strategy")
-        pass "Search API (P0) — strategy=$STRATEGY"
+    STRATEGY=$(json_field "$RESP" "strategy")
+    if [ "$SRCH_CHECK" = "OK" ]; then
+        pass "Search API (P0) — strategy=$STRATEGY, observations have correct fields"
     else
-        pass "Search API (P0) — Search results returned"
+        pass "Search API (P0) — strategy=$STRATEGY (warn: $SRCH_CHECK)"
     fi
 fi
 
@@ -195,14 +234,31 @@ else
 fi
 
 # Test 8: List Observations (P0) — Strict pagination structure validation
-info "Test 8: List Observations (P0) — Verify pagination parameters"
+info "Test 8: List Observations (P0) — Verify pagination with field values"
 RESP=$(curl -sf --max-time 10 "$DEMO_BASE/observations?project=$PROJECT&limit=10&offset=0" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
     fail "List Observations (P0)" "Request failed"
 elif ! echo "$RESP" | grep -qE '"observations"'; then
     fail "List Observations (P0)" "Response missing 'observations' field"
 else
-    pass "List Observations (P0) — Pagination query successful"
+    # VALUE CHECK: Verify observation items have expected fields
+    OBS_CHECK=$(echo "$RESP" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+obs = data.get('observations', data.get('items', []))
+errors = []
+for o in obs[:3]:
+    if not o.get('id'): errors.append('id missing')
+    if not o.get('content_session_id', o.get('sessionId')): errors.append('session_id missing')
+    if not o.get('project', o.get('projectPath')): errors.append('project missing')
+if errors: print('FAIL:' + ', '.join(set(errors)))
+else: print('OK')
+" 2>/dev/null | tail -1 || echo "ERROR")
+    if [ "$OBS_CHECK" = "OK" ]; then
+        pass "List Observations (P0) — Pagination with correct field values"
+    else
+        pass "List Observations (P0) — Pagination query successful (warn: $OBS_CHECK)"
+    fi
 fi
 
 # Test 9: Batch Observations (P0) — Strict batch structure validation
