@@ -414,6 +414,30 @@ else
     pass "GET /memory/extraction/history"
 fi
 
+# Test N+5b: PATCH /demo/observations/{id}
+info "Test N+5b: PATCH /demo/observations/{id} — Update observation"
+OBS_PATCH=$(curl -sf --max-time 10 -X PATCH "$DEMO_BASE/observations/test-id" \
+    -H "Content-Type: application/json" \
+    -d '{"source": "verified", "title": "Updated Title"}' 2>/dev/null || echo "FAIL")
+if [ "$OBS_PATCH" = "FAIL" ]; then
+    fail "PATCH /demo/observations/{id}" "Connection failed"
+else
+    pass "PATCH /demo/observations/{id}"
+fi
+
+# Test N+5c: DELETE /demo/observations/{id}
+info "Test N+5c: DELETE /demo/observations/{id} — Delete observation"
+OBS_DELETE_STATUS=$(curl -so /dev/null -w "%{http_code}" --max-time 10 -X DELETE "$DEMO_BASE/observations/test-id" 2>/dev/null || echo "000")
+if [ "$OBS_DELETE_STATUS" = "000" ]; then
+    fail "DELETE /demo/observations/{id}" "Connection failed"
+elif [ "$OBS_DELETE_STATUS" -ge 200 ] && [ "$OBS_DELETE_STATUS" -lt 300 ]; then
+    pass "DELETE /demo/observations/{id} (HTTP $OBS_DELETE_STATUS)"
+elif [ "$OBS_DELETE_STATUS" = "404" ]; then
+    pass "DELETE /demo/observations/{id} (HTTP 404 — test ID not found, endpoint works)"
+else
+    fail "DELETE /demo/observations/{id}" "Unexpected HTTP $OBS_DELETE_STATUS"
+fi
+
 # Test N+6: /memory/health
 info "Test N+6: GET /memory/health — memory system health check"
 MEMHEALTH=$(curl -sf --max-time 10 "$DEMO_BASE/../memory/health" 2>/dev/null || echo "FAIL")
