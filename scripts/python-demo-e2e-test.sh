@@ -251,6 +251,90 @@ else
     pass "POST /extraction/run"
 fi
 
+# ==================== Test: /chat ====================
+
+info "Testing /chat..."
+CHAT_RESP=$(curl -sf -X POST "$DEMO_BASE/chat" \
+    -H "Content-Type: application/json" \
+    -d "{\"project\": \"$PROJECT\", \"message\": \"hello world\"}" 2>/dev/null || echo "FAIL")
+if [ "$CHAT_RESP" = "FAIL" ]; then
+    fail "POST /chat" "Request failed"
+elif ! contains_field "$CHAT_RESP" "response"; then
+    fail "POST /chat" "Missing 'response' field"
+else
+    pass "POST /chat"
+fi
+
+# ==================== Test: /feedback ====================
+
+info "Testing /feedback..."
+FEEDBACK_RESP=$(curl -sf -X POST "$DEMO_BASE/feedback" \
+    -H "Content-Type: application/json" \
+    -d "{\"observation_id\": \"nonexistent-id\", \"feedback_type\": \"positive\", \"comment\": \"test\"}" 2>/dev/null || echo "FAIL")
+if [ "$FEEDBACK_RESP" = "FAIL" ]; then
+    fail "POST /feedback" "Request failed"
+elif ! contains_field "$FEEDBACK_RESP" "status"; then
+    fail "POST /feedback" "Missing 'status' field"
+else
+    pass "POST /feedback"
+fi
+
+# ==================== Test: /session/user ====================
+
+info "Testing /session/user..."
+SESSION_RESP=$(curl -sf -X PATCH "$DEMO_BASE/session/user" \
+    -H "Content-Type: application/json" \
+    -d "{\"session_id\": \"python-demo-e2e-session\", \"user_id\": \"test-user\"}" 2>/dev/null || echo "FAIL")
+if [ "$SESSION_RESP" = "FAIL" ]; then
+    fail "PATCH /session/user" "Request failed"
+elif ! contains_field "$SESSION_RESP" "status"; then
+    fail "PATCH /session/user" "Missing 'status' field"
+else
+    pass "PATCH /session/user"
+fi
+
+# ==================== Test: /ingest/prompt ====================
+
+info "Testing /ingest/prompt..."
+INGEST_PROMPT_RESP=$(curl -sf -X POST "$DEMO_BASE/ingest/prompt" \
+    -H "Content-Type: application/json" \
+    -d "{\"project\": \"$PROJECT\", \"session_id\": \"python-demo-e2e-ingest\", \"prompt\": \"test prompt\"}" 2>/dev/null || echo "FAIL")
+if [ "$INGEST_PROMPT_RESP" = "FAIL" ]; then
+    fail "POST /ingest/prompt" "Request failed"
+elif ! contains_field "$INGEST_PROMPT_RESP" "status"; then
+    fail "POST /ingest/prompt" "Missing 'status' field"
+else
+    pass "POST /ingest/prompt"
+fi
+
+# ==================== Test: /ingest/session-end ====================
+
+info "Testing /ingest/session-end..."
+SESSION_END_RESP=$(curl -sf -X POST "$DEMO_BASE/ingest/session-end" \
+    -H "Content-Type: application/json" \
+    -d "{\"project\": \"$PROJECT\", \"session_id\": \"python-demo-e2e-ingest\"}" 2>/dev/null || echo "FAIL")
+if [ "$SESSION_END_RESP" = "FAIL" ]; then
+    fail "POST /ingest/session-end" "Request failed"
+elif ! contains_field "$SESSION_END_RESP" "status"; then
+    fail "POST /ingest/session-end" "Missing 'status' field"
+else
+    pass "POST /ingest/session-end"
+fi
+
+# ==================== Test: /observations/batch ====================
+
+info "Testing /observations/batch..."
+BATCH_RESP=$(curl -sf -X POST "$DEMO_BASE/observations/batch" \
+    -H "Content-Type: application/json" \
+    -d '{"ids": ["nonexistent-id"]}' 2>/dev/null || echo "FAIL")
+if [ "$BATCH_RESP" = "FAIL" ]; then
+    fail "POST /observations/batch" "Request failed"
+elif ! contains_field "$BATCH_RESP" "observations"; then
+    fail "POST /observations/batch" "Missing 'observations' field"
+else
+    pass "POST /observations/batch"
+fi
+
 # ==================== Summary ====================
 
 echo ""
