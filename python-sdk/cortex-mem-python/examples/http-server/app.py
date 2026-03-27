@@ -110,7 +110,7 @@ def search():
     result = client.search(
         project=project,
         query=request.args.get("query", ""),
-        type_=request.args.get("type", ""),
+        type=request.args.get("type", ""),
         concept=request.args.get("concept", ""),
         source=request.args.get("source", ""),
         limit=limit,

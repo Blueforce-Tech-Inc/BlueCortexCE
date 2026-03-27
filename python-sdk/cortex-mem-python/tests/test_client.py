@@ -648,6 +648,13 @@ class TestRetrievalExtended:
             c.get_observations_by_ids([])
 
     @responses.activate
+    def test_get_observations_by_ids_batch_too_large(self):
+        """Batch size > 100 should raise."""
+        c = _client()
+        with pytest.raises(Exception):
+            c.get_observations_by_ids([f"id-{i}" for i in range(101)])
+
+    @responses.activate
     def test_build_icl_prompt_with_max_chars(self):
         """Verify maxChars is sent in wire format."""
         responses.add(responses.POST, f"{BASE}/api/memory/icl-prompt", json={"prompt": "", "experienceCount": 0}, status=200)
@@ -655,6 +662,28 @@ class TestRetrievalExtended:
         c.build_icl_prompt("t", "/p", max_chars=2000)
         body = json.loads(responses.calls[0].request.body)
         assert body["maxChars"] == 2000
+
+    @responses.activate
+    def test_search_with_type_filter(self):
+        """Verify type filter is sent as query param (type is a Python keyword, works as kwonly arg)."""
+        responses.add(responses.GET, f"{BASE}/api/search", json={"observations": [], "count": 0}, status=200)
+        c = _client()
+        c.search("/p", query="test", type="feature")
+        url = responses.calls[0].request.url
+        assert "type=feature" in url
+
+    @responses.activate
+    def test_search_with_all_filters(self):
+        """Verify all search filters are sent correctly."""
+        responses.add(responses.GET, f"{BASE}/api/search", json={"observations": [], "count": 0}, status=200)
+        c = _client()
+        c.search("/p", query="q", type="feature", concept="test", source="manual", limit=10, offset=5)
+        url = responses.calls[0].request.url
+        assert "type=feature" in url
+        assert "concept=test" in url
+        assert "source=manual" in url
+        assert "limit=10" in url
+        assert "offset=5" in url
 
 
 # ==================== DTO Tests ====================

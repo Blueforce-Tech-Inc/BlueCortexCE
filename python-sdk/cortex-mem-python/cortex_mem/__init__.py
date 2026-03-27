@@ -3,6 +3,7 @@
 from .client import CortexMemClient
 from .dto import (
     BatchObservationsResponse,
+    DatabaseStats,
     Experience,
     ExtractionResult,
     ICLPromptResult,
@@ -16,6 +17,7 @@ from .dto import (
     SessionStartResponse,
     StatsResponse,
     VersionResponse,
+    WorkerStats,
 )
 from .error import (
     APIError,
@@ -44,6 +46,8 @@ __all__ = [
     "VersionResponse",
     "ProjectsResponse",
     "StatsResponse",
+    "WorkerStats",
+    "DatabaseStats",
     "ModesResponse",
     # Errors
     "CortexError",
