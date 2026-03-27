@@ -207,15 +207,15 @@ export class CortexMemClient {
    * Submit feedback for an observation.
    * POST /api/memory/feedback
    */
-  async submitFeedback(observationId: string, feedbackType: string, comment?: string): Promise<void> {
+  async submitFeedback(req: { observationId: string; feedbackType: string; comment?: string }): Promise<void> {
     this.assertNotClosed();
-    this.validateRequired('observationId', observationId);
-    this.validateRequired('feedbackType', feedbackType);
+    this.validateRequired('observationId', req.observationId);
+    this.validateRequired('feedbackType', req.feedbackType);
     const body: Record<string, string> = {
-      observationId,
-      feedbackType,
+      observationId: req.observationId,
+      feedbackType: req.feedbackType,
     };
-    if (comment) body.comment = comment;
+    if (req.comment) body.comment = req.comment;
     await this.requestNoContent('POST', '/api/memory/feedback', body);
   }
 
@@ -462,10 +462,15 @@ export class CortexMemClient {
         signal: controller.signal,
       });
 
-      // Read response with size limit
+      // Read response with size limit (10MB)
+      const maxSize = 10 * 1024 * 1024;
       const reader = resp.body?.getReader();
       if (!reader) {
+        // Fallback: resp.text() (for environments without ReadableStream)
         const text = await resp.text();
+        if (text.length > maxSize) {
+          throw new Error('cortex-ce: response body exceeds 10MB limit');
+        }
         return { data: new TextEncoder().encode(text), status: resp.status };
       }
 
@@ -475,7 +480,7 @@ export class CortexMemClient {
         const { done, value } = await reader.read();
         if (done) break;
         totalSize += value.length;
-        if (totalSize > 10 * 1024 * 1024) {
+        if (totalSize > maxSize) {
           reader.cancel();
           throw new Error('cortex-ce: response body exceeds 10MB limit');
         }
