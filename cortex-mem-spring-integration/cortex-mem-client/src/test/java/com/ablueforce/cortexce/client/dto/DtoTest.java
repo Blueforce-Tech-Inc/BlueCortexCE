@@ -114,6 +114,34 @@ class DtoTest {
     }
 
     @Test
+    void sessionStartRequest_toWireFormat() {
+        var req = SessionStartRequest.builder()
+            .sessionId("sess-001")
+            .projectPath("/my/project")
+            .userId("alice")
+            .build();
+
+        Map<String, Object> wire = req.toWireFormat();
+        assertThat(wire).containsEntry("session_id", "sess-001");
+        assertThat(wire).containsEntry("project_path", "/my/project");
+        assertThat(wire).containsEntry("cwd", "/my/project");
+        assertThat(wire).containsEntry("user_id", "alice");
+    }
+
+    @Test
+    void sessionStartRequest_toWireFormat_omitsNullUserId() {
+        var req = SessionStartRequest.builder()
+            .sessionId("sess-002")
+            .projectPath("/proj")
+            .build();
+
+        Map<String, Object> wire = req.toWireFormat();
+        assertThat(wire).doesNotContainKey("user_id");
+        assertThat(wire).containsEntry("session_id", "sess-002");
+        assertThat(wire).containsEntry("cwd", "/proj");
+    }
+
+    @Test
     void experienceRequest_builder() {
         var req = ExperienceRequest.builder()
             .task("add feature")
@@ -149,6 +177,24 @@ class DtoTest {
     void qualityDistribution_total() {
         var q = new QualityDistribution("/p", 10, 5, 3, 2);
         assertThat(q.total()).isEqualTo(20);
+    }
+
+    @Test
+    void observationUpdate_isEmpty_trueWhenAllNull() {
+        var update = new ObservationUpdate(null, null, null, null, null, null, null, null);
+        assertThat(update.isEmpty()).isTrue();
+    }
+
+    @Test
+    void observationUpdate_isEmpty_falseWhenAnyFieldSet() {
+        assertThat(ObservationUpdate.builder().title("x").build().isEmpty()).isFalse();
+        assertThat(ObservationUpdate.builder().subtitle("x").build().isEmpty()).isFalse();
+        assertThat(ObservationUpdate.builder().content("x").build().isEmpty()).isFalse();
+        assertThat(ObservationUpdate.builder().narrative("x").build().isEmpty()).isFalse();
+        assertThat(ObservationUpdate.builder().facts(List.of("a")).build().isEmpty()).isFalse();
+        assertThat(ObservationUpdate.builder().concepts(List.of("a")).build().isEmpty()).isFalse();
+        assertThat(ObservationUpdate.builder().source("x").build().isEmpty()).isFalse();
+        assertThat(ObservationUpdate.builder().extractedData(Map.of("k", "v")).build().isEmpty()).isFalse();
     }
 
     @Test

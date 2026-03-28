@@ -26,6 +26,16 @@ public record ObservationUpdate(
     String source,
     Map<String, Object> extractedData
 ) {
+    /**
+     * Check if all fields are null (no update intended).
+     * Used by the client to reject no-op PATCH requests.
+     */
+    public boolean isEmpty() {
+        return title == null && subtitle == null && content == null &&
+               narrative == null && facts == null && concepts == null &&
+               source == null && extractedData == null;
+    }
+
     public static Builder builder() {
         return new Builder();
     }
