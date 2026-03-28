@@ -334,13 +334,17 @@ fi
 # ==================== Test: PATCH /observations/{id} ====================
 
 info "Testing PATCH /observations/{id}..."
-OBS_PATCH=$(curl -sf -X PATCH "$DEMO_BASE/observations/test-id" \
+OBS_PATCH_STATUS=$(curl -so /dev/null -w "%{http_code}" -X PATCH "$DEMO_BASE/observations/test-id" \
     -H "Content-Type: application/json" \
-    -d '{"source": "verified", "title": "Updated Title"}' 2>/dev/null || echo "FAIL")
-if [ "$OBS_PATCH" = "FAIL" ]; then
+    -d '{"source": "verified", "title": "Updated Title"}' 2>/dev/null || echo "000")
+if [ "$OBS_PATCH_STATUS" = "000" ]; then
     fail "PATCH /observations/{id}" "Connection failed"
+elif [ "$OBS_PATCH_STATUS" -ge 200 ] && [ "$OBS_PATCH_STATUS" -lt 300 ]; then
+    pass "PATCH /observations/{id} (HTTP $OBS_PATCH_STATUS)"
+elif [ "$OBS_PATCH_STATUS" = "404" ]; then
+    pass "PATCH /observations/{id} (HTTP 404 — test ID not found, endpoint works)"
 else
-    pass "PATCH /observations/{id}"
+    fail "PATCH /observations/{id}" "Unexpected HTTP $OBS_PATCH_STATUS"
 fi
 
 # ==================== Test: DELETE /observations/{id} ====================

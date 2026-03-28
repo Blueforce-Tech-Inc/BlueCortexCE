@@ -86,8 +86,10 @@ class ICLPromptResult:
     def from_wire(cls, data: dict) -> ICLPromptResult:
         return cls(
             prompt=data.get("prompt") or "",
-            experience_count=_to_int(data.get("experienceCount", 0)),
-            max_chars=_to_int(data.get("maxChars", 0)),
+            experience_count=_to_int(
+                data.get("experienceCount", data.get("experience_count", 0))
+            ),
+            max_chars=_to_int(data.get("maxChars", data.get("max_chars", 0))),
         )
 
 
@@ -300,7 +302,7 @@ class ExtractionResult:
             message=data.get("message") or "",
             session_id=data.get("sessionId") or "",
             extracted_data=data.get("extractedData"),
-            created_at=data.get("createdAt", 0),
+            created_at=_to_int(data.get("createdAt", 0)),
             observation_id=data.get("observationId") or "",
         )
 

@@ -85,6 +85,14 @@ class TestDTOFromWire:
         assert result.experience_count == 5  # parsed from string
         assert result.prompt == "hello"
 
+    def test_icl_prompt_result_from_wire_snake_case_fallback(self):
+        """Backend may use snake_case keys — SDK must accept both naming conventions."""
+        data = {"prompt": "hello", "experience_count": "5", "max_chars": 4000}
+        result = ICLPromptResult.from_wire(data)
+        assert result.experience_count == 5  # parsed from string
+        assert result.max_chars == 4000
+        assert result.prompt == "hello"
+
     def test_observation_from_wire(self):
         # Wire format uses Jackson SNAKE_CASE naming strategy:
         # content_session_id (not sessionId), project (not projectPath), narrative (not content)
@@ -164,6 +172,12 @@ class TestDTOFromWire:
         er = ExtractionResult.from_wire(data)
         assert er.status == "ok"
         assert er.extracted_data == {"lang": "zh"}
+
+    def test_extraction_result_from_wire_created_at_string(self):
+        """createdAt may arrive as a string from some backend responses."""
+        data = {"createdAt": "1710000000000", "sessionId": "s1", "observationId": "o1"}
+        er = ExtractionResult.from_wire(data)
+        assert er.created_at == 1710000000000  # parsed from string via _to_int
 
     def test_version_response_from_wire(self):
         data = {"version": "1.0.0", "service": "claude-mem-java"}
