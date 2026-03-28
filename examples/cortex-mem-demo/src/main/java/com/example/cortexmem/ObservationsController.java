@@ -204,20 +204,19 @@ public class ObservationsController {
      * DELETE /demo/observations/{id}
      *
      * Demonstrates V14 observation deletion.
+     * Returns 204 No Content on success (REST convention, consistent with Go/Python/JS demos).
      */
-    @DeleteMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, Object>> deleteObservation(@PathVariable String id) {
+    @DeleteMapping(value = "/{id}")
+    public ResponseEntity<Void> deleteObservation(@PathVariable String id) {
         if (id == null || id.isBlank()) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("error", "observation id is required"));
+            return ResponseEntity.badRequest().build();
         }
         try {
             client.deleteObservation(id);
-            return ResponseEntity.ok(Map.of("status", "deleted", "id", id));
+            return ResponseEntity.noContent().build();
         } catch (Exception e) {
             log.error("Delete observation failed for id={}", id, e);
-            return ResponseEntity.internalServerError()
-                    .body(Map.of("error", "Delete observation failed: " + e.getMessage()));
+            return ResponseEntity.internalServerError().build();
         }
     }
 

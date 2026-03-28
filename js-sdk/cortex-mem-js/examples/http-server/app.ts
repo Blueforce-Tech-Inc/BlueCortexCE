@@ -104,8 +104,8 @@ app.get('/search', asyncHandler(async (req: Request, res: Response) => {
   const type = req.query.type as string | undefined;
   const concept = req.query.concept as string | undefined;
   const source = req.query.source as string | undefined;
-  const limit = parseInt(req.query.limit as string ?? '0', 10) || undefined;
-  const offset = parseInt(req.query.offset as string ?? '0', 10) || undefined;
+  const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
+  const offset = req.query.offset ? parseInt(req.query.offset as string, 10) : undefined;
 
   const result = await client.search({
     project,
@@ -113,8 +113,8 @@ app.get('/search', asyncHandler(async (req: Request, res: Response) => {
     ...(type && { type }),
     ...(concept && { concept }),
     ...(source && { source }),
-    ...(limit && { limit }),
-    ...(offset && { offset }),
+    ...(limit !== undefined && { limit }),
+    ...(offset !== undefined && { offset }),
   });
   res.json(result);
 });

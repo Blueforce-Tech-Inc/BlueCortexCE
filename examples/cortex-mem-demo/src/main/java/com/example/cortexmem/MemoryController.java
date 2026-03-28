@@ -2,7 +2,6 @@ package com.example.cortexmem;
 
 import com.ablueforce.cortexce.client.CortexMemClient;
 import com.ablueforce.cortexce.client.dto.ICLPromptRequest;
-import com.ablueforce.cortexce.client.dto.ICLPromptResult;
 import com.ablueforce.cortexce.client.dto.QualityDistribution;
 import com.ablueforce.cortexce.client.dto.ExperienceRequest;
 import com.ablueforce.cortexce.client.dto.ObservationUpdate;
@@ -138,12 +137,13 @@ public class MemoryController {
      *                 - 8K models: 2000-3000
      */
     @GetMapping("/memory/icl/truncated")
-    public ResponseEntity<ICLPromptResult> getIclPromptTruncated(
+    public ResponseEntity<?> getIclPromptTruncated(
             @RequestParam String task,
             @RequestParam(defaultValue = "/") String project,
             @RequestParam(defaultValue = "4000") int maxChars) {
         if (maxChars < 1 || maxChars > 100000) {
-            return ResponseEntity.badRequest().body(new ICLPromptResult("", 0));
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "maxChars must be between 1 and 100000"));
         }
         String projectPath = resolveProject(project);
         try {
@@ -155,7 +155,7 @@ public class MemoryController {
         } catch (Exception e) {
             log.error("ICL prompt truncated failed for project={}", projectPath, e);
             return ResponseEntity.internalServerError()
-                    .body(new ICLPromptResult("", 0));
+                    .body(Map.of("error", "ICL prompt failed: " + e.getMessage()));
         }
     }
 
