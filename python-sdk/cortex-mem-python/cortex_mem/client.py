@@ -557,6 +557,8 @@ class CortexMemClient:
             raise ValidationError("project_path is required")
         if not template_name:
             raise ValidationError("template_name is required")
+        if limit < 0:
+            raise ValidationError("limit must not be negative")
         path = f"/api/extraction/{quote(template_name, safe='')}/history"
         params: dict[str, str] = {"projectPath": project_path}
         if user_id:

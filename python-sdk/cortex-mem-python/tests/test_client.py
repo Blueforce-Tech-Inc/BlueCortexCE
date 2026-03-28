@@ -751,6 +751,12 @@ class TestExtractionExtended:
         assert "limit=25" in url
         assert "userId=u1" in url
 
+    def test_get_extraction_history_negative_limit(self):
+        """Negative limit should raise ValidationError (cross-SDK parity with Go/JS)."""
+        c = _client()
+        with pytest.raises(ValidationError, match="limit must not be negative"):
+            c.get_extraction_history("/p", "tpl", limit=-1)
+
     @responses.activate
     def test_get_extraction_history_multiple_results(self):
         """Verify multiple extraction results are parsed."""
