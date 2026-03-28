@@ -714,6 +714,76 @@ func TestObservation_FeedbackType_OmittedWhenAbsent(t *testing.T) {
 	}
 }
 
+func TestObservation_FilesReadDeserialization(t *testing.T) {
+	jsonData := `{"id":"obs-1","content_session_id":"sess-1","project":"/proj","type":"tool-use","narrative":"read main.go","files_read":["main.go","util.go"]}`
+	var obs Observation
+	if err := json.Unmarshal([]byte(jsonData), &obs); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if len(obs.FilesRead) != 2 {
+		t.Fatalf("expected 2 files_read, got %d", len(obs.FilesRead))
+	}
+	if obs.FilesRead[0] != "main.go" || obs.FilesRead[1] != "util.go" {
+		t.Errorf("expected [main.go, util.go], got %v", obs.FilesRead)
+	}
+}
+
+func TestObservation_FilesModifiedDeserialization(t *testing.T) {
+	jsonData := `{"id":"obs-1","content_session_id":"sess-1","project":"/proj","type":"tool-use","narrative":"edit main.go","files_modified":["main.go"]}`
+	var obs Observation
+	if err := json.Unmarshal([]byte(jsonData), &obs); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if len(obs.FilesModified) != 1 {
+		t.Fatalf("expected 1 files_modified, got %d", len(obs.FilesModified))
+	}
+	if obs.FilesModified[0] != "main.go" {
+		t.Errorf("expected files_modified=[main.go], got %v", obs.FilesModified)
+	}
+}
+
+func TestObservation_FeedbackUpdatedAtDeserialization(t *testing.T) {
+	jsonData := `{"id":"obs-1","content_session_id":"sess-1","project":"/proj","type":"tool-use","narrative":"test","feedback_type":"SUCCESS","feedback_updated_at":"2026-03-28T10:00:00Z"}`
+	var obs Observation
+	if err := json.Unmarshal([]byte(jsonData), &obs); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if obs.FeedbackUpdatedAt != "2026-03-28T10:00:00Z" {
+		t.Errorf("expected feedback_updated_at=2026-03-28T10:00:00Z, got %s", obs.FeedbackUpdatedAt)
+	}
+}
+
+func TestObservation_LastAccessedAtDeserialization(t *testing.T) {
+	jsonData := `{"id":"obs-1","content_session_id":"sess-1","project":"/proj","type":"tool-use","narrative":"test","last_accessed_at":"2026-03-28T12:00:00Z"}`
+	var obs Observation
+	if err := json.Unmarshal([]byte(jsonData), &obs); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if obs.LastAccessedAt != "2026-03-28T12:00:00Z" {
+		t.Errorf("expected last_accessed_at=2026-03-28T12:00:00Z, got %s", obs.LastAccessedAt)
+	}
+}
+
+func TestObservation_NewFields_OmittedWhenAbsent(t *testing.T) {
+	jsonData := `{"id":"obs-2","content_session_id":"sess-1","project":"/proj","type":"tool-use","narrative":"test"}`
+	var obs Observation
+	if err := json.Unmarshal([]byte(jsonData), &obs); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if obs.FilesRead != nil {
+		t.Error("files_read should be nil when absent")
+	}
+	if obs.FilesModified != nil {
+		t.Error("files_modified should be nil when absent")
+	}
+	if obs.FeedbackUpdatedAt != "" {
+		t.Errorf("feedback_updated_at should be empty when absent, got %s", obs.FeedbackUpdatedAt)
+	}
+	if obs.LastAccessedAt != "" {
+		t.Errorf("last_accessed_at should be empty when absent, got %s", obs.LastAccessedAt)
+	}
+}
+
 func TestSessionUserUpdateResponse_CamelCaseFields(t *testing.T) {
 	resp := SessionUserUpdateResponse{
 		Status:    "ok",

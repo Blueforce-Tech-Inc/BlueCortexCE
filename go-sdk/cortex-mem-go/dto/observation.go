@@ -58,11 +58,15 @@ type Observation struct {
 	Content         string         `json:"narrative"` // @JsonProperty("narrative") on entity
 	Facts           []string       `json:"facts,omitempty"`
 	Concepts        []string       `json:"concepts,omitempty"`
+	FilesRead       []string       `json:"files_read,omitempty"`     // SNAKE_CASE naming strategy
+	FilesModified   []string       `json:"files_modified,omitempty"` // SNAKE_CASE naming strategy
 	QualityScore    float32        `json:"quality_score,omitempty"`    // SNAKE_CASE naming strategy
 	FeedbackType    string         `json:"feedback_type,omitempty"`    // SUCCESS/PARTIAL/FAILURE/UNKNOWN
+	FeedbackUpdatedAt string       `json:"feedback_updated_at,omitempty"` // SNAKE_CASE naming strategy
 	Source          string         `json:"source,omitempty"`
 	ExtractedData   map[string]any `json:"extractedData,omitempty"`    // @JsonProperty("extractedData") on entity
 	PromptNumber    int            `json:"prompt_number,omitempty"`    // SNAKE_CASE naming strategy
 	CreatedAt       string         `json:"created_at,omitempty"`       // SNAKE_CASE naming strategy
 	CreatedAtEpoch  int64          `json:"created_at_epoch,omitempty"` // SNAKE_CASE naming strategy
+	LastAccessedAt  string         `json:"last_accessed_at,omitempty"` // SNAKE_CASE naming strategy
 }
