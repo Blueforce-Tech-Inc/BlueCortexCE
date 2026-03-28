@@ -147,7 +147,7 @@ public class ExtractionController {
      */
     @PostMapping("/run")
     @Operation(summary = "Manually trigger extraction",
-        description = "Manually triggers the structured extraction pipeline for a project. Runs asynchronously. Extraction uses the configured templates to extract structured data (e.g., user preferences, allergies) from recent session observations.")
+        description = "Manually triggers the structured extraction pipeline for a project. Executes synchronously — the response is returned after extraction completes. Extraction uses the configured templates to extract structured data (e.g., user preferences, allergies) from recent session observations.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Extraction triggered successfully"),
         @ApiResponse(responseCode = "400", description = "Missing required parameter: projectPath"),

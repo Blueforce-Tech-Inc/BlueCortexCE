@@ -442,8 +442,8 @@ class ExtractionResult:
             d["sessionId"] = self.session_id
         if self.extracted_data is not None:
             d["extractedData"] = self.extracted_data
-        if self.created_at:
-            d["createdAt"] = self.created_at
+        # createdAt is always included (Go SDK: no omitempty tag)
+        d["createdAt"] = self.created_at
         if self.observation_id:
             d["observationId"] = self.observation_id
         return d

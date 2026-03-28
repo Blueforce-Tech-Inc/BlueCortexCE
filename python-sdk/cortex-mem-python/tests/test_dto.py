@@ -339,10 +339,10 @@ class TestDTOFromWire:
         assert d["observationId"] == "o1"
 
     def test_extraction_result_to_dict_omits_empty(self):
-        """ExtractionResult.to_dict omits empty/zero fields."""
+        """ExtractionResult.to_dict omits empty/zero fields (except createdAt, always included per Go SDK)."""
         er = ExtractionResult(status="ok")
         d = er.to_dict()
-        assert d == {"status": "ok"}
+        assert d == {"status": "ok", "createdAt": 0}
         assert "sessionId" not in d
         assert "extractedData" not in d
 
