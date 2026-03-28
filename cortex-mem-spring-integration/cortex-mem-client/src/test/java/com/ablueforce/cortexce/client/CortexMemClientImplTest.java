@@ -462,6 +462,51 @@ class CortexMemClientImplTest {
     }
 
     @Test
+    void getObservation_returnsFirstObservation() throws Exception {
+        String json = """
+            {"observations":[
+              {"id":"obs-42","type":"observation","narrative":"found it","content_session_id":"s1"}
+            ],"count":1}""";
+        server.enqueue(new MockResponse()
+            .setBody(json)
+            .addHeader("Content-Type", "application/json"));
+
+        Map<String, Object> result = client.getObservation("obs-42");
+
+        assertThat(result).isNotNull();
+        assertThat(result).containsEntry("id", "obs-42");
+        // Verify it sent the batch request with single ID
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getMethod()).isEqualTo("POST");
+        assertThat(req.getPath()).isEqualTo("/api/observations/batch");
+        assertThat(req.getBody().readUtf8()).contains("obs-42");
+    }
+
+    @Test
+    void getObservation_notFound_returnsNull() {
+        server.enqueue(new MockResponse()
+            .setBody("{\"observations\":[],\"count\":0}")
+            .addHeader("Content-Type", "application/json"));
+
+        Map<String, Object> result = client.getObservation("nonexistent");
+
+        assertThat(result).isNull();
+    }
+
+    @Test
+    void getObservation_emptyId_throws() {
+        assertThatThrownBy(() -> client.getObservation(""))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("observationId");
+    }
+
+    @Test
+    void getObservation_nullId_throws() {
+        assertThatThrownBy(() -> client.getObservation(null))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void getObservationsByIds_parsesResponse() throws Exception {
         String json = """
             {"observations":[

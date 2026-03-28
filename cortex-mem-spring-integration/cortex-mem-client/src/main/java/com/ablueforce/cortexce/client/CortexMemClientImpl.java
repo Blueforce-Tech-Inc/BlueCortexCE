@@ -432,6 +432,18 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     @Override
     @SuppressWarnings("unchecked")
+    public Map<String, Object> getObservation(String observationId) {
+        requireNonBlank(observationId, "observationId");
+        Map<String, Object> result = getObservationsByIds(List.of(observationId));
+        List<Map<String, Object>> observations = (List<Map<String, Object>>) result.get("observations");
+        if (observations == null || observations.isEmpty()) {
+            return null;
+        }
+        return observations.get(0);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
     public Map<String, Object> getObservationsByIds(List<String> ids) {
         Objects.requireNonNull(ids, "ids must not be null");
         if (ids.isEmpty()) {

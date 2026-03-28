@@ -135,6 +135,17 @@ public interface CortexMemClient {
     Map<String, Object> listObservations(ObservationsRequest request);
 
     /**
+     * Get a single observation by ID.
+     * Convenience method wrapping {@code getObservationsByIds}.
+     *
+     * Cross-SDK parity: Go GetObservation(id), Python get_observation(id), JS getObservation(id).
+     *
+     * @param observationId observation UUID
+     * @return observation data as a map, or null if not found
+     */
+    Map<String, Object> getObservation(String observationId);
+
+    /**
      * Get observations by IDs.
      * Calls POST /api/observations/batch
      *
