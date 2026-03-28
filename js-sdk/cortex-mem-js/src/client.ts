@@ -494,7 +494,7 @@ export class CortexMemClient {
       });
 
       // Read response body with 10MB size limit.
-      // Uses resp.text() for broad compatibility (works in browsers and Node.js).
+      // Uses resp.text() for broad compatibility (works in browsers, Node.js, and edge runtimes).
       // 204 No Content and null bodies return empty data.
       const maxSize = 10 * 1024 * 1024;
       let text: string;

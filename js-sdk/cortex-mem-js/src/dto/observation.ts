@@ -62,6 +62,8 @@ export interface Observation {
   concepts?: string[];
   /** Parsed from wire field "quality_score" (SNAKE_CASE) */
   qualityScore?: number;
+  /** Parsed from wire field "feedback_type" (SNAKE_CASE) — SUCCESS/PARTIAL/FAILURE/UNKNOWN */
+  feedbackType?: string;
   source?: string;
   /** Parsed from wire field "extractedData" (camelCase — @JsonProperty override).
    *  Always present (empty object when missing/invalid). */
@@ -91,6 +93,7 @@ export function parseObservation(raw: Record<string, unknown>): Observation {
     facts: safeStringArray(raw.facts),
     concepts: safeStringArray(raw.concepts),
     qualityScore: safeNumber(raw.quality_score),
+    feedbackType: safeString(raw.feedback_type),
     source: safeString(raw.source),
     extractedData: safeRecord(raw.extractedData) ?? {},
     promptNumber: safeNumber(raw.prompt_number),

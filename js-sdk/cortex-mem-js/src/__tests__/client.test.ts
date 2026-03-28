@@ -1024,6 +1024,7 @@ describe('parseObservation', () => {
       facts: ['f1', 'f2'],
       concepts: ['c1'],
       quality_score: 0.95,
+      feedback_type: 'SUCCESS',
       source: 'manual',
       extractedData: { key: 'val' },
       prompt_number: 7,
@@ -1040,6 +1041,7 @@ describe('parseObservation', () => {
     expect(obs.promptNumber).toBe(7);
     expect(obs.createdAtEpoch).toBe(1700000000);
     expect(obs.extractedData).toEqual({ key: 'val' });
+    expect(obs.feedbackType).toBe('SUCCESS');
   });
 
   it('should handle missing optional fields', () => {
@@ -1049,6 +1051,7 @@ describe('parseObservation', () => {
     expect(obs.projectPath).toBe('');
     expect(obs.content).toBe('');
     expect(obs.qualityScore).toBeUndefined();
+    expect(obs.feedbackType).toBeUndefined();
     expect(obs.promptNumber).toBeUndefined();
   });
 
@@ -1064,6 +1067,7 @@ describe('parseObservation', () => {
       facts: null,
       concepts: null,
       quality_score: null,
+      feedback_type: null,
       source: null,
       extractedData: null,
       prompt_number: null,
@@ -1082,6 +1086,7 @@ describe('parseObservation', () => {
     expect(obs.facts).toBeUndefined();
     expect(obs.concepts).toBeUndefined();
     expect(obs.qualityScore).toBeUndefined();
+    expect(obs.feedbackType).toBeUndefined();
     expect(obs.source).toBeUndefined();
     expect(obs.extractedData).toEqual({});
     expect(obs.promptNumber).toBeUndefined();
