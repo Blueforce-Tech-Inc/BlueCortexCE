@@ -108,6 +108,31 @@ def is_retryable_error(err: Exception) -> bool:
     return False
 
 
+def is_not_found(err: Exception) -> bool:
+    """Return True if the error is a 404 Not Found. (Go: IsNotFound, JS: isNotFound)"""
+    return isinstance(err, APIError) and err.status_code == 404
+
+
+def is_unauthorized(err: Exception) -> bool:
+    """Return True if the error is a 401 Unauthorized. (Go: IsUnauthorized, JS: isUnauthorized)"""
+    return isinstance(err, APIError) and err.status_code == 401
+
+
+def is_forbidden(err: Exception) -> bool:
+    """Return True if the error is a 403 Forbidden. (JS: isForbidden)"""
+    return isinstance(err, APIError) and err.status_code == 403
+
+
+def is_conflict(err: Exception) -> bool:
+    """Return True if the error is a 409 Conflict. (Go: IsConflict, JS: isConflict)"""
+    return isinstance(err, APIError) and err.status_code == 409
+
+
+def is_rate_limited(err: Exception) -> bool:
+    """Return True if the error is a 429 Too Many Requests. (Go: IsRateLimited, JS: isRateLimited)"""
+    return isinstance(err, APIError) and err.status_code == 429
+
+
 def is_bad_gateway(err: Exception) -> bool:
     """Return True if the error is a 502 Bad Gateway. (Go: IsBadGateway, JS: isBadGateway)"""
     return isinstance(err, APIError) and err.status_code == 502

@@ -30,11 +30,16 @@ from .error import (
     ValidationError,
     is_bad_gateway,
     is_client_error,
+    is_conflict,
+    is_forbidden,
     is_gateway_timeout,
+    is_not_found,
+    is_rate_limited,
     is_retryable,
     is_retryable_error,
     is_server_error,
     is_service_unavailable,
+    is_unauthorized,
 )
 from .version import __version__
 
@@ -70,6 +75,11 @@ __all__ = [
     # Error predicates (cross-SDK parity with Go Is* / JS is*)
     "is_retryable",
     "is_retryable_error",
+    "is_not_found",
+    "is_unauthorized",
+    "is_forbidden",
+    "is_conflict",
+    "is_rate_limited",
     "is_bad_gateway",
     "is_service_unavailable",
     "is_gateway_timeout",

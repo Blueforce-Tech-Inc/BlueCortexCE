@@ -5,7 +5,7 @@ import pytest
 import responses
 
 from cortex_mem import CortexMemClient, APIError, NotFoundError, RateLimitError, CortexError, ValidationError
-from cortex_mem.error import is_retryable, raise_for_status, ServerError, ConflictError, AuthError, is_retryable_error, is_bad_gateway, is_service_unavailable, is_gateway_timeout, is_client_error, is_server_error
+from cortex_mem.error import is_retryable, raise_for_status, ServerError, ConflictError, AuthError, is_retryable_error, is_bad_gateway, is_service_unavailable, is_gateway_timeout, is_client_error, is_server_error, is_not_found, is_unauthorized, is_forbidden, is_conflict, is_rate_limited
 from cortex_mem.dto import (
     SessionStartResponse,
     Experience,
@@ -1257,6 +1257,36 @@ class TestErrorPredicates:
         assert is_server_error(APIError(504, "timeout")) is True
         assert is_server_error(NotFoundError()) is False
         assert is_server_error(ValueError("x")) is False
+
+    def test_is_not_found(self):
+        assert is_not_found(NotFoundError()) is True
+        assert is_not_found(APIError(404, "not found")) is True
+        assert is_not_found(APIError(500, "internal")) is False
+        assert is_not_found(ValueError("x")) is False
+
+    def test_is_unauthorized(self):
+        assert is_unauthorized(AuthError()) is True
+        assert is_unauthorized(APIError(401, "unauthorized")) is True
+        assert is_unauthorized(APIError(403, "forbidden")) is False
+        assert is_unauthorized(ValueError("x")) is False
+
+    def test_is_forbidden(self):
+        assert is_forbidden(APIError(403, "forbidden")) is True
+        assert is_forbidden(AuthError()) is False
+        assert is_forbidden(NotFoundError()) is False
+        assert is_forbidden(ValueError("x")) is False
+
+    def test_is_conflict(self):
+        assert is_conflict(ConflictError()) is True
+        assert is_conflict(APIError(409, "conflict")) is True
+        assert is_conflict(APIError(404, "not found")) is False
+        assert is_conflict(ValueError("x")) is False
+
+    def test_is_rate_limited(self):
+        assert is_rate_limited(RateLimitError()) is True
+        assert is_rate_limited(APIError(429, "rate limited")) is True
+        assert is_rate_limited(APIError(503, "unavailable")) is False
+        assert is_rate_limited(ValueError("x")) is False
 
 
 class TestRaiseForStatus:
