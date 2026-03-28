@@ -35,7 +35,7 @@ def handle_api_error(exc: APIError):
     """Return structured JSON for SDK API errors."""
     status = exc.status_code if 400 <= exc.status_code < 600 else 502
     logger.warning("API error %d: %s", exc.status_code, exc.message)
-    return jsonify(error=exc.message, status_code=exc.status_code), status
+    return jsonify(error=exc.message), status
 
 
 @app.errorhandler(CortexError)
