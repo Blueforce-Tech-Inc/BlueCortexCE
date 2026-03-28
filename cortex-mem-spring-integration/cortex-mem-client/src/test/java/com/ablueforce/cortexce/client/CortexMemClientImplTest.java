@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for CortexMemClientImpl using MockWebServer.
@@ -695,15 +696,11 @@ class CortexMemClientImplTest {
     }
 
     @Test
-    void getExtractionHistory_negativeLimit_omitsLimitParam() throws Exception {
-        server.enqueue(new MockResponse()
-            .setBody("[]")
-            .addHeader("Content-Type", "application/json"));
-
-        client.getExtractionHistory("/proj", "user-preferences", "alice", -5);
-
-        RecordedRequest req = server.takeRequest();
-        assertThat(req.getPath()).doesNotContain("limit=");
+    void getExtractionHistory_negativeLimit_throwsValidation() {
+        // Cross-SDK parity: negative limit is rejected client-side (matches Go/JS/Python SDKs)
+        assertThatThrownBy(() -> client.getExtractionHistory("/proj", "user-preferences", "alice", -5))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("limit must not be negative");
     }
 
     // ==================== Observation Management Tests ====================

@@ -303,6 +303,9 @@ public class CortexMemClientImpl implements CortexMemClient {
     public List<Map<String, Object>> getExtractionHistory(String projectPath, String templateName, String userId, int limit) {
         requireNonBlank(projectPath, "projectPath");
         requireNonBlank(templateName, "templateName");
+        if (limit < 0) {
+            throw new IllegalArgumentException("limit must not be negative");
+        }
         try {
             return restClient.get()
                 .uri(uriBuilder -> {
