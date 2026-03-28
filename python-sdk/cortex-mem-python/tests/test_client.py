@@ -323,6 +323,42 @@ class TestRetrieval:
         assert resp.count == 1
         assert resp.observations[0].content == "content"
 
+    @responses.activate
+    def test_get_observation_found(self):
+        """get_observation should return the observation when found."""
+        responses.add(
+            responses.POST,
+            f"{BASE}/api/observations/batch",
+            json={"observations": [{"id": "o1", "narrative": "found", "content_session_id": "s1"}], "count": 1},
+            status=200,
+        )
+        c = _client()
+        obs = c.get_observation("o1")
+        assert obs is not None
+        assert obs.content == "found"
+        assert obs.id == "o1"
+
+    @responses.activate
+    def test_get_observation_not_found(self):
+        """get_observation should return None when observation not found."""
+        responses.add(
+            responses.POST,
+            f"{BASE}/api/observations/batch",
+            json={"observations": [], "count": 0},
+            status=200,
+        )
+        c = _client()
+        obs = c.get_observation("nonexistent")
+        assert obs is None
+
+    @responses.activate
+    def test_get_observation_empty_id_raises(self):
+        """get_observation should raise ValidationError for empty id."""
+        c = _client()
+        with pytest.raises(ValidationError) as exc_info:
+            c.get_observation("")
+        assert exc_info.value.field == "observation_id"
+
 
 # ==================== Management ====================
 

@@ -17,6 +17,7 @@ from .dto import (
     ExtractionResult,
     ICLPromptResult,
     ModesResponse,
+    Observation,
     ObservationUpdate,
     ObservationsResponse,
     ProjectsResponse,
@@ -403,6 +404,21 @@ class CortexMemClient:
             params["limit"] = str(limit)
         data = self._request_json("GET", "/api/observations", params=params)
         return ObservationsResponse.from_wire(data or {})
+
+    def get_observation(self, observation_id: str) -> Observation | None:
+        """Get a single observation by ID. Convenience method wrapping get_observations_by_ids.
+
+        Returns None if the observation is not found.
+
+        Cross-SDK parity: Go GetObservation(id), JS getObservation(id).
+        """
+        self._assert_not_closed()
+        if not observation_id:
+            raise ValidationError("observation_id is required", field="observation_id")
+        result = self.get_observations_by_ids([observation_id])
+        if result.observations:
+            return result.observations[0]
+        return None
 
     def get_observations_by_ids(self, ids: list[str]) -> BatchObservationsResponse:
         """Batch get observations by IDs. POST /api/observations/batch."""
