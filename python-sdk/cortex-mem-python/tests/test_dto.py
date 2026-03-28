@@ -85,6 +85,25 @@ class TestDTOFromWire:
         exp = Experience.from_wire(data)
         assert exp.reuse_condition == "only when safe"
 
+    def test_experience_from_wire_quality_score_camelcase_fallback(self):
+        """qualityScore camelCase fallback."""
+        data = {"id": "e1", "qualityScore": 0.95}
+        exp = Experience.from_wire(data)
+        assert exp.quality_score == 0.95
+
+    def test_experience_from_wire_created_at_camelcase_fallback(self):
+        """createdAt camelCase fallback."""
+        data = {"id": "e1", "createdAt": "2026-03-28T10:00:00Z"}
+        exp = Experience.from_wire(data)
+        assert exp.created_at == "2026-03-28T10:00:00Z"
+
+    def test_experience_from_wire_snake_case_preferred_over_camelcase(self):
+        """When both snake_case and camelCase present, snake_case wins (SNAKE_CASE strategy primary)."""
+        data = {"id": "e1", "quality_score": 0.8, "qualityScore": 0.9, "created_at": "snake", "createdAt": "camel"}
+        exp = Experience.from_wire(data)
+        assert exp.quality_score == 0.8
+        assert exp.created_at == "snake"
+
     def test_icl_prompt_result_from_wire(self):
         data = {"prompt": "hello", "experienceCount": "5", "maxChars": 4000}
         result = ICLPromptResult.from_wire(data)
@@ -149,6 +168,31 @@ class TestDTOFromWire:
         assert obs.quality_score == 0.0
         assert obs.prompt_number == 0
         assert obs.created_at_epoch == 0
+
+    def test_observation_from_wire_camelcase_fallback(self):
+        """CamelCase fallback for quality_score, feedback_type, prompt_number, created_at_epoch, files fields."""
+        data = {
+            "id": "o1",
+            "qualityScore": 0.75,
+            "feedbackType": "PARTIAL",
+            "feedbackUpdatedAt": "2026-03-28T10:00:00Z",
+            "promptNumber": 7,
+            "createdAt": "2026-03-28T09:00:00Z",
+            "createdAtEpoch": 1711555200,
+            "lastAccessedAt": "2026-03-28T12:00:00Z",
+            "filesRead": ["a.py"],
+            "filesModified": ["b.py"],
+        }
+        obs = Observation.from_wire(data)
+        assert obs.quality_score == 0.75
+        assert obs.feedback_type == "PARTIAL"
+        assert obs.feedback_updated_at == "2026-03-28T10:00:00Z"
+        assert obs.prompt_number == 7
+        assert obs.created_at == "2026-03-28T09:00:00Z"
+        assert obs.created_at_epoch == 1711555200
+        assert obs.last_accessed_at == "2026-03-28T12:00:00Z"
+        assert obs.files_read == ["a.py"]
+        assert obs.files_modified == ["b.py"]
 
     def test_observation_to_dict_wire_format(self):
         """to_dict() should output wire format field names, not Python attribute names."""

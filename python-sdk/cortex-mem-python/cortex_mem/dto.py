@@ -113,8 +113,8 @@ class Experience:
             strategy=data.get("strategy") or "",
             outcome=data.get("outcome") or "",
             reuse_condition=data.get("reuse_condition") or data.get("reuseCondition") or "",
-            quality_score=_to_float(data.get("quality_score"), 0.0),
-            created_at=data.get("created_at") or "",
+            quality_score=_to_float(_first_non_null(data, "quality_score", "qualityScore"), 0.0),
+            created_at=_first_non_null(data, "created_at", "createdAt") or "",
         )
 
 
@@ -295,17 +295,17 @@ class Observation:
             content=data.get("narrative") or "",
             facts=data.get("facts") or [],
             concepts=data.get("concepts") or [],
-            files_read=data.get("files_read") or [],
-            files_modified=data.get("files_modified") or [],
-            quality_score=_to_float(data.get("quality_score")),
-            feedback_type=data.get("feedback_type") or "",
-            feedback_updated_at=data.get("feedback_updated_at") or "",
+            files_read=_first_non_null(data, "files_read", "filesRead") or [],
+            files_modified=_first_non_null(data, "files_modified", "filesModified") or [],
+            quality_score=_to_float(_first_non_null(data, "quality_score", "qualityScore")),
+            feedback_type=_first_non_null(data, "feedback_type", "feedbackType") or "",
+            feedback_updated_at=_first_non_null(data, "feedback_updated_at", "feedbackUpdatedAt") or "",
             source=data.get("source") or "",
             extracted_data=data.get("extractedData") or {},
-            prompt_number=_to_int(data.get("prompt_number")),
-            created_at=data.get("created_at") or "",
-            created_at_epoch=_to_int(data.get("created_at_epoch")),
-            last_accessed_at=data.get("last_accessed_at") or "",
+            prompt_number=_to_int(_first_non_null(data, "prompt_number", "promptNumber")),
+            created_at=_first_non_null(data, "created_at", "createdAt") or "",
+            created_at_epoch=_to_int(_first_non_null(data, "created_at_epoch", "createdAtEpoch")),
+            last_accessed_at=_first_non_null(data, "last_accessed_at", "lastAccessedAt") or "",
         )
 
 
