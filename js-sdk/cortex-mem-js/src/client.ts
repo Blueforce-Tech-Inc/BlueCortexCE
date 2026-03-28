@@ -36,7 +36,7 @@ import type {
   HealthResponse,
   Observation,
 } from './dto';
-import { parseObservation, parseExperience, parseExtractionResult, parseICLPromptResult, parseStatsResponse, parseVersionResponse } from './dto';
+import { parseObservation, parseExperience, parseExtractionResult, parseICLPromptResult, parseStatsResponse, parseVersionResponse, parseQualityDistribution, safeStringOr, safeStringArray, firstNonNullOr } from './dto';
 
 // ============================================================
 // Logger interface
@@ -275,12 +275,13 @@ export class CortexMemClient {
   async getQualityDistribution(projectPath: string): Promise<QualityDistribution> {
     this.assertNotClosed();
     this.validateRequired('projectPath', projectPath);
-    return this.requestJSON<QualityDistribution>(
+    const raw = await this.requestJSON<unknown>(
       'GET',
       '/api/memory/quality-distribution',
       undefined,
       { project: projectPath },
     );
+    return parseQualityDistribution(raw as Record<string, unknown>);
   }
 
   // ==================== Health ====================
@@ -665,16 +666,17 @@ export class CortexMemClient {
   /**
    * Parse raw modes response, mapping snake_case wire fields to camelCase.
    * Backend returns observation_types/observation_concepts (SNAKE_CASE).
+   * Uses safe type conversion to handle null values and type mismatches.
    */
   private parseModesResponse(raw: unknown): ModesResponse {
     const r = raw as Record<string, unknown>;
     return {
-      id: (r.id as string) ?? '',
-      name: (r.name as string) ?? '',
-      description: (r.description as string) ?? '',
-      version: (r.version as string) ?? '',
-      observationTypes: (r.observation_types as string[]) ?? (r.observationTypes as string[]) ?? [],
-      observationConcepts: (r.observation_concepts as string[]) ?? (r.observationConcepts as string[]) ?? [],
+      id: safeStringOr(r.id, ''),
+      name: safeStringOr(r.name, ''),
+      description: safeStringOr(r.description, ''),
+      version: safeStringOr(r.version, ''),
+      observationTypes: safeStringArray(firstNonNullOr(r, ['observation_types', 'observationTypes'])) ?? [],
+      observationConcepts: safeStringArray(firstNonNullOr(r, ['observation_concepts', 'observationConcepts'])) ?? [],
     };
   }
 

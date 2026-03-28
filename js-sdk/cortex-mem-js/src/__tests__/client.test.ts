@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { CortexMemClient, APIError, ValidationError, isValidationError, isNotFound, isRateLimited, isRetryable, isForbidden, isUnprocessable, isConflict, isBadRequest, isUnauthorized, isClientError, isServerError, isBadGateway, isServiceUnavailable, isGatewayTimeout, parseObservation, parseExperience, parseExtractionResult, parseICLPromptResult, parseStatsResponse, parseWorkerStats, parseDatabaseStats, parseVersionResponse } from '../index';
+import { CortexMemClient, APIError, ValidationError, isValidationError, isNotFound, isRateLimited, isRetryable, isForbidden, isUnprocessable, isConflict, isBadRequest, isUnauthorized, isClientError, isServerError, isBadGateway, isServiceUnavailable, isGatewayTimeout, parseObservation, parseExperience, parseExtractionResult, parseICLPromptResult, parseStatsResponse, parseWorkerStats, parseDatabaseStats, parseVersionResponse, parseQualityDistribution } from '../index';
 
 // Mock fetch
 function mockFetch(status: number, body: unknown): typeof globalThis.fetch {
@@ -1702,5 +1702,108 @@ describe('5xx error predicates', () => {
 
   it('isGatewayTimeout should return false for non-APIError', () => {
     expect(isGatewayTimeout(new Error('network'))).toBe(false);
+  });
+});
+
+// ==================== parseQualityDistribution ====================
+
+describe('parseQualityDistribution', () => {
+  it('should parse all wire format fields', () => {
+    const raw = { project: '/tmp', high: 10, medium: 5, low: 2, unknown: 1 };
+    const result = parseQualityDistribution(raw);
+    expect(result.project).toBe('/tmp');
+    expect(result.high).toBe(10);
+    expect(result.medium).toBe(5);
+    expect(result.low).toBe(2);
+    expect(result.unknown).toBe(1);
+  });
+
+  it('should handle null wire fields gracefully', () => {
+    const raw = { project: null, high: null, medium: null, low: null, unknown: null };
+    const result = parseQualityDistribution(raw);
+    expect(result.project).toBe('');
+    expect(result.high).toBe(0);
+    expect(result.medium).toBe(0);
+    expect(result.low).toBe(0);
+    expect(result.unknown).toBe(0);
+  });
+
+  it('should handle missing fields', () => {
+    const result = parseQualityDistribution({});
+    expect(result.project).toBe('');
+    expect(result.high).toBe(0);
+    expect(result.medium).toBe(0);
+    expect(result.low).toBe(0);
+    expect(result.unknown).toBe(0);
+  });
+
+  it('should handle type mismatches', () => {
+    const raw = { project: 42, high: '10', medium: '5', low: true, unknown: NaN };
+    const result = parseQualityDistribution(raw);
+    expect(result.project).toBe('42');
+    expect(result.high).toBe(10);
+    expect(result.medium).toBe(5);
+    expect(result.low).toBe(0); // boolean is not a valid number → 0
+    expect(result.unknown).toBe(0); // NaN → 0
+  });
+});
+
+// ==================== getModes defensive parsing ====================
+
+describe('getModes defensive parsing', () => {
+  it('should handle null observation_types gracefully', async () => {
+    const localFetch = mockFetch(200, {
+      id: 'full', name: 'Full', description: 'Full mode', version: '1.0',
+      observation_types: null, observation_concepts: null,
+    });
+    const localClient = new CortexMemClient({ fetch: localFetch as unknown as typeof globalThis.fetch });
+
+    const result = await localClient.getModes();
+    expect(result.id).toBe('full');
+    expect(result.observationTypes).toEqual([]);
+    expect(result.observationConcepts).toEqual([]);
+  });
+
+  it('should handle non-array observation_types gracefully', async () => {
+    const localFetch = mockFetch(200, {
+      id: 'test', name: 'Test', description: 'Test mode', version: '1.0',
+      observation_types: 'not-an-array', observation_concepts: 42,
+    });
+    const localClient = new CortexMemClient({ fetch: localFetch as unknown as typeof globalThis.fetch });
+
+    const result = await localClient.getModes();
+    expect(result.observationTypes).toEqual([]);
+    expect(result.observationConcepts).toEqual([]);
+  });
+
+  it('should handle null string fields gracefully', async () => {
+    const localFetch = mockFetch(200, {
+      id: null, name: null, description: null, version: null,
+      observation_types: ['type1'], observation_concepts: ['concept1'],
+    });
+    const localClient = new CortexMemClient({ fetch: localFetch as unknown as typeof globalThis.fetch });
+
+    const result = await localClient.getModes();
+    expect(result.id).toBe('');
+    expect(result.name).toBe('');
+    expect(result.description).toBe('');
+    expect(result.version).toBe('');
+    expect(result.observationTypes).toEqual(['type1']);
+  });
+});
+
+// ==================== getQualityDistribution defensive parsing ====================
+
+describe('getQualityDistribution defensive parsing', () => {
+  it('should handle null fields gracefully', async () => {
+    const localFetch = mockFetch(200, { project: null, high: null, medium: null, low: null, unknown: null });
+    const localClient = new CortexMemClient({ fetch: localFetch as unknown as typeof globalThis.fetch });
+
+    const result = await localClient.getQualityDistribution('/tmp');
+    expect(result.project).toBe('');
+    expect(result.high).toBe(0);
+    expect(result.medium).toBe(0);
+    expect(result.low).toBe(0);
+    expect(result.unknown).toBe(0);
   });
 });
