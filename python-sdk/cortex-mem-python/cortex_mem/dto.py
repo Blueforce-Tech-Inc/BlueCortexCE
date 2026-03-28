@@ -338,7 +338,7 @@ class SearchResult:
             observations=[Observation.from_wire(o) for o in data.get("observations") or []],
             strategy=data.get("strategy") or "",
             fell_back=bool(_first_non_null(data, "fell_back", "fellBack") or False),
-            count=_to_int(_first_non_null(data, "count")),
+            count=_to_int(_first_non_null(data, "count"), 0),
         )
 
 
@@ -402,10 +402,10 @@ class QualityDistribution:
     def from_wire(cls, data: dict) -> QualityDistribution:
         return cls(
             project=data.get("project") or "",
-            high=_to_int(data.get("high"), 0),
-            medium=_to_int(data.get("medium"), 0),
-            low=_to_int(data.get("low"), 0),
-            unknown=_to_int(data.get("unknown"), 0),
+            high=_to_int(_first_non_null(data, "high"), 0),
+            medium=_to_int(_first_non_null(data, "medium"), 0),
+            low=_to_int(_first_non_null(data, "low"), 0),
+            unknown=_to_int(_first_non_null(data, "unknown"), 0),
         )
 
 
