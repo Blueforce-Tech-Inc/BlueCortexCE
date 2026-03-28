@@ -60,10 +60,16 @@ export interface Observation {
   content: string;
   facts?: string[];
   concepts?: string[];
+  /** Parsed from wire field "files_read" (SNAKE_CASE) */
+  filesRead?: string[];
+  /** Parsed from wire field "files_modified" (SNAKE_CASE) */
+  filesModified?: string[];
   /** Parsed from wire field "quality_score" (SNAKE_CASE) */
   qualityScore?: number;
   /** Parsed from wire field "feedback_type" (SNAKE_CASE) — SUCCESS/PARTIAL/FAILURE/UNKNOWN */
   feedbackType?: string;
+  /** Parsed from wire field "feedback_updated_at" (SNAKE_CASE) */
+  feedbackUpdatedAt?: string;
   source?: string;
   /** Parsed from wire field "extractedData" (camelCase — @JsonProperty override).
    *  Always present (empty object when missing/invalid). */
@@ -74,6 +80,8 @@ export interface Observation {
   createdAt?: string;
   /** Parsed from wire field "created_at_epoch" (SNAKE_CASE) */
   createdAtEpoch?: number;
+  /** Parsed from wire field "last_accessed_at" (SNAKE_CASE) */
+  lastAccessedAt?: string;
 }
 
 /**
@@ -92,12 +100,16 @@ export function parseObservation(raw: Record<string, unknown>): Observation {
     content: safeStringOr(raw.narrative, ''),
     facts: safeStringArray(raw.facts),
     concepts: safeStringArray(raw.concepts),
+    filesRead: safeStringArray(raw.files_read),
+    filesModified: safeStringArray(raw.files_modified),
     qualityScore: safeNumber(raw.quality_score),
     feedbackType: safeString(raw.feedback_type),
+    feedbackUpdatedAt: safeString(raw.feedback_updated_at),
     source: safeString(raw.source),
     extractedData: safeRecord(raw.extractedData) ?? {},
     promptNumber: safeNumber(raw.prompt_number),
     createdAt: safeString(raw.created_at),
     createdAtEpoch: safeNumber(raw.created_at_epoch),
+    lastAccessedAt: safeString(raw.last_accessed_at),
   };
 }

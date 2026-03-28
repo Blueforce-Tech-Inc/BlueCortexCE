@@ -206,13 +206,17 @@ class Observation:
     content: str = ""
     facts: list[str] = field(default_factory=list)
     concepts: list[str] = field(default_factory=list)
+    files_read: list[str] = field(default_factory=list)
+    files_modified: list[str] = field(default_factory=list)
     quality_score: float = 0.0
     feedback_type: str = ""  # SUCCESS/PARTIAL/FAILURE/UNKNOWN
+    feedback_updated_at: str = ""
     source: str = ""
     extracted_data: dict = field(default_factory=dict)
     prompt_number: int = 0
     created_at: str = ""
     created_at_epoch: int = 0
+    last_accessed_at: str = ""
 
     def to_dict(self) -> dict:
         """Serialize to wire-compatible dict (consistent with Go/JS SDK JSON output).
@@ -242,10 +246,16 @@ class Observation:
             d["facts"] = self.facts
         if self.concepts:
             d["concepts"] = self.concepts
+        if self.files_read:
+            d["files_read"] = self.files_read
+        if self.files_modified:
+            d["files_modified"] = self.files_modified
         if self.quality_score:
             d["quality_score"] = self.quality_score
         if self.feedback_type:
             d["feedback_type"] = self.feedback_type
+        if self.feedback_updated_at:
+            d["feedback_updated_at"] = self.feedback_updated_at
         if self.prompt_number:
             d["prompt_number"] = self.prompt_number
         if self.source:
@@ -256,6 +266,8 @@ class Observation:
             d["created_at"] = self.created_at
         if self.created_at_epoch:
             d["created_at_epoch"] = self.created_at_epoch
+        if self.last_accessed_at:
+            d["last_accessed_at"] = self.last_accessed_at
         return d
 
     @classmethod
@@ -273,13 +285,17 @@ class Observation:
             content=data.get("narrative") or "",
             facts=data.get("facts") or [],
             concepts=data.get("concepts") or [],
+            files_read=data.get("files_read") or [],
+            files_modified=data.get("files_modified") or [],
             quality_score=_to_float(data.get("quality_score")),
             feedback_type=data.get("feedback_type") or "",
+            feedback_updated_at=data.get("feedback_updated_at") or "",
             source=data.get("source") or "",
             extracted_data=data.get("extractedData") or {},
             prompt_number=_to_int(data.get("prompt_number")),
             created_at=data.get("created_at") or "",
             created_at_epoch=_to_int(data.get("created_at_epoch")),
+            last_accessed_at=data.get("last_accessed_at") or "",
         )
 
 
