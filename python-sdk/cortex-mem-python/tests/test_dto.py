@@ -200,6 +200,30 @@ class TestDTOFromWire:
         assert d["quality_score"] == 0.0
         assert d["prompt_number"] == 0
 
+    def test_observation_to_dict_extracted_data_none_vs_empty(self):
+        """to_dict() includes empty dict but omits None for extracted_data.
+
+        - extracted_data=None → omitted from output (field not set)
+        - extracted_data={} → included as "extractedData": {} (field set to empty)
+
+        This matches Go SDK behavior where map[string]any{} serializes as {}.
+        """
+        # None → omitted
+        obs_none = Observation(id="o1", session_id="s1", project_path="/p", extracted_data=None)
+        d_none = obs_none.to_dict()
+        assert "extractedData" not in d_none
+
+        # Empty dict → included
+        obs_empty = Observation(id="o1", session_id="s1", project_path="/p", extracted_data={})
+        d_empty = obs_empty.to_dict()
+        assert "extractedData" in d_empty
+        assert d_empty["extractedData"] == {}
+
+        # Non-empty dict → included with data
+        obs_data = Observation(id="o1", session_id="s1", project_path="/p", extracted_data={"k": "v"})
+        d_data = obs_data.to_dict()
+        assert d_data["extractedData"] == {"k": "v"}
+
     def test_experience_to_dict(self):
         exp = Experience(id="e1", task="t", strategy="s", outcome="o", quality_score=0.9)
         d = exp.to_dict()

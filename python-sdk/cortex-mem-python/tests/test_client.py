@@ -947,7 +947,30 @@ class TestDTOs:
         assert wire == {"title": "T", "source": "s"}
         assert "subtitle" not in wire
         assert "content" not in wire
+        # Wire format key is camelCase "extractedData", not snake_case "extracted_data"
+        assert "extractedData" not in wire
         assert "extracted_data" not in wire
+
+    def test_observation_update_to_wire_camelcase_mapping(self):
+        """ObservationUpdate.to_wire() maps extracted_data → extractedData (camelCase)."""
+        update = ObservationUpdate(
+            title="T",
+            extracted_data={"preference": "dark mode", "theme": "monokai"},
+            source="manual",
+        )
+        wire = update.to_wire()
+        # Wire format: extractedData (camelCase), not extracted_data (snake_case)
+        assert "extractedData" in wire
+        assert "extracted_data" not in wire
+        assert wire["extractedData"] == {"preference": "dark mode", "theme": "monokai"}
+        assert wire["title"] == "T"
+        assert wire["source"] == "manual"
+        # Other fields should be omitted
+        assert "subtitle" not in wire
+        assert "narrative" not in wire
+        assert "content" not in wire
+        assert "facts" not in wire
+        assert "concepts" not in wire
 
     def test_observation_update_empty_to_wire(self):
         """Empty ObservationUpdate should produce empty dict."""
