@@ -11,7 +11,9 @@ BASE_URL = "http://localhost:37777"
 @pytest.fixture
 def client():
     """Create a client pointing at the mock server."""
-    return CortexMemClient(base_url=BASE_URL)
+    c = CortexMemClient(base_url=BASE_URL)
+    yield c
+    c.close()
 
 
 @pytest.fixture

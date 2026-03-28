@@ -457,6 +457,19 @@ class TestDTOFromWire:
 class TestNullSafetyExtra:
     """Additional null-safety tests for edge cases not covered elsewhere."""
 
+    def test_stats_response_from_wire_null_data(self):
+        """StatsResponse.from_wire should handle None data without crashing."""
+        sr = StatsResponse.from_wire(None)
+        assert sr.worker.is_processing is False
+        assert sr.worker.queue_depth == 0
+        assert sr.database.total_observations == 0
+
+    def test_stats_response_from_wire_null_nested(self):
+        """StatsResponse.from_wire should handle null worker/database dicts."""
+        sr = StatsResponse.from_wire({"worker": None, "database": None})
+        assert sr.worker.is_processing is False
+        assert sr.database.total_observations == 0
+
     def test_search_result_count_null(self):
         """SearchResult.count should be 0 when backend sends null (not None)."""
         data = {"observations": [], "count": None}

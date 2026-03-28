@@ -60,7 +60,11 @@ class Experience:
     created_at: str = ""
 
     def to_dict(self) -> dict:
-        """Serialize to wire-compatible dict (consistent with Go/JS SDK JSON output)."""
+        """Serialize to wire-compatible dict (consistent with Go/JS SDK JSON output).
+
+        All fields are always included (no omitempty) to match Go SDK behavior,
+        where Experience struct fields have no `json:"...,omitempty"` tags.
+        """
         return {
             "id": self.id,
             "task": self.task,
@@ -128,7 +132,7 @@ class ObservationUpdate:
     title: str | None = None
     subtitle: str | None = None
     content: str | None = None
-    narrative: str | None = None  # Alias for content — cross-SDK consistency (Go/JS/Java)
+    narrative: str | None = None  # Backend accepts both 'content' and 'narrative' (separate fields, not aliases)
     facts: list[str] | None = None
     concepts: list[str] | None = None
     source: str | None = None
@@ -431,8 +435,8 @@ class StatsResponse:
 
     @classmethod
     def from_wire(cls, data: dict) -> StatsResponse:
-        w = data.get("worker") or {}
-        d = data.get("database") or {}
+        w = (data or {}).get("worker") or {}
+        d = (data or {}).get("database") or {}
         return cls(
             worker=WorkerStats(
                 is_processing=bool(w.get("isProcessing", False)),
