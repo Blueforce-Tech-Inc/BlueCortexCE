@@ -59,6 +59,18 @@ class Experience:
     quality_score: float = 0.0
     created_at: str = ""
 
+    def to_dict(self) -> dict:
+        """Serialize to wire-compatible dict (consistent with Go/JS SDK JSON output)."""
+        return {
+            "id": self.id,
+            "task": self.task,
+            "strategy": self.strategy,
+            "outcome": self.outcome,
+            "reuse_condition": self.reuse_condition,
+            "quality_score": self.quality_score,
+            "created_at": self.created_at,
+        }
+
     @classmethod
     def from_wire(cls, data: dict) -> Experience:
         # Wire format uses Jackson SNAKE_CASE naming strategy.
@@ -165,6 +177,43 @@ class Observation:
     prompt_number: int = 0
     created_at: str = ""
     created_at_epoch: int = 0
+
+    def to_dict(self) -> dict:
+        """Serialize to wire-compatible dict (consistent with Go/JS SDK JSON output).
+
+        Uses the same field names as the backend JSON wire format so that
+        demo HTTP responses match across SDKs.
+        """
+        d: dict = {"id": self.id}
+        if self.session_id:
+            d["content_session_id"] = self.session_id
+        if self.project_path:
+            d["project"] = self.project_path
+        if self.type:
+            d["type"] = self.type
+        if self.title:
+            d["title"] = self.title
+        if self.subtitle:
+            d["subtitle"] = self.subtitle
+        if self.content:
+            d["narrative"] = self.content  # wire name
+        if self.facts:
+            d["facts"] = self.facts
+        if self.concepts:
+            d["concepts"] = self.concepts
+        if self.quality_score:
+            d["quality_score"] = self.quality_score
+        if self.source:
+            d["source"] = self.source
+        if self.extracted_data is not None:
+            d["extractedData"] = self.extracted_data
+        if self.prompt_number:
+            d["prompt_number"] = self.prompt_number
+        if self.created_at:
+            d["created_at"] = self.created_at
+        if self.created_at_epoch:
+            d["created_at_epoch"] = self.created_at_epoch
+        return d
 
     @classmethod
     def from_wire(cls, data: dict) -> Observation:

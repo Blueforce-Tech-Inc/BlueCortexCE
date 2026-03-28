@@ -142,6 +142,62 @@ class TestDTOFromWire:
         assert obs.prompt_number == 0
         assert obs.created_at_epoch == 0
 
+    def test_observation_to_dict_wire_format(self):
+        """to_dict() should output wire format field names, not Python attribute names."""
+        obs = Observation(
+            id="o1",
+            session_id="s1",
+            project_path="/tmp",
+            type="fact",
+            title="T",
+            subtitle="S",
+            content="narrative text",
+            facts=["f1"],
+            concepts=["c1"],
+            quality_score=0.8,
+            source="manual",
+            extracted_data={"key": "val"},
+            prompt_number=3,
+            created_at="2026-01-01",
+            created_at_epoch=1700000000,
+        )
+        d = obs.to_dict()
+        # Wire format field names
+        assert d["content_session_id"] == "s1"
+        assert d["project"] == "/tmp"
+        assert d["narrative"] == "narrative text"
+        assert d["extractedData"] == {"key": "val"}
+        # No Python attribute names
+        assert "session_id" not in d
+        assert "project_path" not in d
+        assert "content" not in d
+        assert "extracted_data" not in d
+        # All fields present
+        assert d["id"] == "o1"
+        assert d["type"] == "fact"
+        assert d["title"] == "T"
+        assert d["source"] == "manual"
+        assert d["quality_score"] == 0.8
+        assert d["prompt_number"] == 3
+
+    def test_observation_to_dict_omits_falsy(self):
+        """to_dict() should omit empty optional fields."""
+        obs = Observation(id="o1", session_id="s1", project_path="/tmp", type="fact")
+        d = obs.to_dict()
+        assert "title" not in d
+        assert "subtitle" not in d
+        assert "narrative" not in d
+        assert "source" not in d
+        assert "extractedData" not in d
+        assert d["id"] == "o1"
+
+    def test_experience_to_dict(self):
+        exp = Experience(id="e1", task="t", strategy="s", outcome="o", quality_score=0.9)
+        d = exp.to_dict()
+        assert d["id"] == "e1"
+        assert d["quality_score"] == 0.9
+        assert isinstance(d, dict)
+
     def test_search_result_from_wire(self):
         data = {
             "observations": [{"id": "o1", "narrative": "test", "content_session_id": "s1"}],

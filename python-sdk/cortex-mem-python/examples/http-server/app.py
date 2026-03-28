@@ -158,7 +158,7 @@ def search():
         offset=offset,
     )
     return jsonify(
-        observations=[vars(o) for o in result.observations],
+        observations=[o.to_dict() for o in result.observations],
         strategy=result.strategy,
         fell_back=result.fell_back,
         count=result.count,
@@ -201,7 +201,7 @@ def experiences():
         required_concepts=required_concepts,
         user_id=request.args.get("userId", ""),
     )
-    return jsonify(experiences=[vars(e) for e in exps], count=len(exps))
+    return jsonify(experiences=[e.to_dict() for e in exps], count=len(exps))
 
 
 # ==================== ICL Prompt ====================
@@ -245,7 +245,7 @@ def observations_list():
 
     result = client.list_observations(project=project, limit=limit, offset=offset)
     return jsonify(
-        items=[vars(o) for o in result.items],
+        items=[o.to_dict() for o in result.items],
         has_more=result.has_more,
         total=result.total,
         offset=result.offset,
@@ -266,7 +266,7 @@ def observations_batch():
             return _error(400, f"ids[{i}] is empty")
 
     result = client.get_observations_by_ids(ids)
-    return jsonify(observations=[vars(o) for o in result.observations], count=result.count)
+    return jsonify(observations=[o.to_dict() for o in result.observations], count=result.count)
 
 
 @app.post("/observations/create")
