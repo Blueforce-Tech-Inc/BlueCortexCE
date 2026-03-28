@@ -508,7 +508,11 @@ def ingest_session_end():
     })
     if missing:
         return _error(400, f"{missing} is required")
-    client.record_session_end(session_id=data["session_id"], project_path=data["project"])
+    client.record_session_end(
+        session_id=data["session_id"],
+        project_path=data["project"],
+        last_assistant_message=data.get("last_assistant_message"),
+    )
     return jsonify(status="ended")
 
 

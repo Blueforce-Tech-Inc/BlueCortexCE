@@ -771,8 +771,9 @@ func main() {
 			return
 		}
 		var req struct {
-			Project string `json:"project"`
-			Session string `json:"session_id"`
+			Project            string `json:"project"`
+			Session            string `json:"session_id"`
+			LastAssistantMsg   string `json:"last_assistant_message"`
 		}
 		if err := readJSON(r, &req); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
@@ -787,8 +788,9 @@ func main() {
 			return
 		}
 		if err := client.RecordSessionEnd(r.Context(), dto.SessionEndRequest{
-			ProjectPath: req.Project,
-			SessionID:   req.Session,
+			ProjectPath:        req.Project,
+			SessionID:          req.Session,
+			LastAssistantMessage: req.LastAssistantMsg,
 		}); err != nil {
 			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to record session end: %v", err))
 			return
