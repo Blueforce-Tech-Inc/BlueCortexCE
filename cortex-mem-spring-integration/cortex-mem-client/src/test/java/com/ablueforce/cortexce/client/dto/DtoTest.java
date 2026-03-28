@@ -188,10 +188,45 @@ class DtoTest {
     }
 
     @Test
-    void iclPromptResult_experienceCount() {
-        assertThat(new ICLPromptResult("", 3).experienceCount()).isEqualTo(3);
+    void iclPromptResult_experienceCountAndMaxChars() {
+        assertThat(new ICLPromptResult("", 3, 5000).experienceCount()).isEqualTo(3);
+        assertThat(new ICLPromptResult("", 3, 5000).maxChars()).isEqualTo(5000);
         assertThat(new ICLPromptResult("", 0).experienceCount()).isEqualTo(0);
+        assertThat(new ICLPromptResult("", 0).maxChars()).isEqualTo(0);
         assertThat(new ICLPromptResult("prompt").experienceCount()).isEqualTo(0);
+        assertThat(new ICLPromptResult("prompt").maxChars()).isEqualTo(0);
+    }
+
+    @Test
+    void iclPromptResult_deserializeSnakeCase() throws Exception {
+        String json = """
+            {
+                "prompt": "ICL context...",
+                "experience_count": 5,
+                "max_chars": 4000
+            }
+            """;
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        ICLPromptResult result = mapper.readValue(json, ICLPromptResult.class);
+        assertThat(result.prompt()).isEqualTo("ICL context...");
+        assertThat(result.experienceCount()).isEqualTo(5);
+        assertThat(result.maxChars()).isEqualTo(4000);
+    }
+
+    @Test
+    void iclPromptResult_deserializeCamelCase() throws Exception {
+        String json = """
+            {
+                "prompt": "ICL context...",
+                "experienceCount": 3,
+                "maxChars": 2000
+            }
+            """;
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        ICLPromptResult result = mapper.readValue(json, ICLPromptResult.class);
+        assertThat(result.prompt()).isEqualTo("ICL context...");
+        assertThat(result.experienceCount()).isEqualTo(3);
+        assertThat(result.maxChars()).isEqualTo(2000);
     }
 
     @Test
