@@ -56,10 +56,17 @@ export const SDK_VERSION = '1.0.0';
  */
 export function resolveConfig(options?: CortexMemClientOptions): ResolvedClientConfig {
   const baseURL = (options?.baseURL ?? 'http://127.0.0.1:37777').replace(/\/+$/, '');
-  const globalFetch = (globalThis as Record<string, unknown>).fetch;
-  const fallbackFetch: FetchFn = typeof globalFetch === 'function'
-    ? (globalFetch as FetchFn).bind(globalThis)
-    : (() => { throw new Error('fetch is not available'); });
+
+  // Use provided fetch or fall back to global fetch (bound to globalThis for correct `this`).
+  let fetchFn: FetchFn;
+  if (options?.fetch) {
+    fetchFn = options.fetch;
+  } else if (typeof globalThis.fetch === 'function') {
+    fetchFn = globalThis.fetch.bind(globalThis);
+  } else {
+    fetchFn = () => { throw new Error('fetch is not available; provide a custom fetch implementation'); };
+  }
+
   return {
     baseURL,
     apiKey: options?.apiKey ?? '',
@@ -67,7 +74,7 @@ export function resolveConfig(options?: CortexMemClientOptions): ResolvedClientC
     maxRetries: Math.max(1, options?.maxRetries ?? 3),
     retryBackoff: options?.retryBackoff ?? 500,
     logger: options?.logger ?? { debug() {}, info() {}, warn() {}, error() {} },
-    fetch: options?.fetch ?? fallbackFetch,
+    fetch: fetchFn,
     headers: options?.headers ?? {},
   };
 }

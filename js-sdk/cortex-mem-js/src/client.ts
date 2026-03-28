@@ -493,47 +493,21 @@ export class CortexMemClient {
         signal: controller.signal,
       });
 
-      // Read response with size limit (10MB)
+      // Read response body with 10MB size limit.
+      // Uses resp.text() for broad compatibility (works in browsers and Node.js).
+      // 204 No Content and null bodies return empty data.
       const maxSize = 10 * 1024 * 1024;
-      const reader = resp.body?.getReader();
-      if (!reader) {
-        // Fallback: resp.text() — used when resp.body is null (e.g. 204 No Content)
-        // or in environments without ReadableStream support.
-        let text: string;
-        try {
-          text = await resp.text();
-        } catch {
-          // resp.text() can throw if body is already consumed or null in some runtimes
-          return { data: new Uint8Array(0), status: resp.status };
-        }
-        if (text.length > maxSize) {
-          throw new Error('cortex-ce: response body exceeds 10MB limit');
-        }
-        return { data: new TextEncoder().encode(text), status: resp.status };
+      let text: string;
+      try {
+        text = await resp.text();
+      } catch {
+        // resp.text() can throw if body is null in some runtimes
+        return { data: new Uint8Array(0), status: resp.status };
       }
-
-      const chunks: Uint8Array[] = [];
-      let totalSize = 0;
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        totalSize += value.length;
-        if (totalSize > maxSize) {
-          reader.cancel();
-          throw new Error('cortex-ce: response body exceeds 10MB limit');
-        }
-        chunks.push(value);
+      if (text.length > maxSize) {
+        throw new Error('cortex-ce: response body exceeds 10MB limit');
       }
-
-      // Concatenate chunks
-      const data = new Uint8Array(totalSize);
-      let offset = 0;
-      for (const chunk of chunks) {
-        data.set(chunk, offset);
-        offset += chunk.length;
-      }
-
-      return { data, status: resp.status };
+      return { data: new TextEncoder().encode(text), status: resp.status };
     } finally {
       clearTimeout(timer);
     }
