@@ -28,12 +28,14 @@ export interface ObservationRequest {
  *
  * Wire format: extractedData is camelCase.
  * Both "content" and "narrative" are accepted by the backend for the narrative field.
+ * If both are provided, "content" takes priority over "narrative".
  */
 export interface ObservationUpdate {
   title?: string;
   subtitle?: string;
+  /** Observation content/narrative. Takes priority over "narrative" if both are set. */
   content?: string;
-  /** Alias for content — backend accepts both "content" and "narrative" */
+  /** Alias for content. Used when "content" is not set. */
   narrative?: string;
   facts?: string[];
   concepts?: string[];

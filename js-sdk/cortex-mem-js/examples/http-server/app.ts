@@ -10,7 +10,7 @@
  */
 
 import express, { Request, Response, NextFunction } from 'express';
-import { CortexMemClient, APIError } from '../../src';
+import { CortexMemClient, APIError, ValidationError } from '../../src';
 
 const CORTEX_BASE_URL = process.env.CORTEX_BASE_URL ?? 'http://127.0.0.1:37777';
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
@@ -373,7 +373,9 @@ app.post('/ingest/session-end', asyncHandler(async (req: Request, res: Response)
 // Global error handler (asyncHandler catches async rejections, this catches sync errors)
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   console.error('Unhandled error:', err);
-  if (err instanceof APIError) {
+  if (err instanceof ValidationError) {
+    errorJson(res, 400, err.message);
+  } else if (err instanceof APIError) {
     errorJson(res, err.statusCode, err.message);
   } else {
     const message = err instanceof Error ? err.message : 'Internal server error';

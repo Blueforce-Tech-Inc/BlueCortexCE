@@ -188,7 +188,7 @@ class ObservationUpdate:
     title: str | None = None
     subtitle: str | None = None
     content: str | None = None
-    narrative: str | None = None  # Backend accepts both 'content' and 'narrative' (separate fields, not aliases)
+    narrative: str | None = None  # Alias for content; if both set, content takes priority
     facts: list[str] | None = None
     concepts: list[str] | None = None
     source: str | None = None
