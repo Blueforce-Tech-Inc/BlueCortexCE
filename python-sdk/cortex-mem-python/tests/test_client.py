@@ -4,8 +4,8 @@ import json
 import pytest
 import responses
 
-from cortex_mem import CortexMemClient, APIError, NotFoundError, RateLimitError, CortexError
-from cortex_mem.error import is_retryable, raise_for_status, ServerError, ConflictError, AuthError, ValidationError
+from cortex_mem import CortexMemClient, APIError, NotFoundError, RateLimitError, CortexError, ValidationError
+from cortex_mem.error import is_retryable, raise_for_status, ServerError, ConflictError, AuthError
 from cortex_mem.dto import (
     SessionStartResponse,
     Experience,
@@ -170,25 +170,25 @@ class TestCapture:
     def test_record_observation_empty_session_id_raises(self):
         """Empty session_id should raise CortexError."""
         c = _client()
-        with pytest.raises(Exception, match="session_id is required"):
+        with pytest.raises(ValidationError, match="session_id is required"):
             c.record_observation("", "/p", "Read")
 
     def test_record_session_end_empty_session_id_raises(self):
         """Empty session_id should raise CortexError."""
         c = _client()
-        with pytest.raises(Exception, match="session_id is required"):
+        with pytest.raises(ValidationError, match="session_id is required"):
             c.record_session_end("", "/p")
 
     def test_record_user_prompt_empty_session_id_raises(self):
         """Empty session_id should raise CortexError."""
         c = _client()
-        with pytest.raises(Exception, match="session_id is required"):
+        with pytest.raises(ValidationError, match="session_id is required"):
             c.record_user_prompt("", "hello")
 
     def test_record_user_prompt_empty_prompt_text_raises(self):
         """Empty prompt_text should raise CortexError."""
         c = _client()
-        with pytest.raises(Exception, match="prompt_text is required"):
+        with pytest.raises(ValidationError, match="prompt_text is required"):
             c.record_user_prompt("s1", "")
 
 
@@ -400,7 +400,7 @@ class TestHealth:
     def test_health_check_fail(self):
         responses.add(responses.GET, f"{BASE}/api/health", json={"status": "degraded"}, status=200)
         c = _client()
-        with pytest.raises(Exception):
+        with pytest.raises(CortexError):
             c.health_check()
 
 
@@ -625,53 +625,53 @@ class TestManagementExtended:
     def test_update_observation_empty_id_raises(self):
         """Empty observation_id should raise."""
         c = _client()
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             c.update_observation("", title="x")
 
     @responses.activate
     def test_update_observation_unknown_kwargs_raises(self):
         """Unknown kwargs should raise CortexError with clear message."""
         c = _client()
-        with pytest.raises(Exception, match="unknown update fields.*typo_field"):
+        with pytest.raises(ValidationError, match="unknown update fields.*typo_field"):
             c.update_observation("o1", typo_field="value")
 
     @responses.activate
     def test_update_observation_no_fields_raises(self):
         """Calling update_observation with no fields should raise."""
         c = _client()
-        with pytest.raises(Exception, match="at least one field"):
+        with pytest.raises(ValidationError, match="at least one field"):
             c.update_observation("o1")
-        with pytest.raises(Exception, match="at least one field"):
+        with pytest.raises(ValidationError, match="at least one field"):
             c.update_observation("o1", ObservationUpdate())
 
     @responses.activate
     def test_delete_observation_empty_raises(self):
         """Empty observation_id should raise."""
         c = _client()
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             c.delete_observation("")
 
     @responses.activate
     def test_trigger_refinement_empty_raises(self):
         """Empty project_path should raise."""
         c = _client()
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             c.trigger_refinement("")
 
     @responses.activate
     def test_submit_feedback_empty_raises(self):
         """Empty observation_id or feedback_type should raise."""
         c = _client()
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             c.submit_feedback("", "useful")
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             c.submit_feedback("o1", "")
 
     @responses.activate
     def test_get_quality_distribution_empty_raises(self):
         """Empty project_path should raise."""
         c = _client()
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             c.get_quality_distribution("")
 
     @responses.activate
@@ -700,7 +700,7 @@ class TestExtractionExtended:
     def test_trigger_extraction_empty_raises(self):
         """Empty project_path should raise."""
         c = _client()
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             c.trigger_extraction("")
 
     @responses.activate
@@ -835,21 +835,21 @@ class TestRetrievalExtended:
     def test_get_observations_by_ids_empty_raises(self):
         """Empty ids list should raise."""
         c = _client()
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             c.get_observations_by_ids([])
 
     @responses.activate
     def test_get_observations_by_ids_batch_too_large(self):
         """Batch size > 100 should raise."""
         c = _client()
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             c.get_observations_by_ids([f"id-{i}" for i in range(101)])
 
     @responses.activate
     def test_get_observations_by_ids_whitespace_raises(self):
         """Whitespace-only ID should raise CortexError."""
         c = _client()
-        with pytest.raises(Exception, match="ids.*empty"):
+        with pytest.raises(ValidationError, match="ids.*empty"):
             c.get_observations_by_ids(["valid-id", "   "])
 
     @responses.activate
@@ -1188,5 +1188,5 @@ class TestCustomSession:
         c = CortexMemClient(base_url=BASE)
         c.close()
         # Subsequent requests should fail
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match="closed"):
             c.health_check()
