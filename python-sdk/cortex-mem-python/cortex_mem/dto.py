@@ -272,7 +272,10 @@ class SearchResult:
         return cls(
             observations=[Observation.from_wire(o) for o in data.get("observations") or []],
             strategy=data.get("strategy") or "",
-            fell_back=bool(data.get("fell_back") or False),
+            fell_back=bool(
+                data.get("fell_back") if data.get("fell_back") is not None
+                else data.get("fellBack", False)
+            ),
             count=_to_int(data.get("count"), 0),
         )
 

@@ -214,6 +214,27 @@ class TestDTOFromWire:
         assert len(sr.observations) == 1
         assert sr.observations[0].content == "test"
 
+    def test_search_result_fell_back_camelcase_fallback(self):
+        """Backend may use 'fellBack' (camelCase) — SDK must accept both naming conventions."""
+        data = {
+            "observations": [],
+            "strategy": "keyword",
+            "fellBack": True,
+            "count": 0,
+        }
+        sr = SearchResult.from_wire(data)
+        assert sr.fell_back is True
+
+    def test_search_result_fell_back_snake_case_preferred(self):
+        """When both 'fell_back' and 'fellBack' present, snake_case takes precedence."""
+        data = {
+            "observations": [],
+            "fell_back": False,
+            "fellBack": True,
+        }
+        sr = SearchResult.from_wire(data)
+        assert sr.fell_back is False  # snake_case preferred
+
     def test_observations_response_from_wire(self):
         data = {
             "items": [{"id": "o1", "narrative": "test", "content_session_id": "s1"}],
