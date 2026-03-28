@@ -554,11 +554,11 @@ func main() {
 			return
 		}
 		if req.ObservationId == "" {
-			writeJSONError(w, http.StatusBadRequest, "observation_id is required")
+			writeJSONError(w, http.StatusBadRequest, "observationId is required")
 			return
 		}
 		if req.FeedbackType == "" {
-			writeJSONError(w, http.StatusBadRequest, "feedback_type is required")
+			writeJSONError(w, http.StatusBadRequest, "feedbackType is required")
 			return
 		}
 		if err := client.SubmitFeedback(r.Context(), req.ObservationId, req.FeedbackType, req.Comment); err != nil {

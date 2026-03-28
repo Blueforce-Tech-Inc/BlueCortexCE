@@ -8,7 +8,7 @@ package dto
 type ObservationRequest struct {
 	SessionID     string         `json:"session_id"`
 	ProjectPath   string         `json:"cwd"`              // Wire: "cwd" (not "project_path")
-	ToolName      string         `json:"tool_name"`        // Wire: "tool_name" (not "type")
+	ToolName      string         `json:"tool_name"`        // Wire: "tool_name" (not "type") — required, no omitempty
 	ToolInput     any            `json:"tool_input,omitempty"`
 	ToolResponse  any            `json:"tool_response,omitempty"`
 	PromptNumber  int            `json:"prompt_number,omitempty"`
