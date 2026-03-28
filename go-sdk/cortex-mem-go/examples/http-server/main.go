@@ -517,9 +517,9 @@ func main() {
 		if !checkMethod(w, r, http.MethodPost) {
 			return
 		}
-		project := r.URL.Query().Get("projectPath")
+		project := r.URL.Query().Get("project")
 		if project == "" {
-			writeJSONError(w, http.StatusBadRequest, "projectPath is required")
+			writeJSONError(w, http.StatusBadRequest, "project is required")
 			return
 		}
 		if err := client.TriggerExtraction(r.Context(), project); err != nil {
