@@ -369,6 +369,13 @@ func main() {
 			writeJSONError(w, http.StatusBadRequest, "batch size exceeds maximum of 100")
 			return
 		}
+		// Validate individual IDs (mirrors SDK client-side validation)
+		for i, id := range req.Ids {
+			if strings.TrimSpace(id) == "" {
+				writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("ids[%d] must not be empty", i))
+				return
+			}
+		}
 		result, err := client.GetObservationsByIds(r.Context(), req.Ids)
 		if err != nil {
 			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get observations: %v", err))

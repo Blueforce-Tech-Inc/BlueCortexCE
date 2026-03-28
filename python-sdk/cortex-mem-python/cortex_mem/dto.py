@@ -5,6 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 
+def _first_non_null(data: dict, *keys: str) -> object:
+    """Return the first non-None value for any of the given keys."""
+    for key in keys:
+        val = data.get(key)
+        if val is not None:
+            return val
+    return None
+
+
 def _to_int(v: object, default: int = 0) -> int:
     """Safely convert wire value to int (handles string numbers and floats)."""
     if isinstance(v, int):
@@ -475,6 +484,6 @@ class ModesResponse:
             name=data.get("name") or "",
             description=data.get("description") or "",
             version=data.get("version") or "",
-            observation_types=data.get("observation_types") or data.get("observationTypes") or [],
-            observation_concepts=data.get("observation_concepts") or data.get("observationConcepts") or [],
+            observation_types=_first_non_null(data, "observation_types", "observationTypes") or [],
+            observation_concepts=_first_non_null(data, "observation_concepts", "observationConcepts") or [],
         )

@@ -369,6 +369,18 @@ class TestDTOFromWire:
         assert mr.observation_types == ["feature"]
         assert mr.observation_concepts == ["test"]
 
+    def test_modes_response_from_wire_empty_list_preserved(self):
+        """Empty list in primary key should be preserved (not fall through to fallback)."""
+        data = {
+            "id": "m1",
+            "name": "default",
+            "observation_types": [],  # empty list — should be kept, not replaced
+            "observationConcepts": ["fallback"],
+        }
+        mr = ModesResponse.from_wire(data)
+        assert mr.observation_types == []  # empty list preserved
+        assert mr.observation_concepts == ["fallback"]  # fallback used for missing key
+
     def test_observations_response_has_more_camelcase_fallback(self):
         """Backend Map.of() uses 'hasMore' (camelCase) — SDK must accept both."""
         data = {
