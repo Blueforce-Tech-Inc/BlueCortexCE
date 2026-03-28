@@ -97,7 +97,11 @@ def _extract_error_message(body: bytes) -> str:
     1. JSON object with "error", "message", or "detail" key
     2. JSON string (returned directly)
     3. Non-JSON body (decoded as UTF-8, truncated to 200 chars)
+    4. Empty body (returns "(empty response body)")
     """
+    if not body:
+        return "(empty response body)"
+
     try:
         parsed = json.loads(body)
     except (json.JSONDecodeError, UnicodeDecodeError):

@@ -13,7 +13,7 @@ type ObservationRequest struct {
 	ToolResponse  any            `json:"tool_response,omitempty"`
 	PromptNumber  int            `json:"prompt_number,omitempty"`
 	Source        string         `json:"source,omitempty"`         // V14: source attribution
-	ExtractedData map[string]any `json:"extractedData,omitempty"` // V14: camelCase!
+	ExtractedData map[string]any `json:"extractedData,omitempty"` // V14: camelCase! (not extracted_data)
 }
 
 // ObservationUpdate updates an existing observation.

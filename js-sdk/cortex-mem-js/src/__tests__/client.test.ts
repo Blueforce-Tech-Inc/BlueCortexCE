@@ -1268,6 +1268,39 @@ describe('APIError', () => {
     const json = err.toJSON();
     expect(json.body).toBeUndefined();
   });
+
+  it('should produce meaningful message for empty response body', async () => {
+    // Mock fetch that returns empty body (simulates 502 with no response body)
+    const emptyBodyFetch = vi.fn().mockResolvedValue({
+      status: 502,
+      body: {
+        getReader() {
+          const encoded = new Uint8Array(0);
+          let consumed = false;
+          return {
+            read() {
+              if (consumed) return Promise.resolve({ done: true });
+              consumed = true;
+              return Promise.resolve({ value: encoded, done: false });
+            },
+          };
+        },
+      },
+      text() {
+        return Promise.resolve('');
+      },
+    });
+    const c = new CortexMemClient({ baseUrl: 'http://127.0.0.1:37777', fetch: emptyBodyFetch });
+
+    try {
+      await c.getVersion();
+      expect.unreachable('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(APIError);
+      expect((err as APIError).statusCode).toBe(502);
+      expect((err as APIError).message).toContain('empty response body');
+    }
+  });
 });
 
 // ==================== safeRecord edge cases ====================

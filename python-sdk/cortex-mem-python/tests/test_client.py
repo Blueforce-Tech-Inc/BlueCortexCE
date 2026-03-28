@@ -1212,6 +1212,18 @@ class TestRaiseForStatus:
             raise_for_status(503, b'service unavailable')
         assert exc_info.value.status_code == 503
 
+    def test_error_message_from_empty_body(self):
+        """Empty response body should produce a meaningful error message."""
+        with pytest.raises(APIError, match="empty response body"):
+            raise_for_status(502, b"")
+
+    def test_502_empty_body(self):
+        """502 with empty body should still raise ServerError with informative message."""
+        with pytest.raises(ServerError) as exc_info:
+            raise_for_status(502, b"")
+        assert exc_info.value.status_code == 502
+        assert "empty response body" in exc_info.value.message
+
 
 # ==================== Client Repr ====================
 

@@ -548,6 +548,7 @@ export class CortexMemClient {
   }
 
   private extractErrorMessage(text: string): string {
+    if (!text) return '(empty response body)';
     try {
       const parsed = JSON.parse(text) as Record<string, unknown>;
       for (const key of ['error', 'message', 'detail']) {
