@@ -5,7 +5,7 @@ import pytest
 import responses
 
 from cortex_mem import CortexMemClient, APIError, NotFoundError, RateLimitError, CortexError
-from cortex_mem.error import is_retryable, raise_for_status, ServerError, ConflictError, AuthError
+from cortex_mem.error import is_retryable, raise_for_status, ServerError, ConflictError, AuthError, ValidationError
 from cortex_mem.dto import (
     SessionStartResponse,
     Experience,
@@ -1088,6 +1088,28 @@ class TestApiKeyAuth:
         c = CortexMemClient(base_url=BASE)
         headers = c._session.headers
         assert "Authorization" not in headers
+
+
+# ==================== ValidationError ====================
+
+
+class TestValidationError:
+    """Tests for ValidationError type (Go SDK parity)."""
+
+    def test_validation_error_is_cortex_error(self):
+        """ValidationError should be a subclass of CortexError."""
+        assert issubclass(ValidationError, CortexError)
+
+    def test_validation_error_message(self):
+        """ValidationError should carry a human-readable message."""
+        err = ValidationError("session_id is required")
+        assert "session_id is required" in str(err)
+        assert "validation error" in str(err)
+
+    def test_validation_error_message_attr(self):
+        """ValidationError.message should be accessible."""
+        err = ValidationError("batch size exceeded")
+        assert err.message == "batch size exceeded"
 
 
 # ==================== Custom Session ====================

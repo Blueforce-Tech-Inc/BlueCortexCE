@@ -27,6 +27,7 @@ from .error import (
     NotFoundError,
     RateLimitError,
     ServerError,
+    ValidationError,
 )
 from .version import __version__
 
@@ -58,6 +59,7 @@ __all__ = [
     "ConflictError",
     "RateLimitError",
     "ServerError",
+    "ValidationError",
     # Version
     "__version__",
 ]

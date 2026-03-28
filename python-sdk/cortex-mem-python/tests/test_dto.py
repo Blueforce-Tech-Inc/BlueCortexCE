@@ -428,3 +428,31 @@ class TestDTOFromWire:
         assert mr.name == ""
         assert mr.observation_types == []
         assert mr.observation_concepts == []
+
+
+class TestNullSafetyExtra:
+    """Additional null-safety tests for edge cases not covered elsewhere."""
+
+    def test_search_result_count_null(self):
+        """SearchResult.count should be 0 when backend sends null (not None)."""
+        data = {"observations": [], "count": None}
+        sr = SearchResult.from_wire(data)
+        assert sr.count == 0  # _to_int(None, 0) → 0, not None
+
+    def test_search_result_fell_back_null(self):
+        """SearchResult.fell_back should be False when backend sends null."""
+        data = {"observations": [], "fell_back": None}
+        sr = SearchResult.from_wire(data)
+        assert sr.fell_back is False
+
+    def test_batch_observations_response_count_null(self):
+        """BatchObservationsResponse.count should be 0 when backend sends null."""
+        data = {"observations": [], "count": None}
+        resp = BatchObservationsResponse.from_wire(data)
+        assert resp.count == 0
+
+    def test_experience_quality_score_null(self):
+        """Experience.quality_score should be 0.0 when backend sends null."""
+        data = {"id": "e1", "quality_score": None}
+        exp = Experience.from_wire(data)
+        assert exp.quality_score == 0.0

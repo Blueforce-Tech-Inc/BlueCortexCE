@@ -256,7 +256,7 @@ class SearchResult:
         return cls(
             observations=[Observation.from_wire(o) for o in data.get("observations") or []],
             strategy=data.get("strategy") or "",
-            fell_back=bool(data.get("fell_back", False)),
+            fell_back=bool(data.get("fell_back") or False),
             count=_to_int(data.get("count"), 0),
         )
 

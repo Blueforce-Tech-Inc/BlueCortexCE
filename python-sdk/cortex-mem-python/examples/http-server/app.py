@@ -187,8 +187,8 @@ def experiences():
         return _error(400, "task is required")
     try:
         count = _parse_int_param("count", default=4)
-    except ValueError:
-        return _error(400, "count must be an integer")
+    except ValueError as e:
+        return _error(400, str(e))
 
     concepts_str = request.args.get("requiredConcepts", "")
     required_concepts = [c.strip() for c in concepts_str.split(",") if c.strip()] if concepts_str else None
@@ -217,8 +217,8 @@ def iclprompt():
         return _error(400, "task is required")
     try:
         max_chars = _parse_int_param("maxChars")
-    except ValueError:
-        return _error(400, "maxChars must be an integer")
+    except ValueError as e:
+        return _error(400, str(e))
 
     result = client.build_icl_prompt(
         task=task,
@@ -406,8 +406,8 @@ def extraction_history():
         return _error(400, "project is required")
     try:
         limit = _parse_int_param("limit")
-    except ValueError:
-        return _error(400, "limit must be an integer")
+    except ValueError as e:
+        return _error(400, str(e))
 
     results = client.get_extraction_history(project, template, user_id=request.args.get("userId", ""), limit=limit)
     return jsonify([

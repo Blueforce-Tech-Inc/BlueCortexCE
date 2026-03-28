@@ -18,6 +18,17 @@ class APIError(CortexError):
         super().__init__(f"cortex-ce: API error {status_code}: {message}")
 
 
+class ValidationError(CortexError):
+    """Client-side validation error (e.g., empty required field, batch size exceeded).
+
+    Matches Go SDK's ValidationError for cross-SDK parity.
+    """
+
+    def __init__(self, message: str) -> None:
+        self.message = message
+        super().__init__(f"cortex-ce: validation error: {message}")
+
+
 class AuthError(APIError):
     """401 Unauthorized."""
 
