@@ -98,6 +98,7 @@ export class CortexMemClient {
   async recordObservation(req: ObservationRequest): Promise<void> {
     this.assertNotClosed();
     this.validateRequired('session_id', req.session_id);
+    this.validateRequired('cwd', req.cwd);
     await this.doFireAndForget('RecordObservation', () =>
       this.requestNoContent('POST', '/api/ingest/tool-use', req),
     );
@@ -110,6 +111,7 @@ export class CortexMemClient {
   async recordSessionEnd(req: SessionEndRequest): Promise<void> {
     this.assertNotClosed();
     this.validateRequired('session_id', req.session_id);
+    this.validateRequired('cwd', req.cwd);
     await this.doFireAndForget('RecordSessionEnd', () =>
       this.requestNoContent('POST', '/api/ingest/session-end', req),
     );

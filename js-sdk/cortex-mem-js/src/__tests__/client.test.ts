@@ -141,6 +141,12 @@ describe('CortexMemClient', () => {
         client.recordObservation({ session_id: '   ', cwd: '/tmp', tool_name: 'Read' }),
       ).rejects.toThrow('session_id');
     });
+
+    it('should throw on missing cwd', async () => {
+      await expect(
+        client.recordObservation({ session_id: 'sess-1', cwd: '', tool_name: 'Read' }),
+      ).rejects.toThrow('cwd');
+    });
   });
 
   describe('recordSessionEnd', () => {
@@ -151,6 +157,18 @@ describe('CortexMemClient', () => {
       await client.recordSessionEnd({ session_id: 'sess-1', cwd: '/tmp' });
       const [url] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(url).toContain('/api/ingest/session-end');
+    });
+
+    it('should throw on missing session_id', async () => {
+      await expect(
+        client.recordSessionEnd({ session_id: '', cwd: '/tmp' }),
+      ).rejects.toThrow('session_id');
+    });
+
+    it('should throw on missing cwd', async () => {
+      await expect(
+        client.recordSessionEnd({ session_id: 'sess-1', cwd: '' }),
+      ).rejects.toThrow('cwd');
     });
   });
 
