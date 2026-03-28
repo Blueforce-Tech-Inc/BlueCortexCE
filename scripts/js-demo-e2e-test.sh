@@ -380,7 +380,7 @@ fi
 info "Testing /feedback..."
 FEEDBACK_RESP=$(curl -sf -X POST "$DEMO_BASE/feedback" \
     -H "Content-Type: application/json" \
-    -d "{\"observation_id\": \"nonexistent-id\", \"feedback_type\": \"positive\", \"comment\": \"test\"}" 2>/dev/null || echo "FAIL")
+    -d "{\"observationId\": \"nonexistent-id\", \"feedbackType\": \"positive\", \"comment\": \"test\"}" 2>/dev/null || echo "FAIL")
 if [ "$FEEDBACK_RESP" = "FAIL" ]; then
     fail "POST /feedback" "Request failed"
 elif ! contains_field "$FEEDBACK_RESP" "status"; then

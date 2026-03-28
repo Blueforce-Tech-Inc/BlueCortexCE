@@ -300,11 +300,11 @@ app.post('/refine', asyncHandler(async (req: Request, res: Response) => {
 });
 
 app.post('/feedback', asyncHandler(async (req: Request, res: Response) => {
-  const missing = requireFields(req.body, ['observation_id', 'feedback_type']);
+  const missing = requireFields(req.body, ['observationId', 'feedbackType']);
   if (missing) return errorJson(res, 400, `${missing} is required`);
   await client.submitFeedback({
-    observationId: req.body.observation_id,
-    feedbackType: req.body.feedback_type,
+    observationId: req.body.observationId,
+    feedbackType: req.body.feedbackType,
     comment: req.body.comment,
   });
   res.json({ status: 'submitted' });

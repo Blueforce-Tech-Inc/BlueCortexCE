@@ -449,12 +449,12 @@ def refine():
 def feedback():
     data = request.get_json(force=True)
     missing = _require({
-        "observation_id": data.get("observation_id"),
-        "feedback_type": data.get("feedback_type"),
+        "observationId": data.get("observationId"),
+        "feedbackType": data.get("feedbackType"),
     })
     if missing:
         return _error(400, f"{missing} is required")
-    client.submit_feedback(data["observation_id"], data["feedback_type"], data.get("comment", ""))
+    client.submit_feedback(data["observationId"], data["feedbackType"], data.get("comment", ""))
     return jsonify(status="submitted")
 
 

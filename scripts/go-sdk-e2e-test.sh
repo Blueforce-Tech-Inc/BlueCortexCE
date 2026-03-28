@@ -603,7 +603,7 @@ fi
 info "Test 31: POST /feedback — Submit observation feedback"
 FEEDBACK_RESP=$(curl -sf --max-time 10 -X POST "$DEMO_BASE/feedback" \
     -H "Content-Type: application/json" \
-    -d '{"observation_id": "test-id", "feedback_type": "useful"}' 2>/dev/null || echo "FAIL")
+    -d '{"observationId": "test-id", "feedbackType": "useful"}' 2>/dev/null || echo "FAIL")
 if [ "$FEEDBACK_RESP" = "FAIL" ]; then
     fail "POST /feedback" "Connection failed or timed out"
 else
