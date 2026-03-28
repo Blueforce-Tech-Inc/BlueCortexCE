@@ -120,7 +120,10 @@ class CortexMemClient:
         json_body: Any = None,
         params: dict[str, str] | None = None,
     ) -> Any:
-        """Make a request and return parsed JSON."""
+        """Make a request and return parsed JSON.
+
+        Returns None for 204 No Content or non-JSON responses (graceful degradation).
+        """
         resp = self._request(method, path, json_body, params)
         if resp.status_code == 204 or not resp.content:
             return None

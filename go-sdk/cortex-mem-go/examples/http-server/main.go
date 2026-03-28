@@ -694,6 +694,11 @@ func main() {
 			return
 		}
 		if err := client.UpdateObservation(r.Context(), id, update); err != nil {
+			// SDK validation errors (empty update, missing ID) should be 400, not 500
+			if strings.Contains(err.Error(), "at least one field") {
+				writeJSONError(w, http.StatusBadRequest, err.Error())
+				return
+			}
 			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update observation: %v", err))
 			return
 		}
