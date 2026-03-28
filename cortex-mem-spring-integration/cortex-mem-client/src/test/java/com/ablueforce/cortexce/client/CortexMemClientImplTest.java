@@ -435,6 +435,59 @@ class CortexMemClientImplTest {
     }
 
     @Test
+    void search_onError_returnsFallback() {
+        server.enqueue(new MockResponse().setResponseCode(500));
+
+        Map<String, Object> result = client.search(SearchRequest.builder()
+            .project("/proj")
+            .query("test")
+            .build());
+
+        assertThat(result).containsEntry("fell_back", true);
+        assertThat(result).containsEntry("count", 0);
+        assertThat((List<?>) result.get("observations")).isEmpty();
+    }
+
+    @Test
+    void listObservations_onError_returnsFallback() {
+        server.enqueue(new MockResponse().setResponseCode(500));
+
+        Map<String, Object> result = client.listObservations(ObservationsRequest.builder()
+            .project("/proj")
+            .build());
+
+        assertThat(result).containsEntry("total", 0);
+        assertThat((List<?>) result.get("observations")).isEmpty();
+    }
+
+    @Test
+    void getObservationsByIds_parsesResponse() throws Exception {
+        String json = """
+            {"observations":[
+              {"id":"id1","task":"t1","type":"observation","narrative":"content1"},
+              {"id":"id2","task":"t2","type":"observation","narrative":"content2"}
+            ]}""";
+        server.enqueue(new MockResponse()
+            .setBody(json)
+            .addHeader("Content-Type", "application/json"));
+
+        Map<String, Object> result = client.getObservationsByIds(List.of("id1", "id2"));
+
+        assertThat(result).containsKey("observations");
+        List<?> observations = (List<?>) result.get("observations");
+        assertThat(observations).hasSize(2);
+    }
+
+    @Test
+    void getObservationsByIds_onError_returnsFallback() {
+        server.enqueue(new MockResponse().setResponseCode(500));
+
+        Map<String, Object> result = client.getObservationsByIds(List.of("id1"));
+
+        assertThat((List<?>) result.get("observations")).isEmpty();
+    }
+
+    @Test
     void listObservations_emptyProject_omitsParam() throws Exception {
         server.enqueue(new MockResponse()
             .setBody("{\"observations\":[],\"total\":0,\"hasMore\":false}")
@@ -612,6 +665,45 @@ class CortexMemClientImplTest {
 
         RecordedRequest req = server.takeRequest();
         assertThat(req.getPath()).doesNotContain("userId=");
+    }
+
+    @Test
+    void getExtractionHistory_nullUserId_omitsParam() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("[]")
+            .addHeader("Content-Type", "application/json"));
+
+        client.getExtractionHistory("/proj", "user-preferences", null, 10);
+
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getPath()).doesNotContain("userId=");
+        assertThat(req.getPath()).contains("limit=10");
+    }
+
+    @Test
+    void getExtractionHistory_zeroLimit_omitsLimitParam() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("[]")
+            .addHeader("Content-Type", "application/json"));
+
+        // limit <= 0 should omit the param, letting backend use its default
+        client.getExtractionHistory("/proj", "user-preferences", "alice", 0);
+
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getPath()).doesNotContain("limit=");
+        assertThat(req.getPath()).contains("userId=alice");
+    }
+
+    @Test
+    void getExtractionHistory_negativeLimit_omitsLimitParam() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("[]")
+            .addHeader("Content-Type", "application/json"));
+
+        client.getExtractionHistory("/proj", "user-preferences", "alice", -5);
+
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getPath()).doesNotContain("limit=");
     }
 
     // ==================== Observation Management Tests ====================

@@ -350,6 +350,7 @@ app.post('/ingest/session-end', asyncHandler(async (req: Request, res: Response)
   await client.recordSessionEnd({
     session_id: req.body.session_id,
     cwd: req.body.project,
+    last_assistant_message: req.body.last_assistant_message,
   });
   res.json({ status: 'ended' });
 });

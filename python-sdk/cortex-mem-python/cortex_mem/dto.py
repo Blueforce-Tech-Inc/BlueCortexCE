@@ -6,7 +6,17 @@ from dataclasses import dataclass, field
 
 
 def _first_non_null(data: dict, *keys: str) -> object:
-    """Return the first non-None value for any of the given keys."""
+    """Return the first non-None value for any of the given keys.
+
+    Useful for dual-format wire fields where the backend may return either
+    snake_case (SNAKE_CASE naming strategy) or camelCase (@JsonProperty override).
+    Returns None if all keys are missing or None.
+
+    Example::
+
+        val = _first_non_null(data, "observation_types", "observationTypes")
+        # val is [] if "observation_types" is set to [], even if "observationTypes" exists
+    """
     for key in keys:
         val = data.get(key)
         if val is not None:
@@ -310,6 +320,15 @@ class SearchResult:
     strategy: str = ""
     fell_back: bool = False
     count: int = 0
+
+    def to_dict(self) -> dict:
+        """Serialize to wire-compatible dict."""
+        return {
+            "observations": [o.to_dict() for o in self.observations],
+            "strategy": self.strategy,
+            "fell_back": self.fell_back,
+            "count": self.count,
+        }
 
     @classmethod
     def from_wire(cls, data: dict) -> SearchResult:
