@@ -28,6 +28,13 @@ from .error import (
     RateLimitError,
     ServerError,
     ValidationError,
+    is_bad_gateway,
+    is_client_error,
+    is_gateway_timeout,
+    is_retryable,
+    is_retryable_error,
+    is_server_error,
+    is_service_unavailable,
 )
 from .version import __version__
 
@@ -60,6 +67,14 @@ __all__ = [
     "RateLimitError",
     "ServerError",
     "ValidationError",
+    # Error predicates (cross-SDK parity with Go Is* / JS is*)
+    "is_retryable",
+    "is_retryable_error",
+    "is_bad_gateway",
+    "is_service_unavailable",
+    "is_gateway_timeout",
+    "is_client_error",
+    "is_server_error",
     # Version
     "__version__",
 ]

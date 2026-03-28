@@ -5,7 +5,7 @@ import pytest
 import responses
 
 from cortex_mem import CortexMemClient, APIError, NotFoundError, RateLimitError, CortexError, ValidationError
-from cortex_mem.error import is_retryable, raise_for_status, ServerError, ConflictError, AuthError
+from cortex_mem.error import is_retryable, raise_for_status, ServerError, ConflictError, AuthError, is_retryable_error, is_bad_gateway, is_service_unavailable, is_gateway_timeout, is_client_error, is_server_error
 from cortex_mem.dto import (
     SessionStartResponse,
     Experience,
@@ -1198,6 +1198,65 @@ class TestIsRetryable:
 
     def test_200_not_retryable(self):
         assert is_retryable(200) is False
+
+
+class TestErrorPredicates:
+    """Tests for error predicate functions (cross-SDK parity with Go Is*/JS is*)."""
+
+    def test_is_retryable_error_502(self):
+        assert is_retryable_error(APIError(502, "bad gateway")) is True
+
+    def test_is_retryable_error_503(self):
+        assert is_retryable_error(APIError(503, "unavailable")) is True
+
+    def test_is_retryable_error_504(self):
+        assert is_retryable_error(APIError(504, "timeout")) is True
+
+    def test_is_retryable_error_429(self):
+        assert is_retryable_error(RateLimitError()) is True
+
+    def test_is_retryable_error_500_not_retryable(self):
+        assert is_retryable_error(ServerError(500, "internal")) is False
+
+    def test_is_retryable_error_400_not_retryable(self):
+        assert is_retryable_error(APIError(400, "bad request")) is False
+
+    def test_is_retryable_error_non_api_error(self):
+        assert is_retryable_error(ValueError("something")) is False
+
+    def test_is_bad_gateway(self):
+        assert is_bad_gateway(APIError(502, "bad gateway")) is True
+        assert is_bad_gateway(APIError(503, "unavailable")) is False
+        assert is_bad_gateway(NotFoundError()) is False
+        assert is_bad_gateway(ValueError("x")) is False
+
+    def test_is_service_unavailable(self):
+        assert is_service_unavailable(APIError(503, "unavailable")) is True
+        assert is_service_unavailable(APIError(502, "bad gateway")) is False
+        assert is_service_unavailable(ValueError("x")) is False
+
+    def test_is_gateway_timeout(self):
+        assert is_gateway_timeout(APIError(504, "timeout")) is True
+        assert is_gateway_timeout(APIError(503, "unavailable")) is False
+        assert is_gateway_timeout(ValueError("x")) is False
+
+    def test_is_client_error(self):
+        assert is_client_error(APIError(400, "bad request")) is True
+        assert is_client_error(NotFoundError()) is True
+        assert is_client_error(AuthError()) is True
+        assert is_client_error(ConflictError()) is True
+        assert is_client_error(RateLimitError()) is True
+        assert is_client_error(APIError(422, "unprocessable")) is True
+        assert is_client_error(ServerError(500, "internal")) is False
+        assert is_client_error(ValueError("x")) is False
+
+    def test_is_server_error(self):
+        assert is_server_error(ServerError(500, "internal")) is True
+        assert is_server_error(APIError(502, "bad gateway")) is True
+        assert is_server_error(APIError(503, "unavailable")) is True
+        assert is_server_error(APIError(504, "timeout")) is True
+        assert is_server_error(NotFoundError()) is False
+        assert is_server_error(ValueError("x")) is False
 
 
 class TestRaiseForStatus:

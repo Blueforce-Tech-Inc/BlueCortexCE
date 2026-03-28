@@ -95,6 +95,44 @@ def is_retryable(status_code: int) -> bool:
     return status_code in (429, 502, 503, 504)
 
 
+def is_retryable_error(err: Exception) -> bool:
+    """Return True if the error is likely transient and the request can be retried.
+
+    Retryable: 429 (rate limited), 502 (bad gateway), 503 (unavailable), 504 (timeout).
+    NOT retryable: 500 (code bug), 4xx (client error), non-API errors.
+
+    Matches Go's IsRetryable(err) and JS's isRetryable(err) for cross-SDK parity.
+    """
+    if isinstance(err, APIError):
+        return is_retryable(err.status_code)
+    return False
+
+
+def is_bad_gateway(err: Exception) -> bool:
+    """Return True if the error is a 502 Bad Gateway. (Go: IsBadGateway, JS: isBadGateway)"""
+    return isinstance(err, APIError) and err.status_code == 502
+
+
+def is_service_unavailable(err: Exception) -> bool:
+    """Return True if the error is a 503 Service Unavailable. (Go: IsServiceUnavailable, JS: isServiceUnavailable)"""
+    return isinstance(err, APIError) and err.status_code == 503
+
+
+def is_gateway_timeout(err: Exception) -> bool:
+    """Return True if the error is a 504 Gateway Timeout. (Go: IsGatewayTimeout, JS: isGatewayTimeout)"""
+    return isinstance(err, APIError) and err.status_code == 504
+
+
+def is_client_error(err: Exception) -> bool:
+    """Return True if the error is a 4xx client error. (Go: IsClientError, JS: isClientError)"""
+    return isinstance(err, APIError) and 400 <= err.status_code < 500
+
+
+def is_server_error(err: Exception) -> bool:
+    """Return True if the error is a 5xx server error. (Go: IsServerError, JS: isServerError)"""
+    return isinstance(err, APIError) and err.status_code >= 500
+
+
 def _extract_error_message(body: bytes) -> str:
     """Extract a human-readable message from an error response body.
 
