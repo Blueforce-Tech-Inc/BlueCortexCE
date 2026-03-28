@@ -4,12 +4,15 @@
 
 /**
  * Safely convert unknown value to string.
- * Returns undefined for null/undefined/non-string.
+ * Returns undefined for null/undefined/non-primitive.
+ * Only converts primitives (string, number, boolean, bigint) to avoid
+ * silent "[object Object]" corruption from objects/arrays.
  */
 export function safeString(v: unknown): string | undefined {
   if (v === null || v === undefined) return undefined;
   if (typeof v === 'string') return v;
-  return String(v);
+  if (typeof v === 'number' || typeof v === 'boolean' || typeof v === 'bigint') return String(v);
+  return undefined;
 }
 
 /**

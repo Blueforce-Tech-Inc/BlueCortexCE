@@ -478,7 +478,7 @@ export class CortexMemClient {
     path: string,
     body?: unknown,
     queryParams?: Record<string, string>,
-  ): Promise<{ data: Uint8Array; status: number }> {
+  ): Promise<{ text: string; status: number }> {
     const url = this.buildURL(path, queryParams);
     const headers = this.buildHeaders(body);
 
@@ -495,19 +495,19 @@ export class CortexMemClient {
 
       // Read response body with 10MB size limit.
       // Uses resp.text() for broad compatibility (works in browsers, Node.js, and edge runtimes).
-      // 204 No Content and null bodies return empty data.
+      // 204 No Content and null bodies return empty string.
       const maxSize = 10 * 1024 * 1024;
       let text: string;
       try {
         text = await resp.text();
       } catch {
         // resp.text() can throw if body is null in some runtimes
-        return { data: new Uint8Array(0), status: resp.status };
+        return { text: '', status: resp.status };
       }
       if (text.length > maxSize) {
         throw new Error('cortex-ce: response body exceeds 10MB limit');
       }
-      return { data: new TextEncoder().encode(text), status: resp.status };
+      return { text, status: resp.status };
     } finally {
       clearTimeout(timer);
     }
@@ -519,8 +519,7 @@ export class CortexMemClient {
     body?: unknown,
     queryParams?: Record<string, string>,
   ): Promise<T> {
-    const { data, status } = await this.doFetch(method, path, body, queryParams);
-    const text = new TextDecoder().decode(data);
+    const { text, status } = await this.doFetch(method, path, body, queryParams);
     if (status >= 400) {
       throw new APIError(status, this.extractErrorMessage(text), text);
     }
@@ -547,9 +546,8 @@ export class CortexMemClient {
     body?: unknown,
     queryParams?: Record<string, string>,
   ): Promise<void> {
-    const { data, status } = await this.doFetch(method, path, body, queryParams);
+    const { text, status } = await this.doFetch(method, path, body, queryParams);
     if (status >= 400) {
-      const text = new TextDecoder().decode(data);
       throw new APIError(status, this.extractErrorMessage(text), text);
     }
   }
