@@ -433,10 +433,10 @@ class QualityDistribution:
     def from_wire(cls, data: dict) -> QualityDistribution:
         return cls(
             project=data.get("project") or "",
-            high=_to_int(_first_non_null(data, "high"), 0),
-            medium=_to_int(_first_non_null(data, "medium"), 0),
-            low=_to_int(_first_non_null(data, "low"), 0),
-            unknown=_to_int(_first_non_null(data, "unknown"), 0),
+            high=_to_int(_first_non_null(data, "high")),
+            medium=_to_int(_first_non_null(data, "medium")),
+            low=_to_int(_first_non_null(data, "low")),
+            unknown=_to_int(_first_non_null(data, "unknown")),
         )
 
 
@@ -456,11 +456,12 @@ class ExtractionResult:
     observation_id: str = ""
 
     def to_dict(self) -> dict:
-        """Serialize to a dict with camelCase keys matching the backend wire format.
+        """Serialize to a dict with camelCase keys.
 
-        Uses camelCase keys (sessionId, extractedData, observationId) to match
-        the backend JSON response format. This is the closest to wire format
-        among the Python SDK's serialization methods.
+        Uses camelCase keys (sessionId, extractedData, observationId) for
+        JavaScript-ecosystem interop. For exact backend wire format (SNAKE_CASE),
+        the Go SDK's ``toWire()`` is the canonical reference. Round-tripping through
+        ``from_wire(to_dict())`` works because ``from_wire`` handles both formats.
         """
         d: dict = {}
         if self.status:
@@ -553,13 +554,13 @@ class StatsResponse:
         return cls(
             worker=WorkerStats(
                 is_processing=bool(w.get("isProcessing", False)),
-                queue_depth=_to_int(w.get("queueDepth"), 0),
+                queue_depth=_to_int(w.get("queueDepth")),
             ),
             database=DatabaseStats(
-                total_observations=_to_int(d.get("totalObservations"), 0),
-                total_summaries=_to_int(d.get("totalSummaries"), 0),
-                total_sessions=_to_int(d.get("totalSessions"), 0),
-                total_projects=_to_int(d.get("totalProjects"), 0),
+                total_observations=_to_int(d.get("totalObservations")),
+                total_summaries=_to_int(d.get("totalSummaries")),
+                total_sessions=_to_int(d.get("totalSessions")),
+                total_projects=_to_int(d.get("totalProjects")),
             ),
         )
 

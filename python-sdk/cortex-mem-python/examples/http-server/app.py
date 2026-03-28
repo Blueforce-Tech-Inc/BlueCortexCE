@@ -24,6 +24,10 @@ app = Flask(__name__)
 CORTEX_BASE_URL = os.environ.get("CORTEX_BASE_URL", "http://127.0.0.1:37777")
 PORT = int(os.environ.get("PORT", "8080"))
 
+# Request body size limit: 1 MB (matches Go http-server demo)
+MAX_CONTENT_LENGTH = int(os.environ.get("MAX_CONTENT_LENGTH", str(1 << 20)))
+app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
+
 client = CortexMemClient(base_url=CORTEX_BASE_URL)
 
 
@@ -50,6 +54,12 @@ def handle_generic_error(exc: Exception):
     """Catch-all: return JSON instead of Flask's default HTML 500 page."""
     logger.error("Unhandled exception: %s", exc, exc_info=True)
     return jsonify(error="internal server error"), 500
+
+
+@app.errorhandler(413)
+def handle_payload_too_large(exc):
+    """Return JSON for 413 Request Entity Too Large."""
+    return jsonify(error=f"request body too large (max {MAX_CONTENT_LENGTH} bytes)"), 413
 
 
 # ==================== Helpers ====================
@@ -531,6 +541,7 @@ def ingest_session_end():
 if __name__ == "__main__":
     print(f"🚀 Python SDK HTTP server starting on :{PORT}")
     print(f"   Backend: {CORTEX_BASE_URL}")
+    print(f"   Max request body: {MAX_CONTENT_LENGTH} bytes")
     print()
     print("Endpoints:")
     print("  GET    /health              - Health check")
