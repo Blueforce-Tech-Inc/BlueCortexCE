@@ -202,8 +202,7 @@ class DtoTest {
 
     @Test
     void observationUpdate_isEmpty_trueWhenAllNull() {
-        var update = new ObservationUpdate(null, null, null, null, null, null, null, null);
-        assertThat(update.isEmpty()).isTrue();
+        assertThat(ObservationUpdate.EMPTY.isEmpty()).isTrue();
     }
 
     @Test
@@ -221,7 +220,7 @@ class DtoTest {
     @Test
     void observationUpdate_omitsNullFields() throws Exception {
         // Verify @JsonInclude(NON_NULL) — only title is set, others should be omitted
-        var update = new ObservationUpdate("New Title", null, null, null, null, null, null, null);
+        var update = ObservationUpdate.builder().title("New Title").build();
         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
         String json = mapper.writeValueAsString(update);
         assertThat(json).contains("\"title\":\"New Title\"");

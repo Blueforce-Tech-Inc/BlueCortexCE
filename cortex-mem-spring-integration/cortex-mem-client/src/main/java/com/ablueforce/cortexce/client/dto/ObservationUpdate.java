@@ -26,6 +26,10 @@ public record ObservationUpdate(
     String source,
     Map<String, Object> extractedData
 ) {
+    /** Sentinel for an empty update (all null fields). */
+    public static final ObservationUpdate EMPTY =
+        new ObservationUpdate(null, null, null, null, null, null, null, null);
+
     /**
      * Check if all fields are null (no update intended).
      * Used by the client to reject no-op PATCH requests.
