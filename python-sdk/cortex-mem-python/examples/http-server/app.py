@@ -147,6 +147,10 @@ def search():
         offset = _parse_int_param("offset")
     except ValueError as e:
         return _error(400, str(e))
+    if limit < 0 or limit > 100:
+        return _error(400, "limit must be between 0 and 100")
+    if offset < 0:
+        return _error(400, "offset must be non-negative")
 
     result = client.search(
         project=project,
@@ -189,6 +193,8 @@ def experiences():
         count = _parse_int_param("count", default=4)
     except ValueError as e:
         return _error(400, str(e))
+    if count < 1 or count > 100:
+        return _error(400, "count must be between 1 and 100")
 
     concepts_str = request.args.get("requiredConcepts", "")
     required_concepts = [c.strip() for c in concepts_str.split(",") if c.strip()] if concepts_str else None
@@ -242,6 +248,10 @@ def observations_list():
         offset = _parse_int_param("offset")
     except ValueError as e:
         return _error(400, str(e))
+    if limit < 0 or limit > 100:
+        return _error(400, "limit must be between 0 and 100")
+    if offset < 0:
+        return _error(400, "offset must be non-negative")
 
     result = client.list_observations(project=project, limit=limit, offset=offset)
     return jsonify(
@@ -261,6 +271,9 @@ def observations_batch():
         return _error(400, "ids is required")
     if len(ids) > 100:
         return _error(400, "batch size exceeds maximum of 100")
+    for i, id_ in enumerate(ids):
+        if not id_ or not str(id_).strip():
+            return _error(400, f"ids[{i}] is empty")
     for i, id_ in enumerate(ids):
         if not id_ or not str(id_).strip():
             return _error(400, f"ids[{i}] is empty")
@@ -407,9 +420,9 @@ def extraction_history():
 
 @app.post("/extraction/run")
 def extraction_run():
-    project = request.args.get("projectPath")
+    project = request.args.get("project")
     if not project:
-        return _error(400, "projectPath is required")
+        return _error(400, "project is required")
     client.trigger_extraction(project)
     return jsonify(status="extraction triggered")
 

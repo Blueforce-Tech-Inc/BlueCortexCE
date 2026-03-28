@@ -106,6 +106,8 @@ app.get('/search', asyncHandler(async (req: Request, res: Response) => {
   const source = req.query.source as string | undefined;
   const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
   const offset = req.query.offset ? parseInt(req.query.offset as string, 10) : undefined;
+  if (limit !== undefined && (isNaN(limit) || limit < 0 || limit > 100)) return errorJson(res, 400, 'limit must be between 0 and 100');
+  if (offset !== undefined && (isNaN(offset) || offset < 0)) return errorJson(res, 400, 'offset must be non-negative');
 
   const result = await client.search({
     project,
@@ -139,10 +141,13 @@ app.get('/experiences', asyncHandler(async (req: Request, res: Response) => {
     ? conceptsStr.split(',').map(c => c.trim()).filter(Boolean)
     : undefined;
 
+  const count = parseInt(req.query.count as string ?? '4', 10) || 4;
+  if (count < 1 || count > 100) return errorJson(res, 400, 'count must be between 1 and 100');
+
   const experiences = await client.retrieveExperiences({
     task,
     project,
-    count: parseInt(req.query.count as string ?? '4', 10) || 4,
+    count,
     source: (req.query.source as string) ?? undefined,
     requiredConcepts,
     userId: (req.query.userId as string) ?? undefined,
@@ -173,10 +178,15 @@ app.get('/observations', asyncHandler(async (req: Request, res: Response) => {
   const project = req.query.project as string;
   if (!project) return errorJson(res, 400, 'project is required');
 
+  const limit = parseInt(req.query.limit as string ?? '0', 10) || 0;
+  const offset = parseInt(req.query.offset as string ?? '0', 10) || 0;
+  if (limit < 0 || limit > 100) return errorJson(res, 400, 'limit must be between 0 and 100');
+  if (offset < 0) return errorJson(res, 400, 'offset must be non-negative');
+
   const result = await client.listObservations({
     project,
-    limit: parseInt(req.query.limit as string ?? '0', 10) || 0,
-    offset: parseInt(req.query.offset as string ?? '0', 10) || 0,
+    limit,
+    offset,
   });
   res.json(result);
 });
@@ -185,6 +195,9 @@ app.post('/observations/batch', asyncHandler(async (req: Request, res: Response)
   const ids: string[] = req.body.ids ?? [];
   if (!ids.length) return errorJson(res, 400, 'ids is required');
   if (ids.length > 100) return errorJson(res, 400, 'batch size exceeds maximum of 100');
+  for (let i = 0; i < ids.length; i++) {
+    if (!ids[i] || !ids[i].trim()) return errorJson(res, 400, `ids[${i}] is empty`);
+  }
 
   const result = await client.getObservationsByIds(ids);
   res.json(result);
@@ -284,9 +297,9 @@ app.get('/extraction/history', asyncHandler(async (req: Request, res: Response) 
 });
 
 app.post('/extraction/run', asyncHandler(async (req: Request, res: Response) => {
-  const projectPath = req.query.projectPath as string;
-  if (!projectPath) return errorJson(res, 400, 'projectPath is required');
-  await client.triggerExtraction(projectPath);
+  const project = req.query.project as string;
+  if (!project) return errorJson(res, 400, 'project is required');
+  await client.triggerExtraction(project);
   res.json({ status: 'extraction triggered' });
 });
 
