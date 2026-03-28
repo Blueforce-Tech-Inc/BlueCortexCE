@@ -390,7 +390,8 @@ def quality():
     if not project:
         return _error(400, "project is required")
     result = client.get_quality_distribution(project)
-    return jsonify(project=result.project, high=result.high, medium=result.medium, low=result.low, unknown=result.unknown)
+    return jsonify(project=result.project, high=result.high, medium=result.medium,
+                   low=result.low, unknown=result.unknown, total=result.total)
 
 
 # ==================== Extraction ====================
