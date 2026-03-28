@@ -187,18 +187,22 @@ class TestDTOFromWire:
         assert d["prompt_number"] == 3
 
     def test_observation_to_dict_omits_falsy(self):
-        """to_dict() should omit empty optional fields (except quality_score and prompt_number)."""
+        """to_dict() should omit empty optional fields (matching Go SDK omitempty behavior)."""
         obs = Observation(id="o1", session_id="s1", project_path="/tmp", type="fact")
         d = obs.to_dict()
+        # omitempty fields omitted when zero/empty
         assert "title" not in d
         assert "subtitle" not in d
-        assert "narrative" not in d
         assert "source" not in d
         assert "extractedData" not in d
+        assert "quality_score" not in d  # Go: omitempty
+        assert "prompt_number" not in d  # Go: omitempty
         assert d["id"] == "o1"
-        # quality_score and prompt_number are always present (Go SDK parity — no omitempty)
-        assert d["quality_score"] == 0.0
-        assert d["prompt_number"] == 0
+        # Always-include fields (Go: no omitempty)
+        assert d["content_session_id"] == "s1"
+        assert d["project"] == "/tmp"
+        assert d["type"] == "fact"
+        assert d["narrative"] == ""
 
     def test_observation_to_dict_extracted_data_none_vs_empty(self):
         """to_dict() includes empty dict but omits None for extracted_data.

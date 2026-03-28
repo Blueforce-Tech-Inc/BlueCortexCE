@@ -201,30 +201,32 @@ class Observation:
         Uses the same field names as the backend JSON wire format so that
         demo HTTP responses match across SDKs.
 
-        Note: quality_score and prompt_number are always included (matching Go SDK
-        which does NOT use omitempty for these fields). Other fields use omitempty
-        semantics (skip when empty/zero) for consistency with Go.
+        Field inclusion rules match Go SDK's json struct tags:
+        - Always included (no omitempty): id, content_session_id, project, type, narrative
+        - Omit when empty/zero (omitempty): title, subtitle, facts, concepts,
+          quality_score, prompt_number, source, extractedData, created_at, created_at_epoch
         """
-        d: dict = {"id": self.id}
-        if self.session_id:
-            d["content_session_id"] = self.session_id
-        if self.project_path:
-            d["project"] = self.project_path
-        if self.type:
-            d["type"] = self.type
+        # Always-include fields (Go SDK: no omitempty)
+        d: dict = {
+            "id": self.id,
+            "content_session_id": self.session_id,
+            "project": self.project_path,
+            "type": self.type,
+            "narrative": self.content,
+        }
+        # omitempty fields (Go SDK: json:"...,omitempty")
         if self.title:
             d["title"] = self.title
         if self.subtitle:
             d["subtitle"] = self.subtitle
-        if self.content:
-            d["narrative"] = self.content  # wire name
         if self.facts:
             d["facts"] = self.facts
         if self.concepts:
             d["concepts"] = self.concepts
-        # Always include quality_score and prompt_number (Go SDK: no omitempty)
-        d["quality_score"] = self.quality_score
-        d["prompt_number"] = self.prompt_number
+        if self.quality_score:
+            d["quality_score"] = self.quality_score
+        if self.prompt_number:
+            d["prompt_number"] = self.prompt_number
         if self.source:
             d["source"] = self.source
         if self.extracted_data is not None:
