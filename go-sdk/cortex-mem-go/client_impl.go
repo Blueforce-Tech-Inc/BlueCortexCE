@@ -120,6 +120,12 @@ func NewClient(opts ...Option) Client {
 	if cfg.MaxRetries < 1 {
 		cfg.MaxRetries = 1 // At least one attempt (no retries is valid)
 	}
+	if cfg.Timeout < 100*time.Millisecond {
+		cfg.Timeout = 30 * time.Second // Reset to default if unreasonably low
+	}
+	if cfg.ConnectTimeout < 100*time.Millisecond {
+		cfg.ConnectTimeout = 10 * time.Second // Reset to default if unreasonably low
+	}
 
 	// If caller did not provide a custom http.Client, build one from timeout settings.
 	if cfg.HTTPClient == nil {
