@@ -499,7 +499,13 @@ export class CortexMemClient {
       if (!reader) {
         // Fallback: resp.text() — used when resp.body is null (e.g. 204 No Content)
         // or in environments without ReadableStream support.
-        const text = await resp.text();
+        let text: string;
+        try {
+          text = await resp.text();
+        } catch {
+          // resp.text() can throw if body is already consumed or null in some runtimes
+          return { data: new Uint8Array(0), status: resp.status };
+        }
         if (text.length > maxSize) {
           throw new Error('cortex-ce: response body exceeds 10MB limit');
         }

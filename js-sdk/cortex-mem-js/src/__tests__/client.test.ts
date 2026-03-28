@@ -1083,7 +1083,7 @@ describe('parseObservation', () => {
     expect(obs.concepts).toBeUndefined();
     expect(obs.qualityScore).toBeUndefined();
     expect(obs.source).toBeUndefined();
-    expect(obs.extractedData).toBeUndefined();
+    expect(obs.extractedData).toEqual({});
     expect(obs.promptNumber).toBeUndefined();
     expect(obs.createdAt).toBeUndefined();
     expect(obs.createdAtEpoch).toBeUndefined();
@@ -1122,13 +1122,13 @@ describe('parseObservation', () => {
 
   it('should handle non-object extractedData', () => {
     const raw1 = { id: 'o1', extractedData: 'not-an-object' };
-    expect(parseObservation(raw1).extractedData).toBeUndefined();
+    expect(parseObservation(raw1).extractedData).toEqual({});
 
     const raw2 = { id: 'o2', extractedData: 42 };
-    expect(parseObservation(raw2).extractedData).toBeUndefined();
+    expect(parseObservation(raw2).extractedData).toEqual({});
 
     const raw3 = { id: 'o3', extractedData: ['array'] };
-    expect(parseObservation(raw3).extractedData).toBeUndefined();
+    expect(parseObservation(raw3).extractedData).toEqual({});
   });
 });
 
@@ -1205,5 +1205,38 @@ describe('parseExtractionResult', () => {
     expect(result.createdAt).toBe(1700000000);
     expect(result.observationId).toBe('123');
     expect(result.extractedData).toEqual({}); // non-object → empty
+  });
+});
+
+// ==================== APIError.toJSON ====================
+
+describe('APIError', () => {
+  it('should serialize to JSON with structured fields', () => {
+    const err = new APIError(404, 'not found', '{"error":"missing"}');
+    const json = err.toJSON();
+    expect(json.name).toBe('APIError');
+    expect(json.statusCode).toBe(404);
+    expect(json.message).toContain('not found');
+    expect(json.body).toBe('{"error":"missing"}');
+  });
+
+  it('should serialize without body when omitted', () => {
+    const err = new APIError(500, 'internal');
+    const json = err.toJSON();
+    expect(json.body).toBeUndefined();
+  });
+});
+
+// ==================== safeRecord edge cases ====================
+
+describe('safeRecord edge cases', () => {
+  it('should reject Date instances', () => {
+    const obs = parseObservation({ id: 'o1', extractedData: new Date() });
+    expect(obs.extractedData).toEqual({});
+  });
+
+  it('should accept regular plain objects', () => {
+    const obs = parseObservation({ id: 'o1', extractedData: { key: 'val' } });
+    expect(obs.extractedData).toEqual({ key: 'val' });
   });
 });

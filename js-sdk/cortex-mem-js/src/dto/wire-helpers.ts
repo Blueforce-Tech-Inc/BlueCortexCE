@@ -58,10 +58,14 @@ export function safeStringArray(v: unknown): string[] | undefined {
 
 /**
  * Safely extract a Record<string, unknown> from wire data.
- * Returns undefined for null/undefined/non-object.
+ * Returns undefined for null/undefined/non-object/non-plain-object.
+ * Rejects arrays, Date instances, and other class instances.
  */
 export function safeRecord(v: unknown): Record<string, unknown> | undefined {
   if (v === null || v === undefined) return undefined;
-  if (typeof v === 'object' && !Array.isArray(v)) return v as Record<string, unknown>;
-  return undefined;
+  if (typeof v !== 'object') return undefined;
+  if (Array.isArray(v)) return undefined;
+  // Reject Date, RegExp, and other non-plain objects
+  if (Object.prototype.toString.call(v) !== '[object Object]') return undefined;
+  return v as Record<string, unknown>;
 }

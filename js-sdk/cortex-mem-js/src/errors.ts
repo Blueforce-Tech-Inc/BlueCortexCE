@@ -17,6 +17,16 @@ export class APIError extends Error {
     // Required for instanceof to work correctly when compiled to CJS
     Object.setPrototypeOf(this, APIError.prototype);
   }
+
+  /** Structured JSON representation for logging and serialization. */
+  toJSON(): Record<string, unknown> {
+    return {
+      name: this.name,
+      statusCode: this.statusCode,
+      message: this.message,
+      body: this.body,
+    };
+  }
 }
 
 // Error predicate functions

@@ -63,8 +63,9 @@ export interface Observation {
   /** Parsed from wire field "quality_score" (SNAKE_CASE) */
   qualityScore?: number;
   source?: string;
-  /** Parsed from wire field "extractedData" (camelCase — @JsonProperty override) */
-  extractedData?: Record<string, unknown>;
+  /** Parsed from wire field "extractedData" (camelCase — @JsonProperty override).
+   *  Always present (empty object when missing/invalid). */
+  extractedData: Record<string, unknown>;
   /** Parsed from wire field "prompt_number" (SNAKE_CASE) */
   promptNumber?: number;
   /** Parsed from wire field "created_at" (SNAKE_CASE) */
@@ -91,7 +92,7 @@ export function parseObservation(raw: Record<string, unknown>): Observation {
     concepts: safeStringArray(raw.concepts),
     qualityScore: safeNumber(raw.quality_score),
     source: safeString(raw.source),
-    extractedData: safeRecord(raw.extractedData),
+    extractedData: safeRecord(raw.extractedData) ?? {},
     promptNumber: safeNumber(raw.prompt_number),
     createdAt: safeString(raw.created_at),
     createdAtEpoch: safeNumber(raw.created_at_epoch),
