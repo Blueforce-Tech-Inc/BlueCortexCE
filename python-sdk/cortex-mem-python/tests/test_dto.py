@@ -487,8 +487,25 @@ class TestDTOFromWire:
 
     def test_session_start_response(self):
         data = {"session_db_id": "db-1", "session_id": "s-1", "prompt_number": 0}
-        sr = SessionStartResponse(**data)
+        sr = SessionStartResponse.from_wire(data)
         assert sr.session_id == "s-1"
+        assert sr.session_db_id == "db-1"
+
+    def test_session_start_response_camelcase_fallback(self):
+        """SessionStartResponse should handle camelCase wire format (future-proofing)."""
+        data = {"sessionDbId": "db-2", "sessionId": "s-2", "promptNumber": 3}
+        sr = SessionStartResponse.from_wire(data)
+        assert sr.session_db_id == "db-2"
+        assert sr.session_id == "s-2"
+        assert sr.prompt_number == 3
+
+    def test_session_start_response_null_fields(self):
+        """SessionStartResponse should handle null fields gracefully."""
+        data = {"session_db_id": None, "session_id": None, "prompt_number": None}
+        sr = SessionStartResponse.from_wire(data)
+        assert sr.session_db_id == ""
+        assert sr.session_id == ""
+        assert sr.prompt_number == 0
 
     def test_batch_observations_response_from_wire(self):
         data = {

@@ -65,10 +65,10 @@ class SessionStartResponse:
     @classmethod
     def from_wire(cls, data: dict) -> SessionStartResponse:
         return cls(
-            session_db_id=data.get("session_db_id") or "",
-            session_id=data.get("session_id") or "",
-            context=data.get("context") or "",
-            prompt_number=_to_int(data.get("prompt_number")),
+            session_db_id=_first_non_null(data, "session_db_id", "sessionDbId") or "",
+            session_id=_first_non_null(data, "session_id", "sessionId") or "",
+            context=_first_non_null(data, "context") or "",
+            prompt_number=_to_int(_first_non_null(data, "prompt_number", "promptNumber")),
         )
 
 
@@ -112,7 +112,7 @@ class Experience:
             task=data.get("task") or "",
             strategy=data.get("strategy") or "",
             outcome=data.get("outcome") or "",
-            reuse_condition=data.get("reuse_condition") or data.get("reuseCondition") or "",
+            reuse_condition=_first_non_null(data, "reuse_condition", "reuseCondition") or "",
             quality_score=_to_float(_first_non_null(data, "quality_score", "qualityScore"), 0.0),
             created_at=_first_non_null(data, "created_at", "createdAt") or "",
         )
@@ -130,10 +130,8 @@ class ICLPromptResult:
     def from_wire(cls, data: dict) -> ICLPromptResult:
         return cls(
             prompt=data.get("prompt") or "",
-            experience_count=_to_int(
-                data.get("experienceCount", data.get("experience_count", 0))
-            ),
-            max_chars=_to_int(data.get("maxChars", data.get("max_chars", 0))),
+            experience_count=_to_int(_first_non_null(data, "experience_count", "experienceCount")),
+            max_chars=_to_int(_first_non_null(data, "max_chars", "maxChars")),
         )
 
 
@@ -335,11 +333,8 @@ class SearchResult:
         return cls(
             observations=[Observation.from_wire(o) for o in data.get("observations") or []],
             strategy=data.get("strategy") or "",
-            fell_back=bool(
-                data.get("fell_back") if data.get("fell_back") is not None
-                else data.get("fellBack", False)
-            ),
-            count=_to_int(data.get("count"), 0),
+            fell_back=bool(_first_non_null(data, "fell_back", "fellBack") or False),
+            count=_to_int(_first_non_null(data, "count")),
         )
 
 
@@ -360,10 +355,10 @@ class ObservationsResponse:
     def from_wire(cls, data: dict) -> ObservationsResponse:
         return cls(
             items=[Observation.from_wire(o) for o in data.get("items") or []],
-            has_more=bool(data.get("has_more") if data.get("has_more") is not None else data.get("hasMore", False)),
-            total=_to_int(data.get("total"), 0),
-            offset=_to_int(data.get("offset"), 0),
-            limit=_to_int(data.get("limit"), 0),
+            has_more=bool(_first_non_null(data, "has_more", "hasMore") or False),
+            total=_to_int(_first_non_null(data, "total")),
+            offset=_to_int(_first_non_null(data, "offset")),
+            limit=_to_int(_first_non_null(data, "limit")),
         )
 
 
