@@ -36,7 +36,7 @@ import type {
   HealthResponse,
   Observation,
 } from './dto';
-import { parseObservation, parseExperience } from './dto';
+import { parseObservation, parseExperience, parseExtractionResult } from './dto';
 
 // ============================================================
 // Logger interface
@@ -323,12 +323,13 @@ export class CortexMemClient {
     this.validateRequired('templateName', templateName);
     const params: Record<string, string> = { projectPath };
     if (userId) params.userId = userId;
-    return this.requestJSON<ExtractionResult>(
+    const raw = await this.requestJSON<unknown>(
       'GET',
       `/api/extraction/${encodeURIComponent(templateName)}/latest`,
       undefined,
       params,
     );
+    return parseExtractionResult(raw as Record<string, unknown>);
   }
 
   /**
@@ -350,12 +351,14 @@ export class CortexMemClient {
     const params: Record<string, string> = { projectPath };
     if (userId) params.userId = userId;
     if (limit !== undefined && limit > 0) params.limit = String(limit);
-    return this.requestJSON<ExtractionResult[]>(
+    const raw = await this.requestJSON<unknown>(
       'GET',
       `/api/extraction/${encodeURIComponent(templateName)}/history`,
       undefined,
       params,
     );
+    const arr = Array.isArray(raw) ? raw as Record<string, unknown>[] : [];
+    return arr.map(parseExtractionResult);
   }
 
   // ==================== Version ====================
