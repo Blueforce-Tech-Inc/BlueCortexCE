@@ -370,7 +370,7 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 
 // ==================== Start ====================
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 JS SDK HTTP server starting on :${PORT}`);
   console.log(`   Backend: ${CORTEX_BASE_URL}`);
   console.log();
@@ -401,3 +401,22 @@ app.listen(PORT, () => {
   console.log('  POST   /ingest/prompt       - Ingest user prompt');
   console.log('  POST   /ingest/session-end  - Ingest session end');
 });
+
+// ==================== Graceful shutdown ====================
+
+function shutdown(signal: string) {
+  console.log(`\n${signal} received, shutting down gracefully...`);
+  server.close(() => {
+    client.close();
+    console.log('Server closed.');
+    process.exit(0);
+  });
+  // Force exit after 5s if connections persist
+  setTimeout(() => {
+    console.error('Forced shutdown after timeout');
+    process.exit(1);
+  }, 5_000).unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

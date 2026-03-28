@@ -137,7 +137,7 @@ export class CortexMemClient {
   async retrieveExperiences(req: ExperienceRequest): Promise<Experience[]> {
     this.assertNotClosed();
     this.validateRequired('task', req.task);
-    const raw = await this.requestJSONRaw('POST', '/api/memory/experiences', req);
+    const raw = await this.requestJSON<unknown>('POST', '/api/memory/experiences', req);
     const arr = Array.isArray(raw) ? raw as Record<string, unknown>[] : [];
     return arr.map(parseExperience);
   }
@@ -160,7 +160,7 @@ export class CortexMemClient {
     this.assertNotClosed();
     this.validateRequired('project', req.project);
     const params = this.buildSearchParams(req);
-    const raw = await this.requestJSONRaw('GET', '/api/search', undefined, params);
+    const raw = await this.requestJSON<unknown>('GET', '/api/search', undefined, params);
     return this.parseSearchResult(raw);
   }
 
@@ -174,7 +174,7 @@ export class CortexMemClient {
     if (req.project) params.project = req.project;
     if (req.offset !== undefined && req.offset > 0) params.offset = String(req.offset);
     if (req.limit !== undefined && req.limit > 0) params.limit = String(req.limit);
-    const raw = await this.requestJSONRaw('GET', '/api/observations', undefined, params);
+    const raw = await this.requestJSON<unknown>('GET', '/api/observations', undefined, params);
     return this.parseObservationsResponse(raw);
   }
 
@@ -195,7 +195,7 @@ export class CortexMemClient {
         throw new Error(`cortex-ce: ids[${i}] is empty`);
       }
     }
-    const raw = await this.requestJSONRaw(
+    const raw = await this.requestJSON<unknown>(
       'POST',
       '/api/observations/batch',
       { ids },
@@ -397,7 +397,7 @@ export class CortexMemClient {
    */
   async getModes(): Promise<ModesResponse> {
     this.assertNotClosed();
-    const raw = await this.requestJSONRaw('GET', '/api/modes');
+    const raw = await this.requestJSON<unknown>('GET', '/api/modes');
     return this.parseModesResponse(raw);
   }
 
@@ -528,16 +528,6 @@ export class CortexMemClient {
     } catch {
       throw new Error(`cortex-ce: failed to parse ${path} response`);
     }
-  }
-
-  /** Request returning raw parsed JSON (for wire-format observation parsing). */
-  private async requestJSONRaw(
-    method: string,
-    path: string,
-    body?: unknown,
-    queryParams?: Record<string, string>,
-  ): Promise<unknown> {
-    return this.requestJSON(method, path, body, queryParams);
   }
 
   private async requestNoContent(
