@@ -3527,8 +3527,11 @@ func TestGetObservationsByIds_Validation_EmptyStringInIDs(t *testing.T) {
 	if err == nil {
 		t.Fatal("GetObservationsByIds should fail with empty string in IDs")
 	}
-	if !strings.Contains(err.Error(), "ids[1] is empty") {
-		t.Errorf("expected empty string error for ids[1], got: %v", err)
+	if !cortexmem.IsValidationError(err) {
+		t.Errorf("expected ValidationError, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "ids[1]") {
+		t.Errorf("expected error mentioning ids[1], got: %v", err)
 	}
 }
 
@@ -3538,8 +3541,11 @@ func TestGetObservationsByIds_Validation_WhitespaceOnlyInIDs(t *testing.T) {
 	if err == nil {
 		t.Fatal("GetObservationsByIds should fail with whitespace-only string in IDs")
 	}
-	if !strings.Contains(err.Error(), "ids[1] is empty") {
-		t.Errorf("expected empty string error for ids[1], got: %v", err)
+	if !cortexmem.IsValidationError(err) {
+		t.Errorf("expected ValidationError, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "ids[1]") {
+		t.Errorf("expected error mentioning ids[1], got: %v", err)
 	}
 }
 
@@ -3913,3 +3919,81 @@ func TestDefaultClientConfig_VerifyAllDefaults(t *testing.T) {
 		t.Error("expected nil HTTPClient in default config")
 	}
 }
+
+// ==================== ValidationError Tests ====================
+
+func TestIsValidationError_TrueForValidationErrors(t *testing.T) {
+	client := cortexmem.NewClient()
+
+	// Test various methods that produce ValidationError
+	tests := []struct {
+		name  string
+		err   error
+		field string
+	}{
+		{"RecordObservation", client.RecordObservation(context.Background(), dto.ObservationRequest{}), "SessionID"},
+		{"Search", func() error { _, err := client.Search(context.Background(), dto.SearchRequest{}); return err }(), "Project"},
+		{"RetrieveExperiences", func() error { _, err := client.RetrieveExperiences(context.Background(), dto.ExperienceRequest{}); return err }(), "Task"},
+		{"DeleteObservation", client.DeleteObservation(context.Background(), ""), "observationID"},
+		{"TriggerRefinement", client.TriggerRefinement(context.Background(), ""), "projectPath"},
+		{"GetObservationsByIds", func() error { _, err := client.GetObservationsByIds(context.Background(), nil); return err }(), "ids"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if !cortexmem.IsValidationError(tt.err) {
+				t.Errorf("expected IsValidationError=true for %s, got false (err: %v)", tt.name, tt.err)
+			}
+			if !strings.Contains(tt.err.Error(), tt.field) {
+				t.Errorf("expected error to mention field %q, got: %v", tt.field, tt.err)
+			}
+		})
+	}
+}
+
+func TestIsValidationError_FalseForNil(t *testing.T) {
+	if cortexmem.IsValidationError(nil) {
+		t.Error("IsValidationError should return false for nil")
+	}
+}
+
+func TestIsValidationError_FalseForAPIError(t *testing.T) {
+	apiErr := &cortexmem.APIError{StatusCode: 400, Message: "bad request"}
+	if cortexmem.IsValidationError(apiErr) {
+		t.Error("IsValidationError should return false for APIError")
+	}
+}
+
+func TestValidationError_ErrorMessage(t *testing.T) {
+	ve := &cortexmem.ValidationError{Field: "observationID", Message: "observationID is required"}
+	expected := "cortex-ce: validation error on observationID: observationID is required"
+	if ve.Error() != expected {
+		t.Errorf("expected %q, got %q", expected, ve.Error())
+	}
+}
+
+func TestValidationError_EmptyField(t *testing.T) {
+	ve := &cortexmem.ValidationError{Message: "something went wrong"}
+	expected := "cortex-ce: validation error: something went wrong"
+	if ve.Error() != expected {
+		t.Errorf("expected %q, got %q", expected, ve.Error())
+	}
+}
+
+func TestUpdateObservation_UsesValidationError(t *testing.T) {
+	client := cortexmem.NewClient()
+
+	// Empty update should produce ValidationError
+	err := client.UpdateObservation(context.Background(), "obs-1", dto.ObservationUpdate{})
+	if !cortexmem.IsValidationError(err) {
+		t.Errorf("expected ValidationError for empty update, got: %v", err)
+	}
+
+	// Empty observationID should produce ValidationError
+	err = client.UpdateObservation(context.Background(), "", dto.ObservationUpdate{Title: strPtr("test")})
+	if !cortexmem.IsValidationError(err) {
+		t.Errorf("expected ValidationError for empty observationID, got: %v", err)
+	}
+}
+
+// strPtr is a helper for tests that need *string.
+func strPtr(s string) *string { return &s }

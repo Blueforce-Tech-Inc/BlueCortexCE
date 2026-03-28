@@ -6,6 +6,27 @@ import (
 	"net/http"
 )
 
+// ValidationError represents a client-side validation failure (before any HTTP request is made).
+// Use errors.As(err, &ValidationError{}) to distinguish from APIError responses.
+type ValidationError struct {
+	Field   string // The field that failed validation (e.g., "observationID")
+	Message string // Human-readable description
+}
+
+func (e *ValidationError) Error() string {
+	if e.Field != "" {
+		return fmt.Sprintf("cortex-ce: validation error on %s: %s", e.Field, e.Message)
+	}
+	return fmt.Sprintf("cortex-ce: validation error: %s", e.Message)
+}
+
+// IsValidationError returns true if the error is a client-side validation error
+// (no HTTP request was made). Useful for returning 400 from demo servers.
+func IsValidationError(err error) bool {
+	var ve *ValidationError
+	return errors.As(err, &ve)
+}
+
 // APIError represents an error response from the Cortex CE backend.
 type APIError struct {
 	StatusCode int

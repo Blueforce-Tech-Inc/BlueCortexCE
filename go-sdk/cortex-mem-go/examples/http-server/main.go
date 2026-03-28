@@ -695,7 +695,7 @@ func main() {
 		}
 		if err := client.UpdateObservation(r.Context(), id, update); err != nil {
 			// SDK validation errors (empty update, missing ID) should be 400, not 500
-			if strings.Contains(err.Error(), "at least one field") {
+			if cortexmem.IsValidationError(err) {
 				writeJSONError(w, http.StatusBadRequest, err.Error())
 				return
 			}
