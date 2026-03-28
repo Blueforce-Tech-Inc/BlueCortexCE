@@ -1,4 +1,43 @@
 // ============================================================
+// Wire format safe type conversion helpers
+// ============================================================
+
+/** Safely convert unknown value to string. Returns undefined for null/undefined/non-string. */
+function safeString(v: unknown): string | undefined {
+  if (v === null || v === undefined) return undefined;
+  if (typeof v === 'string') return v;
+  return String(v);
+}
+
+/** Safely convert unknown value to string with default. */
+function safeStringOr(v: unknown, fallback: string): string {
+  return safeString(v) ?? fallback;
+}
+
+/** Safely convert unknown value to number. Returns undefined for null/undefined/non-number. */
+function safeNumber(v: unknown): number | undefined {
+  if (v === null || v === undefined) return undefined;
+  if (typeof v === 'number' && !Number.isNaN(v)) return v;
+  if (typeof v === 'string') {
+    const n = Number(v);
+    if (!Number.isNaN(n)) return n;
+  }
+  return undefined;
+}
+
+/** Safely convert unknown value to string array. Returns undefined for null/undefined. */
+function safeStringArray(v: unknown): string[] | undefined {
+  if (v === null || v === undefined) return undefined;
+  if (!Array.isArray(v)) return undefined;
+  const result: string[] = [];
+  for (const item of v) {
+    if (typeof item === 'string') result.push(item);
+    else if (item !== null && item !== undefined) result.push(String(item));
+  }
+  return result;
+}
+
+// ============================================================
 // Observation DTOs
 // ============================================================
 
@@ -74,23 +113,26 @@ export interface Observation {
 /**
  * Parse a raw wire-format observation into the canonical Observation type.
  * Matches Go's dto.Observation.UnmarshalJSON and Python's Observation.from_wire.
+ * Uses safe type conversion to handle null values and type mismatches gracefully.
  */
 export function parseObservation(raw: Record<string, unknown>): Observation {
   return {
-    id: (raw.id as string) ?? '',
-    sessionId: (raw.content_session_id as string) ?? '',
-    projectPath: (raw.project as string) ?? '',
-    type: (raw.type as string) ?? '',
-    title: raw.title as string | undefined,
-    subtitle: raw.subtitle as string | undefined,
-    content: (raw.narrative as string) ?? '',
-    facts: raw.facts as string[] | undefined,
-    concepts: raw.concepts as string[] | undefined,
-    qualityScore: raw.quality_score as number | undefined,
-    source: raw.source as string | undefined,
-    extractedData: raw.extractedData as Record<string, unknown> | undefined,
-    promptNumber: raw.prompt_number as number | undefined,
-    createdAt: raw.created_at as string | undefined,
-    createdAtEpoch: raw.created_at_epoch as number | undefined,
+    id: safeStringOr(raw.id, ''),
+    sessionId: safeStringOr(raw.content_session_id, ''),
+    projectPath: safeStringOr(raw.project, ''),
+    type: safeStringOr(raw.type, ''),
+    title: safeString(raw.title),
+    subtitle: safeString(raw.subtitle),
+    content: safeStringOr(raw.narrative, ''),
+    facts: safeStringArray(raw.facts),
+    concepts: safeStringArray(raw.concepts),
+    qualityScore: safeNumber(raw.quality_score),
+    source: safeString(raw.source),
+    extractedData: (raw.extractedData !== null && raw.extractedData !== undefined)
+      ? raw.extractedData as Record<string, unknown>
+      : undefined,
+    promptNumber: safeNumber(raw.prompt_number),
+    createdAt: safeString(raw.created_at),
+    createdAtEpoch: safeNumber(raw.created_at_epoch),
   };
 }

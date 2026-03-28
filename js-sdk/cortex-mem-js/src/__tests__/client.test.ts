@@ -957,6 +957,38 @@ describe('parseExperience', () => {
     expect(exp.qualityScore).toBe(0);
     expect(exp.createdAt).toBeUndefined();
   });
+
+  it('should handle null wire fields gracefully', () => {
+    const raw = {
+      id: null,
+      task: null,
+      strategy: null,
+      outcome: null,
+      reuse_condition: null,
+      quality_score: null,
+      created_at: null,
+    };
+
+    const exp = parseExperience(raw);
+    expect(exp.id).toBe('');
+    expect(exp.task).toBe('');
+    expect(exp.strategy).toBe('');
+    expect(exp.outcome).toBe('');
+    expect(exp.reuseCondition).toBe('');
+    expect(exp.qualityScore).toBe(0);
+    expect(exp.createdAt).toBeUndefined();
+  });
+
+  it('should handle type mismatches in wire fields', () => {
+    const raw = {
+      id: 42,
+      quality_score: '0.75',
+    };
+
+    const exp = parseExperience(raw);
+    expect(exp.id).toBe('42');
+    expect(exp.qualityScore).toBe(0.75);
+  });
 });
 
 // ==================== parseObservation ====================
@@ -1000,5 +1032,73 @@ describe('parseObservation', () => {
     expect(obs.content).toBe('');
     expect(obs.qualityScore).toBeUndefined();
     expect(obs.promptNumber).toBeUndefined();
+  });
+
+  it('should handle null wire fields gracefully', () => {
+    const raw = {
+      id: null,
+      content_session_id: null,
+      project: null,
+      type: null,
+      title: null,
+      subtitle: null,
+      narrative: null,
+      facts: null,
+      concepts: null,
+      quality_score: null,
+      source: null,
+      extractedData: null,
+      prompt_number: null,
+      created_at: null,
+      created_at_epoch: null,
+    };
+
+    const obs = parseObservation(raw);
+    expect(obs.id).toBe('');
+    expect(obs.sessionId).toBe('');
+    expect(obs.projectPath).toBe('');
+    expect(obs.type).toBe('');
+    expect(obs.title).toBeUndefined();
+    expect(obs.subtitle).toBeUndefined();
+    expect(obs.content).toBe('');
+    expect(obs.facts).toBeUndefined();
+    expect(obs.concepts).toBeUndefined();
+    expect(obs.qualityScore).toBeUndefined();
+    expect(obs.source).toBeUndefined();
+    expect(obs.extractedData).toBeUndefined();
+    expect(obs.promptNumber).toBeUndefined();
+    expect(obs.createdAt).toBeUndefined();
+    expect(obs.createdAtEpoch).toBeUndefined();
+  });
+
+  it('should handle type mismatches in wire fields', () => {
+    const raw = {
+      id: 123,           // number instead of string
+      quality_score: '0.85', // string instead of number
+      prompt_number: '42',   // string instead of number
+      created_at_epoch: '1700000000', // string instead of number
+      facts: 'not-an-array', // string instead of array
+    };
+
+    const obs = parseObservation(raw);
+    expect(obs.id).toBe('123');
+    expect(obs.qualityScore).toBe(0.85);
+    expect(obs.promptNumber).toBe(42);
+    expect(obs.createdAtEpoch).toBe(1700000000);
+    expect(obs.facts).toBeUndefined(); // non-array → undefined
+  });
+
+  it('should handle NaN in numeric fields', () => {
+    const raw = { quality_score: NaN, prompt_number: NaN, created_at_epoch: NaN };
+    const obs = parseObservation(raw);
+    expect(obs.qualityScore).toBeUndefined();
+    expect(obs.promptNumber).toBeUndefined();
+    expect(obs.createdAtEpoch).toBeUndefined();
+  });
+
+  it('should handle mixed null and valid items in facts array', () => {
+    const raw = { facts: ['valid', null, 42, '', undefined] };
+    const obs = parseObservation(raw);
+    expect(obs.facts).toEqual(['valid', '42', '']);
   });
 });
