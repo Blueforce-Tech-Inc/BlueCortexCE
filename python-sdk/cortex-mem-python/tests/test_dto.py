@@ -79,6 +79,12 @@ class TestDTOFromWire:
         assert exp.quality_score == 0.85
         assert exp.created_at == "2026-01-01"
 
+    def test_experience_from_wire_reuse_condition_camelcase_fallback(self):
+        """reuseCondition camelCase fallback (consistent with fellBack/hasMore pattern)."""
+        data = {"id": "e1", "reuseCondition": "only when safe"}
+        exp = Experience.from_wire(data)
+        assert exp.reuse_condition == "only when safe"
+
     def test_icl_prompt_result_from_wire(self):
         data = {"prompt": "hello", "experienceCount": "5", "maxChars": 4000}
         result = ICLPromptResult.from_wire(data)

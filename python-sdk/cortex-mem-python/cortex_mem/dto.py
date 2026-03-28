@@ -84,7 +84,7 @@ class Experience:
             task=data.get("task") or "",
             strategy=data.get("strategy") or "",
             outcome=data.get("outcome") or "",
-            reuse_condition=data.get("reuse_condition") or "",
+            reuse_condition=data.get("reuse_condition") or data.get("reuseCondition") or "",
             quality_score=_to_float(data.get("quality_score"), 0.0),
             created_at=data.get("created_at") or "",
         )
