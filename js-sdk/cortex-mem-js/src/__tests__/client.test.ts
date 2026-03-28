@@ -260,6 +260,24 @@ describe('CortexMemClient', () => {
       await expect(client.search({ project: '' })).rejects.toThrow('project is required');
     });
 
+    it('should remap fell_back wire field to fellBack', async () => {
+      const searchResult = { observations: [], strategy: 'keyword', fell_back: true, count: 0 };
+      fetchMock = mockFetch(200, searchResult);
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+
+      const result = await client.search({ project: '/tmp', query: 'test' });
+      expect(result.fellBack).toBe(true);
+    });
+
+    it('should default fellBack to false when missing', async () => {
+      const searchResult = { observations: [], strategy: 'hybrid', count: 0 };
+      fetchMock = mockFetch(200, searchResult);
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+
+      const result = await client.search({ project: '/tmp', query: 'test' });
+      expect(result.fellBack).toBe(false);
+    });
+
     it('should remap observation fields from wire format', async () => {
       // Wire format: content_session_id, project, narrative (NOT sessionId, projectPath, content)
       const searchResult = {

@@ -26,7 +26,8 @@ export interface SearchRequest {
 export interface SearchResult {
   observations: Observation[];
   strategy: string;
-  fell_back: boolean;
+  /** Parsed from wire field "fell_back" (SNAKE_CASE) */
+  fellBack: boolean;
   count: number;
 }
 

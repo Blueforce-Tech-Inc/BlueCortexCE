@@ -649,7 +649,7 @@ export class CortexMemClient {
     return {
       observations,
       strategy: (r.strategy as string) ?? '',
-      fell_back: (r.fell_back as boolean) ?? false,
+      fellBack: (r.fellBack as boolean) ?? (r.fell_back as boolean) ?? false,
       count: (r.count as number) ?? 0,
     };
   }
