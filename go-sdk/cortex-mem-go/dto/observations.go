@@ -13,12 +13,17 @@ type ObservationsRequest struct {
 }
 
 // ObservationsResponse is the paginated response from listing observations.
+// GET /api/observations?project=...&offset=...&limit=...
+//
+// Backend PagedResponse only returns "items" and "hasMore".
+// Total, Offset, and Limit are NOT populated by the API — they remain zero.
+// Useful only for local construction in tests or wrappers.
 type ObservationsResponse struct {
 	Items   []Observation `json:"items"`
 	HasMore bool          `json:"hasMore"` // ⚠️ WebUI compat: backend uses "hasMore" (camelCase) via Map.of()
-	Total   int64         `json:"total,omitempty"`
-	Offset  int           `json:"offset"`
-	Limit   int           `json:"limit"`
+	Total   int64         `json:"total,omitempty"`  // NOT returned by backend
+	Offset  int           `json:"offset,omitempty"` // NOT returned by backend
+	Limit   int           `json:"limit,omitempty"`  // NOT returned by backend
 }
 
 // BatchObservationsRequest gets observations by IDs.
