@@ -1023,6 +1023,59 @@ class TestDTOs:
         assert obs.prompt_number == 3
         assert obs.created_at_epoch == 1700000000
 
+    def test_observation_from_wire_files_and_timestamps(self):
+        """Observation.from_wire correctly parses files_read, files_modified, feedback_updated_at, last_accessed_at."""
+        from cortex_mem.dto import Observation
+        obs = Observation.from_wire({
+            "id": "o1",
+            "content_session_id": "s1",
+            "project": "/p",
+            "files_read": ["a.py", "b.py"],
+            "files_modified": ["c.py"],
+            "feedback_type": "SUCCESS",
+            "feedback_updated_at": "2026-03-28T10:00:00Z",
+            "last_accessed_at": "2026-03-28T12:00:00Z",
+        })
+        assert obs.files_read == ["a.py", "b.py"]
+        assert obs.files_modified == ["c.py"]
+        assert obs.feedback_type == "SUCCESS"
+        assert obs.feedback_updated_at == "2026-03-28T10:00:00Z"
+        assert obs.last_accessed_at == "2026-03-28T12:00:00Z"
+
+    def test_observation_from_wire_files_null(self):
+        """Observation.from_wire handles null files_read/files_modified gracefully."""
+        from cortex_mem.dto import Observation
+        obs = Observation.from_wire({"id": "o1", "files_read": None, "files_modified": None})
+        assert obs.files_read == []
+        assert obs.files_modified == []
+
+    def test_observation_to_dict_files_and_timestamps(self):
+        """Observation.to_dict includes files_read, files_modified, feedback_updated_at, last_accessed_at."""
+        from cortex_mem.dto import Observation
+        obs = Observation(
+            id="o1", session_id="s1", project_path="/p", type="fact",
+            files_read=["a.py"], files_modified=["b.py"],
+            feedback_type="SUCCESS",
+            feedback_updated_at="2026-03-28T10:00:00Z",
+            last_accessed_at="2026-03-28T12:00:00Z",
+        )
+        d = obs.to_dict()
+        assert d["files_read"] == ["a.py"]
+        assert d["files_modified"] == ["b.py"]
+        assert d["feedback_type"] == "SUCCESS"
+        assert d["feedback_updated_at"] == "2026-03-28T10:00:00Z"
+        assert d["last_accessed_at"] == "2026-03-28T12:00:00Z"
+
+    def test_observation_to_dict_omits_empty_files(self):
+        """Observation.to_dict omits empty files_read/files_modified lists."""
+        from cortex_mem.dto import Observation
+        obs = Observation(id="o1", session_id="s1", project_path="/p", type="fact")
+        d = obs.to_dict()
+        assert "files_read" not in d
+        assert "files_modified" not in d
+        assert "feedback_updated_at" not in d
+        assert "last_accessed_at" not in d
+
 
 # ==================== Error Module ====================
 

@@ -419,6 +419,8 @@ class TestDTOFromWire:
             "narrative": None,
             "source": None,
             "created_at": None,
+            "feedback_updated_at": None,
+            "last_accessed_at": None,
         }
         obs = Observation.from_wire(data)
         # All string fields must be "" (not None)
@@ -431,6 +433,60 @@ class TestDTOFromWire:
         assert obs.content == ""
         assert obs.source == ""
         assert obs.created_at == ""
+        assert obs.feedback_updated_at == ""
+        assert obs.last_accessed_at == ""
+
+    def test_observation_from_wire_files_and_timestamps(self):
+        """Observation.from_wire correctly parses files_read, files_modified, feedback_updated_at, last_accessed_at."""
+        data = {
+            "id": "o1",
+            "content_session_id": "s1",
+            "project": "/p",
+            "type": "feature",
+            "files_read": ["main.py", "config.py"],
+            "files_modified": ["output.txt"],
+            "feedback_type": "PARTIAL",
+            "feedback_updated_at": "2026-03-28T10:00:00Z",
+            "last_accessed_at": "2026-03-28T12:00:00Z",
+        }
+        obs = Observation.from_wire(data)
+        assert obs.files_read == ["main.py", "config.py"]
+        assert obs.files_modified == ["output.txt"]
+        assert obs.feedback_type == "PARTIAL"
+        assert obs.feedback_updated_at == "2026-03-28T10:00:00Z"
+        assert obs.last_accessed_at == "2026-03-28T12:00:00Z"
+
+    def test_observation_from_wire_files_null_defaults(self):
+        """Observation.from_wire defaults files_read/files_modified to empty list when null."""
+        data = {"id": "o1", "files_read": None, "files_modified": None}
+        obs = Observation.from_wire(data)
+        assert obs.files_read == []
+        assert obs.files_modified == []
+
+    def test_observation_to_dict_includes_files_and_timestamps(self):
+        """Observation.to_dict includes files_read, files_modified, feedback_updated_at, last_accessed_at when set."""
+        obs = Observation(
+            id="o1", session_id="s1", project_path="/p", type="fact",
+            files_read=["a.py"], files_modified=["b.py"],
+            feedback_type="SUCCESS",
+            feedback_updated_at="2026-03-28T10:00:00Z",
+            last_accessed_at="2026-03-28T12:00:00Z",
+        )
+        d = obs.to_dict()
+        assert d["files_read"] == ["a.py"]
+        assert d["files_modified"] == ["b.py"]
+        assert d["feedback_type"] == "SUCCESS"
+        assert d["feedback_updated_at"] == "2026-03-28T10:00:00Z"
+        assert d["last_accessed_at"] == "2026-03-28T12:00:00Z"
+
+    def test_observation_to_dict_omits_empty_files_and_timestamps(self):
+        """Observation.to_dict omits empty files_read/files_modified and empty timestamps."""
+        obs = Observation(id="o1", session_id="s1", project_path="/p", type="fact")
+        d = obs.to_dict()
+        assert "files_read" not in d
+        assert "files_modified" not in d
+        assert "feedback_updated_at" not in d
+        assert "last_accessed_at" not in d
 
     def test_experience_from_wire_null_strings(self):
         """Backend may return null for string fields in Experience."""
