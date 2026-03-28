@@ -11,6 +11,7 @@
 
 import express, { Request, Response, NextFunction } from 'express';
 import { CortexMemClient, APIError, ValidationError } from '../../src';
+import type { ObservationUpdate } from '../../src';
 
 const CORTEX_BASE_URL = process.env.CORTEX_BASE_URL ?? 'http://127.0.0.1:37777';
 const PORT = parseInt(process.env.PORT ?? '8080', 10);
@@ -227,10 +228,14 @@ app.post('/observations/create', asyncHandler(async (req: Request, res: Response
 });
 
 app.patch('/observations/:id', asyncHandler(async (req: Request, res: Response) => {
-  const update: Record<string, unknown> = {};
-  for (const key of ['title', 'subtitle', 'content', 'narrative', 'facts', 'concepts', 'source']) {
-    if (key in req.body) update[key] = req.body[key];
-  }
+  const update: ObservationUpdate = {};
+  if ('title' in req.body) update.title = req.body.title;
+  if ('subtitle' in req.body) update.subtitle = req.body.subtitle;
+  if ('content' in req.body) update.content = req.body.content;
+  if ('narrative' in req.body) update.narrative = req.body.narrative;
+  if ('facts' in req.body) update.facts = req.body.facts;
+  if ('concepts' in req.body) update.concepts = req.body.concepts;
+  if ('source' in req.body) update.source = req.body.source;
   if ('extractedData' in req.body) update.extractedData = req.body.extractedData;
 
   await client.updateObservation(req.params.id, update);
