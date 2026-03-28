@@ -406,6 +406,29 @@ class ExtractionResult:
     created_at: int = 0
     observation_id: str = ""
 
+    def to_dict(self) -> dict:
+        """Serialize to wire-compatible dict (camelCase, consistent with Go SDK).
+
+        Matches Go SDK ExtractionResult JSON struct tags: sessionId, extractedData,
+        createdAt, observationId.
+        """
+        d: dict = {}
+        if self.status:
+            d["status"] = self.status
+        if self.template:
+            d["template"] = self.template
+        if self.message:
+            d["message"] = self.message
+        if self.session_id:
+            d["sessionId"] = self.session_id
+        if self.extracted_data is not None:
+            d["extractedData"] = self.extracted_data
+        if self.created_at:
+            d["createdAt"] = self.created_at
+        if self.observation_id:
+            d["observationId"] = self.observation_id
+        return d
+
     @classmethod
     def from_wire(cls, data: dict) -> ExtractionResult:
         return cls(

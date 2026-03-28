@@ -318,6 +318,60 @@ class TestDTOFromWire:
         er = ExtractionResult.from_wire(data)
         assert er.created_at == 1710000000000  # parsed from string via _to_int
 
+    def test_extraction_result_to_dict(self):
+        """ExtractionResult.to_dict outputs camelCase wire format."""
+        er = ExtractionResult(
+            status="ok",
+            template="user_pref",
+            message="success",
+            session_id="s1",
+            extracted_data={"lang": "zh"},
+            created_at=1710000000000,
+            observation_id="o1",
+        )
+        d = er.to_dict()
+        assert d["status"] == "ok"
+        assert d["template"] == "user_pref"
+        assert d["message"] == "success"
+        assert d["sessionId"] == "s1"
+        assert d["extractedData"] == {"lang": "zh"}
+        assert d["createdAt"] == 1710000000000
+        assert d["observationId"] == "o1"
+
+    def test_extraction_result_to_dict_omits_empty(self):
+        """ExtractionResult.to_dict omits empty/zero fields."""
+        er = ExtractionResult(status="ok")
+        d = er.to_dict()
+        assert d == {"status": "ok"}
+        assert "sessionId" not in d
+        assert "extractedData" not in d
+
+    def test_extraction_result_to_dict_includes_null_extracted_data(self):
+        """extractedData=null should be included (explicit null, not missing)."""
+        er = ExtractionResult(status="ok", extracted_data=None)
+        d = er.to_dict()
+        # extracted_data is None (explicit), should not be in dict (same as Go omitempty behavior)
+        assert "extractedData" not in d
+
+    def test_extraction_result_roundtrip(self):
+        """from_wire → to_dict preserves wire format."""
+        data = {
+            "status": "ok",
+            "template": "user_pref",
+            "extractedData": {"lang": "zh"},
+            "sessionId": "s1",
+            "createdAt": 1710000000000,
+            "observationId": "o1",
+        }
+        er = ExtractionResult.from_wire(data)
+        d = er.to_dict()
+        assert d["status"] == data["status"]
+        assert d["template"] == data["template"]
+        assert d["extractedData"] == data["extractedData"]
+        assert d["sessionId"] == data["sessionId"]
+        assert d["createdAt"] == data["createdAt"]
+        assert d["observationId"] == data["observationId"]
+
     def test_version_response_from_wire(self):
         data = {"version": "1.0.0", "service": "claude-mem-java"}
         vr = VersionResponse.from_wire(data)

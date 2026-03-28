@@ -385,15 +385,7 @@ def extraction_latest():
     if not project:
         return _error(400, "project is required")
     result = client.get_latest_extraction(project, template, user_id=request.args.get("userId", ""))
-    return jsonify(
-        status=result.status,
-        template=result.template,
-        message=result.message,
-        extractedData=result.extracted_data,
-        sessionId=result.session_id,
-        createdAt=result.created_at,
-        observationId=result.observation_id,
-    )
+    return jsonify(result.to_dict())
 
 
 @app.get("/extraction/history")
@@ -410,18 +402,7 @@ def extraction_history():
         return _error(400, str(e))
 
     results = client.get_extraction_history(project, template, user_id=request.args.get("userId", ""), limit=limit)
-    return jsonify([
-        {
-            "status": r.status,
-            "template": r.template,
-            "message": r.message,
-            "extractedData": r.extracted_data,
-            "sessionId": r.session_id,
-            "createdAt": r.created_at,
-            "observationId": r.observation_id,
-        }
-        for r in results
-    ])
+    return jsonify([r.to_dict() for r in results])
 
 
 @app.post("/extraction/run")
