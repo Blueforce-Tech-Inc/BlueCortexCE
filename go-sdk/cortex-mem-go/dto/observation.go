@@ -34,6 +34,14 @@ type ObservationUpdate struct {
 	ExtractedData map[string]any `json:"extractedData,omitempty"`
 }
 
+// IsEmpty returns true if no fields are set (all pointer/slice/map fields are nil).
+// Use this to validate PATCH requests before sending to the backend.
+func (u ObservationUpdate) IsEmpty() bool {
+	return u.Title == nil && u.Subtitle == nil && u.Content == nil &&
+		u.Narrative == nil && u.Facts == nil && u.Concepts == nil &&
+		u.Source == nil && u.ExtractedData == nil
+}
+
 // Observation is a single observation record returned from the backend.
 //
 // Wire format (verified against backend ObservationEntity.java + SNAKE_CASE naming strategy):

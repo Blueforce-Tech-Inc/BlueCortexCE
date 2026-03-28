@@ -174,9 +174,7 @@ func (c *httpClient) UpdateObservation(ctx context.Context, observationID string
 		return &ValidationError{Field: "observationID", Message: "observationID is required"}
 	}
 	// Validate at least one field is set (PATCH semantics: empty update is a no-op).
-	if update.Title == nil && update.Subtitle == nil && update.Content == nil &&
-		update.Narrative == nil && update.Facts == nil && update.Concepts == nil &&
-		update.Source == nil && update.ExtractedData == nil {
+	if update.IsEmpty() {
 		return &ValidationError{Field: "update", Message: "at least one field must be provided for update"}
 	}
 	// NOT fire-and-forget: explicit user action, errors must propagate.

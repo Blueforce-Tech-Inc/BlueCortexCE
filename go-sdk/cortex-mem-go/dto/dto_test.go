@@ -285,6 +285,52 @@ func TestObservationUpdate_EmptyStringPointerIsSent(t *testing.T) {
 	}
 }
 
+// ==================== ObservationUpdate.IsEmpty() Tests ====================
+
+func TestObservationUpdate_IsEmpty_AllNil(t *testing.T) {
+	update := ObservationUpdate{}
+	if !update.IsEmpty() {
+		t.Error("expected IsEmpty()=true for zero-value ObservationUpdate")
+	}
+}
+
+func TestObservationUpdate_IsEmpty_TitleSet(t *testing.T) {
+	update := ObservationUpdate{Title: stringPtr("test")}
+	if update.IsEmpty() {
+		t.Error("expected IsEmpty()=false when Title is set")
+	}
+}
+
+func TestObservationUpdate_IsEmpty_SourceSet(t *testing.T) {
+	update := ObservationUpdate{Source: stringPtr("manual")}
+	if update.IsEmpty() {
+		t.Error("expected IsEmpty()=false when Source is set")
+	}
+}
+
+func TestObservationUpdate_IsEmpty_FactsSet(t *testing.T) {
+	update := ObservationUpdate{Facts: []string{"a", "b"}}
+	if update.IsEmpty() {
+		t.Error("expected IsEmpty()=false when Facts is set")
+	}
+}
+
+func TestObservationUpdate_IsEmpty_ExtractedDataSet(t *testing.T) {
+	update := ObservationUpdate{ExtractedData: map[string]any{"key": "val"}}
+	if update.IsEmpty() {
+		t.Error("expected IsEmpty()=false when ExtractedData is set")
+	}
+}
+
+func TestObservationUpdate_IsEmpty_EmptyStringPointerNotEmpty(t *testing.T) {
+	// Empty string pointer is still "set" — allows clearing a field
+	empty := ""
+	update := ObservationUpdate{Source: &empty}
+	if update.IsEmpty() {
+		t.Error("expected IsEmpty()=false when Source is non-nil (even if empty string)")
+	}
+}
+
 // ==================== Session DTO Wire Format Tests ====================
 
 func TestSessionStartRequest_UsesProjectPath(t *testing.T) {
