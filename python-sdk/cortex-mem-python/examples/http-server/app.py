@@ -273,6 +273,14 @@ def observations_list():
     )
 
 
+@app.get("/observations/<observation_id>")
+def get_observation(observation_id: str):
+    obs = client.get_observation(observation_id)
+    if obs is None:
+        return _error(404, f"observation {observation_id} not found")
+    return jsonify(obs.to_dict())
+
+
 @app.post("/observations/batch")
 def observations_batch():
     data = request.get_json(force=True)
@@ -552,6 +560,7 @@ if __name__ == "__main__":
     print("  GET    /experiences         - Retrieve experiences")
     print("  GET    /iclprompt           - Build ICL prompt")
     print("  GET    /observations        - List observations")
+    print("  GET    /observations/{id}   - Get observation by ID")
     print("  POST   /observations/batch  - Batch get observations by IDs")
     print("  POST   /session/start       - Start/resume session")
     print("  PATCH  /session/user        - Update session user ID")

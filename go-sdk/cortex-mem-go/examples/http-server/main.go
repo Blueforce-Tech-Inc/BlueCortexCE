@@ -349,6 +349,25 @@ func main() {
 		writeJSON(w, result)
 	})
 
+	// --- GET /observations/{id} ---
+	mux.HandleFunc("GET /observations/{id}", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		if id == "" {
+			writeJSONError(w, http.StatusBadRequest, "observation id is required")
+			return
+		}
+		result, err := client.GetObservation(r.Context(), id)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get observation: %v", err))
+			return
+		}
+		if result == nil {
+			writeJSONError(w, http.StatusNotFound, fmt.Sprintf("observation %s not found", id))
+			return
+		}
+		writeJSON(w, result)
+	})
+
 	// --- POST /observations/batch ---
 	mux.HandleFunc("/observations/batch", func(w http.ResponseWriter, r *http.Request) {
 		if !checkMethod(w, r, http.MethodPost) {
@@ -813,6 +832,7 @@ func main() {
 	fmt.Println("  GET    /experiences         - Retrieve experiences")
 	fmt.Println("  GET    /iclprompt           - Build ICL prompt")
 	fmt.Println("  GET    /observations        - List observations (limit, offset)")
+	fmt.Println("  GET    /observations/{id}   - Get observation by ID")
 	fmt.Println("  POST   /observations/batch  - Batch get observations by IDs")
 	fmt.Println("  GET    /projects            - Get projects")
 	fmt.Println("  GET    /stats               - Get stats")
