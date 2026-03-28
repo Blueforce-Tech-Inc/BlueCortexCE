@@ -148,10 +148,16 @@ public class ObservationsController {
                     return ResponseEntity.badRequest()
                             .body(Map.of("error", "facts must be a list of strings"));
                 }
-                // Safe conversion: Jackson deserializes JSON arrays as List<Object>
-                builder.facts(factsList.stream()
-                        .map(String::valueOf)
-                        .toList());
+                // Validate all items are strings (reject nulls — String.valueOf(null) returns "null")
+                List<String> validatedFacts = new java.util.ArrayList<>();
+                for (Object item : factsList) {
+                    if (!(item instanceof String)) {
+                        return ResponseEntity.badRequest()
+                                .body(Map.of("error", "facts must contain only strings"));
+                    }
+                    validatedFacts.add((String) item);
+                }
+                builder.facts(validatedFacts);
             }
             if (body.containsKey("concepts")) {
                 Object conceptsObj = body.get("concepts");
@@ -159,9 +165,16 @@ public class ObservationsController {
                     return ResponseEntity.badRequest()
                             .body(Map.of("error", "concepts must be a list of strings"));
                 }
-                builder.concepts(conceptsList.stream()
-                        .map(String::valueOf)
-                        .toList());
+                // Validate all items are strings (reject nulls — String.valueOf(null) returns "null")
+                List<String> validatedConcepts = new java.util.ArrayList<>();
+                for (Object item : conceptsList) {
+                    if (!(item instanceof String)) {
+                        return ResponseEntity.badRequest()
+                                .body(Map.of("error", "concepts must contain only strings"));
+                    }
+                    validatedConcepts.add((String) item);
+                }
+                builder.concepts(validatedConcepts);
             }
             if (body.containsKey("source")) {
                 if (!(body.get("source") instanceof String)) {
