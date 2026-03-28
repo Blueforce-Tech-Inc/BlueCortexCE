@@ -129,6 +129,19 @@ class TestDTOFromWire:
         assert obs.prompt_number == 0
         assert obs.created_at_epoch == 0
 
+    def test_observation_from_wire_null_numeric_fields(self):
+        """Backend may return null for numeric fields — SDK must default to 0."""
+        data = {
+            "id": "o1",
+            "quality_score": None,
+            "prompt_number": None,
+            "created_at_epoch": None,
+        }
+        obs = Observation.from_wire(data)
+        assert obs.quality_score == 0.0
+        assert obs.prompt_number == 0
+        assert obs.created_at_epoch == 0
+
     def test_search_result_from_wire(self):
         data = {
             "observations": [{"id": "o1", "narrative": "test", "content_session_id": "s1"}],

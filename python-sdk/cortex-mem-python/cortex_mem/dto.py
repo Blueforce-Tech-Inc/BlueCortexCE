@@ -181,12 +181,12 @@ class Observation:
             content=data.get("narrative") or "",
             facts=data.get("facts") or [],
             concepts=data.get("concepts") or [],
-            quality_score=_to_float(data.get("quality_score", 0.0)),
+            quality_score=_to_float(data.get("quality_score")),
             source=data.get("source") or "",
             extracted_data=data.get("extractedData"),
-            prompt_number=_to_int(data.get("prompt_number", 0)),
+            prompt_number=_to_int(data.get("prompt_number")),
             created_at=data.get("created_at") or "",
-            created_at_epoch=_to_int(data.get("created_at_epoch", 0)),
+            created_at_epoch=_to_int(data.get("created_at_epoch")),
         )
 
 
