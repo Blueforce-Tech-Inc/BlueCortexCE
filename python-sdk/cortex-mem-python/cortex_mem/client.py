@@ -63,7 +63,7 @@ class CortexMemClient:
     ) -> None:
         # Normalize: strip trailing slash
         self._base_url = base_url.rstrip("/")
-        self._timeout = timeout
+        self._timeout = max(0.1, timeout)  # Minimum 100ms to prevent immediate timeout
         self._max_retries = max(1, max_retries)
         self._retry_backoff = retry_backoff
         self._api_key = api_key
