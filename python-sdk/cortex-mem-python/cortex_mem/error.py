@@ -91,7 +91,13 @@ def is_retryable(status_code: int) -> bool:
 
 
 def _extract_error_message(body: bytes) -> str:
-    """Extract a human-readable message from an error response body."""
+    """Extract a human-readable message from an error response body.
+
+    Handles three response formats:
+    1. JSON object with "error", "message", or "detail" key
+    2. JSON string (returned directly)
+    3. Non-JSON body (decoded as UTF-8, truncated to 200 chars)
+    """
     try:
         parsed = json.loads(body)
     except (json.JSONDecodeError, UnicodeDecodeError):
@@ -103,4 +109,6 @@ def _extract_error_message(body: bytes) -> str:
             v = parsed.get(key)
             if isinstance(v, str) and v:
                 return v
+    if isinstance(parsed, str):
+        return parsed
     return str(parsed)

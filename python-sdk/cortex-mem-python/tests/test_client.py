@@ -758,6 +758,44 @@ class TestExtractionExtended:
             c.get_extraction_history("/p", "tpl", limit=-1)
 
     @responses.activate
+    def test_trigger_extraction_propagates_error(self):
+        """trigger_extraction must propagate API errors (NOT fire-and-forget)."""
+        responses.add(responses.POST, f"{BASE}/api/extraction/run", json={"error": "busy"}, status=503)
+        c = _client()
+        with pytest.raises(ServerError):
+            c.trigger_extraction("/p")
+
+    @responses.activate
+    def test_get_latest_extraction_propagates_error(self):
+        """get_latest_extraction must propagate 404."""
+        responses.add(responses.GET, f"{BASE}/api/extraction/user_pref/latest", json={"error": "not found"}, status=404)
+        c = _client()
+        with pytest.raises(NotFoundError):
+            c.get_latest_extraction("/p", "user_pref")
+
+    @responses.activate
+    def test_get_extraction_history_propagates_error(self):
+        """get_extraction_history must propagate 500."""
+        responses.add(responses.GET, f"{BASE}/api/extraction/tpl/history", json={"error": "db error"}, status=500)
+        c = _client()
+        with pytest.raises(ServerError):
+            c.get_extraction_history("/p", "tpl")
+
+    @responses.activate
+    def test_get_latest_extraction_empty_template_raises(self):
+        """Empty template_name should raise ValidationError."""
+        c = _client()
+        with pytest.raises(ValidationError, match="template_name is required"):
+            c.get_latest_extraction("/p", "")
+
+    @responses.activate
+    def test_get_extraction_history_empty_template_raises(self):
+        """Empty template_name should raise ValidationError."""
+        c = _client()
+        with pytest.raises(ValidationError, match="template_name is required"):
+            c.get_extraction_history("/p", "")
+
+    @responses.activate
     def test_get_extraction_history_multiple_results(self):
         """Verify multiple extraction results are parsed."""
         responses.add(
@@ -1159,6 +1197,11 @@ class TestRaiseForStatus:
     def test_error_message_from_json(self):
         with pytest.raises(APIError, match="custom message"):
             raise_for_status(400, b'{"error": "custom message"}')
+
+    def test_error_message_from_json_string_body(self):
+        """When the error body is a bare JSON string, use it directly."""
+        with pytest.raises(APIError, match="something went wrong"):
+            raise_for_status(400, b'"something went wrong"')
 
     def test_error_message_from_text(self):
         with pytest.raises(APIError, match="raw text"):
