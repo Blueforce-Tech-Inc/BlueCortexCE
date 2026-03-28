@@ -24,7 +24,8 @@ app.use(express.json({ limit: '1mb' }));
 
 function requireFields(data: Record<string, unknown>, fields: string[]): string | null {
   for (const f of fields) {
-    if (!data[f]) return f;
+    const v = data[f];
+    if (v === undefined || v === null || (typeof v === 'string' && !v.trim())) return f;
   }
   return null;
 }
