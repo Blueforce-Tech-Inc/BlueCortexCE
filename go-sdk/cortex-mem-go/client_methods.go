@@ -320,4 +320,3 @@ func (c *httpClient) Close() error {
 func (c *httpClient) String() string {
 	return fmt.Sprintf("CortexCEClient(%s)", c.config.BaseURL)
 }
-

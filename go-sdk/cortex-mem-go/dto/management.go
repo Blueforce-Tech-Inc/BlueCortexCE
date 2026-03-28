@@ -3,10 +3,10 @@ package dto
 // VersionResponse contains backend version information.
 // GET /api/version
 type VersionResponse struct {
-	Version     string `json:"version"`
-	Service     string `json:"service"`
-	Java        string `json:"java"`
-	SpringBoot  string `json:"springBoot"`
+	Version    string `json:"version"`
+	Service    string `json:"service"`
+	Java       string `json:"java"`
+	SpringBoot string `json:"springBoot"`
 }
 
 // ProjectsResponse lists all known projects.

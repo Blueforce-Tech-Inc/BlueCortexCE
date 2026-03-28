@@ -43,17 +43,17 @@ func (e *APIError) Unwrap() error {
 
 // Sentinel errors for common HTTP status codes.
 var (
-	ErrBadRequest          = errors.New("cortex-ce: bad request")
-	ErrUnauthorized        = errors.New("cortex-ce: unauthorized")
-	ErrForbidden           = errors.New("cortex-ce: forbidden")
-	ErrNotFound            = errors.New("cortex-ce: not found")
-	ErrConflict            = errors.New("cortex-ce: conflict")
-	ErrUnprocessable       = errors.New("cortex-ce: unprocessable entity")
-	ErrRateLimited         = errors.New("cortex-ce: rate limited")
-	ErrInternal            = errors.New("cortex-ce: internal server error")
-	ErrBadGateway          = errors.New("cortex-ce: bad gateway")
-	ErrServiceUnavailable  = errors.New("cortex-ce: service unavailable")
-	ErrGatewayTimeout      = errors.New("cortex-ce: gateway timeout")
+	ErrBadRequest         = errors.New("cortex-ce: bad request")
+	ErrUnauthorized       = errors.New("cortex-ce: unauthorized")
+	ErrForbidden          = errors.New("cortex-ce: forbidden")
+	ErrNotFound           = errors.New("cortex-ce: not found")
+	ErrConflict           = errors.New("cortex-ce: conflict")
+	ErrUnprocessable      = errors.New("cortex-ce: unprocessable entity")
+	ErrRateLimited        = errors.New("cortex-ce: rate limited")
+	ErrInternal           = errors.New("cortex-ce: internal server error")
+	ErrBadGateway         = errors.New("cortex-ce: bad gateway")
+	ErrServiceUnavailable = errors.New("cortex-ce: service unavailable")
+	ErrGatewayTimeout     = errors.New("cortex-ce: gateway timeout")
 )
 
 func statusCodeToError(code int) error {

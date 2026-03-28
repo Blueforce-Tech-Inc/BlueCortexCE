@@ -40,12 +40,12 @@ func main() {
 
 	fmt.Println("Recording observations...")
 	if err := client.RecordObservation(ctx, dto.ObservationRequest{
-		ProjectPath:  "/tmp/langchaingo-demo",
-		SessionID:    startResp.SessionID,
-		ToolName:     "fact_record",
-		ToolInput:    map[string]any{"topic": "programming"},
-		ToolResponse: map[string]any{"fact": "I prefer Go because it's fast and concurrent."},
-		Source:       "user_input",
+		ProjectPath:   "/tmp/langchaingo-demo",
+		SessionID:     startResp.SessionID,
+		ToolName:      "fact_record",
+		ToolInput:     map[string]any{"topic": "programming"},
+		ToolResponse:  map[string]any{"fact": "I prefer Go because it's fast and concurrent."},
+		Source:        "user_input",
 		ExtractedData: map[string]any{"language": "Go"},
 	}); err != nil {
 		log.Printf("Failed to record observation: %v", err)

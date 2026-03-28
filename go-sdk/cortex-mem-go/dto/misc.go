@@ -18,9 +18,10 @@ func (q QualityDistribution) Total() int64 {
 // POST /api/memory/feedback
 //
 // Wire format (verified against backend MemoryController.java):
-//   {"observationId":"...", "feedbackType":"SUCCESS", "comment":"..."}
+//
+//	{"observationId":"...", "feedbackType":"SUCCESS", "comment":"..."}
 type FeedbackRequest struct {
-	ObservationID string `json:"observationId"`  // Wire: camelCase!
-	FeedbackType  string `json:"feedbackType"`   // Wire: camelCase!
+	ObservationID string `json:"observationId"` // Wire: camelCase!
+	FeedbackType  string `json:"feedbackType"`  // Wire: camelCase!
 	Comment       string `json:"comment,omitempty"`
 }

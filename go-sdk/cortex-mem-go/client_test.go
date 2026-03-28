@@ -848,9 +848,9 @@ func TestExtractedData_CamelCase(t *testing.T) {
 
 	client := newTestClient(server)
 	req := dto.ObservationRequest{
-		SessionID:    "sess-1",
-		ProjectPath:  "/project",
-		ToolName:     "Read",
+		SessionID:     "sess-1",
+		ProjectPath:   "/project",
+		ToolName:      "Read",
 		ExtractedData: map[string]any{"key": "value"},
 	}
 	err := client.RecordObservation(context.Background(), req)
@@ -1111,7 +1111,7 @@ func TestObservationUpdate_PointerFieldsVsSlices(t *testing.T) {
 	emptyStr := ""
 	err := client.UpdateObservation(context.Background(), "obs-1", dto.ObservationUpdate{
 		Source:   &emptyStr,
-		Facts:    []string{},  // will be omitted
+		Facts:    []string{}, // will be omitted
 		Concepts: []string{"test"},
 	})
 	if err != nil {
@@ -1294,12 +1294,12 @@ func TestGetModes(t *testing.T) {
 		}
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]any{
-			"id":                    "default",
-			"name":                  "Default Mode",
-			"description":           "Standard mode",
-			"version":               "1.0",
-			"observation_types":     []string{"tool-use", "user-prompt"},
-			"observation_concepts":  []string{"code", "test"},
+			"id":                   "default",
+			"name":                 "Default Mode",
+			"description":          "Standard mode",
+			"version":              "1.0",
+			"observation_types":    []string{"tool-use", "user-prompt"},
+			"observation_concepts": []string{"code", "test"},
 		})
 	}))
 	defer server.Close()
@@ -1764,8 +1764,8 @@ func TestBuildICLPrompt_PathAndBody(t *testing.T) {
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(dto.ICLPromptResult{
-			Prompt:           "Here are relevant experiences...",
-			ExperienceCount:  3,
+			Prompt:          "Here are relevant experiences...",
+			ExperienceCount: 3,
 		})
 	}))
 	defer server.Close()
@@ -3930,7 +3930,10 @@ func TestIsValidationError_TrueForValidationErrors(t *testing.T) {
 	}{
 		{"RecordObservation", client.RecordObservation(context.Background(), dto.ObservationRequest{}), "sessionID"},
 		{"Search", func() error { _, err := client.Search(context.Background(), dto.SearchRequest{}); return err }(), "project"},
-		{"RetrieveExperiences", func() error { _, err := client.RetrieveExperiences(context.Background(), dto.ExperienceRequest{}); return err }(), "task"},
+		{"RetrieveExperiences", func() error {
+			_, err := client.RetrieveExperiences(context.Background(), dto.ExperienceRequest{})
+			return err
+		}(), "task"},
 		{"DeleteObservation", client.DeleteObservation(context.Background(), ""), "observationID"},
 		{"TriggerRefinement", client.TriggerRefinement(context.Background(), ""), "projectPath"},
 		{"GetObservationsByIds", func() error { _, err := client.GetObservationsByIds(context.Background(), nil); return err }(), "ids"},

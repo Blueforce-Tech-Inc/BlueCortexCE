@@ -34,11 +34,11 @@ func main() {
 	// 2. Record observation with V14 features (source + extractedData)
 	fmt.Println("\n=== Recording observation (V14: source + extractedData) ===")
 	obsReq := dto.ObservationRequest{
-		ProjectPath:  "/tmp/go-demo-project",
-		SessionID:    startResp.SessionID,
-		ToolName:     "demo_tool",
-		ToolInput:    map[string]any{"action": "demo"},
-		Source:       "manual",
+		ProjectPath: "/tmp/go-demo-project",
+		SessionID:   startResp.SessionID,
+		ToolName:    "demo_tool",
+		ToolInput:   map[string]any{"action": "demo"},
+		Source:      "manual",
 		ExtractedData: map[string]any{
 			"category": "demo",
 			"priority": "high",

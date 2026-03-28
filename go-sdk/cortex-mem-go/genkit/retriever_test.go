@@ -34,7 +34,7 @@ type testLogger struct {
 func (l *testLogger) Debug(msg string, args ...any) { l.msgs = append(l.msgs, msg) }
 func (l *testLogger) Info(msg string, args ...any)  { l.msgs = append(l.msgs, msg) }
 func (l *testLogger) Warn(msg string, args ...any)  { l.msgs = append(l.msgs, msg) }
-func (l *testLogger) Error(msg string, args ...any)  { l.msgs = append(l.msgs, msg) }
+func (l *testLogger) Error(msg string, args ...any) { l.msgs = append(l.msgs, msg) }
 
 func TestNewRetriever_NilClient_Panics(t *testing.T) {
 	defer func() {

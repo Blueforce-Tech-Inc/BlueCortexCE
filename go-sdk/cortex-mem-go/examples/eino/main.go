@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/abforce/cortex-ce/cortex-mem-go"
-	"github.com/abforce/cortex-ce/cortex-mem-go/eino"
 	"github.com/abforce/cortex-ce/cortex-mem-go/dto"
+	"github.com/abforce/cortex-ce/cortex-mem-go/eino"
 )
 
 func main() {
@@ -45,12 +45,12 @@ func main() {
 			Source:       "documentation",
 		},
 		{
-			ProjectPath:  "/tmp/eino-demo",
-			SessionID:    startResp.SessionID,
-			ToolName:     "fact_record",
-			ToolInput:    map[string]any{"topic": "Cortex CE"},
-			ToolResponse: map[string]any{"fact": "Cortex CE provides persistent memory for AI"},
-			Source:       "documentation",
+			ProjectPath:   "/tmp/eino-demo",
+			SessionID:     startResp.SessionID,
+			ToolName:      "fact_record",
+			ToolInput:     map[string]any{"topic": "Cortex CE"},
+			ToolResponse:  map[string]any{"fact": "Cortex CE provides persistent memory for AI"},
+			Source:        "documentation",
 			ExtractedData: map[string]any{"category": "architecture"},
 		},
 		{

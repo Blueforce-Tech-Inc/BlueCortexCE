@@ -4,7 +4,8 @@ package dto
 // POST /api/session/start
 //
 // Wire format (verified against backend SessionController.java):
-//   {"session_id":"...", "project_path":"/path", "user_id":"..."}
+//
+//	{"session_id":"...", "project_path":"/path", "user_id":"..."}
 type SessionStartRequest struct {
 	SessionID   string `json:"session_id"`
 	ProjectPath string `json:"project_path"` // Wire: "project_path" (NOT "cwd" for session start!)
@@ -23,10 +24,11 @@ type SessionStartResponse struct {
 // POST /api/ingest/session-end
 //
 // Wire format (verified against backend IngestionController.java):
-//   {"session_id":"...", "cwd":"/path", "last_assistant_message":"..."}
+//
+//	{"session_id":"...", "cwd":"/path", "last_assistant_message":"..."}
 type SessionEndRequest struct {
 	SessionID            string `json:"session_id"`
-	ProjectPath          string `json:"cwd"`                              // Wire: "cwd"!
+	ProjectPath          string `json:"cwd"` // Wire: "cwd"!
 	LastAssistantMessage string `json:"last_assistant_message,omitempty"`
 }
 
@@ -34,10 +36,11 @@ type SessionEndRequest struct {
 // POST /api/ingest/user-prompt
 //
 // Wire format (verified against backend IngestionController.java):
-//   {"session_id":"...", "prompt_text":"...", "prompt_number":1, "cwd":"/path"}
+//
+//	{"session_id":"...", "prompt_text":"...", "prompt_number":1, "cwd":"/path"}
 type UserPromptRequest struct {
 	SessionID    string `json:"session_id"`
 	PromptText   string `json:"prompt_text"`
-	ProjectPath  string `json:"cwd"`              // Wire: "cwd"!
+	ProjectPath  string `json:"cwd"` // Wire: "cwd"!
 	PromptNumber int    `json:"prompt_number,omitempty"`
 }

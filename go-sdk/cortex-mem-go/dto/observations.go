@@ -25,7 +25,8 @@ type ObservationsResponse struct {
 // POST /api/observations/batch
 //
 // Wire format (verified against backend ObservationController.java):
-//   {"ids":["id1", "id2", ...]}
+//
+//	{"ids":["id1", "id2", ...]}
 type BatchObservationsRequest struct {
 	IDs []string `json:"ids"`
 }
@@ -33,7 +34,8 @@ type BatchObservationsRequest struct {
 // BatchObservationsResponse is the response from batch observation retrieval.
 //
 // Wire format (verified against backend ObservationController.java):
-//   {"observations":[...], "count":0}
+//
+//	{"observations":[...], "count":0}
 type BatchObservationsResponse struct {
 	Observations []Observation `json:"observations"`
 	Count        int           `json:"count"`

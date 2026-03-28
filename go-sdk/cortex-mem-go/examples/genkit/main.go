@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/abforce/cortex-ce/cortex-mem-go"
-	"github.com/abforce/cortex-ce/cortex-mem-go/genkit"
 	"github.com/abforce/cortex-ce/cortex-mem-go/dto"
+	"github.com/abforce/cortex-ce/cortex-mem-go/genkit"
 )
 
 func main() {
@@ -39,24 +39,24 @@ func main() {
 	// 2. Record some observations with V14 features
 	fmt.Println("Recording observations...")
 	if err := client.RecordObservation(ctx, dto.ObservationRequest{
-		ProjectPath:  "/tmp/genkit-demo",
-		SessionID:    startResp.SessionID,
-		ToolName:     "fact_record",
-		ToolInput:    map[string]any{"topic": "Genkit"},
-		ToolResponse: map[string]any{"fact": "Genkit is Firebase's AI framework for building AI-powered apps"},
-		Source:       "documentation",
+		ProjectPath:   "/tmp/genkit-demo",
+		SessionID:     startResp.SessionID,
+		ToolName:      "fact_record",
+		ToolInput:     map[string]any{"topic": "Genkit"},
+		ToolResponse:  map[string]any{"fact": "Genkit is Firebase's AI framework for building AI-powered apps"},
+		Source:        "documentation",
 		ExtractedData: map[string]any{"category": "framework"},
 	}); err != nil {
 		log.Printf("Failed to record: %v", err)
 	}
 
 	if err := client.RecordObservation(ctx, dto.ObservationRequest{
-		ProjectPath:  "/tmp/genkit-demo",
-		SessionID:    startResp.SessionID,
-		ToolName:     "fact_record",
-		ToolInput:    map[string]any{"topic": "Genkit languages"},
-		ToolResponse: map[string]any{"fact": "Genkit supports Go and JavaScript"},
-		Source:       "documentation",
+		ProjectPath:   "/tmp/genkit-demo",
+		SessionID:     startResp.SessionID,
+		ToolName:      "fact_record",
+		ToolInput:     map[string]any{"topic": "Genkit languages"},
+		ToolResponse:  map[string]any{"fact": "Genkit supports Go and JavaScript"},
+		Source:        "documentation",
 		ExtractedData: map[string]any{"languages": []string{"Go", "JavaScript"}},
 	}); err != nil {
 		log.Printf("Failed to record: %v", err)

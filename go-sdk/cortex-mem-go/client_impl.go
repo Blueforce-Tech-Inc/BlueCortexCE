@@ -21,14 +21,14 @@ type Option func(*ClientConfig)
 
 // ClientConfig holds client configuration.
 type ClientConfig struct {
-	BaseURL       string
-	APIKey        string
-	HTTPClient    *http.Client
-	Timeout       time.Duration // Overall request timeout (default: 30s)
+	BaseURL        string
+	APIKey         string
+	HTTPClient     *http.Client
+	Timeout        time.Duration // Overall request timeout (default: 30s)
 	ConnectTimeout time.Duration // Connection timeout via custom Transport (default: 10s)
-	MaxRetries    int
-	RetryBackoff  time.Duration // Base backoff duration for retries (default: 500ms)
-	Logger        Logger
+	MaxRetries     int
+	RetryBackoff   time.Duration // Base backoff duration for retries (default: 500ms)
+	Logger         Logger
 }
 
 // Logger is the logging interface. Compatible with *slog.Logger.
@@ -295,7 +295,7 @@ func (c *httpClient) doFireAndForget(ctx context.Context, name string, fn func()
 	// Check context before wasting effort on an already-cancelled request
 	select {
 	case <-ctx.Done():
-		c.config.Logger.Warn("cortex-ce: "+name+" skipped, context already cancelled")
+		c.config.Logger.Warn("cortex-ce: " + name + " skipped, context already cancelled")
 		return nil
 	default:
 	}
