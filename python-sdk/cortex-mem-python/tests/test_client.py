@@ -307,6 +307,14 @@ class TestManagement:
         assert "project=" in responses.calls[0].request.url
 
     @responses.activate
+    def test_trigger_refinement_propagates_error(self):
+        """Management operations must propagate API errors (NOT fire-and-forget)."""
+        responses.add(responses.POST, f"{BASE}/api/memory/refine", json={"error": "busy"}, status=503)
+        c = _client()
+        with pytest.raises(ServerError):
+            c.trigger_refinement("/p")
+
+    @responses.activate
     def test_submit_feedback_wire_format(self):
         """Verify camelCase: observationId, feedbackType."""
         responses.add(responses.POST, f"{BASE}/api/memory/feedback", status=204)
@@ -315,6 +323,14 @@ class TestManagement:
         body = json.loads(responses.calls[0].request.body)
         assert body["observationId"] == "obs-1"
         assert body["feedbackType"] == "useful"
+
+    @responses.activate
+    def test_submit_feedback_propagates_error(self):
+        """submit_feedback must propagate API errors."""
+        responses.add(responses.POST, f"{BASE}/api/memory/feedback", json={"error": "not found"}, status=404)
+        c = _client()
+        with pytest.raises(NotFoundError):
+            c.submit_feedback("bad-id", "useful")
 
     @responses.activate
     def test_update_observation(self):
@@ -327,10 +343,26 @@ class TestManagement:
         assert body["extractedData"] == {"k": "v"}
 
     @responses.activate
+    def test_update_observation_propagates_conflict(self):
+        """update_observation must propagate 409 Conflict."""
+        responses.add(responses.PATCH, f"{BASE}/api/memory/observations/o1", json={"error": "conflict"}, status=409)
+        c = _client()
+        with pytest.raises(ConflictError):
+            c.update_observation("o1", title="conflict")
+
+    @responses.activate
     def test_delete_observation(self):
         responses.add(responses.DELETE, f"{BASE}/api/memory/observations/o1", status=204)
         c = _client()
         c.delete_observation("o1")
+
+    @responses.activate
+    def test_delete_observation_propagates_not_found(self):
+        """delete_observation must propagate 404."""
+        responses.add(responses.DELETE, f"{BASE}/api/memory/observations/o1", json={"error": "not found"}, status=404)
+        c = _client()
+        with pytest.raises(NotFoundError):
+            c.delete_observation("o1")
 
     @responses.activate
     def test_get_quality_distribution(self):
@@ -344,6 +376,14 @@ class TestManagement:
         qd = c.get_quality_distribution("/p")
         assert isinstance(qd, QualityDistribution)
         assert qd.total == 18
+
+    @responses.activate
+    def test_get_quality_distribution_propagates_error(self):
+        """get_quality_distribution must propagate API errors."""
+        responses.add(responses.GET, f"{BASE}/api/memory/quality-distribution", status=500)
+        c = _client()
+        with pytest.raises(ServerError):
+            c.get_quality_distribution("/p")
 
 
 # ==================== Health ====================
