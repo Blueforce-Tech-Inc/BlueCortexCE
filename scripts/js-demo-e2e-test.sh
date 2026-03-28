@@ -304,7 +304,7 @@ fi
 # ==================== Test: /extraction/run ====================
 
 info "Testing /extraction/run..."
-EXTRACT_RESP=$(curl -sf -X POST "$DEMO_BASE/extraction/run?projectPath=$PROJECT" 2>/dev/null || echo "FAIL")
+EXTRACT_RESP=$(curl -sf -X POST "$DEMO_BASE/extraction/run?project=$PROJECT" 2>/dev/null || echo "FAIL")
 if [ "$EXTRACT_RESP" = "FAIL" ]; then
     fail "POST /extraction/run" "Request failed"
 else
