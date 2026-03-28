@@ -196,6 +196,10 @@ class Observation:
 
         Uses the same field names as the backend JSON wire format so that
         demo HTTP responses match across SDKs.
+
+        Note: quality_score and prompt_number are always included (matching Go SDK
+        which does NOT use omitempty for these fields). Other fields use omitempty
+        semantics (skip when empty/zero) for consistency with Go.
         """
         d: dict = {"id": self.id}
         if self.session_id:
@@ -214,14 +218,13 @@ class Observation:
             d["facts"] = self.facts
         if self.concepts:
             d["concepts"] = self.concepts
-        if self.quality_score:
-            d["quality_score"] = self.quality_score
+        # Always include quality_score and prompt_number (Go SDK: no omitempty)
+        d["quality_score"] = self.quality_score
+        d["prompt_number"] = self.prompt_number
         if self.source:
             d["source"] = self.source
         if self.extracted_data is not None:
             d["extractedData"] = self.extracted_data
-        if self.prompt_number:
-            d["prompt_number"] = self.prompt_number
         if self.created_at:
             d["created_at"] = self.created_at
         if self.created_at_epoch:
