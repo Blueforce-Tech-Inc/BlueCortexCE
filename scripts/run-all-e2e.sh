@@ -122,20 +122,20 @@ if $SKIP_BUILD; then
   THIN_OPTS+=(--skip-build)
 fi
 
-run_suite "1/11 regression-test.sh" "$SCRIPT_DIR/regression-test.sh" "${REG_OPTS[@]}"
-run_suite "2/11 thin-proxy-test.sh" "$SCRIPT_DIR/thin-proxy-test.sh" "${THIN_OPTS[@]}"
-run_suite "3/11 webui-integration-test.sh" "$SCRIPT_DIR/webui-integration-test.sh"
-run_suite "4/11 mcp-e2e-test.sh" "$SCRIPT_DIR/mcp-e2e-test.sh" "$SERVER_URL"
+run_suite "1/10 regression-test.sh" "$SCRIPT_DIR/regression-test.sh" "${REG_OPTS[@]}"
+run_suite "2/10 thin-proxy-test.sh" "$SCRIPT_DIR/thin-proxy-test.sh" "${THIN_OPTS[@]}"
+run_suite "3/10 webui-integration-test.sh" "$SCRIPT_DIR/webui-integration-test.sh"
+run_suite "4/10 mcp-e2e-test.sh" "$SCRIPT_DIR/mcp-e2e-test.sh" "$SERVER_URL"
 if is_streamable_mcp; then
-  run_suite "5/11 mcp-streamable-e2e-test.sh" "$SCRIPT_DIR/mcp-streamable-e2e-test.sh" "$SERVER_URL"
+  run_suite "5/10 mcp-streamable-e2e-test.sh" "$SCRIPT_DIR/mcp-streamable-e2e-test.sh" "$SERVER_URL"
 else
-  skip_suite "5/11 mcp-streamable-e2e-test.sh" "Server not in STREAMABLE MCP mode (/mcp not HTTP 200 for initialize)."
+  skip_suite "5/10 mcp-streamable-e2e-test.sh" "Server not in STREAMABLE MCP mode (/mcp not HTTP 200 for initialize)."
 fi
-run_suite "6/11 export-test.sh" "$SCRIPT_DIR/export-test.sh"
-run_suite "7/11 openclaw-plugin-test.sh" "$SCRIPT_DIR/openclaw-plugin-test.sh"
-run_suite "8/11 folder-claudemd-test.sh" "$SCRIPT_DIR/folder-claudemd-test.sh"
-run_suite "9/11 evo-memory-e2e-test.sh" "$SCRIPT_DIR/evo-memory-e2e-test.sh"
-run_suite "10/11 evo-memory-value-test.sh" "$SCRIPT_DIR/evo-memory-value-test.sh"
+run_suite "6/10 export-test.sh" "$SCRIPT_DIR/export-test.sh"
+run_suite "7/10 openclaw-plugin-test.sh" "$SCRIPT_DIR/openclaw-plugin-test.sh"
+run_suite "8/10 folder-claudemd-test.sh" "$SCRIPT_DIR/folder-claudemd-test.sh"
+run_suite "9/10 evo-memory-e2e-test.sh" "$SCRIPT_DIR/evo-memory-e2e-test.sh"
+run_suite "10/10 evo-memory-value-test.sh" "$SCRIPT_DIR/evo-memory-value-test.sh"
 
 echo ""
 echo -e "${BLUE}════════════════════════════════════════════════════════════${NC}"
