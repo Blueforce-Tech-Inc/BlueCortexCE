@@ -1212,9 +1212,24 @@ class TestRaiseForStatus:
         with pytest.raises(APIError):
             raise_for_status(400, b'{"error": "bad request"}')
 
-    def test_error_message_from_json(self):
+    def test_error_message_from_json_error_key(self):
         with pytest.raises(APIError, match="custom message"):
             raise_for_status(400, b'{"error": "custom message"}')
+
+    def test_error_message_from_json_message_key_fallback(self):
+        """'message' key is used when 'error' key is absent."""
+        with pytest.raises(APIError, match="server overloaded"):
+            raise_for_status(503, b'{"message": "server overloaded"}')
+
+    def test_error_message_from_json_detail_key_fallback(self):
+        """'detail' key is used when both 'error' and 'message' keys are absent."""
+        with pytest.raises(APIError, match="field validation failed"):
+            raise_for_status(422, b'{"detail": "field validation failed"}')
+
+    def test_error_message_error_key_preferred_over_message(self):
+        """'error' key takes priority over 'message' key."""
+        with pytest.raises(APIError, match="primary error"):
+            raise_for_status(400, b'{"error": "primary error", "message": "secondary msg"}')
 
     def test_error_message_from_json_string_body(self):
         """When the error body is a bare JSON string, use it directly."""
