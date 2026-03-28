@@ -200,7 +200,7 @@ class Observation:
     quality_score: float = 0.0
     feedback_type: str = ""  # SUCCESS/PARTIAL/FAILURE/UNKNOWN
     source: str = ""
-    extracted_data: dict | None = None
+    extracted_data: dict = field(default_factory=dict)
     prompt_number: int = 0
     created_at: str = ""
     created_at_epoch: int = 0
@@ -241,8 +241,7 @@ class Observation:
             d["prompt_number"] = self.prompt_number
         if self.source:
             d["source"] = self.source
-        if self.extracted_data is not None:
-            d["extractedData"] = self.extracted_data
+        d["extractedData"] = self.extracted_data
         if self.created_at:
             d["created_at"] = self.created_at
         if self.created_at_epoch:
@@ -267,7 +266,7 @@ class Observation:
             quality_score=_to_float(data.get("quality_score")),
             feedback_type=data.get("feedback_type") or "",
             source=data.get("source") or "",
-            extracted_data=data.get("extractedData"),
+            extracted_data=data.get("extractedData") or {},
             prompt_number=_to_int(data.get("prompt_number")),
             created_at=data.get("created_at") or "",
             created_at_epoch=_to_int(data.get("created_at_epoch")),

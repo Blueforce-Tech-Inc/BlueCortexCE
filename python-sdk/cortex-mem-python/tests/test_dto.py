@@ -213,9 +213,11 @@ class TestDTOFromWire:
         assert "subtitle" not in d
         assert "source" not in d
         assert "feedback_type" not in d
-        assert "extractedData" not in d
         assert "quality_score" not in d  # Go: omitempty
         assert "prompt_number" not in d  # Go: omitempty
+        # extractedData is always included (default empty dict, cross-SDK parity with JS)
+        assert "extractedData" in d
+        assert d["extractedData"] == {}
         assert d["id"] == "o1"
         # Always-include fields (Go: no omitempty)
         assert d["content_session_id"] == "s1"
@@ -223,23 +225,19 @@ class TestDTOFromWire:
         assert d["type"] == "fact"
         assert d["narrative"] == ""
 
-    def test_observation_to_dict_extracted_data_none_vs_empty(self):
-        """to_dict() includes empty dict but omits None for extracted_data.
+    def test_observation_to_dict_extracted_data(self):
+        """to_dict() always includes extractedData (default empty dict).
 
-        - extracted_data=None → omitted from output (field not set)
-        - extracted_data={} → included as "extractedData": {} (field set to empty)
-
-        This matches Go SDK behavior where map[string]any{} serializes as {}.
+        Cross-SDK parity: JS SDK always includes extractedData as {}.
         """
-        # None → omitted
-        obs_none = Observation(id="o1", session_id="s1", project_path="/p", extracted_data=None)
-        d_none = obs_none.to_dict()
-        assert "extractedData" not in d_none
+        # Default (empty dict) → included
+        obs_default = Observation(id="o1", session_id="s1", project_path="/p")
+        d_default = obs_default.to_dict()
+        assert d_default["extractedData"] == {}
 
         # Empty dict → included
         obs_empty = Observation(id="o1", session_id="s1", project_path="/p", extracted_data={})
         d_empty = obs_empty.to_dict()
-        assert "extractedData" in d_empty
         assert d_empty["extractedData"] == {}
 
         # Non-empty dict → included with data
