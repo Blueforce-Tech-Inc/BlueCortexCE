@@ -205,10 +205,10 @@ class SearchResult:
     @classmethod
     def from_wire(cls, data: dict) -> SearchResult:
         return cls(
-            observations=[Observation.from_wire(o) for o in data.get("observations", [])],
+            observations=[Observation.from_wire(o) for o in data.get("observations") or []],
             strategy=data.get("strategy") or "",
-            fell_back=data.get("fell_back", False),
-            count=data.get("count", 0),
+            fell_back=bool(data.get("fell_back", False)),
+            count=_to_int(data.get("count"), 0),
         )
 
 
@@ -228,11 +228,11 @@ class ObservationsResponse:
     @classmethod
     def from_wire(cls, data: dict) -> ObservationsResponse:
         return cls(
-            items=[Observation.from_wire(o) for o in data.get("items", [])],
-            has_more=data.get("has_more", data.get("hasMore", False)),
-            total=data.get("total", 0),
-            offset=data.get("offset", 0),
-            limit=data.get("limit", 0),
+            items=[Observation.from_wire(o) for o in data.get("items") or []],
+            has_more=bool(data.get("has_more") if data.get("has_more") is not None else data.get("hasMore", False)),
+            total=_to_int(data.get("total"), 0),
+            offset=_to_int(data.get("offset"), 0),
+            limit=_to_int(data.get("limit"), 0),
         )
 
 
@@ -246,8 +246,8 @@ class BatchObservationsResponse:
     @classmethod
     def from_wire(cls, data: dict) -> BatchObservationsResponse:
         return cls(
-            observations=[Observation.from_wire(o) for o in data.get("observations", [])],
-            count=data.get("count", 0),
+            observations=[Observation.from_wire(o) for o in data.get("observations") or []],
+            count=_to_int(data.get("count"), 0),
         )
 
 
@@ -272,10 +272,10 @@ class QualityDistribution:
     def from_wire(cls, data: dict) -> QualityDistribution:
         return cls(
             project=data.get("project") or "",
-            high=data.get("high", 0),
-            medium=data.get("medium", 0),
-            low=data.get("low", 0),
-            unknown=data.get("unknown", 0),
+            high=_to_int(data.get("high"), 0),
+            medium=_to_int(data.get("medium"), 0),
+            low=_to_int(data.get("low"), 0),
+            unknown=_to_int(data.get("unknown"), 0),
         )
 
 
@@ -302,7 +302,7 @@ class ExtractionResult:
             message=data.get("message") or "",
             session_id=data.get("sessionId") or "",
             extracted_data=data.get("extractedData"),
-            created_at=_to_int(data.get("createdAt", 0)),
+            created_at=_to_int(data.get("createdAt"), 0),
             observation_id=data.get("observationId") or "",
         )
 
@@ -363,18 +363,18 @@ class StatsResponse:
 
     @classmethod
     def from_wire(cls, data: dict) -> StatsResponse:
-        w = data.get("worker", {})
-        d = data.get("database", {})
+        w = data.get("worker") or {}
+        d = data.get("database") or {}
         return cls(
             worker=WorkerStats(
-                is_processing=w.get("isProcessing", False),
-                queue_depth=w.get("queueDepth", 0),
+                is_processing=bool(w.get("isProcessing", False)),
+                queue_depth=_to_int(w.get("queueDepth"), 0),
             ),
             database=DatabaseStats(
-                total_observations=d.get("totalObservations", 0),
-                total_summaries=d.get("totalSummaries", 0),
-                total_sessions=d.get("totalSessions", 0),
-                total_projects=d.get("totalProjects", 0),
+                total_observations=_to_int(d.get("totalObservations"), 0),
+                total_summaries=_to_int(d.get("totalSummaries"), 0),
+                total_sessions=_to_int(d.get("totalSessions"), 0),
+                total_projects=_to_int(d.get("totalProjects"), 0),
             ),
         )
 

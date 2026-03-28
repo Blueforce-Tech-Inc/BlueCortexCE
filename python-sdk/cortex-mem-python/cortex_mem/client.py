@@ -248,7 +248,7 @@ class CortexMemClient:
             body["tool_response"] = tool_response
         if prompt_number:
             body["prompt_number"] = prompt_number
-        if source:
+        if source:  # Omit if empty — backend treats empty string differently from null
             body["source"] = source
         if extracted_data is not None:
             body["extractedData"] = extracted_data

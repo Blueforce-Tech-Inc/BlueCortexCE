@@ -318,3 +318,44 @@ class TestDTOFromWire:
         assert er.session_id == ""
         assert er.extracted_data is None  # Optional field — None is correct
         assert er.observation_id == ""
+
+    def test_icl_prompt_result_from_wire_null_strings(self):
+        """Backend may return null for string fields in ICLPromptResult."""
+        data = {"prompt": None, "experienceCount": None, "maxChars": None}
+        result = ICLPromptResult.from_wire(data)
+        assert result.prompt == ""
+        assert result.experience_count == 0
+        assert result.max_chars == 0
+
+    def test_search_result_from_wire_null_strategy(self):
+        """SearchResult should handle null strategy gracefully."""
+        data = {"observations": [], "strategy": None, "fell_back": None, "count": None}
+        sr = SearchResult.from_wire(data)
+        assert sr.strategy == ""
+        assert sr.count == 0  # _to_int(None) → 0, but count uses data.get("count", 0) directly
+
+    def test_quality_distribution_from_wire_null_project(self):
+        """QualityDistribution should handle null project gracefully."""
+        data = {"project": None, "high": None, "medium": None, "low": None, "unknown": None}
+        qd = QualityDistribution.from_wire(data)
+        assert qd.project == ""
+        # None values for int fields default to 0 via data.get("high", 0)
+        assert qd.total == 0
+
+    def test_version_response_from_wire_null_strings(self):
+        """VersionResponse should handle null string fields."""
+        data = {"version": None, "service": None, "java": None, "springBoot": None}
+        vr = VersionResponse.from_wire(data)
+        assert vr.version == ""
+        assert vr.service == ""
+        assert vr.java == ""
+        assert vr.spring_boot == ""
+
+    def test_modes_response_from_wire_null_lists(self):
+        """ModesResponse should handle null list fields."""
+        data = {"id": None, "name": None, "observation_types": None, "observation_concepts": None}
+        mr = ModesResponse.from_wire(data)
+        assert mr.id == ""
+        assert mr.name == ""
+        assert mr.observation_types == []
+        assert mr.observation_concepts == []
