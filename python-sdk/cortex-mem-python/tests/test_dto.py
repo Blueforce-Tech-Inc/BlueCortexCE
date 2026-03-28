@@ -112,6 +112,7 @@ class TestDTOFromWire:
             "facts": ["f1"],
             "concepts": ["c1"],
             "quality_score": 0.9,
+            "feedback_type": "SUCCESS",
             "source": "manual",
             "extractedData": {"key": "val"},
             "prompt_number": 5,
@@ -124,6 +125,7 @@ class TestDTOFromWire:
         assert obs.project_path == "/p"
         assert obs.content == "Content"
         assert obs.quality_score == 0.9
+        assert obs.feedback_type == "SUCCESS"  # SNAKE_CASE wire field → snake_case attribute
         assert obs.extracted_data == {"key": "val"}
         assert obs.prompt_number == 5
         assert obs.created_at_epoch == 1710000000
@@ -186,6 +188,22 @@ class TestDTOFromWire:
         assert d["quality_score"] == 0.8
         assert d["prompt_number"] == 3
 
+    def test_observation_to_dict_with_feedback_type(self):
+        """to_dict() should include feedback_type in wire format when set."""
+        obs = Observation(
+            id="o1",
+            session_id="s1",
+            project_path="/tmp",
+            type="fact",
+            feedback_type="SUCCESS",
+            quality_score=0.85,
+            source="verified",
+        )
+        d = obs.to_dict()
+        assert d["feedback_type"] == "SUCCESS"
+        assert d["quality_score"] == 0.85
+        assert d["source"] == "verified"
+
     def test_observation_to_dict_omits_falsy(self):
         """to_dict() should omit empty optional fields (matching Go SDK omitempty behavior)."""
         obs = Observation(id="o1", session_id="s1", project_path="/tmp", type="fact")
@@ -194,6 +212,7 @@ class TestDTOFromWire:
         assert "title" not in d
         assert "subtitle" not in d
         assert "source" not in d
+        assert "feedback_type" not in d
         assert "extractedData" not in d
         assert "quality_score" not in d  # Go: omitempty
         assert "prompt_number" not in d  # Go: omitempty

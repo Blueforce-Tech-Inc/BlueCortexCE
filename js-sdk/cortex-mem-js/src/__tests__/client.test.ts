@@ -1042,6 +1042,8 @@ describe('parseObservation', () => {
     expect(obs.createdAtEpoch).toBe(1700000000);
     expect(obs.extractedData).toEqual({ key: 'val' });
     expect(obs.feedbackType).toBe('SUCCESS');
+    // Verify feedback_type wire → canonical field mapping
+    expect(obs.feedbackType).toBe(raw.feedback_type);
   });
 
   it('should handle missing optional fields', () => {
