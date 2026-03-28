@@ -3,6 +3,31 @@
 // ============================================================
 
 /**
+ * Client-side validation error (thrown before any HTTP request is made).
+ * Use {@link isValidationError} to distinguish from API responses.
+ */
+export class ValidationError extends Error {
+  /** The field that failed validation (e.g., "observationId"). */
+  public readonly field: string;
+
+  constructor(field: string, message: string) {
+    super(`cortex-ce: validation error on ${field}: ${message}`);
+    this.name = 'ValidationError';
+    this.field = field;
+    Object.setPrototypeOf(this, ValidationError.prototype);
+  }
+
+  /** Structured JSON representation for logging and serialization. */
+  toJSON(): Record<string, unknown> {
+    return {
+      name: this.name,
+      field: this.field,
+      message: this.message,
+    };
+  }
+}
+
+/**
  * API error returned by the Cortex CE backend.
  */
 export class APIError extends Error {
@@ -30,6 +55,11 @@ export class APIError extends Error {
 }
 
 // Error predicate functions
+
+/** Returns true if the error is a client-side validation error (no HTTP request was made). */
+export function isValidationError(err: unknown): boolean {
+  return err instanceof ValidationError;
+}
 
 /** Returns true if the error is a 400 Bad Request. */
 export function isBadRequest(err: unknown): boolean {
@@ -74,6 +104,21 @@ export function isClientError(err: unknown): boolean {
 /** Returns true if the error is a 5xx server error. */
 export function isServerError(err: unknown): boolean {
   return err instanceof APIError && err.statusCode >= 500;
+}
+
+/** Returns true if the error is a 502 Bad Gateway. */
+export function isBadGateway(err: unknown): boolean {
+  return err instanceof APIError && err.statusCode === 502;
+}
+
+/** Returns true if the error is a 503 Service Unavailable. */
+export function isServiceUnavailable(err: unknown): boolean {
+  return err instanceof APIError && err.statusCode === 503;
+}
+
+/** Returns true if the error is a 504 Gateway Timeout. */
+export function isGatewayTimeout(err: unknown): boolean {
+  return err instanceof APIError && err.statusCode === 504;
 }
 
 /**

@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { CortexMemClient, APIError, isNotFound, isRateLimited, isRetryable, isForbidden, isUnprocessable, isConflict, isBadRequest, isUnauthorized, isClientError, isServerError, parseObservation, parseExperience, parseExtractionResult, parseICLPromptResult, parseStatsResponse, parseWorkerStats, parseDatabaseStats } from '../index';
+import { CortexMemClient, APIError, ValidationError, isValidationError, isNotFound, isRateLimited, isRetryable, isForbidden, isUnprocessable, isConflict, isBadRequest, isUnauthorized, isClientError, isServerError, isBadGateway, isServiceUnavailable, isGatewayTimeout, parseObservation, parseExperience, parseExtractionResult, parseICLPromptResult, parseStatsResponse, parseWorkerStats, parseDatabaseStats } from '../index';
 
 // Mock fetch
 function mockFetch(status: number, body: unknown): typeof globalThis.fetch {
@@ -75,13 +75,13 @@ describe('CortexMemClient', () => {
     it('should throw on missing session_id', async () => {
       await expect(
         client.startSession({ session_id: '', project_path: '/tmp' }),
-      ).rejects.toThrow('session_id is required');
+      ).rejects.toThrow('session_id');
     });
 
     it('should reject whitespace-only session_id', async () => {
       await expect(
         client.startSession({ session_id: '   ', project_path: '/tmp' }),
-      ).rejects.toThrow('session_id is required');
+      ).rejects.toThrow('session_id');
     });
   });
 
@@ -109,11 +109,11 @@ describe('CortexMemClient', () => {
     });
 
     it('should throw on missing userId', async () => {
-      await expect(client.updateSessionUserId('sess-1', '')).rejects.toThrow('userId is required');
+      await expect(client.updateSessionUserId('sess-1', '')).rejects.toThrow('userId');
     });
 
     it('should throw on whitespace-only userId', async () => {
-      await expect(client.updateSessionUserId('sess-1', '   ')).rejects.toThrow('userId is required');
+      await expect(client.updateSessionUserId('sess-1', '   ')).rejects.toThrow('userId');
     });
   });
 
@@ -133,13 +133,13 @@ describe('CortexMemClient', () => {
     it('should throw on missing session_id', async () => {
       await expect(
         client.recordObservation({ session_id: '', cwd: '/tmp', tool_name: 'Read' }),
-      ).rejects.toThrow('session_id is required');
+      ).rejects.toThrow('session_id');
     });
 
     it('should reject whitespace-only session_id', async () => {
       await expect(
         client.recordObservation({ session_id: '   ', cwd: '/tmp', tool_name: 'Read' }),
-      ).rejects.toThrow('session_id is required');
+      ).rejects.toThrow('session_id');
     });
   });
 
@@ -169,7 +169,7 @@ describe('CortexMemClient', () => {
     it('should throw on missing prompt_text', async () => {
       await expect(
         client.recordUserPrompt({ session_id: 's1', prompt_text: '', cwd: '/tmp' }),
-      ).rejects.toThrow('prompt_text is required');
+      ).rejects.toThrow('prompt_text');
     });
   });
 
@@ -211,7 +211,7 @@ describe('CortexMemClient', () => {
     });
 
     it('should throw on missing task', async () => {
-      await expect(client.buildICLPrompt({ task: '' })).rejects.toThrow('task is required');
+      await expect(client.buildICLPrompt({ task: '' })).rejects.toThrow('task');
     });
   });
 
@@ -293,7 +293,7 @@ describe('CortexMemClient', () => {
     });
 
     it('should throw on missing project', async () => {
-      await expect(client.search({ project: '' })).rejects.toThrow('project is required');
+      await expect(client.search({ project: '' })).rejects.toThrow('project');
     });
 
     it('should remap fell_back wire field to fellBack', async () => {
@@ -389,7 +389,7 @@ describe('CortexMemClient', () => {
     });
 
     it('should reject empty ids', async () => {
-      await expect(client.getObservationsByIds([])).rejects.toThrow('ids must not be empty');
+      await expect(client.getObservationsByIds([])).rejects.toThrow('ids');
     });
 
     it('should reject > 100 ids', async () => {
@@ -398,11 +398,11 @@ describe('CortexMemClient', () => {
     });
 
     it('should reject empty string in ids', async () => {
-      await expect(client.getObservationsByIds(['valid', ''])).rejects.toThrow('ids[1] is empty');
+      await expect(client.getObservationsByIds(['valid', ''])).rejects.toThrow('ids[1]');
     });
 
     it('should reject whitespace-only string in ids', async () => {
-      await expect(client.getObservationsByIds(['valid', '   '])).rejects.toThrow('ids[1] is empty');
+      await expect(client.getObservationsByIds(['valid', '   '])).rejects.toThrow('ids[1]');
     });
   });
 
@@ -630,7 +630,7 @@ describe('CortexMemClient', () => {
     });
 
     it('should reject negative limit', async () => {
-      await expect(client.getExtractionHistory('/tmp', 't', undefined, -1)).rejects.toThrow('limit must not be negative');
+      await expect(client.getExtractionHistory('/tmp', 't', undefined, -1)).rejects.toThrow('limit');
     });
   });
 
@@ -1535,5 +1535,85 @@ describe('camelCase wire format fallback', () => {
     expect(exp.reuseCondition).toBe('camel condition');
     expect(exp.qualityScore).toBe(0.8);
     expect(exp.createdAt).toBe('2026-06-15');
+  });
+});
+
+// ==================== ValidationError ====================
+
+describe('ValidationError', () => {
+  it('should be thrown for missing required fields', async () => {
+    const c = new CortexMemClient();
+    try {
+      await c.startSession({ session_id: '', project_path: '/tmp' });
+      expect.unreachable('should have thrown');
+    } catch (err) {
+      expect(err).toBeInstanceOf(ValidationError);
+      expect(isValidationError(err)).toBe(true);
+      expect((err as ValidationError).field).toBe('session_id');
+    }
+  });
+
+  it('should serialize to JSON with structured fields', () => {
+    const err = new ValidationError('observationId', 'is required');
+    const json = err.toJSON();
+    expect(json.name).toBe('ValidationError');
+    expect(json.field).toBe('observationId');
+    expect(json.message).toContain('is required');
+  });
+
+  it('should not be an APIError', () => {
+    const err = new ValidationError('field', 'msg');
+    expect(err).not.toBeInstanceOf(APIError);
+  });
+
+  it('isValidationError should return false for APIError', () => {
+    const apiErr = new APIError(400, 'bad request');
+    expect(isValidationError(apiErr)).toBe(false);
+  });
+});
+
+// ==================== Specific 5xx predicates ====================
+
+describe('5xx error predicates', () => {
+  it('should detect 502 Bad Gateway', async () => {
+    const f = mockFetch(502, { error: 'bad gateway' });
+    const c = new CortexMemClient({ fetch: f as unknown as typeof globalThis.fetch });
+    try { await c.healthCheck(); } catch (err) {
+      expect(isBadGateway(err)).toBe(true);
+      expect(isServerError(err)).toBe(true);
+      expect(isRetryable(err)).toBe(true);
+    }
+  });
+
+  it('should detect 503 Service Unavailable', async () => {
+    const f = mockFetch(503, { error: 'unavailable' });
+    const c = new CortexMemClient({ fetch: f as unknown as typeof globalThis.fetch });
+    try { await c.healthCheck(); } catch (err) {
+      expect(isServiceUnavailable(err)).toBe(true);
+      expect(isServerError(err)).toBe(true);
+      expect(isRetryable(err)).toBe(true);
+    }
+  });
+
+  it('should detect 504 Gateway Timeout', async () => {
+    const f = mockFetch(504, { error: 'timeout' });
+    const c = new CortexMemClient({ fetch: f as unknown as typeof globalThis.fetch });
+    try { await c.healthCheck(); } catch (err) {
+      expect(isGatewayTimeout(err)).toBe(true);
+      expect(isServerError(err)).toBe(true);
+      expect(isRetryable(err)).toBe(true);
+    }
+  });
+
+  it('isBadGateway should return false for non-APIError', () => {
+    expect(isBadGateway(new Error('network'))).toBe(false);
+  });
+
+  it('isServiceUnavailable should return false for non-APIError', () => {
+    expect(isServiceUnavailable(new Error('network'))).toBe(false);
+  });
+
+  it('isGatewayTimeout should return false for non-APIError', () => {
+    expect(isGatewayTimeout(new Error('network'))).toBe(false);
   });
 });

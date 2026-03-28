@@ -12,7 +12,9 @@ export { SDK_VERSION } from './client-options';
 
 // Errors
 export {
+  ValidationError,
   APIError,
+  isValidationError,
   isBadRequest,
   isUnauthorized,
   isForbidden,
@@ -22,6 +24,9 @@ export {
   isRateLimited,
   isClientError,
   isServerError,
+  isBadGateway,
+  isServiceUnavailable,
+  isGatewayTimeout,
   isRetryable,
 } from './errors';
 

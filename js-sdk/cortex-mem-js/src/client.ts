@@ -2,7 +2,7 @@
 // CortexMemClient — Main client implementation
 // ============================================================
 
-import { APIError, isRetryable } from './errors';
+import { APIError, ValidationError, isRetryable } from './errors';
 import {
   type CortexMemClientOptions,
   type ResolvedClientConfig,
@@ -186,14 +186,14 @@ export class CortexMemClient {
   async getObservationsByIds(ids: string[]): Promise<BatchObservationsResponse> {
     this.assertNotClosed();
     if (!ids || ids.length === 0) {
-      throw new Error('cortex-ce: ids must not be empty');
+      throw new ValidationError('ids', 'must not be empty');
     }
     if (ids.length > 100) {
-      throw new Error(`cortex-ce: batch size exceeds maximum of 100 (got ${ids.length})`);
+      throw new ValidationError('ids', `batch size exceeds maximum of 100 (got ${ids.length})`);
     }
     for (let i = 0; i < ids.length; i++) {
       if (!ids[i] || !ids[i].trim()) {
-        throw new Error(`cortex-ce: ids[${i}] is empty`);
+        throw new ValidationError(`ids[${i}]`, 'is empty');
       }
     }
     const raw = await this.requestJSON<unknown>(
@@ -244,7 +244,7 @@ export class CortexMemClient {
     // Validate at least one field is set (PATCH semantics: empty update is a no-op).
     const hasField = Object.values(update).some(v => v !== undefined && v !== null);
     if (!hasField) {
-      throw new Error('cortex-ce: at least one field must be provided for update');
+      throw new ValidationError('update', 'at least one field must be provided for update');
     }
     await this.requestNoContent(
       'PATCH',
@@ -347,7 +347,7 @@ export class CortexMemClient {
     this.validateRequired('projectPath', projectPath);
     this.validateRequired('templateName', templateName);
     if (limit !== undefined && limit < 0) {
-      throw new Error('cortex-ce: limit must not be negative');
+      throw new ValidationError('limit', 'must not be negative');
     }
     const params: Record<string, string> = { projectPath };
     if (userId) params.userId = userId;
@@ -444,7 +444,7 @@ export class CortexMemClient {
 
   private validateRequired(field: string, value: string | undefined): void {
     if (!value || !value.trim()) {
-      throw new Error(`cortex-ce: ${field} is required`);
+      throw new ValidationError(field, 'is required');
     }
   }
 
