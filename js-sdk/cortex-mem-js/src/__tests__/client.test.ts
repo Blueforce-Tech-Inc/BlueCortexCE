@@ -445,6 +445,26 @@ describe('CortexMemClient', () => {
       // Should NOT make HTTP call
       expect(fetchMock).not.toHaveBeenCalled();
     });
+
+    it('should reject update with all-undefined fields', async () => {
+      fetchMock = mockFetch(204, null);
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+
+      await expect(
+        client.updateObservation('obs-1', { title: undefined, content: undefined, source: undefined }),
+      ).rejects.toThrow('at least one field');
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('should reject update with all-null fields', async () => {
+      fetchMock = mockFetch(204, null);
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+
+      await expect(
+        client.updateObservation('obs-1', { title: null as unknown as string, content: null as unknown as string }),
+      ).rejects.toThrow('at least one field');
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
   });
 
   describe('deleteObservation', () => {

@@ -497,7 +497,8 @@ export class CortexMemClient {
       const maxSize = 10 * 1024 * 1024;
       const reader = resp.body?.getReader();
       if (!reader) {
-        // Fallback: resp.text() (for environments without ReadableStream)
+        // Fallback: resp.text() — used when resp.body is null (e.g. 204 No Content)
+        // or in environments without ReadableStream support.
         const text = await resp.text();
         if (text.length > maxSize) {
           throw new Error('cortex-ce: response body exceeds 10MB limit');
