@@ -2,7 +2,7 @@
 // Observation DTOs
 // ============================================================
 
-import { safeString, safeStringOr, safeNumber, safeStringArray } from './wire-helpers';
+import { safeString, safeStringOr, safeNumber, safeStringArray, safeRecord } from './wire-helpers';
 
 /**
  * Request to record a tool-use observation.
@@ -91,9 +91,7 @@ export function parseObservation(raw: Record<string, unknown>): Observation {
     concepts: safeStringArray(raw.concepts),
     qualityScore: safeNumber(raw.quality_score),
     source: safeString(raw.source),
-    extractedData: (raw.extractedData !== null && raw.extractedData !== undefined)
-      ? raw.extractedData as Record<string, unknown>
-      : undefined,
+    extractedData: safeRecord(raw.extractedData),
     promptNumber: safeNumber(raw.prompt_number),
     createdAt: safeString(raw.created_at),
     createdAtEpoch: safeNumber(raw.created_at_epoch),

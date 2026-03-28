@@ -1119,6 +1119,17 @@ describe('parseObservation', () => {
     const obs = parseObservation(raw);
     expect(obs.facts).toEqual(['valid', '42', '']);
   });
+
+  it('should handle non-object extractedData', () => {
+    const raw1 = { id: 'o1', extractedData: 'not-an-object' };
+    expect(parseObservation(raw1).extractedData).toBeUndefined();
+
+    const raw2 = { id: 'o2', extractedData: 42 };
+    expect(parseObservation(raw2).extractedData).toBeUndefined();
+
+    const raw3 = { id: 'o3', extractedData: ['array'] };
+    expect(parseObservation(raw3).extractedData).toBeUndefined();
+  });
 });
 
 // ==================== parseExtractionResult ====================
