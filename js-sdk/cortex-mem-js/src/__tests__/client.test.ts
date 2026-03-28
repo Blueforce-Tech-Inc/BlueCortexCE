@@ -1283,3 +1283,83 @@ describe('safeRecord edge cases', () => {
     expect(obs.extractedData).toEqual({ key: 'val' });
   });
 });
+
+// ==================== camelCase wire format fallback ====================
+
+describe('camelCase wire format fallback', () => {
+  it('parseObservation should prefer snake_case over camelCase', () => {
+    // When both snake_case and camelCase are present, snake_case wins
+    const raw = {
+      id: 'o1',
+      content_session_id: 'sess-snake',
+      sessionId: 'sess-camel',
+      quality_score: 0.9,
+      qualityScore: 0.1,
+      feedback_type: 'SUCCESS',
+      feedbackType: 'FAILURE',
+      created_at: '2026-01-01',
+      createdAt: '2025-01-01',
+    };
+    const obs = parseObservation(raw);
+    expect(obs.sessionId).toBe('sess-snake');
+    expect(obs.qualityScore).toBe(0.9);
+    expect(obs.feedbackType).toBe('SUCCESS');
+    expect(obs.createdAt).toBe('2026-01-01');
+  });
+
+  it('parseObservation should fall back to camelCase when snake_case is absent', () => {
+    const raw = {
+      id: 'o1',
+      sessionId: 'sess-camel',
+      qualityScore: 0.75,
+      feedbackType: 'PARTIAL',
+      feedbackUpdatedAt: '2026-02-01',
+      promptNumber: 5,
+      createdAt: '2026-01-15',
+      createdAtEpoch: 1700000000,
+      lastAccessedAt: '2026-03-01',
+      filesRead: ['a.ts', 'b.ts'],
+      filesModified: ['c.ts'],
+    };
+    const obs = parseObservation(raw);
+    expect(obs.sessionId).toBe('sess-camel');
+    expect(obs.qualityScore).toBe(0.75);
+    expect(obs.feedbackType).toBe('PARTIAL');
+    expect(obs.feedbackUpdatedAt).toBe('2026-02-01');
+    expect(obs.promptNumber).toBe(5);
+    expect(obs.createdAt).toBe('2026-01-15');
+    expect(obs.createdAtEpoch).toBe(1700000000);
+    expect(obs.lastAccessedAt).toBe('2026-03-01');
+    expect(obs.filesRead).toEqual(['a.ts', 'b.ts']);
+    expect(obs.filesModified).toEqual(['c.ts']);
+  });
+
+  it('parseExperience should prefer snake_case over camelCase', () => {
+    const raw = {
+      id: 'e1', task: 't', strategy: 's', outcome: 'o',
+      reuse_condition: 'snake',
+      reuseCondition: 'camel',
+      quality_score: 0.9,
+      qualityScore: 0.1,
+      created_at: '2026-01-01',
+      createdAt: '2025-01-01',
+    };
+    const exp = parseExperience(raw);
+    expect(exp.reuseCondition).toBe('snake');
+    expect(exp.qualityScore).toBe(0.9);
+    expect(exp.createdAt).toBe('2026-01-01');
+  });
+
+  it('parseExperience should fall back to camelCase when snake_case is absent', () => {
+    const raw = {
+      id: 'e1', task: 't', strategy: 's', outcome: 'o',
+      reuseCondition: 'camel condition',
+      qualityScore: 0.8,
+      createdAt: '2026-06-15',
+    };
+    const exp = parseExperience(raw);
+    expect(exp.reuseCondition).toBe('camel condition');
+    expect(exp.qualityScore).toBe(0.8);
+    expect(exp.createdAt).toBe('2026-06-15');
+  });
+});

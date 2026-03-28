@@ -5,6 +5,18 @@
 import { safeString, safeStringOr, safeNumber, safeStringArray, safeRecord } from './wire-helpers';
 
 /**
+ * Check multiple key variants, return first non-null value.
+ * Handles backend SNAKE_CASE output with camelCase fallback.
+ */
+function firstNonNullOr(raw: Record<string, unknown>, keys: string[]): unknown {
+  for (const key of keys) {
+    const val = raw[key];
+    if (val !== null && val !== undefined) return val;
+  }
+  return undefined;
+}
+
+/**
  * Request to record a tool-use observation.
  * POST /api/ingest/tool-use
  *
@@ -92,24 +104,24 @@ export interface Observation {
 export function parseObservation(raw: Record<string, unknown>): Observation {
   return {
     id: safeStringOr(raw.id, ''),
-    sessionId: safeStringOr(raw.content_session_id, ''),
-    projectPath: safeStringOr(raw.project, ''),
+    sessionId: safeStringOr(firstNonNullOr(raw, ['content_session_id', 'sessionId']) as string, ''),
+    projectPath: safeStringOr(firstNonNullOr(raw, ['project', 'projectPath']) as string, ''),
     type: safeStringOr(raw.type, ''),
     title: safeString(raw.title),
     subtitle: safeString(raw.subtitle),
-    content: safeStringOr(raw.narrative, ''),
+    content: safeStringOr(firstNonNullOr(raw, ['narrative', 'content']) as string, ''),
     facts: safeStringArray(raw.facts),
     concepts: safeStringArray(raw.concepts),
-    filesRead: safeStringArray(raw.files_read),
-    filesModified: safeStringArray(raw.files_modified),
-    qualityScore: safeNumber(raw.quality_score),
-    feedbackType: safeString(raw.feedback_type),
-    feedbackUpdatedAt: safeString(raw.feedback_updated_at),
+    filesRead: safeStringArray(firstNonNullOr(raw, ['files_read', 'filesRead'])),
+    filesModified: safeStringArray(firstNonNullOr(raw, ['files_modified', 'filesModified'])),
+    qualityScore: safeNumber(firstNonNullOr(raw, ['quality_score', 'qualityScore'])),
+    feedbackType: safeString(firstNonNullOr(raw, ['feedback_type', 'feedbackType'])),
+    feedbackUpdatedAt: safeString(firstNonNullOr(raw, ['feedback_updated_at', 'feedbackUpdatedAt'])),
     source: safeString(raw.source),
     extractedData: safeRecord(raw.extractedData) ?? {},
-    promptNumber: safeNumber(raw.prompt_number),
-    createdAt: safeString(raw.created_at),
-    createdAtEpoch: safeNumber(raw.created_at_epoch),
-    lastAccessedAt: safeString(raw.last_accessed_at),
+    promptNumber: safeNumber(firstNonNullOr(raw, ['prompt_number', 'promptNumber'])),
+    createdAt: safeString(firstNonNullOr(raw, ['created_at', 'createdAt'])),
+    createdAtEpoch: safeNumber(firstNonNullOr(raw, ['created_at_epoch', 'createdAtEpoch'])),
+    lastAccessedAt: safeString(firstNonNullOr(raw, ['last_accessed_at', 'lastAccessedAt'])),
   };
 }

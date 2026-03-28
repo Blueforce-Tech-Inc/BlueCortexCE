@@ -5,20 +5,17 @@
 import { safeStringOr, safeNumberOr, safeString } from './wire-helpers';
 
 /**
- * Safely extract a string from wire data, checking multiple key variants.
+ * Safely extract a value from wire data, checking multiple key variants.
  * Handles Jackson SNAKE_CASE output with camelCase fallback.
  */
-function firstNonNullOr(
+function firstNonNullOr<T>(
   raw: Record<string, unknown>,
   keys: string[],
-  fallback: string,
-): string {
+  fallback: T,
+): T {
   for (const key of keys) {
     const val = raw[key];
-    if (val !== null && val !== undefined) {
-      if (typeof val === 'string') return val || fallback;
-      return String(val);
-    }
+    if (val !== null && val !== undefined) return val as T;
   }
   return fallback;
 }
@@ -68,8 +65,8 @@ export function parseExperience(raw: Record<string, unknown>): Experience {
     strategy: safeStringOr(raw.strategy, ''),
     outcome: safeStringOr(raw.outcome, ''),
     reuseCondition: firstNonNullOr(raw, ['reuse_condition', 'reuseCondition'], ''),
-    qualityScore: safeNumberOr(raw.quality_score, 0),
-    createdAt: safeString(raw.created_at),
+    qualityScore: safeNumberOr(firstNonNullOr(raw, ['quality_score', 'qualityScore'], 0), 0),
+    createdAt: safeString(firstNonNullOr(raw, ['created_at', 'createdAt'], undefined)),
   };
 }
 
