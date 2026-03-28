@@ -143,7 +143,8 @@ class DtoTest {
         Map<String, Object> wire = req.toWireFormat();
         assertThat(wire).containsEntry("session_id", "sess-001");
         assertThat(wire).containsEntry("project_path", "/my/project");
-        assertThat(wire).containsEntry("cwd", "/my/project");
+        // SessionStartRequest only sends project_path (not cwd) — backend uses project_path as primary.
+        assertThat(wire).doesNotContainKey("cwd");
         assertThat(wire).containsEntry("user_id", "alice");
     }
 
@@ -157,7 +158,8 @@ class DtoTest {
         Map<String, Object> wire = req.toWireFormat();
         assertThat(wire).doesNotContainKey("user_id");
         assertThat(wire).containsEntry("session_id", "sess-002");
-        assertThat(wire).containsEntry("cwd", "/proj");
+        assertThat(wire).containsEntry("project_path", "/proj");
+        assertThat(wire).doesNotContainKey("cwd");
     }
 
     @Test

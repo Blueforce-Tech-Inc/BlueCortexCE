@@ -40,8 +40,9 @@ public record SessionStartRequest(
     public Map<String, Object> toWireFormat() {
         var map = new HashMap<String, Object>();
         map.put("session_id", sessionId);
+        // Backend accepts project_path as primary field (falls back to cwd if absent).
+        // Only send project_path to avoid redundant wire data (matches Go SDK behavior).
         map.put("project_path", projectPath);
-        map.put("cwd", projectPath);
         if (userId != null) {
             map.put("user_id", userId);
         }
