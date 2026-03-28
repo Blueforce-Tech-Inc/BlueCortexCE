@@ -166,8 +166,8 @@ class CortexMemClientImplTest {
     void retrieveExperiences_returnsList() throws Exception {
         String json = """
             [
-              {"id":"a","task":"t1","strategy":"s1","outcome":"o1","reuseCondition":"","qualityScore":0.9,"createdAt":"2026-01-01T00:00:00Z"},
-              {"id":"b","task":"t2","strategy":"s2","outcome":"o2","reuseCondition":"","qualityScore":0.8,"createdAt":"2026-01-02T00:00:00Z"}
+              {"id":"a","task":"t1","strategy":"s1","outcome":"o1","reuse_condition":"","quality_score":0.9,"created_at":"2026-01-01T00:00:00Z"},
+              {"id":"b","task":"t2","strategy":"s2","outcome":"o2","reuse_condition":"","quality_score":0.8,"created_at":"2026-01-02T00:00:00Z"}
             ]""";
         server.enqueue(new MockResponse()
             .setBody(json)
