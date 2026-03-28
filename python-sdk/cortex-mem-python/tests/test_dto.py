@@ -17,6 +17,8 @@ from cortex_mem.dto import (
     SessionStartResponse,
     _to_int,
     _to_float,
+    _to_str_list,
+    _to_dict,
 )
 
 
@@ -59,6 +61,47 @@ class TestTypeConversionHelpers:
 
     def test_to_float_with_none(self):
         assert _to_float(None) == 0.0
+
+    def test_to_str_list_with_valid_list(self):
+        assert _to_str_list(["a", "b", "c"]) == ["a", "b", "c"]
+
+    def test_to_str_list_with_none(self):
+        assert _to_str_list(None) == []
+
+    def test_to_str_list_with_none_default(self):
+        assert _to_str_list(None, default=["x"]) == ["x"]
+
+    def test_to_str_list_with_string_instead_of_list(self):
+        """If backend returns a string instead of array, return default."""
+        assert _to_str_list("not a list") == []
+
+    def test_to_str_list_with_number(self):
+        """If backend returns a number instead of array, return default."""
+        assert _to_str_list(42) == []
+
+    def test_to_str_list_with_mixed_types(self):
+        """Non-string items should be converted via str()."""
+        assert _to_str_list(["a", 1, True, None, "b"]) == ["a", "1", "True", "b"]
+
+    def test_to_str_list_with_empty_list(self):
+        assert _to_str_list([]) == []
+
+    def test_to_dict_with_valid_dict(self):
+        assert _to_dict({"key": "val"}) == {"key": "val"}
+
+    def test_to_dict_with_none(self):
+        assert _to_dict(None) == {}
+
+    def test_to_dict_with_none_default(self):
+        assert _to_dict(None, default={"fallback": True}) == {"fallback": True}
+
+    def test_to_dict_with_list_instead_of_dict(self):
+        """If backend returns a list instead of dict, return default."""
+        assert _to_dict([1, 2, 3]) == {}
+
+    def test_to_dict_with_string(self):
+        """If backend returns a string instead of dict, return default."""
+        assert _to_dict("not a dict") == {}
 
 
 class TestDTOFromWire:
@@ -168,6 +211,55 @@ class TestDTOFromWire:
         assert obs.quality_score == 0.0
         assert obs.prompt_number == 0
         assert obs.created_at_epoch == 0
+
+    def test_observation_from_wire_defensive_list_parsing(self):
+        """facts/concepts/files should gracefully handle non-list wire values.
+
+        Cross-SDK parity: JS SDK's safeStringArray returns undefined for non-arrays.
+        Python SDK should return [] instead of crashing.
+        """
+        data = {
+            "id": "o1",
+            "facts": "not a list",  # string instead of array
+            "concepts": 42,  # number instead of array
+            "filesRead": {"key": "val"},  # dict instead of array
+            "filesModified": True,  # bool instead of array
+        }
+        obs = Observation.from_wire(data)
+        assert obs.facts == []  # gracefully degraded
+        assert obs.concepts == []  # gracefully degraded
+        assert obs.files_read == []  # gracefully degraded
+        assert obs.files_modified == []  # gracefully degraded
+
+    def test_observation_from_wire_defensive_dict_parsing(self):
+        """extractedData should gracefully handle non-dict wire values.
+
+        Cross-SDK parity: JS SDK's safeRecord returns undefined for non-objects.
+        Python SDK should return {} instead of crashing.
+        """
+        data = {
+            "id": "o1",
+            "extractedData": "not a dict",  # string instead of object
+        }
+        obs = Observation.from_wire(data)
+        assert obs.extracted_data == {}  # gracefully degraded
+
+    def test_observation_from_wire_defensive_dict_parsing_array(self):
+        """extractedData with array value should degrade to {}."""
+        data = {"id": "o1", "extractedData": [1, 2, 3]}
+        obs = Observation.from_wire(data)
+        assert obs.extracted_data == {}
+
+    def test_observation_from_wire_mixed_type_list_items(self):
+        """Non-string items in facts/concepts should be converted via str()."""
+        data = {
+            "id": "o1",
+            "facts": ["text", 42, True, None, 3.14],
+            "concepts": ["c1"],
+        }
+        obs = Observation.from_wire(data)
+        assert obs.facts == ["text", "42", "True", "3.14"]  # None filtered out
+        assert obs.concepts == ["c1"]
 
     def test_observation_from_wire_camelcase_fallback(self):
         """CamelCase fallback for quality_score, feedback_type, prompt_number, created_at_epoch, files fields."""

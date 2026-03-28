@@ -51,6 +51,35 @@ def _to_float(v: object, default: float = 0.0) -> float:
     return default
 
 
+def _to_str_list(v: object, default: list[str] | None = None) -> list[str]:
+    """Safely convert wire value to list[str].
+
+    Returns default (or []) if v is None or not a list.
+    Converts non-string items via str() for defensive parsing.
+    Matches JS SDK's safeStringArray() for cross-SDK parity.
+    """
+    if not isinstance(v, list):
+        return default if default is not None else []
+    result: list[str] = []
+    for item in v:
+        if isinstance(item, str):
+            result.append(item)
+        elif item is not None:
+            result.append(str(item))
+    return result
+
+
+def _to_dict(v: object, default: dict | None = None) -> dict:
+    """Safely convert wire value to dict.
+
+    Returns default (or {}) if v is None, not a dict, or is a list.
+    Matches JS SDK's safeRecord() for cross-SDK parity.
+    """
+    if isinstance(v, dict):
+        return v
+    return default if default is not None else {}
+
+
 # ==================== Session ====================
 
 
@@ -287,6 +316,8 @@ class Observation:
         # Wire format uses Jackson SNAKE_CASE naming strategy.
         # Key field renames: sessionId→content_session_id, projectPath→project, content→narrative
         # Use `or ""` for string fields to handle null values from backend.
+        # List/dict fields use defensive helpers (_to_str_list, _to_dict) to guard
+        # against unexpected wire types (matches JS SDK's safeStringArray/safeRecord).
         return cls(
             id=data.get("id") or "",
             session_id=data.get("content_session_id") or "",
@@ -295,15 +326,15 @@ class Observation:
             title=data.get("title") or "",
             subtitle=data.get("subtitle") or "",
             content=data.get("narrative") or "",
-            facts=data.get("facts") or [],
-            concepts=data.get("concepts") or [],
-            files_read=_first_non_null(data, "files_read", "filesRead") or [],
-            files_modified=_first_non_null(data, "files_modified", "filesModified") or [],
+            facts=_to_str_list(data.get("facts")),
+            concepts=_to_str_list(data.get("concepts")),
+            files_read=_to_str_list(_first_non_null(data, "files_read", "filesRead")),
+            files_modified=_to_str_list(_first_non_null(data, "files_modified", "filesModified")),
             quality_score=_to_float(_first_non_null(data, "quality_score", "qualityScore")),
             feedback_type=_first_non_null(data, "feedback_type", "feedbackType") or "",
             feedback_updated_at=_first_non_null(data, "feedback_updated_at", "feedbackUpdatedAt") or "",
             source=data.get("source") or "",
-            extracted_data=data.get("extractedData") or {},
+            extracted_data=_to_dict(data.get("extractedData")),
             prompt_number=_to_int(_first_non_null(data, "prompt_number", "promptNumber")),
             created_at=_first_non_null(data, "created_at", "createdAt") or "",
             created_at_epoch=_to_int(_first_non_null(data, "created_at_epoch", "createdAtEpoch")),
