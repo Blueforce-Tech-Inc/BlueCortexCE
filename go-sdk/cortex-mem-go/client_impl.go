@@ -167,7 +167,7 @@ func (c *httpClient) doRequest(ctx context.Context, method, path string, body an
 
 	u, err := url.Parse(c.config.BaseURL + path)
 	if err != nil {
-		return nil, 0, fmt.Errorf("cortex-ce: invalid URL: %w", err)
+		return nil, 0, fmt.Errorf("cortex-ce: invalid URL %q: %w", c.config.BaseURL+path, err)
 	}
 
 	if queryParams != nil {
@@ -289,7 +289,7 @@ func extractErrorMessage(data []byte) string {
 
 // doFireAndForget executes a capture operation with retry and error swallowing.
 // Matches Java SDK's executeWithRetry behavior: retries internally, logs on failure.
-// Only retries on transient errors (network failures, 429, 5xx); skips retry on 4xx client errors.
+// Retries on network errors, 429, 502, 503, 504. Does NOT retry on 4xx or 500.
 // If the context is already cancelled, skips execution entirely (fire-and-forget optimization).
 func (c *httpClient) doFireAndForget(ctx context.Context, name string, fn func() error) error {
 	// Check context before wasting effort on an already-cancelled request
