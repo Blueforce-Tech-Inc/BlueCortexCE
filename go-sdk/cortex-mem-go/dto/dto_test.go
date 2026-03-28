@@ -627,6 +627,64 @@ func TestSessionUserUpdateResponse_Deserialization(t *testing.T) {
 	}
 }
 
+// ==================== Experience Wire Format Tests ====================
+
+func TestExperience_Deserialization(t *testing.T) {
+	// Backend uses SNAKE_CASE naming strategy for Experience fields
+	jsonData := `{"id":"exp-1","task":"handle auth","strategy":"use JWT","outcome":"success","reuse_condition":"similar auth flows","quality_score":0.85,"created_at":"2026-03-28T10:00:00Z"}`
+	var exp Experience
+	if err := json.Unmarshal([]byte(jsonData), &exp); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if exp.ID != "exp-1" {
+		t.Errorf("expected id=exp-1, got %s", exp.ID)
+	}
+	if exp.ReuseCondition != "similar auth flows" {
+		t.Errorf("expected reuse_condition='similar auth flows', got %q", exp.ReuseCondition)
+	}
+	if exp.QualityScore != 0.85 {
+		t.Errorf("expected quality_score=0.85, got %f", exp.QualityScore)
+	}
+	if exp.CreatedAt != "2026-03-28T10:00:00Z" {
+		t.Errorf("expected created_at, got %s", exp.CreatedAt)
+	}
+}
+
+// ==================== ExtractionResult Zero-Value Tests ====================
+
+func TestExtractionResult_ZeroValue_Marshal(t *testing.T) {
+	// Zero-value ExtractionResult should not include omitempty fields as empty
+	result := ExtractionResult{}
+	data, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("Marshal failed: %v", err)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	// sessionId, extractedData, createdAt, observationId are NOT omitempty — always present
+	if _, ok := decoded["sessionId"]; !ok {
+		t.Error("sessionId should always be present (not omitempty)")
+	}
+	if _, ok := decoded["extractedData"]; !ok {
+		t.Error("extractedData should always be present (not omitempty)")
+	}
+	if _, ok := decoded["observationId"]; !ok {
+		t.Error("observationId should always be present (not omitempty)")
+	}
+	// status, template, message ARE omitempty — should be absent when empty
+	if _, ok := decoded["status"]; ok {
+		t.Error("empty status should be omitted (omitempty)")
+	}
+	if _, ok := decoded["template"]; ok {
+		t.Error("empty template should be omitted (omitempty)")
+	}
+	if _, ok := decoded["message"]; ok {
+		t.Error("empty message should be omitted (omitempty)")
+	}
+}
+
 func TestSessionUserUpdateResponse_CamelCaseFields(t *testing.T) {
 	resp := SessionUserUpdateResponse{
 		Status:    "ok",
