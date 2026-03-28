@@ -866,6 +866,38 @@ describe('CortexMemClient', () => {
         expect((err as APIError).message).toContain('db timeout');
       }
     });
+
+    it('should extract error from plain JSON string body', async () => {
+      // Some backends return a plain JSON string: "not found" instead of {"error":"not found"}
+      const stringFetch = vi.fn().mockResolvedValue({
+        status: 404,
+        body: null,
+        text() { return Promise.resolve('"not found"'); },
+      });
+      const c = new CortexMemClient({ fetch: stringFetch as unknown as typeof globalThis.fetch });
+      try { await c.healthCheck(); } catch (err) {
+        expect(err).toBeInstanceOf(APIError);
+        expect((err as APIError).statusCode).toBe(404);
+        // Should contain the string directly, not JSON.stringify('"not found"')
+        expect((err as APIError).message).toContain('not found');
+        expect((err as APIError).message).not.toContain('"not found"');
+      }
+    });
+
+    it('should handle non-string primitive JSON error body', async () => {
+      // Edge case: backend returns a number or boolean as error
+      const numFetch = vi.fn().mockResolvedValue({
+        status: 500,
+        body: null,
+        text() { return Promise.resolve('42'); },
+      });
+      const c = new CortexMemClient({ fetch: numFetch as unknown as typeof globalThis.fetch });
+      try { await c.healthCheck(); } catch (err) {
+        expect(err).toBeInstanceOf(APIError);
+        // Number is not a string, so falls through to JSON.stringify
+        expect((err as APIError).message).toContain('42');
+      }
+    });
   });
 
   // ==================== Fire-and-forget ====================

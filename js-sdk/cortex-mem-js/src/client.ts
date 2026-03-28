@@ -554,10 +554,14 @@ export class CortexMemClient {
   private extractErrorMessage(text: string): string {
     if (!text) return '(empty response body)';
     try {
-      const parsed = JSON.parse(text) as Record<string, unknown>;
-      for (const key of ['error', 'message', 'detail']) {
-        const val = parsed[key];
-        if (typeof val === 'string' && val) return val;
+      const parsed = JSON.parse(text);
+      // Handle plain JSON string: "not found" → "not found"
+      if (typeof parsed === 'string') return parsed;
+      if (typeof parsed === 'object' && parsed !== null) {
+        for (const key of ['error', 'message', 'detail']) {
+          const val = (parsed as Record<string, unknown>)[key];
+          if (typeof val === 'string' && val) return val;
+        }
       }
       return JSON.stringify(parsed);
     } catch {

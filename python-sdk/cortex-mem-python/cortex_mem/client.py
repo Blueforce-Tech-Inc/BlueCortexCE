@@ -191,6 +191,10 @@ class CortexMemClient:
     ) -> SessionStartResponse:
         """Start or resume a session. POST /api/session/start."""
         self._assert_not_closed()
+        if not session_id:
+            raise ValidationError("session_id is required", field="session_id")
+        if not project_path:
+            raise ValidationError("project_path is required", field="project_path")
         body: dict[str, Any] = {
             "session_id": session_id,
             "project_path": project_path,
@@ -204,9 +208,9 @@ class CortexMemClient:
         """Update session userId. PATCH /api/session/{session_id}/user."""
         self._assert_not_closed()
         if not session_id:
-            raise ValidationError("session_id is required")
+            raise ValidationError("session_id is required", field="session_id")
         if not user_id:
-            raise ValidationError("user_id is required")
+            raise ValidationError("user_id is required", field="user_id")
         path = f"/api/session/{quote(session_id, safe='')}/user"
         return self._request_json("PATCH", path, json_body={"user_id": user_id}) or {}
 
@@ -231,7 +235,7 @@ class CortexMemClient:
         """
         self._assert_not_closed()
         if not session_id:
-            raise ValidationError("session_id is required")
+            raise ValidationError("session_id is required", field="session_id")
         body: dict[str, Any] = {
             "session_id": session_id,
             "cwd": project_path,
@@ -261,7 +265,7 @@ class CortexMemClient:
         """
         self._assert_not_closed()
         if not session_id:
-            raise ValidationError("session_id is required")
+            raise ValidationError("session_id is required", field="session_id")
         body: dict[str, Any] = {
             "session_id": session_id,
             "cwd": project_path,
@@ -283,9 +287,9 @@ class CortexMemClient:
         """
         self._assert_not_closed()
         if not session_id:
-            raise ValidationError("session_id is required")
+            raise ValidationError("session_id is required", field="session_id")
         if not prompt_text:
-            raise ValidationError("prompt_text is required")
+            raise ValidationError("prompt_text is required", field="prompt_text")
         body: dict[str, Any] = {
             "session_id": session_id,
             "prompt_text": prompt_text,
@@ -404,12 +408,12 @@ class CortexMemClient:
         """Batch get observations by IDs. POST /api/observations/batch."""
         self._assert_not_closed()
         if not ids:
-            raise ValidationError("ids must not be empty")
+            raise ValidationError("ids must not be empty", field="ids")
         if len(ids) > 100:
-            raise ValidationError(f"batch size exceeds maximum of 100 (got {len(ids)})")
+            raise ValidationError(f"batch size exceeds maximum of 100 (got {len(ids)})", field="ids")
         for i, id_ in enumerate(ids):
             if not id_ or not id_.strip():
-                raise ValidationError(f"ids[{i}] is empty")
+                raise ValidationError(f"ids[{i}] is empty", field=f"ids[{i}]")
         data = self._request_json("POST", "/api/observations/batch", json_body={"ids": ids})
         return BatchObservationsResponse.from_wire(data or {})
 
@@ -419,7 +423,7 @@ class CortexMemClient:
         """Trigger memory refinement. POST /api/memory/refine?project=..."""
         self._assert_not_closed()
         if not project_path:
-            raise ValidationError("project_path is required")
+            raise ValidationError("project_path is required", field="project_path")
         self._request_no_content(
             "POST", "/api/memory/refine", params={"project": project_path}
         )
@@ -436,9 +440,9 @@ class CortexMemClient:
         """
         self._assert_not_closed()
         if not observation_id:
-            raise ValidationError("observation_id is required")
+            raise ValidationError("observation_id is required", field="observation_id")
         if not feedback_type:
-            raise ValidationError("feedback_type is required")
+            raise ValidationError("feedback_type is required", field="feedback_type")
         body: dict[str, Any] = {
             "observationId": observation_id,
             "feedbackType": feedback_type,
@@ -465,19 +469,19 @@ class CortexMemClient:
         """
         self._assert_not_closed()
         if not observation_id:
-            raise ValidationError("observation_id is required")
+            raise ValidationError("observation_id is required", field="observation_id")
         body: dict[str, Any] = {}
         if update is not None:
             body.update(update.to_wire())
         # Kwargs override (or used standalone) — reuse ObservationUpdate field mapping
         unknown = set(kwargs) - set(ObservationUpdate._WIRE_FIELDS)
         if unknown:
-            raise ValidationError(f"unknown update fields: {', '.join(sorted(unknown))}")
+            raise ValidationError(f"unknown update fields: {', '.join(sorted(unknown))}", field="update")
         for kwarg, wire_key in ObservationUpdate._WIRE_FIELDS.items():
             if kwarg in kwargs:
                 body[wire_key] = kwargs[kwarg]
         if not body:
-            raise ValidationError("at least one field must be provided for update")
+            raise ValidationError("at least one field must be provided for update", field="update")
         path = f"/api/memory/observations/{quote(observation_id, safe='')}"
         self._request_no_content("PATCH", path, json_body=body)
 
@@ -485,7 +489,7 @@ class CortexMemClient:
         """Delete an observation. DELETE /api/memory/observations/{id}."""
         self._assert_not_closed()
         if not observation_id:
-            raise ValidationError("observation_id is required")
+            raise ValidationError("observation_id is required", field="observation_id")
         path = f"/api/memory/observations/{quote(observation_id, safe='')}"
         self._request_no_content("DELETE", path)
 
@@ -493,7 +497,7 @@ class CortexMemClient:
         """Get quality distribution. GET /api/memory/quality-distribution?project=..."""
         self._assert_not_closed()
         if not project_path:
-            raise ValidationError("project_path is required")
+            raise ValidationError("project_path is required", field="project_path")
         data = self._request_json(
             "GET", "/api/memory/quality-distribution", params={"project": project_path}
         )
@@ -519,7 +523,7 @@ class CortexMemClient:
         """Manually trigger extraction. POST /api/extraction/run."""
         self._assert_not_closed()
         if not project_path:
-            raise ValidationError("project_path is required")
+            raise ValidationError("project_path is required", field="project_path")
         self._request_no_content(
             "POST", "/api/extraction/run", params={"projectPath": project_path}
         )
@@ -533,9 +537,9 @@ class CortexMemClient:
         """Get latest extraction result. GET /api/extraction/{template}/latest."""
         self._assert_not_closed()
         if not project_path:
-            raise ValidationError("project_path is required")
+            raise ValidationError("project_path is required", field="project_path")
         if not template_name:
-            raise ValidationError("template_name is required")
+            raise ValidationError("template_name is required", field="template_name")
         path = f"/api/extraction/{quote(template_name, safe='')}/latest"
         params: dict[str, str] = {"projectPath": project_path}
         if user_id:
@@ -553,11 +557,11 @@ class CortexMemClient:
         """Get extraction history. GET /api/extraction/{template}/history."""
         self._assert_not_closed()
         if not project_path:
-            raise ValidationError("project_path is required")
+            raise ValidationError("project_path is required", field="project_path")
         if not template_name:
-            raise ValidationError("template_name is required")
+            raise ValidationError("template_name is required", field="template_name")
         if limit < 0:
-            raise ValidationError("limit must not be negative")
+            raise ValidationError("limit must not be negative", field="limit")
         path = f"/api/extraction/{quote(template_name, safe='')}/history"
         params: dict[str, str] = {"projectPath": project_path}
         if user_id:

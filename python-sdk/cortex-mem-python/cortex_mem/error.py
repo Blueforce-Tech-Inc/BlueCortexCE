@@ -22,11 +22,16 @@ class ValidationError(CortexError):
     """Client-side validation error (e.g., empty required field, batch size exceeded).
 
     Matches Go SDK's ValidationError for cross-SDK parity.
+    Both Go and JS SDKs expose a ``field`` attribute for structured error handling.
     """
 
-    def __init__(self, message: str) -> None:
+    def __init__(self, message: str, field: str = "") -> None:
+        self.field = field
         self.message = message
-        super().__init__(f"cortex-ce: validation error: {message}")
+        if field:
+            super().__init__(f"cortex-ce: validation error on {field}: {message}")
+        else:
+            super().__init__(f"cortex-ce: validation error: {message}")
 
 
 class AuthError(APIError):

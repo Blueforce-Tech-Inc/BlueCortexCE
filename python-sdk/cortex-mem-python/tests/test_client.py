@@ -191,6 +191,36 @@ class TestCapture:
         with pytest.raises(ValidationError, match="prompt_text is required"):
             c.record_user_prompt("s1", "")
 
+    def test_validation_error_has_field_attribute(self):
+        """ValidationError should expose field attribute for cross-SDK parity (Go/JS have it)."""
+        c = _client()
+        with pytest.raises(ValidationError) as exc_info:
+            c.start_session("", "/p")
+        assert exc_info.value.field == "session_id"
+        assert "session_id" in str(exc_info.value)
+
+    def test_validation_error_field_for_ids(self):
+        """ValidationError should have field='ids' for batch validation."""
+        c = _client()
+        with pytest.raises(ValidationError) as exc_info:
+            c.get_observations_by_ids([])
+        assert exc_info.value.field == "ids"
+
+    def test_validation_error_field_for_limit(self):
+        """ValidationError should have field='limit' for negative limit."""
+        c = _client()
+        with pytest.raises(ValidationError) as exc_info:
+            c.get_extraction_history("/p", "t", limit=-1)
+        assert exc_info.value.field == "limit"
+
+    def test_validation_error_field_for_update(self):
+        """ValidationError should have field='update' for empty update."""
+        c = _client()
+        # Calling update_observation with no update fields should fail client-side
+        with pytest.raises(ValidationError) as exc_info:
+            c.update_observation("o1")
+        assert exc_info.value.field == "update"
+
 
 # ==================== Retrieval ====================
 
