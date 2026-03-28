@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import ClassVar
 
 
 def _first_non_null(data: dict, *keys: str) -> object:
@@ -169,13 +170,19 @@ class ObservationUpdate:
 
         Matches Go SDK's ObservationUpdate.IsEmpty() for cross-SDK parity.
         """
-        return all(
-            v is None
-            for v in (
-                self.title, self.subtitle, self.content, self.narrative,
-                self.facts, self.concepts, self.source, self.extracted_data,
-            )
-        )
+        return all(getattr(self, attr) is None for attr in self._WIRE_FIELDS)
+
+    # Python attr name → wire format key (differs for extracted_data → extractedData)
+    _WIRE_FIELDS: ClassVar[dict[str, str]] = {
+        "title": "title",
+        "subtitle": "subtitle",
+        "content": "content",
+        "narrative": "narrative",
+        "facts": "facts",
+        "concepts": "concepts",
+        "source": "source",
+        "extracted_data": "extractedData",
+    }
 
     def to_wire(self) -> dict:
         """Convert to wire format, omitting None fields.
@@ -183,22 +190,10 @@ class ObservationUpdate:
         Both 'content' and 'narrative' are sent if set — backend accepts either.
         """
         body: dict = {}
-        if self.title is not None:
-            body["title"] = self.title
-        if self.subtitle is not None:
-            body["subtitle"] = self.subtitle
-        if self.content is not None:
-            body["content"] = self.content
-        if self.narrative is not None:
-            body["narrative"] = self.narrative
-        if self.facts is not None:
-            body["facts"] = self.facts
-        if self.concepts is not None:
-            body["concepts"] = self.concepts
-        if self.source is not None:
-            body["source"] = self.source
-        if self.extracted_data is not None:
-            body["extractedData"] = self.extracted_data
+        for attr, wire_key in self._WIRE_FIELDS.items():
+            val = getattr(self, attr)
+            if val is not None:
+                body[wire_key] = val
         return body
 
 @dataclass

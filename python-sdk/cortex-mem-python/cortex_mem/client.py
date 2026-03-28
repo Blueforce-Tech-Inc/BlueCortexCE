@@ -469,21 +469,12 @@ class CortexMemClient:
         body: dict[str, Any] = {}
         if update is not None:
             body.update(update.to_wire())
-        # Kwargs override (or used standalone)
-        kwarg_map = {
-            "title": "title",
-            "subtitle": "subtitle",
-            "content": "content",
-            "narrative": "narrative",
-            "facts": "facts",
-            "concepts": "concepts",
-            "source": "source",
-            "extracted_data": "extractedData",
-        }
-        unknown = set(kwargs) - set(kwarg_map)
+        # Kwargs override (or used standalone) — reuse ObservationUpdate field mapping
+        from .dto import ObservationUpdate as _OU
+        unknown = set(kwargs) - set(_OU._WIRE_FIELDS)
         if unknown:
             raise ValidationError(f"unknown update fields: {', '.join(sorted(unknown))}")
-        for kwarg, wire_key in kwarg_map.items():
+        for kwarg, wire_key in _OU._WIRE_FIELDS.items():
             if kwarg in kwargs:
                 body[wire_key] = kwargs[kwarg]
         if not body:
