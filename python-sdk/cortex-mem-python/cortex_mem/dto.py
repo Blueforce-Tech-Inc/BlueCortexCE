@@ -172,6 +172,13 @@ class ObservationUpdate:
         """
         return all(getattr(self, attr) is None for attr in self._WIRE_FIELDS)
 
+    def __bool__(self) -> bool:
+        """Return True if at least one field is set (Pythonic truthiness).
+
+        Allows using ``if update:`` instead of ``if not update.is_empty():``.
+        """
+        return not self.is_empty()
+
     # Python attr name → wire format key (differs for extracted_data → extractedData)
     _WIRE_FIELDS: ClassVar[dict[str, str]] = {
         "title": "title",

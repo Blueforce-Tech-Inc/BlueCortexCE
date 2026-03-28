@@ -1039,6 +1039,24 @@ class TestDTOs:
         # None means "not set" (field omitted from request)
         assert ObservationUpdate(title=None).is_empty() is True
 
+    def test_observation_update_bool(self):
+        """__bool__ returns True when at least one field is set (Pythonic if-check)."""
+        assert bool(ObservationUpdate()) is False
+        assert bool(ObservationUpdate(title="x")) is True
+        assert bool(ObservationUpdate(source="manual")) is True
+        assert bool(ObservationUpdate(extracted_data={})) is True
+        assert bool(ObservationUpdate(facts=[])) is True  # empty list is still set
+        assert bool(ObservationUpdate(title="")) is True  # empty string is still set
+
+    def test_observation_update_bool_in_if_statement(self):
+        """ObservationUpdate works as a truthy/falsy value in if statements."""
+        update = ObservationUpdate()
+        if update:
+            pytest.fail("empty ObservationUpdate should be falsy")
+        update = ObservationUpdate(title="hello")
+        if not update:
+            pytest.fail("non-empty ObservationUpdate should be truthy")
+
     def test_observation_from_wire_field_mapping(self):
         """Observation.from_wire correctly maps backend field names."""
         from cortex_mem.dto import Observation
