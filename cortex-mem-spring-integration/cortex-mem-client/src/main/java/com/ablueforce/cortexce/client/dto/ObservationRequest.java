@@ -43,15 +43,20 @@ public record ObservationRequest(
     }
 
     /**
-     * Convert to the wire format expected by /api/ingest/tool-use
+     * Convert to the wire format expected by /api/ingest/tool-use.
+     * Only non-null fields are included (matches Go omitempty / Python conditional behavior).
      */
     public Map<String, Object> toWireFormat() {
         var map = new java.util.HashMap<String, Object>();
         map.put("session_id", sessionId);
         map.put("tool_name", toolName);
-        map.put("tool_input", toolInput);
-        map.put("tool_response", toolResponse);
         map.put("cwd", projectPath);
+        if (toolInput != null) {
+            map.put("tool_input", toolInput);
+        }
+        if (toolResponse != null) {
+            map.put("tool_response", toolResponse);
+        }
         if (promptNumber != null) {
             map.put("prompt_number", promptNumber);
         }

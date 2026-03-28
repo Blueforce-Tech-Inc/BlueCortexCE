@@ -73,6 +73,25 @@ class DtoTest {
     }
 
     @Test
+    void observationRequest_toWireFormat_omitsNullToolInputAndResponse() {
+        // When toolInput/toolResponse are null, they should NOT appear in wire format.
+        // Matches Go omitempty / Python conditional behavior.
+        var req = ObservationRequest.builder()
+            .sessionId("s")
+            .projectPath("/p")
+            .toolName("Edit")
+            .build();
+
+        Map<String, Object> wire = req.toWireFormat();
+        assertThat(wire).doesNotContainKey("tool_input");
+        assertThat(wire).doesNotContainKey("tool_response");
+        // But required fields should still be present
+        assertThat(wire).containsEntry("session_id", "s");
+        assertThat(wire).containsEntry("cwd", "/p");
+        assertThat(wire).containsEntry("tool_name", "Edit");
+    }
+
+    @Test
     void sessionEndRequest_toWireFormat() {
         var req = SessionEndRequest.builder()
             .sessionId("sess-456")
