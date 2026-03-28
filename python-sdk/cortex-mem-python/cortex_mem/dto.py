@@ -52,6 +52,15 @@ class SessionStartResponse:
     context: str = ""
     prompt_number: int = 0
 
+    @classmethod
+    def from_wire(cls, data: dict) -> SessionStartResponse:
+        return cls(
+            session_db_id=data.get("session_db_id") or "",
+            session_id=data.get("session_id") or "",
+            context=data.get("context") or "",
+            prompt_number=_to_int(data.get("prompt_number")),
+        )
+
 
 # ==================== Experience ====================
 
@@ -241,7 +250,8 @@ class Observation:
             d["prompt_number"] = self.prompt_number
         if self.source:
             d["source"] = self.source
-        d["extractedData"] = self.extracted_data
+        if self.extracted_data:
+            d["extractedData"] = self.extracted_data
         if self.created_at:
             d["created_at"] = self.created_at
         if self.created_at_epoch:

@@ -215,9 +215,7 @@ class TestDTOFromWire:
         assert "feedback_type" not in d
         assert "quality_score" not in d  # Go: omitempty
         assert "prompt_number" not in d  # Go: omitempty
-        # extractedData is always included (default empty dict, cross-SDK parity with JS)
-        assert "extractedData" in d
-        assert d["extractedData"] == {}
+        assert "extractedData" not in d  # Go: omitempty
         assert d["id"] == "o1"
         # Always-include fields (Go: no omitempty)
         assert d["content_session_id"] == "s1"
@@ -226,19 +224,16 @@ class TestDTOFromWire:
         assert d["narrative"] == ""
 
     def test_observation_to_dict_extracted_data(self):
-        """to_dict() always includes extractedData (default empty dict).
-
-        Cross-SDK parity: JS SDK always includes extractedData as {}.
-        """
-        # Default (empty dict) → included
+        """to_dict() omits extractedData when empty (Go SDK omitempty parity)."""
+        # Default (empty dict) → omitted
         obs_default = Observation(id="o1", session_id="s1", project_path="/p")
         d_default = obs_default.to_dict()
-        assert d_default["extractedData"] == {}
+        assert "extractedData" not in d_default
 
-        # Empty dict → included
+        # Empty dict → omitted
         obs_empty = Observation(id="o1", session_id="s1", project_path="/p", extracted_data={})
         d_empty = obs_empty.to_dict()
-        assert d_empty["extractedData"] == {}
+        assert "extractedData" not in d_empty
 
         # Non-empty dict → included with data
         obs_data = Observation(id="o1", session_id="s1", project_path="/p", extracted_data={"k": "v"})

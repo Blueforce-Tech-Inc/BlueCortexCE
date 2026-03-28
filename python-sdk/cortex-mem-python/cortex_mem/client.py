@@ -198,12 +198,7 @@ class CortexMemClient:
         if user_id:
             body["user_id"] = user_id
         data = self._request_json("POST", "/api/session/start", json_body=body) or {}
-        return SessionStartResponse(
-            session_db_id=data.get("session_db_id", ""),
-            session_id=data.get("session_id", ""),
-            context=data.get("context", ""),
-            prompt_number=data.get("prompt_number", 0),
-        )
+        return SessionStartResponse.from_wire(data)
 
     def update_session_user_id(self, session_id: str, user_id: str) -> dict:
         """Update session userId. PATCH /api/session/{session_id}/user."""
