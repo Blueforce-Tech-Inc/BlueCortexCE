@@ -2,23 +2,7 @@
 // Experience & ICL DTOs
 // ============================================================
 
-import { safeStringOr, safeNumberOr, safeString } from './wire-helpers';
-
-/**
- * Safely extract a value from wire data, checking multiple key variants.
- * Handles Jackson SNAKE_CASE output with camelCase fallback.
- */
-function firstNonNullOr<T>(
-  raw: Record<string, unknown>,
-  keys: string[],
-  fallback: T,
-): T {
-  for (const key of keys) {
-    const val = raw[key];
-    if (val !== null && val !== undefined) return val as T;
-  }
-  return fallback;
-}
+import { safeStringOr, safeNumberOr, safeString, firstNonNullOr } from './wire-helpers';
 
 /**
  * Request to retrieve relevant experiences.
@@ -64,9 +48,9 @@ export function parseExperience(raw: Record<string, unknown>): Experience {
     task: safeStringOr(raw.task, ''),
     strategy: safeStringOr(raw.strategy, ''),
     outcome: safeStringOr(raw.outcome, ''),
-    reuseCondition: firstNonNullOr(raw, ['reuse_condition', 'reuseCondition'], ''),
-    qualityScore: safeNumberOr(firstNonNullOr(raw, ['quality_score', 'qualityScore'], 0), 0),
-    createdAt: safeString(firstNonNullOr(raw, ['created_at', 'createdAt'], undefined)),
+    reuseCondition: safeStringOr(firstNonNullOr(raw, ['reuse_condition', 'reuseCondition']), ''),
+    qualityScore: safeNumberOr(firstNonNullOr(raw, ['quality_score', 'qualityScore']), 0),
+    createdAt: safeString(firstNonNullOr(raw, ['created_at', 'createdAt'])),
   };
 }
 

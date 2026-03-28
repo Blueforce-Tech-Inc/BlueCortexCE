@@ -72,3 +72,18 @@ export function safeRecord(v: unknown): Record<string, unknown> | undefined {
   if (Object.prototype.toString.call(v) !== '[object Object]') return undefined;
   return v as Record<string, unknown>;
 }
+
+/**
+ * Check multiple key variants on a wire-format object, return first non-null value.
+ * Handles backend SNAKE_CASE output with camelCase fallback.
+ */
+export function firstNonNullOr(
+  raw: Record<string, unknown>,
+  keys: string[],
+): unknown {
+  for (const key of keys) {
+    const val = raw[key];
+    if (val !== null && val !== undefined) return val;
+  }
+  return undefined;
+}

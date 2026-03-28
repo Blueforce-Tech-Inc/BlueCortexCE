@@ -2,19 +2,7 @@
 // Observation DTOs
 // ============================================================
 
-import { safeString, safeStringOr, safeNumber, safeStringArray, safeRecord } from './wire-helpers';
-
-/**
- * Check multiple key variants, return first non-null value.
- * Handles backend SNAKE_CASE output with camelCase fallback.
- */
-function firstNonNullOr(raw: Record<string, unknown>, keys: string[]): unknown {
-  for (const key of keys) {
-    const val = raw[key];
-    if (val !== null && val !== undefined) return val;
-  }
-  return undefined;
-}
+import { safeString, safeStringOr, safeNumber, safeStringArray, safeRecord, firstNonNullOr } from './wire-helpers';
 
 /**
  * Request to record a tool-use observation.
@@ -104,12 +92,12 @@ export interface Observation {
 export function parseObservation(raw: Record<string, unknown>): Observation {
   return {
     id: safeStringOr(raw.id, ''),
-    sessionId: safeStringOr(firstNonNullOr(raw, ['content_session_id', 'sessionId']) as string, ''),
-    projectPath: safeStringOr(firstNonNullOr(raw, ['project', 'projectPath']) as string, ''),
+    sessionId: safeStringOr(firstNonNullOr(raw, ['content_session_id', 'sessionId']), ''),
+    projectPath: safeStringOr(firstNonNullOr(raw, ['project', 'projectPath']), ''),
     type: safeStringOr(raw.type, ''),
     title: safeString(raw.title),
     subtitle: safeString(raw.subtitle),
-    content: safeStringOr(firstNonNullOr(raw, ['narrative', 'content']) as string, ''),
+    content: safeStringOr(firstNonNullOr(raw, ['narrative', 'content']), ''),
     facts: safeStringArray(raw.facts),
     concepts: safeStringArray(raw.concepts),
     filesRead: safeStringArray(firstNonNullOr(raw, ['files_read', 'filesRead'])),
