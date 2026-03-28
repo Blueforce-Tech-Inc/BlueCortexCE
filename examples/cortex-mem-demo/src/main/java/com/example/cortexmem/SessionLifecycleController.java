@@ -74,7 +74,7 @@ public class SessionLifecycleController {
      * 2. Record user prompt — must be called within CortexSessionContext (see lifecycle).
      */
     @PostMapping("/prompt")
-    public ResponseEntity<String> recordPrompt(
+    public ResponseEntity<Map<String, Object>> recordPrompt(
             @RequestParam String sessionId,
             @RequestParam String projectPath,
             @RequestParam String prompt,
@@ -87,11 +87,11 @@ public class SessionLifecycleController {
                 .promptText(prompt)
                 .promptNumber(promptNumber)
                 .build());
-            return ResponseEntity.ok("Prompt recorded");
+            return ResponseEntity.ok(Map.of("status", "prompt recorded", "sessionId", sessionId));
         } catch (Exception e) {
             log.error("Failed to record prompt for sessionId={}", sessionId, e);
             return ResponseEntity.internalServerError()
-                    .body("Error: Failed to record prompt — " + e.getMessage());
+                    .body(Map.of("error", "Failed to record prompt: " + e.getMessage()));
         } finally {
             CortexSessionContext.end();
         }
@@ -101,7 +101,7 @@ public class SessionLifecycleController {
      * 3. Tool call (auto-captures observation) — must be within CortexSessionContext.
      */
     @GetMapping("/tool")
-    public ResponseEntity<String> runTool(
+    public ResponseEntity<Map<String, Object>> runTool(
             @RequestParam String sessionId,
             @RequestParam String projectPath,
             @RequestParam(defaultValue = "/tmp/hello.txt") String path) {
@@ -109,11 +109,11 @@ public class SessionLifecycleController {
         try {
             String result = fileReadTool.readFile(path);
             CortexSessionContext.incrementAndGetPromptNumber();
-            return ResponseEntity.ok("Tool result: " + result + " (captured to memory)");
+            return ResponseEntity.ok(Map.of("status", "tool executed", "result", result, "captured", true));
         } catch (Exception e) {
             log.error("Tool execution failed for sessionId={}, path={}", sessionId, path, e);
             return ResponseEntity.internalServerError()
-                    .body("Error: Tool execution failed — " + e.getMessage());
+                    .body(Map.of("error", "Tool execution failed: " + e.getMessage()));
         } finally {
             CortexSessionContext.end();
         }
@@ -123,7 +123,7 @@ public class SessionLifecycleController {
      * 4. End session — triggers summary generation.
      */
     @PostMapping("/end")
-    public ResponseEntity<String> endSession(
+    public ResponseEntity<Map<String, Object>> endSession(
             @RequestParam String sessionId,
             @RequestParam String projectPath,
             @RequestParam(required = false) String lastMessage) {
@@ -133,11 +133,11 @@ public class SessionLifecycleController {
                 .projectPath(projectPath)
                 .lastAssistantMessage(lastMessage != null ? lastMessage : "")
                 .build());
-            return ResponseEntity.ok("Session ended: " + sessionId);
+            return ResponseEntity.ok(Map.of("status", "session ended", "sessionId", sessionId));
         } catch (Exception e) {
             log.error("Failed to end session for sessionId={}", sessionId, e);
             return ResponseEntity.internalServerError()
-                    .body("Error: Failed to end session — " + e.getMessage());
+                    .body(Map.of("error", "Failed to end session: " + e.getMessage()));
         }
     }
 

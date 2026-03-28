@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -33,7 +34,7 @@ public class ToolsController {
      * Tool call — auto-captured to memory. Supports ?project= to switch project.
      */
     @GetMapping("/demo/tool")
-    public ResponseEntity<String> runToolWithCapture(
+    public ResponseEntity<Map<String, Object>> runToolWithCapture(
             @RequestParam(defaultValue = "/tmp/hello.txt") String path,
             @RequestParam(required = false) String project) {
         String sessionId = "demo-" + UUID.randomUUID();
@@ -46,11 +47,11 @@ public class ToolsController {
         try {
             String result = fileReadTool.readFile(path);
             CortexSessionContext.incrementAndGetPromptNumber();
-            return ResponseEntity.ok("Tool result: " + result + " (captured to memory)");
+            return ResponseEntity.ok(Map.of("status", "tool executed", "result", result, "captured", true));
         } catch (Exception e) {
             log.error("Tool execution failed for path={}", path, e);
             return ResponseEntity.internalServerError()
-                    .body("Error: Tool execution failed — " + e.getMessage());
+                    .body(Map.of("error", "Tool execution failed: " + e.getMessage()));
         } finally {
             CortexSessionContext.end();
         }

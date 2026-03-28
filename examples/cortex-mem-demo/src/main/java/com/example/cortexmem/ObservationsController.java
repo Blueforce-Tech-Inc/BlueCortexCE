@@ -128,19 +128,24 @@ public class ObservationsController {
             }
             if (body.containsKey("facts")) {
                 Object factsObj = body.get("facts");
-                if (!(factsObj instanceof List)) {
+                if (!(factsObj instanceof List<?> factsList)) {
                     return ResponseEntity.badRequest()
                             .body(Map.of("error", "facts must be a list of strings"));
                 }
-                builder.facts((List<String>) factsObj);
+                // Safe conversion: Jackson deserializes JSON arrays as List<Object>
+                builder.facts(factsList.stream()
+                        .map(String::valueOf)
+                        .toList());
             }
             if (body.containsKey("concepts")) {
                 Object conceptsObj = body.get("concepts");
-                if (!(conceptsObj instanceof List)) {
+                if (!(conceptsObj instanceof List<?> conceptsList)) {
                     return ResponseEntity.badRequest()
                             .body(Map.of("error", "concepts must be a list of strings"));
                 }
-                builder.concepts((List<String>) conceptsObj);
+                builder.concepts(conceptsList.stream()
+                        .map(String::valueOf)
+                        .toList());
             }
             if (body.containsKey("source")) {
                 builder.source((String) body.get("source"));

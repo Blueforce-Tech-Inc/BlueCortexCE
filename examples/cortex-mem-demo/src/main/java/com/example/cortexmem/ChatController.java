@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -57,7 +58,7 @@ public class ChatController {
     }
 
     @GetMapping("/chat")
-    public ResponseEntity<String> chat(
+    public ResponseEntity<?> chat(
             @RequestParam(defaultValue = "Hello") String message,
             @RequestParam(required = false) String project,
             @RequestParam(required = false) String conversationId,
@@ -98,7 +99,7 @@ public class ChatController {
             } catch (Exception e) {
                 log.error("Chat failed for conversationId={}", effectiveConvId, e);
                 return ResponseEntity.internalServerError()
-                        .body("Error: Chat failed — " + e.getMessage());
+                        .body(Map.of("error", "Chat failed: " + e.getMessage()));
             }
         }
 
@@ -109,7 +110,7 @@ public class ChatController {
         } catch (Exception e) {
             log.error("Chat failed for sessionId={}", effectiveConvId, e);
             return ResponseEntity.internalServerError()
-                    .body("Error: Chat failed — " + e.getMessage());
+                    .body(Map.of("error", "Chat failed: " + e.getMessage()));
         } finally {
             CortexSessionContext.end();
         }

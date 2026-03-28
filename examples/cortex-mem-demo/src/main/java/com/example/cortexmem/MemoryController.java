@@ -68,14 +68,14 @@ public class MemoryController {
     }
 
     @GetMapping("/memory/icl")
-    public ResponseEntity<String> getIclPrompt(
+    public ResponseEntity<?> getIclPrompt(
             @RequestParam String task,
             @RequestParam(defaultValue = "/") String project) {
         try {
             return ResponseEntity.ok(retrievalService.buildICLPrompt(task, resolveProject(project)));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                    .body("Error: ICL prompt failed — " + e.getMessage());
+                    .body(Map.of("error", "ICL prompt failed: " + e.getMessage()));
         }
     }
 
@@ -90,14 +90,14 @@ public class MemoryController {
     }
 
     @PostMapping("/memory/refine")
-    public ResponseEntity<String> triggerRefine(@RequestParam(defaultValue = "/") String project) {
+    public ResponseEntity<Map<String, Object>> triggerRefine(@RequestParam(defaultValue = "/") String project) {
         try {
             String path = resolveProject(project);
             cortexClient.triggerRefinement(path);
-            return ResponseEntity.ok("Refinement triggered for " + path);
+            return ResponseEntity.ok(Map.of("status", "refinement triggered", "project", path));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                    .body("Error: Refinement failed — " + e.getMessage());
+                    .body(Map.of("error", "Refinement failed: " + e.getMessage()));
         }
     }
 
@@ -108,14 +108,14 @@ public class MemoryController {
      * @param project Project path
      */
     @PostMapping("/memory/extract")
-    public ResponseEntity<String> triggerExtraction(@RequestParam(defaultValue = "/") String project) {
+    public ResponseEntity<Map<String, Object>> triggerExtraction(@RequestParam(defaultValue = "/") String project) {
         try {
             String path = resolveProject(project);
             cortexClient.triggerExtraction(path);
-            return ResponseEntity.ok("Extraction triggered for " + path);
+            return ResponseEntity.ok(Map.of("status", "extraction triggered", "project", path));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
-                    .body("Error: Extraction failed — " + e.getMessage());
+                    .body(Map.of("error", "Extraction failed: " + e.getMessage()));
         }
     }
 
