@@ -1223,6 +1223,23 @@ describe('parseObservation', () => {
     const raw3 = { id: 'o3', extractedData: ['array'] };
     expect(parseObservation(raw3).extractedData).toEqual({});
   });
+
+  it('should default extractedData to empty object when missing', () => {
+    const obs = parseObservation({ id: 'o1' });
+    expect(obs.extractedData).toEqual({});
+  });
+
+  it('should prefer camelCase extractedData over snake_case', () => {
+    const raw = { id: 'o1', extractedData: { key: 'camel' }, extracted_data: { key: 'snake' } };
+    const obs = parseObservation(raw);
+    expect(obs.extractedData).toEqual({ key: 'camel' });
+  });
+
+  it('should fall back to snake_case extracted_data when camelCase is absent', () => {
+    const raw = { id: 'o1', extracted_data: { key: 'snake_val' } };
+    const obs = parseObservation(raw);
+    expect(obs.extractedData).toEqual({ key: 'snake_val' });
+  });
 });
 
 // ==================== parseExtractionResult ====================

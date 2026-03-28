@@ -4,6 +4,7 @@ export * from './session';
 export * from './observation';
 export * from './experience';
 export * from './search';
-export { QualityDistribution, parseQualityDistribution, FeedbackRequest } from './management';
+export { parseQualityDistribution } from './management';
+export type { QualityDistribution, FeedbackRequest } from './management';
 export * from './extraction';
 export * from './misc';

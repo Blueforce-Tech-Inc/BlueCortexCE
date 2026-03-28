@@ -334,7 +334,7 @@ class Observation:
             feedback_type=_first_non_null(data, "feedback_type", "feedbackType") or "",
             feedback_updated_at=_first_non_null(data, "feedback_updated_at", "feedbackUpdatedAt") or "",
             source=data.get("source") or "",
-            extracted_data=_to_dict(data.get("extractedData")),
+            extracted_data=_to_dict(_first_non_null(data, "extractedData", "extracted_data")),
             prompt_number=_to_int(_first_non_null(data, "prompt_number", "promptNumber")),
             created_at=_first_non_null(data, "created_at", "createdAt") or "",
             created_at_epoch=_to_int(_first_non_null(data, "created_at_epoch", "createdAtEpoch")),

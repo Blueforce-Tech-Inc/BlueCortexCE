@@ -106,7 +106,7 @@ export function parseObservation(raw: Record<string, unknown>): Observation {
     feedbackType: safeString(firstNonNullOr(raw, ['feedback_type', 'feedbackType'])),
     feedbackUpdatedAt: safeString(firstNonNullOr(raw, ['feedback_updated_at', 'feedbackUpdatedAt'])),
     source: safeString(raw.source),
-    extractedData: safeRecord(raw.extractedData) ?? {},
+    extractedData: safeRecord(firstNonNullOr(raw, ['extractedData', 'extracted_data'])) ?? {},
     promptNumber: safeNumber(firstNonNullOr(raw, ['prompt_number', 'promptNumber'])),
     createdAt: safeString(firstNonNullOr(raw, ['created_at', 'createdAt'])),
     createdAtEpoch: safeNumber(firstNonNullOr(raw, ['created_at_epoch', 'createdAtEpoch'])),
