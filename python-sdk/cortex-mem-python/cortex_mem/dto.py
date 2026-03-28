@@ -229,12 +229,12 @@ class Observation:
     last_accessed_at: str = ""
 
     def to_dict(self) -> dict:
-        """Serialize to a Python-friendly dict with snake_case keys.
+        """Serialize to a dict with mixed naming conventions.
 
-        Note: This uses Pythonic snake_case field names (e.g., ``files_read``,
-        ``extractedData``) for Flask demo responses. For cross-SDK wire-compatible
-        JSON, use the Go SDK's ``toWire()`` or JS SDK's ``toJSON()`` which output
-        the exact wire format expected by the backend.
+        Most fields use snake_case (matching backend Jackson SNAKE_CASE strategy),
+        except ``extractedData`` which uses camelCase (matching @JsonProperty override).
+        For exact wire-compatible JSON across all SDKs, see Go SDK's ``toWire()``
+        or JS SDK's ``toJSON()``.
 
         Field inclusion rules:
         - Always included: id, content_session_id, project, type, narrative
@@ -377,7 +377,7 @@ class BatchObservationsResponse:
     def from_wire(cls, data: dict) -> BatchObservationsResponse:
         return cls(
             observations=[Observation.from_wire(o) for o in data.get("observations") or []],
-            count=_to_int(data.get("count"), 0),
+            count=_to_int(_first_non_null(data, "count")),
         )
 
 
