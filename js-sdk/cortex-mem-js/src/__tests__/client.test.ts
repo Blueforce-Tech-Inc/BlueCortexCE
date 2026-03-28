@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { CortexMemClient, APIError, isNotFound, isRateLimited, isRetryable, isForbidden, isUnprocessable, isConflict, isBadRequest, isUnauthorized, isClientError, isServerError, parseObservation, parseExperience, parseExtractionResult } from '../index';
+import { CortexMemClient, APIError, isNotFound, isRateLimited, isRetryable, isForbidden, isUnprocessable, isConflict, isBadRequest, isUnauthorized, isClientError, isServerError, parseObservation, parseExperience, parseExtractionResult, parseICLPromptResult, parseStatsResponse, parseWorkerStats, parseDatabaseStats } from '../index';
 
 // Mock fetch
 function mockFetch(status: number, body: unknown): typeof globalThis.fetch {
@@ -1281,6 +1281,147 @@ describe('safeRecord edge cases', () => {
   it('should accept regular plain objects', () => {
     const obs = parseObservation({ id: 'o1', extractedData: { key: 'val' } });
     expect(obs.extractedData).toEqual({ key: 'val' });
+  });
+});
+
+// ==================== parseICLPromptResult ====================
+
+describe('parseICLPromptResult', () => {
+  it('should parse all wire format fields', () => {
+    const raw = {
+      prompt: 'test prompt content',
+      experienceCount: 5,
+      maxChars: 4000,
+    };
+
+    const result = parseICLPromptResult(raw);
+    expect(result.prompt).toBe('test prompt content');
+    expect(result.experienceCount).toBe(5);
+    expect(result.maxChars).toBe(4000);
+  });
+
+  it('should handle missing optional fields', () => {
+    const raw = { prompt: 'p', experienceCount: 3 };
+    const result = parseICLPromptResult(raw);
+    expect(result.prompt).toBe('p');
+    expect(result.experienceCount).toBe(3);
+    expect(result.maxChars).toBeUndefined();
+  });
+
+  it('should handle null wire fields gracefully', () => {
+    const raw = { prompt: null, experienceCount: null, maxChars: null };
+    const result = parseICLPromptResult(raw);
+    expect(result.prompt).toBe('');
+    expect(result.experienceCount).toBe(0);
+    expect(result.maxChars).toBeUndefined();
+  });
+
+  it('should handle type mismatches', () => {
+    const raw = { prompt: 42, experienceCount: '7', maxChars: '2000' };
+    const result = parseICLPromptResult(raw);
+    expect(result.prompt).toBe('42');
+    expect(result.experienceCount).toBe(7);
+    expect(result.maxChars).toBe(2000);
+  });
+
+  it('should handle NaN experienceCount', () => {
+    const raw = { prompt: 'test', experienceCount: NaN };
+    const result = parseICLPromptResult(raw);
+    expect(result.experienceCount).toBe(0);
+  });
+});
+
+// ==================== parseStatsResponse ====================
+
+describe('parseStatsResponse', () => {
+  it('should parse all wire format fields', () => {
+    const raw = {
+      worker: { isProcessing: false, queueDepth: 0 },
+      database: { totalObservations: 100, totalSummaries: 5, totalSessions: 10, totalProjects: 2 },
+    };
+
+    const result = parseStatsResponse(raw);
+    expect(result.worker.isProcessing).toBe(false);
+    expect(result.worker.queueDepth).toBe(0);
+    expect(result.database.totalObservations).toBe(100);
+    expect(result.database.totalSummaries).toBe(5);
+    expect(result.database.totalSessions).toBe(10);
+    expect(result.database.totalProjects).toBe(2);
+  });
+
+  it('should handle null nested objects', () => {
+    const raw = { worker: null, database: null };
+    const result = parseStatsResponse(raw);
+    expect(result.worker.isProcessing).toBe(false);
+    expect(result.worker.queueDepth).toBe(0);
+    expect(result.database.totalObservations).toBe(0);
+    expect(result.database.totalSummaries).toBe(0);
+  });
+
+  it('should handle missing nested objects', () => {
+    const result = parseStatsResponse({});
+    expect(result.worker.isProcessing).toBe(false);
+    expect(result.worker.queueDepth).toBe(0);
+    expect(result.database.totalObservations).toBe(0);
+  });
+
+  it('should handle type mismatches in nested fields', () => {
+    const raw = {
+      worker: { isProcessing: 'true', queueDepth: '5' },
+      database: { totalObservations: '100', totalSummaries: '5', totalSessions: '10', totalProjects: '2' },
+    };
+
+    const result = parseStatsResponse(raw);
+    expect(result.worker.isProcessing).toBe(true);
+    expect(result.worker.queueDepth).toBe(5);
+    expect(result.database.totalObservations).toBe(100);
+  });
+
+  it('should handle snake_case wire fields', () => {
+    const raw = {
+      worker: { is_processing: true, queue_depth: 3 },
+      database: { total_observations: 50, total_summaries: 2, total_sessions: 5, total_projects: 1 },
+    };
+
+    const result = parseStatsResponse(raw);
+    expect(result.worker.isProcessing).toBe(true);
+    expect(result.worker.queueDepth).toBe(3);
+    expect(result.database.totalObservations).toBe(50);
+  });
+
+  it('should reject non-object worker/database', () => {
+    const raw = { worker: 'invalid', database: 42 };
+    const result = parseStatsResponse(raw);
+    expect(result.worker.isProcessing).toBe(false);
+    expect(result.database.totalObservations).toBe(0);
+  });
+});
+
+// ==================== Defensive ICL parsing in client ====================
+
+describe('buildICLPrompt defensive parsing', () => {
+  it('should use parseICLPromptResult for wire format safety', async () => {
+    // Simulate backend returning null experienceCount
+    const localFetch = mockFetch(200, { prompt: 'test', experienceCount: null });
+    const localClient = new CortexMemClient({ fetch: localFetch as unknown as typeof globalThis.fetch });
+
+    const result = await localClient.buildICLPrompt({ task: 'test' });
+    expect(result.experienceCount).toBe(0); // defensive: null → 0
+    expect(result.prompt).toBe('test');
+  });
+});
+
+describe('getStats defensive parsing', () => {
+  it('should use parseStatsResponse for wire format safety', async () => {
+    const localFetch = mockFetch(200, {
+      worker: null,
+      database: { totalObservations: 42, totalSummaries: 0, totalSessions: 1, totalProjects: 1 },
+    });
+    const localClient = new CortexMemClient({ fetch: localFetch as unknown as typeof globalThis.fetch });
+
+    const result = await localClient.getStats();
+    expect(result.worker.isProcessing).toBe(false); // defensive: null → defaults
+    expect(result.database.totalObservations).toBe(42);
   });
 });
 

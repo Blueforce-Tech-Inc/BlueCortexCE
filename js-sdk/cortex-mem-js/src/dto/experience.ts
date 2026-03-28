@@ -2,7 +2,7 @@
 // Experience & ICL DTOs
 // ============================================================
 
-import { safeStringOr, safeNumberOr, safeString, firstNonNullOr } from './wire-helpers';
+import { safeStringOr, safeNumber, safeNumberOr, safeString, firstNonNullOr } from './wire-helpers';
 
 /**
  * Request to retrieve relevant experiences.
@@ -69,9 +69,23 @@ export interface ICLPromptRequest {
 
 /**
  * Result from the ICL prompt builder.
+ *
+ * Use {@link parseICLPromptResult} to safely parse from wire format.
  */
 export interface ICLPromptResult {
   prompt: string;
   experienceCount: number;
   maxChars?: number;
+}
+
+/**
+ * Parse a raw wire-format ICL prompt result into the canonical type.
+ * Handles null values and type mismatches gracefully.
+ */
+export function parseICLPromptResult(raw: Record<string, unknown>): ICLPromptResult {
+  return {
+    prompt: safeStringOr(raw.prompt, ''),
+    experienceCount: safeNumberOr(raw.experienceCount, 0),
+    maxChars: safeNumber(raw.maxChars),
+  };
 }

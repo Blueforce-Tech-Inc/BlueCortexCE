@@ -36,7 +36,7 @@ import type {
   HealthResponse,
   Observation,
 } from './dto';
-import { parseObservation, parseExperience, parseExtractionResult } from './dto';
+import { parseObservation, parseExperience, parseExtractionResult, parseICLPromptResult, parseStatsResponse } from './dto';
 
 // ============================================================
 // Logger interface
@@ -149,7 +149,8 @@ export class CortexMemClient {
   async buildICLPrompt(req: ICLPromptRequest): Promise<ICLPromptResult> {
     this.assertNotClosed();
     this.validateRequired('task', req.task);
-    return this.requestJSON<ICLPromptResult>('POST', '/api/memory/icl-prompt', req);
+    const raw = await this.requestJSON<unknown>('POST', '/api/memory/icl-prompt', req);
+    return parseICLPromptResult(raw as Record<string, unknown>);
   }
 
   /**
@@ -391,7 +392,8 @@ export class CortexMemClient {
     this.assertNotClosed();
     const params: Record<string, string> = {};
     if (projectPath) params.project = projectPath;
-    return this.requestJSON<StatsResponse>('GET', '/api/stats', undefined, params);
+    const raw = await this.requestJSON<unknown>('GET', '/api/stats', undefined, params);
+    return parseStatsResponse(raw as Record<string, unknown>);
   }
 
   /**

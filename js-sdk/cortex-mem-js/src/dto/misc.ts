@@ -2,6 +2,8 @@
 // Miscellaneous DTOs
 // ============================================================
 
+import { safeStringOr, safeNumberOr, safeStringArray, safeRecord, firstNonNullOr } from './wire-helpers';
+
 /**
  * Backend version information.
  * GET /api/version
@@ -24,6 +26,8 @@ export interface ProjectsResponse {
 /**
  * Statistics response.
  * GET /api/stats
+ *
+ * Use {@link parseStatsResponse} to safely parse from wire format.
  */
 export interface StatsResponse {
   worker: WorkerStats;
@@ -63,4 +67,43 @@ export interface HealthResponse {
   status: string;
   service: string;
   [key: string]: unknown;
+}
+
+// ============================================================
+// Parse functions for defensive wire format handling
+// ============================================================
+
+/**
+ * Parse raw worker stats from wire format.
+ */
+export function parseWorkerStats(raw: Record<string, unknown>): WorkerStats {
+  return {
+    isProcessing: Boolean(raw.isProcessing ?? raw.is_processing ?? false),
+    queueDepth: safeNumberOr(firstNonNullOr(raw, ['queueDepth', 'queue_depth']), 0),
+  };
+}
+
+/**
+ * Parse raw database stats from wire format.
+ */
+export function parseDatabaseStats(raw: Record<string, unknown>): DatabaseStats {
+  return {
+    totalObservations: safeNumberOr(firstNonNullOr(raw, ['totalObservations', 'total_observations']), 0),
+    totalSummaries: safeNumberOr(firstNonNullOr(raw, ['totalSummaries', 'total_summaries']), 0),
+    totalSessions: safeNumberOr(firstNonNullOr(raw, ['totalSessions', 'total_sessions']), 0),
+    totalProjects: safeNumberOr(firstNonNullOr(raw, ['totalProjects', 'total_projects']), 0),
+  };
+}
+
+/**
+ * Parse raw stats response from wire format.
+ * Handles null nested objects and type mismatches gracefully.
+ */
+export function parseStatsResponse(raw: Record<string, unknown>): StatsResponse {
+  const workerRaw = safeRecord(raw.worker) ?? {};
+  const databaseRaw = safeRecord(raw.database) ?? {};
+  return {
+    worker: parseWorkerStats(workerRaw),
+    database: parseDatabaseStats(databaseRaw),
+  };
 }
