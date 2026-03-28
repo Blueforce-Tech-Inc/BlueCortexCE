@@ -115,15 +115,31 @@ public class ObservationsController {
         try {
             ObservationUpdate.Builder builder = ObservationUpdate.builder();
             if (body.containsKey("title")) {
+                if (!(body.get("title") instanceof String)) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("error", "title must be a string"));
+                }
                 builder.title((String) body.get("title"));
             }
             if (body.containsKey("subtitle")) {
+                if (!(body.get("subtitle") instanceof String)) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("error", "subtitle must be a string"));
+                }
                 builder.subtitle((String) body.get("subtitle"));
             }
             if (body.containsKey("content")) {
+                if (!(body.get("content") instanceof String)) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("error", "content must be a string"));
+                }
                 builder.content((String) body.get("content"));
             }
             if (body.containsKey("narrative")) {
+                if (!(body.get("narrative") instanceof String)) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("error", "narrative must be a string"));
+                }
                 builder.narrative((String) body.get("narrative"));
             }
             if (body.containsKey("facts")) {
@@ -148,11 +164,15 @@ public class ObservationsController {
                         .toList());
             }
             if (body.containsKey("source")) {
+                if (!(body.get("source") instanceof String)) {
+                    return ResponseEntity.badRequest()
+                            .body(Map.of("error", "source must be a string"));
+                }
                 builder.source((String) body.get("source"));
             }
             if (body.containsKey("extractedData")) {
                 Object extractedDataObj = body.get("extractedData");
-                if (!(extractedDataObj instanceof Map)) {
+                if (!(extractedDataObj instanceof Map<?, ?>)) {
                     return ResponseEntity.badRequest()
                             .body(Map.of("error", "extractedData must be a map"));
                 }

@@ -59,6 +59,10 @@ public class MemoryController {
             @RequestParam String task,
             @RequestParam(defaultValue = "/") String project,
             @RequestParam(defaultValue = "4") int count) {
+        if (count < 1 || count > 20) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "count must be between 1 and 20"));
+        }
         try {
             return ResponseEntity.ok(retrievalService.retrieveExperiences(task, resolveProject(project), count));
         } catch (Exception e) {
@@ -138,6 +142,9 @@ public class MemoryController {
             @RequestParam String task,
             @RequestParam(defaultValue = "/") String project,
             @RequestParam(defaultValue = "4000") int maxChars) {
+        if (maxChars < 1 || maxChars > 100000) {
+            return ResponseEntity.badRequest().body(new ICLPromptResult("", 0));
+        }
         String projectPath = resolveProject(project);
         try {
             return ResponseEntity.ok(cortexClient.buildICLPrompt(ICLPromptRequest.builder()
@@ -169,6 +176,10 @@ public class MemoryController {
             @RequestParam(required = false) String source,
             @RequestParam(required = false) List<String> requiredConcepts,
             @RequestParam(defaultValue = "4") int count) {
+        if (count < 1 || count > 20) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "count must be between 1 and 20"));
+        }
         try {
             ExperienceRequest request = ExperienceRequest.builder()
                 .task(task)
@@ -223,6 +234,10 @@ public class MemoryController {
             @RequestParam String template,
             @RequestParam String userId,
             @RequestParam(defaultValue = "10") int limit) {
+        if (limit < 1 || limit > 100) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "limit must be between 1 and 100"));
+        }
         try {
             List<Map<String, Object>> result = cortexClient.getExtractionHistory(resolveProject(project), template, userId, limit);
             return ResponseEntity.ok(result);
@@ -250,7 +265,7 @@ public class MemoryController {
             return ResponseEntity.ok(Map.of(
                 "status", "ok",
                 "project", projectPath,
-                "sample_retrieval", experiences.size() > 0 ? "working" : "empty"
+                "sample_retrieval", !experiences.isEmpty() ? "working" : "empty"
             ));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of(
