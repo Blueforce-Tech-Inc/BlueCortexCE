@@ -914,6 +914,24 @@ class TestDTOs:
         update = ObservationUpdate()
         assert update.to_wire() == {}
 
+    def test_observation_update_is_empty(self):
+        """is_empty() returns True when no fields are set (Go SDK parity)."""
+        assert ObservationUpdate().is_empty() is True
+
+    def test_observation_update_is_empty_with_values(self):
+        """is_empty() returns False when any field is set."""
+        assert ObservationUpdate(title="x").is_empty() is False
+        assert ObservationUpdate(source="manual").is_empty() is False
+        assert ObservationUpdate(extracted_data={}).is_empty() is False
+        assert ObservationUpdate(facts=[]).is_empty() is False  # empty list is still set
+
+    def test_observation_update_is_empty_edge_cases(self):
+        """is_empty() distinguishes None from empty string/list."""
+        # Empty string is a set value (clears the field on backend)
+        assert ObservationUpdate(title="").is_empty() is False
+        # None means "not set" (field omitted from request)
+        assert ObservationUpdate(title=None).is_empty() is True
+
     def test_observation_from_wire_field_mapping(self):
         """Observation.from_wire correctly maps backend field names."""
         from cortex_mem.dto import Observation

@@ -134,6 +134,19 @@ class ObservationUpdate:
     source: str | None = None
     extracted_data: dict | None = None
 
+    def is_empty(self) -> bool:
+        """Return True if no fields are set (nothing to send).
+
+        Matches Go SDK's ObservationUpdate.IsEmpty() for cross-SDK parity.
+        """
+        return all(
+            v is None
+            for v in (
+                self.title, self.subtitle, self.content, self.narrative,
+                self.facts, self.concepts, self.source, self.extracted_data,
+            )
+        )
+
     def to_wire(self) -> dict:
         """Convert to wire format, omitting None fields.
 
