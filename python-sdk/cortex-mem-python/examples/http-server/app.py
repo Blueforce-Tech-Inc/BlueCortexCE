@@ -274,9 +274,6 @@ def observations_batch():
     for i, id_ in enumerate(ids):
         if not id_ or not str(id_).strip():
             return _error(400, f"ids[{i}] is empty")
-    for i, id_ in enumerate(ids):
-        if not id_ or not str(id_).strip():
-            return _error(400, f"ids[{i}] is empty")
 
     result = client.get_observations_by_ids(ids)
     return jsonify(observations=[o.to_dict() for o in result.observations], count=result.count)
