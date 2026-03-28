@@ -545,8 +545,8 @@ func main() {
 			return
 		}
 		var req struct {
-			ObservationId string `json:"observation_id"`
-			FeedbackType  string `json:"feedback_type"`
+			ObservationId string `json:"observationId"`
+			FeedbackType  string `json:"feedbackType"`
 			Comment       string `json:"comment,omitempty"`
 		}
 		if err := readJSON(r, &req); err != nil {
