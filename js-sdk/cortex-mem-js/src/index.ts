@@ -79,4 +79,4 @@ export {
 } from './dto';
 
 // Re-export parse functions (runtime, not just types)
-export { parseObservation, parseExperience, parseExtractionResult, parseICLPromptResult, parseStatsResponse, parseWorkerStats, parseDatabaseStats } from './dto';
+export { parseObservation, parseExperience, parseExtractionResult, parseICLPromptResult, parseStatsResponse, parseWorkerStats, parseDatabaseStats, parseVersionResponse } from './dto';

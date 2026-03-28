@@ -36,7 +36,7 @@ import type {
   HealthResponse,
   Observation,
 } from './dto';
-import { parseObservation, parseExperience, parseExtractionResult, parseICLPromptResult, parseStatsResponse } from './dto';
+import { parseObservation, parseExperience, parseExtractionResult, parseICLPromptResult, parseStatsResponse, parseVersionResponse } from './dto';
 
 // ============================================================
 // Logger interface
@@ -372,7 +372,8 @@ export class CortexMemClient {
    */
   async getVersion(): Promise<VersionResponse> {
     this.assertNotClosed();
-    return this.requestJSON<VersionResponse>('GET', '/api/version');
+    const raw = await this.requestJSON<unknown>('GET', '/api/version');
+    return parseVersionResponse(raw as Record<string, unknown>);
   }
 
   // ==================== P1 Management ====================

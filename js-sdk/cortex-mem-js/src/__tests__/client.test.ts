@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { CortexMemClient, APIError, ValidationError, isValidationError, isNotFound, isRateLimited, isRetryable, isForbidden, isUnprocessable, isConflict, isBadRequest, isUnauthorized, isClientError, isServerError, isBadGateway, isServiceUnavailable, isGatewayTimeout, parseObservation, parseExperience, parseExtractionResult, parseICLPromptResult, parseStatsResponse, parseWorkerStats, parseDatabaseStats } from '../index';
+import { CortexMemClient, APIError, ValidationError, isValidationError, isNotFound, isRateLimited, isRetryable, isForbidden, isUnprocessable, isConflict, isBadRequest, isUnauthorized, isClientError, isServerError, isBadGateway, isServiceUnavailable, isGatewayTimeout, parseObservation, parseExperience, parseExtractionResult, parseICLPromptResult, parseStatsResponse, parseWorkerStats, parseDatabaseStats, parseVersionResponse } from '../index';
 
 // Mock fetch
 function mockFetch(status: number, body: unknown): typeof globalThis.fetch {
@@ -1308,7 +1308,7 @@ describe('APIError', () => {
         return Promise.resolve('');
       },
     });
-    const c = new CortexMemClient({ baseUrl: 'http://127.0.0.1:37777', fetch: emptyBodyFetch });
+    const c = new CortexMemClient({ baseURL: 'http://127.0.0.1:37777', fetch: emptyBodyFetch });
 
     try {
       await c.getVersion();
@@ -1445,6 +1445,75 @@ describe('parseStatsResponse', () => {
     const result = parseStatsResponse(raw);
     expect(result.worker.isProcessing).toBe(false);
     expect(result.database.totalObservations).toBe(0);
+  });
+});
+
+// ==================== parseVersionResponse ====================
+
+describe('parseVersionResponse', () => {
+  it('should parse all wire format fields', () => {
+    const raw = {
+      version: '0.1.0-beta',
+      service: 'claude-mem-java',
+      java: '21.0.1',
+      springBoot: '3.3.0',
+    };
+
+    const result = parseVersionResponse(raw);
+    expect(result.version).toBe('0.1.0-beta');
+    expect(result.service).toBe('claude-mem-java');
+    expect(result.java).toBe('21.0.1');
+    expect(result.springBoot).toBe('3.3.0');
+  });
+
+  it('should handle null wire fields gracefully', () => {
+    const raw = {
+      version: null,
+      service: null,
+      java: null,
+      springBoot: null,
+    };
+
+    const result = parseVersionResponse(raw);
+    expect(result.version).toBe('');
+    expect(result.service).toBe('');
+    expect(result.java).toBe('');
+    expect(result.springBoot).toBe('');
+  });
+
+  it('should handle missing fields', () => {
+    const result = parseVersionResponse({});
+    expect(result.version).toBe('');
+    expect(result.service).toBe('');
+    expect(result.java).toBe('');
+    expect(result.springBoot).toBe('');
+  });
+
+  it('should handle type mismatches', () => {
+    const raw = {
+      version: 42,
+      service: true,
+      java: 21,
+    };
+
+    const result = parseVersionResponse(raw);
+    expect(result.version).toBe('42');
+    expect(result.service).toBe('true');
+    expect(result.java).toBe('21');
+    expect(result.springBoot).toBe('');
+  });
+});
+
+describe('getVersion defensive parsing', () => {
+  it('should use parseVersionResponse for wire format safety', async () => {
+    const localFetch = mockFetch(200, { version: '1.0', service: null, java: null, springBoot: '3.3' });
+    const localClient = new CortexMemClient({ fetch: localFetch as unknown as typeof globalThis.fetch });
+
+    const result = await localClient.getVersion();
+    expect(result.version).toBe('1.0');
+    expect(result.service).toBe(''); // defensive: null → ''
+    expect(result.java).toBe('');
+    expect(result.springBoot).toBe('3.3');
   });
 });
 

@@ -7,6 +7,8 @@ import { safeStringOr, safeNumberOr, safeStringArray, safeRecord, firstNonNullOr
 /**
  * Backend version information.
  * GET /api/version
+ *
+ * Use {@link parseVersionResponse} to safely parse from wire format.
  */
 export interface VersionResponse {
   version: string;
@@ -105,5 +107,18 @@ export function parseStatsResponse(raw: Record<string, unknown>): StatsResponse 
   return {
     worker: parseWorkerStats(workerRaw),
     database: parseDatabaseStats(databaseRaw),
+  };
+}
+
+/**
+ * Parse raw version response from wire format.
+ * Handles null values and type mismatches gracefully.
+ */
+export function parseVersionResponse(raw: Record<string, unknown>): VersionResponse {
+  return {
+    version: safeStringOr(raw.version, ''),
+    service: safeStringOr(raw.service, ''),
+    java: safeStringOr(raw.java, ''),
+    springBoot: safeStringOr(raw.springBoot, ''),
   };
 }
