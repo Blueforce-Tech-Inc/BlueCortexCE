@@ -784,6 +784,117 @@ func TestObservation_NewFields_OmittedWhenAbsent(t *testing.T) {
 	}
 }
 
+// ==================== Observation V14 Fields Deserialization ====================
+
+func TestObservation_SourceDeserialization(t *testing.T) {
+	jsonData := `{"id":"obs-1","content_session_id":"sess-1","project":"/proj","type":"tool-use","narrative":"test","source":"manual"}`
+	var obs Observation
+	if err := json.Unmarshal([]byte(jsonData), &obs); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if obs.Source != "manual" {
+		t.Errorf("expected source=manual, got %s", obs.Source)
+	}
+}
+
+func TestObservation_ExtractedDataDeserialization(t *testing.T) {
+	jsonData := `{"id":"obs-1","content_session_id":"sess-1","project":"/proj","type":"tool-use","narrative":"test","extractedData":{"price_range":"3000","brands":["sony","bose"]}}`
+	var obs Observation
+	if err := json.Unmarshal([]byte(jsonData), &obs); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if obs.ExtractedData == nil {
+		t.Fatal("extractedData should not be nil")
+	}
+	if obs.ExtractedData["price_range"] != "3000" {
+		t.Errorf("expected extractedData.price_range=3000, got %v", obs.ExtractedData["price_range"])
+	}
+	brands, ok := obs.ExtractedData["brands"].([]any)
+	if !ok || len(brands) != 2 {
+		t.Errorf("expected extractedData.brands=[sony, bose], got %v", obs.ExtractedData["brands"])
+	}
+}
+
+func TestObservation_ExtractedData_OmittedWhenAbsent(t *testing.T) {
+	jsonData := `{"id":"obs-1","content_session_id":"sess-1","project":"/proj","type":"tool-use","narrative":"test"}`
+	var obs Observation
+	if err := json.Unmarshal([]byte(jsonData), &obs); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if obs.ExtractedData != nil {
+		t.Error("extractedData should be nil when absent")
+	}
+}
+
+func TestObservation_FullV14Deserialization(t *testing.T) {
+	// Complete V14 observation with all new fields
+	jsonData := `{"id":"obs-1","content_session_id":"sess-1","project":"/proj","type":"tool-use","title":"Test","subtitle":"Sub","narrative":"content","facts":["f1"],"concepts":["c1"],"files_read":["a.go"],"files_modified":["b.go"],"quality_score":0.9,"feedback_type":"SUCCESS","feedback_updated_at":"2026-03-28T10:00:00Z","source":"tool_result","extractedData":{"key":"val"},"prompt_number":5,"created_at":"2026-03-28T09:00:00Z","created_at_epoch":1700000000,"last_accessed_at":"2026-03-28T12:00:00Z"}`
+	var obs Observation
+	if err := json.Unmarshal([]byte(jsonData), &obs); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if obs.ID != "obs-1" {
+		t.Errorf("expected id=obs-1, got %s", obs.ID)
+	}
+	if obs.SessionID != "sess-1" {
+		t.Errorf("expected content_session_id=sess-1, got %s", obs.SessionID)
+	}
+	if obs.ProjectPath != "/proj" {
+		t.Errorf("expected project=/proj, got %s", obs.ProjectPath)
+	}
+	if obs.Type != "tool-use" {
+		t.Errorf("expected type=tool-use, got %s", obs.Type)
+	}
+	if obs.Title != "Test" {
+		t.Errorf("expected title=Test, got %s", obs.Title)
+	}
+	if obs.Subtitle != "Sub" {
+		t.Errorf("expected subtitle=Sub, got %s", obs.Subtitle)
+	}
+	if obs.Content != "content" {
+		t.Errorf("expected narrative=content, got %s", obs.Content)
+	}
+	if len(obs.Facts) != 1 || obs.Facts[0] != "f1" {
+		t.Errorf("expected facts=[f1], got %v", obs.Facts)
+	}
+	if len(obs.Concepts) != 1 || obs.Concepts[0] != "c1" {
+		t.Errorf("expected concepts=[c1], got %v", obs.Concepts)
+	}
+	if len(obs.FilesRead) != 1 || obs.FilesRead[0] != "a.go" {
+		t.Errorf("expected files_read=[a.go], got %v", obs.FilesRead)
+	}
+	if len(obs.FilesModified) != 1 || obs.FilesModified[0] != "b.go" {
+		t.Errorf("expected files_modified=[b.go], got %v", obs.FilesModified)
+	}
+	if obs.QualityScore != 0.9 {
+		t.Errorf("expected quality_score=0.9, got %f", obs.QualityScore)
+	}
+	if obs.FeedbackType != "SUCCESS" {
+		t.Errorf("expected feedback_type=SUCCESS, got %s", obs.FeedbackType)
+	}
+	if obs.FeedbackUpdatedAt != "2026-03-28T10:00:00Z" {
+		t.Errorf("expected feedback_updated_at, got %s", obs.FeedbackUpdatedAt)
+	}
+	if obs.Source != "tool_result" {
+		t.Errorf("expected source=tool_result, got %s", obs.Source)
+	}
+	if obs.ExtractedData["key"] != "val" {
+		t.Errorf("expected extractedData.key=val, got %v", obs.ExtractedData["key"])
+	}
+	if obs.PromptNumber != 5 {
+		t.Errorf("expected prompt_number=5, got %d", obs.PromptNumber)
+	}
+	if obs.CreatedAt != "2026-03-28T09:00:00Z" {
+		t.Errorf("expected created_at, got %s", obs.CreatedAt)
+	}
+	if obs.CreatedAtEpoch != 1700000000 {
+		t.Errorf("expected created_at_epoch=1700000000, got %d", obs.CreatedAtEpoch)
+	}
+	if obs.LastAccessedAt != "2026-03-28T12:00:00Z" {
+		t.Errorf("expected last_accessed_at, got %s", obs.LastAccessedAt)
+	}
+}
+
 func TestSessionUserUpdateResponse_CamelCaseFields(t *testing.T) {
 	resp := SessionUserUpdateResponse{
 		Status:    "ok",
