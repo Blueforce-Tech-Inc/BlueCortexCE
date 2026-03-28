@@ -356,6 +356,33 @@ class TestDTOFromWire:
         assert er.status == "ok"
         assert er.extracted_data == {"lang": "zh"}
 
+    def test_extraction_result_from_wire_snake_case_fallback(self):
+        """ExtractionResult should accept snake_case wire format (naming strategy fallback)."""
+        data = {
+            "status": "ok",
+            "session_id": "s1",
+            "extracted_data": {"lang": "zh"},
+            "created_at": 1710000000000,
+            "observation_id": "o1",
+        }
+        er = ExtractionResult.from_wire(data)
+        assert er.session_id == "s1"
+        assert er.extracted_data == {"lang": "zh"}
+        assert er.created_at == 1710000000000
+        assert er.observation_id == "o1"
+
+    def test_extraction_result_from_wire_snake_case_preferred(self):
+        """When both snake_case and camelCase present, snake_case wins."""
+        data = {
+            "session_id": "snake-s1",
+            "sessionId": "camel-s1",
+            "created_at": 100,
+            "createdAt": 200,
+        }
+        er = ExtractionResult.from_wire(data)
+        assert er.session_id == "snake-s1"
+        assert er.created_at == 100
+
     def test_extraction_result_from_wire_created_at_string(self):
         """createdAt may arrive as a string from some backend responses."""
         data = {"createdAt": "1710000000000", "sessionId": "s1", "observationId": "o1"}

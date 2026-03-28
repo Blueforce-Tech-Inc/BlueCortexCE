@@ -338,7 +338,7 @@ class SearchResult:
             observations=[Observation.from_wire(o) for o in data.get("observations") or []],
             strategy=data.get("strategy") or "",
             fell_back=bool(_first_non_null(data, "fell_back", "fellBack") or False),
-            count=_to_int(_first_non_null(data, "count"), 0),
+            count=_to_int(data.get("count")),
         )
 
 
@@ -454,10 +454,10 @@ class ExtractionResult:
             status=data.get("status") or "",
             template=data.get("template") or "",
             message=data.get("message") or "",
-            session_id=data.get("sessionId") or "",
-            extracted_data=data.get("extractedData"),
-            created_at=_to_int(data.get("createdAt"), 0),
-            observation_id=data.get("observationId") or "",
+            session_id=_first_non_null(data, "session_id", "sessionId") or "",
+            extracted_data=_first_non_null(data, "extracted_data", "extractedData"),
+            created_at=_to_int(_first_non_null(data, "created_at", "createdAt")),
+            observation_id=_first_non_null(data, "observation_id", "observationId") or "",
         )
 
 
