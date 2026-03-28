@@ -45,7 +45,9 @@ public class ExtractionController {
         }
 
         try {
-            Map<String, Object> result = client.getLatestExtraction(project, template, userId);
+            // Normalize blank userId to null so SDK omits the parameter
+            String normalizedUserId = (userId != null && userId.isBlank()) ? null : userId;
+            Map<String, Object> result = client.getLatestExtraction(project, template, normalizedUserId);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("Get latest extraction failed for project={}, template={}", project, template, e);
@@ -62,7 +64,7 @@ public class ExtractionController {
             @RequestParam String project,
             @RequestParam String template,
             @RequestParam(required = false) String userId,
-            @RequestParam(defaultValue = "0") Integer limit) {
+            @RequestParam(defaultValue = "10") Integer limit) {
 
         if (project.isBlank()) {
             return ResponseEntity.badRequest()
@@ -72,13 +74,15 @@ public class ExtractionController {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "template is required"));
         }
-        if (limit < 0) {
+        if (limit < 1 || limit > 100) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("error", "limit must be non-negative"));
+                    .body(Map.of("error", "limit must be between 1 and 100"));
         }
 
         try {
-            List<Map<String, Object>> result = client.getExtractionHistory(project, template, userId, limit);
+            // Normalize blank userId to null so SDK omits the parameter
+            String normalizedUserId = (userId != null && userId.isBlank()) ? null : userId;
+            List<Map<String, Object>> result = client.getExtractionHistory(project, template, normalizedUserId, limit);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("Get extraction history failed for project={}, template={}", project, template, e);
