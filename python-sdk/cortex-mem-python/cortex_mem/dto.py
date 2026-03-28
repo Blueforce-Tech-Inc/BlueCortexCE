@@ -189,6 +189,7 @@ class Observation:
     facts: list[str] = field(default_factory=list)
     concepts: list[str] = field(default_factory=list)
     quality_score: float = 0.0
+    feedback_type: str = ""  # SUCCESS/PARTIAL/FAILURE/UNKNOWN
     source: str = ""
     extracted_data: dict | None = None
     prompt_number: int = 0
@@ -225,6 +226,8 @@ class Observation:
             d["concepts"] = self.concepts
         if self.quality_score:
             d["quality_score"] = self.quality_score
+        if self.feedback_type:
+            d["feedback_type"] = self.feedback_type
         if self.prompt_number:
             d["prompt_number"] = self.prompt_number
         if self.source:
@@ -253,6 +256,7 @@ class Observation:
             facts=data.get("facts") or [],
             concepts=data.get("concepts") or [],
             quality_score=_to_float(data.get("quality_score")),
+            feedback_type=data.get("feedback_type") or "",
             source=data.get("source") or "",
             extracted_data=data.get("extractedData"),
             prompt_number=_to_int(data.get("prompt_number")),
