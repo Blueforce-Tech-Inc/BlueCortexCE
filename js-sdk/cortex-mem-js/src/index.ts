@@ -63,5 +63,15 @@ export type {
   HealthResponse,
 } from './dto';
 
+// Wire helpers (safe type conversion utilities)
+export {
+  safeString,
+  safeStringOr,
+  safeNumber,
+  safeNumberOr,
+  safeStringArray,
+  safeRecord,
+} from './dto';
+
 // Re-export parse functions (runtime, not just types)
-export { parseObservation, parseExperience } from './dto';
+export { parseObservation, parseExperience, parseExtractionResult } from './dto';

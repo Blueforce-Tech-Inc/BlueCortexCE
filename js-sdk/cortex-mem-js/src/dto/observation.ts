@@ -1,45 +1,8 @@
 // ============================================================
-// Wire format safe type conversion helpers
-// ============================================================
-
-/** Safely convert unknown value to string. Returns undefined for null/undefined/non-string. */
-function safeString(v: unknown): string | undefined {
-  if (v === null || v === undefined) return undefined;
-  if (typeof v === 'string') return v;
-  return String(v);
-}
-
-/** Safely convert unknown value to string with default. */
-function safeStringOr(v: unknown, fallback: string): string {
-  return safeString(v) ?? fallback;
-}
-
-/** Safely convert unknown value to number. Returns undefined for null/undefined/non-number. */
-function safeNumber(v: unknown): number | undefined {
-  if (v === null || v === undefined) return undefined;
-  if (typeof v === 'number' && !Number.isNaN(v)) return v;
-  if (typeof v === 'string') {
-    const n = Number(v);
-    if (!Number.isNaN(n)) return n;
-  }
-  return undefined;
-}
-
-/** Safely convert unknown value to string array. Returns undefined for null/undefined. */
-function safeStringArray(v: unknown): string[] | undefined {
-  if (v === null || v === undefined) return undefined;
-  if (!Array.isArray(v)) return undefined;
-  const result: string[] = [];
-  for (const item of v) {
-    if (typeof item === 'string') result.push(item);
-    else if (item !== null && item !== undefined) result.push(String(item));
-  }
-  return result;
-}
-
-// ============================================================
 // Observation DTOs
 // ============================================================
+
+import { safeString, safeStringOr, safeNumber, safeStringArray } from './wire-helpers';
 
 /**
  * Request to record a tool-use observation.

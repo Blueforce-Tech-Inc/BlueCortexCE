@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { CortexMemClient, APIError, isNotFound, isRateLimited, isRetryable, isForbidden, isUnprocessable, isConflict, isBadRequest, isUnauthorized, isClientError, isServerError, parseObservation, parseExperience } from '../index';
+import { CortexMemClient, APIError, isNotFound, isRateLimited, isRetryable, isForbidden, isUnprocessable, isConflict, isBadRequest, isUnauthorized, isClientError, isServerError, parseObservation, parseExperience, parseExtractionResult } from '../index';
 
 // Mock fetch
 function mockFetch(status: number, body: unknown): typeof globalThis.fetch {
@@ -1100,5 +1100,81 @@ describe('parseObservation', () => {
     const raw = { facts: ['valid', null, 42, '', undefined] };
     const obs = parseObservation(raw);
     expect(obs.facts).toEqual(['valid', '42', '']);
+  });
+});
+
+// ==================== parseExtractionResult ====================
+
+describe('parseExtractionResult', () => {
+  it('should parse all wire format fields', () => {
+    const raw = {
+      status: 'ok',
+      template: 'user-preferences',
+      message: 'extracted successfully',
+      sessionId: 'sess-1',
+      extractedData: { preferences: ['dark-mode'] },
+      createdAt: 1700000000,
+      observationId: 'obs-123',
+    };
+
+    const result = parseExtractionResult(raw);
+    expect(result.status).toBe('ok');
+    expect(result.template).toBe('user-preferences');
+    expect(result.message).toBe('extracted successfully');
+    expect(result.sessionId).toBe('sess-1');
+    expect(result.extractedData).toEqual({ preferences: ['dark-mode'] });
+    expect(result.createdAt).toBe(1700000000);
+    expect(result.observationId).toBe('obs-123');
+  });
+
+  it('should handle missing optional fields', () => {
+    const raw = {
+      sessionId: 's1',
+      extractedData: {},
+      createdAt: 0,
+      observationId: 'o1',
+    };
+
+    const result = parseExtractionResult(raw);
+    expect(result.status).toBeUndefined();
+    expect(result.template).toBeUndefined();
+    expect(result.message).toBeUndefined();
+    expect(result.sessionId).toBe('s1');
+  });
+
+  it('should handle null wire fields gracefully', () => {
+    const raw = {
+      status: null,
+      template: null,
+      message: null,
+      sessionId: null,
+      extractedData: null,
+      createdAt: null,
+      observationId: null,
+    };
+
+    const result = parseExtractionResult(raw);
+    expect(result.status).toBeUndefined();
+    expect(result.template).toBeUndefined();
+    expect(result.message).toBeUndefined();
+    expect(result.sessionId).toBe('');
+    expect(result.extractedData).toEqual({});
+    expect(result.createdAt).toBe(0);
+    expect(result.observationId).toBe('');
+  });
+
+  it('should handle type mismatches', () => {
+    const raw = {
+      sessionId: 42,
+      createdAt: '1700000000',
+      observationId: 123,
+      extractedData: 'not-an-object',
+    };
+
+    const result = parseExtractionResult(raw);
+    expect(result.sessionId).toBe('42');
+    expect(result.createdAt).toBe(1700000000);
+    expect(result.observationId).toBe('123');
+    expect(result.extractedData).toEqual({}); // non-object → empty
   });
 });

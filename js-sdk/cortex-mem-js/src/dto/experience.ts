@@ -2,6 +2,8 @@
 // Experience & ICL DTOs
 // ============================================================
 
+import { safeStringOr, safeNumberOr, safeString } from './wire-helpers';
+
 /**
  * Request to retrieve relevant experiences.
  * POST /api/memory/experiences
@@ -41,35 +43,14 @@ export interface Experience {
  * Uses safe type conversion to handle null values and type mismatches gracefully.
  */
 export function parseExperience(raw: Record<string, unknown>): Experience {
-  // Safe conversion helpers (local to avoid import overhead)
-  const safeStr = (v: unknown, fallback: string): string => {
-    if (v === null || v === undefined) return fallback;
-    if (typeof v === 'string') return v;
-    return String(v);
-  };
-  const safeNum = (v: unknown, fallback: number): number => {
-    if (v === null || v === undefined) return fallback;
-    if (typeof v === 'number' && !Number.isNaN(v)) return v;
-    if (typeof v === 'string') {
-      const n = Number(v);
-      if (!Number.isNaN(n)) return n;
-    }
-    return fallback;
-  };
-  const safeOptStr = (v: unknown): string | undefined => {
-    if (v === null || v === undefined) return undefined;
-    if (typeof v === 'string') return v;
-    return String(v);
-  };
-
   return {
-    id: safeStr(raw.id, ''),
-    task: safeStr(raw.task, ''),
-    strategy: safeStr(raw.strategy, ''),
-    outcome: safeStr(raw.outcome, ''),
-    reuseCondition: safeStr(raw.reuse_condition, ''),
-    qualityScore: safeNum(raw.quality_score, 0),
-    createdAt: safeOptStr(raw.created_at),
+    id: safeStringOr(raw.id, ''),
+    task: safeStringOr(raw.task, ''),
+    strategy: safeStringOr(raw.strategy, ''),
+    outcome: safeStringOr(raw.outcome, ''),
+    reuseCondition: safeStringOr(raw.reuse_condition, ''),
+    qualityScore: safeNumberOr(raw.quality_score, 0),
+    createdAt: safeString(raw.created_at),
   };
 }
 
