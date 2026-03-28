@@ -89,10 +89,10 @@ class Experience:
     created_at: str = ""
 
     def to_dict(self) -> dict:
-        """Serialize to wire-compatible dict (consistent with Go/JS SDK JSON output).
+        """Serialize to a dict with Pythonic snake_case keys.
 
-        All fields are always included (no omitempty) to match Go SDK behavior,
-        where Experience struct fields have no `json:"...,omitempty"` tags.
+        All fields are always included to provide complete data for API consumers.
+        For exact wire format matching the backend, see the Go/JS SDK serialization.
         """
         return {
             "id": self.id,
@@ -229,15 +229,17 @@ class Observation:
     last_accessed_at: str = ""
 
     def to_dict(self) -> dict:
-        """Serialize to wire-compatible dict (consistent with Go/JS SDK JSON output).
+        """Serialize to a Python-friendly dict with snake_case keys.
 
-        Uses the same field names as the backend JSON wire format so that
-        demo HTTP responses match across SDKs.
+        Note: This uses Pythonic snake_case field names (e.g., ``files_read``,
+        ``extractedData``) for Flask demo responses. For cross-SDK wire-compatible
+        JSON, use the Go SDK's ``toWire()`` or JS SDK's ``toJSON()`` which output
+        the exact wire format expected by the backend.
 
-        Field inclusion rules match Go SDK's json struct tags:
-        - Always included (no omitempty): id, content_session_id, project, type, narrative
-        - Omit when empty/zero (omitempty): title, subtitle, facts, concepts,
-          quality_score, prompt_number, source, extractedData, created_at, created_at_epoch
+        Field inclusion rules:
+        - Always included: id, content_session_id, project, type, narrative
+        - Omit when empty/zero: title, subtitle, facts, concepts,
+          quality_score, feedback_type, source, extractedData, created_at, created_at_epoch
         """
         # Always-include fields (Go SDK: no omitempty)
         d: dict = {
@@ -423,10 +425,11 @@ class ExtractionResult:
     observation_id: str = ""
 
     def to_dict(self) -> dict:
-        """Serialize to wire-compatible dict (camelCase, consistent with Go SDK).
+        """Serialize to a dict with camelCase keys matching the backend wire format.
 
-        Matches Go SDK ExtractionResult JSON struct tags: sessionId, extractedData,
-        createdAt, observationId.
+        Uses camelCase keys (sessionId, extractedData, observationId) to match
+        the backend JSON response format. This is the closest to wire format
+        among the Python SDK's serialization methods.
         """
         d: dict = {}
         if self.status:
