@@ -32,7 +32,7 @@ func (c *httpClient) UpdateSessionUserId(ctx context.Context, sessionID, userID 
 
 func (c *httpClient) RecordObservation(ctx context.Context, req dto.ObservationRequest) error {
 	if strings.TrimSpace(req.SessionID) == "" {
-		return &ValidationError{Field: "SessionID", Message: "ObservationRequest.SessionID is required"}
+		return &ValidationError{Field: "sessionID", Message: "sessionID is required"}
 	}
 	return c.doFireAndForget(ctx, "RecordObservation", func() error {
 		return c.doRequestNoContent(ctx, http.MethodPost, "/api/ingest/tool-use", req)
@@ -41,7 +41,7 @@ func (c *httpClient) RecordObservation(ctx context.Context, req dto.ObservationR
 
 func (c *httpClient) RecordSessionEnd(ctx context.Context, req dto.SessionEndRequest) error {
 	if strings.TrimSpace(req.SessionID) == "" {
-		return &ValidationError{Field: "SessionID", Message: "SessionEndRequest.SessionID is required"}
+		return &ValidationError{Field: "sessionID", Message: "sessionID is required"}
 	}
 	return c.doFireAndForget(ctx, "RecordSessionEnd", func() error {
 		return c.doRequestNoContent(ctx, http.MethodPost, "/api/ingest/session-end", req)
@@ -50,10 +50,10 @@ func (c *httpClient) RecordSessionEnd(ctx context.Context, req dto.SessionEndReq
 
 func (c *httpClient) RecordUserPrompt(ctx context.Context, req dto.UserPromptRequest) error {
 	if strings.TrimSpace(req.SessionID) == "" {
-		return &ValidationError{Field: "SessionID", Message: "UserPromptRequest.SessionID is required"}
+		return &ValidationError{Field: "sessionID", Message: "sessionID is required"}
 	}
 	if strings.TrimSpace(req.PromptText) == "" {
-		return &ValidationError{Field: "PromptText", Message: "UserPromptRequest.PromptText is required"}
+		return &ValidationError{Field: "promptText", Message: "promptText is required"}
 	}
 	return c.doFireAndForget(ctx, "RecordUserPrompt", func() error {
 		return c.doRequestNoContent(ctx, http.MethodPost, "/api/ingest/user-prompt", req)
@@ -64,7 +64,7 @@ func (c *httpClient) RecordUserPrompt(ctx context.Context, req dto.UserPromptReq
 
 func (c *httpClient) RetrieveExperiences(ctx context.Context, req dto.ExperienceRequest) ([]dto.Experience, error) {
 	if strings.TrimSpace(req.Task) == "" {
-		return nil, &ValidationError{Field: "Task", Message: "ExperienceRequest.Task is required"}
+		return nil, &ValidationError{Field: "task", Message: "task is required"}
 	}
 	result, err := doRequestJSON[[]dto.Experience](c, ctx, http.MethodPost, "/api/memory/experiences", req, nil)
 	if err != nil {
@@ -75,14 +75,14 @@ func (c *httpClient) RetrieveExperiences(ctx context.Context, req dto.Experience
 
 func (c *httpClient) BuildICLPrompt(ctx context.Context, req dto.ICLPromptRequest) (*dto.ICLPromptResult, error) {
 	if strings.TrimSpace(req.Task) == "" {
-		return nil, &ValidationError{Field: "Task", Message: "ICLPromptRequest.Task is required"}
+		return nil, &ValidationError{Field: "task", Message: "task is required"}
 	}
 	return doRequestJSON[dto.ICLPromptResult](c, ctx, http.MethodPost, "/api/memory/icl-prompt", req, nil)
 }
 
 func (c *httpClient) Search(ctx context.Context, req dto.SearchRequest) (*dto.SearchResult, error) {
 	if strings.TrimSpace(req.Project) == "" {
-		return nil, &ValidationError{Field: "Project", Message: "SearchRequest.Project is required"}
+		return nil, &ValidationError{Field: "project", Message: "project is required"}
 	}
 	// Build query params — only include fields that are set.
 	// Backend accepts: project (required), query, type, concept, source, limit, offset.

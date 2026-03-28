@@ -685,6 +685,35 @@ func TestExtractionResult_ZeroValue_Marshal(t *testing.T) {
 	}
 }
 
+// ==================== Observation FeedbackType Tests ====================
+
+func TestObservation_FeedbackType_Deserialization(t *testing.T) {
+	// Backend exposes feedback_type on observations
+	jsonData := `{"id":"obs-1","content_session_id":"sess-1","project":"/proj","type":"tool-use","narrative":"test content","quality_score":0.8,"feedback_type":"SUCCESS","created_at":"2026-03-28T10:00:00Z","created_at_epoch":1700000000000}`
+	var obs Observation
+	if err := json.Unmarshal([]byte(jsonData), &obs); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if obs.FeedbackType != "SUCCESS" {
+		t.Errorf("expected feedback_type=SUCCESS, got %s", obs.FeedbackType)
+	}
+	if obs.QualityScore != 0.8 {
+		t.Errorf("expected quality_score=0.8, got %f", obs.QualityScore)
+	}
+}
+
+func TestObservation_FeedbackType_OmittedWhenAbsent(t *testing.T) {
+	// When feedback_type is not present, it should be empty string
+	jsonData := `{"id":"obs-2","content_session_id":"sess-1","project":"/proj","type":"tool-use","narrative":"test"}`
+	var obs Observation
+	if err := json.Unmarshal([]byte(jsonData), &obs); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if obs.FeedbackType != "" {
+		t.Errorf("expected empty feedback_type when absent, got %s", obs.FeedbackType)
+	}
+}
+
 func TestSessionUserUpdateResponse_CamelCaseFields(t *testing.T) {
 	resp := SessionUserUpdateResponse{
 		Status:    "ok",

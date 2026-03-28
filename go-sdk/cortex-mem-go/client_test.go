@@ -3358,7 +3358,7 @@ func TestRecordObservation_Validation_EmptySessionID(t *testing.T) {
 	if err == nil {
 		t.Fatal("RecordObservation should fail with empty sessionID")
 	}
-	if !strings.Contains(err.Error(), "SessionID is required") {
+	if !strings.Contains(err.Error(), "sessionID is required") {
 		t.Errorf("expected validation error about SessionID, got: %v", err)
 	}
 }
@@ -3372,7 +3372,7 @@ func TestRecordSessionEnd_Validation_EmptySessionID(t *testing.T) {
 	if err == nil {
 		t.Fatal("RecordSessionEnd should fail with empty sessionID")
 	}
-	if !strings.Contains(err.Error(), "SessionID is required") {
+	if !strings.Contains(err.Error(), "sessionID is required") {
 		t.Errorf("expected validation error about SessionID, got: %v", err)
 	}
 }
@@ -3387,7 +3387,7 @@ func TestRecordUserPrompt_Validation_EmptySessionID(t *testing.T) {
 	if err == nil {
 		t.Fatal("RecordUserPrompt should fail with empty sessionID")
 	}
-	if !strings.Contains(err.Error(), "SessionID is required") {
+	if !strings.Contains(err.Error(), "sessionID is required") {
 		t.Errorf("expected validation error about SessionID, got: %v", err)
 	}
 }
@@ -3402,7 +3402,7 @@ func TestRecordUserPrompt_Validation_EmptyPromptText(t *testing.T) {
 	if err == nil {
 		t.Fatal("RecordUserPrompt should fail with empty promptText")
 	}
-	if !strings.Contains(err.Error(), "PromptText is required") {
+	if !strings.Contains(err.Error(), "promptText is required") {
 		t.Errorf("expected validation error about PromptText, got: %v", err)
 	}
 }
@@ -3416,7 +3416,7 @@ func TestSearch_Validation_EmptyProject(t *testing.T) {
 	if err == nil {
 		t.Fatal("Search should fail with empty project")
 	}
-	if !strings.Contains(err.Error(), "Project is required") {
+	if !strings.Contains(err.Error(), "project is required") {
 		t.Errorf("expected validation error about Project, got: %v", err)
 	}
 }
@@ -3430,7 +3430,7 @@ func TestRetrieveExperiences_Validation_EmptyTask(t *testing.T) {
 	if err == nil {
 		t.Fatal("RetrieveExperiences should fail with empty task")
 	}
-	if !strings.Contains(err.Error(), "Task is required") {
+	if !strings.Contains(err.Error(), "task is required") {
 		t.Errorf("expected validation error about Task, got: %v", err)
 	}
 }
@@ -3444,7 +3444,7 @@ func TestBuildICLPrompt_Validation_EmptyTask(t *testing.T) {
 	if err == nil {
 		t.Fatal("BuildICLPrompt should fail with empty task")
 	}
-	if !strings.Contains(err.Error(), "Task is required") {
+	if !strings.Contains(err.Error(), "task is required") {
 		t.Errorf("expected validation error about Task, got: %v", err)
 	}
 }
@@ -3928,9 +3928,9 @@ func TestIsValidationError_TrueForValidationErrors(t *testing.T) {
 		err   error
 		field string
 	}{
-		{"RecordObservation", client.RecordObservation(context.Background(), dto.ObservationRequest{}), "SessionID"},
-		{"Search", func() error { _, err := client.Search(context.Background(), dto.SearchRequest{}); return err }(), "Project"},
-		{"RetrieveExperiences", func() error { _, err := client.RetrieveExperiences(context.Background(), dto.ExperienceRequest{}); return err }(), "Task"},
+		{"RecordObservation", client.RecordObservation(context.Background(), dto.ObservationRequest{}), "sessionID"},
+		{"Search", func() error { _, err := client.Search(context.Background(), dto.SearchRequest{}); return err }(), "project"},
+		{"RetrieveExperiences", func() error { _, err := client.RetrieveExperiences(context.Background(), dto.ExperienceRequest{}); return err }(), "task"},
 		{"DeleteObservation", client.DeleteObservation(context.Background(), ""), "observationID"},
 		{"TriggerRefinement", client.TriggerRefinement(context.Background(), ""), "projectPath"},
 		{"GetObservationsByIds", func() error { _, err := client.GetObservationsByIds(context.Background(), nil); return err }(), "ids"},

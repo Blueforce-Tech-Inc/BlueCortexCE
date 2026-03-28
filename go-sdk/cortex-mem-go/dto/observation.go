@@ -59,6 +59,7 @@ type Observation struct {
 	Facts           []string       `json:"facts,omitempty"`
 	Concepts        []string       `json:"concepts,omitempty"`
 	QualityScore    float32        `json:"quality_score,omitempty"`    // SNAKE_CASE naming strategy
+	FeedbackType    string         `json:"feedback_type,omitempty"`    // SUCCESS/PARTIAL/FAILURE/UNKNOWN
 	Source          string         `json:"source,omitempty"`
 	ExtractedData   map[string]any `json:"extractedData,omitempty"`    // @JsonProperty("extractedData") on entity
 	PromptNumber    int            `json:"prompt_number,omitempty"`    // SNAKE_CASE naming strategy
