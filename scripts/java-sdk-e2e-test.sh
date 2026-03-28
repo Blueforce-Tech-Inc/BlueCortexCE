@@ -107,7 +107,7 @@ echo "--- Existing API Tests ---"
 
 # Test 1: Memory Experiences (Strict validation)
 info "Test 1: Memory Experiences — Verify returned array structure"
-RESP=$(curl -sf --max-time 10 "$DEMO_BASE/memory/experiences?project=$PROJECT&query=test&limit=5" 2>/dev/null || echo "FAIL")
+RESP=$(curl -sf --max-time 10 "$DEMO_BASE/memory/experiences?project=$PROJECT&task=test&count=5" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
     fail "Memory Experiences" "Request failed"
 elif ! contains_field "$RESP" "content"; then
@@ -367,7 +367,7 @@ echo "--- Supplementary E2E Tests: Java SDK Demo Missing Coverage ---"
 
 # Test N+1: /memory/experiences/filtered
 info "Test N+1: GET /memory/experiences/filtered — source and requiredConcepts filtering"
-FILTEXPS=$(curl -sf --max-time 10 "$DEMO_BASE/../memory/experiences/filtered?project=$PROJECT&source=java_test&limit=5" 2>/dev/null || echo "FAIL")
+FILTEXPS=$(curl -sf --max-time 10 "$DEMO_BASE/../memory/experiences/filtered?project=$PROJECT&task=test&source=java_test&count=5" 2>/dev/null || echo "FAIL")
 if [ "$FILTEXPS" = "FAIL" ]; then
     fail "GET /memory/experiences/filtered" "Request timed out or failed"
 elif echo "$FILTEXPS" | grep -qE "observations\|experiences\|experience"; then
@@ -496,10 +496,8 @@ else
     echo "--- Extraction Scenario Tests (EXTRACTION_ENABLED=true) ---"
 
     # Test E1: Run extraction
-    info "Test E1: POST /api/extraction/run — Trigger extraction for user_preferences"
-    RUN_RESP=$(curl -sf --max-time 30 -X POST "$BACKEND_URL/api/extraction/run" \
-        -H "Content-Type: application/json" \
-        -d "{\"project\": \"$PROJECT\", \"template\": \"user_preferences\", \"userId\": \"alice\"}" 2>/dev/null || echo "FAIL")
+    info "Test E1: POST /api/extraction/run — Trigger extraction for project"
+    RUN_RESP=$(curl -sf --max-time 30 -X POST "$BACKEND_URL/api/extraction/run?projectPath=$PROJECT" 2>/dev/null || echo "FAIL")
     if [ "$RUN_RESP" = "FAIL" ]; then
         fail "POST /api/extraction/run" "Request timed out or failed"
     elif echo "$RUN_RESP" | grep -qi "error\|failed"; then
@@ -547,9 +545,7 @@ else
 
     # Test E5: Re-extraction
     info "Test E5: Re-extraction — Trigger extraction again"
-    RE_RUN=$(curl -sf --max-time 30 -X POST "$BACKEND_URL/api/extraction/run" \
-        -H "Content-Type: application/json" \
-        -d "{\"project\": \"$PROJECT\", \"template\": \"user_preferences\", \"userId\": \"alice\"}" 2>/dev/null || echo "FAIL")
+    RE_RUN=$(curl -sf --max-time 30 -X POST "$BACKEND_URL/api/extraction/run?projectPath=$PROJECT" 2>/dev/null || echo "FAIL")
     if [ "$RE_RUN" = "FAIL" ]; then
         fail "Re-extraction" "Request timed out or failed"
     else

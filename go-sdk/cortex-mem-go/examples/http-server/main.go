@@ -790,7 +790,11 @@ func main() {
 	})
 
 	// Start HTTP server with timeouts
-	addr := ":8080"
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	addr := ":" + port
 	fmt.Printf("🚀 Go SDK HTTP server starting on %s\n", addr)
 	fmt.Println("Endpoints:")
 	fmt.Println("  GET    /health              - Health check")
