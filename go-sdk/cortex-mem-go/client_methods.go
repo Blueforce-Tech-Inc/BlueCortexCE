@@ -123,6 +123,20 @@ func (c *httpClient) ListObservations(ctx context.Context, req dto.ObservationsR
 	return doRequestJSON[dto.ObservationsResponse](c, ctx, http.MethodGet, "/api/observations", nil, params)
 }
 
+func (c *httpClient) GetObservation(ctx context.Context, id string) (*dto.Observation, error) {
+	if strings.TrimSpace(id) == "" {
+		return nil, &ValidationError{Field: "id", Message: "id is required"}
+	}
+	result, err := c.GetObservationsByIds(ctx, []string{id})
+	if err != nil {
+		return nil, err
+	}
+	if len(result.Observations) == 0 {
+		return nil, nil // Not found — no error, just nil
+	}
+	return &result.Observations[0], nil
+}
+
 func (c *httpClient) GetObservationsByIds(ctx context.Context, ids []string) (*dto.BatchObservationsResponse, error) {
 	if len(ids) == 0 {
 		return nil, &ValidationError{Field: "ids", Message: "ids must not be empty"}

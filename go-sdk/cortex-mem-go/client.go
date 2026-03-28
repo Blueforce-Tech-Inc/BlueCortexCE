@@ -40,7 +40,12 @@ type Client interface {
 	// ListObservations lists observations with pagination.
 	ListObservations(ctx context.Context, req dto.ObservationsRequest) (*dto.ObservationsResponse, error)
 
+	// GetObservation retrieves a single observation by ID.
+	// Returns nil and no error if the observation does not exist.
+	GetObservation(ctx context.Context, id string) (*dto.Observation, error)
+
 	// GetObservationsByIds retrieves observations by their IDs.
+	// Max 100 IDs per call.
 	GetObservationsByIds(ctx context.Context, ids []string) (*dto.BatchObservationsResponse, error)
 
 	// ==================== Management ====================

@@ -982,6 +982,85 @@ func TestGetObservationsByIds(t *testing.T) {
 	}
 }
 
+func TestGetObservation_Found(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(dto.BatchObservationsResponse{
+			Observations: []dto.Observation{
+				{ID: "obs-123", Content: "found observation", Source: "test"},
+			},
+			Count: 1,
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	obs, err := client.GetObservation(context.Background(), "obs-123")
+	if err != nil {
+		t.Fatalf("GetObservation failed: %v", err)
+	}
+	if obs == nil {
+		t.Fatal("expected non-nil observation")
+	}
+	if obs.ID != "obs-123" {
+		t.Errorf("expected ID=obs-123, got %s", obs.ID)
+	}
+	if obs.Content != "found observation" {
+		t.Errorf("expected content='found observation', got %q", obs.Content)
+	}
+	if obs.Source != "test" {
+		t.Errorf("expected source='test', got %q", obs.Source)
+	}
+}
+
+func TestGetObservation_NotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(dto.BatchObservationsResponse{
+			Observations: []dto.Observation{},
+			Count:        0,
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	obs, err := client.GetObservation(context.Background(), "nonexistent")
+	if err != nil {
+		t.Fatalf("GetObservation should not error for missing ID: %v", err)
+	}
+	if obs != nil {
+		t.Errorf("expected nil observation for missing ID, got %+v", obs)
+	}
+}
+
+func TestGetObservation_EmptyID(t *testing.T) {
+	client := newTestClient(httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})))
+	_, err := client.GetObservation(context.Background(), "")
+	if err == nil {
+		t.Fatal("expected error for empty ID")
+	}
+	if !cortexmem.IsValidationError(err) {
+		t.Errorf("expected ValidationError, got %T: %v", err, err)
+	}
+}
+
+func TestGetObservation_PropagatesError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error":"db down"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.GetObservation(context.Background(), "obs-1")
+	if err == nil {
+		t.Fatal("expected error propagation")
+	}
+	if !cortexmem.IsInternal(err) {
+		t.Errorf("expected 5xx error, got: %v", err)
+	}
+}
+
 func TestIsBadRequest(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
