@@ -191,6 +191,12 @@ app.get('/observations', asyncHandler(async (req: Request, res: Response) => {
   res.json(result);
 });
 
+app.get('/observations/:id', asyncHandler(async (req: Request, res: Response) => {
+  const result = await client.getObservation(req.params.id);
+  if (result === null) return errorJson(res, 404, `observation ${req.params.id} not found`);
+  res.json(result);
+}));
+
 app.post('/observations/batch', asyncHandler(async (req: Request, res: Response) => {
   const ids: string[] = req.body.ids ?? [];
   if (!ids.length) return errorJson(res, 400, 'ids is required');
@@ -397,6 +403,7 @@ const server = app.listen(PORT, () => {
   console.log('  GET    /experiences         - Retrieve experiences');
   console.log('  GET    /iclprompt           - Build ICL prompt');
   console.log('  GET    /observations        - List observations');
+  console.log('  GET    /observations/:id    - Get observation by ID');
   console.log('  POST   /observations/batch  - Batch get observations by IDs');
   console.log('  GET    /projects            - Get projects');
   console.log('  GET    /stats               - Get stats');

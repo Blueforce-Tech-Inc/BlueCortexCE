@@ -182,6 +182,18 @@ export class CortexMemClient {
   }
 
   /**
+   * Get a single observation by ID.
+   * Convenience method wrapping getObservationsByIds.
+   * Returns null if the observation is not found.
+   */
+  async getObservation(id: string): Promise<Observation | null> {
+    this.assertNotClosed();
+    this.validateRequired('id', id);
+    const result = await this.getObservationsByIds([id]);
+    return result.observations.length > 0 ? result.observations[0] : null;
+  }
+
+  /**
    * Get observations by IDs.
    * POST /api/observations/batch
    */

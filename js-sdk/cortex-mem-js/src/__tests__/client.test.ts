@@ -424,6 +424,40 @@ describe('CortexMemClient', () => {
     });
   });
 
+  describe('getObservation', () => {
+    it('should return observation when found', async () => {
+      const resp = { observations: [{ id: 'obs-1', content_session_id: 's1', project: '/p', type: 'tool', narrative: 'content' }], count: 1 };
+      fetchMock = mockFetch(200, resp);
+      client = new CortexMemClient({
+        fetch: fetchMock as unknown as typeof globalThis.fetch,
+      });
+
+      const result = await client.getObservation('obs-1');
+      expect(result).not.toBeNull();
+      expect(result!.id).toBe('obs-1');
+      expect(result!.content).toBe('content');
+    });
+
+    it('should return null when not found', async () => {
+      const resp = { observations: [], count: 0 };
+      fetchMock = mockFetch(200, resp);
+      client = new CortexMemClient({
+        fetch: fetchMock as unknown as typeof globalThis.fetch,
+      });
+
+      const result = await client.getObservation('nonexistent');
+      expect(result).toBeNull();
+    });
+
+    it('should throw on missing id', async () => {
+      await expect(client.getObservation('')).rejects.toThrow('id');
+    });
+
+    it('should throw on whitespace-only id', async () => {
+      await expect(client.getObservation('   ')).rejects.toThrow('id');
+    });
+  });
+
   // ==================== Management ====================
 
   describe('triggerRefinement', () => {
