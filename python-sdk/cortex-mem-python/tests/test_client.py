@@ -1359,6 +1359,21 @@ class TestRaiseForStatus:
         with pytest.raises(APIError, match="raw text"):
             raise_for_status(400, b'raw text error')
 
+    def test_error_message_from_json_array(self):
+        """When the error body is a JSON array, extract the first error message."""
+        with pytest.raises(APIError, match="first error"):
+            raise_for_status(400, b'[{"error": "first error"}, {"error": "second error"}]')
+
+    def test_error_message_from_json_array_message_key(self):
+        """JSON array with 'message' key fallback."""
+        with pytest.raises(APIError, match="array message"):
+            raise_for_status(500, b'[{"message": "array message"}]')
+
+    def test_error_message_from_json_empty_array(self):
+        """Empty JSON array should fall back to str representation."""
+        with pytest.raises(APIError):
+            raise_for_status(502, b'[]')
+
     def test_server_error_preserves_status_code(self):
         with pytest.raises(ServerError) as exc_info:
             raise_for_status(503, b'service unavailable')

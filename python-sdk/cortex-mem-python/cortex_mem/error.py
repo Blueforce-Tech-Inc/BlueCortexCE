@@ -183,4 +183,12 @@ def _extract_error_message(body: bytes) -> str:
                 return v
     if isinstance(parsed, str):
         return parsed
+    # Handle JSON arrays (e.g., [{"error": "..."}]) — extract first error message
+    if isinstance(parsed, list) and parsed:
+        first = parsed[0]
+        if isinstance(first, dict):
+            for key in ("error", "message", "detail"):
+                v = first.get(key)
+                if isinstance(v, str) and v:
+                    return v
     return str(parsed)
