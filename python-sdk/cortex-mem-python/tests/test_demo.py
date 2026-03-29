@@ -524,3 +524,34 @@ class TestErrorHandling:
         resp = client.get("/version")
         assert resp.status_code == 500
         assert "internal server error" in resp.get_json()["error"]
+
+
+# ==================== Version ====================
+
+
+class TestVersion:
+    def test_version_basic(self, app, client):
+        from cortex_mem import VersionResponse
+        app._mock_client.get_version.return_value = VersionResponse(
+            version="1.0.0", service="claude-mem-java"
+        )
+        resp = client.get("/version")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["version"] == "1.0.0"
+        assert data["service"] == "claude-mem-java"
+        # java and spring_boot omitted when empty
+        assert "java" not in data
+        assert "spring_boot" not in data
+
+    def test_version_with_java_and_spring_boot(self, app, client):
+        from cortex_mem import VersionResponse
+        app._mock_client.get_version.return_value = VersionResponse(
+            version="2.0.0", service="claude-mem-java", java="21.0.2", spring_boot="3.3.0"
+        )
+        resp = client.get("/version")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["version"] == "2.0.0"
+        assert data["java"] == "21.0.2"
+        assert data["spring_boot"] == "3.3.0"

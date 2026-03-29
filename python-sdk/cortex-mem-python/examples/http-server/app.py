@@ -185,7 +185,12 @@ def search():
 @app.get("/version")
 def version():
     v = client.get_version()
-    return jsonify(version=v.version, service=v.service)
+    resp = {"version": v.version, "service": v.service}
+    if v.java:
+        resp["java"] = v.java
+    if v.spring_boot:
+        resp["spring_boot"] = v.spring_boot
+    return jsonify(resp)
 
 
 # ==================== Experiences ====================
