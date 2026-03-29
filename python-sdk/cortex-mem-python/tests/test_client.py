@@ -4,8 +4,8 @@ import json
 import pytest
 import responses
 
-from cortex_mem import CortexMemClient, APIError, NotFoundError, RateLimitError, CortexError, ValidationError
-from cortex_mem.error import is_retryable, raise_for_status, ServerError, ConflictError, AuthError, is_retryable_error, is_bad_gateway, is_service_unavailable, is_gateway_timeout, is_client_error, is_server_error, is_not_found, is_unauthorized, is_forbidden, is_conflict, is_rate_limited
+from cortex_mem import CortexMemClient, APIError, BadRequestError, NotFoundError, RateLimitError, CortexError, ValidationError
+from cortex_mem.error import is_retryable, raise_for_status, ServerError, ConflictError, AuthError, BadRequestError, is_retryable_error, is_bad_gateway, is_bad_request, is_service_unavailable, is_gateway_timeout, is_client_error, is_server_error, is_not_found, is_unauthorized, is_forbidden, is_conflict, is_rate_limited
 from cortex_mem.dto import (
     SessionStartResponse,
     Experience,
@@ -1255,7 +1255,7 @@ class TestErrorPredicates:
         assert is_retryable_error(ServerError(500, "internal")) is False
 
     def test_is_retryable_error_400_not_retryable(self):
-        assert is_retryable_error(APIError(400, "bad request")) is False
+        assert is_retryable_error(BadRequestError()) is False
 
     def test_is_retryable_error_non_api_error(self):
         assert is_retryable_error(ValueError("something")) is False
@@ -1265,6 +1265,12 @@ class TestErrorPredicates:
         assert is_bad_gateway(APIError(503, "unavailable")) is False
         assert is_bad_gateway(NotFoundError()) is False
         assert is_bad_gateway(ValueError("x")) is False
+
+    def test_is_bad_request(self):
+        assert is_bad_request(APIError(400, "bad request")) is True
+        assert is_bad_request(APIError(404, "not found")) is False
+        assert is_bad_request(APIError(500, "internal")) is False
+        assert is_bad_request(ValueError("x")) is False
 
     def test_is_service_unavailable(self):
         assert is_service_unavailable(APIError(503, "unavailable")) is True
@@ -1277,7 +1283,7 @@ class TestErrorPredicates:
         assert is_gateway_timeout(ValueError("x")) is False
 
     def test_is_client_error(self):
-        assert is_client_error(APIError(400, "bad request")) is True
+        assert is_client_error(BadRequestError()) is True
         assert is_client_error(NotFoundError()) is True
         assert is_client_error(AuthError()) is True
         assert is_client_error(ConflictError()) is True
@@ -1363,8 +1369,8 @@ class TestRaiseForStatus:
         with pytest.raises(ServerError):
             raise_for_status(502, b'bad gateway')
 
-    def test_400_raises_api_error(self):
-        with pytest.raises(APIError):
+    def test_400_raises_bad_request_error(self):
+        with pytest.raises(BadRequestError):
             raise_for_status(400, b'{"error": "bad request"}')
 
     def test_error_message_from_json_error_key(self):

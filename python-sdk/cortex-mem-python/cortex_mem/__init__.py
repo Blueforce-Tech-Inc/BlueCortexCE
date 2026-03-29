@@ -22,6 +22,7 @@ from .dto import (
 from .error import (
     APIError,
     AuthError,
+    BadRequestError,
     ConflictError,
     CortexError,
     NotFoundError,
@@ -29,6 +30,7 @@ from .error import (
     ServerError,
     ValidationError,
     is_bad_gateway,
+    is_bad_request,
     is_client_error,
     is_conflict,
     is_forbidden,
@@ -67,6 +69,7 @@ __all__ = [
     "CortexError",
     "APIError",
     "AuthError",
+    "BadRequestError",
     "NotFoundError",
     "ConflictError",
     "RateLimitError",
@@ -75,6 +78,7 @@ __all__ = [
     # Error predicates (cross-SDK parity with Go Is* / JS is*)
     "is_retryable",
     "is_retryable_error",
+    "is_bad_request",
     "is_not_found",
     "is_unauthorized",
     "is_forbidden",

@@ -266,7 +266,7 @@ class Observation:
         or JS SDK's ``toJSON()``.
 
         Field inclusion rules:
-        - Always included: id, content_session_id, project, type, narrative
+        - Always included: id, session_id, project_path, type, content
         - Omit when empty/zero: title, subtitle, facts, concepts,
           quality_score, feedback_type, source, extractedData, created_at, created_at_epoch
         """

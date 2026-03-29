@@ -41,6 +41,13 @@ class AuthError(APIError):
         super().__init__(401, message)
 
 
+class BadRequestError(APIError):
+    """400 Bad Request."""
+
+    def __init__(self, message: str = "bad request") -> None:
+        super().__init__(400, message)
+
+
 class NotFoundError(APIError):
     """404 Not Found."""
 
@@ -76,6 +83,8 @@ def raise_for_status(status_code: int, body: bytes) -> None:
 
     message = _extract_error_message(body)
 
+    if status_code == 400:
+        raise BadRequestError(message)
     if status_code == 401:
         raise AuthError(message)
     if status_code == 404:
@@ -106,6 +115,11 @@ def is_retryable_error(err: Exception) -> bool:
     if isinstance(err, APIError):
         return is_retryable(err.status_code)
     return False
+
+
+def is_bad_request(err: Exception) -> bool:
+    """Return True if the error is a 400 Bad Request. (Go: IsBadRequest, JS: isBadRequest)"""
+    return isinstance(err, APIError) and err.status_code == 400
 
 
 def is_not_found(err: Exception) -> bool:
