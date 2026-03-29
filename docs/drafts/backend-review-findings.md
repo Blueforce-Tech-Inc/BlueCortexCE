@@ -47,7 +47,7 @@ _暂无问题记录_
 
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
-| 1 | SSEBroadcaster.java | ~63 `broadcast()` | `eventName` 参数被接受但完全忽略（仅 data，不调用 `.name(eventName)`） | P2 ✅已修复 |
+| 1 | SSEBroadcaster.java | ~63 `broadcast()` | `eventName` 参数被接受但完全忽略（仅 data，不调用 `.name(eventName)`） | P2 ✅已修复（澄清 Javadoc，保持 unnamed events 设计） |
 | 2 | HealthController.java | ~78 `/api/health` | 无实际健康检查——永远返回 "ok" 即使 DB 宕机 | P2 ✅已修复 |
 | 3 | HealthController.java | ~110 `/api/version` | `getVersion()` 在 IDE 下返回 null，fallback 不具信息量 | P2 ✅已修复 |
 
