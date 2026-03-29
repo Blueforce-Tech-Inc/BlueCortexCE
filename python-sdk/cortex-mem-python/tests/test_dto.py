@@ -920,6 +920,26 @@ class TestSanitizeForJson:
         assert d["extractedData"]["confidence"] is None
         json.dumps(d)  # should not raise
 
+    def test_observation_to_dict_sanitizes_nan_quality_score(self):
+        """NaN/Inf quality_score should become None for valid JSON (not leak NaN into output)."""
+        obs = Observation(
+            id="o1", session_id="s1", project_path="/p", type="fact",
+            quality_score=float("nan"),
+        )
+        d = obs.to_dict()
+        assert d["quality_score"] is None
+        json.dumps(d)  # should not raise (would fail with NaN literal before fix)
+
+    def test_observation_to_dict_sanitizes_inf_quality_score(self):
+        """Inf quality_score should become None for valid JSON."""
+        obs = Observation(
+            id="o1", session_id="s1", project_path="/p", type="fact",
+            quality_score=float("inf"),
+        )
+        d = obs.to_dict()
+        assert d["quality_score"] is None
+        json.dumps(d)
+
     def test_sanitize_preserves_normal_values(self):
         """Sanitizer should not modify normal numeric values."""
         obs = Observation(

@@ -315,7 +315,7 @@ class Observation:
         if self.files_modified:
             d["files_modified"] = self.files_modified
         if self.quality_score:
-            d["quality_score"] = self.quality_score
+            d["quality_score"] = _sanitize_for_json(self.quality_score)
         if self.feedback_type:
             d["feedback_type"] = self.feedback_type
         if self.feedback_updated_at:
