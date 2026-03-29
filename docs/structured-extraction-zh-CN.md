@@ -22,7 +22,7 @@ Cortex CE 的**结构化信息提取**是一个通用的、提示词驱动的系
 │ 2. 按用户分组（通过 SessionEntity → userId）                  │
 │ 3. 构建提示词（template.prompt + 观测数据 + 先前结果）         │
 │ 4. 通过 BeanOutputConverter 调用 LLM（Schema 强制输出）        │
-│ 5. 验证并存储为 ObservationEntity（extracted_data）           │
+│ 5. 验证并存储为 ObservationEntity（extractedData）            │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -31,8 +31,8 @@ Cortex CE 的**结构化信息提取**是一个通用的、提示词驱动的系
 - **5 个生命周期钩子** → SessionStart、UserPromptSubmit、PostToolUse、Summary、SessionEnd 产生观测数据并存入 PostgreSQL
 - **ExtractionConfig**（YAML 模板）→ 定义提取什么、使用哪些提示词、输出 Schema
 - **StructuredExtractionService** → 通用引擎，对观测数据运行模板
-- **DeepRefine 集成** → 提取在 `deepRefineProjectMemories()` 的最后一步运行（精炼之后），或通过定时任务触发（默认间隔：5 分钟，可通过 `app.memory.refine-schedule-interval-ms` 配置）
-- **存储** → 结果存储为 `ObservationEntity`，`type=extracted_{template}`，`extracted_data` 为 JSONB 列
+- **DeepRefine 集成** → 提取可在 `deepRefineProjectMemories()` 的最后一步运行（精炼之后），或通过手动触发（`POST /api/extraction/run`）。定时任务（`app.memory.refine-schedule-interval-ms`，默认：5 分钟）仅运行快速精炼——提取需手动触发或集成到应用工作流中。
+- **存储** → 结果存储为 `ObservationEntity`，`type=extracted_{template}`，`extractedData` 为 JSONB 列
 - **LLM 重新提取** → 每次运行包含先前提取结果作为上下文；LLM 通过语义理解产生完整的当前状态，处理更新、删除和冲突
 
 ## 快速开始
@@ -53,7 +53,7 @@ EXTRACTION_ENABLED=true
 
 ### 第 2 步：配置模板
 
-在模板目录（`app.memory.extraction.templates-dir`，默认：`config/extraction-templates/`）中创建 YAML 模板文件：
+在 `application.yml` 的 `app.memory.extraction.templates` 下添加模板定义：
 
 ```yaml
 # config/extraction-templates/user_preferences.yml
@@ -105,7 +105,7 @@ docker compose up -d
 
 ### 第 4 步：触发提取
 
-提取会在深度精炼时自动运行（默认间隔：5 分钟，可通过 `app.memory.refine-schedule-interval-ms` 配置）。手动触发：
+通过 API 手动触发提取：
 
 ```bash
 curl -X POST "http://localhost:37777/api/extraction/run?projectPath=/my-project"
@@ -123,19 +123,16 @@ curl "http://localhost:37777/api/extraction/user_preference/history?projectPath=
 
 ## 配置参考
 
-### application.properties 设置
+### application.yml 设置
 
 | 属性 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `app.memory.extraction.enabled` | boolean | `false` | 全局启用结构化提取 |
-| `app.memory.extraction.templates-dir` | String | `config/extraction-templates/` | YAML 模板文件目录 |
-| `app.memory.extraction.schedule` | String | `0 0 2 * * ?` | 定时提取的 Cron 表达式 |
-| `app.memory.extraction.batch-size` | int | `20` | 每次 LLM 调用处理的观测数据数量 |
-| `app.memory.extraction.max-tokens-per-call` | int | `8000` | 每次提取 LLM 调用的最大 Token 数 |
-| `app.memory.extraction.max-prior-chars` | int | `3000` | 先前提取上下文的最大字符数 |
-| `app.memory.extraction.initial-run-max-candidates` | int | `500` | 每个模板首次提取的候选数据上限 |
-| `app.memory.extraction.cost-control.dry-run` | boolean | `false` | 记录提取意图但不调用 LLM |
-| `app.memory.extraction.cost-control.max-calls-per-run` | int | `10` | 每次提取运行的最大 LLM 调用次数 |
+| `app.memory.extraction.initial-run-max-candidates` | int | `100` | 每个模板首次提取的候选数据上限 |
+| `app.memory.extraction.max-observations-per-batch` | int | `20` | 每次 LLM 调用处理的最大观测数据数量 |
+| `app.memory.extraction.max-batches-per-template` | int | `10` | 每次提取运行每个模板的最大批次数（安全限制） |
+
+模板通过 `app.memory.extraction.templates` 在 `application.yml` 中内联配置（见下方格式说明）。
 
 ### 模板 YAML 格式
 
@@ -468,7 +465,7 @@ templates:
 
 **运行时行为：**
 1. 观测数据通过钩子捕获（source = `user_statement`）
-2. 提取运行（定时或手动触发）
+2. 提取运行（通过 API 手动触发）
 3. LLM 接收观测数据 + 模板提示词
 4. 结果存储在会话 `pref:/my-project:alice` 中
 
@@ -613,13 +610,10 @@ templates:
 
 提取成本通过以下机制管理：
 
-- **定时批处理**（非实时）——提取每日运行，非逐条观测
-- **增量处理**——仅处理上次提取以来的新观测数据
-- **首次运行上限**——`initial-run-max-candidates`（默认 500）限制首次运行处理量
-- **批处理大小**——观测数据按 `batch-size`（默认 20）分批进行 LLM 调用
-- **最大调用次数**——`max-calls-per-run`（默认 10）限制每次提取的总 LLM 调用次数
-- **空运行模式**——设置 `dry-run: true` 记录提取意图但不调用 LLM
-- **先前上下文上限**——`max-prior-chars`（默认 3000）防止因先前结果增长导致的 Token 成本递增
+- **按需处理**——提取通过 API 触发运行，非逐条观测实时处理
+- **首次运行上限**——`initial-run-max-candidates`（默认 100）限制首次运行处理量
+- **批处理大小**——观测数据按 `max-observations-per-batch`（默认 20）分批进行 LLM 调用
+- **最大批次数**——`max-batches-per-template`（默认 10）限制每次提取每个模板的总批次数
 
 ### 隐私考量
 
@@ -634,9 +628,9 @@ templates:
 |------|------|----------|
 | 无提取结果 | `extraction.enabled` 为 `false` | 设置 `app.memory.extraction.enabled=true` |
 | 提取运行但返回空 | 无观测数据匹配 `source-filter` | 检查观测数据的 source 值是否匹配 |
-| 模板未加载 | YAML 文件不在模板目录中 | 检查 `templates-dir` 路径和 YAML 语法 |
+| 模板未加载 | 模板未在 application.yml 中配置 | 检查 `app.memory.extraction.templates` 配置 |
 | LLM 返回无效 JSON | Schema 合规依赖提示词 + LLM | 启用重试逻辑；解析失败时最多重试 3 次 |
-| Token 成本持续增长 | 先前提取上下文无限制 | 检查 `max-prior-chars` 设置（默认 3000） |
+| Token 成本持续增长 | 每批观测数据过多 | 检查 `max-observations-per-batch` 和 `max-batches-per-template` 设置 |
 | 重复提取 | 定时任务和手动触发间的竞态条件 | 项目级锁处理此问题；确保两者使用相同的锁 |
 
 ### 死信队列（DLQ）

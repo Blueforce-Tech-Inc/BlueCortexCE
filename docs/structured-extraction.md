@@ -22,7 +22,7 @@ The extraction pipeline operates in 5 stages:
 │ 2. Group by user (via SessionEntity → userId)                │
 │ 3. Build prompt (template.prompt + observations + prior)     │
 │ 4. Call LLM via BeanOutputConverter (schema-enforced output)  │
-│ 5. Validate & store as ObservationEntity (extracted_data)    │
+│ 5. Validate & store as ObservationEntity (extractedData)    │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -31,8 +31,8 @@ The extraction pipeline operates in 5 stages:
 - **5 Lifecycle Hooks** → SessionStart, UserPromptSubmit, PostToolUse, Summary, SessionEnd produce observations in PostgreSQL
 - **ExtractionConfig** (YAML templates) → Define what to extract, which prompts to use, output schemas
 - **StructuredExtractionService** → Generic engine that runs templates against observations
-- **DeepRefine integration** → Extraction runs as the last step of `deepRefineProjectMemories()` (after refinement), or via scheduled task (default interval: 5 minutes, configurable via `app.memory.refine-schedule-interval-ms`)
-- **Storage** → Results stored as `ObservationEntity` with `type=extracted_{template}` and `extracted_data` JSONB column
+- **DeepRefine integration** → Extraction can run as the last step of `deepRefineProjectMemories()` (after refinement), or via manual trigger (`POST /api/extraction/run`). The periodic scheduled task (`app.memory.refine-schedule-interval-ms`, default: 5 minutes) runs quick refinement only — extraction must be triggered manually or integrated into your application's workflow.
+- **Storage** → Results stored as `ObservationEntity` with `type=extracted_{template}` and `extractedData` JSONB column
 - **LLM Re-extraction** → Each run includes prior extraction as context; the LLM produces a complete current state, handling updates, removals, and conflicts semantically
 
 ## Quick Start
@@ -53,7 +53,7 @@ EXTRACTION_ENABLED=true
 
 ### Step 2: Configure a Template
 
-Create a YAML template file in the templates directory (`app.memory.extraction.templates-dir`, default: `config/extraction-templates/`):
+Add template definitions to `application.yml` under `app.memory.extraction.templates`:
 
 ```yaml
 # config/extraction-templates/user_preferences.yml
@@ -105,7 +105,7 @@ docker compose up -d
 
 ### Step 4: Trigger Extraction
 
-Extraction runs automatically during deep refinement (default interval: 5 minutes, configurable via `app.memory.refine-schedule-interval-ms`). To trigger manually:
+Extraction is triggered manually via API. To trigger:
 
 ```bash
 curl -X POST "http://localhost:37777/api/extraction/run?projectPath=/my-project"
@@ -123,19 +123,16 @@ curl "http://localhost:37777/api/extraction/user_preference/history?projectPath=
 
 ## Configuration Reference
 
-### application.properties Settings
+### application.yml Settings
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `app.memory.extraction.enabled` | boolean | `false` | Enable structured extraction globally |
-| `app.memory.extraction.templates-dir` | String | `config/extraction-templates/` | Directory for YAML template files |
-| `app.memory.extraction.schedule` | String | `0 0 2 * * ?` | Cron schedule for periodic extraction |
-| `app.memory.extraction.batch-size` | int | `20` | Observations per LLM call batch |
-| `app.memory.extraction.max-tokens-per-call` | int | `8000` | Max tokens per extraction LLM call |
-| `app.memory.extraction.max-prior-chars` | int | `3000` | Max characters for prior extraction context |
-| `app.memory.extraction.initial-run-max-candidates` | int | `500` | Cap for first extraction run per template |
-| `app.memory.extraction.cost-control.dry-run` | boolean | `false` | Log extraction intent without calling LLM |
-| `app.memory.extraction.cost-control.max-calls-per-run` | int | `10` | Max LLM calls per extraction run |
+| `app.memory.extraction.initial-run-max-candidates` | int | `100` | Max candidates for first extraction run per template |
+| `app.memory.extraction.max-observations-per-batch` | int | `20` | Max observations per LLM call batch |
+| `app.memory.extraction.max-batches-per-template` | int | `10` | Max batches per template per run (safety limit) |
+
+Templates are configured inline under `app.memory.extraction.templates` in `application.yml` (see format below).
 
 ### Template YAML Format
 
@@ -615,13 +612,10 @@ For Map templates, the `output-schema` is injected into the system prompt as for
 
 Extraction costs are managed through several mechanisms:
 
-- **Scheduled batch** (not real-time) — extraction runs daily, not per-observation
-- **Incremental processing** — only new observations since last extraction are processed
-- **Initial run cap** — `initial-run-max-candidates` (default 500) limits first-run processing
-- **Batch size** — observations are chunked into batches of `batch-size` (default 20) per LLM call
-- **Max calls per run** — `max-calls-per-run` (default 10) caps total LLM calls
-- **Dry run mode** — set `dry-run: true` to log extraction intent without calling LLM
-- **Prior context cap** — `max-prior-chars` (default 3000) prevents token cost escalation from growing prior results
+- **On-demand processing** — extraction runs when triggered via API, not per-observation
+- **Initial run cap** — `initial-run-max-candidates` (default 100) limits first-run processing
+- **Batch size** — observations are chunked into batches of `max-observations-per-batch` (default 20) per LLM call
+- **Max batches** — `max-batches-per-template` (default 10) caps total LLM calls per run
 
 ### Privacy Considerations
 
@@ -636,9 +630,9 @@ Extraction costs are managed through several mechanisms:
 |-------|-------|----------|
 | No extraction results | `extraction.enabled` is `false` | Set `app.memory.extraction.enabled=true` |
 | Extraction runs but returns empty | No observations match `source-filter` | Check that observations have matching source values |
-| Template not loaded | YAML file not in templates directory | Verify `templates-dir` path and YAML syntax |
+| Template not loaded | Templates not in application.yml | Verify templates are under `app.memory.extraction.templates` in config |
 | LLM returns invalid JSON | Schema compliance relies on prompt + LLM | Enable retry logic; extraction retries up to 3 times on parse failure |
-| Token cost growing | Prior extraction context is unbounded | Check `max-prior-chars` setting (default 3000) |
+| Token cost growing | Too many observations per batch | Check `max-observations-per-batch` and `max-batches-per-template` settings |
 | Duplicate extractions | Race condition between scheduled and manual | Project-level locking handles this; ensure both use the same lock |
 
 ### Dead Letter Queue (DLQ)
