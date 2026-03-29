@@ -37,7 +37,7 @@ logger = logging.getLogger("cortex_mem")
 class CortexMemClient:
     """Client for the Cortex CE memory system.
 
-    All 26 API methods from the Go/Java SDK are available.
+    All 25 API methods from the Go/Java SDK are available.
     Capture operations use fire-and-forget semantics (retries internally,
     swallows errors). Retrieval and management operations propagate errors.
 
