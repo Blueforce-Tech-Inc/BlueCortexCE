@@ -235,9 +235,9 @@ public class MemoryController {
             @RequestParam String template,
             @RequestParam(required = false) String userId,
             @RequestParam(defaultValue = "10") int limit) {
-        if (limit < 1 || limit > 100) {
+        if (limit < 0 || limit > 100) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("error", "limit must be between 1 and 100"));
+                    .body(Map.of("error", "limit must be between 0 and 100"));
         }
         try {
             String normalizedUserId = (userId != null && userId.isBlank()) ? null : userId;

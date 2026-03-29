@@ -41,9 +41,9 @@ public class ObservationsController {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "project is required"));
         }
-        if (limit < 1 || limit > 100) {
+        if (limit < 0 || limit > 100) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("error", "limit must be between 1 and 100"));
+                    .body(Map.of("error", "limit must be between 0 and 100"));
         }
         if (offset < 0) {
             return ResponseEntity.badRequest()
@@ -127,7 +127,7 @@ public class ObservationsController {
      * Demonstrates V14 observation update with partial fields.
      * Only non-null fields are updated (PATCH semantics).
      */
-    @PatchMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PatchMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> updateObservation(
             @PathVariable String id,
             @RequestBody(required = false) Map<String, Object> body) {
