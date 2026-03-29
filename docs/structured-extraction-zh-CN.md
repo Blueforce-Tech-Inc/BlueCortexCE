@@ -317,6 +317,130 @@ curl -X POST "http://localhost:37777/api/extraction/run?projectPath=/my-project"
 }
 ```
 
+## 智能体如何利用提取结果
+
+提取结果存储为 `ObservationEntity`（`type=extracted_{template}`, `extractedData` 为 JSONB）。这个设计意味着提取数据**自然融入**整个观测数据生态系统——不仅仅是独立的 API 响应。
+
+### 消费路径总览
+
+```
+                              ┌─────────────────────┐
+                              │  结构化信息提取服务    │
+                              └──────────┬──────────┘
+                                         │
+                              ┌──────────▼──────────┐
+                              │ ObservationEntity     │
+                              │ type=extracted_{name} │
+                              │ extractedData=JSONB   │
+                              │ embedding=向量        │
+                              └──────────┬──────────┘
+                                         │
+                 ┌───────────┬───────────┼───────────┬───────────┐
+                 │           │           │           │           │
+            ┌────▼────┐ ┌───▼────┐ ┌────▼────┐ ┌────▼────┐ ┌───▼────┐
+            │ 直接API │ │ 搜索   │ │ 经验    │ │ ICL     │ │ 上下文 │
+            │ 查询    │ │ 发现   │ │ RAG     │ │ 提示词  │ │ 注入   │
+            └─────────┘ └────────┘ └─────────┘ └─────────┘ └────────┘
+```
+
+### 路径 1：直接 API 查询
+
+最明确的方式——按模板名和用户 ID 查询提取结果。
+
+```bash
+# 获取最新提取结果
+curl "http://localhost:37777/api/extraction/user_preference/latest?projectPath=/my-project&userId=alice"
+
+# 获取提取历史
+curl "http://localhost:37777/api/extraction/user_preference/history?projectPath=/my-project&userId=alice&limit=10"
+```
+
+**适用场景**：明确知道需要哪个模板、哪个用户。最适合应用层功能，如"显示用户偏好"或"检查过敏信息"。
+
+**SDK 示例（Java）**：
+```java
+Map<String, Object> prefs = client.getLatestExtraction("/project", "user_preference", "alice");
+// 返回: {preferences: [{category: "手机品牌", value: "小米", sentiment: "positive"}]}
+```
+
+### 路径 2：搜索发现
+
+因为提取结果存储为带向量的观测数据，它们**自动可被发现**——通过语义搜索和关键词搜索。
+
+```bash
+# 语义搜索可能命中提取观测数据
+curl "http://localhost:37777/api/search?project=/my-project&query=用户手机偏好&limit=5"
+```
+
+搜索结果可能包含 `extracted_user_preference` 类型的观测数据，以及普通观测数据。`extractedData` 字段包含结构化 JSON。
+
+**适用场景**：智能体不知道该查哪个模板——它只是自然地搜索相关信息。这是"发现"路径。
+
+**示例流程**：
+1. 用户问："Alice 喜欢什么手机？"
+2. 智能体搜索：`query="Alice 手机 偏好" project="/family-project"`
+3. 搜索返回：`type=extracted_user_preference` 的观测数据，`extractedData={preferences: [{category: "手机品牌", value: "小米"}]}`
+4. 智能体使用结构化数据回答
+
+### 路径 3：经验 RAG
+
+经验 RAG 系统（`POST /api/memory/experiences`）从观测数据中检索相关的历史经验。提取结果作为观测数据参与其中。
+
+```bash
+curl -X POST "http://localhost:37777/api/memory/experiences" \
+  -H 'Content-Type: application/json' \
+  -d '{"task": "推荐适合Alice的手机", "project": "/family-project", "count": 4}'
+```
+
+返回的经验中可能包含提取产生的观测数据，格式化为可复用的经验卡片（task/strategy/outcome 结构）。
+
+**适用场景**：智能体需要关于某任务的"过去经验"，而用户偏好/提取数据是这些经验的一部分。
+
+### 路径 4：ICL 提示词构建
+
+ICL（In-Context Learning）提示词端点从经验构建提示词：
+
+```bash
+curl -X POST "http://localhost:37777/api/memory/icl-prompt" \
+  -H 'Content-Type: application/json' \
+  -d '{"task": "推荐手机", "project": "/family-project", "userId": "alice", "maxChars": 2000}'
+```
+
+**工作原理**：ICL → 检索经验 → 经验搜索观测数据 → 提取观测数据被包含。提取的结构化数据丰富了 ICL 提示词中的结构化事实。
+
+**适用场景**：将上下文注入 LLM 提示词以完成任务。提取数据为 LLM 提供结构化的"事实依据"。
+
+### 路径 5：上下文注入
+
+上下文生成端点（`/api/context/inject`, `/api/context/generate`）从所有项目观测数据生成上下文：
+
+```bash
+curl "http://localhost:37777/api/context/inject?projects=/my-project"
+```
+
+生成的上下文包含摘要和观测数据——提取结果作为 `type=extracted_{name}` 的普通观测数据被自动包含。
+
+**适用场景**：构建上下文注入管道（如 Claude Code 钩子）。提取数据自动流入注入的上下文。
+
+### 如何选择合适的路径
+
+| 场景 | 推荐路径 | 原因 |
+|------|----------|------|
+| "显示 Alice 的偏好" | **直接 API** | 明确知道模板和用户 |
+| "我们对 Alice 了解什么？" | **搜索** | 发现——不知道存在什么信息 |
+| "上次推荐手机什么策略有效？" | **经验 RAG** | 需要过去的经验教训 |
+| "为 Alice 构建手机推荐提示词" | **ICL 提示词** | 需要为 LLM 准备结构化上下文 |
+| "为 Alice 的会话注入上下文" | **上下文注入** | 自动管道集成 |
+
+### 关键架构洞察
+
+将提取结果存储为 `ObservationEntity` 是一个刻意的设计决策。这意味着：
+
+- **无需单独的集成代码** — 提取数据自动参与搜索、经验、ICL 和上下文注入
+- **一致的访问模式** — 处理普通观测数据的 API 同样适用于提取结果
+- **基于向量的可发现性** — 提取结果有嵌入向量，支持语义搜索
+- **仅追加的历史** — 每次提取运行创建新的观测数据，保留完整历史
+
 ## 使用场景
 
 ### 场景 1：用户偏好提取

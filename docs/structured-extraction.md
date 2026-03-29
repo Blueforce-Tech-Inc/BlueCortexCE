@@ -317,6 +317,132 @@ Get extraction history (all snapshots) for a template.
 }
 ```
 
+## How Agents Consume Extraction Results
+
+Extraction results are stored as `ObservationEntity` records (`type=extracted_{template}`, `extractedData` as JSONB). This design means extraction data naturally participates in the entire observation ecosystem — not just as standalone API responses.
+
+### Consumption Path Overview
+
+```
+                              ┌─────────────────────┐
+                              │  Structured          │
+                              │  Extraction Service  │
+                              └──────────┬──────────┘
+                                         │
+                              ┌──────────▼──────────┐
+                              │ ObservationEntity     │
+                              │ type=extracted_{name} │
+                              │ extractedData=JSONB   │
+                              │ embedding=vector      │
+                              └──────────┬──────────┘
+                                         │
+                 ┌───────────┬───────────┼───────────┬───────────┐
+                 │           │           │           │           │
+            ┌────▼────┐ ┌───▼────┐ ┌────▼────┐ ┌────▼────┐ ┌───▼────┐
+            │ Direct  │ │ Search │ │ Experi- │ │  ICL    │ │Context │
+            │  API    │ │(Vector │ │  ence   │ │ Prompt  │ │ Inject │
+            │ Query   │ │+Keyword│ │  (RAG)  │ │         │ │        │
+            └─────────┘ └────────┘ └─────────┘ └─────────┘ └────────┘
+```
+
+### Path 1: Direct API Query
+
+The most explicit way — query extraction results by template name and user ID.
+
+```bash
+# Get latest extraction
+curl "http://localhost:37777/api/extraction/user_preference/latest?projectPath=/my-project&userId=alice"
+
+# Get extraction history
+curl "http://localhost:37777/api/extraction/user_preference/history?projectPath=/my-project&userId=alice&limit=10"
+```
+
+**When to use**: When you know exactly which template and user you need. Best for application-level features like "show user preferences" or "check allergy information."
+
+**SDK example (Java)**:
+```java
+Map<String, Object> prefs = client.getLatestExtraction("/project", "user_preference", "alice");
+// Returns: {preferences: [{category: "手机品牌", value: "小米", sentiment: "positive"}]}
+```
+
+### Path 2: Search Discovery
+
+Because extraction results are stored as observations with embeddings, they are **automatically discoverable** through semantic and keyword search.
+
+```bash
+# Semantic search may find extraction observations
+curl "http://localhost:37777/api/search?project=/my-project&query=用户手机偏好&limit=5"
+```
+
+The search results may include observations of type `extracted_user_preference` alongside regular observations. The `extractedData` field contains the structured JSON.
+
+**When to use**: When the agent doesn't know which template to query — it just searches for relevant information naturally. This is the "discovery" path.
+
+**Example flow**:
+1. User asks: "What phone does Alice prefer?"
+2. Agent searches: `query="Alice 手机 偏好" project="/family-project"`
+3. Search returns: Observation with `type=extracted_user_preference`, `extractedData={preferences: [{category: "手机品牌", value: "小米"}]}`
+4. Agent uses the structured data to answer
+
+### Path 3: Experience RAG
+
+The Experience RAG system (`POST /api/memory/experiences`) retrieves relevant past experiences from observations. Extraction results participate as observations, so they are included in experience retrieval when relevant.
+
+```bash
+curl -X POST "http://localhost:37777/api/memory/experiences" \
+  -H 'Content-Type: application/json' \
+  -d '{"task": "推荐适合Alice的手机", "project": "/family-project", "count": 4}'
+```
+
+The returned experiences may include extraction-derived observations, formatted as reusable experience cards with task/strategy/outcome structure.
+
+**When to use**: When the agent needs "past lessons" about a task, and user preferences/extraction data are part of those lessons.
+
+### Path 4: ICL Prompt Construction
+
+The ICL (In-Context Learning) prompt endpoint builds a prompt from experiences:
+
+```bash
+curl -X POST "http://localhost:37777/api/memory/icl-prompt" \
+  -H 'Content-Type: application/json' \
+  -d '{"task": "推荐手机", "project": "/family-project", "userId": "alice", "maxChars": 2000}'
+```
+
+**How it works**: ICL → retrieves experiences → experiences search observations → extraction observations are included. The structured data from extractions enriches the ICL prompt with structured facts.
+
+**When to use**: When injecting context into an LLM prompt for task completion. The extraction data provides structured "grounding" for the LLM.
+
+### Path 5: Context Injection
+
+The context generation endpoints (`/api/context/inject`, `/api/context/generate`) produce context from all project observations:
+
+```bash
+curl "http://localhost:37777/api/context/inject?projects=/my-project"
+```
+
+The generated context includes summaries and observations — extraction results are included as they are regular observations with `type=extracted_{name}`.
+
+**When to use**: When building a context injection pipeline (e.g., Claude Code hooks). Extraction data automatically flows into the injected context.
+
+### Choosing the Right Path
+
+| Scenario | Recommended Path | Why |
+|----------|-----------------|-----|
+| "Show me Alice's preferences" | **Direct API** | Know the template and user |
+| "What do we know about Alice?" | **Search** | Discovery — don't know what exists |
+| "What worked last time for phone recommendations?" | **Experience RAG** | Need past lessons |
+| "Build a prompt for recommending phones to Alice" | **ICL Prompt** | Need structured context for LLM |
+| "Inject context for Alice's session" | **Context Injection** | Automatic pipeline integration |
+
+### Key Architectural Insight
+
+Storing extraction results as `ObservationEntity` is a deliberate design choice. It means:
+
+- **No separate integration code** — extraction data automatically participates in search, experiences, ICL, and context injection
+- **Consistent access patterns** — the same APIs that work for regular observations work for extraction results
+- **Embedding-based discovery** — extraction results have embeddings, enabling semantic search
+- **Append-only history** — every extraction run creates a new observation, preserving the full history
+
 ## Scenarios
 
 ### Scenario 1: User Preferences Extraction
