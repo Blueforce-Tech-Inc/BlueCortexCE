@@ -4106,3 +4106,93 @@ func TestUpdateObservation_UsesValidationError(t *testing.T) {
 
 // strPtr is a helper for tests that need *string.
 func strPtr(s string) *string { return &s }
+
+// Test extractErrorMessage through an API error response.
+// Since extractErrorMessage is unexported, we test it indirectly via mock server responses.
+func TestExtractErrorMessage_ObjectError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"error":"invalid request","details":"missing field"}`))
+	}))
+	defer server.Close()
+
+	client := cortexmem.NewClient(cortexmem.WithBaseURL(server.URL))
+	_, err := client.GetProjects(context.Background())
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "invalid request") {
+		t.Errorf("expected error message to contain 'invalid request', got: %v", err)
+	}
+}
+
+func TestExtractErrorMessage_ArrayError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`[{"error":"batch validation failed"}]`))
+	}))
+	defer server.Close()
+
+	client := cortexmem.NewClient(cortexmem.WithBaseURL(server.URL))
+	_, err := client.GetProjects(context.Background())
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "batch validation failed") {
+		t.Errorf("expected error message to contain 'batch validation failed', got: %v", err)
+	}
+}
+
+func TestExtractErrorMessage_PlainString(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`"not found"`))
+	}))
+	defer server.Close()
+
+	client := cortexmem.NewClient(cortexmem.WithBaseURL(server.URL))
+	_, err := client.GetProjects(context.Background())
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Errorf("expected error message to contain 'not found', got: %v", err)
+	}
+}
+
+func TestExtractErrorMessage_EmptyBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client := cortexmem.NewClient(cortexmem.WithBaseURL(server.URL))
+	_, err := client.GetProjects(context.Background())
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "empty response body") {
+		t.Errorf("expected error message to contain 'empty response body', got: %v", err)
+	}
+}
+
+func TestExtractErrorMessage_MessageField(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		w.Write([]byte(`{"message":"session already exists"}`))
+	}))
+	defer server.Close()
+
+	client := cortexmem.NewClient(cortexmem.WithBaseURL(server.URL))
+	_, err := client.GetProjects(context.Background())
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "session already exists") {
+		t.Errorf("expected error message to contain 'session already exists', got: %v", err)
+	}
+}

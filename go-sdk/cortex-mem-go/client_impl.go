@@ -262,35 +262,62 @@ func (c *httpClient) doRequestNoContentWithParams(ctx context.Context, method, p
 
 // extractErrorMessage parses a JSON error response body and extracts a human-readable message.
 // Falls back to raw body string if parsing fails.
-// Supports common patterns: {"error":"..."}, {"message":"..."}, {"detail":"..."}.
+// Supports common patterns:
+//   - {"error":"..."}, {"message":"..."}, {"detail":"..."}
+//   - [{"error":"..."}]  (JSON array with error objects)
+//   - "not found"        (plain JSON string)
 func extractErrorMessage(data []byte) string {
 	// Handle empty response body (server returned status code with no body)
 	if len(data) == 0 {
 		return "(empty response body)"
 	}
+
+	// Try JSON object first: {"error":"..."}
 	var parsed map[string]any
-	if err := json.Unmarshal(data, &parsed); err != nil {
-		// Not JSON — return raw body (truncated to 200 chars for readability)
-		s := string(data)
-		if len(s) > 200 {
-			return s[:200] + "..."
-		}
-		return s
-	}
-	// Try common error field names (in priority order)
-	for _, key := range []string{"error", "message", "detail"} {
-		if v, ok := parsed[key]; ok {
-			if s, ok := v.(string); ok && s != "" {
-				return s
+	if err := json.Unmarshal(data, &parsed); err == nil {
+		// Try common error field names (in priority order)
+		for _, key := range []string{"error", "message", "detail"} {
+			if v, ok := parsed[key]; ok {
+				if s, ok := v.(string); ok && s != "" {
+					return s
+				}
 			}
 		}
+		// Fallback: compact JSON representation
+		data2, err := json.Marshal(parsed)
+		if err != nil {
+			return string(data)
+		}
+		return string(data2)
 	}
-	// Fallback: compact JSON representation
-	data2, err := json.Marshal(parsed)
-	if err != nil {
+
+	// Try JSON array: [{"error":"..."}]
+	var arr []any
+	if err := json.Unmarshal(data, &arr); err == nil && len(arr) > 0 {
+		if first, ok := arr[0].(map[string]any); ok {
+			for _, key := range []string{"error", "message", "detail"} {
+				if v, ok := first[key]; ok {
+					if s, ok := v.(string); ok && s != "" {
+						return s
+					}
+				}
+			}
+		}
 		return string(data)
 	}
-	return string(data2)
+
+	// Try plain JSON string: "not found"
+	var str string
+	if err := json.Unmarshal(data, &str); err == nil && str != "" {
+		return str
+	}
+
+	// Not JSON — return raw body (truncated to 200 chars for readability)
+	s := string(data)
+	if len(s) > 200 {
+		return s[:200] + "..."
+	}
+	return s
 }
 
 // doFireAndForget executes a capture operation with retry and error swallowing.
