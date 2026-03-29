@@ -125,13 +125,28 @@ def is_retryable(status_code: int) -> bool:
 def is_retryable_error(err: Exception) -> bool:
     """Return True if the error is likely transient and the request can be retried.
 
-    Retryable: 429 (rate limited), 502 (bad gateway), 503 (unavailable), 504 (timeout).
-    NOT retryable: 500 (code bug), 4xx (client error), non-API errors.
+    Retryable: 429 (rate limited), 502 (bad gateway), 503 (unavailable), 504 (timeout),
+    and network/transport errors (ConnectionError, Timeout, RequestException).
+    NOT retryable: 500 (code bug), 4xx (client error).
 
     Matches Go's IsRetryable(err) and JS's isRetryable(err) for cross-SDK parity.
+    Go treats non-HTTP errors (network/transport) as always retryable.
+    JS treats TypeError (fetch network errors) and AbortError (timeouts) as retryable.
     """
     if isinstance(err, APIError):
         return is_retryable(err.status_code)
+    # Network/transport errors are always retryable (matches Go's IsRetryable behavior)
+    # requests.ConnectionError (includes ConnectionRefusedError, DNS failures)
+    # requests.Timeout (includes ConnectTimeout, ReadTimeout)
+    try:
+        from requests import RequestException
+        if isinstance(err, RequestException):
+            return True
+    except ImportError:
+        pass
+    # Fallback: common network error types from stdlib
+    if isinstance(err, (ConnectionError, TimeoutError, OSError)):
+        return True
     return False
 
 
