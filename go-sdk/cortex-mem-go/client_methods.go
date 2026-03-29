@@ -34,6 +34,12 @@ func (c *httpClient) RecordObservation(ctx context.Context, req dto.ObservationR
 	if strings.TrimSpace(req.SessionID) == "" {
 		return &ValidationError{Field: "sessionID", Message: "sessionID is required"}
 	}
+	if strings.TrimSpace(req.ProjectPath) == "" {
+		return &ValidationError{Field: "projectPath", Message: "projectPath is required"}
+	}
+	if strings.TrimSpace(req.ToolName) == "" {
+		return &ValidationError{Field: "toolName", Message: "toolName is required"}
+	}
 	return c.doFireAndForget(ctx, "RecordObservation", func() error {
 		return c.doRequestNoContent(ctx, http.MethodPost, "/api/ingest/tool-use", req)
 	})

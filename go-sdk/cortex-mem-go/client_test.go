@@ -3442,6 +3442,36 @@ func TestRecordObservation_Validation_EmptySessionID(t *testing.T) {
 	}
 }
 
+func TestRecordObservation_Validation_EmptyProjectPath(t *testing.T) {
+	client := cortexmem.NewClient()
+	err := client.RecordObservation(context.Background(), dto.ObservationRequest{
+		SessionID:   "sess-1",
+		ProjectPath: "", // empty should fail
+		ToolName:    "Read",
+	})
+	if err == nil {
+		t.Fatal("RecordObservation should fail with empty projectPath")
+	}
+	if !strings.Contains(err.Error(), "projectPath is required") {
+		t.Errorf("expected validation error about projectPath, got: %v", err)
+	}
+}
+
+func TestRecordObservation_Validation_EmptyToolName(t *testing.T) {
+	client := cortexmem.NewClient()
+	err := client.RecordObservation(context.Background(), dto.ObservationRequest{
+		SessionID:   "sess-1",
+		ProjectPath: "/proj",
+		ToolName:    "", // empty should fail
+	})
+	if err == nil {
+		t.Fatal("RecordObservation should fail with empty toolName")
+	}
+	if !strings.Contains(err.Error(), "toolName is required") {
+		t.Errorf("expected validation error about toolName, got: %v", err)
+	}
+}
+
 func TestRecordSessionEnd_Validation_EmptySessionID(t *testing.T) {
 	client := cortexmem.NewClient()
 	err := client.RecordSessionEnd(context.Background(), dto.SessionEndRequest{

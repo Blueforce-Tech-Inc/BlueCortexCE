@@ -99,6 +99,7 @@ export class CortexMemClient {
     this.assertNotClosed();
     this.validateRequired('session_id', req.session_id);
     this.validateRequired('cwd', req.cwd);
+    this.validateRequired('tool_name', req.tool_name);
     await this.doFireAndForget('RecordObservation', () =>
       this.requestNoContent('POST', '/api/ingest/tool-use', req),
     );
