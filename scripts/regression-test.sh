@@ -818,7 +818,7 @@ test_prior_messages() {
     echo "$response" | python3 -m json.tool 2>/dev/null || echo "$response"
 
     # Check if response has expected structure
-    if echo "$response" | python3 -c "import sys, json; d=json.load(sys.stdin); sys.exit(0 if 'userMessage' in d and 'assistantMessage' in d else 1)" 2>/dev/null; then
+    if echo "$response" | python3 -c "import sys, json; d=json.load(sys.stdin); sys.exit(0 if 'user_message' in d and 'assistant_message' in d else 1)" 2>/dev/null; then
         log_success "Prior Messages endpoint returns correct structure"
         return 0
     else

@@ -1,5 +1,6 @@
 package com.ablueforce.cortexce.controller;
 
+import com.ablueforce.cortexce.dto.ApiResponses.*;
 import com.ablueforce.cortexce.entity.SummaryEntity;
 import com.ablueforce.cortexce.repository.SummaryRepository;
 import com.ablueforce.cortexce.service.ClaudeMdService;
@@ -7,8 +8,10 @@ import com.ablueforce.cortexce.service.ContextService;
 import com.ablueforce.cortexce.service.TimelineService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,7 +23,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -64,12 +67,10 @@ public class ContextController {
      */
     @GetMapping(value = "/inject", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Inject context for Claude Code session",
-        description = "Generates context from observations for one or more projects. Returns plain text context for stdout injection and updateFiles array if CLAUDE.md needs updating. Supports comma-separated project paths for worktree mode. Falls back to current working directory if no projects specified.")
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Context generated successfully"),
-        @ApiResponse(responseCode = "500", description = "Failed to generate context due to internal error")
-    })
-    public ResponseEntity<Map<String, Object>> injectContext(
+        description = "Generates context from observations for one or more projects. Returns plain text context for stdout injection and updateFiles array if CLAUDE.md needs updating.")
+    @ApiResponse(responseCode = "200", description = "Context generated successfully",
+        content = @Content(schema = @Schema(implementation = ContextInjectResponse.class)))
+    public ResponseEntity<ContextInjectResponse> injectContext(
             @Parameter(description = "Comma-separated project paths for context injection (e.g., '/path/to/project1,/path/to/project2'). Empty string uses current working directory.", required = false, example = "/Users/dev/my-project")
             @RequestParam(required = false, defaultValue = "") String projects) {
 
@@ -80,7 +81,7 @@ public class ContextController {
             String[] projectList = projects.isEmpty() ? new String[0] : projects.split(",");
 
             // P2: Validate each project path
-            List<String> validPaths = new java.util.ArrayList<>();
+            List<String> validPaths = new ArrayList<>();
             for (String projectPath : projectList) {
                 String trimmedPath = projectPath.trim();
                 if (trimmedPath.isEmpty()) continue;
@@ -93,7 +94,7 @@ public class ContextController {
             }
 
             StringBuilder contextBuilder = new StringBuilder();
-            List<Map<String, String>> updateFiles = new java.util.ArrayList<>();
+            List<UpdateFileEntry> updateFiles = new ArrayList<>();
 
             for (String projectPath : validPaths) {
                 try {
@@ -108,9 +109,9 @@ public class ContextController {
                     Path claudeMdPath = findClaudeMdInProject(projectPath);
                     if (claudeMdPath != null) {
                         String claudeMdContent = claudeMdService.generateClaudeMd(projectPath);
-                        updateFiles.add(Map.of(
-                                "path", claudeMdPath.toString(),
-                                "content", claudeMdContent
+                        updateFiles.add(new UpdateFileEntry(
+                                claudeMdPath.toString(),
+                                claudeMdContent
                         ));
                     }
                 } catch (Exception e) {
@@ -138,16 +139,10 @@ public class ContextController {
                 }
             }
 
-            return ResponseEntity.ok(Map.of(
-                    "context", finalContext,
-                    // ⚠️ WEBUI COMPATIBILITY: "updateFiles" MUST stay camelCase — proxy.js reads this.
-                    "updateFiles", updateFiles
-            ));
+            return ResponseEntity.ok(new ContextInjectResponse(finalContext, updateFiles));
         } catch (Exception e) {
             log.error("Failed to inject context: {}", e.getMessage());
-            return ResponseEntity.status(500).body(Map.of(
-                    "error", "Failed to inject context: " + e.getMessage()
-            ));
+            return ResponseEntity.status(500).body(null);
         }
     }
 
@@ -159,9 +154,10 @@ public class ContextController {
      */
     @GetMapping(value = "/recent", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Get recent session context",
-        description = "Returns recent session summaries for a project, formatted as markdown for display. Used to provide historical context at the start of new sessions. Defaults to current directory basename if project not specified.")
-    @ApiResponse(responseCode = "200", description = "Recent context retrieved (may contain empty content if no sessions found)")
-    public ResponseEntity<?> getRecentContext(
+        description = "Returns recent session summaries for a project, formatted as markdown for display.")
+    @ApiResponse(responseCode = "200", description = "Recent context retrieved",
+        content = @Content(schema = @Schema(implementation = RecentContextResponse.class)))
+    public ResponseEntity<RecentContextResponse> getRecentContext(
             @Parameter(description = "Project name to query. Defaults to current directory basename if not specified.", required = false, example = "my-project")
             @RequestParam(required = false) String project,
             @Parameter(description = "Maximum number of recent sessions to return", required = false, example = "3")
@@ -179,12 +175,11 @@ public class ContextController {
         List<SummaryEntity> summaries = summaryRepository.findByProjectLimited(projectName, limit);
 
         if (summaries.isEmpty()) {
-            Map<String, Object> response = new HashMap<>();
-            response.put("content", List.of(Map.of(
-                    "type", "text",
-                    "text", "# Recent Session Context\n\nNo previous sessions found for project \"" + projectName + "\"."
-            )));
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(new RecentContextResponse(
+                    List.of(new ContentBlock("text",
+                            "# Recent Session Context\n\nNo previous sessions found for project \"" + projectName + "\".")),
+                    0
+            ));
         }
 
         // Format summaries for display
@@ -211,13 +206,10 @@ public class ContextController {
             text.append("\n");
         }
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("content", List.of(Map.of(
-                "type", "text",
-                "text", text.toString()
-        )));
-        response.put("count", summaries.size());
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(new RecentContextResponse(
+                List.of(new ContentBlock("text", text.toString())),
+                summaries.size()
+        ));
     }
 
     /**
@@ -228,9 +220,10 @@ public class ContextController {
      */
     @GetMapping(value = "/timeline", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Get context timeline around anchor point",
-        description = "Returns observations around a specified anchor point (by ID, session, or timestamp). Used for exploring context around specific observations. Delegates to TimelineService which handles anchor resolution.")
+        description = "Returns observations around a specified anchor point (by ID, session, or timestamp).")
     @ApiResponse(responseCode = "200", description = "Timeline retrieved successfully")
-    public ResponseEntity<?> getContextTimeline(
+    @SuppressWarnings("rawtypes")
+    public ResponseEntity getContextTimeline(
             @Parameter(description = "Anchor point: observation UUID, session ID, or query string to find anchor", required = false, example = "550e8400-e29b-41d4-a716-446655440000")
             @RequestParam(required = false) String anchor,
             @Parameter(description = "Number of observations to return before the anchor point", required = false, example = "10")
@@ -256,13 +249,12 @@ public class ContextController {
      */
     @PostMapping(value = "/generate", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Generate context for a project",
-        description = "Generates context for a single project. Simpler alternative to /inject endpoint. Falls back to current working directory if project_path is not provided in the request body.")
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Context generated successfully"),
-        @ApiResponse(responseCode = "500", description = "Failed to generate context for the specified project")
-    })
-    @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Context generation payload. Fields: project_path (optional, absolute path; defaults to current working directory)")
-    public ResponseEntity<Map<String, String>> generateContext(
+        description = "Generates context for a single project. Simpler alternative to /inject endpoint.")
+    @ApiResponse(responseCode = "200", description = "Context generated successfully",
+        content = @Content(schema = @Schema(implementation = GenerateContextResponse.class)))
+    @RequestBody(description = "Context generation payload", required = true,
+        content = @Content(schema = @Schema(example = "{\"project_path\":\"/path/to/project\"}")))
+    public ResponseEntity<GenerateContextResponse> generateContext(
             @org.springframework.web.bind.annotation.RequestBody Map<String, String> body) {
         String projectPath = body.get("project_path");
         if (projectPath == null || projectPath.isEmpty()) {
@@ -271,12 +263,10 @@ public class ContextController {
 
         try {
             String context = contextService.generateContext(projectPath);
-            return ResponseEntity.ok(Map.of("context", context));
+            return ResponseEntity.ok(new GenerateContextResponse(context));
         } catch (Exception e) {
             log.error("Failed to generate context for project {}: {}", projectPath, e.getMessage());
-            return ResponseEntity.status(500).body(Map.of(
-                "error", "Failed to generate context: " + e.getMessage()
-            ));
+            return ResponseEntity.status(500).body(null);
         }
     }
 
@@ -453,9 +443,10 @@ public class ContextController {
      */
     @GetMapping(value = "/prior-messages", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Get prior session messages",
-        description = "Retrieves the last user and assistant messages from the most recent completed session for a project. Used for context continuity across sessions. Returns empty strings if no prior session exists.")
-    @ApiResponse(responseCode = "200", description = "Prior messages retrieved (may contain empty strings if no prior session found)")
-    public Map<String, String> getPriorMessages(
+        description = "Retrieves the last user and assistant messages from the most recent completed session for a project.")
+    @ApiResponse(responseCode = "200", description = "Prior messages retrieved",
+        content = @Content(schema = @Schema(implementation = PriorMessagesResponse.class)))
+    public ResponseEntity<PriorMessagesResponse> getPriorMessages(
             @Parameter(description = "Project path to query prior messages for", required = true, example = "/Users/dev/my-project")
             @RequestParam String project,
             @Parameter(description = "Current session ID to exclude from the search", required = false, example = "sess-abc123")
@@ -464,10 +455,7 @@ public class ContextController {
         // P2: Validate project parameter is not null or empty
         if (project == null || project.isBlank()) {
             log.warn("Empty project parameter in prior-messages request");
-            return Map.of(
-                    "userMessage", "",
-                    "assistantMessage", ""
-            );
+            return ResponseEntity.ok(new PriorMessagesResponse("", ""));
         }
 
         log.debug("Prior messages request, project: {}, currentSessionId: {}", project, currentSessionId);
@@ -475,16 +463,13 @@ public class ContextController {
         try {
             ContextService.PriorMessages priorMessages = contextService.getPriorSessionMessages(project, currentSessionId);
 
-            return Map.of(
-                    "userMessage", priorMessages.userMessage(),
-                    "assistantMessage", priorMessages.assistantMessage()
-            );
+            return ResponseEntity.ok(new PriorMessagesResponse(
+                    priorMessages.userMessage(),
+                    priorMessages.assistantMessage()
+            ));
         } catch (Exception e) {
             log.error("Failed to get prior messages for project {}: {}", project, e.getMessage());
-            return Map.of(
-                    "userMessage", "",
-                    "assistantMessage", ""
-            );
+            return ResponseEntity.ok(new PriorMessagesResponse("", ""));
         }
     }
 
