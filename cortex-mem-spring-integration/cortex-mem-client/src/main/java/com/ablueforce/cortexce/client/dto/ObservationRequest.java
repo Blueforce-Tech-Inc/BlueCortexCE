@@ -48,9 +48,15 @@ public record ObservationRequest(
      */
     public Map<String, Object> toWireFormat() {
         var map = new java.util.HashMap<String, Object>();
-        map.put("session_id", sessionId);
-        map.put("tool_name", toolName);
-        map.put("cwd", projectPath);
+        if (sessionId != null) {
+            map.put("session_id", sessionId);
+        }
+        if (toolName != null) {
+            map.put("tool_name", toolName);
+        }
+        if (projectPath != null) {
+            map.put("cwd", projectPath);
+        }
         if (toolInput != null) {
             map.put("tool_input", toolInput);
         }

@@ -1372,13 +1372,19 @@ func TestGetModes(t *testing.T) {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]any{
-			"id":                   "default",
-			"name":                 "Default Mode",
-			"description":          "Standard mode",
-			"version":              "1.0",
-			"observation_types":    []string{"tool-use", "user-prompt"},
-			"observation_concepts": []string{"code", "test"},
+		json.NewEncoder(w).Encode(dto.ModesResponse{
+			ID:          "default",
+			Name:        "Default Mode",
+			Description: "Standard mode",
+			Version:     "1.0",
+			ObservationTypes: []dto.ObservationType{
+				{ID: "tool-use", Label: "Tool Use", Description: "Tool execution"},
+				{ID: "user-prompt", Label: "User Prompt", Description: "User input"},
+			},
+			ObservationConcepts: []dto.ObservationConcept{
+				{ID: "code", Label: "Code", Description: "Source code"},
+				{ID: "test", Label: "Test", Description: "Testing"},
+			},
 		})
 	}))
 	defer server.Close()
@@ -1393,6 +1399,12 @@ func TestGetModes(t *testing.T) {
 	}
 	if len(result.ObservationTypes) != 2 {
 		t.Errorf("expected 2 observation types, got %d", len(result.ObservationTypes))
+	}
+	if result.ObservationTypes[0].ID != "tool-use" {
+		t.Errorf("expected first type id=tool-use, got %v", result.ObservationTypes[0].ID)
+	}
+	if len(result.ObservationConcepts) != 2 {
+		t.Errorf("expected 2 observation concepts, got %d", len(result.ObservationConcepts))
 	}
 }
 

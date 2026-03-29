@@ -561,15 +561,15 @@ echo "  ✅ Chain verification: Test → Demo → Go SDK → Backend"
 
 # ==================== New Endpoint Tests: Complete Backend API Coverage ====================
 
-# Test 27: /observations/batch
-info "Test 27: POST /observations/batch — Batch get observations"
-BATCH_RESP=$(curl -sf --max-time 10 -X POST "$DEMO_BASE/observations/batch" \
+# Test 27: /batch-observations
+info "Test 27: POST /batch-observations — Batch get observations"
+BATCH_RESP=$(curl -sf --max-time 10 -X POST "$DEMO_BASE/batch-observations" \
     -H "Content-Type: application/json" \
     -d '{"ids": ["test-id"]}' 2>/dev/null || echo "FAIL")
 if [ "$BATCH_RESP" = "FAIL" ]; then
-    fail "POST /observations/batch" "Connection failed or timed out"
+    fail "POST /batch-observations" "Connection failed or timed out"
 else
-    pass "POST /observations/batch"
+    pass "POST /batch-observations"
 fi
 
 # Test 28: /extraction/latest
@@ -697,7 +697,7 @@ echo "  ✅ SubmitFeedback (via /feedback)"
 echo "  ✅ UpdateSessionUserId (via /session/user)"
 echo "  ✅ UpdateObservation (via PATCH /observations/{id})"
 echo "  ✅ DeleteObservation (via DELETE /observations/{id})"
-echo "  ✅ GetObservationsByIds (via /observations/batch)"
+echo "  ✅ GetObservationsByIds (via /batch-observations)"
 echo "  ✅ GetLatestExtraction (via /extraction/latest)"
 echo "  ✅ GetExtractionHistory (via /extraction/history)"
 echo ""

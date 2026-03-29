@@ -925,3 +925,87 @@ func TestSessionUserUpdateResponse_CamelCaseFields(t *testing.T) {
 		t.Errorf("expected userId=user-42, got %v", decoded["userId"])
 	}
 }
+
+// ==================== StringList Tests (Backend JSONB String Encoding) ====================
+
+func TestStringList_FromJSONArray(t *testing.T) {
+	var sl StringList
+	if err := json.Unmarshal([]byte(`["a","b","c"]`), &sl); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if len(sl) != 3 || sl[0] != "a" || sl[1] != "b" || sl[2] != "c" {
+		t.Errorf("expected [a b c], got %v", sl)
+	}
+}
+
+func TestStringList_FromStringEncodedJSON(t *testing.T) {
+	// Backend serializes JSONB as string: "[\"a\",\"b\"]"
+	var sl StringList
+	if err := json.Unmarshal([]byte(`"[\"a\",\"b\"]"`), &sl); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if len(sl) != 2 || sl[0] != "a" || sl[1] != "b" {
+		t.Errorf("expected [a b], got %v", sl)
+	}
+}
+
+func TestStringList_FromEmptyString(t *testing.T) {
+	var sl StringList
+	if err := json.Unmarshal([]byte(`""`), &sl); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if sl != nil {
+		t.Errorf("expected nil for empty string, got %v", sl)
+	}
+}
+
+func TestStringList_FromEmptyArrayString(t *testing.T) {
+	var sl StringList
+	if err := json.Unmarshal([]byte(`"[]"`), &sl); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if sl != nil {
+		t.Errorf("expected nil for empty array string, got %v", sl)
+	}
+}
+
+func TestObservation_FactsFromStringEncodedJSON(t *testing.T) {
+	// Simulate backend response: facts is a JSON string containing an array
+	jsonData := `{"id":"obs-1","content_session_id":"sess-1","project":"/proj","type":"tool-use","narrative":"test","facts":"[\"fact1\",\"fact2\"]","concepts":"[\"concept1\"]"}`
+	var obs Observation
+	if err := json.Unmarshal([]byte(jsonData), &obs); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if len(obs.Facts) != 2 || obs.Facts[0] != "fact1" || obs.Facts[1] != "fact2" {
+		t.Errorf("expected facts=[fact1, fact2], got %v", obs.Facts)
+	}
+	if len(obs.Concepts) != 1 || obs.Concepts[0] != "concept1" {
+		t.Errorf("expected concepts=[concept1], got %v", obs.Concepts)
+	}
+}
+
+func TestObservation_FilesReadFromStringEncodedJSON(t *testing.T) {
+	jsonData := `{"id":"obs-1","content_session_id":"sess-1","project":"/proj","type":"tool-use","narrative":"test","files_read":"[\"main.go\",\"util.go\"]","files_modified":"[]"}`
+	var obs Observation
+	if err := json.Unmarshal([]byte(jsonData), &obs); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if len(obs.FilesRead) != 2 || obs.FilesRead[0] != "main.go" || obs.FilesRead[1] != "util.go" {
+		t.Errorf("expected files_read=[main.go, util.go], got %v", obs.FilesRead)
+	}
+	if obs.FilesModified != nil {
+		t.Errorf("expected files_modified=nil for empty string, got %v", obs.FilesModified)
+	}
+}
+
+func TestObservation_FactsFromArray(t *testing.T) {
+	// Verify backward compatibility: JSON array still works
+	jsonData := `{"id":"obs-1","content_session_id":"sess-1","project":"/proj","type":"tool-use","narrative":"test","facts":["f1","f2"]}`
+	var obs Observation
+	if err := json.Unmarshal([]byte(jsonData), &obs); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if len(obs.Facts) != 2 || obs.Facts[0] != "f1" || obs.Facts[1] != "f2" {
+		t.Errorf("expected [f1 f2], got %v", obs.Facts)
+	}
+}

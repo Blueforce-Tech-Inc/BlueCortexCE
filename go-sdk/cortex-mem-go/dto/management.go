@@ -36,15 +36,31 @@ type DatabaseStats struct {
 	TotalProjects     int64 `json:"totalProjects"`
 }
 
+// ObservationType describes a type of observation (e.g., bugfix, feature).
+type ObservationType struct {
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	Description string `json:"description"`
+	Emoji       string `json:"emoji,omitempty"`
+	WorkEmoji   string `json:"work_emoji,omitempty"`
+}
+
+// ObservationConcept describes a concept for observations (e.g., how-it-works, pattern).
+type ObservationConcept struct {
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	Description string `json:"description"`
+}
+
 // ModesResponse contains active mode configuration.
 // GET /api/modes
 type ModesResponse struct {
-	ID                  string   `json:"id"`
-	Name                string   `json:"name"`
-	Description         string   `json:"description"`
-	Version             string   `json:"version"`
-	ObservationTypes    []string `json:"observation_types"`
-	ObservationConcepts []string `json:"observation_concepts"`
+	ID                  string               `json:"id"`
+	Name                string               `json:"name"`
+	Description         string               `json:"description"`
+	Version             string               `json:"version"`
+	ObservationTypes    []ObservationType    `json:"observation_types"`
+	ObservationConcepts []ObservationConcept `json:"observation_concepts"`
 }
 
 // SessionUserUpdateResponse contains the result of updating a session's userId.

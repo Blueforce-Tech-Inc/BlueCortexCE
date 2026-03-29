@@ -368,8 +368,10 @@ func main() {
 		writeJSON(w, result)
 	})
 
-	// --- POST /observations/batch ---
-	mux.HandleFunc("/observations/batch", func(w http.ResponseWriter, r *http.Request) {
+	// --- POST /batch-observations ---
+	// Moved from /observations/batch to avoid Go 1.25+ ServeMux conflict
+	// with GET /observations/{id} (ambiguous path pattern).
+	mux.HandleFunc("/batch-observations", func(w http.ResponseWriter, r *http.Request) {
 		if !checkMethod(w, r, http.MethodPost) {
 			return
 		}
@@ -657,8 +659,9 @@ func main() {
 		writeJSON(w, result)
 	})
 
-	// --- POST /observations/create ---
-	mux.HandleFunc("/observations/create", func(w http.ResponseWriter, r *http.Request) {
+	// --- POST /create-observation ---
+	// Moved from /create-observation to avoid Go 1.25+ ServeMux conflict with /observations/{id}.
+	mux.HandleFunc("/create-observation", func(w http.ResponseWriter, r *http.Request) {
 		if !checkMethod(w, r, http.MethodPost) {
 			return
 		}
@@ -833,7 +836,7 @@ func main() {
 	fmt.Println("  GET    /iclprompt           - Build ICL prompt")
 	fmt.Println("  GET    /observations        - List observations (limit, offset)")
 	fmt.Println("  GET    /observations/{id}   - Get observation by ID")
-	fmt.Println("  POST   /observations/batch  - Batch get observations by IDs")
+	fmt.Println("  POST   /batch-observations - Batch get observations by IDs")
 	fmt.Println("  GET    /projects            - Get projects")
 	fmt.Println("  GET    /stats               - Get stats")
 	fmt.Println("  GET    /modes               - Get modes")
@@ -848,7 +851,7 @@ func main() {
 	fmt.Println("  PATCH  /session/user        - Update session user ID")
 	fmt.Println("  PATCH  /observations/{id}   - Update observation")
 	fmt.Println("  DELETE /observations/{id}   - Delete observation")
-	fmt.Println("  POST   /observations/create - Record observation")
+	fmt.Println("  POST   /create-observation - Record observation")
 	fmt.Println("  POST   /ingest/prompt       - Ingest user prompt")
 	fmt.Println("  POST   /ingest/session-end  - Ingest session end")
 

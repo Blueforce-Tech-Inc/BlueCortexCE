@@ -1,5 +1,41 @@
 package dto
 
+import (
+	"encoding/json"
+	"fmt"
+)
+
+// StringList is a []string that can unmarshal from both:
+//   - JSON array: ["a", "b"]
+//   - JSON string-encoded array: "[\"a\", \"b\"]" (backend serializes JSONB fields this way for WebUI)
+//
+// Marshal always produces a JSON array.
+type StringList []string
+
+func (sl *StringList) UnmarshalJSON(data []byte) error {
+	// Try JSON array first
+	var arr []string
+	if err := json.Unmarshal(data, &arr); err == nil {
+		*sl = arr
+		return nil
+	}
+	// Try JSON string (backend serializes JSONB as string for WebUI JSON.parse())
+	var str string
+	if err := json.Unmarshal(data, &str); err != nil {
+		return fmt.Errorf("StringList: cannot unmarshal %s", string(data))
+	}
+	if str == "" || str == "[]" {
+		*sl = nil
+		return nil
+	}
+	// The string is itself a JSON array
+	if err := json.Unmarshal([]byte(str), &arr); err != nil {
+		return fmt.Errorf("StringList: cannot parse string-encoded JSON: %w", err)
+	}
+	*sl = arr
+	return nil
+}
+
 // ObservationRequest records a tool-use observation.
 // POST /api/ingest/tool-use
 //
@@ -58,10 +94,10 @@ type Observation struct {
 	Title             string         `json:"title,omitempty"`
 	Subtitle          string         `json:"subtitle,omitempty"`
 	Content           string         `json:"narrative"` // @JsonProperty("narrative") on entity
-	Facts             []string       `json:"facts,omitempty"`
-	Concepts          []string       `json:"concepts,omitempty"`
-	FilesRead         []string       `json:"files_read,omitempty"`          // SNAKE_CASE naming strategy
-	FilesModified     []string       `json:"files_modified,omitempty"`      // SNAKE_CASE naming strategy
+	Facts             StringList     `json:"facts,omitempty"`         // Backend serializes JSONB as string for WebUI
+	Concepts          StringList     `json:"concepts,omitempty"`      // Backend serializes JSONB as string for WebUI
+	FilesRead         StringList     `json:"files_read,omitempty"`    // Backend serializes JSONB as string for WebUI
+	FilesModified     StringList     `json:"files_modified,omitempty"` // Backend serializes JSONB as string for WebUI
 	QualityScore      float32        `json:"quality_score,omitempty"`       // SNAKE_CASE naming strategy
 	FeedbackType      string         `json:"feedback_type,omitempty"`       // SUCCESS/PARTIAL/FAILURE/UNKNOWN
 	FeedbackUpdatedAt string         `json:"feedback_updated_at,omitempty"` // SNAKE_CASE naming strategy
