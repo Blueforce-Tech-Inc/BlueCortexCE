@@ -415,13 +415,30 @@ public class AgentService implements LogHelper {
 
     /**
      * Check if exception is retryable.
+     * Returns false for unrecoverable auth errors to prevent endless retry loops
+     * (aligned with TS v10.6.3 commit 07ab7000).
      */
     private boolean isRetryableException(Exception e) {
+        // Unrecoverable auth errors - do NOT retry (prevents 77K+ retry loops)
+        if (e.getMessage() != null) {
+            String msg = e.getMessage();
+            if (msg.contains("API_KEY_INVALID") ||
+                msg.contains("API key expired") ||
+                msg.contains("API key not valid") ||
+                msg.contains("PERMISSION_DENIED") ||
+                msg.contains("Gemini API error: 400") ||
+                msg.contains("Gemini API error: 401") ||
+                msg.contains("Gemini API error: 403")) {
+                return false;
+            }
+        }
+        // Network/timeouts are retryable
         if (e instanceof java.net.SocketTimeoutException ||
             e instanceof java.net.ConnectException ||
             e instanceof java.util.concurrent.TimeoutException) {
             return true;
         }
+        // LLM service errors are retryable
         if (e.getMessage() != null && e.getMessage().contains("LLM")) {
             return true;
         }
