@@ -15,6 +15,7 @@ This document describes the REST API for Cortex Community Edition backend.
 - [Memory](#memory)
 - [Observations](#observations)
 - [Extraction](#extraction)
+- [Context](#context)
 - [Search](#search)
 - [Management](#management)
 - [Health & Version](#health--version)
@@ -250,6 +251,183 @@ GET /api/extraction/{templateName}/latest?projectPath=/path/to/project&userId=us
 
 ```
 GET /api/extraction/{templateName}/history?projectPath=/path/to/project&userId=user-123&limit=10
+```
+
+## Context
+
+### Inject Context
+
+Generate context for injection into Claude Code sessions.
+
+```
+GET /api/context/inject?projects=/Users/dev/myproject
+```
+
+Query parameters:
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `projects` | No | Comma-separated list of project paths |
+
+Response:
+
+```json
+{
+  "context": "# Recent Work\n\n## Recent Changes\n...",
+  "updateFiles": [
+    {
+      "path": "/Users/dev/myproject/CLAUDE.md",
+      "content": "# Claude-Mem Context\n\n..."
+    }
+  ]
+}
+```
+
+### Generate Context
+
+Generate context for a single project.
+
+```
+POST /api/context/generate
+Content-Type: application/json
+
+{
+  "project_path": "/path/to/project"
+}
+```
+
+Response:
+
+```json
+{
+  "context": "# Recent Work\n\n..."
+}
+```
+
+### Preview Context
+
+Preview project context as plain text (for UI display).
+
+```
+GET /api/context/preview?project=/Users/dev/myproject&maxObservations=20
+```
+
+Query parameters:
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `project` | Yes | — | Project path |
+| `observationTypes` | No | "" | Comma-separated observation type filter |
+| `concepts` | No | "" | Comma-separated concept filter |
+| `includeObservations` | No | true | Include observations |
+| `includeSummaries` | No | true | Include summaries |
+| `maxObservations` | No | 50 | Max observations |
+| `maxSummaries` | No | 2 | Max summaries |
+| `sessionCount` | No | 10 | Recent sessions to query |
+| `fullCount` | No | 5 | Observations with full detail |
+
+Response (text/plain):
+
+```text
+# Claude-Mem Context
+
+Generated: 2026-03-13 10:15
+
+## Recent Work
+
+### Bug fix for authentication
+**Type**: bugfix | **Concepts**: authentication
+Fixed JWT token validation issue...
+
+---
+Token Savings Summary
+- Total observations: 45
+- Read tokens: 10,500
+- Saved tokens: 95,000 (90%)
+```
+
+### Recent Context
+
+Get recent session context summary.
+
+```
+GET /api/context/recent?project=/Users/dev/myproject&limit=5
+```
+
+Query parameters:
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `project` | No | cwd | Project path |
+| `limit` | No | 3 | Number of sessions to return |
+
+Response:
+
+```json
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "# Recent Session Context\n\nShowing last 3 session(s)..."
+    }
+  ],
+  "count": 3
+}
+```
+
+### Timeline Context
+
+Get timeline context with anchor-based query.
+
+```
+GET /api/context/timeline?anchor=obs-123&project=/Users/dev/myproject
+```
+
+Query parameters:
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `anchor` | No | — | Anchor ID (UUID or session ID) |
+| `depth_before` | No | 10 | Items before anchor |
+| `depth_after` | No | 10 | Items after anchor |
+| `project` | No | — | Project path |
+
+Response:
+
+```json
+{
+  "anchor": {
+    "id": "obs-123",
+    "title": "Feature implementation",
+    "timestamp": 1707878400000
+  },
+  "before": [...],
+  "after": [...]
+}
+```
+
+### Prior Messages
+
+Get messages from the previous session (for context continuity).
+
+```
+GET /api/context/prior-messages?project=/Users/dev/myproject
+```
+
+Query parameters:
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `project` | Yes | Project path |
+| `currentSessionId` | No | Current session ID (for exclusion) |
+
+Response:
+
+```json
+{
+  "userMessage": "Add authentication feature",
+  "assistantMessage": "I'll implement the authentication feature..."
+}
 ```
 
 ## Search

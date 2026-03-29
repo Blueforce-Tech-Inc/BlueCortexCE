@@ -90,3 +90,17 @@ _暂无问题记录_
 | 2 | SessionEntity.java | `status` 字段 | 使用 raw String 而非 enum，缺乏编译期类型安全。`SessionStatus` 常量类提供了值但无约束力。建议至少加 `@Column(length = 20)` 限制长度 | P2 |
 
 **审查结论**: 无 P0/P1 问题。TemplateService 设计良好（fail-fast 验证、安全 truncation），SessionEntity 字段映射清晰、Javadoc 质量高。
+
+---
+
+### 2026-03-29 | 文档审查 #1
+
+**审查范围**: `docs/API.md` vs 实际 Controller 端点 + `docs/API-zh-CN.md` 一致性
+
+| # | 文件 | 问题 | 级别 |
+|---|------|------|------|
+| 1 | API.md (English) | **整个 Context 章节缺失** — 6 个端点 (`/api/context/inject`, `/recent`, `/timeline`, `/generate`, `/preview`, `/prior-messages`) 未文档化，而中文版 API-zh-CN.md 已有完整文档 | **P1** |
+| 2 | API.md + API-zh-CN.md | **CursorController 端点全部缺失** — 6 个端点 (`/api/cursor/register`, `/projects`, `/context/{projectName}`, 等) 未文档化 | P2 |
+| 3 | API.md + API-zh-CN.md | TestController (`/api/test`) 未文档化 — 可能有意为之（内部测试端点） | P2 (低) |
+
+**审查结论**: API.md (English) 存在 P1 问题 — 与中文版差距显著（542 vs 1812 行），Context 章节完全缺失。需要将 API-zh-CN.md 的 Context 部分翻译补充到 API.md。
