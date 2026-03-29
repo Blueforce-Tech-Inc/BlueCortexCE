@@ -80,3 +80,4 @@ go-sdk/cortex-mem-go/cover_*.out
 # Patrol state (local)
 docs/drafts/patrol-state.md
 docs/drafts/health-check-task.md
+docs/drafts/patrol-log.md
