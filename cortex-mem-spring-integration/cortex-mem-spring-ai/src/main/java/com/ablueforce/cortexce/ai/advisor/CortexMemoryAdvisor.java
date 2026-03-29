@@ -59,17 +59,15 @@ public class CortexMemoryAdvisor implements CallAdvisor, StreamAdvisor {
 
     private final CortexMemClient cortexClient;
     private final String projectPath;
-    private final int maxExperiences;
     private final boolean captureEnabled;
     private final int order;
     private final int maxIclChars;
 
     private CortexMemoryAdvisor(CortexMemClient cortexClient, String projectPath,
-                                int maxExperiences, boolean captureEnabled, int order,
+                                boolean captureEnabled, int order,
                                 int maxIclChars) {
         this.cortexClient = cortexClient;
         this.projectPath = projectPath;
-        this.maxExperiences = maxExperiences;
         this.captureEnabled = captureEnabled;
         this.order = order;
         this.maxIclChars = maxIclChars;
@@ -210,7 +208,6 @@ public class CortexMemoryAdvisor implements CallAdvisor, StreamAdvisor {
     public static class Builder {
         private final CortexMemClient client;
         private String projectPath = "";
-        private int maxExperiences = 4;
         private boolean captureEnabled = true;
         private int order = 0;
         private int maxIclChars = 4000;
@@ -221,11 +218,6 @@ public class CortexMemoryAdvisor implements CallAdvisor, StreamAdvisor {
 
         public Builder projectPath(String projectPath) {
             this.projectPath = projectPath;
-            return this;
-        }
-
-        public Builder maxExperiences(int maxExperiences) {
-            this.maxExperiences = maxExperiences;
             return this;
         }
 
@@ -259,7 +251,7 @@ public class CortexMemoryAdvisor implements CallAdvisor, StreamAdvisor {
         }
 
         public CortexMemoryAdvisor build() {
-            return new CortexMemoryAdvisor(client, projectPath, maxExperiences, captureEnabled, order, maxIclChars);
+            return new CortexMemoryAdvisor(client, projectPath, captureEnabled, order, maxIclChars);
         }
     }
 }

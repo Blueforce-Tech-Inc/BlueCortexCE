@@ -50,7 +50,6 @@ class CortexMemoryAdvisorTest {
     void setUp() {
         advisor = CortexMemoryAdvisor.builder(cortexClient)
             .projectPath("/my/project")
-            .maxExperiences(4)
             .captureEnabled(true)
             .build();
     }

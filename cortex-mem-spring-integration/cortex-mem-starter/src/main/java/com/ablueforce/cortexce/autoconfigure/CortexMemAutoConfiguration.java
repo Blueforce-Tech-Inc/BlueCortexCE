@@ -98,7 +98,6 @@ public class CortexMemAutoConfiguration {
             log.info("Configuring CortexMemoryAdvisor for project: {}", properties.getProjectPath());
             return CortexMemoryAdvisor.builder(client)
                 .projectPath(properties.getProjectPath() != null ? properties.getProjectPath() : "")
-                .maxExperiences(properties.getDefaultExperienceCount())
                 .captureEnabled(properties.isCaptureUserPromptEnabled())
                 .build();
         }
