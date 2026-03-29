@@ -523,7 +523,7 @@ class ProjectsResponse:
 
     @classmethod
     def from_wire(cls, data: dict) -> ProjectsResponse:
-        return cls(projects=data.get("projects", []))
+        return cls(projects=_to_str_list(data.get("projects")))
 
 
 @dataclass
@@ -583,6 +583,6 @@ class ModesResponse:
             name=data.get("name") or "",
             description=data.get("description") or "",
             version=data.get("version") or "",
-            observation_types=_first_non_null(data, "observation_types", "observationTypes") or [],
-            observation_concepts=_first_non_null(data, "observation_concepts", "observationConcepts") or [],
+            observation_types=_to_str_list(_first_non_null(data, "observation_types", "observationTypes")),
+            observation_concepts=_to_str_list(_first_non_null(data, "observation_concepts", "observationConcepts")),
         )

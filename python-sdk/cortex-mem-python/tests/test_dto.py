@@ -801,6 +801,25 @@ class TestDTOFromWire:
         assert mr.observation_types == []
         assert mr.observation_concepts == []
 
+    def test_modes_response_from_wire_all_keys_missing(self):
+        """ModesResponse should return [] when both naming variants are absent."""
+        data = {"id": "m1", "name": "default"}
+        mr = ModesResponse.from_wire(data)
+        assert mr.observation_types == []
+        assert mr.observation_concepts == []
+
+    def test_projects_response_from_wire_null_projects(self):
+        """ProjectsResponse should return [] when projects is null (not None)."""
+        data = {"projects": None}
+        pr = ProjectsResponse.from_wire(data)
+        assert pr.projects == []
+
+    def test_projects_response_from_wire_missing_projects(self):
+        """ProjectsResponse should return [] when projects key is absent."""
+        data = {}
+        pr = ProjectsResponse.from_wire(data)
+        assert pr.projects == []
+
 
 class TestNullSafetyExtra:
     """Additional null-safety tests for edge cases not covered elsewhere."""

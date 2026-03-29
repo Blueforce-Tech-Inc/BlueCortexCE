@@ -222,6 +222,21 @@ class TestObservations:
         assert len(data["items"]) == 1
         assert data["items"][0]["id"] == "o1"
 
+    def test_get_observation_found(self, app, client):
+        from cortex_mem import Observation
+        app._mock_client.get_observation.return_value = Observation(id="o1", content="found")
+        resp = client.get("/observations/o1")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["id"] == "o1"
+        assert data["narrative"] == "found"
+
+    def test_get_observation_not_found(self, app, client):
+        app._mock_client.get_observation.return_value = None
+        resp = client.get("/observations/nonexistent")
+        assert resp.status_code == 404
+        assert "not found" in resp.get_json()["error"]
+
     def test_batch_missing_ids(self, client):
         resp = client.post("/observations/batch", json={})
         assert resp.status_code == 400
