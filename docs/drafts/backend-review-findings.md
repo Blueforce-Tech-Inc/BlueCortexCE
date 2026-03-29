@@ -86,8 +86,8 @@ _暂无问题记录_
 
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
-| 1 | TemplateService.java | ~87-88 `escapeTemplateValue()` | `{{{{` 和 `}}}}` 替换是 dead code：前面 `{{`/`}}` 已先执行替换，消耗了所有输入中的双花括号，四花括号 pattern 永远不会匹配。应删除这两行避免误导 | P2 |
-| 2 | SessionEntity.java | `status` 字段 | 使用 raw String 而非 enum，缺乏编译期类型安全。`SessionStatus` 常量类提供了值但无约束力。建议至少加 `@Column(length = 20)` 限制长度 | P2 |
+| 1 | TemplateService.java | ~87-88 `escapeTemplateValue()` | `{{{{` 和 `}}}}` 替换是 dead code：前面 `{{`/`}}` 已先执行替换，消耗了所有输入中的双花括号，四花括号 pattern 永远不会匹配。应删除这两行避免误导 | P2 ✅已修复 |
+| 2 | SessionEntity.java | `status` 字段 | 使用 raw String 而非 enum，缺乏编译期类型安全。`SessionStatus` 常量类提供了值但无约束力。建议至少加 `@Column(length = 20)` 限制长度 | P2 ✅已修复 |
 
 **审查结论**: 无 P0/P1 问题。TemplateService 设计良好（fail-fast 验证、安全 truncation），SessionEntity 字段映射清晰、Javadoc 质量高。
 
@@ -99,8 +99,8 @@ _暂无问题记录_
 
 | # | 文件 | 问题 | 级别 |
 |---|------|------|------|
-| 1 | API.md (English) | **整个 Context 章节缺失** — 6 个端点 (`/api/context/inject`, `/recent`, `/timeline`, `/generate`, `/preview`, `/prior-messages`) 未文档化，而中文版 API-zh-CN.md 已有完整文档 | **P1** |
-| 2 | API.md + API-zh-CN.md | **CursorController 端点全部缺失** — 6 个端点 (`/api/cursor/register`, `/projects`, `/context/{projectName}`, 等) 未文档化 | P2 |
-| 3 | API.md + API-zh-CN.md | TestController (`/api/test`) 未文档化 — 可能有意为之（内部测试端点） | P2 (低) |
+| 1 | API.md (English) | ~~**整个 Context 章节缺失** — 6 个端点未文档化~~ | **P1** ✅已修复 |
+| 2 | API.md + API-zh-CN.md | CursorController 端点全部缺失 — 6 个端点未文档化 | P2 |
+| 3 | API.md + API-zh-CN.md | TestController (`/api/test`) 未文档化 — 可能有意为之 | P2 (低) |
 
 **审查结论**: API.md (English) 存在 P1 问题 — 与中文版差距显著（542 vs 1812 行），Context 章节完全缺失。需要将 API-zh-CN.md 的 Context 部分翻译补充到 API.md。

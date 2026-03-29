@@ -16,4 +16,8 @@
 
 ## 下次轮到方向
 
-**Demo**
+**Backend**
+
+| 2026-03-29 20:01 | Demo | ✅ 编译通过，修复2个P2 | limit验证0-100(4文件), PATCH加consumes |
+
+| 2026-03-29 21:41 | 文档 | 4 issues (2 API.md gap, 2 extraction doc inaccuracy) | Fixed + committed bab585e |

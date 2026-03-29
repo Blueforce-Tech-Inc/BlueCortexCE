@@ -68,7 +68,7 @@ public class SessionEntity {
     @Column(name = "completed_at_epoch")
     private Long completedAtEpoch;
 
-    @Column(name = "status")
+    @Column(name = "status", length = 20)
     private String status = SessionStatus.ACTIVE;
 
     // P2-1: Context caching fields

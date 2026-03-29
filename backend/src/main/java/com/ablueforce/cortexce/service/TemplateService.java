@@ -117,11 +117,12 @@ public class TemplateService implements LogHelper {
     public String escapeTemplateValue(String input) {
         if (input == null) return "";
         // Escape {{ and }} to prevent template injection
+        // Longer patterns first to avoid shorter patterns consuming input
         return input
-            .replace("{{", "&#123;&#123;")
-            .replace("}}", "&#125;&#125;")
             .replace("{{{{", "&#123;&#123;&#123;&#123;")
-            .replace("}}}}", "&#125;&#125;&#125;&#125;");
+            .replace("}}}}", "&#125;&#125;&#125;&#125;")
+            .replace("{{", "&#123;&#123;")
+            .replace("}}", "&#125;&#125;");
     }
 
     /**

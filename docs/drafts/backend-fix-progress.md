@@ -51,6 +51,39 @@
 
 ## 提交记录
 
+### 2026-03-29 22:05 健康检查与测试验收修复
+
+| # | 来源 | 文件/问题 | 级别 | 结果 |
+|---|------|----------|------|------|
+| 15 | 审查#3 | TemplateService escapeTemplateValue() 死代码 | P2 | ✅ 修复（重排序：长 pattern 先替换） |
+| 16 | 审查#3 | SessionEntity status 字段无长度约束 | P2 | ✅ 修复（添加 @Column(length=20)） |
+
+### 代码修复详情（2026-03-29 22:05）
+
+**TemplateService.escapeTemplateValue()**:
+- 问题：`{{{{` 和 `}}}}` 替换在 `{{`/`}}` 之后执行，短 pattern 先消耗了输入，长 pattern 永远不匹配
+- 修复：重排序替换，长 pattern（`{{{{`/`}}}}`）先执行，短 pattern（`{{`/`}}`）后执行
+- 验证：编译通过，回归测试全部通过
+
+**SessionEntity.status**:
+- 问题：使用 raw String 无长度约束，任何长度的字符串都能写入
+- 修复：添加 `@Column(length = 20)` 限制最大长度，最长的 status 值 "processing" 仅 10 字符
+- 验证：编译通过，回归测试全部通过
+
+### 验证记录（2026-03-29 22:05）
+
+| 步骤 | 结果 |
+|------|------|
+| mvn clean compile package -DskipTests | ✅ BUILD SUCCESS |
+| 服务重启 + /api/health | ✅ status: ok |
+| 回归测试 (regression-test.sh) | ✅ 46/46 passed |
+| EXTRACTION_ENABLED 验收测试 | ✅ 25/25 passed |
+| 第 1 轮迭代检查 | ✅ 通过 |
+| 第 2 轮迭代检查 | ✅ 通过 |
+| 第 3 轮迭代检查 | ✅ 通过 |
+
+## 提交记录
+
 - `1bd6572` — fix: backend review findings (VectorValidator, IngestionController, SSEBroadcaster, HealthController, API.md)
 - `58ee4c4` — fix: revert SSEBroadcaster breaking change (keep unnamed events for WebUI)
 - `6bba534` — docs: update SSEBroadcaster fix description
