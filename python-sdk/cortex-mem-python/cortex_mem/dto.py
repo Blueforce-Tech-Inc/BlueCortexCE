@@ -45,12 +45,22 @@ def _to_int(v: object, default: int = 0) -> int:
 
 
 def _to_float(v: object, default: float = 0.0) -> float:
-    """Safely convert wire value to float (handles string numbers)."""
+    """Safely convert wire value to float (handles string numbers, NaN, and Inf).
+
+    Returns default for NaN/Inf values to prevent invalid JSON output.
+    Matches _to_int()'s NaN/Inf handling for cross-function consistency.
+    """
     if isinstance(v, (int, float)):
-        return float(v)
+        f = float(v)
+        if f != f or f == float('inf') or f == float('-inf'):  # NaN or Inf
+            return default
+        return f
     if isinstance(v, str):
         try:
-            return float(v)
+            f = float(v)
+            if f != f or f == float('inf') or f == float('-inf'):  # NaN or Inf
+                return default
+            return f
         except ValueError:
             return default
     return default
@@ -123,6 +133,29 @@ class SessionStartResponse:
             session_id=_first_non_null(data, "session_id", "sessionId") or "",
             context=_first_non_null(data, "context") or "",
             prompt_number=_to_int(_first_non_null(data, "prompt_number", "promptNumber")),
+        )
+
+
+@dataclass
+class SessionUserUpdateResponse:
+    """Response from PATCH /api/session/{sessionId}/user.
+
+    Cross-SDK parity: Go SessionUserUpdateResponse, JS SessionUserUpdateResponse.
+    """
+
+    status: str = ""
+    session_id: str = ""
+    user_id: str = ""
+
+    def __repr__(self) -> str:
+        return f"SessionUserUpdateResponse(status={self.status!r}, session_id={self.session_id!r})"
+
+    @classmethod
+    def from_wire(cls, data: dict) -> SessionUserUpdateResponse:
+        return cls(
+            status=data.get("status") or "",
+            session_id=_first_non_null(data, "session_id", "sessionId") or "",
+            user_id=_first_non_null(data, "user_id", "userId") or "",
         )
 
 

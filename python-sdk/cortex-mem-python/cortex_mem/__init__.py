@@ -15,6 +15,7 @@ from .dto import (
     QualityDistribution,
     SearchResult,
     SessionStartResponse,
+    SessionUserUpdateResponse,
     StatsResponse,
     VersionResponse,
     WorkerStats,
@@ -54,6 +55,7 @@ __all__ = [
     "CortexMemClient",
     # DTOs
     "SessionStartResponse",
+    "SessionUserUpdateResponse",
     "Experience",
     "ICLPromptResult",
     "Observation",

@@ -24,6 +24,7 @@ from .dto import (
     QualityDistribution,
     SearchResult,
     SessionStartResponse,
+    SessionUserUpdateResponse,
     StatsResponse,
     VersionResponse,
 )
@@ -205,15 +206,19 @@ class CortexMemClient:
         data = self._request_json("POST", "/api/session/start", json_body=body) or {}
         return SessionStartResponse.from_wire(data)
 
-    def update_session_user_id(self, session_id: str, user_id: str) -> dict:
-        """Update session userId. PATCH /api/session/{session_id}/user."""
+    def update_session_user_id(self, session_id: str, user_id: str) -> SessionUserUpdateResponse:
+        """Update session userId. PATCH /api/session/{session_id}/user.
+
+        Cross-SDK parity: Go UpdateSessionUserId, JS updateSessionUserId.
+        """
         self._assert_not_closed()
         if not session_id:
             raise ValidationError("session_id is required", field="session_id")
         if not user_id:
             raise ValidationError("user_id is required", field="user_id")
         path = f"/api/session/{quote(session_id, safe='')}/user"
-        return self._request_json("PATCH", path, json_body={"user_id": user_id}) or {}
+        data = self._request_json("PATCH", path, json_body={"user_id": user_id}) or {}
+        return SessionUserUpdateResponse.from_wire(data)
 
     # ==================== Capture (fire-and-forget) ====================
 

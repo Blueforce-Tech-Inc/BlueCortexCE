@@ -15,6 +15,7 @@ from cortex_mem.dto import (
     StatsResponse,
     ModesResponse,
     SessionStartResponse,
+    SessionUserUpdateResponse,
     _to_int,
     _to_float,
     _to_str_list,
@@ -61,6 +62,27 @@ class TestTypeConversionHelpers:
 
     def test_to_float_with_none(self):
         assert _to_float(None) == 0.0
+
+    def test_to_float_with_nan_float(self):
+        """NaN float should return default (consistent with _to_int)."""
+        assert _to_float(float('nan')) == 0.0
+        assert _to_float(float('nan'), default=9.9) == 9.9
+
+    def test_to_float_with_inf_float(self):
+        """Infinity should return default (consistent with _to_int)."""
+        assert _to_float(float('inf')) == 0.0
+        assert _to_float(float('-inf')) == 0.0
+        assert _to_float(float('inf'), default=9.9) == 9.9
+
+    def test_to_float_with_nan_string(self):
+        """String 'nan' should return default."""
+        assert _to_float("nan") == 0.0
+        assert _to_float("nan", default=9.9) == 9.9
+
+    def test_to_float_with_inf_string(self):
+        """String 'inf' should return default."""
+        assert _to_float("inf") == 0.0
+        assert _to_float("-inf") == 0.0
 
     def test_to_int_with_nan_float(self):
         """NaN float should return default (not crash with ValueError)."""
@@ -641,6 +663,32 @@ class TestDTOFromWire:
         assert sr.session_db_id == ""
         assert sr.session_id == ""
         assert sr.prompt_number == 0
+
+    def test_session_user_update_response(self):
+        data = {"status": "updated", "sessionId": "s-1", "userId": "u-1"}
+        resp = SessionUserUpdateResponse.from_wire(data)
+        assert resp.status == "updated"
+        assert resp.session_id == "s-1"
+        assert resp.user_id == "u-1"
+
+    def test_session_user_update_response_snake_case(self):
+        data = {"status": "updated", "session_id": "s-2", "user_id": "u-2"}
+        resp = SessionUserUpdateResponse.from_wire(data)
+        assert resp.session_id == "s-2"
+        assert resp.user_id == "u-2"
+
+    def test_session_user_update_response_null_fields(self):
+        data = {"status": None, "sessionId": None, "userId": None}
+        resp = SessionUserUpdateResponse.from_wire(data)
+        assert resp.status == ""
+        assert resp.session_id == ""
+        assert resp.user_id == ""
+
+    def test_session_user_update_response_repr(self):
+        resp = SessionUserUpdateResponse(status="ok", session_id="s-1", user_id="u-1")
+        r = repr(resp)
+        assert "ok" in r
+        assert "s-1" in r
 
     def test_batch_observations_response_from_wire(self):
         data = {

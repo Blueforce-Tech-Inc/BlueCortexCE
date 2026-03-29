@@ -56,7 +56,9 @@ class TestSession:
         )
         c = _client()
         resp = c.update_session_user_id("s1", "u1")
-        assert resp["status"] == "ok"
+        assert resp.status == "ok"
+        assert resp.session_id == "s1"
+        assert resp.user_id == "u1"
 
 
 # ==================== Capture ====================
@@ -1032,7 +1034,7 @@ class TestJSONDecodeResilience:
 
     @responses.activate
     def test_update_session_user_id_non_json_response_graceful(self):
-        """update_session_user_id should return empty dict on non-JSON 200 response."""
+        """update_session_user_id should return empty DTO on non-JSON 200 response."""
         responses.add(
             responses.PATCH,
             f"{BASE}/api/session/s1/user",
@@ -1042,8 +1044,10 @@ class TestJSONDecodeResilience:
         )
         c = _client()
         resp = c.update_session_user_id("s1", "u1")
-        # Should NOT crash — returns empty dict
-        assert resp == {}
+        # Should NOT crash — returns empty SessionUserUpdateResponse
+        assert resp.status == ""
+        assert resp.session_id == ""
+        assert resp.user_id == ""
 
 
 # ==================== DTO Tests ====================

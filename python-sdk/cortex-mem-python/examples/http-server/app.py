@@ -508,7 +508,7 @@ def session_user():
     if missing:
         return _error(400, f"{missing} is required")
     result = client.update_session_user_id(data["session_id"], data["user_id"])
-    return jsonify(result)
+    return jsonify(status=result.status, session_id=result.session_id, user_id=result.user_id)
 
 
 # ==================== Ingest ====================

@@ -331,9 +331,16 @@ class TestSession:
         assert resp.status_code == 400
 
     def test_user_ok(self, app, client):
-        app._mock_client.update_session_user_id.return_value = {"status": "ok"}
+        from cortex_mem.dto import SessionUserUpdateResponse
+        app._mock_client.update_session_user_id.return_value = SessionUserUpdateResponse(
+            status="ok", session_id="s1", user_id="u1"
+        )
         resp = client.patch("/session/user", json={"session_id": "s1", "user_id": "u1"})
         assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["status"] == "ok"
+        assert data["session_id"] == "s1"
+        assert data["user_id"] == "u1"
 
 
 # ==================== Management Endpoints ====================
