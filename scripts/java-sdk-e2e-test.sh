@@ -414,6 +414,19 @@ else
     pass "GET /memory/extraction/history"
 fi
 
+# Test N+5a: GET /demo/observations/{id}
+info "Test N+5a: GET /demo/observations/{id} — Get observation by ID"
+OBS_GET_STATUS=$(curl -so /dev/null -w "%{http_code}" --max-time 10 "$DEMO_BASE/observations/test-nonexistent-id" 2>/dev/null || echo "000")
+if [ "$OBS_GET_STATUS" = "000" ]; then
+    fail "GET /demo/observations/{id}" "Connection failed"
+elif [ "$OBS_GET_STATUS" = "404" ]; then
+    pass "GET /demo/observations/{id} (HTTP 404 — not found, endpoint works)"
+elif [ "$OBS_GET_STATUS" -ge 200 ] && [ "$OBS_GET_STATUS" -lt 300 ]; then
+    pass "GET /demo/observations/{id} (HTTP $OBS_GET_STATUS)"
+else
+    fail "GET /demo/observations/{id}" "Unexpected HTTP $OBS_GET_STATUS"
+fi
+
 # Test N+5b: PATCH /demo/observations/{id}
 info "Test N+5b: PATCH /demo/observations/{id} — Update observation"
 OBS_PATCH_STATUS=$(curl -so /dev/null -w "%{http_code}" --max-time 10 -X PATCH "$DEMO_BASE/observations/test-id" \

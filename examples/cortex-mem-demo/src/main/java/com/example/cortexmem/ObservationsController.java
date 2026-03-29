@@ -67,6 +67,33 @@ public class ObservationsController {
     }
 
     /**
+     * GET /demo/observations/{id}
+     *
+     * Retrieves a single observation by ID using the convenience method.
+     * Returns 404 if the observation does not exist.
+     * Cross-SDK parity: Go /observations/:id, Python /observations/<id>, JS /observations/:id.
+     */
+    @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> getObservation(@PathVariable String id) {
+        if (id == null || id.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "observation id is required"));
+        }
+        try {
+            Map<String, Object> observation = client.getObservation(id);
+            if (observation == null) {
+                return ResponseEntity.status(404)
+                        .body(Map.of("error", "observation " + id + " not found"));
+            }
+            return ResponseEntity.ok(observation);
+        } catch (Exception e) {
+            log.error("Get observation failed for id={}", id, e);
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Get observation failed: " + e.getMessage()));
+        }
+    }
+
+    /**
      * POST /demo/observations/batch
      * Body: {"ids": ["id1", "id2", "id3"]}
      */
