@@ -434,8 +434,7 @@ public class ContextController {
             java.nio.file.Path normalizedTarget = targetPath.toAbsolutePath().normalize();
             java.nio.file.Path normalizedRoot = projectRoot.toAbsolutePath().normalize();
 
-            return normalizedTarget.startsWith(normalizedRoot)
-                || normalizedTarget.equals(normalizedRoot);
+            return normalizedTarget.startsWith(normalizedRoot);
         } catch (SecurityException e) {
             log.warn("Security exception checking path bounds: {}", e.getMessage());
             return false;

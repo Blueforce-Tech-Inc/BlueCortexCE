@@ -47,7 +47,7 @@ public class TokenService {
             // Fallback to empty string if serialization fails
             size += 2; // "[]"
         }
-        // Clamp to Integer.MAX_VALUE to prevent overflow (use long literal to avoid overflow)
+        // Clamp to Integer.MAX_VALUE: ceil() can exceed int range for very large observations
         size = Math.min(size, 2L * Integer.MAX_VALUE);
         return (int) Math.ceil(size / CHARS_PER_TOKEN);
     }
@@ -66,8 +66,8 @@ public class TokenService {
 
         int savings = totalDiscoveryTokens - totalReadTokens;
         double savingsPercent = totalDiscoveryTokens > 0
-            ? Math.round((double) savings / totalDiscoveryTokens * 100)
-            : 0;
+            ? (double) Math.round((double) savings / totalDiscoveryTokens * 100)
+            : 0.0;
 
         return new TokenEconomics(
             observations.size(),

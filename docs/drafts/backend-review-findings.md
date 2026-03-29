@@ -99,8 +99,8 @@ _暂无问题记录_
 
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
-| 1 | TokenService.java | ~49 | Clamp `2L * Integer.MAX_VALUE` 注释说"use long literal to avoid overflow"，实际用途是防止 ceil 后超出 int 范围，注释不够准确 | P2 |
-| 2 | TokenService.java | ~64 | `savingsPercent` 是 double，但赋值 `Math.round(...)` 返回 long，自动加宽转换，可读性稍差但无功能影响 | P2 (低) |
+| 1 | TokenService.java | ~49 | Clamp `2L * Integer.MAX_VALUE` 注释说"use long literal to avoid overflow"，实际用途是防止 ceil 后超出 int 范围，注释不够准确 | P2 ✅已修复 |
+| 2 | TokenService.java | ~64 | `savingsPercent` 是 double，但赋值 `Math.round(...)` 返回 long，自动加宽转换，可读性稍差但无功能影响 | P2 (低) ✅已修复 |
 | 3 | WorktreeDetector.java | ~83 | `WORKTREES_PATTERN` 依赖 gitdir 路径中包含 `.git/worktrees/` 段。若用户配置 `core.worktree` 指向非标准位置，会误判为 NOT_A_WORKTREE | P2 (低) |
 | 4 | WorktreeDetector.java | ~91 | `getProjectName()` cwd 为空时返回 "unknown-project"，与 `detectWorktree` 行为一致，但 `getProjectContext` 调用顺序可能产生不一致的 primary 值 | P2 (低) |
 
@@ -119,3 +119,17 @@ _暂无问题记录_
 | 3 | API.md + API-zh-CN.md | TestController (`/api/test`) 未文档化 — 可能有意为之 | P2 (低) |
 
 **审查结论**: API.md (English) 存在 P1 问题 — 与中文版差距显著（542 vs 1812 行），Context 章节完全缺失。需要将 API-zh-CN.md 的 Context 部分翻译补充到 API.md。
+
+---
+
+### 2026-03-30 | Backend 审查 #5
+
+**抽查文件**: `ContextController.java`, `PendingMessageProcessor.java`
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | ContextController.java | 全文 | 端点返回类型不一致：`/inject` 返回 `ResponseEntity<Map>`，`/recent` 返回 `ResponseEntity<?>`，`/prior-messages` 返回裸 `Map`。建议统一为 `ResponseEntity<Map>` | P2 |
+| 2 | ContextController.java | L209 `isWithinProject()` | `startsWith` 已包含 `equals` 语义（相同路径时 startsWith 返回 true），第二个条件 `\|\| normalizedTarget.equals(normalizedRoot)` 冗余 | P2 (低) ✅已修复 |
+| 3 | PendingMessageProcessor.java | L63 `processPendingMessages()` | `@Scheduled` 无 overlap 保护。若单次执行超时，可能产生并发处理。建议加 `@SchedulerLock` 或本地 synchronized | P2 ✅已修复 |
+
+**审查结论**: 两个文件整体质量良好。ContextController 安全意识到位（path traversal 防护、safe directory 验证），PendingMessageProcessor 事件驱动架构清晰。无 P0/P1 问题。

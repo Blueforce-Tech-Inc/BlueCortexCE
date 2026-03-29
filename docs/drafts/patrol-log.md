@@ -8,16 +8,14 @@
 | 2026-03-29 | Backend #1 | ✅ 已修复 | 无 (3x P2 已修复) |
 | 2026-03-29 | Backend #2 | ✅ 已修复 | 无 (3x P2 已修复) |
 | 2026-03-29 | 文档 #1 | ✅ 已修复 | 6x P1 (API.md 路径错误) |
-
 | 2026-03-29 16:51 | Go SDK | ✅ 全部通过 | 无 |
 | 2026-03-29 17:41 | Python SDK | ✅ 343测试通过，修复1个P2 | docstring方法数26→25 |
-
 | 2026-03-29 17:51 | JS SDK | ✅ 161测试通过，构建正常 | 无 |
+| 2026-03-29 20:01 | Demo | ✅ 编译通过，修复2个P2 | limit验证0-100(4文件), PATCH加consumes |
+| 2026-03-29 21:41 | 文档 | ✅ 已修复 | 4 issues (API.md gap, extraction doc) |
+| 2026-03-30 00:51 | Backend #3 | ✅ 无 P0/P1 | 3x P2 记录 |
+| 2026-03-30 01:01 | Java SDK | ✅ 156测试全部通过 | 无 |
 
 ## 下次轮到方向
 
-**Backend**
-
-| 2026-03-29 20:01 | Demo | ✅ 编译通过，修复2个P2 | limit验证0-100(4文件), PATCH加consumes |
-
-| 2026-03-29 21:41 | 文档 | 4 issues (2 API.md gap, 2 extraction doc inaccuracy) | Fixed + committed bab585e |
+**Go SDK**

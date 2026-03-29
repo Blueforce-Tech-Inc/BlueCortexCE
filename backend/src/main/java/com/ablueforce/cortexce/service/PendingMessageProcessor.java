@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Service for processing pending messages.
@@ -27,6 +28,7 @@ public class PendingMessageProcessor {
 
     private final PendingMessageRepository pendingMessageRepository;
     private final PendingMessageEventPublisher eventPublisher;
+    private final AtomicBoolean processing = new AtomicBoolean(false);
 
     @Value("${app.pending-message.enabled:true}")
     private boolean enabled;
@@ -54,7 +56,11 @@ public class PendingMessageProcessor {
             return;
         }
 
-        log.info("Starting scheduled pending message processing");
+        // Guard against overlapping executions
+        if (!processing.compareAndSet(false, true)) {
+            log.debug("Previous processing still running, skipping this cycle");
+            return;
+        }
 
         try {
             // Find pending messages
@@ -86,6 +92,8 @@ public class PendingMessageProcessor {
 
         } catch (Exception e) {
             log.error("Failed to process pending messages", e);
+        } finally {
+            processing.set(false);
         }
     }
 }
