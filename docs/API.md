@@ -628,25 +628,55 @@ Bulk import all data types in a single request. Includes duplicate checking.
 
 ```
 POST /api/import/observations
+Content-Type: application/json
+```
+
+Request body: Array of observation objects.
+
+Response:
+
+```json
+{
+  "success": true,
+  "imported": 45,
+  "skipped": 5,
+  "errors": 0,
+  "errorMessages": []
+}
 ```
 
 ### Import Sessions
 
 ```
 POST /api/import/sessions
+Content-Type: application/json
 ```
+
+Request body: Array of session objects.
+
+Response: Same format as Import Observations.
 
 ### Import Summaries
 
 ```
 POST /api/import/summaries
+Content-Type: application/json
 ```
+
+Request body: Array of summary objects.
+
+Response: Same format as Import Observations.
 
 ### Import Prompts
 
 ```
 POST /api/import/prompts
+Content-Type: application/json
 ```
+
+Request body: Array of prompt objects.
+
+Response: Same format as Import Observations.
 
 ## Logs
 
