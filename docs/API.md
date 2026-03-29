@@ -306,6 +306,19 @@ POST /api/settings
 GET /api/mode
 ```
 
+### Set Active Mode
+
+```
+PUT /api/mode
+Content-Type: application/json
+
+{
+  "modeId": "code"
+}
+```
+
+Switches the active mode at runtime. Supports base modes (e.g., "code") and inherited modes (e.g., "code--zh").
+
 ### List Observation Types
 
 ```
@@ -415,6 +428,22 @@ POST /api/modes
 ```
 
 ## Import
+
+### Bulk Import
+
+```
+POST /api/import
+Content-Type: application/json
+
+{
+  "sessions": [...],
+  "observations": [...],
+  "summaries": [...],
+  "prompts": [...]
+}
+```
+
+Bulk import all data types in a single request. Includes duplicate checking.
 
 ### Import Observations
 

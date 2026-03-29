@@ -31,7 +31,7 @@ The extraction pipeline operates in 5 stages:
 - **5 Lifecycle Hooks** → SessionStart, UserPromptSubmit, PostToolUse, Summary, SessionEnd produce observations in PostgreSQL
 - **ExtractionConfig** (YAML templates) → Define what to extract, which prompts to use, output schemas
 - **StructuredExtractionService** → Generic engine that runs templates against observations
-- **DeepRefine integration** → Extraction runs as the last step of `deepRefineProjectMemories()` (after refinement), or via scheduled cron (daily at 2am)
+- **DeepRefine integration** → Extraction runs as the last step of `deepRefineProjectMemories()` (after refinement), or via scheduled task (default interval: 5 minutes, configurable via `app.memory.refine-schedule-interval-ms`)
 - **Storage** → Results stored as `ObservationEntity` with `type=extracted_{template}` and `extracted_data` JSONB column
 - **LLM Re-extraction** → Each run includes prior extraction as context; the LLM produces a complete current state, handling updates, removals, and conflicts semantically
 
@@ -105,7 +105,7 @@ docker compose up -d
 
 ### Step 4: Trigger Extraction
 
-Extraction runs automatically during deep refinement (daily at 2am by default). To trigger manually:
+Extraction runs automatically during deep refinement (default interval: 5 minutes, configurable via `app.memory.refine-schedule-interval-ms`). To trigger manually:
 
 ```bash
 curl -X POST "http://localhost:37777/api/extraction/run?projectPath=/my-project"

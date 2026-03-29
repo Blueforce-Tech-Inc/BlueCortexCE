@@ -31,7 +31,7 @@ Cortex CE 的**结构化信息提取**是一个通用的、提示词驱动的系
 - **5 个生命周期钩子** → SessionStart、UserPromptSubmit、PostToolUse、Summary、SessionEnd 产生观测数据并存入 PostgreSQL
 - **ExtractionConfig**（YAML 模板）→ 定义提取什么、使用哪些提示词、输出 Schema
 - **StructuredExtractionService** → 通用引擎，对观测数据运行模板
-- **DeepRefine 集成** → 提取在 `deepRefineProjectMemories()` 的最后一步运行（精炼之后），或通过定时 Cron 触发（每天凌晨 2 点）
+- **DeepRefine 集成** → 提取在 `deepRefineProjectMemories()` 的最后一步运行（精炼之后），或通过定时任务触发（默认间隔：5 分钟，可通过 `app.memory.refine-schedule-interval-ms` 配置）
 - **存储** → 结果存储为 `ObservationEntity`，`type=extracted_{template}`，`extracted_data` 为 JSONB 列
 - **LLM 重新提取** → 每次运行包含先前提取结果作为上下文；LLM 通过语义理解产生完整的当前状态，处理更新、删除和冲突
 
@@ -105,7 +105,7 @@ docker compose up -d
 
 ### 第 4 步：触发提取
 
-提取会在深度精炼时自动运行（默认每天凌晨 2 点）。手动触发：
+提取会在深度精炼时自动运行（默认间隔：5 分钟，可通过 `app.memory.refine-schedule-interval-ms` 配置）。手动触发：
 
 ```bash
 curl -X POST "http://localhost:37777/api/extraction/run?projectPath=/my-project"
