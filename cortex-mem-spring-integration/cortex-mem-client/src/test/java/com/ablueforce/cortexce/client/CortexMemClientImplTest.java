@@ -86,6 +86,26 @@ class CortexMemClientImplTest {
     }
 
     @Test
+    void updateObservation_nullId_throws() {
+        assertThatThrownBy(() -> client.updateObservation(null, ObservationUpdate.builder().source("test").build()))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("observationId");
+    }
+
+    @Test
+    void updateObservation_nullUpdate_throws() {
+        assertThatThrownBy(() -> client.updateObservation("obs-1", null))
+            .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void deleteObservation_nullId_throws() {
+        assertThatThrownBy(() -> client.deleteObservation(null))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("observationId");
+    }
+
+    @Test
     void updateObservation_emptyUpdate_throws() {
         // Empty update (all null fields) should be rejected before making HTTP call
         org.junit.jupiter.api.Assertions.assertThrows(
@@ -266,6 +286,27 @@ class CortexMemClientImplTest {
     }
 
     @Test
+    void triggerRefinement_nullProjectPath_throws() {
+        assertThatThrownBy(() -> client.triggerRefinement(null))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("projectPath");
+    }
+
+    @Test
+    void submitFeedback_nullObservationId_throws() {
+        assertThatThrownBy(() -> client.submitFeedback(null, "SUCCESS", "ok"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("observationId");
+    }
+
+    @Test
+    void submitFeedback_nullFeedbackType_throws() {
+        assertThatThrownBy(() -> client.submitFeedback("obs-1", null, "ok"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("feedbackType");
+    }
+
+    @Test
     void triggerRefinement_sendsCorrectRequest() throws Exception {
         server.enqueue(new MockResponse().setResponseCode(200));
 
@@ -378,6 +419,82 @@ class CortexMemClientImplTest {
 
         RecordedRequest req = server.takeRequest();
         assertThat(req.getHeader("Authorization")).isNull();
+    }
+
+    // ==================== Capture Validation Tests ====================
+
+    @Test
+    void recordObservation_nullRequest_throws() {
+        assertThatThrownBy(() -> client.recordObservation(null))
+            .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void recordObservation_nullSessionId_throws() {
+        assertThatThrownBy(() -> client.recordObservation(ObservationRequest.builder()
+            .projectPath("/proj")
+            .toolName("Read")
+            .build()))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("sessionId");
+    }
+
+    @Test
+    void recordObservation_blankSessionId_throws() {
+        assertThatThrownBy(() -> client.recordObservation(ObservationRequest.builder()
+            .sessionId("  ")
+            .projectPath("/proj")
+            .toolName("Read")
+            .build()))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("sessionId");
+    }
+
+    @Test
+    void recordObservation_nullProjectPath_throws() {
+        assertThatThrownBy(() -> client.recordObservation(ObservationRequest.builder()
+            .sessionId("s1")
+            .toolName("Read")
+            .build()))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("projectPath");
+    }
+
+    @Test
+    void recordObservation_nullToolName_throws() {
+        assertThatThrownBy(() -> client.recordObservation(ObservationRequest.builder()
+            .sessionId("s1")
+            .projectPath("/proj")
+            .build()))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("toolName");
+    }
+
+    @Test
+    void recordUserPrompt_nullSessionId_throws() {
+        assertThatThrownBy(() -> client.recordUserPrompt(UserPromptRequest.builder()
+            .promptText("hello")
+            .build()))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("sessionId");
+    }
+
+    @Test
+    void recordUserPrompt_nullPromptText_throws() {
+        assertThatThrownBy(() -> client.recordUserPrompt(UserPromptRequest.builder()
+            .sessionId("s1")
+            .build()))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("promptText");
+    }
+
+    @Test
+    void recordSessionEnd_nullSessionId_throws() {
+        assertThatThrownBy(() -> client.recordSessionEnd(SessionEndRequest.builder()
+            .projectPath("/proj")
+            .build()))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("sessionId");
     }
 
     // ==================== P0 API Tests ====================
@@ -786,6 +903,43 @@ class CortexMemClientImplTest {
         assertThat(req.getPath()).startsWith("/api/extraction/run");
         assertThat(req.getPath()).contains("projectPath=");
         assertThat(req.getPath()).contains("/my/project");
+    }
+
+    // ==================== Extraction Validation Tests ====================
+
+    @Test
+    void getLatestExtraction_nullProjectPath_throws() {
+        assertThatThrownBy(() -> client.getLatestExtraction(null, "template", "user"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("projectPath");
+    }
+
+    @Test
+    void getLatestExtraction_nullTemplateName_throws() {
+        assertThatThrownBy(() -> client.getLatestExtraction("/proj", null, "user"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("templateName");
+    }
+
+    @Test
+    void triggerExtraction_nullProjectPath_throws() {
+        assertThatThrownBy(() -> client.triggerExtraction(null))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("projectPath");
+    }
+
+    @Test
+    void updateSessionUserId_nullSessionId_throws() {
+        assertThatThrownBy(() -> client.updateSessionUserId(null, "user"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("sessionId");
+    }
+
+    @Test
+    void updateSessionUserId_nullUserId_throws() {
+        assertThatThrownBy(() -> client.updateSessionUserId("sess-1", null))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("userId");
     }
 
     // ==================== Null Body Handling Tests ====================
