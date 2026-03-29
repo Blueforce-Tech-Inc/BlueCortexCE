@@ -113,6 +113,9 @@ class SessionStartResponse:
     context: str = ""
     prompt_number: int = 0
 
+    def __repr__(self) -> str:
+        return f"SessionStartResponse(session_id={self.session_id!r}, session_db_id={self.session_db_id!r})"
+
     @classmethod
     def from_wire(cls, data: dict) -> SessionStartResponse:
         return cls(
@@ -137,6 +140,9 @@ class Experience:
     reuse_condition: str = ""
     quality_score: float = 0.0
     created_at: str = ""
+
+    def __repr__(self) -> str:
+        return f"Experience(id={self.id!r}, task={self.task[:50]!r}, quality_score={self.quality_score})"
 
     def to_dict(self) -> dict:
         """Serialize to a dict with Pythonic snake_case keys.
@@ -377,6 +383,9 @@ class SearchResult:
     fell_back: bool = False
     count: int = 0
 
+    def __repr__(self) -> str:
+        return f"SearchResult(count={self.count}, strategy={self.strategy!r}, fell_back={self.fell_back})"
+
     def to_dict(self) -> dict:
         """Serialize to wire-compatible dict."""
         return {
@@ -477,6 +486,9 @@ class ExtractionResult:
     extracted_data: dict = field(default_factory=dict)
     created_at: int = 0
     observation_id: str = ""
+
+    def __repr__(self) -> str:
+        return f"ExtractionResult(status={self.status!r}, template={self.template!r}, session_id={self.session_id!r})"
 
     def to_dict(self) -> dict:
         """Serialize to a dict with camelCase keys.
