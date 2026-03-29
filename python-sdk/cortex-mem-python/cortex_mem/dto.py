@@ -266,9 +266,11 @@ class Observation:
         or JS SDK's ``toJSON()``.
 
         Field inclusion rules:
-        - Always included: id, session_id, project_path, type, content
-        - Omit when empty/zero: title, subtitle, facts, concepts,
-          quality_score, feedback_type, source, extractedData, created_at, created_at_epoch
+        - Always included: id, session_id (→content_session_id), project_path (→project),
+          type, content (→narrative)
+        - Omit when empty/zero: title, subtitle, facts, concepts, files_read, files_modified,
+          quality_score, feedback_type, feedback_updated_at, source, extractedData,
+          prompt_number, created_at, created_at_epoch, last_accessed_at
         """
         # Always-include fields (Go SDK: no omitempty)
         d: dict = {

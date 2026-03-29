@@ -841,7 +841,7 @@ class TestNullSafetyExtra:
         """SearchResult.count should be 0 when backend sends null (not None)."""
         data = {"observations": [], "count": None}
         sr = SearchResult.from_wire(data)
-        assert sr.count == 0  # _to_int(None, 0) → 0, not None
+        assert sr.count == 0  # _to_int(None) → 0
 
     def test_search_result_fell_back_null(self):
         """SearchResult.fell_back should be False when backend sends null."""
