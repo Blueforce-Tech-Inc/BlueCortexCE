@@ -26,14 +26,19 @@ def _first_non_null(data: dict, *keys: str) -> object:
 
 
 def _to_int(v: object, default: int = 0) -> int:
-    """Safely convert wire value to int (handles string numbers and floats)."""
+    """Safely convert wire value to int (handles string numbers, floats, NaN, and Inf)."""
     if isinstance(v, int):
         return v
     if isinstance(v, float):
+        if v != v or v == float('inf') or v == float('-inf'):  # NaN or Inf
+            return default
         return int(v)
     if isinstance(v, str):
         try:
-            return int(float(v))  # handles "3.14" → 3, "42" → 42
+            f = float(v)
+            if f != f or f == float('inf') or f == float('-inf'):  # NaN or Inf
+                return default
+            return int(f)  # handles "3.14" → 3, "42" → 42
         except ValueError:
             return default
     return default
@@ -120,7 +125,7 @@ class Experience:
     def to_dict(self) -> dict:
         """Serialize to a dict with Pythonic snake_case keys.
 
-        All fields are always included to provide complete data for API consumers.
+        Only non-empty fields are included (consistent with other SDK DTOs).
         For exact wire format matching the backend, see the Go/JS SDK serialization.
         """
         return {

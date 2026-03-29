@@ -62,6 +62,22 @@ class TestTypeConversionHelpers:
     def test_to_float_with_none(self):
         assert _to_float(None) == 0.0
 
+    def test_to_int_with_nan_float(self):
+        """NaN float should return default (not crash with ValueError)."""
+        import math
+        assert _to_int(float('nan')) == 0
+        assert _to_int(float('nan'), default=42) == 42
+
+    def test_to_int_with_nan_string(self):
+        """String 'nan' should return default."""
+        assert _to_int("nan") == 0
+        assert _to_int("nan", default=99) == 99
+
+    def test_to_int_with_inf_float(self):
+        """Infinity should return default (not crash with OverflowError)."""
+        assert _to_int(float('inf')) == 0
+        assert _to_int(float('-inf'), default=42) == 42
+
     def test_to_str_list_with_valid_list(self):
         assert _to_str_list(["a", "b", "c"]) == ["a", "b", "c"]
 
