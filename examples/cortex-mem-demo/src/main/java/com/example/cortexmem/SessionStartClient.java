@@ -19,6 +19,10 @@ public class SessionStartClient {
         this.restClient = RestClient.builder()
             .baseUrl(baseUrl)
             .defaultHeader("Content-Type", "application/json")
+            .requestFactory(new org.springframework.http.client.SimpleClientHttpRequestFactory() {{
+                setConnectTimeout(5000);
+                setReadTimeout(10000);
+            }})
             .build();
     }
 
