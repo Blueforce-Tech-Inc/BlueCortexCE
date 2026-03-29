@@ -62,7 +62,7 @@ app.get('/health', asyncHandler(async (_req: Request, res: Response) => {
     const msg = e instanceof Error ? e.message : String(e);
     errorJson(res, 503, `unhealthy: ${msg}`);
   }
-});
+}));
 
 // ==================== Chat ====================
 
@@ -93,7 +93,7 @@ app.post('/chat', asyncHandler(async (req: Request, res: Response) => {
     resp.experienceCount = iclResult.experienceCount;
   }
   res.json(resp);
-});
+}));
 
 // ==================== Search ====================
 
@@ -120,14 +120,14 @@ app.get('/search', asyncHandler(async (req: Request, res: Response) => {
     ...(offset !== undefined && { offset }),
   });
   res.json(result);
-});
+}));
 
 // ==================== Version ====================
 
 app.get('/version', asyncHandler(async (_req: Request, res: Response) => {
   const v = await client.getVersion();
   res.json(v);
-});
+}));
 
 // ==================== Experiences ====================
 
@@ -154,7 +154,7 @@ app.get('/experiences', asyncHandler(async (req: Request, res: Response) => {
     userId: (req.query.userId as string) ?? undefined,
   });
   res.json({ experiences, count: experiences.length });
-});
+}));
 
 // ==================== ICL Prompt ====================
 
@@ -171,7 +171,7 @@ app.get('/iclprompt', asyncHandler(async (req: Request, res: Response) => {
     userId: (req.query.userId as string) ?? undefined,
   });
   res.json(result);
-});
+}));
 
 // ==================== Observations ====================
 
@@ -190,7 +190,7 @@ app.get('/observations', asyncHandler(async (req: Request, res: Response) => {
     offset,
   });
   res.json(result);
-});
+}));
 
 app.get('/observations/:id', asyncHandler(async (req: Request, res: Response) => {
   const result = await client.getObservation(req.params.id);
@@ -208,7 +208,7 @@ app.post('/observations/batch', asyncHandler(async (req: Request, res: Response)
 
   const result = await client.getObservationsByIds(ids);
   res.json(result);
-});
+}));
 
 app.post('/observations/create', asyncHandler(async (req: Request, res: Response) => {
   const missing = requireFields(req.body, ['project', 'session_id', 'tool_name']);
@@ -225,7 +225,7 @@ app.post('/observations/create', asyncHandler(async (req: Request, res: Response
     extractedData: req.body.extractedData,
   });
   res.json({ status: 'recorded' });
-});
+}));
 
 app.patch('/observations/:id', asyncHandler(async (req: Request, res: Response) => {
   const update: ObservationUpdate = {};
@@ -240,34 +240,34 @@ app.patch('/observations/:id', asyncHandler(async (req: Request, res: Response) 
 
   await client.updateObservation(req.params.id, update);
   res.json({ status: 'updated' });
-});
+}));
 
 app.delete('/observations/:id', asyncHandler(async (req: Request, res: Response) => {
   await client.deleteObservation(req.params.id);
   res.status(204).end();
-});
+}));
 
 // ==================== Projects / Stats / Modes / Settings ====================
 
 app.get('/projects', asyncHandler(async (_req: Request, res: Response) => {
   const result = await client.getProjects();
   res.json(result);
-});
+}));
 
 app.get('/stats', asyncHandler(async (req: Request, res: Response) => {
   const result = await client.getStats((req.query.project as string) ?? undefined);
   res.json(result);
-});
+}));
 
 app.get('/modes', asyncHandler(async (_req: Request, res: Response) => {
   const result = await client.getModes();
   res.json(result);
-});
+}));
 
 app.get('/settings', asyncHandler(async (_req: Request, res: Response) => {
   const result = await client.getSettings();
   res.json(result);
-});
+}));
 
 // ==================== Quality ====================
 
@@ -276,7 +276,7 @@ app.get('/quality', asyncHandler(async (req: Request, res: Response) => {
   if (!project) return errorJson(res, 400, 'project is required');
   const result = await client.getQualityDistribution(project);
   res.json(result);
-});
+}));
 
 // ==================== Extraction ====================
 
@@ -289,7 +289,7 @@ app.get('/extraction/latest', asyncHandler(async (req: Request, res: Response) =
   const userId = (req.query.userId as string) || undefined;
   const result = await client.getLatestExtraction(project, template, userId);
   res.json(result);
-});
+}));
 
 app.get('/extraction/history', asyncHandler(async (req: Request, res: Response) => {
   const template = req.query.template as string;
@@ -305,14 +305,14 @@ app.get('/extraction/history', asyncHandler(async (req: Request, res: Response) 
     parseInt(req.query.limit as string ?? '0', 10) || undefined,
   );
   res.json(results);
-});
+}));
 
 app.post('/extraction/run', asyncHandler(async (req: Request, res: Response) => {
   const project = req.query.project as string;
   if (!project) return errorJson(res, 400, 'project is required');
   await client.triggerExtraction(project);
   res.json({ status: 'extraction triggered' });
-});
+}));
 
 // ==================== Refine / Feedback ====================
 
@@ -321,7 +321,7 @@ app.post('/refine', asyncHandler(async (req: Request, res: Response) => {
   if (!project) return errorJson(res, 400, 'project is required');
   await client.triggerRefinement(project);
   res.json({ status: 'refined' });
-});
+}));
 
 app.post('/feedback', asyncHandler(async (req: Request, res: Response) => {
   const missing = requireFields(req.body, ['observationId', 'feedbackType']);
@@ -332,7 +332,7 @@ app.post('/feedback', asyncHandler(async (req: Request, res: Response) => {
     comment: req.body.comment,
   });
   res.json({ status: 'submitted' });
-});
+}));
 
 // ==================== Session ====================
 
@@ -345,14 +345,14 @@ app.post('/session/start', asyncHandler(async (req: Request, res: Response) => {
     user_id: req.body.user_id,
   });
   res.json(result);
-});
+}));
 
 app.patch('/session/user', asyncHandler(async (req: Request, res: Response) => {
   const missing = requireFields(req.body, ['session_id', 'user_id']);
   if (missing) return errorJson(res, 400, `${missing} is required`);
   const result = await client.updateSessionUserId(req.body.session_id, req.body.user_id);
   res.json(result);
-});
+}));
 
 // ==================== Ingest ====================
 
@@ -366,7 +366,7 @@ app.post('/ingest/prompt', asyncHandler(async (req: Request, res: Response) => {
     prompt_number: req.body.prompt_number ?? 0,
   });
   res.json({ status: 'recorded' });
-});
+}));
 
 app.post('/ingest/session-end', asyncHandler(async (req: Request, res: Response) => {
   const missing = requireFields(req.body, ['project', 'session_id']);
@@ -377,7 +377,7 @@ app.post('/ingest/session-end', asyncHandler(async (req: Request, res: Response)
     last_assistant_message: req.body.last_assistant_message,
   });
   res.json({ status: 'ended' });
-});
+}));
 
 // ==================== Async error handler ====================
 

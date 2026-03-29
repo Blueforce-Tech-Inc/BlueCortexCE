@@ -209,9 +209,10 @@ public class MemoryController {
     public ResponseEntity<Map<String, Object>> getLatestExtraction(
             @RequestParam(defaultValue = "/") String project,
             @RequestParam String template,
-            @RequestParam String userId) {
+            @RequestParam(required = false) String userId) {
         try {
-            Map<String, Object> result = cortexClient.getLatestExtraction(resolveProject(project), template, userId);
+            String normalizedUserId = (userId != null && userId.isBlank()) ? null : userId;
+            Map<String, Object> result = cortexClient.getLatestExtraction(resolveProject(project), template, normalizedUserId);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
@@ -232,14 +233,15 @@ public class MemoryController {
     public ResponseEntity<?> getExtractionHistory(
             @RequestParam(defaultValue = "/") String project,
             @RequestParam String template,
-            @RequestParam String userId,
+            @RequestParam(required = false) String userId,
             @RequestParam(defaultValue = "10") int limit) {
         if (limit < 1 || limit > 100) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "limit must be between 1 and 100"));
         }
         try {
-            List<Map<String, Object>> result = cortexClient.getExtractionHistory(resolveProject(project), template, userId, limit);
+            String normalizedUserId = (userId != null && userId.isBlank()) ? null : userId;
+            List<Map<String, Object>> result = cortexClient.getExtractionHistory(resolveProject(project), template, normalizedUserId, limit);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
