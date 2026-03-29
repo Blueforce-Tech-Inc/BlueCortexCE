@@ -757,7 +757,7 @@ class TestDTOFromWire:
         assert er.template == ""
         assert er.message == ""
         assert er.session_id == ""
-        assert er.extracted_data is None  # Optional field — None is correct
+        assert er.extracted_data == {}  # Defensive: _to_dict() converts null → {}
         assert er.observation_id == ""
 
     def test_icl_prompt_result_from_wire_null_strings(self):

@@ -451,7 +451,7 @@ class ExtractionResult:
     template: str = ""
     message: str = ""
     session_id: str = ""
-    extracted_data: dict | None = None
+    extracted_data: dict = field(default_factory=dict)
     created_at: int = 0
     observation_id: str = ""
 
@@ -472,7 +472,7 @@ class ExtractionResult:
             d["message"] = self.message
         if self.session_id:
             d["sessionId"] = self.session_id
-        if self.extracted_data is not None:
+        if self.extracted_data:
             d["extractedData"] = self.extracted_data
         # createdAt is always included (Go SDK: no omitempty tag)
         d["createdAt"] = self.created_at
@@ -487,7 +487,7 @@ class ExtractionResult:
             template=data.get("template") or "",
             message=data.get("message") or "",
             session_id=_first_non_null(data, "session_id", "sessionId") or "",
-            extracted_data=_first_non_null(data, "extracted_data", "extractedData"),
+            extracted_data=_to_dict(_first_non_null(data, "extracted_data", "extractedData")),
             created_at=_to_int(_first_non_null(data, "created_at", "createdAt")),
             observation_id=_first_non_null(data, "observation_id", "observationId") or "",
         )
