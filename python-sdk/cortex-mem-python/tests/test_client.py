@@ -5,7 +5,7 @@ import pytest
 import responses
 
 from cortex_mem import CortexMemClient, APIError, BadRequestError, NotFoundError, RateLimitError, CortexError, ValidationError
-from cortex_mem.error import is_retryable, raise_for_status, ServerError, ConflictError, AuthError, BadRequestError, is_retryable_error, is_bad_gateway, is_bad_request, is_service_unavailable, is_gateway_timeout, is_client_error, is_server_error, is_not_found, is_unauthorized, is_forbidden, is_conflict, is_rate_limited
+from cortex_mem.error import is_retryable, raise_for_status, ServerError, ConflictError, AuthError, is_retryable_error, is_bad_gateway, is_bad_request, is_service_unavailable, is_gateway_timeout, is_client_error, is_server_error, is_not_found, is_unauthorized, is_forbidden, is_conflict, is_rate_limited
 from cortex_mem.dto import (
     SessionStartResponse,
     Experience,
