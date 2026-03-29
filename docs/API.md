@@ -235,7 +235,7 @@ Content-Type: application/json
 ### Trigger Extraction
 
 ```
-POST /api/extraction/run?project=/path/to/project
+POST /api/extraction/run?projectPath=/path/to/project
 ```
 
 Triggers structured data extraction from conversation observations.
@@ -243,35 +243,34 @@ Triggers structured data extraction from conversation observations.
 ### Get Latest Extraction
 
 ```
-GET /api/extraction/{templateName}/latest?project=/path/to/project&userId=user-123
+GET /api/extraction/{templateName}/latest?projectPath=/path/to/project&userId=user-123
 ```
 
 ### Get Extraction History
 
 ```
-GET /api/extraction/{templateName}/history?project=/path/to/project&userId=user-123&limit=10
+GET /api/extraction/{templateName}/history?projectPath=/path/to/project&userId=user-123&limit=10
 ```
 
 ## Search
 
-### Search Memory (Hybrid)
+### Search Memory
 
 ```
-GET /api/search?project=/path/to/project&query=search+terms&limit=10&source=manual
+GET /api/search?project=/path/to/project&query=search+terms&limit=10&type=bugfix&concept=how-it-works&source=manual
 ```
 
-### Search Memory (Vector)
+Query parameters:
 
-```
-POST /api/memory/search
-Content-Type: application/json
-
-{
-  "project": "/path/to/project",
-  "query": "search terms",
-  "limit": 10
-}
-```
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `project` | Yes | Project path to search within |
+| `query` | No | Search query text for semantic search. If empty, returns filter-only results |
+| `type` | No | Filter by observation type |
+| `concept` | No | Filter by observation concept |
+| `source` | No | Filter by source |
+| `limit` | No | Max results (default 20, max 100) |
+| `offset` | No | Pagination offset (default 0) |
 
 ## Management
 

@@ -108,9 +108,7 @@ docker compose up -d
 Extraction runs automatically during deep refinement (daily at 2am by default). To trigger manually:
 
 ```bash
-curl -X POST http://localhost:37777/api/extraction/run \
-  -H "Content-Type: application/json" \
-  -d '{"projectPath": "/my-project"}'
+curl -X POST "http://localhost:37777/api/extraction/run?projectPath=/my-project"
 ```
 
 ### Step 5: Query Results
@@ -229,24 +227,25 @@ templates:
 
 Manually trigger extraction for a project. Runs all enabled templates.
 
-**Request:**
+**Query Parameters:**
 
-```json
-{
-  "projectPath": "/my-project",
-  "templateName": "user_preference",    // Optional. Run specific template only.
-  "userId": "alice"                     // Optional. Run for specific user only.
-}
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `projectPath` | Yes | Absolute project path to run extraction for |
+
+**Example:**
+
+```bash
+curl -X POST "http://localhost:37777/api/extraction/run?projectPath=/my-project"
 ```
 
 **Response (200):**
 
 ```json
 {
-  "status": "completed",
-  "templatesRun": ["user_preference", "allergy_info"],
-  "extractionsCreated": 3,
-  "durationMs": 4521
+  "status": "ok",
+  "projectPath": "/my-project",
+  "message": "Extraction completed"
 }
 ```
 
@@ -316,25 +315,6 @@ Get extraction history (all snapshots) for a template.
     }
   ]
 }
-```
-
-### GET /api/extraction/{templateName}/search
-
-Search extractions by field value.
-
-**Query Parameters:**
-
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `projectPath` | Yes | Project path |
-| `fieldPath` | Yes | JSON path in extracted data (e.g., `allergens`) |
-| `value` | Yes | Value to search for |
-
-**Example:**
-
-```bash
-# Find who is allergic to peanuts
-curl "http://localhost:37777/api/extraction/allergy_info/search?projectPath=/my-project&fieldPath=allergens&value=花生"
 ```
 
 ## Scenarios
@@ -606,7 +586,7 @@ history, err := client.GetExtractionHistory(ctx, &pb.ExtractionHistoryRequest{
 |------------|-----------------|-------|
 | `getLatestExtraction()` | `GET /api/extraction/{template}/latest` | Query params: projectPath, userId |
 | `getExtractionHistory()` | `GET /api/extraction/{template}/history` | Query params: projectPath, userId, limit |
-| `triggerExtraction()` | `POST /api/extraction/run` | Body: projectPath, templateName?, userId? |
+| `triggerExtraction()` | `POST /api/extraction/run` | Query params: projectPath |
 
 ---
 

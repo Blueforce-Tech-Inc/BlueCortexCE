@@ -108,9 +108,7 @@ docker compose up -d
 提取会在深度精炼时自动运行（默认每天凌晨 2 点）。手动触发：
 
 ```bash
-curl -X POST http://localhost:37777/api/extraction/run \
-  -H "Content-Type: application/json" \
-  -d '{"projectPath": "/my-project"}'
+curl -X POST "http://localhost:37777/api/extraction/run?projectPath=/my-project"
 ```
 
 ### 第 5 步：查询结果
@@ -229,24 +227,25 @@ templates:
 
 手动触发项目的提取。运行所有已启用的模板。
 
-**请求：**
+**查询参数：**
 
-```json
-{
-  "projectPath": "/my-project",
-  "templateName": "user_preference",    // 可选。仅运行指定模板。
-  "userId": "alice"                     // 可选。仅对指定用户运行。
-}
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `projectPath` | 是 | 要运行提取的绝对项目路径 |
+
+**示例：**
+
+```bash
+curl -X POST "http://localhost:37777/api/extraction/run?projectPath=/my-project"
 ```
 
 **响应（200）：**
 
 ```json
 {
-  "status": "completed",
-  "templatesRun": ["user_preference", "allergy_info"],
-  "extractionsCreated": 3,
-  "durationMs": 4521
+  "status": "ok",
+  "projectPath": "/my-project",
+  "message": "Extraction completed"
 }
 ```
 
@@ -316,25 +315,6 @@ templates:
     }
   ]
 }
-```
-
-### GET /api/extraction/{templateName}/search
-
-按字段值搜索提取结果。
-
-**查询参数：**
-
-| 参数 | 必填 | 说明 |
-|------|------|------|
-| `projectPath` | 是 | 项目路径 |
-| `fieldPath` | 是 | 提取数据中的 JSON 路径（如 `allergens`） |
-| `value` | 是 | 要搜索的值 |
-
-**示例：**
-
-```bash
-# 查找谁对花生过敏
-curl "http://localhost:37777/api/extraction/allergy_info/search?projectPath=/my-project&fieldPath=allergens&value=花生"
 ```
 
 ## 使用场景
@@ -606,7 +586,7 @@ history, err := client.GetExtractionHistory(ctx, &pb.ExtractionHistoryRequest{
 |----------|----------|------|
 | `getLatestExtraction()` | `GET /api/extraction/{template}/latest` | 查询参数：projectPath、userId |
 | `getExtractionHistory()` | `GET /api/extraction/{template}/history` | 查询参数：projectPath、userId、limit |
-| `triggerExtraction()` | `POST /api/extraction/run` | 请求体：projectPath、templateName?、userId? |
+| `triggerExtraction()` | `POST /api/extraction/run` | 查询参数：projectPath |
 
 ---
 
