@@ -76,3 +76,6 @@ go-sdk/cortex-mem-go/cover_*.out
 
 # Cron patrol tracking
 .patrol-last
+
+# Patrol state (local)
+docs/drafts/patrol-state.md
