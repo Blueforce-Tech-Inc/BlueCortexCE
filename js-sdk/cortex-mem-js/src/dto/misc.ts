@@ -119,6 +119,6 @@ export function parseVersionResponse(raw: Record<string, unknown>): VersionRespo
     version: safeStringOr(raw.version, ''),
     service: safeStringOr(raw.service, ''),
     java: safeStringOr(raw.java, ''),
-    springBoot: safeStringOr(raw.springBoot, ''),
+    springBoot: safeStringOr(firstNonNullOr(raw, ['springBoot', 'spring_boot']), ''),
   };
 }

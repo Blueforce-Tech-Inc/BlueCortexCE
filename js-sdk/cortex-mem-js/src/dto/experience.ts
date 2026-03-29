@@ -85,7 +85,7 @@ export interface ICLPromptResult {
 export function parseICLPromptResult(raw: Record<string, unknown>): ICLPromptResult {
   return {
     prompt: safeStringOr(raw.prompt, ''),
-    experienceCount: safeNumberOr(raw.experienceCount, 0),
-    maxChars: safeNumber(raw.maxChars),
+    experienceCount: safeNumberOr(firstNonNullOr(raw, ['experienceCount', 'experience_count']), 0),
+    maxChars: safeNumber(firstNonNullOr(raw, ['maxChars', 'max_chars'])),
   };
 }

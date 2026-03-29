@@ -1463,6 +1463,30 @@ describe('parseICLPromptResult', () => {
     const result = parseICLPromptResult(raw);
     expect(result.experienceCount).toBe(0);
   });
+
+  it('should prefer camelCase experienceCount over snake_case', () => {
+    const raw = { prompt: 'test', experienceCount: 5, experience_count: 3 };
+    const result = parseICLPromptResult(raw);
+    expect(result.experienceCount).toBe(5);
+  });
+
+  it('should fall back to snake_case experience_count', () => {
+    const raw = { prompt: 'test', experience_count: 7 };
+    const result = parseICLPromptResult(raw);
+    expect(result.experienceCount).toBe(7);
+  });
+
+  it('should prefer camelCase maxChars over snake_case', () => {
+    const raw = { prompt: 'test', maxChars: 2000, max_chars: 1000 };
+    const result = parseICLPromptResult(raw);
+    expect(result.maxChars).toBe(2000);
+  });
+
+  it('should fall back to snake_case max_chars', () => {
+    const raw = { prompt: 'test', max_chars: 3000 };
+    const result = parseICLPromptResult(raw);
+    expect(result.maxChars).toBe(3000);
+  });
 });
 
 // ==================== parseStatsResponse ====================
@@ -1584,6 +1608,18 @@ describe('parseVersionResponse', () => {
     expect(result.service).toBe('true');
     expect(result.java).toBe('21');
     expect(result.springBoot).toBe('');
+  });
+
+  it('should prefer camelCase springBoot over snake_case', () => {
+    const raw = { version: '1.0', service: 's', java: '21', springBoot: '3.3', spring_boot: '3.2' };
+    const result = parseVersionResponse(raw);
+    expect(result.springBoot).toBe('3.3');
+  });
+
+  it('should fall back to snake_case spring_boot', () => {
+    const raw = { version: '1.0', service: 's', java: '21', spring_boot: '3.1' };
+    const result = parseVersionResponse(raw);
+    expect(result.springBoot).toBe('3.1');
   });
 });
 
