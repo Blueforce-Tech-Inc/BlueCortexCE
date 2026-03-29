@@ -109,6 +109,7 @@ client.close();
 | `buildICLPrompt(req)` | `POST /api/memory/icl-prompt` | Build ICL prompt |
 | `search(req)` | `GET /api/search` | Semantic search |
 | `listObservations(req)` | `GET /api/observations` | List observations (paginated) |
+| `getObservation(id)` | `POST /api/observations/batch` | Get single observation by ID (returns `null` if not found) |
 | `getObservationsByIds(ids)` | `POST /api/observations/batch` | Batch get by IDs |
 
 #### Management
@@ -116,7 +117,7 @@ client.close();
 | Method | HTTP | Description |
 |--------|------|-------------|
 | `triggerRefinement(projectPath)` | `POST /api/memory/refine` | Trigger memory refinement |
-| `submitFeedback(id, type, comment?)` | `POST /api/memory/feedback` | Submit observation feedback |
+| `submitFeedback(req)` | `POST /api/memory/feedback` | Submit observation feedback (`FeedbackRequest`) |
 | `updateObservation(id, update)` | `PATCH /api/memory/observations/{id}` | Update observation |
 | `deleteObservation(id)` | `DELETE /api/memory/observations/{id}` | Delete observation |
 | `getQualityDistribution(project)` | `GET /api/memory/quality-distribution` | Get quality stats |
