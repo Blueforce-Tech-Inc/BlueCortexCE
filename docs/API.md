@@ -203,8 +203,9 @@ POST /api/memory/icl-prompt
 Content-Type: application/json
 
 {
+  "task": "database optimization",
   "project": "/path/to/project",
-  "query": "database optimization"
+  "maxChars": 4000
 }
 ```
 

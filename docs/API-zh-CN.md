@@ -1064,8 +1064,10 @@ curl http://localhost:37777/api/modes
 **请求体**:
 ```json
 {
+  "task": "database optimization",
   "project": "/path/to/project",
-  "query": "database optimization"
+  "maxChars": 4000
+}
 }
 ```
 
