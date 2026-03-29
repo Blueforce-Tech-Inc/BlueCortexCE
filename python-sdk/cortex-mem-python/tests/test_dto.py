@@ -876,3 +876,61 @@ class TestNullSafetyExtra:
         data = {"id": "e1", "quality_score": None}
         exp = Experience.from_wire(data)
         assert exp.quality_score == 0.0
+
+
+class TestSanitizeForJson:
+    """Tests for _sanitize_for_json ensuring to_dict() produces valid JSON."""
+
+    def test_observation_to_dict_sanitizes_nan_in_extracted_data(self):
+        """NaN/Inf floats in extracted_data should become None for valid JSON."""
+        import math
+        obs = Observation(
+            id="o1", session_id="s1", project_path="/p", type="fact",
+            extracted_data={"score": float("nan"), "inf_val": float("inf"), "neg_inf": float("-inf"), "valid": 1.5},
+        )
+        d = obs.to_dict()
+        assert d["extractedData"]["score"] is None
+        assert d["extractedData"]["inf_val"] is None
+        assert d["extractedData"]["neg_inf"] is None
+        assert d["extractedData"]["valid"] == 1.5
+        # Verify it produces valid JSON
+        json.dumps(d)  # should not raise
+
+    def test_observation_to_dict_sanitizes_nested_nan(self):
+        """NaN in nested dicts/lists should also be sanitized."""
+        obs = Observation(
+            id="o1", session_id="s1", project_path="/p", type="fact",
+            extracted_data={"nested": {"value": float("nan")}, "list": [1.0, float("inf"), "ok"]},
+        )
+        d = obs.to_dict()
+        assert d["extractedData"]["nested"]["value"] is None
+        assert d["extractedData"]["list"][0] == 1.0
+        assert d["extractedData"]["list"][1] is None
+        assert d["extractedData"]["list"][2] == "ok"
+        json.dumps(d)  # should not raise
+
+    def test_extraction_result_to_dict_sanitizes_nan(self):
+        """ExtractionResult.to_dict() should also sanitize NaN in extracted_data."""
+        er = ExtractionResult(
+            status="ok",
+            template="user_pref",
+            extracted_data={"confidence": float("nan")},
+        )
+        d = er.to_dict()
+        assert d["extractedData"]["confidence"] is None
+        json.dumps(d)  # should not raise
+
+    def test_sanitize_preserves_normal_values(self):
+        """Sanitizer should not modify normal numeric values."""
+        obs = Observation(
+            id="o1", session_id="s1", project_path="/p", type="fact",
+            extracted_data={"int": 42, "float": 3.14, "zero": 0, "neg": -1.5, "str": "ok", "bool": True},
+        )
+        d = obs.to_dict()
+        ed = d["extractedData"]
+        assert ed["int"] == 42
+        assert ed["float"] == 3.14
+        assert ed["zero"] == 0
+        assert ed["neg"] == -1.5
+        assert ed["str"] == "ok"
+        assert ed["bool"] is True

@@ -85,6 +85,22 @@ def _to_dict(v: object, default: dict | None = None) -> dict:
     return default if default is not None else {}
 
 
+def _sanitize_for_json(obj: object) -> object:
+    """Recursively replace NaN/Inf floats with None for valid JSON output.
+
+    Python's json.dumps() outputs NaN/Infinity/-Infinity which are not valid JSON.
+    This helper ensures to_dict() methods produce standards-compliant JSON.
+    """
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_for_json(item) for item in obj]
+    if isinstance(obj, float):
+        if obj != obj or obj == float("inf") or obj == float("-inf"):  # NaN or Inf
+            return None
+    return obj
+
+
 # ==================== Session ====================
 
 
@@ -309,7 +325,7 @@ class Observation:
         if self.source:
             d["source"] = self.source
         if self.extracted_data:
-            d["extractedData"] = self.extracted_data
+            d["extractedData"] = _sanitize_for_json(self.extracted_data)
         if self.created_at:
             d["created_at"] = self.created_at
         if self.created_at_epoch:
@@ -480,7 +496,7 @@ class ExtractionResult:
         if self.session_id:
             d["sessionId"] = self.session_id
         if self.extracted_data:
-            d["extractedData"] = self.extracted_data
+            d["extractedData"] = _sanitize_for_json(self.extracted_data)
         # createdAt is always included (Go SDK: no omitempty tag)
         d["createdAt"] = self.created_at
         if self.observation_id:
