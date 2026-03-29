@@ -62,6 +62,20 @@ class ConflictError(APIError):
         super().__init__(409, message)
 
 
+class ForbiddenError(APIError):
+    """403 Forbidden."""
+
+    def __init__(self, message: str = "forbidden") -> None:
+        super().__init__(403, message)
+
+
+class UnprocessableError(APIError):
+    """422 Unprocessable Entity."""
+
+    def __init__(self, message: str = "unprocessable entity") -> None:
+        super().__init__(422, message)
+
+
 class RateLimitError(APIError):
     """429 Too Many Requests."""
 
@@ -87,10 +101,14 @@ def raise_for_status(status_code: int, body: bytes) -> None:
         raise BadRequestError(message)
     if status_code == 401:
         raise AuthError(message)
+    if status_code == 403:
+        raise ForbiddenError(message)
     if status_code == 404:
         raise NotFoundError(message)
     if status_code == 409:
         raise ConflictError(message)
+    if status_code == 422:
+        raise UnprocessableError(message)
     if status_code == 429:
         raise RateLimitError(message)
     if status_code >= 500:
@@ -117,6 +135,11 @@ def is_retryable_error(err: Exception) -> bool:
     return False
 
 
+def is_validation_error(err: Exception) -> bool:
+    """Return True if the error is a client-side ValidationError. (Go: IsValidationError, JS: isValidationError)"""
+    return isinstance(err, ValidationError)
+
+
 def is_bad_request(err: Exception) -> bool:
     """Return True if the error is a 400 Bad Request. (Go: IsBadRequest, JS: isBadRequest)"""
     return isinstance(err, APIError) and err.status_code == 400
@@ -133,13 +156,18 @@ def is_unauthorized(err: Exception) -> bool:
 
 
 def is_forbidden(err: Exception) -> bool:
-    """Return True if the error is a 403 Forbidden. (JS: isForbidden)"""
+    """Return True if the error is a 403 Forbidden. (Go: IsForbidden, JS: isForbidden)"""
     return isinstance(err, APIError) and err.status_code == 403
 
 
 def is_conflict(err: Exception) -> bool:
     """Return True if the error is a 409 Conflict. (Go: IsConflict, JS: isConflict)"""
     return isinstance(err, APIError) and err.status_code == 409
+
+
+def is_unprocessable(err: Exception) -> bool:
+    """Return True if the error is a 422 Unprocessable Entity. (Go: IsUnprocessable, JS: isUnprocessable)"""
+    return isinstance(err, APIError) and err.status_code == 422
 
 
 def is_rate_limited(err: Exception) -> bool:
