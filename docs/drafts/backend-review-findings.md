@@ -93,6 +93,21 @@ _暂无问题记录_
 
 ---
 
+### 2026-03-29 | Backend 审查 #4
+
+**抽查文件**: `TokenService.java`, `WorktreeDetector.java`
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | TokenService.java | ~49 | Clamp `2L * Integer.MAX_VALUE` 注释说"use long literal to avoid overflow"，实际用途是防止 ceil 后超出 int 范围，注释不够准确 | P2 |
+| 2 | TokenService.java | ~64 | `savingsPercent` 是 double，但赋值 `Math.round(...)` 返回 long，自动加宽转换，可读性稍差但无功能影响 | P2 (低) |
+| 3 | WorktreeDetector.java | ~83 | `WORKTREES_PATTERN` 依赖 gitdir 路径中包含 `.git/worktrees/` 段。若用户配置 `core.worktree` 指向非标准位置，会误判为 NOT_A_WORKTREE | P2 (低) |
+| 4 | WorktreeDetector.java | ~91 | `getProjectName()` cwd 为空时返回 "unknown-project"，与 `detectWorktree` 行为一致，但 `getProjectContext` 调用顺序可能产生不一致的 primary 值 | P2 (低) |
+
+**审查结论**: 两个文件设计清晰，代码质量高。TokenService 正确复刻了 TS 公式（CHARS_PER_TOKEN=4, 仅 title+subtitle+content+facts），WorktreeDetector 正则模式精确定位。TokenEconomics record 使用良好。无 P0/P1 问题。
+
+---
+
 ### 2026-03-29 | 文档审查 #1
 
 **审查范围**: `docs/API.md` vs 实际 Controller 端点 + `docs/API-zh-CN.md` 一致性
