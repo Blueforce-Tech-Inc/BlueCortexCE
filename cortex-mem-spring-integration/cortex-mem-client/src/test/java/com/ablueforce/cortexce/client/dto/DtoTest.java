@@ -463,7 +463,8 @@ class DtoTest {
 
     @Test
     void experience_deserializeCamelCase_fallback() throws Exception {
-        // Also accept camelCase in case backend changes naming strategy
+        // Verify @JsonAlias allows camelCase as fallback (defense-in-depth if backend ever changes naming strategy).
+        // Primary wire format is snake_case (@JsonProperty), camelCase is accepted via @JsonAlias.
         String json = """
             {
                 "id": "exp-456",
@@ -477,11 +478,11 @@ class DtoTest {
             """;
         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
         mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
-        // With @JsonProperty annotations, only snake_case is accepted by default.
-        // Verify camelCase falls back to null (expected behavior — backend uses SNAKE_CASE).
         Experience exp = mapper.readValue(json, Experience.class);
         assertThat(exp.id()).isEqualTo("exp-456");
-        // reuseCondition and qualityScore will be default (null/0) because @JsonProperty overrides
-        // the default mapping. This is acceptable since backend always sends snake_case.
+        // @JsonAlias("reuseCondition") should map camelCase JSON to the record field
+        assertThat(exp.reuseCondition()).isEqualTo("any");
+        assertThat(exp.qualityScore()).isEqualTo(0.5f);
+        assertThat(exp.createdAt()).isNotNull();
     }
 }
