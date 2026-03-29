@@ -106,3 +106,8 @@
 **提交**: `1593a36`
 
 **验证**: 编译通过 → 3 轮迭代检查无问题
+
+### 回归测试结果 (2026-03-30 01:07)
+- 回归测试: ✅ 46/46 passed, 0 failed, 1 skipped
+- EXTRACTION 验收: ✅ 25/25 passed, 0 failed, 0 skipped
+- 服务状态: ✅ status: ok
