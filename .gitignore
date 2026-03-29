@@ -73,3 +73,6 @@ cover.out
 # Go coverage output
 cover*.out
 go-sdk/cortex-mem-go/cover_*.out
+
+# Cron patrol tracking
+.patrol-last
