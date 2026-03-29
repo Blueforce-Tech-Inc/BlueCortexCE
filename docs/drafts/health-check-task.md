@@ -1,14 +1,15 @@
 > **用途**: 健康检查与测试验收任务指令（每2小时 cron 任务专用）
 > **维护者**: PM Agent
 > **更新频率**: 测试规则或验收标准变更时更新
-> **关联 Cron**: `4b56c649`（每2小时）
+> **关联 Cron**: `4b56c649`（每2小时，超时 1800s）
 
 # CortexCE 健康检查与测试验收 — 任务指令
 
 ## 执行规则
 
-- 专注于验证系统健康状态
-- 代码审查和修复由巡检任务（`83de38e1`）负责，本任务只做测试、汇报、以及 Backend 审查问题的修复
+- 验证系统健康状态，发现问题**立即修复**
+- 本任务是每 2 小时执行一次的重任务，有充足时间进行修复
+- 与巡检任务（`83de38e1`）互补：巡检做快速审查，本任务做深度验证与修复
 
 ## 每次执行步骤
 
@@ -16,16 +17,19 @@
    ```bash
    curl -s http://127.0.0.1:37777/api/health
    ```
+   - DB 不可达 → 检查数据库状态，尝试重启服务
 
 2. **回归测试**
    ```bash
    bash scripts/regression-test.sh --skip-build
    ```
+   - 失败 → 立即分析失败原因，修复代码，重新构建测试
 
 3. **EXTRACTION_ENABLED=true 验收测试**
    ```bash
    EXTRACTION_ENABLED=true bash scripts/phase3-acceptance-test.sh
    ```
+   - 失败 → 立即分析失败原因，修复代码，重新构建测试
 
 4. **Backend 审查问题修复**
    - 读取 `docs/drafts/backend-review-findings.md`
@@ -34,21 +38,35 @@
 
 ## ⚠️ 代码修改后 Review 规则（必须遵守）
 
-每次修改代码后，必须执行**连续 3 轮迭代检查**：
+每次修改代码后（无论是测试失败修复还是 Backend 问题修复），必须执行**连续 3 轮迭代检查**：
 - 每次检查都应该视必要对代码库的已有代码/文档进行深入探索
 - 如有问题，马上修改代码、使得编译通过，然后**重置计数器，重新检查**
 - 直到连续检查三次没有发现任何问题、没有任何改动为止
 - 只要你修改了代码，那么迭代次数重置为 0，重新开始迭代检查
 
-## Backend 问题修复流程
+## 修复流程（适用于所有修复场景）
 
-1. 按照 `docs/drafts/patrol-task.md` 中 Backend 审查规则执行修复
-2. 构建验证：`cd backend && mvn clean compile -DskipTests`
-3. 执行上述"代码修改后 Review 规则"（连续 3 轮无问题）
-4. 重启服务 + 回归测试（46/46）
-5. 将修复细节记录到 `docs/drafts/backend-fix-progress.md`
-6. 更新 `docs/drafts/backend-review-findings.md` 标记对应问题为已修复
-7. git commit
+1. 定位问题根因
+2. 修改代码
+3. 构建验证：`cd backend && mvn clean compile package -DskipTests`
+4. 执行上述"代码修改后 Review 规则"（连续 3 轮无问题）
+5. 重启服务（仅杀服务端进程，不要误杀客户端）
+6. 重新跑失败的测试，确认通过
+7. 将修复细节记录到 `docs/drafts/backend-fix-progress.md`
+8. 如涉及 Backend 审查发现的问题，同步更新 `docs/drafts/backend-review-findings.md`
+9. git commit
+
+### 重启服务方法
+
+```bash
+# 仅杀服务端进程
+pkill -f "java.*cortex-ce" 2>/dev/null; sleep 2
+# 加载环境变量并启动
+export $(cat backend/.env | grep -v '^#' | grep -v '^$' | xargs) 2>/dev/null
+java -jar backend/target/cortex-ce-0.1.0-beta.jar --spring.profiles.active=dev &
+# 等待启动
+curl -s http://127.0.0.1:37777/api/health
+```
 
 ## ⚠️ WebUI 契约（不可破坏）
 
