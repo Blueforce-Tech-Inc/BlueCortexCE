@@ -89,3 +89,20 @@
 - `6bba534` — docs: update SSEBroadcaster fix description
 - `2eea224` — docs: mark all backend review findings as fixed
 - `9f9359b` — docs: add WebUI contract warning to patrol-task.md
+
+---
+
+## 2026-03-30 第二轮修复
+
+**来源**: 巡检任务 cron 自动发现的 Review #4 和 #5
+
+| # | 文件 | 问题 | 级别 | 结果 |
+|---|------|------|------|------|
+| 1 | TokenService.java | Clamp 注释不准确 | P2 | ✅ 已修复 |
+| 2 | TokenService.java | savingsPercent 类型隐式转换 | P2 | ✅ 已修复 |
+| 3 | ContextController.java | isWithinProject() 冗余 equals | P2 | ✅ 已修复 |
+| 4 | PendingMessageProcessor.java | @Scheduled 无 overlap 保护 | P2 | ✅ 已修复 (AtomicBoolean guard) |
+
+**提交**: `1593a36`
+
+**验证**: 编译通过 → 3 轮迭代检查无问题
