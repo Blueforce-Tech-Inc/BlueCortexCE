@@ -40,12 +40,13 @@ public class SSEBroadcaster {
 
     /**
      * Broadcast an event to all connected SSE clients.
-     * P1 FIX: Create snapshot copy before iteration to prevent ConcurrentModificationException
+     * P1: Create snapshot copy before iteration to prevent ConcurrentModificationException
      * when remove() is called from onCompletion callback during broadcast.
      *
-     * NOTE: Uses unnamed SSE events (just data, no event name) to match TS version.
-     * The WebUI uses onmessage which only catches unnamed events.
-     * The eventName parameter is ignored - type field in data is used for routing.
+     * @param data the event data payload
+     * @param eventName the SSE event name (e.g. "new_prompt", "new_summary"). If the data
+     *                  object contains a "type" field, this parameter and that field should
+     *                  match for consistency.
      */
     public void broadcast(Object data, String eventName) {
         // P1: Create snapshot to avoid concurrent modification during iteration
@@ -54,9 +55,8 @@ public class SSEBroadcaster {
 
         for (SseEmitter emitter : snapshot) {
             try {
-                // Send unnamed event - just data, no event name
-                // This matches TS version behavior for WebUI compatibility
                 emitter.send(SseEmitter.event()
+                    .name(eventName)
                     .data(data));
             } catch (IOException e) {
                 deadEmitters.add(emitter);

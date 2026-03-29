@@ -153,15 +153,27 @@ public final class VectorValidator {
     }
 
     /**
-     * P0: Count the number of dimensions in a vector string (simple version).
+     * Count the number of dimensions in a vector string.
+     * Returns 0 for null, empty, or dimensionless vectors (e.g. "[]").
+     *
+     * @param vectorStr the vector string (e.g. "[1.0, 2.0, 3.0]")
+     * @return number of dimensions, or 0 if invalid/empty
      */
     public static int countDimensions(String vectorStr) {
         if (vectorStr == null || vectorStr.length() < 2) {
             return 0;
         }
+
+        // Extract content between brackets
+        String content = vectorStr.substring(1, vectorStr.length() - 1).trim();
+        if (content.isEmpty()) {
+            return 0;
+        }
+
+        // Count commas + 1
         int count = 1;
-        for (int i = 0; i < vectorStr.length(); i++) {
-            if (vectorStr.charAt(i) == ',') {
+        for (int i = 0; i < content.length(); i++) {
+            if (content.charAt(i) == ',') {
                 count++;
             }
         }

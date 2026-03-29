@@ -54,57 +54,103 @@ Authorization: Bearer YOUR_API_KEY
 
 ## Sessions
 
-### Create Session
+### Start Session
 
 ```
-POST /api/sessions
+POST /api/session/start
+Content-Type: application/json
+
+{
+  "session_id": "content-session-id",
+  "cwd": "/path/to/project",
+  "user_id": "user-123",
+  "last_user_message": "Hello"
+}
 ```
 
 ### Get Session
 
 ```
-GET /api/sessions/{sessionId}
+GET /api/session/{sessionId}
 ```
 
-### List Sessions
+### Update Session User
 
 ```
-GET /api/sessions
+PATCH /api/session/{sessionId}/user
+Content-Type: application/json
+
+{
+  "user_id": "user-123"
+}
 ```
 
-### Delete Session
+## Ingest
+
+### Record Tool Use
 
 ```
-DELETE /api/sessions/{sessionId}
+POST /api/ingest/tool-use
+Content-Type: application/json
+
+{
+  "session_id": "content-session-id",
+  "tool_name": "Edit|Write|Read|Bash",
+  "tool_input": {...},
+  "tool_response": {...},
+  "cwd": "/path/to/project"
+}
 ```
 
-## Messages
-
-### Send Message
+### Record User Prompt
 
 ```
-POST /api/sessions/{sessionId}/messages
+POST /api/ingest/user-prompt
+Content-Type: application/json
+
+{
+  "session_id": "content-session-id",
+  "prompt_text": "User prompt text",
+  "prompt_number": 1,
+  "cwd": "/path/to/project"
+}
 ```
 
-### Get Messages
+### Signal Session End
 
 ```
-GET /api/sessions/{sessionId}/messages
+POST /api/ingest/session-end
+Content-Type: application/json
+
+{
+  "session_id": "content-session-id",
+  "cwd": "/path/to/project",
+  "last_assistant_message": "optional assistant message"
+}
+```
+
+### Create Observation Directly
+
+```
+POST /api/ingest/observation
+Content-Type: application/json
+
+{
+  "content_session_id": "session-123",
+  "project_path": "/path/to/project",
+  "type": "feature",
+  "title": "Added new API endpoint",
+  "narrative": "Created a new REST endpoint for...",
+  "facts": ["fact1", "fact2"],
+  "concepts": ["api", "rest"],
+  "source": "manual",
+  "extractedData": {"key": "value"},
+  "files_read": ["src/main/java/..."],
+  "files_modified": ["src/main/java/..."]
+}
 ```
 
 ## Memory
-
-### Get Memory
-
-```
-GET /api/memory/{sessionId}
-```
-
-### Search Memory
-
-```
-POST /api/memory/search
-```
 
 ### Trigger Memory Refinement
 
@@ -115,6 +161,25 @@ Content-Type: application/json
 {
   "project_path": "/path/to/project"
 }
+```
+
+### Update Observation
+
+```
+PATCH /api/memory/observations/{observationId}
+Content-Type: application/json
+
+{
+  "quality_score": 0.95,
+  "source": "manual",
+  "extractedData": {"key": "value"}
+}
+```
+
+### Delete Observation
+
+```
+DELETE /api/memory/observations/{observationId}
 ```
 
 ### Get Experiences (ExpRAG)
@@ -163,50 +228,7 @@ Content-Type: application/json
 
 ## Observations
 
-### List Observations
-
-```
-GET /api/observations?project=/path/to/project&type=tool_use&limit=50&offset=0
-```
-
-**Query Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `project` | string | Project path filter (required) |
-| `type` | string | Observation type filter |
-| `limit` | int | Max results to return |
-| `offset` | int | Pagination offset |
-| `session_id` | string | Filter by session |
-
-### Get Observations by IDs
-
-```
-POST /api/observations/batch
-Content-Type: application/json
-
-{
-  "ids": ["obs-1", "obs-2", "obs-3"]
-}
-```
-
-### Update Observation
-
-```
-PATCH /api/memory/observations/{observationId}
-Content-Type: application/json
-
-{
-  "quality_score": 0.95,
-  "content": "Updated observation content"
-}
-```
-
-### Delete Observation
-
-```
-DELETE /api/memory/observations/{observationId}
-```
+> Observations are listed under the [Viewer](#viewer) section.
 
 ## Extraction
 
@@ -221,21 +243,34 @@ Triggers structured data extraction from conversation observations.
 ### Get Latest Extraction
 
 ```
-GET /api/extraction/latest?project=/path/to/project&template=user_preference&userId=user-123
+GET /api/extraction/{templateName}/latest?project=/path/to/project&userId=user-123
 ```
 
 ### Get Extraction History
 
 ```
-GET /api/extraction/history?project=/path/to/project&template=user_preference&userId=user-123&limit=10
+GET /api/extraction/{templateName}/history?project=/path/to/project&userId=user-123&limit=10
 ```
 
 ## Search
 
-### Search Memory
+### Search Memory (Hybrid)
+
+```
+GET /api/search?project=/path/to/project&query=search+terms&limit=10&source=manual
+```
+
+### Search Memory (Vector)
 
 ```
 POST /api/memory/search
+Content-Type: application/json
+
+{
+  "project": "/path/to/project",
+  "query": "search terms",
+  "limit": 10
+}
 ```
 
 ## Management
@@ -252,16 +287,172 @@ GET /api/projects
 GET /api/stats?project=/path/to/project
 ```
 
-### Get Memory Modes
+### Get Settings
+
+```
+GET /api/settings
+```
+
+### Update Settings
+
+```
+POST /api/settings
+```
+
+## Mode
+
+### Get Current Mode
+
+```
+GET /api/mode
+```
+
+### List Observation Types
+
+```
+GET /api/mode/types
+```
+
+### List Observation Concepts
+
+```
+GET /api/mode/concepts
+```
+
+### Validate Type
+
+```
+GET /api/mode/types/{typeId}/validate
+```
+
+### Get Type Emoji
+
+```
+GET /api/mode/types/{typeId}/emoji
+```
+
+### List Valid Types
+
+```
+GET /api/mode/types/valid
+```
+
+### List Valid Concepts
+
+```
+GET /api/mode/concepts/valid
+```
+
+## Viewer
+
+### List Observations
+
+```
+GET /api/observations?project=/path/to/project&type=tool_use&limit=50&offset=0
+```
+
+### Get Observations by IDs
+
+```
+POST /api/observations/batch
+Content-Type: application/json
+
+{
+  "ids": ["obs-1", "obs-2", "obs-3"]
+}
+```
+
+### List Summaries
+
+```
+GET /api/summaries?project=/path/to/project&limit=50&offset=0
+```
+
+### List Prompts
+
+```
+GET /api/prompts?project=/path/to/project&limit=50&offset=0
+```
+
+### Get Timeline
+
+```
+GET /api/timeline?project=/path/to/project
+```
+
+### Search by File
+
+```
+GET /api/search/by-file?project=/path/to/project&file=src/Main.java
+```
+
+### Get Processing Status
+
+```
+GET /api/processing-status
+```
+
+### Batch Get SDK Sessions
+
+```
+POST /api/sdk-sessions/batch
+Content-Type: application/json
+
+{
+  "session_ids": ["session-1", "session-2"]
+}
+```
+
+### List Modes
 
 ```
 GET /api/modes
 ```
 
-### Get Settings
+### Create Mode
 
 ```
-GET /api/settings
+POST /api/modes
+```
+
+## Import
+
+### Import Observations
+
+```
+POST /api/import/observations
+```
+
+### Import Sessions
+
+```
+POST /api/import/sessions
+```
+
+### Import Summaries
+
+```
+POST /api/import/summaries
+```
+
+### Import Prompts
+
+```
+POST /api/import/prompts
+```
+
+## Logs
+
+### Get Logs
+
+```
+GET /api/logs
+```
+
+### Clear Logs
+
+```
+POST /api/logs/clear
 ```
 
 ## Health & Version
@@ -272,10 +463,22 @@ GET /api/settings
 GET /api/health
 ```
 
-Response:
+Response (healthy):
 
 ```json
-{"service":"cortex-ce","status":"ok"}
+{"status":"ok","timestamp":1709000000000,"service":"claude-mem-java"}
+```
+
+Response (degraded, DB unreachable):
+
+```json
+{"status":"degraded","timestamp":1709000000000,"service":"claude-mem-java"}
+```
+
+### Readiness Check
+
+```
+GET /api/readiness
 ```
 
 ### Get Version
@@ -284,46 +487,15 @@ Response:
 GET /api/version
 ```
 
-## Ingest
+## Streaming
 
-### Record User Prompt
-
-```
-POST /api/ingest/user-prompt
-Content-Type: application/json
-
-{
-  "sessionId": "session-123",
-  "projectPath": "/path/to/project",
-  "content": "User prompt text"
-}
-```
-
-### Signal Session End
+### SSE Stream
 
 ```
-POST /api/ingest/session-end
-Content-Type: application/json
-
-{
-  "sessionId": "session-123",
-  "projectPath": "/path/to/project"
-}
+GET /stream
 ```
 
-## WebUI
-
-### Get WebUI Status
-
-```
-GET /webui/status
-```
-
-### Stream Events
-
-```
-GET /webui/stream
-```
+Server-Sent Events endpoint for real-time updates.
 
 ## Error Codes
 
@@ -333,7 +505,9 @@ GET /webui/stream
 | 401 | Unauthorized |
 | 403 | Forbidden |
 | 404 | Not Found |
+| 429 | Rate Limit Exceeded |
 | 500 | Internal Server Error |
+| 503 | Service Unavailable (health/readiness) |
 
 ---
 

@@ -111,8 +111,8 @@ public class IngestionController {
         // Handle both string and object types for tool_input and tool_response
         Object toolInputObj = body.toolInput();
         Object toolResponseObj = body.toolResponse();
-        String toolInput = toolInputObj != null ? (toolInputObj instanceof String ? (String) toolInputObj : toolInputObj.toString()) : "{}";
-        String toolResponse = toolResponseObj != null ? (toolResponseObj instanceof String ? (String) toolResponseObj : toolResponseObj.toString()) : "{}";
+        String toolInput = toolInputObj instanceof String s ? s : (toolInputObj != null ? toolInputObj.toString() : "{}");
+        String toolResponse = toolResponseObj instanceof String s ? s : (toolResponseObj != null ? toolResponseObj.toString() : "{}");
         String cwd = body.cwd();
 
         // P2: Validate required fields
@@ -159,12 +159,12 @@ public class IngestionController {
      *   "cwd": "/path/to/project"
      * }
      *
-     * @param body Request body containing session_id, last_assistant_message, and debug flag
-     * @return Response with status and debug info if debug=true
+     * @param body Request body containing session_id and last_assistant_message
+     * @return Response with status
      */
     @PostMapping("/session-end")
     @Operation(summary = "Ingest session end event",
-        description = "Receives SessionEnd hook events from the thin proxy. Marks the session as completed and triggers async summary generation. Supports debug mode for testing.")
+        description = "Receives SessionEnd hook events from the thin proxy. Marks the session as completed and triggers async summary generation.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Session end event accepted"),
         @ApiResponse(responseCode = "400", description = "Missing required field: session_id")
@@ -176,7 +176,6 @@ public class IngestionController {
     public ResponseEntity<Map<String, String>> handleSessionEnd(@org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.SessionEndRequest body) {
         String contentSessionId = body.sessionId();
         String lastAssistantMessage = body.lastAssistantMessage();
-        Boolean debug = null;
 
         // Validate session_id (consistent with handleUserPrompt)
         if (contentSessionId == null || contentSessionId.isBlank()) {
@@ -187,17 +186,6 @@ public class IngestionController {
 
         // Fire-and-forget: marks session completed AND generates summary asynchronously
         summaryGenerationService.completeSessionAsync(contentSessionId, lastAssistantMessage);
-
-        // Debug mode: return additional info for testing verification
-        if (Boolean.TRUE.equals(debug)) {
-            log.info("[DEBUG] SessionEnd received - session_id={}, last_assistant_message length={}",
-                contentSessionId, lastAssistantMessage != null ? lastAssistantMessage.length() : 0);
-            return ResponseEntity.ok(Map.of(
-                "status", "ok",
-                "debug_session_id", contentSessionId != null ? contentSessionId : "",
-                "debug_last_assistant_message", lastAssistantMessage != null ? lastAssistantMessage : ""
-            ));
-        }
 
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
