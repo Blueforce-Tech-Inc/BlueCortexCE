@@ -77,3 +77,16 @@ _暂无问题记录_
 | 14 | Logs 端点全部未文档化 | — | `GET/POST /api/logs/*` | P2 ✅已添加 |
 
 **修复结果**: API.md 全面重写，所有 P1 + P2 问题已修复（2026-03-29 commit `1bd6572`）。
+
+---
+
+### 2026-03-29 | Backend 审查 #3
+
+**抽查文件**: `TemplateService.java`, `SessionEntity.java`
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | TemplateService.java | ~87-88 `escapeTemplateValue()` | `{{{{` 和 `}}}}` 替换是 dead code：前面 `{{`/`}}` 已先执行替换，消耗了所有输入中的双花括号，四花括号 pattern 永远不会匹配。应删除这两行避免误导 | P2 |
+| 2 | SessionEntity.java | `status` 字段 | 使用 raw String 而非 enum，缺乏编译期类型安全。`SessionStatus` 常量类提供了值但无约束力。建议至少加 `@Column(length = 20)` 限制长度 | P2 |
+
+**审查结论**: 无 P0/P1 问题。TemplateService 设计良好（fail-fast 验证、安全 truncation），SessionEntity 字段映射清晰、Javadoc 质量高。
