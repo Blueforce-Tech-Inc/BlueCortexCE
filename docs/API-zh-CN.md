@@ -615,11 +615,15 @@ curl "http://localhost:37777/api/context/prior-messages?project=/Users/dev/mypro
   "type": "feature",
   "facts": ["JWT tokens configured", "Middleware added"],
   "concepts": ["authentication", "security"],
+  "source": "manual",
+  "extractedData": {"key": "value"},
   "files_read": ["/src/auth.ts"],
   "files_modified": ["/src/middleware.ts"],
   "prompt_number": 1
 }
 ```
+
+**字段别名**: `session_id` 可替代 `content_session_id`，`cwd` 可替代 `project_path`，`content` 可替代 `narrative`。
 
 **响应示例**:
 ```json

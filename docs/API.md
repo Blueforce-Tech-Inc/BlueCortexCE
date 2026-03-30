@@ -187,6 +187,7 @@ Content-Type: application/json
   "project_path": "/path/to/project",
   "type": "feature",
   "title": "Added new API endpoint",
+  "subtitle": "REST endpoint implementation",
   "narrative": "Created a new REST endpoint for...",
   "facts": ["fact1", "fact2"],
   "concepts": ["api", "rest"],
@@ -196,6 +197,8 @@ Content-Type: application/json
   "files_modified": ["src/main/java/..."]
 }
 ```
+
+**Field aliases**: `session_id` is accepted as an alias for `content_session_id`, `cwd` for `project_path`, and `content` for `narrative`.
 
 ## Memory
 
