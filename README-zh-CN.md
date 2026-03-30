@@ -138,7 +138,7 @@ docker compose up -d
 
 ```bash
 curl http://localhost:37777/api/health
-# 应返回: {"status":"UP"}
+# 应返回: {"status":"ok","timestamp":...,"service":"claude-mem-java"}
 ```
 
 **完成！** 🎉 Claude Code 现在会跨会话记住一切。

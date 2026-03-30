@@ -301,12 +301,12 @@ process.exit(0);
 │  IngestionController    →  /api/ingest/*                   │
 │  ViewerController       →  /api/observations, /api/search  │
 │  ContextController      →  /api/context/*                  │
-│  StreamController       →  /api/stream (SSE)              │
+│  StreamController       →  /stream (SSE)                    │
 │  LogsController         →  /api/logs                      │
 │  HealthController       →  /api/health                    │
 │  SessionController      →  /api/session/*                 │
 │  MemoryController       →  /api/memory/*                  │
-│  ModeController         →  /api/modes/*                   │
+│  ModeController         →  /api/mode/*                     │
 │  ExtractionController   →  /api/extraction/*              │
 │  ImportController       →  /api/import/*                  │
 │  CursorController       →  /api/cursor/*                  │
@@ -339,6 +339,12 @@ process.exit(0);
 │  ImportService          → 数据导入                          │
 │  CursorService          → Cursor IDE 集成                   │
 │  ExpRagService          → 实验性 RAG                        │
+│  ContextService         → 上下文生成与管理                   │
+│  SSEBroadcaster         → SSE 事件广播                      │
+│  PendingMessageProcessor → 待处理消息队列处理                │
+│  LlmQualityScorer       → 基于 LLM 的质量评分               │
+│  WorktreeDetector       → Git 工作树检测                    │
+│  ExperienceTemplate     → 经验检索模板                      │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -626,7 +632,7 @@ LIMIT :limit;
 | Ingestion | `/api/ingest/*` | Hook 事件接收 |
 | Viewer | `/api/observations`, `/api/search` | WebUI 数据 |
 | Context | `/api/context/*` | 上下文检索 |
-| Stream | `/api/stream` | SSE 实时更新 |
+| Stream | `/stream` | SSE 实时更新 |
 | Logs | `/api/logs` | 日志访问 |
 
 ### MCP 服务器
@@ -640,6 +646,31 @@ LIMIT :limit;
 | `get_observations` | 批量观察详情 |
 | `save_memory` | 手动保存记忆 |
 | `recent` | 最近会话摘要 |
+
+#### MCP 传输协议
+
+MCP 服务器支持两种传输协议：
+
+| 协议 | 端点 | 描述 |
+|------|------|------|
+| **Streamable HTTP**（默认） | `/mcp` | 基于 HTTP 的现代协议 |
+| **SSE** | `/sse` + `/mcp/message` | Server-Sent Events - 稳定 |
+
+**配置**（在 `application.yml` 中）：
+
+```yaml
+spring:
+  ai:
+    mcp:
+      server:
+        protocol: SSE  # 或: STREAMABLE（需要会话管理）
+```
+
+**环境变量覆盖**（无需编辑配置文件）：
+
+```bash
+export SPRING_AI_MCP_SERVER_PROTOCOL=STREAMABLE  # 如需使用 STREAMABLE
+```
 
 ---
 

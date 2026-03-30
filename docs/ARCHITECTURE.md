@@ -301,12 +301,12 @@ The Fat Server is the core Spring Boot application handling all business logic.
 │  IngestionController    →  /api/ingest/*                    │
 │  ViewerController       →  /api/observations, /api/search   │
 │  ContextController      →  /api/context/*                   │
-│  StreamController       →  /api/stream (SSE)                │
+│  StreamController       →  /stream (SSE)                    │
 │  LogsController         →  /api/logs                        │
 │  HealthController       →  /api/health                      │
 │  SessionController      →  /api/session/*                   │
 │  MemoryController       →  /api/memory/*                    │
-│  ModeController         →  /api/modes/*                     │
+│  ModeController         →  /api/mode/*                      │
 │  ExtractionController   →  /api/extraction/*                │
 │  ImportController       →  /api/import/*                    │
 │  CursorController       →  /api/cursor/*                    │
@@ -339,6 +339,12 @@ The Fat Server is the core Spring Boot application handling all business logic.
 │  ImportService          → Data import                       │
 │  CursorService          → Cursor IDE integration            │
 │  ExpRagService          → Experimental RAG                  │
+│  ContextService         → Context generation & management   │
+│  SSEBroadcaster         → SSE event broadcasting            │
+│  PendingMessageProcessor → Pending message queue processing │
+│  LlmQualityScorer       → LLM-based quality scoring         │
+│  WorktreeDetector       → Git worktree detection            │
+│  ExperienceTemplate     → Experience retrieval templates    │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -626,7 +632,7 @@ LIMIT :limit;
 | Ingestion | `/api/ingest/*` | Hook event reception |
 | Viewer | `/api/observations`, `/api/search` | WebUI data |
 | Context | `/api/context/*` | Context retrieval |
-| Stream | `/api/stream` | SSE real-time updates |
+| Stream | `/stream` | SSE real-time updates |
 | Logs | `/api/logs` | Log access |
 
 ### MCP Server

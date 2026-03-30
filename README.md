@@ -138,7 +138,7 @@ Add to your project's `.claude/settings.local.json`:
 
 ```bash
 curl http://localhost:37777/api/health
-# Should return: {"status":"UP"}
+# Should return: {"status":"ok","timestamp":...,"service":"claude-mem-java"}
 ```
 
 **Done!** 🎉 Claude Code will now remember everything across sessions.
