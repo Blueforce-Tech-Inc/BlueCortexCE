@@ -28,6 +28,9 @@ This document describes the REST API for Cortex Community Edition backend.
 - [Cursor](#cursor)
 - [Streaming](#streaming)
 - [Error Codes](#error-codes)
+- [Usage Examples](#usage-examples)
+- [Appendix](#appendix)
+- [Changelog](#changelog)
 
 ## Overview
 
@@ -977,6 +980,313 @@ Server-Sent Events endpoint for real-time updates.
 | `DB_ERROR` | Database operation failed |
 | `LLM_ERROR` | LLM service call failed |
 | `EMBEDDING_ERROR` | Embedding generation failed |
+
+---
+
+## Usage Examples
+
+### cURL Examples
+
+#### 1. Health Check
+```bash
+curl http://localhost:37777/api/health
+```
+
+#### 2. Search Observations
+```bash
+curl "http://localhost:37777/api/search?project=/Users/dev/myproject&query=authentication&limit=5"
+```
+
+#### 3. Create Observation Directly
+```bash
+curl -X POST http://localhost:37777/api/ingest/observation \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content_session_id": "manual-session",
+    "project_path": "/Users/dev/myproject",
+    "type": "discovery",
+    "title": "JWT expiration insight",
+    "narrative": "JWT token expires after 24 hours",
+    "facts": ["JWT token expires after 24 hours"],
+    "concepts": ["authentication"],
+    "source": "manual"
+  }'
+```
+
+#### 4. Preview Context
+```bash
+curl "http://localhost:37777/api/context/preview?project=/Users/dev/myproject&maxObservations=10"
+```
+
+#### 5. Batch Get Observations
+```bash
+curl -X POST http://localhost:37777/api/observations/batch \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ids": ["obs-1", "obs-2", "obs-3"],
+    "project": "/Users/dev/myproject"
+  }'
+```
+
+#### 6. Get Logs
+```bash
+curl "http://localhost:37777/api/logs?lines=100"
+```
+
+---
+
+### JavaScript Examples
+
+#### 1. Using fetch API
+```javascript
+// Health check
+const response = await fetch('http://localhost:37777/api/health');
+const data = await response.json();
+console.log('Health:', data);
+
+// Search observations
+const searchResponse = await fetch(
+  'http://localhost:37777/api/search?' + new URLSearchParams({
+    project: '/Users/dev/myproject',
+    query: 'authentication',
+    limit: 10
+  })
+);
+const searchResults = await searchResponse.json();
+console.log('Found:', searchResults.count, 'observations');
+```
+
+#### 2. SSE Event Stream
+```javascript
+const eventSource = new EventSource('http://localhost:37777/stream');
+
+eventSource.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+
+  switch (data.type) {
+    case 'new_observation':
+      console.log('New observation:', data.observation.title);
+      break;
+    case 'processing_status':
+      console.log('Processing:', data.isProcessing, 'Queue:', data.queueDepth);
+      break;
+  }
+};
+
+eventSource.onerror = (error) => {
+  console.error('SSE Error:', error);
+  eventSource.close();
+};
+```
+
+#### 3. Bulk Import
+```javascript
+const importData = {
+  sessions: [...],
+  observations: [...],
+  summaries: [...],
+  prompts: [...]
+};
+
+const response = await fetch('http://localhost:37777/api/import', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(importData)
+});
+
+const result = await response.json();
+console.log('Imported:', result.stats);
+```
+
+---
+
+### Python Examples
+
+#### 1. Using requests
+```python
+import requests
+
+BASE_URL = 'http://localhost:37777'
+
+# Health check
+response = requests.get(f'{BASE_URL}/api/health')
+print('Health:', response.json())
+
+# Search observations
+params = {
+    'project': '/Users/dev/myproject',
+    'query': 'authentication',
+    'limit': 10
+}
+response = requests.get(f'{BASE_URL}/api/search', params=params)
+results = response.json()
+print(f"Found {results['count']} observations")
+
+# Create observation
+data = {
+    'content_session_id': 'manual-session',
+    'project_path': '/Users/dev/myproject',
+    'type': 'discovery',
+    'title': 'Authentication insight',
+    'narrative': 'Important finding about authentication',
+    'facts': ['Important finding about authentication'],
+    'concepts': ['authentication'],
+    'source': 'manual'
+}
+response = requests.post(f'{BASE_URL}/api/ingest/observation', json=data)
+print('Created:', response.json())
+```
+
+#### 2. Using SSE Client
+```python
+import sseclient
+
+def listen_to_stream():
+    response = requests.get(
+        'http://localhost:37777/stream',
+        stream=True
+    )
+    client = sseclient.SSEClient(response)
+
+    for event in client.events():
+        import json
+        data = json.loads(event.data)
+        print(f"Event: {data['type']}")
+        if data['type'] == 'new_observation':
+            print(f"  Title: {data['observation']['title']}")
+```
+
+---
+
+## Appendix
+
+### Data Models
+
+#### Session
+```json
+{
+  "id": "uuid",
+  "contentSessionId": "string",
+  "projectPath": "string",
+  "userPrompt": "string",
+  "startedAtEpoch": 1707878400000,
+  "completedAtEpoch": 1707882000000,
+  "status": "active|completed|skipped",
+  "cachedContext": "string",
+  "contextRefreshedAtEpoch": 1707878400000
+}
+```
+
+#### Observation
+```json
+{
+  "id": "uuid",
+  "content_session_id": "string",
+  "projectPath": "string",
+  "title": "string",
+  "subtitle": "string",
+  "narrative": "string",
+  "type": "bugfix|feature|refactor|discovery",
+  "facts": ["string"],
+  "concepts": ["string"],
+  "filesRead": ["string"],
+  "filesModified": ["string"],
+  "createdAtEpoch": 1707878400000,
+  "promptNumber": 1,
+  "discoveryTokens": 150,
+  "embeddingModelId": "bge-m3"
+}
+```
+
+#### Summary
+```json
+{
+  "id": "uuid",
+  "session_id": "string",
+  "projectPath": "string",
+  "request": "string",
+  "completed": "string",
+  "learned": "string",
+  "nextSteps": "string",
+  "createdAtEpoch": 1707878400000
+}
+```
+
+#### UserPrompt
+```json
+{
+  "id": "uuid",
+  "contentSessionId": "string",
+  "projectPath": "string",
+  "promptText": "string",
+  "promptNumber": 1,
+  "createdAtEpoch": 1707878400000
+}
+```
+
+---
+
+### Configuration
+
+#### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SERVER_PORT` | Service port | 37777 |
+| `DB_URL` | Database URL | jdbc:postgresql://127.0.0.1/claude_mem_dev |
+| `DB_USERNAME` | Database username | postgres |
+| `DB_PASSWORD` | Database password | (required) |
+| `OPENAI_API_KEY` | LLM API Key | (required) |
+| `OPENAI_BASE_URL` | LLM API Base URL | https://api.openai.com |
+| `OPENAI_MODEL` | LLM model | gpt-4o |
+| `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | Embedding API Key | (required) |
+| `SPRING_AI_OPENAI_EMBEDDING_MODEL` | Embedding model | BAAI/bge-m3 |
+| `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | Embedding dimensions | 1024 |
+
+#### application.yml Configuration
+
+```yaml
+server:
+  port: 37777
+
+claudemem:
+  sse:
+    timeout-ms: 1800000  # 30 minutes
+  log:
+    dir: ${user.home}/.claude-mem/logs
+
+spring:
+  datasource:
+    url: jdbc:postgresql://127.0.0.1/claude_mem_dev
+    username: postgres
+    password: ${DB_PASSWORD}
+```
+
+---
+
+### FAQ
+
+#### Q: How does rate limiting work?
+A: Each `session_id` is limited to 10 tool-use requests within 60 seconds. Exceeding the limit returns a 429 status code.
+
+#### Q: What to do when SSE connection times out?
+A: Default timeout is 30 minutes. Clients should handle disconnection and auto-reconnect.
+
+#### Q: How to debug API requests?
+A: 1) Check log files at `~/.claude-mem/logs/claude-mem-{date}.log`
+   2) Use the `debug=true` parameter (supported on some endpoints)
+
+#### Q: How to avoid duplicates during import?
+A: All import endpoints have automatic deduplication based on unique identifiers (e.g., `contentSessionId`, `id`).
+
+---
+
+## Changelog
+
+| Date | Version | Changes |
+|------|---------|---------|
+| 2026-03-31 | 0.1.0-beta | Added Extraction (/run, /latest, /history), Cursor, Mode, Logs, Import, Viewer sections; Added Usage Examples, Appendix, Changelog; Synced with Chinese version |
+| 2026-03-13 | 0.1.0 | Initial API documentation |
 
 ---
 
