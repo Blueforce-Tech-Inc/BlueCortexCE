@@ -1441,6 +1441,178 @@ describe('safeRecord edge cases', () => {
   });
 });
 
+// ==================== wire-helpers dedicated tests ====================
+
+import { safeString, safeStringOr, safeNumber, safeNumberOr, safeStringArray, firstNonNullOr, safeRecord } from '../dto/wire-helpers';
+
+describe('safeString', () => {
+  it('should return string as-is', () => {
+    expect(safeString('hello')).toBe('hello');
+  });
+
+  it('should convert number to string', () => {
+    expect(safeString(42)).toBe('42');
+  });
+
+  it('should convert boolean to string', () => {
+    expect(safeString(true)).toBe('true');
+    expect(safeString(false)).toBe('false');
+  });
+
+  it('should convert bigint to string', () => {
+    expect(safeString(BigInt(9007199254740991))).toBe('9007199254740991');
+  });
+
+  it('should return undefined for null', () => {
+    expect(safeString(null)).toBeUndefined();
+  });
+
+  it('should return undefined for undefined', () => {
+    expect(safeString(undefined)).toBeUndefined();
+  });
+
+  it('should return undefined for objects (avoid [object Object])', () => {
+    expect(safeString({ key: 'val' })).toBeUndefined();
+    expect(safeString([1, 2, 3])).toBeUndefined();
+  });
+
+  it('should return undefined for empty string? No, empty string is valid', () => {
+    expect(safeString('')).toBe('');
+  });
+});
+
+describe('safeStringOr', () => {
+  it('should return string value', () => {
+    expect(safeStringOr('hello', 'fallback')).toBe('hello');
+  });
+
+  it('should return fallback for null', () => {
+    expect(safeStringOr(null, 'fallback')).toBe('fallback');
+  });
+
+  it('should return fallback for undefined', () => {
+    expect(safeStringOr(undefined, 'fallback')).toBe('fallback');
+  });
+
+  it('should return fallback for object', () => {
+    expect(safeStringOr({}, 'fallback')).toBe('fallback');
+  });
+
+  it('should convert number to string', () => {
+    expect(safeStringOr(42, 'fallback')).toBe('42');
+  });
+});
+
+describe('safeNumber', () => {
+  it('should return number as-is', () => {
+    expect(safeNumber(42)).toBe(42);
+    expect(safeNumber(3.14)).toBe(3.14);
+    expect(safeNumber(0)).toBe(0);
+  });
+
+  it('should parse numeric strings', () => {
+    expect(safeNumber('42')).toBe(42);
+    expect(safeNumber('3.14')).toBe(3.14);
+    expect(safeNumber('-1')).toBe(-1);
+  });
+
+  it('should return undefined for NaN', () => {
+    expect(safeNumber(NaN)).toBeUndefined();
+  });
+
+  it('should return undefined for NaN string', () => {
+    expect(safeNumber('not-a-number')).toBeUndefined();
+  });
+
+  it('should return undefined for null/undefined', () => {
+    expect(safeNumber(null)).toBeUndefined();
+    expect(safeNumber(undefined)).toBeUndefined();
+  });
+
+  it('should return undefined for objects', () => {
+    expect(safeNumber({})).toBeUndefined();
+    expect(safeNumber([])).toBeUndefined();
+  });
+
+  it('should parse "NaN" string as undefined', () => {
+    expect(safeNumber('NaN')).toBeUndefined();
+  });
+});
+
+describe('safeNumberOr', () => {
+  it('should return number value', () => {
+    expect(safeNumberOr(42, 0)).toBe(42);
+  });
+
+  it('should return fallback for null', () => {
+    expect(safeNumberOr(null, -1)).toBe(-1);
+  });
+
+  it('should return fallback for NaN', () => {
+    expect(safeNumberOr(NaN, 0)).toBe(0);
+  });
+
+  it('should parse string number', () => {
+    expect(safeNumberOr('100', 0)).toBe(100);
+  });
+});
+
+describe('safeStringArray', () => {
+  it('should return string array as-is', () => {
+    expect(safeStringArray(['a', 'b', 'c'])).toEqual(['a', 'b', 'c']);
+  });
+
+  it('should convert non-string items via String()', () => {
+    expect(safeStringArray(['a', 42, true])).toEqual(['a', '42', 'true']);
+  });
+
+  it('should skip null/undefined items', () => {
+    expect(safeStringArray(['a', null, 'b', undefined, 'c'])).toEqual(['a', 'b', 'c']);
+  });
+
+  it('should return undefined for null', () => {
+    expect(safeStringArray(null)).toBeUndefined();
+  });
+
+  it('should return undefined for non-array', () => {
+    expect(safeStringArray('not-array')).toBeUndefined();
+    expect(safeStringArray(42)).toBeUndefined();
+    expect(safeStringArray({})).toBeUndefined();
+  });
+
+  it('should return empty array for empty array input', () => {
+    expect(safeStringArray([])).toEqual([]);
+  });
+});
+
+describe('firstNonNullOr', () => {
+  it('should return first non-null value', () => {
+    const raw = { a: null, b: undefined, c: 'found', d: 'also' };
+    expect(firstNonNullOr(raw, ['a', 'b', 'c', 'd'])).toBe('found');
+  });
+
+  it('should return undefined when all keys are null/undefined', () => {
+    const raw = { a: null, b: undefined };
+    expect(firstNonNullOr(raw, ['a', 'b'])).toBeUndefined();
+  });
+
+  it('should return undefined when keys are missing', () => {
+    const raw = { x: 'val' };
+    expect(firstNonNullOr(raw, ['a', 'b'])).toBeUndefined();
+  });
+
+  it('should return falsy non-null values (0, "", false)', () => {
+    const raw = { a: 0, b: '', c: false };
+    expect(firstNonNullOr(raw, ['a'])).toBe(0);
+    expect(firstNonNullOr(raw, ['b'])).toBe('');
+    expect(firstNonNullOr(raw, ['c'])).toBe(false);
+  });
+
+  it('should handle empty keys array', () => {
+    expect(firstNonNullOr({}, [])).toBeUndefined();
+  });
+});
+
 // ==================== parseICLPromptResult ====================
 
 describe('parseICLPromptResult', () => {
