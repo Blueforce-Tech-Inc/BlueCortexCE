@@ -150,3 +150,7 @@ The SDK handles wire format differences automatically:
 - `required_concepts` → `requiredConcepts` (camelCase)
 
 See [design document](../../docs/drafts/python-sdk-design.md) for details.
+
+## License
+
+MIT
