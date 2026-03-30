@@ -13,20 +13,21 @@
 1. [认证](#认证)
 2. [通用响应格式](#通用响应格式)
 3. [错误码说明](#错误码说明)
-4. [API 端点](#api-端点)
-   - [健康检查](#健康检查)
-   - [Session 管理](#session-管理)
-   - [Context 上下文](#context-上下文)
-   - [Ingestion 数据摄入](#ingestion-数据摄入)
-   - [Extraction 结构化提取](#extraction-结构化提取)
-   - [Viewer 查看器](#viewer-查看器)
-   - [Memory 记忆](#memory-记忆)
-   - [Mode 模式](#mode-模式)
-   - [Logs 日志](#logs-日志)
-   - [Import 导入](#import-导入)
-   - [Cursor IDE 集成](#cursor-ide-集成)
-   - [SSE 流式推送](#sse-流式推送)
-5. [使用示例](#使用示例)
+4. [Health 健康检查](#health-健康检查)
+5. [Session 会话管理](#session-会话管理)
+6. [Context 上下文](#context-上下文)
+7. [Ingestion 数据摄入](#ingestion-数据摄入)
+8. [Extraction 结构化提取](#extraction-结构化提取)
+9. [Viewer 查看器](#viewer-查看器)
+10. [Memory 记忆管理](#memory-记忆管理)
+11. [Mode 模式管理](#mode-模式管理)
+12. [Logs 日志管理](#logs-日志管理)
+13. [Import 数据导入](#import-数据导入)
+14. [Cursor IDE 集成](#cursor-ide-集成)
+15. [SSE 流式推送](#sse-流式推送)
+16. [使用示例](#使用示例)
+17. [附录](#附录)
+18. [更新日志](#更新日志)
 
 ---
 
@@ -98,11 +99,10 @@
 
 ---
 
-## API 端点
 
 ---
 
-### 健康检查
+## Health 健康检查
 
 #### GET `/api/health`
 
@@ -173,7 +173,7 @@ curl http://localhost:37777/api/version
 
 ---
 
-### Session 管理
+## Session 会话管理
 
 #### POST `/api/session/start`
 
@@ -290,7 +290,7 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 
 ---
 
-### Context 上下文
+## Context 上下文
 
 #### GET `/api/context/inject`
 
@@ -371,9 +371,7 @@ curl "http://localhost:37777/api/context/preview?project=/Users/dev/myproject&ma
 
 Generated: 2026-03-13 10:15
 
-## Recent Work
 
-### Bug fix for authentication
 **Type**: bugfix | **Concepts**: authentication
 Fixed JWT token validation issue...
 
@@ -476,7 +474,7 @@ curl "http://localhost:37777/api/context/prior-messages?project=/Users/dev/mypro
 
 ---
 
-### Ingestion 数据摄入
+## Ingestion 数据摄入
 
 这些端点由 Claude Code hooks（通过 `wrapper.js`）调用，用于异步处理事件。
 
@@ -637,7 +635,7 @@ curl "http://localhost:37777/api/context/prior-messages?project=/Users/dev/mypro
 
 ---
 
-### Extraction 结构化提取
+## Extraction 结构化提取
 
 Phase 3 结构化数据提取端点，从会话观察中提取结构化数据（如用户偏好、过敏信息等）。
 
@@ -747,7 +745,7 @@ curl "http://localhost:37777/api/extraction/user-preferences/history?projectPath
 
 ---
 
-### Viewer 查看器
+## Viewer 查看器
 
 WebUI 使用的端点，用于查看和搜索记忆。
 
@@ -1129,7 +1127,7 @@ curl http://localhost:37777/api/modes
 
 ---
 
-### Memory 记忆
+## Memory 记忆管理
 
 #### POST `/api/memory/refine`
 
@@ -1238,7 +1236,7 @@ curl http://localhost:37777/api/modes
 
 ---
 
-### Mode 模式
+## Mode 模式管理
 
 #### GET `/api/mode`
 
@@ -1414,7 +1412,7 @@ curl http://localhost:37777/api/mode/concepts/valid
 
 ---
 
-### Logs 日志
+## Logs 日志管理
 
 #### GET `/api/logs`
 
@@ -1477,7 +1475,7 @@ curl -X POST http://localhost:37777/api/logs/clear
 
 ---
 
-### Import 导入
+## Import 数据导入
 
 #### POST `/api/import`
 
@@ -1593,7 +1591,7 @@ curl -X POST http://localhost:37777/api/logs/clear
 
 ---
 
-### Cursor IDE 集成
+## Cursor IDE 集成
 
 Cursor IDE 集成端点，用于自动上下文文件更新。
 
@@ -1659,7 +1657,7 @@ Cursor IDE 集成端点，用于自动上下文文件更新。
 
 ---
 
-### SSE 流式推送
+## SSE 流式推送
 
 #### GET `/stream`
 
@@ -2021,6 +2019,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
+| 2026-03-31 | 0.1.0-beta | 新增 Extraction (/run, /latest, /history)、Cursor、Mode、Logs、Import、Viewer 章节；修复 Session API 路径；同步英文版完整结构 |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---
