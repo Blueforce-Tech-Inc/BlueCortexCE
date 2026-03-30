@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class ModeService implements LogHelper {
@@ -41,7 +42,7 @@ public class ModeService implements LogHelper {
 
     private Path modesDir;
     private Mode activeMode;
-    private final Map<String, Mode> modeCache = new HashMap<>();
+    private final Map<String, Mode> modeCache = new ConcurrentHashMap<>();
 
     @PostConstruct
     public void init() {

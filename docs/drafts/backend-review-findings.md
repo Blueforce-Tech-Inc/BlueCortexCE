@@ -425,8 +425,8 @@ _暂无问题记录_
 
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
-| 1 | ModeService.java | L46 `modeCache` | `modeCache` 是 plain `HashMap`，非线程安全。`setActiveMode()` (PUT /api/mode) 可被并发调用，与 ModeService 自身的 `loadMode()`/`loadModeFile()` 也共享此 map。并发 put 可能导致 HashMap 内部结构损坏。建议改用 `ConcurrentHashMap` 或在 `setActiveMode` 加 synchronized | P2 |
-| 2 | ModeController.java | L104-108 Swagger | `@ApiResponse(responseCode = "200")` 的 example 包含 error 响应格式 (`"name":"error"`)，但实际错误返回 `ResponseEntity.badRequest()` (400)。Swagger 文档误导 — 错误响应示例应放在 `responseCode = "400"` 下 | P2 (低) |
+| 1 | ModeService.java | L46 `modeCache` | `modeCache` 是 plain `HashMap`，非线程安全。`setActiveMode()` (PUT /api/mode) 可被并发调用，与 ModeService 自身的 `loadMode()`/`loadModeFile()` 也共享此 map。并发 put 可能导致 HashMap 内部结构损坏。建议改用 `ConcurrentHashMap` 或在 `setActiveMode` 加 synchronized | P2 ✅已修复（改为 ConcurrentHashMap）|
+| 2 | ModeController.java | L104-108 Swagger | `@ApiResponse(responseCode = "200")` 的 example 包含 error 响应格式 (`"name":"error"`)，但实际错误返回 `ResponseEntity.badRequest()` (400)。Swagger 文档误导 — 错误响应示例应放在 `responseCode = "400"` 下 | P2 (低) ✅已审查（经核实，Swagger 文档已正确：200 示例为成功响应，400 示例为错误响应。原始审查结论有误）|
 
 **审查结论**:
 - **ModeController.java**: 质量良好。7 个端点覆盖完整（GET/PUT active mode, types, concepts, validate, emoji, valid IDs），Swagger 注解完整，输入验证到位（null/blank modeId 检查），异常处理合理。

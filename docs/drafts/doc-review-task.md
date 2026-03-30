@@ -95,3 +95,10 @@
 📝 发现问题：[数量]
 [问题列表 + 修复状态]
 ```
+
+---
+## Last Review Log
+- **2026-03-31 04:26**: API 文档 (API.md vs API-zh-CN.md) — 修复 3 问题，commit 0e19580
+- **2026-03-31 04:54**: SDK README (Go/JS/Python) — 全部 25 个方法覆盖完整，端点与 Controller 源码一致，中英文版本结构/内容一致，跨链接完整。无修复。
+- **2026-03-31 05:13**: 设计文档 (structured-extraction.md + walkthrough) — 修复 2 问题，commit 8c45107
+- **Next direction**: 架构文档

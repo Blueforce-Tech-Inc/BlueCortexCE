@@ -50,3 +50,20 @@
 - Phase 3 Acceptance: `EXTRACTION_ENABLED=true bash scripts/phase3-acceptance-test.sh` ✅（25/25 tests passed）
 
 **汇总**: 修复 5 个 P2 问题（null 安全、原子写入回退、线程安全、类型一致性）。
+
+## 2026-03-31 | 集中修复批次 #3
+
+**来源**: backend-review-findings.md (#12, 2026-03-31 04:56) — 1 个未修复 P2 问题
+
+| # | 文件 | 问题 | 级别 | 修复方式 | 状态 |
+|---|------|------|------|----------|------|
+| 1 | ModeService.java L46 | `modeCache` HashMap 非线程安全 | P2 | 改用 `ConcurrentHashMap` | ✅已修复 |
+
+**附注**: ModeController Swagger 问题 (#2) 经核实无问题（200/400 响应示例已正确分离）。
+
+**编译/测试结果**:
+- Backend: `mvn clean compile package -DskipTests` ✅
+- Regression: `bash scripts/regression-test.sh --skip-build` ✅（46/46 tests passed）
+- Phase 3 Acceptance: `EXTRACTION_ENABLED=true bash scripts/phase3-acceptance-test.sh` ✅（25/25 tests passed）
+
+**汇总**: 修复 1 个 P2 问题（线程安全：HashMap → ConcurrentHashMap）。
