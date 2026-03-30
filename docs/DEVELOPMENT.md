@@ -6,7 +6,7 @@ This guide provides comprehensive instructions for setting up and working with t
 
 - [Prerequisites](#prerequisites)
 - [Development Environment Setup](#development-environment-setup)
-  - [Installing Java 17+](#installing-java-17)
+  - [Installing Java 21+](#installing-java-21)
   - [Installing Maven](#installing-maven)
   - [Installing PostgreSQL](#installing-postgresql)
   - [Installing Node.js (for Thin Proxy)](#installing-nodejs-for-thin-proxy)
@@ -38,7 +38,7 @@ This guide provides comprehensive instructions for setting up and working with t
 
 | Software | Version | Required | Purpose |
 |----------|---------|----------|---------|
-| JDK | 17+ | Yes | Java runtime |
+| JDK | 21+ | Yes | Java runtime |
 | Maven | 3.8+ | Yes | Build tool |
 | PostgreSQL | 16+ | Yes | Database |
 | pgvector | 0.8+ | Yes | Vector extension |
@@ -50,7 +50,7 @@ This guide provides comprehensive instructions for setting up and working with t
 
 ## Development Environment Setup
 
-### Installing Java 17+
+### Installing Java 21+
 
 #### macOS (Homebrew)
 

@@ -6,7 +6,7 @@
 
 - [前置条件](#前置条件)
 - [开发环境设置](#开发环境设置)
-  - [安装 Java 17+](#安装-java-17)
+  - [安装 Java 21+](#安装-java-21)
   - [安装 Maven](#安装-maven)
   - [安装 PostgreSQL](#安装-postgresql)
   - [安装 Node.js（用于 Thin Proxy）](#安装-nodejs用于-thin-proxy)
@@ -38,7 +38,7 @@
 
 | 软件 | 版本 | 必需 | 用途 |
 |----------|---------|----------|---------|
-| JDK | 17+ | 是 | Java 运行时 |
+| JDK | 21+ | 是 | Java 运行时 |
 | Maven | 3.8+ | 是 | 构建工具 |
 | PostgreSQL | 16+ | 是 | 数据库 |
 | pgvector | 0.8+ | 是 | 向量扩展 |
@@ -50,7 +50,7 @@
 
 ## 开发环境设置
 
-### 安装 Java 17+
+### 安装 Java 21+
 
 #### macOS（Homebrew）
 

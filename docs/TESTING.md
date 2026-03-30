@@ -12,9 +12,9 @@ Located in `scripts/` directory:
 
 | Script | Description | Lines |
 |--------|-------------|-------|
-| `regression-test.sh` | Core functionality regression tests | 873 |
-| `thin-proxy-test.sh` | Thin proxy integration tests | 766 |
-| `mcp-e2e-test.sh` | MCP server end-to-end tests | 606 |
+| `regression-test.sh` | Core functionality regression tests | 1535 |
+| `thin-proxy-test.sh` | Thin proxy integration tests | 775 |
+| `mcp-e2e-test.sh` | MCP server end-to-end tests | 555 |
 | `docker-compose-test.sh` | Docker Compose deployment tests | 546 |
 | `webui-integration-test.sh` | WebUI integration tests | 229 |
 

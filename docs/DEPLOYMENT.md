@@ -26,7 +26,7 @@ This guide provides comprehensive instructions for deploying Cortex Community Ed
 
 ### Software Requirements
 
-- **Java**: 17 or higher
+- **Java**: 21 or higher
 - **PostgreSQL**: 16 with pgvector extension
 - **Docker**: 20.10+ (for container deployment)
 - **Docker Compose**: 2.0+ (optional)
