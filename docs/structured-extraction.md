@@ -63,7 +63,6 @@ templates:
     template-class: "java.util.Map"
     session-id-pattern: "pref:{project}:{userId}"
     key-fields: ["category", "value"]
-    description: "Extract user preferences from conversations"
     source-filter: ["user_statement", "manual"]
     prompt: |
       From the following conversation, extract user preferences.
@@ -162,7 +161,7 @@ templates:
 
 ### Template Examples
 
-**Allergy Information (POJO):**
+**Allergy Information (Map):**
 
 ```yaml
 templates:

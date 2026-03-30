@@ -63,7 +63,6 @@ templates:
     template-class: "java.util.Map"
     session-id-pattern: "pref:{project}:{userId}"
     key-fields: ["category", "value"]
-    description: "从对话中提取用户偏好"
     source-filter: ["user_statement", "manual"]
     prompt: |
       从以下对话中提取用户偏好。
