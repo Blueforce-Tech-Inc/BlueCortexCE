@@ -978,7 +978,7 @@ class TestRetrievalExtended:
         """Verify type filter is sent as query param (type is a Python keyword, works as kwonly arg)."""
         responses.add(responses.GET, f"{BASE}/api/search", json={"observations": [], "count": 0}, status=200)
         c = _client()
-        c.search("/p", query="test", type="feature")
+        c.search("/p", query="test", type_="feature")
         url = responses.calls[0].request.url
         assert "type=feature" in url
 
@@ -987,7 +987,7 @@ class TestRetrievalExtended:
         """Verify all search filters are sent correctly."""
         responses.add(responses.GET, f"{BASE}/api/search", json={"observations": [], "count": 0}, status=200)
         c = _client()
-        c.search("/p", query="q", type="feature", concept="test", source="manual", limit=10, offset=5)
+        c.search("/p", query="q", type_="feature", concept="test", source="manual", limit=10, offset=5)
         url = responses.calls[0].request.url
         assert "type=feature" in url
         assert "concept=test" in url

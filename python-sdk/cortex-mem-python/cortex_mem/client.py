@@ -367,7 +367,7 @@ class CortexMemClient:
         project: str,
         *,
         query: str = "",
-        type: str = "",
+        type_: str = "",
         concept: str = "",
         source: str = "",
         limit: int = 0,
@@ -378,8 +378,8 @@ class CortexMemClient:
         params: dict[str, str] = {"project": project}
         if query:
             params["query"] = query
-        if type:
-            params["type"] = type
+        if type_:
+            params["type"] = type_
         if concept:
             params["concept"] = concept
         if source:

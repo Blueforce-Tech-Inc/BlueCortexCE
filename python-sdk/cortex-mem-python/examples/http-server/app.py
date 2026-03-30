@@ -81,6 +81,20 @@ def _require(fields: dict):
     return None
 
 
+def _parse_json():
+    """Parse JSON request body with Content-Type validation.
+
+    Returns parsed data dict on success, or error response tuple on failure.
+    Can be used directly in return: data = _parse_json(); if isinstance(data, tuple): return data
+    """
+    if not request.is_json:
+        return _error(400, "Content-Type must be application/json")
+    data = request.get_json(silent=True)
+    if data is None:
+        return _error(400, "invalid or empty JSON body")
+    return data
+
+
 def _parse_int_param(key: str, default: int = 0) -> int:
     """Parse an optional integer query param.
 
@@ -117,7 +131,9 @@ def health():
 
 @app.post("/chat")
 def chat():
-    data = request.get_json(force=True)
+    data = _parse_json()
+    if isinstance(data, tuple):
+        return data
     missing = _require({"project": data.get("project"), "message": data.get("message")})
     if missing:
         return _error(400, f"{missing} is required")
@@ -288,7 +304,9 @@ def get_observation(observation_id: str):
 
 @app.post("/observations/batch")
 def observations_batch():
-    data = request.get_json(force=True)
+    data = _parse_json()
+    if isinstance(data, tuple):
+        return data
     ids = data.get("ids", [])
     if not ids:
         return _error(400, "ids is required")
@@ -304,7 +322,9 @@ def observations_batch():
 
 @app.post("/observations/create")
 def observations_create():
-    data = request.get_json(force=True)
+    data = _parse_json()
+    if isinstance(data, tuple):
+        return data
     missing = _require({
         "project": data.get("project"),
         "session_id": data.get("session_id"),
@@ -330,7 +350,9 @@ def observations_create():
 def observations_update(obs_id: str):
     if not obs_id or not obs_id.strip():
         return _error(400, "observation id is required")
-    data = request.get_json(force=True)
+    data = _parse_json()
+    if isinstance(data, tuple):
+        return data
     kwargs = {}
     for key in ("title", "subtitle", "content", "narrative", "facts", "concepts", "source"):
         if key in data:
@@ -412,6 +434,11 @@ def quality():
 
 @app.get("/extraction/latest")
 def extraction_latest():
+    """Get latest extraction result.
+
+    Note: Backend endpoint is /api/extraction/{templateName}/latest (path param).
+    This demo uses /extraction/latest?template=... (query param) for simplicity.
+    """
     template = request.args.get("template")
     project = request.args.get("project")
     if not template:
@@ -462,7 +489,9 @@ def refine():
 
 @app.post("/feedback")
 def feedback():
-    data = request.get_json(force=True)
+    data = _parse_json()
+    if isinstance(data, tuple):
+        return data
     missing = _require({
         "observationId": data.get("observationId"),
         "feedbackType": data.get("feedbackType"),
@@ -478,7 +507,9 @@ def feedback():
 
 @app.post("/session/start")
 def session_start():
-    data = request.get_json(force=True)
+    data = _parse_json()
+    if isinstance(data, tuple):
+        return data
     missing = _require({
         "session_id": data.get("session_id"),
         "project": data.get("project"),
@@ -500,7 +531,9 @@ def session_start():
 
 @app.patch("/session/user")
 def session_user():
-    data = request.get_json(force=True)
+    data = _parse_json()
+    if isinstance(data, tuple):
+        return data
     missing = _require({
         "session_id": data.get("session_id"),
         "user_id": data.get("user_id"),
@@ -516,7 +549,9 @@ def session_user():
 
 @app.post("/ingest/prompt")
 def ingest_prompt():
-    data = request.get_json(force=True)
+    data = _parse_json()
+    if isinstance(data, tuple):
+        return data
     missing = _require({
         "project": data.get("project"),
         "session_id": data.get("session_id"),
@@ -535,7 +570,9 @@ def ingest_prompt():
 
 @app.post("/ingest/session-end")
 def ingest_session_end():
-    data = request.get_json(force=True)
+    data = _parse_json()
+    if isinstance(data, tuple):
+        return data
     missing = _require({
         "project": data.get("project"),
         "session_id": data.get("session_id"),
