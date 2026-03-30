@@ -240,11 +240,23 @@ POST /api/memory/experiences
 Content-Type: application/json
 
 {
+  "task": "database optimization",
   "project": "/path/to/project",
-  "query": "database optimization",
-  "limit": 5
+  "count": 5,
+  "source": "manual",
+  "requiredConcepts": ["how-it-works"]
 }
 ```
+
+**Request Fields**:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `task` | string | ✅ | Task or question to find relevant experiences for |
+| `project` | string | ❌ | Project path for scoping |
+| `count` | int | ❌ | Max experiences to return (default: 4) |
+| `source` | string | ❌ | Filter by source (e.g., `manual`, `tool_result`) |
+| `requiredConcepts` | string[] | ❌ | Filter to experiences containing these concepts |
 
 ### Get ICL Prompt
 
@@ -737,6 +749,24 @@ GET /api/modes
 
 ```
 POST /api/modes
+```
+
+Switches the active mode at runtime. Supports base modes (e.g., "code") and inherited modes (e.g., "code--zh").
+
+**Request Body**:
+```json
+{
+  "mode": "code--zh"
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "mode": "code--zh",
+  "name": "代码模式"
+}
 ```
 
 ## Import

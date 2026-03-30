@@ -164,7 +164,7 @@ curl http://localhost:37777/api/version
 **响应示例**:
 ```json
 {
-  "version": "0.1.0-SNAPSHOT",
+  "version": "0.1.0-beta",
   "service": "claude-mem-java",
   "java": "21.0.2",
   "springBoot": "3.3.13"
@@ -546,21 +546,11 @@ curl "http://localhost:37777/api/context/prior-messages?project=/Users/dev/mypro
 | `session_id` | string | ✅ | 内容会话 ID |
 | `last_assistant_message` | string | ❌ | 最后的助手消息 |
 | `cwd` | string | ❌ | 当前工作目录 |
-| `debug` | boolean | ❌ | 调试模式（返回额外信息） |
 
 **响应示例**:
 ```json
 {
   "status": "ok"
-}
-```
-
-**调试模式响应**:
-```json
-{
-  "status": "ok",
-  "debug_session_id": "content-session-id",
-  "debug_last_assistant_message": "Task completed successfully"
 }
 ```
 
@@ -1155,11 +1145,23 @@ curl http://localhost:37777/api/modes
 **请求体**:
 ```json
 {
+  "task": "database optimization",
   "project": "/path/to/project",
-  "query": "database optimization",
-  "limit": 5
+  "count": 5,
+  "source": "manual",
+  "requiredConcepts": ["how-it-works"]
 }
 ```
+
+**字段说明**:
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `task` | string | ✅ | 任务或问题描述，用于查找相关经验 |
+| `project` | string | ❌ | 项目路径（用于范围限定） |
+| `count` | int | ❌ | 返回的最大经验数（默认 4） |
+| `source` | string | ❌ | 来源过滤（如 `manual`、`tool_result`） |
+| `requiredConcepts` | string[] | ❌ | 概念过滤（仅返回包含这些概念的经验） |
 
 #### POST `/api/memory/icl-prompt`
 
