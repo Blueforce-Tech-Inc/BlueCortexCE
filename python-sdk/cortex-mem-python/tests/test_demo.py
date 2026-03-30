@@ -131,6 +131,21 @@ class TestSearch:
         assert data["strategy"] == "hybrid"
         assert data["count"] == 0
 
+    def test_search_with_type_filter(self, app, client):
+        """Verify type filter is passed as type_= (not type=) to SDK.
+
+        Python keyword 'type' cannot be used as keyword arg name — SDK uses type_.
+        Demo must map request arg 'type' to SDK arg 'type_'.
+        """
+        from cortex_mem import SearchResult
+        app._mock_client.search.return_value = SearchResult(observations=[], strategy="filter", count=0)
+        resp = client.get("/search?project=/p&type=feature&concept=test")
+        assert resp.status_code == 200
+        # Verify SDK was called with type_= (not type=)
+        call_kwargs = app._mock_client.search.call_args[1]
+        assert call_kwargs["type_"] == "feature"
+        assert call_kwargs["concept"] == "test"
+
 
 # ==================== Experiences ====================
 
