@@ -113,7 +113,8 @@ public class TestController {
     @GetMapping("/all")
     @Operation(summary = "Test both LLM and Embedding",
         description = "Runs both LLM and Embedding connectivity tests and returns combined results in a single response.")
-    @ApiResponse(responseCode = "200", description = "All tests completed")
+    @ApiResponse(responseCode = "200", description = "All tests completed",
+        content = @Content(schema = @Schema(example = "{\"llm\":{\"status\":\"success\",\"message\":\"LLM is working!\"},\"embedding\":{\"status\":\"success\",\"dimensions\":1024}}")))
     public ResponseEntity<Map<String, Object>> testAll() {
         Map<String, Object> result = new HashMap<>();
         result.put("llm", testLlm().getBody());

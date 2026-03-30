@@ -48,7 +48,8 @@ public class ModeController {
     @GetMapping
     @Operation(summary = "Get current active mode",
         description = "Returns the currently active mode configuration including mode ID, name, description, version, observation types, and observation concepts.")
-    @ApiResponse(responseCode = "200", description = "Active mode configuration returned")
+    @ApiResponse(responseCode = "200", description = "Active mode configuration returned",
+        content = @Content(schema = @Schema(example = "{\"modeId\":\"code\",\"name\":\"Code\",\"description\":\"Tracks code evolution\",\"version\":\"1.0\",\"observationTypes\":[],\"observationConcepts\":[]}")))
     public ResponseEntity<ModeResponse> getActiveMode() {
         Mode mode = modeService.getActiveMode();
         return ResponseEntity.ok(new ModeResponse(
@@ -69,8 +70,10 @@ public class ModeController {
     @Operation(summary = "Set active mode",
         description = "Switches the active mode at runtime. Supports base modes (e.g., 'code') and inherited modes (e.g., 'code--zh'). Returns error if the mode ID is invalid.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Mode switched successfully"),
-        @ApiResponse(responseCode = "400", description = "Invalid mode ID or empty modeId provided")
+        @ApiResponse(responseCode = "200", description = "Mode switched successfully",
+            content = @Content(schema = @Schema(example = "{\"modeId\":\"code\",\"name\":\"Code\",\"description\":\"Tracks code evolution\",\"version\":\"1.0\",\"observationTypes\":[],\"observationConcepts\":[]}"))),
+        @ApiResponse(responseCode = "400", description = "Invalid mode ID or empty modeId provided",
+            content = @Content(schema = @Schema(example = "{\"modeId\":\"invalid\",\"name\":\"error\",\"description\":\"Invalid mode: invalid\",\"version\":null,\"observationTypes\":null,\"observationConcepts\":null}")))
     })
     public ResponseEntity<ModeResponse> setActiveMode(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Mode switch payload. Fields: modeId (required, mode ID to activate, e.g. 'code' or 'code--zh')", required = true)

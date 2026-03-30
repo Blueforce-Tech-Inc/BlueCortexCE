@@ -136,8 +136,10 @@ public class LogsController {
     @Operation(summary = "Clear today's log file",
         description = "Truncates today's application log file to empty content. Only affects today's log file. Returns the path of the cleared file.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Log file cleared successfully"),
-        @ApiResponse(responseCode = "500", description = "Failed to clear log file due to IO error")
+        @ApiResponse(responseCode = "200", description = "Log file cleared successfully",
+            content = @Content(schema = @Schema(example = "{\"status\":\"ok\",\"message\":\"Today's log file has been cleared\",\"path\":\"/logs/claude-mem-2025-01-02.log\"}"))),
+        @ApiResponse(responseCode = "500", description = "Failed to clear log file due to IO error",
+            content = @Content(schema = @Schema(example = "{\"error\":\"Failed to clear log file\"}")))
     })
     public ResponseEntity<Map<String, String>> clearLogs() {
         Path todayLog = getLogFile(0);

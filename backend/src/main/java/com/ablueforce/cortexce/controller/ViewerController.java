@@ -519,7 +519,8 @@ public class ViewerController {
     @Operation(summary = "Get observation timeline",
         description = "Returns observations grouped by date for the viewer UI timeline. Supports date range queries and anchor-based queries for MCP compatibility. Date range is limited to 1 year maximum.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Timeline retrieved (returns list of timeline entries with date, count, and ids, or observations list for anchor queries)"),
+        @ApiResponse(responseCode = "200", description = "Timeline retrieved (returns list of timeline entries with date, count, and ids, or observations list for anchor queries)",
+            content = @Content(schema = @Schema(example = "[{\"date\":\"2025-01-02\",\"count\":5,\"ids\":[\"550e8400-e29b-41d4-a716-446655440000\"]}]"))),
         @ApiResponse(responseCode = "400", description = "Date range exceeds 1 year maximum or invalid anchor parameters",
             content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class))),
         @ApiResponse(responseCode = "500", description = "Timeline query failed",
@@ -661,7 +662,8 @@ public class ViewerController {
     @PostMapping("/sdk-sessions/batch")
     @Operation(summary = "Batch get sessions by content session IDs",
         description = "Retrieves multiple sessions by their Claude Code content session IDs. Used by the export script to get session metadata. Returns session DB ID, content session ID, project, user prompt, timestamps, and status.")
-    @ApiResponse(responseCode = "200", description = "Sessions retrieved (empty list if no matching sessions found)")
+    @ApiResponse(responseCode = "200", description = "Sessions retrieved (empty list if no matching sessions found)",
+        content = @Content(schema = @Schema(example = "[{\"id\":\"550e8400-e29b-41d4-a716-446655440000\",\"content_session_id\":\"session-1\",\"project\":\"/path\",\"user_prompt\":\"hello\",\"started_at_epoch\":1709000000000,\"completed_at_epoch\":1709000060000,\"status\":\"completed\"}]")))
     public ResponseEntity<List<Map<String, Object>>> batchGetSessions(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Request body with 'contentSessionIds' field containing a list of Claude Code session ID strings", required = true)
             @org.springframework.web.bind.annotation.RequestBody Map<String, Object> request

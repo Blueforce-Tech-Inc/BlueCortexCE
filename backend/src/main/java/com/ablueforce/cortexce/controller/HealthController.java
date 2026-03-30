@@ -121,7 +121,8 @@ public class HealthController {
     @GetMapping("/version")
     @Operation(summary = "Get version information",
         description = "Returns the application version, Java version, and Spring Boot version.")
-    @ApiResponse(responseCode = "200", description = "Version information retrieved successfully")
+    @ApiResponse(responseCode = "200", description = "Version information retrieved successfully",
+        content = @Content(schema = @Schema(example = "{\"version\":\"1.0.0\",\"service\":\"claude-mem-java\",\"java\":\"21.0.2\",\"springBoot\":\"3.3.0\"}")))
     public ResponseEntity<Map<String, Object>> version() {
         Map<String, Object> response = new HashMap<>();
         response.put("version", getVersion());

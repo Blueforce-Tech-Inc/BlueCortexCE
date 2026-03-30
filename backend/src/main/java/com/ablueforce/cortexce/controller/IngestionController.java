@@ -97,8 +97,10 @@ public class IngestionController {
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Tool use event accepted for processing",
             content = @Content(schema = @Schema(example = "{\"status\":\"accepted\"}"))),
-        @ApiResponse(responseCode = "400", description = "Missing required fields: session_id or tool_name"),
-        @ApiResponse(responseCode = "429", description = "Rate limit exceeded (10 requests per 60 seconds per session)")
+        @ApiResponse(responseCode = "400", description = "Missing required fields: session_id or tool_name",
+            content = @Content(schema = @Schema(example = "{\"error\":\"Missing required field: session_id\"}"))),
+        @ApiResponse(responseCode = "429", description = "Rate limit exceeded (10 requests per 60 seconds per session)",
+            content = @Content(schema = @Schema(example = "{\"error\":\"Rate limit exceeded\",\"retry_after\":\"60\"}")))
     })
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
         description = "Tool use event request",
@@ -166,8 +168,10 @@ public class IngestionController {
     @Operation(summary = "Ingest session end event",
         description = "Receives SessionEnd hook events from the thin proxy. Marks the session as completed and triggers async summary generation.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Session end event accepted"),
-        @ApiResponse(responseCode = "400", description = "Missing required field: session_id")
+        @ApiResponse(responseCode = "200", description = "Session end event accepted",
+            content = @Content(schema = @Schema(example = "{\"status\":\"ok\"}"))),
+        @ApiResponse(responseCode = "400", description = "Missing required field: session_id",
+            content = @Content(schema = @Schema(example = "{\"error\":\"Missing required field: session_id\"}")))
     })
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
         description = "Session end event request",
@@ -208,8 +212,10 @@ public class IngestionController {
     @Operation(summary = "Ingest user prompt event",
         description = "Receives UserPromptSubmit hook events from the thin proxy. Records the user prompt for conversation tracking. Automatically ensures the session exists before recording. Prompt text is truncated if it exceeds max length.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "User prompt recorded successfully"),
-        @ApiResponse(responseCode = "400", description = "Missing required field: session_id")
+        @ApiResponse(responseCode = "200", description = "User prompt recorded successfully",
+            content = @Content(schema = @Schema(example = "{\"status\":\"ok\"}"))),
+        @ApiResponse(responseCode = "400", description = "Missing required field: session_id",
+            content = @Content(schema = @Schema(example = "{\"error\":\"Missing required field: session_id\"}")))
     })
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
         description = "User prompt event request",
