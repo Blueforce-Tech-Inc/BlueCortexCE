@@ -1,5 +1,7 @@
 # Cortex Community Edition Architecture
 
+> **中文版**: [ARCHITECTURE-zh-CN.md](ARCHITECTURE-zh-CN.md)
+
 This document describes the architecture of Cortex Community Edition, including system design, component interactions, data flow, and technical decisions.
 
 ## Table of Contents
@@ -301,6 +303,14 @@ The Fat Server is the core Spring Boot application handling all business logic.
 │  ContextController      →  /api/context/*                   │
 │  StreamController       →  /api/stream (SSE)                │
 │  LogsController         →  /api/logs                        │
+│  HealthController       →  /api/health                      │
+│  SessionController      →  /api/session/*                   │
+│  MemoryController       →  /api/memory/*                    │
+│  ModeController         →  /api/modes/*                     │
+│  ExtractionController   →  /api/extraction/*                │
+│  ImportController       →  /api/import/*                    │
+│  CursorController       →  /api/cursor/*                    │
+│  TestController         →  /api/test/*                      │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -313,12 +323,22 @@ The Fat Server is the core Spring Boot application handling all business logic.
 │    └── XmlParser        → Parse LLM XML output              │
 │                                                             │
 │  SearchService          → Semantic + text search            │
-│  ContextService         → Context retrieval                 │
+│  ContextCacheService    → Context caching                   │
 │  TimelineService        → Timeline context generation       │
 │  ClaudeMdService        → CLAUDE.md generation              │
 │  TokenService           → Token counting                    │
 │  RateLimitService       → Per-session rate limiting         │
 │  ProjectFilterService   → Project path filtering            │
+│  ModeService            → Memory mode management            │
+│  MemoryRefineService    → Memory refinement                 │
+│  StructuredExtractionService → Structured data extraction   │
+│  SessionManagementService → Session lifecycle               │
+│  SummaryGenerationService → Summary generation              │
+│  TemplateService        → Prompt template management        │
+│  SettingsService        → Application settings              │
+│  ImportService          → Data import                       │
+│  CursorService          → Cursor IDE integration            │
+│  ExpRagService          → Experimental RAG                  │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -654,15 +674,15 @@ export SPRING_AI_MCP_SERVER_PROTOCOL=STREAMABLE  # if you prefer STREAMABLE
 
 | Technology | Choice | Rationale |
 |------------|--------|-----------|
-| **Language** | Java 17+ | Virtual threads, records, pattern matching |
-| **Framework** | Spring Boot 3.2+ | Production-ready, extensive ecosystem |
+| **Language** | Java 21+ | Virtual threads, records, pattern matching |
+| **Framework** | Spring Boot 3.3+ | Production-ready, extensive ecosystem |
 | **Database** | PostgreSQL 16 | ACID compliance, pgvector extension |
 | **Vector Search** | pgvector 0.8 | Native PostgreSQL integration, HNSW indexes |
 | **Migrations** | Flyway | Version-controlled schema evolution |
 | **Build** | Maven | Standard Java tooling |
 | **Proxy** | Node.js/Express | Lightweight, fast startup |
 
-### Java 17+ Features Used
+### Java 21+ Features Used
 
 ```java
 // Records for DTOs

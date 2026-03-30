@@ -303,6 +303,14 @@ process.exit(0);
 │  ContextController      →  /api/context/*                  │
 │  StreamController       →  /api/stream (SSE)              │
 │  LogsController         →  /api/logs                      │
+│  HealthController       →  /api/health                    │
+│  SessionController      →  /api/session/*                 │
+│  MemoryController       →  /api/memory/*                  │
+│  ModeController         →  /api/modes/*                   │
+│  ExtractionController   →  /api/extraction/*              │
+│  ImportController       →  /api/import/*                  │
+│  CursorController       →  /api/cursor/*                  │
+│  TestController         →  /api/test/*                    │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -315,12 +323,22 @@ process.exit(0);
 │    └── XmlParser        → 解析 LLM XML 输出                │
 │                                                             │
 │  SearchService          → 语义 + 文本搜索                   │
-│  ContextService         → 上下文检索                        │
+│  ContextCacheService    → 上下文缓存                        │
 │  TimelineService        → 时间线上下文生成                  │
 │  ClaudeMdService        → CLAUDE.md 生成                   │
 │  TokenService           → Token 计数                        │
 │  RateLimitService       → 按会话速率限制                    │
 │  ProjectFilterService   → 项目路径过滤                     │
+│  ModeService            → 记忆模式管理                      │
+│  MemoryRefineService    → 记忆优化                          │
+│  StructuredExtractionService → 结构化数据提取               │
+│  SessionManagementService → 会话生命周期                    │
+│  SummaryGenerationService → 摘要生成                        │
+│  TemplateService        → 提示模板管理                      │
+│  SettingsService        → 应用设置                          │
+│  ImportService          → 数据导入                          │
+│  CursorService          → Cursor IDE 集成                   │
+│  ExpRagService          → 实验性 RAG                        │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -631,15 +649,15 @@ LIMIT :limit;
 
 | 技术 | 选择 | 理由 |
 |------|------|------|
-| **语言** | Java 17+ | 虚拟线程、record、模式匹配 |
-| **框架** | Spring Boot 3.2+ | 生产就绪、广泛的生态系统 |
+| **语言** | Java 21+ | 虚拟线程、record、模式匹配 |
+| **框架** | Spring Boot 3.3+ | 生产就绪、广泛的生态系统 |
 | **数据库** | PostgreSQL 16 | ACID 合规、pgvector 扩展 |
 | **向量搜索** | pgvector 0.8 | 原生 PostgreSQL 集成、HNSW 索引 |
 | **迁移** | Flyway | 版本控制的架构演进 |
 | **构建** | Maven | 标准 Java 工具 |
 | **代理** | Node.js/Express | 轻量级、快速启动 |
 
-### 使用的 Java 17+ 特性
+### 使用的 Java 21+ 特性
 
 ```java
 // Records 用于 DTO
