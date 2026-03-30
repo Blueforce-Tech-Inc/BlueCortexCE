@@ -344,9 +344,12 @@ process.exit(0);
 │  PendingMessageProcessor → 待处理消息队列处理                │
 │  LlmQualityScorer       → 基于 LLM 的质量评分               │
 │  WorktreeDetector       → Git 工作树检测                    │
-│  ExperienceTemplate     → 经验检索模板
-  QualityScorer          → 观察质量评分
-  PendingMessageEventListener → 待处理消息事件处理                      │
+│  ExperienceTemplate     → 经验检索模板                          │
+│  QualityScorer          → 观察质量评分                          │
+│  PendingMessageEventListener → 待处理消息事件处理              │
+│  PendingMessageEventPublisher → 待处理消息事件发布             │
+│  StaleMessageRecoveryTask → 陈旧消息崩溃恢复                   │
+│  ClaudeMemMcpTools      → MCP 工具实现                        │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼

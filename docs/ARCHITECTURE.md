@@ -344,9 +344,12 @@ The Fat Server is the core Spring Boot application handling all business logic.
 │  PendingMessageProcessor → Pending message queue processing │
 │  LlmQualityScorer       → LLM-based quality scoring         │
 │  WorktreeDetector       → Git worktree detection            │
-│  ExperienceTemplate     → Experience retrieval templates
-  QualityScorer          → Observation quality scoring
-  PendingMessageEventListener → Pending message event handling    │
+│  ExperienceTemplate     → Experience retrieval templates      │
+│  QualityScorer          → Observation quality scoring         │
+│  PendingMessageEventListener → Pending message event handling │
+│  PendingMessageEventPublisher → Pending message event publish │
+│  StaleMessageRecoveryTask → Stale message crash recovery      │
+│  ClaudeMemMcpTools      → MCP tool implementations            │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
