@@ -70,7 +70,6 @@ public class ChatController {
             if (projectPath == null) projectPath = project;
             advisor = CortexMemoryAdvisor.builder(cortexClient)
                 .projectPath(projectPath)
-                .maxExperiences(4)
                 .build();
         }
 
