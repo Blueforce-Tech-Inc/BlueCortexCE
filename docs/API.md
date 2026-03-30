@@ -12,16 +12,20 @@ This document describes the REST API for Cortex Community Edition backend.
 
 - [Overview](#overview)
 - [Authentication](#authentication)
+- [Response Formats](#response-formats)
 - [Sessions](#sessions)
-- [Messages](#messages)
+- [Ingest](#ingest)
 - [Memory](#memory)
 - [Observations](#observations)
 - [Extraction](#extraction)
 - [Context](#context)
 - [Search](#search)
 - [Management](#management)
+- [Mode](#mode)
+- [Viewer](#viewer)
+- [Import](#import)
+- [Logs](#logs)
 - [Health & Version](#health--version)
-- [Ingest](#ingest)
 - [Cursor](#cursor)
 - [Streaming](#streaming)
 - [Error Codes](#error-codes)
@@ -50,6 +54,36 @@ Content-Type: application/json
 
 > ⚠️ **Production Warning**: If exposing to the public internet, add an authentication layer (e.g., API Key, JWT).
 
+## Response Formats
+
+### Success Response
+
+```json
+{
+  "status": "ok",
+  "data": { ... }
+}
+```
+
+### Paginated Response
+
+```json
+{
+  "items": [...],
+  "hasMore": true
+}
+```
+
+### Error Response
+
+```json
+{
+  "error": "Error message",
+  "status": "failed",
+  "code": "ERROR_CODE"
+}
+```
+
 ## Sessions
 
 ### Start Session
@@ -68,6 +102,18 @@ Content-Type: application/json
   "user_id": "user-123"
 }
 ```
+
+**Request Fields**:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `session_id` | string | ✅ | Claude Code content session ID |
+| `project_path` | string | ✅ | Project path |
+| `cwd` | string | ❌ | Current working directory |
+| `projects` | string | ❌ | Multi-project support (comma-separated) |
+| `is_worktree` | boolean | ❌ | Whether this is a worktree |
+| `parent_project` | string | ❌ | Parent project name (worktree mode) |
+| `user_id` | string | ❌ | User ID for Phase 3 multi-user support |
 
 ### Get Session
 
@@ -171,11 +217,13 @@ PATCH /api/memory/observations/{observationId}
 Content-Type: application/json
 
 {
-  "quality_score": 0.95,
+  "title": "Updated title",
   "source": "manual",
   "extractedData": {"key": "value"}
 }
 ```
+
+Supported fields: `title`, `content` (or `narrative`), `subtitle`, `source`, `facts`, `concepts`, `extractedData`. Null values clear the field; absent fields are left unchanged.
 
 ### Delete Observation
 
@@ -522,6 +570,7 @@ Query parameters:
 | `source` | No | Filter by source |
 | `limit` | No | Max results (default 20, max 100) |
 | `offset` | No | Pagination offset (default 0) |
+| `orderBy` | No | Order by field (accepted for MCP compatibility, not yet fully implemented) |
 
 ## Management
 
@@ -611,7 +660,7 @@ GET /api/mode/concepts/valid
 ### List Observations
 
 ```
-GET /api/observations?project=/path/to/project&type=tool_use&limit=50&offset=0
+GET /api/observations?project=/path/to/project&limit=50&offset=0
 ```
 
 ### Get Observations by IDs
@@ -646,8 +695,18 @@ GET /api/timeline?project=/path/to/project
 ### Search by File
 
 ```
-GET /api/search/by-file?project=/path/to/project&file=src/Main.java
+GET /api/search/by-file?project=/path/to/project&filePath=/src/auth.ts&isFolder=false&limit=20
 ```
+
+Query parameters:
+
+| Parameter | Required | Default | Description |
+|-----------|----------|---------|-------------|
+| `project` | Yes | — | Project path |
+| `filePath` | Yes | — | File or folder path to search for |
+| `isFolder` | No | false | If true, match folder prefix |
+| `limit` | No | 20 | Max results (max 100) |
+| `debug` | No | false | Enable debug logging |
 
 ### Get Processing Status
 
@@ -662,7 +721,7 @@ POST /api/sdk-sessions/batch
 Content-Type: application/json
 
 {
-  "session_ids": ["session-1", "session-2"]
+  "contentSessionIds": ["session-1", "session-2"]
 }
 ```
 
@@ -861,8 +920,12 @@ Server-Sent Events endpoint for real-time updates.
 
 ## Error Codes
 
+### HTTP Status Codes
+
 | Code | Description |
 |------|-------------|
+| 200 | OK |
+| 201 | Created |
 | 400 | Bad Request |
 | 401 | Unauthorized |
 | 403 | Forbidden |
@@ -870,6 +933,18 @@ Server-Sent Events endpoint for real-time updates.
 | 429 | Rate Limit Exceeded |
 | 500 | Internal Server Error |
 | 503 | Service Unavailable (health/readiness) |
+
+### Business Error Codes
+
+| Code | Description |
+|------|-------------|
+| `MISSING_FIELD` | Required field is missing |
+| `INVALID_FORMAT` | Field format is invalid |
+| `NOT_FOUND` | Resource not found |
+| `RATE_LIMIT_EXCEEDED` | Rate limit triggered (10 req/60s per session) |
+| `DB_ERROR` | Database operation failed |
+| `LLM_ERROR` | LLM service call failed |
+| `EMBEDDING_ERROR` | Embedding generation failed |
 
 ---
 

@@ -201,6 +201,7 @@ curl http://localhost:37777/api/version
 | `projects` | string | ❌ | 多项目支持（逗号分隔） |
 | `is_worktree` | boolean | ❌ | 是否为 worktree |
 | `parent_project` | string | ❌ | 父项目名称（worktree 模式） |
+| `user_id` | string | ❌ | 用户 ID（Phase 3 多用户支持） |
 
 **响应示例**:
 ```json
@@ -1197,6 +1198,39 @@ curl http://localhost:37777/api/modes
   "comment": "Task completed successfully"
 }
 ```
+
+#### PATCH `/api/memory/observations/{id}`
+
+部分更新观察（仅更新请求体中包含的字段，null 值清空字段，未包含的字段保持不变）。
+
+**路径参数**:
+- `id` - 观察 UUID
+
+**请求体**:
+```json
+{
+  "title": "Updated title",
+  "source": "manual",
+  "extractedData": {"key": "value"}
+}
+```
+
+**响应示例** (`200 OK`):
+```json
+{
+  "status": "ok",
+  "id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+#### DELETE `/api/memory/observations/{id}`
+
+删除观察。
+
+**路径参数**:
+- `id` - 观察 UUID
+
+**响应**: `204 No Content`
 
 ---
 
