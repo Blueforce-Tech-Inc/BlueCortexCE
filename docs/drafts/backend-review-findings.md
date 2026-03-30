@@ -34,8 +34,8 @@ _暂无问题记录_
 
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
-| 1 | ExtractionController.java | L105 `/history` | 返回类型 `ResponseEntity<?>`（泛型擦除），与 `/latest` 的 `ResponseEntity<Map<String, Object>>` 不一致。连续第 3 次标记未修复。建议统一为 `ResponseEntity<List<Map<String, Object>>>` | P2 |
-| 2 | ExtractionController.java | L140 `/run` | 无认证/速率限制保护 — 任何能访问 API 的用户都可以触发同步 LLM extraction（可能消耗大量 token 和时间）。建议至少加 rate limiting 或 API key 验证 | P2 |
+| 1 | ExtractionController.java | L105 `/history` | 返回类型 `ResponseEntity<?>`（泛型擦除），与 `/latest` 的 `ResponseEntity<Map<String, Object>>` 不一致。连续第 3 次标记未修复。建议统一为 `ResponseEntity<List<Map<String, Object>>>` | P2 ✅已修复（改为 `ResponseEntity<Object>`）|
+| 2 | ExtractionController.java | L140 `/run` | 无认证/速率限制保护 — 任何能访问 API 的用户都可以触发同步 LLM extraction（可能消耗大量 token 和时间）。建议至少加 rate limiting 或 API key 验证 | P2 ⏭跳过（当前架构信任本地 API 访问，与 Session/Ingest 端点一致）|
 | 3 | StructuredExtractionService.java | L146 `groupByUser()` | 空 sessionIds 集合未做保护，可能导致 JPA 异常 | P2 (低) ✅已修复（加 isEmpty 检查）|
 | 4 | StructuredExtractionService.java | L242 `extractAppendOnly()` | append-only 提取结果中 LLM 返回的 key 未做 schema 验证 — LLM 可能返回 `adds` 而非 `add`，或返回完全自定义的顶层 key。`safeListOfMaps` 会将未知 key 视为 null 返回空 list，不会崩溃但也不会报错，导致静默数据丢失 | P2 ✅已修复（添加 unexpected keys 检测 + WARN 日志）|
 | 5 | StructuredExtractionService.java | L340 `buildItemKey()` | SHA-256 fallback 使用 `System.identityHashCode(item)` — GC 后可能重复 | P2 (低) ✅已修复（改用 Objects.hashCode）|
@@ -136,7 +136,7 @@ _暂无问题记录_
 | # | 文件 | 问题 | 级别 |
 |---|------|------|------|
 | 1 | API.md (English) | ~~**整个 Context 章节缺失** — 6 个端点未文档化~~ | **P1** ✅已修复 |
-| 2 | API.md + API-zh-CN.md | CursorController 端点全部缺失 — 6 个端点未文档化 | P2 |
+| 2 | API.md + API-zh-CN.md | CursorController 端点全部缺失 — 6 个端点未文档化 | P2 ✅已修复 |
 | 3 | API.md + API-zh-CN.md | TestController (`/api/test`) 未文档化 — 可能有意为之 | P2 (低) |
 
 **审查结论**: API.md (English) 存在 P1 问题 — 与中文版差距显著（542 vs 1812 行），Context 章节完全缺失。需要将 API-zh-CN.md 的 Context 部分翻译补充到 API.md。
@@ -189,9 +189,9 @@ _暂无问题记录_
 
 | # | 文件 | 问题 | 级别 |
 |---|------|------|------|
-| 1 | API.md + API-zh-CN.md | CursorController 端点仍未文档化（6 个端点：POST /register, DELETE /register/{name}, GET /projects, POST /context/{name}, POST /context/{name}/custom, GET /register/{name}）— 前次审查已标记 P2，仍未修复 | P2 |
-| 2 | API-zh-CN.md | Extraction 章节完全缺失 — 英文版有完整 Extraction 文档（/run, /{templateName}/latest, /{templateName}/history），中文版无任何 extraction 端点描述 | P2 |
-| 3 | API-zh-CN.md | 与 API.md 结构严重不同步 — 英文版 18 个章节 vs 中文版 8 个章节，中文版采用叙事式格式，缺少 Ingest、Memory、Viewer、Import、Logs、Mode 等章节的独立文档 | P1 |
+| 1 | API.md + API-zh-CN.md | CursorController 端点仍未文档化（6 个端点：POST /register, DELETE /register/{name}, GET /projects, POST /context/{name}, POST /context/{name}/custom, GET /register/{name}）— 前次审查已标记 P2，仍未修复 | P2 ✅已修复（中文版 line 1592 起，英文版 line 858 起均有完整 Cursor 章节）|
+| 2 | API-zh-CN.md | Extraction 章节完全缺失 — 英文版有完整 Extraction 文档（/run, /{templateName}/latest, /{templateName}/history），中文版无任何 extraction 端点描述 | P2 ✅已修复（中文版 line 636 起有完整 Extraction 章节）|
+| 3 | API-zh-CN.md | 与 API.md 结构严重不同步 — 英文版 18 个章节 vs 中文版 8 个章节，中文版采用叙事式格式，缺少 Ingest、Memory、Viewer、Import、Logs、Mode 等章节的独立文档 | P1 ✅已修复（中文版 2024 行，包含全部章节：Health, Session, Context, Ingestion, Extraction, Viewer, Search, Memory, Import, Cursor, Mode, Logs 等）|
 | 4 | API.md | TestController (`/api/test/*`) 未文档化 — 3 个端点仅 dev 环境可用（`@Profile("!prod")`），有意排除，可接受 | — (设计决策) |
 
 **审查结论**: 
@@ -240,11 +240,11 @@ _暂无问题记录_
 
 | # | 文件 | 问题 | 级别 |
 |---|------|------|------|
-| 1 | API-zh-CN.md | Extraction 章节缺失（3 个端点：/run, /{templateName}/latest, /{templateName}/history）— 连续第 2 次标记未修复 | P2 |
-| 2 | API-zh-CN.md | Search 章节缺失（GET /api/search）— 连续第 2 次标记 | P2 |
-| 3 | API-zh-CN.md | Management 章节缺失（4 个端点：/api/projects, /api/stats, GET/POST /api/settings）— 连续第 2 次标记 | P2 |
-| 4 | API-zh-CN.md | Observations 章节缺失（英文版仅 1 行引用 Viewer，中文版完全无此章节） | P2 (低) |
-| 5 | API.md + API-zh-CN.md | CursorController 端点仍未文档化（6 个端点）— 连续第 3 次标记未修复 | P2 |
+| 1 | API-zh-CN.md | Extraction 章节缺失（3 个端点：/run, /{templateName}/latest, /{templateName}/history）— 连续第 2 次标记未修复 | P2 ✅已修复 |
+| 2 | API-zh-CN.md | Search 章节缺失（GET /api/search）— 连续第 2 次标记 | P2 ✅已修复 |
+| 3 | API-zh-CN.md | Management 章节缺失（4 个端点：/api/projects, /api/stats, GET/POST /api/settings）— 连续第 2 次标记 | P2 ✅已修复 |
+| 4 | API-zh-CN.md | Observations 章节缺失（英文版仅 1 行引用 Viewer，中文版完全无此章节） | P2 (低) ✅已修复 |
+| 5 | API.md + API-zh-CN.md | CursorController 端点仍未文档化（6 个端点）— 连续第 3 次标记未修复 | P2 ✅已修复 |
 | 6 | API-zh-CN.md | 更新日志停留在 0.1.0（2026-03-13），未反映大量 API 变更 | P2 |
 
 **审查结论**: 无新增 P0/P1。中文 API 文档的 Extraction/Search/Management 章节缺失和 CursorController 未文档化问题已累计多次标记，建议纳入下次集中修复批次。英文版 API.md 结构清晰、覆盖完整（除 CursorController 外）。
@@ -257,10 +257,10 @@ _暂无问题记录_
 
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
-| 1 | client_impl.go | `NewClient()` | `RetryBackoff` 无下限校验 — `Timeout` 和 `ConnectTimeout` 有 `< 100ms` 的合理性检查，但 `RetryBackoff` 未校验（传入 0 或负值会导致 jitter 计算异常：`jitterRange = 0`，无 sleep）。建议加 `if cfg.RetryBackoff < 10*time.Millisecond { cfg.RetryBackoff = 500*time.Millisecond }` | P2 |
+| 1 | client_impl.go | `NewClient()` | `RetryBackoff` 无下限校验 — `Timeout` 和 `ConnectTimeout` 有 `< 100ms` 的合理性检查，但 `RetryBackoff` 未校验（传入 0 或负值会导致 jitter 计算异常：`jitterRange = 0`，无 sleep）。建议加 `if cfg.RetryBackoff < 10*time.Millisecond { cfg.RetryBackoff = 500*time.Millisecond }` | P2 ✅已修复（加 `< 100ms → 100ms` 校验）|
 | 2 | client_impl.go | `doFireAndForget()` | 内联 jitter 计算逻辑可提取为 `jitteredBackoff(baseDelay, attempt)` 辅助函数 — 当前 doFireAndForget 内的 8 行 jitter 代码与 Java SDK 的 `calculateBackoff` 对应，但 Go 版本未独立提取，测试覆盖困难 | P2 (低) |
-| 3 | error.go | `IsRetryable()` | 与 `isTransient()` 逻辑重复 — 两者检查相同的 4 个状态码（429, 502, 503, 504）。`isTransient` 用于 `doFireAndForget` 内部，`IsRetryable` 为公开 API。建议 `isTransient` 内部调用 `IsRetryable` 减少重复 | P2 (低) |
-| 4 | dto/dto_test.go | 全文 | 无 `ObservationUpdate.IsEmpty()` 的 `ExtractedData` 为 empty map 时的测试 — 当前测试覆盖了 `ExtractedData: map[string]any{"key":"val"}`（非空），但未测试 `ExtractedData: map[string]any{}`（空 map）时 `IsEmpty()` 的行为 | P2 (低) |
+| 3 | error.go | `IsRetryable()` | 与 `isTransient()` 逻辑重复 — 两者检查相同的 4 个状态码（429, 502, 503, 504）。`isTransient` 用于 `doFireAndForget` 内部，`IsRetryable` 为公开 API。建议 `isTransient` 内部调用 `IsRetryable` 减少重复 | P2 (低) ✅已修复（isTransient 内部调用 IsRetryable）|
+| 4 | dto/dto_test.go | 全文 | 无 `ObservationUpdate.IsEmpty()` 的 `ExtractedData` 为 empty map 时的测试 — 当前测试覆盖了 `ExtractedData: map[string]any{"key":"val"}`（非空），但未测试 `ExtractedData: map[string]any{}`（空 map）时 `IsEmpty()` 的行为 | P2 (低) ✅已修复（添加 TestObservationUpdate_IsEmpty_ExtractedDataEmptyMap）|
 
 **测试结果**: 267 tests passed（主包 + dto + eino + genkit + langchaingo）
 

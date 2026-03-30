@@ -322,6 +322,15 @@ func TestObservationUpdate_IsEmpty_ExtractedDataSet(t *testing.T) {
 	}
 }
 
+func TestObservationUpdate_IsEmpty_ExtractedDataEmptyMap(t *testing.T) {
+	// Empty map is NOT nil — IsEmpty() should return false
+	// (the map was explicitly set, even if it has no entries)
+	update := ObservationUpdate{ExtractedData: map[string]any{}}
+	if update.IsEmpty() {
+		t.Error("expected IsEmpty()=false when ExtractedData is non-nil empty map")
+	}
+}
+
 func TestObservationUpdate_IsEmpty_EmptyStringPointerNotEmpty(t *testing.T) {
 	// Empty string pointer is still "set" — allows clearing a field
 	empty := ""
