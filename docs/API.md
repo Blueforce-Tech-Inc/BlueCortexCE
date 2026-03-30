@@ -46,15 +46,9 @@ Content-Type: application/json
 
 ## Authentication
 
-[Chinese Version](API-zh-CN.md)
+**No authentication is required** for the current version. All endpoints are open on `localhost:37777`.
 
-### API Key
-
-Include your API key in the request header:
-
-```
-Authorization: Bearer YOUR_API_KEY
-```
+> ⚠️ **Production Warning**: If exposing to the public internet, add an authentication layer (e.g., API Key, JWT).
 
 ## Sessions
 
