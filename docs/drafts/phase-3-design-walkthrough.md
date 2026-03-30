@@ -1,6 +1,6 @@
 # Phase 3 Architecture Walkthrough: Scenarios & Decision Log
 
-**Date**: 2026-03-21 → 2026-03-22
+**Date**: 2026-03-21 → 2026-03-22 (updated 2026-03-31 to reflect append-only extraction)
 **Purpose**: Test the generalization capability of the extraction architecture through diverse scenarios.
 **Full design reference**: [phase-3-design.md](phase-3-design.md)
 
@@ -89,38 +89,27 @@ Missing: session group scoping (e.g., "pref:{project}:{userId}:work")
 
 **Challenge**: Track how preferences change over time.
 
-**Resolution**: LLM as intelligent merge agent. Each extraction includes prior result + new observations. The LLM produces a complete current state, deciding what to keep/remove based on semantics:
+**Resolution**: **Append-only extraction** (Solution D, Section 24.6 of [phase-3-design.md](phase-3-design.md)). The LLM only receives NEW observations (no prior context) and outputs `add`/`remove`/`keep_hint` operations. The service then merges with the FULL prior data from DB — no truncation, no data loss.
 
 ```
-Prior: [{耳机: Sony, positive}]
-New observation: "Bose也不错" (didn't reject Sony)
-LLM output: [{耳机: Sony, positive}, {耳机: Bose, positive}]
+Run 1 (no prior, full-state):
+  LLM output → [{category: "耳机", value: "Sony", sentiment: "positive"}]
 
-Prior: [{耳机: Sony, positive}, {耳机: Bose, positive}]
-New observation: "我不喜欢Sony了"
-LLM output: [{耳机: Bose, positive}]  ← Sony removed by LLM understanding
+Run 2 (append-only, new obs "Bose也不错"):
+  LLM output → {add: [{category: "耳机", value: "Bose", sentiment: "positive"}],
+                 keep_hint: [{category: "耳机", value: "Sony"}]}
+  Service merges → [{category: "耳机", value: "Sony"}, {category: "耳机", value: "Bose"}]
+
+Run 3 (append-only, new obs "不喜欢Sony了"):
+  LLM output → {remove: [{category: "耳机", value: "Sony"}]}
+  Service merges → [{category: "耳机", value: "Bose"}]
 ```
 
-**Key insight**: No programmatic merge logic needed. The LLM interprets semantics and produces the complete current state. Old extractions are preserved as history. Timestamp distinguishes current vs historical.
+**Key insight**: The LLM never sees prior data — it only processes new observations. The service performs the merge with the full prior from DB. This prevents silent data loss from truncation while keeping token costs ~20% lower than full-prior approaches. Old extractions are preserved as history. Timestamp distinguishes current vs historical.
 
-**Design change**: `mergeExtractedData()` in Section 2.3 of [phase-3-design.md](phase-3-design.md) is no longer needed. Replace with:
-1. Fetch prior extraction (latest) for this template+session
-2. Include prior result in LLM prompt as context
-3. LLM produces complete new state, with optional `removed` metadata for tracking what was dropped
-4. Store as new observation (old one becomes history)
+**Implementation**: `mergeAppendOnly()` in `StructuredExtractionService.java` handles the merge logic. The `buildAppendOnlySystemPrompt()` generates the add/remove/keep_hint contract.
 
-**Schema enhancement**: Add optional `removed` field for removal metadata:
-```json
-{
-  "preferences": [{"category": "耳机", "value": "Bose", "sentiment": "positive"}],
-  "removed": [{"category": "耳机", "value": "Sony", "reason": "用户说不再喜欢"}]
-}
-```
-Prompt instruction: "If any previously mentioned item is no longer valid, include it in the `removed` field with a brief reason."
-
-**Information preservation**: Three layers — current state (in `preferences`), removal tracking (in `removed`), full history (old extractions as snapshots).
-
-**Status**: ✅ Resolved — LLM-driven re-extraction with semantic understanding
+**Status**: ✅ Resolved — append-only extraction with service-side merge
 
 ---
 
@@ -132,19 +121,19 @@ Prompt instruction: "If any previously mentioned item is no longer valid, includ
 
 **Challenge**: Are these conflicts? Context matters (restaurant vs bar).
 
-**Resolution**: Under the LLM re-extraction approach, no separate ConflictDetector is needed. The LLM understands context and semantics when producing the new extraction state:
+**Resolution**: Under the append-only extraction approach, conflict detection is still handled naturally. The LLM receives only new observations and outputs `add`/`remove`/`keep_hint`. When a user contradicts a prior preference, the LLM outputs a `remove` operation. The service merges with the full prior from DB:
 
 ```
 Prior: [{category: "用餐环境", value: "安静", context: "餐厅"}]
 New observation: "酒吧吵一点也没关系"
-LLM output: [{category: "用餐环境", value: "安静", context: "餐厅"}, {category: "用餐环境", value: "可以吵", context: "酒吧"}]
+LLM output: {add: [{category: "用餐环境", value: "可以吵", context: "酒吧"}],
+             keep_hint: [{category: "用餐环境", value: "安静", context: "餐厅"}]}
+Service merges → [{category: "用餐环境", value: "安静", context: "餐厅"}, {category: "用餐环境", value: "可以吵", context: "酒吧"}]
 ```
 
-The LLM naturally resolves context differences. True contradictions (e.g., "不吃辣" vs "无辣不欢") are also detected and handled in the output.
+True contradictions trigger `remove` operations. The append-only approach is simpler than full-prior re-extraction because the LLM doesn't need to re-state the entire prior state — it just identifies what's new, removed, or still relevant.
 
-**Design change**: The `ConflictDetector` class from Section 3.2 of [phase-3-design.md](phase-3-design.md) is no longer needed for Phase 3.1. Conflict handling is implicit in the LLM re-extraction process.
-
-**Status**: ✅ Resolved — conflict detection is implicit in LLM re-extraction
+**Status**: ✅ Resolved — conflict detection is implicit in append-only extraction
 
 ---
 
@@ -233,9 +222,9 @@ This is correct behavior for zero-shot: nothing to extract yet.
 
 ### Decision 4: Evolution & Re-extraction
 
-**Decision**: LLM re-extraction — each extraction includes prior result as LLM context. LLM produces complete current state, old extractions preserved as history. No programmatic merge logic needed.
+**Decision**: **Append-only extraction** (Section 24.6) — LLM only receives new observations, outputs `add`/`remove`/`keep_hint` operations. Service merges with full prior from DB. Supersedes earlier "LLM re-extraction" approach (which passed prior context to LLM and risked silent data loss from truncation).
 
-**Documented in**: Section 2.3 of [phase-3-design.md](phase-3-design.md)
+**Documented in**: Section 24.6 of [phase-3-design.md](phase-3-design.md)
 
 ### Decision 5: Usage Modes
 
@@ -261,12 +250,12 @@ This is correct behavior for zero-shot: nothing to extract yet.
 | 1. User Preference | ✅ Yes | None | — |
 | 2. Family Assistant | ✅ Yes | Person field in schema, external interpretation | — |
 | 3. Multi-session Scope | ✅ Yes | projectPath as scope boundary | — |
-| 4. Temporal Evolution | ✅ Yes | LLM re-extraction with prior context | — |
-| 5. Conflict Detection | ✅ Yes | Implicit in LLM re-extraction, no separate detector needed | — |
+| 4. Temporal Evolution | ✅ Yes | Append-only extraction: LLM outputs add/remove/keep_hint, service merges with full prior | — |
+| 5. Conflict Detection | ✅ Yes | Implicit in append-only extraction: remove operations handle contradictions | — |
 | 6. Trigger Timing | ✅ Yes | Scheduled + deepRefine; keyword trigger as future enhancement | Phase 3.2 |
 | 7. Privacy Control | ✅ Yes | Application layer responsibility, not memory system scope | — |
 | 8. Zero-shot Bootstrap | ✅ Yes | None | — |
 
 **Architecture generalization: FULLY CONFIRMED. 8/8 scenarios supported.**
 
-The key architectural insight is **LLM re-extraction** — instead of programmatic merge logic, each extraction includes prior results as context and the LLM produces a complete current state. This makes the system simpler, more flexible, and handles all edge cases (conflicts, evolution, removal) through semantic understanding.
+The key architectural insight is **append-only extraction** — the LLM only processes new observations (no prior context), outputs `add`/`remove`/`keep_hint` operations, and the service merges with the full prior from DB. This prevents silent data loss from truncation while keeping token costs ~20% lower than full-prior approaches. All edge cases (conflicts, evolution, removal) are handled through explicit operations rather than LLM re-interpretation of the entire state.

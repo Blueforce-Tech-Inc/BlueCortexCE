@@ -103,4 +103,7 @@
 - **2026-03-31 05:13**: 设计文档 (structured-extraction.md + walkthrough) — 修复 2 问题，commit 8c45107
 - **2026-03-31 05:45**: 架构文档 (ARCHITECTURE.md + ARCHITECTURE-zh-CN.md + backend/README.md) — 修复 6 问题，commit 4e5a089
 - **2026-03-31 06:00**: 运维文档 (DOCKER_README + docker-compose + TESTING + CONTRIBUTING) — 修复 9 问题
-- **Next direction**: API 文档 (新一轮轮换)
+- **2026-03-31 06:38**: API 文档 (API.md 新一轮) — 修复 1 问题（Viewer/Management/Mode/Health/Cursor/Logs 章节参数表和响应示例缺失），commit 3e04e6c
+- **2026-03-31 07:00**: SDK README (Go/Python/JS 新一轮) — 修复 1 问题（Go README 测试数 278→268），commit 94770bb
+- **2026-03-31 07:33**: 设计文档 (structured-extraction.md + walkthrough) — 修复 1 问题（walkthrough 场景4/5/决策4/评估表引用旧版 "LLM re-extraction"，实际实现为 append-only extraction），commit pending
+- **Next direction**: 架构文档 (新一轮轮换)
