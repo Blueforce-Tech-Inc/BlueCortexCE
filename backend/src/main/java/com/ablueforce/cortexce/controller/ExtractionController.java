@@ -149,7 +149,7 @@ public class ExtractionController {
      */
     @PostMapping("/run")
     @Operation(summary = "Manually trigger extraction",
-        description = "Manually triggers the structured extraction pipeline for a project. Executes synchronously — the response is returned after extraction completes. Extraction uses the configured templates to extract structured data (e.g., user preferences, allergies) from recent session observations.")
+        description = "Manually triggers the structured extraction pipeline for a project. Executes synchronously — the response is returned after extraction completes. Extraction uses the configured templates to extract structured data (e.g., user preferences, allergies) from recent session observations. Note: LLM extraction may take over 60 seconds; ensure client timeout is configured accordingly.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Extraction triggered successfully",
             content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.TriggerExtractionResponse.class))),

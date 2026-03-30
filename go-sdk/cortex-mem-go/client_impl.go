@@ -322,6 +322,23 @@ func extractErrorMessage(data []byte) string {
 	return s
 }
 
+// jitteredBackoff calculates a jittered backoff delay for retry attempts.
+// Base delay = baseDelay * attempt, jittered to [0.75x, 1.25x] to prevent thundering herd.
+// Matches Java SDK CortexMemClientImpl.jitteredBackoff() for consistent behavior across SDKs.
+func jitteredBackoff(baseDelay time.Duration, attempt int) time.Duration {
+	base := baseDelay * time.Duration(attempt)
+	jitterRange := int64(base) / 2
+	var jitter time.Duration
+	if jitterRange > 0 {
+		jitter = time.Duration(rand.Int63n(jitterRange)) - base/4
+	}
+	delay := base + jitter
+	if delay < 0 {
+		delay = 0
+	}
+	return delay
+}
+
 // doFireAndForget executes a capture operation with retry and error swallowing.
 // Matches Java SDK's executeWithRetry behavior: retries internally, logs on failure.
 // Retries on network errors, 429, 502, 503, 504. Does NOT retry on 4xx or 500.
@@ -357,17 +374,7 @@ func (c *httpClient) doFireAndForget(ctx context.Context, name string, fn func()
 				"maxAttempts", c.config.MaxRetries,
 			)
 			// Linear backoff with jitter (±25%) to prevent thundering herd.
-			// Base delay = RetryBackoff * attempt, jittered to [0.75x, 1.25x].
-			baseDelay := c.config.RetryBackoff * time.Duration(attempt)
-			jitterRange := int64(baseDelay) / 2
-			var jitter time.Duration
-			if jitterRange > 0 {
-				jitter = time.Duration(rand.Int63n(jitterRange)) - baseDelay/4
-			}
-			delay := baseDelay + jitter
-			if delay < 0 {
-				delay = 0
-			}
+			delay := jitteredBackoff(c.config.RetryBackoff, attempt)
 			select {
 			case <-ctx.Done():
 				// Fire-and-forget: swallow context cancellation

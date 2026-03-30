@@ -48,7 +48,12 @@ export interface ResolvedClientConfig {
   headers: Record<string, string>;
 }
 
-/** SDK version */
+/**
+ * SDK version for User-Agent header.
+ * Note: This duplicates package.json version field. Kept as a constant to avoid
+ * runtime dependency on package.json (which may not be resolvable in all bundlers).
+ * When releasing, update both package.json and this constant.
+ */
 export const SDK_VERSION = '1.0.0';
 
 /**

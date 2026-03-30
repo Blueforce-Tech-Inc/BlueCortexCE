@@ -71,14 +71,19 @@ public class ExperienceTemplate {
 
     /**
      * Build a simple structured experience from a single observation.
+     * Falls back to content prefix (first 200 chars) when action/outcome extraction returns null.
      */
     public String buildSimpleExperience(String content, String title) {
+        String action = extractAction(content);
+        String outcome = extractOutcome(content);
+        String contentFallback = content != null ? truncate(content, 200) : null;
+
         return buildExperienceText(
-            title,                      // task
-            extractReasoning(content),  // reasoning
-            extractAction(content),     // action
-            extractOutcome(content),   // outcome
-            extractLearnings(content)  // learnings
+            title,                          // task
+            extractReasoning(content),      // reasoning
+            action != null ? action : contentFallback,   // action (fallback: content prefix)
+            outcome != null ? outcome : contentFallback, // outcome (fallback: content prefix)
+            extractLearnings(content)       // learnings
         );
     }
 

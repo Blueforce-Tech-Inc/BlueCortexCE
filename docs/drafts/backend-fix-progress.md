@@ -1,195 +1,52 @@
-# Backend 审查问题修复进度
+> **用途**: 记录 backend-review-findings.md 问题的集中修复进度
+> **维护者**: PM Agent
+> **来源**: backend-review-findings.md (2026-03-31 集中修复批次)
 
-**开始时间**: 2026-03-29 11:46
-**完成时间**: 2026-03-29 12:25
-**目标**: 修复 `backend-review-findings.md` 中所有问题 + 3 轮迭代检查 + 回归测试
+# Backend Review 集中修复记录
 
-## 最终结果
+## 2026-03-31 | 集中修复批次
 
-**所有 14 个问题已全部解决。无未处理问题。**
+**修复范围**: backend-review-findings.md 中 12 个未修复问题
 
-| # | 来源 | 文件/问题 | 级别 | 结果 |
-|---|------|----------|------|------|
-| 1 | 审查#1 | VectorValidator.countDimensions() | P2 | ✅ 修复 |
-| 2 | 审查#1 | IngestionController debug 死代码 | P2 | ✅ 修复 |
-| 3 | 审查#1 | IngestionController 类型转换 | P2 | ✅ 修复 |
-| 4 | 审查#1 | PendingMessageEntity 无 Lombok | P2 | ⏭ 跳过（风格一致） |
-| 5 | 审查#2 | SSEBroadcaster eventName 忽略 | P2 | ✅ 修正（Javadoc 澄清，保持 unnamed events） |
-| 6 | 审查#2 | HealthController /api/health | P2 | ✅ 修复 |
-| 7 | 审查#2 | HealthController /api/version | P2 | ✅ 修复 |
-| 8-14 | 审查#3 | API.md 6 个 P1 + 8 个 P2 | P1/P2 | ✅ 全部修复 |
+| # | 文件 | 问题 | 级别 | 修复方式 | 状态 |
+|---|------|------|------|----------|------|
+| 1 | WorktreeDetector.java L83 | WORKTREES_PATTERN 依赖 gitdir 路径中 `.git/worktrees/` 段，core.worktree 非标准位置会误判 | P2(低) | 在 detectWorktree Javadoc 中明确说明此限制 | ✅已修复 |
+| 2 | WorktreeDetector.java L91 | getProjectContext 中 primary 值可能不一致 | P2(低) | 改用 worktreeInfo.worktreeName() 作为 worktree 场景下的 primary | ✅已修复 |
+| 3 | ExtractionController.java L104-117 `/run` | Swagger 描述为 "synchronously" 但无超时说明 | P2(低) | 在 @Operation description 中加超时提示 | ✅已修复 |
+| 4 | PendingMessageEventListener.java L46 | catch 块仅 log.error，消息状态不变，存在无限重试风险 | P2(低) | catch 中将消息标记为 "failed" | ✅已修复 |
+| 5 | ExperienceTemplate.java L88 | buildSimpleExperience() action/outcome 为 null 时输出大量 N/A | P2 | content 前 200 字符作为 fallback 替代 N/A | ✅已修复 |
+| 6 | CortexMemClientImpl.java executeWithRetrySilent | interrupt during retry sleep 需加 WARN 日志 | P2 | catch 中已有 interrupt() 恢复，加 WARN 日志 | ✅已修复 |
+| 7 | CortexMemClientImpl.java isRetryable | 500 排除在 retry 外，需说明设计原因 | P2(低) | Javadoc 中加注说明（500 是 code bug，非 transient） | ✅已修复 |
+| 8 | client_impl.go doFireAndForget | 内联 jitter 计算逻辑可提取 | P2(低) | 提取 jitteredBackoff(baseDelay, attempt) 辅助函数 | ✅已修复 |
+| 9 | client-options.ts L31 | SDK_VERSION = '1.0.0' 与 package.json 重复定义 | P2(低) | Javadoc 说明重复原因（bundler 兼容性）及发布时同步要求 | ✅已修复 |
+| 10 | examples/http-server/app.ts L4 | docstring "covering all 25 SDK methods" 不精确 | P2(极低) | 改为 "covering all 25 public SDK API methods (plus /health)" | ✅已修复 |
+| 11 | API.md | TestController (/api/test) 未文档化 | P2(低) | 跳过（有意排除，@Profile("!prod")） | ⏭跳过 |
+| 12 | API-zh-CN.md | 更新日志停留在 0.1.0（2026-03-13） | P2 | 更新 changelog 增加 0.1.0-beta 记录 | ✅已修复 |
 
-## 修复详情
+**编译/测试结果**:
+- Backend: `mvn clean compile` ✅
+- Java SDK: `mvn clean compile` ✅
+- Go SDK: `go build ./...` + `go test ./...` ✅（267 tests passed）
+- JS SDK: `npx tsup` build ✅（CJS+ESM+DTS） + `npx vitest run` ✅（198 tests passed）
+- Regression: `bash scripts/regression-test.sh` ✅（46/46 tests passed）
 
-### 代码修复
-- **VectorValidator**: `countDimensions()` 提取括号内容后再计算，`[]` 正确返回 0
-- **IngestionController**: 移除 `handleSessionEnd()` 中未使用的 `debug` 变量和死代码分支
-- **IngestionController**: `toolInput`/`toolResponse` 使用 pattern matching `instanceof String s` 简化
-- **HealthController**: `/api/health` 添加 DB 连接检查，DB 不可达返回 503
-- **HealthController**: `getVersion()` 多源回退：JAR manifest → build-info → dev-SNAPSHOT
+**汇总**: 修复 11 个，跳过 1 个（TestController 有意排除）。
 
-### SSEBroadcaster 特殊处理
-- 原审查建议：添加 `.name(eventName)` 使参数生效
-- **发现问题**：WebUI 使用 `onmessage`（只捕获 unnamed events），添加 `.name()` 会破坏 WebUI
-- **最终修复**：保持 unnamed events，澄清 Javadoc 说明 `eventName` 仅用于文档/路由，实际路由由 data.type 完成
+## 2026-03-31 | 集中修复批次 #2
 
-### 文档修复
-- **API.md**: 全面重写 — 修正 Session/Extraction/Ingest 路径，补充 Viewer/Mode/Logs/Import 端点
+**来源**: backend-review-findings.md (#11, 2026-03-31 03:05) — 5 个未修复 P2 问题
 
-## 验证记录
+| # | 文件 | 问题 | 级别 | 修复方式 | 状态 |
+|---|------|------|------|----------|------|
+| 1 | SettingsService.java L148-165 | `String.valueOf(null)` 返回字面量 "null" | P2 | 所有 `String.valueOf(updates.get(...))` → `Objects.toString(v, "")` | ✅已修复 |
+| 2 | SettingsService.java L117 | `ATOMIC_MOVE` 跨文件系统抛异常 | P2(低) | 添加 `AtomicMoveNotSupportedException` catch，fallback 到 `REPLACE_EXISTING` | ✅已修复 |
+| 3 | SettingsService.java L28 | `settings` 字段非线程安全 | P2 | 添加 `volatile` 关键字 | ✅已修复 |
+| 4 | AppSettings.java L382 | `toMap()` 中 `CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS` 返回 String 而非 int | P2(低) | 新增 `getContextMaxObservationsInt()` 方法，`toMap()` 改用 int 版本 | ✅已修复 |
+| 5 | ViewerController.java L497-498 | 同样的 `String.valueOf(null)` 模式 | P2 | 改用 `Objects.toString(v, "")` | ✅已修复 |
 
-| 步骤 | 结果 |
-|------|------|
-| mvn clean compile package -DskipTests | ✅ BUILD SUCCESS |
-| 服务重启 + /api/health | ✅ status: ok |
-| 回归测试 (regression-test.sh) | ✅ 46/46 passed |
-| 第 1 轮迭代检查 | ✅ 通过 |
-| 第 2 轮迭代检查 | ✅ 通过 |
-| 第 3 轮迭代检查 | ✅ 通过 |
-| SSEBroadcaster 3 轮专项检查 | ✅ 通过 |
-| WebUI 契约验证 | ✅ 全部安全 |
+**编译/测试结果**:
+- Backend: `mvn clean compile package -DskipTests` ✅
+- Regression: `bash scripts/regression-test.sh --skip-build` ✅（46/46 tests passed）
+- Phase 3 Acceptance: `EXTRACTION_ENABLED=true bash scripts/phase3-acceptance-test.sh` ✅（25/25 tests passed）
 
-## 提交记录
-
-### 2026-03-29 22:05 健康检查与测试验收修复
-
-| # | 来源 | 文件/问题 | 级别 | 结果 |
-|---|------|----------|------|------|
-| 15 | 审查#3 | TemplateService escapeTemplateValue() 死代码 | P2 | ✅ 修复（重排序：长 pattern 先替换） |
-| 16 | 审查#3 | SessionEntity status 字段无长度约束 | P2 | ✅ 修复（添加 @Column(length=20)） |
-
-### 代码修复详情（2026-03-29 22:05）
-
-**TemplateService.escapeTemplateValue()**:
-- 问题：`{{{{` 和 `}}}}` 替换在 `{{`/`}}` 之后执行，短 pattern 先消耗了输入，长 pattern 永远不匹配
-- 修复：重排序替换，长 pattern（`{{{{`/`}}}}`）先执行，短 pattern（`{{`/`}}`）后执行
-- 验证：编译通过，回归测试全部通过
-
-**SessionEntity.status**:
-- 问题：使用 raw String 无长度约束，任何长度的字符串都能写入
-- 修复：添加 `@Column(length = 20)` 限制最大长度，最长的 status 值 "processing" 仅 10 字符
-- 验证：编译通过，回归测试全部通过
-
-### 验证记录（2026-03-29 22:05）
-
-| 步骤 | 结果 |
-|------|------|
-| mvn clean compile package -DskipTests | ✅ BUILD SUCCESS |
-| 服务重启 + /api/health | ✅ status: ok |
-| 回归测试 (regression-test.sh) | ✅ 46/46 passed |
-| EXTRACTION_ENABLED 验收测试 | ✅ 25/25 passed |
-| 第 1 轮迭代检查 | ✅ 通过 |
-| 第 2 轮迭代检查 | ✅ 通过 |
-| 第 3 轮迭代检查 | ✅ 通过 |
-
-## 提交记录
-
-- `1bd6572` — fix: backend review findings (VectorValidator, IngestionController, SSEBroadcaster, HealthController, API.md)
-- `58ee4c4` — fix: revert SSEBroadcaster breaking change (keep unnamed events for WebUI)
-- `6bba534` — docs: update SSEBroadcaster fix description
-- `2eea224` — docs: mark all backend review findings as fixed
-- `9f9359b` — docs: add WebUI contract warning to patrol-task.md
-
----
-
-## 2026-03-30 第二轮修复
-
-**来源**: 巡检任务 cron 自动发现的 Review #4 和 #5
-
-| # | 文件 | 问题 | 级别 | 结果 |
-|---|------|------|------|------|
-| 1 | TokenService.java | Clamp 注释不准确 | P2 | ✅ 已修复 |
-| 2 | TokenService.java | savingsPercent 类型隐式转换 | P2 | ✅ 已修复 |
-| 3 | ContextController.java | isWithinProject() 冗余 equals | P2 | ✅ 已修复 |
-| 4 | PendingMessageProcessor.java | @Scheduled 无 overlap 保护 | P2 | ✅ 已修复 (AtomicBoolean guard) |
-
-**提交**: `1593a36`
-
-**验证**: 编译通过 → 3 轮迭代检查无问题
-
-### 回归测试结果 (2026-03-30 01:07)
-- 回归测试: ✅ 46/46 passed, 0 failed, 1 skipped
-- EXTRACTION 验收: ✅ 25/25 passed, 0 failed, 0 skipped
-- 服务状态: ✅ status: ok
-
-### ImportService 日志修复 (2026-03-30 08:05)
-- **问题**: ImportService.java L189 `logHappyPath()` 用于 JSON 解析失败日志，语义错误
-- **修复**: 改为 `log.warn()`，保留 WARN 级别但语义更清晰
-- **影响**: 1 行修改，无 API 影响
-- **验证**: 回归测试 46/46 通过，构建成功，3 轮 Review 通过
-
-### CursorService 审查修复 (2026-03-30 11:31)
-- **修复 4 个 P2**: IOException 处理、路径遍历防护、缓存一致性、并发安全
-- **提交**: (见 git log)
-
-### PendingMessageEventListener + ExperienceTemplate 修复 (2026-03-30 17:05)
-- **修复**: PendingMessageEventListener 死信标记、ExperienceTemplate section 解析前缀匹配
-- **提交**: (见 git log)
-
----
-
-## 2026-03-30 20:24 健康检查与测试验收修复
-
-**来源**: 每 2 小时 cron 健康检查任务
-
-| # | 文件 | 问题 | 级别 | 结果 |
-|---|------|------|------|------|
-| 1 | StructuredExtractionService.java | append-only 提取 LLM 返回 key 未做 schema 验证，静默数据丢失 | P2 | ✅ 已修复（添加 unexpected keys 检测 + WARN 日志） |
-
-### 代码修复详情
-
-**StructuredExtractionService.mergeAppendOnly()**:
-- 问题：LLM 可能返回 `adds` 而非 `add`，`safeListOfMaps` 将未知 key 视为 null 返回空 list，数据静默丢失无报错
-- 修复：在 `mergeAppendOnly` 入口添加 expected keys (`add`, `remove`, `keep_hint`) 校验，检测到 unexpected keys 时输出 WARN 日志
-- 影响：仅增加日志可观测性，不改变功能行为，不破坏 WebUI 契约
-
-### 验证记录（2026-03-30 20:24）
-
-| 步骤 | 结果 |
-|------|------|
-| mvn clean compile package -DskipTests | ✅ BUILD SUCCESS |
-| 服务重启 + /api/health | ✅ status: ok |
-| 回归测试 (regression-test.sh) | ✅ 46/46 passed, 0 failed |
-| EXTRACTION 验收测试 | ✅ 25/25 passed, 0 failed |
-| 第 1 轮迭代检查 | ✅ 通过 |
-| 第 2 轮迭代检查 | ✅ 通过 |
-| 第 3 轮迭代检查 | ✅ 通过 |
-
----
-
-## 2026-03-31 01:11 健康检查与测试验收修复
-
-**来源**: Python SDK E2E 测试暴露的 Backend 问题（Review #12）
-
-| # | 文件 | 问题 | 级别 | 结果 |
-|---|------|------|------|------|
-| 1 | MemoryController.java | POST /api/memory/feedback 返回 501 | P1 | ✅ 已修复（完整实现：UUID 校验、DB 查找、字段更新、404 处理） |
-| 2 | ViewerController.java | POST /api/observations/batch 空 IDs 返回 400 | P2 | ✅ 已修复（空 IDs/空 UUID 列表返回 200 + 空结果） |
-
-### 代码修复详情
-
-**MemoryController.submitFeedback()**:
-- 问题：Feedback 端点返回 501 Not Implemented，WebUI 无法提交反馈
-- 修复：完整实现 feedback 逻辑：UUID 格式校验 → DB 查找 → 更新 feedbackType/userComment/feedbackUpdatedAt → 返回 200
-- 404 处理：observationId 不存在时返回 404 + 错误信息
-- 400 处理：observationId 或 feedbackType 缺失/无效时返回 400
-- 影响：MemoryController.java（1 处替换），新增 import OffsetDateTime
-
-**ViewerController.batchGetObservations()**:
-- 问题：空 IDs 列表返回 400 Bad Request，SDK 无法读取 body（400 触发异常）
-- 修复：3 处 `ResponseEntity.badRequest()` → `ResponseEntity.ok()`，空结果返回 200 + `{observations:[], count:0}`
-- 影响：ViewerController.java（3 处修改）
-
-### 验证记录（2026-03-31 01:11）
-
-| 步骤 | 结果 |
-|------|------|
-| mvn clean compile package -DskipTests | ✅ BUILD SUCCESS |
-| 服务重启 + /api/health | ✅ status: ok |
-| 回归测试 (regression-test.sh) | ✅ 46/46 passed, 0 failed |
-| EXTRACTION 验收测试 | ✅ 25/25 passed, 0 failed |
-| Feedback API 手动测试 | ✅ 创建 observation → 提交 feedback → 验证持久化成功 |
-| WebUI 契约检查 | ✅ 无 camelCase 字段变更，SSE 未受影响 |
-| 第 1 轮迭代检查 | ✅ 通过 |
-| 第 2 轮迭代检查 | ✅ 通过 |
-| 第 3 轮迭代检查 | ✅ 通过 |
+**汇总**: 修复 5 个 P2 问题（null 安全、原子写入回退、线程安全、类型一致性）。

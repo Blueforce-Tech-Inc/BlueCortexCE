@@ -202,6 +202,11 @@ public class AppSettings {
         return getEnvOrDefault("CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS", contextMaxObservations);
     }
 
+    @JsonIgnore
+    public int getContextMaxObservationsInt() {
+        return parseIntSafe(getContextMaxObservations(), 50);
+    }
+
     public String getContextShowLastSummary() {
         return getEnvOrDefault("CLAUDE_MEM_CONTEXT_SHOW_LAST_SUMMARY", contextShowLastSummary);
     }
@@ -379,7 +384,7 @@ public class AppSettings {
         map.put("session_count", getContextSessionCountInt());
         map.put("observation_types", getContextObservationTypesList());
         map.put("observation_concepts", getContextObservationConceptsList());
-        map.put("CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS", getContextMaxObservations());
+        map.put("CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS", getContextMaxObservationsInt());
         map.put("showReadTokens", isContextShowReadTokens());
         map.put("showWorkTokens", isContextShowWorkTokens());
         map.put("showSavingsAmount", isContextShowSavingsAmount());

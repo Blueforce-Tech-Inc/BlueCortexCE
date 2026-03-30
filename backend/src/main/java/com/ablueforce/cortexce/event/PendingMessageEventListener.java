@@ -54,6 +54,12 @@ public class PendingMessageEventListener {
             }
         } catch (Exception e) {
             log.error("Failed to process PendingMessageEvent: {}", event, e);
+            // Mark as failed to prevent infinite retry by the scheduled task
+            pendingMessageRepository.findById(event.getPendingMessageId())
+                .ifPresent(msg -> {
+                    msg.setStatus("failed");
+                    pendingMessageRepository.save(msg);
+                });
         }
     }
 }

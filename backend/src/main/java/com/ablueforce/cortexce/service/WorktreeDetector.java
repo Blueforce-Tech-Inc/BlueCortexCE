@@ -72,6 +72,12 @@ public class WorktreeDetector {
 
     /**
      * Detect if a directory is a git worktree and extract parent info.
+     * <p>
+     * <b>Limitation:</b> This method relies on the {@code .git/worktrees/} path segment
+     * in the gitdir reference. If a user configures {@code core.worktree} to point to a
+     * non-standard location (without the {@code .git/worktrees/} segment), the detection
+     * will return {@link WorktreeInfo#NOT_A_WORKTREE}. This matches standard git worktree
+     * behavior and covers all typical use cases.
      *
      * @param cwd Current working directory (absolute path)
      * @return WorktreeInfo with parent details if worktree, otherwise isWorktree=false
@@ -145,12 +151,13 @@ public class WorktreeDetector {
         WorktreeInfo worktreeInfo = detectWorktree(cwd);
 
         if (worktreeInfo.isWorktree() && worktreeInfo.parentProjectName() != null) {
-            // In a worktree: include parent first for chronological ordering
+            // In a worktree: use worktreeInfo.worktreeName() for consistency with detectWorktree
+            String worktreeProjectName = worktreeInfo.worktreeName() != null ? worktreeInfo.worktreeName() : primary;
             return new ProjectContext(
-                primary,
+                worktreeProjectName,
                 worktreeInfo.parentProjectName(),
                 true,
-                List.of(worktreeInfo.parentProjectName(), primary)
+                List.of(worktreeInfo.parentProjectName(), worktreeProjectName)
             );
         }
 

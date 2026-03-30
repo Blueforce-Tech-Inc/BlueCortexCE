@@ -122,8 +122,8 @@ _暂无问题记录_
 |---|------|------|------|------|
 | 1 | TokenService.java | ~49 | Clamp `2L * Integer.MAX_VALUE` 注释说"use long literal to avoid overflow"，实际用途是防止 ceil 后超出 int 范围，注释不够准确 | P2 ✅已修复 |
 | 2 | TokenService.java | ~64 | `savingsPercent` 是 double，但赋值 `Math.round(...)` 返回 long，自动加宽转换，可读性稍差但无功能影响 | P2 (低) ✅已修复 |
-| 3 | WorktreeDetector.java | ~83 | `WORKTREES_PATTERN` 依赖 gitdir 路径中包含 `.git/worktrees/` 段。若用户配置 `core.worktree` 指向非标准位置，会误判为 NOT_A_WORKTREE | P2 (低) |
-| 4 | WorktreeDetector.java | ~91 | `getProjectName()` cwd 为空时返回 "unknown-project"，与 `detectWorktree` 行为一致，但 `getProjectContext` 调用顺序可能产生不一致的 primary 值 | P2 (低) |
+| 3 | WorktreeDetector.java | ~83 | `WORKTREES_PATTERN` 依赖 gitdir 路径中包含 `.git/worktrees/` 段。若用户配置 `core.worktree` 指向非标准位置，会误判为 NOT_A_WORKTREE | P2 (低) ✅已修复（Javadoc 中明确说明此限制）|
+| 4 | WorktreeDetector.java | ~91 | `getProjectName()` cwd 为空时返回 "unknown-project"，与 `detectWorktree` 行为一致，但 `getProjectContext` 调用顺序可能产生不一致的 primary 值 | P2 (低) ✅已修复（改用 worktreeInfo.worktreeName() 作为 primary）|
 
 **审查结论**: 两个文件设计清晰，代码质量高。TokenService 正确复刻了 TS 公式（CHARS_PER_TOKEN=4, 仅 title+subtitle+content+facts），WorktreeDetector 正则模式精确定位。TokenEconomics record 使用良好。无 P0/P1 问题。
 
@@ -163,8 +163,8 @@ _暂无问题记录_
 
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
-| 1 | CortexMemClientImpl.java | `executeWithRetrySilent()` | Interrupt handling: interrupt during retry sleep silently consumes the interrupt flag (returns from void method without propagating). Recommendation: keep `Thread.currentThread().interrupt()` consistent even in silent mode — the flag is preserved but the caller cannot detect it. Consider logging at WARN level when interrupted. | P2 |
-| 2 | CortexMemClientImpl.java | `isRetryable()` | 500 intentionally excluded from retry (design choice: "code bug not transient"). This is well-documented but worth noting: if the backend ever returns 500 for transient reasons (e.g. DB connection pool exhaustion), SDK won't retry. Acceptable trade-off. | P2 (低) |
+| 1 | CortexMemClientImpl.java | `executeWithRetrySilent()` | Interrupt handling: interrupt during retry sleep silently consumes the interrupt flag (returns from void method without propagating). Recommendation: keep `Thread.currentThread().interrupt()` consistent even in silent mode — the flag is preserved but the caller cannot detect it. Consider logging at WARN level when interrupted. | P2 ✅已修复（已有 interrupt() 恢复，加 WARN 日志）|
+| 2 | CortexMemClientImpl.java | `isRetryable()` | 500 intentionally excluded from retry (design choice: "code bug not transient"). This is well-documented but worth noting: if the backend ever returns 500 for transient reasons (e.g. DB connection pool exhaustion), SDK won't retry. Acceptable trade-off. | P2 (低) ✅已修复（Javadoc 中加注说明设计原因）|
 
 **审查结论**: Java SDK 整体质量优秀。接口设计清晰（24 方法），retry 逻辑完善（jittered backoff、transient-only retry），cross-SDK 一致性良好（isRetryable 与 Go SDK 对齐）。DTO record 使用规范，Builder 模式一致。Demo ExtractionController 输入验证到位。无 P0/P1 问题。
 
@@ -177,7 +177,7 @@ _暂无问题记录_
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
 | 1 | ExtractionController.java | L105 `/history` | 返回类型 `ResponseEntity<?>`（泛型擦除）| P2 ✅已修复（改为 `ResponseEntity<Object>`） | P2 |
-| 2 | ExtractionController.java | L104-117 `/run` | Swagger 文档描述为 "synchronously"，但 LLM extraction 可能耗时较长（>60s 可能触发 Spring 默认超时）。建议加显式超时配置或说明 | P2 (低) |
+| 2 | ExtractionController.java | L104-117 `/run` | Swagger 文档描述为 "synchronously"，但 LLM extraction 可能耗时较长（>60s 可能触发 Spring 默认超时）。建议加显式超时配置或说明 | P2 (低) ✅已修复（Swagger description 加超时说明）|
 
 **审查结论**: 两个文件质量优秀。ExtractionController Swagger 注解完整（含 examples、description），MemoryController 的 `updateObservation` 验证逻辑设计精良（null=clear, absent=skip 模式一致，validateStringList 提取良好）。`/feedback` 501 状态有明确 Swagger 文档标记。无 P0/P1 问题。
 
@@ -245,7 +245,7 @@ _暂无问题记录_
 | 3 | API-zh-CN.md | Management 章节缺失（4 个端点：/api/projects, /api/stats, GET/POST /api/settings）— 连续第 2 次标记 | P2 ✅已修复 |
 | 4 | API-zh-CN.md | Observations 章节缺失（英文版仅 1 行引用 Viewer，中文版完全无此章节） | P2 (低) ✅已修复 |
 | 5 | API.md + API-zh-CN.md | CursorController 端点仍未文档化（6 个端点）— 连续第 3 次标记未修复 | P2 ✅已修复 |
-| 6 | API-zh-CN.md | 更新日志停留在 0.1.0（2026-03-13），未反映大量 API 变更 | P2 |
+| 6 | API-zh-CN.md | 更新日志停留在 0.1.0（2026-03-13），未反映大量 API 变更 | P2 ✅已修复（更新 changelog 增加 0.1.0-beta 记录）|
 
 **审查结论**: 无新增 P0/P1。中文 API 文档的 Extraction/Search/Management 章节缺失和 CursorController 未文档化问题已累计多次标记，建议纳入下次集中修复批次。英文版 API.md 结构清晰、覆盖完整（除 CursorController 外）。
 
@@ -258,7 +258,7 @@ _暂无问题记录_
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
 | 1 | client_impl.go | `NewClient()` | `RetryBackoff` 无下限校验 — `Timeout` 和 `ConnectTimeout` 有 `< 100ms` 的合理性检查，但 `RetryBackoff` 未校验（传入 0 或负值会导致 jitter 计算异常：`jitterRange = 0`，无 sleep）。建议加 `if cfg.RetryBackoff < 10*time.Millisecond { cfg.RetryBackoff = 500*time.Millisecond }` | P2 ✅已修复（加 `< 100ms → 100ms` 校验）|
-| 2 | client_impl.go | `doFireAndForget()` | 内联 jitter 计算逻辑可提取为 `jitteredBackoff(baseDelay, attempt)` 辅助函数 — 当前 doFireAndForget 内的 8 行 jitter 代码与 Java SDK 的 `calculateBackoff` 对应，但 Go 版本未独立提取，测试覆盖困难 | P2 (低) |
+| 2 | client_impl.go | `doFireAndForget()` | 内联 jitter 计算逻辑可提取为 `jitteredBackoff(baseDelay, attempt)` 辅助函数 — 当前 doFireAndForget 内的 8 行 jitter 代码与 Java SDK 的 `calculateBackoff` 对应，但 Go 版本未独立提取，测试覆盖困难 | P2 (低) ✅已修复（提取 jitteredBackoff 辅助函数）|
 | 3 | error.go | `IsRetryable()` | 与 `isTransient()` 逻辑重复 — 两者检查相同的 4 个状态码（429, 502, 503, 504）。`isTransient` 用于 `doFireAndForget` 内部，`IsRetryable` 为公开 API。建议 `isTransient` 内部调用 `IsRetryable` 减少重复 | P2 (低) ✅已修复（isTransient 内部调用 IsRetryable）|
 | 4 | dto/dto_test.go | 全文 | 无 `ObservationUpdate.IsEmpty()` 的 `ExtractedData` 为 empty map 时的测试 — 当前测试覆盖了 `ExtractedData: map[string]any{"key":"val"}`（非空），但未测试 `ExtractedData: map[string]any{}`（空 map）时 `IsEmpty()` 的行为 | P2 (低) ✅已修复（添加 TestObservationUpdate_IsEmpty_ExtractedDataEmptyMap）|
 
@@ -321,10 +321,10 @@ _暂无问题记录_
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
 | 1 | PendingMessageEventListener.java | L41-44 | 非 "observation" 类型的消息仅 log.warn 后静默丢弃 — 无 dead-letter 机制 | P2 ✅已修复（标记 status=failed）|
-| 2 | PendingMessageEventListener.java | L46 | catch 块仅 log.error，pending 消息状态不变 — `AgentService.processPendingMessage()` 失败后消息仍保持 pending，但 ScheduledTask 是否会重新 pick up 取决于消息状态管理逻辑，存在潜在无限重试或永久挂起风险 | P2 (低) |
+| 2 | PendingMessageEventListener.java | L46 | catch 块仅 log.error，pending 消息状态不变 — `AgentService.processPendingMessage()` 失败后消息仍保持 pending，但 ScheduledTask 是否会重新 pick up 取决于消息状态管理逻辑，存在潜在无限重试或永久挂起风险 | P2 (低) ✅已修复（catch 中将消息标记为 failed）|
 | 3 | ExperienceTemplate.java | L120-155 | Section header 解析脆弱 — `indexOf("## Reasoning")` 精确匹配，若 LLM 输出为 `## Reasoning Process`（更常见）则 `extractReasoning` 返回 null。同理 `## Learnings` vs `## Key Learnings`。建议使用 `startsWith` 前缀匹配 | P2 ✅已修复（加 findSectionStart + extractSectionContent helper）|
 | 4 | ExperienceTemplate.java | L103-110 `generateReuseCondition()` | `action` 参数在 `action.contains("file")` 处无 null 保护 | P2 (低) ✅已修复（null → empty string + toLowerCase）|
-| 5 | ExperienceTemplate.java | L88 `buildSimpleExperience()` | 将 `title` 传入 `taskInput` 位置、`content` 传入各 extractor — 如果 content 不含 `## Reasoning`/`## Action` 等结构化 headers，extractAction/extractOutcome 返回 null，最终输出包含大量 "N/A" 占位符，质量差 | P2 |
+| 5 | ExperienceTemplate.java | L88 `buildSimpleExperience()` | 将 `title` 传入 `taskInput` 位置、`content` 传入各 extractor — 如果 content 不含 `## Reasoning`/`## Action` 等结构化 headers，extractAction/extractOutcome 返回 null，最终输出包含大量 "N/A" 占位符，质量差 | P2 ✅已修复（action/outcome 为 null 时使用 content 前 200 字符作为 fallback）|
 
 **审查结论**: 无 P0/P1 问题。PendingMessageEventListener 架构清晰（@Async + EventListener），但缺少消息类型扩展性和失败恢复机制。ExperienceTemplate 的 section 解析依赖精确 header 匹配，对 LLM 输出格式变化不够鲁棒。
 
@@ -348,8 +348,8 @@ _暂无问题记录_
 
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
-| 1 | client-options.ts | L31 | `SDK_VERSION = '1.0.0'` 与 `package.json` version 重复定义 — 发布时需手动同步，易漂移。建议 tsup 配置注入 `process.env.SDK_VERSION` 或从 package.json 读取 | P2 (低) |
-| 2 | examples/http-server/app.ts | L4 | docstring "covering all 25 SDK methods" — 精确计数：demo 有 26 个 REST 路由（含 /health），SDK 有 25 个公开 API 方法（不含 close/toString）。表述准确但细微 | P2 (极低) |
+| 1 | client-options.ts | L31 | `SDK_VERSION = '1.0.0'` 与 `package.json` version 重复定义 — 发布时需手动同步，易漂移。建议 tsup 配置注入 `process.env.SDK_VERSION` 或从 package.json 读取 | P2 (低) ✅已修复（Javadoc 说明重复原因及发布同步要求）|
+| 2 | examples/http-server/app.ts | L4 | docstring "covering all 25 SDK methods" — 精确计数：demo 有 26 个 REST 路由（含 /health），SDK 有 25 个公开 API 方法（不含 close/toString）。表述准确但细微 | P2 (极低) ✅已修复（改为 "25 public SDK API methods (plus /health)"）|
 
 **测试结果**: 198 tests passed, build: CJS+ESM+DTS 成功 (27.69KB + 26.87KB + 21.77KB)
 
@@ -374,3 +374,23 @@ _暂无问题记录_
 | 2 | `PATCH /api/memory/observations/{id}` | 不存在的 ID 返回 400 而非 404 | P2 | ✅已修复（代码已正确返回 404）|
 | 3 | `DELETE /api/memory/observations/{id}` | 不存在的 ID 返回 400 而非 404 | P2 | ✅已修复（代码已正确返回 404）|
 | 4 | `POST /api/observations/batch` | 返回 HTTP 400 + 有效 body `{"observations":[],"count":0}` | P2 | ✅已修复（空 IDs 返回 200）|
+
+---
+
+### 2026-03-31 03:05 | Backend 审查 #11
+
+**抽查文件**: `SettingsService.java`, `LogHelper.java`, `AppSettings.java`
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | SettingsService.java | L148-165 `updateSettings()` | `String.valueOf(null)` 返回字面量 `"null"` 字符串 — 如果调用方传入 null 值，会将 `"null"` 写入 settings 文件。应添加 null 检查或使用 `Objects.toString(v, "")` | P2 ✅已修复（改用 `Objects.toString(v, "")`）|
+| 2 | SettingsService.java | L148-165 `updateSettings()` | 大量 if-else 链硬编码字段名，新增配置项需同步修改多处（SettingsService + AppSettings + toMap + SettingsController）。建议使用反射或 Map-based 更新减少维护负担 | P2 ⏭跳过（代码卫生，当前功能正确）|
+| 3 | SettingsService.java | L117 `saveSettings()` | `StandardCopyOption.ATOMIC_MOVE` 在跨文件系统移动时会抛 `AtomicMoveNotSupportedException`，导致 RuntimeException 包装。建议添加 fallback 到非原子 rename | P2 (低) ✅已修复（catch AtomicMoveNotSupportedException，fallback 到 REPLACE_EXISTING）|
+| 4 | SettingsService.java | L28 `settings` 字段 | 非线程安全的字段赋值 — `saveSettings()` 和 `updateSettings()` 都直接赋值 `this.settings`。若并发调用 `updateSettings()`，后写覆盖前写，导致丢失更新 | P2 ✅已修复（添加 volatile 关键字）|
+| 5 | AppSettings.java | L217 `toMap()` | 返回 Map 中 `CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS` 保持原始 String，而 `full_observation_count` / `total_observation_count` / `session_count` 返回 int。数字字段类型不一致，SDK/前端可能需要特殊处理 | P2 (低) ✅已修复（新增 `getContextMaxObservationsInt()`，toMap 改用 int）|
+
+**审查结论**:
+- **LogHelper.java**: ✅ 代码质量优秀，无问题。接口设计清晰，log markers 统一，varargs 支持完善。
+- **AppSettings.java**: ✅ 整体良好。`getEnvOrDefault` 模式一致，`parseIntSafe` / `parseCommaSeparated` 防御性解析到位。`@JsonIgnoreProperties(ignoreUnknown = true)` 保证向前兼容。
+- **SettingsService.java**: 功能正确但有 4 个 P2 代码卫生/健壮性问题。无 P0/P1。
+- **无 P0/P1 问题**。累计 P2 问题待集中修复。

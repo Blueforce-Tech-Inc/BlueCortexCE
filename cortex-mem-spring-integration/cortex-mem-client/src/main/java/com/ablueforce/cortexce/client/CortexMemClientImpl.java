@@ -617,6 +617,7 @@ public class CortexMemClientImpl implements CortexMemClient {
                         Thread.sleep(jitteredMs);
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
+                        log.warn("[{}] Interrupted during retry sleep, giving up", operation);
                         return;
                     }
                 }
@@ -626,8 +627,13 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     /**
      * Check if an error is transient and worth retrying.
-     * Transient: network errors (non-HTTP), 429 (rate limited), 5xx (server errors).
+     * Transient: network errors (non-HTTP), 429 (rate limited), 502/503/504 (server errors).
      * Non-transient: 4xx client errors (bad request, unauthorized, forbidden, not found, etc.).
+     * <p>
+     * <b>Note on 500:</b> HTTP 500 is intentionally excluded from retry because it typically
+     * indicates a code bug rather than a transient condition. If the backend returns 500 for
+     * transient reasons (e.g., DB connection pool exhaustion), retrying would likely produce
+     * the same error. This matches the Go SDK's {@code isTransient()} behavior.
      */
     private static boolean isRetryable(Exception e) {
         if (e instanceof RestClientResponseException httpEx) {

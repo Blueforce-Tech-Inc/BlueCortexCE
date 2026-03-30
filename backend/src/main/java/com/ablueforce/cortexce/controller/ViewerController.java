@@ -39,6 +39,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Viewer REST API controller.
@@ -494,8 +495,8 @@ public class ViewerController {
             // If mode changed, update ModeService
             if (updates.containsKey("mode") || updates.containsKey("CLAUDE_MEM_MODE")) {
                 String newMode = updates.containsKey("mode")
-                    ? String.valueOf(updates.get("mode"))
-                    : String.valueOf(updates.get("CLAUDE_MEM_MODE"));
+                    ? Objects.toString(updates.get("mode"), "")
+                    : Objects.toString(updates.get("CLAUDE_MEM_MODE"), "");
                 modeService.setActiveMode(newMode);
             }
 

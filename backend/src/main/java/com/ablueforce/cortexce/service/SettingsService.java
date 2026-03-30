@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Settings management service.
@@ -35,7 +36,7 @@ public class SettingsService {
     private final ObjectMapper objectMapper = new ObjectMapper()
         .enable(SerializationFeature.INDENT_OUTPUT);
 
-    private AppSettings settings;
+    private volatile AppSettings settings;
     private Path settingsPath;
 
     @PostConstruct
@@ -125,10 +126,16 @@ public class SettingsService {
             String content = objectMapper.writeValueAsString(settings);
             Files.writeString(tempPath, content);
 
-            // Atomic rename
-            Files.move(tempPath, settingsPath,
-                java.nio.file.StandardCopyOption.REPLACE_EXISTING,
-                java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            // Atomic rename (fallback to non-atomic if cross-filesystem)
+            try {
+                Files.move(tempPath, settingsPath,
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                    java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+                log.warn("Atomic move not supported (cross-filesystem?), falling back to regular rename");
+                Files.move(tempPath, settingsPath,
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
 
             this.settings = settings;
             log.info("Saved settings to: {}", settingsPath);
@@ -157,44 +164,44 @@ public class SettingsService {
 
         // Apply updates to settings object
         if (updates.containsKey("mode")) {
-            settings.setMode(String.valueOf(updates.get("mode")));
+            settings.setMode(Objects.toString(updates.get("mode"), ""));
         }
         if (updates.containsKey("CLAUDE_MEM_MODE")) {
-            settings.setMode(String.valueOf(updates.get("CLAUDE_MEM_MODE")));
+            settings.setMode(Objects.toString(updates.get("CLAUDE_MEM_MODE"), ""));
         }
         if (updates.containsKey("model")) {
-            settings.setModel(String.valueOf(updates.get("model")));
+            settings.setModel(Objects.toString(updates.get("model"), ""));
         }
         if (updates.containsKey("CLAUDE_MEM_MODEL")) {
-            settings.setModel(String.valueOf(updates.get("CLAUDE_MEM_MODEL")));
+            settings.setModel(Objects.toString(updates.get("CLAUDE_MEM_MODEL"), ""));
         }
         if (updates.containsKey("provider")) {
-            settings.setProvider(String.valueOf(updates.get("provider")));
+            settings.setProvider(Objects.toString(updates.get("provider"), ""));
         }
         if (updates.containsKey("CLAUDE_MEM_PROVIDER")) {
-            settings.setProvider(String.valueOf(updates.get("CLAUDE_MEM_PROVIDER")));
+            settings.setProvider(Objects.toString(updates.get("CLAUDE_MEM_PROVIDER"), ""));
         }
         if (updates.containsKey("logLevel")) {
-            settings.setLogLevel(String.valueOf(updates.get("logLevel")));
+            settings.setLogLevel(Objects.toString(updates.get("logLevel"), ""));
         }
         if (updates.containsKey("CLAUDE_MEM_LOG_LEVEL")) {
-            settings.setLogLevel(String.valueOf(updates.get("CLAUDE_MEM_LOG_LEVEL")));
+            settings.setLogLevel(Objects.toString(updates.get("CLAUDE_MEM_LOG_LEVEL"), ""));
         }
         if (updates.containsKey("full_observation_count")) {
-            settings.setContextFullCount(String.valueOf(updates.get("full_observation_count")));
+            settings.setContextFullCount(Objects.toString(updates.get("full_observation_count"), ""));
         }
         if (updates.containsKey("total_observation_count")) {
-            settings.setContextObservations(String.valueOf(updates.get("total_observation_count")));
+            settings.setContextObservations(Objects.toString(updates.get("total_observation_count"), ""));
         }
         if (updates.containsKey("session_count")) {
-            settings.setContextSessionCount(String.valueOf(updates.get("session_count")));
+            settings.setContextSessionCount(Objects.toString(updates.get("session_count"), ""));
         }
         if (updates.containsKey("observation_types")) {
             Object types = updates.get("observation_types");
             if (types instanceof java.util.List<?> list) {
                 settings.setContextObservationTypes(String.join(",", list.stream().map(String::valueOf).toList()));
             } else {
-                settings.setContextObservationTypes(String.valueOf(types));
+                settings.setContextObservationTypes(Objects.toString(types, ""));
             }
         }
         if (updates.containsKey("observation_concepts")) {
@@ -202,39 +209,39 @@ public class SettingsService {
             if (concepts instanceof java.util.List<?> list) {
                 settings.setContextObservationConcepts(String.join(",", list.stream().map(String::valueOf).toList()));
             } else {
-                settings.setContextObservationConcepts(String.valueOf(concepts));
+                settings.setContextObservationConcepts(Objects.toString(concepts, ""));
             }
         }
         if (updates.containsKey("CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS")) {
-            settings.setContextMaxObservations(String.valueOf(updates.get("CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS")));
+            settings.setContextMaxObservations(Objects.toString(updates.get("CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS"), ""));
         }
         if (updates.containsKey("showReadTokens")) {
-            settings.setContextShowReadTokens(String.valueOf(updates.get("showReadTokens")));
+            settings.setContextShowReadTokens(Objects.toString(updates.get("showReadTokens"), ""));
         }
         if (updates.containsKey("showWorkTokens")) {
-            settings.setContextShowWorkTokens(String.valueOf(updates.get("showWorkTokens")));
+            settings.setContextShowWorkTokens(Objects.toString(updates.get("showWorkTokens"), ""));
         }
         if (updates.containsKey("showSavingsAmount")) {
-            settings.setContextShowSavingsAmount(String.valueOf(updates.get("showSavingsAmount")));
+            settings.setContextShowSavingsAmount(Objects.toString(updates.get("showSavingsAmount"), ""));
         }
         if (updates.containsKey("showSavingsPercent")) {
-            settings.setContextShowSavingsPercent(String.valueOf(updates.get("showSavingsPercent")));
+            settings.setContextShowSavingsPercent(Objects.toString(updates.get("showSavingsPercent"), ""));
         }
         if (updates.containsKey("showLastSummary")) {
-            settings.setContextShowLastSummary(String.valueOf(updates.get("showLastSummary")));
+            settings.setContextShowLastSummary(Objects.toString(updates.get("showLastSummary"), ""));
         }
         if (updates.containsKey("showLastMessage")) {
-            settings.setContextShowLastMessage(String.valueOf(updates.get("showLastMessage")));
+            settings.setContextShowLastMessage(Objects.toString(updates.get("showLastMessage"), ""));
         }
         if (updates.containsKey("folderClaudemdEnabled")) {
-            settings.setFolderClaudemdEnabled(String.valueOf(updates.get("folderClaudemdEnabled")));
+            settings.setFolderClaudemdEnabled(Objects.toString(updates.get("folderClaudemdEnabled"), ""));
         }
         if (updates.containsKey("excludedProjects")) {
             Object excluded = updates.get("excludedProjects");
             if (excluded instanceof java.util.List<?> list) {
                 settings.setExcludedProjects(String.join(",", list.stream().map(String::valueOf).toList()));
             } else {
-                settings.setExcludedProjects(String.valueOf(excluded));
+                settings.setExcludedProjects(Objects.toString(excluded, ""));
             }
         }
 
