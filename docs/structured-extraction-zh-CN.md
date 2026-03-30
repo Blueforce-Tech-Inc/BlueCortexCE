@@ -145,8 +145,6 @@ templates:
     template-class: "java.util.Map"     # 必填。输出类："java.util.Map"（灵活）或 POJO 类名。
     session-id-pattern: "pref:{project}:{userId}"  # 可选。结果存储位置。变量：{project}、{userId}。null = 继承源会话。
     key-fields: ["field1", "field2"]    # 可选。去重键字段。
-    description: "人类可读的描述"        # 可选。
-    trigger-keywords: ["keyword1"]      # 可选。未来关键词触发提取使用。
     source-filter: ["user_statement"]   # 必填。考虑哪些观测数据来源。
     prompt: |                           # 必填。LLM 提取调用的系统提示词。
       从对话中提取结构化信息。
@@ -257,29 +255,35 @@ curl -X POST "http://localhost:37777/api/extraction/run?projectPath=/my-project"
 | `projectPath` | 是 | 项目路径 |
 | `userId` | 否 | 按用户 ID 过滤 |
 
-**响应（200）：**
+**响应（200，有数据）：**
 
 ```json
 {
-  "templateName": "user_preference",
-  "userId": "alice",
-  "extractedAt": "2026-03-22T10:30:00Z",
-  "data": {
+  "status": "ok",
+  "template": "user_preference",
+  "sessionId": "pref:abc123:alice",
+  "extractedData": {
     "preferences": [
       {
         "category": "手机品牌",
         "value": "小米",
         "sentiment": "positive",
         "confidence": 0.95
-      },
-      {
-        "category": "预算",
-        "value": "3000-4000",
-        "sentiment": "neutral",
-        "confidence": 0.88
       }
     ]
-  }
+  },
+  "createdAt": 1742639400000,
+  "observationId": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**响应（200，无数据）：**
+
+```json
+{
+  "status": "not_found",
+  "template": "user_preference",
+  "message": "No extraction found"
 }
 ```
 
@@ -293,25 +297,29 @@ curl -X POST "http://localhost:37777/api/extraction/run?projectPath=/my-project"
 |------|------|------|
 | `projectPath` | 是 | 项目路径 |
 | `userId` | 否 | 按用户 ID 过滤 |
-| `limit` | 否 | 最大结果数（默认：10） |
+| `limit` | 否 | 最大结果数（默认：10，最大：100） |
 
-**响应（200）：**
+**响应（200）：** JSON 数组，包含提取记录：
 
 ```json
-{
-  "templateName": "user_preference",
-  "userId": "alice",
-  "history": [
-    {
-      "extractedAt": "2026-03-22T10:30:00Z",
-      "data": {"preferences": [{"category": "手机品牌", "value": "小米"}]}
+[
+  {
+    "sessionId": "pref:abc123:alice",
+    "extractedData": {
+      "preferences": [{"category": "手机品牌", "value": "小米"}]
     },
-    {
-      "extractedAt": "2026-03-21T10:30:00Z",
-      "data": {"preferences": [{"category": "手机品牌", "value": "苹果"}]}
-    }
-  ]
-}
+    "createdAt": 1742639400000,
+    "observationId": "550e8400-e29b-41d4-a716-446655440000"
+  },
+  {
+    "sessionId": "pref:abc123:alice",
+    "extractedData": {
+      "preferences": [{"category": "手机品牌", "value": "苹果"}]
+    },
+    "createdAt": 1742553000000,
+    "observationId": "660e8400-e29b-41d4-a716-446655440001"
+  }
+]
 ```
 
 ## 智能体如何利用提取结果

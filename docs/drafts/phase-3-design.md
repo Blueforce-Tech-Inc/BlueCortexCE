@@ -244,22 +244,18 @@ templates:
 2. For arrays of objects (`[{"key": "val"}, ...]`): Use `MapOutputConverter` → `List<Map<String, Object>>`, then post-process
 3. Store array results in `extractedData` as JSON array (ObjectMapper handles serialization)
 
-### Gap 3: Repository Methods Listed as "New" Are Still NOT Implemented
+### Gap 3: Repository Methods Listed as "New" — ✅ NOW IMPLEMENTED
 
-**Status**: The following methods are referenced throughout the design but **do not exist** in `ObservationRepository`:
+**Status**: The following methods are now implemented in `ObservationRepository`:
 
 | Method | Status | Purpose |
 |--------|--------|---------|
-| `findBySourceIn(project, List<String>, limit)` | ❌ Not implemented | Bug 1 fix - filter by multiple sources |
-| `findNewObservations(project, sources, sinceEpoch, limit)` | ❌ Not implemented | Incremental extraction |
+| `findBySourceIn(project, List<String>, limit)` | ✅ Implemented | Bug 1 fix - filter by multiple sources |
+| `findNewObservations(project, sources, sinceEpoch, limit)` | ✅ Implemented | Incremental extraction |
 
-**Action required**: Add these methods before Phase 3.1 implementation.
+### Gap 4: `LlmService.chatCompletionStructured()` — ✅ NOW IMPLEMENTED
 
-### Gap 4: `LlmService.chatCompletionStructured()` Method Does Not Exist
-
-**Status**: The design references `llmService.chatCompletionStructured(systemPrompt, userPrompt, outputType)` but this method is **not implemented** in `LlmService`.
-
-**Action required**: Implement this method before Phase 3.1 implementation.
+**Status**: `llmService.chatCompletionStructured(systemPrompt, userPrompt, outputType)` is now implemented in `LlmService`.
 
 ### Gap 5: `outputSchema` Is Redundant When Using `template-class`
 
@@ -1633,14 +1629,12 @@ public void reExtractForSession(String sessionId, String projectPath) {
 - `findByType(project, type, limit)` - For finding extraction results
 - `findDistinctProjects()` - For iterating all projects in scheduled tasks
 
-**⚠️ New repository methods STILL NOT IMPLEMENTED** (v14 status: pending):
+**✅ New repository methods NOW IMPLEMENTED** (as of implementation):
 
 ```java
-// v14 NEW: Find observations by type using LIKE pattern.
+// ✅ IMPLEMENTED: Find observations by type using LIKE pattern.
 // Required because findByType uses exact match (type = :type), NOT LIKE.
 // findByType(project, "extracted_%", 50) will return ZERO results — it looks for type exactly equal to "extracted_%".
-// This method is needed for ICL prompt integration (section 15.8) and experience API.
-// Alternative: iterate known template names with findByType(project, "extracted_" + name, limit) — no new method needed but more queries.
 @Query(value = """
     SELECT * FROM mem_observations
     WHERE project_path = :project
@@ -1654,8 +1648,7 @@ List<ObservationEntity> findByTypeLike(
     @Param("limit") int limit
 );
 
-// Bug 1 fix: find observations where source is IN a list
-// ⚠️ NOT YET ADDED to ObservationRepository — must be implemented before Phase 3.1
+// ✅ IMPLEMENTED: find observations where source is IN a list
 @Query(value = """
     SELECT * FROM mem_observations
     WHERE project_path = :project
@@ -1670,7 +1663,7 @@ List<ObservationEntity> findBySourceIn(
 );
 
 // Incremental extraction: find observations newer than lastExtractedAt
-// ⚠️ NOT YET ADDED to ObservationRepository — must be implemented before Phase 3.1
+// ✅ IMPLEMENTED in ObservationRepository
 @Query(value = """
     SELECT * FROM mem_observations
     WHERE project_path = :project
@@ -1687,8 +1680,7 @@ List<ObservationEntity> findNewObservations(
 );
 
 // DLQ retry: global (cross-project) query by type
-// ⚠️ NOT YET ADDED — findByType(project, type, limit) requires non-null project
-// This method is needed for the dead letter queue retry scheduled task
+// ✅ IMPLEMENTED in ObservationRepository
 @Query(value = """
     SELECT * FROM mem_observations
     WHERE type = :type
@@ -3876,22 +3868,22 @@ public class UpdateUserIdRequest {
 
 This section documents gaps found during the 2026-03-22 code inspection by comparing the design against the actual codebase state.
 
-### 21.1 Verified Prerequisites Status (2026-03-22)
+### 21.1 Verified Prerequisites Status (updated post-implementation)
 
 | # | Prerequisite | Design Reference | Actual Status | File |
 |---|-------------|-----------------|---------------|------|
-| 1 | `findBySourceIn(project, List<String>, limit)` | Section 9.1 | ❌ NOT implemented | ObservationRepository.java |
-| 2 | `findNewObservations(project, sources, sinceEpoch, limit)` | Section 9.1 | ❌ NOT implemented | ObservationRepository.java |
-| 3 | `findByTypeGlobal(type, limit)` | Section 15.1 #3 | ❌ NOT implemented | ObservationRepository.java |
-| 4 | `findByTypeLike(project, typePattern, limit)` | Section 15.1 #4 | ❌ NOT implemented | ObservationRepository.java |
-| 5 | `findByContentSessionIdAndType(sessionId, type, limit)` | Section 15.1 #6 | ❌ NOT implemented | ObservationRepository.java |
-| 6 | `chatCompletionStructured(systemPrompt, userPrompt, outputType)` | Section 15.4 | ❌ NOT implemented | LlmService.java |
-| 7 | `user_id` field in SessionEntity | Section 20.2 | ❌ NOT implemented | SessionEntity.java |
-| 8 | Flyway V15 migration (user_id) | Section 20.2 | ❌ NOT implemented | db/migration/ (latest: V14) |
-| 9 | `findByUserId(userId)` | Section 15.1 #7 | ❌ NOT implemented | SessionRepository.java |
-| 10 | `findSessionIdsByUserIdAndProject(userId, project)` | Section 15.1 #8 | ❌ NOT implemented | SessionRepository.java |
+| 1 | `findBySourceIn(project, List<String>, limit)` | Section 9.1 | ✅ Implemented | ObservationRepository.java |
+| 2 | `findNewObservations(project, sources, sinceEpoch, limit)` | Section 9.1 | ✅ Implemented | ObservationRepository.java |
+| 3 | `findByTypeGlobal(type, limit)` | Section 15.1 #3 | ✅ Implemented | ObservationRepository.java |
+| 4 | `findByTypeLike(project, typePattern, limit)` | Section 15.1 #4 | ✅ Implemented | ObservationRepository.java |
+| 5 | `findByContentSessionIdAndType(sessionId, type, limit)` | Section 15.1 #6 | ✅ Implemented | ObservationRepository.java |
+| 6 | `chatCompletionStructured(systemPrompt, userPrompt, outputType)` | Section 15.4 | ✅ Implemented | LlmService.java |
+| 7 | `user_id` field in SessionEntity | Section 20.2 | ✅ Implemented (JPA @Column) | SessionEntity.java |
+| 8 | user_id schema migration | Section 20.2 | ✅ Managed via Hibernate DDL | SessionEntity.java |
+| 9 | `findByUserId(userId)` | Section 15.1 #7 | ✅ Implemented | SessionRepository.java |
+| 10 | `findSessionIdsByUserIdAndProject(userId, project)` | Section 15.1 #8 | ✅ Implemented | SessionRepository.java |
 
-**Conclusion**: ALL 10 prerequisites remain unimplemented. The design is comprehensive but no code has been written for Phase 3.1.
+**Conclusion**: All 10 prerequisites are now implemented. Phase 3.1 extraction pipeline is functional.
 
 ### 21.2 LlmService Availability Guard Missing
 

@@ -145,8 +145,6 @@ templates:
     template-class: "java.util.Map"     # Required. Output class: "java.util.Map" (flexible) or a POJO class name.
     session-id-pattern: "pref:{project}:{userId}"  # Optional. Where to store results. Variables: {project}, {userId}. Null = inherit source session.
     key-fields: ["field1", "field2"]    # Optional. Fields used for deduplication.
-    description: "Human-readable description"  # Optional.
-    trigger-keywords: ["keyword1"]      # Optional. Keywords for future keyword-triggered extraction.
     source-filter: ["user_statement"]   # Required. Which observation sources to consider.
     prompt: |                           # Required. System prompt for the LLM extraction call.
       Extract structured information from the conversation.
@@ -257,29 +255,35 @@ Get the most recent extraction result for a template.
 | `projectPath` | Yes | Project path |
 | `userId` | No | Filter by user ID |
 
-**Response (200):**
+**Response (200, found):**
 
 ```json
 {
-  "templateName": "user_preference",
-  "userId": "alice",
-  "extractedAt": "2026-03-22T10:30:00Z",
-  "data": {
+  "status": "ok",
+  "template": "user_preference",
+  "sessionId": "pref:abc123:alice",
+  "extractedData": {
     "preferences": [
       {
         "category": "手机品牌",
         "value": "小米",
         "sentiment": "positive",
         "confidence": 0.95
-      },
-      {
-        "category": "预算",
-        "value": "3000-4000",
-        "sentiment": "neutral",
-        "confidence": 0.88
       }
     ]
-  }
+  },
+  "createdAt": 1742639400000,
+  "observationId": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**Response (200, not found):**
+
+```json
+{
+  "status": "not_found",
+  "template": "user_preference",
+  "message": "No extraction found"
 }
 ```
 
@@ -293,25 +297,29 @@ Get extraction history (all snapshots) for a template.
 |-----------|----------|-------------|
 | `projectPath` | Yes | Project path |
 | `userId` | No | Filter by user ID |
-| `limit` | No | Max results (default: 10) |
+| `limit` | No | Max results (default: 10, max: 100) |
 
-**Response (200):**
+**Response (200):** JSON array of extraction records:
 
 ```json
-{
-  "templateName": "user_preference",
-  "userId": "alice",
-  "history": [
-    {
-      "extractedAt": "2026-03-22T10:30:00Z",
-      "data": {"preferences": [{"category": "手机品牌", "value": "小米"}]}
+[
+  {
+    "sessionId": "pref:abc123:alice",
+    "extractedData": {
+      "preferences": [{"category": "手机品牌", "value": "小米"}]
     },
-    {
-      "extractedAt": "2026-03-21T10:30:00Z",
-      "data": {"preferences": [{"category": "手机品牌", "value": "苹果"}]}
-    }
-  ]
-}
+    "createdAt": 1742639400000,
+    "observationId": "550e8400-e29b-41d4-a716-446655440000"
+  },
+  {
+    "sessionId": "pref:abc123:alice",
+    "extractedData": {
+      "preferences": [{"category": "手机品牌", "value": "苹果"}]
+    },
+    "createdAt": 1742553000000,
+    "observationId": "660e8400-e29b-41d4-a716-446655440001"
+  }
+]
 ```
 
 ## How Agents Consume Extraction Results
