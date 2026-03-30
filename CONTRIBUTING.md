@@ -46,7 +46,7 @@ Ensure you have the following installed:
 
 | Software | Version | Purpose |
 |----------|---------|---------|
-| JDK | 17+ | Java Development Kit |
+| JDK | 21+ | Java Development Kit |
 | Maven | 3.8+ | Build tool |
 | PostgreSQL | 16+ | Database |
 | pgvector | 0.8+ | Vector extension |
@@ -59,8 +59,8 @@ Ensure you have the following installed:
 
 ```bash
 # Fork the repo on GitHub, then:
-git clone https://github.com/YOUR_USERNAME/cortexce.git
-cd cortexce/java
+git clone https://github.com/YOUR_USERNAME/BlueCortexCE.git
+cd BlueCortexCE
 ```
 
 2. **Set Up PostgreSQL Database**
@@ -91,21 +91,16 @@ Edit `.env` with your configuration:
 # Database
 DB_USERNAME=postgres
 DB_PASSWORD=your_password
-DB_URL=jdbc:postgresql://localhost:5432/cortexce_dev
+DB_URL=jdbc:postgresql://localhost:5433/cortexce_dev
 
-# LLM API (choose one)
-# Option 1: DeepSeek (OpenAI-compatible)
-OPENAI_API_KEY=sk-xxx
-OPENAI_BASE_URL=https://api.deepseek.com
-OPENAI_MODEL=deepseek-chat
+# LLM (Chat Model)
+SPRING_AI_OPENAI_API_KEY=sk-xxx
+SPRING_AI_OPENAI_BASE_URL=https://api.deepseek.com
+SPRING_AI_OPENAI_CHAT_MODEL=deepseek-chat
 
-# Option 2: Anthropic-compatible
-ANTHROPIC_API_KEY=sk-ant-xxx
-ANTHROPIC_BASE_URL=https://api.anthropic.com
-ANTHROPIC_MODEL=claude-sonnet-4-20250514
-
-# Embedding Service
+# Embedding (Vector Model)
 SPRING_AI_OPENAI_EMBEDDING_API_KEY=sk-xxx
+SPRING_AI_OPENAI_EMBEDDING_BASE_URL=https://api.siliconflow.cn
 SPRING_AI_OPENAI_EMBEDDING_MODEL=BAAI/bge-m3
 SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS=1024
 ```
@@ -121,17 +116,17 @@ SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS=1024
 
 ```bash
 # Clean and compile
-./mvnw clean compile
+mvn clean compile
 
 # Run tests
-./mvnw test
+mvn test
 
 # Package (skip tests for faster build)
-./mvnw clean package -DskipTests
+mvn clean package -DskipTests
 
 # Run the application
 export $(cat .env | grep -v '^#' | grep -v '^$' | xargs)
-java -jar claude-mem-java/target/cortexce-*.jar
+java -jar backend/target/cortex-ce-*.jar
 ```
 
 ---
@@ -141,8 +136,8 @@ java -jar claude-mem-java/target/cortexce-*.jar
 ### Project Structure
 
 ```
-java/
-├── claude-mem-java/                    # Main Spring Boot application
+cortexce/
+├── backend/                         # Main Spring Boot application (Java 21)
 │   ├── src/
 │   │   ├── main/
 │   │   │   ├── java/com/ablueforce/cortexce/
@@ -155,12 +150,12 @@ java/
 │   │   │   │   ├── exception/         # Custom exceptions
 │   │   │   │   └── util/              # Utility classes
 │   │   │   └── resources/
-│   │   │       ├── application.yml    # Application config
-│   │   │       ├── db/migration/      # Flyway migrations
-│   │   │       └── prompts/           # LLM prompt templates
+│   │   │       ├── application.properties  # Application config
+│   │   │       └── db/migration/      # Flyway migrations
 │   │   └── test/                      # Test sources
 │   └── pom.xml                        # Maven configuration
 ├── proxy/                             # Thin Proxy (Node.js)
+├── openclaw-plugin/                   # OpenClaw integration
 ├── scripts/                           # Utility scripts
 └── docs/                              # Documentation
 ```
@@ -632,7 +627,7 @@ class ObservationControllerIntegrationTest {
 
 ```bash
 # Generate coverage report
-./mvnw jacoco:report
+mvn jacoco:report
 
 # View report
 open target/site/jacoco/index.html

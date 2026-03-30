@@ -42,10 +42,9 @@ Claude Code triggers hooks at 5 lifecycle points:
 
 | Hook Event | When Triggered | Java API Endpoint |
 |------------|----------------|------------------|
-| `SessionStart` | After compaction/clear/startup | `/api/ingest/session-start` |
+| `SessionStart` | After compaction/clear/startup | `/api/session/start` |
 | `UserPromptSubmit` | User submits prompt | `/api/ingest/user-prompt` |
 | `PostToolUse` | After any tool execution | `/api/ingest/tool-use` |
-| `Stop` | Claude session ends | `/api/ingest/session-end` |
 | `SessionEnd` | Session cleanup | `/api/ingest/session-end` |
 
 ### Request Parameters
@@ -93,12 +92,12 @@ Claude Code triggers hooks at 5 lifecycle points:
 ## 4. File Structure
 
 ```
-java/proxy/
+proxy/
 ├── wrapper.js           # CLI wrapper (entry point for hooks)
 ├── package.json        # Node.js dependencies
 └── README.md           # This document
 
-java/claude-mem-java/   # Spring Boot backend
+backend/                 # Spring Boot backend
 ├── src/main/java/...
 └── target/*.jar
 ```
@@ -110,9 +109,9 @@ java/claude-mem-java/   # Spring Boot backend
 ### 5.1 Start Java Backend
 
 ```bash
-cd /path/to/claude-mem/java/claude-mem-java
-./mvnw spring-boot:run
-# Or: java -jar target/claude-mem-java-0.1.0-SNAPSHOT.jar
+cd /path/to/BlueCortexCE/backend
+mvn spring-boot:run
+# Or: java -jar target/cortex-ce-*.jar
 ```
 
 Java API: `http://127.0.0.1:37777`
@@ -135,13 +134,19 @@ Edit `~/.claude/settings.json` (user-level) or `.claude/settings.json` (project-
       "matcher": "Edit|Write|Read|Bash|...",
       "hooks": [{
         "type": "command",
-        "command": "/path/to/claude-mem/java/proxy/wrapper.js observation --url http://127.0.0.1:37777"
+        "command": "/path/to/claude-mem/java/proxy/wrapper.js tool-use --url http://127.0.0.1:37777"
       }]
     }],
-    "Stop": [{
+    "UserPromptSubmit": [{
       "hooks": [{
         "type": "command",
-        "command": "/path/to/claude-mem/java/proxy/wrapper.js summarize --url http://127.0.0.1:37777"
+        "command": "/path/to/claude-mem/java/proxy/wrapper.js user-prompt --url http://127.0.0.1:37777"
+      }]
+    }],
+    "SessionEnd": [{
+      "hooks": [{
+        "type": "command",
+        "command": "/path/to/claude-mem/java/proxy/wrapper.js session-end --url http://127.0.0.1:37777"
       }]
     }]
   }
@@ -163,10 +168,13 @@ chmod +x /path/to/claude-mem/java/proxy/wrapper.js
 ./wrapper.js session-start --url http://127.0.0.1:37777
 
 # Record tool observation
-./wrapper.js observation --url http://127.0.0.1:37777
+./wrapper.js tool-use --url http://127.0.0.1:37777
 
-# Summarize session (when Claude stops)
-./wrapper.js summarize --url http://127.0.0.1:37777
+# Record user prompt
+./wrapper.js user-prompt --url http://127.0.0.1:37777
+
+# Session end
+./wrapper.js session-end --url http://127.0.0.1:37777
 
 # Help
 ./wrapper.js --help
@@ -299,10 +307,10 @@ are combined into a single endpoint.
 
 ```bash
 # Health check
-curl http://127.0.0.1:37777/actuator/health
+curl http://127.0.0.1:37777/api/health
 
 # Session start
-curl -X POST http://127.0.0.1:37777/api/ingest/session-start \
+curl -X POST http://127.0.0.1:37777/api/session/start \
   -H "Content-Type: application/json" \
   -d '{"session_id": "test-123", "cwd": "/tmp", "project_path": "/tmp"}'
 ```
@@ -323,7 +331,7 @@ echo '{"session_id":"test-123","cwd":"/tmp"}' | \
 
 ```bash
 # Verify Java backend is running
-curl http://127.0.0.1:37777/actuator/health
+curl http://127.0.0.1:37777/api/health
 
 # Check if port 37777 is listening
 lsof -i :37777
