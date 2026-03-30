@@ -111,3 +111,9 @@
 - 回归测试: ✅ 46/46 passed, 0 failed, 1 skipped
 - EXTRACTION 验收: ✅ 25/25 passed, 0 failed, 0 skipped
 - 服务状态: ✅ status: ok
+
+### ImportService 日志修复 (2026-03-30 08:05)
+- **问题**: ImportService.java L189 `logHappyPath()` 用于 JSON 解析失败日志，语义错误
+- **修复**: 改为 `log.warn()`，保留 WARN 级别但语义更清晰
+- **影响**: 1 行修改，无 API 影响
+- **验证**: 回归测试 46/46 通过，构建成功，3 轮 Review 通过

@@ -133,3 +133,63 @@ _暂无问题记录_
 | 3 | PendingMessageProcessor.java | L63 `processPendingMessages()` | `@Scheduled` 无 overlap 保护。若单次执行超时，可能产生并发处理。建议加 `@SchedulerLock` 或本地 synchronized | P2 ✅已修复 |
 
 **审查结论**: 两个文件整体质量良好。ContextController 安全意识到位（path traversal 防护、safe directory 验证），PendingMessageProcessor 事件驱动架构清晰。无 P0/P1 问题。
+
+---
+
+### 2026-03-30 | Java SDK 审查 #1
+
+**抽查文件**: `CortexMemClient.java`, `CortexMemClientImpl.java`, `ExtractionController.java` (Demo), `ObservationUpdate.java`, `SearchRequest.java`
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | CortexMemClientImpl.java | `executeWithRetrySilent()` | Interrupt handling: interrupt during retry sleep silently consumes the interrupt flag (returns from void method without propagating). Recommendation: keep `Thread.currentThread().interrupt()` consistent even in silent mode — the flag is preserved but the caller cannot detect it. Consider logging at WARN level when interrupted. | P2 |
+| 2 | CortexMemClientImpl.java | `isRetryable()` | 500 intentionally excluded from retry (design choice: "code bug not transient"). This is well-documented but worth noting: if the backend ever returns 500 for transient reasons (e.g. DB connection pool exhaustion), SDK won't retry. Acceptable trade-off. | P2 (低) |
+
+**审查结论**: Java SDK 整体质量优秀。接口设计清晰（24 方法），retry 逻辑完善（jittered backoff、transient-only retry），cross-SDK 一致性良好（isRetryable 与 Go SDK 对齐）。DTO record 使用规范，Builder 模式一致。Demo ExtractionController 输入验证到位。无 P0/P1 问题。
+
+---
+
+### 2026-03-30 | Backend 审查 #6
+
+**抽查文件**: `ExtractionController.java`, `MemoryController.java`
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | ExtractionController.java | L105 `/history` | 返回类型 `ResponseEntity<?>`（泛型擦除），与 `/latest` 的 `ResponseEntity<Map<String, Object>>` 不一致。建议统一为 `ResponseEntity<List<Map<String, Object>>>` | P2 |
+| 2 | ExtractionController.java | L104-117 `/run` | Swagger 文档描述为 "synchronously"，但 LLM extraction 可能耗时较长（>60s 可能触发 Spring 默认超时）。建议加显式超时配置或说明 | P2 (低) |
+
+**审查结论**: 两个文件质量优秀。ExtractionController Swagger 注解完整（含 examples、description），MemoryController 的 `updateObservation` 验证逻辑设计精良（null=clear, absent=skip 模式一致，validateStringList 提取良好）。`/feedback` 501 状态有明确 Swagger 文档标记。无 P0/P1 问题。
+
+---
+
+### 2026-03-30 | 文档审查 #2 — API.md + API-zh-CN.md 端点覆盖
+
+**审查范围**: `docs/API.md` vs Controller 端点映射 + `docs/API-zh-CN.md` 一致性
+
+| # | 文件 | 问题 | 级别 |
+|---|------|------|------|
+| 1 | API.md + API-zh-CN.md | CursorController 端点仍未文档化（6 个端点：POST /register, DELETE /register/{name}, GET /projects, POST /context/{name}, POST /context/{name}/custom, GET /register/{name}）— 前次审查已标记 P2，仍未修复 | P2 |
+| 2 | API-zh-CN.md | Extraction 章节完全缺失 — 英文版有完整 Extraction 文档（/run, /{templateName}/latest, /{templateName}/history），中文版无任何 extraction 端点描述 | P2 |
+| 3 | API-zh-CN.md | 与 API.md 结构严重不同步 — 英文版 18 个章节 vs 中文版 8 个章节，中文版采用叙事式格式，缺少 Ingest、Memory、Viewer、Import、Logs、Mode 等章节的独立文档 | P1 |
+| 4 | API.md | TestController (`/api/test/*`) 未文档化 — 3 个端点仅 dev 环境可用（`@Profile("!prod")`），有意排除，可接受 | — (设计决策) |
+
+**审查结论**: 
+- **P1**: API-zh-CN.md 与 API.md 严重不同步，中文版缺少大量章节。建议以 API.md 为基准翻译更新。
+- **P2 (累积)**: CursorController 端点已连续 2 次审查标记未修复，建议下次集中修复时一并处理。
+- API.md（英文版）端点覆盖基本完整（Cursor 除外），Swagger 注解质量良好。
+
+---
+
+### 2026-03-30 07:31 | Backend 审查 #7
+
+**抽查文件**: `ExtractionController.java`, `ImportService.java`
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | ImportService.java | L154 | `logHappyPath()` 用于 JSON 解析失败日志 — `logHappyPath` 是 DEBUG 级别（Happy Path 语义），用于记录错误会导致 JSON 解析失败被静默吞掉。应使用 `logFailure()` 或 `log.warn()` | P1 ✅已修复 |
+| 2 | ExtractionController.java | L105 | `/history` 返回类型 `ResponseEntity<?>`（泛型擦除），与 `/latest` 的 `ResponseEntity<Map<String, Object>>` 不一致。建议统一为 `ResponseEntity<List<Map<String, Object>>>` | P2 |
+
+**审查结论**: 
+- **P1**: ImportService 的 `parseJsonArray` 错误日志使用了错误的 log 级别（HappyPath = DEBUG），JSON 格式错误会被静默忽略，不利于调试导入数据质量问题。
+- **P2**: ExtractionController 返回类型不一致，但不影响功能。
+- 整体代码质量良好：ImportService 使用 record 做 DTO 设计清晰，Transaction 边界合理（外层方法 @Transactional 覆盖内部调用），重复检测逻辑正确。

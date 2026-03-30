@@ -186,7 +186,7 @@ public class ImportService implements LogHelper {
         try {
             return MAPPER.readValue(json, new TypeReference<List<String>>() {});
         } catch (JsonProcessingException e) {
-            logHappyPath("Failed to parse JSON array: {}", e.getMessage());
+            log.warn("Failed to parse JSON array: {}", e.getMessage());
             return new ArrayList<>();
         }
     }
