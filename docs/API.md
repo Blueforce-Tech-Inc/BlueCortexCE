@@ -597,10 +597,40 @@ Query parameters:
 GET /api/projects
 ```
 
+Returns all known project paths.
+
+**Response** (`200 OK`):
+```json
+{
+  "projects": [
+    "/Users/dev/myproject",
+    "/Users/dev/another-project"
+  ]
+}
+```
+
 ### Get Project Statistics
 
 ```
 GET /api/stats?project=/path/to/project
+```
+
+Returns database and processing statistics.
+
+**Response** (`200 OK`):
+```json
+{
+  "worker": {
+    "isProcessing": false,
+    "queueDepth": 5
+  },
+  "database": {
+    "totalObservations": 1234,
+    "totalSummaries": 56,
+    "totalSessions": 78,
+    "totalProjects": 3
+  }
+}
 ```
 
 ### Get Settings
@@ -609,10 +639,35 @@ GET /api/stats?project=/path/to/project
 GET /api/settings
 ```
 
+Returns current application settings including active mode configuration.
+
+**Response** (`200 OK`):
+```json
+{
+  "mode": "code",
+  "modeName": "Code Mode",
+  "modeDescription": "Development workflow mode"
+}
+```
+
 ### Update Settings
 
 ```
 POST /api/settings
+```
+
+**Request Body**:
+```json
+{
+  "mode": "code--zh"
+}
+```
+
+**Response** (`200 OK`):
+```json
+{
+  "success": true
+}
 ```
 
 ## Mode
@@ -623,23 +678,77 @@ POST /api/settings
 GET /api/mode
 ```
 
+Returns the current active mode information.
+
+**Response** (`200 OK`):
+```json
+{
+  "modeId": "code",
+  "name": "Code Mode",
+  "description": "Development workflow mode",
+  "version": "1.0.0",
+  "observationTypes": [
+    {
+      "id": "bugfix",
+      "label": "Bug Fix",
+      "emoji": "🐛",
+      "workEmoji": "🔧"
+    }
+  ],
+  "observationConcepts": [
+    {
+      "id": "how-it-works",
+      "label": "How It Works",
+      "emoji": "⚙️"
+    }
+  ]
+}
+```
+
 ### Set Active Mode
 
 ```
 PUT /api/mode
 Content-Type: application/json
-
-{
-  "modeId": "code"
-}
 ```
 
 Switches the active mode at runtime. Supports base modes (e.g., "code") and inherited modes (e.g., "code--zh").
+
+**Request Body**:
+```json
+{
+  "modeId": "code--zh"
+}
+```
+
+**Response** (`200 OK`):
+```json
+{
+  "modeId": "code--zh",
+  "name": "代码模式",
+  "description": "开发工作流模式",
+  "version": "1.0.0",
+  "observationTypes": [...],
+  "observationConcepts": [...]
+}
+```
 
 ### List Observation Types
 
 ```
 GET /api/mode/types
+```
+
+**Response** (`200 OK`):
+```json
+[
+  {
+    "id": "bugfix",
+    "label": "Bug Fix",
+    "emoji": "🐛",
+    "workEmoji": "🔧"
+  }
+]
 ```
 
 ### List Observation Concepts
@@ -648,10 +757,28 @@ GET /api/mode/types
 GET /api/mode/concepts
 ```
 
+**Response** (`200 OK`):
+```json
+[
+  {
+    "id": "how-it-works",
+    "label": "How It Works",
+    "emoji": "⚙️"
+  }
+]
+```
+
 ### Validate Type
 
 ```
 GET /api/mode/types/{typeId}/validate
+```
+
+**Response** (`200 OK`):
+```json
+{
+  "valid": true
+}
 ```
 
 ### Get Type Emoji
@@ -660,10 +787,24 @@ GET /api/mode/types/{typeId}/validate
 GET /api/mode/types/{typeId}/emoji
 ```
 
+**Response** (`200 OK`):
+```json
+{
+  "emoji": "🐛",
+  "workEmoji": "🔧",
+  "label": "Bug Fix"
+}
+```
+
 ### List Valid Types
 
 ```
 GET /api/mode/types/valid
+```
+
+**Response** (`200 OK`):
+```json
+["bugfix", "feature", "refactor", "discovery"]
 ```
 
 ### List Valid Concepts
@@ -672,12 +813,44 @@ GET /api/mode/types/valid
 GET /api/mode/concepts/valid
 ```
 
+**Response** (`200 OK`):
+```json
+["how-it-works", "architecture", "best-practice"]
+```
+
 ## Viewer
 
 ### List Observations
 
 ```
-GET /api/observations?project=/path/to/project&limit=50&offset=0
+GET /api/observations?project=/path/to/project&limit=20&offset=0
+```
+
+Returns a paginated list of observations, optionally filtered by project.
+
+**Query Parameters**:
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `project` | string | No | null | Project path filter (returns all if omitted) |
+| `offset` | int | No | 0 | Pagination offset (0-based) |
+| `limit` | int | No | 20 | Items per page (max 100) |
+
+**Response** (`200 OK`):
+```json
+{
+  "items": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "title": "Feature implementation",
+      "type": "feature",
+      "narrative": "Implemented JWT authentication...",
+      "projectPath": "/Users/dev/myproject",
+      "createdAtEpoch": 1707878400000
+    }
+  ],
+  "hasMore": true
+}
 ```
 
 ### Get Observations by IDs
@@ -685,28 +858,87 @@ GET /api/observations?project=/path/to/project&limit=50&offset=0
 ```
 POST /api/observations/batch
 Content-Type: application/json
+```
 
+Retrieves multiple observations by their UUIDs. Supports optional project filtering, ordering, and result limit.
+
+**Request Body**:
+```json
 {
-  "ids": ["obs-1", "obs-2", "obs-3"]
+  "ids": ["obs-1", "obs-2", "obs-3"],
+  "project": "/Users/dev/myproject",
+  "orderBy": "created_at",
+  "limit": 100
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `ids` | string[] | ✅ | List of observation UUIDs to retrieve |
+| `project` | string | ❌ | Optional project filter |
+| `orderBy` | string | ❌ | Sort order (e.g., `created_at`) |
+| `limit` | int | ❌ | Max results to return |
+
+**Response** (`200 OK`):
+```json
+{
+  "observations": [...],
+  "count": 3
 }
 ```
 
 ### List Summaries
 
 ```
-GET /api/summaries?project=/path/to/project&limit=50&offset=0
+GET /api/summaries?project=/path/to/project&limit=20&offset=0
 ```
+
+Returns a paginated list of session summaries. Query parameters and response format are the same as List Observations (returns summary objects instead).
 
 ### List Prompts
 
 ```
-GET /api/prompts?project=/path/to/project&limit=50&offset=0
+GET /api/prompts?project=/path/to/project&limit=20&offset=0
 ```
+
+Returns a paginated list of user prompts. Query parameters and response format are the same as List Observations (returns user prompt objects instead).
 
 ### Get Timeline
 
 ```
 GET /api/timeline?project=/path/to/project
+```
+
+Returns observations grouped by date for the viewer UI timeline. Supports date range and anchor-based queries. Date range is limited to 1 year maximum.
+
+**Query Parameters**:
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `project` | string | Yes | — | Project path |
+| `startEpoch` | long | No | 90 days ago | Start timestamp |
+| `endEpoch` | long | No | now | End timestamp |
+| `anchorId` | string | No | — | Anchor observation ID |
+| `depthBefore` | int | No | — | Items before anchor |
+| `depthAfter` | int | No | — | Items after anchor |
+| `query` | string | No | — | Query to find anchor |
+
+**Response** (`200 OK`):
+```json
+[
+  {
+    "date": "2026-03-13",
+    "count": 15,
+    "ids": ["id1", "id2"]
+  }
+]
+```
+
+**Error Response** (`400 Bad Request`):
+```json
+{
+  "error": "Date range exceeds 1 year maximum"
+}
 ```
 
 ### Search by File
@@ -715,15 +947,25 @@ GET /api/timeline?project=/path/to/project
 GET /api/search/by-file?project=/path/to/project&filePath=/src/auth.ts&isFolder=false&limit=20
 ```
 
-Query parameters:
+**Query Parameters**:
 
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `project` | Yes | — | Project path |
-| `filePath` | Yes | — | File or folder path to search for |
-| `isFolder` | No | false | If true, match folder prefix |
-| `limit` | No | 20 | Max results (max 100) |
-| `debug` | No | false | Enable debug logging |
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `project` | string | Yes | — | Project path |
+| `filePath` | string | Yes | — | File or folder path to search for |
+| `isFolder` | boolean | No | false | If true, match folder prefix |
+| `limit` | int | No | 20 | Max results (max 100) |
+| `debug` | boolean | No | false | Enable debug logging |
+
+**Response** (`200 OK`):
+```json
+{
+  "observations": [...],
+  "count": 5,
+  "filePath": "/src/auth",
+  "isFolder": true
+}
+```
 
 ### Get Processing Status
 
@@ -731,15 +973,43 @@ Query parameters:
 GET /api/processing-status
 ```
 
+**Response** (`200 OK`):
+```json
+{
+  "isProcessing": false,
+  "queueDepth": 5
+}
+```
+
 ### Batch Get SDK Sessions
 
 ```
 POST /api/sdk-sessions/batch
 Content-Type: application/json
+```
 
+Batch query session information for export scripts.
+
+**Request Body**:
+```json
 {
   "contentSessionIds": ["session-1", "session-2"]
 }
+```
+
+**Response** (`200 OK`):
+```json
+[
+  {
+    "id": "session-uuid",
+    "content_session_id": "content-123",
+    "project": "/Users/dev/myproject",
+    "user_prompt": "Add feature",
+    "started_at_epoch": 1707878400000,
+    "completed_at_epoch": 1707882000000,
+    "status": "completed"
+  }
+]
 ```
 
 ### List Modes
@@ -748,7 +1018,21 @@ Content-Type: application/json
 GET /api/modes
 ```
 
-### Create Mode
+Returns the current active mode configuration.
+
+**Response** (`200 OK`):
+```json
+{
+  "id": "code",
+  "name": "Code Mode",
+  "description": "Development workflow mode",
+  "version": "1.0.0",
+  "observationTypes": [...],
+  "observationConcepts": [...]
+}
+```
+
+### Create Mode (Set Active Mode)
 
 ```
 POST /api/modes
@@ -763,7 +1047,7 @@ Switches the active mode at runtime. Supports base modes (e.g., "code") and inhe
 }
 ```
 
-**Response**:
+**Response** (`200 OK`):
 ```json
 {
   "success": true,
@@ -852,10 +1136,39 @@ Response: Same format as Import Observations.
 GET /api/logs
 ```
 
+**Query Parameters**:
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `lines` | int | No | 1000 | Maximum lines to return |
+
+**Response** (`200 OK`):
+```json
+{
+  "logs": "[2026-03-13 10:15:00] [INFO] [WORKER] Processing request...\n...",
+  "path": "/Users/dev/.claude-mem/logs",
+  "files": ["claude-mem-2026-03-13.log"],
+  "totalLines": 1523,
+  "returnedLines": 1000,
+  "exists": true
+}
+```
+
 ### Clear Logs
 
 ```
 POST /api/logs/clear
+```
+
+Clears today's log file.
+
+**Response** (`200 OK`):
+```json
+{
+  "status": "ok",
+  "message": "Today's log file has been cleared",
+  "path": "/Users/dev/.claude-mem/logs/claude-mem-2026-03-13.log"
+}
 ```
 
 ## Health & Version
@@ -884,10 +1197,39 @@ Response (degraded, DB unreachable):
 GET /api/readiness
 ```
 
+Checks if the service is fully ready to receive traffic.
+
+**Response** (`200 OK`, ready):
+```json
+{
+  "status": "ready",
+  "checks": {
+    "database": "ready",
+    "queueDepth": 5,
+    "queueStatus": "ready"
+  },
+  "timestamp": 1707878400000
+}
+```
+
+**Status Codes**:
+- `200` — Service ready
+- `503` — Service not ready (e.g., database connection failed)
+
 ### Get Version
 
 ```
 GET /api/version
+```
+
+**Response** (`200 OK`):
+```json
+{
+  "version": "0.1.0-beta",
+  "service": "claude-mem-java",
+  "java": "21.0.2",
+  "springBoot": "3.3.13"
+}
 ```
 
 ## Cursor
@@ -899,7 +1241,12 @@ Cursor IDE integration endpoints for automatic context file updates.
 ```
 POST /api/cursor/register
 Content-Type: application/json
+```
 
+Registers a project for automatic Cursor context file updates. When new observations are recorded, the `.cursor/rules/claude-mem-context.mdc` file is automatically updated.
+
+**Request Body**:
+```json
 {
   "projectName": "my-project",
   "projectPath": "/path/to/project"
@@ -931,7 +1278,10 @@ Generates fresh context from observations and writes to `.cursor/rules/claude-me
 ```
 POST /api/cursor/context/{projectName}/custom
 Content-Type: application/json
+```
 
+**Request Body**:
+```json
 {
   "content": "# Custom Context\n\n..."
 }
@@ -941,6 +1291,15 @@ Content-Type: application/json
 
 ```
 GET /api/cursor/register/{projectName}
+```
+
+**Response** (`200 OK`):
+```json
+{
+  "registered": true,
+  "projectName": "my-project",
+  "projectPath": "/path/to/project"
+}
 ```
 
 ## Streaming
@@ -1286,6 +1645,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | Date | Version | Changes |
 |------|---------|---------|
 | 2026-03-31 | 0.1.0-beta | Added Extraction (/run, /latest, /history), Cursor, Mode, Logs, Import, Viewer sections; Added Usage Examples, Appendix, Changelog; Synced with Chinese version |
+| 2026-03-31 | 0.1.0-beta+ | Enriched Viewer, Management, Mode, Health, Cursor, Logs sections with parameter tables and response examples; synced with Chinese version completeness |
 | 2026-03-13 | 0.1.0 | Initial API documentation |
 
 ---
