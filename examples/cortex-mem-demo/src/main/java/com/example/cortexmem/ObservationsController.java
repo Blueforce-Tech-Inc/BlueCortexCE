@@ -109,6 +109,11 @@ public class ObservationsController {
         if (ids.size() > 100) {
             return ResponseEntity.badRequest().body(Map.of("error", "batch size exceeds maximum of 100"));
         }
+        for (int i = 0; i < ids.size(); i++) {
+            if (ids.get(i) == null || ids.get(i).isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "ids[" + i + "] must not be empty"));
+            }
+        }
 
         try {
             Map<String, Object> result = client.getObservationsByIds(ids);

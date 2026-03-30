@@ -58,9 +58,9 @@ public class MemoryController {
             @RequestParam String task,
             @RequestParam(defaultValue = "/") String project,
             @RequestParam(defaultValue = "4") int count) {
-        if (count < 1 || count > 20) {
+        if (count < 1 || count > 100) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("error", "count must be between 1 and 20"));
+                    .body(Map.of("error", "count must be between 1 and 100"));
         }
         try {
             return ResponseEntity.ok(retrievalService.retrieveExperiences(task, resolveProject(project), count));
@@ -176,9 +176,9 @@ public class MemoryController {
             @RequestParam(required = false) String source,
             @RequestParam(required = false) List<String> requiredConcepts,
             @RequestParam(defaultValue = "4") int count) {
-        if (count < 1 || count > 20) {
+        if (count < 1 || count > 100) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("error", "count must be between 1 and 20"));
+                    .body(Map.of("error", "count must be between 1 and 100"));
         }
         try {
             ExperienceRequest request = ExperienceRequest.builder()
