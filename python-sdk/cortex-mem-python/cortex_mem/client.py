@@ -131,7 +131,7 @@ class CortexMemClient:
             return None
         try:
             return resp.json()
-        except (json.JSONDecodeError, ValueError):  # ValueError for pre-3.12 compat
+        except json.JSONDecodeError:
             return None
 
     def _request_no_content(
