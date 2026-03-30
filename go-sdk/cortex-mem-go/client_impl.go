@@ -126,6 +126,9 @@ func NewClient(opts ...Option) Client {
 	if cfg.ConnectTimeout < 100*time.Millisecond {
 		cfg.ConnectTimeout = 10 * time.Second // Reset to default if unreasonably low
 	}
+	if cfg.RetryBackoff < 100*time.Millisecond {
+		cfg.RetryBackoff = 100 * time.Millisecond // Minimum 100ms to prevent tight-loop retry
+	}
 
 	// If caller did not provide a custom http.Client, build one from timeout settings.
 	if cfg.HTTPClient == nil {

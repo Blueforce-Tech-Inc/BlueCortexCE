@@ -67,7 +67,7 @@ class CortexMemClient:
         self._base_url = base_url.rstrip("/")
         self._timeout = max(0.1, timeout)  # Minimum 100ms to prevent immediate timeout
         self._max_retries = max(1, max_retries)
-        self._retry_backoff = retry_backoff
+        self._retry_backoff = max(0.1, retry_backoff)  # Minimum 100ms to prevent tight-loop retry
         self._api_key = api_key
 
         if session is not None:
