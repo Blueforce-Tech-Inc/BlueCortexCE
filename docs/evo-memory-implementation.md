@@ -1,5 +1,7 @@
 # Evo-Memory Implementation Documentation
 
+> **中文版**: [evo-memory-implementation-zh.md](evo-memory-implementation-zh.md)
+
 > **Date**: 2026-03-17
 > **Project**: Claude-Mem Java (Cortex Community Edition)
 > **Reference**: [Evo-Memory Paper](https://arxiv.org/abs/2511.20857)

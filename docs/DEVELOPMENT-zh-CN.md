@@ -1,5 +1,7 @@
 # Cortex 社区版开发指南
 
+> **English Version**: [DEVELOPMENT.md](DEVELOPMENT.md)
+
 本指南提供 Cortex CE 开发环境的设置和工作指南。
 
 ## 目录

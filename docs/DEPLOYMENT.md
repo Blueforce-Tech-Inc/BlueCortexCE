@@ -1,5 +1,7 @@
 # Cortex Community Edition Deployment Guide
 
+> **中文版**: [DEPLOYMENT-zh-CN.md](DEPLOYMENT-zh-CN.md)
+
 > **Version**: 0.1.0-beta
 
 This guide provides comprehensive instructions for deploying Cortex Community Edition in production environments.

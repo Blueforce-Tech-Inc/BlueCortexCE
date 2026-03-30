@@ -1,6 +1,6 @@
 # Go SDK User Guide
 
-[中文](go-sdk-guide-zh-CN.md) | English
+<!-- TODO: Create Chinese version go-sdk-guide-zh-CN.md -->
 
 ## Overview
 

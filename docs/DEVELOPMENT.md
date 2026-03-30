@@ -1,5 +1,7 @@
 # Cortex Community Edition Development Guide
 
+> **中文版**: [DEVELOPMENT-zh-CN.md](DEVELOPMENT-zh-CN.md)
+
 This guide provides comprehensive instructions for setting up and working with the Cortex CE development environment.
 
 ## Table of Contents
