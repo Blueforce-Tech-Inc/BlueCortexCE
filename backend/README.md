@@ -270,6 +270,26 @@ src/main/java/com/ablueforce/cortexce/
 │   ├── WorktreeDetector.java        # Git worktree detection
 │   ├── ExperienceTemplate.java      # Experience retrieval templates
 │   └── StaleMessageRecoveryTask.java # Crash recovery for stale messages
+├── mcp/
+│   └── ClaudeMemMcpTools.java       # MCP tool implementations
+├── common/
+│   ├── LogHelper.java               # Structured logging helpers
+│   └── LogMarkers.java              # Log marker constants
+├── dto/
+│   ├── ApiRequests.java             # API request DTOs
+│   └── ApiResponses.java            # API response DTOs
+├── event/
+│   ├── PendingMessageEvent.java     # Pending message lifecycle event
+│   ├── PendingMessageEventListener.java
+│   ├── PendingMessageEventPublisher.java
+│   ├── MemoryRefineEvent.java       # Memory refinement event
+│   ├── MemoryRefineEventListener.java
+│   └── MemoryRefineEventPublisher.java
+├── exception/
+│   ├── DataValidationException.java # Data validation errors
+│   └── RetryableException.java      # Retryable operation errors
+├── logging/
+│   └── ClaudeMemLogAppender.java    # Custom log appender
 ├── util/
 │   ├── XmlParser.java               # Regex XML parser for LLM output
 │   ├── VectorValidator.java         # Vector embedding validation
