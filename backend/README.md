@@ -25,13 +25,14 @@ Tool-Use Event → IngestionController → AgentService (async)
 
 ### Multi-Dimension Embeddings
 
-The `mem_observations` table supports 4 embedding dimensions (all nullable):
+The `mem_observations` table supports 3 embedding dimensions (all nullable):
 
 - `embedding_768 vector(768)` — HNSW indexed
 - `embedding_1024 vector(1024)` — HNSW indexed (default, used by bge-m3)
 - `embedding_1536 vector(1536)` — HNSW indexed
-- `embedding_3072 vector(3072)` — no index (pgvector limit: HNSW/IVFFlat max 2000 dims)
 - `embedding_model_id` — tracks which model generated the embedding
+
+Note: `embedding_3072` was added in V2 and dropped in V7 (pgvector HNSW limit: max 2000 dims).
 
 ## Prerequisites
 
@@ -83,7 +84,7 @@ Server starts on `http://127.0.0.1:37777`.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/ingest/session-start` | Initialize session |
+| POST | `/api/session/start` | Initialize session |
 | POST | `/api/ingest/user-prompt` | Record user prompt |
 | POST | `/api/ingest/tool-use` | Enqueue tool-use → async LLM → observation |
 | POST | `/api/ingest/observation` | Direct observation creation (with auto-embedding) |
@@ -94,20 +95,26 @@ Server starts on `http://127.0.0.1:37777`.
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/observations` | Paginated observations |
+| POST | `/api/observations/batch` | Batch observation retrieval |
 | GET | `/api/summaries` | Paginated summaries |
 | GET | `/api/prompts` | Paginated user prompts |
 | GET | `/api/projects` | List projects |
 | GET | `/api/stats` | Database statistics |
 | GET | `/api/search` | Semantic + text search |
+| GET | `/api/search/by-file` | Search observations by file path |
+| GET | `/api/timeline` | Timeline context retrieval |
 | GET | `/api/processing-status` | Queue status |
 | GET | `/api/settings` | Get settings |
 | POST | `/api/settings` | Save settings |
+| GET | `/api/modes` | Get active mode configuration |
+| POST | `/api/modes` | Switch active mode |
+| POST | `/api/sdk-sessions/batch` | Batch SDK session operations |
 
 ### SSE Stream
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/stream` | Real-time observation/summary events |
+| GET | `/stream` | Real-time observation/summary events |
 
 ## End-to-End Test
 
@@ -123,7 +130,7 @@ curl -s http://127.0.0.1:37777/actuator/health | python3 -m json.tool
 ### Step 2: Create Session
 
 ```bash
-curl -s -X POST http://127.0.0.1:37777/api/ingest/session-start \
+curl -s -X POST http://127.0.0.1:37777/api/session/start \
   -H 'Content-Type: application/json' \
   -d '{
     "session_id": "test-e2e-002",
@@ -196,18 +203,35 @@ All steps passed:
 ## Project Structure
 
 ```
-src/main/java/com/claudemem/server/
+src/main/java/com/ablueforce/cortexce/
 ├── ClaudeMemApplication.java        # Main entry point
 ├── config/
 │   ├── AsyncConfig.java             # @EnableAsync with virtual threads
-│   └── JacksonConfig.java           # Snake-case JSON serialization
+│   ├── AppSettings.java             # Application settings POJO
+│   ├── Constants.java               # Shared constants
+│   ├── ExtractionConfig.java        # Structured extraction configuration
+│   ├── ModeConfig.java              # Memory mode configuration
+│   ├── MdcAutoFilter.java           # MDC logging filter
+│   ├── QueueHealthIndicator.java    # Health check for pending queue
+│   ├── SpringAiConfig.java          # Spring AI integration config
+│   └── WebConfig.java               # CORS and web config
 ├── controller/
 │   ├── IngestionController.java     # Hook event endpoints
 │   ├── ViewerController.java        # Viewer API endpoints
-│   └── StreamController.java        # SSE streaming
+│   ├── StreamController.java        # SSE streaming
+│   ├── ContextController.java       # Context generation endpoints
+│   ├── SessionController.java       # Session management endpoints
+│   ├── MemoryController.java        # Memory API endpoints
+│   ├── ModeController.java          # Memory mode endpoints
+│   ├── ExtractionController.java    # Structured extraction endpoints
+│   ├── LogsController.java          # Log access endpoints
+│   ├── HealthController.java        # Health check endpoint
+│   ├── ImportController.java        # Data import endpoints
+│   ├── CursorController.java        # Cursor IDE integration endpoints
+│   └── TestController.java          # Test/debug endpoints
 ├── entity/
 │   ├── SessionEntity.java
-│   ├── ObservationEntity.java       # 4 embedding vector fields
+│   ├── ObservationEntity.java       # 3 embedding vector fields (768/1024/1536)
 │   ├── SummaryEntity.java
 │   ├── UserPromptEntity.java
 │   └── PendingMessageEntity.java
@@ -222,15 +246,52 @@ src/main/java/com/claudemem/server/
 │   ├── LlmService.java             # DeepSeek / OpenAI-compatible API client
 │   ├── EmbeddingService.java        # SiliconFlow embedding API client
 │   ├── SearchService.java           # Semantic + text search with dimension routing
-│   └── SSEBroadcaster.java          # Server-Sent Events broadcasting
-└── util/
-    └── XmlParser.java               # Regex XML parser for LLM output
+│   ├── SSEBroadcaster.java          # Server-Sent Events broadcasting
+│   ├── ContextService.java          # Context generation and management
+│   ├── ContextCacheService.java     # Context caching
+│   ├── TimelineService.java         # Timeline context generation
+│   ├── ClaudeMdService.java         # CLAUDE.md file generation
+│   ├── TokenService.java            # Token counting
+│   ├── RateLimitService.java        # Per-session rate limiting
+│   ├── ProjectFilterService.java    # Project path filtering
+│   ├── ModeService.java             # Memory mode management
+│   ├── MemoryRefineService.java     # Memory refinement/evolution
+│   ├── StructuredExtractionService.java  # Structured data extraction
+│   ├── SessionManagementService.java # Session lifecycle management
+│   ├── SummaryGenerationService.java # Summary generation
+│   ├── TemplateService.java         # Prompt template management
+│   ├── SettingsService.java         # Application settings
+│   ├── ImportService.java           # Data import
+│   ├── CursorService.java           # Cursor IDE integration
+│   ├── ExpRagService.java           # Experimental RAG
+│   ├── PendingMessageProcessor.java # Pending message queue processing
+│   ├── LlmQualityScorer.java        # LLM-based quality scoring
+│   ├── QualityScorer.java           # Observation quality scoring
+│   ├── WorktreeDetector.java        # Git worktree detection
+│   ├── ExperienceTemplate.java      # Experience retrieval templates
+│   └── StaleMessageRecoveryTask.java # Crash recovery for stale messages
+├── util/
+│   ├── XmlParser.java               # Regex XML parser for LLM output
+│   ├── VectorValidator.java         # Vector embedding validation
+│   └── SessionStatus.java           # Session status enum/utility
 
 src/main/resources/
 ├── application.yml                  # All configuration
 ├── db/migration/
 │   ├── V1__init_schema.sql          # Base schema (5 tables)
-│   └── V2__multi_dimension_embeddings.sql  # Multi-dim vectors + model tracking
+│   ├── V2__multi_dimension_embeddings.sql  # Multi-dim vectors + model tracking
+│   ├── V3__add_skipped_status.sql
+│   ├── V4__context_caching.sql
+│   ├── V5__user_prompt_project.sql
+│   ├── V6__pending_message_hash.sql
+│   ├── V7__remove_embedding_3072.sql
+│   ├── V8__add_observation_content_hash.sql
+│   ├── V11__observation_quality.sql
+│   ├── V12__step_efficiency.sql
+│   ├── V13__unify_session_id_on_content_session.sql
+│   ├── V14__observation_source_and_extracted_data.sql
+│   ├── V15__add_user_id_to_sessions.sql
+│   └── V16__composite_source_index.sql
 └── prompts/
     ├── init.txt                     # System prompt for memory observer
     ├── observation.txt              # User prompt template for tool events
