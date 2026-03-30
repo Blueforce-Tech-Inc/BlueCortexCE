@@ -239,7 +239,20 @@ public class MemoryController {
     public ResponseEntity<Map<String, Object>> updateObservation(
             @Parameter(description = "UUID of the observation to update", required = true, example = "550e8400-e29b-41d4-a716-446655440000")
             @PathVariable UUID id,
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Partial update body. Supports: title, content/narrative, subtitle, source, facts (list of strings), concepts (list of strings), extractedData (JSON object). Null = clear field, absent = no change.", required = true)
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                description = "Partial update body (PATCH semantics). " +
+                    "Supported fields: " +
+                    "title (string, null=clear), " +
+                    "content/narrative (string, null=clear), " +
+                    "subtitle (string, null=clear), " +
+                    "source (string, null=clear), " +
+                    "facts (list of strings, null=clear), " +
+                    "concepts (list of strings, null=clear), " +
+                    "extractedData (JSON object, null=clear). " +
+                    "Absent fields are left unchanged. Null values explicitly clear the field.",
+                required = true,
+                content = @Content(schema = @Schema(
+                    example = "{\"title\":\"Updated title\",\"content\":\"Updated narrative\",\"concepts\":[\"how-it-works\",\"architecture\"]}")))
             @org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
 
         ObservationEntity observation = observationRepository.findById(id).orElse(null);
