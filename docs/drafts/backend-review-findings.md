@@ -394,3 +394,43 @@ _暂无问题记录_
 - **AppSettings.java**: ✅ 整体良好。`getEnvOrDefault` 模式一致，`parseIntSafe` / `parseCommaSeparated` 防御性解析到位。`@JsonIgnoreProperties(ignoreUnknown = true)` 保证向前兼容。
 - **SettingsService.java**: 功能正确但有 4 个 P2 代码卫生/健壮性问题。无 P0/P1。
 - **无 P0/P1 问题**。累计 P2 问题待集中修复。
+
+---
+
+### 2026-03-31 03:28 | Java SDK 审查 #12
+
+**审查范围**: `cortex-mem-client` (15 源文件 + 2 测试文件) + `cortex-mem-demo` (13 控制器)
+
+| 检查项 | 结果 |
+|--------|------|
+| SDK 编译 | ✅ BUILD SUCCESS |
+| SDK 测试 | ✅ 111/111 通过 |
+| Demo 编译 | ✅ BUILD SUCCESS |
+| 接口设计 | ✅ 24+ API 方法，Capture/Retrieval/Management/Extraction/Search 分组清晰 |
+| DTO 设计 | ✅ Records + Builder + toWireFormat()，null 字段省略一致 |
+| 错误处理 | ✅ fire-and-forget (Silent) vs propagate (Throws) 分离合理 |
+| 重试机制 | ✅ 指数退避 + ±25% jitter，仅重试 429/502/503/504 |
+| 跨 SDK 一致性 | ✅ wire format 与 Go SDK 对齐（project_path vs cwd 设计一致）|
+| Demo 代码质量 | ✅ 输入验证、错误处理、类型检查到位 |
+
+**发现问题**: 无 P0/P1/P2 问题。代码质量优秀。
+
+**审查结论**: Java SDK 代码质量与 Go/Python/JS SDK 同级，无需修复。
+
+---
+
+### 2026-03-31 04:56 | Backend 审查 #12
+
+**抽查文件**: `ModeController.java`, `ModeService.java`, `ModeConfig.java`, `TokenService.java`
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | ModeService.java | L46 `modeCache` | `modeCache` 是 plain `HashMap`，非线程安全。`setActiveMode()` (PUT /api/mode) 可被并发调用，与 ModeService 自身的 `loadMode()`/`loadModeFile()` 也共享此 map。并发 put 可能导致 HashMap 内部结构损坏。建议改用 `ConcurrentHashMap` 或在 `setActiveMode` 加 synchronized | P2 |
+| 2 | ModeController.java | L104-108 Swagger | `@ApiResponse(responseCode = "200")` 的 example 包含 error 响应格式 (`"name":"error"`)，但实际错误返回 `ResponseEntity.badRequest()` (400)。Swagger 文档误导 — 错误响应示例应放在 `responseCode = "400"` 下 | P2 (低) |
+
+**审查结论**:
+- **ModeController.java**: 质量良好。7 个端点覆盖完整（GET/PUT active mode, types, concepts, validate, emoji, valid IDs），Swagger 注解完整，输入验证到位（null/blank modeId 检查），异常处理合理。
+- **ModeService.java**: 架构清晰。多层 fallback（filesystem → classpath → embedded default）可靠，继承模式 (parent--override) deep merge 逻辑正确（对象递归合并，数组整体替换），`parseInheritance` 单级继承限制明确。
+- **ModeConfig.java**: 设计精良。Records + `@JsonIgnoreProperties` 向前兼容，Mode record 的 getType/getConcept 流式查询清晰，null 安全处理到位。
+- **TokenService.java**: 无问题。公式精确复刻 TS 实现（CHARS_PER_TOKEN=4, 仅 title+subtitle+content+facts），`Math.min` clamp 防溢出正确。
+- **无 P0/P1 问题**。
