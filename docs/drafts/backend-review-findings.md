@@ -24,6 +24,27 @@ _暂无问题记录_
 | SearchService.java | 45 | 空指针风险：未检查 searchRequest 的 null 值 | P1 | 待修复 |
 -->
 
+
+
+---
+
+### 2026-03-30 13:31 | Backend 审查 #10
+
+**抽查文件**: `ExtractionController.java`, `StructuredExtractionService.java`
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | ExtractionController.java | L105 `/history` | 返回类型 `ResponseEntity<?>`（泛型擦除），与 `/latest` 的 `ResponseEntity<Map<String, Object>>` 不一致。连续第 3 次标记未修复。建议统一为 `ResponseEntity<List<Map<String, Object>>>` | P2 |
+| 2 | ExtractionController.java | L140 `/run` | 无认证/速率限制保护 — 任何能访问 API 的用户都可以触发同步 LLM extraction（可能消耗大量 token 和时间）。建议至少加 rate limiting 或 API key 验证 | P2 |
+| 3 | StructuredExtractionService.java | L146 `groupByUser()` | `sessionRepository.findByContentSessionIdIn()` 如果 sessionIds 为空集合会怎样？当 observations 全部 contentSessionId 为 null 时，传入空 Set 到 repository 可能导致异常（取决于 JPA provider）。当前有 `filter(Objects::nonNull)` 但空集合仍然会被传入 | P2 (低) |
+| 4 | StructuredExtractionService.java | L242 `extractAppendOnly()` | append-only 提取结果中 LLM 返回的 key 未做 schema 验证 — LLM 可能返回 `adds` 而非 `add`，或返回完全自定义的顶层 key。`safeListOfMaps` 会将未知 key 视为 null 返回空 list，不会崩溃但也不会报错，导致静默数据丢失 | P2 |
+| 5 | StructuredExtractionService.java | L340 `buildItemKey()` | SHA-256 fallback 使用 `System.identityHashCode(item)` 作为 last resort — 这个值在 GC 后可能重复（不同对象可能获得相同 identity hash）。建议用 `Objects.hashCode(item)` 替代 | P2 (低) |
+
+**审查结论**: 
+- 代码质量优秀。ExtractionController Swagger 注解完整，StructuredExtractionService 的 append-only extraction 设计稳健（mergeAppendOnly + keep_hint 保护机制）。
+- `ExtractionController.getExtractionHistory` 返回类型不一致问题已连续 3 次标记未修复，建议纳入下次集中修复批次。
+- 无 P0/P1 问题。append-only merge 逻辑中的 `_field` hint 路由、dedup key 构建、DLQ 机制设计合理。
+
 ---
 
 ### 2026-03-29 | Backend 审查 #1
@@ -193,3 +214,100 @@ _暂无问题记录_
 - **P1**: ImportService 的 `parseJsonArray` 错误日志使用了错误的 log 级别（HappyPath = DEBUG），JSON 格式错误会被静默忽略，不利于调试导入数据质量问题。
 - **P2**: ExtractionController 返回类型不一致，但不影响功能。
 - 整体代码质量良好：ImportService 使用 record 做 DTO 设计清晰，Transaction 边界合理（外层方法 @Transactional 覆盖内部调用），重复检测逻辑正确。
+
+---
+
+### 2026-03-30 08:31 | Backend 审查 #8
+
+**抽查文件**: `ClaudeMdService.java`, `UserPromptRepository.java`
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | ClaudeMdService.java | L163 `writeClaudeMdToFolder` | 静默吞掉 IOException — `catch` 仅 `log.error` 不再抛出，调用方无法感知写入失败。建议至少暴露失败信号（如返回 boolean 或抛出 unchecked exception） | P2 |
+| 2 | ClaudeMdService.java | L60 `generateClaudeMd` | 缺少 `projectPath` 参数 null 检查 — 传入 null 会导致 `findByProjectPathOrderByCreatedAtDesc(null)` 查询行为不确定 | P2 |
+| 3 | UserPromptRepository.java | L20 vs L34 | 方法重复 — `findByContentSessionIdAndPromptNumber`（派生查询）与 `findByContentSessionIdAndPromptNumberQuery`（@Query 注解）功能完全相同，增加维护负担 | P2 |
+
+**审查结论**: 
+- 代码质量良好。ClaudeMdService 的原子写入（temp + rename）设计正确，tag-based 内容替换逻辑清晰，与 TS 实现对齐。
+- UserPromptRepository 查询设计规范，分页查询支持 project 过滤，`@Query` 使用 JPQL 正确。
+- 无 P0/P1 问题，3 个 P2 均为低优先级代码卫生问题。
+
+---
+
+### 2026-03-30 08:41 | 文档审查 #3 — API.md + API-zh-CN.md 端点覆盖（第三次复查）
+
+**审查范围**: `docs/API.md` vs Controller 端点映射 + `docs/API-zh-CN.md` 一致性
+
+| # | 文件 | 问题 | 级别 |
+|---|------|------|------|
+| 1 | API-zh-CN.md | Extraction 章节缺失（3 个端点：/run, /{templateName}/latest, /{templateName}/history）— 连续第 2 次标记未修复 | P2 |
+| 2 | API-zh-CN.md | Search 章节缺失（GET /api/search）— 连续第 2 次标记 | P2 |
+| 3 | API-zh-CN.md | Management 章节缺失（4 个端点：/api/projects, /api/stats, GET/POST /api/settings）— 连续第 2 次标记 | P2 |
+| 4 | API-zh-CN.md | Observations 章节缺失（英文版仅 1 行引用 Viewer，中文版完全无此章节） | P2 (低) |
+| 5 | API.md + API-zh-CN.md | CursorController 端点仍未文档化（6 个端点）— 连续第 3 次标记未修复 | P2 |
+| 6 | API-zh-CN.md | 更新日志停留在 0.1.0（2026-03-13），未反映大量 API 变更 | P2 |
+
+**审查结论**: 无新增 P0/P1。中文 API 文档的 Extraction/Search/Management 章节缺失和 CursorController 未文档化问题已累计多次标记，建议纳入下次集中修复批次。英文版 API.md 结构清晰、覆盖完整（除 CursorController 外）。
+
+---
+
+### 2026-03-30 09:31 | Go SDK 审查 #1
+
+**抽查文件**: `client.go`, `client_impl.go`, `client_methods.go`, `error.go`, `dto/observation.go`, `dto/extraction.go`, `dto/dto_test.go`, `examples/http-server/main.go`, `eino/retriever.go`, `langchaingo/memory.go`, `langchaingo/memory_test.go`
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | client_impl.go | `NewClient()` | `RetryBackoff` 无下限校验 — `Timeout` 和 `ConnectTimeout` 有 `< 100ms` 的合理性检查，但 `RetryBackoff` 未校验（传入 0 或负值会导致 jitter 计算异常：`jitterRange = 0`，无 sleep）。建议加 `if cfg.RetryBackoff < 10*time.Millisecond { cfg.RetryBackoff = 500*time.Millisecond }` | P2 |
+| 2 | client_impl.go | `doFireAndForget()` | 内联 jitter 计算逻辑可提取为 `jitteredBackoff(baseDelay, attempt)` 辅助函数 — 当前 doFireAndForget 内的 8 行 jitter 代码与 Java SDK 的 `calculateBackoff` 对应，但 Go 版本未独立提取，测试覆盖困难 | P2 (低) |
+| 3 | error.go | `IsRetryable()` | 与 `isTransient()` 逻辑重复 — 两者检查相同的 4 个状态码（429, 502, 503, 504）。`isTransient` 用于 `doFireAndForget` 内部，`IsRetryable` 为公开 API。建议 `isTransient` 内部调用 `IsRetryable` 减少重复 | P2 (低) |
+| 4 | dto/dto_test.go | 全文 | 无 `ObservationUpdate.IsEmpty()` 的 `ExtractedData` 为 empty map 时的测试 — 当前测试覆盖了 `ExtractedData: map[string]any{"key":"val"}`（非空），但未测试 `ExtractedData: map[string]any{}`（空 map）时 `IsEmpty()` 的行为 | P2 (低) |
+
+**测试结果**: 267 tests passed（主包 + dto + eino + genkit + langchaingo）
+
+**审查结论**: Go SDK 整体质量优秀，无 P0/P1 问题。
+- **架构**: Client 接口设计清晰（26 方法），Option 模式配置一致，泛型 `doRequestJSON[T]` 消除重复
+- **Wire 格式**: 全面验证（camelCase/snake_case 混合映射正确，StringList 双格式解码可靠）
+- **错误处理**: ValidationError/APIError 两级分离，sentinel errors 与 IsXxx helpers 覆盖完整
+- **集成层**: eino/genkit/langchaingo 三个适配器模式一致（nil 检查、默认 logger、graceful degradation）
+- **Demo**: http-server 输入验证到位（MaxBytesReader、参数校验、panic recovery、graceful shutdown）
+- **Cross-SDK 一致性**: isRetryable 与 Java SDK 对齐（429/502/503/504 retry，500 不 retry），wire format 注释有 Java/Python 交叉引用
+
+---
+
+### 2026-03-30 11:31 | Backend 审查 #9
+
+**抽查文件**: `CursorService.java`, `TemplateService.java`
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | CursorService.java | L92 `writeRegistry()` | 静默吞掉 IOException — 仅 `log.error` 不再抛出，调用方无法感知磁盘写入失败（注册/注销操作会"成功"但实际未持久化） | P2 |
+| 2 | CursorService.java | L197 `writeContextFile()` | 缺少路径遍历防护 — `workspacePath` 来自 API 用户输入，未做 `..` 校验。ContextController 有 `isWithinProject()` 保护，但 CursorService 完全没有。攻击者可通过 workspacePath 写入任意路径的 .cursor/rules/ 文件 | P2 |
+| 3 | CursorService.java | L61 `readRegistry()` | 缓存陈旧风险 — 缓存仅在内部 `writeRegistry()` 时刷新，若外部进程（如 TS proxy）修改 `cursor-projects.json`，缓存不会自动刷新。`clearCache()` 为 public 但无定时调用 | P2 |
+| 4 | CursorService.java | L120 `registerProject()` | 并发竞争 — read-modify-write 无锁保护，两个并发 `registerProject()` 调用可能导致其中一个的注册丢失（后者覆盖前者的 registry） | P2 |
+
+**TemplateService.java 审查**:
+- ✅ 无新问题。前次审查标记的 `{{{{` dead code 问题已确认修复正确（Java `replace()` 对原字符串顺序执行，四花括号先替换不会被双花括号消耗）
+- 所有方法设计合理：`validatePlaceholders` fail-fast、`truncate` 安全截断、`loadResource` 异常传播正确
+
+**审查结论**: 无 P0/P1 问题。CursorService 有 4 个 P2，主要是错误处理、安全防护、缓存一致性和并发安全方面的代码卫生问题。TemplateService 质量良好。
+
+### 2026-03-30 11:51 | Python SDK 审查 #1
+
+**审查范围**: `client.py`, `dto.py`, `error.py`, `examples/http-server/app.py`, 全部测试
+
+**发现与修复**:
+
+| # | 文件 | 问题 | 级别 | 处理 |
+|---|------|------|------|------|
+| 1 | dto.py | `ExtractionResult.from_wire` 中 `_first_non_null(data, "extracted_data", "extractedData")` 键顺序与 `Observation.from_wire` 不一致 — 应优先检查 `extractedData`（后端 ExtractionController 显式发送 camelCase） | P1 | ✅ 已修复：改为 `("extractedData", "extracted_data")` |
+| 2 | examples/http-server/app.py | docstring 声称 "26 SDK methods" 但实际 25 个 API 方法（close() 是生命周期方法） | P2 | ✅ 已修复：改为 "25 SDK API methods" |
+
+**测试结果**: 343 tests passed（test_client 166 + test_demo 72 + test_dto 105）
+
+**审查结论**: Python SDK 整体质量优秀。
+- **Client 实现**: 25 个 API 方法完整，fire-and-forget 重试逻辑与 Go SDK 对齐（429/502/503/504），线性退火 + ±25% jitter
+- **DTO 设计**: `_first_non_null` 双格式兼容（camelCase/snake_case），`_to_int`/`_to_float` NaN/Inf 安全处理，`_sanitize_for_json` 保证 JSON 合规
+- **错误处理**: 与 Go SDK 错误谓词完全对齐（is_retryable, is_validation_error, is_not_found 等）
+- **ObservationUpdate**: 支持 dataclass + kwargs 双模式，_WIRE_FIELDS 映射 extracted_data→extractedData 正确
+- **Demo**: 输入验证到位（_require, _parse_int_param, limit/offset 范围检查），错误处理器覆盖 API/Cortex/通用异常
+- **Cross-SDK 一致性**: is_retryable(429,502,503,504) 与 Go/Java/JS 对齐，extractedData camelCase 契约一致
