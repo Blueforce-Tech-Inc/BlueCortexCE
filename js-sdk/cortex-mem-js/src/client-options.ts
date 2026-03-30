@@ -72,7 +72,7 @@ export function resolveConfig(options?: CortexMemClientOptions): ResolvedClientC
     apiKey: options?.apiKey ?? '',
     timeout: Math.max(100, options?.timeout ?? 30_000),
     maxRetries: Math.max(1, options?.maxRetries ?? 3),
-    retryBackoff: options?.retryBackoff ?? 500,
+    retryBackoff: Math.max(10, options?.retryBackoff ?? 500),
     logger: options?.logger ?? { debug() {}, info() {}, warn() {}, error() {} },
     fetch: fetchFn,
     headers: options?.headers ?? {},
