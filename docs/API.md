@@ -1,7 +1,9 @@
 # Cortex Community Edition API Documentation
 
-> **Version**: 0.1.0-beta  
-> **Base URL**: `http://localhost:37777`  
+> **中文版**: [API-zh-CN.md](API-zh-CN.md)
+
+> **Version**: 0.1.0-beta
+> **Base URL**: `http://localhost:37777`
 > **Protocol**: HTTP/1.1, SSE (Server-Sent Events)
 
 This document describes the REST API for Cortex Community Edition backend.
@@ -20,7 +22,8 @@ This document describes the REST API for Cortex Community Edition backend.
 - [Management](#management)
 - [Health & Version](#health--version)
 - [Ingest](#ingest)
-- [WebUI](#webui)
+- [Cursor](#cursor)
+- [Streaming](#streaming)
 - [Error Codes](#error-codes)
 
 ## Overview
@@ -63,9 +66,12 @@ Content-Type: application/json
 
 {
   "session_id": "content-session-id",
+  "project_path": "/path/to/project",
   "cwd": "/path/to/project",
-  "user_id": "user-123",
-  "last_user_message": "Hello"
+  "projects": "project1,project2",
+  "is_worktree": false,
+  "parent_project": null,
+  "user_id": "user-123"
 }
 ```
 
@@ -162,6 +168,25 @@ Content-Type: application/json
 {
   "project_path": "/path/to/project"
 }
+```
+
+### Update Observation
+
+```
+PATCH /api/memory/observations/{observationId}
+Content-Type: application/json
+
+{
+  "quality_score": 0.95,
+  "source": "manual",
+  "extractedData": {"key": "value"}
+}
+```
+
+### Delete Observation
+
+```
+DELETE /api/memory/observations/{observationId}
 ```
 
 ### Update Observation
@@ -722,6 +747,59 @@ GET /api/readiness
 
 ```
 GET /api/version
+```
+
+## Cursor
+
+Cursor IDE integration endpoints for automatic context file updates.
+
+### Register Project
+
+```
+POST /api/cursor/register
+Content-Type: application/json
+
+{
+  "projectName": "my-project",
+  "projectPath": "/path/to/project"
+}
+```
+
+### Unregister Project
+
+```
+DELETE /api/cursor/register/{projectName}
+```
+
+### List Registered Projects
+
+```
+GET /api/cursor/projects
+```
+
+### Update Context
+
+```
+POST /api/cursor/context/{projectName}
+```
+
+Generates fresh context from observations and writes to `.cursor/rules/claude-mem-context.mdc`.
+
+### Write Custom Context
+
+```
+POST /api/cursor/context/{projectName}/custom
+Content-Type: application/json
+
+{
+  "content": "# Custom Context\n\n..."
+}
+```
+
+### Check Registration
+
+```
+GET /api/cursor/register/{projectName}
 ```
 
 ## Streaming

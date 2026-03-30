@@ -2,7 +2,7 @@
 
 > **English Version**: [API.md](API.md)
 
-> **版本**: 0.1.0-SNAPSHOT
+> **版本**: 0.1.0-beta
 > **基础URL**: `http://localhost:37777`
 > **协议**: HTTP/1.1, SSE (Server-Sent Events)
 
@@ -23,6 +23,7 @@
    - [Mode 模式](#mode-模式)
    - [Logs 日志](#logs-日志)
    - [Import 导入](#import-导入)
+   - [Cursor IDE 集成](#cursor-ide-集成)
    - [SSE 流式推送](#sse-流式推送)
 5. [使用示例](#使用示例)
 
@@ -983,48 +984,6 @@ curl http://localhost:37777/api/modes
 
 ### Memory 记忆
 
-#### POST `/api/memory/save`
-
-手动保存记忆/观察。
-
-**请求体**:
-```json
-{
-  "text": "Important discovery about authentication flow...",
-  "title": "Auth flow insight",
-  "project": "/Users/dev/myproject"
-}
-```
-
-**字段说明**:
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `text` | string | ✅ | 记忆内容 |
-| `title` | string | ❌ | 标题（默认取文本前 60 字符） |
-| `project` | string | ❌ | 项目路径（默认 "manual-memories"） |
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "title": "Auth flow insight",
-  "project": "/Users/dev/myproject",
-  "message": "Memory saved as observation #550e8400-e29b-41d4-a716-446655440000"
-}
-```
-
-**错误响应**:
-```json
-{
-  "success": false,
-  "error": "text is required and must be non-empty"
-}
-```
-
----
-
 #### POST `/api/memory/refine`
 
 触发记忆精炼（异步）。
@@ -1067,7 +1026,6 @@ curl http://localhost:37777/api/modes
   "task": "database optimization",
   "project": "/path/to/project",
   "maxChars": 4000
-}
 }
 ```
 
@@ -1452,6 +1410,72 @@ curl -X POST http://localhost:37777/api/logs/clear
 **请求体**: 用户提示数组
 
 **响应格式**: 同 `/api/import/sessions`
+
+---
+
+### Cursor IDE 集成
+
+Cursor IDE 集成端点，用于自动上下文文件更新。
+
+#### POST `/api/cursor/register`
+
+注册 Cursor 项目。
+
+**请求体**:
+```json
+{
+  "projectName": "my-project",
+  "projectPath": "/path/to/project"
+}
+```
+
+**说明**: 注册后，当新观察被记录时，会自动更新 `.cursor/rules/claude-mem-context.mdc` 文件。
+
+---
+
+#### DELETE `/api/cursor/register/{projectName}`
+
+取消注册 Cursor 项目。
+
+---
+
+#### GET `/api/cursor/projects`
+
+获取所有已注册的 Cursor 项目列表。
+
+---
+
+#### POST `/api/cursor/context/{projectName}`
+
+为已注册项目生成并更新 Cursor 上下文文件。
+
+---
+
+#### POST `/api/cursor/context/{projectName}/custom`
+
+写入自定义上下文到 Cursor 文件。
+
+**请求体**:
+```json
+{
+  "content": "# Custom Context\n\n..."
+}
+```
+
+---
+
+#### GET `/api/cursor/register/{projectName}`
+
+检查项目是否已注册。
+
+**响应示例**:
+```json
+{
+  "registered": true,
+  "projectName": "my-project",
+  "projectPath": "/path/to/project"
+}
+```
 
 ---
 
