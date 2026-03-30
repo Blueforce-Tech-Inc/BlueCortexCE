@@ -18,6 +18,7 @@
    - [Session 管理](#session-管理)
    - [Context 上下文](#context-上下文)
    - [Ingestion 数据摄入](#ingestion-数据摄入)
+   - [Extraction 结构化提取](#extraction-结构化提取)
    - [Viewer 查看器](#viewer-查看器)
    - [Memory 记忆](#memory-记忆)
    - [Mode 模式](#mode-模式)
@@ -253,6 +254,36 @@ curl http://localhost:37777/api/session/abc-123-def
 {
   "error": "Session not found",
   "session_id": "abc-123-def"
+}
+```
+
+---
+
+#### PATCH `/api/session/{sessionId}/user`
+
+更新会话关联的用户 ID。
+
+**路径参数**:
+- `sessionId` - 内容会话 ID
+
+**请求体**:
+```json
+{
+  "user_id": "user-123"
+}
+```
+
+**请求示例**:
+```bash
+curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "user-123"}'
+```
+
+**响应示例**:
+```json
+{
+  "status": "ok"
 }
 ```
 
@@ -601,6 +632,114 @@ curl "http://localhost:37777/api/context/prior-messages?project=/Users/dev/mypro
 
 ---
 
+### Extraction 结构化提取
+
+Phase 3 结构化数据提取端点，从会话观察中提取结构化数据（如用户偏好、过敏信息等）。
+
+#### POST `/api/extraction/run`
+
+触发结构化数据提取。
+
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `projectPath` | string | ✅ | 项目路径 |
+
+**请求示例**:
+```bash
+curl -X POST "http://localhost:37777/api/extraction/run?projectPath=/Users/dev/myproject"
+```
+
+**响应示例**:
+```json
+{
+  "status": "triggered",
+  "message": "Extraction started"
+}
+```
+
+---
+
+#### GET `/api/extraction/{templateName}/latest`
+
+获取指定模板的最新提取结果。
+
+**路径参数**:
+- `templateName` - 提取模板名称（如 `user-preferences`、`allergy-info`）
+
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `projectPath` | string | ✅ | 项目路径 |
+| `userId` | string | ❌ | 用户 ID（用户级别提取时使用） |
+
+**请求示例**:
+```bash
+curl "http://localhost:37777/api/extraction/user-preferences/latest?projectPath=/Users/dev/myproject&userId=alice"
+```
+
+**响应示例**（有数据）:
+```json
+{
+  "status": "ok",
+  "template": "user-preferences",
+  "sessionId": "session-123",
+  "extractedData": { "preferredLanguage": "en", "theme": "dark" },
+  "createdAt": 1707878400000,
+  "observationId": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**响应示例**（无数据）:
+```json
+{
+  "status": "not_found",
+  "template": "user-preferences",
+  "message": "No extraction found"
+}
+```
+
+---
+
+#### GET `/api/extraction/{templateName}/history`
+
+获取指定模板的提取历史。
+
+**路径参数**:
+- `templateName` - 提取模板名称
+
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `projectPath` | string | ✅ | 项目路径 |
+| `userId` | string | ❌ | 用户 ID |
+| `limit` | int | 10 | 返回数量 |
+
+**请求示例**:
+```bash
+curl "http://localhost:37777/api/extraction/user-preferences/history?projectPath=/Users/dev/myproject&limit=5"
+```
+
+**响应示例**:
+```json
+{
+  "template": "user-preferences",
+  "extractions": [
+    {
+      "extractedData": { "preferredLanguage": "en" },
+      "createdAt": 1707878400000,
+      "observationId": "550e8400-e29b-41d4-a716-446655440000"
+    }
+  ],
+  "count": 1
+}
+```
+
+---
+
 ### Viewer 查看器
 
 WebUI 使用的端点，用于查看和搜索记忆。
@@ -741,6 +880,7 @@ curl http://localhost:37777/api/processing-status
 | `query` | string | ❌ | 搜索查询 |
 | `type` | string | ❌ | 类型过滤 |
 | `concept` | string | ❌ | 概念过滤 |
+| `source` | string | ❌ | 来源过滤（如 `manual`、`auto`） |
 | `limit` | int | 20 | 结果数量 |
 | `offset` | int | 0 | 偏移量 |
 | `orderBy` | string | null | 排序字段 |
@@ -1553,14 +1693,19 @@ curl http://localhost:37777/api/health
 curl "http://localhost:37777/api/search?project=/Users/dev/myproject&query=authentication&limit=5"
 ```
 
-#### 3. 保存手动记忆
+#### 3. 直接创建观察
 ```bash
-curl -X POST http://localhost:37777/api/memory/save \
+curl -X POST http://localhost:37777/api/ingest/observation \
   -H "Content-Type: application/json" \
   -d '{
-    "text": "Important insight: JWT tokens expire after 24 hours",
-    "title": "JWT expiration",
-    "project": "/Users/dev/myproject"
+    "content_session_id": "manual-session",
+    "project_path": "/Users/dev/myproject",
+    "type": "discovery",
+    "title": "JWT 过期洞察",
+    "narrative": "JWT token 24 小时后过期",
+    "facts": ["JWT token 24 小时后过期"],
+    "concepts": ["authentication"],
+    "source": "manual"
   }'
 ```
 
@@ -1675,12 +1820,17 @@ print(f"Found {results['count']} observations")
 
 # 保存记忆
 data = {
-    'text': 'Important insight about authentication',
-    'title': 'Auth insight',
-    'project': '/Users/dev/myproject'
+    'content_session_id': 'manual-session',
+    'project_path': '/Users/dev/myproject',
+    'type': 'discovery',
+    'title': '认证洞察',
+    'narrative': '关于认证的重要发现',
+    'facts': ['关于认证的重要发现'],
+    'concepts': ['authentication'],
+    'source': 'manual'
 }
-response = requests.post(f'{BASE_URL}/api/memory/save', json=data)
-print('Saved:', response.json())
+response = requests.post(f'{BASE_URL}/api/ingest/observation', json=data)
+print('Created:', response.json())
 ```
 
 #### 2. 使用 SSE 客户端

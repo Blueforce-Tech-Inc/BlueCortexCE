@@ -189,25 +189,6 @@ Content-Type: application/json
 DELETE /api/memory/observations/{observationId}
 ```
 
-### Update Observation
-
-```
-PATCH /api/memory/observations/{observationId}
-Content-Type: application/json
-
-{
-  "quality_score": 0.95,
-  "source": "manual",
-  "extractedData": {"key": "value"}
-}
-```
-
-### Delete Observation
-
-```
-DELETE /api/memory/observations/{observationId}
-```
-
 ### Get Experiences (ExpRAG)
 
 ```
