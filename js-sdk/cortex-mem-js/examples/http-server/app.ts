@@ -35,7 +35,7 @@ function errorJson(res: Response, status: number, message: string) {
   res.status(status).json({ error: message });
 }
 
-// Express 4 does not catch async rejections — wrap async handlers
+// Wrap async handlers for compatibility (Express 5 catches async rejections natively, but this ensures safety across runtimes)
 function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
   return (req: Request, res: Response, next: NextFunction) => {
     fn(req, res, next).catch(next);
