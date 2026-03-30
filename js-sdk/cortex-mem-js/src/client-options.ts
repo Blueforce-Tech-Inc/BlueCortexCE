@@ -23,7 +23,7 @@ export interface CortexMemClientOptions {
   /** Maximum retries for fire-and-forget operations (default: 3) */
   maxRetries?: number;
 
-  /** Base retry backoff in milliseconds (default: 500) */
+  /** Base retry backoff in milliseconds (default: 500, minimum: 100). Matches Go/Python SDK. */
   retryBackoff?: number;
 
   /** Custom logger */
@@ -72,7 +72,7 @@ export function resolveConfig(options?: CortexMemClientOptions): ResolvedClientC
     apiKey: options?.apiKey ?? '',
     timeout: Math.max(100, options?.timeout ?? 30_000),
     maxRetries: Math.max(1, options?.maxRetries ?? 3),
-    retryBackoff: Math.max(10, options?.retryBackoff ?? 500),
+    retryBackoff: Math.max(100, options?.retryBackoff ?? 500), // Minimum 100ms, matching Go/Python SDK
     logger: options?.logger ?? { debug() {}, info() {}, warn() {}, error() {} },
     fetch: fetchFn,
     headers: options?.headers ?? {},
