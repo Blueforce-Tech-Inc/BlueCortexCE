@@ -6,11 +6,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -18,16 +13,10 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Service for generating and updating CLAUDE.md content from observations.
+ * Service for generating CLAUDE.md content from observations.
  * <p>
- * Provides the CLAUDE.md file content with project-specific context,
- * including recent work, active features, and accumulated knowledge.
- * <p>
- * Supports:
- * - Tag-based content replacement (preserves user content outside tags)
- * - Atomic file writes (temp file + rename)
- * <p>
- * Aligned with TS src/utils/claude-md-utils.ts
+ * In the thin-proxy architecture, this service only generates content strings.
+ * File I/O is handled by the proxy layer (wrapper.js).
  */
 @Service
 public class ClaudeMdService {
@@ -36,9 +25,6 @@ public class ClaudeMdService {
     private static final DateTimeFormatter DATE_FORMAT =
         DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
             .withZone(ZoneId.systemDefault());
-
-    private static final String START_TAG = "<claude-mem-context>";
-    private static final String END_TAG = "</claude-mem-context>";
 
     private final ObservationRepository observationRepository;
 
@@ -51,9 +37,12 @@ public class ClaudeMdService {
      *
      * @param projectPath the project path to generate CLAUDE.md for
      * @return CLAUDE.md content string
-     * @throws RuntimeException if database query fails
      */
     public String generateClaudeMd(String projectPath) {
+        if (projectPath == null || projectPath.isBlank()) {
+            return "# Claude-Mem Context\n\nNo project path specified.\n";
+        }
+
         StringBuilder sb = new StringBuilder();
 
         // Header
@@ -112,6 +101,10 @@ public class ClaudeMdService {
      * @return summary object
      */
     public ProjectMemorySummary getProjectMemorySummary(String projectPath) {
+        if (projectPath == null || projectPath.isBlank()) {
+            return new ProjectMemorySummary(projectPath, 0, List.of());
+        }
+
         long totalObs = observationRepository.countByProjectPath(projectPath);
         List<ObservationEntity> recentObs = observationRepository
             .findByProjectPathOrderByCreatedAtDesc(projectPath)
@@ -130,125 +123,4 @@ public class ClaudeMdService {
         long totalObservations,
         List<ObservationEntity> recentObservations
     ) {}
-
-    // ===== Tag-Based Content Replacement (aligned with TS replaceTaggedContent) =====
-
-    /**
-     * Replace tagged content in existing file, preserving content outside tags.
-     * <p>
-     * Handles three cases:
-     * 1. No existing content → wraps new content in tags
-     * 2. Has existing tags → replaces only tagged section
-     * 3. No tags in existing content → appends tagged content at end
-     * <p>
-     * Aligned with TS replaceTaggedContent function.
-     *
-     * @param existingContent the existing file content (may be empty or null)
-     * @param newContent the new content to place inside tags
-     * @return the final content with tags properly placed
-     */
-    public String replaceTaggedContent(String existingContent, String newContent) {
-        // If no existing content, wrap new content in tags
-        if (existingContent == null || existingContent.isBlank()) {
-            return START_TAG + "\n" + newContent + "\n" + END_TAG;
-        }
-
-        // If existing has tags, replace only tagged section
-        int startIdx = existingContent.indexOf(START_TAG);
-        int endIdx = existingContent.indexOf(END_TAG);
-
-        if (startIdx != -1 && endIdx != -1 && endIdx > startIdx) {
-            return existingContent.substring(0, startIdx) +
-                START_TAG + "\n" + newContent + "\n" + END_TAG +
-                existingContent.substring(endIdx + END_TAG.length());
-        }
-
-        // If no tags exist, append tagged content at end
-        return existingContent + "\n\n" + START_TAG + "\n" + newContent + "\n" + END_TAG;
-    }
-
-    /**
-     * Update a CLAUDE.md file at the given path with new tagged content.
-     * <p>
-     * Uses atomic writes (temp file + rename) for safety.
-     * Preserves user content outside the tags.
-     *
-     * @param claudeMdPath the path to the CLAUDE.md file
-     * @param newContent the new content to place inside tags
-     * @throws IOException if file operations fail
-     */
-    public void updateClaudeMdFile(Path claudeMdPath, String newContent) throws IOException {
-        // Read existing content if file exists
-        String existingContent = "";
-        if (Files.exists(claudeMdPath)) {
-            existingContent = Files.readString(claudeMdPath);
-        }
-
-        // Replace only tagged content, preserve user content
-        String finalContent = replaceTaggedContent(existingContent, newContent);
-
-        // Atomic write: temp file + rename
-        Path tempPath = claudeMdPath.resolveSibling(claudeMdPath.getFileName() + ".tmp");
-        Files.writeString(tempPath, finalContent);
-        Files.move(tempPath, claudeMdPath,
-            StandardCopyOption.REPLACE_EXISTING,
-            StandardCopyOption.ATOMIC_MOVE);
-
-        log.debug("Updated CLAUDE.md with atomic write: {}", claudeMdPath);
-    }
-
-    /**
-     * Update a CLAUDE.md file in a folder with new tagged content.
-     * <p>
-     * Only writes to folders that already exist; skips non-existent paths.
-     * Uses atomic writes (temp file + rename) for safety.
-     *
-     * @param folderPath the absolute path to the folder (must already exist)
-     * @param newContent the new content to place inside tags
-     */
-    public void writeClaudeMdToFolder(String folderPath, String newContent) {
-        Path folder = Paths.get(folderPath);
-
-        // Only write to folders that already exist
-        if (!Files.isDirectory(folder)) {
-            log.debug("Skipping non-existent folder: {}", folderPath);
-            return;
-        }
-
-        Path claudeMdPath = folder.resolve("CLAUDE.md");
-
-        try {
-            updateClaudeMdFile(claudeMdPath, newContent);
-            log.debug("Wrote CLAUDE.md to folder: {}", folderPath);
-        } catch (IOException e) {
-            log.error("Failed to write CLAUDE.md to folder {}: {}", folderPath, e.getMessage());
-        }
-    }
-
-    /**
-     * Generate and update CLAUDE.md for a project path.
-     * <p>
-     * Combines generation and atomic file update in one operation.
-     *
-     * @param projectPath the project path
-     * @param claudeMdPath the path to the CLAUDE.md file
-     * @throws IOException if file operations fail
-     */
-    public void generateAndUpdateClaudeMd(String projectPath, Path claudeMdPath) throws IOException {
-        String newContent = generateClaudeMd(projectPath);
-        updateClaudeMdFile(claudeMdPath, newContent);
-    }
-
-    /**
-     * Generate and write CLAUDE.md to a folder.
-     * <p>
-     * Convenience method that combines generation and folder write.
-     *
-     * @param projectPath the project path for content generation
-     * @param folderPath the folder path to write CLAUDE.md to
-     */
-    public void generateAndWriteToFolder(String projectPath, String folderPath) {
-        String newContent = generateClaudeMd(projectPath);
-        writeClaudeMdToFolder(folderPath, newContent);
-    }
 }
