@@ -311,3 +311,20 @@ _暂无问题记录_
 - **ObservationUpdate**: 支持 dataclass + kwargs 双模式，_WIRE_FIELDS 映射 extracted_data→extractedData 正确
 - **Demo**: 输入验证到位（_require, _parse_int_param, limit/offset 范围检查），错误处理器覆盖 API/Cortex/通用异常
 - **Cross-SDK 一致性**: is_retryable(429,502,503,504) 与 Go/Java/JS 对齐，extractedData camelCase 契约一致
+
+---
+
+### 2026-03-30 17:05 | Backend 审查 #11
+
+**抽查文件**: `PendingMessageEventListener.java`, `ExperienceTemplate.java`
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | PendingMessageEventListener.java | L41-44 | 非 "observation" 类型的消息仅 log.warn 后静默丢弃 — 无 dead-letter 机制或状态标记。若未来新增消息类型（如 "prompt"），旧 pending 消息将被永久忽略 | P2 |
+| 2 | PendingMessageEventListener.java | L46 | catch 块仅 log.error，pending 消息状态不变 — `AgentService.processPendingMessage()` 失败后消息仍保持 pending，但 ScheduledTask 是否会重新 pick up 取决于消息状态管理逻辑，存在潜在无限重试或永久挂起风险 | P2 (低) |
+| 3 | ExperienceTemplate.java | L120-155 | Section header 解析脆弱 — `indexOf("## Reasoning")` 精确匹配，若 LLM 输出为 `## Reasoning Process`（更常见）则 `extractReasoning` 返回 null。同理 `## Learnings` vs `## Key Learnings`。建议使用 `startsWith` 前缀匹配 | P2 |
+| 4 | ExperienceTemplate.java | L103-110 `generateReuseCondition()` | `action` 参数在 `action.contains("file")` 处无 null 保护 — 虽然外层有 `if (action == null)` 提前返回，但方法签名接受 null，若未来重构移除该检查则 NPE | P2 (低) |
+| 5 | ExperienceTemplate.java | L88 `buildSimpleExperience()` | 将 `title` 传入 `taskInput` 位置、`content` 传入各 extractor — 如果 content 不含 `## Reasoning`/`## Action` 等结构化 headers，extractAction/extractOutcome 返回 null，最终输出包含大量 "N/A" 占位符，质量差 | P2 |
+
+**审查结论**: 无 P0/P1 问题。PendingMessageEventListener 架构清晰（@Async + EventListener），但缺少消息类型扩展性和失败恢复机制。ExperienceTemplate 的 section 解析依赖精确 header 匹配，对 LLM 输出格式变化不够鲁棒。
+
