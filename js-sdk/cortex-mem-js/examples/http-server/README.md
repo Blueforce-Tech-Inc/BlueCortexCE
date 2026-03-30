@@ -1,6 +1,6 @@
 # JS SDK HTTP Server Demo
 
-An Express HTTP server that exposes all 26 Cortex CE SDK methods as REST endpoints.
+An Express HTTP server that exposes all 25 Cortex CE SDK API methods as 26 REST endpoints.
 
 Mirrors the Go `http-server` and Python Flask demos.
 
@@ -33,6 +33,12 @@ npx tsx examples/http-server/app.ts
 | GET | `/iclprompt` | Build ICL prompt |
 | GET | `/observations` | List observations |
 | POST | `/observations/batch` | Batch get observations by IDs |
+| POST | `/observations/create` | Record observation |
+| GET | `/observations/:id` | Get observation by ID |
+| PATCH | `/observations/:id` | Update observation |
+| DELETE | `/observations/:id` | Delete observation |
+| POST | `/session/start` | Start/resume session |
+| PATCH | `/session/user` | Update session user ID |
 | GET | `/projects` | Get projects |
 | GET | `/stats` | Get stats |
 | GET | `/modes` | Get modes |
@@ -43,10 +49,6 @@ npx tsx examples/http-server/app.ts
 | POST | `/extraction/run` | Trigger extraction |
 | POST | `/refine` | Trigger memory refinement |
 | POST | `/feedback` | Submit observation feedback |
-| PATCH | `/session/user` | Update session user ID |
-| PATCH | `/observations/:id` | Update observation |
-| DELETE | `/observations/:id` | Delete observation |
-| POST | `/observations/create` | Record observation |
 | POST | `/ingest/prompt` | Ingest user prompt |
 | POST | `/ingest/session-end` | Ingest session end |
 

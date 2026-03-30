@@ -59,11 +59,14 @@ public class CursorController {
         @ApiResponse(responseCode = "500", description = "Failed to register project due to internal error")
     })
     public ResponseEntity<Map<String, Object>> registerProject(
-        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Project registration payload. Fields: projectName (required, unique identifier), workspacePath (required, absolute path to project root)", required = true)
-        @org.springframework.web.bind.annotation.RequestBody Map<String, String> request
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "Cursor project registration request",
+            required = true,
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.CursorRegisterRequest.class)))
+        @org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.CursorRegisterRequest request
     ) {
-        String projectName = request.get("projectName");
-        String workspacePath = request.get("workspacePath");
+        String projectName = request.projectName();
+        String workspacePath = request.workspacePath();
 
         if (projectName == null || projectName.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
@@ -237,10 +240,13 @@ public class CursorController {
     public ResponseEntity<Map<String, Object>> updateContextCustom(
         @Parameter(description = "Registered project name", required = true, example = "my-project")
         @PathVariable String projectName,
-        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Request body with 'context' field containing the custom context string to write", required = true)
-        @org.springframework.web.bind.annotation.RequestBody Map<String, String> request
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "Custom context update request",
+            required = true,
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.CursorCustomContextRequest.class)))
+        @org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.CursorCustomContextRequest request
     ) {
-        String context = request.get("context");
+        String context = request.context();
 
         if (context == null || context.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(

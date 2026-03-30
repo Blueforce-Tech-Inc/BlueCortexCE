@@ -402,6 +402,18 @@ public class StructuredExtractionService {
     private Map<String, Object> mergeAppendOnly(Map<String, Object> appendResult,
                                                  Map<String, Object> fullPriorData,
                                                  TemplateConfig template) {
+        // Validate LLM response keys — unexpected keys indicate LLM format drift
+        Set<String> expectedKeys = Set.of("add", "remove", "keep_hint");
+        Set<String> actualKeys = appendResult.keySet();
+        Set<String> unexpectedKeys = new HashSet<>(actualKeys);
+        unexpectedKeys.removeAll(expectedKeys);
+        if (!unexpectedKeys.isEmpty()) {
+            log.warn("LLM returned unexpected top-level keys in append-only response: {}. "
+                + "Expected: {}. These keys will be ignored (potential silent data loss). "
+                + "Consider updating the system prompt to enforce exact key names.",
+                unexpectedKeys, expectedKeys);
+        }
+
         List<Map<String, Object>> addItems = safeListOfMaps(appendResult.get("add"), "add");
         List<Map<String, Object>> removeItems = safeListOfMaps(appendResult.get("remove"), "remove");
         List<Map<String, Object>> keepHint = safeListOfMaps(appendResult.get("keep_hint"), "keep_hint");

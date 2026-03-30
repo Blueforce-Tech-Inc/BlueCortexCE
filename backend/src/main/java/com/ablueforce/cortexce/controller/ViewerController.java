@@ -293,11 +293,14 @@ public class ViewerController {
         @ApiResponse(responseCode = "400", description = "Missing or invalid ids field")
     })
     public ResponseEntity<Map<String, Object>> batchGetObservations(
-        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Request body containing ids (list of UUID strings), optional project filter, orderBy field, and limit", required = true)
-        @org.springframework.web.bind.annotation.RequestBody Map<String, Object> request
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(
+            description = "Batch observation retrieval request",
+            required = true,
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.BatchObservationsRequest.class)))
+        @org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.BatchObservationsRequest request
     ) {
-        Object idsObj = request.get("ids");
-        if (!(idsObj instanceof List<?> idsList) || idsList.isEmpty()) {
+        List<String> idStrings = request.ids();
+        if (idStrings == null || idStrings.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of(
                 "error", "Missing required field: ids",
                 "observations", List.of(),
@@ -305,10 +308,9 @@ public class ViewerController {
             ));
         }
 
-        // Validate all elements are strings
-        List<String> idStrings = idsList.stream()
-            .filter(String.class::isInstance)
-            .map(String.class::cast)
+        // Filter to only string elements (defensive)
+        idStrings = idStrings.stream()
+            .filter(s -> s != null && !s.isBlank())
             .toList();
 
         if (idStrings.isEmpty()) {
@@ -319,9 +321,9 @@ public class ViewerController {
             ));
         }
 
-        String project = request.get("project") instanceof String s ? s : null;
-        String orderBy = request.get("orderBy") instanceof String s ? s : null;
-        Integer limit = request.get("limit") instanceof Number n ? n.intValue() : null;
+        String project = request.project();
+        String orderBy = request.orderBy();
+        Integer limit = request.limit();
 
         // Convert string IDs to UUIDs
         List<java.util.UUID> ids = idStrings.stream()
@@ -433,9 +435,12 @@ public class ViewerController {
         @ApiResponse(responseCode = "400", description = "Invalid mode ID provided")
     })
     public ResponseEntity<Map<String, Object>> setActiveMode(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Request body with 'mode' field containing the mode ID to activate", required = true)
-            @org.springframework.web.bind.annotation.RequestBody Map<String, String> request) {
-        String modeId = request.get("mode");
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                description = "Mode switch request",
+                required = true,
+                content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.ModeSwitchRequest.class)))
+            @org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.ModeSwitchRequest request) {
+        String modeId = request.mode();
         if (modeId == null || modeId.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
                 "success", false,
@@ -473,8 +478,11 @@ public class ViewerController {
         @ApiResponse(responseCode = "500", description = "Failed to save settings due to internal error")
     })
     public ResponseEntity<Map<String, Object>> saveSettings(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Settings key-value map to update. Supported keys: mode (or CLAUDE_MEM_MODE, sets active mode), and any other key-value pairs to persist. Example: {\"mode\": \"code\", \"embedding_model\": \"bge-m3\"}", required = true)
-            @org.springframework.web.bind.annotation.RequestBody Map<String, Object> updates) {
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                description = "Settings update request with arbitrary key-value pairs. Supported special keys: 'mode' or 'CLAUDE_MEM_MODE' (sets active mode). Any other valid key will be persisted to the settings file.",
+                required = true,
+                content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.SettingsUpdateRequest.class)))
+            @org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.SettingsUpdateRequest updates) {
         try {
             settingsService.updateSettings(updates);
 

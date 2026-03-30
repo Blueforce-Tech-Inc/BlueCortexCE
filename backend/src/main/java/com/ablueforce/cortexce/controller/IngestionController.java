@@ -285,13 +285,16 @@ public class IngestionController {
         @ApiResponse(responseCode = "200", description = "Observation created successfully"),
         @ApiResponse(responseCode = "400", description = "Missing required fields (content_session_id, project_path) or invalid field types (facts/concepts/files_read/files_modified must be lists of strings)")
     })
-    @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Observation payload. Fields: content_session_id (or session_id, required), project_path (or cwd, required), type (e.g. 'feature'), title, subtitle, narrative (or content), facts (string list), concepts (string list), source, extractedData (JSON object), files_read (string list), files_modified (string list), prompt_number (int)")
-    public ResponseEntity<?> handleObservation(@org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
-        String contentSessionId = safeGetString(body, "content_session_id");
-        if (contentSessionId == null || contentSessionId.isBlank()) {
-            contentSessionId = safeGetString(body, "session_id");
-        }
-        String projectPath = safeGetString(body, "project_path");
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+        description = "Observation creation request",
+        required = true,
+        content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.ObservationCreateRequest.class)))
+    public ResponseEntity<?> handleObservation(@org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.ObservationCreateRequest body) {
+        // Resolve session ID: prefer contentSessionId, fallback to sessionId alias
+        String contentSessionId = body.contentSessionId() != null ? body.contentSessionId() : body.sessionId();
+        // Resolve project path: prefer projectPath, fallback to cwd alias
+        String projectPath = body.projectPath() != null ? body.projectPath() : body.cwd();
+
         if (contentSessionId == null || contentSessionId.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
                 "error", "Missing required field: content_session_id (or session_id)"));
@@ -301,36 +304,23 @@ public class IngestionController {
         }
 
         // Create ParsedObservation with public fields (not setters)
-        // P1: Use type-safe extraction to prevent ClassCastException
         com.ablueforce.cortexce.util.XmlParser.ParsedObservation parsed =
             new com.ablueforce.cortexce.util.XmlParser.ParsedObservation();
-        parsed.type = safeGetString(body, "type", "change");
-        parsed.title = safeGetString(body, "title");
-        parsed.subtitle = safeGetString(body, "subtitle");
-        parsed.narrative = safeGetString(body, "narrative");
+        parsed.type = body.type() != null ? body.type() : "change";
+        parsed.title = body.title();
+        parsed.subtitle = body.subtitle();
+        parsed.narrative = body.narrative();
         // Fallback: accept "content" as alias for "narrative" (SDK compatibility)
         if (parsed.narrative == null) {
-            parsed.narrative = safeGetString(body, "content");
+            parsed.narrative = body.content();
         }
-        parsed.facts = safeGetStringList(body, "facts");
-        if (parsed.facts == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "facts must be a list of strings"));
-        }
-        parsed.concepts = safeGetStringList(body, "concepts");
-        if (parsed.concepts == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "concepts must be a list of strings"));
-        }
-        parsed.filesRead = safeGetStringList(body, "files_read");
-        if (parsed.filesRead == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "files_read must be a list of strings"));
-        }
-        parsed.filesModified = safeGetStringList(body, "files_modified");
-        if (parsed.filesModified == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "files_modified must be a list of strings"));
-        }
+        parsed.facts = body.facts() != null ? body.facts() : java.util.List.of();
+        parsed.concepts = body.concepts() != null ? body.concepts() : java.util.List.of();
+        parsed.filesRead = body.filesRead() != null ? body.filesRead() : java.util.List.of();
+        parsed.filesModified = body.filesModified() != null ? body.filesModified() : java.util.List.of();
         // V14: source and extracted data
-        parsed.source = safeGetString(body, "source");
-        parsed.extractedData = safeGetMap(body, "extractedData");
+        parsed.source = body.source();
+        parsed.extractedData = body.extractedData();
 
         // P0: Ensure session exists before creating observation (fixes FK constraint error)
         // This handles the case where SessionStart hook failed or was skipped.
@@ -341,7 +331,7 @@ public class IngestionController {
             contentSessionId,
             projectPath,
             parsed,
-            safeGetInt(body, "prompt_number"),
+            body.promptNumber(),
             0 // discoveryTokens - 0 for direct import (no LLM call)
         );
 
@@ -351,105 +341,5 @@ public class IngestionController {
         }
 
         return ResponseEntity.ok(observation);
-    }
-
-    /**
-     * P1: Safely extract a String from a Map with type checking.
-     *
-     * @param body the request body map
-     * @param key the key to extract
-     * @return the string value or null if not present or wrong type
-     */
-    private String safeGetString(Map<String, Object> body, String key) {
-        return safeGetString(body, key, null);
-    }
-
-    /**
-     * P1: Safely extract a String from a Map with type checking and default value.
-     *
-     * @param body the request body map
-     * @param key the key to extract
-     * @param defaultValue the default value if key not found or wrong type
-     * @return the string value or default
-     */
-    private String safeGetString(Map<String, Object> body, String key, String defaultValue) {
-        Object value = body.get(key);
-        if (value == null) {
-            return defaultValue;
-        }
-        if (value instanceof String) {
-            return (String) value;
-        }
-        log.warn("Expected String for key '{}' but got {}", key, value.getClass().getName());
-        return defaultValue;
-    }
-
-    /**
-     * P1: Safely extract an Integer from a Map with type checking.
-     *
-     * @param body the request body map
-     * @param key the key to extract
-     * @return the integer value or null if not present or wrong type
-     */
-    private Integer safeGetInt(Map<String, Object> body, String key) {
-        Object value = body.get(key);
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Number) {
-            return ((Number) value).intValue();
-        }
-        log.warn("Expected Number for key '{}' but got {}", key, value.getClass().getName());
-        return null;
-    }
-
-    /**
-     * P1: Safely extract a List of Strings from a Map with type checking.
-     *
-     * @param body the request body map
-     * @param key the key to extract
-     * @return the list value or empty list if not present, null if type mismatch or non-string items found
-     */
-    private java.util.List<String> safeGetStringList(Map<String, Object> body, String key) {
-        Object value = body.get(key);
-        if (value == null) {
-            return java.util.List.of();
-        }
-        if (value instanceof java.util.List) {
-            java.util.List<?> list = (java.util.List<?>) value;
-            java.util.List<String> result = new java.util.ArrayList<>();
-            for (Object item : list) {
-                if (item instanceof String s) {
-                    result.add(s);
-                } else {
-                    log.warn("Expected String in list for key '{}' but got {}", key, item.getClass().getName());
-                    return null; // Fail-fast: caller should return 400
-                }
-            }
-            return result;
-        }
-        log.warn("Expected List for key '{}' but got {}", key, value.getClass().getName());
-        return null;
-    }
-
-    /**
-     * V14: Safely extract a Map from a Map with type checking.
-     * Used for extractedData field.
-     *
-     * @param body the request body map
-     * @param key the key to extract
-     * @return the map value or null if not present or wrong type
-     */
-    @SuppressWarnings("unchecked")
-    private java.util.Map<String, Object> safeGetMap(java.util.Map<String, Object> body, String key) {
-        Object value = body.get(key);
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof java.util.Map) {
-            return (java.util.Map<String, Object>) value;
-        }
-        log.warn("Expected Map for key '{}' but got {}", key, value.getClass().getName());
-        return null;
     }
 }

@@ -209,4 +209,13 @@ public class ApiRequests {
         @Schema(description = "Project path (defaults to current working directory if empty)")
         @JsonProperty("project_path") String projectPath
     ) {}
+
+    // ==================== Settings ====================
+
+    @Schema(description = "Settings update request. Accepts arbitrary key-value pairs to persist. " +
+        "Supported special keys: 'mode' or 'CLAUDE_MEM_MODE' (sets active mode). " +
+        "Any other valid key will be stored in the settings file.")
+    public static class SettingsUpdateRequest extends java.util.HashMap<String, Object> {
+        public SettingsUpdateRequest() { super(); }
+    }
 }

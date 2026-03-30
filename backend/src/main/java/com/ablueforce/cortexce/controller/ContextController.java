@@ -253,10 +253,10 @@ public class ContextController {
     @ApiResponse(responseCode = "200", description = "Context generated successfully",
         content = @Content(schema = @Schema(implementation = GenerateContextResponse.class)))
     @RequestBody(description = "Context generation payload", required = true,
-        content = @Content(schema = @Schema(example = "{\"project_path\":\"/path/to/project\"}")))
+        content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.ContextGenerateRequest.class)))
     public ResponseEntity<GenerateContextResponse> generateContext(
-            @org.springframework.web.bind.annotation.RequestBody Map<String, String> body) {
-        String projectPath = body.get("project_path");
+            @org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.ContextGenerateRequest body) {
+        String projectPath = body.projectPath();
         if (projectPath == null || projectPath.isEmpty()) {
             projectPath = System.getProperty("user.dir");
         }

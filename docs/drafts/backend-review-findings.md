@@ -37,7 +37,7 @@ _暂无问题记录_
 | 1 | ExtractionController.java | L105 `/history` | 返回类型 `ResponseEntity<?>`（泛型擦除），与 `/latest` 的 `ResponseEntity<Map<String, Object>>` 不一致。连续第 3 次标记未修复。建议统一为 `ResponseEntity<List<Map<String, Object>>>` | P2 |
 | 2 | ExtractionController.java | L140 `/run` | 无认证/速率限制保护 — 任何能访问 API 的用户都可以触发同步 LLM extraction（可能消耗大量 token 和时间）。建议至少加 rate limiting 或 API key 验证 | P2 |
 | 3 | StructuredExtractionService.java | L146 `groupByUser()` | 空 sessionIds 集合未做保护，可能导致 JPA 异常 | P2 (低) ✅已修复（加 isEmpty 检查）|
-| 4 | StructuredExtractionService.java | L242 `extractAppendOnly()` | append-only 提取结果中 LLM 返回的 key 未做 schema 验证 — LLM 可能返回 `adds` 而非 `add`，或返回完全自定义的顶层 key。`safeListOfMaps` 会将未知 key 视为 null 返回空 list，不会崩溃但也不会报错，导致静默数据丢失 | P2 |
+| 4 | StructuredExtractionService.java | L242 `extractAppendOnly()` | append-only 提取结果中 LLM 返回的 key 未做 schema 验证 — LLM 可能返回 `adds` 而非 `add`，或返回完全自定义的顶层 key。`safeListOfMaps` 会将未知 key 视为 null 返回空 list，不会崩溃但也不会报错，导致静默数据丢失 | P2 ✅已修复（添加 unexpected keys 检测 + WARN 日志）|
 | 5 | StructuredExtractionService.java | L340 `buildItemKey()` | SHA-256 fallback 使用 `System.identityHashCode(item)` — GC 后可能重复 | P2 (低) ✅已修复（改用 Objects.hashCode）|
 
 **审查结论**: 

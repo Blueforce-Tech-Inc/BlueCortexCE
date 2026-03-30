@@ -117,3 +117,40 @@
 - **修复**: 改为 `log.warn()`，保留 WARN 级别但语义更清晰
 - **影响**: 1 行修改，无 API 影响
 - **验证**: 回归测试 46/46 通过，构建成功，3 轮 Review 通过
+
+### CursorService 审查修复 (2026-03-30 11:31)
+- **修复 4 个 P2**: IOException 处理、路径遍历防护、缓存一致性、并发安全
+- **提交**: (见 git log)
+
+### PendingMessageEventListener + ExperienceTemplate 修复 (2026-03-30 17:05)
+- **修复**: PendingMessageEventListener 死信标记、ExperienceTemplate section 解析前缀匹配
+- **提交**: (见 git log)
+
+---
+
+## 2026-03-30 20:24 健康检查与测试验收修复
+
+**来源**: 每 2 小时 cron 健康检查任务
+
+| # | 文件 | 问题 | 级别 | 结果 |
+|---|------|------|------|------|
+| 1 | StructuredExtractionService.java | append-only 提取 LLM 返回 key 未做 schema 验证，静默数据丢失 | P2 | ✅ 已修复（添加 unexpected keys 检测 + WARN 日志） |
+
+### 代码修复详情
+
+**StructuredExtractionService.mergeAppendOnly()**:
+- 问题：LLM 可能返回 `adds` 而非 `add`，`safeListOfMaps` 将未知 key 视为 null 返回空 list，数据静默丢失无报错
+- 修复：在 `mergeAppendOnly` 入口添加 expected keys (`add`, `remove`, `keep_hint`) 校验，检测到 unexpected keys 时输出 WARN 日志
+- 影响：仅增加日志可观测性，不改变功能行为，不破坏 WebUI 契约
+
+### 验证记录
+
+| 步骤 | 结果 |
+|------|------|
+| mvn clean compile package -DskipTests | ✅ BUILD SUCCESS |
+| 服务重启 + /api/health | ✅ status: ok |
+| 回归测试 (regression-test.sh) | ✅ 46/46 passed, 0 failed |
+| EXTRACTION 验收测试 | ✅ 25/25 passed, 0 failed |
+| 第 1 轮迭代检查 | ✅ 通过 |
+| 第 2 轮迭代检查 | ✅ 通过 |
+| 第 3 轮迭代检查 | ✅ 通过 |
