@@ -12,6 +12,7 @@ go get github.com/abforce/cortex-ce/cortex-mem-go/langchaingo
 
 ```go
 import (
+    "context"
     "github.com/abforce/cortex-ce/cortex-mem-go"
     "github.com/abforce/cortex-ce/cortex-mem-go/langchaingo"
 )
@@ -21,18 +22,16 @@ client := cortexmem.NewClient(
     cortexmem.WithBaseURL("http://127.0.0.1:37777"),
 )
 
-// Create LangChainGo Memory
-memory := langchaingo.NewMemory(client,
-    langchaingo.WithMemoryProject("/my-project"),
+// Create LangChainGo Memory (project is a required positional argument)
+memory := langchaingo.NewMemory(client, "/my-project",
     langchaingo.WithMemoryUserID("user-123"),
-    langchaingo.WithMemorySessionID("session-456"),
 )
 
 // Load memory variables for LLM context
 vars, err := memory.LoadMemoryVars(ctx, map[string]any{"input": "hello"})
 // vars["history"] contains the ICL prompt
 
-// Save context after LLM response
+// Save context after LLM response (no-op, Cortex CE captures via session lifecycle)
 err = memory.SaveContext(ctx, 
     map[string]any{"input": "hello"},
     map[string]any{"output": "Hi there!"},
@@ -41,11 +40,12 @@ err = memory.SaveContext(ctx,
 
 ## Options
 
-| Option | Description |
-|--------|-------------|
-| `WithMemoryProject(project)` | Set project path |
-| `WithMemoryUserID(userID)` | Set user ID for extraction |
-| `WithMemorySessionID(sessionID)` | Set session ID |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `WithMemoryUserID(userID)` | *(none)* | Set user ID for user-scoped memory |
+| `WithMemoryMaxChars(n)` | `4000` | Set maximum ICL prompt characters |
+| `WithMemoryKey(key)` | `"history"` | Set memory variable key |
+| `WithMemoryLogger(logger)` | `slog` default | Custom logger (compatible with `*slog.Logger`) |
 
 ## Interface
 

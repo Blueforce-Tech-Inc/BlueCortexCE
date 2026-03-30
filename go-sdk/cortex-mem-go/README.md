@@ -124,8 +124,7 @@ import (
 )
 
 client := cortexmem.NewClient()
-retriever := eino.NewRetriever(client,
-    eino.WithRetrieverProject("/my-project"),
+retriever := eino.NewRetriever(client, "/my-project",
     eino.WithRetrieverSource("tool_result"),
 )
 ```
@@ -139,9 +138,7 @@ import (
 )
 
 client := cortexmem.NewClient()
-memory := langchaingo.NewMemory(client,
-    langchaingo.WithMemoryProject("/my-project"),
-)
+memory := langchaingo.NewMemory(client, "/my-project")
 ```
 
 ### Genkit
@@ -153,8 +150,7 @@ import (
 )
 
 client := cortexmem.NewClient()
-retriever := genkit.NewRetriever(client,
-    genkit.WithRetrieverProject("/my-project"),
+retriever := genkit.NewRetriever(client, "/my-project",
     genkit.WithRetrieverCount(20),
 )
 ```

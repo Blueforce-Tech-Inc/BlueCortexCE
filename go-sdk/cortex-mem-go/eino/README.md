@@ -12,6 +12,7 @@ go get github.com/abforce/cortex-ce/cortex-mem-go/eino
 
 ```go
 import (
+    "context"
     "github.com/abforce/cortex-ce/cortex-mem-go"
     "github.com/abforce/cortex-ce/cortex-mem-go/eino"
 )
@@ -21,9 +22,8 @@ client := cortexmem.NewClient(
     cortexmem.WithBaseURL("http://127.0.0.1:37777"),
 )
 
-// Create Eino Retriever
-retriever := eino.NewRetriever(client,
-    eino.WithRetrieverProject("/my-project"),
+// Create Eino Retriever (project is a required positional argument)
+retriever := eino.NewRetriever(client, "/my-project",
     eino.WithRetrieverSource("tool_result"),
 )
 
@@ -33,10 +33,12 @@ results, err := retriever.Retrieve(ctx, "What files were read?")
 
 ## Options
 
-| Option | Description |
-|--------|-------------|
-| `WithRetrieverProject(project)` | Set project path filter |
-| `WithRetrieverSource(source)` | Set source attribute filter |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `WithRetrieverSource(source)` | *(none)* | Set source attribute filter |
+| `WithRetrieverCount(n)` | `20` | Set maximum number of results |
+| `WithRetrieverUserID(userID)` | *(none)* | Set user ID for user-scoped memory |
+| `WithRetrieverLogger(logger)` | `slog` default | Custom logger (compatible with `*slog.Logger`) |
 
 ## Interface
 

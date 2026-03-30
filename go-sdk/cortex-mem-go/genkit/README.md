@@ -12,6 +12,7 @@ go get github.com/abforce/cortex-ce/cortex-mem-go/genkit
 
 ```go
 import (
+    "context"
     "github.com/abforce/cortex-ce/cortex-mem-go"
     "github.com/abforce/cortex-ce/cortex-mem-go/genkit"
 )
@@ -21,48 +22,48 @@ client := cortexmem.NewClient(
     cortexmem.WithBaseURL("http://127.0.0.1:37777"),
 )
 
-// Create Genkit Retriever
-retriever := genkit.NewRetriever(client,
-    genkit.WithRetrieverProject("/my-project"),
+// Create Genkit Retriever (project is a required positional argument)
+retriever := genkit.NewRetriever(client, "/my-project",
     genkit.WithRetrieverSource("tool_result"),
-    genkit.WithMaxResults(20),
+    genkit.WithRetrieverCount(20),
 )
 
 // Use with Genkit
-docs, err := retriever.Retrieve(ctx, "What files were read?")
-// docs[i].Content - document text
-// docs[i].Meta - metadata (id, type, source, concepts)
+output, err := retriever.Retrieve(ctx, genkit.RetrieverInput{
+    Query: "What files were read?",
+})
+// output.Documents[i].Content - document text
+// output.Documents[i].Metadata - metadata (id, task, qualityScore, reuseCondition, createdAt)
 ```
 
 ## Options
 
-| Option | Description |
-|--------|-------------|
-| `WithRetrieverProject(project)` | Set project path filter |
-| `WithRetrieverSource(source)` | Set source attribute filter |
-| `WithMaxResults(max)` | Set maximum results (default: 20) |
+| Option | Default | Description |
+|--------|---------|-------------|
+| `WithRetrieverSource(source)` | *(none)* | Set source attribute filter |
+| `WithRetrieverCount(n)` | `4` | Set maximum number of results |
+| `WithRetrieverUserID(userID)` | *(none)* | Set user ID for user-scoped memory |
+| `WithRetrieverLogger(logger)` | `slog` default | Custom logger (compatible with `*slog.Logger`) |
 
 ## Document Structure
 
 ```go
 type Document struct {
-    Content string                 `json:"content"`
-    Meta    map[string]interface{} `json:"meta"`
+    Content  string         `json:"content"`
+    Metadata map[string]any `json:"metadata"`
 }
 
-// Meta fields:
-//   - id: observation ID
-//   - type: observation type
-//   - source: attribution source
-//   - concepts: extracted concepts
+// Metadata fields:
+//   - id: experience ID
+//   - task: the original task description
+//   - qualityScore: quality score of the experience
+//   - reuseCondition: reuse condition
+//   - createdAt: creation timestamp
 ```
 
 ## Interface
 
-Implements Genkit's Retriever interface:
-
 ```go
-type Retriever interface {
-    Retrieve(ctx context.Context, query string) ([]Document, error)
-}
+// Retrieve performs semantic search and returns Genkit-compatible documents.
+func (r *Retriever) Retrieve(ctx context.Context, input RetrieverInput) (RetrieverOutput, error)
 ```
