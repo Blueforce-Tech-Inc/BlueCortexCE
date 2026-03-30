@@ -1,3 +1,5 @@
+> 中文版: [README-zh-CN.md](./README-zh-CN.md)
+
 # Cortex CE Python SDK
 
 Python SDK for the [Cortex CE](https://github.com/abforce/cortex-ce) persistent memory system.
@@ -67,6 +69,7 @@ with CortexMemClient(base_url="http://localhost:37777") as client:
 | `build_icl_prompt(task, project, **kwargs)` | Build an ICL prompt |
 | `search(project, **kwargs)` | Semantic search |
 | `list_observations(project, **kwargs)` | List observations with pagination |
+| `get_observation(observation_id)` | Get a single observation by ID |
 | `get_observations_by_ids(ids)` | Batch get observations by IDs |
 
 ### Management
@@ -134,7 +137,7 @@ except APIError as e:
 
 1. **Zero forced dependencies** — only `requests` required
 2. **Idiomatic Python** — dataclasses, kwargs, context manager
-3. **Compatible with Go/Java SDK** — all 26 API methods covered
+3. **Compatible with Go/Java SDK** — all 25 API methods covered
 4. **Fire-and-forget capture** — capture operations retry internally and swallow errors
 
 ## Wire Format

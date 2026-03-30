@@ -1,3 +1,5 @@
+> 中文版: [README-zh-CN.md](./README-zh-CN.md)
+
 # @cortex-mem/js-sdk
 
 JavaScript/TypeScript client SDK for the [Cortex CE](https://github.com/abforce/cortex-ce) memory system.
