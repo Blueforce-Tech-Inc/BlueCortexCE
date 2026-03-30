@@ -332,6 +332,9 @@ def observations_create():
     })
     if missing:
         return _error(400, f"{missing} is required")
+    # Validate extractedData type if provided (must be dict, not string or list)
+    if "extractedData" in data and not isinstance(data["extractedData"], dict):
+        return _error(400, "extractedData must be a JSON object")
 
     client.record_observation(
         session_id=data["session_id"],
@@ -353,6 +356,9 @@ def observations_update(obs_id: str):
     data = _parse_json()
     if isinstance(data, tuple):
         return data
+    # Validate extractedData type if provided (must be dict, not string or list)
+    if "extractedData" in data and not isinstance(data["extractedData"], dict):
+        return _error(400, "extractedData must be a JSON object")
     kwargs = {}
     for key in ("title", "subtitle", "content", "narrative", "facts", "concepts", "source"):
         if key in data:
