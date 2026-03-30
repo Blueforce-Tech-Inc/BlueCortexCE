@@ -14,7 +14,7 @@ The **Cortex CE Go Client SDK** (`cortex-mem-go`) is a pure Go client library fo
 **Key design goals:**
 
 - **Zero mandatory dependencies** — only the Go standard library
-- **Full API coverage** — 26 methods covering all backend endpoints
+- **Full API coverage** — 27 methods covering all backend endpoints
 - **Wire format compatible** — JSON field names match the backend API exactly
 - **Fire-and-forget capture** — non-blocking recording with built-in retry
 - **Framework integrations** — optional adapters for Eino, LangChainGo, and Genkit
@@ -134,8 +134,11 @@ client := cortexmem.NewClient(
 |--------|------|---------|-------------|
 | `WithBaseURL` | `string` | `http://127.0.0.1:37777` | Backend service URL |
 | `WithAPIKey` | `string` | `""` (none) | API key for `Authorization: Bearer` header |
-| `WithHTTPClient` | `*http.Client` | 30s timeout | Custom HTTP client |
+| `WithTimeout` | `time.Duration` | `30s` | Overall request timeout (matches Java SDK `readTimeout`) |
+| `WithConnectTimeout` | `time.Duration` | `10s` | Connection timeout (matches Java SDK `connectTimeout`) |
+| `WithHTTPClient` | `*http.Client` | 30s timeout | Custom HTTP client (overrides timeout options) |
 | `WithMaxRetries` | `int` | `3` | Retry count for fire-and-forget operations |
+| `WithRetryBackoff` | `time.Duration` | `500ms` | Base retry backoff (linear: `backoff × attempt`) |
 | `WithLogger` | `Logger` | no-op | Custom logger (compatible with `*slog.Logger`) |
 
 ### Custom Logger
@@ -190,8 +193,17 @@ if err := client.HealthCheck(ctx); err != nil {
 Returns backend version information.
 
 ```go
-func GetVersion(ctx context.Context) (map[string]any, error)
+func GetVersion(ctx context.Context) (*dto.VersionResponse, error)
 ```
+
+**Response (`dto.VersionResponse`):**
+
+| Field | Description |
+|-------|-------------|
+| `Version` | Backend version |
+| `Service` | Service name |
+| `Java` | Java version |
+| `SpringBoot` | Spring Boot version |
 
 **Example:**
 
@@ -200,7 +212,7 @@ version, err := client.GetVersion(ctx)
 if err != nil {
     log.Fatal(err)
 }
-fmt.Printf("Version: %s\n", version["version"])
+fmt.Printf("Version: %s (Java %s)\n", version.Version, version.Java)
 ```
 
 **Backend endpoint:** `GET /api/version`
@@ -257,8 +269,16 @@ fmt.Printf("Session: %s (DB: %s)\n", resp.SessionID, resp.SessionDBID)
 Updates the user ID on an existing session. Useful for late binding of user identity.
 
 ```go
-func UpdateSessionUserId(ctx context.Context, sessionID, userID string) (map[string]any, error)
+func UpdateSessionUserId(ctx context.Context, sessionID, userID string) (*dto.SessionUserUpdateResponse, error)
 ```
+
+**Response (`dto.SessionUserUpdateResponse`):**
+
+| Field | JSON Wire Name | Description |
+|-------|---------------|-------------|
+| `Status` | `status` | Update status |
+| `SessionID` | `sessionId` | Session ID |
+| `UserID` | `userId` | Updated user ID |
 
 **Example:**
 
@@ -267,7 +287,7 @@ result, err := client.UpdateSessionUserId(ctx, "my-session-123", "bob")
 if err != nil {
     log.Fatal(err)
 }
-fmt.Printf("Updated: %v\n", result)
+fmt.Printf("Updated: session=%s user=%s\n", result.SessionID, result.UserID)
 ```
 
 **Backend endpoint:** `PATCH /api/session/{id}/user`
@@ -412,22 +432,53 @@ fmt.Printf("Total: %d, HasMore: %v\n", resp.Total, resp.HasMore)
 
 **Backend endpoint:** `GET /api/observations?project=...&limit=...&offset=...`
 
-#### GetObservationsByIds
+#### GetObservation
 
-Retrieves specific observations by their IDs.
+Retrieves a single observation by ID. Returns `nil` (no error) if the observation does not exist.
 
 ```go
-func GetObservationsByIds(ctx context.Context, ids []string) ([]dto.Observation, error)
+func GetObservation(ctx context.Context, id string) (*dto.Observation, error)
 ```
 
 **Example:**
 
 ```go
-observations, err := client.GetObservationsByIds(ctx, []string{"obs-1", "obs-2", "obs-3"})
+obs, err := client.GetObservation(ctx, "obs-123")
 if err != nil {
     log.Fatal(err)
 }
-for _, obs := range observations {
+if obs == nil {
+    fmt.Println("Observation not found")
+} else {
+    fmt.Printf("[%s] %s\n", obs.Type, obs.Content)
+}
+```
+
+**Backend endpoint:** `GET /api/observations/{id}`
+
+#### GetObservationsByIds
+
+Retrieves specific observations by their IDs. Max 100 IDs per call.
+
+```go
+func GetObservationsByIds(ctx context.Context, ids []string) (*dto.BatchObservationsResponse, error)
+```
+
+**Response (`dto.BatchObservationsResponse`):**
+
+| Field | Description |
+|-------|-------------|
+| `Observations` | List of observations |
+| `Count` | Number of results |
+
+**Example:**
+
+```go
+resp, err := client.GetObservationsByIds(ctx, []string{"obs-1", "obs-2", "obs-3"})
+if err != nil {
+    log.Fatal(err)
+}
+for _, obs := range resp.Observations {
     fmt.Printf("  %s: %s\n", obs.ID, obs.Content)
 }
 ```
@@ -719,8 +770,14 @@ fmt.Println("Extraction triggered successfully")
 Returns all projects.
 
 ```go
-func GetProjects(ctx context.Context) (map[string]any, error)
+func GetProjects(ctx context.Context) (*dto.ProjectsResponse, error)
 ```
+
+**Response (`dto.ProjectsResponse`):**
+
+| Field | Description |
+|-------|-------------|
+| `Projects` | List of project paths |
 
 **Backend endpoint:** `GET /api/projects`
 
@@ -729,8 +786,15 @@ func GetProjects(ctx context.Context) (map[string]any, error)
 Returns project statistics. Pass empty string for global stats.
 
 ```go
-func GetStats(ctx context.Context, projectPath string) (map[string]any, error)
+func GetStats(ctx context.Context, projectPath string) (*dto.StatsResponse, error)
 ```
+
+**Response (`dto.StatsResponse`):**
+
+| Field | Description |
+|-------|-------------|
+| `Worker` | Worker stats (`isProcessing`, `queueDepth`) |
+| `Database` | Database stats |
 
 **Backend endpoint:** `GET /api/stats?project=...`
 
@@ -739,8 +803,19 @@ func GetStats(ctx context.Context, projectPath string) (map[string]any, error)
 Returns memory mode settings.
 
 ```go
-func GetModes(ctx context.Context) (map[string]any, error)
+func GetModes(ctx context.Context) (*dto.ModesResponse, error)
 ```
+
+**Response (`dto.ModesResponse`):**
+
+| Field | Description |
+|-------|-------------|
+| `ID` | Mode ID |
+| `Name` | Mode name |
+| `Description` | Mode description |
+| `Version` | Mode version |
+| `ObservationTypes` | Observation type definitions |
+| `ObservationConcepts` | Observation concept definitions |
 
 **Backend endpoint:** `GET /api/modes`
 

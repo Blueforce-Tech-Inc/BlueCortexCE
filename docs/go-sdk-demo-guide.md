@@ -30,7 +30,7 @@ curl http://127.0.0.1:37777/api/health
 
 ## HTTP Server Demo
 
-The most comprehensive demo — a full HTTP server exposing all 25+ SDK methods as REST endpoints. It serves as a testing harness, development tool, and reference implementation.
+The most comprehensive demo — a full HTTP server exposing all 27 SDK methods as REST endpoints. It serves as a testing harness, development tool, and reference implementation.
 
 ### How to Run
 
@@ -340,7 +340,7 @@ curl -X POST http://localhost:8080/ingest/session-end \
 
 ### Use Cases
 
-1. **Testing SDK functionality** — All 25+ SDK methods are exposed as HTTP endpoints, making it easy to test with `curl`, Postman, or scripts
+1. **Testing SDK functionality** — All 27 SDK methods are exposed as HTTP endpoints, making it easy to test with `curl`, Postman, or scripts
 2. **E2E test target** — The `scripts/go-sdk-e2e-test.sh` script tests all endpoints against this server
 3. **Development proxy** — Run the HTTP server alongside the backend to have a clean API surface
 4. **Cross-language testing** — Use curl/HTTP to verify SDK behavior from non-Go environments

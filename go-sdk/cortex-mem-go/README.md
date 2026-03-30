@@ -5,7 +5,7 @@ Go client library for [Cortex CE](https://github.com/abforce/cortex-ce) — a pe
 ## Features
 
 - **Zero mandatory dependencies** — only uses Go standard library
-- **Full API coverage** — 26 methods covering Session, Capture, Retrieval, Management, Extraction
+- **Full API coverage** — 27 methods covering Session, Capture, Retrieval, Management, Extraction
 - **Framework integrations** — optional Eino, LangChainGo, and Genkit modules
 - **Wire format compatible** — JSON field names match backend API exactly
 - **Comprehensive tests** — 259 unit tests with wire format verification (main + integration layers)
@@ -78,7 +78,7 @@ func main() {
 |----------|---------|
 | Session | `StartSession`, `UpdateSessionUserId` |
 | Capture | `RecordObservation`, `RecordSessionEnd`, `RecordUserPrompt` |
-| Retrieval | `RetrieveExperiences`, `BuildICLPrompt`, `Search`, `ListObservations`, `GetObservationsByIds` |
+| Retrieval | `RetrieveExperiences`, `BuildICLPrompt`, `Search`, `ListObservations`, `GetObservation`, `GetObservationsByIds` |
 | Management | `TriggerRefinement`, `SubmitFeedback`, `UpdateObservation`, `DeleteObservation`, `GetQualityDistribution` |
 | Health | `HealthCheck` |
 | Extraction | `TriggerExtraction`, `GetLatestExtraction`, `GetExtractionHistory` |
