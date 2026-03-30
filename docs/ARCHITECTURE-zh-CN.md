@@ -344,7 +344,9 @@ process.exit(0);
 │  PendingMessageProcessor → 待处理消息队列处理                │
 │  LlmQualityScorer       → 基于 LLM 的质量评分               │
 │  WorktreeDetector       → Git 工作树检测                    │
-│  ExperienceTemplate     → 经验检索模板                      │
+│  ExperienceTemplate     → 经验检索模板
+  QualityScorer          → 观察质量评分
+  PendingMessageEventListener → 待处理消息事件处理                      │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -438,17 +440,20 @@ public class AgentService {
 │                待处理消息队列                              │
 │                                                         │
 │  mem_pending_messages 表:                               │
-│  • id                                                  │
-│  • content_session_id                                  │
-│  • tool_name                                           │
-│  • tool_input_hash  ← 去重                              │
-│  • payload (JSON)                                      │
-│  • created_at                                          │
-│  • status (pending/processed/failed)                  │
+│  • id (UUID)                                            │
+│  • session_db_id (FK → mem_sessions.id, CASCADE)        │
+│  • content_session_id                                   │
+│  • message_type ('observation' / 'summarize')           │
+│  • tool_name                                            │
+│  • tool_input, tool_response                            │
+│  • tool_input_hash ← 去重 (V6)                          │
+│  • status (pending/processing/processed/failed)         │
+│  • retry_count                                          │
+│  • created_at_epoch                                     │
 │                                                         │
-│  StaleMessageRecoveryTask 每 5 分钟运行:                 │
-│  1. 查找 status='pending' 且 age > 5 分钟的消息         │
-│  2. 带去重重试处理                                       │
+│  PendingMessageProcessor 在启动时 + 定期运行:             │
+│  1. 查找 status='pending' 的消息                         │
+│  2. 通过 tool_input_hash 去重处理                        │
 │  3. 标记为 processed 或 failed                          │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -460,59 +465,129 @@ public class AgentService {
 #### 架构概览
 
 ```sql
--- 会话表
+-- 会话表 (V1 + V12, V13, V15 迁移)
 CREATE TABLE mem_sessions (
-    id VARCHAR(36) PRIMARY KEY,
-    project_path VARCHAR(500) NOT NULL,
-    status VARCHAR(20) NOT NULL,  -- active/completed/skipped
-    started_at TIMESTAMP NOT NULL,
-    ended_at TIMESTAMP,
-    read_tokens INTEGER DEFAULT 0,
-    write_tokens INTEGER DEFAULT 0,
-    discovery_tokens INTEGER DEFAULT 0
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    content_session_id VARCHAR(255) UNIQUE NOT NULL,
+    memory_session_id VARCHAR(255) UNIQUE,
+    project_path TEXT NOT NULL,
+    user_id VARCHAR(255),              -- V15: null=单用户, 非null=SDK多用户
+    user_prompt TEXT,
+    last_assistant_message TEXT,
+    started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    started_at_epoch BIGINT NOT NULL,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    completed_at_epoch BIGINT,
+    status VARCHAR(50) DEFAULT 'active',  -- active/completed/skipped
+    total_steps INT DEFAULT 0,            -- V12: 步骤效率追踪
+    avg_steps_per_task FLOAT              -- V12
 );
 
--- 观察表 (含多维嵌入向量)
+-- 观察表 (V1 + V2, V8, V11, V12, V14, V16 迁移)
 CREATE TABLE mem_observations (
-    id VARCHAR(36) PRIMARY KEY,
-    session_id VARCHAR(36) REFERENCES mem_sessions(id),
-    project_path VARCHAR(500) NOT NULL,
-    folder_path VARCHAR(500),
-    file_path VARCHAR(500),
-    content TEXT NOT NULL,
-    facts JSONB,           -- ["fact1", "fact2"]
-    concepts JSONB,        -- ["concept1", "concept2"]
-    quality_score FLOAT DEFAULT 0.5,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    memory_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(memory_session_id),
+    content_session_id VARCHAR(255),     -- V13: 统一会话链接
+    project_path TEXT NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    title TEXT,
+    subtitle TEXT,
+    content TEXT,
+    facts JSONB,              -- ["fact1", "fact2"]
+    concepts JSONB,           -- ["concept1", "concept2"]
+    files_read JSONB,
+    files_modified JSONB,
+    source TEXT,              -- V14: tool_result/user_statement/llm_inference/manual
+    extracted_data JSONB,     -- V14: 结构化键值数据
+    quality_score FLOAT,      -- V11
+    step_number INT,          -- V12
+    discovery_tokens INT DEFAULT 0,
+    prompt_number INT,
+    content_hash VARCHAR(64), -- V8
 
-    -- 多维嵌入向量
+    -- 多维嵌入向量 (V2)
     embedding_768  vector(768),
-    embedding_1024 vector(1024),  -- 主索引 (bge-m3)
+    embedding_1024 vector(1024),
     embedding_1536 vector(1536),
-    embedding_model_id VARCHAR(50),
+    embedding_model_id VARCHAR(255),
 
-    created_at TIMESTAMP NOT NULL,
-    UNIQUE (session_id, created_at)
+    -- 全文搜索 (V1)
+    search_vector tsvector GENERATED ALWAYS AS (
+        setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
+        setweight(to_tsvector('english', coalesce(content, '')), 'B')
+    ) STORED,
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at_epoch BIGINT NOT NULL
 );
 
--- 向量索引 (HNSW)
-CREATE INDEX idx_embedding_768 ON mem_observations
+-- 向量索引 (HNSW, V2)
+CREATE INDEX idx_obs_embedding_768 ON mem_observations
     USING hnsw (embedding_768 vector_cosine_ops);
-
-CREATE INDEX idx_embedding_1024 ON mem_observations
+CREATE INDEX idx_obs_embedding_1024 ON mem_observations
     USING hnsw (embedding_1024 vector_cosine_ops);
-
-CREATE INDEX idx_embedding_1536 ON mem_observations
+CREATE INDEX idx_obs_embedding_1536 ON mem_observations
     USING hnsw (embedding_1536 vector_cosine_ops);
+
+-- 全文搜索索引
+CREATE INDEX idx_obs_search ON mem_observations USING GIN(search_vector);
+
+-- 摘要表 (V1 + V13)
+CREATE TABLE mem_summaries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    memory_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(memory_session_id),
+    content_session_id VARCHAR(255),     -- V13
+    project_path TEXT NOT NULL,
+    request TEXT,
+    investigated TEXT,
+    learned TEXT,
+    completed TEXT,
+    next_steps TEXT,
+    files_read TEXT,
+    files_edited TEXT,
+    notes TEXT,
+    prompt_number INT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at_epoch BIGINT NOT NULL
+);
+
+-- 用户提示表 (V1 + V5)
+CREATE TABLE mem_user_prompts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    content_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(content_session_id),
+    prompt_number INT NOT NULL,
+    prompt_text TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at_epoch BIGINT NOT NULL
+);
+
+-- 待处理消息表 (V1 + V6)
+CREATE TABLE mem_pending_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_db_id UUID NOT NULL REFERENCES mem_sessions(id) ON DELETE CASCADE,
+    content_session_id VARCHAR(255) NOT NULL,
+    message_type VARCHAR(50) NOT NULL,  -- 'observation' 或 'summarize'
+    tool_name TEXT,
+    tool_input TEXT,
+    tool_response TEXT,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending',
+    retry_count INT NOT NULL DEFAULT 0,
+    tool_input_hash VARCHAR(64),        -- V6: 去重
+    created_at_epoch BIGINT NOT NULL,
+    completed_at_epoch BIGINT,
+    failed_at_epoch BIGINT
+);
 ```
 
 #### 语义搜索
 
 ```sql
--- 余弦相似度搜索
+-- 全文 + 向量混合搜索
 SELECT id, content,
        1 - (embedding_1024 <=> :query_vector) as similarity
 FROM mem_observations
 WHERE project_path = :project_path
+  AND search_vector @@ plainto_tsquery('english', :text_query)
 ORDER BY embedding_1024 <=> :query_vector
 LIMIT :limit;
 ```
@@ -653,8 +728,8 @@ MCP 服务器支持两种传输协议：
 
 | 协议 | 端点 | 描述 |
 |------|------|------|
-| **Streamable HTTP**（默认） | `/mcp` | 基于 HTTP 的现代协议 |
-| **SSE** | `/sse` + `/mcp/message` | Server-Sent Events - 稳定 |
+| **SSE**（默认） | `/sse` + `/mcp/message` | Server-Sent Events - 稳定 |
+| **Streamable HTTP** | `/mcp` | 基于 HTTP 的现代协议 |
 
 **配置**（在 `application.yml` 中）：
 
@@ -663,7 +738,7 @@ spring:
   ai:
     mcp:
       server:
-        protocol: SSE  # 或: STREAMABLE（需要会话管理）
+        protocol: SSE  # 默认: SSE。备选: STREAMABLE（需要会话管理）
 ```
 
 **环境变量覆盖**（无需编辑配置文件）：

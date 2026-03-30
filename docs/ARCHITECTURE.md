@@ -344,7 +344,9 @@ The Fat Server is the core Spring Boot application handling all business logic.
 │  PendingMessageProcessor → Pending message queue processing │
 │  LlmQualityScorer       → LLM-based quality scoring         │
 │  WorktreeDetector       → Git worktree detection            │
-│  ExperienceTemplate     → Experience retrieval templates    │
+│  ExperienceTemplate     → Experience retrieval templates
+  QualityScorer          → Observation quality scoring
+  PendingMessageEventListener → Pending message event handling    │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -438,17 +440,20 @@ public class AgentService {
 │                Pending Message Queue                     │
 │                                                         │
 │  mem_pending_messages table:                            │
-│  • id                                                   │
+│  • id (UUID)                                            │
+│  • session_db_id (FK → mem_sessions.id, CASCADE)        │
 │  • content_session_id                                   │
+│  • message_type ('observation' / 'summarize')           │
 │  • tool_name                                            │
-│  • tool_input_hash  ← Deduplication                     │
-│  • payload (JSON)                                       │
-│  • created_at                                           │
-│  • status (pending/processed/failed)                    │
+│  • tool_input, tool_response                            │
+│  • tool_input_hash ← Deduplication (V6)                 │
+│  • status (pending/processing/processed/failed)         │
+│  • retry_count                                          │
+│  • created_at_epoch                                     │
 │                                                         │
-│  StaleMessageRecoveryTask runs every 5 minutes:         │
-│  1. Find messages with status='pending' and age > 5min  │
-│  2. Re-process with deduplication                       │
+│  PendingMessageProcessor runs on startup + periodic:    │
+│  1. Find messages with status='pending'                 │
+│  2. Process with deduplication via tool_input_hash      │
 │  3. Mark as processed or failed                         │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -460,59 +465,129 @@ public class AgentService {
 #### Schema Overview
 
 ```sql
--- Sessions table
+-- Sessions table (V1 + V12, V13, V15 migrations)
 CREATE TABLE mem_sessions (
-    id VARCHAR(36) PRIMARY KEY,
-    project_path VARCHAR(500) NOT NULL,
-    status VARCHAR(20) NOT NULL,  -- active/completed/skipped
-    started_at TIMESTAMP NOT NULL,
-    ended_at TIMESTAMP,
-    read_tokens INTEGER DEFAULT 0,
-    write_tokens INTEGER DEFAULT 0,
-    discovery_tokens INTEGER DEFAULT 0
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    content_session_id VARCHAR(255) UNIQUE NOT NULL,
+    memory_session_id VARCHAR(255) UNIQUE,
+    project_path TEXT NOT NULL,
+    user_id VARCHAR(255),              -- V15: null=single-user, non-null=SDK multi-user
+    user_prompt TEXT,
+    last_assistant_message TEXT,
+    started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    started_at_epoch BIGINT NOT NULL,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    completed_at_epoch BIGINT,
+    status VARCHAR(50) DEFAULT 'active',  -- active/completed/skipped
+    total_steps INT DEFAULT 0,            -- V12: step efficiency tracking
+    avg_steps_per_task FLOAT              -- V12
 );
 
--- Observations table (with multi-dimension embeddings)
+-- Observations table (V1 + V2, V8, V11, V12, V14, V16 migrations)
 CREATE TABLE mem_observations (
-    id VARCHAR(36) PRIMARY KEY,
-    session_id VARCHAR(36) REFERENCES mem_sessions(id),
-    project_path VARCHAR(500) NOT NULL,
-    folder_path VARCHAR(500),
-    file_path VARCHAR(500),
-    content TEXT NOT NULL,
-    facts JSONB,           -- ["fact1", "fact2"]
-    concepts JSONB,        -- ["concept1", "concept2"]
-    quality_score FLOAT DEFAULT 0.5,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    memory_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(memory_session_id),
+    content_session_id VARCHAR(255),     -- V13: unified session linkage
+    project_path TEXT NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    title TEXT,
+    subtitle TEXT,
+    content TEXT,
+    facts JSONB,              -- ["fact1", "fact2"]
+    concepts JSONB,           -- ["concept1", "concept2"]
+    files_read JSONB,
+    files_modified JSONB,
+    source TEXT,              -- V14: tool_result/user_statement/llm_inference/manual
+    extracted_data JSONB,     -- V14: structured key-value data
+    quality_score FLOAT,      -- V11
+    step_number INT,          -- V12
+    discovery_tokens INT DEFAULT 0,
+    prompt_number INT,
+    content_hash VARCHAR(64), -- V8
 
-    -- Multi-dimension embeddings
+    -- Multi-dimension embeddings (V2)
     embedding_768  vector(768),
-    embedding_1024 vector(1024),  -- Primary (bge-m3)
+    embedding_1024 vector(1024),
     embedding_1536 vector(1536),
-    embedding_model_id VARCHAR(50),
+    embedding_model_id VARCHAR(255),
 
-    created_at TIMESTAMP NOT NULL,
-    UNIQUE (session_id, created_at)
+    -- Full-text search (V1)
+    search_vector tsvector GENERATED ALWAYS AS (
+        setweight(to_tsvector('english', coalesce(title, '')), 'A') ||
+        setweight(to_tsvector('english', coalesce(content, '')), 'B')
+    ) STORED,
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at_epoch BIGINT NOT NULL
 );
 
--- Vector indexes (HNSW)
-CREATE INDEX idx_embedding_768 ON mem_observations
+-- Vector indexes (HNSW, V2)
+CREATE INDEX idx_obs_embedding_768 ON mem_observations
     USING hnsw (embedding_768 vector_cosine_ops);
-
-CREATE INDEX idx_embedding_1024 ON mem_observations
+CREATE INDEX idx_obs_embedding_1024 ON mem_observations
     USING hnsw (embedding_1024 vector_cosine_ops);
-
-CREATE INDEX idx_embedding_1536 ON mem_observations
+CREATE INDEX idx_obs_embedding_1536 ON mem_observations
     USING hnsw (embedding_1536 vector_cosine_ops);
+
+-- Full-text search index
+CREATE INDEX idx_obs_search ON mem_observations USING GIN(search_vector);
+
+-- Summaries table (V1 + V13)
+CREATE TABLE mem_summaries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    memory_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(memory_session_id),
+    content_session_id VARCHAR(255),     -- V13
+    project_path TEXT NOT NULL,
+    request TEXT,
+    investigated TEXT,
+    learned TEXT,
+    completed TEXT,
+    next_steps TEXT,
+    files_read TEXT,
+    files_edited TEXT,
+    notes TEXT,
+    prompt_number INT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at_epoch BIGINT NOT NULL
+);
+
+-- User Prompts table (V1 + V5)
+CREATE TABLE mem_user_prompts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    content_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(content_session_id),
+    prompt_number INT NOT NULL,
+    prompt_text TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    created_at_epoch BIGINT NOT NULL
+);
+
+-- Pending Messages table (V1 + V6)
+CREATE TABLE mem_pending_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_db_id UUID NOT NULL REFERENCES mem_sessions(id) ON DELETE CASCADE,
+    content_session_id VARCHAR(255) NOT NULL,
+    message_type VARCHAR(50) NOT NULL,  -- 'observation' or 'summarize'
+    tool_name TEXT,
+    tool_input TEXT,
+    tool_response TEXT,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending',
+    retry_count INT NOT NULL DEFAULT 0,
+    tool_input_hash VARCHAR(64),        -- V6: deduplication
+    created_at_epoch BIGINT NOT NULL,
+    completed_at_epoch BIGINT,
+    failed_at_epoch BIGINT
+);
 ```
 
 #### Semantic Search
 
 ```sql
--- Cosine similarity search
+-- Full-text + vector hybrid search
 SELECT id, content,
        1 - (embedding_1024 <=> :query_vector) as similarity
 FROM mem_observations
 WHERE project_path = :project_path
+  AND search_vector @@ plainto_tsquery('english', :text_query)
 ORDER BY embedding_1024 <=> :query_vector
 LIMIT :limit;
 ```
@@ -653,8 +728,8 @@ The MCP Server supports two transport protocols:
 
 | Protocol | Endpoint | Description |
 |----------|----------|-------------|
-| **Streamable HTTP** (default) | `/mcp` | Modern HTTP-based protocol |
-| **SSE** | `/sse` + `/mcp/message` | Server-Sent Events - stable |
+| **SSE** (default) | `/sse` + `/mcp/message` | Server-Sent Events - stable |
+| **Streamable HTTP** | `/mcp` | Modern HTTP-based protocol |
 
 **Configuration** (in `application.yml`):
 
@@ -663,7 +738,7 @@ spring:
   ai:
     mcp:
       server:
-        protocol: SSE  # or: STREAMABLE (requires session management)
+        protocol: SSE  # Default: SSE. Alternative: STREAMABLE (requires session management)
 ```
 
 **Environment Variable Override** (no config file edit needed):
