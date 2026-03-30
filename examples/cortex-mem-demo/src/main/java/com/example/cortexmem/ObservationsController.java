@@ -216,7 +216,9 @@ public class ObservationsController {
                     return ResponseEntity.badRequest()
                             .body(Map.of("error", "extractedData must be a map"));
                 }
-                builder.extractedData((Map<String, Object>) extractedDataObj);
+                @SuppressWarnings("unchecked")
+                Map<String, Object> extractedData = (Map<String, Object>) extractedDataObj;
+                builder.extractedData(extractedData);
             }
             client.updateObservation(id, builder.build());
             return ResponseEntity.ok(Map.of("status", "updated", "id", id));

@@ -92,22 +92,22 @@ public class ExtractionController {
     }
 
     /**
-     * POST /demo/extraction/run?projectPath=/test
+     * POST /demo/extraction/run?project=/test
      */
     @PostMapping(value = "/run", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> triggerExtraction(
-            @RequestParam String projectPath) {
+            @RequestParam String project) {
 
-        if (projectPath.isBlank()) {
+        if (project.isBlank()) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("error", "projectPath is required"));
+                    .body(Map.of("error", "project is required"));
         }
 
         try {
-            client.triggerExtraction(projectPath);
-            return ResponseEntity.ok(Map.of("status", "extraction triggered", "projectPath", projectPath));
+            client.triggerExtraction(project);
+            return ResponseEntity.ok(Map.of("status", "extraction triggered", "project", project));
         } catch (Exception e) {
-            log.error("Trigger extraction failed for projectPath={}", projectPath, e);
+            log.error("Trigger extraction failed for project={}", project, e);
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Trigger extraction failed: " + e.getMessage()));
         }
