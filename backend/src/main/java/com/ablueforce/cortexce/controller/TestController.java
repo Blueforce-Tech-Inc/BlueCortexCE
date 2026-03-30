@@ -44,8 +44,10 @@ public class TestController {
     @Operation(summary = "Test LLM (DeepSeek) connectivity",
         description = "Tests connectivity to the configured LLM provider (DeepSeek). Sends a simple prompt and returns the model's response. Use to verify API key configuration and connectivity.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "LLM test completed (status may be 'success', 'error', or 'disabled')"),
-        @ApiResponse(responseCode = "500", description = "LLM test failed with internal error")
+        @ApiResponse(responseCode = "200", description = "LLM test completed (status may be 'success', 'error', or 'disabled')",
+            content = @Content(schema = @Schema(example = "{\"status\":\"success\",\"message\":\"LLM (DeepSeek) is working!\",\"response\":\"Hello from DeepSeek!\"}"))),
+        @ApiResponse(responseCode = "500", description = "LLM test failed with internal error",
+            content = @Content(schema = @Schema(example = "{\"status\":\"error\",\"message\":\"LLM (DeepSeek) failed: ...\"}")))
     })
     public ResponseEntity<Map<String, Object>> testLlm() {
         Map<String, Object> result = new HashMap<>();
@@ -73,8 +75,10 @@ public class TestController {
     @Operation(summary = "Test Embedding (SiliconFlow BGE-M3) connectivity",
         description = "Tests connectivity to the configured embedding provider (SiliconFlow BGE-M3). Generates an embedding for a test string and returns the dimensionality. Returns 'disabled' status if no API key is configured.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Embedding test completed (status may be 'success', 'error', or 'disabled')"),
-        @ApiResponse(responseCode = "500", description = "Embedding test failed with internal error")
+        @ApiResponse(responseCode = "200", description = "Embedding test completed (status may be 'success', 'error', or 'disabled')",
+            content = @Content(schema = @Schema(example = "{\"status\":\"success\",\"message\":\"Embedding (SiliconFlow BGE-M3) is working!\",\"dimensions\":1024}"))),
+        @ApiResponse(responseCode = "500", description = "Embedding test failed with internal error",
+            content = @Content(schema = @Schema(example = "{\"status\":\"error\",\"message\":\"Embedding failed: ...\"}")))
     })
     public ResponseEntity<Map<String, Object>> testEmbedding() {
         Map<String, Object> result = new HashMap<>();

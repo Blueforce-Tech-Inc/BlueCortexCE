@@ -75,7 +75,8 @@ public class LogsController {
     @GetMapping
     @Operation(summary = "Retrieve application logs",
         description = "Returns application log entries from ~/.claude-mem/logs/. Reads today's log file first, falls back to yesterday if insufficient lines. Returns raw log text with metadata including file paths, total line count, and returned count. Lines parameter is clamped between 1 and 10000.")
-    @ApiResponse(responseCode = "200", description = "Log content returned with metadata")
+    @ApiResponse(responseCode = "200", description = "Log content returned with metadata",
+        content = @Content(schema = @Schema(example = "{\"logs\":\"[2025-01-02 14:30:45] [INFO] message\",\"path\":\"/logs\",\"totalLines\":100,\"returnedLines\":50,\"exists\":true}")))
     public ResponseEntity<Map<String, Object>> getLogs(
             @Parameter(description = "Maximum number of log lines to return (1-10000, default 1000)", required = false, example = "1000")
             @RequestParam(defaultValue = "1000") int lines) {

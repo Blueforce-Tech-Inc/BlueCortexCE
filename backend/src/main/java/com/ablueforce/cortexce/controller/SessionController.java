@@ -106,15 +106,18 @@ public class SessionController {
     @Operation(summary = "Start or resume a session",
         description = "Initializes a new session or retrieves an existing one. Generates context for Claude Code injection and optionally updates CLAUDE.md files. Supports worktree multi-project context via the 'projects' parameter. Called by wrapper.js session-start hook.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Session started successfully, returns context and updateFiles"),
-        @ApiResponse(responseCode = "400", description = "Missing required fields: session_id and project_path (or cwd)"),
-        @ApiResponse(responseCode = "500", description = "Failed to initialize session due to internal error")
+        @ApiResponse(responseCode = "200", description = "Session started successfully, returns context and updateFiles",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.StartSessionResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Missing required fields: session_id and project_path (or cwd)",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Failed to initialize session due to internal error",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class)))
     })
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
         description = "Session start request",
         required = true,
         content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.SessionStartRequest.class)))
-    public ResponseEntity<Map<String, Object>> startSession(@org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.SessionStartRequest body) {
+    public ResponseEntity<Object> startSession(@org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.SessionStartRequest body) {
         String contentSessionId = body.sessionId();
         String projectPath = body.projectPath();
         String projectPathFromCwd = body.cwd(); // fallback when project_path absent
@@ -209,13 +212,8 @@ public class SessionController {
         log.debug("Session start completed: session_db_id={}, context_length={}, updateFiles_count={}",
             sessionDbId, context.length(), updateFiles.size());
 
-        return ResponseEntity.ok(Map.of(
-            "context", context,
-            // ⚠️ WEBUI COMPATIBILITY: "updateFiles" MUST stay camelCase — the proxy (proxy.js)
-            // reads javaResponse.data.updateFiles directly. Do NOT change to "update_files".
-            "updateFiles", updateFiles,
-            "session_db_id", sessionDbId,
-            "prompt_number", 1
+        return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.StartSessionResponse(
+            context, updateFiles, sessionDbId, 1
         ));
     }
 
@@ -230,11 +228,14 @@ public class SessionController {
     @Operation(summary = "Get session by ID",
         description = "Retrieves session details by content session ID (the ID used by Claude Code). Returns session metadata including project path, status, and start time.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Session found and returned"),
-        @ApiResponse(responseCode = "404", description = "Session not found for the given content session ID"),
-        @ApiResponse(responseCode = "500", description = "Internal error retrieving session")
+        @ApiResponse(responseCode = "200", description = "Session found and returned",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.GetSessionResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Session not found for the given content session ID",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Internal error retrieving session",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class)))
     })
-    public ResponseEntity<Map<String, Object>> getSession(
+    public ResponseEntity<Object> getSession(
             @Parameter(description = "Content session ID (Claude Code session identifier)", required = true, example = "sess-abc123")
             @PathVariable String sessionId) {
         try {
@@ -246,12 +247,12 @@ public class SessionController {
             }
 
             SessionEntity s = session.get();
-            return ResponseEntity.ok(Map.of(
-                "session_db_id", s.getId().toString(),
-                "content_session_id", s.getContentSessionId() != null ? s.getContentSessionId() : "",
-                "project_path", s.getProjectPath() != null ? s.getProjectPath() : "",
-                "status", s.getStatus() != null ? s.getStatus() : "",
-                "started_at", s.getStartedAt() != null ? s.getStartedAt().toString() : ""
+            return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.GetSessionResponse(
+                s.getId().toString(),
+                s.getContentSessionId() != null ? s.getContentSessionId() : "",
+                s.getProjectPath() != null ? s.getProjectPath() : "",
+                s.getStatus() != null ? s.getStatus() : "",
+                s.getStartedAt() != null ? s.getStartedAt().toString() : ""
             ));
         } catch (Exception e) {
             log.error("Failed to get session {}: {}", sessionId, e.getMessage());
@@ -379,10 +380,12 @@ public class SessionController {
     @Operation(summary = "Update session user ID",
         description = "Updates the user identifier for an existing session. Used for Phase 3 multi-user support. Triggers re-extraction of user-scoped results when userId changes.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "User ID updated successfully"),
-        @ApiResponse(responseCode = "404", description = "Session not found for the given content session ID")
+        @ApiResponse(responseCode = "200", description = "User ID updated successfully",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.UpdateSessionUserIdResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Session not found for the given content session ID",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class)))
     })
-    public ResponseEntity<Map<String, String>> updateSessionUserId(
+    public ResponseEntity<Object> updateSessionUserId(
             @Parameter(description = "Content session ID to update", required = true, example = "sess-abc123")
             @PathVariable String sessionId,
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
@@ -415,10 +418,8 @@ public class SessionController {
             }
         }
 
-        return ResponseEntity.ok(Map.of(
-            "status", "ok",
-            "sessionId", sessionId,
-            "userId", userId != null ? userId : ""
+        return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.UpdateSessionUserIdResponse(
+            "ok", sessionId, userId != null ? userId : ""
         ));
     }
 

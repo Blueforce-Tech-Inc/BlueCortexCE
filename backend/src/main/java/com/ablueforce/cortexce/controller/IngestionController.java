@@ -282,14 +282,16 @@ public class IngestionController {
     @Operation(summary = "Create observation directly",
         description = "Creates a new observation with auto-embedding. For testing and direct SDK integration. Accepts content_session_id (or session_id alias) and project_path. Supports V14 fields: source, extractedData. Also accepts 'content' as alias for 'narrative'.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Observation created successfully"),
-        @ApiResponse(responseCode = "400", description = "Missing required fields (content_session_id, project_path) or invalid field types (facts/concepts/files_read/files_modified must be lists of strings)")
+        @ApiResponse(responseCode = "200", description = "Observation created successfully",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.entity.ObservationEntity.class))),
+        @ApiResponse(responseCode = "400", description = "Missing required fields (content_session_id, project_path) or invalid field types (facts/concepts/files_read/files_modified must be lists of strings)",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class)))
     })
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
         description = "Observation creation request",
         required = true,
         content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.ObservationCreateRequest.class)))
-    public ResponseEntity<?> handleObservation(@org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.ObservationCreateRequest body) {
+    public ResponseEntity<Object> handleObservation(@org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.ObservationCreateRequest body) {
         // Resolve session ID: prefer contentSessionId, fallback to sessionId alias
         String contentSessionId = body.contentSessionId() != null ? body.contentSessionId() : body.sessionId();
         // Resolve project path: prefer projectPath, fallback to cwd alias

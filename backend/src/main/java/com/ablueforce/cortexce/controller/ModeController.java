@@ -7,6 +7,7 @@ import com.ablueforce.cortexce.service.ModeService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
@@ -104,7 +105,8 @@ public class ModeController {
     @GetMapping("/types")
     @Operation(summary = "Get observation types",
         description = "Returns the list of valid observation types for the current active mode (e.g., bugfix, feature, architecture, how-it-works, gotcha).")
-    @ApiResponse(responseCode = "200", description = "Observation types list returned")
+    @ApiResponse(responseCode = "200", description = "Observation types list returned",
+        content = @Content(array = @ArraySchema(schema = @Schema(implementation = com.ablueforce.cortexce.config.ModeConfig.ObservationType.class))))
     public ResponseEntity<List<ObservationType>> getObservationTypes() {
         return ResponseEntity.ok(modeService.getObservationTypes());
     }
@@ -115,7 +117,8 @@ public class ModeController {
     @GetMapping("/concepts")
     @Operation(summary = "Get observation concepts",
         description = "Returns the list of valid observation concepts for the current active mode.")
-    @ApiResponse(responseCode = "200", description = "Observation concepts list returned")
+    @ApiResponse(responseCode = "200", description = "Observation concepts list returned",
+        content = @Content(array = @ArraySchema(schema = @Schema(implementation = com.ablueforce.cortexce.config.ModeConfig.ObservationConcept.class))))
     public ResponseEntity<List<ObservationConcept>> getObservationConcepts() {
         return ResponseEntity.ok(modeService.getObservationConcepts());
     }
@@ -126,7 +129,8 @@ public class ModeController {
     @GetMapping("/types/{typeId}/validate")
     @Operation(summary = "Validate observation type ID",
         description = "Checks whether a given observation type ID is valid for the current active mode.")
-    @ApiResponse(responseCode = "200", description = "Validation result returned")
+    @ApiResponse(responseCode = "200", description = "Validation result returned",
+        content = @Content(schema = @Schema(example = "{\"valid\":true}")))
     public ResponseEntity<Map<String, Boolean>> validateType(
             @Parameter(description = "Observation type ID to validate", required = true, example = "bugfix")
             @PathVariable String typeId) {
@@ -139,7 +143,8 @@ public class ModeController {
     @GetMapping("/types/{typeId}/emoji")
     @Operation(summary = "Get emoji and label for observation type",
         description = "Returns the emoji (icon), work emoji (for active state), and human-readable label for a given observation type ID.")
-    @ApiResponse(responseCode = "200", description = "Emoji and label returned")
+    @ApiResponse(responseCode = "200", description = "Emoji and label returned",
+        content = @Content(schema = @Schema(example = "{\"emoji\":\"🔧\",\"workEmoji\":\"🔧\",\"label\":\"Bugfix\"}")))
     public ResponseEntity<Map<String, String>> getTypeEmoji(
             @Parameter(description = "Observation type ID", required = true, example = "bugfix")
             @PathVariable String typeId) {
@@ -156,7 +161,8 @@ public class ModeController {
     @GetMapping("/types/valid")
     @Operation(summary = "Get all valid observation type IDs",
         description = "Returns a list of all valid observation type IDs for the current active mode.")
-    @ApiResponse(responseCode = "200", description = "Valid type IDs returned")
+    @ApiResponse(responseCode = "200", description = "Valid type IDs returned",
+        content = @Content(array = @ArraySchema(schema = @Schema(example = "bugfix"))))
     public ResponseEntity<List<String>> getValidTypeIds() {
         return ResponseEntity.ok(modeService.getValidTypeIds());
     }
@@ -167,7 +173,8 @@ public class ModeController {
     @GetMapping("/concepts/valid")
     @Operation(summary = "Get all valid observation concept IDs",
         description = "Returns a list of all valid observation concept IDs for the current active mode.")
-    @ApiResponse(responseCode = "200", description = "Valid concept IDs returned")
+    @ApiResponse(responseCode = "200", description = "Valid concept IDs returned",
+        content = @Content(array = @ArraySchema(schema = @Schema(example = "how-it-works"))))
     public ResponseEntity<List<String>> getValidConceptIds() {
         return ResponseEntity.ok(modeService.getValidConceptIds());
     }

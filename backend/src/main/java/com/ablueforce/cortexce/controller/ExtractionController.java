@@ -46,11 +46,14 @@ public class ExtractionController {
     @Operation(summary = "Get latest extraction result",
         description = "Returns the most recent extraction result for a given template name and project. Useful for retrieving user preferences, allergies, or other structured data extracted from recent sessions. Returns status 'not_found' if no extraction exists.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Latest extraction result (or not_found status if none exists)"),
-        @ApiResponse(responseCode = "400", description = "Missing required parameter: projectPath"),
-        @ApiResponse(responseCode = "500", description = "Failed to retrieve extraction due to internal error")
+        @ApiResponse(responseCode = "200", description = "Latest extraction result (or not_found status if none exists)",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.GetLatestExtractionResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Missing required parameter: projectPath",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Failed to retrieve extraction due to internal error",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class)))
     })
-    public ResponseEntity<Map<String, Object>> getLatestExtraction(
+    public ResponseEntity<Object> getLatestExtraction(
             @Parameter(description = "Extraction template name (e.g., 'user-preferences', 'allergy-info')", required = true, example = "user-preferences")
             @PathVariable String templateName,
             @Parameter(description = "Absolute project path", required = true, example = "/Users/dev/my-project")
@@ -68,21 +71,20 @@ public class ExtractionController {
         try {
             var result = extractionService.getLatestExtraction(projectPath, templateName, userId);
             if (result.isEmpty()) {
-                return ResponseEntity.ok(Map.of(
-                    "status", "not_found",
-                    "template", templateName,
-                    "message", "No extraction found"
+                return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.GetLatestExtractionResponse(
+                    "not_found", templateName, null, null, null, null, "No extraction found"
                 ));
             }
 
             ObservationEntity obs = result.get();
-            return ResponseEntity.ok(Map.of(
-                "status", "ok",
-                "template", templateName,
-                "sessionId", obs.getContentSessionId(),
-                "extractedData", obs.getExtractedData() != null ? obs.getExtractedData() : Map.of(),
-                "createdAt", obs.getCreatedAtEpoch(),
-                "observationId", obs.getId().toString()
+            return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.GetLatestExtractionResponse(
+                "ok",
+                templateName,
+                obs.getContentSessionId(),
+                obs.getExtractedData() != null ? obs.getExtractedData() : Map.of(),
+                obs.getCreatedAtEpoch(),
+                obs.getId().toString(),
+                null
             ));
         } catch (Exception e) {
             log.error("Failed to get latest extraction for template {}: {}", templateName, e.getMessage());
@@ -149,11 +151,14 @@ public class ExtractionController {
     @Operation(summary = "Manually trigger extraction",
         description = "Manually triggers the structured extraction pipeline for a project. Executes synchronously — the response is returned after extraction completes. Extraction uses the configured templates to extract structured data (e.g., user preferences, allergies) from recent session observations.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Extraction triggered successfully"),
-        @ApiResponse(responseCode = "400", description = "Missing required parameter: projectPath"),
-        @ApiResponse(responseCode = "500", description = "Failed to trigger extraction due to internal error")
+        @ApiResponse(responseCode = "200", description = "Extraction triggered successfully",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.TriggerExtractionResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Missing required parameter: projectPath",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Failed to trigger extraction due to internal error",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class)))
     })
-    public ResponseEntity<Map<String, String>> triggerExtraction(
+    public ResponseEntity<Object> triggerExtraction(
             @Parameter(description = "Absolute project path to run extraction for", required = true, example = "/Users/dev/my-project")
             @RequestParam String projectPath) {
         if (projectPath == null || projectPath.isBlank()) {
@@ -165,10 +170,8 @@ public class ExtractionController {
         try {
             log.info("Manual extraction triggered for project: {}", projectPath);
             extractionService.runExtraction(projectPath);
-            return ResponseEntity.ok(Map.of(
-                "status", "ok",
-                "projectPath", projectPath,
-                "message", "Extraction completed"
+            return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.TriggerExtractionResponse(
+                "ok", projectPath, "Extraction completed"
             ));
         } catch (Exception e) {
             log.error("Failed to trigger extraction for project {}: {}", projectPath, e.getMessage());

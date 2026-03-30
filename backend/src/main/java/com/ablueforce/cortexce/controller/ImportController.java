@@ -188,8 +188,9 @@ public class ImportController {
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Bulk import all data types",
         description = "Imports sessions, observations, summaries, and user prompts in a single atomic transaction. Sessions are imported first (as other imports depend on them), then observations, summaries, and prompts in parallel where possible. Duplicate checking is applied to prevent data duplication.")
-    @ApiResponse(responseCode = "200", description = "Bulk import completed, returns statistics for each data type")
-    public ResponseEntity<Map<String, Object>> bulkImport(
+    @ApiResponse(responseCode = "200", description = "Bulk import completed, returns statistics for each data type",
+        content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.BulkImportResponse.class)))
+    public ResponseEntity<com.ablueforce.cortexce.dto.ApiResponses.BulkImportResponse> bulkImport(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "BulkImportRequest containing lists of sessions, observations, summaries, and prompts to import. All fields are optional (empty lists are handled gracefully).", required = true)
             @org.springframework.web.bind.annotation.RequestBody BulkImportRequest request) {
         log.info("Bulk import request: {} sessions, {} observations, {} summaries, {} prompts",
@@ -248,18 +249,18 @@ public class ImportController {
             stats.summariesImported(),
             stats.promptsImported());
 
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "stats", Map.of(
-                "sessionsImported", stats.sessionsImported(),
-                "sessionsSkipped", stats.sessionsSkipped(),
-                "observationsImported", stats.observationsImported(),
-                "observationsSkipped", stats.observationsSkipped(),
-                "summariesImported", stats.summariesImported(),
-                "summariesSkipped", stats.summariesSkipped(),
-                "promptsImported", stats.promptsImported(),
-                "promptsSkipped", stats.promptsSkipped(),
-                "errors", stats.errors()
+        return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.BulkImportResponse(
+            true,
+            new com.ablueforce.cortexce.dto.ApiResponses.ImportStatsData(
+                stats.sessionsImported(),
+                stats.sessionsSkipped(),
+                stats.observationsImported(),
+                stats.observationsSkipped(),
+                stats.summariesImported(),
+                stats.summariesSkipped(),
+                stats.promptsImported(),
+                stats.promptsSkipped(),
+                stats.errors()
             )
         ));
     }
@@ -272,8 +273,9 @@ public class ImportController {
     @PostMapping(value = "/sessions", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Import sessions only",
         description = "Imports a list of session records. Sessions with duplicate session IDs are skipped. Returns import statistics including count of imported, skipped, and errored sessions.")
-    @ApiResponse(responseCode = "200", description = "Sessions import completed")
-    public ResponseEntity<Map<String, Object>> importSessions(
+    @ApiResponse(responseCode = "200", description = "Sessions import completed",
+        content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ImportSessionsResponse.class)))
+    public ResponseEntity<com.ablueforce.cortexce.dto.ApiResponses.ImportSessionsResponse> importSessions(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "List of SessionImportData records to import", required = true)
             @org.springframework.web.bind.annotation.RequestBody List<ImportService.SessionImportData> sessions) {
         log.info("Importing {} sessions", sessions.size());
@@ -295,12 +297,8 @@ public class ImportController {
             }
         }
 
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "imported", imported,
-            "skipped", skipped,
-            "errors", errors.size(),
-            "errorMessages", errors
+        return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.ImportSessionsResponse(
+            true, imported, skipped, errors.size(), errors
         ));
     }
 
@@ -312,20 +310,17 @@ public class ImportController {
     @PostMapping(value = "/observations", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Import observations only",
         description = "Imports a list of observation records in bulk. Includes duplicate checking to prevent importing the same observation twice. Returns statistics: imported count, skipped duplicates, errors.")
-    @ApiResponse(responseCode = "200", description = "Observations import completed")
-    public ResponseEntity<Map<String, Object>> importObservations(
+    @ApiResponse(responseCode = "200", description = "Observations import completed",
+        content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ImportObservationsResponse.class)))
+    public ResponseEntity<com.ablueforce.cortexce.dto.ApiResponses.ImportObservationsResponse> importObservations(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "List of ObservationImportData records to import", required = true)
             @org.springframework.web.bind.annotation.RequestBody List<ImportService.ObservationImportData> observations) {
         log.info("Importing {} observations", observations.size());
 
         ImportService.BulkImportResult result = importService.importObservations(observations);
 
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "imported", result.imported(),
-            "skipped", result.duplicates(),
-            "errors", result.errors(),
-            "errorMessages", result.errorMessages()
+        return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.ImportObservationsResponse(
+            true, result.imported(), result.duplicates(), result.errors(), result.errorMessages()
         ));
     }
 
@@ -337,8 +332,9 @@ public class ImportController {
     @PostMapping(value = "/summaries", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Import summaries only",
         description = "Imports a list of summary records. Duplicates are skipped. Returns statistics including imported count, skipped count, and error messages.")
-    @ApiResponse(responseCode = "200", description = "Summaries import completed")
-    public ResponseEntity<Map<String, Object>> importSummaries(
+    @ApiResponse(responseCode = "200", description = "Summaries import completed",
+        content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ImportSummariesResponse.class)))
+    public ResponseEntity<com.ablueforce.cortexce.dto.ApiResponses.ImportSummariesResponse> importSummaries(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "List of SummaryImportData records to import", required = true)
             @org.springframework.web.bind.annotation.RequestBody List<ImportService.SummaryImportData> summaries) {
         log.info("Importing {} summaries", summaries.size());
@@ -360,12 +356,8 @@ public class ImportController {
             }
         }
 
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "imported", imported,
-            "skipped", skipped,
-            "errors", errors.size(),
-            "errorMessages", errors
+        return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.ImportSummariesResponse(
+            true, imported, skipped, errors.size(), errors
         ));
     }
 
@@ -377,20 +369,17 @@ public class ImportController {
     @PostMapping(value = "/prompts", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Import user prompts only",
         description = "Imports a list of user prompt records in bulk. Includes duplicate checking to prevent importing the same prompt twice. Returns statistics: imported count, skipped duplicates, errors.")
-    @ApiResponse(responseCode = "200", description = "User prompts import completed")
-    public ResponseEntity<Map<String, Object>> importPrompts(
+    @ApiResponse(responseCode = "200", description = "User prompts import completed",
+        content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ImportPromptsResponse.class)))
+    public ResponseEntity<com.ablueforce.cortexce.dto.ApiResponses.ImportPromptsResponse> importPrompts(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "List of UserPromptImportData records to import", required = true)
             @org.springframework.web.bind.annotation.RequestBody List<ImportService.UserPromptImportData> prompts) {
         log.info("Importing {} user prompts", prompts.size());
 
         ImportService.BulkImportResult result = importService.importUserPrompts(prompts);
 
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "imported", result.imported(),
-            "skipped", result.duplicates(),
-            "errors", result.errors(),
-            "errorMessages", result.errorMessages()
+        return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.ImportPromptsResponse(
+            true, result.imported(), result.duplicates(), result.errors(), result.errorMessages()
         ));
     }
 }

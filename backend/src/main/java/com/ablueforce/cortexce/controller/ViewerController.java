@@ -159,7 +159,8 @@ public class ViewerController {
     @GetMapping("/projects")
     @Operation(summary = "List all projects",
         description = "Returns all known project paths that have active or completed sessions.")
-    @ApiResponse(responseCode = "200", description = "Project list retrieved")
+    @ApiResponse(responseCode = "200", description = "Project list retrieved",
+        content = @Content(schema = @Schema(example = "{\"projects\":[\"/Users/dev/project1\",\"/Users/dev/project2\"]}")))
     public ResponseEntity<Map<String, Object>> getProjects() {
         return ResponseEntity.ok(Map.of("projects", sessionRepository.findAllProjects()));
     }
@@ -185,7 +186,8 @@ public class ViewerController {
     @GetMapping("/stats")
     @Operation(summary = "Get service statistics",
         description = "Returns worker and database statistics including processing status, queue depth, and entity counts.")
-    @ApiResponse(responseCode = "200", description = "Statistics retrieved")
+    @ApiResponse(responseCode = "200", description = "Statistics retrieved",
+        content = @Content(schema = @Schema(example = "{\"worker\":{\"isProcessing\":false,\"queueDepth\":0},\"database\":{\"totalObservations\":100,\"totalSummaries\":10,\"totalSessions\":20,\"totalProjects\":3}}")))
     public ResponseEntity<Map<String, Object>> getStats() {
         Map<String, Object> worker = Map.of(
             "isProcessing", agentService.isAnySessionProcessing(),
@@ -207,7 +209,8 @@ public class ViewerController {
     @GetMapping("/processing-status")
     @Operation(summary = "Get processing status",
         description = "Returns current processing state and queue depth. Useful for real-time UI updates.")
-    @ApiResponse(responseCode = "200", description = "Processing status retrieved")
+    @ApiResponse(responseCode = "200", description = "Processing status retrieved",
+        content = @Content(schema = @Schema(example = "{\"isProcessing\":false,\"queueDepth\":0}")))
     public ResponseEntity<Map<String, Object>> getProcessingStatus() {
         return ResponseEntity.ok(Map.of(
             "isProcessing", agentService.isAnySessionProcessing(),
@@ -225,10 +228,12 @@ public class ViewerController {
     @Operation(summary = "Semantic search observations",
         description = "Performs semantic vector search for observations within a project. Falls back to text-based search if embedding fails. Supports filtering by type, concept, and source. If no query is provided, returns filter-only results.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Search results returned (with observations list, strategy, and fell_back flag)"),
-        @ApiResponse(responseCode = "500", description = "Search failed due to internal error")
+        @ApiResponse(responseCode = "200", description = "Search results returned (with observations list, strategy, and fell_back flag)",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.SearchResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Search failed due to internal error",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class)))
     })
-    public ResponseEntity<Map<String, Object>> search(
+    public ResponseEntity<com.ablueforce.cortexce.dto.ApiResponses.SearchResponse> search(
         @Parameter(description = "Project path to search within (required)", required = true, example = "/Users/dev/my-project")
         @RequestParam String project,
         @Parameter(description = "Search query text for semantic search. If empty, returns all observations matching filters.", required = false, example = "how to fix authentication bug")
@@ -265,18 +270,19 @@ public class ViewerController {
                 new SearchService.SearchRequest(project, query, queryVector, type, concept, source, null, null, validatedLimit, offset)
             );
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("observations", result.observations());
-            response.put("strategy", result.strategy());
-            response.put("fell_back", result.fellBack());
-            response.put("count", result.observations().size());
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.SearchResponse(
+                result.observations(),
+                result.strategy(),
+                result.fellBack(),
+                result.observations().size()
+            ));
         } catch (Exception e) {
             log.error("Search failed for project {}: {}", project, e.getMessage());
-            return ResponseEntity.status(500).body(Map.of(
-                "error", "Search failed: " + e.getMessage(),
-                "observations", List.of(),
-                "count", 0
+            return ResponseEntity.status(500).body(new com.ablueforce.cortexce.dto.ApiResponses.SearchResponse(
+                List.of(),
+                null,
+                false,
+                0
             ));
         }
     }
@@ -289,10 +295,12 @@ public class ViewerController {
     @Operation(summary = "Batch get observations by IDs",
         description = "Retrieves multiple observations by their UUIDs. Supports optional project filtering, ordering by createdAtEpoch, and result limit. Used by MCP compatibility layer.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Observations retrieved"),
-        @ApiResponse(responseCode = "400", description = "Missing or invalid ids field")
+        @ApiResponse(responseCode = "200", description = "Observations retrieved",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.BatchGetObservationsResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Missing or invalid ids field",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class)))
     })
-    public ResponseEntity<Map<String, Object>> batchGetObservations(
+    public ResponseEntity<com.ablueforce.cortexce.dto.ApiResponses.BatchGetObservationsResponse> batchGetObservations(
         @io.swagger.v3.oas.annotations.parameters.RequestBody(
             description = "Batch observation retrieval request",
             required = true,
@@ -301,10 +309,8 @@ public class ViewerController {
     ) {
         List<String> idStrings = request.ids();
         if (idStrings == null || idStrings.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "error", "Missing required field: ids",
-                "observations", List.of(),
-                "count", 0
+            return ResponseEntity.badRequest().body(new com.ablueforce.cortexce.dto.ApiResponses.BatchGetObservationsResponse(
+                List.of(), 0
             ));
         }
 
@@ -314,10 +320,8 @@ public class ViewerController {
             .toList();
 
         if (idStrings.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "error", "ids must be a non-empty list of strings",
-                "observations", List.of(),
-                "count", 0
+            return ResponseEntity.badRequest().body(new com.ablueforce.cortexce.dto.ApiResponses.BatchGetObservationsResponse(
+                List.of(), 0
             ));
         }
 
@@ -339,10 +343,8 @@ public class ViewerController {
             .toList();
 
         if (ids.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "error", "No valid UUIDs provided",
-                "observations", List.of(),
-                "count", 0
+            return ResponseEntity.badRequest().body(new com.ablueforce.cortexce.dto.ApiResponses.BatchGetObservationsResponse(
+                List.of(), 0
             ));
         }
 
@@ -371,16 +373,13 @@ public class ViewerController {
                 observations = observations.subList(0, limit);
             }
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("observations", observations);
-            response.put("count", observations.size());
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.BatchGetObservationsResponse(
+                observations, observations.size()
+            ));
         } catch (Exception e) {
             log.error("Batch get observations failed: {}", e.getMessage());
-            return ResponseEntity.status(500).body(Map.of(
-                "error", "Failed to get observations: " + e.getMessage(),
-                "observations", List.of(),
-                "count", 0
+            return ResponseEntity.status(500).body(new com.ablueforce.cortexce.dto.ApiResponses.BatchGetObservationsResponse(
+                List.of(), 0
             ));
         }
     }
@@ -392,7 +391,8 @@ public class ViewerController {
     @GetMapping("/settings")
     @Operation(summary = "Get current settings",
         description = "Returns current application settings from file with environment variable overrides applied. Includes mode information.")
-    @ApiResponse(responseCode = "200", description = "Settings retrieved successfully")
+    @ApiResponse(responseCode = "200", description = "Settings retrieved successfully",
+        content = @Content(schema = @Schema(example = "{\"modeName\":\"code\",\"modeDescription\":\"Tracks code evolution\"}")))
     public ResponseEntity<Map<String, Object>> getSettings() {
         AppSettings appSettings = settingsService.getSettings();
         Map<String, Object> response = appSettings.toMap();
@@ -411,7 +411,8 @@ public class ViewerController {
     @GetMapping("/modes")
     @Operation(summary = "Get active mode configuration",
         description = "Returns the current active mode configuration including name, description, version, observation types, and observation concepts.")
-    @ApiResponse(responseCode = "200", description = "Mode configuration retrieved")
+    @ApiResponse(responseCode = "200", description = "Mode configuration retrieved",
+        content = @Content(schema = @Schema(example = "{\"id\":\"code\",\"name\":\"Code\",\"description\":\"Tracks code evolution\",\"version\":\"1.0\",\"observation_types\":[],\"observation_concepts\":[]}")))
     public ResponseEntity<Map<String, Object>> getActiveMode() {
         Mode mode = modeService.getActiveMode();
         Map<String, Object> response = new HashMap<>();
@@ -431,8 +432,10 @@ public class ViewerController {
     @Operation(summary = "Set active mode",
         description = "Switches the active observation mode at runtime. Mode changes affect which observation types and concepts are considered valid for new observations.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Mode set successfully"),
-        @ApiResponse(responseCode = "400", description = "Invalid mode ID provided")
+        @ApiResponse(responseCode = "200", description = "Mode set successfully",
+            content = @Content(schema = @Schema(example = "{\"success\":true,\"mode\":\"code\",\"name\":\"Code\"}"))),
+        @ApiResponse(responseCode = "400", description = "Invalid mode ID provided",
+            content = @Content(schema = @Schema(example = "{\"success\":false,\"error\":\"Failed to load mode: ...\"}")))
     })
     public ResponseEntity<Map<String, Object>> setActiveMode(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
@@ -474,8 +477,10 @@ public class ViewerController {
     @Operation(summary = "Save settings",
         description = "Persists settings updates to the settings file. If 'mode' or 'CLAUDE_MEM_MODE' is changed, also updates the active ModeService mode.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Settings saved successfully"),
-        @ApiResponse(responseCode = "500", description = "Failed to save settings due to internal error")
+        @ApiResponse(responseCode = "200", description = "Settings saved successfully",
+            content = @Content(schema = @Schema(example = "{\"success\":true}"))),
+        @ApiResponse(responseCode = "500", description = "Failed to save settings due to internal error",
+            content = @Content(schema = @Schema(example = "{\"success\":false,\"error\":\"...\"}")))
     })
     public ResponseEntity<Map<String, Object>> saveSettings(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
@@ -514,10 +519,14 @@ public class ViewerController {
     @Operation(summary = "Get observation timeline",
         description = "Returns observations grouped by date for the viewer UI timeline. Supports date range queries and anchor-based queries for MCP compatibility. Date range is limited to 1 year maximum.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Timeline retrieved"),
-        @ApiResponse(responseCode = "400", description = "Date range exceeds 1 year maximum or invalid anchor parameters")
+        @ApiResponse(responseCode = "200", description = "Timeline retrieved (returns list of timeline entries with date, count, and ids, or observations list for anchor queries)"),
+        @ApiResponse(responseCode = "400", description = "Date range exceeds 1 year maximum or invalid anchor parameters",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Timeline query failed",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class)))
     })
-    public ResponseEntity<?> getTimeline(
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public ResponseEntity<Object> getTimeline(
         @Parameter(description = "Project path to query timeline for", required = true, example = "/Users/dev/my-project")
         @RequestParam String project,
         @Parameter(description = "Start timestamp (epoch milliseconds)", required = false, example = "1704067200000")
@@ -535,7 +544,7 @@ public class ViewerController {
     ) {
         // P0: Anchor-based query mode (for MCP timeline tool)
         if (anchorId != null || query != null) {
-            return timelineService.getTimelineByAnchor(project, anchorId, query, depthBefore, depthAfter);
+            return (ResponseEntity) timelineService.getTimelineByAnchor(project, anchorId, query, depthBefore, depthAfter);
         }
 
         // Default to last 90 days if not specified
@@ -585,10 +594,12 @@ public class ViewerController {
     @Operation(summary = "Search observations by file path",
         description = "Finds observations where files_read or files_modified contain a given file or folder path. Used for CLAUDE.md generation and file-level history. When isFolder=true, matches all files under the specified directory prefix.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Search results returned"),
-        @ApiResponse(responseCode = "500", description = "Search failed due to internal error")
+        @ApiResponse(responseCode = "200", description = "Search results returned",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.SearchByFileResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Search failed due to internal error",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class)))
     })
-    public ResponseEntity<Map<String, Object>> searchByFile(
+    public ResponseEntity<com.ablueforce.cortexce.dto.ApiResponses.SearchByFileResponse> searchByFile(
         @Parameter(description = "Project path to search within", required = true, example = "/Users/dev/my-project")
         @RequestParam String project,
         @Parameter(description = "File or folder path to search for (must be absolute path)", required = true, example = "/Users/dev/my-project/src/auth/login.ts")
@@ -629,18 +640,13 @@ public class ViewerController {
                 }
             }
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("observations", observations);
-            response.put("count", observations.size());
-            response.put("filePath", filePath);
-            response.put("isFolder", isFolder);
-            return ResponseEntity.ok(response);
+            return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.SearchByFileResponse(
+                observations, observations.size(), filePath, isFolder
+            ));
         } catch (Exception e) {
             log.error("Search by file failed for project={}, filePath={}: {}", project, filePath, e.getMessage());
-            return ResponseEntity.status(500).body(Map.of(
-                "error", "Search by file failed: " + e.getMessage(),
-                "observations", List.of(),
-                "count", 0
+            return ResponseEntity.status(500).body(new com.ablueforce.cortexce.dto.ApiResponses.SearchByFileResponse(
+                List.of(), 0, filePath, isFolder
             ));
         }
     }

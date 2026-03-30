@@ -221,9 +221,10 @@ public class ContextController {
     @GetMapping(value = "/timeline", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Get context timeline around anchor point",
         description = "Returns observations around a specified anchor point (by ID, session, or timestamp).")
-    @ApiResponse(responseCode = "200", description = "Timeline retrieved successfully")
-    @SuppressWarnings("rawtypes")
-    public ResponseEntity<?> getContextTimeline(
+    @ApiResponse(responseCode = "200", description = "Timeline retrieved successfully",
+        content = @Content(schema = @Schema(implementation = Object.class)))
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public ResponseEntity getContextTimeline(
             @Parameter(description = "Anchor point: observation UUID, session ID, or query string to find anchor", required = false, example = "550e8400-e29b-41d4-a716-446655440000")
             @RequestParam(required = false) String anchor,
             @Parameter(description = "Number of observations to return before the anchor point", required = false, example = "10")
@@ -238,7 +239,7 @@ public class ContextController {
 
         // Delegate to TimelineService which handles anchor resolution
         // The service supports anchorId (UUID string) or query-based anchor finding
-        return timelineService.getTimelineByAnchor(project, anchor, null, depth_before, depth_after);
+        return (ResponseEntity) timelineService.getTimelineByAnchor(project, anchor, null, depth_before, depth_after);
     }
 
     /**

@@ -7,6 +7,7 @@ import com.ablueforce.cortexce.event.MemoryRefineEventPublisher;
 import com.ablueforce.cortexce.entity.ObservationEntity;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.SchemaProperty;
@@ -63,8 +64,10 @@ public class MemoryController {
     @Operation(summary = "Trigger memory refinement",
         description = "Publishes a memory refinement event for async processing. Refinement re-evaluates observation quality and updates the quality distribution for the project.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Refinement event published successfully"),
-        @ApiResponse(responseCode = "400", description = "Missing required parameter: project")
+        @ApiResponse(responseCode = "200", description = "Refinement event published successfully",
+            content = @Content(schema = @Schema(example = "{\"status\":\"triggered\",\"project\":\"/path\",\"message\":\"Memory refinement event has been published\"}"))),
+        @ApiResponse(responseCode = "400", description = "Missing required parameter: project",
+            content = @Content(schema = @Schema(example = "{\"error\":\"project is required\"}")))
     })
     public ResponseEntity<Map<String, String>> triggerRefine(
             @Parameter(description = "Absolute project path to trigger refinement for", required = true, example = "/Users/dev/my-project")
@@ -90,10 +93,12 @@ public class MemoryController {
     @Operation(summary = "Retrieve experiences for ICL",
         description = "Retrieves relevant past experiences (observations) for in-context learning. Uses vector similarity search against the task description. Optionally filters by source and required concepts. Returns ordered list of relevant experiences.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Experiences retrieved successfully"),
-        @ApiResponse(responseCode = "400", description = "Missing required field: task")
+        @ApiResponse(responseCode = "200", description = "Experiences retrieved successfully",
+            content = @Content(array = @ArraySchema(schema = @Schema(implementation = com.ablueforce.cortexce.service.ExpRagService.Experience.class)))),
+        @ApiResponse(responseCode = "400", description = "Missing required field: task",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class)))
     })
-    public ResponseEntity<?> retrieveExperiences(
+    public ResponseEntity<Object> retrieveExperiences(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                 description = "Experience retrieval request",
                 required = true,
@@ -124,10 +129,12 @@ public class MemoryController {
     @Operation(summary = "Build ICL prompt from experiences",
         description = "Retrieves relevant experiences and formats them as an in-context learning (ICL) prompt. The prompt is constructed by combining the task description with the retrieved experiences, truncated to maxChars.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "ICL prompt built successfully"),
-        @ApiResponse(responseCode = "400", description = "Missing required field: task")
+        @ApiResponse(responseCode = "200", description = "ICL prompt built successfully",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ICLPromptResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Missing required field: task",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class)))
     })
-    public ResponseEntity<?> buildICLPrompt(
+    public ResponseEntity<com.ablueforce.cortexce.dto.ApiResponses.ICLPromptResponse> buildICLPrompt(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                 description = "ICL prompt build request",
                 required = true,
@@ -135,7 +142,7 @@ public class MemoryController {
             @org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.ICLPromptRequest request) {
         String task = request.task();
         if (task == null || task.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "task is required"));
+            return ResponseEntity.badRequest().body(null);
         }
         String project = request.project();
         int maxChars = request.maxChars() != null ? Math.max(100, request.maxChars()) : 4000;
@@ -145,10 +152,8 @@ public class MemoryController {
         
         String prompt = expRagService.buildICLPrompt(task, experiences, maxChars);
         
-        return ResponseEntity.ok(Map.of(
-            "prompt", prompt,
-            "experienceCount", experiences.size(),
-            "maxChars", maxChars
+        return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.ICLPromptResponse(
+            prompt, experiences.size(), maxChars
         ));
     }
 
@@ -159,7 +164,8 @@ public class MemoryController {
     @GetMapping("/quality-distribution")
     @Operation(summary = "Get quality distribution",
         description = "Returns the quality distribution (high/medium/low/unknown counts) for observations in a project. Used by WebUI quality charts and memory refinement monitoring.")
-    @ApiResponse(responseCode = "200", description = "Quality distribution retrieved (returns zeros if no data)")
+    @ApiResponse(responseCode = "200", description = "Quality distribution retrieved (returns zeros if no data)",
+        content = @Content(schema = @Schema(example = "{\"project\":\"/path\",\"high\":10,\"medium\":20,\"low\":5,\"unknown\":3}")))
     public ResponseEntity<Map<String, Object>> getQualityDistribution(
             @Parameter(description = "Absolute project path to query quality distribution for", required = true, example = "/Users/dev/my-project")
             @RequestParam String project) {
@@ -204,7 +210,8 @@ public class MemoryController {
     @PostMapping("/feedback")
     @Operation(summary = "Submit manual feedback (not yet implemented)",
         description = "Allows manual feedback submission for observations via WebUI. Currently returns 501 Not Implemented.")
-    @ApiResponse(responseCode = "501", description = "Feedback submission endpoint is not yet implemented")
+    @ApiResponse(responseCode = "501", description = "Feedback submission endpoint is not yet implemented",
+        content = @Content(schema = @Schema(example = "{\"status\":\"not_implemented\",\"message\":\"Feedback submission endpoint is not yet implemented\"}")))
     public ResponseEntity<Map<String, String>> submitFeedback(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                 description = "Feedback submission request",
@@ -232,8 +239,10 @@ public class MemoryController {
     @Operation(summary = "Update an observation (V14)",
         description = "Partially updates an existing observation. Only fields present in the request body are updated; null values clear the field, absent fields are left unchanged. Supports: title, content/narrative, subtitle, source, facts, concepts, extractedData. Returns 404 if observation not found.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Observation updated successfully"),
-        @ApiResponse(responseCode = "400", description = "Invalid field types in request body"),
+        @ApiResponse(responseCode = "200", description = "Observation updated successfully",
+            content = @Content(schema = @Schema(example = "{\"status\":\"updated\",\"id\":\"550e8400-e29b-41d4-a716-446655440000\"}"))),
+        @ApiResponse(responseCode = "400", description = "Invalid field types in request body",
+            content = @Content(schema = @Schema(example = "{\"error\":\"title must be a string\"}"))),
         @ApiResponse(responseCode = "404", description = "Observation with given UUID not found")
     })
     public ResponseEntity<Map<String, Object>> updateObservation(
@@ -380,7 +389,8 @@ public class MemoryController {
     @Operation(summary = "Delete an observation",
         description = "Permanently deletes an observation by its UUID. Returns 404 if the observation does not exist.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Observation deleted successfully"),
+        @ApiResponse(responseCode = "200", description = "Observation deleted successfully",
+            content = @Content(schema = @Schema(example = "{\"status\":\"deleted\",\"id\":\"550e8400-e29b-41d4-a716-446655440000\"}"))),
         @ApiResponse(responseCode = "404", description = "Observation with given UUID not found")
     })
     public ResponseEntity<Map<String, String>> deleteObservation(

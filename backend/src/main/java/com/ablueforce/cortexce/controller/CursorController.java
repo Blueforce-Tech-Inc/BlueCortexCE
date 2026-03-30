@@ -54,11 +54,14 @@ public class CursorController {
     @Operation(summary = "Register a Cursor project",
         description = "Registers a project for automatic Cursor context file updates. The context file (.cursor/rules/claude-mem-context.mdc) will be updated when new observations are recorded.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Project registered successfully"),
-        @ApiResponse(responseCode = "400", description = "Missing required fields: projectName or workspacePath"),
-        @ApiResponse(responseCode = "500", description = "Failed to register project due to internal error")
+        @ApiResponse(responseCode = "200", description = "Project registered successfully",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.RegisterProjectResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Missing required fields: projectName or workspacePath",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Failed to register project due to internal error",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class)))
     })
-    public ResponseEntity<Map<String, Object>> registerProject(
+    public ResponseEntity<Object> registerProject(
         @io.swagger.v3.oas.annotations.parameters.RequestBody(
             description = "Cursor project registration request",
             required = true,
@@ -87,10 +90,8 @@ public class CursorController {
 
             log.info("Registered Cursor project via API: {} -> {}", projectName, workspacePath);
 
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "projectName", projectName,
-                "workspacePath", workspacePath
+            return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.RegisterProjectResponse(
+                true, projectName, workspacePath
             ));
         } catch (Exception e) {
             log.error("Failed to register Cursor project {}: {}", projectName, e.getMessage());
@@ -109,7 +110,8 @@ public class CursorController {
     @DeleteMapping("/register/{projectName}")
     @Operation(summary = "Unregister a Cursor project",
         description = "Removes a project from the Cursor auto-context update registry. The project's context file will no longer be automatically updated.")
-    @ApiResponse(responseCode = "200", description = "Unregister request processed (success=true if was registered, success=false if was not registered)")
+    @ApiResponse(responseCode = "200", description = "Unregister request processed (success=true if was registered, success=false if was not registered)",
+        content = @Content(schema = @Schema(example = "{\"success\":true,\"message\":\"Project unregistered: my-project\"}")))
     public ResponseEntity<Map<String, Object>> unregisterProject(
         @Parameter(description = "Project name to unregister", required = true, example = "my-project")
         @PathVariable String projectName
@@ -137,7 +139,8 @@ public class CursorController {
     @GetMapping("/projects")
     @Operation(summary = "List all registered Cursor projects",
         description = "Returns a list of all projects currently registered for Cursor auto-context updates, including their workspace paths and registration timestamps.")
-    @ApiResponse(responseCode = "200", description = "Registered projects list returned")
+    @ApiResponse(responseCode = "200", description = "Registered projects list returned",
+        content = @Content(schema = @Schema(example = "{\"projects\":[{\"projectName\":\"my-project\",\"workspacePath\":\"/path\",\"installedAt\":1709000000000}],\"count\":1}")))
     public ResponseEntity<Map<String, Object>> getProjects() {
         Map<String, CursorProjectEntry> projects = cursorService.getAllProjects();
 
@@ -169,11 +172,14 @@ public class CursorController {
     @Operation(summary = "Update Cursor context file",
         description = "Generates fresh context from observations for a registered project and writes it to .cursor/rules/claude-mem-context.mdc. Returns success=false if project is not registered or no context is generated.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Context update processed (success=true if written, false if failed)"),
-        @ApiResponse(responseCode = "404", description = "Project is not registered"),
-        @ApiResponse(responseCode = "500", description = "Failed to update context due to internal error")
+        @ApiResponse(responseCode = "200", description = "Context update processed (success=true if written, false if failed)",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.UpdateContextResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Project is not registered",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Failed to update context due to internal error",
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class)))
     })
-    public ResponseEntity<Map<String, Object>> updateContext(
+    public ResponseEntity<Object> updateContext(
         @Parameter(description = "Registered project name", required = true, example = "my-project")
         @PathVariable String projectName
     ) {
@@ -202,10 +208,8 @@ public class CursorController {
 
             if (written) {
                 log.info("Updated Cursor context for project: {}", projectName);
-                return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "projectName", projectName,
-                    "workspacePath", entry.workspacePath()
+                return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.UpdateContextResponse(
+                    true, projectName, entry.workspacePath()
                 ));
             } else {
                 return ResponseEntity.ok(Map.of(
@@ -232,10 +236,14 @@ public class CursorController {
     @Operation(summary = "Write custom context to Cursor file",
         description = "Writes a custom context string directly to the .cursor/rules/claude-mem-context.mdc file for a registered project. Useful for providing manually curated context that differs from auto-generated observations.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Context written successfully"),
-        @ApiResponse(responseCode = "400", description = "Missing required field: context"),
-        @ApiResponse(responseCode = "404", description = "Project is not registered"),
-        @ApiResponse(responseCode = "500", description = "Failed to write context file due to internal error")
+        @ApiResponse(responseCode = "200", description = "Context written successfully",
+            content = @Content(schema = @Schema(example = "{\"success\":true,\"projectName\":\"my-project\"}"))),
+        @ApiResponse(responseCode = "400", description = "Missing required field: context",
+            content = @Content(schema = @Schema(example = "{\"success\":false,\"error\":\"context is required\"}"))),
+        @ApiResponse(responseCode = "404", description = "Project is not registered",
+            content = @Content(schema = @Schema(example = "{\"success\":false,\"error\":\"Project not registered: ...\"}"))),
+        @ApiResponse(responseCode = "500", description = "Failed to write context file due to internal error",
+            content = @Content(schema = @Schema(example = "{\"success\":false,\"error\":\"Failed to write context: ...\"}")))
     })
     public ResponseEntity<Map<String, Object>> updateContextCustom(
         @Parameter(description = "Registered project name", required = true, example = "my-project")
@@ -295,7 +303,8 @@ public class CursorController {
     @GetMapping("/register/{projectName}")
     @Operation(summary = "Check if a project is registered",
         description = "Checks whether a project is currently registered for Cursor auto-context updates. Returns registered=true with details if registered, registered=false if not.")
-    @ApiResponse(responseCode = "200", description = "Registration status returned")
+    @ApiResponse(responseCode = "200", description = "Registration status returned",
+        content = @Content(schema = @Schema(example = "{\"registered\":true,\"projectName\":\"my-project\",\"workspacePath\":\"/path\",\"installedAt\":1709000000000}")))
     public ResponseEntity<Map<String, Object>> checkRegistered(
         @Parameter(description = "Project name to check", required = true, example = "my-project")
         @PathVariable String projectName
