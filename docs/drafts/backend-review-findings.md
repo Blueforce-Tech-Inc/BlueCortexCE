@@ -339,3 +339,38 @@ _暂无问题记录_
 | 1 | ApiRequests.java | L164-178 `ObservationUpdateRequest` | DTO 定义但从未使用 — PATCH 端点直接接收 `Map<String, Object>` 而非此 DTO | P2 ✅已修复（删除死代码）|
 
 **审查结论**: Java SDK 代码质量优秀（111 单元测试全通过，编译无错误）。本次从 SDK 角度反向检查 Backend 发现 1 个 P2 死代码问题。SDK 无修复项。
+
+---
+
+### 2026-03-30 22:40 | JS SDK 审查 #1
+
+**抽查文件**: `client.ts`, `client-options.ts`, `errors.ts`, `dto/observation.ts`, `dto/extraction.ts`, `dto/experience.ts`, `dto/search.ts`, `dto/session.ts`, `dto/management.ts`, `dto/misc.ts`, `dto/wire-helpers.ts`, `dto/index.ts`, `index.ts`, `examples/http-server/app.ts`, `tsup.config.ts`, `package.json`, `__tests__/client.test.ts`
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | client-options.ts | L31 | `SDK_VERSION = '1.0.0'` 与 `package.json` version 重复定义 — 发布时需手动同步，易漂移。建议 tsup 配置注入 `process.env.SDK_VERSION` 或从 package.json 读取 | P2 (低) |
+| 2 | examples/http-server/app.ts | L4 | docstring "covering all 25 SDK methods" — 精确计数：demo 有 26 个 REST 路由（含 /health），SDK 有 25 个公开 API 方法（不含 close/toString）。表述准确但细微 | P2 (极低) |
+
+**测试结果**: 198 tests passed, build: CJS+ESM+DTS 成功 (27.69KB + 26.87KB + 21.77KB)
+
+**审查结论**: 无 P0/P1 问题。JS SDK 整体质量优秀。
+- **架构**: 25 API 方法完整，CJS+ESM 双格式输出配置正确（tsup），package.json exports 条件映射规范
+- **Wire 格式**: 全面验证（camelCase/snake_case 双格式解析，`firstNonNullOr` + `safeString`/`safeNumber` 防御性解析）
+- **错误处理**: 与 Go/Python SDK 完全对齐（isRetryable 429/502/503/504 + TypeError + AbortError）
+- **类型安全**: ValidationError/APIError 两级分离，Object.setPrototypeOf 确保 CJS instanceof 正确
+- **Demo**: Express 服务器输入验证到位（requireFields、limit/offset 范围检查、asyncHandler 错误捕获、graceful shutdown）
+- **测试覆盖**: 198 个测试覆盖全部方法、DTO 解析、边界情况（null/类型不匹配/NaN）、错误谓词、fire-and-forget 重试
+- **Cross-SDK 一致性**: isRetryable 与 Go/Java/Python 对齐，extractedData camelCase 契约一致，Observation wire 映射注释有跨 SDK 交叉引用
+
+---
+
+### 2026-03-31 00:36 | Python SDK E2E 暴露的 Backend 问题
+
+**来源**: Python Demo E2E 测试（22/26 通过，4 个 backend 问题）
+
+| # | 端点 | 问题 | 级别 | 说明 |
+|---|------|------|------|------|
+| 1 | `POST /api/memory/feedback` | 返回 501 "not yet implemented" — E2E 测试期望正常响应 | P1 | 影响 feedback 功能完整性和 E2E 测试通过率 |
+| 2 | `PATCH /api/memory/observations/{id}` | 不存在的 ID 返回 400 而非 404 | P2 | 违反 REST 规范：400 = 请求格式错误，404 = 资源不存在 |
+| 3 | `DELETE /api/memory/observations/{id}` | 不存在的 ID 返回 400 而非 404 | P2 | 同上，与 PATCH 一致 |
+| 4 | `POST /api/observations/batch` | 返回 HTTP 400 + 有效 body `{"observations":[],"count":0}` | P2 | 空结果应返回 200；SDK 无法读取 body 因为 400 触发异常。影响 batch 查询的客户端体验 |

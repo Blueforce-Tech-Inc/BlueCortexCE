@@ -392,7 +392,7 @@ def projects():
 
 @app.get("/stats")
 def stats():
-    result = client.get_stats(project=request.args.get("project", ""))
+    result = client.get_stats(project_path=request.args.get("project", ""))
     return jsonify(
         worker={"is_processing": result.worker.is_processing, "queue_depth": result.worker.queue_depth},
         database={
