@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -389,8 +388,7 @@ func (c *httpClient) doFireAndForget(ctx context.Context, name string, fn func()
 }
 
 // isTransient returns true if the error is likely transient and worth retrying.
-// Consistent with IsRetryable(): retries on 429, 502, 503, 504 and network errors.
-// Does NOT retry on 500 (typically a code bug, not a transient failure) or 4xx.
+// Delegates to IsRetryable() for consistent retry logic across the SDK.
 //
 // Why these specific codes are retryable:
 //   - 429: Rate limiting — back off and retry after delay.
@@ -398,17 +396,5 @@ func (c *httpClient) doFireAndForget(ctx context.Context, name string, fn func()
 //   - 503: Server temporarily overloaded or in maintenance (RFC 7231: SHOULD retry).
 //   - 504: Backend didn't respond in time (slow/crashed) — retry gives another chance.
 func isTransient(err error) bool {
-	if err == nil {
-		return false
-	}
-	// Network/transport errors (no HTTP status) are always worth retrying
-	var apiErr *APIError
-	if !errors.As(err, &apiErr) {
-		return true
-	}
-	// Retry on 429 (rate limited), 502, 503, 504 — NOT 500
-	return apiErr.StatusCode == http.StatusTooManyRequests ||
-		apiErr.StatusCode == http.StatusBadGateway ||
-		apiErr.StatusCode == http.StatusServiceUnavailable ||
-		apiErr.StatusCode == http.StatusGatewayTimeout
+	return IsRetryable(err)
 }
