@@ -28,6 +28,9 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     private static final Logger log = LoggerFactory.getLogger(CortexMemClientImpl.class);
 
+    /** SDK version for User-Agent header. Update when releasing new SDK versions. */
+    private static final String SDK_VERSION = "1.0.0";
+
     private final RestClient restClient;
     private final CortexMemProperties properties;
     private final int maxRetries;
@@ -51,13 +54,17 @@ public class CortexMemClientImpl implements CortexMemClient {
             .connectTimeout(properties.getConnectTimeout())
             .build();
         JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
-        requestFactory.setReadTimeout((int) properties.getReadTimeout().toMillis());
+        long readTimeoutMs = properties.getReadTimeout().toMillis();
+        if (readTimeoutMs > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("readTimeout exceeds maximum supported value (24.8 days)");
+        }
+        requestFactory.setReadTimeout((int) readTimeoutMs);
 
         var builder = restClientBuilder
             .requestFactory(requestFactory)
             .baseUrl(properties.getBaseUrl())
             .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-            .defaultHeader("User-Agent", "cortex-mem-java/1.0.0");
+            .defaultHeader("User-Agent", "cortex-mem-java/" + SDK_VERSION);
 
         // Bearer token auth when apiKey is configured (matches JS/Go SDK behavior)
         if (properties.getApiKey() != null && !properties.getApiKey().isBlank()) {
