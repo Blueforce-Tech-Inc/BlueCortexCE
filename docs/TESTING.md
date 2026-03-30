@@ -41,7 +41,7 @@ git submodule update --init --recursive
 #### Run Regression Tests
 
 ```bash
-cd java/scripts
+cd scripts
 ./regression-test.sh
 ```
 
@@ -80,20 +80,20 @@ cd java/scripts
 ./mcp-e2e-test.sh
 ```
 
-### 3. Test Environment Variables
+### 4. Test Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SERVER_URL` | http://127.0.0.1:37777 | Server URL |
 | `DB_HOST` | 127.0.0.1 | Database host |
-| `DB_NAME` | claude_mem_dev | Database name |
+| `DB_NAME` | claude_mem | Database name |
 | `DB_USER` | postgres | Database user |
 | `DB_PASS` | 123456 | Database password |
 | `OPENAI_API_KEY` | - | OpenAI API key |
 | `DEEPSEEK_API_KEY` | - | DeepSeek API key |
 | `SPRING_AI_MCP_SERVER_PROTOCOL` | SSE | MCP protocol (SSE or STREAMABLE) |
 
-### 4. MCP Protocol Auto-Detection
+### 5. MCP Protocol Auto-Detection
 
 The MCP E2E test scripts (`mcp-e2e-test.sh` and `mcp-streamable-e2e-test.sh`) **automatically detect** which protocol your server is running:
 
@@ -105,11 +105,10 @@ The unified script runs the appropriate tests automatically. No manual protocol 
 - Test session ID: `e2e-regression-{timestamp}`
 - Test project: `/tmp/claude-mem-test-{pid}`
 
-### 5. CI/CD Integration
+### 6. CI/CD Integration
 
 GitHub Actions workflows are configured in `.github/workflows/`:
 
-- `build.yml` - Maven build and test
 - `docker.yml` - Docker image build and push
 
 ## Best Practices

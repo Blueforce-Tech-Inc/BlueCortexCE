@@ -71,10 +71,10 @@ brew install postgresql@16
 brew services start postgresql@16
 
 # Create database
-createdb cortexce_dev
+createdb claude_mem
 
 # Enable pgvector
-psql -d cortexce_dev -c "CREATE EXTENSION vector;"
+psql -d claude_mem -c "CREATE EXTENSION vector;"
 ```
 
 3. **Configure Environment Variables**
@@ -91,7 +91,7 @@ Edit `.env` with your configuration:
 # Database
 DB_USERNAME=postgres
 DB_PASSWORD=your_password
-DB_URL=jdbc:postgresql://localhost:5433/cortexce_dev
+DB_URL=jdbc:postgresql://localhost:5433/claude_mem
 
 # LLM (Chat Model)
 SPRING_AI_OPENAI_API_KEY=sk-xxx
@@ -110,7 +110,7 @@ SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS=1024
 - Install Lombok plugin
 - Enable annotation processing
 - Import as Maven project
-- Set Project SDK to Java 17+
+- Set Project SDK to Java 21+
 
 ### Building the Project
 

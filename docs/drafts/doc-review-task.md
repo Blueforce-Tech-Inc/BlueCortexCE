@@ -101,4 +101,6 @@
 - **2026-03-31 04:26**: API 文档 (API.md vs API-zh-CN.md) — 修复 3 问题，commit 0e19580
 - **2026-03-31 04:54**: SDK README (Go/JS/Python) — 全部 25 个方法覆盖完整，端点与 Controller 源码一致，中英文版本结构/内容一致，跨链接完整。无修复。
 - **2026-03-31 05:13**: 设计文档 (structured-extraction.md + walkthrough) — 修复 2 问题，commit 8c45107
-- **Next direction**: 架构文档
+- **2026-03-31 05:45**: 架构文档 (ARCHITECTURE.md + ARCHITECTURE-zh-CN.md + backend/README.md) — 修复 6 问题，commit 4e5a089
+- **2026-03-31 06:00**: 运维文档 (DOCKER_README + docker-compose + TESTING + CONTRIBUTING) — 修复 9 问题
+- **Next direction**: API 文档 (新一轮轮换)

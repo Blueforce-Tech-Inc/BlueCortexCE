@@ -53,9 +53,9 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 |----------|-------------|---------|
 | `DB_HOST` | PostgreSQL host | `postgres` |
 | `DB_PORT` | PostgreSQL port | `5432` |
-| `DB_NAME` | PostgreSQL database name | `cortexce` |
+| `DB_NAME` | PostgreSQL database name | `claude_mem` |
 | `DB_USERNAME` | Database username | `postgres` |
-| `DB_PASSWORD` | Database password | `postgres` |
+| `DB_PASSWORD` | Database password | - |
 | `OPENAI_API_KEY` | OpenAI/DeepSeek API key | - |
 | `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | SiliconFlow API key (embedding) | - |
 

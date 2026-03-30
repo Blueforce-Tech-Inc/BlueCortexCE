@@ -2,15 +2,14 @@
 # Cortex CE (Cortex Community Edition) Docker Compose for Production
 # =============================================================================
 # Usage:
-#   1. Copy this file and create a .env file:
-#      cp docker-compose.yml docker-compose.prod.yml
-#      cp .env.example .env
+#   1. Copy environment template:
+#      cp .env.docker .env
 #
 #   2. Edit .env with your configuration:
 #      vim .env
 #
 #   3. Start services:
-#      docker compose -f docker-compose.prod.yml up -d
+#      docker compose up -d
 #
 #   4. Check health:
 #      curl http://localhost:37777/actuator/health
