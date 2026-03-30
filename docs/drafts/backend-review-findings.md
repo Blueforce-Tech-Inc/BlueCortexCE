@@ -36,9 +36,9 @@ _暂无问题记录_
 |---|------|------|------|------|
 | 1 | ExtractionController.java | L105 `/history` | 返回类型 `ResponseEntity<?>`（泛型擦除），与 `/latest` 的 `ResponseEntity<Map<String, Object>>` 不一致。连续第 3 次标记未修复。建议统一为 `ResponseEntity<List<Map<String, Object>>>` | P2 |
 | 2 | ExtractionController.java | L140 `/run` | 无认证/速率限制保护 — 任何能访问 API 的用户都可以触发同步 LLM extraction（可能消耗大量 token 和时间）。建议至少加 rate limiting 或 API key 验证 | P2 |
-| 3 | StructuredExtractionService.java | L146 `groupByUser()` | `sessionRepository.findByContentSessionIdIn()` 如果 sessionIds 为空集合会怎样？当 observations 全部 contentSessionId 为 null 时，传入空 Set 到 repository 可能导致异常（取决于 JPA provider）。当前有 `filter(Objects::nonNull)` 但空集合仍然会被传入 | P2 (低) |
+| 3 | StructuredExtractionService.java | L146 `groupByUser()` | 空 sessionIds 集合未做保护，可能导致 JPA 异常 | P2 (低) ✅已修复（加 isEmpty 检查）|
 | 4 | StructuredExtractionService.java | L242 `extractAppendOnly()` | append-only 提取结果中 LLM 返回的 key 未做 schema 验证 — LLM 可能返回 `adds` 而非 `add`，或返回完全自定义的顶层 key。`safeListOfMaps` 会将未知 key 视为 null 返回空 list，不会崩溃但也不会报错，导致静默数据丢失 | P2 |
-| 5 | StructuredExtractionService.java | L340 `buildItemKey()` | SHA-256 fallback 使用 `System.identityHashCode(item)` 作为 last resort — 这个值在 GC 后可能重复（不同对象可能获得相同 identity hash）。建议用 `Objects.hashCode(item)` 替代 | P2 (低) |
+| 5 | StructuredExtractionService.java | L340 `buildItemKey()` | SHA-256 fallback 使用 `System.identityHashCode(item)` — GC 后可能重复 | P2 (低) ✅已修复（改用 Objects.hashCode）|
 
 **审查结论**: 
 - 代码质量优秀。ExtractionController Swagger 注解完整，StructuredExtractionService 的 append-only extraction 设计稳健（mergeAppendOnly + keep_hint 保护机制）。
@@ -223,9 +223,9 @@ _暂无问题记录_
 
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
-| 1 | ClaudeMdService.java | L163 `writeClaudeMdToFolder` | 静默吞掉 IOException — `catch` 仅 `log.error` 不再抛出，调用方无法感知写入失败。建议至少暴露失败信号（如返回 boolean 或抛出 unchecked exception） | P2 |
-| 2 | ClaudeMdService.java | L60 `generateClaudeMd` | 缺少 `projectPath` 参数 null 检查 — 传入 null 会导致 `findByProjectPathOrderByCreatedAtDesc(null)` 查询行为不确定 | P2 |
-| 3 | UserPromptRepository.java | L20 vs L34 | 方法重复 — `findByContentSessionIdAndPromptNumber`（派生查询）与 `findByContentSessionIdAndPromptNumberQuery`（@Query 注解）功能完全相同，增加维护负担 | P2 |
+| 1 | ClaudeMdService.java | L163 `writeClaudeMdToFolder` | 静默吞掉 IOException — `catch` 仅 `log.error` 不再抛出，调用方无法感知写入失败 | P2 ✅已修复（方法已删除，thin-proxy 架构不需要）|
+| 2 | ClaudeMdService.java | L60 `generateClaudeMd` | 缺少 `projectPath` 参数 null 检查 — 传入 null 会导致 `findByProjectPathOrderByCreatedAtDesc(null)` 查询行为不确定 | P2 ✅已修复（加 null/blank 检查）|
+| 3 | UserPromptRepository.java | L20 vs L34 | 方法重复 — `findByContentSessionIdAndPromptNumber`（派生查询）与 `findByContentSessionIdAndPromptNumberQuery`（@Query 注解）功能完全相同，增加维护负担 | P2 ✅已修复（删除 @Query 版本）|
 
 **审查结论**: 
 - 代码质量良好。ClaudeMdService 的原子写入（temp + rename）设计正确，tag-based 内容替换逻辑清晰，与 TS 实现对齐。
@@ -322,9 +322,20 @@ _暂无问题记录_
 |---|------|------|------|------|
 | 1 | PendingMessageEventListener.java | L41-44 | 非 "observation" 类型的消息仅 log.warn 后静默丢弃 — 无 dead-letter 机制或状态标记。若未来新增消息类型（如 "prompt"），旧 pending 消息将被永久忽略 | P2 |
 | 2 | PendingMessageEventListener.java | L46 | catch 块仅 log.error，pending 消息状态不变 — `AgentService.processPendingMessage()` 失败后消息仍保持 pending，但 ScheduledTask 是否会重新 pick up 取决于消息状态管理逻辑，存在潜在无限重试或永久挂起风险 | P2 (低) |
-| 3 | ExperienceTemplate.java | L120-155 | Section header 解析脆弱 — `indexOf("## Reasoning")` 精确匹配，若 LLM 输出为 `## Reasoning Process`（更常见）则 `extractReasoning` 返回 null。同理 `## Learnings` vs `## Key Learnings`。建议使用 `startsWith` 前缀匹配 | P2 |
+| 3 | ExperienceTemplate.java | L120-155 | Section header 解析脆弱 — `indexOf("## Reasoning")` 精确匹配，若 LLM 输出为 `## Reasoning Process`（更常见）则 `extractReasoning` 返回 null。同理 `## Learnings` vs `## Key Learnings`。建议使用 `startsWith` 前缀匹配 | P2 ✅已修复（加 findSectionStart + extractSectionContent helper）|
 | 4 | ExperienceTemplate.java | L103-110 `generateReuseCondition()` | `action` 参数在 `action.contains("file")` 处无 null 保护 — 虽然外层有 `if (action == null)` 提前返回，但方法签名接受 null，若未来重构移除该检查则 NPE | P2 (低) |
 | 5 | ExperienceTemplate.java | L88 `buildSimpleExperience()` | 将 `title` 传入 `taskInput` 位置、`content` 传入各 extractor — 如果 content 不含 `## Reasoning`/`## Action` 等结构化 headers，extractAction/extractOutcome 返回 null，最终输出包含大量 "N/A" 占位符，质量差 | P2 |
 
 **审查结论**: 无 P0/P1 问题。PendingMessageEventListener 架构清晰（@Async + EventListener），但缺少消息类型扩展性和失败恢复机制。ExperienceTemplate 的 section 解析依赖精确 header 匹配，对 LLM 输出格式变化不够鲁棒。
 
+
+
+---
+
+### Review #12 — Java SDK 带出的 Backend 问题（2026-03-30）
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | ApiRequests.java | L164-178 `ObservationUpdateRequest` | DTO 定义但从未使用 — PATCH 端点直接接收 `Map<String, Object>` 而非此 DTO | P2 ✅已修复（删除死代码）|
+
+**审查结论**: Java SDK 代码质量优秀（111 单元测试全通过，编译无错误）。本次从 SDK 角度反向检查 Backend 发现 1 个 P2 死代码问题。SDK 无修复项。
