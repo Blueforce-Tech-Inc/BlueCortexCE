@@ -21,7 +21,7 @@ The extraction pipeline operates in 5 stages:
 │ 1. Find candidate observations (source-filter + time range)  │
 │ 2. Group by user (via SessionEntity → userId)                │
 │ 3. Build prompt (template.prompt + observations + prior)     │
-│ 4. Call LLM via BeanOutputConverter (schema-enforced output)  │
+│ 4. Call LLM with structured prompt (schema-injected or BeanOutputConverter) │
 │ 5. Validate & store as ObservationEntity (extractedData)    │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -594,10 +594,10 @@ User says: "孩子对花生过敏，很严重"
 
 Templates are YAML configuration loaded at startup. The `StructuredExtractionService` resolves each template:
 
-1. **`template-class: "java.util.Map"`** → Uses `BeanOutputConverter<Map>`, schema from `output-schema` YAML field
-2. **`template-class: "com.example.MyPojo"`** → Uses `BeanOutputConverter<MyPojo>`, schema auto-derived from Java class via `getJsonSchema()`
+1. **`template-class: "java.util.Map"`** → Uses `llmService.chatCompletion()` with `output-schema` injected into the system prompt as format instructions, then parses JSON response manually
+2. **`template-class: "com.example.MyPojo"`** → Uses `llmService.chatCompletionStructured()` with `BeanOutputConverter<MyPojo>`, schema auto-derived from Java class
 
-For Map templates, the `output-schema` is injected into the system prompt as format instructions. For POJO templates, `BeanOutputConverter` handles this automatically.
+For Map templates, the `output-schema` is appended to the system prompt as a JSON Schema block. The LLM is instructed to respond with valid JSON matching the schema, but there is no runtime schema enforcement — parsing relies on LLM compliance. For POJO templates, `BeanOutputConverter` provides stronger type safety.
 
 **Storage mapping:**
 

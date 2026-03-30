@@ -234,13 +234,30 @@ Content-Type: application/json
 
 ## Extraction
 
+Phase 3 structured data extraction endpoints — extract structured data (e.g., user preferences, allergy info) from session observations.
+
 ### Trigger Extraction
 
 ```
 POST /api/extraction/run?projectPath=/path/to/project
 ```
 
-Triggers structured data extraction from conversation observations.
+Manually triggers structured data extraction. Runs **synchronously** — the response is returned after extraction completes.
+
+**Query Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `projectPath` | string | ✅ | Absolute project path |
+
+**Response** (`200 OK`):
+```json
+{
+  "status": "ok",
+  "projectPath": "/Users/dev/myproject",
+  "message": "Extraction completed"
+}
+```
 
 ### Get Latest Extraction
 
@@ -248,10 +265,65 @@ Triggers structured data extraction from conversation observations.
 GET /api/extraction/{templateName}/latest?projectPath=/path/to/project&userId=user-123
 ```
 
+Returns the most recent extraction result for a given template name and project.
+
+**Path Parameters**:
+- `templateName` — Extraction template name (e.g., `user-preferences`)
+
+**Query Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `projectPath` | string | ✅ | Absolute project path |
+| `userId` | string | ❌ | User ID for user-scoped extractions |
+
+**Response** (`200 OK`, found):
+```json
+{
+  "status": "ok",
+  "template": "user-preferences",
+  "sessionId": "session-123",
+  "extractedData": { "preferredLanguage": "en", "theme": "dark" },
+  "createdAt": 1707878400000,
+  "observationId": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**Response** (`200 OK`, not found):
+```json
+{
+  "status": "not_found",
+  "template": "user-preferences",
+  "message": "No extraction found"
+}
+```
+
 ### Get Extraction History
 
 ```
 GET /api/extraction/{templateName}/history?projectPath=/path/to/project&userId=user-123&limit=10
+```
+
+Returns historical extraction results in reverse chronological order. The limit is clamped between 1 and 100.
+
+**Query Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `projectPath` | string | ✅ | Absolute project path |
+| `userId` | string | ❌ | User ID for user-scoped extractions |
+| `limit` | int | ❌ | Max entries to return (default: 10) |
+
+**Response** (`200 OK`): JSON array of extraction records:
+```json
+[
+  {
+    "sessionId": "pref:abc123:alice",
+    "extractedData": { "preferredLanguage": "en", "theme": "dark" },
+    "createdAt": 1707878400000,
+    "observationId": "550e8400-e29b-41d4-a716-446655440000"
+  }
+]
 ```
 
 ## Context

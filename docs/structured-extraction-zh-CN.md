@@ -21,7 +21,7 @@ Cortex CE 的**结构化信息提取**是一个通用的、提示词驱动的系
 │ 1. 查找候选观测数据（source-filter + 时间范围）                │
 │ 2. 按用户分组（通过 SessionEntity → userId）                  │
 │ 3. 构建提示词（template.prompt + 观测数据 + 先前结果）         │
-│ 4. 通过 BeanOutputConverter 调用 LLM（Schema 强制输出）        │
+│ 4. 调用 LLM（Schema 注入提示词或 BeanOutputConverter）          │
 │ 5. 验证并存储为 ObservationEntity（extractedData）            │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -592,10 +592,10 @@ templates:
 
 模板是启动时加载的 YAML 配置。`StructuredExtractionService` 解析每个模板：
 
-1. **`template-class: "java.util.Map"`** → 使用 `BeanOutputConverter<Map>`，Schema 来自 YAML 的 `output-schema` 字段
-2. **`template-class: "com.example.MyPojo"`** → 使用 `BeanOutputConverter<MyPojo>`，Schema 通过 `getJsonSchema()` 从 Java 类自动推导
+1. **`template-class: "java.util.Map"`** → 使用 `llmService.chatCompletion()`，`output-schema` 作为格式指令附加到系统提示词中，然后手动解析 JSON 响应
+2. **`template-class: "com.example.MyPojo"`** → 使用 `llmService.chatCompletionStructured()` 内部使用 `BeanOutputConverter<MyPojo>`，Schema 通过 Java 类自动推导
 
-对于 Map 模板，`output-schema` 作为格式指令注入系统提示词。对于 POJO 模板，`BeanOutputConverter` 自动处理。
+对于 Map 模板，`output-schema` 以 JSON Schema 形式附加到系统提示词。LLM 被指示返回符合 Schema 的 JSON，但没有运行时 Schema 强制——解析依赖于 LLM 的合规性。对于 POJO 模板，`BeanOutputConverter` 提供更强的类型安全。
 
 **存储映射：**
 

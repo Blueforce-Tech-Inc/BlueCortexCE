@@ -654,10 +654,13 @@ curl -X POST "http://localhost:37777/api/extraction/run?projectPath=/Users/dev/m
 **响应示例**:
 ```json
 {
-  "status": "triggered",
-  "message": "Extraction started"
+  "status": "ok",
+  "projectPath": "/Users/dev/myproject",
+  "message": "Extraction completed"
 }
 ```
+
+> ⚠️ **注意**: 此端点为同步执行——响应在提取完成后才返回，耗时取决于模板数量和观测数据量。
 
 ---
 
@@ -725,18 +728,17 @@ curl "http://localhost:37777/api/extraction/user-preferences/history?projectPath
 
 **响应示例**:
 ```json
-{
-  "template": "user-preferences",
-  "extractions": [
-    {
-      "extractedData": { "preferredLanguage": "en" },
-      "createdAt": 1707878400000,
-      "observationId": "550e8400-e29b-41d4-a716-446655440000"
-    }
-  ],
-  "count": 1
-}
+[
+  {
+    "sessionId": "pref:abc123:alice",
+    "extractedData": { "preferredLanguage": "en", "theme": "dark" },
+    "createdAt": 1707878400000,
+    "observationId": "550e8400-e29b-41d4-a716-446655440000"
+  }
+]
 ```
+
+> ⚠️ 响应为 JSON 数组（非对象），每个元素包含 `sessionId`、`extractedData`、`createdAt`、`observationId` 字段。
 
 ---
 
