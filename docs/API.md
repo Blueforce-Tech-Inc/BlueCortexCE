@@ -16,7 +16,6 @@ This document describes the REST API for Cortex Community Edition backend.
 - [Sessions](#sessions)
 - [Ingest](#ingest)
 - [Memory](#memory)
-- [Observations](#observations)
 - [Extraction](#extraction)
 - [Context](#context)
 - [Search](#search)
