@@ -21,9 +21,9 @@ type Experience struct {
 	Task           string  `json:"task"`
 	Strategy       string  `json:"strategy"`
 	Outcome        string  `json:"outcome"`
-	ReuseCondition string  `json:"reuse_condition"` // Backend uses SNAKE_CASE naming strategy
-	QualityScore   float32 `json:"quality_score"`   // Backend uses SNAKE_CASE naming strategy
-	CreatedAt      string  `json:"created_at"`      // Backend uses SNAKE_CASE naming strategy
+	ReuseCondition string  `json:"reuseCondition"` // Backend ExpRagService.Experience record: camelCase (Jackson default)
+	QualityScore   float32 `json:"qualityScore"`   // Backend ExpRagService.Experience record: camelCase (Jackson default)
+	CreatedAt      string  `json:"createdAt"`      // Backend ExpRagService.Experience record: camelCase (Jackson default)
 }
 
 // ICLPromptRequest builds an ICL prompt from historical experiences.
