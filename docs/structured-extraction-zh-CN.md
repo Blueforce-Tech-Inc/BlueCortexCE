@@ -33,7 +33,7 @@ Cortex CE 的**结构化信息提取**是一个通用的、提示词驱动的系
 - **StructuredExtractionService** → 通用引擎，对观测数据运行模板
 - **DeepRefine 集成** → 提取可在 `deepRefineProjectMemories()` 的最后一步运行（精炼之后），或通过手动触发（`POST /api/extraction/run`）。定时任务（`app.memory.refine-schedule-interval-ms`，默认：5 分钟）仅运行快速精炼——提取需手动触发或集成到应用工作流中。
 - **存储** → 结果存储为 `ObservationEntity`，`type=extracted_{template}`，`extractedData` 为 JSONB 列
-- **LLM 重新提取** → 每次运行包含先前提取结果作为上下文；LLM 通过语义理解产生完整的当前状态，处理更新、删除和冲突
+- **追加式提取（Append-Only）** → 后续提取采用追加式方式：LLM 仅输出 `add`/`remove`/`keep_hint` 操作（提示词中不包含先前上下文），然后服务端与数据库中的完整先前数据合并。这避免了截断导致的静默数据丢失，同时降低了 Token 成本。首次提取（无先前数据）使用全量状态提取。
 
 ## 快速开始
 
@@ -444,6 +444,7 @@ curl "http://localhost:37777/api/context/inject?projects=/my-project"
 - **一致的访问模式** — 处理普通观测数据的 API 同样适用于提取结果
 - **基于向量的可发现性** — 提取结果有嵌入向量，支持语义搜索
 - **仅追加的历史** — 每次提取运行创建新的观测数据，保留完整历史
+- **追加式提取** — 后续运行使用 `add`/`remove`/`keep_hint` 操作（LLM 提示词中不包含先前上下文），防止截断导致的数据丢失，同时 Token 成本比完整先前方案低约 20%
 
 ## 使用场景
 
@@ -520,26 +521,29 @@ Map<String, Object> extraction = client.getLatestExtraction(
 2026-01: "I don't like Sony anymore"
 ```
 
-**LLM 重新提取如何处理：**
+**追加式提取如何处理：**
 
-每次提取包含**先前结果作为上下文**。LLM 通过语义理解产生完整的当前状态，决定保留或移除哪些内容：
+首次提取使用全量状态提取（LLM 产生完整状态）。后续提取使用**追加式方式**：LLM 仅接收新观测数据（不包含先前上下文），输出 `add`/`remove`/`keep_hint` 操作。服务端将这些操作与数据库中的完整先前数据合并：
 
 ```
-运行 1: LLM 输出 → [{category: "耳机", value: "Sony", sentiment: "positive"}]
+运行 1（无先前数据，全量状态）：
+  LLM 输出 → [{category: "耳机", value: "Sony", sentiment: "positive"}]
 
-运行 2（先前结果 + "Bose也不错"）:
-  LLM 输出 → [{category: "耳机", value: "Sony", sentiment: "positive"},
-               {category: "耳机", value: "Bose", sentiment: "positive"}]
+运行 2（追加式，新观测 "Bose也不错"）：
+  LLM 输出 → {add: [{category: "耳机", value: "Bose", sentiment: "positive"}],
+               keep_hint: [{category: "耳机", value: "Sony"}]}
+  服务端合并 → [{category: "耳机", value: "Sony"}, {category: "耳机", value: "Bose"}]
 
-运行 3（先前结果 + "不喜欢Sony了"）:
-  LLM 输出 → [{category: "耳机", value: "Bose", sentiment: "positive"}]
-  removed: [{category: "耳机", value: "Sony", reason: "用户说不再喜欢"}]
+运行 3（追加式，新观测 "不喜欢Sony了"）：
+  LLM 输出 → {remove: [{category: "耳机", value: "Sony"}]}
+  服务端合并 → [{category: "耳机", value: "Bose"}]
 ```
 
 **关键要点：**
+- **追加式防止数据丢失**——先先前上下文不会被截断或传入 LLM，因此较早的条目不会静默消失
+- **更低的 Token 成本**——提示词中不包含先前上下文（约 2000 tokens vs 完整先前方案约 7000 tokens）
 - 旧提取结果作为历史保留（时间戳区分当前和历史）
-- 无程序化合并逻辑——LLM 处理语义
-- 可选 `removed` 字段跟踪被移除的内容及原因
+- `keep_hint` 确保被正面提及的条目即使未重新声明也会被保留
 
 ### 场景 4：自定义模板（过敏信息）
 
@@ -626,7 +630,7 @@ templates:
 
 - **访问控制是应用层职责**——记忆系统负责存储和提取，调用方决定谁能查询
 - **用户隔离**——基于 userId 的提取确保个人数据不会交叉污染
-- **提示词注入防护**——观测数据中的用户内容在纳入 LLM 提示词前会进行清理（转义 `SYSTEM:` 等特殊标记）
+- **提示词注入防护**——观测数据中的用户内容带有来源标注，并限制长度，帮助 LLM 区分用户内容和系统指令
 - **数据保留**——旧提取结果作为历史保留；请根据需要实现自己的保留策略
 
 ### 故障排除

@@ -33,7 +33,7 @@ The extraction pipeline operates in 5 stages:
 - **StructuredExtractionService** → Generic engine that runs templates against observations
 - **DeepRefine integration** → Extraction can run as the last step of `deepRefineProjectMemories()` (after refinement), or via manual trigger (`POST /api/extraction/run`). The periodic scheduled task (`app.memory.refine-schedule-interval-ms`, default: 5 minutes) runs quick refinement only — extraction must be triggered manually or integrated into your application's workflow.
 - **Storage** → Results stored as `ObservationEntity` with `type=extracted_{template}` and `extractedData` JSONB column
-- **LLM Re-extraction** → Each run includes prior extraction as context; the LLM produces a complete current state, handling updates, removals, and conflicts semantically
+- **Append-Only Extraction** → Subsequent extractions use an append-only approach: the LLM outputs only `add`/`remove`/`keep_hint` operations (no prior context in prompt), then the service merges with the full prior from DB. This prevents silent data loss from truncation while keeping token costs low. First extraction (no prior) uses full-state extraction.
 
 ## Quick Start
 
@@ -446,6 +446,7 @@ Storing extraction results as `ObservationEntity` is a deliberate design choice.
 - **Consistent access patterns** — the same APIs that work for regular observations work for extraction results
 - **Embedding-based discovery** — extraction results have embeddings, enabling semantic search
 - **Append-only history** — every extraction run creates a new observation, preserving the full history
+- **Append-only extraction** — subsequent runs use `add`/`remove`/`keep_hint` operations (no prior context in LLM prompt), preventing data loss from truncation while keeping token costs ~20% lower than full-prior approaches
 
 ## Scenarios
 
@@ -522,26 +523,29 @@ User preferences evolve over time:
 2026-01: "I don't like Sony anymore"
 ```
 
-**How LLM re-extraction handles this:**
+**How append-only extraction handles this:**
 
-Each extraction includes the **prior result as context**. The LLM produces a complete current state, deciding what to keep or remove based on semantic understanding:
+The first extraction uses full-state extraction (LLM produces complete state). Subsequent extractions use the **append-only approach**: the LLM receives only new observations (no prior context) and outputs `add`/`remove`/`keep_hint` operations. The service then merges these with the full prior data from the database:
 
 ```
-Run 1: LLM output → [{category: "耳机", value: "Sony", sentiment: "positive"}]
+Run 1 (no prior, full-state): 
+  LLM output → [{category: "耳机", value: "Sony", sentiment: "positive"}]
 
-Run 2 (prior + "Bose也不错"): 
-  LLM output → [{category: "耳机", value: "Sony", sentiment: "positive"}, 
-                 {category: "耳机", value: "Bose", sentiment: "positive"}]
+Run 2 (append-only, new obs "Bose也不错"): 
+  LLM output → {add: [{category: "耳机", value: "Bose", sentiment: "positive"}], 
+                 keep_hint: [{category: "耳机", value: "Sony"}]}
+  Service merges → [{category: "耳机", value: "Sony"}, {category: "耳机", value: "Bose"}]
 
-Run 3 (prior + "不喜欢Sony了"):
-  LLM output → [{category: "耳机", value: "Bose", sentiment: "positive"}]
-  removed: [{category: "耳机", value: "Sony", reason: "用户说不再喜欢"}]
+Run 3 (append-only, new obs "不喜欢Sony了"):
+  LLM output → {remove: [{category: "耳机", value: "Sony"}]}
+  Service merges → [{category: "耳机", value: "Bose"}]
 ```
 
 **Key points:**
+- **Append-only prevents data loss** — prior context is never truncated or passed to the LLM, so older items can't silently disappear
+- **Lower token cost** — no prior context in prompt (~2000 tokens vs ~7000 for full-prior approach)
 - Old extractions are preserved as history (timestamp distinguishes current vs historical)
-- No programmatic merge logic — LLM handles semantics
-- Optional `removed` field tracks what was dropped and why
+- `keep_hint` ensures items mentioned positively are retained even if not explicitly re-stated
 
 ### Scenario 4: Custom Template (Allergies)
 
@@ -628,7 +632,7 @@ Extraction costs are managed through several mechanisms:
 
 - **Access control is application-layer responsibility** — the memory system stores and extracts; the caller decides who can query what
 - **User isolation** — userId-based extraction ensures personal data is not cross-contaminated
-- **Prompt injection prevention** — user content in observations is sanitized before inclusion in LLM prompts (special tokens like `SYSTEM:` are escaped)
+- **Prompt injection prevention** — user content in observations is length-limited and included with source attribution to help the LLM distinguish user content from system instructions
 - **Data retention** — old extractions are preserved as history; implement your own retention policies as needed
 
 ### Troubleshooting
