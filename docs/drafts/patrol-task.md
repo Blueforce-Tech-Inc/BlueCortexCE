@@ -7,7 +7,7 @@
 
 ## 执行规则
 
-- **每次唤醒仅审查一个方向**（轮换：Java SDK → Go SDK → Python SDK → JS SDK → Demo → Backend → 文档）
+- **每次唤醒仅审查一个方向**（轮换：Java SDK → Go SDK → Python SDK → JS SDK → Demo → Backend）
 - **巡检总时长 ≤ 10 分钟**
 - **⚠️ 修改后端 API 响应前，必须检查 `webui/src/` 是否引用**（WebUI 子模块已拉取到 `webui/`）
 - 全量测试由"健康检查与测试验收"任务（`4b56c649`，每2小时）负责，本任务只做代码审查和修复
@@ -83,11 +83,6 @@
 - 发现记录到 `docs/drafts/backend-review-findings.md`
 - 格式：文件路径、行号、问题描述、严重级别（P0/P1/P2）
 - **不修复不构建不重启**，节省时间（低频 cron 任务负责修复）
-
-### 7. 文档审查
-- 设计文档与实现一致性
-- API 文档完整性
-- **重点对照**: `docs/drafts/phase-3-design.md` 和 `docs/drafts/phase-3-design-walkthrough.md`
 
 ## 发现问题时的行动
 
