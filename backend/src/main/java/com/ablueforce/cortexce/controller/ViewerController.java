@@ -309,7 +309,7 @@ public class ViewerController {
     ) {
         List<String> idStrings = request.ids();
         if (idStrings == null || idStrings.isEmpty()) {
-            return ResponseEntity.badRequest().body(new com.ablueforce.cortexce.dto.ApiResponses.BatchGetObservationsResponse(
+            return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.BatchGetObservationsResponse(
                 List.of(), 0
             ));
         }
@@ -320,7 +320,7 @@ public class ViewerController {
             .toList();
 
         if (idStrings.isEmpty()) {
-            return ResponseEntity.badRequest().body(new com.ablueforce.cortexce.dto.ApiResponses.BatchGetObservationsResponse(
+            return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.BatchGetObservationsResponse(
                 List.of(), 0
             ));
         }
@@ -343,7 +343,7 @@ public class ViewerController {
             .toList();
 
         if (ids.isEmpty()) {
-            return ResponseEntity.badRequest().body(new com.ablueforce.cortexce.dto.ApiResponses.BatchGetObservationsResponse(
+            return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.BatchGetObservationsResponse(
                 List.of(), 0
             ));
         }

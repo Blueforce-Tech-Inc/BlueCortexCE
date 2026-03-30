@@ -370,7 +370,7 @@ _暂无问题记录_
 
 | # | 端点 | 问题 | 级别 | 说明 |
 |---|------|------|------|------|
-| 1 | `POST /api/memory/feedback` | 返回 501 "not yet implemented" — E2E 测试期望正常响应 | P1 | 影响 feedback 功能完整性和 E2E 测试通过率 |
-| 2 | `PATCH /api/memory/observations/{id}` | 不存在的 ID 返回 400 而非 404 | P2 | 违反 REST 规范：400 = 请求格式错误，404 = 资源不存在 |
-| 3 | `DELETE /api/memory/observations/{id}` | 不存在的 ID 返回 400 而非 404 | P2 | 同上，与 PATCH 一致 |
-| 4 | `POST /api/observations/batch` | 返回 HTTP 400 + 有效 body `{"observations":[],"count":0}` | P2 | 空结果应返回 200；SDK 无法读取 body 因为 400 触发异常。影响 batch 查询的客户端体验 |
+| 1 | `POST /api/memory/feedback` | 返回 501 "not yet implemented" — E2E 测试期望正常响应 | P1 | ✅已修复 |
+| 2 | `PATCH /api/memory/observations/{id}` | 不存在的 ID 返回 400 而非 404 | P2 | ✅已修复（代码已正确返回 404）|
+| 3 | `DELETE /api/memory/observations/{id}` | 不存在的 ID 返回 400 而非 404 | P2 | ✅已修复（代码已正确返回 404）|
+| 4 | `POST /api/observations/batch` | 返回 HTTP 400 + 有效 body `{"observations":[],"count":0}` | P2 | ✅已修复（空 IDs 返回 200）|

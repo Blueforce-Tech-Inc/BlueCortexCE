@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -208,21 +209,44 @@ public class MemoryController {
      * Body: {"observationId": "uuid", "feedbackType": "SUCCESS", "comment": "optional"}
      */
     @PostMapping("/feedback")
-    @Operation(summary = "Submit manual feedback (not yet implemented)",
-        description = "Allows manual feedback submission for observations via WebUI. Currently returns 501 Not Implemented.")
-    @ApiResponse(responseCode = "501", description = "Feedback submission endpoint is not yet implemented",
-        content = @Content(schema = @Schema(example = "{\"status\":\"not_implemented\",\"message\":\"Feedback submission endpoint is not yet implemented\"}")))
+    @Operation(summary = "Submit manual feedback for an observation",
+        description = "Allows manual feedback submission for observations via WebUI. Updates feedback_type, user_comment, and feedback_updated_at on the observation.")
+    @ApiResponse(responseCode = "200", description = "Feedback recorded successfully",
+        content = @Content(schema = @Schema(example = "{\"status\":\"ok\",\"observationId\":\"...\"}")))
+    @ApiResponse(responseCode = "404", description = "Observation not found",
+        content = @Content(schema = @Schema(example = "{\"error\":\"Observation not found\"}")))
+    @ApiResponse(responseCode = "400", description = "Invalid request (missing observationId or feedbackType)",
+        content = @Content(schema = @Schema(example = "{\"error\":\"observationId is required\"}")))
     public ResponseEntity<Map<String, String>> submitFeedback(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                 description = "Feedback submission request",
                 required = true,
                 content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.FeedbackRequest.class)))
             @org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.FeedbackRequest request) {
-        // TODO: Full implementation requires observation ID lookup and feedback persistence
-        return ResponseEntity.status(501).body(Map.of(
-            "status", "not_implemented",
-            "message", "Feedback submission endpoint is not yet implemented"
-        ));
+        if (request.observationId() == null || request.observationId().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "observationId is required"));
+        }
+        if (request.feedbackType() == null || request.feedbackType().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "feedbackType is required"));
+        }
+        java.util.UUID obsId;
+        try {
+            obsId = java.util.UUID.fromString(request.observationId());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid observationId format: " + request.observationId()));
+        }
+        var optObs = observationRepository.findById(obsId);
+        if (optObs.isEmpty()) {
+            return ResponseEntity.status(404).body(Map.of("error", "Observation not found: " + request.observationId()));
+        }
+        var obs = optObs.get();
+        obs.setFeedbackType(request.feedbackType());
+        if (request.comment() != null) {
+            obs.setUserComment(request.comment());
+        }
+        obs.setFeedbackUpdatedAt(OffsetDateTime.now());
+        observationRepository.save(obs);
+        return ResponseEntity.ok(Map.of("status", "ok", "observationId", request.observationId()));
     }
 
     // ==================== Observation Management (V14) ====================

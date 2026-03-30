@@ -143,7 +143,7 @@
 - 修复：在 `mergeAppendOnly` 入口添加 expected keys (`add`, `remove`, `keep_hint`) 校验，检测到 unexpected keys 时输出 WARN 日志
 - 影响：仅增加日志可观测性，不改变功能行为，不破坏 WebUI 契约
 
-### 验证记录
+### 验证记录（2026-03-30 20:24）
 
 | 步骤 | 结果 |
 |------|------|
@@ -151,6 +151,45 @@
 | 服务重启 + /api/health | ✅ status: ok |
 | 回归测试 (regression-test.sh) | ✅ 46/46 passed, 0 failed |
 | EXTRACTION 验收测试 | ✅ 25/25 passed, 0 failed |
+| 第 1 轮迭代检查 | ✅ 通过 |
+| 第 2 轮迭代检查 | ✅ 通过 |
+| 第 3 轮迭代检查 | ✅ 通过 |
+
+---
+
+## 2026-03-31 01:11 健康检查与测试验收修复
+
+**来源**: Python SDK E2E 测试暴露的 Backend 问题（Review #12）
+
+| # | 文件 | 问题 | 级别 | 结果 |
+|---|------|------|------|------|
+| 1 | MemoryController.java | POST /api/memory/feedback 返回 501 | P1 | ✅ 已修复（完整实现：UUID 校验、DB 查找、字段更新、404 处理） |
+| 2 | ViewerController.java | POST /api/observations/batch 空 IDs 返回 400 | P2 | ✅ 已修复（空 IDs/空 UUID 列表返回 200 + 空结果） |
+
+### 代码修复详情
+
+**MemoryController.submitFeedback()**:
+- 问题：Feedback 端点返回 501 Not Implemented，WebUI 无法提交反馈
+- 修复：完整实现 feedback 逻辑：UUID 格式校验 → DB 查找 → 更新 feedbackType/userComment/feedbackUpdatedAt → 返回 200
+- 404 处理：observationId 不存在时返回 404 + 错误信息
+- 400 处理：observationId 或 feedbackType 缺失/无效时返回 400
+- 影响：MemoryController.java（1 处替换），新增 import OffsetDateTime
+
+**ViewerController.batchGetObservations()**:
+- 问题：空 IDs 列表返回 400 Bad Request，SDK 无法读取 body（400 触发异常）
+- 修复：3 处 `ResponseEntity.badRequest()` → `ResponseEntity.ok()`，空结果返回 200 + `{observations:[], count:0}`
+- 影响：ViewerController.java（3 处修改）
+
+### 验证记录（2026-03-31 01:11）
+
+| 步骤 | 结果 |
+|------|------|
+| mvn clean compile package -DskipTests | ✅ BUILD SUCCESS |
+| 服务重启 + /api/health | ✅ status: ok |
+| 回归测试 (regression-test.sh) | ✅ 46/46 passed, 0 failed |
+| EXTRACTION 验收测试 | ✅ 25/25 passed, 0 failed |
+| Feedback API 手动测试 | ✅ 创建 observation → 提交 feedback → 验证持久化成功 |
+| WebUI 契约检查 | ✅ 无 camelCase 字段变更，SSE 未受影响 |
 | 第 1 轮迭代检查 | ✅ 通过 |
 | 第 2 轮迭代检查 | ✅ 通过 |
 | 第 3 轮迭代检查 | ✅ 通过 |
