@@ -124,7 +124,20 @@ Cortex CE uses a **Thin Proxy + Fat Server** architecture to decouple hook execu
 │         │                │                │                  │             │
 │         └────────────────┴────────────────┴──────────────────┘             │
 │                                    │                                        │
-│                              Hooks / API                                    │
+│         ┌──────────────────────────┼──────────────────────────┐            │
+│         │                          │                          │            │
+│    ┌────┴─────┐            ┌──────┴──────┐            ┌──────┴──────┐    │
+│    │ Java SDK │            │  Go SDK     │            │ Python SDK  │    │
+│    │(spring-  │            │ (go-sdk/)   │            │(python-sdk/ │    │
+│    │integra-  │            │             │            │             │    │
+│    │tion/)    │            │             │            │             │    │
+│    └──────────┘            └─────────────┘            └─────────────┘    │
+│                                                                          │
+│                             ┌─────────────┐                              │
+│                             │  JS SDK     │                              │
+│                             │ (js-sdk/)   │                              │
+│                             └─────────────┘                              │
+│                              Hooks / API                                   │
 └────────────────────────────────────┼────────────────────────────────────────┘
                                      │
                                      ▼
@@ -247,10 +260,16 @@ The Thin Proxy is a lightweight Node.js application responsible for fast event f
 
 ```
 proxy/
-├── wrapper.js          # CLI entry point (called by hooks)
-├── proxy.js            # Optional HTTP server for local aggregation
-├── package.json        # Dependencies (axios)
-└── CLAUDE-CODE-INTEGRATION.md  # Integration documentation
+├── wrapper.js                      # CLI entry point (called by hooks)
+├── proxy.js                        # Optional HTTP server for local aggregation
+├── tag-stripping.js                # Privacy tag stripping logic
+├── package.json                    # Dependencies (axios)
+├── CLAUDE-CODE-INTEGRATION.md      # Claude Code integration documentation
+├── CLAUDE-CODE-INTEGRATION-zh-CN.md
+├── CURSOR-INTEGRATION.md           # Cursor IDE integration documentation
+├── CURSOR-INTEGRATION-zh-CN.md
+├── README.md
+└── java/proxy/                     # Java proxy utilities (test scripts)
 ```
 
 #### Hook Event Flow

@@ -124,6 +124,19 @@ Cortex CE 使用 **瘦代理 + 胖服务器** 架构将 hook 执行与重量级�
 │         │                │                │                  │             │
 │         └────────────────┴────────────────┴──────────────────┘             │
 │                                    │                                        │
+│         ┌──────────────────────────┼──────────────────────────┐            │
+│         │                          │                          │            │
+│    ┌────┴─────┐            ┌──────┴──────┐            ┌──────┴──────┐    │
+│    │ Java SDK │            │  Go SDK     │            │ Python SDK  │    │
+│    │(spring-  │            │ (go-sdk/)   │            │(python-sdk/ │    │
+│    │integra-  │            │             │            │             │    │
+│    │tion/)    │            │             │            │             │    │
+│    └──────────┘            └─────────────┘            └─────────────┘    │
+│                                                                          │
+│                             ┌─────────────┐                              │
+│                             │  JS SDK     │                              │
+│                             │ (js-sdk/)   │                              │
+│                             └─────────────┘                              │
 │                              Hooks / API                                     │
 └────────────────────────────────────┼────────────────────────────────────────┘
                                      │
@@ -247,10 +260,16 @@ Cortex CE 使用 **瘦代理 + 胖服务器** 架构将 hook 执行与重量级�
 
 ```
 proxy/
-├── wrapper.js          # CLI 入口点 (由 hooks 调用)
-├── proxy.js            # 可选的 HTTP 服务器用于本地聚合
-├── package.json        # 依赖项 (axios)
-└── CLAUDE-CODE-INTEGRATION.md  # 集成文档
+├── wrapper.js                      # CLI 入口点 (由 hooks 调用)
+├── proxy.js                        # 可选的 HTTP 服务器用于本地聚合
+├── tag-stripping.js                # 隐私标签剥离逻辑
+├── package.json                    # 依赖项 (axios)
+├── CLAUDE-CODE-INTEGRATION.md      # Claude Code 集成文档
+├── CLAUDE-CODE-INTEGRATION-zh-CN.md
+├── CURSOR-INTEGRATION.md           # Cursor IDE 集成文档
+├── CURSOR-INTEGRATION-zh-CN.md
+├── README.md
+└── java/proxy/                     # Java 代理工具 (测试脚本)
 ```
 
 #### Hook 事件流程
