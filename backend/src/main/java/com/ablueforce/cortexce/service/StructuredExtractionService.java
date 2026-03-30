@@ -227,11 +227,16 @@ public class StructuredExtractionService {
             .collect(Collectors.toSet());
 
         // Batch-resolve userIds in a single query
-        Map<String, String> sessionIdToUserId = sessionRepository.findByContentSessionIdIn(new ArrayList<>(sessionIds)).stream()
-            .collect(Collectors.toMap(
-                com.ablueforce.cortexce.entity.SessionEntity::getContentSessionId,
-                s -> (s.getUserId() != null && !s.getUserId().isBlank()) ? s.getUserId() : "__unknown__"
-            ));
+        Map<String, String> sessionIdToUserId;
+        if (sessionIds.isEmpty()) {
+            sessionIdToUserId = Map.of();
+        } else {
+            sessionIdToUserId = sessionRepository.findByContentSessionIdIn(new ArrayList<>(sessionIds)).stream()
+                .collect(Collectors.toMap(
+                    com.ablueforce.cortexce.entity.SessionEntity::getContentSessionId,
+                    s -> (s.getUserId() != null && !s.getUserId().isBlank()) ? s.getUserId() : "__unknown__"
+                ));
+        }
 
         // Group observations by resolved userId
         Map<String, List<ObservationEntity>> grouped = new LinkedHashMap<>();
@@ -596,7 +601,7 @@ public class StructuredExtractionService {
                 }
                 return sb.toString();
             } catch (JsonProcessingException | NoSuchAlgorithmException e) {
-                return "hash::" + System.identityHashCode(item);
+                return "hash::" + Objects.hashCode(item);
             }
         }
         return key.toString();

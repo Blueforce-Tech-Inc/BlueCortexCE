@@ -160,24 +160,6 @@ public class ApiRequests {
         @JsonProperty("comment") String comment
     ) {}
 
-    @Schema(description = "Partial observation update (PATCH semantics)")
-    public record ObservationUpdateRequest(
-        @Schema(description = "Observation title")
-        @JsonProperty("title") String title,
-        @Schema(description = "Observation subtitle")
-        @JsonProperty("subtitle") String subtitle,
-        @Schema(description = "Observation content/narrative")
-        @JsonProperty("content") String content,
-        @Schema(description = "List of factual statements")
-        @JsonProperty("facts") List<String> facts,
-        @Schema(description = "List of concept tags")
-        @JsonProperty("concepts") List<String> concepts,
-        @Schema(description = "Source attribution")
-        @JsonProperty("source") String source,
-        @Schema(description = "Structured extracted data")
-        @JsonProperty("extractedData") Map<String, Object> extractedData
-    ) {}
-
     // ==================== Cursor ====================
 
     @Schema(description = "Cursor project registration request")

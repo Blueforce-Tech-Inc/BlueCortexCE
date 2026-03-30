@@ -129,17 +129,48 @@ public class ExperienceTemplate {
     }
 
     /**
+     * Find a section header by prefix match (## HeaderPrefix...).
+     * Handles variations like "## Reasoning" and "## Reasoning Process".
+     * Returns the index of "## " or -1 if not found.
+     */
+    private int findSectionStart(String content, String headerPrefix) {
+        int searchFrom = 0;
+        while (searchFrom < content.length()) {
+            int idx = content.indexOf("## ", searchFrom);
+            if (idx < 0) return -1;
+            int lineEnd = content.indexOf('\n', idx);
+            String restOfLine = (lineEnd < 0)
+                ? content.substring(idx + 3)
+                : content.substring(idx + 3, lineEnd);
+            if (restOfLine.startsWith(headerPrefix)) {
+                return idx;
+            }
+            searchFrom = idx + 3;
+        }
+        return -1;
+    }
+
+    /**
+     * Extract section content starting from a ## header position.
+     * Content starts after the header line and ends at the next ## header or EOF.
+     */
+    private String extractSectionContent(String content, int headerStart) {
+        int lineEnd = content.indexOf('\n', headerStart);
+        if (lineEnd < 0) return "";
+        int nextHeader = content.indexOf("\n##", lineEnd);
+        if (nextHeader < 0) nextHeader = content.length();
+        return content.substring(lineEnd + 1, nextHeader).trim();
+    }
+
+    /**
      * Extract reasoning from content.
      */
     private String extractReasoning(String content) {
         if (content == null) return null;
         
-        // Try to extract reasoning section
-        int reasoningStart = content.indexOf("## Reasoning");
+        int reasoningStart = findSectionStart(content, "Reasoning");
         if (reasoningStart >= 0) {
-            int sectionEnd = content.indexOf("\n##", reasoningStart + 2);
-            if (sectionEnd < 0) sectionEnd = content.length();
-            return content.substring(reasoningStart + 12, sectionEnd).trim();
+            return extractSectionContent(content, reasoningStart);
         }
         
         // Fallback: use first part of content
@@ -152,11 +183,9 @@ public class ExperienceTemplate {
     private String extractAction(String content) {
         if (content == null) return null;
         
-        int actionStart = content.indexOf("## Action");
+        int actionStart = findSectionStart(content, "Action");
         if (actionStart >= 0) {
-            int sectionEnd = content.indexOf("\n##", actionStart + 2);
-            if (sectionEnd < 0) sectionEnd = content.length();
-            return content.substring(actionStart + 10, sectionEnd).trim();
+            return extractSectionContent(content, actionStart);
         }
         
         return null;
@@ -168,11 +197,9 @@ public class ExperienceTemplate {
     private String extractOutcome(String content) {
         if (content == null) return null;
         
-        int outcomeStart = content.indexOf("## Outcome");
+        int outcomeStart = findSectionStart(content, "Outcome");
         if (outcomeStart >= 0) {
-            int sectionEnd = content.indexOf("\n##", outcomeStart + 2);
-            if (sectionEnd < 0) sectionEnd = content.length();
-            return content.substring(outcomeStart + 11, sectionEnd).trim();
+            return extractSectionContent(content, outcomeStart);
         }
         
         return null;
@@ -186,12 +213,9 @@ public class ExperienceTemplate {
         
         if (content == null) return learnings;
         
-        int learningsStart = content.indexOf("## Learnings");
+        int learningsStart = findSectionStart(content, "Learnings");
         if (learningsStart >= 0) {
-            int sectionEnd = content.indexOf("\n##", learningsStart + 2);
-            if (sectionEnd < 0) sectionEnd = content.length();
-            
-            String learningsSection = content.substring(learningsStart + 13, sectionEnd);
+            String learningsSection = extractSectionContent(content, learningsStart);
             
             // Parse bullet points
             for (String line : learningsSection.split("\n")) {

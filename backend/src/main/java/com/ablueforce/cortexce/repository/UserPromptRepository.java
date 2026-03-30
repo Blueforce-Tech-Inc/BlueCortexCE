@@ -32,16 +32,6 @@ public interface UserPromptRepository extends JpaRepository<UserPromptEntity, UU
         String contentSessionId, Integer promptNumber
     );
 
-    /**
-     * Find user prompt by content_session_id and prompt number for duplicate checking.
-     * Used by Import API to prevent duplicate imports.
-     */
-    @Query("SELECT p FROM UserPromptEntity p WHERE p.contentSessionId = :contentSessionId AND p.promptNumber = :promptNumber")
-    Optional<UserPromptEntity> findByContentSessionIdAndPromptNumberQuery(
-        @Param("contentSessionId") String contentSessionId,
-        @Param("promptNumber") Integer promptNumber
-    );
-
     List<UserPromptEntity> findByContentSessionIdOrderByPromptNumberAsc(String contentSessionId);
 
     long countByContentSessionId(String contentSessionId);
