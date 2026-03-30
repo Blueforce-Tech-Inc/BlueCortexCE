@@ -1,45 +1,35 @@
 package com.example.cortexmem;
 
-import org.springframework.beans.factory.annotation.Value;
+import com.ablueforce.cortexce.client.CortexMemClient;
+import com.ablueforce.cortexce.client.dto.SessionStartRequest;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
 
 import java.util.Map;
 
 /**
- * Directly calls backend /api/session/start; decouples from CortexMemClient version.
- * JitPack integration may lack startSession; this ensures demo runs in both modes.
+ * Session start wrapper — delegates to CortexMemClient.startSession().
+ * <p>
+ * Originally a separate RestClient implementation for JitPack compatibility,
+ * now refactored to use the SDK's unified startSession API.
  */
 @Component
 public class SessionStartClient {
 
-    private final RestClient restClient;
+    private final CortexMemClient cortexMemClient;
 
-    public SessionStartClient(@Value("${cortex.mem.base-url:http://localhost:37777}") String baseUrl) {
-        this.restClient = RestClient.builder()
-            .baseUrl(baseUrl)
-            .defaultHeader("Content-Type", "application/json")
-            .requestFactory(new org.springframework.http.client.SimpleClientHttpRequestFactory() {{
-                setConnectTimeout(5000);
-                setReadTimeout(10000);
-            }})
-            .build();
+    public SessionStartClient(CortexMemClient cortexMemClient) {
+        this.cortexMemClient = cortexMemClient;
     }
 
-    @SuppressWarnings("unchecked")
+    /**
+     * Start a session via the SDK. Returns the backend response directly.
+     */
     public Map<String, Object> startSession(String sessionId, String projectPath) {
-        try {
-            return restClient.post()
-                .uri("/api/session/start")
-                .body(Map.of(
-                    "session_id", sessionId,
-                    "project_path", projectPath,
-                    "cwd", projectPath
-                ))
-                .retrieve()
-                .body(Map.class);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to start session " + sessionId + ": " + e.getMessage(), e);
-        }
+        return cortexMemClient.startSession(
+            SessionStartRequest.builder()
+                .sessionId(sessionId)
+                .projectPath(projectPath)
+                .build()
+        );
     }
 }
