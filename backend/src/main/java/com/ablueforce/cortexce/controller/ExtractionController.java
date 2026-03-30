@@ -104,7 +104,7 @@ public class ExtractionController {
         @ApiResponse(responseCode = "400", description = "Missing required parameter: projectPath"),
         @ApiResponse(responseCode = "500", description = "Failed to retrieve extraction history due to internal error")
     })
-    public ResponseEntity<?> getExtractionHistory(
+    public ResponseEntity<Object> getExtractionHistory(
             @Parameter(description = "Extraction template name", required = true, example = "user-preferences")
             @PathVariable String templateName,
             @Parameter(description = "Absolute project path", required = true, example = "/Users/dev/my-project")

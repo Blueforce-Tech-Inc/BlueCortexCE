@@ -87,7 +87,7 @@ public class ExperienceTemplate {
      * This is a simple heuristic - could be enhanced with LLM.
      */
     private String generateReuseCondition(String task, String action, String outcome) {
-        if (task == null && action == null) {
+        if (task == null && action == null && outcome == null) {
             return "General task - use when similar workflow is needed.\n";
         }
         
@@ -100,19 +100,18 @@ public class ExperienceTemplate {
         }
         
         // Action-based conditions
-        if (action != null) {
-            if (action.contains("file") || action.contains("File")) {
-                sb.append("- File operations are involved\n");
-            }
-            if (action.contains("debug") || action.contains("error")) {
-                sb.append("- Debugging or error resolution is needed\n");
-            }
-            if (action.contains("test") || action.contains("Test")) {
-                sb.append("- Testing or verification is required\n");
-            }
-            if (action.contains("refactor") || action.contains("Refactor")) {
-                sb.append("- Code refactoring is needed\n");
-            }
+        String lowerAction = action != null ? action.toLowerCase() : "";
+        if (lowerAction.contains("file")) {
+            sb.append("- File operations are involved\n");
+        }
+        if (lowerAction.contains("debug") || lowerAction.contains("error")) {
+            sb.append("- Debugging or error resolution is needed\n");
+        }
+        if (lowerAction.contains("test")) {
+            sb.append("- Testing or verification is required\n");
+        }
+        if (lowerAction.contains("refactor")) {
+            sb.append("- Code refactoring is needed\n");
         }
         
         // Outcome-based conditions

@@ -1,5 +1,7 @@
 package com.ablueforce.cortexce.event;
 
+import com.ablueforce.cortexce.entity.PendingMessageEntity;
+import com.ablueforce.cortexce.repository.PendingMessageRepository;
 import com.ablueforce.cortexce.service.AgentService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,9 +23,12 @@ public class PendingMessageEventListener {
     private static final Logger log = LoggerFactory.getLogger(PendingMessageEventListener.class);
 
     private final AgentService agentService;
+    private final PendingMessageRepository pendingMessageRepository;
 
-    public PendingMessageEventListener(AgentService agentService) {
+    public PendingMessageEventListener(AgentService agentService,
+                                       PendingMessageRepository pendingMessageRepository) {
         this.agentService = agentService;
+        this.pendingMessageRepository = pendingMessageRepository;
     }
 
     /**
@@ -39,7 +44,13 @@ public class PendingMessageEventListener {
                 agentService.processPendingMessage(event.getPendingMessageId());
                 log.info("Processed pending message: {}", event.getPendingMessageId());
             } else {
-                log.warn("Unsupported pending message type: {}, skipping", event.getMessageType());
+                // Mark unsupported message types as failed (dead-letter)
+                log.warn("Unsupported pending message type: {}, marking as failed", event.getMessageType());
+                pendingMessageRepository.findById(event.getPendingMessageId())
+                    .ifPresent(msg -> {
+                        msg.setStatus("failed");
+                        pendingMessageRepository.save(msg);
+                    });
             }
         } catch (Exception e) {
             log.error("Failed to process PendingMessageEvent: {}", event, e);

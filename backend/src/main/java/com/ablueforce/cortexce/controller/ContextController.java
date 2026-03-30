@@ -223,7 +223,7 @@ public class ContextController {
         description = "Returns observations around a specified anchor point (by ID, session, or timestamp).")
     @ApiResponse(responseCode = "200", description = "Timeline retrieved successfully")
     @SuppressWarnings("rawtypes")
-    public ResponseEntity getContextTimeline(
+    public ResponseEntity<?> getContextTimeline(
             @Parameter(description = "Anchor point: observation UUID, session ID, or query string to find anchor", required = false, example = "550e8400-e29b-41d4-a716-446655440000")
             @RequestParam(required = false) String anchor,
             @Parameter(description = "Number of observations to return before the anchor point", required = false, example = "10")

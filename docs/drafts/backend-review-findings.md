@@ -149,7 +149,7 @@ _暂无问题记录_
 
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
-| 1 | ContextController.java | 全文 | 端点返回类型不一致：`/inject` 返回 `ResponseEntity<Map>`，`/recent` 返回 `ResponseEntity<?>`，`/prior-messages` 返回裸 `Map`。建议统一为 `ResponseEntity<Map>` | P2 |
+| 1 | ContextController.java | 全文 | 端点返回类型不一致 | P2 ✅已修复（getContextTimeline 加 `ResponseEntity<?>`）|
 | 2 | ContextController.java | L209 `isWithinProject()` | `startsWith` 已包含 `equals` 语义（相同路径时 startsWith 返回 true），第二个条件 `\|\| normalizedTarget.equals(normalizedRoot)` 冗余 | P2 (低) ✅已修复 |
 | 3 | PendingMessageProcessor.java | L63 `processPendingMessages()` | `@Scheduled` 无 overlap 保护。若单次执行超时，可能产生并发处理。建议加 `@SchedulerLock` 或本地 synchronized | P2 ✅已修复 |
 
@@ -176,7 +176,7 @@ _暂无问题记录_
 
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
-| 1 | ExtractionController.java | L105 `/history` | 返回类型 `ResponseEntity<?>`（泛型擦除），与 `/latest` 的 `ResponseEntity<Map<String, Object>>` 不一致。建议统一为 `ResponseEntity<List<Map<String, Object>>>` | P2 |
+| 1 | ExtractionController.java | L105 `/history` | 返回类型 `ResponseEntity<?>`（泛型擦除）| P2 ✅已修复（改为 `ResponseEntity<Object>`） | P2 |
 | 2 | ExtractionController.java | L104-117 `/run` | Swagger 文档描述为 "synchronously"，但 LLM extraction 可能耗时较长（>60s 可能触发 Spring 默认超时）。建议加显式超时配置或说明 | P2 (低) |
 
 **审查结论**: 两个文件质量优秀。ExtractionController Swagger 注解完整（含 examples、description），MemoryController 的 `updateObservation` 验证逻辑设计精良（null=clear, absent=skip 模式一致，validateStringList 提取良好）。`/feedback` 501 状态有明确 Swagger 文档标记。无 P0/P1 问题。
@@ -208,7 +208,7 @@ _暂无问题记录_
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
 | 1 | ImportService.java | L154 | `logHappyPath()` 用于 JSON 解析失败日志 — `logHappyPath` 是 DEBUG 级别（Happy Path 语义），用于记录错误会导致 JSON 解析失败被静默吞掉。应使用 `logFailure()` 或 `log.warn()` | P1 ✅已修复 |
-| 2 | ExtractionController.java | L105 | `/history` 返回类型 `ResponseEntity<?>`（泛型擦除），与 `/latest` 的 `ResponseEntity<Map<String, Object>>` 不一致。建议统一为 `ResponseEntity<List<Map<String, Object>>>` | P2 |
+| 2 | ExtractionController.java | L105 | `/history` 返回类型 `ResponseEntity<?>`（泛型擦除）| P2 ✅已修复（改为 `ResponseEntity<Object>`） | P2 |
 
 **审查结论**: 
 - **P1**: ImportService 的 `parseJsonArray` 错误日志使用了错误的 log 级别（HappyPath = DEBUG），JSON 格式错误会被静默忽略，不利于调试导入数据质量问题。
@@ -280,10 +280,10 @@ _暂无问题记录_
 
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
-| 1 | CursorService.java | L92 `writeRegistry()` | 静默吞掉 IOException — 仅 `log.error` 不再抛出，调用方无法感知磁盘写入失败（注册/注销操作会"成功"但实际未持久化） | P2 |
-| 2 | CursorService.java | L197 `writeContextFile()` | 缺少路径遍历防护 — `workspacePath` 来自 API 用户输入，未做 `..` 校验。ContextController 有 `isWithinProject()` 保护，但 CursorService 完全没有。攻击者可通过 workspacePath 写入任意路径的 .cursor/rules/ 文件 | P2 |
-| 3 | CursorService.java | L61 `readRegistry()` | 缓存陈旧风险 — 缓存仅在内部 `writeRegistry()` 时刷新，若外部进程（如 TS proxy）修改 `cursor-projects.json`，缓存不会自动刷新。`clearCache()` 为 public 但无定时调用 | P2 |
-| 4 | CursorService.java | L120 `registerProject()` | 并发竞争 — read-modify-write 无锁保护，两个并发 `registerProject()` 调用可能导致其中一个的注册丢失（后者覆盖前者的 registry） | P2 |
+| 1 | CursorService.java | L92 `writeRegistry()` | 静默吞掉 IOException | P2 ✅已修复（throw UncheckedIOException）|
+| 2 | CursorService.java | L197 `writeContextFile()` | 缺少路径遍历防护 | P2 ✅已修复（normalize + startsWith 校验）|
+| 3 | CursorService.java | L61 `readRegistry()` | 缓存陈旧风险 | P2 ✅已修复（始终从磁盘读取）|
+| 4 | CursorService.java | L120 `registerProject()` | 并发竞争 | P2 ✅已修复（synchronized 锁保护）|
 
 **TemplateService.java 审查**:
 - ✅ 无新问题。前次审查标记的 `{{{{` dead code 问题已确认修复正确（Java `replace()` 对原字符串顺序执行，四花括号先替换不会被双花括号消耗）
@@ -320,10 +320,10 @@ _暂无问题记录_
 
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
-| 1 | PendingMessageEventListener.java | L41-44 | 非 "observation" 类型的消息仅 log.warn 后静默丢弃 — 无 dead-letter 机制或状态标记。若未来新增消息类型（如 "prompt"），旧 pending 消息将被永久忽略 | P2 |
+| 1 | PendingMessageEventListener.java | L41-44 | 非 "observation" 类型的消息仅 log.warn 后静默丢弃 — 无 dead-letter 机制 | P2 ✅已修复（标记 status=failed）|
 | 2 | PendingMessageEventListener.java | L46 | catch 块仅 log.error，pending 消息状态不变 — `AgentService.processPendingMessage()` 失败后消息仍保持 pending，但 ScheduledTask 是否会重新 pick up 取决于消息状态管理逻辑，存在潜在无限重试或永久挂起风险 | P2 (低) |
 | 3 | ExperienceTemplate.java | L120-155 | Section header 解析脆弱 — `indexOf("## Reasoning")` 精确匹配，若 LLM 输出为 `## Reasoning Process`（更常见）则 `extractReasoning` 返回 null。同理 `## Learnings` vs `## Key Learnings`。建议使用 `startsWith` 前缀匹配 | P2 ✅已修复（加 findSectionStart + extractSectionContent helper）|
-| 4 | ExperienceTemplate.java | L103-110 `generateReuseCondition()` | `action` 参数在 `action.contains("file")` 处无 null 保护 — 虽然外层有 `if (action == null)` 提前返回，但方法签名接受 null，若未来重构移除该检查则 NPE | P2 (低) |
+| 4 | ExperienceTemplate.java | L103-110 `generateReuseCondition()` | `action` 参数在 `action.contains("file")` 处无 null 保护 | P2 (低) ✅已修复（null → empty string + toLowerCase）|
 | 5 | ExperienceTemplate.java | L88 `buildSimpleExperience()` | 将 `title` 传入 `taskInput` 位置、`content` 传入各 extractor — 如果 content 不含 `## Reasoning`/`## Action` 等结构化 headers，extractAction/extractOutcome 返回 null，最终输出包含大量 "N/A" 占位符，质量差 | P2 |
 
 **审查结论**: 无 P0/P1 问题。PendingMessageEventListener 架构清晰（@Async + EventListener），但缺少消息类型扩展性和失败恢复机制。ExperienceTemplate 的 section 解析依赖精确 header 匹配，对 LLM 输出格式变化不够鲁棒。

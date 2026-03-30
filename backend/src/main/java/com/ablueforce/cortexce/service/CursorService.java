@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -39,6 +40,7 @@ public class CursorService {
 
     // In-memory cache of the registry
     private final Map<String, CursorProjectEntry> registryCache = new ConcurrentHashMap<>();
+    private final Object registryLock = new Object();
 
     /**
      * Project entry in the registry.
@@ -61,12 +63,8 @@ public class CursorService {
     public Map<String, CursorProjectEntry> readRegistry() {
         Path registryPath = getRegistryPath();
 
-        // Try cache first
-        if (!registryCache.isEmpty()) {
-            return new HashMap<>(registryCache);
-        }
-
         if (!Files.exists(registryPath)) {
+            registryCache.clear();
             return new HashMap<>();
         }
 
@@ -107,6 +105,7 @@ public class CursorService {
             log.debug("Wrote cursor registry with {} entries", registry.size());
         } catch (IOException e) {
             log.error("Failed to write cursor registry: {}", e.getMessage());
+            throw new UncheckedIOException("Failed to write cursor registry", e);
         }
     }
 
@@ -117,14 +116,14 @@ public class CursorService {
      * @param workspacePath The absolute path to the workspace
      */
     public void registerProject(String projectName, String workspacePath) {
-        Map<String, CursorProjectEntry> registry = readRegistry();
-
-        registry.put(projectName, new CursorProjectEntry(
-            workspacePath,
-            Instant.now().toString()
-        ));
-
-        writeRegistry(registry);
+        synchronized (registryLock) {
+            Map<String, CursorProjectEntry> registry = readRegistry();
+            registry.put(projectName, new CursorProjectEntry(
+                workspacePath,
+                Instant.now().toString()
+            ));
+            writeRegistry(registry);
+        }
         log.info("Registered Cursor project: {} -> {}", projectName, workspacePath);
     }
 
@@ -135,16 +134,16 @@ public class CursorService {
      * @return true if project was unregistered, false if it wasn't registered
      */
     public boolean unregisterProject(String projectName) {
-        Map<String, CursorProjectEntry> registry = readRegistry();
-
-        if (registry.containsKey(projectName)) {
-            registry.remove(projectName);
-            writeRegistry(registry);
-            log.info("Unregistered Cursor project: {}", projectName);
-            return true;
+        synchronized (registryLock) {
+            Map<String, CursorProjectEntry> registry = readRegistry();
+            if (registry.containsKey(projectName)) {
+                registry.remove(projectName);
+                writeRegistry(registry);
+                log.info("Unregistered Cursor project: {}", projectName);
+                return true;
+            }
+            return false;
         }
-
-        return false;
     }
 
     /**
@@ -207,8 +206,15 @@ public class CursorService {
      */
     public boolean writeContextFile(String workspacePath, String context) {
         try {
-            Path cursorDir = Paths.get(workspacePath, ".cursor");
-            Path rulesDir = cursorDir.resolve("rules");
+            Path workspace = Paths.get(workspacePath).normalize().toAbsolutePath();
+            Path cursorDir = workspace.resolve(".cursor").normalize();
+            Path rulesDir = cursorDir.resolve("rules").normalize();
+
+            // Path traversal protection: ensure resolved path stays within workspace
+            if (!cursorDir.startsWith(workspace) || !rulesDir.startsWith(workspace)) {
+                log.error("Path traversal detected in workspacePath: {}", workspacePath);
+                return false;
+            }
 
             // Ensure directory exists
             Files.createDirectories(rulesDir);
