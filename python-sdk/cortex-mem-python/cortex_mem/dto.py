@@ -555,7 +555,7 @@ class ExtractionResult:
             template=data.get("template") or "",
             message=data.get("message") or "",
             session_id=_first_non_null(data, "session_id", "sessionId") or "",
-            extracted_data=_to_dict(_first_non_null(data, "extracted_data", "extractedData")),
+            extracted_data=_to_dict(_first_non_null(data, "extractedData", "extracted_data")),
             created_at=_to_int(_first_non_null(data, "created_at", "createdAt")),
             observation_id=_first_non_null(data, "observation_id", "observationId") or "",
         )

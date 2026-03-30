@@ -1,6 +1,6 @@
 """Cortex CE Python SDK — Demo HTTP Server (Flask).
 
-Exposes all 26 SDK methods as REST endpoints, mirroring the Go http-server demo.
+Exposes all 25 SDK API methods as REST endpoints, mirroring the Go http-server demo.
 
 Usage:
     export CORTEX_BASE_URL=http://127.0.0.1:37777  # optional
