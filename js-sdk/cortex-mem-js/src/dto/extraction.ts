@@ -2,7 +2,7 @@
 // Extraction DTOs
 // ============================================================
 
-import { safeString, safeStringOr, safeNumberOr, safeRecord } from './wire-helpers';
+import { safeString, safeStringOr, safeNumberOr, safeRecord, firstNonNullOr } from './wire-helpers';
 
 /**
  * Extraction result from the backend.
@@ -31,7 +31,7 @@ export function parseExtractionResult(raw: Record<string, unknown>): ExtractionR
     template: safeString(raw.template),
     message: safeString(raw.message),
     sessionId: safeStringOr(raw.sessionId, ''),
-    extractedData: safeRecord(raw.extractedData) ?? {},
+    extractedData: safeRecord(firstNonNullOr(raw, ['extractedData', 'extracted_data'])) ?? {},
     createdAt: safeNumberOr(raw.createdAt, 0),
     observationId: safeStringOr(raw.observationId, ''),
   };

@@ -1350,6 +1350,29 @@ describe('parseExtractionResult', () => {
     expect(result.observationId).toBe('123');
     expect(result.extractedData).toEqual({}); // non-object → empty
   });
+
+  it('should prefer camelCase extractedData over snake_case', () => {
+    const raw = {
+      sessionId: 's1',
+      extractedData: { key: 'camel' },
+      extracted_data: { key: 'snake' },
+      createdAt: 0,
+      observationId: 'o1',
+    };
+    const result = parseExtractionResult(raw);
+    expect(result.extractedData).toEqual({ key: 'camel' });
+  });
+
+  it('should fall back to snake_case extracted_data when camelCase is absent', () => {
+    const raw = {
+      sessionId: 's1',
+      extracted_data: { key: 'snake_val' },
+      createdAt: 0,
+      observationId: 'o1',
+    };
+    const result = parseExtractionResult(raw);
+    expect(result.extractedData).toEqual({ key: 'snake_val' });
+  });
 });
 
 // ==================== APIError.toJSON ====================
