@@ -639,8 +639,8 @@ func TestSessionUserUpdateResponse_Deserialization(t *testing.T) {
 // ==================== Experience Wire Format Tests ====================
 
 func TestExperience_Deserialization(t *testing.T) {
-	// Backend ExpRagService.Experience record uses camelCase (Jackson default)
-	jsonData := `{"id":"exp-1","task":"handle auth","strategy":"use JWT","outcome":"success","reuseCondition":"similar auth flows","qualityScore":0.85,"createdAt":"2026-03-28T10:00:00Z"}`
+	// Backend uses SNAKE_CASE naming strategy (verified by go-sdk-e2e-test.sh)
+	jsonData := `{"id":"exp-1","task":"handle auth","strategy":"use JWT","outcome":"success","reuse_condition":"similar auth flows","quality_score":0.85,"created_at":"2026-03-28T10:00:00Z"}`
 	var exp Experience
 	if err := json.Unmarshal([]byte(jsonData), &exp); err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
@@ -649,13 +649,13 @@ func TestExperience_Deserialization(t *testing.T) {
 		t.Errorf("expected id=exp-1, got %s", exp.ID)
 	}
 	if exp.ReuseCondition != "similar auth flows" {
-		t.Errorf("expected reuseCondition='similar auth flows', got %q", exp.ReuseCondition)
+		t.Errorf("expected reuse_condition='similar auth flows', got %q", exp.ReuseCondition)
 	}
 	if exp.QualityScore != 0.85 {
-		t.Errorf("expected qualityScore=0.85, got %f", exp.QualityScore)
+		t.Errorf("expected quality_score=0.85, got %f", exp.QualityScore)
 	}
 	if exp.CreatedAt != "2026-03-28T10:00:00Z" {
-		t.Errorf("expected createdAt, got %s", exp.CreatedAt)
+		t.Errorf("expected created_at, got %s", exp.CreatedAt)
 	}
 }
 
