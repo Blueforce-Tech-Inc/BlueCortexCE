@@ -28,6 +28,7 @@ This document describes the REST API for Cortex Community Edition backend.
 - [Cursor](#cursor)
 - [Streaming](#streaming)
 - [Error Codes](#error-codes)
+- [Test Endpoints](#test-endpoints)
 - [Usage Examples](#usage-examples)
 - [Appendix](#appendix)
 - [Changelog](#changelog)
@@ -1416,6 +1417,85 @@ Server-Sent Events endpoint for real-time updates.
 
 ---
 
+## Test Endpoints
+
+> ⚠️ Only available in non-production environments (`@Profile("!prod")`). Use to validate AI model configuration and connectivity.
+
+### Test LLM Connectivity
+
+```
+GET /api/test/llm
+```
+
+Sends a simple prompt to the configured LLM provider and returns the response.
+
+**Response** (`200 OK`, success):
+```json
+{
+  "status": "success",
+  "message": "LLM (DeepSeek) is working!",
+  "response": "Hello from DeepSeek!"
+}
+```
+
+**Response** (`500`, failure):
+```json
+{
+  "status": "error",
+  "message": "LLM (DeepSeek) failed: ..."
+}
+```
+
+### Test Embedding Connectivity
+
+```
+GET /api/test/embedding
+```
+
+Generates a test embedding vector and returns its dimensionality.
+
+**Response** (`200 OK`, success):
+```json
+{
+  "status": "success",
+  "message": "Embedding (SiliconFlow BGE-M3) is working!",
+  "dimensions": 1024
+}
+```
+
+**Response** (`200 OK`, not configured):
+```json
+{
+  "status": "disabled",
+  "message": "Embedding is not configured (no API key)",
+  "hint": "Set spring.ai.openai.embedding.api-key in application-dev.yml"
+}
+```
+
+### Test All
+
+```
+GET /api/test/all
+```
+
+Runs both LLM and Embedding connectivity tests and returns combined results.
+
+**Response** (`200 OK`):
+```json
+{
+  "llm": {
+    "status": "success",
+    "message": "LLM is working!"
+  },
+  "embedding": {
+    "status": "success",
+    "dimensions": 1024
+  }
+}
+```
+
+---
+
 ## Usage Examples
 
 ### cURL Examples
@@ -1722,6 +1802,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-03-31 | 0.1.0-beta+ | Enriched Viewer, Management, Mode, Health, Cursor, Logs sections with parameter tables and response examples; synced with Chinese version completeness |
 | 2026-03-31 | 0.1.0-beta++ | Added Session Start response example; corrected Delete Observation response (200 OK with body, not 204 No Content); synced Chinese changelog |
 | 2026-03-31 | 0.1.0-beta+++ | Corrected Memory Refine (query param, not JSON body); corrected Feedback request fields (observationId/feedbackType, not session_id/feedback_type); added userId field to Experiences and ICL Prompt; synced Chinese version |
+| 2026-03-31 | 0.1.0-beta++++ | Added Test endpoints section (/api/test/llm, /embedding, /all); added Overview section to Chinese version; synced TOC; synced changelog |
 | 2026-03-13 | 0.1.0 | Initial API documentation |
 
 ---

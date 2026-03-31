@@ -8,26 +8,48 @@
 
 ---
 
+## 概述
+
+本文档描述 Cortex Community Edition 后端的 REST API。API 遵循 RESTful 原则，支持同步请求和 Server-Sent Events (SSE) 流式响应。
+
+### 基础 URL
+
+```
+http://localhost:37777
+```
+
+### Content-Type
+
+所有请求和响应使用 JSON 格式：
+
+```
+Content-Type: application/json
+```
+
+---
+
 ## 目录
 
-1. [认证](#认证)
-2. [通用响应格式](#通用响应格式)
-3. [错误码说明](#错误码说明)
-4. [Health 健康检查](#health-健康检查)
-5. [Session 会话管理](#session-会话管理)
-6. [Context 上下文](#context-上下文)
-7. [Ingestion 数据摄入](#ingestion-数据摄入)
-8. [Extraction 结构化提取](#extraction-结构化提取)
-9. [Viewer 查看器](#viewer-查看器)
-10. [Memory 记忆管理](#memory-记忆管理)
-11. [Mode 模式管理](#mode-模式管理)
-12. [Logs 日志管理](#logs-日志管理)
-13. [Import 数据导入](#import-数据导入)
-14. [Cursor IDE 集成](#cursor-ide-集成)
-15. [SSE 流式推送](#sse-流式推送)
-16. [使用示例](#使用示例)
-17. [附录](#附录)
-18. [更新日志](#更新日志)
+1. [概述](#概述)
+2. [认证](#认证)
+3. [通用响应格式](#通用响应格式)
+4. [错误码说明](#错误码说明)
+5. [Health 健康检查](#health-健康检查)
+6. [Session 会话管理](#session-会话管理)
+7. [Context 上下文](#context-上下文)
+8. [Ingestion 数据摄入](#ingestion-数据摄入)
+9. [Extraction 结构化提取](#extraction-结构化提取)
+10. [Viewer 查看器](#viewer-查看器)
+11. [Memory 记忆管理](#memory-记忆管理)
+12. [Mode 模式管理](#mode-模式管理)
+13. [Logs 日志管理](#logs-日志管理)
+14. [Import 数据导入](#import-数据导入)
+15. [Cursor IDE 集成](#cursor-ide-集成)
+16. [SSE 流式推送](#sse-流式推送)
+17. [Test 测试端点](#test-测试端点)
+18. [使用示例](#使用示例)
+19. [附录](#附录)
+20. [更新日志](#更新日志)
 
 ---
 
@@ -80,6 +102,8 @@
 | 200 | OK | 请求成功 |
 | 201 | Created | 资源创建成功 |
 | 400 | Bad Request | 请求参数错误 |
+| 401 | Unauthorized | 未授权 |
+| 403 | Forbidden | 禁止访问 |
 | 404 | Not Found | 资源不存在 |
 | 429 | Too Many Requests | 速率限制触发 |
 | 500 | Internal Server Error | 服务器内部错误 |
@@ -1764,6 +1788,92 @@ eventSource.onmessage = (event) => {
 
 ---
 
+## Test 测试端点
+
+> ⚠️ 仅在非生产环境可用（`@Profile("!prod")`）。用于验证 AI 模型配置和连接性。
+
+#### GET `/api/test/llm`
+
+测试 LLM 连接性。发送简单提示并返回模型响应。
+
+**请求示例**:
+```bash
+curl http://localhost:37777/api/test/llm
+```
+
+**响应示例** (`200 OK`):
+```json
+{
+  "status": "success",
+  "message": "LLM (DeepSeek) is working!",
+  "response": "Hello from DeepSeek!"
+}
+```
+
+**错误响应** (`500`):
+```json
+{
+  "status": "error",
+  "message": "LLM (DeepSeek) failed: ..."
+}
+```
+
+---
+
+#### GET `/api/test/embedding`
+
+测试 Embedding 连接性。生成测试向量并返回维度信息。
+
+**请求示例**:
+```bash
+curl http://localhost:37777/api/test/embedding
+```
+
+**响应示例** (`200 OK`):
+```json
+{
+  "status": "success",
+  "message": "Embedding (SiliconFlow BGE-M3) is working!",
+  "dimensions": 1024
+}
+```
+
+**未配置时** (`200 OK`):
+```json
+{
+  "status": "disabled",
+  "message": "Embedding is not configured (no API key)",
+  "hint": "Set spring.ai.openai.embedding.api-key in application-dev.yml"
+}
+```
+
+---
+
+#### GET `/api/test/all`
+
+同时运行 LLM 和 Embedding 测试。
+
+**请求示例**:
+```bash
+curl http://localhost:37777/api/test/all
+```
+
+**响应示例** (`200 OK`):
+```json
+{
+  "llm": {
+    "status": "success",
+    "message": "LLM is working!"
+  },
+  "embedding": {
+    "status": "success",
+    "dimensions": 1024
+  }
+}
+```
+
+---
+
 ## 使用示例
 
 ### cURL 示例
@@ -2070,6 +2180,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-03-31 | 0.1.0-beta+ | 补充 Viewer、Management、Mode、Health、Cursor、Logs 参数表和响应示例；同步英文版完整度 |
 | 2026-03-31 | 0.1.0-beta++ | 修正 Delete Observation 响应（200 OK with body，非 204 No Content）；同步英文版 Session Start 响应示例 |
 | 2026-03-31 | 0.1.0-beta+++ | 修正 Memory Refine（查询参数，非 JSON 请求体）；修正 Feedback 请求字段（observationId/feedbackType，非 session_id/feedback_type）；补充 Experiences 和 ICL Prompt 的 userId 字段；同步英文版 |
+| 2026-03-31 | 0.1.0-beta++++ | 新增 Test 测试端点章节（/api/test/llm、/embedding、/all）；补充概述章节（Base URL + Content-Type）；同步 TOC；同步更新日志 |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---
