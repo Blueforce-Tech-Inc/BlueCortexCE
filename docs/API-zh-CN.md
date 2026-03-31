@@ -1234,7 +1234,13 @@ curl http://localhost:37777/api/modes
 **路径参数**:
 - `id` - 观察 UUID
 
-**响应**: `204 No Content`
+**响应** (`200 OK`):
+```json
+{
+  "status": "deleted",
+  "id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
 
 ---
 
@@ -2022,6 +2028,8 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 日期 | 版本 | 变更 |
 |------|------|------|
 | 2026-03-31 | 0.1.0-beta | 新增 Extraction (/run, /latest, /history)、Cursor、Mode、Logs、Import、Viewer 章节；修复 Session API 路径；同步英文版完整结构 |
+| 2026-03-31 | 0.1.0-beta+ | 补充 Viewer、Management、Mode、Health、Cursor、Logs 参数表和响应示例；同步英文版完整度 |
+| 2026-03-31 | 0.1.0-beta++ | 修正 Delete Observation 响应（200 OK with body，非 204 No Content）；同步英文版 Session Start 响应示例 |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---

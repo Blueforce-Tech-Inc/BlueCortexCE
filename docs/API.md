@@ -117,6 +117,21 @@ Content-Type: application/json
 | `parent_project` | string | ❌ | Parent project name (worktree mode) |
 | `user_id` | string | ❌ | User ID for Phase 3 multi-user support |
 
+**Response** (`200 OK`):
+```json
+{
+  "context": "# Recent Work\n\n...",
+  "updateFiles": [
+    {
+      "path": "/path/to/project/CLAUDE.md",
+      "content": "# Claude-Mem Context\n\n..."
+    }
+  ],
+  "session_db_id": "550e8400-e29b-41d4-a716-446655440000",
+  "prompt_number": 1
+}
+```
+
 ### Get Session
 
 ```
@@ -234,6 +249,14 @@ Supported fields: `title`, `content` (or `narrative`), `subtitle`, `source`, `fa
 
 ```
 DELETE /api/memory/observations/{observationId}
+```
+
+**Response** (`200 OK`):
+```json
+{
+  "status": "deleted",
+  "id": "550e8400-e29b-41d4-a716-446655440000"
+}
 ```
 
 ### Get Experiences (ExpRAG)
@@ -1646,6 +1669,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 |------|---------|---------|
 | 2026-03-31 | 0.1.0-beta | Added Extraction (/run, /latest, /history), Cursor, Mode, Logs, Import, Viewer sections; Added Usage Examples, Appendix, Changelog; Synced with Chinese version |
 | 2026-03-31 | 0.1.0-beta+ | Enriched Viewer, Management, Mode, Health, Cursor, Logs sections with parameter tables and response examples; synced with Chinese version completeness |
+| 2026-03-31 | 0.1.0-beta++ | Added Session Start response example; corrected Delete Observation response (200 OK with body, not 204 No Content); synced Chinese changelog |
 | 2026-03-13 | 0.1.0 | Initial API documentation |
 
 ---
