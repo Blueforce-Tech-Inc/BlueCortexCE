@@ -4774,12 +4774,12 @@ cat backend/.env | grep -E "SPRING_DATASOURCE|SPRING_AI"
 | 3 | ObservationRepository 5 new methods | ✅ Done | `cca84e0` | Build + regression 43/43 |
 | 4 | LlmService.chatCompletionStructured() | ✅ Done | `cca84e0` | Build passes |
 | 5 | Session API — userId support | ✅ Done | `cca84e0` | curl tests pass |
-| **6** | **StructuredExtractionService** | **🔧 Next** | — | Build + service starts |
-| 7 | DeepRefine integration | 🔧 Pending | — | Build + regression |
-| 8 | Extraction Query API + ICL integration | 🔧 Pending | — | curl tests pass |
-| 9 | YAML configuration | 🔧 Pending | — | Build + logs check |
-| 10 | SDK client update | 🔧 Pending | — | SDK + Demo build |
-| 11 | E2E acceptance tests | 🔧 Pending | — | 12/12 checks pass |
+| 6 | StructuredExtractionService | ✅ Done | — | Build + append-only extraction functional |
+| 7 | DeepRefine integration | ✅ Done | — | `MemoryRefineService` calls `extractionService.runExtraction()` |
+| 8 | Extraction Query API + ICL integration | ⚠️ Partial | — | ExtractionController done; MemoryController userId not yet wired (Step 8.2/8.3 pending) |
+| 9 | YAML configuration | ✅ Done | — | `application.yml` extraction config present |
+| 10 | SDK client update | ✅ Done | — | `getLatestExtraction`, `getExtractionHistory`, `updateSessionUserId` in SDK |
+| 11 | E2E acceptance tests | ✅ Done | — | `demo-v15-extraction-test.sh`, `phase3-acceptance-test.sh` exist |
 
 ---
 
@@ -5752,33 +5752,36 @@ response=$(curl -sf -X POST "${DEMO_URL}/memory/icl-prompt" \
 | 3 | ObservationRepository 5 methods | — | 30 min | ✅ Done | ObservationRepository.java |
 | 4 | LlmService.chatCompletionStructured() | — | 1 hr | ✅ Done | LlmService.java |
 | 5 | Session API userId support | Steps 1,2 | 1 hr | ✅ Done | SessionController.java |
-| **6** | **StructuredExtractionService** | Steps 3,4 | **3-4 hr** | **🔧 Next** | **ExtractionConfig.java (NEW), StructuredExtractionService.java (NEW)** |
-| 7 | DeepRefine integration | Step 6 | 30 min | 🔧 Pending | MemoryRefineService.java (modify) |
-| 8 | Query API + ICL userId | Steps 5,6 | 2 hr | 🔧 Pending | ExtractionController.java (NEW), MemoryController.java (modify) |
-| 9 | YAML configuration | Step 6 | 30 min | 🔧 Pending | application.yml (modify) |
-| 10 | SDK client update | Steps 5,8 | 1 hr | 🔧 Pending | 5 SDK files (modify) |
-| 11 | E2E acceptance tests | All above | 2 hr | 🔧 Pending | demo-v15-extraction-test.sh (NEW) |
+| 6 | StructuredExtractionService | Steps 3,4 | 3-4 hr | ✅ Done | ExtractionConfig.java, StructuredExtractionService.java |
+| 7 | DeepRefine integration | Step 6 | 30 min | ✅ Done | MemoryRefineService.java (modified) |
+| 8 | Query API + ICL userId | Steps 5,6 | 2 hr | ⚠️ Partial | ExtractionController.java (done); MemoryController userId (pending) |
+| 9 | YAML configuration | Step 6 | 30 min | ✅ Done | application.yml (modified) |
+| 10 | SDK client update | Steps 5,8 | 1 hr | ✅ Done | SDK files (modified) |
+| 11 | E2E acceptance tests | All above | 2 hr | ✅ Done | demo-v15-extraction-test.sh, phase3-acceptance-test.sh |
 
-**Remaining estimate**: Steps 6-11 = ~10-11 hours
-**Critical path**: Step 6 → Step 7 → (Steps 8,9 parallel) → Step 10 → Step 11
+**Remaining work**: Step 8.2/8.3 — wire `userId` from `ExperienceRequest`/`ICLPromptRequest` DTOs into `MemoryController`'s experiences and ICL-prompt handlers (~30 min).
+**Critical path**: Only Step 8.2/8.3 remains.
 
 ### New Files Created During Implementation
 
 | File | Step | Purpose |
 |------|------|---------|
 | `config/ExtractionConfig.java` | 6.1 | `@ConfigurationProperties` for extraction |
-| `service/StructuredExtractionService.java` | 6.2 | Core extraction engine (13 methods) |
+| `service/StructuredExtractionService.java` | 6.2 | Core extraction engine (append-only extraction, 13 methods) |
 | `controller/ExtractionController.java` | 8.1 | Query + trigger API (3 endpoints) |
-| `scripts/demo-v15-extraction-test.sh` | 11 | E2E acceptance test (12 checks) |
+| `scripts/demo-v15-extraction-test.sh` | 11 | E2E acceptance test |
+| `scripts/phase3-acceptance-test.sh` | 11 | Phase 3 acceptance test suite |
 
 ### Modified Files During Implementation
 
 | File | Step | Change |
 |------|------|--------|
-| `MemoryRefineService.java` | 7 | Add extractionService field + call at end of deepRefine |
-| `MemoryController.java` | 8 | Accept userId in ICL + experiences endpoints |
-| `application.yml` | 9 | Add extraction template config (under `app.memory.extraction`) |
-| SDK files (5) | 10 | Add userId field + extraction query methods |
+| `MemoryRefineService.java` | 7 | Added `extractionService` field + `runExtraction()` call at end of `deepRefineProjectMemories()` |
+| `application.yml` | 9 | Added `app.memory.extraction` config section with template |
+| `SessionController.java` | 5 | userId support in session start + PATCH endpoint |
+| SDK files (5) | 10 | Added `getLatestExtraction()`, `getExtractionHistory()`, `updateSessionUserId()` |
+| `ApiRequests.java` | 8 | Added `userId` field to `ExperienceRequest` and `ICLPromptRequest` DTOs |
+| `MemoryController.java` | 8.2/8.3 | ⚠️ **PENDING**: DTOs have userId but controller methods don't wire it yet |
 
 ---
 
