@@ -323,8 +323,8 @@ func extractErrorMessage(data []byte) string {
 }
 
 // jitteredBackoff calculates a jittered backoff delay for retry attempts.
-// Base delay = baseDelay * attempt, jittered to [0.75x, 1.25x] to prevent thundering herd.
-// Matches Java SDK CortexMemClientImpl.jitteredBackoff() for consistent behavior across SDKs.
+// Base delay = baseDelay * attempt (linear backoff), jittered to [0.75x, 1.25x] to prevent thundering herd.
+// Note: Java SDK uses exponential backoff (baseDelay * 2^attempt). Both are valid strategies.
 func jitteredBackoff(baseDelay time.Duration, attempt int) time.Duration {
 	base := baseDelay * time.Duration(attempt)
 	jitterRange := int64(base) / 2
@@ -340,7 +340,7 @@ func jitteredBackoff(baseDelay time.Duration, attempt int) time.Duration {
 }
 
 // doFireAndForget executes a capture operation with retry and error swallowing.
-// Matches Java SDK's executeWithRetry behavior: retries internally, logs on failure.
+// Retries internally on transient errors, logs on failure. Errors are swallowed (fire-and-forget semantics).
 // Retries on network errors, 429, 502, 503, 504. Does NOT retry on 4xx or 500.
 // If the context is already cancelled, skips execution entirely (fire-and-forget optimization).
 func (c *httpClient) doFireAndForget(ctx context.Context, name string, fn func() error) error {

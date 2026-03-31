@@ -541,3 +541,22 @@
 - **编译**: ✅ SDK + Demo 均 BUILD SUCCESS
 - **测试**: ✅ 全部通过
 - **已修复 4 个 P2 问题并 commit** (`cf78f5a`)
+
+### 2026-04-01 06:02 | Go SDK 审查 #2
+
+**审查范围**: `client.go`, `client_impl.go`, `client_methods.go`, `error.go`, all DTO files, integration layers (eino/genkit/langchaingo), demo (http-server/basic/eino/genkit/langchaingo)
+
+**审查结论**:
+- **整体质量**: 优秀。26 个 API 方法实现完整，input validation 全面（null/blank/range 检查），fire-and-forget vs propagate 分离清晰，retry 机制（jittered backoff, transient-only）实现到位。
+- **测试**: 94.9% 语句覆盖率（主包），87.5%（DTO），全部通过。
+- **go vet**: ✅ 无问题。
+- **Wire format**: 全部 DTO 字段名与后端 @JsonProperty / Jackson 命名策略一致。
+- **错误处理**: `ValidationError` + `APIError` 双层设计优秀，`IsRetryable`/`IsNotFound` 等 helper 完整。
+- **Integration layers**: eino/retriever.go, genkit/retriever.go, langchaingo/memory.go 适配正确，nil client panic（fail-fast）合理。
+- **Demo**: http-server 完整覆盖 28 个端点，input validation、recovery middleware、graceful shutdown 均实现。
+- **P0/P1 问题**: 无。
+- **文档注释**: `jitteredBackoff` 注释声称 "Matches Java SDK CortexMemClientImpl.jitteredBackoff()"，但实际 Go 使用 **linear** backoff (`baseDelay * attempt`)，Java 使用 **exponential** backoff (`baseDelay * 2^attempt`)。不影响功能（Go linear backoff 行为正确），仅注释不准确。**已修正注释**。
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | client_impl.go | L269 | `jitteredBackoff` 注释声称 "Matches Java SDK"，但 Go=linear (`base * attempt`)，Java=exponential (`base * 2^attempt`) | P2 ✅已修正注释 |
