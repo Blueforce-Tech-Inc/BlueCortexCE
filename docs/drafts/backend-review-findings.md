@@ -11,9 +11,9 @@
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **4** | 4 个事务一致性问题（低风险，见审查 #13）+ 4 个跳过项为设计决策 |
+| **P2** (建议修复) | **0** | 所有 P2 已修复（含审查 #13 的 4 个事务一致性问题） |
 | **⏭ 跳过** | **4** | 非 bug，属设计决策或代码风格偏好 |
-| **✅ 已修复** | **~50** | 历史累计，含已修复的 P1/P2 |
+| **✅ 已修复** | **~54** | 历史累计，含已修复的 P1/P2 |
 
 ### ⏭ 跳过的设计决策（非 bug，无需修复）
 
@@ -24,7 +24,7 @@
 | 3 | SettingsService.java | if-else 链硬编码字段名 | 代码卫生问题，当前功能正确 |
 | 4 | API.md | TestController (`/api/test/*`) 未文档化 | 仅 dev 环境可用，有意排除 |
 
-**结论**: 后端代码质量优秀，无待修复问题 ✅
+**结论**: 后端代码质量优秀，所有问题已修复 ✅
 
 ---
 
@@ -463,10 +463,10 @@
 
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
-| 1 | MemoryController.java | L230-245 `submitFeedback` | read-then-write 模式无 `@Transactional`：`findById()` + `setFeedbackType()` + `save()` 在非事务上下文执行。并发调用可能导致 lost update（两个请求同时读取同一 observation，各自修改不同字段，后写覆盖前写）。建议加 `@Transactional` | P2 |
-| 2 | MemoryController.java | L187-207 `getQualityDistribution` | 异常被静默捕获并以 200 OK 返回 zeros + `error` 字段。客户端无法区分"真实零数据"和"DB 异常"。建议异常时返回 500 | P2 |
-| 3 | StructuredExtractionService.java | L690-714 `storeExtractionResult` | session find-or-create + observation save 无 `@Transactional`。并发 extraction 可能创建重复 session（两个线程同时 `findByContentSessionId` 返回空，各自创建）。Spring Data JPA 默认 auto-commit，但无事务边界保证原子性 | P2 |
-| 4 | IngestionController.java | L179 `handleUserPrompt` | `ensureSession` + `save` 无事务边界。虽然功能正确（ensureSession 是幂等的），但 ensureSession 内部可能触发 session 创建 + user_prompt 插入，两次 DB 写入无原子性保证 | P2 (低) |
+| 1 | MemoryController.java | L230-245 `submitFeedback` | read-then-write 模式无 `@Transactional`：`findById()` + `setFeedbackType()` + `save()` 在非事务上下文执行。并发调用可能导致 lost update | P2 ✅已修复（添加 @Transactional） |
+| 2 | MemoryController.java | L187-207 `getQualityDistribution` | 异常被静默捕获并以 200 OK 返回 zeros + `error` 字段。客户端无法区分"真实零数据"和"DB 异常" | P2 ✅已修复（异常时返回 500） |
+| 3 | StructuredExtractionService.java | L690-714 `storeExtractionResult` | session find-or-create + observation save 无 `@Transactional`。并发 extraction 可能创建重复 session | P2 ✅已修复（提取为 ExtractionStorageService，@Transactional 保护） |
+| 4 | IngestionController.java | L179 `handleUserPrompt` | `ensureSession` + `save` 无事务边界。两次 DB 写入无原子性保证 | P2 (低) ✅已修复（添加 @Transactional） |
 
 **审查结论**:
 - **ExtractionController.java**: 质量良好。Swagger 注解完整（3 端点均有 Operation/ApiResponses/Parameter），输入验证到位（projectPath null/blank 检查），limit clamp (1-100) 正确，错误处理一致（try-catch + 500）。`/run` 端点同步执行无问题（已有 timeout 文档说明）。

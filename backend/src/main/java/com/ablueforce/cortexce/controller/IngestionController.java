@@ -22,6 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -221,6 +222,7 @@ public class IngestionController {
         description = "User prompt event request",
         required = true,
         content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.UserPromptRequest.class)))
+    @Transactional
     public ResponseEntity<Map<String, String>> handleUserPrompt(@org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.UserPromptRequest body) {
         String contentSessionId = body.sessionId();
         String promptText = body.promptText();

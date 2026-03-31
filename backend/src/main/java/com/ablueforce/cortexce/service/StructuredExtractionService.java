@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -42,15 +43,18 @@ public class StructuredExtractionService {
     private final ObservationRepository observationRepository;
     private final SessionRepository sessionRepository;
     private final LlmService llmService;
+    private final ExtractionStorageService extractionStorageService;
 
     public StructuredExtractionService(ExtractionConfig extractionConfig,
                                        ObservationRepository observationRepository,
                                        SessionRepository sessionRepository,
-                                       LlmService llmService) {
+                                       LlmService llmService,
+                                       ExtractionStorageService extractionStorageService) {
         this.extractionConfig = extractionConfig;
         this.observationRepository = observationRepository;
         this.sessionRepository = sessionRepository;
         this.llmService = llmService;
+        this.extractionStorageService = extractionStorageService;
     }
 
     // ==========================================================================
@@ -82,7 +86,7 @@ public class StructuredExtractionService {
                 runTemplateExtraction(projectPath, template);
             } catch (Exception e) {
                 log.error("Extraction failed for template '{}': {}", template.getName(), e.getMessage(), e);
-                storeDLQ(projectPath, template.getName(), e.getMessage());
+                extractionStorageService.storeDLQ(projectPath, template.getName(), e.getMessage());
             }
         }
 
@@ -120,7 +124,7 @@ public class StructuredExtractionService {
                 String targetSessionId = resolveSessionId(template.getSessionIdPattern(), projectPath, userId);
                 String priorJson = fetchPriorJson(targetSessionId, template.getName());
                 Map<String, Object> result = extractByTemplate(template, filtered, priorJson);
-                storeExtractionResult(template, result, filtered, targetSessionId, projectPath);
+                extractionStorageService.storeExtractionResult(template, result, filtered, targetSessionId, projectPath);
             } catch (Exception e) {
                 log.error("Re-extraction failed for session {} template {}: {}",
                     sessionId, template.getName(), e.getMessage());
@@ -200,7 +204,7 @@ public class StructuredExtractionService {
                     List<ObservationEntity> batch = userObs.subList(i, end);
 
                     Map<String, Object> result = extractByTemplate(template, batch, priorJson);
-                    storeExtractionResult(template, result, batch, targetSessionId, projectPath);
+                    extractionStorageService.storeExtractionResult(template, result, batch, targetSessionId, projectPath);
 
                     // After first batch, use latest result as prior
                     priorJson = toJson(result);
@@ -666,88 +670,7 @@ public class StructuredExtractionService {
     // Storage
     // ==========================================================================
 
-    /**
-     * Store extraction result as a new ObservationEntity (append-only).
-     */
-    private void storeExtractionResult(TemplateConfig template,
-                                        Map<String, Object> result,
-                                        List<ObservationEntity> sourceObservations,
-                                        String targetSessionId,
-                                        String projectPath) {
-        if (result == null || result.isEmpty()) {
-            log.warn("Empty extraction result for template '{}', skipping storage", template.getName());
-            return;
-        }
-
-        // Ensure target session exists (FK constraint: mem_observations.content_session_id → mem_sessions)
-        sessionRepository.findByContentSessionId(targetSessionId)
-            .orElseGet(() -> {
-                log.info("Creating extraction session: {}", targetSessionId);
-                com.ablueforce.cortexce.entity.SessionEntity session = new com.ablueforce.cortexce.entity.SessionEntity();
-                session.setContentSessionId(targetSessionId);
-                session.setProjectPath(projectPath);
-                session.setStatus("extraction");
-                session.setStartedAtEpoch(System.currentTimeMillis());
-                return sessionRepository.save(session);
-            });
-
-        ObservationEntity extraction = new ObservationEntity();
-        extraction.setContentSessionId(targetSessionId);
-        extraction.setProjectPath(projectPath);
-        extraction.setType("extracted_" + template.getName());
-        extraction.setTitle("Extraction: " + template.getName());
-        extraction.setContent("Structured extraction result for template: " + template.getName());
-        extraction.setSource("llm_extraction");
-        extraction.setExtractedData(result);
-        extraction.setCreatedAt(Instant.now().atOffset(java.time.ZoneOffset.UTC));
-        extraction.setCreatedAtEpoch(System.currentTimeMillis());
-        extraction.setPromptNumber(0);
-        extraction.setConcepts(List.of("extraction", template.getName()));
-
-        // Link to source observations
-        String sourceIds = sourceObservations.stream()
-            .map(o -> o.getId().toString())
-            .collect(Collectors.joining(","));
-        extraction.setRefinedFromIds(sourceIds);
-
-        observationRepository.save(extraction);
-        log.info("Stored extraction result for template '{}' in session '{}' ({} source observations)",
-            template.getName(), targetSessionId, sourceObservations.size());
-    }
-
-    /**
-     * Store extraction failure in DLQ (dead letter queue).
-     */
-    private void storeDLQ(String projectPath, String templateName, String errorMsg) {
-        try {
-            // Ensure DLQ session exists (FK constraint)
-            String dlqSessionId = "dlq:extraction";
-            sessionRepository.findByContentSessionId(dlqSessionId)
-                .orElseGet(() -> {
-                    log.info("Creating DLQ session: {}", dlqSessionId);
-                    com.ablueforce.cortexce.entity.SessionEntity session = new com.ablueforce.cortexce.entity.SessionEntity();
-                    session.setContentSessionId(dlqSessionId);
-                    session.setProjectPath(projectPath);
-                    session.setStatus("dlq");
-                    session.setStartedAtEpoch(System.currentTimeMillis());
-                    return sessionRepository.save(session);
-                });
-
-            ObservationEntity dlq = new ObservationEntity();
-            dlq.setContentSessionId(dlqSessionId);
-            dlq.setProjectPath(projectPath);
-            dlq.setType("extraction_failed");
-            dlq.setTitle("Extraction failed: " + templateName);
-            dlq.setContent(errorMsg);
-            dlq.setSource("system");
-            dlq.setExtractedData(Map.of("template", templateName, "error", errorMsg));
-            dlq.setCreatedAt(Instant.now().atOffset(java.time.ZoneOffset.UTC));
-            dlq.setCreatedAtEpoch(System.currentTimeMillis());
-            observationRepository.save(dlq);
-        } catch (Exception e) {
-            log.error("Failed to store DLQ entry: {}", e.getMessage());
-        }
-    }
+    // storeExtractionResult and storeDLQ moved to ExtractionStorageService (transactional)
 
     // ==========================================================================
     // Helpers

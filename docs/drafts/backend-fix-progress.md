@@ -67,3 +67,22 @@
 - Phase 3 Acceptance: `EXTRACTION_ENABLED=true bash scripts/phase3-acceptance-test.sh` ✅（25/25 tests passed）
 
 **汇总**: 修复 1 个 P2 问题（线程安全：HashMap → ConcurrentHashMap）。
+
+## 2026-03-31 | 集中修复批次 #4
+
+**来源**: backend-review-findings.md (#13, 2026-03-31 12:32) — 4 个未修复 P2 事务一致性问题
+
+| # | 文件 | 问题 | 级别 | 修复方式 | 状态 |
+|---|------|------|------|----------|------|
+| 1 | MemoryController.java `submitFeedback` | read-then-write 无 @Transactional | P2 | 添加 @Transactional 注解 | ✅已修复 |
+| 2 | MemoryController.java `getQualityDistribution` | 异常返回 200 OK 而非 500 | P2 | 改为返回 500 + error 字段，添加 Swagger 500 注解 | ✅已修复 |
+| 3 | StructuredExtractionService.java `storeExtractionResult` | session find-or-create + save 无 @Transactional（private 方法不可代理） | P2 | 提取为新 `ExtractionStorageService` bean，public 方法加 @Transactional | ✅已修复 |
+| 4 | IngestionController.java `handleUserPrompt` | ensureSession + save 无事务边界 | P2(低) | 添加 @Transactional 注解 | ✅已修复 |
+
+**编译/测试结果**:
+- Backend: `mvn clean compile package -DskipTests` ✅
+- Regression: `bash scripts/regression-test.sh --skip-build` ✅（46/46 tests passed）
+- EXTRACTION Acceptance: `EXTRACTION_ENABLED=true bash scripts/phase3-acceptance-test.sh` ✅（25/25 tests passed）
+- 3 轮代码修改后 Review: 全部通过 ✅
+
+**汇总**: 修复 4 个 P2 事务一致性问题。引入新 `ExtractionStorageService` 解决 private 方法无法添加 @Transactional 的问题。所有审查问题清零 🎉

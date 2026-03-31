@@ -18,6 +18,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.OffsetDateTime;
@@ -169,6 +170,8 @@ public class MemoryController {
         description = "Returns the quality distribution (high/medium/low/unknown counts) for observations in a project. Used by WebUI quality charts and memory refinement monitoring.")
     @ApiResponse(responseCode = "200", description = "Quality distribution retrieved (returns zeros if no data)",
         content = @Content(schema = @Schema(example = "{\"project\":\"/path\",\"high\":10,\"medium\":20,\"low\":5,\"unknown\":3}")))
+    @ApiResponse(responseCode = "500", description = "Database error retrieving quality distribution",
+        content = @Content(schema = @Schema(example = "{\"project\":\"/path\",\"error\":\"Failed to get quality distribution: ...\"}")))
     public ResponseEntity<Map<String, Object>> getQualityDistribution(
             @Parameter(description = "Absolute project path to query quality distribution for", required = true, example = "/Users/dev/my-project")
             @RequestParam String project) {
@@ -194,13 +197,13 @@ public class MemoryController {
             ));
         } catch (Exception e) {
             log.error("Failed to get quality distribution", e);
-            return ResponseEntity.ok(Map.of(
+            return ResponseEntity.status(500).body(Map.of(
                 "project", project,
+                "error", "Failed to get quality distribution: " + e.getMessage(),
                 "high", 0L,
                 "medium", 0L,
                 "low", 0L,
-                "unknown", 0L,
-                "error", e.getMessage()
+                "unknown", 0L
             ));
         }
     }
@@ -219,6 +222,7 @@ public class MemoryController {
         content = @Content(schema = @Schema(example = "{\"error\":\"Observation not found\"}")))
     @ApiResponse(responseCode = "400", description = "Invalid request (missing observationId or feedbackType)",
         content = @Content(schema = @Schema(example = "{\"error\":\"observationId is required\"}")))
+    @Transactional
     public ResponseEntity<Map<String, String>> submitFeedback(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                 description = "Feedback submission request",
