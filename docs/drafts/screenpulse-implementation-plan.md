@@ -34,13 +34,30 @@ ScreenPulse 是 Cortex CE 记忆系统的"屏幕感知模块"，负责捕获用�
 
 ### 1.3 与 Cortex CE 的 API 集成
 
-**发现结果**: Cortex CE 使用 `session_id` 作为 API 字段名（snake_case），核心端点是 `/api/ingest/observation`。
+**发现结果**: Cortex CE 使用 `content_session_id` 作为 API 字段名（snake_case），`session_id` 作为别名。核心端点 `/api/ingest/observation` 的 `ObservationCreateRequest` 接受以下字段：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `content_session_id` (或 `session_id`) | string | 必填，会话标识 |
+| `project_path` (或 `cwd`) | string | 必填，项目路径 |
+| `source` | string | 来源标识 |
+| `title` | string | 标题 |
+| `narrative` (或 `content`) | string | 叙述内容 |
+| `type` | string | 类型 |
+| `extractedData` | map | 结构化提取数据 |
 
 **集成决策**:
-- ScreenPulse 不复用现有的 `/api/ingest/observation`（那是给工具调用用的）
-- ScreenPulse 使用独立的端点 `/api/ingest/screen-capture`（新建）
-- 如果后端暂未实现，ScreenPulse 先 POST 到 `http://localhost:37777/api/ingest/screen-capture`
+- ScreenPulse **复用**现有的 `/api/ingest/observation` 端点，无需新建后端端点
+- Payload 字段映射：
+  - `content_session_id` ← IdentityManager.sessionId
+  - `project_path` ← `"screenpulse"` (固定值，表示来源为屏幕捕获)
+  - `source` ← `"screenpulse-macos"`
+  - `title` ← `"[appName] windowTitle"`
+  - `narrative` ← 捕获的完整文本
+  - `type` ← `"screen-capture"`
+  - `extractedData` ← 完整的三层结构化数据（axSnapshot、semantic、meta 等）
 - 字段名遵循 Cortex CE 的 snake_case 惯例
+- 端点默认 `http://localhost:37777/api/ingest/observation`
 
 ---
 
@@ -99,46 +116,19 @@ ScreenPulse 是 Cortex CE 记忆系统的"屏幕感知模块"，负责捕获用�
 
 #### 2.1.5 发送到记忆系统
 
-- **端点**: 可配置，默认为 `http://localhost:37777/api/ingest/screen-capture`
+- **端点**: 可配置，默认为 `http://localhost:37777/api/ingest/observation`
 - **方法**: POST
 - **Content-Type**: application/json
-- **Payload**:
-```json
-{
-  "schema_version": "1.0",
-  "observation_id": "UUID",
-  "session_id": "UUID (app生命周期内固定)",
-  "user_id": "hostname@deviceId前缀",
-  "device_id": "UUID (首次启动生成，存UserDefaults)",
-  "timestamp": 1743466800.123,
-  "source": "screenpulse-macos",
-  "trigger": "timer",  // V1.0: "timer" 或 "manual"; V1.1: 更多类型
-  "app": {
-    "name": "Safari",
-    "bundle_id": "com.apple.Safari",
-    "category": "other",  // V1.0 始终 "other"; V1.1 有 browser/ide/terminal/communication
-    "version": "18.3"
-  },
-  "context": {
-    "window_title": "Littlebird – AI助手的终极形态",
-    "text": "前Sentieo创始人新项目Littlebird获1100万美元融资...",
-    "url": null,       // V1.1: 浏览器会填充
-    "file_path": null, // V1.1: IDE 会填充
-    "channel_name": null
-  },
-  "meta": {
-    "text_length": 4821,
-    "capture_ms": 38
-  }
-}
-```
+- **Payload**: 使用三层数据模型（`schema_version: "2.0"`），V1.0 仅使用 Layer 3 Markdown 作为 `narrative`，`axSnapshot` 和 `semantic` 中仅填充基础字段。
+
+> 完整 Payload 结构见 [4.4 API Payload](#44-api-payload-v12) 节。
 
 ### 2.2 V1.1 功能 (迭代计划)
 
 #### 2.2.1 AXObserver 事件驱动
 
 - 替换定时轮询为 `AXObserver` 订阅
-- 监听: `kAXFocusedWindowChangedNotification`, `kAXTitleChangedNotification`, `kAXValueChangedNotification`
+- 监听: `kAXFocusedWindowChangedNotification`, `kAXMainWindowChangedNotification`, `kAXTitleChangedNotification`, `kAXFocusedUIElementChangedNotification`, `kAXValueChangedNotification`
 - Debounce: 1.5s (防止输入时过频触发)
 - 保留定时 fallback (每 30s) 防止遗漏
 
@@ -180,10 +170,10 @@ ScreenPulse/
         ├── AppDelegate.swift        # 菜单栏管理
         ├── ContentView.swift        # 控制台 UI
         ├── ScreenCaptureManager.swift # 核心捕获逻辑
+        ├── IdentityManager.swift    # 设备/会话 ID 管理 (V1.0)
+        ├── ObservationPayload.swift  # API Payload 结构 + 发送器 (V1.0)
         ├── AXEventWatcher.swift     # AXObserver 事件订阅 (V1.1)
-        ├── AppParsers.swift         # App 特化解析器 (V1.1)
-        ├── ObservationPayload.swift  # API Payload 结构 (V1.1)
-        └── IdentityManager.swift    # 设备/会话 ID 管理
+        └── AppParsers.swift         # App 特化解析器 (V1.1)
 ```
 
 ### 3.2 文件依赖关系
@@ -193,7 +183,8 @@ ScreenPulse/
 App.swift
 ├── AppDelegate.swift
 │   └── ScreenCaptureManager.swift
-│       └── IdentityManager.swift
+│       ├── IdentityManager.swift
+│       └── ObservationPayload.swift (含 PayloadSender)
 └── ContentView.swift
     └── ScreenCaptureManager.swift (通过 @EnvironmentObject)
 ```
@@ -203,7 +194,7 @@ App.swift
 ScreenCaptureManager.swift
 ├── AXEventWatcher.swift (V1.1)
 ├── AppParsers.swift (V1.1)
-└── ObservationPayload.swift (V1.1)  // 内含 PayloadSender 类
+└── (ObservationPayload.swift 已在 V1.0 中)
 ```
 
 ---
@@ -220,16 +211,25 @@ final class ScreenCaptureManager: ObservableObject {
     @Published var isCapturing: Bool = false
     @Published var events: [CaptureEvent] = []
     @Published var selectedEvent: CaptureEvent?
-    @Published var ignoreBundleIds: Set<String>
+    @Published var ignoreBundleIds: Set<String> = [
+        "com.agilebits.onepassword7",
+        "com.apple.systempreferences",
+        "com.apple.keychainaccess"
+    ]
     @Published var newIgnoreInput: String = ""
     @Published var statusMessage: String = "Idle"
-    @Published var endpointInput: String = "http://localhost:37777/api/ingest/screen-capture"
+    @Published var endpointInput: String = "http://localhost:37777/api/ingest/observation"
 
     // 内部状态
     private let systemElement = AXUIElementCreateSystemWide()
     private let captureQueue = DispatchQueue(label: "screenpulse.capture", qos: .background)
     private var timer: DispatchSourceTimer?
-    private let logDir: URL  // ~/Library/Application Support/ScreenPulse/logs
+    private let logDir: URL = {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let url = base.appendingPathComponent("ScreenPulse/logs", isDirectory: true)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }()
 
     // MARK: - 控制接口
     func toggleCapture()
@@ -250,23 +250,6 @@ final class ScreenCaptureManager: ObservableObject {
 ### 4.2 CaptureEvent 数据模型
 
 ```swift
-struct CaptureEvent: Identifiable {
-    let id: UUID
-    let timestamp: Date
-    let appName: String
-    let bundleId: String
-    let windowTitle: String
-    let text: String
-    // V1.0 固定值
-    let category: AppCategory = .other
-    let trigger: CaptureTrigger = .timer  // V1.0 只有 timer/manual
-    var url: String? = nil       // V1.1 - 浏览器 URL
-    var filePath: String? = nil  // V1.1 - IDE 文件路径
-
-    var preview: String { ... }
-    var timeString: String { ... }
-}
-
 // V1.0 实际只用到: .manual, .timer
 // V1.1 扩展: .appSwitch, .windowChange, .titleChange, .contentChange
 enum CaptureTrigger: String {
@@ -288,7 +271,153 @@ enum AppCategory: String, Codable {
 }
 ```
 
-### 4.3 API Payload (V1.1)
+### 4.3 三层数据模型
+
+macOS Accessibility API 返回的是一棵**有类型的属性树**（AXUIElement Tree），每个节点有 role（类型）、attributes（属性集合）和 children（子节点）。直接拼为平铺文本会丢失结构语义、交互状态和空间关系，且会污染下游向量检索。正确做法是分层处理：
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Layer 1: 原始 AX 快照（结构化 JSON）               │
+│  用途：可溯源、可重新解析、供后端做任意处理          │
+├─────────────────────────────────────────────────────┤
+│  Layer 2: 语义字段提取（key-value 结构化）          │
+│  用途：精准索引、过滤查询、MCP 工具精准取字段        │
+├─────────────────────────────────────────────────────┤
+│  Layer 3: 语义文本表示（Markdown/纯文本）           │
+│  用途：LLM embedding、RAG 检索、直接注入 context    │
+└─────────────────────────────────────────────────────┘
+```
+
+**关键设计决策**：
+- `selectedText`（用户选中文字）是**信噪比最高的信号**——用户主动选中某段文字，几乎确定他马上要对这段内容提问，比整页文本重要 10 倍
+- 密码字段（`AXSecureTextField`）不提取 value
+- 纯 UI 噪音节点（"后退"、"前进"、"分享"等按钮）在 Layer 1 保留但 Layer 2/3 过滤
+
+#### Layer 1: AXNode 结构化快照
+
+```swift
+struct AXNode: Codable {
+    let role: String              // AXStaticText, AXHeading, AXLink, AXTextField, ...
+    let title: String?
+    let value: String?
+    let description: String?
+    let url: String?              // AXLink 等有 URL 的元素
+    let level: Int?               // AXHeading 的层级 (1-6)
+    let position: CGPointCodable?
+    let size: CGSizeCodable?
+    let isFocused: Bool
+    let isSelected: Bool
+    let isEnabled: Bool
+    var children: [AXNode]
+
+    // 只保留有内容意义的 role（过滤纯 UI 噪音）
+    static let meaningfulRoles: Set<String> = [
+        "AXStaticText", "AXHeading", "AXLink", "AXTextField",
+        "AXTextArea", "AXButton", "AXMenuBarItem", "AXMenuItem",
+        "AXImage", "AXWebArea", "AXGroup", "AXList", "AXListItem",
+        "AXTable", "AXRow", "AXCell", "AXTabGroup", "AXTab"
+    ]
+}
+
+struct CGPointCodable: Codable {
+    let x: Double; let y: Double
+    init(_ p: CGPoint) { x = p.x; y = p.y }
+}
+struct CGSizeCodable: Codable {
+    let width: Double; let height: Double
+    init(_ s: CGSize) { width = s.width; height = s.height }
+}
+```
+
+#### Layer 2: SemanticFields 语义字段提取
+
+```swift
+struct SemanticFields: Codable {
+    // 通用
+    var windowTitle: String = ""
+    var selectedText: String? = nil          // 最强意图信号
+    var focusedElementRole: String? = nil
+    var focusedElementValue: String? = nil
+
+    // 浏览器专属
+    var url: String? = nil
+    var pageTitle: String? = nil
+    var headings: [HeadingItem] = []
+    var links: [LinkItem] = []
+    var visibleTextBlocks: [TextBlock] = []
+
+    // IDE 专属
+    var filePath: String? = nil
+    var language: String? = nil              // 从扩展名推断
+    var codeSnippet: String? = nil           // 聚焦代码片段（前 2000 字符）
+    var terminalOutput: String? = nil
+
+    // 通讯工具专属
+    var channelName: String? = nil
+    var recentMessages: [MessageItem] = []
+
+    struct HeadingItem: Codable { let level: Int; let text: String }
+    struct LinkItem: Codable { let text: String; let url: String? }
+    struct TextBlock: Codable { let text: String; let role: String }
+    struct MessageItem: Codable { let sender: String?; let text: String }
+}
+```
+
+#### Layer 3: Markdown 渲染（供 LLM 直接消费）
+
+将 SemanticFields 渲染为结构化 Markdown，保留语义但去掉 UI 噪音。`selectedText` 以 blockquote 高亮显示。
+
+```swift
+func renderMarkdown(from semantic: SemanticFields) -> String {
+    var lines: [String] = []
+
+    // URL 和页面标题（浏览器）
+    if let url = semantic.url {
+        lines.append("[\(semantic.pageTitle ?? url))](\(url))")
+    }
+
+    // 标题层级
+    for h in semantic.headings.sorted(by: { $0.level < $1.level }) {
+        let prefix = String(repeating: "#", count: h.level)
+        lines.append("\(prefix) \(h.text)")
+    }
+
+    // 选中文本（最强意图信号）
+    if let selected = semantic.selectedText, !selected.isEmpty {
+        lines.append("> **Selected:** \(selected)")
+    }
+
+    // 可见文本块
+    for block in semantic.visibleTextBlocks {
+        lines.append(block.text)
+    }
+
+    // 文件路径（IDE）
+    if let fp = semantic.filePath {
+        lines.append("`\(fp)`")
+    }
+
+    // 终端输出
+    if let term = semantic.terminalOutput {
+        lines.append("```\n\(term)\n```")
+    }
+
+    return lines.joined(separator: "\n\n")
+}
+```
+
+#### ParsedContext 输出分层结构
+
+```swift
+struct ParsedContext {
+    var category: AppCategory = .other
+    var axSnapshot: AXNode?         // Layer 1：结构化 AX 树
+    var semantic: SemanticFields    // Layer 2：语义字段
+    // Layer 3 的 markdown 由 renderMarkdown() 在发送前生成
+}
+```
+
+### 4.4 API Payload (V1.2)
 
 **JSON 编码策略**: Swift struct 字段为 camelCase，API wire format 使用 snake_case。编码时必须设置:
 ```swift
@@ -296,9 +425,12 @@ let encoder = JSONEncoder()
 encoder.keyEncodingStrategy = .convertToSnakeCase
 ```
 
+**Payload 结构**: 三层数据放入 `extractedData`，`narrative` 字段放 Layer 3 Markdown 供 LLM 直接消费。
+
 ```swift
-struct ObservationPayload: Codable {
-    let schemaVersion: String = "1.0"
+// 内层：V1.2 结构化数据（放入 extractedData）
+struct ScreenPulseData: Codable {
+    let schemaVersion: String = "1.2"
     let observationId: String
     let sessionId: String
     let userId: String
@@ -307,7 +439,14 @@ struct ObservationPayload: Codable {
     let source: String = "screenpulse-macos"
     let trigger: String
     let app: AppInfo
-    let context: ContextInfo
+
+    // Layer 1：裁剪过的 AX 树（去掉纯 UI 噪音节点）
+    let axSnapshot: AXNode?
+
+    // Layer 2：语义字段提取
+    let semantic: SemanticFields
+
+    // 元信息
     let meta: MetaInfo
 
     struct AppInfo: Codable {
@@ -317,22 +456,47 @@ struct ObservationPayload: Codable {
         let version: String?
     }
 
-    struct ContextInfo: Codable {
-        let windowTitle: String
-        let text: String
-        let url: String?        // 浏览器 URL (V1.1)
-        let filePath: String?  // IDE 文件路径 (V1.1)
-        let channelName: String? // 通讯工具频道
-    }
-
     struct MetaInfo: Codable {
-        let textLength: Int
+        let axNodeCount: Int         // AX 树节点总数（裁剪后）
+        let markdownLength: Int
         let captureMs: Int
+        let hasSelectedText: Bool    // 是否有用户选中文字（高意图信号）
     }
+}
+
+// POST 到 /api/ingest/observation 的请求体（手动构建字典，不用 Codable）
+// 对应后端 ObservationCreateRequest 字段
+func buildIngestionRequest(
+    sessionId: String,
+    title: String,
+    narrative: String,
+    extractedData: [String: Any]
+) -> [String: Any] {
+    // extractedData 由 JSONEncoder + JSONSerialization.jsonObject 转换 ScreenPulseData 得到
+    [
+        "content_session_id": sessionId,
+        "project_path": "screenpulse",
+        "source": "screenpulse-macos",
+        "type": "screen-capture",
+        "title": title,
+        "narrative": narrative,
+        "extractedData": extractedData
+    ]
 }
 ```
 
-### 4.4 IdentityManager
+**后端使用方式**：
+
+| 使用场景 | 用哪一层 |
+|---|---|
+| LLM 直接注入 context（给 Claude Code） | `narrative`（Layer 3 Markdown） |
+| 向量 embedding / 语义检索 | `narrative` 做 embedding |
+| 精准字段查询（"用户在什么 URL"） | `extractedData.semantic.url`（Layer 2） |
+| 判断用户意图（"用户选中了什么"） | `extractedData.semantic.selectedText`（最强信号） |
+| 后端重新解析、未来新功能 | `extractedData.axSnapshot`（Layer 1） |
+| 多设备/多会话时间线 | `sessionId` + `deviceId` + `timestamp` |
+
+### 4.5 IdentityManager
 
 ```swift
 enum IdentityManager {
@@ -366,43 +530,25 @@ enum IdentityManager {
 
 **请求**
 ```
-POST /api/ingest/screen-capture
+POST /api/ingest/observation
 Host: localhost:37777
 Content-Type: application/json
-X-Session-Id: <session_id>
-X-Device-Id: <device_id>
 ```
 
-**请求体**: 见 2.1.5节的 Payload JSON
+**请求体**: 使用 `ObservationCreateRequest` 格式，`extractedData` 字段承载完整的三层结构化数据。详见 [4.4 API Payload](#44-api-payload-v12) 节。
 
-**预期响应** (成功):
-```json
-{
-  "status": "ok",
-  "observation_id": "生成的 UUID"
-}
-```
+**预期响应** (成功): 返回创建的 ObservationEntity 对象
 
 **预期响应** (失败):
 ```json
 {
-  "status": "error",
-  "message": "错误描述"
+  "error": "Missing required field: content_session_id (or session_id)"
 }
 ```
 
-### 5.2 后端实现要求 (Cortex CE 侧)
+### 5.2 后端适配说明 (Cortex CE 侧)
 
-Cortex CE 需要新增一个端点 `POST /api/ingest/screen-capture`:
-
-1. 接收 ScreenPulse 的 observation
-2. 调用 LLM 做摘要/embedding
-3. 存入 `mem_observations` 表，`source='screenpulse'`
-4. 返回 observation_id
-
-**如果后端暂未实现**: ScreenPulse 会失败但不影响本地功能，可配置端点为 mock server 进行测试。
-
----
+ScreenPulse 复用现有端点 `POST /api/ingest/observation`，无需新增后端端点。详见上方 [5.2 后端适配说明](#52-后端适配说明-cortex-ce-侧) 节。
 
 ## 六、构建与部署
 
@@ -625,11 +771,11 @@ open ScreenPulse.app
 |------|------|------|
 | M1 | 项目骨架、菜单栏、控制台 UI | App.swift, AppDelegate.swift, ContentView.swift |
 | M2 | 定时轮询捕获、本地日志 | ScreenCaptureManager.swift |
-| M3 | POST 到记忆系统 | ScreenCaptureManager (网络部分) |
+| M3 | POST 到记忆系统 | ScreenCaptureManager (网络部分), ObservationPayload.swift, IdentityManager.swift |
 | M4 | 打包、签名、运行测试 | Info.plist, entitlements.plist, build scripts |
 | M5 | AXObserver 事件驱动 | AXEventWatcher.swift |
 | M6 | App 特化解析器 | AppParsers.swift |
-| M7 | 可靠性增强 (重试队列) | ObservationPayload.swift (含 PayloadSender 类) |
+| M7 | 可靠性增强 (重试队列) | PayloadSender 增强 (网络断线缓存、批量发送) |
 
 ---
 
@@ -639,7 +785,7 @@ open ScreenPulse.app
 |------|--------|------|----------|
 | 辅助功能权限被拒 | 中 | 高 | 清晰的用户引导、状态提示 |
 | 某些 App 无障碍支持差 | 高 | 中 | App 特化解析器、通用兜底 |
-| 后端 API 未就绪 | 中 | 低 | Mock server 测试、本地功能独立工作 |
+| 后端 API 不支持 extractedData | 中 | 中 | Payload 降级：V1.2 数据直接放入 narrative，只传文本 |
 | 沙箱签名限制 | 低 | 高 | entitlements.plist 配置、Ad-hoc 签名 |
 
 ---
@@ -650,8 +796,8 @@ open ScreenPulse.app
 
 1. **项目名**: ScreenPulse (原 Demo 用 ScreenWatcherDemo)
 2. **Bundle ID**: com.blueforce.ScreenPulse (原 Demo 用 com.example)
-3. **API 端点**: `/api/ingest/screen-capture` (原 Demo 用 `/api/observations`)
-4. **Payload 结构**: V1.1 版本增加 `schema_version`, `user_id`, `device_id`, `trigger`, `category` 字段
+3. **API 端点**: `/api/ingest/observation` (复用现有端点，原 Demo 用 `/api/observations`)
+4. **Payload 结构**: 两层结构——外层 ObservationCreateRequest 映射，内层 V1.2 数据放在 `extractedData` 中
 5. **包管理**: Swift Package Manager (原 Demo 也用 SPM，代码一致)
 6. **功能演进**: 明确 V1.0 (轮询) -> V1.1 (AXObserver) -> V2.0 (截图) 路线图
 
@@ -659,11 +805,25 @@ open ScreenPulse.app
 
 ## 附录 B: 与 Cortex CE 的 API 对齐
 
-根据代码库探索结果，Cortex CE 使用 snake_case 作为 wire format 惯例。ScreenPulse 的 Payload 遵循此惯例：
+根据代码库探索结果，Cortex CE 使用 snake_case 作为 wire format 惯例。ScreenPulse 的 Payload 遵循此惯例。
 
-| Payload 字段 | 类型 | 说明 |
-|-------------|------|------|
-| schema_version | string | 协议版本，便于后端兼容 |
+**外层字段** (ObservationCreateRequest):
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| content_session_id | string | 必填，会话标识 |
+| project_path | string | 必填，固定 "screenpulse" |
+| source | string | 固定 "screenpulse-macos" |
+| type | string | 固定 "screen-capture" |
+| title | string | "[AppName] WindowTitle" |
+| narrative | string | 捕获的完整文本 |
+| extractedData | object | 下层 V1.2 结构化数据 |
+
+**内层 extractedData 字段** (V1.2):
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| schema_version | string | 协议版本 "1.2" |
 | observation_id | string | UUID，去重用 |
 | session_id | string | App 生命周期内固定 |
 | user_id | string | hostname@deviceId前缀 |
@@ -675,11 +835,9 @@ open ScreenPulse.app
 | app.bundle_id | string | Bundle identifier |
 | app.category | string | App 类型 |
 | app.version | string? | App 版本 |
-| context.window_title | string | 窗口标题 |
-| context.text | string | 捕获的完整文本 |
-| context.url | string? | 浏览器 URL (V1.1) |
-| context.file_path | string? | IDE 文件路径 (V1.1) |
-| context.channel_name | string? | 通讯工具频道 (V1.1) |
+| ax_snapshot | object | Layer 1: AX 树快照 |
+| semantic | object | Layer 2: 语义字段（URL、文件路径、选中文本等） |
+| rendered_markdown | string | Layer 3: 渲染后的 Markdown |
 | meta.text_length | number | 文本长度 |
 | meta.capture_ms | number | 捕获耗时 (毫秒) |
 
