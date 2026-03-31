@@ -93,4 +93,20 @@ class CortexMemoryToolsTest {
 
         assertThat(result).isEmpty();
     }
+
+    @Test
+    void updateMemory_allNullFields_returnsError() {
+        // All optional params null → should return early with helpful message
+        // (does NOT reach client.updateObservation which would throw IllegalArgumentException)
+        String result = tools.updateMemory("obs-1", null, null, null, null, null);
+
+        assertThat(result).contains("at least one field");
+    }
+
+    @Test
+    void updateMemory_emptyId_returnsError() {
+        String result = tools.updateMemory("", "title", null, null, null, null);
+
+        assertThat(result).contains("observation ID is required");
+    }
 }

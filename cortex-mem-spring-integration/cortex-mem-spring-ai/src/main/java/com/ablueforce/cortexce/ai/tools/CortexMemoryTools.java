@@ -146,6 +146,11 @@ public class CortexMemoryTools {
             return "Error: observation ID is required";
         }
         
+        // Validate at least one field is provided (client rejects empty PATCH)
+        if (title == null && content == null && concepts == null && facts == null && source == null) {
+            return "Error: at least one field (title, content, concepts, facts, source) must be provided for update";
+        }
+        
         try {
             var update = ObservationUpdate.builder()
                 .title(title)
