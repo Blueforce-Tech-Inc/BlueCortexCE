@@ -966,7 +966,7 @@ var result = extractionService.extractByTemplate(projectPath, allergyTemplate, c
 
 ## 3. Memory Conflict Detection Design
 
-**⚠️ SUPERSEDED**: This section describes a programmatic `ConflictDetector` class. After the walkthrough analysis (2026-03-22), this approach is no longer needed for Phase 3.1. The **LLM re-extraction** approach (Section 2.3) handles conflict detection implicitly — the LLM understands semantics and produces a correct current state. This section is retained for reference only.
+**⚠️ SUPERSEDED**: This section describes a programmatic `ConflictDetector` class. After the walkthrough analysis (2026-03-22), this approach is no longer needed for Phase 3.1. The **append-only extraction** approach (Section 24.6) handles conflict detection implicitly — the LLM outputs `remove` operations for contradicted items, and the service merges with full prior data. This section is retained for reference only.
 
 **Core Idea**: Detect contradictions when storing extraction results with `track-evolution: true`.
 
@@ -1068,7 +1068,7 @@ Extractions of type "user_profile" can be stored with source="profile_update".
 
 | Phase | Content | Changes |
 |-------|---------|---------|
-| **Phase 3.1** | StructuredExtractionService + templates + user_id | Generic extraction engine with LLM re-extraction |
+| **Phase 3.1** | StructuredExtractionService + templates + user_id | Generic extraction engine with append-only extraction |
 | **Phase 3.2** | Template configurations + keyword trigger | YAML configs, trigger enhancement |
 | **Phase 3.3** | DeepRefine integration | Run extraction during deep refine |
 | **Phase 3.4** | Manual review (optional) | API + UI for reviewing extraction history |
@@ -1339,18 +1339,20 @@ public void runCascadingExtraction(String projectPath, ExtractionTemplate templa
 ## 8. Open Questions (Status: 8/10 Resolved)
 
 1. **Extraction trigger frequency**: ✅ Answered — Both triggers supported: last step of `deepRefineProjectMemories()` AND scheduled daily at 2am (Section 9.2 + Section 23.7). No need for every-session extraction.
-2. **Conflict auto-resolve vs manual**: ✅ Answered — Auto-resolve with audit trail is default (Section 19.5). LLM re-extraction handles semantic conflicts implicitly (Section 24, Scenario 5). Manual review deferred to Phase 3.4.
+2. **Conflict auto-resolve vs manual**: ✅ Answered — Auto-resolve with audit trail is default (Section 19.5). Append-only extraction (Section 24.6) handles semantic conflicts implicitly via `remove` operations. Manual review deferred to Phase 3.4.
 3. **Acceptable extraction latency**: ✅ Answered — Scheduled batch (non-realtime) is acceptable. Cost analysis (Section 23) confirms daily extraction is cost-effective. Keyword-triggered extraction deferred to Phase 3.2.
 4. **Cross-project extractions**: ✅ Answered — Project-scoped userId (Section 20.7). Each project has independent extraction state. Cross-project aggregation is out of scope for Phase 3.1.
 5. **Incremental extraction by default**: ✅ Answered — Yes, incremental is default (Section 7.1). Full re-extraction only on first run (capped by `initialRunMaxCandidates`, Section 19.3).
 6. **Template schema evolution**: ✅ Answered — Version-based migration with explicit re-extract flag (Section 12.3). Old extractions are NOT automatically migrated.
 7. **Cascading extractions**: ✅ Answered — Deferred to future phase. Flat extraction is sufficient for Phase 3.1. Cascading (depends-on) is designed but not needed for initial implementation.
 8. **Spring AI 1.1.2 schema enforcement**: ✅ Answered in v10 — `JacksonOutputConverter` does NOT exist in Spring AI 1.1.2. Correct approach is `BeanOutputConverter` from `org.springframework.ai.converter`. Note: Spring AI 1.1.2 does not provide true schema enforcement at the API level — schema compliance relies on prompt engineering + LLM compliance + retry on parse failure.
-9. **Prior extraction size growth (v24)**: ✅ Answered in Section 24.1 + integrated into Section 2.3 `buildPrompt()` — `summarizePriorExtraction()` caps token cost.
-10. **LLM hallucination on re-extraction (v24)**: ✅ Answered in Section 24.2 + integrated into Section 2.3 `buildPrompt()` — source-truth verification instruction added to prompt.
+9. **Prior extraction size growth (v24)**: ✅ Answered in Section 24.6 — **append-only extraction** eliminates this problem entirely. The LLM no longer receives prior context, so prior size is irrelevant. Token cost is fixed at ~2000 regardless of extraction history size. (Sections 24.1 `summarizePriorExtraction()` are retained for reference but superseded by append-only approach.)
+10. **LLM hallucination on re-extraction (v24)**: ✅ Answered in Section 24.6 — **append-only extraction** eliminates context blending hallucination. The LLM only sees new observations (no prior context to confuse it). The `add`/`remove`/`keep_hint` contract is simpler and less prone to hallucination than full-state re-extraction.
 
 
 ## 24. LLM Re-Extraction Edge Cases & Refinements (v24)
+
+**⚠️ SUPERSEDED BY SECTION 24.6**: Sections 24.1–24.5 describe the original LLM re-extraction approach (passing prior context to LLM). This approach has been **superseded by append-only extraction** (Section 24.6), where the LLM only processes new observations and outputs `add`/`remove`/`keep_hint` operations. Sections 24.1–24.5 are retained for historical reference only.
 
 This section addresses edge cases in the LLM re-extraction approach that were not covered in earlier design iterations.
 
@@ -3744,12 +3746,10 @@ private String formatExtractedData(Map<String, Object> extractedData) {
 
 ### 20.6 Issue: Multi-Level Conflict Detection for Arrays — ✅ RESOLVED
 
-**Resolution**: The LLM re-extraction approach (Section 2.3) eliminates the need for a separate `ConflictDetector`. When the LLM receives the prior extraction result + new observations, it naturally understands semantics and handles:
-- Value changes ("Sony" → "Bose")
-- Sentiment changes ("喜欢苹果" → "不喜欢苹果")
-- Context-aware non-conflicts ("安静餐厅" vs "吵闹酒吧" — different contexts)
-
-The prompt instruction "If new observations contradict previous preferences, update to reflect the latest stated preference" handles real contradictions. Removed items can be tracked via the `removed` metadata field.
+**Resolution**: The append-only extraction approach (Section 24.6) eliminates the need for a separate `ConflictDetector`. The LLM outputs `remove` operations for contradicted items, and the service merges with full prior data. This handles:
+- Value changes ("Sony" → "Bose") — LLM outputs `remove` for old, `add` for new
+- Sentiment changes ("喜欢苹果" → "不喜欢苹果") — `remove` operation
+- Context-aware non-conflicts ("安静餐厅" vs "吵闹酒吧") — both kept via `add`
 
 **No `ConflictDetector` class needed. Phase 3.3 conflict detection phase removed from roadmap.**
 
@@ -3786,7 +3786,7 @@ Option A: Project-scoped userId (CHOSEN)
 | 3 | Special session ID discovery | 🟡 Medium | `sessionIdPattern` + `user_id` | ✅ Resolved (Section 2.3) |
 | 4 | Incremental extraction merging | 🔴 Critical | Merge logic for duplicate detection | ✅ Resolved (Section 2.3) |
 | 5 | ICL prompt data formatting | 🟡 Medium | Add `formatExtractedData()` utility | ✅ Resolved (Section 2.3) |
-| 6 | Array-level conflict detection | 🟡 Medium | Superseded — LLM re-extraction handles semantics | ✅ Resolved (Section 2.3) |
+| 6 | Array-level conflict detection | 🟡 Medium | Superseded — append-only extraction handles semantics | ✅ Resolved (Section 24.6) |
 | 7 | Cross-project user identification | 🟡 Medium | Project-scoped userId | ✅ Decided (Section 20.7) |
 | 8 | Ingestion API user_id passing | 🟡 Medium | Option B: session creation + PATCH API | ✅ Resolved (Section 20.9) |
 
@@ -3912,7 +3912,7 @@ public void runExtraction(String projectPath) {
 
 ### 21.3 ~~mergeExtractedData() Type Safety Issue~~ — SUPERSEDED
 
-**Status**: This issue no longer applies. `mergeExtractedData()` has been removed in favor of the LLM re-extraction approach (Section 2.3). The LLM handles all data merging semantically.
+**Status**: This issue no longer applies. `mergeExtractedData()` has been removed in favor of the append-only extraction approach (Section 24.6). The service merges `add`/`remove`/`keep_hint` operations with full prior data from DB.
 
 ```java
 List<Map<String, Object>> existingList = (List<Map<String, Object>>) existingValue;
@@ -4967,7 +4967,7 @@ cd backend && mvn clean compile -DskipTests
   - `createdAtEpoch` = `System.currentTimeMillis()`
 - Save via `observationRepository.save()`
 - **Append-only**: NEVER delete or update existing extractions. Every run creates a new row.
-- **No deduplication needed**: LLM re-extraction already considers prior, so each result is a self-contained snapshot
+- **No deduplication needed**: Each result is a self-contained snapshot merged via `mergeAppendOnly()` with full prior from DB
 
 **6.2.8 `buildSystemPrompt(template)` and `buildUserPrompt(candidates, priorJson)`**
 - System prompt: extraction task + rules (include ALL valid items, REMOVE invalidated items, NO hallucination)
@@ -6211,7 +6211,7 @@ bash scripts/demo-v14-test.sh
 
 - **2026-03-22 v29**: (1) **Section 24.6 `mergeAppendOnly()`**: Fixed critical design gaps — `keep_hint` was extracted but never used in merge logic; `deduplicate()` was called but undefined. Replaced with: (a) `buildItemKey()` method for consistent deduplication keying (category+value composite); (b) `keep_hint` now stored as `_keep_hint` in merged result for debugging; (c) existing-key check prevents duplicate adds. (2) **Section 24.6 `buildAppendOnlyPrompt()`**: Added item schema hint and `keep_hint` semantics clarification — LLM now knows the expected structure of array elements and MUST include `category`+`value` fields for deduplication. (3) **Section 23.4b**: Added append-only cost comparison — ~20% cheaper than truncated-prior approach, while eliminating data loss risk. (4) **Section 2.3 `summarizePriorExtraction()`**: Added design note cross-referencing Section 24.6 data loss risk and append-only alternative.
 
-- **2026-03-22 v28**: **Section 24.6**: Identified critical data loss risk in `summarizePriorExtraction()` — when prior is truncated to latest 5 items, older items not re-mentioned in new observations silently disappear over successive extraction runs. Allergy information, important dates, and long-standing preferences could be permanently lost with no error or warning. Proposed **Solution D (append-only extraction)** as both safer AND cheaper alternative: LLM outputs only add/remove/keep_hint, service merges with full prior from DB. Token cost: ~2000 (append-only) vs ~7000 (full prior) vs ~2500 (truncated, lossy). Design status: open for review before implementation.
+- **2026-03-22 v28**: **Section 24.6**: Identified critical data loss risk in `summarizePriorExtraction()` — when prior is truncated to latest 5 items, older items not re-mentioned in new observations silently disappear over successive extraction runs. Allergy information, important dates, and long-standing preferences could be permanently lost with no error or warning. Proposed **Solution D (append-only extraction)** as both safer AND cheaper alternative: LLM outputs only add/remove/keep_hint, service merges with full prior from DB. Token cost: ~2000 (append-only) vs ~7000 (full prior) vs ~2500 (truncated, lossy). ~~Design status: open for review before implementation.~~ → **✅ Implemented** (Section 24.6, `StructuredExtractionService.runAppendOnlyExtraction()`).
 
 - **2026-03-22 v27**: (1) **Section 2.3 `buildPrompt()`**: Integrated Section 24 findings — added `summarizePriorExtraction()` for token cost control (Section 24.1) and hallucination prevention instruction in prompt (Section 24.2). (2) **Section 7.1 `updateExtractionState()`**: Added `@Transactional` annotation for atomic delete-then-save (Section 15.6) and idempotency guard (Section 17.3). (3) **Section 8**: Closed all 10 open questions — 8 new resolutions documented with references to answer sections. Previously only #8-10 were marked resolved. (4) **Section 15.2**: Added `ExtractionFormatUtil.java` to new files list and conditional bean loading annotations (`@ConditionalOnProperty`, `@ConditionalOnBean`) from Section 21.10.
 
