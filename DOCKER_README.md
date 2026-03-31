@@ -79,7 +79,7 @@ docker compose up -d --build
 docker compose down
 
 # View logs
-docker compose logs -f cortexce
+docker compose logs -f claude-mem
 
 # View database logs
 docker compose logs -f postgres
@@ -99,13 +99,13 @@ curl http://localhost:37777/actuator/health
 ### Access PostgreSQL
 
 ```bash
-docker compose exec postgres psql -U postgres -d cortexce
+docker compose exec postgres psql -U postgres -d claude_mem
 ```
 
 ### Rebuild after dependency changes
 
 ```bash
-docker compose build --no-cache cortexce
+docker compose build --no-cache claude-mem
 ```
 
 ### Network Issues (China/Corporate Firewall)
@@ -214,7 +214,7 @@ docker build -t cortex-ce:latest .
 # Run with environment variables
 docker run -d \
   -p 37777:37777 \
-  -e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/cortexce \
+  -e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/claude_mem \
   -e SPRING_DATASOURCE_USERNAME=postgres \
   -e SPRING_DATASOURCE_PASSWORD=postgres \
   -e OPENAI_API_KEY=your-api-key \
@@ -276,7 +276,7 @@ The test scripts use non-conflicting ports to avoid interference with local deve
 - Change default database password in `.env`
 - Consider adding TLS/SSL for production
 - The app runs as non-root user inside container
-- Logs are persisted in `cortexce-logs` volume
+- Logs are persisted in `claude-mem-logs` volume
 
 ## Repository Structure
 

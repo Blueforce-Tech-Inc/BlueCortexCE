@@ -91,7 +91,6 @@ Edit `.env` with your configuration:
 # Database
 DB_USERNAME=postgres
 DB_PASSWORD=your_password
-DB_URL=jdbc:postgresql://localhost:5433/claude_mem
 
 # LLM (Chat Model)
 SPRING_AI_OPENAI_API_KEY=sk-xxx
