@@ -42,22 +42,35 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     public CortexMemClientImpl(CortexMemProperties properties, RestClient.Builder restClientBuilder) {
         this.properties = properties;
-        this.maxRetries = properties.getRetry().getMaxAttempts();
-        this.retryBackoff = properties.getRetry().getBackoff();
+        this.maxRetries = Math.max(1, properties.getRetry().getMaxAttempts());
+        Duration backoff = properties.getRetry().getBackoff();
+        this.retryBackoff = backoff != null && !backoff.isNegative() && !backoff.isZero()
+            ? backoff : Duration.ofMillis(500);
 
         if (restClientBuilder == null) {
             restClientBuilder = RestClient.builder();
         }
 
-        // Apply timeout configuration from properties
-        HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(properties.getConnectTimeout())
-            .build();
-        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
-        long readTimeoutMs = properties.getReadTimeout().toMillis();
+        // Validate configuration
+        String baseUrl = properties.getBaseUrl();
+        if (baseUrl == null || baseUrl.isBlank()) {
+            throw new IllegalArgumentException("baseUrl must not be null or blank");
+        }
+        Duration connectTimeout = properties.getConnectTimeout();
+        if (connectTimeout == null || connectTimeout.isNegative()) {
+            throw new IllegalArgumentException("connectTimeout must not be null or negative");
+        }
+        Duration readTimeout = properties.getReadTimeout();
+        long readTimeoutMs = readTimeout != null ? readTimeout.toMillis() : 30_000L;
         if (readTimeoutMs > Integer.MAX_VALUE) {
             throw new IllegalArgumentException("readTimeout exceeds maximum supported value (24.8 days)");
         }
+
+        // Apply timeout configuration from properties
+        HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(connectTimeout)
+            .build();
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout((int) readTimeoutMs);
 
         var builder = restClientBuilder
