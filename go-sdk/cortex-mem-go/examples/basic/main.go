@@ -95,7 +95,7 @@ func main() {
 	if err != nil {
 		log.Printf("Failed to list observations: %v", err)
 	} else {
-		fmt.Printf("Total observations: %d\n", listResp.Total)
+		fmt.Printf("Listed %d observations (hasMore: %t)\n", len(listResp.Items), listResp.HasMore)
 	}
 
 	// 6. Get version
