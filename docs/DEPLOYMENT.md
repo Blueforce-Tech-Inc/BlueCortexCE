@@ -2,11 +2,7 @@
 
 > **中文版**: [DEPLOYMENT-zh-CN.md](DEPLOYMENT-zh-CN.md)
 
-> **Version**: 0.1.0-beta
-
 This guide provides comprehensive instructions for deploying Cortex Community Edition in production environments.
-
-[中文版](DEPLOYMENT-zh-CN.md)
 
 ## Table of Contents
 
@@ -35,83 +31,123 @@ This guide provides comprehensive instructions for deploying Cortex Community Ed
 
 ## 2. Docker Deployment
 
-### Using Docker Compose
+### Using Docker Compose (Recommended)
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-repo/cortexce.git
-cd cortexce
+git clone https://github.com/Blueforce-Tech-Inc/BlueCortexCE.git
+cd BlueCortexCE
 
-# Start all services
-docker-compose up -d
+# Copy environment template and edit
+cp .env.docker .env
+vim .env
+
+# Start all services (uses pre-built image from GHCR)
+docker compose up -d
+
+# Check health
+curl http://localhost:37777/api/health
+```
+
+### Using a Custom Image
+
+```bash
+# Use specific version
+IMAGE_NAME=ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:sha-abc123 docker compose up -d
+
+# Build and use local image
+git submodule update --init --recursive
+docker build -t cortex-ce:local .
+IMAGE_NAME=cortex-ce:local docker compose up -d
 ```
 
 ### Manual Docker Deployment
 
 ```bash
-# Build the image
-docker build -t cortexce:latest .
+# Build the image (initialize webui submodule first)
+git submodule update --init --recursive
+docker build -t cortex-ce:latest .
 
 # Run the container
 docker run -d \
   -p 37777:37777 \
-  -e POSTGRES_HOST=postgres \
-  -e POSTGRES_PORT=5432 \
-  cortexce:latest
+  -e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/claude_mem \
+  -e SPRING_DATASOURCE_USERNAME=postgres \
+  -e SPRING_DATASOURCE_PASSWORD=your_password \
+  -e SPRING_AI_OPENAI_API_KEY=sk-your-key \
+  cortex-ce:latest
 ```
 
 ## 3. Production Configuration
 
 ### Database Configuration
 
-```yaml
-# application.yml
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/cortexce
-    username: cortexce
-    password: ${DB_PASSWORD}
-  jpa:
-    hibernate:
-      ddl-auto: validate
+Database schema is managed by Flyway migrations. The application connects using:
+
+```properties
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/claude_mem
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
 ```
 
 ### JVM Options
 
+Default JVM options in docker-compose.yml:
+
 ```bash
-JAVA_OPTS="-Xmx2g -Xms512m -XX:+UseG1GC"
+JAVA_OPTS="-XX:+UseZGC -XX:MaxRAMPercentage=75.0"
 ```
 
 ## 4. Database Migration
 
-### Run Migrations
+Database migrations run automatically on application startup via Flyway. Migration scripts are located in `backend/src/main/resources/db/migration/`.
+
+To run migrations manually:
 
 ```bash
-# Using Flyway
+cd backend
 mvn flyway:migrate
-
-# Or manually
-psql -U cortexce -d cortexce -f src/main/resources/db/migration/V1__initial_schema.sql
 ```
 
 ## 5. Environment Variables
 
+### Required Variables
+
 | Variable | Description | Default |
 |----------|-------------|---------|
-| POSTGRES_HOST | Database host | localhost |
-| POSTGRES_PORT | Database port | 5432 |
-| POSTGRES_DB | Database name | cortexce |
-| POSTGRES_USER | Database user | cortexce |
-| POSTGRES_PASSWORD | Database password | - |
-| JWT_SECRET | JWT signing secret | - |
-| API_RATE_LIMIT | API rate limit | 100 |
+| `DB_HOST` | PostgreSQL host | `postgres` |
+| `DB_PORT` | PostgreSQL port | `5432` |
+| `DB_NAME` | PostgreSQL database name | `claude_mem` |
+| `DB_USERNAME` | Database username | `postgres` |
+| `DB_PASSWORD` | Database password | - |
+| `OPENAI_API_KEY` | OpenAI/DeepSeek API key | - |
+| `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | SiliconFlow API key (embedding) | - |
+
+### Optional Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `OPENAI_BASE_URL` | OpenAI compatible API endpoint | `https://api.deepseek.com` |
+| `OPENAI_MODEL` | Chat model | `deepseek-chat` |
+| `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | Embedding API endpoint | `https://api.openai.com` |
+| `SPRING_AI_OPENAI_EMBEDDING_MODEL` | Embedding model | `text-embedding-3-small` |
+| `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | Embedding dimensions | `1536` |
+| `CLAUDE_MEM_MODE` | Application mode | `code` |
+| `MEMORY_REFINE_ENABLED` | Enable memory refinement | `true` |
+| `JAVA_OPTS` | JVM options | `-XX:+UseZGC -XX:MaxRAMPercentage=75.0` |
+
+See `.env.docker` for a complete template.
 
 ## 6. Monitoring and Logging
 
 ### Health Check
 
-```
-GET /actuator/health
+```bash
+# Custom health endpoint (recommended)
+curl http://localhost:37777/api/health
+
+# Spring Boot Actuator
+curl http://localhost:37777/actuator/health
 ```
 
 ### Metrics
@@ -122,13 +158,13 @@ GET /actuator/metrics
 
 ### Log Configuration
 
-Configure logging levels in `application.yml`:
+Logs are persisted in the `claude-mem-logs` Docker volume at `/app/logs`.
 
-```yaml
-logging:
-  level:
-    root: INFO
-    com.ablueforce.cortexce: DEBUG
+Configure logging levels via environment variable or `application.properties`:
+
+```properties
+logging.level.root=INFO
+logging.level.com.ablueforce.cortexce=DEBUG
 ```
 
 ## 7. Troubleshooting
@@ -136,18 +172,29 @@ logging:
 ### Common Issues
 
 1. **Database Connection Failed**
-   - Check PostgreSQL is running
-   - Verify connection credentials
-   - Check firewall settings
+   - Check PostgreSQL is running: `docker compose logs -f postgres`
+   - Verify connection credentials in `.env`
+   - Check healthcheck: `docker compose ps`
 
 2. **Out of Memory**
-   - Increase JVM heap size
+   - Increase JVM heap via `JAVA_OPTS`
    - Check memory usage with `/actuator/metrics`
 
 3. **Slow Response**
    - Check database query performance
    - Review connection pool settings
    - Monitor CPU and memory usage
+
+### Docker Registry Issues (China/Corporate Firewall)
+
+If pulling images fails, use mirror registries:
+
+```bash
+docker pull docker.1ms.run/library/eclipse-temurin:21-jdk
+docker tag docker.1ms.run/library/eclipse-temurin:21-jdk eclipse-temurin:21-jdk
+```
+
+See [DOCKER_README.md](../DOCKER_README.md) for detailed mirror configuration.
 
 ---
 

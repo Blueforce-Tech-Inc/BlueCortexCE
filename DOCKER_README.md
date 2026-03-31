@@ -32,7 +32,7 @@ To use a custom image version:
 
 ```bash
 # Use specific version
-IMAGE_NAME=ghcr.io/blueforce-tech-inc/cortex-ce:sha-abc123 docker compose up -d
+IMAGE_NAME=ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:sha-abc123 docker compose up -d
 
 # Use local image (after building locally)
 IMAGE_NAME=cortex-ce:local docker compose up -d
