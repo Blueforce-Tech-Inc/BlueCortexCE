@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-03-31 (Backend 审查 #13)
+> **最后更新**: 2026-03-31 (Java SDK 审查 #13)
 
 # Backend 代码审查问题记录
 
@@ -474,3 +474,25 @@
 - **IngestionController.java**: 质量优秀。rate limiting 集成（`RateLimitService`）、input sanitization（prompt 长度截断）、SSE broadcast（`handleUserPrompt`）实现到位。input validation 层次清晰。
 - **StructuredExtractionService.java**: 架构设计优秀。append-only extraction + mergeAppendOnly + keep_hint 保护机制稳健。`groupByUser` batch lookup 避免 N+1，`buildItemKey` SHA-256 fallback 正确，`safeListOfMaps` 防御性编程到位。DLQ 机制保证失败不丢失。1 个 P2 事务问题见上表。
 - **无 P0/P1 问题**。发现 4 个 P2 事务一致性问题（均为低风险——当前单用户场景不触发竞态条件）。
+
+---
+
+### 2026-03-31 14:29 | Java SDK 审查 #13
+
+**审查范围**: `CortexMemClientImpl.java`, `CortexMemProperties.java`, `CortexMemAutoConfiguration.java`, Demo 全部控制器
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | CortexMemClientImpl.java | L45 | `maxRetries` 未做下限校验：若配置 `retry.maxAttempts=0` 或负数，for 循环永不执行，所有操作静默失败（不发请求也不抛异常） | P2 ✅已修复（`Math.max(1, ...)`） |
+| 2 | CortexMemClientImpl.java | L46 | `retryBackoff` 未做 null/零/负值校验：若配置 `retry.backoff=PT0S`，jitter 计算 `baseMs/2` 为 0，导致 busy loop | P2 ✅已修复（null/negative/zero → 500ms 默认） |
+| 3 | CortexMemClientImpl.java | L55-63 | `connectTimeout` null 检查缺失（HttpClient.newBuilder().connectTimeout(null) 抛 NPE）；`readTimeout` 仅检查上限（>Integer.MAX_VALUE），未检查 null/negative | P2 ✅已修复（构造时验证 null/negative） |
+| 4 | CortexMemClientImpl.java | L49 | `baseUrl` 无 null/blank 验证，RestClient.builder().baseUrl(null) 行为未定义 | P2 ✅已修复（构造时 fail-fast） |
+
+**审查结论**:
+- **CortexMemClientImpl.java**: 整体质量优秀。retry 逻辑完善（jittered backoff、transient-only retry），fire-and-forget vs propagate 分离合理。本次修复 4 个防御性编程问题（均 P2，不影响默认配置用户）。
+- **CortexMemProperties.java**: 惯例配置类，无验证注解。客户端侧已在 CortexMemClientImpl 中防御。
+- **CortexMemAutoConfiguration.java**: 条件装配逻辑清晰，@ConditionalOnClass/@ConditionalOnProperty 层次分明，无问题。
+- **Demo 控制器** (10 个): 输入验证到位（null/blank 检查、limit 范围、类型检查），错误处理一致（try-catch + 500），PATCH 类型安全校验完整。
+- **编译**: ✅ SDK + Demo 均 BUILD SUCCESS
+- **测试**: ✅ 全部通过
+- **已修复 4 个 P2 问题并 commit** (`cf78f5a`)
