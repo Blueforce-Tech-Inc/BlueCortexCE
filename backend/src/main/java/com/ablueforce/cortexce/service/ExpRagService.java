@@ -44,30 +44,53 @@ public class ExpRagService {
      * @return List of experiences formatted for ICL
      */
     public List<Experience> retrieveExperiences(String currentTask, String projectPath) {
-        return retrieveExperiences(currentTask, projectPath, DEFAULT_RETRIEVAL_COUNT);
+        return retrieveExperiences(currentTask, projectPath, DEFAULT_RETRIEVAL_COUNT, null, null, null);
     }
 
     /**
      * Retrieve experiences with custom count using high-quality filter.
      */
     public List<Experience> retrieveExperiences(String currentTask, String projectPath, int count) {
-        return retrieveExperiences(currentTask, projectPath, count, null, null);
+        return retrieveExperiences(currentTask, projectPath, count, null, null, null);
     }
 
     /**
-     * Retrieve experiences with filters.
+     * Retrieve experiences with filters and optional userId isolation.
      *
      * @param currentTask Task description (currently unused for filtering, used for future semantic search)
      * @param projectPath Project path
      * @param count Number of experiences to retrieve
      * @param source Optional source filter (e.g., "tool_result", "user_statement")
      * @param requiredConcepts Optional concept filter (must contain all specified concepts)
+     * @param userId Optional user ID for multi-user isolation (Phase 3)
      */
     public List<Experience> retrieveExperiences(String currentTask, String projectPath, int count,
-                                                String source, List<String> requiredConcepts) {
+                                                String source, List<String> requiredConcepts,
+                                                String userId) {
         List<ObservationEntity> results;
 
-        if (source != null && !source.isBlank()) {
+        // Phase 3: userId-based session filtering
+        List<String> userSessionIds = null;
+        if (userId != null && !userId.isBlank()) {
+            userSessionIds = sessionRepository.findSessionIdsByUserIdAndProject(userId, projectPath);
+            if (userSessionIds.isEmpty()) {
+                log.debug("No sessions found for userId={} in project={}", userId, projectPath);
+                return List.of();
+            }
+            log.debug("userId={} resolved to {} sessions in project={}", userId, userSessionIds.size(), projectPath);
+        }
+
+        if (userSessionIds != null) {
+            // User-scoped: fetch from user's sessions only
+            results = observationRepository
+                .findByContentSessionIdInOrderByCreatedAtEpochDesc(userSessionIds, count * 3);
+            // Apply source filter in-memory (no session+source repo method exists)
+            if (source != null && !source.isBlank()) {
+                results = results.stream()
+                    .filter(obs -> source.equals(obs.getSource()))
+                    .toList();
+            }
+        } else if (source != null && !source.isBlank()) {
             // Use source-based repository method (fetch extra to reduce need for fallback)
             results = observationRepository.findBySource(projectPath, source, count * 3);
         } else {
@@ -76,8 +99,8 @@ public class ExpRagService {
                 .findHighQualityObservations(projectPath, MIN_QUALITY_THRESHOLD, count * 3);
         }
 
-        // If not enough, get recent observations (respect source filter if active)
-        if (results.size() < count) {
+        // If not enough, get recent observations (respect filters)
+        if (results.size() < count && userSessionIds == null) {
             List<ObservationEntity> recent;
             if (source != null && !source.isBlank()) {
                 // CRITICAL: fallback must also respect source filter
@@ -259,67 +282,7 @@ public class ExpRagService {
      * @param requiredConcepts Optional concept filter
      * @return List of experiences
      */
-    // ============================================================================
-    // ⚠️ DEAD CODE: This method is not called from anywhere in the codebase.
-    // It was designed for Phase 3 userId-based filtering but is not yet wired up.
-    // Keep it for future use — do not remove.
-    // TODO: Connect this method when userId-based experience retrieval is implemented.
-    // ============================================================================
-    public List<Experience> retrieveExperiences(String currentTask, String projectPath, int count,
-                                                String userId, String source, List<String> requiredConcepts) {
-        // If userId is provided, filter by user's sessions
-        if (userId != null && !userId.isBlank()) {
-            List<String> sessionIds = sessionRepository.findSessionIdsByUserIdAndProject(userId, projectPath);
-            if (sessionIds.isEmpty()) {
-                log.debug("No sessions found for userId={} in project={}", userId, projectPath);
-                return List.of();
-            }
 
-            // Get observations from user's sessions (batch query instead of N+1, with limit)
-            List<ObservationEntity> results = new ArrayList<>(
-                observationRepository.findByContentSessionIdInOrderByCreatedAtEpochDesc(sessionIds, count * 3)
-            );
-
-            // Apply source filter if specified
-            if (source != null && !source.isBlank()) {
-                results = results.stream()
-                    .filter(obs -> source.equals(obs.getSource()))
-                    .toList();
-            }
-
-            // Apply concept filter if specified
-            if (requiredConcepts != null && !requiredConcepts.isEmpty()) {
-                final List<String> conceptsToMatch = requiredConcepts;
-                results = results.stream()
-                    .filter(obs -> {
-                        if (obs.getConcepts() == null) return false;
-                        return conceptsToMatch.stream()
-                            .allMatch(concept -> obs.getConcepts().contains(concept));
-                    })
-                    .toList();
-            }
-
-            // Sort by quality and recency, limit to count
-            results = results.stream()
-                .sorted((a, b) -> {
-                    int qualityCompare = Double.compare(
-                        b.getQualityScore() != null ? b.getQualityScore() : 0.0,
-                        a.getQualityScore() != null ? a.getQualityScore() : 0.0
-                    );
-                    if (qualityCompare != 0) return qualityCompare;
-                    return Long.compare(b.getCreatedAtEpoch(), a.getCreatedAtEpoch());
-                })
-                .limit(count)
-                .toList();
-
-            return results.stream()
-                .map(this::toExperience)
-                .toList();
-        }
-
-        // No userId, use existing method
-        return retrieveExperiences(currentTask, projectPath, count, source, requiredConcepts);
-    }
 
     /**
      * Experience record for ICL context.

@@ -114,9 +114,10 @@ public class MemoryController {
         int count = request.count() != null ? request.count() : 4;
         String source = request.source();
         List<String> requiredConcepts = request.requiredConcepts();
+        String userId = request.userId(); // Phase 3: multi-user isolation
         
         List<ExpRagService.Experience> experiences = expRagService
-            .retrieveExperiences(task, project, count, source, requiredConcepts);
+            .retrieveExperiences(task, project, count, source, requiredConcepts, userId);
         
         return ResponseEntity.ok(experiences);
     }
@@ -147,9 +148,10 @@ public class MemoryController {
         }
         String project = request.project();
         int maxChars = request.maxChars() != null ? Math.max(100, request.maxChars()) : 4000;
+        String userId = request.userId(); // Phase 3: multi-user isolation
 
         List<ExpRagService.Experience> experiences = expRagService
-            .retrieveExperiences(task, project, 4);
+            .retrieveExperiences(task, project, 4, null, null, userId);
         
         String prompt = expRagService.buildICLPrompt(task, experiences, maxChars);
         
