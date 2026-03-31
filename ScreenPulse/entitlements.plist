@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- 关闭沙盒，允许读取其他 App 的 UI 和发出本地网络请求 -->
+    <key>com.apple.security.app-sandbox</key>
+    <false/>
+    <!-- 允许向 localhost 发请求（POST 到记忆系统） -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+</dict>
+</plist>
