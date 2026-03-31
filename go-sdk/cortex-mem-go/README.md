@@ -203,6 +203,8 @@ The SDK uses JSON field names that match the backend API exactly:
 
 See `dto/` package for full wire format details.
 
+See [Go SDK Design Document](../../docs/drafts/go-sdk-design.md) for architecture and implementation details.
+
 ## License
 
 MIT

@@ -160,6 +160,19 @@ try {
 }
 ```
 
+## Wire Format
+
+The SDK uses JSON field names that match the backend API exactly:
+
+- `session_id` (snake_case)
+- `project_path` → `cwd` for tool observations
+- `type` → `tool_name` for tool observations
+- `requiredConcepts` (camelCase)
+- `observationId` (camelCase)
+- `extractedData` (camelCase)
+
+See [JS SDK Design Document](../../docs/drafts/js-sdk-design.md) for architecture and implementation details.
+
 ## Development
 
 ```bash

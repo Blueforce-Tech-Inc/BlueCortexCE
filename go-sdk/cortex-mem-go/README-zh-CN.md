@@ -203,6 +203,8 @@ SDK 使用与后端 API 完全一致的 JSON 字段名：
 
 详见 `dto/` 包中的完整 Wire 格式定义。
 
+详见 [Go SDK 设计文档](../../docs/drafts/go-sdk-design.md)。
+
 ## 许可证
 
 MIT

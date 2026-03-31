@@ -160,6 +160,19 @@ try {
 }
 ```
 
+## Wire 格式
+
+SDK 使用与后端 API 完全一致的 JSON 字段名：
+
+- `session_id` (snake_case)
+- `project_path` → 观察中使用 `cwd`
+- `type` → 观察中使用 `tool_name`
+- `requiredConcepts` (camelCase)
+- `observationId` (camelCase)
+- `extractedData` (camelCase)
+
+详见 [JS SDK 设计文档](../../docs/drafts/js-sdk-design.md)。
+
 ## 开发
 
 ```bash
