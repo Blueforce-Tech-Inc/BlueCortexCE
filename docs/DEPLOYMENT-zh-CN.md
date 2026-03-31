@@ -54,7 +54,7 @@
 ```bash
 # 1. 克隆仓库
 git clone https://github.com/Blueforce-Tech-Inc/BlueCortexCE.git
-cd claude-mem-java
+cd BlueCortexCE
 
 # 2. 创建环境配置文件
 cat > .env << 'EOF'
@@ -107,13 +107,13 @@ docker pull ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:v0.1.0
 
 ```bash
 # 构建镜像
-docker build -t ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main -f java/Dockerfile .
+docker build -t ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main .
 
 # 带构建参数
 docker build \
   -t ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main \
   --build-arg JAVA_OPTS="-XX:+UseZGC -XX:MaxRAMPercentage=80.0" \
-  -f java/Dockerfile .
+  .
 ```
 
 ### 2.4 Docker Compose 服务说明
@@ -315,6 +315,12 @@ Claude-Mem 使用 **Flyway** 进行数据库版本管理：
 | V6 | `V6__pending_message_hash.sql` | 消息去重 |
 | V7 | `V7__remove_embedding_3072.sql` | 移除 3072 维嵌入 |
 | V8 | `V8__add_observation_content_hash.sql` | 内容哈希索引 |
+| V11 | `V11__observation_quality.sql` | 观察质量评分 |
+| V12 | `V12__step_efficiency.sql` | 步骤效率追踪 |
+| V13 | `V13__unify_session_id_on_content_session.sql` | 统一 session ID 到 content_session |
+| V14 | `V14__observation_source_and_extracted_data.sql` | 观察来源与提取数据 |
+| V15 | `V15__add_user_id_to_sessions.sql` | 会话表添加 user_id |
+| V16 | `V16__composite_source_index.sql` | 复合来源索引 |
 
 ### 4.2 迁移执行
 

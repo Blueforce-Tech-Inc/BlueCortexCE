@@ -147,7 +147,11 @@ cortexce/
 │   │   │   │   ├── repository/        # Data access
 │   │   │   │   ├── entity/            # JPA entities
 │   │   │   │   ├── dto/               # Data transfer objects
+│   │   │   │   ├── common/            # Shared utilities and constants
+│   │   │   │   ├── event/             # Spring application events
 │   │   │   │   ├── exception/         # Custom exceptions
+│   │   │   │   ├── logging/           # Logging utilities
+│   │   │   │   ├── mcp/               # MCP tool integration
 │   │   │   │   └── util/              # Utility classes
 │   │   │   └── resources/
 │   │   │       ├── application.properties  # Application config

@@ -25,9 +25,6 @@ The project uses a git submodule for WebUI. Before building, initialize the subm
 ```bash
 # From project root
 git submodule update --init --recursive
-
-# Or use the helper script
-../update-webui-submodule.sh
 ```
 
 ### 3. Running Tests

@@ -115,20 +115,18 @@ mvn flyway:migrate
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DB_HOST` | PostgreSQL host | `postgres` |
-| `DB_PORT` | PostgreSQL port | `5432` |
 | `DB_NAME` | PostgreSQL database name | `claude_mem` |
 | `DB_USERNAME` | Database username | `postgres` |
 | `DB_PASSWORD` | Database password | - |
-| `OPENAI_API_KEY` | OpenAI/DeepSeek API key | - |
-| `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | SiliconFlow API key (embedding) | - |
+| `SPRING_AI_OPENAI_API_KEY` | OpenAI/DeepSeek API key | - |
+| `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | Embedding API key (e.g. SiliconFlow) | - |
 
 ### Optional Variables
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `OPENAI_BASE_URL` | OpenAI compatible API endpoint | `https://api.deepseek.com` |
-| `OPENAI_MODEL` | Chat model | `deepseek-chat` |
+| `SPRING_AI_OPENAI_BASE_URL` | OpenAI compatible API endpoint | `https://api.openai.com` |
+| `SPRING_AI_OPENAI_CHAT_MODEL` | Chat model | `gpt-4o` |
 | `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | Embedding API endpoint | `https://api.openai.com` |
 | `SPRING_AI_OPENAI_EMBEDDING_MODEL` | Embedding model | `text-embedding-3-small` |
 | `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | Embedding dimensions | `1536` |
