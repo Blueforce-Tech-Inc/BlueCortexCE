@@ -222,11 +222,30 @@ Content-Type: application/json
 ### Trigger Memory Refinement
 
 ```
-POST /api/memory/refine
-Content-Type: application/json
+POST /api/memory/refine?project=/path/to/project
+```
 
+Triggers memory refinement for a project. Refinement re-evaluates observation quality and updates the quality distribution.
+
+**Query Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `project` | string | ✅ | Absolute project path to trigger refinement for |
+
+**Response** (`200 OK`):
+```json
 {
-  "project_path": "/path/to/project"
+  "status": "triggered",
+  "project": "/Users/dev/my-project",
+  "message": "Memory refinement event has been published"
+}
+```
+
+**Error Response** (`400 Bad Request`):
+```json
+{
+  "error": "project is required"
 }
 ```
 
@@ -270,7 +289,8 @@ Content-Type: application/json
   "project": "/path/to/project",
   "count": 5,
   "source": "manual",
-  "requiredConcepts": ["how-it-works"]
+  "requiredConcepts": ["how-it-works"],
+  "userId": "user-123"
 }
 ```
 
@@ -283,6 +303,7 @@ Content-Type: application/json
 | `count` | int | ❌ | Max experiences to return (default: 4) |
 | `source` | string | ❌ | Filter by source (e.g., `manual`, `tool_result`) |
 | `requiredConcepts` | string[] | ❌ | Filter to experiences containing these concepts |
+| `userId` | string | ❌ | User ID for multi-user isolation |
 
 ### Get ICL Prompt
 
@@ -293,9 +314,19 @@ Content-Type: application/json
 {
   "task": "database optimization",
   "project": "/path/to/project",
-  "maxChars": 4000
+  "maxChars": 4000,
+  "userId": "user-123"
 }
 ```
+
+**Request Fields**:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `task` | string | ✅ | Current task/question for context retrieval |
+| `project` | string | ❌ | Project path for scoping |
+| `maxChars` | int | ❌ | Max prompt length (default: 4000) |
+| `userId` | string | ❌ | User ID for multi-user isolation |
 
 ### Get Quality Distribution
 
@@ -310,11 +341,31 @@ POST /api/memory/feedback
 Content-Type: application/json
 
 {
-  "session_id": "session-123",
-  "feedback_type": "SUCCESS",
+  "observationId": "550e8400-e29b-41d4-a716-446655440000",
+  "feedbackType": "SUCCESS",
   "comment": "Task completed successfully"
 }
 ```
+
+**Request Fields**:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `observationId` | string | ✅ | UUID of the observation to provide feedback for |
+| `feedbackType` | string | ✅ | Feedback type (e.g., `SUCCESS`, `FAILURE`) |
+| `comment` | string | ❌ | Optional feedback comment |
+
+**Response** (`200 OK`):
+```json
+{
+  "status": "ok",
+  "observationId": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**Error Responses**:
+- `400` — Missing `observationId` or `feedbackType`, invalid UUID format
+- `404` — Observation not found
 
 ## Observations
 
@@ -1670,6 +1721,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-03-31 | 0.1.0-beta | Added Extraction (/run, /latest, /history), Cursor, Mode, Logs, Import, Viewer sections; Added Usage Examples, Appendix, Changelog; Synced with Chinese version |
 | 2026-03-31 | 0.1.0-beta+ | Enriched Viewer, Management, Mode, Health, Cursor, Logs sections with parameter tables and response examples; synced with Chinese version completeness |
 | 2026-03-31 | 0.1.0-beta++ | Added Session Start response example; corrected Delete Observation response (200 OK with body, not 204 No Content); synced Chinese changelog |
+| 2026-03-31 | 0.1.0-beta+++ | Corrected Memory Refine (query param, not JSON body); corrected Feedback request fields (observationId/feedbackType, not session_id/feedback_type); added userId field to Experiences and ICL Prompt; synced Chinese version |
 | 2026-03-13 | 0.1.0 | Initial API documentation |
 
 ---

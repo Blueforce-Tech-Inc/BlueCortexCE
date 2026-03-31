@@ -1123,18 +1123,25 @@ curl http://localhost:37777/api/modes
 
 触发记忆精炼（异步）。
 
-**请求体**:
-```json
-{
-  "project_path": "/path/to/project"
-}
-```
+**查询参数**:
 
-**响应示例**:
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `project` | string | ✅ | 项目绝对路径 |
+
+**响应示例** (`200 OK`):
 ```json
 {
   "status": "triggered",
-  "message": "Memory refinement started"
+  "project": "/Users/dev/my-project",
+  "message": "Memory refinement event has been published"
+}
+```
+
+**错误响应** (`400 Bad Request`):
+```json
+{
+  "error": "project is required"
 }
 ```
 
@@ -1149,7 +1156,8 @@ curl http://localhost:37777/api/modes
   "project": "/path/to/project",
   "count": 5,
   "source": "manual",
-  "requiredConcepts": ["how-it-works"]
+  "requiredConcepts": ["how-it-works"],
+  "userId": "user-123"
 }
 ```
 
@@ -1162,6 +1170,7 @@ curl http://localhost:37777/api/modes
 | `count` | int | ❌ | 返回的最大经验数（默认 4） |
 | `source` | string | ❌ | 来源过滤（如 `manual`、`tool_result`） |
 | `requiredConcepts` | string[] | ❌ | 概念过滤（仅返回包含这些概念的经验） |
+| `userId` | string | ❌ | 用户 ID（多用户隔离） |
 
 #### POST `/api/memory/icl-prompt`
 
@@ -1172,9 +1181,19 @@ curl http://localhost:37777/api/modes
 {
   "task": "database optimization",
   "project": "/path/to/project",
-  "maxChars": 4000
+  "maxChars": 4000,
+  "userId": "user-123"
 }
 ```
+
+**字段说明**:
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `task` | string | ✅ | 当前任务/问题（用于上下文检索） |
+| `project` | string | ❌ | 项目路径（用于范围限定） |
+| `maxChars` | int | ❌ | 最大提示长度（默认 4000） |
+| `userId` | string | ❌ | 用户 ID（多用户隔离） |
 
 #### GET `/api/memory/quality-distribution`
 
@@ -1197,11 +1216,31 @@ curl http://localhost:37777/api/modes
 **请求体**:
 ```json
 {
-  "session_id": "session-123",
-  "feedback_type": "SUCCESS",
+  "observationId": "550e8400-e29b-41d4-a716-446655440000",
+  "feedbackType": "SUCCESS",
   "comment": "Task completed successfully"
 }
 ```
+
+**字段说明**:
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `observationId` | string | ✅ | 要提供反馈的观察 UUID |
+| `feedbackType` | string | ✅ | 反馈类型（如 `SUCCESS`、`FAILURE`） |
+| `comment` | string | ❌ | 可选的反馈评论 |
+
+**响应示例** (`200 OK`):
+```json
+{
+  "status": "ok",
+  "observationId": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**错误响应**:
+- `400` — 缺少 `observationId` 或 `feedbackType`，或 UUID 格式无效
+- `404` — 观察不存在
 
 #### PATCH `/api/memory/observations/{id}`
 
@@ -2030,6 +2069,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-03-31 | 0.1.0-beta | 新增 Extraction (/run, /latest, /history)、Cursor、Mode、Logs、Import、Viewer 章节；修复 Session API 路径；同步英文版完整结构 |
 | 2026-03-31 | 0.1.0-beta+ | 补充 Viewer、Management、Mode、Health、Cursor、Logs 参数表和响应示例；同步英文版完整度 |
 | 2026-03-31 | 0.1.0-beta++ | 修正 Delete Observation 响应（200 OK with body，非 204 No Content）；同步英文版 Session Start 响应示例 |
+| 2026-03-31 | 0.1.0-beta+++ | 修正 Memory Refine（查询参数，非 JSON 请求体）；修正 Feedback 请求字段（observationId/feedbackType，非 session_id/feedback_type）；补充 Experiences 和 ICL Prompt 的 userId 字段；同步英文版 |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---

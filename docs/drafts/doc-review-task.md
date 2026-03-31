@@ -113,4 +113,5 @@
 - **2026-03-31 08:42**: API 文档 (API.md + API-zh-CN.md) — 修复 2 问题（英文 Session Start 缺失响应示例；中英文 Delete Observation 响应错误 204→200 OK with body），commit 1fd42d3
 - **2026-03-31 09:54**: SDK README (Go/Python/JS 新一轮) — 无修复。验证项：25 方法数（源码确认）、268 测试数（go test 确认）、端点路径与 Controller 源码一致、中英文版本结构/内容/跨链接一致、依赖声明（Go 零依赖 / Python 仅 requests / JS 零依赖）准确。
 - **2026-03-31 10:54**: 设计文档 (phase-3-design.md + walkthrough 新一轮) — 修复 2 问题（Section 25 实施进度仪表盘 Steps 6-11 显示 "🔧 Pending" 但代码已实现；更新实施顺序摘要和新文件/修改文件表）; 发现 1 待修复：MemoryController ICL/experiences 端点未接入 userId（DTO 已有字段但 Controller 未使用）
-- **Next direction**: API 文档 (新一轮轮换)
+- **2026-03-31 12:27**: API 文档 (API.md + API-zh-CN.md 新一轮) — 修复 3 问题：(1) Memory Refine 端点文档错误——英文/中文均写为 JSON body `{"project_path":"..."}`，实际代码为 `@RequestParam String project` 查询参数，修正为 `POST /api/memory/refine?project=...`；(2) Feedback 端点字段名错误——英文/中文均写为 `session_id`/`feedback_type`，实际 DTO 为 `observationId`/`feedbackType`，添加字段说明表和响应示例；(3) Experiences 和 ICL Prompt 缺少 `userId` 字段（Phase 3 多用户隔离），补充字段说明。中英文版本同步更新。
+- **Next direction**: SDK README (新一轮轮换)
