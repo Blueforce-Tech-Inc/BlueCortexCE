@@ -418,7 +418,7 @@ public class CortexMemClientImpl implements CortexMemClient {
                 .body(new ParameterizedTypeReference<>() {});
         } catch (Exception e) {
             log.warn("Failed to search: {}", e.getMessage());
-            return Map.of("observations", List.of(), "strategy", "none", "fell_back", true, "count", 0, "error", "search failed");
+            return Map.of("observations", List.of(), "strategy", "none", "fell_back", true, "count", 0, "error", "search failed: " + e.getMessage());
         }
     }
 

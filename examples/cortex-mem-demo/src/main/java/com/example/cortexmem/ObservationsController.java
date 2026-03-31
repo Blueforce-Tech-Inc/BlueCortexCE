@@ -37,13 +37,10 @@ public class ObservationsController {
             @RequestParam(defaultValue = "10") Integer limit,
             @RequestParam(defaultValue = "0") Integer offset) {
 
-        if (project == null || project.isBlank()) {
+        // project is optional per SDK contract (null = all projects)
+        if (limit < 1 || limit > 100) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("error", "project is required"));
-        }
-        if (limit < 0 || limit > 100) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("error", "limit must be between 0 and 100"));
+                    .body(Map.of("error", "limit must be between 1 and 100"));
         }
         if (offset < 0) {
             return ResponseEntity.badRequest()

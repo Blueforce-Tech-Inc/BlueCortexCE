@@ -115,8 +115,12 @@ public class ExperiencesController {
         try {
             ICLPromptRequest.Builder builder = ICLPromptRequest.builder()
                     .project(project)
-                    .task(task)
-                    .maxChars(maxChars);
+                    .task(task);
+
+            // Only send maxChars when > 0; 0 means "let backend decide" (omit from request)
+            if (maxChars > 0) {
+                builder.maxChars(maxChars);
+            }
 
             if (userId != null && !userId.isBlank()) {
                 builder.userId(userId);
