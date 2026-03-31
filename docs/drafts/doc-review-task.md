@@ -109,4 +109,5 @@
 - **2026-03-31 07:54**: 架构文档 (ARCHITECTURE.md + ARCHITECTURE-zh-CN.md + backend/README.md) — 修复 1 问题（backend/README.md 项目结构缺少 6 个包：common/dto/event/exception/logging/mcp），commit f554276
 - **2026-03-31 08:20**: 运维文档 (DEPLOYMENT.md + DOCKER_README.md + CONTRIBUTING.md + TESTING.md) — 修复 2 问题（DEPLOYMENT.md 环境变量名错误/不存在变量/docker语法过旧/git URL错误/docker run示例错误；DOCKER_README.md 镜像路径与docker-compose.yml不一致），commit efba5a1
 - **2026-03-31 08:42**: API 文档 (API.md + API-zh-CN.md) — 修复 2 问题（英文 Session Start 缺失响应示例；中英文 Delete Observation 响应错误 204→200 OK with body），commit 1fd42d3
-- **Next direction**: SDK README (新一轮轮换)
+- **2026-03-31 09:54**: SDK README (Go/Python/JS 新一轮) — 无修复。验证项：25 方法数（源码确认）、268 测试数（go test 确认）、端点路径与 Controller 源码一致、中英文版本结构/内容/跨链接一致、依赖声明（Go 零依赖 / Python 仅 requests / JS 零依赖）准确。
+- **Next direction**: 设计文档 (新一轮轮换)

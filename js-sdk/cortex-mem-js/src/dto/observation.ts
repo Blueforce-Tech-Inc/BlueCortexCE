@@ -33,9 +33,9 @@ export interface ObservationRequest {
 export interface ObservationUpdate {
   title?: string;
   subtitle?: string;
-  /** Observation content/narrative. Takes priority over "narrative" if both are set. */
+  /** Observation content/narrative. Alias for "narrative" — backend uses "narrative" wire field. */
   content?: string;
-  /** Alias for content. Used when "content" is not set. */
+  /** Observation content/narrative. Alias for "content". When both are set, backend processes whichever is present. */
   narrative?: string;
   facts?: string[];
   concepts?: string[];
