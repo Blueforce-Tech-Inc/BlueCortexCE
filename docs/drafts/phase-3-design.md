@@ -335,6 +335,8 @@ extractionService.runExtraction(projectPath);
 
 ### 2.1 Core Abstraction: ExtractionTemplate
 
+**Note**: In the actual implementation, `ExtractionTemplate` is `ExtractionConfig.TemplateConfig` (a POJO inner class, not a record). The record syntax below is for design clarity. Accessor patterns differ: design uses `template.name()` (record style), actual code uses `template.getName()` (getter style).
+
 ```java
 /**
  * Extraction template - defines WHAT to extract and HOW to output.
@@ -803,6 +805,8 @@ public class StructuredExtractionService {
      * @param sourceObservations Source observations used for extraction
      * @param targetSessionId Target session ID (from resolveSessionId), or null to inherit
      */
+    // NOTE: In the actual implementation, this method has been moved to ExtractionStorageService
+    // for transactional safety. StructuredExtractionService calls extractionStorageService.storeExtractionResult().
     private <T> void storeExtractionResult(
             ExtractionTemplate template, 
             T result,
@@ -3401,7 +3405,7 @@ Final pre-implementation verification — all items must pass before writing `St
 - [ ] Non-blocking: extraction failures don't propagate to refinement
 
 **Testing**:
-- [ ] Existing regression test passes (43/43)
+- [ ] Existing regression test passes (52/52)
 - [ ] Unit test with mocked LLM for structured extraction
 - [ ] Integration test for full template → LLM → store pipeline
 
@@ -4596,7 +4600,10 @@ Post-processing: Service merges add/remove with FULL prior data from DB
 
 ```java
 // New prompt contract — LLM only processes new observations
-private String buildAppendOnlyPrompt(ExtractionTemplate template,
+// NOTE: In the actual implementation, this is split into two methods:
+//   buildAppendOnlySystemPrompt(TemplateConfig template) — instructions + output format
+//   buildAppendOnlyUserPrompt(List<ObservationEntity> candidates) — observation data
+private String buildAppendOnlyPrompt(TemplateConfig template,
                                       List<ObservationEntity> candidates) {
     StringBuilder sb = new StringBuilder();
     sb.append("Extract structured information from the following observations.\n\n");
@@ -4727,13 +4734,13 @@ private String buildItemKey(Map<String, Object> item, List<String> keyFields) {
 **Key insight**: The append-only approach is BOTH safer and cheaper than the current design. No prior context in the prompt means no truncation risk AND lower token cost.
 
 **Impact on existing design**:
-- Section 2.3 `buildPrompt()`: Replace with `buildAppendOnlyPrompt()`
+- Section 2.3 `buildPrompt()`: Replace with `buildAppendOnlySystemPrompt()` + `buildAppendOnlyUserPrompt()`
 - Section 2.3 `extractByTemplate()`: Change return type to `AppendResult` (add/remove/keep_hint)
 - Section 2.3 `storeExtractionResult()`: Add `mergeAppendOnly()` post-processing step
 - Section 24.1 `summarizePriorExtraction()`: No longer needed (prior not passed to LLM)
 - Section 24.2 hallucination mitigation: Simplified (no prior context = no context blending)
 
-**Status**: ✅ Implemented — append-only extraction is the active implementation in `StructuredExtractionService.runAppendOnlyExtraction()`.
+**Status**: ✅ Implemented — append-only extraction is the active implementation in `StructuredExtractionService.extractAppendOnly()` (called by `extractByTemplate()` which detects append-only mode).
 
 ---
 
@@ -4758,7 +4765,7 @@ mvn clean compile -DskipTests
 
 # 4. Current regression test passes
 bash scripts/regression-test.sh
-# Expected: 43/43 tests passed
+# Expected: 52/52 tests passed
 
 # 5. Backend .env has correct config
 cat backend/.env | grep -E "SPRING_DATASOURCE|SPRING_AI"
@@ -4770,7 +4777,7 @@ cat backend/.env | grep -E "SPRING_DATASOURCE|SPRING_AI"
 |------|------|--------|--------|--------------|
 | 1 | V15 migration + SessionEntity.userId | ✅ Done | `cca84e0` | Build + DB column check |
 | 2 | SessionRepository user query methods | ✅ Done | `cca84e0` | Build passes |
-| 3 | ObservationRepository 5 new methods | ✅ Done | `cca84e0` | Build + regression 43/43 |
+| 3 | ObservationRepository 5 new methods | ✅ Done | `cca84e0` | Build + regression 52/52 |
 | 4 | LlmService.chatCompletionStructured() | ✅ Done | `cca84e0` | Build passes |
 | 5 | Session API — userId support | ✅ Done | `cca84e0` | curl tests pass |
 | 6 | StructuredExtractionService | ✅ Done | — | Build + append-only extraction functional |
@@ -4815,7 +4822,7 @@ cat backend/.env | grep -E "SPRING_DATASOURCE|SPRING_AI"
 4. `findByTypeLike(project, typePattern, limit)` — wildcard type query
 5. `findByContentSessionIdAndType(sessionId, type, limit)` — prior extraction lookup
 
-**Verification passed**: Build + regression 43/43.
+**Verification passed**: Build + regression 52/52.
 
 ---
 
@@ -5020,7 +5027,7 @@ curl -s http://127.0.0.1:37777/api/health
 
 # 5. Regression test passes
 bash scripts/regression-test.sh
-# Expected: 43/43 tests passed
+# Expected: 52/52 tests passed
 ```
 
 #### Step 6.4: Common Issues
@@ -5087,7 +5094,7 @@ cd backend && mvn clean compile -DskipTests
 # Build must pass
 
 bash scripts/regression-test.sh
-# Expected: 43/43 tests passed (extraction is disabled by default, so no behavior change)
+# Expected: 52/52 tests passed (extraction is disabled by default, so no behavior change)
 ```
 
 #### Common Issues
@@ -5196,7 +5203,7 @@ curl -s -X POST http://127.0.0.1:37777/api/memory/icl-prompt \
 
 # Regression test
 bash scripts/regression-test.sh
-# Expected: 43/43 tests passed
+# Expected: 52/52 tests passed
 ```
 
 #### Common Issues
@@ -5299,7 +5306,7 @@ curl -s -X POST "http://127.0.0.1:37777/api/extraction/run?projectPath=/tmp/test
 
 # Regression test (extraction enabled but no data — should be transparent)
 bash scripts/regression-test.sh
-# Expected: 43/43 tests passed
+# Expected: 52/52 tests passed
 ```
 
 #### Common Issues
@@ -5415,7 +5422,7 @@ Tests are ordered by dependency — later tests rely on data created by earlier 
 | 9 | History preservation | Query history | Multiple snapshots exist |
 | 10 | Experiences + userId | Query experiences | User-filtered results |
 | 11 | Hook mode compat | Session without userId | No errors |
-| 12 | Regression | Run regression-test.sh | 43/43 pass |
+| 12 | Regression | Run regression-test.sh | 52/52 pass |
 
 #### Cleanup
 
@@ -5438,7 +5445,7 @@ bash scripts/demo-v15-extraction-test.sh
 # ✅ Test 1: Session + userId
 # ✅ Test 2: Session without userId (hook mode)
 # ... (12 tests)
-# ✅ Regression: 43/43 passed
+# ✅ Regression: 52/52 passed
 # ==============================
 # Result: 12/12 checks passed
 # ==============================
@@ -5696,7 +5703,7 @@ psql -c "SELECT content_session_id FROM mem_observations WHERE content_session_i
 
 ```bash
 bash scripts/regression-test.sh
-# Expected: 43/43 tests passed (or 43+N with new tests)
+# Expected: 52/52 tests passed (or 43+N with new tests)
 ```
 
 ---
@@ -6175,7 +6182,7 @@ result=$(curl -sf "$BACKEND/api/extraction/user_preference/latest?projectPath=/t
 ```bash
 # Existing regression tests must still pass
 bash scripts/regression-test.sh
-# Expected: 43/43 tests passed (or more if new tests added)
+# Expected: 52/52 tests passed (or more if new tests added)
 
 # Existing demo tests must still pass
 bash scripts/demo-v14-test.sh
@@ -6200,7 +6207,7 @@ bash scripts/demo-v14-test.sh
 | 8 | Person field | Family Assistant | Third-party entities captured |
 | 9 | History preservation | History | Old extractions not overwritten |
 | 10 | Zero-shot | Bootstrap | Graceful empty handling |
-| — | Regression | Backward Compat | 43/43 existing tests pass |
+| — | Regression | Backward Compat | 52/52 existing tests pass |
 | — | SDK Demo | SDK Integration | 4/4 SDK tests pass |
 
 **Definition of Done**: ALL 12 checks pass.
@@ -6211,7 +6218,7 @@ bash scripts/demo-v14-test.sh
 
 - **2026-03-22 v29**: (1) **Section 24.6 `mergeAppendOnly()`**: Fixed critical design gaps — `keep_hint` was extracted but never used in merge logic; `deduplicate()` was called but undefined. Replaced with: (a) `buildItemKey()` method for consistent deduplication keying (category+value composite); (b) `keep_hint` now stored as `_keep_hint` in merged result for debugging; (c) existing-key check prevents duplicate adds. (2) **Section 24.6 `buildAppendOnlyPrompt()`**: Added item schema hint and `keep_hint` semantics clarification — LLM now knows the expected structure of array elements and MUST include `category`+`value` fields for deduplication. (3) **Section 23.4b**: Added append-only cost comparison — ~20% cheaper than truncated-prior approach, while eliminating data loss risk. (4) **Section 2.3 `summarizePriorExtraction()`**: Added design note cross-referencing Section 24.6 data loss risk and append-only alternative.
 
-- **2026-03-22 v28**: **Section 24.6**: Identified critical data loss risk in `summarizePriorExtraction()` — when prior is truncated to latest 5 items, older items not re-mentioned in new observations silently disappear over successive extraction runs. Allergy information, important dates, and long-standing preferences could be permanently lost with no error or warning. Proposed **Solution D (append-only extraction)** as both safer AND cheaper alternative: LLM outputs only add/remove/keep_hint, service merges with full prior from DB. Token cost: ~2000 (append-only) vs ~7000 (full prior) vs ~2500 (truncated, lossy). ~~Design status: open for review before implementation.~~ → **✅ Implemented** (Section 24.6, `StructuredExtractionService.runAppendOnlyExtraction()`).
+- **2026-03-22 v28**: **Section 24.6**: Identified critical data loss risk in `summarizePriorExtraction()` — when prior is truncated to latest 5 items, older items not re-mentioned in new observations silently disappear over successive extraction runs. Allergy information, important dates, and long-standing preferences could be permanently lost with no error or warning. Proposed **Solution D (append-only extraction)** as both safer AND cheaper alternative: LLM outputs only add/remove/keep_hint, service merges with full prior from DB. Token cost: ~2000 (append-only) vs ~7000 (full prior) vs ~2500 (truncated, lossy). ~~Design status: open for review before implementation.~~ → **✅ Implemented** (Section 24.6, `StructuredExtractionService.extractAppendOnly()`).
 
 - **2026-03-22 v27**: (1) **Section 2.3 `buildPrompt()`**: Integrated Section 24 findings — added `summarizePriorExtraction()` for token cost control (Section 24.1) and hallucination prevention instruction in prompt (Section 24.2). (2) **Section 7.1 `updateExtractionState()`**: Added `@Transactional` annotation for atomic delete-then-save (Section 15.6) and idempotency guard (Section 17.3). (3) **Section 8**: Closed all 10 open questions — 8 new resolutions documented with references to answer sections. Previously only #8-10 were marked resolved. (4) **Section 15.2**: Added `ExtractionFormatUtil.java` to new files list and conditional bean loading annotations (`@ConditionalOnProperty`, `@ConditionalOnBean`) from Section 21.10.
 
