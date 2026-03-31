@@ -1,17 +1,8 @@
-# OpenClaw Manual Integration Guide
+# OpenClaw Integration Guide
 
 This document describes how to integrate Claude-Mem Java backend with OpenClaw Gateway.
 
-> ⚠️ **Experimental Feature - Not Yet Verified**
->
-> This plugin is based on OpenClaw official SDK type definitions. Event names and API calls are aligned with official specifications.
-> However, it has **not been tested in a real OpenClaw Gateway environment**.
->
-> Before using:
-> 1. Ensure OpenClaw Gateway is properly installed and configured
-> 2. Place the compiled plugin in `~/.openclaw/extensions/cortexce/` directory
-> 3. Use `openclaw plugins doctor` to check if plugin loads correctly
-> 4. If issues arise, please submit an issue
+> ✅ **Verified** — Plugin loaded and tested successfully in OpenClaw Gateway (2026-03-31).
 
 ---
 
@@ -78,7 +69,7 @@ export OPENAI_API_KEY=your_api_key
 export SPRING_AI_OPENAI_EMBEDDING_API_KEY=your_embedding_key
 
 # Start backend
-java -jar target/cortexce-0.1.0-SNAPSHOT.jar --spring.profiles.active=dev &
+java -jar target/cortex-ce-0.1.0-beta.jar --spring.profiles.active=dev &
 ```
 
 Verify backend is running:
@@ -95,13 +86,13 @@ curl http://127.0.0.1:37777/actuator/health
 
 ```bash
 # Create plugin directory
-mkdir -p ~/.openclaw/extensions/cortexce
+mkdir -p ~/.openclaw/extensions/claude-mem-java
 
 # Copy plugin configuration
-cp ~/.cortexce/openclaw-plugin/openclaw.plugin.json ~/.openclaw/extensions/cortexce/
+cp ~/.cortexce/openclaw-plugin/openclaw.plugin.json ~/.openclaw/extensions/claude-mem-java/
 
 # Copy built plugin
-cp ~/.cortexce/openclaw-plugin/dist/index.js ~/.openclaw/extensions/cortexce/
+cp ~/.cortexce/openclaw-plugin/dist/index.js ~/.openclaw/extensions/claude-mem-java/
 ```
 
 ### Step 2: Install Skills (Optional - for active search)
@@ -119,11 +110,11 @@ cp -r ~/.cortexce/openclaw-plugin/skills/claude-mem-search /path/to/your-project
 ### Step 3: Enable Plugin
 
 ```bash
-openclaw plugins enable cortexce
+openclaw plugins enable claude-mem-java
 
 # Verify
 openclaw plugins list
-# Should display cortexce
+# Should display claude-mem-java
 ```
 
 ### Step 4: Verify Installation
@@ -139,11 +130,11 @@ openclaw plugins doctor
 
 ### Plugin Configuration
 
-Edit `~/.openclaw/extensions/cortexce/openclaw.plugin.json`:
+Edit `~/.openclaw/extensions/claude-mem-java/openclaw.plugin.json`:
 
 ```json
 {
-  "id": "cortexce",
+  "id": "claude-mem-java",
   "name": "Claude-Mem CortexCE",
   "version": "0.1.0",
   "description": "Memory persistence for Claude Code sessions",
@@ -153,6 +144,28 @@ Edit `~/.openclaw/extensions/cortexce/openclaw.plugin.json`:
     "apiUrl": "http://localhost:37777"
   }
 }
+```
+
+### Gateway Configuration (plugins.allow)
+
+To suppress the "untracked local code" warning, add `plugins.allow` to `~/.openclaw/openclaw.json`:
+
+```json
+{
+  "plugins": {
+    "allow": ["claude-mem-java"],
+    "entries": {
+      "claude-mem-java": {
+        "enabled": true
+      }
+    }
+  }
+}
+```
+
+After editing, restart the Gateway:
+```bash
+openclaw gateway restart
 ```
 
 ### Skill Configuration
@@ -237,7 +250,7 @@ After installation:
 ~/.cortexce/
 ├── backend/                    # Spring Boot backend
 │   └── target/
-│       └── cortexce-0.1.0-SNAPSHOT.jar
+│       └── cortex-ce-0.1.0-beta.jar
 ├── openclaw-plugin/            # OpenClaw plugin source
 │   ├── skills/
 │   │   └── claude-mem-search/
@@ -298,10 +311,10 @@ cat ~/.openclaw/settings.json
 
 ```bash
 # Disable plugin
-openclaw plugins disable cortexce
+openclaw plugins disable claude-mem-java
 
 # Remove files
-rm -rf ~/.openclaw/extensions/cortexce
+rm -rf ~/.openclaw/extensions/claude-mem-java
 rm -rf ~/.openclaw/skills/claude-mem-search
 ```
 

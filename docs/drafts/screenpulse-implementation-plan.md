@@ -252,7 +252,7 @@ final class ScreenCaptureManager: ObservableObject {
 ```swift
 // V1.0 实际只用到: .manual, .timer
 // V1.1 扩展: .appSwitch, .windowChange, .titleChange, .contentChange
-enum CaptureTrigger: String {
+enum CaptureTrigger: String, Codable {
     case manual
     case timer
     case appSwitch       // V1.1
@@ -373,12 +373,13 @@ func renderMarkdown(from semantic: SemanticFields) -> String {
 
     // URL 和页面标题（浏览器）
     if let url = semantic.url {
-        lines.append("[\(semantic.pageTitle ?? url))](\(url))")
+        let title = semantic.pageTitle ?? url
+        lines.append("[\(title)](\(url))")
     }
 
-    // 标题层级
+    // 标题层级（页面标题已是 # 一级，子标题偏移 +1）
     for h in semantic.headings.sorted(by: { $0.level < $1.level }) {
-        let prefix = String(repeating: "#", count: h.level)
+        let prefix = String(repeating: "#", count: h.level + 1)
         lines.append("\(prefix) \(h.text)")
     }
 
@@ -387,8 +388,8 @@ func renderMarkdown(from semantic: SemanticFields) -> String {
         lines.append("> **Selected:** \(selected)")
     }
 
-    // 可见文本块
-    for block in semantic.visibleTextBlocks {
+    // 可见文本块（仅输出有意义的角色，过滤 UI 噪音）
+    for block in semantic.visibleTextBlocks where block.role == "AXStaticText" || block.role == "AXListItem" {
         lines.append(block.text)
     }
 
@@ -548,7 +549,7 @@ Content-Type: application/json
 
 ### 5.2 后端适配说明 (Cortex CE 侧)
 
-ScreenPulse 复用现有端点 `POST /api/ingest/observation`，无需新增后端端点。详见上方 [5.2 后端适配说明](#52-后端适配说明-cortex-ce-侧) 节。
+ScreenPulse 复用现有端点 `POST /api/ingest/observation`，无需新增后端端点。详见 [4.4 API Payload](#44-api-payload-v12) 节。
 
 ## 六、构建与部署
 

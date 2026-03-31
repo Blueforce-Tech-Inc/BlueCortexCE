@@ -1,17 +1,8 @@
-# OpenClaw 手动集成配置指南
+# OpenClaw 集成配置指南
 
 本文档说明如何将 Claude-Mem Java 后端集成到 OpenClaw Gateway 中。
 
-> ⚠️ **实验性功能 - 未经真实验证**
->
-> 本插件基于 OpenClaw 官方 SDK 类型定义编写，事件名称和 API 调用方式已与官方规范对齐。
-> 但**尚未在真实的 OpenClaw Gateway 环境中测试**。
->
-> 使用前请：
-> 1. 确保已正确安装并配置 OpenClaw Gateway
-> 2. 将编译后的插件放置在 `~/.openclaw/extensions/cortexce/` 目录
-> 3. 使用 `openclaw plugins doctor` 检查插件是否正确加载
-> 4. 如遇到问题，请提交 issue 反馈
+> ✅ **已验证** — 插件已在 OpenClaw Gateway 中成功加载并运行 (2026-03-31)。
 
 ---
 
@@ -72,7 +63,7 @@ export OPENAI_API_KEY=your_api_key
 export SPRING_AI_OPENAI_EMBEDDING_API_KEY=your_embedding_key
 
 # 启动后端 (dev profile 会自动加载 .env)
-java -jar target/cortexce-0.1.0-SNAPSHOT.jar --spring.profiles.active=dev &
+java -jar target/cortex-ce-0.1.0-beta.jar --spring.profiles.active=dev &
 ```
 
 验证后端已启动:
@@ -356,7 +347,7 @@ OpenClaw 支持三种插件集成方式，选择其中一种即可。
 ├─────────────────────────────────────────────────────────────────────┤
 │  OpenClaw 主配置文件 (用户可修改)                                     │
 │  ┌───────────────────────────────────────────────────────────────┐  │
-│  │ plugins.entries."cortexce".config: {                   │  │
+│  │ plugins.entries."claude-mem-java".config: {                   │  │
 │  │   workerPort: 37777  ← 提供具体值（必须符合 schema）            │  │
 │  │ }                                                             │  │
 │  └───────────────────────────────────────────────────────────────┘  │
@@ -371,18 +362,18 @@ OpenClaw 支持三种插件集成方式，选择其中一种即可。
 
 ```bash
 # 创建目标目录
-mkdir -p ~/.openclaw/extensions/cortexce
+mkdir -p ~/.openclaw/extensions/claude-mem-java
 
 # 复制必要文件
-cp ~/.cortexce/openclaw-plugin/openclaw.plugin.json ~/.openclaw/extensions/cortexce/
-cp ~/.cortexce/openclaw-plugin/dist/index.js ~/.openclaw/extensions/cortexce/
+cp ~/.cortexce/openclaw-plugin/openclaw.plugin.json ~/.openclaw/extensions/claude-mem-java/
+cp ~/.cortexce/openclaw-plugin/dist/index.js ~/.openclaw/extensions/claude-mem-java/
 ```
 
 **优点**：无需修改 OpenClaw 配置文件，使用 `configSchema` 中定义的默认值。
 
 **验证**：
 ```bash
-openclaw plugins list          # 应显示 cortexce
+openclaw plugins list          # 应显示 claude-mem-java
 openclaw plugins doctor        # 检查是否有错误
 ```
 
@@ -398,11 +389,12 @@ openclaw plugins doctor        # 检查是否有错误
 {
   "plugins": {
     "enabled": true,
+    "allow": ["claude-mem-java"],
     "load": {
       "paths": ["~/.cortexce/openclaw-plugin"]
     },
     "entries": {
-      "cortexce": {
+      "claude-mem-java": {
         "enabled": true,
         "config": {
           "workerPort": 37777,
@@ -414,6 +406,8 @@ openclaw plugins doctor        # 检查是否有错误
   }
 }
 ```
+
+**`plugins.allow`**: 显式声明信任的插件 ID，消除 Gateway 启动时的 "untracked local code" 警告。
 
 **优点**：可以覆盖默认配置值，适合需要自定义配置的场景。
 
@@ -430,7 +424,7 @@ openclaw plugins doctor        # 检查是否有错误
 openclaw plugins install ~/.cortexce/openclaw-plugin
 
 # 安装后启用
-openclaw plugins enable cortexce
+openclaw plugins enable claude-mem-java
 
 # 重启 Gateway
 openclaw gateway restart
