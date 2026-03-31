@@ -214,6 +214,11 @@ app.post('/observations/create', asyncHandler(async (req: Request, res: Response
   const missing = requireFields(req.body, ['project', 'session_id', 'tool_name']);
   if (missing) return errorJson(res, 400, `${missing} is required`);
 
+  // Validate extractedData type if provided (must be object, not string or array)
+  if ('extractedData' in req.body && (typeof req.body.extractedData !== 'object' || Array.isArray(req.body.extractedData) || req.body.extractedData === null)) {
+    return errorJson(res, 400, 'extractedData must be a JSON object');
+  }
+
   await client.recordObservation({
     session_id: req.body.session_id,
     cwd: req.body.project,
@@ -228,6 +233,11 @@ app.post('/observations/create', asyncHandler(async (req: Request, res: Response
 }));
 
 app.patch('/observations/:id', asyncHandler(async (req: Request, res: Response) => {
+  // Validate extractedData type if provided (must be object, not string or array)
+  if ('extractedData' in req.body && (typeof req.body.extractedData !== 'object' || Array.isArray(req.body.extractedData) || req.body.extractedData === null)) {
+    return errorJson(res, 400, 'extractedData must be a JSON object');
+  }
+
   const update: ObservationUpdate = {};
   if ('title' in req.body) update.title = req.body.title;
   if ('subtitle' in req.body) update.subtitle = req.body.subtitle;
