@@ -318,11 +318,16 @@ process.exit(0);
 │                      控制器层                                 │
 │                                                             │
 │  IngestionController    →  /api/ingest/*                   │
-│  ViewerController       →  /api/observations, /api/search  │
+│  ViewerController       →  /api/* (observations, search,    │
+│                         │    summaries, prompts, projects,   │
+│                         │    stats, settings, modes,         │
+│                         │    timeline, processing-status,    │
+│                         │    sdk-sessions)                   │
 │  ContextController      →  /api/context/*                  │
 │  StreamController       →  /stream (SSE)                    │
 │  LogsController         →  /api/logs                      │
-│  HealthController       →  /api/health                    │
+│  HealthController       →  /api/health, /api/readiness,     │
+│                         │    /api/version                    │
 │  SessionController      →  /api/session/*                 │
 │  MemoryController       →  /api/memory/*                  │
 │  ModeController         →  /api/mode/*                     │
@@ -339,7 +344,7 @@ process.exit(0);
 │  AgentService           → 核心编排                          │
 │    ├── LlmService       → 聊天补全                         │
 │    ├── EmbeddingService → 向量嵌入                         │
-│    └── XmlParser        → 解析 LLM XML 输出                │
+│    └── XmlParser (util) → 解析 LLM XML 输出 (正则)         │
 │                                                             │
 │  SearchService          → 语义 + 文本搜索                   │
 │  ContextCacheService    → 上下文缓存                        │
@@ -351,6 +356,7 @@ process.exit(0);
 │  ModeService            → 记忆模式管理                      │
 │  MemoryRefineService    → 记忆优化                          │
 │  StructuredExtractionService → 结构化数据提取               │
+│  ExtractionStorageService → 提取结果持久化                  │
 │  SessionManagementService → 会话生命周期                    │
 │  SummaryGenerationService → 摘要生成                        │
 │  TemplateService        → 提示模板管理                      │
@@ -363,12 +369,14 @@ process.exit(0);
 │  PendingMessageProcessor → 待处理消息队列处理                │
 │  LlmQualityScorer       → 基于 LLM 的质量评分               │
 │  WorktreeDetector       → Git 工作树检测                    │
-│  ExperienceTemplate     → 经验检索模板                          │
-│  QualityScorer          → 观察质量评分                          │
-│  PendingMessageEventListener → 待处理消息事件处理              │
-│  PendingMessageEventPublisher → 待处理消息事件发布             │
-│  StaleMessageRecoveryTask → 陈旧消息崩溃恢复                   │
-│  ClaudeMemMcpTools      → MCP 工具实现                        │
+│  ExperienceTemplate     → 经验检索模板                      │
+│  QualityScorer          → 观察质量评分                      │
+│  StaleMessageRecoveryTask → 陈旧消息崩溃恢复                │
+│  ClaudeMemMcpTools (mcp)→ MCP 工具实现                     │
+│                                                             │
+│  事件类 (event/)                                            │
+│  PendingMessageEvent + Listener + Publisher                 │
+│  MemoryRefineEvent   + Listener + Publisher                 │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼

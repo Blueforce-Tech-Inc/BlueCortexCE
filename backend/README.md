@@ -257,6 +257,7 @@ src/main/java/com/ablueforce/cortexce/
 │   ├── ModeService.java             # Memory mode management
 │   ├── MemoryRefineService.java     # Memory refinement/evolution
 │   ├── StructuredExtractionService.java  # Structured data extraction
+│   ├── ExtractionStorageService.java # Extraction result persistence (transactional)
 │   ├── SessionManagementService.java # Session lifecycle management
 │   ├── SummaryGenerationService.java # Summary generation
 │   ├── TemplateService.java         # Prompt template management
@@ -270,6 +271,8 @@ src/main/java/com/ablueforce/cortexce/
 │   ├── WorktreeDetector.java        # Git worktree detection
 │   ├── ExperienceTemplate.java      # Experience retrieval templates
 │   └── StaleMessageRecoveryTask.java # Crash recovery for stale messages
+├── mcp/
+│   └── ClaudeMemMcpTools.java       # MCP tool implementations
 ├── mcp/
 │   └── ClaudeMemMcpTools.java       # MCP tool implementations
 ├── common/

@@ -318,11 +318,16 @@ The Fat Server is the core Spring Boot application handling all business logic.
 │                      Controller Layer                        │
 │                                                             │
 │  IngestionController    →  /api/ingest/*                    │
-│  ViewerController       →  /api/observations, /api/search   │
+│  ViewerController       →  /api/* (observations, search,    │
+│                         │    summaries, prompts, projects,   │
+│                         │    stats, settings, modes,         │
+│                         │    timeline, processing-status,    │
+│                         │    sdk-sessions)                   │
 │  ContextController      →  /api/context/*                   │
 │  StreamController       →  /stream (SSE)                    │
 │  LogsController         →  /api/logs                        │
-│  HealthController       →  /api/health                      │
+│  HealthController       →  /api/health, /api/readiness,     │
+│                         │    /api/version                    │
 │  SessionController      →  /api/session/*                   │
 │  MemoryController       →  /api/memory/*                    │
 │  ModeController         →  /api/mode/*                      │
@@ -339,7 +344,7 @@ The Fat Server is the core Spring Boot application handling all business logic.
 │  AgentService           → Core orchestration                │
 │    ├── LlmService       → Chat completion                   │
 │    ├── EmbeddingService → Vector embeddings                 │
-│    └── XmlParser        → Parse LLM XML output              │
+│    └── XmlParser (util) → Parse LLM XML output (regex)      │
 │                                                             │
 │  SearchService          → Semantic + text search            │
 │  ContextCacheService    → Context caching                   │
@@ -351,6 +356,7 @@ The Fat Server is the core Spring Boot application handling all business logic.
 │  ModeService            → Memory mode management            │
 │  MemoryRefineService    → Memory refinement                 │
 │  StructuredExtractionService → Structured data extraction   │
+│  ExtractionStorageService → Extraction result persistence   │
 │  SessionManagementService → Session lifecycle               │
 │  SummaryGenerationService → Summary generation              │
 │  TemplateService        → Prompt template management        │
@@ -363,12 +369,14 @@ The Fat Server is the core Spring Boot application handling all business logic.
 │  PendingMessageProcessor → Pending message queue processing │
 │  LlmQualityScorer       → LLM-based quality scoring         │
 │  WorktreeDetector       → Git worktree detection            │
-│  ExperienceTemplate     → Experience retrieval templates      │
-│  QualityScorer          → Observation quality scoring         │
-│  PendingMessageEventListener → Pending message event handling │
-│  PendingMessageEventPublisher → Pending message event publish │
-│  StaleMessageRecoveryTask → Stale message crash recovery      │
-│  ClaudeMemMcpTools      → MCP tool implementations            │
+│  ExperienceTemplate     → Experience retrieval templates    │
+│  QualityScorer          → Observation quality scoring       │
+│  StaleMessageRecoveryTask → Stale message crash recovery    │
+│  ClaudeMemMcpTools (mcp)→ MCP tool implementations          │
+│                                                             │
+│  Event Classes (event/)                                     │
+│  PendingMessageEvent + Listener + Publisher                 │
+│  MemoryRefineEvent   + Listener + Publisher                 │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
