@@ -659,11 +659,17 @@ public class StructuredExtractionService {
      * Extract by specific template using Spring AI structured output.
      * Supports two patterns: POJO (type-safe) and Map (flexible schema).
      * 
-     * LLM re-extraction approach: If priorJson is provided, the LLM receives the
-     * previous extraction result as context. It produces a complete current state,
-     * deciding what to keep/remove based on new observations. Old extractions are
-     * preserved as history (new observation always created, never merged).
-     * 
+     * **⚠️ IMPLEMENTATION NOTE**: The pseudocode below shows the original LLM re-extraction
+     * approach for reference. The actual implementation (StructuredExtractionService.java)
+     * uses **append-only extraction** when priorJson exists — see Section 24.6.
+     * In the actual code, `extractByTemplate(template, candidates, priorJson)` routes to
+     * `extractAppendOnly()` which does NOT pass prior context to the LLM. Instead, the LLM
+     * only processes new observations and outputs add/remove/keep_hint operations; the service
+     * then merges with the full prior from DB via `mergeAppendOnly()`.
+     *
+     * The pseudocode's 4-param signature (`projectPath, template, candidates, priorJson`) is
+     * also outdated — actual code uses 3 params (`template, candidates, priorJson`).
+     *
      * Requires LlmService.chatCompletionStructured() — see Bug 2 fix in section 0.1.
      */
     @SuppressWarnings("unchecked")
@@ -705,6 +711,9 @@ public class StructuredExtractionService {
         StringBuilder sb = new StringBuilder();
         sb.append("Extract structured information from the following observations.\n\n");
 
+        // ⚠️ HISTORICAL: This pseudocode shows the original LLM re-extraction approach.
+        // The actual code uses append-only extraction (Section 24.6) — buildAppendOnlySystemPrompt()
+        // + buildAppendOnlyUserPrompt() — which does NOT pass prior context to the LLM.
         // Include prior extraction as context (LLM re-extraction approach)
         // Summarize if too large to prevent token cost escalation (Section 24.1)
         if (priorJson != null) {
@@ -800,6 +809,13 @@ public class StructuredExtractionService {
     /**
      * Store extraction result with merge logic and user-scoped session ID.
      * 
+     * ⚠️ IMPLEMENTATION NOTE: The description below reflects the original LLM re-extraction
+     * approach. The actual implementation uses **append-only extraction** (Section 24.6):
+     * - `extractByTemplate()` routes to `extractAppendOnly()` when prior exists
+     * - LLM outputs only add/remove/keep_hint operations (not complete state)
+     * - `mergeAppendOnly()` performs programmatic merge with full prior from DB
+     * - `ExtractionStorageService.storeResult()` handles transactional storage
+     *
      * Merge behavior:
      * - If template has sessionIdPattern and an existing extraction exists for that session,
      *   merge new results with existing ones (deduplicate by category+value).
@@ -1194,7 +1210,7 @@ public void runIncrementalExtraction(String projectPath, String userId, Extracti
         return; // Nothing new to extract
     }
     
-    // Extract from new candidates only (with prior context for LLM re-extraction)
+    // Extract from new candidates only (actual code routes to extractAppendOnly() when prior exists — see Section 24.6)
     String priorJson = fetchPriorExtraction(targetSessionId, template);
     var result = extractByTemplate(projectPath, template, newCandidates, priorJson);
     
@@ -2914,7 +2930,7 @@ public String buildIclPrompt(String projectPath, String userId, String task, int
     StringBuilder context = new StringBuilder();
     
     // Section 1: Extracted structured facts (from Phase 3 extraction)
-    // With LLM re-extraction, each run creates a new observation. 
+    // With append-only extraction (Section 24.6), each run creates a new observation.
     // Only use the LATEST extraction per template (not historical ones).
     
     // For user-scoped templates: query the user's special preference session
@@ -5445,8 +5461,8 @@ Tests are ordered by dependency — later tests rely on data created by earlier 
 | 4 | Observation ingestion | Alice's observations | obs→session→userId chain |
 | 5 | Extraction by user | Extraction results | User isolation |
 | 6 | ICL with userId | ICL prompt | No cross-user leak |
-| 7 | LLM re-extraction (add) | New observation + re-run | Both old+new present |
-| 8 | LLM re-extraction (remove) | Contradicting observation | Invalid item removed |
+| 7 | Append-only extraction (add) | New observation + re-run | Both old+new present |
+| 8 | Append-only extraction (remove) | Contradicting observation | Invalid item removed |
 | 9 | History preservation | Query history | Multiple snapshots exist |
 | 10 | Experiences + userId | Query experiences | User-filtered results |
 | 11 | Hook mode compat | Session without userId | No errors |
@@ -5765,8 +5781,8 @@ response=$(curl -sf -X POST "${DEMO_URL}/memory/icl-prompt" \
 | 4 | Observation → session → userId chain | Steps 4-5 | DB join query |
 | 5 | Extraction groups by user | Step 6 | DB query: separate pref sessions |
 | 6 | ICL filters by userId | Step 8 | API response: no cross-user leak |
-| 7 | LLM re-extraction adds new | Step 6 | API response: both old+new |
-| 8 | LLM re-extraction removes invalid | Step 6 | API response: removed item gone |
+| 7 | Append-only extraction adds new | Step 6 | API response: both old+new |
+| 8 | Append-only extraction removes invalid | Step 6 | API response: removed item gone |
 | 9 | History preserved | Step 8 | API response: multiple entries |
 | 10 | Experiences + userId | Step 8 | API response: user-filtered |
 | 11 | Hook mode backward compat | All | No errors with null userId |
@@ -5970,7 +5986,7 @@ pref_count=$(echo "$result" | jq '.extractedData.preferences | length')
 
 #### Test 5: LLM Re-Extraction — Preference Evolution (Scenario: Temporal Evolution)
 
-**Purpose**: Verify LLM re-extraction correctly updates state when preferences change.
+**Purpose**: Verify append-only extraction correctly updates state when preferences change.
 
 **Steps**:
 ```bash
@@ -6165,7 +6181,7 @@ result=$(curl -sf "$BACKEND/api/extraction/user_preference/latest?projectPath=/t
 #   2. PATCH session userId
 #   3. Multi-user observation isolation
 #   4. Array schema — multiple preferences
-#   5. LLM re-extraction — preference evolution
+#   5. Append-only extraction — preference evolution
 #   6. Hook mode — single user compatibility
 #   7. ICL prompt with userId
 #   8. Person field — third-party entities
@@ -6229,7 +6245,7 @@ bash scripts/demo-v14-test.sh
 | 2 | PATCH userId | Late Binding | DB updated, re-extraction triggered |
 | 3 | Multi-user isolation | User Preference | No cross-contamination |
 | 4 | Array schema | Multiple Preferences | 2+ items captured |
-| 5 | LLM re-extraction | Temporal Evolution | Correct keep/remove semantics |
+| 5 | Append-only extraction | Temporal Evolution | Correct keep/remove semantics |
 | 6 | Hook mode | Compatibility | No errors, backward compatible |
 | 7 | ICL + userId | SDK Integration | User-scoped context only |
 | 8 | Person field | Family Assistant | Third-party entities captured |
