@@ -743,7 +743,7 @@ Returns all known project paths.
 ### Get Project Statistics
 
 ```
-GET /api/stats?project=/path/to/project
+GET /api/stats
 ```
 
 Returns database and processing statistics.
@@ -1380,7 +1380,7 @@ Registers a project for automatic Cursor context file updates. When new observat
 ```json
 {
   "projectName": "my-project",
-  "projectPath": "/path/to/project"
+  "workspacePath": "/path/to/project"
 }
 ```
 
@@ -1414,7 +1414,7 @@ Content-Type: application/json
 **Request Body**:
 ```json
 {
-  "content": "# Custom Context\n\n..."
+  "context": "# Custom Context\n\n..."
 }
 ```
 

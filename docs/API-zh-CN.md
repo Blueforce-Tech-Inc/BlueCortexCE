@@ -1676,7 +1676,7 @@ Cursor IDE 集成端点，用于自动上下文文件更新。
 ```json
 {
   "projectName": "my-project",
-  "projectPath": "/path/to/project"
+  "workspacePath": "/path/to/project"
 }
 ```
 
@@ -1709,7 +1709,7 @@ Cursor IDE 集成端点，用于自动上下文文件更新。
 **请求体**:
 ```json
 {
-  "content": "# Custom Context\n\n..."
+  "context": "# Custom Context\n\n..."
 }
 ```
 
