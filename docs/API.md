@@ -707,18 +707,37 @@ Response:
 GET /api/search?project=/path/to/project&query=search+terms&limit=10&type=bugfix&concept=how-it-works&source=manual
 ```
 
-Query parameters:
+**Query Parameters**:
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `project` | Yes | Project path to search within |
-| `query` | No | Search query text for semantic search. If empty, returns filter-only results |
-| `type` | No | Filter by observation type |
-| `concept` | No | Filter by observation concept |
-| `source` | No | Filter by source |
-| `limit` | No | Max results (default 20, max 100) |
-| `offset` | No | Pagination offset (default 0) |
-| `orderBy` | No | Order by field (accepted for MCP compatibility, not yet fully implemented) |
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `project` | string | ✅ | — | Project path to search within |
+| `query` | string | ❌ | — | Search query text for semantic search. If empty, returns filter-only results |
+| `type` | string | ❌ | — | Filter by observation type (e.g., `bugfix`, `feature`) |
+| `concept` | string | ❌ | — | Filter by observation concept (e.g., `how-it-works`, `architecture`) |
+| `source` | string | ❌ | — | Filter by source (e.g., `manual`, `auto`) |
+| `limit` | int | ❌ | 20 | Max results (max 100) |
+| `offset` | int | ❌ | 0 | Pagination offset |
+| `orderBy` | string | ❌ | — | Order by field (accepted for MCP compatibility, not yet fully implemented) |
+
+**Request Example**:
+```bash
+curl "http://localhost:37777/api/search?project=/Users/dev/myproject&query=authentication&limit=10"
+```
+
+**Response** (`200 OK`):
+```json
+{
+  "observations": [...],
+  "strategy": "vector",
+  "fell_back": false,
+  "count": 10
+}
+```
+
+**Search Strategies**:
+- `vector` — Semantic vector search (uses pgvector)
+- `text` — Text-based fallback (LIKE/ILIKE) when embedding is unavailable
 
 ## Management
 
@@ -1866,6 +1885,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-03-31 | 0.1.0-beta+++ | Corrected Memory Refine (query param, not JSON body); corrected Feedback request fields (observationId/feedbackType, not session_id/feedback_type); added userId field to Experiences and ICL Prompt; synced Chinese version |
 | 2026-03-31 | 0.1.0-beta+++++ | Added Get Session response example/path params/error response; added Update Session User path params/request body table/response example (3 fields); corrected environment variable names (SPRING_DATASOURCE_*, SPRING_AI_OPENAI_*) with defaults matching actual config; added Anthropic env vars; synced Chinese version |
 | 2026-03-31 | 0.1.0-beta++++ | Added Test endpoints section (/api/test/llm, /embedding, /all); added Overview section to Chinese version; synced TOC; synced changelog |
+| 2026-04-01 | 0.1.0-beta+++++ | Enriched Search section with full parameter types table, request example, and response example (strategy/fell_back/count); synced with Chinese version completeness |
 | 2026-03-13 | 0.1.0 | Initial API documentation |
 
 ---

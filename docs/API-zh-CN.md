@@ -2190,6 +2190,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-03-31 | 0.1.0-beta+++ | 修正 Memory Refine（查询参数，非 JSON 请求体）；修正 Feedback 请求字段（observationId/feedbackType，非 session_id/feedback_type）；补充 Experiences 和 ICL Prompt 的 userId 字段；同步英文版 |
 | 2026-03-31 | 0.1.0-beta+++++ | 补充 Get Session 响应示例/路径参数/错误响应；补充 Update Session User 路径参数/请求体表/响应示例（3 字段）；修正环境变量名（SPRING_DATASOURCE_*、SPRING_AI_OPENAI_*），默认值匹配实际配置；新增 Anthropic 环境变量；同步英文版 |
 | 2026-03-31 | 0.1.0-beta++++ | 新增 Test 测试端点章节（/api/test/llm、/embedding、/all）；补充概述章节（Base URL + Content-Type）；同步 TOC；同步更新日志 |
+| 2026-04-01 | 0.1.0-beta+++++ | 补充英文版 Search 章节完整参数类型表、请求示例和响应示例（strategy/fell_back/count）；同步中英文版完整度 |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---
