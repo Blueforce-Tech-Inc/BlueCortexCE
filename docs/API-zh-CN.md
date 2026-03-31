@@ -308,7 +308,9 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 **响应示例**:
 ```json
 {
-  "status": "ok"
+  "status": "ok",
+  "sessionId": "abc-123-def",
+  "userId": "user-123"
 }
 ```
 
@@ -2124,15 +2126,21 @@ def listen_to_stream():
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
 | `SERVER_PORT` | 服务端口 | 37777 |
-| `DB_URL` | 数据库 URL | jdbc:postgresql://127.0.0.1/claude_mem_dev |
-| `DB_USERNAME` | 数据库用户名 | postgres |
-| `DB_PASSWORD` | 数据库密码 | (required) |
-| `OPENAI_API_KEY` | LLM API Key | (required) |
-| `OPENAI_BASE_URL` | LLM API Base URL | https://api.openai.com |
-| `OPENAI_MODEL` | LLM 模型 | gpt-4o |
+| `SPRING_DATASOURCE_URL` | 数据库 URL | jdbc:postgresql://127.0.0.1/claude_mem_dev |
+| `SPRING_DATASOURCE_USERNAME` | 数据库用户名 | postgres |
+| `SPRING_DATASOURCE_PASSWORD` | 数据库密码 | (required) |
+| `SPRING_AI_OPENAI_API_KEY` | LLM API Key | (required) |
+| `SPRING_AI_OPENAI_BASE_URL` | LLM API Base URL | https://api.deepseek.com |
+| `SPRING_AI_OPENAI_CHAT_MODEL` | LLM 模型 | deepseek-chat |
 | `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | 嵌入 API Key | (required) |
+| `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | 嵌入 API Base URL | https://api.siliconflow.cn |
 | `SPRING_AI_OPENAI_EMBEDDING_MODEL` | 嵌入模型 | BAAI/bge-m3 |
 | `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | 嵌入维度 | 1024 |
+| `SPRING_AI_ANTHROPIC_API_KEY` | Anthropic API Key（可选） | — |
+| `SPRING_AI_ANTHROPIC_BASE_URL` | Anthropic API Base URL | https://api.anthropic.com |
+| `SPRING_AI_ANTHROPIC_CHAT_MODEL` | Anthropic 模型 | claude-sonnet-4-5 |
+
+> **注意**: 旧版变量名（`DB_URL`、`DB_USERNAME`、`DB_PASSWORD`、`OPENAI_API_KEY`、`OPENAI_BASE_URL`、`OPENAI_MODEL`）仍作为 fallback 支持。
 
 #### application.yml 配置
 
@@ -2148,9 +2156,9 @@ claudemem:
 
 spring:
   datasource:
-    url: jdbc:postgresql://127.0.0.1/claude_mem_dev
-    username: postgres
-    password: ${DB_PASSWORD}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://127.0.0.1/claude_mem_dev}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD}
 ```
 
 ---
@@ -2180,6 +2188,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-03-31 | 0.1.0-beta+ | 补充 Viewer、Management、Mode、Health、Cursor、Logs 参数表和响应示例；同步英文版完整度 |
 | 2026-03-31 | 0.1.0-beta++ | 修正 Delete Observation 响应（200 OK with body，非 204 No Content）；同步英文版 Session Start 响应示例 |
 | 2026-03-31 | 0.1.0-beta+++ | 修正 Memory Refine（查询参数，非 JSON 请求体）；修正 Feedback 请求字段（observationId/feedbackType，非 session_id/feedback_type）；补充 Experiences 和 ICL Prompt 的 userId 字段；同步英文版 |
+| 2026-03-31 | 0.1.0-beta+++++ | 补充 Get Session 响应示例/路径参数/错误响应；补充 Update Session User 路径参数/请求体表/响应示例（3 字段）；修正环境变量名（SPRING_DATASOURCE_*、SPRING_AI_OPENAI_*），默认值匹配实际配置；新增 Anthropic 环境变量；同步英文版 |
 | 2026-03-31 | 0.1.0-beta++++ | 新增 Test 测试端点章节（/api/test/llm、/embedding、/all）；补充概述章节（Base URL + Content-Type）；同步 TOC；同步更新日志 |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 

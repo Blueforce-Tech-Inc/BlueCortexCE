@@ -139,6 +139,35 @@ Content-Type: application/json
 GET /api/session/{sessionId}
 ```
 
+Retrieves session details by content session ID (the ID used by Claude Code).
+
+**Path Parameters**:
+- `sessionId` — Content session ID
+
+**Request Example**:
+```bash
+curl http://localhost:37777/api/session/abc-123-def
+```
+
+**Response** (`200 OK`):
+```json
+{
+  "session_db_id": "550e8400-e29b-41d4-a716-446655440000",
+  "content_session_id": "mem-abc-123",
+  "project_path": "/Users/dev/myproject",
+  "status": "active",
+  "started_at": "2026-03-13T10:15:00Z"
+}
+```
+
+**Error Response** (`404 Not Found`):
+```json
+{
+  "error": "Session not found",
+  "session_id": "abc-123-def"
+}
+```
+
 ### Update Session User
 
 ```
@@ -147,6 +176,33 @@ Content-Type: application/json
 
 {
   "user_id": "user-123"
+}
+```
+
+Updates the user ID associated with a session.
+
+**Path Parameters**:
+- `sessionId` — Content session ID
+
+**Request Body**:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `user_id` | string | ✅ | User ID to associate with the session |
+
+**Request Example**:
+```bash
+curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "user-123"}'
+```
+
+**Response** (`200 OK`):
+```json
+{
+  "status": "ok",
+  "sessionId": "abc-123-def",
+  "userId": "user-123"
 }
 ```
 
@@ -1746,15 +1802,21 @@ def listen_to_stream():
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `SERVER_PORT` | Service port | 37777 |
-| `DB_URL` | Database URL | jdbc:postgresql://127.0.0.1/claude_mem_dev |
-| `DB_USERNAME` | Database username | postgres |
-| `DB_PASSWORD` | Database password | (required) |
-| `OPENAI_API_KEY` | LLM API Key | (required) |
-| `OPENAI_BASE_URL` | LLM API Base URL | https://api.openai.com |
-| `OPENAI_MODEL` | LLM model | gpt-4o |
+| `SPRING_DATASOURCE_URL` | Database URL | jdbc:postgresql://127.0.0.1/claude_mem_dev |
+| `SPRING_DATASOURCE_USERNAME` | Database username | postgres |
+| `SPRING_DATASOURCE_PASSWORD` | Database password | (required) |
+| `SPRING_AI_OPENAI_API_KEY` | LLM API Key | (required) |
+| `SPRING_AI_OPENAI_BASE_URL` | LLM API Base URL | https://api.deepseek.com |
+| `SPRING_AI_OPENAI_CHAT_MODEL` | LLM model | deepseek-chat |
 | `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | Embedding API Key | (required) |
+| `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | Embedding API Base URL | https://api.siliconflow.cn |
 | `SPRING_AI_OPENAI_EMBEDDING_MODEL` | Embedding model | BAAI/bge-m3 |
 | `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | Embedding dimensions | 1024 |
+| `SPRING_AI_ANTHROPIC_API_KEY` | Anthropic API Key (optional) | — |
+| `SPRING_AI_ANTHROPIC_BASE_URL` | Anthropic API Base URL | https://api.anthropic.com |
+| `SPRING_AI_ANTHROPIC_CHAT_MODEL` | Anthropic model | claude-sonnet-4-5 |
+
+> **Note**: Legacy variable names (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`) are still supported as fallbacks.
 
 #### application.yml Configuration
 
@@ -1770,9 +1832,9 @@ claudemem:
 
 spring:
   datasource:
-    url: jdbc:postgresql://127.0.0.1/claude_mem_dev
-    username: postgres
-    password: ${DB_PASSWORD}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://127.0.0.1/claude_mem_dev}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD}
 ```
 
 ---
@@ -1802,6 +1864,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-03-31 | 0.1.0-beta+ | Enriched Viewer, Management, Mode, Health, Cursor, Logs sections with parameter tables and response examples; synced with Chinese version completeness |
 | 2026-03-31 | 0.1.0-beta++ | Added Session Start response example; corrected Delete Observation response (200 OK with body, not 204 No Content); synced Chinese changelog |
 | 2026-03-31 | 0.1.0-beta+++ | Corrected Memory Refine (query param, not JSON body); corrected Feedback request fields (observationId/feedbackType, not session_id/feedback_type); added userId field to Experiences and ICL Prompt; synced Chinese version |
+| 2026-03-31 | 0.1.0-beta+++++ | Added Get Session response example/path params/error response; added Update Session User path params/request body table/response example (3 fields); corrected environment variable names (SPRING_DATASOURCE_*, SPRING_AI_OPENAI_*) with defaults matching actual config; added Anthropic env vars; synced Chinese version |
 | 2026-03-31 | 0.1.0-beta++++ | Added Test endpoints section (/api/test/llm, /embedding, /all); added Overview section to Chinese version; synced TOC; synced changelog |
 | 2026-03-13 | 0.1.0 | Initial API documentation |
 
