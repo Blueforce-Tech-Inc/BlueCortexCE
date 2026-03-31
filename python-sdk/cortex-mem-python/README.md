@@ -4,6 +4,14 @@
 
 Python SDK for the [Cortex CE](https://github.com/abforce/cortex-ce) persistent memory system.
 
+## Features
+
+- **Zero forced dependencies** — only `requests` required
+- **Full API coverage** — 25 methods covering Session, Capture, Retrieval, Management, Extraction
+- **Idiomatic Python** — dataclasses, kwargs, context manager
+- **Wire format compatible** — JSON field names match backend API exactly
+- **Fire-and-forget capture** — non-blocking observation recording with internal retry
+
 ## Installation
 
 ```bash

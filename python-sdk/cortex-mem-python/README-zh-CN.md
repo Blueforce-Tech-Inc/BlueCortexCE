@@ -4,6 +4,14 @@
 
 [Cortex CE](https://github.com/abforce/cortex-ce) 持久记忆系统的 Python SDK。
 
+## 特性
+
+- **零强制依赖** —— 仅需 `requests`
+- **完整 API 覆盖** —— 25 个方法，涵盖会话、捕获、检索、管理、提取
+- **Python 风格** —— dataclass、kwargs、上下文管理器
+- **Wire 格式兼容** —— JSON 字段名与后端 API 完全一致
+- **Fire-and-forget 捕获** —— 非阻塞的观察记录，内置重试机制
+
 ## 安装
 
 ```bash
