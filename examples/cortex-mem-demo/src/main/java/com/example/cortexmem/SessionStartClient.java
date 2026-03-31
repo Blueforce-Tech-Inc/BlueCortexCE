@@ -32,4 +32,11 @@ public class SessionStartClient {
                 .build()
         );
     }
+
+    /**
+     * Update session userId via the SDK.
+     */
+    public Map<String, Object> updateSessionUserId(String sessionId, String userId) {
+        return cortexMemClient.updateSessionUserId(sessionId, userId);
+    }
 }

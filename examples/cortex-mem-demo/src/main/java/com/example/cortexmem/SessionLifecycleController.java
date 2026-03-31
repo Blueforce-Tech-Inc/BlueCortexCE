@@ -142,6 +142,39 @@ public class SessionLifecycleController {
     }
 
     /**
+     * PATCH /demo/session/user
+     * Body: {"session_id": "...", "user_id": "..."}
+     *
+     * Cross-SDK parity: Go /session/user, Python /session/user, JS /session/user.
+     */
+    @PatchMapping("/user")
+    public ResponseEntity<Map<String, Object>> updateSessionUser(
+            @RequestBody(required = false) Map<String, Object> body) {
+        if (body == null) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "request body is required"));
+        }
+        Object sessionIdObj = body.get("session_id");
+        if (!(sessionIdObj instanceof String sessionId) || sessionId.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "session_id is required"));
+        }
+        Object userIdObj = body.get("user_id");
+        if (!(userIdObj instanceof String userId) || userId.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "user_id is required"));
+        }
+        try {
+            Map<String, Object> result = sessionStartClient.updateSessionUserId(sessionId, userId);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Failed to update session userId for sessionId={}", sessionId, e);
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Failed to update session user: " + e.getMessage()));
+        }
+    }
+
+    /**
      * One-shot full lifecycle: start → prompt → tool → end.
      * Verifies all capture types.
      */

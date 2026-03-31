@@ -38,9 +38,10 @@ public class ObservationsController {
             @RequestParam(defaultValue = "0") Integer offset) {
 
         // project is optional per SDK contract (null = all projects)
-        if (limit < 1 || limit > 100) {
+        // limit=0 means "use backend default" (consistent with Python/JS demos)
+        if (limit < 0 || limit > 100) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("error", "limit must be between 1 and 100"));
+                    .body(Map.of("error", "limit must be between 0 and 100"));
         }
         if (offset < 0) {
             return ResponseEntity.badRequest()
