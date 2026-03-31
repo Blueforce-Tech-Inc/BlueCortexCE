@@ -574,8 +574,8 @@ class CortexMemClientImplTest {
             .project("/proj")
             .build());
 
-        assertThat(result).containsEntry("total", 0);
-        assertThat((List<?>) result.get("observations")).isEmpty();
+        assertThat(result).containsEntry("hasMore", false);
+        assertThat((List<?>) result.get("items")).isEmpty();
     }
 
     @Test

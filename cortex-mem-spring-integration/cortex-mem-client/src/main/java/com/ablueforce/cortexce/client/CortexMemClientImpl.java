@@ -433,7 +433,7 @@ public class CortexMemClientImpl implements CortexMemClient {
                 .body(new ParameterizedTypeReference<>() {});
         } catch (Exception e) {
             log.warn("Failed to list observations: {}", e.getMessage());
-            return Map.of("observations", List.of(), "total", 0);
+            return Map.of("items", List.of(), "hasMore", false);
         }
     }
 
