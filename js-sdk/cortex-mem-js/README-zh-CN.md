@@ -129,8 +129,8 @@ client.close();
 | 方法 | HTTP | 说明 |
 |------|------|------|
 | `triggerExtraction(project)` | `POST /api/extraction/run` | 触发提取 |
-| `getLatestExtraction(project, template, userId?)` | `GET /api/extraction/{template}/latest` | 最新提取结果 |
-| `getExtractionHistory(project, template, userId?, limit?)` | `GET /api/extraction/{template}/history` | 提取历史 |
+| `getLatestExtraction(projectPath, templateName, userId?)` | `GET /api/extraction/{templateName}/latest` | 最新提取结果 |
+| `getExtractionHistory(projectPath, templateName, userId?, limit?)` | `GET /api/extraction/{templateName}/history` | 提取历史 |
 
 #### 系统
 

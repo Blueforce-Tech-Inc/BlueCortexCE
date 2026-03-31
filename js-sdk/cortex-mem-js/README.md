@@ -129,8 +129,8 @@ client.close();
 | Method | HTTP | Description |
 |--------|------|-------------|
 | `triggerExtraction(project)` | `POST /api/extraction/run` | Trigger extraction |
-| `getLatestExtraction(project, template, userId?)` | `GET /api/extraction/{template}/latest` | Latest extraction |
-| `getExtractionHistory(project, template, userId?, limit?)` | `GET /api/extraction/{template}/history` | Extraction history |
+| `getLatestExtraction(projectPath, templateName, userId?)` | `GET /api/extraction/{templateName}/latest` | Latest extraction |
+| `getExtractionHistory(projectPath, templateName, userId?, limit?)` | `GET /api/extraction/{templateName}/history` | Extraction history |
 
 #### System
 
