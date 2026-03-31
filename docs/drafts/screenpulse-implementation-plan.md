@@ -151,7 +151,7 @@ ScreenPulse 是 Cortex CE 记忆系统的"屏幕感知模块"，负责捕获用�
 
 - 截图功能 (用于无障碍 API 无法读取的场景)
 - 图像描述 (本地 LLM 或调用记忆系统的 OCR)
-- Menu Bar Extra (macOS 14+ 新 API，更原生)
+- Menu Bar Extra (macOS 13 SwiftUI 原生 API)
 
 ---
 
