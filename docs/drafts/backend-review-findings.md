@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-03-31 (MemoryController userId 接入修复)
+> **最后更新**: 2026-03-31 (Backend 审查 #13)
 
 # Backend 代码审查问题记录
 
@@ -11,7 +11,7 @@
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **0** | 所有功能性 P2 已修复，4 个跳过项为设计决策（见下方） |
+| **P2** (建议修复) | **4** | 4 个事务一致性问题（低风险，见审查 #13）+ 4 个跳过项为设计决策 |
 | **⏭ 跳过** | **4** | 非 bug，属设计决策或代码风格偏好 |
 | **✅ 已修复** | **~50** | 历史累计，含已修复的 P1/P2 |
 
@@ -454,3 +454,23 @@
 - **ModeConfig.java**: 设计精良。Records + `@JsonIgnoreProperties` 向前兼容，Mode record 的 getType/getConcept 流式查询清晰，null 安全处理到位。
 - **TokenService.java**: 无问题。公式精确复刻 TS 实现（CHARS_PER_TOKEN=4, 仅 title+subtitle+content+facts），`Math.min` clamp 防溢出正确。
 - **无 P0/P1 问题**。
+
+---
+
+### 2026-03-31 12:32 | Backend 审查 #13
+
+**抽查文件**: `ExtractionController.java`, `MemoryController.java`, `IngestionController.java`, `StructuredExtractionService.java`
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | MemoryController.java | L230-245 `submitFeedback` | read-then-write 模式无 `@Transactional`：`findById()` + `setFeedbackType()` + `save()` 在非事务上下文执行。并发调用可能导致 lost update（两个请求同时读取同一 observation，各自修改不同字段，后写覆盖前写）。建议加 `@Transactional` | P2 |
+| 2 | MemoryController.java | L187-207 `getQualityDistribution` | 异常被静默捕获并以 200 OK 返回 zeros + `error` 字段。客户端无法区分"真实零数据"和"DB 异常"。建议异常时返回 500 | P2 |
+| 3 | StructuredExtractionService.java | L690-714 `storeExtractionResult` | session find-or-create + observation save 无 `@Transactional`。并发 extraction 可能创建重复 session（两个线程同时 `findByContentSessionId` 返回空，各自创建）。Spring Data JPA 默认 auto-commit，但无事务边界保证原子性 | P2 |
+| 4 | IngestionController.java | L179 `handleUserPrompt` | `ensureSession` + `save` 无事务边界。虽然功能正确（ensureSession 是幂等的），但 ensureSession 内部可能触发 session 创建 + user_prompt 插入，两次 DB 写入无原子性保证 | P2 (低) |
+
+**审查结论**:
+- **ExtractionController.java**: 质量良好。Swagger 注解完整（3 端点均有 Operation/ApiResponses/Parameter），输入验证到位（projectPath null/blank 检查），limit clamp (1-100) 正确，错误处理一致（try-catch + 500）。`/run` 端点同步执行无问题（已有 timeout 文档说明）。
+- **MemoryController.java**: 整体质量高。`updateObservation` 的 PATCH 语义实现优秀（null=clear, absent=skip, type-check→400），`validateStringList` fail-fast 设计合理。`deleteObservation` 使用 `existsById` + `deleteById` 幂等正确。2 个 P2 事务问题见上表。
+- **IngestionController.java**: 质量优秀。rate limiting 集成（`RateLimitService`）、input sanitization（prompt 长度截断）、SSE broadcast（`handleUserPrompt`）实现到位。input validation 层次清晰。
+- **StructuredExtractionService.java**: 架构设计优秀。append-only extraction + mergeAppendOnly + keep_hint 保护机制稳健。`groupByUser` batch lookup 避免 N+1，`buildItemKey` SHA-256 fallback 正确，`safeListOfMaps` 防御性编程到位。DLQ 机制保证失败不丢失。1 个 P2 事务问题见上表。
+- **无 P0/P1 问题**。发现 4 个 P2 事务一致性问题（均为低风险——当前单用户场景不触发竞态条件）。
