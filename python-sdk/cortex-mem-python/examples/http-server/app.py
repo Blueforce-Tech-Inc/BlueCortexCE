@@ -263,7 +263,8 @@ def iclprompt():
         max_chars=max_chars,
         user_id=request.args.get("userId", ""),
     )
-    return jsonify(prompt=result.prompt, experience_count=result.experience_count, max_chars=result.max_chars)
+    # Use camelCase to match Go/JS demo response format
+    return jsonify(prompt=result.prompt, experienceCount=result.experience_count, maxChars=result.max_chars)
 
 
 # ==================== Observations ====================

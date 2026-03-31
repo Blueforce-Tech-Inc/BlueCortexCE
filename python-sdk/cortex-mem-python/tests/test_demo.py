@@ -207,7 +207,7 @@ class TestICLPrompt:
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["prompt"] == "context here"
-        assert data["experience_count"] == 3
+        assert data["experienceCount"] == 3
 
 
 # ==================== Observations ====================
