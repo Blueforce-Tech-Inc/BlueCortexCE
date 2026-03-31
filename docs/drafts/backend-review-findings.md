@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-03-31 (Go SDK 审查 #1)
+> **最后更新**: 2026-04-01 (Backend 审查 #15)
 
 # Backend 代码审查问题记录
 
@@ -25,6 +25,51 @@
 | 4 | API.md | TestController (`/api/test/*`) 未文档化 | 仅 dev 环境可用，有意排除 |
 
 **结论**: 后端代码质量优秀，所有问题已修复 ✅
+
+---
+
+### 2026-04-01 02:29 | Backend 审查 #14
+
+**抽查文件**: `AgentService.java`, `SpringAiConfig.java`
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | AgentService.java | L~160+L~280 | `processToolUseAsync` 与 `processPendingMessage` 共享 ~40 行完全相同的 prompt-building + LLM-calling 代码（模板替换、systemPrompt 构建、llmService 调用、skip 检查、parseObservation、saveObservation）。应提取为共享私有方法如 `buildPromptsAndCallLLM(...)` 减少维护负担 | P2 |
+| 2 | AgentService.java | L~280-314 `processPendingMessage` | catch 块统一标记 `failed`，但与 `processToolUseAsync` 的差异化处理不一致 — 后者区分 `RetryableException`（markFailedWithRetry）、`DataValidationException`（直接 failed）、`DataIntegrityViolationException`（并发幂等）、通用 Exception（根据 `isRetryableException` 决定 retry vs failed）。`processPendingMessage` 应采用相同策略避免 transient 失败消息永久丢失 | P2 |
+| 3 | AgentService.java | L~347 `calculateContentHash` | 当 `buildContentForHash` 返回空字符串（所有字段为 null）时，SHA-256 哈希为固定值。所有 title/narrative/facts/concepts 全 null 的 observation 会产生相同 contentHash，导致 30s 内 false-positive dedup。实际风险低（observation 至少应有 title），但 `calculateContentHash("")` 应返回 null 或 UUID 而非固定哈希 | P2 (低) |
+| 4 | SpringAiConfig.java | L~40 `openAiChatModel` | `log.info("OpenAI ChatModel called: apiKey={}, ...")` 在 INFO 级别记录 API key 存在性。虽然使用三元表达式仅打印 "set"/"null"，但 INFO 级别在生产环境中可能被持久化。建议降级为 DEBUG 或移除 apiKey 字段 | P2 (低) |
+| 5 | SpringAiConfig.java | L~44-48 | bean 方法内 `return null`（当 apiKey 为空或 provider 不匹配时）— Spring 会将 null 返回值视为"不创建 bean"，但 `@ConditionalOnProperty` 已保证属性存在时才调用。若属性存在但值为空字符串（`spring.ai.openai.api-key=`），bean 方法返回 null，可能对依赖 ChatModel 的组件产生意外行为。建议改为抛出有意义的异常 | P2 (低) |
+
+**审查结论**:
+- **AgentService.java**: 核心处理逻辑设计稳健（dedup + pending queue + SSE broadcast + embedding），错误处理层次清晰（5 种异常类型差异化处理）。主要问题是 `processToolUseAsync` 与 `processPendingMessage` 的代码重复（可提取共享方法）和 `processPendingMessage` 的异常处理粒度不足。无 P0/P1 问题。
+- **SpringAiConfig.java**: 条件装配设计清晰（@ConditionalOnProperty + provider 过滤），OpenAI/Anthropic/Embedding 三路配置独立。ChatClient fallback 设计合理（无模型时抛出有意义异常）。两个 P2 均为代码卫生级别。
+- **无 P0/P1 问题**。
+
+---
+
+### 2026-04-01 05:04 | Backend 审查 #15
+
+**抽查文件**: `MemoryRefineEventPublisher.java`, `LlmQualityScorer.java`
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | LlmQualityScorer.java | L28-30 `QUALITY_ANALYSIS_PROMPT` | `String.format()` 多行模板使用 `%s` 占位符，若 title/content/facts 包含 `%` 字符（如 "100% 完成"），会抛 `IllegalFormatException`。应改用 `{}` 占位符 + SLF4J 风格手动替换，或先对内容做 `%` 转义 | P2 |
+| 2 | LlmQualityScorer.java | L105 `inferFeedbackLlm` | `response.contains("SUCCESS")` 子串匹配过于宽泛 — LLM 返回 JSON 格式响应时，`"feedback_type": "PARTIAL"` 中不含 SUCCESS，但如果 LLM 返回自然语言如 "Overall success with partial improvements"，会错误匹配为 SUCCESS。建议使用精确匹配 `trimmed.equals("SUCCESS")` 或 JSON 解析 | P2 (低) |
+| 3 | LlmQualityScorer.java | L67 `isAvailable()` | `llmService != null` 检查在构造函数注入下永远为 true（Spring 要求构造参数非 null），方法始终返回 true，isAvailable 检查实际为 dead code。若设计意图是可选依赖，应使用 `@Autowired(required=false)` + setter 注入 | P2 (低) |
+
+**MemoryRefineEventPublisher.java 审查**:
+- ✅ 无问题。Publisher 设计简洁正确：构造函数注入 `ApplicationEventPublisher`，两个方法（session-end / manual）语义清晰，日志级别合理（INFO）。
+- 无参数验证（projectPath/sessionId 可为 null），但事件消费者通常自行验证，且事件发布机制本身不依赖非 null 参数，可接受。
+
+**LlmQualityScorer.java 审查**:
+- 架构清晰：LlmService 依赖注入 + fallback 到 default analysis，错误处理层次分明。
+- `parseAnalysisResponse` 使用手动 JSON 解析（非 Jackson），灵活但脆弱 — `quality_score` 和 `feedback_type` 的 indexOf 解析对格式变化不鲁棒。若 LLM 返回格式偏离预期（如缩进不同），可能导致解析错误，但 fallback 到 defaultAnalysis 保证不崩溃。
+- `LlmQualityAnalysis` record 设计良好，`toFeedbackType()` 使用 switch 表达式，与 `QualityScorer.FeedbackType` 枚举对齐。
+- 整体属于非关键路径组件（质量评分辅助），P2 问题风险低。
+
+**审查结论**:
+- **无 P0/P1 问题**。
+- 3 个 P2 均为代码健壮性/卫生级别。LlmQualityScorer 属非核心路径，风险低。
 
 ---
 
