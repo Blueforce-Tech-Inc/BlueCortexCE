@@ -533,7 +533,7 @@ CREATE TABLE mem_observations (
     step_number INT,          -- V12
     discovery_tokens INT DEFAULT 0,
     prompt_number INT,
-    content_hash VARCHAR(64), -- V8
+    content_hash VARCHAR(16), -- V8
 
     -- Multi-dimension embeddings (V2)
     embedding_768  vector(768),
@@ -824,30 +824,46 @@ String prompt = """
 ### Spring Boot Configuration
 
 ```yaml
-# application.yml
+# application.yml (representative excerpt — see actual file for full config)
+server:
+  port: ${SERVER_PORT:37777}
+  address: ${SERVER_ADDRESS:127.0.0.1}
+
 spring:
   threads:
     virtual:
       enabled: true  # Java 21 virtual threads
 
-  ai:
-    openai:
-      api-key: ${OPENAI_API_KEY}
-      base-url: ${OPENAI_BASE_URL}
-      chat:
-        options:
-          model: ${OPENAI_MODEL}
-
   datasource:
-    url: jdbc:postgresql://localhost:5432/cortexce
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://127.0.0.1/claude_mem_dev}
+    username: ${SPRING_DATASOURCE_USERNAME:${DB_USERNAME:postgres}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:123456}}
 
   jpa:
     hibernate:
       ddl-auto: none  # Flyway handles schema
     show-sql: false
+
+# LLM provider (openai or anthropic) — wired manually in SpringAiConfig
+claudemem:
+  llm:
+    provider: ${CLAUDEMEM_LLM_PROVIDER:openai}
 ```
+
+**Environment variables** (set via `.env` or shell):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://127.0.0.1/claude_mem_dev` | JDBC URL |
+| `SPRING_DATASOURCE_USERNAME` | `postgres` | DB user |
+| `SPRING_DATASOURCE_PASSWORD` | `123456` | DB password |
+| `SPRING_AI_OPENAI_API_KEY` | — | LLM API key (DeepSeek, etc.) |
+| `SPRING_AI_OPENAI_BASE_URL` | `https://api.deepseek.com` | LLM base URL |
+| `SPRING_AI_OPENAI_CHAT_MODEL` | `deepseek-chat` | Chat model name |
+| `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | — | Embedding API key |
+| `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | `https://api.siliconflow.cn` | Embedding base URL |
+| `SPRING_AI_OPENAI_EMBEDDING_MODEL` | `BAAI/bge-m3` | Embedding model |
+| `CLAUDEMEM_LLM_PROVIDER` | `openai` | `openai` or `anthropic` |
 
 ---
 
@@ -1001,16 +1017,16 @@ public String stripPrivateTags(String content) {
 
 | Component | Binding | Access |
 |-----------|---------|--------|
-| Fat Server | localhost:37777 | Local only |
-| PostgreSQL | localhost:5432 | Local only |
+| Fat Server | 127.0.0.1:37777 | Local only |
+| PostgreSQL | 127.0.0.1:5432 | Local only |
 | Proxy | N/A (CLI) | No network |
 
 ### Secrets Management
 
 ```bash
 # Environment variables (not committed)
-export OPENAI_API_KEY=sk-xxx
-export DB_PASSWORD=xxx
+export SPRING_AI_OPENAI_API_KEY=sk-xxx
+export SPRING_DATASOURCE_PASSWORD=xxx
 
 # Or use .env file (gitignored)
 cp .env.example .env

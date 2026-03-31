@@ -46,22 +46,25 @@ Copy `.env.example` to `.env` (or set environment variables):
 
 ```bash
 # LLM (OpenAI-compatible)
-OPENAI_API_KEY=sk-xxx
-OPENAI_BASE_URL=https://api.deepseek.com
-OPENAI_MODEL=deepseek-chat
+SPRING_AI_OPENAI_API_KEY=sk-xxx
+SPRING_AI_OPENAI_BASE_URL=https://api.deepseek.com
+SPRING_AI_OPENAI_CHAT_MODEL=deepseek-chat
 
 # Embedding
 SPRING_AI_OPENAI_EMBEDDING_API_KEY=sk-xxx
 SPRING_AI_OPENAI_EMBEDDING_MODEL=BAAI/bge-m3
 SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS=1024
-SPRING_AI_OPENAI_EMBEDDING_BASE_URL=https://api.siliconflow.cn/v1/embeddings
+SPRING_AI_OPENAI_EMBEDDING_BASE_URL=https://api.siliconflow.cn
+
+# LLM provider: openai or anthropic
+CLAUDEMEM_LLM_PROVIDER=openai
 ```
 
 Database defaults in `application.yml`:
 - URL: `jdbc:postgresql://127.0.0.1/claude_mem_dev`
 - User: `postgres` / Password: `123456`
 
-Override with `DB_USERNAME` and `DB_PASSWORD` env vars.
+Override with `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` env vars.
 
 ## Build & Run
 

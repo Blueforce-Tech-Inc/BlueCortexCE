@@ -533,7 +533,7 @@ CREATE TABLE mem_observations (
     step_number INT,          -- V12
     discovery_tokens INT DEFAULT 0,
     prompt_number INT,
-    content_hash VARCHAR(64), -- V8
+    content_hash VARCHAR(16), -- V8
 
     -- 多维嵌入向量 (V2)
     embedding_768  vector(768),
@@ -824,30 +824,46 @@ String prompt = """
 ### Spring Boot 配置
 
 ```yaml
-# application.yml
+# application.yml（代表性摘录 — 完整配置请参见实际文件）
+server:
+  port: ${SERVER_PORT:37777}
+  address: ${SERVER_ADDRESS:127.0.0.1}
+
 spring:
   threads:
     virtual:
       enabled: true  # Java 21 虚拟线程
 
-  ai:
-    openai:
-      api-key: ${OPENAI_API_KEY}
-      base-url: ${OPENAI_BASE_URL}
-      chat:
-        options:
-          model: ${OPENAI_MODEL}
-
   datasource:
-    url: jdbc:postgresql://localhost:5432/cortexce
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://127.0.0.1/claude_mem_dev}
+    username: ${SPRING_DATASOURCE_USERNAME:${DB_USERNAME:postgres}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:123456}}
 
   jpa:
     hibernate:
       ddl-auto: none  # Flyway 处理架构
     show-sql: false
+
+# LLM 提供商 (openai 或 anthropic) — 在 SpringAiConfig 中手动装配
+claudemem:
+  llm:
+    provider: ${CLAUDEMEM_LLM_PROVIDER:openai}
 ```
+
+**环境变量**（通过 `.env` 或 shell 设置）：
+
+| 变量 | 默认值 | 描述 |
+|------|--------|------|
+| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://127.0.0.1/claude_mem_dev` | JDBC URL |
+| `SPRING_DATASOURCE_USERNAME` | `postgres` | 数据库用户 |
+| `SPRING_DATASOURCE_PASSWORD` | `123456` | 数据库密码 |
+| `SPRING_AI_OPENAI_API_KEY` | — | LLM API 密钥（DeepSeek 等） |
+| `SPRING_AI_OPENAI_BASE_URL` | `https://api.deepseek.com` | LLM 基础 URL |
+| `SPRING_AI_OPENAI_CHAT_MODEL` | `deepseek-chat` | 聊天模型名称 |
+| `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | — | 嵌入 API 密钥 |
+| `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | `https://api.siliconflow.cn` | 嵌入基础 URL |
+| `SPRING_AI_OPENAI_EMBEDDING_MODEL` | `BAAI/bge-m3` | 嵌入模型 |
+| `CLAUDEMEM_LLM_PROVIDER` | `openai` | `openai` 或 `anthropic` |
 
 ---
 
@@ -1001,16 +1017,16 @@ public String stripPrivateTags(String content) {
 
 | 组件 | 绑定 | 访问 |
 |------|------|------|
-| 胖服务器 | localhost:37777 | 仅本地 |
-| PostgreSQL | localhost:5432 | 仅本地 |
+| 胖服务器 | 127.0.0.1:37777 | 仅本地 |
+| PostgreSQL | 127.0.0.1:5432 | 仅本地 |
 | 代理 | 不适用 (CLI) | 无网络 |
 
 ### 密钥管理
 
 ```bash
 # 环境变量（不提交）
-export OPENAI_API_KEY=sk-xxx
-export DB_PASSWORD=xxx
+export SPRING_AI_OPENAI_API_KEY=sk-xxx
+export SPRING_DATASOURCE_PASSWORD=xxx
 
 # 或使用 .env 文件（gitignore）
 cp .env.example .env
