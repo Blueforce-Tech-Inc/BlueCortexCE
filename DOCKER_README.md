@@ -217,7 +217,7 @@ docker run -d \
   -e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/claude_mem \
   -e SPRING_DATASOURCE_USERNAME=postgres \
   -e SPRING_DATASOURCE_PASSWORD=postgres \
-  -e OPENAI_API_KEY=your-api-key \
+  -e SPRING_AI_OPENAI_API_KEY=your-api-key \
   cortex-ce:latest
 ```
 

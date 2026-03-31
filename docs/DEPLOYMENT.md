@@ -125,6 +125,8 @@ mvn flyway:migrate
 
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `SPRING_PROFILES_ACTIVE` | Spring profile (`dev`/`prd`) | `prd` |
+| `SERVER_ADDRESS` | Server bind address | `0.0.0.0` |
 | `SPRING_AI_OPENAI_BASE_URL` | OpenAI compatible API endpoint | `https://api.openai.com` |
 | `SPRING_AI_OPENAI_CHAT_MODEL` | Chat model | `gpt-4o` |
 | `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | Embedding API endpoint | `https://api.openai.com` |
@@ -132,7 +134,17 @@ mvn flyway:migrate
 | `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | Embedding dimensions | `1536` |
 | `CLAUDE_MEM_MODE` | Application mode | `code` |
 | `MEMORY_REFINE_ENABLED` | Enable memory refinement | `true` |
+| `CLAUDEMEM_LOG_DIR` | Log directory | `~/.claude-mem/logs` |
 | `JAVA_OPTS` | JVM options | `-XX:+UseZGC -XX:MaxRAMPercentage=75.0` |
+
+### Anthropic Compatible API (Claude, GLM, etc.)
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `ANTHROPIC_API_KEY` | **Yes** | - | Anthropic API key |
+| `ANTHROPIC_BASE_URL` | No | `https://api.anthropic.com` | API base URL |
+| `ANTHROPIC_MODEL` | No | `claude-sonnet-4-20250514` | Model name |
+| `CLAUDEMEM_LLM_PROVIDER` | No | `openai` | LLM provider (`openai` or `anthropic`) |
 
 See `.env.docker` for a complete template.
 

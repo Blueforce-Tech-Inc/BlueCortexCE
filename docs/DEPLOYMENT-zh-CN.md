@@ -136,6 +136,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - claude-mem-network
     restart: unless-stopped
 
   claude-mem:
@@ -168,6 +170,11 @@ services:
 
       # JVM 配置
       JAVA_OPTS: ${JAVA_OPTS:--XX:+UseZGC -XX:MaxRAMPercentage=75.0}
+
+      # 运行时配置
+      CLAUDE_MEM_MODE: ${CLAUDE_MEM_MODE:-code}
+      CLAUDEMEM_LOG_DIR: /app/logs
+      MEMORY_REFINE_ENABLED: ${MEMORY_REFINE_ENABLED:-true}
     volumes:
       - claude-mem-logs:/app/logs
     ports:
@@ -179,6 +186,12 @@ services:
       retries: 3
       start_period: 60s
     restart: unless-stopped
+    networks:
+      - claude-mem-network
+
+networks:
+  claude-mem-network:
+    driver: bridge
 
 volumes:
   postgres_data:
