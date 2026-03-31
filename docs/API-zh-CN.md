@@ -915,15 +915,18 @@ curl "http://localhost:37777/api/search?project=/Users/dev/myproject&query=authe
 ```json
 {
   "observations": [...],
-  "strategy": "semantic",
+  "strategy": "hybrid",
   "fell_back": false,
   "count": 10
 }
 ```
 
-**策略说明**:
-- `semantic`: 语义向量搜索（使用 pgvector）
-- `text`: 文本搜索回退（LIKE/ILIKE）
+**搜索策略说明**:
+- `hybrid`: 组合搜索——pgvector 语义搜索 + PostgreSQL tsvector 全文搜索
+- `tsvector`: PostgreSQL 全文搜索回退（pgvector 不可用时使用）
+- `filter`: 纯过滤搜索（无查询文本，基于 type/concept/source 过滤条件）
+- `recent`: 默认列表（无查询、无过滤，返回最新观察）
+- `none`: 所有搜索方法均失败（返回空结果）
 
 ---
 
@@ -2191,6 +2194,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-03-31 | 0.1.0-beta+++++ | 补充 Get Session 响应示例/路径参数/错误响应；补充 Update Session User 路径参数/请求体表/响应示例（3 字段）；修正环境变量名（SPRING_DATASOURCE_*、SPRING_AI_OPENAI_*），默认值匹配实际配置；新增 Anthropic 环境变量；同步英文版 |
 | 2026-03-31 | 0.1.0-beta++++ | 新增 Test 测试端点章节（/api/test/llm、/embedding、/all）；补充概述章节（Base URL + Content-Type）；同步 TOC；同步更新日志 |
 | 2026-04-01 | 0.1.0-beta+++++ | 补充英文版 Search 章节完整参数类型表、请求示例和响应示例（strategy/fell_back/count）；同步中英文版完整度 |
+| 2026-04-01 | 0.1.0-beta++++++ | 修正搜索策略值——实际代码返回 hybrid/tsvector/filter/recent/none（非 vector/text）；更新响应示例和策略说明；同步英文版 |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---

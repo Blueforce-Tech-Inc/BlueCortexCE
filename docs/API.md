@@ -729,15 +729,18 @@ curl "http://localhost:37777/api/search?project=/Users/dev/myproject&query=authe
 ```json
 {
   "observations": [...],
-  "strategy": "vector",
+  "strategy": "hybrid",
   "fell_back": false,
   "count": 10
 }
 ```
 
 **Search Strategies**:
-- `vector` — Semantic vector search (uses pgvector)
-- `text` — Text-based fallback (LIKE/ILIKE) when embedding is unavailable
+- `hybrid` — Combined pgvector semantic search + PostgreSQL tsvector full-text search
+- `tsvector` — PostgreSQL full-text search fallback (used when pgvector is unavailable)
+- `filter` — Filter-only search (no query text; results based on type/concept/source filters)
+- `recent` — Default listing (no query, no filters; returns most recent observations)
+- `none` — All search methods failed (returns empty results)
 
 ## Management
 
@@ -1886,6 +1889,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-03-31 | 0.1.0-beta+++++ | Added Get Session response example/path params/error response; added Update Session User path params/request body table/response example (3 fields); corrected environment variable names (SPRING_DATASOURCE_*, SPRING_AI_OPENAI_*) with defaults matching actual config; added Anthropic env vars; synced Chinese version |
 | 2026-03-31 | 0.1.0-beta++++ | Added Test endpoints section (/api/test/llm, /embedding, /all); added Overview section to Chinese version; synced TOC; synced changelog |
 | 2026-04-01 | 0.1.0-beta+++++ | Enriched Search section with full parameter types table, request example, and response example (strategy/fell_back/count); synced with Chinese version completeness |
+| 2026-04-01 | 0.1.0-beta++++++ | Corrected Search strategy values — actual code returns hybrid/tsvector/filter/recent/none (not vector/text); updated response example and strategy description; synced Chinese version |
 | 2026-03-13 | 0.1.0 | Initial API documentation |
 
 ---
