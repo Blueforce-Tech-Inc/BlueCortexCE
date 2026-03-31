@@ -869,7 +869,11 @@ claudemem:
 | `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | — | 嵌入 API 密钥 |
 | `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | `https://api.siliconflow.cn` | 嵌入基础 URL |
 | `SPRING_AI_OPENAI_EMBEDDING_MODEL` | `BAAI/bge-m3` | 嵌入模型 |
+| `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | `1024` | 嵌入向量维度 |
 | `CLAUDEMEM_LLM_PROVIDER` | `openai` | `openai` 或 `anthropic` |
+| `SPRING_AI_ANTHROPIC_API_KEY` | — | Anthropic API 密钥（当 provider=anthropic 时） |
+| `SPRING_AI_ANTHROPIC_BASE_URL` | `https://api.anthropic.com` | Anthropic 基础 URL |
+| `SPRING_AI_ANTHROPIC_CHAT_MODEL` | `claude-sonnet-4-5` | Anthropic 聊天模型 |
 
 ---
 

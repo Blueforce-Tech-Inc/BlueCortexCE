@@ -113,6 +113,95 @@ Server starts on `http://127.0.0.1:37777`.
 | POST | `/api/modes` | Switch active mode |
 | POST | `/api/sdk-sessions/batch` | Batch SDK session operations |
 
+### Session
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/session/start` | Initialize session |
+| GET | `/api/session/{id}` | Get session details |
+| PATCH | `/api/session/{id}/user` | Update session user ID |
+
+### Context
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/context/generate` | Generate context for session |
+| POST | `/api/context/inject` | Inject context into session |
+| GET | `/api/context/preview` | Preview context without saving |
+| GET | `/api/context/prior-messages` | Get prior messages for context |
+| GET | `/api/context/recent` | Get recent context entries |
+| GET | `/api/context/timeline` | Get timeline context |
+
+### Memory
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/memory/refine` | Trigger memory refinement |
+| GET | `/api/memory/experiences` | Get experience entries |
+| GET | `/api/memory/icl-prompt` | Get ICL prompt |
+| GET | `/api/memory/quality-distribution` | Get quality score distribution |
+| POST | `/api/memory/feedback` | Submit observation feedback |
+| PATCH | `/api/memory/observations/{id}` | Update observation |
+| DELETE | `/api/memory/observations/{id}` | Delete observation |
+
+### Mode
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/mode` | Get active mode |
+| PUT | `/api/mode` | Update active mode |
+| GET | `/api/mode/types` | List observation types |
+| GET | `/api/mode/concepts` | List concepts |
+| POST | `/api/mode/validate` | Validate mode config |
+
+### Extraction
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/extraction/run` | Run structured extraction |
+| GET | `/api/extraction/latest` | Get latest extraction result |
+| GET | `/api/extraction/history` | Get extraction history |
+
+### Cursor
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/cursor/register` | Register Cursor workspace |
+| GET | `/api/cursor/context/{workspaceId}` | Get context for workspace |
+| GET | `/api/cursor/projects` | List Cursor projects |
+
+### Import
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/import/sessions` | Import sessions |
+| POST | `/api/import/observations` | Import observations |
+| POST | `/api/import/summaries` | Import summaries |
+| POST | `/api/import/prompts` | Import prompts |
+
+### Logs
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/logs` | Get application logs |
+| POST | `/api/logs/clear` | Clear logs |
+
+### Health
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/health` | Health check |
+| GET | `/api/readiness` | Readiness probe |
+| GET | `/api/version` | Version info |
+
+### Test
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/test/llm` | Test LLM connectivity |
+| GET | `/api/test/embedding` | Test embedding connectivity |
+| GET | `/api/test/all` | Test all external services |
+
 ### SSE Stream
 
 | Method | Path | Description |
