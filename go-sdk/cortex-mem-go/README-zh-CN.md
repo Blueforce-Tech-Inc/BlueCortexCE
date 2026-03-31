@@ -42,6 +42,7 @@ func main() {
 
     // 启动会话
     resp, err := client.StartSession(ctx, dto.SessionStartRequest{
+        SessionID:   "my-session-001",
         ProjectPath: "/my-project",
     })
     if err != nil {
