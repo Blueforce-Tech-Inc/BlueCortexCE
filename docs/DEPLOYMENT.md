@@ -133,7 +133,7 @@ mvn flyway:migrate
 | `SPRING_AI_OPENAI_EMBEDDING_MODEL` | Embedding model | `text-embedding-3-small` |
 | `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | Embedding dimensions | `1536` |
 | `CLAUDE_MEM_MODE` | Application mode | `code` |
-| `MEMORY_REFINE_ENABLED` | Enable memory refinement | `true` |
+| `MEMORY_REFINE_ENABLED` | Enable memory refinement (self-evolution) | `true` |
 | `CLAUDEMEM_LOG_DIR` | Log directory | `~/.claude-mem/logs` |
 | `JAVA_OPTS` | JVM options | `-XX:+UseZGC -XX:MaxRAMPercentage=75.0` |
 
