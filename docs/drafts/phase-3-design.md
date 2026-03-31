@@ -4734,7 +4734,7 @@ private String buildItemKey(Map<String, Object> item, List<String> keyFields) {
 - Section 24.1 `summarizePriorExtraction()`: No longer needed (prior not passed to LLM)
 - Section 24.2 hallucination mitigation: Simplified (no prior context = no context blending)
 
-**Status**: ⚠️ Open — needs design review before implementation. If accepted, this is a significant change to the extraction contract.
+**Status**: ✅ Implemented — append-only extraction is the active implementation in `StructuredExtractionService.runAppendOnlyExtraction()`.
 
 ---
 
@@ -4776,7 +4776,7 @@ cat backend/.env | grep -E "SPRING_DATASOURCE|SPRING_AI"
 | 5 | Session API — userId support | ✅ Done | `cca84e0` | curl tests pass |
 | 6 | StructuredExtractionService | ✅ Done | — | Build + append-only extraction functional |
 | 7 | DeepRefine integration | ✅ Done | — | `MemoryRefineService` calls `extractionService.runExtraction()` |
-| 8 | Extraction Query API + ICL integration | ⚠️ Partial | — | ExtractionController done; MemoryController userId not yet wired (Step 8.2/8.3 pending) |
+| 8 | Extraction Query API + ICL integration | ✅ Done | — | ExtractionController + MemoryController userId both wired |
 | 9 | YAML configuration | ✅ Done | — | `application.yml` extraction config present |
 | 10 | SDK client update | ✅ Done | — | `getLatestExtraction`, `getExtractionHistory`, `updateSessionUserId` in SDK |
 | 11 | E2E acceptance tests | ✅ Done | — | `demo-v15-extraction-test.sh`, `phase3-acceptance-test.sh` exist |
@@ -4843,7 +4843,7 @@ cat backend/.env | grep -E "SPRING_DATASOURCE|SPRING_AI"
 
 ---
 
-### 🔧 Step 6: StructuredExtractionService — Core Implementation (NEXT)
+### ✅ Step 6: StructuredExtractionService — Core Implementation (COMPLETED)
 
 **Estimated time**: 3-4 hours
 **Depends on**: Steps 3, 4 (both done)
@@ -5044,7 +5044,7 @@ git checkout -- backend/src/main/java/com/ablueforce/cortexce/service/Structured
 
 ---
 
-### 🔧 Step 7: DeepRefine Integration
+### ✅ Step 7: DeepRefine Integration (COMPLETED)
 
 **Estimated time**: 30 minutes
 **Depends on**: Step 6
@@ -5106,7 +5106,7 @@ git checkout -- backend/src/main/java/com/ablueforce/cortexce/service/MemoryRefi
 
 ---
 
-### 🔧 Step 8: Extraction Query API + ICL Integration
+### ✅ Step 8: Extraction Query API + ICL Integration (COMPLETED)
 
 **Estimated time**: 2 hours
 **Depends on**: Steps 5, 6
@@ -5209,7 +5209,7 @@ bash scripts/regression-test.sh
 
 ---
 
-### 🔧 Step 9: YAML Configuration + Enable Extraction
+### ✅ Step 9: YAML Configuration + Enable Extraction (COMPLETED)
 
 **Estimated time**: 30 minutes
 **Depends on**: Step 6
@@ -5313,7 +5313,7 @@ bash scripts/regression-test.sh
 
 ---
 
-### 🔧 Step 10: SDK Client Update
+### ✅ Step 10: SDK Client Update (COMPLETED)
 
 **Estimated time**: 1 hour
 **Depends on**: Steps 5, 8
@@ -5379,7 +5379,7 @@ bash scripts/demo-v14-test.sh
 
 ---
 
-### 🔧 Step 11: End-to-End Acceptance Tests
+### ✅ Step 11: End-to-End Acceptance Tests (COMPLETED)
 
 **Estimated time**: 2 hours
 **Depends on**: ALL previous steps (1-10)
@@ -5754,13 +5754,13 @@ response=$(curl -sf -X POST "${DEMO_URL}/memory/icl-prompt" \
 | 5 | Session API userId support | Steps 1,2 | 1 hr | ✅ Done | SessionController.java |
 | 6 | StructuredExtractionService | Steps 3,4 | 3-4 hr | ✅ Done | ExtractionConfig.java, StructuredExtractionService.java |
 | 7 | DeepRefine integration | Step 6 | 30 min | ✅ Done | MemoryRefineService.java (modified) |
-| 8 | Query API + ICL userId | Steps 5,6 | 2 hr | ⚠️ Partial | ExtractionController.java (done); MemoryController userId (pending) |
+| 8 | Query API + ICL userId | Steps 5,6 | 2 hr | ✅ Done | ExtractionController.java + MemoryController.java (userId wired) |
 | 9 | YAML configuration | Step 6 | 30 min | ✅ Done | application.yml (modified) |
 | 10 | SDK client update | Steps 5,8 | 1 hr | ✅ Done | SDK files (modified) |
 | 11 | E2E acceptance tests | All above | 2 hr | ✅ Done | demo-v15-extraction-test.sh, phase3-acceptance-test.sh |
 
-**Remaining work**: Step 8.2/8.3 — wire `userId` from `ExperienceRequest`/`ICLPromptRequest` DTOs into `MemoryController`'s experiences and ICL-prompt handlers (~30 min).
-**Critical path**: Only Step 8.2/8.3 remains.
+**Remaining work**: None — all 11 steps completed.
+**Critical path**: Complete.
 
 ### New Files Created During Implementation
 
@@ -5781,7 +5781,7 @@ response=$(curl -sf -X POST "${DEMO_URL}/memory/icl-prompt" \
 | `SessionController.java` | 5 | userId support in session start + PATCH endpoint |
 | SDK files (5) | 10 | Added `getLatestExtraction()`, `getExtractionHistory()`, `updateSessionUserId()` |
 | `ApiRequests.java` | 8 | Added `userId` field to `ExperienceRequest` and `ICLPromptRequest` DTOs |
-| `MemoryController.java` | 8.2/8.3 | ⚠️ **PENDING**: DTOs have userId but controller methods don't wire it yet |
+| `MemoryController.java` | 8.2/8.3 | ✅ Done: `userId` wired for both experiences and ICL-prompt handlers |
 
 ---
 
