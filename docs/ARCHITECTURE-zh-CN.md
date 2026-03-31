@@ -165,10 +165,8 @@ Cortex CE 使用 **瘦代理 + 胖服务器** 架构将 hook 执行与重量级�
 │  │                                                                      │   │
 │  │  ┌──────────────────────────────────────────────────────────────┐  │   │
 │  │  │                     控制器层                                   │  │   │
-│  │  │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐ │  │   │
-│  │  │  │ Ingestion  │ │  Viewer    │ │  Context   │ │   MCP      │ │  │   │
-│  │  │  │ Controller │ │ Controller │ │ Controller │ │Controller  │ │  │   │
-│  │  │  └────────────┘ └────────────┘ └────────────┘ └────────────┘ │  │   │
+│  │  │  Ingestion · Viewer · Context · Session · Memory · Mode      │  │   │
+│  │  │  Extraction · Import · Cursor · Stream · Logs · Health · Test│  │   │
 │  │  └──────────────────────────────────────────────────────────────┘  │   │
 │  │                                                                      │   │
 │  │  ┌──────────────────────────────────────────────────────────────┐  │   │
@@ -734,11 +732,19 @@ LIMIT :limit;
 
 | 层 | 路径模式 | 描述 |
 |---|----------|------|
-| Ingestion | `/api/ingest/*` | Hook 事件接收 |
-| Viewer | `/api/observations`, `/api/search` | WebUI 数据 |
+| Ingestion | `/api/ingest/*` | Hook 事件接收（tool-use、user-prompt、observation、session-end） |
+| Session | `/api/session/*` | 会话生命周期（start、get、patch user） |
+| Viewer | `/api/observations`, `/api/summaries`, `/api/prompts`, `/api/projects`, `/api/stats`, `/api/search`, `/api/search/by-file`, `/api/observations/batch`, `/api/settings`, `/api/modes`, `/api/timeline`, `/api/processing-status`, `/api/sdk-sessions/batch` | WebUI 数据 |
 | Context | `/api/context/*` | 上下文检索 |
+| Memory | `/api/memory/*` | 记忆操作（refine、experiences、icl-prompt、quality-distribution、feedback、patch/delete observation） |
+| Mode | `/api/mode/*` | 记忆模式管理（get/put、types、concepts、validation） |
+| Extraction | `/api/extraction/*` | 结构化数据提取（run、latest、history） |
+| Cursor | `/api/cursor/*` | Cursor IDE 集成（register、context、projects） |
+| Import | `/api/import/*` | 数据导入（sessions、observations、summaries、prompts） |
 | Stream | `/stream` | SSE 实时更新 |
-| Logs | `/api/logs` | 日志访问 |
+| Logs | `/api/logs` | 日志访问（get、clear） |
+| Health | `/api/health`, `/api/readiness`, `/api/version` | 健康和版本检查 |
+| Test | `/api/test/*` | 测试/调试端点（llm、embedding、all） |
 
 ### MCP 服务器
 

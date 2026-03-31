@@ -165,10 +165,8 @@ Cortex CE uses a **Thin Proxy + Fat Server** architecture to decouple hook execu
 │  │                                                                      │   │
 │  │  ┌──────────────────────────────────────────────────────────────┐  │   │
 │  │  │                     Controllers                               │  │   │
-│  │  │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐ │  │   │
-│  │  │  │ Ingestion  │ │  Viewer    │ │  Context   │ │   MCP      │ │  │   │
-│  │  │  │ Controller │ │ Controller │ │ Controller │ │Controller  │ │  │   │
-│  │  │  └────────────┘ └────────────┘ └────────────┘ └────────────┘ │  │   │
+│  │  │  Ingestion · Viewer · Context · Session · Memory · Mode      │  │   │
+│  │  │  Extraction · Import · Cursor · Stream · Logs · Health · Test│  │   │
 │  │  └──────────────────────────────────────────────────────────────┘  │   │
 │  │                                                                      │   │
 │  │  ┌──────────────────────────────────────────────────────────────┐  │   │
@@ -734,11 +732,19 @@ LIMIT :limit;
 
 | Layer | Path Pattern | Description |
 |-------|--------------|-------------|
-| Ingestion | `/api/ingest/*` | Hook event reception |
-| Viewer | `/api/observations`, `/api/search` | WebUI data |
+| Ingestion | `/api/ingest/*` | Hook event reception (tool-use, user-prompt, observation, session-end) |
+| Session | `/api/session/*` | Session lifecycle (start, get, patch user) |
+| Viewer | `/api/observations`, `/api/summaries`, `/api/prompts`, `/api/projects`, `/api/stats`, `/api/search`, `/api/search/by-file`, `/api/observations/batch`, `/api/settings`, `/api/modes`, `/api/timeline`, `/api/processing-status`, `/api/sdk-sessions/batch` | WebUI data |
 | Context | `/api/context/*` | Context retrieval |
+| Memory | `/api/memory/*` | Memory operations (refine, experiences, icl-prompt, quality-distribution, feedback, patch/delete observation) |
+| Mode | `/api/mode/*` | Memory mode management (get/put, types, concepts, validation) |
+| Extraction | `/api/extraction/*` | Structured data extraction (run, latest, history) |
+| Cursor | `/api/cursor/*` | Cursor IDE integration (register, context, projects) |
+| Import | `/api/import/*` | Data import (sessions, observations, summaries, prompts) |
 | Stream | `/stream` | SSE real-time updates |
-| Logs | `/api/logs` | Log access |
+| Logs | `/api/logs` | Log access (get, clear) |
+| Health | `/api/health`, `/api/readiness`, `/api/version` | Health and version checks |
+| Test | `/api/test/*` | Test/debug endpoints (llm, embedding, all) |
 
 ### MCP Server
 
