@@ -2545,18 +2545,18 @@ void shouldValidateOutputSchema() {
 
 This section provides a concrete, step-by-step guide for implementing Phase 3.1.
 
-### 15.1 Prerequisites (Must Complete First)
+### 15.1 Prerequisites (✅ All Implemented)
 
-| # | Task | File | Notes |
-|---|------|------|-------|
-| 1 | Add `findBySourceIn()` | `ObservationRepository.java` | `List<String> sources` param, native SQL with `IN (:sources)` |
-| 2 | Add `findNewObservations()` | `ObservationRepository.java` | `Long sinceEpoch` param for incremental extraction |
-| 3 | Add `findByTypeGlobal()` | `ObservationRepository.java` | Cross-project query for DLQ — `findByType(null, ...)` will NOT work because `@Param("project")` is non-null |
-| 4 | Add `findByTypeLike()` | `ObservationRepository.java` | **NEW (v14)**: Wildcard type query using `LIKE`. `findByType` uses exact match (`type = :type`), so `findByType(project, "extracted_%", 50)` does NOT match `extracted_user_preference`. Either add this method or iterate known template names (see section 15.8). |
-| 5 | Add `chatCompletionStructured()` | `LlmService.java` | Uses `BeanOutputConverter<T>` from `org.springframework.ai.converter` |
-| 6 | Add `findByContentSessionIdAndType()` | `ObservationRepository.java` | **NEW (v17)**: Fetch prior extraction result for LLM re-extraction context |
-| 7 | Add `findByUserId()` | `SessionRepository.java` | **NEW (v17)**: Find sessions by user_id for user grouping |
-| 8 | Add `findSessionIdsByUserIdAndProject()` | `SessionRepository.java` | **NEW (v17)**: Find session IDs by user + project for extraction grouping |
+| # | Task | File | Status |
+|---|------|------|--------|
+| 1 | Add `findBySourceIn()` | `ObservationRepository.java` | ✅ Implemented |
+| 2 | Add `findNewObservations()` | `ObservationRepository.java` | ✅ Implemented |
+| 3 | Add `findByTypeGlobal()` | `ObservationRepository.java` | ✅ Implemented |
+| 4 | Add `findByTypeLike()` | `ObservationRepository.java` | ✅ Implemented |
+| 5 | Add `chatCompletionStructured()` | `LlmService.java` | ✅ Implemented |
+| 6 | Add `findByContentSessionIdAndType()` | `ObservationRepository.java` | ✅ Implemented |
+| 7 | Add `findByUserId()` | `SessionRepository.java` | ✅ Implemented |
+| 8 | Add `findSessionIdsByUserIdAndProject()` | `SessionRepository.java` | ✅ Implemented |
 
 **New repository method #6** (for merge logic):
 ```java
@@ -3038,18 +3038,18 @@ private List<List<ObservationEntity>> chunkByTokenCount(List<ObservationEntity> 
 
 **NOTE**: This is a pragmatic heuristic. For production, invest in proper tokenization via tiktoken-java or JTokkit.
 
-### 15.10 Validation Checklist Before Implementation (Updated)
+### 15.10 Validation Checklist (✅ All Verified)
 
-Before writing any code, verify:
+All items verified during implementation:
 
-- [ ] Spring AI 1.1.2 includes `org.springframework.ai.converter` package (check Maven dependency tree)
-- [ ] `BeanOutputConverter` and `MapOutputConverter` are available in the classpath
-- [ ] `ObservationEntity.getExtractedData()` returns `Map<String, Object>` (confirmed in V14)
-- [ ] `ObservationEntity.setExtractedData(Map<String, Object>)` setter exists
-- [ ] `ObjectMapper` bean is available in the Spring context (for `convertToMap()`)
-- [ ] YAML configuration loading works with the chosen config binding approach
-- [ ] `ObservationRepository` has `findByTypeLike(project, "extracted_%", limit)` with LIKE support — OR use iteration over known template names with existing `findByType` (see section 15.8 for both approaches)
-- [ ] `@Transactional` support is available (Spring Data JPA, no custom transaction manager)
+- [x] Spring AI 1.1.2 includes `org.springframework.ai.converter` package (verified in Maven dependency tree)
+- [x] `BeanOutputConverter` and `MapOutputConverter` are available in the classpath
+- [x] `ObservationEntity.getExtractedData()` returns `Map<String, Object>` (confirmed in V14)
+- [x] `ObservationEntity.setExtractedData(Map<String, Object>)` setter exists
+- [x] `ObjectMapper` bean is available in the Spring context (for `convertToMap()`)
+- [x] YAML configuration loading works via `ExtractionConfig` with `@ConfigurationProperties`
+- [x] `ObservationRepository` has `findByTypeLike(project, "extracted_%", limit)` with LIKE support
+- [x] `@Transactional` support is available (Spring Data JPA, no custom transaction manager)
 
 ---
 
@@ -3247,23 +3247,22 @@ ON mem_observations (source) WHERE type = 'extraction_state';
 
 ### 19.2 Prerequisite Implementation Sequencing
 
-**Current state**: Section 15.1 lists 5 prerequisites but doesn't specify implementation order or dependencies.
+**Current state**: ✅ All 8 prerequisites from Section 15.1 are implemented. See Section 21.1 for verified status table.
 
-**Recommended order** (least dependencies first):
+**Implementation order used** (least dependencies first):
 
-| Order | Prerequisite | Dependencies | Effort |
-|-------|-------------|--------------|--------|
-| 1 | `findBySourceIn()` | None (new query) | 30 min |
-| 2 | `findByTypeGlobal()` | None (new query) | 15 min |
-| 3 | `findByTypeLike()` | None (new query) | 15 min |
-| 4 | `findNewObservations()` | None (new query) | 30 min |
-| 5 | `chatCompletionStructured()` | Spring AI converters on classpath | 1-2 hours |
+| Order | Prerequisite | Status |
+|-------|-------------|--------|
+| 1 | `findBySourceIn()` | ✅ Implemented in ObservationRepository.java |
+| 2 | `findByTypeGlobal()` | ✅ Implemented in ObservationRepository.java |
+| 3 | `findByTypeLike()` | ✅ Implemented in ObservationRepository.java |
+| 4 | `findNewObservations()` | ✅ Implemented in ObservationRepository.java |
+| 5 | `chatCompletionStructured()` | ✅ Implemented in LlmService.java |
+| 6 | `findByContentSessionIdAndType()` | ✅ Implemented in ObservationRepository.java |
+| 7 | `findByUserId()` | ✅ Implemented in SessionRepository.java |
+| 8 | `findSessionIdsByUserIdAndProject()` | ✅ Implemented in SessionRepository.java |
 
-**Total estimated effort**: 2.5-3 hours for all prerequisites.
-
-**Note**: Items 1-4 are pure repository methods (add `@Query` annotation to `ObservationRepository`). Item 5 requires understanding Spring AI's converter API and testing with actual LLM calls.
-
-**Verification step**: After implementing prerequisites, run the existing regression test (43/43) to confirm nothing breaks, THEN start StructuredExtractionService.
+**No remaining work** — StructuredExtractionService is functional and running.
 
 ### 19.3 Initial Run Cost Explosion Prevention
 
@@ -6230,10 +6229,10 @@ bash scripts/demo-v14-test.sh
 
 - **2026-03-22 v20**: (1) **Section 20.8**: All 8 walkthrough issues now resolved — no more deferred items. (2) **Section 20.9**: Ingestion API user_id resolved — Option B: session creation with optional userId + PATCH API to update existing sessions. (3) **Section 2.3**: Fixed `mergeExtractedData()` sentiment handling — composite key uses category+value only, sentiment changes trigger overwrite (not skip). (4) Confirmed Phase 3.1 design is complete with all issues resolved.
 - **2026-03-22 v18**: (1) **Section 2.2**: Updated `user_preference` template to use array-wrapped schema (was single-object — critical fix from walkthrough). (2) **Section 2.3**: Refactored `runExtraction()` to include user grouping via `groupByUser()` method. (3) **Section 2.3**: Refactored `extractByTemplate()` to accept candidates parameter. (4) **Section 2.3**: Rewrote `storeExtractionResult()` with merge logic (`mergeExtractedData()`) and user-scoped session ID resolution. (5) **Section 2.3**: Added `formatExtractedData()` for ICL prompt integration. (6) **Section 15.1**: Added prerequisites #6-8: `findByContentSessionIdAndType()`, `findByUserId()`, `findSessionIdsByUserIdAndProject()`. (7) **Section 20.9**: Added ingestion API user_id passing design. (8) **Section 20.8**: Updated summary — 6 issues resolved, 2 deferred.
-- **2026-03-22 v14**: (1) **Section 15.8 Bug Fix**: Fixed `findByType(project, "extracted_%", 50)` wildcard bug — `findByType` uses exact match (`type = :type`), NOT LIKE. Added `findByTypeLike()` repository method as prerequisite #4, plus alternative approach (iterate known template names). Updated ICL prompt and experience API code examples. (2) **Section 9.1**: Added `findByTypeLike()` to pending repository methods list. (3) **Section 15.1**: Added `findByTypeLike()` as prerequisite #5. (4) **Section 15.10**: Updated validation checklist with `findByTypeLike` or template-iteration alternative. (5) **Section 17**: Extraction idempotency — prevents duplicate `extracted_{template}` observations from re-running extraction. Composite hash deduplication + state guard clause. (6) **Section 18**: Observation type namespace reservation — `extraction_*` prefix reserved for system use. Added validation option to prevent user-created type collisions. (7) **Verified**: Spring AI 1.1.2 classpath includes `BeanOutputConverter`, `MapOutputConverter`, `ListOutputConverter` in `spring-ai-model` jar. Confirmed 5 pending prerequisites still not implemented: `findBySourceIn`, `findNewObservations`, `findByTypeGlobal`, `findByTypeLike`, `chatCompletionStructured`.
+- **2026-03-22 v14**: (1) **Section 15.8 Bug Fix**: Fixed `findByType(project, "extracted_%", 50)` wildcard bug — `findByType` uses exact match (`type = :type`), NOT LIKE. Added `findByTypeLike()` repository method as prerequisite #4, plus alternative approach (iterate known template names). Updated ICL prompt and experience API code examples. (2) **Section 9.1**: Added `findByTypeLike()` to pending repository methods list. (3) **Section 15.1**: Added `findByTypeLike()` as prerequisite #5. (4) **Section 15.10**: Updated validation checklist with `findByTypeLike` or template-iteration alternative. (5) **Section 17**: Extraction idempotency — prevents duplicate `extracted_{template}` observations from re-running extraction. Composite hash deduplication + state guard clause. (6) **Section 18**: Observation type namespace reservation — `extraction_*` prefix reserved for system use. Added validation option to prevent user-created type collisions. (7) **Verified**: Spring AI 1.1.2 classpath includes `BeanOutputConverter`, `MapOutputConverter`, `ListOutputConverter` in `spring-ai-model` jar. Confirmed 5 pending prerequisites still not implemented: `findBySourceIn`, `findNewObservations`, `findByTypeGlobal`, `findByTypeLike`, `chatCompletionStructured`. **UPDATE**: All 5 (plus 3 more) subsequently implemented — see Section 21.1.
 - **2026-03-22 v13**: (1) **Quick Reference**: Added TL;DR summary at top — what, how, when, prerequisites, pipeline diagram. (2) **Section 15.6**: Transaction safety for extraction state management — `@Transactional` wrapper for delete-then-save pattern, plus SQL upsert alternative for production. (3) **Section 15.7**: Concurrency control — per-project `ReentrantLock` to prevent duplicate extraction runs from deepRefine + scheduled task overlap. (4) **Section 15.8**: ICL prompt integration — how extracted data surfaces in `/api/memory/icl-prompt` and experience API (`includeExtractions` flag). (5) **Section 15.9**: Token counting without TokenService — character-based heuristic (CJK-aware) for batching observations. (6) **Section 16**: Architecture Decision Records — 4 key decisions (store as ObservationEntity, BeanOutputConverter, separate pipeline, POJO+Map hybrid) captured with rationale and tradeoffs. (7) **Section 15.10**: Updated validation checklist with `@Transactional` and wildcard `findByType` support.
 - **2026-03-22 v12**: (1) **Section 15**: Added Implementation Bootstrap Checklist — step-by-step Phase 3.1 guide with prerequisites, new files, and validation checklist. (2) **Section 15.1**: Fixed DLQ bug — `findByType(null, ...)` won't work because `@Param("project")` is non-null; added `findByTypeGlobal()` repository method as prerequisite. (3) **Section 15.3**: Added Record vs POJO analysis for `ExtractionTemplate` configuration binding — recommended POJO approach via `@ConfigurationProperties` for Spring Boot 3.3 compatibility. (4) **Section 15.4**: Added concrete `LlmService.chatCompletionStructured()` implementation with `BeanOutputConverter`/`MapOutputConverter` dual pattern. (5) **Section 15.5**: Clarified extraction integration order — must NOT run during `quickRefine()`, only as last step of `deepRefineProjectMemories()`. (6) **Section 11.3**: Fixed DLQ retry code to use `findByTypeGlobal()` instead of broken `findByType(null, ...)`.
-- **2026-03-22 v11**: (1) **Section 0.2**: Added critical design gaps documentation — `outputSchema` (String) cannot feed `BeanOutputConverter<T>` (Class) without a bridge; added three practical solutions (predefined POJO, Map fallback, dynamic generation). (2) **Gap 2**: Clarified `ListOutputConverter` limitation — returns `List<String>`, not `List<MyObject>`; arrays of objects must use `MapOutputConverter` or post-processing. (3) **Gap 3**: Confirmed `findBySourceIn` and `findNewObservations` repository methods are still NOT implemented (status: pending). (4) **Gap 4**: Confirmed `LlmService.chatCompletionStructured()` method does NOT exist (status: pending). (5) **Section 2.1**: Added `templateClass` field to `ExtractionTemplate` record — required for resolving Java Class at runtime. (6) **Section 2.2**: Updated YAML examples to include `template-class` field; clarified `output-schema` is only needed for Map templates. (7) **Section 2.3**: Refactored `extractByTemplate()` to use `resolveOutputClass()` and `buildSchemaHint()` for two-pattern support (POJO vs Map). (8) **Section 2.4**: Updated allergy example to show both POJO and Map template patterns.
+- **2026-03-22 v11**: (1) **Section 0.2**: Added critical design gaps documentation — `outputSchema` (String) cannot feed `BeanOutputConverter<T>` (Class) without a bridge; added three practical solutions (predefined POJO, Map fallback, dynamic generation). (2) **Gap 2**: Clarified `ListOutputConverter` limitation — returns `List<String>`, not `List<MyObject>`; arrays of objects must use `MapOutputConverter` or post-processing. (3) **Gap 3**: Confirmed `findBySourceIn` and `findNewObservations` repository methods are still NOT implemented (status: pending). (4) **Gap 4**: Confirmed `LlmService.chatCompletionStructured()` method does NOT exist (status: pending). **UPDATE**: All subsequently implemented — see Gap 3/4 sections and Section 21.1. (5) **Section 2.1**: Added `templateClass` field to `ExtractionTemplate` record — required for resolving Java Class at runtime. (6) **Section 2.2**: Updated YAML examples to include `template-class` field; clarified `output-schema` is only needed for Map templates. (7) **Section 2.3**: Refactored `extractByTemplate()` to use `resolveOutputClass()` and `buildSchemaHint()` for two-pattern support (POJO vs Map). (8) **Section 2.4**: Updated allergy example to show both POJO and Map template patterns.
 - **2026-03-21 v10**: Critical fix in section 0.1 Bug 2: `JacksonOutputConverter` does NOT exist in Spring AI 1.1.2. Replaced with correct `BeanOutputConverter` approach. The correct Spring AI 1.1.2 structured output converters are `BeanOutputConverter`, `MapOutputConverter`, and `ListOutputConverter` from `org.springframework.ai.converter`. Updated implementation options to reflect actual Spring AI 1.1.2 API.
 - **2026-03-21 v9**: (1) Added missing `convertToMap()` utility method in section 2.3 — handles POJOs, Maps, Lists, and primitives for `extractedData` JSONB storage. (2) Fixed `StructuredExtractionService` to use `LlmService` (consistent with `MemoryRefineService`) instead of raw `ChatClient`. (3) Added `findNewObservations()` repository method to section 9.1 with epoch-based comparison for incremental extraction. (4) Clarified `ExtractionState` persistence — stores as `ObservationEntity` with `type="extraction_state"` to avoid a separate database table.
 - **2026-03-21 v8**: (1) Clarified Spring AI structured output: `ChatClient.call().entity()` does NOT auto-enforce schema - must use `JacksonOutputConverter` for true schema enforcement. Added implementation options for `LlmService.chatCompletionStructured()`. (2) Fixed `tokenService.estimateTokens()` → should be `TokenService.calculateObservationTokens()` (method doesn't exist, must inject TokenService bean). (3) Clarified dead letter queue implementation: store as `ObservationEntity` with type=`extraction_failed` rather than separate queue infrastructure.
