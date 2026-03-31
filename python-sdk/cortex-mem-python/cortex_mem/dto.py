@@ -182,8 +182,10 @@ class Experience:
 
         Only non-empty fields are included (consistent with other SDK DTOs).
         For exact wire format matching the backend, see the Go/JS SDK serialization.
+        quality_score is sanitized via _sanitize_for_json to prevent NaN/Inf
+        from leaking into output (not valid JSON per RFC 7159).
         """
-        return {
+        return _sanitize_for_json({
             "id": self.id,
             "task": self.task,
             "strategy": self.strategy,
@@ -191,7 +193,7 @@ class Experience:
             "reuse_condition": self.reuse_condition,
             "quality_score": self.quality_score,
             "created_at": self.created_at,
-        }
+        })
 
     @classmethod
     def from_wire(cls, data: dict) -> Experience:

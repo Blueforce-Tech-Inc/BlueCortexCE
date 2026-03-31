@@ -926,6 +926,30 @@ class TestNullSafetyExtra:
         assert exp.quality_score == 0.0
 
 
+class TestSanitizeExperience:
+    """Tests for Experience.to_dict NaN/Inf sanitization."""
+
+    def test_experience_to_dict_sanitizes_nan_quality_score(self):
+        """NaN quality_score should become None (valid JSON)."""
+        exp = Experience(id="e1", task="t", strategy="s", outcome="o", quality_score=float("nan"))
+        d = exp.to_dict()
+        assert d["quality_score"] is None
+        json.dumps(d)  # should not raise
+
+    def test_experience_to_dict_sanitizes_inf_quality_score(self):
+        """Inf quality_score should become None (valid JSON)."""
+        exp = Experience(id="e1", task="t", strategy="s", outcome="o", quality_score=float("inf"))
+        d = exp.to_dict()
+        assert d["quality_score"] is None
+        json.dumps(d)
+
+    def test_experience_to_dict_preserves_normal_value(self):
+        """Normal quality_score should be preserved."""
+        exp = Experience(id="e1", task="t", strategy="s", outcome="o", quality_score=0.85)
+        d = exp.to_dict()
+        assert d["quality_score"] == 0.85
+
+
 class TestSanitizeForJson:
     """Tests for _sanitize_for_json ensuring to_dict() produces valid JSON."""
 
