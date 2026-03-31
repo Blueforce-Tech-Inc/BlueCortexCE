@@ -273,8 +273,6 @@ src/main/java/com/ablueforce/cortexce/
 │   └── StaleMessageRecoveryTask.java # Crash recovery for stale messages
 ├── mcp/
 │   └── ClaudeMemMcpTools.java       # MCP tool implementations
-├── mcp/
-│   └── ClaudeMemMcpTools.java       # MCP tool implementations
 ├── common/
 │   ├── LogHelper.java               # Structured logging helpers
 │   └── LogMarkers.java              # Log marker constants
