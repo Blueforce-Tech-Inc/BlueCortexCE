@@ -102,11 +102,11 @@ func TestRetrieve_Success(t *testing.T) {
 	if doc.Metadata["id"] != "1" {
 		t.Errorf("expected id '1' in metadata, got %v", doc.Metadata["id"])
 	}
-	if doc.Metadata["qualityScore"] != float32(0.9) {
-		t.Errorf("expected qualityScore 0.9 in metadata, got %v", doc.Metadata["qualityScore"])
+	if doc.Metadata["quality_score"] != float32(0.9) {
+		t.Errorf("expected quality_score 0.9 in metadata, got %v", doc.Metadata["quality_score"])
 	}
-	if doc.Metadata["createdAt"] != "2026-03-26T10:00:00Z" {
-		t.Errorf("expected createdAt in metadata, got %v", doc.Metadata["createdAt"])
+	if doc.Metadata["created_at"] != "2026-03-26T10:00:00Z" {
+		t.Errorf("expected created_at in metadata, got %v", doc.Metadata["created_at"])
 	}
 }
 

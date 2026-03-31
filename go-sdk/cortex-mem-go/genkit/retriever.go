@@ -136,11 +136,11 @@ func (r *Retriever) Retrieve(ctx context.Context, input RetrieverInput) (Retriev
 		docs = append(docs, Document{
 			Content: strings.Join(parts, "\n"),
 			Metadata: map[string]any{
-				"id":             exp.ID,
-				"task":           exp.Task,
-				"qualityScore":   exp.QualityScore,
-				"reuseCondition": exp.ReuseCondition,
-				"createdAt":      exp.CreatedAt,
+				"id":               exp.ID,
+				"task":             exp.Task,
+				"quality_score":    exp.QualityScore,
+				"reuse_condition":  exp.ReuseCondition,
+				"created_at":       exp.CreatedAt,
 			},
 		})
 	}
