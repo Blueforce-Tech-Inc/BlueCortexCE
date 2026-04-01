@@ -40,16 +40,18 @@ Content-Type: application/json
 8. [Ingestion 数据摄入](#ingestion-数据摄入)
 9. [Extraction 结构化提取](#extraction-结构化提取)
 10. [Viewer 查看器](#viewer-查看器)
-11. [Memory 记忆管理](#memory-记忆管理)
-12. [Mode 模式管理](#mode-模式管理)
-13. [Logs 日志管理](#logs-日志管理)
-14. [Import 数据导入](#import-数据导入)
-15. [Cursor IDE 集成](#cursor-ide-集成)
-16. [SSE 流式推送](#sse-流式推送)
-17. [Test 测试端点](#test-测试端点)
-18. [使用示例](#使用示例)
-19. [附录](#附录)
-20. [更新日志](#更新日志)
+11. [搜索](#搜索)
+12. [管理](#管理)
+13. [Memory 记忆管理](#memory-记忆管理)
+14. [Mode 模式管理](#mode-模式管理)
+15. [Logs 日志管理](#logs-日志管理)
+16. [Import 数据导入](#import-数据导入)
+17. [Cursor IDE 集成](#cursor-ide-集成)
+18. [SSE 流式推送](#sse-流式推送)
+19. [Test 测试端点](#test-测试端点)
+20. [使用示例](#使用示例)
+21. [附录](#附录)
+22. [更新日志](#更新日志)
 
 ---
 
@@ -621,7 +623,27 @@ curl "http://localhost:37777/api/context/prior-messages?project=/Users/dev/mypro
 
 直接创建观察（带自动嵌入）。**仅用于测试**。
 
-**请求体**:
+**请求体字段**:
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `content_session_id` | string | ✅ | 内容会话 ID（可使用 `session_id` 别名） |
+| `project_path` | string | ✅ | 项目路径（可使用 `cwd` 别名） |
+| `type` | string | ❌ | 观察类型（如 `feature`、`bugfix`） |
+| `title` | string | ❌ | 观察标题 |
+| `subtitle` | string | ❌ | 观察副标题 |
+| `narrative` | string | ❌ | 观察叙述（可使用 `content` 别名） |
+| `facts` | string[] | ❌ | 事实陈述列表 |
+| `concepts` | string[] | ❌ | 概念标签列表 |
+| `source` | string | ❌ | 来源标识（如 `manual`） |
+| `extractedData` | object | ❌ | 结构化提取数据 |
+| `files_read` | string[] | ❌ | 已读取文件列表 |
+| `files_modified` | string[] | ❌ | 已修改文件列表 |
+| `prompt_number` | int | ❌ | 提示编号（用于排序） |
+
+**字段别名**: `session_id` 可替代 `content_session_id`，`cwd` 可替代 `project_path`，`content` 可替代 `narrative`。
+
+**请求示例**:
 ```json
 {
   "content_session_id": "mem-abc-123",
@@ -639,8 +661,6 @@ curl "http://localhost:37777/api/context/prior-messages?project=/Users/dev/mypro
   "prompt_number": 1
 }
 ```
-
-**字段别名**: `session_id` 可替代 `content_session_id`，`cwd` 可替代 `project_path`，`content` 可替代 `narrative`。
 
 **响应示例**:
 ```json
@@ -825,6 +845,8 @@ curl "http://localhost:37777/api/observations?project=/Users/dev/myproject&limit
 
 ---
 
+## 管理
+
 #### GET `/api/projects`
 
 获取所有已知项目列表。
@@ -891,6 +913,8 @@ curl http://localhost:37777/api/processing-status
 ```
 
 ---
+
+## 搜索
 
 #### GET `/api/search`
 
@@ -2266,6 +2290,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-01 | 0.1.0-beta+9 | 补充英文版 PATCH /api/memory/observations 章节（路径参数、响应示例、错误响应——中文版已完整）；补充英文版 DELETE /api/memory/observations 路径参数 |
 | 2026-04-02 | 0.1.0-beta+10 | 补充英文版 Streaming 章节完整事件类型表、事件格式示例、JavaScript 示例和超时说明（原严重缺失）；修正 Get Version 响应示例 Java 版本值（动态字段，添加说明）；补充 `CLAUDEMEM_LLM_PROVIDER` 到环境变量表；同步中文版 |
 | 2026-04-02 | 0.1.0-beta+11 | 修正 Cursor Check Registration 响应——`projectPath` → `workspacePath`（匹配实际 wire format），补充缺失的 `installedAt` 字段和未注册响应示例；同步英文版；补充中文 Session Start 请求体示例缺失的 `user_id` 字段 |
+| 2026-04-02 | 0.1.0-beta+12 | 拆分 Viewer 超级章节——新增独立 `## 搜索` 和 `## 管理` 章节（与英文版结构一致）；补充 Create Observation 请求体参数表（中文版缺失）；同步 TOC |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---

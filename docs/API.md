@@ -2157,6 +2157,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-01 | 0.1.0-beta+9 | Enriched English PATCH /api/memory/observations section with path parameter, response example (`status:updated`), and error responses (was severely incomplete vs Chinese); added path parameter to English DELETE /api/memory/observations |
 | 2026-04-02 | 0.1.0-beta+10 | Enriched English Streaming section with event types table, event format examples, JavaScript example, and timeout info (was severely incomplete vs Chinese); corrected Java version in Get Version response example (dynamic field, added note); added `CLAUDEMEM_LLM_PROVIDER` to environment variables table; synced Chinese version |
 | 2026-04-02 | 0.1.0-beta+11 | Fixed Cursor Check Registration response — `projectPath` → `workspacePath` (matches wire format), added missing `installedAt` field and not-registered response example; synced Chinese version |
+| 2026-04-02 | 0.1.0-beta+12 | Split Chinese Viewer mega-section into separate Search and Management sections (matching English structure); added missing parameter table to Chinese Create Observation endpoint; synced TOC |
 | 2026-03-13 | 0.1.0 | Initial API documentation |
 
 ---
