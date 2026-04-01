@@ -5857,14 +5857,14 @@ This section defines the acceptance tests that MUST pass before Phase 3.1 is con
 
 ### 26.1 Test Infrastructure
 
-**Test script**: `scripts/extraction-acceptance-test.sh`
+**Test script**: `scripts/phase3-acceptance-test.sh`
 
 **Prerequisites**:
 - Backend running on port 37777
 - Demo app running on port 37778 (optional, for SDK tests)
 - PostgreSQL with V15 migration applied
 
-**Test data**: All tests use project path `/tmp/extraction-acceptance-test` (isolated from production).
+**Test data**: All tests use project path `/tmp/phase3-acceptance-test` (isolated from production).
 
 ---
 
@@ -6180,7 +6180,7 @@ result=$(curl -sf "$BACKEND/api/extraction/user_preference/latest?projectPath=/t
 
 ### 26.3 Acceptance Test Script
 
-**File**: `scripts/extraction-acceptance-test.sh`
+**File**: `scripts/phase3-acceptance-test.sh`
 
 **Structure**:
 ```bash
