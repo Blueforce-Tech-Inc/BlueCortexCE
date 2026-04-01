@@ -58,6 +58,11 @@ SPRING_AI_OPENAI_EMBEDDING_BASE_URL=https://api.siliconflow.cn
 
 # LLM provider: openai or anthropic
 CLAUDEMEM_LLM_PROVIDER=openai
+
+# Anthropic (when CLAUDEMEM_LLM_PROVIDER=anthropic)
+# SPRING_AI_ANTHROPIC_API_KEY=sk-ant-xxx
+# SPRING_AI_ANTHROPIC_BASE_URL=https://api.anthropic.com
+# SPRING_AI_ANTHROPIC_CHAT_MODEL=claude-sonnet-4-5
 ```
 
 Database defaults in `application.yml`:
