@@ -138,6 +138,7 @@ export class CortexMemClient {
     this.assertNotClosed();
     this.validateRequired('session_id', req.session_id);
     this.validateRequired('prompt_text', req.prompt_text);
+    this.validateRequired('cwd', req.cwd);
     await this.doFireAndForget('RecordUserPrompt', () =>
       this.requestNoContent('POST', '/api/ingest/user-prompt', req),
     );

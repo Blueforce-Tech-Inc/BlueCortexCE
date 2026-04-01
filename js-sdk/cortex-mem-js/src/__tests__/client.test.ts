@@ -49,7 +49,6 @@ describe('CortexMemClient', () => {
     it('should call POST /api/session/start', async () => {
       const response = {
         session_db_id: 'db-123',
-        session_id: 'sess-1',
         prompt_number: 0,
       };
       fetchMock = mockFetch(200, response);
@@ -62,7 +61,7 @@ describe('CortexMemClient', () => {
         project_path: '/tmp/test',
       });
 
-      expect(result.session_id).toBe('sess-1');
+      expect(result.session_db_id).toBe('db-123');
       expect(fetchMock).toHaveBeenCalledOnce();
       const [url, opts] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(url).toContain('/api/session/start');
@@ -188,6 +187,18 @@ describe('CortexMemClient', () => {
       await expect(
         client.recordUserPrompt({ session_id: 's1', prompt_text: '', cwd: '/tmp' }),
       ).rejects.toThrow('prompt_text');
+    });
+
+    it('should throw on missing cwd', async () => {
+      await expect(
+        client.recordUserPrompt({ session_id: 's1', prompt_text: 'hello', cwd: '' }),
+      ).rejects.toThrow('cwd');
+    });
+
+    it('should reject whitespace-only cwd', async () => {
+      await expect(
+        client.recordUserPrompt({ session_id: 's1', prompt_text: 'hello', cwd: '   ' }),
+      ).rejects.toThrow('cwd');
     });
   });
 

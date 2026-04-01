@@ -17,10 +17,13 @@ export interface SessionStartRequest {
 
 /**
  * Response from starting a session.
+ *
+ * Note: backend does NOT echo back the session_id from the request.
+ * Use session_db_id for the database UUID. The content session_id
+ * is already known by the caller (they sent it in the request).
  */
 export interface SessionStartResponse {
   session_db_id: string;
-  session_id: string;
   context?: string;
   prompt_number: number;
 }
