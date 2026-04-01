@@ -529,8 +529,7 @@ class ExtractionResult:
         """Serialize to a dict with camelCase keys.
 
         Uses camelCase keys (sessionId, extractedData, observationId) for
-        JavaScript-ecosystem interop. For exact backend wire format (SNAKE_CASE),
-        the Go SDK's ``toWire()`` is the canonical reference. Round-tripping through
+        JavaScript-ecosystem interop. Round-tripping through
         ``from_wire(to_dict())`` works because ``from_wire`` handles both formats.
         """
         d: dict = {}
