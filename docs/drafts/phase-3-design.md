@@ -3,6 +3,7 @@
 **Date**: 2026-03-22
 **Status**: Design proposal - iteration 29 (Append-only extraction design gaps fixed: mergeAppendOnly, prompt schema, cost analysis updated)
 **Related to**: `sdk-improvement-research.md` Phase 3 deferred items
+**Companion**: [phase-3-design-walkthrough.md](phase-3-design-walkthrough.md) (scenarios & decision log)
 
 ---
 
@@ -5643,7 +5644,7 @@ echo "$response" | grep -q "花生" && log_fail "LEAKED Bob's allergy!" || log_i
 
 ---
 
-#### Acceptance Test 7: LLM Re-Extraction Updates State
+#### Acceptance Test 7: Append-only Extraction Updates State
 
 **Given**: Alice has existing extraction: `{preferences: [{耳机: Sony}]}`
 **When**: Ingest new observation "Bose也不错", trigger extraction
@@ -5666,7 +5667,7 @@ echo "$latest" | grep -q "Bose" && log_info "New preference (Bose) added"
 
 ---
 
-#### Acceptance Test 8: LLM Re-Extraction Removes Invalidated Preference
+#### Acceptance Test 8: Append-only Extraction Removes Invalidated Preference
 
 **Given**: Alice has extraction: `{preferences: [{耳机: Sony}, {耳机: Bose}]}`
 **When**: Ingest observation "我不喜欢Sony了", trigger extraction
