@@ -396,22 +396,22 @@ else
     pass "POST /memory/refine"
 fi
 
-# Test N+4: /memory/extraction/latest
-info "Test N+4: GET /memory/extraction/latest — extraction result query"
-EXTRACTLATEST=$(curl -sf --max-time 10 "$DEMO_BASE/../memory/extraction/latest?project=$PROJECT&template=user_preferences&userId=alice" 2>/dev/null || echo "FAIL")
+# Test N+4: /demo/extraction/latest
+info "Test N+4: GET /demo/extraction/latest — extraction result query"
+EXTRACTLATEST=$(curl -sf --max-time 10 "$DEMO_BASE/extraction/latest?project=$PROJECT&template=user_preferences&userId=alice" 2>/dev/null || echo "FAIL")
 if [ "$EXTRACTLATEST" = "FAIL" ]; then
-    fail "GET /memory/extraction/latest" "Request timed out or failed"
+    fail "GET /demo/extraction/latest" "Request timed out or failed"
 else
-    pass "GET /memory/extraction/latest"
+    pass "GET /demo/extraction/latest"
 fi
 
-# Test N+5: /memory/extraction/history
-info "Test N+5: GET /memory/extraction/history — extraction history query"
-EXTRACTHIST=$(curl -sf --max-time 10 "$DEMO_BASE/../memory/extraction/history?project=$PROJECT&template=user_preferences&userId=alice&limit=5" 2>/dev/null || echo "FAIL")
+# Test N+5: /demo/extraction/history
+info "Test N+5: GET /demo/extraction/history — extraction history query"
+EXTRACTHIST=$(curl -sf --max-time 10 "$DEMO_BASE/extraction/history?project=$PROJECT&template=user_preferences&userId=alice&limit=5" 2>/dev/null || echo "FAIL")
 if [ "$EXTRACTHIST" = "FAIL" ]; then
-    fail "GET /memory/extraction/history" "Request timed out or failed"
+    fail "GET /demo/extraction/history" "Request timed out or failed"
 else
-    pass "GET /memory/extraction/history"
+    pass "GET /demo/extraction/history"
 fi
 
 # Test N+5a: GET /demo/observations/{id}

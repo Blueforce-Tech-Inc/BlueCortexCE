@@ -40,13 +40,13 @@ check_demo() {
     fi
 }
 
-# Test /memory/extraction/latest endpoint (V15: Extraction API)
+# Test /demo/extraction/latest endpoint (V15: Extraction API)
 test_extraction_latest() {
-    log_section "Test: /memory/extraction/latest (V15)"
+    log_section "Test: /demo/extraction/latest (V15)"
 
     local response
-    response=$(curl -sf "${DEMO_URL}/memory/extraction/latest?project=${TEST_PROJECT}&template=user_preferences&userId=alice" 2>&1) || {
-        log_fail "GET /memory/extraction/latest failed: $response"
+    response=$(curl -sf "${DEMO_URL}/demo/extraction/latest?project=${TEST_PROJECT}&template=user_preferences&userId=alice" 2>&1) || {
+        log_fail "GET /demo/extraction/latest failed: $response"
         return 1
     }
 
@@ -63,13 +63,13 @@ test_extraction_latest() {
     return 0
 }
 
-# Test /memory/extraction/history endpoint (V15: Extraction History)
+# Test /demo/extraction/history endpoint (V15: Extraction History)
 test_extraction_history() {
-    log_section "Test: /memory/extraction/history (V15)"
+    log_section "Test: /demo/extraction/history (V15)"
 
     local response
-    response=$(curl -sf "${DEMO_URL}/memory/extraction/history?project=${TEST_PROJECT}&template=user_preferences&userId=alice&limit=5" 2>&1) || {
-        log_fail "GET /memory/extraction/history failed: $response"
+    response=$(curl -sf "${DEMO_URL}/demo/extraction/history?project=${TEST_PROJECT}&template=user_preferences&userId=alice&limit=5" 2>&1) || {
+        log_fail "GET /demo/extraction/history failed: $response"
         return 1
     }
 

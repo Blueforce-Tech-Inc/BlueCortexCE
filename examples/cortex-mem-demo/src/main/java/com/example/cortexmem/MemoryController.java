@@ -104,24 +104,6 @@ public class MemoryController {
         }
     }
 
-    /**
-     * Trigger structured extraction for a project.
-     * Demonstrates Phase 3 manual extraction trigger.
-     *
-     * @param project Project path
-     */
-    @PostMapping("/memory/extract")
-    public ResponseEntity<Map<String, Object>> triggerExtraction(@RequestParam(defaultValue = "/") String project) {
-        try {
-            String path = resolveProject(project);
-            cortexClient.triggerExtraction(path);
-            return ResponseEntity.ok(Map.of("status", "extraction triggered", "project", path));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(Map.of("error", "Extraction failed: " + e.getMessage()));
-        }
-    }
-
     // ===== V14: Advanced Features =====
 
     /**
@@ -197,58 +179,8 @@ public class MemoryController {
     }
 
     // ===== V15: Extraction API (Phase 3) =====
-
-    /**
-     * Get latest extraction result for a user and template.
-     * Demonstrates V15 StructuredExtractionService integration.
-     *
-     * @param project Project path
-     * @param template Template name (e.g., "user_preferences")
-     * @param userId User identifier for multi-user isolation
-     */
-    @GetMapping("/memory/extraction/latest")
-    public ResponseEntity<Map<String, Object>> getLatestExtraction(
-            @RequestParam(defaultValue = "/") String project,
-            @RequestParam String template,
-            @RequestParam(required = false) String userId) {
-        try {
-            String normalizedUserId = (userId != null && userId.isBlank()) ? null : userId;
-            Map<String, Object> result = cortexClient.getLatestExtraction(resolveProject(project), template, normalizedUserId);
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(Map.of("error", "Get latest extraction failed: " + e.getMessage()));
-        }
-    }
-
-    /**
-     * Get extraction history for a user and template.
-     * Demonstrates V15 extraction history tracking.
-     *
-     * @param project Project path
-     * @param template Template name
-     * @param userId User identifier
-     * @param limit Maximum history entries (default 10)
-     */
-    @GetMapping("/memory/extraction/history")
-    public ResponseEntity<?> getExtractionHistory(
-            @RequestParam(defaultValue = "/") String project,
-            @RequestParam String template,
-            @RequestParam(required = false) String userId,
-            @RequestParam(defaultValue = "10") int limit) {
-        if (limit < 0 || limit > 100) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("error", "limit must be between 0 and 100"));
-        }
-        try {
-            String normalizedUserId = (userId != null && userId.isBlank()) ? null : userId;
-            List<Map<String, Object>> result = cortexClient.getExtractionHistory(resolveProject(project), template, normalizedUserId, limit);
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(Map.of("error", "Failed to get extraction history: " + e.getMessage()));
-        }
-    }
+    // Extraction endpoints moved to ExtractionController (/demo/extraction/*)
+    // to avoid duplication. Use /demo/extraction/latest, /demo/extraction/history, /demo/extraction/run.
 
     /**
      * Memory health check.

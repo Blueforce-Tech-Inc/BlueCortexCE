@@ -39,8 +39,9 @@ Demo runs on `http://localhost:37778`.
 | `GET /memory/icl?task=...&project=project-a` | Build ICL prompt |
 | `GET /memory/icl/truncated?task=...&project=project-a&maxChars=4000` | ICL with adaptive truncation (V14) |
 | `GET /memory/experiences/filtered?task=...&source=...` | Experiences with source filtering (V14) |
-| `GET /memory/extraction/latest?template=...&userId=...` | Latest extraction result for user (V15) |
-| `GET /memory/extraction/history?template=...&userId=...&limit=10` | Extraction history for user (V15) |
+| `GET /demo/extraction/latest?template=...&project=...&userId=...` | Latest extraction result for user (V15) |
+| `GET /demo/extraction/history?template=...&project=...&userId=...&limit=10` | Extraction history for user (V15) |
+| `POST /demo/extraction/run?project=...` | Trigger extraction (V15) |
 | `GET /memory/health?project=project-a` | Memory health check |
 | `GET /chat?message=...&project=project-a` | Memory-augmented chat by project |
 | `GET /demo/tool?path=...&project=project-a` | Tool call scoped to project |
