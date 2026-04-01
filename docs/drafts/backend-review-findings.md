@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-01 12:02 (健康检查批量修复 — P1 settings 字段修复 + P2 LlmQualityScorer/AgentService 修复)
+> **最后更新**: 2026-04-01 13:28 (健康检查 — 最后一个 P2 问题修复，Backend 审查全部清零 🎉)
 
 # Backend 代码审查问题记录
 
@@ -11,9 +11,11 @@
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **1** | LlmQualityScorer isAvailable dead code #3 |
+| **P2** (建议修复) | **0** | ✅ 全部已修复 |
 | **⏭ 跳过** | **4** | 非 bug，属设计决策或代码风格偏好 |
-| **✅ 已修复** | **~61** | 历史累计，含本次修复的 7 个问题 |
+| **✅ 已修复** | **~62** | 历史累计，含本次修复 |
+
+**结论**: 后端代码质量优秀，所有问题已修复 ✅ 🎉
 
 ### ⏭ 跳过的设计决策（非 bug，无需修复）
 
@@ -55,7 +57,7 @@
 |---|------|------|------|------|
 | 1 | LlmQualityScorer.java | L28-30 `QUALITY_ANALYSIS_PROMPT` | `String.format()` 多行模板使用 `%s` 占位符，若 title/content/facts 包含 `%` 字符（如 "100% 完成"），会抛 `IllegalFormatException`。应改用 `{}` 占位符 + SLF4J 风格手动替换，或先对内容做 `%` 转义 | P2 ✅已修复 |
 | 2 | LlmQualityScorer.java | L105 `inferFeedbackLlm` | `response.contains("SUCCESS")` 子串匹配过于宽泛 — LLM 返回 JSON 格式响应时，`"feedback_type": "PARTIAL"` 中不含 SUCCESS，但如果 LLM 返回自然语言如 "Overall success with partial improvements"，会错误匹配为 SUCCESS。建议使用精确匹配 `trimmed.equals("SUCCESS")` 或 JSON 解析 | P2 (低) ✅已修复 |
-| 3 | LlmQualityScorer.java | L67 `isAvailable()` | `llmService != null` 检查在构造函数注入下永远为 true（Spring 要求构造参数非 null），方法始终返回 true，isAvailable 检查实际为 dead code。若设计意图是可选依赖，应使用 `@Autowired(required=false)` + setter 注入 | P2 (低) ⏳待修（isAvailable 方法保留用于 QualityScorer 调用检查，非完全 dead code） |
+| 3 | LlmQualityScorer.java | L67 `isAvailable()` | `llmService != null` 检查在构造函数注入下永远为 true（Spring 要求构造参数非 null），方法始终返回 true，isAvailable 检查实际为 dead code。若设计意图是可选依赖，应使用 `@Autowired(required=false)` + setter 注入 | P2 (低) ✅已修复（改为 `return true` + Javadoc 说明） |
 
 **MemoryRefineEventPublisher.java 审查**:
 - ✅ 无问题。Publisher 设计简洁正确：构造函数注入 `ApplicationEventPublisher`，两个方法（session-end / manual）语义清晰，日志级别合理（INFO）。

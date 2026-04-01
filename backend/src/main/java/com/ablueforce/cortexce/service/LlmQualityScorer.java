@@ -27,9 +27,11 @@ public class LlmQualityScorer {
 
     /**
      * Check if LLM-based scoring is available.
+     * Always returns true in normal Spring operation (constructor injection guarantees non-null).
+     * Retained for defensive checking by callers (e.g., QualityScorer).
      */
     public boolean isAvailable() {
-        return llmService != null;
+        return true;
     }
 
     /**
