@@ -931,16 +931,37 @@ Returns database and processing statistics.
 GET /api/settings
 ```
 
-Returns current application settings including active mode configuration.
+Returns current application settings with all `CLAUDE_MEM_*` configuration fields, plus active mode information.
 
 **Response** (`200 OK`):
 ```json
 {
-  "mode": "code",
-  "modeName": "Code Mode",
-  "modeDescription": "Development workflow mode"
+  "CLAUDE_MEM_MODE": "code",
+  "CLAUDE_MEM_PROVIDER": "openai",
+  "CLAUDE_MEM_MODEL": "gpt-4o",
+  "CLAUDE_MEM_LOG_LEVEL": "INFO",
+  "CLAUDE_MEM_CONTEXT_OBSERVATIONS": 50,
+  "CLAUDE_MEM_CONTEXT_FULL_COUNT": 5,
+  "CLAUDE_MEM_CONTEXT_FULL_FIELD": "full_content",
+  "CLAUDE_MEM_CONTEXT_SESSION_COUNT": 10,
+  "CLAUDE_MEM_CONTEXT_OBSERVATION_TYPES": [],
+  "CLAUDE_MEM_CONTEXT_OBSERVATION_CONCEPTS": [],
+  "CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS": 100,
+  "CLAUDE_MEM_CONTEXT_SHOW_READ_TOKENS": true,
+  "CLAUDE_MEM_CONTEXT_SHOW_WORK_TOKENS": true,
+  "CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_AMOUNT": true,
+  "CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_PERCENT": true,
+  "CLAUDE_MEM_CONTEXT_SHOW_LAST_SUMMARY": true,
+  "CLAUDE_MEM_CONTEXT_SHOW_LAST_MESSAGE": true,
+  "CLAUDE_MEM_FOLDER_CLAUDEMD_ENABLED": false,
+  "CLAUDE_MEM_EXCLUDED_PROJECTS": [],
+  "CLAUDE_MEM_DATA_DIR": "",
+  "modeName": "Code",
+  "modeDescription": "Tracks code evolution"
 }
 ```
+
+> **Note**: The exact field values depend on the current `settings.json` and environment variable overrides. `modeName` and `modeDescription` are injected from the active Mode configuration.
 
 ### Update Settings
 
@@ -948,17 +969,30 @@ Returns current application settings including active mode configuration.
 POST /api/settings
 ```
 
+Persists settings to the settings file. Supports any `CLAUDE_MEM_*` prefixed field. If `mode` or `CLAUDE_MEM_MODE` is changed, also updates the active mode.
+
 **Request Body**:
 ```json
 {
-  "mode": "code--zh"
+  "CLAUDE_MEM_MODE": "all",
+  "CLAUDE_MEM_MODEL": "gpt-4o-mini"
 }
 ```
+
+> **Note**: You can also use `"mode": "all"` as a shorthand for `"CLAUDE_MEM_MODE": "all"`.
 
 **Response** (`200 OK`):
 ```json
 {
   "success": true
+}
+```
+
+**Error Response** (`500`):
+```json
+{
+  "success": false,
+  "error": "Failed to save settings: ..."
 }
 ```
 
@@ -1168,7 +1202,7 @@ Retrieves multiple observations by their UUIDs. Supports optional project filter
 |-------|------|----------|-------------|
 | `ids` | string[] | ✅ | List of observation UUIDs to retrieve |
 | `project` | string | ❌ | Optional project filter |
-| `orderBy` | string | ❌ | Sort order (e.g., `created_at`) |
+| `orderBy` | string | ❌ | Sort order (e.g., `created_at_epoch`) |
 | `limit` | int | ❌ | Max results to return |
 
 **Response** (`200 OK`):
@@ -2030,6 +2064,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-01 | 0.1.0-beta+++++ | Enriched Search section with full parameter types table, request example, and response example (strategy/fell_back/count); synced with Chinese version completeness |
 | 2026-04-01 | 0.1.0-beta++++++ | Corrected Search strategy values — actual code returns hybrid/tsvector/filter/recent/none (not vector/text); updated response example and strategy description; synced Chinese version |
 | 2026-04-01 | 0.1.0-beta+7 | Enriched English Ingest section with parameter tables, response examples, and error responses (was severely incomplete vs Chinese); enriched English Quality Distribution with parameter table, response example, and `unknown` field; enriched Chinese Quality Distribution with parameter table and `unknown` field; corrected `orderBy` example in Batch Get Observations (`created_at` → `created_at_epoch`); added parameter table to Create Observation (EN) |
+| 2026-04-01 | 0.1.0-beta+8 | Corrected Get Settings response format — actual code returns 20 `CLAUDE_MEM_*` fields + modeName/modeDescription (not simple mode/modeName/modeDescription); documented all CLAUDE_MEM_* fields with types and defaults; corrected Update Settings to accept `CLAUDE_MEM_*` field names with `mode` shorthand; synced Chinese version |
 | 2026-03-13 | 0.1.0 | Initial API documentation |
 
 ---

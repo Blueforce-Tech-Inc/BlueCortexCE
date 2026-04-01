@@ -1061,7 +1061,7 @@ curl "http://localhost:37777/api/timeline?project=/Users/dev/myproject"
 
 #### GET `/api/settings`
 
-获取当前设置。
+获取当前设置，返回所有 `CLAUDE_MEM_*` 配置字段及活跃模式信息。
 
 **请求示例**:
 ```bash
@@ -1071,31 +1071,61 @@ curl http://localhost:37777/api/settings
 **响应示例**:
 ```json
 {
-  "mode": "code",
-  "modeName": "Code Mode",
-  "modeDescription": "Development workflow mode",
-  ...
+  "CLAUDE_MEM_MODE": "code",
+  "CLAUDE_MEM_PROVIDER": "openai",
+  "CLAUDE_MEM_MODEL": "gpt-4o",
+  "CLAUDE_MEM_LOG_LEVEL": "INFO",
+  "CLAUDE_MEM_CONTEXT_OBSERVATIONS": 50,
+  "CLAUDE_MEM_CONTEXT_FULL_COUNT": 5,
+  "CLAUDE_MEM_CONTEXT_FULL_FIELD": "full_content",
+  "CLAUDE_MEM_CONTEXT_SESSION_COUNT": 10,
+  "CLAUDE_MEM_CONTEXT_OBSERVATION_TYPES": [],
+  "CLAUDE_MEM_CONTEXT_OBSERVATION_CONCEPTS": [],
+  "CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS": 100,
+  "CLAUDE_MEM_CONTEXT_SHOW_READ_TOKENS": true,
+  "CLAUDE_MEM_CONTEXT_SHOW_WORK_TOKENS": true,
+  "CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_AMOUNT": true,
+  "CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_PERCENT": true,
+  "CLAUDE_MEM_CONTEXT_SHOW_LAST_SUMMARY": true,
+  "CLAUDE_MEM_CONTEXT_SHOW_LAST_MESSAGE": true,
+  "CLAUDE_MEM_FOLDER_CLAUDEMD_ENABLED": false,
+  "CLAUDE_MEM_EXCLUDED_PROJECTS": [],
+  "CLAUDE_MEM_DATA_DIR": "",
+  "modeName": "Code",
+  "modeDescription": "Tracks code evolution"
 }
 ```
+
+> **注意**: 具体字段值取决于当前 `settings.json` 和环境变量覆盖。`modeName` 和 `modeDescription` 由活跃的 Mode 配置注入。
 
 ---
 
 #### POST `/api/settings`
 
-保存设置。
+保存设置。支持任意 `CLAUDE_MEM_*` 前缀字段。如果 `mode` 或 `CLAUDE_MEM_MODE` 变更，同时更新活跃模式。
 
 **请求体**:
 ```json
 {
-  "mode": "code--zh",
-  ...
+  "CLAUDE_MEM_MODE": "all",
+  "CLAUDE_MEM_MODEL": "gpt-4o-mini"
 }
 ```
+
+> **注意**: 也可以使用 `"mode": "all"` 作为 `"CLAUDE_MEM_MODE": "all"` 的简写。
 
 **响应示例**:
 ```json
 {
   "success": true
+}
+```
+
+**错误响应** (`500`):
+```json
+{
+  "success": false,
+  "error": "Failed to save settings: ..."
 }
 ```
 
@@ -1309,10 +1339,12 @@ curl http://localhost:37777/api/modes
 **响应示例** (`200 OK`):
 ```json
 {
-  "status": "ok",
+  "status": "updated",
   "id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
+
+支持的字段: `title`, `content`（或 `narrative`）, `subtitle`, `source`, `facts`, `concepts`, `extractedData`。null 值清空字段，缺失字段保持不变。
 
 #### DELETE `/api/memory/observations/{id}`
 
@@ -2215,6 +2247,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-01 | 0.1.0-beta+++++ | 补充英文版 Search 章节完整参数类型表、请求示例和响应示例（strategy/fell_back/count）；同步中英文版完整度 |
 | 2026-04-01 | 0.1.0-beta++++++ | 修正搜索策略值——实际代码返回 hybrid/tsvector/filter/recent/none（非 vector/text）；更新响应示例和策略说明；同步英文版 |
 | 2026-04-01 | 0.1.0-beta+7 | 补充英文版 Ingest 章节（参数表、响应示例、错误响应——中文版已完整但英文版严重缺失）；补充中英文 Quality Distribution 参数表、响应示例及 `unknown` 字段；修正 Batch Get Observations `orderBy` 示例（`created_at` → `created_at_epoch`）；补充英文版 Create Observation 参数表 |
+| 2026-04-01 | 0.1.0-beta+8 | 修正 Get Settings 响应格式——实际代码返回 20 个 `CLAUDE_MEM_*` 字段 + modeName/modeDescription（非简单 mode/modeName/modeDescription）；记录所有 CLAUDE_MEM_* 字段及类型和默认值；修正 Update Settings 接受 `CLAUDE_MEM_*` 字段名及 `mode` 简写；同步英文版；修正 PATCH observations 响应 status 值 `ok` → `updated` |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---
