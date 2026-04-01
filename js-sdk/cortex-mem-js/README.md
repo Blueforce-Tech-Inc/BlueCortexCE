@@ -8,7 +8,7 @@ JavaScript/TypeScript client SDK for the [Cortex CE](https://github.com/abforce/
 
 - **Zero dependencies** — Uses the built-in `fetch` API (Node 18+, browsers, Deno, Bun)
 - **Full TypeScript support** — Complete type definitions for all DTOs
-- **25 API methods** — Covers all endpoints from the Go/Java SDKs
+- **26 API methods** — Covers all endpoints from the Go/Java SDKs
 - **212 unit tests** — Full coverage of wire format and client behavior
 - **Dual CJS + ESM** — Works with CommonJS and ES Modules
 - **Fire-and-forget capture** — Non-blocking observation recording with internal retry

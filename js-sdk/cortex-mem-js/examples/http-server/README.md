@@ -1,6 +1,6 @@
 # JS SDK HTTP Server Demo
 
-An Express HTTP server that exposes all 25 Cortex CE SDK API methods as 26 REST endpoints.
+An Express HTTP server that exposes all 26 Cortex CE SDK API methods as 26 REST endpoints.
 
 Mirrors the Go `http-server` and Python Flask demos.
 
