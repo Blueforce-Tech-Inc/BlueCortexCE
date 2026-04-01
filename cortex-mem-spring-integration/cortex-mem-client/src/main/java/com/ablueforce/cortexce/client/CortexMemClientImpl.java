@@ -129,6 +129,7 @@ public class CortexMemClientImpl implements CortexMemClient {
     public void recordSessionEnd(SessionEndRequest request) {
         Objects.requireNonNull(request, "request must not be null");
         requireNonBlank(request.sessionId(), "sessionId");
+        requireNonBlank(request.projectPath(), "projectPath");
         executeWithRetrySilent("recordSessionEnd", () ->
             restClient.post()
                 .uri("/api/ingest/session-end")
@@ -143,6 +144,7 @@ public class CortexMemClientImpl implements CortexMemClient {
         Objects.requireNonNull(request, "request must not be null");
         requireNonBlank(request.sessionId(), "sessionId");
         requireNonBlank(request.promptText(), "promptText");
+        requireNonBlank(request.projectPath(), "projectPath");
         executeWithRetrySilent("recordUserPrompt", () ->
             restClient.post()
                 .uri("/api/ingest/user-prompt")
@@ -193,7 +195,7 @@ public class CortexMemClientImpl implements CortexMemClient {
     @Override
     public void triggerRefinement(String projectPath) {
         requireNonBlank(projectPath, "projectPath");
-        executeWithRetry("triggerRefinement", () ->
+        executeWithRetrySilent("triggerRefinement", () ->
             restClient.post()
                 .uri(uriBuilder -> uriBuilder
                     .path("/api/memory/refine")

@@ -489,6 +489,46 @@ class CortexMemClientImplTest {
     }
 
     @Test
+    void recordUserPrompt_nullProjectPath_throws() {
+        assertThatThrownBy(() -> client.recordUserPrompt(UserPromptRequest.builder()
+            .sessionId("s1")
+            .promptText("hello")
+            .build()))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("projectPath");
+    }
+
+    @Test
+    void recordUserPrompt_blankProjectPath_throws() {
+        assertThatThrownBy(() -> client.recordUserPrompt(UserPromptRequest.builder()
+            .sessionId("s1")
+            .projectPath("  ")
+            .promptText("hello")
+            .build()))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("projectPath");
+    }
+
+    @Test
+    void recordSessionEnd_nullProjectPath_throws() {
+        assertThatThrownBy(() -> client.recordSessionEnd(SessionEndRequest.builder()
+            .sessionId("s1")
+            .build()))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("projectPath");
+    }
+
+    @Test
+    void recordSessionEnd_blankProjectPath_throws() {
+        assertThatThrownBy(() -> client.recordSessionEnd(SessionEndRequest.builder()
+            .sessionId("s1")
+            .projectPath("  ")
+            .build()))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("projectPath");
+    }
+
+    @Test
     void recordSessionEnd_nullSessionId_throws() {
         assertThatThrownBy(() -> client.recordSessionEnd(SessionEndRequest.builder()
             .projectPath("/proj")
