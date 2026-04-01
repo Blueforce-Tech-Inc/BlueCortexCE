@@ -404,7 +404,7 @@ Plugin calls Java backend API via HTTP:
 | SSE Support | Yes | No |
 | MEMORY.md | Yes | Yes |
 | Observation Records | Yes | Yes |
-| Commands | `/claude-mem-status`, `/claude-mem-feed` | `/claude-mem-status`, `/claude-mem-projects` |
+| Commands | Differs | `/claude-mem-status`, `/claude-mem-projects` |
 
 ### Why No SSE in Java Version?
 

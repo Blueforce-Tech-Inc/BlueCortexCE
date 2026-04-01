@@ -400,7 +400,7 @@ Claude-Mem Projects
 | SSE 支持 | ✅ 有 | ❌ 无 |
 | MEMORY.md | ✅ | ✅ |
 | 观察记录 | ✅ | ✅ |
-| 命令 | `/claude-mem-status`, `/claude-mem-feed` | `/claude-mem-status`, `/claude-mem-projects` |
+| 命令 | 不同 | `/claude-mem-status`, `/claude-mem-projects` |
 
 ### 为什么 Java 版本没有 SSE？
 
