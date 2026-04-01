@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-02 01:55 (Backend 审查 #19 — ClaudeMemMcpTools.java + RateLimitService.java + TemplateService.java)
+> **最后更新**: 2026-04-02 02:31 (P2 问题全部修复 — MCP search offset + saveMemory session 泄漏)
 
 # Backend 代码审查问题记录
 
@@ -11,7 +11,7 @@
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **2** | MCP search offset 忽略; MCP saveMemory session 泄漏 |
+| **P2** (建议修复) | **0** | — |
 | **⏭ 跳过** | **4** | 非 bug，属设计决策或代码风格偏好 |
 
 ---
@@ -29,8 +29,8 @@
 
 | # | 文件 | 严重级别 | 问题描述 |
 |---|------|---------|---------|
-| 19-1 | ClaudeMemMcpTools.java:99 | **P2** | `search()` 方法接受 `offset` 和 `orderBy` MCP 参数，但 `offset` 被硬编码为 `0` 传入 `SearchRequest`，`orderBy` 完全未使用。MCP tool 声明了参数但静默忽略，可能导致用户困惑。 |
-| 19-2 | ClaudeMemMcpTools.java:215-223 | **P2** | `saveMemory()` 每次调用创建 `dummySession`（`SessionEntity`）到数据库以满足 FK 约束，但这些 session 永远不会被清理。长期运行后会产生大量无用 session 记录。 |
+| 19-1 | ClaudeMemMcpTools.java:99 | **P2** | `search()` 方法接受 `offset` 和 `orderBy` MCP 参数，但 `offset` 被硬编码为 `0` 传入 `SearchRequest`，`orderBy` 完全未使用。MCP tool 声明了参数但静默忽略，可能导致用户困惑。 ✅已修复（offset 参数传递到 SearchRequest） |
+| 19-2 | ClaudeMemMcpTools.java:215-223 | **P2** | `saveMemory()` 每次调用创建 `dummySession`（`SessionEntity`）到数据库以满足 FK 约束，但这些 session 永远不会被清理。长期运行后会产生大量无用 session 记录。 ✅已修复（复用单个 "manual-memories" session，find-or-create 模式避免泄漏） |
 
 #### 代码质量评价
 

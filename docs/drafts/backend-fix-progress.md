@@ -41,3 +41,24 @@
 - ✅ 服务重启成功，健康检查 OK
 
 **Backend 审查问题状态更新**：所有 P2 问题已清零（0 未修复）
+
+## 2026-04-02 02:31 | 健康检查 + 测试验收 + P2 问题修复
+
+### 健康检查结果
+- ✅ 服务健康：`{"service":"claude-mem-java","status":"ok"}`
+- ✅ 回归测试：46/46 通过，1 跳过
+- ✅ Phase 3 验收测试：25/25 通过（EXTRACTION_ENABLED=true）
+
+### 修复的问题
+1. **#19-1 P2** — `ClaudeMemMcpTools.search()`: offset 参数被硬编码为 0，改为使用传入的 offset 值
+2. **#19-2 P2** — `ClaudeMemMcpSaveMemory()`: 每次调用创建新 dummySession 导致 session 泄漏，改为复用单个 "manual-memories" session（find-or-create 模式）
+
+### 验证
+- 构建: ✅ BUILD SUCCESS
+- 重启服务: ✅ 健康检查通过
+- 回归测试修复后: ✅ 46/46 通过
+- 3 轮代码审查: ✅ 全部通过
+
+### Backend 审查问题状态
+- P0: 0 | P1: 0 | P2: 0 | 跳过: 4
+- **所有 P2 问题已修复完毕 ✅**

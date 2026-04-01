@@ -227,7 +227,7 @@ public class ClaudeMemMcpTools {
         try {
             // E.1 Fix: Find or create a shared manual-memories session to avoid session leakage
             String manualSessionId = "manual-memories";
-            SessionEntity manualSession = sessionRepository.findByContentSessionId(manualSessionId)
+            sessionRepository.findByContentSessionId(manualSessionId)
                 .orElseGet(() -> {
                     SessionEntity s = new SessionEntity();
                     s.setContentSessionId(manualSessionId);
