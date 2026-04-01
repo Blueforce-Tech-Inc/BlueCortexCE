@@ -213,7 +213,8 @@ curl http://localhost:37777/api/version
   "cwd": "/path/to/project",
   "projects": "project1,project2",
   "is_worktree": false,
-  "parent_project": null
+  "parent_project": null,
+  "user_id": "user-123"
 }
 ```
 
@@ -1777,12 +1778,21 @@ Cursor IDE 集成端点，用于自动上下文文件更新。
 
 检查项目是否已注册。
 
-**响应示例**:
+**响应示例**（已注册）:
 ```json
 {
   "registered": true,
   "projectName": "my-project",
-  "projectPath": "/path/to/project"
+  "workspacePath": "/path/to/project",
+  "installedAt": 1709000000000
+}
+```
+
+**响应示例**（未注册）:
+```json
+{
+  "registered": false,
+  "projectName": "my-project"
 }
 ```
 
@@ -2255,6 +2265,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-01 | 0.1.0-beta+8 | 修正 Get Settings 响应格式——实际代码返回 20 个 `CLAUDE_MEM_*` 字段 + modeName/modeDescription（非简单 mode/modeName/modeDescription）；记录所有 CLAUDE_MEM_* 字段及类型和默认值；修正 Update Settings 接受 `CLAUDE_MEM_*` 字段名及 `mode` 简写；同步英文版；修正 PATCH observations 响应 status 值 `ok` → `updated` |
 | 2026-04-01 | 0.1.0-beta+9 | 补充英文版 PATCH /api/memory/observations 章节（路径参数、响应示例、错误响应——中文版已完整）；补充英文版 DELETE /api/memory/observations 路径参数 |
 | 2026-04-02 | 0.1.0-beta+10 | 补充英文版 Streaming 章节完整事件类型表、事件格式示例、JavaScript 示例和超时说明（原严重缺失）；修正 Get Version 响应示例 Java 版本值（动态字段，添加说明）；补充 `CLAUDEMEM_LLM_PROVIDER` 到环境变量表；同步中文版 |
+| 2026-04-02 | 0.1.0-beta+11 | 修正 Cursor Check Registration 响应——`projectPath` → `workspacePath`（匹配实际 wire format），补充缺失的 `installedAt` 字段和未注册响应示例；同步英文版；补充中文 Session Start 请求体示例缺失的 `user_id` 字段 |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---
