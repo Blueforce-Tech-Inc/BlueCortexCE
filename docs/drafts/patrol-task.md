@@ -102,7 +102,7 @@
 
 ## 已完成实施基准
 
-- Java SDK: 24 个 API 方法
+- Java SDK: 25 个 API 方法 (162 tests)
 - Go SDK: 26 个 API 方法 + 8 DTO + 3 集成层 (301 tests)
 - Python SDK: 25 个 API 方法 + 15 DTO + ObservationUpdate + Flask Demo (350 tests)
 - JS/TS SDK: 25 个 API 方法 + CJS/ESM/DTS 输出 (199 tests)
