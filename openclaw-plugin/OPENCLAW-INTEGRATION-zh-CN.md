@@ -48,22 +48,26 @@ Claude-Mem 与 OpenClaw 的集成分为**两层**：
 ### 1. 编译 OpenClaw 插件
 
 ```bash
-cd ~/.cortexce/openclaw-plugin
+# 进入 openclaw-plugin 目录
+cd /path/to/your/BlueCortexCE/openclaw-plugin
+
 npm install
 npm run build
 ```
 
 ### 2. 启动 Java 后端
 
-```bash
-cd ~/.cortexce
+确保 Java 后端在 `localhost:37777` 运行。有多种启动方式：
 
-# 设置 API keys (从 .env 文件加载)
+```bash
+# 方式一：直接运行 JAR
+cd /path/to/your/BlueCortexCE/backend
 export OPENAI_API_KEY=your_api_key
 export SPRING_AI_OPENAI_EMBEDDING_API_KEY=your_embedding_key
-
-# 启动后端 (dev profile 会自动加载 .env)
 java -jar target/cortex-ce-0.1.0-beta.jar --spring.profiles.active=dev &
+
+# 方式二：Docker 运行
+docker compose -f /path/to/your/BlueCortexCE/docker-compose.prod.yml up -d
 ```
 
 验证后端已启动:
@@ -110,8 +114,8 @@ curl http://127.0.0.1:37777/actuator/health
 # 创建全局 skills 目录
 mkdir -p ~/.openclaw/skills
 
-# 复制 Skill 文件
-cp -r ~/.cortexce/openclaw-plugin/skills/claude-mem-search ~/.openclaw/skills/
+# 复制 Skill 文件（从项目目录）
+cp -r /path/to/your/BlueCortexCE/openclaw-plugin/skills/claude-mem-search ~/.openclaw/skills/
 ```
 
 **方式二：项目级 Skill**
@@ -121,7 +125,7 @@ cp -r ~/.cortexce/openclaw-plugin/skills/claude-mem-search ~/.openclaw/skills/
 mkdir -p /path/to/your-project/skills
 
 # 复制 Skill 文件
-cp -r ~/.cortexce/openclaw-plugin/skills/claude-mem-search /path/to/your-project/skills/
+cp -r /path/to/your/BlueCortexCE/openclaw-plugin/skills/claude-mem-search /path/to/your-project/skills/
 ```
 
 ### Skill 文件位置
@@ -155,172 +159,18 @@ openclaw gateway restart
 
 ---
 
-## 完整 SKILL.md 示例
-
-以下是 `~/.openclaw/skills/claude-mem-search/SKILL.md` 的完整内容：
-
-```markdown
----
-name: claude-mem-search
-description: Searches Claude-Mem memory system for historical observations,
-  summaries, and context from past sessions. Use when user asks about
-  "what did we do before", "last time we", "search memory", "find previous",
-  "recall when", "上次我们", "之前是怎么", "搜索记忆", "查找之前", or when
-  context from past work sessions would be helpful for the current task.
-  Requires Claude-Mem Java backend running at localhost:37777.
----
-
-# Claude-Mem Memory Search
-
-Search and retrieve context from past development sessions stored in Claude-Mem.
-
-## When to Use
-
-Activate this skill when:
-- User references past work ("上次我们...", "之前是怎么...", "last time we...")
-- User asks to search history ("搜索记忆", "查找之前的实现", "recall when...")
-- Current task may benefit from historical context
-- User wants to know what was done in a previous session
-
-## Prerequisites
-
-Claude-Mem Java backend must be running:
-
-```bash
-curl -s http://127.0.0.1:37777/actuator/health
-# Should return: {"status":"UP",...}
-```
-
-If not running, tell user to start the Java backend first.
-
----
-
-## Three-Step Memory Retrieval Workflow
-
-### Step 1: Search Memory Index
-
-Search for relevant observations by semantic query or filter:
-
-```bash
-# Semantic search
-curl -s "http://127.0.0.1:37777/api/search?project=PROJECT_PATH&query=SEARCH_QUERY&limit=5"
-
-# Filter by type
-curl -s "http://127.0.0.1:37777/api/search?project=PROJECT_PATH&type=discovery&limit=5"
-
-# Filter by concept
-curl -s "http://127.0.0.1:37777/api/search?project=PROJECT_PATH&concept=architecture&limit=5"
-```
-
-**Parameters:**
-- `project` (required): Project path, e.g., `/Users/username/projects/myapp`
-- `query`: Semantic search query
-- `type`: Filter by observation type (discovery, decision, error, etc.)
-- `concept`: Filter by concept (architecture, testing, security, etc.)
-- `limit`: Max results (default: 20)
-
-**Returns:** List of observations with IDs and metadata.
-
-### Step 2: Get Timeline Context (Optional)
-
-Get observations around a specific anchor point:
-
-```bash
-# By anchor ID
-curl -s "http://127.0.0.1:37777/api/context/timeline?project=PROJECT_PATH&anchorId=OBSERVATION_ID&depthBefore=3&depthAfter=3"
-
-# By query (finds best matching anchor)
-curl -s "http://127.0.0.1:37777/api/context/timeline?project=PROJECT_PATH&query=SEARCH_QUERY&depthBefore=3&depthAfter=3"
-```
-
-### Step 3: Get Full Observation Details
-
-Fetch complete details for specific observation IDs:
-
-```bash
-curl -s -X POST "http://127.0.0.1:37777/api/observations/batch" \
-  -H "Content-Type: application/json" \
-  -d '{"ids": ["id1", "id2"], "project": "PROJECT_PATH"}'
-```
-
----
-
-## Quick Access Methods
-
-### Recent Sessions
-
-```bash
-curl -s "http://127.0.0.1:37777/api/context/recent?project=PROJECT_PATH&limit=3"
-```
-
-### Save Manual Memory
-
-```bash
-curl -s -X POST "http://127.0.0.1:37777/api/memory/save" \
-  -H "Content-Type: application/json" \
-  -d '{"text": "Important insight", "title": "Key Decision", "project": "PROJECT_PATH"}'
-```
-
----
-
-## Response Format
-
-All responses are JSON. Each observation contains:
-- `id`: Unique identifier
-- `title`: Short title
-- `content`: Full content text
-- `type`: Observation type
-- `concepts`: Related concepts
-- `createdAtEpoch`: Timestamp
-- `filePath`: Related file path (if any)
-```
-
----
-
-### 文件来源
+## Skill 文件来源
 
 Skill 文件位于本项目：
-```
-~/.cortexce/openclaw-plugin/skills/claude-mem-search/SKILL.md
-```
 
-### REST API 端点参考
+| 位置 | 说明 |
+|------|------|
+| 源码目录 | `openclaw-plugin/skills/claude-mem-search/SKILL.md` |
+| 安装后 | `~/.openclaw/skills/claude-mem-search/SKILL.md` |
 
-Skill 通过 REST API 调用 Java 后端（无需 MCP 协议）：
+**注意**：不要复制 SKILL.md 的全部内容到本集成文档中——AgentSkills 系统会自动按需加载 Skill 文件的完整内容。只需确保 Skill 文件正确安装到上述位置即可。
 
-| 功能 | MCP Tool | REST API | 方法 |
-|------|----------|----------|------|
-| 语义搜索 | `search` | `/api/search` | GET |
-| 获取时间线 | `timeline` | `/api/context/timeline` | GET |
-| 获取完整详情 | `get_observations` | `/api/observations/batch` | POST |
-| 保存记忆 | `save_memory` | `/api/memory/save` | POST |
-| 最近会话 | `recent` | `/api/context/recent` | GET |
-
-### API 调用示例
-
-```bash
-# 语义搜索
-curl -s "http://127.0.0.1:37777/api/search?project=/path/to/project&query=login&limit=5"
-
-# 获取时间线上下文
-curl -s "http://127.0.0.1:37777/api/context/timeline?project=/path/to/project&query=login&depthBefore=3&depthAfter=3"
-
-# 批量获取详情
-curl -s -X POST "http://127.0.0.1:37777/api/observations/batch" \
-  -H "Content-Type: application/json" \
-  -d '{"ids": ["id1", "id2"], "project": "/path/to/project"}'
-
-# 获取最近会话
-curl -s "http://127.0.0.1:37777/api/context/recent?project=/path/to/project&limit=3"
-```
-
-### 三步记忆检索工作流
-
-1. **搜索索引** → 返回匹配的 Observation ID 列表
-2. **获取时间线** → 获取锚点前后的上下文
-3. **获取完整详情** → 按 ID 获取完整内容
-
-详见 `skills/claude-mem-search/SKILL.md`。
+详见 [SKILL.md](skills/claude-mem-search/SKILL.md) 查看完整的三步记忆检索工作流和 API 调用示例。
 
 ---
 
@@ -333,7 +183,7 @@ OpenClaw 支持三种插件集成方式，选择其中一种即可。
 | 文件 | 位置 | 作用 |
 |------|------|------|
 | `openclaw.plugin.json` | 插件目录内 | **插件清单**：定义插件 ID、名称、配置 schema（不接受用户配置值） |
-| OpenClaw 主配置文件 | `~/.openclaw/config.json` 或项目目录 | **用户配置**：启用插件、提供具体配置值 |
+| OpenClaw 主配置文件 | `~/.openclaw/openclaw.json` | **用户配置**：启用插件、提供具体配置值 |
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -365,8 +215,8 @@ OpenClaw 支持三种插件集成方式，选择其中一种即可。
 mkdir -p ~/.openclaw/extensions/claude-mem-java
 
 # 复制必要文件
-cp ~/.cortexce/openclaw-plugin/openclaw.plugin.json ~/.openclaw/extensions/claude-mem-java/
-cp ~/.cortexce/openclaw-plugin/dist/index.js ~/.openclaw/extensions/claude-mem-java/
+cp /path/to/your/BlueCortexCE/openclaw-plugin/openclaw.plugin.json ~/.openclaw/extensions/claude-mem-java/
+cp /path/to/your/BlueCortexCE/openclaw-plugin/dist/index.js ~/.openclaw/extensions/claude-mem-java/
 ```
 
 **优点**：无需修改 OpenClaw 配置文件，使用 `configSchema` 中定义的默认值。
@@ -383,16 +233,12 @@ openclaw plugins doctor        # 检查是否有错误
 
 在 OpenClaw 配置文件中指定插件路径和配置值。
 
-**配置文件位置**：`~/.openclaw/config.json` 或项目目录的 `openclaw.json`
+**配置文件位置**：`~/.openclaw/openclaw.json`
 
 ```json
 {
   "plugins": {
-    "enabled": true,
     "allow": ["claude-mem-java"],
-    "load": {
-      "paths": ["~/.cortexce/openclaw-plugin"]
-    },
     "entries": {
       "claude-mem-java": {
         "enabled": true,
@@ -421,7 +267,7 @@ openclaw plugins doctor        # 检查是否有错误
 
 ```bash
 # 从本地目录安装
-openclaw plugins install ~/.cortexce/openclaw-plugin
+openclaw plugins install /path/to/your/BlueCortexCE/openclaw-plugin
 
 # 安装后启用
 openclaw plugins enable claude-mem-java
@@ -596,18 +442,22 @@ lsof -i :37777
 ## 文件结构
 
 ```
-java/
-├── openclaw-plugin/           # OpenClaw 插件
-│   ├── src/index.ts          # 插件主代码
-│   ├── openclaw.plugin.json   # 插件配置
-│   ├── package.json           # NPM 配置
-│   └── dist/                  # 编译产物
-├── cortexce/          # Spring Boot 后端
+BlueCortexCE/                          # 项目根目录
+├── backend/                          # Spring Boot 后端
 │   ├── src/main/java/...
-│   ├── target/*.jar          # 编译产物
-│   └── .env                  # API Keys 配置
-└── proxy/                     # Claude Code Thin Proxy
-    └── wrapper.js            # CLI Wrapper
+│   ├── target/
+│   │   └── cortex-ce-0.1.0-beta.jar  # 编译产物
+│   └── .env                          # API Keys 配置
+├── openclaw-plugin/                  # OpenClaw 插件
+│   ├── src/index.ts                  # 插件主代码
+│   ├── openclaw.plugin.json          # 插件配置
+│   ├── package.json                  # NPM 配置
+│   ├── skills/
+│   │   └── claude-mem-search/        # Skill 文件
+│   │       └── SKILL.md
+│   └── dist/                         # 编译产物
+└── proxy/                            # Claude Code Thin Proxy
+    └── wrapper.js                    # CLI Wrapper
 ```
 
 ---
@@ -655,6 +505,5 @@ curl "http://127.0.0.1:37777/api/context/inject?projects=openclaw"
 
 | 文档 | 说明 |
 |------|------|
-| `docs/drafts/claude-mem-openclaw-support-analysis.md` | OpenClaw 支持深度分析 |
-| `java/CLAUDE.md` | Java Port 完整文档 |
-| `java/proxy/CLAUDE-CODE-INTEGRATION.md` | Claude Code 集成指南 |
+| `backend/README.md` | Java 后端文档 |
+| `proxy/CLAUDE-CODE-INTEGRATION.md` | Claude Code 集成指南 |

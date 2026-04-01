@@ -2,7 +2,7 @@
 
 This document describes how to integrate Claude-Mem Java backend with OpenClaw Gateway.
 
-> ✅ **Verified** — Plugin loaded and tested successfully in OpenClaw Gateway (2026-03-31).
+> **Verified** — Plugin loaded and tested successfully in OpenClaw Gateway (2026-03-31).
 
 ---
 
@@ -48,7 +48,8 @@ Claude-Mem integration with OpenClaw consists of **two layers**:
 ### 1. Build OpenClaw Plugin
 
 ```bash
-cd ~/.cortexce/openclaw-plugin
+# Enter openclaw-plugin directory
+cd /path/to/your/BlueCortexCE/openclaw-plugin
 
 # Install dependencies
 npm install
@@ -61,15 +62,17 @@ This generates `dist/index.js`.
 
 ### 2. Start Java Backend
 
-```bash
-cd ~/.cortexce
+Ensure Java backend is running at `localhost:37777`. Multiple startup methods available:
 
-# Set API keys
+```bash
+# Method 1: Run JAR directly
+cd /path/to/your/BlueCortexCE/backend
 export OPENAI_API_KEY=your_api_key
 export SPRING_AI_OPENAI_EMBEDDING_API_KEY=your_embedding_key
-
-# Start backend
 java -jar target/cortex-ce-0.1.0-beta.jar --spring.profiles.active=dev &
+
+# Method 2: Docker
+docker compose -f /path/to/your/BlueCortexCE/docker-compose.prod.yml up -d
 ```
 
 Verify backend is running:
@@ -80,75 +83,66 @@ curl http://127.0.0.1:37777/actuator/health
 
 ---
 
-## Installation Steps
+## Layer 1: Plugin Installation (Memory Capture)
 
-### Step 1: Copy Plugin Files
+OpenClaw supports three plugin installation methods. Choose one.
 
-```bash
-# Create plugin directory
-mkdir -p ~/.openclaw/extensions/claude-mem-java
+### Two Configuration Files
 
-# Copy plugin configuration
-cp ~/.cortexce/openclaw-plugin/openclaw.plugin.json ~/.openclaw/extensions/claude-mem-java/
+| File | Location | Purpose |
+|------|----------|---------|
+| `openclaw.plugin.json` | Inside plugin directory | **Plugin manifest**: defines plugin ID, name, config schema (does NOT accept user config values) |
+| OpenClaw main config | `~/.openclaw/openclaw.json` | **User config**: enables plugin, provides actual config values |
 
-# Copy built plugin
-cp ~/.cortexce/openclaw-plugin/dist/index.js ~/.openclaw/extensions/claude-mem-java/
 ```
-
-### Step 2: Install Skills (Optional - for active search)
-
-```bash
-# Copy search skill to OpenClaw
-cp -r ~/.cortexce/openclaw-plugin/skills/claude-mem-search ~/.openclaw/skills/
-```
-
-Or for project-level:
-```bash
-cp -r ~/.cortexce/openclaw-plugin/skills/claude-mem-search /path/to/your-project/skills/
-```
-
-### Step 3: Enable Plugin
-
-```bash
-openclaw plugins enable claude-mem-java
-
-# Verify
-openclaw plugins list
-# Should display claude-mem-java
-```
-
-### Step 4: Verify Installation
-
-Check plugin status:
-```bash
-openclaw plugins doctor
+┌─────────────────────────────────────────────────────────────────────┐
+│  openclaw.plugin.json (inside plugin dir - do not modify)           │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │ configSchema: {                                               │  │
+│  │   workerPort: { type: "number", default: 37777 }  ← defines    │  │
+│  │ }                                                             │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                          ↓ defines structure                        │
+├─────────────────────────────────────────────────────────────────────┤
+│  OpenClaw Main Config File (user modifiable)                        │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │ plugins.entries."claude-mem-java".config: {                   │  │
+│  │   workerPort: 37777  ← provides actual value (must match)    │  │
+│  │ }                                                             │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Configuration
+### Method 1: Auto-Discovery (Recommended, Simplest)
 
-### Plugin Configuration
+Copy the built plugin to the OpenClaw extensions directory. OpenClaw will automatically discover and load it.
 
-Edit `~/.openclaw/extensions/claude-mem-java/openclaw.plugin.json`:
+```bash
+# Create target directory
+mkdir -p ~/.openclaw/extensions/claude-mem-java
 
-```json
-{
-  "id": "claude-mem-java",
-  "name": "Claude-Mem CortexCE",
-  "version": "0.1.0",
-  "description": "Memory persistence for Claude Code sessions",
-  "entry": "index.js",
-  "enabled": true,
-  "config": {
-    "apiUrl": "http://localhost:37777"
-  }
-}
+# Copy necessary files
+cp /path/to/your/BlueCortexCE/openclaw-plugin/openclaw.plugin.json ~/.openclaw/extensions/claude-mem-java/
+cp /path/to/your/BlueCortexCE/openclaw-plugin/dist/index.js ~/.openclaw/extensions/claude-mem-java/
 ```
 
-### Gateway Configuration (plugins.allow)
+**Advantages**: No need to modify OpenClaw config file, uses defaults from `configSchema`.
 
-To suppress the "untracked local code" warning, add `plugins.allow` to `~/.openclaw/openclaw.json`:
+**Verify**:
+```bash
+openclaw plugins list          # Should show claude-mem-java
+openclaw plugins doctor        # Check for errors
+```
+
+---
+
+### Method 2: Config File Specification
+
+Specify plugin path and config values in OpenClaw config file.
+
+**Config file location**: `~/.openclaw/openclaw.json`
 
 ```json
 {
@@ -156,172 +150,364 @@ To suppress the "untracked local code" warning, add `plugins.allow` to `~/.openc
     "allow": ["claude-mem-java"],
     "entries": {
       "claude-mem-java": {
-        "enabled": true
+        "enabled": true,
+        "config": {
+          "workerPort": 37777,
+          "project": "my-project",
+          "syncMemoryFile": true
+        }
       }
     }
   }
 }
 ```
 
-After editing, restart the Gateway:
+**`plugins.allow`**: Explicitly declares trusted plugin IDs, suppresses "untracked local code" warning at Gateway startup.
+
+**Advantages**: Can override default config values, suitable for custom configuration scenarios.
+
+**Note**: `load.paths` points to directory containing `openclaw.plugin.json`.
+
+---
+
+### Method 3: CLI Installation
+
+Use OpenClaw CLI commands to install.
+
 ```bash
+# Install from local directory
+openclaw plugins install /path/to/your/BlueCortexCE/openclaw-plugin
+
+# Enable after installation
+openclaw plugins enable claude-mem-java
+
+# Restart Gateway
 openclaw gateway restart
 ```
 
-### Skill Configuration
+**Advantages**: OpenClaw automatically manages plugin files.
 
-For project-level skill, create `.openclaw/settings.json`:
+---
 
-```json
-{
-  "skills": {
-    "paths": ["/path/to/your-project/skills"]
-  }
-}
+### Configuration Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `workerPort` | number | 37777 | Java backend port |
+| `project` | string | "openclaw" | Project name for memory tracking |
+| `syncMemoryFile` | boolean | true | Whether to sync MEMORY.md file |
+
+---
+
+### Installation Method Comparison
+
+| Method | Complexity | Use Case |
+|--------|------------|----------|
+| Method 1: Auto-Discovery | Simple | Development/testing, default config |
+| Method 2: Config File | Medium | Custom config, multi-environment |
+| Method 3: CLI Install | Medium | Production, version management |
+
+---
+
+## Layer 2: Skill Configuration (Active Search)
+
+Enables OpenClaw Agent to **proactively search** historical memory when needed, without user manually invoking commands.
+
+### How Skills Work
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│              OpenClaw AgentSkills Progressive Disclosure             │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Level 1: Trigger Detection (~100 tokens)                            │
+│  ├── Reads SKILL.md name + description                             │
+│  ├── Determines if user question needs memory search               │
+│  └── E.g.: "上次我们", "之前是怎么", "search memory"                │
+│                                                                      │
+│  Level 2: Full Skill Content (on-demand)                            │
+│  ├── Loads complete SKILL.md when Agent determines search needed   │
+│  ├── Gets three-step workflow, API endpoints, curl examples         │
+│  └── Agent automatically executes search logic                       │
+│                                                                      │
+│  Level 3: Reference Files (on-demand)                               │
+│  └── Scripts or data files loaded as needed                         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Install Skill
+
+**Method 1: Global Skill (Recommended)**
+
+```bash
+# Create global skills directory
+mkdir -p ~/.openclaw/skills
+
+# Copy Skill files (from project directory)
+cp -r /path/to/your/BlueCortexCE/openclaw-plugin/skills/claude-mem-search ~/.openclaw/skills/
+```
+
+**Method 2: Project-Level Skill**
+
+```bash
+# Create skills directory in project root
+mkdir -p /path/to/your-project/skills
+
+# Copy Skill files
+cp -r /path/to/your/BlueCortexCE/openclaw-plugin/skills/claude-mem-search /path/to/your-project/skills/
+```
+
+### Skill File Locations
+
+```
+~/.openclaw/skills/claude-mem-search/    # Global (available to all projects)
+└── SKILL.md                              # AgentSkills compatible format
+
+# or
+
+/path/to/project/skills/claude-mem-search/  # Project-level (only that project)
+└── SKILL.md
+```
+
+### Verify Skill Installation
+
+```bash
+# Check Skill file exists
+ls -la ~/.openclaw/skills/claude-mem-search/SKILL.md
+
+# Restart OpenClaw Gateway to apply changes
+openclaw gateway restart
+```
+
+### Trigger Keywords
+
+When user asks these questions, Agent will **automatically activate** the search skill (no manual command needed):
+
+- **Chinese**: "上次我们怎么做...", "之前是怎么...", "搜索记忆...", "查找之前..."
+- **English**: "what did we do before", "last time we...", "search memory", "recall when..."
+
+---
+
+## Skill File Source
+
+The Skill file is located in this project:
+
+| Location | Description |
+|----------|-------------|
+| Source directory | `openclaw-plugin/skills/claude-mem-search/SKILL.md` |
+| After install | `~/.openclaw/skills/claude-mem-search/SKILL.md` |
+
+**Note**: Do not duplicate the full SKILL.md content in this integration doc — AgentSkills system automatically loads Skill file content on-demand. Just ensure the Skill file is correctly installed to the above location.
+
+See [SKILL.md](skills/claude-mem-search/SKILL.md) for the complete three-step memory retrieval workflow and API examples.
+
+---
+
+## Available Commands
+
+The plugin registers two commands:
+
+### /claude-mem-status
+
+Check Java backend health status and session statistics.
+
+```bash
+/claude-mem-status
+```
+
+Example response:
+```
+Claude-Mem Java Backend Status
+Status: UP
+Port: 37777
+Active sessions: 2
+```
+
+### /claude-mem-projects
+
+List all tracked projects.
+
+```bash
+/claude-mem-projects
+```
+
+Example response:
+```
+Claude-Mem Projects
+  - my-project
+  - openclaw
+  - workspace-abc
 ```
 
 ---
 
-## Usage
+## Event Listening
 
-### Automatic Memory Capture
+Plugin listens to 7 OpenClaw Gateway lifecycle events:
 
-Once the plugin is enabled, it automatically:
-1. Listens to OpenClaw lifecycle events
-2. Records tool usage as Observations
-3. Syncs MEMORY.md to workspace
-
-### Active Memory Search
-
-Use the installed skill:
-
-```
-@claude-mem-search query <search_term>
-```
-
-Or via command:
-
-```bash
-# Search by query
-curl -s "http://127.0.0.1:37777/api/search?project=PROJECT_PATH&query=SEARCH_QUERY&limit=5"
-
-# Search by discovery
-curl -s "http://127.0.0.1:37777/api/search?project=PROJECT_PATH&type=discovery&limit=5"
-
-# Search by concept
-curl -s "http://127.0.0.1:37777/api/search?project=PROJECT_PATH&concept=architecture&limit=5"
-```
+| Event | When | Plugin Action |
+|-------|------|--------------|
+| `session_start` | User starts new session (`/new`, `/reset`) | Initialize claude-mem session |
+| `after_compaction` | After context compaction | Re-initialize session |
+| `before_agent_start` | Before Agent executes | Sync MEMORY.md + track workspace |
+| `tool_result_persist` | After tool execution | Record observation + sync MEMORY.md |
+| `agent_end` | Agent execution ends | Generate summary + complete session |
+| `session_end` | Session ends | Clean up session tracking |
+| `gateway_start` | Gateway starts | Reset session tracking |
 
 ---
 
-## API Reference
+## MEMORY.md Sync Mechanism
 
-### Health Check
+### Sync Flow
 
-```bash
-curl http://127.0.0.1:37777/actuator/health
+```
+1. before_agent_start event triggers
+       ↓
+2. Plugin calls /api/context/inject to get timeline
+       ↓
+3. Writes to workspaceDir/MEMORY.md
+       ↓
+4. Agent reads MEMORY.md on startup for context
 ```
 
-### Search
+### Sync Timing
 
-```bash
-curl -s "http://127.0.0.1:37777/api/search?project=PROJECT_PATH&query=SEARCH_QUERY&limit=5"
-```
-
-### Get Context Timeline
-
-```bash
-curl -s "http://127.0.0.1:37777/api/context/timeline?project=PROJECT_PATH&anchorId=OBSERVATION_ID&depthBefore=3&depthAfter=3"
-```
-
-### Recent Context
-
-```bash
-curl -s "http://127.0.0.1:37777/api/context/recent?project=PROJECT_PATH&limit=3"
-```
+| Event | Sync | Description |
+|-------|------|-------------|
+| `before_agent_start` | Yes | Get context before Agent starts |
+| `tool_result_persist` | Yes | Update after each tool use |
+| `session_start` | No | Only initialize session |
+| `agent_end` | No | Only summarize and complete |
 
 ---
 
-## Directory Structure
+## API Endpoint Mapping
 
-After installation:
+Plugin calls Java backend API via HTTP:
 
-```
-~/.cortexce/
-├── backend/                    # Spring Boot backend
-│   └── target/
-│       └── cortex-ce-0.1.0-beta.jar
-├── openclaw-plugin/            # OpenClaw plugin source
-│   ├── skills/
-│   │   └── claude-mem-search/
-│   ├── dist/
-│   │   └── index.js
-│   └── openclaw.plugin.json
-└── ...
+| Function | Plugin Call | Java Backend Endpoint |
+|----------|-------------|---------------------|
+| Session init | `/api/sessions/init` | `/api/session/start` |
+| Record tool use | `/api/sessions/observations` | `/api/ingest/tool-use` |
+| Session complete | `/api/sessions/complete` | `/api/ingest/session-end` |
+| Get Timeline | `/api/context/inject` | `/api/context/inject` |
 
-~/.openclaw/
-├── extensions/
-│   └── cortexce/              # Plugin installation directory
-│       ├── index.js
-│       └── openclaw.plugin.json
-└── skills/
-    └── claude-mem-search/     # Search skill (optional)
-```
+---
+
+## Comparison with TypeScript Version
+
+| Feature | TypeScript Version | Java Version |
+|---------|-------------------|--------------|
+| Backend | TypeScript Worker | Java Spring Boot |
+| SSE Support | Yes | No |
+| MEMORY.md | Yes | Yes |
+| Observation Records | Yes | Yes |
+| Commands | `/claude-mem-status`, `/claude-mem-feed` | `/claude-mem-status`, `/claude-mem-projects` |
+
+### Why No SSE in Java Version?
+
+Java version follows **Thin Proxy** architecture philosophy:
+- Thin Proxy = CLI mode, runs and exits, no persistent connections
+- SSE requires long-running process, conflicts with Thin Proxy philosophy
+- Keeps it lightweight, fast, resource-friendly
+
+**Alternative**: Users can view observation records via WebUI (localhost:37777) or MCP tools.
 
 ---
 
 ## Troubleshooting
 
-### Plugin Not Loading
+### "Claude-Mem Java backend unreachable"
 
 ```bash
-# Check plugin status
-openclaw plugins list
-
-# Check doctor output
-openclaw plugins doctor
-
-# Check logs
-openclaw logs
-```
-
-### Cannot Connect to Java API
-
-```bash
-# Verify service is running
+# Check if Java backend is running
 curl http://127.0.0.1:37777/actuator/health
 
 # Check port
 lsof -i :37777
 ```
 
-### Skill Not Available
+### MEMORY.md Not Syncing
 
-```bash
-# Verify skill is installed
-ls ~/.openclaw/skills/claude-mem-search/
+- Confirm `syncMemoryFile` is set to `true`
+- Check OpenClaw logs for errors
+- Confirm Java backend responds to `/api/context/inject` requests
 
-# Check skill path in settings
-cat ~/.openclaw/settings.json
+### Observations Not Saved
+
+- Check if `tool_result_persist` event is triggering
+- Confirm tool names don't start with `memory_` (these are filtered)
+- Check Java backend logs
+
+---
+
+## Directory Structure
+
+```
+BlueCortexCE/                          # Project root
+├── backend/                          # Spring Boot backend
+│   ├── src/main/java/...
+│   ├── target/
+│   │   └── cortex-ce-0.1.0-beta.jar  # Build output
+│   └── .env                          # API Keys config
+├── openclaw-plugin/                  # OpenClaw plugin
+│   ├── src/index.ts                  # Plugin main code
+│   ├── openclaw.plugin.json          # Plugin config
+│   ├── package.json                  # NPM config
+│   ├── skills/
+│   │   └── claude-mem-search/        # Skill files
+│   │       └── SKILL.md
+│   └── dist/                         # Build output
+└── proxy/                            # Claude Code Thin Proxy
+    └── wrapper.js                    # CLI Wrapper
 ```
 
 ---
 
-## Uninstallation
+## Quick Test Commands
+
+### Test Backend Connection
 
 ```bash
-# Disable plugin
-openclaw plugins disable claude-mem-java
+# Using /claude-mem-status command
+/claude-mem-status
+```
 
-# Remove files
-rm -rf ~/.openclaw/extensions/claude-mem-java
-rm -rf ~/.openclaw/skills/claude-mem-search
+### Test Project List
+
+```bash
+# Using /claude-mem-projects command
+/claude-mem-projects
+```
+
+### Test API Endpoints
+
+```bash
+# Health check
+curl http://127.0.0.1:37777/actuator/health
+
+# Project list
+curl http://127.0.0.1:37777/api/projects
+
+# Timeline injection
+curl "http://127.0.0.1:37777/api/context/inject?projects=openclaw"
 ```
 
 ---
 
-## Limitations
+## Future Enhancements
 
-- **Experimental**: This plugin has not been tested in production
-- **No MCP**: Uses REST API instead of MCP protocol
-- **Limited Events**: Only 7 lifecycle events are captured
+- [ ] Add SSE observation stream support (requires standalone service)
+- [ ] Support more messaging channels (Telegram/Discord)
+- [ ] Add WebUI embedded view
+
+---
+
+## Related Documents
+
+| Document | Description |
+|----------|-------------|
+| `backend/README.md` | Java backend documentation |
+| `proxy/CLAUDE-CODE-INTEGRATION.md` | Claude Code integration guide |
