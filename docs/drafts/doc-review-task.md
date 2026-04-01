@@ -99,6 +99,9 @@
 ```
 
 ---
+- **2026-04-02 05:40**: SDK README (Go/JS/Python 新一轮) — 修复 2 问题：(1) JS ZH README Features 测试数 204→212（与 EN 版和源码一致）；(2) Python ZH README Design Principles 方法数 26→25（与 EN 版和源码一致）。commit 8e847d8。其他验证项：25 个 API 方法数（三 SDK 源码逐一确认：Go Client interface 25 methods / JS 25 async methods / Python 25 public methods）；Go 245 tests（go test -v 确认）；JS 212 tests（grep 确认）；Python 350 tests（grep 确认）；中英文版本结构/内容/跨链接一致（6 个 README 全部 cross-link 完整）；Features 章节三 SDK 双语一致（含测试计数）；Wire 格式章节三 SDK 双语一致；依赖声明准确（Go 1.22 / Python requests>=2.28 / JS Node>=18）；Go 子包 README（eino/langchaingo/genkit）完整存在；设计文档交叉链接（3 个 design.md 文件均存在）。
+- **Next direction**: 设计文档 (新一轮轮换)
+
 ## Last Review Log
 - **2026-03-31 04:26**: API 文档 (API.md vs API-zh-CN.md) — 修复 3 问题，commit 0e19580
 - **2026-03-31 04:54**: SDK README (Go/JS/Python) — 全部 25 个方法覆盖完整，端点与 Controller 源码一致，中英文版本结构/内容一致，跨链接完整。无修复。
@@ -176,3 +179,7 @@
 - **Next direction**: 设计文档 (新一轮轮换)
 - **2026-04-02 04:17**: 设计文档 (phase-3-design.md + walkthrough 新一轮) — 修复 1 问题：Section 8 Open Questions 状态标题 "8/10 Resolved" → "10/10 Resolved"（全部 10 个问题已标记 ✅ 但标题未更新）。commit e0bb334。其他验证项：回归测试 53/53 通过；方法名 extractAppendOnly/mergeAppendOnly/buildAppendOnlySystemPrompt/buildAppendOnlyUserPrompt/fetchPriorJson 与源码一致；Section 24.6 伪代码标注 "Simplified pseudocode" 且逻辑与实际代码一致；全文 "LLM re-extraction" 21 处引用均有 HISTORICAL/SUPERSEDED/IMPLEMENTATION NOTE 标注；walkthrough 8 个场景引用的方法名/类名正确；Section 15.2 New Files 表有 IMPLEMENTATION NOTE；Section 15.6/19.7 checklist 全部 ✅；跨链接完整（design↔walkthrough）。
 - **Next direction**: 架构文档 (新一轮轮换)
+- **2026-04-02 04:41**: 架构文档 (ARCHITECTURE.md + ARCHITECTURE-zh-CN.md + backend/README.md 新一轮) — 无修复。验证项：13 个 Controller 源码一致（67 个 @Mapping 注解，/api/concepts 已注释掉）；29 个 Service 文件与两版 Service Architecture 列表一致；5 个 Repository 与源码一致；14 个 Flyway 迁移文件一致（V1-V16 含 V3/V7）；Schema SQL 准确（V4/V5/V8/V11/V12/V13/V15 列完整）；环境变量表 15 个变量中英文一致（含 Anthropic/CLAUDEMEM_LLM_PROVIDER）；Spring Boot 3.3.13 + 项目版本 0.1.0-beta 与 pom.xml 一致；MCP 传输协议配置准确；中英文跨链接完整；backend/README.md 项目结构完整（29 services + 13 controllers + 5 repos + 14 migrations + 10 packages）；Config 目录 9 文件与 docs 一致。
+- **2026-04-02 05:05**: API 文档 (API.md + API-zh-CN.md 新一轮) — 修复 3 问题：(1) 中文版 Viewer 超级章节包含 Search 和 Management 端点但缺少对应章节标题——新增 `## 搜索` 和 `## 管理` 章节头（与英文版 `## Search` + `## Management` 结构一致）；(2) 中文版 TOC 缺少搜索和管理条目——补充为 22 条目 TOC（原 20 条）；(3) 中文版 Create Observation 缺少参数表（英文版有完整 12 字段参数表，中文版仅有 JSON 示例）——补充完整参数表含类型和必填标记。中英文版本同步更新 changelog（+12）。commit 618249d。其他验证项：13 个 Controller 源码一致（67 个 @Mapping 注解）；66 个端点覆盖完整（中英文一致）；字段名与 DTO 源码一致（ObservationCreateRequest、ExperienceRequest、FeedbackRequest 等）；搜索策略值正确（hybrid/tsvector/filter/recent/none）；Get Settings 响应格式准确（20 个 CLAUDE_MEM_* 字段）；环境变量表准确。
+- **2026-04-02 06:00**: 架构文档 (ARCHITECTURE.md + ARCHITECTURE-zh-CN.md + backend/README.md 新一轮) — 修复 1 问题：backend/README.md Configuration 章节缺少 Anthropic 环境变量（ARCHITECTURE 中英文两版均有 SPRING_AI_ANTHROPIC_API_KEY/BASE_URL/CHAT_MODEL，但 backend/README.md 仅提及 CLAUDEMEM_LLM_PROVIDER=openai/anthropic 未列出实际变量名），已添加注释段。commit 9c3029f。其他验证项：13 个 Controller 源码一致（67 个 @Mapping 注解，/api/concepts 已注释掉）；29 个 Service 文件与两版 Service Architecture 列表一致；5 个 Repository 与源码一致；14 个 Flyway 迁移文件一致（V1-V16，跳过 V9/V10）；Schema SQL 准确（mem_observations 35 列逐一验证）；环境变量表 15 个变量中英文一致；Spring Boot 3.3.13 + 项目版本 0.1.0-beta 与 pom.xml 一致；5 个 MCP 工具中英文一致；MCP 传输协议配置准确；中英文跨链接完整；backend/README.md 项目结构完整（29 services + 13 controllers + 5 repos + 5 entities + 14 migrations + 10 packages）；Config/util 目录与 docs 一致。
+- **Next direction**: SDK README (新一轮轮换)
