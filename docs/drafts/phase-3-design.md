@@ -2643,15 +2643,22 @@ List<ObservationEntity> findByTypeGlobal(
 
 ### 15.2 New Files to Create
 
-| File | Purpose |
-|------|---------|
-| `service/StructuredExtractionService.java` | Core extraction engine |
-| `model/ExtractionTemplate.java` | Record or POJO for template config |
-| `model/ExtractionResult.java` | Extraction result wrapper |
-| `model/ExtractionState.java` | Incremental extraction state |
-| `config/ExtractionConfig.java` | `@ConfigurationProperties` for templates |
-| `controller/ExtractionController.java` | Query API for extracted data |
-| `util/ExtractionFormatUtil.java` | Shared formatting utility (Section 24.3) |
+**⚠️ IMPLEMENTATION NOTE**: The table below shows the original plan. The actual implementation consolidated several classes:
+- `ExtractionTemplate` → `ExtractionConfig.TemplateConfig` (inner POJO class)
+- `ExtractionResult` → not needed (results stored directly via `ExtractionStorageService`)
+- `ExtractionState` → not needed (state tracked via `ObservationEntity` with `type="extraction_state"`)
+- `ExtractionFormatUtil` → formatting logic inlined in `StructuredExtractionService`
+
+| File | Purpose | Status |
+|------|---------|--------|
+| `service/StructuredExtractionService.java` | Core extraction engine | ✅ Created |
+| `config/ExtractionConfig.java` | `@ConfigurationProperties` for templates | ✅ Created |
+| `controller/ExtractionController.java` | Query API for extracted data | ✅ Created |
+| `service/ExtractionStorageService.java` | Transactional storage helper | ✅ Created (added later) |
+| `model/ExtractionTemplate.java` | Record or POJO for template config | ➡️ Merged into `ExtractionConfig.TemplateConfig` |
+| `model/ExtractionResult.java` | Extraction result wrapper | ➡️ Not needed |
+| `model/ExtractionState.java` | Incremental extraction state | ➡️ Not needed |
+| `util/ExtractionFormatUtil.java` | Shared formatting utility (Section 24.3) | ➡️ Inlined | |
 
 **Conditional loading** (Section 21.10): Both `ExtractionConfig` and `StructuredExtractionService` should be conditional to avoid startup failures when extraction is disabled or config is missing:
 
@@ -4698,13 +4705,19 @@ private Map<String, Object> mergeAppendOnly(
         .filter(key -> !keepHintKeys.contains(key))
         .collect(Collectors.toSet());
 
-    // Remove explicitly rejected items from list fields (with _field hint partitioning)
+    // Partition add/remove items by _field hint for field-aware merge
+    Map<String, List<Map<String, Object>>> addItemsByField = partitionByField(addItems);
+    Map<String, Set<String>> removeKeysByField = partitionKeysByField(removeItems, keyFields);
+
+    // Remove explicitly rejected items from list fields (field-aware)
     for (Map.Entry<String, Object> entry : merged.entrySet()) {
         if (entry.getValue() instanceof List<?> list) {
+            String fieldName = entry.getKey();
+            Set<String> applicableRemoveKeys = getApplicableKeys(removeKeysByField, removeKeys, fieldName);
             List<Map<String, Object>> filtered = new ArrayList<>();
             for (Object item : list) {
                 if (item instanceof Map<?, ?> mapItem) {
-                    if (!removeKeys.contains(buildItemKey((Map<String, Object>) mapItem, keyFields))) {
+                    if (!applicableRemoveKeys.contains(buildItemKey((Map<String, Object>) mapItem, keyFields))) {
                         filtered.add((Map<String, Object>) mapItem);
                     }
                 }
@@ -4716,6 +4729,10 @@ private Map<String, Object> mergeAppendOnly(
     // Add new items to matching list fields, with deduplication
     for (Map.Entry<String, Object> entry : merged.entrySet()) {
         if (entry.getValue() instanceof List<?> existingList) {
+            String fieldName = entry.getKey();
+            List<Map<String, Object>> applicableAddItems = getApplicableAddItems(addItemsByField, addItems, fieldName);
+            if (applicableAddItems.isEmpty()) continue;
+
             List<Map<String, Object>> combined = new ArrayList<>();
             for (Object item : existingList) {
                 if (item instanceof Map<?, ?>) {
@@ -4739,11 +4756,6 @@ private Map<String, Object> mergeAppendOnly(
     // Store removal metadata for audit trail
     if (!removeItems.isEmpty()) {
         merged.put("removed", removeItems);
-    }
-
-    // Store keep_hint for debugging / confidence analysis
-    if (!keepHint.isEmpty()) {
-        merged.put("_keep_hint", keepHint);
     }
 
     return merged;
@@ -5985,7 +5997,7 @@ pref_count=$(echo "$result" | jq '.extractedData.preferences | length')
 
 ---
 
-#### Test 5: LLM Re-Extraction — Preference Evolution (Scenario: Temporal Evolution)
+#### Test 5: Append-only Extraction — Preference Evolution (Scenario: Temporal Evolution)
 
 **Purpose**: Verify append-only extraction correctly updates state when preferences change.
 
@@ -6261,7 +6273,7 @@ bash scripts/demo-v14-test.sh
 
 ## Changelog
 
-- **2026-03-22 v29**: (1) **Section 24.6 `mergeAppendOnly()`**: Fixed critical design gaps — `keep_hint` was extracted but never used in merge logic; `deduplicate()` was called but undefined. Replaced with: (a) `buildItemKey()` method for consistent deduplication keying (category+value composite); (b) `keep_hint` now stored as `_keep_hint` in merged result for debugging; (c) existing-key check prevents duplicate adds. (2) **Section 24.6 `buildAppendOnlyPrompt()`**: Added item schema hint and `keep_hint` semantics clarification — LLM now knows the expected structure of array elements and MUST include `category`+`value` fields for deduplication. (3) **Section 23.4b**: Added append-only cost comparison — ~20% cheaper than truncated-prior approach, while eliminating data loss risk. (4) **Section 2.3 `summarizePriorExtraction()`**: Added design note cross-referencing Section 24.6 data loss risk and append-only alternative.
+- **2026-03-22 v29**: (1) **Section 24.6 `mergeAppendOnly()`**: Fixed critical design gaps — `keep_hint` was extracted but never used in merge logic; `deduplicate()` was called but undefined. Replaced with: (a) `buildItemKey()` method for consistent deduplication keying (category+value composite); (b) `keep_hint` used to protect items from removal (not stored in merged result — actual code logs but doesn't persist); (c) existing-key check prevents duplicate adds. (2) **Section 24.6 `buildAppendOnlyPrompt()`**: Added item schema hint and `keep_hint` semantics clarification — LLM now knows the expected structure of array elements and MUST include `category`+`value` fields for deduplication. (3) **Section 23.4b**: Added append-only cost comparison — ~20% cheaper than truncated-prior approach, while eliminating data loss risk. (4) **Section 2.3 `summarizePriorExtraction()`**: Added design note cross-referencing Section 24.6 data loss risk and append-only alternative.
 
 - **2026-03-22 v28**: **Section 24.6**: Identified critical data loss risk in `summarizePriorExtraction()` — when prior is truncated to latest 5 items, older items not re-mentioned in new observations silently disappear over successive extraction runs. Allergy information, important dates, and long-standing preferences could be permanently lost with no error or warning. Proposed **Solution D (append-only extraction)** as both safer AND cheaper alternative: LLM outputs only add/remove/keep_hint, service merges with full prior from DB. Token cost: ~2000 (append-only) vs ~7000 (full prior) vs ~2500 (truncated, lossy). ~~Design status: open for review before implementation.~~ → **✅ Implemented** (Section 24.6, `StructuredExtractionService.extractAppendOnly()`).
 

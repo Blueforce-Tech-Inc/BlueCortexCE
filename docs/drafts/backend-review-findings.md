@@ -660,3 +660,23 @@
 - **P0/P1 问题**: 无
 - **待修复**: 0 个 SDK 问题（3 个 E2E 失败均为 backend 侧，已记录到本文件）
 
+### 2026-04-01 18:51 | Backend 审查 #17
+
+**抽查文件**: `SessionRepository.java`, `ClaudeMemMcpTools.java`
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | ClaudeMemMcpTools.java | L~93 `search()` | MCP `search` tool 声明了 `offset` 和 `orderBy` 参数，但实际调用 SearchRequest 时硬编码 offset=0，orderBy 完全忽略。MCP 客户端无法分页搜索结果 | P2 |
+| 2 | ClaudeMemMcpTools.java | L~173 `saveMemory()` | `project` 参数为 null 时，observation 的 projectPath 为 null，但 dummy session 的 projectPath 设为 "manual-memories"。可能导致按 project 查询时找不到手动保存的 memory | P2 (低) |
+
+**审查结论**:
+- **SessionRepository.java**: 设计优秀。自定义 @Query 方法语义清晰，`findLastCompletedSessionWithMessage` 的 NOT NULL + 非空检查完善，`findByUserId` / `findSessionIdsByUserIdAndProject` 支持 Phase 3 多用户。无 P0/P1 问题。
+- **ClaudeMemMcpTools.java**: 整体 thin-layer 架构正确，MCP tool 定义清晰。`search()` / `timeline()` / `get_observations()` 3-step workflow 设计良好。`saveMemory()` FK 约束处理正确（先创建 dummy session）。`recent()` 格式化输出结构清晰。主要问题为 MCP tool 参数声明与实际使用不一致。
+- **无 P0/P1 问题**。
+
+### ⏭ 跳过的设计决策（非 bug，无需修复）
+
+| # | 文件 | 问题 | 原因 |
+|---|------|------|------|
+| 1 | SessionRepository.java `findLastCompletedSessionWithMessage` | 返回 `List` 而非 `Optional<SessionEntity>` | 调用方使用 `.stream().findFirst()` 处理，且 Spring Data JPA 对 Optional 包装的自定义 @Query 支持有限 |
+

@@ -23,8 +23,9 @@ import java.util.stream.Collectors;
  * Structured information extraction service (Phase 3).
  *
  * <p>Implements prompt-driven, configuration-based extraction of structured data
- * from observations. Uses LLM re-extraction: each run includes prior results
- * as context so the LLM can add, remove, or preserve items.</p>
+ * from observations. Uses append-only extraction: the LLM only processes new
+ * observations (no prior context) and outputs add/remove/keep_hint operations;
+ * the service merges with the full prior from DB.</p>
  *
  * <p>Key design principles:</p>
  * <ul>
