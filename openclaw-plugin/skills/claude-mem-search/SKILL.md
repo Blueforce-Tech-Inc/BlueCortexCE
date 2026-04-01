@@ -102,12 +102,16 @@ curl -s "http://127.0.0.1:37777/api/context/recent?project=PROJECT_PATH&limit=3"
 
 ### Save Manual Memory
 
-Store important information for future retrieval:
+To save manual memories, use the MCP tool `save_memory` or use the observation endpoint:
 
 ```bash
-curl -s -X POST "http://127.0.0.1:37777/api/memory/save" \
+# Via MCP tool save_memory (recommended)
+# The MCP tool is available when connected via MCP protocol
+
+# Or via direct observation (for testing)
+curl -s -X POST "http://127.0.0.1:37777/api/ingest/observation" \
   -H "Content-Type: application/json" \
-  -d '{"text": "Important insight to remember", "title": "Key Decision", "project": "PROJECT_PATH"}'
+  -d '{"session_id": "SESSION_ID", "project_path": "PROJECT_PATH", "content": "Important insight to remember", "title": "Key Decision"}'
 ```
 
 ---
@@ -159,8 +163,8 @@ Each observation contains:
 If the backend is unreachable:
 ```
 Claude-Mem backend is not responding. Please start it with:
-cd java/claude-mem-java
-java -jar target/claude-mem-java-0.1.0-SNAPSHOT.jar
+cd /path/to/your/BlueCortexCE/backend
+java -jar target/cortex-ce-0.1.0-beta.jar
 ```
 
 If no results found:
