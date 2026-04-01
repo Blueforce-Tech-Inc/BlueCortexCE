@@ -829,3 +829,27 @@
 
 **审查结论**: Java SDK 代码质量优秀。26 方法与 Go SDK 完全对等，DTO wire format 跨 SDK 一致（`extractedData` camelCase），重试机制含 jitter 且排除 500 错误（与 Go SDK 行为一致）。编译通过，全部测试通过。
 
+### 2026-04-02 02:41 | Backend 审查 #20
+
+**审查方向**: Backend（事件系统 + 配置层）
+
+**审查范围**:
+- `MemoryRefineEvent.java` — 事件类，不可变设计
+- `MemoryRefineEventPublisher.java` — 事件发布器
+- `MdcAutoFilter.java` — MDC 日志上下文过滤器
+
+**发现问题**:
+
+| # | 文件 | 行 | 级别 | 问题 |
+|---|------|-----|------|------|
+| 1 | MemoryRefineEventPublisher.java | L31 | P2 | `publishRefineEvent` 未验证 projectPath/sessionId 参数非空，传入 null 会静默存储 |
+| 2 | MemoryRefineEventPublisher.java | L43 | P2 | `publishManualRefineEvent` 硬编码 sessionId=null，下游代码若假设 sessionId 非空可能触发 NPE |
+| 3 | MdcAutoFilter.java | L63 | P2 | correlationId 使用 `UUID.randomUUID().toString().substring(0, 8)` 截断为 8 字符，唯一性从 128-bit 降至 32-bit，高并发下碰撞概率不可忽略 |
+
+**代码质量亮点**:
+- MemoryRefineEvent 不可变设计（final 字段 + 无 setter），线程安全
+- MdcAutoFilter 在 finally 块中 MDC.clear()，防止内存泄漏
+- RefineType enum 覆盖三种触发场景（SESSION_END / SCHEDULED / MANUAL），设计合理
+
+**审查结论**: 事件系统设计清晰，无 P0/P1 问题。3 个 P2 均为防御性编程改进，不影响当前功能正确性。
+
