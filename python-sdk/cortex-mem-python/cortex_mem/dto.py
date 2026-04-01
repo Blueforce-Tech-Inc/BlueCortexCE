@@ -636,6 +636,81 @@ class StatsResponse:
 
 
 @dataclass
+class ObservationType:
+    """Structured observation type from GET /api/modes.
+
+    Backend returns observation_types as array of objects: [{id, label, description}, ...]
+    """
+
+    id: str = ""
+    label: str = ""
+    description: str = ""
+
+    @classmethod
+    def from_wire(cls, data: object) -> "ObservationType":
+        if isinstance(data, dict):
+            return cls(
+                id=data.get("id") or "",
+                label=data.get("label") or "",
+                description=data.get("description") or "",
+            )
+        # Backward compatibility: string input
+        if isinstance(data, str):
+            return cls(id=data, label=data, description="")
+        return cls()
+
+    def to_dict(self) -> dict:
+        return {"id": self.id, "label": self.label, "description": self.description}
+
+
+@dataclass
+class ObservationConcept:
+    """Structured observation concept from GET /api/modes.
+
+    Backend returns observation_concepts as array of objects: [{id, label, description}, ...]
+    """
+
+    id: str = ""
+    label: str = ""
+    description: str = ""
+
+    @classmethod
+    def from_wire(cls, data: object) -> "ObservationConcept":
+        if isinstance(data, dict):
+            return cls(
+                id=data.get("id") or "",
+                label=data.get("label") or "",
+                description=data.get("description") or "",
+            )
+        if isinstance(data, str):
+            return cls(id=data, label=data, description="")
+        return cls()
+
+    def to_dict(self) -> dict:
+        return {"id": self.id, "label": self.label, "description": self.description}
+
+
+def _parse_observation_type_list(v: object) -> list[ObservationType]:
+    """Parse observation_types array (objects or strings) into ObservationType list."""
+    if not isinstance(v, list):
+        return []
+    result: list[ObservationType] = []
+    for item in v:
+        result.append(ObservationType.from_wire(item))
+    return result
+
+
+def _parse_observation_concept_list(v: object) -> list[ObservationConcept]:
+    """Parse observation_concepts array (objects or strings) into ObservationConcept list."""
+    if not isinstance(v, list):
+        return []
+    result: list[ObservationConcept] = []
+    for item in v:
+        result.append(ObservationConcept.from_wire(item))
+    return result
+
+
+@dataclass
 class ModesResponse:
     """Response from GET /api/modes."""
 
@@ -643,8 +718,8 @@ class ModesResponse:
     name: str = ""
     description: str = ""
     version: str = ""
-    observation_types: list[str] = field(default_factory=list)
-    observation_concepts: list[str] = field(default_factory=list)
+    observation_types: list[ObservationType] = field(default_factory=list)
+    observation_concepts: list[ObservationConcept] = field(default_factory=list)
 
     @classmethod
     def from_wire(cls, data: dict) -> ModesResponse:
@@ -653,6 +728,16 @@ class ModesResponse:
             name=data.get("name") or "",
             description=data.get("description") or "",
             version=data.get("version") or "",
-            observation_types=_to_str_list(_first_non_null(data, "observation_types", "observationTypes")),
-            observation_concepts=_to_str_list(_first_non_null(data, "observation_concepts", "observationConcepts")),
+            observation_types=_parse_observation_type_list(_first_non_null(data, "observation_types", "observationTypes")),
+            observation_concepts=_parse_observation_concept_list(_first_non_null(data, "observation_concepts", "observationConcepts")),
         )
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "version": self.version,
+            "observation_types": [t.to_dict() for t in self.observation_types],
+            "observation_concepts": [c.to_dict() for c in self.observation_concepts],
+        }

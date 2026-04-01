@@ -604,18 +604,44 @@ class TestDTOFromWire:
         mr = ModesResponse.from_wire(data)
         assert mr.name == "default"
         assert len(mr.observation_types) == 2
+        assert mr.observation_types[0].id == "feature"
+        assert mr.observation_types[1].id == "bug"
+        assert mr.observation_concepts[0].id == "testing"
+
+    def test_modes_response_from_wire_objects(self):
+        """Backend returns observation_types/concepts as objects with id, label, description."""
+        data = {
+            "id": "m1",
+            "name": "default",
+            "observation_types": [
+                {"id": "tool-use", "label": "Tool Use", "description": "Tool invocations"},
+                {"id": "user-prompt", "label": "User Prompt", "description": "User messages"},
+            ],
+            "observation_concepts": [
+                {"id": "code", "label": "Code", "description": "Coding activities"},
+            ],
+        }
+        mr = ModesResponse.from_wire(data)
+        assert len(mr.observation_types) == 2
+        assert mr.observation_types[0].id == "tool-use"
+        assert mr.observation_types[0].label == "Tool Use"
+        assert mr.observation_types[0].description == "Tool invocations"
+        assert mr.observation_types[1].id == "user-prompt"
+        assert len(mr.observation_concepts) == 1
+        assert mr.observation_concepts[0].id == "code"
+        assert mr.observation_concepts[0].label == "Code"
 
     def test_modes_response_from_wire_camelcase_fallback(self):
         """Backend Map.of() responses use camelCase keys — fallback must work."""
         data = {
             "id": "m1",
             "name": "default",
-            "observationTypes": ["feature"],
-            "observationConcepts": ["test"],
+            "observationTypes": [{"id": "feature", "label": "Feature", "description": ""}],
+            "observationConcepts": [{"id": "test", "label": "Test", "description": ""}],
         }
         mr = ModesResponse.from_wire(data)
-        assert mr.observation_types == ["feature"]
-        assert mr.observation_concepts == ["test"]
+        assert mr.observation_types[0].id == "feature"
+        assert mr.observation_concepts[0].id == "test"
 
     def test_modes_response_from_wire_empty_list_preserved(self):
         """Empty list in primary key should be preserved (not fall through to fallback)."""
@@ -623,11 +649,11 @@ class TestDTOFromWire:
             "id": "m1",
             "name": "default",
             "observation_types": [],  # empty list — should be kept, not replaced
-            "observationConcepts": ["fallback"],
+            "observationConcepts": [{"id": "fallback", "label": "Fallback", "description": ""}],
         }
         mr = ModesResponse.from_wire(data)
         assert mr.observation_types == []  # empty list preserved
-        assert mr.observation_concepts == ["fallback"]  # fallback used for missing key
+        assert mr.observation_concepts[0].id == "fallback"  # fallback used for missing key
 
     def test_observations_response_has_more_camelcase_fallback(self):
         """Backend Map.of() uses 'hasMore' (camelCase) — SDK must accept both."""

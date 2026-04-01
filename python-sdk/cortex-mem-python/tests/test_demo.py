@@ -382,15 +382,15 @@ class TestManagement:
         assert data["database"]["total_observations"] == 100
 
     def test_modes_ok(self, app, client):
-        from cortex_mem import ModesResponse
+        from cortex_mem import ModesResponse, ObservationType
         app._mock_client.get_modes.return_value = ModesResponse(
-            id="m1", name="default", observation_types=["type1"]
+            id="m1", name="default", observation_types=[ObservationType(id="type1", label="Type 1", description="")]
         )
         resp = client.get("/modes")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["name"] == "default"
-        assert data["observation_types"] == ["type1"]
+        assert data["observation_types"] == [{"id": "type1", "label": "Type 1", "description": ""}]
 
     def test_settings_ok(self, app, client):
         app._mock_client.get_settings.return_value = {"key": "val"}

@@ -413,8 +413,8 @@ def modes():
         name=result.name,
         description=result.description,
         version=result.version,
-        observation_types=result.observation_types,
-        observation_concepts=result.observation_concepts,
+        observation_types=[t.to_dict() for t in result.observation_types],
+        observation_concepts=[c.to_dict() for c in result.observation_concepts],
     )
 
 

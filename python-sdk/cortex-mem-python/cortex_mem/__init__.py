@@ -9,6 +9,8 @@ from .dto import (
     ICLPromptResult,
     ModesResponse,
     Observation,
+    ObservationConcept,
+    ObservationType,
     ObservationUpdate,
     ObservationsResponse,
     ProjectsResponse,
@@ -71,6 +73,8 @@ __all__ = [
     "WorkerStats",
     "DatabaseStats",
     "ModesResponse",
+    "ObservationConcept",
+    "ObservationType",
     # Errors
     "CortexError",
     "APIError",
