@@ -79,101 +79,6 @@ curl http://127.0.0.1:37777/actuator/health
 
 ---
 
-## Layer 2: 主动搜索 Skill 配置
-
-让 OpenClaw Agent 能够在**需要时主动搜索**历史记忆，无需用户手动调用命令。
-
-### Skill 工作原理
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    OpenClaw AgentSkills 渐进式披露                    │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  Level 1: 触发判断 (~100 tokens)                                     │
-│  ├── 读取 SKILL.md 的 name + description                            │
-│  ├── 判断用户问题是否需要搜索记忆                                     │
-│  └── 例如："上次我们", "之前是怎么", "search memory"                 │
-│                                                                      │
-│  Level 2: 完整技能内容 (按需加载)                                    │
-│  ├── 当 Agent 判断需要搜索时加载完整 SKILL.md                        │
-│  ├── 获取三步工作流、API 端点、curl 示例                             │
-│  └── Agent 自动执行搜索逻辑                                          │
-│                                                                      │
-│  Level 3: 引用文件 (按需加载)                                        │
-│  └── 如有脚本或数据文件，按需加载                                     │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-### 安装 Skill
-
-**方式一：全局 Skill（推荐）**
-
-```bash
-# 创建全局 skills 目录
-mkdir -p ~/.openclaw/skills
-
-# 复制 Skill 文件（从项目目录）
-cp -r /path/to/your/BlueCortexCE/openclaw-plugin/skills/claude-mem-search ~/.openclaw/skills/
-```
-
-**方式二：项目级 Skill**
-
-```bash
-# 在项目根目录创建 skills 目录
-mkdir -p /path/to/your-project/skills
-
-# 复制 Skill 文件
-cp -r /path/to/your/BlueCortexCE/openclaw-plugin/skills/claude-mem-search /path/to/your-project/skills/
-```
-
-### Skill 文件位置
-
-```
-~/.openclaw/skills/claude-mem-search/    # 全局（所有项目可用）
-└── SKILL.md                              # AgentSkills 兼容格式
-
-# 或
-
-/path/to/project/skills/claude-mem-search/  # 项目级（仅该项目可用）
-└── SKILL.md
-```
-
-### 验证 Skill 安装
-
-```bash
-# 检查 Skill 文件是否存在
-ls -la ~/.openclaw/skills/claude-mem-search/SKILL.md
-
-# 重启 OpenClaw Gateway 使配置生效
-openclaw gateway restart
-```
-
-### 触发关键词
-
-当用户问以下问题时，Agent 会**自动激活**搜索技能（无需手动调用命令）：
-
-- **中文**: "上次我们怎么做...", "之前是怎么...", "搜索记忆...", "查找之前..."
-- **英文**: "what did we do before", "last time we...", "search memory", "recall when..."
-
----
-
-## Skill 文件来源
-
-Skill 文件位于本项目：
-
-| 位置 | 说明 |
-|------|------|
-| 源码目录 | `openclaw-plugin/skills/claude-mem-search/SKILL.md` |
-| 安装后 | `~/.openclaw/skills/claude-mem-search/SKILL.md` |
-
-**注意**：不要复制 SKILL.md 的全部内容到本集成文档中——AgentSkills 系统会自动按需加载 Skill 文件的完整内容。只需确保 Skill 文件正确安装到上述位置即可。
-
-详见 [SKILL.md](skills/claude-mem-search/SKILL.md) 查看完整的三步记忆检索工作流和 API 调用示例。
-
----
-
 ## Layer 1: 插件集成（记忆捕获）
 
 OpenClaw 支持三种插件集成方式，选择其中一种即可。
@@ -297,6 +202,101 @@ openclaw gateway restart
 | 方式一：自动发现 | ⭐ 简单 | 开发测试、使用默认配置 |
 | 方式二：配置文件 | ⭐⭐ 中等 | 需要自定义配置、多环境管理 |
 | 方式三：命令安装 | ⭐⭐ 中等 | 生产环境、版本管理 |
+
+---
+
+## Layer 2: 主动搜索 Skill 配置
+
+让 OpenClaw Agent 能够在**需要时主动搜索**历史记忆，无需用户手动调用命令。
+
+### Skill 工作原理
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    OpenClaw AgentSkills 渐进式披露                    │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Level 1: 触发判断 (~100 tokens)                                     │
+│  ├── 读取 SKILL.md 的 name + description                            │
+│  ├── 判断用户问题是否需要搜索记忆                                     │
+│  └── 例如："上次我们", "之前是怎么", "search memory"                 │
+│                                                                      │
+│  Level 2: 完整技能内容 (按需加载)                                    │
+│  ├── 当 Agent 判断需要搜索时加载完整 SKILL.md                        │
+│  ├── 获取三步工作流、API 端点、curl 示例                             │
+│  └── Agent 自动执行搜索逻辑                                          │
+│                                                                      │
+│  Level 3: 引用文件 (按需加载)                                        │
+│  └── 如有脚本或数据文件，按需加载                                     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 安装 Skill
+
+**方式一：全局 Skill（推荐）**
+
+```bash
+# 创建全局 skills 目录
+mkdir -p ~/.openclaw/skills
+
+# 复制 Skill 文件（从项目目录）
+cp -r /path/to/your/BlueCortexCE/openclaw-plugin/skills/claude-mem-search ~/.openclaw/skills/
+```
+
+**方式二：项目级 Skill**
+
+```bash
+# 在项目根目录创建 skills 目录
+mkdir -p /path/to/your-project/skills
+
+# 复制 Skill 文件
+cp -r /path/to/your/BlueCortexCE/openclaw-plugin/skills/claude-mem-search /path/to/your-project/skills/
+```
+
+### Skill 文件位置
+
+```
+~/.openclaw/skills/claude-mem-search/    # 全局（所有项目可用）
+└── SKILL.md                              # AgentSkills 兼容格式
+
+# 或
+
+/path/to/project/skills/claude-mem-search/  # 项目级（仅该项目可用）
+└── SKILL.md
+```
+
+### 验证 Skill 安装
+
+```bash
+# 检查 Skill 文件是否存在
+ls -la ~/.openclaw/skills/claude-mem-search/SKILL.md
+
+# 重启 OpenClaw Gateway 使配置生效
+openclaw gateway restart
+```
+
+### 触发关键词
+
+当用户问以下问题时，Agent 会**自动激活**搜索技能（无需手动调用命令）：
+
+- **中文**: "上次我们怎么做...", "之前是怎么...", "搜索记忆...", "查找之前..."
+- **英文**: "what did we do before", "last time we...", "search memory", "recall when..."
+
+---
+
+## Skill 文件来源
+
+Skill 文件位于本项目：
+
+| 位置 | 说明 |
+|------|------|
+| 源码目录 | `openclaw-plugin/skills/claude-mem-search/SKILL.md` |
+| 安装后 | `~/.openclaw/skills/claude-mem-search/SKILL.md` |
+
+**注意**：不要复制 SKILL.md 的全部内容到本集成文档中——AgentSkills 系统会自动按需加载 Skill 文件的完整内容。只需确保 Skill 文件正确安装到上述位置即可。
+
+详见 [SKILL.md](skills/claude-mem-search/SKILL.md) 查看完整的三步记忆检索工作流和 API 调用示例。
 
 ---
 
