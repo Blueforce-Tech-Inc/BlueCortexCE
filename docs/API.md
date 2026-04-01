@@ -1032,23 +1032,24 @@ Returns the current active mode information.
 **Response** (`200 OK`):
 ```json
 {
-  "modeId": "code",
-  "name": "Code Mode",
-  "description": "Development workflow mode",
+  "mode_id": "code",
+  "name": "Code Development",
+  "description": "Software development and engineering work",
   "version": "1.0.0",
-  "observationTypes": [
+  "observation_types": [
     {
       "id": "bugfix",
       "label": "Bug Fix",
-      "emoji": "🐛",
-      "workEmoji": "🔧"
+      "description": "Something was broken, now fixed",
+      "emoji": "🔴",
+      "work_emoji": "🛠️"
     }
   ],
-  "observationConcepts": [
+  "observation_concepts": [
     {
       "id": "how-it-works",
       "label": "How It Works",
-      "emoji": "⚙️"
+      "description": "Understanding mechanisms"
     }
   ]
 }
@@ -1063,22 +1064,22 @@ Content-Type: application/json
 
 Switches the active mode at runtime. Supports base modes (e.g., "code") and inherited modes (e.g., "code--zh").
 
-**Request Body**:
+**Request Body** (snake_case):
 ```json
 {
-  "modeId": "code--zh"
+  "mode_id": "code--zh"
 }
 ```
 
 **Response** (`200 OK`):
 ```json
 {
-  "modeId": "code--zh",
+  "mode_id": "code--zh",
   "name": "代码模式",
   "description": "开发工作流模式",
   "version": "1.0.0",
-  "observationTypes": [...],
-  "observationConcepts": [...]
+  "observation_types": [...],
+  "observation_concepts": [...]
 }
 ```
 
@@ -1094,8 +1095,9 @@ GET /api/mode/types
   {
     "id": "bugfix",
     "label": "Bug Fix",
-    "emoji": "🐛",
-    "workEmoji": "🔧"
+    "description": "Something was broken, now fixed",
+    "emoji": "🔴",
+    "work_emoji": "🛠️"
   }
 ]
 ```
@@ -1112,7 +1114,7 @@ GET /api/mode/concepts
   {
     "id": "how-it-works",
     "label": "How It Works",
-    "emoji": "⚙️"
+    "description": "Understanding mechanisms"
   }
 ]
 ```
@@ -1194,8 +1196,8 @@ Returns a paginated list of observations, optionally filtered by project.
       "title": "Feature implementation",
       "type": "feature",
       "narrative": "Implemented JWT authentication...",
-      "projectPath": "/Users/dev/myproject",
-      "createdAtEpoch": 1707878400000
+      "project": "/Users/dev/myproject",
+      "created_at_epoch": 1707878400000
     }
   ],
   "hasMore": true
@@ -1373,11 +1375,11 @@ Returns the current active mode configuration.
 ```json
 {
   "id": "code",
-  "name": "Code Mode",
-  "description": "Development workflow mode",
+  "name": "Code Development",
+  "description": "Software development and engineering work",
   "version": "1.0.0",
-  "observationTypes": [...],
-  "observationConcepts": [...]
+  "observation_types": [...],
+  "observation_concepts": [...]
 }
 ```
 
@@ -1576,10 +1578,12 @@ GET /api/version
 {
   "version": "0.1.0-beta",
   "service": "claude-mem-java",
-  "java": "21.0.2",
+  "java": "24.0.1",
   "springBoot": "3.3.13"
 }
 ```
+
+> **Note**: The `java` field reflects the runtime JVM version and varies by deployment environment.
 
 ## Cursor
 
@@ -1659,7 +1663,59 @@ GET /api/cursor/register/{projectName}
 GET /stream
 ```
 
-Server-Sent Events endpoint for real-time updates.
+Server-Sent Events endpoint for real-time updates pushed to the Viewer WebUI.
+
+**Request Example** (JavaScript):
+```javascript
+const eventSource = new EventSource('http://localhost:37777/stream');
+
+eventSource.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log('Event:', data.type, data);
+};
+```
+
+**Event Types**:
+
+| Type | Description |
+|------|-------------|
+| `initial_load` | Initial load (includes project list) |
+| `processing_status` | Processing status update |
+| `new_observation` | New observation created |
+| `new_summary` | New summary created |
+| `new_prompt` | New user prompt |
+
+**Event Format**:
+```json
+{
+  "type": "new_observation",
+  "observation": {
+    "id": "obs-uuid",
+    "title": "Feature implementation",
+    ...
+  }
+}
+```
+
+**Initial Load Event**:
+```json
+{
+  "type": "initial_load",
+  "projects": ["/path/to/project1", "/path/to/project2"],
+  "timestamp": 1707878400000
+}
+```
+
+**Processing Status Event**:
+```json
+{
+  "type": "processing_status",
+  "isProcessing": false,
+  "queueDepth": 5
+}
+```
+
+**Timeout**: 30 minutes (configurable via `claudemem.sse.timeout-ms`)
 
 ## Error Codes
 
@@ -1953,14 +2009,14 @@ def listen_to_stream():
 ```json
 {
   "id": "uuid",
-  "contentSessionId": "string",
-  "projectPath": "string",
-  "userPrompt": "string",
-  "startedAtEpoch": 1707878400000,
-  "completedAtEpoch": 1707882000000,
+  "session_id": "string",
+  "project": "string",
+  "user_prompt": "string",
+  "started_at_epoch": 1707878400000,
+  "completed_at_epoch": 1707882000000,
   "status": "active|completed|skipped",
-  "cachedContext": "string",
-  "contextRefreshedAtEpoch": 1707878400000
+  "cached_context": "string",
+  "context_refreshed_at_epoch": 1707878400000
 }
 ```
 
@@ -1969,19 +2025,19 @@ def listen_to_stream():
 {
   "id": "uuid",
   "content_session_id": "string",
-  "projectPath": "string",
+  "project": "string",
   "title": "string",
   "subtitle": "string",
   "narrative": "string",
   "type": "bugfix|feature|refactor|discovery",
   "facts": ["string"],
   "concepts": ["string"],
-  "filesRead": ["string"],
-  "filesModified": ["string"],
-  "createdAtEpoch": 1707878400000,
-  "promptNumber": 1,
-  "discoveryTokens": 150,
-  "embeddingModelId": "bge-m3"
+  "files_read": ["string"],
+  "files_modified": ["string"],
+  "created_at_epoch": 1707878400000,
+  "prompt_number": 1,
+  "discovery_tokens": 150,
+  "embedding_model_id": "bge-m3"
 }
 ```
 
@@ -1990,12 +2046,12 @@ def listen_to_stream():
 {
   "id": "uuid",
   "session_id": "string",
-  "projectPath": "string",
+  "project": "string",
   "request": "string",
   "completed": "string",
   "learned": "string",
-  "nextSteps": "string",
-  "createdAtEpoch": 1707878400000
+  "next_steps": "string",
+  "created_at_epoch": 1707878400000
 }
 ```
 
@@ -2003,11 +2059,11 @@ def listen_to_stream():
 ```json
 {
   "id": "uuid",
-  "contentSessionId": "string",
-  "projectPath": "string",
-  "promptText": "string",
-  "promptNumber": 1,
-  "createdAtEpoch": 1707878400000
+  "content_session_id": "string",
+  "project": "string",
+  "prompt_text": "string",
+  "prompt_number": 1,
+  "created_at_epoch": 1707878400000
 }
 ```
 
@@ -2033,6 +2089,7 @@ def listen_to_stream():
 | `SPRING_AI_ANTHROPIC_API_KEY` | Anthropic API Key (optional) | — |
 | `SPRING_AI_ANTHROPIC_BASE_URL` | Anthropic API Base URL | https://api.anthropic.com |
 | `SPRING_AI_ANTHROPIC_CHAT_MODEL` | Anthropic model | claude-sonnet-4-5 |
+| `CLAUDEMEM_LLM_PROVIDER` | LLM provider (`openai` or `anthropic`) | openai |
 
 > **Note**: Legacy variable names (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`) are still supported as fallbacks.
 
@@ -2089,6 +2146,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-01 | 0.1.0-beta+7 | Enriched English Ingest section with parameter tables, response examples, and error responses (was severely incomplete vs Chinese); enriched English Quality Distribution with parameter table, response example, and `unknown` field; enriched Chinese Quality Distribution with parameter table and `unknown` field; corrected `orderBy` example in Batch Get Observations (`created_at` → `created_at_epoch`); added parameter table to Create Observation (EN) |
 | 2026-04-01 | 0.1.0-beta+8 | Corrected Get Settings response format — actual code returns 20 `CLAUDE_MEM_*` fields + modeName/modeDescription (not simple mode/modeName/modeDescription); documented all CLAUDE_MEM_* fields with types and defaults; corrected Update Settings to accept `CLAUDE_MEM_*` field names with `mode` shorthand; synced Chinese version |
 | 2026-04-01 | 0.1.0-beta+9 | Enriched English PATCH /api/memory/observations section with path parameter, response example (`status:updated`), and error responses (was severely incomplete vs Chinese); added path parameter to English DELETE /api/memory/observations |
+| 2026-04-02 | 0.1.0-beta+10 | Enriched English Streaming section with event types table, event format examples, JavaScript example, and timeout info (was severely incomplete vs Chinese); corrected Java version in Get Version response example (dynamic field, added note); added `CLAUDEMEM_LLM_PROVIDER` to environment variables table; synced Chinese version |
 | 2026-03-13 | 0.1.0 | Initial API documentation |
 
 ---

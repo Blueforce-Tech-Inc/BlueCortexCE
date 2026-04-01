@@ -190,10 +190,12 @@ curl http://localhost:37777/api/version
 {
   "version": "0.1.0-beta",
   "service": "claude-mem-java",
-  "java": "21.0.2",
+  "java": "24.0.1",
   "springBoot": "3.3.13"
 }
 ```
+
+> **说明**: `java` 字段反映运行时 JVM 版本，随部署环境不同而变化。
 
 ---
 
@@ -791,8 +793,8 @@ curl "http://localhost:37777/api/observations?project=/Users/dev/myproject&limit
       "title": "Feature implementation",
       "type": "feature",
       "narrative": "Implemented JWT authentication...",
-      "projectPath": "/Users/dev/myproject",
-      "createdAtEpoch": 1707878400000,
+      "project": "/Users/dev/myproject",
+      "created_at_epoch": 1707878400000,
       ...
     }
   ],
@@ -1144,11 +1146,11 @@ curl http://localhost:37777/api/modes
 ```json
 {
   "id": "code",
-  "name": "Code Mode",
-  "description": "Development workflow mode",
+  "name": "Code Development",
+  "description": "Software development and engineering work",
   "version": "1.0.0",
-  "observationTypes": [...],
-  "observationConcepts": [...]
+  "observation_types": [...],
+  "observation_concepts": [...]
 }
 ```
 
@@ -1377,23 +1379,24 @@ curl http://localhost:37777/api/mode
 **响应示例**:
 ```json
 {
-  "modeId": "code",
-  "name": "Code Mode",
-  "description": "Development workflow mode",
+  "mode_id": "code",
+  "name": "Code Development",
+  "description": "Software development and engineering work",
   "version": "1.0.0",
-  "observationTypes": [
+  "observation_types": [
     {
       "id": "bugfix",
       "label": "Bug Fix",
-      "emoji": "🐛",
-      "workEmoji": "🔧"
+      "description": "Something was broken, now fixed",
+      "emoji": "🔴",
+      "work_emoji": "🛠️"
     }
   ],
-  "observationConcepts": [
+  "observation_concepts": [
     {
       "id": "how-it-works",
       "label": "How It Works",
-      "emoji": "⚙️"
+      "description": "Understanding mechanisms"
     }
   ]
 }
@@ -1405,17 +1408,17 @@ curl http://localhost:37777/api/mode
 
 切换活动模式。
 
-**请求体**:
+**请求体**（snake_case）:
 ```json
 {
-  "modeId": "code--zh"
+  "mode_id": "code--zh"
 }
 ```
 
 **响应示例**:
 ```json
 {
-  "modeId": "code--zh",
+  "mode_id": "code--zh",
   "name": "代码模式",
   "description": "开发工作流模式",
   ...
@@ -1439,8 +1442,9 @@ curl http://localhost:37777/api/mode/types
   {
     "id": "bugfix",
     "label": "Bug Fix",
-    "emoji": "🐛",
-    "workEmoji": "🔧"
+    "description": "Something was broken, now fixed",
+    "emoji": "🔴",
+    "work_emoji": "🛠️"
   }
 ]
 ```
@@ -1462,7 +1466,7 @@ curl http://localhost:37777/api/mode/concepts
   {
     "id": "how-it-works",
     "label": "How It Works",
-    "emoji": "⚙️"
+    "description": "Understanding mechanisms"
   }
 ]
 ```
@@ -2113,14 +2117,14 @@ def listen_to_stream():
 ```json
 {
   "id": "uuid",
-  "contentSessionId": "string",
-  "projectPath": "string",
-  "userPrompt": "string",
-  "startedAtEpoch": 1707878400000,
-  "completedAtEpoch": 1707882000000,
+  "session_id": "string",
+  "project": "string",
+  "user_prompt": "string",
+  "started_at_epoch": 1707878400000,
+  "completed_at_epoch": 1707882000000,
   "status": "active|completed|skipped",
-  "cachedContext": "string",
-  "contextRefreshedAtEpoch": 1707878400000
+  "cached_context": "string",
+  "context_refreshed_at_epoch": 1707878400000
 }
 ```
 
@@ -2129,19 +2133,19 @@ def listen_to_stream():
 {
   "id": "uuid",
   "content_session_id": "string",
-  "projectPath": "string",
+  "project": "string",
   "title": "string",
   "subtitle": "string",
   "narrative": "string",
   "type": "bugfix|feature|refactor|discovery",
   "facts": ["string"],
   "concepts": ["string"],
-  "filesRead": ["string"],
-  "filesModified": ["string"],
-  "createdAtEpoch": 1707878400000,
-  "promptNumber": 1,
-  "discoveryTokens": 150,
-  "embeddingModelId": "bge-m3"
+  "files_read": ["string"],
+  "files_modified": ["string"],
+  "created_at_epoch": 1707878400000,
+  "prompt_number": 1,
+  "discovery_tokens": 150,
+  "embedding_model_id": "bge-m3"
 }
 ```
 
@@ -2150,12 +2154,12 @@ def listen_to_stream():
 {
   "id": "uuid",
   "session_id": "string",
-  "projectPath": "string",
+  "project": "string",
   "request": "string",
   "completed": "string",
   "learned": "string",
-  "nextSteps": "string",
-  "createdAtEpoch": 1707878400000
+  "next_steps": "string",
+  "created_at_epoch": 1707878400000
 }
 ```
 
@@ -2163,11 +2167,11 @@ def listen_to_stream():
 ```json
 {
   "id": "uuid",
-  "contentSessionId": "string",
-  "projectPath": "string",
-  "promptText": "string",
-  "promptNumber": 1,
-  "createdAtEpoch": 1707878400000
+  "content_session_id": "string",
+  "project": "string",
+  "prompt_text": "string",
+  "prompt_number": 1,
+  "created_at_epoch": 1707878400000
 }
 ```
 
@@ -2193,6 +2197,7 @@ def listen_to_stream():
 | `SPRING_AI_ANTHROPIC_API_KEY` | Anthropic API Key（可选） | — |
 | `SPRING_AI_ANTHROPIC_BASE_URL` | Anthropic API Base URL | https://api.anthropic.com |
 | `SPRING_AI_ANTHROPIC_CHAT_MODEL` | Anthropic 模型 | claude-sonnet-4-5 |
+| `CLAUDEMEM_LLM_PROVIDER` | LLM 提供商（`openai` 或 `anthropic`） | openai |
 
 > **注意**: 旧版变量名（`DB_URL`、`DB_USERNAME`、`DB_PASSWORD`、`OPENAI_API_KEY`、`OPENAI_BASE_URL`、`OPENAI_MODEL`）仍作为 fallback 支持。
 
@@ -2249,6 +2254,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-01 | 0.1.0-beta+7 | 补充英文版 Ingest 章节（参数表、响应示例、错误响应——中文版已完整但英文版严重缺失）；补充中英文 Quality Distribution 参数表、响应示例及 `unknown` 字段；修正 Batch Get Observations `orderBy` 示例（`created_at` → `created_at_epoch`）；补充英文版 Create Observation 参数表 |
 | 2026-04-01 | 0.1.0-beta+8 | 修正 Get Settings 响应格式——实际代码返回 20 个 `CLAUDE_MEM_*` 字段 + modeName/modeDescription（非简单 mode/modeName/modeDescription）；记录所有 CLAUDE_MEM_* 字段及类型和默认值；修正 Update Settings 接受 `CLAUDE_MEM_*` 字段名及 `mode` 简写；同步英文版；修正 PATCH observations 响应 status 值 `ok` → `updated` |
 | 2026-04-01 | 0.1.0-beta+9 | 补充英文版 PATCH /api/memory/observations 章节（路径参数、响应示例、错误响应——中文版已完整）；补充英文版 DELETE /api/memory/observations 路径参数 |
+| 2026-04-02 | 0.1.0-beta+10 | 补充英文版 Streaming 章节完整事件类型表、事件格式示例、JavaScript 示例和超时说明（原严重缺失）；修正 Get Version 响应示例 Java 版本值（动态字段，添加说明）；补充 `CLAUDEMEM_LLM_PROVIDER` 到环境变量表；同步中文版 |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---
