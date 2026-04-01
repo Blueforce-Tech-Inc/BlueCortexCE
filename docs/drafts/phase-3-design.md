@@ -1364,7 +1364,7 @@ public void runCascadingExtraction(String projectPath, ExtractionTemplate templa
 
 ---
 
-## 8. Open Questions (Status: 8/10 Resolved)
+## 8. Open Questions (Status: 10/10 Resolved)
 
 1. **Extraction trigger frequency**: ✅ Answered — Both triggers supported: last step of `deepRefineProjectMemories()` AND scheduled daily at 2am (Section 9.2 + Section 23.7). No need for every-session extraction.
 2. **Conflict auto-resolve vs manual**: ✅ Answered — Auto-resolve with audit trail is default (Section 19.5). Append-only extraction (Section 24.6) handles semantic conflicts implicitly via `remove` operations. Manual review deferred to Phase 3.4.
