@@ -213,22 +213,68 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 ```
 POST /api/ingest/tool-use
 Content-Type: application/json
+```
 
+Records a tool use event from Claude Code hooks (via `wrapper.js`). Triggers async LLM processing for observation extraction.
+
+**Request Body**:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `session_id` | string | ✅ | Content session ID |
+| `tool_name` | string | ✅ | Tool name (`Edit`, `Write`, `Read`, `Bash`) |
+| `tool_input` | object/string | ❌ | Tool input parameters |
+| `tool_response` | object/string | ❌ | Tool response |
+| `cwd` | string | ❌ | Current working directory |
+
+**Request Example**:
+```json
 {
   "session_id": "content-session-id",
-  "tool_name": "Edit|Write|Read|Bash",
-  "tool_input": {...},
-  "tool_response": {...},
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "/path/to/file.ts",
+    "old_string": "...",
+    "new_string": "..."
+  },
+  "tool_response": "File updated successfully",
   "cwd": "/path/to/project"
 }
 ```
+
+**Response** (`200 OK`):
+```json
+{
+  "status": "accepted"
+}
+```
+
+**Error Responses**:
+- `400` — Missing required field: `session_id` or `tool_name`
+- `429` — Rate limit exceeded (10 requests per 60 seconds per session)
+
+**Rate Limit**: 10 requests per 60 seconds per `session_id`.
 
 ### Record User Prompt
 
 ```
 POST /api/ingest/user-prompt
 Content-Type: application/json
+```
 
+Records a user prompt event from Claude Code hooks. Automatically ensures the session exists before recording.
+
+**Request Body**:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `session_id` | string | ✅ | Content session ID |
+| `prompt_text` | string | ❌ | Prompt text (truncated if exceeds max length) |
+| `prompt_number` | int | ❌ | Prompt number for ordering (default: 1) |
+| `cwd` | string | ❌ | Current working directory |
+
+**Request Example**:
+```json
 {
   "session_id": "content-session-id",
   "prompt_text": "User prompt text",
@@ -237,16 +283,46 @@ Content-Type: application/json
 }
 ```
 
+**Response** (`200 OK`):
+```json
+{
+  "status": "ok"
+}
+```
+
+**Error Responses**:
+- `400` — Missing required field: `session_id`
+
 ### Signal Session End
 
 ```
 POST /api/ingest/session-end
 Content-Type: application/json
+```
 
+Signals the end of a session and triggers async summary generation.
+
+**Request Body**:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `session_id` | string | ✅ | Content session ID |
+| `cwd` | string | ❌ | Current working directory |
+| `last_assistant_message` | string | ❌ | Last assistant message for summary generation |
+
+**Request Example**:
+```json
 {
   "session_id": "content-session-id",
   "cwd": "/path/to/project",
-  "last_assistant_message": "optional assistant message"
+  "last_assistant_message": "Task completed successfully"
+}
+```
+
+**Response** (`200 OK`):
+```json
+{
+  "status": "ok"
 }
 ```
 
@@ -255,7 +331,32 @@ Content-Type: application/json
 ```
 POST /api/ingest/observation
 Content-Type: application/json
+```
 
+Directly creates an observation with automatic embedding generation.
+
+**Request Body**:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `content_session_id` | string | ✅ | Content session ID (or use `session_id` alias) |
+| `project_path` | string | ✅ | Project path (or use `cwd` alias) |
+| `type` | string | ❌ | Observation type (e.g., `feature`, `bugfix`) |
+| `title` | string | ❌ | Observation title |
+| `subtitle` | string | ❌ | Observation subtitle |
+| `narrative` | string | ❌ | Observation narrative (or use `content` alias) |
+| `facts` | string[] | ❌ | List of factual statements |
+| `concepts` | string[] | ❌ | List of concept tags |
+| `source` | string | ❌ | Source attribution (e.g., `manual`) |
+| `extractedData` | object | ❌ | Structured extracted data |
+| `files_read` | string[] | ❌ | List of files read |
+| `files_modified` | string[] | ❌ | List of files modified |
+| `prompt_number` | int | ❌ | Prompt number for ordering |
+
+**Field aliases**: `session_id` is accepted as an alias for `content_session_id`, `cwd` for `project_path`, and `content` for `narrative`.
+
+**Request Example**:
+```json
 {
   "content_session_id": "session-123",
   "project_path": "/path/to/project",
@@ -272,7 +373,14 @@ Content-Type: application/json
 }
 ```
 
-**Field aliases**: `session_id` is accepted as an alias for `content_session_id`, `cwd` for `project_path`, and `content` for `narrative`.
+**Response** (`200 OK`):
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "title": "Added new API endpoint",
+  "type": "feature"
+}
+```
 
 ## Memory
 
@@ -389,6 +497,37 @@ Content-Type: application/json
 
 ```
 GET /api/memory/quality-distribution?project=/path/to/project
+```
+
+Returns the quality distribution (high/medium/low/unknown counts) for observations in a project.
+
+**Query Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `project` | string | ✅ | Absolute project path |
+
+**Response** (`200 OK`):
+```json
+{
+  "project": "/Users/dev/my-project",
+  "high": 10,
+  "medium": 20,
+  "low": 5,
+  "unknown": 3
+}
+```
+
+**Error Response** (`500`):
+```json
+{
+  "project": "/Users/dev/my-project",
+  "error": "Failed to get quality distribution: ...",
+  "high": 0,
+  "medium": 0,
+  "low": 0,
+  "unknown": 0
+}
 ```
 
 ### Submit Feedback
@@ -1020,7 +1159,7 @@ Retrieves multiple observations by their UUIDs. Supports optional project filter
 {
   "ids": ["obs-1", "obs-2", "obs-3"],
   "project": "/Users/dev/myproject",
-  "orderBy": "created_at",
+  "orderBy": "created_at_epoch",
   "limit": 100
 }
 ```
@@ -1890,6 +2029,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-03-31 | 0.1.0-beta++++ | Added Test endpoints section (/api/test/llm, /embedding, /all); added Overview section to Chinese version; synced TOC; synced changelog |
 | 2026-04-01 | 0.1.0-beta+++++ | Enriched Search section with full parameter types table, request example, and response example (strategy/fell_back/count); synced with Chinese version completeness |
 | 2026-04-01 | 0.1.0-beta++++++ | Corrected Search strategy values — actual code returns hybrid/tsvector/filter/recent/none (not vector/text); updated response example and strategy description; synced Chinese version |
+| 2026-04-01 | 0.1.0-beta+7 | Enriched English Ingest section with parameter tables, response examples, and error responses (was severely incomplete vs Chinese); enriched English Quality Distribution with parameter table, response example, and `unknown` field; enriched Chinese Quality Distribution with parameter table and `unknown` field; corrected `orderBy` example in Batch Get Observations (`created_at` → `created_at_epoch`); added parameter table to Create Observation (EN) |
 | 2026-03-13 | 0.1.0 | Initial API documentation |
 
 ---

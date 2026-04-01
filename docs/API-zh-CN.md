@@ -1226,15 +1226,34 @@ curl http://localhost:37777/api/modes
 
 #### GET `/api/memory/quality-distribution`
 
-获取质量分布统计。
+获取质量分布统计（高/中/低/未知观察数量）。
 
-**响应示例**:
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `project` | string | ✅ | 项目绝对路径 |
+
+**响应示例** (`200 OK`):
 ```json
 {
-  "project": "/path/to/project",
+  "project": "/Users/dev/my-project",
   "high": 10,
-  "medium": 5,
-  "low": 2
+  "medium": 20,
+  "low": 5,
+  "unknown": 3
+}
+```
+
+**错误响应** (`500`):
+```json
+{
+  "project": "/Users/dev/my-project",
+  "error": "Failed to get quality distribution: ...",
+  "high": 0,
+  "medium": 0,
+  "low": 0,
+  "unknown": 0
 }
 ```
 
@@ -2195,6 +2214,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-03-31 | 0.1.0-beta++++ | 新增 Test 测试端点章节（/api/test/llm、/embedding、/all）；补充概述章节（Base URL + Content-Type）；同步 TOC；同步更新日志 |
 | 2026-04-01 | 0.1.0-beta+++++ | 补充英文版 Search 章节完整参数类型表、请求示例和响应示例（strategy/fell_back/count）；同步中英文版完整度 |
 | 2026-04-01 | 0.1.0-beta++++++ | 修正搜索策略值——实际代码返回 hybrid/tsvector/filter/recent/none（非 vector/text）；更新响应示例和策略说明；同步英文版 |
+| 2026-04-01 | 0.1.0-beta+7 | 补充英文版 Ingest 章节（参数表、响应示例、错误响应——中文版已完整但英文版严重缺失）；补充中英文 Quality Distribution 参数表、响应示例及 `unknown` 字段；修正 Batch Get Observations `orderBy` 示例（`created_at` → `created_at_epoch`）；补充英文版 Create Observation 参数表 |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---
