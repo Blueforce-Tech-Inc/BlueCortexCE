@@ -212,6 +212,9 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     // Find all observations for a project, ordered by creation time (descending)
     List<ObservationEntity> findByProjectPathOrderByCreatedAtDesc(String projectPath);
 
+    // Find recent observations for a project with pagination (avoids loading all into memory)
+    Page<ObservationEntity> findByProjectPathOrderByCreatedAtDesc(String projectPath, Pageable pageable);
+
     // Find observations for a session, ordered ascending (for summary generation)
     List<ObservationEntity> findByContentSessionIdOrderByCreatedAtEpochAsc(String contentSessionId);
 

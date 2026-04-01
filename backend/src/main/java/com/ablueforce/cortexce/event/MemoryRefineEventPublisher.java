@@ -25,6 +25,10 @@ public class MemoryRefineEventPublisher {
      * Publish event to trigger memory refinement (real-time path).
      */
     public void publishRefineEvent(String projectPath, String sessionId) {
+        if (projectPath == null || projectPath.isBlank()) {
+            log.warn("Cannot publish MemoryRefineEvent: projectPath is null or blank");
+            return;
+        }
         MemoryRefineEvent event = new MemoryRefineEvent(
             projectPath, 
             sessionId, 
@@ -39,6 +43,10 @@ public class MemoryRefineEventPublisher {
      * Publish manual refinement event.
      */
     public void publishManualRefineEvent(String projectPath) {
+        if (projectPath == null || projectPath.isBlank()) {
+            log.warn("Cannot publish manual MemoryRefineEvent: projectPath is null or blank");
+            return;
+        }
         MemoryRefineEvent event = new MemoryRefineEvent(
             projectPath, 
             null,

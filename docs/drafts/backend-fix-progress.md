@@ -62,3 +62,35 @@
 ### Backend 审查问题状态
 - P0: 0 | P1: 0 | P2: 0 | 跳过: 4
 - **所有 P2 问题已修复完毕 ✅**
+
+## 2026-04-02 05:25 | 健康检查 + 测试验收 + Backend P2 批量修复
+
+### 健康检查结果
+- ✅ 服务健康：`{"service":"claude-mem-java","status":"ok"}`
+- ✅ 回归测试：46/46 通过，1 跳过
+- ✅ Phase 3 验收测试：25/25 通过（EXTRACTION_ENABLED=true）
+
+### 修复的 5 个 P2 问题（来自审查 #20, #21）
+
+| # | 文件 | 修复内容 | 级别 |
+|---|------|---------|------|
+| 1 | MemoryRefineEventPublisher.java | `publishRefineEvent()` 添加 projectPath null/blank 校验，无效时 warn 日志 + early return | P2 |
+| 2 | MemoryRefineEventPublisher.java | `publishManualRefineEvent()` 添加 projectPath null/blank 校验 | P2 |
+| 3 | MdcAutoFilter.java | correlationId 从 8 字符（32-bit）改为 12 字符 hex（48-bit），去掉连字符后截取，碰撞概率大幅降低 | P2 |
+| 4 | ClaudeMdService.java | `generateClaudeMd()` 改用 `PageRequest.of(0,10)` 分页查询，避免全量加载所有 observations 到内存 | P2 |
+| 5 | ClaudeMdService.java | `getProjectMemorySummary()` 同样改用分页查询；COUNT 查询复用 `page.getTotalElements()` 消除重复表扫描 | P2 |
+
+**技术细节**：
+- ObservationRepository 新增 `Page<ObservationEntity> findByProjectPathOrderByCreatedAtDesc(String, Pageable)` 重载方法
+- MdcAutoFilter 使用 `replace("-", "")` 去掉 UUID 连字符后取前 12 位，保证 hex 字符串连续性
+- ClaudeMdService 两处调用方（generateClaudeMd + getProjectMemorySummary）均改为分页模式
+
+### 验证
+- 构建: ✅ BUILD SUCCESS (9.5s)
+- 重启服务: ✅ 健康检查通过
+- 回归测试: ✅ 46/46 通过
+- EXTRACTION 验收: ✅ 25/25 通过
+- 3 轮代码审查: ✅ 全部通过
+
+### Backend 审查问题状态更新
+- P0: 0 | P1: 0 | P2 (后端): 0 | 跳过: 6 | ⏳待修 (非后端): 2

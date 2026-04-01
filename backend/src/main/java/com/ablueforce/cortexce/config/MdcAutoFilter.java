@@ -57,8 +57,8 @@ public class MdcAutoFilter extends OncePerRequestFilter {
             // Set correlationId
             String correlationId = request.getHeader(CORRELATION_ID_HEADER);
             if (correlationId == null || correlationId.isEmpty()) {
-                // Auto-generate 8-character short ID
-                correlationId = UUID.randomUUID().toString().substring(0, 8);
+                // Auto-generate 12-character short ID (48-bit, collision probability ~10^-7 at 1M req/day)
+                correlationId = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
             }
             MDC.put(CORRELATION_ID, correlationId);
 

@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-02 02:31 (P2 问题全部修复 — MCP search offset + saveMemory session 泄漏)
+> **最后更新**: 2026-04-02 05:25 (健康检查 — 批量修复 5 个 P2: MemoryRefineEventPublisher, MdcAutoFilter, ClaudeMdService)
 
 # Backend 代码审查问题记录
 
@@ -12,7 +12,8 @@
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
 | **P2** (建议修复) | **0** | — |
-| **⏭ 跳过** | **4** | 非 bug，属设计决策或代码风格偏好 |
+| **⏭ 跳过** | **6** | 非 bug，属设计决策或代码风格偏好 |
+| **⏳待修** | **2** | Python SDK + Backend E2E (非紧急) |
 
 ---
 
@@ -842,9 +843,9 @@
 
 | # | 文件 | 行 | 级别 | 问题 |
 |---|------|-----|------|------|
-| 1 | MemoryRefineEventPublisher.java | L31 | P2 | `publishRefineEvent` 未验证 projectPath/sessionId 参数非空，传入 null 会静默存储 |
-| 2 | MemoryRefineEventPublisher.java | L43 | P2 | `publishManualRefineEvent` 硬编码 sessionId=null，下游代码若假设 sessionId 非空可能触发 NPE |
-| 3 | MdcAutoFilter.java | L63 | P2 | correlationId 使用 `UUID.randomUUID().toString().substring(0, 8)` 截断为 8 字符，唯一性从 128-bit 降至 32-bit，高并发下碰撞概率不可忽略 |
+| 1 | MemoryRefineEventPublisher.java | L31 | P2 | `publishRefineEvent` 未验证 projectPath/sessionId 参数非空，传入 null 会静默存储 | ✅已修复（加 null/blank 检查 + early return） |
+| 2 | MemoryRefineEventPublisher.java | L43 | P2 | `publishManualRefineEvent` 硬编码 sessionId=null，下游代码若假设 sessionId 非空可能触发 NPE | ⏭跳过（MANUAL 类型设计上不需要 sessionId） |
+| 3 | MdcAutoFilter.java | L63 | P2 | correlationId 使用 `UUID.randomUUID().toString().substring(0, 8)` 截断为 8 字符，唯一性从 128-bit 降至 32-bit，高并发下碰撞概率不可忽略 | ✅已修复（改为 12 字符 hex，48-bit，去掉连字符后截取） |
 
 **代码质量亮点**:
 - MemoryRefineEvent 不可变设计（final 字段 + 无 setter），线程安全
@@ -852,4 +853,28 @@
 - RefineType enum 覆盖三种触发场景（SESSION_END / SCHEDULED / MANUAL），设计合理
 
 **审查结论**: 事件系统设计清晰，无 P0/P1 问题。3 个 P2 均为防御性编程改进，不影响当前功能正确性。
+
+### 2026-04-02 05:11 | Backend 审查 #21
+
+**审查方向**: Backend（StructuredExtractionService + ClaudeMdService + ExtractionStorageService + ModeController）
+
+**审查范围**:
+- `StructuredExtractionService.java` — Phase 3 核心提取引擎，append-only extraction
+- `ClaudeMdService.java` — CLAUDE.md 内容生成
+- `ExtractionStorageService.java` — 提取结果事务存储
+- `ModeController.java` — Mode REST API
+
+**发现问题**:
+
+| # | 文件 | 行 | 级别 | 问题 |
+|---|------|-----|------|------|
+| 1 | ClaudeMdService.java | L55 | P2 | `findByProjectPathOrderByCreatedAtDesc` 加载项目所有 observations 到内存，Java `stream().limit(10)` 仅取前 10 条。对于大型项目（数千条 observation），会产生全表扫描和高内存消耗。应使用 `Pageable` 基础查询（仓库已有 `findAllPaged` 模式）或添加 `findByProjectPathOrderByCreatedAtDesc(projectPath, PageRequest.of(0, 10))` | ✅已修复（添加 Page 重载方法 + ClaudeMdService 改用分页查询） |
+| 2 | ClaudeMdService.java | L92 | P2 | `countByProjectPath` 是独立的 COUNT 查询，与 `findByProjectPathOrderByCreatedAtDesc` 重复扫描同一张表。可合并到 `findAllPaged` 返回的 `Page<TotalCount>` 中 | ✅已修复（改用 page.getTotalElements() 复用分页结果） |
+
+**代码质量亮点**:
+- **StructuredExtractionService**: 设计优秀。append-only merge 逻辑严谨（add/remove/keep_hint + _field 路由），`groupByUser` 使用批量查询避免 N+1，`buildItemKey` SHA-256 回退 hash 处理空 keyFields，`parseJsonResponse` 正确剥离 markdown 代码围栏，错误通过 DLQ 记录而非静默丢失
+- **ExtractionStorageService**: `@Transactional` 确保 session find-or-create + observation save 原子性，DLQ 存储有 try-catch 保护防止二次失败
+- **ModeController**: OpenAPI 文档完整，Java records 用于响应类型，错误处理规范（badRequest + 异常 fallback）
+
+**审查结论**: Phase 3 提取引擎代码质量优秀，无 P0/P1 问题。2 个 P2 为性能优化建议（ClaudeMdService 查询效率），不影响当前功能正确性。StructuredExtractionService 的 append-only extraction 设计是最值得关注的亮点。
 

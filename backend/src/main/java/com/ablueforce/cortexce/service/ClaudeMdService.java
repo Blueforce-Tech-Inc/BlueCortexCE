@@ -4,13 +4,14 @@ import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.ablueforce.cortexce.repository.ObservationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Service for generating CLAUDE.md content from observations.
@@ -49,12 +50,10 @@ public class ClaudeMdService {
         sb.append("# Claude-Mem Context\n\n");
         sb.append("Generated: ").append(DATE_FORMAT.format(Instant.now())).append("\n\n");
 
-        // Recent observations
-        List<ObservationEntity> recentObs = observationRepository
-            .findByProjectPathOrderByCreatedAtDesc(projectPath)
-            .stream()
-            .limit(10)
-            .collect(Collectors.toList());
+        // Recent observations (paged query avoids loading all into memory)
+        Page<ObservationEntity> page = observationRepository
+            .findByProjectPathOrderByCreatedAtDesc(projectPath, PageRequest.of(0, 10));
+        List<ObservationEntity> recentObs = page.getContent();
 
         if (!recentObs.isEmpty()) {
             sb.append("## Recent Work\n\n");
@@ -82,8 +81,8 @@ public class ClaudeMdService {
             }
         }
 
-        // Summary statistics
-        long totalObs = observationRepository.countByProjectPath(projectPath);
+        // Summary statistics (reuse page total count to avoid duplicate query)
+        long totalObs = page.getTotalElements();
         if (totalObs > 0) {
             sb.append("---\n\n");
             sb.append("## Statistics\n\n");
@@ -105,14 +104,10 @@ public class ClaudeMdService {
             return new ProjectMemorySummary(projectPath, 0, List.of());
         }
 
-        long totalObs = observationRepository.countByProjectPath(projectPath);
-        List<ObservationEntity> recentObs = observationRepository
-            .findByProjectPathOrderByCreatedAtDesc(projectPath)
-            .stream()
-            .limit(5)
-            .collect(Collectors.toList());
+        Page<ObservationEntity> page = observationRepository
+            .findByProjectPathOrderByCreatedAtDesc(projectPath, PageRequest.of(0, 5));
 
-        return new ProjectMemorySummary(projectPath, totalObs, recentObs);
+        return new ProjectMemorySummary(projectPath, page.getTotalElements(), page.getContent());
     }
 
     /**
