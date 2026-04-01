@@ -811,3 +811,21 @@
 **发现问题**: 无 P0/P1 问题。代码质量优秀。
 
 **审查结论**: Demo 代码跨四套 SDK 质量一致，输入验证完整，错误处理规范。
+
+### 2026-04-02 02:03 | Java SDK 审查 #5
+
+**审查方向**: Java SDK (cortex-mem-spring-integration)
+
+**审查范围**:
+- `CortexMemClient.java` — 26 方法接口（跨 SDK 对等）
+- `CortexMemClientImpl.java` — REST 实现、重试机制、错误处理
+- 全部 15 个 DTO records — 序列化/反序列化、Builder 模式
+- `CortexMemProperties.java` — 配置绑定
+- `CortexMemAutoConfiguration.java` — 自动配置条件
+- `CortexMemoryAdvisor.java` / `CortexMemoryTools.java` — Spring AI 集成
+- `CortexMemClientImplTest.java` + `DtoTest.java` — 100+ 测试用例
+
+**发现问题**: 无 P0/P1/P2 问题。
+
+**审查结论**: Java SDK 代码质量优秀。26 方法与 Go SDK 完全对等，DTO wire format 跨 SDK 一致（`extractedData` camelCase），重试机制含 jitter 且排除 500 错误（与 Go SDK 行为一致）。编译通过，全部测试通过。
+
