@@ -14,6 +14,9 @@ async function main() {
     timeout: 10_000,
   });
 
+  // Session ID must be stored for reuse (StartSessionResponse does not echo it back)
+  const sessionId = 'js-sdk-demo-' + Date.now();
+
   try {
     // 2. Health check
     const health = await client.healthCheck();
@@ -21,14 +24,14 @@ async function main() {
 
     // 3. Start session
     const session = await client.startSession({
-      session_id: 'js-sdk-demo-' + Date.now(),
+      session_id: sessionId,
       project_path: '/tmp/js-sdk-demo',
     });
-    console.log('Session started:', session.session_id);
+    console.log('Session started:', session.session_db_id);
 
     // 4. Record observation (fire-and-forget)
     await client.recordObservation({
-      session_id: session.session_id,
+      session_id: sessionId,
       cwd: '/tmp/js-sdk-demo',
       tool_name: 'Read',
       tool_input: { file: 'main.go' },
@@ -94,7 +97,7 @@ async function main() {
 
     // 15. Record user prompt (fire-and-forget)
     await client.recordUserPrompt({
-      session_id: session.session_id,
+      session_id: sessionId,
       prompt_text: 'How to parse JSON in Go?',
       cwd: '/tmp/js-sdk-demo',
     });
@@ -102,7 +105,7 @@ async function main() {
 
     // 16. Record session end (fire-and-forget)
     await client.recordSessionEnd({
-      session_id: session.session_id,
+      session_id: sessionId,
       cwd: '/tmp/js-sdk-demo',
       last_assistant_message: 'Use encoding/json package',
     });
