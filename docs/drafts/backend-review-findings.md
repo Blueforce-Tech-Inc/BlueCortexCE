@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-01 (健康检查批量修复 + Backend 审查 #16)
+> **最后更新**: 2026-04-01 12:02 (健康检查批量修复 — P1 settings 字段修复 + P2 LlmQualityScorer/AgentService 修复)
 
 # Backend 代码审查问题记录
 
@@ -10,8 +10,8 @@
 | 严重级别 | 未修复数 | 说明 |
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
-| **P1** (应该修复) | **1** | WebUI 设置字段命名不匹配（审查 #16） |
-| **P2** (建议修复) | **3** | AgentService 代码重复 #1、LlmQualityScorer JSON 解析 #2、isAvailable dead code #3 |
+| **P1** (应该修复) | **0** | — |
+| **P2** (建议修复) | **1** | LlmQualityScorer isAvailable dead code #3 |
 | **⏭ 跳过** | **4** | 非 bug，属设计决策或代码风格偏好 |
 | **✅ 已修复** | **~61** | 历史累计，含本次修复的 7 个问题 |
 
@@ -34,7 +34,7 @@
 
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
-| 1 | AgentService.java | L~160+L~280 | `processToolUseAsync` 与 `processPendingMessage` 共享 ~40 行完全相同的 prompt-building + LLM-calling 代码（模板替换、systemPrompt 构建、llmService 调用、skip 检查、parseObservation、saveObservation）。应提取为共享私有方法如 `buildPromptsAndCallLLM(...)` 减少维护负担 | P2 ⏳待修 |
+| 1 | AgentService.java | L~160+L~280 | `processToolUseAsync` 与 `processPendingMessage` 共享 ~40 行完全相同的 prompt-building + LLM-calling 代码（模板替换、systemPrompt 构建、llmService 调用、skip 检查、parseObservation、saveObservation）。应提取为共享私有方法如 `buildPromptsAndCallLLM(...)` 减少维护负担 | P2 ✅已修复（提取 `callLlmAndSaveObservation` 共享方法） |
 | 2 | AgentService.java | L~280-314 `processPendingMessage` | catch 块统一标记 `failed`，但与 `processToolUseAsync` 的差异化处理不一致 — 后者区分 `RetryableException`（markFailedWithRetry）、`DataValidationException`（直接 failed）、`DataIntegrityViolationException`（并发幂等）、通用 Exception（根据 `isRetryableException` 决定 retry vs failed）。`processPendingMessage` 应采用相同策略避免 transient 失败消息永久丢失 | P2 ✅已修复 |
 | 3 | AgentService.java | L~347 `calculateContentHash` | 当 `buildContentForHash` 返回空字符串（所有字段为 null）时，SHA-256 哈希为固定值。所有 title/narrative/facts/concepts 全 null 的 observation 会产生相同 contentHash，导致 30s 内 false-positive dedup。实际风险低（observation 至少应有 title），但 `calculateContentHash("")` 应返回 null 或 UUID 而非固定哈希 | P2 (低) ✅已修复 |
 | 4 | SpringAiConfig.java | L~40 `openAiChatModel` | `log.info("OpenAI ChatModel called: apiKey={}, ...")` 在 INFO 级别记录 API key 存在性。虽然使用三元表达式仅打印 "set"/"null"，但 INFO 级别在生产环境中可能被持久化。建议降级为 DEBUG 或移除 apiKey 字段 | P2 (低) ✅已修复 |
@@ -587,8 +587,8 @@
 
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
-| 1 | AppSettings.java / ViewerController.java | L330-348 (ViewerController getSettings) | `toMap()` 返回 camelCase 字段名（`showReadTokens`, `mode`, `provider` 等），但 WebUI `useSettings.ts` 期望 `CLAUDE_MEM_*` 前缀字段名（如 `CLAUDE_MEM_CONTEXT_SHOW_READ_TOKENS`）。WebUI Settings 页面加载时，所有 `data.CLAUDE_MEM_*` 字段均为 `undefined`，回退到 DEFAULT_SETTINGS 默认值。用户在 WebUI 看到的始终是默认值，无法反映实际后端配置 | P1 ⏳待修 |
-| 2 | LlmQualityScorer.java | L93-125 `parseAnalysisResponse` | 使用 `indexOf`/`substring` 手动提取 JSON 字段（`quality_score`, `feedback_type`），对 LLM 输出格式极其敏感。若 LLM 输出格式稍有变化（如额外空白、换行、不同引号风格），解析即失败。应使用 Jackson `ObjectMapper.readTree()` 进行 JSON 解析 | P2 ⏳待修 |
+| 1 | AppSettings.java / ViewerController.java | L330-348 (ViewerController getSettings) | `toMap()` 返回 camelCase 字段名（`showReadTokens`, `mode`, `provider` 等），但 WebUI `useSettings.ts` 期望 `CLAUDE_MEM_*` 前缀字段名（如 `CLAUDE_MEM_CONTEXT_SHOW_READ_TOKENS`）。WebUI Settings 页面加载时，所有 `data.CLAUDE_MEM_*` 字段均为 `undefined`，回退到 DEFAULT_SETTINGS 默认值。用户在 WebUI 看到的始终是默认值，无法反映实际后端配置 | P1 ✅已修复（toMap 改用 CLAUDE_MEM_* 字段名 + updateSettings 增加 CLAUDE_MEM_* 兼容） |
+| 2 | LlmQualityScorer.java | L93-125 `parseAnalysisResponse` | 使用 `indexOf`/`substring` 手动提取 JSON 字段（`quality_score`, `feedback_type`），对 LLM 输出格式极其敏感。若 LLM 输出格式稍有变化（如额外空白、换行、不同引号风格），解析即失败。应使用 Jackson `ObjectMapper.readTree()` 进行 JSON 解析 | P2 ✅已修复（改用 Jackson ObjectMapper.readTree 解析） |
 | 3 | QualityScorer.java | L109-119 `estimateQualityWithLlm` | LLM 不可用时的 fallback 调用 `estimateQuality(FeedbackType.UNKNOWN, content, null, 0)`，丢弃了原始 feedback 和 toolUsageCount 信息。调用方可能已有非 UNKNOWN 的 feedback，但 fallback 路径将其覆盖 | P2 ✅已修复 |
 
 **审查结论**:
@@ -596,3 +596,24 @@
 - **LlmQualityScorer.java**: LLM 集成思路正确（fallback to rule-based），异常处理到位。但 JSON 解析方式过于脆弱，是潜在的维护风险。
 - **AppSettings.java**: 配置类设计合理，`@JsonProperty` + `@JsonIgnoreProperties` 注解正确，`getEnvOrDefault` 环境变量优先级正确。`toMap()` 与 WebUI 的字段命名不匹配是本次发现的主要问题。
 - **无 P0 问题**。
+
+### 2026-04-01 10:57 | Python SDK 审查 #3
+
+**抽查文件**: `client.py`, `dto.py`, `error.py`, `__init__.py`, `examples/http-server/app.py`, `tests/test_client.py`, `tests/test_demo.py`
+
+**测试**: ✅ 347/347 passed (2.30s)
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | test_client.py | — | `SearchResult.to_dict()` 方法存在但无测试覆盖（demo 手动构造响应而非调用此方法） | P2 ⏳待修 |
+| 2 | dto.py | Observation.from_wire | `extracted_data` 解析同时接受 `extractedData` 和 `extracted_data` 两个 key，但 `to_dict()` 只输出 `extractedData`（camelCase）。虽然 round-trip 正确（`from_wire(to_dict())` 会成功），但注释可更明确说明这是 intentional design | P2 ⏳待修 |
+
+**审查结论**:
+- **client.py**: 所有 25 个 API 方法实现完整，fire-and-forget vs propagate 分层清晰。`_fire_and_forget` 实现与 Go SDK 线性 backoff + 25% jitter 完全一致。`update_observation` 双模式（dataclass + kwargs）设计优雅。
+- **dto.py**: `_first_non_null` 双格式 fallback 机制完善，`_to_int`/`_to_float` NaN/Inf 处理健壮。`_sanitize_for_json` 递归处理 NaN/Inf 输出为 None（RFC 7159 兼容）。
+- **error.py**: `_extract_error_message` 支持 JSON object/string/array/empty body 四种格式。`is_retryable_error` 匹配 Go SDK IsRetryable 行为。
+- **app.py (Demo)**: 输入验证完整（null/blank/range/类型检查），error handler 覆盖 413/APIError/CortexError/Exception。`_parse_int_param` 与 Go demo 解析逻辑对齐。
+- **tests**: 347 个测试覆盖全面，包含 fire-and-forget 重试、连接错误、非 JSON 响应降级、DTO round-trip、NaN/Inf 处理、cross-SDK parity 验证。
+- **P0/P1 问题**: 无。
+- **P2 问题**: 2 个（见上表）。
+

@@ -1,5 +1,7 @@
 package com.ablueforce.cortexce.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -14,6 +16,7 @@ import org.springframework.stereotype.Service;
 public class LlmQualityScorer {
 
     private static final Logger log = LoggerFactory.getLogger(LlmQualityScorer.class);
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private final LlmService llmService;
 
@@ -110,30 +113,34 @@ public class LlmQualityScorer {
         try {
             double score = 0.5;
             String feedbackType = "UNKNOWN";
+            String reasoning = "";
 
-            if (response != null) {
-                if (response.contains("quality_score")) {
-                    int start = response.indexOf("quality_score") + 15;
-                    int end = response.indexOf(",", start);
-                    if (end < 0) end = response.indexOf("}", start);
-                    if (end > start) {
-                        String scoreStr = response.substring(start, end).trim().replaceAll("[^0-9.]", "");
-                        score = Double.parseDouble(scoreStr);
-                    }
+            if (response != null && !response.isBlank()) {
+                // Extract JSON from response (handles cases where LLM wraps JSON in markdown)
+                String jsonStr = response.trim();
+                int jsonStart = jsonStr.indexOf('{');
+                int jsonEnd = jsonStr.lastIndexOf('}');
+                if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                    jsonStr = jsonStr.substring(jsonStart, jsonEnd + 1);
                 }
 
-                if (response.contains("feedback_type")) {
-                    int start = response.indexOf("feedback_type") + 14;
-                    int end = response.indexOf("}", start);
-                    if (end < 0) end = response.length();
-                    String type = response.substring(start, end).trim().replaceAll("[\":,]", "").toUpperCase();
-                    if (type.contains("SUCCESS")) feedbackType = "SUCCESS";
-                    else if (type.contains("FAILURE")) feedbackType = "FAILURE";
-                    else feedbackType = "PARTIAL";
+                JsonNode root = objectMapper.readTree(jsonStr);
+
+                if (root.has("quality_score")) {
+                    score = root.get("quality_score").asDouble(0.5);
+                    score = Math.max(0.0, Math.min(1.0, score));
+                }
+
+                if (root.has("feedback_type")) {
+                    feedbackType = root.get("feedback_type").asText("UNKNOWN").toUpperCase();
+                }
+
+                if (root.has("reasoning")) {
+                    reasoning = root.get("reasoning").asText("");
                 }
             }
 
-            return new LlmQualityAnalysis(score, feedbackType, "");
+            return new LlmQualityAnalysis(score, feedbackType, reasoning);
 
         } catch (Exception e) {
             log.warn("Failed to parse LLM response: {}", e.getMessage());

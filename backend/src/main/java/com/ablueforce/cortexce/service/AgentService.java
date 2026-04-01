@@ -158,48 +158,10 @@ public class AgentService implements LogHelper {
             pending.setStartedProcessingAtEpoch(Instant.now().toEpochMilli());
             pendingMessageRepository.save(pending);
 
-            // Get session context
-            Optional<SessionEntity> sessionOpt = sessionManagementService.findByContentSessionId(contentSessionId);
-            String userPrompt = sessionOpt.map(SessionEntity::getUserPrompt).orElse("");
-            String projectPath = sessionOpt.map(SessionEntity::getProjectPath).orElse(cwd);
-
-            // Build prompts using template service
-            String now = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(OffsetDateTime.now(ZoneOffset.UTC));
-            String systemPrompt = templateService.getInitPromptTemplate()
-                .replace("{{userPrompt}}", templateService.escapeTemplateValue(userPrompt))
-                .replace("{{date}}", now);
-
-            String userMsg = templateService.getObservationPromptTemplate()
-                .replace("{{toolName}}", templateService.escapeTemplateValue(toolName))
-                .replace("{{occurredAt}}", now)
-                .replace("{{cwd}}", templateService.escapeTemplateValue(cwd))
-                .replace("{{toolInput}}", templateService.escapeTemplateValue(
-                    templateService.truncate(toolInput, Constants.MAX_TOOL_CONTENT_LENGTH)))
-                .replace("{{toolOutput}}", templateService.escapeTemplateValue(
-                    templateService.truncate(toolResponse, Constants.MAX_TOOL_CONTENT_LENGTH)));
-
-            // Call LLM
-            LlmService.LlmResponse llmResponse = llmService.chatCompletionWithUsage(systemPrompt, userMsg);
-            String llmContent = llmResponse.content();
-            int discoveryTokens = llmResponse.totalTokens();
-            log.debug("LLM response: {}, tokens: {}", llmContent, discoveryTokens);
-
-            // Check for skip
-            String skipReason = XmlParser.extractTag(llmContent, "skip");
-            if (skipReason != null) {
-                logHappyPath("LLM skipped observation: {}", skipReason);
-                pending.setStatus("skipped");
-                pending.setCompletedAtEpoch(Instant.now().toEpochMilli());
-                pendingMessageRepository.save(pending);
-                return;
-            }
-
-            // Parse and save observation
-            XmlParser.ParsedObservation parsed = XmlParser.parseObservation(llmContent);
-            saveObservation(contentSessionId, projectPath, parsed, promptNumber, discoveryTokens);
-
-            // Mark context cache for refresh
-            contextCacheService.markForRefresh(projectPath);
+            // Shared: build prompts, call LLM, parse, and save
+            boolean saved = callLlmAndSaveObservation(
+                contentSessionId, toolName, toolInput, toolResponse, cwd, promptNumber, pending);
+            if (!saved) return;
 
             pending.setStatus("processed");
             pending.setCompletedAtEpoch(Instant.now().toEpochMilli());
@@ -347,46 +309,10 @@ public class AgentService implements LogHelper {
             String cwd = pending.getCwd();
             Integer promptNumber = pending.getPromptNumber();
 
-            // Get session context
-            Optional<SessionEntity> sessionOpt = sessionManagementService.findByContentSessionId(contentSessionId);
-            String userPrompt = sessionOpt.map(SessionEntity::getUserPrompt).orElse("");
-            String projectPath = sessionOpt.map(SessionEntity::getProjectPath).orElse(cwd);
-
-            // Build prompts
-            String now = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(OffsetDateTime.now(ZoneOffset.UTC));
-            String systemPrompt = templateService.getInitPromptTemplate()
-                .replace("{{userPrompt}}", templateService.escapeTemplateValue(userPrompt))
-                .replace("{{date}}", now);
-
-            String userMsg = templateService.getObservationPromptTemplate()
-                .replace("{{toolName}}", templateService.escapeTemplateValue(toolName))
-                .replace("{{occurredAt}}", now)
-                .replace("{{cwd}}", templateService.escapeTemplateValue(cwd))
-                .replace("{{toolInput}}", templateService.escapeTemplateValue(
-                    templateService.truncate(toolInput, Constants.MAX_TOOL_CONTENT_LENGTH)))
-                .replace("{{toolOutput}}", templateService.escapeTemplateValue(
-                    templateService.truncate(toolResponse, Constants.MAX_TOOL_CONTENT_LENGTH)));
-
-            // Call LLM
-            LlmService.LlmResponse llmResponse = llmService.chatCompletionWithUsage(systemPrompt, userMsg);
-            String llmContent = llmResponse.content();
-            int discoveryTokens = llmResponse.totalTokens();
-
-            // Check for skip
-            String skipReason = XmlParser.extractTag(llmContent, "skip");
-            if (skipReason != null) {
-                logHappyPath("LLM skipped observation: {}", skipReason);
-                pending.setStatus("skipped");
-                pending.setCompletedAtEpoch(System.currentTimeMillis());
-                pendingMessageRepository.save(pending);
-                return;
-            }
-
-            // Parse and save
-            XmlParser.ParsedObservation parsed = XmlParser.parseObservation(llmContent);
-            saveObservation(contentSessionId, projectPath, parsed, promptNumber, discoveryTokens);
-
-            contextCacheService.markForRefresh(projectPath);
+            // Shared: build prompts, call LLM, parse, and save
+            boolean saved = callLlmAndSaveObservation(
+                contentSessionId, toolName, toolInput, toolResponse, cwd, promptNumber, pending);
+            if (!saved) return;
 
             pending.setStatus("processed");
             pending.setCompletedAtEpoch(System.currentTimeMillis());
@@ -411,6 +337,61 @@ public class AgentService implements LogHelper {
                 }
             }
         }
+    }
+
+    /**
+     * Shared observation processing: build prompts, call LLM, parse, and save.
+     * Used by both processToolUseAsync and processPendingMessage.
+     *
+     * @return true if observation was saved, false if skipped
+     */
+    private boolean callLlmAndSaveObservation(String contentSessionId, String toolName,
+                                                String toolInput, String toolResponse,
+                                                String cwd, Integer promptNumber,
+                                                PendingMessageEntity pending) {
+        // Get session context
+        Optional<SessionEntity> sessionOpt = sessionManagementService.findByContentSessionId(contentSessionId);
+        String userPrompt = sessionOpt.map(SessionEntity::getUserPrompt).orElse("");
+        String projectPath = sessionOpt.map(SessionEntity::getProjectPath).orElse(cwd);
+
+        // Build prompts using template service
+        String now = DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(OffsetDateTime.now(ZoneOffset.UTC));
+        String systemPrompt = templateService.getInitPromptTemplate()
+            .replace("{{userPrompt}}", templateService.escapeTemplateValue(userPrompt))
+            .replace("{{date}}", now);
+
+        String userMsg = templateService.getObservationPromptTemplate()
+            .replace("{{toolName}}", templateService.escapeTemplateValue(toolName))
+            .replace("{{occurredAt}}", now)
+            .replace("{{cwd}}", templateService.escapeTemplateValue(cwd))
+            .replace("{{toolInput}}", templateService.escapeTemplateValue(
+                templateService.truncate(toolInput, Constants.MAX_TOOL_CONTENT_LENGTH)))
+            .replace("{{toolOutput}}", templateService.escapeTemplateValue(
+                templateService.truncate(toolResponse, Constants.MAX_TOOL_CONTENT_LENGTH)));
+
+        // Call LLM
+        LlmService.LlmResponse llmResponse = llmService.chatCompletionWithUsage(systemPrompt, userMsg);
+        String llmContent = llmResponse.content();
+        int discoveryTokens = llmResponse.totalTokens();
+        log.debug("LLM response: {}, tokens: {}", llmContent, discoveryTokens);
+
+        // Check for skip
+        String skipReason = XmlParser.extractTag(llmContent, "skip");
+        if (skipReason != null) {
+            logHappyPath("LLM skipped observation: {}", skipReason);
+            pending.setStatus("skipped");
+            pending.setCompletedAtEpoch(System.currentTimeMillis());
+            pendingMessageRepository.save(pending);
+            return false;
+        }
+
+        // Parse and save observation
+        XmlParser.ParsedObservation parsed = XmlParser.parseObservation(llmContent);
+        saveObservation(contentSessionId, projectPath, parsed, promptNumber, discoveryTokens);
+
+        // Mark context cache for refresh
+        contextCacheService.markForRefresh(projectPath);
+        return true;
     }
 
     /**

@@ -375,25 +375,28 @@ public class AppSettings {
      */
     public Map<String, Object> toMap() {
         Map<String, Object> map = new java.util.LinkedHashMap<>();
-        map.put("mode", getMode());
-        map.put("provider", getProvider());
-        map.put("model", getModel());
-        map.put("logLevel", getLogLevel());
-        map.put("full_observation_count", getContextFullCountInt());
-        map.put("total_observation_count", getContextObservationsInt());
-        map.put("session_count", getContextSessionCountInt());
-        map.put("observation_types", getContextObservationTypesList());
-        map.put("observation_concepts", getContextObservationConceptsList());
+        // Use CLAUDE_MEM_* field names to match @JsonProperty annotations
+        // and WebUI useSettings.ts expectations
+        map.put("CLAUDE_MEM_MODE", getMode());
+        map.put("CLAUDE_MEM_PROVIDER", getProvider());
+        map.put("CLAUDE_MEM_MODEL", getModel());
+        map.put("CLAUDE_MEM_LOG_LEVEL", getLogLevel());
+        map.put("CLAUDE_MEM_CONTEXT_OBSERVATIONS", getContextObservationsInt());
+        map.put("CLAUDE_MEM_CONTEXT_FULL_COUNT", getContextFullCountInt());
+        map.put("CLAUDE_MEM_CONTEXT_FULL_FIELD", getContextFullField());
+        map.put("CLAUDE_MEM_CONTEXT_SESSION_COUNT", getContextSessionCountInt());
+        map.put("CLAUDE_MEM_CONTEXT_OBSERVATION_TYPES", getContextObservationTypesList());
+        map.put("CLAUDE_MEM_CONTEXT_OBSERVATION_CONCEPTS", getContextObservationConceptsList());
         map.put("CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS", getContextMaxObservationsInt());
-        map.put("showReadTokens", isContextShowReadTokens());
-        map.put("showWorkTokens", isContextShowWorkTokens());
-        map.put("showSavingsAmount", isContextShowSavingsAmount());
-        map.put("showSavingsPercent", isContextShowSavingsPercent());
-        map.put("showLastSummary", isContextShowLastSummary());
-        map.put("showLastMessage", isContextShowLastMessage());
-        map.put("folderClaudemdEnabled", isFolderClaudemdEnabled());
-        map.put("excludedProjects", getExcludedProjectsList());
-        map.put("dataDir", getDataDir());
+        map.put("CLAUDE_MEM_CONTEXT_SHOW_READ_TOKENS", isContextShowReadTokens());
+        map.put("CLAUDE_MEM_CONTEXT_SHOW_WORK_TOKENS", isContextShowWorkTokens());
+        map.put("CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_AMOUNT", isContextShowSavingsAmount());
+        map.put("CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_PERCENT", isContextShowSavingsPercent());
+        map.put("CLAUDE_MEM_CONTEXT_SHOW_LAST_SUMMARY", isContextShowLastSummary());
+        map.put("CLAUDE_MEM_CONTEXT_SHOW_LAST_MESSAGE", isContextShowLastMessage());
+        map.put("CLAUDE_MEM_FOLDER_CLAUDEMD_ENABLED", isFolderClaudemdEnabled());
+        map.put("CLAUDE_MEM_EXCLUDED_PROJECTS", getExcludedProjectsList());
+        map.put("CLAUDE_MEM_DATA_DIR", getDataDir());
         return map;
     }
 }

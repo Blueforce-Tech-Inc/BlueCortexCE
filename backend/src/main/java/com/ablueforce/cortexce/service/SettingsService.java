@@ -215,6 +215,58 @@ public class SettingsService {
         if (updates.containsKey("CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS")) {
             settings.setContextMaxObservations(Objects.toString(updates.get("CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS"), ""));
         }
+        // Accept CLAUDE_MEM_* prefixed names for fields that WebUI sends
+        if (updates.containsKey("CLAUDE_MEM_WORKER_PORT")) {
+            settings.setWorkerPort(Objects.toString(updates.get("CLAUDE_MEM_WORKER_PORT"), ""));
+        }
+        if (updates.containsKey("CLAUDE_MEM_WORKER_HOST")) {
+            settings.setWorkerHost(Objects.toString(updates.get("CLAUDE_MEM_WORKER_HOST"), ""));
+        }
+        if (updates.containsKey("CLAUDE_MEM_CONTEXT_OBSERVATIONS")) {
+            settings.setContextObservations(Objects.toString(updates.get("CLAUDE_MEM_CONTEXT_OBSERVATIONS"), ""));
+        }
+        if (updates.containsKey("CLAUDE_MEM_CONTEXT_FULL_COUNT")) {
+            settings.setContextFullCount(Objects.toString(updates.get("CLAUDE_MEM_CONTEXT_FULL_COUNT"), ""));
+        }
+        if (updates.containsKey("CLAUDE_MEM_CONTEXT_FULL_FIELD")) {
+            settings.setContextFullField(Objects.toString(updates.get("CLAUDE_MEM_CONTEXT_FULL_FIELD"), ""));
+        }
+        if (updates.containsKey("CLAUDE_MEM_CONTEXT_SESSION_COUNT")) {
+            settings.setContextSessionCount(Objects.toString(updates.get("CLAUDE_MEM_CONTEXT_SESSION_COUNT"), ""));
+        }
+        if (updates.containsKey("CLAUDE_MEM_CONTEXT_SHOW_READ_TOKENS")) {
+            settings.setContextShowReadTokens(Objects.toString(updates.get("CLAUDE_MEM_CONTEXT_SHOW_READ_TOKENS"), ""));
+        }
+        if (updates.containsKey("CLAUDE_MEM_CONTEXT_SHOW_WORK_TOKENS")) {
+            settings.setContextShowWorkTokens(Objects.toString(updates.get("CLAUDE_MEM_CONTEXT_SHOW_WORK_TOKENS"), ""));
+        }
+        if (updates.containsKey("CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_AMOUNT")) {
+            settings.setContextShowSavingsAmount(Objects.toString(updates.get("CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_AMOUNT"), ""));
+        }
+        if (updates.containsKey("CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_PERCENT")) {
+            settings.setContextShowSavingsPercent(Objects.toString(updates.get("CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_PERCENT"), ""));
+        }
+        if (updates.containsKey("CLAUDE_MEM_CONTEXT_SHOW_LAST_SUMMARY")) {
+            settings.setContextShowLastSummary(Objects.toString(updates.get("CLAUDE_MEM_CONTEXT_SHOW_LAST_SUMMARY"), ""));
+        }
+        if (updates.containsKey("CLAUDE_MEM_CONTEXT_SHOW_LAST_MESSAGE")) {
+            settings.setContextShowLastMessage(Objects.toString(updates.get("CLAUDE_MEM_CONTEXT_SHOW_LAST_MESSAGE"), ""));
+        }
+        if (updates.containsKey("CLAUDE_MEM_FOLDER_CLAUDEMD_ENABLED")) {
+            settings.setFolderClaudemdEnabled(Objects.toString(updates.get("CLAUDE_MEM_FOLDER_CLAUDEMD_ENABLED"), ""));
+        }
+        if (updates.containsKey("CLAUDE_MEM_GEMINI_API_KEY")) {
+            settings.setGeminiApiKey(Objects.toString(updates.get("CLAUDE_MEM_GEMINI_API_KEY"), ""));
+        }
+        if (updates.containsKey("CLAUDE_MEM_GEMINI_MODEL")) {
+            settings.setGeminiModel(Objects.toString(updates.get("CLAUDE_MEM_GEMINI_MODEL"), ""));
+        }
+        if (updates.containsKey("CLAUDE_MEM_OPENROUTER_API_KEY")) {
+            settings.setOpenrouterApiKey(Objects.toString(updates.get("CLAUDE_MEM_OPENROUTER_API_KEY"), ""));
+        }
+        if (updates.containsKey("CLAUDE_MEM_OPENROUTER_MODEL")) {
+            settings.setOpenrouterModel(Objects.toString(updates.get("CLAUDE_MEM_OPENROUTER_MODEL"), ""));
+        }
         if (updates.containsKey("showReadTokens")) {
             settings.setContextShowReadTokens(Objects.toString(updates.get("showReadTokens"), ""));
         }
