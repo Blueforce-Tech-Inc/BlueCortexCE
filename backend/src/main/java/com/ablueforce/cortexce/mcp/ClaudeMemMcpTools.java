@@ -81,6 +81,7 @@ public class ClaudeMemMcpTools {
         log.info("MCP search: query={}, project={}, limit={}", query, project, limit);
 
         int effectiveLimit = limit != null ? limit : 20;
+        int effectiveOffset = offset != null ? Math.max(0, offset) : 0;
 
         float[] queryVector = null;
         if (query != null && !query.isBlank()) {
@@ -92,7 +93,7 @@ public class ClaudeMemMcpTools {
         }
 
         SearchService.SearchResult result = searchService.search(
-            new SearchService.SearchRequest(project, query, queryVector, type, concept, null, null, null, effectiveLimit, 0)
+            new SearchService.SearchRequest(project, query, queryVector, type, concept, null, null, null, effectiveLimit, effectiveOffset)
         );
 
         Map<String, Object> response = new HashMap<>();
@@ -224,17 +225,18 @@ public class ClaudeMemMcpTools {
         }
 
         try {
-            // Generate unique session ID for manual memory
-            String contentSessionId = "manual-" + System.currentTimeMillis();
-
-            // E.1 Fix: Create dummy session first to satisfy FK constraint
-            SessionEntity dummySession = new SessionEntity();
-            dummySession.setContentSessionId(contentSessionId);
-            dummySession.setProjectPath(project != null ? project : "manual-memories");
-            dummySession.setStartedAtEpoch(System.currentTimeMillis());
-            dummySession.setStatus("completed");
-            sessionRepository.save(dummySession);
-            log.debug("Created dummy session for manual memory: {}", contentSessionId);
+            // E.1 Fix: Find or create a shared manual-memories session to avoid session leakage
+            String manualSessionId = "manual-memories";
+            SessionEntity manualSession = sessionRepository.findByContentSessionId(manualSessionId)
+                .orElseGet(() -> {
+                    SessionEntity s = new SessionEntity();
+                    s.setContentSessionId(manualSessionId);
+                    s.setProjectPath("manual-memories");
+                    s.setStartedAtEpoch(System.currentTimeMillis());
+                    s.setStatus("completed");
+                    return sessionRepository.save(s);
+                });
+            log.debug("Using manual-memories session: {}", manualSessionId);
 
             // Create observation entity
             // TS alignment: Use type='discovery' and subtitle='Manual memory' like MemoryRoutes.ts
@@ -244,7 +246,7 @@ public class ClaudeMemMcpTools {
             observation.setSubtitle("Manual memory");
             observation.setProjectPath(project);
             observation.setType("discovery");  // TS uses 'discovery' type
-            observation.setContentSessionId(contentSessionId);
+            observation.setContentSessionId(manualSessionId);
             observation.setCreatedAtEpoch(System.currentTimeMillis());
             observation.setPromptNumber(0);
             observation.setDiscoveryTokens(0);
