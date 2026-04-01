@@ -7,7 +7,7 @@ Python SDK for the [Cortex CE](https://github.com/abforce/cortex-ce) persistent 
 ## Features
 
 - **Zero forced dependencies** — only `requests` required
-- **Full API coverage** — 25 methods covering Session, Capture, Retrieval, Management, Extraction
+- **Full API coverage** — 26 methods covering Session, Capture, Retrieval, Management, Extraction
 - **348 unit tests** — Comprehensive coverage of client, DTO, and demo integration
 - **Idiomatic Python** — dataclasses, kwargs, context manager
 - **Wire format compatible** — JSON field names match backend API exactly

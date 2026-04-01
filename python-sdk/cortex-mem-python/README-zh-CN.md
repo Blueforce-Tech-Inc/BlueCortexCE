@@ -7,7 +7,7 @@
 ## 特性
 
 - **零强制依赖** —— 仅需 `requests`
-- **完整 API 覆盖** —— 25 个方法，涵盖会话、捕获、检索、管理、提取
+- **完整 API 覆盖** —— 26 个方法，涵盖会话、捕获、检索、管理、提取
 - **348 个单元测试** —— 全面覆盖客户端、DTO 和 Demo 集成
 - **Python 风格** —— dataclass、kwargs、上下文管理器
 - **Wire 格式兼容** —— JSON 字段名与后端 API 完全一致
@@ -146,7 +146,7 @@ except APIError as e:
 
 1. **零强制依赖** —— 仅需 `requests`
 2. **Python 风格** —— dataclass、kwargs、上下文管理器
-3. **与 Go/Java SDK 兼容** —— 覆盖全部 25 个 API 方法
+3. **与 Go/Java SDK 兼容** —— 覆盖全部 26 个 API 方法
 4. **Fire-and-forget 捕获** —— 捕获操作内部重试并静默错误
 
 ## Wire 格式
