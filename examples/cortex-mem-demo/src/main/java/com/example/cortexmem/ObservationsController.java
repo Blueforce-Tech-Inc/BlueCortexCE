@@ -1,6 +1,7 @@
 package com.example.cortexmem;
 
 import com.ablueforce.cortexce.client.CortexMemClient;
+import com.ablueforce.cortexce.client.dto.ObservationRequest;
 import com.ablueforce.cortexce.client.dto.ObservationsRequest;
 import com.ablueforce.cortexce.client.dto.ObservationUpdate;
 import org.slf4j.Logger;
@@ -120,6 +121,78 @@ public class ObservationsController {
             log.error("Batch observations failed (ids count={})", ids.size(), e);
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Batch observations failed: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * POST /demo/observations/create
+     * Body: {"project":"/path", "session_id":"...", "tool_name":"...", ...}
+     *
+     * Demonstrates direct observation creation via SDK.
+     * Cross-SDK parity: Go /create-observation, Python /observations/create, JS /observations/create.
+     */
+    @PostMapping(value = "/create", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> createObservation(
+            @RequestBody(required = false) Map<String, Object> body) {
+        if (body == null) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "request body is required"));
+        }
+
+        // Required fields
+        Object projectObj = body.get("project");
+        if (!(projectObj instanceof String project) || project.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "project is required"));
+        }
+        Object sessionIdObj = body.get("session_id");
+        if (!(sessionIdObj instanceof String sessionId) || sessionId.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "session_id is required"));
+        }
+        Object toolNameObj = body.get("tool_name");
+        if (!(toolNameObj instanceof String toolName) || toolName.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "tool_name is required"));
+        }
+
+        // Optional fields
+        Integer promptNumber = null;
+        if (body.containsKey("prompt_number") && body.get("prompt_number") instanceof Number n) {
+            promptNumber = n.intValue();
+        }
+        String source = null;
+        if (body.containsKey("source") && body.get("source") instanceof String s) {
+            source = s;
+        }
+        Map<String, Object> extractedData = null;
+        if (body.containsKey("extractedData")) {
+            Object edObj = body.get("extractedData");
+            if (edObj != null && !(edObj instanceof Map<?, ?>)) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "extractedData must be a JSON object"));
+            }
+            @SuppressWarnings("unchecked")
+            Map<String, Object> ed = (Map<String, Object>) edObj;
+            extractedData = ed;
+        }
+
+        try {
+            client.recordObservation(ObservationRequest.builder()
+                    .projectPath(project)
+                    .sessionId(sessionId)
+                    .toolName(toolName)
+                    .toolInput(body.get("tool_input"))
+                    .toolResponse(body.get("tool_response"))
+                    .promptNumber(promptNumber)
+                    .source(source)
+                    .extractedData(extractedData)
+                    .build());
+            return ResponseEntity.ok(Map.of("status", "recorded"));
+        } catch (Exception e) {
+            log.error("Create observation failed", e);
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "Create observation failed: " + e.getMessage()));
         }
     }
 
