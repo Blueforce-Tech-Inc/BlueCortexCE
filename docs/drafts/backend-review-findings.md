@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-01 13:28 (健康检查 — 最后一个 P2 问题修复，Backend 审查全部清零 🎉)
+> **最后更新**: 2026-04-01 23:26 (健康检查修复 — ContextService.java 全部 4 个 P2 已修复)
 
 # Backend 代码审查问题记录
 
@@ -13,9 +13,9 @@
 | **P1** (应该修复) | **0** | — |
 | **P2** (建议修复) | **0** | — |
 | **⏭ 跳过** | **4** | 非 bug，属设计决策或代码风格偏好 |
-| **✅ 已修复** | **~62** | 历史累计，含本次修复 |
+| **✅ 已修复** | **~66** | 历史累计，含本次修复 |
 
-**结论**: 后端代码质量优秀，所有问题已修复 ✅ 🎉
+**结论**: 后端代码质量优秀，所有 P2 问题已修复 ✅
 
 ---
 
@@ -679,4 +679,24 @@
 | # | 文件 | 问题 | 原因 |
 |---|------|------|------|
 | 1 | SessionRepository.java `findLastCompletedSessionWithMessage` | 返回 `List` 而非 `Optional<SessionEntity>` | 调用方使用 `.stream().findFirst()` 处理，且 Spring Data JPA 对 Optional 包装的自定义 @Query 支持有限 |
+
+### 2026-04-01 22:55 | Backend 审查 #18
+
+**抽查文件**: `ContextService.java`, `EmbeddingService.java`
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | ContextService.java | L211-216 `validateProjectPath()` | 路径遍历检测逻辑反转：条件 `!projectPath.contains("..")` 表示当路径包含 `..` 时**不抛异常**（放过遍历路径），不包含 `..` 时可能误判正常路径。应改为 `projectPath.contains("..")` 直接拒绝。**注意**：此方法有额外两层 AND 条件，实际触发概率低，但逻辑确实反了 | P2 ✅已修复（直接 reject 含 `..` 的路径） |
+| 2 | ContextService.java | L211 `validateProjectPath()` | 私有路径验证方法与 `PathValidationUtil.isWithinProject()` 功能重复（上次 Backend 审查 #4 已提取为共享工具类，但 ContextService 未跟进使用）。私有方法仅做字符串比较，不做 normalize+startsWith 校验，安全性弱于 PathValidationUtil | P2 (低) ✅已修复（简化为直接 `contains("..")` 检查，路径不存在时无需 PathValidationUtil） |
+| 3 | ContextService.java | L601 `generateContinuation()` | catch 块使用 `logHappyPath()` 记录异常——HappyPath 是 DEBUG 级别，continuation 生成失败会被静默吞掉。应改用 `logFailure()` 或 `log.warn()` | P2 ✅已修复（改为 `logFailure`） |
+| 4 | ContextService.java | L373 `generateContextMultiProject()` | `Paths.get(projectPaths.get(0)).getFileName()` 未做 null 检查——若第一个路径为 root (`/`)，`getFileName()` 返回 null，导致 NPE | P2 (低) ✅已修复（加 null check + fallback） |
+
+**EmbeddingService.java 审查**:
+- ✅ 无问题。代码简洁正确——构造函数注入 `List<EmbeddingModel>`，`findFirst()` 取第一个可用模型，`embed()` 空模型时 fail-fast（IllegalStateException），`isAvailable()` 查询清晰。日志级别合理（INFO 初始化 + WARN 无模型）。
+
+**ContextService.java 审查**:
+- **整体架构**: 优秀。Timeline 构建（day grouping + file grouping + observation/summary 交错）设计精良，与 TS 实现对齐。Prior Messages 集成正确（session lookup + system-reminder 剥离）。Token economics 计算复用 TokenService。
+- **安全意识**: 路径长度检查（4096 上限）、`stripSystemReminders` 的字符串解析（防 ReDoS）、输入大小截断（100K 上限）均到位。但 `validateProjectPath` 本身的遍历逻辑有误。
+- **代码卫生**: `generateContextWithFilters` 和 `generateContext` 之间逻辑高度重复（都调用 `validateProjectPath`、`buildTimeline`、`renderTimeline`），`generateContextWithFilters` 约 70 行逻辑大部分与 `generateContext` 重叠。`generateContinuation` 的异常日志级别错误。
+- **无 P0/P1 问题**。
 

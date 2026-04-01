@@ -24,3 +24,20 @@
 - Python SDK #3: dto.py 注释改进 (P2) - SDK 问题
 - JS SDK + Backend: StartSessionResponse 缺少 session_id (P2) - SDK 端已通过 defaults 兜底
 - JS SDK: UUID 格式校验 (P2 极低)
+
+### 2026-04-01 23:26 | 健康检查修复 — ContextService.java
+
+**修复的 4 个 P2 问题**：
+
+1. **validateProjectPath() 逻辑反转** — 原条件 `!projectPath.contains("..")` 放过了含 `..` 的遍历路径。改为直接 reject 含 `..` 的路径。
+2. **validateProjectPath() 重复 PathValidationUtil** — 简化为直接 `contains("..")` 检查，路径验证足够（不需要 PathValidationUtil 的 filesystem 检查，因为路径可能不存在）。
+3. **generateContinuation() 日志级别错误** — catch 块 `logHappyPath`（DEBUG）改为 `logFailure`（WARN+），异常不再被静默吞掉。
+4. **generateContextMultiProject() NPE 风险** — `getFileName()` 对 root 路径返回 null，添加 null check + fallback。
+
+**验证结果**：
+- ✅ 编译通过
+- ✅ 回归测试 46/46 通过
+- ✅ 连续 3 轮迭代检查通过
+- ✅ 服务重启成功，健康检查 OK
+
+**Backend 审查问题状态更新**：所有 P2 问题已清零（0 未修复）

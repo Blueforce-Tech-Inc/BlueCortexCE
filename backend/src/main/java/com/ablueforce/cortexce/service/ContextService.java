@@ -209,13 +209,11 @@ public class ContextService implements LogHelper {
         }
         // Normalize the path to resolve any relative components
         java.nio.file.Path normalized = java.nio.file.Paths.get(projectPath).normalize();
-        // Check for path traversal attempts by comparing normalized path
         String normalizedStr = normalized.toString();
-        if (!normalizedStr.equals(projectPath) &&
-            !normalizedStr.startsWith(projectPath) &&
-            !projectPath.contains("..")) {
-            logFailure("Potential path traversal attempt: {}", projectPath);
-            throw new IllegalArgumentException("Invalid project path");
+        // Reject path traversal attempts: if ".." present, normalized result should not escape
+        if (projectPath.contains("..")) {
+            logFailure("Path traversal attempt rejected: {}", projectPath);
+            throw new IllegalArgumentException("Invalid project path: path traversal not allowed");
         }
         return normalizedStr;
     }
@@ -398,7 +396,9 @@ public class ContextService implements LogHelper {
             return renderEmptyState("unknown");
         }
 
-        String project = Paths.get(projectPaths.get(0)).getFileName().toString();
+        String project = Paths.get(projectPaths.get(0)).getFileName() != null
+                ? Paths.get(projectPaths.get(0)).getFileName().toString()
+                : Paths.get(projectPaths.get(0)).toString();
 
         // P2: Use interleaved sorting - query each project separately, merge by time
         List<String> types = new ArrayList<>(config.getObservationTypes());
@@ -966,7 +966,7 @@ public class ContextService implements LogHelper {
                 }
             }
         } catch (Exception e) {
-            logHappyPath("Failed to generate continuation for {}: {}", projectPath, e.getMessage());
+            logFailure("Failed to generate continuation for {}: {}", projectPath, e.getMessage());
         }
         return "";
     }
