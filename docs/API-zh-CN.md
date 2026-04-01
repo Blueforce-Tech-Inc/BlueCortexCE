@@ -2248,6 +2248,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-01 | 0.1.0-beta++++++ | 修正搜索策略值——实际代码返回 hybrid/tsvector/filter/recent/none（非 vector/text）；更新响应示例和策略说明；同步英文版 |
 | 2026-04-01 | 0.1.0-beta+7 | 补充英文版 Ingest 章节（参数表、响应示例、错误响应——中文版已完整但英文版严重缺失）；补充中英文 Quality Distribution 参数表、响应示例及 `unknown` 字段；修正 Batch Get Observations `orderBy` 示例（`created_at` → `created_at_epoch`）；补充英文版 Create Observation 参数表 |
 | 2026-04-01 | 0.1.0-beta+8 | 修正 Get Settings 响应格式——实际代码返回 20 个 `CLAUDE_MEM_*` 字段 + modeName/modeDescription（非简单 mode/modeName/modeDescription）；记录所有 CLAUDE_MEM_* 字段及类型和默认值；修正 Update Settings 接受 `CLAUDE_MEM_*` 字段名及 `mode` 简写；同步英文版；修正 PATCH observations 响应 status 值 `ok` → `updated` |
+| 2026-04-01 | 0.1.0-beta+9 | 补充英文版 PATCH /api/memory/observations 章节（路径参数、响应示例、错误响应——中文版已完整）；补充英文版 DELETE /api/memory/observations 路径参数 |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---

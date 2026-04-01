@@ -419,7 +419,15 @@ Triggers memory refinement for a project. Refinement re-evaluates observation qu
 ```
 PATCH /api/memory/observations/{observationId}
 Content-Type: application/json
+```
 
+Partially updates an observation. Only fields present in the request body are updated; null values clear the field, absent fields are left unchanged.
+
+**Path Parameters**:
+- `observationId` — Observation UUID
+
+**Request Body**:
+```json
 {
   "title": "Updated title",
   "source": "manual",
@@ -429,11 +437,26 @@ Content-Type: application/json
 
 Supported fields: `title`, `content` (or `narrative`), `subtitle`, `source`, `facts`, `concepts`, `extractedData`. Null values clear the field; absent fields are left unchanged.
 
+**Response** (`200 OK`):
+```json
+{
+  "status": "updated",
+  "id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**Error Responses**:
+- `400` — Invalid field types in request body (e.g., `title must be a string`)
+- `404` — Observation with given UUID not found
+
 ### Delete Observation
 
 ```
 DELETE /api/memory/observations/{observationId}
 ```
+
+**Path Parameters**:
+- `observationId` — Observation UUID
 
 **Response** (`200 OK`):
 ```json
@@ -2065,6 +2088,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-01 | 0.1.0-beta++++++ | Corrected Search strategy values — actual code returns hybrid/tsvector/filter/recent/none (not vector/text); updated response example and strategy description; synced Chinese version |
 | 2026-04-01 | 0.1.0-beta+7 | Enriched English Ingest section with parameter tables, response examples, and error responses (was severely incomplete vs Chinese); enriched English Quality Distribution with parameter table, response example, and `unknown` field; enriched Chinese Quality Distribution with parameter table and `unknown` field; corrected `orderBy` example in Batch Get Observations (`created_at` → `created_at_epoch`); added parameter table to Create Observation (EN) |
 | 2026-04-01 | 0.1.0-beta+8 | Corrected Get Settings response format — actual code returns 20 `CLAUDE_MEM_*` fields + modeName/modeDescription (not simple mode/modeName/modeDescription); documented all CLAUDE_MEM_* fields with types and defaults; corrected Update Settings to accept `CLAUDE_MEM_*` field names with `mode` shorthand; synced Chinese version |
+| 2026-04-01 | 0.1.0-beta+9 | Enriched English PATCH /api/memory/observations section with path parameter, response example (`status:updated`), and error responses (was severely incomplete vs Chinese); added path parameter to English DELETE /api/memory/observations |
 | 2026-03-13 | 0.1.0 | Initial API documentation |
 
 ---
