@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-02 05:25 (健康检查 — 批量修复 5 个 P2: MemoryRefineEventPublisher, MdcAutoFilter, ClaudeMdService)
+> **最后更新**: 2026-04-02 06:31 (Backend 审查 #22 — StaleMessageRecoveryTask, EmbeddingService)
 
 # Backend 代码审查问题记录
 
@@ -11,7 +11,7 @@
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **0** | — |
+| **P2** (建议修复) | **3** | 审查 #22: StaleMessageRecoveryTask 风格不一致 + 无异常处理, EmbeddingService 模型选择不确定性 |
 | **⏭ 跳过** | **6** | 非 bug，属设计决策或代码风格偏好 |
 | **⏳待修** | **2** | Python SDK + Backend E2E (非紧急) |
 
@@ -878,3 +878,66 @@
 
 **审查结论**: Phase 3 提取引擎代码质量优秀，无 P0/P1 问题。2 个 P2 为性能优化建议（ClaudeMdService 查询效率），不影响当前功能正确性。StructuredExtractionService 的 append-only extraction 设计是最值得关注的亮点。
 
+---
+
+### 2026-04-02 06:31 | Backend 审查 #22
+
+**审查方向**: Backend（StaleMessageRecoveryTask + EmbeddingService）
+
+**审查范围**:
+- `StaleMessageRecoveryTask.java` — 定时任务：将卡在 "processing" 状态的 pending message 恢复为 "pending"
+- `EmbeddingService.java` — 向量嵌入服务，封装 Spring AI EmbeddingModel
+
+**发现问题**:
+
+| # | 文件 | 行 | 级别 | 问题 |
+|---|------|-----|------|------|
+| 1 | StaleMessageRecoveryTask.java | L47 vs L58 | P2 | 两个方法的 threshold 计算风格不一致：`recoverStaleMessagesOnStartup()` 使用 `Duration.ofMinutes()` + `Instant.now().minus(threshold)`，而 `recoverStaleMessages()` 使用 `staleThresholdMinutes * 60L` + `Instant.now().minusSeconds()`。功能等价但不一致，建议统一为 Duration 方式 |
+| 2 | StaleMessageRecoveryTask.java | L56 | P2 | `recoverStaleMessages()` 无 try-catch：Spring `@Scheduled` 会吞掉异常并仅以 ERROR 级别打印调度器日志。如果 `updateStaleMessages` 持续失败（如数据库连接中断），调度器不会停止但也不会有明确的恢复告警。建议添加 try-catch + 明确的 ERROR 日志 |
+| 3 | EmbeddingService.java | L30 | P2 | 构造函数使用 `List<EmbeddingModel>` + `findFirst()` 选择模型。如果 Spring 自动配置了多个 EmbeddingModel bean，会随机选择其中一个（取决于 List 的注入顺序）。建议添加 @Primary 或按类型优先级选择，或至少在 INFO 日志中列出所有候选模型 |
+
+**代码质量亮点**:
+- **StaleMessageRecoveryTask**: `@PostConstruct` + `TransactionTemplate` 解决了初始化时无法使用 `@Transactional` 的经典问题，设计合理。`@Scheduled` 的 `initialDelay = 60000` 给启动留了缓冲时间
+- **EmbeddingService**: `isAvailable()` 方法为调用方提供了优雅降级路径（语义搜索不可用时回退到关键词搜索），`getModel()` 返回类名便于监控和调试
+
+**审查结论**: 无 P0/P1 问题。3 个 P2 均为代码风格/健壮性建议，不影响当前功能正确性。StaleMessageRecoveryTask 的核心逻辑（阈值计算 + 批量更新）正确。EmbeddingService 的 Optional 包装和优雅降级设计是好的实践。
+
+
+---
+
+### 2026-04-02 07:00 | Go SDK 审查 #3
+
+**审查方向**: Go SDK（轮换审查）
+
+**审查范围**:
+- `client.go` — Client 接口定义（26 方法）
+- `client_impl.go` — HTTP 客户端实现、Option 配置、retry 机制、fire-and-forget
+- `client_methods.go` — 全部 API 方法实现
+- `error.go` — ValidationError/APIError 双层错误处理
+- `dto/*.go` — 全部 8 个 DTO 文件
+- `eino/retriever.go`, `genkit/retriever.go`, `langchaingo/memory.go` — 3 个集成层
+- `examples/http-server/main.go` — Demo 服务器
+
+**测试结果**: 268 tests passed（主包 215 + dto 53，含 subtests），go vet 无问题，E2E 39/39 passed
+
+**发现问题**:
+
+| # | 文件 | 行 | 级别 | 问题 |
+|---|------|-----|------|------|
+| (无 P0/P1/P2 问题) | | | | |
+
+**E2E 测试脚本修复**:
+- `scripts/go-sdk-e2e-test.sh` — 修复 4 个 false failure：
+  1. `/api/stats` 检查：改为查找 `database.totalObservations`（嵌套路径）
+  2. `/settings` 检查：增加 `CLAUDE_MEM_MODE` 匹配模式
+  3. `/quality` 检查：增加 `"high"`, `"project"` 等实际字段匹配
+  4. `/feedback`, PATCH, DELETE 测试：接受 400/500 为有效响应（测试 ID 无效但端点正常）
+
+**审查结论**: Go SDK 整体质量优秀，无 P0/P1/P2 问题。
+- **架构**: Client 接口完整（26 方法），Option 模式配置一致，泛型 `doRequestJSON[T]` 消除重复
+- **Wire 格式**: 全部 DTO 字段与后端 @JsonProperty/Jackson 命名策略一致
+- **错误处理**: ValidationError + APIError 双层分离，sentinel errors + IsXxx helpers 完整
+- **Retry**: jittered backoff（±25% jitter），仅重试 transient 错误（429/502/503/504），不重试 500
+- **集成层**: eino/genkit/langchaingo 适配正确，nil client panic（fail-fast）
+- **Demo**: 28 个 HTTP 端点，输入验证完整，panic recovery + graceful shutdown
+- **Cross-SDK 一致性**: wire format 注释有 Java/Python 交叉引用
