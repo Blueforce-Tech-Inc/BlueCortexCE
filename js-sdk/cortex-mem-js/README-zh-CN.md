@@ -9,7 +9,7 @@
 - **零依赖** —— 使用内置 `fetch` API（Node 18+、浏览器、Deno、Bun）
 - **完整 TypeScript 支持** —— 所有 DTO 的完整类型定义
 - **25 个 API 方法** —— 覆盖 Go/Java SDK 的所有端点
-- **202 个单元测试** —— 全面覆盖 Wire 格式和客户端行为
+- **204 个单元测试** —— 全面覆盖 Wire 格式和客户端行为
 - **双格式 CJS + ESM** —— 同时支持 CommonJS 和 ES Modules
 - **Fire-and-forget 捕获** —— 非阻塞的观察记录，内置重试机制
 
