@@ -394,11 +394,22 @@ public class AgentService implements LogHelper {
 
             logSuccess("Processed pending message: {}", pendingMessageId);
 
+        } catch (DataIntegrityViolationException e) {
+            logDataIn("Duplicate pending message detected (concurrent insert): id={}", pendingMessageId);
         } catch (Exception e) {
-            log.error("Failed to process pending message: {}", pendingMessageId, e);
-            pending.setStatus("failed");
-            pending.setCompletedAtEpoch(System.currentTimeMillis());
-            pendingMessageRepository.save(pending);
+            logFailure("Error processing pending message: {}", pendingMessageId, e);
+            boolean isRetryable = isRetryableException(e);
+            if (pending != null) {
+                int maxRetries = 3; // Default retry limit, consistent with processToolUseAsync
+                if (isRetryable) {
+                    pendingMessageRepository.markFailedWithRetry(
+                        pendingMessageId, maxRetries, System.currentTimeMillis());
+                } else {
+                    pending.setStatus("failed");
+                    pending.setCompletedAtEpoch(System.currentTimeMillis());
+                    pendingMessageRepository.save(pending);
+                }
+            }
         }
     }
 
@@ -481,11 +492,16 @@ public class AgentService implements LogHelper {
     /**
      * Calculate SHA-256 hash for observation content.
      * Returns first 16 characters to fit VARCHAR(16) column.
+     * Returns null for empty content to avoid false-positive dedup.
      */
     private String calculateContentHash(String content) {
+        if (content == null || content.isEmpty()) {
+            // All fields were null — return null to skip dedup (no meaningful content to hash)
+            return null;
+        }
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(content != null ? content.getBytes(StandardCharsets.UTF_8) : new byte[0]);
+            byte[] hash = digest.digest(content.getBytes(StandardCharsets.UTF_8));
             StringBuilder hexString = new StringBuilder();
             for (byte b : hash) {
                 String hex = Integer.toHexString(0xff & b);

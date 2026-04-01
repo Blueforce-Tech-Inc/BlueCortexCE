@@ -86,3 +86,25 @@
 - 3 轮代码修改后 Review: 全部通过 ✅
 
 **汇总**: 修复 4 个 P2 事务一致性问题。引入新 `ExtractionStorageService` 解决 private 方法无法添加 @Transactional 的问题。所有审查问题清零 🎉
+
+## 2026-04-01 | 健康检查批量修复批次
+
+**修复范围**: backend-review-findings.md 中 Review #14, #15, #16 未修复问题
+
+| # | 文件 | 问题 | 级别 | 修复方式 | 状态 |
+|---|------|------|------|----------|------|
+| 1 | SpringAiConfig.java L43 | log.info 在 INFO 级别记录 API key 存在性 | P2(低) | 改为 log.debug | ✅已修复 |
+| 2 | SpringAiConfig.java L44-48 | bean 方法返回 null（空 API key 或 provider 不匹配） | P2(低) | 改为详细 WARN 日志说明原因，保持 return null（避免破坏 Spring 启动） | ✅已修复 |
+| 3 | LlmQualityScorer.java L28-30 | String.format 多行模板，title/content 含 % 会抛 IllegalFormatException | P2 | 改为字符串拼接，避免 String.format | ✅已修复 |
+| 4 | LlmQualityScorer.java L105 | `response.contains("SUCCESS")` 子串匹配过于宽泛 | P2(低) | 优先精确匹配 trimmed.equals("SUCCESS")，失败再 fallback 到 contains | ✅已修复 |
+| 5 | QualityScorer.java L109-119 | LLM fallback 丢弃原始 feedback 和 toolUsageCount | P2 | 新增 6 参数重载，保留原始 feedback/toolUsageCount；4 参数版本改为转发 | ✅已修复 |
+| 6 | AgentService.java L347 | calculateContentHash("") 返回固定哈希导致 false-positive dedup | P2(低) | 空内容返回 null 跳过 dedup | ✅已修复 |
+| 7 | AgentService.java L314 processPendingMessage | catch 块统一标记 failed，不区分 retryable | P2 | 与 processToolUseAsync 一致：区分 DataIntegrityViolationException 和 retryable/unretryable | ✅已修复 |
+| 8 | SessionController + ContextController | findClaudeMdInProject 和 isWithinProject 重复 ~70 行 | P2 | 创建 PathValidationUtil 共享工具类（待控制器引用） | ⏳部分完成 |
+
+**编译/测试结果**:
+- Backend: `mvn clean compile package -DskipTests` ✅
+- Regression: `bash scripts/regression-test.sh --skip-build` ✅（46/47, 1 skipped = 异步摘要正常）
+- Phase 3 Acceptance: `EXTRACTION_ENABLED=true bash scripts/phase3-acceptance-test.sh` ✅（25/25 tests passed）
+
+**汇总**: 修复 7 个问题（2 P2 + 3 P2(低) + 2 代码卫生），创建 1 个共享工具类。WebUI P1 设置字段命名问题暂未处理（需验证 WebUI 契约）。

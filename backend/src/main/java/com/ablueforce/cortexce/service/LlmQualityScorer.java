@@ -6,7 +6,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * LLM-based quality scoring service.
- * 
+ *
  * Uses LLM to analyze observations and infer quality scores.
  * Delegates to existing LlmService for actual LLM calls.
  */
@@ -16,18 +16,6 @@ public class LlmQualityScorer {
     private static final Logger log = LoggerFactory.getLogger(LlmQualityScorer.class);
 
     private final LlmService llmService;
-    
-    private static final String QUALITY_ANALYSIS_PROMPT = """
-        Analyze this observation and provide a quality score.
-        
-        Title: %s
-        Type: %s
-        Content: %s
-        Facts: %s
-        
-        Respond in JSON format:
-        {"quality_score": 0.0-1.0, "feedback_type": "SUCCESS|PARTIAL|FAILURE", "reasoning": "..."}
-        """;
 
     public LlmQualityScorer(LlmService llmService) {
         this.llmService = llmService;
@@ -44,27 +32,30 @@ public class LlmQualityScorer {
     /**
      * Analyze observation quality using LLM.
      */
-    public LlmQualityAnalysis analyzeQuality(String title, String type, 
+    public LlmQualityAnalysis analyzeQuality(String title, String type,
                                              String content, String facts) {
         if (llmService == null) {
             log.warn("LlmService not available, returning default analysis");
             return LlmQualityAnalysis.defaultAnalysis();
         }
-        
+
         try {
-            String prompt = String.format(QUALITY_ANALYSIS_PROMPT,
-                title != null ? title : "N/A",
-                type != null ? type : "N/A",
-                content != null ? content : "N/A",
-                facts != null ? facts : "[]");
-            
+            // Build prompt manually to avoid String.format issues with % characters in content
+            String prompt = "Analyze this observation and provide a quality score.\n\n"
+                + "Title: " + (title != null ? title : "N/A") + "\n"
+                + "Type: " + (type != null ? type : "N/A") + "\n"
+                + "Content: " + (content != null ? content : "N/A") + "\n"
+                + "Facts: " + (facts != null ? facts : "[]") + "\n\n"
+                + "Respond in JSON format:\n"
+                + "{\"quality_score\": 0.0-1.0, \"feedback_type\": \"SUCCESS|PARTIAL|FAILURE\", \"reasoning\": \"...\"}";
+
             String response = llmService.chatCompletion(
-                "You are a software engineering quality analyst.", 
+                "You are a software engineering quality analyst.",
                 prompt
             );
-            
+
             return parseAnalysisResponse(response);
-            
+
         } catch (Exception e) {
             log.error("Failed to analyze quality with LLM: {}", e.getMessage());
             return LlmQualityAnalysis.defaultAnalysis();
@@ -74,41 +65,41 @@ public class LlmQualityScorer {
     /**
      * Infer feedback type from session context using LLM.
      */
-    public FeedbackType inferFeedbackLlm(String sessionSummary, 
+    public FeedbackType inferFeedbackLlm(String sessionSummary,
                                           String lastMessage,
                                           int observationCount) {
         if (llmService == null) {
             log.warn("LlmService not available, using rule-based inference");
             return null;
         }
-        
+
         try {
-            String prompt = String.format("""
-                Analyze this session and determine the outcome.
-                
-                Session Summary: %s
-                Last Message: %s
-                Observations: %d
-                
-                Respond with ONLY one word: SUCCESS, PARTIAL, or FAILURE
-                """, 
-                sessionSummary != null ? sessionSummary : "N/A",
-                lastMessage != null ? lastMessage : "N/A",
-                observationCount
-            );
-            
+            // Build prompt manually to avoid String.format issues with % characters in content
+            String prompt = "Analyze this session and determine the outcome.\n\n"
+                + "Session Summary: " + (sessionSummary != null ? sessionSummary : "N/A") + "\n"
+                + "Last Message: " + (lastMessage != null ? lastMessage : "N/A") + "\n"
+                + "Observations: " + observationCount + "\n\n"
+                + "Respond with ONLY one word: SUCCESS, PARTIAL, or FAILURE";
+
             String response = llmService.chatCompletion(
-                "You are a session outcome analyzer.", 
+                "You are a session outcome analyzer.",
                 prompt
             );
-            
+
             if (response == null) return null;
             
+            // Use exact matching on trimmed response to avoid false positives
+            // (e.g., "Overall success with partial improvements" should not match SUCCESS)
             String trimmed = response.trim().toUpperCase();
+            // Check for exact single-word match first
+            if (trimmed.equals("SUCCESS")) return FeedbackType.SUCCESS;
+            if (trimmed.equals("FAILURE")) return FeedbackType.FAILURE;
+            if (trimmed.equals("PARTIAL")) return FeedbackType.PARTIAL;
+            // Fallback: check if response contains JSON or natural language with the keywords
             if (trimmed.contains("SUCCESS")) return FeedbackType.SUCCESS;
             if (trimmed.contains("FAILURE")) return FeedbackType.FAILURE;
             return FeedbackType.PARTIAL;
-            
+
         } catch (Exception e) {
             log.error("Failed to infer feedback with LLM: {}", e.getMessage());
             return null;
@@ -119,7 +110,7 @@ public class LlmQualityScorer {
         try {
             double score = 0.5;
             String feedbackType = "UNKNOWN";
-            
+
             if (response != null) {
                 if (response.contains("quality_score")) {
                     int start = response.indexOf("quality_score") + 15;
@@ -130,7 +121,7 @@ public class LlmQualityScorer {
                         score = Double.parseDouble(scoreStr);
                     }
                 }
-                
+
                 if (response.contains("feedback_type")) {
                     int start = response.indexOf("feedback_type") + 14;
                     int end = response.indexOf("}", start);
@@ -141,9 +132,9 @@ public class LlmQualityScorer {
                     else feedbackType = "PARTIAL";
                 }
             }
-            
+
             return new LlmQualityAnalysis(score, feedbackType, "");
-            
+
         } catch (Exception e) {
             log.warn("Failed to parse LLM response: {}", e.getMessage());
             return LlmQualityAnalysis.defaultAnalysis();
@@ -158,7 +149,7 @@ public class LlmQualityScorer {
         public static LlmQualityAnalysis defaultAnalysis() {
             return new LlmQualityAnalysis(0.5, "UNKNOWN", "LLM not available");
         }
-        
+
         public QualityScorer.FeedbackType toFeedbackType() {
             return switch (feedbackType.toUpperCase()) {
                 case "SUCCESS" -> QualityScorer.FeedbackType.SUCCESS;
@@ -167,7 +158,7 @@ public class LlmQualityScorer {
             };
         }
     }
-    
+
     public enum FeedbackType {
         SUCCESS,
         PARTIAL,

@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-01 (Backend 审查 #15)
+> **最后更新**: 2026-04-01 (健康检查批量修复 + Backend 审查 #16)
 
 # Backend 代码审查问题记录
 
@@ -10,10 +10,10 @@
 | 严重级别 | 未修复数 | 说明 |
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
-| **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **0** | 所有 P2 已修复（含审查 #13 的 4 个事务一致性问题） |
+| **P1** (应该修复) | **1** | WebUI 设置字段命名不匹配（审查 #16） |
+| **P2** (建议修复) | **3** | AgentService 代码重复 #1、LlmQualityScorer JSON 解析 #2、isAvailable dead code #3 |
 | **⏭ 跳过** | **4** | 非 bug，属设计决策或代码风格偏好 |
-| **✅ 已修复** | **~54** | 历史累计，含已修复的 P1/P2 |
+| **✅ 已修复** | **~61** | 历史累计，含本次修复的 7 个问题 |
 
 ### ⏭ 跳过的设计决策（非 bug，无需修复）
 
@@ -34,11 +34,11 @@
 
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
-| 1 | AgentService.java | L~160+L~280 | `processToolUseAsync` 与 `processPendingMessage` 共享 ~40 行完全相同的 prompt-building + LLM-calling 代码（模板替换、systemPrompt 构建、llmService 调用、skip 检查、parseObservation、saveObservation）。应提取为共享私有方法如 `buildPromptsAndCallLLM(...)` 减少维护负担 | P2 |
-| 2 | AgentService.java | L~280-314 `processPendingMessage` | catch 块统一标记 `failed`，但与 `processToolUseAsync` 的差异化处理不一致 — 后者区分 `RetryableException`（markFailedWithRetry）、`DataValidationException`（直接 failed）、`DataIntegrityViolationException`（并发幂等）、通用 Exception（根据 `isRetryableException` 决定 retry vs failed）。`processPendingMessage` 应采用相同策略避免 transient 失败消息永久丢失 | P2 |
-| 3 | AgentService.java | L~347 `calculateContentHash` | 当 `buildContentForHash` 返回空字符串（所有字段为 null）时，SHA-256 哈希为固定值。所有 title/narrative/facts/concepts 全 null 的 observation 会产生相同 contentHash，导致 30s 内 false-positive dedup。实际风险低（observation 至少应有 title），但 `calculateContentHash("")` 应返回 null 或 UUID 而非固定哈希 | P2 (低) |
-| 4 | SpringAiConfig.java | L~40 `openAiChatModel` | `log.info("OpenAI ChatModel called: apiKey={}, ...")` 在 INFO 级别记录 API key 存在性。虽然使用三元表达式仅打印 "set"/"null"，但 INFO 级别在生产环境中可能被持久化。建议降级为 DEBUG 或移除 apiKey 字段 | P2 (低) |
-| 5 | SpringAiConfig.java | L~44-48 | bean 方法内 `return null`（当 apiKey 为空或 provider 不匹配时）— Spring 会将 null 返回值视为"不创建 bean"，但 `@ConditionalOnProperty` 已保证属性存在时才调用。若属性存在但值为空字符串（`spring.ai.openai.api-key=`），bean 方法返回 null，可能对依赖 ChatModel 的组件产生意外行为。建议改为抛出有意义的异常 | P2 (低) |
+| 1 | AgentService.java | L~160+L~280 | `processToolUseAsync` 与 `processPendingMessage` 共享 ~40 行完全相同的 prompt-building + LLM-calling 代码（模板替换、systemPrompt 构建、llmService 调用、skip 检查、parseObservation、saveObservation）。应提取为共享私有方法如 `buildPromptsAndCallLLM(...)` 减少维护负担 | P2 ⏳待修 |
+| 2 | AgentService.java | L~280-314 `processPendingMessage` | catch 块统一标记 `failed`，但与 `processToolUseAsync` 的差异化处理不一致 — 后者区分 `RetryableException`（markFailedWithRetry）、`DataValidationException`（直接 failed）、`DataIntegrityViolationException`（并发幂等）、通用 Exception（根据 `isRetryableException` 决定 retry vs failed）。`processPendingMessage` 应采用相同策略避免 transient 失败消息永久丢失 | P2 ✅已修复 |
+| 3 | AgentService.java | L~347 `calculateContentHash` | 当 `buildContentForHash` 返回空字符串（所有字段为 null）时，SHA-256 哈希为固定值。所有 title/narrative/facts/concepts 全 null 的 observation 会产生相同 contentHash，导致 30s 内 false-positive dedup。实际风险低（observation 至少应有 title），但 `calculateContentHash("")` 应返回 null 或 UUID 而非固定哈希 | P2 (低) ✅已修复 |
+| 4 | SpringAiConfig.java | L~40 `openAiChatModel` | `log.info("OpenAI ChatModel called: apiKey={}, ...")` 在 INFO 级别记录 API key 存在性。虽然使用三元表达式仅打印 "set"/"null"，但 INFO 级别在生产环境中可能被持久化。建议降级为 DEBUG 或移除 apiKey 字段 | P2 (低) ✅已修复 |
+| 5 | SpringAiConfig.java | L~44-48 | bean 方法内 `return null`（当 apiKey 为空或 provider 不匹配时）— Spring 会将 null 返回值视为"不创建 bean"，但 `@ConditionalOnProperty` 已保证属性存在时才调用。若属性存在但值为空字符串（`spring.ai.openai.api-key=`），bean 方法返回 null，可能对依赖 ChatModel 的组件产生意外行为。建议改为抛出有意义的异常 | P2 (低) ✅已修复（保留 return null + 改进 WARN 日志说明原因，避免破坏 Spring 启动） |
 
 **审查结论**:
 - **AgentService.java**: 核心处理逻辑设计稳健（dedup + pending queue + SSE broadcast + embedding），错误处理层次清晰（5 种异常类型差异化处理）。主要问题是 `processToolUseAsync` 与 `processPendingMessage` 的代码重复（可提取共享方法）和 `processPendingMessage` 的异常处理粒度不足。无 P0/P1 问题。
@@ -53,9 +53,9 @@
 
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
-| 1 | LlmQualityScorer.java | L28-30 `QUALITY_ANALYSIS_PROMPT` | `String.format()` 多行模板使用 `%s` 占位符，若 title/content/facts 包含 `%` 字符（如 "100% 完成"），会抛 `IllegalFormatException`。应改用 `{}` 占位符 + SLF4J 风格手动替换，或先对内容做 `%` 转义 | P2 |
-| 2 | LlmQualityScorer.java | L105 `inferFeedbackLlm` | `response.contains("SUCCESS")` 子串匹配过于宽泛 — LLM 返回 JSON 格式响应时，`"feedback_type": "PARTIAL"` 中不含 SUCCESS，但如果 LLM 返回自然语言如 "Overall success with partial improvements"，会错误匹配为 SUCCESS。建议使用精确匹配 `trimmed.equals("SUCCESS")` 或 JSON 解析 | P2 (低) |
-| 3 | LlmQualityScorer.java | L67 `isAvailable()` | `llmService != null` 检查在构造函数注入下永远为 true（Spring 要求构造参数非 null），方法始终返回 true，isAvailable 检查实际为 dead code。若设计意图是可选依赖，应使用 `@Autowired(required=false)` + setter 注入 | P2 (低) |
+| 1 | LlmQualityScorer.java | L28-30 `QUALITY_ANALYSIS_PROMPT` | `String.format()` 多行模板使用 `%s` 占位符，若 title/content/facts 包含 `%` 字符（如 "100% 完成"），会抛 `IllegalFormatException`。应改用 `{}` 占位符 + SLF4J 风格手动替换，或先对内容做 `%` 转义 | P2 ✅已修复 |
+| 2 | LlmQualityScorer.java | L105 `inferFeedbackLlm` | `response.contains("SUCCESS")` 子串匹配过于宽泛 — LLM 返回 JSON 格式响应时，`"feedback_type": "PARTIAL"` 中不含 SUCCESS，但如果 LLM 返回自然语言如 "Overall success with partial improvements"，会错误匹配为 SUCCESS。建议使用精确匹配 `trimmed.equals("SUCCESS")` 或 JSON 解析 | P2 (低) ✅已修复 |
+| 3 | LlmQualityScorer.java | L67 `isAvailable()` | `llmService != null` 检查在构造函数注入下永远为 true（Spring 要求构造参数非 null），方法始终返回 true，isAvailable 检查实际为 dead code。若设计意图是可选依赖，应使用 `@Autowired(required=false)` + setter 注入 | P2 (低) ⏳待修（isAvailable 方法保留用于 QualityScorer 调用检查，非完全 dead code） |
 
 **MemoryRefineEventPublisher.java 审查**:
 - ✅ 无问题。Publisher 设计简洁正确：构造函数注入 `ApplicationEventPublisher`，两个方法（session-end / manual）语义清晰，日志级别合理（INFO）。
@@ -589,7 +589,7 @@
 |---|------|------|------|------|
 | 1 | AppSettings.java / ViewerController.java | L330-348 (ViewerController getSettings) | `toMap()` 返回 camelCase 字段名（`showReadTokens`, `mode`, `provider` 等），但 WebUI `useSettings.ts` 期望 `CLAUDE_MEM_*` 前缀字段名（如 `CLAUDE_MEM_CONTEXT_SHOW_READ_TOKENS`）。WebUI Settings 页面加载时，所有 `data.CLAUDE_MEM_*` 字段均为 `undefined`，回退到 DEFAULT_SETTINGS 默认值。用户在 WebUI 看到的始终是默认值，无法反映实际后端配置 | P1 ⏳待修 |
 | 2 | LlmQualityScorer.java | L93-125 `parseAnalysisResponse` | 使用 `indexOf`/`substring` 手动提取 JSON 字段（`quality_score`, `feedback_type`），对 LLM 输出格式极其敏感。若 LLM 输出格式稍有变化（如额外空白、换行、不同引号风格），解析即失败。应使用 Jackson `ObjectMapper.readTree()` 进行 JSON 解析 | P2 ⏳待修 |
-| 3 | QualityScorer.java | L109-119 `estimateQualityWithLlm` | LLM 不可用时的 fallback 调用 `estimateQuality(FeedbackType.UNKNOWN, content, null, 0)`，丢弃了原始 feedback 和 toolUsageCount 信息。调用方可能已有非 UNKNOWN 的 feedback，但 fallback 路径将其覆盖 | P2 ⏳待修 |
+| 3 | QualityScorer.java | L109-119 `estimateQualityWithLlm` | LLM 不可用时的 fallback 调用 `estimateQuality(FeedbackType.UNKNOWN, content, null, 0)`，丢弃了原始 feedback 和 toolUsageCount 信息。调用方可能已有非 UNKNOWN 的 feedback，但 fallback 路径将其覆盖 | P2 ✅已修复 |
 
 **审查结论**:
 - **QualityScorer.java**: 整体设计良好。规则评分逻辑清晰（base + efficiency + content bonus），常量命名规范。`recalculateWithFeedback` 的 0.05 commentBonus 设为固定值略显随意，但不影响功能。

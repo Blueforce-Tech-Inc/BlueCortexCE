@@ -115,14 +115,18 @@ public class QualityScorer {
      * @param type Observation type
      * @param content Observation content
      * @param facts Facts extracted
+     * @param feedback Original feedback type (preserved in LLM fallback)
+     * @param toolUsageCount Tool usage count (preserved in LLM fallback)
      * @return Quality score in range [0, 1]
      */
     public float estimateQualityWithLlm(String title, String type, 
-                                        String content, String facts) {
+                                        String content, String facts,
+                                        FeedbackType feedback, int toolUsageCount) {
         // Check if LLM scorer is available
         if (llmQualityScorer == null || !llmQualityScorer.isAvailable()) {
             log.debug("LLM not available, falling back to rule-based scoring");
-            return estimateQuality(FeedbackType.UNKNOWN, content, null, 0);
+            return estimateQuality(feedback != null ? feedback : FeedbackType.UNKNOWN, 
+                content, null, toolUsageCount);
         }
         
         try {
@@ -136,8 +140,17 @@ public class QualityScorer {
             
         } catch (Exception e) {
             log.warn("LLM scoring failed, falling back to rule-based: {}", e.getMessage());
-            return estimateQuality(FeedbackType.UNKNOWN, content, null, 0);
+            return estimateQuality(feedback != null ? feedback : FeedbackType.UNKNOWN, 
+                content, null, toolUsageCount);
         }
+    }
+
+    /**
+     * Convenience overload with default feedback/toolUsageCount for backward compatibility.
+     */
+    public float estimateQualityWithLlm(String title, String type, 
+                                        String content, String facts) {
+        return estimateQualityWithLlm(title, type, content, facts, FeedbackType.UNKNOWN, 0);
     }
 
     /**

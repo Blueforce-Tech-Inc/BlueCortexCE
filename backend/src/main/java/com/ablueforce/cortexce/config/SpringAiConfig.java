@@ -36,11 +36,12 @@ public class SpringAiConfig {
             @Value("${spring.ai.openai.chat.options.model:deepseek-chat}") String model,
             @Value("${claudemem.llm.provider:openai}") String provider) {
 
-        log.info("OpenAI ChatModel called: apiKey={}, baseUrl={}, model={}, provider={}", 
+        log.debug("OpenAI ChatModel called: apiKey={}, baseUrl={}, model={}, provider={}", 
             apiKey != null ? "set" : "null", baseUrl, model, provider);
 
         if (apiKey == null || apiKey.isEmpty()) {
-            log.warn("OpenAI API key not configured, skipping ChatModel");
+            log.warn("spring.ai.openai.api-key property exists but is empty — ChatModel bean not created. "
+                + "Set a valid API key or remove the property to suppress this warning.");
             return null;
         }
 
