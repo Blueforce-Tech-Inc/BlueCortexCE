@@ -21,16 +21,32 @@ public class EmbeddingService {
 
     private final Optional<EmbeddingModel> embeddingModel;
 
+    /**
+     * Selects the first available EmbeddingModel from Spring's auto-configured beans.
+     * If multiple models are present, selection depends on bean injection order
+     * (typically determined by @Primary or declaration order).
+     *
+     * @param embeddingModels all configured EmbeddingModel beans (may be empty)
+     */
     public EmbeddingService(List<EmbeddingModel> embeddingModels) {
-        // Find first available embedding model (from auto-configuration)
-        this.embeddingModel = embeddingModels.stream()
-            .findFirst();
-
-        if (embeddingModel.isEmpty()) {
+        if (embeddingModels.isEmpty()) {
+            this.embeddingModel = Optional.empty();
             log.warn("No EmbeddingModel configured - semantic search disabled");
-        } else {
-            log.info("EmbeddingService initialized with: {}", embeddingModel.get().getClass().getSimpleName());
+            return;
         }
+
+        if (embeddingModels.size() > 1) {
+            log.info("Multiple EmbeddingModel beans found ({}), candidates: {}",
+                embeddingModels.size(),
+                embeddingModels.stream()
+                    .map(m -> m.getClass().getSimpleName())
+                    .reduce((a, b) -> a + ", " + b)
+                    .orElse(""));
+        }
+
+        // Use first model (Spring injection order respects @Primary)
+        this.embeddingModel = Optional.of(embeddingModels.get(0));
+        log.info("EmbeddingService initialized with: {}", embeddingModel.get().getClass().getSimpleName());
     }
 
     public float[] embed(String text) {

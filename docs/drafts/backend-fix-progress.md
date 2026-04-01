@@ -1,5 +1,28 @@
 # Backend 修复进度记录
 
+## 2026-04-02 07:28 | 健康检查 + 测试验收 + Backend 审查 #22 P2 修复
+
+### 健康检查结果
+- ✅ 服务健康检查：`{"status":"ok"}`
+- ✅ 回归测试：46/46 Passed, 0 Failed
+- ✅ Phase 3 验收测试：25/25 Passed, 0 Failed (EXTRACTION_ENABLED=true)
+
+### Backend 审查 #22 修复（全部 P2 清零）
+
+| # | 文件 | 问题 | 修复 |
+|---|------|------|------|
+| 1 | StaleMessageRecoveryTask.java | threshold 计算风格不一致 | 统一为 `Duration.ofMinutes()` + `Instant.now().minus(threshold)` |
+| 2 | StaleMessageRecoveryTask.java | `recoverStaleMessages()` 无 try-catch | 添加 try-catch + `log.error` 明确记录失败 |
+| 3 | EmbeddingService.java | 多模型时选择不确定 | 添加 INFO 日志列出所有候选模型，明确选择第一个 |
+
+### 验证
+- 编译：✅ BUILD SUCCESS (9.8s)
+- 3 轮迭代检查：✅ 无问题
+- 重启服务：✅ 健康检查通过
+- 回归测试：✅ 46/46
+
+---
+
 ## 2026-04-01 18:14 | 健康检查 + 测试验收 + Backend 审查 #16
 
 ### 健康检查结果

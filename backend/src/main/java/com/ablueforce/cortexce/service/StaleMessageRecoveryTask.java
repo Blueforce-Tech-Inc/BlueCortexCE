@@ -60,13 +60,18 @@ public class StaleMessageRecoveryTask {
     @Scheduled(fixedRateString = "${claudemem.stale-message.recovery-interval-ms:300000}", initialDelay = 60000)
     @Transactional
     public void recoverStaleMessages() {
-        long thresholdEpoch = Instant.now().minusSeconds(staleThresholdMinutes * 60L).toEpochMilli();
-        int recovered = pendingMessageRepository.updateStaleMessages("processing", "pending", thresholdEpoch);
+        try {
+            Duration threshold = Duration.ofMinutes(staleThresholdMinutes);
+            long thresholdEpoch = Instant.now().minus(threshold).toEpochMilli();
+            int recovered = pendingMessageRepository.updateStaleMessages("processing", "pending", thresholdEpoch);
 
-        if (recovered > 0) {
-            log.warn("Recovered {} stale messages (processing > {} min)", recovered, staleThresholdMinutes);
-        } else {
-            log.trace("Stale message check: no stale messages found");
+            if (recovered > 0) {
+                log.warn("Recovered {} stale messages (processing > {} min)", recovered, staleThresholdMinutes);
+            } else {
+                log.trace("Stale message check: no stale messages found");
+            }
+        } catch (Exception e) {
+            log.error("Failed to recover stale messages - will retry on next scheduled run", e);
         }
     }
 }

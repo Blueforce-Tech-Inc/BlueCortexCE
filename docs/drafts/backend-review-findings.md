@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-02 06:31 (Backend 审查 #22 — StaleMessageRecoveryTask, EmbeddingService)
+> **最后更新**: 2026-04-02 07:28 (Health Check — StaleMessageRecoveryTask + EmbeddingService P2 修复)
 
 # Backend 代码审查问题记录
 
@@ -11,7 +11,7 @@
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **3** | 审查 #22: StaleMessageRecoveryTask 风格不一致 + 无异常处理, EmbeddingService 模型选择不确定性 |
+| **P2** (建议修复) | **0** | — |
 | **⏭ 跳过** | **6** | 非 bug，属设计决策或代码风格偏好 |
 | **⏳待修** | **2** | Python SDK + Backend E2E (非紧急) |
 
@@ -892,9 +892,9 @@
 
 | # | 文件 | 行 | 级别 | 问题 |
 |---|------|-----|------|------|
-| 1 | StaleMessageRecoveryTask.java | L47 vs L58 | P2 | 两个方法的 threshold 计算风格不一致：`recoverStaleMessagesOnStartup()` 使用 `Duration.ofMinutes()` + `Instant.now().minus(threshold)`，而 `recoverStaleMessages()` 使用 `staleThresholdMinutes * 60L` + `Instant.now().minusSeconds()`。功能等价但不一致，建议统一为 Duration 方式 |
-| 2 | StaleMessageRecoveryTask.java | L56 | P2 | `recoverStaleMessages()` 无 try-catch：Spring `@Scheduled` 会吞掉异常并仅以 ERROR 级别打印调度器日志。如果 `updateStaleMessages` 持续失败（如数据库连接中断），调度器不会停止但也不会有明确的恢复告警。建议添加 try-catch + 明确的 ERROR 日志 |
-| 3 | EmbeddingService.java | L30 | P2 | 构造函数使用 `List<EmbeddingModel>` + `findFirst()` 选择模型。如果 Spring 自动配置了多个 EmbeddingModel bean，会随机选择其中一个（取决于 List 的注入顺序）。建议添加 @Primary 或按类型优先级选择，或至少在 INFO 日志中列出所有候选模型 |
+| 1 | StaleMessageRecoveryTask.java | L47 vs L58 | P2 | 两个方法的 threshold 计算风格不一致：`recoverStaleMessagesOnStartup()` 使用 `Duration.ofMinutes()` + `Instant.now().minus(threshold)`，而 `recoverStaleMessages()` 使用 `staleThresholdMinutes * 60L` + `Instant.now().minusSeconds()`。功能等价但不一致，建议统一为 Duration 方式 ✅已修复（统一为 Duration.ofMinutes + Instant.now().minus） |
+| 2 | StaleMessageRecoveryTask.java | L56 | P2 | `recoverStaleMessages()` 无 try-catch：Spring `@Scheduled` 会吞掉异常并仅以 ERROR 级别打印调度器日志。如果 `updateStaleMessages` 持续失败（如数据库连接中断），调度器不会停止但也不会有明确的恢复告警。建议添加 try-catch + 明确的 ERROR 日志 ✅已修复（添加 try-catch + log.error） |
+| 3 | EmbeddingService.java | L30 | P2 | 构造函数使用 `List<EmbeddingModel>` + `findFirst()` 选择模型。如果 Spring 自动配置了多个 EmbeddingModel bean，会随机选择其中一个（取决于 List 的注入顺序）。建议添加 @Primary 或按类型优先级选择，或至少在 INFO 日志中列出所有候选模型 ✅已修复（多模型时列出所有候选类名，明确选择第一个） |
 
 **代码质量亮点**:
 - **StaleMessageRecoveryTask**: `@PostConstruct` + `TransactionTemplate` 解决了初始化时无法使用 `@Transactional` 的经典问题，设计合理。`@Scheduled` 的 `initialDelay = 60000` 给启动留了缓冲时间
