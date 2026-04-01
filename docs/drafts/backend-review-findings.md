@@ -560,3 +560,21 @@
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
 | 1 | client_impl.go | L269 | `jitteredBackoff` 注释声称 "Matches Java SDK"，但 Go=linear (`base * attempt`)，Java=exponential (`base * 2^attempt`) | P2 ✅已修正注释 |
+
+### 2026-04-01 08:32 | Java SDK + Backend 审查 #4
+
+**审查范围**: ApiRequests.java, ApiResponses.java, SessionController.java, ContextController.java, MemoryController.java, ExtractionController.java, IngestionController.java, SSEBroadcaster.java, CortexMemClientImpl.java, ObservationUpdate.java, Demo controllers (ExtractionController, ObservationsController)
+
+**审查结论**:
+- **整体质量**: 优秀。DTO 层 @JsonProperty 注解完整，wire format 一致性好。控制器输入验证到位（null/blank/range/类型检查），错误处理统一（try-catch + 适当 HTTP 状态码）。SSE 使用 unnamed events（正确匹配 WebUI onmessage 契约）。
+- **Java SDK Client**: CortexMemClientImpl retry 机制完善，fire-and-forget vs propagate 分层清晰，ObservationUpdate @JsonInclude(NON_NULL) 配置正确。
+- **Demo 控制器**: 输入验证完整，类型安全校验（PATCH 场景）实现到位。
+- **P0/P1 问题**: 无。
+- **P2 问题**: 1 个新增（代码重复），见下表。
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | SessionController.java + ContextController.java | L293-360 / L368-428 | `findClaudeMdInProject()` 和 `isWithinProject()` 在两个 Controller 中完全重复（~70 行）。应提取为共享 utility 类（如 `PathValidationUtil`） | P2 ⏳待修 |
+| 2 | ContextController.java | L484-510 | `isSafeDirectory()` 与 `isWithinProject()` 做相似的路径安全检查，但使用不同逻辑。可与上述 utility 合并统一 | P2 ⏳待修 |
+
+**编译**: ✅ BUILD SUCCESS

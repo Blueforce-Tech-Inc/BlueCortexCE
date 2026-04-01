@@ -141,9 +141,9 @@ mvn flyway:migrate
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `ANTHROPIC_API_KEY` | **Yes** | - | Anthropic API key |
-| `ANTHROPIC_BASE_URL` | No | `https://api.anthropic.com` | API base URL |
-| `ANTHROPIC_MODEL` | No | `claude-sonnet-4-20250514` | Model name |
+| `SPRING_AI_ANTHROPIC_API_KEY` | **Yes** | - | Anthropic API key (alias: `ANTHROPIC_API_KEY`) |
+| `SPRING_AI_ANTHROPIC_BASE_URL` | No | `https://api.anthropic.com` | API base URL (alias: `ANTHROPIC_BASE_URL`) |
+| `SPRING_AI_ANTHROPIC_CHAT_MODEL` | No | `claude-sonnet-4-5` | Model name (alias: `ANTHROPIC_MODEL`) |
 | `CLAUDEMEM_LLM_PROVIDER` | No | `openai` | LLM provider (`openai` or `anthropic`) |
 
 See `.env.docker` for a complete template.

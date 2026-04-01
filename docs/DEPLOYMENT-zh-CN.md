@@ -32,7 +32,7 @@
 
 | 软件 | 版本要求 | 说明 |
 |------|---------|------|
-| Docker | ≥ 24.0 | 容器运行时 |
+| Docker | ≥ 20.10 | 容器运行时 |
 | Docker Compose | ≥ 2.20 | 容器编排 |
 | PostgreSQL | 16 + pgvector 0.8.1 | 数据库（Docker 部署自动包含） |
 
@@ -86,7 +86,7 @@ docker compose up -d
 docker compose logs -f claude-mem
 
 # 5. 健康检查
-curl http://localhost:37777/actuator/health
+curl http://localhost:37777/api/health
 ```
 
 ### 2.2 使用预构建镜像
@@ -399,7 +399,7 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 
 | 变量名 | 必填 | 默认值 | 说明 |
 |--------|------|--------|------|
-| `SPRING_PROFILES_ACTIVE` | 否 | `dev` | 环境配置（dev/prd） |
+| `SPRING_PROFILES_ACTIVE` | 否 | `prd` | 环境配置（dev/prd） |
 | `SERVER_PORT` | 否 | `37777` | HTTP 服务端口 |
 | `SERVER_ADDRESS` | 否 | `127.0.0.1` | 监听地址 |
 
@@ -428,9 +428,9 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 
 | 变量名 | 必填 | 默认值 | 说明 |
 |--------|------|--------|------|
-| `ANTHROPIC_API_KEY` | **是** | - | Anthropic API 密钥 |
-| `ANTHROPIC_BASE_URL` | 否 | `https://api.anthropic.com` | API 基础 URL |
-| `ANTHROPIC_MODEL` | 否 | `claude-sonnet-4-20250514` | 模型名称 |
+| `SPRING_AI_ANTHROPIC_API_KEY` | **是** | - | Anthropic API 密钥（别名：`ANTHROPIC_API_KEY`） |
+| `SPRING_AI_ANTHROPIC_BASE_URL` | 否 | `https://api.anthropic.com` | API 基础 URL（别名：`ANTHROPIC_BASE_URL`） |
+| `SPRING_AI_ANTHROPIC_CHAT_MODEL` | 否 | `claude-sonnet-4-5` | 模型名称（别名：`ANTHROPIC_MODEL`） |
 | `CLAUDEMEM_LLM_PROVIDER` | 否 | `openai` | LLM 提供商（openai/anthropic） |
 
 ### 5.4 嵌入模型配置
@@ -484,8 +484,8 @@ SERVER_ADDRESS=0.0.0.0
 
 # Anthropic LLM
 ANTHROPIC_API_KEY=sk-ant-xxx
-ANTHROPIC_BASE_URL=https://api.anthropic.com
-ANTHROPIC_MODEL=claude-sonnet-4-20250514
+SPRING_AI_ANTHROPIC_BASE_URL=https://api.anthropic.com
+SPRING_AI_ANTHROPIC_CHAT_MODEL=claude-sonnet-4-5
 CLAUDEMEM_LLM_PROVIDER=anthropic
 
 # Database
@@ -504,7 +504,10 @@ JAVA_OPTS="-XX:+UseZGC -XX:MaxRAMPercentage=75.0 -XX:+HeapDumpOnOutOfMemoryError
 #### Spring Boot Actuator
 
 ```bash
-# 健康状态
+# 自定义健康端点（推荐）
+curl http://localhost:37777/api/health
+
+# Spring Boot Actuator 健康检查
 curl http://localhost:37777/actuator/health
 
 # 详细信息

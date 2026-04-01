@@ -13,7 +13,7 @@ vim .env
 docker compose up -d
 
 # 4. Check health
-curl http://localhost:37777/actuator/health
+curl http://localhost:37777/api/health
 
 # 5. View logs
 docker compose logs -f
@@ -93,7 +93,7 @@ docker compose down -v
 ### Check service health
 
 ```bash
-curl http://localhost:37777/actuator/health
+curl http://localhost:37777/api/health
 ```
 
 ### Access PostgreSQL
@@ -202,11 +202,14 @@ The Dockerfile uses a multi-stage build process:
 1. **Stage 1 (java-builder)**: Builds the Spring Boot JAR
 2. **Stage 2 (runtime)**: Minimal JRE image with the application
 
-**Important**: Before building, initialize the webui submodule:
+**Important**: Before building, initialize the webui submodule and pre-build WebUI resources:
 
 ```bash
 # Initialize submodules (webui is a submodule)
 git submodule update --init --recursive
+
+# Pre-build WebUI resources
+./scripts/prebuild-webui.sh
 
 # Build the Docker image
 docker build -t cortex-ce:latest .
