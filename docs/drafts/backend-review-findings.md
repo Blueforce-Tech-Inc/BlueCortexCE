@@ -11,7 +11,7 @@
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **0** | ✅ 全部已修复 |
+| **P2** (建议修复) | **1** | 见下方新增 |
 | **⏭ 跳过** | **4** | 非 bug，属设计决策或代码风格偏好 |
 | **✅ 已修复** | **~62** | 历史累计，含本次修复 |
 
@@ -618,4 +618,28 @@
 - **tests**: 347 个测试覆盖全面，包含 fire-and-forget 重试、连接错误、非 JSON 响应降级、DTO round-trip、NaN/Inf 处理、cross-SDK parity 验证。
 - **P0/P1 问题**: 无。
 - **P2 问题**: 2 个（见上表）。
+
+---
+
+### 2026-04-01 15:54 | JS SDK 审查暴露的 Backend 问题
+
+**来源**: JS SDK E2E 测试（24/27 通过，3 个 backend 相关问题）
+
+| # | 文件 | 行号 | 问题 | 级别 | 说明 |
+|---|------|------|------|------|------|
+| 1 | StartSessionResponse.java (ApiResponses.java) | L~xx `StartSessionResponse` record | `POST /api/session/start` 响应中缺少 `session_id` 字段 — 前端代理（proxy.js）和 SDK 客户端预期响应包含 `session_id`，但实际响应只有 `context`/`updateFiles`/`session_db_id`/`prompt_number`。导致所有 SDK 的 E2E 测试检查 `session_id` 字段时失败（Python/JS 均有此问题）。应将 `contentSessionId` 添加到 `StartSessionResponse` 中 | P2 ⏳待修 | E2E 测试 session start 失败根因。SDK 端通过 defaults 兜底不受影响 |
+| 2 | MemoryController.java | PATCH `/api/memory/observations/{id}` | 传入非 UUID 格式的 observation ID 时返回 400 Bad Request 而非更清晰的错误信息 | P2 (极低) | E2E 测试使用字符串 ID 导致 400，实际使用中 SDK 传入 UUID 不触发此问题 |
+| 3 | MemoryController.java | POST `/api/memory/feedback` | 传入非 UUID 格式的 observationId 时返回 400 而非 404 | P2 (极低) | 同上，E2E 测试使用字符串 ID，实际使用中 SDK 传入 UUID |
+
+**JS SDK 审查结论（整体）**:
+- **单元测试**: 202/202 passed ✅
+- **构建**: CJS + ESM + DTS 成功 (29.08KB + 28.20KB + 23.02KB) ✅
+- **架构**: 25 个 API 方法完整，CJS+ESM 双格式输出，package.json exports 配置正确
+- **Wire 格式**: 全面验证（camelCase/snake_case 双格式，firstNonNullOr 优先级正确）
+- **错误处理**: 与 Go/Java/Python SDK 完全对齐（isRetryable 429/502/503/504 + TypeError + AbortError）
+- **类型安全**: ValidationError/APIError 两级分离，Object.setPrototypeOf CJS 兼容
+- **Demo**: Express HTTP 服务器输入验证完整，asyncHandler 错误捕获，graceful shutdown
+- **Cross-SDK 一致性**: extractedData camelCase 契约一致，wire format 注释跨 SDK 交叉引用完整
+- **P0/P1 问题**: 无
+- **待修复**: 0 个 SDK 问题（3 个 E2E 失败均为 backend 侧，已记录到本文件）
 
