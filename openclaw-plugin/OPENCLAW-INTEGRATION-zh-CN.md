@@ -67,7 +67,7 @@ export SPRING_AI_OPENAI_EMBEDDING_API_KEY=your_embedding_key
 java -jar target/cortex-ce-0.1.0-beta.jar --spring.profiles.active=dev &
 
 # 方式二：Docker 运行
-docker compose -f /path/to/your/BlueCortexCE/docker-compose.prod.yml up -d
+docker compose -f /path/to/your/BlueCortexCE/docker-compose.yml up -d
 ```
 
 验证后端已启动:
@@ -383,12 +383,12 @@ Claude-Mem Projects
 
 插件通过 HTTP 调用 Java 后端 API：
 
-| 功能 | 插件调用 | Java 后端端点 |
-|------|----------|---------------|
-| 会话初始化 | `/api/sessions/init` | `/api/session/start` |
-| 记录工具使用 | `/api/sessions/observations` | `/api/ingest/tool-use` |
-| 会话完成 | `/api/sessions/complete` | `/api/ingest/session-end` |
-| 获取 Timeline | `/api/context/inject` | `/api/context/inject` |
+| 功能 | 插件调用端点 |
+|------|-------------|
+| 会话初始化 | `/api/session/start` |
+| 记录工具使用 | `/api/ingest/tool-use` |
+| 会话完成 | `/api/ingest/session-end` |
+| 获取 Timeline | `/api/context/inject` |
 
 ---
 

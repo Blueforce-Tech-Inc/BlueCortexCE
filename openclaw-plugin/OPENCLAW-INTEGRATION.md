@@ -72,7 +72,7 @@ export SPRING_AI_OPENAI_EMBEDDING_API_KEY=your_embedding_key
 java -jar target/cortex-ce-0.1.0-beta.jar --spring.profiles.active=dev &
 
 # Method 2: Docker
-docker compose -f /path/to/your/BlueCortexCE/docker-compose.prod.yml up -d
+docker compose -f /path/to/your/BlueCortexCE/docker-compose.yml up -d
 ```
 
 Verify backend is running:
@@ -387,12 +387,12 @@ Plugin listens to 7 OpenClaw Gateway lifecycle events:
 
 Plugin calls Java backend API via HTTP:
 
-| Function | Plugin Call | Java Backend Endpoint |
-|----------|-------------|---------------------|
-| Session init | `/api/sessions/init` | `/api/session/start` |
-| Record tool use | `/api/sessions/observations` | `/api/ingest/tool-use` |
-| Session complete | `/api/sessions/complete` | `/api/ingest/session-end` |
-| Get Timeline | `/api/context/inject` | `/api/context/inject` |
+| Function | Plugin Call Endpoint |
+|----------|---------------------|
+| Session init | `/api/session/start` |
+| Record tool use | `/api/ingest/tool-use` |
+| Session complete | `/api/ingest/session-end` |
+| Get Timeline | `/api/context/inject` |
 
 ---
 
