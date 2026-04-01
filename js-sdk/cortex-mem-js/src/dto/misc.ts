@@ -2,7 +2,7 @@
 // Miscellaneous DTOs
 // ============================================================
 
-import { safeStringOr, safeNumberOr, safeStringArray, safeRecord, firstNonNullOr } from './wire-helpers';
+import { safeStringOr, safeNumberOr, safeStringArray, safeRecord, safeString, firstNonNullOr } from './wire-helpers';
 
 /**
  * Backend version information.
@@ -49,6 +49,28 @@ export interface DatabaseStats {
 }
 
 /**
+ * An observation type returned by the modes API.
+ * Backend returns these as structured objects, not plain strings.
+ */
+export interface ObservationType {
+  id: string;
+  label: string;
+  description: string;
+  emoji?: string;
+  workEmoji?: string;
+}
+
+/**
+ * An observation concept returned by the modes API.
+ * Backend returns these as structured objects, not plain strings.
+ */
+export interface ObservationConcept {
+  id: string;
+  label: string;
+  description: string;
+}
+
+/**
  * Modes response.
  * GET /api/modes
  */
@@ -57,8 +79,8 @@ export interface ModesResponse {
   name: string;
   description: string;
   version: string;
-  observationTypes: string[];
-  observationConcepts: string[];
+  observationTypes: ObservationType[];
+  observationConcepts: ObservationConcept[];
 }
 
 /**
@@ -121,4 +143,63 @@ export function parseVersionResponse(raw: Record<string, unknown>): VersionRespo
     java: safeStringOr(raw.java, ''),
     springBoot: safeStringOr(firstNonNullOr(raw, ['springBoot', 'spring_boot']), ''),
   };
+}
+
+/**
+ * Parse a raw wire-format observation type into the canonical type.
+ */
+export function parseObservationType(raw: Record<string, unknown>): ObservationType {
+  return {
+    id: safeStringOr(raw.id, ''),
+    label: safeStringOr(raw.label, ''),
+    description: safeStringOr(raw.description, ''),
+    emoji: safeString(firstNonNullOr(raw, ['emoji', 'work_emoji', 'workEmoji'])),
+    workEmoji: safeString(firstNonNullOr(raw, ['work_emoji', 'workEmoji'])),
+  };
+}
+
+/**
+ * Parse a raw wire-format observation concept into the canonical type.
+ */
+export function parseObservationConcept(raw: Record<string, unknown>): ObservationConcept {
+  return {
+    id: safeStringOr(raw.id, ''),
+    label: safeStringOr(raw.label, ''),
+    description: safeStringOr(raw.description, ''),
+  };
+}
+
+/**
+ * Parse the observation_types array from wire format.
+ * Handles both arrays of objects (correct backend format) and arrays of strings (legacy).
+ */
+export function parseObservationTypeArray(v: unknown): ObservationType[] {
+  if (!Array.isArray(v)) return [];
+  return v.map(item => {
+    if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
+      return parseObservationType(item as Record<string, unknown>);
+    }
+    // Fallback: plain string → wrap as object with id=label
+    if (typeof item === 'string') {
+      return { id: item, label: item, description: '' };
+    }
+    return { id: '', label: '', description: '' };
+  });
+}
+
+/**
+ * Parse the observation_concepts array from wire format.
+ * Handles both arrays of objects (correct backend format) and arrays of strings (legacy).
+ */
+export function parseObservationConceptArray(v: unknown): ObservationConcept[] {
+  if (!Array.isArray(v)) return [];
+  return v.map(item => {
+    if (typeof item === 'object' && item !== null && !Array.isArray(item)) {
+      return parseObservationConcept(item as Record<string, unknown>);
+    }
+    if (typeof item === 'string') {
+      return { id: item, label: item, description: '' };
+    }
+    return { id: '', label: '', description: '' };
+  });
 }

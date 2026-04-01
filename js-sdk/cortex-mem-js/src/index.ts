@@ -65,6 +65,8 @@ export type {
   WorkerStats,
   DatabaseStats,
   ModesResponse,
+  ObservationType,
+  ObservationConcept,
   HealthResponse,
 } from './dto';
 
@@ -79,4 +81,4 @@ export {
 } from './dto';
 
 // Re-export parse functions (runtime, not just types)
-export { parseObservation, parseExperience, parseExtractionResult, parseICLPromptResult, parseStatsResponse, parseWorkerStats, parseDatabaseStats, parseVersionResponse, parseQualityDistribution } from './dto';
+export { parseObservation, parseExperience, parseExtractionResult, parseICLPromptResult, parseStatsResponse, parseWorkerStats, parseDatabaseStats, parseVersionResponse, parseQualityDistribution, parseObservationType, parseObservationConcept } from './dto';

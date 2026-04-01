@@ -36,7 +36,19 @@ import type {
   HealthResponse,
   Observation,
 } from './dto';
-import { parseObservation, parseExperience, parseExtractionResult, parseICLPromptResult, parseStatsResponse, parseVersionResponse, parseQualityDistribution, safeStringOr, safeStringArray, firstNonNullOr } from './dto';
+import {
+  parseObservation,
+  parseExperience,
+  parseExtractionResult,
+  parseICLPromptResult,
+  parseStatsResponse,
+  parseVersionResponse,
+  parseQualityDistribution,
+  parseObservationTypeArray,
+  parseObservationConceptArray,
+  safeStringOr,
+  firstNonNullOr,
+} from './dto';
 
 // ============================================================
 // Logger interface
@@ -682,8 +694,8 @@ export class CortexMemClient {
 
   /**
    * Parse raw modes response, mapping snake_case wire fields to camelCase.
-   * Backend returns observation_types/observation_concepts (SNAKE_CASE).
-   * Uses safe type conversion to handle null values and type mismatches.
+   * Backend returns observation_types/observation_concepts as arrays of objects
+   * (each with id/label/description). Uses safe type conversion to handle null values.
    */
   private parseModesResponse(raw: unknown): ModesResponse {
     const r = raw as Record<string, unknown>;
@@ -692,8 +704,8 @@ export class CortexMemClient {
       name: safeStringOr(r.name, ''),
       description: safeStringOr(r.description, ''),
       version: safeStringOr(r.version, ''),
-      observationTypes: safeStringArray(firstNonNullOr(r, ['observation_types', 'observationTypes'])) ?? [],
-      observationConcepts: safeStringArray(firstNonNullOr(r, ['observation_concepts', 'observationConcepts'])) ?? [],
+      observationTypes: parseObservationTypeArray(firstNonNullOr(r, ['observation_types', 'observationTypes'])),
+      observationConcepts: parseObservationConceptArray(firstNonNullOr(r, ['observation_concepts', 'observationConcepts'])),
     };
   }
 

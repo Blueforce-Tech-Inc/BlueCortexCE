@@ -2102,7 +2102,28 @@ describe('getModes defensive parsing', () => {
     expect(result.name).toBe('');
     expect(result.description).toBe('');
     expect(result.version).toBe('');
-    expect(result.observationTypes).toEqual(['type1']);
+    expect(result.observationTypes).toEqual([{id: 'type1', label: 'type1', description: ''}]);
+  });
+
+  it('should parse object-based observation_types and observation_concepts correctly', async () => {
+    const localFetch = mockFetch(200, {
+      id: 'full', name: 'Full', description: 'Full mode', version: '1.0',
+      observation_types: [
+        { id: 'tool-use', label: 'Tool Use', description: 'Tool execution' },
+        { id: 'user-prompt', label: 'User Prompt', description: 'User input' },
+      ],
+      observation_concepts: [
+        { id: 'code', label: 'Code', description: 'Source code' },
+      ],
+    });
+    const localClient = new CortexMemClient({ fetch: localFetch as unknown as typeof globalThis.fetch });
+
+    const result = await localClient.getModes();
+    expect(result.observationTypes).toHaveLength(2);
+    expect(result.observationTypes[0]).toEqual({ id: 'tool-use', label: 'Tool Use', description: 'Tool execution' });
+    expect(result.observationTypes[1]).toEqual({ id: 'user-prompt', label: 'User Prompt', description: 'User input' });
+    expect(result.observationConcepts).toHaveLength(1);
+    expect(result.observationConcepts[0]).toEqual({ id: 'code', label: 'Code', description: 'Source code' });
   });
 });
 
