@@ -74,9 +74,9 @@ public class ExtractionController {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "template is required"));
         }
-        if (limit < 1 || limit > 100) {
+        if (limit < 0 || limit > 100) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("error", "limit must be between 1 and 100"));
+                    .body(Map.of("error", "limit must be between 0 and 100"));
         }
 
         try {

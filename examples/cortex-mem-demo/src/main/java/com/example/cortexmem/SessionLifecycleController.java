@@ -6,6 +6,7 @@ import com.ablueforce.cortexce.client.dto.SessionEndRequest;
 import com.ablueforce.cortexce.client.dto.UserPromptRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -147,7 +148,7 @@ public class SessionLifecycleController {
      *
      * Cross-SDK parity: Go /session/user, Python /session/user, JS /session/user.
      */
-    @PatchMapping("/user")
+    @PatchMapping(value = "/user", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> updateSessionUser(
             @RequestBody(required = false) Map<String, Object> body) {
         if (body == null) {
