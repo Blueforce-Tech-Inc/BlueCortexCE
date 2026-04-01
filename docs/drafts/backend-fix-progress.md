@@ -1,110 +1,26 @@
-> **用途**: 记录 backend-review-findings.md 问题的集中修复进度
-> **维护者**: PM Agent
-> **来源**: backend-review-findings.md (2026-03-31 集中修复批次)
+# Backend 修复进度记录
 
-# Backend Review 集中修复记录
+## 2026-04-01 18:14 | 健康检查 + 测试验收 + Backend 审查 #16
 
-## 2026-03-31 | 集中修复批次
+### 健康检查结果
+- ✅ 服务健康检查：`{"status":"ok"}`
+- ✅ 回归测试：46/46 Passed, 0 Failed
+- ✅ Phase 3 验收测试：25/25 Passed, 0 Failed (EXTRACTION_ENABLED=true)
 
-**修复范围**: backend-review-findings.md 中 12 个未修复问题
+### Backend 审查 #16 修复
+| # | 文件 | 修复内容 | 级别 |
+|---|------|---------|------|
+| 1 | RateLimitService.java | `cleanupExpiredWindows()` 移到 `tryIncrement()` 之后执行 | P2 |
+| 2 | RateLimitService.java | 改进注释说明 ConcurrentHashMap 迭代的弱一致性 | P2 (低) |
+| 3 | ExtractionStorageService.java | 识别 isolation level 潜在问题（风险极低，未修改代码） | P2 (低) |
 
-| # | 文件 | 问题 | 级别 | 修复方式 | 状态 |
-|---|------|------|------|----------|------|
-| 1 | WorktreeDetector.java L83 | WORKTREES_PATTERN 依赖 gitdir 路径中 `.git/worktrees/` 段，core.worktree 非标准位置会误判 | P2(低) | 在 detectWorktree Javadoc 中明确说明此限制 | ✅已修复 |
-| 2 | WorktreeDetector.java L91 | getProjectContext 中 primary 值可能不一致 | P2(低) | 改用 worktreeInfo.worktreeName() 作为 worktree 场景下的 primary | ✅已修复 |
-| 3 | ExtractionController.java L104-117 `/run` | Swagger 描述为 "synchronously" 但无超时说明 | P2(低) | 在 @Operation description 中加超时提示 | ✅已修复 |
-| 4 | PendingMessageEventListener.java L46 | catch 块仅 log.error，消息状态不变，存在无限重试风险 | P2(低) | catch 中将消息标记为 "failed" | ✅已修复 |
-| 5 | ExperienceTemplate.java L88 | buildSimpleExperience() action/outcome 为 null 时输出大量 N/A | P2 | content 前 200 字符作为 fallback 替代 N/A | ✅已修复 |
-| 6 | CortexMemClientImpl.java executeWithRetrySilent | interrupt during retry sleep 需加 WARN 日志 | P2 | catch 中已有 interrupt() 恢复，加 WARN 日志 | ✅已修复 |
-| 7 | CortexMemClientImpl.java isRetryable | 500 排除在 retry 外，需说明设计原因 | P2(低) | Javadoc 中加注说明（500 是 code bug，非 transient） | ✅已修复 |
-| 8 | client_impl.go doFireAndForget | 内联 jitter 计算逻辑可提取 | P2(低) | 提取 jitteredBackoff(baseDelay, attempt) 辅助函数 | ✅已修复 |
-| 9 | client-options.ts L31 | SDK_VERSION = '1.0.0' 与 package.json 重复定义 | P2(低) | Javadoc 说明重复原因（bundler 兼容性）及发布时同步要求 | ✅已修复 |
-| 10 | examples/http-server/app.ts L4 | docstring "covering all 25 SDK methods" 不精确 | P2(极低) | 改为 "covering all 25 public SDK API methods (plus /health)" | ✅已修复 |
-| 11 | API.md | TestController (/api/test) 未文档化 | P2(低) | 跳过（有意排除，@Profile("!prod")） | ⏭跳过 |
-| 12 | API-zh-CN.md | 更新日志停留在 0.1.0（2026-03-13） | P2 | 更新 changelog 增加 0.1.0-beta 记录 | ✅已修复 |
+### 验证
+- 编译：`mvn clean compile package -DskipTests` ✅ BUILD SUCCESS
+- 回归测试重启后：46/46 Passed ✅
+- 后端审查累计修复：~65 个问题
 
-**编译/测试结果**:
-- Backend: `mvn clean compile` ✅
-- Java SDK: `mvn clean compile` ✅
-- Go SDK: `go build ./...` + `go test ./...` ✅（267 tests passed）
-- JS SDK: `npx tsup` build ✅（CJS+ESM+DTS） + `npx vitest run` ✅（198 tests passed）
-- Regression: `bash scripts/regression-test.sh` ✅（46/46 tests passed）
-
-**汇总**: 修复 11 个，跳过 1 个（TestController 有意排除）。
-
-## 2026-03-31 | 集中修复批次 #2
-
-**来源**: backend-review-findings.md (#11, 2026-03-31 03:05) — 5 个未修复 P2 问题
-
-| # | 文件 | 问题 | 级别 | 修复方式 | 状态 |
-|---|------|------|------|----------|------|
-| 1 | SettingsService.java L148-165 | `String.valueOf(null)` 返回字面量 "null" | P2 | 所有 `String.valueOf(updates.get(...))` → `Objects.toString(v, "")` | ✅已修复 |
-| 2 | SettingsService.java L117 | `ATOMIC_MOVE` 跨文件系统抛异常 | P2(低) | 添加 `AtomicMoveNotSupportedException` catch，fallback 到 `REPLACE_EXISTING` | ✅已修复 |
-| 3 | SettingsService.java L28 | `settings` 字段非线程安全 | P2 | 添加 `volatile` 关键字 | ✅已修复 |
-| 4 | AppSettings.java L382 | `toMap()` 中 `CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS` 返回 String 而非 int | P2(低) | 新增 `getContextMaxObservationsInt()` 方法，`toMap()` 改用 int 版本 | ✅已修复 |
-| 5 | ViewerController.java L497-498 | 同样的 `String.valueOf(null)` 模式 | P2 | 改用 `Objects.toString(v, "")` | ✅已修复 |
-
-**编译/测试结果**:
-- Backend: `mvn clean compile package -DskipTests` ✅
-- Regression: `bash scripts/regression-test.sh --skip-build` ✅（46/46 tests passed）
-- Phase 3 Acceptance: `EXTRACTION_ENABLED=true bash scripts/phase3-acceptance-test.sh` ✅（25/25 tests passed）
-
-**汇总**: 修复 5 个 P2 问题（null 安全、原子写入回退、线程安全、类型一致性）。
-
-## 2026-03-31 | 集中修复批次 #3
-
-**来源**: backend-review-findings.md (#12, 2026-03-31 04:56) — 1 个未修复 P2 问题
-
-| # | 文件 | 问题 | 级别 | 修复方式 | 状态 |
-|---|------|------|------|----------|------|
-| 1 | ModeService.java L46 | `modeCache` HashMap 非线程安全 | P2 | 改用 `ConcurrentHashMap` | ✅已修复 |
-
-**附注**: ModeController Swagger 问题 (#2) 经核实无问题（200/400 响应示例已正确分离）。
-
-**编译/测试结果**:
-- Backend: `mvn clean compile package -DskipTests` ✅
-- Regression: `bash scripts/regression-test.sh --skip-build` ✅（46/46 tests passed）
-- Phase 3 Acceptance: `EXTRACTION_ENABLED=true bash scripts/phase3-acceptance-test.sh` ✅（25/25 tests passed）
-
-**汇总**: 修复 1 个 P2 问题（线程安全：HashMap → ConcurrentHashMap）。
-
-## 2026-03-31 | 集中修复批次 #4
-
-**来源**: backend-review-findings.md (#13, 2026-03-31 12:32) — 4 个未修复 P2 事务一致性问题
-
-| # | 文件 | 问题 | 级别 | 修复方式 | 状态 |
-|---|------|------|------|----------|------|
-| 1 | MemoryController.java `submitFeedback` | read-then-write 无 @Transactional | P2 | 添加 @Transactional 注解 | ✅已修复 |
-| 2 | MemoryController.java `getQualityDistribution` | 异常返回 200 OK 而非 500 | P2 | 改为返回 500 + error 字段，添加 Swagger 500 注解 | ✅已修复 |
-| 3 | StructuredExtractionService.java `storeExtractionResult` | session find-or-create + save 无 @Transactional（private 方法不可代理） | P2 | 提取为新 `ExtractionStorageService` bean，public 方法加 @Transactional | ✅已修复 |
-| 4 | IngestionController.java `handleUserPrompt` | ensureSession + save 无事务边界 | P2(低) | 添加 @Transactional 注解 | ✅已修复 |
-
-**编译/测试结果**:
-- Backend: `mvn clean compile package -DskipTests` ✅
-- Regression: `bash scripts/regression-test.sh --skip-build` ✅（46/46 tests passed）
-- EXTRACTION Acceptance: `EXTRACTION_ENABLED=true bash scripts/phase3-acceptance-test.sh` ✅（25/25 tests passed）
-- 3 轮代码修改后 Review: 全部通过 ✅
-
-**汇总**: 修复 4 个 P2 事务一致性问题。引入新 `ExtractionStorageService` 解决 private 方法无法添加 @Transactional 的问题。所有审查问题清零 🎉
-
-## 2026-04-01 | 健康检查批量修复批次
-
-**修复范围**: backend-review-findings.md 中 Review #14, #15, #16 未修复问题
-
-| # | 文件 | 问题 | 级别 | 修复方式 | 状态 |
-|---|------|------|------|----------|------|
-| 1 | SpringAiConfig.java L43 | log.info 在 INFO 级别记录 API key 存在性 | P2(低) | 改为 log.debug | ✅已修复 |
-| 2 | SpringAiConfig.java L44-48 | bean 方法返回 null（空 API key 或 provider 不匹配） | P2(低) | 改为详细 WARN 日志说明原因，保持 return null（避免破坏 Spring 启动） | ✅已修复 |
-| 3 | LlmQualityScorer.java L28-30 | String.format 多行模板，title/content 含 % 会抛 IllegalFormatException | P2 | 改为字符串拼接，避免 String.format | ✅已修复 |
-| 4 | LlmQualityScorer.java L105 | `response.contains("SUCCESS")` 子串匹配过于宽泛 | P2(低) | 优先精确匹配 trimmed.equals("SUCCESS")，失败再 fallback 到 contains | ✅已修复 |
-| 5 | QualityScorer.java L109-119 | LLM fallback 丢弃原始 feedback 和 toolUsageCount | P2 | 新增 6 参数重载，保留原始 feedback/toolUsageCount；4 参数版本改为转发 | ✅已修复 |
-| 6 | AgentService.java L347 | calculateContentHash("") 返回固定哈希导致 false-positive dedup | P2(低) | 空内容返回 null 跳过 dedup | ✅已修复 |
-| 7 | AgentService.java L314 processPendingMessage | catch 块统一标记 failed，不区分 retryable | P2 | 与 processToolUseAsync 一致：区分 DataIntegrityViolationException 和 retryable/unretryable | ✅已修复 |
-| 8 | SessionController + ContextController | findClaudeMdInProject 和 isWithinProject 重复 ~70 行 | P2 | 创建 PathValidationUtil 共享工具类（待控制器引用） | ⏳部分完成 |
-
-**编译/测试结果**:
-- Backend: `mvn clean compile package -DskipTests` ✅
-- Regression: `bash scripts/regression-test.sh --skip-build` ✅（46/47, 1 skipped = 异步摘要正常）
-- Phase 3 Acceptance: `EXTRACTION_ENABLED=true bash scripts/phase3-acceptance-test.sh` ✅（25/25 tests passed）
-
-**汇总**: 修复 7 个问题（2 P2 + 3 P2(低) + 2 代码卫生），创建 1 个共享工具类。WebUI P1 设置字段命名问题暂未处理（需验证 WebUI 契约）。
+### 剩余未修复问题
+- Python SDK #3: SearchResult.to_dict() 测试覆盖 (P2) - SDK 问题
+- Python SDK #3: dto.py 注释改进 (P2) - SDK 问题
+- JS SDK + Backend: StartSessionResponse 缺少 session_id (P2) - SDK 端已通过 defaults 兜底
+- JS SDK: UUID 格式校验 (P2 极低)

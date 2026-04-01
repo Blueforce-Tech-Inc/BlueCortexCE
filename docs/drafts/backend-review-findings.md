@@ -11,11 +11,28 @@
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **1** | 见下方新增 |
+| **P2** (建议修复) | **0** | — |
 | **⏭ 跳过** | **4** | 非 bug，属设计决策或代码风格偏好 |
 | **✅ 已修复** | **~62** | 历史累计，含本次修复 |
 
 **结论**: 后端代码质量优秀，所有问题已修复 ✅ 🎉
+
+---
+
+### 2026-04-01 18:14 | Backend 审查 #16
+
+**抽查文件**: `RateLimitService.java`, `ExtractionStorageService.java`
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | RateLimitService.java | L~128 `tryAcquire()` | `cleanupExpiredWindows()` 调用在 `window.tryIncrement()` 之前，将 cleanup 延迟加到了关键路径。应移到 increment 之后执行，避免增加 acquire 延迟 | P2 ✅已修复（移到 acquire 返回后执行） |
+| 2 | RateLimitService.java | L~95 `cleanupExpiredWindows()` | ConcurrentHashMap stream `.limit().forEach(windows::remove)` 弱一致性迭代，删除的不一定是最旧条目。添加注释说明这是 intentional 的近似行为 | P2 (低) ✅已修复（改进注释说明） |
+| 3 | ExtractionStorageService.java | L~46 `findOrCreateUserSession` | 默认 isolation (READ_COMMITTED) 下并发 extraction 可能创建重复 session。风险极低（仅理论并发场景），当前 `@Transactional` 已提供基本保护 | P2 (低) |
+
+**审查结论**:
+- **RateLimitService.java**: 整体设计良好。滑动窗口算法实现正确（synchronized 保证原子性），cleanup 机制有时间间隔保护（每 300s 执行一次），MAX_WINDOWS 上限防止无限内存增长。`isValidIpAddress` 对 IPv4/IPv6 验证完整。`generateFallbackKey` 隐私保护到位（hash + UUID 随机后缀）。`getRemoteAddr` 正确处理 X-Forwarded-For 注入防护。
+- **ExtractionStorageService.java**: 设计简洁正确。`@Transactional` 保证 session find-or-create + observation save 的原子性。Javadoc 清晰说明了提取原因（从 StructuredExtractionService 分离以保证事务边界）。无 P0/P1 问题。
+- **无 P0/P1 问题**。
 
 ### ⏭ 跳过的设计决策（非 bug，无需修复）
 

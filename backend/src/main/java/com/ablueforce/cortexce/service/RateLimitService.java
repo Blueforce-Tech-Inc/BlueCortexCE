@@ -105,6 +105,9 @@ public class RateLimitService {
         });
 
         // P2: Enforce maximum size cap to prevent memory exhaustion
+        // Note: ConcurrentHashMap's stream is weakly consistent, so removed entries
+        // may not be the absolute oldest. This is acceptable as the goal is just to
+        // bound memory usage, not to precisely evict LRU entries.
         if (windows.size() > MAX_WINDOWS) {
             log.warn("Rate limit windows exceeded max size {}, cleaning up", MAX_WINDOWS);
             // Remove oldest entries (approximated by taking first N entries)
@@ -135,14 +138,15 @@ public class RateLimitService {
         long now = Instant.now().getEpochSecond();
         SlidingWindow window = windows.computeIfAbsent(key, k -> new SlidingWindow());
 
-        // P2: Periodic cleanup of expired windows
-        cleanupExpiredWindows();
-
         boolean allowed = window.tryIncrement(now);
 
         if (!allowed) {
             log.debug("Rate limit exceeded for key: {}", key);
         }
+
+        // P2: Periodic cleanup - only runs every cleanupIntervalSeconds (default 300s)
+        // Moved after acquire to avoid adding latency to the critical path
+        cleanupExpiredWindows();
 
         return allowed;
     }
