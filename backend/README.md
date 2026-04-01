@@ -76,7 +76,7 @@ export $(cat .env | grep -v '^#' | grep -v '^$' | xargs)
 ./mvnw clean package -DskipTests
 
 # Run (Flyway auto-applies migrations)
-java -jar target/claude-mem-java-0.1.0-SNAPSHOT.jar
+java -jar target/claude-mem-java-0.1.0-beta.jar
 ```
 
 Server starts on `http://127.0.0.1:37777`.
