@@ -817,13 +817,12 @@ public class StructuredExtractionService {
      * - `mergeAppendOnly()` performs programmatic merge with full prior from DB
      * - `ExtractionStorageService.storeResult()` handles transactional storage
      *
-     * Merge behavior:
-     * - If template has sessionIdPattern and an existing extraction exists for that session,
-     *   merge new results with existing ones (deduplicate by category+value).
      * Store extraction result. Always creates a new observation — old extractions
-     * are preserved as history. The LLM re-extraction approach means each run
-     * produces a complete current state (including prior results as context),
-     * so no programmatic merge is needed.
+     * are preserved as history.
+     *
+     * Note: Under the append-only approach, programmatic merge is performed by
+     * `mergeAppendOnly()` in StructuredExtractionService BEFORE this method is called.
+     * This method receives an already-merged `Map<String, Object>` and stores it as-is.
      * 
      * @param template Extraction template configuration
      * @param result LLM extraction result (complete current state)
