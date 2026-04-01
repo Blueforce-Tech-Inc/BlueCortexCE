@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-01 23:26 (健康检查修复 — ContextService.java 全部 4 个 P2 已修复)
+> **最后更新**: 2026-04-02 00:56 (Backend 审查 #18 — AsyncConfig.java rejection handler)
 
 # Backend 代码审查问题记录
 
@@ -11,8 +11,26 @@
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **0** | — |
+| **P2** (建议修复) | **0** | — (AsyncConfig rejection handler ✅已修复 2026-04-02) |
 | **⏭ 跳过** | **4** | 非 bug，属设计决策或代码风格偏好 |
+
+---
+
+### 2026-04-02 00:56 | Backend 审查 #18
+
+**抽查文件**: `PathValidationUtil.java`, `AsyncConfig.java`, `SummaryRepository.java`, `ObservationRepository.java`, `PendingMessageRepository.java`
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | AsyncConfig.java | L53-56 `setRejectedExecutionHandler` | 自定义 RejectedExecutionHandler lambda 只记录 WARN 日志但不 reject/throw，导致线程池满载时 @Async 任务被静默丢弃。默认 `AbortPolicy` 会抛 RejectedExecutionException 使调用方感知失败，当前行为掩盖了背压问题。影响范围：SummaryGenerationService、MemoryRefineService、AgentService、PendingMessageEventListener、MemoryRefineEventListener 的 @Async 方法 | P2 ✅已修复（改为 caller-runs 背压策略，拒绝时在调用线程执行任务） |
+
+**审查结论**:
+- **PathValidationUtil.java**: 优秀。路径遍历防护完善（normalize + startsWith），depth 限制 (10) 防无限遍历，.git 检测提前终止。`isSafeDirectory` 屏蔽敏感系统路径。无问题。
+- **AsyncConfig.java**: 线程池配置合理（core=10, max=50, queue=100），shutdown 优雅（waitForTasksToComplete + 60s timeout）。rejection handler 是唯一问题点——应至少 throw RejectedExecutionException 或使用 CallerRunsPolicy 保证背压反馈。
+- **SummaryRepository.java**: 标准 Spring Data JPA，查询正确，native query 使用得当。无问题。
+- **ObservationRepository.java**: 查询覆盖完整（分页、语义搜索、全文搜索、hybrid search、时间线聚合、质量过滤、工作区多项目）。无 N+1 问题。无问题。
+- **PendingMessageRepository.java**: 幂等去重（SHA-256 hash）、retry 逻辑正确（`retry_count + 1 < maxRetries`）、stale message 清理。无问题。
+- **无 P0/P1 问题**。
 | **✅ 已修复** | **~66** | 历史累计，含本次修复 |
 
 **结论**: 后端代码质量优秀，所有 P2 问题已修复 ✅
@@ -699,4 +717,25 @@
 - **安全意识**: 路径长度检查（4096 上限）、`stripSystemReminders` 的字符串解析（防 ReDoS）、输入大小截断（100K 上限）均到位。但 `validateProjectPath` 本身的遍历逻辑有误。
 - **代码卫生**: `generateContextWithFilters` 和 `generateContext` 之间逻辑高度重复（都调用 `validateProjectPath`、`buildTimeline`、`renderTimeline`），`generateContextWithFilters` 约 70 行逻辑大部分与 `generateContext` 重叠。`generateContinuation` 的异常日志级别错误。
 - **无 P0/P1 问题**。
+
+
+### 2026-04-02 01:18 | JS SDK 审查 #3
+
+**审查范围**: `js-sdk/cortex-mem-js/` — client.ts, all DTO files, wire-helpers.ts, errors.ts, client-options.ts, examples/http-server/app.ts, tests (204)
+
+| 检查项 | 结果 |
+|--------|------|
+| 测试 | ✅ 204/204 通过 |
+| 构建 | ✅ CJS + ESM + DTS 成功 (29.13KB + 28.24KB + 23.19KB) |
+| 接口设计 | ✅ 25 个 API 方法完整 |
+| Wire 格式 | ✅ 全部 DTO 字段 dual-format 解析 (camelCase/snake_case) |
+| 错误处理 | ✅ 与 Go/Java/Python 完全对齐 (isRetryable: 429/502/503/504) |
+| 验证 | ✅ 所有必填字段强制检查，空值/空白拒绝 |
+| Demo | ✅ 26 个 REST 端点，输入验证完整 |
+| 类型安全 | ✅ TypeScript 类型完整，exports 配置正确 |
+| Cross-SDK 一致性 | ✅ retry/error/wire format 注释跨 SDK 引用完整 |
+
+**发现问题**: 无 P0/P1/P2 问题。
+
+**审查结论**: JS SDK 质量优秀，无需修复。
 

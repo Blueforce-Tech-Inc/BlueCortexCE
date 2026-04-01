@@ -53,7 +53,13 @@ public class AsyncConfig implements AsyncConfigurer {
         executor.setQueueCapacity(queueCapacity);
         executor.setThreadNamePrefix("claude-mem-async-");
         executor.setRejectedExecutionHandler((r, e) -> {
-            log.warn("Task rejected from async executor, queue is full. Consider increasing claudemem.async.max-pool-size or claudemem.async.queue-capacity");
+            log.warn("Task rejected from async executor (queue full). Running in caller thread for backpressure. " +
+                    "Consider increasing claudemem.async.max-pool-size or claudemem.async.queue-capacity");
+            try {
+                r.run();
+            } catch (Exception ex) {
+                log.error("Rejected task execution failed in caller thread", ex);
+            }
         });
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(awaitTerminationSeconds);
