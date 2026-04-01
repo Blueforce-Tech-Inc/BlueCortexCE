@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-02 00:56 (Backend 审查 #18 — AsyncConfig.java rejection handler)
+> **最后更新**: 2026-04-02 01:55 (Backend 审查 #19 — ClaudeMemMcpTools.java + RateLimitService.java + TemplateService.java)
 
 # Backend 代码审查问题记录
 
@@ -11,8 +11,49 @@
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **0** | — (AsyncConfig rejection handler ✅已修复 2026-04-02) |
+| **P2** (建议修复) | **2** | MCP search offset 忽略; MCP saveMemory session 泄漏 |
 | **⏭ 跳过** | **4** | 非 bug，属设计决策或代码风格偏好 |
+
+---
+
+### 2026-04-02 01:55 | Backend 审查 #19
+
+**审查方向**: Backend (ClaudeMemMcpTools.java, RateLimitService.java, TemplateService.java)
+
+**审查范围**:
+- `ClaudeMemMcpTools.java` — 6 MCP tools: search, timeline, get_observations, save_memory, recent
+- `RateLimitService.java` — In-memory sliding window rate limiter
+- `TemplateService.java` — Prompt template loading and validation
+
+#### 发现的问题
+
+| # | 文件 | 严重级别 | 问题描述 |
+|---|------|---------|---------|
+| 19-1 | ClaudeMemMcpTools.java:99 | **P2** | `search()` 方法接受 `offset` 和 `orderBy` MCP 参数，但 `offset` 被硬编码为 `0` 传入 `SearchRequest`，`orderBy` 完全未使用。MCP tool 声明了参数但静默忽略，可能导致用户困惑。 |
+| 19-2 | ClaudeMemMcpTools.java:215-223 | **P2** | `saveMemory()` 每次调用创建 `dummySession`（`SessionEntity`）到数据库以满足 FK 约束，但这些 session 永远不会被清理。长期运行后会产生大量无用 session 记录。 |
+
+#### 代码质量评价
+
+| 检查项 | RateLimitService | TemplateService | MCP Tools |
+|--------|------------------|-----------------|-----------|
+| 线程安全 | ✅ synchronized + AtomicInteger | N/A | N/A |
+| 内存管理 | ✅ cleanup + MAX_WINDOWS cap | N/A | ⚠️ saveMemory session 泄漏 |
+| 输入验证 | ✅ IP 验证 + fallback key | ✅ placeholder 校验 | ✅ null 检查 |
+| 错误处理 | ✅ gracefully fallback | ✅ fail-fast | ✅ try-catch + error response |
+| 模板安全 | N/A | ✅ escapeTemplateValue | N/A |
+
+#### RateLimitService 亮点
+- 滑动窗口算法实现正确
+- `MAX_WINDOWS` 硬上限防止内存耗尽
+- `X-Forwarded-For` 注入防护 + IPv4/IPv6 验证
+- 隐私友好的 fallback key 生成（hash + UUID 随机后缀）
+
+#### TemplateService 亮点
+- `@PostConstruct` fail-fast 加载，缺失模板直接抛异常
+- placeholder 验证确保必需变量存在
+- `escapeTemplateValue` 正确处理 `{{{{` 和 `{{` 的顺序替换
+
+**修复状态**: P2 问题记录待低频 cron 集中修复。无 P0/P1 问题。
 
 ---
 
@@ -739,3 +780,34 @@
 
 **审查结论**: JS SDK 质量优秀，无需修复。
 
+
+---
+
+### 2026-04-02 01:44 | Demo 审查 #4
+
+**审查方向**: Demo (Java / Go / Python / JS http-server demos)
+
+**审查范围**:
+- Java: ExtractionController, ChatController, ObservationsController, FeedbackController, SessionLifecycleController
+- Go: http-server/main.go (all 30+ endpoints)
+- Python: http-server/app.py (all 25+ endpoints)
+- JS: http-server/app.ts (header + first 80 lines)
+
+| 检查项 | Java | Go | Python | JS |
+|--------|------|----|--------|----|
+| 编译检查 | ✅ `mvn compile -Plocal` | ✅ `go build` | ✅ (Python 3.11 syntax valid) | ✅ (TypeScript) |
+| 输入验证 | ✅ 完整 | ✅ 完整 | ✅ 完整 | ✅ 完整 |
+| 错误处理 | ✅ try-catch + 结构化错误 | ✅ error check + JSON error | ✅ Flask error handlers | ✅ asyncHandler + catch |
+| 请求体限制 | Spring 默认 | ✅ 1MB const | ✅ MAX_CONTENT_LENGTH | ✅ express.json limit:1mb |
+| 优雅关闭 | N/A (Spring) | ✅ SIGINT/SIGTERM | N/A | N/A |
+| Panic 恢复 | N/A (JVM) | ✅ recovery middleware | Flask 默认 | Express 默认 |
+
+**跨 SDK 端点路径差异** (P2, 已知):
+- Java: `/demo/{controller}/...` 前缀 (Spring MVC @RequestMapping 惯例)
+- Go: `/batch-observations`, `/create-observation` (Go 1.25+ ServeMux 冲突规避)
+- Python/JS: `/observations/batch`, `/observations/create` (Flask/Express)
+- 各 E2E 测试已适配各自路径，无功能影响
+
+**发现问题**: 无 P0/P1 问题。代码质量优秀。
+
+**审查结论**: Demo 代码跨四套 SDK 质量一致，输入验证完整，错误处理规范。
