@@ -4,8 +4,8 @@ import json
 import pytest
 import responses
 
-from cortex_mem import CortexMemClient, APIError, BadRequestError, NotFoundError, RateLimitError, CortexError, ValidationError
-from cortex_mem.error import is_retryable, raise_for_status, ServerError, ConflictError, AuthError, is_retryable_error, is_bad_gateway, is_bad_request, is_service_unavailable, is_gateway_timeout, is_client_error, is_server_error, is_not_found, is_unauthorized, is_forbidden, is_conflict, is_rate_limited
+from cortex_mem import CortexMemClient, APIError, BadRequestError, NotFoundError, RateLimitError, CortexError, ValidationError, UnprocessableError
+from cortex_mem.error import is_retryable, raise_for_status, ServerError, ConflictError, AuthError, is_retryable_error, is_bad_gateway, is_bad_request, is_service_unavailable, is_gateway_timeout, is_client_error, is_server_error, is_not_found, is_unauthorized, is_forbidden, is_conflict, is_rate_limited, is_unprocessable, is_validation_error
 from cortex_mem.dto import (
     SessionStartResponse,
     Experience,
@@ -1333,6 +1333,19 @@ class TestErrorPredicates:
         assert is_rate_limited(APIError(429, "rate limited")) is True
         assert is_rate_limited(APIError(503, "unavailable")) is False
         assert is_rate_limited(ValueError("x")) is False
+
+    def test_is_unprocessable(self):
+        assert is_unprocessable(UnprocessableError()) is True
+        assert is_unprocessable(APIError(422, "unprocessable")) is True
+        assert is_unprocessable(BadRequestError()) is False
+        assert is_unprocessable(ValueError("x")) is False
+
+    def test_is_validation_error(self):
+        assert is_validation_error(ValidationError("bad input")) is True
+        assert is_validation_error(ValidationError("bad input", field="query")) is True
+        assert is_validation_error(CortexError("not validation")) is False
+        assert is_validation_error(APIError(400, "bad request")) is False
+        assert is_validation_error(ValueError("x")) is False
 
 
 class TestRaiseForStatus:
