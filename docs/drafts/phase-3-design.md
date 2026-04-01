@@ -2807,12 +2807,12 @@ public void deepRefineProjectMemories(String projectPath) {
 
 Before writing any code, verify:
 
-- [ ] Spring AI 1.1.2 includes `org.springframework.ai.converter` package (check Maven dependency tree)
-- [ ] `BeanOutputConverter` and `MapOutputConverter` are available in the classpath
-- [ ] `ObservationEntity.getExtractedData()` returns `Map<String, Object>` (confirmed in V14)
-- [ ] `ObservationEntity.setExtractedData(Map<String, Object>)` setter exists
-- [ ] `ObjectMapper` bean is available in the Spring context (for `convertToMap()`)
-- [ ] YAML configuration loading works with the chosen config binding approach
+- [x] Spring AI 1.1.2 includes `org.springframework.ai.converter` package (verified ✅)
+- [x] `BeanOutputConverter` and `MapOutputConverter` are available in the classpath (verified ✅)
+- [x] `ObservationEntity.getExtractedData()` returns `Map<String, Object>` (confirmed ✅)
+- [x] `ObservationEntity.setExtractedData(Map<String, Object>)` setter exists (confirmed ✅)
+- [x] `ObjectMapper` bean is available in the Spring context (confirmed ✅)
+- [x] YAML configuration loading works with `ExtractionConfig` + `@ConfigurationProperties` (implemented ✅)
 
 ### 15.6 Transaction Safety for Extraction State
 
@@ -3417,29 +3417,29 @@ Template iteration is a valid fallback if `findByTypeLike` is delayed, but shoul
 Final pre-implementation verification — all items must pass before writing `StructuredExtractionService.java`:
 
 **Prerequisites**:
-- [ ] `findBySourceIn(project, List<String>, limit)` added to `ObservationRepository`
-- [ ] `findByTypeGlobal(type, limit)` added to `ObservationRepository`
-- [ ] `findByTypeLike(project, typePattern, limit)` added with `LIKE` support
-- [ ] `findNewObservations(project, sources, sinceEpoch, limit)` added
-- [ ] `chatCompletionStructured(systemPrompt, userPrompt, outputType)` added to `LlmService`
+- [x] `findBySourceIn(project, List<String>, limit)` added to `ObservationRepository` ✅
+- [x] `findByTypeGlobal(type, limit)` added to `ObservationRepository` ✅
+- [x] `findByTypeLike(project, typePattern, limit)` added with `LIKE` support ✅
+- [x] `findNewObservations(project, sources, sinceEpoch, limit)` added ✅
+- [x] `chatCompletionStructured(systemPrompt, userPrompt, outputType)` added to `LlmService` ✅
 
 **Classpath verification**:
-- [ ] `BeanOutputConverter` in `spring-ai-model` jar (verified in v14 ✅)
-- [ ] `MapOutputConverter` in `spring-ai-model` jar (verified in v14 ✅)
+- [x] `BeanOutputConverter` in `spring-ai-model` jar (verified ✅)
+- [x] `MapOutputConverter` in `spring-ai-model` jar (verified ✅)
 
 **Configuration**:
-- [ ] `ExtractionConfig` class with `@ConfigurationProperties(prefix = "app.memory.extraction")`
-- [ ] YAML template loading with POJO+Map dual pattern
-- [ ] `initial-run-max-candidates` config field
+- [x] `ExtractionConfig` class with `@ConfigurationProperties(prefix = "app.memory.extraction")` ✅
+- [x] YAML template loading with POJO+Map dual pattern ✅
+- [x] `initial-run-max-candidates` config field ✅
 
 **Integration**:
-- [ ] `deepRefineProjectMemories()` modified to call extraction as last step
-- [ ] Non-blocking: extraction failures don't propagate to refinement
+- [x] `deepRefineProjectMemories()` modified to call extraction as last step ✅
+- [x] Non-blocking: extraction failures don't propagate to refinement ✅
 
 **Testing**:
-- [ ] Existing regression test passes (53/53)
-- [ ] Unit test with mocked LLM for structured extraction
-- [ ] Integration test for full template → LLM → store pipeline
+- [x] Existing regression test passes (53/53) ✅
+- [x] Unit test with mocked LLM for structured extraction ✅
+- [x] Integration test for full template → LLM → store pipeline ✅
 
 ---
 
