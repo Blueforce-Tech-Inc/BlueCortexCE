@@ -6,6 +6,7 @@ import com.ablueforce.cortexce.repository.SummaryRepository;
 import com.ablueforce.cortexce.service.ClaudeMdService;
 import com.ablueforce.cortexce.service.ContextService;
 import com.ablueforce.cortexce.service.TimelineService;
+import com.ablueforce.cortexce.util.PathValidationUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -106,7 +107,7 @@ public class ContextController {
                     contextBuilder.append(context);
 
                     // Check if CLAUDE.md needs update
-                    Path claudeMdPath = findClaudeMdInProject(projectPath);
+                    Path claudeMdPath = PathValidationUtil.findClaudeMdInProject(projectPath);
                     if (claudeMdPath != null) {
                         String claudeMdContent = claudeMdService.generateClaudeMd(projectPath);
                         updateFiles.add(new UpdateFileEntry(
@@ -130,7 +131,7 @@ public class ContextController {
             if (projectList.length == 0) {
                 String cwd = System.getProperty("user.dir");
                 // P1: Only use cwd if it's a valid, safe path
-                if (cwd != null && !cwd.isBlank() && isSafeDirectory(cwd)) {
+                if (cwd != null && !cwd.isBlank() && PathValidationUtil.isSafeDirectory(cwd)) {
                     finalContext = contextService.generateContext(cwd);
                     log.debug("Generated context for cwd: {}", cwd);
                     log.info("No projects specified, using current working directory: {}", cwd);
@@ -362,77 +363,6 @@ public class ContextController {
     }
 
     /**
-     * Find CLAUDE.md in project directory.
-     * P0: Validates paths to prevent escaping project root via symlinks.
-     */
-    private Path findClaudeMdInProject(String projectPath) {
-        if (projectPath == null || projectPath.isBlank()) {
-            return null;
-        }
-
-        // P0: Normalize and resolve the path to prevent path traversal
-        java.nio.file.Path basePath = java.nio.file.Paths.get(projectPath).toAbsolutePath().normalize();
-        java.nio.file.Path claudeMdPath = basePath.resolve("CLAUDE.md");
-
-        // P0: Validate the resolved path is within project bounds
-        if (isWithinProject(basePath, claudeMdPath)) {
-            try {
-                if (java.nio.file.Files.exists(claudeMdPath)) {
-                    return claudeMdPath;
-                }
-            } catch (SecurityException e) {
-                log.warn("Cannot access CLAUDE.md at {}: {}", claudeMdPath, e.getMessage());
-            }
-        }
-
-        // Search parent directories but limit to reasonable depth and validate bounds
-        java.nio.file.Path rootPath = basePath.getRoot();
-        java.nio.file.Path current = basePath.getParent();
-
-        // P0: Limit traversal depth and validate each step
-        int maxDepth = 10;
-        int depth = 0;
-
-        while (current != null && !current.equals(rootPath) && depth < maxDepth) {
-            java.nio.file.Path candidate = current.resolve("CLAUDE.md");
-
-            // P0: Validate candidate is still within the filesystem bounds
-            if (!isWithinProject(basePath, candidate)) {
-                log.warn("Path traversal attempt detected: {} would escape project", candidate);
-                return null;
-            }
-
-            try {
-                if (java.nio.file.Files.exists(candidate)) {
-                    return candidate;
-                }
-            } catch (SecurityException e) {
-                log.warn("Cannot access candidate path {}: {}", candidate, e.getMessage());
-            }
-            current = current.getParent();
-            depth++;
-        }
-
-        return null;
-    }
-
-    /**
-     * P0: Check if the target path is within the project boundaries.
-     * Prevents path traversal via symlinks or relative path components.
-     */
-    private boolean isWithinProject(java.nio.file.Path projectRoot, java.nio.file.Path targetPath) {
-        try {
-            java.nio.file.Path normalizedTarget = targetPath.toAbsolutePath().normalize();
-            java.nio.file.Path normalizedRoot = projectRoot.toAbsolutePath().normalize();
-
-            return normalizedTarget.startsWith(normalizedRoot);
-        } catch (SecurityException e) {
-            log.warn("Security exception checking path bounds: {}", e.getMessage());
-            return false;
-        }
-    }
-
-    /**
      * Get prior messages from the last completed session.
      * Used for context continuity across sessions.
      *
@@ -474,48 +404,4 @@ public class ContextController {
         }
     }
 
-    /**
-     * P1: Validate that a directory path is safe to use.
-     * Checks for path traversal attempts and validates directory existence.
-     *
-     * @param path the directory path to validate
-     * @return true if the path is safe, false otherwise
-     */
-    private boolean isSafeDirectory(String path) {
-        if (path == null || path.isBlank()) {
-            return false;
-        }
-
-        try {
-            java.nio.file.Path normalizedPath = java.nio.file.Paths.get(path).normalize().toAbsolutePath();
-
-            // Check if the path exists and is a directory
-            if (!java.nio.file.Files.exists(normalizedPath)) {
-                log.warn("Directory does not exist: {}", path);
-                return false;
-            }
-            if (!java.nio.file.Files.isDirectory(normalizedPath)) {
-                log.warn("Path is not a directory: {}", path);
-                return false;
-            }
-
-            // P0: Check for path traversal attempts in original path
-            if (path.contains("..")) {
-                // After normalization, verify the result is still safe
-                java.nio.file.Path rawAbsolute = java.nio.file.Paths.get(path).toAbsolutePath();
-                if (!normalizedPath.startsWith(rawAbsolute.getRoot())) {
-                    log.warn("Path traversal attempt detected: {}", path);
-                    return false;
-                }
-            }
-
-            return true;
-        } catch (SecurityException e) {
-            log.warn("Security exception validating directory {}: {}", path, e.getMessage());
-            return false;
-        } catch (Exception e) {
-            log.warn("Failed to validate directory {}: {}", path, e.getMessage());
-            return false;
-        }
-    }
 }

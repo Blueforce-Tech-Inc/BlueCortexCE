@@ -3,6 +3,7 @@ package com.ablueforce.cortexce.controller;
 import com.ablueforce.cortexce.entity.SessionEntity;
 import com.ablueforce.cortexce.repository.SessionRepository;
 import com.ablueforce.cortexce.service.SessionManagementService;
+import com.ablueforce.cortexce.util.PathValidationUtil;
 import com.ablueforce.cortexce.service.ClaudeMdService;
 import com.ablueforce.cortexce.service.ContextCacheService;
 import com.ablueforce.cortexce.service.ContextService;
@@ -199,7 +200,7 @@ public class SessionController {
         // 3. Generate CLAUDE.md update if needed
         List<Map<String, String>> updateFiles = new ArrayList<>();
         if (projectPath != null && !projectPath.isEmpty()) {
-            Path claudeMdPath = findClaudeMdInProject(projectPath);
+            Path claudeMdPath = PathValidationUtil.findClaudeMdInProject(projectPath);
             if (claudeMdPath != null) {
                 String claudeMdContent = claudeMdService.generateClaudeMd(projectPath);
                 updateFiles.add(Map.of(
@@ -281,94 +282,6 @@ public class SessionController {
                 // P2: Log and continue - caching is best-effort, context can be regenerated
                 log.warn("Failed to cache context for project {}: {}", projectPath, e.getMessage());
             }
-        }
-    }
-
-    /**
-     * Find CLAUDE.md in project directory or its parents.
-     * P0: Validates paths to prevent escaping project root via symlinks.
-     *
-     * @return Path to CLAUDE.md, or null if not found
-     */
-    private Path findClaudeMdInProject(String projectPath) {
-        if (projectPath == null || projectPath.isBlank()) {
-            return null;
-        }
-
-        // P0: Normalize and resolve the path to prevent path traversal
-        Path basePath = Path.of(projectPath).toAbsolutePath().normalize();
-        Path claudeMdPath = basePath.resolve("CLAUDE.md");
-
-        // Validate the resolved path is within the project
-        if (isWithinProject(basePath, claudeMdPath)) {
-            try {
-                if (java.nio.file.Files.exists(claudeMdPath)) {
-                    return claudeMdPath;
-                }
-            } catch (SecurityException e) {
-                log.warn("Cannot access CLAUDE.md at {}: {}", claudeMdPath, e.getMessage());
-            }
-        }
-
-        // Search parent directories but limit to reasonable depth and validate bounds
-        Path rootPath = basePath.getRoot();
-        Path current = basePath.getParent();
-
-        // P0: Limit traversal depth and validate each step
-        int maxDepth = 10;
-        int depth = 0;
-
-        while (current != null && !current.equals(rootPath) && depth < maxDepth) {
-            Path candidate = current.resolve("CLAUDE.md");
-
-            // P0: Validate candidate is still within the filesystem bounds
-            if (!isWithinProject(basePath, candidate)) {
-                log.warn("Path traversal attempt detected: {} would escape project", candidate);
-                return null;
-            }
-
-            try {
-                if (java.nio.file.Files.exists(candidate)) {
-                    return candidate;
-                }
-            } catch (SecurityException e) {
-                log.warn("Cannot access candidate path {}: {}", candidate, e.getMessage());
-            }
-
-            // Check for project root marker (.git directory)
-            try {
-                Path gitPath = current.resolve(".git");
-                if (java.nio.file.Files.exists(gitPath)) {
-                    // Found project root, stop searching
-                    return null;
-                }
-            } catch (SecurityException e) {
-                log.warn("Cannot access .git at {}: {}", current, e.getMessage());
-            }
-
-            current = current.getParent();
-            depth++;
-        }
-
-        return null;
-    }
-
-    /**
-     * P0: Check if the target path is within the project boundaries.
-     * Prevents path traversal via symlinks or relative path components.
-     */
-    private boolean isWithinProject(Path projectRoot, Path targetPath) {
-        try {
-            Path normalizedTarget = targetPath.toAbsolutePath().normalize();
-            Path normalizedRoot = projectRoot.toAbsolutePath().normalize();
-
-            // Check if the normalized target starts with the project root
-            // or is the same path
-            return normalizedTarget.startsWith(normalizedRoot)
-                || normalizedTarget.equals(normalizedRoot);
-        } catch (SecurityException e) {
-            log.warn("Security exception checking path bounds: {}", e.getMessage());
-            return false;
         }
     }
 

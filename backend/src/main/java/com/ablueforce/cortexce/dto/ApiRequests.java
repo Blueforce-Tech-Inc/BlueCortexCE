@@ -184,7 +184,7 @@ public class ApiRequests {
         @JsonProperty("ids") List<String> ids,
         @Schema(description = "Optional project filter")
         @JsonProperty("project") String project,
-        @Schema(description = "Sort order (e.g., 'created_at')")
+        @Schema(description = "Sort order (e.g., 'created_at_epoch' or 'createdAtEpoch')")
         @JsonProperty("orderBy") String orderBy,
         @Schema(description = "Max results to return")
         @JsonProperty("limit") Integer limit

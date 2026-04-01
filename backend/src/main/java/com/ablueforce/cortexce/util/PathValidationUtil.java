@@ -70,6 +70,16 @@ public final class PathValidationUtil {
                 log.warn("Cannot access candidate path {}: {}", candidate, e.getMessage());
             }
 
+            // Stop at project root (.git directory)
+            try {
+                Path gitPath = current.resolve(".git");
+                if (Files.exists(gitPath)) {
+                    return null;
+                }
+            } catch (SecurityException e) {
+                log.warn("Cannot access .git at {}: {}", current, e.getMessage());
+            }
+
             current = current.getParent();
             depth++;
         }

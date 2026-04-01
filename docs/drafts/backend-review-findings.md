@@ -576,8 +576,8 @@
 
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
-| 1 | SessionController.java + ContextController.java | L293-360 / L368-428 | `findClaudeMdInProject()` 和 `isWithinProject()` 在两个 Controller 中完全重复（~70 行）。应提取为共享 utility 类（如 `PathValidationUtil`） | P2 ⏳待修 |
-| 2 | ContextController.java | L484-510 | `isSafeDirectory()` 与 `isWithinProject()` 做相似的路径安全检查，但使用不同逻辑。可与上述 utility 合并统一 | P2 ⏳待修 |
+| 1 | SessionController.java + ContextController.java | L293-360 / L368-428 | `findClaudeMdInProject()` 和 `isWithinProject()` 在两个 Controller 中完全重复（~70 行）。应提取为共享 utility 类（如 `PathValidationUtil`） | P2 ✅已修复（删除私有方法，改用 PathValidationUtil 静态调用） |
+| 2 | ContextController.java | L484-510 | `isSafeDirectory()` 与 `isWithinProject()` 做相似的路径安全检查，但使用不同逻辑。可与上述 utility 合并统一 | P2 ✅已修复（删除私有方法，改用 PathValidationUtil.isSafeDirectory） |
 
 **编译**: ✅ BUILD SUCCESS
 
