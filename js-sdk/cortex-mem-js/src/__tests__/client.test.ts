@@ -562,14 +562,27 @@ describe('CortexMemClient', () => {
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    it('should reject update with all-null fields', async () => {
+    it('should accept null fields for PATCH clear semantics', async () => {
+      // PATCH semantics: null = clear field (per API docs: "Null values clear the field")
       fetchMock = mockFetch(204, null);
       client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
 
-      await expect(
-        client.updateObservation('obs-1', { title: null as unknown as string, content: null as unknown as string }),
-      ).rejects.toThrow('at least one field');
-      expect(fetchMock).not.toHaveBeenCalled();
+      await client.updateObservation('obs-1', { title: null as unknown as string, content: 'new content' });
+      const [, opts] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
+      const body = JSON.parse(opts.body);
+      expect(body.title).toBeNull();
+      expect(body.content).toBe('new content');
+    });
+
+    it('should accept all-null fields (clear all)', async () => {
+      fetchMock = mockFetch(204, null);
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+
+      await client.updateObservation('obs-1', { title: null as unknown as string, content: null as unknown as string });
+      const [, opts] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
+      const body = JSON.parse(opts.body);
+      expect(body.title).toBeNull();
+      expect(body.content).toBeNull();
     });
   });
 
@@ -967,6 +980,64 @@ describe('CortexMemClient', () => {
       });
       // Only 1 call (no retries for 4xx)
       expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
+    it('should retry on transient 5xx (503)', async () => {
+      let callCount = 0;
+      const retryFetch = vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount < 3) {
+          return Promise.resolve({
+            status: 503,
+            body: null,
+            text() { return Promise.resolve('{"error":"service unavailable"}'); },
+          });
+        }
+        return Promise.resolve({
+          status: 204,
+          body: null,
+          text() { return Promise.resolve(''); },
+        });
+      });
+
+      client = new CortexMemClient({
+        fetch: retryFetch as unknown as typeof globalThis.fetch,
+        maxRetries: 3,
+        retryBackoff: 1,
+      });
+
+      await client.recordObservation({
+        session_id: 'sess-1',
+        cwd: '/tmp',
+        tool_name: 'Read',
+      });
+      expect(callCount).toBe(3);
+    });
+
+    it('should not retry on 500 (non-retryable)', async () => {
+      let callCount = 0;
+      const fetch500 = vi.fn().mockImplementation(() => {
+        callCount++;
+        return Promise.resolve({
+          status: 500,
+          body: null,
+          text() { return Promise.resolve('{"error":"internal"}'); },
+        });
+      });
+
+      client = new CortexMemClient({
+        fetch: fetch500 as unknown as typeof globalThis.fetch,
+        maxRetries: 3,
+        retryBackoff: 1,
+      });
+
+      await client.recordObservation({
+        session_id: 'sess-1',
+        cwd: '/tmp',
+        tool_name: 'Read',
+      });
+      // Should not retry 500 (code bug, not transient)
+      expect(callCount).toBe(1);
     });
 
     it('should retry on timeout AbortError', async () => {

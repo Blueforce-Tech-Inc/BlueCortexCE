@@ -268,8 +268,10 @@ export class CortexMemClient {
   async updateObservation(observationId: string, update: ObservationUpdate): Promise<void> {
     this.assertNotClosed();
     this.validateRequired('observationId', observationId);
-    // Validate at least one field is set (PATCH semantics: empty update is a no-op).
-    const hasField = Object.values(update).some(v => v !== undefined && v !== null);
+    // Validate at least one field is explicitly set.
+    // PATCH semantics: null = clear field, undefined = skip, both are valid.
+    // An update with all-undefined fields is an empty no-op and should be rejected.
+    const hasField = Object.values(update).some(v => v !== undefined);
     if (!hasField) {
       throw new ValidationError('update', 'at least one field must be provided for update');
     }
