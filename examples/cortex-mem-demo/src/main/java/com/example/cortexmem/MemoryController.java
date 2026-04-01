@@ -2,9 +2,7 @@ package com.example.cortexmem;
 
 import com.ablueforce.cortexce.client.CortexMemClient;
 import com.ablueforce.cortexce.client.dto.ICLPromptRequest;
-import com.ablueforce.cortexce.client.dto.QualityDistribution;
 import com.ablueforce.cortexce.client.dto.ExperienceRequest;
-import com.ablueforce.cortexce.client.dto.ObservationUpdate;
 import com.ablueforce.cortexce.ai.retrieval.MemoryRetrievalService;
 import com.ablueforce.cortexce.client.dto.Experience;
 import org.slf4j.Logger;
