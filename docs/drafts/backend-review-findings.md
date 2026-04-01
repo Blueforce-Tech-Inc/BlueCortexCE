@@ -578,3 +578,21 @@
 | 2 | ContextController.java | L484-510 | `isSafeDirectory()` 与 `isWithinProject()` 做相似的路径安全检查，但使用不同逻辑。可与上述 utility 合并统一 | P2 ⏳待修 |
 
 **编译**: ✅ BUILD SUCCESS
+
+---
+
+### 2026-04-01 10:12 | Backend 审查 #16
+
+**抽查文件**: `QualityScorer.java`, `LlmQualityScorer.java`, `AppSettings.java`
+
+| # | 文件 | 行号 | 问题 | 级别 |
+|---|------|------|------|------|
+| 1 | AppSettings.java / ViewerController.java | L330-348 (ViewerController getSettings) | `toMap()` 返回 camelCase 字段名（`showReadTokens`, `mode`, `provider` 等），但 WebUI `useSettings.ts` 期望 `CLAUDE_MEM_*` 前缀字段名（如 `CLAUDE_MEM_CONTEXT_SHOW_READ_TOKENS`）。WebUI Settings 页面加载时，所有 `data.CLAUDE_MEM_*` 字段均为 `undefined`，回退到 DEFAULT_SETTINGS 默认值。用户在 WebUI 看到的始终是默认值，无法反映实际后端配置 | P1 ⏳待修 |
+| 2 | LlmQualityScorer.java | L93-125 `parseAnalysisResponse` | 使用 `indexOf`/`substring` 手动提取 JSON 字段（`quality_score`, `feedback_type`），对 LLM 输出格式极其敏感。若 LLM 输出格式稍有变化（如额外空白、换行、不同引号风格），解析即失败。应使用 Jackson `ObjectMapper.readTree()` 进行 JSON 解析 | P2 ⏳待修 |
+| 3 | QualityScorer.java | L109-119 `estimateQualityWithLlm` | LLM 不可用时的 fallback 调用 `estimateQuality(FeedbackType.UNKNOWN, content, null, 0)`，丢弃了原始 feedback 和 toolUsageCount 信息。调用方可能已有非 UNKNOWN 的 feedback，但 fallback 路径将其覆盖 | P2 ⏳待修 |
+
+**审查结论**:
+- **QualityScorer.java**: 整体设计良好。规则评分逻辑清晰（base + efficiency + content bonus），常量命名规范。`recalculateWithFeedback` 的 0.05 commentBonus 设为固定值略显随意，但不影响功能。
+- **LlmQualityScorer.java**: LLM 集成思路正确（fallback to rule-based），异常处理到位。但 JSON 解析方式过于脆弱，是潜在的维护风险。
+- **AppSettings.java**: 配置类设计合理，`@JsonProperty` + `@JsonIgnoreProperties` 注解正确，`getEnvOrDefault` 环境变量优先级正确。`toMap()` 与 WebUI 的字段命名不匹配是本次发现的主要问题。
+- **无 P0 问题**。
