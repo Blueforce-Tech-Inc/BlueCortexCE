@@ -142,8 +142,10 @@ app.get('/experiences', asyncHandler(async (req: Request, res: Response) => {
     ? conceptsStr.split(',').map(c => c.trim()).filter(Boolean)
     : undefined;
 
-  const count = parseInt(req.query.count as string ?? '4', 10) || 4;
-  if (count < 1 || count > 100) return errorJson(res, 400, 'count must be between 1 and 100');
+  const rawCount = parseInt(req.query.count as string ?? '4', 10);
+  if (isNaN(rawCount) || rawCount < 0 || rawCount > 100) return errorJson(res, 400, 'count must be between 0 and 100');
+  // count=0 means "use SDK default" (consistent with Java demo)
+  const count = rawCount > 0 ? rawCount : 4;
 
   const experiences = await client.retrieveExperiences({
     task,

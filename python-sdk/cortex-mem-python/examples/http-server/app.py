@@ -224,8 +224,11 @@ def experiences():
         count = _parse_int_param("count", default=4)
     except ValueError as e:
         return _error(400, str(e))
-    if count < 1 or count > 100:
-        return _error(400, "count must be between 1 and 100")
+    if count < 0 or count > 100:
+        return _error(400, "count must be between 0 and 100")
+    # count=0 means "use SDK default" (consistent with Java demo)
+    if count == 0:
+        count = 4
 
     concepts_str = request.args.get("requiredConcepts", "")
     required_concepts = [c.strip() for c in concepts_str.split(",") if c.strip()] if concepts_str else None

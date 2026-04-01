@@ -238,11 +238,14 @@ func main() {
 		count := 4
 		if c := r.URL.Query().Get("count"); c != "" {
 			parsed, err := strconv.Atoi(c)
-			if err != nil || parsed < 1 || parsed > 100 {
-				writeJSONError(w, http.StatusBadRequest, "count must be an integer between 1 and 100")
+			if err != nil || parsed < 0 || parsed > 100 {
+				writeJSONError(w, http.StatusBadRequest, "count must be between 0 and 100")
 				return
 			}
-			count = parsed
+			// count=0 means "use SDK default" (consistent with Java/JS/Python demos)
+			if parsed > 0 {
+				count = parsed
+			}
 		}
 		req := dto.ExperienceRequest{
 			Project: project,
@@ -519,11 +522,14 @@ func main() {
 		limit := 0 // 0 = backend default (10)
 		if l := r.URL.Query().Get("limit"); l != "" {
 			parsed, err := strconv.Atoi(l)
-			if err != nil || parsed < 1 || parsed > 100 {
-				writeJSONError(w, http.StatusBadRequest, "limit must be an integer between 1 and 100")
+			if err != nil || parsed < 0 || parsed > 100 {
+				writeJSONError(w, http.StatusBadRequest, "limit must be between 0 and 100")
 				return
 			}
-			limit = parsed
+			// limit=0 means "use backend default" (consistent with Java/JS/Python demos)
+			if parsed > 0 {
+				limit = parsed
+			}
 		}
 		result, err := client.GetExtractionHistory(r.Context(), project, template, userId, limit)
 		if err != nil {
