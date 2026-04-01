@@ -493,7 +493,7 @@ public class AgentService {
 #### 架构概览
 
 ```sql
--- 会话表 (V1 + V12, V13, V15 迁移)
+-- 会话表 (V1 + V4, V12, V13, V15 迁移)
 CREATE TABLE mem_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     content_session_id VARCHAR(255) UNIQUE NOT NULL,
@@ -508,7 +508,11 @@ CREATE TABLE mem_sessions (
     completed_at_epoch BIGINT,
     status VARCHAR(50) DEFAULT 'active',  -- active/completed/skipped
     total_steps INT DEFAULT 0,            -- V12: 步骤效率追踪
-    avg_steps_per_task FLOAT              -- V12
+    avg_steps_per_task FLOAT,             -- V12
+    -- 上下文缓存 (V4)
+    cached_context TEXT,
+    context_refreshed_at_epoch BIGINT,
+    needs_context_refresh BOOLEAN DEFAULT FALSE
 );
 
 -- 观察表 (V1 + V2, V8, V11, V12, V14, V16 迁移)

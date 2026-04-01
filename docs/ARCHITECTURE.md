@@ -493,7 +493,7 @@ public class AgentService {
 #### Schema Overview
 
 ```sql
--- Sessions table (V1 + V12, V13, V15 migrations)
+-- Sessions table (V1 + V4, V12, V13, V15 migrations)
 CREATE TABLE mem_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     content_session_id VARCHAR(255) UNIQUE NOT NULL,
@@ -508,7 +508,11 @@ CREATE TABLE mem_sessions (
     completed_at_epoch BIGINT,
     status VARCHAR(50) DEFAULT 'active',  -- active/completed/skipped
     total_steps INT DEFAULT 0,            -- V12: step efficiency tracking
-    avg_steps_per_task FLOAT              -- V12
+    avg_steps_per_task FLOAT,             -- V12
+    -- Context caching (V4)
+    cached_context TEXT,
+    context_refreshed_at_epoch BIGINT,
+    needs_context_refresh BOOLEAN DEFAULT FALSE
 );
 
 -- Observations table (V1 + V2, V8, V11, V12, V14, V16 migrations)
