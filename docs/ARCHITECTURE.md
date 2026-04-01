@@ -532,6 +532,13 @@ CREATE TABLE mem_observations (
     source TEXT,              -- V14: tool_result/user_statement/llm_inference/manual
     extracted_data JSONB,     -- V14: structured key-value data
     quality_score FLOAT,      -- V11
+    feedback_type VARCHAR(20),-- V11: SUCCESS/PARTIAL/FAILURE/UNKNOWN
+    last_accessed_at TIMESTAMP WITH TIME ZONE, -- V11
+    access_count INT DEFAULT 0, -- V11
+    refined_at TIMESTAMP WITH TIME ZONE, -- V11
+    refined_from_ids TEXT,    -- V11: comma-separated merged IDs
+    user_comment TEXT,        -- V11: WebUI feedback
+    feedback_updated_at TIMESTAMP WITH TIME ZONE, -- V11
     step_number INT,          -- V12
     discovery_tokens INT DEFAULT 0,
     prompt_number INT,
@@ -589,6 +596,7 @@ CREATE TABLE mem_user_prompts (
     content_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(content_session_id),
     prompt_number INT NOT NULL,
     prompt_text TEXT NOT NULL,
+    project_path TEXT,               -- V5: project filtering
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_at_epoch BIGINT NOT NULL
 );
@@ -606,6 +614,7 @@ CREATE TABLE mem_pending_messages (
     retry_count INT NOT NULL DEFAULT 0,
     tool_input_hash VARCHAR(64),        -- V6: deduplication
     created_at_epoch BIGINT NOT NULL,
+    started_processing_at_epoch BIGINT,
     completed_at_epoch BIGINT,
     failed_at_epoch BIGINT
 );

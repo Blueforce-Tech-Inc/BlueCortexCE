@@ -215,8 +215,8 @@ Tested on 2026-02-11 against PostgreSQL 16.8 + pgvector 0.8.1, DeepSeek (deepsee
 ### Step 1: Health Check
 
 ```bash
-curl -s http://127.0.0.1:37777/actuator/health | python3 -m json.tool
-# {"status": "UP", "components": {"db": {"status": "UP"}, ...}}
+curl -s http://127.0.0.1:37777/api/health | python3 -m json.tool
+# {"service":"claude-mem-java","status":"ok","timestamp":...}
 ```
 
 ### Step 2: Create Session
@@ -386,7 +386,8 @@ src/main/java/com/ablueforce/cortexce/
 ├── util/
 │   ├── XmlParser.java               # Regex XML parser for LLM output
 │   ├── VectorValidator.java         # Vector embedding validation
-│   └── SessionStatus.java           # Session status enum/utility
+│   ├── SessionStatus.java           # Session status enum/utility
+│   └── PathValidationUtil.java      # Path validation & CLAUDE.md lookup (not yet wired; controllers have private copies)
 
 src/main/resources/
 ├── application.yml                  # All configuration
