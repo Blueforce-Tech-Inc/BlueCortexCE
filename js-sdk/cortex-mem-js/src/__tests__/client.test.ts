@@ -2209,6 +2209,83 @@ describe('getModes defensive parsing', () => {
   });
 });
 
+// ==================== parseObservationType ====================
+
+import { parseObservationType, parseObservationConcept } from '../dto';
+
+describe('parseObservationType', () => {
+  it('should parse all fields correctly', () => {
+    const raw = {
+      id: 'tool-use',
+      label: 'Tool Use',
+      description: 'Tool execution',
+      emoji: '🔧',
+      work_emoji: '⚙️',
+    };
+    const result = parseObservationType(raw);
+    expect(result.id).toBe('tool-use');
+    expect(result.label).toBe('Tool Use');
+    expect(result.description).toBe('Tool execution');
+    expect(result.emoji).toBe('🔧');
+    expect(result.workEmoji).toBe('⚙️');
+  });
+
+  it('should not leak work_emoji into emoji field', () => {
+    // Bug fix: emoji should NOT fall back to work_emoji
+    const raw = { id: 't1', label: 'T', description: '', work_emoji: '⚙️' };
+    const result = parseObservationType(raw);
+    expect(result.emoji).toBeUndefined();
+    expect(result.workEmoji).toBe('⚙️');
+  });
+
+  it('should not leak emoji into workEmoji when work_emoji is absent', () => {
+    const raw = { id: 't1', label: 'T', description: '', emoji: '🔧' };
+    const result = parseObservationType(raw);
+    expect(result.emoji).toBe('🔧');
+    expect(result.workEmoji).toBeUndefined();
+  });
+
+  it('should handle null fields gracefully', () => {
+    const raw = { id: null, label: null, description: null, emoji: null, work_emoji: null };
+    const result = parseObservationType(raw);
+    expect(result.id).toBe('');
+    expect(result.label).toBe('');
+    expect(result.description).toBe('');
+    expect(result.emoji).toBeUndefined();
+    expect(result.workEmoji).toBeUndefined();
+  });
+
+  it('should handle camelCase workEmoji fallback', () => {
+    const raw = { id: 't1', label: 'T', description: '', workEmoji: '🔨' };
+    const result = parseObservationType(raw);
+    expect(result.workEmoji).toBe('🔨');
+  });
+
+  it('should prefer snake_case work_emoji over camelCase workEmoji', () => {
+    const raw = { id: 't1', label: 'T', description: '', work_emoji: '⚙️', workEmoji: '🔨' };
+    const result = parseObservationType(raw);
+    expect(result.workEmoji).toBe('⚙️');
+  });
+});
+
+describe('parseObservationConcept', () => {
+  it('should parse all fields correctly', () => {
+    const raw = { id: 'code', label: 'Code', description: 'Source code' };
+    const result = parseObservationConcept(raw);
+    expect(result.id).toBe('code');
+    expect(result.label).toBe('Code');
+    expect(result.description).toBe('Source code');
+  });
+
+  it('should handle null fields gracefully', () => {
+    const raw = { id: null, label: null, description: null };
+    const result = parseObservationConcept(raw);
+    expect(result.id).toBe('');
+    expect(result.label).toBe('');
+    expect(result.description).toBe('');
+  });
+});
+
 // ==================== getQualityDistribution defensive parsing ====================
 
 describe('getQualityDistribution defensive parsing', () => {

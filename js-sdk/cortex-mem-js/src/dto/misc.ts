@@ -153,7 +153,7 @@ export function parseObservationType(raw: Record<string, unknown>): ObservationT
     id: safeStringOr(raw.id, ''),
     label: safeStringOr(raw.label, ''),
     description: safeStringOr(raw.description, ''),
-    emoji: safeString(firstNonNullOr(raw, ['emoji', 'work_emoji', 'workEmoji'])),
+    emoji: safeString(raw.emoji),
     workEmoji: safeString(firstNonNullOr(raw, ['work_emoji', 'workEmoji'])),
   };
 }
