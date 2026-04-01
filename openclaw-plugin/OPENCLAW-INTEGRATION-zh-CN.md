@@ -16,9 +16,8 @@ Claude-Mem 与 OpenClaw 的集成分为**两层**：
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │  Layer 1: 记忆捕获（Plugin - 自动）                                   │
-│  ├── OpenClaw 插件监听 7 个生命周期事件                               │
+│  ├── OpenClaw 插件监听 8 个生命周期事件                               │
 │  ├── 自动记录工具使用为 Observation                                   │
-│  ├── 自动同步 MEMORY.md 到 workspace                                 │
 │  └── 用户无需任何操作                                                │
 │                                                                      │
 │  Layer 2: 主动搜索（Skill - 按需）                                   │
@@ -26,6 +25,11 @@ Claude-Mem 与 OpenClaw 的集成分为**两层**：
 │  ├── Agent 根据用户问题自动判断是否需要搜索记忆                        │
 │  ├── 通过 REST API 调用 Java 后端进行语义搜索                         │
 │  └── 无需 MCP 协议（OpenClaw 创始人反对 MCP）                         │
+│                                                                      │
+│  上下文注入机制：                                                     │
+│  ├── before_prompt_build 钩子 → appendSystemContext                 │
+│  ├── 通过系统提示词注入记忆上下文                                      │
+│  └── 每次 LLM 调用前自动获取最新上下文                                │
 │                                                                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -39,7 +43,7 @@ Claude-Mem 与 OpenClaw 的集成分为**两层**：
 | **TRAE** | .rules 系统注入 | MCP Server | MCP 协议 |
 | **OpenClaw** | Plugin（本文档） | **Skill**（本文档） | REST API |
 
-> **注意**：OpenClaw 创始人明确表示不喜欢 MCP 协议，因此使用 **AgentSkills + REST API** 的方式实现主动搜索。
+> **注意**：OpenClaw 使用 `appendSystemContext` 机制注入记忆上下文，而非文件同步方式。
 
 ---
 
@@ -191,7 +195,6 @@ openclaw gateway restart
 |------|------|--------|------|
 | `workerPort` | number | 37777 | Java 后端端口 |
 | `project` | string | "openclaw" | 项目名称，用于记忆追踪 |
-| `syncMemoryFile` | boolean | true | 是否同步 MEMORY.md 文件 |
 
 ---
 
@@ -340,42 +343,47 @@ Claude-Mem Projects
 
 ## 事件监听
 
-插件监听 OpenClaw Gateway 的 7 个生命周期事件：
+插件监听 OpenClaw Gateway 的 8 个生命周期事件：
 
 | 事件 | 时机 | 插件行为 |
 |------|------|----------|
 | `session_start` | 用户发起新会话 (`/new`, `/reset`) | 初始化 claude-mem 会话 |
 | `after_compaction` | 上下文压缩后 | 重新初始化会话 |
-| `before_agent_start` | Agent 执行前 | 同步 MEMORY.md + 跟踪工作区 |
-| `tool_result_persist` | 工具执行后 | 记录观察 + 同步 MEMORY.md |
+| `before_agent_start` | Agent 执行前 | 跟踪工作区目录 |
+| `before_prompt_build` | 每次 LLM 调用前 | **通过 appendSystemContext 注入记忆上下文** |
+| `tool_result_persist` | 工具执行后 | 记录观察 |
 | `agent_end` | Agent 执行结束 | 生成摘要 + 完成会话 |
 | `session_end` | 会话结束 | 清理会话跟踪 |
 | `gateway_start` | Gateway 启动 | 重置会话跟踪 |
 
 ---
 
-## MEMORY.md 同步机制
+## 上下文注入机制
 
-### 同步流程
+### appendSystemContext 工作流程
 
 ```
-1. before_agent_start 事件触发
+1. 每次 LLM 调用前
        ↓
-2. 插件调用 /api/context/inject 获取 timeline
+2. OpenClaw 调用 before_prompt_build 钩子
        ↓
-3. 写入 workspaceDir/MEMORY.md
+3. 插件调用 /api/context/inject 获取上下文
        ↓
-4. Agent 启动时读取 MEMORY.md 获取上下文
+4. 返回 { appendSystemContext: context }
+       ↓
+5. OpenClaw 将上下文附加到系统提示词末尾
+       ↓
+6. LLM 接收包含记忆上下文的完整提示词
 ```
 
-### 同步时机
+### 与文件同步方式的区别
 
-| 事件 | 是否同步 | 说明 |
-|------|----------|------|
-| `before_agent_start` | ✅ | Agent 启动前获取上下文 |
-| `tool_result_persist` | ✅ | 每次工具使用后更新 |
-| `session_start` | ❌ | 仅初始化会话 |
-| `agent_end` | ❌ | 仅摘要和完成 |
+| 方面 | 旧方式（MEMORY.md 文件同步） | 当前方式（appendSystemContext） |
+|------|---------------------------|--------------------------------|
+| 更新机制 | 文件写入 | 系统提示词注入 |
+| 实时性 | Agent 启动时/工具使用后 | 每次 LLM 调用前 |
+| 竞态条件 | 存在（文件读写竞争） | 无 |
+| 复杂性 | 高（路径、权限、文件操作） | 低（直接 API 调用） |
 
 ---
 
@@ -425,11 +433,11 @@ curl http://127.0.0.1:37777/actuator/health
 lsof -i :37777
 ```
 
-### MEMORY.md 没有同步
+### 记忆上下文没有注入
 
-- 确认 `syncMemoryFile` 配置为 `true`
-- 检查 OpenClaw 日志中是否有错误
 - 确认 Java 后端正常响应 `/api/context/inject` 请求
+- 检查 OpenClaw 日志中是否有 `[claude-mem] Context injected` 记录
+- 确认 `/api/context/inject` 返回非空上下文
 
 ### 观察记录没有保存
 

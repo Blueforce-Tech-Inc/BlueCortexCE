@@ -22,11 +22,6 @@
         "type": "string",
         "default": "openclaw",
         "description": "Project name for memory tracking"
-      },
-      "syncMemoryFile": {
-        "type": "boolean",
-        "default": true,
-        "description": "Whether to sync MEMORY.md file to workspace"
       }
     },
     "required": []

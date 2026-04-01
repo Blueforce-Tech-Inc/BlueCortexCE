@@ -16,9 +16,8 @@ Claude-Mem integration with OpenClaw consists of **two layers**:
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │  Layer 1: Memory Capture (Plugin - Automatic)                       │
-│  ├── OpenClaw plugin listens to 7 lifecycle events                 │
-│  ├── Automatically records tool usage as Observations              │
-│  ├── Automatically syncs MEMORY.md to workspace                    │
+│  ├── OpenClaw plugin listens to 8 lifecycle events                   │
+│  ├── Automatically records tool usage as Observations                 │
 │  └── No user action required                                        │
 │                                                                      │
 │  Layer 2: Active Search (Skill - On Demand)                        │
@@ -26,6 +25,11 @@ Claude-Mem integration with OpenClaw consists of **two layers**:
 │  ├── Agent automatically determines if memory search is needed      │
 │  ├── Uses REST API to call Java backend for semantic search         │
 │  └── No MCP protocol needed (OpenClaw founder opposes MCP)          │
+│                                                                      │
+│  Context Injection Mechanism:                                        │
+│  ├── before_prompt_build hook → appendSystemContext                  │
+│  ├── Injects memory context via system prompt                         │
+│  └── Gets latest context before every LLM call                        │
 │                                                                      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -39,7 +43,7 @@ Claude-Mem integration with OpenClaw consists of **two layers**:
 | **TRAE** | .rules system injection | MCP Server | MCP Protocol |
 | **OpenClaw** | Plugin (this doc) | **Skill** (this doc) | REST API |
 
-> **Note**: OpenClaw founder explicitly stated dislike of MCP protocol, so **AgentSkills + REST API** is used for active search.
+> **Note**: OpenClaw uses `appendSystemContext` mechanism for context injection instead of file sync.
 
 ---
 
@@ -153,8 +157,7 @@ Specify plugin path and config values in OpenClaw config file.
         "enabled": true,
         "config": {
           "workerPort": 37777,
-          "project": "my-project",
-          "syncMemoryFile": true
+          "project": "my-project"
         }
       }
     }
@@ -195,7 +198,6 @@ openclaw gateway restart
 |-------|------|---------|-------------|
 | `workerPort` | number | 37777 | Java backend port |
 | `project` | string | "openclaw" | Project name for memory tracking |
-| `syncMemoryFile` | boolean | true | Whether to sync MEMORY.md file |
 
 ---
 
@@ -344,42 +346,47 @@ Claude-Mem Projects
 
 ## Event Listening
 
-Plugin listens to 7 OpenClaw Gateway lifecycle events:
+Plugin listens to 8 OpenClaw Gateway lifecycle events:
 
 | Event | When | Plugin Action |
 |-------|------|--------------|
 | `session_start` | User starts new session (`/new`, `/reset`) | Initialize claude-mem session |
 | `after_compaction` | After context compaction | Re-initialize session |
-| `before_agent_start` | Before Agent executes | Sync MEMORY.md + track workspace |
-| `tool_result_persist` | After tool execution | Record observation + sync MEMORY.md |
+| `before_agent_start` | Before Agent executes | Track workspace directory |
+| `before_prompt_build` | Before every LLM call | **Inject memory context via appendSystemContext** |
+| `tool_result_persist` | After tool execution | Record observation |
 | `agent_end` | Agent execution ends | Generate summary + complete session |
 | `session_end` | Session ends | Clean up session tracking |
 | `gateway_start` | Gateway starts | Reset session tracking |
 
 ---
 
-## MEMORY.md Sync Mechanism
+## Context Injection Mechanism
 
-### Sync Flow
+### appendSystemContext Workflow
 
 ```
-1. before_agent_start event triggers
+1. Before every LLM call
        ↓
-2. Plugin calls /api/context/inject to get timeline
+2. OpenClaw invokes before_prompt_build hook
        ↓
-3. Writes to workspaceDir/MEMORY.md
+3. Plugin calls /api/context/inject to get context
        ↓
-4. Agent reads MEMORY.md on startup for context
+4. Returns { appendSystemContext: context }
+       ↓
+5. OpenClaw appends context to system prompt
+       ↓
+6. LLM receives prompt with memory context
 ```
 
-### Sync Timing
+### Comparison with File Sync Approach
 
-| Event | Sync | Description |
-|-------|------|-------------|
-| `before_agent_start` | Yes | Get context before Agent starts |
-| `tool_result_persist` | Yes | Update after each tool use |
-| `session_start` | No | Only initialize session |
-| `agent_end` | No | Only summarize and complete |
+| Aspect | Old (MEMORY.md file sync) | Current (appendSystemContext) |
+|--------|---------------------------|--------------------------------|
+| Update mechanism | File write | System prompt injection |
+| Real-time | On agent start / after tool use | Before every LLM call |
+| Race conditions | Yes (file read/write competition) | No |
+| Complexity | High (paths, permissions, file ops) | Low (direct API call) |
 
 ---
 
@@ -429,11 +436,11 @@ curl http://127.0.0.1:37777/actuator/health
 lsof -i :37777
 ```
 
-### MEMORY.md Not Syncing
+### Memory Context Not Injecting
 
-- Confirm `syncMemoryFile` is set to `true`
-- Check OpenClaw logs for errors
 - Confirm Java backend responds to `/api/context/inject` requests
+- Check OpenClaw logs for `[claude-mem] Context injected` entries
+- Confirm `/api/context/inject` returns non-empty context
 
 ### Observations Not Saved
 

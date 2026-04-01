@@ -4,23 +4,20 @@
  * This plugin integrates Claude-Mem memory system with OpenClaw Gateway,
  * connecting to the Java Spring Boot backend instead of the TypeScript version.
  *
- * Key Differences from TypeScript Version:
- * - Uses Java backend API endpoints (adapted)
- * - No SSE support (Java Thin Proxy architecture)
- * - Simpler fire-and-forget pattern
- *
- * Architecture:
+ * Architecture (v2 - based on TS version investigation):
  * ```
  * OpenClaw Gateway
  * └── Claude-Mem Java Plugin (this)
  *     ├── HTTP Client → Java Backend (localhost:37777)
- *     ├── MEMORY.md Sync
- *     └── Observation Recording
+ *     ├── before_prompt_build → appendSystemContext (context injection)
+ *     └── Observation Recording (tool_result_persist)
  * ```
+ *
+ * Key Improvement (v2):
+ * - Uses `appendSystemContext` via `before_prompt_build` hook instead of MEMORY.md file sync
+ * - This matches TS version behavior and eliminates file write race conditions
+ * - MEMORY.md is now managed solely by the Agent (not by this plugin)
  */
-
-import { writeFile } from "fs/promises";
-import { join } from "path";
 
 // ============================================================================
 // Type Definitions (aligned with OpenClaw Plugin SDK)
@@ -54,6 +51,18 @@ type PluginCommandResult = string | { text: string } | { text: string; format?: 
 // OpenClaw event types
 interface BeforeAgentStartEvent {
   prompt?: string;
+}
+
+interface BeforePromptBuildEvent {
+  prompt: string;
+  messages: unknown[];
+}
+
+interface BeforePromptBuildResult {
+  systemPrompt?: string;
+  prependContext?: string;
+  prependSystemContext?: string;
+  appendSystemContext?: string;
 }
 
 interface ToolResultPersistEvent {
@@ -117,6 +126,7 @@ interface OpenClawPluginApi {
     handler: (ctx: PluginCommandContext) => PluginCommandResult | Promise<PluginCommandResult>;
   }) => void;
   on: ((event: "before_agent_start", callback: EventCallback<BeforeAgentStartEvent>) => void) &
+    ((event: "before_prompt_build", callback: (event: BeforePromptBuildEvent, ctx: EventContext) => BeforePromptBuildResult | Promise<BeforePromptBuildResult | void> | void) => void) &
     ((event: "tool_result_persist", callback: EventCallback<ToolResultPersistEvent>) => void) &
     ((event: "agent_end", callback: EventCallback<AgentEndEvent>) => void) &
     ((event: "session_start", callback: EventCallback<SessionStartEvent>) => void) &
@@ -133,8 +143,6 @@ interface OpenClawPluginApi {
 // ============================================================================
 
 interface ClaudeMemJavaPluginConfig {
-  /** Whether to sync MEMORY.md file to workspace */
-  syncMemoryFile?: boolean;
   /** Project name for memory tracking (default: "openclaw") */
   project?: string;
   /** Java backend port (default: 37777) */
@@ -242,7 +250,6 @@ export default function claudeMemJavaPlugin(api: OpenClawPluginApi): void {
   // ------------------------------------------------------------------
   const sessionIds = new Map<string, string>();
   const workspaceDirsBySessionKey = new Map<string, string>();
-  const syncMemoryFile = userConfig.syncMemoryFile !== false; // default true
 
   /**
    * Get or create content session ID for OpenClaw session
@@ -253,48 +260,6 @@ export default function claudeMemJavaPlugin(api: OpenClawPluginApi): void {
       sessionIds.set(key, `openclaw-${key}-${Date.now()}`);
     }
     return sessionIds.get(key)!;
-  }
-
-  /**
-   * Sync MEMORY.md to workspace directory
-   * Uses Java backend /api/context/inject endpoint
-   *
-   * P0 Fix: Java backend expects absolute path, not project name!
-   * Must pass workspaceDir (absolute path) instead of projectName
-   */
-  async function syncMemoryToWorkspace(workspaceDir: string): Promise<void> {
-    // P0 Fix: Use workspaceDir as the project path (Java backend requires absolute path)
-    const projectPath = workspaceDir || projectName;
-
-    const contextText = await workerGetText(
-      workerPort,
-      `/api/context/inject?projects=${encodeURIComponent(projectPath)}`,
-      api.logger
-    );
-    if (contextText && contextText.trim().length > 0) {
-      try {
-        // Java backend returns JSON: {context: "...", updateFiles: [...]}
-        // Extract the context field only
-        const data = JSON.parse(contextText);
-        const memoryContent = data.context || "";
-
-        if (memoryContent.trim().length > 0) {
-          await writeFile(join(workspaceDir, "MEMORY.md"), memoryContent, "utf-8");
-          api.logger.info(`[claude-mem] MEMORY.md synced to ${workspaceDir}`);
-        }
-      } catch (parseError: unknown) {
-        // If JSON parsing fails, try writing as-is (backwards compatibility)
-        const msg = parseError instanceof Error ? parseError.message : String(parseError);
-        api.logger.warn(`[claude-mem] Failed to parse context JSON, writing raw: ${msg}`);
-        try {
-          await writeFile(join(workspaceDir, "MEMORY.md"), contextText, "utf-8");
-          api.logger.info(`[claude-mem] MEMORY.md synced (raw) to ${workspaceDir}`);
-        } catch (writeError: unknown) {
-          const wmsg = writeError instanceof Error ? writeError.message : String(writeError);
-          api.logger.warn(`[claude-mem] Failed to write MEMORY.md: ${wmsg}`);
-        }
-      }
-    }
   }
 
   // ------------------------------------------------------------------
@@ -332,23 +297,52 @@ export default function claudeMemJavaPlugin(api: OpenClawPluginApi): void {
   });
 
   // ------------------------------------------------------------------
-  // Event: before_agent_start — sync MEMORY.md + track workspace
+  // Event: before_prompt_build — inject memory context via appendSystemContext
+  // Java API: GET /api/context/inject
+  // This replaces the old MEMORY.md file sync approach
+  // ------------------------------------------------------------------
+  api.on("before_prompt_build", async (_event, ctx) => {
+    const projectPath = ctx.workspaceDir || projectName;
+
+    const contextText = await workerGetText(
+      workerPort,
+      `/api/context/inject?projects=${encodeURIComponent(projectPath)}`,
+      api.logger
+    );
+
+    if (contextText && contextText.trim().length > 0) {
+      try {
+        // Java backend returns JSON: {context: "...", updateFiles: [...]}
+        const data = JSON.parse(contextText);
+        const context = data.context || "";
+
+        if (context.trim().length > 0) {
+          api.logger.info(`[claude-mem] Context injected (${context.length} chars) for ${projectPath}`);
+          return { appendSystemContext: context };
+        }
+      } catch {
+        // If JSON parsing fails, return raw text
+        api.logger.info(`[claude-mem] Context injected (raw, ${contextText.length} chars) for ${projectPath}`);
+        return { appendSystemContext: contextText };
+      }
+    }
+    return;
+  });
+
+  // ------------------------------------------------------------------
+  // Event: before_agent_start — track workspace dir for session
   // ------------------------------------------------------------------
   api.on("before_agent_start", async (_event, ctx) => {
-    // Track workspace dir so tool_result_persist can sync MEMORY.md later
+    // Track workspace dir for session
     if (ctx.workspaceDir) {
       workspaceDirsBySessionKey.set(ctx.sessionKey || "default", ctx.workspaceDir);
-    }
-
-    // Sync MEMORY.md before agent runs
-    if (syncMemoryFile && ctx.workspaceDir) {
-      await syncMemoryToWorkspace(ctx.workspaceDir);
     }
   });
 
   // ------------------------------------------------------------------
-  // Event: tool_result_persist — record tool observations + sync MEMORY.md
+  // Event: tool_result_persist — record tool observations
   // Java API: POST /api/ingest/tool-use
+  // Note: No longer syncing MEMORY.md — context is injected via before_prompt_build
   // ------------------------------------------------------------------
   api.on("tool_result_persist", (event, ctx) => {
     const toolName = event.toolName;
@@ -377,14 +371,6 @@ export default function claudeMemJavaPlugin(api: OpenClawPluginApi): void {
       tool_response: toolResponseText,
       cwd: ctx.workspaceDir || "",
     }, api.logger);
-
-    // Sync MEMORY.md after tool use (fire-and-forget, don't block tool response)
-    const workspaceDir = ctx.workspaceDir || workspaceDirsBySessionKey.get(ctx.sessionKey || "default");
-    if (syncMemoryFile && workspaceDir) {
-      syncMemoryToWorkspace(workspaceDir).catch((err) => {
-        api.logger.warn(`[claude-mem] MEMORY.md sync failed: ${err}`);
-      });
-    }
   });
 
   // ------------------------------------------------------------------

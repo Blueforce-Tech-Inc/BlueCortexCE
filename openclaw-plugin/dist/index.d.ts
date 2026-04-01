@@ -4,19 +4,19 @@
  * This plugin integrates Claude-Mem memory system with OpenClaw Gateway,
  * connecting to the Java Spring Boot backend instead of the TypeScript version.
  *
- * Key Differences from TypeScript Version:
- * - Uses Java backend API endpoints (adapted)
- * - No SSE support (Java Thin Proxy architecture)
- * - Simpler fire-and-forget pattern
- *
- * Architecture:
+ * Architecture (v2 - based on TS version investigation):
  * ```
  * OpenClaw Gateway
  * └── Claude-Mem Java Plugin (this)
  *     ├── HTTP Client → Java Backend (localhost:37777)
- *     ├── MEMORY.md Sync
- *     └── Observation Recording
+ *     ├── before_prompt_build → appendSystemContext (context injection)
+ *     └── Observation Recording (tool_result_persist)
  * ```
+ *
+ * Key Improvement (v2):
+ * - Uses `appendSystemContext` via `before_prompt_build` hook instead of MEMORY.md file sync
+ * - This matches TS version behavior and eliminates file write race conditions
+ * - MEMORY.md is now managed solely by the Agent (not by this plugin)
  */
 interface PluginLogger {
     debug?: (message: string) => void;
@@ -46,6 +46,16 @@ type PluginCommandResult = string | {
 };
 interface BeforeAgentStartEvent {
     prompt?: string;
+}
+interface BeforePromptBuildEvent {
+    prompt: string;
+    messages: unknown[];
+}
+interface BeforePromptBuildResult {
+    systemPrompt?: string;
+    prependContext?: string;
+    prependSystemContext?: string;
+    appendSystemContext?: string;
 }
 interface ToolResultPersistEvent {
     toolName?: string;
@@ -106,7 +116,7 @@ interface OpenClawPluginApi {
         requireAuth?: boolean;
         handler: (ctx: PluginCommandContext) => PluginCommandResult | Promise<PluginCommandResult>;
     }) => void;
-    on: ((event: "before_agent_start", callback: EventCallback<BeforeAgentStartEvent>) => void) & ((event: "tool_result_persist", callback: EventCallback<ToolResultPersistEvent>) => void) & ((event: "agent_end", callback: EventCallback<AgentEndEvent>) => void) & ((event: "session_start", callback: EventCallback<SessionStartEvent>) => void) & ((event: "session_end", callback: EventCallback<SessionEndEvent>) => void) & ((event: "after_compaction", callback: EventCallback<AfterCompactionEvent>) => void) & ((event: "gateway_start", callback: EventCallback<Record<string, never>>) => void);
+    on: ((event: "before_agent_start", callback: EventCallback<BeforeAgentStartEvent>) => void) & ((event: "before_prompt_build", callback: (event: BeforePromptBuildEvent, ctx: EventContext) => BeforePromptBuildResult | Promise<BeforePromptBuildResult | void> | void) => void) & ((event: "tool_result_persist", callback: EventCallback<ToolResultPersistEvent>) => void) & ((event: "agent_end", callback: EventCallback<AgentEndEvent>) => void) & ((event: "session_start", callback: EventCallback<SessionStartEvent>) => void) & ((event: "session_end", callback: EventCallback<SessionEndEvent>) => void) & ((event: "after_compaction", callback: EventCallback<AfterCompactionEvent>) => void) & ((event: "gateway_start", callback: EventCallback<Record<string, never>>) => void);
     runtime: {
         channel: Record<string, Record<string, (...args: any[]) => Promise<any>>>;
     };
