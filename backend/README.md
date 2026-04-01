@@ -126,7 +126,7 @@ Server starts on `http://127.0.0.1:37777`.
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/context/generate` | Generate context for session |
-| POST | `/api/context/inject` | Inject context into session |
+| GET | `/api/context/inject` | Inject context into session |
 | GET | `/api/context/preview` | Preview context without saving |
 | GET | `/api/context/prior-messages` | Get prior messages for context |
 | GET | `/api/context/recent` | Get recent context entries |
@@ -137,8 +137,8 @@ Server starts on `http://127.0.0.1:37777`.
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/memory/refine` | Trigger memory refinement |
-| GET | `/api/memory/experiences` | Get experience entries |
-| GET | `/api/memory/icl-prompt` | Get ICL prompt |
+| POST | `/api/memory/experiences` | Retrieve experiences for ICL |
+| POST | `/api/memory/icl-prompt` | Build ICL prompt from experiences |
 | GET | `/api/memory/quality-distribution` | Get quality score distribution |
 | POST | `/api/memory/feedback` | Submit observation feedback |
 | PATCH | `/api/memory/observations/{id}` | Update observation |
@@ -152,7 +152,10 @@ Server starts on `http://127.0.0.1:37777`.
 | PUT | `/api/mode` | Update active mode |
 | GET | `/api/mode/types` | List observation types |
 | GET | `/api/mode/concepts` | List concepts |
-| POST | `/api/mode/validate` | Validate mode config |
+| GET | `/api/mode/types/{typeId}/validate` | Validate observation type ID |
+| GET | `/api/mode/types/{typeId}/emoji` | Get emoji and label for observation type |
+| GET | `/api/mode/types/valid` | Get all valid observation type IDs |
+| GET | `/api/mode/concepts/valid` | Get all valid observation concept IDs |
 
 ### Extraction
 
@@ -167,13 +170,17 @@ Server starts on `http://127.0.0.1:37777`.
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/cursor/register` | Register Cursor workspace |
-| GET | `/api/cursor/context/{workspaceId}` | Get context for workspace |
+| GET | `/api/cursor/register/{projectName}` | Check if project is registered |
+| DELETE | `/api/cursor/register/{projectName}` | Unregister a Cursor project |
 | GET | `/api/cursor/projects` | List Cursor projects |
+| POST | `/api/cursor/context/{projectName}` | Update Cursor context file |
+| POST | `/api/cursor/context/{projectName}/custom` | Write custom context to Cursor file |
 
 ### Import
 
 | Method | Path | Description |
 |--------|------|-------------|
+| POST | `/api/import` | Bulk import all data types (sessions + observations + summaries + prompts) |
 | POST | `/api/import/sessions` | Import sessions |
 | POST | `/api/import/observations` | Import observations |
 | POST | `/api/import/summaries` | Import summaries |
