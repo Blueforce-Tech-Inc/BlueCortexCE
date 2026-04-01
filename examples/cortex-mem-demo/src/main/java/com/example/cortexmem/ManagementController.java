@@ -59,8 +59,8 @@ public class ManagementController {
      * GET /demo/manage/quality?project=/test
      */
     @GetMapping(value = "/quality", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, Object>> getQuality(@RequestParam String project) {
-        if (project.isBlank()) {
+    public ResponseEntity<Map<String, Object>> getQuality(@RequestParam(required = false) String project) {
+        if (project == null || project.isBlank()) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "project is required"));
         }
@@ -85,8 +85,8 @@ public class ManagementController {
      * POST /demo/manage/refine?project=/test
      */
     @PostMapping(value = "/refine", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, Object>> triggerRefinement(@RequestParam String project) {
-        if (project.isBlank()) {
+    public ResponseEntity<Map<String, Object>> triggerRefinement(@RequestParam(required = false) String project) {
+        if (project == null || project.isBlank()) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "project is required"));
         }
