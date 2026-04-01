@@ -58,12 +58,14 @@ public class MemoryController {
             @RequestParam String task,
             @RequestParam(defaultValue = "/") String project,
             @RequestParam(defaultValue = "4") int count) {
-        if (count < 1 || count > 100) {
+        if (count < 0 || count > 100) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("error", "count must be between 1 and 100"));
+                    .body(Map.of("error", "count must be between 0 and 100"));
         }
         try {
-            return ResponseEntity.ok(retrievalService.retrieveExperiences(task, resolveProject(project), count));
+            // count=0 means "use default" (consistent with ObservationsController limit=0)
+            int effectiveCount = count > 0 ? count : 4;
+            return ResponseEntity.ok(retrievalService.retrieveExperiences(task, resolveProject(project), effectiveCount));
         } catch (Exception e) {
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "Failed to retrieve experiences: " + e.getMessage()));
@@ -176,17 +178,18 @@ public class MemoryController {
             @RequestParam(required = false) String source,
             @RequestParam(required = false) List<String> requiredConcepts,
             @RequestParam(defaultValue = "4") int count) {
-        if (count < 1 || count > 100) {
+        if (count < 0 || count > 100) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("error", "count must be between 1 and 100"));
+                    .body(Map.of("error", "count must be between 0 and 100"));
         }
         try {
+            int effectiveCount = count > 0 ? count : 4;
             ExperienceRequest request = ExperienceRequest.builder()
                 .task(task)
                 .project(resolveProject(project))
                 .source(source)
                 .requiredConcepts(requiredConcepts)
-                .count(count)
+                .count(effectiveCount)
                 .build();
             return ResponseEntity.ok(cortexClient.retrieveExperiences(request));
         } catch (Exception e) {

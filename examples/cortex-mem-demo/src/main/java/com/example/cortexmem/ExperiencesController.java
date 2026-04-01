@@ -51,16 +51,18 @@ public class ExperiencesController {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "task is required"));
         }
-        if (count < 1 || count > 100) {
+        if (count < 0 || count > 100) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("error", "count must be between 1 and 100"));
+                    .body(Map.of("error", "count must be between 0 and 100"));
         }
 
         try {
+            // count=0 means "use SDK default" (consistent with ObservationsController limit=0)
+            int effectiveCount = count > 0 ? count : 4;
             ExperienceRequest.Builder builder = ExperienceRequest.builder()
                     .project(project)
                     .task(task)
-                    .count(count);
+                    .count(effectiveCount);
 
             if (source != null && !source.isBlank()) {
                 builder.source(source);

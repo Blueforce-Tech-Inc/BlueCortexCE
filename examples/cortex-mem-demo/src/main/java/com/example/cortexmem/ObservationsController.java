@@ -326,9 +326,11 @@ public class ObservationsController {
     }
 
     /**
-     * GET /demo/observations/health
+     * GET /demo/observations/status
+     *
+     * Note: Uses /status instead of /health to avoid collision with /{id} path variable.
      */
-    @GetMapping(value = "/health", produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(value = "/status", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> health() {
         return ResponseEntity.ok(Map.of("endpoint", "observations", "status", "ok"));
     }
