@@ -168,11 +168,16 @@ class TestExperiences:
     def test_experiences_count_out_of_range(self, client):
         resp = client.get("/experiences?project=/p&task=build&count=101")
         assert resp.status_code == 400
-        assert "count must be between 1 and 100" in resp.get_json()["error"]
+        assert "count must be between 0 and 100" in resp.get_json()["error"]
 
-    def test_experiences_count_zero(self, client):
+    def test_experiences_count_zero(self, app, client):
+        """count=0 is accepted and defaults to 4 (cross-SDK parity with Java/Go)."""
+        from cortex_mem import Experience
+        app._mock_client.retrieve_experiences.return_value = [
+            Experience(id="e1", task="build API", strategy="use REST", quality_score=0.9)
+        ]
         resp = client.get("/experiences?project=/p&task=build&count=0")
-        assert resp.status_code == 400
+        assert resp.status_code == 200
 
     def test_experiences_ok(self, app, client):
         from cortex_mem import Experience
