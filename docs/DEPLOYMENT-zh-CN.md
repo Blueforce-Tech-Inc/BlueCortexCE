@@ -122,13 +122,13 @@ docker build \
 services:
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: claude-mem-postgres
+    container_name: cortex-ce-postgres
     environment:
       POSTGRES_DB: ${DB_NAME:-claude_mem}
       POSTGRES_USER: ${DB_USERNAME:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?Database password required}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ${POSTGRES_DATA_PATH:-postgres_data}:/var/lib/postgresql/data
     ports:
       - "${POSTGRES_PORT:-5433}:5432"
     healthcheck:
@@ -176,7 +176,7 @@ services:
       CLAUDEMEM_LOG_DIR: /app/logs
       MEMORY_REFINE_ENABLED: ${MEMORY_REFINE_ENABLED:-true}
     volumes:
-      - claude-mem-logs:/app/logs
+      - ${LOGS_PATH:-claude-mem-logs}:/app/logs
     ports:
       - "${SERVER_PORT:-37777}:37777"
     healthcheck:
@@ -364,7 +364,7 @@ docker exec claude-mem-java java -jar app.jar --spring.flyway.migrate=true
 
 ```bash
 # 连接数据库
-docker exec -it claude-mem-postgres psql -U postgres -d claude_mem
+docker exec -it cortex-ce-postgres psql -U postgres -d claude_mem
 
 # 查看迁移历史
 SELECT * FROM flyway_schema_history ORDER BY installed_rank;
@@ -382,7 +382,7 @@ Flyway 社区版不支持自动回滚，建议策略：
 
 ```bash
 # 1. 备份数据库
-docker exec claude-mem-postgres pg_dump -U postgres claude_mem > backup_$(date +%Y%m%d).sql
+docker exec cortex-ce-postgres pg_dump -U postgres claude_mem > backup_$(date +%Y%m%d).sql
 
 # 2. 手动回滚 SQL
 psql -U postgres -d claude_mem < rollback_V8.sql
@@ -844,16 +844,16 @@ docker exec claude-mem-java grep "Observation saved" /app/logs/claude-mem.log
 
 ```bash
 # 完整备份
-docker exec claude-mem-postgres pg_dump -U postgres claude_mem > backup_$(date +%Y%m%d_%H%M%S).sql
+docker exec cortex-ce-postgres pg_dump -U postgres claude_mem > backup_$(date +%Y%m%d_%H%M%S).sql
 
 # 压缩备份
-docker exec claude-mem-postgres pg_dump -U postgres claude_mem | gzip > backup_$(date +%Y%m%d_%H%M%S).sql.gz
+docker exec cortex-ce-postgres pg_dump -U postgres claude_mem | gzip > backup_$(date +%Y%m%d_%H%M%S).sql.gz
 
 # 仅结构备份
-docker exec claude-mem-postgres pg_dump -U postgres --schema-only claude_mem > schema.sql
+docker exec cortex-ce-postgres pg_dump -U postgres --schema-only claude_mem > schema.sql
 
 # 仅数据备份
-docker exec claude-mem-postgres pg_dump -U postgres --data-only claude_mem > data.sql
+docker exec cortex-ce-postgres pg_dump -U postgres --data-only claude_mem > data.sql
 ```
 
 #### 自动备份脚本
@@ -870,7 +870,7 @@ RETENTION_DAYS=30
 mkdir -p $BACKUP_DIR
 
 # 执行备份
-docker exec claude-mem-postgres pg_dump -U postgres claude_mem | gzip > $BACKUP_DIR/backup_$DATE.sql.gz
+docker exec cortex-ce-postgres pg_dump -U postgres claude_mem | gzip > $BACKUP_DIR/backup_$DATE.sql.gz
 
 # 清理旧备份
 find $BACKUP_DIR -name "backup_*.sql.gz" -mtime +$RETENTION_DAYS -delete
@@ -895,7 +895,7 @@ docker compose stop claude-mem
 
 # 2. 恢复数据库
 gunzip -c backup_20260313_020000.sql.gz | \
-  docker exec -i claude-mem-postgres psql -U postgres claude_mem
+  docker exec -i cortex-ce-postgres psql -U postgres claude_mem
 
 # 3. 启动应用
 docker compose start claude-mem
@@ -908,12 +908,12 @@ curl http://localhost:37777/actuator/health
 
 ```bash
 # 仅恢复观察表
-docker exec -i claude-mem-postgres psql -U postgres claude_mem << EOF
+docker exec -i cortex-ce-postgres psql -U postgres claude_mem << EOF
 TRUNCATE TABLE mem_observations CASCADE;
 EOF
 
 gunzip -c backup.sql.gz | grep -A 1000000 "COPY mem_observations" | \
-  docker exec -i claude-mem-postgres psql -U postgres claude_mem
+  docker exec -i cortex-ce-postgres psql -U postgres claude_mem
 ```
 
 ### 8.3 灾难恢复
@@ -949,7 +949,7 @@ sleep 10
 
 # 5. 恢复数据
 gunzip -c /backups/latest.sql.gz | \
-  docker exec -i claude-mem-postgres psql -U postgres claude_mem
+  docker exec -i cortex-ce-postgres psql -U postgres claude_mem
 
 # 6. 启动应用
 docker compose up -d claude-mem
