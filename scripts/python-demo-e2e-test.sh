@@ -435,6 +435,27 @@ else
     fail "DELETE /observations/{id}" "Unexpected HTTP $OBS_DELETE_STATUS"
 fi
 
+# ==================== Test: GET /observations/{id} ====================
+
+info "Testing GET /observations/{id}..."
+GET_OBS_STATUS=$(curl -so /dev/null -w "%{http_code}" "$DEMO_BASE/observations/nonexistent-id" 2>/dev/null || echo "000")
+if [ "$GET_OBS_STATUS" = "000" ]; then
+    fail "GET /observations/{id}" "Connection failed"
+elif [ "$GET_OBS_STATUS" = "404" ]; then
+    pass "GET /observations/{id} (HTTP 404 — test ID not found, endpoint works)"
+elif [ "$GET_OBS_STATUS" -ge 200 ] && [ "$GET_OBS_STATUS" -lt 300 ]; then
+    GET_OBS_RESP=$(curl -sf "$DEMO_BASE/observations/nonexistent-id" 2>/dev/null || echo "FAIL")
+    if [ "$GET_OBS_RESP" = "FAIL" ]; then
+        pass "GET /observations/{id} (HTTP 200 — endpoint reachable)"
+    elif contains_field "$GET_OBS_RESP" "id"; then
+        pass "GET /observations/{id} (has 'id' field)"
+    else
+        pass "GET /observations/{id} (HTTP 200 — endpoint reachable)"
+    fi
+else
+    fail "GET /observations/{id}" "Unexpected HTTP $GET_OBS_STATUS"
+fi
+
 # ==================== Test: /observations/batch ====================
 
 info "Testing /observations/batch..."

@@ -319,6 +319,9 @@ class Observation:
     created_at_epoch: int = 0
     last_accessed_at: str = ""
 
+    def __repr__(self) -> str:
+        return f"Observation(id={self.id!r}, type={self.type!r}, title={self.title[:50]!r})"
+
     def to_dict(self) -> dict:
         """Serialize to a dict with mixed naming conventions.
 
@@ -452,6 +455,9 @@ class ObservationsResponse:
     total: int = 0
     offset: int = 0
     limit: int = 0
+
+    def __repr__(self) -> str:
+        return f"ObservationsResponse(items={len(self.items)}, has_more={self.has_more}, total={self.total})"
 
     @classmethod
     def from_wire(cls, data: dict) -> ObservationsResponse:

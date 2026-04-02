@@ -69,6 +69,13 @@ class ForbiddenError(APIError):
         super().__init__(403, message)
 
 
+class MethodNotAllowedError(APIError):
+    """405 Method Not Allowed."""
+
+    def __init__(self, message: str = "method not allowed") -> None:
+        super().__init__(405, message)
+
+
 class UnprocessableError(APIError):
     """422 Unprocessable Entity."""
 
@@ -105,6 +112,8 @@ def raise_for_status(status_code: int, body: bytes) -> None:
         raise ForbiddenError(message)
     if status_code == 404:
         raise NotFoundError(message)
+    if status_code == 405:
+        raise MethodNotAllowedError(message)
     if status_code == 409:
         raise ConflictError(message)
     if status_code == 422:

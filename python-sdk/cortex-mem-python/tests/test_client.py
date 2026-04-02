@@ -6,6 +6,7 @@ import responses
 
 from cortex_mem import CortexMemClient, APIError, BadRequestError, NotFoundError, RateLimitError, CortexError, ValidationError, UnprocessableError
 from cortex_mem.error import is_retryable, raise_for_status, ServerError, ConflictError, AuthError, is_retryable_error, is_bad_gateway, is_bad_request, is_service_unavailable, is_gateway_timeout, is_client_error, is_server_error, is_not_found, is_unauthorized, is_forbidden, is_conflict, is_rate_limited, is_unprocessable, is_validation_error
+from cortex_mem.error import MethodNotAllowedError
 from cortex_mem.dto import (
     SessionStartResponse,
     Experience,
@@ -1369,6 +1370,10 @@ class TestRaiseForStatus:
     def test_404_raises_not_found(self):
         with pytest.raises(NotFoundError):
             raise_for_status(404, b'{"error": "not found"}')
+
+    def test_405_raises_method_not_allowed(self):
+        with pytest.raises(MethodNotAllowedError):
+            raise_for_status(405, b'{"error": "method not allowed"}')
 
     def test_409_raises_conflict(self):
         with pytest.raises(ConflictError):
