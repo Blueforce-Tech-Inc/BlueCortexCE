@@ -6182,7 +6182,7 @@ result=$(curl -sf "$BACKEND/api/extraction/user_preference/latest?projectPath=/t
 
 **File**: `scripts/phase3-acceptance-test.sh`
 
-**Structure**:
+**Structure** (15 test functions):
 ```bash
 #!/bin/bash
 # Phase 3.1 Acceptance Test Suite
@@ -6190,20 +6190,25 @@ result=$(curl -sf "$BACKEND/api/extraction/user_preference/latest?projectPath=/t
 #
 # Tests:
 #   1. Session creation with userId
-#   2. PATCH session userId
-#   3. Multi-user observation isolation
-#   4. Array schema — multiple preferences
-#   5. Append-only extraction — preference evolution
-#   6. Hook mode — single user compatibility
+#   2. Session creation without userId (hook mode)
+#   3. PATCH session userId
+#   4. Observation with userId
+#   5. Bob observations (multi-user)
+#   6. Extraction API contract
 #   7. ICL prompt with userId
-#   8. Person field — third-party entities
-#   9. Extraction history preservation
-#  10. Zero-shot bootstrap
+#   8. ICL prompt without userId
+#   9. Extraction with LLM
+#  10. Extraction history
+#  11. Re-extraction add
+#  12. Re-extraction remove
+#  13. Hook mode compatibility
+#  14. Input validation
+#  15. Regression tests
 #
 # Exit code: 0 = all passed, 1 = failures
 ```
 
-**Pass criteria**: ALL 10 tests must pass for Phase 3.1 acceptance.
+**Pass criteria**: ALL 15 tests must pass for Phase 3.1 acceptance.
 
 ---
 
@@ -6278,7 +6283,7 @@ bash scripts/demo-v14-test.sh
 
 - **2026-03-22 v27**: (1) **Section 2.3 `buildPrompt()`**: Integrated Section 24 findings — added `summarizePriorExtraction()` for token cost control (Section 24.1) and hallucination prevention instruction in prompt (Section 24.2). (2) **Section 7.1 `updateExtractionState()`**: Added `@Transactional` annotation for atomic delete-then-save (Section 15.6) and idempotency guard (Section 17.3). (3) **Section 8**: Closed all 10 open questions — 8 new resolutions documented with references to answer sections. Previously only #8-10 were marked resolved. (4) **Section 15.2**: Added `ExtractionFormatUtil.java` to new files list and conditional bean loading annotations (`@ConditionalOnProperty`, `@ConditionalOnBean`) from Section 21.10.
 
-- **2026-03-22 v26**: (1) **Section 26**: Added comprehensive acceptance test plan — 10 test scenarios with detailed bash steps and pass criteria. (2) **Section 26.1-26.2**: Each test maps to a walkthrough scenario with explicit verification steps. (3) **Section 26.3**: Defined `phase3-acceptance-test.sh` structure (10 tests, exit code 0 = all pass). (4) **Section 26.4**: SDK demo test plan — 4 SDK integration tests. (5) **Section 26.5**: Backward compatibility check — existing regression + demo tests must pass. (6) **Section 26.6**: Acceptance criteria summary — 12 checks define "done". (7) Test-first approach: acceptance tests define completion before any code is written.
+- **2026-03-22 v26**: (1) **Section 26**: Added comprehensive acceptance test plan — 10 test scenarios with detailed bash steps and pass criteria. (2) **Section 26.1-26.2**: Each test maps to a walkthrough scenario with explicit verification steps. (3) **Section 26.3**: Defined `phase3-acceptance-test.sh` structure (15 tests, exit code 0 = all pass). (4) **Section 26.4**: SDK demo test plan — 4 SDK integration tests. (5) **Section 26.5**: Backward compatibility check — existing regression + demo tests must pass. (6) **Section 26.6**: Acceptance criteria summary — 12 checks define "done". (7) Test-first approach: acceptance tests define completion before any code is written.
 
 - **2026-03-22 v25**: (1) **Section 25**: Added comprehensive implementation plan — 11 steps with verification at each stage. (2) Steps include: DB migration, repository methods, LlmService, Session API, StructuredExtractionService, DeepRefine integration, query API + ICL, YAML config, SDK update, E2E test. (3) Total estimated time: 12-13 hours. (4) Critical path identified: userId flow (Steps 1→2→5) and extraction engine (Steps 3→4→6) can be parallel.
 
