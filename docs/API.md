@@ -493,6 +493,24 @@ Content-Type: application/json
 | `requiredConcepts` | string[] | ❌ | Filter to experiences containing these concepts |
 | `userId` | string | ❌ | User ID for multi-user isolation |
 
+**Response** (`200 OK`): JSON array of experience objects:
+```json
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "task": "database optimization",
+    "strategy": "Use connection pooling with HikariCP",
+    "outcome": "Query latency reduced by 40%",
+    "reuse_condition": "When optimizing database-heavy services",
+    "quality_score": 0.85,
+    "created_at": "2026-03-13T10:15:00Z"
+  }
+]
+```
+
+**Error Responses**:
+- `400` — `{"error": "task is required"}` (missing or blank `task` field)
+
 ### Get ICL Prompt
 
 ```
@@ -2192,6 +2210,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-02 | 0.1.0-beta+12 | Split Chinese Viewer mega-section into separate Search and Management sections (matching English structure); added missing parameter table to Chinese Create Observation endpoint; synced TOC |
 | 2026-04-02 | 0.1.0-beta+13 | Fixed EN PATCH/DELETE /api/memory/observations path variable: `{observationId}` → `{id}` (matches controller @PatchMapping/@DeleteMapping); added Bulk Import response example with stats format; synced Chinese version |
 | 2026-04-02 | 0.1.0-beta+14 | Added ICL Prompt 400 error response (task required); added Quality Distribution 400 error response (project required); synced Chinese version |
+| 2026-04-03 | 0.1.0-beta+15 | Added Experiences endpoint response example (JSON array of Experience objects with id/task/strategy/outcome/reuse_condition/quality_score/created_at fields) and 400 error response (task required); synced Chinese version |
 | 2026-03-13 | 0.1.0 | Initial API documentation |
 
 ---

@@ -1258,6 +1258,24 @@ curl http://localhost:37777/api/modes
 | `requiredConcepts` | string[] | ❌ | 概念过滤（仅返回包含这些概念的经验） |
 | `userId` | string | ❌ | 用户 ID（多用户隔离） |
 
+**响应示例** (`200 OK`): JSON 数组格式的经验对象：
+```json
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "task": "database optimization",
+    "strategy": "Use connection pooling with HikariCP",
+    "outcome": "Query latency reduced by 40%",
+    "reuse_condition": "When optimizing database-heavy services",
+    "quality_score": 0.85,
+    "created_at": "2026-03-13T10:15:00Z"
+  }
+]
+```
+
+**错误响应**:
+- `400` — `{"error": "task is required"}`（`task` 字段缺失或为空）
+
 #### POST `/api/memory/icl-prompt`
 
 获取上下文学习提示。
@@ -2307,6 +2325,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-02 | 0.1.0-beta+12 | 拆分 Viewer 超级章节——新增独立 `## 搜索` 和 `## 管理` 章节（与英文版结构一致）；补充 Create Observation 请求体参数表（中文版缺失）；同步 TOC |
 | 2026-04-02 | 0.1.0-beta+13 | 修正英文版 PATCH/DELETE /api/memory/observations 路径变量：`{observationId}` → `{id}`（匹配 Controller @PatchMapping/@DeleteMapping）；补充英文版 Bulk Import 响应示例及 stats 格式；同步中文版 |
 | 2026-04-02 | 0.1.0-beta+14 | 补充 ICL Prompt 400 错误响应（task 必填）；补充 Quality Distribution 400 错误响应（project 必填）；同步英文版 |
+| 2026-04-03 | 0.1.0-beta+15 | 补充 Experiences 端点响应示例（JSON 数组，包含 id/task/strategy/outcome/reuse_condition/quality_score/created_at 字段）和 400 错误响应（task 必填）；同步英文版 |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---
