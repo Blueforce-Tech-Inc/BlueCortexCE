@@ -36,7 +36,7 @@ public class SearchController {
             @RequestParam(required = false) String observationType,
             @RequestParam(required = false) String concept,
             @RequestParam(required = false) String source,
-            @RequestParam(defaultValue = "10") Integer limit,
+            @RequestParam(defaultValue = "0") Integer limit,
             @RequestParam(defaultValue = "0") Integer offset) {
 
         if (project == null || project.isBlank()) {

@@ -64,7 +64,7 @@ public class ExtractionController {
             @RequestParam String project,
             @RequestParam String template,
             @RequestParam(required = false) String userId,
-            @RequestParam(defaultValue = "10") Integer limit) {
+            @RequestParam(defaultValue = "0") Integer limit) {
 
         if (project.isBlank()) {
             return ResponseEntity.badRequest()

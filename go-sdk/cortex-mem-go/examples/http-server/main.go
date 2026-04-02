@@ -666,7 +666,7 @@ func main() {
 	})
 
 	// --- POST /create-observation ---
-	// Moved from /create-observation to avoid Go 1.25+ ServeMux conflict with /observations/{id}.
+	// Renamed from /observations/create to avoid Go 1.25+ ServeMux conflict with /observations/{id}.
 	mux.HandleFunc("/create-observation", func(w http.ResponseWriter, r *http.Request) {
 		if !checkMethod(w, r, http.MethodPost) {
 			return

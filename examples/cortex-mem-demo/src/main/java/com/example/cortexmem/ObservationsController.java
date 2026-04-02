@@ -35,7 +35,7 @@ public class ObservationsController {
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> listObservations(
             @RequestParam(required = false) String project,
-            @RequestParam(defaultValue = "10") Integer limit,
+            @RequestParam(defaultValue = "0") Integer limit,
             @RequestParam(defaultValue = "0") Integer offset) {
 
         // project is optional per SDK contract (null = all projects)
