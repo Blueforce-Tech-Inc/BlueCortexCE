@@ -751,9 +751,9 @@ LIMIT :limit;
 | Context | `/api/context/*` | 上下文检索 |
 | Memory | `/api/memory/*` | 记忆操作（refine、experiences、icl-prompt、quality-distribution、feedback、patch/delete observation） |
 | Mode | `/api/mode/*` | 记忆模式管理（get/put、types、concepts、validation） |
-| Extraction | `/api/extraction/*` | 结构化数据提取（run、latest、history） |
-| Cursor | `/api/cursor/*` | Cursor IDE 集成（register、context、projects） |
-| Import | `/api/import/*` | 数据导入（sessions、observations、summaries、prompts） |
+| Extraction | `/api/extraction/*` | 结构化数据提取（run、{templateName}/latest、{templateName}/history） |
+| Cursor | `/api/cursor/*` | Cursor IDE 集成（register、check/unregister、context、projects） |
+| Import | `/api/import/*` | 数据导入（bulk、sessions、observations、summaries、prompts） |
 | Stream | `/stream` | SSE 实时更新 |
 | Logs | `/api/logs` | 日志访问（get、clear） |
 | Health | `/api/health`, `/api/readiness`, `/api/version` | 健康和版本检查 |

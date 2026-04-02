@@ -751,9 +751,9 @@ LIMIT :limit;
 | Context | `/api/context/*` | Context retrieval |
 | Memory | `/api/memory/*` | Memory operations (refine, experiences, icl-prompt, quality-distribution, feedback, patch/delete observation) |
 | Mode | `/api/mode/*` | Memory mode management (get/put, types, concepts, validation) |
-| Extraction | `/api/extraction/*` | Structured data extraction (run, latest, history) |
-| Cursor | `/api/cursor/*` | Cursor IDE integration (register, context, projects) |
-| Import | `/api/import/*` | Data import (sessions, observations, summaries, prompts) |
+| Extraction | `/api/extraction/*` | Structured data extraction (run, {templateName}/latest, {templateName}/history) |
+| Cursor | `/api/cursor/*` | Cursor IDE integration (register, check/unregister, context, projects) |
+| Import | `/api/import/*` | Data import (bulk, sessions, observations, summaries, prompts) |
 | Stream | `/stream` | SSE real-time updates |
 | Logs | `/api/logs` | Log access (get, clear) |
 | Health | `/api/health`, `/api/readiness`, `/api/version` | Health and version checks |

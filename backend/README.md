@@ -167,8 +167,8 @@ Server starts on `http://127.0.0.1:37777`.
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | `/api/extraction/run` | Run structured extraction |
-| GET | `/api/extraction/latest` | Get latest extraction result |
-| GET | `/api/extraction/history` | Get extraction history |
+| GET | `/api/extraction/{templateName}/latest` | Get latest extraction result |
+| GET | `/api/extraction/{templateName}/history` | Get extraction history |
 
 ### Cursor
 
