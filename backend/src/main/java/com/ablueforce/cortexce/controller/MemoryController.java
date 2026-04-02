@@ -137,7 +137,7 @@ public class MemoryController {
         @ApiResponse(responseCode = "400", description = "Missing required field: task",
             content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class)))
     })
-    public ResponseEntity<com.ablueforce.cortexce.dto.ApiResponses.ICLPromptResponse> buildICLPrompt(
+    public ResponseEntity<Object> buildICLPrompt(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                 description = "ICL prompt build request",
                 required = true,
@@ -145,7 +145,7 @@ public class MemoryController {
             @org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.ICLPromptRequest request) {
         String task = request.task();
         if (task == null || task.isBlank()) {
-            return ResponseEntity.badRequest().body(null);
+            return ResponseEntity.badRequest().body(Map.of("error", "task is required"));
         }
         String project = request.project();
         int maxChars = request.maxChars() != null ? Math.max(100, request.maxChars()) : 4000;
@@ -175,6 +175,9 @@ public class MemoryController {
     public ResponseEntity<Map<String, Object>> getQualityDistribution(
             @Parameter(description = "Absolute project path to query quality distribution for", required = true, example = "/Users/dev/my-project")
             @RequestParam String project) {
+        if (project == null || project.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "project is required"));
+        }
         try {
             Object[] distribution = observationRepository.getQualityDistribution(project);
             
