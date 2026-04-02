@@ -11,7 +11,7 @@
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **0** | — |
+| **P2** (建议修复) | **2** | 23-1 quality-distribution project 验证缺失, 23-2 icl-prompt 错误响应格式 |
 | **⏭ 跳过** | **6** | 非 bug，属设计决策或代码风格偏好 |
 | **⏳待修** | **2** | Python SDK + Backend E2E (非紧急) |
 
@@ -941,3 +941,35 @@
 - **集成层**: eino/genkit/langchaingo 适配正确，nil client panic（fail-fast）
 - **Demo**: 28 个 HTTP 端点，输入验证完整，panic recovery + graceful shutdown
 - **Cross-SDK 一致性**: wire format 注释有 Java/Python 交叉引用
+
+---
+
+### 2026-04-02 08:51 | Backend 审查 #23
+
+**审查方向**: Backend（MemoryController.java + PendingMessageEventPublisher.java）
+
+**审查范围**:
+- `MemoryController.java` — 8 个 REST 端点：refine, experiences, icl-prompt, quality-distribution, feedback, PATCH observation, DELETE observation
+- `PendingMessageEventPublisher.java` — 2 个事件发布方法
+
+#### 发现的问题
+
+| # | 文件 | 行 | 级别 | 问题 |
+|---|------|-----|------|------|
+| 23-1 | MemoryController.java:178 | **P2** | `quality-distribution` 端点未验证 `project` 参数是否为 null/blank。同 controller 的其他端点（如 `triggerRefine`）均做验证，此处不一致。虽然 SQL 查询在 project=null 时会返回空结果（gracefully 返回 zeros），但缺乏显式验证。 |
+| 23-2 | MemoryController.java:162 | **P2** | `icl-prompt` 端点在 task 为 null/blank 时返回 `ResponseEntity.badRequest().body(null)`（空响应体）。而 `experiences` 端点正确返回 `Map.of("error", "task is required")`。错误响应格式不一致，调用方可能无法获取错误原因。 |
+
+#### 代码质量评价
+
+| 检查项 | MemoryController | PendingMessageEventPublisher |
+|--------|------------------|------------------------------|
+| 输入验证 | ⚠️ quality-distribution 缺失 project 验证 | ✅ N/A（简单事件转发） |
+| 错误处理 | ⚠️ icl-prompt 错误响应不一致 | ✅ 日志记录完整 |
+| Swagger 文档 | ✅ 完整的 @Operation + @ApiResponse | N/A |
+| 类型安全 | ✅ PATCH 端点严格的 instanceof 检查 | ✅ 类型安全 |
+| 事务管理 | ✅ feedback 端点 @Transactional | N/A |
+
+#### 亮点
+- PATCH observation 端点的 null vs absent 语义区分设计良好（null=clear, absent=skip）
+- `validateStringList()` 提供 fail-fast 类型验证
+- PendingMessageEventPublisher 简洁清晰，API vs SCHEDULED 事件源区分正确
