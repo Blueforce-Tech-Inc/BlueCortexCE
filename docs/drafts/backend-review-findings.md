@@ -1155,3 +1155,41 @@
 - `doFireAndForget()` 支持线性退避 + 25% jitter + 不可重试错误立即放弃
 - `parseModesResponse` 正确处理 backend `observation_types`/`observation_concepts` 的双重格式（数组对象 + 字符串数组）
 - HTTP Server Demo 有完整的 graceful shutdown (SIGTERM/SIGINT) + 5 秒强制退出
+
+---
+
+### 2026-04-02 02:30 — Backend Review #20
+
+**审查范围**: ModeService.java, CursorController.java, CursorService.java
+**审查人**: PM Agent
+
+#### 审查组件
+
+| 组件 | 代码行数 | 严重度分布 |
+|------|---------|-----------|
+| ModeService.java | ~320 行 | P0:0 P1:0 P2:0 |
+| CursorController.java | ~280 行 | P0:0 P1:0 P2:0 |
+| CursorService.java | ~230 行 | P0:0 P1:0 P2:2 |
+
+#### 发现的问题
+
+| # | 文件 | 行 | 级别 | 问题 |
+|---|------|-----|------|------|
+| 20-1 | CursorService.java | L136-148 | **P2** | `registerProject()` 和 `unregisterProject()` 在 `synchronized(registryLock)` 内部调用 `readRegistry()`，而 `readRegistry()` 也获取同一把锁。Java 的 `synchronized` 是可重入的，因此不会死锁，但每次操作都会读取磁盘两次（readRegistry 一次，writeRegistry 内部的 readRegistry 又一次）。对于高频注册/注销操作，这是不必要的 I/O。建议：在 synchronized 块内直接读取文件，避免递归锁获取。 |
+| 20-2 | CursorService.java | L121-130 | **P2** | `getRegistryCached()` 存在 TOCTOU 竞态条件：先释放 `registryLock`（检查 TTL），然后调用 `readRegistry()` 再次获取锁。在两个锁操作之间，另一个线程可能已经修改了缓存。虽然 5 秒 TTL 降低了风险，但在高并发场景下可能读到过期数据。建议：将 TTL 检查和磁盘读取合并到同一个 synchronized 块中。 |
+
+#### 代码质量评价
+
+| 检查项 | ModeService | CursorController | CursorService |
+|--------|-------------|-----------------|---------------|
+| 线程安全 | ✅ ConcurrentHashMap + 局部变量 | ✅ 无共享可变状态 | ⚠️ 可重入锁冗余 + TOCTOU |
+| 内存管理 | ✅ 模式缓存有限增长 | ✅ 无缓存 | ✅ 有限缓存 + TTL |
+| 输入验证 | ✅ 模式文件解析验证 | ✅ projectName/workspacePath 非空检查 | ⚠️ writeContextFile 未检查 workspacePath 空值 |
+| 错误处理 | ✅ 多级 fallback (文件 → classpath → 默认) | ✅ try-catch + 有意义的错误消息 | ✅ IOException 包装为 UncheckedIOException |
+| 模板安全 | ✅ @PostConstruct fail-fast | N/A | ✅ 路径遍历保护 |
+
+#### 亮点
+- ModeService 的 `parent--override` 继承模式设计优雅，deepMerge 支持递归合并
+- CursorController 的 Swagger 注解完整，所有端点都有详细文档
+- CursorService 的 writeContextFile 有路径遍历保护（检查 cursorDir/rulesDir 是否在 workspace 内）
+- CursorService 使用 TTL 缓存减少磁盘 I/O（5秒窗口）
