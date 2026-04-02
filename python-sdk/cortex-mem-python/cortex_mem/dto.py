@@ -250,7 +250,7 @@ class ObservationUpdate:
     title: str | None = None
     subtitle: str | None = None
     content: str | None = None
-    narrative: str | None = None  # Alias for content; if both set, content takes priority
+    narrative: str | None = None  # Parallel to content; both are sent if set (backend accepts either)
     facts: list[str] | None = None
     concepts: list[str] | None = None
     source: str | None = None
