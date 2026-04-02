@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-03 03:30 (批量修复：VectorValidator 死代码移除 + 单元测试新增)
+> **最后更新**: 2026-04-03 06:15 (Backend 审查 #30：LogsController + MemoryController)
 
 # Backend 代码审查问题记录
 
@@ -11,7 +11,7 @@
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **0** | 全部已修复 |
+| **P2** (建议修复) | **2** | 见 #30 |
 | **⏭ 跳过** | **6** | 非 bug，属设计决策或代码风格偏好 |
 | **⏳待修** | **2** | Python SDK + Backend E2E (非紧急) |
 
@@ -56,6 +56,41 @@
 - **ContextCacheService**: `refreshStaleContexts` per-session 异常处理确保单点失败不影响其他 session
 
 **审查结论**: 3 个 P2 问题（2 个死代码 + 缺测试）。建议下次 Backend 修复任务处理。
+
+---
+
+### 2026-04-03 04:35 | Backend 审查 #29
+
+**审查方向**: Backend (ExtractionStorageService.java + PendingMessageEventListener.java)
+
+**审查范围**:
+- `ExtractionStorageService.java` — Transactional extraction result storage + DLQ
+- `PendingMessageEventListener.java` — Async event listener for pending message processing
+
+#### 发现的问题
+
+| # | 文件 | 行 | 级别 | 问题 |
+|---|------|-----|------|------|
+| 29-1 | ExtractionStorageService.java | 全文 | **P2** | **无单元测试** — `storeExtractionResult()` 和 `storeDLQ()` 均无测试覆盖。两个方法涉及事务边界（@Transactional）和 session find-or-create 逻辑，值得单测验证。 |
+| 29-2 | PendingMessageEventListener.java | 全文 | **P2** | **无单元测试** — `handlePendingMessageEvent()` 无测试覆盖。异步事件处理 + 异常兜底逻辑（标记 failed）值得 mock 测试。 |
+| 29-3 | ExtractionStorageService.java | L55, L98 | **P2** | **FQCN 冗余** — `com.ablueforce.cortexce.entity.SessionEntity` 使用全限定类名而非 import。功能正确但影响可读性。建议添加 import 语句。 |
+
+#### 跳过的发现（非 bug）
+
+| # | 文件 | 说明 |
+|---|------|------|
+| S29-1 | ExtractionStorageService.java L51 | `orElseGet` 中创建 session 但返回值未使用 — **设计决策**，仅用于 ensure-exists 语义，save 后 FK 约束满足即可 |
+
+#### 代码质量评价
+
+| 检查项 | ExtractionStorageService | PendingMessageEventListener |
+|--------|--------------------------|----------------------------|
+| 输入验证 | ✅ null/empty result 检查 | ✅ messageType 分支处理 |
+| 错误处理 | ✅ storeDLQ 自身 try-catch 不传播 | ✅ catch-all 标记 failed 防无限重试 |
+| 事务管理 | ✅ @Transactional 两个方法 | N/A (@Async) |
+| 线程安全 | ✅ 无共享可变状态 | ✅ 无共享可变状态 |
+
+**审查结论**: 3 个 P2 问题（2 个缺测试 + 1 个 FQCN 风格）。代码逻辑正确，事务和异常处理合理。建议下次 Backend 修复任务补测试。
 
 ---
 
@@ -1235,3 +1270,33 @@
 - CursorController 的 Swagger 注解完整，所有端点都有详细文档
 - CursorService 的 writeContextFile 有路径遍历保护（检查 cursorDir/rulesDir 是否在 workspace 内）
 - CursorService 使用 TTL 缓存减少磁盘 I/O（5秒窗口）
+
+---
+
+### 2026-04-03 06:15 | Backend 审查 #30
+
+**审查范围**: LogsController.java, MemoryController.java（随机抽查）
+**审查方法**: 代码阅读 + 逻辑分析
+
+#### 发现的问题
+
+| # | 文件 | 行 | 级别 | 问题 |
+|---|------|-----|------|------|
+| 30-1 | LogsController.java | L137-147 | **P2** | `clearLogs()` 在日志文件不存在时仍返回 `200 OK` + `"status":"ok","message":"Today's log file has been cleared"`。未区分"文件不存在"和"文件已成功清除"两种情况，给调用方造成文件已被清除的假象。建议：文件不存在时返回不同消息（如 `"message":"No log file to clear"`），或返回 404。 |
+| 30-2 | LogsController.java | L75, L137 | **P2** | `/api/logs` 和 `/api/logs/clear` 端点无认证/授权保护。日志内容可能包含敏感调试信息（项目路径、内部状态），任何能访问服务的网络用户都可读取和清除日志。建议：添加认证中间件或通过配置控制暴露范围。 |
+
+#### 代码质量评价
+
+| 检查项 | LogsController | MemoryController |
+|--------|---------------|-----------------|
+| 线程安全 | ✅ 无共享可变状态，每次请求独立读取文件 | ✅ 无共享可变状态 |
+| 内存管理 | ⚠️ 读取整个日志文件到内存（大文件可能 OOM） | ✅ 查询结果有限（count 限制） |
+| 输入验证 | ✅ lines 参数 clamped 1-10000 | ✅ 全字段类型验证 + UUID 格式验证 |
+| 错误处理 | ✅ IOException 捕获 + warn 日志 | ✅ 400/404/500 分级处理 |
+| 事务管理 | N/A | ✅ @Transactional on feedback |
+
+#### 亮点
+- MemoryController.updateObservation() PATCH 实现质量极高：null vs absent 语义区分、validateStringList 工具方法、extractedData Map 类型守卫
+- MemoryController.submitFeedback() 完整验证链：null 检查 → UUID 格式验证 → 存在性检查 → @Transactional
+- MemoryController.getQualityDistribution() 异常处理完善，500 响应附带零值默认
+- LogsController 日志格式规范（TypeScript 版兼容），支持今天/昨天两级 fallback
