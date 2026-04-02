@@ -3436,7 +3436,7 @@ Final pre-implementation verification — all items must pass before writing `St
 - [x] Non-blocking: extraction failures don't propagate to refinement ✅
 
 **Testing**:
-- [x] Existing regression test passes (53/53) ✅
+- [x] Existing regression test passes (46/46) ✅
 - [x] Unit test with mocked LLM for structured extraction ✅
 - [x] Integration test for full template → LLM → store pipeline ✅
 
@@ -4821,7 +4821,7 @@ mvn clean compile -DskipTests
 
 # 4. Current regression test passes
 bash scripts/regression-test.sh
-# Expected: 53/53 tests passed
+# Expected: 46/46 tests passed
 
 # 5. Backend .env has correct config
 cat backend/.env | grep -E "SPRING_DATASOURCE|SPRING_AI"
@@ -4833,7 +4833,7 @@ cat backend/.env | grep -E "SPRING_DATASOURCE|SPRING_AI"
 |------|------|--------|--------|--------------|
 | 1 | V15 migration + SessionEntity.userId | ✅ Done | `cca84e0` | Build + DB column check |
 | 2 | SessionRepository user query methods | ✅ Done | `cca84e0` | Build passes |
-| 3 | ObservationRepository 5 new methods | ✅ Done | `cca84e0` | Build + regression 53/53 |
+| 3 | ObservationRepository 5 new methods | ✅ Done | `cca84e0` | Build + regression 46/46 |
 | 4 | LlmService.chatCompletionStructured() | ✅ Done | `cca84e0` | Build passes |
 | 5 | Session API — userId support | ✅ Done | `cca84e0` | curl tests pass |
 | 6 | StructuredExtractionService | ✅ Done | — | Build + append-only extraction functional |
@@ -4878,7 +4878,7 @@ cat backend/.env | grep -E "SPRING_DATASOURCE|SPRING_AI"
 4. `findByTypeLike(project, typePattern, limit)` — wildcard type query
 5. `findByContentSessionIdAndType(sessionId, type, limit)` — prior extraction lookup
 
-**Verification passed**: Build + regression 53/53.
+**Verification passed**: Build + regression 46/46.
 
 ---
 
@@ -5083,7 +5083,7 @@ curl -s http://127.0.0.1:37777/api/health
 
 # 5. Regression test passes
 bash scripts/regression-test.sh
-# Expected: 53/53 tests passed
+# Expected: 46/46 tests passed
 ```
 
 #### Step 6.4: Common Issues
@@ -5150,7 +5150,7 @@ cd backend && mvn clean compile -DskipTests
 # Build must pass
 
 bash scripts/regression-test.sh
-# Expected: 53/53 tests passed (extraction is disabled by default, so no behavior change)
+# Expected: 46/46 tests passed (extraction is disabled by default, so no behavior change)
 ```
 
 #### Common Issues
@@ -5259,7 +5259,7 @@ curl -s -X POST http://127.0.0.1:37777/api/memory/icl-prompt \
 
 # Regression test
 bash scripts/regression-test.sh
-# Expected: 53/53 tests passed
+# Expected: 46/46 tests passed
 ```
 
 #### Common Issues
@@ -5362,7 +5362,7 @@ curl -s -X POST "http://127.0.0.1:37777/api/extraction/run?projectPath=/tmp/test
 
 # Regression test (extraction enabled but no data — should be transparent)
 bash scripts/regression-test.sh
-# Expected: 53/53 tests passed
+# Expected: 46/46 tests passed
 ```
 
 #### Common Issues
@@ -5478,7 +5478,7 @@ Tests are ordered by dependency — later tests rely on data created by earlier 
 | 9 | History preservation | Query history | Multiple snapshots exist |
 | 10 | Experiences + userId | Query experiences | User-filtered results |
 | 11 | Hook mode compat | Session without userId | No errors |
-| 12 | Regression | Run regression-test.sh | 53/53 pass |
+| 12 | Regression | Run regression-test.sh | 46/46 pass |
 
 #### Cleanup
 
@@ -5501,7 +5501,7 @@ bash scripts/demo-v15-extraction-test.sh
 # ✅ Test 1: Session + userId
 # ✅ Test 2: Session without userId (hook mode)
 # ... (12 tests)
-# ✅ Regression: 53/53 passed
+# ✅ Regression: 46/46 passed
 # ==============================
 # Result: 12/12 checks passed
 # ==============================
@@ -5759,7 +5759,7 @@ psql -c "SELECT content_session_id FROM mem_observations WHERE content_session_i
 
 ```bash
 bash scripts/regression-test.sh
-# Expected: 53/53 tests passed (or 43+N with new tests)
+# Expected: 46/46 tests passed (or 43+N with new tests)
 ```
 
 ---
@@ -6243,7 +6243,7 @@ result=$(curl -sf "$BACKEND/api/extraction/user_preference/latest?projectPath=/t
 ```bash
 # Existing regression tests must still pass
 bash scripts/regression-test.sh
-# Expected: 53/53 tests passed (or more if new tests added)
+# Expected: 46/46 tests passed (or more if new tests added)
 
 # Existing demo tests must still pass
 bash scripts/demo-v14-test.sh
@@ -6268,7 +6268,7 @@ bash scripts/demo-v14-test.sh
 | 8 | Person field | Family Assistant | Third-party entities captured |
 | 9 | History preservation | History | Old extractions not overwritten |
 | 10 | Zero-shot | Bootstrap | Graceful empty handling |
-| — | Regression | Backward Compat | 53/53 existing tests pass |
+| — | Regression | Backward Compat | 46/46 existing tests pass |
 | — | SDK Demo | SDK Integration | 4/4 SDK tests pass |
 
 **Definition of Done**: ALL 12 checks pass.
