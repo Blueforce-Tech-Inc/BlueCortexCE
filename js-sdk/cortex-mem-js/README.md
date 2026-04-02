@@ -6,7 +6,7 @@ JavaScript/TypeScript client SDK for the [Cortex CE](https://github.com/abforce/
 
 ## Features
 
-- **Zero dependencies** — Uses the built-in `fetch` API (Node 18+, browsers, Deno, Bun)
+- **Zero runtime dependencies** — Uses the built-in `fetch` API (Node 18+, browsers, Deno, Bun)
 - **Full TypeScript support** — Complete type definitions for all DTOs
 - **26 API methods** — Covers all endpoints from the Go/Java SDKs
 - **212 unit tests** — Full coverage of wire format and client behavior
@@ -163,14 +163,21 @@ try {
 
 ## Wire Format
 
-The SDK uses JSON field names that match the backend API exactly:
+The SDK uses JSON field names that match the backend API exactly. Field naming varies by endpoint:
 
-- `session_id` (snake_case)
-- `project_path` → `cwd` for tool observations
-- `type` → `tool_name` for tool observations
-- `requiredConcepts` (camelCase)
-- `observationId` (camelCase)
-- `extractedData` (camelCase)
+**Session:**
+- `session_id`, `project_path` (snake_case) — `SessionStartRequest`
+- `user_id` (snake_case) — optional in `SessionStartRequest`
+
+**Observation (capture):**
+- `session_id`, `cwd`, `tool_name` (snake_case) — `ObservationRequest`
+- `extractedData` (camelCase) — backend `@JsonProperty` override
+
+**Experience & ICL:**
+- `requiredConcepts`, `userId` (camelCase) — `ExperienceRequest`, `ICLPromptRequest`
+
+**Feedback:**
+- `observationId`, `feedbackType` (camelCase) — `FeedbackRequest`
 
 See [JS SDK Design Document](../../docs/drafts/js-sdk-design.md) for architecture and implementation details.
 

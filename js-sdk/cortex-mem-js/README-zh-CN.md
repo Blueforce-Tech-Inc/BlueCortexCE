@@ -163,14 +163,21 @@ try {
 
 ## Wire 格式
 
-SDK 使用与后端 API 完全一致的 JSON 字段名：
+SDK 使用与后端 API 完全一致的 JSON 字段名。字段命名因端点而异：
 
-- `session_id` (snake_case)
-- `project_path` → 观察中使用 `cwd`
-- `type` → 观察中使用 `tool_name`
-- `requiredConcepts` (camelCase)
-- `observationId` (camelCase)
-- `extractedData` (camelCase)
+**Session：**
+- `session_id`、`project_path` (snake_case) — `SessionStartRequest`
+- `user_id` (snake_case) — `SessionStartRequest` 可选字段
+
+**Observation（采集）：**
+- `session_id`、`cwd`、`tool_name` (snake_case) — `ObservationRequest`
+- `extractedData` (camelCase) — 后端 `@JsonProperty` 覆盖
+
+**Experience 和 ICL：**
+- `requiredConcepts`、`userId` (camelCase) — `ExperienceRequest`、`ICLPromptRequest`
+
+**Feedback：**
+- `observationId`、`feedbackType` (camelCase) — `FeedbackRequest`
 
 详见 [JS SDK 设计文档](../../docs/drafts/js-sdk-design.md)。
 
