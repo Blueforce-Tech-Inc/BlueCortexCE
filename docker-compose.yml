@@ -12,10 +12,10 @@
 #      docker compose up -d
 #
 #   4. Check health:
-#      curl http://localhost:37777/actuator/health
+#      curl http://localhost:37777/api/health
 #
 # Configuration:
-#   - IMAGE_NAME: Docker image to use (default: ghcr.io/blueforce-tech-inc/bluecortexce:latest)
+#   - IMAGE_NAME: Docker image to use (default: ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main)
 #   - DB_PASSWORD: Database password (required)
 #   - API keys: Set your API keys in .env
 # =============================================================================

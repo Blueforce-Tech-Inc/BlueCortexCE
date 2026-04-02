@@ -61,10 +61,19 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `IMAGE_NAME` | Docker image to use | `ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main` |
+| `SPRING_PROFILES_ACTIVE` | Spring profile (`dev`/`prd`) | `prd` |
 | `SPRING_AI_OPENAI_BASE_URL` | OpenAI compatible API endpoint | `https://api.openai.com` |
 | `SPRING_AI_OPENAI_CHAT_MODEL` | Chat model | `gpt-4o` |
 | `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | Embedding API endpoint | `https://api.openai.com` |
 | `SPRING_AI_OPENAI_EMBEDDING_MODEL` | Embedding model | `text-embedding-3-small` |
+| `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | Embedding dimensions | `1536` |
+| `CLAUDE_MEM_MODE` | Application mode (`code`/`default`) | `code` |
+| `CLAUDEMEM_LLM_PROVIDER` | LLM provider (`openai`/`anthropic`) | `openai` |
+| `MEMORY_REFINE_ENABLED` | Enable memory refinement (self-evolution) | `true` |
+| `JAVA_OPTS` | JVM options | `-XX:+UseZGC -XX:MaxRAMPercentage=75.0` |
+| `SERVER_PORT` | Application port on host | `37777` |
+| `POSTGRES_PORT` | PostgreSQL port on host | `5433` |
 
 ## Commands
 
@@ -221,6 +230,7 @@ docker run -d \
   -e SPRING_DATASOURCE_USERNAME=postgres \
   -e SPRING_DATASOURCE_PASSWORD=postgres \
   -e SPRING_AI_OPENAI_API_KEY=your-api-key \
+  -e SPRING_AI_OPENAI_EMBEDDING_API_KEY=your-embedding-key \
   cortex-ce:latest
 ```
 

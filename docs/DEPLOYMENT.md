@@ -75,6 +75,7 @@ docker run -d \
   -e SPRING_DATASOURCE_USERNAME=postgres \
   -e SPRING_DATASOURCE_PASSWORD=your_password \
   -e SPRING_AI_OPENAI_API_KEY=sk-your-key \
+  -e SPRING_AI_OPENAI_EMBEDDING_API_KEY=sk-your-embedding-key \
   cortex-ce:latest
 ```
 
