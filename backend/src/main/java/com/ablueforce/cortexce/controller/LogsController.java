@@ -152,11 +152,17 @@ public class LogsController {
                 return ResponseEntity.internalServerError()
                         .body(Map.of("error", "Failed to clear log file"));
             }
+
+            return ResponseEntity.ok(Map.of(
+                    "status", "ok",
+                    "message", "Today's log file has been cleared",
+                    "path", todayLog.toString()
+            ));
         }
 
         return ResponseEntity.ok(Map.of(
                 "status", "ok",
-                "message", "Today's log file has been cleared",
+                "message", "No log file to clear",
                 "path", todayLog.toString()
         ));
     }
