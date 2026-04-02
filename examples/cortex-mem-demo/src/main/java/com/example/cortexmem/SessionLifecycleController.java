@@ -178,6 +178,10 @@ public class SessionLifecycleController {
     /**
      * One-shot full lifecycle: start → prompt → tool → end.
      * Verifies all capture types.
+     *
+     * <p>Note: CortexSessionContext.begin/end wraps prompt+tool only.
+     * recordSessionEnd is called outside the context block (matches real-world usage
+     * where session end fires after the context is released).
      */
     @PostMapping("/lifecycle")
     public ResponseEntity<Map<String, Object>> fullLifecycle(
@@ -202,35 +206,48 @@ public class SessionLifecycleController {
             ));
         }
 
-        // 2. Prompt + 3. Tool + 4. End (within context)
-        CortexSessionContext.begin(sessionId, projectPath);
+        // 2. Prompt + 3. Tool (within context)
+        String toolResult;
         try {
-            captureService.recordUserPrompt(UserPromptRequest.builder()
-                .sessionId(sessionId).projectPath(projectPath)
-                .promptText(prompt).promptNumber(1).build());
-            String toolResult = fileReadTool.readFile(toolPath);
-            CortexSessionContext.incrementAndGetPromptNumber();
-            captureService.recordSessionEnd(SessionEndRequest.builder()
-                .sessionId(sessionId).projectPath(projectPath)
-                .lastAssistantMessage("Processed: " + toolPath).build());
-
-            return ResponseEntity.ok(Map.of(
-                "session_id", sessionId,
-                "project", project,
-                "project_path", projectPath,
-                "session_db_id", startResult.getOrDefault("session_db_id", ""),
-                "prompt_recorded", true,
-                "tool_result", toolResult,
-                "session_ended", true
-            ));
+            CortexSessionContext.begin(sessionId, projectPath);
+            try {
+                captureService.recordUserPrompt(UserPromptRequest.builder()
+                    .sessionId(sessionId).projectPath(projectPath)
+                    .promptText(prompt).promptNumber(1).build());
+                toolResult = fileReadTool.readFile(toolPath);
+                CortexSessionContext.incrementAndGetPromptNumber();
+            } finally {
+                CortexSessionContext.end();
+            }
         } catch (Exception e) {
             log.error("Lifecycle step failed for sessionId={}", sessionId, e);
             return ResponseEntity.internalServerError().body(Map.of(
                 "error", "Lifecycle step failed: " + e.getMessage(),
                 "session_id", sessionId
             ));
-        } finally {
-            CortexSessionContext.end();
         }
+
+        // 4. End session (outside context block — matches real-world usage)
+        try {
+            captureService.recordSessionEnd(SessionEndRequest.builder()
+                .sessionId(sessionId).projectPath(projectPath)
+                .lastAssistantMessage("Processed: " + toolPath).build());
+        } catch (Exception e) {
+            log.error("Session end failed for sessionId={}", sessionId, e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                "error", "Session end failed: " + e.getMessage(),
+                "session_id", sessionId
+            ));
+        }
+
+        return ResponseEntity.ok(Map.of(
+            "session_id", sessionId,
+            "project", project,
+            "project_path", projectPath,
+            "session_db_id", startResult.getOrDefault("session_db_id", ""),
+            "prompt_recorded", true,
+            "tool_result", toolResult,
+            "session_ended", true
+        ));
     }
 }
