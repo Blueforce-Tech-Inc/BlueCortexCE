@@ -49,6 +49,9 @@ func (c *httpClient) RecordSessionEnd(ctx context.Context, req dto.SessionEndReq
 	if strings.TrimSpace(req.SessionID) == "" {
 		return &ValidationError{Field: "sessionID", Message: "sessionID is required"}
 	}
+	if strings.TrimSpace(req.ProjectPath) == "" {
+		return &ValidationError{Field: "projectPath", Message: "projectPath is required"}
+	}
 	return c.doFireAndForget(ctx, "RecordSessionEnd", func() error {
 		return c.doRequestNoContent(ctx, http.MethodPost, "/api/ingest/session-end", req)
 	})
@@ -60,6 +63,9 @@ func (c *httpClient) RecordUserPrompt(ctx context.Context, req dto.UserPromptReq
 	}
 	if strings.TrimSpace(req.PromptText) == "" {
 		return &ValidationError{Field: "promptText", Message: "promptText is required"}
+	}
+	if strings.TrimSpace(req.ProjectPath) == "" {
+		return &ValidationError{Field: "projectPath", Message: "projectPath is required"}
 	}
 	return c.doFireAndForget(ctx, "RecordUserPrompt", func() error {
 		return c.doRequestNoContent(ctx, http.MethodPost, "/api/ingest/user-prompt", req)

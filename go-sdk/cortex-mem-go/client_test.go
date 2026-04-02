@@ -3528,6 +3528,35 @@ func TestRecordUserPrompt_Validation_EmptyPromptText(t *testing.T) {
 	}
 }
 
+func TestRecordUserPrompt_Validation_EmptyProjectPath(t *testing.T) {
+	client := cortexmem.NewClient()
+	err := client.RecordUserPrompt(context.Background(), dto.UserPromptRequest{
+		SessionID:   "sess-1",
+		PromptText:  "test",
+		ProjectPath: "", // empty should fail
+	})
+	if err == nil {
+		t.Fatal("RecordUserPrompt should fail with empty projectPath")
+	}
+	if !strings.Contains(err.Error(), "projectPath is required") {
+		t.Errorf("expected validation error about ProjectPath, got: %v", err)
+	}
+}
+
+func TestRecordSessionEnd_Validation_EmptyProjectPath(t *testing.T) {
+	client := cortexmem.NewClient()
+	err := client.RecordSessionEnd(context.Background(), dto.SessionEndRequest{
+		SessionID:   "sess-1",
+		ProjectPath: "", // empty should fail
+	})
+	if err == nil {
+		t.Fatal("RecordSessionEnd should fail with empty projectPath")
+	}
+	if !strings.Contains(err.Error(), "projectPath is required") {
+		t.Errorf("expected validation error about ProjectPath, got: %v", err)
+	}
+}
+
 func TestSearch_Validation_EmptyProject(t *testing.T) {
 	client := cortexmem.NewClient()
 	_, err := client.Search(context.Background(), dto.SearchRequest{

@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-03 03:21 (Backend 审查 #28 — VectorValidator + ContextCacheService)
+> **最后更新**: 2026-04-03 03:30 (批量修复：VectorValidator 死代码移除 + 单元测试新增)
 
 # Backend 代码审查问题记录
 
@@ -11,7 +11,7 @@
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **3** | 28-1, 28-2, 28-3 (见审查 #28) |
+| **P2** (建议修复) | **0** | 全部已修复 |
 | **⏭ 跳过** | **6** | 非 bug，属设计决策或代码风格偏好 |
 | **⏳待修** | **2** | Python SDK + Backend E2E (非紧急) |
 
@@ -29,9 +29,9 @@
 
 | # | 文件 | 行 | 级别 | 问题 |
 |---|------|-----|------|------|
-| 28-1 | VectorValidator.java | L162 `countDimensions()` | **P2** | **死代码** — 方法定义但从未被调用。`grep -rn countDimensions backend/src/main/java` 仅返回定义处本身。建议：移除或在需要时通过搜索服务暴露维度信息。 |
-| 28-2 | VectorValidator.java | L191 `sanitizeVector()` | **P2** | **死代码** — 文档标注为 fallback 但从未被调用。`isValidVector()` 被 SearchService 使用，但 `sanitizeVector()` 无调用者。建议：移除，或在 SearchService 中添加 sanitize fallback 逻辑。 |
-| 28-3 | ContextCacheService.java + VectorValidator.java | 全文 | **P2** | **无单元测试** — 两个类均无对应的测试文件。`grep -rn ContextCacheService backend/src/test/` 和 `grep -rn VectorValidator backend/src/test/` 均无结果。VectorValidator 的手动解析逻辑（sign、exponent、whitespace）边界条件复杂，值得单测覆盖。 |
+| 28-1 | VectorValidator.java | L162 `countDimensions()` | **P2** | **死代码** — 方法定义但从未被调用。`grep -rn countDimensions backend/src/main/java` 仅返回定义处本身。建议：移除或在需要时通过搜索服务暴露维度信息。 ✅已修复（移除 countDimensions + sanitizeVector + isValidVectorChar 三个死代码方法） |
+| 28-2 | VectorValidator.java | L191 `sanitizeVector()` | **P2** | **死代码** — 文档标注为 fallback 但从未被调用。`isValidVector()` 被 SearchService 使用，但 `sanitizeVector()` 无调用者。建议：移除，或在 SearchService 中添加 sanitize fallback 逻辑。 ✅已修复（同 28-1） |
+| 28-3 | ContextCacheService.java + VectorValidator.java | 全文 | **P2** | **无单元测试** — 两个类均无对应的测试文件。`grep -rn ContextCacheService backend/src/test/` 和 `grep -rn VectorValidator backend/src/test/` 均无结果。VectorValidator 的手动解析逻辑（sign、exponent、whitespace）边界条件复杂，值得单测覆盖。 ✅已修复（新增 VectorValidatorTest 24 tests + ContextCacheServiceTest 7 tests） |
 
 #### 跳过的发现（非 bug）
 

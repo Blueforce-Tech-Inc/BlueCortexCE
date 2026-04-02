@@ -15,7 +15,6 @@ import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * CursorService - Cursor IDE integration for claude-mem Java Port.
@@ -38,9 +37,11 @@ public class CursorService {
     @Value("${claudemem.data-dir:#{systemProperties['user.home'] + '/.claude-mem'}}")
     private String dataDir;
 
-    // In-memory cache of the registry
-    private final Map<String, CursorProjectEntry> registryCache = new ConcurrentHashMap<>();
+    // In-memory cache of the registry with TTL-based refresh
+    private final Map<String, CursorProjectEntry> registryCache = new HashMap<>();
     private final Object registryLock = new Object();
+    private volatile long cacheTimestamp = 0;
+    private static final long CACHE_TTL_MS = 5000; // 5 seconds TTL
 
     /**
      * Project entry in the registry.
@@ -59,53 +60,76 @@ public class CursorService {
 
     /**
      * Read the Cursor project registry from disk.
+     * Always holds registryLock to ensure thread-safe cache updates.
      */
     public Map<String, CursorProjectEntry> readRegistry() {
-        Path registryPath = getRegistryPath();
+        synchronized (registryLock) {
+            Path registryPath = getRegistryPath();
 
-        if (!Files.exists(registryPath)) {
-            registryCache.clear();
-            return new HashMap<>();
-        }
+            if (!Files.exists(registryPath)) {
+                registryCache.clear();
+                cacheTimestamp = System.currentTimeMillis();
+                return new HashMap<>();
+            }
 
-        try {
-            String content = Files.readString(registryPath);
-            Map<String, CursorProjectEntry> registry = MAPPER.readValue(content,
-                new TypeReference<Map<String, CursorProjectEntry>>() {});
+            try {
+                String content = Files.readString(registryPath);
+                Map<String, CursorProjectEntry> registry = MAPPER.readValue(content,
+                    new TypeReference<Map<String, CursorProjectEntry>>() {});
 
-            // Update cache
-            registryCache.clear();
-            registryCache.putAll(registry);
+                // Update cache
+                registryCache.clear();
+                registryCache.putAll(registry);
+                cacheTimestamp = System.currentTimeMillis();
 
-            return registry;
-        } catch (IOException e) {
-            log.error("Failed to read cursor registry: {}", e.getMessage());
-            return new HashMap<>();
+                return new HashMap<>(registry);
+            } catch (IOException e) {
+                log.error("Failed to read cursor registry: {}", e.getMessage());
+                return new HashMap<>();
+            }
         }
     }
 
     /**
+     * Get registry with TTL-based caching.
+     * Returns cached data if within TTL, otherwise reads from disk.
+     */
+    private Map<String, CursorProjectEntry> getRegistryCached() {
+        synchronized (registryLock) {
+            long now = System.currentTimeMillis();
+            if (now - cacheTimestamp < CACHE_TTL_MS && !registryCache.isEmpty()) {
+                return new HashMap<>(registryCache);
+            }
+        }
+        return readRegistry();
+    }
+
+    /**
      * Write the Cursor project registry to disk.
+     * Always holds registryLock to ensure thread-safe cache updates.
      */
     public void writeRegistry(Map<String, CursorProjectEntry> registry) {
-        Path registryPath = getRegistryPath();
+        synchronized (registryLock) {
+            Path registryPath = getRegistryPath();
 
-        try {
-            // Ensure directory exists
-            Files.createDirectories(registryPath.getParent());
+            try {
+                // Ensure directory exists
+                Files.createDirectories(registryPath.getParent());
 
-            // Write to file
-            String content = MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(registry);
-            Files.writeString(registryPath, content);
+                // Write to file
+                String content = MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(registry);
+                Files.writeString(registryPath, content);
 
-            // Update cache
-            registryCache.clear();
-            registryCache.putAll(registry);
+                // Update cache
+                registryCache.clear();
+                registryCache.putAll(registry);
+                cacheTimestamp = System.currentTimeMillis();
 
-            log.debug("Wrote cursor registry with {} entries", registry.size());
-        } catch (IOException e) {
-            log.error("Failed to write cursor registry: {}", e.getMessage());
-            throw new UncheckedIOException("Failed to write cursor registry", e);
+                log.debug("Wrote cursor registry with {} entries", registry.size());
+            } catch (IOException e) {
+                log.error("Failed to write cursor registry: {}", e.getMessage());
+                throw new UncheckedIOException("Failed to write cursor registry", e);
+            }
         }
     }
 
@@ -153,7 +177,7 @@ public class CursorService {
      * @return The entry or null if not registered
      */
     public CursorProjectEntry getProject(String projectName) {
-        return readRegistry().get(projectName);
+        return getRegistryCached().get(projectName);
     }
 
     /**
@@ -163,7 +187,7 @@ public class CursorService {
      * @return true if registered
      */
     public boolean isProjectRegistered(String projectName) {
-        return readRegistry().containsKey(projectName);
+        return getRegistryCached().containsKey(projectName);
     }
 
     /**
@@ -172,7 +196,7 @@ public class CursorService {
      * @return Map of project name to entry
      */
     public Map<String, CursorProjectEntry> getAllProjects() {
-        return readRegistry();
+        return getRegistryCached();
     }
 
     /**

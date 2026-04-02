@@ -238,7 +238,7 @@ test_extraction_api_contract() {
 
     # POST run (should complete without error even with extraction disabled)
     local run
-    run=$(curl -sf -X POST "${BACKEND_URL}/api/extraction/run?projectPath=${TEST_PROJECT}" 2>&1) || {
+    run=$(curl -sf --max-time 60 -X POST "${BACKEND_URL}/api/extraction/run?projectPath=${TEST_PROJECT}" 2>&1) || {
         fail "Test 6: POST /api/extraction/run failed: $run"
         return 1
     }
@@ -312,7 +312,7 @@ test_extraction_with_llm() {
 
     # Trigger extraction
     local run
-    run=$(curl -sf -X POST "${BACKEND_URL}/api/extraction/run?projectPath=${TEST_PROJECT}" 2>&1) || {
+    run=$(curl -sf --max-time 60 -X POST "${BACKEND_URL}/api/extraction/run?projectPath=${TEST_PROJECT}" 2>&1) || {
         fail "Test 9: POST /api/extraction/run failed: $run"
         return 1
     }
@@ -421,7 +421,7 @@ test_reextraction_add() {
     local has_sony=0
     local has_prefs=0
     for attempt in 1 2 3; do
-        curl -sf -X POST "${BACKEND_URL}/api/extraction/run?projectPath=${TEST_PROJECT}" > /dev/null 2>&1
+        curl -sf --max-time 60 -X POST "${BACKEND_URL}/api/extraction/run?projectPath=${TEST_PROJECT}" > /dev/null 2>&1
         sleep 3
 
         latest=$(curl -sf "${BACKEND_URL}/api/extraction/user_preference/latest?projectPath=${TEST_PROJECT}&userId=alice" 2>&1)
@@ -491,7 +491,7 @@ test_reextraction_remove() {
         }" > /dev/null 2>&1
 
     # Re-run extraction
-    curl -sf -X POST "${BACKEND_URL}/api/extraction/run?projectPath=${TEST_PROJECT}" > /dev/null 2>&1
+    curl -sf --max-time 60 -X POST "${BACKEND_URL}/api/extraction/run?projectPath=${TEST_PROJECT}" > /dev/null 2>&1
     sleep 2
 
     # Query latest Alice extraction
@@ -561,8 +561,9 @@ test_hook_mode_compat() {
     }
 
     # Trigger extraction (should not fail even with null userId)
+    # Added timeout to prevent hanging on slow LLM calls
     local run
-    run=$(curl -sf -X POST "${BACKEND_URL}/api/extraction/run?projectPath=${TEST_PROJECT}" 2>&1) || {
+    run=$(curl -sf --max-time 60 -X POST "${BACKEND_URL}/api/extraction/run?projectPath=${TEST_PROJECT}" 2>&1) || {
         fail "Test 11: Extraction with hook mode failed: $run"
         return 1
     }
