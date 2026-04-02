@@ -389,6 +389,20 @@ else
     pass "POST /feedback"
 fi
 
+# ==================== Test: /session/start ====================
+
+info "Testing /session/start..."
+SESSION_START_RESP=$(curl -sf -X POST "$DEMO_BASE/session/start" \
+    -H "Content-Type: application/json" \
+    -d "{\"session_id\": \"js-demo-e2e-session\", \"project\": \"$PROJECT\"}" 2>/dev/null || echo "FAIL")
+if [ "$SESSION_START_RESP" = "FAIL" ]; then
+    fail "POST /session/start" "Request failed"
+elif ! contains_field "$SESSION_START_RESP" "session_db_id"; then
+    fail "POST /session/start" "Missing 'session_db_id' field"
+else
+    pass "POST /session/start"
+fi
+
 # ==================== Test: /session/user ====================
 
 info "Testing /session/user..."
