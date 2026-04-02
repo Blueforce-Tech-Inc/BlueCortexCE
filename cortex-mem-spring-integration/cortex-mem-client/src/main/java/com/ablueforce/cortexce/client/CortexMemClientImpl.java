@@ -408,7 +408,9 @@ public class CortexMemClientImpl implements CortexMemClient {
                     if (request.source() != null && !request.source().isBlank()) {
                         builder.queryParam("source", request.source());
                     }
-                    if (request.limit() != null) {
+                    // Only send limit when > 0; omitting lets the backend use its default (20).
+                    // Sending 0 would override the backend's @RequestParam(defaultValue="20").
+                    if (request.limit() != null && request.limit() > 0) {
                         builder.queryParam("limit", request.limit());
                     }
                     if (request.offset() != null && request.offset() > 0) {
@@ -439,7 +441,9 @@ public class CortexMemClientImpl implements CortexMemClient {
                     if (request.offset() != null && request.offset() > 0) {
                         builder.queryParam("offset", request.offset());
                     }
-                    if (request.limit() != null) {
+                    // Only send limit when > 0; omitting lets the backend use its default (20).
+                    // Sending 0 would override the backend's @RequestParam(defaultValue="20").
+                    if (request.limit() != null && request.limit() > 0) {
                         builder.queryParam("limit", request.limit());
                     }
                     return builder.build();

@@ -561,6 +561,23 @@ class CortexMemClientImplTest {
     }
 
     @Test
+    void search_zeroLimit_omitsLimitParam() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("{\"observations\":[],\"strategy\":\"hybrid\",\"count\":0}")
+            .addHeader("Content-Type", "application/json"));
+
+        // Builder default limit=20, but user might pass 0 to mean "use default"
+        client.search(SearchRequest.builder()
+            .project("/proj")
+            .query("test")
+            .limit(0)
+            .build());
+
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getPath()).doesNotContain("limit=");
+    }
+
+    @Test
     void listObservations_sendsCorrectParams() throws Exception {
         server.enqueue(new MockResponse()
             .setBody("{\"items\":[],\"total\":0,\"hasMore\":false}")
@@ -576,6 +593,21 @@ class CortexMemClientImplTest {
         assertThat(req.getMethod()).isEqualTo("GET");
         assertThat(req.getPath()).startsWith("/api/observations?");
         assertThat(req.getPath()).contains("project=");
+    }
+
+    @Test
+    void listObservations_zeroLimit_omitsLimitParam() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("{\"items\":[],\"total\":0,\"hasMore\":false}")
+            .addHeader("Content-Type", "application/json"));
+
+        client.listObservations(ObservationsRequest.builder()
+            .project("/proj")
+            .limit(0)
+            .build());
+
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getPath()).doesNotContain("limit=");
     }
 
     @Test
