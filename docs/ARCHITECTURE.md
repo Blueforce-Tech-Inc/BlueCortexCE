@@ -262,12 +262,15 @@ proxy/
 ├── proxy.js                        # Optional HTTP server for local aggregation
 ├── tag-stripping.js                # Privacy tag stripping logic
 ├── package.json                    # Dependencies (axios)
+├── package-lock.json
 ├── CLAUDE-CODE-INTEGRATION.md      # Claude Code integration documentation
 ├── CLAUDE-CODE-INTEGRATION-zh-CN.md
 ├── CURSOR-INTEGRATION.md           # Cursor IDE integration documentation
 ├── CURSOR-INTEGRATION-zh-CN.md
 ├── README.md
-└── java/proxy/                     # Java proxy utilities (test scripts)
+└── java/
+    └── proxy/
+        └── test-full-flow.mjs      # E2E test script
 ```
 
 #### Hook Event Flow
@@ -1070,3 +1073,7 @@ cp .env.example .env
 
 *Architecture documentation version 1.0*
 *Last updated: 2026*
+
+---
+
+*See also: [中文版](ARCHITECTURE-zh-CN.md)*

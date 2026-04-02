@@ -262,12 +262,15 @@ proxy/
 ├── proxy.js                        # 可选的 HTTP 服务器用于本地聚合
 ├── tag-stripping.js                # 隐私标签剥离逻辑
 ├── package.json                    # 依赖项 (axios)
+├── package-lock.json
 ├── CLAUDE-CODE-INTEGRATION.md      # Claude Code 集成文档
 ├── CLAUDE-CODE-INTEGRATION-zh-CN.md
 ├── CURSOR-INTEGRATION.md           # Cursor IDE 集成文档
 ├── CURSOR-INTEGRATION-zh-CN.md
 ├── README.md
-└── java/proxy/                     # Java 代理工具 (测试脚本)
+└── java/
+    └── proxy/
+        └── test-full-flow.mjs      # E2E 测试脚本
 ```
 
 #### Hook 事件流程
