@@ -248,11 +248,9 @@ curl http://localhost:37777/api/version
 ```
 
 **错误响应**:
-```json
-{
-  "error": "Missing required field: session_id"
-}
-```
+- `400` — `{"error": "Missing required field: session_id"}`（`session_id` 缺失或为空）
+- `400` — `{"error": "Missing required field: project_path (or cwd)"}`（`project_path` 和 `cwd` 均缺失或为空）
+- `500` — `{"error": "Failed to initialize session"}`（内部错误）
 
 ---
 
@@ -2326,8 +2324,13 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-02 | 0.1.0-beta+13 | 修正英文版 PATCH/DELETE /api/memory/observations 路径变量：`{observationId}` → `{id}`（匹配 Controller @PatchMapping/@DeleteMapping）；补充英文版 Bulk Import 响应示例及 stats 格式；同步中文版 |
 | 2026-04-02 | 0.1.0-beta+14 | 补充 ICL Prompt 400 错误响应（task 必填）；补充 Quality Distribution 400 错误响应（project 必填）；同步英文版 |
 | 2026-04-03 | 0.1.0-beta+15 | 补充 Experiences 端点响应示例（JSON 数组，包含 id/task/strategy/outcome/reuse_condition/quality_score/created_at 字段）和 400 错误响应（task 必填）；同步英文版 |
+| 2026-04-03 | 0.1.0-beta+16 | 补充 Session Start 完整错误响应（400 session_id 缺失、400 project_path/cwd 缺失、500 内部错误——与代码一致）；同步英文版；添加中文版底部跨链接 |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---
 
 **文档维护**: 本文档应随 API 变更同步更新。如有疑问，请参考源代码 Controller 类或提交 Issue。
+
+---
+
+*See also: [English Version](API.md)*

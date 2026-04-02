@@ -133,6 +133,11 @@ Content-Type: application/json
 }
 ```
 
+**Error Responses**:
+- `400` — `{"error": "Missing required field: session_id"}` (missing or blank `session_id`)
+- `400` — `{"error": "Missing required field: project_path (or cwd)"}` (both `project_path` and `cwd` absent/blank)
+- `500` — `{"error": "Failed to initialize session"}` (internal error)
+
 ### Get Session
 
 ```
@@ -2211,6 +2216,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-02 | 0.1.0-beta+13 | Fixed EN PATCH/DELETE /api/memory/observations path variable: `{observationId}` → `{id}` (matches controller @PatchMapping/@DeleteMapping); added Bulk Import response example with stats format; synced Chinese version |
 | 2026-04-02 | 0.1.0-beta+14 | Added ICL Prompt 400 error response (task required); added Quality Distribution 400 error response (project required); synced Chinese version |
 | 2026-04-03 | 0.1.0-beta+15 | Added Experiences endpoint response example (JSON array of Experience objects with id/task/strategy/outcome/reuse_condition/quality_score/created_at fields) and 400 error response (task required); synced Chinese version |
+| 2026-04-03 | 0.1.0-beta+16 | Added error responses to Start Session (400 missing session_id, 400 missing project_path/cwd, 500 internal error); synced Chinese version; added cross-link footer to Chinese version |
 | 2026-03-13 | 0.1.0 | Initial API documentation |
 
 ---
