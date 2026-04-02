@@ -331,7 +331,7 @@ class MyAgentService {
 }
 ```
 
-### 4. Direct Client Access
+### 5. Direct Client Access
 
 ```java
 @Component
@@ -535,7 +535,16 @@ The client talks to these Cortex CE endpoints:
 | `getLatestExtraction()` | `GET /api/extraction/{template}/latest` | | ✅ NEW |
 | `getExtractionHistory()` | `GET /api/extraction/{template}/history` | | ✅ NEW |
 | `triggerExtraction()` | `POST /api/extraction/run` | | ✅ NEW |
-| `healthCheck()` | `GET /actuator/health` | | |
+| `healthCheck()` | `GET /api/health` | | |
+| `search()` | `GET /api/search` | ✅ source | |
+| `listObservations()` | `GET /api/observations` | | |
+| `getObservation()` | `POST /api/observations/batch` | | |
+| `getObservationsByIds()` | `POST /api/observations/batch` | | |
+| `getVersion()` | `GET /api/version` | | |
+| `getProjects()` | `GET /api/projects` | | |
+| `getStats()` | `GET /api/stats` | | |
+| `getModes()` | `GET /api/modes` | | |
+| `getSettings()` | `GET /api/settings` | | |
 
 ## Common Pitfalls
 
