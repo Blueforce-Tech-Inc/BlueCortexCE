@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-02 09:17 (Health Check — P2 23-1/23-2 修复完成，所有 P0/P1/P2 问题归零)
+> **最后更新**: 2026-04-03 01:11 (Backend 审查 #27 — TimelineService + SessionManagementService + ObservationRepository)
 
 # Backend 代码审查问题记录
 
@@ -11,9 +11,94 @@
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **0** | 全部已修复 |
+| **P2** (建议修复) | **3** | 26-1, 26-2, 27-1 |
 | **⏭ 跳过** | **6** | 非 bug，属设计决策或代码风格偏好 |
 | **⏳待修** | **2** | Python SDK + Backend E2E (非紧急) |
+
+---
+
+### 2026-04-03 01:11 | Backend 审查 #27
+
+**审查方向**: Backend (TimelineService.java + SessionManagementService.java + ObservationRepository.java)
+
+**审查范围**:
+- `TimelineService.java` — Anchor-based timeline context queries
+- `SessionManagementService.java` — Session lifecycle (create/find/complete)
+- `ObservationRepository.java` — Data access layer with 25+ query methods
+- `PendingMessageEventPublisher.java` — Event publisher (clean, no issues)
+
+#### 发现的问题
+
+| # | 文件 | 行 | 级别 | 问题 |
+|---|------|-----|------|------|
+| 27-1 | TimelineService.java | L133 `getTimelineMap()` | **P2** | **Unbounded query loads all observations into memory** — `findByProjectPathOrderByCreatedAtDesc(project)` returns `List<ObservationEntity>` with no LIMIT. For large projects with thousands of observations, this could cause OOM. The paginated overload `findByProjectPathOrderByCreatedAtDesc(String, Pageable)` exists in ObservationRepository but is not used here. 建议: 改用分页查询，或至少添加硬上限（如 10000） |
+
+#### 跳过的发现（非 bug）
+
+| # | 文件 | 说明 |
+|---|------|------|
+| S27-1 | TimelineService.java L88 | "Anchor observation not found" 返回 200 而非 400 — **设计决策**，query-based anchor search 可能引用已被删除的 observation，返回空列表而非错误是合理的 |
+| S27-2 | SessionManagementService.java | `initializeSession()` 和 `ensureSession()` 代码重复 — **设计决策**，两者语义不同（前者用于 SessionStart hook，后者用于 fallback），且 log 级别不同 |
+| S27-3 | ObservationRepository.java | `findByProjectPathOrderByCreatedAtDesc(String)` 存在两种重载（List 和 Page），但调用者不一致 — **代码风格偏好**，非 bug |
+
+#### 代码质量评价
+
+| 检查项 | TimelineService | SessionManagementService | ObservationRepository |
+|--------|-----------------|--------------------------|----------------------|
+| 输入验证 | ✅ UUID 格式校验 | ✅ null/blank 检查 | N/A (接口) |
+| 错误处理 | ✅ catch + warn log | ✅ logFailure 抛异常 | N/A |
+| SQL 注入防护 | N/A | N/A | ✅ 参数化查询全部使用 @Param |
+| 内存安全 | ⚠️ unbounded query | ✅ 单条操作 | ✅ 有限制方法居多 |
+| 代码结构 | ✅ REST/Map 双返回 | ✅ 关注点分离 | ✅ 查询命名清晰 |
+
+#### 亮点
+- **TimelineService**: E.5 Fix 的 REST/Map 双返回设计消除了 Controller 和 MCP 层的代码重复
+- **ObservationRepository**: 25+ 查询方法覆盖全面，hybrid search、quality scoring、import dedup 等高级功能完整
+- **SessionManagementService**: `completeSessionForSummary` 正确处理 idempotency（检查 status 后才更新 completedAt）
+
+**审查结论**: 无 P0/P1 问题。1 个 P2（TimelineService unbounded query），建议下次 Backend 修复任务中处理。
+
+---
+
+### 2026-04-03 01:01 | Backend 审查 #26
+
+**审查方向**: Backend (SessionManagementService.java + ProjectFilterService.java + SummaryGenerationService.java)
+
+**审查范围**:
+- `SessionManagementService.java` — Session lifecycle management (create/find/complete)
+- `ProjectFilterService.java` — Project path filtering with AntPathMatcher
+- `SummaryGenerationService.java` — Async summary generation + quality scoring
+
+#### 发现的问题
+
+| # | 文件 | 行 | 级别 | 问题 |
+|---|------|-----|------|------|
+| 26-1 | ProjectFilterService.java | 全文 | **P2** | **整个类为死代码** — `@Service` 注解但无任何 Bean 注入或方法调用。`loadPatterns()`、`shouldInclude()`、`isUnsafeDirectory()` 三个方法均未被引用。Spring 会实例化此 Bean 但浪费资源。建议：移除 `@Service` 注解或标记 `@Deprecated`，或从代码库删除 |
+| 26-2 | SessionManagementService.java | L82 `completeSession()` | **P2** | **方法为死代码** — 从未被调用（仅 `completeSessionForSummary()` 通过 `SummaryGenerationService.completeSessionAsync()` 使用）。此外，此方法缺少 idempotency 检查：调用两次会覆盖 `completedAt` 时间戳。而 `completeSessionForSummary()` 正确地检查 `!"completed".equals(session.getStatus())` 后才更新时间戳。建议：删除此死代码方法 |
+
+#### 代码质量评价
+
+| 检查项 | SessionManagementService | ProjectFilterService | SummaryGenerationService |
+|--------|--------------------------|----------------------|--------------------------|
+| 输入验证 | ✅ 空 session 处理 | ✅ null 安全 | ✅ observations 空检查 |
+| 错误处理 | ✅ logFailure ERROR 级 | N/A | ✅ catch-all + log |
+| 日志记录 | ✅ LogHelper 分级正确 | N/A | ✅ LogHelper 分级正确 |
+| 事务管理 | N/A (委托给 repo) | N/A | ✅ @Async 边界正确 |
+| 死代码 | ⚠️ completeSession() | ⚠️ 整个类 | ✅ 无 |
+| 设计质量 | ✅ find-or-create 模式 | ✅ AntPathMatcher 正确 | ✅ XML 解析 + SSE 广播 |
+
+#### SummaryGenerationService 亮点
+- `completeSessionAsync` 的 catch-all 防止 summary 生成失败影响主流程
+- `buildObservationDigest` 构建结构化摘要，包含 facts 列表
+- `triggerQualityScoringAndRefinement` 先 LLM 推断 feedback，失败时回退到规则基础推断
+- SSE 广播使用 `new_summary` 类型，与 WebUI onmessage 契约一致
+
+#### ProjectFilterService 评估
+- 设计良好（AntPathMatcher + 默认排除列表 + `~` 归一化）
+- `DEFAULT_EXCLUDES` 覆盖常见非代码目录（.git, node_modules, build 等）
+- 但整个类未被引用，可能是为未来功能预留
+
+**审查结论**: 无 P0/P1 问题。2 个 P2 均为死代码问题——不影响功能正确性，但增加维护负担。建议集中清理。
 
 ---
 
@@ -973,3 +1058,100 @@
 - PATCH observation 端点的 null vs absent 语义区分设计良好（null=clear, absent=skip）
 - `validateStringList()` 提供 fail-fast 类型验证
 - PendingMessageEventPublisher 简洁清晰，API vs SCHEDULED 事件源区分正确
+
+---
+
+### 2026-04-02 12:27 | Backend 审查 #24
+
+**审查方向**: Backend（QualityScorer.java + CursorController.java + ExtractionStorageService.java）
+
+**审查范围**:
+- `QualityScorer.java` — 质量评分服务：规则基础 + LLM 增强双模式评分
+- `CursorController.java` — Cursor IDE 集成控制器：6 个 REST 端点
+- `ExtractionStorageService.java` — 结构化提取结果存储：事务管理 + DLQ 支持
+
+#### 发现的问题
+
+（无 P0/P1/P2 问题）
+
+#### 代码质量评价
+
+| 检查项 | QualityScorer | CursorController | ExtractionStorageService |
+|--------|---------------|------------------|--------------------------|
+| 输入验证 | ✅ null 安全、feedback 类型解析 | ✅ projectName/workspacePath 验证 | ✅ 空结果跳过 |
+| 错误处理 | ✅ LLM 失败优雅降级到规则基础 | ✅ 统一错误响应格式 | ✅ DLQ try-catch 自保护 |
+| 事务管理 | N/A | N/A | ✅ @Transactional 原子性 |
+| 日志记录 | ✅ debug/warn/info 分级 | ✅ info/error 分级 | ✅ info/warn/error 分级 |
+| 设计质量 | ✅ 双评分模式 + 策略切换 | ✅ DTO 记录类 + Swagger 完整 | ✅ append-only + session 复用 |
+
+#### 亮点
+- QualityScorer: LLM 失败时自动降级到规则基础评分，零中断
+- CursorController: Swagger 文档完整，RegisterProjectResponse/UpdateContextResponse DTO 记录类使用规范
+- ExtractionStorageService: DLQ 自保护机制（catch-all 防止 DLQ 写入失败级联），事务原子性保证 session-observation 一致性
+
+---
+
+### 2026-04-02 14:34 | Backend 审查 #25
+
+**审查方向**: Backend（CursorService.java + ExtractionController.java）
+
+**审查范围**:
+- `CursorService.java` — Cursor IDE 集成服务：项目注册 + 上下文文件管理
+- `ExtractionController.java` — Phase 3 结构化提取 API：3 个 REST 端点
+
+#### 发现的问题
+
+| # | 文件 | 行 | 级别 | 问题 |
+|---|------|-----|------|------|
+| 25-1 | CursorService.java | 68-80, 120-135 | **P2** | `registryCache` 线程安全不一致：`readRegistry()` 被 `getProject()`、`isProjectRegistered()`、`getAllProjects()` 调用时未持 `registryLock`，而 `registerProject()`/`unregisterProject()` 持锁。`readRegistry()` 内部会 `registryCache.clear()` 并重建缓存，并发读+写可能产生竞态。建议：将 ConcurrentHashMap 改为普通 HashMap，所有访问统一通过 `registryLock` 保护；或移除 registryLock，仅依赖 ConcurrentHashMap 的原子性（简化设计）。 |
+| 25-2 | CursorService.java | 68-80, 120-135 | **P2** | 每次调用 `getProject()`、`isProjectRegistered()`、`getAllProjects()` 都触发磁盘 I/O（`readRegistry()` 读文件）。无 TTL 缓存机制，高频调用（如 CursorController 多个端点并行）会产生不必要的磁盘压力。建议：添加基于时间的缓存（如 5 秒 TTL），仅在缓存过期时重新读取。 |
+
+#### 代码质量评价
+
+| 检查项 | CursorService | ExtractionController |
+|--------|---------------|----------------------|
+| 输入验证 | ⚠️ registerProject 验证由 Controller 负担，Service 层无自保护 | ✅ projectPath null/blank 检查完整 |
+| 错误处理 | ✅ writeRegistry 抛 UncheckedIOException | ✅ 统一 try-catch + 500 响应 |
+| Swagger 文档 | N/A (Service) | ✅ 完整 @Operation + @ApiResponse |
+| 线程安全 | ⚠️ ConcurrentHashMap + registryLock 双重机制不一致 | ✅ 无共享状态 |
+| 设计质量 | ✅ DTO 记录类 CursorProjectEntry | ✅ DTO 响应类清晰 |
+
+#### 亮点
+- ExtractionController: Swagger 文档完整，`GetLatestExtractionResponse`/`TriggerExtractionResponse` DTO 记录类设计规范
+- ExtractionController: limit 值自动 clamp 到 1-100，防止无效输入
+- CursorService: `writeContextFile()` 有 path traversal 防护（`startsWith` 检查）
+
+### 2026-04-03 00:15 | JS SDK 审查 #2
+
+**审查方向**: JS SDK (212/212 tests ✅, build ✅)
+
+**审查范围**:
+- `client.ts` — 全部 25 个 API 方法实现
+- `dto/observation.ts` — wire format 字段映射
+- `dto/wire-helpers.ts` — 安全类型转换工具
+- `errors.ts` — 错误类型和重试判定
+- `examples/http-server/app.ts` — Express Demo (26 endpoints)
+- tsup 构建配置 (CJS + ESM + DTS)
+
+#### 发现的问题
+
+| # | 文件 | 行 | 级别 | 问题 |
+|---|------|-----|------|------|
+| 26-1 | All SDKs | N/A | **P2** | Backend `ObservationEntity` 返回 4 个字段 (`access_count`, `refined_at`, `refined_from_ids`, `user_comment`) 但所有 SDK (Go/Java/Python/JS) 均未映射。`regression-test.sh` 已验证 `access_count` 在响应中存在，但 SDK 用户无法通过类型安全的方式访问。建议：统一在所有 SDK 的 Observation DTO 中添加这 4 个字段的映射。 |
+
+#### 代码质量评价
+
+| 检查项 | JS SDK | HTTP Server Demo |
+|--------|--------|-----------------|
+| 类型安全 | ✅ 完整 TypeScript 接口，所有 25 个 API 有类型定义 | ✅ 请求参数验证完整 |
+| Wire format 映射 | ✅ snake_case 优先 + camelCase fallback | N/A |
+| 防御性解析 | ✅ null/类型不匹配/NaN 全覆盖 | ✅ 输入验证严格 |
+| 错误处理 | ✅ 15 个错误谓词函数 + retryable 判定 | ✅ APIError/ValidationError 分离 |
+| 构建 | ✅ CJS + ESM + DTS 三格式输出 | N/A |
+| 测试 | ✅ 212 单元测试，覆盖所有方法 + 边界情况 | N/A |
+
+#### 亮点
+- `safeRecord()` 使用 `Object.prototype.toString.call()` 拒绝 Date/RegExp 等非纯对象
+- `doFireAndForget()` 支持线性退避 + 25% jitter + 不可重试错误立即放弃
+- `parseModesResponse` 正确处理 backend `observation_types`/`observation_concepts` 的双重格式（数组对象 + 字符串数组）
+- HTTP Server Demo 有完整的 graceful shutdown (SIGTERM/SIGINT) + 5 秒强制退出
