@@ -1,6 +1,5 @@
 package com.ablueforce.cortexce.service;
 
-import org.springframework.stereotype.Service;
 import org.springframework.util.AntPathMatcher;
 
 import java.util.ArrayList;
@@ -11,8 +10,10 @@ import java.util.List;
  * <p>
  * Supports .claudeignore-style glob patterns for path inclusion/exclusion.
  * Uses AntPathMatcher which handles *, **, ? patterns and cross-platform separators.
+ *
+ * <p><b>Note:</b> This class is not currently wired into any processing pipeline.
+ * It is retained as a utility for future project filtering features.
  */
-@Service
 public class ProjectFilterService {
 
     private final AntPathMatcher pathMatcher = new AntPathMatcher();

@@ -11,7 +11,7 @@
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **3** | 26-1, 26-2, 27-1 |
+| **P2** (建议修复) | **0** | — (26-1, 26-2, 27-1 已修复) |
 | **⏭ 跳过** | **6** | 非 bug，属设计决策或代码风格偏好 |
 | **⏳待修** | **2** | Python SDK + Backend E2E (非紧急) |
 
@@ -31,7 +31,7 @@
 
 | # | 文件 | 行 | 级别 | 问题 |
 |---|------|-----|------|------|
-| 27-1 | TimelineService.java | L133 `getTimelineMap()` | **P2** | **Unbounded query loads all observations into memory** — `findByProjectPathOrderByCreatedAtDesc(project)` returns `List<ObservationEntity>` with no LIMIT. For large projects with thousands of observations, this could cause OOM. The paginated overload `findByProjectPathOrderByCreatedAtDesc(String, Pageable)` exists in ObservationRepository but is not used here. 建议: 改用分页查询，或至少添加硬上限（如 10000） |
+| 27-1 | TimelineService.java | L133 `getTimelineMap()` | **P2** | **Unbounded query loads all observations into memory** — `findByProjectPathOrderByCreatedAtDesc(project)` returns `List<ObservationEntity>` with no LIMIT. For large projects with thousands of observations, this could cause OOM. The paginated overload `findByProjectPathOrderByCreatedAtDesc(String, Pageable)` exists in ObservationRepository but is not used here. 建议: 改用分页查询，或至少添加硬上限（如 10000） ✅已修复（改用 PageRequest.of(0, 10000) 分页查询） |
 
 #### 跳过的发现（非 bug）
 
@@ -73,8 +73,8 @@
 
 | # | 文件 | 行 | 级别 | 问题 |
 |---|------|-----|------|------|
-| 26-1 | ProjectFilterService.java | 全文 | **P2** | **整个类为死代码** — `@Service` 注解但无任何 Bean 注入或方法调用。`loadPatterns()`、`shouldInclude()`、`isUnsafeDirectory()` 三个方法均未被引用。Spring 会实例化此 Bean 但浪费资源。建议：移除 `@Service` 注解或标记 `@Deprecated`，或从代码库删除 |
-| 26-2 | SessionManagementService.java | L82 `completeSession()` | **P2** | **方法为死代码** — 从未被调用（仅 `completeSessionForSummary()` 通过 `SummaryGenerationService.completeSessionAsync()` 使用）。此外，此方法缺少 idempotency 检查：调用两次会覆盖 `completedAt` 时间戳。而 `completeSessionForSummary()` 正确地检查 `!"completed".equals(session.getStatus())` 后才更新时间戳。建议：删除此死代码方法 |
+| 26-1 | ProjectFilterService.java | 全文 | **P2** | **整个类为死代码** — `@Service` 注解但无任何 Bean 注入或方法调用。`loadPatterns()`、`shouldInclude()`、`isUnsafeDirectory()` 三个方法均未被引用。Spring 会实例化此 Bean 但浪费资源。建议：移除 `@Service` 注解或标记 `@Deprecated`，或从代码库删除 ✅已修复（移除 @Service 注解，保留为工具类供未来使用） |
+| 26-2 | SessionManagementService.java | L82 `completeSession()` | **P2** | **方法为死代码** — 从未被调用（仅 `completeSessionForSummary()` 通过 `SummaryGenerationService.completeSessionAsync()` 使用）。此外，此方法缺少 idempotency 检查：调用两次会覆盖 `completedAt` 时间戳。而 `completeSessionForSummary()` 正确地检查 `!"completed".equals(session.getStatus())` 后才更新时间戳。建议：删除此死代码方法 ✅已修复（删除死代码方法 completeSession()） |
 
 #### 代码质量评价
 

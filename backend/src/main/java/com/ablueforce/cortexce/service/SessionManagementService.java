@@ -85,18 +85,6 @@ public class SessionManagementService implements LogHelper {
     }
 
     /**
-     * Complete a session (sync — marks status only).
-     */
-    public void completeSession(String contentSessionId) {
-        sessionRepository.findByContentSessionId(contentSessionId).ifPresent(session -> {
-            session.setStatus("completed");
-            session.setCompletedAtEpoch(Instant.now().toEpochMilli());
-            session.setCompletedAt(OffsetDateTime.now());
-            sessionRepository.save(session);
-        });
-    }
-
-    /**
      * Complete session and optionally save last assistant message.
      * Used by SummaryGenerationService before generating summary.
      *

@@ -4,6 +4,8 @@ import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.ablueforce.cortexce.repository.ObservationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
@@ -109,8 +111,10 @@ public class TimelineService {
             return Map.of("error", "Anchor observation not found", "observations", List.of());
         }
 
-        // Query observations and find anchor position
-        List<ObservationEntity> allObs = observationRepository.findByProjectPathOrderByCreatedAtDesc(project);
+        // Query observations (with hard limit to prevent OOM) and find anchor position
+        final int maxObs = 10000;
+        Pageable limitOne = PageRequest.of(0, maxObs);
+        List<ObservationEntity> allObs = observationRepository.findByProjectPathOrderByCreatedAtDesc(project, limitOne).getContent();
         int anchorIndex = findAnchorIndex(allObs, anchorUuid);
 
         if (anchorIndex < 0) {

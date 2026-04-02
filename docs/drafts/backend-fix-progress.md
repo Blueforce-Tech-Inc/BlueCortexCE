@@ -117,3 +117,24 @@
 
 ### Backend 审查问题状态更新
 - P0: 0 | P1: 0 | P2 (后端): 0 | 跳过: 6 | ⏳待修 (非后端): 2
+
+---
+
+## 2026-04-03 01:31 | 健康检查+批量修复
+
+### 执行结果
+- 健康检查: ✅ 服务正常
+- 回归测试: ✅ 46/46 通过
+- EXTRACTION 验收: ✅ 25/25 通过
+- Backend P2 批量修复: ✅ 3/3 全部修复
+
+### 修复详情
+
+| # | 文件 | 修复内容 |
+|---|------|---------|
+| 26-1 | ProjectFilterService.java | 移除 @Service 注解（死代码类，无引用） |
+| 26-2 | SessionManagementService.java | 删除 completeSession() 死代码方法 |
+| 27-1 | TimelineService.java | getTimelineMap() 改用 PageRequest.of(0, 10000) 分页查询，防止 OOM |
+
+### Backend 审查问题状态
+- P0: 0 | P1: 0 | P2 (后端): 0 全部已修复 | 跳过: 6 | ⏳待修 (非后端): 2
