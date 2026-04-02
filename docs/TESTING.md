@@ -86,8 +86,8 @@ cd scripts
 | `DB_NAME` | claude_mem | Database name |
 | `DB_USER` | postgres | Database user |
 | `DB_PASS` | 123456 | Database password |
-| `OPENAI_API_KEY` | - | OpenAI API key |
-| `DEEPSEEK_API_KEY` | - | DeepSeek API key |
+| `SPRING_AI_OPENAI_API_KEY` | - | OpenAI/DeepSeek API key |
+| `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | - | Embedding API key |
 | `SPRING_AI_MCP_SERVER_PROTOCOL` | SSE | MCP protocol (SSE or STREAMABLE) |
 
 ### 5. MCP Protocol Auto-Detection

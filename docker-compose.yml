@@ -68,6 +68,12 @@ services:
 
       CLAUDE_MEM_MODE: ${CLAUDE_MEM_MODE:-code}
       CLAUDEMEM_LOG_DIR: /app/logs
+      CLAUDEMEM_LLM_PROVIDER: ${CLAUDEMEM_LLM_PROVIDER:-openai}
+
+      # Anthropic API (optional — set CLAUDEMEM_LLM_PROVIDER=anthropic to use)
+      SPRING_AI_ANTHROPIC_API_KEY: ${SPRING_AI_ANTHROPIC_API_KEY:-}
+      SPRING_AI_ANTHROPIC_BASE_URL: ${SPRING_AI_ANTHROPIC_BASE_URL:-https://api.anthropic.com}
+      SPRING_AI_ANTHROPIC_CHAT_MODEL: ${SPRING_AI_ANTHROPIC_CHAT_MODEL:-claude-sonnet-4-5}
 
       # Evo-Memory: Disable memory refinement to save LLM tokens
       # Set to 'false' to disable self-evolution feature

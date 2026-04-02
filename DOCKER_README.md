@@ -70,6 +70,9 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 | `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | Embedding dimensions | `1536` |
 | `CLAUDE_MEM_MODE` | Application mode (`code`/`default`) | `code` |
 | `CLAUDEMEM_LLM_PROVIDER` | LLM provider (`openai`/`anthropic`) | `openai` |
+| `SPRING_AI_ANTHROPIC_API_KEY` | Anthropic API key (when provider=anthropic) | - |
+| `SPRING_AI_ANTHROPIC_BASE_URL` | Anthropic API endpoint | `https://api.anthropic.com` |
+| `SPRING_AI_ANTHROPIC_CHAT_MODEL` | Anthropic model name | `claude-sonnet-4-5` |
 | `MEMORY_REFINE_ENABLED` | Enable memory refinement (self-evolution) | `true` |
 | `JAVA_OPTS` | JVM options | `-XX:+UseZGC -XX:MaxRAMPercentage=75.0` |
 | `SERVER_PORT` | Application port on host | `37777` |
