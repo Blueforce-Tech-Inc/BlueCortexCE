@@ -1281,6 +1281,18 @@ curl http://localhost:37777/api/modes
 | `maxChars` | int | ❌ | 最大提示长度（默认 4000） |
 | `userId` | string | ❌ | 用户 ID（多用户隔离） |
 
+**响应示例** (`200 OK`):
+```json
+{
+  "prompt": "# Relevant Experiences\n\n...",
+  "experienceCount": 3,
+  "maxChars": 4000
+}
+```
+
+**错误响应**:
+- `400` — `{"error": "task is required"}`（`task` 字段缺失或为空）
+
 #### GET `/api/memory/quality-distribution`
 
 获取质量分布统计（高/中/低/未知观察数量）。
@@ -1302,7 +1314,9 @@ curl http://localhost:37777/api/modes
 }
 ```
 
-**错误响应** (`500`):
+**错误响应**:
+- `400` — `{"error": "project is required"}`（`project` 参数缺失或为空）
+- `500`:
 ```json
 {
   "project": "/Users/dev/my-project",
@@ -2292,6 +2306,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-02 | 0.1.0-beta+11 | 修正 Cursor Check Registration 响应——`projectPath` → `workspacePath`（匹配实际 wire format），补充缺失的 `installedAt` 字段和未注册响应示例；同步英文版；补充中文 Session Start 请求体示例缺失的 `user_id` 字段 |
 | 2026-04-02 | 0.1.0-beta+12 | 拆分 Viewer 超级章节——新增独立 `## 搜索` 和 `## 管理` 章节（与英文版结构一致）；补充 Create Observation 请求体参数表（中文版缺失）；同步 TOC |
 | 2026-04-02 | 0.1.0-beta+13 | 修正英文版 PATCH/DELETE /api/memory/observations 路径变量：`{observationId}` → `{id}`（匹配 Controller @PatchMapping/@DeleteMapping）；补充英文版 Bulk Import 响应示例及 stats 格式；同步中文版 |
+| 2026-04-02 | 0.1.0-beta+14 | 补充 ICL Prompt 400 错误响应（task 必填）；补充 Quality Distribution 400 错误响应（project 必填）；同步英文版 |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---

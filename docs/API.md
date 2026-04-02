@@ -516,6 +516,18 @@ Content-Type: application/json
 | `maxChars` | int | ❌ | Max prompt length (default: 4000) |
 | `userId` | string | ❌ | User ID for multi-user isolation |
 
+**Response** (`200 OK`):
+```json
+{
+  "prompt": "# Relevant Experiences\n\n...",
+  "experienceCount": 3,
+  "maxChars": 4000
+}
+```
+
+**Error Responses**:
+- `400` — `{"error": "task is required"}` (missing or blank `task` field)
+
 ### Get Quality Distribution
 
 ```
@@ -541,7 +553,9 @@ Returns the quality distribution (high/medium/low/unknown counts) for observatio
 }
 ```
 
-**Error Response** (`500`):
+**Error Responses**:
+- `400` — `{"error": "project is required"}` (missing or blank `project` param)
+- `500`:
 ```json
 {
   "project": "/Users/dev/my-project",
@@ -2177,6 +2191,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-02 | 0.1.0-beta+11 | Fixed Cursor Check Registration response — `projectPath` → `workspacePath` (matches wire format), added missing `installedAt` field and not-registered response example; synced Chinese version |
 | 2026-04-02 | 0.1.0-beta+12 | Split Chinese Viewer mega-section into separate Search and Management sections (matching English structure); added missing parameter table to Chinese Create Observation endpoint; synced TOC |
 | 2026-04-02 | 0.1.0-beta+13 | Fixed EN PATCH/DELETE /api/memory/observations path variable: `{observationId}` → `{id}` (matches controller @PatchMapping/@DeleteMapping); added Bulk Import response example with stats format; synced Chinese version |
+| 2026-04-02 | 0.1.0-beta+14 | Added ICL Prompt 400 error response (task required); added Quality Distribution 400 error response (project required); synced Chinese version |
 | 2026-03-13 | 0.1.0 | Initial API documentation |
 
 ---
