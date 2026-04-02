@@ -496,8 +496,7 @@ public class AgentService {
 -- 会话表 (V1 + V4, V12, V13, V15 迁移)
 CREATE TABLE mem_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    content_session_id VARCHAR(255) UNIQUE NOT NULL,
-    memory_session_id VARCHAR(255) UNIQUE,
+    content_session_id VARCHAR(255) UNIQUE NOT NULL,  -- V13: 替代 memory_session_id
     project_path TEXT NOT NULL,
     user_id VARCHAR(255),              -- V15: null=单用户, 非null=SDK多用户
     user_prompt TEXT,
@@ -515,11 +514,10 @@ CREATE TABLE mem_sessions (
     needs_context_refresh BOOLEAN DEFAULT FALSE
 );
 
--- 观察表 (V1 + V2, V8, V11, V12, V14, V16 迁移)
+-- 观察表 (V1 + V2, V8, V11, V12, V13, V14, V16 迁移)
 CREATE TABLE mem_observations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    memory_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(memory_session_id),
-    content_session_id VARCHAR(255),     -- V13: 统一会话链接
+    content_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(content_session_id),  -- V13: 统一会话链接（替代 memory_session_id）
     project_path TEXT NOT NULL,
     type VARCHAR(50) NOT NULL,
     title TEXT,
@@ -574,8 +572,7 @@ CREATE INDEX idx_obs_search ON mem_observations USING GIN(search_vector);
 -- 摘要表 (V1 + V13)
 CREATE TABLE mem_summaries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    memory_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(memory_session_id),
-    content_session_id VARCHAR(255),     -- V13
+    content_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(content_session_id),  -- V13: 替代 memory_session_id
     project_path TEXT NOT NULL,
     request TEXT,
     investigated TEXT,
@@ -610,6 +607,10 @@ CREATE TABLE mem_pending_messages (
     tool_name TEXT,
     tool_input TEXT,
     tool_response TEXT,
+    cwd TEXT,                           -- hook 时的工作目录
+    last_user_message TEXT,             -- 最后的用户消息上下文
+    last_assistant_message TEXT,        -- 最后的助手消息上下文
+    prompt_number INT,                  -- 会话 prompt 编号
     status VARCHAR(50) NOT NULL DEFAULT 'pending',
     retry_count INT NOT NULL DEFAULT 0,
     tool_input_hash VARCHAR(64),        -- V6: 去重

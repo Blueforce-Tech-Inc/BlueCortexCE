@@ -496,8 +496,7 @@ public class AgentService {
 -- Sessions table (V1 + V4, V12, V13, V15 migrations)
 CREATE TABLE mem_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    content_session_id VARCHAR(255) UNIQUE NOT NULL,
-    memory_session_id VARCHAR(255) UNIQUE,
+    content_session_id VARCHAR(255) UNIQUE NOT NULL,  -- V13: replaces memory_session_id
     project_path TEXT NOT NULL,
     user_id VARCHAR(255),              -- V15: null=single-user, non-null=SDK multi-user
     user_prompt TEXT,
@@ -515,11 +514,10 @@ CREATE TABLE mem_sessions (
     needs_context_refresh BOOLEAN DEFAULT FALSE
 );
 
--- Observations table (V1 + V2, V8, V11, V12, V14, V16 migrations)
+-- Observations table (V1 + V2, V8, V11, V12, V13, V14, V16 migrations)
 CREATE TABLE mem_observations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    memory_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(memory_session_id),
-    content_session_id VARCHAR(255),     -- V13: unified session linkage
+    content_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(content_session_id),  -- V13: unified session linkage (replaces memory_session_id)
     project_path TEXT NOT NULL,
     type VARCHAR(50) NOT NULL,
     title TEXT,
@@ -574,8 +572,7 @@ CREATE INDEX idx_obs_search ON mem_observations USING GIN(search_vector);
 -- Summaries table (V1 + V13)
 CREATE TABLE mem_summaries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    memory_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(memory_session_id),
-    content_session_id VARCHAR(255),     -- V13
+    content_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(content_session_id),  -- V13: replaces memory_session_id
     project_path TEXT NOT NULL,
     request TEXT,
     investigated TEXT,
@@ -610,6 +607,10 @@ CREATE TABLE mem_pending_messages (
     tool_name TEXT,
     tool_input TEXT,
     tool_response TEXT,
+    cwd TEXT,                           -- working directory at hook time
+    last_user_message TEXT,             -- last user message for context
+    last_assistant_message TEXT,        -- last assistant message for context
+    prompt_number INT,                  -- session prompt number
     status VARCHAR(50) NOT NULL DEFAULT 'pending',
     retry_count INT NOT NULL DEFAULT 0,
     tool_input_hash VARCHAR(64),        -- V6: deduplication
