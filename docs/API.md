@@ -417,14 +417,14 @@ Triggers memory refinement for a project. Refinement re-evaluates observation qu
 ### Update Observation
 
 ```
-PATCH /api/memory/observations/{observationId}
+PATCH /api/memory/observations/{id}
 Content-Type: application/json
 ```
 
 Partially updates an observation. Only fields present in the request body are updated; null values clear the field, absent fields are left unchanged.
 
 **Path Parameters**:
-- `observationId` — Observation UUID
+- `id` — Observation UUID
 
 **Request Body**:
 ```json
@@ -452,11 +452,11 @@ Supported fields: `title`, `content` (or `narrative`), `subtitle`, `source`, `fa
 ### Delete Observation
 
 ```
-DELETE /api/memory/observations/{observationId}
+DELETE /api/memory/observations/{id}
 ```
 
 **Path Parameters**:
-- `observationId` — Observation UUID
+- `id` — Observation UUID
 
 **Response** (`200 OK`):
 ```json
@@ -1425,6 +1425,24 @@ Content-Type: application/json
 
 Bulk import all data types in a single request. Includes duplicate checking.
 
+**Response** (`200 OK`):
+```json
+{
+  "success": true,
+  "stats": {
+    "sessionsImported": 10,
+    "sessionsSkipped": 2,
+    "observationsImported": 45,
+    "observationsSkipped": 5,
+    "summariesImported": 8,
+    "summariesSkipped": 1,
+    "promptsImported": 12,
+    "promptsSkipped": 0,
+    "errors": 0
+  }
+}
+```
+
 ### Import Observations
 
 ```
@@ -2148,8 +2166,8 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-03-31 | 0.1.0-beta+ | Enriched Viewer, Management, Mode, Health, Cursor, Logs sections with parameter tables and response examples; synced with Chinese version completeness |
 | 2026-03-31 | 0.1.0-beta++ | Added Session Start response example; corrected Delete Observation response (200 OK with body, not 204 No Content); synced Chinese changelog |
 | 2026-03-31 | 0.1.0-beta+++ | Corrected Memory Refine (query param, not JSON body); corrected Feedback request fields (observationId/feedbackType, not session_id/feedback_type); added userId field to Experiences and ICL Prompt; synced Chinese version |
-| 2026-03-31 | 0.1.0-beta+++++ | Added Get Session response example/path params/error response; added Update Session User path params/request body table/response example (3 fields); corrected environment variable names (SPRING_DATASOURCE_*, SPRING_AI_OPENAI_*) with defaults matching actual config; added Anthropic env vars; synced Chinese version |
 | 2026-03-31 | 0.1.0-beta++++ | Added Test endpoints section (/api/test/llm, /embedding, /all); added Overview section to Chinese version; synced TOC; synced changelog |
+| 2026-03-31 | 0.1.0-beta+++++ | Added Get Session response example/path params/error response; added Update Session User path params/request body table/response example (3 fields); corrected environment variable names (SPRING_DATASOURCE_*, SPRING_AI_OPENAI_*) with defaults matching actual config; added Anthropic env vars; synced Chinese version |
 | 2026-04-01 | 0.1.0-beta+++++ | Enriched Search section with full parameter types table, request example, and response example (strategy/fell_back/count); synced with Chinese version completeness |
 | 2026-04-01 | 0.1.0-beta++++++ | Corrected Search strategy values — actual code returns hybrid/tsvector/filter/recent/none (not vector/text); updated response example and strategy description; synced Chinese version |
 | 2026-04-01 | 0.1.0-beta+7 | Enriched English Ingest section with parameter tables, response examples, and error responses (was severely incomplete vs Chinese); enriched English Quality Distribution with parameter table, response example, and `unknown` field; enriched Chinese Quality Distribution with parameter table and `unknown` field; corrected `orderBy` example in Batch Get Observations (`created_at` → `created_at_epoch`); added parameter table to Create Observation (EN) |
@@ -2158,6 +2176,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-02 | 0.1.0-beta+10 | Enriched English Streaming section with event types table, event format examples, JavaScript example, and timeout info (was severely incomplete vs Chinese); corrected Java version in Get Version response example (dynamic field, added note); added `CLAUDEMEM_LLM_PROVIDER` to environment variables table; synced Chinese version |
 | 2026-04-02 | 0.1.0-beta+11 | Fixed Cursor Check Registration response — `projectPath` → `workspacePath` (matches wire format), added missing `installedAt` field and not-registered response example; synced Chinese version |
 | 2026-04-02 | 0.1.0-beta+12 | Split Chinese Viewer mega-section into separate Search and Management sections (matching English structure); added missing parameter table to Chinese Create Observation endpoint; synced TOC |
+| 2026-04-02 | 0.1.0-beta+13 | Fixed EN PATCH/DELETE /api/memory/observations path variable: `{observationId}` → `{id}` (matches controller @PatchMapping/@DeleteMapping); added Bulk Import response example with stats format; synced Chinese version |
 | 2026-03-13 | 0.1.0 | Initial API documentation |
 
 ---

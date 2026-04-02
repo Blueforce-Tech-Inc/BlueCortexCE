@@ -2281,8 +2281,8 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-03-31 | 0.1.0-beta+ | 补充 Viewer、Management、Mode、Health、Cursor、Logs 参数表和响应示例；同步英文版完整度 |
 | 2026-03-31 | 0.1.0-beta++ | 修正 Delete Observation 响应（200 OK with body，非 204 No Content）；同步英文版 Session Start 响应示例 |
 | 2026-03-31 | 0.1.0-beta+++ | 修正 Memory Refine（查询参数，非 JSON 请求体）；修正 Feedback 请求字段（observationId/feedbackType，非 session_id/feedback_type）；补充 Experiences 和 ICL Prompt 的 userId 字段；同步英文版 |
-| 2026-03-31 | 0.1.0-beta+++++ | 补充 Get Session 响应示例/路径参数/错误响应；补充 Update Session User 路径参数/请求体表/响应示例（3 字段）；修正环境变量名（SPRING_DATASOURCE_*、SPRING_AI_OPENAI_*），默认值匹配实际配置；新增 Anthropic 环境变量；同步英文版 |
 | 2026-03-31 | 0.1.0-beta++++ | 新增 Test 测试端点章节（/api/test/llm、/embedding、/all）；补充概述章节（Base URL + Content-Type）；同步 TOC；同步更新日志 |
+| 2026-03-31 | 0.1.0-beta+++++ | 补充 Get Session 响应示例/路径参数/错误响应；补充 Update Session User 路径参数/请求体表/响应示例（3 字段）；修正环境变量名（SPRING_DATASOURCE_*、SPRING_AI_OPENAI_*），默认值匹配实际配置；新增 Anthropic 环境变量；同步英文版 |
 | 2026-04-01 | 0.1.0-beta+++++ | 补充英文版 Search 章节完整参数类型表、请求示例和响应示例（strategy/fell_back/count）；同步中英文版完整度 |
 | 2026-04-01 | 0.1.0-beta++++++ | 修正搜索策略值——实际代码返回 hybrid/tsvector/filter/recent/none（非 vector/text）；更新响应示例和策略说明；同步英文版 |
 | 2026-04-01 | 0.1.0-beta+7 | 补充英文版 Ingest 章节（参数表、响应示例、错误响应——中文版已完整但英文版严重缺失）；补充中英文 Quality Distribution 参数表、响应示例及 `unknown` 字段；修正 Batch Get Observations `orderBy` 示例（`created_at` → `created_at_epoch`）；补充英文版 Create Observation 参数表 |
@@ -2291,6 +2291,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-02 | 0.1.0-beta+10 | 补充英文版 Streaming 章节完整事件类型表、事件格式示例、JavaScript 示例和超时说明（原严重缺失）；修正 Get Version 响应示例 Java 版本值（动态字段，添加说明）；补充 `CLAUDEMEM_LLM_PROVIDER` 到环境变量表；同步中文版 |
 | 2026-04-02 | 0.1.0-beta+11 | 修正 Cursor Check Registration 响应——`projectPath` → `workspacePath`（匹配实际 wire format），补充缺失的 `installedAt` 字段和未注册响应示例；同步英文版；补充中文 Session Start 请求体示例缺失的 `user_id` 字段 |
 | 2026-04-02 | 0.1.0-beta+12 | 拆分 Viewer 超级章节——新增独立 `## 搜索` 和 `## 管理` 章节（与英文版结构一致）；补充 Create Observation 请求体参数表（中文版缺失）；同步 TOC |
+| 2026-04-02 | 0.1.0-beta+13 | 修正英文版 PATCH/DELETE /api/memory/observations 路径变量：`{observationId}` → `{id}`（匹配 Controller @PatchMapping/@DeleteMapping）；补充英文版 Bulk Import 响应示例及 stats 格式；同步中文版 |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---
