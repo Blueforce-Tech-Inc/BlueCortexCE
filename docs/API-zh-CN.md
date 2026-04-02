@@ -1403,6 +1403,10 @@ curl http://localhost:37777/api/modes
 
 支持的字段: `title`, `content`（或 `narrative`）, `subtitle`, `source`, `facts`, `concepts`, `extractedData`。null 值清空字段，缺失字段保持不变。
 
+**错误响应**:
+- `400` — 请求体字段类型无效（如 `title must be a string`）
+- `404` — 给定 UUID 的观察不存在
+
 #### DELETE `/api/memory/observations/{id}`
 
 删除观察。
@@ -1667,31 +1671,29 @@ curl -X POST http://localhost:37777/api/logs/clear
 
 批量导入所有数据类型。
 
-**请求体**:
+**请求体**（snake_case）:
 ```json
 {
   "sessions": [
     {
-      "id": "session-uuid",
-      "contentSessionId": "content-123",
-      "projectPath": "/path/to/project",
-      "userPrompt": "Add feature",
-      "startedAtEpoch": 1707878400000,
-      "completedAtEpoch": 1707882000000,
+      "content_session_id": "content-123",
+      "project_path": "/path/to/project",
+      "user_prompt": "Add feature",
+      "started_at_epoch": 1707878400000,
+      "completed_at_epoch": 1707882000000,
       "status": "completed"
     }
   ],
   "observations": [
     {
-      "id": "obs-uuid",
-      "sessionId": "mem-123",
-      "projectPath": "/path/to/project",
+      "session_id": "content-123",
+      "project_path": "/path/to/project",
       "title": "Feature implementation",
-      "narrative": "...",
+      "content": "...",
       "type": "feature",
-      "facts": ["..."],
-      "concepts": ["..."],
-      "createdAtEpoch": 1707878400000
+      "facts_json": "[\"...\"]",
+      "concepts_json": "[\"...\"]",
+      "created_at_epoch": 1707878400000
     }
   ],
   "summaries": [...],
@@ -2325,6 +2327,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-02 | 0.1.0-beta+14 | 补充 ICL Prompt 400 错误响应（task 必填）；补充 Quality Distribution 400 错误响应（project 必填）；同步英文版 |
 | 2026-04-03 | 0.1.0-beta+15 | 补充 Experiences 端点响应示例（JSON 数组，包含 id/task/strategy/outcome/reuse_condition/quality_score/created_at 字段）和 400 错误响应（task 必填）；同步英文版 |
 | 2026-04-03 | 0.1.0-beta+16 | 补充 Session Start 完整错误响应（400 session_id 缺失、400 project_path/cwd 缺失、500 内部错误——与代码一致）；同步英文版；添加中文版底部跨链接 |
+| 2026-04-03 | 0.1.0-beta+17 | 修正 Bulk Import 请求体示例——字段名从 camelCase 改为 snake_case（匹配 SNAKE_CASE 命名策略），修正 `narrative`→`content`、`facts`→`facts_json`、`concepts`→`concepts_json`（匹配 ImportService 记录字段），移除不存在的 `id` 字段；补充 PATCH observations 错误响应（400/404——与英文版一致） |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---

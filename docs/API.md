@@ -1462,6 +1462,38 @@ Content-Type: application/json
 
 Bulk import all data types in a single request. Includes duplicate checking.
 
+**Request Body** (snake_case):
+```json
+{
+  "sessions": [
+    {
+      "content_session_id": "content-123",
+      "project_path": "/path/to/project",
+      "user_prompt": "Add feature",
+      "started_at_epoch": 1707878400000,
+      "completed_at_epoch": 1707882000000,
+      "status": "completed"
+    }
+  ],
+  "observations": [
+    {
+      "session_id": "content-123",
+      "project_path": "/path/to/project",
+      "title": "Feature implementation",
+      "content": "...",
+      "type": "feature",
+      "facts_json": "[\"...\"]",
+      "concepts_json": "[\"...\"]",
+      "created_at_epoch": 1707878400000
+    }
+  ],
+  "summaries": [...],
+  "prompts": [...]
+}
+```
+
+> **Note**: All fields use snake_case naming. Array fields like `facts` and `concepts` must be passed as JSON strings (`facts_json`, `concepts_json`), not as native JSON arrays. The `session_id` in observations references `content_session_id` from sessions.
+
 **Response** (`200 OK`):
 ```json
 {
@@ -2217,6 +2249,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-02 | 0.1.0-beta+14 | Added ICL Prompt 400 error response (task required); added Quality Distribution 400 error response (project required); synced Chinese version |
 | 2026-04-03 | 0.1.0-beta+15 | Added Experiences endpoint response example (JSON array of Experience objects with id/task/strategy/outcome/reuse_condition/quality_score/created_at fields) and 400 error response (task required); synced Chinese version |
 | 2026-04-03 | 0.1.0-beta+16 | Added error responses to Start Session (400 missing session_id, 400 missing project_path/cwd, 500 internal error); synced Chinese version; added cross-link footer to Chinese version |
+| 2026-04-03 | 0.1.0-beta+17 | Added Bulk Import request body example with correct snake_case field names and field notes (facts_json/concepts_json as JSON strings); synced Chinese version (fixed camelCase→snake_case, narrative→content, facts→facts_json, concepts→concepts_json, removed invalid id field); added missing error responses (400/404) to Chinese PATCH observations |
 | 2026-03-13 | 0.1.0 | Initial API documentation |
 
 ---
