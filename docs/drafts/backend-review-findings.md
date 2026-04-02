@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-03 01:11 (Backend 审查 #27 — TimelineService + SessionManagementService + ObservationRepository)
+> **最后更新**: 2026-04-03 03:21 (Backend 审查 #28 — VectorValidator + ContextCacheService)
 
 # Backend 代码审查问题记录
 
@@ -11,9 +11,51 @@
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **0** | — (26-1, 26-2, 27-1 已修复) |
+| **P2** (建议修复) | **3** | 28-1, 28-2, 28-3 (见审查 #28) |
 | **⏭ 跳过** | **6** | 非 bug，属设计决策或代码风格偏好 |
 | **⏳待修** | **2** | Python SDK + Backend E2E (非紧急) |
+
+---
+
+### 2026-04-03 03:21 | Backend 审查 #28
+
+**审查方向**: Backend (VectorValidator.java + ContextCacheService.java)
+
+**审查范围**:
+- `VectorValidator.java` — pgvector string validation utility (ReDoS prevention, dimension checks)
+- `ContextCacheService.java` — Context caching with scheduled refresh for active sessions
+
+#### 发现的问题
+
+| # | 文件 | 行 | 级别 | 问题 |
+|---|------|-----|------|------|
+| 28-1 | VectorValidator.java | L162 `countDimensions()` | **P2** | **死代码** — 方法定义但从未被调用。`grep -rn countDimensions backend/src/main/java` 仅返回定义处本身。建议：移除或在需要时通过搜索服务暴露维度信息。 |
+| 28-2 | VectorValidator.java | L191 `sanitizeVector()` | **P2** | **死代码** — 文档标注为 fallback 但从未被调用。`isValidVector()` 被 SearchService 使用，但 `sanitizeVector()` 无调用者。建议：移除，或在 SearchService 中添加 sanitize fallback 逻辑。 |
+| 28-3 | ContextCacheService.java + VectorValidator.java | 全文 | **P2** | **无单元测试** — 两个类均无对应的测试文件。`grep -rn ContextCacheService backend/src/test/` 和 `grep -rn VectorValidator backend/src/test/` 均无结果。VectorValidator 的手动解析逻辑（sign、exponent、whitespace）边界条件复杂，值得单测覆盖。 |
+
+#### 跳过的发现（非 bug）
+
+| # | 文件 | 说明 |
+|---|------|------|
+| S28-1 | ContextCacheService.java L65 | `getContextIfFresh()` 取 `sessions.get(0)` 忽略后续 session — **设计决策**，同一 project 的多个 active session 中取第一个合理 |
+| S28-2 | ContextCacheService.java L111 `refreshStaleContexts()` | 无 DLQ/retry 机制，失败仅 log — **设计决策**，下次 scheduled run 会重新拉取（`findByNeedsContextRefreshTrue` 仍为 true） |
+
+#### 代码质量评价
+
+| 检查项 | VectorValidator | ContextCacheService |
+|--------|-----------------|---------------------|
+| 输入验证 | ✅ null/blank/length/dimension 全检查 | ✅ null-safe session 查询 |
+| 错误处理 | ✅ log + return false | ✅ per-session try-catch 不中断循环 |
+| ReDoS 防护 | ✅ char-by-char 解析 | N/A |
+| 事务管理 | N/A | ✅ @Transactional 标注关键方法 |
+| 并发安全 | ✅ 纯静态工具类 | ⚠️ markForRefresh + refreshStaleContexts 可能并发修改同一 session |
+| 测试覆盖 | ❌ 无测试 | ❌ 无测试 |
+
+#### 亮点
+- **VectorValidator**: char-by-char 解析彻底避免 ReDoS，MAX_VECTOR_DIMENSION = 2000 上限合理
+- **ContextCacheService**: `refreshStaleContexts` per-session 异常处理确保单点失败不影响其他 session
+
+**审查结论**: 3 个 P2 问题（2 个死代码 + 缺测试）。建议下次 Backend 修复任务处理。
 
 ---
 
