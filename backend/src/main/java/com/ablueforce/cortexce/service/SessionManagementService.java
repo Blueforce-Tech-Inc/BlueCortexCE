@@ -41,24 +41,32 @@ public class SessionManagementService implements LogHelper {
      * Initialize or retrieve a session.
      *
      * @param contentSessionId The session ID from Claude Code
-     * @param projectPath Project path for memory isolation
+     * @param projectPath Project path for memory isolation (fallback: "openclaw")
      * @param userPrompt Initial user prompt
      * @return SessionEntity (existing or newly created)
      */
     public SessionEntity initializeSession(String contentSessionId, String projectPath, String userPrompt) {
         return sessionRepository.findByContentSessionId(contentSessionId)
-            .orElseGet(() -> createSession(contentSessionId, projectPath, userPrompt));
+            .orElseGet(() -> {
+                String effectiveProjectPath = (projectPath != null && !projectPath.isBlank())
+                    ? projectPath : "openclaw";
+                return createSession(contentSessionId, effectiveProjectPath, userPrompt);
+            });
     }
 
     /**
      * Ensure session exists (create if not found).
      * Used when session wasn't initialized by SessionStart.
+     * Falls back to "openclaw" if projectPath is null/blank.
      */
     public SessionEntity ensureSession(String contentSessionId, String projectPath, String userPrompt) {
         return sessionRepository.findByContentSessionId(contentSessionId)
             .orElseGet(() -> {
-                logDataIn("Creating session from ensureSession: {} (session was not initialized by SessionStart)", contentSessionId);
-                return createSession(contentSessionId, projectPath, userPrompt);
+                String effectiveProjectPath = (projectPath != null && !projectPath.isBlank())
+                    ? projectPath : "openclaw";
+                logDataIn("Creating session from ensureSession: {} (projectPath={}, session was not initialized by SessionStart)",
+                    contentSessionId, effectiveProjectPath);
+                return createSession(contentSessionId, effectiveProjectPath, userPrompt);
             });
     }
 
