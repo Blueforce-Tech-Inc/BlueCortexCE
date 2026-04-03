@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-03 07:41 (Backend 审查 #31：IngestionController + WorktreeDetector + MemoryRefineEventListener)
+> **最后更新**: 2026-04-03 14:40 (Backend 审查 #35：ClaudeMemMcpTools search/orderBy)
 
 # Backend 代码审查问题记录
 
@@ -11,9 +11,9 @@
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **0** | — |
+| **P2** (建议修复) | **1** | MCP search orderBy 参数被忽略 |
 | **⏭ 跳过** | **8** | 非 bug，属设计决策或代码风格偏好 |
-| **⏳待修** | **1** | Python SDK 测试覆盖（SearchResult.to_dict 无单元测试） |
+| **⏳待修** | **2** | ① Python SDK 测试覆盖 ② MCP search orderBy 忽略 |
 
 ---
 
@@ -1331,6 +1331,41 @@
 - IngestionController 的 handleObservation 支持 content/narrative 和 session_id/contentSessionId 双别名，SDK 兼容性好
 - WorktreeDetector 的正则模式设计严谨，`WORKTREES_PATTERN` 正确处理跨平台路径分隔符
 - MemoryRefineEventListener 的 @Async + @EventListener 组合提供了实时处理 + scheduled fallback 双保险
+
+---
+
+### 2026-04-03 14:40 | Backend 审查 #35
+
+**审查方向**: Backend (ClaudeMemMcpTools.java search + saveMemory)
+
+**审查范围**:
+- `ClaudeMemMcpTools.java` — MCP tool definitions for Claude-Mem
+
+#### 发现的问题
+
+| # | 文件 | 行 | 级别 | 问题 | 状态 |
+|---|------|-----|------|------|------|
+| 35-1 | ClaudeMemMcpTools.java | L81, L95 | **P2** | `search()` 方法接受 `orderBy` 参数但完全忽略。调用 `searchService.search()` 时硬编码 `null` 传入，`SearchRequest` record 也没有 orderBy 字段。用户可能误以为排序功能生效。 | 待修 |
+| 35-2 | ClaudeMemMcpTools.java | saveMemory | **P2** | ~~session 泄漏问题已修复~~ — E.1 Fix 使用固定的 `manual-memories` session ID 避免每次创建新 session。| ✅已修复 |
+
+#### 跳过的发现（非 bug）
+
+| # | 文件 | 说明 |
+|---|------|------|
+| S35-1 | ClaudeMemMcpTools.java L78 | `effectiveOffset` 计算正确使用 `offset != null ? Math.max(0, offset) : 0`，与 SearchRequest.offset 对齐 |
+| S35-2 | ClaudeMemMcpTools.java search | offset 参数正确传递给 SearchService.search() — **非问题** |
+
+#### 代码质量评价
+
+| 检查项 | ClaudeMemMcpTools.search | ClaudeMemMcpTools.saveMemory |
+|--------|------------------------|----------------------------|
+| 参数验证 | ✅ effectiveLimit/Offset 防御性计算 | ✅ text blank 检查 |
+| 错误处理 | ✅ embedding 失败 fallback | ✅ try-catch + error response map |
+| Session 管理 | N/A | ✅ 固定 manual-memories session 复用 |
+| 线程安全 | ✅ 无共享可变状态 | ✅ 无共享可变状态 |
+| 参数传递 | ⚠️ orderBy 被忽略 | N/A |
+
+**审查结论**: saveMemory session 泄漏问题已修复。但发现新的 P2：search() 的 orderBy 参数被静默忽略。
 
 ---
 
