@@ -96,6 +96,9 @@ public final class ApiResponses {
 
     @Schema(description = "Session start response with context for Claude Code injection")
     public record StartSessionResponse(
+        @JsonProperty("session_id")
+        @Schema(description = "Claude Code content session ID (matches the input sessionId)", example = "550e8400-e29b-41d4-a716-446655440000")
+        String sessionId,
         @JsonProperty("context")
         @Schema(description = "Generated context text for Claude Code injection")
         String context,

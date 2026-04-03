@@ -22,11 +22,6 @@ public class ObservationEntity {
     private static final Logger log = LoggerFactory.getLogger(ObservationEntity.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    // P2: Embedding dimension constants for maintainability
-    public static final int EMBEDDING_DIMENSION_768 = 768;
-    public static final int EMBEDDING_DIMENSION_1024 = 1024;
-    public static final int EMBEDDING_DIMENSION_1536 = 1536;
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(columnDefinition = "uuid")

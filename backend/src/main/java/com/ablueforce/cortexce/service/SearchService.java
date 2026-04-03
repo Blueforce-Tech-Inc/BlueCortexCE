@@ -35,6 +35,9 @@ public class SearchService {
      * Main search entry point.
      */
     public SearchResult search(SearchRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("searchRequest must not be null");
+        }
         String project = request.project();
         String query = request.query();
         // P2: Handle Integer.MIN_VALUE edge case with robust limit handling

@@ -156,8 +156,8 @@ public class ExpRagService {
      * @return Formatted ICL prompt string
      */
     public String buildICLPrompt(String currentTask, List<Experience> experiences, int maxChars) {
-        if (experiences.isEmpty()) {
-            return "Current task:\n" + currentTask;
+        if (experiences == null || experiences.isEmpty()) {
+            return "Current task:\n" + (currentTask != null ? currentTask : "");
         }
 
         StringBuilder sb = new StringBuilder();

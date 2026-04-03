@@ -140,6 +140,9 @@ public class CursorService {
      * @param workspacePath The absolute path to the workspace
      */
     public void registerProject(String projectName, String workspacePath) {
+        if (projectName == null || projectName.isBlank() || workspacePath == null || workspacePath.isBlank()) {
+            throw new IllegalArgumentException("projectName and workspacePath must not be null or blank");
+        }
         synchronized (registryLock) {
             Map<String, CursorProjectEntry> registry = readRegistry();
             registry.put(projectName, new CursorProjectEntry(
@@ -229,6 +232,10 @@ public class CursorService {
      * @return true if successful
      */
     public boolean writeContextFile(String workspacePath, String context) {
+        if (workspacePath == null || workspacePath.isBlank()) {
+            log.warn("writeContextFile called with null/blank workspacePath");
+            return false;
+        }
         try {
             Path workspace = Paths.get(workspacePath).normalize().toAbsolutePath();
             Path cursorDir = workspace.resolve(".cursor").normalize();

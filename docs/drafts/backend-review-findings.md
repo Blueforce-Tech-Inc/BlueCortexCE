@@ -13,7 +13,7 @@
 | **P1** (应该修复) | **0** | — |
 | **P2** (建议修复) | **0** | — |
 | **⏭ 跳过** | **8** | 非 bug，属设计决策或代码风格偏好 |
-| **⏳待修** | **2** | Python SDK + Backend E2E (非紧急) |
+| **⏳待修** | **1** | Python SDK 测试覆盖（SearchResult.to_dict 无单元测试） |
 
 ---
 
@@ -1337,6 +1337,42 @@
 ### 2026-04-03 11:54 | JS SDK 审查 #3
 
 **审查方向**: JS SDK (212/212 tests ✅)
+
+### 2026-04-03 13:10 | Backend 审查 #34
+
+**审查方向**: Backend (SearchService + CursorService + ExpRagService + XmlParser + ObservationEntity)
+
+**审查范围**:
+- `SearchService.java` — Main search entry point
+- `CursorService.java` — Cursor context management
+- `ExpRagService.java` — Experience retrieval
+- `XmlParser.java` — Regex XML parser
+- `ObservationEntity.java` — Observation entity
+
+#### 发现的问题
+
+| # | 文件 | 行 | 级别 | 问题 | 状态 |
+|---|------|-----|------|------|------|
+| 34-1 | SearchService.java | 37 | **P1** | `search(SearchRequest request)` 未检查 request null，调用 `request.project()` 会 NPE | ✅已修复（添加 null 检查并抛出 IllegalArgumentException） |
+| 34-2 | CursorService.java | writeContextFile | **P2** | `writeContextFile(workspacePath, context)` 未检查 workspacePath null，Paths.get(null) 会 NPE | ✅已修复（添加 null/blank 检查，返回 false） |
+| 34-3 | CursorService.java | registerProject | **P2** | `registerProject(projectName, workspacePath)` 未检查参数 null/blank，会创建无效的 CursorProjectEntry | ✅已修复（添加参数验证，抛出 IllegalArgumentException） |
+| 34-4 | ExpRagService.java | buildICLPrompt | **P2** | `buildICLPrompt(currentTask, experiences)` 当 experiences 为 null 时 `experiences.isEmpty()` 会 NPE | ✅已修复（添加 null 检查） |
+| 34-5 | ObservationEntity.java | EMBEDDING_DIMENSION 常量 | **P2** | `EMBEDDING_DIMENSION_768/1024/1536` 常量定义但从未引用（dead code） | ✅已修复（删除 3 个未使用常量） |
+| 34-6 | XmlParser.java | import | **P2** | `java.util.Map` 重复 import（代码风格问题） | ✅已修复（删除重复 import） |
+| 34-7 | ApiResponses.java | StartSessionResponse | **P2** | StartSessionResponse 缺少 sessionId 字段，SDK E2E 测试 session start 检查 session_id 字段时失败 | ✅已修复（添加 sessionId 字段到 record，Controller 传入 contentSessionId） |
+
+#### 代码质量评价
+
+| 检查项 | SearchService | CursorService | ExpRagService | XmlParser |
+|--------|---------------|---------------|---------------|-----------|
+| 线程安全 | ✅ 无状态 | ✅ synchronized registry | ✅ 无状态 | ✅ 无状态 |
+| 空指针防护 | ✅ 新增 null 检查 | ✅ 新增参数验证 | ✅ 新增 null 检查 | ✅ 无状态 |
+| 错误处理 | ✅ IllegalArgumentException | ✅ IllegalArgumentException | ✅ 防御性检查 | ✅ 无 |
+| 性能 | ✅ 无影响 | ✅ 无影响 | ✅ 无影响 | ✅ 无影响 |
+
+---
+
+### 2026-04-03 03:21 | Backend 审查 #28
 
 **审查范围**:
 - `client.ts` — 全部 26 个 API 方法

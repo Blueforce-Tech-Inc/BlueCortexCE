@@ -214,7 +214,7 @@ public class SessionController {
             sessionDbId, context.length(), updateFiles.size());
 
         return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.StartSessionResponse(
-            context, updateFiles, sessionDbId, 1
+            contentSessionId, context, updateFiles, sessionDbId, 1
         ));
     }
 
