@@ -1169,7 +1169,7 @@ curl http://localhost:37777/api/modes
 **响应示例**:
 ```json
 {
-  "id": "code",
+  "mode_id": "code",
   "name": "Code Development",
   "description": "Software development and engineering work",
   "version": "1.0.0",
@@ -1180,23 +1180,26 @@ curl http://localhost:37777/api/modes
 
 ---
 
-#### POST `/api/modes`
+#### PUT `/api/modes`
 
 设置活动模式。
 
 **请求体**:
 ```json
 {
-  "mode": "code--zh"
+  "modeId": "code--zh"
 }
 ```
 
 **响应示例**:
 ```json
 {
-  "success": true,
-  "mode": "code--zh",
-  "name": "代码模式"
+  "mode_id": "code--zh",
+  "name": "Code Development",
+  "description": "Software development and engineering work",
+  "version": "1.0.0",
+  "observation_types": [...],
+  "observation_concepts": [...]
 }
 ```
 
@@ -1464,14 +1467,14 @@ curl http://localhost:37777/api/mode
 
 ---
 
-#### PUT `/api/mode`
+#### PUT `/api/modes`
 
-切换活动模式。
+设置活动模式。
 
-**请求体**（snake_case）:
+**请求体**:
 ```json
 {
-  "mode_id": "code--zh"
+  "modeId": "code--zh"
 }
 ```
 
@@ -1479,9 +1482,11 @@ curl http://localhost:37777/api/mode
 ```json
 {
   "mode_id": "code--zh",
-  "name": "代码模式",
-  "description": "开发工作流模式",
-  ...
+  "name": "Code Development",
+  "description": "Software development and engineering work",
+  "version": "1.0.0",
+  "observation_types": [...],
+  "observation_concepts": [...]
 }
 ```
 
@@ -2345,6 +2350,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-03 | 0.1.0-beta+19 | Start Session 响应示例补充 sessionId 字段（后端 commit 8f0ed96 新增）；与英文版同步 |
 | 2026-04-03 | 0.1.0-beta+20 | Start Session 响应示例字段名修正 `sessionId`→`session_id`（应用使用 SNAKE_CASE 命名策略，实际 wire format 为 `session_id` 而非 `sessionId`）；与英文版同步 |
 | 2026-04-03 | 0.1.0-beta+21 | Start Session 响应示例字段顺序修正——`session_id` 应为第一字段（与 DTO record 定义一致），随后是 `context`、`updateFiles`、`session_db_id`、`prompt_number`；中英文两版同步更新；补充 changelog 条目 |
+| 2026-04-03 | 0.1.0-beta+22 | Mode: 修正 PUT `/api/modes` HTTP 方法（POST→PUT，与 `@PutMapping` 一致）；修正请求体字段 `mode`→`modeId`（与 ModeSwitchRequest 内部 record 字段一致）；修正 GET `/api/modes` 响应 `id`→`mode_id`；修正 PUT `/api/modes` 响应格式为 ModeResponse DTO（`mode_id`/name/description/version/observation_types/observation_concepts）；与英文版同步 |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---

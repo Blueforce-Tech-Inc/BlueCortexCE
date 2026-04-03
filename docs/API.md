@@ -1412,7 +1412,7 @@ Returns the current active mode configuration.
 **Response** (`200 OK`):
 ```json
 {
-  "id": "code",
+  "mode_id": "code",
   "name": "Code Development",
   "description": "Software development and engineering work",
   "version": "1.0.0",
@@ -1424,7 +1424,7 @@ Returns the current active mode configuration.
 ### Create Mode (Set Active Mode)
 
 ```
-POST /api/modes
+PUT /api/modes
 ```
 
 Switches the active mode at runtime. Supports base modes (e.g., "code") and inherited modes (e.g., "code--zh").
@@ -1432,16 +1432,19 @@ Switches the active mode at runtime. Supports base modes (e.g., "code") and inhe
 **Request Body**:
 ```json
 {
-  "mode": "code--zh"
+  "modeId": "code--zh"
 }
 ```
 
 **Response** (`200 OK`):
 ```json
 {
-  "success": true,
-  "mode": "code--zh",
-  "name": "代码模式"
+  "mode_id": "code--zh",
+  "name": "Code Development",
+  "description": "Software development and engineering work",
+  "version": "1.0.0",
+  "observation_types": [...],
+  "observation_concepts": [...]
 }
 ```
 
@@ -2267,7 +2270,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-03 | 0.1.0-beta+19 | Start Session response example missing sessionId field (added in backend commit 8f0ed96); synced Chinese version |
 | 2026-04-03 | 0.1.0-beta+20 | Start Session response example: corrected `sessionId`→`session_id` (application uses SNAKE_CASE naming strategy, actual wire format is `session_id` not `sessionId`); synced Chinese version |
 | 2026-04-03 | 0.1.0-beta+21 | Start Session response example: corrected JSON field order to match DTO record definition (`session_id` first, then `context`, then `updateFiles`); both EN and ZH updated; added changelog entry |
-| 2026-03-13 | 0.1.0 | Initial API documentation |
+| 2026-04-03 | 0.1.0-beta+22 | Mode: corrected PUT `/api/modes` HTTP method (was POST→PUT, matching `@PutMapping`); corrected request body field `mode`→`modeId` (matching ModeSwitchRequest inner record field); corrected GET `/api/modes` response `id`→`mode_id`; corrected PUT `/api/modes` response format to match ModeResponse DTO (`mode_id`/name/description/version/observation_types/observation_concepts); synced Chinese version |
 
 ---
 
