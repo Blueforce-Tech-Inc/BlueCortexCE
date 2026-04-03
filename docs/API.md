@@ -2264,8 +2264,8 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-03 | 0.1.0-beta+16 | Added error responses to Start Session (400 missing session_id, 400 missing project_path/cwd, 500 internal error); synced Chinese version; added cross-link footer to Chinese version |
 | 2026-04-03 | 0.1.0-beta+17 | Added Bulk Import request body example with correct snake_case field names and field notes (facts_json/concepts_json as JSON strings); synced Chinese version (fixed camelCase→snake_case, narrative→content, facts→facts_json, concepts→concepts_json, removed invalid id field); added missing error responses (400/404) to Chinese PATCH observations |
 | 2026-04-03 | 0.1.0-beta+18 | Added Clear Logs alternate response ("No log file to clear" when file doesn't exist) and 500 error response; synced Chinese version |
-| 2026-04-03 | 0.1.0-beta+20 | Start Session response example: corrected `sessionId`→`session_id` (application uses SNAKE_CASE naming strategy, actual wire format is `session_id` not `sessionId`); synced Chinese version |
 | 2026-04-03 | 0.1.0-beta+19 | Start Session response example missing sessionId field (added in backend commit 8f0ed96); synced Chinese version |
+| 2026-04-03 | 0.1.0-beta+20 | Start Session response example: corrected `sessionId`→`session_id` (application uses SNAKE_CASE naming strategy, actual wire format is `session_id` not `sessionId`); synced Chinese version |
 | 2026-03-13 | 0.1.0 | Initial API documentation |
 
 ---
