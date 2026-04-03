@@ -143,7 +143,7 @@ public class TimelineService {
         try {
             float[] queryVector = embeddingService.embed(query);
             SearchService.SearchResult result = searchService.search(
-                new SearchService.SearchRequest(project, query, queryVector, null, null, null, null, null, 1, 0)
+                new SearchService.SearchRequest(project, query, queryVector, null, null, null, null, null, 1, 0, null)
             );
             if (!result.observations().isEmpty()) {
                 return result.observations().get(0).getId();

@@ -83,6 +83,13 @@ public class ClaudeMemMcpTools {
         int effectiveLimit = limit != null ? limit : 20;
         int effectiveOffset = offset != null ? Math.max(0, offset) : 0;
 
+        // Validate orderBy: only created_at_epoch is supported, others are silently ignored
+        if (orderBy != null && !orderBy.isBlank()
+                && !"created_at_epoch".equalsIgnoreCase(orderBy)
+                && !"createdAtEpoch".equalsIgnoreCase(orderBy)) {
+            log.warn("Unsupported MCP search orderBy value '{}' — only 'created_at_epoch' is supported; ignoring", orderBy);
+        }
+
         float[] queryVector = null;
         if (query != null && !query.isBlank()) {
             try {
@@ -93,7 +100,7 @@ public class ClaudeMemMcpTools {
         }
 
         SearchService.SearchResult result = searchService.search(
-            new SearchService.SearchRequest(project, query, queryVector, type, concept, null, null, null, effectiveLimit, effectiveOffset)
+            new SearchService.SearchRequest(project, query, queryVector, type, concept, null, null, null, effectiveLimit, effectiveOffset, orderBy)
         );
 
         Map<String, Object> response = new HashMap<>();

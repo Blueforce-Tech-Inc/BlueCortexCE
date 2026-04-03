@@ -55,11 +55,18 @@ public class PendingMessageEventListener {
         } catch (Exception e) {
             log.error("Failed to process PendingMessageEvent: {}", event, e);
             // Mark as failed to prevent infinite retry by the scheduled task
-            pendingMessageRepository.findById(event.getPendingMessageId())
-                .ifPresent(msg -> {
+            // Use explicit null check instead of ifPresent lambda to ensure
+            // exceptions from save() are contained within this catch block
+            try {
+                var msgOpt = pendingMessageRepository.findById(event.getPendingMessageId());
+                if (msgOpt.isPresent()) {
+                    var msg = msgOpt.get();
                     msg.setStatus("failed");
                     pendingMessageRepository.save(msg);
-                });
+                }
+            } catch (Exception ex) {
+                log.error("Failed to mark message {} as failed", event.getPendingMessageId(), ex);
+            }
         }
     }
 }

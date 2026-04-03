@@ -118,31 +118,35 @@ public class SearchService {
      */
     private SearchResult filterSearch(SearchRequest request, int limit) {
         String project = request.project();
-        int offset = Math.max(0, request.offset());
 
         boolean hasAnyFilter = (request.type() != null && !request.type().isBlank())
             || (request.source() != null && !request.source().isBlank())
             || (request.concept() != null && !request.concept().isBlank())
             || request.startEpoch() != null || request.endEpoch() != null;
 
+        List<ObservationEntity> results;
+        String strategy;
         if (hasAnyFilter) {
-            // Use database-level composable AND filter with offset
-            List<ObservationEntity> results = observationRepository.findByAllFiltersWithOffset(
+            // Fetch extra results to compensate for post-filtering reducing the result set
+            results = observationRepository.findByAllFiltersWithOffset(
                 project,
                 blankToNull(request.type()),
                 blankToNull(request.source()),
                 blankToNull(request.concept()),
                 request.startEpoch(),
                 request.endEpoch(),
-                limit,
-                offset
+                limit * 2,
+                0
             );
-            return new SearchResult(results, "filter", false);
+            strategy = "filter";
+        } else {
+            // Default: recent observations - fetch extra for safe post-processing
+            results = observationRepository.findByProjectLimitedWithOffset(project, limit * 2, 0);
+            strategy = "recent";
         }
-
-        // Default: recent observations with offset
-        List<ObservationEntity> results = observationRepository.findByProjectLimitedWithOffset(project, limit, offset);
-        return new SearchResult(results, "recent", false);
+        // Apply ordering + offset + limit via applyPostFilters for consistent ordering across all paths
+        List<ObservationEntity> filtered = applyPostFilters(results, request);
+        return new SearchResult(filtered, strategy, false);
     }
 
     /**
@@ -154,11 +158,13 @@ public class SearchService {
         String sourceFilter = blankToNull(request.source());
         String typeFilter = blankToNull(request.type());
         String conceptFilter = blankToNull(request.concept());
+        String orderBy = blankToNull(request.orderBy());
         int offset = Math.max(0, request.offset());
 
         boolean hasFilter = sourceFilter != null || typeFilter != null || conceptFilter != null;
+        boolean needsProcessing = hasFilter || offset > 0 || orderBy != null;
 
-        if (!hasFilter && offset == 0) {
+        if (!needsProcessing) {
             return results;
         }
 
@@ -175,6 +181,14 @@ public class SearchService {
                 List<String> concepts = obs.getConcepts();
                 return concepts != null && concepts.contains(conceptFilter);
             });
+        }
+
+        // Apply ordering before offset/limit (must happen on full dataset before pagination)
+        if ("created_at_epoch".equalsIgnoreCase(orderBy) || "createdAtEpoch".equalsIgnoreCase(orderBy)) {
+            stream = stream.sorted((a, b) -> Long.compare(
+                b.getCreatedAtEpoch() != null ? b.getCreatedAtEpoch() : 0,
+                a.getCreatedAtEpoch() != null ? a.getCreatedAtEpoch() : 0
+            ));
         }
 
         if (offset > 0) {
@@ -216,7 +230,8 @@ public class SearchService {
         Long startEpoch,
         Long endEpoch,
         int limit,
-        int offset
+        int offset,
+        String orderBy
     ) {}
 
     /**
