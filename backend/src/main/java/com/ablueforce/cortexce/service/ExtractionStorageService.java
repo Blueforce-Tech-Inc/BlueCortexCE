@@ -1,6 +1,7 @@
 package com.ablueforce.cortexce.service;
 
 import com.ablueforce.cortexce.entity.ObservationEntity;
+import com.ablueforce.cortexce.entity.SessionEntity;
 import com.ablueforce.cortexce.repository.ObservationRepository;
 import com.ablueforce.cortexce.repository.SessionRepository;
 import com.ablueforce.cortexce.config.ExtractionConfig.TemplateConfig;
@@ -52,7 +53,7 @@ public class ExtractionStorageService {
         sessionRepository.findByContentSessionId(targetSessionId)
             .orElseGet(() -> {
                 log.info("Creating extraction session: {}", targetSessionId);
-                com.ablueforce.cortexce.entity.SessionEntity session = new com.ablueforce.cortexce.entity.SessionEntity();
+                SessionEntity session = new SessionEntity();
                 session.setContentSessionId(targetSessionId);
                 session.setProjectPath(projectPath);
                 session.setStatus("extraction");
@@ -95,7 +96,7 @@ public class ExtractionStorageService {
             sessionRepository.findByContentSessionId(dlqSessionId)
                 .orElseGet(() -> {
                     log.info("Creating DLQ session: {}", dlqSessionId);
-                    com.ablueforce.cortexce.entity.SessionEntity session = new com.ablueforce.cortexce.entity.SessionEntity();
+                    SessionEntity session = new SessionEntity();
                     session.setContentSessionId(dlqSessionId);
                     session.setProjectPath(projectPath);
                     session.setStatus("dlq");
