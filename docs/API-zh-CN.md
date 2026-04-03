@@ -235,6 +235,7 @@ curl http://localhost:37777/api/version
 **响应示例**:
 ```json
 {
+  "session_id": "550e8400-e29b-41d4-a716-446655440000",
   "context": "# Recent Work\n\n...",
   "updateFiles": [
     {
@@ -242,7 +243,6 @@ curl http://localhost:37777/api/version
       "content": "# Claude-Mem Context\n\n..."
     }
   ],
-  "session_id": "550e8400-e29b-41d4-a716-446655440000",
   "session_db_id": "550e8400-e29b-41d4-a716-446655440000",
   "prompt_number": 1
 }
@@ -2344,6 +2344,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-03 | 0.1.0-beta+18 | 补充 Clear Logs 备选响应（文件不存在时返回 "No log file to clear"）和 500 错误响应；与英文版同步 |
 | 2026-04-03 | 0.1.0-beta+19 | Start Session 响应示例补充 sessionId 字段（后端 commit 8f0ed96 新增）；与英文版同步 |
 | 2026-04-03 | 0.1.0-beta+20 | Start Session 响应示例字段名修正 `sessionId`→`session_id`（应用使用 SNAKE_CASE 命名策略，实际 wire format 为 `session_id` 而非 `sessionId`）；与英文版同步 |
+| 2026-04-03 | 0.1.0-beta+21 | Start Session 响应示例字段顺序修正——`session_id` 应为第一字段（与 DTO record 定义一致），随后是 `context`、`updateFiles`、`session_db_id`、`prompt_number`；中英文两版同步更新；补充 changelog 条目 |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---

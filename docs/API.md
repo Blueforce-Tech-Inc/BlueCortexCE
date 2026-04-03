@@ -121,6 +121,7 @@ Content-Type: application/json
 **Response** (`200 OK`):
 ```json
 {
+  "session_id": "550e8400-e29b-41d4-a716-446655440000",
   "context": "# Recent Work\n\n...",
   "updateFiles": [
     {
@@ -128,7 +129,6 @@ Content-Type: application/json
       "content": "# Claude-Mem Context\n\n..."
     }
   ],
-  "session_id": "550e8400-e29b-41d4-a716-446655440000",
   "session_db_id": "550e8400-e29b-41d4-a716-446655440000",
   "prompt_number": 1
 }
@@ -2266,6 +2266,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-03 | 0.1.0-beta+18 | Added Clear Logs alternate response ("No log file to clear" when file doesn't exist) and 500 error response; synced Chinese version |
 | 2026-04-03 | 0.1.0-beta+19 | Start Session response example missing sessionId field (added in backend commit 8f0ed96); synced Chinese version |
 | 2026-04-03 | 0.1.0-beta+20 | Start Session response example: corrected `sessionId`→`session_id` (application uses SNAKE_CASE naming strategy, actual wire format is `session_id` not `sessionId`); synced Chinese version |
+| 2026-04-03 | 0.1.0-beta+21 | Start Session response example: corrected JSON field order to match DTO record definition (`session_id` first, then `context`, then `updateFiles`); both EN and ZH updated; added changelog entry |
 | 2026-03-13 | 0.1.0 | Initial API documentation |
 
 ---
