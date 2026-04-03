@@ -1331,3 +1331,47 @@
 - IngestionController 的 handleObservation 支持 content/narrative 和 session_id/contentSessionId 双别名，SDK 兼容性好
 - WorktreeDetector 的正则模式设计严谨，`WORKTREES_PATTERN` 正确处理跨平台路径分隔符
 - MemoryRefineEventListener 的 @Async + @EventListener 组合提供了实时处理 + scheduled fallback 双保险
+
+---
+
+### 2026-04-03 11:54 | JS SDK 审查 #3
+
+**审查方向**: JS SDK (212/212 tests ✅)
+
+**审查范围**:
+- `client.ts` — 全部 26 个 API 方法
+- `dto/observation.ts` — parseObservation wire format 映射
+- `dto/experience.ts` — parseExperience wire format 映射
+- `dto/wire-helpers.ts` — 安全类型转换
+- `dto/misc.ts` — parseObservationType/parseObservationConcept
+- `examples/http-server/app.ts` — Express Demo
+- Backend 交叉验证：PATCH observation, feedback, extraction 端点字段名
+
+#### 发现的问题
+
+| # | 文件 | 行 | 级别 | 问题 |
+|---|------|-----|------|------|
+| 33-1 | dto/experience.ts | L15 | **P2** | 注释 "Wire format uses SNAKE_CASE (backend Jackson naming strategy)" 不准确。Backend `ExpRagService.Experience` record 无 `@JsonProperty` 注解，Jackson 默认使用 Java 字段名（camelCase），即 `reuseCondition`/`qualityScore`/`createdAt`。`parseExperience` 通过 `firstNonNullOr` 正确处理了两种格式，但注释误导开发者以为 backend 始终返回 snake_case。 ✅已修复（更新注释说明实际 wire format 是 camelCase，snake_case 是防御性 fallback） |
+| 33-2 | README.md | L10 | **P2** | 声称 "25 API methods" 但实际有 26 个（`getObservation` 是独立公开方法，不是 `getObservationsByIds` 的内部别名）。与 patrol-task.md 基准 "JS/TS SDK: 26 API methods" 不一致。 ✅已修复（更新为 26） |
+
+#### 交叉验证结果（Backend vs JS SDK）
+
+| 端点 | Backend 字段名 | JS SDK 发送/接收 | 一致 |
+|------|---------------|-----------------|------|
+| PATCH /observations/{id} | `content`/`narrative`, `extractedData` | ✅ 同 | ✅ |
+| POST /memory/feedback | `observationId`, `feedbackType` | ✅ 同 | ✅ |
+| GET /extraction/{t}/latest | `projectPath` query param | ✅ 同 | ✅ |
+| GET /api/search | `fell_back` → `fellBack` | ✅ 双格式解析 | ✅ |
+| Observation entity | `quality_score`, `content_session_id` | ✅ snake_case 优先 | ✅ |
+
+#### 代码质量评价
+
+| 检查项 | JS SDK | HTTP Server Demo |
+|--------|--------|-----------------|
+| 类型安全 | ✅ 完整 TypeScript 接口 | ✅ 请求参数验证 |
+| Wire format | ✅ snake_case 优先 + camelCase fallback | N/A |
+| 防御性解析 | ✅ null/NaN/类型不匹配全覆盖 | ✅ 输入验证严格 |
+| 测试 | ✅ 212 单元测试全通过 | N/A |
+| 构建 | ✅ CJS + ESM + DTS | N/A |
+| Backend 兼容 | ✅ 所有端点字段名一致 | ✅ extractedData 验证 |
+

@@ -22,8 +22,8 @@ export interface ExperienceRequest {
 /**
  * A retrieved experience from the backend.
  *
- * Wire format uses SNAKE_CASE (backend Jackson naming strategy).
- * Field names are normalized to camelCase via parseExperience.
+ * Wire format is camelCase by default (backend Java record without @JsonProperty).
+ * parseExperience handles both camelCase and snake_case defensively via firstNonNullOr.
  */
 export interface Experience {
   id: string;
