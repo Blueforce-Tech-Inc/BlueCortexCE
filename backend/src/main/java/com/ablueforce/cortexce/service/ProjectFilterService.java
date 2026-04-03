@@ -2,6 +2,8 @@ package com.ablueforce.cortexce.service;
 
 import org.springframework.util.AntPathMatcher;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -53,8 +55,13 @@ public class ProjectFilterService {
      * Check if a path should be included based on the current filter configuration.
      */
     public boolean shouldInclude(String path) {
+        if (path == null || path.isBlank()) {
+            return false;
+        }
         // Normalize home directory reference
-        String normalizedPath = path.replace("~", System.getProperty("user.home"));
+        String normalizedPath = path.startsWith("~")
+            ? path.replaceFirst("^~", System.getProperty("user.home"))
+            : path;
 
         // Check exclude patterns first
         for (String pattern : excludePatterns) {
@@ -82,6 +89,9 @@ public class ProjectFilterService {
      * Check if a directory is considered "unsafe" for automatic CLAUDE.md modification.
      */
     public boolean isUnsafeDirectory(String path) {
+        if (path == null || path.isBlank()) {
+            return false;
+        }
         for (String pattern : DEFAULT_EXCLUDES) {
             if (pathMatcher.match(pattern, path)) {
                 return true;

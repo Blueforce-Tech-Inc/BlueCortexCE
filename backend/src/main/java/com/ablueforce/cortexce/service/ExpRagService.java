@@ -67,6 +67,11 @@ public class ExpRagService {
     public List<Experience> retrieveExperiences(String currentTask, String projectPath, int count,
                                                 String source, List<String> requiredConcepts,
                                                 String userId) {
+        if (count <= 0) {
+            log.debug("count {} is not positive, returning empty list", count);
+            return List.of();
+        }
+
         List<ObservationEntity> results;
 
         // Phase 3: userId-based session filtering

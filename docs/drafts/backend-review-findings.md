@@ -1563,3 +1563,52 @@
 - ClaudeMemMcpTools：传递 orderBy 到 SearchService（修复之前记录的 #35-1 P2 问题）
 - PendingMessageEventListener：改进 catch 块异常隔离（save() 异常单独捕获）
 - TimelineService：更新 SearchRequest 构造器签名
+
+---
+
+### 2026-04-03 23:07 | Backend 审查 #37
+
+**审查方向**: Backend (ExpRagService.java + CursorService.java + ProjectFilterService.java)
+
+**审查范围**:
+- `ExpRagService.java` — ExpRAG-style experience retrieval for ICL context
+- `CursorService.java` — Cursor IDE project registry and context file management
+- `ProjectFilterService.java` — AntPathMatcher-based project path filtering
+
+#### 发现的问题
+
+| # | 文件 | 行 | 级别 | 问题 |
+|---|------|-----|------|------|
+| 37-1 | ExpRagService.java | L43 `retrieveExperiences()` | **P2** | **count 参数未验证** — `count` 可以为负数或零，导致 `findHighQualityObservations(projectPath, threshold, count * 3)` 传入负数 limit |
+| 37-2 | ExpRagService.java | 全文 | **P2** | **无单元测试** — `retrieveExperiences()` 和 `buildICLPrompt()` 均无测试覆盖 |
+| 37-3 | ExpRagService.java | L97-100 | **P2** | **概念过滤排除无概念的 observation** — `requiredConcepts` 过滤时若 `obsConcepts` 为 null/empty 直接返回 false，导致没有概念的 observation 永远不会被选中（即使 count 不足时 fallback 也不会包含它们） |
+| 37-4 | CursorService.java | L70-76 `getRegistryCached()` | **P2** | **竞态条件** — check-then-act 模式：先在 synchronized 块外检查 `cacheTimestamp`，然后调用 `readRegistry()`。两个操作之间无锁保护，可能读到过期缓存 |
+| 37-5 | CursorService.java | 全文 | **P2** | **无单元测试** — 缺少测试文件，registry 读写和 context 文件写入逻辑未验证 |
+| 37-6 | CursorService.java | L148 `writeContextFile()` | **P2** | **无内容大小限制** — `context` 字符串无 maxChars 检查，大型 context 可能导致 OOM |
+| 37-7 | ProjectFilterService.java | L21-23 | **P2** | **线程安全问题** — `includePatterns` 和 `excludePatterns` 是普通 `ArrayList`，`loadPatterns()` 直接修改它们。`shouldInclude()` 读取时无同步，可能读到部分修改状态 |
+| 37-8 | ProjectFilterService.java | L47,55 | **P2** | **NPE 风险** — `shouldInclude()` 和 `isUnsafeDirectory()` 若 `path` 为 null，`path.replace()` 会抛 NPE |
+| 37-9 | ProjectFilterService.java | L45 | **P2** | **~user 路径展开不完整** — `path.replace("~", user.home)` 只处理纯 `~`，不处理 `~username` 形式的标准 Unix home 路径 |
+
+#### 跳过的发现（非 bug）
+
+| # | 文件 | 说明 |
+|---|------|------|
+| S37-1 | ExpRagService.java L59 | `count * 3` 取 3 倍结果用于过滤后退化 — **设计决策**，通过过量 fetch 减少 fallback 开销 |
+| S37-2 | ProjectFilterService.java | 类未标注 @Service — **设计决策**，类注释说明"not currently wired into any pipeline, retained as utility for future" |
+
+#### 代码质量评价
+
+| 检查项 | ExpRagService | CursorService | ProjectFilterService |
+|--------|---------------|---------------|----------------------|
+| 输入验证 | ⚠️ count 未验证 | ✅ registerProject 有检查 | ⚠️ path null NPE |
+| 错误处理 | ✅ log.debug 用于空结果 | ✅ try-catch + false return | N/A |
+| 事务管理 | N/A | N/A | N/A |
+| 线程安全 | ✅ 无共享状态 | ⚠️ 竞态条件 #37-4 | ⚠️ 线程不安全 #37-7 |
+| 测试覆盖 | ❌ 无测试 | ❌ 无测试 | ⚠️ 未使用但逻辑存在 |
+
+#### 亮点
+- **ExpRagService**: `buildICLPrompt()` 自适应截断逻辑完善，userId-based session 过滤正确实现
+- **CursorService**: `writeContextFile()` 有 path traversal 保护（startsWith check），registry 读写使用 reentrant synchronized lock
+- **ProjectFilterService**: AntPathMatcher 默认排除列表合理（git/node_modules/build 等）
+
+**审查结论**: 9 个 P2 问题（3 个服务各 3 个）。主要问题：无测试覆盖（3/3 服务）+ ExpRagService count 未验证 + CursorService 竞态条件 + ProjectFilterService 线程安全。建议下次 Backend 修复任务处理。
