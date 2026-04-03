@@ -249,7 +249,7 @@ public class ViewerController {
         @RequestParam(defaultValue = "20") int limit,
         @Parameter(description = "Offset for pagination", required = false, example = "0")
         @RequestParam(defaultValue = "0") int offset,
-        @Parameter(description = "Order by field (accepted for MCP compatibility, not yet fully implemented)", required = false, example = "createdAtEpoch")
+        @Parameter(description = "Order by field (currently only 'created_at_epoch' / 'createdAtEpoch' is supported — orders by observation creation time descending)", required = false, example = "createdAtEpoch")
         @RequestParam(required = false) String orderBy
     ) {
         // Validate limit against max page size (consistent with other endpoints)
@@ -268,7 +268,7 @@ public class ViewerController {
 
         try {
             SearchService.SearchResult result = searchService.search(
-                new SearchService.SearchRequest(project, query, queryVector, type, concept, source, null, null, validatedLimit, offset)
+                new SearchService.SearchRequest(project, query, queryVector, type, concept, source, null, null, validatedLimit, offset, orderBy)
             );
 
             return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.SearchResponse(
