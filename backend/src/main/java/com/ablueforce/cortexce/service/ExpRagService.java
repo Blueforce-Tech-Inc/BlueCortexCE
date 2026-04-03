@@ -124,14 +124,28 @@ public class ExpRagService {
         // Filter by required concepts if specified
         if (requiredConcepts != null && !requiredConcepts.isEmpty()) {
             final List<String> conceptsToMatch = requiredConcepts;
-            results = results.stream()
-                .filter(obs -> {
-                    List<String> obsConcepts = obs.getConcepts();
-                    if (obsConcepts == null || obsConcepts.isEmpty()) return false;
-                    // Check if all required concepts are present
-                    return conceptsToMatch.stream().allMatch(obsConcepts::contains);
-                })
-                .toList();
+
+            // Separate matching and non-matching observations
+            List<ObservationEntity> matching = new ArrayList<>();
+            List<ObservationEntity> nonMatching = new ArrayList<>();
+            for (ObservationEntity obs : results) {
+                List<String> obsConcepts = obs.getConcepts();
+                if (obsConcepts == null || obsConcepts.isEmpty()) {
+                    nonMatching.add(obs);
+                } else if (conceptsToMatch.stream().allMatch(obsConcepts::contains)) {
+                    matching.add(obs);
+                } else {
+                    nonMatching.add(obs);
+                }
+            }
+
+            // Prefer matching, but fill remaining slots with non-matching as fallback
+            List<ObservationEntity> filtered = new ArrayList<>(matching);
+            int remaining = count - matching.size();
+            if (remaining > 0 && !nonMatching.isEmpty()) {
+                filtered.addAll(nonMatching.stream().limit(remaining).toList());
+            }
+            results = filtered;
         }
 
         // Limit to count

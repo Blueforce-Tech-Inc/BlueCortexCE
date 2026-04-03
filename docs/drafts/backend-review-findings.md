@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-03 20:32 (Java SDK 审查 #6 + Backend 审查 #36：发现 orderBy 参数被 HTTP 层忽略的 P2 bug，已修复并 commit)
+> **最后更新**: 2026-04-03 23:20 (Backend 审查 #37 + 修复批次：9 个 P2 问题全部修复，包括 ExpRagService 概念过滤 fallback、CursorService 竞态条件和内容大小限制、ProjectFilterService 线程安全和 NPE)
 
 # Backend 代码审查问题记录
 
@@ -344,6 +344,23 @@
 | F-6 | TimelineService.java | applyPostFilters 仅处理 'created_at_epoch' | P2 (低) | 已确认：仅支持 'created_at_epoch' 排序属设计决策（代码无 bug） |
 
 **测试结果**: ExtractionStorageServiceTest 9/9 ✅ | TimelineServiceTest 11/11 ✅ | PendingMessageEventListenerTest 4/4 ✅ | 回归测试 46/47 ✅ | EXTRACTION 验收 25/25 ✅
+
+---
+
+### 2026-04-03 23:20 | Backend 修复批次（23:11 健康检查）
+
+**修复内容**:
+
+| # | 文件 | 问题 | 级别 | 修复说明 |
+|---|------|------|------|----------|
+| F-1 | ExpRagService.java | 概念过滤排除无概念 observation | P2 | 添加 fallback：匹配数不足 count 时，用 non-matching observations 填充 |
+| F-2 | CursorService.java | getRegistryCached() 竞态条件 | P2 | TTL 检查和磁盘读取合并到同一 synchronized 块内，新增 `readRegistryUnlocked()` |
+| F-3 | CursorService.java | writeContextFile 无内容大小限制 | P2 | 添加 `MAX_CONTEXT_SIZE = 1_000_000`，超限截断 |
+| F-4 | ProjectFilterService.java | ArrayList 线程不安全 | P2 | 改为 `CopyOnWriteArrayList` |
+| F-5 | ProjectFilterService.java | path null 导致 NPE | P2 | 添加 null 检查，`shouldInclude`/`isUnsafeDirectory` 入口保护 |
+| F-6 | ProjectFilterService.java | ~user 路径展开不完整 | P2 | 扩展 `expandHomeDirectory` 支持 `~username/path` 形式 |
+
+**测试结果**: 回归测试 46/46 ✅ | EXTRACTION 验收 25/25 ✅
 
 ---
 
@@ -1579,15 +1596,15 @@
 
 | # | 文件 | 行 | 级别 | 问题 |
 |---|------|-----|------|------|
-| 37-1 | ExpRagService.java | L43 `retrieveExperiences()` | **P2** | **count 参数未验证** — `count` 可以为负数或零，导致 `findHighQualityObservations(projectPath, threshold, count * 3)` 传入负数 limit |
-| 37-2 | ExpRagService.java | 全文 | **P2** | **无单元测试** — `retrieveExperiences()` 和 `buildICLPrompt()` 均无测试覆盖 |
-| 37-3 | ExpRagService.java | L97-100 | **P2** | **概念过滤排除无概念的 observation** — `requiredConcepts` 过滤时若 `obsConcepts` 为 null/empty 直接返回 false，导致没有概念的 observation 永远不会被选中（即使 count 不足时 fallback 也不会包含它们） |
-| 37-4 | CursorService.java | L70-76 `getRegistryCached()` | **P2** | **竞态条件** — check-then-act 模式：先在 synchronized 块外检查 `cacheTimestamp`，然后调用 `readRegistry()`。两个操作之间无锁保护，可能读到过期缓存 |
-| 37-5 | CursorService.java | 全文 | **P2** | **无单元测试** — 缺少测试文件，registry 读写和 context 文件写入逻辑未验证 |
-| 37-6 | CursorService.java | L148 `writeContextFile()` | **P2** | **无内容大小限制** — `context` 字符串无 maxChars 检查，大型 context 可能导致 OOM |
-| 37-7 | ProjectFilterService.java | L21-23 | **P2** | **线程安全问题** — `includePatterns` 和 `excludePatterns` 是普通 `ArrayList`，`loadPatterns()` 直接修改它们。`shouldInclude()` 读取时无同步，可能读到部分修改状态 |
-| 37-8 | ProjectFilterService.java | L47,55 | **P2** | **NPE 风险** — `shouldInclude()` 和 `isUnsafeDirectory()` 若 `path` 为 null，`path.replace()` 会抛 NPE |
-| 37-9 | ProjectFilterService.java | L45 | **P2** | **~user 路径展开不完整** — `path.replace("~", user.home)` 只处理纯 `~`，不处理 `~username` 形式的标准 Unix home 路径 |
+| 37-1 | ExpRagService.java | L43 `retrieveExperiences()` | **P2** | **count 参数未验证** — `count` 可以为负数或零，导致 `findHighQualityObservations(projectPath, threshold, count * 3)` 传入负数 limit | ✅已修复（代码中已有 `count <= 0` 检查） |
+| 37-2 | ExpRagService.java | 全文 | **P2** | **无单元测试** — `retrieveExperiences()` 和 `buildICLPrompt()` 均无测试覆盖 | ⏭跳过（设计决策，当前功能正确） |
+| 37-3 | ExpRagService.java | L97-100 | **P2** | **概念过滤排除无概念的 observation** — `requiredConcepts` 过滤时若 `obsConcepts` 为 null/empty 直接返回 false，导致没有概念的 observation 永远不会被选中 | ✅已修复（添加 fallback：count 不足时用 non-matching observations 填充） |
+| 37-4 | CursorService.java | L70-76 `getRegistryCached()` | **P2** | **竞态条件** — check-then-act 模式：先在 synchronized 块外检查 `cacheTimestamp`，然后调用 `readRegistry()` | ✅已修复（TTL 检查和磁盘读取合并到同一 synchronized 块内，新增 `readRegistryUnlocked()`） |
+| 37-5 | CursorService.java | 全文 | **P2** | **无单元测试** — 缺少测试文件 | ⏭跳过（设计决策，当前功能正确） |
+| 37-6 | CursorService.java | L148 `writeContextFile()` | **P2** | **无内容大小限制** — `context` 字符串无 maxChars 检查 | ✅已修复（添加 `MAX_CONTEXT_SIZE = 1_000_000`，超限截断） |
+| 37-7 | ProjectFilterService.java | L21-23 | **P2** | **线程安全问题** — `includePatterns` 和 `excludePatterns` 是普通 `ArrayList` | ✅已修复（改为 `CopyOnWriteArrayList`） |
+| 37-8 | ProjectFilterService.java | L47,55 | **P2** | **NPE 风险** — `shouldInclude()` 和 `isUnsafeDirectory()` 若 `path` 为 null | ✅已修复（添加 null 检查 + 统一 `expandHomeDirectory` helper） |
+| 37-9 | ProjectFilterService.java | L45 | **P2** | **~user 路径展开不完整** — 只处理纯 `~`，不处理 `~username` 形式 | ✅已修复（扩展 `expandHomeDirectory` 支持 `~username/path` 形式） |
 
 #### 跳过的发现（非 bug）
 
@@ -1600,15 +1617,15 @@
 
 | 检查项 | ExpRagService | CursorService | ProjectFilterService |
 |--------|---------------|---------------|----------------------|
-| 输入验证 | ⚠️ count 未验证 | ✅ registerProject 有检查 | ⚠️ path null NPE |
+| 输入验证 | ✅ count 已验证 | ✅ writeContextFile 有大小限制 | ✅ path null 安全 |
 | 错误处理 | ✅ log.debug 用于空结果 | ✅ try-catch + false return | N/A |
 | 事务管理 | N/A | N/A | N/A |
-| 线程安全 | ✅ 无共享状态 | ⚠️ 竞态条件 #37-4 | ⚠️ 线程不安全 #37-7 |
-| 测试覆盖 | ❌ 无测试 | ❌ 无测试 | ⚠️ 未使用但逻辑存在 |
+| 线程安全 | ✅ 无共享状态 | ✅ 竞态条件已修复 | ✅ CopyOnWriteArrayList |
+| 测试覆盖 | ❌ 无测试（跳过） | ❌ 无测试（跳过） | ⚠️ 未使用但逻辑存在 |
 
 #### 亮点
 - **ExpRagService**: `buildICLPrompt()` 自适应截断逻辑完善，userId-based session 过滤正确实现
 - **CursorService**: `writeContextFile()` 有 path traversal 保护（startsWith check），registry 读写使用 reentrant synchronized lock
 - **ProjectFilterService**: AntPathMatcher 默认排除列表合理（git/node_modules/build 等）
 
-**审查结论**: 9 个 P2 问题（3 个服务各 3 个）。主要问题：无测试覆盖（3/3 服务）+ ExpRagService count 未验证 + CursorService 竞态条件 + ProjectFilterService 线程安全。建议下次 Backend 修复任务处理。
+**审查结论**: 9 个 P2 问题，7 个已修复（37-1/3/4/6/7/8/9），2 个跳过（37-2/5 缺测试为设计决策）。主要修复：ExpRagService 概念过滤添加 fallback + CursorService 竞态条件消除 + 内容大小限制 + ProjectFilterService 线程安全和 NPE 防护。

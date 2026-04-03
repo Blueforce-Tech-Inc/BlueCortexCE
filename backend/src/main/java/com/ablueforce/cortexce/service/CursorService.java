@@ -33,6 +33,7 @@ public class CursorService {
 
     private static final Logger log = LoggerFactory.getLogger(CursorService.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final int MAX_CONTEXT_SIZE = 1_000_000; // 1 MB max context size
 
     @Value("${claudemem.data-dir:#{systemProperties['user.home'] + '/.claude-mem'}}")
     private String dataDir;
@@ -93,6 +94,7 @@ public class CursorService {
     /**
      * Get registry with TTL-based caching.
      * Returns cached data if within TTL, otherwise reads from disk.
+     * Cache check and disk read are atomic within the same synchronized block.
      */
     private Map<String, CursorProjectEntry> getRegistryCached() {
         synchronized (registryLock) {
@@ -100,8 +102,39 @@ public class CursorService {
             if (now - cacheTimestamp < CACHE_TTL_MS && !registryCache.isEmpty()) {
                 return new HashMap<>(registryCache);
             }
+            // Cache miss or expired: read from disk while still holding the lock
+            return readRegistryUnlocked();
         }
-        return readRegistry();
+    }
+
+    /**
+     * Read registry from disk without acquiring registryLock.
+     * Must only be called from within a synchronized(registryLock) block.
+     */
+    private Map<String, CursorProjectEntry> readRegistryUnlocked() {
+        Path registryPath = getRegistryPath();
+
+        if (!Files.exists(registryPath)) {
+            registryCache.clear();
+            cacheTimestamp = System.currentTimeMillis();
+            return new HashMap<>();
+        }
+
+        try {
+            String content = Files.readString(registryPath);
+            Map<String, CursorProjectEntry> registry = MAPPER.readValue(content,
+                new TypeReference<Map<String, CursorProjectEntry>>() {});
+
+            // Update cache
+            registryCache.clear();
+            registryCache.putAll(registry);
+            cacheTimestamp = System.currentTimeMillis();
+
+            return new HashMap<>(registry);
+        } catch (IOException e) {
+            log.error("Failed to read cursor registry: {}", e.getMessage());
+            return new HashMap<>();
+        }
     }
 
     /**
@@ -235,6 +268,13 @@ public class CursorService {
         if (workspacePath == null || workspacePath.isBlank()) {
             log.warn("writeContextFile called with null/blank workspacePath");
             return false;
+        }
+        if (context == null) {
+            context = "";
+        }
+        if (context.length() > MAX_CONTEXT_SIZE) {
+            log.warn("Context content ({} chars) exceeds max size {}, truncating", context.length(), MAX_CONTEXT_SIZE);
+            context = context.substring(0, MAX_CONTEXT_SIZE);
         }
         try {
             Path workspace = Paths.get(workspacePath).normalize().toAbsolutePath();
