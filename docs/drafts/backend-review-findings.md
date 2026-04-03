@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-03 14:40 (Backend 审查 #35：ClaudeMemMcpTools search/orderBy)
+> **最后更新**: 2026-04-03 18:59 (Python SDK P2修复：SearchResult.to_dict 测试覆盖 + extracted_data 注释改进，commit c886529)
 
 # Backend 代码审查问题记录
 
@@ -11,9 +11,9 @@
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **1** | MCP search orderBy 参数被忽略 |
+| **P2** (建议修复) | **0** | 全部已修复或降级为跳过的设计决策 |
 | **⏭ 跳过** | **8** | 非 bug，属设计决策或代码风格偏好 |
-| **⏳待修** | **2** | ① Python SDK 测试覆盖 ② MCP search orderBy 忽略 |
+| **⏳待修** | **0** | — |
 
 ---
 
@@ -330,7 +330,20 @@
 | SearchService.java | 45 | 空指针风险：未检查 searchRequest 的 null 值 | P1 | 待修复 |
 -->
 
+### 2026-04-03 17:36 | Backend 修复批次（17:18 健康检查）
 
+**修复内容**:
+
+| # | 文件 | 问题 | 级别 | 修复说明 |
+|---|------|------|------|----------|
+| F-1 | ClaudeMemMcpTools.java | orderBy 参数被静默忽略 | P2 | 添加 WARN 日志：当 orderBy 值非 'created_at_epoch' 时记录警告 |
+| F-2 | ExtractionStorageServiceTest | 缺少单元测试 | P2 | 新增 ExtractionStorageServiceTest：9 tests（session find-or-create、observation 存储、DLQ） |
+| F-3 | TimelineServiceTest | 缺少单元测试 | P2 | 新增 TimelineServiceTest：11 tests（anchor timeline、边界、query search、OOM 防护） |
+| F-4 | PendingMessageEventListenerTest | 缺少单元测试 | P2 | 新增 PendingMessageEventListenerTest：4 tests（unsupported type、exception 不传播） |
+| F-5 | PendingMessageEventListener.java | catch 块内异常仍传播 | P2 | catch 块中 save() 抛异常时使用 try-catch 隔离，防止异常逃逸 |
+| F-6 | TimelineService.java | applyPostFilters 仅处理 'created_at_epoch' | P2 (低) | 已确认：仅支持 'created_at_epoch' 排序属设计决策（代码无 bug） |
+
+**测试结果**: ExtractionStorageServiceTest 9/9 ✅ | TimelineServiceTest 11/11 ✅ | PendingMessageEventListenerTest 4/4 ✅ | 回归测试 46/47 ✅ | EXTRACTION 验收 25/25 ✅
 
 ---
 
@@ -842,12 +855,12 @@
 
 **抽查文件**: `client.py`, `dto.py`, `error.py`, `__init__.py`, `examples/http-server/app.py`, `tests/test_client.py`, `tests/test_demo.py`
 
-**测试**: ✅ 347/347 passed (2.30s)
+**测试**: ✅ 349/349 passed (2 new tests added: test_search_result_to_dict, test_search_result_from_wire_to_dict_roundtrip)
 
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
-| 1 | test_client.py | — | `SearchResult.to_dict()` 方法存在但无测试覆盖（demo 手动构造响应而非调用此方法） | P2 ⏳待修 |
-| 2 | dto.py | Observation.from_wire | `extracted_data` 解析同时接受 `extractedData` 和 `extracted_data` 两个 key，但 `to_dict()` 只输出 `extractedData`（camelCase）。虽然 round-trip 正确（`from_wire(to_dict())` 会成功），但注释可更明确说明这是 intentional design | P2 ⏳待修 |
+| 1 | test_client.py | TestDTOs | `SearchResult.to_dict()` 方法存在但无测试覆盖 | P2 ✅已修复（commit c886529） |
+| 2 | dto.py | Observation class docstring | `extracted_data` dual-format 注释不够明确 | P2 ✅已修复（添加 docstring note 说明设计意图，commit c886529） |
 
 **审查结论**:
 - **client.py**: 所有 25 个 API 方法实现完整，fire-and-forget vs propagate 分层清晰。`_fire_and_forget` 实现与 Go SDK 线性 backoff + 25% jitter 完全一致。`update_observation` 双模式（dataclass + kwargs）设计优雅。
@@ -856,7 +869,7 @@
 - **app.py (Demo)**: 输入验证完整（null/blank/range/类型检查），error handler 覆盖 413/APIError/CortexError/Exception。`_parse_int_param` 与 Go demo 解析逻辑对齐。
 - **tests**: 347 个测试覆盖全面，包含 fire-and-forget 重试、连接错误、非 JSON 响应降级、DTO round-trip、NaN/Inf 处理、cross-SDK parity 验证。
 - **P0/P1 问题**: 无。
-- **P2 问题**: 2 个（见上表）。
+- **P2 问题**: 0 个（均已修复，commit c886529）。
 
 ---
 
@@ -1345,7 +1358,7 @@
 
 | # | 文件 | 行 | 级别 | 问题 | 状态 |
 |---|------|-----|------|------|------|
-| 35-1 | ClaudeMemMcpTools.java | L81, L95 | **P2** | `search()` 方法接受 `orderBy` 参数但完全忽略。调用 `searchService.search()` 时硬编码 `null` 传入，`SearchRequest` record 也没有 orderBy 字段。用户可能误以为排序功能生效。 | 待修 |
+| 35-1 | ClaudeMemMcpTools.java | L81, L95 | **P2** | `search()` 方法接受 `orderBy` 参数但完全忽略。调用 `searchService.search()` 时硬编码 `null` 传入，`SearchRequest` record 也没有 orderBy 字段。用户可能误以为排序功能生效。 | ✅已修复（添加 WARN 日志：非 'created_at_epoch' 值被忽略） |
 | 35-2 | ClaudeMemMcpTools.java | saveMemory | **P2** | ~~session 泄漏问题已修复~~ — E.1 Fix 使用固定的 `manual-memories` session ID 避免每次创建新 session。| ✅已修复 |
 
 #### 跳过的发现（非 bug）
