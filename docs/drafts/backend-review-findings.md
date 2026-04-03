@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-04 03:17 (Backend 审查 #38: ViewerController pagination 计算错误，影响 getObservations/getSummaries/getPrompts 三个端点)
+> **最后更新**: 2026-04-04 04:20 (Backend 审查 #38: ViewerController pagination 计算错误 → 已修复：新增 OffsetPageRequest 实现 true offset-based pagination)
 
 # Backend 代码审查问题记录
 
@@ -11,9 +11,9 @@
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **1** | ViewerController pagination 计算错误 |
+| **P2** (建议修复) | **0** | — |
 | **⏭ 跳过** | **8** | 非 bug，属设计决策或代码风格偏好 |
-| **⏳待修** | **1** | #38-1 ViewerController pagination |
+| **⏳待修** | **0** | — |
 
 ---
 
@@ -1641,7 +1641,7 @@
 
 | # | 文件 | 行 | 级别 | 问题 |
 |---|------|-----|------|------|
-| 38-1 | ViewerController.java | L108,130,152 | **P2** | **Pagination 计算错误** — `PageRequest.of(validatedOffset / validatedLimit, validatedLimit)` 使用整数除法计算 page index。当 `offset < limit` 时（如 offset=5, limit=20），除法结果为 0，导致所有小于 limit 的 offset 值都映射到 page 0。用户请求 offset=5, limit=20 实际返回 items 0-19 而非 items 5-24。影响 getObservations、getSummaries、getPrompts 三个端点。 |
+| 38-1 | ViewerController.java | L108,130,152 | **P2** | **Pagination 计算错误** — `PageRequest.of(validatedOffset / validatedLimit, validatedLimit)` 使用整数除法计算 page index。当 `offset < limit` 时（如 offset=5, limit=20），除法结果为 0，导致所有小于 limit 的 offset 值都映射到 page 0。用户请求 offset=5, limit=20 实际返回 items 0-19 而非 items 5-24。影响 getObservations、getSummaries、getPrompts 三个端点。 | ✅已修复（新增 OffsetPageRequest 类实现 true offset-based pagination，新增 Sort.by DESC("createdAt") 排序） |
 
 #### 代码质量评价
 

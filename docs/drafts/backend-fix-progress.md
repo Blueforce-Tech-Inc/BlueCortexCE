@@ -138,3 +138,22 @@
 
 ### Backend 审查问题状态
 - P0: 0 | P1: 0 | P2 (后端): 0 全部已修复 | 跳过: 6 | ⏳待修 (非后端): 2
+
+---
+
+## 2026-04-04 04:20 | 健康检查+批量修复
+
+### 执行结果
+- 健康检查: ✅ 服务正常
+- 回归测试: ✅ 46/47 通过
+- EXTRACTION 验收: ✅ 25/25 通过
+- Backend P2 批量修复: ✅ 1/1 全部修复
+
+### 修复详情
+
+| # | 文件 | 修复内容 |
+|---|------|---------|
+| 38-1 | ViewerController.java | 新增 OffsetPageRequest 类（dto/OffsetPageRequest.java），实现 true offset-based pagination。修复 getObservations/getSummaries/getPrompts 三个端点的 pagination 计算错误。问题：offset=5, limit=20 时旧代码返回 items 0-19 而非 items 5-24（因为 PageRequest.of(page, size) 不支持 offset 参数，Spring Data 3.3.13 无 withOffset()）。修复：OffsetPageRequest 实现 Pageable 接口，getOffset() 返回独立字段，JPA 生成 LIMIT 20 OFFSET 5 正确 SQL。同时添加 Sort.by(DESC, "createdAt") 排序。 |
+
+### Backend 审查问题状态
+- P0: 0 | P1: 0 | P2 (后端): 0 全部已修复 | 跳过: 8 | ⏳待修: 0
