@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-03 18:59 (Python SDK P2修复：SearchResult.to_dict 测试覆盖 + extracted_data 注释改进，commit c886529)
+> **最后更新**: 2026-04-03 20:32 (Java SDK 审查 #6 + Backend 审查 #36：发现 orderBy 参数被 HTTP 层忽略的 P2 bug，已修复并 commit)
 
 # Backend 代码审查问题记录
 
@@ -1507,3 +1507,59 @@
 | JS | Express http-server (463 行, 26 endpoints) | ✅ |
 
 **审查结论**: 所有 Demo 代码质量优秀，无 P0/P1/P2 问题。最近修改的 Java Demo 文件 (04-02~04-03) 输入验证完整，错误处理规范，与 SDK 接口对齐正确。
+
+---
+
+### 2026-04-03 20:30 | Java SDK 审查 #6 + Backend 审查 #36
+
+**审查方向**: Java SDK (cortex-mem-spring-integration) + Backend (ViewerController SearchRequest orderBy)
+
+**审查范围**:
+- `SearchRequest.java` — SDK DTO 设计
+- `ObservationsRequest.java` — SDK DTO 设计
+- `QualityDistribution.java` — SDK DTO 设计
+- `CortexMemoryTools.java` — Spring AI Tools (5 tool 方法)
+- `CortexMemoryAdvisor.java` — Spring AI Advisor
+- `CortexMemClientImpl.java` — REST 实现 + search 方法
+- `ViewerController.java` — GET /api/search orderBy 参数处理
+
+**编译验证**: ✅ Java SDK BUILD SUCCESS, Backend BUILD SUCCESS
+**测试验证**: ✅ Java SDK 117 tests (33 DTO + 84 Client) 全部通过
+**回归测试**: ✅ 46/46 passed
+
+#### 发现的问题
+
+| # | 文件 | 行 | 级别 | 问题 | 状态 |
+|---|------|-----|------|------|------|
+| 36-1 | ViewerController.java | L271 | **P2** | `orderBy` HTTP 请求参数被接受但传入 `null` 到 `SearchService.SearchRequest`，用户指定的排序被静默忽略。SearchService.applyPostFilters 已支持 `created_at_epoch` 排序，但 HTTP 层未传递该参数 | ✅已修复（commit 8f83afb：改为传递 orderBy 参数） |
+| 36-2 | ViewerController.java | L253 Swagger 注释 | **文档** | Swagger 注释称 "not yet fully implemented"，但实际上 SearchService 已完整实现 orderBy 支持 | ✅已修复（更新注释说明实际支持情况） |
+
+#### Java SDK 审查结论
+
+| 检查项 | SearchRequest DTO | ObservationsRequest DTO | QualityDistribution | CortexMemoryTools | CortexMemoryAdvisor |
+|--------|-------------------|------------------------|--------------------|--------------------|--------------------|
+| DTO 设计 | ✅ Builder 模式 + 必填字段检查 | ✅ Builder 模式 | ✅ @JsonIgnoreProperties | N/A | N/A |
+| 字段覆盖 | ✅ 核心参数 (project/query/type/concept/source/limit/offset) | ✅ project/offset/limit | ✅ 5 个字段 | N/A | N/A |
+| orderBy 支持 | ⚠️ SDK 未暴露 orderBy（SDK 用户使用默认排序，advanced 用户走 MCP 或直接 REST） | N/A | N/A | N/A | N/A |
+| Spring AI 集成 | N/A | N/A | N/A | ✅ 5 工具方法完整 (searchMemories/getMemoryContext/updateMemory/deleteMemory + 1 private) | ✅ CallAdvisor + StreamAdvisor |
+| 错误处理 | N/A | N/A | N/A | ✅ try-catch + 用户友好的错误消息返回 | ✅ try-catch + request passthrough |
+| 搜索实现 | N/A | N/A | N/A | N/A | ✅ ICL prompt 注入 + prompt capture |
+
+**亮点**:
+- CortexMemoryTools: 5 个 @Tool 方法，@ToolParam description 详细，null/blank 输入保护完善
+- CortexMemoryAdvisor: 正确处理 Spring AI ChatMemory.CONVERSATION_ID + CortexSessionContext 两种 session 来源
+- SDK search: 仅发送 > 0 的 offset/limit（避免覆盖 backend 默认值）
+- 全部 117 个 SDK 单元测试通过
+
+**无 P0/P1 问题**。
+
+#### Backend orderBy 修复详情
+
+**修复前**: ViewerController 接受 `?orderBy=created_at_epoch` 但传入 `null` 到 SearchService
+**修复后**: 直接传递 `orderBy` 到 SearchService.SearchRequest，SearchService.applyPostFilters 执行实际的 created_at_epoch 降序排序
+
+**同时 commit** (253caaf):
+- SearchService.filterSearch 重构：fetch limit*2 结果，通过 applyPostFilters 统一处理 orderBy/offset/limit
+- ClaudeMemMcpTools：传递 orderBy 到 SearchService（修复之前记录的 #35-1 P2 问题）
+- PendingMessageEventListener：改进 catch 块异常隔离（save() 异常单独捕获）
+- TimelineService：更新 SearchRequest 构造器签名
