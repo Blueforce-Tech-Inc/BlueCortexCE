@@ -223,7 +223,7 @@ public class ViewerController {
      * GET /api/search — semantic search endpoint.
      * <p>
      * Supports offset for filter-only and post-filtered semantic paths.
-     * orderBy is accepted for MCP client compatibility but not yet implemented.
+     * orderBy is accepted for MCP client compatibility (supports: `created_at_epoch`).
      */
     @GetMapping("/search")
     @Operation(summary = "Semantic search observations",
