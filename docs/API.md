@@ -2271,6 +2271,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-03 | 0.1.0-beta+20 | Start Session response example: corrected `sessionId`→`session_id` (application uses SNAKE_CASE naming strategy, actual wire format is `session_id` not `sessionId`); synced Chinese version |
 | 2026-04-03 | 0.1.0-beta+21 | Start Session response example: corrected JSON field order to match DTO record definition (`session_id` first, then `context`, then `updateFiles`); both EN and ZH updated; added changelog entry |
 | 2026-04-03 | 0.1.0-beta+22 | Mode: corrected PUT `/api/modes` HTTP method (was POST→PUT, matching `@PutMapping`); corrected request body field `mode`→`modeId` (matching ModeSwitchRequest inner record field); corrected GET `/api/modes` response `id`→`mode_id`; corrected PUT `/api/modes` response format to match ModeResponse DTO (`mode_id`/name/description/version/observation_types/observation_concepts); synced Chinese version |
+| 2026-04-04 | 0.1.0-beta+23 | Search `orderBy` parameter: updated description from "accepted for MCP compatibility, not yet fully implemented" to "supports: `created_at_epoch` for MCP compatibility" (code implements this); synced Chinese version; Chinese Batch Get Observations: added parameter table (ids/project/orderBy/limit) to match English version |
 
 ---
 

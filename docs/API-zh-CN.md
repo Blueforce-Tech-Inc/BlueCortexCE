@@ -930,7 +930,7 @@ curl http://localhost:37777/api/processing-status
 | `source` | string | ❌ | 来源过滤（如 `manual`、`auto`） |
 | `limit` | int | 20 | 结果数量 |
 | `offset` | int | 0 | 偏移量 |
-| `orderBy` | string | null | 排序字段 |
+| `orderBy` | string | ❌ | 排序字段（支持：`created_at_epoch`，用于 MCP 兼容性） |
 
 **请求示例**:
 ```bash
@@ -1000,6 +1000,13 @@ curl "http://localhost:37777/api/search/by-file?project=/Users/dev/myproject&fil
   "limit": 100
 }
 ```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `ids` | string[] | ✅ | 要获取的观察 UUID 列表 |
+| `project` | string | ❌ | 可选的项目过滤器 |
+| `orderBy` | string | ❌ | 排序字段（如 `created_at_epoch`） |
+| `limit` | int | ❌ | 最大返回结果数 |
 
 **响应示例**:
 ```json
@@ -2169,6 +2176,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-03 | 0.1.0-beta+20 | Start Session 响应示例字段名修正 `sessionId`→`session_id`（应用使用 SNAKE_CASE 命名策略，实际 wire format 为 `session_id` 而非 `sessionId`）；与英文版同步 |
 | 2026-04-03 | 0.1.0-beta+21 | Start Session 响应示例字段顺序修正——`session_id` 应为第一字段（与 DTO record 定义一致），随后是 `context`、`updateFiles`、`session_db_id`、`prompt_number`；中英文两版同步更新；补充 changelog 条目 |
 | 2026-04-03 | 0.1.0-beta+22 | Mode: 修正 PUT `/api/modes` HTTP 方法（POST→PUT，与 `@PutMapping` 一致）；修正请求体字段 `mode`→`modeId`（与 ModeSwitchRequest 内部 record 字段一致）；修正 GET `/api/modes` 响应 `id`→`mode_id`；修正 PUT `/api/modes` 响应格式为 ModeResponse DTO（`mode_id`/name/description/version/observation_types/observation_concepts）；与英文版同步 |
+| 2026-04-04 | 0.1.0-beta+23 | Search 端点 `orderBy` 字段描述更新为"支持：`created_at_epoch`，用于 MCP 兼容性"（与英文版同步，后端代码已实现）；Batch Get Observations 章节补充参数表（ids/project/orderBy/limit 四个字段），与英文版一致 |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---
