@@ -296,7 +296,14 @@ class ObservationUpdate:
 
 @dataclass
 class Observation:
-    """A single observation record."""
+    """A single observation record.
+
+    .. wire-format note::
+       ``extracted_data`` is accepted in **both** camelCase (``extractedData``) and
+       snake_case (``extracted_data``) from the backend, but ``to_dict()`` always
+       emits ``extractedData`` (camelCase) to match the server's ``@JsonProperty``.
+       This round-trip is intentional: ``from_wire(to_dict())`` is always a no-op.
+    """
 
     id: str = ""
     session_id: str = ""

@@ -1209,6 +1209,33 @@ class TestDTOs:
         assert "feedback_updated_at" not in d
         assert "last_accessed_at" not in d
 
+    def test_search_result_to_dict(self):
+        """SearchResult.to_dict() serializes all fields including observations."""
+        from cortex_mem.dto import Observation, SearchResult
+        obs1 = Observation(id="o1", session_id="s1", project_path="/p", type="fact", content="content1")
+        obs2 = Observation(id="o2", session_id="s2", project_path="/p", type="feature", content="content2")
+        sr = SearchResult(observations=[obs1, obs2], strategy="semantic", fell_back=True, count=2)
+        d = sr.to_dict()
+        assert len(d["observations"]) == 2
+        assert d["observations"][0]["id"] == "o1"
+        assert d["observations"][1]["id"] == "o2"
+        assert d["strategy"] == "semantic"
+        assert d["fell_back"] is True
+        assert d["count"] == 2
+
+    def test_search_result_from_wire_to_dict_roundtrip(self):
+        """SearchResult.from_wire(to_dict()) is a lossless round-trip."""
+        from cortex_mem.dto import Observation, SearchResult
+        obs = Observation(id="o1", session_id="s1", project_path="/p", type="fact", content="test")
+        original = SearchResult(observations=[obs], strategy="filter", fell_back=False, count=1)
+        wire = original.to_dict()
+        restored = SearchResult.from_wire(wire)
+        assert restored.count == original.count
+        assert restored.strategy == original.strategy
+        assert restored.fell_back == original.fell_back
+        assert len(restored.observations) == 1
+        assert restored.observations[0].id == "o1"
+
 
 # ==================== Error Module ====================
 
