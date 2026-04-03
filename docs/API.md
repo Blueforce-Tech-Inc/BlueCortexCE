@@ -918,7 +918,7 @@ GET /api/search?project=/path/to/project&query=search+terms&limit=10&type=bugfix
 | `source` | string | ❌ | — | Filter by source (e.g., `manual`, `auto`) |
 | `limit` | int | ❌ | 20 | Max results (max 100) |
 | `offset` | int | ❌ | 0 | Pagination offset |
-| `orderBy` | string | ❌ | — | Order by field (accepted for MCP compatibility, not yet fully implemented) |
+| `orderBy` | string | ❌ | — | Order by field (supports: `created_at_epoch` for MCP compatibility) |
 
 **Request Example**:
 ```bash
