@@ -1446,3 +1446,51 @@
 | 构建 | ✅ CJS + ESM + DTS | N/A |
 | Backend 兼容 | ✅ 所有端点字段名一致 | ✅ extractedData 验证 |
 
+
+---
+
+### 2026-04-03 16:26 | Demo 审查 #5
+
+**审查方向**: Demo (Java / Go / Python / JS http-server demos)
+
+**审查范围**:
+- Java: ExtractionController, SearchController, ObservationsController, SessionLifecycleController, ManagementController, MemoryController (最近修改的文件)
+- Go: http-server/main.go (884 行)
+- Python: http-server/app.py (635 行)
+- JS: http-server/app.ts (463 行)
+
+**健康检查**: ✅ `curl -s http://127.0.0.1:37777/api/health` → `{"service":"claude-mem-java","status":"ok"}`
+
+**编译验证**: ✅ `mvn compile -Plocal` → BUILD SUCCESS (仅有 guice deprecation warnings)
+
+**发现问题**: 无 P0/P1/P2 问题。
+
+#### 代码质量评价
+
+| 检查项 | Java Demo | Go Demo | Python Demo | JS Demo |
+|--------|-----------|---------|-------------|---------|
+| 编译/语法 | ✅ MVN BUILD SUCCESS | ✅ go build | ✅ Python 3.11 valid | ✅ TypeScript |
+| 输入验证 | ✅ 完整 (null/blank/range) | ✅ 完整 | ✅ 完整 | ✅ 完整 |
+| 错误处理 | ✅ try-catch + 500 | ✅ error check + JSON | ✅ Flask handlers | ✅ asyncHandler |
+| 端点覆盖率 | ✅ 10 控制器 | ✅ 28 endpoints | ✅ 25+ endpoints | ✅ 26 endpoints |
+| 特殊功能 | ✅ CortexSessionContext | ✅ panic recovery | ✅ MAX_CONTENT_LENGTH | ✅ express.json limit |
+| 最近修改 | ✅ 04-02~04-03 | ✅ (之前审查) | ✅ (之前审查) | ✅ (之前审查) |
+
+#### Java Demo 最近修改亮点
+
+- **ExtractionController**: `userId` blank normalization 为 null（SDK 省略参数），limit 0-100 范围验证
+- **SearchController**: `SearchRequest.builder()` 正确映射 `observationType` → `type` 字段
+- **ObservationsController**: `limit=0` 表示"使用 backend 默认"（与 Python/JS Demo 一致）
+- **SessionLifecycleController**: 正确使用 `CortexSessionContext.begin()`/`end()` 上下文管理
+- **MemoryController**: `count > 0 ? count : 4` 默认值处理，ICL truncation 有详细注释
+
+#### Demo 审查总覆盖率
+
+| SDK | Demo | 状态 |
+|-----|------|------|
+| Java | 10 控制器 (Extraction, Search, Observations, SessionLifecycle, Management, Memory, Chat, Ingest, Feedback, Projects) | ✅ |
+| Go | 5 demos (basic, http-server, eino, genkit, langchaingo) | ✅ |
+| Python | Flask http-server (635 行) | ✅ |
+| JS | Express http-server (463 行, 26 endpoints) | ✅ |
+
+**审查结论**: 所有 Demo 代码质量优秀，无 P0/P1/P2 问题。最近修改的 Java Demo 文件 (04-02~04-03) 输入验证完整，错误处理规范，与 SDK 接口对齐正确。
