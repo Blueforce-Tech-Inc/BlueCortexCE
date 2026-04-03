@@ -1,44 +1,44 @@
-> 中文版: [README-zh-CN.md](./README-zh-CN.md)
+> English version: [README.md](./README.md)
 
 # Cortex Memory Spring Integration
 
-A drop-in Spring Boot / Spring AI integration library for the **Cortex CE** memory system. Adds persistent context and experience-based retrieval (ExpRAG) to your AI agents with minimal code changes.
+**Cortex CE** 记忆系统的 Spring Boot / Spring AI 一体化集成库。无需大量代码修改，即可为 AI 代理添加持久化上下文和基于经验检索（ExpRAG）。
 
-## Overview
+## 概述
 
-Cortex CE is a memory backend that stores agent observations, generates summaries, and provides semantic retrieval. This library enables Spring AI applications to:
+Cortex CE 是一个记忆后端，用于存储代理观察结果、生成摘要并提供语义检索。本库使 Spring AI 应用能够：
 
-- **Capture** — Record tool executions, user prompts, and session events into the memory system
-- **Retrieve** — Fetch relevant historical experiences for In-Context Learning (ICL)
-- **Evolve** — Trigger memory refinement and submit quality feedback
+- **捕获** — 将工具执行、用户提示和会话事件记录到记忆系统
+- **检索** — 获取相关的历史经验用于上下文学习（ICL）
+- **演进** — 触发记忆优化并提交质量反馈
 
-## Features
+## 特性
 
-| Feature | Description |
-|---------|-------------|
-| **One-line integration** | `@EnableCortexMem` + configuration properties |
-| **Fire-and-forget capture** | Non-blocking, failure-tolerant recording of observations |
-| **Spring AI Advisor** | Automatic ICL context injection into ChatClient calls |
-| **CortexMemoryTools** | On-demand memory retrieval tools (`searchMemories`, `getMemoryContext`) — opt-in |
-| **@Tool auto-capture** | AOP aspect intercepts `@Tool` methods and records executions |
-| **Session context** | ThreadLocal-based session and project scope |
-| **Health indicator** | Actuator integration for monitoring the memory backend |
-| **328 unit tests** | Comprehensive coverage across client, advisor, tools, and auto-config layers |
+| 特性 | 说明 |
+|------|------|
+| **一行集成** | `@EnableCortexMem` + 配置属性 |
+| **即发即忘捕获** | 非阻塞、容错的观察记录 |
+| **Spring AI Advisor** | 自动将 ICL 上下文注入 ChatClient 调用 |
+| **CortexMemoryTools** | 按需记忆检索工具（`searchMemories`、`getMemoryContext`）—— 可选启用 |
+| **@Tool 自动捕获** | AOP 切面拦截 `@Tool` 方法并记录其执行 |
+| **会话上下文** | 基于 ThreadLocal 的会话和项目作用域 |
+| **健康检查指示器** | 用于监控记忆后端的 Actuator 集成 |
+| **328 个单元测试** | 覆盖客户端、Advisor、工具和自动配置各层 |
 
-## Requirements
+## 环境要求
 
 - **Java 21+**
 - **Spring Boot 3.3.x**
-- **Spring AI 1.1.x** (optional, for Advisor integration)
-- **Cortex CE backend** running (default: `http://localhost:37777`)
+- **Spring AI 1.1.x**（可选，用于 Advisor 集成）
+- **Cortex CE 后端** 运行中（默认：`http://localhost:37777`）
 
-## Installation
+## 安装
 
-We recommend using [JitPack](https://jitpack.io/#Blueforce-Tech-Inc/BlueCortexCE) for pre-built artifacts. Visit the JitPack page to see available versions (release tags, branch names, or commit hashes).
+推荐使用 [JitPack](https://jitpack.io/#Blueforce-Tech-Inc/BlueCortexCE) 获取预构建产物。访问 JitPack 页面查看可用版本（发布标签、分支名或提交哈希）。
 
-### Maven (JitPack)
+### Maven（JitPack）
 
-Add the JitPack repository and dependency to your `pom.xml`:
+在 `pom.xml` 中添加 JitPack 仓库和依赖：
 
 ```xml
 <repositories>
@@ -49,7 +49,7 @@ Add the JitPack repository and dependency to your `pom.xml`:
 </repositories>
 
 <dependencies>
-    <!-- Full integration: cortex-mem-starter (client + Spring AI + auto-config) -->
+    <!-- 完整集成：cortex-mem-starter（客户端 + Spring AI + 自动配置） -->
     <dependency>
         <groupId>com.github.Blueforce-Tech-Inc</groupId>
         <artifactId>BlueCortexCE</artifactId>
@@ -58,18 +58,18 @@ Add the JitPack repository and dependency to your `pom.xml`:
 </dependencies>
 ```
 
-Replace `Tag` with a release tag (e.g. `v1.0.0`), branch name (e.g. `main`), or commit hash. See [JitPack build history](https://jitpack.io/#Blueforce-Tech-Inc/BlueCortexCE) for available versions. For a working example, see [examples/cortex-mem-demo](../examples/cortex-mem-demo).
+将 `Tag` 替换为发布标签（如 `v1.0.0`）、分支名（如 `main`）或提交哈希。参见 [JitPack 构建历史](https://jitpack.io/#Blueforce-Tech-Inc/BlueCortexCE) 查看可用版本。使用示例参见 [examples/cortex-mem-demo](../examples/cortex-mem-demo)。
 
-### Maven (Local build)
+### Maven（本地构建）
 
-To build and install from source:
+从源码构建并安装：
 
 ```bash
 cd cortex-mem-spring-integration
 mvn clean install -DskipTests
 ```
 
-Then add the local dependency:
+然后添加本地依赖：
 
 ```xml
 <dependency>
@@ -79,7 +79,7 @@ Then add the local dependency:
 </dependency>
 ```
 
-### Gradle (Kotlin DSL)
+### Gradle（Kotlin DSL）
 
 ```kotlin
 repositories {
@@ -91,13 +91,13 @@ dependencies {
 }
 ```
 
-Replace `Tag` with a release tag, branch name, or commit hash (see [JitPack](https://jitpack.io/#Blueforce-Tech-Inc/BlueCortexCE)).
+将 `Tag` 替换为发布标签、分支名或提交哈希（参见 [JitPack](https://jitpack.io/#Blueforce-Tech-Inc/BlueCortexCE)）。
 
-## Quick Start
+## 快速开始
 
-### Step 1: Add the dependency (above)
+### 第一步：添加依赖（上文）
 
-### Step 2: Configure
+### 第二步：配置
 
 ```yaml
 # application.yml
@@ -107,7 +107,7 @@ cortex:
     project-path: /path/to/your/project
 ```
 
-### Step 3: Enable
+### 第三步：启用
 
 ```java
 @SpringBootApplication
@@ -119,9 +119,9 @@ public class MyAiApplication {
 }
 ```
 
-### Step 4: Use ChatClient (memory-augmented)
+### 第四步：使用 ChatClient（记忆增强）
 
-`CortexMemoryAdvisor` is auto-configured when you use `cortex-mem-starter` with Spring AI on the classpath. Inject it and add it to your ChatClient:
+当 `cortex-mem-starter` 在 classpath 中且使用 Spring AI 时，`CortexMemoryAdvisor` 会自动配置。注入并添加到 ChatClient：
 
 ```java
 @RestController
@@ -145,24 +145,24 @@ class AiController {
 }
 ```
 
-Each request automatically **retrieves** relevant experiences (ICL context injection). User prompts are **auto-captured** only when `capture-user-prompt-enabled=true` and a session ID is available (see below).
+每次请求自动**检索**相关经验（ICL 上下文注入）。用户提示的**自动捕获**仅在 `capture-user-prompt-enabled=true` 且会话 ID 可用时生效（见下文）。
 
-**For user prompt capture**, provide a session ID via either method. Without it, retrieval works but prompts are not recorded:
+**关于用户提示捕获**，通过以下任一方式提供会话 ID。否则检索功能正常但不会记录提示：
 
-Session ID resolution (aligned with Spring AI `ChatMemory.CONVERSATION_ID`). When `context-bridge-enabled=true` (default), `CortexSessionContextBridgeAdvisor` auto activates context:
+会话 ID 解析（与 Spring AI `ChatMemory.CONVERSATION_ID` 对齐）。当 `context-bridge-enabled=true`（默认）时，`CortexSessionContextBridgeAdvisor` 自动激活上下文：
 
-1. **Spring AI conversation ID** — set via `.advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, id))`
-2. **CortexSessionContext** — fallback when wrapping with `begin`/`end`
+1. **Spring AI 会话 ID** — 通过 `.advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, id))` 设置
+2. **CortexSessionContext** — 用 `begin`/`end` 包装时的后备方案
 
 ```java
-// Option A: Spring AI conversation ID (aligns with MessageChatMemoryAdvisor)
+// 选项 A：Spring AI 会话 ID（与 MessageChatMemoryAdvisor 对齐）
 chatClient.prompt()
     .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, conversationId))
     .user(message)
     .call()
     .content();
 
-// Option B: CortexSessionContext
+// 选项 B：CortexSessionContext
 CortexSessionContext.begin(sessionId, projectPath);
 try {
     CortexSessionContext.incrementAndGetPromptNumber();
@@ -170,26 +170,26 @@ try {
 } finally { CortexSessionContext.end(); }
 ```
 
-## Configuration
+## 配置
 
-All properties are under `cortex.mem`:
+所有属性都在 `cortex.mem` 下：
 
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| `base-url` | String | `http://localhost:37777` | Cortex CE backend URL |
-| `project-path` | String | — | Project path (for memory isolation) |
-| `connect-timeout` | Duration | `10s` | HTTP connect timeout |
-| `read-timeout` | Duration | `30s` | HTTP read timeout |
-| `default-experience-count` | int | `4` | Max experiences per retrieval |
-| `capture-enabled` | boolean | `true` | Enable @Tool observation capture (CortexToolAspect) |
-| `capture-user-prompt-enabled` | boolean | `true` | Enable user prompt auto-capture (CortexMemoryAdvisor). Independent of capture-enabled. |
-| `retrieval-enabled` | boolean | `true` | Enable memory retrieval |
-| `memory-tools-enabled` | boolean | `false` | Create CortexMemoryTools bean. Tools are not auto-injected — add via `ChatClient.defaultTools(cortexMemoryTools)`. |
-| `context-bridge-enabled` | boolean | `true` | Create CortexSessionContextBridgeAdvisor. When CONVERSATION_ID is set, auto begin/end CortexSessionContext so @Tool capture works without manual context. |
-| `retry.max-attempts` | int | `3` | Retry attempts for capture calls |
-| `retry.backoff` | Duration | `500ms` | Base backoff between retries |
+| 属性 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `base-url` | String | `http://localhost:37777` | Cortex CE 后端 URL |
+| `project-path` | String | — | 项目路径（用于记忆隔离） |
+| `connect-timeout` | Duration | `10s` | HTTP 连接超时 |
+| `read-timeout` | Duration | `30s` | HTTP 读取超时 |
+| `default-experience-count` | int | `4` | 每次检索的最大经验数 |
+| `capture-enabled` | boolean | `true` | 启用 @Tool 观察捕获（CortexToolAspect） |
+| `capture-user-prompt-enabled` | boolean | `true` | 启用用户提示自动捕获（CortexMemoryAdvisor）。与 capture-enabled 独立。 |
+| `retrieval-enabled` | boolean | `true` | 启用记忆检索 |
+| `memory-tools-enabled` | boolean | `false` | 创建 CortexMemoryTools bean。工具不会自动注入——需通过 `ChatClient.defaultTools(cortexMemoryTools)` 添加。 |
+| `context-bridge-enabled` | boolean | `true` | 创建 CortexSessionContextBridgeAdvisor。当设置 CONVERSATION_ID 时，自动 begin/end CortexSessionContext，使 @Tool 捕获无需手动管理上下文。 |
+| `retry.max-attempts` | int | `3` | 捕获调用的重试次数 |
+| `retry.backoff` | Duration | `500ms` | 重试间隔基数 |
 
-### Environment Variables
+### 环境变量
 
 ```bash
 CORTEX_MEM_BASE_URL=http://localhost:37777
@@ -198,7 +198,7 @@ CORTEX_MEM_CAPTURE_ENABLED=true
 CORTEX_MEM_CAPTURE_USER_PROMPT_ENABLED=true
 ```
 
-## Architecture
+## 架构
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -207,7 +207,7 @@ CORTEX_MEM_CAPTURE_USER_PROMPT_ENABLED=true
 │  ┌────────────────────────────────────────────────────────────┐  │
 │  │              Cortex Memory Integration Layer               │  │
 │  │  ┌─────────────────────┐    ┌──────────────────────────┐  │  │
-│  │  │ CortexToolAspect     │    │ CortexMemoryAdvisor      │  │  │
+│  │  │ CortexToolAspect     │    │ CortexMemoryAdvisor        │  │  │
 │  │  │ (@Tool capture)      │    │ (ICL + user-prompt cap)  │  │  │
 │  │  └──────────┬──────────┘    └────────────┬─────────────┘  │  │
 │  │             │                              │                │  │
@@ -227,13 +227,13 @@ CORTEX_MEM_CAPTURE_USER_PROMPT_ENABLED=true
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Usage Patterns
+## 使用模式
 
-### 1. On-Demand Memory Tools (CortexMemoryTools)
+### 1. 按需记忆工具（CortexMemoryTools）
 
-When `memory-tools-enabled=true`, a `CortexMemoryTools` bean is created. Add it to your ChatClient for on-demand retrieval — the AI decides when to call `searchMemories` or `getMemoryContext`.
+当 `memory-tools-enabled=true` 时，会创建一个 `CortexMemoryTools` bean。将其添加到 ChatClient 以实现按需检索——由 AI 决定何时调用 `searchMemories` 或 `getMemoryContext`。
 
-**Not auto-injected**: Tools are never added to ChatClient by default. You must explicitly call `defaultTools(cortexMemoryTools)`.
+**不会自动注入**：默认情况下工具不会添加到 ChatClient。必须显式调用 `defaultTools(cortexMemoryTools)`。
 
 ```yaml
 # application.yml
@@ -249,20 +249,20 @@ public ChatClient chatClient(ChatClient.Builder builder,
                              CortexMemoryTools memoryTools) {
     return builder
         .defaultAdvisors(advisor)
-        .defaultTools(memoryTools)  // explicit opt-in
+        .defaultTools(memoryTools)  // 显式 opt-in
         .build();
 }
 ```
 
-Available tools:
-- `searchMemories(task, count?)` — Search for relevant past experiences
-- `getMemoryContext(task)` — Get ICL-formatted memory prompt
+可用工具：
+- `searchMemories(task, count?)` — 搜索相关的过去经验
+- `getMemoryContext(task)` — 获取 ICL 格式的记忆提示
 
-### 2. Automatic @Tool Capture (AOP)
+### 2. 自动 @Tool 捕获（AOP）
 
-When `capture-enabled=true` and Spring AOP is on the classpath, any `@Tool`-annotated method is intercepted and its input/output is sent to the memory backend.
+当 `capture-enabled=true` 且 Spring AOP 在 classpath 上时，任何带 `@Tool` 注解的方法都会被拦截，其输入/输出会被发送到记忆后端。
 
-**Important**: The `@Tool` method must be in a **separate `@Component`** bean. Self-invocation (calling `this.readFile()` from the same class) bypasses Spring AOP and will not be captured.
+**重要**： `@Tool` 方法必须在**单独的 `@Component`** bean 中。同类自调用（从同一类中调用 `this.readFile()`）会绕过 Spring AOP，不会被捕获。
 
 ```java
 @Component
@@ -274,18 +274,18 @@ class MyTools {
 }
 ```
 
-Ensure a session context is active:
+确保会话上下文处于活跃状态：
 
 ```java
 CortexSessionContext.begin(sessionId, projectPath);
 try {
-    // ... run agent with tools
+    // ... 使用工具运行代理
 } finally {
     CortexSessionContext.end();
 }
 ```
 
-### 3. Manual Capture
+### 3. 手动捕获
 
 ```java
 @Service
@@ -312,7 +312,7 @@ class MyAgentService {
 }
 ```
 
-### 4. Manual Retrieval (Without Advisor)
+### 4. 手动检索（不使用 Advisor）
 
 ```java
 @Service
@@ -334,7 +334,7 @@ class MyAgentService {
 }
 ```
 
-### 5. Direct Client Access
+### 5. 直接客户端访问
 
 ```java
 @Component
@@ -355,80 +355,80 @@ class CustomService {
 }
 ```
 
-## Modules
+## 模块
 
-| Module | Description |
-|--------|-------------|
-| **cortex-mem-client** | REST client, DTOs, configuration properties. No Spring AI dependency. |
-| **cortex-mem-spring-ai** | Advisor, capture/retrieval services, AOP aspect. Depends on Spring AI and client. |
-| **cortex-mem-starter** | Spring Boot auto-configuration, `@EnableCortexMem`, health indicator. Depends on both above. |
+| 模块 | 说明 |
+|------|------|
+| **cortex-mem-client** | REST 客户端、DTO、配置属性。无 Spring AI 依赖。 |
+| **cortex-mem-spring-ai** | Advisor、捕获/检索服务、AOP 切面。依赖 Spring AI 和 client。 |
+| **cortex-mem-starter** | Spring Boot 自动配置、`@EnableCortexMem`、健康检查指示器。依赖上述两个模块。 |
 
-## Phase 3: Multi-User & Structured Extraction
+## Phase 3：多用户与结构化提取
 
-### userId Support
+### userId 支持
 
-Create sessions with optional `userId` for multi-user memory isolation:
+创建带可选 `userId` 的会话以实现多用户记忆隔离：
 
 ```java
-// Session with userId
+// 带 userId 的会话
 Map<String, Object> result = client.startSession(SessionStartRequest.builder()
     .sessionId("conv-123")
     .projectPath("/my-project")
-    .userId("alice")  // Phase 3: multi-user identifier
+    .userId("alice")  // Phase 3：多用户标识符
     .build());
 
-// Update userId on existing session (late binding)
+// 更新现有会话的 userId（延迟绑定）
 client.updateSessionUserId("conv-123", "bob");
 ```
 
-### Structured Extraction Query
+### 结构化提取查询
 
-Query LLM-extracted structured data by template name:
+按模板名查询 LLM 提取的结构化数据：
 
 ```java
-// Get latest extraction for a user
+// 获取用户的最新提取结果
 Map<String, Object> extraction = client.getLatestExtraction(
     "/my-project", "user_preference", "alice");
-// Returns: {"preferences": [{"category":"phone_brand","value":"小米","sentiment":"positive"}]}
+// 返回：{"preferences": [{"category":"phone_brand","value":"小米","sentiment":"positive"}]}
 
-// Get extraction history (all snapshots)
+// 获取提取历史（所有快照）
 List<Map<String, Object>> history = client.getExtractionHistory(
     "/my-project", "user_preference", "alice", 10);
 
-// Manually trigger extraction
+// 手动触发提取
 client.triggerExtraction("/my-project");
 ```
 
-### ICL with userId
+### 带 userId 的 ICL
 
-Build ICL prompts scoped to a specific user's extracted data:
+构建限定于特定用户提取数据的 ICL 提示：
 
 ```java
 ICLPromptResult result = client.buildICLPrompt(ICLPromptRequest.builder()
     .task("推荐手机")
     .project("/my-project")
-    .userId("alice")  // Phase 3: user-scoped context
+    .userId("alice")  // Phase 3：用户作用域上下文
     .maxChars(2000)
     .build());
 ```
 
-### Experiences with userId
+### 带 userId 的 Experiences
 
 ```java
 List<Experience> experiences = client.retrieveExperiences(
     ExperienceRequest.builder()
         .task("推荐手机")
         .project("/my-project")
-        .userId("alice")  // Phase 3: user-filtered
+        .userId("alice")  // Phase 3：用户过滤
         .count(4)
         .build());
 ```
 
-## V14 Features
+## V14 功能
 
-### Source Attribution
+### 来源归属
 
-Track the origin of each observation with the `source` field:
+使用 `source` 字段跟踪每个观察结果的来源：
 
 ```java
 client.recordObservation(ObservationRequest.builder()
@@ -436,13 +436,13 @@ client.recordObservation(ObservationRequest.builder()
     .projectPath(projectPath)
     .toolName("search")
     .toolInput(Map.of("query", "Spring AI memory"))
-    .source("tool_result")  // V14: source attribution
+    .source("tool_result")  // V14：来源归属
     .build());
 ```
 
-### Structured Data Extraction
+### 结构化数据提取
 
-Store structured key-value data with `extractedData`:
+使用 `extractedData` 存储结构化键值数据：
 
 ```java
 client.recordObservation(ObservationRequest.builder()
@@ -450,7 +450,7 @@ client.recordObservation(ObservationRequest.builder()
     .projectPath(projectPath)
     .toolName("user_preference")
     .source("user_statement")
-    .extractedData(Map.of(  // V14: structured key-value data
+    .extractedData(Map.of(  // V14：结构化键值数据
         "price_range", "3000",
         "brands", List.of("sony", "bose"),
         "category", "headphones"
@@ -458,73 +458,73 @@ client.recordObservation(ObservationRequest.builder()
     .build());
 ```
 
-### Adaptive Truncation (maxChars)
+### 自适应截断（maxChars）
 
-Control ICL prompt size based on your model's context window:
+根据模型的上下文窗口大小控制 ICL 提示大小：
 
 ```java
-// Configure based on your model's context window
-// 128K models: 8000-12000 chars
-// 32K models: 4000-6000 chars
-// 8K models: 2000-3000 chars
+// 根据模型的上下文窗口配置
+// 128K 模型：8000-12000 字符
+// 32K 模型：4000-6000 字符
+// 8K 模型：2000-3000 字符
 
 ICLPromptResult result = client.buildICLPrompt(ICLPromptRequest.builder()
     .task("fix login bug")
     .project("/my-project")
-    .maxChars(4000)  // V14: adaptive truncation
+    .maxChars(4000)  // V14：自适应截断
     .build());
 ```
 
-### Source & Concept Filtering
+### 来源和概念过滤
 
-Filter experiences by source or required concepts:
+按来源或必需概念过滤经验：
 
 ```java
-// Filter by source attribution
+// 按来源归属过滤
 List<Experience> experiences = client.retrieveExperiences(
     ExperienceRequest.builder()
         .task("fix bug")
         .project("/my-project")
-        .source("llm_inference")  // V14: source filtering
+        .source("llm_inference")  // V14：来源过滤
         .build());
 
-// Filter by required concepts
+// 按必需概念过滤
 List<Experience> verified = client.retrieveExperiences(
     ExperienceRequest.builder()
         .task("best approach")
         .project("/my-project")
-        .requiredConcepts(List.of("verified", "tested"))  // V14: concept filtering
+        .requiredConcepts(List.of("verified", "tested"))  // V14：概念过滤
         .build());
 ```
 
-### Memory Management Tools
+### 记忆管理工具
 
-Update or delete memories when the AI uses CortexMemoryTools:
+当 AI 使用 CortexMemoryTools 时更新或删除记忆：
 
 ```java
-// updateMemory tool - AI can correct errors or mark important memories
-// deleteMemory tool - AI can remove outdated or irrelevant memories
+// updateMemory 工具 - AI 可以纠正错误或标记重要记忆
+// deleteMemory 工具 - AI 可以删除过时或不相关的记忆
 ```
 
-These tools are available when `memory-tools-enabled=true` and added to ChatClient.
+这些工具在 `memory-tools-enabled=true` 且添加到 ChatClient 时可用。
 
-## Build & Example
+## 构建与示例
 
 ```bash
 cd cortex-mem-spring-integration
 mvn clean install -DskipTests
 ```
 
-For a full working example (Chat, Tools, Session lifecycle, E2E tests), see `examples/cortex-mem-demo` in this repository.
+完整工作示例（聊天、工具、会话生命周期、E2E 测试）参见本仓库中的 `examples/cortex-mem-demo`。
 
-## Backend API Alignment
+## 后端 API 对齐
 
-The client talks to these Cortex CE endpoints:
+客户端调用以下 Cortex CE 端点：
 
-| Client Method | Backend Endpoint | V14 | Phase 3 |
-|---------------|-----------------|-----|---------|
+| 客户端方法 | 后端端点 | V14 | Phase 3 |
+|------------|---------|-----|---------|
 | `startSession()` | `POST /api/session/start` | | ✅ userId |
-| `updateSessionUserId()` | `PATCH /api/session/{id}/user` | | ✅ NEW |
+| `updateSessionUserId()` | `PATCH /api/session/{id}/user` | | ✅ 新增 |
 | `recordObservation()` | `POST /api/ingest/tool-use` | ✅ source, extractedData | |
 | `recordSessionEnd()` | `POST /api/ingest/session-end` | | |
 | `recordUserPrompt()` | `POST /api/ingest/user-prompt` | | |
@@ -535,9 +535,9 @@ The client talks to these Cortex CE endpoints:
 | `updateObservation()` | `PATCH /api/memory/observations/{id}` | ✅ V14 | |
 | `deleteObservation()` | `DELETE /api/memory/observations/{id}` | ✅ V14 | |
 | `getQualityDistribution()` | `GET /api/memory/quality-distribution` | | |
-| `getLatestExtraction()` | `GET /api/extraction/{template}/latest` | | ✅ NEW |
-| `getExtractionHistory()` | `GET /api/extraction/{template}/history` | | ✅ NEW |
-| `triggerExtraction()` | `POST /api/extraction/run` | | ✅ NEW |
+| `getLatestExtraction()` | `GET /api/extraction/{template}/latest` | | ✅ 新增 |
+| `getExtractionHistory()` | `GET /api/extraction/{template}/history` | | ✅ 新增 |
+| `triggerExtraction()` | `POST /api/extraction/run` | | ✅ 新增 |
 | `healthCheck()` | `GET /api/health` | | |
 | `search()` | `GET /api/search` | ✅ source | |
 | `listObservations()` | `GET /api/observations` | | |
@@ -549,27 +549,27 @@ The client talks to these Cortex CE endpoints:
 | `getModes()` | `GET /api/modes` | | |
 | `getSettings()` | `GET /api/settings` | | |
 
-## Common Pitfalls
+## 常见问题
 
-| Issue | Cause | Fix |
-|-------|-------|-----|
-| Tool calls not captured | `@Tool` invoked via self-invocation | Move `@Tool` to a separate `@Component` and inject it |
-| User prompts not captured | No session ID provided | Use Option A (conversation ID) or Option B (CortexSessionContext) |
-| No ICL context injected | Backend unreachable or `retrieval-enabled=false` | Check `base-url`, ensure backend is running |
-| Advisor not registered | Spring AI not on classpath | Add `spring-ai-starter-model-openai` (or similar) |
-| Memory tools not available | `memory-tools-enabled=false` or not added to ChatClient | Set `memory-tools-enabled: true` and call `defaultTools(cortexMemoryTools)` |
+| 问题 | 原因 | 解决方案 |
+|------|------|---------|
+| 工具调用未被捕获 | `@Tool` 通过自调用触发 | 将 `@Tool` 移到单独的 `@Component` 中并注入 |
+| 用户提示未被捕获 | 未提供会话 ID | 使用选项 A（会话 ID）或选项 B（CortexSessionContext） |
+| 无 ICL 上下文注入 | 后端不可达或 `retrieval-enabled=false` | 检查 `base-url`，确保后端运行中 |
+| Advisor 未注册 | Spring AI 不在 classpath | 添加 `spring-ai-starter-model-openai`（或类似） |
+| 记忆工具不可用 | `memory-tools-enabled=false` 或未添加到 ChatClient | 设置 `memory-tools-enabled: true` 并调用 `defaultTools(cortexMemoryTools)` |
 
-## Design Notes
+## 设计笔记
 
-- **Fire-and-forget capture**: Capture operations log failures but never throw, so the AI pipeline is never blocked.
-- **Graceful degradation**: Retrieval failures return empty lists; ICL failures return an empty prompt.
-- **Conditional beans**: Advisor, AOP aspect, and health indicator are registered only when their dependencies (Spring AI, AOP, Actuator) are on the classpath.
-- **Spring AI 1.1**: Uses `CallAdvisor` / `StreamAdvisor` and `ChatClientRequest` (not legacy `CallAroundAdvisor`).
+- **即发即忘捕获**：捕获操作记录失败但不抛出异常，因此 AI 管道永不被阻塞。
+- **优雅降级**：检索失败返回空列表；ICL 失败返回空提示。
+- **条件 Bean**：Advisor、AOP 切面和健康检查指示器仅在其依赖（Spring AI、AOP、Actuator）在 classpath 上时注册。
+- **Spring AI 1.1**：使用 `CallAdvisor` / `StreamAdvisor` 和 `ChatClientRequest`（非旧版 `CallAroundAdvisor`）。
 
-## See Also
+## 相关链接
 
-- [中文版](./README-zh-CN.md)
+- [English version](./README.md)
 
-## License
+## 许可证
 
-Same as the parent BlueCortexCE project.
+与父项目 BlueCortexCE 相同。
