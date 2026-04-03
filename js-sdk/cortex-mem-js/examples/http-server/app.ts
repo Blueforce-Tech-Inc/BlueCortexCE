@@ -195,8 +195,9 @@ app.get('/observations', asyncHandler(async (req: Request, res: Response) => {
 }));
 
 app.get('/observations/:id', asyncHandler(async (req: Request, res: Response) => {
-  const result = await client.getObservation(req.params.id);
-  if (result === null) return errorJson(res, 404, `observation ${req.params.id} not found`);
+  const id = req.params.id as string;
+  const result = await client.getObservation(id);
+  if (result === null) return errorJson(res, 404, `observation ${id} not found`);
   res.json(result);
 }));
 
@@ -250,12 +251,13 @@ app.patch('/observations/:id', asyncHandler(async (req: Request, res: Response) 
   if ('source' in req.body) update.source = req.body.source;
   if ('extractedData' in req.body) update.extractedData = req.body.extractedData;
 
-  await client.updateObservation(req.params.id, update);
+  const id = req.params.id as string;
+  await client.updateObservation(id, update);
   res.json({ status: 'updated' });
 }));
 
 app.delete('/observations/:id', asyncHandler(async (req: Request, res: Response) => {
-  await client.deleteObservation(req.params.id);
+  await client.deleteObservation(req.params.id as string);
   res.status(204).end();
 }));
 
