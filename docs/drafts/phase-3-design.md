@@ -4704,9 +4704,14 @@ private Map<String, Object> mergeAppendOnly(
         .filter(key -> !keepHintKeys.contains(key))
         .collect(Collectors.toSet());
 
+    // Filter out keep_hint-protected items before partitioning (don't re-introduce filtered keys)
+    List<Map<String, Object>> filteredRemoveItems = removeItems.stream()
+        .filter(item -> removeKeys.contains(buildItemKey(item, keyFields)))
+        .toList();
+
     // Partition add/remove items by _field hint for field-aware merge
-    Map<String, List<Map<String, Object>>> addItemsByField = partitionByField(addItems);
-    Map<String, Set<String>> removeKeysByField = partitionKeysByField(removeItems, keyFields);
+    Map<String, List<Map<String, Object>>> addItemsByField = partitionItemsByField(addItems);
+    Map<String, Set<String>> removeKeysByField = partitionKeysByField(filteredRemoveItems, keyFields, removeKeys);
 
     // Remove explicitly rejected items from list fields (field-aware)
     for (Map.Entry<String, Object> entry : merged.entrySet()) {
