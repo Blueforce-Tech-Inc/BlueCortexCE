@@ -896,7 +896,7 @@
 
 | # | 文件 | 行号 | 问题 | 级别 | 说明 |
 |---|------|------|------|------|------|
-| 1 | StartSessionResponse.java (ApiResponses.java) | L~xx `StartSessionResponse` record | `POST /api/session/start` 响应中缺少 `session_id` 字段 — 前端代理（proxy.js）和 SDK 客户端预期响应包含 `session_id`，但实际响应只有 `context`/`updateFiles`/`session_db_id`/`prompt_number`。导致所有 SDK 的 E2E 测试检查 `session_id` 字段时失败（Python/JS 均有此问题）。应将 `contentSessionId` 添加到 `StartSessionResponse` 中 | P2 ⏳待修 | E2E 测试 session start 失败根因。SDK 端通过 defaults 兜底不受影响 |
+| 1 | StartSessionResponse.java (ApiResponses.java) | L~xx `StartSessionResponse` record | `POST /api/session/start` 响应中缺少 `session_id` 字段 — 前端代理（proxy.js）和 SDK 客户端预期响应包含 `session_id`，但实际响应只有 `context`/`updateFiles`/`session_db_id`/`prompt_number`。导致所有 SDK 的 E2E 测试检查 `session_id` 字段时失败（Python/JS 均有此问题）。应将 `contentSessionId` 添加到 `StartSessionResponse` 中 | P2 ✅已修复（`session_id` 字段已在 ApiResponses.java L99 添加，`@JsonProperty("session_id")` 标注） |
 | 2 | MemoryController.java | PATCH `/api/memory/observations/{id}` | 传入非 UUID 格式的 observation ID 时返回 400 Bad Request 而非更清晰的错误信息 | P2 (极低) | E2E 测试使用字符串 ID 导致 400，实际使用中 SDK 传入 UUID 不触发此问题 |
 | 3 | MemoryController.java | POST `/api/memory/feedback` | 传入非 UUID 格式的 observationId 时返回 400 而非 404 | P2 (极低) | 同上，E2E 测试使用字符串 ID，实际使用中 SDK 传入 UUID |
 
