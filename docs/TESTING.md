@@ -14,8 +14,10 @@ Located in `scripts/` directory:
 |--------|-------------|-------|
 | `regression-test.sh` | Core functionality regression tests | 1535 |
 | `thin-proxy-test.sh` | Thin proxy integration tests | 775 |
-| `mcp-e2e-test.sh` | MCP server end-to-end tests | 555 |
+| `mcp-e2e-test.sh` | MCP server end-to-end tests (SSE mode) | 555 |
+| `mcp-streamable-e2e-test.sh` | MCP server end-to-end tests (Streamable HTTP mode) | 292 |
 | `docker-compose-test.sh` | Docker Compose deployment tests | 546 |
+| `docker-e2e-test.sh` | Docker standalone E2E tests | 701 |
 | `webui-integration-test.sh` | WebUI integration tests | 229 |
 
 ### 2. Git Submodule Setup (WebUI)
