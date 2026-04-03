@@ -1647,14 +1647,14 @@ curl "http://localhost:37777/api/logs?lines=500"
 
 #### POST `/api/logs/clear`
 
-清空当日日志文件。
+清空当日日志文件。如果当日日志文件不存在，返回不同的消息。
 
 **请求示例**:
 ```bash
 curl -X POST http://localhost:37777/api/logs/clear
 ```
 
-**响应示例**:
+**响应示例**（文件存在时）:
 ```json
 {
   "status": "ok",
@@ -1662,6 +1662,18 @@ curl -X POST http://localhost:37777/api/logs/clear
   "path": "/Users/dev/.claude-mem/logs/claude-mem-2026-03-13.log"
 }
 ```
+
+**响应示例**（无文件可清空时）:
+```json
+{
+  "status": "ok",
+  "message": "No log file to clear",
+  "path": "/Users/dev/.claude-mem/logs/claude-mem-2026-03-13.log"
+}
+```
+
+**错误响应**:
+- `500` — `{"error": "Failed to clear log file"}`（IO 错误）
 
 ---
 
@@ -2328,6 +2340,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-03 | 0.1.0-beta+15 | 补充 Experiences 端点响应示例（JSON 数组，包含 id/task/strategy/outcome/reuse_condition/quality_score/created_at 字段）和 400 错误响应（task 必填）；同步英文版 |
 | 2026-04-03 | 0.1.0-beta+16 | 补充 Session Start 完整错误响应（400 session_id 缺失、400 project_path/cwd 缺失、500 内部错误——与代码一致）；同步英文版；添加中文版底部跨链接 |
 | 2026-04-03 | 0.1.0-beta+17 | 修正 Bulk Import 请求体示例——字段名从 camelCase 改为 snake_case（匹配 SNAKE_CASE 命名策略），修正 `narrative`→`content`、`facts`→`facts_json`、`concepts`→`concepts_json`（匹配 ImportService 记录字段），移除不存在的 `id` 字段；补充 PATCH observations 错误响应（400/404——与英文版一致） |
+| 2026-04-03 | 0.1.0-beta+18 | 补充 Clear Logs 备选响应（文件不存在时返回 "No log file to clear"）和 500 错误响应；与英文版同步 |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---

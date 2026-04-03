@@ -1598,9 +1598,9 @@ GET /api/logs
 POST /api/logs/clear
 ```
 
-Clears today's log file.
+Clears today's log file. If today's log file doesn't exist, returns a distinct message.
 
-**Response** (`200 OK`):
+**Response** (`200 OK`, file existed):
 ```json
 {
   "status": "ok",
@@ -1608,6 +1608,18 @@ Clears today's log file.
   "path": "/Users/dev/.claude-mem/logs/claude-mem-2026-03-13.log"
 }
 ```
+
+**Response** (`200 OK`, no file to clear):
+```json
+{
+  "status": "ok",
+  "message": "No log file to clear",
+  "path": "/Users/dev/.claude-mem/logs/claude-mem-2026-03-13.log"
+}
+```
+
+**Error Responses**:
+- `500` — `{"error": "Failed to clear log file"}` (IO error)
 
 ## Health & Version
 
@@ -2250,6 +2262,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-03 | 0.1.0-beta+15 | Added Experiences endpoint response example (JSON array of Experience objects with id/task/strategy/outcome/reuse_condition/quality_score/created_at fields) and 400 error response (task required); synced Chinese version |
 | 2026-04-03 | 0.1.0-beta+16 | Added error responses to Start Session (400 missing session_id, 400 missing project_path/cwd, 500 internal error); synced Chinese version; added cross-link footer to Chinese version |
 | 2026-04-03 | 0.1.0-beta+17 | Added Bulk Import request body example with correct snake_case field names and field notes (facts_json/concepts_json as JSON strings); synced Chinese version (fixed camelCase→snake_case, narrative→content, facts→facts_json, concepts→concepts_json, removed invalid id field); added missing error responses (400/404) to Chinese PATCH observations |
+| 2026-04-03 | 0.1.0-beta+18 | Added Clear Logs alternate response ("No log file to clear" when file doesn't exist) and 500 error response; synced Chinese version |
 | 2026-03-13 | 0.1.0 | Initial API documentation |
 
 ---
