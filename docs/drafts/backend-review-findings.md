@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-03 23:20 (Backend 审查 #37 + 修复批次：9 个 P2 问题全部修复，包括 ExpRagService 概念过滤 fallback、CursorService 竞态条件和内容大小限制、ProjectFilterService 线程安全和 NPE)
+> **最后更新**: 2026-04-04 03:17 (Backend 审查 #38: ViewerController pagination 计算错误，影响 getObservations/getSummaries/getPrompts 三个端点)
 
 # Backend 代码审查问题记录
 
@@ -11,9 +11,9 @@
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **0** | 全部已修复或降级为跳过的设计决策 |
+| **P2** (建议修复) | **1** | ViewerController pagination 计算错误 |
 | **⏭ 跳过** | **8** | 非 bug，属设计决策或代码风格偏好 |
-| **⏳待修** | **0** | — |
+| **⏳待修** | **1** | #38-1 ViewerController pagination |
 
 ---
 
@@ -1627,5 +1627,30 @@
 - **ExpRagService**: `buildICLPrompt()` 自适应截断逻辑完善，userId-based session 过滤正确实现
 - **CursorService**: `writeContextFile()` 有 path traversal 保护（startsWith check），registry 读写使用 reentrant synchronized lock
 - **ProjectFilterService**: AntPathMatcher 默认排除列表合理（git/node_modules/build 等）
+
+---
+
+### 2026-04-04 03:17 | Backend 审查 #38
+
+**审查方向**: Backend (ViewerController.java — pagination bug)
+
+**审查范围**:
+- `ViewerController.java` — Web UI observation/summary/prompt listing endpoints
+
+#### 发现的问题
+
+| # | 文件 | 行 | 级别 | 问题 |
+|---|------|-----|------|------|
+| 38-1 | ViewerController.java | L108,130,152 | **P2** | **Pagination 计算错误** — `PageRequest.of(validatedOffset / validatedLimit, validatedLimit)` 使用整数除法计算 page index。当 `offset < limit` 时（如 offset=5, limit=20），除法结果为 0，导致所有小于 limit 的 offset 值都映射到 page 0。用户请求 offset=5, limit=20 实际返回 items 0-19 而非 items 5-24。影响 getObservations、getSummaries、getPrompts 三个端点。 |
+
+#### 代码质量评价
+
+| 检查项 | ViewerController pagination |
+|--------|----------------------------|
+| 输入验证 | ✅ offset/limit 有 Math.max/min 保护 |
+| 错误处理 | ✅ Spring Data 处理边界情况 |
+| 事务管理 | ✅ Repository 层管理 |
+| 并发安全 | ✅ 无共享可变状态 |
+| 测试覆盖 | ⚠️ 需要端到端 pagination 测试 |
 
 **审查结论**: 9 个 P2 问题，7 个已修复（37-1/3/4/6/7/8/9），2 个跳过（37-2/5 缺测试为设计决策）。主要修复：ExpRagService 概念过滤添加 fallback + CursorService 竞态条件消除 + 内容大小限制 + ProjectFilterService 线程安全和 NPE 防护。
