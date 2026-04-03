@@ -29,24 +29,24 @@ public class MemoryRefineEventListener {
     /**
      * Handle memory refinement event asynchronously.
      * This is the "real-time" processing path.
+     *
+     * Both SESSION_END and MANUAL trigger the same refinement logic.
+     * Differentiated behavior is determined by the event source and
+     * logged separately for observability.
      */
     @Async
     @EventListener
     public void handleMemoryRefineEvent(MemoryRefineEvent event) {
-        log.info("Received MemoryRefineEvent: {}", event);
+        log.info("Received MemoryRefineEvent: type={}, project={}",
+                event.getRefineType(), event.getProjectPath());
 
         try {
-            if (event.getRefineType() == MemoryRefineEvent.RefineType.SESSION_END) {
-                // Real-time: process immediately after session ends
-                memoryRefineService.refineMemory(event.getProjectPath());
-                log.info("Real-time refinement completed for project: {}", event.getProjectPath());
-            } else if (event.getRefineType() == MemoryRefineEvent.RefineType.MANUAL) {
-                // Manual trigger via API
-                memoryRefineService.refineMemory(event.getProjectPath());
-                log.info("Manual refinement completed for project: {}", event.getProjectPath());
-            }
+            memoryRefineService.refineMemory(event.getProjectPath());
+            log.info("Refinement completed (type={}) for project: {}",
+                    event.getRefineType(), event.getProjectPath());
         } catch (Exception e) {
-            log.error("Failed to process MemoryRefineEvent: {}", event, e);
+            log.error("Failed to process MemoryRefineEvent: type={}, project={}",
+                    event.getRefineType(), event.getProjectPath(), e);
             // Scheduled task will handle this as fallback
         }
     }

@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-03 06:15 (Backend 审查 #30：LogsController + MemoryController)
+> **最后更新**: 2026-04-03 07:41 (Backend 审查 #31：IngestionController + WorktreeDetector + MemoryRefineEventListener)
 
 # Backend 代码审查问题记录
 
@@ -1300,3 +1300,34 @@
 - MemoryController.submitFeedback() 完整验证链：null 检查 → UUID 格式验证 → 存在性检查 → @Transactional
 - MemoryController.getQualityDistribution() 异常处理完善，500 响应附带零值默认
 - LogsController 日志格式规范（TypeScript 版兼容），支持今天/昨天两级 fallback
+
+---
+
+### 2026-04-03 07:41 | Backend 审查 #31
+
+**审查范围**: IngestionController.java, WorktreeDetector.java, MemoryRefineEventListener.java（随机抽查）
+**审查方法**: 代码阅读 + 逻辑分析
+
+#### 发现的问题
+
+| # | 文件 | 行 | 级别 | 问题 |
+|---|------|-----|------|------|
+| 31-1 | MemoryRefineEventListener.java | L35-42 | **P2** | `SESSION_END` 和 `MANUAL` 两个分支执行完全相同的 `memoryRefineService.refineMemory(event.getProjectPath())` 调用，无差异化行为。enum 值区分形同虚设，属于死代码。建议：合并为单一分支（`if (type == SESSION_END || type == MANUAL)`），或为不同事件类型实现差异化逻辑（如不同的超时、重试策略）。 ✅已修复（合并为单一 try-catch，保留 type 日志区分） |
+| 31-2 | IngestionController.java | L230-238 | **P2** | `handleObservation()` 不广播 SSE 事件，而 `handleUserPrompt()` 广播 `new_prompt` 事件。WebUI 可能无法实时感知通过 SDK 直接导入的 observation。建议：添加 SSE 广播（`new_observation` 事件类型），或在文档中说明此行为是设计决策。 ✅已修复（添加 new_observation SSE 广播） |
+| 31-3 | IngestionController.java | L195 | **P2** | `handleUserPrompt()` 的 `@Transactional` 中先持久化 UserPromptEntity 再广播 SSE。若事务尚未提交时 WebUI 收到 SSE 并立即查询，可能读不到刚创建的 prompt（race condition）。影响较小（事务通常在响应返回前提交），但严格来说 SSE 应在事务提交后广播。建议：使用 `TransactionSynchronization.afterCommit()` 回调触发 SSE 广播。 ✅已修复（改用 TransactionSynchronization.afterCommit() 回调触发 SSE） |
+
+#### 代码质量评价
+
+| 检查项 | IngestionController | WorktreeDetector | MemoryRefineEventListener |
+|--------|--------------------|--------------------|--------------------------|
+| 线程安全 | ✅ 无共享可变状态 | ✅ 无共享可变状态 | ✅ 无共享可变状态 |
+| 内存管理 | ✅ 字符串截断（MAX_USER_PROMPT_LENGTH） | ✅ 小文件读取（.git 文件） | ✅ 委托给 service |
+| 输入验证 | ✅ 必填字段 null/blank 检查 + 长度限制 | ✅ null/blank cwd 保护 | ✅ event null 保护（Spring 保证） |
+| 错误处理 | ✅ 400/429 分级处理 + 日志 | ✅ IOException 捕获 + fallback | ✅ catch-all + 降级到 scheduled fallback |
+| 事务管理 | ⚠️ @Transactional on handleUserPrompt（见 31-3） | N/A | ✅ @Async 异步处理 |
+
+#### 亮点
+- IngestionController 的 handleToolUse 完整实现了 rate limiting + session resolution + async processing 三件套
+- IngestionController 的 handleObservation 支持 content/narrative 和 session_id/contentSessionId 双别名，SDK 兼容性好
+- WorktreeDetector 的正则模式设计严谨，`WORKTREES_PATTERN` 正确处理跨平台路径分隔符
+- MemoryRefineEventListener 的 @Async + @EventListener 组合提供了实时处理 + scheduled fallback 双保险

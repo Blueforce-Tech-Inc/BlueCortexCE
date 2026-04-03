@@ -260,12 +260,19 @@ public class IngestionController {
         prompt.setCreatedAtEpoch(Instant.now().toEpochMilli());
         UserPromptEntity saved = userPromptRepository.save(prompt);
 
-        // Broadcast SSE event for new_prompt
+        // Broadcast SSE event for new_prompt after transaction commits (fixes race condition)
         // TypeScript useSSE.ts expects "prompt" key
         Map<String, Object> eventData = new HashMap<>();
         eventData.put("type", "new_prompt");
         eventData.put("prompt", saved);
-        sseBroadcaster.broadcast(eventData, "new_prompt");
+        org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+            new org.springframework.transaction.support.TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    sseBroadcaster.broadcast(eventData, "new_prompt");
+                }
+            }
+        );
 
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
@@ -349,6 +356,13 @@ public class IngestionController {
         if (projectPath != null) {
             contextCacheService.markForRefresh(projectPath);
         }
+
+        // Broadcast SSE event for new observation so WebUI can see real-time updates
+        // TypeScript useSSE.ts expects "observation" key
+        Map<String, Object> obsEventData = new HashMap<>();
+        obsEventData.put("type", "new_observation");
+        obsEventData.put("observation", observation);
+        sseBroadcaster.broadcast(obsEventData, "new_observation");
 
         return ResponseEntity.ok(observation);
     }
