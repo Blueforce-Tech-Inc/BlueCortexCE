@@ -1924,3 +1924,39 @@ Total: 426/426 tests passed
 - **Wire format 一致性**：`extractedData` 保持 camelCase（与其他 SDK 一致），`requiredConcepts`/`userId` 等 camelCase 字段正确
 
 **审查结论**: 0 个问题。Python SDK 代码质量优秀，426 个测试全部通过，API 契约与 Go/Java/JS SDK 完全对齐，跨 SDK 一致性有保障。
+
+---
+
+### 2026-04-05 02:20 | Backend 审查 #40
+
+**审查方向**: Backend (ModeService.java + CursorController.java)
+
+**审查范围**:
+- `ModeService.java` — Mode 生命周期管理、YAML 加载、继承 (parent--override)、缓存
+- `CursorController.java` — Cursor IDE 集成 API (register/unregister/projects/context)
+
+#### 发现的问题
+
+无 P0/P1/P2 问题。
+
+#### 代码质量评价
+
+| 检查项 | ModeService | CursorController |
+|--------|------------|-----------------|
+| 输入验证 | ✅ null/blank 全覆盖 | ✅ projectName/workspacePath 必填检查 |
+| 错误处理 | ✅ parseInheritance 异常提前抛出 | ✅ per-endpoint try-catch |
+| 多路径查找 | ✅ env→home→cwd 三层降级 | N/A |
+| 继承合并 | ✅ deepMerge 正确处理对象/数组 | N/A |
+| 线程安全 | ✅ ConcurrentHashMap modeCache | ✅ 纯 read-only cursorService |
+| OpenAPI 注解 | ✅ @Operation/@ApiResponse | ✅ 完整 schema + responseCode |
+| REST 设计 | N/A | ✅ /register, /register/{name}, /projects, /context/{name} |
+
+**亮点**:
+- **多路径降级**：`resolveModesDir()` 依次检查 env variable → user home plugin dir → CWD relative paths → default fallback，设计周全
+- **parent--override 继承**：`parseInheritance` 正确解析 `split("--")`（仅支持单层继承），`loadMode` 依次尝试 filesystem → classpath → fallback，设计清晰
+- **deepMerge 语义正确**：对象递归合并，数组整体替换（不逐元素 merge），原语直接覆盖，符合常见继承合并惯例
+- **@PostConstruct fail-fast**：`init()` 加载 activeMode，失败时使用 embedded default，不影响启动
+- **CursorController 参数验证**：两处必填字段 (projectName, workspacePath) 均在方法开头检查，返回 `badRequest()` 而非抛异常
+- **OpenAPI schema 完整**：每个端点均有 `description`、`responseCode`、example，API 契约清晰
+
+**审查结论**: 0 个 P0/P1/P2 问题。ModeService 和 CursorController 代码质量优秀，模式设计合理，错误处理健壮，无发现需修复的问题。
