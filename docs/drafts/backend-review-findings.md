@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-04 04:20 (Backend 审查 #38: ViewerController pagination 计算错误 → 已修复：新增 OffsetPageRequest 实现 true offset-based pagination)
+> **最后更新**: 2026-04-04 20:21 (Go SDK 审查 #9: 全模块审查 → 0 P0/P1/P2 问题；test-all 4/4 通过，覆盖率 87-100%)
 
 # Backend 代码审查问题记录
 
@@ -14,6 +14,51 @@
 | **P2** (建议修复) | **0** | — |
 | **⏭ 跳过** | **8** | 非 bug，属设计决策或代码风格偏好 |
 | **⏳待修** | **0** | — |
+
+---
+
+### 2026-04-04 20:21 | Go SDK 审查 #9
+
+**审查方向**: Go SDK (cortex-mem-go) 全模块审查
+
+**审查范围**:
+- `client_impl.go` — HTTP 客户端基础设施（重试、退避、错误提取）
+- `client_methods.go` — 全部 25+ API 方法
+- `error.go` — 错误类型（ValidationError、APIError、sentinel errors）
+- `dto/extraction.go` — ExtractionResult DTO
+- `eino/retriever.go` — Eino Retriever 集成
+- `langchaingo/memory.go` — LangChainGo Memory 集成
+
+**编译验证**: ✅ `go build ./...` 无错误
+**测试验证**: ✅ test-all.sh 4/4 通过
+**覆盖率**: Core 94.9% | DTO 87.5% | Genkit 100% | Eino 91.3% | LangChainGo 93.3%
+
+#### 发现的问题
+
+**无 P0/P1/P2 问题**。
+
+#### 代码质量评价
+
+| 检查项 | client_impl | client_methods | error.go | eino Retriever | langchaingo Memory |
+|--------|------------|----------------|----------|-----------------|-------------------|
+| 输入验证 | ✅ null config/URL/timeout 校验 | ✅ 全部 25+ 方法 TrimSpace 校验 | N/A | ✅ nil client panic + count=0 bypass | ✅ nil client panic |
+| 错误处理 | ✅ ctx fast-fail + isTransient 判断 | ✅ ValidationError vs APIError 分离 | ✅ errors.As unwrap 链 | ✅ warn log + 返回 error | ✅ warn log + 返回空字符串 |
+| 重试策略 | ✅ jitteredBackoff ±25% | ✅ fire-and-forget 分离 | N/A | N/A | N/A |
+| 线程安全 | ✅ ThreadLocalRandom | ✅ 无共享可变状态 | ✅ errors.Is/As 线程安全 | ✅ 无共享可变状态 | ✅ 无共享可变状态 |
+| Wire Format | ✅ 正确序列化 | ✅ camelCase/snake_case 映射 | N/A | N/A | N/A |
+| Fire-and-forget | ✅ swallow error after retries | N/A | N/A | N/A | N/A |
+
+#### 亮点
+
+- **retry 策略**: `isTransient` 正确排除 500（代码 bug 非瞬态），仅重试 429/502/503/504；`IsRetryable` sentinel/unwrap 链完整
+- **ValidationError**: 每个方法返回字段级错误（Field + Message），与 Go error 习惯（errors.As）完全兼容
+- **jitteredBackoff**: ±25% jitter（实际范围 [0.75x, 1.25x]），避免 thundering herd；注意：Java SDK 使用指数退避，两者策略不同（属设计差异非 bug）
+- **extractErrorMessage**: 支持 JSON object/array/string 三种错误格式，优雅降级到原始响应截断
+- **HealthCheck**: 验证 JSON body 中 `status == "ok"`，不仅检查 HTTP 状态码
+- **Integration layers**: Eino Retriever / LangChainGo Memory / Genkit Retriever 三框架集成，覆盖完整
+- **LangChainGo Memory**: `SaveContext`/`Clear` 为 no-op（由 Cortex CE 自身 capture lifecycle 管理），注释清晰说明设计意图
+
+**审查结论**: 0 个 P0/P1/P2 问题。Go SDK 代码质量优秀，测试覆盖率高，所有方法均正确验证输入、正确区分 fire-and-forget 与 propagate 语义、正确处理错误类型。
 
 ---
 
