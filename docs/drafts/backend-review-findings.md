@@ -1701,4 +1701,45 @@
 - **CortexMemoryTools**: `searchMemories` / `getMemoryContext` / `updateMemory` / `deleteMemory` 四个工具职责清晰，@ToolParam description 详细
 - **DefaultObservationCaptureService**: 纯 fire-and-forget 设计，不会干扰 AI pipeline
 
+---
+
+### 2026-04-04 17:46 | Backend 审查 #39
+
+**审查方向**: Backend (ProjectFilterService.java + SSEBroadcaster.java)
+
+**审查范围**:
+- `ProjectFilterService.java` — AntPathMatcher-based project path filter with .gitignore-style patterns
+- `SSEBroadcaster.java` — Thread-safe SSE event broadcaster for real-time updates
+
+#### 发现的问题
+
+| # | 文件 | 行 | 级别 | 问题 |
+|---|------|-----|------|------|
+| 39-1 | ProjectFilterService.java | 全文 | **P2** | **无单元测试** — `shouldInclude()` / `isUnsafeDirectory()` / `expandHomeDirectory()` 边界条件（null、空白路径、~扩展、glob模式）无测试覆盖。✅待修复 |
+| 39-2 | SSEBroadcaster.java | 全文 | **P2** | **无单元测试** — `broadcast()` / `add()` / `remove()` / `getClientCount()` 无测试。`MAX_SSE_CONNECTIONS` DoS 防护、dead emitter 清理逻辑值得 mock 测试验证。✅待修复 |
+
+#### 跳过的发现（非 bug）
+
+| # | 文件 | 说明 |
+|---|------|------|
+| S39-1 | ProjectFilterService.java | 类注释标注"未接入任何处理管道" — **设计决策**，作为 future utility 保留 |
+| S39-2 | ProjectFilterService.java | `expandHomeDirectory` 对 `~username` 仅 fallback 到当前 home — **设计决策**，best-effort 用户名展开够用 |
+| S39-3 | SSEBroadcaster.java | `eventName` 参数标注为"仅用于文档"，实际未使用 SSE `.name()` — **设计正确**，WebUI 使用 unnamed events（`onmessage`） |
+
+#### 代码质量评价
+
+| 检查项 | ProjectFilterService | SSEBroadcaster |
+|--------|---------------------|----------------|
+| 输入验证 | ✅ null/blank 检查 | ✅ MAX_SSE_CONNECTIONS 硬限制 |
+| 错误处理 | N/A（纯函数） | ✅ IOException 捕获 + dead emitter 清理 |
+| 线程安全 | ⚠️ CopyOnWriteArrayList 适合读多写少 | ✅ CopyOnWriteArrayList + snapshot copy |
+| DoS 防护 | N/A | ✅ MAX_SSE_CONNECTIONS 限制 |
+| SSE 兼容性 | N/A | ✅ unnamed events（匹配 WebUI `onmessage`） |
+
+**亮点**:
+- **ProjectFilterService**: `expandHomeDirectory` 正确处理 `~` 和 `~username` 两种形式；DEFAULT_EXCLUDES 覆盖常见构建产物目录
+- **SSEBroadcaster**: P0 DoS 硬限制 + P1 snapshot copy 防止并发修改 + dead emitter 延迟清理，设计严谨
+
+**审查结论**: 2 个 P2 缺测试问题。代码逻辑正确，边界条件处理合理。建议下次 Backend 修复任务补单元测试。
+
 **审查结论**: 2 个 P2 问题，2 个已处理（J7-1 添加注释说明，J7-2 修复 defaultCount 校验）。整体代码质量高，架构设计合理。
