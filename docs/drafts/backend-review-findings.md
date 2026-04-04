@@ -1715,8 +1715,8 @@
 
 | # | 文件 | 行 | 级别 | 问题 |
 |---|------|-----|------|------|
-| 39-1 | ProjectFilterService.java | 全文 | **P2** | **无单元测试** — `shouldInclude()` / `isUnsafeDirectory()` / `expandHomeDirectory()` 边界条件（null、空白路径、~扩展、glob模式）无测试覆盖。✅待修复 |
-| 39-2 | SSEBroadcaster.java | 全文 | **P2** | **无单元测试** — `broadcast()` / `add()` / `remove()` / `getClientCount()` 无测试。`MAX_SSE_CONNECTIONS` DoS 防护、dead emitter 清理逻辑值得 mock 测试验证。✅待修复 |
+| 39-1 | ProjectFilterService.java | 全文 | **P2** | **无单元测试** — `shouldInclude()` / `isUnsafeDirectory()` / `expandHomeDirectory()` 边界条件（null、空白路径、~扩展、glob模式）无测试覆盖。 ✅已修复（ProjectFilterServiceTest: 15 tests） |
+| 39-2 | SSEBroadcaster.java | 全文 | **P2** | **无单元测试** — `broadcast()` / `add()` / `remove()` / `getClientCount()` 无测试。`MAX_SSE_CONNECTIONS` DoS 防护、dead emitter 清理逻辑值得 mock 测试验证。 ✅已修复（SSEBroadcasterTest: coverage confirmed） |
 
 #### 跳过的发现（非 bug）
 
