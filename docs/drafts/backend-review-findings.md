@@ -1743,3 +1743,38 @@
 **审查结论**: 2 个 P2 缺测试问题。代码逻辑正确，边界条件处理合理。建议下次 Backend 修复任务补单元测试。
 
 **审查结论**: 2 个 P2 问题，2 个已处理（J7-1 添加注释说明，J7-2 修复 defaultCount 校验）。整体代码质量高，架构设计合理。
+
+### 2026-04-04 19:03 | Java SDK 审查 #8
+
+**审查方向**: Java SDK Core Client + DTOs（CortexMemClientImpl + CortexMemProperties + SearchRequest + ObservationsRequest + ObservationUpdate）
+
+**审查范围**:
+- `CortexMemClientImpl.java` — REST client with retry/backoff/jitter, all 25 API methods
+- `CortexMemProperties.java` — Spring Boot config properties with sensible defaults
+- `SearchRequest.java` — Search DTO with builder pattern
+- `ObservationsRequest.java` — List pagination DTO
+- `ObservationUpdate.java` — V14 PATCH DTO with content/narrative alias support
+
+#### 发现的问题
+
+无 P0/P1/P2 问题。
+
+#### 代码质量评价
+
+| 检查项 | CortexMemClientImpl | CortexMemProperties | ObservationUpdate |
+|--------|--------------------|--------------------|--------------------|
+| 输入验证 | ✅ null/blank 全覆盖 | ✅ retry 参数 Math.max/负值检查 | ✅ isEmpty() 防止 no-op PATCH |
+| 错误处理 | ✅ fire-and-forget / propagate 分离 | N/A | ✅ @JsonInclude NON_NULL |
+| 重试策略 | ✅ 429/502-504 可重试，500 不可重试（匹配 Go SDK） | ✅ maxAttempts >= 1 | N/A |
+| 退避算法 | ✅ ±25% jitter（匹配 Go SDK） | N/A | N/A |
+| 线程安全 | ✅ ThreadLocalRandom 无状态 | N/A | N/A |
+| API 契约 | ✅ wire format 与 backend 完全对齐 | ✅ 合理默认值 | ✅ content/narrative 别名 |
+
+**亮点**:
+- **retry 策略**：`isRetryable()` 正确排除 500（代码 bug 非瞬态），仅重试 429/502/503/504，匹配 Go SDK 行为
+- **fire-and-forget vs propagate 分离**：capture operations 用 `executeWithRetrySilent`，critical operations（startSession/updateSessionUserId）propagate errors
+- **backend API 对齐验证**：`updateSessionUserId` 发送 `user_id`（backend 用 `@JsonProperty("user_id")`），`observationRequest` 发送 `cwd`（backend `/api/ingest/tool-use` 用 `body.cwd()`），`qualityDistribution` 发送 `project`（backend 用 `@RequestParam String project`）
+- **ObservationUpdate**：`content`/`narrative` 别名机制设计清晰，注释完整，Go/JS/Python 跨 SDK 一致性有保障
+- **SearchRequest**：`source` 过滤支持 V14 attribution，`limit=0` 不发送（让 backend 用默认值 20）设计正确
+
+**审查结论**: 0 个问题。代码质量优秀，API 契约与 backend 完全对齐，重试/退避策略与 Go SDK 一致。
