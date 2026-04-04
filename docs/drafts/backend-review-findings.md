@@ -1654,3 +1654,51 @@
 | 测试覆盖 | ⚠️ 需要端到端 pagination 测试 |
 
 **审查结论**: 9 个 P2 问题，7 个已修复（37-1/3/4/6/7/8/9），2 个跳过（37-2/5 缺测试为设计决策）。主要修复：ExpRagService 概念过滤添加 fallback + CursorService 竞态条件消除 + 内容大小限制 + ProjectFilterService 线程安全和 NPE 防护。
+
+---
+
+### 2026-04-04 12:38 | Java SDK 审查 #7
+
+**审查方向**: Java Spring AI 集成组件（CortexToolAspect + DefaultMemoryRetrievalService + CortexSessionContext + DefaultObservationCaptureService + CortexMemAutoConfiguration + CortexMemoryTools）
+
+**审查范围**:
+- `CortexToolAspect.java` — AOP aspect for @Tool auto-capture
+- `DefaultMemoryRetrievalService.java` — Memory retrieval delegation
+- `CortexSessionContext.java` — ThreadLocal session tracking
+- `DefaultObservationCaptureService.java` — Fire-and-forget observation capture
+- `CortexMemAutoConfiguration.java` — Spring Boot auto-configuration
+- `CortexMemoryTools.java` — Spring AI @Tool definitions for on-demand retrieval
+
+#### 发现的问题
+
+| # | 文件 | 行 | 级别 | 问题 |
+|---|------|-----|------|------|
+| J7-1 | CortexToolAspect.java | L98 `buildInputMap()` | **P2** | **参数名可能退化为 arg0/arg1** — `params[i].getName()` 依赖 Java 编译时保留参数名（需要 `-parameters` 编译参数）。如果 SDK 使用者没有此编译标志，参数名将变成 `arg0`, `arg1` 等无意义名称。Spring AI 1.1.x 的 `@ToolParam` 无 name 属性，无法通过注解指定。建议：在 buildInputMap 中添加注释说明此限制。 ✅已处理（添加注释说明 -parameters 要求） |
+| J7-2 | DefaultMemoryRetrievalService.java | L43 `retrieveExperiences()` | **P2** | **defaultCount 无下界校验** — 构造函数接受 `int defaultCount` 但未校验 >= 1。如果传入 0 或负数，`count > 0 ? count : defaultCount` 会返回非正值，可能导致后端行为异常。 ✅已修复（使用 `Math.max(1, defaultCount)` 确保最小值为 1） |
+
+#### 跳过的发现（非 bug）
+
+| # | 文件 | 说明 |
+|---|------|------|
+| S7-1 | CortexToolAspect.java | 工具执行在 `joinPoint.proceed()` 前后，response 记录 `result.toString()` 可能截断大数据 — **设计决策**，fire-and-forget 性质不需要完整 response |
+| S7-2 | CortexMemAutoConfiguration.java | 多个 bean 方法中 `properties.getProjectPath() != null ? properties.getProjectPath() : ""` 重复 — **代码风格偏好**，非 bug |
+| S7-3 | CortexMemoryTools.java | `updateMemory` 的 5 个可选参数使用 `@ToolParam(required = false)` 但运行时校验"至少提供一个" — **设计正确**，单参数可选 + 整体必填的矛盾由运行时校验解决 |
+
+#### 代码质量评价
+
+| 检查项 | CortexToolAspect | DefaultMemoryRetrievalService | CortexSessionContext | CortexMemoryTools |
+|--------|-----------------|------------------------------|----------------------|--------------------|
+| 输入验证 | ⚠️ 参数名反射问题 | ⚠️ defaultCount 无校验 | ✅ null-safe | ✅ null/blank 检查 |
+| 错误处理 | ✅ catch-all 防止观测失败 | ✅ 异常透传 | N/A | ✅ 用户友好错误消息 |
+| AOP 顺序 | ✅ HIGHEST_PRECEDENCE+100 | N/A | N/A | N/A |
+| 线程安全 | N/A | ✅ 无状态 | ✅ ThreadLocal | ✅ 无共享状态 |
+| Spring AI 集成 | N/A | ✅ 委托模式 | N/A | ✅ @Tool + @ToolParam |
+
+**亮点**:
+- **CortexToolAspect**: 正确跳过 `com.ablueforce.cortexce.ai.tools.*` 避免递归记录 memory retrieval 操作
+- **CortexSessionContext**: SessionInfo 不可变设计 + AtomicInteger promptCounter 线程安全
+- **CortexMemAutoConfiguration**: 清晰的 `@ConditionalOnClass` + `@ConditionalOnProperty` 分层，Spring AI Tools/Advisors/AOP 分别独立配置
+- **CortexMemoryTools**: `searchMemories` / `getMemoryContext` / `updateMemory` / `deleteMemory` 四个工具职责清晰，@ToolParam description 详细
+- **DefaultObservationCaptureService**: 纯 fire-and-forget 设计，不会干扰 AI pipeline
+
+**审查结论**: 2 个 P2 问题，2 个已处理（J7-1 添加注释说明，J7-2 修复 defaultCount 校验）。整体代码质量高，架构设计合理。

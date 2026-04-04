@@ -80,6 +80,9 @@ public class CortexToolAspect implements Ordered {
     private Map<String, Object> buildInputMap(Object[] args, Parameter[] params) {
         var map = new LinkedHashMap<String, Object>();
         for (int i = 0; i < params.length; i++) {
+            // Note: params[i].getName() returns formal parameter name which requires
+            // -parameters compiler flag to be meaningful (otherwise returns arg0, arg1...).
+            // Spring AI's @ToolParam does not have a name attribute in 1.1.x.
             map.put(params[i].getName(), args[i] != null ? args[i].toString() : "null");
         }
         return map;

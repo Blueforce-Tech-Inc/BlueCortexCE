@@ -22,7 +22,7 @@ public class DefaultMemoryRetrievalService implements MemoryRetrievalService {
 
     public DefaultMemoryRetrievalService(CortexMemClient client, int defaultCount) {
         this.client = client;
-        this.defaultCount = defaultCount;
+        this.defaultCount = Math.max(1, defaultCount);
     }
 
     @Override
