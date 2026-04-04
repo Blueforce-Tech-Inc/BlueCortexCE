@@ -37,8 +37,8 @@ func writeJSONError(w http.ResponseWriter, status int, message string) {
 const maxRequestBodySize = 1 << 20
 
 // readJSON decodes the request body into dst, enforcing a size limit.
-func readJSON(r *http.Request, dst any) error {
-	r.Body = http.MaxBytesReader(nil, r.Body, maxRequestBodySize)
+func readJSON(w http.ResponseWriter, r *http.Request, dst any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySize)
 	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
 		var maxBytesErr *http.MaxBytesError
 		if errors.As(err, &maxBytesErr) {
@@ -129,7 +129,7 @@ func main() {
 			UserId   string `json:"userId,omitempty"`
 			MaxChars int    `json:"maxChars,omitempty"`
 		}
-		if err := readJSON(r, &req); err != nil {
+		if err := readJSON(w, r, &req); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
@@ -381,7 +381,7 @@ func main() {
 		var req struct {
 			Ids []string `json:"ids"`
 		}
-		if err := readJSON(r, &req); err != nil {
+		if err := readJSON(w, r, &req); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
@@ -583,7 +583,7 @@ func main() {
 			FeedbackType  string `json:"feedbackType"`
 			Comment       string `json:"comment,omitempty"`
 		}
-		if err := readJSON(r, &req); err != nil {
+		if err := readJSON(w, r, &req); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
@@ -612,7 +612,7 @@ func main() {
 			Project   string `json:"project"`
 			UserId    string `json:"user_id,omitempty"`
 		}
-		if err := readJSON(r, &req); err != nil {
+		if err := readJSON(w, r, &req); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
@@ -645,7 +645,7 @@ func main() {
 			SessionId string `json:"session_id"`
 			UserId    string `json:"user_id"`
 		}
-		if err := readJSON(r, &req); err != nil {
+		if err := readJSON(w, r, &req); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
@@ -681,7 +681,7 @@ func main() {
 			Source        string         `json:"source,omitempty"`
 			ExtractedData map[string]any `json:"extractedData,omitempty"`
 		}
-		if err := readJSON(r, &req); err != nil {
+		if err := readJSON(w, r, &req); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
@@ -724,7 +724,7 @@ func main() {
 		// naturally distinguish absent (nil) from present (non-nil), which is exactly
 		// the PATCH semantics we need.
 		var update dto.ObservationUpdate
-		if err := readJSON(r, &update); err != nil {
+		if err := readJSON(w, r, &update); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
@@ -765,7 +765,7 @@ func main() {
 			Session      string `json:"session_id"`
 			PromptNumber int    `json:"prompt_number,omitempty"`
 		}
-		if err := readJSON(r, &req); err != nil {
+		if err := readJSON(w, r, &req); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
@@ -803,7 +803,7 @@ func main() {
 			Session          string `json:"session_id"`
 			LastAssistantMsg string `json:"last_assistant_message"`
 		}
-		if err := readJSON(r, &req); err != nil {
+		if err := readJSON(w, r, &req); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
 			return
 		}
