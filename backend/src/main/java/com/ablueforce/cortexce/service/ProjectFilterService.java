@@ -36,6 +36,13 @@ public class ProjectFilterService {
     );
 
     /**
+     * Creates a ProjectFilterService with default exclude patterns loaded.
+     */
+    public ProjectFilterService() {
+        loadPatterns(null, null);
+    }
+
+    /**
      * Load filter patterns from configuration.
      */
     public void loadPatterns(List<String> includes, List<String> excludes) {

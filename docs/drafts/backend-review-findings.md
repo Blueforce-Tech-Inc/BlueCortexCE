@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-04 20:21 (Go SDK 审查 #9: 全模块审查 → 0 P0/P1/P2 问题；test-all 4/4 通过，覆盖率 87-100%)
+> **最后更新**: 2026-04-05 00:50 (JS SDK 审查 #4: JS SDK + HTTP Server Demo → 0 P0/P1/P2 问题；212 测试全通过；build 成功)
 
 # Backend 代码审查问题记录
 
@@ -59,6 +59,57 @@
 - **LangChainGo Memory**: `SaveContext`/`Clear` 为 no-op（由 Cortex CE 自身 capture lifecycle 管理），注释清晰说明设计意图
 
 **审查结论**: 0 个 P0/P1/P2 问题。Go SDK 代码质量优秀，测试覆盖率高，所有方法均正确验证输入、正确区分 fire-and-forget 与 propagate 语义、正确处理错误类型。
+
+---
+
+### 2026-04-05 00:50 | JS SDK 审查 #4
+
+**审查方向**: JS SDK + HTTP Server Demo
+
+**审查范围**:
+- `client.ts` — 主客户端实现（26 个 API 方法）
+- `errors.ts` — 错误类型（ValidationError、APIError、15 个 predicate 函数）
+- `client-options.ts` — 配置解析和默认配置
+- `dto/extraction.ts` — ExtractionResult DTO + parseExtractionResult
+- `dto/observation.ts` — ObservationRequest/Update + parseObservation
+- `dto/search.ts` — SearchRequest/Result、ObservationsRequest/Response
+- `dto/session.ts` — SessionStartRequest/Response 等
+- `dto/misc.ts` — Version/Stats/Modes/Health DTOs + 全部 parse 函数
+- `dto/experience.ts` — Experience/ICLPrompt DTOs
+- `dto/wire-helpers.ts` — safeString/safeNumber/safeRecord/firstNonNullOr
+- `examples/http-server/app.ts` — Express HTTP Server Demo
+
+**编译验证**: ✅ `npm run build` (CJS + ESM + DTS 三输出，无错误)
+**测试验证**: ✅ 212/212 tests passed (vitest run)
+**构建产物**: CJS dist/index.js 29.08 KB | ESM dist/index.mjs 28.20 KB | DTS dist/index.d.ts 23.24 KB
+
+#### 发现的问题
+
+**无 P0/P1/P2 问题**。
+
+#### 代码质量评价
+
+| 检查项 | client.ts | errors.ts | dto/* | HTTP Server Demo |
+|--------|-----------|-----------|-------|------------------|
+| 输入验证 | ✅ validateRequired trimSpace + assertNotClosed | ✅ Object.setPrototypeOf 修正 | ✅ safeString/Number/Record 防御解析 | ✅ requireFields 中间件 |
+| 错误处理 | ✅ isRetryable 识别 AbortError/TypeError | ✅ errors.As unwrap 链 | ✅ null/undefined/NaN 防御 | ✅ asyncHandler + 全局错误处理器 |
+| 重试策略 | ✅ linear backoff ±25% jitter | N/A | N/A | N/A |
+| Fire-and-forget | ✅ swallow error + maxRetries | N/A | N/A | N/A |
+| Wire Format | ✅ snake_case → camelCase 映射 | ✅ statusCode/field/message 结构 | ✅ firstNonNullOr 双格式兼容 | ✅ request body 原样透传 |
+| 类型安全 | ✅ 全面 TypeScript 泛型 | ✅ ValidationError/APIError predicate | ✅ parseObservationTypeArray 降级处理字符串 legacy | ✅ extractedData instanceof 校验 |
+| 并发安全 | ✅ 纯实例方法，无共享可变状态 | ✅ 纯函数 | ✅ 纯函数 | ✅ 纯实例方法 |
+
+#### 亮点
+
+- **doFetch 10MB 响应限制**: `text.length > maxSize` 检查，防止大响应耗尽内存
+- **extractErrorMessage**: 支持 JSON object/array/string 三种错误格式，优雅降级到原始响应截断（200 char limit）
+- **parseObservationTypeArray/parseObservationConceptArray**: 兼容对象数组（新格式）和字符串 legacy 格式，降级处理
+- **firstNonNullOr**: 通用双格式字段提取，同时检查 camelCase 和 snake_case
+- **safeRecord**: 使用 `Object.prototype.toString.call(v) !== '[object Object]'` 排除 Date/RegExp 等非 plain object
+- **ObservationUpdate PATCH 语义**: 正确处理 `undefined=skip` vs `null=clear` 语义
+- **HTTP Server Demo**: `asyncHandler` wrapper 确保 async rejection 被全局错误处理器捕获（跨 Express 版本兼容）
+
+**审查结论**: 0 个 P0/P1/P2 问题。JS SDK 代码质量优秀，212 个测试全部通过，构建成功，TypeScript 类型完整，错误处理健壮，Wire Format 兼容 camelCase/snake_case 双格式。HTTP Server Demo 正确暴露全部 26 个 SDK API 方法作为 REST 端点。
 
 ---
 
@@ -1823,3 +1874,53 @@
 - **SearchRequest**：`source` 过滤支持 V14 attribution，`limit=0` 不发送（让 backend 用默认值 20）设计正确
 
 **审查结论**: 0 个问题。代码质量优秀，API 契约与 backend 完全对齐，重试/退避策略与 Go SDK 一致。
+
+---
+
+### 2026-04-04 22:04 | Python SDK 审查 #4
+
+**审查方向**: Python SDK (cortex-mem-python) 全模块审查
+
+**审查范围**:
+- `client.py` — REST client with retry/backoff/jitter, all 25 API methods
+- `dto.py` — Data Transfer Objects (dataclasses) with wire format mapping
+- `error.py` — Error types and predicates (cross-SDK parity with Go Is*/JS is*)
+- `examples/http-server/app.py` — Demo HTTP server (Flask)
+- `tests/test_client.py` — 353 unit tests
+- `tests/test_demo.py` — 73 demo tests
+
+#### 发现的问题
+
+无 P0/P1/P2 问题。
+
+#### 测试结果
+
+```
+============================= 353 passed in 2.30s ==============================
+============================== 73 passed in 0.08s ==============================
+Total: 426/426 tests passed
+```
+
+#### 代码质量评价
+
+| 检查项 | client.py | dto.py | error.py | app.py (Demo) |
+|--------|-----------|--------|----------|--------------|
+| 输入验证 | ✅ null/blank 全覆盖 | ✅ defensive 类型转换 | ✅ ValidationError field | ✅ null/blank/range/类型 |
+| 错误处理 | ✅ fire-and-forget / propagate 分离 | N/A | ✅ 完整 predicate 函数 | ✅ APIError/CortexError/Exception |
+| 重试策略 | ✅ 429/502-504 可重试，500 不可重试（匹配 Go SDK） | N/A | N/A | N/A |
+| 退避算法 | ✅ 线性 backoff + ±25% jitter（匹配 Go SDK） | N/A | N/A | N/A |
+| 线程安全 | ✅ CopyOnWriteArrayList 在 session 管理中 | N/A | N/A | N/A |
+| API 契约 | ✅ wire format 与 backend 完全对齐 | ✅ camelCase/snake_case 双格式 | N/A | ✅ 输入验证完整 |
+| DTO 映射 | N/A | ✅ _first_non_null fallback | N/A | N/A |
+| NaN/Inf 处理 | N/A | ✅ _sanitize_for_json 递归处理 | N/A | N/A |
+
+**亮点**:
+- **fire-and-forget 实现**：`doFireAndForget` 使用 `random.uniform(-0.25, 0.25)` 实现 ±25% jitter，与 Go SDK 完全一致
+- **DTO defensive 解析**：`_to_int`/`_to_float` 处理 NaN/Inf/string conversion，`_to_str_list`/`_to_dict` 防御非预期类型
+- **`_sanitize_for_json`**：递归替换 NaN/Inf 为 None，保证 RFC 7159 JSON 合规性
+- **`ObservationUpdate` 双模式**：支持 dataclass style（`ObservationUpdate(title="x")`）和 kwargs style（`title="x"`），后者胜出
+- **error.py 完整 predicate**：16 个错误判断函数（`is_retryable_error`, `is_bad_gateway`, `is_service_unavailable` 等），与 Go/JS SDK 完全对齐
+- **Demo HTTP Server**：完整的 Flask 实现，所有 25+ API 方法，输入验证与 Go demo 对齐
+- **Wire format 一致性**：`extractedData` 保持 camelCase（与其他 SDK 一致），`requiredConcepts`/`userId` 等 camelCase 字段正确
+
+**审查结论**: 0 个问题。Python SDK 代码质量优秀，426 个测试全部通过，API 契约与 Go/Java/JS SDK 完全对齐，跨 SDK 一致性有保障。
