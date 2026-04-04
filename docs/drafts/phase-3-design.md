@@ -5454,7 +5454,7 @@ bash scripts/demo-v14-test.sh
 
 #### What
 
-Create `scripts/demo-v15-extraction-test.sh` that validates the complete Phase 3.1 feature set via HTTP API calls. This script is the **definition of done** — all 15 tests must pass.
+Create `scripts/demo-v15-extraction-test.sh` that validates the complete Phase 3.1 feature set via HTTP API calls. This script is the **definition of done** — all 12 tests must pass. (Note: `phase3-acceptance-test.sh` has 15 tests covering the full acceptance test suite.)
 
 #### Script Structure
 
@@ -5508,13 +5508,13 @@ bash scripts/demo-v15-extraction-test.sh
 # ... (12 tests)
 # ✅ Regression: 46/46 passed
 # ==============================
-# Result: 15/15 tests passed
+# Result: 12/12 tests passed
 # ==============================
 ```
 
 #### Final Sign-Off Checklist
 
-After all 15 tests pass:
+After all 12 tests pass:
 
 ```bash
 # 1. Git commit all changes
