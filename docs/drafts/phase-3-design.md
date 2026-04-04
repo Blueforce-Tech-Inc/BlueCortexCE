@@ -5454,7 +5454,7 @@ bash scripts/demo-v14-test.sh
 
 #### What
 
-Create `scripts/demo-v15-extraction-test.sh` that validates the complete Phase 3.1 feature set via HTTP API calls. This script is the **definition of done** — all 12 checks must pass.
+Create `scripts/demo-v15-extraction-test.sh` that validates the complete Phase 3.1 feature set via HTTP API calls. This script is the **definition of done** — all 15 tests must pass.
 
 #### Script Structure
 
@@ -5508,13 +5508,13 @@ bash scripts/demo-v15-extraction-test.sh
 # ... (12 tests)
 # ✅ Regression: 46/46 passed
 # ==============================
-# Result: 12/12 checks passed
+# Result: 15/15 tests passed
 # ==============================
 ```
 
 #### Final Sign-Off Checklist
 
-After all 12 checks pass:
+After all 15 tests pass:
 
 ```bash
 # 1. Git commit all changes
@@ -6266,19 +6266,22 @@ bash scripts/demo-v14-test.sh
 | # | Test | Scenario | Pass Criteria |
 |---|------|----------|---------------|
 | 1 | Session + userId | SDK Multi-User | Session created, DB correct |
-| 2 | PATCH userId | Late Binding | DB updated, re-extraction triggered |
-| 3 | Multi-user isolation | User Preference | No cross-contamination |
-| 4 | Array schema | Multiple Preferences | 2+ items captured |
-| 5 | Append-only extraction | Temporal Evolution | Correct keep/remove semantics |
-| 6 | Hook mode | Compatibility | No errors, backward compatible |
-| 7 | ICL + userId | SDK Integration | User-scoped context only |
-| 8 | Person field | Family Assistant | Third-party entities captured |
-| 9 | History preservation | History | Old extractions not overwritten |
-| 10 | Zero-shot | Bootstrap | Graceful empty handling |
-| — | Regression | Backward Compat | 46/46 existing tests pass |
-| — | SDK Demo | SDK Integration | 4/4 SDK tests pass |
+| 2 | Session without userId | Hook Mode | null userId stored correctly |
+| 3 | PATCH userId | Late Binding | DB updated, re-extraction triggered |
+| 4 | Observation with userId | Multi-User | obs→session→userId chain correct |
+| 5 | Bob observations | Person Field | Multi-user isolation, no cross-contamination |
+| 6 | Extraction API contract | Extraction | API returns add/remove/keep_hint |
+| 7 | ICL prompt with userId | SDK Integration | User-scoped context only |
+| 8 | ICL prompt without userId | Hook Mode | Null userId handled, no errors |
+| 9 | Extraction with LLM | Append-only Extraction | Correct keep/remove semantics |
+| 10 | Extraction history | History | Old extractions not overwritten |
+| 11 | Re-extraction add | Temporal Evolution | Both old+new items present |
+| 12 | Re-extraction remove | Temporal Evolution | Invalid item removed from result |
+| 13 | Hook mode compat | Compatibility | No errors, backward compatible |
+| 14 | Input validation | API Contract | API rejects invalid input with 400 |
+| 15 | Regression | Backward Compat | 46/46 existing tests pass |
 
-**Definition of Done**: ALL 12 checks pass.
+**Definition of Done**: ALL 15 tests pass.
 
 ---
 
