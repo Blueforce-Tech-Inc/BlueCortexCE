@@ -5805,8 +5805,10 @@ response=$(curl -sf -X POST "${DEMO_URL}/memory/icl-prompt" \
 | 11 | Hook mode backward compat | All | No errors with null userId |
 | 12 | Regression | All | Existing tests pass |
 | 13 | SDK demo integration | Step 10 | Demo endpoints work |
+| 14 | Extraction API contract | Step 6 | API returns add/remove/keep_hint |
+| 15 | Input validation | Step 5 | API rejects invalid input with 400 |
 
-**All 13 tests must pass before Phase 3.1 is considered complete.**
+**All 15 tests must pass before Phase 3.1 is considered complete.**
 
 ---
 

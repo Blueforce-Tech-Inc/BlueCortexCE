@@ -71,8 +71,8 @@
 
 | # | 文件 | 行 | 级别 | 问题 |
 |---|------|-----|------|------|
-| 29-1 | ExtractionStorageService.java | 全文 | **P2** | **无单元测试** — `storeExtractionResult()` 和 `storeDLQ()` 均无测试覆盖。两个方法涉及事务边界（@Transactional）和 session find-or-create 逻辑，值得单测验证。 |
-| 29-2 | PendingMessageEventListener.java | 全文 | **P2** | **无单元测试** — `handlePendingMessageEvent()` 无测试覆盖。异步事件处理 + 异常兜底逻辑（标记 failed）值得 mock 测试。 |
+| 29-1 | ExtractionStorageService.java | 全文 | **P2** | **无单元测试** — `storeExtractionResult()` 和 `storeDLQ()` 均无测试覆盖。两个方法涉及事务边界（@Transactional）和 session find-or-create 逻辑，值得单测验证。 ✅已修复（ExtractionStorageServiceTest: 9 tests） |
+| 29-2 | PendingMessageEventListener.java | 全文 | **P2** | **无单元测试** — `handlePendingMessageEvent()` 无测试覆盖。异步事件处理 + 异常兜底逻辑（标记 failed）值得 mock 测试。 ✅已修复（PendingMessageEventListenerTest: 4 tests） |
 | 29-3 | ExtractionStorageService.java | L55, L98 | **P2** | **FQCN 冗余** — `com.ablueforce.cortexce.entity.SessionEntity` 使用全限定类名而非 import。功能正确但影响可读性。建议添加 import 语句。 ✅已修复（添加 import，替换 FQCN 为简名） |
 
 #### 跳过的发现（非 bug）
