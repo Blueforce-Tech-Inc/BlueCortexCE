@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-06 02:32 (Backend #41: OffsetPageRequest + TokenService 审查；0 P0/P1，新增 1 P2 待修复)
+> **最后更新**: 2026-04-06 04:13 (Backend #41: 4 P2 已修复 — 单元测试 + 注释 typo + null check；0 P0/P1/0 P2 待处理)
 
 ---
 
@@ -2180,10 +2180,16 @@ Total: 426/426 tests passed
 
 | # | 文件 | 行 | 级别 | 问题 |
 |---|------|-----|------|------|
-| 41-1 | OffsetPageRequest.java | 全文 | **P2** | **无单元测试** — 为修复 #38 pagination bug 新增的类，但无任何测试覆盖。关键场景包括：`next()` offset 增量、`previousOrFirst()` 边界（offset < size 时回到 0）、`withPage()` 保持原始 offset、`equals/hashCode` 契约、`getOffset()` JPA 翻译正确性。建议：新增 OffsetPageRequestTest 覆盖上述场景 |
-| 41-2 | TokenService.java | 全文 | **P2** | **无单元测试** — `calculateObservationTokens()` 核心方法（含 TypeScript 公式复刻、JSON.stringify fallback、整数溢出保护）和 `calculateEconomics()` 均无测试。关键场景：facts null/empty/正常、极大 observation 的整数溢出保护、savingsPercent = 0 的边界 |
-| 41-3 | TokenService.java | L63 | **P2** | **`modeService != null` 检查误导性** — `modeService` 通过构造函数注入，Spring 保证非 null（若无可用 Bean 则启动失败）。此 null 检查暗示 modeService 可能为 null，但实际不会发生。若设计意图是可选依赖，应使用 `@Autowired(required=false)` + setter 注入。建议：删除 null 检查，直接调用 `modeService.getWorkEmoji(obsType)` |
-| 41-4 | OffsetPageRequest.java | L34 | **P2** | **注释 typo** — `"Page size must not not be negative"` 应为 `"must not be negative"`（双否定） |
+| 41-1 | OffsetPageRequest.java | 全文 | **P2** | **无单元测试** — 为修复 #38 pagination bug 新增的类，但无任何测试覆盖。关键场景包括：`next()` offset 增量、`previousOrFirst()` 边界（offset < size 时回到 0）、`withPage()` 保持原始 offset、`equals/hashCode` 契约、`getOffset()` JPA 翻译正确性。建议：新增 OffsetPageRequestTest 覆盖上述场景 ✅已修复 |
+| 41-2 | TokenService.java | 全文 | **P2** | **无单元测试** — `calculateObservationTokens()` 核心方法（含 TypeScript 公式复刻、JSON.stringify fallback、整数溢出保护）和 `calculateEconomics()` 均无测试。关键场景：facts null/empty/正常、极大 observation 的整数溢出保护、savingsPercent = 0 的边界 ✅已修复 |
+| 41-3 | TokenService.java | L63 | **P2** | **`modeService != null` 检查误导性** — `modeService` 通过构造函数注入，Spring 保证非 null（若无可用 Bean 则启动失败）。此 null 检查暗示 modeService 可能为 null，但实际不会发生。若设计意图是可选依赖，应使用 `@Autowired(required=false)` + setter 注入。建议：删除 null 检查，直接调用 `modeService.getWorkEmoji(obsType)` ✅已修复 |
+| 41-4 | OffsetPageRequest.java | L34 | **P2** | **注释 typo** — `"Page size must not not be negative"` 应为 `"must not be negative"`（双否定） ✅已修复 |
+
+**修复记录 (2026-04-06 04:13)**:
+- **41-1**: 新增 `OffsetPageRequestTest.java`（16 个测试用例，覆盖 next/previousOrFirst/first/withPage/equals-hashCode 契约/边界）
+- **41-2**: 新增 `TokenServiceTest.java`（11 个测试用例，覆盖 calculateObservationTokens null/empty/正常/极大值，calculateEconomics 边界）
+- **41-3**: 删除误导性 `if (modeService != null)` 检查；添加注释说明 Spring 保证非 null（构造器注入）
+- **41-4**: 修复注释 typo `"must not not be negative"` → `"must not be negative"`
 
 #### 代码质量评价
 

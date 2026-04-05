@@ -30,7 +30,7 @@ public class OffsetPageRequest implements Pageable, Serializable {
     }
 
     public OffsetPageRequest(int page, int size, long offset, Sort sort) {
-        if (size < 0) throw new IllegalArgumentException("Page size must not not be negative");
+        if (size < 0) throw new IllegalArgumentException("Page size must not be negative");
         this.page = page;
         this.size = size;
         this.offset = offset;

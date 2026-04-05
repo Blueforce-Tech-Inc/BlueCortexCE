@@ -81,22 +81,11 @@ public class TokenService {
     /**
      * Get the display emoji for an observation type.
      * Uses ModeService to get emoji from the active mode configuration.
-     * Falls back to defaults if mode is not available.
      */
     public String getWorkEmoji(String obsType) {
-        if (modeService != null) {
-            return modeService.getWorkEmoji(obsType);
-        }
-        // Fallback defaults (same as code.json)
-        return switch (obsType) {
-            case "bugfix" -> "🛠️";
-            case "decision" -> "⚖️";
-            case "feature" -> "🛠️";
-            case "refactor" -> "🛠️";
-            case "discovery" -> "🔍";
-            case "change" -> "🛠️";
-            default -> "📝";
-        };
+        // modeService is constructor-injected by Spring; Spring guarantees non-null
+        // (would fail to start if ModeService bean was unavailable)
+        return modeService.getWorkEmoji(obsType);
     }
 
     /**
