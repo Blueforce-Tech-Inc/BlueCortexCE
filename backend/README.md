@@ -382,7 +382,8 @@ src/main/java/com/ablueforce/cortexce/
 │   └── LogMarkers.java              # Log marker constants
 ├── dto/
 │   ├── ApiRequests.java             # API request DTOs
-│   └── ApiResponses.java            # API response DTOs
+│   ├── ApiResponses.java            # API response DTOs
+│   └── OffsetPageRequest.java      # Pagination helper for offset-based paging
 ├── event/
 │   ├── PendingMessageEvent.java     # Pending message lifecycle event
 │   ├── PendingMessageEventListener.java
