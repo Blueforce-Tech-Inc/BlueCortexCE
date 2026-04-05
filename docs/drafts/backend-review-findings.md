@@ -3,6 +3,20 @@
 > **更新频率**: 每次巡检审查 Backend 时更新
 > **最后更新**: 2026-04-05 19:55 (P0 dict_snowball 修复完成: hibernate-vector 6.4.7→6.5.3；回归测试 46/46 ✅；EXTRACTION 验收 25/25 ✅)
 
+---
+
+## 2026-04-06 01:11 | 健康检查巡检（每小时 cron）
+
+| 检查项 | 结果 | 说明 |
+|--------|------|------|
+| Backend 服务健康 | ✅ OK | `{"service":"claude-mem-java","status":"ok"}` |
+| 回归测试 | ✅ 46/46 | regression-test.sh |
+| EXTRACTION 验收 | ✅ 4/4 | demo-v14-test.sh (icl-truncated/experiences-filtered/memory-health/basic) |
+| Backend Review | ✅ 0 P0/0 P1/0 P2 | 全部已修复，无待处理问题 |
+
+**Demo 启动问题**: demo-v14-test.sh 需要 demo app (port 37778) 运行。经排查：`CortexSessionContextBridgeAdvisor` 在后台 exec 环境下出现 `NoClassDefFoundError`，但 PTY exec 模式下正常（疑似 TTY 检测差异）。执行 `mvn clean compile -Plocal` 后 demo 可正常启动。
+
+
 # Backend 代码审查问题记录
 
 ## 📊 未修复问题总览
@@ -2093,3 +2107,61 @@ Total: 426/426 tests passed
 - DLQ: 提取失败进入死信队列，不阻塞正常流程
 
 **审查结论**: ✅ Phase 3 实现完整，所有核心组件 (模板配置/提取管道/存储/DLQ/API/调度) 均已实现且代码质量优秀。0 P0/P1/P2 问题。功能验收通过。
+
+---
+
+### 2026-04-06 01:33 | Demo 代码审查轮次
+
+**审查方向**: Demo 代码（轮次: Java → Go → Python → JS → **Demo** → Backend）
+
+**审查范围**:
+- `examples/cortex-mem-demo/src/main/java/com/example/cortexmem/` — 10 个控制器
+- `go-sdk/cortex-mem-go/examples/` — basic, http-server, genkit, eino, langchaingo
+- `python-sdk/cortex-mem-python/examples/http-server/app.py` — Flask HTTP Server
+- `js-sdk/cortex-mem-js/examples/` — basic.ts, http-server/app.ts
+
+**编译验证**: N/A（纯 demo 代码审查，无需编译）
+
+#### Demo 审查结果
+
+| Demo | 控制器/端点数 | 输入验证 | 错误处理 | P0/P1/P2 |
+|------|-------------|---------|---------|---------|
+| Java Demo | 10 控制器 | ✅ null/blank/limit 检查 | ✅ try-catch + 500 | ✅ 0 |
+| Go HTTP Server | 26 端点 | ✅ MaxBytesReader/参数校验/panic recovery | ✅ 500 + validation 400 | ✅ 0 |
+| Go basic | — | ✅ | ✅ | ✅ 0 |
+| Go genkit/eino/langchaingo | — | ✅ | ✅ | ✅ 0 |
+| Python Flask | 26 端点 | ✅ _require/_parse_int_param/类型检查 | ✅ APIError/CortexError/兜底 500 | ✅ 0 |
+| JS HTTP Server | 26 端点 | ✅ requireFields/limit/offset 检查 | ✅ asyncHandler + 全局错误处理器 | ✅ 0 |
+| JS basic | — | ✅ | ✅ | ✅ 0 |
+
+#### 重点审查发现
+
+**Java Demo**:
+- `ExtractionController`: `normalizedUserId` blank→null 规范化正确，避免 SDK 传空字符串
+- `ObservationsController`: PATCH 类型安全校验完整（facts/concepts 逐元素类型验证）
+- `ManagementController`: `/quality` 必填 project 参数，DTO record 映射无运行时风险
+
+**Go HTTP Server**:
+- `/session/start` 要求 `session_id` 必填（后端支持自动生成，Demo 故意严格化）
+- `batch-observations` 从 `/observations/batch` 改名避 Go 1.25+ 路由冲突
+- `/create-observation` 从 `/observations/create` 改名避路由冲突
+- `recovery` middleware: panic→500 JSON 响应，防止进程崩溃
+
+**Python Flask**:
+- `_parse_json()` Content-Type 检查正确（防止 CSRF）
+- `observations_update`: `kwargs` 构建方式正确实现 PATCH 部分更新语义
+- `stats` 端点: `project=""` 默认返回全局统计（与 SDK 行为一致）
+
+**JS HTTP Server**:
+- `asyncHandler` wrapper 确保 async rejection 跨 Express 版本兼容
+- `recordObservation` 使用 `cwd` 字段（JS SDK 特有设计，其他 SDK 用 `project_path`）
+- graceful shutdown: SIGTERM/SIGINT 处理 + 5s force exit
+
+**跨 Demo 一致性**:
+- 全部 4 个 Demo (Java/Go/Python/JS) 的 HTTP Server 均暴露 ~26 个端点
+- `count=0` 语义一致：表示"使用 SDK/backend 默认"
+- `limit` 上限统一为 100
+- extraction latest/history 返回格式一致（Python 用 `to_dict()` camelCase）
+- `/health` 端点全部返回 `service`/`status`/`time` 字段
+
+**审查结论**: 0 个 P0/P1/P2 问题。所有 Demo 代码质量优秀，输入验证到位，错误处理健壮，跨 SDK 一致性良好。无发现需修复的问题。
