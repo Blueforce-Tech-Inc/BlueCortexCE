@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-05 16:27 (文档审查 #N: 发现 P0 PostgreSQL dict_snowball 扩展缺失 → observation ingestion 500 错误；设计文档无问题)
+> **最后更新**: 2026-04-05 19:55 (P0 dict_snowball 修复完成: hibernate-vector 6.4.7→6.5.3；回归测试 46/46 ✅；EXTRACTION 验收 25/25 ✅)
 
 # Backend 代码审查问题记录
 
@@ -9,11 +9,11 @@
 
 | 严重级别 | 未修复数 | 说明 |
 |----------|---------|------|
-| **P0** (必须修复) | **1** | PostgreSQL dict_snowball 扩展缺失（环境问题） |
+| **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
 | **P2** (建议修复) | **0** | — |
 | **⏭ 跳过** | **8** | 非 bug，属设计决策或代码风格偏好 |
-| **⏳待修** | **1** | P0 dict_snowball（需要 DBA/运维处理） |
+| **✅ 已修复** | **P0×1** | dict_snowball → hibernate-vector 版本对齐 (6.4.7→6.5.3) |
 
 ---
 
@@ -36,7 +36,7 @@
 
 | ID | 问题 | 级别 | 状态 |
 |----|------|------|------|
-| DOC-1 | **PostgreSQL `dict_snowball` 扩展缺失**：`POST /api/ingest/observation` 返回 HTTP 500：`ERROR: could not access file "$libdir/dict_snowball": No such file or directory`。健康检查和 Session 创建正常，但 Observation 摄入失败。根因：PostgreSQL 缺少 Snowball 词典扩展（用于全文搜索 `to_tsvector('snowball', ...)`）。**非代码 bug**，属环境配置问题。 | P0 | **⏳待修** |
+| DOC-1 | **PostgreSQL `dict_snowball` 扩展缺失**：~~`POST /api/ingest/observation` 返回 HTTP 500：`ERROR: could not access file "$libdir/dict_snowball"`~~ → **✅ 已修复**。根因：`hibernate-vector` 6.4.7 与 `hibernate-core` 6.5.3 版本不匹配导致 JDBC 绑定 vector 类型时触发字典加载异常。修复：升级 `hibernate-vector` → 6.5.3.Final（与 hibernate-core 对齐）。回归测试 46/46 ✅，EXTRACTION 验收 25/25 ✅。 | P0 | **✅ FIXED** (2026-04-05 19:55) |
 
 **修复方案**（需 DBA/运维处理）:
 ```sql
