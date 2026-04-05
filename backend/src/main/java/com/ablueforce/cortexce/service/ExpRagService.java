@@ -229,14 +229,46 @@ public class ExpRagService {
         );
     }
 
+    /**
+     * Find the position of a markdown section header.
+     * Searches for "## " followed by text starting with headerPrefix.
+     * This is robust against headers like "## Reasoning Process" vs "## Reasoning".
+     */
+    private int findSectionStart(String content, String headerPrefix) {
+        int searchFrom = 0;
+        while (searchFrom < content.length()) {
+            int idx = content.indexOf("## ", searchFrom);
+            if (idx < 0) return -1;
+            int lineEnd = content.indexOf('\n', idx);
+            String restOfLine = (lineEnd < 0)
+                ? content.substring(idx + 3)
+                : content.substring(idx + 3, lineEnd);
+            if (restOfLine.startsWith(headerPrefix)) {
+                return idx;
+            }
+            searchFrom = idx + 3;
+        }
+        return -1;
+    }
+
+    /**
+     * Extract section content starting from a ## header position.
+     * Content starts after the header line and ends at the next ## header or EOF.
+     */
+    private String extractSectionContent(String content, int headerStart) {
+        int lineEnd = content.indexOf('\n', headerStart);
+        if (lineEnd < 0) return "";
+        int nextHeader = content.indexOf("\n##", lineEnd);
+        if (nextHeader < 0) nextHeader = content.length();
+        return content.substring(lineEnd + 1, nextHeader).trim();
+    }
+
     private String extractTaskFromContent(String content) {
         if (content == null) return "Unknown task";
 
-        int taskStart = content.indexOf("## Task");
+        int taskStart = findSectionStart(content, "Task");
         if (taskStart >= 0) {
-            int sectionEnd = content.indexOf("\n##", taskStart + 2);
-            if (sectionEnd < 0) sectionEnd = content.length();
-            return content.substring(taskStart + 7, sectionEnd).trim(); // "## Task".length() = 7
+            return extractSectionContent(content, taskStart);
         }
 
         return content.length() > 100 ? content.substring(0, 100) : content;
@@ -245,17 +277,13 @@ public class ExpRagService {
     private String extractStrategyFromContent(String content) {
         if (content == null) return "N/A";
 
-        int strategyStart = content.indexOf("## Reasoning");
-        int headerLen = 12; // "## Reasoning".length()
+        int strategyStart = findSectionStart(content, "Reasoning");
         if (strategyStart < 0) {
-            strategyStart = content.indexOf("## Strategy");
-            headerLen = 11; // "## Strategy".length()
+            strategyStart = findSectionStart(content, "Strategy");
         }
 
         if (strategyStart >= 0) {
-            int sectionEnd = content.indexOf("\n##", strategyStart + 2);
-            if (sectionEnd < 0) sectionEnd = content.length();
-            return content.substring(strategyStart + headerLen, sectionEnd).trim();
+            return extractSectionContent(content, strategyStart);
         }
 
         return "General approach used";
@@ -263,14 +291,12 @@ public class ExpRagService {
 
     private String extractOutcomeFromContent(String content) {
         if (content == null) return "N/A";
-        
-        int outcomeStart = content.indexOf("## Outcome");
+
+        int outcomeStart = findSectionStart(content, "Outcome");
         if (outcomeStart >= 0) {
-            int sectionEnd = content.indexOf("\n##", outcomeStart + 2);
-            if (sectionEnd < 0) sectionEnd = content.length();
-            return content.substring(outcomeStart + 10, sectionEnd).trim(); // "## Outcome".length() = 10
+            return extractSectionContent(content, outcomeStart);
         }
-        
+
         return "Task completed";
     }
 
