@@ -4645,18 +4645,14 @@ private String buildAppendOnlyPrompt(TemplateConfig template,
     sb.append("  \"keep_hint\": [ /* items mentioned positively that should be retained */ ]\n");
     sb.append("}\n\n");
 
-    // Include item schema hint so LLM knows the structure of array elements
-    // This is critical — without it, LLM may invent field names
-    if (schemaHint != null) {
-        sb.append("Each item in add/remove/keep_hint arrays should match this structure:\n");
-        sb.append(schemaHint).append("\n\n");
-    }
-
     sb.append("CRITICAL:\n");
     sb.append("- 'add': only items EXPLICITLY stated in observations\n");
     sb.append("- 'remove': only items EXPLICITLY rejected (e.g., 'I don't like X anymore')\n");
     sb.append("- 'keep_hint': items mentioned positively or in passing that should NOT be removed\n");
     sb.append("- Do NOT infer, generalize, or fabricate\n");
+    sb.append("- Each item MUST include '_field' indicating which list it belongs to\n");
+    sb.append("  (e.g. {\"_field\": \"preferences\", \"category\": \"food\", \"value\": \"sushi\"})\n");
+    sb.append("  If the schema has a single list, use its field name. If flat, omit '_field'.\n");
     sb.append("- Each item MUST have 'category' and 'value' fields (used for deduplication)\n\n");
 
     sb.append("Observations:\n");
