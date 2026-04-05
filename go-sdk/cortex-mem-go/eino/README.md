@@ -46,6 +46,6 @@ Implements Eino's Retriever interface:
 
 ```go
 type Retriever interface {
-    Retrieve(ctx context.Context, query string, opts ...any) ([]*dto.Experience, error)
+    Retrieve(ctx context.Context, query string, opts ...any) ([]dto.Experience, error)
 }
 ```

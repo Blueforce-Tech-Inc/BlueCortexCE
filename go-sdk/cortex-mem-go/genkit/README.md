@@ -25,7 +25,7 @@ client := cortexmem.NewClient(
 // Create Genkit Retriever (project is a required positional argument)
 retriever := genkit.NewRetriever(client, "/my-project",
     genkit.WithRetrieverSource("tool_result"),
-    genkit.WithRetrieverCount(20),
+    genkit.WithRetrieverCount(4),
 )
 
 // Use with Genkit
