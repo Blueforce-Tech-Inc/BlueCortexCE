@@ -881,8 +881,15 @@ public class StructuredExtractionService {
             return fallback;
         }
     }
-    
+
     /**
+     * ⚠️ IMPLEMENTATION NOTE: The `formatExtractedData()` pseudocode below represents
+     * the original design intent for ICL prompt integration. The actual implementation
+     * uses `Experience` records and `toExperience()` in `ExpRagService.java` instead.
+     * The `Experience` record (line 335 of ExpRagService) handles formatting via its
+     * toString() and the buildICLPrompt() method formats experiences for prompts.
+     * `formatExtractedData()` as a standalone utility method is NOT implemented.
+     *
      * Format extracted data as human-readable text for ICL prompts.
      * Recursively handles nested Maps, Lists, and primitives.
      * 
@@ -3775,7 +3782,7 @@ private String formatExtractedData(Map<String, Object> extractedData) {
 }
 ```
 
-**Resolution**: Document `formatExtractedData()` utility method. Required for ICL prompt integration.
+**Resolution**: The `formatExtractedData()` standalone utility was **not implemented**. Instead, `ExpRagService` uses `Experience` records (line 335) and `toExperience(ObservationEntity)` conversion (line 217) to format observations for ICL prompts. The `buildICLPrompt()` method (line 177) handles formatting. This approach is functionally equivalent but more tightly coupled to the `Experience` data model rather than a generic `Map<String, Object>` utility.
 
 ---
 
@@ -3831,7 +3838,7 @@ Option A: Project-scoped userId (CHOSEN)
 1. ✅ Array-wrapped schema in Section 2.2
 2. ✅ User grouping via `groupByUser()` in Section 2.3
 3. ✅ Merge logic with sentiment-aware conflict handling in Section 2.3
-4. ✅ `formatExtractedData()` for ICL prompts in Section 2.3
+4. ⚠️ `formatExtractedData()` for ICL prompts in Section 2.3 — **planned but not implemented**; actual ICL integration uses `Experience` records in `ExpRagService` (see Section 24.3 Resolution)
 5. ✅ `user_id` in SessionEntity (Flyway V15)
 6. ✅ Session creation with optional userId + PATCH update API
 7. ✅ 8 repository prerequisites (Section 15.1)
@@ -6298,7 +6305,7 @@ bash scripts/demo-v14-test.sh
 - **2026-03-22 v21**: (1) **Section 22**: Added SDK API walkthrough findings. (2) **Section 22.2**: Experiences API needs `userId` parameter — added `ExperienceRequest.userId` field. (3) **Section 22.3**: ICL Prompt API needs `userId` parameter — added `ICLPromptRequest.userId` field. (4) **Section 22.4**: Documented known limitation — session userId update after observations created won't migrate old extractions. (5) Updated Section 20.8 summary table to reflect 8 issues resolved (was 6). (6) **Section 22.5**: All 7 SDK walkthrough issues documented.
 
 - **2026-03-22 v20**: (1) **Section 20.8**: All 8 walkthrough issues now resolved — no more deferred items. (2) **Section 20.9**: Ingestion API user_id resolved — Option B: session creation with optional userId + PATCH API to update existing sessions. (3) **Section 2.3**: Fixed `mergeExtractedData()` sentiment handling — composite key uses category+value only, sentiment changes trigger overwrite (not skip). (4) Confirmed Phase 3.1 design is complete with all issues resolved.
-- **2026-03-22 v18**: (1) **Section 2.2**: Updated `user_preference` template to use array-wrapped schema (was single-object — critical fix from walkthrough). (2) **Section 2.3**: Refactored `runExtraction()` to include user grouping via `groupByUser()` method. (3) **Section 2.3**: Refactored `extractByTemplate()` to accept candidates parameter. (4) **Section 2.3**: Rewrote `storeExtractionResult()` with merge logic (`mergeExtractedData()`) and user-scoped session ID resolution. (5) **Section 2.3**: Added `formatExtractedData()` for ICL prompt integration. (6) **Section 15.1**: Added prerequisites #6-8: `findByContentSessionIdAndType()`, `findByUserId()`, `findSessionIdsByUserIdAndProject()`. (7) **Section 20.9**: Added ingestion API user_id passing design. (8) **Section 20.8**: Updated summary — 6 issues resolved, 2 deferred.
+- **2026-03-22 v18**: (1) **Section 2.2**: Updated `user_preference` template to use array-wrapped schema (was single-object — critical fix from walkthrough). (2) **Section 2.3**: Refactored `runExtraction()` to include user grouping via `groupByUser()` method. (3) **Section 2.3**: Refactored `extractByTemplate()` to accept candidates parameter. (4) **Section 2.3**: Rewrote `storeExtractionResult()` with merge logic (`mergeExtractedData()`) and user-scoped session ID resolution. (5) **Section 2.3**: Added `formatExtractedData()` pseudocode (planned utility, later replaced by `Experience` records in `ExpRagService`). (6) **Section 15.1**: Added prerequisites #6-8: `findByContentSessionIdAndType()`, `findByUserId()`, `findSessionIdsByUserIdAndProject()`. (7) **Section 20.9**: Added ingestion API user_id passing design. (8) **Section 20.8**: Updated summary — 6 issues resolved, 2 deferred.
 - **2026-03-22 v14**: (1) **Section 15.8 Bug Fix**: Fixed `findByType(project, "extracted_%", 50)` wildcard bug — `findByType` uses exact match (`type = :type`), NOT LIKE. Added `findByTypeLike()` repository method as prerequisite #4, plus alternative approach (iterate known template names). Updated ICL prompt and experience API code examples. (2) **Section 9.1**: Added `findByTypeLike()` to pending repository methods list. (3) **Section 15.1**: Added `findByTypeLike()` as prerequisite #5. (4) **Section 15.10**: Updated validation checklist with `findByTypeLike` or template-iteration alternative. (5) **Section 17**: Extraction idempotency — prevents duplicate `extracted_{template}` observations from re-running extraction. Composite hash deduplication + state guard clause. (6) **Section 18**: Observation type namespace reservation — `extraction_*` prefix reserved for system use. Added validation option to prevent user-created type collisions. (7) **Verified**: Spring AI 1.1.2 classpath includes `BeanOutputConverter`, `MapOutputConverter`, `ListOutputConverter` in `spring-ai-model` jar. Confirmed 5 pending prerequisites still not implemented: `findBySourceIn`, `findNewObservations`, `findByTypeGlobal`, `findByTypeLike`, `chatCompletionStructured`. **UPDATE**: All 5 (plus 3 more) subsequently implemented — see Section 21.1.
 - **2026-03-22 v13**: (1) **Quick Reference**: Added TL;DR summary at top — what, how, when, prerequisites, pipeline diagram. (2) **Section 15.6**: Transaction safety for extraction state management — `@Transactional` wrapper for delete-then-save pattern, plus SQL upsert alternative for production. (3) **Section 15.7**: Concurrency control — per-project `ReentrantLock` to prevent duplicate extraction runs from deepRefine + scheduled task overlap. (4) **Section 15.8**: ICL prompt integration — how extracted data surfaces in `/api/memory/icl-prompt` and experience API (`includeExtractions` flag). (5) **Section 15.9**: Token counting without TokenService — character-based heuristic (CJK-aware) for batching observations. (6) **Section 16**: Architecture Decision Records — 4 key decisions (store as ObservationEntity, BeanOutputConverter, separate pipeline, POJO+Map hybrid) captured with rationale and tradeoffs. (7) **Section 15.10**: Updated validation checklist with `@Transactional` and wildcard `findByType` support.
 - **2026-03-22 v12**: (1) **Section 15**: Added Implementation Bootstrap Checklist — step-by-step Phase 3.1 guide with prerequisites, new files, and validation checklist. (2) **Section 15.1**: Fixed DLQ bug — `findByType(null, ...)` won't work because `@Param("project")` is non-null; added `findByTypeGlobal()` repository method as prerequisite. (3) **Section 15.3**: Added Record vs POJO analysis for `ExtractionTemplate` configuration binding — recommended POJO approach via `@ConfigurationProperties` for Spring Boot 3.3 compatibility. (4) **Section 15.4**: Added concrete `LlmService.chatCompletionStructured()` implementation with `BeanOutputConverter`/`MapOutputConverter` dual pattern. (5) **Section 15.5**: Clarified extraction integration order — must NOT run during `quickRefine()`, only as last step of `deepRefineProjectMemories()`. (6) **Section 11.3**: Fixed DLQ retry code to use `findByTypeGlobal()` instead of broken `findByType(null, ...)`.
