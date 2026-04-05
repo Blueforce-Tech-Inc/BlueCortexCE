@@ -52,7 +52,54 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 -- 或安装 postgresql11-snowball (Debian/Ubuntu) / postgresql??-snowball (macOS Homebrew)
 ```
 
-**验证**: `grep dict_snowball ~/.claude-mem/logs/claude-mem-2026-04-05.log` 可见 6 次错误，均发生在 `INSERT mem_observations` 时。
+**深度诊断更新 (2026-04-05 17:25)**:
+经多轮验证，确认这是 **Hibernate 特异性** 问题，非通用 PostgreSQL 配置错误：
+
+| 测试 | 结果 |
+|------|------|
+| `to_tsvector('english', ...)` psql 直接调用 | ✅ 正常 |
+| psql INSERT (含 `search_vector` 生成列) | ✅ 成功 |
+| psql PREPARE+EXECUTE (vector 类型) | ✅ 成功 |
+| Hibernate/JDBC INSERT | ❌ `dict_snowball` 错误 |
+
+**关键发现**: `hibernate-vector` 6.4.7 与 `hibernate-core` 6.5.3 存在版本差（实测有效 pom：hibernate-core 6.5.3.Final，hibernate-vector 6.4.7.Final），导致 JDBC 绑定 vector 类型时触发文本搜索字典加载异常。
+
+**AI 助手建议（已核实，有价值）**:
+
+| 优先级 | 操作 | 预期效果 |
+| :-- | :-- | :-- |
+| ⭐⭐⭐ | **升级 `hibernate-vector` 到 6.5.3.Final**（与 hibernate-core 版本对齐） | 解决版本不兼容的类型绑定问题 |
+| ⭐⭐ | **检查 Entity `search_vector` 映射**（当前未映射，符合预期） | 确认 Hibernate 不会尝试写入 GENERATED 列 |
+| ⭐⭐ | **开启 SQL 日志诊断** | 定位具体是哪条 SQL 触发问题 |
+| ⭐ | **换用完整 PostgreSQL Docker 镜像**（如 `pgvector/pgvector:pg16`） | 排除字典文件缺失 |
+
+**实施步骤**:
+
+```xml
+<!-- pom.xml — 将 hibernate-vector 版本改为与 hibernate-core 对齐 -->
+<dependency>
+    <groupId>org.hibernate.orm</groupId>
+    <artifactId>hibernate-vector</artifactId>
+    <version>6.5.3.Final</version>  <!-- 原为 6.4.7.Final -->
+</dependency>
+```
+
+```properties
+# application.properties — 开启 SQL 日志诊断
+spring.jpa.show-sql=true
+logging.level.org.hibernate.SQL=DEBUG
+logging.level.org.hibernate.type.descriptor.sql.BasicBinder=TRACE
+```
+
+```sql
+-- 验证 PostgreSQL 字典完整性
+SELECT * FROM pg_ts_dict WHERE dictname = 'english_stem';
+SELECT cfgname, cfgparser FROM pg_ts_config;
+```
+
+**来源**: AI 助手诊断（2026-04-05 17:25），已核实版本信息
+
+**验证**: `grep dict_snowball ~/.claude-mem/logs/claude-mem-2026-04-05.log` 可见 8 次错误，均发生在 Hibernate 执行 `INSERT mem_observations` 时。
 
 ---
 
