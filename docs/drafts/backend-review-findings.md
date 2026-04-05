@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-05 19:55 (P0 dict_snowball 修复完成: hibernate-vector 6.4.7→6.5.3；回归测试 46/46 ✅；EXTRACTION 验收 25/25 ✅)
+> **最后更新**: 2026-04-06 02:32 (Backend #41: OffsetPageRequest + TokenService 审查；0 P0/P1，新增 1 P2 待修复)
 
 ---
 
@@ -2165,3 +2165,39 @@ Total: 426/426 tests passed
 - `/health` 端点全部返回 `service`/`status`/`time` 字段
 
 **审查结论**: 0 个 P0/P1/P2 问题。所有 Demo 代码质量优秀，输入验证到位，错误处理健壮，跨 SDK 一致性良好。无发现需修复的问题。
+
+---
+
+### 2026-04-06 02:32 | Backend 审查 #41
+
+**审查方向**: Backend (OffsetPageRequest.java + TokenService.java)
+
+**审查范围**:
+- `OffsetPageRequest.java` — 新增 offset-based Pageable 实现（修复 #38 pagination bug）
+- `TokenService.java` — Token economics 计算器
+
+#### 发现的问题
+
+| # | 文件 | 行 | 级别 | 问题 |
+|---|------|-----|------|------|
+| 41-1 | OffsetPageRequest.java | 全文 | **P2** | **无单元测试** — 为修复 #38 pagination bug 新增的类，但无任何测试覆盖。关键场景包括：`next()` offset 增量、`previousOrFirst()` 边界（offset < size 时回到 0）、`withPage()` 保持原始 offset、`equals/hashCode` 契约、`getOffset()` JPA 翻译正确性。建议：新增 OffsetPageRequestTest 覆盖上述场景 |
+| 41-2 | TokenService.java | 全文 | **P2** | **无单元测试** — `calculateObservationTokens()` 核心方法（含 TypeScript 公式复刻、JSON.stringify fallback、整数溢出保护）和 `calculateEconomics()` 均无测试。关键场景：facts null/empty/正常、极大 observation 的整数溢出保护、savingsPercent = 0 的边界 |
+| 41-3 | TokenService.java | L63 | **P2** | **`modeService != null` 检查误导性** — `modeService` 通过构造函数注入，Spring 保证非 null（若无可用 Bean 则启动失败）。此 null 检查暗示 modeService 可能为 null，但实际不会发生。若设计意图是可选依赖，应使用 `@Autowired(required=false)` + setter 注入。建议：删除 null 检查，直接调用 `modeService.getWorkEmoji(obsType)` |
+| 41-4 | OffsetPageRequest.java | L34 | **P2** | **注释 typo** — `"Page size must not not be negative"` 应为 `"must not be negative"`（双否定） |
+
+#### 代码质量评价
+
+| 检查项 | OffsetPageRequest | TokenService |
+|--------|-----------------|-------------|
+| 输入验证 | ⚠️ size 无上限，offset 无下限（但调用方 ViewerController 已验证） | ✅ null 安全 + 整数溢出保护 |
+| 错误处理 | N/A | ✅ JsonProcessingException fallback |
+| 事务管理 | N/A | N/A |
+| 线程安全 | ✅ 不可变（无共享可变状态） | ✅ 不可变 + 无状态 |
+| 设计质量 | ✅ Pageable 接口实现正确（用于修复 #38 pagination bug） | ✅ TypeScript 公式精确复刻 |
+
+#### 亮点
+- **OffsetPageRequest**: `next()` 正确更新 offset（`offset + size`），`previousOrFirst()` 边界保护（`Math.max(0, offset - size)`），`withSort()` 返回新实例保持不可变性
+- **TokenService**: `Math.min(size, 2L * Integer.MAX_VALUE)` clamp 保护整数溢出，`CHARS_PER_TOKEN = 4.0` 与 TS 公式完全对齐，`getWorkEmoji` 有默认值 fallback
+
+#### 审查结论
+无 P0/P1 问题。OffsetPageRequest 是修复 #38 pagination bug 的关键组件，建议补单元测试。TokenService 公式精确复刻，无功能问题，null 检查为代码卫生级别（P2）。整体代码质量良好。
