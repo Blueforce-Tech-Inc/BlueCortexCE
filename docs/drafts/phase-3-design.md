@@ -6222,20 +6222,19 @@ result=$(curl -sf "$BACKEND/api/extraction/user_preference/latest?projectPath=/t
 **Tests SDK integration** via the demo project running on port 37778:
 
 ```bash
-# Test A: SDK session with userId
-# Use CortexMemClient to start session with userId, verify in backend
+# Test 1: GET /demo/extraction/latest
+# Query latest extraction result for user_preferences template
 
-# Test B: SDK extraction query
-# Use CortexMemClient to query extraction results
+# Test 2: GET /demo/extraction/history
+# Query extraction history (returns JSON list)
 
-# Test C: SDK ICL prompt with userId
-# Use CortexMemClient to build ICL prompt with userId, verify user isolation
-
-# Test D: SDK updateSessionUserId
-# Use CortexMemClient to update userId, verify PATCH works
+# Test 3: GET /memory/experiences with userId
+# Query experiences with userId parameter
 ```
 
-**Pass criteria**: ALL 4 SDK demo tests pass.
+**⚠️ NOTE**: Test D (SDK updateSessionUserId) was deferred — not yet implemented in the script.
+
+**Pass criteria**: ALL 3 SDK demo tests pass.
 
 ---
 
