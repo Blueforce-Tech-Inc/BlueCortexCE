@@ -713,8 +713,8 @@ history, err := client.GetExtractionHistory(ctx, &pb.ExtractionHistoryRequest{
 
 | SDK 方法 | 后端端点 | 说明 |
 |----------|----------|------|
-| `getLatestExtraction()` | `GET /api/extraction/{template}/latest` | 查询参数：projectPath、userId |
-| `getExtractionHistory()` | `GET /api/extraction/{template}/history` | 查询参数：projectPath、userId、limit |
+| `getLatestExtraction()` | `GET /api/extraction/{templateName}/latest` | 查询参数：projectPath、userId |
+| `getExtractionHistory()` | `GET /api/extraction/{templateName}/history` | 查询参数：projectPath、userId、limit |
 | `triggerExtraction()` | `POST /api/extraction/run` | 查询参数：projectPath |
 
 ---

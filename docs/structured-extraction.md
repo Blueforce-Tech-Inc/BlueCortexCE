@@ -715,8 +715,8 @@ history, err := client.GetExtractionHistory(ctx, &pb.ExtractionHistoryRequest{
 
 | SDK Method | Backend Endpoint | Notes |
 |------------|-----------------|-------|
-| `getLatestExtraction()` | `GET /api/extraction/{template}/latest` | Query params: projectPath, userId |
-| `getExtractionHistory()` | `GET /api/extraction/{template}/history` | Query params: projectPath, userId, limit |
+| `getLatestExtraction()` | `GET /api/extraction/{templateName}/latest` | Query params: projectPath, userId |
+| `getExtractionHistory()` | `GET /api/extraction/{templateName}/history` | Query params: projectPath, userId, limit |
 | `triggerExtraction()` | `POST /api/extraction/run` | Query params: projectPath |
 
 ---
