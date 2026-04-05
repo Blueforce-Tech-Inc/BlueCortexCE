@@ -302,8 +302,8 @@ public class CortexMemClientImpl implements CortexMemClient {
     public Map<String, Object> getLatestExtraction(String projectPath, String templateName, String userId) {
         requireNonBlank(projectPath, "projectPath");
         requireNonBlank(templateName, "templateName");
-        try {
-            return restClient.get()
+        return executeWithRetryReturn("getLatestExtraction", () ->
+            restClient.get()
                 .uri(uriBuilder -> {
                     var builder = uriBuilder
                         .path("/api/extraction/{template}/latest")
@@ -314,11 +314,8 @@ public class CortexMemClientImpl implements CortexMemClient {
                     return builder.build(templateName);
                 })
                 .retrieve()
-                .body(new ParameterizedTypeReference<>() {});
-        } catch (Exception e) {
-            log.warn("Failed to get latest extraction: {}", e.getMessage());
-            return Map.of("error", e.getMessage(), "template", templateName);
-        }
+                .body(new ParameterizedTypeReference<>() {})
+        );
     }
 
     @Override
@@ -328,8 +325,8 @@ public class CortexMemClientImpl implements CortexMemClient {
         if (limit < 0) {
             throw new IllegalArgumentException("limit must not be negative");
         }
-        try {
-            return restClient.get()
+        return executeWithRetryReturn("getExtractionHistory", () ->
+            restClient.get()
                 .uri(uriBuilder -> {
                     var builder = uriBuilder
                         .path("/api/extraction/{template}/history")
@@ -345,11 +342,8 @@ public class CortexMemClientImpl implements CortexMemClient {
                     return builder.build(templateName);
                 })
                 .retrieve()
-                .body(new ParameterizedTypeReference<>() {});
-        } catch (Exception e) {
-            log.warn("Failed to get extraction history: {}", e.getMessage());
-            return List.of();
-        }
+                .body(new ParameterizedTypeReference<>() {})
+        );
     }
 
     @Override
@@ -588,6 +582,42 @@ public class CortexMemClientImpl implements CortexMemClient {
             try {
                 action.run();
                 return;
+            } catch (Exception e) {
+                lastException = e;
+                if (!isRetryable(e)) {
+                    log.debug("[{}] Non-retryable error ({}), giving up", operation, e.getMessage());
+                    break;
+                }
+                if (attempt < maxRetries) {
+                    log.debug("[{}] Attempt {}/{} failed, retrying...", operation, attempt, maxRetries);
+                    long jitteredMs = jitteredBackoff(attempt);
+                    try {
+                        Thread.sleep(jitteredMs);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new RuntimeException("Interrupted during retry", ie);
+                    }
+                }
+            }
+        }
+        log.warn("[{}] Failed after attempts: {}", operation, lastException.getMessage());
+        throw new RuntimeException(operation + " failed", lastException);
+    }
+
+    /**
+     * Execute a value-returning operation with retry.
+     * Propagates exception on final failure (consistent with executeWithRetry).
+     *
+     * @param operation Operation name for logging
+     * @param supplier  The HTTP call to execute
+     * @return The result of the supplier
+     * @param <T>       Return type
+     */
+    private <T> T executeWithRetryReturn(String operation, java.util.function.Supplier<T> supplier) {
+        Exception lastException = null;
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                return supplier.get();
             } catch (Exception e) {
                 lastException = e;
                 if (!isRetryable(e)) {
