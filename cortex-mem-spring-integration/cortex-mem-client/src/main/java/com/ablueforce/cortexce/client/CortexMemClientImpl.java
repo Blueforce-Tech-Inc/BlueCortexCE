@@ -410,6 +410,9 @@ public class CortexMemClientImpl implements CortexMemClient {
                     if (request.offset() != null && request.offset() > 0) {
                         builder.queryParam("offset", request.offset());
                     }
+                    if (request.orderBy() != null && !request.orderBy().isBlank()) {
+                        builder.queryParam("orderBy", request.orderBy());
+                    }
                     return builder.build();
                 })
                 .retrieve()

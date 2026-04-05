@@ -1,7 +1,5 @@
 package com.ablueforce.cortexce.client.dto;
 
-import java.util.List;
-
 /**
  * Request for searching observations.
  * Calls GET /api/search
@@ -13,6 +11,7 @@ import java.util.List;
  * @param source Filter by source attribution (optional, e.g., "tool_result", "user_statement")
  * @param limit Maximum results (default 20, max 100)
  * @param offset Pagination offset (default 0)
+ * @param orderBy Sort order (optional, e.g., "created_at_epoch" for newest-first)
  */
 public record SearchRequest(
     String project,
@@ -21,7 +20,8 @@ public record SearchRequest(
     String concept,
     String source,
     Integer limit,
-    Integer offset
+    Integer offset,
+    String orderBy
 ) {
     public static Builder builder() {
         return new Builder();
@@ -31,7 +31,7 @@ public record SearchRequest(
      * Convenience constructor with required fields only.
      */
     public SearchRequest(String project) {
-        this(project, null, null, null, null, 20, 0);
+        this(project, null, null, null, null, 20, 0, null);
     }
 
     public static class Builder {
@@ -42,6 +42,7 @@ public record SearchRequest(
         private String source;
         private Integer limit = 20;
         private Integer offset = 0;
+        private String orderBy;
 
         public Builder project(String project) { this.project = project; return this; }
         public Builder query(String query) { this.query = query; return this; }
@@ -50,9 +51,10 @@ public record SearchRequest(
         public Builder source(String source) { this.source = source; return this; }
         public Builder limit(Integer limit) { this.limit = limit; return this; }
         public Builder offset(Integer offset) { this.offset = offset; return this; }
+        public Builder orderBy(String orderBy) { this.orderBy = orderBy; return this; }
 
         public SearchRequest build() {
-            return new SearchRequest(project, query, type, concept, source, limit, offset);
+            return new SearchRequest(project, query, type, concept, source, limit, offset, orderBy);
         }
     }
 }
