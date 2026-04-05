@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-05 00:50 (JS SDK 审查 #4: JS SDK + HTTP Server Demo → 0 P0/P1/P2 问题；212 测试全通过；build 成功)
+> **最后更新**: 2026-04-05 16:27 (文档审查 #N: 发现 P0 PostgreSQL dict_snowball 扩展缺失 → observation ingestion 500 错误；设计文档无问题)
 
 # Backend 代码审查问题记录
 
@@ -9,11 +9,50 @@
 
 | 严重级别 | 未修复数 | 说明 |
 |----------|---------|------|
-| **P0** (必须修复) | **0** | — |
+| **P0** (必须修复) | **1** | PostgreSQL dict_snowball 扩展缺失（环境问题） |
 | **P1** (应该修复) | **0** | — |
 | **P2** (建议修复) | **0** | — |
 | **⏭ 跳过** | **8** | 非 bug，属设计决策或代码风格偏好 |
-| **⏳待修** | **0** | — |
+| **⏳待修** | **1** | P0 dict_snowball（需要 DBA/运维处理） |
+
+---
+
+### 2026-04-05 14:07 | 健康检查 #N
+
+| ID | 问题 | 级别 | 状态 |
+|----|------|------|------|
+| HC-1 | `ExpRagService`: 3 个提取方法 (`extractTaskFromContent`, `extractStrategyFromContent`, `extractOutcomeFromContent`) 使用 `indexOf("## Reasoning")` 等精确匹配，在观测内容包含类似 `## Reasoning Process` 的章节时会错误匹配。`ExperienceTemplate` 已有 `findSectionStart` 方法（使用 `startsWith`）修复此问题。 | P2 | **✅ FIXED** |
+| HC-2 | `CursorService`: `registryCache` 使用普通 `HashMap` + 独立 `registryLock`。应使用 `ConcurrentHashMap` 实现无锁缓存读取，避免读操作阻塞。 | P2 | **✅ FIXED** |
+
+**修复详情**:
+- **HC-1**: 在 `ExpRagService` 添加 `findSectionStart` 和 `extractSectionContent` 辅助方法（与 `ExperienceTemplate` 相同的健壮实现），并更新 3 个提取方法使用新的辅助方法。
+- **HC-2**: 将 `HashMap` 替换为 `ConcurrentHashMap`；`getRegistryCached()` 改为无锁快速路径（TTL 内直接返回缓存）；`registerProject`/`unregisterProject` 消除嵌套锁；添加 `writeRegistryUnlocked` 避免嵌套 `synchronized`。
+
+**验证**: 3 轮回归测试全通过 (46/46)。
+
+---
+
+### 2026-04-05 16:27 | 文档审查 #N — P0: PostgreSQL `dict_snowball` 扩展缺失
+
+| ID | 问题 | 级别 | 状态 |
+|----|------|------|------|
+| DOC-1 | **PostgreSQL `dict_snowball` 扩展缺失**：`POST /api/ingest/observation` 返回 HTTP 500：`ERROR: could not access file "$libdir/dict_snowball": No such file or directory`。健康检查和 Session 创建正常，但 Observation 摄入失败。根因：PostgreSQL 缺少 Snowball 词典扩展（用于全文搜索 `to_tsvector('snowball', ...)`）。**非代码 bug**，属环境配置问题。 | P0 | **⏳待修** |
+
+**修复方案**（需 DBA/运维处理）:
+```sql
+-- 检查已安装扩展
+SELECT * FROM pg_extension;
+
+-- 安装 postgresql-contrib 包后执行
+CREATE EXTENSION IF NOT EXISTS unaccent;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+-- 如仍缺 dict_snowball，需编译安装:
+-- PostgreSQL 源码: src/backend/tsearch/dict_snowball.c
+-- 或安装 postgresql11-snowball (Debian/Ubuntu) / postgresql??-snowball (macOS Homebrew)
+```
+
+**验证**: `grep dict_snowball ~/.claude-mem/logs/claude-mem-2026-04-05.log` 可见 6 次错误，均发生在 `INSERT mem_observations` 时。
 
 ---
 
