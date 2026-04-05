@@ -5483,34 +5483,31 @@ Tests are ordered by dependency — later tests rely on data created by earlier 
 
 #### Cleanup
 
-Script should clean up test data at the beginning and end:
+Script cleans up test data via API at the beginning:
 ```bash
-# Before: delete test sessions/observations
-psql -c "DELETE FROM mem_observations WHERE project_path='${TEST_PROJECT}'"
-psql -c "DELETE FROM mem_sessions WHERE project_path='${TEST_PROJECT}'"
-
-# After: same cleanup
+# Delete test observations (API-based cleanup)
+curl -sf -X DELETE "${BACKEND_URL}/api/memory/observations?project_path=${TEST_PROJECT}"
+# Sessions are kept for inspection after test run
 ```
 
 #### Verification
 
 ```bash
-# Run the full E2E test
-bash scripts/demo-v15-extraction-test.sh
+# Run the full acceptance test suite
+bash scripts/phase3-acceptance-test.sh
 
 # Expected output:
-# ✅ Test 1: Session + userId
-# ✅ Test 2: Session without userId (hook mode)
-# ... (12 tests)
-# ✅ Regression: 46/46 passed
+# ✅ Test 1: Session creation with userId
+# ✅ Test 2: Session creation without userId (hook mode)
+# ... (15 tests total)
 # ==============================
-# Result: 12/12 tests passed
+# Result: 15/15 tests passed
 # ==============================
 ```
 
 #### Final Sign-Off Checklist
 
-After all 12 tests pass:
+After all 15 tests pass:
 
 ```bash
 # 1. Git commit all changes
