@@ -1,7 +1,20 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-06 04:13 (Backend #41: 4 P2 已修复 — 单元测试 + 注释 typo + null check；0 P0/P1/0 P2 待处理)
+> **最后更新**: 2026-04-06 05:24 (DB 密码重置 + 健康恢复)
+
+---
+
+## 2026-04-06 05:24 | 健康检查巡检（每小时 cron）
+
+| 检查项 | 结果 | 说明 |
+|--------|------|------|
+| Backend 服务健康 | ✅ OK | `{"service":"claude-mem-java","status":"ok"}`（从 degraded 恢复） |
+| 回归测试 | ✅ 45/46 | regression-test.sh（1 skipped） |
+| EXTRACTION 验收 | ✅ 25/25 | phase3-acceptance-test.sh |
+| Backend Review | ✅ 0 P0/0 P1/0 P2 | 全部已修复，无待处理问题 |
+
+**修复**: PostgreSQL `postgres` 用户密码被外部操作修改，导致服务 `status=degraded`。执行 `ALTER USER postgres WITH PASSWORD '123456';` 重置密码，HikariCP 自动重连恢复。
 
 ---
 
