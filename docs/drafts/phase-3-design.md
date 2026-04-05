@@ -1211,7 +1211,7 @@ public void runIncrementalExtraction(String projectPath, String userId, Extracti
     }
     
     // Extract from new candidates only (actual code routes to extractAppendOnly() when prior exists — see Section 24.6)
-    String priorJson = fetchPriorExtraction(targetSessionId, template);
+    String priorJson = fetchPriorJson(targetSessionId, template.name());
     var result = extractByTemplate(projectPath, template, newCandidates, priorJson);
     
     // Update state (per user)
@@ -4004,7 +4004,7 @@ private void runTemplateExtraction(String projectPath, ExtractionTemplate templa
 public void runTemplateExtraction(String projectPath, ExtractionTemplate template) {
     // Step 1+2: Get candidates + prior result + LLM call (NO transaction)
     List<ObservationEntity> candidates = getCandidates(projectPath, template, state);
-    String priorJson = fetchPriorExtraction(targetSessionId, template);
+    String priorJson = fetchPriorJson(targetSessionId, template.name());
     Object result = extractByTemplate(projectPath, template, candidates, priorJson);
     
     if (result == null) return;
