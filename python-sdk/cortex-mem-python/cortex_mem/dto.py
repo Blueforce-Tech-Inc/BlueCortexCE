@@ -116,7 +116,11 @@ def _sanitize_for_json(obj: object) -> object:
 
 @dataclass
 class SessionStartResponse:
-    """Response from POST /api/session/start."""
+    """Response from POST /api/session/start.
+
+    Wire format uses snake_case keys (``session_db_id``, ``session_id``),
+    matching the backend Jackson SNAKE_CASE naming strategy.
+    """
 
     session_db_id: str = ""
     session_id: str = ""
@@ -125,6 +129,20 @@ class SessionStartResponse:
 
     def __repr__(self) -> str:
         return f"SessionStartResponse(session_id={self.session_id!r}, session_db_id={self.session_db_id!r})"
+
+    def to_dict(self) -> dict:
+        """Serialize to wire-compatible dict with snake_case keys.
+
+        ``prompt_number`` is always included to match the backend's
+        ``@JsonProperty("promptNumber")`` expectation.
+        """
+        d: dict = {
+            "session_db_id": self.session_db_id,
+            "session_id": self.session_id,
+            "context": self.context,
+            "prompt_number": self.prompt_number,
+        }
+        return d
 
     @classmethod
     def from_wire(cls, data: dict) -> SessionStartResponse:
@@ -140,6 +158,9 @@ class SessionStartResponse:
 class SessionUserUpdateResponse:
     """Response from PATCH /api/session/{sessionId}/user.
 
+    Wire format uses camelCase keys (``sessionId``, ``userId``),
+    matching the backend Jackson @JsonProperty annotations.
+
     Cross-SDK parity: Go SessionUserUpdateResponse, JS SessionUserUpdateResponse.
     """
 
@@ -149,6 +170,18 @@ class SessionUserUpdateResponse:
 
     def __repr__(self) -> str:
         return f"SessionUserUpdateResponse(status={self.status!r}, session_id={self.session_id!r})"
+
+    def to_dict(self) -> dict:
+        """Serialize to wire-compatible dict with camelCase keys.
+
+        Matches backend ``@JsonProperty("sessionId")`` and ``@JsonProperty("userId")``.
+        """
+        d: dict = {"status": self.status}
+        if self.session_id:
+            d["sessionId"] = self.session_id
+        if self.user_id:
+            d["userId"] = self.user_id
+        return d
 
     @classmethod
     def from_wire(cls, data: dict) -> SessionUserUpdateResponse:
