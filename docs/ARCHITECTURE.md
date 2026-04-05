@@ -809,7 +809,7 @@ export SPRING_AI_MCP_SERVER_PROTOCOL=STREAMABLE  # if you prefer STREAMABLE
 | Technology | Choice | Rationale |
 |------------|--------|-----------|
 | **Language** | Java 21+ | Virtual threads, records, pattern matching |
-| **Framework** | Spring Boot 3.3+ | Production-ready, extensive ecosystem |
+| **Framework** | Spring Boot 3.3.13 | Production-ready, extensive ecosystem |
 | **Database** | PostgreSQL 16 | ACID compliance, pgvector extension |
 | **Vector Search** | pgvector 0.8 | Native PostgreSQL integration, HNSW indexes |
 | **Migrations** | Flyway | Version-controlled schema evolution |

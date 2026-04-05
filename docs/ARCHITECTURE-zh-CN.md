@@ -809,7 +809,7 @@ export SPRING_AI_MCP_SERVER_PROTOCOL=STREAMABLE  # 如需使用 STREAMABLE
 | 技术 | 选择 | 理由 |
 |------|------|------|
 | **语言** | Java 21+ | 虚拟线程、record、模式匹配 |
-| **框架** | Spring Boot 3.3+ | 生产就绪、广泛的生态系统 |
+| **框架** | Spring Boot 3.3.13 | 生产就绪、广泛的生态系统 |
 | **数据库** | PostgreSQL 16 | ACID 合规、pgvector 扩展 |
 | **向量搜索** | pgvector 0.8 | 原生 PostgreSQL 集成、HNSW 索引 |
 | **迁移** | Flyway | 版本控制的架构演进 |
