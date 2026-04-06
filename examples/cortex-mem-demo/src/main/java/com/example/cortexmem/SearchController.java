@@ -27,7 +27,7 @@ public class SearchController {
     }
 
     /**
-     * GET /demo/search?project=/test&query=hello&source=tool_result&limit=10&offset=0
+     * GET /demo/search?project=/test&query=hello&source=tool_result&limit=10&offset=0&orderBy=created_at_epoch
      */
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> search(
@@ -37,7 +37,8 @@ public class SearchController {
             @RequestParam(required = false) String concept,
             @RequestParam(required = false) String source,
             @RequestParam(defaultValue = "0") Integer limit,
-            @RequestParam(defaultValue = "0") Integer offset) {
+            @RequestParam(defaultValue = "0") Integer offset,
+            @RequestParam(required = false) String orderBy) {
 
         if (project == null || project.isBlank()) {
             return ResponseEntity.badRequest()
@@ -61,6 +62,7 @@ public class SearchController {
                     .source(source)
                     .limit(limit)
                     .offset(offset)
+                    .orderBy(orderBy)
                     .build();
 
             Map<String, Object> result = client.search(request);

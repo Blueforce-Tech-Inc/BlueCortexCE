@@ -1,7 +1,7 @@
 # Cortex Memory Demo Configuration
 
 server:
-  port: 37778  # Obscure port to avoid conflicts with common 8xxx ports
+  port: 8080  # Obscure port to avoid conflicts with common 8xxx ports
 
 # Cortex CE memory backend (must be running)
 cortex:

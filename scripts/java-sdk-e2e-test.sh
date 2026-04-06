@@ -68,7 +68,7 @@ fi
 pass "Backend service OK (status=$BACKEND_STATUS)"
 
 info "Pre-check: Java Demo service..."
-DEMO_HEALTH=$(curl -sf --max-time 10 "$DEMO_BASE/../actuator/health" 2>/dev/null || echo "FAIL")
+DEMO_HEALTH=$(curl -sf --max-time 10 "http://localhost:8080/actuator/health" 2>/dev/null || echo "FAIL")
 if [ "$DEMO_HEALTH" = "FAIL" ]; then
     echo "❌ Java Demo service not running! Please start the demo first"
     exit 1
@@ -107,17 +107,17 @@ echo "--- Existing API Tests ---"
 
 # Test 1: Memory Experiences (Strict validation)
 info "Test 1: Memory Experiences — Verify returned array structure"
-RESP=$(curl -sf --max-time 10 "$DEMO_BASE/memory/experiences?project=$PROJECT&task=test&count=5" 2>/dev/null || echo "FAIL")
+RESP=$(curl -sf --max-time 10 "$DEMO_BASE/../memory/experiences?project=$PROJECT&task=test&count=5" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
     fail "Memory Experiences" "Request failed"
-elif ! contains_field "$RESP" "content"; then
-    fail "Memory Experiences" "Response missing 'content' field"
+elif ! echo "$RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); assert isinstance(d, list)" 2>/dev/null; then
+    fail "Memory Experiences" "Response is not a valid JSON array"
 else
     # VALUE CHECK: Verify experience items have expected fields
     EXP_CHECK=$(echo "$RESP" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
-content = data.get('content', [])
+content = data if isinstance(data, list) else data.get('content', [])
 if not isinstance(content, list):
     print('FAIL: content not a list')
 elif len(content) == 0:
@@ -142,7 +142,7 @@ fi
 
 # Test 2: ICL Prompt (Strict validation)
 info "Test 2: ICL Prompt — Verify prompt field exists"
-RESP=$(curl -sf --max-time 10 "$DEMO_BASE/memory/icl?project=$PROJECT&task=test&maxChars=500" 2>/dev/null || echo "FAIL")
+RESP=$(curl -sf --max-time 10 "$DEMO_BASE/iclprompt?project=$PROJECT&task=test&maxChars=500" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
     fail "ICL Prompt" "Request failed"
 elif ! echo "$RESP" | grep -qE '"prompt"|"observations"'; then
@@ -153,7 +153,7 @@ fi
 
 # Test 3: Session Start (Strict session_id validation)
 info "Test 3: Session Start — Verify session_id returned"
-RESP=$(curl -sf --max-time 10 "$DEMO_BASE/session/start?project=$PROJECT" 2>/dev/null || echo "FAIL")
+RESP=$(curl -sf --max-time 10 -X POST "$DEMO_BASE/session/start?project=$PROJECT" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
     fail "Session Start" "Request failed"
 elif ! contains_field "$RESP" "session_id"; then
@@ -178,7 +178,7 @@ fi
 
 # Test 5: Quality Distribution (Strict field validation)
 info "Test 5: Quality Distribution — Verify stats fields"
-RESP=$(curl -sf --max-time 10 "$DEMO_BASE/memory/quality?project=$PROJECT" 2>/dev/null || echo "FAIL")
+RESP=$(curl -sf --max-time 10 "$DEMO_BASE/../memory/quality?project=$PROJECT" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
     fail "Quality Distribution" "Request failed"
 else
@@ -238,8 +238,8 @@ info "Test 8: List Observations (P0) — Verify pagination with field values"
 RESP=$(curl -sf --max-time 10 "$DEMO_BASE/observations?project=$PROJECT&limit=10&offset=0" 2>/dev/null || echo "FAIL")
 if [ "$RESP" = "FAIL" ]; then
     fail "List Observations (P0)" "Request failed"
-elif ! echo "$RESP" | grep -qE '"observations"'; then
-    fail "List Observations (P0)" "Response missing 'observations' field"
+elif ! echo "$RESP" | grep -qE '"items"'; then
+    fail "List Observations (P0)" "Response missing 'items' field"
 else
     # VALUE CHECK: Verify observation items have expected fields
     OBS_CHECK=$(echo "$RESP" | python3 -c "
@@ -344,7 +344,7 @@ if [ $FAILED -gt 0 ]; then
     echo ""
     echo "Please check:"
     echo "  1. Is Backend running? curl $BACKEND_URL/api/health"
-    echo "  2. Is Demo running? curl $DEMO_BASE/../actuator/health"
+    echo "  2. Is Demo running? curl http://localhost:8080/actuator/health (actuator at root, demo at /demo/*)"
     echo "  3. Check Backend logs: tail -f logs/cortex-ce.log"
     exit 1
 fi
