@@ -372,8 +372,20 @@ class CortexMemClient:
         source: str = "",
         limit: int = 0,
         offset: int = 0,
+        order_by: str = "",
     ) -> SearchResult:
-        """Semantic search. GET /api/search with query params."""
+        """Semantic search. GET /api/search with query params.
+
+        Args:
+            project: Project name.
+            query: Semantic search query text.
+            type_: Filter by observation type.
+            concept: Filter by concept.
+            source: Filter by source.
+            limit: Maximum results to return (0 = backend default).
+            offset: Pagination offset (0 = no offset).
+            order_by: Sort order, e.g. "created_at_epoch" for newest first.
+        """
         self._assert_not_closed()
         params: dict[str, str] = {"project": project}
         if query:
@@ -388,6 +400,8 @@ class CortexMemClient:
             params["limit"] = str(limit)
         if offset:
             params["offset"] = str(offset)
+        if order_by:
+            params["orderBy"] = order_by
         data = self._request_json("GET", "/api/search", params=params)
         return SearchResult.from_wire(data or {})
 

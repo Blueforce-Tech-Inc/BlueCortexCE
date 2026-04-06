@@ -186,6 +186,7 @@ def search():
         source=request.args.get("source", ""),
         limit=limit,
         offset=offset,
+        order_by=request.args.get("orderBy", ""),
     )
     return jsonify(
         observations=[o.to_dict() for o in result.observations],
