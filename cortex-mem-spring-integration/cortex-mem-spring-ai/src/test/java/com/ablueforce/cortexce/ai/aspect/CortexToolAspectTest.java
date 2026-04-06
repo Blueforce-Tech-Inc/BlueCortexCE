@@ -66,6 +66,33 @@ class CortexToolAspectTest {
         verifyNoInteractions(captureService);
     }
 
+    @Test
+    void largeToolInputAndResponse_areTruncated() {
+        String largePath = "x".repeat(5000);
+        String result = testTools.readFile(largePath);
+        // result is small "content", but the path (large) should be truncated
+        verify(captureService).recordToolObservation(argThat((ObservationRequest r) -> {
+            String inputStr = String.valueOf(r.toolInput());
+            // Path truncated with suffix
+            if (!inputStr.contains("[truncated]")) {
+                return false;
+            }
+            // Should NOT contain full 5000 chars
+            return inputStr.length() < 5100;
+        }));
+    }
+
+    @Test
+    void smallToolInputAndResponse_areNotTruncated() {
+        String result = testTools.readFile("small-path");
+        assertThat(result).isEqualTo("content");
+        verify(captureService).recordToolObservation(argThat((ObservationRequest r) -> {
+            String inputStr = String.valueOf(r.toolInput());
+            // Should NOT contain truncation marker
+            return !inputStr.contains("[truncated]");
+        }));
+    }
+
     @Configuration
     @EnableAspectJAutoProxy
     static class TestConfig {

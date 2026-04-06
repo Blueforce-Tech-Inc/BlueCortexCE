@@ -29,6 +29,9 @@ public class CortexToolAspect implements Ordered {
 
     private static final Logger log = LoggerFactory.getLogger(CortexToolAspect.class);
 
+    /** Max characters per input/response value before truncation. Aligned with backend MAX_TOOL_CONTENT_LENGTH=4000. */
+    private static final int MAX_VALUE_LENGTH = 4000;
+
     private final ObservationCaptureService captureService;
 
     public CortexToolAspect(ObservationCaptureService captureService) {
@@ -62,7 +65,7 @@ public class CortexToolAspect implements Ordered {
                 .projectPath(CortexSessionContext.getProjectPath())
                 .toolName(toolName)
                 .toolInput(toolInput)
-                .toolResponse(Map.of("result", result != null ? result.toString() : "null"))
+                .toolResponse(Map.of("result", result != null ? truncate(result.toString()) : "null"))
                 .promptNumber(CortexSessionContext.getPromptNumber())
                 .build());
         } catch (Exception e) {
@@ -83,8 +86,14 @@ public class CortexToolAspect implements Ordered {
             // Note: params[i].getName() returns formal parameter name which requires
             // -parameters compiler flag to be meaningful (otherwise returns arg0, arg1...).
             // Spring AI's @ToolParam does not have a name attribute in 1.1.x.
-            map.put(params[i].getName(), args[i] != null ? args[i].toString() : "null");
+            String value = args[i] != null ? args[i].toString() : "null";
+            map.put(params[i].getName(), truncate(value));
         }
         return map;
+    }
+
+    private static String truncate(String s) {
+        if (s == null) return "null";
+        return s.length() <= MAX_VALUE_LENGTH ? s : s.substring(0, MAX_VALUE_LENGTH) + "...[truncated]";
     }
 }
