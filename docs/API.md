@@ -918,7 +918,7 @@ GET /api/search?project=/path/to/project&query=search+terms&limit=10&type=bugfix
 | `source` | string | ❌ | — | Filter by source (e.g., `manual`, `auto`) |
 | `limit` | int | ❌ | 20 | Max results (max 100) |
 | `offset` | int | ❌ | 0 | Pagination offset |
-| `orderBy` | string | ❌ | — | Order by field (supports: `created_at_epoch` for MCP compatibility) |
+| `orderBy` | string | ❌ | — | Order by field (`created_at_epoch` or `createdAtEpoch` — orders by creation time descending) |
 
 **Request Example**:
 ```bash
@@ -2273,6 +2273,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-03 | 0.1.0-beta+22 | Mode: corrected PUT `/api/modes` HTTP method (was POST→PUT, matching `@PutMapping`); corrected request body field `mode`→`modeId` (matching ModeSwitchRequest inner record field); corrected GET `/api/modes` response `id`→`mode_id`; corrected PUT `/api/modes` response format to match ModeResponse DTO (`mode_id`/name/description/version/observation_types/observation_concepts); synced Chinese version |
 | 2026-04-04 | 0.1.0-beta+23 | Search `orderBy` parameter: updated description from "accepted for MCP compatibility, not yet fully implemented" to "supports: `created_at_epoch` for MCP compatibility" (code implements this); synced Chinese version; Chinese Batch Get Observations: added parameter table (ids/project/orderBy/limit) to match English version |
 | 2026-04-04 | 0.1.0-beta+24 | Pagination bug fix: GET `/api/observations`, `/api/summaries`, `/api/prompts` — previously, when `offset < limit`, pagination returned wrong results (page index = offset/limit always = 0 for offset < limit, ignoring the offset). Fixed to use true offset pagination (SQL `LIMIT n OFFSET m`). All three endpoints now also sort by `createdAt DESC` consistently. |
+| 2026-04-06 | 0.1.0-beta+25 | Search endpoint `orderBy` parameter: updated description from "supports `created_at_epoch`" to "supports `created_at_epoch` or `createdAtEpoch`" (both values accepted per ViewerController code); synced Chinese version |
 
 ---
 

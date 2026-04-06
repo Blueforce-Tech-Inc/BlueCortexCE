@@ -930,7 +930,7 @@ curl http://localhost:37777/api/processing-status
 | `source` | string | ❌ | 来源过滤（如 `manual`、`auto`） |
 | `limit` | int | 20 | 结果数量 |
 | `offset` | int | 0 | 偏移量 |
-| `orderBy` | string | ❌ | 排序字段（支持：`created_at_epoch`，用于 MCP 兼容性） |
+| `orderBy` | string | ❌ | 排序字段（支持 `created_at_epoch` 或 `createdAtEpoch`，按创建时间降序排列） |
 
 **请求示例**:
 ```bash
@@ -1005,7 +1005,7 @@ curl "http://localhost:37777/api/search/by-file?project=/Users/dev/myproject&fil
 |------|------|------|------|
 | `ids` | string[] | ✅ | 要获取的观察 UUID 列表 |
 | `project` | string | ❌ | 可选的项目过滤器 |
-| `orderBy` | string | ❌ | 排序字段（如 `created_at_epoch`） |
+| `orderBy` | string | ❌ | 排序字段（支持 `created_at_epoch` 或 `createdAtEpoch`） |
 | `limit` | int | ❌ | 最大返回结果数 |
 
 **响应示例**:
@@ -2178,6 +2178,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-03 | 0.1.0-beta+22 | Mode: 修正 PUT `/api/modes` HTTP 方法（POST→PUT，与 `@PutMapping` 一致）；修正请求体字段 `mode`→`modeId`（与 ModeSwitchRequest 内部 record 字段一致）；修正 GET `/api/modes` 响应 `id`→`mode_id`；修正 PUT `/api/modes` 响应格式为 ModeResponse DTO（`mode_id`/name/description/version/observation_types/observation_concepts）；与英文版同步 |
 | 2026-04-04 | 0.1.0-beta+23 | Search 端点 `orderBy` 字段描述更新为"支持：`created_at_epoch`，用于 MCP 兼容性"（与英文版同步，后端代码已实现）；Batch Get Observations 章节补充参数表（ids/project/orderBy/limit 四个字段），与英文版一致 |
 | 2026-04-04 | 0.1.0-beta+24 | 分页 Bug 修复：GET `/api/observations`、`/api/summaries`、`/api/prompts`——此前当 `offset < limit` 时，分页返回错误结果（页索引 = offset/limit，当 offset < limit 时始终为 0，导致 offset 被忽略）。现已修复为真正的 offset 分页（SQL `LIMIT n OFFSET m`）。三个端点现在均按 `createdAt DESC` 排序。 |
+| 2026-04-06 | 0.1.0-beta+25 | Search 端点 `orderBy` 参数描述更新为"支持 `created_at_epoch` 或 `createdAtEpoch`"（与 ViewerController 代码一致，两值均接受）；同步英文版 |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---
