@@ -97,7 +97,10 @@ public interface CortexMemClient {
     /**
      * Get extraction history for a template and user.
      * Calls GET /api/extraction/{templateName}/history?projectPath=...&userId=...&limit=...
-     * When limit <= 0, the parameter is omitted and the backend default (10) is used.
+     *
+     * @param limit maximum number of history entries (1-100). If limit &lt;= 0, the parameter is
+     *              omitted from the request and the backend default (10) is used.
+     * @throws IllegalArgumentException if limit is negative
      */
     List<Map<String, Object>> getExtractionHistory(String projectPath, String templateName, String userId, int limit);
 
