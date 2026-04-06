@@ -536,9 +536,14 @@ public class CortexMemClientImpl implements CortexMemClient {
                 })
                 .retrieve()
                 .body(new ParameterizedTypeReference<>() {});
+        } catch (RestClientResponseException httpEx) {
+            // Extract meaningful error from HTTP response body (e.g., {"error": "..."}).
+            String errorDetail = tryExtractErrorMessage(httpEx);
+            log.warn("Failed to get stats (HTTP {}): {}", httpEx.getStatusCode().value(), errorDetail);
+            return Map.of("error", errorDetail, "fell_back", true);
         } catch (Exception e) {
             log.warn("Failed to get stats: {}", e.getMessage());
-            return Map.of("error", e.getMessage());
+            return Map.of("error", e.getMessage(), "fell_back", true);
         }
     }
 
@@ -725,5 +730,27 @@ public class CortexMemClientImpl implements CortexMemClient {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(fieldName + " must not be null or blank");
         }
+    }
+
+    /**
+     * Extract a human-readable error message from a RestClientResponseException.
+     * Tries to parse the response body as JSON and extract an "error" field,
+     * falling back to the HTTP status line if parsing fails.
+     */
+    private static String tryExtractErrorMessage(RestClientResponseException httpEx) {
+        try {
+            byte[] body = httpEx.getResponseBodyAsByteArray();
+            if (body != null && body.length > 0) {
+                var node = new com.fasterxml.jackson.databind.ObjectMapper()
+                    .readTree(body);
+                var err = node.get("error");
+                if (err != null && !err.isNull()) {
+                    return err.asText();
+                }
+            }
+        } catch (Exception parseEx) {
+            // Fall through to status line
+        }
+        return httpEx.getStatusText() + " (HTTP " + httpEx.getStatusCode().value() + ")";
     }
 }

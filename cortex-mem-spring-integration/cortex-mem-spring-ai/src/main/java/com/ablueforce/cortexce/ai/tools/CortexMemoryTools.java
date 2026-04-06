@@ -180,11 +180,11 @@ public class CortexMemoryTools {
         "This action is permanent - the memory cannot be recovered.")
     public String deleteMemory(
         @ToolParam(description = "UUID of the observation to delete") String observationId) {
-        
+
         if (observationId == null || observationId.isBlank()) {
             return "Error: observation ID is required";
         }
-        
+
         try {
             cortexClient.deleteObservation(observationId);
             return "Successfully deleted observation: " + observationId;
