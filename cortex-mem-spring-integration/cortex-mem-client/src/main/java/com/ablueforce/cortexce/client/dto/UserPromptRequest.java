@@ -31,9 +31,15 @@ public record UserPromptRequest(
 
     public Map<String, Object> toWireFormat() {
         var map = new HashMap<String, Object>();
-        map.put("session_id", sessionId);
-        map.put("prompt_text", promptText);
-        map.put("cwd", projectPath);
+        if (sessionId != null) {
+            map.put("session_id", sessionId);
+        }
+        if (promptText != null) {
+            map.put("prompt_text", promptText);
+        }
+        if (projectPath != null) {
+            map.put("cwd", projectPath);
+        }
         if (promptNumber != null) {
             map.put("prompt_number", promptNumber);
         }

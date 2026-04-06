@@ -59,7 +59,9 @@ public record ICLPromptRequest(
      */
     public Map<String, Object> toWireFormat() {
         var map = new HashMap<String, Object>();
-        map.put("task", task);
+        if (task != null) {
+            map.put("task", task);
+        }
         if (project != null && !project.isBlank()) {
             map.put("project", project);
         }

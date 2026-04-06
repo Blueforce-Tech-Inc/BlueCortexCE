@@ -28,8 +28,12 @@ public record SessionEndRequest(
 
     public Map<String, Object> toWireFormat() {
         var map = new HashMap<String, Object>();
-        map.put("session_id", sessionId);
-        map.put("cwd", projectPath);
+        if (sessionId != null) {
+            map.put("session_id", sessionId);
+        }
+        if (projectPath != null) {
+            map.put("cwd", projectPath);
+        }
         if (lastAssistantMessage != null) {
             map.put("last_assistant_message", lastAssistantMessage);
         }
