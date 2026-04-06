@@ -62,7 +62,7 @@ public class SearchController {
                     .source(source)
                     .limit(limit)
                     .offset(offset)
-                    .orderBy(orderBy)
+                    .orderBy(orderBy != null ? orderBy : "")
                     .build();
 
             Map<String, Object> result = client.search(request);
