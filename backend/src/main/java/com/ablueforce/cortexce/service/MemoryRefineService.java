@@ -14,6 +14,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 /**
@@ -52,6 +55,9 @@ public class MemoryRefineService {
 
     /** Phase 3: Optional extraction service (null when extraction is disabled). */
     private final StructuredExtractionService extractionService;
+
+    /** Per-project locks to prevent concurrent deep refinement for the same project (HC-3 fix). */
+    private final ConcurrentHashMap<String, ReentrantLock> projectLocks = new ConcurrentHashMap<>();
 
     public MemoryRefineService(ObservationRepository observationRepository,
                              QualityScorer qualityScorer,
@@ -197,11 +203,27 @@ public class MemoryRefineService {
             }
 
             // Phase 3: Run structured extraction after refinement
+            // Per-project lock prevents concurrent extractions for the same project
+            // (deepRefineProjectMemories is triggered from both SessionEnd hook and scheduled task)
             if (extractionService != null) {
+                ReentrantLock lock = projectLocks.computeIfAbsent(projectPath, k -> new ReentrantLock());
+                boolean acquired = false;
                 try {
-                    extractionService.runExtraction(projectPath);
-                } catch (Exception e) {
-                    log.warn("Extraction failed during deep refine, will retry later: {}", e.getMessage());
+                    acquired = lock.tryLock(0, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                if (acquired) {
+                    try {
+                        extractionService.runExtraction(projectPath);
+                    } catch (Exception e) {
+                        log.warn("Extraction failed during deep refine, will retry later: {}", e.getMessage());
+                    } finally {
+                        lock.unlock();
+                        projectLocks.remove(projectPath, lock);
+                    }
+                } else {
+                    log.debug("Extraction already in progress for project {}, skipping", projectPath);
                 }
             } else {
                 log.debug("Extraction service not available, skipping extraction");

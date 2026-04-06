@@ -1,7 +1,24 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-06 12:13 (P2 修复: ImportService.toFloatArray NPE, TimelineService maxObs 10000→500, ExtractionStorageService DLQ re-throw, LlmService raw response logging, ExpRagService null createdAt, SearchService pgvector error detection)
+> **最后更新**: 2026-04-06 14:28 (P2 修复: HC-3 并发 extraction 去重 — MemoryRefineService projectLocks)
+
+---
+
+## 2026-04-06 14:28 | 健康检查巡检（每小时 cron）
+
+| 检查项 | 结果 | 说明 |
+|--------|------|------|
+| Backend 服务健康 | ✅ OK | `{"service":"claude-mem-java","status":"ok"}` |
+| 回归测试 | ✅ 46/46 | regression-test.sh（1 skipped） |
+| EXTRACTION 验收 | ✅ 25/25 | phase3-acceptance-test.sh |
+| Backend Review | ✅ 0 P0/0 P1/0 P2 | 全部已修复，无待处理问题 |
+
+**Backend Review #21**（2026-04-06 14:28）：
+
+| # | 文件 | 问题 | 严重度 | 状态 |
+|---|------|------|--------|------|
+| 1 | `MemoryRefineService.java` | `deepRefineProjectMemories()` 无并发保护，SessionEnd hook 和定时任务同时触发会重复 extraction | P2 | ✅ 已修复 |
 
 ---
 
@@ -72,7 +89,7 @@
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **1** | StructuredExtractionService: 并发 extraction 无去重机制（Section 15.7 Option B 未实现） |
+| **P2** (建议修复) | **0** | 全部已修复 |
 | **⏭ 跳过** | **8** | 非 bug，属设计决策或代码风格偏好 |
 | **✅ 已修复** | **P0×1** | dict_snowball → hibernate-vector 版本对齐 (6.4.7→6.5.3) |
 
@@ -97,7 +114,7 @@
 
 | ID | 问题 | 级别 | 状态 |
 |----|------|------|------|
-| HC-3 | `StructuredExtractionService`: Section 15.7 推荐 Option B（per-project `ReentrantLock`）实现并发 extraction 去重，但实际代码**未实现任何锁机制**。`deepRefineProjectMemories()` 从 SessionEnd hook 和定时任务两条路径触发，若同时到达同一 project 会重复执行 extraction。`StructuredExtractionService` 无 `projectLocks` map，`MemoryRefineService.deepRefineProjectMemories()` 无锁逻辑。 | P2 | 待修复 |
+| HC-3 | `StructuredExtractionService`: Section 15.7 推荐 Option B（per-project `ReentrantLock`）实现并发 extraction 去重，但实际代码**未实现任何锁机制**。`deepRefineProjectMemories()` 从 SessionEnd hook 和定时任务两条路径触发，若同时到达同一 project 会重复执行 extraction。`StructuredExtractionService` 无 `projectLocks` map，`MemoryRefineService.deepRefineProjectMemories()` 无锁逻辑。 | P2 | ✅ 已修复（添加 `ConcurrentHashMap<String, ReentrantLock> projectLocks`，使用 `tryLock(0, TimeUnit.MILLISECONDS)` 非阻塞获取锁，锁范围仅限 `extractionService.runExtraction`，锁自动从 map 移除）|
 
 **说明**: 设计文档 `docs/drafts/phase-3-design.md` Section 15.7 已添加 IMPLEMENTATION NOTE 说明此为未实现的设计建议。
 
