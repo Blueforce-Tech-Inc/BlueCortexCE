@@ -307,7 +307,8 @@ class ObservationUpdate:
     _WIRE_FIELDS: ClassVar[dict[str, str]] = {
         "title": "title",
         "subtitle": "subtitle",
-        "content": "content",
+        # "content" → "narrative" (backend ObservationEntity has @JsonProperty("narrative"))
+        "content": "narrative",
         "narrative": "narrative",
         "facts": "facts",
         "concepts": "concepts",
@@ -318,7 +319,9 @@ class ObservationUpdate:
     def to_wire(self) -> dict:
         """Convert to wire format, omitting None fields.
 
-        Both 'content' and 'narrative' are sent if set — backend accepts either.
+        Both 'content' and 'narrative' are sent as ``narrative`` (backend
+        ``ObservationEntity`` uses ``@JsonProperty("narrative")``). Since both
+        Python attributes map to the same wire key, the last one set wins.
         """
         body: dict = {}
         for attr, wire_key in self._WIRE_FIELDS.items():

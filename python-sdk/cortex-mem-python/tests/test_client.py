@@ -681,14 +681,16 @@ class TestManagementExtended:
 
     @responses.activate
     def test_update_observation_both_content_and_narrative(self):
-        """Both content and narrative can be set (backend accepts either)."""
+        """Both content and narrative are set; both map to wire 'narrative' (last wins)."""
         responses.add(responses.PATCH, f"{BASE}/api/memory/observations/o1", status=204)
         c = _client()
         update = ObservationUpdate(content="the content", narrative="the narrative")
         c.update_observation("o1", update)
         body = json.loads(responses.calls[0].request.body)
-        assert body["content"] == "the content"
+        # Both content→"narrative" and narrative→"narrative" share the same wire key,
+        # so the second (narrative) value overwrites the first.
         assert body["narrative"] == "the narrative"
+        assert "content" not in body  # not a valid wire key
 
     @responses.activate
     def test_update_observation_empty_id_raises(self):
