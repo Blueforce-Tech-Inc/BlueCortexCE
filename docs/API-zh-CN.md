@@ -40,10 +40,10 @@ Content-Type: application/json
 8. [Ingestion 数据摄入](#ingestion-数据摄入)
 9. [Extraction 结构化提取](#extraction-结构化提取)
 10. [Viewer 查看器](#viewer-查看器)
-11. [搜索](#搜索)
-12. [管理](#管理)
-13. [Memory 记忆管理](#memory-记忆管理)
-14. [Mode 模式管理](#mode-模式管理)
+11. [管理](#管理)
+12. [Mode 模式](#mode-模式)
+13. [搜索](#搜索)
+14. [Memory 记忆管理](#memory-记忆管理)
 15. [Logs 日志管理](#logs-日志管理)
 16. [Import 数据导入](#import-数据导入)
 17. [Cursor IDE 集成](#cursor-ide-集成)
@@ -909,6 +909,156 @@ curl http://localhost:37777/api/processing-status
   "isProcessing": false,
   "queueDepth": 5
 }
+```
+
+---
+
+## Mode 模式
+
+#### GET `/api/mode`
+
+获取当前活动模式信息。
+
+**请求示例**:
+```bash
+curl http://localhost:37777/api/mode
+```
+
+**响应示例**:
+```json
+{
+  "mode_id": "code",
+  "name": "Code Development",
+  "description": "Software development and engineering work",
+  "version": "1.0.0",
+  "observation_types": [
+    {
+      "id": "bugfix",
+      "label": "Bug Fix",
+      "description": "Something was broken, now fixed",
+      "emoji": "🔴",
+      "work_emoji": "🛠️"
+    }
+  ],
+  "observation_concepts": [
+    {
+      "id": "how-it-works",
+      "label": "How It Works",
+      "description": "Understanding mechanisms"
+    }
+  ]
+}
+```
+
+---
+
+#### PUT `/api/mode`
+
+设置活动模式。
+
+**请求体**:
+```json
+{
+  "mode_id": "code--zh"
+}
+```
+
+**响应示例**:
+```json
+{
+  "mode_id": "code--zh",
+  "name": "代码模式",
+  "description": "开发工作流模式",
+  "version": "1.0.0",
+  "observation_types": [...],
+  "observation_concepts": [...]
+}
+```
+
+---
+
+#### GET `/api/mode/types`
+
+获取所有观察类型列表。
+
+**响应示例**:
+```json
+[
+  {
+    "id": "bugfix",
+    "label": "Bug Fix",
+    "description": "Something was broken, now fixed",
+    "emoji": "🔴",
+    "work_emoji": "🛠️"
+  }
+]
+```
+
+---
+
+#### GET `/api/mode/concepts`
+
+获取所有观察概念列表。
+
+**响应示例**:
+```json
+[
+  {
+    "id": "how-it-works",
+    "label": "How It Works",
+    "description": "Understanding mechanisms"
+  }
+]
+```
+
+---
+
+#### GET `/api/mode/types/{typeId}/validate`
+
+验证观察类型是否有效。
+
+**响应示例**:
+```json
+{
+  "valid": true
+}
+```
+
+---
+
+#### GET `/api/mode/types/{typeId}/emoji`
+
+获取观察类型的 emoji。
+
+**响应示例**:
+```json
+{
+  "emoji": "🐛",
+  "workEmoji": "🔧",
+  "label": "Bug Fix"
+}
+```
+
+---
+
+#### GET `/api/mode/types/valid`
+
+获取所有有效观察类型 ID 列表。
+
+**响应示例**:
+```json
+["bugfix", "feature", "refactor", "discovery"]
+```
+
+---
+
+#### GET `/api/mode/concepts/valid`
+
+获取所有有效观察概念 ID 列表。
+
+**响应示例**:
+```json
+["how-it-works", "architecture", "best-practice"]
 ```
 
 ---
@@ -2179,6 +2329,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-04 | 0.1.0-beta+23 | Search 端点 `orderBy` 字段描述更新为"支持：`created_at_epoch`，用于 MCP 兼容性"（与英文版同步，后端代码已实现）；Batch Get Observations 章节补充参数表（ids/project/orderBy/limit 四个字段），与英文版一致 |
 | 2026-04-04 | 0.1.0-beta+24 | 分页 Bug 修复：GET `/api/observations`、`/api/summaries`、`/api/prompts`——此前当 `offset < limit` 时，分页返回错误结果（页索引 = offset/limit，当 offset < limit 时始终为 0，导致 offset 被忽略）。现已修复为真正的 offset 分页（SQL `LIMIT n OFFSET m`）。三个端点现在均按 `createdAt DESC` 排序。 |
 | 2026-04-06 | 0.1.0-beta+25 | Search 端点 `orderBy` 参数描述更新为"支持 `created_at_epoch` 或 `createdAtEpoch`"（与 ViewerController 代码一致，两值均接受）；同步英文版 |
+| 2026-04-07 | 0.1.0-beta+26 | 补充 ZH 缺失的 Mode 端点：新增 `## Mode 模式` 章节，包含 8 个 ModeController 端点（GET/PUT /api/mode、GET /api/mode/types、GET /api/mode/concepts、GET /api/mode/types/{typeId}/validate、GET /api/mode/types/{typeId}/emoji、GET /api/mode/types/valid、GET /api/mode/concepts/valid）；修正 TOC 章节顺序（Mode 模式移至 管理 之后、搜索 之前）与 body 结构一致；同步英文版 |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---

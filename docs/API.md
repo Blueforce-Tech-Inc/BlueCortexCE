@@ -2274,6 +2274,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-04 | 0.1.0-beta+23 | Search `orderBy` parameter: updated description from "accepted for MCP compatibility, not yet fully implemented" to "supports: `created_at_epoch` for MCP compatibility" (code implements this); synced Chinese version; Chinese Batch Get Observations: added parameter table (ids/project/orderBy/limit) to match English version |
 | 2026-04-04 | 0.1.0-beta+24 | Pagination bug fix: GET `/api/observations`, `/api/summaries`, `/api/prompts` — previously, when `offset < limit`, pagination returned wrong results (page index = offset/limit always = 0 for offset < limit, ignoring the offset). Fixed to use true offset pagination (SQL `LIMIT n OFFSET m`). All three endpoints now also sort by `createdAt DESC` consistently. |
 | 2026-04-06 | 0.1.0-beta+25 | Search endpoint `orderBy` parameter: updated description from "supports `created_at_epoch`" to "supports `created_at_epoch` or `createdAtEpoch`" (both values accepted per ViewerController code); synced Chinese version |
+| 2026-04-07 | 0.1.0-beta+26 | Added missing Mode endpoints to Chinese API doc: new `## Mode` section with 8 ModeController endpoints (GET/PUT /api/mode, GET /api/mode/types, GET /api/mode/concepts, GET /api/mode/types/{typeId}/validate, GET /api/mode/types/{typeId}/emoji, GET /api/mode/types/valid, GET /api/mode/concepts/valid); fixed Chinese TOC section order (Mode after Management, before Search) to match body structure; synced Chinese version |
 
 ---
 
