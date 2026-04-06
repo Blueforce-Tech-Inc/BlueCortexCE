@@ -505,7 +505,7 @@ SELECT cfgname, cfgparser FROM pg_ts_config;
 | 检查项 | RateLimitService | TemplateService | MCP Tools |
 |--------|------------------|-----------------|-----------|
 | 线程安全 | ✅ synchronized + AtomicInteger | N/A | N/A |
-| 内存管理 | ✅ cleanup + MAX_WINDOWS cap | N/A | ⚠️ saveMemory session 泄漏 |
+| 内存管理 | ✅ cleanup + MAX_WINDOWS cap | N/A | ✅ 复用 manual-memories session（无泄漏） |
 | 输入验证 | ✅ IP 验证 + fallback key | ✅ placeholder 校验 | ✅ null 检查 |
 | 错误处理 | ✅ gracefully fallback | ✅ fail-fast | ✅ try-catch + error response |
 | 模板安全 | N/A | ✅ escapeTemplateValue | N/A |
@@ -1698,9 +1698,9 @@ SELECT cfgname, cfgparser FROM pg_ts_config;
 | 错误处理 | ✅ embedding 失败 fallback | ✅ try-catch + error response map |
 | Session 管理 | N/A | ✅ 固定 manual-memories session 复用 |
 | 线程安全 | ✅ 无共享可变状态 | ✅ 无共享可变状态 |
-| 参数传递 | ⚠️ orderBy 被忽略 | N/A |
+| 参数传递 | ✅ effectiveOffset 正确传递给 SearchRequest（orderBy 后续由 SearchService.applyPostFilters 处理） | N/A |
 
-**审查结论**: saveMemory session 泄漏问题已修复。但发现新的 P2：search() 的 orderBy 参数被静默忽略。
+**审查结论**: saveMemory session 泄漏问题已修复（MCP 层 19-2 ✅），orderBy 参数问题已修复（MCP 层 19-1 ✅，offset 传递正确；backend 层 8f83afb + 253caaf ✅，SearchService 实现 orderBy）。
 
 ---
 
