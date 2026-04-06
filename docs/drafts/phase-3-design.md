@@ -1636,7 +1636,7 @@ public void reExtractForSession(String sessionId, String projectPath) {
 }
 ```
 
-> ⚠️ **IMPLEMENTATION NOTE (Pseudocode)**: The `projectLocks` map and `PendingReExtraction` queue above are illustrative pseudocode. **The actual `StructuredExtractionService` does not implement Option B locking** — concurrent calls to `deepRefineProjectMemories()` (from SessionEnd hook + scheduled task) may both trigger extraction simultaneously without deduplication. This is a known limitation (see `backend-review-findings.md`).
+> ⚠️ **IMPLEMENTATION NOTE**: The `projectLocks` map above is implemented in `MemoryRefineService.deepRefineProjectMemories()` (not in `StructuredExtractionService`). Concurrent calls to `deepRefineProjectMemories()` (from SessionEnd hook + scheduled task) are now deduplicated via per-project `ReentrantLock.tryLock(0, TimeUnit.MILLISECONDS)` — if the lock is already held, extraction is skipped (non-blocking). The `PendingReExtraction` queue above remains illustrative pseudocode (see `backend-review-findings.md` HC-3 status).
 
 **Important**: Ensure both `runExtraction()` and `reExtractForSession()` share the SAME lock map (`projectLocks`). This is a subtle implementation detail that's easy to miss.
 
