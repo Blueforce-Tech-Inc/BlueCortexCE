@@ -1600,6 +1600,8 @@ Then update both `StructuredExtractionService` and `ContextService` to use `Extr
 
 **Impact**: Minimal code change, but improves architecture. Document this in the implementation checklist (Section 15).
 
+**Status**: ✅ Resolved — `formatExtractedData()` as a standalone utility was **not implemented**. Instead, `ExpRagService` uses `Experience` records (via `toExperience(ObservationEntity)` at line 217) and `buildICLPrompt()` (at line 177) to format observations for ICL prompts. This approach is functionally equivalent but more tightly coupled to the `Experience` data model rather than a generic `Map<String, Object>` utility.
+
 ### 24.4 Issue: Race Condition Between userId PATCH and Scheduled Extraction
 
 **Problem**: Section 22.4 resolves the session userId update timing by triggering `reExtractForSession()` on PATCH. However, this can race with the scheduled extraction task.
@@ -2937,6 +2939,8 @@ public class StructuredExtractionService {
 **Current flow**: ICL prompt builds context from raw observations. Extraction produces structured facts that should be surfaced separately.
 
 **Design**: Add extracted data as a dedicated section in the ICL prompt, separate from raw observations.
+
+> **⚠️ IMPLEMENTATION NOTE**: The pseudocode below (using `formatExtractedData()`) represents the originally planned approach. The actual implementation uses `Experience` records via `ExpRagService.toExperience()` — see Section 24.3 Resolution for details.
 
 ```java
 // In ContextService.java (ICL prompt generation)
