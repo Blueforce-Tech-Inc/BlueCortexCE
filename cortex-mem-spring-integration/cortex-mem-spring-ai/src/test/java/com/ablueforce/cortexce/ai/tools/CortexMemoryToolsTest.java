@@ -13,6 +13,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -108,5 +109,36 @@ class CortexMemoryToolsTest {
         String result = tools.updateMemory("", "title", null, null, null, null);
 
         assertThat(result).contains("observation ID is required");
+    }
+
+    @Test
+    void deleteMemory_nullId_returnsError() {
+        String result = tools.deleteMemory(null);
+
+        assertThat(result).isEqualTo("Error: observation ID is required");
+    }
+
+    @Test
+    void deleteMemory_blankId_returnsError() {
+        String result = tools.deleteMemory("   ");
+
+        assertThat(result).isEqualTo("Error: observation ID is required");
+    }
+
+    @Test
+    void deleteMemory_validId_callsClientAndReturnsSuccess() {
+        String result = tools.deleteMemory("valid-uuid-123");
+
+        assertThat(result).isEqualTo("Successfully deleted observation: valid-uuid-123");
+    }
+
+    @Test
+    void deleteMemory_clientThrows_returnsErrorMessage() {
+        doThrow(new RuntimeException("connection refused")).when(client).deleteObservation("failing-uuid");
+
+        String result = tools.deleteMemory("failing-uuid");
+
+        assertThat(result).contains("Error deleting memory");
+        assertThat(result).contains("connection refused");
     }
 }
