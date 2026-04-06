@@ -1622,15 +1622,12 @@ Result: State at T4 wins, but T3's extraction may have already processed the sam
 ```java
 public void reExtractForSession(String sessionId, String projectPath) {
     ReentrantLock lock = projectLocks.computeIfAbsent(projectPath, k -> new ReentrantLock());
-    
+
     if (!lock.tryLock()) {
-        log.info("Extraction in progress for project {}, queueing re-extraction for session {}",
-            projectPath, sessionId);
-        // Queue for later (could use a simple retry mechanism)
-        pendingReExtractions.add(new PendingReExtraction(sessionId, projectPath));
+        log.info("Extraction already running for project: {}, skipping", projectPath);
         return;
     }
-    
+
     try {
         // ... re-extraction logic
     } finally {
@@ -1638,6 +1635,8 @@ public void reExtractForSession(String sessionId, String projectPath) {
     }
 }
 ```
+
+> ⚠️ **IMPLEMENTATION NOTE (Pseudocode)**: The `projectLocks` map and `PendingReExtraction` queue above are illustrative pseudocode. **The actual `StructuredExtractionService` does not implement Option B locking** — concurrent calls to `deepRefineProjectMemories()` (from SessionEnd hook + scheduled task) may both trigger extraction simultaneously without deduplication. This is a known limitation (see `backend-review-findings.md`).
 
 **Important**: Ensure both `runExtraction()` and `reExtractForSession()` share the SAME lock map (`projectLocks`). This is a subtle implementation detail that's easy to miss.
 

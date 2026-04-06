@@ -72,7 +72,7 @@
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **0** | — |
+| **P2** (建议修复) | **1** | StructuredExtractionService: 并发 extraction 无去重机制（Section 15.7 Option B 未实现） |
 | **⏭ 跳过** | **8** | 非 bug，属设计决策或代码风格偏好 |
 | **✅ 已修复** | **P0×1** | dict_snowball → hibernate-vector 版本对齐 (6.4.7→6.5.3) |
 
@@ -90,6 +90,16 @@
 - **HC-2**: 将 `HashMap` 替换为 `ConcurrentHashMap`；`getRegistryCached()` 改为无锁快速路径（TTL 内直接返回缓存）；`registerProject`/`unregisterProject` 消除嵌套锁；添加 `writeRegistryUnlocked` 避免嵌套 `synchronized`。
 
 **验证**: 3 轮回归测试全通过 (46/46)。
+
+---
+
+### 2026-04-06 12:45 | 文档审查 #N — P2: 并发 extraction 无去重机制
+
+| ID | 问题 | 级别 | 状态 |
+|----|------|------|------|
+| HC-3 | `StructuredExtractionService`: Section 15.7 推荐 Option B（per-project `ReentrantLock`）实现并发 extraction 去重，但实际代码**未实现任何锁机制**。`deepRefineProjectMemories()` 从 SessionEnd hook 和定时任务两条路径触发，若同时到达同一 project 会重复执行 extraction。`StructuredExtractionService` 无 `projectLocks` map，`MemoryRefineService.deepRefineProjectMemories()` 无锁逻辑。 | P2 | 待修复 |
+
+**说明**: 设计文档 `docs/drafts/phase-3-design.md` Section 15.7 已添加 IMPLEMENTATION NOTE 说明此为未实现的设计建议。
 
 ---
 
