@@ -74,8 +74,18 @@ public class SearchService {
                         log.warn("pgvector transient error for project={}, will retry: {}", project, e.getMessage());
                         throw e;
                     }
-                    log.warn("pgvector search failed for project={}, falling back to tsvector: {}",
-                        project, e.getMessage());
+                    // P2: Detect potential PostgreSQL/pgvector schema issues from exception type/message
+                    String msg = e.getMessage();
+                    boolean isPgError = e instanceof org.springframework.dao.DataAccessException
+                        || (msg != null && (msg.contains("pgvector") || msg.contains("embedding_1024") || msg.contains("does not exist")));
+                    if (isPgError) {
+                        log.error("PostgreSQL/pgvector error for project={}. "
+                                + "Check that pgvector extension is installed and embedding_1024 column exists: {}",
+                            project, msg);
+                    } else {
+                        log.warn("pgvector search failed for project={}, falling back to tsvector: {}",
+                            project, msg);
+                    }
                 }
             } else {
                 log.debug("Query vector failed validation, falling back to tsvector for project={}", project);

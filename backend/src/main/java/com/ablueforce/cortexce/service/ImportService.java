@@ -194,10 +194,14 @@ public class ImportService implements LogHelper {
     private float[] toFloatArray(List<Double> list) {
         if (list == null || list.isEmpty()) return null;
         float[] array = new float[list.size()];
-        for (int i = 0; i < list.size(); i++) {
-            array[i] = list.get(i).floatValue();
+        int count = 0;
+        for (Double d : list) {
+            if (d != null) {
+                array[count++] = d.floatValue();
+            }
         }
-        return array;
+        if (count == 0) return null;
+        return count == list.size() ? array : java.util.Arrays.copyOf(array, count);
     }
 
     @Transactional

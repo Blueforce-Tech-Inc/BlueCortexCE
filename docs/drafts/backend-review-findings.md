@@ -1,7 +1,41 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-06 08:16 (DB 密码重置第2次，HikariCP 自动重连恢复)
+> **最后更新**: 2026-04-06 12:13 (P2 修复: ImportService.toFloatArray NPE, TimelineService maxObs 10000→500, ExtractionStorageService DLQ re-throw, LlmService raw response logging, ExpRagService null createdAt, SearchService pgvector error detection)
+
+---
+
+## 2026-04-06 12:13 | 健康检查巡检（每小时 cron）
+
+| 检查项 | 结果 | 说明 |
+|--------|------|------|
+| Backend 服务健康 | ✅ OK | `{"service":"claude-mem-java","status":"ok"}` |
+| 回归测试 | ✅ 46/46 | regression-test.sh（1 skipped） |
+| Backend Review | ✅ 0 P0/0 P1/0 P2 | 全部已修复，无待处理问题 |
+
+**Backend Review #20**（2026-04-06 12:13）：
+
+| # | 文件 | 问题 | 严重度 | 状态 |
+|---|------|------|--------|------|
+| 1 | `ImportService.java` | `toFloatArray` 遇到 `null` 元素时 NPE → 跳过 null 元素 | P2 | ✅ 已修复 |
+| 2 | `TimelineService.java` | `maxObs = 10000` 硬编码预加载大量数据 → 改为窗口大小 (before+after)*2，上限 500 | P2 | ✅ 已修复 |
+| 3 | `ExtractionStorageService.java` | `storeDLQ` 异常被静默吞掉 → re-throw 为 `IllegalStateException` | P2 | ✅ 已修复 |
+| 4 | `LlmService.java` | 结构化输出失败时不记录原始 LLM 响应 → 记录前 200 字符 | P2 | ✅ 已修复 |
+| 5 | `ExpRagService.java` | `toExperience` 中 `obs.getCreatedAt()` 为 null 时缺少 fallback → 从 `createdAtEpoch` 或当前时间恢复 | P2 | ✅ 已修复 |
+| 6 | `SearchService.java` | pgvector 异常缺少特定诊断日志 → 增加 `DataAccessException` / pgvector / embedding_1024 检测并输出 `error` 级别日志 | P2 | ✅ 已修复 |
+
+---
+
+## 2026-04-06 09:36 | 健康检查巡检（每小时 cron）
+
+| 检查项 | 结果 | 说明 |
+|--------|------|------|
+| Backend 服务健康 | ✅ OK | `{"service":"claude-mem-java","status":"ok"}`（从 degraded 恢复） |
+| 回归测试 | ✅ 45/46 | regression-test.sh（1 skipped） |
+| EXTRACTION 验收 | ✅ 25/25 | phase3-acceptance-test.sh |
+| Backend Review | ✅ 0 P0/0 P1/0 P2 | 全部已修复，无待处理问题 |
+
+**修复**: PostgreSQL `postgres` 用户密码再次被外部操作修改，导致服务 `status=degraded`。执行 `ALTER USER postgres WITH PASSWORD '123456';` 重置密码，HikariCP 自动重连恢复。
 
 ---
 

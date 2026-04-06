@@ -120,7 +120,8 @@ public class ExtractionStorageService {
             observationRepository.save(dlq);
             log.warn("Stored DLQ entry for template '{}': {}", templateName, errorMsg);
         } catch (Exception e) {
-            log.error("Failed to store DLQ entry: {}", e.getMessage());
+            log.error("Failed to store DLQ entry for template '{}': {}", templateName, e.getMessage(), e);
+            throw new IllegalStateException("DLQ write failed for template: " + templateName, e);
         }
     }
 }

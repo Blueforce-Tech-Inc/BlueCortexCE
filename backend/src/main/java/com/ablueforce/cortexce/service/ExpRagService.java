@@ -218,6 +218,15 @@ public class ExpRagService {
         String content = obs.getContent();
         String title = obs.getTitle();
 
+        // P2: Fallback createdAt from epoch if getCreatedAt() returns null (pre-migration data)
+        java.time.OffsetDateTime createdAt = obs.getCreatedAt();
+        if (createdAt == null) {
+            Long epoch = obs.getCreatedAtEpoch();
+            createdAt = epoch != null && epoch > 0
+                ? java.time.OffsetDateTime.ofInstant(java.time.Instant.ofEpochMilli(epoch), java.time.ZoneOffset.UTC)
+                : java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC);
+        }
+
         return new Experience(
             obs.getId().toString(),
             title != null ? title : extractTaskFromContent(content),
@@ -225,7 +234,7 @@ public class ExpRagService {
             extractOutcomeFromContent(content),
             extractReuseCondition(obs),
             obs.getQualityScore() != null ? obs.getQualityScore() : 0.5f,
-            obs.getCreatedAt()
+            createdAt
         );
     }
 

@@ -111,8 +111,9 @@ public class TimelineService {
             return Map.of("error", "Anchor observation not found", "observations", List.of());
         }
 
-        // Query observations (with hard limit to prevent OOM) and find anchor position
-        final int maxObs = 10000;
+        // Query observations using a bounded window around the anchor to prevent OOM
+        final int windowSize = (before + after) * 2 + 1;
+        final int maxObs = Math.min(windowSize, 500);
         Pageable limitOne = PageRequest.of(0, maxObs);
         List<ObservationEntity> allObs = observationRepository.findByProjectPathOrderByCreatedAtDesc(project, limitOne).getContent();
         int anchorIndex = findAnchorIndex(allObs, anchorUuid);

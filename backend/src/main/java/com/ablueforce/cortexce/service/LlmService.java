@@ -115,10 +115,11 @@ public class LlmService {
         ChatClient chatClient = this.chatClient.orElseThrow(() ->
             new IllegalStateException("AI not configured."));
 
+        String response = null;
         try {
             if (Map.class.isAssignableFrom(outputType)) {
                 MapOutputConverter converter = new MapOutputConverter();
-                String response = chatClient.prompt()
+                response = chatClient.prompt()
                     .system(systemPrompt + "\n\n" + converter.getFormat())
                     .user(userPrompt)
                     .call()
@@ -126,7 +127,7 @@ public class LlmService {
                 return (T) converter.convert(response);
             } else {
                 BeanOutputConverter<T> converter = new BeanOutputConverter<>(outputType);
-                String response = chatClient.prompt()
+                response = chatClient.prompt()
                     .system(systemPrompt + "\n\n" + converter.getFormat())
                     .user(userPrompt)
                     .call()
@@ -137,7 +138,8 @@ public class LlmService {
             // Re-throw config errors (e.g., "AI not configured")
             throw e;
         } catch (Exception e) {
-            log.error("Structured LLM call failed: {}", e.getMessage(), e);
+            String preview = response != null ? response.substring(0, Math.min(200, response.length())) : "null";
+            log.error("Structured LLM call failed. Raw response was: [{}]. Error: {}", preview, e.getMessage());
             throw new IllegalStateException("Structured LLM call failed: " + e.getMessage(), e);
         }
     }
