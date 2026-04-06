@@ -2330,3 +2330,66 @@ Total: 426/426 tests passed
 
 **审查结论**
 无 P0/P1/P2 问题。两文件代码质量良好，设计合理。
+
+---
+
+## 2026-04-06 21:03 | Java SDK 审查 #9
+
+| 检查项 | 结果 | 说明 |
+|--------|------|------|
+| 本次审查方向 | Java SDK | cortex-mem-spring-integration/cortex-mem-client |
+| 审查范围 | 近期提交 + DTO + Client | 重点：c16cb59, b39764d, 7ca8f1c 变更 |
+| 测试覆盖 | ✅ 117 tests | 33 DTO tests + 84 Client tests |
+
+**Java SDK 审查结论**（2026-04-06 21:03）：
+
+本次审查聚焦于 Java SDK 自上次审查（#8，2026-04-04 19:03）以来的变更，以及核心实现的深度检查：
+
+#### 近期变更回顾
+
+| Commit | 变更 | 质量 |
+|--------|------|------|
+| `7ca8f1c` | getExtractionHistory Javadoc 澄清（limit≤0 行为） | ✅ 正确：throw on <0, omit on =0 |
+| `b39764d` | getStats 错误报告改善（fell_back 标记 + JSON 错误体提取） | ✅ 正确：tryExtractErrorMessage 解析 {"error":"..."} |
+| `6b0c3ae` | CortexMemoryTools deleteMemory 4 个测试 | ✅ 覆盖 null/blank/异常/成功路径 |
+| `c16cb59` | DTO toWireFormat() 添加 null-checks | ✅ 所有 DTO 均有 null 保护 |
+
+#### 核心实现审查
+
+| 检查项 | 文件 | 结果 |
+|--------|------|------|
+| SearchRequest DTO | SearchRequest.java | ✅ orderBy 字符串类型无约束（正确，backend 验证） |
+| ObservationsRequest DTO | ObservationsRequest.java | ✅ offset/limit 语义正确 |
+| ObservationUpdate PATCH | ObservationUpdate.java | ✅ @JsonInclude(NON_NULL) PATCH 语义正确 |
+| SessionStartRequest wire format | SessionStartRequest.java | ✅ 使用 project_path（backend 主字段） |
+| recordObservation wire format | ObservationRequest.java | ✅ projectPath → cwd 映射正确 |
+| recordSessionEnd wire format | SessionEndRequest.java | ✅ null-checks 完整 |
+| getStats 参数兼容性 | CortexMemClientImpl.java | ⚠️ project 参数被 backend 忽略（Go SDK 相同行为，非 bug） |
+| search() offset=0 省略 | CortexMemClientImpl.java | ✅ 仅当 >0 时发送，backend 默认 0 |
+| listObservations offset=0 | CortexMemClientImpl.java | ✅ 仅当 >0 时发送，backend 默认 0 |
+| deleteObservation 测试 | CortexMemClientImplTest.java | ✅ 2 tests |
+| getExtractionHistory 测试 | CortexMemClientImplTest.java | ✅ 4 tests (params/null/zero/negative) |
+
+#### 跨 SDK 一致性检查
+
+| 行为 | Java SDK | Go SDK | 一致 |
+|------|----------|--------|------|
+| 重试错误码 | 429/502/503/504 | 同 | ✅ |
+| 500 不重试 | ✅ | ✅ | ✅ |
+| Fire-and-forget 语义 | ✅ executeWithRetrySilent | ✅ doFireAndForget | ✅ |
+| getStats fell_back | ✅ | N/A | ✅ |
+| orderBy accepted values | backend 验证 | backend 验证 | ✅ |
+
+**代码质量评价**
+
+| 检查项 | CortexMemClientImpl | DTOs |
+|--------|---------------------|------|
+| 线程安全 | ✅ 不可变 + 局部变量 | ✅ 不可变 record |
+| 输入验证 | ✅ requireNonBlank + null checks | ✅ toWireFormat null 保护 |
+| 错误处理 | ✅ 重试 + fallback + propagate 分层 | N/A |
+| WebUI API 契约 | ✅ 兼容 camelCase 响应 | ✅ |
+| 内存管理 | ✅ 无泄漏 | ✅ |
+| 重试策略 | ✅ jittered backoff ±25% | N/A |
+
+**审查结论**
+无 P0/P1/P2 问题。Java SDK 代码质量优秀，API 契约与 backend 完全对齐，117 个测试覆盖核心场景，跨 SDK 一致性良好。所有近期变更均为质量改善，无功能性缺陷。
