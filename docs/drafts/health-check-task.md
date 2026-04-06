@@ -82,4 +82,28 @@ curl -s http://127.0.0.1:37777/api/health
 - ✅ 全部通过且有新修复 → 汇报"所有测试通过" + 本次修复的问题列表
 - ❌ 有失败 → 立即修复，修复后重新跑测试确认通过，然后汇报：失败项 + 修复措施 + 最终结果
 
+---
+
+## 巡检历史
+
+### 2026-04-06 23:04 | 健康检查
+
+| 检查项 | 结果 | 说明 |
+|--------|------|------|
+| Backend 服务健康 | ✅ OK | `{"service":"claude-mem-java","status":"ok"}` |
+| 回归测试 | ✅ 46/47 | regression-test.sh（1 skipped） |
+| EXTRACTION 验收 | ✅ 25/25 | phase3-acceptance-test.sh |
+| Backend Review | ✅ 0 P0/0 P1/0 P2 | 全部已修复，无待处理问题 |
+
+### 2026-04-06 20:12 | 健康检查
+
+| 检查项 | 结果 | 说明 |
+|--------|------|------|
+| Backend 服务健康 | ✅ OK | `{"service":"claude-mem-java","status":"ok"}` |
+| 回归测试 | ✅ 46/47 | regression-test.sh（1 skipped） |
+| EXTRACTION 验收 | ✅ 25/25 | phase3-acceptance-test.sh |
+| Backend Review | ✅ 0 P0/0 P1/0 P2 | 全部已修复，无待处理问题 |
+
+**Backend Review #43**（2026-04-06 20:12）— ImportService + TokenService + ImportController 抽样审查：
+
 发送消息到 `oc_d66f3ed7488467fc7adb0460fce3ef60`
