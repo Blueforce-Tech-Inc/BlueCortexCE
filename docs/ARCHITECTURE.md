@@ -355,7 +355,7 @@ The Fat Server is the core Spring Boot application handling all business logic.
 │  RateLimitService       → Per-session rate limiting         │
 │  ProjectFilterService   → Project path filtering            │
 │  ModeService            → Memory mode management            │
-│  MemoryRefineService    → Memory refinement                 │
+│  MemoryRefineService   → Memory refinement (per-project lock-based concurrent dedup via projectLocks) │
 │  StructuredExtractionService → Structured data extraction   │
 │  ExtractionStorageService → Extraction result persistence   │
 │  SessionManagementService → Session lifecycle               │

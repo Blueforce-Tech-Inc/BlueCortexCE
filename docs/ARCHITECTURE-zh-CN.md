@@ -355,7 +355,7 @@ process.exit(0);
 │  RateLimitService       → 按会话速率限制                    │
 │  ProjectFilterService   → 项目路径过滤                     │
 │  ModeService            → 记忆模式管理                      │
-│  MemoryRefineService    → 记忆优化                          │
+│  MemoryRefineService   → 记忆优化（项目级并发去重，通过 projectLocks 实现）│
 │  StructuredExtractionService → 结构化数据提取               │
 │  ExtractionStorageService → 提取结果持久化                  │
 │  SessionManagementService → 会话生命周期                    │

@@ -359,7 +359,7 @@ src/main/java/com/ablueforce/cortexce/
 │   ├── RateLimitService.java        # Per-session rate limiting
 │   ├── ProjectFilterService.java    # Project path filtering
 │   ├── ModeService.java             # Memory mode management
-│   ├── MemoryRefineService.java     # Memory refinement/evolution
+│   ├── MemoryRefineService.java     # Memory refinement (per-project lock-based concurrent dedup via projectLocks) │
 │   ├── StructuredExtractionService.java  # Structured data extraction
 │   ├── ExtractionStorageService.java # Extraction result persistence (transactional)
 │   ├── SessionManagementService.java # Session lifecycle management
