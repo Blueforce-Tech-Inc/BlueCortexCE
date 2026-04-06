@@ -959,7 +959,7 @@ curl http://localhost:37777/api/mode
 **请求体**:
 ```json
 {
-  "mode_id": "code--zh"
+  "mode": "code--zh"
 }
 ```
 
@@ -1326,7 +1326,7 @@ curl http://localhost:37777/api/modes
 **响应示例**:
 ```json
 {
-  "mode_id": "code",
+  "id": "code",
   "name": "Code Development",
   "description": "Software development and engineering work",
   "version": "1.0.0",
@@ -1337,26 +1337,23 @@ curl http://localhost:37777/api/modes
 
 ---
 
-#### PUT `/api/modes`
+#### POST `/api/modes`
 
 设置活动模式。
 
 **请求体**:
 ```json
 {
-  "modeId": "code--zh"
+  "mode": "code--zh"
 }
 ```
 
 **响应示例**:
 ```json
 {
-  "mode_id": "code--zh",
-  "name": "Code Development",
-  "description": "Software development and engineering work",
-  "version": "1.0.0",
-  "observation_types": [...],
-  "observation_concepts": [...]
+  "success": true,
+  "mode": "code--zh",
+  "name": "Code Development"
 }
 ```
 
@@ -2330,6 +2327,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-04 | 0.1.0-beta+24 | 分页 Bug 修复：GET `/api/observations`、`/api/summaries`、`/api/prompts`——此前当 `offset < limit` 时，分页返回错误结果（页索引 = offset/limit，当 offset < limit 时始终为 0，导致 offset 被忽略）。现已修复为真正的 offset 分页（SQL `LIMIT n OFFSET m`）。三个端点现在均按 `createdAt DESC` 排序。 |
 | 2026-04-06 | 0.1.0-beta+25 | Search 端点 `orderBy` 参数描述更新为"支持 `created_at_epoch` 或 `createdAtEpoch`"（与 ViewerController 代码一致，两值均接受）；同步英文版 |
 | 2026-04-07 | 0.1.0-beta+26 | 补充 ZH 缺失的 Mode 端点：新增 `## Mode 模式` 章节，包含 8 个 ModeController 端点（GET/PUT /api/mode、GET /api/mode/types、GET /api/mode/concepts、GET /api/mode/types/{typeId}/validate、GET /api/mode/types/{typeId}/emoji、GET /api/mode/types/valid、GET /api/mode/concepts/valid）；修正 TOC 章节顺序（Mode 模式移至 管理 之后、搜索 之前）与 body 结构一致；同步英文版 |
+| 2026-04-07 | 0.1.0-beta+27 | Viewer Mode 端点修复：GET /api/modes 响应 `mode_id`→`id`（匹配 ViewerController `response.put("id", ...)`）；修复 POST /api/modes HTTP 方法 PUT→POST（匹配 ViewerController `@PostMapping`）；修复 POST /api/modes 请求体 `modeId`→`mode`（匹配 ModeSwitchRequest wire format `@JsonProperty("mode")`）；修复 POST /api/modes 响应为 `{"success": true, "mode": "...", "name": "..."}`（匹配 ViewerController 实际响应）；ModeController Mode 章节：修复 PUT /api/mode 请求体 `mode_id`→`mode`（匹配 ModeSwitchRequest wire format）；与英文版同步 |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---
