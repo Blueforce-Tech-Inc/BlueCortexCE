@@ -572,6 +572,12 @@ CREATE INDEX idx_obs_embedding_1536 ON mem_observations
 -- 全文搜索索引
 CREATE INDEX idx_obs_search ON mem_observations USING GIN(search_vector);
 
+-- 来源 + 项目组合索引 (V14 + V16: 替代单列 idx_obs_source)
+CREATE INDEX idx_obs_project_source ON mem_observations (project_path, source);
+
+-- extracted_data JSONB 查询索引 (V14)
+CREATE INDEX idx_obs_extracted_data_gin ON mem_observations USING GIN (extracted_data jsonb_path_ops);
+
 -- 摘要表 (V1 + V13)
 CREATE TABLE mem_summaries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

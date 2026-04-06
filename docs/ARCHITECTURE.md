@@ -572,6 +572,12 @@ CREATE INDEX idx_obs_embedding_1536 ON mem_observations
 -- Full-text search index
 CREATE INDEX idx_obs_search ON mem_observations USING GIN(search_vector);
 
+-- Source + project composite index (V14 + V16: replaces single-column idx_obs_source)
+CREATE INDEX idx_obs_project_source ON mem_observations (project_path, source);
+
+-- JSONB index for extracted_data queries (V14)
+CREATE INDEX idx_obs_extracted_data_gin ON mem_observations USING GIN (extracted_data jsonb_path_ops);
+
 -- Summaries table (V1 + V13)
 CREATE TABLE mem_summaries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
