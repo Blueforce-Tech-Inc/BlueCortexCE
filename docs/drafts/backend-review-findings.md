@@ -5,14 +5,29 @@
 
 ---
 
-## 2026-04-06 14:28 | 健康检查巡检（每小时 cron）
+## 2026-04-06 20:12 | 健康检查巡检（每小时 cron）
 
 | 检查项 | 结果 | 说明 |
 |--------|------|------|
 | Backend 服务健康 | ✅ OK | `{"service":"claude-mem-java","status":"ok"}` |
-| 回归测试 | ✅ 46/46 | regression-test.sh（1 skipped） |
+| 回归测试 | ✅ 46/47 | regression-test.sh（1 skipped） |
 | EXTRACTION 验收 | ✅ 25/25 | phase3-acceptance-test.sh |
 | Backend Review | ✅ 0 P0/0 P1/0 P2 | 全部已修复，无待处理问题 |
+
+**Backend Review #43**（2026-04-06 20:12）— ImportService + TokenService + ImportController 抽样审查：
+
+| # | 文件 | 问题 | 严重度 | 状态 |
+|---|------|------|--------|------|
+| 1 | ImportService.java | `toFloatArray` null 跳过 ✅ 正确 | P2 | ✅ 已确认 |
+| 2 | ImportService.java | `parseJsonArray` JSON 失败 log.warn ✅ 正确 | P2 | ✅ 已确认 |
+| 3 | TokenService.java | `CHARS_PER_TOKEN=4` ✅ 公式复刻正确 | P2 | ✅ 已确认 |
+| 4 | ImportController.java | Swagger 注解完整，错误处理规范 ✅ | P2 | ✅ 已确认 |
+
+**Backend Review #42**（2026-04-06 14:28）：
+
+| # | 文件 | 问题 | 严重度 | 状态 |
+|---|------|------|--------|------|
+| 1 | MemoryRefineService.java | `deepRefineProjectMemories()` 无并发保护 | P2 | ✅ 已修复 |
 
 **Backend Review #21**（2026-04-06 14:28）：
 
