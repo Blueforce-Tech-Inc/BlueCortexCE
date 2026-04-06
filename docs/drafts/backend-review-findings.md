@@ -1,7 +1,27 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-06 14:28 (P2 修复: HC-3 并发 extraction 去重 — MemoryRefineService projectLocks)
+> **最后更新**: 2026-04-07 03:15 (Java SDK #9: CortexToolAspect 截断修复)
+
+---
+
+## 2026-04-07 03:15 | Java SDK 审查 #9（Spring AI 集成）
+
+**审查范围**: CortexToolAspect.java, CortexMemoryTools.java, CortexMemoryAdvisor.java, CortexSessionContextBridgeAdvisor.java, DefaultMemoryRetrievalService.java, DefaultObservationCaptureService.java, CortexMemAutoConfiguration.java
+
+**发现的问题**:
+
+| # | 文件 | 行 | 级别 | 问题 | 状态 |
+|---|------|-----|------|------|------|
+| J9-1 | CortexToolAspect.java | buildInputMap / toolResponse | **P2** | `buildInputMap()` 中 `args[i].toString()` 和 `result.toString()` 无大小限制。若工具参数或返回值为大型内容（如文件内容），产生极大字符串存储到 `pending_messages.tool_input/tool_response`（TEXT 列无限制）。Backend 仅在 LLM prompt 构建时截断（MAX_TOOL_CONTENT_LENGTH=4000），但 SDK 层没有保护。 | ✅ 已修复（添加 `MAX_VALUE_LENGTH=4000`，`truncate()` 方法截断并加 `"...[truncated]"` 后缀） |
+
+**修复详情**:
+- 添加 `MAX_VALUE_LENGTH = 4000` 常量（与 backend `Constants.MAX_TOOL_CONTENT_LENGTH` 对齐）
+- `buildInputMap()` 中所有 `args[i].toString()` 改为 `truncate(value)`
+- `toolResponse(Map.of("result", result != null ? result.toString() : "null"))` 改为 `truncate(result.toString())`
+- 新增 2 个测试：`largeToolInputAndResponse_areTruncated` + `smallToolInputAndResponse_areNotTruncated`
+
+**测试结果**: Spring AI 全部测试 46/46 ✅（含 2 个新增截断测试）
 
 ---
 
