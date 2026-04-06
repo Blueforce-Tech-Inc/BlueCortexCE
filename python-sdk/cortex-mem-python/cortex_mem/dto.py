@@ -358,6 +358,10 @@ class Observation:
     created_at: str = ""
     created_at_epoch: int = 0
     last_accessed_at: str = ""
+    access_count: int = 0
+    refined_at: str = ""
+    refined_from_ids: list[str] = field(default_factory=list)
+    user_comment: str = ""
 
     def __repr__(self) -> str:
         return f"Observation(id={self.id!r}, type={self.type!r}, title={self.title[:50]!r})"
@@ -375,7 +379,8 @@ class Observation:
           type, content (→narrative)
         - Omit when empty/zero: title, subtitle, facts, concepts, files_read, files_modified,
           quality_score, feedback_type, feedback_updated_at, source, extractedData,
-          prompt_number, created_at, created_at_epoch, last_accessed_at
+          prompt_number, created_at, created_at_epoch, last_accessed_at,
+          access_count, refined_at, refined_from_ids, user_comment
         """
         # Always-include fields (Go SDK: no omitempty)
         d: dict = {
@@ -416,6 +421,16 @@ class Observation:
             d["created_at_epoch"] = self.created_at_epoch
         if self.last_accessed_at:
             d["last_accessed_at"] = self.last_accessed_at
+        if self.access_count:
+            d["access_count"] = self.access_count
+        else:
+            d["access_count"] = 0
+        if self.refined_at:
+            d["refined_at"] = self.refined_at
+        if self.refined_from_ids:
+            d["refined_from_ids"] = self.refined_from_ids
+        if self.user_comment:
+            d["user_comment"] = self.user_comment
         return d
 
     @classmethod
@@ -446,6 +461,10 @@ class Observation:
             created_at=_first_non_null(data, "created_at", "createdAt") or "",
             created_at_epoch=_to_int(_first_non_null(data, "created_at_epoch", "createdAtEpoch")),
             last_accessed_at=_first_non_null(data, "last_accessed_at", "lastAccessedAt") or "",
+            access_count=_to_int(_first_non_null(data, "access_count")),
+            refined_at=_first_non_null(data, "refined_at") or "",
+            refined_from_ids=_to_str_list(data.get("refined_from_ids")),
+            user_comment=_first_non_null(data, "user_comment") or "",
         )
 
 

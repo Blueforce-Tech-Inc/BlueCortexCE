@@ -1514,7 +1514,7 @@ SELECT cfgname, cfgparser FROM pg_ts_config;
 
 | # | 文件 | 行 | 级别 | 问题 |
 |---|------|-----|------|------|
-| 26-1 | All SDKs | N/A | **P2** | Backend `ObservationEntity` 返回 4 个字段 (`access_count`, `refined_at`, `refined_from_ids`, `user_comment`) 但所有 SDK (Go/Java/Python/JS) 均未映射。`regression-test.sh` 已验证 `access_count` 在响应中存在，但 SDK 用户无法通过类型安全的方式访问。建议：统一在所有 SDK 的 Observation DTO 中添加这 4 个字段的映射。 |
+| 26-1 | All SDKs | N/A | **P2** | Backend `ObservationEntity` 返回 4 个字段 (`access_count`, `refined_at`, `refined_from_ids`, `user_comment`) 但所有 SDK (Go/Java/Python/JS) 均未映射。`regression-test.sh` 已验证 `access_count` 在响应中存在，但 SDK 用户无法通过类型安全的方式访问。建议：统一在所有 SDK 的 Observation DTO 中添加这 4 个字段的映射。✅ Python SDK 已修复（`cortex_mem/dto.py` Observation DTO 添加 4 字段，`test_dto.py` 新增 4 个测试，357 tests ✅）。Go/Java/JS SDK 仍待修复。 |
 
 #### 代码质量评价
 

@@ -812,6 +812,53 @@ class TestDTOFromWire:
         assert "feedback_updated_at" not in d
         assert "last_accessed_at" not in d
 
+    def test_observation_from_wire_access_count_and_refined_fields(self):
+        """Observation.from_wire correctly parses access_count, refined_at, refined_from_ids, user_comment."""
+        data = {
+            "id": "o1",
+            "access_count": 42,
+            "refined_at": "2026-04-06T08:26:43.126088Z",
+            "refined_from_ids": ["obs-1", "obs-2"],
+            "user_comment": "Great observation",
+        }
+        obs = Observation.from_wire(data)
+        assert obs.access_count == 42
+        assert obs.refined_at == "2026-04-06T08:26:43.126088Z"
+        assert obs.refined_from_ids == ["obs-1", "obs-2"]
+        assert obs.user_comment == "Great observation"
+
+    def test_observation_from_wire_missing_refined_fields_default(self):
+        """access_count, refined_at, refined_from_ids, user_comment default to 0/''/[]/'' when missing."""
+        data = {"id": "o1"}
+        obs = Observation.from_wire(data)
+        assert obs.access_count == 0
+        assert obs.refined_at == ""
+        assert obs.refined_from_ids == []
+        assert obs.user_comment == ""
+
+    def test_observation_to_dict_includes_refined_fields(self):
+        """Observation.to_dict includes access_count, refined_at, refined_from_ids, user_comment when set."""
+        obs = Observation(
+            id="o1", session_id="s1", project_path="/p", type="fact",
+            access_count=42,
+            refined_at="2026-04-06T08:26:43.126088Z",
+            refined_from_ids=["obs-1", "obs-2"],
+            user_comment="Great",
+        )
+        d = obs.to_dict()
+        assert d["access_count"] == 42
+        assert d["refined_at"] == "2026-04-06T08:26:43.126088Z"
+        assert d["refined_from_ids"] == ["obs-1", "obs-2"]
+        assert d["user_comment"] == "Great"
+
+    def test_observation_to_dict_omits_empty_refined_fields(self):
+        """Observation.to_dict omits refined_at, refined_from_ids, user_comment when empty."""
+        obs = Observation(id="o1", session_id="s1", project_path="/p", type="fact")
+        d = obs.to_dict()
+        assert "refined_at" not in d
+        assert "refined_from_ids" not in d
+        assert "user_comment" not in d
+
     def test_experience_from_wire_null_strings(self):
         """Backend may return null for string fields in Experience."""
         data = {
