@@ -3834,8 +3834,10 @@ Option A: Project-scoped userId (CHOSEN)
 | 6 | Array-level conflict detection | 🟡 Medium | Superseded — append-only extraction handles semantics | ✅ Resolved (Section 24.6) |
 | 7 | Cross-project user identification | 🟡 Medium | Project-scoped userId | ✅ Decided (Section 20.7) |
 | 8 | Ingestion API user_id passing | 🟡 Medium | Option B: session creation + PATCH API | ✅ Resolved (Section 20.9) |
+| 9 | Prior extraction size growth (v24) | 🟡 Medium | Append-only extraction — LLM no longer receives prior context | ✅ Resolved (Section 24.6) |
+| 10 | LLM hallucination on re-extraction (v24) | 🟡 Medium | Append-only extraction — LLM only sees new observations | ✅ Resolved (Section 24.6) |
 
-**All 8 issues resolved. Phase 3.1 design is complete.**
+**All 10 issues resolved. Phase 3.1 design is complete.**
 
 **Confirmed for Phase 3.1**:
 1. ✅ Array-wrapped schema in Section 2.2
@@ -3845,6 +3847,9 @@ Option A: Project-scoped userId (CHOSEN)
 5. ✅ `user_id` in SessionEntity (Flyway V15)
 6. ✅ Session creation with optional userId + PATCH update API
 7. ✅ 8 repository prerequisites (Section 15.1)
+8. ✅ Append-only extraction (Section 24.6) eliminates prior size growth and hallucination issues
+9. ✅ Append-only extraction fixed token cost at ~2000 tokens regardless of history size (Section 23)
+10. ✅ LLM receives only new observations, not full prior context (Section 24.6)
 
 ---
 
