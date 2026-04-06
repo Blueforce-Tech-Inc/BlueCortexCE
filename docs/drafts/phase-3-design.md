@@ -6224,7 +6224,7 @@ result=$(curl -sf "$BACKEND/api/extraction/user_preference/latest?projectPath=/t
 
 ### 26.4 SDK Demo Test (Phase 3.1 SDK Verification)
 
-**File**: `scripts/demo-v15-test.sh`
+**File**: `scripts/demo-v15-extraction-test.sh`
 
 **Tests SDK integration** via the demo project running on port 37778:
 
@@ -6237,11 +6237,11 @@ result=$(curl -sf "$BACKEND/api/extraction/user_preference/latest?projectPath=/t
 
 # Test 3: GET /memory/experiences with userId
 # Query experiences with userId parameter
+
+# (12 tests total — see actual script for full test list)
 ```
 
-**⚠️ NOTE**: Test D (SDK updateSessionUserId) was deferred — not yet implemented in the script.
-
-**Pass criteria**: ALL 3 SDK demo tests pass.
+**Pass criteria**: ALL 12 SDK demo tests pass.
 
 ---
 
