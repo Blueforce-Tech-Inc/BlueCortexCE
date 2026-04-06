@@ -2281,3 +2281,37 @@ Total: 426/426 tests passed
 
 #### 审查结论
 无 P0/P1 问题。OffsetPageRequest 是修复 #38 pagination bug 的关键组件，建议补单元测试。TokenService 公式精确复刻，无功能问题，null 检查为代码卫生级别（P2）。整体代码质量良好。
+
+---
+
+## 2026-04-06 22:42 | 代码审查巡检（bfef8b87，每30分钟）
+
+| 检查项 | 结果 | 说明 |
+|--------|------|------|
+| Backend 服务健康 | ✅ OK | `{"service":"claude-mem-java","status":"ok"}` |
+| 本次审查方向 | Backend #42 | AppSettings.java + AgentService.java |
+
+**Backend Review #42**（2026-04-06 22:42）：
+
+| # | 文件 | 行 | 级别 | 问题 |
+|---|------|-----|------|------|
+| 42-1 | AppSettings.java | 全文 | — | **无问题** — @JsonProperty 命名正确，toMap() 返回 CLAUDE_MEM_* 键与 WebUI 契约对齐，所有 getter 使用 getEnvOrDefault() 模式，parseIntSafe() 有 fallback 保护，parseCommaSeparated() 正确处理 null/blank |
+| 42-2 | AgentService.java | 全文 | — | **无问题** — @Async 正确使用，dedup hash (SHA-256) 健壮，30s 窗口合理，callLlmAndSaveObservation() shared 方法正确处理 skip 分支（status set + save + return false），isRetryableException() 有 unrecoverable auth 保护防止 77K+ 重试循环，generateEmbedding() 吞掉 embedding 失败但记录日志 |
+
+**代码质量评价**
+
+| 检查项 | AppSettings | AgentService |
+|--------|-------------|--------------|
+| 输入验证 | ✅ null 安全 + parseIntSafe fallback | ✅ dedup hash + 30s 窗口 |
+| 错误处理 | ✅ parseIntSafe try/catch | ✅ isRetryableException 分类清晰 |
+| 事务管理 | N/A | N/A（只写 observation + pending） |
+| 线程安全 | ✅ 不可变配置对象 | ✅ @Async 线程安全，局部变量无共享 |
+| WebUI API 契约 | ✅ CLAUDE_MEM_* 键对齐 | N/A |
+| 设计质量 | ✅ 环境变量优先 + 类型转换封装 | ✅ crash recovery pending queue 设计合理 |
+
+**亮点**
+- **AppSettings**: getEnvOrDefault 模式清晰，所有配置项支持环境变量覆盖；parseCommaSeparated 用 List.of() 返回不可变列表
+- **AgentService**: isRetryableException() 区分 unrecoverable auth 错误（API_KEY_INVALID, 401, 403 不重试）防止死循环；pending queue crash recovery 设计完善；generateEmbedding 失败不阻塞 observation 保存（fail-gracefully）
+
+**审查结论**
+无 P0/P1/P2 问题。两文件代码质量良好，设计合理。
