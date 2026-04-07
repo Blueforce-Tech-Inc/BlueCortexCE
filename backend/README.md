@@ -280,7 +280,7 @@ curl -s "http://127.0.0.1:37777/api/search?project=/tmp/test-project&query=REST+
   | python3 -m json.tool
 ```
 
-Expected: `count: 1`, `strategy: "semantic"`, observation returned with similarity score.
+Expected: `count: 1`, `strategy: "hybrid"` (pgvector + tsvector combined search), observation returned with similarity score.
 
 ### Step 6: End Session
 
