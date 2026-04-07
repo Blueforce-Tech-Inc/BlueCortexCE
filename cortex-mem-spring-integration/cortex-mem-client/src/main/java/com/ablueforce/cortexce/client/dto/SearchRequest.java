@@ -29,9 +29,10 @@ public record SearchRequest(
 
     /**
      * Convenience constructor with required fields only.
+     * offset defaults to null (omitted from request, backend uses 0).
      */
     public SearchRequest(String project) {
-        this(project, null, null, null, null, 20, 0, null);
+        this(project, null, null, null, null, 20, null, null);
     }
 
     public static class Builder {
