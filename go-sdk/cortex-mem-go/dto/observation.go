@@ -107,4 +107,8 @@ type Observation struct {
 	CreatedAt         string         `json:"created_at,omitempty"`       // SNAKE_CASE naming strategy
 	CreatedAtEpoch    int64          `json:"created_at_epoch,omitempty"` // SNAKE_CASE naming strategy
 	LastAccessedAt    string         `json:"last_accessed_at,omitempty"` // SNAKE_CASE naming strategy
+	AccessCount       int            `json:"access_count,omitempty"`            // SNAKE_CASE naming strategy
+	RefinedAt         string         `json:"refined_at,omitempty"`              // SNAKE_CASE naming strategy
+	RefinedFromIds    StringList     `json:"refined_from_ids,omitempty"`        // SNAKE_CASE naming strategy
+	UserComment       string         `json:"user_comment,omitempty"`            // SNAKE_CASE naming strategy
 }

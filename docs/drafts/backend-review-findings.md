@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-07 03:15 (Java SDK #9: CortexToolAspect 截断修复)
+> **最后更新**: 2026-04-07 21:44 (SDK #26-1 Fix: Observation 4 字段映射 - Go/Java/JS SDK)
 
 ---
 
@@ -22,6 +22,29 @@
 - 新增 2 个测试：`largeToolInputAndResponse_areTruncated` + `smallToolInputAndResponse_areNotTruncated`
 
 **测试结果**: Spring AI 全部测试 46/46 ✅（含 2 个新增截断测试）
+
+---
+
+## 2026-04-07 21:44 | SDK 批量修复 #26-1（健康检查）
+
+**审查范围**: JS SDK (`js-sdk/cortex-mem-js/`), Go SDK (`go-sdk/cortex-mem-go/`), Java SDK (`cortex-mem-spring-integration/cortex-mem-client/`)
+
+**发现的问题**:
+
+| # | SDK | 级别 | 问题 | 状态 |
+|---|-----|------|------|------|
+| 26-1-JS | JS SDK | **P2** | `Observation` 接口缺少 4 个后端字段：`accessCount`, `refinedAt`, `refinedFromIds`, `userComment` | ✅ 已修复（dto/observation.ts + wire-helpers.ts） |
+| 26-1-Go | Go SDK | **P2** | `Observation` struct 缺少 4 个后端字段 | ✅ 已修复（dto/observation.go） |
+| 26-1-Java | Java SDK | **P2** | 无 `ObservationResponse` DTO，`listObservations/getObservation/getObservationsByIds` 返回 `Map<String, Object>` 无法类型安全访问 | ✅ 已修复（新增 ObservationResponse + PagedObservationResponse DTO + CortexMemClient 接口更新） |
+
+**修复详情**:
+
+- **JS SDK** (`js-sdk/cortex-mem-js/src/dto/observation.ts`): `Observation` 接口新增 4 个字段；`parseObservation()` 新增解析逻辑；`refinedFromIds` 类型为 `string[]`，使用 `safeStringOrStringList()` helper 处理 String/Array 两种 wire 格式
+- **JS SDK** (`js-sdk/cortex-mem-js/src/dto/wire-helpers.ts`): 新增 `safeStringOrStringList()` helper，支持 JSON 数组/逗号分隔字符串/纯数组
+- **Go SDK** (`go-sdk/cortex-mem-go/dto/observation.go`): `Observation` struct 新增 4 个 SNAKE_CASE 字段
+- **Java SDK**: 新增 `ObservationResponse.java`（22 字段，含 4 个新字段）；新增 `PagedObservationResponse.java`；更新 `CortexMemClient` 接口返回类型；新增 `mapToObservationResponse()` helper
+
+**验证结果**: Java SDK 编译 ✅ | Go SDK 编译 ✅ | JS SDK TypeScript ✅ | 回归测试 46/47 ✅ | EXTRACTION 验收 25/25 ✅
 
 ---
 
@@ -1549,7 +1572,7 @@ SELECT cfgname, cfgparser FROM pg_ts_config;
 
 | # | 文件 | 行 | 级别 | 问题 |
 |---|------|-----|------|------|
-| 26-1 | All SDKs | N/A | **P2** | Backend `ObservationEntity` 返回 4 个字段 (`access_count`, `refined_at`, `refined_from_ids`, `user_comment`) 但所有 SDK (Go/Java/Python/JS) 均未映射。`regression-test.sh` 已验证 `access_count` 在响应中存在，但 SDK 用户无法通过类型安全的方式访问。建议：统一在所有 SDK 的 Observation DTO 中添加这 4 个字段的映射。✅ Python SDK 已修复（`cortex_mem/dto.py` Observation DTO 添加 4 字段，`test_dto.py` 新增 4 个测试，357 tests ✅）。Go/Java/JS SDK 仍待修复。 |
+| 26-1 | All SDKs | N/A | **P2** | Backend `ObservationEntity` 返回 4 个字段 (`access_count`, `refined_at`, `refined_from_ids`, `user_comment`) 但所有 SDK (Go/Java/Python/JS) 均未映射。`regression-test.sh` 已验证 `access_count` 在响应中存在，但 SDK 用户无法通过类型安全的方式访问。建议：统一在所有 SDK 的 Observation DTO 中添加这 4 个字段的映射。✅ Python SDK 已修复 ✅ Go SDK 已修复（dto/observation.go 添加 4 个字段）✅ Java SDK 已修复（新增 ObservationResponse + PagedObservationResponse DTO）✅ JS SDK 已修复（dto/observation.ts 添加 4 字段 + safeStringOrStringList helper） |
 
 #### 代码质量评价
 

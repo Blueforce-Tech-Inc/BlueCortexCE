@@ -60,6 +60,32 @@ export function safeStringArray(v: unknown): string[] | undefined {
 }
 
 /**
+ * Safely convert unknown value to string array, also handling plain-string wire values.
+ * Used for fields that the backend stores as String but which conceptually are ID lists
+ * (e.g., refined_from_ids may arrive as "id1,id2" or as ["id1","id2"]).
+ * Returns undefined for null/undefined/non-string/non-array.
+ */
+export function safeStringOrStringList(v: unknown): string[] | undefined {
+  if (v === null || v === undefined) return undefined;
+  if (Array.isArray(v)) {
+    return safeStringArray(v) ?? undefined;
+  }
+  if (typeof v === 'string' && v.length > 0) {
+    // Try to parse as JSON array first (backend may JSON-encode for WebUI)
+    try {
+      const parsed = JSON.parse(v);
+      if (Array.isArray(parsed)) {
+        return safeStringArray(parsed) ?? undefined;
+      }
+    } catch {
+      // Not JSON — treat as comma-separated list
+      return v.split(',').map(s => s.trim()).filter(s => s.length > 0);
+    }
+  }
+  return undefined;
+}
+
+/**
  * Safely extract a Record<string, unknown> from wire data.
  * Returns undefined for null/undefined/non-object/non-plain-object.
  * Rejects arrays, Date instances, and other class instances.

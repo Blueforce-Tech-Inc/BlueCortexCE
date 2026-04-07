@@ -189,3 +189,36 @@
 
 ### Backend 审查问题状态
 - P0: 0 | P1: 0 | P2 (后端): 0 全部已修复 | 跳过: 8 | ⏳待修: 0
+
+---
+
+## 2026-04-07 21:44 | SDK 批量修复 — Observation 4 字段映射
+
+**修复内容**：
+- **P2 (SDK #26-1)**：`access_count`, `refined_at`, `refined_from_ids`, `user_comment` 4 个后端字段在 Go/Java/JS SDK 中未映射
+
+**修复详情**：
+
+### JS SDK (`js-sdk/cortex-mem-js/src/dto/observation.ts`)
+- `Observation` 接口新增 4 个字段：`accessCount`, `refinedAt`, `refinedFromIds`, `userComment`
+- `parseObservation()` 新增解析这 4 个字段
+- `refinedFromIds` 类型为 `string[]`，支持 String/Array 两种 wire 格式（后端存储为逗号分隔 String）
+
+### JS SDK (`js-sdk/cortex-mem-js/src/dto/wire-helpers.ts`)
+- 新增 `safeStringOrStringList()` helper，处理 String/JSONArray/逗号分隔等多种格式
+
+### Go SDK (`go-sdk/cortex-mem-go/dto/observation.go`)
+- `Observation` struct 新增 4 个字段：`AccessCount`, `RefinedAt`, `RefinedFromIds`, `UserComment`（均为 SNAKE_CASE wire 格式）
+
+### Java SDK (`cortex-mem-spring-integration/cortex-mem-client/`)
+- 新增 `ObservationResponse.java` DTO：包含全部 22 个字段（含 4 个新字段）
+- 新增 `PagedObservationResponse.java` DTO：`List<ObservationResponse>` + `hasMore` 标志
+- `CortexMemClient` 接口：`listObservations` → `PagedObservationResponse`，`getObservation` → `ObservationResponse`，`getObservationsByIds` → `List<ObservationResponse>`
+- `CortexMemClientImpl` 新增 `mapToObservationResponse()` helper 方法
+
+**验证结果**：
+- Java SDK 编译：`mvn clean compile` ✅
+- Go SDK 编译：`go build ./...` ✅
+- JS SDK TypeScript：`npx tsc --noEmit` ✅
+- 回归测试：46/47 ✅（1 skipped）
+- EXTRACTION 验收：25/25 ✅

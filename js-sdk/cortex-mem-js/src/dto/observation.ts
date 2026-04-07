@@ -2,7 +2,7 @@
 // Observation DTOs
 // ============================================================
 
-import { safeString, safeStringOr, safeNumber, safeStringArray, safeRecord, firstNonNullOr } from './wire-helpers';
+import { safeString, safeStringOr, safeNumber, safeStringArray, safeRecord, safeStringOrStringList, firstNonNullOr } from './wire-helpers';
 
 /**
  * Request to record a tool-use observation.
@@ -84,6 +84,14 @@ export interface Observation {
   createdAtEpoch?: number;
   /** Parsed from wire field "last_accessed_at" (SNAKE_CASE) */
   lastAccessedAt?: string;
+  /** Parsed from wire field "access_count" (SNAKE_CASE) — how many times this observation was retrieved */
+  accessCount?: number;
+  /** Parsed from wire field "refined_at" (SNAKE_CASE) — when this observation was last refined/extracted */
+  refinedAt?: string;
+  /** Parsed from wire field "refined_from_ids" (SNAKE_CASE) — IDs of source observations this was refined from */
+  refinedFromIds?: string[];
+  /** Parsed from wire field "user_comment" (SNAKE_CASE) — user-provided comment/annotation */
+  userComment?: string;
 }
 
 /**
@@ -113,5 +121,9 @@ export function parseObservation(raw: Record<string, unknown>): Observation {
     createdAt: safeString(firstNonNullOr(raw, ['created_at', 'createdAt'])),
     createdAtEpoch: safeNumber(firstNonNullOr(raw, ['created_at_epoch', 'createdAtEpoch'])),
     lastAccessedAt: safeString(firstNonNullOr(raw, ['last_accessed_at', 'lastAccessedAt'])),
+    accessCount: safeNumber(firstNonNullOr(raw, ['access_count', 'accessCount'])),
+    refinedAt: safeString(firstNonNullOr(raw, ['refined_at', 'refinedAt'])),
+    refinedFromIds: safeStringOrStringList(firstNonNullOr(raw, ['refined_from_ids', 'refinedFromIds'])),
+    userComment: safeString(firstNonNullOr(raw, ['user_comment', 'userComment'])),
   };
 }
