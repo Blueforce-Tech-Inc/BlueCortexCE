@@ -1231,16 +1231,63 @@ Returns a paginated list of observations, optionally filtered by project.
   "items": [
     {
       "id": "550e8400-e29b-41d4-a716-446655440000",
-      "title": "Feature implementation",
-      "type": "feature",
-      "narrative": "Implemented JWT authentication...",
+      "session_id": "content-session-uuid",
       "project": "/Users/dev/myproject",
-      "created_at_epoch": 1707878400000
+      "type": "feature",
+      "title": "Feature implementation",
+      "subtitle": "JWT authentication",
+      "narrative": "Implemented JWT authentication...",
+      "facts": ["Uses RS256 algorithm", "Token expires in 3600s"],
+      "concepts": ["authentication", "security", "jwt"],
+      "files_read": ["src/auth/jwt.go", "pkg/middleware/auth.go"],
+      "files_modified": ["src/auth/jwt.go"],
+      "quality_score": 0.85,
+      "feedback_type": "SUCCESS",
+      "feedback_updated_at": "2026-04-01T10:15:00Z",
+      "source": "claude-code",
+      "extractedData": {"framework": "Echo", "auth_type": "Bearer"},
+      "prompt_number": 42,
+      "created_at": "2026-04-01T09:00:00Z",
+      "created_at_epoch": 1743488400000,
+      "last_accessed_at": "2026-04-07T14:30:00Z",
+      "access_count": 5,
+      "refined_at": "2026-04-03T08:00:00Z",
+      "refined_from_ids": "obs-abc-123,obs-def-456",
+      "user_comment": "Core auth module"
     }
   ],
   "hasMore": true
 }
 ```
+
+**Response Fields**:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Observation UUID |
+| `session_id` | string | Claude Code content session ID |
+| `project` | string | Project path |
+| `type` | string | Observation type (e.g., `feature`, `bugfix`) |
+| `title` | string | Observation title |
+| `subtitle` | string | Observation subtitle |
+| `narrative` | string | Observation body text |
+| `facts` | string[] | List of factual statements extracted |
+| `concepts` | string[] | List of concept tags |
+| `files_read` | string[] | List of files read during this observation |
+| `files_modified` | string[] | List of files modified during this observation |
+| `quality_score` | float | Quality score assigned by the refinement process (0.0–1.0) |
+| `feedback_type` | string | Feedback type: `SUCCESS`/`PARTIAL`/`FAILURE`/`UNKNOWN` |
+| `feedback_updated_at` | string | ISO-8601 timestamp of last feedback update |
+| `source` | string | Source attribution (e.g., `claude-code`, `manual`) |
+| `extractedData` | object | Structured data extracted by the LLM (camelCase keys) |
+| `prompt_number` | int | Prompt number in the session |
+| `created_at` | string | ISO-8601 creation timestamp |
+| `created_at_epoch` | long | Epoch milliseconds of creation |
+| `last_accessed_at` | string | ISO-8601 timestamp of last access |
+| `access_count` | int | How many times this observation was retrieved |
+| `refined_at` | string | ISO-8601 timestamp of last refinement |
+| `refined_from_ids` | string | Comma-separated IDs of source observations this was refined from |
+| `user_comment` | string | User-provided comment/annotation |
 
 ### Get Observations by IDs
 
@@ -1271,8 +1318,22 @@ Retrieves multiple observations by their UUIDs. Supports optional project filter
 **Response** (`200 OK`):
 ```json
 {
-  "observations": [...],
-  "count": 3
+  "observations": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "session_id": "content-session-uuid",
+      "project": "/Users/dev/myproject",
+      "type": "feature",
+      "title": "Feature implementation",
+      "narrative": "Implemented JWT authentication...",
+      "facts": ["Uses RS256 algorithm"],
+      "concepts": ["authentication"],
+      "quality_score": 0.85,
+      "created_at_epoch": 1743488400000,
+      "access_count": 3
+    }
+  ],
+  "count": 1
 }
 ```
 
@@ -2272,8 +2333,9 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-04 | 0.1.0-beta+24 | Pagination bug fix: GET `/api/observations`, `/api/summaries`, `/api/prompts` — previously, when `offset < limit`, pagination returned wrong results (page index = offset/limit always = 0 for offset < limit, ignoring the offset). Fixed to use true offset pagination (SQL `LIMIT n OFFSET m`). All three endpoints now also sort by `createdAt DESC` consistently. |
 | 2026-04-06 | 0.1.0-beta+25 | Search endpoint `orderBy` parameter: updated description from "supports `created_at_epoch`" to "supports `created_at_epoch` or `createdAtEpoch`" (both values accepted per ViewerController code); synced Chinese version |
 | 2026-04-07 | 0.1.0-beta+26 | Added missing Mode endpoints to Chinese API doc: new `## Mode` section with 8 ModeController endpoints (GET/PUT /api/mode, GET /api/mode/types, GET /api/mode/concepts, GET /api/mode/types/{typeId}/validate, GET /api/mode/types/{typeId}/emoji, GET /api/mode/types/valid, GET /api/mode/concepts/valid); fixed Chinese TOC section order (Mode after Management, before Search) to match body structure; synced Chinese version |
-| 2026-04-08 | 0.1.0-beta+28 | ModeController PUT /api/mode: request body reverted `mode`→`mode_id` (live test confirmed ModeController's nested ModeSwitchRequest has field `modeId` with no @JsonProperty, so wire format is snake_case `mode_id` not `mode`); synced Chinese version |
 | 2026-04-07 | 0.1.0-beta+27 | Viewer Mode endpoints: fixed GET /api/modes response `mode_id`→`id` (matches ViewerController `response.put("id", ...)`); fixed POST /api/modes HTTP method PUT→POST (matches ViewerController `@PostMapping`); fixed POST /api/modes request body `modeId`→`mode` (matches ModeSwitchRequest wire format `@JsonProperty("mode")`); fixed POST /api/modes response to `{"success": true, "mode": "...", "name": "..."}` (matches ViewerController actual response); synced Chinese version |
+| 2026-04-08 | 0.1.0-beta+28 | ModeController PUT /api/mode: request body reverted `mode`→`mode_id` (live test confirmed ModeController's nested ModeSwitchRequest has field `modeId` with no @JsonProperty, so wire format is snake_case `mode_id` not `mode`); synced Chinese version |
+| 2026-04-08 | 0.1.0-beta+29 | List Observations: enriched response example with all 24 fields from ObservationResponse DTO (session_id/subtitle/facts/concepts/files_read/files_modified/quality_score/feedback_type/feedback_updated_at/source/extractedData/prompt_number/created_at/last_accessed_at/access_count/refined_at/refined_from_ids/user_comment); added 24-field response table; enriched Batch Get Observations response example; synced Chinese version |
 
 ---
 

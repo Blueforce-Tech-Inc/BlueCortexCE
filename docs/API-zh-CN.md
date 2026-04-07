@@ -810,17 +810,63 @@ curl "http://localhost:37777/api/observations?project=/Users/dev/myproject&limit
   "items": [
     {
       "id": "550e8400-e29b-41d4-a716-446655440000",
-      "title": "Feature implementation",
-      "type": "feature",
-      "narrative": "Implemented JWT authentication...",
+      "session_id": "content-session-uuid",
       "project": "/Users/dev/myproject",
-      "created_at_epoch": 1707878400000,
-      ...
+      "type": "feature",
+      "title": "Feature implementation",
+      "subtitle": "JWT authentication",
+      "narrative": "Implemented JWT authentication...",
+      "facts": ["Uses RS256 algorithm", "Token expires in 3600s"],
+      "concepts": ["authentication", "security", "jwt"],
+      "files_read": ["src/auth/jwt.go", "pkg/middleware/auth.go"],
+      "files_modified": ["src/auth/jwt.go"],
+      "quality_score": 0.85,
+      "feedback_type": "SUCCESS",
+      "feedback_updated_at": "2026-04-01T10:15:00Z",
+      "source": "claude-code",
+      "extractedData": {"framework": "Echo", "auth_type": "Bearer"},
+      "prompt_number": 42,
+      "created_at": "2026-04-01T09:00:00Z",
+      "created_at_epoch": 1743488400000,
+      "last_accessed_at": "2026-04-07T14:30:00Z",
+      "access_count": 5,
+      "refined_at": "2026-04-03T08:00:00Z",
+      "refined_from_ids": "obs-abc-123,obs-def-456",
+      "user_comment": "Core auth module"
     }
   ],
   "hasMore": true
 }
 ```
+
+**响应字段说明**:
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | string | 观察记录 UUID |
+| `session_id` | string | Claude Code 内容会话 ID |
+| `project` | string | 项目路径 |
+| `type` | string | 观察类型（如 `feature`、`bugfix`） |
+| `title` | string | 观察标题 |
+| `subtitle` | string | 观察副标题 |
+| `narrative` | string | 观察正文内容 |
+| `facts` | string[] | 提取的事实列表 |
+| `concepts` | string[] | 概念标签列表 |
+| `files_read` | string[] | 本次观察中读取的文件列表 |
+| `files_modified` | string[] | 本次观察中修改的文件列表 |
+| `quality_score` | float | 精炼过程评定的质量分数（0.0–1.0） |
+| `feedback_type` | string | 反馈类型：`SUCCESS`/`PARTIAL`/`FAILURE`/`UNKNOWN` |
+| `feedback_updated_at` | string | 最后反馈更新的 ISO-8601 时间戳 |
+| `source` | string | 来源归属（如 `claude-code`、`manual`） |
+| `extractedData` | object | LLM 提取的结构化数据（camelCase 键名） |
+| `prompt_number` | int | 会话中的提示词编号 |
+| `created_at` | string | ISO-8601 创建时间戳 |
+| `created_at_epoch` | long | 创建时间的毫秒时间戳 |
+| `last_accessed_at` | string | 最后访问时间的 ISO-8601 时间戳 |
+| `access_count` | int | 该观察记录被检索的次数 |
+| `refined_at` | string | 最后精炼时间的 ISO-8601 时间戳 |
+| `refined_from_ids` | string | 逗号分隔的源观察记录 ID（本次精炼的来源） |
+| `user_comment` | string | 用户提供的评论/注释 |
 
 ---
 
@@ -1161,8 +1207,22 @@ curl "http://localhost:37777/api/search/by-file?project=/Users/dev/myproject&fil
 **响应示例**:
 ```json
 {
-  "observations": [...],
-  "count": 3
+  "observations": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "session_id": "content-session-uuid",
+      "project": "/Users/dev/myproject",
+      "type": "feature",
+      "title": "Feature implementation",
+      "narrative": "Implemented JWT authentication...",
+      "facts": ["Uses RS256 algorithm"],
+      "concepts": ["authentication"],
+      "quality_score": 0.85,
+      "created_at_epoch": 1743488400000,
+      "access_count": 3
+    }
+  ],
+  "count": 1
 }
 ```
 
@@ -2327,8 +2387,9 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-04 | 0.1.0-beta+24 | 分页 Bug 修复：GET `/api/observations`、`/api/summaries`、`/api/prompts`——此前当 `offset < limit` 时，分页返回错误结果（页索引 = offset/limit，当 offset < limit 时始终为 0，导致 offset 被忽略）。现已修复为真正的 offset 分页（SQL `LIMIT n OFFSET m`）。三个端点现在均按 `createdAt DESC` 排序。 |
 | 2026-04-06 | 0.1.0-beta+25 | Search 端点 `orderBy` 参数描述更新为"支持 `created_at_epoch` 或 `createdAtEpoch`"（与 ViewerController 代码一致，两值均接受）；同步英文版 |
 | 2026-04-07 | 0.1.0-beta+26 | 补充 ZH 缺失的 Mode 端点：新增 `## Mode 模式` 章节，包含 8 个 ModeController 端点（GET/PUT /api/mode、GET /api/mode/types、GET /api/mode/concepts、GET /api/mode/types/{typeId}/validate、GET /api/mode/types/{typeId}/emoji、GET /api/mode/types/valid、GET /api/mode/concepts/valid）；修正 TOC 章节顺序（Mode 模式移至 管理 之后、搜索 之前）与 body 结构一致；同步英文版 |
-| 2026-04-08 | 0.1.0-beta+28 | ModeController PUT /api/mode：请求体还原 `mode`→`mode_id`（实测确认 ModeController 内部 ModeSwitchRequest 字段为 `modeId`（无 @JsonProperty），wire 格式为 snake_case `mode_id` 而非 `mode`）；与英文版同步 |
 | 2026-04-07 | 0.1.0-beta+27 | Viewer Mode 端点修复：GET /api/modes 响应 `mode_id`→`id`（匹配 ViewerController `response.put("id", ...)`）；修复 POST /api/modes HTTP 方法 PUT→POST（匹配 ViewerController `@PostMapping`）；修复 POST /api/modes 请求体 `modeId`→`mode`（匹配 ModeSwitchRequest wire format `@JsonProperty("mode")`）；修复 POST /api/modes 响应为 `{"success": true, "mode": "...", "name": "..."}`（匹配 ViewerController 实际响应）；与英文版同步 |
+| 2026-04-08 | 0.1.0-beta+28 | ModeController PUT /api/mode：请求体还原 `mode`→`mode_id`（实测确认 ModeController 内部 ModeSwitchRequest 字段为 `modeId`（无 @JsonProperty），wire 格式为 snake_case `mode_id` 而非 `mode`）；与英文版同步 |
+| 2026-04-08 | 0.1.0-beta+29 | List Observations：丰富响应示例，展示 ObservationResponse DTO 的全部 24 个字段（session_id/subtitle/facts/concepts/files_read/files_modified/quality_score/feedback_type/feedback_updated_at/source/extractedData/prompt_number/created_at/last_accessed_at/access_count/refined_at/refined_from_ids/user_comment）；新增 24 字段响应字段说明表；丰富 Batch Get Observations 响应示例；与英文版同步 |
 | 2026-03-13 | 0.1.0 | 初始 API 文档 |
 
 ---
