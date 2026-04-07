@@ -139,12 +139,15 @@ def chat():
         return _error(400, f"{missing} is required")
 
     icl_result = None
+    user_id = data.get("userId")
+    if user_id is not None and user_id.strip() == "":
+        user_id = None  # treat empty string as "not provided" (matches Java/Go behavior)
     try:
         icl_result = client.build_icl_prompt(
             task=data["message"],
             project=data["project"],
             max_chars=data.get("maxChars", 0),
-            user_id=data.get("userId", ""),
+            user_id=user_id,
         )
     except Exception as e:
         logger.warning("ICL prompt failed: %s", e)
