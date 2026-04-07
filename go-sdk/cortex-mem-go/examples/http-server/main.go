@@ -489,13 +489,13 @@ func main() {
 			writeJSONError(w, http.StatusBadRequest, "template is required")
 			return
 		}
-		project := r.URL.Query().Get("project")
-		if project == "" {
-			writeJSONError(w, http.StatusBadRequest, "project is required")
+		projectPath := r.URL.Query().Get("projectPath")
+		if projectPath == "" {
+			writeJSONError(w, http.StatusBadRequest, "projectPath is required")
 			return
 		}
 		userId := r.URL.Query().Get("userId")
-		result, err := client.GetLatestExtraction(r.Context(), project, template, userId)
+		result, err := client.GetLatestExtraction(r.Context(), projectPath, template, userId)
 		if err != nil {
 			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get extraction: %v", err))
 			return
@@ -513,9 +513,9 @@ func main() {
 			writeJSONError(w, http.StatusBadRequest, "template is required")
 			return
 		}
-		project := r.URL.Query().Get("project")
-		if project == "" {
-			writeJSONError(w, http.StatusBadRequest, "project is required")
+		projectPath := r.URL.Query().Get("projectPath")
+		if projectPath == "" {
+			writeJSONError(w, http.StatusBadRequest, "projectPath is required")
 			return
 		}
 		userId := r.URL.Query().Get("userId")
@@ -531,7 +531,7 @@ func main() {
 				limit = parsed
 			}
 		}
-		result, err := client.GetExtractionHistory(r.Context(), project, template, userId, limit)
+		result, err := client.GetExtractionHistory(r.Context(), projectPath, template, userId, limit)
 		if err != nil {
 			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get extraction history: %v", err))
 			return
@@ -544,12 +544,12 @@ func main() {
 		if !checkMethod(w, r, http.MethodPost) {
 			return
 		}
-		project := r.URL.Query().Get("project")
-		if project == "" {
-			writeJSONError(w, http.StatusBadRequest, "project is required")
+		projectPath := r.URL.Query().Get("projectPath")
+		if projectPath == "" {
+			writeJSONError(w, http.StatusBadRequest, "projectPath is required")
 			return
 		}
-		if err := client.TriggerExtraction(r.Context(), project); err != nil {
+		if err := client.TriggerExtraction(r.Context(), projectPath); err != nil {
 			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to trigger extraction: %v", err))
 			return
 		}
