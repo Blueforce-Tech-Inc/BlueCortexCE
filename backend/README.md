@@ -92,7 +92,6 @@ Server starts on `http://127.0.0.1:37777`.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/session/start` | Initialize session |
 | POST | `/api/ingest/user-prompt` | Record user prompt |
 | POST | `/api/ingest/tool-use` | Enqueue tool-use → async LLM → observation |
 | POST | `/api/ingest/observation` | Direct observation creation (with auto-embedding) |
