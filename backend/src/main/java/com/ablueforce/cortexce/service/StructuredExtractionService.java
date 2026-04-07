@@ -46,6 +46,11 @@ public class StructuredExtractionService {
     private final LlmService llmService;
     private final ExtractionStorageService extractionStorageService;
 
+    /** Shared per-project locks with MemoryRefineService (HC-3 fix). Lazily injected to avoid circular dependency. */
+    @org.springframework.context.annotation.Lazy
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private MemoryRefineService memoryRefineService;
+
     public StructuredExtractionService(ExtractionConfig extractionConfig,
                                        ObservationRepository observationRepository,
                                        SessionRepository sessionRepository,
@@ -96,11 +101,29 @@ public class StructuredExtractionService {
 
     /**
      * Re-extract for a specific session (triggered by PATCH userId).
+     * Shares per-project lock with deepRefineProjectMemories() to prevent concurrent extraction.
      */
     public void reExtractForSession(String sessionId, String projectPath) {
         if (!extractionConfig.isEnabled() || !llmService.isAvailable()) {
             return;
         }
+
+        // Share projectLocks with deepRefineProjectMemories() — if another extraction
+        // is in progress for this project, skip (non-blocking).
+        if (memoryRefineService != null) {
+            boolean executed = memoryRefineService.tryExecuteWithProjectLock(projectPath, () -> {
+                doReExtractForSession(sessionId, projectPath);
+            });
+            if (!executed) {
+                log.info("Re-extraction skipped for session {} (project {}): another extraction in progress", sessionId, projectPath);
+            }
+        } else {
+            // Fallback: run without lock (extraction disabled or service unavailable)
+            doReExtractForSession(sessionId, projectPath);
+        }
+    }
+
+    private void doReExtractForSession(String sessionId, String projectPath) {
         log.info("Re-extracting for session: {} (project: {})", sessionId, projectPath);
 
         List<ObservationEntity> observations = observationRepository

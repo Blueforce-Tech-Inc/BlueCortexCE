@@ -1636,9 +1636,7 @@ public void reExtractForSession(String sessionId, String projectPath) {
 }
 ```
 
-> ⚠️ **IMPLEMENTATION NOTE**: The `projectLocks` map above is implemented in `MemoryRefineService.deepRefineProjectMemories()` (not in `StructuredExtractionService`). Concurrent calls to `deepRefineProjectMemories()` (from SessionEnd hook + scheduled task) are now deduplicated via per-project `ReentrantLock.tryLock(0, TimeUnit.MILLISECONDS)` — if the lock is already held, extraction is skipped (non-blocking). The `PendingReExtraction` queue above remains illustrative pseudocode (see `backend-review-findings.md` HC-3 status).
-
-**Important**: Ensure both `runExtraction()` and `reExtractForSession()` share the SAME lock map (`projectLocks`). This is a subtle implementation detail that's easy to miss.
+> ⚠️ **IMPLEMENTATION NOTE**: The `projectLocks` map is implemented in `MemoryRefineService` and shared between `deepRefineProjectMemories()` and `StructuredExtractionService.reExtractForSession()` via `MemoryRefineService.tryExecuteWithProjectLock(projectPath, task)`. Both paths acquire the same per-project `ReentrantLock` with `tryLock(0, TimeUnit.MILLISECONDS)` — if the lock is already held, extraction is skipped (non-blocking). The `PendingReExtraction` queue above remains illustrative pseudocode (see `backend-review-findings.md` HC-3 status).
 
 ### 24.5 Recommended Design Updates
 
@@ -6293,6 +6291,8 @@ bash scripts/demo-v14-test.sh
 ---
 
 ## Changelog
+
+- **2026-04-08 v30**: (1) **Section 24.4**: Fixed remaining HC-3 race condition — `reExtractForSession()` (PATCH userId path) was NOT protected by the per-project `ReentrantLock` even though `deepRefineProjectMemories()` (scheduled/hook path) was. Added `MemoryRefineService.tryExecuteWithProjectLock(projectPath, task)` method that shares the same `projectLocks` map, and `StructuredExtractionService.reExtractForSession()` now calls this before processing. Section 24.4 IMPLEMENTATION NOTE updated to reflect the complete fix — both paths are now protected by the same lock map. (2) **Section 15.7**: Updated IMPLEMENTATION NOTE to clarify that `projectLocks` is shared between `deepRefineProjectMemories()` and `reExtractForSession()` via the new `tryExecuteWithProjectLock()` method.
 
 - **2026-03-22 v29**: (1) **Section 24.6 `mergeAppendOnly()`**: Fixed critical design gaps — `keep_hint` was extracted but never used in merge logic; `deduplicate()` was called but undefined. Replaced with: (a) `buildItemKey()` method for consistent deduplication keying (category+value composite); (b) `keep_hint` used to protect items from removal (not stored in merged result — actual code logs but doesn't persist); (c) existing-key check prevents duplicate adds. (2) **Section 24.6 `buildAppendOnlyPrompt()`**: Added item schema hint and `keep_hint` semantics clarification — LLM now knows the expected structure of array elements and MUST include `category`+`value` fields for deduplication. (3) **Section 23.4b**: Added append-only cost comparison — ~20% cheaper than truncated-prior approach, while eliminating data loss risk. (4) **Section 2.3 `summarizePriorExtraction()`**: Added design note cross-referencing Section 24.6 data loss risk and append-only alternative.
 

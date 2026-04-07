@@ -163,6 +163,39 @@ public class MemoryRefineService {
     }
 
     /**
+     * Execute a re-extraction task with per-project lock deduplication.
+     * Used by StructuredExtractionService.reExtractForSession() to share the same
+     * projectLocks map as deepRefineProjectMemories(), preventing concurrent extraction.
+     *
+     * @return true if executed, false if skipped (lock already held by another task)
+     */
+    public boolean tryExecuteWithProjectLock(String projectPath, Runnable extractionTask) {
+        if (extractionService == null) {
+            log.debug("Extraction service not available, skipping extraction");
+            return false;
+        }
+        ReentrantLock lock = projectLocks.computeIfAbsent(projectPath, k -> new ReentrantLock());
+        boolean acquired = false;
+        try {
+            acquired = lock.tryLock(0, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        if (acquired) {
+            try {
+                extractionTask.run();
+            } finally {
+                lock.unlock();
+                projectLocks.remove(projectPath, lock);
+            }
+            return true;
+        } else {
+            log.debug("Extraction already in progress for project {}, skipping", projectPath);
+            return false;
+        }
+    }
+
+    /**
      * Deep refinement - called by daily scheduled task.
      * Includes cross-session merging and rule extraction.
      */

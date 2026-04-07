@@ -172,7 +172,7 @@
 
 | ID | 问题 | 级别 | 状态 |
 |----|------|------|------|
-| HC-3 | `StructuredExtractionService`: Section 15.7 推荐 Option B（per-project `ReentrantLock`）实现并发 extraction 去重，但实际代码**未实现任何锁机制**。`deepRefineProjectMemories()` 从 SessionEnd hook 和定时任务两条路径触发，若同时到达同一 project 会重复执行 extraction。`StructuredExtractionService` 无 `projectLocks` map，`MemoryRefineService.deepRefineProjectMemories()` 无锁逻辑。 | P2 | ✅ 已修复（添加 `ConcurrentHashMap<String, ReentrantLock> projectLocks`，使用 `tryLock(0, TimeUnit.MILLISECONDS)` 非阻塞获取锁，锁范围仅限 `extractionService.runExtraction`，锁自动从 map 移除）|
+| HC-3 | `StructuredExtractionService`: Section 15.7 推荐 Option B（per-project `ReentrantLock`）实现并发 extraction 去重，但实际代码**未实现任何锁机制**。`deepRefineProjectMemories()` 从 SessionEnd hook 和定时任务两条路径触发，若同时到达同一 project 会重复执行 extraction。`StructuredExtractionService` 无 `projectLocks` map，`MemoryRefineService.deepRefineProjectMemories()` 无锁逻辑。 | P2 | ✅ 已修复（添加 `ConcurrentHashMap<String, ReentrantLock> projectLocks`，`deepRefineProjectMemories()` 使用 `tryLock(0, TimeUnit.MILLISECONDS)` 非阻塞获取锁；另添加 `MemoryRefineService.tryExecuteWithProjectLock(projectPath, task)` 供 `StructuredExtractionService.reExtractForSession()` 共享同一 `projectLocks` map，两条路径均受锁保护）|
 
 **说明**: 设计文档 `docs/drafts/phase-3-design.md` Section 15.7 已添加 IMPLEMENTATION NOTE 说明此为未实现的设计建议。
 
