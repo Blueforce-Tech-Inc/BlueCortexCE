@@ -1102,10 +1102,10 @@ Content-Type: application/json
 
 Switches the active mode at runtime. Supports base modes (e.g., "code") and inherited modes (e.g., "code--zh").
 
-**Request Body**:
+**Request Body** (snake_case):
 ```json
 {
-  "mode": "code--zh"
+  "mode_id": "code--zh"
 }
 ```
 
@@ -2272,7 +2272,8 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-04 | 0.1.0-beta+24 | Pagination bug fix: GET `/api/observations`, `/api/summaries`, `/api/prompts` — previously, when `offset < limit`, pagination returned wrong results (page index = offset/limit always = 0 for offset < limit, ignoring the offset). Fixed to use true offset pagination (SQL `LIMIT n OFFSET m`). All three endpoints now also sort by `createdAt DESC` consistently. |
 | 2026-04-06 | 0.1.0-beta+25 | Search endpoint `orderBy` parameter: updated description from "supports `created_at_epoch`" to "supports `created_at_epoch` or `createdAtEpoch`" (both values accepted per ViewerController code); synced Chinese version |
 | 2026-04-07 | 0.1.0-beta+26 | Added missing Mode endpoints to Chinese API doc: new `## Mode` section with 8 ModeController endpoints (GET/PUT /api/mode, GET /api/mode/types, GET /api/mode/concepts, GET /api/mode/types/{typeId}/validate, GET /api/mode/types/{typeId}/emoji, GET /api/mode/types/valid, GET /api/mode/concepts/valid); fixed Chinese TOC section order (Mode after Management, before Search) to match body structure; synced Chinese version |
-| 2026-04-07 | 0.1.0-beta+27 | Viewer Mode endpoints: fixed GET /api/modes response `mode_id`→`id` (matches ViewerController `response.put("id", ...)`); fixed POST /api/modes HTTP method PUT→POST (matches ViewerController `@PostMapping`); fixed POST /api/modes request body `modeId`→`mode` (matches ModeSwitchRequest wire format `@JsonProperty("mode")`); fixed POST /api/modes response to `{"success": true, "mode": "...", "name": "..."}` (matches ViewerController actual response); ModeController Mode section: fixed PUT /api/mode request body `mode_id`→`mode` (matches ModeSwitchRequest wire format); synced Chinese version |
+| 2026-04-08 | 0.1.0-beta+28 | ModeController PUT /api/mode: request body reverted `mode`→`mode_id` (live test confirmed ModeController's nested ModeSwitchRequest has field `modeId` with no @JsonProperty, so wire format is snake_case `mode_id` not `mode`); synced Chinese version |
+| 2026-04-07 | 0.1.0-beta+27 | Viewer Mode endpoints: fixed GET /api/modes response `mode_id`→`id` (matches ViewerController `response.put("id", ...)`); fixed POST /api/modes HTTP method PUT→POST (matches ViewerController `@PostMapping`); fixed POST /api/modes request body `modeId`→`mode` (matches ModeSwitchRequest wire format `@JsonProperty("mode")`); fixed POST /api/modes response to `{"success": true, "mode": "...", "name": "..."}` (matches ViewerController actual response); synced Chinese version |
 
 ---
 
