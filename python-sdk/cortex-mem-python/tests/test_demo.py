@@ -131,6 +131,20 @@ class TestSearch:
         assert data["strategy"] == "hybrid"
         assert data["count"] == 0
 
+    def test_search_limit_zero_uses_backend_default(self, app, client):
+        """limit=0 is accepted — SDK omits it from request, backend applies its default."""
+        from cortex_mem import SearchResult
+        app._mock_client.search.return_value = SearchResult(observations=[], strategy="hybrid", count=0)
+        resp = client.get("/search?project=/p&limit=0")
+        assert resp.status_code == 200
+
+    def test_search_offset_zero_uses_backend_default(self, app, client):
+        """offset=0 is accepted — SDK omits it from request, backend applies its default."""
+        from cortex_mem import SearchResult
+        app._mock_client.search.return_value = SearchResult(observations=[], strategy="hybrid", count=0)
+        resp = client.get("/search?project=/p&offset=0")
+        assert resp.status_code == 200
+
     def test_search_with_type_filter(self, app, client):
         """Verify type filter is passed as type_= (not type=) to SDK.
 
@@ -241,6 +255,20 @@ class TestObservations:
         data = resp.get_json()
         assert len(data["items"]) == 1
         assert data["items"][0]["id"] == "o1"
+
+    def test_list_limit_zero_uses_backend_default(self, app, client):
+        """limit=0 is accepted — SDK omits it from request, backend applies its default."""
+        from cortex_mem import ObservationsResponse
+        app._mock_client.list_observations.return_value = ObservationsResponse(items=[], has_more=False, total=0)
+        resp = client.get("/observations?project=/p&limit=0")
+        assert resp.status_code == 200
+
+    def test_list_offset_zero_uses_backend_default(self, app, client):
+        """offset=0 is accepted — SDK omits it from request, backend applies its default."""
+        from cortex_mem import ObservationsResponse
+        app._mock_client.list_observations.return_value = ObservationsResponse(items=[], has_more=False, total=0)
+        resp = client.get("/observations?project=/p&offset=0")
+        assert resp.status_code == 200
 
     def test_get_observation_found(self, app, client):
         from cortex_mem import Observation

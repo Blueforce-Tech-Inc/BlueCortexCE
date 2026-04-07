@@ -180,6 +180,8 @@ def search():
         return _error(400, "limit must be between 0 and 100")
     if offset < 0:
         return _error(400, "offset must be non-negative")
+    # Note: limit=0 and offset=0 are accepted — SDK omits them from the request,
+    # letting the backend apply its defaults (consistent with Python SDK semantics).
 
     result = client.search(
         project=project,
@@ -291,6 +293,8 @@ def observations_list():
         return _error(400, "limit must be between 0 and 100")
     if offset < 0:
         return _error(400, "offset must be non-negative")
+    # Note: limit=0 and offset=0 are accepted — SDK omits them from the request,
+    # letting the backend apply its defaults (consistent with Python SDK semantics).
 
     result = client.list_observations(project=project, limit=limit, offset=offset)
     return jsonify(
