@@ -724,6 +724,7 @@ export class CortexMemClient {
     if (req.source) params.source = req.source;
     if (req.limit !== undefined && req.limit > 0) params.limit = String(req.limit);
     if (req.offset !== undefined && req.offset > 0) params.offset = String(req.offset);
+    if (req.orderBy) params.orderBy = req.orderBy;
     return params;
   }
 }

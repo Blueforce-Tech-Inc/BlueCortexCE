@@ -6,9 +6,13 @@ import type { Observation } from './observation';
 
 /**
  * Request for semantic search.
- * GET /api/search?project=...&query=...&type=...&concept=...&source=...&limit=...&offset=...
+ * GET /api/search?project=...&query=...&type=...&concept=...&source=...&limit=...&offset=...&orderBy=...
  *
  * All fields are passed as URL query parameters (not JSON body).
+ *
+ * orderBy supports: "created_at_epoch" / "createdAtEpoch" — orders by observation
+ * creation time descending (newest first). Without it, results are ordered by
+ * vector similarity score.
  */
 export interface SearchRequest {
   project: string;
@@ -18,6 +22,8 @@ export interface SearchRequest {
   source?: string;
   limit?: number;
   offset?: number;
+  /** Sort order field (e.g., "created_at_epoch"). Backend accepts both snake_case and camelCase. */
+  orderBy?: string;
 }
 
 /**
