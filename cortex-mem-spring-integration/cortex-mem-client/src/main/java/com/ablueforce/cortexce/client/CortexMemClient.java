@@ -133,9 +133,10 @@ public interface CortexMemClient {
      * Calls GET /api/observations
      *
      * @param request list parameters with pagination
-     * @return paginated list of observations
+     * @return paginated list of observations (includes 4 extended backend fields:
+     *         accessCount, refinedAt, refinedFromIds, userComment)
      */
-    Map<String, Object> listObservations(ObservationsRequest request);
+    PagedObservationResponse listObservations(ObservationsRequest request);
 
     /**
      * Get a single observation by ID.
@@ -144,19 +145,21 @@ public interface CortexMemClient {
      * Cross-SDK parity: Go GetObservation(id), Python get_observation(id), JS getObservation(id).
      *
      * @param observationId observation UUID
-     * @return observation data as a map, or null if not found
+     * @return observation data (includes 4 extended backend fields:
+     *         accessCount, refinedAt, refinedFromIds, userComment), or null if not found
      */
-    Map<String, Object> getObservation(String observationId);
+    ObservationResponse getObservation(String observationId);
 
     /**
      * Get observations by IDs.
      * Calls POST /api/observations/batch
      *
      * @param ids list of observation IDs (max 100)
-     * @return list of observations
+     * @return list of observations (includes 4 extended backend fields:
+     *         accessCount, refinedAt, refinedFromIds, userComment)
      * @throws IllegalArgumentException if ids is empty or exceeds 100
      */
-    Map<String, Object> getObservationsByIds(List<String> ids);
+    List<ObservationResponse> getObservationsByIds(List<String> ids);
 
     // ==================== P1 Management APIs ====================
 

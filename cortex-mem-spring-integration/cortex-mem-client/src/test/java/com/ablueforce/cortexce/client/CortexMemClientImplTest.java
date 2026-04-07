@@ -642,12 +642,12 @@ class CortexMemClientImplTest {
     void listObservations_onError_returnsFallback() {
         server.enqueue(new MockResponse().setResponseCode(500));
 
-        Map<String, Object> result = client.listObservations(ObservationsRequest.builder()
+        PagedObservationResponse result = client.listObservations(ObservationsRequest.builder()
             .project("/proj")
             .build());
 
-        assertThat(result).containsEntry("hasMore", false);
-        assertThat((List<?>) result.get("items")).isEmpty();
+        assertThat(result.hasMore()).isFalse();
+        assertThat(result.items()).isEmpty();
     }
 
     @Test
@@ -660,10 +660,10 @@ class CortexMemClientImplTest {
             .setBody(json)
             .addHeader("Content-Type", "application/json"));
 
-        Map<String, Object> result = client.getObservation("obs-42");
+        ObservationResponse result = client.getObservation("obs-42");
 
         assertThat(result).isNotNull();
-        assertThat(result).containsEntry("id", "obs-42");
+        assertThat(result.id()).isEqualTo("obs-42");
         // Verify it sent the batch request with single ID
         RecordedRequest req = server.takeRequest();
         assertThat(req.getMethod()).isEqualTo("POST");
@@ -677,7 +677,7 @@ class CortexMemClientImplTest {
             .setBody("{\"observations\":[],\"count\":0}")
             .addHeader("Content-Type", "application/json"));
 
-        Map<String, Object> result = client.getObservation("nonexistent");
+        ObservationResponse result = client.getObservation("nonexistent");
 
         assertThat(result).isNull();
     }
@@ -706,20 +706,20 @@ class CortexMemClientImplTest {
             .setBody(json)
             .addHeader("Content-Type", "application/json"));
 
-        Map<String, Object> result = client.getObservationsByIds(List.of("id1", "id2"));
+        List<ObservationResponse> result = client.getObservationsByIds(List.of("id1", "id2"));
 
-        assertThat(result).containsKey("observations");
-        List<?> observations = (List<?>) result.get("observations");
-        assertThat(observations).hasSize(2);
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).id()).isEqualTo("id1");
+        assertThat(result.get(1).id()).isEqualTo("id2");
     }
 
     @Test
     void getObservationsByIds_onError_returnsFallback() {
         server.enqueue(new MockResponse().setResponseCode(500));
 
-        Map<String, Object> result = client.getObservationsByIds(List.of("id1"));
+        List<ObservationResponse> result = client.getObservationsByIds(List.of("id1"));
 
-        assertThat((List<?>) result.get("observations")).isEmpty();
+        assertThat(result).isEmpty();
     }
 
     @Test

@@ -424,12 +424,11 @@ public class CortexMemClientImpl implements CortexMemClient {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
-    public Map<String, Object> listObservations(ObservationsRequest request) {
+    public PagedObservationResponse listObservations(ObservationsRequest request) {
         Objects.requireNonNull(request, "request must not be null");
         // project is optional per DTO contract — null means all projects
         try {
-            return restClient.get()
+            Map<String, Object> raw = restClient.get()
                 .uri(uriBuilder -> {
                     var builder = uriBuilder.path("/api/observations");
                     if (request.project() != null && !request.project().isBlank()) {
@@ -446,19 +445,27 @@ public class CortexMemClientImpl implements CortexMemClient {
                     return builder.build();
                 })
                 .retrieve()
-                .body(new ParameterizedTypeReference<>() {});
+                .body(new ParameterizedTypeReference<Map<String, Object>>() {});
+            if (raw == null) {
+                return new PagedObservationResponse(List.of(), false);
+            }
+            List<?> itemsRaw = (List<?>) raw.getOrDefault("items", List.of());
+            List<ObservationResponse> items = itemsRaw.stream()
+                .filter(Map.class::isInstance)
+                .map(o -> mapToObservationResponse((Map<String, Object>) o))
+                .toList();
+            Boolean hasMore = (Boolean) raw.getOrDefault("hasMore", false);
+            return new PagedObservationResponse(items, hasMore != null && hasMore);
         } catch (Exception e) {
             log.warn("Failed to list observations: {}", e.getMessage());
-            return Map.of("items", List.of(), "hasMore", false);
+            return new PagedObservationResponse(List.of(), false);
         }
     }
 
     @Override
-    @SuppressWarnings("unchecked")
-    public Map<String, Object> getObservation(String observationId) {
+    public ObservationResponse getObservation(String observationId) {
         requireNonBlank(observationId, "observationId");
-        Map<String, Object> result = getObservationsByIds(List.of(observationId));
-        List<Map<String, Object>> observations = (List<Map<String, Object>>) result.get("observations");
+        List<ObservationResponse> observations = getObservationsByIds(List.of(observationId));
         if (observations == null || observations.isEmpty()) {
             return null;
         }
@@ -467,7 +474,7 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     @Override
     @SuppressWarnings("unchecked")
-    public Map<String, Object> getObservationsByIds(List<String> ids) {
+    public List<ObservationResponse> getObservationsByIds(List<String> ids) {
         Objects.requireNonNull(ids, "ids must not be null");
         if (ids.isEmpty()) {
             throw new IllegalArgumentException("ids must not be empty");
@@ -481,14 +488,22 @@ public class CortexMemClientImpl implements CortexMemClient {
             }
         }
         try {
-            return restClient.post()
+            Map<String, Object> raw = restClient.post()
                 .uri("/api/observations/batch")
                 .body(Map.of("ids", ids))
                 .retrieve()
-                .body(new ParameterizedTypeReference<>() {});
+                .body(new ParameterizedTypeReference<Map<String, Object>>() {});
+            if (raw == null) {
+                return List.of();
+            }
+            List<?> obsRaw = (List<?>) raw.getOrDefault("observations", List.of());
+            return obsRaw.stream()
+                .filter(Map.class::isInstance)
+                .map(o -> mapToObservationResponse((Map<String, Object>) o))
+                .toList();
         } catch (Exception e) {
             log.warn("Failed to get observations by IDs: {}", e.getMessage());
-            return Map.of("observations", List.of());
+            return List.of();
         }
     }
 
@@ -752,5 +767,57 @@ public class CortexMemClientImpl implements CortexMemClient {
             // Fall through to status line
         }
         return httpEx.getStatusText() + " (HTTP " + httpEx.getStatusCode().value() + ")";
+    }
+
+    /**
+     * Convert a raw Map (deserialized from JSON) to an ObservationResponse DTO.
+     * Handles all field mappings including the 4 extended backend fields
+     * (accessCount, refinedAt, refinedFromIds, userComment).
+     * <p>
+     * Note: When Jackson deserializes with JavaTimeModule, temporal fields
+     * (OffsetDateTime) may be stored as OffsetDateTime objects, not Strings.
+     * This method handles both cases via Object-to-String conversion.
+     */
+    @SuppressWarnings("unchecked")
+    private static ObservationResponse mapToObservationResponse(Map<String, Object> raw) {
+        if (raw == null) {
+            return null;
+        }
+        return new ObservationResponse(
+            str(raw.get("id")),
+            str(raw.get("content_session_id")),
+            str(raw.get("project")),
+            str(raw.get("type")),
+            str(raw.get("title")),
+            str(raw.get("subtitle")),
+            str(raw.get("narrative")),
+            (List<String>) raw.get("facts"),
+            (List<String>) raw.get("concepts"),
+            (List<String>) raw.get("files_read"),
+            (List<String>) raw.get("files_modified"),
+            raw.get("quality_score") != null ? ((Number) raw.get("quality_score")).floatValue() : null,
+            str(raw.get("feedback_type")),
+            str(raw.get("feedback_updated_at")),
+            str(raw.get("source")),
+            (Map<String, Object>) raw.get("extractedData"),
+            raw.get("prompt_number") != null ? ((Number) raw.get("prompt_number")).intValue() : null,
+            str(raw.get("created_at")),
+            raw.get("created_at_epoch") != null ? ((Number) raw.get("created_at_epoch")).longValue() : null,
+            str(raw.get("last_accessed_at")),
+            raw.get("access_count") != null ? ((Number) raw.get("access_count")).intValue() : null,
+            str(raw.get("refined_at")),
+            str(raw.get("refined_from_ids")),
+            str(raw.get("user_comment"))
+        );
+    }
+
+    /**
+     * Safely convert an Object to String.
+     * Handles both String and temporal types (OffsetDateTime, LocalDateTime, etc.)
+     * that Jackson deserializes temporal JSON values as objects, not strings.
+     */
+    private static String str(Object v) {
+        if (v == null) return null;
+        return v.toString();
     }
 }
