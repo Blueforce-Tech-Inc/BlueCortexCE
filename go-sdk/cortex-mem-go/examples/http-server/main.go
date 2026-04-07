@@ -489,9 +489,9 @@ func main() {
 			writeJSONError(w, http.StatusBadRequest, "template is required")
 			return
 		}
-		projectPath := r.URL.Query().Get("projectPath")
+		projectPath := r.URL.Query().Get("project")
 		if projectPath == "" {
-			writeJSONError(w, http.StatusBadRequest, "projectPath is required")
+			writeJSONError(w, http.StatusBadRequest, "project is required")
 			return
 		}
 		userId := r.URL.Query().Get("userId")
@@ -513,9 +513,9 @@ func main() {
 			writeJSONError(w, http.StatusBadRequest, "template is required")
 			return
 		}
-		projectPath := r.URL.Query().Get("projectPath")
+		projectPath := r.URL.Query().Get("project")
 		if projectPath == "" {
-			writeJSONError(w, http.StatusBadRequest, "projectPath is required")
+			writeJSONError(w, http.StatusBadRequest, "project is required")
 			return
 		}
 		userId := r.URL.Query().Get("userId")
@@ -544,9 +544,9 @@ func main() {
 		if !checkMethod(w, r, http.MethodPost) {
 			return
 		}
-		projectPath := r.URL.Query().Get("projectPath")
+		projectPath := r.URL.Query().Get("project")
 		if projectPath == "" {
-			writeJSONError(w, http.StatusBadRequest, "projectPath is required")
+			writeJSONError(w, http.StatusBadRequest, "project is required")
 			return
 		}
 		if err := client.TriggerExtraction(r.Context(), projectPath); err != nil {
