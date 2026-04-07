@@ -716,6 +716,51 @@ class TestDTOFromWire:
         assert "ok" in r
         assert "s-1" in r
 
+    def test_session_start_response_to_dict(self):
+        """SessionStartResponse.to_dict() outputs snake_case wire format."""
+        resp = SessionStartResponse(
+            session_db_id="db-1",
+            session_id="s-1",
+            context="some context",
+            prompt_number=5,
+        )
+        d = resp.to_dict()
+        assert d["session_db_id"] == "db-1"
+        assert d["session_id"] == "s-1"
+        assert d["context"] == "some context"
+        assert d["prompt_number"] == 5
+
+    def test_session_start_response_to_dict_roundtrip(self):
+        """from_wire(to_dict()) is a lossless round-trip for wire-compatible data."""
+        original = SessionStartResponse(
+            session_db_id="db-x",
+            session_id="s-x",
+            context="ctx",
+            prompt_number=3,
+        )
+        d = original.to_dict()
+        restored = SessionStartResponse.from_wire(d)
+        assert restored.session_db_id == original.session_db_id
+        assert restored.session_id == original.session_id
+        assert restored.context == original.context
+        assert restored.prompt_number == original.prompt_number
+
+    def test_session_user_update_response_to_dict(self):
+        """SessionUserUpdateResponse.to_dict() outputs camelCase wire format."""
+        resp = SessionUserUpdateResponse(status="ok", session_id="s-1", user_id="u-1")
+        d = resp.to_dict()
+        assert d["status"] == "ok"
+        assert d["sessionId"] == "s-1"
+        assert d["userId"] == "u-1"
+
+    def test_session_user_update_response_to_dict_omits_empty(self):
+        """session_id and user_id are omitted when empty (omitempty parity)."""
+        resp = SessionUserUpdateResponse(status="updated")
+        d = resp.to_dict()
+        assert d["status"] == "updated"
+        assert "sessionId" not in d
+        assert "userId" not in d
+
     def test_batch_observations_response_from_wire(self):
         data = {
             "observations": [
