@@ -102,9 +102,9 @@
 
 ## 已完成实施基准
 
-- Java SDK: 25 个 API 方法 (117 tests: DtoTest 33 + CortexMemClientImplTest 84)
-- Go SDK: 25 个 API 方法 + 8 DTO + 3 集成层 (301 tests)
-- Python SDK: 25 个 API 方法 + 15 DTO + ObservationUpdate + Flask Demo (350 tests)
-- JS/TS SDK: 26 个 API 方法 + CJS/ESM/DTS 输出 (212 tests)
+- Java SDK: 25 个 API 方法 (119 tests: DtoTest 33 + CortexMemClientImplTest 86)
+- Go SDK: 25 个 API 方法 + 8 DTO + 3 集成层 (280 tests: client 194 + dto 53 + genkit 13 + langchaingo 12 + eino 8)
+- Python SDK: 25 个 API 方法 + 15 DTO + ObservationUpdate + Flask Demo (368 tests: dto 118 + client 173 + demo 77)
+- JS/TS SDK: 26 个 API 方法 + CJS/ESM/DTS 输出 (268+ tests)
 - Demo: Java 10 控制器 + Go 5 Demo + Python 1 Demo + JS 1 Demo
 - E2E 测试: 4 个严格验证脚本
