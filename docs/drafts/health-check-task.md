@@ -86,6 +86,15 @@ curl -s http://127.0.0.1:37777/api/health
 
 ## 巡检历史
 
+### 2026-04-08 11:22 | 健康检查
+
+| 检查项 | 结果 | 说明 |
+|--------|------|------|
+| Backend 服务健康 | ✅ OK | `{"service":"claude-mem-java","status":"ok"}` |
+| 回归测试 | ✅ 46/47 | regression-test.sh（1 skipped） |
+| EXTRACTION 验收 | ✅ 25/25 | phase3-acceptance-test.sh |
+| Backend Review | ✅ 0 P0/0 P1/0 P2 | 全部已修复，无待处理问题 |
+
 ### 2026-04-06 23:04 | 健康检查
 
 | 检查项 | 结果 | 说明 |

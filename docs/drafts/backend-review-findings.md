@@ -655,7 +655,7 @@ SELECT cfgname, cfgparser FROM pg_ts_config;
 
 | 文件 | 行号 | 问题 | 级别 | 状态 |
 |------|------|------|------|------|
-| SearchService.java | 45 | 空指针风险：未检查 searchRequest 的 null 值 | P1 | 待修复 |
+| SearchService.java | 36-37 | 空指针风险：未检查 searchRequest 的 null 值 | P1 | ✅已修复（添加 null 检查并抛出 IllegalArgumentException） |
 -->
 
 ### 2026-04-03 17:36 | Backend 修复批次（17:18 健康检查）
