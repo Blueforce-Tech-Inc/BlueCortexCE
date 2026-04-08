@@ -28,7 +28,7 @@ memory := langchaingo.NewMemory(client, "/my-project",
 )
 
 // Load memory variables for LLM context
-vars, err := memory.LoadMemoryVars(ctx, map[string]any{"input": "hello"})
+vars, err := memory.LoadMemoryVariables(ctx, map[string]any{"input": "hello"})
 // vars["history"] contains the ICL prompt
 
 // Save context after LLM response (no-op, Cortex CE captures via session lifecycle)
@@ -53,7 +53,7 @@ Implements LangChainGo's Memory interface:
 
 ```go
 type Memory interface {
-    LoadMemoryVars(ctx context.Context, inputs map[string]any) (map[string]any, error)
+    LoadMemoryVariables(ctx context.Context, inputs map[string]any) (map[string]any, error)
     SaveContext(ctx context.Context, inputs map[string]any, outputs map[string]any) error
     Clear(ctx context.Context) error
 }

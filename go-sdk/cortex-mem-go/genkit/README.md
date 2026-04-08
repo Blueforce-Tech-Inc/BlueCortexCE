@@ -56,9 +56,9 @@ type Document struct {
 // Metadata fields:
 //   - id: experience ID
 //   - task: the original task description
-//   - qualityScore: quality score of the experience
-//   - reuseCondition: reuse condition
-//   - createdAt: creation timestamp
+//   - quality_score: quality score of the experience
+//   - reuse_condition: reuse condition
+//   - created_at: creation timestamp
 ```
 
 ## Interface

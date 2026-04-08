@@ -36,7 +36,7 @@ results, err := retriever.Retrieve(ctx, "What files were read?")
 | Option | Default | Description |
 |--------|---------|-------------|
 | `WithRetrieverSource(source)` | *(none)* | Set source attribute filter |
-| `WithRetrieverCount(n)` | `20` | Set maximum number of results |
+| `WithRetrieverCount(n)` | `4` | Set maximum number of results |
 | `WithRetrieverUserID(userID)` | *(none)* | Set user ID for user-scoped memory |
 | `WithRetrieverLogger(logger)` | `slog` default | Custom logger (compatible with `*slog.Logger`) |
 
