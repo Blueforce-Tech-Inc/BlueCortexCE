@@ -2518,3 +2518,25 @@ Total: 426/426 tests passed
 #### 审查结论
 
 无 P0/P1/P2 问题。Go SDK 代码质量优秀，wire format 与 backend 完全对齐，247 个测试全部通过。Demo HTTP Server 实现完整（28 个端点），集成层（eino/genkit/langchaingo）均有 nil-safe 和错误处理。`GetStats` 忽略 project 参数的行为已正确注释。`ListObservations` 的 project 可选语义在 SDK 层面正确，Demo 强制要求属于 Demo 层的 UX 选择。
+
+
+---
+
+## 2026-04-09 04:10 | Java SDK 审查 #10 (Spring AI 集成 续)
+
+**审查范围**: CortexToolAspect.java, CortexMemoryTools.java, CortexSessionContextBridgeAdvisor.java, CortexMemClientImpl.java, ObservationUpdate.java, ObservationRequest.java
+
+**发现的问题**:
+
+| # | 文件 | 行 | 级别 | 问题 | 状态 |
+|---|------|-----|------|------|------|
+| J10-1 | CortexToolAspect.java | buildInputMap | P2 | params[i].getName() in buildInputMap() returns arg0/arg1 when compiled without -parameters flag, instead of real parameter names like task/count/observationId. Spring AI 1.1.x @ToolParam has no name attribute. The limitation is correctly documented in code. SDK cannot fix without Spring AI framework support. | 记录 (SDK 层无法修复，需 Spring AI 框架支持 @ToolParam(name=...)) |
+
+**代码质量亮点**:
+- CortexToolAspect @Around advice correctly skips com.ablueforce.cortexce.ai.tools.* package to avoid duplicate memory retrieval recording
+- CortexSessionContextBridgeAdvisor in adviseStream correctly uses doFinally for Flux lifecycle cleanup
+- CortexMemoryAdvisor request rebuild pattern matches Spring AI SafeGuard advisor (framework expected behavior)
+- CortexMemClientImpl retry logic (429/502/503/504 transient, 500/4xx non-retryable) consistent with Go SDK
+- ObservationUpdate NON_NULL + isEmpty() guard aligns with backend PATCH semantics
+
+**测试状态**: No code changes needed; issue requires Spring AI framework fix (@ToolParam(name=...))
