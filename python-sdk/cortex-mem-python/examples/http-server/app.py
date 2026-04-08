@@ -543,6 +543,7 @@ def session_start():
         session_db_id=result.session_db_id,
         session_id=result.session_id,
         context=result.context,
+        update_files=result.update_files,
         prompt_number=result.prompt_number,
     )
 

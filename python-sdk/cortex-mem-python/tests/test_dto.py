@@ -717,17 +717,19 @@ class TestDTOFromWire:
         assert "s-1" in r
 
     def test_session_start_response_to_dict(self):
-        """SessionStartResponse.to_dict() outputs snake_case wire format."""
+        """SessionStartResponse.to_dict() outputs snake_case wire format with updateFiles (camelCase)."""
         resp = SessionStartResponse(
             session_db_id="db-1",
             session_id="s-1",
             context="some context",
+            update_files=[{"path": "/p/CLAUDE.md", "action": "create"}],
             prompt_number=5,
         )
         d = resp.to_dict()
         assert d["session_db_id"] == "db-1"
         assert d["session_id"] == "s-1"
         assert d["context"] == "some context"
+        assert d["updateFiles"] == [{"path": "/p/CLAUDE.md", "action": "create"}]
         assert d["prompt_number"] == 5
 
     def test_session_start_response_to_dict_roundtrip(self):
@@ -736,6 +738,7 @@ class TestDTOFromWire:
             session_db_id="db-x",
             session_id="s-x",
             context="ctx",
+            update_files=[{"path": "/p/CLAUDE.md", "action": "create"}],
             prompt_number=3,
         )
         d = original.to_dict()
@@ -743,7 +746,19 @@ class TestDTOFromWire:
         assert restored.session_db_id == original.session_db_id
         assert restored.session_id == original.session_id
         assert restored.context == original.context
+        assert restored.update_files == original.update_files
         assert restored.prompt_number == original.prompt_number
+
+    def test_session_start_response_to_dict_empty_update_files(self):
+        """update_files defaults to [] in to_dict() when not set."""
+        resp = SessionStartResponse(
+            session_db_id="db-1",
+            session_id="s-1",
+            context="ctx",
+            prompt_number=0,
+        )
+        d = resp.to_dict()
+        assert d["updateFiles"] == []
 
     def test_session_user_update_response_to_dict(self):
         """SessionUserUpdateResponse.to_dict() outputs camelCase wire format."""

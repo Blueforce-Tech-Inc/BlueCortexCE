@@ -38,7 +38,7 @@ class TestSession:
         responses.add(
             responses.POST,
             f"{BASE}/api/session/start",
-            json={"session_db_id": "db-1", "session_id": "s1", "prompt_number": 0},
+            json={"session_db_id": "db-1", "session_id": "s1", "updateFiles": [], "prompt_number": 0},
             status=200,
         )
         c = _client()
@@ -46,6 +46,7 @@ class TestSession:
         assert isinstance(resp, SessionStartResponse)
         assert resp.session_id == "s1"
         assert resp.session_db_id == "db-1"
+        assert resp.update_files == []
 
     @responses.activate
     def test_update_session_user_id(self):
@@ -894,12 +895,47 @@ class TestSessionExtended:
     @responses.activate
     def test_start_session_with_user_id(self):
         """Verify user_id is sent in wire format."""
-        responses.add(responses.POST, f"{BASE}/api/session/start", json={"session_db_id": "db-1", "session_id": "s1", "prompt_number": 0}, status=200)
+        responses.add(responses.POST, f"{BASE}/api/session/start", json={"session_db_id": "db-1", "session_id": "s1", "updateFiles": [], "prompt_number": 0}, status=200)
         c = _client()
         c.start_session("s1", "/project", user_id="u1")
         body = json.loads(responses.calls[0].request.body)
         assert body["user_id"] == "u1"
         assert body["project_path"] == "/project"
+
+    @responses.activate
+    def test_start_session_update_files_parsed(self):
+        """Verify updateFiles from backend is correctly parsed into update_files field."""
+        responses.add(
+            responses.POST,
+            f"{BASE}/api/session/start",
+            json={
+                "session_db_id": "db-1",
+                "session_id": "s1",
+                "context": "CLAUDE.md context",
+                "updateFiles": [{"path": "/p/CLAUDE.md", "action": "update", "content": "# Project\n..."}],
+                "prompt_number": 1,
+            },
+            status=200,
+        )
+        c = _client()
+        resp = c.start_session("s1", "/project")
+        assert resp.session_id == "s1"
+        assert resp.context == "CLAUDE.md context"
+        assert resp.update_files == [{"path": "/p/CLAUDE.md", "action": "update", "content": "# Project\n..."}]
+        assert len(resp.update_files) == 1
+
+    @responses.activate
+    def test_start_session_update_files_empty_by_default(self):
+        """update_files defaults to [] when backend returns no updateFiles."""
+        responses.add(
+            responses.POST,
+            f"{BASE}/api/session/start",
+            json={"session_db_id": "db-1", "session_id": "s1", "context": ""},
+            status=200,
+        )
+        c = _client()
+        resp = c.start_session("s1", "/project")
+        assert resp.update_files == []
 
     @responses.activate
     def test_update_session_user_id_empty_raises(self):
@@ -1034,6 +1070,7 @@ class TestJSONDecodeResilience:
         assert isinstance(resp, SessionStartResponse)
         assert resp.session_id == ""
         assert resp.session_db_id == ""
+        assert resp.update_files == []
 
     @responses.activate
     def test_update_session_user_id_non_json_response_graceful(self):

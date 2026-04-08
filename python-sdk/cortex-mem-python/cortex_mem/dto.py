@@ -95,6 +95,26 @@ def _to_dict(v: object, default: dict | None = None) -> dict:
     return default if default is not None else {}
 
 
+def _to_dict_list(v: object, default: list[dict] | None = None) -> list[dict]:
+    """Safely convert wire value to list[dict] (for updateFiles field).
+
+    Returns default (or []) if v is None or not a list.
+    Each item that is not a dict is replaced with {} (defensive parsing).
+    """
+    if not isinstance(v, list):
+        return default if default is not None else []
+    result: list[dict] = []
+    for item in v:
+        if isinstance(item, dict):
+            result.append(item)
+        elif item is not None:
+            # Defensive: convert non-dict items to empty dict
+            result.append({})
+        else:
+            result.append({})
+    return result
+
+
 def _sanitize_for_json(obj: object) -> object:
     """Recursively replace NaN/Inf floats with None for valid JSON output.
 
@@ -120,26 +140,33 @@ class SessionStartResponse:
 
     Wire format uses snake_case keys (``session_db_id``, ``session_id``),
     matching the backend Jackson SNAKE_CASE naming strategy.
+    ``update_files`` uses camelCase (``updateFiles``) to match the backend's
+    ``@JsonProperty("updateFiles")`` annotation — MUST stay camelCase for
+    proxy.js compatibility.
     """
 
     session_db_id: str = ""
     session_id: str = ""
     context: str = ""
+    update_files: list[dict] = field(default_factory=list)
     prompt_number: int = 0
 
     def __repr__(self) -> str:
-        return f"SessionStartResponse(session_id={self.session_id!r}, session_db_id={self.session_db_id!r})"
+        return f"SessionStartResponse(session_id={self.session_id!r}, session_db_id={self.session_db_id!r}, update_files={len(self.update_files)})"
 
     def to_dict(self) -> dict:
         """Serialize to wire-compatible dict with snake_case keys.
 
         ``prompt_number`` is always included to match the backend's
         ``@JsonProperty("promptNumber")`` expectation.
+        ``update_files`` is always included as ``updateFiles`` (camelCase)
+        to match the backend's ``@JsonProperty("updateFiles")`` annotation.
         """
         d: dict = {
             "session_db_id": self.session_db_id,
             "session_id": self.session_id,
             "context": self.context,
+            "updateFiles": _sanitize_for_json(self.update_files),
             "prompt_number": self.prompt_number,
         }
         return d
@@ -150,6 +177,7 @@ class SessionStartResponse:
             session_db_id=_first_non_null(data, "session_db_id", "sessionDbId") or "",
             session_id=_first_non_null(data, "session_id", "sessionId") or "",
             context=_first_non_null(data, "context") or "",
+            update_files=_to_dict_list(_first_non_null(data, "updateFiles")),
             prompt_number=_to_int(_first_non_null(data, "prompt_number", "promptNumber")),
         )
 
