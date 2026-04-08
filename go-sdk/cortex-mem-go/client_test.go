@@ -1320,9 +1320,10 @@ func TestGetStats(t *testing.T) {
 		if r.URL.Path != "/api/stats" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
-		project := r.URL.Query().Get("project")
-		if project != "/my-project" {
-			t.Errorf("expected project=/my-project, got %s", project)
+		// /api/stats is a global endpoint — projectPath param is not used by the backend.
+		// We still accept it in the SDK for API symmetry but it is not sent.
+		if project := r.URL.Query().Get("project"); project != "" {
+			t.Errorf("expected no project query param, got %s", project)
 		}
 
 		w.WriteHeader(http.StatusOK)
@@ -1343,10 +1344,11 @@ func TestGetStats(t *testing.T) {
 	}
 }
 
-func TestGetStats_EmptyProject(t *testing.T) {
+func TestGetStats_NoQueryParams(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("project") != "" {
-			t.Errorf("expected no project query param for empty projectPath")
+		// /api/stats accepts no query params — projectPath is accepted for SDK API symmetry only.
+		if project := r.URL.Query().Get("project"); project != "" {
+			t.Errorf("expected no project query param, got %s", project)
 		}
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]any{

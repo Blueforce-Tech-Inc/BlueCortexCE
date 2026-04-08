@@ -117,6 +117,9 @@ func (c *httpClient) Search(ctx context.Context, req dto.SearchRequest) (*dto.Se
 	if req.Offset > 0 {
 		params["offset"] = fmt.Sprintf("%d", req.Offset)
 	}
+	if req.OrderBy != "" {
+		params["orderBy"] = req.OrderBy
+	}
 	return doRequestJSON[dto.SearchResult](c, ctx, http.MethodGet, "/api/search", nil, params)
 }
 
@@ -312,11 +315,8 @@ func (c *httpClient) GetProjects(ctx context.Context) (*dto.ProjectsResponse, er
 }
 
 func (c *httpClient) GetStats(ctx context.Context, projectPath string) (*dto.StatsResponse, error) {
-	params := map[string]string{}
-	if projectPath != "" {
-		params["project"] = projectPath
-	}
-	return doRequestJSON[dto.StatsResponse](c, ctx, http.MethodGet, "/api/stats", nil, params)
+	// Note: /api/stats is a global endpoint — projectPath is accepted for API symmetry but ignored by the backend.
+	return doRequestJSON[dto.StatsResponse](c, ctx, http.MethodGet, "/api/stats", nil, nil)
 }
 
 func (c *httpClient) GetModes(ctx context.Context) (*dto.ModesResponse, error) {
