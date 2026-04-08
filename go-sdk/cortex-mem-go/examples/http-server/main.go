@@ -353,7 +353,10 @@ func main() {
 	})
 
 	// --- GET /observations/{id} ---
-	mux.HandleFunc("GET /observations/{id}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/observations/{id}", func(w http.ResponseWriter, r *http.Request) {
+		if !checkMethod(w, r, http.MethodGet) {
+			return
+		}
 		id := r.PathValue("id")
 		if id == "" {
 			writeJSONError(w, http.StatusBadRequest, "observation id is required")
@@ -714,7 +717,10 @@ func main() {
 	})
 
 	// --- PATCH /observations/{id} ---
-	mux.HandleFunc("PATCH /observations/{id}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/observations/{id}", func(w http.ResponseWriter, r *http.Request) {
+		if !checkMethod(w, r, http.MethodPatch) {
+			return
+		}
 		id := r.PathValue("id")
 		if id == "" {
 			writeJSONError(w, http.StatusBadRequest, "observation id is required")
@@ -741,7 +747,10 @@ func main() {
 	})
 
 	// --- DELETE /observations/{id} ---
-	mux.HandleFunc("DELETE /observations/{id}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/observations/{id}", func(w http.ResponseWriter, r *http.Request) {
+		if !checkMethod(w, r, http.MethodDelete) {
+			return
+		}
 		id := r.PathValue("id")
 		if id == "" {
 			writeJSONError(w, http.StatusBadRequest, "observation id is required")
