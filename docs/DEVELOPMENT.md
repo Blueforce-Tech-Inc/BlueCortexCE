@@ -137,13 +137,13 @@ brew install pgvector
 brew services start postgresql@16
 
 # Create database
-createdb cortexce_dev
+createdb claude_mem_dev
 
 # Enable pgvector extension
-psql -d cortexce_dev -c "CREATE EXTENSION vector;"
+psql -d claude_mem_dev -c "CREATE EXTENSION vector;"
 
 # Verify extension
-psql -d cortexce_dev -c "SELECT * FROM pg_extension WHERE extname = 'vector';"
+psql -d claude_mem_dev -c "SELECT * FROM pg_extension WHERE extname = 'vector';"
 ```
 
 #### Linux
@@ -162,8 +162,8 @@ sudo systemctl start postgresql
 sudo systemctl enable postgresql
 
 # Create database
-sudo -u postgres createdb cortexce_dev
-sudo -u postgres psql -d cortexce_dev -c "CREATE EXTENSION vector;"
+sudo -u postgres createdb claude_mem_dev
+sudo -u postgres psql -d claude_mem_dev -c "CREATE EXTENSION vector;"
 ```
 
 #### Using Docker (Alternative)
@@ -171,8 +171,8 @@ sudo -u postgres psql -d cortexce_dev -c "CREATE EXTENSION vector;"
 ```bash
 # Run PostgreSQL with pgvector
 docker run -d \
-  --name cortexce-postgres \
-  -e POSTGRES_DB=cortexce_dev \
+  --name cortex-ce-postgres \
+  -e POSTGRES_DB=claude_mem_dev \
   -e POSTGRES_PASSWORD=postgres \
   -p 5432:5432 \
   pgvector/pgvector:pg16
@@ -181,7 +181,7 @@ docker run -d \
 sleep 5
 
 # Enable extension
-docker exec -it cortexce-postgres psql -U postgres -d cortexce_dev -c "CREATE EXTENSION vector;"
+docker exec -it cortex-ce-postgres psql -U postgres -d claude_mem_dev -c "CREATE EXTENSION vector;"
 ```
 
 ### Installing Node.js (for Thin Proxy)
@@ -217,7 +217,7 @@ npm install
 
 1. **Open Project**
    ```
-   File → Open → Select java/claude-mem-java directory
+   File → Open → Select backend directory
    ```
 
 2. **Configure JDK**
@@ -261,11 +261,11 @@ npm install
    ```
    Run → Edit Configurations → + → Spring Boot
 
-   Main class: com.ablueforce.cortexce.CortexCeApplication
+   Main class: com.ablueforce.cortexce.ClaudeMemApplication
    Environment variables: Load from .env file
 
    Or use classpath module:
-   Module: claude-mem-java
+   Module: cortex-ce
    ```
 
 #### Useful IntelliJ Shortcuts
@@ -330,9 +330,9 @@ Create `.vscode/launch.json`:
       "type": "java",
       "name": "Cortex CE Application",
       "request": "launch",
-      "mainClass": "com.ablueforce.cortexce.CortexCeApplication",
-      "projectName": "claude-mem-java",
-      "envFile": "${workspaceFolder}/claude-mem-java/.env"
+      "mainClass": "com.ablueforce.cortexce.ClaudeMemApplication",
+      "projectName": "cortex-ce",
+      "envFile": "${workspaceFolder}/backend/.env"
     },
     {
       "type": "java",
@@ -350,112 +350,93 @@ Create `.vscode/launch.json`:
 ## Project Structure
 
 ```
-java/
-├── claude-mem-java/                    # Main Spring Boot application
-│   ├── src/
-│   │   ├── main/
-│   │   │   ├── java/com/ablueforce/cortexce/
-│   │   │   │   │
-│   │   │   │   ├── CortexCeApplication.java   # Main entry point
-│   │   │   │   │
-│   │   │   │   ├── config/             # Configuration classes
-│   │   │   │   │   ├── AsyncConfig.java        # @EnableAsync config
-│   │   │   │   │   ├── SpringAiConfig.java     # LLM/Embedding beans
-│   │   │   │   │   ├── WebConfig.java          # CORS, filters
-│   │   │   │   │   └── QueueHealthIndicator.java
-│   │   │   │   │
-│   │   │   │   ├── controller/         # REST Controllers
-│   │   │   │   │   ├── IngestionController.java   # Hook events
-│   │   │   │   │   ├── ViewerController.java      # WebUI API
-│   │   │   │   │   ├── ContextController.java     # Context retrieval
-│   │   │   │   │   ├── StreamController.java      # SSE streaming
-│   │   │   │   │   ├── LogsController.java        # Logs API
-│   │   │   │   │   └── TestController.java        # Debug endpoints
-│   │   │   │   │
-│   │   │   │   ├── service/            # Business Logic
-│   │   │   │   │   ├── AgentService.java         # Core orchestration
-│   │   │   │   │   ├── LlmService.java           # Chat completion
-│   │   │   │   │   ├── EmbeddingService.java     # Vector embeddings
-│   │   │   │   │   ├── SearchService.java        # Semantic search
-│   │   │   │   │   ├── ContextService.java       # Context retrieval
-│   │   │   │   │   ├── TimelineService.java      # Timeline assembly
-│   │   │   │   │   ├── ClaudeMdService.java      # CLAUDE.md generation
-│   │   │   │   │   ├── TokenService.java         # Token counting
-│   │   │   │   │   └── RateLimitService.java     # Rate limiting
-│   │   │   │   │
-│   │   │   │   ├── repository/         # Data Access
-│   │   │   │   │   ├── SessionRepository.java
-│   │   │   │   │   ├── ObservationRepository.java
-│   │   │   │   │   ├── SummaryRepository.java
-│   │   │   │   │   └── UserPromptRepository.java
-│   │   │   │   │
-│   │   │   │   ├── entity/              # JPA Entities
-│   │   │   │   │   ├── SessionEntity.java
-│   │   │   │   │   ├── ObservationEntity.java
-│   │   │   │   │   ├── SummaryEntity.java
-│   │   │   │   │   └── UserPromptEntity.java
-│   │   │   │   │
-│   │   │   │   ├── dto/                 # Data Transfer Objects
-│   │   │   │   │   ├── ObservationDto.java
-│   │   │   │   │   ├── SearchRequestDto.java
-│   │   │   │   │   └── ContextResponseDto.java
-│   │   │   │   │
-│   │   │   │   ├── exception/           # Custom Exceptions
-│   │   │   │   │   ├── ResourceNotFoundException.java
-│   │   │   │   │   └── ValidationException.java
-│   │   │   │   │
-│   │   │   │   └── util/                # Utility Classes
-│   │   │   │       ├── XmlParser.java
-│   │   │   │       └── VectorValidator.java
-│   │   │   │
-│   │   │   └── resources/
-│   │   │       ├── application.yml      # Main configuration
-│   │   │       ├── application-dev.yml  # Dev profile
-│   │   │       ├── application-prod.yml # Production profile
-│   │   │       │
-│   │   │       ├── db/migration/        # Flyway migrations
-│   │   │       │   ├── V1__init_schema.sql
-│   │   │       │   ├── V2__multi_dimension_embeddings.sql
-│   │   │       │   └── ...
-│   │   │       │
-│   │   │       └── prompts/             # LLM Prompt Templates
-│   │   │           ├── init.txt         # System prompt
-│   │   │           ├── observation.txt  # Observation prompt
-│   │   │           └── summary.txt      # Summary prompt
+backend/                               # Main Spring Boot application
+│   ├── src/main/java/com/ablueforce/cortexce/
 │   │   │
-│   │   └── test/
-│   │       └── java/com/ablueforce/cortexce/
-│   │           ├── service/
-│   │           │   └── SearchServiceTest.java
-│   │           ├── controller/
-│   │           │   └── ObservationControllerTest.java
-│   │           └── integration/
-│   │               └── ObservationIntegrationTest.java
+│   │   ├── ClaudeMemApplication.java   # Main entry point
+│   │   │
+│   │   ├── common/                     # Shared DTOs/events
+│   │   ├── config/                     # Configuration classes
+│   │   │   ├── AsyncConfig.java              # @EnableAsync config
+│   │   │   ├── SpringAiConfig.java           # LLM/Embedding beans
+│   │   │   ├── WebConfig.java                # CORS, filters
+│   │   │   └── QueueHealthIndicator.java
+│   │   │
+│   │   ├── controller/                 # REST Controllers
+│   │   │   ├── IngestionController.java     # Hook events
+│   │   │   ├── ViewerController.java        # WebUI API
+│   │   │   ├── ContextController.java       # Context retrieval
+│   │   │   ├── SessionController.java       # Session management
+│   │   │   ├── MemoryController.java        # Memory/Experience API
+│   │   │   ├── ModeController.java          # Mode management
+│   │   │   ├── ExtractionController.java    # Extraction API
+│   │   │   ├── CursorController.java        # Cursor/IDE integration
+│   │   │   ├── ImportController.java        # Import API
+│   │   │   ├── StreamController.java        # SSE streaming
+│   │   │   ├── LogsController.java          # Logs API
+│   │   │   ├── HealthController.java        # Health endpoints
+│   │   │   └── TestController.java          # Debug endpoints
+│   │   │
+│   │   ├── service/                    # Business Logic (29 services)
+│   │   ├── repository/                  # Data Access (5 repositories)
+│   │   ├── entity/                      # JPA Entities (5 entities)
+│   │   ├── dto/                         # API request/response objects
+│   │   ├── event/                       # Domain events
+│   │   ├── exception/                   # Custom exceptions
+│   │   ├── logging/                     # Logging utilities
+│   │   ├── mcp/                         # MCP tool definitions
+│   │   └── util/                        # Utility classes
 │   │
-│   ├── pom.xml                          # Maven configuration
-│   └── .env                             # Environment variables (gitignored)
+│   ├── src/main/resources/
+│   │   ├── application.yml              # Main configuration
+│   │   ├── application-dev.yml         # Dev profile
+│   │   ├── application-prod.yml        # Production profile
+│   │   ├── application.yml.example      # Example env vars
+│   │   ├── db/migration/               # Flyway migrations (V1-V16)
+│   │   └── prompts/                     # LLM Prompt Templates
+│   │
+│   ├── src/test/                        # Unit/integration tests
+│   ├── pom.xml                          # Maven configuration (Spring Boot 3.3.13)
+│   ├── .env.example                     # Environment template
+│   └── mvnw / mvnw.cmd                 # Maven wrapper
 │
 ├── proxy/                               # Thin Proxy (Node.js)
 │   ├── wrapper.js                       # CLI entry point
 │   ├── proxy.js                         # HTTP server (optional)
 │   ├── package.json
-│   └── CLAUDE-CODE-INTEGRATION.md
+│   └── test-full-flow.mjs              # Integration test
 │
-├── scripts/                             # Utility scripts
-│   ├── regression-test.sh               # API tests
-│   ├── thin-proxy-test.sh               # Proxy tests
-│   └── webui-integration-test.sh        # WebUI tests
+├── cortex-mem-spring-integration/       # Java SDK for Spring Boot
+├── js-sdk/                             # JavaScript/TypeScript SDK
+├── go-sdk/                             # Go SDK
+├── python-sdk/                         # Python SDK
+├── examples/                           # Example applications
+│   └── cortex-mem-demo/                # Spring Boot demo
+├── webui/                              # Web UI (git submodule)
+├── openclaw-plugin/                    # OpenClaw integration
 │
-├── docs/                                # Documentation
-│   ├── ARCHITECTURE.md
-│   ├── API.md
-│   └── DEVELOPMENT.md
+├── scripts/                            # Utility scripts (40+ scripts)
+│   ├── regression-test.sh              # API regression tests
+│   ├── thin-proxy-test.sh              # Proxy tests
+│   ├── webui-integration-test.sh      # WebUI tests
+│   ├── phase3-acceptance-test.sh      # Phase 3 acceptance tests
+│   ├── mcp-e2e-test.sh                 # MCP E2E tests
+│   └── ...                             # Many more
 │
-├── README.md                            # English
-├── README-zh-CN.md                      # Chinese
+├── docs/                               # Documentation
+│   ├── ARCHITECTURE.md / ARCHITECTURE-zh-CN.md
+│   ├── API.md / API-zh-CN.md
+│   ├── DEPLOYMENT.md / DEPLOYMENT-zh-CN.md
+│   ├── DEVELOPMENT.md / DEVELOPMENT-zh-CN.md
+│   └── TESTING.md
+│
+├── README.md / README-zh-CN.md
 ├── CONTRIBUTING.md
 ├── CODE_OF_CONDUCT.md
-└── LICENSE
+├── CHANGELOG.md
+├── SECURITY.md
+├── docker-compose.yml
+└── Dockerfile
 ```
 
 ### Key Directories Explained
@@ -479,7 +460,7 @@ java/
 ### Using Maven Wrapper (Recommended)
 
 ```bash
-cd java/claude-mem-java
+cd backend
 
 # Clean and compile
 ./mvnw clean compile
@@ -543,7 +524,7 @@ rm -rf ~/.m2/repository
 1. **Create .env file**
 
 ```bash
-cd java/claude-mem-java
+cd backend
 cp .env.example .env
 ```
 
@@ -551,45 +532,46 @@ cp .env.example .env
 
 ```properties
 # Database
-DB_USERNAME=postgres
-DB_PASSWORD=your_password
-DB_URL=jdbc:postgresql://localhost:5432/cortexce_dev
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=123456
+SPRING_DATASOURCE_URL=jdbc:postgresql://127.0.0.1/claude_mem_dev
 
 # LLM (DeepSeek - OpenAI compatible)
-OPENAI_API_KEY=sk-xxx
-OPENAI_BASE_URL=https://api.deepseek.com
-OPENAI_MODEL=deepseek-chat
+SPRING_AI_OPENAI_API_KEY=sk-xxx
+SPRING_AI_OPENAI_BASE_URL=https://api.deepseek.com
+SPRING_AI_OPENAI_CHAT_MODEL=deepseek-chat
 
 # Embedding (SiliconFlow)
 SPRING_AI_OPENAI_EMBEDDING_API_KEY=sk-xxx
 SPRING_AI_OPENAI_EMBEDDING_MODEL=BAAI/bge-m3
 SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS=1024
-SPRING_AI_OPENAI_EMBEDDING_BASE_URL=https://api.siliconflow.cn/v1/embeddings
+SPRING_AI_OPENAI_EMBEDDING_BASE_URL=https://api.siliconflow.cn
 ```
 
 ### Run Commands
 
 ```bash
 # Load environment and run
-cd java/claude-mem-java
+cd backend
 export $(cat .env | grep -v '^#' | grep -v '^$' | xargs)
-java -jar target/cortexce-*.jar
+java -jar target/cortex-ce-0.1.0-beta.jar
 
 # Run with dev profile
-java -jar target/cortexce-*.jar --spring.profiles.active=dev
+java -jar target/cortex-ce-0.1.0-beta.jar --spring.profiles.active=dev
 
 # Run with specific port
-java -jar target/cortexce-*.jar --server.port=8080
+java -jar target/cortex-ce-0.1.0-beta.jar --server.port=8080
 
 # Run with debug port
 java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 \
-     -jar target/cortexce-*.jar
+     -jar target/cortex-ce-0.1.0-beta.jar
 ```
 
 ### Using Maven Spring Boot Plugin
 
 ```bash
 # Run directly (no JAR needed)
+cd backend
 ./mvnw spring-boot:run
 
 # Run with profile
@@ -916,7 +898,7 @@ Run:
 ```bash
 # Run with debug agent
 java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 \
-     -jar target/cortexce-*.jar
+     -jar target/cortex-ce-*.jar
 ```
 
 #### Connect from IntelliJ
@@ -1020,7 +1002,7 @@ WHERE tablename = 'mem_observations';
 
 ```bash
 # Connect to database
-psql -d cortexce_dev
+psql -d claude_mem_dev
 
 # Useful queries
 \dt                           -- List tables
@@ -1221,7 +1203,7 @@ lsof -ti:37777 | xargs kill -9
 pg_isready
 
 # Check connection
-psql -h localhost -U postgres -d cortexce_dev -c "SELECT 1"
+psql -h localhost -U postgres -d claude_mem_dev -c "SELECT 1"
 
 # Reset password
 psql -U postgres -c "ALTER USER postgres PASSWORD 'new_password';"
@@ -1231,20 +1213,20 @@ psql -U postgres -c "ALTER USER postgres PASSWORD 'new_password';"
 
 ```bash
 # Check migration status
-psql -d cortexce_dev -c "SELECT * FROM flyway_schema_history ORDER BY installed_rank;"
+psql -d claude_mem_dev -c "SELECT * FROM flyway_schema_history ORDER BY installed_rank;"
 
 # Repair (if needed)
 ./mvnw flyway:repair
 
 # Manual fix
-psql -d cortexce_dev -c "DELETE FROM flyway_schema_history WHERE success = false;"
+psql -d claude_mem_dev -c "DELETE FROM flyway_schema_history WHERE success = false;"
 ```
 
 ### Issue: OutOfMemoryError
 
 ```bash
 # Increase JVM heap
-java -Xmx2g -jar target/cortexce-*.jar
+java -Xmx2g -jar target/cortex-ce-*.jar
 
 # Or set in environment
 export JAVA_OPTS="-Xmx2g -Xms1g"
@@ -1325,7 +1307,7 @@ java \
   -XX:+UseZGC \
   -XX:+ZGenerational \
   -XX:MaxGCPauseMillis=10 \
-  -jar target/cortexce-*.jar
+  -jar target/cortex-ce-*.jar
 ```
 
 ### Caching

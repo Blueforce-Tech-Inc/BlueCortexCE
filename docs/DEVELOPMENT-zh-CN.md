@@ -137,13 +137,13 @@ brew install pgvector
 brew services start postgresql@16
 
 # 创建数据库
-createdb cortexce_dev
+createdb claude_mem_dev
 
 # 启用 pgvector 扩展
-psql -d cortexce_dev -c "CREATE EXTENSION vector;"
+psql -d claude_mem_dev -c "CREATE EXTENSION vector;"
 
 # 验证扩展
-psql -d cortexce_dev -c "SELECT * FROM pg_extension WHERE extname = 'vector';"
+psql -d claude_mem_dev -c "SELECT * FROM pg_extension WHERE extname = 'vector';"
 ```
 
 #### Linux
@@ -162,8 +162,8 @@ sudo systemctl start postgresql
 sudo systemctl enable postgresql
 
 # 创建数据库
-sudo -u postgres createdb cortexce_dev
-sudo -u postgres psql -d cortexce_dev -c "CREATE EXTENSION vector;"
+sudo -u postgres createdb claude_mem_dev
+sudo -u postgres psql -d claude_mem_dev -c "CREATE EXTENSION vector;"
 ```
 
 #### 使用 Docker（替代方案）
@@ -171,8 +171,8 @@ sudo -u postgres psql -d cortexce_dev -c "CREATE EXTENSION vector;"
 ```bash
 # 运行带 pgvector 的 PostgreSQL
 docker run -d \
-  --name cortexce-postgres \
-  -e POSTGRES_DB=cortexce_dev \
+  --name cortex-ce-postgres \
+  -e POSTGRES_DB=claude_mem_dev \
   -e POSTGRES_PASSWORD=postgres \
   -p 5432:5432 \
   pgvector/pgvector:pg16
@@ -181,7 +181,7 @@ docker run -d \
 sleep 5
 
 # 启用扩展
-docker exec -it cortexce-postgres psql -U postgres -d cortexce_dev -c "CREATE EXTENSION vector;"
+docker exec -it cortex-ce-postgres psql -U postgres -d claude_mem_dev -c "CREATE EXTENSION vector;"
 ```
 
 ### 安装 Node.js（用于 Thin Proxy）
@@ -217,7 +217,7 @@ npm install
 
 1. **打开项目**
    ```
-   File → Open → 选择 java/claude-mem-java 目录
+   File → Open → 选择 backend 目录
    ```
 
 2. **配置 JDK**
@@ -261,11 +261,11 @@ npm install
    ```
    Run → Edit Configurations → + → Spring Boot
 
-   Main class: com.ablueforce.cortexce.CortexCeApplication
+   Main class: com.ablueforce.cortexce.ClaudeMemApplication
    Environment variables: 从 .env 文件加载
 
    或使用 classpath 模块：
-   Module: claude-mem-java
+   Module: cortex-ce
    ```
 
 #### 常用 IntelliJ 快捷键
@@ -330,9 +330,9 @@ code --install-extension GabrielBB.vscode-lombok
       "type": "java",
       "name": "Cortex CE Application",
       "request": "launch",
-      "mainClass": "com.ablueforce.cortexce.CortexCeApplication",
-      "projectName": "claude-mem-java",
-      "envFile": "${workspaceFolder}/claude-mem-java/.env"
+      "mainClass": "com.ablueforce.cortexce.ClaudeMemApplication",
+      "projectName": "cortex-ce",
+      "envFile": "${workspaceFolder}/cortex-ce/.env"
     },
     {
       "type": "java",
@@ -350,112 +350,93 @@ code --install-extension GabrielBB.vscode-lombok
 ## 项目结构
 
 ```
-java/
-├── claude-mem-java/                    # 主 Spring Boot 应用
-│   ├── src/
-│   │   ├── main/
-│   │   │   ├── java/com/ablueforce/cortexce/
-│   │   │   │   │
-│   │   │   │   ├── CortexCeApplication.java   # 主入口
-│   │   │   │   │
-│   │   │   │   ├── config/             # 配置类
-│   │   │   │   │   ├── AsyncConfig.java        # @EnableAsync 配置
-│   │   │   │   │   ├── SpringAiConfig.java     # LLM/Embedding beans
-│   │   │   │   │   ├── WebConfig.java          # CORS、过滤器
-│   │   │   │   │   └── QueueHealthIndicator.java
-│   │   │   │   │
-│   │   │   │   ├── controller/         # REST 控制器
-│   │   │   │   │   ├── IngestionController.java   # Hook 事件
-│   │   │   │   │   ├── ViewerController.java      # WebUI API
-│   │   │   │   │   ├── ContextController.java     # 上下文检索
-│   │   │   │   │   ├── StreamController.java      # SSE 流
-│   │   │   │   │   ├── LogsController.java        # 日志 API
-│   │   │   │   │   └── TestController.java        # 调试端点
-│   │   │   │   │
-│   │   │   │   ├── service/            # 业务逻辑
-│   │   │   │   │   ├── AgentService.java         # 核心编排
-│   │   │   │   │   ├── LlmService.java           # 聊天完成
-│   │   │   │   │   ├── EmbeddingService.java     # 向量嵌入
-│   │   │   │   │   ├── SearchService.java        # 语义搜索
-│   │   │   │   │   ├── ContextService.java       # 上下文检索
-│   │   │   │   │   ├── TimelineService.java      # 时间线组装
-│   │   │   │   │   ├── ClaudeMdService.java      # CLAUDE.md 生成
-│   │   │   │   │   ├── TokenService.java         # Token 计数
-│   │   │   │   │   └── RateLimitService.java     # 限流
-│   │   │   │   │
-│   │   │   │   ├── repository/         # 数据访问
-│   │   │   │   │   ├── SessionRepository.java
-│   │   │   │   │   ├── ObservationRepository.java
-│   │   │   │   │   ├── SummaryRepository.java
-│   │   │   │   │   └── UserPromptRepository.java
-│   │   │   │   │
-│   │   │   │   ├── entity/              # JPA 实体
-│   │   │   │   │   ├── SessionEntity.java
-│   │   │   │   │   ├── ObservationEntity.java
-│   │   │   │   │   ├── SummaryEntity.java
-│   │   │   │   │   └── UserPromptEntity.java
-│   │   │   │   │
-│   │   │   │   ├── dto/                 # 数据传输对象
-│   │   │   │   │   ├── ObservationDto.java
-│   │   │   │   │   ├── SearchRequestDto.java
-│   │   │   │   │   └── ContextResponseDto.java
-│   │   │   │   │
-│   │   │   │   ├── exception/           # 自定义异常
-│   │   │   │   │   ├── ResourceNotFoundException.java
-│   │   │   │   │   └── ValidationException.java
-│   │   │   │   │
-│   │   │   │   └── util/                # 工具类
-│   │   │   │       ├── XmlParser.java
-│   │   │   │       └── VectorValidator.java
-│   │   │   │
-│   │   │   └── resources/
-│   │   │       ├── application.yml      # 主配置
-│   │   │       ├── application-dev.yml  # 开发环境配置
-│   │   │       ├── application-prod.yml # 生产环境配置
-│   │   │       │
-│   │   │       ├── db/migration/        # Flyway 迁移
-│   │   │       │   ├── V1__init_schema.sql
-│   │   │       │   ├── V2__multi_dimension_embeddings.sql
-│   │   │       │   └── ...
-│   │   │       │
-│   │   │       └── prompts/             # LLM 提示词模板
-│   │   │           ├── init.txt         # 系统提示词
-│   │   │           ├── observation.txt  # 观察提示词
-│   │   │           └── summary.txt      # 摘要提示词
+backend/                               # 主 Spring Boot 应用
+│   ├── src/main/java/com/ablueforce/cortexce/
 │   │   │
-│   │   └── test/
-│   │       └── java/com/ablueforce/cortexce/
-│   │           ├── service/
-│   │           │   └── SearchServiceTest.java
-│   │           ├── controller/
-│   │           │   └── ObservationControllerTest.java
-│   │           └── integration/
-│   │               └── ObservationIntegrationTest.java
+│   │   ├── ClaudeMemApplication.java   # 主入口
+│   │   │
+│   │   ├── common/                     # 共享 DTO/事件
+│   │   ├── config/                     # 配置类
+│   │   │   ├── AsyncConfig.java              # @EnableAsync 配置
+│   │   │   ├── SpringAiConfig.java           # LLM/Embedding beans
+│   │   │   ├── WebConfig.java                # CORS、过滤器
+│   │   │   └── QueueHealthIndicator.java
+│   │   │
+│   │   ├── controller/                 # REST 控制器
+│   │   │   ├── IngestionController.java     # Hook 事件
+│   │   │   ├── ViewerController.java        # WebUI API
+│   │   │   ├── ContextController.java       # 上下文检索
+│   │   │   ├── SessionController.java      # 会话管理
+│   │   │   ├── MemoryController.java       # 记忆/经验 API
+│   │   │   ├── ModeController.java         # 模式管理
+│   │   │   ├── ExtractionController.java   # 提取 API
+│   │   │   ├── CursorController.java       # Cursor/IDE 集成
+│   │   │   ├── ImportController.java       # 导入 API
+│   │   │   ├── StreamController.java       # SSE 流
+│   │   │   ├── LogsController.java         # 日志 API
+│   │   │   ├── HealthController.java       # 健康检查端点
+│   │   │   └── TestController.java         # 调试端点
+│   │   │
+│   │   ├── service/                    # 业务逻辑（29 个服务）
+│   │   ├── repository/                  # 数据访问（5 个仓库）
+│   │   ├── entity/                      # JPA 实体（5 个实体）
+│   │   ├── dto/                         # API 请求/响应对象
+│   │   ├── event/                       # 领域事件
+│   │   ├── exception/                   # 自定义异常
+│   │   ├── logging/                     # 日志工具
+│   │   ├── mcp/                         # MCP 工具定义
+│   │   └── util/                        # 工具类
 │   │
-│   ├── pom.xml                          # Maven 配置
-│   └── .env                             # 环境变量（git 忽略）
+│   ├── src/main/resources/
+│   │   ├── application.yml              # 主配置
+│   │   ├── application-dev.yml           # 开发环境配置
+│   │   ├── application-prod.yml          # 生产环境配置
+│   │   ├── application.yml.example       # 环境变量示例
+│   │   ├── db/migration/               # Flyway 迁移（V1-V16）
+│   │   └── prompts/                     # LLM 提示词模板
+│   │
+│   ├── src/test/                        # 单元/集成测试
+│   ├── pom.xml                          # Maven 配置（Spring Boot 3.3.13）
+│   ├── .env.example                     # 环境变量模板
+│   └── mvnw / mvnw.cmd                # Maven wrapper
 │
 ├── proxy/                               # Thin Proxy (Node.js)
 │   ├── wrapper.js                       # CLI 入口
 │   ├── proxy.js                         # HTTP 服务器（可选）
 │   ├── package.json
-│   └── CLAUDE-CODE-INTEGRATION.md
+│   └── test-full-flow.mjs              # 集成测试
 │
-├── scripts/                             # 实用脚本
-│   ├── regression-test.sh               # API 测试
-│   ├── thin-proxy-test.sh               # Proxy 测试
-│   └── webui-integration-test.sh        # WebUI 测试
+├── cortex-mem-spring-integration/       # Java SDK for Spring Boot
+├── js-sdk/                             # JavaScript/TypeScript SDK
+├── go-sdk/                             # Go SDK
+├── python-sdk/                         # Python SDK
+├── examples/                           # 示例应用
+│   └── cortex-mem-demo/                # Spring Boot demo
+├── webui/                              # Web UI（git 子模块）
+├── openclaw-plugin/                    # OpenClaw 集成
 │
-├── docs/                                # 文档
-│   ├── ARCHITECTURE.md
-│   ├── API.md
-│   └── DEVELOPMENT.md
+├── scripts/                            # 实用脚本（40+ 个脚本）
+│   ├── regression-test.sh              # API 回归测试
+│   ├── thin-proxy-test.sh              # Proxy 测试
+│   ├── webui-integration-test.sh      # WebUI 测试
+│   ├── phase3-acceptance-test.sh      # Phase 3 验收测试
+│   ├── mcp-e2e-test.sh                 # MCP E2E 测试
+│   └── ...                             # 更多
 │
-├── README.md                            # 英文
-├── README-zh-CN.md                      # 中文
+├── docs/                               # 文档
+│   ├── ARCHITECTURE.md / ARCHITECTURE-zh-CN.md
+│   ├── API.md / API-zh-CN.md
+│   ├── DEPLOYMENT.md / DEPLOYMENT-zh-CN.md
+│   ├── DEVELOPMENT.md / DEVELOPMENT-zh-CN.md
+│   └── TESTING.md
+│
+├── README.md / README-zh-CN.md
 ├── CONTRIBUTING.md
 ├── CODE_OF_CONDUCT.md
-└── LICENSE
+├── CHANGELOG.md
+├── SECURITY.md
+├── docker-compose.yml
+└── Dockerfile
 ```
 
 ### 关键目录说明
@@ -479,7 +460,7 @@ java/
 ### 使用 Maven Wrapper（推荐）
 
 ```bash
-cd java/claude-mem-java
+cd backend
 
 # 清理并编译
 ./mvnw clean compile
@@ -543,7 +524,7 @@ rm -rf ~/.m2/repository
 1. **创建 .env 文件**
 
 ```bash
-cd java/claude-mem-java
+cd backend
 cp .env.example .env
 ```
 
@@ -551,45 +532,46 @@ cp .env.example .env
 
 ```properties
 # 数据库
-DB_USERNAME=postgres
-DB_PASSWORD=your_password
-DB_URL=jdbc:postgresql://localhost:5432/cortexce_dev
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=123456
+SPRING_DATASOURCE_URL=jdbc:postgresql://127.0.0.1/claude_mem_dev
 
 # LLM (DeepSeek - OpenAI 兼容)
-OPENAI_API_KEY=sk-xxx
-OPENAI_BASE_URL=https://api.deepseek.com
-OPENAI_MODEL=deepseek-chat
+SPRING_AI_OPENAI_API_KEY=sk-xxx
+SPRING_AI_OPENAI_BASE_URL=https://api.deepseek.com
+SPRING_AI_OPENAI_CHAT_MODEL=deepseek-chat
 
 # Embedding (SiliconFlow)
 SPRING_AI_OPENAI_EMBEDDING_API_KEY=sk-xxx
 SPRING_AI_OPENAI_EMBEDDING_MODEL=BAAI/bge-m3
 SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS=1024
-SPRING_AI_OPENAI_EMBEDDING_BASE_URL=https://api.siliconflow.cn/v1/embeddings
+SPRING_AI_OPENAI_EMBEDDING_BASE_URL=https://api.siliconflow.cn
 ```
 
 ### 运行命令
 
 ```bash
 # 加载环境并运行
-cd java/claude-mem-java
+cd backend
 export $(cat .env | grep -v '^#' | grep -v '^$' | xargs)
-java -jar target/cortexce-*.jar
+java -jar target/cortex-ce-*.jar
 
 # 使用 dev profile 运行
-java -jar target/cortexce-*.jar --spring.profiles.active=dev
+java -jar target/cortex-ce-*.jar --spring.profiles.active=dev
 
 # 指定端口运行
-java -jar target/cortexce-*.jar --server.port=8080
+java -jar target/cortex-ce-*.jar --server.port=8080
 
 # 带调试端口运行
 java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 \
-     -jar target/cortexce-*.jar
+     -jar target/cortex-ce-*.jar
 ```
 
 ### 使用 Maven Spring Boot 插件
 
 ```bash
 # 直接运行（无需 JAR）
+cd backend
 ./mvnw spring-boot:run
 
 # 使用 profile 运行
@@ -916,7 +898,7 @@ public class GlobalExceptionHandler {
 ```bash
 # 带调试代理运行
 java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 \
-     -jar target/cortexce-*.jar
+     -jar target/cortex-ce-*.jar
 ```
 
 #### 从 IntelliJ 连接
@@ -1020,7 +1002,7 @@ WHERE tablename = 'mem_observations';
 
 ```bash
 # 连接数据库
-psql -d cortexce_dev
+psql -d claude_mem_dev
 
 # 常用查询
 \dt                           -- 列出表
@@ -1221,7 +1203,7 @@ lsof -ti:37777 | xargs kill -9
 pg_isready
 
 # 检查连接
-psql -h localhost -U postgres -d cortexce_dev -c "SELECT 1"
+psql -h localhost -U postgres -d claude_mem_dev -c "SELECT 1"
 
 # 重置密码
 psql -U postgres -c "ALTER USER postgres PASSWORD 'new_password';"
@@ -1231,20 +1213,20 @@ psql -U postgres -c "ALTER USER postgres PASSWORD 'new_password';"
 
 ```bash
 # 检查迁移状态
-psql -d cortexce_dev -c "SELECT * FROM flyway_schema_history ORDER BY installed_rank;"
+psql -d claude_mem_dev -c "SELECT * FROM flyway_schema_history ORDER BY installed_rank;"
 
 # 修复（如需要）
 ./mvnw flyway:repair
 
 # 手动修复
-psql -d cortexce_dev -c "DELETE FROM flyway_schema_history WHERE success = false;"
+psql -d claude_mem_dev -c "DELETE FROM flyway_schema_history WHERE success = false;"
 ```
 
 ### 问题：OutOfMemoryError
 
 ```bash
 # 增加 JVM 堆内存
-java -Xmx2g -jar target/cortexce-*.jar
+java -Xmx2g -jar target/cortex-ce-*.jar
 
 # 或在环境中设置
 export JAVA_OPTS="-Xmx2g -Xms1g"
@@ -1325,7 +1307,7 @@ java \
   -XX:+UseZGC \
   -XX:+ZGenerational \
   -XX:MaxGCPauseMillis=10 \
-  -jar target/cortexce-*.jar
+  -jar target/cortex-ce-*.jar
 ```
 
 ### 缓存
