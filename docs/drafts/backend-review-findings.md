@@ -2436,3 +2436,85 @@ Total: 426/426 tests passed
 
 **审查结论**
 无 P0/P1/P2 问题。Java SDK 代码质量优秀，API 契约与 backend 完全对齐，117 个测试覆盖核心场景，跨 SDK 一致性良好。所有近期变更均为质量改善，无功能性缺陷。
+
+### 2026-04-09 03:20 | Go SDK 审查 #10
+
+**审查方向**: Go SDK (cortex-mem-go) — Demo HTTP Server + Integration Layers
+
+**审查范围**:
+- `examples/http-server/main.go` — Go HTTP Demo Server (全部 28 个端点)
+- `client_impl.go` — HTTP 客户端配置和请求基础设施
+- `client_methods.go` — 全部 25 个 API 方法
+- `dto/observation.go` — Observation/ObservationUpdate/StringList DTOs
+- `dto/search.go` — SearchRequest/SearchResult DTOs
+- `dto/experience.go` — ExperienceRequest/Experience/ICLPromptRequest DTOs
+- `dto/extraction.go` — ExtractionResult DTO
+- `dto/session.go` — SessionStartRequest/SessionEndRequest/UserPromptRequest DTOs
+- `dto/management.go` — FeedbackRequest/QualityDistribution/ModesResponse DTOs
+- `eino/retriever.go` — Eino Retriever 集成
+- `genkit/retriever.go` — Genkit Retriever 集成
+- `langchaingo/memory.go` — LangChainGo Memory 集成
+- `examples/basic/main.go` — Basic Demo
+
+**编译验证**: ✅ `go build ./...` 无错误
+**测试验证**: ✅ `go test -v ./...` 247 tests 通过
+
+#### 核心审查发现
+
+**P3 — Demo HTTP Server `/observations` 强制要求 `project` 参数**:
+- Demo 的 `/observations` 端点要求 `project` 必须提供，但 backend 的 `ObservationController` 实际支持 project 可选（省略时返回所有项目的观测）
+- SDK 的 `ListObservations` 正确支持 project 可选
+- Python/JS Demo 同样强制要求 `project` — 跨 Demo 一致性问题（属于 Demo 设计选择，非 SDK bug）
+
+**P3 — `GetStats` SDK 注释与实际行为一致**:
+- `GetStats` 接受 `projectPath` 参数但 backend `/api/stats` 是全局端点，会忽略该参数
+- SDK 注释已明确说明此行为 ✅
+- Demo 传递 `project` 给 SDK，会被忽略（但不影响功能）
+
+**P3 — `OrderBy` 无客户端验证**:
+- `Search` 方法接受任意 `OrderBy` 字符串
+- Backend `ViewerController` 仅接受 `created_at_epoch` 或 `createdAtEpoch`，其他值返回 400
+- SDK 正确地将此决策委托给 backend（无需客户端验证）
+
+#### Backend 合约验证
+
+| 端点 | SDK 参数名 | Backend 期望 | 状态 |
+|------|-----------|-------------|------|
+| `POST /api/session/start` | `project_path` | `project_path` | ✅ |
+| `POST /api/ingest/tool-use` | `cwd` (via projectPath) | `cwd` | ✅ |
+| `POST /api/ingest/session-end` | `cwd` (via projectPath) | `cwd` | ✅ |
+| `POST /api/ingest/user-prompt` | `cwd` (via projectPath) | `cwd` | ✅ |
+| `POST /api/memory/experiences` | `requiredConcepts` (camelCase) | `requiredConcepts` | ✅ |
+| `GET /api/search` | offset/limit/orderBy 作为 query params | 接受 | ✅ |
+| `POST /api/memory/feedback` | `observationId`/`feedbackType` (camelCase) | camelCase | ✅ |
+| `POST /api/extraction/run` | `projectPath` | `projectPath` | ✅ |
+| `GET /api/extraction/{t}/latest` | `projectPath` | `projectPath` | ✅ |
+| `GET /api/extraction/{t}/history` | `projectPath`/`limit>0` | `projectPath` | ✅ |
+
+#### 集成层质量
+
+| 检查项 | eino | genkit | langchaingo |
+|--------|------|--------|-------------|
+| nil client panic | ✅ | ✅ | ✅ |
+| 默认 count=4 | ✅ | ✅ | N/A |
+| 空 query 返回空切片 | ✅ | ✅ | ✅ |
+| 错误日志可见 | ✅ | ✅ | ✅ |
+| userID 透传 | ✅ | ✅ | ✅ |
+
+#### 错误处理审查
+
+| 检查项 | 结果 |
+|--------|------|
+| `doFireAndForget` 上下文取消处理 | ✅ 提前检查，返回 nil |
+| 重试仅针对 transient 错误 | ✅ isTransient() 正确 |
+| Linear backoff + jitter (±25%) | ✅ jitteredBackoff() |
+| 429/502/503/504 可重试 | ✅ |
+| 500/4xx 不重试 | ✅ |
+| Fire-and-forget 吞没错误 | ✅ |
+| `extractErrorMessage` JSON 解析 | ✅ 支持 obj/arr/string fallback |
+| `ValidationError` implements errors.As | ✅ |
+| `APIError.Unwrap()` 链到 sentinel | ✅ |
+
+#### 审查结论
+
+无 P0/P1/P2 问题。Go SDK 代码质量优秀，wire format 与 backend 完全对齐，247 个测试全部通过。Demo HTTP Server 实现完整（28 个端点），集成层（eino/genkit/langchaingo）均有 nil-safe 和错误处理。`GetStats` 忽略 project 参数的行为已正确注释。`ListObservations` 的 project 可选语义在 SDK 层面正确，Demo 强制要求属于 Demo 层的 UX 选择。
