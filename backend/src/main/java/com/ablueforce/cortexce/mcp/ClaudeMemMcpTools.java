@@ -83,11 +83,15 @@ public class ClaudeMemMcpTools {
         int effectiveLimit = limit != null ? limit : 20;
         int effectiveOffset = offset != null ? Math.max(0, offset) : 0;
 
-        // Validate orderBy: only created_at_epoch is supported, others are silently ignored
+        // F-1 Fix: Log warning for orderBy — ordering is applied in-memory (not SQL-level),
+        // which fetches limit*2 rows then sorts in Java. For large datasets this is inefficient.
+        // offset is also applied in-memory via stream.skip() after fetching limit*2 rows.
         if (orderBy != null && !orderBy.isBlank()
                 && !"created_at_epoch".equalsIgnoreCase(orderBy)
                 && !"createdAtEpoch".equalsIgnoreCase(orderBy)) {
             log.warn("Unsupported MCP search orderBy value '{}' — only 'created_at_epoch' is supported; ignoring", orderBy);
+        } else if (orderBy != null && !orderBy.isBlank()) {
+            log.info("MCP search orderBy='{}' applied in-memory (not SQL-level); for large datasets consider using GET /api/search with SQL-level ordering", orderBy);
         }
 
         float[] queryVector = null;
@@ -247,11 +251,16 @@ public class ClaudeMemMcpTools {
 
             // Create observation entity
             // TS alignment: Use type='discovery' and subtitle='Manual memory' like MemoryRoutes.ts
+            // F-2 Fix: Use "manual-memories" as projectPath when project is null, for consistency
+            // with the session's projectPath="manual-memories". Without this fix, a null project
+            // would cause observation.projectPath=null while session.projectPath="manual-memories",
+            // breaking project-scoped queries that expect both to match.
+            String effectiveProject = (project != null && !project.isBlank()) ? project : "manual-memories";
             ObservationEntity observation = new ObservationEntity();
             observation.setContent(text);
             observation.setTitle(title != null ? title : "Manual Memory");
             observation.setSubtitle("Manual memory");
-            observation.setProjectPath(project);
+            observation.setProjectPath(effectiveProject);
             observation.setType("discovery");  // TS uses 'discovery' type
             observation.setContentSessionId(manualSessionId);
             observation.setCreatedAtEpoch(System.currentTimeMillis());

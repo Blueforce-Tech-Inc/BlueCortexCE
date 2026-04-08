@@ -1246,8 +1246,8 @@ SELECT cfgname, cfgparser FROM pg_ts_config;
 
 | # | 文件 | 行号 | 问题 | 级别 |
 |---|------|------|------|------|
-| 1 | ClaudeMemMcpTools.java | L~93 `search()` | MCP `search` tool 声明了 `offset` 和 `orderBy` 参数，但实际调用 SearchRequest 时硬编码 offset=0，orderBy 完全忽略。MCP 客户端无法分页搜索结果 | P2 |
-| 2 | ClaudeMemMcpTools.java | L~173 `saveMemory()` | `project` 参数为 null 时，observation 的 projectPath 为 null，但 dummy session 的 projectPath 设为 "manual-memories"。可能导致按 project 查询时找不到手动保存的 memory | P2 (低) |
+| 1 | ClaudeMemMcpTools.java | L~93 `search()` | MCP `search` tool 声明了 `offset` 和 `orderBy` 参数，但实际调用 SearchRequest 时硬编码 offset=0，orderBy 完全忽略。MCP 客户端无法分页搜索结果 | P2 | ✅ 已修复（2026-04-09）：orderBy 参数已传递到 SearchRequest，Java 层 applyPostFilters 正确处理 offset/sort；但添加 INFO 日志说明 orderBy 为 in-memory 排序（非 SQL 级别），large dataset 场景有性能提示 |
+| 2 | ClaudeMemMcpTools.java | L~173 `saveMemory()` | `project` 参数为 null 时，observation 的 projectPath 为 null，但 dummy session 的 projectPath 设为 "manual-memories"。可能导致按 project 查询时找不到手动保存的 memory | P2 (低) | ✅ 已修复（2026-04-09）：当 project 为 null/blank 时，observation.projectPath 改为 "manual-memories"（与 session 保持一致），避免 project-scoped 查询找不到手动保存的 memory |
 
 **审查结论**:
 - **SessionRepository.java**: 设计优秀。自定义 @Query 方法语义清晰，`findLastCompletedSessionWithMessage` 的 NOT NULL + 非空检查完善，`findByUserId` / `findSessionIdsByUserIdAndProject` 支持 Phase 3 多用户。无 P0/P1 问题。
