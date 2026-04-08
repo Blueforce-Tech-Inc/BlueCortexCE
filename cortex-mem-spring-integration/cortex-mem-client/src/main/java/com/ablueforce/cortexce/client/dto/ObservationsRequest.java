@@ -24,7 +24,13 @@ public record ObservationsRequest(
 
         public Builder project(String project) { this.project = project; return this; }
         public Builder offset(Integer offset) { this.offset = offset; return this; }
-        public Builder limit(Integer limit) { this.limit = limit; return this; }
+        public Builder limit(Integer limit) {
+            if (limit != null && limit > 100) {
+                throw new IllegalArgumentException("limit must not exceed 100 (got " + limit + ")");
+            }
+            this.limit = limit;
+            return this;
+        }
 
         public ObservationsRequest build() {
             return new ObservationsRequest(project, offset, limit);

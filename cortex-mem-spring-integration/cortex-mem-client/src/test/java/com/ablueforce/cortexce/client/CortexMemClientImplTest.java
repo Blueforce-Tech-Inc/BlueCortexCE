@@ -578,6 +578,28 @@ class CortexMemClientImplTest {
     }
 
     @Test
+    void search_limitExceedsMax_throws() {
+        assertThatThrownBy(() -> SearchRequest.builder()
+            .project("/proj")
+            .limit(101)
+            .build())
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("limit")
+            .hasMessageContaining("100");
+    }
+
+    @Test
+    void listObservations_limitExceedsMax_throws() {
+        assertThatThrownBy(() -> ObservationsRequest.builder()
+            .project("/proj")
+            .limit(200)
+            .build())
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("limit")
+            .hasMessageContaining("100");
+    }
+
+    @Test
     void listObservations_sendsCorrectParams() throws Exception {
         server.enqueue(new MockResponse()
             .setBody("{\"items\":[],\"total\":0,\"hasMore\":false}")

@@ -50,7 +50,13 @@ public record SearchRequest(
         public Builder type(String type) { this.type = type; return this; }
         public Builder concept(String concept) { this.concept = concept; return this; }
         public Builder source(String source) { this.source = source; return this; }
-        public Builder limit(Integer limit) { this.limit = limit; return this; }
+        public Builder limit(Integer limit) {
+            if (limit != null && limit > 100) {
+                throw new IllegalArgumentException("limit must not exceed 100 (got " + limit + ")");
+            }
+            this.limit = limit;
+            return this;
+        }
         public Builder offset(Integer offset) { this.offset = offset; return this; }
         public Builder orderBy(String orderBy) { this.orderBy = orderBy; return this; }
 
