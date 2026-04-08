@@ -40,10 +40,10 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 
 ## Services
 
-| Service | Port | Description |
-|---------|------|-------------|
-| PostgreSQL | 5432 | Database with pgvector |
-| CortexCE | 37777 | REST API & MCP Server |
+| Service | Host Port | Container Port | Description |
+|---------|-----------|----------------|-------------|
+| PostgreSQL | 5433 | 5432 | Database with pgvector |
+| CortexCE | 37777 | 37777 | REST API & MCP Server |
 
 ## Configuration
 

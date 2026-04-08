@@ -737,7 +737,6 @@ Any other context, mockups, or examples.
 
 Contributors are recognized in:
 
-- `CONTRIBUTORS.md` file
 - Release notes for significant contributions
 - GitHub's contributor graph
 
