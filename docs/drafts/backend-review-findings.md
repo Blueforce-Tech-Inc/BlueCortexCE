@@ -1538,8 +1538,8 @@ SELECT cfgname, cfgparser FROM pg_ts_config;
 
 | # | 文件 | 行 | 级别 | 问题 |
 |---|------|-----|------|------|
-| 25-1 | CursorService.java | 68-80, 120-135 | **P2** | `registryCache` 线程安全不一致：`readRegistry()` 被 `getProject()`、`isProjectRegistered()`、`getAllProjects()` 调用时未持 `registryLock`，而 `registerProject()`/`unregisterProject()` 持锁。`readRegistry()` 内部会 `registryCache.clear()` 并重建缓存，并发读+写可能产生竞态。建议：将 ConcurrentHashMap 改为普通 HashMap，所有访问统一通过 `registryLock` 保护；或移除 registryLock，仅依赖 ConcurrentHashMap 的原子性（简化设计）。 |
-| 25-2 | CursorService.java | 68-80, 120-135 | **P2** | 每次调用 `getProject()`、`isProjectRegistered()`、`getAllProjects()` 都触发磁盘 I/O（`readRegistry()` 读文件）。无 TTL 缓存机制，高频调用（如 CursorController 多个端点并行）会产生不必要的磁盘压力。建议：添加基于时间的缓存（如 5 秒 TTL），仅在缓存过期时重新读取。 |
+| 25-1 | CursorService.java | 68-80, 120-135 | **P2** | `registryCache` 线程安全不一致：`readRegistry()` 被 `getProject()`、`isProjectRegistered()`、`getAllProjects()` 调用时未持 `registryLock`，而 `registerProject()`/`unregisterProject()` 持锁。`readRegistry()` 内部会 `registryCache.clear()` 并重建缓存，并发读+写可能产生竞态。建议：将 ConcurrentHashMap 改为普通 HashMap，所有访问统一通过 `registryLock` 保护；或移除 registryLock，仅依赖 ConcurrentHashMap 的原子性（简化设计）。 ✅已修复（`getProject/isProjectRegistered/getAllProjects` 现使用 `getRegistryCached()` 返回 `ConcurrentHashMap` 安全读取；`registerProject/unregisterProject` 使用 `readRegistryUnlocked()` 避免竞态） |
+| 25-2 | CursorService.java | 68-80, 120-135 | **P2** | 每次调用 `getProject()`、`isProjectRegistered()`、`getAllProjects()` 都触发磁盘 I/O（`readRegistry()` 读文件）。无 TTL 缓存机制，高频调用（如 CursorController 多个端点并行）会产生不必要的磁盘压力。建议：添加基于时间的缓存（如 5 秒 TTL），仅在缓存过期时重新读取。 ✅已修复（`getRegistryCached()` 实现 5 秒 TTL 缓存，缓存有效期内为无锁读） |
 
 #### 代码质量评价
 
@@ -1548,7 +1548,7 @@ SELECT cfgname, cfgparser FROM pg_ts_config;
 | 输入验证 | ⚠️ registerProject 验证由 Controller 负担，Service 层无自保护 | ✅ projectPath null/blank 检查完整 |
 | 错误处理 | ✅ writeRegistry 抛 UncheckedIOException | ✅ 统一 try-catch + 500 响应 |
 | Swagger 文档 | N/A (Service) | ✅ 完整 @Operation + @ApiResponse |
-| 线程安全 | ⚠️ ConcurrentHashMap + registryLock 双重机制不一致 | ✅ 无共享状态 |
+| 线程安全 | ✅ ConcurrentHashMap 无锁读 + synchronized 写 | ✅ 无共享状态 |
 | 设计质量 | ✅ DTO 记录类 CursorProjectEntry | ✅ DTO 响应类清晰 |
 
 #### 亮点
@@ -1610,16 +1610,16 @@ SELECT cfgname, cfgparser FROM pg_ts_config;
 
 | # | 文件 | 行 | 级别 | 问题 |
 |---|------|-----|------|------|
-| 20-1 | CursorService.java | L136-148 | **P2** | `registerProject()` 和 `unregisterProject()` 在 `synchronized(registryLock)` 内部调用 `readRegistry()`，而 `readRegistry()` 也获取同一把锁。Java 的 `synchronized` 是可重入的，因此不会死锁，但每次操作都会读取磁盘两次（readRegistry 一次，writeRegistry 内部的 readRegistry 又一次）。对于高频注册/注销操作，这是不必要的 I/O。建议：在 synchronized 块内直接读取文件，避免递归锁获取。 |
-| 20-2 | CursorService.java | L121-130 | **P2** | `getRegistryCached()` 存在 TOCTOU 竞态条件：先释放 `registryLock`（检查 TTL），然后调用 `readRegistry()` 再次获取锁。在两个锁操作之间，另一个线程可能已经修改了缓存。虽然 5 秒 TTL 降低了风险，但在高并发场景下可能读到过期数据。建议：将 TTL 检查和磁盘读取合并到同一个 synchronized 块中。 |
+| 20-1 | CursorService.java | L136-148 | **P2** | `registerProject()` 和 `unregisterProject()` 在 `synchronized(registryLock)` 内部调用 `readRegistry()`，而 `readRegistry()` 也获取同一把锁。Java 的 `synchronized` 是可重入的，因此不会死锁，但每次操作都会读取磁盘两次（readRegistry 一次，writeRegistry 内部的 readRegistry 又一次）。对于高频注册/注销操作，这是不必要的 I/O。建议：在 synchronized 块内直接读取文件，避免递归锁获取。 ✅已修复（`registerProject/unregisterProject` 现使用 `readRegistryUnlocked()` 直接读取文件，避免嵌套锁） |
+| 20-2 | CursorService.java | L121-130 | **P2** | `getRegistryCached()` 存在 TOCTOU 竞态条件：先释放 `registryLock`（检查 TTL），然后调用 `readRegistry()` 再次获取锁。在两个锁操作之间，另一个线程可能已经修改了缓存。虽然 5 秒 TTL 降低了风险，但在高并发场景下可能读到过期数据。建议：将 TTL 检查和磁盘读取合并到同一个 synchronized 块中。 ✅已修复（TTL 检查在 synchronized 块内双检，缓存有效时返回 ConcurrentHashMap 无锁读） |
 
 #### 代码质量评价
 
 | 检查项 | ModeService | CursorController | CursorService |
 |--------|-------------|-----------------|---------------|
-| 线程安全 | ✅ ConcurrentHashMap + 局部变量 | ✅ 无共享可变状态 | ⚠️ 可重入锁冗余 + TOCTOU |
+| 线程安全 | ✅ ConcurrentHashMap + 局部变量 | ✅ 无共享可变状态 | ✅ ConcurrentHashMap 无锁读 + synchronized 写 |
 | 内存管理 | ✅ 模式缓存有限增长 | ✅ 无缓存 | ✅ 有限缓存 + TTL |
-| 输入验证 | ✅ 模式文件解析验证 | ✅ projectName/workspacePath 非空检查 | ⚠️ writeContextFile 未检查 workspacePath 空值 |
+| 输入验证 | ✅ 模式文件解析验证 | ✅ projectName/workspacePath 非空检查 | ✅ writeContextFile 有 null/blank 检查 |
 | 错误处理 | ✅ 多级 fallback (文件 → classpath → 默认) | ✅ try-catch + 有意义的错误消息 | ✅ IOException 包装为 UncheckedIOException |
 | 模板安全 | ✅ @PostConstruct fail-fast | N/A | ✅ 路径遍历保护 |
 
