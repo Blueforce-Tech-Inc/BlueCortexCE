@@ -356,9 +356,9 @@ class ObservationUpdate:
     def to_wire(self) -> dict:
         """Convert to wire format, omitting None fields.
 
-        Both 'content' and 'narrative' are sent as ``narrative`` (backend
-        ``ObservationEntity`` uses ``@JsonProperty("narrative")``). Since both
-        Python attributes map to the same wire key, the last one set wins.
+        Both 'content' and 'narrative' map to the backend's ``narrative`` field.
+        If both are set, ``narrative`` takes precedence (last-one-wins) since both
+        Python attributes target the same wire key.
         """
         body: dict = {}
         for attr, wire_key in self._WIRE_FIELDS.items():
