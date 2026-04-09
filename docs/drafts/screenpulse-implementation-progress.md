@@ -1,7 +1,7 @@
 # ScreenPulse Implementation Progress
 
 **Last Updated**: 2026-04-09
-**Status**: M1-M4 Complete, V1.0 Architecture Fixed (Timer Polling Mode)
+**Status**: M1-M4 Complete, V1.0 Architecture Fixed + UX Enhancements
 
 ## Overview
 
@@ -182,6 +182,14 @@ When user switches apps:
 1. Implement Option B (NSWorkspace notifications) - simplest approach
 2. Test thoroughly with various apps (Safari, Chrome, Terminal, Finder, etc.)
 3. Re-enable event-driven capture only after fixing race condition
+
+## UX Enhancements (Recent)
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| Content deduplication | Skip capture if content unchanged | **IMPLEMENTED** |
+| Configurable polling interval | Stepper UI (1-30s) to adjust capture frequency | **IMPLEMENTED** |
+| Auto-start on launch | Capture begins automatically when permissions granted | **IMPLEMENTED** |
 
 ## Known Warnings (Non-blocking)
 
