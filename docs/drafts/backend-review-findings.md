@@ -2606,3 +2606,42 @@ Total: 426/426 tests passed
 **Backend P0/P1/P2 状态**: 0 / 0 / 0
 
 **测试状态**: No code changes needed; clean review.
+
+---
+
+## 2026-04-10 03:43 | Python SDK 审查 #5 (续 Python SDK #4)
+
+**审查范围**: client.py (25 API methods), dto.py (all DTOs), examples/http-server/app.py (Flask Demo)
+
+**审查方向**: 本次重点 — 跨 SDK wire format 一致性验证 + edge case 审查
+
+#### 审查发现
+
+**无 P0/P1/P2 bug。** 深度检查以下潜在问题点，全部通过：
+
+| # | 检查项 | 结果 | 说明 |
+|---|--------|------|------|
+| 1 | `record_observation` tool_input/response truncation | ✅ 无问题 | Fire-and-forget；backend LLM prompt 层截断（4000），SDK 不存储大对象 |
+| 2 | `SearchResult.from_wire` None-safety | ✅ 安全 | `data.get("observations") or []` — 缺失 key 和 `None` 均返回 `[]` |
+| 3 | `BatchObservationsResponse.from_wire` None-safety | ✅ 安全 | 同上 |
+| 4 | `trigger_extraction` param name 一致性 | ✅ 与 Go/Java 对齐 | Go: `projectPath` → Python: `projectPath` → Backend: `projectPath` |
+| 5 | `get_latest_extraction` param name 一致性 | ✅ 与 Go/Java 对齐 | Backend 期望 `projectPath`，Python 发送 `projectPath` ✅ |
+| 6 | `ObservationUpdate._WIRE_FIELDS` kwargs 验证 | ✅ 正确 | 验证 Python attr 名称，wire key 通过 `update.to_wire()` 走正确路径 |
+| 7 | Flask Demo `extraction_latest/history` param 一致性 | ✅ 一致 | Demo 接收 `project` query param → SDK 转换为 `projectPath` → Backend ✅ |
+| 8 | `_fire_and_forget` jitter 计算 | ✅ 正确 | `base * random.uniform(-0.25, 0.25)` 产生 `[0.075, 0.125]`s 延迟，≥ 0 ✅ |
+| 9 | `StatsResponse` 字段名映射 | ✅ camelCase 正确 | `isProcessing`/`queueDepth`/`totalObservations` → snake_case ✅ |
+| 10 | `record_user_prompt` wire format | ✅ 正确 | `project_path` → `cwd` ✅，与 backend wire format 一致 |
+| 11 | `Observation.from_wire` defensive parsing | ✅ 完整 | 所有 4 个新增字段（accessCount/refinedAt/refinedFromIds/userComment）已映射 ✅ |
+| 12 | `Observation.to_dict` `refined_from_ids` | ✅ 无多余Omitempty | 仅 `refinedAt` 映射，无额外 omitempty 问题 |
+
+**代码质量亮点**:
+- `client.py`: 25 个 API 方法全覆盖，`fire-and-forget` 有 7 个专项测试（429/503/connection error/retry exhaustion）
+- `dto.py`: 所有 `from_wire` 使用 `or []` / `_to_str_list()` / `_to_dict()` 防御性解析，无一遗漏
+- `dto.py`: `_sanitize_for_json()` 递归 NaN/Inf → None，RFC 7159 JSON 合规性有保障
+- `dto.py`: `_first_non_null()` 双格式 fallback（camelCase + snake_case），跨 SDK 一致
+- `app.py` (Flask Demo): 26 个端点全部实现，输入验证完整（null/blank/range/类型），错误处理分层
+- `app.py`: `observations_create` 和 `observations_update` 有 `extractedData` 类型验证（非 dict → 400）
+
+**Backend P0/P1/P2 状态**: 0 / 0 / 0
+
+**测试状态**: No code changes needed; clean review.
