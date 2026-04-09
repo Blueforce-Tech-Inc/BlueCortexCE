@@ -1,5 +1,7 @@
 # Contributing to Cortex Community Edition
 
+> 中文版: [CONTRIBUTING-zh-CN.md](./CONTRIBUTING-zh-CN.md)
+
 First off, thank you for considering contributing to Cortex Community Edition! It's people like you that make Cortex CE such a great tool.
 
 ## Table of Contents

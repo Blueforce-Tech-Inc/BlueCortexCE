@@ -1,5 +1,7 @@
 # Testing Guide
 
+> 中文版: [docs/TESTING-zh-CN.md](./TESTING-zh-CN.md)
+
 ## Overview
 
 This document describes the testing approach for Cortex Community Edition.
