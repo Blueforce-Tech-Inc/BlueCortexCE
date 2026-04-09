@@ -90,9 +90,9 @@ cp .env.example .env
 Edit `.env` with your configuration:
 
 ```properties
-# Database
-DB_USERNAME=postgres
-DB_PASSWORD=your_password
+# Database (Spring Boot property names — works for both local dev and Docker)
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=your_password
 
 # LLM (Chat Model)
 SPRING_AI_OPENAI_API_KEY=sk-xxx

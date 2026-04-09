@@ -53,13 +53,17 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `DB_NAME` | PostgreSQL 数据库名 | `claude_mem` |
-| `DB_USERNAME` | 数据库用户名 | `postgres` |
-| `DB_PASSWORD` | 数据库密码 | -（必填） |
-| `SPRING_AI_OPENAI_API_KEY` | OpenAI/DeepSeek API key | -（必填） |
+| `DB_PASSWORD` | 数据库密码 | - |
+| `SPRING_AI_OPENAI_API_KEY` | OpenAI/DeepSeek API key | - |
 | `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | Embedding API key（如 SiliconFlow） | - |
 
 ### 可选环境变量
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `DB_NAME` | PostgreSQL 数据库名 | `claude_mem` |
+| `DB_USERNAME` | 数据库用户名 | `postgres` |
+| `POSTGRES_PORT` | PostgreSQL 主机端口 | `5433` |
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|

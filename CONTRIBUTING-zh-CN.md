@@ -90,9 +90,9 @@ cp .env.example .env
 编辑 `.env`：
 
 ```properties
-# 数据库
-DB_USERNAME=postgres
-DB_PASSWORD=your_password
+# 数据库（Spring Boot 属性名——本地开发和 Docker 均适用）
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=your_password
 
 # LLM（聊天模型）
 SPRING_AI_OPENAI_API_KEY=sk-xxx
