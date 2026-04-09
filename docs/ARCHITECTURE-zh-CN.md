@@ -321,9 +321,10 @@ process.exit(0);
 │  IngestionController    →  /api/ingest/*                   │
 │  ViewerController       →  /api/* (observations, search,    │
 │                         │    summaries, prompts, projects,   │
-│                         │    stats, settings, modes,         │
+│                         │    stats, settings/modes (GET+POST),│
 │                         │    timeline, processing-status,    │
-│                         │    sdk-sessions)                   │
+│                         │    observations/batch, search/by-file,│
+│                         │    sdk-sessions/batch)             │
 │  ContextController      →  /api/context/*                  │
 │  StreamController       →  /stream (SSE)                    │
 │  LogsController         →  /api/logs                      │
@@ -757,7 +758,7 @@ LIMIT :limit;
 |---|----------|------|
 | Ingestion | `/api/ingest/*` | Hook 事件接收（tool-use、user-prompt、observation、session-end） |
 | Session | `/api/session/*` | 会话生命周期（start、get、patch user） |
-| Viewer | `/api/observations`, `/api/summaries`, `/api/prompts`, `/api/projects`, `/api/stats`, `/api/search`, `/api/search/by-file`, `/api/observations/batch`, `/api/settings`, `/api/modes`, `/api/timeline`, `/api/processing-status`, `/api/sdk-sessions/batch` | WebUI 数据 |
+| Viewer | `/api/observations`, `/api/summaries`, `/api/prompts`, `/api/projects`, `/api/stats`, `/api/search`, `/api/search/by-file`, `/api/observations/batch`, `/api/settings` (GET/POST), `/api/modes` (GET/POST), `/api/timeline`, `/api/processing-status`, `/api/sdk-sessions/batch` | WebUI 数据 (14 个路径) |
 | Context | `/api/context/*` | 上下文检索 |
 | Memory | `/api/memory/*` | 记忆操作（refine、experiences、icl-prompt、quality-distribution、feedback、patch/delete observation） |
 | Mode | `/api/mode/*` | 记忆模式管理（get/put、types、concepts、validation） |
