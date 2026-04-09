@@ -139,10 +139,19 @@ Content-Type: application/json
 curl http://localhost:37777/api/health
 ```
 
-**响应示例**:
+**响应示例** (`200 OK`, 数据库正常):
 ```json
 {
   "status": "ok",
+  "timestamp": 1707878400000,
+  "service": "claude-mem-java"
+}
+```
+
+**响应示例** (`200 OK`, 数据库不可用，降级模式):
+```json
+{
+  "status": "degraded",
   "timestamp": 1707878400000,
   "service": "claude-mem-java"
 }
