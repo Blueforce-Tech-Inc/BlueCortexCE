@@ -2540,3 +2540,23 @@ Total: 426/426 tests passed
 - ObservationUpdate NON_NULL + isEmpty() guard aligns with backend PATCH semantics
 
 **测试状态**: No code changes needed; issue requires Spring AI framework fix (@ToolParam(name=...))
+
+---
+
+## 2026-04-09 15:04 | Backend 审查 #20 (MemoryController + ExpRagService)
+
+**审查范围**: MemoryController.java, ExpRagService.java
+
+**发现的问题**: 无 P0/P1/P2 bug。
+
+**代码质量亮点**:
+- MemoryController: 完整的 null/type 检查，PATCH observation 返回 400 for wrong types（fail-fast 防止静默数据丢失）
+- MemoryController: DELETE observation 使用 `existsById` + `deleteById` 防御性两查，正确处理 EmptyResultDataAccessException
+- ExpRagService: `requiredConcepts` 过滤有 `!requiredConcepts.isEmpty()` 护卫条件，空列表 `[]` 场景正确跳过
+- ExpRagService: `buildICLPrompt` 逐 experience 累加检查，正确控制不超过 maxChars；currentTask 截断逻辑健壮
+- ExpRagService: userId + source 组合时 in-memory filtering 有明确注释说明
+- ExpRagService: `toExperience` 有 null-safe createdAt 回退（epoch → OffsetDateTime）
+
+**Backend P0/P1/P2 状态**: 0 / 0 / 0
+
+**测试状态**: No code changes needed; clean review.
