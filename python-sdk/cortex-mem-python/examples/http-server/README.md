@@ -31,7 +31,11 @@ python app.py
 | GET | `/experiences` | Retrieve experiences |
 | GET | `/iclprompt` | Build ICL prompt |
 | GET | `/observations` | List observations |
+| GET | `/observations/{id}` | Get observation by ID |
 | POST | `/observations/batch` | Batch get observations by IDs |
+| POST | `/observations/create` | Record observation |
+| PATCH | `/observations/{id}` | Update observation |
+| DELETE | `/observations/{id}` | Delete observation |
 | GET | `/projects` | Get projects |
 | GET | `/stats` | Get stats |
 | GET | `/modes` | Get modes |
@@ -42,10 +46,8 @@ python app.py
 | POST | `/extraction/run` | Trigger extraction |
 | POST | `/refine` | Trigger memory refinement |
 | POST | `/feedback` | Submit observation feedback |
+| POST | `/session/start` | Start or resume session |
 | PATCH | `/session/user` | Update session user ID |
-| PATCH | `/observations/{id}` | Update observation |
-| DELETE | `/observations/{id}` | Delete observation |
-| POST | `/observations/create` | Record observation |
 | POST | `/ingest/prompt` | Ingest user prompt |
 | POST | `/ingest/session-end` | Ingest session end |
 
