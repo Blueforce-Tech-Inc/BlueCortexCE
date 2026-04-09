@@ -55,11 +55,27 @@ All three-layer data model issues have been resolved:
 | Layer 2 (Semantic) | role always `"AXStaticText"` | ✅ Extracts headings/links/buttons/textFields with proper categorization |
 | Layer 3 (Markdown) | Pure text concatenation | ✅ Renders structured Markdown with ## for headings, [text](url) for links |
 
+### Important Clarification: TextBlock.text is Natural Text by Design
+
+For `AXStaticText` elements, the `value` is inherently natural language text (a leaf node with no children). This is **expected and correct**:
+
+```json
+{
+  "visibleTextBlocks": [
+    { "role": "AXStaticText", "text": "Welcome to GitHub" },
+    { "role": "AXLink", "text": "Pull requests", "url": "https://github.com/pulls" },
+    { "role": "AXButton", "text": "New" }
+  ]
+}
+```
+
+**The structure comes from `role`, not from splitting the text.** The `text` field being natural text is the correct behavior - macOS AX API does not provide sub-word structure for static text content.
+
 ### Implementation Details
 
 **Layer 1**: `ScreenCaptureManager.buildAXNodeTree()` replaces `collectText()`:
 - Extracts role, title, value, description, url, position, size, isFocused, isSelected, isEnabled
-- Filters by `meaningfulRoles` set to remove UI noise
+- Uses `meaningfulAXRoles` set (includes AXWindow, AXSheet, AXDocument as containers)
 - Recursively builds AXNode tree
 
 **Layer 2**: `ObservationPayloadBuilder.extractSemanticFields()`:
@@ -106,8 +122,14 @@ swift build -c release
 
 ```
 swift build
-Build complete! (0.99s)
+Build complete! (0.92s)
 ```
+
+## Bug Fixes
+
+| Date | Bug | Fix |
+|------|-----|-----|
+| 2026-04-09 | `AXWindow` not in meaningfulRoles caused root node to be filtered, resulting in nil AXSnapshot | Added AXWindow/AXSheet/AXDialog/AXDocument to meaningfulAXRoles set |
 
 ## Known Warnings (Non-blocking)
 

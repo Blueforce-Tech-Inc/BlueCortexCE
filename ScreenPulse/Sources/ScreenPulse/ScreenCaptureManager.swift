@@ -47,6 +47,18 @@ enum AppCategory: String, Codable {
     case other
 }
 
+// MARK: - Meaningful AX Roles (for filtering UI noise)
+
+/// Roles that contain meaningful content (used for Layer 1 AX tree filtering)
+private let meaningfulAXRoles: Set<String> = [
+    "AXStaticText", "AXHeading", "AXLink", "AXTextField",
+    "AXTextArea", "AXButton", "AXMenuBarItem", "AXMenuItem",
+    "AXImage", "AXWebArea", "AXGroup", "AXList", "AXListItem",
+    "AXTable", "AXRow", "AXCell", "AXTabGroup", "AXTab",
+    // Window and document roles (containers, not filtered at root)
+    "AXWindow", "AXSheet", "AXDialog", "AXDocument"
+]
+
 // MARK: - ScreenCaptureManager
 final class ScreenCaptureManager: ObservableObject {
     static let shared = ScreenCaptureManager()
@@ -246,8 +258,8 @@ final class ScreenCaptureManager: ObservableObject {
         AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleValue)
         let role = roleValue as? String ?? ""
 
-        // Skip if not a meaningful role
-        guard AXNode.meaningfulRoles.contains(role) else {
+        // Skip if not a meaningful role (but allow container roles like AXWindow)
+        guard meaningfulAXRoles.contains(role) else {
             return nil
         }
 
