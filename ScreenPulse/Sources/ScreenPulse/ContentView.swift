@@ -123,6 +123,7 @@ struct ContentView: View {
                 }
                 .onChange(of: manager.pollingInterval) { _ in
                     manager.restartTimerWithNewInterval()
+                    manager.saveSettings()
                 }
             }
         }

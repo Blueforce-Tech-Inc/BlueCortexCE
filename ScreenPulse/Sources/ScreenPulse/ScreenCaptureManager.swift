@@ -106,7 +106,25 @@ final class ScreenCaptureManager: ObservableObject {
     private var memoryCache: [CaptureEvent] = []
     private let maxCacheSize = 200
 
-    private init() {}
+    private init() {
+        loadSettings()
+    }
+
+    // MARK: - Settings Persistence
+
+    private func loadSettings() {
+        if UserDefaults.standard.object(forKey: "screenpulse.pollingInterval") != nil {
+            pollingInterval = UserDefaults.standard.double(forKey: "screenpulse.pollingInterval")
+        }
+        if UserDefaults.standard.object(forKey: "screenpulse.endpointInput") != nil {
+            endpointInput = UserDefaults.standard.string(forKey: "screenpulse.endpointInput") ?? endpointInput
+        }
+    }
+
+    func saveSettings() {
+        UserDefaults.standard.set(pollingInterval, forKey: "screenpulse.pollingInterval")
+        UserDefaults.standard.set(endpointInput, forKey: "screenpulse.endpointInput")
+    }
 
     // MARK: - Control Interface
 
