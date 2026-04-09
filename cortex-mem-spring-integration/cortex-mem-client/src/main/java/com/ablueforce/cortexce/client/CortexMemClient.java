@@ -91,8 +91,11 @@ public interface CortexMemClient {
     /**
      * Get latest extraction result for a template and user.
      * Calls GET /api/extraction/{templateName}/latest?projectPath=...&userId=...
+     *
+     * @return ExtractionResponse with status, template, extractedData, etc.
+     *         Check {@code response.isFound()} to determine if extraction exists.
      */
-    Map<String, Object> getLatestExtraction(String projectPath, String templateName, String userId);
+    ExtractionResponse getLatestExtraction(String projectPath, String templateName, String userId);
 
     /**
      * Get extraction history for a template and user.

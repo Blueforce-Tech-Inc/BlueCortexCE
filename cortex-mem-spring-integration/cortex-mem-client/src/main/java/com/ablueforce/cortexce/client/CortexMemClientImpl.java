@@ -298,8 +298,7 @@ public class CortexMemClientImpl implements CortexMemClient {
     // ==================== Extraction (Phase 3) ====================
 
     @Override
-    @SuppressWarnings("unchecked")
-    public Map<String, Object> getLatestExtraction(String projectPath, String templateName, String userId) {
+    public ExtractionResponse getLatestExtraction(String projectPath, String templateName, String userId) {
         requireNonBlank(projectPath, "projectPath");
         requireNonBlank(templateName, "templateName");
         return executeWithRetryReturn("getLatestExtraction", () ->
@@ -314,7 +313,7 @@ public class CortexMemClientImpl implements CortexMemClient {
                     return builder.build(templateName);
                 })
                 .retrieve()
-                .body(new ParameterizedTypeReference<>() {})
+                .body(ExtractionResponse.class)
         );
     }
 
