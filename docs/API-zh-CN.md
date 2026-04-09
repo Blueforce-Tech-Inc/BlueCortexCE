@@ -2418,8 +2418,8 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-07 | 0.1.0-beta+27 | Viewer Mode 端点修复：GET /api/modes 响应 `mode_id`→`id`（匹配 ViewerController `response.put("id", ...)`）；修复 POST /api/modes HTTP 方法 PUT→POST（匹配 ViewerController `@PostMapping`）；修复 POST /api/modes 请求体 `modeId`→`mode`（匹配 ModeSwitchRequest wire format `@JsonProperty("mode")`）；修复 POST /api/modes 响应为 `{"success": true, "mode": "...", "name": "..."}`（匹配 ViewerController 实际响应）；与英文版同步 |
 | 2026-04-08 | 0.1.0-beta+28 | ModeController PUT /api/mode：请求体还原 `mode`→`mode_id`（实测确认 ModeController 内部 ModeSwitchRequest 字段为 `modeId`（无 @JsonProperty），wire 格式为 snake_case `mode_id` 而非 `mode`）；与英文版同步 |
 | 2026-04-08 | 0.1.0-beta+29 | List Observations：丰富响应示例，展示 ObservationResponse DTO 的全部 24 个字段（session_id/subtitle/facts/concepts/files_read/files_modified/quality_score/feedback_type/feedback_updated_at/source/extractedData/prompt_number/created_at/last_accessed_at/access_count/refined_at/refined_from_ids/user_comment）；新增 24 字段响应字段说明表；丰富 Batch Get Observations 响应示例；与英文版同步 |
-| 2026-04-09 | 0.1.0-beta+31 | 补充 Ingestion 端点缺失的 400 错误响应：POST /api/ingest/session-end（缺少 session_id）和 POST /api/ingest/observation（缺少 content_session_id 或 project_path）；与 IngestionController.java 源码验证一致；与英文版同步 |
 | 2026-04-08 | 0.1.0-beta+30 | Readiness Check：补充缺失的 503 响应体示例 `{"status":"not_ready","checks":{"database":"not_ready","queueDepth":0,"queueStatus":"ready"},"timestamp":...}`（HealthController 实际返回 "not_ready" 而非 "degraded"）；与英文版同步 |
+| 2026-04-09 | 0.1.0-beta+31 | 补充 Ingestion 端点缺失的 400 错误响应：POST /api/ingest/session-end（缺少 session_id）和 POST /api/ingest/observation（缺少 content_session_id 或 project_path）；与 IngestionController.java 源码验证一致；与英文版同步 |
 
 ---
 
