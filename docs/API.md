@@ -332,6 +332,9 @@ Signals the end of a session and triggers async summary generation.
 }
 ```
 
+**Error Responses**:
+- `400` — Missing required field: `session_id`
+
 ### Create Observation Directly
 
 ```
@@ -387,6 +390,10 @@ Directly creates an observation with automatic embedding generation.
   "type": "feature"
 }
 ```
+
+**Error Responses**:
+- `400` — Missing required field: `content_session_id` (or `session_id`)
+- `400` — Missing required field: `project_path` (or `cwd`)
 
 ## Memory
 
@@ -2349,6 +2356,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-07 | 0.1.0-beta+27 | Viewer Mode endpoints: fixed GET /api/modes response `mode_id`→`id` (matches ViewerController `response.put("id", ...)`); fixed POST /api/modes HTTP method PUT→POST (matches ViewerController `@PostMapping`); fixed POST /api/modes request body `modeId`→`mode` (matches ModeSwitchRequest wire format `@JsonProperty("mode")`); fixed POST /api/modes response to `{"success": true, "mode": "...", "name": "..."}` (matches ViewerController actual response); synced Chinese version |
 | 2026-04-08 | 0.1.0-beta+28 | ModeController PUT /api/mode: request body reverted `mode`→`mode_id` (live test confirmed ModeController's nested ModeSwitchRequest has field `modeId` with no @JsonProperty, so wire format is snake_case `mode_id` not `mode`); synced Chinese version |
 | 2026-04-08 | 0.1.0-beta+29 | List Observations: enriched response example with all 24 fields from ObservationResponse DTO (session_id/subtitle/facts/concepts/files_read/files_modified/quality_score/feedback_type/feedback_updated_at/source/extractedData/prompt_number/created_at/last_accessed_at/access_count/refined_at/refined_from_ids/user_comment); added 24-field response table; enriched Batch Get Observations response example; synced Chinese version |
+| 2026-04-09 | 0.1.0-beta+31 | Added missing 400 error responses to Ingest endpoints: POST /api/ingest/session-end (missing session_id) and POST /api/ingest/observation (missing content_session_id or project_path); verified against IngestionController.java source code; synced Chinese version |
 | 2026-04-08 | 0.1.0-beta+30 | Readiness Check: added missing 503 response body example showing `{"status":"not_ready","checks":{"database":"not_ready","queueDepth":0,"queueStatus":"ready"},"timestamp":...}` (HealthController returns "not_ready" status for 503, not "degraded"); synced Chinese version |
 
 ---
