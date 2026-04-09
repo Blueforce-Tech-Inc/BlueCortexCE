@@ -293,6 +293,44 @@ macOS Accessibility API 返回的是一棵**有类型的属性树**（AXUIElemen
 - 密码字段（`AXSecureTextField`）不提取 value
 - 纯 UI 噪音节点（"后退"、"前进"、"分享"等按钮）在 Layer 1 保留但 Layer 2/3 过滤
 
+#### V1.0 降级实现 vs 最佳设计
+
+| 层级 | V1.0 降级实现 | 最佳设计 |
+|------|---------------|----------|
+| Layer 1 (AXSnapshot) | `nil`（完全未提取） | 完整 AX 树快照，包含每个节点的 role/title/value/url/position/size 等 |
+| Layer 2 (Semantic) | 简单字符串拼接，`visibleTextBlocks[].role` 总为 `"AXStaticText"` | 真正结构化：按 role 分类提取（headings/links/buttons/textFields 等） |
+| Layer 3 (Markdown) | 纯文本拼接，丢失所有结构 | 基于 Layer 2 结构渲染，保留语义层级 |
+
+**核心问题**：V1.0 的 `collectText()` 方法只提取 value 字符串，丢失了 AX 树的全部结构信息。
+
+#### Layer 2 TextBlock 最佳设计
+
+```swift
+struct TextBlock: Codable {
+    let text: String           // 文本内容
+    let role: String           // AX 角色：AXStaticText/AXHeading/AXLink/AXButton/...
+    let title: String?         // 元素的 title 属性（按钮名称等）
+    let url: String?           // AXLink 的 URL
+    let level: Int?            // AXHeading 的层级 (1-6)
+    let position: CGPointCodable?  // 屏幕坐标
+    let size: CGSizeCodable?      // 元素尺寸
+    let isFocused: Bool        // 是否聚焦
+}
+```
+
+**正确的提取结果示例**：
+```json
+{
+  "visibleTextBlocks": [
+    { "role": "AXHeading", "level": 1, "text": "GitHub", "position": {"x": 100, "y": 50}, "size": {"width": 200, "height": 30} },
+    { "role": "AXLink", "text": "Pull requests", "url": "https://github.com/pulls" },
+    { "role": "AXButton", "text": "New", "title": "Create new" },
+    { "role": "AXStaticText", "text": "Your repositories" },
+    { "role": "AXTextField", "text": "", "title": "Search", "isFocused": false }
+  ]
+}
+```
+
 #### Layer 1: AXNode 结构化快照
 
 ```swift
