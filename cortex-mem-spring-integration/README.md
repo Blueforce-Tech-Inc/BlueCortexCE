@@ -387,9 +387,12 @@ Query LLM-extracted structured data by template name:
 
 ```java
 // Get latest extraction for a user
-Map<String, Object> extraction = client.getLatestExtraction(
+ExtractionResponse extraction = client.getLatestExtraction(
     "/my-project", "user_preference", "alice");
-// Returns: {"preferences": [{"category":"phone_brand","value":"小米","sentiment":"positive"}]}
+// Returns: ExtractionResponse { status: "ok", template: "user_preference",
+//   sessionId: "abc123", extractedData: { preferences: [...] }, createdAt: 1234567890,
+//   observationId: "uuid", message: null }
+// Use extraction.isFound() to check if extraction exists
 
 // Get extraction history (all snapshots)
 List<Map<String, Object>> history = client.getExtractionHistory(

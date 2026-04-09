@@ -387,9 +387,12 @@ client.updateSessionUserId("conv-123", "bob");
 
 ```java
 // 获取用户的最新提取结果
-Map<String, Object> extraction = client.getLatestExtraction(
+ExtractionResponse extraction = client.getLatestExtraction(
     "/my-project", "user_preference", "alice");
-// 返回：{"preferences": [{"category":"phone_brand","value":"小米","sentiment":"positive"}]}
+// 返回：ExtractionResponse { status: "ok", template: "user_preference",
+//   sessionId: "abc123", extractedData: { preferences: [...] }, createdAt: 1234567890,
+//   observationId: "uuid", message: null }
+// 使用 extraction.isFound() 检查提取结果是否存在
 
 // 获取提取历史（所有快照）
 List<Map<String, Object>> history = client.getExtractionHistory(
