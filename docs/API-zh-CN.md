@@ -2421,6 +2421,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-08 | 0.1.0-beta+30 | Readiness Check：补充缺失的 503 响应体示例 `{"status":"not_ready","checks":{"database":"not_ready","queueDepth":0,"queueStatus":"ready"},"timestamp":...}`（HealthController 实际返回 "not_ready" 而非 "degraded"）；与英文版同步 |
 | 2026-04-09 | 0.1.0-beta+31 | 补充 Ingestion 端点缺失的 400 错误响应：POST /api/ingest/session-end（缺少 session_id）和 POST /api/ingest/observation（缺少 content_session_id 或 project_path）；与 IngestionController.java 源码验证一致；与英文版同步 |
 | 2026-04-09 | 0.1.0-beta+32 | 补充 GET /api/health 缺失的降级模式响应示例（`status: "degraded"`，数据库不可用时返回，200 OK）；已与 HealthController.java 源码第 62 行验证（`response.put("status", dbReady ? "ok" : "degraded")`）；与英文版结构一致 |
+| 2026-04-10 | 0.1.0-beta+33 | 删除英文版错误放置的 `## Recent Work` 顶级章节（原 812-823 行）——包含不应出现在 API 参考文档中的非 API 内容（bug fix 示例、Token Savings Summary）。将三个 Context API 端点文档（`/api/context/recent`、`/api/context/timeline`、`/api/context/prior-messages`）从原 `## Recent Work` 下的 `###` 子节移至 `## Context` 章节下的 `#### GET` 正式子节；更新 curl 示例为 `bash` 代码块格式并补充参数类型列；英文版结构现已与中文版一致 |
 
 ---
 

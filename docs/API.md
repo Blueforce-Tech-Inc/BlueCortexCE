@@ -809,36 +809,23 @@ Response (text/plain):
 
 Generated: 2026-03-13 10:15
 
-## Recent Work
-
-### Bug fix for authentication
-**Type**: bugfix | **Concepts**: authentication
-Fixed JWT token validation issue...
-
----
-Token Savings Summary
-- Total observations: 45
-- Read tokens: 10,500
-- Saved tokens: 95,000 (90%)
-```
-
-### Recent Context
+#### GET `/api/context/recent`
 
 Get recent session context summary.
 
+**Query Parameters**:
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `project` | string | No | cwd | Project path |
+| `limit` | int | No | 3 | Number of sessions to return |
+
+**Request Example**:
+```bash
+curl "http://localhost:37777/api/context/recent?project=/Users/dev/myproject&limit=5"
 ```
-GET /api/context/recent?project=/Users/dev/myproject&limit=5
-```
 
-Query parameters:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `project` | No | cwd | Project path |
-| `limit` | No | 3 | Number of sessions to return |
-
-Response:
-
+**Response Example**:
 ```json
 {
   "content": [
@@ -851,25 +838,25 @@ Response:
 }
 ```
 
-### Timeline Context
+#### GET `/api/context/timeline`
 
 Get timeline context with anchor-based query.
 
+**Query Parameters**:
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `anchor` | string | No | — | Anchor ID (UUID or session ID) |
+| `depth_before` | int | No | 10 | Items before anchor |
+| `depth_after` | int | No | 10 | Items after anchor |
+| `project` | string | No | — | Project path |
+
+**Request Example**:
+```bash
+curl "http://localhost:37777/api/context/timeline?anchor=obs-123&project=/Users/dev/myproject"
 ```
-GET /api/context/timeline?anchor=obs-123&project=/Users/dev/myproject
-```
 
-Query parameters:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `anchor` | No | — | Anchor ID (UUID or session ID) |
-| `depth_before` | No | 10 | Items before anchor |
-| `depth_after` | No | 10 | Items after anchor |
-| `project` | No | — | Project path |
-
-Response:
-
+**Response Example**:
 ```json
 {
   "anchor": {
@@ -882,23 +869,23 @@ Response:
 }
 ```
 
-### Prior Messages
+#### GET `/api/context/prior-messages`
 
 Get messages from the previous session (for context continuity).
 
+**Query Parameters**:
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `project` | string | Yes | Project path |
+| `currentSessionId` | string | No | Current session ID (for exclusion) |
+
+**Request Example**:
+```bash
+curl "http://localhost:37777/api/context/prior-messages?project=/Users/dev/myproject"
 ```
-GET /api/context/prior-messages?project=/Users/dev/myproject
-```
 
-Query parameters:
-
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `project` | Yes | Project path |
-| `currentSessionId` | No | Current session ID (for exclusion) |
-
-Response:
-
+**Response Example**:
 ```json
 {
   "userMessage": "Add authentication feature",
@@ -2359,6 +2346,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-08 | 0.1.0-beta+30 | Readiness Check: added missing 503 response body example showing `{"status":"not_ready","checks":{"database":"not_ready","queueDepth":0,"queueStatus":"ready"},"timestamp":...}` (HealthController returns "not_ready" status for 503, not "degraded"); synced Chinese version |
 | 2026-04-09 | 0.1.0-beta+31 | Added missing 400 error responses to Ingest endpoints: POST /api/ingest/session-end (missing session_id) and POST /api/ingest/observation (missing content_session_id or project_path); verified against IngestionController.java source code; synced Chinese version |
 | 2026-04-09 | 0.1.0-beta+32 | Added missing degraded response example to Chinese GET /api/health section (status: "degraded" when DB unreachable, 200 OK — already present in English version); EN changelog updated for completeness |
+| 2026-04-10 | 0.1.0-beta+33 | Removed spurious `## Recent Work` top-level section (lines 812-823) — contained non-API content (bug fix example, Token Savings Summary) not belonging in API reference. Moved three Context API endpoint docs (`/api/context/recent`, `/api/context/timeline`, `/api/context/prior-messages`) from `###` subsections under `## Recent Work` to proper `#### GET` subsections under `## Context`; updated curl examples to use `bash` code fences and added parameter type columns; EN doc now consistent with ZH structure |
 
 ---
 
