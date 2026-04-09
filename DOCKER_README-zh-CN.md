@@ -163,17 +163,76 @@ docker compose down && docker compose up -d
 
 ## 构建本地镜像
 
-如需从源码构建镜像：
+Dockerfile 使用多阶段构建：
+
+1. **Stage 1 (java-builder)**：构建 Spring Boot JAR
+2. **Stage 2 (runtime)**：使用最小 JRE 镜像运行应用
+
+**重要**：构建前必须初始化 webui 子模块：
 
 ```bash
-# 1. 安装依赖
+# 1. 初始化子模块（webui 是子模块）
+git submodule update --init --recursive
+
+# 2. 预构建 WebUI 资源
 ./scripts/prebuild-webui.sh
 
-# 2. 构建镜像
+# 3. 构建镜像
 docker build -t cortex-ce:local -f Dockerfile .
 
-# 3. 使用本地镜像
+# 4. 使用本地镜像
 IMAGE_NAME=cortex-ce:local docker compose up -d
+```
+
+## 端到端测试
+
+项目包含针对 Docker 部署的综合 E2E 测试脚本。
+
+### 运行完整 E2E 测试
+
+```bash
+cd scripts
+./docker-e2e-test.sh
+```
+
+该脚本会：
+- 启动 `docker-compose.yml` 中定义的所有服务
+- 运行回归测试验证 API 端点
+- 验证数据库连接和迁移
+- 检查健康检查端点
+
+### 测试覆盖
+
+| 测试类型 | 说明 |
+|---------|------|
+| API 端点测试 | 验证所有 REST API 端点 |
+| 数据库测试 | 验证 PostgreSQL 和 pgvector |
+| 健康检查测试 | 验证 `/api/health` 端点 |
+| MCP 服务测试 | 验证 MCP 服务器连接 |
+
+## 生产环境注意事项
+
+- 使用 `prd` profile（已在 docker-compose.yml 中设置）
+- 数据库密码必须使用强密码
+- 考虑限制 PostgreSQL 端口（5433）的外部访问
+- 生产环境建议配置 TLS/SSL
+- 日志通过 `claude-mem-logs` volume 持久化
+
+## 仓库结构
+
+```
+BlueCortexCE/
+├── Dockerfile              # 多阶段 Docker 构建
+├── docker-compose.yml      # Docker Compose 配置
+├── .env.docker             # 环境变量模板
+├── backend/                # Java Spring Boot 应用
+│   ├── src/
+│   ├── pom.xml
+│   └── ...
+├── proxy/                  # Claude Code 包装器（Node.js）
+├── scripts/                # 部署和测试脚本
+├── docs/                  # 文档
+└── webui/                 # WebUI（子模块：claude-mem 仓库）
 ```
 
 ## 环境变量文件示例
@@ -204,3 +263,9 @@ SPRING_AI_OPENAI_EMBEDDING_API_KEY=your_embedding_key_here
 - API keys 不要提交到版本控制系统
 - 生产环境使用 `SPRING_PROFILES_ACTIVE=prd`
 - 考虑限制数据库端口（5433）的外部访问
+- 应用在容器内以非 root 用户运行
+- 日志通过 `claude-mem-logs` volume 持久化
+
+---
+
+> English version: [DOCKER_README.md](./DOCKER_README.md)
