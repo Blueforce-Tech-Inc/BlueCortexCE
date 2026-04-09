@@ -1,7 +1,7 @@
 # ScreenPulse Implementation Progress
 
 **Last Updated**: 2026-04-09
-**Status**: M1-M4 Complete (V1.0) - Architecture Issues Identified
+**Status**: M1-M4 + Layer 1/2 Extraction Complete (V1.0 Fixed)
 
 ## Overview
 
@@ -45,57 +45,42 @@ Any backend improvements needed will be recorded here:
 | 2026-04-09 | List selection binding complexity | **FIXED** |
 | 2026-03-31 | (none yet) | - |
 
-## Architecture Issues (V1.0)
+## Architecture Issues (V1.0) - FIXED
 
-V1.0 implementation has **significant architecture issues** with the three-layer data model:
+All three-layer data model issues have been resolved:
 
-| Layer | Issue | Impact |
-|-------|-------|--------|
-| Layer 1 (AXSnapshot) | Always `nil` - AX tree structure not extracted | No source traceability, cannot re-parse |
-| Layer 2 (Semantic) | `visibleTextBlocks[].role` always `"AXStaticText"` - text is simple join | No role information, cannot distinguish headings/links/buttons |
-| Layer 3 (Markdown) | Pure text concatenation | Loses all semantic structure from AX tree |
+| Layer | Issue | Resolution |
+|-------|-------|------------|
+| Layer 1 (AXSnapshot) | Was `nil` | ✅ Now builds full AXNode tree with role/title/value/url/position/size |
+| Layer 2 (Semantic) | role always `"AXStaticText"` | ✅ Extracts headings/links/buttons/textFields with proper categorization |
+| Layer 3 (Markdown) | Pure text concatenation | ✅ Renders structured Markdown with ## for headings, [text](url) for links |
 
-### Root Cause
+### Implementation Details
 
-`ScreenCaptureManager.collectText()` method only extracts text values:
+**Layer 1**: `ScreenCaptureManager.buildAXNodeTree()` replaces `collectText()`:
+- Extracts role, title, value, description, url, position, size, isFocused, isSelected, isEnabled
+- Filters by `meaningfulRoles` set to remove UI noise
+- Recursively builds AXNode tree
 
-```swift
-// Current V1.0 implementation - loses ALL structure
-private func collectText(from element: AXUIElement, depth: Int, into text: inout [String]) {
-    // ... only extracts kAXValueAttribute as String
-    if let value = valueValue as? String, !value.isEmpty {
-        text.append(value)  // ← Just appends strings, loses role/title/url/position
-    }
-    // children traversal continues but role info is discarded
-}
-```
+**Layer 2**: `ObservationPayloadBuilder.extractSemanticFields()`:
+- Traverses AXNode tree and categorizes nodes by role
+- Extracts `headings[]` with level, `links[]` with URL, `visibleTextBlocks[]` with full context
+- Tracks `focusedElementRole/Value` and `selectedText` (strongest intent signal)
 
-### Impact
-
-1. **Dual-track storage is ineffective**: Both `content TEXT` and `extractedData.semantic.visibleTextBlocks[].text` store the same concatenated plain text
-2. **Cannot query by role**: Cannot ask "what headings is the user viewing?"
-3. **Cannot query by URL**: Cannot ask "what URL is the user on?"
-4. **Lost spatial information**: No position/size data for understanding UI layout
-5. **LLM context is degraded**: Markdown has no semantic markers (##, links, etc.)
-
-### Required Fix (Priority: HIGH)
-
-Implement proper Layer 1 (AXSnapshot) and Layer 2 (Semantic) extraction:
-
-1. `ScreenCaptureManager` should build an `AXNode` tree (Layer 1)
-2. `ObservationPayloadBuilder` should extract `SemanticFields` from `AXNode` (Layer 2)
-3. `visibleTextBlocks` should contain actual role/title/url/level/position/size data
-
-See `screenpulse-implementation-plan.md` Section 4.3 "V1.0 降级实现 vs 最佳设计" for detailed comparison.
+**Layer 3**: `renderMarkdown()` enhanced:
+- Headings render with proper `#` markers based on level
+- Links render as `[text](url)`
+- Buttons render as `[text]` with title in parentheses
+- TextFields render as `**Title:** value`
 
 ## Pending Tasks
 
 | Priority | Task | Status |
 |----------|------|--------|
-| HIGH | Fix Layer 1 extraction - build AXNode tree | **PENDING** |
-| HIGH | Fix Layer 2 extraction - populate SemanticFields correctly | **PENDING** |
-| HIGH | Fix visibleTextBlocks - include role/title/url/position/size | **PENDING** |
-| MEDIUM | Enhance TextBlock struct in ObservationPayload.swift | **PENDING** |
+| HIGH | Fix Layer 1 extraction - build AXNode tree | **FIXED** |
+| HIGH | Fix Layer 2 extraction - populate SemanticFields correctly | **FIXED** |
+| HIGH | Fix visibleTextBlocks - include role/title/url/position/size | **FIXED** |
+| MEDIUM | Enhance TextBlock struct in ObservationPayload.swift | **FIXED** |
 
 ## File Locations
 
@@ -117,11 +102,11 @@ swift build -c release
 
 ## Build Status
 
-**Last build**: 2026-03-31 - SUCCESS
+**Last build**: 2026-04-09 - SUCCESS
 
 ```
 swift build
-Build complete! (1.00s)
+Build complete! (0.99s)
 ```
 
 ## Known Warnings (Non-blocking)
