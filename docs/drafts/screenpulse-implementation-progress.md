@@ -1,7 +1,7 @@
 # ScreenPulse Implementation Progress
 
-**Last Updated**: 2026-03-31
-**Status**: M1-M4 Complete (V1.0 Ready for Testing)
+**Last Updated**: 2026-04-09
+**Status**: M1-M4 Complete + Bug Fixes (V1.0 Stable)
 
 ## Overview
 
@@ -40,6 +40,9 @@ Any backend improvements needed will be recorded here:
 
 | Date | Issue | Status |
 |------|-------|--------|
+| 2026-04-09 | Self-capture crash: app captured own windows causing autolayout crashes on background threads | **FIXED** |
+| 2026-04-09 | App activation policy: improper accessory/regular policy switching | **FIXED** |
+| 2026-04-09 | List selection binding complexity | **FIXED** |
 | 2026-03-31 | (none yet) | - |
 
 ## File Locations
