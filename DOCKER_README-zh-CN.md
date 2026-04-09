@@ -110,7 +110,7 @@ docker compose logs -f postgres
 
 数据通过 Docker volume 持久化：
 
-- `claude-mem-db`：PostgreSQL 数据目录
+- `postgres_data`：PostgreSQL 数据目录
 - `claude-mem-logs`：应用日志目录
 
 ## 停止服务
