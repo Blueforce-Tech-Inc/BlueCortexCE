@@ -24,6 +24,11 @@ struct ContentView: View {
 
             Divider()
 
+            // Statistics Section
+            statisticsSection
+
+            Divider()
+
             // Control Section
             controlSection
 
@@ -57,6 +62,31 @@ struct ContentView: View {
                 .font(.system(.body, design: .default))
 
             Spacer()
+        }
+    }
+
+    private var statisticsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Statistics")
+                    .font(.headline)
+
+                Spacer()
+
+                Button(action: {
+                    manager.resetStatistics()
+                }) {
+                    Text("Reset")
+                        .font(.caption)
+                }
+                .buttonStyle(.bordered)
+            }
+
+            HStack {
+                StatBox(title: "Captures", value: "\(manager.totalCaptures)")
+                Spacer()
+                StatBox(title: "Skipped", value: "\(manager.skippedDuplicates)")
+            }
         }
     }
 
@@ -186,6 +216,27 @@ struct ContentView: View {
             }
         }
         .padding()
+    }
+}
+
+// MARK: - Statistics Box
+struct StatBox: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.system(.title2, design: .monospaced))
+                .fontWeight(.bold)
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color.secondary.opacity(0.1))
+        .cornerRadius(6)
     }
 }
 

@@ -92,6 +92,10 @@ final class ScreenCaptureManager: ObservableObject {
     private var lastSkipTime: Date?
     private let skipLogInterval: TimeInterval = 30.0  // Log "skipping duplicate" at most every 30s
 
+    // Capture statistics (published for UI binding)
+    @Published var totalCaptures: Int = 0
+    @Published var skippedDuplicates: Int = 0
+
     private let logDir: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let url = base.appendingPathComponent("ScreenPulse/logs", isDirectory: true)
@@ -182,6 +186,12 @@ final class ScreenCaptureManager: ObservableObject {
         }
     }
 
+    /// Reset capture statistics
+    func resetStatistics() {
+        totalCaptures = 0
+        skippedDuplicates = 0
+    }
+
     private func captureOnce(trigger: CaptureTrigger) {
         captureQueue.async { [weak self] in
             self?.performCapture(trigger: trigger)
@@ -248,6 +258,7 @@ final class ScreenCaptureManager: ObservableObject {
                 print("ScreenPulse: Skipping duplicate capture for \(appName) - \(windowTitle)")
                 lastSkipTime = Date()
             }
+            skippedDuplicates += 1
             return
         }
         lastContentHash = contentHash
@@ -265,6 +276,9 @@ final class ScreenCaptureManager: ObservableObject {
             trigger: trigger,
             axSnapshot: axRoot
         )
+
+        // Increment capture statistics
+        totalCaptures += 1
 
         // Update UI on main thread
         DispatchQueue.main.async { [weak self] in
