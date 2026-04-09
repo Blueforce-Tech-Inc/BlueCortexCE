@@ -321,8 +321,17 @@ class ObservationUpdate:
         """Return True if no fields are set (nothing to send).
 
         Matches Go SDK's ObservationUpdate.IsEmpty() for cross-SDK parity.
+        ``extracted_data={}`` is treated as "unset" — an empty dict is
+        semantically equivalent to ``None`` (backend stores nothing in JSONB).
         """
-        return all(getattr(self, attr) is None for attr in self._WIRE_FIELDS)
+        for attr in self._WIRE_FIELDS:
+            val = getattr(self, attr)
+            # extracted_data={} is semantically equivalent to None (no meaningful data)
+            if attr == "extracted_data" and isinstance(val, dict) and not val:
+                continue
+            if val is not None:
+                return False
+        return True
 
     def __bool__(self) -> bool:
         """Return True if at least one field is set (Pythonic truthiness).

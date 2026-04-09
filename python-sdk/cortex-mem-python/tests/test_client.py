@@ -1139,8 +1139,10 @@ class TestDTOs:
         """is_empty() returns False when any field is set."""
         assert ObservationUpdate(title="x").is_empty() is False
         assert ObservationUpdate(source="manual").is_empty() is False
-        assert ObservationUpdate(extracted_data={}).is_empty() is False
-        assert ObservationUpdate(facts=[]).is_empty() is False  # empty list is still set
+        # extracted_data={} is treated as "unset" — semantically equivalent to None
+        assert ObservationUpdate(extracted_data={}).is_empty() is True
+        # facts=[] is still "set" (empty list sent as-is to backend)
+        assert ObservationUpdate(facts=[]).is_empty() is False
 
     def test_observation_update_is_empty_edge_cases(self):
         """is_empty() distinguishes None from empty string/list."""
@@ -1154,7 +1156,8 @@ class TestDTOs:
         assert bool(ObservationUpdate()) is False
         assert bool(ObservationUpdate(title="x")) is True
         assert bool(ObservationUpdate(source="manual")) is True
-        assert bool(ObservationUpdate(extracted_data={})) is True
+        # extracted_data={} is treated as "unset" (semantically equivalent to None)
+        assert bool(ObservationUpdate(extracted_data={})) is False
         assert bool(ObservationUpdate(facts=[])) is True  # empty list is still set
         assert bool(ObservationUpdate(title="")) is True  # empty string is still set
 
