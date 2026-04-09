@@ -2560,3 +2560,49 @@ Total: 426/426 tests passed
 **Backend P0/P1/P2 状态**: 0 / 0 / 0
 
 **测试状态**: No code changes needed; clean review.
+
+---
+
+## 2026-04-09 19:55 | Java SDK 审查 #1 (cortex-mem-spring-integration)
+
+**审查范围**: cortex-mem-client DTOs + CortexMemClientImpl + Demo controllers
+
+**审查的文件**:
+- `cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/dto/SearchRequest.java`
+- `cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/dto/ObservationsRequest.java`
+- `cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/dto/ObservationRequest.java`
+- `cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/dto/ObservationUpdate.java`
+- `cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/dto/SessionStartRequest.java`
+- `cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/dto/SessionEndRequest.java`
+- `cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/dto/UserPromptRequest.java`
+- `cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/dto/ExperienceRequest.java`
+- `cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/dto/Experience.java`
+- `cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/dto/ICLPromptRequest.java`
+- `cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/dto/ICLPromptResult.java`
+- `cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/dto/ObservationResponse.java`
+- `cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/CortexMemClient.java`
+- `cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/CortexMemClientImpl.java`
+- `examples/cortex-mem-demo/src/main/java/com/example/cortexmem/ObservationsController.java`
+- `examples/cortex-mem-demo/src/main/java/com/example/cortexmem/SearchController.java`
+
+**发现的问题**: 无 P0/P1/P2 bug。
+
+**SDK 测试覆盖率**: 119 tests (DtoTest 33 + CortexMemClientImplTest 86)
+
+**代码质量亮点**:
+- 所有必需字段通过 `Objects.requireNonNull` / `requireNonBlank` 在方法入口处验证
+- `ObservationRequest.toWireFormat()` 使用显式字段映射（无反射），null-safe
+- `SearchRequest`/`ObservationsRequest`: limit>0 守卫防止发送 0 覆盖 backend 默认值
+- `CortexMemClientImpl.search()`: offset>0 守卫确保 offset=0 时不发送（backend 默认 0）
+- `ObservationResponse.mapToObservationResponse()`: 处理全部 4 个扩展 backend 字段（accessCount, refinedAt, refinedFromIds, userComment）+ temporal 类型转换
+- 重试策略: 429/502/503/504 可重试，500/4xx 不可重试，±25% jitter 与 Go SDK 一致
+- Fire-and-forget 捕获操作（recordObservation/recordSessionEnd/recordUserPrompt）使用 `executeWithRetrySilent`，显式操作传播错误
+- `ObservationUpdate` with `@JsonInclude(NON_NULL)` + `isEmpty()` 守卫防止 no-op PATCH 请求
+- `ObservationResponse` 便捷构造函数维护向后兼容性（4 个 null 扩展字段）
+- Demo Controllers: 完整输入验证（limit 范围、offset 非负、必填字段存在性、类型检查）
+- Demo Controllers: facts/concepts 列表项类型验证（拒绝 nulls 和非 String 项）
+- Demo Controllers: `getByIds` 支持最多 100 个 ID 批量查询
+
+**Backend P0/P1/P2 状态**: 0 / 0 / 0
+
+**测试状态**: No code changes needed; clean review.
