@@ -30,7 +30,8 @@ retriever := genkit.NewRetriever(client, "/my-project",
 
 // Use with Genkit
 output, err := retriever.Retrieve(ctx, genkit.RetrieverInput{
-    Query: "What files were read?",
+    Query:   "What files were read?",
+    Project: "/my-project", // optional if set in NewRetriever
 })
 // output.Documents[i].Content - document text
 // output.Documents[i].Metadata - metadata (id, task, qualityScore, reuseCondition, createdAt)
