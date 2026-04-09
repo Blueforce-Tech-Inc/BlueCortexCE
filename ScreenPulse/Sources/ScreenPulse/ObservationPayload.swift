@@ -109,14 +109,14 @@ struct SemanticFields: Codable {
     }
 
     struct TextBlock: Codable {
-        let text: String           // 文本内容
-        let role: String          // AX 角色：AXStaticText/AXHeading/AXLink/AXButton/...
-        let title: String?        // 元素的 title 属性（按钮名称等）
-        let url: String?           // AXLink 的 URL
-        let level: Int?           // AXHeading 的层级 (1-6)
-        let position: CGPointCodable?  // 屏幕坐标
-        let size: CGSizeCodable?      // 元素尺寸
-        let isFocused: Bool        // 是否聚焦
+        let text: String           // Text content
+        let role: String          // AX role: AXStaticText/AXHeading/AXLink/AXButton/...
+        let title: String?        // Element title attribute (button label, etc.)
+        let url: String?           // URL for AXLink
+        let level: Int?           // Heading level for AXHeading (1-6)
+        let position: CGPointCodable?  // Screen coordinates
+        let size: CGSizeCodable?      // Element size
+        let isFocused: Bool        // Is focused
 
         init(text: String, role: String, title: String? = nil, url: String? = nil,
              level: Int? = nil, position: CGPointCodable? = nil, size: CGSizeCodable? = nil,

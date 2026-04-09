@@ -67,6 +67,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         if !trusted {
             ScreenCaptureManager.shared.statusMessage = "⚠️ 权限未授权"
+            ScreenCaptureManager.shared.isCapturing = false
+        } else {
+            // Auto-start capture when permissions are granted
+            ScreenCaptureManager.shared.startCapturing()
         }
     }
 
