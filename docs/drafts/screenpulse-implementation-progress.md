@@ -190,6 +190,10 @@ When user switches apps:
 | Content deduplication | Skip capture if content unchanged | **IMPLEMENTED** |
 | Configurable polling interval | Stepper UI (1-30s) to adjust capture frequency | **IMPLEMENTED** |
 | Auto-start on launch | Capture begins automatically when permissions granted | **IMPLEMENTED** |
+| Statistics display | Captures/Skipped/Errors counters with Reset button | **IMPLEMENTED** |
+| UserDefaults persistence | Polling interval and endpoint saved across restarts | **IMPLEMENTED** |
+| Force capture button | Capture even if content hasn't changed | **IMPLEMENTED** |
+| Network retry logic | Exponential backoff retry (1s, 2s, 4s) for network/5xx errors | **IMPLEMENTED** |
 
 ## Known Warnings (Non-blocking)
 
