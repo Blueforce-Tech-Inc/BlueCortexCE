@@ -80,6 +80,7 @@ final class ScreenCaptureManager: ObservableObject {
     @Published var newIgnoreInput: String = ""
     @Published var statusMessage: String = "Idle"
     @Published var endpointInput: String = "http://localhost:37777/api/ingest/observation"
+    @Published var pollingInterval: Double = 5.0  // seconds, configurable
 
     // Internal state
     private let systemElement = AXUIElementCreateSystemWide()
@@ -157,7 +158,10 @@ final class ScreenCaptureManager: ObservableObject {
     // MARK: - Internal
 
     private func startTimer() {
-        let interval: TimeInterval = 5.0
+        // Stop existing timer if any
+        stopTimer()
+
+        let interval: TimeInterval = pollingInterval
         timer = DispatchSource.makeTimerSource(queue: captureQueue)
         timer?.schedule(deadline: .now() + interval, repeating: interval)
         timer?.setEventHandler { [weak self] in
@@ -169,6 +173,13 @@ final class ScreenCaptureManager: ObservableObject {
     private func stopTimer() {
         timer?.cancel()
         timer = nil
+    }
+
+    /// Restart timer with new interval (call when pollingInterval changes)
+    func restartTimerWithNewInterval() {
+        if isCapturing {
+            startTimer()
+        }
     }
 
     private func captureOnce(trigger: CaptureTrigger) {

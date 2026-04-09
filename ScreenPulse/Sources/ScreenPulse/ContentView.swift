@@ -78,6 +78,23 @@ struct ContentView: View {
                 manager.captureOnceManually()
             }
             .buttonStyle(.borderedProminent)
+
+            HStack {
+                Text("Interval:")
+                    .font(.caption)
+                Stepper(
+                    value: $manager.pollingInterval,
+                    in: 1...30,
+                    step: 1
+                ) {
+                    Text("\(Int(manager.pollingInterval))s")
+                        .font(.caption)
+                        .frame(minWidth: 30)
+                }
+                .onChange(of: manager.pollingInterval) { _ in
+                    manager.restartTimerWithNewInterval()
+                }
+            }
         }
     }
 
