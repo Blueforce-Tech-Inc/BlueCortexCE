@@ -2358,6 +2358,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-08 | 0.1.0-beta+29 | List Observations: enriched response example with all 24 fields from ObservationResponse DTO (session_id/subtitle/facts/concepts/files_read/files_modified/quality_score/feedback_type/feedback_updated_at/source/extractedData/prompt_number/created_at/last_accessed_at/access_count/refined_at/refined_from_ids/user_comment); added 24-field response table; enriched Batch Get Observations response example; synced Chinese version |
 | 2026-04-08 | 0.1.0-beta+30 | Readiness Check: added missing 503 response body example showing `{"status":"not_ready","checks":{"database":"not_ready","queueDepth":0,"queueStatus":"ready"},"timestamp":...}` (HealthController returns "not_ready" status for 503, not "degraded"); synced Chinese version |
 | 2026-04-09 | 0.1.0-beta+31 | Added missing 400 error responses to Ingest endpoints: POST /api/ingest/session-end (missing session_id) and POST /api/ingest/observation (missing content_session_id or project_path); verified against IngestionController.java source code; synced Chinese version |
+| 2026-04-09 | 0.1.0-beta+32 | Added missing degraded response example to Chinese GET /api/health section (status: "degraded" when DB unreachable, 200 OK — already present in English version); EN changelog updated for completeness |
 
 ---
 

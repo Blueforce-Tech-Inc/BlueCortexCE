@@ -2420,6 +2420,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-08 | 0.1.0-beta+29 | List Observations：丰富响应示例，展示 ObservationResponse DTO 的全部 24 个字段（session_id/subtitle/facts/concepts/files_read/files_modified/quality_score/feedback_type/feedback_updated_at/source/extractedData/prompt_number/created_at/last_accessed_at/access_count/refined_at/refined_from_ids/user_comment）；新增 24 字段响应字段说明表；丰富 Batch Get Observations 响应示例；与英文版同步 |
 | 2026-04-08 | 0.1.0-beta+30 | Readiness Check：补充缺失的 503 响应体示例 `{"status":"not_ready","checks":{"database":"not_ready","queueDepth":0,"queueStatus":"ready"},"timestamp":...}`（HealthController 实际返回 "not_ready" 而非 "degraded"）；与英文版同步 |
 | 2026-04-09 | 0.1.0-beta+31 | 补充 Ingestion 端点缺失的 400 错误响应：POST /api/ingest/session-end（缺少 session_id）和 POST /api/ingest/observation（缺少 content_session_id 或 project_path）；与 IngestionController.java 源码验证一致；与英文版同步 |
+| 2026-04-09 | 0.1.0-beta+32 | 补充 GET /api/health 缺失的降级模式响应示例（`status: "degraded"`，数据库不可用时返回，200 OK）；已与 HealthController.java 源码第 62 行验证（`response.put("status", dbReady ? "ok" : "degraded")`）；与英文版结构一致 |
 
 ---
 
