@@ -558,12 +558,8 @@ curl "http://localhost:37777/api/context/prior-messages?project=/Users/dev/mypro
 ```
 
 **错误响应**:
-```json
-{
-  "error": "Rate limit exceeded",
-  "retry_after": "45"
-}
-```
+- `400` — `{"error": "Missing required field: session_id"}` 或 `{"error": "Missing required field: tool_name"}`（缺少必填字段）
+- `429` — `{"error": "Rate limit exceeded", "retry_after": "45"}`（速率限制）
 
 **速率限制**: 10 次/60秒/会话
 
@@ -628,6 +624,9 @@ curl "http://localhost:37777/api/context/prior-messages?project=/Users/dev/mypro
   "status": "ok"
 }
 ```
+
+**错误响应**:
+- `400` — `{"error": "Missing required field: session_id"}`（缺少必填字段）
 
 ---
 
