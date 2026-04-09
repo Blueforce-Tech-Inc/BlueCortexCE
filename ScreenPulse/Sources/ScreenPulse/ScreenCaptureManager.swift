@@ -161,6 +161,13 @@ final class ScreenCaptureManager: ObservableObject {
         captureOnce(trigger: .manual)
     }
 
+    /// Force capture ignoring deduplication (for manual trigger)
+    func captureOnceForced() {
+        // Clear hash to force capture (will be updated on next real capture)
+        lastContentHash = 0
+        captureOnce(trigger: .manual)
+    }
+
     func addIgnoreBundle() {
         let trimmed = newIgnoreInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }

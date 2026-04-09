@@ -109,6 +109,12 @@ struct ContentView: View {
             }
             .buttonStyle(.borderedProminent)
 
+            Button("Force Capture") {
+                manager.captureOnceForced()
+            }
+            .buttonStyle(.bordered)
+            .help("Capture even if content hasn't changed")
+
             HStack {
                 Text("Interval:")
                     .font(.caption)
