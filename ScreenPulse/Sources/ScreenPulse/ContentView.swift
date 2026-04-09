@@ -86,6 +86,15 @@ struct ContentView: View {
                 StatBox(title: "Captures", value: "\(manager.totalCaptures)")
                 Spacer()
                 StatBox(title: "Skipped", value: "\(manager.skippedDuplicates)")
+                Spacer()
+                StatBox(title: "Errors", value: "\(manager.sendErrors)")
+            }
+
+            if let error = manager.lastErrorMessage {
+                Text("Last error: \(error)")
+                    .font(.caption)
+                    .foregroundColor(.red)
+                    .lineLimit(2)
             }
         }
     }

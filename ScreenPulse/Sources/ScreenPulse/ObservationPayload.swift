@@ -370,7 +370,14 @@ enum ObservationPayloadBuilder {
 // MARK: - Payload Sender
 
 enum ObservationPayloadSender {
+    private static let maxRetries = 3
+    private static let retryDelays: [TimeInterval] = [1.0, 2.0, 4.0]  // Exponential backoff
+
     static func send(payload: [String: Any], completion: @escaping (Result<Void, Error>) -> Void) {
+        sendWithRetry(payload: payload, attempt: 1, completion: completion)
+    }
+
+    private static func sendWithRetry(payload: [String: Any], attempt: Int, completion: @escaping (Result<Void, Error>) -> Void) {
         guard let url = URL(string: ScreenCaptureManager.shared.endpointInput) else {
             completion(.failure(PayloadError.invalidURL))
             return
@@ -379,6 +386,7 @@ enum ObservationPayloadSender {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 10
 
         guard let body = try? JSONSerialization.data(withJSONObject: payload) else {
             completion(.failure(PayloadError.encodingError))
@@ -389,7 +397,17 @@ enum ObservationPayloadSender {
 
         URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
-                completion(.failure(error))
+                // Retry on network error
+                if attempt < maxRetries {
+                    let delay = retryDelays[attempt - 1]
+                    print("ScreenPulse: Network error, retrying in \(delay)s (attempt \(attempt + 1)/\(maxRetries))")
+                    DispatchQueue.global().asyncAfter(deadline: .now() + delay) {
+                        sendWithRetry(payload: payload, attempt: attempt + 1, completion: completion)
+                    }
+                } else {
+                    print("ScreenPulse: Network error after \(maxRetries) attempts: \(error)")
+                    completion(.failure(error))
+                }
                 return
             }
 
@@ -400,16 +418,32 @@ enum ObservationPayloadSender {
 
             if (200...299).contains(httpResponse.statusCode) {
                 completion(.success(()))
+            } else if httpResponse.statusCode >= 500 && attempt < maxRetries {
+                // Retry on server error (5xx)
+                let delay = retryDelays[attempt - 1]
+                print("ScreenPulse: Server error \(httpResponse.statusCode), retrying in \(delay)s")
+                DispatchQueue.global().asyncAfter(deadline: .now() + delay) {
+                    sendWithRetry(payload: payload, attempt: attempt + 1, completion: completion)
+                }
             } else {
                 completion(.failure(PayloadError.httpError(statusCode: httpResponse.statusCode)))
             }
         }.resume()
     }
 
-    enum PayloadError: Error {
+    enum PayloadError: Error, LocalizedError {
         case invalidURL
         case encodingError
         case invalidResponse
         case httpError(statusCode: Int)
+
+        var errorDescription: String? {
+            switch self {
+            case .invalidURL: return "Invalid URL"
+            case .encodingError: return "Failed to encode payload"
+            case .invalidResponse: return "Invalid server response"
+            case .httpError(let code): return "HTTP error \(code)"
+            }
+        }
     }
 }

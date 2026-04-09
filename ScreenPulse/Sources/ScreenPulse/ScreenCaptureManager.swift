@@ -95,6 +95,8 @@ final class ScreenCaptureManager: ObservableObject {
     // Capture statistics (published for UI binding)
     @Published var totalCaptures: Int = 0
     @Published var skippedDuplicates: Int = 0
+    @Published var sendErrors: Int = 0
+    @Published var lastErrorMessage: String?
 
     private let logDir: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -215,6 +217,8 @@ final class ScreenCaptureManager: ObservableObject {
     func resetStatistics() {
         totalCaptures = 0
         skippedDuplicates = 0
+        sendErrors = 0
+        lastErrorMessage = nil
     }
 
     private func captureOnce(trigger: CaptureTrigger) {
@@ -524,11 +528,15 @@ final class ScreenCaptureManager: ObservableObject {
         )
 
         ObservationPayloadSender.send(payload: payload) { result in
-            switch result {
-            case .success:
-                print("ScreenPulse: Successfully posted observation")
-            case .failure(let error):
-                print("ScreenPulse: Failed to post observation: \(error)")
+            DispatchQueue.main.async { [weak self] in
+                switch result {
+                case .success:
+                    print("ScreenPulse: Successfully posted observation")
+                case .failure(let error):
+                    print("ScreenPulse: Failed to post observation: \(error)")
+                    self?.sendErrors += 1
+                    self?.lastErrorMessage = error.localizedDescription
+                }
             }
         }
     }
