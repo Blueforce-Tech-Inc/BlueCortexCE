@@ -85,6 +85,12 @@ final class ScreenCaptureManager: ObservableObject {
     private let systemElement = AXUIElementCreateSystemWide()
     private let captureQueue = DispatchQueue(label: "screenpulse.capture", qos: .background)
     private var timer: DispatchSourceTimer?
+
+    // Content deduplication state
+    private var lastContentHash: Int = 0
+    private var lastSkipTime: Date?
+    private let skipLogInterval: TimeInterval = 30.0  // Log "skipping duplicate" at most every 30s
+
     private let logDir: URL = {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let url = base.appendingPathComponent("ScreenPulse/logs", isDirectory: true)
@@ -221,6 +227,20 @@ final class ScreenCaptureManager: ObservableObject {
             return
         }
 
+        // Content deduplication: skip if content hash hasn't changed
+        let contentHash = hashContent(bundleId: bundleId, windowTitle: windowTitle, fullText: fullText)
+        if contentHash == lastContentHash {
+            // Log skip message at most once per skipLogInterval
+            if let lastSkip = lastSkipTime, Date().timeIntervalSince(lastSkip) < skipLogInterval {
+                // Too soon to log again
+            } else {
+                print("ScreenPulse: Skipping duplicate capture for \(appName) - \(windowTitle)")
+                lastSkipTime = Date()
+            }
+            return
+        }
+        lastContentHash = contentHash
+
         let captureTime = CFAbsoluteTimeGetCurrent()
         let captureMs = Int((captureTime - startTime) * 1000)
 
@@ -245,6 +265,16 @@ final class ScreenCaptureManager: ObservableObject {
 
         // Post to memory system
         postToMemorySystem(event, captureMs: captureMs)
+    }
+
+    // MARK: - Content Deduplication
+
+    /// Computes a hash of the content to detect duplicates
+    /// We hash bundleId + windowTitle + first 500 chars of fullText
+    private func hashContent(bundleId: String, windowTitle: String, fullText: String) -> Int {
+        let prefix = String(fullText.prefix(500))
+        let combined = "\(bundleId)|\(windowTitle)|\(prefix)"
+        return combined.hashValue
     }
 
     // MARK: - AX Node Tree Builder (Layer 1 extraction)
