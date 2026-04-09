@@ -12,12 +12,13 @@ struct ScreenPulseApp {
     }
 }
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
     private var consoleWindow: NSWindow!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.accessory)
         setupStatusItem()
         setupConsoleWindow()
         checkAccessibilityPermissions()
@@ -56,6 +57,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         consoleWindow.contentView = NSHostingView(rootView: contentView)
         consoleWindow.minSize = NSSize(width: 700, height: 400)
         consoleWindow.center()
+        consoleWindow.delegate = self
+        consoleWindow.isReleasedWhenClosed = false
     }
 
     private func checkAccessibilityPermissions() {
@@ -68,8 +71,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openConsole() {
+        NSApp.setActivationPolicy(.regular)
         consoleWindow.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        NSApp.setActivationPolicy(.accessory)
     }
 
     @objc private func toggleCapture() {

@@ -53,7 +53,12 @@ final class ScreenCaptureManager: ObservableObject {
     // Published state (UI bindings)
     @Published var isCapturing: Bool = false
     @Published var events: [CaptureEvent] = []
-    @Published var selectedEvent: CaptureEvent?
+    @Published var selectedEventId: UUID?
+
+    var selectedEvent: CaptureEvent? {
+        guard let id = selectedEventId else { return nil }
+        return events.first { $0.id == id }
+    }
     @Published var ignoreBundleIds: Set<String> = [
         "com.agilebits.onepassword7",
         "com.apple.systempreferences",
@@ -158,6 +163,11 @@ final class ScreenCaptureManager: ObservableObject {
 
         // Get frontmost app
         guard let frontmostApp = NSWorkspace.shared.frontmostApplication else {
+            return
+        }
+
+        // Never capture our own process (avoids self-capture + background-thread autolayout crashes)
+        guard frontmostApp.processIdentifier != ProcessInfo.processInfo.processIdentifier else {
             return
         }
 

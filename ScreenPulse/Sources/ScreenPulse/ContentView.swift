@@ -141,10 +141,7 @@ struct ContentView: View {
             Text("Capture Events")
                 .font(.headline)
 
-            List(manager.events, selection: Binding(
-                get: { manager.selectedEvent },
-                set: { manager.selectedEvent = $0 }
-            )) { event in
+            List(manager.events, selection: $manager.selectedEventId) { event in
                 EventRow(event: event)
             }
         }
