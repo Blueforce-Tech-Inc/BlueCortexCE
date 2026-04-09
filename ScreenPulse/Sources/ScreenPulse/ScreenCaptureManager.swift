@@ -11,6 +11,7 @@ struct CaptureEvent: Identifiable, Hashable {
     let windowTitle: String
     let fullText: String
     let trigger: CaptureTrigger
+    let axSnapshot: AXNode?  // Layer 1: Structured AX tree
 
     var timestampString: String {
         let formatter = DateFormatter()
@@ -197,11 +198,11 @@ final class ScreenCaptureManager: ObservableObject {
         AXUIElementCopyAttributeValue(windowElement, kAXTitleAttribute as CFString, &titleValue)
         let windowTitle = (titleValue as? String) ?? ""
 
-        // Collect text from window
-        var collectedText: [String] = []
-        collectText(from: windowElement, depth: 0, into: &collectedText)
+        // Build AX node tree (Layer 1)
+        let axRoot = buildAXNodeTree(from: windowElement, depth: 0)
 
-        let fullText = collectedText.joined(separator: "\n")
+        // Extract text from AX tree for backward compatibility
+        let fullText = extractText(from: axRoot)
 
         // Skip if no text content
         guard !fullText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
@@ -218,7 +219,8 @@ final class ScreenCaptureManager: ObservableObject {
             bundleId: bundleId,
             windowTitle: windowTitle,
             fullText: fullText,
-            trigger: trigger
+            trigger: trigger,
+            axSnapshot: axRoot
         )
 
         // Update UI on main thread
@@ -233,42 +235,161 @@ final class ScreenCaptureManager: ObservableObject {
         postToMemorySystem(event, captureMs: captureMs)
     }
 
-    private func collectText(from element: AXUIElement, depth: Int, into text: inout [String]) {
-        guard depth < 20 else { return }
+    // MARK: - AX Node Tree Builder (Layer 1 extraction)
+
+    /// Builds a structured AXNode tree from an AXUIElement
+    private func buildAXNodeTree(from element: AXUIElement, depth: Int) -> AXNode? {
+        guard depth < 20 else { return nil }
 
         // Get role
         var roleValue: CFTypeRef?
         AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleValue)
         let role = roleValue as? String ?? ""
 
-        // Skip secure text fields
-        if role == "AXSecureTextField" {
-            return
+        // Skip if not a meaningful role
+        guard AXNode.meaningfulRoles.contains(role) else {
+            return nil
         }
+
+        // Get title
+        var titleValue: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, kAXTitleAttribute as CFString, &titleValue)
+        let title = titleValue as? String
 
         // Get value
         var valueValue: CFTypeRef?
         AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &valueValue)
-        if let value = valueValue as? String, !value.isEmpty {
-            // Skip if title contains "password"
-            var titleValue: CFTypeRef?
-            AXUIElementCopyAttributeValue(element, kAXTitleAttribute as CFString, &titleValue)
-            let title = (titleValue as? String) ?? ""
+        let value = valueValue as? String
 
-            if !title.lowercased().contains("password") {
-                text.append(value)
+        // Get description
+        var descValue: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, kAXDescriptionAttribute as CFString, &descValue)
+        let description = descValue as? String
+
+        // Get URL (for AXLink)
+        var urlValue: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, kAXURLAttribute as CFString, &urlValue)
+        let url = urlValue as? String
+
+        // Get level (for AXHeading) - kAXARIALevelAttribute is iOS only, not available on macOS
+        // On macOS, we infer level from the number in the title (e.g., "1. Heading" -> level 1)
+        var level: Int? = nil
+        if role == "AXHeading", let title = title ?? value {
+            // Try to extract heading level from title (e.g., "1. Title", "Section 2.3")
+            let pattern = "^([0-9]+)[.\\s]"
+            if let regex = try? NSRegularExpression(pattern: pattern),
+               let match = regex.firstMatch(in: title, range: NSRange(title.startIndex..., in: title)),
+               let range = Range(match.range(at: 1), in: title) {
+                level = Int(title[range])
             }
         }
 
-        // Get children
+        // Get position
+        var positionValue: CFTypeRef?
+        let positionResult = AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &positionValue)
+        var position: CGPointCodable? = nil
+        if positionResult == .success, let pos = positionValue {
+            var point = CGPoint.zero
+            if AXValueGetValue(pos as! AXValue, .cgPoint, &point) {
+                position = CGPointCodable(point)
+            }
+        }
+
+        // Get size
+        var sizeValue: CFTypeRef?
+        let sizeResult = AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeValue)
+        var size: CGSizeCodable? = nil
+        if sizeResult == .success, let sz = sizeValue {
+            var cgSize = CGSize.zero
+            if AXValueGetValue(sz as! AXValue, .cgSize, &cgSize) {
+                size = CGSizeCodable(cgSize)
+            }
+        }
+
+        // Get focused state
+        var focusedValue: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, kAXFocusedAttribute as CFString, &focusedValue)
+        let isFocused = (focusedValue as? NSNumber)?.boolValue ?? false
+
+        // Get selected state
+        var selectedValue: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, kAXSelectedAttribute as CFString, &selectedValue)
+        let isSelected = (selectedValue as? NSNumber)?.boolValue ?? false
+
+        // Get enabled state
+        var enabledValue: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, kAXEnabledAttribute as CFString, &enabledValue)
+        let isEnabled = (enabledValue as? NSNumber)?.boolValue ?? true
+
+        // Skip secure text fields
+        if role == "AXSecureTextField" {
+            return nil
+        }
+
+        // Skip if title contains "password"
+        if let title = title, title.lowercased().contains("password") {
+            return nil
+        }
+
+        // Build children
+        var children: [AXNode] = []
         var childrenValue: CFTypeRef?
         let result = AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &childrenValue)
 
-        if result == .success, let children = childrenValue as? [AXUIElement] {
-            for child in children {
-                collectText(from: child, depth: depth + 1, into: &text)
+        if result == .success, let childrenArray = childrenValue as? [AXUIElement] {
+            for child in childrenArray {
+                if let childNode = buildAXNodeTree(from: child, depth: depth + 1) {
+                    children.append(childNode)
+                }
             }
         }
+
+        return AXNode(
+            role: role,
+            title: title,
+            value: value,
+            description: description,
+            url: url,
+            level: level,
+            position: position,
+            size: size,
+            isFocused: isFocused,
+            isSelected: isSelected,
+            isEnabled: isEnabled,
+            children: children
+        )
+    }
+
+    /// Extracts plain text from AXNode tree (for backward compatibility with fullText)
+    private func extractText(from node: AXNode?) -> String {
+        guard let node = node else { return "" }
+
+        var texts: [String] = []
+
+        // Skip secure text fields
+        if node.role == "AXSecureTextField" {
+            return ""
+        }
+
+        // Skip if title contains "password"
+        if let title = node.title, title.lowercased().contains("password") {
+            return ""
+        }
+
+        // Collect value text
+        if let value = node.value, !value.isEmpty {
+            texts.append(value)
+        }
+
+        // Recurse into children
+        for child in node.children {
+            let childText = extractText(from: child)
+            if !childText.isEmpty {
+                texts.append(childText)
+            }
+        }
+
+        return texts.joined(separator: "\n")
     }
 
     private func handleCapturedEvent(_ event: CaptureEvent) {

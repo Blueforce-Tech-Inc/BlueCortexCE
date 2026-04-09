@@ -109,8 +109,27 @@ struct SemanticFields: Codable {
     }
 
     struct TextBlock: Codable {
-        let text: String
-        let role: String
+        let text: String           // 文本内容
+        let role: String          // AX 角色：AXStaticText/AXHeading/AXLink/AXButton/...
+        let title: String?        // 元素的 title 属性（按钮名称等）
+        let url: String?           // AXLink 的 URL
+        let level: Int?           // AXHeading 的层级 (1-6)
+        let position: CGPointCodable?  // 屏幕坐标
+        let size: CGSizeCodable?      // 元素尺寸
+        let isFocused: Bool        // 是否聚焦
+
+        init(text: String, role: String, title: String? = nil, url: String? = nil,
+             level: Int? = nil, position: CGPointCodable? = nil, size: CGSizeCodable? = nil,
+             isFocused: Bool = false) {
+            self.text = text
+            self.role = role
+            self.title = title
+            self.url = url
+            self.level = level
+            self.position = position
+            self.size = size
+            self.isFocused = isFocused
+        }
     }
 
     struct MessageItem: Codable {
@@ -122,7 +141,116 @@ struct SemanticFields: Codable {
 // MARK: - Payload Builder
 
 enum ObservationPayloadBuilder {
+    /// Extracts SemanticFields (Layer 2) from AXNode tree (Layer 1)
+    static func extractSemanticFields(from axNode: AXNode?, windowTitle: String) -> SemanticFields {
+        var semantic = SemanticFields(windowTitle: windowTitle)
+
+        guard let root = axNode else { return semantic }
+
+        // Traverse the tree and categorize nodes
+        extractFromNode(root, into: &semantic)
+
+        return semantic
+    }
+
+    /// Recursively extracts structured data from AXNode into SemanticFields
+    private static func extractFromNode(_ node: AXNode, into semantic: inout SemanticFields) {
+        // Track focused element
+        if node.isFocused {
+            semantic.focusedElementRole = node.role
+            semantic.focusedElementValue = node.value
+        }
+
+        // Check for selected text (strongest intent signal)
+        if node.isSelected, let text = node.value, !text.isEmpty {
+            semantic.selectedText = text
+        }
+
+        // Categorize by role
+        switch node.role {
+        case "AXHeading":
+            if let text = node.value, !text.isEmpty, let level = node.level {
+                semantic.headings.append(SemanticFields.HeadingItem(level: level, text: text))
+            }
+
+        case "AXLink":
+            if let text = node.value ?? node.title, !text.isEmpty {
+                semantic.links.append(SemanticFields.LinkItem(text: text, url: node.url))
+            }
+
+        case "AXTextField", "AXTextArea":
+            if let text = node.value, !text.isEmpty {
+                let block = SemanticFields.TextBlock(
+                    text: text,
+                    role: node.role,
+                    title: node.title,
+                    url: nil,
+                    level: nil,
+                    position: node.position,
+                    size: node.size,
+                    isFocused: node.isFocused
+                )
+                semantic.visibleTextBlocks.append(block)
+            }
+
+        case "AXStaticText", "AXListItem":
+            if let text = node.value, !text.isEmpty {
+                let block = SemanticFields.TextBlock(
+                    text: text,
+                    role: node.role,
+                    title: node.title,
+                    url: nil,
+                    level: nil,
+                    position: node.position,
+                    size: node.size,
+                    isFocused: node.isFocused
+                )
+                semantic.visibleTextBlocks.append(block)
+            }
+
+        case "AXButton", "AXMenuItem":
+            if let text = node.value ?? node.title, !text.isEmpty {
+                let block = SemanticFields.TextBlock(
+                    text: text,
+                    role: node.role,
+                    title: node.title,
+                    url: nil,
+                    level: nil,
+                    position: node.position,
+                    size: node.size,
+                    isFocused: node.isFocused
+                )
+                semantic.visibleTextBlocks.append(block)
+            }
+
+        case "AXWebArea":
+            // For web content, extract URL from the document
+            semantic.url = node.url
+            semantic.pageTitle = node.title
+
+        default:
+            break
+        }
+
+        // Recurse into children
+        for child in node.children {
+            extractFromNode(child, into: &semantic)
+        }
+    }
+
+    /// Counts total nodes in AXNode tree
+    static func countNodes(_ node: AXNode?) -> Int {
+        guard let node = node else { return 0 }
+        return 1 + node.children.reduce(0) { $0 + countNodes($1) }
+    }
+
     static func build(event: CaptureEvent, captureMs: Int) -> [String: Any] {
+        // Extract Layer 2 semantic fields from Layer 1 AXNode tree
+        let semantic = extractSemanticFields(from: event.axSnapshot, windowTitle: event.windowTitle)
+
+        // Count AX nodes for metadata
+        let axNodeCount = countNodes(event.axSnapshot)
+
         let screenPulseData = ScreenPulseData(
             observationId: UUID().uuidString,
             sessionId: IdentityManager.sessionId,
@@ -136,29 +264,13 @@ enum ObservationPayloadBuilder {
                 category: "other",
                 version: nil
             ),
-            axSnapshot: nil,
-            semantic: SemanticFields(
-                windowTitle: event.windowTitle,
-                selectedText: nil,
-                focusedElementRole: nil,
-                focusedElementValue: nil,
-                url: nil,
-                pageTitle: nil,
-                headings: [],
-                links: [],
-                visibleTextBlocks: [SemanticFields.TextBlock(text: event.fullText, role: "AXStaticText")],
-                filePath: nil,
-                language: nil,
-                codeSnippet: nil,
-                terminalOutput: nil,
-                channelName: nil,
-                recentMessages: []
-            ),
+            axSnapshot: event.axSnapshot,  // Layer 1: Full AX tree
+            semantic: semantic,            // Layer 2: Extracted semantic fields
             meta: ScreenPulseData.MetaInfo(
-                axNodeCount: 0,
+                axNodeCount: axNodeCount,
                 markdownLength: event.fullText.count,
                 captureMs: captureMs,
-                hasSelectedText: false
+                hasSelectedText: semantic.selectedText != nil
             )
         )
 
@@ -171,7 +283,7 @@ enum ObservationPayloadBuilder {
             return [:]
         }
 
-        let narrative = renderMarkdown(from: screenPulseData.semantic)
+        let narrative = renderMarkdown(from: semantic)
 
         return [
             "content_session_id": IdentityManager.sessionId,
@@ -184,10 +296,11 @@ enum ObservationPayloadBuilder {
         ]
     }
 
+    /// Renders structured semantic fields as Markdown (Layer 3)
     static func renderMarkdown(from semantic: SemanticFields) -> String {
         var lines: [String] = []
 
-        // URL and page title (browser)
+        // URL and page title (browser) - most important for context
         if let url = semantic.url {
             let title = semantic.pageTitle ?? url
             lines.append("[\(title)](\(url))")
@@ -203,9 +316,41 @@ enum ObservationPayloadBuilder {
             lines.append("> **Selected:** \(selected)")
         }
 
-        // Visible text blocks
-        for block in semantic.visibleTextBlocks where block.role == "AXStaticText" || block.role == "AXListItem" {
-            lines.append(block.text)
+        // Headings (structured, with levels)
+        for heading in semantic.headings.sorted(by: { $0.level < $1.level }) {
+            let prefix = String(repeating: "#", count: min(heading.level + 1, 6))
+            lines.append("\(prefix) \(heading.text)")
+        }
+
+        // Links (structured)
+        for link in semantic.links {
+            if let url = link.url {
+                lines.append("[\(link.text)](\(url))")
+            } else {
+                lines.append("[\(link.text)]")
+            }
+        }
+
+        // Visible text blocks (now with proper roles)
+        for block in semantic.visibleTextBlocks {
+            switch block.role {
+            case "AXButton", "AXMenuItem":
+                // Render interactive elements with clear markers
+                if let title = block.title {
+                    lines.append("[\(block.text)] (\(title))")
+                } else {
+                    lines.append("[\(block.text)]")
+                }
+            case "AXTextField":
+                if let title = block.title {
+                    lines.append("**\(title):** \(block.text)")
+                } else {
+                    lines.append("**Input:** \(block.text)")
+                }
+            default:
+                // AXStaticText, AXListItem - render as-is
+                lines.append(block.text)
+            }
         }
 
         // File path (IDE)
