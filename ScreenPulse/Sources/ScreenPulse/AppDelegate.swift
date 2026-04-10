@@ -16,12 +16,30 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem!
     private var popover: NSPopover!
     private var consoleWindow: NSWindow!
+    private var statusObserver: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         setupStatusItem()
         setupConsoleWindow()
         checkAccessibilityPermissions()
+        startStatusObserver()
+    }
+
+    private func startStatusObserver() {
+        // Update status icon periodically
+        statusObserver = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.updateStatusIcon()
+        }
+    }
+
+    private func updateStatusIcon() {
+        guard let button = statusItem.button else { return }
+
+        let isCapturing = ScreenCaptureManager.shared.isCapturing
+        let imageName = isCapturing ? "eye.circle.fill" : "eye.circle"
+        button.image = NSImage(systemSymbolName: imageName, accessibilityDescription: "ScreenPulse")
+        button.image?.isTemplate = true
     }
 
     private func setupStatusItem() {
@@ -42,6 +60,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         menu.addItem(NSMenuItem(title: "Quit ScreenPulse", action: #selector(quitApp), keyEquivalent: "q"))
 
         statusItem.menu = menu
+
+        updateStatusIcon()
     }
 
     private func setupConsoleWindow() {
