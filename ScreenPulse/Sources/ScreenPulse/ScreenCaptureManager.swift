@@ -121,11 +121,15 @@ final class ScreenCaptureManager: ObservableObject {
         if UserDefaults.standard.object(forKey: "screenpulse.endpointInput") != nil {
             endpointInput = UserDefaults.standard.string(forKey: "screenpulse.endpointInput") ?? endpointInput
         }
+        if let savedBundleIds = UserDefaults.standard.array(forKey: "screenpulse.ignoreBundleIds") as? [String] {
+            ignoreBundleIds = Set(savedBundleIds)
+        }
     }
 
     func saveSettings() {
         UserDefaults.standard.set(pollingInterval, forKey: "screenpulse.pollingInterval")
         UserDefaults.standard.set(endpointInput, forKey: "screenpulse.endpointInput")
+        UserDefaults.standard.set(Array(ignoreBundleIds), forKey: "screenpulse.ignoreBundleIds")
     }
 
     // MARK: - Control Interface
@@ -175,10 +179,12 @@ final class ScreenCaptureManager: ObservableObject {
         guard !trimmed.isEmpty else { return }
         ignoreBundleIds.insert(trimmed)
         newIgnoreInput = ""
+        saveSettings()
     }
 
     func removeIgnoreBundle(_ id: String) {
         ignoreBundleIds.remove(id)
+        saveSettings()
     }
 
     func saveEndpoint() {
