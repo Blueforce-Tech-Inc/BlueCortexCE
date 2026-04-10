@@ -201,3 +201,23 @@ When user switches apps:
 - `ObservationPayload.swift:12`: immutable property `source` has initial value
 
 These are intentional defaults for the ScreenPulseData struct.
+
+## Known Limitations (App-Specific AX Exposure)
+
+Some applications do not expose full content through the macOS Accessibility API:
+
+| App | Issue | Severity |
+|-----|-------|----------|
+| Terminal | Command output rendered via custom graphics, not AX text | **Low capture** |
+| Slack (Electron) | Message content in WebView not exposed via AX | **Low capture** |
+| VS Code | Partial AX exposure, some content may be missed | **Medium capture** |
+| Browser (Safari/Chrome) | Full AX exposure via AXWebArea | **High capture** |
+
+**Root Cause**: AX API capture depends on each app's accessibility implementation. Native macOS apps with proper AX support capture well; apps using custom rendering (Terminal) or web tech (Electron) may capture poorly.
+
+**Potential Solutions (Future)**:
+1. **App-specific capture strategies**: Use CGWindowList or screen recording for apps with poor AX support
+2. **OCR-based capture**: Use Vision framework for visual text recognition
+3. **Smarter AX traversal**: Deep-dive into AXUIElement children regardless of role filter
+
+These would require significant architecture changes (M6/M7 work).
