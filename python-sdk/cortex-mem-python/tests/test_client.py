@@ -1034,6 +1034,15 @@ class TestRetrievalExtended:
         assert "limit=10" in url
         assert "offset=5" in url
 
+    @responses.activate
+    def test_search_with_order_by(self):
+        """Verify order_by is sent as orderBy query param."""
+        responses.add(responses.GET, f"{BASE}/api/search", json={"observations": [], "count": 0}, status=200)
+        c = _client()
+        c.search("/p", query="test", order_by="created_at_epoch")
+        url = responses.calls[0].request.url
+        assert "orderBy=created_at_epoch" in url
+
 
 # ==================== JSON Decode Resilience ====================
 
