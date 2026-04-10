@@ -91,6 +91,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         } else {
             // Auto-start capture when permissions are granted
             ScreenCaptureManager.shared.startCapturing()
+            updateMenuTitle(isCapturing: true)
         }
     }
 
