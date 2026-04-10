@@ -5,11 +5,15 @@ struct ContentView: View {
 
     var body: some View {
         HSplitView {
-            // Left Panel (340pt)
+            // Left Panel: Controls and Configuration (280pt)
             leftPanel
-                .frame(minWidth: 300, idealWidth: 340, maxWidth: 400)
+                .frame(minWidth: 240, idealWidth: 280, maxWidth: 320)
 
-            // Right Panel (400pt+)
+            // Middle Panel: Events List (250pt)
+            middlePanel
+                .frame(minWidth: 200, idealWidth: 250, maxWidth: 300)
+
+            // Right Panel: Event Details (400pt+)
             rightPanel
                 .frame(minWidth: 400)
         }
@@ -42,12 +46,20 @@ struct ContentView: View {
             // Ignore Bundle IDs
             ignoreListSection
 
-            Divider()
-
-            // Capture Events List
-            eventsListSection
-
             Spacer()
+        }
+        .padding()
+    }
+
+    // MARK: - Middle Panel
+    private var middlePanel: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Capture Events")
+                .font(.headline)
+
+            List(manager.events, selection: $manager.selectedEventId) { event in
+                EventRow(event: event)
+            }
         }
         .padding()
     }
@@ -199,17 +211,6 @@ struct ContentView: View {
         }
     }
 
-    private var eventsListSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Capture Events")
-                .font(.headline)
-
-            List(manager.events, selection: $manager.selectedEventId) { event in
-                EventRow(event: event)
-            }
-        }
-    }
-
     // MARK: - Right Panel
     private var rightPanel: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -225,7 +226,7 @@ struct ContentView: View {
             } else {
                 VStack {
                     Spacer()
-                    Text("← 从左侧选择一条记录查看完整文本")
+                    Text("← 从中间选择一条记录查看完整文本")
                         .foregroundColor(.secondary)
                     Spacer()
                 }
