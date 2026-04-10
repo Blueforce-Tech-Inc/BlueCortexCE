@@ -23,49 +23,55 @@
         --null-color: #6c7086;
         --key-color: #89b4fa;
         --font-size: 13px;
+        display: block;
+    }
+    #loading, #error {
+        padding: 20px;
+        color: #6c7086;
     }
     #error {
         color: #f38ba8;
-        padding: 20px;
-    }
-    #loading {
-        color: #6c7086;
-        padding: 20px;
+        display: none;
     }
 </style>
 </head>
 <body>
 <div id="loading">Loading JSON viewer...</div>
-<div id="error" style="display:none;"></div>
-<json-viewer id="viewer" style="display:none;"></json-viewer>
+<div id="error"></div>
+<json-viewer id="viewer"></json-viewer>
 <script src="json-viewer.js"></script>
 <script>
-    // Hide loading message once script loads
-    window.addEventListener('load', function() {
-        setTimeout(function() {
+    window.addEventListener('DOMContentLoaded', function() {
+        // Check if json-viewer is registered
+        if (customElements.get('json-viewer')) {
             document.getElementById('loading').style.display = 'none';
-            document.getElementById('viewer').style.display = 'block';
-        }, 100);
+        } else {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('error').textContent = 'Error: json-viewer component not loaded';
+        }
     });
 
     window.renderJson = function(jsonString) {
         try {
             const viewer = document.getElementById('viewer');
-            if (viewer && typeof viewer.data !== 'undefined') {
+            if (viewer && customElements.get('json-viewer')) {
                 viewer.data = JSON.parse(jsonString);
             } else {
-                // Fallback: pretty-print JSON manually
-                document.getElementById('viewer').style.display = 'none';
-                document.getElementById('loading').style.display = 'none';
-                var err = document.getElementById('error');
-                err.style.display = 'block';
-                err.innerHTML = '<pre style="white-space:pre-wrap;word-wrap:break-word;color:#cdd6f4;">' + JSON.stringify(JSON.parse(jsonString), null, 2) + '</pre>';
+                showFallbackError('json-viewer not available');
             }
         } catch(e) {
-            document.getElementById('loading').style.display = 'none';
-            document.body.innerHTML = '<pre id="error" style="color:#f38ba8;">JSON Error: ' + e + '</pre>';
+            showFallbackError('JSON Error: ' + e.message);
         }
     };
+
+    function showFallbackError(msg) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('viewer').style.display = 'none';
+        var err = document.getElementById('error');
+        err.style.display = 'block';
+        err.innerHTML = '<pre style="color:#f38ba8">' + msg + '</pre>';
+    }
 </script>
 </body>
 </html>

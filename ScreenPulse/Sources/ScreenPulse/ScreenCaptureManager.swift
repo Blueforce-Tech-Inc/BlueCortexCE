@@ -16,6 +16,37 @@ struct CaptureEvent: Identifiable, Hashable {
     /// Pre-rendered Markdown of the AX tree (cached for fast display)
     let axSnapshotMarkdown: String
 
+    /// Detailed text with role annotations for Plain view
+    /// Includes full metadata (appName, windowTitle, fullText) + AX tree with role prefixes
+    var detailedText: String {
+        var lines: [String] = []
+
+        // Header with metadata
+        lines.append("─────────────────────────────────")
+        lines.append("📱 \(appName)")
+        lines.append("🌐 \(windowTitle)")
+        lines.append("⏱ \(timestampString)")
+        lines.append("📌 Trigger: \(trigger.rawValue)")
+        lines.append("─────────────────────────────────")
+
+        // AX Tree with role annotations
+        lines.append("\n📋 AX Tree:")
+        lines.append(Self.extractDetailedText(from: axSnapshot))
+
+        // Footer with fullText (same as JSON view's fullText)
+        lines.append("\n─────────────────────────────────")
+        lines.append("📄 Full Text:")
+        if fullText.isEmpty {
+            lines.append("  (empty)")
+        } else {
+            for line in fullText.components(separatedBy: "\n") {
+                lines.append("  \(line)")
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
     var timestampString: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss"
@@ -57,8 +88,114 @@ struct CaptureEvent: Identifiable, Hashable {
         return string
     }
 
-    /// Detailed text with role annotations for Plain view
-    let detailedText: String
+    // MARK: - Helper methods for detailedText
+
+    /// Extracts detailed text from AXNode tree with role annotations
+    private static func extractDetailedText(from node: AXNode?, depth: Int = 0) -> String {
+        guard let node = node else { return "" }
+
+        // Skip secure text fields
+        if node.role == "AXSecureTextField" {
+            return ""
+        }
+
+        // Skip if title contains "password"
+        if let title = node.title, title.lowercased().contains("password") {
+            return ""
+        }
+
+        var lines: [String] = []
+
+        // Format role prefix (e.g., "AXButton" -> "[Button]")
+        let rolePrefix = formatRolePrefix(node.role)
+
+        // Collect primary content (value is most important)
+        var primaryContent: String = ""
+
+        if let value = node.value, !value.isEmpty {
+            primaryContent = value
+        } else if let title = node.title, !title.isEmpty {
+            primaryContent = title
+        }
+
+        // Only add line if there's meaningful content
+        if !primaryContent.isEmpty {
+            let indent = String(repeating: "  ", count: depth)
+            lines.append("\(indent)\(rolePrefix) \(primaryContent)")
+        }
+
+        // Add URL for links
+        if node.role == "AXLink", let url = node.url, !url.isEmpty {
+            let indent = String(repeating: "  ", count: depth)
+            lines.append("\(indent)  → \(url)")
+        }
+
+        // Add focused/selected state indicators
+        if node.isFocused || node.isSelected {
+            var stateParts: [String] = []
+            if node.isFocused { stateParts.append("focused") }
+            if node.isSelected { stateParts.append("selected") }
+            let indent = String(repeating: "  ", count: depth)
+            lines.append("\(indent)  [\(stateParts.joined(separator: ", "))]")
+        }
+
+        // Recurse into children
+        for child in node.children {
+            let childText = extractDetailedText(from: child, depth: depth + 1)
+            if !childText.isEmpty {
+                lines.append(childText)
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    /// Formats role string into a readable prefix
+    private static func formatRolePrefix(_ role: String) -> String {
+        // Remove "AX" prefix
+        var prefix = role
+        if prefix.hasPrefix("AX") {
+            prefix = String(prefix.dropFirst(2))
+        }
+
+        // Handle special cases
+        switch role {
+        case "AXWebArea":
+            return "[WebPage]"
+        case "AXStaticText":
+            return "[Text]"
+        case "AXHeading":
+            return "[Heading]"
+        case "AXLink":
+            return "[Link]"
+        case "AXTextField":
+            return "[Input]"
+        case "AXTextArea":
+            return "[TextArea]"
+        case "AXButton":
+            return "[Button]"
+        case "AXMenuItem":
+            return "[MenuItem]"
+        case "AXListItem":
+            return "[ListItem]"
+        case "AXCell":
+            return "[Cell]"
+        case "AXRow":
+            return "[Row]"
+        case "AXTable":
+            return "[Table]"
+        case "AXImage":
+            return "[Image]"
+        case "AXGroup":
+            return "[Group]"
+        case "AXTab":
+            return "[Tab]"
+        case "AXTabGroup":
+            return "[TabGroup]"
+        default:
+            return "[\(prefix)]"
+        }
+    }
 
     // Hashable conformance (only id matters)
     func hash(into hasher: inout Hasher) {
@@ -339,8 +476,7 @@ final class ScreenCaptureManager: ObservableObject {
             fullText: fullText,
             trigger: trigger,
             axSnapshot: axRoot,
-            axSnapshotMarkdown: renderAXNodeAsMarkdown(axRoot),
-            detailedText: extractDetailedText(from: axRoot)
+            axSnapshotMarkdown: renderAXNodeAsMarkdown(axRoot)
         )
 
         // Increment capture statistics
