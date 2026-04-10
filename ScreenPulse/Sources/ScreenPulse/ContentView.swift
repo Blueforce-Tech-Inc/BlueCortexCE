@@ -214,15 +214,34 @@ struct ContentView: View {
     // MARK: - Right Panel
     private var rightPanel: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Event Details")
-                .font(.headline)
+            HStack {
+                Text("Event Details")
+                    .font(.headline)
+
+                Spacer()
+
+                // Toggle between Tree view and Plain text
+                Picker("View:", selection: Binding(
+                    get: { viewMode },
+                    set: { viewMode = $0 }
+                )) {
+                    Text("Tree").tag(ViewMode.tree)
+                    Text("Plain").tag(ViewMode.plain)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 150)
+            }
 
             if let event = manager.selectedEvent {
-                TextEditor(text: .constant(event.fullText))
-                    .font(.system(.body, design: .monospaced))
-                    .scrollContentBackground(.hidden)
-                    .background(Color(nsColor: .textBackgroundColor))
-                    .border(Color.secondary.opacity(0.3))
+                if viewMode == .tree {
+                    MarkdownScrollView(markdown: manager.renderAXNodeAsMarkdown(event.axSnapshot))
+                } else {
+                    TextEditor(text: .constant(event.fullText))
+                        .font(.system(.body, design: .monospaced))
+                        .scrollContentBackground(.hidden)
+                        .background(Color(nsColor: .textBackgroundColor))
+                        .border(Color.secondary.opacity(0.3))
+                }
             } else {
                 VStack {
                     Spacer()
@@ -233,6 +252,39 @@ struct ContentView: View {
             }
         }
         .padding()
+    }
+
+    @State private var viewMode: ViewMode = .tree
+
+    enum ViewMode {
+        case tree
+        case plain
+    }
+}
+
+// MARK: - Markdown ScrollView
+struct MarkdownScrollView: View {
+    let markdown: String
+
+    var body: some View {
+        ScrollView {
+            Text(attributedMarkdown)
+                .font(.system(.body, design: .default))
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(Color(nsColor: .textBackgroundColor))
+        .border(Color.secondary.opacity(0.3))
+    }
+
+    private var attributedMarkdown: AttributedString {
+        do {
+            return try AttributedString(markdown: markdown, options: AttributedString.MarkdownParsingOptions(
+                interpretedSyntax: .inlineOnlyPreservingWhitespace
+            ))
+        } catch {
+            return AttributedString(markdown)
+        }
     }
 }
 

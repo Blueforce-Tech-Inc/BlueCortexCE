@@ -510,6 +510,91 @@ final class ScreenCaptureManager: ObservableObject {
         return texts.joined(separator: "\n")
     }
 
+    /// Renders AXNode tree as a structured Markdown document
+    func renderAXNodeAsMarkdown(_ node: AXNode?, depth: Int = 0) -> String {
+        guard let node = node else { return "" }
+
+        let indent = String(repeating: "  ", count: depth)
+        var lines: [String] = []
+
+        // Role header with bullet
+        let roleLabel = node.role.replacingOccurrences(of: "AX", with: "")
+
+        // Build the line for this node
+        var lineParts: [String] = []
+
+        // Add role as header indicator (### for deeper levels)
+        if depth == 0 {
+            lineParts.append("**\(roleLabel)**")
+        } else if depth == 1 {
+            lineParts.append("**\(roleLabel)**")
+        } else {
+            lineParts.append("*\(roleLabel)*")
+        }
+
+        // Add title if present
+        if let title = node.title, !title.isEmpty {
+            lineParts.append("「\(title)」")
+        }
+
+        // Add value if present (this is usually the main content)
+        if let value = node.value, !value.isEmpty {
+            // If value is long, format it nicely
+            let cleanValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            if cleanValue.contains("\n") {
+                // Multi-line value - indent it
+                let indentedValue = cleanValue.split(separator: "\n", omittingEmptySubsequences: false)
+                    .map { "    \($0)" }
+                    .joined(separator: "\n")
+                lineParts.append("\n\(indentedValue)")
+            } else {
+                lineParts.append(cleanValue)
+            }
+        }
+
+        // Add URL if present
+        if let url = node.url, !url.isEmpty {
+            lineParts.append("🔗 [link](\(url))")
+        }
+
+        // Add description if it's meaningfully different from title/value
+        if let desc = node.description, !desc.isEmpty,
+           let title = node.title, !desc.contains(title),
+           let value = node.value, !desc.contains(value) {
+            lineParts.append("📝 \(desc)")
+        }
+
+        // Add state indicators
+        if node.isFocused {
+            lineParts.append("👆 focused")
+        }
+        if node.isSelected {
+            lineParts.append("✓ selected")
+        }
+        if node.isEnabled == false {
+            lineParts.append("⛔ disabled")
+        }
+
+        lines.append("\(indent)- \(lineParts.joined(separator: " "))")
+
+        // Add position/size info for leaf nodes with content
+        if node.children.isEmpty && (node.value != nil || node.title != nil) {
+            if let pos = node.position, let size = node.size {
+                lines.append("\(indent)  📍 (\(Int(pos.x)), \(Int(pos.y))) \(Int(size.width))×\(Int(size.height))")
+            }
+        }
+
+        // Recurse into children
+        for child in node.children {
+            let childMarkdown = renderAXNodeAsMarkdown(child, depth: depth + 1)
+            if !childMarkdown.isEmpty {
+                lines.append(childMarkdown)
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
     private func handleCapturedEvent(_ event: CaptureEvent) {
         memoryCache.append(event)
         if memoryCache.count > maxCacheSize {
