@@ -352,26 +352,54 @@ func main() {
 		writeJSON(w, result)
 	})
 
-	// --- GET /observations/{id} ---
+	// --- GET|PATCH|DELETE /observations/{id} ---
+	// Combined into one handler to avoid Go 1.25 ServeMux pattern conflict
+	// (Go 1.25 no longer allows same path registered multiple times).
 	mux.HandleFunc("/observations/{id}", func(w http.ResponseWriter, r *http.Request) {
-		if !checkMethod(w, r, http.MethodGet) {
-			return
-		}
 		id := r.PathValue("id")
 		if id == "" {
 			writeJSONError(w, http.StatusBadRequest, "observation id is required")
 			return
 		}
-		result, err := client.GetObservation(r.Context(), id)
-		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get observation: %v", err))
-			return
+		switch r.Method {
+		case http.MethodGet:
+			result, err := client.GetObservation(r.Context(), id)
+			if err != nil {
+				writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get observation: %v", err))
+				return
+			}
+			if result == nil {
+				writeJSONError(w, http.StatusNotFound, fmt.Sprintf("observation %s not found", id))
+				return
+			}
+			writeJSON(w, result)
+		case http.MethodPatch:
+			// Reuse dto.ObservationUpdate directly — pointer fields (*string) with omitempty
+			// naturally distinguish absent (nil) from present (non-nil), which is exactly
+			// the PATCH semantics we need.
+			var update dto.ObservationUpdate
+			if err := readJSON(w, r, &update); err != nil {
+				writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
+				return
+			}
+			if err := client.UpdateObservation(r.Context(), id, update); err != nil {
+				if cortexmem.IsValidationError(err) {
+					writeJSONError(w, http.StatusBadRequest, err.Error())
+					return
+				}
+				writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update observation: %v", err))
+				return
+			}
+			writeJSON(w, map[string]string{"status": "updated"})
+		case http.MethodDelete:
+			if err := client.DeleteObservation(r.Context(), id); err != nil {
+				writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to delete observation: %v", err))
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed: GET, PATCH, DELETE only")
 		}
-		if result == nil {
-			writeJSONError(w, http.StatusNotFound, fmt.Sprintf("observation %s not found", id))
-			return
-		}
-		writeJSON(w, result)
 	})
 
 	// --- POST /batch-observations ---
@@ -714,53 +742,6 @@ func main() {
 			return
 		}
 		writeJSON(w, map[string]string{"status": "recorded"})
-	})
-
-	// --- PATCH /observations/{id} ---
-	mux.HandleFunc("/observations/{id}", func(w http.ResponseWriter, r *http.Request) {
-		if !checkMethod(w, r, http.MethodPatch) {
-			return
-		}
-		id := r.PathValue("id")
-		if id == "" {
-			writeJSONError(w, http.StatusBadRequest, "observation id is required")
-			return
-		}
-		// Reuse dto.ObservationUpdate directly — pointer fields (*string) with omitempty
-		// naturally distinguish absent (nil) from present (non-nil), which is exactly
-		// the PATCH semantics we need.
-		var update dto.ObservationUpdate
-		if err := readJSON(w, r, &update); err != nil {
-			writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
-			return
-		}
-		if err := client.UpdateObservation(r.Context(), id, update); err != nil {
-			// SDK validation errors (empty update, missing ID) should be 400, not 500
-			if cortexmem.IsValidationError(err) {
-				writeJSONError(w, http.StatusBadRequest, err.Error())
-				return
-			}
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update observation: %v", err))
-			return
-		}
-		writeJSON(w, map[string]string{"status": "updated"})
-	})
-
-	// --- DELETE /observations/{id} ---
-	mux.HandleFunc("/observations/{id}", func(w http.ResponseWriter, r *http.Request) {
-		if !checkMethod(w, r, http.MethodDelete) {
-			return
-		}
-		id := r.PathValue("id")
-		if id == "" {
-			writeJSONError(w, http.StatusBadRequest, "observation id is required")
-			return
-		}
-		if err := client.DeleteObservation(r.Context(), id); err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to delete observation: %v", err))
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
 	})
 
 	// --- POST /ingest/prompt ---
