@@ -22,6 +22,44 @@ struct CaptureEvent: Identifiable, Hashable {
         return formatter.string(from: timestamp)
     }
 
+    /// JSON representation of the event for JSONTreeView
+    var jsonString: String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+
+        struct EventJSON: Codable {
+            let id: String
+            let timestamp: Date
+            let appName: String
+            let bundleId: String
+            let windowTitle: String
+            let fullText: String
+            let trigger: String
+            let axSnapshot: AXNode?
+        }
+
+        let eventJSON = EventJSON(
+            id: id.uuidString,
+            timestamp: timestamp,
+            appName: appName,
+            bundleId: bundleId,
+            windowTitle: windowTitle,
+            fullText: fullText,
+            trigger: trigger.rawValue,
+            axSnapshot: axSnapshot
+        )
+
+        guard let data = try? encoder.encode(eventJSON),
+              let string = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return string
+    }
+
+    /// Detailed text with role annotations for Plain view
+    let detailedText: String
+
     // Hashable conformance (only id matters)
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
@@ -301,7 +339,8 @@ final class ScreenCaptureManager: ObservableObject {
             fullText: fullText,
             trigger: trigger,
             axSnapshot: axRoot,
-            axSnapshotMarkdown: renderAXNodeAsMarkdown(axRoot)
+            axSnapshotMarkdown: renderAXNodeAsMarkdown(axRoot),
+            detailedText: extractDetailedText(from: axRoot)
         )
 
         // Increment capture statistics
@@ -512,6 +551,115 @@ final class ScreenCaptureManager: ObservableObject {
         }
 
         return texts.joined(separator: "\n")
+    }
+
+    /// Extracts detailed text from AXNode tree with role annotations
+    /// Provides richer information than plain extractText
+    private func extractDetailedText(from node: AXNode?, depth: Int = 0) -> String {
+        guard let node = node else { return "" }
+
+        // Skip secure text fields
+        if node.role == "AXSecureTextField" {
+            return ""
+        }
+
+        // Skip if title contains "password"
+        if let title = node.title, title.lowercased().contains("password") {
+            return ""
+        }
+
+        var lines: [String] = []
+
+        // Format role prefix (e.g., "AXButton" -> "[Button]")
+        let rolePrefix = formatRolePrefix(node.role)
+
+        // Collect primary content (value is most important)
+        var primaryContent: String = ""
+
+        if let value = node.value, !value.isEmpty {
+            primaryContent = value
+        } else if let title = node.title, !title.isEmpty {
+            primaryContent = title
+        }
+
+        // Only add line if there's meaningful content
+        if !primaryContent.isEmpty {
+            let indent = String(repeating: "  ", count: depth)
+            lines.append("\(indent)\(rolePrefix) \(primaryContent)")
+        }
+
+        // Add URL for links
+        if node.role == "AXLink", let url = node.url, !url.isEmpty {
+            let indent = String(repeating: "  ", count: depth)
+            lines.append("\(indent)  → \(url)")
+        }
+
+        // Add focused/selected state indicators
+        if node.isFocused || node.isSelected {
+            var stateParts: [String] = []
+            if node.isFocused { stateParts.append("focused") }
+            if node.isSelected { stateParts.append("selected") }
+            let indent = String(repeating: "  ", count: depth)
+            lines.append("\(indent)  [\(stateParts.joined(separator: ", "))]")
+        }
+
+        // Recurse into children
+        for child in node.children {
+            let childText = extractDetailedText(from: child, depth: depth + 1)
+            if !childText.isEmpty {
+                lines.append(childText)
+            }
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    /// Formats role string into a readable prefix
+    /// "AXButton" -> "[Button]", "AXTextField" -> "[TextField]"
+    private func formatRolePrefix(_ role: String) -> String {
+        // Remove "AX" prefix
+        var prefix = role
+        if prefix.hasPrefix("AX") {
+            prefix = String(prefix.dropFirst(2))
+        }
+
+        // Handle special cases
+        switch role {
+        case "AXWebArea":
+            return "[WebPage]"
+        case "AXStaticText":
+            return "[Text]"
+        case "AXHeading":
+            return "[Heading]"
+        case "AXLink":
+            return "[Link]"
+        case "AXTextField":
+            return "[Input]"
+        case "AXTextArea":
+            return "[TextArea]"
+        case "AXButton":
+            return "[Button]"
+        case "AXMenuItem":
+            return "[MenuItem]"
+        case "AXListItem":
+            return "[ListItem]"
+        case "AXCell":
+            return "[Cell]"
+        case "AXRow":
+            return "[Row]"
+        case "AXTable":
+            return "[Table]"
+        case "AXImage":
+            return "[Image]"
+        case "AXGroup":
+            return "[Group]"
+        case "AXTab":
+            return "[Tab]"
+        case "AXTabGroup":
+            return "[TabGroup]"
+        default:
+            return "[\(prefix)]"
+        }
     }
 
     /// Renders AXNode tree as a well-formatted Markdown document

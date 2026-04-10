@@ -1,4 +1,5 @@
 import SwiftUI
+import WebKit
 
 struct ContentView: View {
     @ObservedObject private var manager = ScreenCaptureManager.shared
@@ -220,12 +221,12 @@ struct ContentView: View {
 
                 Spacer()
 
-                // Toggle between Tree view and Plain text
+                // Toggle between JSON tree view and Plain text
                 Picker("View:", selection: Binding(
                     get: { viewMode },
                     set: { viewMode = $0 }
                 )) {
-                    Text("Tree").tag(ViewMode.tree)
+                    Text("JSON").tag(ViewMode.json)
                     Text("Plain").tag(ViewMode.plain)
                 }
                 .pickerStyle(.segmented)
@@ -233,10 +234,10 @@ struct ContentView: View {
             }
 
             if let event = manager.selectedEvent {
-                if viewMode == .tree {
-                    MarkdownView(markdown: event.axSnapshotMarkdown)
+                if viewMode == .json {
+                    JSONTreeView(jsonString: event.jsonString)
                 } else {
-                    TextEditor(text: .constant(event.fullText))
+                    TextEditor(text: .constant(event.detailedText))
                         .font(.system(.body, design: .monospaced))
                         .scrollContentBackground(.hidden)
                         .background(Color(nsColor: .textBackgroundColor))
@@ -254,31 +255,129 @@ struct ContentView: View {
         .padding()
     }
 
-    @State private var viewMode: ViewMode = .tree
+    @State private var viewMode: ViewMode = .json
 
     enum ViewMode {
-        case tree
+        case json
         case plain
     }
 }
 
-// MARK: - Markdown View using MarkdownUI library
-import MarkdownUI
+// MARK: - JSON Tree View using WKWebView + json-viewer
+struct JSONTreeView: NSViewRepresentable {
+    let jsonString: String
 
-struct MarkdownView: View {
-    let markdown: String
+    func makeNSView(context: Context) -> WKWebView {
+        let config = WKWebViewConfiguration()
+        let webView = WKWebView(frame: .zero, configuration: config)
+        webView.setValue(true, forKey: "drawsBackground")
+        webView.setValue(NSColor(red: 0.12, green: 0.12, blue: 0.18, alpha: 1.0), forKey: "backgroundColor")
+        webView.navigationDelegate = context.coordinator
 
-    var body: some View {
-        ScrollView {
-            Markdown(markdown)
-                .markdownTheme(.gitHub)
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(12)
-        }
-        .background(Color(nsColor: .textBackgroundColor))
-        .border(Color.secondary.opacity(0.3))
+        // Use inline fallback HTML (no external dependencies)
+        webView.loadHTMLString(HTMLTemplate.jsonFallback, baseURL: nil)
+
+        return webView
     }
+
+    func updateNSView(_ webView: WKWebView, context: Context) {
+        // Wait for page to load before injecting JSON
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.injectJSON(into: webView)
+        }
+    }
+
+    private func injectJSON(into webView: WKWebView) {
+        let escaped = jsonString
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\n", with: "\\n")
+            .replacingOccurrences(of: "\r", with: "")
+
+        let js = "window.renderJson && window.renderJson(\"\(escaped)\");"
+        webView.evaluateJavaScript(js, completionHandler: nil)
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    class Coordinator: NSObject, WKNavigationDelegate {
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            // Page loaded, JSON will be injected via updateNSView
+        }
+    }
+}
+
+// MARK: - HTML Template for JSON Viewer
+enum HTMLTemplate {
+    /// Fallback template with inline JSON formatting (no external dependencies)
+    static let jsonFallback = #"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <meta charset="utf-8">
+    <style>
+        :root {
+            color-scheme: light dark;
+        }
+        body {
+            margin: 0;
+            padding: 8px 12px;
+            background: #1e1e2e;
+            color: #cdd6f4;
+            font-family: -apple-system, "SF Mono", Menlo, Monaco, Consolas, monospace;
+            font-size: 13px;
+        }
+        pre {
+            margin: 0;
+            padding: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .string { color: #a6e3a1; }
+        .number { color: #fab387; }
+        .boolean { color: #f38ba8; }
+        .null { color: #6c7086; }
+        .key { color: #89b4fa; }
+        .bracket { color: #6c7086; }
+    </style>
+    </head>
+    <body>
+    <pre id="json"></pre>
+    <script>
+        function syntaxHighlight(json) {
+            json = json.replace(/&/g, '\&amp;').replace(/</g, '\&lt;').replace(/>/g, '\&gt;');
+            return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                var cls = 'number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'key';
+                    } else {
+                        cls = 'string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'null';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            });
+        }
+
+        window.renderJson = function(jsonString) {
+            try {
+                var obj = JSON.parse(jsonString);
+                var pretty = JSON.stringify(obj, null, 2);
+                document.getElementById('json').innerHTML = syntaxHighlight(pretty);
+            } catch(e) {
+                document.getElementById('json').innerHTML = '<span style="color:#f38ba8;">JSON Error: ' + e + '</span>';
+            }
+        };
+    </script>
+    </body>
+    </html>
+    """#
 }
 
 // MARK: - Statistics Box
