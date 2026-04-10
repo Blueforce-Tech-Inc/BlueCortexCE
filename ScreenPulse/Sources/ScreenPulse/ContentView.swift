@@ -262,14 +262,16 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Fast Markdown Text View (no external library parsing)
+// MARK: - Markdown View using MarkdownUI library
+import MarkdownUI
+
 struct MarkdownView: View {
     let markdown: String
 
     var body: some View {
         ScrollView {
-            Text(markdown)
-                .font(.system(.body, design: .monospaced))
+            Markdown(markdown)
+                .markdownTheme(.gitHub)
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)
