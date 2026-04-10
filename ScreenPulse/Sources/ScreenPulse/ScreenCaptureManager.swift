@@ -51,12 +51,21 @@ enum AppCategory: String, Codable {
 
 /// Roles that contain meaningful content (used for Layer 1 AX tree filtering)
 private let meaningfulAXRoles: Set<String> = [
-    "AXStaticText", "AXHeading", "AXLink", "AXTextField",
-    "AXTextArea", "AXButton", "AXMenuBarItem", "AXMenuItem",
-    "AXImage", "AXWebArea", "AXGroup", "AXList", "AXListItem",
-    "AXTable", "AXRow", "AXCell", "AXTabGroup", "AXTab",
-    // Window and document roles (containers, not filtered at root)
-    "AXWindow", "AXSheet", "AXDialog", "AXDocument"
+    // Text content
+    "AXStaticText", "AXHeading", "AXTextField", "AXTextArea",
+    // Interactive elements
+    "AXButton", "AXLink", "AXMenuItem", "AXMenuBarItem",
+    // Navigation/structure
+    "AXList", "AXListItem", "AXTabGroup", "AXTab", "AXOutline", "AXRow",
+    "AXTable", "AXCell", "AXColumn", "AXTree",
+    // Containers
+    "AXGroup", "AXWindow", "AXSheet", "AXDialog", "AXDocument",
+    "AXWebArea", "AXScrollArea", "AXSplitGroup",
+    // Other UI elements that may contain content
+    "AXPopover", "AXMenu", "AXToolbar", "AXMenuBar",
+    "AXComboBox", "AXCheckBox", "AXRadioButton", "AXSlider",
+    "AXIncrementor", "AXValueIndicator", "AXDisclosureTriangle",
+    "AXImage", "AXColorWell"
 ]
 
 // MARK: - ScreenCaptureManager
