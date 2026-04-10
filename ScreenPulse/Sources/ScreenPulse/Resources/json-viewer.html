@@ -39,10 +39,9 @@
 <div id="loading">Loading JSON viewer...</div>
 <div id="error"></div>
 <json-viewer id="viewer"></json-viewer>
-<script src="json-viewer.js"></script>
+<script src="local://json-viewer.js"></script>
 <script>
     window.addEventListener('DOMContentLoaded', function() {
-        // Check if json-viewer is registered
         if (customElements.get('json-viewer')) {
             document.getElementById('loading').style.display = 'none';
         } else {
