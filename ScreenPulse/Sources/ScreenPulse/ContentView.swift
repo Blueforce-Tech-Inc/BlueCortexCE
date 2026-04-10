@@ -234,7 +234,7 @@ struct ContentView: View {
 
             if let event = manager.selectedEvent {
                 if viewMode == .tree {
-                    MarkdownScrollView(markdown: manager.renderAXNodeAsMarkdown(event.axSnapshot))
+                    MarkdownView(markdown: event.axSnapshotMarkdown)
                 } else {
                     TextEditor(text: .constant(event.fullText))
                         .font(.system(.body, design: .monospaced))
@@ -262,29 +262,20 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Markdown ScrollView
-struct MarkdownScrollView: View {
+// MARK: - Fast Markdown Text View (no external library parsing)
+struct MarkdownView: View {
     let markdown: String
 
     var body: some View {
         ScrollView {
-            Text(attributedMarkdown)
-                .font(.system(.body, design: .default))
+            Text(markdown)
+                .font(.system(.body, design: .monospaced))
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
         }
         .background(Color(nsColor: .textBackgroundColor))
         .border(Color.secondary.opacity(0.3))
-    }
-
-    private var attributedMarkdown: AttributedString {
-        do {
-            return try AttributedString(markdown: markdown, options: AttributedString.MarkdownParsingOptions(
-                interpretedSyntax: .inlineOnlyPreservingWhitespace
-            ))
-        } catch {
-            return AttributedString(markdown)
-        }
     }
 }
 

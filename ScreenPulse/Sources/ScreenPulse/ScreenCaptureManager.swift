@@ -13,6 +13,9 @@ struct CaptureEvent: Identifiable, Hashable {
     let trigger: CaptureTrigger
     let axSnapshot: AXNode?  // Layer 1: Structured AX tree
 
+    /// Pre-rendered Markdown of the AX tree (cached for fast display)
+    let axSnapshotMarkdown: String
+
     var timestampString: String {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm:ss"
@@ -289,7 +292,7 @@ final class ScreenCaptureManager: ObservableObject {
         let captureTime = CFAbsoluteTimeGetCurrent()
         let captureMs = Int((captureTime - startTime) * 1000)
 
-        // Create event
+        // Create event with pre-rendered Markdown
         let event = CaptureEvent(
             timestamp: Date(),
             appName: appName,
@@ -297,7 +300,8 @@ final class ScreenCaptureManager: ObservableObject {
             windowTitle: windowTitle,
             fullText: fullText,
             trigger: trigger,
-            axSnapshot: axRoot
+            axSnapshot: axRoot,
+            axSnapshotMarkdown: renderAXNodeAsMarkdown(axRoot)
         )
 
         // Increment capture statistics
@@ -510,85 +514,88 @@ final class ScreenCaptureManager: ObservableObject {
         return texts.joined(separator: "\n")
     }
 
-    /// Renders AXNode tree as a structured Markdown document
+    /// Renders AXNode tree as a well-formatted Markdown document
+    /// Uses proper headers (#, ##, ###), lists, and indentation
     func renderAXNodeAsMarkdown(_ node: AXNode?, depth: Int = 0) -> String {
         guard let node = node else { return "" }
 
-        let indent = String(repeating: "  ", count: depth)
         var lines: [String] = []
 
-        // Role header with bullet
-        let roleLabel = node.role.replacingOccurrences(of: "AX", with: "")
+        // Determine header level based on depth
+        let headerLevel = min(depth + 2, 6)  // Start from ## (depth 0 -> ##)
+        let headerPrefix = String(repeating: "#", count: headerLevel)
 
-        // Build the line for this node
-        var lineParts: [String] = []
+        // Clean role name (remove AX prefix)
+        let roleName = node.role.replacingOccurrences(of: "AX", with: "")
 
-        // Add role as header indicator (### for deeper levels)
-        if depth == 0 {
-            lineParts.append("**\(roleLabel)**")
-        } else if depth == 1 {
-            lineParts.append("**\(roleLabel)**")
-        } else {
-            lineParts.append("*\(roleLabel)*")
-        }
-
-        // Add title if present
+        // Title as header
         if let title = node.title, !title.isEmpty {
-            lineParts.append("「\(title)」")
+            lines.append("\(headerPrefix) \(title)")
         }
 
-        // Add value if present (this is usually the main content)
+        // Role annotation after title
+        if let title = node.title, !title.isEmpty {
+            lines.append("*[\(roleName)]*")
+        } else if depth == 0 {
+            lines.append("\(headerPrefix) \(roleName)")
+        }
+
+        // Value as blockquote or code block if substantial
         if let value = node.value, !value.isEmpty {
-            // If value is long, format it nicely
             let cleanValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
-            if cleanValue.contains("\n") {
-                // Multi-line value - indent it
-                let indentedValue = cleanValue.split(separator: "\n", omittingEmptySubsequences: false)
-                    .map { "    \($0)" }
-                    .joined(separator: "\n")
-                lineParts.append("\n\(indentedValue)")
-            } else {
-                lineParts.append(cleanValue)
+            if cleanValue.count > 100 || cleanValue.contains("\n") {
+                // Multi-line or long value as code block
+                lines.append("```")
+                lines.append(cleanValue)
+                lines.append("```")
+            } else if cleanValue.count > 0 {
+                lines.append("> \(cleanValue)")
             }
         }
 
-        // Add URL if present
+        // URL as link
         if let url = node.url, !url.isEmpty {
-            lineParts.append("🔗 [link](\(url))")
+            lines.append("🔗 [\(url)](\(url))")
         }
 
-        // Add description if it's meaningfully different from title/value
-        if let desc = node.description, !desc.isEmpty,
-           let title = node.title, !desc.contains(title),
-           let value = node.value, !desc.contains(value) {
-            lineParts.append("📝 \(desc)")
+        // State indicators
+        var stateParts: [String] = []
+        if node.isFocused { stateParts.append("focused") }
+        if node.isSelected { stateParts.append("selected") }
+        if node.isEnabled == false { stateParts.append("disabled") }
+        if !stateParts.isEmpty {
+            lines.append("*State: \(stateParts.joined(separator: ", "))*")
         }
 
-        // Add state indicators
-        if node.isFocused {
-            lineParts.append("👆 focused")
-        }
-        if node.isSelected {
-            lineParts.append("✓ selected")
-        }
-        if node.isEnabled == false {
-            lineParts.append("⛔ disabled")
+        // Position/size for leaf nodes
+        if node.children.isEmpty, let pos = node.position, let size = node.size {
+            lines.append("*Position: (\(Int(pos.x)), \(Int(pos.y))) • Size: \(Int(size.width))×\(Int(size.height))*")
         }
 
-        lines.append("\(indent)- \(lineParts.joined(separator: " "))")
+        // Process children with proper list structure
+        let contentChildren = node.children.filter { child in
+            // Only include children that have meaningful content
+            child.value != nil && !(child.value?.isEmpty ?? true) ||
+            child.title != nil && !(child.title?.isEmpty ?? true) ||
+            !child.children.isEmpty
+        }
 
-        // Add position/size info for leaf nodes with content
-        if node.children.isEmpty && (node.value != nil || node.title != nil) {
-            if let pos = node.position, let size = node.size {
-                lines.append("\(indent)  📍 (\(Int(pos.x)), \(Int(pos.y))) \(Int(size.width))×\(Int(size.height))")
+        if !contentChildren.isEmpty {
+            if depth == 0 {
+                lines.append("")  // Blank line before lists at root
             }
-        }
+            lines.append("")  // Blank line before children
+            lines.append("*Children:*")
 
-        // Recurse into children
-        for child in node.children {
-            let childMarkdown = renderAXNodeAsMarkdown(child, depth: depth + 1)
-            if !childMarkdown.isEmpty {
-                lines.append(childMarkdown)
+            for child in contentChildren {
+                let childMarkdown = renderAXNodeAsMarkdown(child, depth: depth + 1)
+                if !childMarkdown.isEmpty {
+                    // Indent child content
+                    let indentedLines = childMarkdown.split(separator: "\n", omittingEmptySubsequences: false)
+                        .map { "  \($0)" }
+                        .joined(separator: "\n")
+                    lines.append("- \(indentedLines)")
+                }
             }
         }
 
