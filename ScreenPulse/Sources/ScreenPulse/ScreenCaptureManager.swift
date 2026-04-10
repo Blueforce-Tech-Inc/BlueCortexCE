@@ -47,27 +47,6 @@ enum AppCategory: String, Codable {
     case other
 }
 
-// MARK: - Meaningful AX Roles (for filtering UI noise)
-
-/// Roles that contain meaningful content (used for Layer 1 AX tree filtering)
-private let meaningfulAXRoles: Set<String> = [
-    // Text content
-    "AXStaticText", "AXHeading", "AXTextField", "AXTextArea",
-    // Interactive elements
-    "AXButton", "AXLink", "AXMenuItem", "AXMenuBarItem",
-    // Navigation/structure
-    "AXList", "AXListItem", "AXTabGroup", "AXTab", "AXOutline", "AXRow",
-    "AXTable", "AXCell", "AXColumn", "AXTree",
-    // Containers
-    "AXGroup", "AXWindow", "AXSheet", "AXDialog", "AXDocument",
-    "AXWebArea", "AXScrollArea", "AXSplitGroup",
-    // Other UI elements that may contain content
-    "AXPopover", "AXMenu", "AXToolbar", "AXMenuBar",
-    "AXComboBox", "AXCheckBox", "AXRadioButton", "AXSlider",
-    "AXIncrementor", "AXValueIndicator", "AXDisclosureTriangle",
-    "AXImage", "AXColorWell"
-]
-
 // MARK: - ScreenCaptureManager
 final class ScreenCaptureManager: ObservableObject {
     static let shared = ScreenCaptureManager()
@@ -348,17 +327,27 @@ final class ScreenCaptureManager: ObservableObject {
 
     // MARK: - AX Node Tree Builder (Layer 1 extraction)
 
+    /// Roles that should be skipped entirely (never have useful content)
+    private let skipRoles: Set<String> = [
+        // Skip nodes that are purely decorative
+        "AXImage",  // Images without descriptions are just visual noise
+        "AXColorWell"  // Color pickers have no text content
+    ]
+
     /// Builds a structured AXNode tree from an AXUIElement
+    /// Note: We ALWAYS traverse children regardless of parent role.
+    /// This is critical for apps like Slack where content is nested deep
+    /// in unexpected container types.
     private func buildAXNodeTree(from element: AXUIElement, depth: Int) -> AXNode? {
-        guard depth < 20 else { return nil }
+        guard depth < 30 else { return nil }  // Allow deeper traversal
 
         // Get role
         var roleValue: CFTypeRef?
         AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleValue)
         let role = roleValue as? String ?? ""
 
-        // Skip if not a meaningful role (but allow container roles like AXWindow)
-        guard meaningfulAXRoles.contains(role) else {
+        // Skip if explicitly marked as noise
+        if skipRoles.contains(role) {
             return nil
         }
 
@@ -382,16 +371,14 @@ final class ScreenCaptureManager: ObservableObject {
         AXUIElementCopyAttributeValue(element, kAXURLAttribute as CFString, &urlValue)
         let url = urlValue as? String
 
-        // Get level (for AXHeading) - kAXARIALevelAttribute is iOS only, not available on macOS
-        // On macOS, we infer level from the number in the title (e.g., "1. Heading" -> level 1)
+        // Get level (for AXHeading)
         var level: Int? = nil
-        if role == "AXHeading", let title = title ?? value {
-            // Try to extract heading level from title (e.g., "1. Title", "Section 2.3")
+        if role == "AXHeading", let titleOrValue = title ?? value {
             let pattern = "^([0-9]+)[.\\s]"
             if let regex = try? NSRegularExpression(pattern: pattern),
-               let match = regex.firstMatch(in: title, range: NSRange(title.startIndex..., in: title)),
-               let range = Range(match.range(at: 1), in: title) {
-                level = Int(title[range])
+               let match = regex.firstMatch(in: titleOrValue, range: NSRange(titleOrValue.startIndex..., in: titleOrValue)),
+               let range = Range(match.range(at: 1), in: titleOrValue) {
+                level = Int(titleOrValue[range])
             }
         }
 
@@ -432,23 +419,25 @@ final class ScreenCaptureManager: ObservableObject {
         AXUIElementCopyAttributeValue(element, kAXEnabledAttribute as CFString, &enabledValue)
         let isEnabled = (enabledValue as? NSNumber)?.boolValue ?? true
 
-        // Skip secure text fields
+        // Skip secure text fields and password fields
         if role == "AXSecureTextField" {
             return nil
         }
-
-        // Skip if title contains "password"
         if let title = title, title.lowercased().contains("password") {
             return nil
         }
 
-        // Build children
+        // Build children - ALWAYS traverse regardless of parent role!
         var children: [AXNode] = []
         var childrenValue: CFTypeRef?
         let result = AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &childrenValue)
 
         if result == .success, let childrenArray = childrenValue as? [AXUIElement] {
             for child in childrenArray {
+                // Skip system-maintained children (AXCSWindow for example)
+                if let childRole = getRole(from: child), childRole.hasPrefix("AXC") {
+                    continue
+                }
                 if let childNode = buildAXNodeTree(from: child, depth: depth + 1) {
                     children.append(childNode)
                 }
@@ -471,7 +460,15 @@ final class ScreenCaptureManager: ObservableObject {
         )
     }
 
+    /// Helper to get role string from AXUIElement
+    private func getRole(from element: AXUIElement) -> String? {
+        var roleValue: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleValue)
+        return roleValue as? String
+    }
+
     /// Extracts plain text from AXNode tree (for backward compatibility with fullText)
+    /// Collects text from value, title, and description - whatever the app puts content in
     private func extractText(from node: AXNode?) -> String {
         guard let node = node else { return "" }
 
@@ -487,9 +484,19 @@ final class ScreenCaptureManager: ObservableObject {
             return ""
         }
 
-        // Collect value text
+        // Collect value text (primary content)
         if let value = node.value, !value.isEmpty {
             texts.append(value)
+        }
+
+        // Collect title text (some apps put content here, especially custom controls)
+        if let title = node.title, !title.isEmpty {
+            texts.append(title)
+        }
+
+        // Collect description text (some apps put content here)
+        if let desc = node.description, !desc.isEmpty {
+            texts.append(desc)
         }
 
         // Recurse into children
