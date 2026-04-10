@@ -33,7 +33,7 @@ public class ObservationsController {
      * GET /demo/observations?project=/test&limit=10&offset=0
      */
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, Object>> listObservations(
+    public ResponseEntity<?> listObservations(
             @RequestParam(required = false) String project,
             @RequestParam(defaultValue = "0") Integer limit,
             @RequestParam(defaultValue = "0") Integer offset) {
@@ -56,7 +56,7 @@ public class ObservationsController {
                     .offset(offset)
                     .build();
 
-            Map<String, Object> result = client.listObservations(request);
+            var result = client.listObservations(request);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("List observations failed for project={}", project, e);
@@ -73,13 +73,13 @@ public class ObservationsController {
      * Cross-SDK parity: Go /observations/:id, Python /observations/<id>, JS /observations/:id.
      */
     @GetMapping(value = "/{id}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, Object>> getObservation(@PathVariable String id) {
+    public ResponseEntity<?> getObservation(@PathVariable String id) {
         if (id == null || id.isBlank()) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "observation id is required"));
         }
         try {
-            Map<String, Object> observation = client.getObservation(id);
+            var observation = client.getObservation(id);
             if (observation == null) {
                 return ResponseEntity.status(404)
                         .body(Map.of("error", "observation " + id + " not found"));
@@ -97,7 +97,7 @@ public class ObservationsController {
      * Body: {"ids": ["id1", "id2", "id3"]}
      */
     @PostMapping(value = "/batch", produces = MediaType.APPLICATION_JSON_VALUE, consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, Object>> getByIds(@RequestBody(required = false) Map<String, List<String>> body) {
+    public ResponseEntity<?> getByIds(@RequestBody(required = false) Map<String, List<String>> body) {
         if (body == null || !body.containsKey("ids")) {
             return ResponseEntity.badRequest().body(Map.of("error", "Request body must contain 'ids' field"));
         }
@@ -115,8 +115,8 @@ public class ObservationsController {
         }
 
         try {
-            Map<String, Object> result = client.getObservationsByIds(ids);
-            return ResponseEntity.ok(result);
+            var observations = client.getObservationsByIds(ids);
+            return ResponseEntity.ok(Map.of("items", observations, "count", observations.size()));
         } catch (Exception e) {
             log.error("Batch observations failed (ids count={})", ids.size(), e);
             return ResponseEntity.internalServerError()

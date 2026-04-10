@@ -47,8 +47,19 @@ public class ExtractionController {
         try {
             // Normalize blank userId to null so SDK omits the parameter
             String normalizedUserId = (userId != null && userId.isBlank()) ? null : userId;
-            Map<String, Object> result = client.getLatestExtraction(project, template, normalizedUserId);
-            return ResponseEntity.ok(result);
+            var result = client.getLatestExtraction(project, template, normalizedUserId);
+            if (!result.isFound()) {
+                return ResponseEntity.status(404)
+                        .body(Map.of("error", result.message() != null ? result.message() : "extraction not found"));
+            }
+            return ResponseEntity.ok(Map.of(
+                    "status", result.status(),
+                    "template", result.template(),
+                    "sessionId", result.sessionId() != null ? result.sessionId() : "",
+                    "extractedData", result.extractedData() != null ? result.extractedData() : Map.of(),
+                    "createdAt", result.createdAt() != null ? result.createdAt() : 0L,
+                    "observationId", result.observationId() != null ? result.observationId() : ""
+            ));
         } catch (Exception e) {
             log.error("Get latest extraction failed for project={}, template={}", project, template, e);
             return ResponseEntity.internalServerError()
