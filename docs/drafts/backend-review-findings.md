@@ -2645,3 +2645,34 @@ Total: 426/426 tests passed
 **Backend P0/P1/P2 状态**: 0 / 0 / 0
 
 **测试状态**: No code changes needed; clean review.
+
+---
+
+## 2026-04-11 13:47 | JS SDK 审查 #5 + Backend stats API 关联问题
+
+**审查范围**: `js-sdk/cortex-mem-js/src/client.ts`, `examples/http-server/app.ts`, `src/__tests__/client.test.ts`, `tsup.config.ts`, `package.json`, `scripts/js-demo-e2e-test.sh`
+
+**JS SDK 审查结论**: ✅ 无问题 — 212 tests 全部通过
+
+| 检查项 | 结果 | 说明 |
+|--------|------|------|
+| TypeScript 类型完整性 | ✅ | 所有 26 个 API 方法类型完整，wire format 映射正确 |
+| CJS + ESM 双格式 | ✅ | `tsup.config.ts`: `format: ['cjs', 'esm']`，`dts: true` |
+| npm 发布配置 | ✅ | `package.json`: `exports` 字段正确，`prepublishOnly` 钩子 |
+| 测试覆盖率 | ✅ | 212 tests，覆盖所有 API 方法、错误处理、边界情况 |
+| E2E 测试脚本 | ✅ | 27 个严格验证测试，每个都验证实际字段内容 |
+| 错误处理 | ✅ | 完整 predicate 体系：`isNotFound/isRateLimited/isRetryable/isForbidden/isUnprocessable/isConflict/isBadRequest/isUnauthorized/isServerError/isBadGateway/isServiceUnavailable/isGatewayTimeout` |
+| Fire-and-forget 重试 | ✅ | 线性 backoff + ±25% jitter，`isRetryable()` 正确区分 4xx/5xx/网络错误/AbortError |
+| 防御性解析 | ✅ | `safeString/safeNumber/safeRecord/safeStringArray` 覆盖所有 wire format 字段 |
+| 观察更新验证 | ✅ | `updateObservation` 在发送 HTTP 前验证至少一个字段非 undefined |
+| README 文档 | ✅ | 准确描述 26 API 方法、212 tests、CJS+ESM、fire-and-forget |
+
+**发现的问题**:
+
+| # | 文件 | 行 | 级别 | 问题 | 状态 |
+|---|------|-----|------|------|------|
+| B11-1 | `backend/.../controller/ViewerController.java` | 200 | **P2** | `/api/stats` 全局端点，不接受 `project` query 参数。但 JS/Java/Go SDK 均接受 `projectPath` 参数传递给 backend — backend 忽略该参数，返回全局统计。此问题在 Java SDK `CortexMemClientImpl.java` 中已有注释说明，但 JS SDK 缺少对应注释，且 Demo 存在误导用户的可能性（用户可能误以为 `getStats('/tmp/p')` 返回项目级别统计）。 | 记录（backend 问题，需 backend 实现项目级统计，或 SDK 注释说明） |
+
+**Backend P0/P1/P2 状态**: 0 / 0 / 1
+
+**测试状态**: No code changes to JS SDK; clean review. Backend stats project-filter issue recorded for backend team.
