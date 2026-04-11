@@ -344,9 +344,9 @@ process.exit(0);
 │                       服务层                                 │
 │                                                             │
 │  AgentService           → 核心编排                          │
-│    ├── LlmService       → 聊天补全                         │
 │    ├── EmbeddingService → 向量嵌入                         │
 │    └── XmlParser (util) → 解析 LLM XML 输出 (正则)         │
+│  LlmService             → 聊天补全（DeepSeek/Anthropic）    │
 │                                                             │
 │  SearchService          → 语义 + 文本搜索                   │
 │  ContextCacheService    → 上下文缓存                        │

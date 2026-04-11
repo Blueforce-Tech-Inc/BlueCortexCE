@@ -344,9 +344,9 @@ The Fat Server is the core Spring Boot application handling all business logic.
 │                       Service Layer                          │
 │                                                             │
 │  AgentService           → Core orchestration                │
-│    ├── LlmService       → Chat completion                   │
 │    ├── EmbeddingService → Vector embeddings                 │
 │    └── XmlParser (util) → Parse LLM XML output (regex)      │
+│  LlmService             → Chat completion (DeepSeek/Anthropic)│
 │                                                             │
 │  SearchService          → Semantic + text search            │
 │  ContextCacheService    → Context caching                   │
