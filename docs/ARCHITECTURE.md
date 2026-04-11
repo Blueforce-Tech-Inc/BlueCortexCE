@@ -724,10 +724,7 @@ LIMIT :limit;
                     │  # Project Context                           ││
                     │  Generated: 2026-01-15                       ││
                     │                                              ││
-                    │  ## Recent Work                              ││
-                    │  - Observation 1...                          ││
-                    │  - Observation 2...                          ││
-                    │                                              ││
+
                     └─────────────────────────────────────────────┘│
 
 4. SESSION END (Summary)
