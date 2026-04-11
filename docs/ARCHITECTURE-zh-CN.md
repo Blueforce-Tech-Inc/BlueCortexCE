@@ -894,10 +894,13 @@ claudemem:
 | `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | `https://api.siliconflow.cn` | 嵌入基础 URL |
 | `SPRING_AI_OPENAI_EMBEDDING_MODEL` | `BAAI/bge-m3` | 嵌入模型 |
 | `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | `1024` | 嵌入向量维度 |
+| `SPRING_PROFILES_ACTIVE` | `prd` | Spring profile（`dev`/`prd`） |
 | `CLAUDEMEM_LLM_PROVIDER` | `openai` | `openai` 或 `anthropic` |
 | `SPRING_AI_ANTHROPIC_API_KEY` | — | Anthropic API 密钥（当 provider=anthropic 时） |
 | `SPRING_AI_ANTHROPIC_BASE_URL` | `https://api.anthropic.com` | Anthropic 基础 URL |
 | `SPRING_AI_ANTHROPIC_CHAT_MODEL` | `claude-sonnet-4-5` | Anthropic 聊天模型 |
+| `CLAUDE_MEM_MODE` | `code` | 记忆模式（`code`/`default`） |
+| `MEMORY_REFINE_ENABLED` | `true` | 启用记忆优化（自我进化） |
 
 ---
 

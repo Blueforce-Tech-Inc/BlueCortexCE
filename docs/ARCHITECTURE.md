@@ -891,10 +891,13 @@ claudemem:
 | `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | `https://api.siliconflow.cn` | Embedding base URL |
 | `SPRING_AI_OPENAI_EMBEDDING_MODEL` | `BAAI/bge-m3` | Embedding model |
 | `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | `1024` | Embedding vector dimensions |
+| `SPRING_PROFILES_ACTIVE` | `prd` | Spring profile (`dev`/`prd`) |
 | `CLAUDEMEM_LLM_PROVIDER` | `openai` | `openai` or `anthropic` |
 | `SPRING_AI_ANTHROPIC_API_KEY` | — | Anthropic API key (when provider=anthropic) |
 | `SPRING_AI_ANTHROPIC_BASE_URL` | `https://api.anthropic.com` | Anthropic base URL |
 | `SPRING_AI_ANTHROPIC_CHAT_MODEL` | `claude-sonnet-4-5` | Anthropic chat model |
+| `CLAUDE_MEM_MODE` | `code` | Memory mode (`code`/`default`) |
+| `MEMORY_REFINE_ENABLED` | `true` | Enable memory refinement (self-evolution) |
 
 ---
 
