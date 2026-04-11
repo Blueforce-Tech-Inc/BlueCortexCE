@@ -14,10 +14,13 @@ type SessionStartRequest struct {
 
 // SessionStartResponse is the response from starting a session.
 type SessionStartResponse struct {
-	SessionDBID  string `json:"session_db_id"`
-	SessionID    string `json:"session_id"`
-	Context      string `json:"context,omitempty"`
-	PromptNumber int    `json:"prompt_number"`
+	SessionDBID  string                  `json:"session_db_id"`
+	SessionID    string                  `json:"session_id"`
+	Context      string                  `json:"context,omitempty"`
+	PromptNumber int                     `json:"prompt_number"`
+	// UpdateFiles lists generated .claude.md files for the session (Phase 3).
+	// Go unmarshaler silently drops unknown fields, so this must be present.
+	UpdateFiles []map[string]string `json:"updateFiles,omitempty"`
 }
 
 // SessionEndRequest signals session end.
