@@ -115,7 +115,7 @@ app.get('/search', asyncHandler(async (req: Request, res: Response) => {
     ...(query && { query }),
     ...(type && { type }),
     ...(concept && { concept }),
-    ...(source && { source }),
+    ...(source ? { source } : {}),
     ...(limit !== undefined && { limit }),
     ...(offset !== undefined && { offset }),
   });
@@ -151,9 +151,9 @@ app.get('/experiences', asyncHandler(async (req: Request, res: Response) => {
     task,
     project,
     count,
-    source: (req.query.source as string) ?? undefined,
+    source: ((req.query.source as string) || undefined),
     requiredConcepts,
-    userId: (req.query.userId as string) ?? undefined,
+    userId: ((req.query.userId as string) || undefined),
   });
   res.json({ experiences, count: experiences.length });
 }));
@@ -178,8 +178,8 @@ app.get('/iclprompt', asyncHandler(async (req: Request, res: Response) => {
 // ==================== Observations ====================
 
 app.get('/observations', asyncHandler(async (req: Request, res: Response) => {
-  const project = req.query.project as string;
-  if (!project) return errorJson(res, 400, 'project is required');
+  // project is optional — empty/missing means all projects (consistent with Go/Java demos)
+  const project = (req.query.project as string) || '';
 
   const limit = parseInt(req.query.limit as string ?? '0', 10) || 0;
   const offset = parseInt(req.query.offset as string ?? '0', 10) || 0;

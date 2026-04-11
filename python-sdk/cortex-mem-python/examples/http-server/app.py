@@ -187,11 +187,11 @@ def search():
         project=project,
         query=request.args.get("query", ""),
         type_=request.args.get("type", ""),
-        concept=request.args.get("concept", ""),
-        source=request.args.get("source", ""),
+        concept=request.args.get("concept") or "",
+        source=request.args.get("source") or None,
         limit=limit,
         offset=offset,
-        order_by=request.args.get("orderBy", "") or "",
+        order_by=request.args.get("orderBy") or "",
     )
     return jsonify(
         observations=[o.to_dict() for o in result.observations],
@@ -243,9 +243,9 @@ def experiences():
         task=task,
         project=project,
         count=count,
-        source=request.args.get("source", ""),
+        source=request.args.get("source") or None,
         required_concepts=required_concepts,
-        user_id=request.args.get("userId", ""),
+        user_id=request.args.get("userId") or None,
     )
     return jsonify(experiences=[e.to_dict() for e in exps], count=len(exps))
 
@@ -281,9 +281,8 @@ def iclprompt():
 
 @app.get("/observations")
 def observations_list():
-    project = request.args.get("project")
-    if not project:
-        return _error(400, "project is required")
+    # project is optional — empty/missing means all projects (consistent with Go/Java demos)
+    project = request.args.get("project") or ""
     try:
         limit = _parse_int_param("limit")
         offset = _parse_int_param("offset")
