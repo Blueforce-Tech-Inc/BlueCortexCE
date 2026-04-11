@@ -317,11 +317,8 @@ func main() {
 		if !checkMethod(w, r, http.MethodGet) {
 			return
 		}
+		// project is optional per SDK contract (empty = all projects, consistent with Java demo)
 		project := r.URL.Query().Get("project")
-		if project == "" {
-			writeJSONError(w, http.StatusBadRequest, "project is required")
-			return
-		}
 		limit := 0 // 0 = backend default
 		if l := r.URL.Query().Get("limit"); l != "" {
 			parsed, err := strconv.Atoi(l)
