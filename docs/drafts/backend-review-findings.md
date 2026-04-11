@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-07 21:44 (SDK #26-1 Fix: Observation 4 字段映射 - Go/Java/JS SDK)
+> **最后更新**: 2026-04-11 20:48 (Demo 审查 #1: Java/Go/JS/Python HTTP Server Demo — 全部清洁 ✅)
 
 ---
 
@@ -2676,3 +2676,55 @@ Total: 426/426 tests passed
 **Backend P0/P1/P2 状态**: 0 / 0 / 1
 
 **测试状态**: No code changes to JS SDK; clean review. Backend stats project-filter issue recorded for backend team.
+
+---
+
+## 2026-04-11 20:48 | Demo 审查 #1
+
+**审查范围**: 
+- Java Demo: `examples/cortex-mem-demo/src/main/java/com/example/cortexmem/` (16 个控制器)
+- Go Demo: `go-sdk/cortex-mem-go/examples/http-server/main.go`
+- JS SDK Demo: `js-sdk/cortex-mem-js/examples/http-server/app.ts`
+- Python Demo: `python-sdk/cortex-mem-python/examples/http-server/app.py`
+
+**审查结果**: 全部清洁 ✅
+
+### Java Demo (16 控制器)
+- SearchController ✅ 参数验证完整（project/limit/offset）
+- ObservationsController ✅ PATCH 语义正确（只更新非 null 字段），类型检查严格（facts/concepts 列表项必须为 String）
+- ManagementController ✅ 所有端点验证完整
+- ExtractionController ✅ userId 空字符串规范化为 null（与 SDK 契约一致）
+- ChatController ✅ CortexSessionContext 生命周期管理正确，finally 确保 end
+- SessionLifecycleController ✅ 完整生命周期 demo（start→prompt→tool→end），PATCH /session/user 验证正确
+- ExperiencesController ✅ requiredConcepts CSV 解析过滤空字符串
+- FeedbackController ✅ extractedData 验证正确
+- IngestController ✅ CortexSessionContext 正确包裹 prompt，session-end 正确使用 finally
+- DemoProperties ✅ 项目路径解析
+- FileReadTool ✅ 简单工具实现
+
+### Go HTTP Server Demo
+- 全部 26 个端点正确实现 ✅
+- 中间件健壮（panic recovery, request logging, maxBytesReader）✅
+- `/observations/{id}` 使用 Go 1.25+ combined handler（避免 ServeMux 路径冲突）✅
+- `/batch-observations` 从 `/observations/batch` 重命名（避免路径冲突）✅
+- `/create-observation` 从 `/observations/create` 重命名 ✅
+- orderBy 参数正确传递（非空时才发送）✅
+- 优雅关闭（SIGINT/SIGTERM）✅
+
+### JS SDK HTTP Server Demo
+- 全部 26 个端点正确实现 ✅
+- `extractedData` 类型验证正确（必须是 object，非 array/null）✅
+- PATCH /observations/:id 正确使用 ObservationUpdate 类型 ✅
+- asyncHandler 确保 async rejection 被正确捕获 ✅
+- 优雅关闭 ✅
+
+### Python Flask Demo
+- 全部端点正确实现 ✅
+- `/session/start` 使用 camelCase `updateFiles=result.update_files` ✅（与 backend API 契约一致）
+- `/iclprompt` response 使用 camelCase `experienceCount`/`maxChars` ✅（与 Go/JS demo 一致）
+- `extractedData` 类型验证正确 ✅
+- 错误处理分层（APIError/CortexError/Exception）✅
+
+**问题**: 无
+
+**Backend P0/P1/P2 状态**: 0 / 0 / 1（无变化）
