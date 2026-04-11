@@ -1,5 +1,6 @@
 package com.ablueforce.cortexce.client.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
@@ -45,6 +46,7 @@ import java.util.Map;
  * @param refinedFromIds IDs of source observations this was refined from, comma-separated (SNAKE_CASE wire field)
  * @param userComment user-provided comment/annotation (SNAKE_CASE wire field)
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record ObservationResponse(
     String id,
 

@@ -1,5 +1,6 @@
 package com.ablueforce.cortexce.client.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.Map;
@@ -16,6 +17,7 @@ import java.util.Map;
  * @param observationId Observation UUID containing the extraction
  * @param message Status message (present when status is "not_found")
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record ExtractionResponse(
     @JsonProperty("status")
     String status,
