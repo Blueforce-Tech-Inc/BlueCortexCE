@@ -81,6 +81,13 @@ public class SessionEntity {
     @Column(name = "needs_context_refresh")
     private Boolean needsContextRefresh = false;
 
+    // V12: Step efficiency tracking
+    @Column(name = "total_steps")
+    private Integer totalSteps = 0;
+
+    @Column(name = "avg_steps_per_task")
+    private Float avgStepsPerTask;
+
     // Getters and Setters
 
     public UUID getId() { return id; }
@@ -126,4 +133,11 @@ public class SessionEntity {
 
     public Boolean getNeedsContextRefresh() { return needsContextRefresh; }
     public void setNeedsContextRefresh(Boolean needsContextRefresh) { this.needsContextRefresh = needsContextRefresh; }
+
+    // V12: Step efficiency getters and setters
+    public Integer getTotalSteps() { return totalSteps; }
+    public void setTotalSteps(Integer totalSteps) { this.totalSteps = totalSteps; }
+
+    public Float getAvgStepsPerTask() { return avgStepsPerTask; }
+    public void setAvgStepsPerTask(Float avgStepsPerTask) { this.avgStepsPerTask = avgStepsPerTask; }
 }

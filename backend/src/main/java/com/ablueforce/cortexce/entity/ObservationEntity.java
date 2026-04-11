@@ -80,6 +80,11 @@ public class ObservationEntity {
     @JsonProperty("prompt_number")
     private Integer promptNumber;
 
+    // V12: Step efficiency tracking
+    @Column(name = "step_number")
+    @JsonProperty("step_number")
+    private Integer stepNumber;
+
     @JdbcTypeCode(SqlTypes.VECTOR)
     @Array(length = 768)
     @Column(name = "embedding_768", columnDefinition = "vector(768)")
@@ -320,6 +325,10 @@ public class ObservationEntity {
 
     public Integer getPromptNumber() { return promptNumber; }
     public void setPromptNumber(Integer promptNumber) { this.promptNumber = promptNumber; }
+
+    // V12: Step efficiency getter and setter
+    public Integer getStepNumber() { return stepNumber; }
+    public void setStepNumber(Integer stepNumber) { this.stepNumber = stepNumber; }
 
     public float[] getEmbedding768() { return embedding768; }
     public void setEmbedding768(float[] embedding768) { this.embedding768 = embedding768; }
