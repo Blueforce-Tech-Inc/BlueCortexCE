@@ -399,7 +399,7 @@ src/main/java/com/ablueforce/cortexce/
 │   ├── XmlParser.java               # Regex XML parser for LLM output
 │   ├── VectorValidator.java         # Vector embedding validation
 │   ├── SessionStatus.java           # Session status enum/utility
-│   └── PathValidationUtil.java      # Path validation & CLAUDE.md lookup (not yet wired; controllers have private copies)
+│   └── PathValidationUtil.java      # Path validation & CLAUDE.md lookup (wired in SessionController, ContextController)
 
 src/main/resources/
 ├── application.yml                  # All configuration
