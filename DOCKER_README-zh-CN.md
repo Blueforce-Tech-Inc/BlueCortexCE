@@ -103,7 +103,7 @@ docker compose exec postgres pg_isready -U postgres
 docker compose logs -f
 
 # 仅查看应用日志
-docker compose logs -f cortex-ce
+docker compose logs -f claude-mem
 
 # 仅查看数据库日志
 docker compose logs -f postgres
@@ -138,7 +138,7 @@ docker compose ps
 docker compose up
 
 # 3. 检查环境变量是否正确配置
-docker compose exec cortex-ce env | grep SPRING
+docker compose exec claude-mem env | grep SPRING
 ```
 
 ### 数据库连接问题
