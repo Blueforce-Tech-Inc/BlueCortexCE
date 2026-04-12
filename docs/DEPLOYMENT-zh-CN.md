@@ -420,6 +420,7 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 | `DB_NAME` | 否 | `claude_mem` | 数据库名称 |
 | `DB_USERNAME` | 否 | `postgres` | 数据库用户名（Docker Compose） |
 | `DB_PASSWORD` | **是** | - | 数据库密码（Docker Compose） |
+| `POSTGRES_PORT` | 否 | `5433` | PostgreSQL 主机端口（Docker Compose: `host:container`） |
 
 ### 5.3 LLM 配置
 
@@ -458,7 +459,14 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 | `MEMORY_REFINE_ENABLED` | 否 | `true` | 启用记忆精炼（自我进化） |
 | `JAVA_OPTS` | 否 | `-XX:+UseZGC -XX:MaxRAMPercentage=75.0` | JVM 参数 |
 
-### 5.6 配置示例
+### 5.6 数据持久化路径（Docker Compose）
+
+| 变量名 | 必填 | 默认值 | 说明 |
+|--------|------|--------|------|
+| `POSTGRES_DATA_PATH` | 否 | `postgres_data` | PostgreSQL 数据卷路径（Docker Compose 主机路径） |
+| `LOGS_PATH` | 否 | `claude-mem-logs` | 应用日志卷路径（Docker Compose 主机路径） |
+
+### 5.7 配置示例
 
 #### 开发环境
 
@@ -1099,5 +1107,5 @@ wrk -t4 -c50 -d30s \
 
 ---
 
-**最后更新**: 2026-04-02
+**最后更新**: 2026-04-12
 **版本**: 0.1.0-beta

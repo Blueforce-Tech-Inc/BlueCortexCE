@@ -420,6 +420,7 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 | `DB_NAME` | No | `claude_mem` | Database name |
 | `DB_USERNAME` | No | `postgres` | Database username (Docker Compose) |
 | `DB_PASSWORD` | **Yes** | - | Database password (Docker Compose) |
+| `POSTGRES_PORT` | No | `5433` | PostgreSQL host port (Docker Compose: `host:container`) |
 
 ### 5.3 LLM Configuration
 
@@ -458,7 +459,14 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 | `MEMORY_REFINE_ENABLED` | No | `true` | Enable memory refinement (self-evolution) |
 | `JAVA_OPTS` | No | `-XX:+UseZGC -XX:MaxRAMPercentage=75.0` | JVM options |
 
-### 5.6 Configuration Examples
+### 5.6 Data Persistence Paths (Docker Compose)
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `POSTGRES_DATA_PATH` | No | `postgres_data` | PostgreSQL data volume path (Docker Compose host path) |
+| `LOGS_PATH` | No | `claude-mem-logs` | Application logs volume path (Docker Compose host path) |
+
+### 5.7 Configuration Examples
 
 #### Development Environment
 
@@ -1099,5 +1107,5 @@ wrk -t4 -c50 -d30s \
 
 ---
 
-**Last Updated**: 2026-04-02
+**Last Updated**: 2026-04-12
 **Version**: 0.1.0-beta
