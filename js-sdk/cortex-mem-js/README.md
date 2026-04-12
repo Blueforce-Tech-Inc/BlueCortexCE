@@ -29,15 +29,17 @@ const client = new CortexMemClient({
   timeout: 10_000,
 });
 
-// Start session
+// Start session — keep session_id from the request to use in subsequent calls
+const SESSION_ID = 'my-session';
 const session = await client.startSession({
-  session_id: 'my-session',
+  session_id: SESSION_ID,
   project_path: '/path/to/project',
 });
+// session.response only contains session_db_id (DB UUID), not the session_id you provided.
 
 // Record observation (fire-and-forget)
 await client.recordObservation({
-  session_id: session.session_id,
+  session_id: SESSION_ID, // reuse the session_id you already have
   cwd: '/path/to/project',
   tool_name: 'Read',
   tool_input: { file: 'main.go' },
@@ -65,7 +67,7 @@ const results = await client.search({
 
 // End session
 await client.recordSessionEnd({
-  session_id: session.session_id,
+  session_id: SESSION_ID,
   cwd: '/path/to/project',
 });
 

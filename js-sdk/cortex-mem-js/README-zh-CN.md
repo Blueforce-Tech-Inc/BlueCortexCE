@@ -29,15 +29,17 @@ const client = new CortexMemClient({
   timeout: 10_000,
 });
 
-// 启动会话
+// 启动会话 — 请保留请求中的 session_id，以便后续调用使用
+const SESSION_ID = 'my-session';
 const session = await client.startSession({
-  session_id: 'my-session',
+  session_id: SESSION_ID,
   project_path: '/path/to/project',
 });
+// session.response 仅包含 session_db_id（数据库 UUID），不包含您传入的 session_id
 
 // 记录观察（fire-and-forget）
 await client.recordObservation({
-  session_id: session.session_id,
+  session_id: SESSION_ID, // 复用您已有的 session_id
   cwd: '/path/to/project',
   tool_name: 'Read',
   tool_input: { file: 'main.go' },
@@ -65,7 +67,7 @@ const results = await client.search({
 
 // 结束会话
 await client.recordSessionEnd({
-  session_id: session.session_id,
+  session_id: SESSION_ID,
   cwd: '/path/to/project',
 });
 
