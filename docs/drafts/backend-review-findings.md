@@ -2728,3 +2728,26 @@ Total: 426/426 tests passed
 **问题**: 无
 
 **Backend P0/P1/P2 状态**: 0 / 0 / 1（无变化）
+
+---
+
+## 2026-04-12 00:04 | Backend 审查 #47（每30分钟 cron）
+
+**审查范围**: `ExtractionStorageService.java`, `SettingsService.java`
+
+**发现的问题**:
+
+| # | 文件 | 行 | 级别 | 问题 | 状态 |
+|---|------|-----|------|------|------|
+| 47-1 | ExtractionStorageService.java | `storeDLQ()` | **P2** | `storeDLQ()` 内部 try-catch 捕获所有异常后 rethrow `IllegalStateException`。当 `StructuredExtractionService.runProjectExtractions()` 的 catch 块调用 `storeDLQ()` 失败时，抛出的 `IllegalStateException` 被同一个 catch 块捕获，再次调用 `storeDLQ()`，形成无限递归直到栈溢出。 | 记录 |
+| 47-2 | ExtractionStorageService.java | `storeExtractionResult()` | **P2** | `sourceObservations` 参数无 null 检查。若传入 null，`sourceObservations.stream()` 会抛出 NPE。当前调用方（`StructuredExtractionService`）总是传递非空值，但 API 契约未保护此不变性。 | 记录 |
+| 47-3 | ExtractionStorageService.java | `storeExtractionResult()` | **P2** | `targetSessionId` 无空白检查。若传入空字符串，FK 约束可能产生无效数据或 null 外键。 | 记录 |
+
+**SettingsService.java**: 无重大问题。双重 key 兼容设计（short + `CLAUDE_MEM_*` 前缀）合理，原子写实现正确，嵌套→扁平 schema 迁移逻辑完善。
+
+**代码质量评估**:
+
+| 组件 | 线程安全 | 内存管理 | 输入验证 | 错误处理 | 模板安全 | 总体 |
+|------|----------|----------|----------|----------|----------|------|
+| ExtractionStorageService | ✅ @Transactional | ✅ 流式处理 | ⚠️ 部分缺失 | ⚠️ DLQ 递归风险 | ✅ 仅内部调用 | ⚠️ |
+| SettingsService | ✅ volatile | ✅ 不可变配置对象 | ✅ AppSettings 类级别 | ✅ 优雅降级 | ✅ 无用户输入 | ✅ |
