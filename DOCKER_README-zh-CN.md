@@ -82,7 +82,6 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 | `MEMORY_REFINE_ENABLED` | 启用记忆自我进化 | `true` |
 | `JAVA_OPTS` | JVM 选项 | `-XX:+UseZGC -XX:MaxRAMPercentage=75.0` |
 | `SERVER_PORT` | 应用在主机上的端口 | `37777` |
-| `POSTGRES_PORT` | PostgreSQL 在主机上的端口 | `5433` |
 
 ## 健康检查
 

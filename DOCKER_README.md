@@ -82,7 +82,6 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 | `MEMORY_REFINE_ENABLED` | Enable memory refinement (self-evolution) | `true` |
 | `JAVA_OPTS` | JVM options | `-XX:+UseZGC -XX:MaxRAMPercentage=75.0` |
 | `SERVER_PORT` | Application port on host | `37777` |
-| `POSTGRES_PORT` | PostgreSQL port on host | `5433` |
 
 ## Commands
 
