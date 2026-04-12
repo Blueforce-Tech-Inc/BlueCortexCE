@@ -75,6 +75,7 @@ cover*.out
 go-sdk/cortex-mem-go/cover_*.out
 # Compiled Go example binaries (match directory name)
 go-sdk/cortex-mem-go/examples/http-server/http-server
+go-sdk/cortex-mem-go/main
 go-sdk/cortex-mem-go/examples/basic/basic
 go-sdk/cortex-mem-go/examples/genkit/genkit
 go-sdk/cortex-mem-go/examples/eino/eino
