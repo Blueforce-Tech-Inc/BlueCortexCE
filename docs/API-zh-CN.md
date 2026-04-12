@@ -817,7 +817,7 @@ WebUI 使用的端点，用于查看和搜索记忆。
 
 #### GET `/api/observations`
 
-分页获取观察列表。
+分页获取观察列表，始终按 `created_at_epoch` 降序排列（最新的在前）。
 
 **查询参数**:
 
@@ -900,7 +900,7 @@ curl "http://localhost:37777/api/observations?project=/Users/dev/myproject&limit
 
 #### GET `/api/summaries`
 
-分页获取摘要列表。
+分页获取摘要列表，始终按 `created_at_epoch` 降序排列。
 
 **查询参数**: 同 `/api/observations`
 
@@ -910,7 +910,7 @@ curl "http://localhost:37777/api/observations?project=/Users/dev/myproject&limit
 
 #### GET `/api/prompts`
 
-分页获取用户提示列表。
+分页获取用户提示列表，始终按 `created_at_epoch` 降序排列。
 
 **查询参数**: 同 `/api/observations`
 
@@ -2447,6 +2447,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-09 | 0.1.0-beta+32 | 补充 GET /api/health 缺失的降级模式响应示例（`status: "degraded"`，数据库不可用时返回，200 OK）；已与 HealthController.java 源码第 62 行验证（`response.put("status", dbReady ? "ok" : "degraded")`）；与英文版结构一致 |
 | 2026-04-10 | 0.1.0-beta+33 | 删除英文版错误放置的 `## Recent Work` 顶级章节（原 812-823 行）——包含不应出现在 API 参考文档中的非 API 内容（bug fix 示例、Token Savings Summary）。将三个 Context API 端点文档（`/api/context/recent`、`/api/context/timeline`、`/api/context/prior-messages`）从原 `## Recent Work` 下的 `###` 子节移至 `## Context` 章节下的 `#### GET` 正式子节；更新 curl 示例为 `bash` 代码块格式并补充参数类型列；英文版结构现已与中文版一致 |
 | 2026-04-12 | 0.1.0-beta+34 | GET /api/stats：新增可选 `project` 查询参数，支持项目级统计过滤（commit a75ad4c — ViewerController.getStats 新增 `@RequestParam(required=false) String project`，通过 SessionRepository.countByProjectPath 返回过滤后计数）；补充查询参数表、带 `?project=...` 的 curl 示例、项目级响应示例（含额外 `projectPath` 字段）；同步英文版变更 |
+| 2026-04-12 | 0.1.0-beta+35 | GET /api/observations、/api/summaries、/api/prompts：补充缺失的排序说明——三个端点均始终按 `created_at_epoch` 降序排列（commit cafbae1 使用 OffsetPageRequest + Sort.by(DESC, "createdAt")）；此前文档未说明排序规则；同步英文版变更 |
 
 ---
 

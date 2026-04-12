@@ -1231,7 +1231,7 @@ GET /api/mode/concepts/valid
 GET /api/observations?project=/path/to/project&limit=20&offset=0
 ```
 
-Returns a paginated list of observations, optionally filtered by project.
+Returns a paginated list of observations, optionally filtered by project. Results are always sorted by `created_at_epoch` descending (most recent first).
 
 **Query Parameters**:
 
@@ -1359,7 +1359,7 @@ Retrieves multiple observations by their UUIDs. Supports optional project filter
 GET /api/summaries?project=/path/to/project&limit=20&offset=0
 ```
 
-Returns a paginated list of session summaries. Query parameters and response format are the same as List Observations (returns summary objects instead).
+Returns a paginated list of session summaries, sorted by `created_at_epoch` descending. Query parameters and response format are the same as List Observations (returns summary objects instead).
 
 ### List Prompts
 
@@ -1367,7 +1367,7 @@ Returns a paginated list of session summaries. Query parameters and response for
 GET /api/prompts?project=/path/to/project&limit=20&offset=0
 ```
 
-Returns a paginated list of user prompts. Query parameters and response format are the same as List Observations (returns user prompt objects instead).
+Returns a paginated list of user prompts, sorted by `created_at_epoch` descending. Query parameters and response format are the same as List Observations (returns user prompt objects instead).
 
 ### Get Timeline
 
@@ -2370,6 +2370,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-09 | 0.1.0-beta+32 | Added missing degraded response example to Chinese GET /api/health section (status: "degraded" when DB unreachable, 200 OK — already present in English version); EN changelog updated for completeness |
 | 2026-04-10 | 0.1.0-beta+33 | Removed spurious `## Recent Work` top-level section (lines 812-823) — contained non-API content (bug fix example, Token Savings Summary) not belonging in API reference. Moved three Context API endpoint docs (`/api/context/recent`, `/api/context/timeline`, `/api/context/prior-messages`) from `###` subsections under `## Recent Work` to proper `#### GET` subsections under `## Context`; updated curl examples to use `bash` code fences and added parameter type columns; EN doc now consistent with ZH structure |
 | 2026-04-12 | 0.1.0-beta+34 | GET /api/stats: added optional `project` query parameter for project-scoped statistics (commit a75ad4c — ViewerController.getStats now accepts `@RequestParam(required=false) String project` and returns filtered counts via SessionRepository.countByProjectPath); added query parameter table, curl example with `?project=...`, and project-scoped response example showing extra `projectPath` field; synced Chinese version |
+| 2026-04-12 | 0.1.0-beta+35 | GET /api/observations, /api/summaries, /api/prompts: added missing sort order description — all three endpoints now always sort by `created_at_epoch` descending (most recent first) via OffsetPageRequest with `Sort.by(DESC, "createdAt")` (commit cafbae1); docs previously said nothing about sort order; synced Chinese version |
 
 ---
 
