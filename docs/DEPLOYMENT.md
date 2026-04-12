@@ -946,7 +946,9 @@ gunzip -c backup.sql.gz | grep -A 1000000 "COPY mem_observations" | \
 docker compose down
 
 # 2. Clean data volumes (use with caution!)
-docker volume rm claude-mem_postgres_data
+# NOTE: Volume name uses COMPOSE_PROJECT_NAME prefix (default: directory name).
+# Run `docker volume ls | grep postgres` to find the actual volume name.
+docker volume rm ${COMPOSE_PROJECT_NAME:-bluecortexce}_postgres_data
 
 # 3. Start services
 docker compose up -d postgres

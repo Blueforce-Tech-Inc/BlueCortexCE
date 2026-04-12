@@ -946,7 +946,9 @@ gunzip -c backup.sql.gz | grep -A 1000000 "COPY mem_observations" | \
 docker compose down
 
 # 2. 清理数据卷（谨慎操作！）
-docker volume rm claude-mem_postgres_data
+# 注：卷名使用 COMPOSE_PROJECT_NAME 前缀（默认：目录名）。
+# 运行 `docker volume ls | grep postgres` 查看实际卷名。
+docker volume rm ${COMPOSE_PROJECT_NAME:-bluecortexce}_postgres_data
 
 # 3. 启动服务
 docker compose up -d postgres
