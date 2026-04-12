@@ -191,23 +191,40 @@ public class ViewerController {
     /**
      * GET /api/stats — worker/database statistics.
      * Web UI expects nested {worker: {...}, database: {...}} structure.
+     * Optional project filter: if project query param is provided, returns project-scoped stats.
      */
     @GetMapping("/stats")
     @Operation(summary = "Get service statistics",
-        description = "Returns worker and database statistics including processing status, queue depth, and entity counts.")
+        description = "Returns worker and database statistics including processing status, queue depth, and entity counts. " +
+            "When project query param is provided, returns project-scoped counts.")
     @ApiResponse(responseCode = "200", description = "Statistics retrieved",
         content = @Content(schema = @Schema(example = "{\"worker\":{\"isProcessing\":false,\"queueDepth\":0},\"database\":{\"totalObservations\":100,\"totalSummaries\":10,\"totalSessions\":20,\"totalProjects\":3}}")))
-    public ResponseEntity<Map<String, Object>> getStats() {
+    public ResponseEntity<Map<String, Object>> getStats(
+            @Parameter(description = "Optional project path to filter statistics") @RequestParam(required = false) String project) {
         Map<String, Object> worker = Map.of(
             "isProcessing", agentService.isAnySessionProcessing(),
             "queueDepth", agentService.getQueueDepth()
         );
-        Map<String, Object> database = Map.of(
-            "totalObservations", observationRepository.count(),
-            "totalSummaries", summaryRepository.count(),
-            "totalSessions", sessionRepository.count(),
-            "totalProjects", sessionRepository.countDistinctProjects()
-        );
+
+        Map<String, Object> database;
+        if (project != null && !project.isBlank()) {
+            // Project-scoped stats (addresses B11-1: SDK projectPath param now respected)
+            database = Map.of(
+                "totalObservations", observationRepository.countByProjectPath(project),
+                "totalSummaries", summaryRepository.countByProjectPath(project),
+                "totalSessions", sessionRepository.countByProjectPath(project),
+                "totalProjects", 1L,
+                "projectPath", project
+            );
+        } else {
+            // Global stats
+            database = Map.of(
+                "totalObservations", observationRepository.count(),
+                "totalSummaries", summaryRepository.count(),
+                "totalSessions", sessionRepository.count(),
+                "totalProjects", sessionRepository.countDistinctProjects()
+            );
+        }
         return ResponseEntity.ok(Map.of("worker", worker, "database", database));
     }
 

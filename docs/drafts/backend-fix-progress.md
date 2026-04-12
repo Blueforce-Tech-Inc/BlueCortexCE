@@ -222,3 +222,20 @@
 - JS SDK TypeScript：`npx tsc --noEmit` ✅
 - 回归测试：46/47 ✅（1 skipped）
 - EXTRACTION 验收：25/25 ✅
+
+---
+
+## 2026-04-12 08:16 | 健康检查修复 — Backend 审查问题批量修复 #48
+
+**修复内容**：
+- **47-1 ExtractionStorageService.storeDLQ()**: 移除 rethrow，DLQ 失败时仅记录 error log 让事务回滚（消除无限递归风险）
+- **47-2 storeExtractionResult()**: 添加 `sourceObservations == null` 检查，抛出 `IllegalArgumentException`
+- **47-3 storeExtractionResult()**: 添加 `targetSessionId == null || isBlank()` 检查，抛出 `IllegalArgumentException`
+- **B11-1 ViewerController.getStats()**: 添加 `@RequestParam(required = false) String project` 支持项目级统计过滤；SessionRepository 新增 `countByProjectPath()` 方法
+
+**验证结果**：
+- 服务健康检查：`{"service":"claude-mem-java","status":"ok"}`
+- 回归测试：46/47 通过 ✅（1 skipped）
+- EXTRACTION 验收：25/25 通过 ✅
+
+**Backend Review 问题状态**：P0: 0 | P1: 0 | P2 (Backend): 0（#47 全部修复 + B11-1 修复）

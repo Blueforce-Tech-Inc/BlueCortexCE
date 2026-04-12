@@ -2671,7 +2671,7 @@ Total: 426/426 tests passed
 
 | # | 文件 | 行 | 级别 | 问题 | 状态 |
 |---|------|-----|------|------|------|
-| B11-1 | `backend/.../controller/ViewerController.java` | 200 | **P2** | `/api/stats` 全局端点，不接受 `project` query 参数。但 JS/Java/Go SDK 均接受 `projectPath` 参数传递给 backend — backend 忽略该参数，返回全局统计。此问题在 Java SDK `CortexMemClientImpl.java` 中已有注释说明，但 JS SDK 缺少对应注释，且 Demo 存在误导用户的可能性（用户可能误以为 `getStats('/tmp/p')` 返回项目级别统计）。 | 记录（backend 问题，需 backend 实现项目级统计，或 SDK 注释说明） |
+| B11-1 | `backend/.../controller/ViewerController.java` | 200 | **P2** | `/api/stats` 全局端点，不接受 `project` query 参数。但 JS/Java/Go SDK 均接受 `projectPath` 参数传递给 backend — backend 忽略该参数，返回全局统计。此问题在 Java SDK `CortexMemClientImpl.java` 中已有注释说明，但 JS SDK 缺少对应注释，且 Demo 存在误导用户的可能性（用户可能误以为 `getStats('/tmp/p')` 返回项目级别统计）。 | ✅已修复（ViewerController.getStats() 添加 `@RequestParam(required = false) String project`，支持项目级统计过滤；SessionRepository 新增 `countByProjectPath()` 方法） |
 
 **Backend P0/P1/P2 状态**: 0 / 0 / 1
 
@@ -2727,7 +2727,7 @@ Total: 426/426 tests passed
 
 **问题**: 无
 
-**Backend P0/P1/P2 状态**: 0 / 0 / 1（无变化）
+**Backend P0/P1/P2 状态**: 0 / 0 / 0（#47 全部已修复 + B11-1 已修复）
 
 ---
 
@@ -2739,9 +2739,9 @@ Total: 426/426 tests passed
 
 | # | 文件 | 行 | 级别 | 问题 | 状态 |
 |---|------|-----|------|------|------|
-| 47-1 | ExtractionStorageService.java | `storeDLQ()` | **P2** | `storeDLQ()` 内部 try-catch 捕获所有异常后 rethrow `IllegalStateException`。当 `StructuredExtractionService.runProjectExtractions()` 的 catch 块调用 `storeDLQ()` 失败时，抛出的 `IllegalStateException` 被同一个 catch 块捕获，再次调用 `storeDLQ()`，形成无限递归直到栈溢出。 | 记录 |
-| 47-2 | ExtractionStorageService.java | `storeExtractionResult()` | **P2** | `sourceObservations` 参数无 null 检查。若传入 null，`sourceObservations.stream()` 会抛出 NPE。当前调用方（`StructuredExtractionService`）总是传递非空值，但 API 契约未保护此不变性。 | 记录 |
-| 47-3 | ExtractionStorageService.java | `storeExtractionResult()` | **P2** | `targetSessionId` 无空白检查。若传入空字符串，FK 约束可能产生无效数据或 null 外键。 | 记录 |
+| 47-1 | ExtractionStorageService.java | `storeDLQ()` | **P2** | `storeDLQ()` 内部 try-catch 捕获所有异常后 rethrow `IllegalStateException`。当 `StructuredExtractionService.runProjectExtractions()` 的 catch 块调用 `storeDLQ()` 失败时，抛出的 `IllegalStateException` 被同一个 catch 块捕获，再次调用 `storeDLQ()`，形成无限递归直到栈溢出。 | ✅已修复（移除 rethrow，DLQ 失败时仅记录 error log，让事务回滚，不再递归） |
+| 47-2 | ExtractionStorageService.java | `storeExtractionResult()` | **P2** | `sourceObservations` 参数无 null 检查。若传入 null，`sourceObservations.stream()` 会抛出 NPE。当前调用方（`StructuredExtractionService`）总是传递非空值，但 API 契约未保护此不变性。 | ✅已修复（添加 `if (sourceObservations == null) throw IllegalArgumentException`） |
+| 47-3 | ExtractionStorageService.java | `storeExtractionResult()` | **P2** | `targetSessionId` 无空白检查。若传入空字符串，FK 约束可能产生无效数据或 null 外键。 | ✅已修复（添加 `if (targetSessionId == null || targetSessionId.isBlank()) throw IllegalArgumentException`） |
 
 **SettingsService.java**: 无重大问题。双重 key 兼容设计（short + `CLAUDE_MEM_*` 前缀）合理，原子写实现正确，嵌套→扁平 schema 迁移逻辑完善。
 
@@ -2749,5 +2749,22 @@ Total: 426/426 tests passed
 
 | 组件 | 线程安全 | 内存管理 | 输入验证 | 错误处理 | 模板安全 | 总体 |
 |------|----------|----------|----------|----------|----------|------|
-| ExtractionStorageService | ✅ @Transactional | ✅ 流式处理 | ⚠️ 部分缺失 | ⚠️ DLQ 递归风险 | ✅ 仅内部调用 | ⚠️ |
+| ExtractionStorageService | ✅ @Transactional | ✅ 流式处理 | ✅ null/blank 检查 | ✅ DLQ 失败仅记录不回滚 | ✅ 仅内部调用 | ✅ |
 | SettingsService | ✅ volatile | ✅ 不可变配置对象 | ✅ AppSettings 类级别 | ✅ 优雅降级 | ✅ 无用户输入 | ✅ |
+
+---
+
+## 2026-04-12 08:16 | Backend 审查问题批量修复 #48（健康检查 cron）
+
+**修复范围**: ExtractionStorageService.java, ViewerController.java, SessionRepository.java
+
+**修复详情**:
+
+| # | 文件 | 问题 | 级别 | 修复方案 |
+|---|------|------|------|----------|
+| 47-1 | ExtractionStorageService.java | `storeDLQ()` 无限递归 | **P2** | 移除 rethrow，DLQ 失败时仅记录 error log 让事务回滚 |
+| 47-2 | ExtractionStorageService.java | `storeExtractionResult()` sourceObservations 无 null 检查 | **P2** | 添加 `if (sourceObservations == null) throw IllegalArgumentException` |
+| 47-3 | ExtractionStorageService.java | `storeExtractionResult()` targetSessionId 无空白检查 | **P2** | 添加 `if (targetSessionId == null \|\| targetSessionId.isBlank()) throw IllegalArgumentException` |
+| B11-1 | ViewerController.java | `/api/stats` 忽略 project 参数 | **P2** | 添加 `@RequestParam(required = false) String project` 支持项目级统计；SessionRepository 新增 `countByProjectPath()` |
+
+**验证结果**: 回归测试 46/47 ✅ | EXTRACTION 验收 25/25 ✅

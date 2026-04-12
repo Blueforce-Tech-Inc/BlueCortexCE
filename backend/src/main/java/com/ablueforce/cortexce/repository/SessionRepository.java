@@ -41,6 +41,9 @@ public interface SessionRepository extends JpaRepository<SessionEntity, UUID> {
            "ORDER BY s.completedAtEpoch DESC")
     List<SessionEntity> findLastCompletedSessionWithMessage(@Param("projectPath") String projectPath);
 
+    // Stats support: count sessions for a specific project
+    long countByProjectPath(String projectPath);
+
     // Export support: batch query sessions by content session IDs
     List<SessionEntity> findByContentSessionIdIn(List<String> contentSessionIds);
 

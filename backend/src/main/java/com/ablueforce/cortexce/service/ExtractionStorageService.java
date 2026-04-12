@@ -38,6 +38,12 @@ public class ExtractionStorageService {
      * Store extraction result as a new ObservationEntity (append-only).
      * Transactional: session creation + observation save are atomic.
      */
+    /**
+     * Store extraction result as a new ObservationEntity (append-only).
+     * Transactional: session creation + observation save are atomic.
+     *
+     * @throws IllegalArgumentException if sourceObservations is null or targetSessionId is blank
+     */
     @Transactional
     public void storeExtractionResult(TemplateConfig template,
                                       Map<String, Object> result,
@@ -47,6 +53,12 @@ public class ExtractionStorageService {
         if (result == null || result.isEmpty()) {
             log.warn("Empty extraction result for template '{}', skipping storage", template.getName());
             return;
+        }
+        if (sourceObservations == null) {
+            throw new IllegalArgumentException("sourceObservations must not be null for template: " + template.getName());
+        }
+        if (targetSessionId == null || targetSessionId.isBlank()) {
+            throw new IllegalArgumentException("targetSessionId must not be blank for template: " + template.getName());
         }
 
         // Ensure target session exists (FK constraint: mem_observations.content_session_id → mem_sessions)
@@ -120,8 +132,12 @@ public class ExtractionStorageService {
             observationRepository.save(dlq);
             log.warn("Stored DLQ entry for template '{}': {}", templateName, errorMsg);
         } catch (Exception e) {
-            log.error("Failed to store DLQ entry for template '{}': {}", templateName, e.getMessage(), e);
-            throw new IllegalStateException("DLQ write failed for template: " + templateName, e);
+            // Do NOT rethrow — caller (StructuredExtractionService.runProjectExtractions) catches
+            // all exceptions and calls storeDLQ(). If we rethrow IllegalStateException, the same
+            // catch block would call storeDLQ() again, causing infinite recursion.
+            // Instead, log the failure and let the current transaction rollback gracefully.
+            log.error("Failed to store DLQ entry for template '{}' (DLQ unavailable, letting transaction rollback): {}",
+                templateName, e.getMessage(), e);
         }
     }
 }
