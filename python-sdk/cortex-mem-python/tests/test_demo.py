@@ -233,9 +233,14 @@ class TestICLPrompt:
 
 
 class TestObservations:
-    def test_list_missing_project(self, client):
+    def test_list_missing_project(self, app, client):
+        # project is optional — empty/missing means all projects (consistent with Go/Java demos)
+        from cortex_mem import ObservationsResponse
+        app._mock_client.list_observations.return_value = ObservationsResponse(
+            items=[], has_more=False, total=0
+        )
         resp = client.get("/observations")
-        assert resp.status_code == 400
+        assert resp.status_code == 200
 
     def test_list_invalid_limit(self, client):
         resp = client.get("/observations?project=/p&limit=abc")
