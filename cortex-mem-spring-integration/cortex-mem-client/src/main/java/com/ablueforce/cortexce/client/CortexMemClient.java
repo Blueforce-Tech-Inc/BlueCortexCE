@@ -185,14 +185,15 @@ public interface CortexMemClient {
     Map<String, Object> getProjects();
 
     /**
-     * Get global service statistics.
-     * Calls GET /api/stats — a global endpoint that returns worker + database stats for the entire service.
-     * The projectPath parameter is accepted for API symmetry with other SDKs but is silently ignored by the backend.
-     * To get per-project statistics, use {@link #search(SearchRequest)} with filters.
+     * Get service statistics.
+     * Calls GET /api/stats.
+     * When projectPath is provided, returns project-scoped statistics (totalObservations,
+     * totalSummaries, totalSessions for that project). When projectPath is null/blank,
+     * returns global statistics for the entire service.
      * Matches Go/Python SDK behavior.
      *
-     * @param projectPath accepted for API symmetry but ignored (endpoint is global)
-     * @return global service statistics (worker + database)
+     * @param projectPath optional project path for project-scoped stats; null/blank for global stats
+     * @return service statistics (worker + database, optionally scoped to project)
      */
     Map<String, Object> getStats(String projectPath);
 

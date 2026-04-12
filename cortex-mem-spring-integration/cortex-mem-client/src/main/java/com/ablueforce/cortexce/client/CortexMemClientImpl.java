@@ -539,8 +539,8 @@ public class CortexMemClientImpl implements CortexMemClient {
     @Override
     @SuppressWarnings("unchecked")
     public Map<String, Object> getStats(String projectPath) {
-        // Note: /api/stats is a global endpoint — projectPath is accepted for API symmetry but ignored by the backend.
-        // Matches Go SDK behavior: sends project query param but backend ignores it.
+        // Note: /api/stats supports project-scoped stats when projectPath is provided (backend B11-1 fix).
+        // When projectPath is null/blank, returns global stats. Matches Go SDK behavior.
         try {
             return restClient.get()
                 .uri(uriBuilder -> {
