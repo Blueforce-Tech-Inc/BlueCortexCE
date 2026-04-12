@@ -2768,3 +2768,31 @@ Total: 426/426 tests passed
 | B11-1 | ViewerController.java | `/api/stats` 忽略 project 参数 | **P2** | 添加 `@RequestParam(required = false) String project` 支持项目级统计；SessionRepository 新增 `countByProjectPath()` |
 
 **验证结果**: 回归测试 46/47 ✅ | EXTRACTION 验收 25/25 ✅
+
+---
+
+## 2026-04-13 04:04 | Java SDK 审查 #11（cortex-mem-spring-integration）
+
+**审查范围**: 
+- `cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/CortexMemClient.java` (接口，25 方法)
+- `cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/CortexMemClientImpl.java` (实现，retry/pagination/core)
+- DTO 层: SearchRequest, ObservationsRequest, ObservationUpdate, ObservationRequest, ObservationResponse, PagedObservationResponse, SessionStartRequest, SessionEndRequest, UserPromptRequest, ExperienceRequest, ICLPromptRequest, ExtractionResponse, QualityDistribution
+- Demo: ChatController, ExtractionController, ObservationsController, SearchController, SessionLifecycleController, ManagementController, ExperiencesController
+
+**审查结论**: Java SDK 代码质量优秀，无 P0/P1/P2 问题。
+
+| 检查项 | 状态 | 说明 |
+|--------|------|------|
+| DTO 设计 | ✅ | SearchRequest/Builder 限制 max=100，ObservationsRequest 同；ObservationUpdate 有 isEmpty() guard + @JsonInclude(NON_NULL) |
+| Error handling | ✅ | executeWithRetry/propagate/silent 三层分层清晰；isRetryable(429/502/503/504, not 500) 与 Go SDK 对齐 |
+| Null safety | ✅ | mapToObservationResponse 对 temporal/Number 字段有兜底 toString()；null response 有 IllegalStateException guard |
+| Input validation | ✅ | requireNonBlank 覆盖所有 required 字段；limit > 0 校验贯穿 Search/Observations/Experience |
+| Cross-SDK parity | ✅ | getStats(project=null) = global；search offset=0 不发送；getExtractionHistory limit=0 omit；triggerRefinement fire-and-forget |
+| Demo controllers | ✅ | ObservationsController 全面类型验证（facts/concepts list items）；SearchController 所有 SearchRequest 字段覆盖；ChatController 两种调用路径异常均被捕获 |
+| 编译验证 | ✅ | mvn compile -pl cortex-mem-client ✅ 无错误无警告 |
+
+**代码质量亮点**:
+- `jitteredBackoff` ±25% jitter，匹配 Go SDK
+- `ObservationUpdate.isEmpty()` 防止无意义 PATCH 请求
+- `executeWithRetrySilent` 对 capture 操作（fire-and-forget）swallow 异常，不破坏 AI pipeline
+- `mapToObservationResponse` 处理 Jackson deserialized temporal objects vs strings 的边界情况
