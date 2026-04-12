@@ -962,7 +962,12 @@ Returns all known project paths.
 GET /api/stats
 ```
 
-Returns database and processing statistics.
+Returns database and processing statistics. Optionally filter by project path.
+
+**Query Parameters**:
+| Parameter | Type   | Required | Description                          |
+|-----------|--------|----------|--------------------------------------|
+| `project` | string | No       | Project path to filter statistics    |
 
 **Response** (`200 OK`):
 ```json
@@ -976,6 +981,23 @@ Returns database and processing statistics.
     "totalSummaries": 56,
     "totalSessions": 78,
     "totalProjects": 3
+  }
+}
+```
+
+**Project-scoped response** (`200 OK`, with `?project=...`):
+```json
+{
+  "worker": {
+    "isProcessing": false,
+    "queueDepth": 0
+  },
+  "database": {
+    "totalObservations": 42,
+    "totalSummaries": 5,
+    "totalSessions": 3,
+    "totalProjects": 1,
+    "projectPath": "/path/to/project"
   }
 }
 ```
@@ -2347,6 +2369,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-09 | 0.1.0-beta+31 | Added missing 400 error responses to Ingest endpoints: POST /api/ingest/session-end (missing session_id) and POST /api/ingest/observation (missing content_session_id or project_path); verified against IngestionController.java source code; synced Chinese version |
 | 2026-04-09 | 0.1.0-beta+32 | Added missing degraded response example to Chinese GET /api/health section (status: "degraded" when DB unreachable, 200 OK — already present in English version); EN changelog updated for completeness |
 | 2026-04-10 | 0.1.0-beta+33 | Removed spurious `## Recent Work` top-level section (lines 812-823) — contained non-API content (bug fix example, Token Savings Summary) not belonging in API reference. Moved three Context API endpoint docs (`/api/context/recent`, `/api/context/timeline`, `/api/context/prior-messages`) from `###` subsections under `## Recent Work` to proper `#### GET` subsections under `## Context`; updated curl examples to use `bash` code fences and added parameter type columns; EN doc now consistent with ZH structure |
+| 2026-04-12 | 0.1.0-beta+34 | GET /api/stats: added optional `project` query parameter for project-scoped statistics (commit a75ad4c — ViewerController.getStats now accepts `@RequestParam(required=false) String project` and returns filtered counts via SessionRepository.countByProjectPath); added query parameter table, curl example with `?project=...`, and project-scoped response example showing extra `projectPath` field; synced Chinese version |
 
 ---
 

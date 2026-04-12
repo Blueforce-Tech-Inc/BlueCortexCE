@@ -943,14 +943,21 @@ curl http://localhost:37777/api/projects
 
 #### GET `/api/stats`
 
-获取数据库和处理统计信息。
+获取数据库和处理统计信息。可通过 project 查询参数筛选指定项目的统计。
+
+**查询参数**:
+| 参数    | 类型   | 必填 | 说明                     |
+|---------|--------|------|--------------------------|
+| `project` | string | 否   | 项目路径，用于筛选统计信息 |
 
 **请求示例**:
 ```bash
 curl http://localhost:37777/api/stats
+# 或指定项目：
+curl http://localhost:37777/api/stats?project=/path/to/project
 ```
 
-**响应示例**:
+**响应示例**（全局统计）:
 ```json
 {
   "worker": {
@@ -962,6 +969,23 @@ curl http://localhost:37777/api/stats
     "totalSummaries": 56,
     "totalSessions": 78,
     "totalProjects": 3
+  }
+}
+```
+
+**项目级响应**（`?project=...`）:
+```json
+{
+  "worker": {
+    "isProcessing": false,
+    "queueDepth": 0
+  },
+  "database": {
+    "totalObservations": 42,
+    "totalSummaries": 5,
+    "totalSessions": 3,
+    "totalProjects": 1,
+    "projectPath": "/path/to/project"
   }
 }
 ```
@@ -2422,6 +2446,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-09 | 0.1.0-beta+31 | 补充 Ingestion 端点缺失的 400 错误响应：POST /api/ingest/session-end（缺少 session_id）和 POST /api/ingest/observation（缺少 content_session_id 或 project_path）；与 IngestionController.java 源码验证一致；与英文版同步 |
 | 2026-04-09 | 0.1.0-beta+32 | 补充 GET /api/health 缺失的降级模式响应示例（`status: "degraded"`，数据库不可用时返回，200 OK）；已与 HealthController.java 源码第 62 行验证（`response.put("status", dbReady ? "ok" : "degraded")`）；与英文版结构一致 |
 | 2026-04-10 | 0.1.0-beta+33 | 删除英文版错误放置的 `## Recent Work` 顶级章节（原 812-823 行）——包含不应出现在 API 参考文档中的非 API 内容（bug fix 示例、Token Savings Summary）。将三个 Context API 端点文档（`/api/context/recent`、`/api/context/timeline`、`/api/context/prior-messages`）从原 `## Recent Work` 下的 `###` 子节移至 `## Context` 章节下的 `#### GET` 正式子节；更新 curl 示例为 `bash` 代码块格式并补充参数类型列；英文版结构现已与中文版一致 |
+| 2026-04-12 | 0.1.0-beta+34 | GET /api/stats：新增可选 `project` 查询参数，支持项目级统计过滤（commit a75ad4c — ViewerController.getStats 新增 `@RequestParam(required=false) String project`，通过 SessionRepository.countByProjectPath 返回过滤后计数）；补充查询参数表、带 `?project=...` 的 curl 示例、项目级响应示例（含额外 `projectPath` 字段）；同步英文版变更 |
 
 ---
 
