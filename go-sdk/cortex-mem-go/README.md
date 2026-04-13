@@ -10,7 +10,7 @@ Go client library for [Cortex CE](https://github.com/abforce/cortex-ce) — a pe
 - **Full API coverage** — 26 methods covering Session, Capture, Retrieval, Management, Extraction, Version, P1
 - **Framework integrations** — optional Eino, LangChainGo, and Genkit modules
 - **Wire format compatible** — JSON field names match backend API exactly
-- **Comprehensive tests** — 247 unit tests with wire format verification (main + dto)
+- **Comprehensive tests** — 272 unit tests with wire format verification (main + dto)
 
 ## Installation
 
