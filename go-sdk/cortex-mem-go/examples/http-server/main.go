@@ -380,7 +380,7 @@ func main() {
 				return
 			}
 			if err := client.UpdateObservation(r.Context(), id, update); err != nil {
-				if cortexmem.IsValidationError(err) {
+				if cortexmem.IsValidationError(err) || dto.IsObservationUpdateValidationError(err) {
 					writeJSONError(w, http.StatusBadRequest, err.Error())
 					return
 				}

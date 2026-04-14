@@ -340,6 +340,84 @@ func TestObservationUpdate_IsEmpty_EmptyStringPointerNotEmpty(t *testing.T) {
 	}
 }
 
+// ==================== ObservationUpdate.HasConflict() Tests ====================
+
+func TestObservationUpdate_HasConflict_BothSet(t *testing.T) {
+	content := "hello"
+	narrative := "world"
+	update := ObservationUpdate{Content: &content, Narrative: &narrative}
+	if !update.HasConflict() {
+		t.Error("expected HasConflict()=true when both Content and Narrative are set")
+	}
+}
+
+func TestObservationUpdate_HasConflict_OnlyContent(t *testing.T) {
+	content := "hello"
+	update := ObservationUpdate{Content: &content}
+	if update.HasConflict() {
+		t.Error("expected HasConflict()=false when only Content is set")
+	}
+}
+
+func TestObservationUpdate_HasConflict_OnlyNarrative(t *testing.T) {
+	narrative := "world"
+	update := ObservationUpdate{Narrative: &narrative}
+	if update.HasConflict() {
+		t.Error("expected HasConflict()=false when only Narrative is set")
+	}
+}
+
+func TestObservationUpdate_HasConflict_NeitherSet(t *testing.T) {
+	update := ObservationUpdate{}
+	if update.HasConflict() {
+		t.Error("expected HasConflict()=false when neither is set")
+	}
+}
+
+// ==================== ObservationUpdate.Validate() Tests ====================
+
+func TestObservationUpdate_Validate_Empty(t *testing.T) {
+	update := ObservationUpdate{}
+	err := update.Validate()
+	if err == nil {
+		t.Error("expected error for empty update")
+	}
+	if !IsObservationUpdateValidationError(err) {
+		t.Errorf("expected ObservationUpdateValidationError, got: %v (type %T)", err, err)
+	}
+}
+
+func TestObservationUpdate_Validate_Conflict(t *testing.T) {
+	content := "hello"
+	narrative := "world"
+	update := ObservationUpdate{Content: &content, Narrative: &narrative}
+	err := update.Validate()
+	if err == nil {
+		t.Error("expected error for content/narrative conflict")
+	}
+	if !IsObservationUpdateValidationError(err) {
+		t.Errorf("expected ObservationUpdateValidationError, got: %v (type %T)", err, err)
+	}
+}
+
+func TestObservationUpdate_Validate_Valid(t *testing.T) {
+	content := "hello"
+	update := ObservationUpdate{Content: &content}
+	err := update.Validate()
+	if err != nil {
+		t.Errorf("expected no error for valid update, got: %v", err)
+	}
+}
+
+func TestObservationUpdate_Validate_ValidNarrative(t *testing.T) {
+	narrative := "world"
+	update := ObservationUpdate{Narrative: &narrative}
+	err := update.Validate()
+	if err != nil {
+		t.Errorf("expected no error for valid update with Narrative, got: %v", err)
+	}
+}
+
 // ==================== Session DTO Wire Format Tests ====================
 
 func TestSessionStartRequest_UsesProjectPath(t *testing.T) {

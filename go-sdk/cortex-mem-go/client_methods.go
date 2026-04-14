@@ -202,9 +202,9 @@ func (c *httpClient) UpdateObservation(ctx context.Context, observationID string
 	if strings.TrimSpace(observationID) == "" {
 		return &ValidationError{Field: "observationID", Message: "observationID is required"}
 	}
-	// Validate at least one field is set (PATCH semantics: empty update is a no-op).
-	if update.IsEmpty() {
-		return &ValidationError{Field: "update", Message: "at least one field must be provided for update"}
+	// Validate: reject empty updates and content/narrative alias conflicts.
+	if err := update.Validate(); err != nil {
+		return err
 	}
 	// NOT fire-and-forget: explicit user action, errors must propagate.
 	path := fmt.Sprintf("/api/memory/observations/%s", url.PathEscape(observationID))

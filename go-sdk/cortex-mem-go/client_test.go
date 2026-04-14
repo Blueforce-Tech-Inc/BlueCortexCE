@@ -4134,16 +4134,26 @@ func TestValidationError_EmptyField(t *testing.T) {
 func TestUpdateObservation_UsesValidationError(t *testing.T) {
 	client := cortexmem.NewClient()
 
-	// Empty update should produce ValidationError
+	// Empty update should produce a validation error (either ValidationError or ObservationUpdateValidationError)
 	err := client.UpdateObservation(context.Background(), "obs-1", dto.ObservationUpdate{})
-	if !cortexmem.IsValidationError(err) {
-		t.Errorf("expected ValidationError for empty update, got: %v", err)
+	if !cortexmem.IsValidationError(err) && !dto.IsObservationUpdateValidationError(err) {
+		t.Errorf("expected validation error for empty update, got: %v (type %T)", err, err)
 	}
 
 	// Empty observationID should produce ValidationError
 	err = client.UpdateObservation(context.Background(), "", dto.ObservationUpdate{Title: strPtr("test")})
 	if !cortexmem.IsValidationError(err) {
 		t.Errorf("expected ValidationError for empty observationID, got: %v", err)
+	}
+
+	// Content/Narrative conflict should produce ObservationUpdateValidationError
+	conflictUpdate := dto.ObservationUpdate{
+		Content:   strPtr("hello"),
+		Narrative: strPtr("world"),
+	}
+	err = client.UpdateObservation(context.Background(), "obs-1", conflictUpdate)
+	if !dto.IsObservationUpdateValidationError(err) {
+		t.Errorf("expected ObservationUpdateValidationError for content/narrative conflict, got: %v (type %T)", err, err)
 	}
 }
 

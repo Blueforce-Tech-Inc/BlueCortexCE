@@ -2,6 +2,7 @@ package dto
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
@@ -60,12 +61,16 @@ type ObservationRequest struct {
 //
 //	{"title":"...", "subtitle":"...", "content":"...", "narrative":"...", "facts":[...], "concepts":[...], "source":"...", "extractedData":{...}}
 //	Pointer fields (*string) use "omitempty" — nil values are omitted from JSON.
-//	The backend accepts both "content" and "narrative" as aliases for the body text.
+//
+// ⚠️ CONFLICT: "content" and "narrative" are aliases for the same backend field.
+// Setting both will cause the backend to silently use "content" and ignore "narrative",
+// resulting in unexpected behavior. Use HasConflict() to detect this before sending.
+// (This mirrors the fix applied to Java SDK's Builder.build() — see Java SDK PR #25.)
 type ObservationUpdate struct {
 	Title         *string        `json:"title,omitempty"`
 	Subtitle      *string        `json:"subtitle,omitempty"`
 	Content       *string        `json:"content,omitempty"`
-	Narrative     *string        `json:"narrative,omitempty"` // Alias for content — cross-SDK consistency
+	Narrative     *string        `json:"narrative,omitempty"` // ⚠️ Alias for content — see HasConflict()
 	Facts         []string       `json:"facts,omitempty"`
 	Concepts      []string       `json:"concepts,omitempty"`
 	Source        *string        `json:"source,omitempty"`
@@ -78,6 +83,52 @@ func (u ObservationUpdate) IsEmpty() bool {
 	return u.Title == nil && u.Subtitle == nil && u.Content == nil &&
 		u.Narrative == nil && u.Facts == nil && u.Concepts == nil &&
 		u.Source == nil && u.ExtractedData == nil
+}
+
+// HasConflict returns true if both Content and Narrative are set.
+// The backend treats these as aliases — setting both causes silent data loss
+// (backend uses "content" and ignores "narrative"). Call this before sending
+// an update to detect the conflict.
+func (u ObservationUpdate) HasConflict() bool {
+	return u.Content != nil && u.Narrative != nil
+}
+
+// ValidationError represents a client-side validation failure in ObservationUpdate.
+type ObservationUpdateValidationError struct {
+	Field   string
+	Message string
+}
+
+func (e *ObservationUpdateValidationError) Error() string {
+	return "cortex-ce: ObservationUpdate validation error: " + e.Message
+}
+
+// IsObservationUpdateValidationError returns true if the error is a validation error
+// specific to ObservationUpdate (content/narrative conflict or empty update).
+// Use errors.As(err, &ObservationUpdateValidationError{}) for detailed field info.
+func IsObservationUpdateValidationError(err error) bool {
+	var e *ObservationUpdateValidationError
+	return errors.As(err, &e)
+}
+
+// Validate returns an error if the update is invalid.
+// Checks for:
+//   - Empty update (IsEmpty)
+//   - Content/Narrative conflict (HasConflict)
+func (u ObservationUpdate) Validate() error {
+	if u.IsEmpty() {
+		return &ObservationUpdateValidationError{
+			Field:   "update",
+			Message: "at least one field must be provided for update",
+		}
+	}
+	if u.HasConflict() {
+		return &ObservationUpdateValidationError{
+			Field:   "content|narrative",
+			Message: "both Content and Narrative are set — they are aliases for the same backend field; the backend silently uses 'content' and ignores 'narrative'. Use only Content or only Narrative.",
+		}
+	}
+	return nil
 }
 
 // Observation is a single observation record returned from the backend.
