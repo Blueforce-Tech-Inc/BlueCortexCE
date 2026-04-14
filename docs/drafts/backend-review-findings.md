@@ -2796,3 +2796,27 @@ Total: 426/426 tests passed
 - `ObservationUpdate.isEmpty()` 防止无意义 PATCH 请求
 - `executeWithRetrySilent` 对 capture 操作（fire-and-forget）swallow 异常，不破坏 AI pipeline
 - `mapToObservationResponse` 处理 Jackson deserialized temporal objects vs strings 的边界情况
+
+---
+
+## 2026-04-15 02:10 | Backend 审查 #49（每30分钟 cron）
+
+**审查范围**: `service/ImportService.java` (322 lines), `service/ContextCacheService.java` (115 lines)
+
+**审查方向**: Backend — ImportService 批量操作 + ContextCacheService refresh 失败处理
+
+#### 审查发现
+
+| # | 文件 | 行 | 级别 | 问题 | 状态 |
+|---|------|-----|------|------|------|
+| 49-1 | ImportService.java | `importObservations()` L227, `importUserPrompts()` L288 | **P2** | 循环内逐条 `save()` 而非 `saveAll()` — N 次 DB 往返拖慢大批量导入性能；当前每次 `save()` 触发 dirty checking，单次 flush 相比 `saveAll()` 后统一 flush 效率低 | 记录待优化 |
+| 49-2 | ContextCacheService.java | `refreshStaleContexts()` L96 | **P2** | refresh 失败时仅 log error，未标记 session 需要重试，导致失败 session 在下一轮 scheduled run 仍被 `findByNeedsContextRefreshTrue` 重新处理，若失败原因未消除则无限重试浪费计算资源 | 记录待优化 |
+
+**代码质量亮点**:
+- `ImportService`: record 风格 DTO 设计清晰，duplicate 检测逻辑正确，事务边界覆盖内层方法调用，null/blank 输入验证完善
+- `ContextCacheService`: 多 session 并发 refresh 相互隔离（每 session try-catch），单 session 失败不影响其他；scheduled rate 与 `refreshIntervalSeconds` 配置对齐；`getContextIfFresh` 与 `refreshContext` 职责分离设计合理
+- ContextCacheService 先前已修复：无 DLQ/retry 设计系已知设计决策（下次 scheduled run 会重新拉取，session 的 `needsContextRefresh` 仍为 true）；`sessions.get(0)` 忽略同一 project 多 active session 系合理设计决策
+
+**Backend P0/P1/P2 状态**: 0 / 0 / 2
+
+**测试状态**: No code changes; review only.
