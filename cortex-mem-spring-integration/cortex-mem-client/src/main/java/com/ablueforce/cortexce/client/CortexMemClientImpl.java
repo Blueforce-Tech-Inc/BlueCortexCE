@@ -115,6 +115,7 @@ public class CortexMemClientImpl implements CortexMemClient {
         Objects.requireNonNull(request, "request must not be null");
         requireNonBlank(request.sessionId(), "sessionId");
         requireNonBlank(request.projectPath(), "projectPath");
+        requireAbsolutePath(request.projectPath(), "projectPath");
         requireNonBlank(request.toolName(), "toolName");
         executeWithRetrySilent("recordObservation", () ->
             restClient.post()
@@ -130,6 +131,7 @@ public class CortexMemClientImpl implements CortexMemClient {
         Objects.requireNonNull(request, "request must not be null");
         requireNonBlank(request.sessionId(), "sessionId");
         requireNonBlank(request.projectPath(), "projectPath");
+        requireAbsolutePath(request.projectPath(), "projectPath");
         executeWithRetrySilent("recordSessionEnd", () ->
             restClient.post()
                 .uri("/api/ingest/session-end")
@@ -145,6 +147,7 @@ public class CortexMemClientImpl implements CortexMemClient {
         requireNonBlank(request.sessionId(), "sessionId");
         requireNonBlank(request.promptText(), "promptText");
         requireNonBlank(request.projectPath(), "projectPath");
+        requireAbsolutePath(request.projectPath(), "projectPath");
         executeWithRetrySilent("recordUserPrompt", () ->
             restClient.post()
                 .uri("/api/ingest/user-prompt")
@@ -745,6 +748,22 @@ public class CortexMemClientImpl implements CortexMemClient {
     private static void requireNonBlank(String value, String fieldName) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(fieldName + " must not be null or blank");
+        }
+    }
+
+    /**
+     * Validate that a path is an absolute path (starts with / on Unix or a drive letter on Windows).
+     *
+     * @param value     the path value to check
+     * @param fieldName the field name for the error message
+     * @throws IllegalArgumentException if value is not an absolute path
+     */
+    private static void requireAbsolutePath(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            return; // requireNonBlank already handles null/blank
+        }
+        if (!java.nio.file.Paths.get(value).isAbsolute()) {
+            throw new IllegalArgumentException(fieldName + " must be an absolute path (got: " + value + ")");
         }
     }
 
