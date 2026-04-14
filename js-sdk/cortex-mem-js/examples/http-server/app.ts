@@ -424,6 +424,7 @@ const server = app.listen(PORT, () => {
   console.log('  GET    /observations        - List observations');
   console.log('  GET    /observations/:id    - Get observation by ID');
   console.log('  POST   /observations/batch  - Batch get observations by IDs');
+  console.log('  POST   /observations/create - Record observation');
   console.log('  GET    /projects            - Get projects');
   console.log('  GET    /stats               - Get stats');
   console.log('  GET    /modes               - Get modes');
@@ -438,7 +439,6 @@ const server = app.listen(PORT, () => {
   console.log('  PATCH  /session/user        - Update session user ID');
   console.log('  PATCH  /observations/:id    - Update observation');
   console.log('  DELETE /observations/:id    - Delete observation');
-  console.log('  POST   /observations/create - Record observation');
   console.log('  POST   /ingest/prompt       - Ingest user prompt');
   console.log('  POST   /ingest/session-end  - Ingest session end');
 });
