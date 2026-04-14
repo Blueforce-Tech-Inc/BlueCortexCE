@@ -106,7 +106,7 @@ Server starts on `http://127.0.0.1:37777`.
 | GET | `/api/summaries` | Paginated summaries |
 | GET | `/api/prompts` | Paginated user prompts |
 | GET | `/api/projects` | List projects |
-| GET | `/api/stats` | Database statistics |
+| GET | `/api/stats?project=...` | Database statistics (optional `project` param for project-scoped counts) |
 | GET | `/api/search` | Semantic + text search |
 | GET | `/api/search/by-file` | Search observations by file path |
 | GET | `/api/timeline` | Timeline context retrieval |
