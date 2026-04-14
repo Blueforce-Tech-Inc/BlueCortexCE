@@ -2809,7 +2809,7 @@ Total: 426/426 tests passed
 
 | # | 文件 | 行 | 级别 | 问题 | 状态 |
 |---|------|-----|------|------|------|
-| 49-1 | ImportService.java | `importObservations()` L227, `importUserPrompts()` L288 | **P2** | 循环内逐条 `save()` 而非 `saveAll()` — N 次 DB 往返拖慢大批量导入性能；当前每次 `save()` 触发 dirty checking，单次 flush 相比 `saveAll()` 后统一 flush 效率低 | 记录待优化 |
+| 49-1 | ImportService.java | `importObservations()` L227, `importUserPrompts()` L288 | **P2** | 循环内逐条 `save()` 而非 `saveAll()` — N 次 DB 往返拖慢大批量导入性能；当前每次 `save()` 触发 dirty checking，单次 flush 相比 `saveAll()` 后统一 flush 效率低 | ✅已修复（commit e2e7a3e：改用 findByContentSessionIdIn() 批量查重 + saveAll() 批量插入，DB 往返从 N 次降至 2 次） |
 | 49-2 | ContextCacheService.java | `refreshStaleContexts()` L96 | **P2** | refresh 失败时仅 log error，未标记 session 需要重试，导致失败 session 在下一轮 scheduled run 仍被 `findByNeedsContextRefreshTrue` 重新处理，若失败原因未消除则无限重试浪费计算资源 | 记录待优化 |
 
 **代码质量亮点**:
@@ -2817,6 +2817,6 @@ Total: 426/426 tests passed
 - `ContextCacheService`: 多 session 并发 refresh 相互隔离（每 session try-catch），单 session 失败不影响其他；scheduled rate 与 `refreshIntervalSeconds` 配置对齐；`getContextIfFresh` 与 `refreshContext` 职责分离设计合理
 - ContextCacheService 先前已修复：无 DLQ/retry 设计系已知设计决策（下次 scheduled run 会重新拉取，session 的 `needsContextRefresh` 仍为 true）；`sessions.get(0)` 忽略同一 project 多 active session 系合理设计决策
 
-**Backend P0/P1/P2 状态**: 0 / 0 / 2
+**Backend P0/P1/P2 状态**: 0 / 0 / 1 (#49-2 待优化，#49-1 已修复)
 
-**测试状态**: No code changes; review only.
+**测试状态**: commit e2e7a3e: ImportService bulk import 性能优化（saveAll），mvn compile 通过。
