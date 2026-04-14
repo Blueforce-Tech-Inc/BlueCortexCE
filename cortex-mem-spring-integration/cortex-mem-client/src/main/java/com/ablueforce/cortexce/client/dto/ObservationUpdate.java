@@ -56,12 +56,13 @@ public record ObservationUpdate(
 
         public Builder title(String title) { this.title = title; return this; }
         public Builder subtitle(String subtitle) { this.subtitle = subtitle; return this; }
-        public Builder content(String content) { this.content = content; return this; }
-
         /**
-         * Set the narrative field. The backend accepts both "content" and "narrative"
-         * as aliases. Use narrative() to match Go/JS/Python SDK convention.
+         * Set the content/narrative field. The backend treats "content" and "narrative"
+         * as aliases for the same field. Use either method, but not both — if both are
+         * set, the backend will silently use "content" and ignore "narrative".
+         * Prefer {@link #content(String)} for consistency.
          */
+        public Builder content(String content) { this.content = content; return this; }
         public Builder narrative(String narrative) { this.narrative = narrative; return this; }
         public Builder facts(List<String> facts) { this.facts = facts; return this; }
         public Builder concepts(List<String> concepts) { this.concepts = concepts; return this; }
@@ -69,6 +70,12 @@ public record ObservationUpdate(
         public Builder extractedData(Map<String, Object> extractedData) { this.extractedData = extractedData; return this; }
 
         public ObservationUpdate build() {
+            if (content != null && narrative != null) {
+                throw new IllegalStateException(
+                    "content and narrative cannot both be set — they are aliases for the same backend field. " +
+                    "The backend silently uses 'content' and ignores 'narrative' when both are present. " +
+                    "Use either content() or narrative(), but not both.");
+            }
             return new ObservationUpdate(title, subtitle, content, narrative, facts, concepts, source, extractedData);
         }
     }
