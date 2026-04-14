@@ -648,4 +648,10 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         @Param("sessionId") String sessionId,
         @Param("type") String type,
         @Param("limit") int limit);
+
+    /**
+     * Batch fetch observations by session IDs (for bulk import duplicate detection).
+     * Use to check for existing observations in bulk before calling saveAll().
+     */
+    List<ObservationEntity> findByContentSessionIdIn(List<String> sessionIds);
 }

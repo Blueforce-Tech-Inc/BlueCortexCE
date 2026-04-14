@@ -280,19 +280,79 @@ public class ImportService implements LogHelper {
     public BulkImportResult importObservations(List<ObservationImportData> observations) {
         BulkImportResult result = new BulkImportResult();
 
+        // Step 1: Collect all session IDs for batch duplicate check
+        List<String> sessionIds = observations.stream()
+            .map(ObservationImportData::sessionId)
+            .filter(s -> s != null && !s.isBlank())
+            .distinct()
+            .toList();
+
+        // Step 2: Batch fetch existing observations (single DB round trip)
+        List<ObservationEntity> existingObs = sessionIds.isEmpty()
+            ? List.of()
+            : observationRepository.findByContentSessionIdIn(sessionIds);
+
+        // Step 3: Build duplicate key set: (sessionId, title, createdAtEpoch) -> id
+        Set<String> duplicateKeys = existingObs.stream()
+            .map(o -> o.getContentSessionId() + "|" + o.getTitle() + "|" + o.getCreatedAtEpoch())
+            .collect(java.util.stream.Collectors.toSet());
+
+        // Step 4: Separate new observations from validation errors
+        List<ObservationEntity> toSave = new java.util.ArrayList<>();
         for (ObservationImportData data : observations) {
             try {
-                ImportResult ir = importObservation(data);
-                if (ir.imported()) {
-                    result = result.addImported(ir.id());
-                } else if (ir.message().contains("Duplicate")) {
-                    result = result.addDuplicate();
-                } else {
-                    result = result.addError(ir.message());
+                // Validate
+                if (data.sessionId() == null || data.sessionId().isBlank()) {
+                    result = result.addError("sessionId is required");
+                    continue;
                 }
+                if (data.title() == null || data.title().isBlank()) {
+                    result = result.addError("title is required");
+                    continue;
+                }
+
+                long createdAtEpoch = data.createdAtEpoch() != null ? data.createdAtEpoch() : System.currentTimeMillis();
+                String key = data.sessionId() + "|" + data.title() + "|" + createdAtEpoch;
+
+                if (duplicateKeys.contains(key)) {
+                    result = result.addDuplicate();
+                    continue;
+                }
+                duplicateKeys.add(key); // prevent duplicates within the same batch
+
+                ObservationEntity obs = new ObservationEntity();
+                obs.setContentSessionId(data.sessionId());
+                obs.setProjectPath(data.projectPath());
+                obs.setType(data.type() != null ? data.type() : "unknown");
+                obs.setTitle(data.title());
+                obs.setSubtitle(data.subtitle());
+                obs.setContent(data.content());
+                obs.setFacts(parseJsonArray(data.factsJson()));
+                obs.setConcepts(parseJsonArray(data.conceptsJson()));
+                obs.setFilesRead(parseJsonArray(data.filesReadJson()));
+                obs.setFilesModified(parseJsonArray(data.filesModifiedJson()));
+                obs.setPromptNumber(data.promptNumber() != null ? data.promptNumber() : 1);
+                obs.setDiscoveryTokens(data.discoveryTokens() != null ? data.discoveryTokens() : 0);
+                obs.setEmbedding768(toFloatArray(data.embedding768()));
+                obs.setEmbedding1024(toFloatArray(data.embedding1024()));
+                obs.setEmbedding1536(toFloatArray(data.embedding1536()));
+                obs.setEmbeddingModelId(data.embeddingModelId());
+                obs.setCreatedAtEpoch(createdAtEpoch);
+                obs.setCreatedAt(epochToOffsetDateTime(createdAtEpoch));
+
+                toSave.add(obs);
             } catch (Exception e) {
-                logFailure("Error importing observation: {}", e.getMessage());
+                logFailure("Error preparing observation: {}", e.getMessage());
                 result = result.addError(e.getMessage());
+            }
+        }
+
+        // Step 5: Bulk save all new observations (single DB round trip)
+        if (!toSave.isEmpty()) {
+            List<ObservationEntity> saved = observationRepository.saveAll(toSave);
+            for (ObservationEntity savedObs : saved) {
+                result = result.addImported(savedObs.getId().toString());
+                logSuccess("Imported observation: {} - {}", savedObs.getContentSessionId(), savedObs.getTitle());
             }
         }
 
@@ -377,19 +437,67 @@ public class ImportService implements LogHelper {
     public BulkImportResult importUserPrompts(List<UserPromptImportData> prompts) {
         BulkImportResult result = new BulkImportResult();
 
+        // Step 1: Collect all session IDs for batch duplicate check
+        List<String> sessionIds = prompts.stream()
+            .map(UserPromptImportData::sessionId)
+            .filter(s -> s != null && !s.isBlank())
+            .distinct()
+            .toList();
+
+        // Step 2: Batch fetch existing prompts (single DB round trip)
+        List<UserPromptEntity> existingPrompts = sessionIds.isEmpty()
+            ? List.of()
+            : userPromptRepository.findByContentSessionIdIn(sessionIds);
+
+        // Step 3: Build duplicate key set: (sessionId, promptNumber) -> id
+        Set<String> duplicateKeys = existingPrompts.stream()
+            .map(p -> p.getContentSessionId() + "|" + p.getPromptNumber())
+            .collect(java.util.stream.Collectors.toSet());
+
+        // Step 4: Separate new prompts from validation errors
+        List<UserPromptEntity> toSave = new java.util.ArrayList<>();
         for (UserPromptImportData data : prompts) {
             try {
-                ImportResult ir = importUserPrompt(data);
-                if (ir.imported()) {
-                    result = result.addImported(ir.id());
-                } else if (ir.message().contains("Duplicate")) {
-                    result = result.addDuplicate();
-                } else {
-                    result = result.addError(ir.message());
+                // Validate
+                if (data.sessionId() == null || data.sessionId().isBlank()) {
+                    result = result.addError("sessionId is required");
+                    continue;
                 }
+                if (data.promptNumber() == null) {
+                    result = result.addError("promptNumber is required");
+                    continue;
+                }
+
+                String key = data.sessionId() + "|" + data.promptNumber();
+
+                if (duplicateKeys.contains(key)) {
+                    result = result.addDuplicate();
+                    continue;
+                }
+                duplicateKeys.add(key); // prevent duplicates within the same batch
+
+                long createdAtEpoch = data.createdAtEpoch() != null ? data.createdAtEpoch() : System.currentTimeMillis();
+
+                UserPromptEntity prompt = new UserPromptEntity();
+                prompt.setContentSessionId(data.sessionId());
+                prompt.setPromptNumber(data.promptNumber());
+                prompt.setPromptText(data.promptText());
+                prompt.setCreatedAtEpoch(createdAtEpoch);
+                prompt.setCreatedAt(epochToOffsetDateTime(createdAtEpoch));
+
+                toSave.add(prompt);
             } catch (Exception e) {
-                logFailure("Error importing user prompt: {}", e.getMessage());
+                logFailure("Error preparing user prompt: {}", e.getMessage());
                 result = result.addError(e.getMessage());
+            }
+        }
+
+        // Step 5: Bulk save all new prompts (single DB round trip)
+        if (!toSave.isEmpty()) {
+            List<UserPromptEntity> saved = userPromptRepository.saveAll(toSave);
+            for (UserPromptEntity savedPrompt : saved) {
+                result = result.addImported(savedPrompt.getId().toString());
+                logSuccess("Imported user prompt: {} #{}", savedPrompt.getContentSessionId(), savedPrompt.getPromptNumber());
             }
         }
 

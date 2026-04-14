@@ -35,4 +35,10 @@ public interface UserPromptRepository extends JpaRepository<UserPromptEntity, UU
     List<UserPromptEntity> findByContentSessionIdOrderByPromptNumberAsc(String contentSessionId);
 
     long countByContentSessionId(String contentSessionId);
+
+    /**
+     * Batch fetch user prompts by session IDs (for bulk import duplicate detection).
+     * Use to check for existing prompts in bulk before calling saveAll().
+     */
+    List<UserPromptEntity> findByContentSessionIdIn(List<String> sessionIds);
 }
