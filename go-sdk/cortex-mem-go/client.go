@@ -2,7 +2,7 @@ package cortexmem
 
 import (
 	"context"
-	"github.com/abforce/cortex-ce/cortex-mem-go/dto"
+	"github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/dto"
 )
 
 // Client is the unified interface for the Cortex CE memory system.

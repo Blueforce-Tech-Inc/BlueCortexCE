@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
-	"github.com/abforce/cortex-ce/cortex-mem-go/dto"
+	cortexmem "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go"
+	"github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/dto"
 )
 
 // mockClient is a minimal mock for testing.

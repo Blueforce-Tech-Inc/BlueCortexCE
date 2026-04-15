@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/abforce/cortex-ce/cortex-mem-go/dto"
+	"github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/dto"
 )
 
 // ==================== Session ====================

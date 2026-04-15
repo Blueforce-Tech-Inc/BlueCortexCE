@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/abforce/cortex-ce/cortex-mem-go"
-	"github.com/abforce/cortex-ce/cortex-mem-go/dto"
+	"github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go"
+	"github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/dto"
 )
 
 func main() {

@@ -1,7 +1,18 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-11 20:48 (Demo 审查 #1: Java/Go/JS/Python HTTP Server Demo — 全部清洁 ✅)
+> **最后更新**: 2026-04-16 04:08 (健康检查 — 全部清洁 ✅)
+
+---
+
+## 2026-04-16 04:08 | 健康检查
+
+| 检查项 | 结果 | 说明 |
+|--------|------|------|
+| Backend 服务健康 | ✅ OK | `{"service":"claude-mem-java","status":"ok"}` |
+| 回归测试 | ✅ 46/47 | regression-test.sh（1 skipped） |
+| EXTRACTION 验收 | ✅ 25/25 | phase3-acceptance-test.sh（EXTRACTION_ENABLED=true） |
+| Backend Review | ✅ 0 P0/0 P1/0 P2 | 全部已修复，无待处理问题 |
 
 ---
 
@@ -2760,12 +2771,12 @@ Total: 426/426 tests passed
 
 **修复详情**:
 
-| # | 文件 | 问题 | 级别 | 修复方案 |
-|---|------|------|------|----------|
-| 47-1 | ExtractionStorageService.java | `storeDLQ()` 无限递归 | **P2** | 移除 rethrow，DLQ 失败时仅记录 error log 让事务回滚 |
-| 47-2 | ExtractionStorageService.java | `storeExtractionResult()` sourceObservations 无 null 检查 | **P2** | 添加 `if (sourceObservations == null) throw IllegalArgumentException` |
-| 47-3 | ExtractionStorageService.java | `storeExtractionResult()` targetSessionId 无空白检查 | **P2** | 添加 `if (targetSessionId == null \|\| targetSessionId.isBlank()) throw IllegalArgumentException` |
-| B11-1 | ViewerController.java | `/api/stats` 忽略 project 参数 | **P2** | 添加 `@RequestParam(required = false) String project` 支持项目级统计；SessionRepository 新增 `countByProjectPath()` |
+| # | 文件 | 问题 | 级别 | 修复方案 | 状态 |
+|---|------|------|------|----------|------|
+| 47-1 | ExtractionStorageService.java | `storeDLQ()` 无限递归 | **P2** | 移除 rethrow，DLQ 失败时仅记录 error log 让事务回滚 | ✅ 已修复 |
+| 47-2 | ExtractionStorageService.java | `storeExtractionResult()` sourceObservations 无 null 检查 | **P2** | 添加 `if (sourceObservations == null) throw IllegalArgumentException` | ✅ 已修复 |
+| 47-3 | ExtractionStorageService.java | `storeExtractionResult()` targetSessionId 无空白检查 | **P2** | 添加 `if (targetSessionId == null \|\| targetSessionId.isBlank()) throw IllegalArgumentException` | ✅ 已修复 |
+| B11-1 | ViewerController.java | `/api/stats` 忽略 project 参数 | **P2** | 添加 `@RequestParam(required = false) String project` 支持项目级统计；SessionRepository 新增 `countByProjectPath()` | ✅ 已修复 |
 
 **验证结果**: 回归测试 46/47 ✅ | EXTRACTION 验收 25/25 ✅
 
@@ -2875,6 +2886,6 @@ Total: 426/426 tests passed
 
 | # | 文件 | 行 | 级别 | 问题 | 状态 |
 |---|------|-----|------|------|------|
-| G-1 | `client.go`, `client_methods.go`, `genkit/retriever.go`, `eino/retriever.go`, `langchaingo/memory.go` | import 语句 | **P2** | SDK `go.mod` 已更新为 `github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go`（commit `7ff5b18`），但内部所有 import 仍使用旧的 `github.com/abforce/cortex-ce/cortex-mem-go/...` 路径。SDK 无法作为独立模块以新路径构建。Examples 使用 `replace` 指令覆盖路径，工作正常，但 SDK 本身 publish 时会失败 | 待修复 |
+| G-1 | `client.go`, `client_methods.go`, `genkit/retriever.go`, `eino/retriever.go`, `langchaingo/memory.go` | import 语句 | **P2** | SDK `go.mod` 已更新为 `github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go`（commit `7ff5b18`），但内部所有 import 仍使用旧的 `github.com/abforce/cortex-ce/cortex-mem-go/...` 路径。SDK 无法作为独立模块以新路径构建。Examples 使用 `replace` 指令覆盖路径，工作正常，但 SDK 本身 publish 时会失败 | ✅ 已修复（`sed` 批量替换 13 个 .go 文件的 import 路径，`go build ./...` 通过） |
 
 **说明**: Examples 本身编译正常（5/5 通过 `go build`），但 SDK core 的内部 import 未同步更新。建议作为独立任务统一修复（涉及 `client.go`、`client_methods.go` 及三个集成包内部的 import）。

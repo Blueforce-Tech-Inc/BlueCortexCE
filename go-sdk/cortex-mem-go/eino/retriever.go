@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"os"
 
-	cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
-	"github.com/abforce/cortex-ce/cortex-mem-go/dto"
+	cortexmem "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go"
+	"github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/dto"
 )
 
 // Retriever adapts Cortex CE memory to Eino's Retriever interface.

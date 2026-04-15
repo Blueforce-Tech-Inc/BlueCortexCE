@@ -1,15 +1,15 @@
-module github.com/abforce/cortex-ce/cortex-mem-go/examples/eino
+module github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/examples/eino
 
 go 1.22
 
 require (
-	github.com/abforce/cortex-ce/cortex-mem-go v0.0.0
-	github.com/abforce/cortex-ce/cortex-mem-go/eino v0.0.0-00010101000000-000000000000
+	github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go v0.0.0
+	github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/eino v0.0.0-00010101000000-000000000000
 )
 
 replace (
-	github.com/abforce/cortex-ce/cortex-mem-go => ../..
-	github.com/abforce/cortex-ce/cortex-mem-go/eino => ../../eino
-	github.com/abforce/cortex-ce/cortex-mem-go/genkit => ../../genkit
-	github.com/abforce/cortex-ce/cortex-mem-go/langchaingo => ../../langchaingo
+	github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go => ../..
+	github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/eino => ../../eino
+	github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/genkit => ../../genkit
+	github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/langchaingo => ../../langchaingo
 )
