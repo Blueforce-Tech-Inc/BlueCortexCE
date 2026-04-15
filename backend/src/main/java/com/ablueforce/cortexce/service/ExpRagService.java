@@ -182,31 +182,38 @@ public class ExpRagService {
         StringBuilder sb = new StringBuilder();
         sb.append("Relevant historical experiences:\n\n");
 
+        // Reserve space for the fixed footer: "---\n\nCurrent task:\n" + some truncation padding
+        int footerReserve = 50;
+        int availableForExperiences = Math.max(0, maxChars - footerReserve);
+
         for (int i = 0; i < experiences.size(); i++) {
             Experience exp = experiences.get(i);
             String expBlock = String.format("### Experience %d\n**Task**: %s\n**Strategy**: %s\n**Outcome**: %s\n**Quality**: %.2f\n\n",
                 i + 1, exp.task(), exp.strategy(), exp.outcome(), exp.qualityScore());
-            
-            // Check if adding this experience would exceed maxChars
-            if (sb.length() + expBlock.length() + currentTask.length() + 50 > maxChars) {
+
+            // Check if adding this experience would exceed available space
+            if (sb.length() + expBlock.length() > availableForExperiences) {
                 log.debug("ICL prompt truncated at experience {} to stay within {} char limit", i, maxChars);
                 break;
             }
-            
+
             sb.append(expBlock);
         }
 
         sb.append("---\n\n");
         sb.append("Current task:\n");
-        
+
         // Final truncation check for currentTask
         String currentTaskBlock = currentTask;
-        if (sb.length() + currentTaskBlock.length() > maxChars) {
-            currentTaskBlock = currentTaskBlock.substring(0, Math.max(0, maxChars - sb.length() - 10)) + "...";
+        int remaining = maxChars - sb.length();
+        if (remaining < 0) {
+            // Experiences already exceeded budget — truncate nothing more (experiences were already cut)
+            currentTaskBlock = "";
+            log.debug("No space for current task in ICL prompt (limit: {})", maxChars);
+        } else if (currentTaskBlock != null && currentTaskBlock.length() > remaining) {
+            currentTaskBlock = currentTaskBlock.substring(0, Math.max(0, remaining - 3)) + "...";
             log.debug("Current task truncated to fit within {} char limit", maxChars);
         }
-        
-        sb.append(currentTaskBlock);
 
         return sb.toString();
     }

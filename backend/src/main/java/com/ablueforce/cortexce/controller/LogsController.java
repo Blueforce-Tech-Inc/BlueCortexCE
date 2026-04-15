@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -96,12 +97,20 @@ public class LogsController {
 
             searchedFiles.add(logFile.getFileName().toString());
 
-            try {
-                List<String> fileLines = Files.readAllLines(logFile);
-                totalLines += fileLines.size();
-
-                // Append to result (from file start, later files overwrite earlier lines)
-                logLines.addAll(0, fileLines);
+            try (BufferedReader reader = Files.newBufferedReader(logFile)) {
+                // Read last 'validatedLines' lines using O(n) single-pass algorithm
+                // (avoids loading entire file into memory for large log files)
+                List<String> window = new ArrayList<>();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    window.add(line);
+                    if (window.size() > validatedLines) {
+                        window.remove(0); // maintain sliding window of max validatedLines
+                    }
+                }
+                totalLines += window.size();
+                // Prepend older file's recent lines first (yesterday's oldest entries at front)
+                logLines.addAll(0, window);
             } catch (IOException e) {
                 log.warn("Failed to read log file {}: {}", logFile, e.getMessage());
             }

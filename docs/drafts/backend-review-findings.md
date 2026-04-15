@@ -2820,3 +2820,34 @@ Total: 426/426 tests passed
 **Backend P0/P1/P2 状态**: 0 / 0 / 1 (#49-2 待优化，#49-1 已修复)
 
 **测试状态**: commit e2e7a3e: ImportService bulk import 性能优化（saveAll），mvn compile 通过。
+
+---
+
+## 2026-04-15 07:27 | Backend 审查 #50（每小时健康检查）
+
+**审查范围**: `controller/ExtractionController.java`, `service/StructuredExtractionService.java`, `service/ExpRagService.java`, `controller/StreamController.java`, `service/ContextCacheService.java`, `service/ProjectFilterService.java`, `controller/CursorController.java`, `controller/LogsController.java`, `controller/ImportController.java`, `service/SessionManagementService.java`, `service/AgentService.java`
+
+**审查方向**: Backend — 批量代码审查（≥10 文件）+ 问题修复
+
+#### 审查发现
+
+| # | 文件 | 行 | 级别 | 问题 | 状态 |
+|---|------|-----|------|------|------|
+| 50-1 | ExpRagService.java | `buildICLPrompt()` L~163 | **P2** | ICL truncation 检查时将 `currentTask.length()` 计入，但此时 `currentTask` 还未追加到 StringBuilder。导致 truncation 决策错误（over-truncate experiences），且当 `currentTask` 很长时，`sb.length() + currentTask.length() > maxChars` 检查后对 `currentTaskBlock` 的 substring 截断计算也可能超出边界 | ✅已修复（预留 footer 空间，使用 availableForExperiences 变量隔离 truncation 决策） |
+| 50-2 | LogsController.java | `getLogs()` L~84 | **P2** | `Files.readAllLines(logFile)` 无文件大小限制，将整个日志文件读入内存。若日志文件达到 GB 级别会导致 OOM。当前默认 `lines=1000` 最多保留 1000 行，但全文件仍被加载 | ✅已修复（改用 BufferedReader 单次遍历 + sliding window 算法，仅保留最近 validatedLines 行，内存 O(lines) 而非 O(file size)） |
+
+**代码质量亮点**:
+- `StructuredExtractionService`: Phase 3 append-only extraction 实现完整，mergeAppendOnly 逻辑严密，keep_hint 保护机制合理，DLQ 设计完善
+- `StreamController`: SSE 使用 unnamed events 正确匹配 WebUI `EventSource.onmessage` 契约，资源清理回调完善
+- `CursorController`: 完整的 Cursor IDE 集成 API，project registry 管理清晰，`updateContext` 支持 custom context
+- `ImportController`: `@Transactional` 边界清晰，record 风格 DTO，null-safe BulkImportRequest constructor 良好
+- `AgentService`: `isRetryableException` 覆盖完整（auth errors 不重试防止 77K+ 循环），dedup 检查完善，embedding 生成有降级处理
+- `SessionManagementService`: `initializeSession`/`ensureSession` 职责分离，`completeSessionForSummary` 状态机清晰
+- `ProjectFilterService`: `AntPathMatcher` 跨平台路径匹配正确，`expandHomeDirectory` 处理 `~` 和 `~user` 两种形式
+
+**Backend P0/P1/P2 状态**: 0 / 0 / 0（#50-1, #50-2 已修复）
+
+**测试状态**: 
+- `scripts/regression-test.sh`: ✅ 46/47 passed（1 skipped: Test 9b 异步摘要警告，符合预期）
+- `scripts/demo-v14-test.sh`: ✅ 4/4 passed（EXTRACTION 验收）
+- mvn compile: ✅ 无错误无警告
