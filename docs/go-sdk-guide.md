@@ -4,7 +4,7 @@
 
 ## Overview
 
-The **Cortex CE Go Client SDK** (`cortex-mem-go`) is a pure Go client library for the [Cortex CE](https://github.com/abforce/cortex-ce) persistent memory system. It provides a clean, idiomatic Go interface for:
+The **Cortex CE Go Client SDK** (`cortex-mem-go`) is a pure Go client library for the [Cortex CE](https://github.com/Blueforce-Tech-Inc/BlueCortexCE) persistent memory system. It provides a clean, idiomatic Go interface for:
 
 - **Capturing** agent observations, user prompts, and session events into the memory backend
 - **Retrieving** relevant historical experiences for In-Context Learning (ICL) / ExpRAG
@@ -14,7 +14,7 @@ The **Cortex CE Go Client SDK** (`cortex-mem-go`) is a pure Go client library fo
 **Key design goals:**
 
 - **Zero mandatory dependencies** — only the Go standard library
-- **Full API coverage** — 27 methods covering all backend endpoints
+- **Full API coverage** — 25 methods covering all backend endpoints
 - **Wire format compatible** — JSON field names match the backend API exactly
 - **Fire-and-forget capture** — non-blocking recording with built-in retry
 - **Framework integrations** — optional adapters for Eino, LangChainGo, and Genkit
@@ -22,28 +22,28 @@ The **Cortex CE Go Client SDK** (`cortex-mem-go`) is a pure Go client library fo
 ## Installation
 
 ```bash
-go get github.com/abforce/cortex-ce/cortex-mem-go
+go get github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go
 ```
 
 For framework integrations, also install the desired adapter:
 
 ```bash
 # Eino
-go get github.com/abforce/cortex-ce/cortex-mem-go/eino
+go get github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/eino
 
 # LangChainGo
-go get github.com/abforce/cortex-ce/cortex-mem-go/langchaingo
+go get github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/langchaingo
 
 # Genkit
-go get github.com/abforce/cortex-ce/cortex-mem-go/genkit
+go get github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/genkit
 ```
 
 **Import path:**
 
 ```go
 import (
-    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
-    "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+    cortexmem "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/dto"
 )
 ```
 
@@ -58,8 +58,8 @@ import (
     "log"
     "time"
 
-    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
-    "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+    cortexmem "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/dto"
 )
 
 func main() {
@@ -1051,7 +1051,7 @@ The SDK provides optional adapters for three Go AI frameworks. Each adapter wrap
 Adapts Cortex CE memory to Eino's Retriever interface.
 
 ```go
-import "github.com/abforce/cortex-ce/cortex-mem-go/eino"
+import "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/eino"
 
 retriever := eino.NewRetriever(client,
     eino.WithRetrieverProject("/my-project"),
@@ -1070,7 +1070,7 @@ experiences, err := retriever.Retrieve(ctx, "What is Eino?")
 Adapts Cortex CE memory to LangChainGo's Memory interface.
 
 ```go
-import "github.com/abforce/cortex-ce/cortex-mem-go/langchaingo"
+import "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/langchaingo"
 
 memory := langchaingo.NewMemory(client,
     langchaingo.WithMemoryProject("/my-project"),
@@ -1097,7 +1097,7 @@ fmt.Println(vars["history"])
 Adapts Cortex CE memory to Genkit's Retriever interface.
 
 ```go
-import "github.com/abforce/cortex-ce/cortex-mem-go/genkit"
+import "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/genkit"
 
 retriever := genkit.NewRetriever(client,
     genkit.WithRetrieverProject("/my-project"),

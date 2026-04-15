@@ -20,7 +20,7 @@
 ### 目录结构
 
 ```
-github.com/abforce/cortex-ce/cortex-mem-go/
+github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/
 ├── client.go              # 核心 Client 接口
 ├── dto/                   # 数据传输对象
 ├── eino/                  # Eino Retriever 集成
@@ -115,7 +115,7 @@ Go 社区文化：**极度厌恶不必要的依赖**。一个"记忆系统 Clien
 ### 安装
 
 ```bash
-go get github.com/abforce/cortex-ce/cortex-mem-go
+go get github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go
 ```
 
 ### 30 秒上手
@@ -129,8 +129,8 @@ import (
     "log"
     "time"
 
-    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
-    "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+    cortexmem "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/dto"
 )
 
 func main() {
@@ -195,11 +195,11 @@ func main() {
 ### 集成 Eino（可选）
 
 ```bash
-go get github.com/abforce/cortex-ce/cortex-mem-go/eino
+go get github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/eino
 ```
 
 ```go
-import eino "github.com/abforce/cortex-ce/cortex-mem-go/eino"
+import eino "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/eino"
 
 // 创建 Eino Retriever
 retriever := eino.NewRetriever(client, "/path/to/project",
@@ -213,11 +213,11 @@ docs, err := retriever.Retrieve(ctx, "How to parse JSON?")
 ### 集成 LangChainGo（可选）
 
 ```bash
-go get github.com/abforce/cortex-ce/cortex-mem-go/langchaingo
+go get github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/langchaingo
 ```
 
 ```go
-import langchaingo "github.com/abforce/cortex-ce/cortex-mem-go/langchaingo"
+import langchaingo "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/langchaingo"
 
 // 创建 LangChainGo Memory
 memory := langchaingo.NewMemory(client, "/path/to/project")
@@ -235,7 +235,7 @@ history := vars["history"]  // ICL prompt
 
 ```
 cortex-mem-go/
-├── go.mod                        # module github.com/abforce/cortex-ce/cortex-mem-go
+├── go.mod                        # module github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go
 ├── client.go                     # Client 接口 + 实现
 ├── client_option.go              # Option 模式配置
 ├── client_test.go                # 单元测试
@@ -249,15 +249,15 @@ cortex-mem-go/
 │   ├── session.go                # SessionStartRequest / SessionEndRequest
 │   └── user_prompt.go            # UserPromptRequest
 ├── eino/
-│   ├── go.mod                    # module github.com/abforce/cortex-ce/cortex-mem-go/eino
+│   ├── go.mod                    # module github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/eino
 │   ├── retriever.go              # 实现 Eino 的 Retriever 接口
 │   └── retriever_test.go
 ├── genkit/
-│   ├── go.mod                    # module github.com/abforce/cortex-ce/cortex-mem-go/genkit
+│   ├── go.mod                    # module github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/genkit
 │   ├── plugin.go                 # 实现 Genkit plugin 接口
 │   └── plugin_test.go
 ├── langchaingo/
-│   ├── go.mod                    # module github.com/abforce/cortex-ce/cortex-mem-go/langchaingo
+│   ├── go.mod                    # module github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/langchaingo
 │   ├── memory.go                 # 实现 LangChainGo memory 接口
 │   └── memory_test.go
 ├── examples/
@@ -297,7 +297,7 @@ cortex-mem-go/
 ### 3.1 Client 创建 — Option 模式
 
 ```go
-// cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
+// cortexmem "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go"
 
 client, err := cortexmem.NewClient(
     cortexmem.WithBaseURL("http://localhost:37777"),
@@ -807,10 +807,10 @@ func (c *client) RecordObservation(ctx context.Context, req dto.ObservationReque
 每个集成层是一个**独立 Go module**，可以独立版本化和发布：
 
 ```
-github.com/abforce/cortex-ce/cortex-mem-go           # v1.x.x (核心)
-github.com/abforce/cortex-ce/cortex-mem-go/eino       # v1.x.x (独立版本)
-github.com/abforce/cortex-ce/cortex-mem-go/genkit     # v1.x.x (独立版本)
-github.com/abforce/cortex-ce/cortex-mem-go/langchaingo # v1.x.x (独立版本)
+github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go           # v1.x.x (核心)
+github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/eino       # v1.x.x (独立版本)
+github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/genkit     # v1.x.x (独立版本)
+github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/langchaingo # v1.x.x (独立版本)
 ```
 
 ### 4.2 Eino 集成
@@ -845,8 +845,8 @@ import (
     "context"
     "fmt"
 
-    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
-    "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+    cortexmem "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/dto"
     "github.com/cloudwego/eino/components/retriever"
     "github.com/cloudwego/eino/schema"
 )
@@ -965,8 +965,8 @@ import (
     "context"
     "fmt"
 
-    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
-    "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+    cortexmem "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/dto"
     "github.com/tmc/langchaingo/schema"
 )
 
@@ -2300,8 +2300,8 @@ import (
     "fmt"
     "log"
     
-    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
-    "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+    cortexmem "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/dto"
 )
 
 func main() {
@@ -2386,8 +2386,8 @@ import (
     "github.com/cloudwego/eino/chat/_messages"
     "github.com/cloudwego/eino/chat/model"
     
-    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
-    eino "github.com/abforce/cortex-ce/cortex-mem-go/eino"
+    cortexmem "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go"
+    eino "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/eino"
 )
 
 func main() {
@@ -2448,7 +2448,7 @@ import (
     "net/http"
     "github.com/gin-gonic/gin"
     
-    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
+    cortexmem "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go"
 )
 
 func main() {
@@ -2896,7 +2896,7 @@ type Client interface {
 
 ```go
 // go.mod
-module github.com/abforce/cortex-ce/cortex-mem-go
+module github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go
 
 go 1.22
 
@@ -3010,8 +3010,8 @@ package eino
 
 import (
     "context"
-    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
-    "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+    cortexmem "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/dto"
 )
 
 // Retriever 实现 eino 的 Retriever 接口
@@ -3090,8 +3090,8 @@ package langchaingo
 
 import (
     "context"
-    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
-    "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+    cortexmem "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/dto"
 )
 
 // Memory 实现 langchaingo.memory.Memory 接口
@@ -3164,8 +3164,8 @@ package genkit
 
 import (
     "context"
-    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
-    "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+    cortexmem "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/dto"
 )
 
 // RetrieverInput is the input for Cortex CE retriever
@@ -3255,8 +3255,8 @@ import (
     "net/http/httptest"
     "testing"
     
-    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
-    "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+    cortexmem "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/dto"
 )
 
 func TestStartSession(t *testing.T) {
@@ -3378,8 +3378,8 @@ import (
     "testing"
     "time"
     
-    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
-    "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+    cortexmem "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/dto"
 )
 
 func TestFullLifecycle(t *testing.T) {
@@ -3460,8 +3460,8 @@ import (
     "context"
     "testing"
     
-    cortexmem "github.com/abforce/cortex-ce/cortex-mem-go"
-    "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+    cortexmem "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/dto"
 )
 
 func BenchmarkRetrieveExperiences(b *testing.B) {
@@ -5396,8 +5396,8 @@ public class SearchController {
 ### 最终目录结构
 
 ```
-github.com/abforce/cortex-ce/cortex-mem-go/
-├── go.mod                        # module github.com/abforce/cortex-ce/cortex-mem-go
+github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/
+├── go.mod                        # module github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go
 ├── go.sum
 ├── LICENSE
 ├── README.md
@@ -5427,21 +5427,21 @@ github.com/abforce/cortex-ce/cortex-mem-go/
 │   └── dto_test.go               # DTO 测试
 │
 ├── eino/                         # Eino 集成层（独立 module）
-│   ├── go.mod                    # module github.com/abforce/cortex-ce/cortex-mem-go/eino
+│   ├── go.mod                    # module github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/eino
 │   ├── go.sum
 │   ├── retriever.go              # Retriever 接口适配
 │   ├── retriever_test.go
 │   └── README.md
 │
 ├── langchaingo/                  # LangChainGo 集成层（独立 module）
-│   ├── go.mod                    # module github.com/abforce/cortex-ce/cortex-mem-go/langchaingo
+│   ├── go.mod                    # module github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/langchaingo
 │   ├── go.sum
 │   ├── memory.go                 # Memory 接口适配
 │   ├── memory_test.go
 │   └── README.md
 │
 ├── genkit/                       # Genkit 集成层（独立 module，预留）
-│   ├── go.mod                    # module github.com/abforce/cortex-ce/cortex-mem-go/genkit
+│   ├── go.mod                    # module github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/genkit
 │   ├── go.sum
 │   ├── retriever.go              # Retriever 接口适配
 │   ├── retriever_test.go
@@ -5500,7 +5500,7 @@ package cortexmem
 
 import (
     "context"
-    "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/cortex-mem-go/dto"
 )
 
 // Client is the unified interface for the Cortex CE memory system.

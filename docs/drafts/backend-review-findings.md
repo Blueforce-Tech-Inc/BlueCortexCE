@@ -2851,3 +2851,14 @@ Total: 426/426 tests passed
 - `scripts/regression-test.sh`: ✅ 46/47 passed（1 skipped: Test 9b 异步摘要警告，符合预期）
 - `scripts/demo-v14-test.sh`: ✅ 4/4 passed（EXTRACTION 验收）
 - mvn compile: ✅ 无错误无警告
+
+---
+
+## 2026-04-15 23:21 | 健康检查巡检（每小时 cron）
+
+| 检查项 | 结果 | 说明 |
+|--------|------|------|
+| Backend 服务健康 | ✅ OK | `{"service":"claude-mem-java","status":"ok"}` |
+| 回归测试 | ✅ 46/47 | regression-test.sh（1 skipped） |
+| EXTRACTION 验收 | ✅ 25/25 | phase3-acceptance-test.sh |
+| Backend Review | ✅ 0 P0/0 P1/0 P2 | 全部已修复，无待处理问题 |
