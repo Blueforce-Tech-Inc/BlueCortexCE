@@ -1,3 +1,3 @@
-module github.com/abforce/cortex-ce/cortex-mem-go
+module github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go
 
 go 1.22

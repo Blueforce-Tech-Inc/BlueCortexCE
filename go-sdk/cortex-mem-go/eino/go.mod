@@ -1,4 +1,4 @@
-module github.com/abforce/cortex-ce/cortex-mem-go/eino
+module github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/eino
 
 go 1.22
 

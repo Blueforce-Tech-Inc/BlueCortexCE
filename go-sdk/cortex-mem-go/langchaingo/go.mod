@@ -1,4 +1,4 @@
-module github.com/abforce/cortex-ce/cortex-mem-go/langchaingo
+module github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/langchaingo
 
 go 1.22
 
