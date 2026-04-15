@@ -507,11 +507,23 @@ class CortexMemClient:
             raise ValidationError("observation_id is required", field="observation_id")
         body: dict[str, Any] = {}
         if update is not None:
-            body.update(update.to_wire())
+            try:
+                body.update(update.to_wire())
+            except ValueError as e:
+                raise ValidationError(str(e), field="update") from e
         # Kwargs override (or used standalone) — reuse ObservationUpdate field mapping
         unknown = set(kwargs) - set(ObservationUpdate._WIRE_FIELDS)
         if unknown:
             raise ValidationError(f"unknown update fields: {', '.join(sorted(unknown))}", field="update")
+        # Detect content/narrative conflict in kwargs (both map to backend "narrative" field)
+        has_content = "content" in kwargs
+        has_narrative = "narrative" in kwargs
+        if has_content and has_narrative:
+            raise ValidationError(
+                "content and narrative cannot both be set — they are aliases for the same "
+                "backend field. Use either content=... or narrative=..., but not both.",
+                field="update",
+            )
         for kwarg, wire_key in ObservationUpdate._WIRE_FIELDS.items():
             if kwarg in kwargs:
                 body[wire_key] = kwargs[kwarg]

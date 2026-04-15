@@ -681,17 +681,41 @@ class TestManagementExtended:
         assert "content" not in body  # None fields omitted
 
     @responses.activate
-    def test_update_observation_both_content_and_narrative(self):
-        """Both content and narrative are set; both map to wire 'narrative' (last wins)."""
+    def test_update_observation_both_content_and_narrative_dataclass(self):
+        """Both content and narrative are set via dataclass — raises ValueError.
+
+        ObservationUpdate.__post_init__ raises ValueError to prevent constructing
+        an invalid state. Matches Java SDK behavior for cross-SDK parity.
+        """
+        with pytest.raises(ValueError, match="content and narrative cannot both be set"):
+            ObservationUpdate(content="the content", narrative="the narrative")
+
+    @responses.activate
+    def test_update_observation_both_content_and_narrative_kwargs(self):
+        """Both content and narrative are set via kwargs — raises ValidationError."""
         responses.add(responses.PATCH, f"{BASE}/api/memory/observations/o1", status=204)
         c = _client()
-        update = ObservationUpdate(content="the content", narrative="the narrative")
-        c.update_observation("o1", update)
+        with pytest.raises(ValidationError, match="content and narrative cannot both be set"):
+            c.update_observation("o1", content="the content", narrative="the narrative")
+
+    @responses.activate
+    def test_update_observation_content_only(self):
+        """content alone is accepted (maps to backend 'narrative' field)."""
+        responses.add(responses.PATCH, f"{BASE}/api/memory/observations/o1", status=204)
+        c = _client()
+        c.update_observation("o1", content="the content")
         body = json.loads(responses.calls[0].request.body)
-        # Both content→"narrative" and narrative→"narrative" share the same wire key,
-        # so the second (narrative) value overwrites the first.
+        assert body["narrative"] == "the content"
+        assert "content" not in body
+
+    @responses.activate
+    def test_update_observation_narrative_only(self):
+        """narrative alone is accepted."""
+        responses.add(responses.PATCH, f"{BASE}/api/memory/observations/o1", status=204)
+        c = _client()
+        c.update_observation("o1", narrative="the narrative")
+        body = json.loads(responses.calls[0].request.body)
         assert body["narrative"] == "the narrative"
-        assert "content" not in body  # not a valid wire key
 
     @responses.activate
     def test_update_observation_empty_id_raises(self):

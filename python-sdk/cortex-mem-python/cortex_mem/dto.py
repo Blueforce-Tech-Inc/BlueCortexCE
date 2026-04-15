@@ -306,16 +306,29 @@ class ObservationUpdate:
 
         # Kwargs style (convenience)
         client.update_observation("obs-123", title="New Title", source="manual")
+
+    .. note::
+
+       ``content`` and ``narrative`` are aliases for the same backend field.
+       Setting both will raise ``ValidationError`` — use one or the other,
+       not both (matches Java SDK behavior for cross-SDK parity).
     """
 
     title: str | None = None
     subtitle: str | None = None
     content: str | None = None
-    narrative: str | None = None  # Parallel to content; both are sent if set (backend accepts either)
+    narrative: str | None = None  # Parallel to content; backend accepts either, but not both
     facts: list[str] | None = None
     concepts: list[str] | None = None
     source: str | None = None
     extracted_data: dict | None = None
+
+    def __post_init__(self) -> None:
+        if self.content is not None and self.narrative is not None:
+            raise ValueError(
+                "content and narrative cannot both be set — they are aliases for the same "
+                "backend field. Use either content=... or narrative=..., but not both."
+            )
 
     def is_empty(self) -> bool:
         """Return True if no fields are set (nothing to send).
