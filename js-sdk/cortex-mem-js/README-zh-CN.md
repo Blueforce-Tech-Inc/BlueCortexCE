@@ -2,7 +2,7 @@
 
 # @cortex-mem/js-sdk
 
-[Cortex CE](https://github.com/abforce/cortex-ce) 记忆系统的 JavaScript/TypeScript 客户端 SDK。
+[Cortex CE](https://github.com/Blueforce-Tech-Inc/BlueCortexCE) 记忆系统的 JavaScript/TypeScript 客户端 SDK。
 
 ## 特性
 

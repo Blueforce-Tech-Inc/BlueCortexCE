@@ -5,7 +5,7 @@ This module provides a [Eino](https://github.com/cloudengineai/eino) Retriever a
 ## Installation
 
 ```bash
-go get github.com/abforce/cortex-ce/cortex-mem-go/eino
+go get github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go/eino
 ```
 
 ## Usage
@@ -13,8 +13,8 @@ go get github.com/abforce/cortex-ce/cortex-mem-go/eino
 ```go
 import (
     "context"
-    "github.com/abforce/cortex-ce/cortex-mem-go"
-    "github.com/abforce/cortex-ce/cortex-mem-go/eino"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go/eino"
 )
 
 // Create Cortex CE client

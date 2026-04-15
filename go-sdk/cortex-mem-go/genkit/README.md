@@ -5,7 +5,7 @@ This module provides a [Genkit](https://genkit.dev) Retriever adapter for Cortex
 ## Installation
 
 ```bash
-go get github.com/abforce/cortex-ce/cortex-mem-go/genkit
+go get github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go/genkit
 ```
 
 ## Usage
@@ -13,8 +13,8 @@ go get github.com/abforce/cortex-ce/cortex-mem-go/genkit
 ```go
 import (
     "context"
-    "github.com/abforce/cortex-ce/cortex-mem-go"
-    "github.com/abforce/cortex-ce/cortex-mem-go/genkit"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go/genkit"
 )
 
 // Create Cortex CE client

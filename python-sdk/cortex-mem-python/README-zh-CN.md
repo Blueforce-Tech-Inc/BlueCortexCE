@@ -2,7 +2,7 @@
 
 # Cortex CE Python SDK
 
-[Cortex CE](https://github.com/abforce/cortex-ce) 持久记忆系统的 Python SDK。
+[Cortex CE](https://github.com/Blueforce-Tech-Inc/BlueCortexCE) 持久记忆系统的 Python SDK。
 
 ## 特性
 

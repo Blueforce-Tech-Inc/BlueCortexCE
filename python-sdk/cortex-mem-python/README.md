@@ -2,7 +2,7 @@
 
 # Cortex CE Python SDK
 
-Python SDK for the [Cortex CE](https://github.com/abforce/cortex-ce) persistent memory system.
+Python SDK for the [Cortex CE](https://github.com/Blueforce-Tech-Inc/BlueCortexCE) persistent memory system.
 
 ## Features
 

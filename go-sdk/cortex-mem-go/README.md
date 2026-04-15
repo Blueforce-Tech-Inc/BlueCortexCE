@@ -2,7 +2,7 @@
 
 # Cortex CE Go SDK
 
-Go client library for [Cortex CE](https://github.com/abforce/cortex-ce) — a persistent memory system for AI assistants.
+Go client library for [Cortex CE](https://github.com/Blueforce-Tech-Inc/BlueCortexCE) — a persistent memory system for AI assistants.
 
 ## Features
 
@@ -15,7 +15,7 @@ Go client library for [Cortex CE](https://github.com/abforce/cortex-ce) — a pe
 ## Installation
 
 ```bash
-go get github.com/abforce/cortex-ce/cortex-mem-go
+go get github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go
 ```
 
 ## Quick Start
@@ -28,8 +28,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/abforce/cortex-ce/cortex-mem-go"
-    "github.com/abforce/cortex-ce/cortex-mem-go/dto"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go/dto"
 )
 
 func main() {
@@ -120,8 +120,8 @@ client := cortexmem.NewClient(
 
 ```go
 import (
-    "github.com/abforce/cortex-ce/cortex-mem-go"
-    "github.com/abforce/cortex-ce/cortex-mem-go/eino"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go/eino"
 )
 
 client := cortexmem.NewClient()
@@ -134,8 +134,8 @@ retriever := eino.NewRetriever(client, "/my-project",
 
 ```go
 import (
-    "github.com/abforce/cortex-ce/cortex-mem-go"
-    "github.com/abforce/cortex-ce/cortex-mem-go/langchaingo"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go/langchaingo"
 )
 
 client := cortexmem.NewClient()
@@ -146,8 +146,8 @@ memory := langchaingo.NewMemory(client, "/my-project")
 
 ```go
 import (
-    "github.com/abforce/cortex-ce/cortex-mem-go"
-    "github.com/abforce/cortex-ce/cortex-mem-go/genkit"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go/genkit"
 )
 
 client := cortexmem.NewClient()
@@ -178,7 +178,7 @@ See `examples/` for complete demo projects:
 ## Error Handling
 
 ```go
-import "github.com/abforce/cortex-ce/cortex-mem-go"
+import "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go"
 
 result, err := client.Search(ctx, req)
 if err != nil {

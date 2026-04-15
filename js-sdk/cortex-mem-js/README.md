@@ -2,7 +2,7 @@
 
 # @cortex-mem/js-sdk
 
-JavaScript/TypeScript client SDK for the [Cortex CE](https://github.com/abforce/cortex-ce) memory system.
+JavaScript/TypeScript client SDK for the [Cortex CE](https://github.com/Blueforce-Tech-Inc/BlueCortexCE) memory system.
 
 ## Features
 

@@ -5,7 +5,7 @@ This module provides a [LangChainGo](https://github.com/tmc/langchaingo) Memory 
 ## Installation
 
 ```bash
-go get github.com/abforce/cortex-ce/cortex-mem-go/langchaingo
+go get github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go/langchaingo
 ```
 
 ## Usage
@@ -13,8 +13,8 @@ go get github.com/abforce/cortex-ce/cortex-mem-go/langchaingo
 ```go
 import (
     "context"
-    "github.com/abforce/cortex-ce/cortex-mem-go"
-    "github.com/abforce/cortex-ce/cortex-mem-go/langchaingo"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go/langchaingo"
 )
 
 // Create Cortex CE client
