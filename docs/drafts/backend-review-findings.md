@@ -2862,3 +2862,19 @@ Total: 426/426 tests passed
 | 回归测试 | ✅ 46/47 | regression-test.sh（1 skipped） |
 | EXTRACTION 验收 | ✅ 25/25 | phase3-acceptance-test.sh |
 | Backend Review | ✅ 0 P0/0 P1/0 P2 | 全部已修复，无待处理问题 |
+
+---
+
+## 2026-04-16 03:59 | Go SDK 审查（Demo 巡检关联）
+
+**审查范围**: Go SDK 源码 + 5 个 examples (basic, http-server, genkit, eino, langchaingo)
+
+**审查方向**: Demo 巡检轮换 → 检查 Go Demo 代码质量
+
+#### 审查发现
+
+| # | 文件 | 行 | 级别 | 问题 | 状态 |
+|---|------|-----|------|------|------|
+| G-1 | `client.go`, `client_methods.go`, `genkit/retriever.go`, `eino/retriever.go`, `langchaingo/memory.go` | import 语句 | **P2** | SDK `go.mod` 已更新为 `github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go`（commit `7ff5b18`），但内部所有 import 仍使用旧的 `github.com/abforce/cortex-ce/cortex-mem-go/...` 路径。SDK 无法作为独立模块以新路径构建。Examples 使用 `replace` 指令覆盖路径，工作正常，但 SDK 本身 publish 时会失败 | 待修复 |
+
+**说明**: Examples 本身编译正常（5/5 通过 `go build`），但 SDK core 的内部 import 未同步更新。建议作为独立任务统一修复（涉及 `client.go`、`client_methods.go` 及三个集成包内部的 import）。
