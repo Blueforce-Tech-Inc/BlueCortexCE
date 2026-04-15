@@ -755,7 +755,7 @@ LIMIT :limit;
 |-------|--------------|-------------|
 | Ingestion | `/api/ingest/*` | Hook event reception (tool-use, user-prompt, observation, session-end) |
 | Session | `/api/session/*` | Session lifecycle (start, get, patch user) |
-| Viewer | `/api/observations`, `/api/summaries`, `/api/prompts`, `/api/projects`, `/api/stats?project=...`, `/api/search`, `/api/search/by-file`, `/api/observations/batch`, `/api/settings` (GET/POST), `/api/modes` (GET/POST), `/api/timeline`, `/api/processing-status`, `/api/sdk-sessions/batch` | WebUI data (15 methods across 14 paths); `/api/stats` accepts optional `project` query param for project-scoped statistics |
+| Viewer | `/api/observations`, `/api/summaries`, `/api/prompts`, `/api/projects`, `/api/stats?project=...`, `/api/search`, `/api/search/by-file`, `/api/observations/batch`, `/api/settings` (GET/POST), `/api/modes` (GET/POST), `/api/timeline`, `/api/processing-status`, `/api/sdk-sessions/batch` | WebUI data (15 methods across 13 paths); `/api/stats` accepts optional `project` query param for project-scoped statistics |
 | Context | `/api/context/*` | Context retrieval |
 | Memory | `/api/memory/*` | Memory operations (refine, experiences, icl-prompt, quality-distribution, feedback, patch/delete observation) |
 | Mode | `/api/mode/*` | Memory mode management (get/put, types, concepts, validation) |
