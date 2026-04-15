@@ -61,7 +61,9 @@ public record SearchRequest(
         public Builder orderBy(String orderBy) { this.orderBy = orderBy; return this; }
 
         public SearchRequest build() {
-            return new SearchRequest(project, query, type, concept, source, limit, offset, orderBy);
+            // Silently nullify blank orderBy to avoid sending empty string to backend.
+            String resolvedOrderBy = (orderBy != null && orderBy.isBlank()) ? null : orderBy;
+            return new SearchRequest(project, query, type, concept, source, limit, offset, resolvedOrderBy);
         }
     }
 }
