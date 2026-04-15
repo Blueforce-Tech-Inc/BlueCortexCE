@@ -329,6 +329,22 @@ class DtoTest {
     }
 
     @Test
+    void observationUpdate_contentAndNarrativeConflict_throws() {
+        // content and narrative are backend aliases — setting both would silently
+        // use 'content' and ignore 'narrative', so the builder must reject it.
+        var e = org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalStateException.class,
+            () -> ObservationUpdate.builder()
+                .content("some content")
+                .narrative("some narrative")
+                .build()
+        );
+        assertThat(e.getMessage()).contains("content");
+        assertThat(e.getMessage()).contains("narrative");
+        assertThat(e.getMessage()).contains("alias");
+    }
+
+    @Test
     void searchRequest_builder() {
         var req = SearchRequest.builder()
             .project("/proj")
