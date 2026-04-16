@@ -1,9 +1,9 @@
 # Evolver 记忆系统深度分析
 
-> **文档状态**: v0.7 (新增：signals.js + learningSignals.js + mutation.js + evolve.js 核心循环)
+> **文档状态**: v0.8 (新增：prompt.js + strategy.js + questionGenerator.js + idleScheduler.js + gitOps.js + localStateAwareness.js)
 > **分析目标**: 为 BlueCortexCE（旁路型记忆系统）提供可落地的借鉴建议
 > **数据来源**: `/Users/yangjiefeng/Documents/EvoMap/evolver/`
-> **最后更新**: 2026-04-16 21:25
+> **最后更新**: 2026-04-16 22:54
 
 ---
 
@@ -44,6 +44,12 @@
 34. [signals.js + learningSignals.js — 信号处理链路](#34-signalsjs--learningsignalsjs--信号处理链路-v07-新增)
 35. [mutation.js — 基因突变算法](#35-mutationjs--基因突变算法-v07-新增)
 36. [evolve.js — 核心进化循环](#36-evolvejs--核心进化循环-v07-新增)
+37. [prompt.js — GEP 提示词构建](#37-promptjs--gep-提示词构建-v08-新增)
+38. [strategy.js — 进化策略预设](#38-strategyjs--进化策略预设-v08-新增)
+39. [questionGenerator.js — 主动问题生成](#39-questiongeneratorjs--主动问题生成-v08-新增)
+40. [idleScheduler.js — OMLS 空闲调度](#40-idleschedulerjs--omls-空闲调度-v08-新增)
+41. [gitOps.js — Git 操作与回滚](#41-gitopsjs--git-操作与回滚-v08-新增)
+42. [localStateAwareness.js — 本地状态感知](#42-localstateawarenessjs--本地状态感知-v08-新增)
 
 ---
 
@@ -1806,11 +1812,11 @@ function buildSuggestedMutations(signals) {
 
 ## 下轮探索方向
 
-1. **skillPublisher.js** — 技能发布机制
-2. **taskReceiver.js** — 主动任务认领 + 问题生成
-3. **executionTrace.js** — 执行轨迹捕获机制
-4. **hubReview.js** — Hub 审查机制
-5. **idleScheduler.js** — 空闲调度机制
+1. **policyCheck.js** — 约束检查 + 验证命令安全（深度分析）
+2. **hubSearch.js** — Hub 共享知识搜索（深度分析）
+3. **a2aProtocol.js** — A2A 通信协议（深度分析）
+4. **issueReporter.js** — Hub 问题上报机制
+5. **envFingerprint.js** — 环境指纹与节点识别
 
 ---
 
@@ -3302,6 +3308,7 @@ Evolver 的 Gene 有 constraints（max_files, forbidden_paths）和 validation�
 | v0.5 | 2026-04-16 | skillPublisher, executionTrace, taskReceiver, hubReview |
 | v0.6 | 2026-04-16 20:24 | skillDistiller 深度补充 + reflection.js + candidates.js + Gene/Capsule 资产体系 |
 | v0.7 | 2026-04-16 21:25 | signals.js + learningSignals.js + mutation.js + evolve.js 核心循环 |
+| v0.8 | 2026-04-16 22:54 | prompt.js + strategy.js + questionGenerator.js + idleScheduler.js + gitOps.js + localStateAwareness.js |
 
 ---
 
@@ -3763,13 +3770,680 @@ for (const ev of hubEvents) {
 
 ---
 
+## 37. prompt.js — GEP 提示词构建 (v0.8 新增)
+
+**文件**: `src/gep/prompt.js` (27KB, 与 strategy.js + questionGenerator.js 共存于同一文件)
+
+### 37.1 核心设计原则
+
+`prompt.js` 是 Evolver 的 **LLM Prompt 工厂**——它将所有上下文（信号、基因、候选、叙事等）组装为单个发送给 LLM 的 prompt。核心原则：
+
+1. **Schema First**: 严格规定 LLM 必须输出 5 个 JSON 对象（Mutation、PersonalityState、EvolutionEvent、Gene、Capsule）
+2. **JSON Only**: 禁止 markdown 代码块包裹 JSON，输出原始 JSON
+3. **智能截断**: 优先保留 header/footer，截断 Execution Context 中间部分
+
+### 37.2 强制 Schema 定义 (SCHEMA_DEFINITIONS)
+
+**文件**: `prompt.js:80-140`
+
+```javascript
+const SCHEMA_DEFINITIONS = `
+━━━━━━━━━━━━━━━━━━━━━━
+I. Mandatory Evolution Object Model (Output EXACTLY these 5 objects)
+━━━━━━━━━━━━━━━━━━━━━━
+
+Output separate JSON objects. DO NOT wrap in a single array.
+DO NOT use markdown code blocks (like \`\`\`json ... \`\`\`).
+Output RAW JSON ONLY. No prelude, no postscript.
+Missing any object = PROTOCOL FAILURE.
+ENSURE VALID JSON SYNTAX (escape quotes in strings).
+
+0. Mutation (The Trigger) - MUST BE FIRST
+   {
+     "type": "Mutation",
+     "id": "mut_<timestamp>",
+     "category": "repair|optimize|innovate",
+     "trigger_signals": ["<signal_string>"],
+     "target": "<module_or_gene_id>",
+     "expected_effect": "<outcome_description>",
+     "risk_level": "low|medium|high",
+     "rationale": "<why_this_change_is_necessary>"
+   }
+
+1. PersonalityState (The Mood)
+   { "type": "PersonalityState", "rigor": 0.0-1.0, ... }
+
+2. EvolutionEvent (The Record)
+   { "type": "EvolutionEvent", "schema_version": "1.5.0", ... }
+
+3. Gene (The Knowledge)
+   { "type": "Gene", "schema_version": "1.5.0", ... }
+
+4. Capsule (The Result)
+   { "type": "Capsule", "schema_version": "1.5.0", ... }
+`.trim();
+```
+
+**Evolver 为什么这样做**: 
+- **协议约束**比 LLM 自觉更可靠——LLM 天然喜欢"解释先行"加 markdown 包裹
+- 缺少任何对象 = PROTOCOL FAILURE 让验证层可以直接检测格式错误
+- 分离的 5 个 JSON 对象让 solidify 阶段可以独立解析每个组件
+
+### 37.3 智能上下文截断 (truncateContext)
+
+**文件**: `prompt.js:93-99`
+
+```javascript
+function truncateContext(text, maxLength = 20000) {
+  if (!text || text.length <= maxLength) return text || '';
+  return text.slice(0, maxLength) + '\n...[TRUNCATED_EXECUTION_CONTEXT]...';
+}
+```
+
+**实际使用**: 在 `buildGepPrompt` 末尾的 maxChars 截断逻辑：
+
+```javascript
+// 如果超过 maxChars（默认 50000），优先截断 Execution Context
+const executionContextIndex = basePrompt.indexOf("Context [Execution]:");
+if (executionContextIndex > -1) {
+    const prefix = basePrompt.slice(0, executionContextIndex + 20);
+    // Execution Context 最多 20000 chars（硬上限，防止 token 溢出）
+    const EXEC_CONTEXT_CAP = 20000;
+    const allowedExecutionLength = Math.min(EXEC_CONTEXT_CAP, Math.max(0, maxChars - prefix.length - 100));
+    return prefix + "\n" + currentExecution.slice(0, allowedExecutionLength) + "\n...[TRUNCATED]...";
+}
+```
+
+**Evolver 为什么这样做**: 
+- `Context [Execution]` 是最长的部分，但它是最不重要的（具体的代码上下文）
+- Schema 定义、Directives、Anti-Pattern Zone 等必须完整保留
+- 20000 chars ≈ 5k tokens，加上其余部分约 10k tokens，是大多数模型的 safe limit
+
+### 37.4 多上下文块注入
+
+**文件**: `buildGepPrompt()` 函数
+
+```javascript
+// 信号 + Env Fingerprint（必须保留头部）
+${JSON.stringify(optimizedSignals)}
+${JSON.stringify(envFingerprint, null, 2)}
+
+// Innovation Catalyst（stagnation 检测时注入）
+${innovationBlock}  // 当有 evolution_stagnation_detected 或 stable_success_plateau 时
+
+// 资产预览（Gene + Capsule）
+${formattedGenes}
+${formattedCapsules}
+
+// Capability Candidates + Hub Matched + Anti-Pattern Zone + Lessons
+${capsPreview}
+${hubMatchedBlock || '(no hub match)'}
+${buildAntiPatternZone(failedCapsules, signals)}
+${buildLessonsBlock(hubLessons, signals)}
+
+// 历史 + 叙事 + 原则
+${historyBlock}  // 最近 8 个 cycle 的统计
+${buildNarrativeBlock()}  // narrativeMemory 摘要
+${buildPrinciplesBlock()}  // evolution_principles.md
+
+// Execution Context（可截断）
+Context [Execution]:
+${executionContext}
+```
+
+### 37.5 Local State Awareness — 防止重复操作
+
+**文件**: `prompt.js` 中的 CONSTRAINTS 部分
+
+```javascript
+LOCAL STATE AWARENESS (CRITICAL -- PREVENT DUPLICATE ACTIONS):
+Before taking any setup, registration, or configuration action, CHECK the
+Local State section in the execution context. If a resource already exists
+(node registered, secret present, env configured), DO NOT recreate it.
+If you cannot find a configuration value, check these locations FIRST:
+  1. ~/.evomap/          (node_id, node_secret -- persisted identity)
+  2. <repo>/.env         (A2A_NODE_ID, A2A_HUB_URL, A2A_NODE_SECRET)
+  3. workspace/memory/   (MEMORY.md, evolution state files)
+  4. workspace/skills/   (installed skills)
+Redundant registration or re-creation of existing resources = WASTED CYCLE.
+```
+
+**Evolver 为什么这样做**: 这是 `localStateAwareness.js` 的消费端——在 prompt 中注入本地状态摘要，让 LLM 在采取"注册/配置"类行动前先检查是否已存在。
+
+### 37.6 宪法伦理约束 (Constitutional Ethics)
+
+**文件**: `prompt.js` 中的 CONSTITUTIONAL ETHICS 部分
+
+```javascript
+CONSTITUTIONAL ETHICS (EvoMap Ethics Committee -- Mandatory):
+These are non-negotiable rules derived from EvoMap's Constitution.
+1. HUMAN WELFARE PRIORITY: Never create tools that could harm humans...
+2. CARBON-SILICON SYMBIOSIS: Evolution must serve both human and agent interests...
+3. TRANSPARENCY: Never hide, obfuscate, or conceal intent or effects...
+4. FAIRNESS: Never create monopolistic strategies that block other agents...
+5. SAFETY: Never bypass, disable, or weaken safety mechanisms...
+- If a task CONFLICTS with these principles, REFUSE it and set outcome to FAILED
+  with reason "ethics_violation: <which principle>".
+```
+
+**Evolver 为什么这样做**: 通过 prompt 层面嵌入宪法约束，确保 LLM 在任何情况下都不会绕过安全机制。这比代码层检查更灵活（可被具体上下文 override）。
+
+### 37.7 常见失败模式列表 (COMMON FAILURE PATTERNS)
+
+**文件**: `prompt.js`
+
+```javascript
+COMMON FAILURE PATTERNS:
+- Blast radius exceeded.
+- Omitted Mutation object.
+- Merged objects into one JSON.
+- Hallucinated "type": "Logic".
+- "id": "mut_undefined".
+- Missing "trigger_signals".
+- Unrunnable validation steps.
+- Markdown code blocks wrapping JSON (FORBIDDEN).
+```
+
+**Evolver 为什么这样做**: 明确列举 LLM 常见错误格式，减少"LLM 幻觉导致的格式错误"。这是引导式 prompt 的最佳实践。
+
+### 37.8 BlueCortexCE 借鉴点
+
+| 发现 | Evolver 做法 | 翻译：旁路型如何借鉴 | 优先级 |
+|------|-------------|---------------------|--------|
+| Schema First 约束 | 5 对象模型 + PROTOCOL FAILURE | **高优先级**: BlueCortexCE 的 API 响应应有严格的 schema 验证层 |
+| JSON Only 输出 | 禁止 markdown 包裹 | **高优先级**: BlueCortexCE 的任何结构化输出（Summary/Extraction）应强制 JSON |
+| 智能截断 | 保留 header/footer，截断中间 | **高优先级**: BlueCortexCE 的 context generate 应有类似策略 |
+| Local State Awareness | 在 prompt 中注入"已存在资源"列表 | **高优先级**: BlueCortexCE 的 LLM 调用应注入"已观察的模式"列表 |
+| 宪法伦理约束 | prompt 层面的硬约束 | **高优先级**: BlueCortexCE 的任何 LLM 生成应有伦理边界注入 |
+| 常见失败模式 | 列举 LLM 格式错误 | **中优先级**: BlueCortexCE 的 prompt 模板应有类似提示 |
+
+---
+
+## 38. strategy.js — 进化策略预设 (v0.8 新增)
+
+**文件**: `src/gep/prompt.js` 内嵌模块 (strategy.js 与 prompt.js 在同一文件)
+
+### 38.1 六种预设策略
+
+```javascript
+var STRATEGIES = {
+  'balanced': {
+    repair: 0.20, optimize: 0.30, innovate: 0.50,
+    repairLoopThreshold: 0.50,
+    label: 'Balanced',
+  },
+  'innovate': {
+    repair: 0.05, optimize: 0.15, innovate: 0.80,
+    repairLoopThreshold: 0.30,
+    label: 'Innovation Focus',
+  },
+  'harden': {
+    repair: 0.40, optimize: 0.40, innovate: 0.20,
+    repairLoopThreshold: 0.70,
+    label: 'Hardening',
+  },
+  'repair-only': {
+    repair: 0.80, optimize: 0.20, innovate: 0.00,
+    repairLoopThreshold: 1.00,
+    label: 'Repair Only',
+  },
+  'early-stabilize': {
+    repair: 0.60, optimize: 0.25, innovate: 0.15,
+    repairLoopThreshold: 0.80,
+    label: 'Early Stabilization',
+  },
+  'steady-state': {
+    repair: 0.60, optimize: 0.30, innovate: 0.10,
+    repairLoopThreshold: 0.90,
+    label: 'Steady State',
+  },
+};
+```
+
+**repairLoopThreshold** 是关键：表示"过去 8 个 cycle 中 repair 占比超过此值时，强制切换到 innovate"。
+
+### 38.2 自适应策略选择 (resolveStrategy)
+
+**文件**: `strategy.js:resolveStrategy()`
+
+```javascript
+function resolveStrategy(opts) {
+  var signals = opts.signals || [];
+  
+  // 1. 显式环境变量优先
+  var name = String(process.env.EVOLVE_STRATEGY || 'balanced').toLowerCase().trim();
+  
+  // 2. FORCE_INNOVATION=true → innovate
+  if (!process.env.EVOLVE_STRATEGY && forceInnovation) name = 'innovate';
+  
+  // 3. 自动检测（仅在默认/平衡模式下）
+  if (isDefault && !forceInnovation) {
+    var cycleCount = _readCycleCount();
+    
+    // 早期稳定：前 5 个 cycle
+    if (cycleCount > 0 && cycleCount <= 5) name = 'early-stabilize';
+    
+    // 饱和检测
+    if (signals.includes('force_steady_state') || signals.includes('evolution_saturation'))
+      name = 'steady-state';
+  }
+  
+  return STRATEGIES[name] || STRATEGIES['balanced'];
+}
+```
+
+**Evolver 为什么这样做**: "fix first, innovate later"——早期阶段优先稳定系统，进化成熟后才探索创新。饱和时切换 steady-state 防止无意义的重复进化。
+
+### 38.3 repairLoopThreshold — 修复循环检测
+
+**文件**: `strategy.js`
+
+```javascript
+// 例如 harden 策略：repairLoopThreshold = 0.70
+// 意味着：过去 8 个 cycle 中 repair > 70% → 触发"强制创新"逻辑
+// 在 selector.js 中使用
+```
+
+**Evolver 为什么这样做**: 如果连续多个 cycle 都在做 repair（而不是 innovate），说明系统可能进入了"修复循环"——一直在打补丁但没有进步。repairLoopThreshold 是触发打破循环的开关。
+
+### 38.4 BlueCortexCE 借鉴点
+
+| 发现 | Evolver 做法 | 翻译：旁路型如何借鉴 | 优先级 |
+|------|-------------|---------------------|--------|
+| 六种策略预设 | repair/optimize/innovate 权重分配 | **中优先级**: BlueCortexCE 可实现"保守/平衡/激进"检索模式 |
+| repairLoopThreshold | repair 占比超阈值 → 强制创新 | **高优先级**: BlueCortexCE 应检测"检索模式单一化"并触发探索 |
+| 自动策略选择 | cycle 1-5 → early-stabilize | **中优先级**: BlueCortexCE 的新 workspace 可以先用"保守检索" |
+| FORCE_INNOVATION | 环境变量直接覆盖 | **低优先级**: BlueCortexCE 作为服务不需要这种 override |
+
+---
+
+## 39. questionGenerator.js — 主动问题生成 (v0.8 新增)
+
+**文件**: `src/gep/prompt.js` 内嵌模块 (与 strategy.js 一起)
+
+### 39.1 设计定位
+
+questionGenerator 从进化上下文（信号、历史事件、会话记录）中提取**主动问题**，通过 A2A Protocol 的 `fetch.questions` 发送到 Hub，Hub 将其创建为 bounty tasks，让其他 Agent 帮助解决。
+
+### 39.2 六类问题策略
+
+```javascript
+// Strategy 1: 反复错误（recurring_error）
+if (signalSet.has('recurring_error') || signalSet.has('high_failure_ratio')) {
+  candidates.push({
+    question: 'Recurring error in evolution cycle that auto-repair cannot resolve: ...',
+    signals: ['recurring_error', 'auto_repair_failed'],
+    priority: 3,
+  });
+}
+
+// Strategy 2: 能力缺口（capability_gap）
+if (signalSet.has('capability_gap')) {
+  candidates.push({
+    question: 'Capability gap detected: ...',
+    signals: ['capability_gap'],
+    priority: 2,
+  });
+}
+
+// Strategy 3: 饱和/停滞（evolution_saturation）
+if (signalSet.has('evolution_saturation')) {
+  candidates.push({
+    question: 'Evolution saturated after exhausting genes: [...]',
+    signals: ['evolution_saturation', 'innovation_needed'],
+    priority: 1,
+  });
+}
+
+// Strategy 4: 连续失败 streak >= 4
+if (streakCount >= 4) {
+  candidates.push({
+    question: 'Agent has failed N consecutive evolution cycles',
+    signals: ['failure_streak', 'external_help_needed'],
+    priority: 3,
+  });
+}
+
+// Strategy 5: 用户功能请求（user_feature_request）
+if (signalSet.has('user_feature_request')) {
+  candidates.push({
+    question: 'User requested a feature that may benefit from community solutions: ...',
+    signals: ['user_feature_request', 'community_solution_sought'],
+    priority: 1,
+  });
+}
+
+// Strategy 6: 性能瓶颈（perf_bottleneck）
+if (signalSet.has('perf_bottleneck')) {
+  candidates.push({
+    question: 'Performance bottleneck detected: ...',
+    signals: ['perf_bottleneck', 'optimization_sought'],
+    priority: 2,
+  });
+}
+```
+
+**优先级 3 = 最高**，优先发送给 Hub。
+
+### 39.3 去重机制
+
+**文件**: `questionGenerator.js:isDuplicate()`
+
+```javascript
+function isDuplicate(question, recentQuestions) {
+  // 1. 精确匹配
+  if (prev === qLower) return true;
+  
+  // 2. 模糊匹配：word set Jaccard > 70%
+  var qWords = new Set(qLower.split(/\s+/).filter(w => w.length > 2));
+  var pWords = new Set(prev.split(/\s+/).filter(w => w.length > 2));
+  var overlap = [...qWords].filter(w => pWords.has(w)).length;
+  if (overlap / Math.max(qWords.size, pWords.size) > 0.7) return true;
+}
+```
+
+### 39.4 速率限制
+
+```javascript
+const MIN_INTERVAL_MS = 3 * 60 * 60 * 1000;  // 3 小时最少间隔
+const MAX_QUESTIONS_PER_CYCLE = 2;            // 每轮最多 2 个问题
+```
+
+### 39.5 BlueCortexCE 借鉴点
+
+| 发现 | Evolver 做法 | 翻译：旁路型如何借鉴 | 优先级 |
+|------|-------------|---------------------|--------|
+| 问题优先级体系 | priority 1-3 分级 | **中优先级**: BlueCortexCE 的"无法解答的查询"可以优先级标记 |
+| 模糊去重 | word set Jaccard > 70% | **高优先级**: 任何"重复查询检测"都应用 Jaccard 而非精确匹配 |
+| 3小时提问间隔 | 防止 Hub 被刷屏 | **中优先级**: BlueCortexCE 的外部 API 调用应有速率保护 |
+| 6 类问题策略 | recurring/failure/saturation/gap/feature/perf | **中优先级**: BlueCortexCE 的"失败查询"可分类并寻求外部帮助 |
+| 提交到外部网络 | A2A questions → Hub bounty | **低优先级**: BlueCortexCE 无 Hub 生态 |
+
+---
+
+## 40. idleScheduler.js — OMLS 空闲调度 (v0.8 新增)
+
+**文件**: `src/gep/idleScheduler.js` (130 lines)
+
+### 40.1 设计背景
+
+idleScheduler 灵感来自 **OMLS (Organic Machine Learning System)**——在用户空闲时运行资源密集型操作（distillation, reflection），在用户忙碌时只做轻量级信号收集。
+
+### 40.2 平台支持
+
+```javascript
+function getSystemIdleSeconds() {
+  if (platform === 'win32') {
+    // PowerShell + GetLastInputInfo
+  } else if (platform === 'darwin') {
+    // ioreg -c IOHIDSystem | grep HIDIdleTime
+  } else if (platform === 'linux') {
+    // xprintidle
+  }
+  return -1;  // 不支持时返回 -1
+}
+```
+
+### 40.3 四级强度
+
+```javascript
+// IDLE_THRESHOLD_SECONDS = 300 (5分钟)
+// DEEP_IDLE_THRESHOLD_SECONDS = 1800 (30分钟)
+
+function determineIntensity(idleSeconds) {
+  if (idleSeconds < 0) return 'normal';
+  if (idleSeconds >= 1800) return 'deep';       // 深空闲：distillation + reflection + deep_evolve
+  if (idleSeconds >= 300) return 'aggressive'; // 空闲：distillation + reflection
+  return 'normal';                               // 忙碌：标准循环
+}
+```
+
+### 40.4 调度建议
+
+```javascript
+function getScheduleRecommendation() {
+  const intensity = determineIntensity(idleSeconds);
+  
+  if (intensity === 'aggressive') {
+    return {
+      sleep_multiplier: 0.5,    // 减少等待，快速响应
+      should_distill: true,     // 运行 skill distillation
+      should_reflect: true,     // 运行 reflection
+      should_deep_evolve: false,
+    };
+  } else if (intensity === 'deep') {
+    return {
+      sleep_multiplier: 0.25,   // 几乎无等待
+      should_distill: true,
+      should_reflect: true,
+      should_deep_evolve: true, // 深度进化（未来：RL fine-tuning）
+    };
+  }
+  
+  return { sleep_multiplier: 1, should_distill: false, should_reflect: false };
+}
+```
+
+**Evolver 为什么这样做**: 用户不在时运行 heavy 任务是节能且不打扰用户的最佳策略。distillation 和 reflection 是 compute-intensive 但不需要用户交互的操作。
+
+### 40.5 状态持久化
+
+```javascript
+function readScheduleState() {
+  const statePath = path.join(getEvolutionDir(), 'idle_schedule_state.json');
+  // { last_check, last_idle_seconds, last_intensity }
+}
+```
+
+### 40.6 BlueCortexCE 借鉴点
+
+| 发现 | Evolver 做法 | 翻译：旁路型如何借鉴 | 优先级 |
+|------|-------------|---------------------|--------|
+| 系统空闲检测 | ioreg/xprintidle/GetLastInputInfo | **中优先级**: BlueCortexCE 的 cron 可在用户空闲时做 heavy 分析 |
+| 四级强度 | idle → aggressive → deep | **高优先级**: BlueCortexCE 可根据用户活动状态调整后台任务频率 |
+| sleep_multiplier | 空闲时 0.5x 或 0.25x | **中优先级**: BlueCortexCE 的 periodic check 可动态调整间隔 |
+| should_distill | 空闲时才运行 distillation | **高优先级**: BlueCortexCE 的 Summary 提炼可以在空闲时触发 |
+| OMLS 设计 | 有机机器学习（用户空闲时学习） | **中优先级**: BlueCortexCE 的"深度分析"应在用户空闲时运行 |
+
+---
+
+## 41. gitOps.js — Git 操作与回滚 (v0.8 新增)
+
+**文件**: `src/gep/gitOps.js` (210 lines)
+
+### 41.1 设计定位
+
+gitOps.js 从 `solidify.js` 中提取了所有 Git 相关操作，是 Evolver 的**版本控制层**——负责变更追踪、rollback、和 diff 捕获。
+
+### 41.2 变更文件追踪
+
+```javascript
+function gitListChangedFiles({ repoRoot }) {
+  const files = new Set();
+  // git diff --name-only (unstaged)
+  // git diff --cached --name-only (staged)
+  // git ls-files --others --exclude-standard (untracked)
+  return Array.from(files);
+}
+```
+
+### 41.3 Diff 快照捕获
+
+```javascript
+const DIFF_SNAPSHOT_MAX_CHARS = 8000;
+
+function captureDiffSnapshot(repoRoot) {
+  const parts = [];
+  const unstaged = tryRunCmd('git diff', { cwd: repoRoot });
+  if (unstaged.ok && unstaged.out) parts.push(unstaged.out);
+  const staged = tryRunCmd('git diff --cached', { cwd: repoRoot });
+  if (staged.ok && staged.out) parts.push(staged.out);
+  let combined = parts.join('\n');
+  if (combined.length > DIFF_SNAPSHOT_MAX_CHARS) {
+    combined = combined.slice(0, DIFF_SNAPSHOT_MAX_CHARS) + '\n... [TRUNCATED]';
+  }
+  return combined;
+}
+```
+
+**Evolver 为什么这样做**: FailedCapsule 在 rollback 前先捕获 diff_snapshot，确保失败信息不丢失。
+
+### 41.4 关键文件保护
+
+**文件**: `gitOps.js:CRITICAL_PROTECTED_PREFIXES` 和 `CRITICAL_PROTECTED_FILES`
+
+```javascript
+const CRITICAL_PROTECTED_PREFIXES = [
+  'skills/feishu-evolver-wrapper/',
+  'skills/feishu-common/',
+  'skills/feishu-post/',
+  // ... 10 个关键 skills
+];
+
+const CRITICAL_PROTECTED_FILES = [
+  'MEMORY.md', 'SOUL.md', 'IDENTITY.md', 'AGENTS.md', 'USER.md',
+  'HEARTBEAT.md', 'RECENT_EVENTS.md', 'TOOLS.md', 'TROUBLESHOOTING.md',
+  'openclaw.json', '.env', 'package.json',
+];
+```
+
+**rollbackNewUntrackedFiles** 会跳过这些文件：
+
+```javascript
+if (isCriticalProtectedPath(safeRel)) {
+  skipped.push(safeRel);
+  continue;  // 不删除
+}
+```
+
+### 41.5 Rollback 模式
+
+```javascript
+function rollbackTracked(repoRoot) {
+  const mode = String(process.env.EVOLVER_ROLLBACK_MODE || 'hard').toLowerCase();
+  
+  if (mode === 'none') {
+    // 不回滚
+  } else if (mode === 'stash') {
+    // git stash push -m "evolver-rollback-<timestamp>"
+  } else {
+    // git restore --staged --worktree . && git reset --hard
+  }
+}
+```
+
+### 41.6 BlueCortexCE 借鉴点
+
+| 发现 | Evolver 做法 | 翻译：旁路型如何借鉴 | 优先级 |
+|------|-------------|---------------------|--------|
+| 关键文件保护 | MEMORY.md/SOUL.md/IDENTITY.md 不可删除 | **高优先级**: BlueCortexCE 应有"不可删除的系统文件"白名单 |
+| Diff 快照 | 8000 chars 上限截断 | **高优先级**: BlueCortexCE 的"失败记录"应保存 diff context |
+| Rollback 模式 | none/stash/hard 三种 | **中优先级**: BlueCortexCE 的 destructive operation 应有 rollback 策略 |
+| gitListChangedFiles | 分离 staged/unstaged/untracked | **低优先级**: BlueCortexCE 不直接操作 git |
+
+---
+
+## 42. localStateAwareness.js — 本地状态感知 (v0.8 新增)
+
+**文件**: `src/gep/localStateAwareness.js` (185 lines)
+
+### 42.1 设计定位
+
+localStateAwareness 是 Evolver 的**自省层**——在采取任何"外部行动"（注册、配置、创建）前，先检查本地是否已存在对应状态，避免重复操作。
+
+### 42.2 五大状态域
+
+```javascript
+function captureLocalState() {
+  return {
+    // 1. Node Identity: A2A node 注册状态
+    'Node ID: ... (REGISTERED -- do NOT re-register)',
+    'Node Secret: PRESENT (authenticated)',
+    
+    // 2. Environment Config: .env + 环境变量
+    '- Env configured: A2A_NODE_ID, A2A_HUB_URL, ...',
+    '- .env file: EXISTS at ...',
+    
+    // 3. Evolution State: cycle count + last run + personality
+    '- Evolution cycles completed: N',
+    '- Last evolution run: Ns ago',
+    
+    // 4. Memory & Knowledge: memory dir + graph + narrative
+    '- MEMORY.md: N bytes',
+    '- Memory graph: N bytes',
+    
+    // 5. Skills: installed skills count
+    '- Installed skills: N (at ...)',
+  };
+}
+```
+
+### 42.3 状态文件读取（安全防护）
+
+```javascript
+function _readJsonSafe(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return null;
+    const raw = fs.readFileSync(filePath, 'utf8').trim();
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (_) {
+    return null;  // 非致命：读取失败返回 null 而非抛出
+  }
+}
+```
+
+**Evolver 为什么这样做**: 状态文件可能损坏（无效 JSON），使用 `_readJsonSafe` 确保一个文件读取失败不会阻断整个 evolution cycle。
+
+### 42.4 幂等保护机制
+
+```javascript
+// 在 prompt.js 的 CONSTRAINTS 部分注入：
+'Node ID: ... (REGISTERED -- do NOT re-register)'
+'Node Secret: PRESENT (authenticated -- do NOT request new secret)'
+```
+
+**Evolver 为什么这样做**: A2A Node 的注册操作是幂等的（重复 hello 无害但不必要）。通过状态感知告诉 LLM"已注册，不要重复注册"。
+
+### 42.5 路径清单
+
+```javascript
+function captureLocalStatePaths() {
+  return {
+    nodeIdFile: path.join(os.homedir(), '.evomap', 'node_id'),
+    nodeSecretFile: path.join(os.homedir(), '.evomap', 'node_secret'),
+    envFile: path.join(getRepoRoot(), '.env'),
+    memoryDir: getMemoryDir(),
+    evolutionDir: getEvolutionDir(),
+    skillsDir: getSkillsDir(),
+  };
+}
+```
+
+### 42.6 BlueCortexCE 借鉴点
+
+| 发现 | Evolver 做法 | 翻译：旁路型如何借鉴 | 优先级 |
+|------|-------------|---------------------|--------|
+| 五大状态域 | identity/config/evolution/memory/skills | **高优先级**: BlueCortexCE 应在 context generate 时注入"当前系统状态" |
+| 自省提示 | "REGISTERED -- do NOT re-register" | **高优先级**: BlueCortexCE 的 LLM 调用应明确告知"已有什么" |
+| _readJsonSafe | 文件读取非致命 | **高优先级**: BlueCortexCE 的所有文件读取应有 try/catch，返回 null 而非报错 |
+| 幂等保护 | 重复注册无害但不必要 | **高优先级**: BlueCortexCE 的"创建操作"应先检查是否已存在 |
+| 路径清单 | 统一的路径获取函数 | **中优先级**: BlueCortexCE 应有统一的路径解析工具函数 |
+
+---
+
 ### 33.2 待深入分析（更新）
 
 1. ~~**mutation.js** — 基因突变算法~~ ✅ v0.7 已补充
 2. ~~**evolve.js 完整流程**~~ ✅ v0.7 已补充
 3. ~~**signals.js + learningSignals.js**~~ ✅ v0.7 已补充
-4. **policyCheck.js** — 约束检查 + 验证命令安全 — 待补充
-5. **hubSearch.js** — Hub 共享知识搜索 — 待补充
-6. **prompt.js** — 提示词构建逻辑 — 待补充
-7. **Evolver 的 A2A Protocol** — 跨 Agent 通信 — 待补充
+4. ~~**prompt.js** — 提示词构建逻辑~~ ✅ v0.8 已补充
+5. ~~**strategy.js** — 进化策略预设~~ ✅ v0.8 已补充
+6. ~~**questionGenerator.js** — 主动问题生成~~ ✅ v0.8 已补充
+7. ~~**idleScheduler.js** — OMLS 空闲调度~~ ✅ v0.8 已补充
+8. ~~**gitOps.js** — Git 操作与回滚~~ ✅ v0.8 已补充
+9. ~~**localStateAwareness.js** — 本地状态感知~~ ✅ v0.8 已补充
+10. **policyCheck.js** — 约束检查 + 验证命令安全 — 待补充
+11. **hubSearch.js** — Hub 共享知识搜索 — 待补充（v0.3 初析，缺深度覆盖）
+12. **a2aProtocol.js** — A2A 通信协议 — 待补充（v0.3 初析，缺深度覆盖）
 
