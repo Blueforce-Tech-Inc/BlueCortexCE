@@ -390,6 +390,7 @@ process.exit(0);
 │  SummaryRepository      → 摘要 CRUD                        │
 │  UserPromptRepository   → 用户提示 CRUD                    │
 │  PendingMessageRepository → 崩溃恢复队列                   │
+│  ObservationFeedbackRepository → 反馈跟踪 (V17)             │
 └─────────────────────────────────────────────────────────────┘
 ```
 

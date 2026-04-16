@@ -390,6 +390,7 @@ The Fat Server is the core Spring Boot application handling all business logic.
 │  SummaryRepository      → CRUD for summaries                │
 │  UserPromptRepository   → CRUD for user prompts             │
 │  PendingMessageRepository → Crash recovery queue            │
+│  ObservationFeedbackRepository → Feedback tracking (V17)     │
 └─────────────────────────────────────────────────────────────┘
 ```
 

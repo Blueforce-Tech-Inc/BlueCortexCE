@@ -337,13 +337,15 @@ src/main/java/com/ablueforce/cortexce/
 │   ├── ObservationEntity.java       # 3 embedding vector fields (768/1024/1536)
 │   ├── SummaryEntity.java
 │   ├── UserPromptEntity.java
-│   └── PendingMessageEntity.java
+│   ├── PendingMessageEntity.java
+│   └── ObservationFeedbackEntity.java  # Feedback tracking (V17)
 ├── repository/
 │   ├── SessionRepository.java
 │   ├── ObservationRepository.java   # Dimension-specific semantic search
 │   ├── SummaryRepository.java
 │   ├── UserPromptRepository.java
-│   └── PendingMessageRepository.java
+│   ├── PendingMessageRepository.java
+│   └── ObservationFeedbackRepository.java  # Feedback tracking (V17)
 ├── service/
 │   ├── AgentService.java            # Core orchestration: LLM → parse → embed → save
 │   ├── LlmService.java             # DeepSeek / OpenAI-compatible API client
