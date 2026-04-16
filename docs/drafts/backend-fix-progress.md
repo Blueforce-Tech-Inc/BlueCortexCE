@@ -1,5 +1,21 @@
 # Backend 修复进度记录
 
+## 2026-04-16 17:16 | 健康检查修复 — PendingMessageEventListenerTest 构造器参数数量不匹配
+
+**修复内容**：
+- **问题**：`PendingMessageEventListenerTest.java` 中 `new AgentService(null, null, null, null, null)` 只传了 5 个参数，但 `AgentService` 构造器需要 10 个参数（`SessionManagementService`, `TemplateService`, `ObservationRepository`, `PendingMessageRepository`, `SessionRepository`, `SSEBroadcaster`, `EmbeddingService`, `LlmService`, `TokenService`, `ContextCacheService`）
+- **修复**：将 5 个 null 补充为 10 个 null：`new AgentService(null, null, null, null, null, null, null, null, null, null)`
+- **根因**：之前重构添加 `ContextCacheService` 参数到 AgentService 构造器后，测试文件的构造调用未同步更新
+
+**验证结果**：
+- `mvn clean compile test-compile -DskipTests` ✅
+- 回归测试：46/46 通过 ✅（之前 46/47 且 1 skipped，现在 0 skipped）
+- EXTRACTION 验收：25/25 通过 ✅
+
+**Backend Review 问题状态**：P0: 0 | P1: 0 | P2 (Backend): 0
+
+---
+
 ## 2026-04-06 08:16 | 健康检查修复 — DB 密码重置（第2次）
 
 **修复内容**：
