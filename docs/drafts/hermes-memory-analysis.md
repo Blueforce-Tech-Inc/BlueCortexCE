@@ -1,9 +1,9 @@
 # Hermes Agent 记忆系统深度分析
 
-> **文档状态**: v4.3 (新增：MemoryProvider 7 Hooks 全量清单 + on_pre_compress Hook + Honcho per-repo Session Strategy + Holographic Entity Extraction 深度分析)  
-> **分析目标**: 为 BlueCortexCE（旁路型记忆系统）提供可落地的借鉴建议  
-> **数据来源**: `/Users/yangjiefeng/Documents/NousResearch/hermes-agent/`  
-> **最后更新**: 2026-04-16 06:20
+> **文档状态**: v4.6 (新增：session_search 双模式设计 + 主动触发机制 + 第三方过滤 + memory_tool 完整操作语义 + Schema 优先级指导)
+> **分析目标**: 为 BlueCortexCE（旁路型记忆系统）提供可落地的借鉴建议
+> **数据来源**: `/Users/yangjiefeng/Documents/NousResearch/hermes-agent/`
+> **最后更新**: 2026-04-16 08:00
 
 ---
 
@@ -61,6 +61,9 @@
 35. [on_pre_compress Hook — 压缩前洞察提取（v4.3 新增）](#35-on_pre_compress-hook--压缩前洞察提取v43-新增)
 36. [Honcho per-repo Session Strategy — `_git_repo_name` 实现（v4.3 新增）](#36-honcho-per-repo-session-strategy--_git_repo_name-实现v43-新增)
 37. [Holographic Entity Extraction 深度分析（v4.3 新增）](#37-holographic-entity-extraction-深度分析v43-新增)
+38. [session_search_tool — 双模式设计 + 主动触发机制（v4.6 新增）](#47-session_searchtool--双模式设计--主动触发机制v46-新增)
+39. [memory_tool — 完整操作语义 + Schema 指导（v4.6 新增）](#48-memory_tool--完整操作语义--schema-指导v46-新增)
+40. [待进一步确认（v4.6 更新）](#49-待进一步确认v46-更新)
 
 ---
 
@@ -4166,19 +4169,19 @@ result = await vision_analyze_tool(
 
 ## 下轮计划
 
-已完成本轮任务（v4.0）：
-- ✅ **Holographic contradiction detection**（`retrieval.py:338` 完整算法分析）
-- ✅ **Holographic reason()**（多实体代数检索 AND 语义实现）
-- ✅ **Entity extraction 算法**（正则规则 vs LLM，SQLite 别名解析）
-- ✅ **多模态记忆澄清**（Hermes 无多模态存储，vision tools 仅做分析不存储）
-- ✅ **矛盾检测实现方案**（BlueCortexCE 可落地的实体链接 + 相似度方案）
+已完成本轮任务（v4.5）：
+- ✅ **Holographic memory_banks 澄清**：确认 `memory_banks` 在 `reason()` 中被使用（`retrieval.py:143`），作为代数检索的优化路径（bank unbinding → fact scoring）
+- ✅ **Holographic `related()` 方法**：裸原子直接相似度（`retrieval.py:220`），与 `probe()` 的 role binding 形成互补
+- ✅ **memory_banks rebuild triggers**：add_fact/add_alias/set_trust/rebuild_all 四个触发点（`store.py:183,294,316,533`）
+- ✅ **BlueCortexCE vs Hermes Summary Template**：逐字段对比，发现 BlueCortexCE 缺少 7 个高优先级字段（Constraints、Active State、Blocked、Key Decisions、Relevant Files 等）
+- ✅ **BlueCortexCE 矛盾检测工程方案**：SQL + pgvector 实现方案，entity extraction 两种方案对比
+- ✅ **SessionSearch LLM fallback**：MAX_SUMMARY_CHARS=2000，输入保护 >4000 chars
 
 下轮继续深入：
 - **Hindsight Provider 深挖**：知识图谱构建 + 实体消歧的具体算法（`plugins/memory/hindsight/__init__.py` 883行）
-- **Honcho per-repo 策略**：`session_strategy="per-repo"` 的 git repo 检测实现细节
-- **Holographic memory_banks**：category-level HRR bundle 向量的构建和更新机制（已有 `_rebuild_bank`，但 `search_facts` 未使用）
-- **BlueCortexCE 矛盾检测 API**：实体提取 + 矛盾对检测的工程实现（参考 `retrieval.py:338` 算法）
-- **BlueCortexCE async write queue + 重试机制**：借鉴 Honcho `_synced` 标记 + 重试策略
+- **Mem0 Provider**：`memory_types` 如何映射到 mem0 的存储 schema，以及 `rerank_memories` 端点的使用
+- **RetainDB Agent Self-Model**：`seed_agent_identity` → `get_agent_model` 的往返流程，以及在 Hermes Agent 启动时的调用时机
+- **BlueCortexCE Summary Template 改进**：设计增加 Constraints/Active State/Blocked/Key Decisions 等字段的新 prompt 模板
 
 ---
 
@@ -5896,3 +5899,980 @@ TOOLS = [
 5. **Honcho `seed_ai_identity`** — 确认是手动 API 调用还是自动集成（已确认是手动 API）
 
 
+
+---
+
+## 41. Holographic `memory_banks` 优化路径 — Category-Level HRR Bundle 加速 Algebraic Retrieval（v4.5 新增）
+
+> **文件**: `plugins/memory/holographic/retrieval.py:143-160`（`reason()` 方法中的 bank 使用），`store.py:494-530`（`_rebuild_bank` 机制）
+> **本节为 v4.5 新增**，澄清 `memory_banks` 表在 `reason()` 中的实际使用路径——这是一个**被文档遗漏但确实存在的优化**。
+
+### 41.1 澄清：`memory_banks` 确实被使用
+
+之前 v3.x/v4.x 版本的分析中，提到 `memory_banks` 是"已生成但 `search_facts` 未使用"的悬空数据。这个说法**不准确**——`memory_banks` 在 `reason()` 方法中被用于**代数检索的优化**。
+
+### 41.2 `reason()` 中的 Bank 优化路径
+
+```python
+# retrieval.py:143-160
+def reason(self, entities: list[str], category: str | None = None, limit: int = 10):
+    # ...
+    role_entity = hrr.encode_atom("__hrr_role_entity__", self.hrr_dim)
+    entity_vec = hrr.encode_atom(entity.lower(), self.hrr_dim)
+    probe_key = hrr.bind(entity_vec, role_entity)
+
+    # Try category-specific bank first, then all facts
+    if category:
+        bank_name = f"cat:{category}"
+        bank_row = conn.execute(
+            "SELECT vector FROM memory_banks WHERE bank_name = ?",
+            (bank_name,),
+        ).fetchone()
+        if bank_row:
+            bank_vec = hrr.bytes_to_phases(bank_row["vector"])
+            # 优化：用 bank vector 直接 unbinding，而非逐个 fact 计算
+            extracted = hrr.unbind(bank_vec, probe_key)
+            # 用 extracted signal 对所有 facts 打分
+            return self._score_facts_by_vector(
+                extracted, category=category, limit=limit
+            )
+
+    # Fallback：没有 bank 或没有 category → 逐个 fact 计算
+    # (每条 fact 都需要 bind/unbind，O(n))
+```
+
+### 41.3 优化原理
+
+**无优化时（O(n) fact scoring）**：
+```
+对每个 entity：
+  对每个 fact：
+    unbinding(fact_vec, probe_key) → residual
+    similarity(residual, content_vec) → score
+```
+
+**有 bank 优化时（2 步）**：
+```
+Step 1: unbinding(bank_vec, probe_key) → extracted_category_signal（只做 1 次）
+Step 2: 对每个 fact：
+    similarity(fact_vec, extracted) → score（只用一次相似度计算，无 bind/unbind）
+```
+
+**为什么这个优化有效**：
+- `bank_vec = bundle(*all_category_facts)` 是 category 内所有 facts 的**叠加向量**
+- `unbinding(bank_vec, probe_key)` 得到的是"category 内所有 facts 中与 entity 相关的信号"的**统计聚合**
+- `similarity(fact_vec, extracted)` 度量的是：这条 fact 的向量与 category 整体相关信号的**相似度**
+- 这避免了**对每条 fact 都执行一次完整的 bind/unbind** 操作
+
+### 41.4 `_rebuild_bank` 触发时机
+
+```python
+# store.py:183  — add_fact 时触发
+self._rebuild_bank(category)
+
+# store.py:294-298 — add_alias 时（entity alias 变化可能影响 fact 与 entity 的关联）
+if changed:
+    for cat in self._categories_for_entity(entity_id):
+        self._rebuild_bank(cat)
+
+# store.py:316 — set_trust 时（trust 变化影响 fact vector 权重）
+self._rebuild_bank(row["category"])
+
+# store.py:533 — rebuild_all 时（全量重建）
+for category in categories:
+    self._rebuild_bank(category)
+```
+
+**Bank 重建触发条件**：
+1. `add_fact` — 新 fact 加入 category
+2. `add_alias` — entity 别名变化（可能影响 fact 的 HRR 编码）
+3. `set_trust` — trust score 变化（HRR 向量本身不含 trust，但 bank 是 bundle of fact vectors）
+4. `rebuild_all` — 全量重建
+
+### 41.5 Bank Vector 的 SNR 保护
+
+```python
+# store.py:514-516
+hrr.snr_estimate(self.hrr_dim, fact_count)
+# 输出 warning if fact_count > dim/4（容量警告）
+```
+
+**Bank 的容量上限与单个 fact HRR 相同**：`dim/4 ≈ 256` 个 facts。超过时 SNR 下降，bundled 向量的信息密度降低。
+
+### 41.6 与 BlueCortexCE 对比
+
+| 维度 | Holographic memory_banks | BlueCortexCE |
+|------|-------------------------|--------------|
+| 用途 | `reason()` 代数检索优化 | ❌ 无 |
+| 存储 | SQLite `memory_banks` 表 | N/A |
+| 重建触发 | add_fact/add_alias/set_trust | N/A |
+| 容量 | dim/4 ≈ 256 facts/bank | N/A |
+| 计算 | `bundle(*fact_vectors)` | N/A |
+
+### 41.7 翻译：旁路型如何借鉴
+
+**这个优化对 BlueCortexCE 无直接意义**（HRR 代数是 Hermes 特有技术，pgvector 不支持），但揭示了一个**通用优化思想**：
+
+**"预计算共享查询结果"**：
+- 如果某类查询被频繁执行，可以预先计算并缓存中间结果
+- 查询时只计算一次"差值"（类似 `unbind(bank, key)`），而非每次都全量计算
+- 对于 BlueCortexCE：如果某个 `user_id` 的所有 observation 经常被组合查询，可以预计算一个"用户记忆向量"作为缓存
+
+---
+
+## 42. Holographic `related()` 方法 — Structural Adjacency 邻接发现（v4.5 新增）
+
+> **文件**: `plugins/memory/holographic/retrieval.py:196-258`
+> **本节为 v4.5 新增**，分析 Hermes 独有的 `related()` 方法——**结构邻接发现**，与 `probe()` 的"直接关联"形成互补。
+
+### 42.1 `probe()` vs `related()` 的根本区别
+
+| 方法 | 查询语义 | 编码方式 | 找到的内容 |
+|------|----------|----------|-----------|
+| `probe(entity)` | 找**关于**该实体的 facts | `bind(entity, ROLE_ENTITY)` → 在 fact 结构中"解开" | facts **直接描述**该实体 |
+| `related(entity)` | 找**与**该实体**相关的** facts | `encode_atom(entity)` **裸原子**（无 role binding） | facts **提到过**该实体，但不一定关于它 |
+
+**`related()` 的直觉**：
+- 如果 fact A 提到了 entity X（比如"用 pip 安装了 pytest"），X 绑定在 fact 的 entity role 中
+- 如果 fact B 也提到了 X，B 也是 related
+- 如果 X 与 Y 在同一 fact 中共同出现，X 和 Y 也是 related
+
+### 42.2 `related()` 实现
+
+```python
+# retrieval.py:220-258
+def related(self, entity: str, category: str | None = None, limit: int = 10):
+    if not hrr._HAS_NUMPY:
+        return self.search(entity, category=category, limit=limit)
+
+    # 关键：裸原子编码（无 role binding）
+    entity_vec = hrr.encode_atom(entity.lower(), self.hrr_dim)
+
+    # 获取所有有 HRR 向量的 facts
+    rows = conn.execute(
+        f"""SELECT ... FROM facts WHERE hrr_vector IS NOT NULL {where}"""
+    ).fetchall()
+
+    scored = []
+    for row in rows:
+        fact = dict(row)
+        fact_vec = hrr.bytes_to_phases(fact.pop("hrr_vector"))
+        # 用裸原子直接与 fact 向量做相似度
+        # （fact 向量 = bind(content, ROLE_CONTENT) + Σbind(entity, ROLE_ENTITY)）
+        # 裸原子可以"部分匹配" fact 向量中的任意 role（content 或 entity）
+        sim = hrr.similarity(entity_vec, fact_vec)  # 直接相似度，非 unbinding
+        fact["score"] = (sim + 1.0) / 2.0 * fact["trust_score"]
+        scored.append(fact)
+```
+
+**关键代码**：
+```python
+sim = hrr.similarity(entity_vec, fact_vec)  # 非 unbinding！
+```
+
+裸原子 `entity_vec` 与完整的 `fact_vec` 直接做相似度计算。这意味着：
+- `entity_vec` 可以在 fact 向量的**任意叠加分量**上匹配
+- 不管 entity 是出现在 content 部分还是 entity 部分，都能匹配到
+
+### 42.3 与 `probe()` 的算法对比
+
+```python
+# probe（直接关联）
+probe_key = hrr.bind(entity_vec, role_entity)  # 绑定到 ENTITY role
+residual = hrr.unbind(fact_vec, probe_key)     # 解开 entity 部分
+sim = hrr.similarity(residual, content_vec)     # 比较解开后的 content 信号
+
+# related（邻接发现）
+entity_vec = hrr.encode_atom(entity.lower(), self.hrr_dim)  # 裸原子，无 role
+sim = hrr.similarity(entity_vec, fact_vec)           # 直接与完整 fact 向量比较
+```
+
+**对比总结**：
+
+| 维度 | probe() | related() |
+|------|---------|-----------|
+| Role binding | ✅ 有（bind + unbind） | ❌ 无（裸原子） |
+| 找到 | 关于 entity 的 facts | 提到过 entity 的 facts |
+| 语义 | 精确关联 | 邻接相关 |
+| 适用场景 | "X 是什么/做了什么" | "X 与什么有关联" |
+
+### 42.4 与 BlueCortexCE 对比
+
+| 维度 | Holographic related() | BlueCortexCE |
+|------|---------------------|--------------|
+| 语义 | 邻接发现（提到了就算） | ❌ 无 |
+| 实现 | 裸原子直接相似度 | N/A |
+| 用途 | "X 和什么相关/一起出现" | ❌ 无 |
+
+### 42.5 翻译：旁路型如何借鉴
+
+**这个能力在旁路型架构下难以直接实现**（HRR 代数），但揭示了一个**重要的认知区别**：
+
+**"直接关联" vs "邻接相关"**：
+- `probe` = "关于 X 的事实"（X 是 subject/predicate）
+- `related` = "提到 X 的事实"（X 出现在任意上下文中）
+
+**BlueCortexCE 的实际意义**：
+- 如果 BlueCortexCE 的 Observation 带有实体标签，可以实现类似的"邻接发现"：
+  - 搜索"提到过 X 的 observation"
+  - 与"与 X 相关的 observation"可能不同
+- **但优先级低**：普通向量搜索（余弦相似度）已经能近似"邻接相关"的效果
+
+---
+
+## 43. BlueCortexCE vs Hermes Summary Template — 逐项逐字段对比（v4.5 新增）
+
+> **文件**: `backend/src/main/resources/prompts/summary.txt`（BlueCortexCE）vs `agent/context_compressor.py:570-650`（Hermes）
+> **本节为 v4.5 新增**，对两个模板进行**字段级别的逐项对比**，明确指出 BlueCortexCE 缺少的每个维度。
+
+### 43.1 模板结构对比
+
+**Hermes 12 段式（preamble + 11 sections）**：
+
+```
+[Preamble] "Do NOT respond" + "different assistant" 指令
+
+## Goal
+[What the user is trying to accomplish]
+
+## Constraints & Preferences          ← BlueCortexCE 缺失
+[User preferences, coding style, constraints, important decisions]
+
+## Completed Actions                 ← BlueCortexCE 有类似（completed）
+[Numbered list of concrete actions taken]
+Format: N. ACTION target — outcome [tool: name]
+
+## Active State                      ← BlueCortexCE 缺失
+[Current working state — cwd/branch, modified files, test status, running processes]
+
+## In Progress                       ← BlueCortexCE 缺失
+[Work currently underway]
+
+## Blocked                          ← BlueCortexCE 缺失
+[Any blockers, errors, or issues not yet resolved]
+
+## Key Decisions                    ← BlueCortexCE 缺失
+[Important technical decisions and WHY they were made]
+
+## Resolved Questions                ← BlueCortexCE 缺失
+[Questions already answered — include the answer]
+
+## Pending User Asks                ← BlueCortexCE 有类似（request）
+[Questions or requests NOT yet answered or fulfilled]
+
+## Relevant Files                   ← BlueCortexCE 缺失
+[Files read, modified, or created — with brief note on each]
+
+## Remaining Work                   ← BlueCortexCE 有类似（next_steps）
+[What remains to be done — framed as context, not instructions]
+
+## Critical Context                 ← BlueCortexCE 缺失
+[Any specific values, error messages, configuration details]
+```
+
+**BlueCortexCE 5+1 段式**：
+
+```
+## Request                          ← 类似 Hermes Goal
+[Short title capturing user's request AND substance]
+
+## Investigated                     ← Hermes 无对应
+[What has been explored so far? What was examined?]
+
+## Learned                         ← Hermes 无对应
+[What have you learned about how things work?]
+
+## Completed                       ← 类似 Hermes Completed Actions
+[What work has been completed so far?]
+
+## Next Steps                      ← 类似 Hermes Remaining Work
+[What are you actively working on or planning to work on next?]
+
+## Notes                           ← 类似 Hermes Critical Context
+[Additional insights or observations]
+```
+
+### 43.2 逐字段对比
+
+| 字段 | Hermes | BlueCortexCE | 差距 | 优先级 |
+|------|--------|-------------|------|--------|
+| `Goal` | ✅ 11-section 有 | ✅ request 涵盖 | 部分重叠 | — |
+| `Constraints & Preferences` | ✅ 有 | ❌ **缺失** | **高** | **高** |
+| `Completed Actions` | ✅ 编号列表 + tool 标注 | ⚠️ completed（无格式） | 中 | **高** |
+| `Active State` | ✅ 有 | ❌ **缺失** | **高** | **高** |
+| `In Progress` | ✅ 有 | ❌ **缺失** | 中 | **高** |
+| `Blocked` | ✅ 有 | ❌ **缺失** | **高** | **高** |
+| `Key Decisions` | ✅ 有 + WHY | ❌ **缺失** | **高** | **高** |
+| `Resolved Questions` | ✅ 有 | ❌ **缺失** | 中 | **中** |
+| `Pending User Asks` | ✅ 有 | ⚠️ request 部分涵盖 | 低 | **中** |
+| `Relevant Files` | ✅ 有 | ❌ **缺失** | **高** | **高** |
+| `Remaining Work` | ✅ 有 | ⚠️ next_steps 部分涵盖 | 低 | — |
+| `Critical Context` | ✅ 有 | ⚠️ notes 部分涵盖 | 中 | — |
+| `Investigated` | ❌ 无 | ✅ 有 | 低 | — |
+| `Learned` | ❌ 无 | ✅ 有 | 低 | — |
+
+### 43.3 BlueCortexCE 独特字段
+
+| 字段 | BlueCortexCE 独有 | 价值 |
+|------|-----------------|------|
+| `investigated` | ✅ 有 | 记录探索路径（对 debug 有价值） |
+| `learned` | ✅ 有 | 记录"学到了什么"（对 knowledge capture 有价值） |
+
+### 43.4 缺失字段对 BlueCortexCE 的实际影响
+
+**最严重缺失（高优先级）**：
+
+1. **`Constraints & Preferences`** — 没有这个字段，Summary 无法记录用户的偏好和约束。下次对话时，Agent 可能不知道"用户偏好用 TypeScript"这类关键信息。
+
+2. **`Active State`** — 没有当前工作状态记录。下次对话时，Agent 不知道当前在哪个目录、有什么文件被修改、测试状态如何。
+
+3. **`Blocked`** — 没有阻塞点记录。下次对话时，Agent 可能重复尝试已经失败的方法。
+
+4. **`Key Decisions`** — 没有决策记录和原因。下次对话时，Agent 不知道"为什么选择了这个方案"。
+
+5. **`Relevant Files`** — 没有文件变更记录。下次对话时，Agent 不知道哪些文件被修改过。
+
+**中优先级缺失**：
+
+6. **`In Progress`** — 当前正在做的工作没有独立字段，与 Completed 混在一起。
+
+7. **`Completed Actions` 格式** — BlueCortexCE 的 completed 是自由文本，Hermes 要求编号 + tool 标注（`[tool: read_file]`）。
+
+### 43.5 翻译：BlueCortexCE Summary Template 改进建议
+
+**建议的改进后模板**（在 BlueCortexCE 的基础上增加高优先级缺失字段）：
+
+```
+## Request
+[Short title capturing the user's request]
+
+## Constraints & Preferences          ← 新增
+[User preferences, coding style, constraints]
+例: "用户偏好 TypeScript，不要用 JavaScript；项目使用 macOS"
+
+## Active State                       ← 新增
+- CWD: /path/to/project
+- Modified: src/index.ts, src/utils.ts
+- Test Status: 3/50 failing (test_parse, test_validate)
+- Running: None
+
+## Completed Actions                  ← 格式增强
+1. READ config.py:45 — found `==` should be `!=` [tool: read_file]
+2. PATCH config.py:45 — changed `==` to `!=` [tool: patch]
+3. TEST `pytest tests/` — 3/50 failed: test_parse, test_validate [tool: terminal]
+
+## Investigated
+[What has been explored so far?]
+
+## Learned
+[What have you learned about how things work?]
+
+## Blocked                            ← 新增
+[Any blockers or errors not yet resolved]
+例: "API 认证失败，401 Unauthorized"
+
+## Key Decisions                      ← 新增
+- 为什么选择 PostgreSQL：因为需要向量搜索 + 结构化查询
+- 为什么不用 Redis：因为数据量超过内存容量
+
+## Relevant Files                     ← 新增
+- src/index.ts — 新增用户认证逻辑
+- src/utils.ts — 新增日期格式化函数
+- docs/api.md — 更新了接口文档
+
+## Next Steps
+[What are you actively working on or planning to work on next?]
+
+## Notes / Critical Context
+[Additional insights or critical values/configs to preserve]
+```
+
+**实现优先级**：
+
+| 优先级 | 字段 | 实现说明 |
+|--------|------|----------|
+| **P0** | `Constraints & Preferences` | Prompt 增加此字段，解析后存储 |
+| **P0** | `Active State` | 当前 CWD、modified files 可以从 session context 自动获取 |
+| **P0** | `Blocked` | 从 last assistant message 中推断（关键词：错误/failed/无法） |
+| **P0** | `Key Decisions` | 需要 LLM 主动输出 |
+| **P1** | `Relevant Files` | 从 observations 中自动聚合 |
+| **P1** | `Completed Actions` 格式 | Prompt 要求编号 + tool 标注格式 |
+| **P2** | `In Progress` | 可以从 last observation 中推断 |
+| **P2** | `Resolved Questions` | 需要记录 Q&A 对 |
+
+---
+
+## 44. SessionSearch LLM 截断策略 — Final Fallback 与字数限制（v4.5 新增）
+
+> **文件**: `agent/context_compressor.py:300-500`（SessionSearch 类）
+> **本节为 v4.5 新增**，分析 Hermes 的 SessionSearch 在 LLM summarization 失败时的 fallback 策略。
+
+### 44.1 SessionSearch 三层降级策略
+
+```python
+# SessionSearch: 三层降级
+# Layer 1: LLM summarization（如果配置了 model + api_key）
+# Layer 2: phrase → proximity → individual term 截断（Section 17 详细分析）
+# Layer 3: raw preview（直接返回原文前 N chars）
+```
+
+### 44.2 LLM summarization 的截断保护
+
+```python
+# context_compressor.py:SessionSearch
+MAX_SUMMARY_CHARS = 2000   # LLM summary 最大长度
+
+def summarize_with_llm(self, query: str, excerpts: list[str]) -> str:
+    # 1. 如果 excerpts 总长度 > 4000 chars，先截断
+    combined = "\n".join(excerpts)
+    if len(combined) > 4000:
+        combined = combined[:4000] + "\n\n[... truncated ...]"
+
+    # 2. 调用 LLM summarization
+    summary = self._llm_summarize(query, combined)
+
+    # 3. 如果 summary > 2000 chars，截断
+    if len(summary) > MAX_SUMMARY_CHARS:
+        summary = summary[:MAX_SUMMARY_CHARS]
+
+    return summary
+```
+
+### 44.3 与 BlueCortexCE 对比
+
+| 维度 | Hermes SessionSearch | BlueCortexCE |
+|------|---------------------|--------------|
+| 多层 fallback | LLM → phrase → raw | ❌ 无（只有 LLM） |
+| 输入长度保护 | > 4000 chars 截断 | ❌ 无 |
+| 输出长度保护 | > 2000 chars 截断 | ❌ 无 |
+| 空结果处理 | raw preview | ❌ 无 |
+
+### 44.4 翻译：旁路型如何借鉴
+
+**低优先级建议**：
+- BlueCortexCE 的 `/api/context/generate` 可以增加多层 fallback：
+  1. 完整 LLM summarization（当前）
+  2. 如果 LLM 不可用 → 返回原始 relevant observations（按时间排序）
+  3. 如果observation 太多 → phrase → proximity → term 截断
+
+---
+
+## 45. BlueCortexCE 矛盾检测工程方案 — Entity Extraction + Similarity Scoring（v4.5 新增）
+
+> **本节为 v4.5 新增**，基于 Holographic `contradict()` 的算法分析，提出 BlueCortexCE 可落地的工程实现方案。
+
+### 45.1 设计目标
+
+在 BlueCortexCE 中实现 `GET /api/memory/contradictions` 端点，返回 Observation 库中的矛盾对。
+
+**矛盾定义**（参考 Holographic）：
+> 两个 Observation 矛盾 = **共享实体**（相同主体）+ **内容语义相异**（一个说 A，一个说非 A）
+
+### 45.2 实体提取方案
+
+**方案 A：LLM 提取（推荐，高准确率）**
+
+在 Observation 生成时（`SummaryGenerationService` 或 `AgentService`），要求 LLM 额外输出 `entities: ["entity1", "entity2"]`：
+
+```xml
+<observed_from_primary_session>
+  <what_happened>{{toolName}}</what_happened>
+  <entities>["entity1", "entity2"]</entities>   ← 新增
+  <outcome>{{toolOutput}}</outcome>
+</observed_from_primary_session>
+```
+
+**方案 B：正则提取（低成本，准确率有限）**
+
+```python
+def extract_entities_regex(text: str) -> list[str]:
+    patterns = [
+        r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b',  # 大写多词短语
+        r'"([^"]+)"',                                # 双引号内容
+        r"'([^']+)'",                                # 单引号内容
+        r'(\w+(?:\s+\w+)*)\s+(?:aka|also known as)\s+(\w+(?:\s+\w+)*)',
+    ]
+    # 去重 + 大小写不敏感
+```
+
+### 45.3 矛盾检测算法
+
+```sql
+-- 伪 SQL：基于 PostgreSQL + pgvector
+WITH entity_overlaps AS (
+    SELECT
+        o1.id AS obs_id_1,
+        o2.id AS obs_id_2,
+        -- 计算实体重叠度
+        (COUNT(o1.entity) / (COUNT(DISTINCT o1.entity) + COUNT(DISTINCT o2.entity) - COUNT(o1.entity))) AS entity_overlap,
+        o1.content AS content_1,
+        o2.content AS content_2,
+        o1.embedding <=> o2.embedding AS content_similarity  -- cosine distance
+    FROM observations o1
+    JOIN observations o2 ON o1.id < o2.id
+    JOIN observation_entities oe1 ON oe1.observation_id = o1.id
+    JOIN observation_entities oe2 ON oe2.observation_id = o2.id
+    WHERE oe1.entity = oe2.entity  -- 共享实体
+    GROUP BY o1.id, o2.id, o1.content, o2.content
+),
+contradictions AS (
+    SELECT
+        *,
+        entity_overlap * (1 - (content_similarity + 1) / 2) AS contradiction_score
+    FROM entity_overlaps
+    WHERE entity_overlap >= 0.3
+)
+SELECT *
+FROM contradictions
+WHERE contradiction_score >= 0.3
+ORDER BY contradiction_score DESC
+LIMIT 20;
+```
+
+### 45.4 实体重叠度计算
+
+```python
+def jaccard_overlap(ents1: set[str], ents2: set[str]) -> float:
+    if not ents1 or not ents2:
+        return 0.0
+    intersection = len(ents1 & ents2)
+    union = len(ents1 | ents2)
+    return intersection / union if union > 0 else 0.0
+```
+
+### 45.5 矛盾分数阈值
+
+| 阈值 | 敏感度 | 适用场景 |
+|------|--------|----------|
+| 0.2 | 高（更多结果，含误报） | 高频矛盾检测 |
+| 0.3 | 中（默认） | 日常使用 |
+| 0.5 | 低（极少结果，高精度） | 精确分析 |
+
+### 45.6 容量保护
+
+参考 Holographic 的 500 条上限：
+
+```sql
+-- 只比较最近 500 条 Observation
+WITH recent_obs AS (
+    SELECT id, content, embedding
+    FROM observations
+    ORDER BY created_at DESC
+    LIMIT 500
+)
+-- 在 recent_obs 上做两两比较
+```
+
+**注意**：500 observations → 最多 124,750 对比较。如果有 N 个实体，平均每对有 K 个实体，时间复杂度 O(N² × K²)。
+
+### 45.7 API 设计
+
+```
+GET /api/memory/contradictions?threshold=0.3&limit=20
+
+Response:
+{
+  "contradictions": [
+    {
+      "observation_a": {...},
+      "observation_b": {...},
+      "shared_entities": ["用户", "项目A"],
+      "entity_overlap": 0.45,
+      "content_similarity": -0.62,  // pgvector cosine similarity
+      "contradiction_score": 0.41,
+    }
+  ],
+  "total_compared": 500,
+  "contradiction_count": 12,
+  "threshold": 0.3
+}
+```
+
+### 45.8 触发时机
+
+| 方式 | 说明 | 优先级 |
+|------|------|--------|
+| 用户主动查询 | `GET /api/memory/contradictions` | **高** |
+| SessionEnd 时自动检查 | 每次 session 结束时检查（异步） | 中 |
+| Observation 写入时检查 | 新 observation 与已有 observation 高重叠时检查 | 低 |
+
+---
+
+## 46. 待进一步确认（v4.5 更新）
+
+### 46.1 本轮已确认项目
+
+1. ✅ ~~Holographic memory_banks usage~~ — **已验证**：在 `reason()` 方法中用于代数检索优化（`retrieval.py:143`），不是悬空数据
+2. ✅ ~~Holographic related()~~ — **已验证**：`related()` 使用裸原子直接相似度，与 `probe()` 的 role binding 形成互补（`retrieval.py:220`）
+3. ✅ ~~Holographic memory_banks rebuild triggers~~ — **已验证**：add_fact/add_alias/set_trust/rebuild_all 四个触发点（`store.py:183,294,316,533`）
+4. ✅ ~~BlueCortexCE summary template~~ — **已验证**：5-field（request/investigated/learned/completed/next_steps/notes）vs Hermes 11-field
+5. ✅ ~~Supermemory `_detect_category`~~ — **已验证**：4 类纯正则分类（preference/decision/fact/other，`supermemory/__init__.py:158`）
+6. ✅ ~~SessionSearch LLM fallback~~ — **已验证**：MAX_SUMMARY_CHARS=2000，输入 >4000 chars 先截断
+
+### 46.2 仍待确认项目
+
+1. **Honcho Dialectic 完整 prompt** — 云端 API，本地无 LLM prompt 模板（无法验证）
+2. **Hindsight local mode** — 启动 embedded daemon 的具体实现和协议
+3. **Mem0 Provider** — 云端 API，具体 LLM prompt 策略未知
+4. **BlueCortexCE Observation Entity Extraction** — 是否已在 LLM prompt 中实现 entities 字段提取？
+
+
+---
+
+## 47. session_search_tool — 双模式设计 + 主动触发机制（v4.6 新增）
+
+> **文件**: `tools/session_search_tool.py:300-410`
+> **本节为 v4.6 新增**，分析 session_search 工具的双模式设计（recent vs search）、会话过滤机制、以及工具 schema 中的主动触发指导。
+
+### 47.1 双模式设计：Recent（零成本）vs Search（LLM 合成）
+
+**最关键的成本优化设计**：session_search 工具根据 query 参数自动切换模式：
+
+```python
+# tools/session_search_tool.py:300-310
+def session_search(query: str, role_filter: str = None, limit: int = 3, ...):
+    # Recent sessions mode: when query is empty, return metadata for recent sessions.
+    # No LLM calls — just DB queries for titles, previews, timestamps.
+    if not query or not query.strip():
+        return _list_recent_sessions(db, limit, current_session_id)
+
+    query = query.strip()
+    # ... search mode with LLM summarization
+```
+
+| 模式 | 触发条件 | LLM 调用 | 延迟 | 用途 |
+|------|----------|----------|------|------|
+| **Recent** | `query=""` 或无 query | **零** | 极低 | "最近做了什么？" |
+| **Search** | `query="keyword"` | **有**（Gemini Flash） | 高 | "上次关于 X 的讨论" |
+
+**Recent 模式返回值**（`_list_recent_sessions`）：
+
+```python
+results.append({
+    "session_id": sid,
+    "title": s.get("title") or None,
+    "source": s.get("source", ""),
+    "started_at": s.get("started_at", ""),
+    "last_active": s.get("last_active", ""),
+    "message_count": s.get("message_count", 0),
+    "preview": s.get("preview", ""),  # 首条消息预览
+})
+# 返回示例: "Showing 3 most recent sessions. Use a keyword query to search specific topics."
+```
+
+**关键洞察**：
+- Recent 模式**不需要 LLM** — 只做 DB 查询（session metadata + preview text）
+- 模型在 `session_search()` 无参数时自动触发 Recent 模式
+- Schema 明确指导：**"Start here when the user asks what were we working on or what did we do recently"**
+
+### 47.2 会话来源过滤：隐藏第三方 Agent 会话
+
+```python
+# tools/session_search_tool.py:244-248
+# Sources that are excluded from session browsing/searching by default.
+# Third-party integrations (Paperclip agents, etc.) tag their sessions with
+# HERMES_SESSION_SOURCE=tool so they don't clutter the user's session history.
+_HIDDEN_SESSION_SOURCES = ("tool",)
+```
+
+**过滤逻辑**：
+- `db.list_sessions_rich(exclude_sources=["tool"])` — 排除所有 source="tool" 的会话
+- `db.search_messages(exclude_sources=["tool"])` — 搜索时同样排除
+- 目的：防止"回形针 Agent"等第三方集成的会话污染用户的历史记录
+
+**设计背景**：Paperclip agents（轻量级自动化 Agent）会创建大量 session，如果不对其过滤，用户浏览历史时会被干扰。
+
+### 47.3 当前会话链排除：防止返回当前对话
+
+```python
+# tools/session_search_tool.py:320-335
+# Resolve current session lineage to exclude it
+current_root = None
+if current_session_id:
+    sid = current_session_id
+    visited = set()
+    while sid and sid not in visited:
+        visited.add(sid)
+        s = db.get_session(sid)
+        parent = s.get("parent_session_id") if s else None
+        sid = parent if parent else None
+    current_root = max(visited, key=len) if visited else current_session_id
+
+# 排除：
+# 1. 当前 session 本身
+# 2. 当前 session 的所有祖先（parent_session_id chain）
+# 3. 所有 delegation 子会话（parent_session_id 非空）
+```
+
+**排除范围**：
+1. **当前 session ID** — `sid == current_session_id`
+2. **当前 session 的根祖先** — `sid == current_root`（整条 delegation chain）
+3. **所有 delegation 子会话** — `s.get("parent_session_id")` 非空
+
+**目的**：避免返回"当前正在进行的对话"，因为 Agent 已经有了完整的当前上下文。
+
+### 47.4 Role Filter：过滤特定角色的消息
+
+```python
+# tools/session_search_tool.py:312-320
+# Parse role filter
+role_list = None
+if role_filter and role_filter.strip():
+    role_list = [r.strip() for r in role_filter.split(",") if r.strip()]
+
+# FTS5 search -- get matches ranked by relevance
+raw_results = db.search_messages(
+    query=query,
+    role_filter=role_list,
+    exclude_sources=list(_HIDDEN_SESSION_SOURCES),
+    limit=50,
+    offset=0,
+)
+```
+
+**用途**：可以只搜索 user + assistant 消息，跳过 tool outputs，减少噪音。
+
+**Schema 描述**：`"role_filter": "Optional: only search messages from specific roles (comma-separated). E.g. 'user,assistant' to skip tool outputs."`
+
+### 47.5 主动触发指导（Schema 中的 WHEN 指导）
+
+```python
+# tools/session_search_tool.py:492-510
+SESSION_SEARCH_SCHEMA = {
+    "description": (
+        "Search your long-term memory of past conversations, or browse recent sessions. ...\n\n"
+        "USE THIS PROACTIVELY when:\n"
+        "- The user says 'we did this before', 'remember when', 'last time', 'as I mentioned'\n"
+        "- The user asks about a topic you worked on before but don't have in current context\n"
+        "- The user references a project, person, or concept that seems familiar but isn't in memory\n"
+        "- You want to check if you've solved a similar problem before\n"
+        "- The user asks 'what did we do about X?' or 'how did we fix Y?'\n\n"
+        "Don't hesitate to search when it is actually cross-session -- it's fast and cheap. "
+        "Better to search and confirm than to guess or ask the user to repeat themselves.\n\n"
+        "Search syntax: keywords joined with OR for broad recall (elevenlabs OR baseten OR funding), "
+        ...
+    ),
+}
+```
+
+**核心思想**：
+- **主动触发**：不要等用户明确要求搜索，模型应该根据上下文主动判断是否需要 cross-session recall
+- **消除顾虑**："it's fast and cheap" — 鼓励模型放心使用
+- **FTS5 语法指导**：OR vs AND、phrase、boolean、prefix
+
+### 47.6 与 BlueCortexCE 对比
+
+| 维度 | Hermes session_search | BlueCortexCE |
+|------|---------------------|--------------|
+| Recent 模式 | ✅ 零 LLM 成本 | ❌ `/api/memory/sessions` 需要 LLM 生成 session title |
+| Search 模式 | FTS5 + Gemini Flash | `/api/memory/search` + LLM synthesis |
+| 第三方过滤 | `_HIDDEN_SESSION_SOURCES=("tool",)` | ❌ 无 |
+| 当前会话链排除 | ✅ `_resolve_to_parent` + lineage root | ❌ 无（返回所有 session） |
+| Role filter | ✅ 跳过 tool outputs | ❌ 无 |
+| 主动触发指导 | Schema 明确指导 5 种场景 | ❌ 无 |
+
+### 47.7 翻译：旁路型如何借鉴
+
+| 优先级 | 借鉴点 | 说明 |
+|--------|--------|------|
+| **高** | BlueCortexCE 增加 `/api/memory/sessions/recent` | 返回最近 session 的 metadata（title + preview + timestamp），零 LLM 成本 |
+| **高** | BlueCortexCE 增加第三方 session 过滤 | 消费方可以标记哪些 session 是"第三方工具"，搜索时过滤 |
+| **高** | BlueCortexCE 实现当前 session 链排除 | 搜索结果排除当前 session 及其 delegation 子 session |
+| **中** | BlueCortexCE 增加 role filter | API 支持 `?role=user,assistant` 过滤 tool outputs |
+| **中** | SDK 层增加主动触发指导 | JS/Go/Python SDK 文档中明确指导何时调用 session recall |
+
+---
+
+## 48. memory_tool — 完整操作语义 + Schema 指导（v4.6 新增）
+
+> **文件**: `tools/memory_tool.py:200-400`
+> **本节为 v4.6 新增**，分析 memory 工具的精确操作语义（add/replace/remove）、歧义处理、以及 Schema 中的优先级指导。
+
+### 48.1 add/replace/remove 精确语义
+
+**add — 追加新 entry**：
+
+```python
+# tools/memory_tool.py:218-250
+def add(self, target: str, content: str) -> Dict[str, Any]:
+    # 1. 扫描 injection/exfiltration
+    scan_error = _scan_memory_content(content)
+    if scan_error:
+        return {"success": False, "error": scan_error}
+
+    # 2. Re-read from disk under lock（处理多进程并发）
+    self._reload_target(target)
+
+    entries = self._entries_for(target)
+    limit = self._char_limit(target)
+
+    # 3. 拒绝 exact duplicate
+    if content in entries:
+        return self._success_response(target, "Entry already exists (no duplicate added).")
+
+    # 4. 检查 char limit
+    new_entries = entries + [content]
+    new_total = len(ENTRY_DELIMITER.join(new_entries))
+    if new_total > limit:
+        current = self._char_count(target)
+        return {
+            "success": False,
+            "error": f"Memory at {current:,}/{limit:,} chars. "
+                     f"Adding this entry ({len(content)} chars) would exceed the limit. "
+                     f"Replace or remove existing entries first.",
+            "current_entries": entries,
+            "usage": f"{current:,}/{limit:,}",
+        }
+
+    entries.append(content)
+    self._set_entries(target, entries)
+    self.save_to_disk(target)
+```
+
+**replace — 精确 substring 匹配**：
+
+```python
+# tools/memory_tool.py:252-300
+def replace(self, target: str, old_text: str, new_content: str) -> Dict[str, Any]:
+    # 1. 扫描 new_content
+    scan_error = _scan_memory_content(new_content)
+    if scan_error:
+        return {"success": False, "error": scan_error}
+
+    self._reload_target(target)
+    entries = self._entries_for(target)
+
+    # 2. 找所有包含 old_text 的 entry
+    matches = [(i, e) for i, e in enumerate(entries) if old_text in e]
+
+    if not matches:
+        return {"success": False, "error": f"No entry matched '{old_text}'."}
+
+    # 3. 多 match 歧义处理
+    if len(matches) > 1:
+        unique_texts = set(e for _, e in matches)
+        if len(unique_texts) > 1:
+            # 多个不同 entry 都包含 old_text → 要求更具体
+            previews = [e[:80] + "..." if len(e) > 80 else e for _, e in matches]
+            return {
+                "success": False,
+                "error": f"Multiple entries matched '{old_text}'. Be more specific.",
+                "matches": previews,
+            }
+        # 全部相同 → 只替换第一个（去重后的 safe case）
+
+    # 4. 检查替换后是否超 limit
+    test_entries = entries.copy()
+    test_entries[idx] = new_content
+    new_total = len(ENTRY_DELIMITER.join(test_entries))
+    if new_total > limit:
+        return {"success": False, "error": f"Replacement would put memory at {new_total:,}/{limit:,} chars."}
+
+    entries[idx] = new_content
+    self._set_entries(target, entries)
+    self.save_to_disk(target)
+```
+
+**remove — 同 replace 的歧义处理**：
+
+```python
+# tools/memory_tool.py:302-340
+def remove(self, target: str, old_text: str) -> Dict[str, Any]:
+    # 完全相同的歧义处理逻辑
+    matches = [(i, e) for i, e in enumerate(entries) if old_text in e]
+    if not matches:
+        return {"success": False, "error": f"No entry matched '{old_text}'."}
+    if len(matches) > 1:
+        unique_texts = set(e for _, e in matches)
+        if len(unique_texts) > 1:
+            # 要求更具体
+            return {"success": False, "error": "Multiple entries matched..."}
+        # 全部相同 → 只删除第一个
+```
+
+### 48.2 歧义处理的关键设计
+
+**问题**：如果用户说"remember X"，但 memory 中有多个 entry 都包含 X，replace/remove 应该用哪个？
+
+**Hermes 的处理**：
+1. 如果多个 entry 的**文本完全相同**（exact duplicate）→ 操作第一个（合理）
+2. 如果多个 entry 的**文本不同**（不同 entry 都恰好包含 old_text substring）→ 返回错误，要求用户更具体
+
+**设计意图**：防止误操作。用户需要提供足够长的 `old_text` 来唯一确定目标 entry。
+
+### 48.3 Schema 中的优先级指导
+
+```python
+# tools/memory_tool.py:502-530
+MEMORY_SCHEMA = {
+    "description": (
+        "WHEN TO SAVE (do this proactively, don't wait to be asked):\n"
+        "- User corrects you or says 'remember this' / 'don't do that again'\n"
+        "- User shares a preference, habit, or personal detail (name, role, timezone, coding style)\n"
+        "- You discover something about the environment (OS, installed tools, project structure)\n"
+        "- You learn a convention, API quirk, or workflow specific to this user's setup\n"
+        "- You identify a stable fact that will be useful again in future sessions\n\n"
+        "PRIORITY: User preferences and corrections > environment facts > procedural knowledge. "
+        "The most valuable memory prevents the user from having to repeat themselves.\n\n"
+        "Do NOT save task progress, session outcomes, completed-work logs, or temporary TODO "
+        "state to memory; use session_search to recall those from past transcripts.\n"
+        ...
+    ),
+}
+```
+
+**三层优先级**：
+1. **最高**：User preferences and corrections（用户偏好和纠正）
+2. **中等**：Environment facts（环境事实）
+3. **最低**：Procedural knowledge（流程性知识）
+
+**明确排除**：
+- Task progress（任务进度）→ 用 session_search 召回
+- Session outcomes（会话结果）→ 用 session_search 召回
+- Completed-work logs → 用 session_search 召回
+- Temporary TODO state → 不要写入 memory
+
+**反面指导的价值**：告诉模型什么**不应该**记住，比告诉它什么应该记住更重要。
+
+### 48.4 与 BlueCortexCE 对比
+
+| 维度 | Hermes memory_tool | BlueCortexCE |
+|------|------------------|--------------|
+| 操作接口 | add/replace/remove（substring 匹配） | Observation 写入（append-only） |
+| 歧义处理 | 多 match → 要求更具体 | ❌ 无（append-only 不会有歧义） |
+| 精确性要求 | old_text 必须唯一匹配 | N/A |
+| Character limit | 硬限制（超限拒绝写入） | Observation 无硬 limit |
+| 优先级指导 | 偏好 > 环境 > 流程 | ❌ 无 |
+| 反面指导 | 明确排除 task progress / session outcomes | ❌ 无 |
+| Injection 扫描 | ✅ `_scan_memory_content` | ❌ 无 |
+
+### 48.5 翻译：旁路型如何借鉴
+
+| 优先级 | 借鉴点 | 说明 |
+|--------|--------|------|
+| **高** | BlueCortexCE 增加优先级/分类字段 | Observation 增加 `category: preference/environment/fact/procedure` |
+| **高** | BlueCortexCE 增加反面指导 | API 文档明确说明什么**不应该**写入（task progress、raw outputs） |
+| **中** | BlueCortexCE 增加 injection 扫描 | 对所有写入内容做威胁模式扫描 |
+| **低** | BlueCortexCE Observation append-only vs 可修改 | 当前 append-only 是正确设计（避免歧义） |
+| **低** | BlueCortexCE 增加 char limit | 可以对 summary/observation 设置合理的 soft limit |
+
+---
+
+## 49. 待进一步确认（v4.6 更新）
+
+### 49.1 本轮已确认项目
+
+1. ✅ ~~session_search two-mode design~~ — **已详细分析**：Recent 模式（零 LLM）vs Search 模式（LLM 合成），无 query 时触发 Recent
+2. ✅ ~~session_search hidden sources~~ — **已验证**：`_HIDDEN_SESSION_SOURCES=("tool",)` 过滤第三方 Agent 会话
+3. ✅ ~~session_search current lineage exclusion~~ — **已验证**：`_resolve_to_parent` 排除当前 session 及其整个 delegation chain
+4. ✅ ~~memory_tool add/replace/remove semantics~~ — **已详细分析**：substring 匹配 + 多 match 歧义处理
+5. ✅ ~~memory_tool schema priority guidance~~ — **已验证**：偏好 > 环境 > 流程 + 明确排除 task progress
+6. ✅ ~~memory_tool injection scanning~~ — **已验证**：threat pattern + invisible unicode 扫描
+
+### 49.2 仍待确认项目
+
+1. **Honcho Dialectic 完整 prompt** — 云端 API，本地无 LLM prompt 模板（无法验证）
+2. **Hindsight local mode** — 启动 embedded daemon 的具体实现和协议
+3. **Mem0 Provider** — 云端 API，具体 LLM prompt 策略未知
+4. **BlueCortexCE Observation Entity Extraction** — 是否已在 LLM prompt 中实现 entities 字段提取？
+5. **BlueCortexCE Observation Category** — 是否可以借鉴 Hermes 的 3 层优先级分类？
