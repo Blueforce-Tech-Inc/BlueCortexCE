@@ -327,8 +327,8 @@ public class CortexMemClientImpl implements CortexMemClient {
         if (limit < 0) {
             throw new IllegalArgumentException("limit must not be negative");
         }
-        return executeWithRetryReturn("getExtractionHistory", () ->
-            restClient.get()
+        return executeWithRetryReturn("getExtractionHistory", () -> {
+            List<Map<String, Object>> result = restClient.get()
                 .uri(uriBuilder -> {
                     var builder = uriBuilder
                         .path("/api/extraction/{template}/history")
@@ -344,8 +344,9 @@ public class CortexMemClientImpl implements CortexMemClient {
                     return builder.build(templateName);
                 })
                 .retrieve()
-                .body(new ParameterizedTypeReference<>() {})
-        );
+                .body(new ParameterizedTypeReference<>() {});
+            return result != null ? result : List.of();
+        });
     }
 
     @Override
