@@ -1,6 +1,6 @@
 # Evolver 记忆系统深度分析
 
-> **文档状态**: v1.3 (新增：gitOps.js Git操作与原子回滚 + bridge.js跨Agent协作桥接 + a2a.js A2A资产广播与置信度管理 + privacyClient.js隐私计算与密封执行 + assets.js资产格式统一抽象)
+> **文档状态**: v1.4 (新增：candidates.js能力候选提取 + candidateEval.js候选预演构建 + skillPublisher.js Gene到SKILL.md发布)
 > **分析目标**: 为 BlueCortexCE（旁路型记忆系统）提供可落地的借鉴建议
 > **数据来源**: `/Users/yangjiefeng/Documents/EvoMap/evolver/`
 > **最后更新**: 2026-04-17 04:36
@@ -59,26 +59,29 @@
 49. [validationReport.js — 标准化验证报告](#49-validationreportjs--标准化验证报告v09-新增)
 50. [analyzer.js — 自省分析器](#50-analyzerjs--自省分析器v09-新增)
 51. [整体架构补充：Evolver 的安全与隐私体系](#51-整体架构补充evolver-的安全与隐私体系v09-新增)
-52. [下轮探索方向（v1.0 更新）](#52-下轮探索方向v10-更新)
-53. [hubSearch.js — 联邦知识市场与两阶段搜索（v1.0 新增）](#53-hubsearchjs--联邦知识市场与两阶段搜索v10-新增)
-54. [hubReview.js — 使用验证型评价系统（v1.0 新增）](#54-hubreviewjs--使用验证型评价系统v10-新增)
-55. [executionTrace.js — 隐私保护的执行遥测（v1.0 新增）](#55-executiontracejs--隐私保护的执行遥测v10-新增)
-56. [assetCallLog.js — 资产交互的 append-only 审计（v1.0 新增）](#56-assetcalllogjs--资产交互的-append-only-审计v10-新增)
-57. [directoryClient.js — 节点目录与能力发现（v1.0 新增）](#57-directoryclientjs--节点目录与能力发现v10-新增)
-58. [deviceId.js — 稳定节点身份与优先级指纹链（v1.0 新增）](#58-deviceidjs--稳定节点身份与优先级指纹链v10-新增)
-60. [a2aProtocol.js — Agent-to-Agent 联邦通信协议（v1.1 新增）](#60-a2aprotocoljs--agent-to-agent-联邦通信协议v11-新增)
-61. [prompt.js — GEP 提示词构建器（v1.2 新增）](#61-promptjs--gep-提示词构建器v12-新增)
-62. [strategy.js — 进化策略预设系统（v1.2 新增）](#62-strategyjs--进化策略预设系统v12-新增)
-63. [memoryGraphAdapter.js — 本地/远程双模适配器（v1.2 新增）](#63-memorygraphadapterjs--本地远程双模适配器v12-新增)
-64. [innovation.js — 停滞检测与创新催化剂（v1.2 新增）](#64-innovationjs--停滞检测与创新催化剂v12-新增)
-65. [questionGenerator.js — 主动问题生成机制（v1.2 新增）](#65-questiongeneratorjs--主动问题生成机制v12-新增)
-66. [idleScheduler.js — OMLS 空闲调度器（v1.2 新增）](#66-idleschedulerjs--omls-空闲调度器v12-新增)
+52. [hubSearch.js — 联邦知识市场与两阶段搜索（v1.0 新增）](#53-hubsearchjs--联邦知识市场与两阶段搜索v10-新增)
+53. [hubReview.js — 使用验证型评价系统（v1.0 新增）](#54-hubreviewjs--使用验证型评价系统v10-新增)
+54. [executionTrace.js — 隐私保护的执行遥测（v1.0 新增）](#55-executiontracejs--隐私保护的执行遥测v10-新增)
+55. [assetCallLog.js — 资产交互的 append-only 审计（v1.0 新增）](#56-assetcalllogjs--资产交互的-append-only-审计v10-新增)
+56. [directoryClient.js — 节点目录与能力发现（v1.0 新增）](#57-directoryclientjs--节点目录与能力发现v10-新增)
+57. [deviceId.js — 稳定节点身份与优先级指纹链（v1.0 新增）](#58-deviceidjs--稳定节点身份与优先级指纹链v10-新增)
+58. [a2aProtocol.js — Agent-to-Agent 联邦通信协议（v1.1 新增）](#60-a2aprotocoljs--agent-to-agent-联邦通信协议v11-新增)
+59. [prompt.js — GEP 提示词构建器（v1.2 新增）](#61-promptjs--gep-提示词构建器v12-新增)
+60. [strategy.js — 进化策略预设系统（v1.2 新增）](#62-strategyjs--进化策略预设系统v12-新增)
+61. [memoryGraphAdapter.js — 本地/远程双模适配器（v1.2 新增）](#63-memorygraphadapterjs--本地远程双模适配器v12-新增)
+62. [innovation.js — 停滞检测与创新催化剂（v1.2 新增）](#64-innovationjs--停滞检测与创新催化剂v12-新增)
+63. [questionGenerator.js — 主动问题生成机制（v1.2 新增）](#65-questiongeneratorjs--主动问题生成机制v12-新增)
+64. [idleScheduler.js — OMLS 空闲调度器（v1.2 新增）](#66-idleschedulerjs--omls-空闲调度器v12-新增)
 67. [localStateAwareness.js — 本地状态感知（v1.2 新增）](#67-localstateawarenessjs--本地状态感知v12-新增)
 68. [gitOps.js — Git 操作与原子回滚（v1.3 新增）](#68-gitopsjs--git-操作与原子回滚v13-新增)
 69. [bridge.js — 跨 Agent 协作桥接（v1.3 新增）](#69-bridgejs--跨-agent-协作桥接v13-新增)
 70. [a2a.js — A2A 资产广播与置信度管理（v1.3 新增）](#70-a2ajs--a2a-资产广播与置信度管理v13-新增)
 71. [privacyClient.js — 隐私计算与密封执行（v1.3 新增）](#71-privacyclientjs--隐私计算与密封执行v13-新增)
 72. [assets.js — 资产格式统一抽象（v1.3 新增）](#72-assetsjs--资产格式统一抽象v13-新增)
+73. [candidates.js — 能力候选提取算法（v1.4 新增）](#73-candidatesjs--能力候选提取算法-v14-新增)
+74. [candidateEval.js — 候选预演构建与外部资产匹配（v1.4 新增）](#74-candidateevaljs--候选预演构建与外部资产匹配-v14-新增)
+75. [skillPublisher.js — Gene 到 SKILL.md 格式转换与 Hub 发布（v1.4 新增）](#75-skillpublisherjs--gene-到-skillmd-格式转换与-hub-发布-v14-新增)
+76. [下轮探索方向（v1.4 更新）](#76-下轮探索方向v14-更新)
 
 ---
 
@@ -7805,12 +7808,434 @@ function normalizeAsset(asset) {
 
 ---
 
-## 73. 下轮探索方向（v1.3 更新）
+## 73. candidates.js — 能力候选提取算法（v1.4 新增）
+
+**文件**: `src/gep/candidates.js` (225 lines)
+
+### 73.1 核心设计思想
+
+Evolver 的 `candidates.js` 实现了**从失败和成功经验中自动发现可复用的能力模式**的算法。它从三个来源提取能力候选：
+
+| 来源 | 触发条件 | 候选类型 |
+|------|----------|---------|
+| **Transcript 工具调用** | 同一工具调用 ≥3 次 | `CapabilityCandidate` |
+| **Signal 模式** | 特定 signal 出现时 | `CapabilityCandidate` |
+| **Failed Capsules** | 同类失败 ≥2 次 | `CapabilityCandidate` |
+
+### 73.2 工具调用频率提取（extractToolCalls）
+
+```javascript
+// candidates.js:28-40
+function extractToolCalls(transcript) {
+  const lines = toLines(transcript);
+  const calls = [];
+  for (const line of lines) {
+    // OpenClaw format: [TOOL: Shell]
+    const m = line.match(/\[TOOL:\s*([^\]]+)\]/i);
+    if (m && m[1]) { calls.push(m[1].trim()); continue; }
+    // Cursor transcript format: [Tool call] Shell
+    const m2 = line.match(/\[Tool call\]\s+(\S+)/i);
+    if (m2 && m2[1]) calls.push(m2[1].trim());
+  }
+  return calls;
+}
+```
+
+**Evolver 为什么这样做**：从 session transcript 中提取工具调用模式，识别"重复使用的工具"作为能力候选。频率 ≥3 才触发（避免噪声）。
+
+### 73.3 Five Questions Shape 模板
+
+每个候选都转换为**五问模板**，用于指导后续的 Gene 生成：
+
+```javascript
+// candidates.js:48-60
+function buildFiveQuestionsShape({ title, signals, evidence }) {
+  return {
+    title: String(title || '').slice(0, 120),
+    input: 'Recent session transcript + memory snippets + user instructions',
+    output: 'A safe, auditable evolution patch guided by GEP assets',
+    invariants: 'Protocol order, small reversible patches, validation, append-only events',
+    params: `Signals: ${Array.isArray(signals) ? signals.join(', ') : ''}`.trim(),
+    failure_points: 'Missing signals, over-broad changes, skipped validation, missing knowledge solidification',
+    evidence: clip(evidence, 240),
+  };
+}
+```
+
+**五问**：
+1. **Input** — 什么输入触发了这个能力？
+2. **Output** — 期望的输出是什么？
+3. **Invariants** — 必须保持不变的条件是什么？
+4. **Params** — 与哪些 signals 相关？
+5. **Failure Points** — 常见的失败点是什么？
+
+### 73.4 Signal 驱动的候选生成
+
+```javascript
+// candidates.js:75-98
+const signalCandidates = [
+  // Defensive signals
+  { signal: 'log_error', title: 'Repair recurring runtime errors' },
+  { signal: 'protocol_drift', title: 'Prevent protocol drift and enforce auditable outputs' },
+  { signal: 'windows_shell_incompatible', title: 'Avoid platform-specific shell assumptions (Windows compatibility)' },
+  { signal: 'session_logs_missing', title: 'Harden session log detection and fallback behavior' },
+  // Opportunity signals (innovation)
+  { signal: 'user_feature_request', title: 'Implement user-requested feature' },
+  { signal: 'user_improvement_suggestion', title: 'Apply user improvement suggestion' },
+  { signal: 'perf_bottleneck', title: 'Resolve performance bottleneck' },
+  { signal: 'capability_gap', title: 'Fill capability gap' },
+  { signal: 'stable_success_plateau', title: 'Explore new strategies during stability plateau' },
+  { signal: 'external_opportunity', title: 'Evaluate external A2A asset for local adoption' },
+];
+```
+
+**Evolver 为什么这样做**：将 signal 模式直接映射为候选能力——当检测到特定 signal 时，自动生成对应的能力候选，驱动进化循环。
+
+### 73.5 Failed Capsules 分组聚合
+
+```javascript
+// candidates.js:103-145
+var groups = {};
+var problemPriority = [
+  'problem:performance',
+  'problem:protocol',
+  'problem:reliability',
+  'problem:stagnation',
+  'problem:capability',
+];
+for (var i = 0; i < failedCapsules.length; i++) {
+  var fc = failedCapsules[i];
+  if (!fc || fc.outcome && fc.outcome.status === 'success') continue;
+  var reason = String(fc.failure_reason || '').trim();
+  var failureTags = expandSignals((fc.trigger || []).concat(signalList), reason)
+    .filter(function (t) {
+      return t.indexOf('problem:') === 0 || t.indexOf('risk:') === 0 ||
+             t.indexOf('area:') === 0 || t.indexOf('action:') === 0;
+    });
+  if (failureTags.length === 0) continue;
+  var dominantProblem = null;
+  for (var p = 0; p < problemPriority.length; p++) {
+    if (failureTags.indexOf(problemPriority[p]) !== -1) {
+      dominantProblem = problemPriority[p];
+      break;
+    }
+  }
+  // ...
+}
+```
+
+**Evolver 为什么这样做**：将相似失败模式的 Capsule 聚合分组，识别"反复失败的进化路径"作为学习机会。同一问题类型出现 ≥2 次才生成候选。
+
+### 73.6 BlueCortexCE 借鉴点
+
+| 发现 | Evolver 做法 | 翻译：旁路型如何借鉴 | 优先级 |
+|------|-------------|---------------------|--------|
+| 工具调用频率提取 | transcript 中提取 `[TOOL: xxx]` 模式，≥3 次触发 | **高优先级**: BlueCortexCE 可从 session transcript 中提取重复行为模式 | 高 |
+| 五问模板 | 候选转换为 input/output/invariants/params/failure_points | **高优先级**: BlueCortexCE Observation 可增加 structured template | 中 |
+| Signal 驱动候选 | signal → capability candidate 自动映射 | **中优先级**: BlueCortexCE 可基于 signal 类型生成 structured extraction | 中 |
+| Failed 聚合 | 失败 Capsule 按 problem type 分组，≥2 次触发 | **中优先级**: BlueCortexCE 的 `/api/sessions/{id}/failed` 可做类似聚合 | 低 |
+| 确定性哈希 | `stableHash()` 用于去重 ID 生成 | **高优先级**: BlueCortexCE 的 entity ID 生成应使用确定性哈希 | 高 |
+
+---
+
+## 74. candidateEval.js — 候选预演构建与外部资产匹配（v1.4 新增）
+
+**文件**: `src/gep/candidateEval.js` (107 lines)
+
+### 74.1 buildCandidatePreviews 函数
+
+`candidateEval.js` 的核心是 `buildCandidatePreviews` 函数，它：
+
+1. 从当前 session 的 transcript 和 signals 生成新候选
+2. 持久化候选到 `assetStore`
+3. 读取最近的本地和外部候选
+4. 构建供 GEP prompt 使用的预览文本
+
+```javascript
+// candidateEval.js:13-25
+function buildCandidatePreviews({ signals, recentSessionTranscript }) {
+  // Step 1: 提取新候选
+  const newCandidates = extractCapabilityCandidates({
+    recentSessionTranscript: recentSessionTranscript || '',
+    signals,
+    recentFailedCapsules: readRecentFailedCapsules(50),
+  });
+  // Step 2: 持久化
+  for (const c of newCandidates) {
+    try { appendCandidateJsonl(c); } catch (e) { ... }
+  }
+  // Step 3: 读取本地候选
+  const recentCandidates = readRecentCandidates(20);
+  const capabilityCandidatesPreview = renderCandidatesPreview(recentCandidates.slice(-8), 1600);
+  // Step 4: 读取外部候选 + 信号匹配
+  let externalCandidatesPreview = '(none)';
+  // ...
+}
+```
+
+### 74.2 外部 Gene 与 Capsule 的信号匹配
+
+```javascript
+// candidateEval.js:35-55
+const matchedExternalGenes = genesOnly
+  .map(g => {
+    const pats = Array.isArray(g.signals_match) ? g.signals_match : [];
+    const hit = pats.reduce((acc, p) => (matchPatternToSignals(p, signals) ? acc + 1 : acc), 0);
+    return { gene: g, hit };
+  })
+  .filter(x => x.hit > 0)
+  .sort((a, b) => b.hit - a.hit)
+  .slice(0, 3)
+  .map(x => x.gene);
+
+const matchedExternalCapsules = capsulesOnly
+  .map(c => {
+    const triggers = Array.isArray(c.trigger) ? c.trigger : [];
+    const score = triggers.reduce((acc, t) => (matchPatternToSignals(t, signals) ? acc + 1 : acc), 0);
+    return { capsule: c, score };
+  })
+  .filter(x => x.score > 0)
+  .sort((a, b) => b.score - a.score)
+  .slice(0, 3)
+  .map(x => x.capsule);
+```
+
+**Evolver 为什么这样做**：
+- 从 Hub 同步的外部 Gene/Capsule，按当前 signals 匹配度排序
+- 取 top-3 作为预演内容，让 GEP prompt 知道外部有什么可用资产
+- 这是**联邦知识发现**的关键环节
+
+### 74.3 预览格式化输出
+
+```javascript
+// candidateEval.js:60-90
+externalCandidatesPreview = `\`\`\`json\n${JSON.stringify(
+  [
+    ...matchedExternalGenes.map(g => ({
+      type: g.type,
+      id: g.id,
+      category: g.category || null,
+      signals_match: g.signals_match || [],
+      a2a: g.a2a || null,
+    })),
+    ...matchedExternalCapsules.map(c => ({
+      type: c.type,
+      id: c.id,
+      trigger: c.trigger,
+      gene: c.gene,
+      summary: c.summary,
+      confidence: c.confidence,
+      blast_radius: c.blast_radius || null,
+      outcome: c.outcome || null,
+      success_streak: c.success_streak || null,
+      a2a: c.a2a || null,
+    })),
+  ],
+  null, 2
+)}\n\`\`\``;
+```
+
+**Evolver 为什么这样做**：输出 JSON 格式便于 LLM 解析，包含 type/id/trigger/summary/confidence 等关键字段。
+
+### 74.4 BlueCortexCE 借鉴点
+
+| 发现 | Evolver 做法 | 翻译：旁路型如何借鉴 | 优先级 |
+|------|-------------|---------------------|--------|
+| 外部资产信号匹配 | genes/capsules 按 signals 匹配度排序，取 top-3 | **高优先级**: BlueCortexCE 的 `/api/search` 可增加"信号匹配度"排序 | 高 |
+| 联邦知识发现 | Hub 同步 + 本地匹配 | **中优先级**: BlueCortexCE 可实现多实例联邦搜索 | 中 |
+| 预览格式化 JSON | JSON 输出便于 LLM 解析 | **中优先级**: BlueCortexCE 的 context 输出可增加结构化 JSON 块 | 中 |
+| 候选持久化 | appendCandidateJsonl 异步写入 | **高优先级**: BlueCortexCE 的候选observation应有异步写入机制 | 高 |
+
+---
+
+## 75. skillPublisher.js — Gene 到 SKILL.md 格式转换与 Hub 发布（v1.4 新增）
+
+**文件**: `src/gep/skillPublisher.js` (307 lines)
+
+### 75.1 核心设计思想
+
+`skillPublisher.js` 实现将 **Gene 资产转换为可发布的 SKILL.md 格式**并发布到 Hub 的完整流程。这是 Evolver 知识变现的核心环节：
+
+```
+Gene (内部资产) → SKILL.md (Hub 发布格式) → Hub (联邦知识市场)
+```
+
+### 75.2 Gene → SKILL.md 格式转换（geneToSkillMd）
+
+```javascript
+// skillPublisher.js:67-135
+function geneToSkillMd(gene) {
+  var name = sanitizeSkillName(gene.id) || deriveFallbackName(gene);
+  var displayName = toTitleCase(name);
+  var lines = [
+    '---',
+    'name: ' + displayName,
+    'description: ' + desc,
+    '---',
+    '',
+    '# ' + displayName,
+    '',
+    '## When to Use',
+    '- When your project encounters: ' + gene.signals_match.slice(0, 4).map(...).join(', '),
+    '',
+    '## Trigger Signals',
+    gene.signals_match.forEach(s => lines.push('- `' + s + '`')),
+    '',
+    '## Preconditions',
+    gene.preconditions.forEach(p => lines.push('- ' + p)),
+    '',
+    '## Strategy',
+    gene.strategy.map((step, i) => (i+1) + '. **' + extractStepVerb(step) + '** -- ' + stripLeadingVerb(step)),
+    '',
+    '## Constraints',
+    // constraints.max_files, constraints.forbidden_paths
+    '',
+    '## Validation',
+    gene.validation.map(cmd => '```bash\n' + cmd + '\n```'),
+    '',
+    '## Metadata',
+    '- Category: `' + gene.category + '`',
+    '- Schema version: `' + gene.schema_version + '`',
+    '- Distilled from: ' + gene._distilled_meta.source_capsule_count + ' successful capsules',
+  ];
+  return lines.join('\n');
+}
+```
+
+**SKILL.md 结构**：
+
+| Section | 内容 |
+|---------|------|
+| Frontmatter | name, description (YAML) |
+| When to Use | 触发条件（signals） |
+| Trigger Signals | 信号列表 |
+| Preconditions | 前置条件 |
+| Strategy | 步骤列表（动词 bold 化） |
+| Constraints | 约束（文件数限制、禁止路径） |
+| Validation | 验证命令 |
+| Metadata | 类别、版本、来源 |
+
+### 75.3 技能名称清洗（sanitizeSkillName）
+
+```javascript
+// skillPublisher.js:13-28
+function sanitizeSkillName(rawName) {
+  var name = rawName.replace(/[\r\n]+/g, '-')
+                     .replace(/^gene_distilled_/, '')
+                     .replace(/^gene_/, '')
+                     .replace(/_/g, '-');
+  // Strip ALL embedded timestamps (10+ digit sequences)
+  name = name.replace(/-?\d{10,}-?/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  // 过滤工具名和纯数字
+  if (/^\d{8,}/.test(name) || /^(cursor|vscode|vim|emacs|windsurf|copilot|cline|codex)[-]?\d*$/i.test(name)) {
+    return null;
+  }
+  if (name.replace(/[-]/g, '').length < 6) return null;
+  return name;
+}
+```
+
+**Evolver 为什么这样做**：
+- 去除 `gene_distilled_` 和 `gene_` 前缀
+- 将下划线转为连字符（kebab-case）
+- 去除嵌入的时间戳
+- 过滤工具名和纯数字
+
+### 75.4 动词提取（extractStepVerb）
+
+```javascript
+// skillPublisher.js:157-168
+function extractStepVerb(step) {
+  // Only match a capitalized verb at the very start
+  var match = step.match(/^([A-Z][a-z]+)/);
+  return match ? match[1] : '';
+}
+
+function stripLeadingVerb(step) {
+  var verb = extractStepVerb(step);
+  if (verb && step.startsWith(verb)) {
+    var rest = step.slice(verb.length).replace(/^[\s:.\-]+/, '');
+    return rest || step;
+  }
+  return step;
+}
+```
+
+**Evolver 为什么这样做**：策略步骤格式为 "Verb -- rest"，展示时动词 bold 化，让格式更易读。
+
+### 75.5 Hub 发布流程（publishSkillToHub）
+
+```javascript
+// skillPublisher.js:180-230
+function publishSkillToHub(gene, opts) {
+  var hubUrl = getHubUrl();
+  if (!hubUrl) return Promise.resolve({ ok: false, error: 'no_hub_url' });
+
+  var content = geneToSkillMd(geneCopy);
+  var skillId = 'skill_' + derivedName.replace(/_?\d{10,}_?/g, '_').replace(/_+/g, '_');
+  var body = {
+    sender_id: nodeId,
+    skill_id: skillId,
+    content: content,
+    category: opts.category || geneCopy.category || null,
+    tags: tags,
+  };
+
+  var endpoint = hubUrl + '/a2a/skill/store/publish';
+  return fetch(endpoint, {
+    method: 'POST',
+    headers: buildHubHeaders(),
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(15000),
+  })
+    .then(function (res) {
+      if (res.status === 201 || res.status === 200) {
+        return { ok: true, result: result.data };
+      }
+      if (res.status === 409) {
+        return updateSkillOnHub(nodeId, skillId, content, opts, gene); // 已存在则更新
+      }
+      return { ok: false, error: result.data?.error || 'publish_failed' };
+    });
+}
+```
+
+**Evolver 为什么这样做**：
+- `409 Conflict` 时自动触发 `updateSkillOnHub`（版本迭代）
+- 15s 超时防止 Hub 无响应阻塞
+- `AbortSignal.timeout()` 现代 API
+
+### 75.6 标签清洗（sanitizeSignalsMatch）
+
+```javascript
+// skillPublisher.js:196-203
+var tags = opts.tags || geneCopy.signals_match || [];
+tags = tags.filter(function (t) {
+  var s = String(t || '').trim();
+  return s.length >= 3 && !/^\d+$/.test(s) && !/\d{10,}/.test(s);
+});
+```
+
+**Evolver 为什么这样做**：过滤纯数字和时间戳标签，防止 Hub 拒绝或排序异常。
+
+### 75.7 BlueCortexCE 借鉴点
+
+| 发现 | Evolver 做法 | 翻译：旁路型如何借鉴 | 优先级 |
+|------|-------------|---------------------|--------|
+| 技能格式化 | Gene → SKILL.md (frontmatter + sections) | **高优先级**: BlueCortexCE 可将 Observation 导出为 SKILL.md 格式 | 高 |
+| 技能名称清洗 | kebab-case + 去除时间戳 | **高优先级**: BlueCortexCE 的 asset 名称应有规范化逻辑 | 高 |
+| Hub 发布 | POST → 409 → PUT 自动版本更新 | **中优先级**: BlueCortexCE 的资产发布可参考此幂等模式 | 中 |
+| Verb bold 化 | 策略步骤 "Verify -- installation" → "**Verify** -- installation" | **中优先级**: BlueCortexCE 的 structured output 可类似格式化 | 中 |
+| 来源追溯 | `_distilled_meta.source_capsule_count` 标注成功 Capsule 数量 | **高优先级**: BlueCortexCE 的 Observation 应记录来源 session | 高 |
+
+---
+
+## 76. 下轮探索方向（v1.4 更新）
 
 ### 高优先级
 1. ~~**a2aProtocol.js**~~ ✅ v1.1 已新增（联邦通信协议、HMAC 签名、双传输层、心跳机制、SSE 事件流）
-2. **skillPublisher.js** (307 lines) — 技能发布到 Hub 的完整流程
-3. **taskReceiver.js** (566 lines) — Hub 任务接收与处理
+2. ~~**skillPublisher.js**~~ ✅ v1.4 已新增（Gene→SKILL.md、Hub发布、名称清洗）
+3. **taskReceiver.js** — Hub 任务接收与处理（未找到文件，可能是旧版本已移除）
 
 ### 中优先级
 4. ~~**privacyClient.js**~~ ✅ v1.3 已新增（隐私计算协议、密封执行、加密 blob）
@@ -7820,47 +8245,33 @@ function normalizeAsset(asset) {
 8. ~~**assets.js**~~ ✅ v1.3 已新增（资产格式化规范化）
 9. **llmReview.js** (92 lines) — LLM 代码审查集成
 
-### 待深入分析（更新）
-1. ~~**hubSearch.js**~~ ✅ v1.0 已新增（两阶段搜索、多层缓存、联邦知识市场）
-2. ~~**hubReview.js**~~ ✅ v1.0 已新增（使用验证型评价、去重机制、非阻塞设计）
-3. ~~**executionTrace.js**~~ ✅ v1.0 已新增（隐私保护遥测、脱敏规则、blast 分级）
-4. ~~**assetCallLog.js**~~ ✅ v1.0 已新增（append-only JSONL 审计、多维过滤）
-5. ~~**directoryClient.js**~~ ✅ v1.0 已新增（节点目录、语义发现、能力标签）
-6. ~~**deviceId.js**~~ ✅ v1.0 已新增（优先级指纹链、容器感知、权限安全）
-7. ~~**a2aProtocol.js**~~ ✅ v1.1 已新增（联邦通信协议、HMAC 签名、双传输层抽象、心跳注册、SSE 事件流、Hub 基础设施 API）
-8. ~~**gitOps.js**~~ ✅ v1.3 已新增（Git 操作与回滚、关键文件保护、三模式回滚）
-9. ~~**bridge.js**~~ ✅ v1.3 已新增（Prompt Artifact 持久化、sessions_spawn JSON 渲染）
-10. ~~**a2a.js**~~ ✅ v1.3 已新增（A2A 资产广播资格、三门控设计、置信度降权）
-11. ~~**privacyClient.js**~~ ✅ v1.3 已新增（隐私计算协议、密封执行、本地密钥管理）
-12. ~~**assets.js**~~ ✅ v1.3 已新增（资产格式统一抽象、规范化写入）
-13. **skillPublisher.js** — 技能发布到 Hub
-14. **taskReceiver.js** — Hub 任务接收
-15. **llmReview.js** — LLM 代码审查
+### 待深入分析（v1.4 更新）
 
----
+**已分析文件**：
+1. ~~**hubSearch.js**~~ ✅ v1.0（两阶段搜索、多层缓存、联邦知识市场）
+2. ~~**hubReview.js**~~ ✅ v1.0（使用验证型评价、去重机制、非阻塞设计）
+3. ~~**executionTrace.js**~~ ✅ v1.0（隐私保护遥测、脱敏规则、blast 分级）
+4. ~~**assetCallLog.js**~~ ✅ v1.0（append-only JSONL 审计、多维过滤）
+5. ~~**directoryClient.js**~~ ✅ v1.0（节点目录、语义发现、能力标签）
+6. ~~**deviceId.js**~~ ✅ v1.0（优先级指纹链、容器感知、权限安全）
+7. ~~**a2aProtocol.js**~~ ✅ v1.1（联邦通信协议、HMAC 签名、双传输层抽象、心跳注册、SSE 事件流）
+8. ~~**gitOps.js**~~ ✅ v1.3（Git 操作与回滚、关键文件保护、三模式回滚）
+9. ~~**bridge.js**~~ ✅ v1.3（Prompt Artifact 持久化、sessions_spawn JSON 渲染）
+10. ~~**a2a.js**~~ ✅ v1.3（A2A 资产广播资格、三门控设计、置信度降权）
+11. ~~**privacyClient.js**~~ ✅ v1.3（隐私计算协议、密封执行、本地密钥管理）
+12. ~~**assets.js**~~ ✅ v1.3（资产格式统一抽象、规范化写入）
+13. ~~**candidates.js**~~ ✅ v1.4（能力候选提取、工具频率、Signal驱动、Failed聚合）
+14. ~~**candidateEval.js**~~ ✅ v1.4（候选预演构建、外部资产信号匹配）
+15. ~~**skillPublisher.js**~~ ✅ v1.4（Gene→SKILL.md、Hub发布幂等模式）
 
-### 待深入分析（v1.3 更新）
-
-1. ~~**hubSearch.js**~~ ✅ v1.0 已新增（两阶段搜索、多层缓存、联邦知识市场）
-2. ~~**hubReview.js**~~ ✅ v1.0 已新增（使用验证型评价、去重机制、非阻塞设计）
-3. ~~**executionTrace.js**~~ ✅ v1.0 已新增（隐私保护遥测、脱敏规则、blast 分级）
-4. ~~**assetCallLog.js**~~ ✅ v1.0 已新增（append-only JSONL 审计、多维过滤）
-5. ~~**directoryClient.js**~~ ✅ v1.0 已新增（节点目录、语义发现、能力标签）
-6. ~~**deviceId.js**~~ ✅ v1.0 已新增（优先级指纹链、容器感知、权限安全）
-7. ~~**a2aProtocol.js**~~ ✅ v1.1 已新增（联邦通信协议、HMAC 签名、双传输层抽象、心跳注册、SSE 事件流、Hub 基础设施 API）
-8. ~~**gitOps.js**~~ ✅ v1.3 已新增（Git 操作与回滚、关键文件保护、三模式回滚）
-9. ~~**bridge.js**~~ ✅ v1.3 已新增（Prompt Artifact 持久化、sessions_spawn JSON 渲染）
-10. ~~**a2a.js**~~ ✅ v1.3 已新增（A2A 资产广播资格、三门控设计、置信度降权）
-11. ~~**privacyClient.js**~~ ✅ v1.3 已新增（隐私计算协议、密封执行、本地密钥管理）
-12. ~~**assets.js**~~ ✅ v1.3 已新增（资产格式统一抽象、规范化写入）
-13. **skillPublisher.js** — 技能发布到 Hub
-14. **taskReceiver.js** — Hub 任务接收
-15. **llmReview.js** — LLM 代码审查
-16. ~~**sanitize.js**~~ ✅ v0.9 已新增
-17. ~~**contentHash.js**~~ ✅ v0.9 已新增
-18. ~~**crypto.js**~~ ✅ v0.9 已新增
-19. ~~**envFingerprint.js**~~ ✅ v0.9 已新增
-20. ~~**issueReporter.js**~~ ✅ v0.9 已新增
-21. ~~**validationReport.js**~~ ✅ v0.9 已新增
-22. ~~**analyzer.js**~~ ✅ v0.9 已新增
+**待深入分析文件**：
+16. **llmReview.js** (92 lines) — LLM 代码审查集成
+17. **assetStore.js** (14,600 bytes) — 资产存储与读取（candidateEval 依赖）
+18. ~~**sanitize.js**~~ ✅ v0.9 已新增
+19. ~~**contentHash.js**~~ ✅ v0.9 已新增
+20. ~~**crypto.js**~~ ✅ v0.9 已新增
+21. ~~**envFingerprint.js**~~ ✅ v0.9 已新增
+22. ~~**issueReporter.js**~~ ✅ v0.9 已新增
+23. ~~**validationReport.js**~~ ✅ v0.9 已新增
+24. ~~**analyzer.js**~~ ✅ v0.9 已新增
 
