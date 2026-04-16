@@ -1,9 +1,9 @@
 # Evolver 记忆系统深度分析
 
-> **文档状态**: v0.6 (新增：skillDistiller 深度补充 + reflection.js + candidates.js + Gene/Capsule 资产体系)
+> **文档状态**: v0.7 (新增：signals.js + learningSignals.js + mutation.js + evolve.js 核心循环)
 > **分析目标**: 为 BlueCortexCE（旁路型记忆系统）提供可落地的借鉴建议
 > **数据来源**: `/Users/yangjiefeng/Documents/EvoMap/evolver/`
-> **最后更新**: 2026-04-16 23:17
+> **最后更新**: 2026-04-16 21:25
 
 ---
 
@@ -41,6 +41,9 @@
 31. [candidates.js + candidateEval.js — 能力候选提取](#31-candidatesjs--candidateevaljs--能力候选提取v06-新增)
 32. [Evolver 的 Genes/Capsules 资产体系](#32-evolver-的-genescapsules-资产体系v06-补充)
 33. [文档版本历史与 TODO](#33-文档版本历史与-todo)
+34. [signals.js + learningSignals.js — 信号处理链路](#34-signalsjs--learningsignalsjs--信号处理链路-v07-新增)
+35. [mutation.js — 基因突变算法](#35-mutationjs--基因突变算法-v07-新增)
+36. [evolve.js — 核心进化循环](#36-evolvejs--核心进化循环-v07-新增)
 
 ---
 
@@ -3298,13 +3301,475 @@ Evolver 的 Gene 有 constraints（max_files, forbidden_paths）和 validation�
 | v0.4 | 2026-04-16 | memoryGraph 深度分析 + 整体架构总结 |
 | v0.5 | 2026-04-16 | skillPublisher, executionTrace, taskReceiver, hubReview |
 | v0.6 | 2026-04-16 20:24 | skillDistiller 深度补充 + reflection.js + candidates.js + Gene/Capsule 资产体系 |
+| v0.7 | 2026-04-16 21:25 | signals.js + learningSignals.js + mutation.js + evolve.js 核心循环 |
 
-### 33.2 待深入分析
+---
 
-1. **policyCheck.js** — 约束检查 + 验证命令安全 (10512 bytes, 57552 lines in solidify.js) — 待补充
-2. **mutation.js** — 基因突变算法 — 待补充
-3. **hubSearch.js** — Hub 共享知识搜索 — 待补充
-4. **prompt.js** — 提示词构建逻辑 — 待补充
-5. **evolve.js 完整流程** — 与 solidify.js 的交互 — 待补充
-6. **Evolver 的 A2A Protocol** — 跨 Agent 通信 — 待补充
+## 34. signals.js + learningSignals.js — 信号处理链路 (v0.7 新增)
+
+### 34.1 整体信号处理架构
+
+Evolver 的信号系统分为两层：
+
+```
+原始信号来源 → signals.js (提取+去重) → expandedTags → gene selection
+                           ↓
+              learningSignals.js (信号扩展+标签评分)
+```
+
+**关键认知**：BlueCortexCE 的 Observation.tags 是"原始信号"，Evolver 的 signals 是经过多步处理的"精炼信号"。
+
+### 34.2 signals.js — 信号提取与去重
+
+**文件**: `src/gep/signals.js` (446 lines)
+
+#### 34.2.1 信号来源（4 个语料库）
+
+```javascript
+// evolve.js:1268
+var corpus = [
+  String(recentSessionTranscript || ''),
+  String(todayLog || ''),
+  String(memorySnippet || ''),
+  String(userSnippet || ''),
+].join('\n');
+```
+
+| 来源 | 说明 | BlueCortexCE 等价 |
+|------|------|------------------|
+| recentSessionTranscript | Agent 执行日志 | SessionEntity + UserPromptEntity |
+| todayLog | 当日记忆摘要 | 当日 Observation 汇总 |
+| memorySnippet | narrativeMemory 摘要 | SummaryEntity |
+| userSnippet | 用户显式输入 | 最新 UserPromptEntity |
+
+#### 34.2.2 防御性信号（Defensive Signals）
+
+```javascript
+// signals.js:144
+var errorHit = /\[error\]|error:|exception:|iserror":true|"status":\s*"error"|.../.test(lower);
+if (errorHit) signals.push('log_error');
+```
+
+**Evolver 做法**：多语言正则匹配 + 结构化 JSON 错误检测，支持 EN/ZH/JA。
+**BlueCortexCE 现状**：依赖 LLM 的自然语言理解，没有结构化错误模式检测。
+
+#### 34.2.3 重复错误检测
+
+```javascript
+// signals.js:183
+var recurringErrors = Object.entries(errorCounts).filter(function (e) { return e[1] >= 3; });
+if (recurringErrors.length > 0) {
+  signals.push('recurring_error');
+  signals.push('recurring_errsig(' + topErr[1] + 'x):' + topErr[0].slice(0, 150));
+}
+```
+
+**Evolver 做法**：统计 3 次以上的重复错误，生成可读的 errsig 标签。
+**借鉴点**：BlueCortexCE 可以在 Observation 层面增加"重复计数"字段，当同一模式出现 3+ 次时触发升级信号。
+
+#### 34.2.4 历史信号压制（去重机制）
+
+```javascript
+// signals.js:32
+function analyzeRecentHistory(recentEvents) {
+  // 抑制最近 8 个事件中出现 3+ 次的信号
+  var suppressedSignals = new Set();
+  // ...
+}
+```
+
+**Evolver 做法**：如果某个信号在过去 8 个事件中出现 ≥3 次，则压制它避免重复处理。
+**BlueCortexCE 现状**：无去重机制，所有 Observation 平等对待。
+
+#### 34.2.5 连续失败/空循环检测
+
+```javascript
+// signals.js:106
+consecutiveRepairCount: consecutiveRepairCount,  // 连续 repair 次数
+consecutiveEmptyCycles: consecutiveEmptyCycles,  // 连续空循环次数
+consecutiveFailureCount: consecutiveFailureCount,  // 连续失败次数
+recentFailureRatio: recentFailureCount / tail.length,  // 失败率
+```
+
+**Evolver 做法**：检测连续失败/空循环，用于判断是否需要降级（repair loop circuit breaker）。
+**BlueCortexCE 现状**：无此机制。
+
+### 34.3 learningSignals.js — 信号扩展与标签评分
+
+**文件**: `src/gep/learningSignals.js` (89 lines)
+
+#### 34.3.1 expandSignals — 信号扩展
+
+```javascript
+// learningSignals.js:16
+function expandSignals(signals, extraText) {
+  const raw = Array.isArray(signals) ? signals.map(function (s) { return String(s); }) : [];
+  const tags = [];
+
+  // 1. 基础扩展：添加带参数前缀的原始信号
+  for (let i = 0; i < raw.length; i++) {
+    const signal = raw[i];
+    add(tags, signal);
+    const base = signal.split(':')[0];
+    if (base && base !== signal) add(tags, base);
+  }
+
+  // 2. 问题-行动映射
+  const text = (raw.join(' ') + ' ' + String(extraText || '')).toLowerCase();
+
+  if (/(error|exception|failed|unstable|log_error|runtime|429)/.test(text)) {
+    add(tags, 'problem:reliability');
+    add(tags, 'action:repair');
+  }
+  if (/(protocol|prompt|audit|gep|schema|drift)/.test(text)) {
+    add(tags, 'problem:protocol');
+    add(tags, 'action:optimize');
+    add(tags, 'area:prompt');
+  }
+  if (/(perf|performance|bottleneck|latency|slow|throughput)/.test(text)) {
+    add(tags, 'problem:performance');
+    add(tags, 'action:optimize');
+  }
+  // ...
+}
+```
+
+**Evolver 做法**：将原始信号映射到 (problem, action, area) 三元组标签。
+**借鉴点**：BlueCortexCE 的 Observation.tags 可以经过类似的语义扩展，增加 (domain, action, severity) 标签。
+
+#### 34.3.2 scoreTagOverlap — Gene 匹配评分
+
+```javascript
+// learningSignals.js:67
+function scoreTagOverlap(gene, signals) {
+  const signalTags = expandSignals(signals, '');
+  const geneTagList = geneTags(gene);
+  if (signalTags.length === 0 || geneTagList.length === 0) return 0;
+  const signalSet = new Set(signalTags);
+  let hits = 0;
+  for (let i = 0; i < geneTagList.length; i++) {
+    if (signalSet.has(geneTagList[i])) hits++;
+  }
+  return hits / geneTagList.length;  // Jaccard-like 相似度
+}
+```
+
+**Evolver 做法**：使用 Jaccard 相似度计算 Gene 与当前信号的匹配度。
+**借鉴点**：BlueCortexCE 可以用类似算法做"Summary 推荐"——给定当前 session signals，推荐最相关的历史 Summary。
+
+### 34.4 BlueCortexCE 借鉴建议
+
+| Evolver 机制 | BlueCortexCE 现状 | 翻译：旁路型如何借鉴 | 优先级 |
+|-------------|------------------|---------------------|--------|
+| 信号去重（压制 3+ 次重复） | 无 | Observation 增加 repeatCount，出现 3+ 次时标记 elevated | 高 |
+| 连续失败/空循环检测 | 无 | Summary 增加 failureStreak 字段 | 高 |
+| expandSignals 语义扩展 | 无 | Tags 增加 (domain, action) 扩展层 | 中 |
+| scoreTagOverlap 推荐 | 无 | SearchService 增加 gene-like 推荐算法 | 中 |
+| recurring_error 聚合 | 无 | 错误模式聚类（相似 errors 归为同一 pattern） | 中 |
+
+---
+
+## 35. mutation.js — 基因突变算法 (v0.7 新增)
+
+**文件**: `src/gep/mutation.js` (186 lines)
+
+### 35.1 突变类别决策
+
+```javascript
+// mutation.js:44
+function mutationCategoryFromContext({ signals, driftEnabled }) {
+  if (hasErrorishSignal(signals)) return 'repair';
+  if (driftEnabled) return 'innovate';
+  if (hasOpportunitySignal(signals)) return 'innovate';
+  // Check strategy preset for innovation preference
+  try {
+    var strategy = require('./strategy').resolveStrategy();
+    if (strategy && typeof strategy.innovate === 'number' && strategy.innovate >= 0.5) return 'innovate';
+  } catch (_) {}
+  return 'optimize';
+}
+```
+
+**决策树**：
+
+```
+Error signal present? ──YES──→ repair
+         │
+         NO
+         ↓
+driftEnabled (random)? ──YES──→ innovate
+         │
+         NO
+         ↓
+Opportunity signal? ──YES──→ innovate
+         │
+         NO
+         ↓
+Strategy.innovate >= 0.5? ──YES──→ innovate
+         │
+         NO
+         ↓
+      optimize
+```
+
+### 35.2 OPPORTUNITY_SIGNALS 清单
+
+```javascript
+// mutation.js:23
+var OPPORTUNITY_SIGNALS = [
+  'user_feature_request',      // 用户功能请求
+  'user_improvement_suggestion', // 用户改进建议
+  'perf_bottleneck',           // 性能瓶颈
+  'capability_gap',            // 能力差距
+  'stable_success_plateau',    // 稳定成功 plateau
+  'external_opportunity',       // 外部机会
+  'issue_already_resolved',    // 已解决的 issue
+  'openclaw_self_healed',      // 自愈
+  'empty_cycle_loop_detected', // 空循环检测
+];
+```
+
+### 35.3 安全约束（硬性规则）
+
+```javascript
+// mutation.js:126
+function buildMutation({ ..., personalityState, allowHighRisk = false }) {
+  // Rule 1: innovate + high-risk personality → downgrade to optimize
+  const highRiskPersonality = isHighRiskPersonality(personalityState || null);
+  if (base.category === 'innovate' && highRiskPersonality) {
+    base.category = 'optimize';
+    base.risk_level = 'low';
+  }
+
+  // Rule 2: high-risk mutation + personality disallows → cap to medium
+  if (base.risk_level === 'high' && !isHighRiskMutationAllowed(personalityState || null)) {
+    base.risk_level = 'medium';
+  }
+}
+```
+
+**高风险人格判断**：
+
+```javascript
+// mutation.js:70
+function isHighRiskPersonality(p) {
+  const rigor = p && Number.isFinite(Number(p.rigor)) ? Number(p.rigor) : null;
+  const riskTol = p && Number.isFinite(Number(p.risk_tolerance)) ? Number(p.risk_tolerance) : null;
+  if (rigor != null && rigor < 0.5) return true;       // rigor < 0.5 → high-risk
+  if (riskTol != null && riskTol > 0.6) return true;  // risk_tolerance > 0.6 → high-risk
+  return false;
+}
+
+function isHighRiskMutationAllowed(personalityState) {
+  const rigor = personalityState?.rigor ?? 0;
+  const riskTol = personalityState?.risk_tolerance ?? 1;
+  return rigor >= 0.6 && riskTol <= 0.5;  // 只有 rigor 高 + risk 低才允许高风险突变
+}
+```
+
+### 35.4 Mutation 对象结构
+
+```javascript
+// mutation.js:36
+const base = {
+  type: 'Mutation',
+  id: `mut_${ts}`,                    // 唯一 ID
+  category: mutationCategory,          // repair | optimize | innovate
+  trigger_signals: triggerSignals,     // 触发此突变的信号列表
+  target: String(target || targetFromGene(selectedGene)),  // gene:${id} | behavior:protocol
+  expected_effect: String(expected_effect || expectedEffectFromCategory(category)),
+  risk_level: riskLevel,               // low | medium | high
+};
+```
+
+### 35.5 BlueCortexCE 借鉴建议
+
+| Evolver 机制 | BlueCortexCE 现状 | 翻译：旁路型如何借鉴 | 优先级 |
+|-------------|------------------|---------------------|--------|
+| 三类突变决策树 | 无（只有 Observation 记录） | 记忆可增加 intent 字段（repair/optimize/innovate） | 中 |
+| 安全约束（高风险人格降级） | 无 | 通过 API 传递 personality 参数影响生成策略 | 低 |
+| expected_effect 显式声明 | 无 | Summary 增加 expected_impact 字段 | 低 |
+| risk_level 分级 | 无 | 可以作为 MemoryRefineService 的优先级参考 | 中 |
+
+**核心差距**：Evolver 的 mutation 是"主动生成"的，BlueCortexCE 的记忆是"被动记录"的。在旁路型架构下，可以把 mutation 逻辑翻译为"记忆优先级 + 检索权重"。
+
+---
+
+## 36. evolve.js — 核心进化循环 (v0.7 新增)
+
+**文件**: `src/evolve.js` (2177+ lines)
+
+### 36.1 run() 函数核心流程
+
+```javascript
+// evolve.js:1056
+async function run() {
+  // 阶段 1: 前置检查
+  const preflight = await runPreflightChecks(bridgeEnabled, loopMode);
+  if (preflight.abort) return;
+
+  // 阶段 2: 会话日志读取
+  const recentMasterLog = readRealSessionLog();
+  const todayLog = readRecentLog(TODAY_LOG);
+  const memorySnippet = readMemorySnippet();
+  const userSnippet = readUserSnippet();
+
+  // 阶段 3: 资产加载
+  const genes = loadGenes();
+  const capsules = loadCapsules();
+  const recentEvents = readAllEvents().filter(e => e.type === 'EvolutionEvent').slice(-80);
+
+  // 阶段 4: 信号提取
+  const signals = extractSignals({
+    recentSessionTranscript: recentMasterLog,
+    todayLog,
+    memorySnippet,
+    userSnippet,
+    recentEvents,
+  });
+
+  // 阶段 5: Hub 任务认领（可选）
+  if (!skipHubCalls) {
+    const fetchResult = await fetchTasks({ questions: proactiveQuestions });
+    // ... task 认领逻辑
+  }
+
+  // 阶段 6: Gene + Capsule 选择
+  const { selectedGene, capsuleCandidates, selector } = selectGeneAndCapsule({
+    genes, capsules, signals, memoryAdvice, driftEnabled, ...
+  });
+
+  // 阶段 7: Personality 选择
+  const personalitySelection = selectPersonalityForRun({ driftEnabled, signals, recentEvents });
+  const personalityState = personalitySelection?.personality_state;
+
+  // 阶段 8: Mutation 构建
+  const mutation = buildMutation({
+    signals: mutationSignalsEffective,
+    selectedGene,
+    driftEnabled: mutationInnovateMode,
+    personalityState,
+    allowHighRisk,
+  });
+
+  // 阶段 9: Memory Graph 记录 hypothesis + attempt
+  const hypothesisId = recordHypothesis({ signals, mutation, personalityState, ... });
+  recordAttempt({ signals, mutation, personalityState, hypothesisId, ... });
+
+  // 阶段 10: 构建 Prompt 并执行 LLM
+  const { prompt, stopSignal } = buildGepPrompt({ selectedGene, capsuleCandidates, mutation, ... });
+  const llmOutput = await callLLM(prompt);
+
+  // 阶段 11: 解析 + 应用 Patch
+  const patch = parsePatch(llmOutput);
+  applyPatch(patch);
+
+  // 阶段 12: 触发 solidify
+  if (needsSolidify) {
+    writeStateForSolidify({ run_id, mutation, selectedGene, ... });
+  }
+}
+```
+
+### 36.2 信号注入点（多来源合并）
+
+Evolver 的 signals 是**多来源合并**的，不是单一来源：
+
+```javascript
+// evolve.js:1268
+const signals = extractSignals({ recentSessionTranscript, todayLog, memorySnippet, userSnippet, recentEvents });
+
+// + Hub task signals (unshift to front, highest priority)
+if (activeTask) {
+  signals.unshift(...taskSignals);
+}
+
+// + Dormant hypothesis signals (carry-over from interrupted cycle)
+if (dormantHypothesis) {
+  signals.push(...dormantHypothesis.signals);
+}
+
+// + Curriculum signals (progressive learning targets)
+if (curriculumSignals.length > 0) {
+  signals.push(...curriculumSignals);
+}
+
+// + Retry context (from previous validation failure)
+if (solidifyState.last_validation_failure) {
+  signals.push('retry_error_context', 'retry_cmd:...', 'retry_stderr:...');
+}
+```
+
+**Evolver 做法**：信号按优先级排序（Hub task > session > curriculum > retry）。
+**借鉴点**：BlueCortexCE 可以为不同来源的 Observation 分配优先级权重。
+
+### 36.3 Idle-Cycle Gating（空闲周期门控）
+
+```javascript
+// evolve.js:58
+function shouldSkipHubCalls(signals) {
+  if (!Array.isArray(signals)) return false;
+  const saturationIndicators = ['force_steady_state', 'evolution_saturation', 'empty_cycle_loop_detected'];
+  let hasSaturation = false;
+  for (let si = 0; si < saturationIndicators.length; si++) {
+    if (signals.indexOf(saturationIndicators[si]) !== -1) { hasSaturation = true; break; }
+  }
+  if (!hasSaturation) return false;
+
+  // Check for actionable signals
+  const actionablePatterns = ['log_error', 'recurring_error', 'capability_gap', ...];
+  for (let ai = 0; ai < signals.length; ai++) {
+    const s = signals[ai];
+    if (actionablePatterns.indexOf(s) !== -1) return false;
+    if (s.indexOf('errsig:') === 0) return false;
+    // ...
+  }
+  return true;  // Saturation + no actionable signals → skip Hub
+}
+```
+
+**Evolver 做法**：当系统处于"饱和状态"且无任何可执行信号时，跳过 Hub API 调用（默认 30 分钟内最多一次）。
+**借鉴点**：BlueCortexCE 可以实现"智能降频"——当最近的 Observation 都是低优先级且检索命中率低时，降低采样频率。
+
+### 36.4 Hub Event 信号注入
+
+```javascript
+// evolve.js:1454
+const HUB_EVENT_SIGNALS = {
+  dialog_message: ['dialog', 'respond_required'],
+  council_invite: ['council', 'governance', 'respond_required'],
+  task_overdue: ['overdue_task', 'urgent'],
+  // ... 20+ 事件类型
+};
+for (const ev of hubEvents) {
+  const evSignals = HUB_EVENT_SIGNALS[ev.type] || ['hub_event'];
+  for (const sig of evSignals) {
+    if (!signals.includes(sig)) signals.unshift(sig);
+  }
+}
+```
+
+**Evolver 做法**：Hub 事件（来自 A2A Protocol）被转换为信号并注入到当前循环。
+**借鉴点**：BlueCortexCE 未来可以通过 WebSocket/轮询接收外部事件并转换为记忆信号。
+
+### 36.5 BlueCortexCE 借鉴建议
+
+| Evolver 机制 | BlueCortexCE 现状 | 翻译：旁路型如何借鉴 | 优先级 |
+|-------------|------------------|---------------------|--------|
+| 多来源信号合并 | Observation 分散无聚合 | 增加 signal_aggregation 机制 | 高 |
+| Idle-cycle gating | 无降频机制 | 增加 fetch-throttle 配置 | 中 |
+| Hub event → signals | 无外部事件集成 | Feishu/外部事件可作为特殊信号源 | 低 |
+| 30分钟 Hub 调用上限 | 无 | 外部服务调用增加指数退避 | 中 |
+
+---
+
+### 33.2 待深入分析（更新）
+
+1. ~~**mutation.js** — 基因突变算法~~ ✅ v0.7 已补充
+2. ~~**evolve.js 完整流程**~~ ✅ v0.7 已补充
+3. ~~**signals.js + learningSignals.js**~~ ✅ v0.7 已补充
+4. **policyCheck.js** — 约束检查 + 验证命令安全 — 待补充
+5. **hubSearch.js** — Hub 共享知识搜索 — 待补充
+6. **prompt.js** — 提示词构建逻辑 — 待补充
+7. **Evolver 的 A2A Protocol** — 跨 Agent 通信 — 待补充
 
