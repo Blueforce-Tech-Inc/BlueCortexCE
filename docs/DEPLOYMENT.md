@@ -341,6 +341,8 @@ Claude-Mem uses **Flyway** for database version management:
 | V14 | `V14__observation_source_and_extracted_data.sql` | Observation source and extracted data |
 | V15 | `V15__add_user_id_to_sessions.sql` | Add user_id to sessions table |
 | V16 | `V16__composite_source_index.sql` | Composite source index |
+| V17 | `V17__observation_feedback.sql` | Observation feedback tracking + extended columns |
+| V18 | `V18__add_platform_source.sql` | Add platform_source column for multi-platform tracking |
 
 ### 4.2 Migration Execution
 

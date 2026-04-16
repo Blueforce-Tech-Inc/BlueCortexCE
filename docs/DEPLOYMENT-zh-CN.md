@@ -341,6 +341,8 @@ Claude-Mem 使用 **Flyway** 进行数据库版本管理：
 | V14 | `V14__observation_source_and_extracted_data.sql` | 观察来源与提取数据 |
 | V15 | `V15__add_user_id_to_sessions.sql` | 会话表添加 user_id |
 | V16 | `V16__composite_source_index.sql` | 复合来源索引 |
+| V17 | `V17__observation_feedback.sql` | 观察反馈追踪 + 扩展字段 |
+| V18 | `V18__add_platform_source.sql` | 添加 platform_source 列用于多平台追踪 |
 
 ### 4.2 迁移执行
 

@@ -417,7 +417,9 @@ src/main/resources/
 │   ├── V13__unify_session_id_on_content_session.sql
 │   ├── V14__observation_source_and_extracted_data.sql
 │   ├── V15__add_user_id_to_sessions.sql
-│   └── V16__composite_source_index.sql
+│   ├── V16__composite_source_index.sql
+│   ├── V17__observation_feedback.sql
+│   └── V18__add_platform_source.sql
 └── prompts/
     ├── init.txt                     # System prompt for memory observer
     ├── observation.txt              # User prompt template for tool events
