@@ -8,6 +8,7 @@ Usage:
     python app.py
 """
 
+import atexit
 import logging
 import os
 from datetime import datetime, timezone
@@ -29,6 +30,9 @@ MAX_CONTENT_LENGTH = int(os.environ.get("MAX_CONTENT_LENGTH", str(1 << 20)))
 app.config["MAX_CONTENT_LENGTH"] = MAX_CONTENT_LENGTH
 
 client = CortexMemClient(base_url=CORTEX_BASE_URL)
+
+# Clean up HTTP session on shutdown (prevents resource leak in long-running server)
+atexit.register(client.close)
 
 
 # ==================== Error Handlers ====================

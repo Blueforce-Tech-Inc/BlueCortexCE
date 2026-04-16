@@ -528,7 +528,7 @@ class CortexMemClient:
             if kwarg in kwargs:
                 body[wire_key] = kwargs[kwarg]
         if not body:
-            raise ValidationError("at least one field must be provided for update", field="update")
+            return  # No-op: extracted_data={} is "unset" (matches is_empty() semantics)
         path = f"/api/memory/observations/{quote(observation_id, safe='')}"
         self._request_no_content("PATCH", path, json_body=body)
 

@@ -372,10 +372,16 @@ class ObservationUpdate:
         Both 'content' and 'narrative' map to the backend's ``narrative`` field.
         If both are set, ``narrative`` takes precedence (last-one-wins) since both
         Python attributes target the same wire key.
+        ``extracted_data={}`` is treated as "unset" (omitted) to match ``is_empty()``
+        semantics — an empty dict is semantically equivalent to None on the backend
+        (JSONB stores nothing for `{}`).
         """
         body: dict = {}
         for attr, wire_key in self._WIRE_FIELDS.items():
             val = getattr(self, attr)
+            # extracted_data={} is semantically equivalent to None — omit from wire
+            if attr == "extracted_data" and isinstance(val, dict) and not val:
+                continue
             if val is not None:
                 body[wire_key] = val
         return body

@@ -218,12 +218,14 @@ class TestCapture:
         assert exc_info.value.field == "limit"
 
     def test_validation_error_field_for_update(self):
-        """ValidationError should have field='update' for empty update."""
+        """Calling update_observation with no fields is a no-op (no ValidationError raised).
+
+        Per the method docstring: "If no fields are provided, this method does nothing."
+        This matches is_empty() semantics where empty updates are silent no-ops.
+        """
         c = _client()
-        # Calling update_observation with no update fields should fail client-side
-        with pytest.raises(ValidationError) as exc_info:
-            c.update_observation("o1")
-        assert exc_info.value.field == "update"
+        # No-op: no fields provided, returns immediately without raising
+        c.update_observation("o1")
 
 
 # ==================== Retrieval ====================
@@ -670,6 +672,28 @@ class TestManagementExtended:
         assert body["extractedData"] == {"preference": "dark_mode"}
 
     @responses.activate
+    def test_update_observation_extracted_data_empty_omitted(self):
+        """extracted_data={} is treated as 'unset' and produces a no-op (no HTTP request).
+
+        An empty dict is semantically equivalent to None — the backend's JSONB
+        column stores nothing for `{}`. Matches is_empty() semantics so that
+        update.is_empty() and sending only extracted_data={} are consistent
+        (both are no-ops, not errors).
+        """
+        responses.add(responses.PATCH, f"{BASE}/api/memory/observations/o1", status=204)
+        c = _client()
+        update = ObservationUpdate(extracted_data={})
+        c.update_observation("o1", update)
+        # No HTTP request should be made (early return on empty body)
+        assert len(responses.calls) == 0, "extracted_data={} should be a no-op, no request made"
+
+    def test_update_observation_extracted_data_empty_wire_omits(self):
+        """ObservationUpdate(extracted_data={}).to_wire() must omit extractedData."""
+        update = ObservationUpdate(extracted_data={})
+        assert update.is_empty() is True
+        assert update.to_wire() == {}
+
+    @responses.activate
     def test_update_observation_narrative_field(self):
         """Verify narrative field is sent in wire format for cross-SDK consistency."""
         responses.add(responses.PATCH, f"{BASE}/api/memory/observations/o1", status=204)
@@ -732,13 +756,19 @@ class TestManagementExtended:
             c.update_observation("o1", typo_field="value")
 
     @responses.activate
-    def test_update_observation_no_fields_raises(self):
-        """Calling update_observation with no fields should raise."""
+    @responses.activate
+    def test_update_observation_no_fields_noop(self):
+        """Calling update_observation with no fields is a no-op (no HTTP request).
+
+        Per the method docstring: "If no fields are provided, this method does nothing."
+        This matches is_empty() semantics where empty updates are silent no-ops.
+        """
+        responses.add(responses.PATCH, f"{BASE}/api/memory/observations/o1", status=204)
         c = _client()
-        with pytest.raises(ValidationError, match="at least one field"):
-            c.update_observation("o1")
-        with pytest.raises(ValidationError, match="at least one field"):
-            c.update_observation("o1", ObservationUpdate())
+        # Both cases: no HTTP request (early return on empty body)
+        c.update_observation("o1")
+        c.update_observation("o1", ObservationUpdate())
+        assert len(responses.calls) == 0, "no fields provided → no-op, no HTTP request made"
 
     @responses.activate
     def test_delete_observation_empty_raises(self):
