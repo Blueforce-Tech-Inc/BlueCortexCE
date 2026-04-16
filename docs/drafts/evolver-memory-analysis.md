@@ -1,6 +1,6 @@
 # Evolver 记忆系统深度分析
 
-> **文档状态**: v0.5 (新增：skillPublisher.js + executionTrace.js + taskReceiver.js + hubReview.js)
+> **文档状态**: v0.6 (新增：skillDistiller 深度补充 + reflection.js + candidates.js + Gene/Capsule 资产体系)
 > **分析目标**: 为 BlueCortexCE（旁路型记忆系统）提供可落地的借鉴建议
 > **数据来源**: `/Users/yangjiefeng/Documents/EvoMap/evolver/`
 > **最后更新**: 2026-04-16 23:17
@@ -36,6 +36,11 @@
 10. [selector.js — 基因和胶囊选择算法](#10-selectorjs--基因和胶囊选择算法)
 11. [curriculum.js — 渐进式学习课程](#11-curriculumjs--渐进式学习课程)
 12. [skillDistiller.js — 技能提炼与迁移](#12-skilldistillerjs--技能提炼与迁移)
+29. [skillDistiller.js — 深度补充](#29-skilldistillerjs--深度补充v06-新增)
+30. [reflection.js — 战略反思机制](#30-reflectionjs--战略反思机制v06-新增)
+31. [candidates.js + candidateEval.js — 能力候选提取](#31-candidatesjs--candidateevaljs--能力候选提取v06-新增)
+32. [Evolver 的 Genes/Capsules 资产体系](#32-evolver-的-genescapsules-资产体系v06-补充)
+33. [文档版本历史与 TODO](#33-文档版本历史与-todo)
 
 ---
 
@@ -2718,4 +2723,588 @@ Evolver 的表观遗传（`epigenetic_marks`）是一个**独特设计**：
 | narrativeMemory | Summary.content（人类可读摘要） |
 | executionTrace | （无直接对应——但可作为 Observation 的 metadata） |
 | epigenetic_marks | （无直接对应——BlueCortexCE 是旁路型，无"环境感知进化"） |
+
+---
+
+## 29. skillDistiller.js — 深度补充（v0.6 新增）
+
+### 29.1 完整 Distillation Pipeline
+
+skillDistiller 实际上有**两套并行的提炼流程**：
+
+#### 成功路径提炼 (Success Distillation)
+
+**Gate 条件**:
+- `DISTILLER_MIN_CAPSULES = 10` (最近 10 个 capsule 中至少需要 ≥7 个成功)
+- `DISTILLER_MIN_SUCCESS_RATE = 0.7`
+- `DISTILLER_INTERVAL_HOURS = 24` (间隔至少 24 小时)
+- 数据哈希变化 (idempotent skip)
+
+**流程** (`skillDistiller.js:551-570`):
+
+```javascript
+function prepareDistillation() {
+  // Step 1: collectDistillationData — 收集成功 capsule，分组统计
+  const data = collectDistillationData();
+  
+  // Step 2: analyzePatterns — 发现高频、漂移、覆盖缺口
+  const analysis = analyzePatterns(data);
+  
+  // Step 3: buildDistillationPrompt — 构建 LLM 提示词
+  const prompt = buildDistillationPrompt(analysis, existingGenes, samples);
+  
+  // 写入 distill_request.json 和 prompt 文件
+  fs.writeFileSync(reqPath, requestData);
+  fs.writeFileSync(promptPath, prompt);
+}
+```
+
+```javascript
+function completeDistillation(responseText) {
+  // Step 4: extractJsonFromLlmResponse — 从 LLM 响应解析 Gene JSON
+  const rawGene = extractJsonFromLlmResponse(responseText);
+  
+  // Step 5: validateSynthesizedGene — 多重验证
+  const validation = validateSynthesizedGene(rawGene, existingGenes);
+  
+  // 验证通过后写入 genes.json
+  assetStore.upsertGene(gene);
+  
+  // 自动发布到 Hub
+  if (process.env.SKILL_AUTO_PUBLISH !== '0') {
+    skillPublisher.publishSkillToHub(gene);
+  }
+}
+```
+
+#### 失败路径提炼 (Failure Distillation)
+
+**Gate 条件**:
+- `FAILURE_DISTILLER_MIN_CAPSULES = 5` (至少 5 个失败 capsule)
+- `FAILURE_DISTILLER_INTERVAL_HOURS = 12`
+
+专门从**失败胶囊**中提取反模式，生成 `gene_repair_distilled_*` 前缀的修复型 Gene。
+
+### 29.2 sanitizeSignalsMatch — 信号清洗
+
+**文件**: `skillDistiller.js:357-390`
+
+这是 skillDistiller 的**核心防御机制**——确保 LLM 生成的信号不会泄露工具名称、时间戳或会话 ID：
+
+```javascript
+function sanitizeSignalsMatch(signals) {
+  return signals
+    .map(s => String(s).trim().toLowerCase())
+    .filter(s => s.length >= 3)                          // 太短则过滤
+    .filter(s => !/^\d+$/.test(s))                       // 纯数字过滤
+    .filter(s => !/^(cursor|vscode|vim|emacs|windsurf|copilot|cline|codex|bypass|distill)[_-]?\d*$/i.test(s))  // 工具名过滤
+    .filter(s => !/\d{8,}/.test(s))                     // 长数字序列（会话 ID）过滤
+    .map(s => s.replace(/[_-]\d{10,}$/g, ''))           // 去除尾部时间戳
+    .map(s => s.replace(/^[_-]+|[_-]+$/g, ''))          // 去除首尾分隔符
+    .filter(Boolean)
+    .deduplicate();
+}
+```
+
+**Evolver 为什么这样做**: LLM 生成 `signals_match` 时容易带上原始会话的上下文（工具名、时间戳），这些必须被清洗掉，否则同一个技能的多个 distillation 会产生不同的信号键，导致基因无法被正确匹配。
+
+### 29.3 validateSynthesizedGene — 多重验证门
+
+**文件**: `skillDistiller.js:392-430`
+
+```javascript
+function validateSynthesizedGene(gene, existingGenes) {
+  const errors = [];
+  
+  // 1. 必须有 type=Gene
+  if (gene.type !== 'Gene') errors.push('missing or wrong type');
+  
+  // 2. ID 必须以 gene_distilled_ 开头
+  if (!gene.id?.startsWith(DISTILLED_ID_PREFIX)) 
+    gene.id = DISTILLED_ID_PREFIX + gene.id;
+  
+  // 3. 工具名/纯数字 ID → deriveDescriptiveId 自动重命名
+  if (needsRename) gene.id = deriveDescriptiveId(gene);
+  
+  // 4. signals_match 清洗后不能为空
+  gene.signals_match = sanitizeSignalsMatch(gene.signals_match);
+  if (gene.signals_match.length === 0) 
+    errors.push('signals_match empty after sanitization');
+  
+  // 5. strategy 至少 3 步
+  if (gene.strategy?.length < 3) 
+    errors.push('strategy must have at least 3 steps');
+  
+  // 6. constraints.forbidden_paths 必须包含 .git 或 node_modules
+  if (!gene.constraints?.forbidden_paths?.some(p => p === '.git' || p === 'node_modules'))
+    errors.push('must forbid .git or node_modules');
+  
+  // 7. max_files ≤ 12
+  if (gene.constraints?.max_files > 12) 
+    gene.constraints.max_files = 12;
+  
+  // 8. validation 命令必须通过 policyCheck.isValidationCommandAllowed
+  gene.validation = gene.validation.filter(cmd => isValidationCommandAllowed(cmd));
+  
+  // 9. signals_match 不能与已有基因完全重复
+  if (overlapsWithExisting(gene.signals_match, existingGenes))
+    errors.push('signals_match fully overlaps with existing gene');
+  
+  // 10. ID 不能与已有基因冲突
+  if (existingIds.has(gene.id))
+    gene.id = gene.id + '_' + Date.now().toString(36);
+}
+```
+
+### 29.4 deriveDescriptiveId — 无意义 ID 的自动修复
+
+**文件**: `skillDistiller.js:321-355`
+
+当 LLM 生成的 ID 包含工具名/时间戳时，使用**描述性 fallback**：
+
+```javascript
+function deriveDescriptiveId(gene) {
+  // 优先从 signals_match 提取关键词
+  const words = gene.signals_match?.slice(0, 3)
+    .flatMap(s => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').split(' '))
+    .filter(w => w.length >= 3)
+    .slice(0, 6) || [];
+  
+  // 次选从 summary 提取
+  if (words.length < 3 && gene.summary) {
+    const STOP = new Set(['the','and','for','with','from','that','this','into','when','are','was','has','had']);
+    words.push(...gene.summary.split(' ').filter(w => w.length >= 3 && !STOP.has(w)).slice(0, 6));
+  }
+  
+  // 兜底：从 strategy 第一步提取
+  if (words.length < 2) words.push('auto', 'distilled', 'strategy');
+  
+  return DISTILLED_ID_PREFIX + unique(words).slice(0, 5).join('-');
+}
+```
+
+### 29.5 buildDistillationPrompt — 完整的 LLM 提示词模板
+
+**文件**: `skillDistiller.js:225-300`
+
+```javascript
+// 核心指令片段
+'- Output ONLY a single valid JSON object (no markdown fences, no explanation).'
+'- The id MUST start with "gene_distilled_" followed by a descriptive kebab-case name.'
+'- Good: "gene_distilled_retry-with-exponential-backoff"'
+'- Bad: "gene_distilled_cursor-1773331925711", "gene_distilled_1234567890"'
+'- Summary must be 30-200 chars, marketplace-quality description.'
+'- signals_match: 3-7 generic reusable keywords, lowercase_snake_case.'
+'- NEVER include timestamps, build numbers, tool names (cursor, vscode, etc.)'
+'- Strategy: 5-10 actionable imperative steps with inline code examples.'
+'- Validation: commands must start with "node ", "npm ", or "npx "'
+'- constraints.max_files MUST be <= 12'
+'- constraints.forbidden_paths MUST include at least [".git", "node_modules"]'
+'- Imagine this Gene will be published on a marketplace for thousands of AI agents.'
+```
+
+**Evolver 为什么这样做**: 提示词层面的强约束比验证规则更高效——从源头阻止无效信号比事后过滤更可靠。
+
+### 29.6 distillation state.json — 幂等状态机
+
+**文件**: `skillDistiller.js:51-70`
+
+```javascript
+// distiller_state.json 内容
+{
+  "last_distillation_at": "2026-04-16T12:00:00Z",
+  "last_data_hash": "a1b2c3d4e5f6",
+  "last_gene_id": "gene_distilled_retry-with-exponential-backoff",
+  "distillation_count": 3
+}
+
+// 两个幂等保证:
+// 1. 时间间隔: elapsed < DISTILLER_INTERVAL_HOURS → skip
+// 2. 数据不变: last_data_hash === current_data_hash → skip
+```
+
+### 29.7 BlueCortexCE 借鉴点
+
+| 发现 | Evolver 做法 | 翻译：旁路型如何借鉴 |
+|------|-------------|---------------------|
+| 信号清洗 (sanitizeSignalsMatch) | LLM 生成后 strip 工具名/时间戳 | **高优先级**: BlueCortexCE 的 Summary 生成后应清洗无效信号 |
+| 多重验证门 | 10 重检查覆盖类型/ID/信号/策略/约束/验证命令 | **高优先级**: BlueCortexCE 的任何 LLM 生成内容都应有多重验证 |
+| deriveDescriptiveId fallback | 无意义 ID 自动从 signals_match 重建 | **高优先级**: BlueCortexCE 的 extraction 结果如果信号太具体，应自动抽象化 |
+| 幂等状态机 | state.json + data_hash 防重复提炼 | **高优先级**: BlueCortexCE 的任何周期性任务应有 idempotent skip |
+| 失败路径提炼 | 从 failed_capsules 提取反模式 | **中优先级**: BlueCortexCE 可记录"检索无效"的模式，避免重复 |
+| 自动 Hub 发布 | SKILL_AUTO_PUBLISH → skillPublisher.publishSkillToHub | **低优先级**: BlueCortexCE 的 extraction 结果可发布到共享市场 |
+
+---
+
+## 30. reflection.js — 战略反思机制（v0.6 新增）
+
+**文件**: `src/gep/reflection.js` (145 lines)
+
+### 30.1 设计定位
+
+reflection.js 是 Evolver 的**元认知层**——在多个进化周期后，停下来反思：
+- 当前策略是否最优？
+- 是否有被忽略的信号？
+- 是否陷入了局部最优？
+
+### 30.2 shouldReflect — 自适应反思周期
+
+**文件**: `reflection.js:35-50`
+
+```javascript
+function computeReflectionInterval(recentEvents) {
+  if (recentEvents.length < 3) return REFLECTION_INTERVAL_DEFAULT; // 5
+  
+  const tail = recentEvents.slice(-3);
+  const allSuccess = tail.every(e => e.outcome?.status === 'success');
+  const allFailed = tail.every(e => e.outcome?.status === 'failed');
+  
+  if (allSuccess) return REFLECTION_INTERVAL_SUCCESS;    // 8 cycles
+  if (allFailed)  return REFLECTION_INTERVAL_FAILURE;    // 3 cycles
+  return REFLECTION_INTERVAL_DEFAULT;                     // 5 cycles
+}
+```
+
+**Evolver 为什么这样做**: 
+- 连续成功时延长反思间隔（8 cycles），因为系统运转良好
+- 连续失败时缩短反思间隔（3 cycles），尽快发现问题
+- 反思冷却时间 30 分钟，防止在短时间内重复反思
+
+### 30.3 buildSuggestedMutations — 反思驱动的参数调整
+
+**文件**: `reflection.js:55-80`
+
+```javascript
+function buildSuggestedMutations(signals) {
+  const muts = [];
+  
+  // 停滞 → 提高创造力
+  if (has('stable_success_plateau', 'evolution_stagnation_detected', 'empty_cycle_loop_detected'))
+    muts.push({ param: 'creativity', delta: +0.05 });
+  
+  // 错误 → 提高严谨度
+  if (has('log_error', 'errsig:', 'errsig_norm:'))
+    muts.push({ param: 'rigor', delta: +0.05 });
+  
+  // 能力缺口 → 提高风险容忍
+  if (has('capability_gap', 'external_opportunity'))
+    muts.push({ param: 'risk_tolerance', delta: +0.05 });
+  
+  return muts.slice(0, 2);  // 每次最多 2 个建议
+}
+```
+
+**Evolver 为什么这样做**: 反思阶段不是生成新的 Gene，而是建议**调整人格参数**。这是最小干预原则——如果当前策略本身没问题，只是执行时的冒险程度需要调整。
+
+### 30.4 buildReflectionContext — 反思上下文构建
+
+**文件**: `reflection.js:82-120`
+
+```javascript
+function buildReflectionContext({ recentEvents, signals, memoryAdvice, narrative }) {
+  // 输出结构化报告:
+  // ## Recent Cycle Statistics (last 10)
+  // - Success: N, Failed: N
+  // - Intent distribution: {...}
+  // - Gene usage: {...}
+  
+  // ## Current Signals
+  // [signals...]
+  
+  // ## Memory Graph Advice
+  // - Preferred gene: ...
+  // - Banned genes: ...
+  
+  // ## Recent Evolution Narrative
+  // [narrative snippet]
+  
+  // ## Questions to Answer
+  // 1. Are there persistent signals being ignored?
+  // 2. Is the gene selection strategy optimal?
+  // 3. Should the balance between repair/optimize/innovate shift?
+  // 4. Are there capability gaps that no current gene addresses?
+  // 5. What single strategic adjustment would have the highest impact?
+  
+  return prompt;
+}
+```
+
+**Evolver 为什么这样做**: 反思不是空想，而是基于数据：最近的统计（成功率、基因使用频率）、当前信号、历史叙事记忆。
+
+### 30.5 BlueCortexCE 借鉴点
+
+| 发现 | Evolver 做法 | 翻译：旁路型如何借鉴 |
+|------|-------------|---------------------|
+| 自适应反思周期 | 连续成功→长间隔，连续失败→短间隔 | **高优先级**: BlueCortexCE 的 Summary 触发可参考"检索成功率"动态调整 |
+| 反思冷却 (30min) | 防止短时间重复反思 | **高优先级**: BlueCortexCE 的任何 LLM 调用应有冷却机制 |
+| 参数微调建议 | 反思 → 建议人格参数 delta | **低优先级**: BlueCortexCE 是旁路型，无人格参数 |
+| 5 个战略问题 | 引导 LLM 聚焦关键决策 | **中优先级**: BlueCortexCE 的 periodic review 可参考这些问题模板 |
+| 叙事记忆注入 | 反思时加载 narrative 摘要 | **高优先级**: BlueCortexCE 的检索结果可附带"历史使用情况" |
+
+---
+
+## 31. candidates.js + candidateEval.js — 能力候选提取（v0.6 新增）
+
+**文件**: `src/gep/candidates.js` (210 lines) + `src/gep/candidateEval.js` (80 lines)
+
+### 31.1 设计定位
+
+candidates.js 从**当前会话**中提取"能力缺口候选"，在 solidify 之前预填充 Gene 候选池：
+
+```
+Session Transcript
+    ↓
+extractCapabilityCandidates (candidates.js)
+    ↓
+[Cap1: 重复工具调用, Cap2: 失败路径模式, Cap3: 信号缺口]
+    ↓
+appendCandidateJsonl (持久化到 candidates.jsonl)
+    ↓
+solidify 时从 candidates.jsonl 加载，作为 Gene 选择参考
+```
+
+### 31.2 候选来源 (extractCapabilityCandidates)
+
+**文件**: `candidates.js:60-200`
+
+**来源 1: 重复工具调用** (工具使用 ≥3 次)
+```javascript
+for (const [tool, count] of freq.entries()) {
+  if (count < 3) continue;
+  // 从 transcript 中提取的重复工具 → CapabilityCandidate
+  candidates.push({
+    type: 'CapabilityCandidate',
+    title: `Repeated tool usage: ${tool}`,
+    source: 'transcript',
+    tags: expandSignals(signals, transcript),  // 语义扩展
+  });
+}
+```
+
+**来源 2: 信号缺口** (当前信号列表中有特定信号)
+```javascript
+const signalCandidates = [
+  { signal: 'log_error', title: 'Repair recurring runtime errors' },
+  { signal: 'protocol_drift', title: 'Prevent protocol drift' },
+  { signal: 'user_feature_request', title: 'Implement user-requested feature' },
+  { signal: 'capability_gap', title: 'Fill capability gap' },
+  { signal: 'stable_success_plateau', title: 'Explore new strategies during stability plateau' },
+  // ...
+];
+```
+
+**来源 3: 失败胶囊反模式** (失败 ≥2 次，按问题类型分组)
+```javascript
+// 按 problem:xxx 标签分组
+const groups = {};
+failedCapsules.forEach(fc => {
+  const failureTags = expandSignals(triggers, reason)
+    .filter(t => t.startsWith('problem:') || t.startsWith('risk:') || t.startsWith('area:'));
+  // 同一 dominantProblem 的失败聚合成一条候选
+  groups[key] = { count, tags, reasons, gene };
+});
+
+// count >= 2 时才生成候选（避免噪声）
+if (group.count >= 2) {
+  candidates.push({
+    type: 'CapabilityCandidate',
+    title: getTitleFromProblemType(dominantProblem),
+    source: 'failed_capsules',
+  });
+}
+```
+
+### 31.3 CapabilityCandidate 的 Shape 结构
+
+**文件**: `candidates.js:35-50`
+
+```javascript
+function buildFiveQuestionsShape({ title, signals, evidence }) {
+  return {
+    title: String(title).slice(0, 120),
+    input: 'Recent session transcript + memory snippets + user instructions',
+    output: 'A safe, auditable evolution patch guided by GEP assets',
+    invariants: 'Protocol order, small reversible patches, validation, append-only events',
+    params: `Signals: ${signals.join(', ')}`,
+    failure_points: 'Missing signals, over-broad changes, skipped validation, missing knowledge solidification',
+    evidence: clip(evidence, 240),
+  };
+}
+```
+
+**Evolver 为什么这样做**: 用 Five Questions 模板结构化候选表达，确保每个候选都有清晰的输入/输出/失败点描述。
+
+### 31.4 buildCandidatePreviews — 候选预览构建
+
+**文件**: `candidateEval.js:15-80`
+
+**内部候选**:
+```javascript
+const newCandidates = extractCapabilityCandidates({ transcript, signals, failedCapsules });
+const recentCandidates = readRecentCandidates(20);
+const capabilityCandidatesPreview = renderCandidatesPreview(recentCandidates.slice(-8), 1600);
+```
+
+**外部候选** (从 Hub 获取的基因/胶囊):
+```javascript
+const external = readRecentExternalCandidates(50);
+const capsulesOnly = external.filter(x => x.type === 'Capsule');
+const genesOnly = external.filter(x => x.type === 'Gene');
+
+// 按 signals_match 与当前信号的匹配度排序
+const matchedExternalGenes = genesOnly
+  .map(g => ({
+    gene: g,
+    hit: g.signals_match.reduce((acc, p) => matchPatternToSignals(p, signals) ? acc + 1 : acc, 0)
+  }))
+  .filter(x => x.hit > 0)
+  .sort((a, b) => b.hit - a.hit)
+  .slice(0, 3)
+  .map(x => x.gene);
+```
+
+**Evolver 为什么这样做**: 外部候选来自 Hub，按信号匹配度过滤，只推荐与当前信号相关的外部资产。
+
+### 31.5 BlueCortexCE 借鉴点
+
+| 发现 | Evolver 做法 | 翻译：旁路型如何借鉴 |
+|------|-------------|---------------------|
+| 重复工具调用候选 | transcript 中工具 ≥3 次 → CapabilityCandidate | **高优先级**: BlueCortexCE 可从 Session 中检测"重复模式"作为 Summary 候选 |
+| 失败胶囊反模式 | 失败 ≥2 次 + 同问题类型 → 候选 | **高优先级**: BlueCortexCE 应有"失败经验"记录（Observation +1 标记） |
+| 外部候选匹配 | Hub 资产按 signals_match 匹配度过滤 | **中优先级**: BlueCortexCE 的 Search 结果可标注"匹配度评分" |
+| Five Questions Shape | 标准化输入/输出/失败点 | **中优先级**: BlueCortexCE 的 Structured Extraction 可参考此格式 |
+| 候选池持久化 | candidates.jsonl append-only | **低优先级**: BlueCortexCE 当前用 Summary 作为"候选" |
+
+---
+
+## 32. Evolver 的 Genes/Capsules 资产体系（v0.6 补充）
+
+### 32.1 Gene Schema 完整字段
+
+**文件**: `src/gep/assetStore.js:80-150`
+
+```javascript
+// Gene 的完整结构
+{
+  "id": "gene_distilled_retry-with-exponential-backoff",  // 必须前缀
+  "type": "Gene",
+  "category": "repair|optimize|innovate",
+  "summary": "Retry failed HTTP requests with exponential backoff...",
+  
+  "signals_match": [                    // 触发信号（归一化后）
+    "http_retry",
+    "request_timeout",
+    "circuit_breaker",
+    "resilience"
+  ],
+  
+  "preconditions": [                    // 前置条件
+    "Project uses Node.js >= 18",
+    "HTTP client library available"
+  ],
+  
+  "strategy": [                         // 策略步骤
+    "Step 1: ...",
+    "Step 2: ..."
+  ],
+  
+  "constraints": {
+    "max_files": 12,
+    "forbidden_paths": [".git", "node_modules"]
+  },
+  
+  "validation": [                       // 验证命令
+    "npm test",
+    "npx tsc --noEmit"
+  ],
+  
+  "_distilled_meta": {                  // 仅 distillation 生成时有
+    "distilled_at": "2026-04-16T12:00:00Z",
+    "source_capsule_count": 10,
+    "data_hash": "a1b2c3"
+  },
+  
+  "epigenetic_marks": [                 // 环境标记（Evolver 特有）
+    { "env": "darwin-arm64", "boost": 0.15 },
+    { "env": "linux-x64", "boost": -0.05 }
+  ]
+}
+```
+
+### 32.2 Capsule Schema 完整字段
+
+```javascript
+// Capsule = 一次进化尝试的完整记录
+{
+  "id": "cap_xxx",
+  "type": "Capsule",
+  "gene": "gene_distilled_retry-with-exponential-backoff",
+  "trigger": ["http_retry", "request_timeout"],
+  
+  "outcome": {
+    "status": "success|failed",
+    "score": 0.85,
+    "blast_radius": { "files": 2, "lines": 80 },
+    "duration_ms": 45000
+  },
+  
+  "summary": "Added retry logic to HTTP client module...",
+  
+  // 失败特有字段
+  "failure_reason": "...",
+  "failure_tags": ["problem:reliability", "risk:regression"],
+  
+  // 固化和发布标记
+  "solidified": true,
+  "source_type": "new|reused|reference",
+  "published": false
+}
+```
+
+### 32.3 BlueCortexCE 对照
+
+| Evolver 资产 | BlueCortexCE 等价 | 差距 |
+|-------------|------------------|------|
+| Gene.signals_match | ObservationEntity.tags | 差距：BC 的 tags 是原始信号，无归一化 |
+| Gene.strategy | SummaryEntity.content | 差距：BC 的 content 是自然语言，非结构化步骤 |
+| Gene.constraints | 无 | **缺失**: BlueCortexCE 没有 constraints 概念 |
+| Gene.validation | 无 | **缺失**: BlueCortexCE 没有验证命令概念 |
+| Capsule.blast_radius | 无 | **缺失**: BlueCortexCE 没有"影响范围"记录 |
+| Capsule.failure_reason | ObservationEntity 内容 | BC 将失败记录为普通 Observation |
+| epigenetic_marks | 无 | **缺失**: BlueCortexCE 无环境感知 |
+
+### 32.4 最关键的差距分析
+
+**Gap 1: signals_match 归一化**
+Evolver 的 `signals_match` 是经过 `sanitizeSignalsMatch` 清洗的归一化信号（无工具名/时间戳）。BlueCortexCE 的 observation.tags 直接来自信号提取，没有经过归一化清洗。
+
+**Gap 2: 策略的结构化表达**
+Evolver 的 Gene.strategy 是明确的步骤列表。BlueCortexCE 的 Summary.content 是自然语言，AI 可读但无法直接用于自动化执行。
+
+**Gap 3: constraints + validation**
+Evolver 的 Gene 有 constraints（max_files, forbidden_paths）和 validation（npm test）用于安全执行。BlueCortexCE 的任何"自动执行"都缺乏这类安全约束。
+
+---
+
+## 33. 文档版本历史与 TODO
+
+### 33.1 版本记录
+
+| 版本 | 日期 | 新增内容 |
+|------|------|----------|
+| v0.1 | 2026-04-16 | 初始框架 |
+| v0.2 | 2026-04-16 | skillDistiller.js 初步分析 |
+| v0.3 | 2026-04-16 | solidify.js, selector.js, curriculum.js |
+| v0.4 | 2026-04-16 | memoryGraph 深度分析 + 整体架构总结 |
+| v0.5 | 2026-04-16 | skillPublisher, executionTrace, taskReceiver, hubReview |
+| v0.6 | 2026-04-16 20:24 | skillDistiller 深度补充 + reflection.js + candidates.js + Gene/Capsule 资产体系 |
+
+### 33.2 待深入分析
+
+1. **policyCheck.js** — 约束检查 + 验证命令安全 (10512 bytes, 57552 lines in solidify.js) — 待补充
+2. **mutation.js** — 基因突变算法 — 待补充
+3. **hubSearch.js** — Hub 共享知识搜索 — 待补充
+4. **prompt.js** — 提示词构建逻辑 — 待补充
+5. **evolve.js 完整流程** — 与 solidify.js 的交互 — 待补充
+6. **Evolver 的 A2A Protocol** — 跨 Agent 通信 — 待补充
 
