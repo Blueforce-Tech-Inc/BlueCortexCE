@@ -2305,3 +2305,417 @@ function extractToolCalls(transcript) {
 1. **idleScheduler.js** — 空闲调度机制
 2. **reflection.js** — 战略反思机制（待补充深度分析）
 3. **localStateAwareness.js** — 本地状态感知
+
+
+---
+
+## 24. skillPublisher.js — 技能发布机制（v0.5 新增）
+
+**文件**: `src/gep/skillPublisher.js` (307 lines)
+
+### 24.1 核心设计：Gene → SKILL.md 转换
+
+skillPublisher 负责将 Evolver 的 Gene 资产转换为标准化的 Skill 文档，发布到 Hub 的技能市场。
+
+**SKILL.md 格式结构**（市场级质量）：
+
+```markdown
+---
+name: Retry With Backoff
+description: AI agent skill for implementing retry logic with exponential backoff.
+---
+
+# Retry With Backoff
+
+[自动生成的技能描述]
+
+## When to Use
+- When your project encounters: `log_error`, `errsig:...`
+
+## Trigger Signals
+- `log_error`
+- `errsig:...`
+
+## Preconditions
+- signals_key == xxx
+
+## Strategy
+1. **Verify** -- [step description]
+2. **Run** -- `npm test`
+
+## Constraints
+- Max files per invocation: 12
+- Forbidden paths: `.git`, `node_modules`
+
+## Validation
+```bash
+node scripts/validate-modules.js
+```
+
+## Metadata
+- Category: `repair`
+- Schema version: `1.6.0`
+- Distilled from: 5 successful capsules
+```
+
+### 24.2 技能名称归一化
+
+**文件**: `skillPublisher.js:15-30`
+
+```javascript
+function sanitizeSkillName(rawName) {
+  // gene_distilled_xxx → xxx
+  // gene_repair_distilled_xxx → xxx
+  // 去除所有 10+ 位数字的时间戳
+  name = name.replace(/-?\d{10,}-?/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  
+  // 过滤纯数字、工具名、IDE 名
+  if (/^\d{8,}/.test(name)) return null;
+  if (/^(cursor|vscode|vim|emacs|windsurf|copilot|cline|codex)[-]?\d*$/i.test(name)) return null;
+}
+```
+
+**Evolver 为什么这样做**: Hub 技能市场需要人类可读的技能名，且需要过滤掉自动生成的垃圾名称。
+
+### 24.3 发布流程
+
+**文件**: `skillPublisher.js:231-307`
+
+```javascript
+async function publishSkillToHub(gene, opts) {
+  const content = geneToSkillMd(gene);  // 转 SKILL.md
+  const skillId = 'skill_' + derivedName;
+  
+  const body = {
+    protocol: 'gep-a2a',
+    message_type: 'publish_skill',
+    payload: {
+      skill_id: skillId,
+      name: displayName,
+      content: content,  // SKILL.md 全文
+      tags: gene.signals_match,
+    }
+  };
+  
+  const res = await fetch(hubUrl + '/a2a/skills', {
+    method: 'POST',
+    headers: buildHubHeaders(),
+    body: JSON.stringify(msg),
+  });
+}
+```
+
+### 24.4 表观遗传信号的导出
+
+**文件**: `skillPublisher.js:110-160`
+
+Gene 的表观遗传标记（`epigenetic_marks`）不会被发布到 Hub——因为它们是环境相关的本地知识。但 `signals_match` 会被保留并消毒处理。
+
+### 24.5 BlueCortexCE 借鉴点
+
+| 发现 | Evolver 做法 | 翻译：旁路型如何借鉴 |
+|------|-------------|---------------------|
+| SKILL.md 标准化格式 | Gene → 标准化 Markdown | **高优先级**: BlueCortexCE 的 Extraction 结果应支持导出为标准 Skill 格式 |
+| 技能名归一化 | 去除时间戳 + 过滤工具名 | **中优先级**: BlueCortexCE 的"能力沉淀"应有标准化命名规则 |
+| 发布元数据 | signals_match + category + distillation_count | **中优先级**: BlueCortexCE 的 Summary 应包含可发布的元数据 |
+| 策略步骤格式化 | 动词提取 + 标题化展示 | **低优先级**: BlueCortexCE 的 Summary 策略链可采用类似格式化 |
+
+---
+
+## 25. executionTrace.js — 执行轨迹脱敏（v0.5 新增）
+
+**文件**: `src/gep/executionTrace.js` (202 lines)
+
+### 25.1 设计原则
+
+executionTrace 在 `solidify` 阶段构建，用于跨 Agent 经验共享。**核心原则是脱敏**：
+
+- 文件路径 → 仅保留 basename + extension（`src/utils/retry.js` → `retry.js`）
+- 代码内容 → 从不发送，仅发送统计指标（行数、文件数）
+- 错误信息 → 仅保留错误类型签名（`TypeError: x is not a function` → `TypeError`）
+- 环境变量、密钥、用户数据 → 彻底剥离
+
+### 25.2 Trace 级别
+
+**文件**: `executionTrace.js:12-20`
+
+```javascript
+const TRACE_LEVELS = { none: 0, minimal: 1, standard: 2 };
+
+function getTraceLevel() {
+  return String(process.env.EVOLVER_TRACE_LEVEL || 'minimal').toLowerCase().trim();
+}
+```
+
+| 级别 | 内容 |
+|------|------|
+| `none` | 不记录 |
+| `minimal` | 核心指标：文件数、行数、验证结果 |
+| `standard` | 丰富上下文：文件类型分布、验证命令、错误签名 |
+
+### 25.3 脱敏函数
+
+**文件**: `executionTrace.js:22-55`
+
+```javascript
+function desensitizeFilePath(filePath) {
+  // src/utils/retry.js → retry.js
+  return path.basename(filePath) || path.extname(filePath) || 'unknown';
+}
+
+function extractErrorSignature(errorText) {
+  // "TypeError: x is not a function" → "TypeError"
+  const jsError = text.match(/^((?:[A-Z][a-zA-Z]*)?Error)\b/);
+  if (jsError) return jsError[1];
+  
+  // "ECONNRESET" → "ECONNRESET"
+  const errno = text.match(/\b(E[A-Z]{2,})\b/);
+  if (errno) return errno[1];
+  
+  // HTTP 4xx/5xx → "HTTP_404"
+  const http = text.match(/\b((?:4|5)\d{2})\b/);
+  if (http) return 'HTTP_' + http[1];
+}
+```
+
+### 25.4 工具链推断
+
+**文件**: `executionTrace.js:58-80`
+
+```javascript
+function inferToolChain(validationResults, blast) {
+  const tools = new Set();
+  
+  if (blast.files > 0) tools.add('file_edit');
+  
+  for (const r of validationResults) {
+    if (cmd.includes('jest') || cmd.includes('mocha')) tools.add('test_run');
+    else if (cmd.includes('eslint')) tools.add('lint_check');
+    else if (cmd.includes('validate')) tools.add('validation_run');
+    else if (cmd.startsWith('node ')) tools.add('node_exec');
+  }
+  
+  return Array.from(tools);
+}
+```
+
+### 25.5 Blast Radius 分级
+
+**文件**: `executionTrace.js:83-95`
+
+```javascript
+function classifyBlastLevel(blast) {
+  if (files <= 3 && lines <= 50) return 'low';
+  if (files <= 10 && lines <= 200) return 'medium';
+  return 'high';
+}
+```
+
+### 25.6 BlueCortexCE 借鉴点
+
+| 发现 | Evolver 做法 | 翻译：旁路型如何借鉴 |
+|------|-------------|---------------------|
+| 脱敏设计 | 路径→basename、错误→类型签名 | **高优先级**: BlueCortexCE 的 Observation 在跨 Agent 共享前必须脱敏 |
+| Trace 级别控制 | `EVOLVER_TRACE_LEVEL` 环境变量 | **高优先级**: BlueCortexCE 应支持 Observation 的敏感度分级 |
+| 工具链推断 | 从验证命令推断工具类型 | **中优先级**: BlueCortexCE 可从 API 调用日志推断工具链 |
+| 变更范围分级 | low/medium/high 三级 | **中优先级**: BlueCortexCE 的 Observation 可包含变更范围标签 |
+
+---
+
+## 26. taskReceiver.js — 主动任务认领（v0.5 新增）
+
+**文件**: `src/gep/taskReceiver.js` (567 lines)
+
+### 26.1 外部任务获取
+
+**文件**: `taskReceiver.js:50-130`
+
+Evolver 支持从 Hub 获取外部任务（bounty tasks）并注入为高优先级信号：
+
+```javascript
+async function fetchTasks(opts) {
+  const msg = {
+    protocol: 'gep-a2a',
+    message_type: 'fetch',
+    payload: {
+      tasks_only: true,
+      include_tasks: true,
+    }
+  };
+  
+  const res = await fetch(HUB_URL + '/a2a/fetch', {
+    method: 'POST',
+    headers: buildHubHeaders(),
+    body: JSON.stringify(msg),
+  });
+}
+```
+
+### 26.2 能力匹配算法
+
+**文件**: `taskReceiver.js:105-175`
+
+```javascript
+function estimateCapabilityMatch(task, memoryEvents) {
+  // 1. 计算任务信号与历史信号的 Jaccard 重叠度
+  const taskSignals = parseSignals(task.signals || task.title);
+  const overlapScore = jaccard(taskSignals, allAgentSignals);
+  
+  // 2. 加权成功率先验
+  // 对每个匹配的历史信号键，计算 Laplace 平滑成功率
+  for (const sk in totalBySignalKey) {
+    const skParts = sk.split('|').map(s => s.trim().toLowerCase());
+    const sim = jaccard(taskSignals, skParts);
+    if (sim < 0.15) continue;
+    
+    const rate = (succ + 1) / (total + 2);  // Laplace
+    weightedSuccess += rate * sim;
+    weightSum += sim;
+  }
+  
+  // 3. 综合评分：40% 信号重叠 + 60% 历史成功率
+  return Math.min(1, overlapScore * 0.4 + successScore * 0.6);
+}
+```
+
+**Evolver 为什么这样做**: 在认领外部任务前，先评估本 Agent 的能力是否匹配，避免无效的任务认领导致失败。
+
+### 26.3 任务选择策略
+
+**文件**: `taskReceiver.js:20-35`
+
+```javascript
+const STRATEGY_WEIGHTS = {
+  greedy:       { roi: 0.10, capability: 0.05, completion: 0.05, bounty: 0.80 },
+  balanced:     { roi: 0.35, capability: 0.30, completion: 0.20, bounty: 0.15 },
+  conservative: { roi: 0.25, capability: 0.45, completion: 0.25, bounty: 0.05 },
+};
+```
+
+### 26.4 BlueCortexCE 借鉴点
+
+| 发现 | Evolver 做法 | 翻译：旁路型如何借鉴 |
+|------|-------------|---------------------|
+| 外部任务获取 | Hub 任务 → 信号注入 | **中优先级**: BlueCortexCE 可支持"外部问题 → 记忆查询"的映射 |
+| 能力匹配 | Jaccard + Laplace 加权成功率 | **高优先级**: BlueCortexCE 的 Search 应返回"匹配度"评分 |
+| 策略选择 | greedy/balanced/conservative | **低优先级**: BlueCortexCE 的 API 可支持不同检索策略 |
+| 任务 ROI 评估 | 赏金 + 能力匹配 + 完成度 | **低优先级**: BlueCortexCE 可实现"问题复杂度"评分 |
+
+---
+
+## 27. hubReview.js — Hub 审查提交（v0.5 新增）
+
+**文件**: `src/gep/hubReview.js` (208 lines)
+
+### 27.1 审查提交时机
+
+**文件**: `hubReview.js:1-10`
+
+当 Evolver 使用了 Hub 资产（`source_type = 'reused'` 或 `'reference'`）且 `solidify` 完成时，**自动提交审查**到 Hub：
+
+```javascript
+// 在 solidify() 的最后阶段
+if (reusedAssetId && (sourceType === 'reused' || sourceType === 'reference')) {
+  submitHubReview({
+    reusedAssetId,
+    outcome: event.outcome,
+    gene: geneUsed,
+    signals,
+  });
+}
+```
+
+### 27.2 评分推导
+
+**文件**: `hubReview.js:35-50`
+
+```javascript
+function _deriveRating(outcome, constraintCheck) {
+  if (outcome.status === 'success') {
+    return score >= 0.85 ? 5 : 4;  // 高成功 + 高分 → 5星
+  }
+  // 失败 + 有约束违反 → 1星（资产质量差）
+  // 失败 + 无约束违反 → 2星（可能环境问题）
+  return hasConstraintViolation ? 1 : 2;
+}
+```
+
+### 27.3 重复提交防护
+
+**文件**: `hubReview.js:25-45`
+
+本地文件 `hub_review_history.json` 记录已提交的 assetId，避免重复审查：
+
+```javascript
+function _alreadyReviewed(assetId) {
+  const history = _loadReviewHistory();
+  return !!history[assetId];
+}
+
+function _markReviewed(assetId, rating, success) {
+  const history = _loadReviewHistory();
+  history[assetId] = { at: Date.now(), rating, success };
+  _saveReviewHistory(history);
+}
+```
+
+### 27.4 BlueCortexCE 借鉴点
+
+| 发现 | Evolver 做法 | 翻译：旁路型如何借鉴 |
+|------|-------------|---------------------|
+| 使用后审查 | 每次使用 Hub 资产后自动提交评分 | **中优先级**: BlueCortexCE 的 API 可支持"使用反馈"提交 |
+| 评分体系 | 1-5 星，成功率 + 约束违反双重判定 | **高优先级**: BlueCortexCE 的 Search 结果应支持评分反馈 |
+| 重复防护 | 本地历史文件防重复提交 | **中优先级**: BlueCortexCE 应有防重复提交机制 |
+| 非阻塞 | 审查失败不影响 solidify 结果 | **高优先级**: BlueCortexCE 的反馈机制应完全异步 |
+
+---
+
+## 28. 整体架构总结：Evolver 的记忆分层（v0.5 补充）
+
+### 28.1 四层记忆架构
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Layer 1: 即时记忆 (Signals)                                 │
+│  - signals.js: 从日志/对话/环境提取"信号"                    │
+│  - 生命周期: 单次进化周期                                     │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 2: 事件记忆 (Events)                                  │
+│  - memoryGraph.jsonl: Signal→Hypothesis→Attempt→Outcome     │
+│  - 生命周期: 永久（append-only）                              │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 3: 资产记忆 (Assets)                                  │
+│  - genes.json / capsules.json: 成功的 Gene + Capsule         │
+│  - failed_capsules.jsonl: 失败的 Capsule（反模式）            │
+│  - 生命周期: 持久化资产库                                     │
+├─────────────────────────────────────────────────────────────┤
+│  Layer 4: 聚合知识 (Aggregated Knowledge)                   │
+│  - narrativeMemory.md: 叙事性历史（人类可读）                 │
+│  - hubSearch: Hub 共享知识                                    │
+│  - executionTrace: 脱敏执行轨迹                               │
+│  - 生命周期: 跨 Agent 共享                                   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 28.2 表观遗传机制（特别设计）
+
+Evolver 的表观遗传（`epigenetic_marks`）是一个**独特设计**：
+
+- **环境绑定**: 基因在不同环境（Linux/macOS/Node版本）下表现不同
+- **非遗传**: 不会改变基因的核心策略，只是调整表达强度
+- **衰减**: 90 天无强化则消失，最多保留 10 个标记
+- **Boost 值范围**: [-0.5, +0.5]，成功时 +0.05，失败时 -0.1
+
+这相当于为每个 Gene 维护了一个**环境相关的成功率缓存**。
+
+### 28.3 BlueCortexCE 对照
+
+| Evolver 层 | BlueCortexCE 等价 |
+|-----------|------------------|
+| Signals | Observations（用户提示 + 工具结果） |
+| memoryGraph.jsonl | PostgreSQL 表（SessionEntity, ObservationEntity） |
+| Genes/Capsules | SummaryEntity（固化经验） |
+| narrativeMemory | Summary.content（人类可读摘要） |
+| executionTrace | （无直接对应——但可作为 Observation 的 metadata） |
+| epigenetic_marks | （无直接对应——BlueCortexCE 是旁路型，无"环境感知进化"） |
+
