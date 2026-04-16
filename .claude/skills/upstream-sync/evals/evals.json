@@ -1,0 +1,35 @@
+{
+  "skill_name": "upstream-sync",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "同步 BlueCortexCE 到上游最新版本",
+      "expected_output": "Skill should ask for: 1) claude-mem-java path, 2) reference commit, 3) WebUI status. Should NOT proceed without these answers.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "我们的后端需要合并 claude-mem 的新功能",
+      "expected_output": "Skill should ask for upstream repository location, confirm WebUI alignment, and explain what features will be synced",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "更新 WebUI 子模块并同步上游改进",
+      "expected_output": "Skill gathers inputs, creates sync plan at docs/drafts/upstream-sync-plan.md, implements changes, compiles successfully, and updates WebUI submodule",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "追踪 claude-mem 的最新改进",
+      "expected_output": "Skill asks for claude-mem-java path, analyzes recent commits, identifies feature gaps, creates implementation plan",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "我想把上游的 platform_source 功能加到我们的项目里",
+      "expected_output": "Skill asks for upstream path and commit, then creates plan to add platform_source columns to all tables with V18 migration",
+      "files": []
+    }
+  ]
+}
