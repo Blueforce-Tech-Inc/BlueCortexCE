@@ -1,10 +1,13 @@
 package com.ablueforce.cortexce.controller;
 
 import com.ablueforce.cortexce.dto.ApiResponses.*;
+import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.ablueforce.cortexce.entity.SummaryEntity;
 import com.ablueforce.cortexce.repository.SummaryRepository;
 import com.ablueforce.cortexce.service.ClaudeMdService;
 import com.ablueforce.cortexce.service.ContextService;
+import com.ablueforce.cortexce.service.EmbeddingService;
+import com.ablueforce.cortexce.service.SearchService;
 import com.ablueforce.cortexce.service.TimelineService;
 import com.ablueforce.cortexce.util.PathValidationUtil;
 import io.swagger.v3.oas.annotations.Operation;
@@ -24,6 +27,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -46,15 +51,21 @@ public class ContextController {
     private final ClaudeMdService claudeMdService;
     private final TimelineService timelineService;
     private final SummaryRepository summaryRepository;
+    private final EmbeddingService embeddingService;
+    private final SearchService searchService;
 
     public ContextController(ContextService contextService,
                              ClaudeMdService claudeMdService,
                              TimelineService timelineService,
-                             SummaryRepository summaryRepository) {
+                             SummaryRepository summaryRepository,
+                             EmbeddingService embeddingService,
+                             SearchService searchService) {
         this.contextService = contextService;
         this.claudeMdService = claudeMdService;
         this.timelineService = timelineService;
         this.summaryRepository = summaryRepository;
+        this.embeddingService = embeddingService;
+        this.searchService = searchService;
     }
 
     /**
@@ -401,6 +412,80 @@ public class ContextController {
         } catch (Exception e) {
             log.error("Failed to get prior messages for project {}: {}", project, e.getMessage());
             return ResponseEntity.ok(new PriorMessagesResponse("", ""));
+        }
+    }
+
+    /**
+     * POST /api/context/semantic - Semantic context search for per-prompt injection.
+     * V17: Query-based semantic search for context injection.
+     *
+     * Request: { "q": "query text", "project": "/path/to/project", "limit": 5 }
+     * Response: { "context": "## Relevant Past Work...", "count": N }
+     */
+    @PostMapping(value = "/semantic", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Semantic context search",
+        description = "Performs semantic search for observations relevant to a query. Returns formatted context for per-prompt injection.")
+    @ApiResponse(responseCode = "200", description = "Semantic context retrieved")
+    public Map<String, Object> semanticContext(@RequestBody Map<String, Object> body) {
+        String query = (String) body.get("q");
+        String project = (String) body.get("project");
+        int limit = 5;
+
+        if (body.get("limit") instanceof Number) {
+            limit = Math.min(Math.max(((Number) body.get("limit")).intValue(), 1), 20);
+        }
+
+        // Validation: query must be at least 20 chars
+        if (query == null || query.length() < 20) {
+            return Map.of("context", "", "count", 0);
+        }
+
+        if (project == null || project.isBlank()) {
+            project = System.getProperty("user.dir");
+        }
+
+        log.debug("Semantic context request, query_len={}, project={}, limit={}", query.length(), project, limit);
+
+        try {
+            if (!embeddingService.isAvailable()) {
+                log.warn("Embedding service not available for semantic search");
+                return Map.of("context", "", "count", 0);
+            }
+
+            float[] queryVector = embeddingService.embed(query);
+
+            SearchService.SearchRequest searchRequest = new SearchService.SearchRequest(
+                project, query, queryVector, null, null, null, null, null, limit, 0, null
+            );
+            SearchService.SearchResult result = searchService.search(searchRequest);
+            List<ObservationEntity> observations = result.observations();
+
+            if (observations.isEmpty()) {
+                return Map.of("context", "", "count", 0);
+            }
+
+            StringBuilder context = new StringBuilder();
+            context.append("## Relevant Past Work (semantic match)\n\n");
+
+            for (ObservationEntity obs : observations) {
+                String date = "";
+                if (obs.getCreatedAtEpoch() != null) {
+                    date = Instant.ofEpochMilli(obs.getCreatedAtEpoch())
+                        .atZone(ZoneId.systemDefault()).toLocalDate().toString();
+                }
+                context.append("### ").append(obs.getTitle() != null ? obs.getTitle() : "Observation");
+                if (!date.isEmpty()) context.append(" (").append(date).append(")");
+                context.append("\n\n");
+                if (obs.getContent() != null && !obs.getContent().isBlank()) {
+                    context.append(obs.getContent()).append("\n\n");
+                }
+            }
+
+            return Map.of("context", context.toString().trim(), "count", observations.size());
+
+        } catch (Exception e) {
+            log.warn("Semantic context query failed: {}", e.getMessage());
+            return Map.of("context", "", "count", 0);
         }
     }
 

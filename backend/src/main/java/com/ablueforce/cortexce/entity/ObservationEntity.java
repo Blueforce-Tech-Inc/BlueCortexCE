@@ -106,6 +106,15 @@ public class ObservationEntity {
     @Column(name = "embedding_model_id")
     private String embeddingModelId;
 
+    // V17: Observation feedback tracking fields
+    @Column(name = "generated_by_model")
+    @JsonProperty("generated_by_model")
+    private String generatedByModel;
+
+    @Column(name = "relevance_count")
+    @JsonProperty("relevance_count")
+    private Integer relevanceCount = 0;
+
     // search_vector is GENERATED ALWAYS, read-only from JPA perspective
     // No mapping needed - handled by PostgreSQL
 
@@ -204,6 +213,11 @@ public class ObservationEntity {
     @JsonProperty("extractedData")
     private Map<String, Object> extractedData;
 
+    // V18: Platform source for multi-platform tracking
+    @Column(name = "platform_source")
+    @JsonProperty("platform_source")
+    private String platformSource = "claude";
+
     // Getters and Setters for quality fields
 
     public Float getQualityScore() { return qualityScore; }
@@ -237,6 +251,9 @@ public class ObservationEntity {
 
     public Map<String, Object> getExtractedData() { return extractedData; }
     public void setExtractedData(Map<String, Object> extractedData) { this.extractedData = extractedData; }
+
+    public String getPlatformSource() { return platformSource; }
+    public void setPlatformSource(String platformSource) { this.platformSource = platformSource; }
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
@@ -341,6 +358,12 @@ public class ObservationEntity {
 
     public String getEmbeddingModelId() { return embeddingModelId; }
     public void setEmbeddingModelId(String embeddingModelId) { this.embeddingModelId = embeddingModelId; }
+
+    public String getGeneratedByModel() { return generatedByModel; }
+    public void setGeneratedByModel(String generatedByModel) { this.generatedByModel = generatedByModel; }
+
+    public Integer getRelevanceCount() { return relevanceCount; }
+    public void setRelevanceCount(Integer relevanceCount) { this.relevanceCount = relevanceCount; }
 
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }

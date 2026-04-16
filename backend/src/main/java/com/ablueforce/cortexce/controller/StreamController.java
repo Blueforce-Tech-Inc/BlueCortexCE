@@ -17,6 +17,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -72,11 +75,25 @@ public class StreamController {
         // Send initial load event with type field
         // NOTE: Use unnamed events (just data, no event name) to match TS version
         // WebUI uses onmessage which only catches unnamed events
+        // V18: Include sources and projectsBySource for platform filtering
         try {
+            List<String> projects = sessionRepository.findAllProjects();
+            List<String> sources = sessionRepository.findAllPlatformSources();
+
+            List<Object[]> projectsBySourceRaw = sessionRepository.findProjectsByPlatformSource();
+            Map<String, List<String>> projectsBySource = new HashMap<>();
+            for (Object[] row : projectsBySourceRaw) {
+                String source = (String) row[0];
+                String proj = (String) row[1];
+                projectsBySource.computeIfAbsent(source, k -> new ArrayList<>()).add(proj);
+            }
+
             emitter.send(SseEmitter.event()
                 .data(Map.of(
                     "type", "initial_load",
-                    "projects", sessionRepository.findAllProjects(),
+                    "projects", projects,
+                    "sources", sources,
+                    "projectsBySource", projectsBySource,
                     "timestamp", System.currentTimeMillis()
                 )));
 

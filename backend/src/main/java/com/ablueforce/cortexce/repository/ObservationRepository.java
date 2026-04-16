@@ -16,13 +16,14 @@ import java.util.UUID;
 @Repository
 public interface ObservationRepository extends JpaRepository<ObservationEntity, UUID> {
 
-    // Paged query with optional project filter
+    // Paged query with optional project and platformSource filter
     @Query("""
         SELECT o FROM ObservationEntity o
         WHERE (:project IS NULL OR o.projectPath = :project)
+        AND (:platformSource IS NULL OR o.platformSource = :platformSource)
         ORDER BY o.createdAtEpoch DESC
         """)
-    Page<ObservationEntity> findAllPaged(@Param("project") String project, Pageable pageable);
+    Page<ObservationEntity> findAllPaged(@Param("project") String project, @Param("platformSource") String platformSource, Pageable pageable);
 
     // Paged query with userId-based filtering (Phase 3 multi-user support)
     /**

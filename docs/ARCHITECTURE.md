@@ -515,10 +515,11 @@ CREATE TABLE mem_sessions (
     -- Context caching (V4)
     cached_context TEXT,
     context_refreshed_at_epoch BIGINT,
-    needs_context_refresh BOOLEAN DEFAULT FALSE
+    needs_context_refresh BOOLEAN DEFAULT FALSE,
+    platform_source VARCHAR(50) DEFAULT 'claude'  -- V18: multi-platform
 );
 
--- Observations table (V1 + V2, V8, V11, V12, V13, V14, V16 migrations)
+-- Observations table (V1 + V2, V8, V11, V12, V13, V14, V16, V17, V18 migrations)
 CREATE TABLE mem_observations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     content_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(content_session_id),  -- V13: unified session linkage (replaces memory_session_id)
@@ -559,7 +560,10 @@ CREATE TABLE mem_observations (
     ) STORED,
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_at_epoch BIGINT NOT NULL
+    created_at_epoch BIGINT NOT NULL,
+    generated_by_model VARCHAR(100),  -- V17: model that generated this observation
+    relevance_count INT DEFAULT 0,     -- V17: times reused in context/s search
+    platform_source VARCHAR(50) DEFAULT 'claude'  -- V18: multi-platform
 );
 
 -- Vector indexes (HNSW, V2)
@@ -594,7 +598,8 @@ CREATE TABLE mem_summaries (
     notes TEXT,
     prompt_number INT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_at_epoch BIGINT NOT NULL
+    created_at_epoch BIGINT NOT NULL,
+    platform_source VARCHAR(50) DEFAULT 'claude'  -- V18: multi-platform
 );
 
 -- User Prompts table (V1 + V5)
@@ -605,7 +610,8 @@ CREATE TABLE mem_user_prompts (
     prompt_text TEXT NOT NULL,
     project_path TEXT,               -- V5: project filtering
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_at_epoch BIGINT NOT NULL
+    created_at_epoch BIGINT NOT NULL,
+    platform_source VARCHAR(50) DEFAULT 'claude'  -- V18: multi-platform
 );
 
 -- Pending Messages table (V1 + V6)
@@ -630,6 +636,20 @@ CREATE TABLE mem_pending_messages (
     failed_at_epoch BIGINT
 );
 ```
+
+-- Observation Feedback table (V17: Thompson Sampling)
+CREATE TABLE observation_feedback (
+    id BIGSERIAL PRIMARY KEY,
+    observation_id UUID NOT NULL REFERENCES mem_observations(id) ON DELETE CASCADE,
+    signal_type VARCHAR(50) NOT NULL,  -- 'semantic_inject', 'search_hit', 'explicit_retrieval'
+    session_db_id UUID,
+    created_at_epoch BIGINT NOT NULL,
+    metadata TEXT
+);
+
+CREATE INDEX idx_feedback_observation ON observation_feedback(observation_id);
+CREATE INDEX idx_feedback_signal ON observation_feedback(signal_type);
+CREATE INDEX idx_feedback_session ON observation_feedback(session_db_id);
 
 #### Semantic Search
 

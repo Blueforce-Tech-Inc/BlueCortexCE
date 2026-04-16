@@ -52,4 +52,17 @@ public interface SessionRepository extends JpaRepository<SessionEntity, UUID> {
 
     @Query("SELECT s.contentSessionId FROM SessionEntity s WHERE s.userId = :userId AND s.projectPath = :project")
     List<String> findSessionIdsByUserIdAndProject(@Param("userId") String userId, @Param("project") String project);
+
+    // V18: Platform source support
+    @Query("SELECT DISTINCT s.platformSource FROM SessionEntity s WHERE s.platformSource IS NOT NULL ORDER BY s.platformSource")
+    List<String> findAllPlatformSources();
+
+    @Query("""
+        SELECT s.platformSource, s.projectPath
+        FROM SessionEntity s
+        WHERE s.platformSource IS NOT NULL
+        GROUP BY s.platformSource, s.projectPath
+        ORDER BY s.platformSource, s.projectPath
+        """)
+    List<Object[]> findProjectsByPlatformSource();
 }

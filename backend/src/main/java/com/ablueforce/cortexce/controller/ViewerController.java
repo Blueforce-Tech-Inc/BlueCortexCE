@@ -38,6 +38,7 @@ import com.ablueforce.cortexce.service.TimelineService;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -99,6 +100,8 @@ public class ViewerController {
     public ResponseEntity<PagedResponse<ObservationEntity>> getObservations(
         @Parameter(description = "Project path to filter observations (optional, returns all if not specified)", required = false, example = "/Users/dev/my-project")
         @RequestParam(required = false) String project,
+        @Parameter(description = "Platform source filter (optional)", required = false, example = "claude")
+        @RequestParam(required = false) String platformSource,
         @Parameter(description = "Offset for pagination (0-based)", required = false, example = "0")
         @RequestParam(defaultValue = "0") int offset,
         @Parameter(description = "Number of items per page (max 100)", required = false, example = "20")
@@ -107,7 +110,7 @@ public class ViewerController {
         // Validate pagination parameters
         int validatedLimit = Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE);
         int validatedOffset = Math.max(0, offset);
-        Page<ObservationEntity> result = observationRepository.findAllPaged(project,
+        Page<ObservationEntity> result = observationRepository.findAllPaged(project, platformSource,
             new OffsetPageRequest(0, validatedLimit, validatedOffset,
                 Sort.by(Sort.Direction.DESC, "createdAt")));
         return ResponseEntity.ok(PagedResponse.of(result));
@@ -124,6 +127,8 @@ public class ViewerController {
     public ResponseEntity<PagedResponse<SummaryEntity>> getSummaries(
         @Parameter(description = "Project path to filter summaries", required = false, example = "/Users/dev/my-project")
         @RequestParam(required = false) String project,
+        @Parameter(description = "Platform source filter (optional)", required = false, example = "claude")
+        @RequestParam(required = false) String platformSource,
         @Parameter(description = "Offset for pagination (0-based)", required = false, example = "0")
         @RequestParam(defaultValue = "0") int offset,
         @Parameter(description = "Number of items per page (max 100)", required = false, example = "20")
@@ -131,7 +136,7 @@ public class ViewerController {
     ) {
         int validatedLimit = Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE);
         int validatedOffset = Math.max(0, offset);
-        Page<SummaryEntity> result = summaryRepository.findAllPaged(project,
+        Page<SummaryEntity> result = summaryRepository.findAllPaged(project, platformSource,
             new OffsetPageRequest(0, validatedLimit, validatedOffset,
                 Sort.by(Sort.Direction.DESC, "createdAt")));
         return ResponseEntity.ok(PagedResponse.of(result));
@@ -148,6 +153,8 @@ public class ViewerController {
     public ResponseEntity<PagedResponse<UserPromptEntity>> getPrompts(
         @Parameter(description = "Project path to filter prompts", required = false, example = "/Users/dev/my-project")
         @RequestParam(required = false) String project,
+        @Parameter(description = "Platform source filter (optional)", required = false, example = "claude")
+        @RequestParam(required = false) String platformSource,
         @Parameter(description = "Offset for pagination (0-based)", required = false, example = "0")
         @RequestParam(defaultValue = "0") int offset,
         @Parameter(description = "Number of items per page (max 100)", required = false, example = "20")
@@ -155,23 +162,38 @@ public class ViewerController {
     ) {
         int validatedLimit = Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE);
         int validatedOffset = Math.max(0, offset);
-        Page<UserPromptEntity> result = userPromptRepository.findAllPaged(project,
+        Page<UserPromptEntity> result = userPromptRepository.findAllPaged(project, platformSource,
             new OffsetPageRequest(0, validatedLimit, validatedOffset,
                 Sort.by(Sort.Direction.DESC, "createdAt")));
         return ResponseEntity.ok(PagedResponse.of(result));
     }
 
     /**
-     * GET /api/projects — list all known projects.
-     * Web UI expects {projects: [...]} format.
+     * GET /api/projects — list all known projects with source grouping.
+     * V18: Returns sources and projectsBySource for platform filtering.
      */
     @GetMapping("/projects")
     @Operation(summary = "List all projects",
-        description = "Returns all known project paths that have active or completed sessions.")
-    @ApiResponse(responseCode = "200", description = "Project list retrieved",
-        content = @Content(schema = @Schema(example = "{\"projects\":[\"/Users/dev/project1\",\"/Users/dev/project2\"]}")))
+        description = "Returns all known project paths that have active or completed sessions, plus platform sources and grouping.")
+    @ApiResponse(responseCode = "200", description = "Project list retrieved with sources",
+        content = @Content(schema = @Schema(example = "{\"projects\":[\"/Users/dev/project1\"],\"sources\":[\"claude\"],\"projectsBySource\":{\"claude\":[\"/Users/dev/project1\"]}}")))
     public ResponseEntity<Map<String, Object>> getProjects() {
-        return ResponseEntity.ok(Map.of("projects", sessionRepository.findAllProjects()));
+        List<String> projects = sessionRepository.findAllProjects();
+        List<String> sources = sessionRepository.findAllPlatformSources();
+
+        List<Object[]> projectsBySourceRaw = sessionRepository.findProjectsByPlatformSource();
+        Map<String, List<String>> projectsBySource = new HashMap<>();
+        for (Object[] row : projectsBySourceRaw) {
+            String source = (String) row[0];
+            String proj = (String) row[1];
+            projectsBySource.computeIfAbsent(source, k -> new ArrayList<>()).add(proj);
+        }
+
+        return ResponseEntity.ok(Map.of(
+            "projects", projects,
+            "sources", sources,
+            "projectsBySource", projectsBySource
+        ));
     }
 
     /**

@@ -10,7 +10,9 @@ import com.ablueforce.cortexce.exception.DataValidationException;
 import com.ablueforce.cortexce.exception.RetryableException;
 import com.ablueforce.cortexce.repository.ObservationRepository;
 import com.ablueforce.cortexce.repository.PendingMessageRepository;
+import com.ablueforce.cortexce.repository.SessionRepository;
 import com.ablueforce.cortexce.util.XmlParser;
+import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -55,6 +57,9 @@ public class AgentService implements LogHelper {
 
     private static final Logger log = LoggerFactory.getLogger(AgentService.class);
 
+    // V17: Session wall-clock age guard - 4 hours max
+    private static final long MAX_SESSION_AGE_MS = 4 * 60 * 60 * 1000;
+
     @Override
     public Logger getLogger() {
         return log;
@@ -68,6 +73,7 @@ public class AgentService implements LogHelper {
     private final TemplateService templateService;
     private final ObservationRepository observationRepository;
     private final PendingMessageRepository pendingMessageRepository;
+    private final SessionRepository sessionRepository;
     private final SSEBroadcaster sseBroadcaster;
     private final EmbeddingService embeddingService;
     private final LlmService llmService;
@@ -81,6 +87,7 @@ public class AgentService implements LogHelper {
                         TemplateService templateService,
                         ObservationRepository observationRepository,
                         PendingMessageRepository pendingMessageRepository,
+                        SessionRepository sessionRepository,
                         SSEBroadcaster sseBroadcaster,
                         EmbeddingService embeddingService,
                         LlmService llmService,
@@ -90,6 +97,7 @@ public class AgentService implements LogHelper {
         this.templateService = templateService;
         this.observationRepository = observationRepository;
         this.pendingMessageRepository = pendingMessageRepository;
+        this.sessionRepository = sessionRepository;
         this.sseBroadcaster = sseBroadcaster;
         this.embeddingService = embeddingService;
         this.llmService = llmService;
@@ -119,6 +127,21 @@ public class AgentService implements LogHelper {
             SessionEntity session = sessionManagementService.ensureSession(contentSessionId, cwd, null);
             sessionDbId = session.getId();
             log.debug("Resolved sessionDbId from contentSessionId via ensureSession: {}", sessionDbId);
+
+            // V17: Wall-clock age guard - refuse work for sessions older than 4 hours
+            if (isSessionTooOld(session)) {
+                log.warn("Session too old for new work (wall-clock age limit) - skipping: session_id={}", contentSessionId);
+                markSessionExpired(session, "tool-use");
+                return;
+            }
+        } else {
+            // V17: Check session age when sessionDbId is provided directly
+            SessionEntity session = sessionRepository.findById(sessionDbId).orElse(null);
+            if (session != null && isSessionTooOld(session)) {
+                log.warn("Session too old for new work (wall-clock age limit) - skipping: session_id={}", contentSessionId);
+                markSessionExpired(session, "tool-use");
+                return;
+            }
         }
 
         try {
@@ -533,5 +556,33 @@ public class AgentService implements LogHelper {
             sb.append(String.join("; ", facts));
         }
         return sb.toString().trim();
+    }
+
+    // ========================================================================
+    // V17: Session Wall-Clock Age Guard
+    // ========================================================================
+
+    /**
+     * Check if a session exceeds the maximum age limit (4 hours).
+     * Sessions older than MAX_SESSION_AGE_MS are considered stale and should not receive new work.
+     */
+    private boolean isSessionTooOld(SessionEntity session) {
+        if (session == null || session.getStartedAtEpoch() == null) {
+            return false; // Can't determine age, allow work
+        }
+        long sessionAgeMs = Instant.now().toEpochMilli() - session.getStartedAtEpoch();
+        return sessionAgeMs > MAX_SESSION_AGE_MS;
+    }
+
+    /**
+     * Mark a session as expired (too old to receive new work).
+     */
+    private void markSessionExpired(SessionEntity session, String reason) {
+        if (session == null) return;
+        log.warn("Session exceeded max age limit - marking as expired: session_id={}, reason={}, age_hours={}",
+            session.getContentSessionId(), reason,
+            (Instant.now().toEpochMilli() - session.getStartedAtEpoch()) / 3600000.0);
+        session.setStatus("expired");
+        sessionRepository.save(session);
     }
 }

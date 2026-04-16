@@ -17,10 +17,12 @@ public interface SummaryRepository extends JpaRepository<SummaryEntity, UUID> {
     @Query("""
         SELECT s FROM SummaryEntity s
         WHERE (:project IS NULL OR s.projectPath = :project)
+        AND (:platformSource IS NULL OR s.platformSource = :platformSource)
         ORDER BY s.createdAtEpoch DESC
         """)
     Page<SummaryEntity> findAllPaged(
         @Param("project") String project,
+        @Param("platformSource") String platformSource,
         Pageable pageable
     );
 

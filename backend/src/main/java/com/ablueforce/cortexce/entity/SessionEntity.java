@@ -71,6 +71,14 @@ public class SessionEntity {
     @Column(name = "status", length = 20)
     private String status = SessionStatus.ACTIVE;
 
+    /**
+     * Source platform that created this session (claude, codex, etc.).
+     * Used for WebUI source filtering.
+     */
+    @Column(name = "platform_source")
+    @JsonProperty("platform_source")
+    private String platformSource = "claude";
+
     // P2-1: Context caching fields
     @Column(name = "cached_context", columnDefinition = "TEXT")
     private String cachedContext;
@@ -122,6 +130,9 @@ public class SessionEntity {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public String getPlatformSource() { return platformSource; }
+    public void setPlatformSource(String platformSource) { this.platformSource = platformSource; }
 
     // P2-1: Context caching getters and setters
 

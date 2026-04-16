@@ -39,6 +39,11 @@ public class UserPromptEntity {
     @JsonProperty("created_at_epoch")
     private Long createdAtEpoch;
 
+    // V18: Platform source for multi-platform tracking
+    @Column(name = "platform_source")
+    @JsonProperty("platform_source")
+    private String platformSource = "claude";
+
     // Getters and Setters
 
     public UUID getId() { return id; }
@@ -61,4 +66,7 @@ public class UserPromptEntity {
 
     public Long getCreatedAtEpoch() { return createdAtEpoch; }
     public void setCreatedAtEpoch(Long createdAtEpoch) { this.createdAtEpoch = createdAtEpoch; }
+
+    public String getPlatformSource() { return platformSource; }
+    public void setPlatformSource(String platformSource) { this.platformSource = platformSource; }
 }

@@ -24,9 +24,10 @@ public interface UserPromptRepository extends JpaRepository<UserPromptEntity, UU
     @Query("""
         SELECT p FROM UserPromptEntity p
         WHERE (:project IS NULL OR p.projectPath = :project)
+        AND (:platformSource IS NULL OR p.platformSource = :platformSource)
         ORDER BY p.createdAtEpoch DESC
         """)
-    Page<UserPromptEntity> findAllPaged(@Param("project") String project, Pageable pageable);
+    Page<UserPromptEntity> findAllPaged(@Param("project") String project, @Param("platformSource") String platformSource, Pageable pageable);
 
     Optional<UserPromptEntity> findByContentSessionIdAndPromptNumber(
         String contentSessionId, Integer promptNumber
