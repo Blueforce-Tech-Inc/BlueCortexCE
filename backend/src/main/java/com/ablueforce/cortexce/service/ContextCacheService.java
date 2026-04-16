@@ -130,6 +130,11 @@ public class ContextCacheService {
                 refreshed++;
             } catch (Exception e) {
                 log.error("Failed to refresh context for session {}", session.getContentSessionId(), e);
+                // Mark as not needing immediate refresh to prevent infinite retry loop.
+                // The session will be re-triggered when new observations are recorded.
+                session.setNeedsContextRefresh(false);
+                session.setContextRefreshedAtEpoch(Instant.now().toEpochMilli());
+                sessionRepository.save(session);
                 failed++;
             }
         }
