@@ -7489,7 +7489,235 @@ def _detect_category(text: str) -> str:
 
 ---
 
-## 53. 待进一步确认（v4.8 更新）
+## 54. 内置 Memory Tool — 有界精选 + 冻结快照机制（v4.9 新增）
+
+> **文件**: `tools/memory_tool.py:1-584`
+> **本节为 v4.9 新增**，分析 Hermes 内置 `memory` 工具的记忆生命周期管理机制（与外部 Provider 并行的独立系统）。
+
+### 54.1 两套记忆系统的并存架构
+
+Hermes 有两套并行的记忆系统：
+
+| 系统 | 存储位置 | 容量 | 生命周期管理 | 外部同步 |
+|------|----------|------|-------------|---------|
+| **内置 memory** | `MEMORY.md` / `USER.md` | 2,200 / 1,375 chars（硬限制） | 有界精选 + Agent 显式删除 | `on_memory_write` bridge |
+| **外部 Provider** | Honcho/Holographic 等 | Provider 决定 | Provider 决定 | 双向 sync |
+
+**内置 memory 特点**：
+- **文件持久化**：`hermes home` 下的 `memories/MEMORY.md` 和 `memories/USER.md`
+- **始终开启**：不依赖外部 Provider 配置
+- **两段式状态**：冻结快照（系统 prompt 用）+ 实时状态（工具响应用）
+
+### 54.2 有界精选（Bounded Curation）策略
+
+```python
+# tools/memory_tool.py:144-145
+def __init__(self, memory_char_limit: int = 2200, user_char_limit: int = 1375):
+    self.memory_entries: List[str] = []
+```
+
+**容量限制**：
+
+| Store | 硬限制 | 说明 |
+|-------|--------|------|
+| `memory` | 2,200 chars | Agent 的个人笔记（环境事实、项目惯例、工具细节、经验教训） |
+| `user` | 1,375 chars | 用户画像（偏好、交流风格、工作流习惯） |
+
+**为什么这样设计**：
+- 字符限制而非 token 限制——因为 char count 对模型是稳定的
+- Agent 必须在容量内精选——强制质量而非数量
+- **超过容量时拒绝写入**（`add` 返回错误，要求先删除或替换）
+
+```python
+# tools/memory_tool.py:252-262
+if new_total > limit:
+    current = self._char_count(target)
+    return {
+        "success": False,
+        "error": (
+            f"Memory at {current:,}/{limit:,} chars. "
+            f"Adding this entry ({len(content)} chars) would exceed the limit. "
+            f"Replace or remove existing entries first."
+        ),
+        ...
+    }
+```
+
+### 54.3 冻结快照模式（Frozen Snapshot Pattern）
+
+**核心设计**：mid-session 写入**不改变**系统 prompt 注入的内容。
+
+```python
+# tools/memory_tool.py:130-136
+# _system_prompt_snapshot: frozen at load time, used for system prompt injection.
+# Never mutated mid-session. Keeps prefix cache stable.
+self._system_prompt_snapshot: Dict[str, str] = {"memory": "", "user": ""}
+
+def load_from_disk(self):
+    # Capture frozen snapshot for system prompt injection
+    self._system_prompt_snapshot = {
+        "memory": self._render_block("memory", self.memory_entries),
+        "user": self._render_block("user", self.user_entries),
+    }
+
+def format_for_system_prompt(self, target: str) -> Optional[str]:
+    # Returns the state captured at load_from_disk() time, NOT the live state.
+    return self._system_prompt_snapshot.get(target, "")
+```
+
+**生命周期**：
+1. **Session 启动时**：加载 `MEMORY.md` + `USER.md`，捕获冻结快照
+2. **Mid-session 写入**：更新实时状态 + 磁盘，但不更新快照
+3. **Session 结束时**：快照不变
+4. **下次 Session 启动时**：重新加载磁盘（包含 mid-session 写入）
+
+**好处**：
+- 系统 prompt 全文在 session 内稳定 → prefix cache 不失效
+- mid-session 写入即时持久化到磁盘 → crash 不丢数据
+- 工具响应始终显示最新状态 → Agent 能看到自己写入的结果
+
+### 54.4 生命周期管理：Agent 显式删除
+
+**Hermes 没有自动遗忘机制**。所有遗忘都是 Agent 显式调用 `memory remove`。
+
+**工具 schema 明确告知何时删除**：
+
+```python
+MEMORY_SCHEMA = {
+    "description": (
+        "Do NOT save task progress, session outcomes, completed-work logs, or temporary TODO "
+        "state to memory; use session_search to recall those from past transcripts.\n"
+        "SKIP: trivial/obvious info, things easily re-discovered, raw data dumps, and temporary task state."
+    ),
+    ...
+}
+```
+
+**何时记忆 vs 何时遗忘的判断**：
+
+| 应该记忆 | 不应该记忆 |
+|----------|-----------|
+| 用户纠正 / "remember this" | Session 进展 / 已完成的工作日志 |
+| 用户偏好（名字、角色、编码风格） | 临时 TODO 状态 |
+| 环境事实（OS、工具、项目结构） | 容易重新发现的信息 |
+| 特定惯例 / API 怪癖 | 原始数据 dump |
+| 有用的稳定事实 | 一次性任务 |
+
+**删除操作**：
+
+```python
+# tools/memory_tool.py:303-330
+def remove(self, target: str, old_text: str) -> Dict[str, Any]:
+    """Remove the entry containing old_text substring."""
+    matches = [(i, e) for i, e in enumerate(entries) if old_text in e]
+    # 支持模糊匹配（substring），但多匹配时要求更具体
+    if len(unique_texts) > 1:
+        return {
+            "success": False,
+            "error": f"Multiple entries matched '{old_text}'. Be more specific.",
+            "matches": previews,
+        }
+```
+
+**设计思想**：记忆是 Agent 的**主动决策**，不是系统的被动积累。Agent 需要自己判断什么值得保留、什么应该删除。
+
+### 54.5 安全性：Prompt 注入扫描
+
+内置 memory 的内容会注入系统 prompt，因此 Hermes 在写入前做严格的安全扫描：
+
+```python
+# tools/memory_tool.py:61-100
+_MEMORY_THREAT_PATTERNS = [
+    # Prompt injection
+    (r'ignore\s+(previous|all|above|prior)\s+instructions', "prompt_injection"),
+    (r'you\s+are\s+now\s+', "role_hijack"),
+    (r'do\s+not\s+tell\s+the\s+user', "deception_hide"),
+    (r'system\s+prompt\s+override', "sys_prompt_override"),
+    # Exfiltration via curl/wget with secrets
+    (r'curl\s+[^\n]*\$\{?\w*(KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|API)', "exfil_curl"),
+    # Invisible unicode injection
+    '\u200b', '\u200c', '\u200d', '\ufeff', ...
+]
+
+def _scan_memory_content(content: str) -> Optional[str]:
+    """Scan memory content for injection/exfil patterns. Returns error string if blocked."""
+    # Check invisible unicode
+    for char in _INVISIBLE_CHARS:
+        if char in content:
+            return f"Blocked: content contains invisible unicode character U+{ord(char):04X}."
+    # Check threat patterns
+    for pattern, pid in _MEMORY_THREAT_PATTERNS:
+        if re.search(pattern, content, re.IGNORECASE):
+            return f"Blocked: content matches threat pattern '{pid}'."
+```
+
+### 54.6 原子写入：跨 Session 并发安全
+
+多 session 可能并发写入同一个 memory 文件。Hermes 用原子 rename 避免竞态：
+
+```python
+# tools/memory_tool.py:438-460
+@staticmethod
+def _write_file(path: Path, entries: List[str]):
+    """Atomic temp-file + rename. Readers always see complete file."""
+    content = ENTRY_DELIMITER.join(entries) if entries else ""
+    fd, tmp_path = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp", prefix=".mem_")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, str(path))  # Atomic on same filesystem
+    except BaseException:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+```
+
+同时读取时**重新加载磁盘**（在文件锁下）确保读取到最新内容：
+
+```python
+# tools/memory_tool.py:218-220
+def add(self, target: str, content: str) -> Dict[str, Any]:
+    with self._file_lock(self._path_for(target)):
+        # Re-read from disk under lock to pick up writes from other sessions
+        self._reload_target(target)
+```
+
+### 54.7 与 BlueCortexCE 对比
+
+| 维度 | Hermes 内置 Memory | BlueCortexCE |
+|------|------------------|--------------|
+| 存储形式 | 文件（MEMORY.md/USER.md） | PostgreSQL + pgvector |
+| 容量控制 | 硬字符限制（2,200/1,375） | ❌ 无硬限制（SessionEnd Summary 长度无明确限制） |
+| 快照机制 | ✅ 冻结 snapshot，mid-session 写入不更新 | ❌ 无（SessionEnd Summary 一次性生成） |
+| 遗忘机制 | Agent 显式 remove | ❌ 无（所有 observation/summary 永久保留） |
+| 并发安全 | ✅ 文件锁 + atomic rename | ⚠️ 依赖 PostgreSQL 事务 |
+| 注入安全 | ✅ Prompt 注入扫描 | ❌ 无 |
+| Entry 标识 | 唯一 delimiter `§` | Observation 无固定 delimiter |
+| 系统 prompt 注入 | ✅ 直接注入系统 prompt | ⚠️ `/api/context/generate` API 拉取 |
+
+### 54.8 翻译：旁路型如何借鉴
+
+**核心差距**：Hermes 内置 memory 的"有界精选"模式（硬限制 + Agent 显式删除）在 BlueCortexCE 中完全缺失。
+
+**借鉴建议**：
+
+| 优先级 | 建议 | 说明 |
+|--------|------|------|
+| **高** | BlueCortexCE SessionEnd Summary 增加长度硬限制 | 建议 2,000-3,000 chars（参考 Hermes 的 2,200/1,375 双限制） |
+| **高** | BlueCortexCE Observation 增加 TTL 或 max_entries | 防止 observation 无限积累 |
+| **高** | BlueCortexCE `/api/observations` 增加"删除"API | 目前只有 create，没有 delete |
+| **中** | BlueCortexCE Observation prompt 增加负面指令 | "Do NOT record: trivial responses, temporary state, one-time tasks" |
+| **中** | BlueCortexCE 的"冻结快照"思想 | Session 期间不更新 summary，只有 SessionEnd 才生成/更新 |
+| **低** | BlueCortexCE 增加 prompt 注入扫描 | Observation 内容会注入 context，高度敏感 |
+| **低** | BlueCortexCE Observation 支持 category | 区分 preference/fact/procedure（参考 Supermarket） |
+
+---
+
+## 53. 待进一步确认（v4.9 更新）
 
 ### 53.1 本轮已确认项目
 
@@ -7500,6 +7728,7 @@ def _detect_category(text: str) -> str:
 5. ✅ ~~RetainDB SQLite write-behind queue~~ — **v4.8 已详细分析**：pending 表 + crash replay + thread-local connections
 6. ✅ ~~RetainDB memory_type enum~~ — **v4.8 已验证**：factual/preference/goal/instruction/event/opinion + importance 0-1
 7. ✅ ~~Supermemory entity_context~~ — **v4.8 已验证**：negative 指令 + "When in doubt, store less" + trivial filter
+8. ✅ ~~Hermes 内置 memory 生命周期机制~~ — **v4.9 已详细分析**：有界精选（硬字符限制）+ 冻结快照 + Agent 显式删除 + 注入扫描
 
 ### 53.2 仍待确认项目
 
