@@ -1,9 +1,9 @@
 # Hermes Agent 记忆系统深度分析
 
-> **文档状态**: v5.0 (新增：OpenViking 分层上下文 L0/L1/L2 + ByteRover CLI Wrapper + Provider 全景对比 v5.0 更新)
+> **文档状态**: v6.1 (新增：on_pre_compress Hook Bug 分析 — 设计意图与实现脱节 + ByteRover 实现返回空字符串 + BlueCortexCE summary.txt 模板损坏发现)
 > **分析目标**: 为 BlueCortexCE（旁路型记忆系统）提供可落地的借鉴建议
 > **数据来源**: `/Users/yangjiefeng/Documents/NousResearch/hermes-agent/`
-> **最后更新**: 2026-04-16 18:36
+> **最后更新**: 2026-04-17 06:22
 
 ---
 
@@ -74,6 +74,21 @@
 48. [OpenViking 分层上下文加载 + Filesystem-Style URI 架构（v5.0 新增）](#55-openviking-分层上下文加载--filesystem-style-uri-架构v50-新增)
 49. [ByteRover CLI Wrapper + Tiered Retrieval 架构（v5.0 新增）](#56-bytedover-cli-wrapper--tiered-retrieval-架构v50-新增)
 50. [Memory Provider 全景对比（v5.0 更新）](#57-memory-provider-全景对比v50-更新)
+51. [核心架构澄清：Built-in Memory 与 Plugin Provider 双系统（v5.1 新增）](#58-核心架构澄清built-in-memory-与-plugin-provider-双系统v51-新增)
+52. [Honcho 动态推理级别 — Query-Length 驱动的自适应 LLM 成本控制（v5.1 新增）](#59-honcho-动态推理级别--query-length-驱动的自适应-llm-成本控制v51-新增)
+53. [Honcho 观察模式 — ai_observe_others 双 Peering 架构（v5.1 新增）](#60-honcho-观察模式--ai_observe_others-双-peering-架构v51-新增)
+54. [on_memory_write 桥接机制 — create_conclusion 完整语义确认（v5.1 确认）](#61-on_memory_write-桥接机制--create_conclusion-完整语义确认v51-确认)
+55. [BlueCortexCE Observation 现状确认（v5.1 更新）](#62-bluecortexce-observation-现状确认v51-更新)
+56. [Supermemory 完整 Capture 生命周期（v5.2 新增）](#56-supermemory-完整-capture-生命周期--trivial-过滤--entity_context-注入--session-batchv52-新增)
+57. [Dialectic Synthesis 对比 — Honcho vs RetainDB（v5.2 新增）](#57-dialectic-synthesis-对比--honcho-peerchat-vs-retaindb-ask_userv52-新增)
+58. [RetainDB Agent Self-Model — SOUL.md 播种 + Prefetch（v5.2 新增）](#58-retaindb-agent-self-model--soulmd-播种--self-model-prefetch-机制v52-新增)
+59. [待进一步确认（v5.2 更新）](#59-待进一步确认v52-更新)
+60. [ContextCompressor Phase 1-4 压缩算法（v5.3 新增）](#60-contextcompressor-phase-1-4-压缩算法v53-新增)
+61. [Critical Bug：`on_pre_compress` Hook 返回值被丢弃（v5.3 新增）](#61-critical-bugon_pre_compress-hook-返回值被丢弃v53-新增)
+62. [11段式 Summary Template + Iterative Update 机制（v5.3 新增）](#62-11段式-summary-template--iterative-update-机制v53-新增)
+63. [Anti-thrashing + Fallback 机制（v5.3 新增）](#63-anti-thrashing--fallback-机制v53-新增)
+64. [待进一步确认（v5.4 更新）](#67-待进一步确认v54-更新)
+65. [on_pre_compress Hook — 设计意图与实现的双重脱节（v6.1 新增）](#71-on_pre_compress-hook--设计意图与实现的双重脱节v61-新增)
 
 ---
 
@@ -7722,32 +7737,6 @@ def add(self, target: str, content: str) -> Dict[str, Any]:
 
 ---
 
-## 53. 待进一步确认（v4.9 更新）
-
-### 53.1 本轮已确认项目
-
-1. ✅ ~~ContextCompressor Phase 1 tool result pre-pass~~ — **已详细分析**：规则型 1-line 摘要，非通用 placeholder
-2. ✅ ~~SessionDB v6 reasoning chain columns~~ — **已验证**：reasoning/reasoning_details/codex_reasoning_items 三列
-3. ✅ ~~Honcho write_frequency mechanism~~ — **已验证**：async/turn/session/int 四种模式 + daemon thread 实现
-4. ✅ ~~Honcho sync_turn threading model~~ — **已验证**：daemon thread + 5s 前序 join 防堆积
-5. ✅ ~~RetainDB SQLite write-behind queue~~ — **v4.8 已详细分析**：pending 表 + crash replay + thread-local connections
-6. ✅ ~~RetainDB memory_type enum~~ — **v4.8 已验证**：factual/preference/goal/instruction/event/opinion + importance 0-1
-7. ✅ ~~Supermemory entity_context~~ — **v4.8 已验证**：negative 指令 + "When in doubt, store less" + trivial filter
-8. ✅ ~~Hermes 内置 memory 生命周期机制~~ — **v4.9 已详细分析**：有界精选（硬字符限制）+ 冻结快照 + Agent 显式删除 + 注入扫描
-
-### 53.2 仍待确认项目
-
-1. **Honcho Dialectic 完整 prompt** — 云端 API，本地无 LLM prompt 模板（无法验证）
-2. **Hindsight local mode** — 启动 embedded daemon 的具体实现和协议
-3. **Mem0 Provider** — 云端 API，具体 LLM prompt 策略未知
-4. **BlueCortexCE Observation Entity Extraction** — 是否已在 LLM prompt 中实现 entities 字段提取？
-5. **BlueCortexCE Observation Category** — 是否可以借鉴 Hermes 的 3 层优先级分类？（Supermemory 的 preference/decision/fact 三分类可参考）
-6. **Honcho memory mirror (on_memory_write)** — `create_conclusion` API 的具体语义是什么？结论和 session 记忆的关系？
-7. **OpenViking Provider** — 尚未分析
-8. **ByteRover Provider** — 尚未分析（383 行，最小的 Provider）
-
----
-
 ## 55. OpenViking Provider — 分层上下文加载 + Filesystem-Style URI 架构（v5.0 新增）
 
 > **文件**: `plugins/memory/openviking/__init__.py:1-637`
@@ -8180,7 +8169,310 @@ def _tool_curate(self, args: dict) -> str:
 
 ---
 
-## 53. 待进一步确认（v5.0 更新）
+## 58. 核心架构澄清：Built-in Memory 与 Plugin Provider 双系统（v5.1 新增）
+
+> **本节为 v5.1 新增**，澄清 Hermes Agent 中 Built-in Memory 与 External Provider 的架构关系，这是理解 Hermes 记忆系统的关键前提。
+
+### 58.1 关键发现：Built-in Memory 独立于 MemoryManager 插件系统
+
+**文件**: `run_agent.py:1148-1153` + `run_agent.py:1192-1198`
+
+之前分析假设 Built-in Memory (`MEMORY.md`/`USER.md`) 是通过 `MemoryManager` 管理的，但实际架构完全不同：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      run_agent.py                            │
+│  ┌──────────────────────────┐  ┌─────────────────────────┐ │
+│  │  Built-in Memory          │  │  MemoryManager          │ │
+│  │  (MemoryStore, direct)    │  │  (Plugin system)        │ │
+│  │  ┌─────────────────────┐  │  │  ┌──────────────────┐   │ │
+│  │  │ MEMORY.md (2200ch)  │  │  │  │ External Plugin  │   │ │
+│  │  │ USER.md (1375ch)    │  │  │  │ (one at a time)  │   │ │
+│  │  │                     │  │  │  └──────────────────┘   │ │
+│  │  │ self._memory_store  │  │  │                         │ │
+│  │  │ (direct, not plugin)│  │  │ self._memory_manager   │ │
+│  │  └─────────────────────┘  │  │                         │ │
+│  └──────────────────────────┘  └─────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**代码证据**：
+
+```python
+# run_agent.py:1148-1153 — Built-in memory 直接初始化，不走 MemoryManager
+if self._memory_enabled or self._user_profile_enabled:
+    from tools.memory_tool import MemoryStore
+    self._memory_store = MemoryStore(
+        memory_char_limit=mem_config.get("memory_char_limit", 2200),
+        user_char_limit=mem_config.get("user_char_limit", 1375),
+    )
+    self._memory_store.load_from_disk()
+
+# run_agent.py:1192-1198 — MemoryManager 只管理外部插件
+if not skip_memory:
+    from agent.memory_manager import MemoryManager as _MemoryManager
+    from plugins.memory import load_memory_provider as _load_mem
+    self._memory_manager = _MemoryManager()
+    _mp = _load_mem(_mem_provider_name)
+    if _mp and _mp.is_available():
+        self._memory_manager.add_provider(_mp)
+```
+
+**结论**：`BuiltinMemoryProvider` 并不存在！Built-in Memory 是 `run_agent.py` 直接管理的模块，不属于 `MemoryManager` 的插件体系。`MemoryManager` 的 `add_provider()` 只能添加一个外部插件，Built-in memory 永远独立运行。
+
+### 58.2 两套记忆系统的职责分工
+
+| 维度 | Built-in Memory (MemoryStore) | External Provider (MemoryManager) |
+|------|-------------------------------|----------------------------------|
+| **存储** | `MEMORY.md`/`USER.md` 平面文件 | Honcho/Mem0/Hindsight 等云服务 |
+| **边界** | 硬字符限制（2200/1375 chars） | 云端 API（无本地限制） |
+| **生命周期** | 进程生命周期（下次启动读取） | 跨进程（云端持久化） |
+| **注入时机** | System prompt（冻结快照） | Prefetch（每轮前注入） |
+| **管理方式** | Agent 直接调用 `memory_tool()` | Agent 通过 `MemoryManager` 调用 |
+| **写入触发** | Agent 显式调用 memory tool | `sync_turn()` 自动写入 |
+
+### 58.3 翻译：旁路型如何理解这个架构
+
+**Hermes 内置记忆的本质**：对 Hermes 来说，"内置记忆" 是 Agent 的**核心有界记忆**（Bounded Memory），用文件存储 + 硬限制保证永远不会无限增长。外部 Provider 是**扩展记忆**（Extended Memory），提供无限容量但依赖第三方。
+
+**对于 BlueCortexCE 的意义**：BlueCortexCE 就是 Hermes 的 "External Provider"，但我们是**自托管的外部记忆服务**。我们提供：
+- 比 Hermes 内置记忆更大的容量（PostgreSQL 存储）
+- 比 Honcho/Mem0 更透明的存储（自托管）
+- 比 Holographic 更可靠的检索（pgvector）
+
+**这不是"内置 vs 外部"的区别，而是"谁控制记忆的边界"**。Hermes 的内置记忆由 Agent 自己管理（有硬限制），BlueCortexCE 作为外部服务也需要考虑如何帮助消费方管理记忆边界（TTL、max_entries、长度限制）。
+
+### 58.4 架构对比图
+
+```
+Hermes Agent (内置型):
+  Agent ←→ Built-in Memory (文件, 硬限制)
+         ↘ External Provider (云服务, 可选)
+
+BlueCortexCE (旁路型):
+  Claude Code/OpenClaw ←→ BlueCortexCE (PostgreSQL, 自主服务)
+                       ↘ (相当于 Hermes 的 External Provider)
+```
+
+---
+
+## 59. Honcho 动态推理级别 — Query-Length 驱动的自适应 LLM 成本控制（v5.1 新增）
+
+> **文件**: `plugins/memory/honcho/session.py:489-516`
+> **本节为 v5.1 新增**，分析 Honcho 的 `_dynamic_reasoning_level` 机制——根据查询长度自动选择推理深度，以控制 LLM 成本。
+
+### 59.1 机制原理
+
+```python
+# plugins/memory/honcho/session.py:489-516
+def _dynamic_reasoning_level(self, query: str) -> str:
+    """
+    Pick a reasoning level for a dialectic query.
+    
+    When dialecticDynamic is true (default), auto-bumps based on query
+    length so Honcho applies more inference where it matters:
+
+      < 120 chars  -> configured default (typically "low")
+      120-400 chars -> +1 level above default (cap at "high")
+      > 400 chars  -> +2 levels above default (cap at "high")
+    
+    "max" is never selected automatically -- reserve it for explicit config.
+    """
+    levels = ["minimal", "low", "mid", "high"]
+    default_idx = levels.index(self._dialectic_reasoning_level)  # default: "low" → index 1
+    n = len(query)
+    if n < 120:
+        bump = 0
+    elif n < 400:
+        bump = 1
+    else:
+        bump = 2
+    # Cap at "high" (index 3) for auto-selection
+    idx = min(default_idx + bump, 3)
+    return levels[idx]
+```
+
+**推理级别**: `minimal → low → mid → high`（从不自动选 `max`）
+
+### 59.2 为什么这样设计
+
+**内置型架构动机**：每次 `dialectic_query` 调用 Honcho 云端 API，都会产生 LLM 推理成本。短查询通常只需要简单的事实查找，不需要深度推理；长查询通常代表复杂问题，需要更深的推理。
+
+**这是"按需推理"的经典成本控制模式**：不是为所有查询支付最高推理成本，而是根据问题的复杂度动态调整。
+
+### 59.3 BlueCortexCE 现状
+
+BlueCortexCE 目前对所有 Observation 检索使用固定的向量相似度排序，没有根据查询复杂度选择不同的检索策略。
+
+### 59.4 翻译：旁路型如何借鉴
+
+**核心思想**：根据查询复杂度选择检索/推理深度，而非一刀切。
+
+**具体建议**：
+
+| 场景 | BlueCortexCE 可借鉴的方式 |
+|------|--------------------------|
+| **短 query（如 "我的用户名是什么"）** | 直接精确匹配 `facts` 字段，不需要向量检索 |
+| **中等 query（如 "上次我怎么部署的"）** | 使用向量相似度检索 |
+| **复杂 query（如 "我在哪个项目里用过 Redis，具体怎么配置的"）** | 先向量检索，再对结果做 LLM 重排序或补充检索 |
+
+**这不是"旁路型 vs 内置型"的问题，而是成本控制的通用原则**。对于 BlueCortexCE：
+- 简单查询 → 直接 SQL 精确匹配（零向量计算成本）
+- 复杂查询 → pgvector 检索 + 可选的 LLM rerank
+
+---
+
+## 60. Honcho 观察模式 — ai_observe_others 双 Peering 架构（v5.1 新增）
+
+> **文件**: `plugins/memory/honcho/session.py:122-123` + `session.py:553-569` + `session.py:965-998`
+> **本节为 v5.1 新增**，分析 Honcho 的 `_ai_observe_others` 配置如何决定结论的归属模式。
+
+### 60.1 两种观察模式
+
+```python
+# plugins/memory/honcho/session.py:122-123
+self._ai_observe_me: bool = config.ai_observe_me if config else True
+self._ai_observe_others: bool = config.ai_observe_others if config else True
+```
+
+**`ai_observe_others = True`（交叉观察模式）**：
+- AI peer 可以观察用户（创建关于用户的结论）
+- 用户是被观察的对象，不能观察 AI
+- 结论创建者：`assistant_peer.conclusions_of(user_peer_id)`
+- 语义："AI 记住了关于用户的观察"
+
+**`ai_observe_others = False`（自我观察模式）**：
+- AI peer 不能观察其他人，只能观察自己
+- 用户创建关于自己的结论（self-conclusion）
+- 结论创建者：`user_peer.conclusions_of(user_peer_id)`
+- 语义："用户自我记录的 profile"
+
+### 60.2 结论创建的双重路由
+
+```python
+# plugins/memory/honcho/session.py:965-998
+def create_conclusion(self, session_key: str, content: str) -> bool:
+    if self._ai_observe_others:
+        # AI peer creates conclusion about user (cross-observation)
+        assistant_peer = self._get_or_create_peer(session.assistant_peer_id)
+        conclusions_scope = assistant_peer.conclusions_of(session.user_peer_id)
+    else:
+        # AI can't observe others — user peer creates self-conclusion
+        user_peer = self._get_or_create_peer(session.user_peer_id)
+        conclusions_scope = user_peer.conclusions_of(session.user_peer_id)
+
+    conclusions_scope.create([{
+        "content": content.strip(),
+        "session_id": session.honcho_session_id,
+    }])
+```
+
+### 60.3 与 BlueCortexCE 对比
+
+| 维度 | Honcho (ai_observe_others=True) | Honcho (ai_observe_others=False) | BlueCortexCE |
+|------|---------------------------------|----------------------------------|--------------|
+| **观察者** | AI peer 观察用户 | 用户自我观察 | N/A（旁路型） |
+| **结论归属** | AI peer 的 memory | User peer 的 memory | 统一 Observation 表 |
+| **适用场景** | 个人 AI 助手 | 共享 AI 助手 | 任意消费方 |
+| **隐私性** | AI 主导 | 用户主导 | 取决于消费方 |
+
+**翻译：旁路型如何落地**：
+- BlueCortexCE 作为外部服务，**不关心"谁观察谁"**——这是消费方（Claude Code/OpenClaw）的职责
+- 但我们可以通过 API 设计支持这种概念：增加 `observation_type` 字段（`user_self_report` / `agent_observation`），让消费方自行标记
+- **实际上**：这进一步说明 BlueCortexCE 的定位是**存储基础设施**，不做语义层的假设
+
+---
+
+## 61. on_memory_write 桥接机制 — create_conclusion 完整语义确认（v5.1 确认）
+
+> **文件**: `plugins/memory/honcho/session.py:965-998` + `plugins/memory/honcho/__init__.py:622-644`
+> **本节为 v5.1 更新**，确认 `on_memory_write` 的完整语义（之前标记为"待确认"）。
+
+### 61.1 完整路由链
+
+```
+Hermes Built-in Memory Tool (USER.md write)
+         ↓
+run_agent.py 检测到 memory tool write
+         ↓
+MemoryManager.on_memory_write("add", "user", content)
+         ↓
+HonchoMemoryProvider.on_memory_write("add", "user", content)
+         ↓
+HonchoSessionManager.create_conclusion(session_key, content)
+         ↓
+conclusions_scope.create([{"content": content, "session_id": honcho_session_id}])
+```
+
+**注意**：只有 `action="add"` 和 `target="user"` 的写入才会同步到 Honcho。`memory` store（Agent 个人笔记）不会同步到 Honcho。
+
+### 61.2 结论确认
+
+- **Honcho Dialectic 完整 prompt**：云端 API，无本地 LLM prompt（✅ 确认）
+- **Honcho memory mirror (on_memory_write)**：`create_conclusion` 的语义是"将被观察者（用户）的 profile 事实写入 Honcho"（✅ 确认）
+- **结论和 session 记忆的关系**：结论通过 `session_id` 与特定 Honcho session 关联，但结论本身是跨 session 的（属于 peer card）
+
+---
+
+## 62. BlueCortexCE Observation 现状确认（v5.1 更新）
+
+> **本节为 v5.1 更新**，确认 BlueCortexCE 的 Observation Entity 字段现状，更新"待确认"列表。
+
+### 62.1 BlueCortexCE Category 字段现状
+
+**文件**: `backend/src/main/resources/prompts/init.txt` + `backend/.../entity/ObservationEntity.java`
+
+**Summary Prompt（init.txt）定义的 `type` 字段**：
+```xml
+<type>[ bugfix | feature | refactor | change | discovery | decision ]</type>
+```
+- **bugfix**: something was broken, now fixed
+- **feature**: new capability or functionality added
+- **refactor**: code restructured, behavior unchanged
+- **change**: generic modification (docs, config, misc)
+- **discovery**: learning about existing system
+- **decision**: architectural/design choice with rationale
+
+**ObservationEntity.java 中的 `type` 字段**：
+```java
+@Column(name = "type", nullable = false)
+@JsonProperty("type")
+private String type;
+```
+- **现状**：`type` 是 `String`，没有 enum 验证
+- **问题**：LLM 可能输出任意字符串，后端不校验
+
+**结论**：✅ Category 系统在 **prompt 层**已实现（6 个类型），但 **entity 层**没有 enum 约束。LLM 可能输出非标准类型。
+
+### 62.2 BlueCortexCE Entity Extraction 字段现状
+
+**ObservationEntity 中没有 `entities` 字段**。现有相关字段：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `facts` | `List<String>` (JSONB) | 事实列表 |
+| `concepts` | `List<String>` (JSONB) | 知识类别标签 |
+| `source` | String | 来源：tool_result / user_statement / llm_inference / manual |
+| `extractedData` | `Map<String, Object>` (JSONB) | 结构化提取数据 |
+
+**没有 dedicated entity extraction**。如果需要提取"实体"（如人名、地点、技术名词），目前只能放在 `facts` 列表中。
+
+**结论**：❌ 尚未实现 dedicated entity extraction（`entities` 字段）。Phase 3 设计中也没有包含 entity extraction。
+
+### 62.3 建议优先级调整
+
+基于确认的现状，更新建议优先级：
+
+| 优先级 | 建议 | 说明 |
+|--------|------|------|
+| **高** | Observation 增加 `category` enum 约束 | 后端增加 enum 校验，而非依赖 prompt 约束 |
+| **高** | 确认 `type` 字段是否被 API 消费者使用 | 如果 WebUI 不显示 type，添加 enum 价值有限 |
+| **中** | 考虑增加 `entities` 字段 | 如果需要从文本中提取命名实体 |
+| **低** | source 字段在 Summary prompt 中提取 | 目前 source 由调用方在 API 层设置 |
+
+---
+
+## 53. 待进一步确认（v5.1 更新）
 
 ### 53.1 本轮已确认项目
 
@@ -8194,14 +8486,1451 @@ def _tool_curate(self, args: dict) -> str:
 8. ✅ ~~Hermes 内置 memory 生命周期机制~~ — **v4.9 已详细分析**：有界精选（硬字符限制）+ 冻结快照 + Agent 显式删除 + 注入扫描
 9. ✅ ~~OpenViking Provider~~ — **v5.0 已详细分析**：分层上下文（L0/L1/L2）+ 6 类提取 + filesystem URI + atexit 安全网
 10. ✅ ~~ByteRover Provider~~ — **v5.0 已详细分析**：CLI wrapper + on_pre_compress 策展 + 3 tools
+11. ✅ ~~Built-in Memory 双系统架构~~ — **v5.1 已澄清**：Built-in Memory (MemoryStore) 不属于 MemoryManager 插件系统，run_agent.py 直接管理
+12. ✅ ~~Honcho 动态推理级别~~ — **v5.1 已分析**：Query-Length 驱动 (<120/low, 120-400/mid, >400/high) + cap at high
+13. ✅ ~~Honcho ai_observe_others 观察模式~~ — **v5.1 已分析**：交叉观察 (AI→User) vs 自我观察 (User→Self) 的双路由
+14. ✅ ~~Honcho on_memory_write → create_conclusion 语义~~ — **v5.1 已确认**：写入 USER profile 事实，与 session 关联但结论跨 session
+15. ✅ ~~BlueCortexCE Observation Category 现状~~ — **v5.1 已确认**：type 字段在 prompt 层已实现 6 类（bugfix/feature/refactor/change/discovery/decision），entity 层无 enum 约束
+16. ✅ ~~BlueCortexCE Observation Entity Extraction~~ — **v5.1 已确认**：无 dedicated entities 字段，只有 facts/concepts
 
 ### 53.2 仍待确认项目
 
-1. **Honcho Dialectic 完整 prompt** — 云端 API，本地无 LLM prompt 模板（无法验证）
-2. **Hindsight local mode** — 启动 embedded daemon 的具体实现和协议
-3. **Mem0 Provider** — 云端 API，具体 LLM prompt 策略未知
-4. **BlueCortexCE Observation Entity Extraction** — 是否已在 LLM prompt 中实现 entities 字段提取？
-5. **BlueCortexCE Observation Category** — v5.0 已提出建议，尚未实现
-6. **Honcho memory mirror (on_memory_write)** — `create_conclusion` API 的具体语义是什么？结论和 session 记忆的关系？
-7. **Hermes Agent Self-Model** — RetainDB 的 `Agent Self-Model` 具体如何影响 behavior？（待进一步查看 agent/ 相关代码）
-8. **Honcho Dialectic 完整行为** — Peer Q&A + Observation 模式的具体实现（需要云端测试）
+1. **Hindsight local mode** — 启动 embedded daemon 的具体实现和协议（云端 API）
+2. **Mem0 Provider** — 云端 API，具体 LLM prompt 策略未知
+3. **Hermes Agent Self-Model** — RetainDB 的 `Agent Self-Model` 具体如何影响 behavior？（需要查看 agent/ 相关代码）
+4. **Honcho Dialectic 完整行为** — Peer Q&A + Observation 模式的具体实现（需要云端测试）
+5. **Honcho Dialectic 完整 prompt** — 云端 API，本地无 LLM prompt 模板（无法验证）
+
+---
+
+## 56. Supermemory 完整 Capture 生命周期 — trivial 过滤 + entity_context 注入 + session batch（v5.2 新增）
+
+> **文件**: `plugins/memory/supermemory/__init__.py:550-650`（`sync_turn`），`plugins/memory/supermemory/__init__.py:598-640`（`on_session_end`）
+> **本节为 v5.2 新增**，分析 Supermemory 的完整 capture 生命周期——从 trivial 过滤到 entity_context 注入，再到 session 级别的 batch ingest。
+
+### 56.1 sync_turn 完整过滤链
+
+Supermemory 的 `sync_turn` 实现了一套**四层过滤机制**，在写入前做严格的质量控制：
+
+```python
+# plugins/memory/supermemory/__init__.py:559-587
+def sync_turn(self, user_content: str, assistant_content: str, *, session_id: str = "") -> None:
+    if not self._active or not self._auto_capture or not self._write_enabled or not self._client:
+        return
+
+    clean_user = _clean_text_for_capture(user_content)
+    clean_assistant = _clean_text_for_capture(assistant_content)
+    if not clean_user or not clean_assistant:
+        return
+
+    # Layer 1: Minimum length check
+    if self._capture_mode == "all":
+        if len(clean_user) < _MIN_CAPTURE_LENGTH or len(clean_assistant) < _MIN_CAPTURE_LENGTH:
+            return  # < 10 chars → skip
+
+        # Layer 2: Trivial message filter
+        if _is_trivial_message(clean_user):
+            return  # "ok", "thanks", "sure", "yes", "no" → skip
+```
+
+**四层过滤**：
+
+| Layer | 条件 | 效果 |
+|-------|------|------|
+| 1 | `_write_enabled=False` | 整个 capture 禁用 |
+| 2 | `clean_user` 或 `clean_assistant` 为空 | 空白内容跳过 |
+| 3 | 长度 < 10 chars（`_MIN_CAPTURE_LENGTH`） | 过短内容跳过 |
+| 4 | `_is_trivial_message(clean_user)` | 纯确认消息跳过 |
+
+### 56.2 Trivial Message 定义
+
+```python
+# plugins/memory/supermemory/__init__.py:32-34
+_TRIVIAL_RE = re.compile(
+    r"^(ok|okay|thanks|thank you|got it|sure|yes|no|yep|nope|k|ty|thx|np)\.?$",
+    re.IGNORECASE,
+)
+
+# 使用：plugins/memory/supermemory/__init__.py:581
+if _is_trivial_message(clean_user):
+    return  # skip
+```
+
+**覆盖的消息类型**：纯确认（ok/yes/sure）、感谢（thanks/thx）、否定（no/nope）、俚语（k/ty）。
+
+### 56.3 entity_context 注入 + 格式化为结构化消息
+
+```python
+# plugins/memory/supermemory/__init__.py:588-600
+content = (
+    f"[role: user]\n{clean_user}\n[user:end]\n\n"
+    f"[role: assistant]\n{clean_assistant}\n[assistant:end]"
+)
+metadata = {"source": "hermes", "type": "conversation_turn"}
+
+def _run():
+    try:
+        self._client.add_memory(
+            content,
+            metadata=metadata,
+            entity_context=self._entity_context  # ← 提取 prompt 注入
+        )
+    except Exception:
+        logger.debug("Supermemory sync_turn failed", exc_info=True)
+
+# 异步写入，防堆积
+if self._sync_thread and self._sync_thread.is_alive():
+    self._sync_thread.join(timeout=2.0)  # 前一个未完成则等待 2s
+self._sync_thread = threading.Thread(target=_run, daemon=True, name="supermemory-sync")
+self._sync_thread.start()
+```
+
+**关键设计**：
+1. **结构化格式**：`[role: user]...[/user:end] / [role: assistant]...[/assistant:end]` — 让 LLM 更容易理解对话边界
+2. **entity_context 随每条记录发送** — Supermemory API 在每次写入时都带上提取 prompt（而不是在配置中固定）
+3. **前序 join 防堆积**：如果上一个 thread 还没完成，等 2s 再启动新的（而不是覆盖）
+
+### 56.4 on_session_end batch ingest
+
+```python
+# plugins/memory/supermemory/__init__.py:602-635
+def on_session_end(self, messages: List[Dict[str, Any]]) -> None:
+    if not self._active or not self._write_enabled or not self._client or not self._session_id:
+        return
+
+    cleaned = []
+    for message in messages or []:
+        role = message.get("role")
+        if role not in ("user", "assistant"):
+            continue
+        content = _clean_text_for_capture(str(message.get("content", "")))
+        if content:
+            cleaned.append({"role": role, "content": content})
+
+    if not cleaned:
+        return
+
+    # 极短 session 跳过（只有 1 条且 < 20 chars）
+    if len(cleaned) == 1 and len(cleaned[0].get("content", "")) < 20:
+        return
+
+    try:
+        self._client.ingest_conversation(self._session_id, cleaned)  # ← batch API
+    except urllib.error.HTTPError:
+        logger.warning("Supermemory session ingest failed", exc_info=True)
+```
+
+**与 sync_turn 的区别**：
+
+| 维度 | `sync_turn`（turn-level） | `on_session_end`（session-level） |
+|------|--------------------------|--------------------------------|
+| 粒度 | 单轮（user + assistant） | 整个 session 的所有消息 |
+| API | `add_memory`（单条） | `ingest_conversation`（batch） |
+| entity_context | ✅ 每条都带 | ❌ 不带（已在 turn-level 处理） |
+| Trivial 过滤 | ✅ | ❌（假设已在 turn-level 过滤） |
+
+### 56.5 与 BlueCortexCE 对比
+
+| 维度 | Supermemory Capture | BlueCortexCE |
+|------|-------------------|--------------|
+| Turn-level 过滤 | 4 层（active/write/min-length/trivial） | ❌ 无（所有 observation 都记录） |
+| Trivial 过滤 | ✅ `_TRIVIAL_RE` | ❌ 无 |
+| 最小长度过滤 | ✅ 10 chars | ❌ 无 |
+| 结构化格式 | `[role: user]...[user:end]` | 纯文本 |
+| Session batch ingest | ✅ `ingest_conversation` | ❌ 无（只有 Observation 单条） |
+| entity_context 注入 | ✅ 每次写入都带 | ❌ 无 |
+
+### 56.6 翻译：旁路型如何借鉴
+
+**Hermes 做法**：Supermemory 在**源头**就做严格过滤，只将高质量的记忆写入存储。
+
+**BlueCortexCE 现状**：BlueCortexCE 的 SessionEnd summary 倾向于总结一切，没有 trivial 过滤。
+
+**翻译：旁路型如何借鉴**：
+
+| 优先级 | 建议 | 说明 |
+|--------|------|------|
+| **高** | BlueCortexCE SessionEnd summary 前增加 trivial 过滤 | 如果 user message 只有 "ok"/"thanks"/"sure"，跳过该轮的 summary 生成 |
+| **高** | BlueCortexCE Observation 写入时增加最小长度过滤 | < 10 chars 的 user message + < 10 chars 的 assistant response 组合，跳过 observation |
+| **中** | BlueCortexCE Observation content 格式化为结构化格式 | `[user]: ... / [assistant]: ...` 替代纯文本，方便后续 LLM 理解对话边界 |
+| **中** | BlueCortexCE SessionEnd 考虑 batch observation | 不只是 summary，SessionEnd 可以同时生成多个精选的 Observation（而非依赖后续的 refinement） |
+
+---
+
+## 57. Dialectic Synthesis 对比 — Honcho peer.chat() vs RetainDB ask_user（v5.2 新增）
+
+> **文件**: `plugins/memory/honcho/session.py:415-460`（Honcho dialectic），`plugins/memory/retaindb/__init__.py:269-275`（RetainDB ask_user）
+> **本节为 v5.2 新增**，分析两种不同的 LLM-powered 用户理解合成方法。
+
+### 57.1 两种架构的本质差异
+
+Hermes 中有两个 Provider 支持 LLM 合成式的用户理解（dialectic synthesis），但架构完全不同：
+
+| 维度 | Honcho `peer.chat()` | RetainDB `ask_user()` |
+|------|---------------------|----------------------|
+| 架构 | 多 Agent（AI peer ↔ User peer） | 单一用户问答 |
+| 观察模式 | `ai_observe_others` 控制交叉/自我 | 无观察模式 |
+| 推理级别 | 动态（query length 驱动） | 静态（low/medium/high 参数） |
+| Session 关联 | 跨 session（conclusion 写回 profile） | Session 粒度 |
+| 本地控制 | 极少（云端全权处理） | 极少（云端全权处理） |
+
+### 57.2 Honcho dialectic_query — 多 Agent 观察架构
+
+```python
+# plugins/memory/honcho/session.py:415-460
+def dialectic_query(self, session_key: str, query: str,
+                    reasoning_level: str | None = None,
+                    peer: str = "user") -> str:
+    level = reasoning_level or self._dynamic_reasoning_level(query)  # 动态推理级别
+
+    if self._ai_observe_others:
+        # 交叉观察路由
+        if peer == "ai":
+            ai_peer_obj = self._get_or_create_peer(session.assistant_peer_id)
+            result = ai_peer_obj.chat(query, reasoning_level=level) or ""
+        else:
+            # AI peer 观察 User peer
+            ai_peer_obj = self._get_or_create_peer(session.assistant_peer_id)
+            result = ai_peer_obj.chat(query, target=session.user_peer_id, reasoning_level=level)
+    else:
+        # 自我观察路由
+        peer_id = session.assistant_peer_id if peer == "ai" else session.user_peer_id
+        target_peer = self._get_or_create_peer(peer_id)
+        result = target_peer.chat(query, reasoning_level=level)
+```
+
+**Honcho 的核心模型**：
+- **两个 Peer**：User Peer（代表用户）和 AI Peer（代表 AI 自身）
+- **交叉观察**：`ai_observe_others=True` 时，AI Peer 可以"观察"User Peer（通过 `target=user_peer_id` 参数）
+- **AI 观察 AI**：AI Peer 也可以观察自己的历史（`peer="ai"`）
+- **Conclusion 写回**：通过 `create_conclusion` 写回 Honcho 云端，跨 session 持久化
+
+### 57.3 RetainDB ask_user — 简化问答架构
+
+```python
+# plugins/memory/retaindb/__init__.py:269-275
+def ask_user(self, user_id: str, query: str, reasoning_level: str = "low") -> dict:
+    return self.request("POST", f"/v1/memory/profile/{quote(user_id, safe='')}/ask", json_body={
+        "project": self.project,
+        "query": query,
+        "reasoning_level": reasoning_level,  # 低/中/高
+    }, timeout=8.0)
+```
+
+**RetainDB 的核心模型**：
+- **单一 User**：没有 AI peer，只有 User
+- **直接问答**：直接对用户 memory 提问，返回合成答案
+- **推理级别参数化**：`low` / `medium` / `high` 三档（由调用方根据 query 长度选择）
+- **Prefetch 支持**：在 `_prefetch_dialectic` 中预取，下个 turn 使用
+
+### 57.4 推理级别决策对比
+
+**Honcho（动态）**：
+```python
+# plugins/memory/honcho/session.py:475-480
+def _dynamic_reasoning_level(self, query: str) -> str:
+    n = len(query)
+    if n < 120:
+        return "low"
+    if n < 400:
+        return "medium"
+    return "high"
+```
+
+**RetainDB（静态参数）**：
+```python
+# plugins/memory/retaindb/__init__.py:589-594
+@staticmethod
+def _reasoning_level(query: str) -> str:
+    n = len(query)
+    if n < 120:
+        return "low"
+    if n < 400:
+        return "medium"
+    return "high"
+```
+
+**两者算法完全相同**！都是基于 query length 的简单分段（120/400 chars）。
+
+### 57.5 BlueCortexCE `/api/context/generate` 当前实现
+
+BlueCortexCE 的 `/api/context/generate`（ContextService）只有一个实现，没有分层推理机制。
+
+### 57.6 翻译：旁路型如何借鉴
+
+**Honcho 的设计思想**：多 Agent 观察模型——AI 不仅要理解用户，还要理解自身。这对旁路型有借鉴意义：**BlueCortexCE 可以提供"AI 自我认知"的端点**（类似 Honcho 的 `peer="ai"`）。
+
+**RetainDB 的设计思想**：单一用户问答 + 推理级别参数化。这更简单直接：**BlueCortexCE 可以提供推理级别参数**（类似 `reasoning_level`），让消费方控制 LLM 合成深度。
+
+| 优先级 | 建议 | 说明 |
+|--------|------|------|
+| **高** | BlueCortexCE `/api/context/generate` 增加 `reasoning_level` 参数 | low（简单匹配）/medium（中等推理）/high（深度综合），类似 RetainDB 的三级参数 |
+| **中** | BlueCortexCE 增加 `/api/context/generate` AI-self 查询模式 | 类似 Honcho 的 `peer="ai"`，允许查询"AI 过去对这个项目的理解" |
+| **低** | BlueCortexCE 考虑 Conclusion 写回机制 | 类似 Honcho `create_conclusion`，允许消费方将"结论"写回 profile |
+
+---
+
+## 58. RetainDB Agent Self-Model — SOUL.md 播种 + Self-Model Prefetch 机制（v5.2 新增）
+
+> **文件**: `plugins/memory/retaindb/__init__.py:505-530`（seed），`plugins/memory/retaindb/__init__.py:579-620`（prefetch + 组装）
+> **本节为 v5.2 新增**，详细分析 RetainDB 的 Agent Self-Model 机制——如何将 SOUL.md 播种到云端并在每次启动时检索回来。
+
+### 58.1 设计意图
+
+RetainDB 是**唯一实现 Agent Self-Model** 的 Provider。它的设计理念是：
+- Agent 的**自我认知**（SOUL.md 定义的身份、价值观、工作方式）应该作为记忆被存储和检索
+- 这使得 Agent 的自我认知可以在**跨 session** 中保持一致
+- 同时允许多个 Agent（不同 persona）共享同一个 RetainDB 实例
+
+### 58.2 SOUL.md 播种（initialize 时）
+
+```python
+# plugins/memory/retaindb/__init__.py:505-528
+def _seed_soul(self, content: str) -> None:
+    """Seed the agent's SOUL.md content as its self-model."""
+    try:
+        self._client.seed_agent_identity(self._agent_id, content, source="soul_md")
+    except Exception as exc:
+        logger.debug("RetainDB soul seed failed: %s", exc)
+
+def initialize(self, session_id: str, **kwargs) -> None:
+    # ...
+    from hermes_constants import get_hermes_home
+    hermes_home_path = get_hermes_home()
+    db_path = hermes_home_path / "retaindb_queue.db"
+    self._queue = _WriteQueue(self._client, db_path)
+
+    # Seed agent identity from SOUL.md in background
+    soul_path = hermes_home_path / "SOUL.md"
+    if soul_path.exists():
+        soul_content = soul_path.read_text(encoding="utf-8", errors="replace").strip()
+        if soul_content:
+            threading.Thread(
+                target=self._seed_soul,
+                args=(soul_content,),
+                name="retaindb-soul-seed",
+                daemon=True,  # 后台异步，不阻塞 initialize
+            ).start()
+```
+
+**关键细节**：
+1. 在 `initialize()` 中启动一个 **daemon thread** 异步播种
+2. 读取 `SOUL.md` 的原始内容（与 BlueCortexCE 的 SOUL.md 完全相同）
+3. 调用 `seed_agent_identity` API 将内容写入 RetainDB 云端
+
+### 58.3 Self-Model 检索（prefetch + 组装）
+
+```python
+# plugins/memory/retaindb/__init__.py:579-586
+def _prefetch_agent_model(self) -> None:
+    """Retrieve agent's self-model and cache it."""
+    try:
+        model = self._client.get_agent_model(self._agent_id)
+        if model.get("memory_count", 0) > 0:
+            with self._lock:
+                self._agent_model = model
+    except Exception as exc:
+        logger.debug("RetainDB agent model prefetch failed: %s", exc)
+
+# plugins/memory/retaindb/__init__.py:598-620
+def prefetch(self, query: str, *, session_id: str = "") -> str:
+    # ...
+    if agent_model and agent_model.get("memory_count", 0) > 0:
+        model_lines: list[str] = []
+        if agent_model.get("persona"):
+            model_lines.append(f"Persona: {agent_model['persona']}")
+        if agent_model.get("persistent_instructions"):
+            model_lines.append("Instructions:\n" + "\n".join(f"- {i}" for i in agent_model["persistent_instructions"]))
+        if agent_model.get("working_style"):
+            model_lines.append(f"Working style: {agent_model['working_style']}")
+        if model_lines:
+            parts.append("[RetainDB Agent Self-Model]\n" + "\n".join(model_lines))
+```
+
+**检索结果的结构**（由云端从 `seed_agent_identity` 内容中解析）：
+
+| 字段 | 来源 | 说明 |
+|------|------|------|
+| `persona` | SOUL.md 中解析出的 persona 描述 | AI 的人格特征 |
+| `persistent_instructions` | SOUL.md 中解析出的持久指令 | Agent 的行为准则 |
+| `working_style` | SOUL.md 中解析出的工作风格 | Agent 的工作方式 |
+| `memory_count` | 云端统计 | 关联的记忆数量 |
+
+**注意**：RetainDB 云端对 SOUL.md 内容做了**LLM 解析**，将非结构化的内容转换为结构化的 persona/instructions/working_style 字段。
+
+### 58.4 三个并行 Prefetch 的完整流程
+
+RetainDB 的 `queue_prefetch` 同时启动**三个**后台 prefetch：
+
+```python
+# plugins/memory/retaindb/__init__.py:543-556
+def queue_prefetch(self, query: str, *, session_id: str = "") -> None:
+    if not self._client:
+        return
+    # Wait for previous prefetch threads to avoid accumulation
+    for t in self._prefetch_threads:
+        t.join(timeout=2.0)
+
+    threads = [
+        threading.Thread(target=self._prefetch_context, args=(query,), name="retaindb-ctx", daemon=True),
+        threading.Thread(target=self._prefetch_dialectic, args=(query,), name="retaindb-dialectic", daemon=True),
+        threading.Thread(target=self._prefetch_agent_model, name="retaindb-agent-model", daemon=True),
+    ]
+    self._prefetch_threads = threads
+    for t in threads:
+        t.start()
+```
+
+**三个并行 prefetch 的目标**：
+
+| Prefetch | 目标内容 | LLM 成本 | 用途 |
+|----------|---------|---------|------|
+| `_prefetch_context` | profile + query context overlay | 无（vector search） | 快速事实检索 |
+| `_prefetch_dialectic` | `ask_user` 合成答案 | 有（低/中/高级） | 深度用户理解 |
+| `_prefetch_agent_model` | Agent 自我认知 | 无（API 直接返回） | 身份一致性 |
+
+### 58.5 与 BlueCortexCE 对比
+
+| 维度 | RetainDB Agent Self-Model | BlueCortexCE |
+|------|--------------------------|--------------|
+| SOUL.md 播种 | ✅ 启动时自动播种到云端 | N/A（SOUL.md 定义在本地） |
+| 自我认知检索 | ✅ prefetch 后注入 system prompt | ❌ 无 |
+| 结构化解析 | ✅ 云端 LLM 解析 persona/instructions | ❌ 无 |
+| 跨 Agent 共享 | ✅ 多个 agent 可以播种到同一 RetainDB | ❌ 无 |
+| 注入方式 | `[RetainDB Agent Self-Model]` 块注入 | N/A |
+
+### 58.6 翻译：旁路型如何借鉴
+
+**核心洞察**：RetainDB 的 Agent Self-Model 机制将 SOUL.md 从"静态定义"变成"动态记忆"。在 Hermes 内置型架构中，这意味着 Agent 的自我认知可以跨 session 累积和更新。
+
+**对 BlueCortexCE 的意义**：在旁路型架构中，消费方（Claude Code/OpenClaw）自己管理 SOUL.md，不需要我们提供 Agent Self-Model。
+
+**但有借鉴价值的点**：
+1. **自我认知端点**：BlueCortexCE 可以提供 `/api/agent/profile` 端点，允许消费方播种 agent 身份信息
+2. **Phase 3 Structured Extraction 的 category**：RetainDB 云端将 SOUL.md 解析为 persona/instructions/working_style，Phase 3 的 extraction templates 可以借鉴这个分类
+
+---
+
+## 60. ContextCompressor Phase 1-4 压缩算法（v5.3 新增）
+
+**文件**: `agent/context_compressor.py` (1091 lines)
+
+### 60.1 架构定位
+
+`ContextCompressor` 是 Hermes 内置的**默认 Context Engine**，通过插件机制可替换为 LCM 等第三方引擎。架构设计在 `agent/context_engine.py`（184行，抽象基类）中定义：
+
+```python
+# agent/context_engine.py:1-50
+class ContextEngine(ABC):
+    """Base class all context engines must implement."""
+    # Core interface: update_from_response(), should_compress(), compress()
+    # Optional: on_session_start/end/reset, get_tool_schemas(), handle_tool_call()
+    # Token tracking: last_prompt_tokens, last_completion_tokens, threshold_tokens
+```
+
+**Context Engine 在 Hermes 中的位置**：记忆系统（MemoryManager/Provider）与 Context Engine 是**两个独立子系统**，通过 run_agent.py 协同工作：
+- MemoryManager: 负责外部记忆的读写/prefetch
+- ContextEngine: 负责对话上下文的压缩
+
+### 60.2 四阶段压缩算法
+
+```python
+# agent/context_compressor.py:927-1070
+def compress(self, messages, current_tokens=None, focus_topic=None):
+    # Phase 1: Prune old tool results (cheap, no LLM call)
+    messages, pruned_count = self._prune_old_tool_results(...)
+
+    # Phase 2: Determine boundaries
+    compress_start = self.protect_first_n  # 默认3条消息
+    compress_end = self._find_tail_cut_by_tokens(messages, compress_start)
+    turns_to_summarize = messages[compress_start:compress_end]
+
+    # Phase 3: Generate structured summary (LLM call)
+    summary = self._generate_summary(turns_to_summarize, focus_topic=focus_topic)
+
+    # Phase 4: Assemble compressed message list
+    compressed = [protected head messages...]
+    if not _merge_summary_into_tail:
+        compressed.append({"role": summary_role, "content": summary})
+    compressed.extend([protected tail messages...])
+    return self._sanitize_tool_pairs(compressed)
+```
+
+#### Phase 1: Tool Result Pruning（无 LLM 成本）
+
+`_prune_old_tool_results()` 在不调用 LLM 的情况下做三件事：
+
+1. **Deduplication**（去重）：相同文件多次读取，只保留最新完整副本，旧的替换为 `[Duplicate tool output — same content as a more recent call]`
+   ```python
+   # context_compressor.py:397-413
+   for i in range(len(result) - 1, -1, -1):
+       if role == "tool" and len(content) >= 200:
+           h = md5(content[:12])
+           if h in content_hashes:
+               result[i] = {**msg, "content": "[Duplicate tool output — same content as a more recent call]"}
+   ```
+
+2. **长工具输出摘要**：>200 字符的工具输出替换为 1 行摘要
+   ```python
+   # context_compressor.py:50-75
+   def _summarize_tool_result(tool_name, tool_args, tool_content) -> str:
+       # [terminal] ran `npm test` -> exit 0, 47 lines output
+       # [read_file] read config.py from line 1 (3,400 chars)
+       # [search_files] content search for 'compress' in agent/ -> 12 matches
+   ```
+
+3. **工具参数截断**：assistant 消息中的超长 tool_call arguments（前200字符 + `...truncated]`）
+
+**Token-budget tail protection**：Pruning 边界由 `protect_tail_tokens`（默认 `tail_token_budget`）决定，而非固定的 `protect_last_n` 消息数。
+
+#### Phase 2: 边界确定
+
+```python
+# context_compressor.py:871-916
+def _find_tail_cut_by_tokens(self, messages, head_end, token_budget=None):
+    # 硬性最少保护3条消息
+    # 软上限 = token_budget * 1.5（允许在 oversized 消息上溢出）
+    # 永远不在 tool_call/result 组内切割（_align_boundary_backward）
+```
+
+**关键参数**：
+- `tail_token_budget = threshold_tokens * summary_target_ratio` = `context_length * 50% * 20%` = `10% context_length`
+- `max_summary_tokens = min(context_length * 5%, 12,000)` = 约 8K for 200K context
+
+#### Phase 3: LLM Summarization（见第 62 节详情）
+
+#### Phase 4: 组装 + 工具对完整性
+
+```python
+# context_compressor.py:755-808
+def _sanitize_tool_pairs(self, messages):
+    # 1. 删除没有匹配 assistant tool_call 的 orphaned tool results
+    # 2. 为没有 tool result 的 orphaned tool_calls 注入 stub:
+    #    "Result from earlier conversation — see context summary above"
+```
+
+**Summary 角色选择**：避免与 head/tail 角色连续冲突。若都冲突，则 merge 到第一个 tail message 内部（而非独立消息）。
+
+### 60.3 与 BlueCortexCE 对比
+
+| 维度 | Hermes ContextCompressor | BlueCortexCE |
+|------|------------------------|--------------|
+| 压缩触发 | `should_compress()` 基于 token threshold | N/A（我们不压缩自己的上下文） |
+| Pruning 算法 | Hash 去重 + 工具输出摘要 | N/A |
+| 摘要模板 | 11段式结构化模板 | N/A |
+| 迭代摘要 | `_previous_summary` 跨压缩轮次传递 | N/A |
+| 工具对完整性 | `_sanitize_tool_pairs()` 自动修复 | N/A |
+
+### 60.4 翻译：旁路型如何借鉴
+
+**核心价值**：ContextCompressor 展示了一套完整的"上下文压缩"工程实现。虽然 BlueCortexCE 不压缩自己的上下文，但其中的思想可以借鉴：
+
+1. **Phase 1 Pruning 思想**：对于 BlueCortexCE 的 `/api/context/generate` 响应，可以实现类似去重——相同 session 的重复 observation 只返回最新
+2. **Tool output 摘要化**：BlueCortexCE 的 observation 存储可以考虑类似策略：大量相似 observation 时做合并而非全部返回
+3. **11段式 Summary Template**：可以直接借鉴到 BlueCortexCE 的 session summary 功能
+
+**优先级**：中（Phase 1/2/4 思想对 BlueCortexCE 参考价值一般；11段式模板参考价值高）
+
+---
+
+## 61. Critical Bug：`on_pre_compress` Hook 返回值被丢弃（v5.3 新增）
+
+### 61.1 Bug 详情
+
+**文件**: `run_agent.py:6800-6810`
+
+```python
+# run_agent.py:6800-6810
+def _compress_context(self, messages, system_message, *, approx_tokens=None, focus_topic=None):
+    # ...
+    # Pre-compression memory flush: let the model save memories before they're lost
+    self.flush_memories(messages, min_turns=0)
+
+    # Notify external memory provider before compression discards context
+    if self._memory_manager:
+        try:
+            self._memory_manager.on_pre_compress(messages)  # ❌ 返回值被丢弃！
+        except Exception:
+            pass
+
+    compressed = self.context_compressor.compress(messages, current_tokens=approx_tokens, focus_topic=focus_topic)
+```
+
+**问题**：`memory_manager.on_pre_compress(messages)` 返回一个合并的字符串（来自所有 provider 的 pre-compression insight），但这个返回值**完全没有被使用**——既没有传给 `compress()` 也没有注入到任何地方。
+
+### 61.2 `on_pre_compress` 的设计意图
+
+根据 `agent/memory_provider.py:163-175` 的文档注释：
+
+```python
+def on_pre_compress(self, messages: List[Dict[str, Any]]) -> str:
+    """Called before context compression discards old messages.
+
+    Use to extract insights from messages about to be compressed.
+    Return text to include in the compression summary prompt so the
+    compressor preserves provider-extracted insights. Return empty
+    string to skip.
+    """
+```
+
+**设计意图**：让 memory provider 在压缩前"抢救"即将丢弃的上下文，将关键洞察以文本形式返回，**注入到压缩 summary prompt 中**，供 LLM summarizer 在生成摘要时保留这些信息。
+
+### 61.3 现有 Provider 的 on_pre_compress 实现
+
+| Provider | 实现 | 返回值 |
+|----------|------|--------|
+| Base MemoryProvider | 默认空实现 | `""` |
+| ByteRover | 后台异步写入外部存储 | `""` |
+| Honcho | 未覆盖 | `""` |
+| RetainDB | 未覆盖 | `""` |
+| Hindsight | 未覆盖 | `""` |
+
+**没有任何 Provider 返回非空字符串**，所以即使 bug 修复，当前也不会有实际效果。但 ByteRover 的实现表明设计意图是：在这个时机将即将丢失的上下文 flush 到外部 memory 系统。
+
+### 61.4 Bug 影响
+
+1. **Memory Provider 无法在压缩前"抢救"即将丢失的上下文** — ByteRover 等 provider 虽有实现，但返回值被丢弃意味着没有任何文本被注入到 summary prompt
+2. **压缩摘要丢失 Provider 洞察** — 外部 memory provider 提取的洞察无法被 LLM summarizer 保留在压缩摘要中
+3. **这是一个静默失败** — 没有任何日志或警告，开发者很难发现
+
+### 61.5 正确修复方式
+
+`on_pre_compress` 的返回值应该被传递给 `compress()` 并注入到 summary prompt 的 system preamble 中：
+
+```python
+# run_agent.py:6804（修复后）
+if self._memory_manager:
+    try:
+        precompress_block = self._memory_manager.on_pre_compress(messages)
+    except Exception:
+        precompress_block = ""
+else:
+    precompress_block = ""
+
+compressed = self.context_compressor.compress(
+    messages,
+    current_tokens=approx_tokens,
+    focus_topic=focus_topic,
+    precompress_insights=precompress_block,  # 新增参数
+)
+```
+
+然后在 `_generate_summary()` 的 prompt 中注入：
+
+```python
+# context_compressor.py（修复后）
+if precompress_insights:
+    prompt += f"\n\n[External Memory Provider Pre-Compression Insights]\n{precompress_insights}"
+```
+
+### 61.6 与 BlueCortexCE 的关系
+
+**架构差异**：BlueCortexCE 作为旁路型系统，不参与 Agent 的上下文压缩决策。这个 bug 不会直接映射到 BlueCortexCE。
+
+**间接价值**：
+- 这个 bug 说明 Hermes 的 memory provider 与 context engine 之间的**集成存在设计不完整**
+- BlueCortexCE 的 `/api/context/generate` 实现应该确保：调用方传入的 session messages 压缩/整理逻辑与返回的 context 之间的关系是**明确的、无隐式丢弃**
+
+**翻译：旁路型如何借鉴**
+
+在 BlueCortexCE 中，我们可以提供类似 `on_pre_compress` 的机制：
+
+1. **提取前钩子**：在 context 生成前，允许消费方注入 pre-processing 逻辑
+2. **明确的返回值契约**：如果某个 hook 返回文本，必须明确这个文本是否/如何影响最终输出
+
+**优先级**：低（对我们暂无直接影响，但提醒我们在设计 API 时要注意"返回值被丢弃"的静默失败模式）
+
+---
+
+## 62. 11段式 Summary Template + Iterative Update 机制（v5.3 新增）
+
+### 62.1 Summary Template 完整结构
+
+**文件**: `agent/context_compressor.py:538-610`
+
+```python
+_template_sections = f"""## Goal
+[What the user is trying to accomplish]
+
+## Constraints & Preferences
+[User preferences, coding style, constraints, important decisions]
+
+## Completed Actions
+[Numbered list of concrete actions taken — include tool used, target, and outcome.
+Format each as: N. ACTION target — outcome [tool: name]
+Example:
+1. READ config.py:45 — found `==` should be `!=` [tool: read_file]
+2. PATCH config.py:45 — changed `==` to `!=` [tool: patch]
+3. TEST `pytest tests/` — 3/50 failed: test_parse, test_validate, test_edge [tool: terminal]
+Be specific with file paths, commands, line numbers, and results.]
+
+## Active State
+[Current working state — include:
+- Working directory and branch (if applicable)
+- Modified/created files with brief note on each
+- Test status (X/Y passing)
+- Any running processes or servers
+- Environment details that matter]
+
+## In Progress
+[Work currently underway — what was being done when compaction fired]
+
+## Blocked
+[Any blockers, errors, or issues not yet resolved. Include exact error messages.]
+
+## Key Decisions
+[Important technical decisions and WHY they were made]
+
+## Resolved Questions
+[Questions the user asked that were ALREADY answered — include the answer so the next assistant does not re-answer them]
+
+## Pending User Asks
+[Questions or requests from the user that have NOT yet been answered or fulfilled. If none, write "None."]
+
+## Relevant Files
+[Files read, modified, or created — with brief note on each]
+
+## Remaining Work
+[What remains to be done — framed as context, not instructions]
+
+## Critical Context
+[Any specific values, error messages, configuration details, or data that would be lost without explicit preservation]
+"""
+```
+
+### 62.2 Preamble：防止回答的指令
+
+```python
+# context_compressor.py:549-555
+_summarizer_preamble = (
+    "You are a summarization agent creating a context checkpoint. "
+    "Your output will be injected as reference material for a DIFFERENT "
+    "assistant that will continue the conversation. "
+    "Do NOT respond to any questions or requests in the conversation — "
+    "only output the structured summary. "
+    "Do NOT include any preamble, greeting, or prefix."
+)
+```
+
+**两个关键设计**：
+1. "Do NOT respond to any questions" — 防止 summarizer 在摘要中回答问题
+2. "for a DIFFERENT assistant" — 让 summarizer 以"交接"而非"继续"的视角工作
+
+### 62.3 Iterative Update（跨压缩轮次）
+
+当 `_previous_summary` 存在时（即不是第一次压缩），prompt 结构变为：
+
+```
+PREVIOUS SUMMARY:
+{_previous_summary}
+
+NEW TURNS TO INCORPORATE:
+{content_to_summarize}
+
+Update the summary using this exact structure. PRESERVE all existing information
+that is still relevant. ADD new completed actions to the numbered list (continue numbering).
+Move items from "In Progress" to "Completed Actions" when done.
+Move answered questions to "Resolved Questions". Update "Active State" to reflect current state.
+Remove information only if it is clearly obsolete.
+```
+
+**关键区别**：第一次压缩是 "Create a structured handoff summary from scratch"；后续压缩是 "Update the existing summary by incorporating new turns"。
+
+### 62.4 Focus Topic（/compress <topic>）
+
+当用户通过 `/compress <focus>` 指定主题时，prompt 末尾追加：
+
+```python
+# context_compressor.py:609-614
+if focus_topic:
+    prompt += f"""
+
+FOCUS TOPIC: "{focus_topic}"
+The user has requested that this compaction PRIORITISE preserving all information
+related to the focus topic above. For content related to "{focus_topic}", include
+full detail — exact values, file paths, command outputs, error messages, and decisions.
+For content NOT related to the focus topic, summarise more aggressively...
+The focus topic sections should receive roughly 60-70% of the summary token budget."""
+```
+
+**60-70% 预算聚焦**在 focus topic 相关的内容上，而非均匀分配。
+
+### 62.5 与 BlueCortexCE 对比
+
+| 维度 | Hermes Summary Template | BlueCortexCE |
+|------|------------------------|--------------|
+| Template 段数 | 11段 | N/A（我们不做 summarization） |
+| 动作格式 | `N. ACTION target — outcome [tool: name]` | 类似但不区分 tool |
+| 迭代更新 | ✅ `_previous_summary` 跨轮次 | ❌ 无 |
+| Focus 聚焦 | ✅ 60-70% 预算集中 | ❌ 无 |
+| 交接语气 | "different assistant" + "do not answer" | N/A |
+
+### 62.6 翻译：旁路型如何借鉴
+
+**对 BlueCortexCE 最有价值的借鉴**：这个模板**可以直接移植**用于 BlueCortexCE 的 session summary 生成。
+
+我们可以用 `/api/sessions/{id}/summary` 端点返回类似的结构化摘要，而不是纯文本摘要。
+
+```json
+{
+  "goal": "...",
+  "constraints": "...",
+  "completed_actions": [
+    "1. READ config.py:45 — found `==` should be `!=`"
+  ],
+  "active_state": "...",
+  "in_progress": "...",
+  "blocked": "...",
+  "key_decisions": "...",
+  "resolved_questions": "...",
+  "pending_user_asks": "...",
+  "relevant_files": "...",
+  "remaining_work": "...",
+  "critical_context": "..."
+}
+```
+
+**Phase 3 关联**：Phase 3 的 extraction templates 可以参考 `Completed Actions` 和 `Active State` 的格式。
+
+**优先级**：高（11段式模板对 BlueCortexCE 的 session summary 功能有直接参考价值）
+
+---
+
+## 63. Anti-thrashing + Fallback 机制（v5.3 新增）
+
+### 63.1 Anti-thrashing（防震荡）
+
+```python
+# context_compressor.py:307-330
+def should_compress(self, prompt_tokens: int = None) -> bool:
+    # 如果最近2次压缩每次节省都 <10%，跳过压缩
+    if self._ineffective_compression_count >= 2:
+        logger.warning(
+            "Compression skipped — last %d compressions saved <10%% each. "
+            "Consider /new to start a fresh session, or /compress <topic> "
+            "for focused compression.",
+            self._ineffective_compression_count,
+        )
+        return False
+    return True
+```
+
+**判断标准**：连续 2 次压缩节省 token 均 <10%。这防止在内容极少的对话中无限循环压缩。
+
+**用户引导**：`Consider /new` 或 `/compress <topic>` — 告知用户如何打破僵局。
+
+### 63.2 Summary Model Fallback
+
+```python
+# context_compressor.py:710-740
+# 如果 summary_model 不可用（404/503/model_not_found），fallback 到主模型
+if (_is_model_not_found and self.summary_model
+        and self.summary_model != self.model
+        and not getattr(self, "_summary_model_fallen_back", False)):
+    self.summary_model = ""  # empty = use main model
+    return self._generate_summary(messages, summary_budget)  # retry immediately
+```
+
+### 63.3 Summary Generation Failure Fallback
+
+当 LLM summarization 完全失败时，注入**静态 fallback marker** 而非静默丢弃：
+
+```python
+# context_compressor.py:1019-1028
+if not summary:
+    summary = (
+        f"{SUMMARY_PREFIX}\n"
+        f"Summary generation was unavailable. {n_dropped} conversation turns were "
+        f"removed to free context space but could not be summarized. The removed "
+        f"turns contained earlier work in this session. Continue based on the "
+        f"recent messages below and the current state of any files or resources."
+    )
+```
+
+**关键**：即使 LLM summarization 失败，也要告知模型"上下文被删除了"，而非静默丢失。
+
+### 63.4 与 BlueCortexCE 对比
+
+| 维度 | Hermes Anti-thrashing | BlueCortexCE |
+|------|----------------------|--------------|
+| 防震荡机制 | 2次<10%保存则跳过 | ❌ 无（我们不压缩） |
+| Fallback chain | summary_model → main model | N/A |
+| 静默失败防止 | ✅ 生成 static fallback marker | ❌ 无对应 |
+
+### 63.5 翻译：旁路型如何借鉴
+
+**对我们最有价值的点**：
+1. **静默失败防止**：`/api/context/generate` 即使在某些 session 找不到记忆，也应该返回明确的"no memory found" marker，而非 empty 响应
+2. **连续失败上报**：如果 context generation 连续失败 N 次，应该返回警告/降级响应，而非重复尝试
+
+**优先级**：中（思想借鉴，具体实现不适用）
+
+---
+
+## 67. 待进一步确认（v5.4 更新）
+
+# v6.0 本轮新增（2026-04-17 05:00）
+
+本轮聚焦于两个之前未深入分析的内置工具：**Built-in Memory Tool**（MEMORY.md/USER.md bounded curated memory）和 **Session Search Tool**（FTS5 + LLM summarization），以及 **Holographic HRR Vector Store** 完整实现分析。
+
+---
+
+## 68. Built-in Memory Tool — 有界精选 + 冻结快照 + 原子写入（v6.0 新增）
+
+### 68.1 核心架构：Frozen Snapshot Pattern
+
+**文件**：`tools/memory_tool.py`
+
+Built-in Memory Tool 采用 **Frozen Snapshot Pattern**，这是其最独特的设计：
+
+```python
+# memory_tool.py:90-93
+class MemoryStore:
+    # 两种并行状态：
+    self._system_prompt_snapshot: Dict[str, str]  # session 开始时冻结，永不改变
+    self.memory_entries / self.user_entries        # live state，随时可变
+```
+
+**核心原则**：
+- 系统 prompt 中的 memory 在 session 开始时**快照注入一次**，之后不再改变
+- Session 中途的 `memory add/replace/remove` **立即持久化到磁盘**，但不改变已注入的 system prompt
+- 下一轮 session 开始时，新快照会包含最新的 memory
+
+**为什么这样做**：保持 system prompt **前缀缓存稳定**。如果每次 memory 变更都更新 system prompt，prefix cache 就会失效，导致每轮都需要重新 tokenize 前缀（昂贵）。
+
+### 68.2 写入安全：威胁扫描 + 文件锁
+
+**注入防护**（`_scan_memory_content`，memory_tool.py:59-83）：
+
+```python
+_MEMORY_THREAT_PATTERNS = [
+    # Prompt injection patterns
+    r'ignore\s+(previous|all|above|prior)\s+instructions',
+    r'you\s+are\s+now\s+',
+    r'do\s+not\s+tell\s+the\s+user',
+    r'system\s+prompt\s+override',
+    r'disregard\s+(your|all|any)\s+(instructions|rules|guidelines)',
+    # Exfiltration via curl/wget with secrets
+    r'curl\s+[^\n]*\$\{?\w*(KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|API)',
+    r'wget\s+[^\n]*\$\{?\w*(KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|API)',
+    r'cat\s+[^\n]*(\.env|credentials|\.netrc|\.pgpass|\.npmrc|\.pypirc)',
+    r'authorized_keys',
+    r'\$HOME/\.ssh|\~/\.ssh',
+    r'\$HOME/\.hermes/\.env|\~/\.hermes/\.env',
+]
+```
+
+- 检查不可见 Unicode 字符（U+200B zero-width space 等）
+- 检查威胁 pattern，拒绝注入内容进入 system prompt
+
+**原子写入**（`_write_file`，memory_tool.py:310-335）：
+
+```python
+# 先写临时文件，fsync，再 os.replace（同一文件系统上原子替换）
+fd, tmp_path = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp", prefix=".mem_")
+with os.fdopen(fd, "w", encoding="utf-8") as f:
+    f.write(content)
+    f.flush()
+    os.fsync(f.fileno())
+os.replace(tmp_path, str(path))  # 原子替换
+```
+
+**文件锁**（`_file_lock`，memory_tool.py:115-140）：使用独立 `.lock` 文件而非锁住 data 文件本身，这样 `os.replace()` 的读者永远看到完整旧文件或完整新文件。
+
+### 68.3 双存储 + 字符限制
+
+- **MEMORY.md**：agent 个人笔记（环境事实、项目惯例、工具特点），限制 2200 chars
+- **USER.md**：用户画像（偏好、沟通风格、工作流习惯），限制 1375 chars
+- 字符限制（而非 token 限制）：`len(ENTRY_DELIMITER.join(entries))` — 模型无关
+- `§` (section sign) 作为 entry 分隔符
+
+### 68.4 Schema 指导（MEMORY_SCHEMA）
+
+```python
+MEMORY_SCHEMA = {
+    "description": (
+        "Save durable information to persistent memory that survives across sessions.\n\n"
+        "WHEN TO SAVE (do this proactively, don't wait to be asked):\n"
+        "- User corrects you or says 'remember this' / 'don't do that again'\n"
+        "- User shares a preference, habit, or personal detail\n"
+        "- You discover something about the environment (OS, installed tools, project structure)\n"
+        "- You learn a convention, API quirk, or workflow specific to this user's setup\n\n"
+        "TWO TARGETS: 'user' (who the user is) vs 'memory' (your notes)\n"
+        "SKIP: trivial/obvious info, things easily re-discovered, raw data dumps, temporary task state.\n"
+        "Do NOT save task progress — use session_search to recall those."
+    ),
+}
+```
+
+**关键约束**：
+- 主动写入，不要等用户问
+- 记忆优先级：用户偏好/纠正 > 环境事实 > 程序性知识
+- **不能**保存任务进度 — 那属于 session_search 的职责
+
+### 68.5 翻译：旁路型如何借鉴
+
+| 维度 | Hermes 做法 | BlueCortexCE 现状 | 旁路型借鉴思路 |
+|------|-----------|-----------------|--------------|
+| Frozen snapshot | 系统 prompt 快照不变，磁盘持久化 | 无（API 每次实时返回） | 可以为 `/api/context/generate` 提供"session snapshot" 模式，返回固定上下文，减少 token 变化 |
+| 威胁扫描 | content 进入 system prompt 前必须扫描 | 无专门的注入防护 | Observation 内容进入外部 Agent 的 context 前，可提供可选的 content 安全扫描 API |
+| 原子写入 | temp+fsync+replace | SessionWrite 原子性？ | 确认 SessionWrite 是否保证原子性 |
+| 字符限制 | 固定 char 限制（非 token） | 无限制 | 可为 Observation 单条内容提供建议性 char 上限 |
+
+**优先级**：中（Frozen Snapshot Pattern 思想对旁路型有参考价值，但具体实现不适用）
+
+---
+
+## 69. Session Search Tool — FTS5 + 三阶段截断 + 亲缘链排除（v6.0 新增）
+
+### 69.1 双模式设计（Zero-LLM-Cost Browse vs LLM Summarization）
+
+**文件**：`tools/session_search_tool.py:258-276`
+
+```python
+def session_search(query, role_filter=None, limit=3, db=None, current_session_id=None):
+    # 模式1：无 query → recent sessions browse（零 LLM 调用）
+    if not query or not query.strip():
+        return _list_recent_sessions(db, limit, current_session_id)
+    # 模式2：有 query → FTS5 search + LLM summarization
+    ...
+```
+
+**模式1（Browse）**：直接查 DB 返回 `session_id / title / source / started_at / last_active / message_count / preview`，**零 LLM 成本**，即时返回。
+
+**模式2（Search）**：
+1. FTS5 搜索 → 50 条原始匹配
+2. 按 parent session 去重（compression/delegation 创建的子 session 合并到父 session）
+3. 排除当前 session 亲缘链
+4. 截断到 ~100k chars（围绕匹配位置优化）
+5. Gemini Flash 并行 summarization（最多 5 sessions，每条最多 10000 tokens）
+6. 返回 per-session summary + metadata
+
+### 69.2 三阶段匹配定位截断算法（`_truncate_around_matches`，session_search_tool.py:59-145）
+
+这是该工具最复杂也最有技术含量的部分：
+
+```python
+def _truncate_around_matches(full_text, query, max_chars=100_000):
+    # 阶段1：完整短语匹配（case-insensitive）
+    phrase_positions = [m.start() for m in re.finditer(re.escape(query_lower), text_lower)]
+
+    # 阶段2：多 term  proximity co-occurrence（200-char 窗口内所有 term 都出现）
+    if not phrase_positions:
+        terms = query_lower.split()
+        rarest = min(terms, key=lambda t: len(term_positions[t]))
+        for pos in term_positions[rarest]:
+            if all(any(abs(p-pos) < 200 for p in term_positions[t]) for t in terms if t != rarest):
+                match_positions.append(pos)
+
+    # 阶段3：单个 term 位置（最后兜底）
+    if not match_positions:
+        for t in terms:
+            for m in re.finditer(re.escape(t), text_lower):
+                match_positions.append(m.start())
+
+    # 选择覆盖最多匹配位置的窗口（25% 前置偏差）
+    best_start = 0
+    best_count = 0
+    for candidate in match_positions:
+        ws = max(0, candidate - max_chars // 4)  # 25% before
+        we = ws + max_chars
+        count = sum(1 for p in match_positions if ws <= p < we)
+        if count > best_count:
+            best_count = count
+            best_start = ws
+```
+
+**关键设计**：
+- **Phrase > Proximity > Individual Term** 三层降级
+- Proximity 窗口 200 chars（经验值）
+- 选择"覆盖最多匹配"的窗口，而非简单的前 N 字符
+- 25% 前置偏差（匹配前的 context 更有信息量）
+
+### 69.3 亲缘链排除机制（`_resolve_to_parent`，session_search_tool.py:298-322）
+
+Compression 和 delegation 会产生子 session，但用户的对话主体在父 session 中：
+
+```python
+def _resolve_to_parent(session_id):
+    visited = set()
+    sid = session_id
+    while sid and sid not in visited:
+        visited.add(sid)
+        session = db.get_session(sid)
+        parent = session.get("parent_session_id")
+        if parent:
+            sid = parent
+        else:
+            break
+    return sid
+```
+
+- **上行遍历**：一直找到根 parent session
+- 排除当前 session 的**整个亲缘链**（不仅仅是当前 session 本身）
+- `seen_sessions[resolved_sid]` 保证每个根 session 只出现一次
+
+### 69.4 Fallback：当 LLM Summarizer 不可用时
+
+```python
+# session_search_tool.py:463-468
+if result:
+    entry["summary"] = result
+else:
+    # Fixes #3409: 不要静默丢弃匹配到的 session
+    preview = (conversation_text[:500] + "\n…[truncated]")
+    entry["summary"] = f"[Raw preview — summarization unavailable]\n{preview}"
+```
+
+**这是文档 v5.3 提到的 Anti-thrashing 模式在 session_search 中的具体体现**：
+- 如果 summarizer 完全失败，返回 raw preview 而非空结果
+- 避免"匹配到了但结果丢失"的无声失败
+
+### 69.5 翻译：旁路型如何借鉴
+
+| 维度 | Hermes 做法 | BlueCortexCE 现状 | 旁路型借鉴 |
+|------|-----------|-----------------|----------|
+| Zero-LLM-Cost Browse | 无 query → 直接 DB 返回 session 列表 | `/api/memory/sessions` 返回完整记录列表 | 可在 SearchService 中添加"recent sessions" 快速路径（不需要 embedding/search） |
+| 截断算法 | phrase → proximity → individual term | 无智能截断（简单 limit） | 可借鉴三层降级 + 窗口优化策略 |
+| 亲缘链排除 | delegation/compression 子 session 合并到父 | 无 delegation 概念 | Session 合并对于多轮对话记忆完整性有价值 |
+| 静默失败防止 | summarizer 失败 → raw preview | SearchService 失败时直接返回空 | 可借鉴"降级返回 raw content" 而非静默失败 |
+
+**优先级**：高（截断算法和静默失败防止对旁路型有直接参考价值）
+
+---
+
+## 70. Holographic HRR — 完整实现分析（v6.0 新增）
+
+### 70.1 核心代数运算
+
+**文件**：`plugins/memory/holographic/holographic.py:1-200`
+
+**三种基本运算**（基于 phase encoding）：
+
+```python
+# bind = circular convolution = phase addition
+# 绑定两个概念 → 产生一个复合向量（与两者都不相似）
+def bind(a, b): return (a + b) % _TWO_PI
+
+# unbind = circular correlation = phase subtraction
+# 解绑：从 memory 中检索 key 对应的 value
+def unbind(memory, key): return (memory - key) % _TWO_PI
+
+# bundle = superposition = circular mean
+# 捆绑：合并多个向量（保留每个输入的相似性）
+def bundle(*vectors): return np.angle(np.sum([np.exp(1j * v) for v in vectors], axis=0))
+```
+
+**关键性质**：`unbind(bind(a, b), a) ≈ b`（代数上可逆）
+
+### 70.2 确定性 Atom 生成（SHA-256）
+
+```python
+# holographic.py:44-58
+def encode_atom(word, dim=1024):
+    # 每个 SHA-256 digest = 32 bytes = 16 个 uint16 values
+    # 缩放到 [0, 2π)：values * (2π / 65536)
+    blocks_needed = math.ceil(dim / 16)
+    uint16_values = []
+    for i in range(blocks_needed):
+        digest = hashlib.sha256(f"{word}:{i}".encode()).digest()
+        uint16_values.extend(struct.unpack("<16H", digest))
+    phases = np.array(uint16_values[:dim], dtype=np.float64) * (_TWO_PI / 65536.0)
+    return phases
+```
+
+- **跨进程/机器/语言版本一致**（使用 hashlib 而非 numpy RNG）
+- `f"{word}:{i}"` 模式确保相同 word 产生相同向量
+
+### 70.3 结构化 Fact 编码
+
+```python
+# holographic.py:165-181
+def encode_fact(content, entities, dim=1024):
+    role_content = encode_atom("__hrr_role_content__", dim)
+    role_entity = encode_atom("__hrr_role_entity__", dim)
+    components = [bind(encode_text(content), role_content)]
+    for entity in entities:
+        components.append(bind(encode_atom(entity.lower()), role_entity))
+    return bundle(*components)
+```
+
+**代数检索能力**：
+```python
+# 检索某个 entity 相关的事实内容：
+content_vector = unbind(fact_vector, bind(encode_atom(entity), role_entity))
+```
+
+### 70.4 SNR 容量估计
+
+```python
+# holographic.py:195-210
+def snr_estimate(dim, n_items):
+    snr = math.sqrt(dim / n_items)
+    if snr < 2.0:
+        logger.warning(
+            "HRR storage near capacity: SNR=%.2f (dim=%d, n_items=%d). "
+            "Retrieval accuracy may degrade.",
+            snr, dim, n_items
+        )
+    return snr
+```
+
+- **SNR = sqrt(dim / n_items)**，SNR < 2.0 时 retrieval 退化
+- 暗示 dim=1024 时，n_items > 256 时开始退化（O(sqrt(dim)) 容量）
+
+### 70.5 翻译：旁路型如何借鉴
+
+**这个机制在 Hermes 中是"内置"的，但它的代数检索思想对旁路型有价值**：
+
+1. **Entity-based structured memory**：BlueCortexCE Observation 目前是扁平的，可考虑引入 entity-role 结构化存储
+2. **Algebraic retrieval**：不需要精确匹配，通过 unbind 运算检索关联内容
+3. **SNR monitoring**：BlueCortexCE 目前无容量监控，可在 SearchService 中添加存储密度警告
+
+**然而注意**：HRR 是为"绑定到 Agent 内部"设计的，在旁路型架构下直接搬套 HRR 意义不大。**真正有价值的是其背后的"结构化编码 + 代数检索"思想**。
+
+**优先级**：低（思想参考，不适合直接实现）
+
+---
+
+## 71. on_pre_compress Hook — 设计意图与实现的双重脱节（v6.1 新增）
+
+### 71.1 发现背景
+
+`on_pre_compress` Hook 被设计用于：**在上下文压缩丢弃历史消息之前，通知外部记忆 Provider 提取洞察**。预期用途是：
+1. Provider 从即将被压缩的消息中提取有价值的信息
+2. Provider 返回一段文本（insights）
+3. 这段文本被注入到压缩后的 context 中（作为 system prompt 或额外消息）
+4. **关键**：压缩后，这些信息不会丢失
+
+### 71.2 Bug 1：返回值被静默丢弃
+
+**文件**: `run_agent.py:6804`
+
+```python
+# Notify external memory provider before compression discards context
+if self._memory_manager:
+    try:
+        self._memory_manager.on_pre_compress(messages)  # ← 返回值被丢弃！
+    except Exception:
+        pass
+```
+
+**影响**：`MemoryManager.on_prepress()` 返回 `str`，但调用方完全忽略返回值。即使 Provider 返回了有价值的 insights，这些信息也不会进入压缩后的 context。
+
+**正确的行为应该是**：
+```python
+pre_insights = self._memory_manager.on_pre_compress(messages)
+if pre_insights and pre_insights.strip():
+    compressed.insert(0, {"role": "system", "content": pre_insights})
+```
+
+### 71.3 Bug 2：ByteRover 实现返回空字符串
+
+**文件**: `plugins/memory/byterover/__init__.py:282-310`
+
+即使 Bug 1 被修复，ByteRover 的实现也不会贡献任何内容：
+
+```python
+def on_pre_compress(self, messages: List[Dict[str, Any]]) -> str:
+    """Extract insights before context compression discards turns."""
+    # ... 提取最后10条消息 ...
+
+    def _flush():
+        _run_brv(["curate", "--", f"[Pre-compression context]\n{combined}"], ...)
+        # 异步写入，不返回任何内容
+
+    t = threading.Thread(target=_flush, daemon=True, name="brv-flush")
+    t.start()
+    return ""  # ← 总是返回空字符串！
+```
+
+**设计意图 vs 实现**：
+- **MemoryManager 层面的设计意图**：Provider 返回文本，注入到压缩 context
+- **ByteRover 的实际实现**：异步 flush 到外部存储，不返回任何内容
+
+### 71.4 架构性脱节：两种不同的语义
+
+| 维度 | MemoryManager 预期语义 | ByteRover 实际语义 |
+|------|----------------------|------------------|
+| 目的 | 返回文本给 context 用 | 异步写外部存储 |
+| 返回值 | 有意义的内容字符串 | 始终 `""` |
+| 注入位置 | 压缩后的 context | 不注入（N/A） |
+| 是否阻塞 | 不阻塞（异步 thread） | 不阻塞（daemon thread） |
+
+**结论**：ByteRover 使用 `on_pre_compress` 做"fire-and-forget async save"，而 MemoryManager 期望"返回文本注入 context"。这是语义层面的设计脱节。
+
+### 71.5 影响范围
+
+| Provider | `on_pre_compress` 实现 | 返回值 | Bug 1 影响 |
+|----------|----------------------|--------|-----------|
+| ByteRover | ✅ 有实现 | `""` | 无影响（即使修复也无效） |
+| Honcho | ❌ no-op（基类） | N/A | 无 |
+| Holographic | ❌ no-op（基类） | N/A | 无 |
+| Hindsight | ❌ no-op（基类） | N/A | 无 |
+| Mem0 | ❌ no-op（基类） | N/A | 无 |
+| RetainDB | ❌ no-op（基类） | N/A | 无 |
+| Supermemory | ❌ no-op（基类） | N/A | 无 |
+| OpenViking | ❌ no-op（基类） | N/A | 无 |
+
+**唯一有实现的 Provider（ByteRover）返回空字符串**，所以 Bug 1 在实践中没有影响——但这是"空实现的空实现"（虽然有代码，但什么都不贡献）。
+
+### 71.6 翻译：旁路型如何借鉴
+
+**Hermes 的 `on_pre_compress` 机制在 BlueCortexCE 中没有直接对应物**，因为：
+- BlueCortexCE 是旁路型，不参与 Agent 的上下文压缩决策
+- BlueCortexCE 的 Observation 写入是独立发生的，不依赖 context compression 时机
+
+**但这个 Bug 对 BlueCortexCE 有间接的参考价值**：
+
+1. **Hook 返回值必须被使用**：如果 BlueCortexCE 未来引入类似的 hook 机制，必须确保返回值被正确处理，不能静默丢弃
+
+2. **语义必须对齐**：如果 hook 有两种可能的语义（"返回文本" vs "执行副作用"），必须在接口层面明确约定，防止 Provider 实现与接口预期脱节
+
+3. **Bug 的发现方式**：这个 Bug 是通过代码审查发现的，不是通过测试。说明 Hermes 缺少对 `on_pre_compress` 返回值的集成测试。
+
+### 71.7 BlueCortexCE 关联发现：summary.txt 模板损坏
+
+**文件**: `backend/src/main/resources/prompts/summary.txt`
+
+在探索 `on_pre_compress` 相关代码时，意外发现 BlueCortexCE 的 `summary.txt` 模板文件**被损坏**——文件内容是 LLM session 的 PROGRESS SUMMARY CHECKPOINT 输出，而非实际的 summary prompt 模板。
+
+```bash
+$ cat backend/src/main/resources/prompts/summary.txt
+PROGRESS SUMMARY CHECKPOINT
+===========================
+Write progress notes of what was done...
+[... LLM session output ...]
+```
+
+**影响评估**：
+- `SummaryGenerationService` 目前通过硬编码的 system prompt 绕过损坏的模板
+- 系统仍然工作（`digest` observations 才是真正驱动 LLM 输出的内容）
+- 但 `summary.txt` 作为模板的接口设计意图被破坏
+
+**根本原因**：`summary.txt` 在初始 commit 时就是损坏的（`git log` 证实），疑似导入时的文件替换错误。
+
+**建议**：立即重建 `summary.txt`，参考 `code.json` 中的 `summary_instruction` / `summary_format_instruction` 等字段，设计符合 Hermes 11段式模板精神的 summary prompt。
+
+---
+
+## 67. 待进一步确认（v6.1 更新）
+
+### 67.1 本轮已确认项目（v6.1）
+
+1. ✅ ~~on_pre_compress Hook Bug 1~~ — **v6.1 已确认**：`run_agent.py:6804` 返回值被静默丢弃
+2. ✅ ~~on_pre_compress Hook Bug 2~~ — **v6.1 已确认**：ByteRover 实现返回空字符串，设计意图与实现双重脱节
+3. ✅ ~~BlueCortexCE summary.txt 损坏~~ — **v6.1 新发现**：初始 commit 即损坏，当前依赖硬编码 system prompt 绕过
+
+### 67.2 仍待确认项目（v6.1）
+
+1. **Hindsight local mode** — 启动 embedded daemon 的具体实现和协议（云端 API）
+2. **Mem0 Provider** — 云端 API，具体 LLM prompt 策略未知
+3. **Hermes Agent Self-Model — 云端 LLM 如何解析 SOUL.md** — 需要看 RetainDB 云端实现
+4. **Honcho Dialectic 完整行为** — Peer Q&A + Observation 模式的具体实现（需要云端测试）
+5. **Honcho Dialectic 完整 prompt** — 云端 API，本地无 LLM prompt 模板（无法验证）
+6. ~~ContextCompressor 与 memory_manager 的真实集成方式~~ — ✅ **已确认**：双重脱节（返回值丢弃 + ByteRover 返回空字符串）
+7. **Honcho write_frequency="realtime" 的具体实现** — 确认是轮询还是事件驱动
+8. **Supermemory 多容器检索隔离的具体行为** — container_tag 如何影响 search_results 排序？
+9. **Supermemory `add_memory` 云端 LLM 如何使用 entity_context**
+10. **ByteRover `brv query` 算法** — fuzzy text → LLM-driven search 的具体实现
+11. **Honcho seed_ai_identity 的完整实现** — 是否真的通过 Honcho API 写入 SOUL.md 内容？
+12. **Supermemory trivial 过滤在 capture_mode="everything" 下的行为**
+
+### 67.1 本轮已确认项目（v6.0）
+
+1. ✅ ~~Built-in Memory Tool Frozen Snapshot Pattern~~ — **v6.0 已详细分析**：`_system_prompt_snapshot` vs live entries，os.replace 原子写入，独立 .lock 文件
+2. ✅ ~~Built-in Memory Tool 威胁扫描~~ — **v6.0 已详细分析**：13 个威胁 pattern + 不可见 Unicode 检查
+3. ✅ ~~Built-in Memory Tool Schema 指导~~ — **v6.0 已详细分析**：WHEN TO SAVE + SKIP 规则 + 双 target 语义
+4. ✅ ~~Session Search 三阶段截断算法~~ — **v6.0 已详细分析**：phrase → proximity(200-char) → individual term
+5. ✅ ~~Session Search 亲缘链排除~~ — **v6.0 已详细分析**：_resolve_to_parent 上行遍历，排除整个 delegation 链
+6. ✅ ~~Session Search Fallback~~ — **v6.0 已详细分析**：summarizer 失败 → raw preview（fixes #3409）
+7. ✅ ~~Session Search Zero-LLM Browse~~ — **v6.0 已详细分析**：无 query → 直接 DB 返回，无 LLM 调用
+8. ✅ ~~Holographic HRR 代数运算~~ — **v6.0 已详细分析**：bind/unbind/bundle + 确定性 SHA-256 atom
+9. ✅ ~~Holographic SNR 估计~~ — **v6.0 已详细分析**：SNR = sqrt(dim/n_items)，SNR<2.0 检索退化
+
+### 67.2 仍待确认项目（v6.0）
+
+1. **Hindsight local mode** — 启动 embedded daemon 的具体实现和协议（云端 API）
+2. **Mem0 Provider** — 云端 API，具体 LLM prompt 策略未知
+3. **Hermes Agent Self-Model — 云端 LLM 如何解析 SOUL.md** — 需要看 RetainDB 云端实现
+4. **Honcho Dialectic 完整行为** — Peer Q&A + Observation 模式的具体实现（需要云端测试）
+5. **Honcho Dialectic 完整 prompt** — 云端 API，本地无 LLM prompt 模板（无法验证）
+6. **ContextCompressor 与 memory_manager 的真实集成方式** — `on_pre_compress` 被丢弃说明设计意图与实现脱节，是否有计划修复？
+7. **Honcho write_frequency="realtime" 的具体实现** — 确认是轮询还是事件驱动
+8. **Supermemory 多容器检索隔离的具体行为** — container_tag 如何影响 search_results 排序？
+9. **Supermemory `add_memory` 云端 LLM 如何使用 entity_context**
+10. **ByteRover `brv query` 算法** — fuzzy text → LLM-driven search 的具体实现
+11. **Honcho seed_ai_identity 的完整实现** — 是否真的通过 Honcho API 写入 SOUL.md 内容？
+12. **Supermemory trivial 过滤在 capture_mode="everything" 下的行为**
+
+---
+
+## 附录：BlueCortexCE 可落地的高优先级借鉴点（v6.0 汇总）
+
+### 🔴 立即可落地（高优先级）
+
+1. **静默失败防止**（Session Search fix #3409）：`/api/context/generate` 即使 LLM summarization 失败，也要返回降级响应（raw content 或明确的 marker），而非 empty
+2. **Zero-LLM-Cost Recent Sessions**：在 SearchService 添加"无 query → 直接 DB 返回 session 列表"的快速路径
+3. **Observation 内容安全扫描**：MEMORY_THREAT_PATTERNS 思想可移植，为 Observation 提供可选的 content 安全扫描 API
+
+### 🟡 中期改进（中优先级）
+
+4. **智能截断策略**：借鉴 `_truncate_around_matches` 的三层降级（phrase → proximity → individual term）优化 BlueCortexCE 的 context 截断
+5. **SNR/容量监控**：为 SearchService 添加存储密度警告机制
+6. **Frozen Snapshot 模式**：为 `/api/context/generate` 提供"session snapshot" 返回模式
+
+### 🟢 长期探索（低优先级）
+
+7. **Entity-Role 结构化存储**：借鉴 Holographic 的 fact encoding 思想，在 Observation 中引入 entity-role 结构
+8. **代数检索**：通过 bind/unbind 实现更灵活的关联检索
+
+
+1. ✅ ~~Supermemory trivial filtering 具体 regex~~ — **v5.4 已详细分析**：`^(ok|okay|thanks|thank you|got it|sure|yes|no|yep|nope|k|ty|thx|np)\.?$` + min-length 双保险，sync_turn 中 4 层过滤
+2. ✅ ~~Supermemory entity_context 具体内容~~ — **v5.4 已详细分析**：DEFAULT 模板 1500 chars 上限，`_clamp_entity_context` 截断，add_memory 传递 entity_context 给云端 LLM
+3. ✅ ~~Supermemory profile_frequency 节流~~ — **v5.4 已详细分析**：默认 50 轮节流 static 画像获取，dynamic facts 和 search_results 始终包含
+4. ✅ ~~Supermemory container_tag sanitization~~ — **v5.4 已详细分析**：`_sanitize_tag` 防止 injection（只允许 `[a-zA-Z0-9_]`），`_resolve_tool_container_tag` 拒绝未知容器
+5. ✅ ~~ByteRover on_pre_compress 唯一实现~~ — **v5.4 已详细分析**：唯一真正执行 pre-compress flush 的 provider（提取最近 10 条消息，500 chars 截断，异步 curate）；所有其他 provider 均 no-op
+6. ✅ ~~ByteRover queue_prefetch no-op~~ — **v5.4 已详细分析**：prefetch() 直接同步执行（最多 10s），不依赖 queue_prefetch + prefetch 分离
+7. ✅ ~~ByteRover CLI wrapper 超时分离~~ — **v5.4 已详细分析**：query=10s / curate=120s，线程安全 brv 路径缓存
+8. ✅ ~~OpenViking atexit 安全网~~ — **v5.4 已详细分析**：`_atexit_commit_sessions` 在进程退出时 commit pending sessions，daemon thread 不 join
+9. ✅ ~~OpenViking 6 类自动提取~~ — **v5.4 已详细分析**：profile/preferences/entities/events/cases/patterns，session commit 时触发
+10. ✅ ~~Supermemory `_clean_text_for_capture`~~ — **v5.4 已详细分析**：去除 `<supermemory-context>` 和 `<supermemory-containers>` 标签，防止循环注入
+
+### 67.2 仍待确认项目（v5.4）
+
+1. **Hindsight local mode** — 启动 embedded daemon 的具体实现和协议（云端 API）
+2. **Mem0 Provider** — 云端 API，具体 LLM prompt 策略未知
+3. **Hermes Agent Self-Model — 云端 LLM 如何解析 SOUL.md** — 需要看 RetainDB 云端实现
+4. **Honcho Dialectic 完整行为** — Peer Q&A + Observation 模式的具体实现（需要云端测试）
+5. **Honcho Dialectic 完整 prompt** — 云端 API，本地无 LLM prompt 模板（无法验证）
+6. **ContextCompressor 与 memory_manager 的真实集成方式** — `on_pre_compress` 被丢弃说明设计意图与实现脱节，是否有计划修复？（需要看 GitHub issue/PR）
+7. **Honcho write_frequency="realtime" 的具体实现** — 确认是轮询还是事件驱动
+8. **OpenViking 6 类记忆提取的具体 prompt** — 云端 API，本地无具体 prompt
+9. **Supermemory 多容器检索隔离的具体行为** — container_tag 如何影响 search_results 排序？
+10. **Supermemory `add_memory` 云端 LLM 如何使用 entity_context** — 是否真的是 LLM 处理 content + entity_context 的组合？
+11. **ByteRover `brv query` 算法** — fuzzy text → LLM-driven search 的具体实现
+12. **Honcho seed_ai_identity 的完整实现** — 是否真的通过 Honcho API 写入 SOUL.md 内容？
+13. **Supermemory trivial 过滤在 capture_mode="everything" 下的行为** — 是否跳过 trivial 检查？
+
+### 59.1 本轮已确认项目（v5.3）
+
+1. ✅ ~~Supermemory sync_turn 完整过滤链~~ — **v5.2 已详细分析**：4 层过滤（active/write/min-length/trivial） + 结构化格式 + entity_context 注入
+2. ✅ ~~Supermemory on_session_end batch ingest~~ — **v5.2 已详细分析**：ingest_conversation API + 极短 session 跳过
+3. ✅ ~~Honcho vs RetainDB dialectic 架构对比~~ — **v5.2 已详细分析**：多 Agent 观察 vs 单一问答 + 推理级别算法相同
+4. ✅ ~~RetainDB Agent Self-Model 完整流程~~ — **v5.2 已详细分析**：seed_agent_identity + get_agent_model + 三并行 prefetch
+5. ✅ ~~RetainDB reasoning_level 算法~~ — **v5.2 已确认**：与 Honcho 算法完全相同（120/400 chars 分段）
+6. ✅ ~~ContextCompressor Phase 1-4 算法~~ — **v5.3 已详细分析**：Prune(去重+摘要) → 边界确定 → LLM摘要 → 组装 + _sanitize_tool_pairs
+7. ✅ ~~on_pre_compress Hook Bug~~ — **v5.3 已确认**：run_agent.py:6804 返回值被完全丢弃，静默失败
+8. ✅ ~~11段式 Summary Template~~ — **v5.3 已详细分析**：Goal/Completed Actions/Active State/In Progress/Blocked/Key Decisions/Resolved Questions/Pending User Asks/Relevant Files/Remaining Work/Critical Context + iterative update 机制
+9. ✅ ~~Anti-thrashing + Fallback~~ — **v5.3 已确认**：连续2次<10%保存则跳过 + summary_model fallback chain + static fallback marker
+
+### 59.2 仍待确认项目（v5.3）
+
+1. **Hindsight local mode** — 启动 embedded daemon 的具体实现和协议（云端 API）
+2. **Mem0 Provider** — 云端 API，具体 LLM prompt 策略未知
+3. **Hermes Agent Self-Model — 云端 LLM 如何解析 SOUL.md** — 需要看 RetainDB 云端实现
+4. **Honcho Dialectic 完整行为** — Peer Q&A + Observation 模式的具体实现（需要云端测试）
+5. **Honcho Dialectic 完整 prompt** — 云端 API，本地无 LLM prompt 模板（无法验证）
+6. **Supermemory 容器隔离的具体实现** — container_tag 如何影响检索？（需要看 Supermemory API 行为）
+7. **ContextCompressor 与 memory_manager 的真实集成方式** — `on_pre_compress` 被丢弃说明设计意图与实现脱节，是否有计划修复？（需要看 GitHub issue/PR）
+8. **Honcho write_frequency="realtime" 的具体实现** — 确认是轮询还是事件驱动
