@@ -1,0 +1,24 @@
+{
+  "name": "@claude-mem/codex-watcher",
+  "version": "1.0.0",
+  "description": "Codex CLI transcript watcher for Java backend",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc && node dist/index.js",
+    "install-codex": "node dist/index.js install",
+    "uninstall-codex": "node dist/index.js uninstall",
+    "status": "node dist/index.js status"
+  },
+  "keywords": ["claude-mem", "codex", "transcript-watcher"],
+  "license": "MIT",
+  "dependencies": {
+    "chokidar": "^3.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  }
+}
