@@ -1,9 +1,9 @@
 # Hermes Agent 记忆系统深度分析
 
-> **文档状态**: v6.1 (新增：on_pre_compress Hook Bug 分析 — 设计意图与实现脱节 + ByteRover 实现返回空字符串 + BlueCortexCE summary.txt 模板损坏发现)
+> **文档状态**: v6.3 (新增：Session Search `_format_conversation` 截断算法 + 亲缘链双重排除 + Supermemory capture_mode="everything" trivial 过滤确认)
 > **分析目标**: 为 BlueCortexCE（旁路型记忆系统）提供可落地的借鉴建议
 > **数据来源**: `/Users/yangjiefeng/Documents/NousResearch/hermes-agent/`
-> **最后更新**: 2026-04-17 06:22
+> **最后更新**: 2026-04-17 08:20
 
 ---
 
@@ -89,6 +89,8 @@
 63. [Anti-thrashing + Fallback 机制（v5.3 新增）](#63-anti-thrashing--fallback-机制v53-新增)
 64. [待进一步确认（v5.4 更新）](#67-待进一步确认v54-更新)
 65. [on_pre_compress Hook — 设计意图与实现的双重脱节（v6.1 新增）](#71-on_pre_compress-hook--设计意图与实现的双重脱节v61-新增)
+66. [Honcho per-repo Session 策略确认 + MemoryTool Schema 不一致（v6.2 新增）](#72-honcho-per-repo-session-策略确认--memorytool-schema-与实现细节v62-新增)
+67. [Session Search Tool — `_format_conversation` 截断 + 亲缘链排除（v6.3 新增）](#73-session-search-tool--_format_conversation-截断--亲缘链排除v63-新增)
 
 ---
 
@@ -9813,15 +9815,312 @@ Write progress notes of what was done...
 
 ---
 
-## 67. 待进一步确认（v6.1 更新）
+## 72. Honcho per-repo Session 策略确认 + MemoryTool 实现细节（v6.2 新增）
 
-### 67.1 本轮已确认项目（v6.1）
+### 72.1 Honcho per-repo 策略 — `_git_repo_name` 确认
+
+> **文件**: `plugins/memory/honcho/client.py:405-419`
+
+**问题**：上轮遗留：Honcho `per-repo` session 策略中，`_git_repo_name` 如何实现？在无 git 环境下是否退化到 `per-directory`？
+
+**确认结论**：实现非常简洁，逻辑清晰：
+
+```python
+# client.py:405-419
+def _git_repo_name(cwd: str) -> str | None:
+    """Return the git repo root directory name, or None if not in a repo."""
+    import subprocess
+    try:
+        root = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, cwd=cwd, timeout=5,
+        )
+        if root.returncode == 0:
+            return Path(root.stdout.strip()).name
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    return None
+```
+
+**关键设计点**：
+- 5 秒超时保护：防止 git 命令卡住（如网络文件系统）
+- `returncode != 0` 时返回 None（不是空字符串）—— 调用方能区分"无 git repo"和"执行失败"
+- 返回 `Path(...).name`（只取目录名，不是完整路径）
+
+**退化行为**：在 `resolve_session_name` 中：
+```python
+# client.py:462
+base = self._git_repo_name(cwd) or Path(cwd).name  # 退化到 per-directory
+```
+当 `_git_repo_name` 返回 None 时，fallback 到 `Path(cwd).name` — 即 `per-directory` 策略。
+
+**翻译：旁路型如何借鉴**：
+- BlueCortexCE 的 session 隔离策略可以借鉴这个设计
+- `workspace_id`（cwd hash）可以作为 session 隔离的第二维度
+- git repo 检测的 5 秒超时值得参考
+
+### 72.2 Honcho `resolve_session_name` 六级解析顺序
+
+> **文件**: `plugins/memory/honcho/client.py:420-470`
+
+**完整解析顺序**（优先级从高到低）：
+
+| 优先级 | 策略 | 来源 | 说明 |
+|--------|------|------|------|
+| 1 | Manual override | `sessions` map（用户配置） | 手动指定目录→session 映射，最高层级 |
+| 2 | /title remap | `session_title` 参数 | 用户通过 `/title` 命令重命名 session |
+| 3 | per-session | `session_id`（Hermes 生成） | 每次运行新建 Honcho session |
+| 4 | per-repo | `git rev-parse --show-toplevel` | 每个 git 仓库一个 session |
+| 5 | per-directory | `Path(cwd).name` | 每个工作目录一个 session（默认） |
+| 6 | global | `workspace name` | 全局单一 session |
+
+**Title sanitization**（优先级 2 特有）：
+```python
+# client.py:441-445
+sanitized = re.sub(r'[^a-zA-Z0-9_-]', '-', session_title).strip('-')
+```
+只允许字母、数字、下划线、连字符，空格替换为 `-`。
+
+**`session_peer_prefix` 条件**：优先级 3/4/5 在有 `session_peer_prefix` 和 `peer_name` 时，会给 session name 加上 `{peer_name}-` 前缀。
+
+### 72.3 MemoryTool Schema 与实现的细微不一致
+
+> **文件**: `tools/memory_tool.py:464-509`
+
+**Schema 定义**（`MEMORY_SCHEMA`）：
+```python
+"properties": {
+    "old_text": {
+        "type": "string",
+        "description": "Short unique substring identifying the entry to replace or remove.",
+    },
+    ...
+},
+"required": ["action", "target"],  # old_text 不在 required 中
+```
+
+**实现检查**（`memory_tool` 函数）：
+```python
+elif action == "remove":
+    if not old_text:  # ← 实现了 required 检查，但 schema 未声明
+        return tool_error("old_text is required for 'remove' action.", ...)
+```
+
+**分析**：
+- `content` 对 `add`/`replace`：Schema 和实现一致（都 required）
+- `old_text` 对 `remove`：Schema 说 optional，实现说 required — **不一致**
+- 这意味着 LLM 可能生成一个不带 `old_text` 的 `remove` 调用，触发工具错误
+
+**影响评估**：低。因为 LLM 在调用 `remove` 时通常会提供 `old_text` 来标识要删除的 entry。但如果 LLM 忘记提供，工具会返回错误而非正常执行。
+
+**更严重的不一致**：`content` 对 `replace` 的 required 检查：
+```python
+elif action == "replace":
+    if not content:
+        return tool_error("content is required for 'replace' action.", ...)
+```
+Schema 中 `content` 也标记为 optional（不在 required list 中），但实现要求它。
+
+### 72.4 MemoryTool `_success_response` 返回完整 Entry 列表
+
+> **文件**: `tools/memory_tool.py:391-403`
+
+**关键发现**：每次工具调用成功后，返回的 JSON 中包含**当前完整的 entries 列表**：
+
+```python
+def _success_response(self, target: str, message: str = None) -> Dict[str, Any]:
+    entries = self._entries_for(target)
+    current = self._char_count(target)
+    limit = self._char_limit(target)
+    pct = min(100, int((current / limit) * 100)) if limit > 0 else 0
+
+    resp = {
+        "success": True,
+        "target": target,
+        "entries": entries,                    # ← 当前所有 entries
+        "usage": f"{pct}% — {current:,}/{limit:,} chars",
+        "entry_count": len(entries),          # ← 条目数
+    }
+```
+
+**这个设计让 LLM 在每次 `memory` 工具调用后，都能获得当前记忆的完整快照**，从而知道剩余空间、已有条目数量。
+
+**与 BlueCortexCE 对比**：
+- BlueCortexCE 的 `/api/observations` 返回的是**分页**结果，不是一次性完整快照
+- Hermes 的设计更适合"bounded memory"（有总字符限制），因为返回 entries 列表让 LLM 知道还剩多少空间
+- BlueCortexCE 是 unbounded（理论上可以无限存储），所以不需要这个设计
+
+### 72.5 本轮新增借鉴点汇总
+
+| 发现 | Hermes 做法 | BlueCortexCE 现状 | 优先级 |
+|------|-------------|------------------|--------|
+| `old_text` Schema 不一致 | 实现 required，Schema optional | 一致 | 低（Hermes bug，不值得借鉴） |
+| 工具返回完整 entries 列表 | 每次工具调用返回当前所有 entries + usage | 分页返回，无 usage 信息 | 低（BlueCortexCE unbounded，不需要） |
+| `resolve_session_name` 解析顺序 | 6 级优先级，手动 override > /title > per-session > per-repo > per-directory > global | 较简单 | 中（可作为 BlueCortexCE session 策略设计参考） |
+| `_git_repo_name` 5s 超时 | `subprocess.run(timeout=5)` | N/A | 低（旁路型架构不需要） |
+
+---
+
+## 73. Session Search Tool — `_format_conversation` 截断 + 亲缘链排除（v6.3 新增）
+
+> **本节为 v6.3 新增**，分析 `session_search_tool.py` 中的两个之前未详细覆盖的机制：工具输出截断算法和会话列表的亲缘链排除逻辑。
+
+### 73.1 `_format_conversation` — 500-char 双端截断
+
+**文件**: `tools/session_search_tool.py:56-89`
+
+`session_search_tool.py` 的 `_format_conversation` 函数在将对话序列化为文本供 LLM summarizer 使用时，对工具输出进行了特殊的双端截断：
+
+```python
+# session_search_tool.py:66-68
+if role == "TOOL" and tool_name:
+    if len(content) > 500:
+        content = content[:250] + "\n...[truncated]...\n" + content[-250:]
+    parts.append(f"[TOOL:{tool_name}]: {content}")
+```
+
+**关键参数**：
+- 阈值：500 chars（超过才截断）
+- 截断方式：**头部 250 + 尾部 250**（保留首尾两端）
+- 分隔符：`\n...[truncated]...\n`
+- 目的：保留工具输出的**首尾关键信息**（如命令输出的开头错误信息和最终结果）
+
+**与 ContextCompressor 的 `_summarize_tool_result` 对比**：
+
+| 维度 | `_format_conversation` (session_search) | `_summarize_tool_result` (context_compressor) |
+|------|----------------------------------------|----------------------------------------------|
+| 目标 | session 历史检索的输入 | 上下文压缩 Phase 1 预热 |
+| 截断阈值 | 500 chars | 200 chars（摘要化而非截断） |
+| 保留策略 | 头部 250 + 尾部 250 | 工具特定 1 行摘要 |
+| LLM 调用 | 后续 summarizer 会调用 | 无（规则型） |
+| 工具 call arguments | ❌ 不包含（仅显示 tool name） | ✅ 包含在摘要中 |
+
+**特别注意**：对于 ASSISTANT 消息，`_format_conversation` **只显示 tool call names**，不包含 arguments：
+
+```python
+# session_search_tool.py:73-79
+if tool_calls and isinstance(tool_calls, list):
+    tc_names = [tc.get("name") or tc.get("function", {}).get("name", "?") for tc in tool_calls]
+    parts.append(f"[ASSISTANT]: [Called: {', '.join(tc_names)}]")
+    if content:
+        parts.append(f"[ASSISTANT]: {content}")
+```
+
+这与 `ContextCompressor._serialize_for_summary`（包含完整 tool arguments）形成鲜明对比——**session_search 刻意丢弃 tool arguments 以节省 token**。
+
+### 73.2 `_list_recent_sessions` — 双重排除机制
+
+**文件**: `tools/session_search_tool.py:245-290`
+
+`_list_recent_sessions` 函数（无 query 时的快速路径）实现了**双重会话排除**，确保返回的列表中不包含当前会话的任何亲缘成员：
+
+```python
+# session_search_tool.py:255-270
+# 第一重：排除当前 root session 及其整个亲缘链
+current_root = None
+if current_session_id:
+    sid = current_session_id
+    visited = set()
+    while sid and sid not in visited:
+        visited.add(sid)
+        s = db.get_session(sid)
+        parent = s.get("parent_session_id") if s else None
+        sid = parent if parent else None
+    current_root = max(visited, key=len) if visited else current_session_id
+
+# 遍历时排除
+for s in sessions:
+    if current_root and (sid == current_root or sid == current_session_id):
+        continue
+    # 第二重：排除任何有 parent_session_id 的子会话
+    if s.get("parent_session_id"):
+        continue
+```
+
+**排除逻辑**：
+1. **上行遍历**：从当前 session_id 开始，遍历 parent_session_id 链，找到最远的 root
+2. **排除 root + 整链**：排除 root session 及其所有后代
+3. **排除所有子会话**：排除任何有 `parent_session_id` 的会话（delegation 子会话）
+
+**效果**：返回的"最近会话"列表中，**绝对不会出现**与当前会话相关的任何会话（无论亲缘关系多近）。
+
+### 73.3 Supermemory `capture_mode="everything"` trivial 过滤确认
+
+**文件**: `plugins/memory/supermemory/__init__.py:563-580`
+
+**待确认项**：Supermemory trivial 过滤在 `capture_mode="everything"` 下的行为
+
+**确认结果**（v6.3 确认）：
+
+```python
+# supermemory/__init__.py:571-576
+if self._capture_mode == "all":
+    if len(clean_user) < _MIN_CAPTURE_LENGTH or len(clean_assistant) < _MIN_CAPTURE_LENGTH:
+        return
+    if _is_trivial_message(clean_user):
+        return
+# capture_mode != "all"（即 "everything"）时：跳过以上所有过滤
+```
+
+**行为差异**：
+
+| 过滤条件 | `capture_mode="all"` | `capture_mode="everything"` |
+|---------|---------------------|----------------------------|
+| 最小长度检查 | ✅ 两者均 >= 10 chars | ❌ 跳过 |
+| Trivial regex 检查 | ✅ 跳过 `^(ok\|okay\|thanks...)$` | ❌ 跳过 |
+| 空内容检查 | ✅ 两者均非空 | ✅ 仍保留 |
+
+**即**：在 `capture_mode="everything"` 下，**只有空内容会被跳过**，所有短消息和 acknowledgment 都会被 capture。
+
+### 73.4 翻译：旁路型如何借鉴
+
+| 维度 | Hermes 做法 | BlueCortexCE 现状 | 借鉴思路 |
+|------|-----------|-----------------|---------|
+| 工具输出截断 | 500-char 双端截断（session_search） | 无对应（我们不做 session 检索摘要） | 可为 session history API 提供类似截断策略 |
+| Tool arguments 包含 | session_search 不包含，compressor 包含 | N/A | 作为 API 设计参考：不同用途可以有不同的信息粒度 |
+| 亲缘链排除 | 双重排除（root 链 + 子会话） | 无 | BlueCortexCE 的 `/api/sessions` 可以借鉴：排除当前会话的 delegation 链 |
+| Supermemory trivial | "all" 模式过滤，"everything" 不过滤 | N/A | 可配置的 trivial 过滤对 BlueCortexCE 有参考价值 |
+
+**优先级**：低（均为 session_search_tool 专用逻辑，BlueCortexCE 无直接对应功能）
+
+---
+
+## 67. 待进一步确认（v6.2 更新）
+
+### 67.1 本轮已确认项目（v6.2）
+
+1. ✅ ~~Honcho per-repo `_git_repo_name` 实现~~ — **v6.2 已确认**：`git rev-parse --show-toplevel`，5s 超时，返回 None 时退化到 `Path(cwd).name`（per-directory）
+2. ✅ ~~Honcho `resolve_session_name` 六级解析顺序~~ — **v6.2 已确认**：manual override → /title → per-session → per-repo → per-directory → global
+3. ✅ ~~MemoryTool Schema 不一致~~ — **v6.2 已确认**：`old_text` 和 `content` 在 Schema 中 optional，但实现 required
+4. ✅ ~~MemoryTool `_success_response` 返回完整 entries 列表~~ — **v6.2 已确认**：每次成功调用返回当前所有 entries + usage 百分比
+
+### 67.2 本轮已确认项目（v6.3）
+
+1. ✅ ~~Supermemory trivial 过滤在 capture_mode="everything" 下的行为~~ — **v6.3 已确认**：`capture_mode="everything"` 完全跳过 trivial regex 检查和最小长度检查，只保留空内容过滤
+2. ✅ ~~`_format_conversation` 500-char 双端截断~~ — **v6.3 已确认**：超过 500 chars 时保留头部 250 + 尾部 250，不包含 tool arguments；超过 500 chars 时才截断
+3. ✅ ~~`_list_recent_sessions` 亲缘链双重排除~~ — **v6.3 已确认**：上行遍历找到 root session + 排除所有有 parent_session_id 的子会话
+
+### 67.3 仍待确认项目（v6.3）
+
+1. **Hindsight local mode** — 启动 embedded daemon 的具体实现和协议（云端 API）
+2. **Mem0 Provider** — 云端 API，具体 LLM prompt 策略未知
+3. **Hermes Agent Self-Model — 云端 LLM 如何解析 SOUL.md** — 需要看 RetainDB 云端实现
+4. **Honcho Dialectic 完整行为** — Peer Q&A + Observation 模式的具体实现（需要云端测试）
+5. **Honcho Dialectic 完整 prompt** — 云端 API，本地无 LLM prompt 模板（无法验证）
+6. ~~ContextCompressor 与 memory_manager 的真实集成方式~~ — ✅ **已确认**：双重脱节（返回值丢弃 + ByteRover 返回空字符串）
+7. **Honcho write_frequency="realtime" 的具体实现** — 确认是轮询还是事件驱动
+8. **Supermemory 多容器检索隔离的具体行为** — container_tag 如何影响 search_results 排序？
+9. **Supermemory `add_memory` 云端 LLM 如何使用 entity_context**
+10. **ByteRover `brv query` 算法** — fuzzy text → LLM-driven search 的具体实现
+11. **Honcho seed_ai_identity 的完整实现** — 是否真的通过 Honcho API 写入 SOUL.md 内容？
+
+### 67.4 本轮已确认项目（v6.1）
 
 1. ✅ ~~on_pre_compress Hook Bug 1~~ — **v6.1 已确认**：`run_agent.py:6804` 返回值被静默丢弃
 2. ✅ ~~on_pre_compress Hook Bug 2~~ — **v6.1 已确认**：ByteRover 实现返回空字符串，设计意图与实现双重脱节
 3. ✅ ~~BlueCortexCE summary.txt 损坏~~ — **v6.1 新发现**：初始 commit 即损坏，当前依赖硬编码 system prompt 绕过
 
-### 67.2 仍待确认项目（v6.1）
+### 67.5 仍待确认项目（v6.1）
 
 1. **Hindsight local mode** — 启动 embedded daemon 的具体实现和协议（云端 API）
 2. **Mem0 Provider** — 云端 API，具体 LLM prompt 策略未知
@@ -9836,7 +10135,7 @@ Write progress notes of what was done...
 11. **Honcho seed_ai_identity 的完整实现** — 是否真的通过 Honcho API 写入 SOUL.md 内容？
 12. **Supermemory trivial 过滤在 capture_mode="everything" 下的行为**
 
-### 67.1 本轮已确认项目（v6.0）
+### 67.6 本轮已确认项目（v6.0）
 
 1. ✅ ~~Built-in Memory Tool Frozen Snapshot Pattern~~ — **v6.0 已详细分析**：`_system_prompt_snapshot` vs live entries，os.replace 原子写入，独立 .lock 文件
 2. ✅ ~~Built-in Memory Tool 威胁扫描~~ — **v6.0 已详细分析**：13 个威胁 pattern + 不可见 Unicode 检查
@@ -9848,7 +10147,7 @@ Write progress notes of what was done...
 8. ✅ ~~Holographic HRR 代数运算~~ — **v6.0 已详细分析**：bind/unbind/bundle + 确定性 SHA-256 atom
 9. ✅ ~~Holographic SNR 估计~~ — **v6.0 已详细分析**：SNR = sqrt(dim/n_items)，SNR<2.0 检索退化
 
-### 67.2 仍待确认项目（v6.0）
+### 67.7 仍待确认项目（v6.0）
 
 1. **Hindsight local mode** — 启动 embedded daemon 的具体实现和协议（云端 API）
 2. **Mem0 Provider** — 云端 API，具体 LLM prompt 策略未知
@@ -9896,7 +10195,7 @@ Write progress notes of what was done...
 9. ✅ ~~OpenViking 6 类自动提取~~ — **v5.4 已详细分析**：profile/preferences/entities/events/cases/patterns，session commit 时触发
 10. ✅ ~~Supermemory `_clean_text_for_capture`~~ — **v5.4 已详细分析**：去除 `<supermemory-context>` 和 `<supermemory-containers>` 标签，防止循环注入
 
-### 67.2 仍待确认项目（v5.4）
+### 67.8 仍待确认项目（v5.4）
 
 1. **Hindsight local mode** — 启动 embedded daemon 的具体实现和协议（云端 API）
 2. **Mem0 Provider** — 云端 API，具体 LLM prompt 策略未知
