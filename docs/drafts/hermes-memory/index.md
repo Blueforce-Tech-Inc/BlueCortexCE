@@ -20,32 +20,20 @@
 | 50-honcho-holographic-deep | [`50-honcho-holographic-deep/`](50-honcho-holographic-deep/) | Honcho 四工具、多模态澄清等 |
 | 60-evolution | [`60-evolution/`](60-evolution/) | Hooks、Supermemory、内置 Memory Tool、HRR 等后续版本增量 |
 
-## 分片清单（机器可读）
+## 维护说明
 
-完整列表见 [`_manifest.txt`](_manifest.txt)（路径、首段标题、字节数）。
-
-## 维护与再生
-
-- **重新从单文件生成全部分片**：在仓库内执行  
-  `python3 docs/drafts/hermes-memory/_split_hermes_memory.py`  
-  脚本会校验**拼接结果与源文件逐字节一致**（见脚本内 `assert`）。
-- **源文件位置**：`docs/drafts/hermes-memory-analysis.md`（现为占位符，指向本目录；**权威正文在 `hermes-memory/` 各分片中**）。
-- **给 AI 文档助理的操作说明**：见 [`AGENT.md`](AGENT.md)。
+- **权威正文**：`docs/drafts/hermes-memory/**/*.md` 各分片（勿在根文件 `hermes-memory-analysis.md` 堆长文）。
+- **给 AI 文档助理**：见 [`AGENT.md`](AGENT.md)。
 
 ## 相关占位
 
 - [`misc.md`](misc.md) — 暂不便归入某一方面的摘录
 - [`staging.md`](staging.md) — 工作进度与待合并草稿
 
-## 自检记录（分片完成后至少 5 项）
+## 自检（维护时建议）
 
-| # | 检查项 | 结果 |
-|---|--------|------|
-| 1 | 各分片字节数 ≤ 51200（50KB 上限） | 最大约 48955 字节，通过 |
-| 2 | 去掉分片首行 `<!-- split ... -->` 后按 `_manifest.txt` 顺序拼接 | 与拆分前仓库中的整文件 **逐字节一致**；拆分合入后请用 `git show HEAD^:docs/drafts/hermes-memory-analysis.md`（或含该文件最后一版整稿的提交）对照 |
-| 3 | 再生脚本无损：`python3 _split_hermes_memory.py` 内 `assert joined == text` | 生成时已通过 |
-| 4 | `_manifest.txt` 行数与 `**/*.md` 分片数量一致（不含 index/AGENT/misc/staging） | 10 条 ↔ 10 个分片文件 |
-| 5 | `index.md` 中显式链接的路径均在仓库中存在 | 已核对 |
-| 6 | 分片文件名均为英文（`docs/drafts/hermes-memory/**/*.md` 分片） | 已重命名并通过 |
-
-> 若 `hermes-memory-analysis.md` 在 git 中已更新，重新跑 `_split_hermes_memory.py` 后应重复第 2、3 项校验。
+| # | 检查项 |
+|---|--------|
+| 1 | 各分片 `wc -c` ≤ 51200（50KB 上限） |
+| 2 | `index.md` 中显式链接的路径仍存在 |
+| 3 | 新增分片文件名保持英文、归入合适 aspect 子目录 |
