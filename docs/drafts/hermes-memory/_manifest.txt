@@ -1,0 +1,10 @@
+00-overview/01-architecture-positioning-and-toc.md	⚠️ 架构定位认知（阅读前必读）	37092
+20-recommendations/02-bluecortexce-recommendations.md	10. BlueCortexCE 借鉴建议汇总	47651
+40-context-compression/03-memory-context-injection-and-prefetch-lifecycle.md	16. 核心架构修正：Memory Context 注入机制 + Prefetch 生命周期（v3.5 修正）	41652
+50-honcho-holographic-deep/04-honcho-four-tools-routing.md	20. Honcho 四工具完整路由分析（v3.7 新增）	48863
+50-honcho-holographic-deep/05-multimodal-memory-clarification.md	30. 多模态记忆澄清（v4.0 新增）	46067
+60-evolution/06-memory-provider-hooks-inventory.md	34. MemoryProvider 生命周期 Hooks 全量清单（v4.3 新增）	48955
+60-evolution/07-bluecortexce-contradiction-detection-plan.md	45. BlueCortexCE 矛盾检测工程方案 — Entity Extraction + Similarity Scoring（v4.5 新增）	48537
+60-evolution/08-builtin-memory-tool-bounded-snapshot.md	54. 内置 Memory Tool — 有界精选 + 冻结快照机制（v4.9 新增）	45998
+60-evolution/09-supermemory-capture-lifecycle.md	56. Supermemory 完整 Capture 生命周期 — trivial 过滤 + entity_context 注入 + session batch（v5.2 新增）	46974
+60-evolution/10-holographic-hrr-implementation.md	70. Holographic HRR — 完整实现分析（v6.0 新增）	34259
