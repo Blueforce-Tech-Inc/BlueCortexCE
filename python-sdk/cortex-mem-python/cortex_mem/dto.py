@@ -520,10 +520,10 @@ class Observation:
             created_at=_first_non_null(data, "created_at", "createdAt") or "",
             created_at_epoch=_to_int(_first_non_null(data, "created_at_epoch", "createdAtEpoch")),
             last_accessed_at=_first_non_null(data, "last_accessed_at", "lastAccessedAt") or "",
-            access_count=_to_int(_first_non_null(data, "access_count")),
-            refined_at=_first_non_null(data, "refined_at") or "",
-            refined_from_ids=_to_str_list(data.get("refined_from_ids")),
-            user_comment=_first_non_null(data, "user_comment") or "",
+            access_count=_to_int(_first_non_null(data, "access_count", "accessCount")),
+            refined_at=_first_non_null(data, "refined_at", "refinedAt") or "",
+            refined_from_ids=_to_str_list(_first_non_null(data, "refined_from_ids", "refinedFromIds")),
+            user_comment=_first_non_null(data, "user_comment", "userComment") or "",
         )
 
 
