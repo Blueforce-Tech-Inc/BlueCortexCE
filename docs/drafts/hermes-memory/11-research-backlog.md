@@ -19,7 +19,7 @@
 
 ## 旁路型落地（BlueCortexCE）
 
-- [ ] **Context 出口**：`/api/context/*` 与插件路径是否统一 **fence + 消毒**（语义对齐 Hermes `sanitize_context` / `build_memory_context_block`）；验收见 [`04-ce-injection-and-context-api-surface.md`](20-recommendations/04-ce-injection-and-context-api-surface.md) §4。
+- [ ] **Context 出口**：`/api/context/*` 与插件路径是否统一 **fence + 消毒**（语义对齐 Hermes `sanitize_context` / `build_memory_context_block`）；验收见 [`04-ce-injection-and-context-api-surface.md`](20-recommendations/04-ce-injection-and-context-api-surface.md) §4。（集成表首跳与 Worker/Java 判别以 `04` §2.1 与 [`../evolver-memory/15-runtime-integration-surfaces.md`](../evolver-memory/15-runtime-integration-surfaces.md) §5 为准，避免只按 §3 误判「Hook = Java `/semantic`」。）
 - [ ] **ingest 侧扫描范围**：是否扩展 Hermes 类 **injection pattern + 不可见 Unicode**（[`02`](20-recommendations/02-bluecortexce-recommendations.md) §10.5）；与 [`05-ce-context-security-gap-inventory.md`](20-recommendations/05-ce-context-security-gap-inventory.md) 缺口表合并决策。
 - [ ] **辅助 LLM fallback**：`/api/context/generate` 等是否与 [`02`](20-recommendations/02-bluecortexce-recommendations.md) §14 AuxiliaryClient 思想对齐（per-task 模型 + 链式降级）。
 

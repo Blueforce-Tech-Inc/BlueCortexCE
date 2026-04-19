@@ -7,7 +7,7 @@
 1. **总览与立场** → [`00-overview/01-architecture-positioning-and-toc.md`](00-overview/01-architecture-positioning-and-toc.md)（含历史级「目录」清单；跨文件锚点无效，请用本索引跳转）
 2. **借鉴总表** → [`20-recommendations/02-bluecortexce-recommendations.md`](20-recommendations/02-bluecortexce-recommendations.md)
 3. **可执行优先级（综述）** → [`20-recommendations/03-borrowing-synthesis-executable-priorities.md`](20-recommendations/03-borrowing-synthesis-executable-priorities.md)
-4. **CE 注入面与 `/api/context` 对照（本仓库路径）** → [`20-recommendations/04-ce-injection-and-context-api-surface.md`](20-recommendations/04-ce-injection-and-context-api-surface.md)
+4. **CE 注入面与 `/api/context` 对照（本仓库路径）** → [`20-recommendations/04-ce-injection-and-context-api-surface.md`](20-recommendations/04-ce-injection-and-context-api-surface.md)（§2.1 会话首跳 → [`../evolver-memory/15-runtime-integration-surfaces.md`](../evolver-memory/15-runtime-integration-surfaces.md) §5）
 5. **上下文安全缺口盘点（对照 Hermes 扫描）** → [`20-recommendations/05-ce-context-security-gap-inventory.md`](20-recommendations/05-ce-context-security-gap-inventory.md)
 6. **上下文 / 注入 / Prefetch（Hermes 机制长文）** → [`40-context-compression/03-memory-context-injection-and-prefetch-lifecycle.md`](40-context-compression/03-memory-context-injection-and-prefetch-lifecycle.md)
 7. **Honcho / 多模态等深度** → `50-honcho-holographic-deep/` 下各篇

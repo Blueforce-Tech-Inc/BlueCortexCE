@@ -4,6 +4,7 @@
 > **Hermes 机制**（user 消息侧注入、fence、`sanitize_context`）：[`../40-context-compression/03-memory-context-injection-and-prefetch-lifecycle.md`](../40-context-compression/03-memory-context-injection-and-prefetch-lifecycle.md)  
 > **行动优先级**：[`03-borrowing-synthesis-executable-priorities.md`](03-borrowing-synthesis-executable-priorities.md)  
 > **Evolver → CE 落地锚点**（schema、混合检索、缺口）：[`../../evolver-memory/10-aspect-bluecortex-implementation-map.md`](../../evolver-memory/10-aspect-bluecortex-implementation-map.md)  
+> **会话首跳**（Worker `POST /api/sessions/init` vs Java `POST /api/session/start`）：[`../../evolver-memory/15-runtime-integration-surfaces.md`](../../evolver-memory/15-runtime-integration-surfaces.md) §5  
 > **日期**：2026-04-19
 
 ---
@@ -22,10 +23,14 @@
 |--------|--------------------------|-------------------|
 | OpenClaw Java 插件 | **System**（`appendSystemContext`） | [`openclaw-plugin/src/index.ts`](../../../../openclaw-plugin/src/index.ts)（`before_prompt_build`） |
 | OpenClaw / worker 链（TS） | **System** | [`webui/openclaw/src/index.ts`](../../../../webui/openclaw/src/index.ts)（`before_prompt_build`） |
-| Claude Code Hook（会话初始化路径） | **Hook 附加上下文**（`UserPromptSubmit` 的 `additionalContext`） | [`webui/src/cli/handlers/session-init.ts`](../../../../webui/src/cli/handlers/session-init.ts)（`POST /api/context/semantic`） |
+| Claude Code Hook（会话初始化路径） | **Hook 附加上下文**（`UserPromptSubmit` 的 `additionalContext`） | [`webui/src/cli/handlers/session-init.ts`](../../../../webui/src/cli/handlers/session-init.ts)：先 **`POST /api/sessions/init`**（Bun Worker / SQLite 会话栈）；在满足条件时再 **`POST /api/context/semantic`**（Worker → Chroma，非 Java pgvector） |
 | Spring AI | **System**：`SystemMessage` 插入 instructions 首部 | [`cortex-mem-spring-integration/cortex-mem-spring-ai/src/main/java/com/ablueforce/cortexce/ai/advisor/CortexMemoryAdvisor.java`](../../../../cortex-mem-spring-integration/cortex-mem-spring-ai/src/main/java/com/ablueforce/cortexce/ai/advisor/CortexMemoryAdvisor.java)（`enrichRequest` / `buildICLPrompt`） |
 
 **与 Hermes 的差异**：CE 多条路径把记忆放进 **system** 或 **hook 附加字段**，而不是 Hermes 默认的「user 字符串尾部拼接」。**P0 仍建议**：在 **后端拼装**与/或 **插件写入模型前** 做与 Hermes 同类的消毒与围栏，避免观察正文闭合宿主侧标签或冒充指令边界。
+
+### 2.1 会话「首跳」与注入面分开记
+
+**Claude Code 默认 Hook 不经 Java `POST /api/session/start`**；该路由由 **wrapper、`js-sdk`、OpenClaw Java 插件** 等打 **Spring**（配置里端口名常仍叫 `workerPort`）。首跳对照表、Worker 其它调用方与排查顺序见 [`../../evolver-memory/15-runtime-integration-surfaces.md`](../../evolver-memory/15-runtime-integration-surfaces.md) §5；数据平面（SQLite+Chroma ∥ Postgres+pgvector）见 [`../../evolver-memory/12-bluecortex-api-memory-surface.md`](../../evolver-memory/12-bluecortex-api-memory-surface.md) §2。
 
 ---
 
@@ -41,7 +46,7 @@
 | POST | `/generate` | LLM 综合生成（与 Honcho dialectic **思想**对照见 [`02-bluecortexce-recommendations.md`](02-bluecortexce-recommendations.md)） |
 | GET | `/preview` | 文本预览 |
 | GET | `/prior-messages` | 会话先验消息 |
-| POST | `/semantic` | 按当前 prompt 的语义检索（Hook 链常用） |
+| POST | `/semantic` | 按当前 prompt 的语义检索（**Spring** 路径；OpenClaw **Java** 插件等使用。**Claude Code Hook** 默认打 **Worker** 同名路由 → Chroma，见 §2 与 [`../../evolver-memory/12-bluecortex-api-memory-surface.md`](../../evolver-memory/12-bluecortex-api-memory-surface.md) §1） |
 
 拼装与检索实现：`ContextService`、`SearchService`、`ObservationRepository`（混合检索与 schema 见 Evolver 对照稿 `10` 第 2 节）。
 

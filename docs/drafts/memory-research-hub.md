@@ -1,7 +1,7 @@
 # 记忆相关研究草稿 — 总导航
 
 > **用途**：给人类或 Agent **选入口**，避免在 `docs/drafts/` 下迷路。各子目录仍各自维护 `index.md` / `AGENT.md`。  
-> **最后更新**：2026-04-19（`15` §5 会话首跳、任务表去重）
+> **最后更新**：2026-04-19（`04` §2.1 链会话首跳、Hub 任务标注）
 
 ## 按系统 / 体裁
 
@@ -22,7 +22,7 @@
 | **Java：`/api/session/start`、缓存与 session-end 对照** | [`evolver-memory/17-session-lifecycle-java-sketch.md`](evolver-memory/17-session-lifecycle-java-sketch.md) |
 | **Bun Worker vs Java Spring（端口、健康检查、Chroma vs pgvector）** | [`evolver-memory/15-runtime-integration-surfaces.md`](evolver-memory/15-runtime-integration-surfaces.md) §1–§3 |
 | **会话开局双路径**（`POST /api/sessions/init` Worker vs `POST /api/session/start` Java） | [`evolver-memory/15-runtime-integration-surfaces.md`](evolver-memory/15-runtime-integration-surfaces.md) **§5**；Java 细节 [`evolver-memory/17-session-lifecycle-java-sketch.md`](evolver-memory/17-session-lifecycle-java-sketch.md) |
-| **OpenClaw / Hook / Spring 注入与 `/api/context`** | [`hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md`](hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md) |
+| **OpenClaw / Hook / Spring 注入与 `/api/context`**（含 §2.1 → 会话首跳） | [`hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md`](hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md) |
 | **上下文出口安全 vs Hermes 扫描** | [`hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md`](hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md) |
 | **方面优先级与反模式（Evolver ↔ CE）** | [`evolver-memory/09-aspect-bluecortex-bridge.md`](evolver-memory/09-aspect-bluecortex-bridge.md) |
 | **Evo-Memory 论文（Refine / WriteBack）** | [`evo-memory-paper-analysis/02-remem-architecture.md`](evo-memory-paper-analysis/02-remem-architecture.md)、[`07-roadmap-and-bypass-adaptation.md`](evo-memory-paper-analysis/07-roadmap-and-bypass-adaptation.md) |
