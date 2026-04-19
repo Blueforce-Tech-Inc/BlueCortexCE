@@ -1,7 +1,7 @@
 # 记忆相关研究草稿 — 总导航
 
 > **用途**：给人类或 Agent **选入口**，避免在 `docs/drafts/` 下迷路。各子目录仍各自维护 `index.md` / `AGENT.md`。  
-> **最后更新**：2026-04-19（Hermes `13` `run_agent` 接线快照 · Evolver `19` `evolve` 循环记忆顺序 · Evolver `20` 排序增强专题）
+> **最后更新**：2026-04-19（Hermes `13` `run_agent` 接线快照 · Evolver `19` `evolve` 循环记忆顺序 · Evolver `20` 排序增强 · Evolver `21` Signal Taxonomy + 基因匹配 · Evolver `22` `error_sig_norm` 写入提案）
 
 ## 按系统 / 体裁
 
@@ -28,6 +28,8 @@
 | **EvoMap/evolver 本地记忆实现**（`memoryGraph.js` / narrative / `MEMORY_GRAPH_PROVIDER`） | [`evolver-memory/18-evolver-local-source-memory-architecture-snapshot.md`](evolver-memory/18-evolver-local-source-memory-architecture-snapshot.md) |
 | **排序增强：时间衰减 + 重复失败降权**（`decayWeight` → CE 翻译） | [`evolver-memory/20-time-decay-and-fail-degradation.md`](evolver-memory/20-time-decay-and-fail-degradation.md) |
 | **`evolve.js` 主循环**（`recordOutcome`→`signal`→…→`attempt`；`inferOutcomeEnhanced`） | [`evolver-memory/19-evolver-evolve-loop-memory-ordering-and-outcome-inference.md`](evolver-memory/19-evolver-evolve-loop-memory-ordering-and-outcome-inference.md) |
+| **Signal Taxonomy**（`expandSignals` 标签体系 / Jaccard ≥ 0.34 / `getMemoryAdvice` 完整链 / Laplace 平滑） | [`evolver-memory/21-signal-taxonomy-and-gene-selection-memory.md`](evolver-memory/21-signal-taxonomy-and-gene-selection-memory.md) |
+| **`error_sig_norm` 落地提案**（规范化算法 + JSONB schema + `ObservationService` 写入路径 + 实施检查清单） | [`evolver-memory/22-error-sig-norm-implementation-proposal.md`](evolver-memory/22-error-sig-norm-implementation-proposal.md) |
 | **Evo-Memory 论文（Refine / WriteBack）** | [`evo-memory-paper-analysis/02-remem-architecture.md`](evo-memory-paper-analysis/02-remem-architecture.md)、[`07-roadmap-and-bypass-adaptation.md`](evo-memory-paper-analysis/07-roadmap-and-bypass-adaptation.md) |
 | **可勾选接力队列** | Evolver：[`evolver-memory/11-research-backlog.md`](evolver-memory/11-research-backlog.md) · Hermes 课题：[`hermes-memory/11-research-backlog.md`](hermes-memory/11-research-backlog.md) |
 

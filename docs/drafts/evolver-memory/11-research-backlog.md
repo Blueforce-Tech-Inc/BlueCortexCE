@@ -1,7 +1,7 @@
 # 研究 / 决策 backlog（可接力）
 
 > **角色**：给后续人类或 Agent 的**短队列**——可勾选、可补链接；**不**重复 [`09`](./09-aspect-bluecortex-bridge.md) 的 P0/P1 定义本身。  
-> **最后更新**：2026-04-19（边界表 → `19`）
+> **最后更新**：2026-04-19 15:49（补充 `normalizeErrorSignature` 源码验证 + `inferOutcomeEnhanced` + 双聚合链）
 
 ---
 
@@ -19,6 +19,13 @@
 - [ ] **Java（pgvector）与 Worker（Chroma）语义结果一致性**：同名路由、异存储；全 Java / 混合部署下的对齐、评测与文档。HTTP 契约与字段对照见 [`12`](./12-bluecortex-api-memory-surface.md) **§1.1**；实现锚点另见 [`10`](./10-aspect-bluecortex-implementation-map.md) §3。
 - [ ] **语义注入与时间线并存的 token 预算**：`additionalContext` 与主上下文拼接策略、关闭开关与延迟预算。
 - [ ] **错误类观察的 `extracted_data` 约定**：是否统一 `error_signature`（栈归一化）字段名与归一规则，并与 `content_hash` 去重策略分工。（对齐 Evolver `normalizeErrorSignature` 思想）
+  - **源码验证完成**：`memoryGraph.js` §27 定义 `normalizeErrorSignature`：Windows/Unix路径→`<path>`、十六进制→`<hex>`、数字→`<n>`，截断220字符后 `stableHash`。
+  - **BlueCortexCE 落点**：`ObservationEntity.extractedData` JSONB 已有，dedup 用 `contentHash`（精确哈希），两类机制可共存：`extractedData.error_sig_norm` 存规范化签名用于"同类错误聚合"检索；`content_hash` 保持精确去重。
+  - **实施路径**：参考 [`21`](./21-signal-taxonomy-and-gene-selection-memory.md) §2 的 `normalizeErrorSignature` 实现；在 `AgentService.saveObservation` 路径对 `type=error` 观察写入规范化签名。
+  - **✅ 提案完成**：见 [`22`](./22-error-sig-norm-implementation-proposal.md)（规范化算法 + JSONB schema + 写入路径 + 实施检查清单）
+- [ ] **`inferOutcomeEnhanced` 的 baseline vs current delta 机制**：Evolver 用 `recent_error_count` 差值和 `scan_ms` 差值微调 outcome score（各 ±0.12 / ±0.06）。BlueCortexCE 暂无对应机制；若引入"观察质量评分"，可参考此 delta 启发式。
+  - 源码：`memoryGraph.js` §560–§590，`clamp01(score)` 保证边界。
+- [ ] **双聚合链（signal×gene 边 vs gene 先验）**：Evolver `getMemoryAdvice` 维护两条独立衰减链：`(signal_key, gene_id)` 边（30天半衰）和 `gene_id` 先验（45天半衰），加权组合 `best + prior*0.12` 或纯先验 `prior*0.4`。BlueCortexCE `SearchService` 暂无此双链机制；若引入"历史检索成功率"，可参考此分层衰减设计。
 
 ## 实现与数据
 
