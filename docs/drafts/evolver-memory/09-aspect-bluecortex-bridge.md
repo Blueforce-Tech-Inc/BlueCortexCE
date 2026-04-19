@@ -6,7 +6,7 @@
 > **本仓库落地映射**（类/迁移/SQL 锚点）：[`10-aspect-bluecortex-implementation-map.md`](./10-aspect-bluecortex-implementation-map.md)。  
 > **多线总导航**（Hermes / Evolver / 论文）：[`../memory-research-hub.md`](../memory-research-hub.md)
 
-**最后更新**：2026-04-19（§3.1 双存储链 + `15`/`12` 链）
+**最后更新**：2026-04-19（§6 会话首跳索引 → `15` §5）
 
 ---
 
@@ -114,6 +114,7 @@
 | Hermes 内置记忆、围栏、Prefetch | [`../hermes-memory/index.md`](../hermes-memory/index.md)；注入 [`04`](../hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md)、安全 [`05`](../hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md) |
 | CE 上下文 **产出** 调用链（`generateContext` vs `semantic`） | [`14-context-output-pipeline-sketch.md`](./14-context-output-pipeline-sketch.md) |
 | **Bun Worker vs Java**（谁监听 37777、OpenClaw 命名陷阱） | [`15-runtime-integration-surfaces.md`](./15-runtime-integration-surfaces.md) |
+| **会话首跳**（`POST /api/sessions/init` Worker vs `POST /api/session/start` Java） | [`15`](./15-runtime-integration-surfaces.md) **§5**；数据平面旁注 [`12`](./12-bluecortex-api-memory-surface.md) §2 |
 | **Java 摄入 / 写入**（wrapper → `IngestionController`） | [`16-ingestion-write-path-sketch.md`](./16-ingestion-write-path-sketch.md) |
 | **Java 会话 start**（`/api/session/start`） | [`17-session-lifecycle-java-sketch.md`](./17-session-lifecycle-java-sketch.md) |
 | Evo-Memory 论文（Refine / WriteBack / 基准） | [`../evo-memory-paper-analysis/index.md`](../evo-memory-paper-analysis/index.md) |

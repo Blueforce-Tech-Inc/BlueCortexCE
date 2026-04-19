@@ -58,6 +58,8 @@ Node **wrapper** 通过 **`JAVA_API_URL`**（默认 `http://127.0.0.1:37777`，�
 | **Bun Worker** | **`POST /api/sessions/init`** | 按 `contentSessionId` 建/复用 SDK 会话行、递增 prompt 号、隐私检查等 | `webui/src/cli/handlers/session-init.ts`；`SessionRoutes` 内 `handleSessionInitByClaudeId`（注释写明 `new-hook` 使用） |
 | **Java Spring** | **`POST /api/session/start`** | 初始化会话 + **上下文缓存**命中则 `generateContext` 等 | 见 [`17`](./17-session-lifecycle-java-sketch.md) |
 
+**其它 Worker 调用方**（同样命中 **`/api/sessions/init`**，列举非穷尽）：`webui/openclaw/src/index.ts`（`workerPost`）；`webui/src/integrations/opencode-plugin/index.ts`（`workerPostFireAndForget`）。它们与 Claude Code Hook **共用** `SessionRoutes`，仍**不等于** Java **`/api/session/start`**。
+
 **同一会话后续（Worker）**：`POST /sessions/{sessionDbId}/init`（启动 SDK/OpenRouter 等 agent）、`POST /api/context/semantic`（§2 表）。**勿**与 Java `17` 混为一条调用链。
 
 ---
