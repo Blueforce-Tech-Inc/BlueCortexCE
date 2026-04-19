@@ -2,7 +2,7 @@
 
 > **角色**：减少 Agent 在「同名 `/api/context/*`、默认端口又常是 37777」时的误判：**先分清请求落在哪个进程**，再谈 Chroma vs pgvector。  
 > **配套**：[`12-bluecortex-api-memory-surface.md`](./12-bluecortex-api-memory-surface.md)、[`14-context-output-pipeline-sketch.md`](./14-context-output-pipeline-sketch.md)（Java 链）、[`10`](./10-aspect-bluecortex-implementation-map.md) §3。  
-> **最后更新**：2026-04-19（§4 wrapper→Java）
+> **最后更新**：2026-04-19（§5 Worker init vs Java `17`）
 
 ---
 
@@ -49,7 +49,20 @@ Node **wrapper** 通过 **`JAVA_API_URL`**（默认 `http://127.0.0.1:37777`，�
 
 ---
 
-## 5. 相关文档
+## 5. 会话「首跳」：Worker `POST /api/sessions/init` vs Java `POST /api/session/start`
+
+与 [`17-session-lifecycle-java-sketch.md`](./17-session-lifecycle-java-sketch.md)（**仅 Java**）成对阅读：Claude Code **默认 Hook** 不经 Java `session/start`，而是先打 **Worker**。
+
+| 栈 | 路由 | 作用（概念） | 锚点 |
+|----|------|--------------|------|
+| **Bun Worker** | **`POST /api/sessions/init`** | 按 `contentSessionId` 建/复用 SDK 会话行、递增 prompt 号、隐私检查等 | `webui/src/cli/handlers/session-init.ts`；`SessionRoutes` 内 `handleSessionInitByClaudeId`（注释写明 `new-hook` 使用） |
+| **Java Spring** | **`POST /api/session/start`** | 初始化会话 + **上下文缓存**命中则 `generateContext` 等 | 见 [`17`](./17-session-lifecycle-java-sketch.md) |
+
+**同一会话后续（Worker）**：`POST /sessions/{sessionDbId}/init`（启动 SDK/OpenRouter 等 agent）、`POST /api/context/semantic`（§2 表）。**勿**与 Java `17` 混为一条调用链。
+
+---
+
+## 6. 相关文档
 
 - 总导航：[`../memory-research-hub.md`](../memory-research-hub.md)  
 - HTTP / 数据平面：[`12`](./12-bluecortex-api-memory-surface.md)  

@@ -1,7 +1,7 @@
 # BlueCortexCE：会话生命周期速写（Java — start 与 end）
 
 > **角色**：补齐 **`16`** 未覆盖的 **Java** **session-start** 主路径；与 **ingest** 中的 **session-end** 形成「一头一尾」对照。  
-> **非本文范围**：Claude Code **`session-init` Hook** 使用 **Bun Worker** **`POST /api/sessions/init`**（`SessionRoutes`），**不是** 下文 `POST /api/session/start`。对照见 [`12-bluecortex-api-memory-surface.md`](./12-bluecortex-api-memory-surface.md) §2–§3。  
+> **非本文范围**：Claude Code **`session-init` Hook** 使用 **Bun Worker** **`POST /api/sessions/init`**（`SessionRoutes`），**不是** 下文 `POST /api/session/start`。对照见 [`15-runtime-integration-surfaces.md`](./15-runtime-integration-surfaces.md) §5（亦见 [`12`](./12-bluecortex-api-memory-surface.md) §2–§3）。  
 > **配对阅读**：[`16-ingestion-write-path-sketch.md`](./16-ingestion-write-path-sketch.md)（tool-use / user-prompt / session-end）  
 > **最后更新**：2026-04-19
 

@@ -11,6 +11,10 @@
 5. **历史入口**：[`../evolver-memory-analysis.md`](../evolver-memory-analysis.md) 保持为短入口，**不要**把完整长文写回该路径。模块级细节以 `01`–`08` 为准；对照 BlueCortexCE 的「方面」演进写在 `09-*.md` 等，**不**纳入下面所述的拼接校验范围。  
 6. **多线导航**：记忆相关草稿总表见 [`../memory-research-hub.md`](../memory-research-hub.md)。
 
+## 对照短文速查
+
+**`09`–`17` 一句话职责表**以 [`index.md`](./index.md) 中的 **「附录：BlueCortexCE 对照短文」** 为唯一维护点；新增编号文件时**同步更新该附录**与 [`../memory-research-hub.md`](../memory-research-hub.md)「按任务」表，避免各文件重复粘贴同表导致漂移。
+
 ## 分片边界
 
 - `01` … `08` 为已定顺序分片；新增主题用 `09+` 文件名前缀，并在 `index.md` 增加一行说明。
