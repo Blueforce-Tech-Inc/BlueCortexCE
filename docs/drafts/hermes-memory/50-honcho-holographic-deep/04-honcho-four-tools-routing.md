@@ -1,4 +1,3 @@
-<!-- split 4/10 | aspect:50-honcho-holographic-deep | ≤50KB -->
 
 ## 20. Honcho 四工具完整路由分析（v3.7 新增）
 

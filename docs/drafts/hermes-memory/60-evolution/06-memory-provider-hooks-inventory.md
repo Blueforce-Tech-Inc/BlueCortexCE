@@ -1,4 +1,3 @@
-<!-- split 6/10 | aspect:60-evolution | ≤50KB -->
 
 ## 34. MemoryProvider 生命周期 Hooks 全量清单（v4.3 新增）
 

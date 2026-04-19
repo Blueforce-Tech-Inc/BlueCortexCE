@@ -1,4 +1,3 @@
-<!-- split 7/10 | aspect:60-evolution | ≤50KB -->
 
 ## 45. BlueCortexCE 矛盾检测工程方案 — Entity Extraction + Similarity Scoring（v4.5 新增）
 

@@ -1,4 +1,3 @@
-<!-- split 5/10 | aspect:50-honcho-holographic-deep | ≤50KB -->
 
 ## 30. 多模态记忆澄清（v4.0 新增）
 

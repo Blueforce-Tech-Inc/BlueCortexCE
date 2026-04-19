@@ -1,12 +1,13 @@
-<!-- split 1/10 | aspect:00-overview | ≤50KB -->
-
 # Hermes Agent 记忆系统深度分析
 
 > **文档状态**: v6.3 (新增：Session Search `_format_conversation` 截断算法 + 亲缘链双重排除 + Supermemory capture_mode="everything" trivial 过滤确认)
 > **分析目标**: 为 BlueCortexCE（旁路型记忆系统）提供可落地的借鉴建议
 > **数据来源**: `/Users/yangjiefeng/Documents/NousResearch/hermes-agent/`
 > **最后更新**: 2026-04-17 08:20  
-> **演进补篇**: 2026-04-19 — [现场复核与旁路型路线图](../60-evolution/11-field-review-and-bypass-roadmap.md)
+> **演进补篇**: 2026-04-19 — [现场复核与旁路型路线图](../60-evolution/11-field-review-and-bypass-roadmap.md)  
+> **行动优先级综述**: [`../20-recommendations/03-borrowing-synthesis-executable-priorities.md`](../20-recommendations/03-borrowing-synthesis-executable-priorities.md)  
+> **CE 注入面与 Context API 对照**: [`../20-recommendations/04-ce-injection-and-context-api-surface.md`](../20-recommendations/04-ce-injection-and-context-api-surface.md)  
+> **上下文安全缺口盘点**: [`../20-recommendations/05-ce-context-security-gap-inventory.md`](../20-recommendations/05-ce-context-security-gap-inventory.md) · **接力队列**: [`../11-research-backlog.md`](../11-research-backlog.md)
 
 ---
 

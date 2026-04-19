@@ -1,4 +1,3 @@
-<!-- split 10/10 | aspect:60-evolution | ≤50KB -->
 
 ## 70. Holographic HRR — 完整实现分析（v6.0 新增）
 

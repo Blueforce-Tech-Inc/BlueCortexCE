@@ -1,4 +1,3 @@
-<!-- split 9/10 | aspect:60-evolution | ≤50KB -->
 
 ## 56. Supermemory 完整 Capture 生命周期 — trivial 过滤 + entity_context 注入 + session batch（v5.2 新增）
 

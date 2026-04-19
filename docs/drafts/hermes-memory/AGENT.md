@@ -1,26 +1,30 @@
-# Hermes 记忆分析文档 — AI 文档助理工作说明
+# Hermes 记忆分析文档 — 维护约定
 
-本文件对齐 OpenClaw / 内部任务中「Hermes Agent 记忆系统探索与借鉴分析」的**文档架构规范**，供后续 AI agent **演进本目录**时使用。
+供后续演进 `docs/drafts/hermes-memory/` 时对齐「单文件有界 + 主题清晰」原则。
 
 ## 必须遵守
 
-1. **禁止**再向单一巨型 `.md` 堆叠全文（阈值：**50KB/文件**）。
-2. **重构优先于追加**：若发现某文件将超限，先拆分或归类，再写入新内容。
-3. **方面明确**：每个文件应服务一个清晰主题（架构 / 存储 / 检索 / 上下文 / Hook / 某 Provider 等）；拿不准时先写入 [`staging.md`](staging.md)，再整理入对应 aspect 子目录。**分片文件名请使用英文**（内容可中文），并与现有 `00-overview/`、`20-recommendations/` 等目录下的命名风格一致。
-4. **信息完整性**：拆分或移动段落时不得丢代码引用、表格与结论；合并前在 `staging` 中保留 diff 说明（可选）。
+1. **单文件体量**：正文 Markdown 不超过 **50KB**（约 `wc -c` ≤51200）；将超限则先拆文件或挪章节，再写新内容。
+2. **主题**：每文件服务一个明确方面（架构、检索、上下文、某 Provider、某 Hook 等）。不确定时写入 [`staging.md`](staging.md)，整理后再归入子目录。
+3. **命名**：新建文件用**英文**文件名；内容语言可与现稿一致（中文为主）。
+4. **搬迁不失真**：移动段落时保留代码路径、表格与结论；大段合并可在 `staging` 里暂存对照（可选）。
 
-## 推荐工作流
+## 工作流
 
-1. 阅读 [`index.md`](index.md)，按 aspect 子目录定位分片。
-2. 小改动：直接编辑对应子目录下的 `.md`。
-3. 大段新增：写入 [`staging.md`](staging.md) → 拆成 ≤50KB → 归入合适 aspect 子目录（必要时在 `index.md` 增补阅读顺序或表格一行）。
+1. 从 [`index.md`](index.md) 定位 aspect 与已有文档。
+2. 小改：直接编辑对应 `.md`。
+3. 大段新增：`staging.md` → 拆成 ≤50KB → 归入子目录 → 更新 `index.md` 的阅读顺序或表格。
 
-## 与 BlueCortexCE 的关系
+## 分析目标（不变）
 
-分析目标不变：**为旁路型记忆系统提供可落地借鉴**；新增内容应保留「内置型 vs 旁路型」的**翻译**视角，避免照搬 Hermes 实现细节。
+为 **BlueCortexCE 旁路型**记忆服务提炼可落地思想：做「翻译」而非照搬 Hermes 进程内实现。
 
-## 自检（每次合并前至少做）
+**与 Evolver 草稿分工**：[`../evolver-memory/index.md`](../evolver-memory/index.md) 侧重 GEP/图谱/信号与 CE 方面对照；本目录侧重 **Hermes 内置记忆管线**。落地路径锚点见 Evolver [`10-aspect-bluecortex-implementation-map.md`](../evolver-memory/10-aspect-bluecortex-implementation-map.md) 与本目录 [`20-recommendations/04-ce-injection-and-context-api-surface.md`](20-recommendations/04-ce-injection-and-context-api-surface.md)。
 
-1. 每个 Markdown 分片 `wc -c` ≤ 51200。
-2. `index.md` 中的链接路径仍有效。
-3. 新增长内容已标版本/日期（与原稿风格一致为佳）。
+**全局导航**：[`../memory-research-hub.md`](../memory-research-hub.md)。**Hermes→CE 可勾选队列**：[`11-research-backlog.md`](11-research-backlog.md)。
+
+## 合并前自检
+
+- 各正文文件 `wc -c` ≤51200  
+- `index.md` 中的相对链接仍有效  
+- 若引入新结论，标明复核日期或上游提交/版本（若已知）

@@ -1,4 +1,3 @@
-<!-- split 3/10 | aspect:40-context-compression | ≤50KB -->
 
 ## 16. 核心架构修正：Memory Context 注入机制 + Prefetch 生命周期（v3.5 修正）
 

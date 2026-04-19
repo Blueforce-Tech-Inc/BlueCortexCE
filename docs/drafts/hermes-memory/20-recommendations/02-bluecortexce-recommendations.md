@@ -1,6 +1,7 @@
-<!-- split 2/10 | aspect:20-recommendations | ≤50KB -->
 
 ## 10. BlueCortexCE 借鉴建议汇总
+
+> **行动顺序综述**（可验收优先级、围栏/检索/fallback 边界）：见同目录 [`03-borrowing-synthesis-executable-priorities.md`](03-borrowing-synthesis-executable-priorities.md)。
 
 ### 10.1 架构层面
 

@@ -1,4 +1,3 @@
-<!-- split 8/10 | aspect:60-evolution | ≤50KB -->
 
 ## 54. 内置 Memory Tool — 有界精选 + 冻结快照机制（v4.9 新增）
 

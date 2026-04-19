@@ -1,5 +1,3 @@
-# Evolver 记忆分析 — 杂项
+# 杂项
 
-本文件用于存放**暂时不便归入** `index.md` 主题表或各 `0x-*.md` 正文的片段：零散链接、待分类摘录、跨模块备忘等。
-
-若某段内容已稳定、可归入既有「方面」，请迁入对应分片并在 `index.md` 更新入口；此处仅作过渡。
+暂存不便归入 `index.md` 或各 `0x-*.md` 的短摘录。稳定后迁入对应分片或 [`09-aspect-bluecortex-bridge.md`](./09-aspect-bluecortex-bridge.md) 并更新索引。

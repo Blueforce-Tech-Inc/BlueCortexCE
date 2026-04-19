@@ -1,21 +1,23 @@
-# Evolver 记忆系统深度分析
+# Evolver / EvoMap 记忆系统分析
 
-> **文档状态**: **正文已迁至目录** `docs/drafts/evolver-memory/`（分片 `01`–`08`，单文件 < 50KB）。本文件仅为占位符，保留历史路径与书签。
->
-> **分析目标**: 为 BlueCortexCE（旁路型记忆系统）提供可落地的借鉴建议  
-> **数据来源**: `/Users/yangjiefeng/Documents/EvoMap/evolver/`  
-> **最后更新**: 2026-04-17  
+**目标**：理解 EvoMap `evolver` 的记忆与进化相关设计，为 BlueCortexCE（旁路记忆）提炼可翻译、可落地的思想（非照搬 GEP 运行时）。
 
-## 请从这里进入
+**数据来源**：本地 `EvoMap/evolver/` 源码；本仓库见 `docs/ARCHITECTURE-zh-CN.md` 等。
+
+**最后更新**：2026-04-19
+
+## 入口
 
 | 说明 | 路径 |
 |------|------|
-| **总索引**（阅读路径、文档地图、按主题入口） | [docs/drafts/evolver-memory/index.md](./evolver-memory/index.md) |
-| **方面级对照**（Evolver ↔ BlueCortexCE，演进稿） | [docs/drafts/evolver-memory/09-aspect-bluecortex-bridge.md](./evolver-memory/09-aspect-bluecortex-bridge.md) |
-| **AI 文档助理**（演进规范：索引优先、体量上限、staging/misc） | [docs/drafts/evolver-memory/AGENT.md](./evolver-memory/AGENT.md) |
-| 杂项暂存 | [docs/drafts/evolver-memory/misc.md](./evolver-memory/misc.md) |
-| 工作进度 / 草稿暂存 | [docs/drafts/evolver-memory/staging.md](./evolver-memory/staging.md) |
-
----
-
-*原单体全文已按字节无损拆入 `evolver-memory/01-*.md` … `08-*.md`；若变更分片正文，请自行核对与 [`CANONICAL.sha256`](./evolver-memory/CANONICAL.sha256) 的一致性并视需要更新该文件。*
+| **记忆研究总导航**（Hermes / Evolver / 论文） | [docs/drafts/memory-research-hub.md](./memory-research-hub.md) |
+| CE 上下文 **Java 调用链**（`generateContext` / `semantic` / ICL） | [docs/drafts/evolver-memory/14-context-output-pipeline-sketch.md](./evolver-memory/14-context-output-pipeline-sketch.md) |
+| **Bun Worker vs Java**（端口、Chroma/pgvector、OpenClaw 配置名） | [docs/drafts/evolver-memory/15-runtime-integration-surfaces.md](./evolver-memory/15-runtime-integration-surfaces.md) |
+| **Java 摄入 / 写入链**（`IngestionController`、`processToolUseAsync`） | [docs/drafts/evolver-memory/16-ingestion-write-path-sketch.md](./evolver-memory/16-ingestion-write-path-sketch.md) |
+| 总索引（阅读顺序、按主题跳转） | [docs/drafts/evolver-memory/index.md](./evolver-memory/index.md) |
+| 方面级对照：Evolver ↔ BlueCortexCE | [docs/drafts/evolver-memory/09-aspect-bluecortex-bridge.md](./evolver-memory/09-aspect-bluecortex-bridge.md) |
+| 本仓库实现映射（迁移、Repository、§3 三路读出） | [docs/drafts/evolver-memory/10-aspect-bluecortex-implementation-map.md](./evolver-memory/10-aspect-bluecortex-implementation-map.md) |
+| 记忆 HTTP + 数据平面（§2 写入链） | [docs/drafts/evolver-memory/12-bluecortex-api-memory-surface.md](./evolver-memory/12-bluecortex-api-memory-surface.md) |
+| Hermes 参照 + **CE 注入面与 `/api/context`** | [docs/drafts/hermes-memory/index.md](./hermes-memory/index.md)；[04 对照表](./hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md) |
+| 研究 / 决策 backlog | [docs/drafts/evolver-memory/11-research-backlog.md](./evolver-memory/11-research-backlog.md) |
+| 文档维护约定（体量、索引、staging） | [docs/drafts/evolver-memory/AGENT.md](./evolver-memory/AGENT.md) |

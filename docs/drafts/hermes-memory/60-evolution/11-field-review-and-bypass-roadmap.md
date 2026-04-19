@@ -1,15 +1,14 @@
 # 现场复核与旁路型路线图（演进补篇）
 
-> **文档类型**: 在既有分片之上的增量演进，不替代原「目录」与各章深度分析。  
 > **本地数据源**: `/Users/yangjiefeng/Documents/NousResearch/hermes-agent/`（本机路径；以你检出版本为准）  
 > **撰写日期**: 2026-04-19  
-> **任务对齐**: OpenClaw「Hermes Agent 记忆系统探索与借鉴分析」— 结合 BlueCortexCE **旁路型**定位持续迭代。
+> **任务对齐**: Hermes 记忆分析 — 结合 BlueCortexCE **旁路型**定位持续迭代。
 
 ---
 
 ## 1. 本次复核范围（代码锚点）
 
-以下路径在本地仓库中存在，可与分片中的文件名、行号对照阅读（上游若重构需自行更新行号）：
+以下路径在本地仓库中存在，可与本目录其他文档中的文件名、行号对照阅读（上游若重构需自行更新行号）：
 
 | 主题 | 路径 |
 |------|------|
@@ -22,7 +21,7 @@
 | 辅助模型路由（session_search 等） | `agent/auxiliary_client.py` |
 | 运行时装配（prefetch / sync / hooks） | `run_agent.py`（体量极大，建议配合符号检索） |
 
-`memory_provider.py` 文件头文档字符串概括了 **initialize → prefetch / queue_prefetch → sync_turn** 的主线，以及 **on_pre_compress、on_memory_write、on_delegation** 等可选 Hook；与分片 `06-memory-provider-hooks-inventory` 等章节互为补充。
+`memory_provider.py` 文件头文档字符串概括了 **initialize → prefetch / queue_prefetch → sync_turn** 的主线，以及 **on_pre_compress、on_memory_write、on_delegation** 等可选 Hook；与 [`06-memory-provider-hooks-inventory.md`](06-memory-provider-hooks-inventory.md) 等篇互为补充。
 
 ---
 
@@ -55,8 +54,6 @@
 
 ---
 
-## 5. 后续文档维护
+## 5. 文档维护
 
-- 新增演进内容优先写入本目录 `60-evolution/` 新文件，**单文件保持 &lt; 50KB**。  
-- 若需大段草稿，先写 [`staging.md`](../staging.md)，再拆入分片。  
-- 总索引见 [`index.md`](../index.md)。
+见 [`../AGENT.md`](../AGENT.md) 与 [`../index.md`](../index.md)。
