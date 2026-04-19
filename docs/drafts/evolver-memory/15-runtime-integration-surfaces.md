@@ -2,7 +2,7 @@
 
 > **角色**：减少 Agent 在「同名 `/api/context/*`、默认端口又常是 37777」时的误判：**先分清请求落在哪个进程**，再谈 Chroma vs pgvector。  
 > **配套**：[`12-bluecortex-api-memory-surface.md`](./12-bluecortex-api-memory-surface.md)、[`14-context-output-pipeline-sketch.md`](./14-context-output-pipeline-sketch.md)（Java 链）、[`10`](./10-aspect-bluecortex-implementation-map.md) §3。  
-> **最后更新**：2026-04-19（§5 会话首跳 + Cursor 跳过 SDK `/sessions/.../init`）
+> **最后更新**：2026-04-19（§2.1 Hook Worker 基址）
 
 ---
 
@@ -19,11 +19,26 @@
 
 ## 2. 集成路径 → 实际打到哪里
 
-| 客户端 | 代码锚点 | 实际目标（设计意图） | `POST /api/context/semantic` |
-|--------|-----------|----------------------|------------------------------|
-| **Claude Code Hooks** | `webui/src/cli/handlers/session-init.ts` → `workerHttpRequest('/api/context/semantic')` | **Bun Worker**（`buildWorkerUrl` = `CLAUDE_MEM_WORKER_HOST` + `CLAUDE_MEM_WORKER_PORT`） | **Chroma 路径** |
-| **OpenClaw Java 插件** | `openclaw-plugin/src/index.ts`：`workerGetText(workerPort, "/actuator/health")`、`/api/context/inject` | **Java 后端**（配置项名叫 `workerPort`，实为 **Spring 端口**） | **若调用则走 Java**（与 Worker 版 **同源路径、异进程**） |
-| **产品架构长文** | `docs/ARCHITECTURE-zh-CN.md`（PostgreSQL 为真源） | 多指 **Java + Postgres** 部署 story | 以实际监听 37777 的进程为准 |
+| 客户端 | 代码锚点 | 实际目标（设计意图） | `POST /api/context/semantic`（若实现） |
+|--------|-----------|----------------------|----------------------------------------|
+| **Claude Code Hooks** | `session-init.ts` 等 → `workerHttpRequest` | **Bun Worker** | **Chroma**（默认 Hook 语义注入） |
+| **OpenClaw（TS，`webui/openclaw`）** | `webui/openclaw/src/index.ts`：`workerPost("/api/sessions/init")`、`GET /api/context/inject`、`/recent` | **Bun Worker** | 源码速查**未**出现 `semantic` 字面量；记忆块多走 **inject/recent** |
+| **OpenCode 插件** | `webui/src/integrations/opencode-plugin/index.ts`：`/api/sessions/init`、`/api/sessions/observations` 等 | **Bun Worker** | 未使用该路径（会话栈在 Worker） |
+| **OpenClaw Java 插件** | `openclaw-plugin/src/index.ts`：`/actuator/health`、`/api/context/inject`、ingest | **Java**（`workerPort` = Spring） | **Java pgvector**（若扩展调用该 POST） |
+| **`js-sdk`（`cortex-mem-js`）** | `js-sdk/cortex-mem-js/src/client.ts`：`startSession`、`recordObservation`、`search` | **Java**（客户端基址为 Spring API） | 当前 SDK **未**暴露 `semantic`；若新增则默认 **Java** |
+| **瘦代理** | `proxy/wrapper.js` → `callJavaApi` | **Java** | **不经** Worker |
+| **Codex watcher** | `codex-watcher/src/api.ts` | **Java** | 未在速查中命中该 POST |
+| **产品架构长文** | `docs/ARCHITECTURE-zh-CN.md` | 多指 **Java + Postgres** | 以**实际**监听端口的进程为准 |
+
+### 2.1 Hook 侧 Worker 基址（调研）
+
+Claude Code 等路径使用的 **`workerHttpRequest(path)`**（`webui/src/shared/worker-utils.ts`）将请求发到：
+
+`http://{CLAUDE_MEM_WORKER_HOST}:{CLAUDE_MEM_WORKER_PORT}{path}`
+
+其中 host/port 来自 **`settings.json`**（位于 `CLAUDE_MEM_DATA_DIR` 下，由 `SettingsDefaultsManager` 加载）。**默认值**：`127.0.0.1`、**`37777`**（见 `webui/src/shared/SettingsDefaultsManager.ts` 默认表）。
+
+**与 Java 的混淆点**：Spring 默认 `server.port` 也常为 **37777**——**数字相同 ≠ 同一进程**；应以 **§1 健康检查**（`/api/health` vs `/actuator/health`）为准。瘦代理走 **`JAVA_API_URL`**（见 **§4**），与 Hook 的 **Worker 基址**是两条独立配置绳。
 
 ---
 

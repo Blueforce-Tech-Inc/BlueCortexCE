@@ -12,7 +12,7 @@
 |------|------|
 | **记忆研究总导航**（Hermes / Evolver / 论文） | [docs/drafts/memory-research-hub.md](./memory-research-hub.md) |
 | CE 上下文 **Java 调用链**（`generateContext` / `semantic` / ICL） | [docs/drafts/evolver-memory/14-context-output-pipeline-sketch.md](./evolver-memory/14-context-output-pipeline-sketch.md) |
-| **Bun Worker vs Java**（端口、Chroma/pgvector、OpenClaw 配置名） | [docs/drafts/evolver-memory/15-runtime-integration-surfaces.md](./evolver-memory/15-runtime-integration-surfaces.md) |
+| **Bun Worker vs Java**（端口、**§2** 集成客户端、Chroma/pgvector、OpenClaw 配置名） | [docs/drafts/evolver-memory/15-runtime-integration-surfaces.md](./evolver-memory/15-runtime-integration-surfaces.md) |
 | **会话首跳**（`POST /api/sessions/init` Worker vs `POST /api/session/start` Java） | [docs/drafts/evolver-memory/15-runtime-integration-surfaces.md](./evolver-memory/15-runtime-integration-surfaces.md) **§5** |
 | **Java 摄入 / 写入链**（`IngestionController`、`processToolUseAsync`） | [docs/drafts/evolver-memory/16-ingestion-write-path-sketch.md](./evolver-memory/16-ingestion-write-path-sketch.md) |
 | **Java 会话 start / end**（`SessionController`、`/api/session/start`） | [docs/drafts/evolver-memory/17-session-lifecycle-java-sketch.md](./evolver-memory/17-session-lifecycle-java-sketch.md) |

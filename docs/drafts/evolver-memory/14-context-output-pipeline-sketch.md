@@ -1,7 +1,7 @@
 # BlueCortexCE：上下文「产出」链路速写（时间线 vs 语义 vs ICL）
 
 > **角色**：给 Agent **快速定位 Java 调用链**，补充 [`12`](./12-bluecortex-api-memory-surface.md) 的「谁调谁」；细节以源码为准。  
-> **最后更新**：2026-04-19
+> **最后更新**：2026-04-19（链 `12` §1.1、`15` §2.1）（§1 Worker 时间线对照句）
 
 ---
 
@@ -31,11 +31,13 @@
     }
 ```
 
+**Worker 侧**（不经 Java）：同类「时间线」输出由本地 **`ContextBuilder.generateContext`** 与 SQLite 拼装；HTTP 与三路读出对照见 [`12-bluecortex-api-memory-surface.md`](./12-bluecortex-api-memory-surface.md) §1。
+
 ---
 
 ## 2. 语义注入（`POST /api/context/semantic`）
 
-> **仅覆盖 Java 链**。Node worker 上同名路由由 `SearchRoutes` + **Chroma** 实现，Hook（`session-init`）默认命中 worker；见 [`12-bluecortex-api-memory-surface.md`](./12-bluecortex-api-memory-surface.md) §1–2。
+> **仅覆盖 Java 链**。Node worker 上同名路由由 `SearchRoutes` + **Chroma** 实现，Hook（`session-init`）默认命中 worker；HTTP 契约与双栈差异见 [`12`](./12-bluecortex-api-memory-surface.md) **§1.1**，Hook 基址见 [`15`](./15-runtime-integration-surfaces.md) **§2.1**。
 
 **不**复用 `generateContext`；**Java** 路径为：**embed(query)** → **`SearchService.search`** → 手工拼 `## Relevant Past Work (semantic match)` + 每条 `Observation` 的 title/content。
 
@@ -52,7 +54,7 @@
     }
 ```
 
-**约束**：`q` 长度 `< 20` 时直接空返回（与 Hook 侧 prompt 长度配合）。
+**约束**：`q` 长度不足 20 字符时直接空返回（与 Hook 侧 prompt 长度配合；与 Worker 同路由一致，见 [`12`](./12-bluecortex-api-memory-surface.md) §1.1）。
 
 ---
 

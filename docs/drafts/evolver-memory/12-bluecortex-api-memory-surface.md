@@ -1,7 +1,7 @@
 # BlueCortexCE：与记忆相关的 API 表面（速查）
 
 > **角色**：给 Agent 的**一页速查**：读出路径、**写入/索引**、HTTP 与双栈。  
-> **最后更新**：2026-04-19（§1.1 `semantic` 契约调研）
+> **最后更新**：2026-04-19（§3 调用方表扩充）
 
 ---
 
@@ -47,10 +47,13 @@
 
 | 组件 | 记忆相关调用 | 备注 |
 |------|----------------|------|
-| **`webui` `session-init` Hook** | **`POST /api/sessions/init`**（建会话/隐私门闩）；随后可选 **`POST /api/context/semantic`**；再可选 **`POST /sessions/{sessionDbId}/init`**（SDK agent） | 均经 `workerHttpRequest` 打 **Bun Worker**；入口 `webui/src/cli/handlers/session-init.ts`；路由注册 `SessionRoutes.ts` |
-| **`openclaw-plugin`** | `GET /api/context/inject`、`/api/context/recent`、`/api/context/timeline`、`GET /api/search` | **未**发现 `semantic` 字符串匹配 |
-| **`js-sdk/cortex-mem-js`** | `GET /api/search` | `client.ts` |
-| **`proxy/wrapper.js`** | `POST` → Java `…/api/search/by-file` 等 | 文件关联时间线 |
+| **`webui` `session-init` Hook** | **`POST /api/sessions/init`**（建会话/隐私门闩）；随后可选 **`POST /api/context/semantic`**；再可选 **`POST /sessions/{sessionDbId}/init`**（SDK agent） | 均经 `workerHttpRequest` 打 **Bun Worker**（`http://` + `CLAUDE_MEM_WORKER_HOST` + `:` + `CLAUDE_MEM_WORKER_PORT`，见 [`15`](./15-runtime-integration-surfaces.md) **§2.1**）；入口 `session-init.ts`；路由 `SessionRoutes.ts` |
+| **`webui/openclaw`（TS）** | **`POST /api/sessions/init`**；`GET /api/context/inject`、`/api/context/recent` 等 | **`workerPost` / `workerGetText`** → **Worker**（与 [`15`](./15-runtime-integration-surfaces.md) §2 一致） |
+| **OpenCode 插件** | **`POST /api/sessions/init`**；`POST /api/sessions/observations` 等 | **Worker**（`opencode-plugin/index.ts`） |
+| **`openclaw-plugin`（Java）** | **`POST /api/session/start`**（`session_start` / `after_compaction`）；`GET /api/context/inject` 等；**ingest** `workerPostFireAndForget` | **Java**（端口配置名 `workerPort` 实为 Spring）；见 [`15`](./15-runtime-integration-surfaces.md) §2 |
+| **`js-sdk/cortex-mem-js`** | **`POST /api/session/start`**；**`POST /api/ingest/*`**；`GET /api/search` 等 | **Java**（`client.ts` 基址） |
+| **`proxy/wrapper.js`** | **`callJavaApi`**：`/api/session/start`、`/api/ingest/*`、`…/api/search/by-file` 等 | **Java** |
+| **Codex watcher** | **`POST /api/session/start`** 等 | **Java**（`codex-watcher/src/api.ts`） |
 
 ---
 

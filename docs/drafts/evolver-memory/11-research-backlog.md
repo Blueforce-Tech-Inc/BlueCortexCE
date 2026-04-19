@@ -1,7 +1,7 @@
 # 研究 / 决策 backlog（可接力）
 
 > **角色**：给后续人类或 Agent 的**短队列**——可勾选、可补链接；**不**重复 [`09`](./09-aspect-bluecortex-bridge.md) 的 P0/P1 定义本身。  
-> **最后更新**：2026-04-19（链至 `12` §1.1）
+> **最后更新**：2026-04-19（`15` §2 边界说明）
 
 ---
 
@@ -43,7 +43,7 @@
 | [`10`](./10-aspect-bluecortex-implementation-map.md) | 本仓库**已实现**与**缺口**的代码锚点 |
 | [`12`](./12-bluecortex-api-memory-surface.md) | **HTTP**、**§1.1 `semantic` 契约**、**§2 写入/数据平面**、双栈、调用方 |
 | [`14`](./14-context-output-pipeline-sketch.md) | **Java** 侧上下文产出链（非 worker） |
-| [`15`](./15-runtime-integration-surfaces.md) | Worker/Java 判别、**§4** wrapper→Java、**§5** 会话首跳（`sessions/init` ∥ `session/start`） |
+| [`15`](./15-runtime-integration-surfaces.md) | Worker/Java 判别；**§2** 各集成客户端默认进程；**§4** wrapper→Java；**§5** 会话首跳 |
 | [`16`](./16-ingestion-write-path-sketch.md) | **Java** 侧瘦代理摄入 / 观察写入链 |
 | [`17`](./17-session-lifecycle-java-sketch.md) | **Java** 侧 `/api/session/start` 与 session-end 对照 |
 | **本文件** | 未决课题、可选实验、待勾选 |
