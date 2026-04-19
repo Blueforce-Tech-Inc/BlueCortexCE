@@ -8,7 +8,7 @@
 2. **借鉴总表** → [`20-recommendations/02-bluecortexce-recommendations.md`](20-recommendations/02-bluecortexce-recommendations.md)
 3. **上下文 / 注入 / Prefetch** → [`40-context-compression/03-memory-context-injection-and-prefetch-lifecycle.md`](40-context-compression/03-memory-context-injection-and-prefetch-lifecycle.md)
 4. **Honcho / 多模态等深度** → `50-honcho-holographic-deep/` 下各篇
-5. **演进与 Provider / 工具细节** → `60-evolution/` 下各篇
+5. **演进与 Provider / 工具细节** → `60-evolution/` 下各篇（含 **[现场复核与旁路型路线图](60-evolution/11-field-review-and-bypass-roadmap.md)**，2026-04-19 增量）
 
 ## 按方面（aspect）浏览
 
@@ -18,7 +18,7 @@
 | 20-recommendations | [`20-recommendations/`](20-recommendations/) | BlueCortexCE 借鉴建议汇总（及紧密相关小节） |
 | 40-context-compression | [`40-context-compression/`](40-context-compression/) | Memory context 注入、Prefetch、Session 截断等 |
 | 50-honcho-holographic-deep | [`50-honcho-holographic-deep/`](50-honcho-holographic-deep/) | Honcho 四工具、多模态澄清等 |
-| 60-evolution | [`60-evolution/`](60-evolution/) | Hooks、Supermemory、内置 Memory Tool、HRR 等后续版本增量 |
+| 60-evolution | [`60-evolution/`](60-evolution/) | Hooks、Supermemory、内置 Memory Tool、HRR；**现场复核与路线图**（`11-field-review-and-bypass-roadmap.md`） |
 
 ## 维护说明
 

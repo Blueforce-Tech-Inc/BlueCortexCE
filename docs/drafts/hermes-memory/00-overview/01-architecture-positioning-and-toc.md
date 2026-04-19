@@ -5,7 +5,8 @@
 > **文档状态**: v6.3 (新增：Session Search `_format_conversation` 截断算法 + 亲缘链双重排除 + Supermemory capture_mode="everything" trivial 过滤确认)
 > **分析目标**: 为 BlueCortexCE（旁路型记忆系统）提供可落地的借鉴建议
 > **数据来源**: `/Users/yangjiefeng/Documents/NousResearch/hermes-agent/`
-> **最后更新**: 2026-04-17 08:20
+> **最后更新**: 2026-04-17 08:20  
+> **演进补篇**: 2026-04-19 — [现场复核与旁路型路线图](../60-evolution/11-field-review-and-bypass-roadmap.md)
 
 ---
 

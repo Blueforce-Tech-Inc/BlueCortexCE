@@ -8,6 +8,7 @@
 - **AI 文档助理说明**（任务演进 / 架构规范）：[`hermes-memory/AGENT.md`](hermes-memory/AGENT.md)
 - **杂项暂存**：[`hermes-memory/misc.md`](hermes-memory/misc.md)
 - **工作草稿区**：[`hermes-memory/staging.md`](hermes-memory/staging.md)
+- **演进补篇（现场复核 + 旁路型路线图）**：[`hermes-memory/60-evolution/11-field-review-and-bypass-roadmap.md`](hermes-memory/60-evolution/11-field-review-and-bypass-roadmap.md)
 
 ## 完整性说明
 
