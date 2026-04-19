@@ -599,7 +599,8 @@ CREATE TABLE mem_summaries (
     notes TEXT,
     prompt_number INT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_at_epoch BIGINT NOT NULL
+    created_at_epoch BIGINT NOT NULL,
+    platform_source VARCHAR(50) DEFAULT 'claude'  -- V18: 多平台
 );
 
 -- 用户提示表 (V1 + V5)
