@@ -5,9 +5,9 @@
 > **BlueCortexCE**：旁路记忆；架构见仓库 `docs/ARCHITECTURE-zh-CN.md`（瘦代理 + 胖服务器、PostgreSQL + pgvector、`mem_observations` 等）。  
 > **本仓库落地映射**（类/迁移/SQL 锚点）：[`10-aspect-bluecortex-implementation-map.md`](./10-aspect-bluecortex-implementation-map.md)。  
 > **多线总导航**（Hermes / Evolver / 论文）：[`../memory-research-hub.md`](../memory-research-hub.md)  
-> **CE 落地短文族索引**（`09`–`17` 一句话表）：[`index.md`](./index.md) 附录；会话首跳见 [`15`](./15-runtime-integration-surfaces.md) **§5**。
+> **CE 落地短文族索引**（`09`–`19` 一句话表）：[`index.md`](./index.md) 附录；会话首跳见 [`15`](./15-runtime-integration-surfaces.md) **§5**；EvoMap 本地源码见 [`18`](./18-evolver-local-source-memory-architecture-snapshot.md)、主循环记忆顺序见 [`19`](./19-evolver-evolve-loop-memory-ordering-and-outcome-inference.md)。
 
-**最后更新**：2026-04-19（`15` §2.1 补：`settings.json`、`clearPortCache`）
+**最后更新**：2026-04-19（[`19`](./19-evolver-evolve-loop-memory-ordering-and-outcome-inference.md) §6 索引）
 
 ---
 
@@ -110,7 +110,9 @@
 | 信号与学习 | [01](./01-intro-toc-memory-through-curriculum.md) §3–§5，[03](./03-skillpublisher-through-signals-v07.md) |
 | 两阶段搜索、缓存 | [02](./02-skilldistiller-through-evolution-v04.md) Hub 相关节，[06](./06-assetcalllog-through-questiongen-v12.md) |
 | 执行轨迹与审计 JSONL | [05](./05-sanitize-through-execution-trace-v10.md)–[06](./06-assetcalllog-through-questiongen-v12.md) |
-| 本地/远程适配、降级 | [06](./06-assetcalllog-through-questiongen-v12.md) memoryGraphAdapter |
+| 本地/远程适配、降级 | [06](./06-assetcalllog-through-questiongen-v12.md) memoryGraphAdapter；**源码契约** [`18`](./18-evolver-local-source-memory-architecture-snapshot.md) §5 |
+| **`memory_graph.jsonl` 事件 kind、`getMemoryAdvice` 算法要点** | [`18`](./18-evolver-local-source-memory-architecture-snapshot.md) §3–§4 |
+| **`evolve.js`：记忆写入顺序、`inferOutcomeEnhanced`** | [`19`](./19-evolver-evolve-loop-memory-ordering-and-outcome-inference.md) |
 | 空闲调度与后台任务 | [07](./07-idle-through-skillpublisher-v14.md) idleScheduler |
 | Hermes 内置记忆、围栏、Prefetch | [`../hermes-memory/index.md`](../hermes-memory/index.md)；注入 [`04`](../hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md)、安全 [`05`](../hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md) |
 | CE 上下文 **产出** 调用链（`generateContext` vs `semantic`） | [`14-context-output-pipeline-sketch.md`](./14-context-output-pipeline-sketch.md) |

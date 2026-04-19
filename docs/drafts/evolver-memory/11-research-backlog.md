@@ -1,7 +1,7 @@
 # 研究 / 决策 backlog（可接力）
 
 > **角色**：给后续人类或 Agent 的**短队列**——可勾选、可补链接；**不**重复 [`09`](./09-aspect-bluecortex-bridge.md) 的 P0/P1 定义本身。  
-> **最后更新**：2026-04-19（MCP `semantic` 产品项）
+> **最后更新**：2026-04-19（边界表 → `19`）
 
 ---
 
@@ -47,6 +47,8 @@
 | [`15`](./15-runtime-integration-surfaces.md) | Worker/Java 判别；**§2.1** Hook Worker 基址；**§2** 各集成客户端默认进程；**§4** wrapper→Java；**§5** 会话首跳 |
 | [`16`](./16-ingestion-write-path-sketch.md) | **Java** 侧瘦代理摄入 / 观察写入链 |
 | [`17`](./17-session-lifecycle-java-sketch.md) | **Java** 侧 `/api/session/start` 与 session-end 对照 |
+| [`18`](./18-evolver-local-source-memory-architecture-snapshot.md) | **EvoMap/evolver 本地** `memoryGraph` / 叙事 / 适配器（非 CE 仓库） |
+| [`19`](./19-evolver-evolve-loop-memory-ordering-and-outcome-inference.md) | **`evolve` 主循环** 与 outcome 推断（非 CE 仓库） |
 | **本文件** | 未决课题、可选实验、待勾选 |
 | [`staging.md`](./staging.md) | 极短草稿，定稿即删或迁入上列 |
 | [`../memory-research-hub.md`](../memory-research-hub.md) | Evolver / Hermes / 论文线 **总导航** |

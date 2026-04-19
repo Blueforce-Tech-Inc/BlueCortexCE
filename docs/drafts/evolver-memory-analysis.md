@@ -20,6 +20,8 @@
 | **Java 摄入 / 写入链**（`IngestionController`、`processToolUseAsync`） | [docs/drafts/evolver-memory/16-ingestion-write-path-sketch.md](./evolver-memory/16-ingestion-write-path-sketch.md) |
 | **Java 会话 start / end**（`SessionController`、`/api/session/start`） | [docs/drafts/evolver-memory/17-session-lifecycle-java-sketch.md](./evolver-memory/17-session-lifecycle-java-sketch.md) |
 | 总索引（阅读顺序、按主题跳转） | [docs/drafts/evolver-memory/index.md](./evolver-memory/index.md) |
+| **EvoMap/evolver 本地源码**（`memoryGraph` / 叙事 / 适配器；路径可改） | [docs/drafts/evolver-memory/18-evolver-local-source-memory-architecture-snapshot.md](./evolver-memory/18-evolver-local-source-memory-architecture-snapshot.md) |
+| **`evolve.js` 主循环**（记忆顺序、`outcome` 推断） | [docs/drafts/evolver-memory/19-evolver-evolve-loop-memory-ordering-and-outcome-inference.md](./evolver-memory/19-evolver-evolve-loop-memory-ordering-and-outcome-inference.md) |
 | 方面级对照：Evolver ↔ BlueCortexCE | [docs/drafts/evolver-memory/09-aspect-bluecortex-bridge.md](./evolver-memory/09-aspect-bluecortex-bridge.md) |
 | 本仓库实现映射（迁移、Repository、§3 三路读出） | [docs/drafts/evolver-memory/10-aspect-bluecortex-implementation-map.md](./evolver-memory/10-aspect-bluecortex-implementation-map.md) |
 | 记忆 HTTP + 数据平面（**§1.1** `semantic` · §2 · **§3.2** MCP） | [docs/drafts/evolver-memory/12-bluecortex-api-memory-surface.md](./evolver-memory/12-bluecortex-api-memory-surface.md) |

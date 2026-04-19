@@ -51,9 +51,10 @@
 
 ## 5. 下一步（接力）
 
-1. 将本快照与 [`06-memory-provider-hooks-inventory.md`](06-memory-provider-hooks-inventory.md) **钩子清单**交叉核对：是否有新增 `MemoryProvider` 方法未写入清单。  
-2. 上游版本升级后：重跑「文件存在性 + 类名」核对，更新 **快照日期** 或拆 **`12b-...`** 增量稿（仍 ≤50KB）。  
-3. **可勾选队列**：[`../11-research-backlog.md`](../11-research-backlog.md)「上游 hermes-agent 同步」。
+1. **主循环接线**：继续读 [`13-run-agent-memory-wiring-snapshot.md`](13-run-agent-memory-wiring-snapshot.md)（`_memory_store` ∥ `_memory_manager`、`prefetch`/`sync`、工具分发）。  
+2. 将本快照与 [`06-memory-provider-hooks-inventory.md`](06-memory-provider-hooks-inventory.md) **钩子清单**交叉核对：是否有新增 `MemoryProvider` 方法未写入清单。  
+3. 上游版本升级后：重跑「文件存在性 + 类名」核对，更新 **快照日期** 或拆 **`12b-...`** 增量稿（仍 ≤50KB）。  
+4. **可勾选队列**：[`../11-research-backlog.md`](../11-research-backlog.md)「上游 hermes-agent 同步」。
 
 ---
 
