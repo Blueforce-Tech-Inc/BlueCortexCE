@@ -15,6 +15,9 @@
 
 ## 文档与上游
 
+- [x] **Multi-Provider 插件发现架构**：`plugins/memory/__init__.py` 全解 → [`14`](60-evolution/14-multi-provider-plugin-discovery.md)（discover/load/Collector/CLI 发现模式；8 Provider 清单）
+- [x] **Session DB Flush duplicate-write fix**：`run_agent.py` `_flush_messages_to_session_db` + `_last_flushed_db_idx` → [`15`](60-evolution/15-session-db-flush-and-duplicate-fix.md)
+- [x] **Extended MemoryProvider Hooks**：`on_pre_compress` / `on_memory_write` / `on_delegation` / `queue_prefetch` → [`16`](60-evolution/16-extended-memory-provider-hooks.md)（RetainDB 三线程预取模型详解）
 - [ ] **单文件逼近 50KB 时预拆分**：顶格稿件清单与 `find | wc` 命令见 [`AGENT.md`](./AGENT.md) **体量预警**（2026-04-19 快照含 `06-memory-provider-hooks-inventory` 等）；避免在单文件末尾无限堆节。
 - [ ] **上游 hermes-agent 同步**：`memory_manager` / `memory_provider` 模块说明是否仍与 **`MemoryStore`** + **`run_agent` 双线接线**一致（**`BuiltinMemoryProvider`** 文档 vs 实现）；快照 [`12`](60-evolution/12-upstream-hermes-agent-memory-snapshot.md) · [`13`](60-evolution/13-run-agent-memory-wiring-snapshot.md)。若有差分则更新 [`03`](20-recommendations/03-borrowing-synthesis-executable-priorities.md) §1 或新增增量稿。
 
