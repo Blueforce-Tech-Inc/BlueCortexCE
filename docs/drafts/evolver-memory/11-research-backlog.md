@@ -1,7 +1,7 @@
 # 研究 / 决策 backlog（可接力）
 
 > **角色**：给后续人类或 Agent 的**短队列**——可勾选、可补链接；**不**重复 [`09`](./09-aspect-bluecortex-bridge.md) 的 P0/P1 定义本身。  
-> **最后更新**：2026-04-19（`12` §2 数据平面）
+> **最后更新**：2026-04-19（链至 `12` §1.1）
 
 ---
 
@@ -15,7 +15,7 @@
 ## 架构与产品
 
 - [x] **Hook 是否调用 `semantic`**：`session-init` 在 `CLAUDE_MEM_SEMANTIC_INJECT=true`（默认）且 `prompt≥20` 时调用 **worker** `POST /api/context/semantic`（`webui/src/cli/handlers/session-init.ts`）。见 [`12`](./12-bluecortex-api-memory-surface.md) §3。
-- [ ] **Java（pgvector）与 Worker（Chroma）语义结果一致性**：同名路由、异存储；全 Java / 混合部署下的对齐、评测与文档。（[`10`](./10-aspect-bluecortex-implementation-map.md) §3，[`12`](./12-bluecortex-api-memory-surface.md) §1）
+- [ ] **Java（pgvector）与 Worker（Chroma）语义结果一致性**：同名路由、异存储；全 Java / 混合部署下的对齐、评测与文档。HTTP 契约与字段对照见 [`12`](./12-bluecortex-api-memory-surface.md) **§1.1**；实现锚点另见 [`10`](./10-aspect-bluecortex-implementation-map.md) §3。
 - [ ] **语义注入与时间线并存的 token 预算**：`additionalContext` 与主上下文拼接策略、关闭开关与延迟预算。
 - [ ] **错误类观察的 `extracted_data` 约定**：是否统一 `error_signature`（栈归一化）字段名与归一规则，并与 `content_hash` 去重策略分工。（对齐 Evolver `normalizeErrorSignature` 思想）
 
@@ -41,7 +41,7 @@
 |------|--------|
 | [`09`](./09-aspect-bluecortex-bridge.md) | 已定型的方面对照、优先级、反模式 |
 | [`10`](./10-aspect-bluecortex-implementation-map.md) | 本仓库**已实现**与**缺口**的代码锚点 |
-| [`12`](./12-bluecortex-api-memory-surface.md) | **HTTP**、**§2 写入/数据平面**、双栈、调用方 |
+| [`12`](./12-bluecortex-api-memory-surface.md) | **HTTP**、**§1.1 `semantic` 契约**、**§2 写入/数据平面**、双栈、调用方 |
 | [`14`](./14-context-output-pipeline-sketch.md) | **Java** 侧上下文产出链（非 worker） |
 | [`15`](./15-runtime-integration-surfaces.md) | Worker/Java 判别、**§4** wrapper→Java、**§5** 会话首跳（`sessions/init` ∥ `session/start`） |
 | [`16`](./16-ingestion-write-path-sketch.md) | **Java** 侧瘦代理摄入 / 观察写入链 |
