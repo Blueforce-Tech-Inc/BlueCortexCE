@@ -2,7 +2,7 @@
 
 > **角色**：可勾选短队列；**不**重复 [`20-recommendations/02-bluecortexce-recommendations.md`](20-recommendations/02-bluecortexce-recommendations.md) 表格全文。  
 > **CE 安全与出口现状盘点**：[`20-recommendations/05-ce-context-security-gap-inventory.md`](20-recommendations/05-ce-context-security-gap-inventory.md)  
-> **最后更新**：2026-04-19（文档体量预警 + 上游 `memory_tool` 锚点）
+> **最后更新**：2026-04-19（`12-upstream-*` 快照链入）
 
 ---
 
@@ -16,7 +16,7 @@
 ## 文档与上游
 
 - [ ] **单文件逼近 50KB 时预拆分**：顶格稿件清单与 `find | wc` 命令见 [`AGENT.md`](./AGENT.md) **体量预警**（2026-04-19 快照含 `06-memory-provider-hooks-inventory` 等）；避免在单文件末尾无限堆节。
-- [ ] **上游 hermes-agent 同步**：`memory_manager` / `memory_provider` 模块说明是否仍与 **`MemoryStore`**（常见实现入口：`hermes-agent/tools/memory_tool.py`）分叉；若有则更新 [`20-recommendations/03-borrowing-synthesis-executable-priorities.md`](20-recommendations/03-borrowing-synthesis-executable-priorities.md) §1。
+- [ ] **上游 hermes-agent 同步**：`memory_manager` / `memory_provider` 模块说明是否仍与 **`MemoryStore`**（`tools/memory_tool.py`）分叉；**2026-04-19 现场快照**见 [`60-evolution/12-upstream-hermes-agent-memory-snapshot.md`](60-evolution/12-upstream-hermes-agent-memory-snapshot.md)。若有差分则更新 [`03`](20-recommendations/03-borrowing-synthesis-executable-priorities.md) §1 与本快照或新增 `12b-*` 增量稿。
 
 ## 旁路型落地（BlueCortexCE）
 

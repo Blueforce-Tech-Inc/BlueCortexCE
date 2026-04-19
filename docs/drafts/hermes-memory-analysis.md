@@ -12,4 +12,6 @@
 
 **维护约定**（体量、拆分、命名）：[`hermes-memory/AGENT.md`](hermes-memory/AGENT.md)
 
+**一次「读上游」分析落点（示例）**：[`hermes-memory/60-evolution/12-upstream-hermes-agent-memory-snapshot.md`](hermes-memory/60-evolution/12-upstream-hermes-agent-memory-snapshot.md) — MemoryManager / MemoryProvider / MemoryStore 锚点快照。
+
 历史整文件版本若需对照，可在 git 历史中查看本路径在引入 `hermes-memory/` 目录之前的提交。

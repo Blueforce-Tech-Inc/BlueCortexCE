@@ -1,13 +1,13 @@
 # 记忆相关研究草稿 — 总导航
 
 > **用途**：给人类或 Agent **选入口**，避免在 `docs/drafts/` 下迷路。各子目录仍各自维护 `index.md` / `AGENT.md`。  
-> **最后更新**：2026-04-19（Hermes `AGENT` 体量预警；Evolver `11` MCP 条目）
+> **最后更新**：2026-04-19（Hermes `12-upstream-*` 上游快照）
 
 ## 按系统 / 体裁
 
 | 入口 | 侧重点 | 索引 |
 |------|--------|------|
-| **Hermes Agent**（内置型 Python Agent） | 记忆管线、Provider、压缩、可翻译为旁路的工程项 | [`hermes-memory/index.md`](hermes-memory/index.md) · 短链 [`hermes-memory-analysis.md`](hermes-memory-analysis.md) |
+| **Hermes Agent**（内置型 Python Agent） | 记忆管线、Provider、压缩；**上游快照** [`hermes-memory/60-evolution/12-upstream-hermes-agent-memory-snapshot.md`](hermes-memory/60-evolution/12-upstream-hermes-agent-memory-snapshot.md) | [`hermes-memory/index.md`](hermes-memory/index.md) · 短链 [`hermes-memory-analysis.md`](hermes-memory-analysis.md) |
 | **EvoMap / Evolver**（Node GEP / 图谱） | 因果、信号、叙事、与 CE 方面对照 | [`evolver-memory/index.md`](evolver-memory/index.md) · 短链 [`evolver-memory-analysis.md`](evolver-memory-analysis.md) |
 | **Evo-Memory 论文** | 基准与 ReMem 架构、与 Claude-Mem 差距 | [`evo-memory-paper-analysis/index.md`](evo-memory-paper-analysis/index.md) · [`evo-memory-paper-analysis.md`](evo-memory-paper-analysis.md) |
 
