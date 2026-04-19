@@ -2900,3 +2900,28 @@ Total: 426/426 tests passed
 | G-1 | `client.go`, `client_methods.go`, `genkit/retriever.go`, `eino/retriever.go`, `langchaingo/memory.go` | import 语句 | **P2** | SDK `go.mod` 已更新为 `github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go`（commit `7ff5b18`），但内部所有 import 仍使用旧的 `github.com/abforce/cortex-ce/cortex-mem-go/...` 路径。SDK 无法作为独立模块以新路径构建。Examples 使用 `replace` 指令覆盖路径，工作正常，但 SDK 本身 publish 时会失败 | ✅ 已修复（`sed` 批量替换 13 个 .go 文件的 import 路径，`go build ./...` 通过） |
 
 **说明**: Examples 本身编译正常（5/5 通过 `go build`），但 SDK core 的内部 import 未同步更新。建议作为独立任务统一修复（涉及 `client.go`、`client_methods.go` 及三个集成包内部的 import）。
+
+---
+
+## 2026-04-19 08:06 | Backend 审查 #51（每30分钟 cron）
+
+**审查范围**: `service/LlmService.java`, `service/TokenService.java`, `controller/MemoryController.java`
+
+**审查方向**: Backend（LlmService + TokenService + MemoryController）
+
+#### 审查发现
+
+| # | 文件 | 行 | 级别 | 问题 | 状态 |
+|---|------|-----|------|------|------|
+| 51-1 | MemoryController.java | `triggerRefine()` | **P2** | `MemoryRefineService` 已注入但从未调用，triggerRefine 实际通过 `eventPublisher.publishManualRefineEvent(project)` 异步处理。属于 dead code 或历史设计遗留。建议确认是否仍需该依赖，若不需要则移除 | 记录（设计观察） |
+| 51-2 | MemoryController.java | `ExperienceRequest.project` | **P2** | `ExperienceRequest.project` 未被 MemoryController 验证（可为 null），`ExpRagService.retrieveExperiences()` 若收到 null project 可能触发非预期行为（全局搜索 vs 报错）。Swagger 文档未标记 required，推断为设计决策：支持全局 experience 搜索 | 记录（设计观察） |
+
+**代码质量亮点**:
+- `LlmService`: `chatCompletionStructured` 方法健壮，Map/POJO 分支清晰，BeanOutputConverter 用于 Spring AI structured output 正确，`IllegalStateException` 重抛机制合理；`totalTokens == 0` warn 日志适当
+- `TokenService`: 精确复现 TypeScript `JSON.stringify` 行为（JACKSON OBJECT_MAPPER），`Math.min(size, 2L * Integer.MAX_VALUE)` clamp 防止 `ceil()` 溢出；TokenEconomics 百分比取整（`Math.round`）合理
+- `MemoryController`: PATCH observation 类型验证完善（String/List/Map 分别处理，fail-fast 400）；`validateStringList` helper 简洁正确；DELETE 先 `existsById` 再 `deleteById` 避免异常歧义；异常返回 500 + 具体错误消息
+
+**Backend P0/P1/P2 状态**: 0 / 0 / 2（#51-1, #51-2 为设计观察，非 bug）
+
+---
+
