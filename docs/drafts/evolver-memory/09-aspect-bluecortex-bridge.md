@@ -4,9 +4,10 @@
 > **Evolver**：`EvoMap/evolver`（如 `src/gep/memoryGraph.js`）。  
 > **BlueCortexCE**：旁路记忆；架构见仓库 `docs/ARCHITECTURE-zh-CN.md`（瘦代理 + 胖服务器、PostgreSQL + pgvector、`mem_observations` 等）。  
 > **本仓库落地映射**（类/迁移/SQL 锚点）：[`10-aspect-bluecortex-implementation-map.md`](./10-aspect-bluecortex-implementation-map.md)。  
-> **多线总导航**（Hermes / Evolver / 论文）：[`../memory-research-hub.md`](../memory-research-hub.md)
+> **多线总导航**（Hermes / Evolver / 论文）：[`../memory-research-hub.md`](../memory-research-hub.md)  
+> **CE 落地短文族索引**（`09`–`17` 一句话表）：[`index.md`](./index.md) 附录；会话首跳见 [`15`](./15-runtime-integration-surfaces.md) **§5**。
 
-**最后更新**：2026-04-19（§6 会话首跳索引 → `15` §5）
+**最后更新**：2026-04-19（文首导航 + `15` §5 Cursor 注）
 
 ---
 
