@@ -30,7 +30,7 @@
 
 ### 2.1 会话「首跳」与注入面分开记
 
-**Claude Code 默认 Hook 不经 Java `POST /api/session/start`**；该路由由 **wrapper、`js-sdk`、OpenClaw Java 插件** 等打 **Spring**（配置里端口名常仍叫 `workerPort`）。首跳对照表、Worker 其它调用方与排查顺序见 [`../../evolver-memory/15-runtime-integration-surfaces.md`](../../evolver-memory/15-runtime-integration-surfaces.md) §5；**各集成客户端默认打 Worker 还是 Java** 的汇总表见同文 **§2**（与 [`12-bluecortex-api-memory-surface.md` §3](../../evolver-memory/12-bluecortex-api-memory-surface.md) 调用方表互补）。数据平面（SQLite+Chroma ∥ Postgres+pgvector）见 [`12`](../../evolver-memory/12-bluecortex-api-memory-surface.md) §2。
+**Claude Code 默认 Hook 不经 Java `POST /api/session/start`**；该路由由 **wrapper、`js-sdk`、OpenClaw Java 插件** 等打 **Spring**（配置里端口名常仍叫 `workerPort`）。首跳对照表、Worker 其它调用方与排查顺序见 [`../../evolver-memory/15-runtime-integration-surfaces.md`](../../evolver-memory/15-runtime-integration-surfaces.md) §5；**各集成客户端默认打 Worker 还是 Java** 的汇总表见同文 **§2**（与 [`12-bluecortex-api-memory-surface.md` §3](../../evolver-memory/12-bluecortex-api-memory-surface.md) 调用方表互补）。**Hook / MCP / Cursor** 等打到 Worker 的细路径见 [`12` §3.1](../../evolver-memory/12-bluecortex-api-memory-surface.md)。数据平面（SQLite+Chroma ∥ Postgres+pgvector）见 [`12`](../../evolver-memory/12-bluecortex-api-memory-surface.md) §2。
 
 ---
 

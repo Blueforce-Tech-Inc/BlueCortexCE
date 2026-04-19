@@ -1,7 +1,7 @@
 # BlueCortexCE：与记忆相关的 API 表面（速查）
 
 > **角色**：给 Agent 的**一页速查**：读出路径、**写入/索引**、HTTP 与双栈。  
-> **最后更新**：2026-04-19（§3 `session-init` → `15` §2.1）
+> **最后更新**：2026-04-19（§3.1 `workerHttpRequest` 索引）
 
 ---
 
@@ -54,6 +54,24 @@
 | **`js-sdk/cortex-mem-js`** | **`POST /api/session/start`**；**`POST /api/ingest/*`**；`GET /api/search` 等 | **Java**（`client.ts` 基址） |
 | **`proxy/wrapper.js`** | **`callJavaApi`**：`/api/session/start`、`/api/ingest/*`、`…/api/search/by-file` 等 | **Java** |
 | **Codex watcher** | **`POST /api/session/start`** 等 | **Java**（`codex-watcher/src/api.ts`） |
+
+### 3.1 其它 **`workerHttpRequest`** 命中 Worker 的入口（非穷尽）
+
+与 §3「产品级集成」互补：下列模块同属 **Hook / CLI / 侧车** 路径，默认仍走 [`15`](./15-runtime-integration-surfaces.md) **§2.1** 的基址（**不是** `JAVA_API_URL`）。
+
+| 类别 | 代码锚点 | 代表性 HTTP（概念） |
+|------|----------|---------------------|
+| **SessionStart `context` Hook** | `webui/src/cli/handlers/context.ts` | **`GET /api/context/inject`**（`projects`、`platformSource`；可选 `colors`） |
+| **`user-message` Hook** | `webui/src/cli/handlers/user-message.ts` | **`GET /api/context/inject`**（`project` + 可选 `colors`） |
+| **会话收尾** | `summarize.ts`、`session-complete.ts` | **`/api/sessions/summarize`**、**`status`**、**`complete`** |
+| **观察写入（Hook）** | `observation.ts`、`file-edit.ts` | **`POST /api/sessions/observations`** |
+| **按文件取观察** | `file-context.ts` | **`GET /api/observations/by-file`** |
+| **Cursor 规则刷新 / 安装** | `webui/src/services/integrations/CursorHooksInstaller.ts` | **`GET /api/readiness`**、**`/api/context/inject`**（写入 `.cursor/rules/...`） |
+| **MCP 侧车** | `webui/src/servers/mcp-server.ts` | **`/api/search`**、**`/api/timeline`**、**`POST /api/observations/batch`**、**`/api/corpus*`**、自检 **`/api/health`**（工具名映射见该文件常量表） |
+| **Transcript 处理器** | `webui/src/services/transcripts/processor.ts` | **`/api/sessions/summarize`** 等 |
+| **Markdown 工具链** | `webui/src/utils/claude-md-utils.ts` | 若干 **`workerHttpRequest`**（辅助查询/写回，以源码为准） |
+
+**排查**：若 trace 里出现上表路径但**不确定**端口上是 Worker 还是 Java，仍回到 [`15`](./15-runtime-integration-surfaces.md) **§3** 做 health 探测。
 
 ---
 

@@ -2,7 +2,7 @@
 
 > **角色**：减少 Agent 在「同名 `/api/context/*`、默认端口又常是 37777」时的误判：**先分清请求落在哪个进程**，再谈 Chroma vs pgvector。  
 > **配套**：[`12-bluecortex-api-memory-surface.md`](./12-bluecortex-api-memory-surface.md)、[`14-context-output-pipeline-sketch.md`](./14-context-output-pipeline-sketch.md)（Java 链）、[`10`](./10-aspect-bluecortex-implementation-map.md) §3。  
-> **最后更新**：2026-04-19（§2 客户端表 · §2.1 Hook 基址）
+> **最后更新**：2026-04-19（§2 增 MCP 行；`12` §3.1 互链）
 
 ---
 
@@ -28,6 +28,7 @@
 | **`js-sdk`（`cortex-mem-js`）** | `js-sdk/cortex-mem-js/src/client.ts`：`startSession`、`recordObservation`、`search` | **Java**（客户端基址为 Spring API） | 当前 SDK **未**暴露 `semantic`；若新增则默认 **Java** |
 | **瘦代理** | `proxy/wrapper.js` → `callJavaApi` | **Java** | **不经** Worker |
 | **Codex watcher** | `codex-watcher/src/api.ts` | **Java** | 未在速查中命中该 POST |
+| **MCP 服务器（`webui`）** | `webui/src/servers/mcp-server.ts`：`callWorkerAPI` / `workerHttpRequest` | **Bun Worker** | MCP 工具映射为 **`/api/search`**、**`/api/timeline`**、**`/api/corpus*`** 等；**未**单独暴露 `semantic` 工具名（与 Hook 的 `semantic` 路径不同入口） |
 | **产品架构长文** | `docs/ARCHITECTURE-zh-CN.md` | 多指 **Java + Postgres** | 以**实际**监听端口的进程为准 |
 
 ### 2.1 Hook 侧 Worker 基址（调研）

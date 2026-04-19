@@ -71,7 +71,7 @@
 2. Evolver 模块细节：`01`–`08` 分片  
 3. 产品级架构与数据流：`docs/ARCHITECTURE-zh-CN.md`  
 4. 待调研/决策队列：[`11-research-backlog.md`](./11-research-backlog.md)  
-5. HTTP 与数据平面：[`12-bluecortex-api-memory-surface.md`](./12-bluecortex-api-memory-surface.md)（**§1.1** `semantic` 契约 · **§2** 写入：SQLite+Chroma vs Postgres+pgvector）  
+5. HTTP 与数据平面：[`12-bluecortex-api-memory-surface.md`](./12-bluecortex-api-memory-surface.md)（**§1.1** `semantic` · **§2** 写入 · **§3.1** `workerHttpRequest` 索引）  
 6. Java **产出**链速写（`generateContext` / `semantic` / ICL）：[`14-context-output-pipeline-sketch.md`](./14-context-output-pipeline-sketch.md)  
 7. Java **摄入 / 写入**链速写（`IngestionController` → `AgentService`）：[`16-ingestion-write-path-sketch.md`](./16-ingestion-write-path-sketch.md)  
 8. Java **会话 start / end** 速写：[`17-session-lifecycle-java-sketch.md`](./17-session-lifecycle-java-sketch.md)  

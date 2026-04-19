@@ -7,7 +7,7 @@
 > **多线总导航**（Hermes / Evolver / 论文）：[`../memory-research-hub.md`](../memory-research-hub.md)  
 > **CE 落地短文族索引**（`09`–`17` 一句话表）：[`index.md`](./index.md) 附录；会话首跳见 [`15`](./15-runtime-integration-surfaces.md) **§5**。
 
-**最后更新**：2026-04-19（§6 → `15` §2 / §2.1）
+**最后更新**：2026-04-19（§6 → `12` §3.1）
 
 ---
 
@@ -117,6 +117,7 @@
 | **`POST /api/context/semantic`：JSON 契约与双栈差异** | [`12`](./12-bluecortex-api-memory-surface.md) **§1.1** |
 | **Hook → Worker 基址**（`workerHttpRequest`、37777 与 Java 同号） | [`15`](./15-runtime-integration-surfaces.md) **§2.1** |
 | **集成客户端 → 默认 Worker 还是 Java** | [`15`](./15-runtime-integration-surfaces.md) **§2** · 记忆 HTTP 调用方 [`12`](./12-bluecortex-api-memory-surface.md) **§3** |
+| **Hook / MCP / Cursor 等 → Worker 的细路径** | [`12`](./12-bluecortex-api-memory-surface.md) **§3.1**（`workerHttpRequest` 索引） |
 | **Bun Worker vs Java**（谁监听 37777、OpenClaw 命名陷阱） | [`15-runtime-integration-surfaces.md`](./15-runtime-integration-surfaces.md) |
 | **会话首跳**（`POST /api/sessions/init` Worker vs `POST /api/session/start` Java） | [`15`](./15-runtime-integration-surfaces.md) **§5**；数据平面旁注 [`12`](./12-bluecortex-api-memory-surface.md) §2 |
 | **Java 摄入 / 写入**（wrapper → `IngestionController`） | [`16-ingestion-write-path-sketch.md`](./16-ingestion-write-path-sketch.md) |
