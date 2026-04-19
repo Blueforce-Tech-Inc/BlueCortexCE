@@ -1,7 +1,7 @@
 # BlueCortexCE：与记忆相关的 API 表面（速查）
 
 > **角色**：给 Agent 的**一页速查**：读出路径、**写入/索引**、HTTP 与双栈。  
-> **最后更新**：2026-04-19（§2 会话首跳链至 `15` §5）
+> **最后更新**：2026-04-19（§1.1 `semantic` 契约调研）
 
 ---
 
@@ -14,6 +14,19 @@
 | **搜索（列表）** | `GET /api/search` | `ViewerController` → `SearchService` | Worker 亦有搜索路由（见 `SearchRoutes` / `SearchManager`）；**js-sdk** 默认对接 Java 风格 API |
 
 **要点**：`semantic` 与 `search` 在 **Java** 侧共用 **`SearchService`**（PostgreSQL/pgvector）。**Bun Worker** 侧同名 `semantic` 走 **Chroma**，与 Java **不是同一进程、同一存储**——读 trace / 对照 Evolver 时必须先确认流量落在 **哪一进程**（判别法见 [`15-runtime-integration-surfaces.md`](./15-runtime-integration-surfaces.md)）。**注意**：OpenClaw **Java** 插件配置项虽名 `workerPort`，自检用 **`/actuator/health`**，目标为 **Spring**，不是 Bun Worker。
+
+### 1.1 `POST /api/context/semantic`：HTTP 契约与双栈差异（调研）
+
+两端均实现为 **`{ "q", "project"?, "limit"? }` → `{ "context", "count" }`**，且 **`q` 长度不足 20 字符**时返回空块（Worker：`SearchRoutes.ts` `handleSemanticContext`；Java：`ContextController.semanticContext`）。**`limit`** 在 **1–20** 内钳位。
+
+| 维度 | Bun Worker | Java Spring |
+|------|------------|-------------|
+| 语义检索 | `SearchManager` → Chroma `queryChroma` → SQLite 补水 | `embeddingService.embed` → `SearchService.search` → pgvector |
+| 注入正文段落字段 | `obs.narrative`（SQLite 行） | `ObservationEntity.getContent()`（列名 `content`，JSON 别名 **`narrative`**） |
+| 不可用时的行为 | `catch` 后 `{ context: '', count: 0 }` | `embeddingService` 不可用时直接空块；异常同理 |
+| **`project` 缺省** | 由调用方传入；Chroma 侧可按 `project` 过滤 | `null`/blank 时默认 **`System.getProperty("user.dir")`** |
+
+**结论**：**HTTP 形状**可对齐联调；**排序与命中**仍取决于 **向量模型 + 索引集合**（各栈只覆盖**写入本栈**的观察），与 [`11`](./11-research-backlog.md) 中「双栈语义一致性」条目同一问题域。
 
 ---
 
