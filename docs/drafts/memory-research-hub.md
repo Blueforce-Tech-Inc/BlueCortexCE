@@ -1,7 +1,7 @@
 # 记忆相关研究草稿 — 总导航
 
 > **用途**：给人类或 Agent **选入口**，避免在 `docs/drafts/` 下迷路。各子目录仍各自维护 `index.md` / `AGENT.md`。  
-> **最后更新**：2026-04-19（`04` §2.1 链会话首跳、Hub 任务标注）
+> **最后更新**：2026-04-19（`12` §1.1 `semantic` 契约；`04` §2.1 会话首跳链）
 
 ## 按系统 / 体裁
 
@@ -17,6 +17,7 @@
 |------|--------|
 | **本仓库类 / 迁移 / 混合检索锚点** | [`evolver-memory/10-aspect-bluecortex-implementation-map.md`](evolver-memory/10-aspect-bluecortex-implementation-map.md) |
 | **HTTP：时间线 vs 语义 vs `/api/search`（速查）** | [`evolver-memory/12-bluecortex-api-memory-surface.md`](evolver-memory/12-bluecortex-api-memory-surface.md) |
+| **`POST /api/context/semantic`：JSON 契约与 Worker/Java 差异** | [`evolver-memory/12-bluecortex-api-memory-surface.md`](evolver-memory/12-bluecortex-api-memory-surface.md) **§1.1**；未决项 [`evolver-memory/11-research-backlog.md`](evolver-memory/11-research-backlog.md) |
 | **Java：`generateContext` / `semantic` / `ExpRagService` 调用链** | [`evolver-memory/14-context-output-pipeline-sketch.md`](evolver-memory/14-context-output-pipeline-sketch.md) |
 | **Java：瘦代理摄入 → `AgentService` 观察写入** | [`evolver-memory/16-ingestion-write-path-sketch.md`](evolver-memory/16-ingestion-write-path-sketch.md) |
 | **Java：`/api/session/start`、缓存与 session-end 对照** | [`evolver-memory/17-session-lifecycle-java-sketch.md`](evolver-memory/17-session-lifecycle-java-sketch.md) |
