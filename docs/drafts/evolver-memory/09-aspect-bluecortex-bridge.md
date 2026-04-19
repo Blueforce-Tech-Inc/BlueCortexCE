@@ -7,7 +7,7 @@
 > **多线总导航**（Hermes / Evolver / 论文）：[`../memory-research-hub.md`](../memory-research-hub.md)  
 > **CE 落地短文族索引**（`09`–`17` 一句话表）：[`index.md`](./index.md) 附录；会话首跳见 [`15`](./15-runtime-integration-surfaces.md) **§5**。
 
-**最后更新**：2026-04-19（文首导航 + `15` §5 Cursor 注）
+**最后更新**：2026-04-19（§6 → `12` §1.1 `semantic` 契约）
 
 ---
 
@@ -114,6 +114,7 @@
 | 空闲调度与后台任务 | [07](./07-idle-through-skillpublisher-v14.md) idleScheduler |
 | Hermes 内置记忆、围栏、Prefetch | [`../hermes-memory/index.md`](../hermes-memory/index.md)；注入 [`04`](../hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md)、安全 [`05`](../hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md) |
 | CE 上下文 **产出** 调用链（`generateContext` vs `semantic`） | [`14-context-output-pipeline-sketch.md`](./14-context-output-pipeline-sketch.md) |
+| **`POST /api/context/semantic`：JSON 契约与双栈差异** | [`12`](./12-bluecortex-api-memory-surface.md) **§1.1** |
 | **Bun Worker vs Java**（谁监听 37777、OpenClaw 命名陷阱） | [`15-runtime-integration-surfaces.md`](./15-runtime-integration-surfaces.md) |
 | **会话首跳**（`POST /api/sessions/init` Worker vs `POST /api/session/start` Java） | [`15`](./15-runtime-integration-surfaces.md) **§5**；数据平面旁注 [`12`](./12-bluecortex-api-memory-surface.md) §2 |
 | **Java 摄入 / 写入**（wrapper → `IngestionController`） | [`16-ingestion-write-path-sketch.md`](./16-ingestion-write-path-sketch.md) |

@@ -16,8 +16,7 @@
 | 任务 | 优先读 |
 |------|--------|
 | **本仓库类 / 迁移 / 混合检索锚点** | [`evolver-memory/10-aspect-bluecortex-implementation-map.md`](evolver-memory/10-aspect-bluecortex-implementation-map.md) |
-| **HTTP：时间线 vs 语义 vs `/api/search`（速查）** | [`evolver-memory/12-bluecortex-api-memory-surface.md`](evolver-memory/12-bluecortex-api-memory-surface.md) |
-| **`POST /api/context/semantic`：JSON 契约与 Worker/Java 差异** | [`evolver-memory/12-bluecortex-api-memory-surface.md`](evolver-memory/12-bluecortex-api-memory-surface.md) **§1.1**；未决项 [`evolver-memory/11-research-backlog.md`](evolver-memory/11-research-backlog.md) |
+| **HTTP 速查**（时间线 · **`/api/context/semantic` §1.1**（JSON 契约 / Worker vs Java）· `/api/search`） | [`evolver-memory/12-bluecortex-api-memory-surface.md`](evolver-memory/12-bluecortex-api-memory-surface.md)；双栈语义未决 [`evolver-memory/11-research-backlog.md`](evolver-memory/11-research-backlog.md) |
 | **Java：`generateContext` / `semantic` / `ExpRagService` 调用链** | [`evolver-memory/14-context-output-pipeline-sketch.md`](evolver-memory/14-context-output-pipeline-sketch.md) |
 | **Java：瘦代理摄入 → `AgentService` 观察写入** | [`evolver-memory/16-ingestion-write-path-sketch.md`](evolver-memory/16-ingestion-write-path-sketch.md) |
 | **Java：`/api/session/start`、缓存与 session-end 对照** | [`evolver-memory/17-session-lifecycle-java-sketch.md`](evolver-memory/17-session-lifecycle-java-sketch.md) |

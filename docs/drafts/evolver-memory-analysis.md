@@ -19,7 +19,7 @@
 | 总索引（阅读顺序、按主题跳转） | [docs/drafts/evolver-memory/index.md](./evolver-memory/index.md) |
 | 方面级对照：Evolver ↔ BlueCortexCE | [docs/drafts/evolver-memory/09-aspect-bluecortex-bridge.md](./evolver-memory/09-aspect-bluecortex-bridge.md) |
 | 本仓库实现映射（迁移、Repository、§3 三路读出） | [docs/drafts/evolver-memory/10-aspect-bluecortex-implementation-map.md](./evolver-memory/10-aspect-bluecortex-implementation-map.md) |
-| 记忆 HTTP + 数据平面（§2 写入链） | [docs/drafts/evolver-memory/12-bluecortex-api-memory-surface.md](./evolver-memory/12-bluecortex-api-memory-surface.md) |
+| 记忆 HTTP + 数据平面（**§1.1** `semantic` 契约 · §2 写入链） | [docs/drafts/evolver-memory/12-bluecortex-api-memory-surface.md](./evolver-memory/12-bluecortex-api-memory-surface.md) |
 | Hermes 参照 + **CE 注入面与 `/api/context`** | [docs/drafts/hermes-memory/index.md](./hermes-memory/index.md)；[04 对照表](./hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md) |
 | 研究 / 决策 backlog | [docs/drafts/evolver-memory/11-research-backlog.md](./evolver-memory/11-research-backlog.md) |
 | 文档维护约定（体量、索引、staging） | [docs/drafts/evolver-memory/AGENT.md](./evolver-memory/AGENT.md) |
