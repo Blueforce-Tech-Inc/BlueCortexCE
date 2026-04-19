@@ -42,6 +42,7 @@
 | [17](./17-session-lifecycle-java-sketch.md) | Java **`/api/session/start`** 与 session-end **一头一尾** |
 | [18](./18-evolver-local-source-memory-architecture-snapshot.md) | **EvoMap/evolver 本地源码**：JSONL 事件、`getMemoryAdvice`、叙事裁剪、**remote** 适配器 |
 | [19](./19-evolver-evolve-loop-memory-ordering-and-outcome-inference.md) | **`evolve.js` 循环**：`recordOutcome`→`signal`→…→`hypothesis`→`attempt`；**`inferOutcomeEnhanced`** |
+| [20](./20-time-decay-and-fail-degradation.md) | **排序增强专题**：`decayWeight` / `edgeExpectedSuccess`（Evolver）→ CE `time_decay_score` + `fail_penalty` 翻译方案 |
 
 ## 阅读路径
 

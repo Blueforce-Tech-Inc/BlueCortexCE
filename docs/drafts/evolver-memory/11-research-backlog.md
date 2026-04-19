@@ -23,7 +23,7 @@
 ## 实现与数据
 
 - [ ] **Worker SQLite + Chroma 与 Java Postgres + pgvector 的关系**：当前为**并行链路**、**无**代码级自动双写（见 [`12`](./12-bluecortex-api-memory-surface.md) §2）。若产品需要单一真源或跨栈一致检索，需单独设计。
-- [ ] **时间半衰 / 重复失败降权**：在 `SearchService` 结果集或 SQL 层落地 [`09`](./09-aspect-bluecortex-bridge.md) §3.2 的排序增强，并定义与现有 `minEpoch` 的关系。
+- [ ] **时间半衰 / 重复失败降权**：在 `SearchService` 结果集或 SQL 层落地 [`09`](./09-aspect-bluecortex-bridge.md) §3.2 的排序增强，并定义与现有 `minEpoch` 的关系。详细翻译方案见 [`20-time-decay-and-fail-degradation.md`](./20-time-decay-and-fail-degradation.md)。
 - [ ] **Hook / 瘦代理延迟**：对关键路径做一次实测，与 `docs/ARCHITECTURE-zh-CN.md` 中的预算描述交叉验证。
 
 ## Evolver 侧（外部源码）
