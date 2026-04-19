@@ -132,6 +132,7 @@
 - HTTP 表：[`12-bluecortex-api-memory-surface.md`](./12-bluecortex-api-memory-surface.md)  
 - **Bun Worker vs Java**（本文仅覆盖 Java；Hook 侧 Chroma 见）：[`15-runtime-integration-surfaces.md`](./15-runtime-integration-surfaces.md)  
 - **摄入 / 写入**（瘦代理 → `AgentService`）：[`16-ingestion-write-path-sketch.md`](./16-ingestion-write-path-sketch.md)  
+- **会话 start**（`SessionController` + 缓存）：[`17-session-lifecycle-java-sketch.md`](./17-session-lifecycle-java-sketch.md)  
 - 双路径产品含义：[`10-aspect-bluecortex-implementation-map.md`](./10-aspect-bluecortex-implementation-map.md) §3 · [`09-aspect-bluecortex-bridge.md`](./09-aspect-bluecortex-bridge.md) §3.3  
 - 出口安全盘点：[`../hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md`](../hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md)  
 - 总导航：[`../memory-research-hub.md`](../memory-research-hub.md)

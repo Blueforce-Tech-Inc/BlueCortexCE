@@ -55,4 +55,5 @@ Node **wrapper** 通过 **`JAVA_API_URL`**（默认 `http://127.0.0.1:37777`，�
 - HTTP / 数据平面：[`12`](./12-bluecortex-api-memory-surface.md)  
 - Java 产出链：[`14`](./14-context-output-pipeline-sketch.md)  
 - Java 摄入 / 写入链：[`16`](./16-ingestion-write-path-sketch.md)  
+- Java 会话 start / end：[`17`](./17-session-lifecycle-java-sketch.md)  
 - Hermes 注入面（与宿主进程无关，但插件侧需对齐）：[`../hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md`](../hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md)

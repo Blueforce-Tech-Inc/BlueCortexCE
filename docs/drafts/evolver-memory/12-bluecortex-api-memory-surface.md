@@ -62,6 +62,7 @@
 - 实现锚点 + 缺口：[`10-aspect-bluecortex-implementation-map.md`](./10-aspect-bluecortex-implementation-map.md)  
 - Java 产出链速写：[`14-context-output-pipeline-sketch.md`](./14-context-output-pipeline-sketch.md)  
 - Java 摄入 / 写入链速写：[`16-ingestion-write-path-sketch.md`](./16-ingestion-write-path-sketch.md)  
+- Java 会话 start / end：[`17-session-lifecycle-java-sketch.md`](./17-session-lifecycle-java-sketch.md)  
 - 运行时集成（Worker/Java、**wrapper→Java**）：[`15-runtime-integration-surfaces.md`](./15-runtime-integration-surfaces.md)  
 - 可接力课题：[`11-research-backlog.md`](./11-research-backlog.md)  
 - 总导航：[`../memory-research-hub.md`](../memory-research-hub.md)  

@@ -19,6 +19,7 @@
 | **HTTP：时间线 vs 语义 vs `/api/search`（速查）** | [`evolver-memory/12-bluecortex-api-memory-surface.md`](evolver-memory/12-bluecortex-api-memory-surface.md) |
 | **Java：`generateContext` / `semantic` / `ExpRagService` 调用链** | [`evolver-memory/14-context-output-pipeline-sketch.md`](evolver-memory/14-context-output-pipeline-sketch.md) |
 | **Java：瘦代理摄入 → `AgentService` 观察写入** | [`evolver-memory/16-ingestion-write-path-sketch.md`](evolver-memory/16-ingestion-write-path-sketch.md) |
+| **Java：`/api/session/start`、缓存与 session-end 对照** | [`evolver-memory/17-session-lifecycle-java-sketch.md`](evolver-memory/17-session-lifecycle-java-sketch.md) |
 | **Bun Worker vs Java Spring（端口、健康检查、Chroma vs pgvector）** | [`evolver-memory/15-runtime-integration-surfaces.md`](evolver-memory/15-runtime-integration-surfaces.md) |
 | **OpenClaw / Hook / Spring 注入与 `/api/context`** | [`hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md`](hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md) |
 | **上下文出口安全 vs Hermes 扫描** | [`hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md`](hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md) |
@@ -30,4 +31,4 @@
 
 - 新增一整条「分析线」时：在本表加一行，并在该线目录的 `index.md` 加回链至本文件（可选）。  
 - 单文件仍遵守各目录 **≤50KB** 规则（见各 `AGENT.md`）。  
-- **续写建议**：CE 行为增量优先落在 `evolver-memory/10` §3、`12`、`14`（读出）、`16`（写入）、`15`（Worker/Java 判别）之一，避免只在 `09` 堆长段；Hermes 对照落在 `hermes-memory/20-recommendations` 或 `60-evolution`。
+- **续写建议**：CE 行为增量优先落在 `evolver-memory/10` §3、`12`、`14`（读出）、`16`/`17`（写入与会话头尾）、`15`（Worker/Java 判别）之一，避免只在 `09` 堆长段；Hermes 对照落在 `hermes-memory/20-recommendations` 或 `60-evolution`。

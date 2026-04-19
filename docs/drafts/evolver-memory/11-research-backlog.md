@@ -45,6 +45,7 @@
 | [`14`](./14-context-output-pipeline-sketch.md) | **Java** 侧上下文产出链（非 worker） |
 | [`15`](./15-runtime-integration-surfaces.md) | Worker/Java 判别、**§4** wrapper→Java |
 | [`16`](./16-ingestion-write-path-sketch.md) | **Java** 侧瘦代理摄入 / 观察写入链 |
+| [`17`](./17-session-lifecycle-java-sketch.md) | **Java** 侧 `/api/session/start` 与 session-end 对照 |
 | **本文件** | 未决课题、可选实验、待勾选 |
 | [`staging.md`](./staging.md) | 极短草稿，定稿即删或迁入上列 |
 | [`../memory-research-hub.md`](../memory-research-hub.md) | Evolver / Hermes / 论文线 **总导航** |

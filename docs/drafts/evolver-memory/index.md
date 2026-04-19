@@ -2,18 +2,18 @@
 
 **分析目标**：为 BlueCortexCE（旁路型记忆）提供可落地的借鉴思路。  
 **数据来源**：`/path/to/EvoMap/evolver/` 与本仓库架构文档。  
-**最后更新**：2026-04-19（`12` §2 数据平面、`11` 双写课题）
+**最后更新**：2026-04-19（索引补全 `17` 会话生命周期）
 
 **并列入口（Hermes / 论文线）**：[`../memory-research-hub.md`](../memory-research-hub.md)
 
-本目录按**模块与时间线**拆成 `01`–`08`（各文件建议 ≤50KB），便于渐进阅读；**产品侧「方面」对照**见 [`09`](./09-aspect-bluecortex-bridge.md)；**本仓库代码锚点**见 [`10`](./10-aspect-bluecortex-implementation-map.md)；**HTTP 路径速查**见 [`12`](./12-bluecortex-api-memory-surface.md)；**未决课题队列**见 [`11`](./11-research-backlog.md)。
+本目录按**模块与时间线**拆成 `01`–`08`（各文件建议 ≤50KB），便于渐进阅读；**产品侧「方面」对照**见 [`09`](./09-aspect-bluecortex-bridge.md)；**本仓库代码锚点**见 [`10`](./10-aspect-bluecortex-implementation-map.md)；**HTTP / 数据平面**见 [`12`](./12-bluecortex-api-memory-surface.md)；**Java 会话 start/end** 见 [`17`](./17-session-lifecycle-java-sketch.md)；**未决课题**见 [`11`](./11-research-backlog.md)。
 
 ### 接力导航（Agent / 续写）
 
 | 目标 | 打开 |
 |------|------|
 | 多线总导航 | [`../memory-research-hub.md`](../memory-research-hub.md) |
-| 读出 + **写入数据平面** | [`10`](./10-aspect-bluecortex-implementation-map.md) **§3** → [`12`](./12-bluecortex-api-memory-surface.md) **§1–2** → [`14`](./14-context-output-pipeline-sketch.md)（读出）/ [`16`](./16-ingestion-write-path-sketch.md)（写入）→ [`15`](./15-runtime-integration-surfaces.md)（Worker/Java） |
+| 读出 + **写入数据平面** | [`10`](./10-aspect-bluecortex-implementation-map.md) **§3** → [`12`](./12-bluecortex-api-memory-surface.md) **§1–2** → [`14`](./14-context-output-pipeline-sketch.md) / [`16`](./16-ingestion-write-path-sketch.md) / [`17`](./17-session-lifecycle-java-sketch.md) → [`15`](./15-runtime-integration-surfaces.md) |
 | 可勾选的研究项 | [`11`](./11-research-backlog.md) |
 | 维护规则与 `CANONICAL` | [`AGENT.md`](./AGENT.md) |
 
@@ -48,6 +48,7 @@
 | [14](./14-context-output-pipeline-sketch.md) | **`generateContext` vs `/semantic` vs ICL** 的 Java 调用链速写 |
 | [15](./15-runtime-integration-surfaces.md) | **Bun Worker vs Java**：健康检查、语义路由、OpenClaw `workerPort` 实为 Spring |
 | [16](./16-ingestion-write-path-sketch.md) | **Java 摄入**：`IngestionController` / `processToolUseAsync` / `saveObservation` |
+| [17](./17-session-lifecycle-java-sketch.md) | **Java 会话**：`/api/session/start`（缓存 + `generateContext`）与 ingest **session-end** |
 | **Hermes（内置型参照）** | [`../hermes-memory/index.md`](../hermes-memory/index.md)；注入 [`04`](../hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md)、安全盘点 [`05`](../hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md)、接力 [`11`](../hermes-memory/11-research-backlog.md) |
 
 ## 按主题入口
@@ -70,6 +71,7 @@
 | **CE 记忆 API / 数据平面** | [12](./12-bluecortex-api-memory-surface.md)（§2 写入链） |
 | **CE 上下文产出调用链** | [14](./14-context-output-pipeline-sketch.md) |
 | **CE Java 摄入 / 写入链** | [16](./16-ingestion-write-path-sketch.md) |
+| **CE Java 会话 start / end** | [17](./17-session-lifecycle-java-sketch.md) |
 | **运行时集成面（Worker / Java）** | [15](./15-runtime-integration-surfaces.md) |
 | **待调研与决策** | [11](./11-research-backlog.md) |
 
@@ -81,6 +83,6 @@
 |------|------|
 | [AGENT.md](./AGENT.md) | 维护约定：单文件上限、索引优先、`CANONICAL.sha256` 何时更新 |
 | [misc.md](./misc.md) | 暂未归类的短摘录 |
-| [staging.md](./staging.md) | 极短草稿；定稿迁入 `0x`/`09`/`10`/`11`/`12`/`14`/`15`/`16` 或删除（与 [`11`](./11-research-backlog.md) 可勾选队列区分） |
+| [staging.md](./staging.md) | 极短草稿；定稿迁入 `0x`/`09`/`10`/`11`/`12`/`14`/`15`/`16`/`17` 或删除（与 [`11`](./11-research-backlog.md) 可勾选队列区分） |
 
 仓库根路径 [`../evolver-memory-analysis.md`](../evolver-memory-analysis.md) 为上述入口的短链接，便于旧书签。

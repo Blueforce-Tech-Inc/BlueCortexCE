@@ -115,6 +115,7 @@
 | CE 上下文 **产出** 调用链（`generateContext` vs `semantic`） | [`14-context-output-pipeline-sketch.md`](./14-context-output-pipeline-sketch.md) |
 | **Bun Worker vs Java**（谁监听 37777、OpenClaw 命名陷阱） | [`15-runtime-integration-surfaces.md`](./15-runtime-integration-surfaces.md) |
 | **Java 摄入 / 写入**（wrapper → `IngestionController`） | [`16-ingestion-write-path-sketch.md`](./16-ingestion-write-path-sketch.md) |
+| **Java 会话 start**（`/api/session/start`） | [`17-session-lifecycle-java-sketch.md`](./17-session-lifecycle-java-sketch.md) |
 | Evo-Memory 论文（Refine / WriteBack / 基准） | [`../evo-memory-paper-analysis/index.md`](../evo-memory-paper-analysis/index.md) |
 
 ---

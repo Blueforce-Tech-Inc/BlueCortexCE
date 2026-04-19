@@ -1,6 +1,7 @@
 # BlueCortexCE：摄入 / 写入链速写（Java 瘦代理 → Postgres）
 
 > **角色**：与 [`14`](./14-context-output-pipeline-sketch.md)（**读出**）对称，帮助 Agent 从 **Hook → `IngestionController` → `AgentService`** 快速定位观察落库与异步队列。  
+> **Session start**（`/api/session/start`、缓存 + `generateContext`）：[`17-session-lifecycle-java-sketch.md`](./17-session-lifecycle-java-sketch.md)。  
 > **Worker（SQLite + Chroma）写入**：见 [`12`](./12-bluecortex-api-memory-surface.md) §2，**不**在本篇展开。  
 > **wrapper→Java 集成绳**（与 Worker 并列）：[`15`](./15-runtime-integration-surfaces.md) §4。  
 > **最后更新**：2026-04-19
@@ -93,4 +94,5 @@ wrapper.js (瘦代理)
 - 实现能力表：[`10`](./10-aspect-bluecortex-implementation-map.md) §2  
 - 读出链 + 模板转义（写入 LLM 侧）：[`14`](./14-context-output-pipeline-sketch.md)（§4）  
 - 运行时进程：[`15`](./15-runtime-integration-surfaces.md)  
+- 会话 start / end 对照：[`17`](./17-session-lifecycle-java-sketch.md)  
 - 总导航：[`../memory-research-hub.md`](../memory-research-hub.md)

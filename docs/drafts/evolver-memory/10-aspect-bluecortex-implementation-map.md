@@ -74,6 +74,7 @@
 5. HTTP 与数据平面：[`12-bluecortex-api-memory-surface.md`](./12-bluecortex-api-memory-surface.md)（**§2** 写入：SQLite+Chroma vs Postgres+pgvector）  
 6. Java **产出**链速写（`generateContext` / `semantic` / ICL）：[`14-context-output-pipeline-sketch.md`](./14-context-output-pipeline-sketch.md)  
 7. Java **摄入 / 写入**链速写（`IngestionController` → `AgentService`）：[`16-ingestion-write-path-sketch.md`](./16-ingestion-write-path-sketch.md)  
-8. **Bun Worker vs Java** 集成面：[`15-runtime-integration-surfaces.md`](./15-runtime-integration-surfaces.md)  
-9. Hermes 参照与 **CE 记忆注入面、`/api/context` 端点**（与上文「上下文拼装」互补）：[`../hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md`](../hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md)  
-10. **上下文安全缺口**（对照 Hermes 扫描）：[`../hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md`](../hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md)
+8. Java **会话 start / end** 速写：[`17-session-lifecycle-java-sketch.md`](./17-session-lifecycle-java-sketch.md)  
+9. **Bun Worker vs Java** 集成面：[`15-runtime-integration-surfaces.md`](./15-runtime-integration-surfaces.md)  
+10. Hermes 参照与 **CE 记忆注入面、`/api/context` 端点**（与上文「上下文拼装」互补）：[`../hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md`](../hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md)  
+11. **上下文安全缺口**（对照 Hermes 扫描）：[`../hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md`](../hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md)
