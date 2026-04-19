@@ -2,9 +2,16 @@
 
 **分析目标**：为 BlueCortexCE（旁路型记忆）提供可落地的借鉴思路。  
 **数据来源**：`/path/to/EvoMap/evolver/` 与本仓库架构文档。  
-**最后更新**：2026-04-19（`12` §3.2 MCP；`15` §2.1 `settings.json` / `clearPortCache`）
+**最后更新**：2026-04-19（文首「架构规范」块）
 
 **并列入口（Hermes / 论文线）**：[`../memory-research-hub.md`](../memory-research-hub.md)
+
+### 架构规范（与 cron / [`AGENT.md`](./AGENT.md) 对齐）
+
+- **短入口**：[`../evolver-memory-analysis.md`](../evolver-memory-analysis.md) 只保留**链接表**，勿把完整长文写回该路径。  
+- **单文件上限**：本目录正文建议 **≤50KB**；`01`–`08` 为模块分片，`09`–`17` 为对照短文，超标则**新建方面文件或拆分**，而非单文件堆长段。  
+- **索引真源**：`09`–`17` **一句话职责表**以本页 **附录** 为准；新增编号时同步 [`../memory-research-hub.md`](../memory-research-hub.md)「按任务」表，避免多表漂移。  
+- **例行自检（可选）**：`wc -c docs/drafts/evolver-memory-analysis.md` 应保持**短链体量**；分片 `wc -c docs/drafts/evolver-memory/0*.md` 任一分片若逼近 50KB 再考虑拆分。
 
 本目录按**模块与时间线**拆成 `01`–`08`（各文件建议 ≤50KB），便于渐进阅读；**产品侧「方面」对照**见 [`09`](./09-aspect-bluecortex-bridge.md)；**本仓库代码锚点**见 [`10`](./10-aspect-bluecortex-implementation-map.md)；**HTTP / 数据平面**见 [`12`](./12-bluecortex-api-memory-surface.md)；**Java 会话 start/end** 见 [`17`](./17-session-lifecycle-java-sketch.md)；**未决课题**见 [`11`](./11-research-backlog.md)。
 
@@ -15,6 +22,7 @@
 | 多线总导航 | [`../memory-research-hub.md`](../memory-research-hub.md) |
 | 读出 + **写入数据平面** | [`10`](./10-aspect-bluecortex-implementation-map.md) **§3** → [`12`](./12-bluecortex-api-memory-surface.md) **§1–2** → [`14`](./14-context-output-pipeline-sketch.md) / [`16`](./16-ingestion-write-path-sketch.md) / [`17`](./17-session-lifecycle-java-sketch.md) → [`15`](./15-runtime-integration-surfaces.md) |
 | **Hook → Worker 基址**（`workerHttpRequest` / 37777 与 Java 同号陷阱） | [`15`](./15-runtime-integration-surfaces.md) **§2.1** |
+| **MCP 工具 vs Hook `semantic`**（`search`/`timeline` 无 `semantic` 工具名） | [`12`](./12-bluecortex-api-memory-surface.md) **§3.2**；判别 [`15`](./15-runtime-integration-surfaces.md) **§2** · **§3** |
 | 可勾选的研究项 | [`11`](./11-research-backlog.md) |
 | 维护规则与 `CANONICAL` | [`AGENT.md`](./AGENT.md) |
 

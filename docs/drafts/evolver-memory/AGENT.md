@@ -4,7 +4,7 @@
 
 ## 约束
 
-1. **单文件上限**：`docs/drafts/evolver-memory/` 下正文建议 **≤50KB**；将超限则**新建方面文件**（如 `09-*.md`）或拆分后再写。
+1. **单文件上限**：`docs/drafts/evolver-memory/` 下正文建议 **≤50KB**；将超限则**新建方面文件**（如 `09-*.md`）或拆分后再写。**例行自检（可选）**：`wc -c docs/drafts/evolver-memory-analysis.md` 应保持**短链**；`wc -c docs/drafts/evolver-memory/0*.md` 任一分片若持续逼近 50KB 应优先拆分或迁出附录。
 2. **索引优先**：新增强内容时更新 [`index.md`](./index.md) 的导航，而非只堆在某一文件末尾。方面结论在 `09`，代码锚点在 [`10`](./10-aspect-bluecortex-implementation-map.md)，HTTP/数据平面在 [`12`](./12-bluecortex-api-memory-surface.md)（**§1.1** `semantic` · **§3.1** `workerHttpRequest` · **§3.2** MCP 工具分流），Java **读出 / 写入 / 会话头尾**在 [`14`](./14-context-output-pipeline-sketch.md) / [`16`](./16-ingestion-write-path-sketch.md) / [`17`](./17-session-lifecycle-java-sketch.md)，**Worker vs Java / wrapper / 各集成客户端默认进程** 在 [`15`](./15-runtime-integration-surfaces.md) **§2–§5**，未决课题在 [`11`](./11-research-backlog.md)。
 3. **方面聚焦**：每个文件一个清晰主题；零散片段可 [`misc.md`](./misc.md)；**可勾选接力队列**用 [`11`](./11-research-backlog.md)，极短临时草稿用 [`staging.md`](./staging.md)。
 4. **重构先于堆砌**：发现单文件膨胀时先拆分并核对无信息丢失，再继续追加。
