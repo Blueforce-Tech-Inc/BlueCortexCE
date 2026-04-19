@@ -21,6 +21,7 @@
 | **Java：瘦代理摄入 → `AgentService` 观察写入** | [`evolver-memory/16-ingestion-write-path-sketch.md`](evolver-memory/16-ingestion-write-path-sketch.md) |
 | **Java：`/api/session/start`、缓存与 session-end 对照** | [`evolver-memory/17-session-lifecycle-java-sketch.md`](evolver-memory/17-session-lifecycle-java-sketch.md) |
 | **Bun Worker vs Java Spring（端口、健康检查、Chroma vs pgvector）** | [`evolver-memory/15-runtime-integration-surfaces.md`](evolver-memory/15-runtime-integration-surfaces.md) |
+| **会话开局双路径**（`/api/sessions/init` Worker vs `/api/session/start` Java） | [`evolver-memory/12-bluecortex-api-memory-surface.md`](evolver-memory/12-bluecortex-api-memory-surface.md) §2–3 · Java 细节 [`evolver-memory/17-session-lifecycle-java-sketch.md`](evolver-memory/17-session-lifecycle-java-sketch.md) |
 | **OpenClaw / Hook / Spring 注入与 `/api/context`** | [`hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md`](hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md) |
 | **上下文出口安全 vs Hermes 扫描** | [`hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md`](hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md) |
 | **方面优先级与反模式（Evolver ↔ CE）** | [`evolver-memory/09-aspect-bluecortex-bridge.md`](evolver-memory/09-aspect-bluecortex-bridge.md) |

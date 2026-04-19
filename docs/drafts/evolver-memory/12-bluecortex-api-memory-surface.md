@@ -24,6 +24,8 @@
 | **Worker（Claude Code 默认）** | **SQLite**（`SessionStore` / `observations` 表） | **Chroma**（`ChromaSync.syncObservation`，在事务提交后 fire-and-forget） | `webui/src/services/worker/agents/ResponseProcessor.ts`（`storeObservations` → `syncAndBroadcastObservations`） |
 | **Java 胖服务器** | **PostgreSQL** `mem_observations` | **pgvector**（`embedding_*` + HNSW） | Hook **瘦代理** → `IngestionController` 等 → `AgentService.saveObservation`；或直接 `POST /api/ingest/observation` |
 
+**会话「开局」别混路径**：Claude Code **`session-init` Hook** 先调 **Bun Worker** **`POST /api/sessions/init`**（`webui/src/services/worker/http/routes/SessionRoutes.ts` → `handleSessionInitByClaudeId`），走的是 **SQLite** 会话栈；**`proxy/wrapper.js` / OpenClaw** 的 session-start 调 **Java** **`POST /api/session/start`**（`SessionController`，缓存 + `generateContext`，见 [`17-session-lifecycle-java-sketch.md`](./17-session-lifecycle-java-sketch.md)）。同一次本机 trace 里两种调用**可能都出现**（Hook→Worker 与 wrapper→Java 并行），排查时以 **URL 路径**为准。
+
 **结论**：两条链路 **并行**，**没有**在代码里看到「写入 SQLite 即自动同步 Postgres」的统一双写。**瘦代理** `proxy/wrapper.js` 还会向 **Java** 投递 `/api/ingest/*` 等（与 Worker **并列**，见 [`15`](./15-runtime-integration-surfaces.md) §4）。对照 Evolver 的 `memory_graph.jsonl` 时：Worker 侧更接近 **本地文件型 + 向量侧车**；Java 侧更接近 **关系库 + pgvector**。若产品要「单一真源」，需在架构层显式定义同步或只保留一条主链（见 [`11`](./11-research-backlog.md)）。
 
 ---
@@ -32,7 +34,7 @@
 
 | 组件 | 记忆相关调用 | 备注 |
 |------|----------------|------|
-| **`webui` `session-init` Hook** | `POST /api/context/semantic`（`workerHttpRequest`） | `CLAUDE_MEM_SEMANTIC_INJECT` 为 `true`（默认）且 `prompt.length >= 20` 时注入 `additionalContext`；见 `webui/src/cli/handlers/session-init.ts` |
+| **`webui` `session-init` Hook** | **`POST /api/sessions/init`**（建会话/隐私门闩）；随后可选 **`POST /api/context/semantic`**；再可选 **`POST /sessions/{sessionDbId}/init`**（SDK agent） | 均经 `workerHttpRequest` 打 **Bun Worker**；入口 `webui/src/cli/handlers/session-init.ts`；路由注册 `SessionRoutes.ts` |
 | **`openclaw-plugin`** | `GET /api/context/inject`、`/api/context/recent`、`/api/context/timeline`、`GET /api/search` | **未**发现 `semantic` 字符串匹配 |
 | **`js-sdk/cortex-mem-js`** | `GET /api/search` | `client.ts` |
 | **`proxy/wrapper.js`** | `POST` → Java `…/api/search/by-file` 等 | 文件关联时间线 |
