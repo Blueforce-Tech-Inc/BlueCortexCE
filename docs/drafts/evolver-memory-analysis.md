@@ -11,6 +11,7 @@
 | 说明 | 路径 |
 |------|------|
 | **总索引**（阅读路径、文档地图、按主题入口） | [docs/drafts/evolver-memory/index.md](./evolver-memory/index.md) |
+| **方面级对照**（Evolver ↔ BlueCortexCE，演进稿） | [docs/drafts/evolver-memory/09-aspect-bluecortex-bridge.md](./evolver-memory/09-aspect-bluecortex-bridge.md) |
 | **AI 文档助理**（演进规范：索引优先、体量上限、staging/misc） | [docs/drafts/evolver-memory/AGENT.md](./evolver-memory/AGENT.md) |
 | 杂项暂存 | [docs/drafts/evolver-memory/misc.md](./evolver-memory/misc.md) |
 | 工作进度 / 草稿暂存 | [docs/drafts/evolver-memory/staging.md](./evolver-memory/staging.md) |

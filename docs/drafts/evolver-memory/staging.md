@@ -4,4 +4,5 @@
 
 ## 当前任务进度（按需更新）
 
-- [ ] （在此填写）
+- [x] 2026-04-19：新增 [`09-aspect-bluecortex-bridge.md`](./09-aspect-bluecortex-bridge.md)（方面级 Evolver↔BlueCortexCE 对照）；已更新 `index.md` / `AGENT.md`。
+- [ ] 后续：若深入 EvoMap/evolver 新版本源码，在对应 `01`–`08` 分片或新 `09+` 方面文件中增补，并在此勾选。

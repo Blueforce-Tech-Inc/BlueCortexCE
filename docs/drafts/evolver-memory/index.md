@@ -1,17 +1,18 @@
 # Evolver 记忆系统深度分析（目录入口）
 
-> **文档状态**: v1.5（与拆分前 `evolver-memory-analysis.md` 正文一致）  
+> **文档状态**: v1.5 分片正文 + **v1.6 起**在 `09` 起增补「方面级」演进稿（不并入 `CANONICAL` 所锚定的 `01`–`08` 拼接体）。  
 > **分析目标**: 为 BlueCortexCE（旁路型记忆系统）提供可落地的借鉴建议  
-> **数据来源**: `/Users/yangjiefeng/Documents/EvoMap/evolver/`  
-> **最后更新**: 2026-04-17  
+> **数据来源**: `/Users/yangjiefeng/Documents/EvoMap/evolver/`（及本仓库架构文档）  
+> **最后更新**: 2026-04-19  
 
-本目录将原单体长文（约 326KB）拆成若干**体量可控**的 Markdown 文件，形成可渐进发现的阅读路径：先读定位与总览，再按模块或按时间线深入。顺序分片 `01`–`08` 单文件均 **< 50KB**，便于编辑与 diff。
+本目录将原单体长文（约 326KB）拆成若干**体量可控**的 Markdown 文件，形成可渐进发现的阅读路径：先读定位与总览，再按模块或按时间线深入。顺序分片 `01`–`08` 单文件均 **< 50KB**，便于编辑与 diff；**演进内容**以独立「方面」文件（如 `09`）追加，避免再次膨胀单体。
 
 ## 阅读路径建议
 
 1. **通读**：按 `01` → `08` 编号顺序即可覆盖**全部**原文章节（含原「目录」中的锚点列表与各版本增补）。
 2. **先抓 BlueCortexCE 落点**：读完 [01](./01-intro-toc-memory-through-curriculum.md) 中的「架构定位」与 [01](./01-intro-toc-memory-through-curriculum.md) 内 **§8 BlueCortexCE 借鉴建议汇总**，再按需跳到相关模块文件。
 3. **按主题跳读**：见下表「按主题的入口」。
+4. **旁路落地对照**（推荐）：读完 §8 或各模块后，读 [09-aspect-bluecortex-bridge.md](./09-aspect-bluecortex-bridge.md)，按存储/检索/上下文等维度对齐 BlueCortexCE。
 
 ## 文档地图（顺序拆分）
 
@@ -25,6 +26,12 @@
 | [06-assetcalllog-through-questiongen-v12.md](./06-assetcalllog-through-questiongen-v12.md) | §56–§65（assetCallLog、directory、deviceId、a2a v1.1、prompt/strategy v1.2、memoryGraphAdapter、innovation、questionGenerator 等） |
 | [07-idle-through-skillpublisher-v14.md](./07-idle-through-skillpublisher-v14.md) | §66–§75（idleScheduler、localState、gitOps、bridge、a2a、privacy、assets、candidates、candidateEval、skillPublisher v1.4） |
 | [08-llmreview-assetstore-and-roadmap-v15.md](./08-llmreview-assetstore-and-roadmap-v15.md) | §77–§78（llmReview、assetStore）及 **§76 下轮探索方向（v1.5 更新）** |
+
+### 演进增补（方面级，在 `01`–`08` 之外）
+
+| 文件 | 主题 |
+|------|------|
+| [09-aspect-bluecortex-bridge.md](./09-aspect-bluecortex-bridge.md) | 架构/存储/检索/上下文/可观测性等维度：**Evolver ↔ BlueCortexCE** 对照与可借鉴动作 |
 
 ## 按主题的入口（渐进披露）
 
@@ -40,6 +47,7 @@
 | 安全、隐私、脱敏、加密、验证 | [04](./04-mutation-through-policy-v09.md) **§43** 起；[05](./05-sanitize-through-execution-trace-v10.md) **§44–§51** |
 | 资产与存储（assetStore 等） | [02](./02-skilldistiller-through-evolution-v04.md)、[07](./07-idle-through-skillpublisher-v14.md)、[08](./08-llmreview-assetstore-and-roadmap-v15.md) |
 | 版本历史与 TODO | 原 **§33** 位于 [03](./03-skillpublisher-through-signals-v07.md)（随批次包含对应章节） |
+| **方面级旁路映射**（任务说明中的「架构概览、存储设计、检索…」） | [09](./09-aspect-bluecortex-bridge.md) |
 
 > 若某条「§ 编号」在多次版本增补中出现多节同名标题，以**原文章内编号与版本标注**为准；完整列表见 [01](./01-intro-toc-memory-through-curriculum.md) 中的**原目录**一节。
 
