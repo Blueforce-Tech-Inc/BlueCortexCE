@@ -7,7 +7,7 @@
 > **多线总导航**（Hermes / Evolver / 论文）：[`../memory-research-hub.md`](../memory-research-hub.md)  
 > **CE 落地短文族索引**（`09`–`17` 一句话表）：[`index.md`](./index.md) 附录；会话首跳见 [`15`](./15-runtime-integration-surfaces.md) **§5**。
 
-**最后更新**：2026-04-19（§6 → `15` §2 集成方表）
+**最后更新**：2026-04-19（§6 → `15` §2 / §2.1）
 
 ---
 

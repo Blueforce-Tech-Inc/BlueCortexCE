@@ -43,7 +43,7 @@
 | [`10`](./10-aspect-bluecortex-implementation-map.md) | 本仓库**已实现**与**缺口**的代码锚点 |
 | [`12`](./12-bluecortex-api-memory-surface.md) | **HTTP**、**§1.1 `semantic` 契约**、**§2 写入/数据平面**、双栈、调用方 |
 | [`14`](./14-context-output-pipeline-sketch.md) | **Java** 侧上下文产出链（非 worker） |
-| [`15`](./15-runtime-integration-surfaces.md) | Worker/Java 判别；**§2** 各集成客户端默认进程；**§4** wrapper→Java；**§5** 会话首跳 |
+| [`15`](./15-runtime-integration-surfaces.md) | Worker/Java 判别；**§2.1** Hook Worker 基址；**§2** 各集成客户端默认进程；**§4** wrapper→Java；**§5** 会话首跳 |
 | [`16`](./16-ingestion-write-path-sketch.md) | **Java** 侧瘦代理摄入 / 观察写入链 |
 | [`17`](./17-session-lifecycle-java-sketch.md) | **Java** 侧 `/api/session/start` 与 session-end 对照 |
 | **本文件** | 未决课题、可选实验、待勾选 |

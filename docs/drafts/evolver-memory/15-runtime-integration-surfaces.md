@@ -2,7 +2,7 @@
 
 > **角色**：减少 Agent 在「同名 `/api/context/*`、默认端口又常是 37777」时的误判：**先分清请求落在哪个进程**，再谈 Chroma vs pgvector。  
 > **配套**：[`12-bluecortex-api-memory-surface.md`](./12-bluecortex-api-memory-surface.md)、[`14-context-output-pipeline-sketch.md`](./14-context-output-pipeline-sketch.md)（Java 链）、[`10`](./10-aspect-bluecortex-implementation-map.md) §3。  
-> **最后更新**：2026-04-19（§2.1 Hook Worker 基址）
+> **最后更新**：2026-04-19（§2 客户端表 · §2.1 Hook 基址）
 
 ---
 

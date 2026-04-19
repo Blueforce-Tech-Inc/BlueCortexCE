@@ -1,7 +1,7 @@
 # BlueCortexCE 实现映射（Evolver 对照用）
 
 > **角色**：把 [`09-aspect-bluecortex-bridge.md`](./09-aspect-bluecortex-bridge.md) 中的优先级与 Evolver 概念，**锚定到本仓库路径**，便于实现与 code review；不替代 `docs/ARCHITECTURE-zh-CN.md` 的全貌说明。  
-> **最后更新**：2026-04-19（§3：时间线 / 语义注入 / 搜索 API 三分）
+> **最后更新**：2026-04-19（§3 链 `12` §1.1；集成方 `15` §2）
 
 ---
 
@@ -45,7 +45,7 @@
 |------|------|----------|-----------------|
 | **时间线注入（默认）** | 按 **type + concept** 过滤，取最近 N 条观察，与 **session summary** 混排；**不**走 `SearchService` | `ContextService.generateContext*` → `ObservationRepository.findByTypeAndConcepts`（及多项目/worktree） | 「裁剪 narrative + 时间序事件」，**非**当前用户 query 的语义检索 |
 | **按 query 的语义注入** | **Java**：`q` → **`SearchService.search`**（pgvector）→ 段落（V17） | `ContextController` → `POST /api/context/semantic` | 接近「按当前问题检索再写入 prompt」 |
-| **（同上路由，Worker）** | **Node worker**：同名路由 → **`SearchManager` + Chroma** | `webui/.../SearchRoutes.ts` | 与 Java **同源路径、异存储**；Claude Code Hook 默认走此栈，见 [`12`](./12-bluecortex-api-memory-surface.md) |
+| **（同上路由，Worker）** | **Node worker**：同名路由 → **`SearchManager` + Chroma** | `webui/.../SearchRoutes.ts` | 与 Java **同源路径、异存储**；Claude Code Hook 默认走此栈，见 [`12`](./12-bluecortex-api-memory-surface.md) **§1.1**；各客户端默认进程见 [`15`](./15-runtime-integration-surfaces.md) **§2** |
 | **搜索 API（列表）** | **Java**：与语义注入 **共用** `SearchService`；返回结构化结果 | `ViewerController` → `GET /api/search` | 「按需检索」；Worker 另有并行实现时需对照 `SearchManager` |
 
 **结论**：[`09`](./09-aspect-bluecortex-bridge.md) 中「摘要 + 向量命中」：**Java `generateContext`** 仍以 **时间线** 为主；**带当前问题的语义块**在 Claude Code 默认路径上常由 **`session-init` → Bun Worker `POST /api/context/semantic`**（Chroma；`CLAUDE_MEM_SEMANTIC_INJECT`，见 [`12`](./12-bluecortex-api-memory-surface.md) §2）。**OpenClaw 插件**则多直连 **Java**（见 [`15-runtime-integration-surfaces.md`](./15-runtime-integration-surfaces.md)）。**双栈一致性、token 预算**，见 [`11`](./11-research-backlog.md)。
@@ -71,10 +71,10 @@
 2. Evolver 模块细节：`01`–`08` 分片  
 3. 产品级架构与数据流：`docs/ARCHITECTURE-zh-CN.md`  
 4. 待调研/决策队列：[`11-research-backlog.md`](./11-research-backlog.md)  
-5. HTTP 与数据平面：[`12-bluecortex-api-memory-surface.md`](./12-bluecortex-api-memory-surface.md)（**§2** 写入：SQLite+Chroma vs Postgres+pgvector）  
+5. HTTP 与数据平面：[`12-bluecortex-api-memory-surface.md`](./12-bluecortex-api-memory-surface.md)（**§1.1** `semantic` 契约 · **§2** 写入：SQLite+Chroma vs Postgres+pgvector）  
 6. Java **产出**链速写（`generateContext` / `semantic` / ICL）：[`14-context-output-pipeline-sketch.md`](./14-context-output-pipeline-sketch.md)  
 7. Java **摄入 / 写入**链速写（`IngestionController` → `AgentService`）：[`16-ingestion-write-path-sketch.md`](./16-ingestion-write-path-sketch.md)  
 8. Java **会话 start / end** 速写：[`17-session-lifecycle-java-sketch.md`](./17-session-lifecycle-java-sketch.md)  
-9. **Bun Worker vs Java** 集成面：[`15-runtime-integration-surfaces.md`](./15-runtime-integration-surfaces.md)  
+9. **Bun Worker vs Java** 集成面（**§2** 客户端、**§5** 会话首跳）：[`15-runtime-integration-surfaces.md`](./15-runtime-integration-surfaces.md)  
 10. Hermes 参照与 **CE 记忆注入面、`/api/context` 端点**（与上文「上下文拼装」互补）：[`../hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md`](../hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md)  
 11. **上下文安全缺口**（对照 Hermes 扫描）：[`../hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md`](../hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md)
