@@ -2,7 +2,7 @@
 
 **分析目标**：为 BlueCortexCE（旁路型记忆）提供可落地的借鉴思路。  
 **数据来源**：`/path/to/EvoMap/evolver/` 与本仓库架构文档。  
-**最后更新**：2026-04-19（`12` §3.1 `workerHttpRequest` 索引）
+**最后更新**：2026-04-19（`12` §3.2 MCP；`15` §2.1 `settings.json` / `clearPortCache`）
 
 **并列入口（Hermes / 论文线）**：[`../memory-research-hub.md`](../memory-research-hub.md)
 
@@ -25,7 +25,7 @@
 | [09](./09-aspect-bluecortex-bridge.md) | Evolver ↔ CE **方面**、P0/P1、反模式 |
 | [10](./10-aspect-bluecortex-implementation-map.md) | 本仓库 **Repository/Service**、§3 **三路读出**、缺口表 |
 | [11](./11-research-backlog.md) | **可勾选**课题与文件边界 |
-| [12](./12-bluecortex-api-memory-surface.md) | **HTTP**、§1.1 **`semantic` 契约**、§2 **数据平面**、**§3–§3.1** 调用方与 Hook/MCP 索引 |
+| [12](./12-bluecortex-api-memory-surface.md) | **HTTP**、§1.1 **`semantic`**、§2 **数据平面**、**§3–§3.1** 调用方、**§3.2** MCP vs `semantic` |
 | [14](./14-context-output-pipeline-sketch.md) | Java **读出**（`generateContext` / `semantic` / ICL） |
 | [15](./15-runtime-integration-surfaces.md) | Worker/Java **判别**；**§2.1** Hook 基址；**§2** 集成客户端 → 默认进程；**§4** wrapper→Java；**§5** 会话首跳 |
 | [16](./16-ingestion-write-path-sketch.md) | Java **ingest 写入**（`IngestionController` → `AgentService`） |
@@ -58,7 +58,7 @@
 | [09](./09-aspect-bluecortex-bridge.md) | 架构/存储/检索/上下文/可观测性等：**Evolver ↔ BlueCortexCE** 与可执行优先级 |
 | [10](./10-aspect-bluecortex-implementation-map.md) | **本仓库** schema、Repository、Service；**§3** 时间线 / 语义注入 / 搜索；缺口相对 `09` P0 |
 | [11](./11-research-backlog.md) | 未决课题 / 决策 backlog（可勾选） |
-| [12](./12-bluecortex-api-memory-surface.md) | **§1** 读出 · **§1.1** `semantic` 契约 · **§2** 写入 · **§3–§3.1** 调用方 / `workerHttpRequest` |
+| [12](./12-bluecortex-api-memory-surface.md) | **§1** 读出 · **§1.1** `semantic` · **§2** 写入 · **§3–§3.2** 调用方 / MCP |
 | [14](./14-context-output-pipeline-sketch.md) | **`generateContext` vs `/semantic` vs ICL** 的 Java 调用链速写 |
 | [15](./15-runtime-integration-surfaces.md) | **Bun Worker vs Java**；**§2.1** Hook 基址；**§4** wrapper→Java；**§5** 会话首跳（`sessions/init` ∥ `session/start`） |
 | [16](./16-ingestion-write-path-sketch.md) | **Java 摄入**：`IngestionController` / `processToolUseAsync` / `saveObservation` |
@@ -82,7 +82,7 @@
 | 版本历史与 TODO | [03](./03-skillpublisher-through-signals-v07.md) 中原 §33 等 |
 | **方面级旁路映射** | [09](./09-aspect-bluecortex-bridge.md) |
 | **CE 实现锚点 / 缺口** | [10](./10-aspect-bluecortex-implementation-map.md) |
-| **CE 记忆 API / 数据平面** | [12](./12-bluecortex-api-memory-surface.md)（§1.1 `semantic` 契约 · §2 写入链） |
+| **CE 记忆 API / 数据平面** | [12](./12-bluecortex-api-memory-surface.md)（§1.1 `semantic` · §2 写入 · §3.2 MCP） |
 | **CE 上下文产出调用链** | [14](./14-context-output-pipeline-sketch.md) |
 | **CE Java 摄入 / 写入链** | [16](./16-ingestion-write-path-sketch.md) |
 | **CE Java 会话 start / end** | [17](./17-session-lifecycle-java-sketch.md) |

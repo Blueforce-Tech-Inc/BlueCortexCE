@@ -1,7 +1,7 @@
 # 记忆相关研究草稿 — 总导航
 
 > **用途**：给人类或 Agent **选入口**，避免在 `docs/drafts/` 下迷路。各子目录仍各自维护 `index.md` / `AGENT.md`。  
-> **最后更新**：2026-04-19（`12` §3.1、`15` §2 MCP 行）
+> **最后更新**：2026-04-19（`12` §3.2 MCP vs `semantic`；`15` §2.1 settings）
 
 ## 按系统 / 体裁
 
@@ -16,11 +16,11 @@
 | 任务 | 优先读 |
 |------|--------|
 | **本仓库类 / 迁移 / 混合检索锚点** | [`evolver-memory/10-aspect-bluecortex-implementation-map.md`](evolver-memory/10-aspect-bluecortex-implementation-map.md) |
-| **HTTP 速查**（时间线 · **`/api/context/semantic` §1.1**（JSON 契约 / Worker vs Java）· `/api/search`） | [`evolver-memory/12-bluecortex-api-memory-surface.md`](evolver-memory/12-bluecortex-api-memory-surface.md)；双栈语义未决 [`evolver-memory/11-research-backlog.md`](evolver-memory/11-research-backlog.md) |
+| **HTTP 速查**（§1.1 `semantic` · §3.2 **MCP** `search`/`timeline` **≠** `semantic` POST） | [`evolver-memory/12-bluecortex-api-memory-surface.md`](evolver-memory/12-bluecortex-api-memory-surface.md)；双栈语义 [`evolver-memory/11-research-backlog.md`](evolver-memory/11-research-backlog.md) |
 | **Java：`generateContext` / `semantic` / `ExpRagService` 调用链** | [`evolver-memory/14-context-output-pipeline-sketch.md`](evolver-memory/14-context-output-pipeline-sketch.md) |
 | **Java：瘦代理摄入 → `AgentService` 观察写入** | [`evolver-memory/16-ingestion-write-path-sketch.md`](evolver-memory/16-ingestion-write-path-sketch.md) |
 | **Java：`/api/session/start`、缓存与 session-end 对照** | [`evolver-memory/17-session-lifecycle-java-sketch.md`](evolver-memory/17-session-lifecycle-java-sketch.md) |
-| **Bun Worker vs Java Spring**（§1–§3；**§2** 各集成客户端；**§2.1** Hook `workerHttpRequest` 基址与 `JAVA_API_URL` 区别） | [`evolver-memory/15-runtime-integration-surfaces.md`](evolver-memory/15-runtime-integration-surfaces.md) |
+| **Bun Worker vs Java Spring**（§1–§3；**§2** 各集成客户端；**§2.1** Hook 基址、`~/.claude-mem/settings.json`、`SettingsRoutes`→`clearPortCache`） | [`evolver-memory/15-runtime-integration-surfaces.md`](evolver-memory/15-runtime-integration-surfaces.md) |
 | **会话开局双路径**（`POST /api/sessions/init` Worker vs `POST /api/session/start` Java） | [`evolver-memory/15-runtime-integration-surfaces.md`](evolver-memory/15-runtime-integration-surfaces.md) **§5**；Java 细节 [`evolver-memory/17-session-lifecycle-java-sketch.md`](evolver-memory/17-session-lifecycle-java-sketch.md) |
 | **OpenClaw / Hook / Spring 注入与 `/api/context`**（`04` §2.1；会话首跳另见 `15` §5） | [`hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md`](hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md) |
 | **上下文出口安全 vs Hermes 扫描** | [`hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md`](hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md) |

@@ -1,7 +1,7 @@
 # BlueCortexCE：与记忆相关的 API 表面（速查）
 
 > **角色**：给 Agent 的**一页速查**：读出路径、**写入/索引**、HTTP 与双栈。  
-> **最后更新**：2026-04-19（§3.1 `workerHttpRequest` 索引）
+> **最后更新**：2026-04-19（§3.2 MCP 工具分流）
 
 ---
 
@@ -67,11 +67,25 @@
 | **观察写入（Hook）** | `observation.ts`、`file-edit.ts` | **`POST /api/sessions/observations`** |
 | **按文件取观察** | `file-context.ts` | **`GET /api/observations/by-file`** |
 | **Cursor 规则刷新 / 安装** | `webui/src/services/integrations/CursorHooksInstaller.ts` | **`GET /api/readiness`**、**`/api/context/inject`**（写入 `.cursor/rules/...`） |
-| **MCP 侧车** | `webui/src/servers/mcp-server.ts` | **`/api/search`**、**`/api/timeline`**、**`POST /api/observations/batch`**、**`/api/corpus*`**、自检 **`/api/health`**（工具名映射见该文件常量表） |
+| **MCP 侧车** | `webui/src/servers/mcp-server.ts` | **§3.2**：哪些工具打 Worker、哪些 **smart_*** 纯本地；**无** `POST /api/context/semantic` 工具名 |
 | **Transcript 处理器** | `webui/src/services/transcripts/processor.ts` | **`/api/sessions/summarize`** 等 |
 | **Markdown 工具链** | `webui/src/utils/claude-md-utils.ts` | 若干 **`workerHttpRequest`**（辅助查询/写回，以源码为准） |
 
 **排查**：若 trace 里出现上表路径但**不确定**端口上是 Worker 还是 Java，仍回到 [`15`](./15-runtime-integration-surfaces.md) **§3** 做 health 探测。
+
+### 3.2 MCP 工具分流（`mcp-server.ts`，调研）
+
+MCP 进程通过 **`workerHttpRequest`** 连 Worker，但**并非每个 MCP 工具都走记忆 HTTP**；且 **MCP 未暴露** 与 Hook 相同的 **`POST /api/context/semantic`**（按 prompt 拼「注入块」仍属 §1 / `session-init` 路径）。
+
+| 分流 | MCP 工具名（节选） | Worker / 本地 |
+|------|-------------------|----------------|
+| **常量表** | `search` → **`GET /api/search`**；`timeline` → **`GET /api/timeline`** | Worker（`TOOL_ENDPOINT_MAP`） |
+| **批量观察** | `get_observations` → **`POST /api/observations/batch`** | Worker |
+| **Corpus** | `build_corpus`、`list_corpora`、`prime_corpus`、`query_corpus`、`rebuild_corpus`、`reprime_corpus` → **`/api/corpus`** 族（含 `.../prime|query|rebuild|reprime`） | Worker |
+| **代码侧车（本地）** | **`smart_search`**、`smart_outline`、`smart_unfold` | **不经** Worker：`searchCodebase` / `parseFile` / `readFile`（`mcp-server.ts` 内 handler） |
+| **自检** | 启动/连接验证 | **`GET /api/health`** 等 |
+
+**对照**：[`10`](./10-aspect-bluecortex-implementation-map.md) §3「搜索 API」与「语义注入」；MCP 的 **`search`/`timeline`** 属于 **Worker 检索面**，不要与 **`semantic` 注入块**混为同一产品能力。
 
 ---
 
