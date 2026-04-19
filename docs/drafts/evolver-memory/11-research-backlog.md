@@ -1,7 +1,7 @@
 # 研究 / 决策 backlog（可接力）
 
 > **角色**：给后续人类或 Agent 的**短队列**——可勾选、可补链接；**不**重复 [`09`](./09-aspect-bluecortex-bridge.md) 的 P0/P1 定义本身。  
-> **最后更新**：2026-04-19（`12` §3.2 MCP）
+> **最后更新**：2026-04-19（MCP `semantic` 产品项）
 
 ---
 
@@ -14,6 +14,7 @@
 
 ## 架构与产品
 
+- [ ] **MCP 是否暴露与 Hook 对齐的 `semantic` 能力**：产品与安全评估（现状：MCP **无**同名工具，见 [`12`](./12-bluecortex-api-memory-surface.md) **§3.2**）。
 - [x] **Hook 是否调用 `semantic`**：`session-init` 在 `CLAUDE_MEM_SEMANTIC_INJECT=true`（默认）且 `prompt≥20` 时调用 **worker** `POST /api/context/semantic`（`webui/src/cli/handlers/session-init.ts`）。见 [`12`](./12-bluecortex-api-memory-surface.md) §3。
 - [ ] **Java（pgvector）与 Worker（Chroma）语义结果一致性**：同名路由、异存储；全 Java / 混合部署下的对齐、评测与文档。HTTP 契约与字段对照见 [`12`](./12-bluecortex-api-memory-surface.md) **§1.1**；实现锚点另见 [`10`](./10-aspect-bluecortex-implementation-map.md) §3。
 - [ ] **语义注入与时间线并存的 token 预算**：`additionalContext` 与主上下文拼接策略、关闭开关与延迟预算。

@@ -1,7 +1,7 @@
 # 记忆相关研究草稿 — 总导航
 
 > **用途**：给人类或 Agent **选入口**，避免在 `docs/drafts/` 下迷路。各子目录仍各自维护 `index.md` / `AGENT.md`。  
-> **最后更新**：2026-04-19（`12` §3.2 MCP vs `semantic`；`15` §2.1 settings）
+> **最后更新**：2026-04-19（Hermes `AGENT` 体量预警；Evolver `11` MCP 条目）
 
 ## 按系统 / 体裁
 

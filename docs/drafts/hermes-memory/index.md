@@ -2,6 +2,8 @@
 
 本目录按**主题方面（aspect）**组织多份 Markdown（单文件 ≤50KB；文件名英文，正文可为中文）。**入口**：原根文件 [`../hermes-memory-analysis.md`](../hermes-memory-analysis.md) 仅作跳转，勿在其中堆长文。
 
+> **体量（2026-04-19）**：根入口文件不足 50KB；本目录内**最大单稿约 49KB**（[`60-evolution/06-memory-provider-hooks-inventory.md`](60-evolution/06-memory-provider-hooks-inventory.md)）。续写逼近上限前请先读 [`AGENT.md`](./AGENT.md) **「体量预警」** 并按表拆分。
+
 ## 建议阅读顺序
 
 1. **总览与立场** → [`00-overview/01-architecture-positioning-and-toc.md`](00-overview/01-architecture-positioning-and-toc.md)（含历史级「目录」清单；跨文件锚点无效，请用本索引跳转）
