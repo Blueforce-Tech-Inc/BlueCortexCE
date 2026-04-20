@@ -2,7 +2,7 @@
 
 **分析目标**：为 BlueCortexCE（旁路型记忆）提供可落地的借鉴思路。  
 **数据来源**：`/path/to/EvoMap/evolver/` 与本仓库架构文档。  
-**最后更新**：2026-04-19（新增 `19` `evolve` 循环记忆顺序与 outcome 推断）
+**最后更新**：2026-04-19（新增 `24` Gene/Strategy 层：Gene Pool + selector + mutation + strategy presets）
 
 **并列入口（Hermes / 论文线）**：[`../memory-research-hub.md`](../memory-research-hub.md)
 
@@ -25,6 +25,7 @@
 | **MCP 工具 vs Hook `semantic`**（`search`/`timeline` 无 `semantic` 工具名） | [`12`](./12-bluecortex-api-memory-surface.md) **§3.2**；判别 [`15`](./15-runtime-integration-surfaces.md) **§2** · **§3** |
 | **EvoMap/evolver 本地源码**（`memoryGraph` / 叙事 / 适配器） | [`18`](./18-evolver-local-source-memory-architecture-snapshot.md) |
 | **`evolve.js` 主循环**：记忆调用顺序、`last_action`、outcome 推断 | [`19`](./19-evolver-evolve-loop-memory-ordering-and-outcome-inference.md) |
+| **Gene Pool + Selector + Mutation + Strategy Presets**（Gene/Strategy 层新发现） | [`24`](./24-gene-strategy-layer.md) |
 | 可勾选的研究项 | [`11`](./11-research-backlog.md) |
 | 维护规则与 `CANONICAL` | [`AGENT.md`](./AGENT.md) |
 
@@ -45,6 +46,8 @@
 | [20](./20-time-decay-and-fail-degradation.md) | **排序增强专题**：`decayWeight` / `edgeExpectedSuccess`（Evolver）→ CE `time_decay_score` + `fail_penalty` 翻译方案 |
 | [21](./21-signal-taxonomy-and-gene-selection-memory.md) | **Signal Taxonomy**：`expandSignals` / `computeSignalKey` / Jaccard ≥ 0.34 / `getMemoryAdvice` 完整链；CE 观察类型标签化借鉴 |
 | [22](./22-error-sig-norm-implementation-proposal.md) | **`extractedData.error_sig_norm` 写入提案**：规范化算法 + JSONB schema + 写入路径 + 实施检查清单 |
+| [23](./23-evolver-state-event-dual-layer-and-self-awareness-loop.md) | **State+Event 双层架构**：可变 State 文件 + 不可变 JSONL 事件、幂等 outcome 写入、自省循环（Reflection Phase）、localStateAwareness 自模型 |
+| [24](./24-gene-strategy-layer.md) | **Gene/Strategy 层**：Gene Pool + 多因子选择器（exact+semantic+epigenetic+learning）+ Strategy Presets（repair/optimize/innovate）+ Mutation 安全约束 + Candidates Pool |
 
 ## 阅读路径
 

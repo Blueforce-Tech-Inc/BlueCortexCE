@@ -47,5 +47,8 @@ find docs/drafts/hermes-memory -name '*.md' -exec wc -c {} + | sort -n | tail -1
 | 48797 | [`50-honcho-holographic-deep/04-honcho-four-tools-routing.md`](50-honcho-holographic-deep/04-honcho-four-tools-routing.md) |
 | 48485 | [`60-evolution/07-bluecortexce-contradiction-detection-plan.md`](60-evolution/07-bluecortexce-contradiction-detection-plan.md) |
 | 47794 | [`20-recommendations/02-bluecortexce-recommendations.md`](20-recommendations/02-bluecortexce-recommendations.md) |
+| 46922 | [`60-evolution/09-supermemory-capture-lifecycle.md`](60-evolution/09-supermemory-capture-lifecycle.md) |
+
+> **新增（2026-04-19）**：[`60-evolution/17-smart-compression-and-exhaustion-fix.md`](60-evolution/17-smart-compression-and-exhaustion-fix.md)（8,487 bytes）— Smart compression anti-thrashing / MD5 dedup / exhaustion loop fix
 
 **上游源码（本地常见路径）**：内置工具侧 **`MemoryStore`** 等可在 `hermes-agent/tools/memory_tool.py` 对照（与 backlog「`memory_manager` / `memory_provider`」条目联动）；路径以本机克隆为准。

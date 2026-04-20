@@ -108,9 +108,9 @@ def discover_plugin_cli_commands() -> List[dict]:
 | **mem0** | Mem0 云 API | （轻量占位，README only） |
 | **holographic** | 本地 SQLite（HRR） | `fact_store` + `fact_feedback`；信任评分，矛盾检测，HRR 组合检索 |
 | **retaindb** | RetainDB 云 API | 写缓冲队列（SQLite），文件存储，dialectic 合成，SOUL.md 自模型 |
-| **openviking** | — | （文档未详） |
-| **byterover** | — | （文档未详） |
-| **hindsight** | — | （文档未详） |
+| **openviking** | Volcengine DB | 文件系统层级，viking:// URI，L0/L1/L2 tiered context，atexit 安全网；详见 [`18`](18-three-new-memory-providers.md) |
+| **byterover** | ByteRover CLI | 层级 Context Tree，模糊+LLM 检索，超时分级（query 10s / curate 120s）；详见 [`18`](18-three-new-memory-providers.md) |
+| **hindsight** | 知识图谱 | 实体消解，多策略检索，Reflect 综合推理，本地嵌入 daemon，Bank Mission；详见 [`18`](18-three-new-memory-providers.md) |
 
 ---
 
@@ -149,6 +149,6 @@ plugins/memory/__init__.py
 
 ## 8. 待跟进
 
+- [x] `openviking` / `byterover` / `hindsight` Provider 分析 → 新增 [`18-three-new-memory-providers.md`](18-three-new-memory-providers.md)
 - [ ] Provider `plugin.yaml` 元数据规范是否已稳定？
-- [ ] `openviking` / `byterover` / `hindsight` Provider 尚未分析（可扩展调研）
 - [ ] 多 Provider 切换时 `session_id` / `user_id` 迁移路径未覆盖

@@ -16,9 +16,11 @@
 8. **演进与 Provider / 工具细节** → `60-evolution/` 下各篇（含 [`11-field-review-and-bypass-roadmap.md`](60-evolution/11-field-review-and-bypass-roadmap.md)）
 9. **上游源码现场快照（MemoryManager / Provider / MemoryStore）** → [`60-evolution/12-upstream-hermes-agent-memory-snapshot.md`](60-evolution/12-upstream-hermes-agent-memory-snapshot.md)（读代码接力起点；与 `06`/`08` 交叉）
 10. **`run_agent` 主循环接线**（prefetch / sync / 工具分发 / 双线 `_memory_store`∥`_memory_manager`） → [`60-evolution/13-run-agent-memory-wiring-snapshot.md`](60-evolution/13-run-agent-memory-wiring-snapshot.md)
-11. **Multi-Provider 插件发现架构** → [`60-evolution/14-multi-provider-plugin-discovery.md`](60-evolution/14-multi-provider-plugin-discovery.md)（discover/load/Collector 模式 + Provider 清单）
+11. **Multi-Provider 插件发现架构** → [`60-evolution/14-multi-provider-plugin-discovery.md`](60-evolution/14-multi-provider-plugin-discovery.md)（discover/load/Collector 模式 + Provider 清单；byterover/hindsight/openviking 三新增 Provider 详见 [`18`](60-evolution/18-three-new-memory-providers.md)）
 12. **Session DB Flush 与 Duplicate-Write Bug Fix** → [`60-evolution/15-session-db-flush-and-duplicate-fix.md`](60-evolution/15-session-db-flush-and-duplicate-fix.md)（`_last_flushed_db_idx` 游标、幂等 flush、消息截断）
 13. **Extended Hooks**（`on_pre_compress` / `on_memory_write` / `on_delegation` / `queue_prefetch`） → [`60-evolution/16-extended-memory-provider-hooks.md`](60-evolution/16-extended-memory-provider-hooks.md)（RetainDB 三线程预取模型）
+14. **Smart Compression + Exhaustion Loop Fix**（2026-04-14 上游） → [`60-evolution/17-smart-compression-and-exhaustion-fix.md`](60-evolution/17-smart-compression-and-exhaustion-fix.md)（Smart tool collapse / MD5 dedup / Anti-thrashing / `failed: True` + session auto-reset）
+15. **三新增 Provider 分析**（byterover/hindsight/openviking） → [`60-evolution/18-three-new-memory-providers.md`](60-evolution/18-three-new-memory-providers.md)（ByteRover 层级 Tree / Hindsight 知识图谱+Reflect+本地嵌入 / OpenViking URI+tiered context+atexit）
 
 ## 按 aspect 浏览
 

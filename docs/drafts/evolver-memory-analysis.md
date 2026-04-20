@@ -4,7 +4,7 @@
 
 **数据来源**：本地 `EvoMap/evolver/` 源码；本仓库见 `docs/ARCHITECTURE-zh-CN.md` 等。
 
-**最后更新**：2026-04-19
+**最后更新**：2026-04-19（新增 `24` Gene/Strategy 层）
 
 **文档结构**：完整目录、接力导航与 **≤50KB / 短入口** 约定见 [`evolver-memory/index.md`](./evolver-memory/index.md) 文首「架构规范」；本文件仅作**链接入口**。
 
@@ -22,6 +22,9 @@
 | 总索引（阅读顺序、按主题跳转） | [docs/drafts/evolver-memory/index.md](./evolver-memory/index.md) |
 | **EvoMap/evolver 本地源码**（`memoryGraph` / 叙事 / 适配器；路径可改） | [docs/drafts/evolver-memory/18-evolver-local-source-memory-architecture-snapshot.md](./evolver-memory/18-evolver-local-source-memory-architecture-snapshot.md) |
 | **`evolve.js` 主循环**（记忆顺序、`outcome` 推断） | [docs/drafts/evolver-memory/19-evolver-evolve-loop-memory-ordering-and-outcome-inference.md](./evolver-memory/19-evolver-evolve-loop-memory-ordering-and-outcome-inference.md) |
+| **State+Event 双层 / 自省循环 / localStateAwareness** | [docs/drafts/evolver-memory/23-evolver-state-event-dual-layer-and-self-awareness-loop.md](./evolver-memory/23-evolver-state-event-dual-layer-and-self-awareness-loop.md) |
+| **Gene Pool + Selector + Mutation + Strategy Presets**（Gene/Strategy 层） | [docs/drafts/evolver-memory/24-gene-strategy-layer.md](./evolver-memory/24-gene-strategy-layer.md) |
+| **Signal Taxonomy**（`expandSignals` / Jaccard ≥ 0.34 / `getMemoryAdvice` / Laplace 平滑） | [docs/drafts/evolver-memory/21-signal-taxonomy-and-gene-selection-memory.md](./evolver-memory/21-signal-taxonomy-and-gene-selection-memory.md) |
 | 方面级对照：Evolver ↔ BlueCortexCE | [docs/drafts/evolver-memory/09-aspect-bluecortex-bridge.md](./evolver-memory/09-aspect-bluecortex-bridge.md) |
 | 本仓库实现映射（迁移、Repository、§3 三路读出） | [docs/drafts/evolver-memory/10-aspect-bluecortex-implementation-map.md](./evolver-memory/10-aspect-bluecortex-implementation-map.md) |
 | 记忆 HTTP + 数据平面（**§1.1** `semantic` · §2 · **§3.2** MCP） | [docs/drafts/evolver-memory/12-bluecortex-api-memory-surface.md](./evolver-memory/12-bluecortex-api-memory-surface.md) |
