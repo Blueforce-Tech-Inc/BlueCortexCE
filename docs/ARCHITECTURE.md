@@ -498,7 +498,7 @@ public class AgentService {
 #### Schema Overview
 
 ```sql
--- Sessions table (V1 + V4, V12, V13, V15 migrations)
+-- Sessions table (V1 + V4, V12, V13, V15, V18 migrations)
 CREATE TABLE mem_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     content_session_id VARCHAR(255) UNIQUE NOT NULL,  -- V13: replaces memory_session_id
