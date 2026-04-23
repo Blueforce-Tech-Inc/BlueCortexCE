@@ -2,7 +2,7 @@
 
 **分析目标**：为 BlueCortexCE（旁路型记忆）提供可落地的借鉴思路。  
 **数据来源**：`/path/to/EvoMap/evolver/` 与本仓库架构文档。  
-**最后更新**：2026-04-24（新增 **`39` Content-addressable Asset System**，覆盖 contentHash + assetStore + candidates + candidateEval 完整管线，Canonical JSON / SHA-256 / 原子写入 / 候选人管线；**`37` Signal Taxonomy + Gene Selection 端到端**，覆盖 signal 生命周期 / 四因子评分叠加 / Capsule Ban / Mutation 决策链；**`36` 记忆系统架构综合分析**，覆盖三层记忆 / 反馈环路 / 适配器模式 / 8 大设计原则；`29`–`35` Signal 提取 / 选择器 / 自省 / Solidify / A2A）
+**最后更新**：2026-04-24（新增 **`40` Failure Mode Classification + Canary 安全网**，覆盖 classifyFailureMode 五级分类树 / runCanaryCheck 提交前最后关卡 / buildSoftFailureLearningSignals / CE 健康检查借鉴方案；**`39` Content-addressable Asset System**，覆盖 contentHash + assetStore + candidates + candidateEval 完整管线，Canonical JSON / SHA-256 / 原子写入 / 候选人管线；**`37` Signal Taxonomy + Gene Selection 端到端**，覆盖 signal 生命周期 / 四因子评分叠加 / Capsule Ban / Mutation 决策链；**`36` 记忆系统架构综合分析**，覆盖三层记忆 / 反馈环路 / 适配器模式 / 8 大设计原则；`29`–`35` Signal 提取 / 选择器 / 自省 / Solidify / A2A）
 
 **并列入口（Hermes / 论文线）**：[`../memory-research-hub.md`](../memory-research-hub.md)
 
@@ -109,6 +109,7 @@
 | [35](./35-a2a-protocol-asset-lifecycle-feedback.md) | **A2A 协议 / 资产生命周期 / 反馈环路**：消息类型、发布资格三重门禁、Pre-publish leak check、Provenance chain、Task receiver、Hub review、CE 借鉴要点 |
 | [37](./37-signal-taxonomy-gene-selection-end-to-end.md) | **Signal Taxonomy + Gene Selection 端到端**：signal 生命周期、标签扩展函数、规范化错误签名、Gene 四因子评分（exact+semantic+learning+drift）、Capsule 选择与 Ban、Mutation category 决策链、CE 借鉴要点 |
 | [38](./38-env-fingerprint-capability-match.md) | **EnvFingerprint + CapabilityMatch**：环境指纹捕获（`captureEnvFingerprint`）、跨环境 GDI 测量、`envFingerprintKey` 同类判断；taskReceiver `estimateCapabilityMatch`（Jaccard + Laplace + 60/40 加权）、难度估算、承诺截止时间；CE `ObservationEntity` runtime_env 字段建议 |
+| [40](./40-failure-mode-classification-and-canary.md) | **Failure Mode Classification + Canary**：`classifyFailureMode` 五级分类树（hard/soft × reasonClass）/ `runCanaryCheck` 提交前最后关卡 / `buildSoftFailureLearningSignals` 失败→信号标签 / `isValidationCommandAllowed` 命令白名单 / `compareBlastEstimate` 预估反馈；CE 健康检查 / 多级健康状态 / ApplicationRunner canary 方案 |
 | [39](./39-content-addressable-asset-system.md) | **Content-addressable Asset System**：`contentHash.js`（Canonical JSON + SHA-256 + 完整性验证）+ `assetStore.js`（原子写入、基因/胶囊/候选人持久化）+ `candidates.js` / `candidateEval.js`（候选人提取与评估管线）；CE 观察去重 / 完整性验证 / 规范化 embedding 方案 |
 | **Hermes（内置型参照）** | [`../hermes-memory/index.md`](../hermes-memory/index.md)；注入 [`04`](../hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md)、安全盘点 [`05`](../hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md)、接力 [`11`](../hermes-memory/11-research-backlog.md) |
 
@@ -153,6 +154,7 @@
 | **远程适配器模式（本地优先 + fallback）** | [31](./31-reflection-remote-adapter-local-state.md) §2；**本地源码** [18](./18-evolver-local-source-memory-architecture-snapshot.md) §6 |
 | **Solidify 管线端到端**（状态恢复→约束→验证→PRM→Capsule→发布→反馈） | [34](./34-solidify-pipeline-end-to-end.md) |
 | **Content-addressable ID / Atomic write / 验证报告**（资产持久化层） | [34](./34-solidify-pipeline-end-to-end.md) §3–§5 |
+| **Failure Mode Classification + Canary**（classifyFailureMode 五级分类树 / canary 健康检查 / 失败信号标签 / blast radius 预估反馈 / CE 健康检查方案） | [40](./40-failure-mode-classification-and-canary.md)（`policyCheck.js` 深度补充：hard/soft failure × reasonClass / 命令白名单 / 伦理检测） |
 | **Content-addressable Asset System**（contentHash / assetStore / candidates / candidateEval；Canonical JSON + SHA-256 + 原子写入） | [39](./39-content-addressable-asset-system.md)（资产层完整管线；候选人三大来源；CE 观察去重 fingerprint / 完整性 hash 验证 / 规范化 embedding） |
 | **A2A 协议 / 资产发布 / 反馈环路**（hello/publish/fetch/review/task） | [35](./35-a2a-protocol-asset-lifecycle-feedback.md) |
 | **Leak check / 脱敏**（发布前安全扫描） | [35](./35-a2a-protocol-asset-lifecycle-feedback.md) §2.3–§2.4；**脱敏规则** [28](./28-prompt-engineering-deep-dive.md) §3 |

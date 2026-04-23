@@ -4,7 +4,7 @@
 
 **数据来源**：本地 `EvoMap/evolver/` 源码；本仓库见 `docs/ARCHITECTURE-zh-CN.md` 等。
 
-**最后更新**：2026-04-24（新增 **`39` Content-addressable Asset System**（contentHash + assetStore + candidates + candidateEval；Canonical JSON / SHA-256 / 原子写入 / 候选人管线）；**`37` Signal Taxonomy + Gene Selection 端到端**，覆盖 signal 生命周期 / 四因子评分叠加 / Capsule Ban / Mutation 决策链；**`36` 记忆系统架构综合分析**——三层记忆 / 反馈环路 / 适配器模式 / 8 大设计原则 / P0/P1/P2 启示对照表；`29`–`35` Signal 提取 / 选择器 / 自省 / Solidify / A2A）
+**最后更新**：2026-04-24（新增 **`40` Failure Mode Classification + Canary 安全网**（classifyFailureMode 五级分类树 / runCanaryCheck 提交前最后关卡 / buildSoftFailureLearningSignals 失败→信号标签 / isValidationCommandAllowed 命令白名单 / BlueCortexCE 健康检查借鉴方案）；**`39` Content-addressable Asset System**（contentHash + assetStore + candidates + candidateEval；Canonical JSON / SHA-256 / 原子写入 / 候选人管线）；**`37` Signal Taxonomy + Gene Selection 端到端**，覆盖 signal 生命周期 / 四因子评分叠加 / Capsule Ban / Mutation 决策链；**`36` 记忆系统架构综合分析**——三层记忆 / 反馈环路 / 适配器模式 / 8 大设计原则 / P0/P1/P2 启示对照表；`29`–`35` Signal 提取 / 选择器 / 自省 / Solidify / A2A）
 
 **文档结构**：完整目录、接力导航与 **≤50KB / 短入口** 约定见 [`evolver-memory/index.md`](./evolver-memory/index.md) 文首「架构规范」；本文件仅作**链接入口**。
 
@@ -38,6 +38,7 @@
 | **记忆系统架构综合**（三层记忆 / 反馈环路 / 适配器模式 / 8 大设计原则 / P0/P1/P2 启示） | [docs/drafts/evolver-memory/36-memory-architecture-synthesis.md](./evolver-memory/36-memory-architecture-synthesis.md) |
 | **Signal Taxonomy + Gene Selection 端到端**（signal 生命周期 → 四因子叠加评分 → Mutation 决策链 → CE 借鉴） | [docs/drafts/evolver-memory/37-signal-taxonomy-gene-selection-end-to-end.md](./evolver-memory/37-signal-taxonomy-gene-selection-end-to-end.md) |
 | **EnvFingerprint + CapabilityMatch**（环境指纹捕获、`envFingerprintKey` 同类判断；Jaccard+successRate 任务匹配；CE runtime_env 字段建议） | [docs/drafts/evolver-memory/38-env-fingerprint-capability-match.md](./evolver-memory/38-env-fingerprint-capability-match.md) |
+| **Failure Mode Classification + Canary**（classifyFailureMode 五级分类 / canary 健康检查 / 失败信号标签 / 变更影响反馈） | [docs/drafts/evolver-memory/40-failure-mode-classification-and-canary.md](./evolver-memory/40-failure-mode-classification-and-canary.md) |
 | **Content-addressable Asset System**（contentHash + assetStore + candidates + candidateEval；Canonical JSON / SHA-256 / 原子写入 / 候选人管线） | [docs/drafts/evolver-memory/39-content-addressable-asset-system.md](./evolver-memory/39-content-addressable-asset-system.md) |
 | **Signal Taxonomy**（`expandSignals` / Jaccard ≥ 0.34 / `getMemoryAdvice` / Laplace 平滑） | [docs/drafts/evolver-memory/21-signal-taxonomy-and-gene-selection-memory.md](./evolver-memory/21-signal-taxonomy-and-gene-selection-memory.md) |
 | 方面级对照：Evolver ↔ BlueCortexCE | [docs/drafts/evolver-memory/09-aspect-bluecortex-bridge.md](./evolver-memory/09-aspect-bluecortex-bridge.md) |
