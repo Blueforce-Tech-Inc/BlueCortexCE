@@ -118,6 +118,10 @@ public interface CortexMemClient {
      * Manually trigger extraction for a project.
      * Calls POST /api/extraction/run?projectPath=...
      *
+     * <p><b>Fire-and-forget:</b> This method uses silent retry with final-error swallowing.
+     * Failures are logged but never thrown to the caller. This is intentional: extraction
+     * is an async background task and its outcome should not block the caller's pipeline.
+     *
      * @param projectPath project path to extract for
      */
     void triggerExtraction(String projectPath);
