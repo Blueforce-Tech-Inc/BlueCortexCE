@@ -2,7 +2,7 @@
 
 **分析目标**：为 BlueCortexCE（旁路型记忆）提供可落地的借鉴思路。  
 **数据来源**：`/path/to/EvoMap/evolver/` 与本仓库架构文档。  
-**最后更新**：2026-04-23（新增 `29` Signal 提取深度；`30` 多因子选择深度；`31` 自省/远程适配器；`32` v1.46–v1.47 多 Agent 会话兼容 / SSE 事件流 / 蜂群 PDRI；`33` v1.48–v1.66 架构演变；**`34` Solidify 管线端到端**；**`35` A2A 协议 / 资产生命周期 / 反馈环路**）
+**最后更新**：2026-04-23（新增 **`36` 记忆系统架构综合分析**，覆盖三层记忆 / 反馈环路 / 适配器模式 / 8 大设计原则；`29`–`35` Signal 提取 / 选择器 / 自省 / Solidify / A2A）
 
 **并列入口（Hermes / 论文线）**：[`../memory-research-hub.md`](../memory-research-hub.md)
 
@@ -151,6 +151,17 @@
 | **A2A 协议 / 资产发布 / 反馈环路**（hello/publish/fetch/review/task） | [35](./35-a2a-protocol-asset-lifecycle-feedback.md) |
 | **Leak check / 脱敏**（发布前安全扫描） | [35](./35-a2a-protocol-asset-lifecycle-feedback.md) §2.3–§2.4；**脱敏规则** [28](./28-prompt-engineering-deep-dive.md) §3 |
 | **Provenance chain / 资产溯源**（parent 链） | [35](./35-a2a-protocol-asset-lifecycle-feedback.md) §2.5, §5.3 |
+| **记忆系统架构综合（总览 / 三层记忆 / 反馈环路 / 适配器模式 / 8 大设计原则）** | [36](./36-memory-architecture-synthesis.md) |
+| **MemoryGraphAdapter 本地优先写入 / 远程降级** | [36](./36-memory-architecture-synthesis.md) §3 |
+| **三层记忆 + 状态文件是图的缓存** | [36](./36-memory-architecture-synthesis.md) §1 |
+| **Error Signature 规范化 + stableHash** | [36](./36-memory-architecture-synthesis.md) §2.2 |
+| **Signal Taxonomy → 标签扩展 → 评分** | [36](./36-memory-architecture-synthesis.md) §2.3 |
+| **反馈环路端到端**（signal→gene→outcome→memory） | [36](./36-memory-architecture-synthesis.md) §4 |
+| **Jaccard 0.34 + 半衰衰减 + drift 1/√Ne** | [36](./36-memory-architecture-synthesis.md) §4.1–4.3 |
+| **信号去重 / 饱和降级 / 失败连击** | [36](./36-memory-architecture-synthesis.md) §5 |
+| **自适应反思间隔**（成功 8 / 失败 3 / 默认 5） | [36](./36-memory-architecture-synthesis.md) §6 |
+| **BlueCortexCE P0/P1/P2 启示对照表** | [36](./36-memory-architecture-synthesis.md) §7 |
+| **Evolver vs BlueCortexCE 本质差异（优化型 vs 记录型）** | [36](./36-memory-architecture-synthesis.md) §9 |
 
 若同一 § 编号在版本增补中出现多次，以分片内**版本标注**为准；完整目录列表见 [01](./01-intro-toc-memory-through-curriculum.md)。
 
