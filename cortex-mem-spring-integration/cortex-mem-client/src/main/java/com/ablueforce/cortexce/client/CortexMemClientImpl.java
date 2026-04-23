@@ -10,6 +10,7 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
+import java.net.URL;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.List;
@@ -29,7 +30,11 @@ public class CortexMemClientImpl implements CortexMemClient {
     private static final Logger log = LoggerFactory.getLogger(CortexMemClientImpl.class);
 
     /** SDK version for User-Agent header. Update when releasing new SDK versions. */
-    private static final String SDK_VERSION = "1.0.0";
+    /**
+     * SDK version for User-Agent header. Read dynamically from JAR manifest (Implementation-Version)
+     * to stay in sync with the project version. Falls back to "unknown" if not available (e.g., tests).
+     */
+    private static final String SDK_VERSION = resolveSdkVersion();
 
     private final RestClient restClient;
     private final CortexMemProperties properties;
@@ -86,7 +91,7 @@ public class CortexMemClientImpl implements CortexMemClient {
 
         this.restClient = builder.build();
 
-        log.info("CortexMemClient initialized → {}", properties.getBaseUrl());
+        log.info("CortexMemClient initialized → {} (SDK {})", properties.getBaseUrl(), SDK_VERSION);
     }
 
     // ==================== Capture ====================
@@ -837,6 +842,34 @@ public class CortexMemClientImpl implements CortexMemClient {
      * Handles both String and temporal types (OffsetDateTime, LocalDateTime, etc.)
      * that Jackson deserializes temporal JSON values as objects, not strings.
      */
+    /**
+     * Resolve SDK version from JAR manifest's Implementation-Version entry.
+     * Falls back to "unknown" when running from IDE, test classpath, or any non-packaged context.
+     */
+    private static String resolveSdkVersion() {
+        try {
+            var cl = CortexMemClientImpl.class;
+            String className = cl.getSimpleName() + ".class";
+            URL classUrl = cl.getResource(className);
+            if (classUrl == null) {
+                return "unknown";
+            }
+            String jarPath = classUrl.getPath();
+            // Only resolve from a JAR file (jar:file:///path/to/artifact.jar!/...), not from directory
+            if (!jarPath.startsWith("jar:")) {
+                return "unknown";
+            }
+            var manifest = new java.util.jar.Manifest(
+                new URL(jarPath.substring(4, jarPath.lastIndexOf("!")) + "!/META-INF/MANIFEST.MF").openStream()
+            );
+            var attr = manifest.getMainAttributes();
+            String version = attr.getValue("Implementation-Version");
+            return (version != null && !version.isBlank()) ? version : "unknown";
+        } catch (Exception e) {
+            return "unknown";
+        }
+    }
+
     private static String str(Object v) {
         if (v == null) return null;
         return v.toString();
