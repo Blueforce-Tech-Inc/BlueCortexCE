@@ -2962,8 +2962,8 @@ Total: 426/426 tests passed
 
 | # | 文件 | 行 | 级别 | 问题 | 状态 |
 |---|------|-----|------|------|------|
-| B-52 | OffsetPageRequest.java | 83-84 | **P2** | `withPage(int pageNumber)` 不重新计算 offset：返回 `new OffsetPageRequest(pageNumber, size, offset, sort)` 保持旧 offset 不变。例如从 page=0/offset=0 调用 `withPage(3)` 得到 page=3/offset=0 而非 page=3/offset=3*size。当前代码库未调用此方法（仅 ViewerController 使用，且始终 page=0），但作为 Pageable 实现方法存在潜在风险。建议修复为 `new OffsetPageRequest(pageNumber, size, (long) pageNumber * size, sort)`。 | 📋 待修复 |
-| B-53 | OffsetPageRequest.java | - | **P2** | 实现 `Serializable` 但缺少 `serialVersionUID` 字段。每次类结构变更会导致反序列化 `InvalidClassException`。当前无跨 JVM 序列化场景，但作为公共 DTO 应补全。 | 📋 待修复 |
+| B-52 | OffsetPageRequest.java | 83-84 | **P2** | `withPage(int pageNumber)` 不重新计算 offset：返回 `new OffsetPageRequest(pageNumber, size, offset, sort)` 保持旧 offset 不变。例如从 page=0/offset=0 调用 `withPage(3)` 得到 page=3/offset=0 而非 page=3/offset=3*size。当前代码库未调用此方法（仅 ViewerController 使用，且始终 page=0），但作为 Pageable 实现方法存在潜在风险。建议修复为 `new OffsetPageRequest(pageNumber, size, (long) pageNumber * size, sort)`。 | ✅已修复（`withPage` 改为 `new OffsetPageRequest(pageNumber, size, (long) pageNumber * size, sort)`） |
+| B-53 | OffsetPageRequest.java | - | **P2** | 实现 `Serializable` 但缺少 `serialVersionUID` 字段。每次类结构变更会导致反序列化 `InvalidClassException`。当前无跨 JVM 序列化场景，但作为公共 DTO 应补全。 | ✅已修复（添加 `private static final long serialVersionUID = 1L;`） |
 | B-54 | OffsetPageRequest.java | 106-110 | **P2** | `equals(Object o)` 接受 `Pageable` 接口但比较 offset 语义不同：Spring `PageRequest.getOffset()` 返回 `page * size`，而本类的 offset 是独立值。混用两种实现比较时语义不一致。当前代码库无混用场景。 | ℹ️ 设计观察 |
 
 **代码质量评估**:

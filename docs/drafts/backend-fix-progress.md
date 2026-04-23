@@ -255,3 +255,18 @@
 - EXTRACTION 验收：25/25 通过 ✅
 
 **Backend Review 问题状态**：P0: 0 | P1: 0 | P2 (Backend): 0（#47 全部修复 + B11-1 修复）
+
+---
+
+## 2026-04-23 22:53 | 健康检查修复 — OffsetPageRequest B-52/B-53
+
+**修复内容**：
+- **B-52**：`withPage(int pageNumber)` 不重新计算 offset — 修复为 `new OffsetPageRequest(pageNumber, size, (long) pageNumber * size, sort)`
+- **B-53**：实现 `Serializable` 但缺少 `serialVersionUID` — 添加 `private static final long serialVersionUID = 1L;`
+
+**验证结果**：
+- `mvn clean compile package -DskipTests` ✅
+- 回归测试：46/47 通过 ✅（1 skipped）
+- EXTRACTION 验收：25/25 通过 ✅
+
+**Backend Review 问题状态**：P0: 0 | P1: 0 | P2 (待修复): 0（全部修复完成或标记为设计观察）

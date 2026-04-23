@@ -20,6 +20,8 @@ import java.io.Serializable;
  */
 public class OffsetPageRequest implements Pageable, Serializable {
 
+    private static final long serialVersionUID = 1L;
+
     private final int page;
     private final int size;
     private final long offset;
@@ -81,7 +83,7 @@ public class OffsetPageRequest implements Pageable, Serializable {
 
     @Override
     public Pageable withPage(int pageNumber) {
-        return new OffsetPageRequest(pageNumber, size, offset, sort);
+        return new OffsetPageRequest(pageNumber, size, (long) pageNumber * size, sort);
     }
 
     @Override
