@@ -25,6 +25,8 @@
 17. **Tool Result Persistence 3-Layer Defense**（per-tool truncation / per-result sandbox persist / per-turn 200K budget） → [`60-evolution/20-tool-result-persistence.md`](60-evolution/20-tool-result-persistence.md)
 18. **Session Search Tool — FTS5 + LLM Recall**（dual mode / smart truncation / parallel summarize / auxiliary model） → [`60-evolution/21-session-search-tool.md`](60-evolution/21-session-search-tool.md)
 19. **Hindsight 知识图谱深度解析**（TEMPR 四路检索 / Observation 合并 / 实体消解 / 双时间模型 / Reflect Agentic Loop / Disposition System） → [`60-evolution/22-hindsight-knowledge-graph-deep-dive.md`](60-evolution/22-hindsight-knowledge-graph-deep-dive.md)（2026-04-23 新增）
+20. **Auxiliary Client Provider Resolution Chain**（Auto-Detect / 7-Provider Fallback / Payment Error Recovery / Codex & Anthropic Adapters / Per-Task Config） → [`60-evolution/23-auxiliary-client-resolution-chain.md`](60-evolution/23-auxiliary-client-resolution-chain.md)（2026-04-23 新增）
+21. **ContextCompressor 完整算法解析**（四阶段压缩 / Tool Pruning 3-Pass / Token-Budget Tail / Structured Template / Iterative Update / Anti-Thrashing / Tool Pair 整治） → [`60-evolution/24-context-compressor-full-algorithm.md`](60-evolution/24-context-compressor-full-algorithm.md)（2026-04-23 新增；整合 06/07/09/17 散落分析）
 
 ## 按 aspect 浏览
 

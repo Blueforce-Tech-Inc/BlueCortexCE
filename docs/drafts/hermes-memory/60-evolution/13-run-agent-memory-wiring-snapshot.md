@@ -99,3 +99,4 @@
 | [`12-upstream-hermes-agent-memory-snapshot.md`](12-upstream-hermes-agent-memory-snapshot.md) | `MemoryManager` / `MemoryStore` 类级分工 |
 | [`03-memory-context-injection-and-prefetch-lifecycle.md`](../40-context-compression/03-memory-context-injection-and-prefetch-lifecycle.md) | user 侧注入与 Prefetch 机制长文 |
 | [`08-builtin-memory-tool-bounded-snapshot.md`](08-builtin-memory-tool-bounded-snapshot.md) | 内置工具边界 |
+| [`19-gateway-session-expiry-watcher.md`](19-gateway-session-expiry-watcher.md) | Gateway 后台 session 过期 → 记忆主动 flush（`memory_flushed` 持久化、防覆盖注入） |

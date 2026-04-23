@@ -28,7 +28,7 @@
   - **BlueCortexCE 落点**：`ObservationEntity.extractedData` JSONB 已有，dedup 用 `contentHash`（精确哈希），两类机制可共存：`extractedData.error_sig_norm` 存规范化签名用于"同类错误聚合"检索；`content_hash` 保持精确去重。
   - **实施路径**：参考 [`21`](./21-signal-taxonomy-and-gene-selection-memory.md) §2 的 `normalizeErrorSignature` 实现；在 `AgentService.saveObservation` 路径对 `type=error` 观察写入规范化签名。
   - **✅ 提案完成**：见 [`22`](./22-error-sig-norm-implementation-proposal.md)（规范化算法 + JSONB schema + 写入路径 + 实施检查清单）
-- [ ] **`inferOutcomeEnhanced` 的 baseline vs current delta 机制**：Evolver 用 `recent_error_count` 差值和 `scan_ms` 差值微调 outcome score（各 ±0.12 / ±0.06）。BlueCortexCE 暂无对应机制；若引入"观察质量评分"，可参考此 delta 启发式。
+- [ ] **`inferOutcomeEnhanced` 的 baseline vs current delta 机制**：Evolver 用 `recent_error_count` 差值和 `scan_ms` 差值微调 outcome score（各 ±0.12 / ±0.06）。BlueCortexCE 暂无对应机制；若引入"观察质量评分"，可参考此 delta 启发式。另见 PRM 多步骤评分 [`25`](./25-advanced-patterns-prm-epigenetic-antipattern.md) §1（8 阶段加权合成）。
   - 源码：`memoryGraph.js` §560–§590，`clamp01(score)` 保证边界。
 - [ ] **双聚合链（signal×gene 边 vs gene 先验）**：Evolver `getMemoryAdvice` 维护两条独立衰减链：`(signal_key, gene_id)` 边（30天半衰）和 `gene_id` 先验（45天半衰），加权组合 `best + prior*0.12` 或纯先验 `prior*0.4`。BlueCortexCE `SearchService` 暂无此双链机制；若引入"历史检索成功率"，可参考此分层衰减设计。
 
@@ -41,6 +41,10 @@
 ## Evolver 侧（外部源码）
 
 - [ ] **EvoMap/evolver 版本差分**：若本地仓库更新，在对应 `01`–`08` 分片增补差异摘要，**不在此文件**堆长文。
+
+- [ ] **自适应策略策略借鉴**：Evolver 每周期动态计算执行策略（repair streak / failure streak / blast radius），CE `ContextService` 可参考实现注入策略动态切换。详见 [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) §1。
+- [ ] **候选评估管线借鉴**：Evolver 从会话转录提取重复模式（≥3次），生成 Five Questions Shape 候选。CE 可参考实现高频观察模式自动发现。详见 [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) §2。
+- [ ] **Git 自修复借鉴**：Evolver 在进化前自动修复 Git 异常。CE 可参考实现写入前自检（数据库连接、事务状态）。详见 [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) §3。
 
 ## 安全与上下文出口（Hermes 对照）
 
@@ -61,6 +65,7 @@
 | [`17`](./17-session-lifecycle-java-sketch.md) | **Java** 侧 `/api/session/start` 与 session-end 对照 |
 | [`18`](./18-evolver-local-source-memory-architecture-snapshot.md) | **EvoMap/evolver 本地** `memoryGraph` / 叙事 / 适配器（非 CE 仓库） |
 | [`19`](./19-evolver-evolve-loop-memory-ordering-and-outcome-inference.md) | **`evolve` 主循环** 与 outcome 推断（非 CE 仓库） |
+| [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) | **运行时编排**：自适应策略、候选评估、Git 自修复、创新催化、自我感知 |
 | **本文件** | 未决课题、可选实验、待勾选 |
 | [`staging.md`](./staging.md) | 极短草稿，定稿即删或迁入上列 |
 | [`../memory-research-hub.md`](../memory-research-hub.md) | Evolver / Hermes / 论文线 **总导航** |

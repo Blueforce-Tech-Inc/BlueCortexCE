@@ -31,6 +31,7 @@
 | **Signal Taxonomy**（`expandSignals` 标签体系 / Jaccard ≥ 0.34 / `getMemoryAdvice` 完整链 / Laplace 平滑） | [`evolver-memory/21-signal-taxonomy-and-gene-selection-memory.md`](evolver-memory/21-signal-taxonomy-and-gene-selection-memory.md) |
 | **`error_sig_norm` 落地提案**（规范化算法 + JSONB schema + `ObservationService` 写入路径 + 实施检查清单） | [`evolver-memory/22-error-sig-norm-implementation-proposal.md`](evolver-memory/22-error-sig-norm-implementation-proposal.md) |
 | **Gene/Strategy 层**（Gene Pool + 多因子 selector + mutation 安全约束 + strategy presets） | [`evolver-memory/24-gene-strategy-layer.md`](evolver-memory/24-gene-strategy-layer.md) |
+| **高级模式**（PRM 多步骤评分 / Epigenetic Marks / Anti-Pattern Zone / Innovation Catalyst / Adaptive Reflection） | [`evolver-memory/25-advanced-patterns-prm-epigenetic-antipattern.md`](evolver-memory/25-advanced-patterns-prm-epigenetic-antipattern.md) |
 | **Evo-Memory 论文（Refine / WriteBack）** | [`evo-memory-paper-analysis/02-remem-architecture.md`](evo-memory-paper-analysis/02-remem-architecture.md)、[`07-roadmap-and-bypass-adaptation.md`](evo-memory-paper-analysis/07-roadmap-and-bypass-adaptation.md) |
 | **可勾选接力队列** | Evolver：[`evolver-memory/11-research-backlog.md`](evolver-memory/11-research-backlog.md) · Hermes 课题：[`hermes-memory/11-research-backlog.md`](hermes-memory/11-research-backlog.md) |
 

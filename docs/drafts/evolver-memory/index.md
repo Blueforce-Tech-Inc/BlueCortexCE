@@ -2,7 +2,7 @@
 
 **分析目标**：为 BlueCortexCE（旁路型记忆）提供可落地的借鉴思路。  
 **数据来源**：`/path/to/EvoMap/evolver/` 与本仓库架构文档。  
-**最后更新**：2026-04-19（新增 `24` Gene/Strategy 层：Gene Pool + selector + mutation + strategy presets）
+**最后更新**：2026-04-23（新增 `29` Signal 提取深度；`30` 多因子选择深度；`31` 自省/远程适配器；`32` v1.46–v1.47 多 Agent 会话兼容 / SSE 事件流 / 蜂群 PDRI；`33` v1.48–v1.66 架构演变：加权关键词评分、平台适配器、ATP、集中配置）
 
 **并列入口（Hermes / 论文线）**：[`../memory-research-hub.md`](../memory-research-hub.md)
 
@@ -26,10 +26,17 @@
 | **EvoMap/evolver 本地源码**（`memoryGraph` / 叙事 / 适配器） | [`18`](./18-evolver-local-source-memory-architecture-snapshot.md) |
 | **`evolve.js` 主循环**：记忆调用顺序、`last_action`、outcome 推断 | [`19`](./19-evolver-evolve-loop-memory-ordering-and-outcome-inference.md) |
 | **Gene Pool + Selector + Mutation + Strategy Presets**（Gene/Strategy 层新发现） | [`24`](./24-gene-strategy-layer.md) |
+| **PRM 评分 / Epigenetic / Anti-Pattern / Innovation / Reflection**（高级模式） | [`25`](./25-advanced-patterns-prm-epigenetic-antipattern.md) |
+| **自适应策略 / 候选评估 / Git 自修复 / 创新催化 / 自我感知**（运行时编排） | [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) |
+| **Ops 模块套件 / 集中配置 / Canary 安全网 / Health Check**（运维基础设施） | [`27`](./27-ops-suite-runtime-config-canary.md) |
+| **Prompt Schema / 质量门禁 / 敏感数据参数化 / 截断策略**（提示词深度） | [`28`](./28-prompt-engineering-deep-dive.md) |
+| **Signal 提取 / 历史去重 / 饱和降级 / 多语言 / 工具绕行**（信号深度） | [`29`](./29-signal-extraction-history-dedup-saturation.md) |
+| **多因子 Gene 选择 / 连续漂移 / diversity-directed drift / Failed Capsule ban**（选择器深度） | [`30`](./30-multifactor-gene-selection-continuous-drift.md) |
+| **自省自适应间隔 / 远程适配器 / 三层自调节架构**（反思与集成） | [`31`](./31-reflection-remote-adapter-local-state.md) |
 | 可勾选的研究项 | [`11`](./11-research-backlog.md) |
 | 维护规则与 `CANONICAL` | [`AGENT.md`](./AGENT.md) |
 
-### 附录：BlueCortexCE 对照短文 + EvoMap 快照（`09`–`19`）一句话
+### 附录：BlueCortexCE 对照短文 + EvoMap 快照（`09`–`31`）一句话
 
 | 文件 | 用途 |
 |------|------|
@@ -48,6 +55,14 @@
 | [22](./22-error-sig-norm-implementation-proposal.md) | **`extractedData.error_sig_norm` 写入提案**：规范化算法 + JSONB schema + 写入路径 + 实施检查清单 |
 | [23](./23-evolver-state-event-dual-layer-and-self-awareness-loop.md) | **State+Event 双层架构**：可变 State 文件 + 不可变 JSONL 事件、幂等 outcome 写入、自省循环（Reflection Phase）、localStateAwareness 自模型 |
 | [24](./24-gene-strategy-layer.md) | **Gene/Strategy 层**：Gene Pool + 多因子选择器（exact+semantic+epigenetic+learning）+ Strategy Presets（repair/optimize/innovate）+ Mutation 安全约束 + Candidates Pool |
+| [25](./25-advanced-patterns-prm-epigenetic-antipattern.md) | **高级模式**：PRM 多步骤评分 + Epigenetic Marks + Failed Capsules / Anti-Pattern Zone + Lessons/Principles Block + Innovation Catalyst + Adaptive Reflection + Prompt 工程架构 + A2A Auto-Publish |
+| [26](./26-runtime-orchestration-adaptive-policy-candidates.md) | **运行时编排**：自适应策略策略 + Blast Radius 动态控制 + 候选评估管线 + Git 自修复 + 创新催化 + 本地状态感知 |
+| [27](./27-ops-suite-runtime-config-canary.md) | **运维层深度**：Ops 模块套件（lifecycle / skills_monitor / cleanup / trigger / health_check）+ 集中配置 `config.js` + Canary 安全网 |
+| [28](./28-prompt-engineering-deep-dive.md) | **Prompt 工程深度**：严格 Schema 定义 + 敏感数据参数化 + 技能创建质量门禁 + 截断策略精确实现 + 常见失败模式 |
+| [29](./29-signal-extraction-history-dedup-saturation.md) | **Signal 提取深度**：`analyzeRecentHistory` 历史感知、频率抑制、连续修复检测、空转饱和降级、失败连击干预、多语言需求提取、工具绕行检测 |
+| [30](./30-multifactor-gene-selection-continuous-drift.md) | **多因子选择深度**：四因子评分叠加、`1/√Ne` 连续漂移强度、diversity-directed drift、Failed Capsule ban、anti-pattern 惩罚 > 成功奖励 |
+| [31](./31-reflection-remote-adapter-local-state.md) | **自省 / 远程适配器 / 状态感知**：自适应自省间隔、人格微调、本地优先远程同步、三层自调节架构综合 |
+| [32](./32-v146-147-multiagent-session-sse-swarm.md) | **v1.46–v1.47 深度**：多 Agent 会话格式兼容（Claude Code/Cursor/Codex/Manus）、SSE 事件流自动重连、35+ HUB_EVENT_SIGNALS（蜂群 PDRI/隐私/议会）、EvoMap-First 自适应搜索 |
 
 ## 阅读路径
 
@@ -83,6 +98,13 @@
 | [17](./17-session-lifecycle-java-sketch.md) | **Java 会话**：`/api/session/start`（缓存 + `generateContext`）与 ingest **session-end** |
 | [18](./18-evolver-local-source-memory-architecture-snapshot.md) | **EvoMap 本地**：`memory_graph.jsonl`、事件 kind、`narrativeMemory` 上限、`MEMORY_GRAPH_PROVIDER` |
 | [19](./19-evolver-evolve-loop-memory-ordering-and-outcome-inference.md) | **`evolve.js`**：记忆读写顺序、`memory_graph_state`、`inferOutcomeEnhanced` |
+| [27](./27-ops-suite-runtime-config-canary.md) | **运维层深度**：Ops 模块套件（lifecycle / skills_monitor / cleanup / trigger / health_check）+ 集中配置 `config.js` + Canary 安全网 |
+| [28](./28-prompt-engineering-deep-dive.md) | **Prompt 工程深度**：严格 Schema 定义 + 敏感数据参数化 + 技能创建质量门禁 + 截断策略精确实现 |
+| [29](./29-signal-extraction-history-dedup-saturation.md) | **Signal 提取深度**：`analyzeRecentHistory` 历史感知、频率抑制、连续修复检测、空转饱和降级、失败连击干预、多语言需求提取、工具绕行检测 |
+| [30](./30-multifactor-gene-selection-continuous-drift.md) | **多因子选择深度**：四因子评分叠加、`1/√Ne` 连续漂移强度、diversity-directed drift、Failed Capsule ban、anti-pattern 惩罚 > 成功奖励 |
+| [31](./31-reflection-remote-adapter-local-state.md) | **自省 / 远程适配器 / 状态感知**：自适应自省间隔、人格微调、本地优先远程同步、三层自调节架构综合 |
+| [32](./32-v146-147-multiagent-session-sse-swarm.md) | **v1.46–v1.47 深度**：多 Agent 会话格式兼容（Claude Code/Cursor/Codex/Manus）、SSE 事件流自动重连、35+ HUB_EVENT_SIGNALS（蜂群 PDRI/隐私/议会）、EvoMap-First 自适应搜索 |
+| [33](./33-v148-v166-architecture-evolution.md) | **v1.48–v1.66 架构演变**：memoryGraph.js 移除、加权关键词评分 Layer 2、平台适配器（Cursor/Claude Code/Codex）、ATP 代理交易协议、集中配置、Self-PR 质量门禁 |
 | **Hermes（内置型参照）** | [`../hermes-memory/index.md`](../hermes-memory/index.md)；注入 [`04`](../hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md)、安全盘点 [`05`](../hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md)、接力 [`11`](../hermes-memory/11-research-backlog.md) |
 
 ## 按主题入口
@@ -109,6 +131,19 @@
 | **运行时集成面（Worker / Java）** | [15](./15-runtime-integration-surfaces.md) |
 | **待调研与决策** | [11](./11-research-backlog.md) |
 | **`error_sig_norm` 落地** | [22](./22-error-sig-norm-implementation-proposal.md) |
+| **PRM 多步骤评分 / Epigenetic Marks** | [25](./25-advanced-patterns-prm-epigenetic-antipattern.md) §1–§2 |
+| **自适应策略 / 候选评估 / 自修复** | [26](./26-runtime-orchestration-adaptive-policy-candidates.md) |
+| **Anti-Pattern Zone / Failed Capsules** | [25](./25-advanced-patterns-prm-epigenetic-antipattern.md) §3；**选择器 ban** [30](./30-multifactor-gene-selection-continuous-drift.md) §4 |
+| **Innovation Catalyst / 停滞检测** | [25](./25-advanced-patterns-prm-epigenetic-antipattern.md) §5；**信号级饱和降级** [29](./29-signal-extraction-history-dedup-saturation.md) §2.3 |
+| **Adaptive Reflection / 自省循环** | [25](./25-advanced-patterns-prm-epigenetic-antipattern.md) §7；**自适应间隔 + 人格微调** [31](./31-reflection-remote-adapter-local-state.md) §1 |
+| **信号去重 / 连续修复 / 空转饱和** | [29](./29-signal-extraction-history-dedup-saturation.md)（`analyzeRecentHistory`、频率抑制、失败连击） |
+| **多因子 Gene 选择 / 连续漂移** | [30](./30-multifactor-gene-selection-continuous-drift.md)（四因子评分、`1/√Ne`、diversity-directed drift） |
+| **远程适配器 / 本地优先写入** | [31](./31-reflection-remote-adapter-local-state.md) §2（`memoryGraphAdapter`、withFallback） |
+| **Prompt 工程架构（多层上下文注入）** | [25](./25-advanced-patterns-prm-epigenetic-antipattern.md) §8；**深度**（Schema / 质量门禁 / 截断策略）见 [28](./28-prompt-engineering-deep-dive.md) |
+| **Ops 模块套件 / 集中配置 / Canary / Health Check**（运维基础设施） | [27](./27-ops-suite-runtime-config-canary.md) |
+| **敏感数据参数化 / 技能创建质量门禁** | [28](./28-prompt-engineering-deep-dive.md) §3–§4；[27](./27-ops-suite-runtime-config-canary.md) §2（配置 env override） |
+| **三层自调节架构综合** | [31](./31-reflection-remote-adapter-local-state.md) §5（Signal → Selection → Reflection 三层） |
+| **远程适配器模式（本地优先 + fallback）** | [31](./31-reflection-remote-adapter-local-state.md) §2；**本地源码** [18](./18-evolver-local-source-memory-architecture-snapshot.md) §6 |
 
 若同一 § 编号在版本增补中出现多次，以分片内**版本标注**为准；完整目录列表见 [01](./01-intro-toc-memory-through-curriculum.md)。
 
