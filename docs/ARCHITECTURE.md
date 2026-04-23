@@ -325,7 +325,7 @@ The Fat Server is the core Spring Boot application handling all business logic.
 │                         │    timeline, processing-status,    │
 │                         │    observations/batch, search/by-file,│
 │                         │    sdk-sessions/batch)             │
-│  ContextController      →  /api/context/*                   │
+│  ContextController      →  /api/context/* (7 endpoints incl. /semantic) │
 │  StreamController       →  /stream (SSE)                    │
 │  LogsController         →  /api/logs                        │
 │  HealthController       →  /api/health, /api/readiness,     │
@@ -776,8 +776,8 @@ LIMIT :limit;
 |-------|--------------|-------------|
 | Ingestion | `/api/ingest/*` | Hook event reception (tool-use, user-prompt, observation, session-end) |
 | Session | `/api/session/*` | Session lifecycle (start, get, patch user) |
-| Viewer | `/api/observations`, `/api/summaries`, `/api/prompts`, `/api/projects`, `/api/stats?project=...`, `/api/search`, `/api/search/by-file`, `/api/observations/batch`, `/api/settings` (GET/POST), `/api/modes` (GET/POST), `/api/timeline`, `/api/processing-status`, `/api/sdk-sessions/batch` | WebUI data (15 methods); `/api/stats` accepts optional `project` query param for project-scoped statistics |
-| Context | `/api/context/*` | Context retrieval |
+| Viewer | `/api/observations`, `/api/summaries`, `/api/prompts`, `/api/projects`, `/api/stats?project=...`, `/api/search`, `/api/search/by-file`, `/api/observations/batch`, `/api/settings` (GET/POST), `/api/modes` (GET/POST), `/api/timeline`, `/api/processing-status`, `/api/sdk-sessions/batch` | WebUI data (16 methods); `/api/stats` accepts optional `project` query param for project-scoped statistics |
+| Context | `/api/context/*` | Context retrieval (generate, inject, preview, prior-messages, recent, timeline, semantic) |
 | Memory | `/api/memory/*` | Memory operations (refine, experiences, icl-prompt, quality-distribution, feedback, patch/delete observation) |
 | Mode | `/api/mode/*` | Memory mode management (get/put, types, concepts, validation) |
 | Extraction | `/api/extraction/*` | Structured data extraction (run, {templateName}/latest, {templateName}/history) |

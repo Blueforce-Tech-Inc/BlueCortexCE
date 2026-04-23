@@ -325,7 +325,7 @@ process.exit(0);
 │                         │    timeline, processing-status,    │
 │                         │    observations/batch, search/by-file,│
 │                         │    sdk-sessions/batch)             │
-│  ContextController      →  /api/context/*                  │
+│  ContextController      →  /api/context/*（7 个端点，含 /semantic） │
 │  StreamController       →  /stream (SSE)                    │
 │  LogsController         →  /api/logs                      │
 │  HealthController       →  /api/health, /api/readiness,     │
@@ -778,8 +778,8 @@ LIMIT :limit;
 |---|----------|------|
 | Ingestion | `/api/ingest/*` | Hook 事件接收（tool-use、user-prompt、observation、session-end） |
 | Session | `/api/session/*` | 会话生命周期（start、get、patch user） |
-| Viewer | `/api/observations`, `/api/summaries`, `/api/prompts`, `/api/projects`, `/api/stats?project=...`, `/api/search`, `/api/search/by-file`, `/api/observations/batch`, `/api/settings` (GET/POST), `/api/modes` (GET/POST), `/api/timeline`, `/api/processing-status`, `/api/sdk-sessions/batch` | WebUI 数据 (15 个方法)；`/api/stats` 接受可选的 `project` 查询参数以返回项目级统计 |
-| Context | `/api/context/*` | 上下文检索 |
+| Viewer | `/api/observations`, `/api/summaries`, `/api/prompts`, `/api/projects`, `/api/stats?project=...`, `/api/search`, `/api/search/by-file`, `/api/observations/batch`, `/api/settings` (GET/POST), `/api/modes` (GET/POST), `/api/timeline`, `/api/processing-status`, `/api/sdk-sessions/batch` | WebUI 数据 (16 个方法)；`/api/stats` 接受可选的 `project` 查询参数以返回项目级统计 |
+| Context | `/api/context/*` | 上下文检索（generate、inject、preview、prior-messages、recent、timeline、semantic）|
 | Memory | `/api/memory/*` | 记忆操作（refine、experiences、icl-prompt、quality-distribution、feedback、patch/delete observation） |
 | Mode | `/api/mode/*` | 记忆模式管理（get/put、types、concepts、validation） |
 | Extraction | `/api/extraction/*` | 结构化数据提取（run、{templateName}/latest、{templateName}/history） |

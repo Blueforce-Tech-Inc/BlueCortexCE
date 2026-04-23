@@ -135,6 +135,7 @@ Server starts on `http://127.0.0.1:37777`.
 | GET | `/api/context/prior-messages` | Get prior messages for context |
 | GET | `/api/context/recent` | Get recent context entries |
 | GET | `/api/context/timeline` | Get timeline context |
+| POST | `/api/context/semantic` | Semantic context search for per-prompt injection |
 
 ### Memory
 
