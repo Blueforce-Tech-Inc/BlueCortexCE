@@ -2,7 +2,7 @@
 
 **分析目标**：为 BlueCortexCE（旁路型记忆）提供可落地的借鉴思路。  
 **数据来源**：`/path/to/EvoMap/evolver/` 与本仓库架构文档。  
-**最后更新**：2026-04-24（新增 **`40` Failure Mode Classification + Canary 安全网**，覆盖 classifyFailureMode 五级分类树 / runCanaryCheck 提交前最后关卡 / buildSoftFailureLearningSignals / CE 健康检查借鉴方案；**`39` Content-addressable Asset System**，覆盖 contentHash + assetStore + candidates + candidateEval 完整管线，Canonical JSON / SHA-256 / 原子写入 / 候选人管线；**`37` Signal Taxonomy + Gene Selection 端到端**，覆盖 signal 生命周期 / 四因子评分叠加 / Capsule Ban / Mutation 决策链；**`36` 记忆系统架构综合分析**，覆盖三层记忆 / 反馈环路 / 适配器模式 / 8 大设计原则；`29`–`35` Signal 提取 / 选择器 / 自省 / Solidify / A2A）
+**最后更新**：2026-04-24（新增 **`42` policyCheck.js 约束系统深度分析**，覆盖 isConstraintCountedPath 路径匹配决策树（优先级 excludePrefix → includePrefix → extension）/ computeBlastRadius（git numstat + untracked + baseline 对比）/ classifyBlastSeverity 5级分类 / 验证命令白名单 isValidationCommandAllowed / 伦理模式 5种 regex 检测 / detectDestructiveChanges 关键文件保护；**`41` Device Identity + Innovation Catalyst**，覆盖 deviceId.js 7层 fallback 设备标识 / 容器检测 / 双路径持久化 / envFingerprint 关系 / CE instance_id 落点建议；innovation.js 弱领域驱动创意生成 / CE 功能发现借鉴；**`40` Failure Mode Classification + Canary 安全网**，覆盖 classifyFailureMode 五级分类树 / runCanaryCheck 提交前最后关卡 / buildSoftFailureLearningSignals / CE 健康检查借鉴方案；**`39` Content-addressable Asset System**，覆盖 contentHash + assetStore + candidates + candidateEval 完整管线，Canonical JSON / SHA-256 / 原子写入 / 候选人管线；**`37` Signal Taxonomy + Gene Selection 端到端**，覆盖 signal 生命周期 / 四因子评分叠加 / Capsule Ban / Mutation 决策链；**`36` 记忆系统架构综合分析**，覆盖三层记忆 / 反馈环路 / 适配器模式 / 8 大设计原则；`29`–`35` Signal 提取 / 选择器 / 自省 / Solidify / A2A）
 
 **并列入口（Hermes / 论文线）**：[`../memory-research-hub.md`](../memory-research-hub.md)
 
@@ -28,6 +28,7 @@
 | **Gene Pool + Selector + Mutation + Strategy Presets**（Gene/Strategy 层新发现） | [`24`](./24-gene-strategy-layer.md) |
 | **PRM 评分 / Epigenetic / Anti-Pattern / Innovation / Reflection**（高级模式） | [`25`](./25-advanced-patterns-prm-epigenetic-antipattern.md) |
 | **自适应策略 / 候选评估 / Git 自修复 / 创新催化 / 自我感知**（运行时编排） | [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) |
+| **Device Identity + Innovation Catalyst**（deviceId 7层 fallback / 容器检测 / 双路径持久化 / innovation 弱领域驱动创意） | [`41`](./41-device-identity-and-innovation-catalyst.md) |
 | **Ops 模块套件 / 集中配置 / Canary 安全网 / Health Check**（运维基础设施） | [`27`](./27-ops-suite-runtime-config-canary.md) |
 | **Prompt Schema / 质量门禁 / 敏感数据参数化 / 截断策略**（提示词深度） | [`28`](./28-prompt-engineering-deep-dive.md) |
 | **Signal 提取 / 历史去重 / 饱和降级 / 多语言 / 工具绕行**（信号深度） | [`29`](./29-signal-extraction-history-dedup-saturation.md) |
@@ -110,6 +111,8 @@
 | [37](./37-signal-taxonomy-gene-selection-end-to-end.md) | **Signal Taxonomy + Gene Selection 端到端**：signal 生命周期、标签扩展函数、规范化错误签名、Gene 四因子评分（exact+semantic+learning+drift）、Capsule 选择与 Ban、Mutation category 决策链、CE 借鉴要点 |
 | [38](./38-env-fingerprint-capability-match.md) | **EnvFingerprint + CapabilityMatch**：环境指纹捕获（`captureEnvFingerprint`）、跨环境 GDI 测量、`envFingerprintKey` 同类判断；taskReceiver `estimateCapabilityMatch`（Jaccard + Laplace + 60/40 加权）、难度估算、承诺截止时间；CE `ObservationEntity` runtime_env 字段建议 |
 | [40](./40-failure-mode-classification-and-canary.md) | **Failure Mode Classification + Canary**：`classifyFailureMode` 五级分类树（hard/soft × reasonClass）/ `runCanaryCheck` 提交前最后关卡 / `buildSoftFailureLearningSignals` 失败→信号标签 / `isValidationCommandAllowed` 命令白名单 / `compareBlastEstimate` 预估反馈；CE 健康检查 / 多级健康状态 / ApplicationRunner canary 方案 |
+| [42](./42-policycheck-constraint-system-deep-dive.md) | **policyCheck.js 约束系统深度**：`isConstraintCountedPath` 路径匹配决策树（优先级 excludePrefix → includePrefix → extension）/ `computeBlastRadius`（git numstat + untracked + baseline 对比）/ `classifyBlastSeverity` 5级分类（hard_cap_breach / critical_overrun / exceeded / approaching_limit / within_limit）/ `isValidationCommandAllowed` 验证命令白名单（禁止 node -e/shell 操作符）/ 伦理模式 5种 regex 检测 / `detectDestructiveChanges` 关键文件删除/清空检测 / `checkConstraints` 主入口 |
+| [41](./41-device-identity-and-innovation-catalyst.md) | **Device Identity + Innovation Catalyst**：deviceId.js 7层 fallback 设备标识 / `isContainer()` 容器检测 / 双路径持久化 / `_cachedDeviceId` 单例缓存；innovation.js 弱领域驱动创意生成 / CE instance_id 落点建议 / 功能发现借鉴 |
 | [39](./39-content-addressable-asset-system.md) | **Content-addressable Asset System**：`contentHash.js`（Canonical JSON + SHA-256 + 完整性验证）+ `assetStore.js`（原子写入、基因/胶囊/候选人持久化）+ `candidates.js` / `candidateEval.js`（候选人提取与评估管线）；CE 观察去重 / 完整性验证 / 规范化 embedding 方案 |
 | **Hermes（内置型参照）** | [`../hermes-memory/index.md`](../hermes-memory/index.md)；注入 [`04`](../hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md)、安全盘点 [`05`](../hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md)、接力 [`11`](../hermes-memory/11-research-backlog.md) |
 
@@ -155,6 +158,8 @@
 | **Solidify 管线端到端**（状态恢复→约束→验证→PRM→Capsule→发布→反馈） | [34](./34-solidify-pipeline-end-to-end.md) |
 | **Content-addressable ID / Atomic write / 验证报告**（资产持久化层） | [34](./34-solidify-pipeline-end-to-end.md) §3–§5 |
 | **Failure Mode Classification + Canary**（classifyFailureMode 五级分类树 / canary 健康检查 / 失败信号标签 / blast radius 预估反馈 / CE 健康检查方案） | [40](./40-failure-mode-classification-and-canary.md)（`policyCheck.js` 深度补充：hard/soft failure × reasonClass / 命令白名单 / 伦理检测） |
+| **policyCheck 约束系统深度**（路径匹配决策树 / git numstat blast radius / 5级 severity / 验证命令白名单 / 伦理 regex 检测 / 关键文件破坏检测） | [42](./42-policycheck-constraint-system-deep-dive.md)（15个导出函数完整分析；配置驱动安全策略设计） |
+| **Device Identity + Innovation Catalyst**（deviceId 7层 fallback 标识 / 容器检测 / 双路径持久化 / 弱领域驱动创意生成） | [41](./41-device-identity-and-innovation-catalyst.md)（`deviceId.js` + `innovation.js`） |
 | **Content-addressable Asset System**（contentHash / assetStore / candidates / candidateEval；Canonical JSON + SHA-256 + 原子写入） | [39](./39-content-addressable-asset-system.md)（资产层完整管线；候选人三大来源；CE 观察去重 fingerprint / 完整性 hash 验证 / 规范化 embedding） |
 | **A2A 协议 / 资产发布 / 反馈环路**（hello/publish/fetch/review/task） | [35](./35-a2a-protocol-asset-lifecycle-feedback.md) |
 | **Leak check / 脱敏**（发布前安全扫描） | [35](./35-a2a-protocol-asset-lifecycle-feedback.md) §2.3–§2.4；**脱敏规则** [28](./28-prompt-engineering-deep-dive.md) §3 |

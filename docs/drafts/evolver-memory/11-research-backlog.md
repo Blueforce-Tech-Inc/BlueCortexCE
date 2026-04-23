@@ -45,6 +45,7 @@
 - [ ] **自适应策略策略借鉴**：Evolver 每周期动态计算执行策略（repair streak / failure streak / blast radius），CE `ContextService` 可参考实现注入策略动态切换。详见 [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) §1。
 - [ ] **候选评估管线借鉴**：Evolver 从会话转录提取重复模式（≥3次），生成 Five Questions Shape 候选。CE 可参考实现高频观察模式自动发现。详见 [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) §2。
 - [ ] **Git 自修复借鉴**：Evolver 在进化前自动修复 Git 异常。CE 可参考实现写入前自检（数据库连接、事务状态）。详见 [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) §3。
+- [x] **`policyCheck.js` 约束系统深度分析**（`42` 新增）：`isConstraintCountedPath` 路径匹配决策树（excludePrefix → includePrefix → extension 优先级）、`computeBlastRadius`（git numstat + untracked 行数统计 + baseline 对比）、`classifyBlastSeverity` 5级分类（hard_cap_breach / critical_overrun / exceeded / approaching_limit / within_limit）、验证命令白名单（`isValidationCommandAllowed` 禁止 `node -e`/shell 操作符）、伦理模式检测（5 种 regex 模式）、`detectDestructiveChanges` 关键文件删除/清空检测。详见 [`42`](./42-policycheck-constraint-system-deep-dive.md)。
 
 ## 安全与上下文出口（Hermes 对照）
 
