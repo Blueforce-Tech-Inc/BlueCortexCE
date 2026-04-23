@@ -2,7 +2,7 @@
 
 **分析目标**：为 BlueCortexCE（旁路型记忆）提供可落地的借鉴思路。  
 **数据来源**：`/path/to/EvoMap/evolver/` 与本仓库架构文档。  
-**最后更新**：2026-04-23（新增 **`36` 记忆系统架构综合分析**，覆盖三层记忆 / 反馈环路 / 适配器模式 / 8 大设计原则；`29`–`35` Signal 提取 / 选择器 / 自省 / Solidify / A2A）
+**最后更新**：2026-04-24（新增 **`39` Content-addressable Asset System**，覆盖 contentHash + assetStore + candidates + candidateEval 完整管线，Canonical JSON / SHA-256 / 原子写入 / 候选人管线；**`37` Signal Taxonomy + Gene Selection 端到端**，覆盖 signal 生命周期 / 四因子评分叠加 / Capsule Ban / Mutation 决策链；**`36` 记忆系统架构综合分析**，覆盖三层记忆 / 反馈环路 / 适配器模式 / 8 大设计原则；`29`–`35` Signal 提取 / 选择器 / 自省 / Solidify / A2A）
 
 **并列入口（Hermes / 论文线）**：[`../memory-research-hub.md`](../memory-research-hub.md)
 
@@ -107,6 +107,9 @@
 | [33](./33-v148-v166-architecture-evolution.md) | **v1.48–v1.66 架构演变**：memoryGraph.js 移除、加权关键词评分 Layer 2、平台适配器（Cursor/Claude Code/Codex）、ATP 代理交易协议、集中配置、Self-PR 质量门禁 |
 | [34](./34-solidify-pipeline-end-to-end.md) | **Solidify 管线端到端**：从 state 恢复到 Hub 反馈的完整流程、PRM 多步骤评分、Content-addressable ID、ValidationReport/ExecutionTrace 标准化、CE 借鉴要点 |
 | [35](./35-a2a-protocol-asset-lifecycle-feedback.md) | **A2A 协议 / 资产生命周期 / 反馈环路**：消息类型、发布资格三重门禁、Pre-publish leak check、Provenance chain、Task receiver、Hub review、CE 借鉴要点 |
+| [37](./37-signal-taxonomy-gene-selection-end-to-end.md) | **Signal Taxonomy + Gene Selection 端到端**：signal 生命周期、标签扩展函数、规范化错误签名、Gene 四因子评分（exact+semantic+learning+drift）、Capsule 选择与 Ban、Mutation category 决策链、CE 借鉴要点 |
+| [38](./38-env-fingerprint-capability-match.md) | **EnvFingerprint + CapabilityMatch**：环境指纹捕获（`captureEnvFingerprint`）、跨环境 GDI 测量、`envFingerprintKey` 同类判断；taskReceiver `estimateCapabilityMatch`（Jaccard + Laplace + 60/40 加权）、难度估算、承诺截止时间；CE `ObservationEntity` runtime_env 字段建议 |
+| [39](./39-content-addressable-asset-system.md) | **Content-addressable Asset System**：`contentHash.js`（Canonical JSON + SHA-256 + 完整性验证）+ `assetStore.js`（原子写入、基因/胶囊/候选人持久化）+ `candidates.js` / `candidateEval.js`（候选人提取与评估管线）；CE 观察去重 / 完整性验证 / 规范化 embedding 方案 |
 | **Hermes（内置型参照）** | [`../hermes-memory/index.md`](../hermes-memory/index.md)；注入 [`04`](../hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md)、安全盘点 [`05`](../hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md)、接力 [`11`](../hermes-memory/11-research-backlog.md) |
 
 ## 按主题入口
@@ -140,14 +143,17 @@
 | **Adaptive Reflection / 自省循环** | [25](./25-advanced-patterns-prm-epigenetic-antipattern.md) §7；**自适应间隔 + 人格微调** [31](./31-reflection-remote-adapter-local-state.md) §1 |
 | **信号去重 / 连续修复 / 空转饱和** | [29](./29-signal-extraction-history-dedup-saturation.md)（`analyzeRecentHistory`、频率抑制、失败连击） |
 | **多因子 Gene 选择 / 连续漂移** | [30](./30-multifactor-gene-selection-continuous-drift.md)（四因子评分、`1/√Ne`、diversity-directed drift） |
+| **Signal Taxonomy 全链路 + Gene 四因子叠加** | [37](./37-signal-taxonomy-gene-selection-end-to-end.md)（extractSignals → expandSignals → scoreGene → selectGene；规范化错误签名；Capsule Ban；Mutation category 决策链） |
 | **远程适配器 / 本地优先写入** | [31](./31-reflection-remote-adapter-local-state.md) §2（`memoryGraphAdapter`、withFallback） |
 | **Prompt 工程架构（多层上下文注入）** | [25](./25-advanced-patterns-prm-epigenetic-antipattern.md) §8；**深度**（Schema / 质量门禁 / 截断策略）见 [28](./28-prompt-engineering-deep-dive.md) |
 | **Ops 模块套件 / 集中配置 / Canary / Health Check**（运维基础设施） | [27](./27-ops-suite-runtime-config-canary.md) |
 | **敏感数据参数化 / 技能创建质量门禁** | [28](./28-prompt-engineering-deep-dive.md) §3–§4；[27](./27-ops-suite-runtime-config-canary.md) §2（配置 env override） |
 | **三层自调节架构综合** | [31](./31-reflection-remote-adapter-local-state.md) §5（Signal → Selection → Reflection 三层） |
+| **环境指纹 / CapabilityMatch** | [38](./38-env-fingerprint-capability-match.md)（`envFingerprintKey` 同类判断、跨环境 GDI；Jaccard+successRate 任务匹配；CE runtime_env 字段建议） |
 | **远程适配器模式（本地优先 + fallback）** | [31](./31-reflection-remote-adapter-local-state.md) §2；**本地源码** [18](./18-evolver-local-source-memory-architecture-snapshot.md) §6 |
 | **Solidify 管线端到端**（状态恢复→约束→验证→PRM→Capsule→发布→反馈） | [34](./34-solidify-pipeline-end-to-end.md) |
 | **Content-addressable ID / Atomic write / 验证报告**（资产持久化层） | [34](./34-solidify-pipeline-end-to-end.md) §3–§5 |
+| **Content-addressable Asset System**（contentHash / assetStore / candidates / candidateEval；Canonical JSON + SHA-256 + 原子写入） | [39](./39-content-addressable-asset-system.md)（资产层完整管线；候选人三大来源；CE 观察去重 fingerprint / 完整性 hash 验证 / 规范化 embedding） |
 | **A2A 协议 / 资产发布 / 反馈环路**（hello/publish/fetch/review/task） | [35](./35-a2a-protocol-asset-lifecycle-feedback.md) |
 | **Leak check / 脱敏**（发布前安全扫描） | [35](./35-a2a-protocol-asset-lifecycle-feedback.md) §2.3–§2.4；**脱敏规则** [28](./28-prompt-engineering-deep-dive.md) §3 |
 | **Provenance chain / 资产溯源**（parent 链） | [35](./35-a2a-protocol-asset-lifecycle-feedback.md) §2.5, §5.3 |
