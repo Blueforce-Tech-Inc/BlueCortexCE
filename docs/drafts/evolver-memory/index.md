@@ -2,7 +2,7 @@
 
 **分析目标**：为 BlueCortexCE（旁路型记忆）提供可落地的借鉴思路。  
 **数据来源**：`/path/to/EvoMap/evolver/` 与本仓库架构文档。  
-**最后更新**：2026-04-23（新增 `29` Signal 提取深度；`30` 多因子选择深度；`31` 自省/远程适配器；`32` v1.46–v1.47 多 Agent 会话兼容 / SSE 事件流 / 蜂群 PDRI；`33` v1.48–v1.66 架构演变：加权关键词评分、平台适配器、ATP、集中配置）
+**最后更新**：2026-04-23（新增 `29` Signal 提取深度；`30` 多因子选择深度；`31` 自省/远程适配器；`32` v1.46–v1.47 多 Agent 会话兼容 / SSE 事件流 / 蜂群 PDRI；`33` v1.48–v1.66 架构演变；**`34` Solidify 管线端到端**；**`35` A2A 协议 / 资产生命周期 / 反馈环路**）
 
 **并列入口（Hermes / 论文线）**：[`../memory-research-hub.md`](../memory-research-hub.md)
 
@@ -105,6 +105,8 @@
 | [31](./31-reflection-remote-adapter-local-state.md) | **自省 / 远程适配器 / 状态感知**：自适应自省间隔、人格微调、本地优先远程同步、三层自调节架构综合 |
 | [32](./32-v146-147-multiagent-session-sse-swarm.md) | **v1.46–v1.47 深度**：多 Agent 会话格式兼容（Claude Code/Cursor/Codex/Manus）、SSE 事件流自动重连、35+ HUB_EVENT_SIGNALS（蜂群 PDRI/隐私/议会）、EvoMap-First 自适应搜索 |
 | [33](./33-v148-v166-architecture-evolution.md) | **v1.48–v1.66 架构演变**：memoryGraph.js 移除、加权关键词评分 Layer 2、平台适配器（Cursor/Claude Code/Codex）、ATP 代理交易协议、集中配置、Self-PR 质量门禁 |
+| [34](./34-solidify-pipeline-end-to-end.md) | **Solidify 管线端到端**：从 state 恢复到 Hub 反馈的完整流程、PRM 多步骤评分、Content-addressable ID、ValidationReport/ExecutionTrace 标准化、CE 借鉴要点 |
+| [35](./35-a2a-protocol-asset-lifecycle-feedback.md) | **A2A 协议 / 资产生命周期 / 反馈环路**：消息类型、发布资格三重门禁、Pre-publish leak check、Provenance chain、Task receiver、Hub review、CE 借鉴要点 |
 | **Hermes（内置型参照）** | [`../hermes-memory/index.md`](../hermes-memory/index.md)；注入 [`04`](../hermes-memory/20-recommendations/04-ce-injection-and-context-api-surface.md)、安全盘点 [`05`](../hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md)、接力 [`11`](../hermes-memory/11-research-backlog.md) |
 
 ## 按主题入口
@@ -144,6 +146,11 @@
 | **敏感数据参数化 / 技能创建质量门禁** | [28](./28-prompt-engineering-deep-dive.md) §3–§4；[27](./27-ops-suite-runtime-config-canary.md) §2（配置 env override） |
 | **三层自调节架构综合** | [31](./31-reflection-remote-adapter-local-state.md) §5（Signal → Selection → Reflection 三层） |
 | **远程适配器模式（本地优先 + fallback）** | [31](./31-reflection-remote-adapter-local-state.md) §2；**本地源码** [18](./18-evolver-local-source-memory-architecture-snapshot.md) §6 |
+| **Solidify 管线端到端**（状态恢复→约束→验证→PRM→Capsule→发布→反馈） | [34](./34-solidify-pipeline-end-to-end.md) |
+| **Content-addressable ID / Atomic write / 验证报告**（资产持久化层） | [34](./34-solidify-pipeline-end-to-end.md) §3–§5 |
+| **A2A 协议 / 资产发布 / 反馈环路**（hello/publish/fetch/review/task） | [35](./35-a2a-protocol-asset-lifecycle-feedback.md) |
+| **Leak check / 脱敏**（发布前安全扫描） | [35](./35-a2a-protocol-asset-lifecycle-feedback.md) §2.3–§2.4；**脱敏规则** [28](./28-prompt-engineering-deep-dive.md) §3 |
+| **Provenance chain / 资产溯源**（parent 链） | [35](./35-a2a-protocol-asset-lifecycle-feedback.md) §2.5, §5.3 |
 
 若同一 § 编号在版本增补中出现多次，以分片内**版本标注**为准；完整目录列表见 [01](./01-intro-toc-memory-through-curriculum.md)。
 

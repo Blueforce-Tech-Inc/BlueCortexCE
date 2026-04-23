@@ -4,7 +4,7 @@
 
 **数据来源**：本地 `EvoMap/evolver/` 源码；本仓库见 `docs/ARCHITECTURE-zh-CN.md` 等。
 
-**最后更新**：2026-04-23（新增 `29` Signal 提取深度；`30` 多因子选择深度；`31` 自省/远程适配器；`32` v1.46–v1.47 多 Agent 会话兼容 / SSE 事件流 / 蜂群 PDRI；`33` v1.48–v1.66 架构演变：加权关键词评分、平台适配器、ATP、集中配置）
+**最后更新**：2026-04-23（新增 `29` Signal 提取深度；`30` 多因子选择深度；`31` 自省/远程适配器；`32` v1.46–v1.47 多 Agent；`33` v1.48–v1.66 架构演变；**`34` Solidify 管线端到端**；**`35` A2A 协议 / 资产生命周期 / 反馈环路**）
 
 **文档结构**：完整目录、接力导航与 **≤50KB / 短入口** 约定见 [`evolver-memory/index.md`](./evolver-memory/index.md) 文首「架构规范」；本文件仅作**链接入口**。
 
@@ -33,6 +33,8 @@
 | **自省 / 远程适配器 / 状态感知**（自适应间隔 / 人格微调 / 本地优先远程 / 三层自调节） | [docs/drafts/evolver-memory/31-reflection-remote-adapter-local-state.md](./evolver-memory/31-reflection-remote-adapter-local-state.md) |
 | **v1.46–v1.47 多 Agent 会话 / SSE 事件流 / 蜂群 PDRI / EvoMap-First** | [docs/drafts/evolver-memory/32-v146-147-multiagent-session-sse-swarm.md](./evolver-memory/32-v146-147-multiagent-session-sse-swarm.md) |
 | **v1.48–v1.66 架构演变**（加权关键词评分 / 平台适配器 / ATP / 集中配置 / Self-PR） | [docs/drafts/evolver-memory/33-v148-v166-architecture-evolution.md](./evolver-memory/33-v148-v166-architecture-evolution.md) |
+| **Solidify 管线端到端**（PRM / Content-addressable / ValidationReport / Canary / Leak check） | [docs/drafts/evolver-memory/34-solidify-pipeline-end-to-end.md](./evolver-memory/34-solidify-pipeline-end-to-end.md) |
+| **A2A 协议 / 资产生命周期 / 反馈环路**（发布 / 获取 / Review / Task receiver） | [docs/drafts/evolver-memory/35-a2a-protocol-asset-lifecycle-feedback.md](./evolver-memory/35-a2a-protocol-asset-lifecycle-feedback.md) |
 | **Signal Taxonomy**（`expandSignals` / Jaccard ≥ 0.34 / `getMemoryAdvice` / Laplace 平滑） | [docs/drafts/evolver-memory/21-signal-taxonomy-and-gene-selection-memory.md](./evolver-memory/21-signal-taxonomy-and-gene-selection-memory.md) |
 | 方面级对照：Evolver ↔ BlueCortexCE | [docs/drafts/evolver-memory/09-aspect-bluecortex-bridge.md](./evolver-memory/09-aspect-bluecortex-bridge.md) |
 | 本仓库实现映射（迁移、Repository、§3 三路读出） | [docs/drafts/evolver-memory/10-aspect-bluecortex-implementation-map.md](./evolver-memory/10-aspect-bluecortex-implementation-map.md) |
