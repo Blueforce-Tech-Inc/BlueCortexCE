@@ -524,6 +524,38 @@ curl "http://localhost:37777/api/context/prior-messages?project=/Users/dev/mypro
 }
 ```
 
+#### POST `/api/context/semantic`
+
+基于语义搜索返回与查询相关的观察结果，用于逐 prompt 注入。依赖 embedding 服务可用。
+
+**请求体** (application/json):
+
+| 字段 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `q` | string | ✅ | — | 搜索查询文本（最少 20 个字符） |
+| `project` | string | ❌ | cwd | 项目路径 |
+| `limit` | int | ❌ | 5 | 最大结果数（1–20） |
+
+**请求示例**:
+```bash
+curl -X POST "http://localhost:37777/api/context/semantic" \
+  -H "Content-Type: application/json" \
+  -d '{"q": "How did we handle JWT authentication in the login flow?", "project": "/Users/dev/myproject", "limit": 5}'
+```
+
+**响应示例**:
+```json
+{
+  "context": "## Relevant Past Work (semantic match)\n\n1. **JWT token validation** (2026-04-10)\n   Fixed JWT token validation issue...",
+  "count": 3
+}
+```
+
+**说明**:
+- `q` 少于 20 字符时返回 `{"context": "", "count": 0}`
+- embedding 服务不可用时返回 `{"context": "", "count": 0}`
+- 无匹配观察时返回空 context
+
 ---
 
 ## Ingestion 数据摄入
@@ -2448,6 +2480,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-10 | 0.1.0-beta+33 | 删除英文版错误放置的 `## Recent Work` 顶级章节（原 812-823 行）——包含不应出现在 API 参考文档中的非 API 内容（bug fix 示例、Token Savings Summary）。将三个 Context API 端点文档（`/api/context/recent`、`/api/context/timeline`、`/api/context/prior-messages`）从原 `## Recent Work` 下的 `###` 子节移至 `## Context` 章节下的 `#### GET` 正式子节；更新 curl 示例为 `bash` 代码块格式并补充参数类型列；英文版结构现已与中文版一致 |
 | 2026-04-12 | 0.1.0-beta+34 | GET /api/stats：新增可选 `project` 查询参数，支持项目级统计过滤（commit a75ad4c — ViewerController.getStats 新增 `@RequestParam(required=false) String project`，通过 SessionRepository.countByProjectPath 返回过滤后计数）；补充查询参数表、带 `?project=...` 的 curl 示例、项目级响应示例（含额外 `projectPath` 字段）；同步英文版变更 |
 | 2026-04-12 | 0.1.0-beta+35 | GET /api/observations、/api/summaries、/api/prompts：补充缺失的排序说明——三个端点均始终按 `created_at` 降序排列（commit cafbae1 使用 OffsetPageRequest + Sort.by(DESC, "createdAt")）；此前文档未说明排序规则；同步英文版变更 |
+| 2026-04-23 | 0.1.0-beta+36 | 补充缺失的 `POST /api/context/semantic` 端点（V17）——基于查询的语义上下文搜索，用于逐 prompt 注入；添加请求体字段说明（`q`/必填最少 20 字符、`project`、`limit`）、参数表、curl 示例、响应示例及空查询和 embedding 服务不可用的行为说明；同步英文版变更 |
 
 ---
 

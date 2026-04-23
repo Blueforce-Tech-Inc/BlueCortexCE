@@ -784,30 +784,45 @@ Response:
 
 Preview project context as plain text (for UI display).
 
+#### GET `/api/context/preview`
+
+**Query Parameters**:
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `project` | string | Yes | — | Project path |
+| `observationTypes` | string | No | "" | Comma-separated observation type filter |
+| `concepts` | string | No | "" | Comma-separated concept filter |
+| `includeObservations` | boolean | No | true | Include observations |
+| `includeSummaries` | boolean | No | true | Include summaries |
+| `maxObservations` | int | No | 50 | Max observations |
+| `maxSummaries` | int | No | 2 | Max summaries |
+| `sessionCount` | int | No | 10 | Recent sessions to query |
+| `fullCount` | int | No | 5 | Observations with full detail |
+
+**Request Example**:
+```bash
+curl "http://localhost:37777/api/context/preview?project=/Users/dev/myproject&maxObservations=20"
 ```
-GET /api/context/preview?project=/Users/dev/myproject&maxObservations=20
-```
 
-Query parameters:
-
-| Parameter | Required | Default | Description |
-|-----------|----------|---------|-------------|
-| `project` | Yes | — | Project path |
-| `observationTypes` | No | "" | Comma-separated observation type filter |
-| `concepts` | No | "" | Comma-separated concept filter |
-| `includeObservations` | No | true | Include observations |
-| `includeSummaries` | No | true | Include summaries |
-| `maxObservations` | No | 50 | Max observations |
-| `maxSummaries` | No | 2 | Max summaries |
-| `sessionCount` | No | 10 | Recent sessions to query |
-| `fullCount` | No | 5 | Observations with full detail |
-
-Response (text/plain):
+**Response** (text/plain):
 
 ```text
 # Claude-Mem Context
 
 Generated: 2026-03-13 10:15
+
+**Type**: bugfix | **Concepts**: authentication
+Fixed JWT token validation issue...
+
+---
+Token Savings Summary
+- Total observations: 45
+- Read tokens: 10,500
+- Saved tokens: 95,000 (90%)
+```
+
+---
 
 #### GET `/api/context/recent`
 
@@ -892,6 +907,40 @@ curl "http://localhost:37777/api/context/prior-messages?project=/Users/dev/mypro
   "assistantMessage": "I'll implement the authentication feature..."
 }
 ```
+
+#### POST `/api/context/semantic`
+
+Performs semantic search for observations relevant to a query. Returns formatted context for per-prompt injection. Requires embedding service to be available.
+
+**Request Body** (application/json):
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `q` | string | Yes | — | Search query text (min 20 characters) |
+| `project` | string | No | cwd | Project path |
+| `limit` | int | No | 5 | Max results (1–20) |
+
+**Request Example**:
+```bash
+curl -X POST "http://localhost:37777/api/context/semantic" \
+  -H "Content-Type: application/json" \
+  -d '{"q": "How did we handle JWT authentication in the login flow?", "project": "/Users/dev/myproject", "limit": 5}'
+```
+
+**Response Example**:
+```json
+{
+  "context": "## Relevant Past Work (semantic match)\n\n1. **JWT token validation** (2026-04-10)\n   Fixed JWT token validation issue...",
+  "count": 3
+}
+```
+
+**Notes**:
+- If `q` is shorter than 20 characters, returns `{"context": "", "count": 0}`
+- If embedding service is unavailable, returns `{"context": "", "count": 0}`
+- Falls back to empty context if no observations match
+
+---
 
 ## Search
 
@@ -2371,6 +2420,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-10 | 0.1.0-beta+33 | Removed spurious `## Recent Work` top-level section (lines 812-823) — contained non-API content (bug fix example, Token Savings Summary) not belonging in API reference. Moved three Context API endpoint docs (`/api/context/recent`, `/api/context/timeline`, `/api/context/prior-messages`) from `###` subsections under `## Recent Work` to proper `#### GET` subsections under `## Context`; updated curl examples to use `bash` code fences and added parameter type columns; EN doc now consistent with ZH structure |
 | 2026-04-12 | 0.1.0-beta+34 | GET /api/stats: added optional `project` query parameter for project-scoped statistics (commit a75ad4c — ViewerController.getStats now accepts `@RequestParam(required=false) String project` and returns filtered counts via SessionRepository.countByProjectPath); added query parameter table, curl example with `?project=...`, and project-scoped response example showing extra `projectPath` field; synced Chinese version |
 | 2026-04-12 | 0.1.0-beta+35 | GET /api/observations, /api/summaries, /api/prompts: added missing sort order description — all three endpoints now always sort by `created_at` descending (most recent first) via OffsetPageRequest with `Sort.by(DESC, "createdAt")` (commit cafbae1); docs previously said nothing about sort order; synced Chinese version |
+| 2026-04-23 | 0.1.0-beta+36 | Added missing `POST /api/context/semantic` endpoint (V17) — query-based semantic context search for per-prompt injection; added request body fields (`q`/required min 20 chars, `project`, `limit`), parameter table, curl example, response example, and notes on empty-query and embedding-unavailable behavior; synced Chinese version; also fixed EN API.md `### Preview Context` which was missing the `#### GET /api/context/preview` H3 section (content existed but header was absent) |
 
 ---
 
