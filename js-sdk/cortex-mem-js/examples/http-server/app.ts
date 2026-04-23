@@ -364,7 +364,7 @@ app.post('/session/start', asyncHandler(async (req: Request, res: Response) => {
 app.patch('/session/user', asyncHandler(async (req: Request, res: Response) => {
   const missing = requireFields(req.body, ['session_id', 'user_id']);
   if (missing) return errorJson(res, 400, `${missing} is required`);
-  const result = await client.updateSessionUserId(req.body.user_id, req.body.session_id);
+  const result = await client.updateSessionUserId(req.body.session_id, req.body.user_id);
   res.json(result);
 }));
 
