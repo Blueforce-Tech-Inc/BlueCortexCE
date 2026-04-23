@@ -10,7 +10,7 @@
 - **完整 API 覆盖** —— 25 个方法，涵盖会话、捕获、检索、管理、提取、版本
 - **框架集成** —— 可选的 Eino、LangChainGo、Genkit 模块
 - **Wire 格式兼容** —— JSON 字段名与后端 API 完全一致
-- **全面测试** —— 288 个单元测试，含 Wire 格式验证（client 194 + dto 61 + genkit 13 + langchaingo 12 + eino 8；集成包需从各自目录运行）
+- **全面测试** —— 255 个单元测试，含 Wire 格式验证（client 194 + dto 61）；集成包从各自目录运行时额外增加 33 个（genkit 13 + langchaingo 12 + eino 8）
 
 ## 安装
 
