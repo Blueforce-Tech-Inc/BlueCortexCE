@@ -25,10 +25,17 @@
 - [x] **Session Search Tool — FTS5 + LLM Recall**：`tools/session_search_tool.py` — 双模式（空查询=recent / 有查询=FTS5 search）/ 智能截断（position-aware windowing）/ 并行 summarization / auxiliary model / delegation chain resolution → [`21`](60-evolution/21-session-search-tool.md)（2026-04-23 新增）
 - [x] **Hindsight 知识图谱深度解析**（TEMPR 四路检索 / Observation 合并 / 实体消解 / 双时间模型 / Reflect Agentic Loop / Disposition System）：→ [`22`](60-evolution/22-hindsight-knowledge-graph-deep-dive.md)（2026-04-23 新增；源自 Hindsight 官方文档 + Hermes Agent 源码；对照 CE 差距并按实施难度排序可执行借鉴项）
 - [x] **单文件逼近 50KB 时预拆分**: AGENT.md 体量预警已维护；`06` 在 48903 字节（逼近 45KB 预警线，暂未超限但后续写大段应先拆）。
+- [x] **Preemptive split doc 02**（2026-04-24）：`02` 47794 字节 → 拆出 §11–§15 深度专题至 [`02b-deep-dives.md`](20-recommendations/02b-deep-dives.md)（16066 + 2730 字节）；更新 index.md 读序 + AGENT.md 预警表。
+- [x] **ContextEngine 可插拔架构新增分析**（2026-04-24）：`agent/context_engine.py`（184 lines）ABC 抽象 + 插件发现 + 生命周期 + Token 追踪 + 与 MemoryProvider 对比 → [`27`](60-evolution/27-context-engine-pluggable-architecture.md)；更新 index.md 读序（补全 23–27 编号）。
 - [x] **上游 hermes-agent 同步（2026-04-23 代码实地复核）**: 2026-04-15 之后 memory 相关文件**无新提交**；`memory_tool.py`、`holographic/`、`session_search_tool.py` 均无变化。快照 [`12`](60-evolution/12-upstream-hermes-agent-memory-snapshot.md) · [`13`](60-evolution/13-run-agent-memory-wiring-snapshot.md) 仍准确。
 - [x] **Auxiliary Client 深度解析**：`agent/auxiliary_client.py` (2615 lines) Provider Resolution Chain / 7-Provider Fallback / Payment Error Recovery / Codex & Anthropic Adapters → [`23`](60-evolution/23-auxiliary-client-resolution-chain.md)（2026-04-23 新增）
 - [x] **ContextCompressor 完整算法整合**：将散落在 06/07/09/17 的 ContextCompressor 分析整合为单一完整参考 → [`24`](60-evolution/24-context-compressor-full-algorithm.md)（2026-04-23 新增）
 - [x] **Hindsight 本地嵌入 Daemon + PostgreSQL Schema**：hindsight-all 包架构 / HindsightEmbedded vs HindsightServer / Profile 机制 / pgvector/pgvectorscale/vchord 多扩展 / 连接池配置 / Schema 隔离 / LLM Provider 支持 / Docker 部署对比 → [`25`](60-evolution/25-hindsight-local-embedded-daemon-and-postgresql-schema.md)（2026-04-23 新增；源自 Hindsight 官方安装文档 + API 参考 + Hermes 插件源码）
+
+## 新增分析（2026-04-24 cron 巡检）
+
+- [x] **Context 文件扫描机制深度解析（`_scan_context_content` vs `_scan_memory_content`）**：`agent/prompt_builder.py:55` + `tools/memory_tool.py:90` 两套防线完整源码对照 → [`06-context-file-scanning-deep-dive.md`](20-recommendations/06-context-file-scanning-deep-dive.md)；补充 `05` 安全缺口文档 §2 中"AGENTS.md / SOUL.md class file scanning" 条目；更新 index.md 读序。
+- [ ] **辅助 LLM fallback**：CE `/api/context/generate` **无 chain fallback 机制**（ContextService 无任何 model fallback 代码）；Hermes AuxiliaryClient 7级路由链（`agent/auxiliary_client.py`）完全缺失。
 
 ## 旁路型落地（BlueCortexCE）
 

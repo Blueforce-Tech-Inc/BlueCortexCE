@@ -7,10 +7,11 @@
 ## 建议阅读顺序
 
 1. **总览与立场** → [`00-overview/01-architecture-positioning-and-toc.md`](00-overview/01-architecture-positioning-and-toc.md)（含历史级「目录」清单；跨文件锚点无效，请用本索引跳转）
-2. **借鉴总表** → [`20-recommendations/02-bluecortexce-recommendations.md`](20-recommendations/02-bluecortexce-recommendations.md)
-3. **可执行优先级（综述）** → [`20-recommendations/03-borrowing-synthesis-executable-priorities.md`](20-recommendations/03-borrowing-synthesis-executable-priorities.md)
+2. **借鉴总表** → [`20-recommendations/02-bluecortexce-recommendations.md`](20-recommendations/02-bluecortexce-recommendations.md)（§11–§15 深度专题 → [`02b-deep-dives.md`](20-recommendations/02b-deep-dives.md)；2026-04-24 preemptive split）
+3. **可执行优先级（综述）** → [`20-recommendations/03-borrowing-synthesis-executable-priorities.md`](20-recommendations/03-borrowing-synthesis-executable-priorities.md)（2026-04-24 preemptive split：§11–§15 深度专题移至 [`02b-deep-dives.md`](20-recommendations/02b-deep-dives.md)）
 4. **CE 注入面与 `/api/context` 对照（本仓库路径）** → [`20-recommendations/04-ce-injection-and-context-api-surface.md`](20-recommendations/04-ce-injection-and-context-api-surface.md)（§2.1 会话首跳 → [`../evolver-memory/15-runtime-integration-surfaces.md`](../evolver-memory/15-runtime-integration-surfaces.md) §5）
 5. **上下文安全缺口盘点（对照 Hermes 扫描）** → [`20-recommendations/05-ce-context-security-gap-inventory.md`](20-recommendations/05-ce-context-security-gap-inventory.md)
+5a. **Context 文件扫描机制深度解析（`_scan_context_content` vs `_scan_memory_content`）** → [`20-recommendations/06-context-file-scanning-deep-dive.md`](20-recommendations/06-context-file-scanning-deep-dive.md)（2026-04-24 新增；`_scan_context_content`/`_scan_memory_content` 源码对照 + CE 缺口 + 实施建议）
 6. **上下文 / 注入 / Prefetch（Hermes 机制长文）** → [`40-context-compression/03-memory-context-injection-and-prefetch-lifecycle.md`](40-context-compression/03-memory-context-injection-and-prefetch-lifecycle.md)
 7. **Honcho / 多模态等深度** → `50-honcho-holographic-deep/` 下各篇
 8. **演进与 Provider / 工具细节** → `60-evolution/` 下各篇（含 [`11-field-review-and-bypass-roadmap.md`](60-evolution/11-field-review-and-bypass-roadmap.md)）
@@ -28,13 +29,15 @@
 20. **Auxiliary Client Provider Resolution Chain**（Auto-Detect / 7-Provider Fallback / Payment Error Recovery / Codex & Anthropic Adapters / Per-Task Config） → [`60-evolution/23-auxiliary-client-resolution-chain.md`](60-evolution/23-auxiliary-client-resolution-chain.md)（2026-04-23 新增）
 21. **ContextCompressor 完整算法解析**（四阶段压缩 / Tool Pruning 3-Pass / Token-Budget Tail / Structured Template / Iterative Update / Anti-Thrashing / Tool Pair 整治） → [`60-evolution/24-context-compressor-full-algorithm.md`](60-evolution/24-context-compressor-full-algorithm.md)（2026-04-23 新增；整合 06/07/09/17 散落分析）
 22. **Hindsight 本地嵌入 Daemon + PostgreSQL Schema**（hindsight-all 包架构 / HindsightEmbedded vs HindsightServer / Profile 机制 / pgvector/pgvectorscale/vchord 多扩展 / 连接池 / Schema 隔离 / LLM Provider 支持 / Docker 部署对比） → [`60-evolution/25-hindsight-local-embedded-daemon-and-postgresql-schema.md`](60-evolution/25-hindsight-local-embedded-daemon-and-postgresql-schema.md)（2026-04-23 新增；源自 Hindsight 官方安装文档 + API 参考 + Hermes 插件源码）
+23. **Supermemory Multi-Container & Search Mode**（多容器架构 / 搜索模式对比） → [`60-evolution/26-supermemory-multi-container-and-search-mode.md`](60-evolution/26-supermemory-multi-container-and-search-mode.md)
+24. **ContextEngine 可插拔压缩架构**（ABC / 插件发现 / 生命周期 / Token 追踪 / 与 MemoryProvider 对比） → [`60-evolution/27-context-engine-pluggable-architecture.md`](60-evolution/27-context-engine-pluggable-architecture.md)（2026-04-24 新增；源自 `agent/context_engine.py`）
 
 ## 按 aspect 浏览
 
 | 方面 | 路径 | 说明 |
 |------|------|------|
 | 00-overview | [`00-overview/`](00-overview/) | 元信息、架构定位、章节索引 |
-| 20-recommendations | [`20-recommendations/`](20-recommendations/) | 借鉴总表、优先级综述、注入面（`04`）、**安全缺口盘点**（`05`） |
+| 20-recommendations | [`20-recommendations/`](20-recommendations/) | 借鉴总表、优先级综述、注入面（`04`）、安全缺口盘点（`05`）、**Context 文件扫描深度解析**（`06`） |
 | （根目录） | [`11-research-backlog.md`](11-research-backlog.md) | Hermes→CE **可勾选接力队列** |
 | 40-context-compression | [`40-context-compression/`](40-context-compression/) | Memory context 注入、Prefetch、Session 截断等 |
 | 50-honcho-holographic-deep | [`50-honcho-holographic-deep/`](50-honcho-holographic-deep/) | Honcho 四工具、多模态澄清等 |
