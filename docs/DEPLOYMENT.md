@@ -187,7 +187,7 @@ services:
     ports:
       - "${SERVER_PORT:-37777}:37777"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:37777/actuator/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:37777/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
