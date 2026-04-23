@@ -15,7 +15,7 @@
 ## 安装
 
 ```bash
-go get github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go
+go get github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go
 ```
 
 ## 快速开始
@@ -28,8 +28,8 @@ import (
     "fmt"
     "log"
 
-    "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go"
-    "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go/dto"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/dto"
 )
 
 func main() {
@@ -120,8 +120,8 @@ client := cortexmem.NewClient(
 
 ```go
 import (
-    "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go"
-    "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go/eino"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/eino"
 )
 
 client := cortexmem.NewClient()
@@ -134,8 +134,8 @@ retriever := eino.NewRetriever(client, "/my-project",
 
 ```go
 import (
-    "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go"
-    "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go/langchaingo"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/langchaingo"
 )
 
 client := cortexmem.NewClient()
@@ -146,8 +146,8 @@ memory := langchaingo.NewMemory(client, "/my-project")
 
 ```go
 import (
-    "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go"
-    "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go/genkit"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go"
+    "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/genkit"
 )
 
 client := cortexmem.NewClient()
@@ -178,7 +178,7 @@ go test -cover ./...
 ## 错误处理
 
 ```go
-import "github.com/Blueforce-Tech-Inc/BlueCortexCE/cortex-mem-go"
+import "github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go"
 
 result, err := client.Search(ctx, req)
 if err != nil {
