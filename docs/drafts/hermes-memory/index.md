@@ -31,6 +31,7 @@
 22. **Hindsight 本地嵌入 Daemon + PostgreSQL Schema**（hindsight-all 包架构 / HindsightEmbedded vs HindsightServer / Profile 机制 / pgvector/pgvectorscale/vchord 多扩展 / 连接池 / Schema 隔离 / LLM Provider 支持 / Docker 部署对比） → [`60-evolution/25-hindsight-local-embedded-daemon-and-postgresql-schema.md`](60-evolution/25-hindsight-local-embedded-daemon-and-postgresql-schema.md)（2026-04-23 新增；源自 Hindsight 官方安装文档 + API 参考 + Hermes 插件源码）
 23. **Supermemory Multi-Container & Search Mode**（多容器架构 / 搜索模式对比） → [`60-evolution/26-supermemory-multi-container-and-search-mode.md`](60-evolution/26-supermemory-multi-container-and-search-mode.md)
 24. **ContextEngine 可插拔压缩架构**（ABC / 插件发现 / 生命周期 / Token 追踪 / 与 MemoryProvider 对比） → [`60-evolution/27-context-engine-pluggable-architecture.md`](60-evolution/27-context-engine-pluggable-architecture.md)（2026-04-24 新增；源自 `agent/context_engine.py`）
+25. **Prompt Caching 与记忆系统交互分析**（system_and_3 策略 / 压缩-缓存失效恢复 / CE 架构差异 / 可执行借鉴） → [`28`](60-evolution/28-prompt-caching-and-memory-interaction.md)（2026-04-24 新增；源自 `agent/prompt_caching.py` + `run_agent.py` 源码）
 
 ## 按 aspect 浏览
 

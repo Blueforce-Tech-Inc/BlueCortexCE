@@ -36,6 +36,8 @@
 ## 新增分析（2026-04-24 cron 巡检）
 
 - [x] **Context 文件扫描机制深度解析（`_scan_context_content` vs `_scan_memory_content`）**：`agent/prompt_builder.py:55` + `tools/memory_tool.py:90` 两套防线完整源码对照 → [`06-context-file-scanning-deep-dive.md`](20-recommendations/06-context-file-scanning-deep-dive.md)；补充 `05` 安全缺口文档 §2 中"AGENTS.md / SOUL.md class file scanning" 条目；更新 index.md 读序。
+
+- [x] **Prompt Caching 与记忆系统交互分析（2026-04-24）**：`agent/prompt_caching.py`（96 行）+ `run_agent.py` 行 790-791, 8265-8268, 8928-8940 — system_and_3 策略 / 压缩-缓存失效自动恢复（2 轮）/ CE 架构差异（旁路型 vs 进程内）/ 可执行借鉴（分层预算、压缩 metadata、System Prompt 稳定性） → [`28`](60-evolution/28-prompt-caching-and-memory-interaction.md)（8121 字节）
 - [x] **辅助 LLM fallback（代码实地核实，2026-04-24）**：CE `LlmService` 仅单 `ChatClient` 无 fallback；失败时静默返回 `LlmResponse.empty()`，7 级 Provider 链完全缺失。代码证据已追加至 [`02b-deep-dives.md`](20-recommendations/02b-deep-dives.md) §14.5；可执行行动分短/中/长期三档。
 
 ## 旁路型落地（BlueCortexCE）
