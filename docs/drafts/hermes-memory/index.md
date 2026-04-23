@@ -2,7 +2,7 @@
 
 本目录按**主题方面（aspect）**组织多份 Markdown（单文件 ≤50KB；文件名英文，正文可为中文）。**入口**：原根文件 [`../hermes-memory-analysis.md`](../hermes-memory-analysis.md) 仅作跳转，勿在其中堆长文。
 
-> **体量（2026-04-19）**：根入口文件不足 50KB；本目录内**最大单稿约 49KB**（[`60-evolution/06-memory-provider-hooks-inventory.md`](60-evolution/06-memory-provider-hooks-inventory.md)）。续写逼近上限前请先读 [`AGENT.md`](./AGENT.md) **「体量预警」** 并按表拆分。
+> **体量（2026-04-24）**：根入口文件不足 50KB；本目录内**最大单稿约 47KB**（[`09-supermemory-capture-lifecycle.md`](60-evolution/09-supermemory-capture-lifecycle.md)）。`06`/`07`/`04` 均已拆分（见下文）；所有正文 ≤34KB。续写逼近上限前请先读 [`AGENT.md`](./AGENT.md) **「体量预警」** 并按表拆分。
 
 ## 建议阅读顺序
 
@@ -13,7 +13,7 @@
 5. **上下文安全缺口盘点（对照 Hermes 扫描）** → [`20-recommendations/05-ce-context-security-gap-inventory.md`](20-recommendations/05-ce-context-security-gap-inventory.md)
 5a. **Context 文件扫描机制深度解析（`_scan_context_content` vs `_scan_memory_content`）** → [`20-recommendations/06-context-file-scanning-deep-dive.md`](20-recommendations/06-context-file-scanning-deep-dive.md)（2026-04-24 新增；`_scan_context_content`/`_scan_memory_content` 源码对照 + CE 缺口 + 实施建议）
 6. **上下文 / 注入 / Prefetch（Hermes 机制长文）** → [`40-context-compression/03-memory-context-injection-and-prefetch-lifecycle.md`](40-context-compression/03-memory-context-injection-and-prefetch-lifecycle.md)
-7. **Honcho / 多模态等深度** → `50-honcho-holographic-deep/` 下各篇
+7. **Honcho / 多模态等深度** → `50-honcho-holographic-deep/` 下各篇（[`04`](50-honcho-holographic-deep/04-honcho-four-tools-routing.md) §20–§22 · [`06`](50-honcho-holographic-deep/06-honcho-holographic-deep-advanced.md) §24–§29；2026-04-24 拆分）
 8. **演进与 Provider / 工具细节** → `60-evolution/` 下各篇（含 [`11-field-review-and-bypass-roadmap.md`](60-evolution/11-field-review-and-bypass-roadmap.md)）
 9. **上游源码现场快照（MemoryManager / Provider / MemoryStore）** → [`60-evolution/12-upstream-hermes-agent-memory-snapshot.md`](60-evolution/12-upstream-hermes-agent-memory-snapshot.md)（读代码接力起点；与 `06`/`08` 交叉）
 10. **`run_agent` 主循环接线**（prefetch / sync / 工具分发 / 双线 `_memory_store`∥`_memory_manager`） → [`60-evolution/13-run-agent-memory-wiring-snapshot.md`](60-evolution/13-run-agent-memory-wiring-snapshot.md)
@@ -32,6 +32,8 @@
 23. **Supermemory Multi-Container & Search Mode**（多容器架构 / 搜索模式对比） → [`60-evolution/26-supermemory-multi-container-and-search-mode.md`](60-evolution/26-supermemory-multi-container-and-search-mode.md)
 24. **ContextEngine 可插拔压缩架构**（ABC / 插件发现 / 生命周期 / Token 追踪 / 与 MemoryProvider 对比） → [`60-evolution/27-context-engine-pluggable-architecture.md`](60-evolution/27-context-engine-pluggable-architecture.md)（2026-04-24 新增；源自 `agent/context_engine.py`）
 25. **Prompt Caching 与记忆系统交互分析**（system_and_3 策略 / 压缩-缓存失效恢复 / CE 架构差异 / 可执行借鉴） → [`28`](60-evolution/28-prompt-caching-and-memory-interaction.md)（2026-04-24 新增；源自 `agent/prompt_caching.py` + `run_agent.py` 源码）
+26. **MemoryProvider Hooks 高级专题（续）**（BlueCortexCE vs Hermes Summary Template 逐字段对比 / SessionSearch LLM 截断三层 fallback / RetainDB Supermemory 补充） → [`60-evolution/29-memory-provider-hooks-advanced-topics.md`](60-evolution/29-memory-provider-hooks-advanced-topics.md)（2026-04-24 拆分自 `06` §43–§44 + 合并自 `07` §44–§45）
+27. **矛盾检测工程方案 + Session Tools 分析**（Entity Extraction / SessionSearch 双模式 / memory_tool 语义 / Tool Result Pre-pass / SessionDB v6 Reasoning Chain / Honcho write_frequency） → [`60-evolution/30-contradiction-detection-and-session-tools.md`](60-evolution/30-contradiction-detection-and-session-tools.md)（2026-04-24 拆分自 `07` §45–§52）
 
 ## 按 aspect 浏览
 

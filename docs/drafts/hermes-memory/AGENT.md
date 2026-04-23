@@ -39,15 +39,19 @@
 find docs/drafts/hermes-memory -name '*.md' -exec wc -c {} + | sort -n | tail -15
 ```
 
-**复核快照（2026-04-23）**：下列文件已 **≥45KB**，新增大段前优先拆分或开新 aspect 文件，避免顶格爆线：
+**复核快照（2026-04-24）**：下列文件已 **≥45KB**，新增大段前优先拆分或开新 aspect 文件，避免顶格爆线：
 
 | 字节数（约） | 路径 |
 |-------------|------|
-| 48903 | [`60-evolution/06-memory-provider-hooks-inventory.md`](60-evolution/06-memory-provider-hooks-inventory.md) |
-| 48797 | [`50-honcho-holographic-deep/04-honcho-four-tools-routing.md`](50-honcho-holographic-deep/04-honcho-four-tools-routing.md) |
-| 48485 | [`60-evolution/07-bluecortexce-contradiction-detection-plan.md`](60-evolution/07-bluecortexce-contradiction-detection-plan.md) |
-| 47794 | [`20-recommendations/02-bluecortexce-recommendations.md`](20-recommendations/02-bluecortexce-recommendations.md) |
+| ~33.6KB | [`60-evolution/30-contradiction-detection-and-session-tools.md`](60-evolution/30-contradiction-detection-and-session-tools.md)（2026-04-24 拆分自 `07` §45–§52） |
+| ~25KB | [`50-honcho-holographic-deep/06-honcho-holographic-deep-advanced.md`](50-honcho-holographic-deep/06-honcho-holographic-deep-advanced.md)（2026-04-24 拆分自 `04` §24–§29） |
+| ~16000 | [`20-recommendations/02-bluecortexce-recommendations.md`](20-recommendations/02-bluecortexce-recommendations.md)（§11–§15 深度专题已拆分至 [`02b-deep-dives.md`](20-recommendations/02b-deep-dives.md)） |
 | 46922 | [`60-evolution/09-supermemory-capture-lifecycle.md`](60-evolution/09-supermemory-capture-lifecycle.md) |
+
+**已处理**：
+- `06`（48903 → ~38.5KB）：§43–§44 迁入 [`29-memory-provider-hooks-advanced-topics.md`](60-evolution/29-memory-provider-hooks-advanced-topics.md)（2026-04-24）
+- `07`（48485 → §45–§52 → [`30`](60-evolution/30-contradiction-detection-and-session-tools.md) ~33.6KB；§44–§45 RetainDB/Supermemory → [`29`](60-evolution/29-memory-provider-hooks-advanced-topics.md)）（2026-04-24）
+- `04`（48797 → §20–§22 ~22.6KB 保留原地；§24–§29 → [`06-honcho-holographic-deep-advanced.md`](50-honcho-holographic-deep/06-honcho-holographic-deep-advanced.md) ~25KB）（2026-04-24）
 
 > **新增（2026-04-19）**：[`60-evolution/17-smart-compression-and-exhaustion-fix.md`](60-evolution/17-smart-compression-and-exhaustion-fix.md)（8,487 bytes）— Smart compression anti-thrashing / MD5 dedup / exhaustion loop fix
 

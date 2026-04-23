@@ -993,3 +993,9 @@ private String type;
 
 ---
 
+### 上游同步备注（2026-04-24）
+
+**`420d2709`**：`_file_lock` 跨平台硬化 — `fcntl` 仅 Unix，`msvcrt` 仅 Windows；两者均不可用时（部分容器环境）跳过文件锁。CE 的 `SessionDao` / 文件锁逻辑可参照此 defensive import 模式。
+
+---
+

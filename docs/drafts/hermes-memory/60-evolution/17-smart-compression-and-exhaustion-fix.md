@@ -1,8 +1,8 @@
 # 上游 Smart Compression + Exhaustion Loop Fix（2026-04-14）
 
-> **上游 commit**：`9855190f`（smart compression）· `c5688e7c`（exhaustion loop）  
+> **上游 commit**：`9855190f`（smart compression）· `c5688e7c`（exhaustion loop）· `772cfb6c`（compression model fallback）  
 > **本地路径**：`agent/context_compressor.py` · `run_agent.py` · `gateway/run.py`  
-> **复核日期**：2026-04-19
+> **复核日期**：2026-04-24
 
 ---
 
@@ -15,6 +15,7 @@
 | **Anti-thrashing** | `9855190f` | 高 — 防止无限小步压缩 |
 | **Exhaustion infinite loop fix** | `c5688e7c` | 高 — 必须配套 session reset |
 | **`/compress <topic>` fallback** | `9855190f` | 中 — 手动压缩入口 |
+| **Compression model fallback** | `772cfb6c` | 高 — 防 600s cooldown 导致的 context unbounded growth |
 
 ---
 
@@ -238,6 +239,69 @@ Example:
 
 ---
 
+## 5b. Compression Model Fallback（`772cfb6c`，2026-04-14）
+
+### 问题
+
+当配置了专用的摘要模型（如 `gemini-3-flash`）时，如果该模型在自定义代理返回 `model_not_found`（503、404 等），压缩器会进入 **600 秒 cooldown**。在这 10 分钟内，context 无限增长，永不压缩，最终导致 session 失控。
+
+### 修复逻辑（`_generate_summary` 异常处理）
+
+```python
+# 新增：检测 permanent model error
+_status = getattr(e, "status_code", None) or \
+          getattr(getattr(e, "response", None), "status_code", None)
+_err_str = str(e).lower()
+_is_model_not_found = (
+    _status in (404, 503)
+    or "model_not_found" in _err_str
+    or "does not exist" in _err_str
+    or "no available channel" in _err_str
+)
+if (
+    _is_model_not_found
+    and self.summary_model          # 有专用摘要模型
+    and self.summary_model != self.model   # 且不同于主模型
+    and not getattr(self, "_summary_model_fallen_back", False)  # 未曾 fallback
+):
+    self._summary_model_fallen_back = True
+    logging.warning(
+        "Summary model '%s' not available (%s). "
+        "Falling back to main model '%s' for compression.",
+        self.summary_model, e, self.model,
+    )
+    self.summary_model = ""   # 空字符串 = 使用主模型
+    self._summary_failure_cooldown_until = 0.0   # 不进入 cooldown
+    return self._generate_summary(messages, summary_budget)  # 立即重试
+```
+
+### 关键设计点
+
+| 维度 | 说明 |
+|------|------|
+| **触发条件** | 404/503 + `model_not_found`/`does not exist`/`no available channel` |
+| **Fallback 方向** | 专用摘要模型 → 主模型（使用 `summary_model = ""` 触发） |
+| **仅一次** | `_summary_model_fallen_back` flag 确保不无限递归 |
+| **无 cooldown** | 立即重试，不阻塞 600 秒 |
+| **vs 瞬时错误** | 瞬时错误（timeout/rate limit）走原有 60s cooldown 路径 |
+
+### CE 借鉴
+
+CE 的 `EmbeddingService` / `LlmService` 完全没有 model fallback 链。`ContextService.generateContext()` 调用 LLM 时若遇 `model_not_found`，会直接抛异常而非降级。
+
+**CE 应实现类似逻辑**：
+```
+LLM 调用失败
+  → 检测 status_code + error string
+  → 判断是否为 permanent error (model_not_found, 404, 503)
+  → 若配置了 fallback model，执行一次 fallback 重试
+  → 否则进入 cooldown 或向上抛出
+```
+
+这是 backlog 中「辅助 LLM fallback」缺口的具体上游参照实现。
+
+---
+
 ## 6. 与现有 CE 文档的关联
 
 | 本节 | 对应已有 CE 文档 |
@@ -245,6 +309,7 @@ Example:
 | §1-3（smart compress） | `40-context-compression/03-memory-context-injection-and-prefetch-lifecycle.md` §压缩部分 |
 | §4（exhaustion fix） | `20-recommendations/04-ce-injection-and-context-api-surface.md` §4（Context 出口与 session reset） |
 | §4（exhaustion fix） | `20-recommendations/05-ce-context-security-gap-inventory.md` 缺口表 |
+| §5b（model fallback） | `11-research-backlog.md`（辅助 LLM fallback 缺口） |
 
 ---
 
@@ -254,3 +319,4 @@ Example:
 - [ ] **Compression exhaustion → session reset**：在 `ContextService.compact()` 或 `ContextController` 中，当压缩耗尽时返回 `failed: true`；调用方在收到 `compression_exhausted` 时清空 session 上下文
 - [ ] **Smart tool collapse**：在 CE 的摘要提示词中引入工具类型感知摘要策略（参考 `_summarize_tool_result` 工具清单）
 - [ ] **Dedup pass**：在 `compact()` 中对重复 tool results 做 MD5 去重
+- [ ] **LLM model fallback 链**：在 `LlmService` / `EmbeddingService` 添加 permanent error 检测 + fallback model 重试机制（参考 §5b `772cfb6c` 实现）；对应 backlog 辅助 LLM fallback 缺口
