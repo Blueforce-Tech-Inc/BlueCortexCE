@@ -21,6 +21,10 @@
 13. **Extended Hooks**（`on_pre_compress` / `on_memory_write` / `on_delegation` / `queue_prefetch`） → [`60-evolution/16-extended-memory-provider-hooks.md`](60-evolution/16-extended-memory-provider-hooks.md)（RetainDB 三线程预取模型）
 14. **Smart Compression + Exhaustion Loop Fix**（2026-04-14 上游） → [`60-evolution/17-smart-compression-and-exhaustion-fix.md`](60-evolution/17-smart-compression-and-exhaustion-fix.md)（Smart tool collapse / MD5 dedup / Anti-thrashing / `failed: True` + session auto-reset）
 15. **三新增 Provider 分析**（byterover/hindsight/openviking） → [`60-evolution/18-three-new-memory-providers.md`](60-evolution/18-three-new-memory-providers.md)（ByteRover 层级 Tree / Hindsight 知识图谱+Reflect+本地嵌入 / OpenViking URI+tiered context+atexit）
+16. **Gateway 后台 Session 过期 Watcher**（proactive flush + `memory_flushed` 持久化 + 防覆盖注入 + cron 跳过） → [`60-evolution/19-gateway-session-expiry-watcher.md`](60-evolution/19-gateway-session-expiry-watcher.md)
+17. **Tool Result Persistence 3-Layer Defense**（per-tool truncation / per-result sandbox persist / per-turn 200K budget） → [`60-evolution/20-tool-result-persistence.md`](60-evolution/20-tool-result-persistence.md)
+18. **Session Search Tool — FTS5 + LLM Recall**（dual mode / smart truncation / parallel summarize / auxiliary model） → [`60-evolution/21-session-search-tool.md`](60-evolution/21-session-search-tool.md)
+19. **Hindsight 知识图谱深度解析**（TEMPR 四路检索 / Observation 合并 / 实体消解 / 双时间模型 / Reflect Agentic Loop / Disposition System） → [`60-evolution/22-hindsight-knowledge-graph-deep-dive.md`](60-evolution/22-hindsight-knowledge-graph-deep-dive.md)（2026-04-23 新增）
 
 ## 按 aspect 浏览
 
