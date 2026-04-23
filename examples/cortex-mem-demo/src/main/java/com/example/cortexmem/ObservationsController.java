@@ -245,6 +245,11 @@ public class ObservationsController {
                 }
                 builder.narrative((String) body.get("narrative"));
             }
+            // content and narrative are aliases on the same backend field — reject both.
+            if (body.containsKey("content") && body.containsKey("narrative")) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "content and narrative cannot both be set — they are aliases for the same backend field"));
+            }
             if (body.containsKey("facts")) {
                 Object factsObj = body.get("facts");
                 if (!(factsObj instanceof List<?> factsList)) {
