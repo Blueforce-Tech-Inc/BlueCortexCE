@@ -316,3 +316,7 @@ BlueCortexCE/
 ├── docs/                 # Documentation
 └── webui/                # WebUI (submodule: claude-mem repo)
 ```
+
+---
+
+> 中文版: [DOCKER_README-zh-CN.md](./DOCKER_README-zh-CN.md)

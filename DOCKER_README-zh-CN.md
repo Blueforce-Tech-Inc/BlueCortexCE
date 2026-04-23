@@ -110,6 +110,162 @@ docker compose logs -f claude-mem
 docker compose logs -f postgres
 ```
 
+### 重建镜像（依赖变更后）
+
+```bash
+docker compose build --no-cache claude-mem
+```
+
+### 网络问题（中国/企业防火墙）
+
+如果遇到 Docker 镜像仓库连接问题（如拉取镜像时出现 `connection refused`），可以使用以下解决方案：
+
+#### 方法一：从镜像仓库拉取并重新标记
+
+从镜像仓库拉取基础镜像并重新标记：
+
+```bash
+# 从镜像拉取基础镜像
+docker pull docker.1ms.run/library/eclipse-temurin:21-jdk
+docker pull docker.1ms.run/library/eclipse-temurin:21-jre
+
+# 重新标记为标准名称
+docker tag docker.1ms.run/library/eclipse-temurin:21-jdk eclipse-temurin:21-jdk
+docker tag docker.1ms.run/library/eclipse-temurin:21-jre eclipse-temurin:21-jre
+
+# 从镜像拉取 pgvector
+docker pull docker.1ms.run/pgvector/pgvector:pg16
+docker tag docker.1ms.run/pgvector/pgvector:pg16 pgvector/pgvector:pg16
+```
+
+其他可用的镜像仓库：
+- `docker.1ms.run`
+- `docker.xuanyuan.me`
+- `m.daocloud.io/docker.io`
+
+#### 方法二：配置 OrbStack 代理（macOS）
+
+如果使用 OrbStack，配置网络代理：
+
+```bash
+# 设置代理（替换为你的代理地址）
+orb config set network_proxy http://127.0.0.1:9981
+
+# 验证配置
+orb config show | grep network_proxy
+```
+
+#### 方法三：配置 Docker Desktop 代理
+
+对于 Docker Desktop，添加代理配置到 `~/.docker/daemon.json`：
+
+```json
+{
+  "proxies": {
+    "default": {
+      "httpProxy": "http://127.0.0.1:9981",
+      "httpsProxy": "http://127.0.0.1:9981",
+      "noProxy": "localhost,127.0.0.1"
+    }
+  }
+}
+```
+
+然后重启 Docker Desktop。
+
+#### 方法四：使用镜像加速器
+
+在 Docker 配置中添加镜像加速器地址：
+
+**OrbStack（`~/.orbstack/config/docker.json`）：**
+```json
+{
+  "registry-mirrors": [
+    "https://docker.1ms.run",
+    "https://docker.xuanyuan.me"
+  ]
+}
+```
+
+**Docker Desktop（`~/.docker/daemon.json`）：**
+```json
+{
+  "registry-mirrors": [
+    "https://docker.1ms.run",
+    "https://docker.xuanyuan.me"
+  ]
+}
+```
+
+## 本地开发
+
+对于需要热重载的本地开发，建议：
+- PostgreSQL 在 Docker 中运行，应用直接运行在宿主机
+- 使用 Maven 热重载进行 Java 开发
+
+## 使用 Dockerfile 构建
+
+Dockerfile 使用多阶段构建：
+
+1. **Stage 1 (java-builder)**：构建 Spring Boot JAR
+2. **Stage 2 (runtime)**：使用最小 JRE 镜像运行应用
+
+**重要**：构建前必须初始化 webui 子模块并预构建 WebUI 资源：
+
+```bash
+# 初始化子模块（webui 是子模块）
+git submodule update --init --recursive
+
+# 预构建 WebUI 资源
+./scripts/prebuild-webui.sh
+
+# 构建 Docker 镜像
+docker build -t cortex-ce:latest .
+
+# 使用环境变量运行
+docker run -d \
+  -p 37777:37777 \
+  -e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/claude_mem \
+  -e SPRING_DATASOURCE_USERNAME=postgres \
+  -e SPRING_DATASOURCE_PASSWORD=postgres \
+  -e SPRING_AI_OPENAI_API_KEY=your-api-key \
+  -e SPRING_AI_OPENAI_EMBEDDING_API_KEY=your-embedding-key \
+  cortex-ce:latest
+```
+
+## 端到端测试
+
+项目包含针对 Docker 部署的综合 E2E 测试脚本。
+
+### 运行完整 E2E 测试
+
+```bash
+cd scripts
+./docker-e2e-test.sh --cleanup
+```
+
+### Docker Compose 测试
+
+使用 Docker Compose 进行测试：
+
+```bash
+cd scripts
+./docker-compose-test.sh --cleanup
+```
+
+### 测试端口
+
+测试脚本使用不冲突的端口，避免干扰本地开发：
+- PostgreSQL：`15432`
+- Java API：`38888`
+
+## 生产环境注意事项
+
+- 在 `.env` 中修改默认数据库密码
+- 考虑为生产环境添加 TLS/SSL
+- 应用在容器内以非 root 用户运行
+- 日志通过 `claude-mem-logs` volume 持久化
+
 ## 数据持久化
 
 数据通过 Docker volume 持久化：
