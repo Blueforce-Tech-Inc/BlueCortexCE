@@ -2,7 +2,7 @@
 
 > **角色**：可勾选短队列；**不**重复 [`20-recommendations/02-bluecortexce-recommendations.md`](20-recommendations/02-bluecortexce-recommendations.md) 表格全文。  
 > **CE 安全与出口现状盘点**：[`20-recommendations/05-ce-context-security-gap-inventory.md`](20-recommendations/05-ce-context-security-gap-inventory.md)  
-> **最后更新**：2026-04-19（`12-upstream-*` 快照链入）
+> **最后更新**：2026-04-23（代码实地复核 + 安全缺口更新）
 
 ---
 
@@ -24,15 +24,20 @@
 - [x] **Tool Result Persistence 3-Layer Defense**：`tools/tool_result_storage.py` + `tools/budget_config.py` — per-tool self-truncation / per-result sandbox persist (`maybe_persist_tool_result`) / per-turn 200K aggregate budget (`enforce_turn_budget`) / `read_file` pinned at `inf` 防循环 → [`20`](60-evolution/20-tool-result-persistence.md)（2026-04-23 新增）
 - [x] **Session Search Tool — FTS5 + LLM Recall**：`tools/session_search_tool.py` — 双模式（空查询=recent / 有查询=FTS5 search）/ 智能截断（position-aware windowing）/ 并行 summarization / auxiliary model / delegation chain resolution → [`21`](60-evolution/21-session-search-tool.md)（2026-04-23 新增）
 - [x] **Hindsight 知识图谱深度解析**（TEMPR 四路检索 / Observation 合并 / 实体消解 / 双时间模型 / Reflect Agentic Loop / Disposition System）：→ [`22`](60-evolution/22-hindsight-knowledge-graph-deep-dive.md)（2026-04-23 新增；源自 Hindsight 官方文档 + Hermes Agent 源码；对照 CE 差距并按实施难度排序可执行借鉴项）
-- [ ] **单文件逼近 50KB 时预拆分**：顶格稿件清单与 `find | wc` 命令见 [`AGENT.md`](./AGENT.md) **体量预警**（2026-04-19 快照含 `06-memory-provider-hooks-inventory` 等）；避免在单文件末尾无限堆节。
-- [ ] **上游 hermes-agent 同步**：`memory_manager` / `memory_provider` 模块说明是否仍与 **`MemoryStore`** + **`run_agent` 双线接线**一致（**`BuiltinMemoryProvider`** 文档 vs 实现）；快照 [`12`](60-evolution/12-upstream-hermes-agent-memory-snapshot.md) · [`13`](60-evolution/13-run-agent-memory-wiring-snapshot.md)。若有差分则更新 [`03`](20-recommendations/03-borrowing-synthesis-executable-priorities.md) §1 或新增增量稿。
+- [x] **单文件逼近 50KB 时预拆分**: AGENT.md 体量预警已维护；`06` 在 48903 字节（逼近 45KB 预警线，暂未超限但后续写大段应先拆）。
+- [x] **上游 hermes-agent 同步（2026-04-23 代码实地复核）**: 2026-04-15 之后 memory 相关文件**无新提交**；`memory_tool.py`、`holographic/`、`session_search_tool.py` 均无变化。快照 [`12`](60-evolution/12-upstream-hermes-agent-memory-snapshot.md) · [`13`](60-evolution/13-run-agent-memory-wiring-snapshot.md) 仍准确。
 - [x] **Auxiliary Client 深度解析**：`agent/auxiliary_client.py` (2615 lines) Provider Resolution Chain / 7-Provider Fallback / Payment Error Recovery / Codex & Anthropic Adapters → [`23`](60-evolution/23-auxiliary-client-resolution-chain.md)（2026-04-23 新增）
 - [x] **ContextCompressor 完整算法整合**：将散落在 06/07/09/17 的 ContextCompressor 分析整合为单一完整参考 → [`24`](60-evolution/24-context-compressor-full-algorithm.md)（2026-04-23 新增）
+- [x] **Hindsight 本地嵌入 Daemon + PostgreSQL Schema**：hindsight-all 包架构 / HindsightEmbedded vs HindsightServer / Profile 机制 / pgvector/pgvectorscale/vchord 多扩展 / 连接池配置 / Schema 隔离 / LLM Provider 支持 / Docker 部署对比 → [`25`](60-evolution/25-hindsight-local-embedded-daemon-and-postgresql-schema.md)（2026-04-23 新增；源自 Hindsight 官方安装文档 + API 参考 + Hermes 插件源码）
 
 ## 旁路型落地（BlueCortexCE）
 
-- [ ] **Context 出口**：`/api/context/*` 与插件路径是否统一 **fence + 消毒**（语义对齐 Hermes `sanitize_context` / `build_memory_context_block`）；验收见 [`04-ce-injection-and-context-api-surface.md`](20-recommendations/04-ce-injection-and-context-api-surface.md) §4。（集成表首跳与 Worker/Java 判别以 `04` §2.1 与 [`../evolver-memory/15-runtime-integration-surfaces.md`](../evolver-memory/15-runtime-integration-surfaces.md) §5 为准，避免只按 §3 误判「Hook = Java `/semantic`」。）
-- [ ] **ingest 侧扫描范围**：是否扩展 Hermes 类 **injection pattern + 不可见 Unicode**（[`02`](20-recommendations/02-bluecortexce-recommendations.md) §10.5）；与 [`05-ce-context-security-gap-inventory.md`](20-recommendations/05-ce-context-security-gap-inventory.md) 缺口表合并决策。
+- [x] **Context 出口 + ingest 侧扫描（代码实地复核，2026-04-23）**：
+  - **Context 输出无 fence**：`/api/context/inject`、`/api/context/semantic`、`/api/context/generate` 返回纯文本，`ContextService.renderEmptyState`（行 873）输出 `"# project — no memories yet"`，无任何围栏标记。`context-injection.ts` 写的 `<claude-mem-context>` 用于**文件注入**（CLAUDE.md 写入），不用于 LLM 上下文输出层。
+  - **无伪造 fence strip**：即使未来添加围栏，输出层也无对应 strip 逻辑。Hermes `sanitize_context` 先 strip 伪造闭合标签再包装，CE 完全缺失。
+  - **TS 层有递归防护 tag stripping**：`webui/src/utils/tag-stripping.ts` 剥离 `<claude-mem-context>`、`<private>`、`<system_instruction>`、`<system-reminder>` 等，**用于防止观察内容被重复注入**，非 LLM 注入安全围栏。
+  - **无 injection 模式 + 不可见 Unicode 扫描**：后端 `IngestionController.handleUserPrompt` 仅长度截断，无 `_scan_memory_content` 等效。TS 层 `tag-stripping.ts` 仅递归防护标签，不扫描 injection 模式或零宽字符。
+  - 结论：缺口已确认，详见 [`05-ce-context-security-gap-inventory.md`](20-recommendations/05-ce-context-security-gap-inventory.md)（2026-04-23 更新）。
 - [ ] **辅助 LLM fallback**：`/api/context/generate` 等是否与 [`02`](20-recommendations/02-bluecortexce-recommendations.md) §14 AuxiliaryClient 思想对齐（per-task 模型 + 链式降级）。
 
 ## 与其它 backlog 的边界

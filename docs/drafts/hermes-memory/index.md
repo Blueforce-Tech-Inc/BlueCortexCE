@@ -27,6 +27,7 @@
 19. **Hindsight 知识图谱深度解析**（TEMPR 四路检索 / Observation 合并 / 实体消解 / 双时间模型 / Reflect Agentic Loop / Disposition System） → [`60-evolution/22-hindsight-knowledge-graph-deep-dive.md`](60-evolution/22-hindsight-knowledge-graph-deep-dive.md)（2026-04-23 新增）
 20. **Auxiliary Client Provider Resolution Chain**（Auto-Detect / 7-Provider Fallback / Payment Error Recovery / Codex & Anthropic Adapters / Per-Task Config） → [`60-evolution/23-auxiliary-client-resolution-chain.md`](60-evolution/23-auxiliary-client-resolution-chain.md)（2026-04-23 新增）
 21. **ContextCompressor 完整算法解析**（四阶段压缩 / Tool Pruning 3-Pass / Token-Budget Tail / Structured Template / Iterative Update / Anti-Thrashing / Tool Pair 整治） → [`60-evolution/24-context-compressor-full-algorithm.md`](60-evolution/24-context-compressor-full-algorithm.md)（2026-04-23 新增；整合 06/07/09/17 散落分析）
+22. **Hindsight 本地嵌入 Daemon + PostgreSQL Schema**（hindsight-all 包架构 / HindsightEmbedded vs HindsightServer / Profile 机制 / pgvector/pgvectorscale/vchord 多扩展 / 连接池 / Schema 隔离 / LLM Provider 支持 / Docker 部署对比） → [`60-evolution/25-hindsight-local-embedded-daemon-and-postgresql-schema.md`](60-evolution/25-hindsight-local-embedded-daemon-and-postgresql-schema.md)（2026-04-23 新增；源自 Hindsight 官方安装文档 + API 参考 + Hermes 插件源码）
 
 ## 按 aspect 浏览
 
