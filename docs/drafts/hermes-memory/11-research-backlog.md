@@ -31,11 +31,12 @@
 - [x] **Auxiliary Client 深度解析**：`agent/auxiliary_client.py` (2615 lines) Provider Resolution Chain / 7-Provider Fallback / Payment Error Recovery / Codex & Anthropic Adapters → [`23`](60-evolution/23-auxiliary-client-resolution-chain.md)（2026-04-23 新增）
 - [x] **ContextCompressor 完整算法整合**：将散落在 06/07/09/17 的 ContextCompressor 分析整合为单一完整参考 → [`24`](60-evolution/24-context-compressor-full-algorithm.md)（2026-04-23 新增）
 - [x] **Hindsight 本地嵌入 Daemon + PostgreSQL Schema**：hindsight-all 包架构 / HindsightEmbedded vs HindsightServer / Profile 机制 / pgvector/pgvectorscale/vchord 多扩展 / 连接池配置 / Schema 隔离 / LLM Provider 支持 / Docker 部署对比 → [`25`](60-evolution/25-hindsight-local-embedded-daemon-and-postgresql-schema.md)（2026-04-23 新增；源自 Hindsight 官方安装文档 + API 参考 + Hermes 插件源码）
+- [x] **Compression Model Fallback 上游新增（2026-04-24）**：`772cfb6c` — ContextCompressor 对专用摘要模型永久错误（404/503/model_not_found）fallback 到主模型，防 600s cooldown 导致 context unbounded growth；更新 [`17`](60-evolution/17-smart-compression-and-exhaustion-fix.md) §5b + 可执行行动；对应 backlog 辅助 LLM fallback 缺口
 
 ## 新增分析（2026-04-24 cron 巡检）
 
 - [x] **Context 文件扫描机制深度解析（`_scan_context_content` vs `_scan_memory_content`）**：`agent/prompt_builder.py:55` + `tools/memory_tool.py:90` 两套防线完整源码对照 → [`06-context-file-scanning-deep-dive.md`](20-recommendations/06-context-file-scanning-deep-dive.md)；补充 `05` 安全缺口文档 §2 中"AGENTS.md / SOUL.md class file scanning" 条目；更新 index.md 读序。
-- [ ] **辅助 LLM fallback**：CE `/api/context/generate` **无 chain fallback 机制**（ContextService 无任何 model fallback 代码）；Hermes AuxiliaryClient 7级路由链（`agent/auxiliary_client.py`）完全缺失。
+- [x] **辅助 LLM fallback（代码实地核实，2026-04-24）**：CE `LlmService` 仅单 `ChatClient` 无 fallback；失败时静默返回 `LlmResponse.empty()`，7 级 Provider 链完全缺失。代码证据已追加至 [`02b-deep-dives.md`](20-recommendations/02b-deep-dives.md) §14.5；可执行行动分短/中/长期三档。
 
 ## 旁路型落地（BlueCortexCE）
 
@@ -45,7 +46,7 @@
   - **TS 层有递归防护 tag stripping**：`webui/src/utils/tag-stripping.ts` 剥离 `<claude-mem-context>`、`<private>`、`<system_instruction>`、`<system-reminder>` 等，**用于防止观察内容被重复注入**，非 LLM 注入安全围栏。
   - **无 injection 模式 + 不可见 Unicode 扫描**：后端 `IngestionController.handleUserPrompt` 仅长度截断，无 `_scan_memory_content` 等效。TS 层 `tag-stripping.ts` 仅递归防护标签，不扫描 injection 模式或零宽字符。
   - 结论：缺口已确认，详见 [`05-ce-context-security-gap-inventory.md`](20-recommendations/05-ce-context-security-gap-inventory.md)（2026-04-23 更新）。
-- [ ] **辅助 LLM fallback**：`/api/context/generate` 等是否与 [`02`](20-recommendations/02-bluecortexce-recommendations.md) §14 AuxiliaryClient 思想对齐（per-task 模型 + 链式降级）。
+- [x] **辅助 LLM fallback — `/api/context/generate` 对齐确认（2026-04-24）**：`/api/context/generate` → `ContextService.generateContext()` 使用**纯 DB 查询**（observationRepository/summaryRepository），无 LLM 合成路径，完全不经过 `LlmService`。因此 **AuxiliaryClient per-task 模型 + 链式降级在 context generate 路径完全不适用**。真正受影响的是调用 `LlmService` 的路径：SummaryGeneration / MemoryRefine / StructuredExtraction / AgentService。代码证据 + 可执行行动见 [`02b-deep-dives.md`](20-recommendations/02b-deep-dives.md) §14.5。
 
 ## 与其它 backlog 的边界
 
