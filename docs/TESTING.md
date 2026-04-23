@@ -87,7 +87,7 @@ cd scripts
 |----------|---------|-------------|
 | `SERVER_URL` | http://127.0.0.1:37777 | Server URL |
 | `DB_HOST` | 127.0.0.1 | Database host |
-| `DB_NAME` | claude_mem | Database name |
+| `DB_NAME` | claude_mem_dev | Database name |
 | `DB_USER` | postgres | Database user |
 | `DB_PASS` | 123456 | Database password |
 | `SPRING_AI_OPENAI_API_KEY` | - | OpenAI/DeepSeek API key |

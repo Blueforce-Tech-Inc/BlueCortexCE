@@ -64,9 +64,7 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 | `DB_NAME` | PostgreSQL database name | `claude_mem` |
 | `DB_USERNAME` | Database username | `postgres` |
 | `POSTGRES_PORT` | PostgreSQL port on host | `5433` |
-
-| Variable | Description | Default |
-|----------|-------------|---------|
+| `POSTGRES_DATA_PATH` | PostgreSQL data volume (host path) | `postgres_data` |
 | `IMAGE_NAME` | Docker image to use | `ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main` |
 | `SPRING_PROFILES_ACTIVE` | Spring profile (`dev`/`prd`) | `prd` |
 | `SPRING_AI_OPENAI_BASE_URL` | OpenAI compatible API endpoint | `https://api.openai.com` |
@@ -80,8 +78,11 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 | `SPRING_AI_ANTHROPIC_BASE_URL` | Anthropic API endpoint | `https://api.anthropic.com` |
 | `SPRING_AI_ANTHROPIC_CHAT_MODEL` | Anthropic model name | `claude-sonnet-4-5` |
 | `MEMORY_REFINE_ENABLED` | Enable memory refinement (self-evolution) | `true` |
+| `LOGS_PATH` | Application logs volume (host path) | `claude-mem-logs` |
 | `JAVA_OPTS` | JVM options | `-XX:+UseZGC -XX:MaxRAMPercentage=75.0` |
 | `SERVER_PORT` | Application port on host | `37777` |
+
+> **Note:** `SERVER_ADDRESS` is hardcoded to `0.0.0.0` in the Docker container and cannot be overridden via environment variables.
 
 ## Commands
 

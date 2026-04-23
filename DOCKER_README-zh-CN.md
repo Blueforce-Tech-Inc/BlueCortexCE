@@ -64,9 +64,7 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 | `DB_NAME` | PostgreSQL 数据库名 | `claude_mem` |
 | `DB_USERNAME` | 数据库用户名 | `postgres` |
 | `POSTGRES_PORT` | PostgreSQL 主机端口 | `5433` |
-
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
+| `POSTGRES_DATA_PATH` | PostgreSQL 数据卷（主机路径） | `postgres_data` |
 | `IMAGE_NAME` | Docker 镜像 | `ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main` |
 | `SPRING_PROFILES_ACTIVE` | Spring profile（`dev`/`prd`） | `prd` |
 | `SPRING_AI_OPENAI_BASE_URL` | OpenAI 兼容 API 端点 | `https://api.openai.com` |
@@ -80,8 +78,11 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 | `SPRING_AI_ANTHROPIC_BASE_URL` | Anthropic API 端点 | `https://api.anthropic.com` |
 | `SPRING_AI_ANTHROPIC_CHAT_MODEL` | Anthropic 模型名 | `claude-sonnet-4-5` |
 | `MEMORY_REFINE_ENABLED` | 启用记忆自我进化 | `true` |
+| `LOGS_PATH` | 应用日志卷（主机路径） | `claude-mem-logs` |
 | `JAVA_OPTS` | JVM 选项 | `-XX:+UseZGC -XX:MaxRAMPercentage=75.0` |
 | `SERVER_PORT` | 应用在主机上的端口 | `37777` |
+
+> **注意**：`SERVER_ADDRESS` 在 Docker 容器中硬编码为 `0.0.0.0`，无法通过环境变量覆盖。
 
 ## 健康检查
 

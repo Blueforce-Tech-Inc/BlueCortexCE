@@ -410,7 +410,7 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 |----------|----------|---------|-------------|
 | `SPRING_PROFILES_ACTIVE` | No | `prd` | Spring profile (`dev`/`prd`) |
 | `SERVER_PORT` | No | `37777` | HTTP service port |
-| `SERVER_ADDRESS` | No | `127.0.0.1` | Bind address |
+| `SERVER_ADDRESS` | No | `127.0.0.1` (local JAR); hardcoded `0.0.0.0` in Docker | Bind address |
 
 ### 5.2 Database Configuration
 

@@ -410,7 +410,7 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 |--------|------|--------|------|
 | `SPRING_PROFILES_ACTIVE` | 否 | `prd` | 环境配置（dev/prd） |
 | `SERVER_PORT` | 否 | `37777` | HTTP 服务端口 |
-| `SERVER_ADDRESS` | 否 | `127.0.0.1` | 监听地址 |
+| `SERVER_ADDRESS` | 否 | `127.0.0.1`（本地 JAR）；Docker 中硬编码为 `0.0.0.0` | 监听地址 |
 
 ### 5.2 数据库配置
 
