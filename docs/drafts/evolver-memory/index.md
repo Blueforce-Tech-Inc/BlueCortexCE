@@ -2,7 +2,7 @@
 
 **分析目标**：为 BlueCortexCE（旁路型记忆）提供可落地的借鉴思路。  
 **数据来源**：`/path/to/EvoMap/evolver/` 与本仓库架构文档。  
-**最后更新**：2026-04-24（新增 **`42` policyCheck.js 约束系统深度分析**，覆盖 isConstraintCountedPath 路径匹配决策树（优先级 excludePrefix → includePrefix → extension）/ computeBlastRadius（git numstat + untracked + baseline 对比）/ classifyBlastSeverity 5级分类 / 验证命令白名单 isValidationCommandAllowed / 伦理模式 5种 regex 检测 / detectDestructiveChanges 关键文件保护；**`41` Device Identity + Innovation Catalyst**，覆盖 deviceId.js 7层 fallback 设备标识 / 容器检测 / 双路径持久化 / envFingerprint 关系 / CE instance_id 落点建议；innovation.js 弱领域驱动创意生成 / CE 功能发现借鉴；**`40` Failure Mode Classification + Canary 安全网**，覆盖 classifyFailureMode 五级分类树 / runCanaryCheck 提交前最后关卡 / buildSoftFailureLearningSignals / CE 健康检查借鉴方案；**`39` Content-addressable Asset System**，覆盖 contentHash + assetStore + candidates + candidateEval 完整管线，Canonical JSON / SHA-256 / 原子写入 / 候选人管线；**`37` Signal Taxonomy + Gene Selection 端到端**，覆盖 signal 生命周期 / 四因子评分叠加 / Capsule Ban / Mutation 决策链；**`36` 记忆系统架构综合分析**，覆盖三层记忆 / 反馈环路 / 适配器模式 / 8 大设计原则；`29`–`35` Signal 提取 / 选择器 / 自省 / Solidify / A2A）
+**最后更新**：2026-04-24（新增 **`45` idleScheduler + llmReview**（OMLS 启发式自适应休眠调度 / LLM 驱动代码评审 / 自适应调度 + LLM 评审协同 / CE 借鉴路径）；**`43` Privacy Computing + Hub Ecosystem**（AES-256-GCM 密封工具 / 本地密钥管理 / 隐私块嵌入 / 六策略问题生成 + 模糊去重 / 自动 GitHub Issue + 冷却去重 + 脱敏 / 人格commentary三模式）；**`44` Personality State Machine + Hub Search**（五维人格状态机 + 自然选择 + 三层突变叠加 / Hub两相搜索管线 + LRU缓存 + deadline控制 + 语义并行）；**`42` policyCheck.js 约束系统深度分析**，覆盖 isConstraintCountedPath 路径匹配决策树 / computeBlastRadius / classifyBlastSeverity 5级分类 / 验证命令白名单 / 伦理模式 5种 regex 检测；**`41` Device Identity + Innovation Catalyst**，覆盖 deviceId.js 7层 fallback 设备标识 / 容器检测 / 双路径持久化 / envFingerprint 关系；**`40` Failure Mode + Canary** / **`39` Content-addressable Asset System** / **`37` Signal Taxonomy + Gene Selection** / **`36` 记忆系统架构综合分析**）
 
 **并列入口（Hermes / 论文线）**：[`../memory-research-hub.md`](../memory-research-hub.md)
 
@@ -29,6 +29,8 @@
 | **PRM 评分 / Epigenetic / Anti-Pattern / Innovation / Reflection**（高级模式） | [`25`](./25-advanced-patterns-prm-epigenetic-antipattern.md) |
 | **自适应策略 / 候选评估 / Git 自修复 / 创新催化 / 自我感知**（运行时编排） | [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) |
 | **Device Identity + Innovation Catalyst**（deviceId 7层 fallback / 容器检测 / 双路径持久化 / innovation 弱领域驱动创意） | [`41`](./41-device-identity-and-innovation-catalyst.md) |
+| **Privacy Computing + Hub Ecosystem**（AES-256-GCM 密封工具 / 本地密钥管理 / 六策略问题生成 + 模糊去重 / 自动 GitHub Issue + 冷却去重 + 脱敏 / 人格 commentary 三模式） | [`43`](./43-privacy-computing-and-hub-ecosystem.md) |
+| **Personality State Machine + Hub Search**（五维人格状态机 + 自然选择 + 三层突变叠加 + cap 保护 / Hub 两相搜索 + LRU 缓存 + deadline 控制 + 并行语义搜索） | [`44`](./44-personality-state-machine-and-hub-search-caching.md) |
 | **Ops 模块套件 / 集中配置 / Canary 安全网 / Health Check**（运维基础设施） | [`27`](./27-ops-suite-runtime-config-canary.md) |
 | **Prompt Schema / 质量门禁 / 敏感数据参数化 / 截断策略**（提示词深度） | [`28`](./28-prompt-engineering-deep-dive.md) |
 | **Signal 提取 / 历史去重 / 饱和降级 / 多语言 / 工具绕行**（信号深度） | [`29`](./29-signal-extraction-history-dedup-saturation.md) |
@@ -159,6 +161,8 @@
 | **Content-addressable ID / Atomic write / 验证报告**（资产持久化层） | [34](./34-solidify-pipeline-end-to-end.md) §3–§5 |
 | **Failure Mode Classification + Canary**（classifyFailureMode 五级分类树 / canary 健康检查 / 失败信号标签 / blast radius 预估反馈 / CE 健康检查方案） | [40](./40-failure-mode-classification-and-canary.md)（`policyCheck.js` 深度补充：hard/soft failure × reasonClass / 命令白名单 / 伦理检测） |
 | **policyCheck 约束系统深度**（路径匹配决策树 / git numstat blast radius / 5级 severity / 验证命令白名单 / 伦理 regex 检测 / 关键文件破坏检测） | [42](./42-policycheck-constraint-system-deep-dive.md)（15个导出函数完整分析；配置驱动安全策略设计） |
+| **Privacy Computing + Hub Ecosystem**（AES-256-GCM 密封工具 / 本地密钥管理 / 六策略问题生成 + 模糊去重 / 自动 GitHub Issue + 冷却去重 + 脱敏 / 人格 commentary 三模式） | [43](./43-privacy-computing-and-hub-ecosystem.md)（§1–§4：隐私计算管线 / 问题生成策略 / 自动报告机制 / Commentary 人格） |
+| **Personality State Machine + Hub Search**（五维人格状态机 + 自然选择 + 三层突变叠加 + cap 保护 / Hub 两相搜索 + LRU 缓存 + deadline 控制 + 并行语义搜索） | [44](./44-personality-state-machine-and-hub-search-caching.md)（§1 人格状态机 / §2 Hub 两相搜索管线） |
 | **Device Identity + Innovation Catalyst**（deviceId 7层 fallback 标识 / 容器检测 / 双路径持久化 / 弱领域驱动创意生成） | [41](./41-device-identity-and-innovation-catalyst.md)（`deviceId.js` + `innovation.js`） |
 | **Content-addressable Asset System**（contentHash / assetStore / candidates / candidateEval；Canonical JSON + SHA-256 + 原子写入） | [39](./39-content-addressable-asset-system.md)（资产层完整管线；候选人三大来源；CE 观察去重 fingerprint / 完整性 hash 验证 / 规范化 embedding） |
 | **A2A 协议 / 资产发布 / 反馈环路**（hello/publish/fetch/review/task） | [35](./35-a2a-protocol-asset-lifecycle-feedback.md) |

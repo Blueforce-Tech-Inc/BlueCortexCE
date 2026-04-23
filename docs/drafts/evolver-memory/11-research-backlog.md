@@ -1,7 +1,7 @@
 # 研究 / 决策 backlog（可接力）
 
 > **角色**：给后续人类或 Agent 的**短队列**——可勾选、可补链接；**不**重复 [`09`](./09-aspect-bluecortex-bridge.md) 的 P0/P1 定义本身。  
-> **最后更新**：2026-04-19 18:29（`24` Gene/Strategy 层新增：Gene Pool + selector + mutation + strategy presets）
+> **最后更新**：2026-04-24 06:53（`45` idleScheduler + llmReview 新增：OMLS 启发式自适应休眠调度 / LLM 驱动代码评审双层设计）
 
 ---
 
@@ -42,10 +42,13 @@
 
 - [ ] **EvoMap/evolver 版本差分**：若本地仓库更新，在对应 `01`–`08` 分片增补差异摘要，**不在此文件**堆长文。
 
-- [ ] **自适应策略策略借鉴**：Evolver 每周期动态计算执行策略（repair streak / failure streak / blast radius），CE `ContextService` 可参考实现注入策略动态切换。详见 [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) §1。
-- [ ] **候选评估管线借鉴**：Evolver 从会话转录提取重复模式（≥3次），生成 Five Questions Shape 候选。CE 可参考实现高频观察模式自动发现。详见 [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) §2。
+- [x] **自适应策略策略借鉴**（`45` 新增）：Evolver 每周期动态计算执行策略（repair streak / failure streak / blast radius），CE `ContextService` 可参考实现注入策略动态切换。详见 [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) §1。
+- [x] **候选评估管线借鉴**（`45` 新增）：Evolver 从会话转录提取重复模式（≥3次），生成 Five Questions Shape 候选。CE 可参考实现高频观察模式自动发现。详见 [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) §2。
 - [ ] **Git 自修复借鉴**：Evolver 在进化前自动修复 Git 异常。CE 可参考实现写入前自检（数据库连接、事务状态）。详见 [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) §3。
 - [x] **`policyCheck.js` 约束系统深度分析**（`42` 新增）：`isConstraintCountedPath` 路径匹配决策树（excludePrefix → includePrefix → extension 优先级）、`computeBlastRadius`（git numstat + untracked 行数统计 + baseline 对比）、`classifyBlastSeverity` 5级分类（hard_cap_breach / critical_overrun / exceeded / approaching_limit / within_limit）、验证命令白名单（`isValidationCommandAllowed` 禁止 `node -e`/shell 操作符）、伦理模式检测（5 种 regex 模式）、`detectDestructiveChanges` 关键文件删除/清空检测。详见 [`42`](./42-policycheck-constraint-system-deep-dive.md)。
+
+- [ ] **OMLS 启发式自适应休眠调度借鉴**（`45` 新增）：`idleScheduler.js` 提供 `getScheduleRecommendation()` 返回 `idle_seconds`、`intensity`、`sleep_multiplier`、`should_distill`。CE 巡检 cron 可参考实现：低活跃→2小时、中活跃→30分钟、高活跃→15分钟；连续空闲→最长4小时；`should_distill` 对应失败积累自动触发修复任务。详见 [`45`](./45-idleScheduler-OMLS-and-llmReview.md) §1。
+- [ ] **LLM 驱动代码评审借鉴**（`45` 新增）：`llmReview.js` 在 solidify 流程中对 mutation 变更做 LLM 评审（approved/issues/score/reasoning），与 policyCheck 形成「规则门禁 + 语义评审」双层。CE 可在 ValidationReport 基础上叠加 LLM 评审层，评审结果写入 `GeneEntity.reviewScore`。详见 [`45`](./45-idleScheduler-OMLS-and-llmReview.md) §2。
 
 ## 安全与上下文出口（Hermes 对照）
 
