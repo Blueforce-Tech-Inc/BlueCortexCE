@@ -113,8 +113,8 @@ Server starts on `http://127.0.0.1:37777`.
 | GET | `/api/processing-status` | Queue status |
 | GET | `/api/settings` | Get settings |
 | POST | `/api/settings` | Save settings |
-| GET | `/api/modes` | Get active mode configuration |
-| POST | `/api/modes` | Switch active mode |
+| GET | `/api/mode` | Get active mode |
+| PUT | `/api/mode` | Update active mode |
 | POST | `/api/sdk-sessions/batch` | Batch SDK session operations |
 
 ### Session
