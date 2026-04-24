@@ -2,7 +2,7 @@
 
 > **角色**：可勾选短队列；**不**重复 [`20-recommendations/02-bluecortexce-recommendations.md`](20-recommendations/02-bluecortexce-recommendations.md) 表格全文。  
 > **CE 安全与出口现状盘点**：[`20-recommendations/05-ce-context-security-gap-inventory.md`](20-recommendations/05-ce-context-security-gap-inventory.md)  
-> **最后更新**：2026-04-23（代码实地复核 + 安全缺口更新）
+> **最后更新**：2026-04-24 08:09（上游增量扫描：2 轻微提交 + context_references.py 发现；下次：Evolver 端到端流程走查）
 
 ---
 
@@ -49,6 +49,23 @@
   - **无 injection 模式 + 不可见 Unicode 扫描**：后端 `IngestionController.handleUserPrompt` 仅长度截断，无 `_scan_memory_content` 等效。TS 层 `tag-stripping.ts` 仅递归防护标签，不扫描 injection 模式或零宽字符。
   - 结论：缺口已确认，详见 [`05-ce-context-security-gap-inventory.md`](20-recommendations/05-ce-context-security-gap-inventory.md)（2026-04-23 更新）。
 - [x] **辅助 LLM fallback — `/api/context/generate` 对齐确认（2026-04-24）**：`/api/context/generate` → `ContextService.generateContext()` 使用**纯 DB 查询**（observationRepository/summaryRepository），无 LLM 合成路径，完全不经过 `LlmService`。因此 **AuxiliaryClient per-task 模型 + 链式降级在 context generate 路径完全不适用**。真正受影响的是调用 `LlmService` 的路径：SummaryGeneration / MemoryRefine / StructuredExtraction / AgentService。代码证据 + 可执行行动见 [`02b-deep-dives.md`](20-recommendations/02b-deep-dives.md) §14.5。
+
+## 定时巡检（2026-04-24 06:40 CST）
+
+- [x] **文档体量验证**：全部 `.md` 文件字节数扫描，最大 46922 字节（`09-supermemory-capture-lifecycle.md`），远低于 50KB 上限。无需拆分。
+- [x] **上游代码同步复核（2026-04-24）**：memory 相关文件无新提交（`memory_tool.py`、`holographic/`、`session_search_tool.py` 均无变化）。`msvcrt` 跨平台修复（`5f36b42b`/`420d2709`）已在 [`08-builtin-memory-tool-bounded-snapshot.md`](60-evolution/08-builtin-memory-tool-bounded-snapshot.md) §4 记录。
+
+## 定时巡检（2026-04-24 08:09 CST）
+
+- [x] **文档体量再验证**：最大文件仍为 `09`（46922 字节），无增长，无需拆分。
+- [x] **上游代码增量扫描（2026-04-24 08:09）**：本次扫描发现 2 个轻微提交（均非记忆系统核心架构）：
+  - `1ace9b4d`：**`memory_setup.py` 非密钥 env var 修复** — 非密钥字段（如 `OPENVIKING_ENDPOINT`）现在也会写入 `.env`；`hermes memory status` 现在检查全部字段而非仅密钥；不影响记忆系统架构。
+  - `9bdfcd1b`：**OpenViking provider 搜索结果排序** — `plugins/memory/openviking/__init__.py` 改动（按 score 排序 + 单元测试）；不影响记忆系统架构。
+- [x] **上游核心记忆文件持续无变化**：`memory_tool.py`、`holographic/`、`session_search_tool.py`、`context_compressor.py`、`memory_manager.py` 均无新提交。
+- [x] **发现侧文件 `context_references.py`（520 行）**：已存于 `agent/context_references.py`，负责 `@file`/`@folder`/`@git`/`@url` 内联上下文展开机制（50% hard limit / 25% soft limit token 预算；`allowed_root` 路径隔离；async URL fetcher）。属于 Prompt Builder 层的上下文注入机制，与 MemoryProvider/MemoryTool 持久化体系不同。`context-injection.ts` 对应 CE 侧实现已在 `04`/`05` 中覆盖（`context-injection.ts` 写入 CLAUDE.md 用于文件注入，非 LLM 上下文输出）。
+- [ ] **Evolver 端到端流程走查（下次巡检）**：HEARTBEAT 标记为本次后续任务，归属 cron `37e8c33f`（Hermes 记忆系统分析）推进；基于 docs/drafts/evolver-memory/ 现有 E2E 文档（#34 Solidify Pipeline / #37 Signal Taxonomy）进行系统性走查，输出补全 gap 分析。
+
+> **注意**：「Evolver 端到端流程走查」是 Hermes 记忆分析对 Evolver 系统的跨项目借鉴分析，与 `evolver-memory/` 目录下的 `22bff79e` cron 任务（Evolver 自分析）属于不同视角；前者聚焦「Hermes 设计对 CE 的借鉴」，后者聚焦「Evolver 自身架构梳理」。
 
 ## 与其它 backlog 的边界
 
