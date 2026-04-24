@@ -37,7 +37,7 @@ Located in `scripts/` directory:
 ./scripts/phase3-acceptance-test.sh
 ```
 
-### 3. Git Submodule Setup (WebUI)
+### 4. Git Submodule Setup (WebUI)
 
 The project uses a git submodule for WebUI. Before building, initialize the submodule:
 
@@ -46,7 +46,7 @@ The project uses a git submodule for WebUI. Before building, initialize the subm
 git submodule update --init --recursive
 ```
 
-### 3. Running Tests
+### 5. Running Tests
 
 #### Prerequisites
 
@@ -96,7 +96,7 @@ cd scripts
 ./mcp-e2e-test.sh
 ```
 
-### 4. Test Environment Variables
+### 6. Test Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -109,7 +109,7 @@ cd scripts
 | `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | - | Embedding API key |
 | `SPRING_AI_MCP_SERVER_PROTOCOL` | SSE | MCP protocol (SSE or STREAMABLE) |
 
-### 5. MCP Protocol Auto-Detection
+### 7. MCP Protocol Auto-Detection
 
 The MCP E2E test scripts (`mcp-e2e-test.sh` and `mcp-streamable-e2e-test.sh`) **automatically detect** which protocol your server is running:
 
@@ -121,7 +121,7 @@ The unified script runs the appropriate tests automatically. No manual protocol 
 - Test session ID: `e2e-regression-{timestamp}`
 - Test project: `/tmp/claude-mem-test-{pid}`
 
-### 6. CI/CD Integration
+### 8. CI/CD Integration
 
 GitHub Actions workflows are configured in `.github/workflows/`:
 

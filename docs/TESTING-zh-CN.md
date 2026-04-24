@@ -37,7 +37,7 @@
 ./scripts/phase3-acceptance-test.sh
 ```
 
-### 3. Git 子模块设置（WebUI）
+### 4. Git 子模块设置（WebUI）
 
 本项目使用 git 子模块引入 WebUI。构建前需初始化子模块：
 
@@ -46,7 +46,7 @@
 git submodule update --init --recursive
 ```
 
-### 3. 运行测试
+### 5. 运行测试
 
 #### 前置条件
 
@@ -106,7 +106,7 @@ cd scripts
 ./scripts/docker-e2e-test.sh
 ```
 
-### 4. 测试环境变量
+### 6. 测试环境变量
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
@@ -119,7 +119,7 @@ cd scripts
 | `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | - | Embedding API key |
 | `SPRING_AI_MCP_SERVER_PROTOCOL` | SSE | MCP 协议（SSE 或 STREAMABLE） |
 
-### 5. MCP 协议自动检测
+### 7. MCP 协议自动检测
 
 MCP E2E 测试脚本（`mcp-e2e-test.sh` 和 `mcp-streamable-e2e-test.sh`）**自动检测**服务器运行的协议：
 
@@ -131,7 +131,7 @@ MCP E2E 测试脚本（`mcp-e2e-test.sh` 和 `mcp-streamable-e2e-test.sh`）**�
 - 测试会话 ID：`e2e-regression-{timestamp}`
 - 测试项目：`/tmp/claude-mem-test-{pid}`
 
-### 6. CI/CD 集成
+### 8. CI/CD 集成
 
 GitHub Actions 工作流配置在 `.github/workflows/`：
 
