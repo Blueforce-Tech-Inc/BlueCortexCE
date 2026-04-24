@@ -2,7 +2,7 @@
 
 > **角色**：可勾选短队列；**不**重复 [`20-recommendations/02-bluecortexce-recommendations.md`](20-recommendations/02-bluecortexce-recommendations.md) 表格全文。  
 > **CE 安全与出口现状盘点**：[`20-recommendations/05-ce-context-security-gap-inventory.md`](20-recommendations/05-ce-context-security-gap-inventory.md)  
-> **最后更新**：2026-04-24 08:09（上游增量扫描：2 轻微提交 + context_references.py 发现；下次：Evolver 端到端流程走查）
+> **最后更新**：2026-04-24 11:33（Evolver E2E 走查：34/37/46 三链路已覆盖，无重大 gap；`context_references.py → CE 借鉴` 行动项已在 [`31`](60-evolution/31-context-references-file-expansion.md) §8 完整记录；上游无新记忆相关提交）
 
 ---
 
@@ -58,6 +58,14 @@
 ## 定时巡检（2026-04-24 08:09 CST）
 
 - [x] **文档体量再验证**：最大文件仍为 `09`（46922 字节），无增长，无需拆分。
+
+## 定时巡检（2026-04-24 09:57 CST）
+
+- [x] **上游代码增量扫描（2026-04-24 morning）**：无记忆相关新提交。最近 15 个 commit 涵盖 TUI/WebSocket (`25ba6783`)、Matrix 消息支持 (`03446e06`)、`@` 模糊文件名匹配 (`b08cbc7a`)、工具输出截断可配置 (`f2f1b3f1`)、TUI 崩溃日志 (`7baf370d`)、MCP schema 修复等，均与记忆系统无关。
+  - **TUI `@` 模糊匹配**（`b08cbc7a`）：在 TUI 中对 `@<name>` 做仓库内文件名模糊搜索，与 `context_references.py` 是**不同模块**，前者是 TUI 输入增强，后者是 Prompt Builder 层上下文展开。
+- [x] **`context_references.py` 集成核实**：确认已完整接入 `cli.py:7568`（同步，CLI）和 `gateway/run.py:3345`（异步，`allowed_root=MESSAGING_CWD`）。详见 [`31`](60-evolution/31-context-references-file-expansion.md)（520 行完整分析：6 类引用 / 安全双层 / Token 50%+25% 预算 / 路径隔离 / CE 差距 + 可执行借鉴）。
+- [x] **Evolver E2E 文档现状评估**（`34`/`37` + `46`）：现有 E2E 文档覆盖 Solidify Pipeline（`34`，16KB）、Signal Taxonomy + Gene Selection（`37`，9.7KB）、Hub Ecosystem Integration（`46`，~12.9KB）。三篇覆盖了 Evolver 最核心的三个端到端链路：prepare→solidify→outcome_record、signal→gene→capsule、task→hub→issue→a2a。暂无重大 gap 发现。
+- [ ] **`context_references.py` → CE 借鉴**：短期：增强 `IngestionController` 路径安全扫描；中期：`@file` 展开端点；长期：架构变更较大（旁路型不适合 prompt 层 `@` 注入）。详见 [`31`](60-evolution/31-context-references-file-expansion.md) §8。
 - [x] **上游代码增量扫描（2026-04-24 08:09）**：本次扫描发现 2 个轻微提交（均非记忆系统核心架构）：
   - `1ace9b4d`：**`memory_setup.py` 非密钥 env var 修复** — 非密钥字段（如 `OPENVIKING_ENDPOINT`）现在也会写入 `.env`；`hermes memory status` 现在检查全部字段而非仅密钥；不影响记忆系统架构。
   - `9bdfcd1b`：**OpenViking provider 搜索结果排序** — `plugins/memory/openviking/__init__.py` 改动（按 score 排序 + 单元测试）；不影响记忆系统架构。

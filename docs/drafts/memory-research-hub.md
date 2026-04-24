@@ -1,7 +1,7 @@
 # 记忆相关研究草稿 — 总导航
 
 > **用途**：给人类或 Agent **选入口**，避免在 `docs/drafts/` 下迷路。各子目录仍各自维护 `index.md` / `AGENT.md`。  
-> **最后更新**：2026-04-19（Evolver `24` Gene/Strategy 层：Gene Pool + selector + mutation + strategy presets · Hermes `13` `run_agent` 接线快照 · Evolver `19` `evolve` 循环记忆顺序 · Evolver `20` 排序增强 · Evolver `21` Signal Taxonomy + 基因匹配 · Evolver `22` `error_sig_norm` 写入提案）
+> **最后更新**：2026-04-24（Evolver `41` Device Identity + Innovation Catalyst：deviceId.js 7层 fallback 设备标识/容器检测/双路径持久化 + innovation.js 弱领域驱动创意 · Evolver `40` Failure Mode + Canary · Evolver `39` Content-addressable Asset System · Evolver `38` EnvFingerprint + CapabilityMatch · Evolver `37` Signal Taxonomy 端到端 · Evolver `36` 记忆架构综合）
 
 ## 按系统 / 体裁
 
@@ -32,6 +32,8 @@
 | **`error_sig_norm` 落地提案**（规范化算法 + JSONB schema + `ObservationService` 写入路径 + 实施检查清单） | [`evolver-memory/22-error-sig-norm-implementation-proposal.md`](evolver-memory/22-error-sig-norm-implementation-proposal.md) |
 | **Gene/Strategy 层**（Gene Pool + 多因子 selector + mutation 安全约束 + strategy presets） | [`evolver-memory/24-gene-strategy-layer.md`](evolver-memory/24-gene-strategy-layer.md) |
 | **高级模式**（PRM 多步骤评分 / Epigenetic Marks / Anti-Pattern Zone / Innovation Catalyst / Adaptive Reflection） | [`evolver-memory/25-advanced-patterns-prm-epigenetic-antipattern.md`](evolver-memory/25-advanced-patterns-prm-epigenetic-antipattern.md) |
+| **环境指纹 + CapabilityMatch**（`envFingerprintKey` 同类环境判断；Jaccard+successRate 任务匹配；CE runtime_env 字段建议） | [`evolver-memory/38-env-fingerprint-capability-match.md`](evolver-memory/38-env-fingerprint-capability-match.md) |
+| **Device Identity + Innovation Catalyst**（deviceId.js 7层 fallback 设备标识 / 容器检测 / 双路径持久化 / CE instance_id；innovation.js 弱领域驱动创意生成 / 功能发现借鉴） | [`evolver-memory/41-device-identity-and-innovation-catalyst.md`](evolver-memory/41-device-identity-and-innovation-catalyst.md) |
 | **Evo-Memory 论文（Refine / WriteBack）** | [`evo-memory-paper-analysis/02-remem-architecture.md`](evo-memory-paper-analysis/02-remem-architecture.md)、[`07-roadmap-and-bypass-adaptation.md`](evo-memory-paper-analysis/07-roadmap-and-bypass-adaptation.md) |
 | **可勾选接力队列** | Evolver：[`evolver-memory/11-research-backlog.md`](evolver-memory/11-research-backlog.md) · Hermes 课题：[`hermes-memory/11-research-backlog.md`](hermes-memory/11-research-backlog.md) |
 

@@ -2,7 +2,7 @@
 
 **分析目标**：为 BlueCortexCE（旁路型记忆）提供可落地的借鉴思路。  
 **数据来源**：`/path/to/EvoMap/evolver/` 与本仓库架构文档。  
-**最后更新**：2026-04-24（新增 **`45` idleScheduler + llmReview**（OMLS 启发式自适应休眠调度 / LLM 驱动代码评审 / 自适应调度 + LLM 评审协同 / CE 借鉴路径）；**`43` Privacy Computing + Hub Ecosystem**（AES-256-GCM 密封工具 / 本地密钥管理 / 隐私块嵌入 / 六策略问题生成 + 模糊去重 / 自动 GitHub Issue + 冷却去重 + 脱敏 / 人格commentary三模式）；**`44` Personality State Machine + Hub Search**（五维人格状态机 + 自然选择 + 三层突变叠加 / Hub两相搜索管线 + LRU缓存 + deadline控制 + 语义并行）；**`42` policyCheck.js 约束系统深度分析**，覆盖 isConstraintCountedPath 路径匹配决策树 / computeBlastRadius / classifyBlastSeverity 5级分类 / 验证命令白名单 / 伦理模式 5种 regex 检测；**`41` Device Identity + Innovation Catalyst**，覆盖 deviceId.js 7层 fallback 设备标识 / 容器检测 / 双路径持久化 / envFingerprint 关系；**`40` Failure Mode + Canary** / **`39` Content-addressable Asset System** / **`37` Signal Taxonomy + Gene Selection** / **`36` 记忆系统架构综合分析**）
+**最后更新**：2026-04-24（新增 **`47` Curriculum + ExecutionTrace + SkillDistiller**（三区分类课程系统 / 三级脱敏执行轨迹 / 标准化 ValidationReport / GitOps 保护与回滚 / LLM 驱动技能提炼管线 + Marketplace SKILL.md 生成 / CE 高/中/低优先级借鉴路径）；**`46` Hub Ecosystem Integration**（taskReceiver ROI 评分 + capability match / hubReview 使用后 review 提交 + 本地去重 / issueReporter 自动 GitHub issue + cooldown + 脱敏 / a2a 广播资格 + confidence 下调 / **directoryClient.js Hub 目录 API 客户端**（语义搜索 + 信号搜索 + Agent Profile + discoverForTask）/ CE 借鉴路径）；**`45` idleScheduler + llmReview**（OMLS 启发式自适应休眠调度 / LLM 驱动代码评审 / 自适应调度 + LLM 评审协同 / CE 借鉴路径）；**`43` Privacy Computing + Hub Ecosystem**（AES-256-GCM 密封工具 / 本地密钥管理 / 隐私块嵌入 / 六策略问题生成 + 模糊去重 / 自动 GitHub Issue + 冷却去重 + 脱敏 / 人格commentary三模式）；**`44` Personality State Machine + Hub Search**（五维人格状态机 + 自然选择 + 三层突变叠加 / Hub两相搜索管线 + LRU缓存 + deadline控制 + 语义并行）；**`42` policyCheck.js 约束系统深度分析**，覆盖 isConstraintCountedPath 路径匹配决策树 / computeBlastRadius / classifyBlastSeverity 5级分类 / 验证命令白名单 / 伦理模式 5种 regex 检测；**`41` Device Identity + Innovation Catalyst**，覆盖 deviceId.js 7层 fallback 设备标识 / 容器检测 / 双路径持久化 / envFingerprint 关系）
 
 **并列入口（Hermes / 论文线）**：[`../memory-research-hub.md`](../memory-research-hub.md)
 
@@ -31,6 +31,8 @@
 | **Device Identity + Innovation Catalyst**（deviceId 7层 fallback / 容器检测 / 双路径持久化 / innovation 弱领域驱动创意） | [`41`](./41-device-identity-and-innovation-catalyst.md) |
 | **Privacy Computing + Hub Ecosystem**（AES-256-GCM 密封工具 / 本地密钥管理 / 六策略问题生成 + 模糊去重 / 自动 GitHub Issue + 冷却去重 + 脱敏 / 人格 commentary 三模式） | [`43`](./43-privacy-computing-and-hub-ecosystem.md) |
 | **Personality State Machine + Hub Search**（五维人格状态机 + 自然选择 + 三层突变叠加 + cap 保护 / Hub 两相搜索 + LRU 缓存 + deadline 控制 + 并行语义搜索） | [`44`](./44-personality-state-machine-and-hub-search-caching.md) |
+| **Curriculum + ExecutionTrace + SkillDistiller**（三区分类课程系统 / 三级脱敏执行轨迹 / ValidationReport + content-hash / GitOps 保护与回滚 / LLM 驱动技能提炼 + Marketplace SKILL.md 生成） | [`47`](./47-curriculum-executiontrace-skill-distillation.md) |
+| **Hub Ecosystem Integration**（taskReceiver 三策略 ROI 评分 + capability match / hubReview review 提交 + 本地去重 / issueReporter 自动 GitHub issue + cooldown / a2a 广播资格） | [`46`](./46-hub-ecosystem-integration-taskreview-issue.md) |
 | **Ops 模块套件 / 集中配置 / Canary 安全网 / Health Check**（运维基础设施） | [`27`](./27-ops-suite-runtime-config-canary.md) |
 | **Prompt Schema / 质量门禁 / 敏感数据参数化 / 截断策略**（提示词深度） | [`28`](./28-prompt-engineering-deep-dive.md) |
 | **Signal 提取 / 历史去重 / 饱和降级 / 多语言 / 工具绕行**（信号深度） | [`29`](./29-signal-extraction-history-dedup-saturation.md) |
@@ -129,7 +131,7 @@
 | 信号 / learningSignals | [01](./01-intro-toc-memory-through-curriculum.md) §3–§5；[03](./03-skillpublisher-through-signals-v07.md)、[04](./04-mutation-through-policy-v09.md) |
 | 进化主循环与 GEP | [01](./01-intro-toc-memory-through-curriculum.md) §6；[02](./02-skilldistiller-through-evolution-v04.md)–[04](./04-mutation-through-policy-v09.md)、[06](./06-assetcalllog-through-questiongen-v12.md)；**`evolve` 内记忆顺序 / outcome** [19](./19-evolver-evolve-loop-memory-ordering-and-outcome-inference.md) |
 | 固化、选择器、课程、蒸馏 | [01](./01-intro-toc-memory-through-curriculum.md) §9–§11；[02](./02-skilldistiller-through-evolution-v04.md) §29–§32 |
-| Hub / A2A / 目录 | [04](./04-mutation-through-policy-v09.md) 起；[05](./05-sanitize-through-execution-trace-v10.md)–[07](./07-idle-through-skillpublisher-v14.md) |
+| Hub / A2A / 目录 | [04](./04-mutation-through-policy-v09.md) 起；[05](./05-sanitize-through-execution-trace-v10.md)–[07](./07-idle-through-skillpublisher-v14.md)；**Hub 集成层**（taskReceiver + hubReview + issueReporter + a2a）[46](./46-hub-ecosystem-integration-taskreview-issue.md) |
 | 安全、隐私、脱敏 | [04](./04-mutation-through-policy-v09.md) §43 起；[05](./05-sanitize-through-execution-trace-v10.md) §44–§51 |
 | 资产与存储 | [02](./02-skilldistiller-through-evolution-v04.md)、[07](./07-idle-through-skillpublisher-v14.md)、[08](./08-llmreview-assetstore-and-roadmap-v15.md) |
 | 版本历史与 TODO | [03](./03-skillpublisher-through-signals-v07.md) 中原 §33 等 |
@@ -163,6 +165,7 @@
 | **policyCheck 约束系统深度**（路径匹配决策树 / git numstat blast radius / 5级 severity / 验证命令白名单 / 伦理 regex 检测 / 关键文件破坏检测） | [42](./42-policycheck-constraint-system-deep-dive.md)（15个导出函数完整分析；配置驱动安全策略设计） |
 | **Privacy Computing + Hub Ecosystem**（AES-256-GCM 密封工具 / 本地密钥管理 / 六策略问题生成 + 模糊去重 / 自动 GitHub Issue + 冷却去重 + 脱敏 / 人格 commentary 三模式） | [43](./43-privacy-computing-and-hub-ecosystem.md)（§1–§4：隐私计算管线 / 问题生成策略 / 自动报告机制 / Commentary 人格） |
 | **Personality State Machine + Hub Search**（五维人格状态机 + 自然选择 + 三层突变叠加 + cap 保护 / Hub 两相搜索 + LRU 缓存 + deadline 控制 + 并行语义搜索） | [44](./44-personality-state-machine-and-hub-search-caching.md)（§1 人格状态机 / §2 Hub 两相搜索管线） |
+| [46](./46-hub-ecosystem-integration-taskreview-issue.md) | **Hub Ecosystem Integration**：`taskReceiver.js` 三策略 ROI 评分（greedy/balanced/conservative）+ capability match（Jaccard + Laplace success rate）+ commitment deadline 估算；`hubReview.js` submitHubReview（rating 推导 1/2/4/5 星 / 本地去重 + 远程去重）；`issueReporter.js` 自动 GitHub issue（failure streak ≥5 触发 / SHA-256 error_key 去重 / 冷却 24h / 脱敏）；`a2a.js` 广播资格（capsule: score≥0.7 + blast safe + streak≥2）+ confidence 下调 factor=0.6；CE 借鉴：失败自动报告 / capability-based scoring / 外部资产 confidence 降级 |
 | **Device Identity + Innovation Catalyst**（deviceId 7层 fallback 标识 / 容器检测 / 双路径持久化 / 弱领域驱动创意生成） | [41](./41-device-identity-and-innovation-catalyst.md)（`deviceId.js` + `innovation.js`） |
 | **Content-addressable Asset System**（contentHash / assetStore / candidates / candidateEval；Canonical JSON + SHA-256 + 原子写入） | [39](./39-content-addressable-asset-system.md)（资产层完整管线；候选人三大来源；CE 观察去重 fingerprint / 完整性 hash 验证 / 规范化 embedding） |
 | **A2A 协议 / 资产发布 / 反馈环路**（hello/publish/fetch/review/task） | [35](./35-a2a-protocol-asset-lifecycle-feedback.md) |

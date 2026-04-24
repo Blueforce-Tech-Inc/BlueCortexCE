@@ -4,7 +4,7 @@
 
 **数据来源**：本地 `EvoMap/evolver/` 源码；本仓库见 `docs/ARCHITECTURE-zh-CN.md` 等。
 
-**最后更新**：2026-04-24（新增 **`43` Privacy Computing + Hub Ecosystem**（AES-256-GCM 密封工具 + 六策略问题生成 + 自动 GitHub Issue + 人格 commentary）；**`44` Personality State Machine + Hub Search**（五维人格状态机 + Hub 两相搜索 + LRU 缓存）；**`42` policyCheck.js 约束系统**；**`41` Device Identity + Innovation Catalyst**；**`40` Failure Mode + Canary**；**`39` Content-addressable Asset**；**`37` Signal Taxonomy + Gene Selection**；**`36` 记忆系统架构综合分析**）
+**最后更新**：2026-04-24（新增 **`46` Hub Ecosystem Integration**（taskReceiver ROI 评分 + capability match / hubReview review 提交 / issueReporter 自动 GitHub issue + cooldown / a2a 广播资格 + confidence 下调 / **directoryClient.js Hub 目录 API 客户端**（语义搜索 + 信号搜索 + Agent Profile + discoverForTask））；**`43` Privacy Computing + Hub Ecosystem**（AES-256-GCM 密封工具 + 六策略问题生成 + 自动 GitHub Issue + 人格 commentary）；**`44` Personality State Machine + Hub Search**（五维人格状态机 + Hub 两相搜索 + LRU 缓存）；**`42` policyCheck.js 约束系统**；**`41` Device Identity + Innovation Catalyst**；**`40` Failure Mode + Canary**；**`39` Content-addressable Asset**；**`37` Signal Taxonomy + Gene Selection**；**`36` 记忆系统架构综合分析**）
 
 **文档结构**：完整目录、接力导航与 **≤50KB / 短入口** 约定见 [`evolver-memory/index.md`](./evolver-memory/index.md) 文首「架构规范」；本文件仅作**链接入口**。
 
@@ -46,7 +46,9 @@
 | **Personality State Machine + Hub Search**（五维人格状态机 + 自然选择 + 三层突变叠加 + cap 保护 / Hub 两相搜索 + LRU 缓存 + deadline 控制 + 并行语义搜索） | [docs/drafts/evolver-memory/44-personality-state-machine-and-hub-search-caching.md](./evolver-memory/44-personality-state-machine-and-hub-search-caching.md) |
 | **Signal Taxonomy**（`expandSignals` / Jaccard ≥ 0.34 / `getMemoryAdvice` / Laplace 平滑） | [docs/drafts/evolver-memory/21-signal-taxonomy-and-gene-selection-memory.md](./evolver-memory/21-signal-taxonomy-and-gene-selection-memory.md) |
 | **Personality State Machine + Hub Search**（五维人格状态机 + 自然选择 + 三层突变叠加 + cap 保护 / Hub 两相搜索 + LRU 缓存 + deadline 控制 + 并行语义搜索） | [docs/drafts/evolver-memory/44-personality-state-machine-and-hub-search-caching.md](./evolver-memory/44-personality-state-machine-and-hub-search-caching.md) |
+| **Curriculum + ExecutionTrace + SkillDistiller**（三区分类课程系统 / 三级脱敏执行轨迹 / ValidationReport + content-hash / GitOps 保护与回滚 / LLM 驱动技能提炼 + Marketplace SKILL.md 生成） | [docs/drafts/evolver-memory/47-curriculum-executiontrace-skill-distillation.md](./evolver-memory/47-curriculum-executiontrace-skill-distillation.md) |
 | **idleScheduler + llmReview**（OMLS 启发式自适应休眠调度 / LLM 驱动代码评审双层 / 自适应调度 + LLM 评审协同） | [docs/drafts/evolver-memory/45-idleScheduler-OMLS-and-llmReview.md](./evolver-memory/45-idleScheduler-OMLS-and-llmReview.md) |
+| **Hub Ecosystem Integration**（taskReceiver ROI 评分 + capability match / hubReview review 提交 + 本地去重 / issueReporter 自动 GitHub issue + cooldown / a2a 广播资格 / **directoryClient.js Hub 目录 API 客户端**） | [docs/drafts/evolver-memory/46-hub-ecosystem-integration-taskreview-issue.md](./evolver-memory/46-hub-ecosystem-integration-taskreview-issue.md) |
 | 方面级对照：Evolver ↔ BlueCortexCE | [docs/drafts/evolver-memory/09-aspect-bluecortex-bridge.md](./evolver-memory/09-aspect-bluecortex-bridge.md) |
 | 本仓库实现映射（迁移、Repository、§3 三路读出） | [docs/drafts/evolver-memory/10-aspect-bluecortex-implementation-map.md](./evolver-memory/10-aspect-bluecortex-implementation-map.md) |
 | 记忆 HTTP + 数据平面（**§1.1** `semantic` · §2 · **§3.2** MCP） | [docs/drafts/evolver-memory/12-bluecortex-api-memory-surface.md](./evolver-memory/12-bluecortex-api-memory-surface.md) |

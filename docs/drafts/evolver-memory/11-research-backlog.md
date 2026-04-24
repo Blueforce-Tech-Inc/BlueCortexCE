@@ -1,7 +1,7 @@
 # 研究 / 决策 backlog（可接力）
 
 > **角色**：给后续人类或 Agent 的**短队列**——可勾选、可补链接；**不**重复 [`09`](./09-aspect-bluecortex-bridge.md) 的 P0/P1 定义本身。  
-> **最后更新**：2026-04-24 06:53（`45` idleScheduler + llmReview 新增：OMLS 启发式自适应休眠调度 / LLM 驱动代码评审双层设计）
+> **最后更新**：2026-04-24 08:47（`46` Hub Ecosystem Integration 新增：`**directoryClient.js` Hub 目录 API 客户端**（searchByQuery 语义搜索 / searchBySignals 信号搜索 / getAgentProfile / discoverForTask；与 hubSearch 的本质区别：远端 Hub 目录 vs 本地资产）；详见 [`46`](./46-hub-ecosystem-integration-taskreview-issue.md) §2.6）
 
 ---
 

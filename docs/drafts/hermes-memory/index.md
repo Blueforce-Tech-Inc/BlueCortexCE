@@ -34,6 +34,7 @@
 25. **Prompt Caching 与记忆系统交互分析**（system_and_3 策略 / 压缩-缓存失效恢复 / CE 架构差异 / 可执行借鉴） → [`28`](60-evolution/28-prompt-caching-and-memory-interaction.md)（2026-04-24 新增；源自 `agent/prompt_caching.py` + `run_agent.py` 源码）
 26. **MemoryProvider Hooks 高级专题（续）**（BlueCortexCE vs Hermes Summary Template 逐字段对比 / SessionSearch LLM 截断三层 fallback / RetainDB Supermemory 补充） → [`60-evolution/29-memory-provider-hooks-advanced-topics.md`](60-evolution/29-memory-provider-hooks-advanced-topics.md)（2026-04-24 拆分自 `06` §43–§44 + 合并自 `07` §44–§45）
 27. **矛盾检测工程方案 + Session Tools 分析**（Entity Extraction / SessionSearch 双模式 / memory_tool 语义 / Tool Result Pre-pass / SessionDB v6 Reasoning Chain / Honcho write_frequency） → [`60-evolution/30-contradiction-detection-and-session-tools.md`](60-evolution/30-contradiction-detection-and-session-tools.md)（2026-04-24 拆分自 `07` §45–§52）
+28. **Context References — @-Prefix 文件/URL/Git 展开**（6 类引用 / Token 50%+25% 预算 / 路径安全双层 / `allowed_root` 隔离 / async URL fetcher / `cli.py`/`gateway/run.py` 双集成点 / CE 差距 + 可执行借鉴） → [`31-context-references-file-expansion.md`](60-evolution/31-context-references-file-expansion.md)（2026-04-24 新增；`agent/context_references.py` 520 行完整解析）
 
 ## 按 aspect 浏览
 
