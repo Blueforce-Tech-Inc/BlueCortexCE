@@ -99,4 +99,17 @@
 | **本文件** | Hermes 参照 → CE 的未决项 |
 | [`../evolver-memory/11-research-backlog.md`](../evolver-memory/11-research-backlog.md) | Evolver/产品/数据模型未决项（可与安全交叉，以 `05` 为技术锚点） |
 
+## 定时巡检（2026-04-25 05:27 CST）
+
+- [x] **文档体量验证**：全部 `.md` 文件字节数扫描，`07`（新增）8134 字节，`33`（15442）、`09`（46922）均远低于 50KB 上限。无需拆分。
+- [x] **上游代码增量扫描（2026-04-25 05:27）**：origin/main 从 `6f1eed39` 前进到 `a5129c72`（~20 commits），均为 TUI/web/Dashboard/Feishu/Discord 工具拆分，**无记忆系统新功能**。Compression Eval Harness（`9f5c13f8`）仍在 `origin/design/compression-eval-harness` 分支，未合并。
+- [x] **新增分析：Honcho Cadence 门控机制**（2026-04-25 新增）：`plugins/memory/honcho/__init__.py` 1253 行核心管线深度解析 → [`07-honcho-cadence-gating-mechanism.md`](50-honcho-holographic-deep/07-honcho-cadence-gating-mechanism.md)；覆盖：`on_turn_start` 驱动管线 / `contextCadence` + `dialecticCadence` 双维独立刷新 / prewarm-as-turn-0 / empty-streak backoff / 双层缓存隔离 / `liveness_snapshot()` 可观测性 / CE 可执行借鉴（分层刷新策略）。更新 index.md（item 34）。
+- [x] **Backlog 勾选更新**：全部 backlog 条目均为 `[x]` 已完成；待跟进项均已转入对应分析文档。
+
 全局导航：[`../memory-research-hub.md`](../memory-research-hub.md)
+
+## 定时巡检（2026-04-25 06:21 CST）
+
+- [x] **上游代码增量扫描**：`a5129c72..origin/main`（~30 commits）记忆相关最重要发现：`6a957a74` — **Write Origin Metadata**，向 `on_memory_write` hook 新增结构化 provenance metadata（`write_origin`/`execution_context`/`session_id`/`platform`/`task_id`/`tool_call_id`），通过 signature inspection 实现向后兼容的三种传递模式；相关：Tool Call Repair 三层（`17fc84c2`/`2d444fc8`/`7a192b12`）。分析文档 → [`37`](60-evolution/37-upstream-new-commits-write-origin-metadata-and-tool-call-repair.md)。
+- [x] **文档体量验证**：最大文件仍为 `09`（46922 字节），无增长，无需拆分。新增 `37` ~8.7KB。
+- [x] **Backlog 全部项 `[x]`**：无待跟进项（`context_references → CE` 行动项已记录于 [`31`](60-evolution/31-context-references-file-expansion.md) §8；Evolver E2E 走查已覆盖；`on_session_finalize` hook 已在 [`19`](60-evolution/19-gateway-session-expiry-watcher.md) 记录）。
