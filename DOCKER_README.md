@@ -291,8 +291,8 @@ cd scripts
 ### Test Ports
 
 The test scripts use non-conflicting ports to avoid interference with local development:
-- PostgreSQL: `15432`
-- Java API: `38888`
+- `docker-e2e-test.sh`: PostgreSQL `15432`, Java API `38888`
+- `docker-compose-test.sh`: PostgreSQL `15433`, Java API `38889`
 
 ## Production Notes
 

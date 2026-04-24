@@ -257,8 +257,8 @@ cd scripts
 ### 测试端口
 
 测试脚本使用不冲突的端口，避免干扰本地开发：
-- PostgreSQL：`15432`
-- Java API：`38888`
+- `docker-e2e-test.sh`：PostgreSQL `15432`，Java API `38888`
+- `docker-compose-test.sh`：PostgreSQL `15433`，Java API `38889`
 
 ## 生产环境注意事项
 
