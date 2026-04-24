@@ -1,7 +1,31 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-20 13:20 (架构文档审查 — 发现 backend-review-findings.md 未同步 #51 P2 记录)
+> **最后更新**: 2026-04-24 08:08 (Java SDK Review #10 — Experience Float 修复)
+
+---
+
+## 2026-04-24 08:08 | Java SDK Review #10
+
+**审查范围**: `cortex-mem-spring-integration/cortex-mem-client/` (CortexMemClient + DTOs)
+
+**发现的问题**:
+
+| # | 文件 | 级别 | 问题 | 状态 |
+|---|------|------|------|------|
+| J10-1 | `Experience.java` | **P2** | `qualityScore` 使用原始 `float` 而非 `Float`。若 backend 返回 null，`quality_score` 会被反序列为 `0.0f` 而非 null。与 `ObservationResponse.qualityScore` (正确使用 Float) 不一致。 | ✅ 已修复 (改为 `Float`) |
+
+**修复详情**:
+- `Experience.java`: `float qualityScore` → `Float qualityScore`
+- 测试断言使用 float 字面量自动装箱为 `Float`，无需修改
+- 编译通过，120 tests ✅
+
+**代码审查结论** (无需修复，仅确认):
+- ✅ J9 修复已验证: `CortexToolAspect` 有 `MAX_VALUE_LENGTH=4000` 和 `truncate()` 方法
+- ✅ DTO 设计良好: `@JsonProperty`, `@JsonAlias`, `@JsonIgnoreProperties` 使用正确
+- ✅ 重试机制健壮: `executeWithRetry/Silent/Return` 三种模式，`jitteredBackoff` 防雷鸣
+- ✅ 验证完整: `requireNonBlank`, `requireAbsolutePath` 全覆盖
+- ✅ 测试覆盖率 120 tests (34 DTO + 86 MockWebServer)
 
 ---
 
