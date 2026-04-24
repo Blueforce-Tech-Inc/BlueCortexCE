@@ -70,8 +70,8 @@ def _to_str_list(v: object, default: list[str] | None = None) -> list[str]:
     """Safely convert wire value to list[str].
 
     Returns default (or []) if v is None or not a list.
-    Converts non-string items via str() for defensive parsing.
-    Matches JS SDK's safeStringArray() for cross-SDK parity.
+    Skips None values and converts non-string items via str() for defensive parsing.
+    Matches JS SDK's safeStringArray() for cross-SDK parity (null/undefined items are filtered).
     """
     if not isinstance(v, list):
         return default if default is not None else []
