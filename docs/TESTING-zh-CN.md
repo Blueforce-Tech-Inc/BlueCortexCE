@@ -22,7 +22,22 @@
 | `docker-e2e-test.sh` | Docker 独立端到端测试 | 701 |
 | `webui-integration-test.sh` | WebUI 集成测试 | 229 |
 
-### 2. Git 子模块设置（WebUI）
+### 2. Phase 3 验收测试
+
+位于 `scripts/` 目录：
+
+| 脚本 | 说明 | 行数 |
+|------|------|------|
+| `phase3-acceptance-test.sh` | Phase 3 userId 隔离 + extraction 功能验收测试（15 个测试函数） | 714 |
+
+**前置条件：** 后端运行在 37777 端口，测试项目干净。
+
+```bash
+# 从项目根目录
+./scripts/phase3-acceptance-test.sh
+```
+
+### 3. Git 子模块设置（WebUI）
 
 本项目使用 git 子模块引入 WebUI。构建前需初始化子模块：
 

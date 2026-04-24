@@ -22,7 +22,22 @@ Located in `scripts/` directory:
 | `docker-e2e-test.sh` | Docker standalone E2E tests | 701 |
 | `webui-integration-test.sh` | WebUI integration tests | 229 |
 
-### 2. Git Submodule Setup (WebUI)
+### 2. Phase 3 Acceptance Tests
+
+Located in `scripts/` directory:
+
+| Script | Description | Lines |
+|--------|-------------|-------|
+| `phase3-acceptance-test.sh` | Phase 3 userId isolation + extraction feature acceptance tests (15 test functions) | 714 |
+
+**Prerequisites:** Backend running on port 37777 with a clean test project.
+
+```bash
+# From project root
+./scripts/phase3-acceptance-test.sh
+```
+
+### 3. Git Submodule Setup (WebUI)
 
 The project uses a git submodule for WebUI. Before building, initialize the submodule:
 
