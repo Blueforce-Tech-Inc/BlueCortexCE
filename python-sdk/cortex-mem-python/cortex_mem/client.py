@@ -1,3 +1,4 @@
+# coding: utf-8
 """Cortex CE Python SDK — HTTP client implementation."""
 
 from __future__ import annotations

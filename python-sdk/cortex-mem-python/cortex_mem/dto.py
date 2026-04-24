@@ -1,3 +1,4 @@
+# coding: utf-8
 """Cortex CE SDK — Data Transfer Objects (dataclasses)."""
 
 from __future__ import annotations
