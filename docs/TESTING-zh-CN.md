@@ -84,14 +84,16 @@ cd scripts
 ./regression-test.sh --cleanup
 ```
 
+#### 运行 Thin Proxy 测试
+
+```bash
+./thin-proxy-test.sh
+```
+
 #### 运行 MCP 端到端测试
 
 ```bash
-# SSE 模式
-./scripts/mcp-e2e-test.sh
-
-# Streamable HTTP 模式
-./scripts/mcp-streamable-e2e-test.sh
+./mcp-e2e-test.sh
 ```
 
 #### 运行 Docker 部署测试
@@ -104,62 +106,67 @@ cd scripts
 ./scripts/docker-e2e-test.sh
 ```
 
-#### 运行所有端到端测试
+### 4. 测试环境变量
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `SERVER_URL` | http://127.0.0.1:37777 | 服务器 URL |
+| `DB_HOST` | 127.0.0.1 | 数据库主机 |
+| `DB_NAME` | claude_mem_dev | 数据库名称 |
+| `DB_USER` | postgres | 数据库用户 |
+| `DB_PASS` | 123456 | 数据库密码 |
+| `SPRING_AI_OPENAI_API_KEY` | - | OpenAI/DeepSeek API key |
+| `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | - | Embedding API key |
+| `SPRING_AI_MCP_SERVER_PROTOCOL` | SSE | MCP 协议（SSE 或 STREAMABLE） |
+
+### 5. MCP 协议自动检测
+
+MCP E2E 测试脚本（`mcp-e2e-test.sh` 和 `mcp-streamable-e2e-test.sh`）**自动检测**服务器运行的协议：
+
+- **SSE 模式**：`/sse` 返回 200，`/mcp` 返回 404
+- **STREAMABLE 模式**：`/mcp` 返回 200，`/sse` 返回 404
+
+统一脚本自动运行相应测试，无需手动选择协议！
+
+- 测试会话 ID：`e2e-regression-{timestamp}`
+- 测试项目：`/tmp/claude-mem-test-{pid}`
+
+### 6. CI/CD 集成
+
+GitHub Actions 工作流配置在 `.github/workflows/`：
+
+- `docker.yml` - Docker 镜像构建和推送
+
+## 最佳实践
+
+1. **幂等性**：测试可安全重复运行
+2. **不自动清理**：测试数据保留以便调试
+3. **使用 `--cleanup`**：完成后删除测试数据
+4. **查看日志**：检查测试输出中的失败信息
+
+## 故障排查
+
+### PostgreSQL 连接失败
 
 ```bash
-./scripts/run-all-e2e.sh
+# 检查 PostgreSQL 状态
+docker ps | grep postgres
+
+# 启动 PostgreSQL
+docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=123456 pgvector/pgvector:pg16
 ```
 
-### 4. 预期结果
-
-回归测试预期输出：
-
-```
-========================================
-Cortex CE Regression Test Suite
-========================================
-Testing: 46/46 tests passed, 0 failed
-```
-
-### 5. 测试环境变量
-
-确保以下环境变量已配置（参见 `.env.example`）：
+### 服务未运行
 
 ```bash
-SPRING_AI_OPENAI_API_KEY=your_key_here
-SPRING_AI_OPENAI_EMBEDDING_API_KEY=your_embedding_key_here
-SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/claude_mem_dev
-SPRING_DATASOURCE_USERNAME=postgres
-SPRING_DATASOURCE_PASSWORD=postgres
-```
-
-### 6. 故障排查
-
-#### 测试全部失败
-
-```bash
-# 1. 确认服务正在运行
-curl http://localhost:37777/api/health
-
-# 2. 确认数据库可连接
-psql -U postgres -d claude_mem_dev -c "SELECT 1;"
-
-# 3. 查看详细错误输出
-./regression-test.sh --verbose
-```
-
-#### Maven 构建失败
-
-```bash
+# 启动服务
 cd backend
-mvn clean package -DskipTests
-cd ..
+./mvnw spring-boot:run
 ```
 
-#### 子模块问题
+### 测试失败
 
-```bash
-# 重置子模块
-git submodule foreach git checkout main
-git submodule update --init --recursive
-```
+1. 检查服务器日志
+2. 验证数据库连接
+3. 确认 API keys 已配置
+4. 查看测试输出中的具体错误
