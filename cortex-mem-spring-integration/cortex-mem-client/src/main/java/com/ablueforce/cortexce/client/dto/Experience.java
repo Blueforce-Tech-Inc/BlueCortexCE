@@ -20,6 +20,6 @@ public record Experience(
     String strategy,
     String outcome,
     @JsonProperty("reuse_condition") @JsonAlias("reuseCondition") String reuseCondition,
-    @JsonProperty("quality_score") @JsonAlias("qualityScore") float qualityScore,
+    @JsonProperty("quality_score") @JsonAlias("qualityScore") Float qualityScore,
     @JsonProperty("created_at") @JsonAlias("createdAt") OffsetDateTime createdAt
 ) {}
