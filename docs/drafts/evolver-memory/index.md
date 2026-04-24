@@ -2,7 +2,7 @@
 
 **分析目标**：为 BlueCortexCE（旁路型记忆）提供可落地的借鉴思路。  
 **数据来源**：`/path/to/EvoMap/evolver/` 与本仓库架构文档。  
-**最后更新**：2026-04-24（新增 **`47` Curriculum + ExecutionTrace + SkillDistiller**（三区分类课程系统 / 三级脱敏执行轨迹 / 标准化 ValidationReport / GitOps 保护与回滚 / LLM 驱动技能提炼管线 + Marketplace SKILL.md 生成 / CE 高/中/低优先级借鉴路径）；**`46` Hub Ecosystem Integration**（taskReceiver ROI 评分 + capability match / hubReview 使用后 review 提交 + 本地去重 / issueReporter 自动 GitHub issue + cooldown + 脱敏 / a2a 广播资格 + confidence 下调 / **directoryClient.js Hub 目录 API 客户端**（语义搜索 + 信号搜索 + Agent Profile + discoverForTask）/ CE 借鉴路径）；**`45` idleScheduler + llmReview**（OMLS 启发式自适应休眠调度 / LLM 驱动代码评审 / 自适应调度 + LLM 评审协同 / CE 借鉴路径）；**`43` Privacy Computing + Hub Ecosystem**（AES-256-GCM 密封工具 / 本地密钥管理 / 隐私块嵌入 / 六策略问题生成 + 模糊去重 / 自动 GitHub Issue + 冷却去重 + 脱敏 / 人格commentary三模式）；**`44` Personality State Machine + Hub Search**（五维人格状态机 + 自然选择 + 三层突变叠加 / Hub两相搜索管线 + LRU缓存 + deadline控制 + 语义并行）；**`42` policyCheck.js 约束系统深度分析**，覆盖 isConstraintCountedPath 路径匹配决策树 / computeBlastRadius / classifyBlastSeverity 5级分类 / 验证命令白名单 / 伦理模式 5种 regex 检测；**`41` Device Identity + Innovation Catalyst**，覆盖 deviceId.js 7层 fallback 设备标识 / 容器检测 / 双路径持久化 / envFingerprint 关系）
+**最后更新**：2026-04-25（新增 **`50` MemoryGraph 闭环反馈架构**（六类事件时序 / outcome 推断三层策略 / 边权重 Laplace+半衰衰减 / Jaccard 信号规范化匹配 / Ban 规则 / Dormant Hypothesis 中断恢复 / Idle Gating 完整条件 / Session Scope 多租户隔离 / 完整 cycle 调用链）；**`49` localStateAwareness + evolve.js Full Integration**（`localStateAwareness.js` 五类快照模块（Node Identity / Env Config / Evolution State / Memory State / Skills）+ 自模型在 prompt 中的注入机制；`evolve.js` 完整记忆调用链（Signal提取→Advice→Snapshot→Hypothesis→Attempt→Outcome→Narrative→Reflection）+ JSONL 事件序列；State+Event 双写模式 + outcome 锚定 last_action；Hub 饱和节流 `shouldSkipHubCalls`；CE 借鉴路径）；**`48` Gene as Compressed Memory + 完整闭环架构**（三区分类课程系统 / 三级脱敏执行轨迹 / 标准化 ValidationReport / GitOps 保护与回滚 / LLM 驱动技能提炼管线 + Marketplace SKILL.md 生成 / CE 高/中/低优先级借鉴路径）；**`46` Hub Ecosystem Integration**（taskReceiver ROI 评分 + capability match / hubReview 使用后 review 提交 + 本地去重 / issueReporter 自动 GitHub issue + cooldown + 脱敏 / a2a 广播资格 + confidence 下调 / **directoryClient.js Hub 目录 API 客户端**（语义搜索 + 信号搜索 + Agent Profile + discoverForTask）/ CE 借鉴路径）；**`45` idleScheduler + llmReview**（OMLS 启发式自适应休眠调度 / LLM 驱动代码评审 / 自适应调度 + LLM 评审协同 / CE 借鉴路径）；**`43` Privacy Computing + Hub Ecosystem**（AES-256-GCM 密封工具 / 本地密钥管理 / 隐私块嵌入 / 六策略问题生成 + 模糊去重 / 自动 GitHub Issue + 冷却去重 + 脱敏 / 人格commentary三模式）；**`44` Personality State Machine + Hub Search**（五维人格状态机 + 自然选择 + 三层突变叠加 / Hub两相搜索管线 + LRU缓存 + deadline控制 + 语义并行）；**`42` policyCheck.js 约束系统深度分析**，覆盖 isConstraintCountedPath 路径匹配决策树 / computeBlastRadius / classifyBlastSeverity 5级分类 / 验证命令白名单 / 伦理模式 5种 regex 检测；**`41` Device Identity + Innovation Catalyst**，覆盖 deviceId.js 7层 fallback 设备标识 / 容器检测 / 双路径持久化 / envFingerprint 关系）
 
 **并列入口（Hermes / 论文线）**：[`../memory-research-hub.md`](../memory-research-hub.md)
 
@@ -25,6 +25,8 @@
 | **MCP 工具 vs Hook `semantic`**（`search`/`timeline` 无 `semantic` 工具名） | [`12`](./12-bluecortex-api-memory-surface.md) **§3.2**；判别 [`15`](./15-runtime-integration-surfaces.md) **§2** · **§3** |
 | **EvoMap/evolver 本地源码**（`memoryGraph` / 叙事 / 适配器） | [`18`](./18-evolver-local-source-memory-architecture-snapshot.md) |
 | **`evolve.js` 主循环**：记忆调用顺序、`last_action`、outcome 推断 | [`19`](./19-evolver-evolve-loop-memory-ordering-and-outcome-inference.md) |
+| **`localStateAwareness` + `evolve.js` 全链路**（五类自模型快照 / 完整记忆调用链 / State+Event 双写 / Hub 饱和节流） | [`49`](./49-localStateAwareness-self-model-evolve-loop-full-integration.md) |
+| **MemoryGraph 闭环反馈架构**（六类事件时序 / outcome 推断三层策略 / 边权重 Laplace+半衰衰减 / Jaccard 信号规范化匹配 / Ban 规则 / Dormant Hypothesis 中断恢复 / Idle Gating 完整条件 / Session Scope 多租户隔离 / 完整 cycle 调用链） | [`50`](./50-memory-graph-closed-loop-architecture.md) |
 | **Gene Pool + Selector + Mutation + Strategy Presets**（Gene/Strategy 层新发现） | [`24`](./24-gene-strategy-layer.md) |
 | **PRM 评分 / Epigenetic / Anti-Pattern / Innovation / Reflection**（高级模式） | [`25`](./25-advanced-patterns-prm-epigenetic-antipattern.md) |
 | **自适应策略 / 候选评估 / Git 自修复 / 创新催化 / 自我感知**（运行时编排） | [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) |
@@ -32,6 +34,7 @@
 | **Privacy Computing + Hub Ecosystem**（AES-256-GCM 密封工具 / 本地密钥管理 / 六策略问题生成 + 模糊去重 / 自动 GitHub Issue + 冷却去重 + 脱敏 / 人格 commentary 三模式） | [`43`](./43-privacy-computing-and-hub-ecosystem.md) |
 | **Personality State Machine + Hub Search**（五维人格状态机 + 自然选择 + 三层突变叠加 + cap 保护 / Hub 两相搜索 + LRU 缓存 + deadline 控制 + 并行语义搜索） | [`44`](./44-personality-state-machine-and-hub-search-caching.md) |
 | **Curriculum + ExecutionTrace + SkillDistiller**（三区分类课程系统 / 三级脱敏执行轨迹 / ValidationReport + content-hash / GitOps 保护与回滚 / LLM 驱动技能提炼 + Marketplace SKILL.md 生成） | [`47`](./47-curriculum-executiontrace-skill-distillation.md) |
+| **Gene as Compressed Memory + 完整闭环架构**（Gene=压缩可执行记忆 / signal→Gene→outcome→边权重闭环 / Laplace平滑+半衰 / 内容寻址幂等 / Session Scope 隔离 / CE P0/P1/P2） | [`48`](./48-gene-as-compressed-memory-closed-loop-architecture.md) |
 | **Hub Ecosystem Integration**（taskReceiver 三策略 ROI 评分 + capability match / hubReview review 提交 + 本地去重 / issueReporter 自动 GitHub issue + cooldown / a2a 广播资格） | [`46`](./46-hub-ecosystem-integration-taskreview-issue.md) |
 | **Ops 模块套件 / 集中配置 / Canary 安全网 / Health Check**（运维基础设施） | [`27`](./27-ops-suite-runtime-config-canary.md) |
 | **Prompt Schema / 质量门禁 / 敏感数据参数化 / 截断策略**（提示词深度） | [`28`](./28-prompt-engineering-deep-dive.md) |
@@ -58,7 +61,8 @@
 | [20](./20-time-decay-and-fail-degradation.md) | **排序增强专题**：`decayWeight` / `edgeExpectedSuccess`（Evolver）→ CE `time_decay_score` + `fail_penalty` 翻译方案 |
 | [21](./21-signal-taxonomy-and-gene-selection-memory.md) | **Signal Taxonomy**：`expandSignals` / `computeSignalKey` / Jaccard ≥ 0.34 / `getMemoryAdvice` 完整链；CE 观察类型标签化借鉴 |
 | [22](./22-error-sig-norm-implementation-proposal.md) | **`extractedData.error_sig_norm` 写入提案**：规范化算法 + JSONB schema + 写入路径 + 实施检查清单 |
-| [23](./23-evolver-state-event-dual-layer-and-self-awareness-loop.md) | **State+Event 双层架构**：可变 State 文件 + 不可变 JSONL 事件、幂等 outcome 写入、自省循环（Reflection Phase）、localStateAwareness 自模型 |
+| [23](./23-evolver-state-event-dual-layer-and-self-awareness-loop.md) | **State+Event 双层架构**：可变 State 文件 + 不可变 JSONL 事件、幂等 outcome 写入、自省循环（Reflection Phase） |
+| [49](./49-localStateAwareness-self-model-evolve-loop-full-integration.md) | **`localStateAwareness` + `evolve.js` 全链路**：五类自模型快照模块 / 完整记忆调用链（Signal→Advice→Snapshot→Hypothesis→Attempt→Outcome→Narrative→Reflection）/ JSONL 事件序列 / State+Event 双写模式 / Hub 饱和节流 `shouldSkipHubCalls` / CE 借鉴路径 |
 | [24](./24-gene-strategy-layer.md) | **Gene/Strategy 层**：Gene Pool + 多因子选择器（exact+semantic+epigenetic+learning）+ Strategy Presets（repair/optimize/innovate）+ Mutation 安全约束 + Candidates Pool |
 | [25](./25-advanced-patterns-prm-epigenetic-antipattern.md) | **高级模式**：PRM 多步骤评分 + Epigenetic Marks + Failed Capsules / Anti-Pattern Zone + Lessons/Principles Block + Innovation Catalyst + Adaptive Reflection + Prompt 工程架构 + A2A Auto-Publish |
 | [26](./26-runtime-orchestration-adaptive-policy-candidates.md) | **运行时编排**：自适应策略策略 + Blast Radius 动态控制 + 候选评估管线 + Git 自修复 + 创新催化 + 本地状态感知 |

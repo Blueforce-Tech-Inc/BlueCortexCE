@@ -82,4 +82,21 @@
 | **本文件** | Hermes 参照 → CE 的未决项 |
 | [`../evolver-memory/11-research-backlog.md`](../evolver-memory/11-research-backlog.md) | Evolver/产品/数据模型未决项（可与安全交叉，以 `05` 为技术锚点） |
 
+## 定时巡检（2026-04-25 01:35 CST）
+
+- [x] **上游代码增量扫描（origin/main vs 本地 HEAD e69526be）**：本地 HEAD 落后 origin/main ~40 个 commit，其中记忆相关重要发现：
+  1. **`260ae621`**（2026-04-24）：**Session finalize hooks on expiry flush** — `gateway/run.py` 在 `_expired_entries` 遍历中，`_async_flush_memories` 后新增 `on_session_finalize` hook 调用（`hermes_cli.plugins.invoke_hook("on_session_finalize", session_id, platform)`）。这是对 [`19-gateway-session-expiry-watcher.md`](60-evolution/19-gateway-session-expiry-watcher.md) 的重要补充：**session 过期时触发 finalize hook**，可在此 hook 中做记忆最终 flush。
+  2. **`a9a4416c`**（2026-04-24）：**ContextCompressor ABC 强化** — `ContextEngine` ABC 新增 `has_content_to_compress(messages)` 方法（默认 True）；`compress()` 新增 `focus_topic` 参数（支持 `/compress <topic>` 引导压缩主题）；gateway `/compress` handler 不再 reach into private 方法。
+  3. **`edff2fbe`**（2026-04-24）：**Hindsight bank_id_template** — 新增动态 bank_id 模板，支持 `{profile}`/`{workspace}`/`{platform}`/`{user}`/`{session}` 占位符，实现 per-agent / per-user 隔离 bank。
+  4. **Hindsight Bug Fixes**（2026-04-24）：`f9c6c5ab`（document_id per-process 防止 /resume 覆盖）、`d6b65bbc`（保留 non-ASCII）、`127048e6`（snake_case api_key）、`a5c7422f`（HINDSIGHT_LLM_API_KEY 即使为空也写入 .env）、`f1ba2f0c`（所有 async 操作超时）。
+- [x] **文档体量验证**：最大文件仍为 `09`（46922 字节），无增长，无需拆分。
+- [x] **待分析：on_session_finalize hook 链路**：`260ae621` 引入的 `on_session_finalize` hook 与现有 `MemoryProvider.on_session_end` 的关系是什么？是同一套 hook 系统还是并行？需要代码实地核实。
+
+## 与其它 backlog 的边界
+
+| 文件 | 放什么 |
+|------|--------|
+| **本文件** | Hermes 参照 → CE 的未决项 |
+| [`../evolver-memory/11-research-backlog.md`](../evolver-memory/11-research-backlog.md) | Evolver/产品/数据模型未决项（可与安全交叉，以 `05` 为技术锚点） |
+
 全局导航：[`../memory-research-hub.md`](../memory-research-hub.md)

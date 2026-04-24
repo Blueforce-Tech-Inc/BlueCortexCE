@@ -1,14 +1,14 @@
 # 记忆相关研究草稿 — 总导航
 
 > **用途**：给人类或 Agent **选入口**，避免在 `docs/drafts/` 下迷路。各子目录仍各自维护 `index.md` / `AGENT.md`。  
-> **最后更新**：2026-04-24（Evolver `41` Device Identity + Innovation Catalyst：deviceId.js 7层 fallback 设备标识/容器检测/双路径持久化 + innovation.js 弱领域驱动创意 · Evolver `40` Failure Mode + Canary · Evolver `39` Content-addressable Asset System · Evolver `38` EnvFingerprint + CapabilityMatch · Evolver `37` Signal Taxonomy 端到端 · Evolver `36` 记忆架构综合）
+> **最后更新**：2026-04-25（Evolver `49` localStateAwareness + evolve.js Full Integration：`localStateAwareness.js` 五类自模型快照 + `evolve.js` 完整记忆调用链（Signal→Advice→Snapshot→Hypothesis→Attempt→Outcome） + State+Event 双写 + Hub 饱和节流 · Evolver `48` Gene as Compressed Memory 完整闭环架构 · Evolver `46` Hub Ecosystem Integration · Evolver `45` idleScheduler + llmReview · Evolver `44` Personality State Machine + Hub Search · Evolver `43` Privacy Computing + Hub Ecosystem · Evolver `42` policyCheck.js 约束系统 · Evolver `41` Device Identity + Innovation Catalyst · Evolver `40` Failure Mode + Canary · Evolver `39` Content-addressable Asset System · Evolver `38` EnvFingerprint + CapabilityMatch · Evolver `37` Signal Taxonomy 端到端 · Evolver `36` 记忆架构综合）
 
 ## 按系统 / 体裁
 
 | 入口 | 侧重点 | 索引 |
 |------|--------|------|
 | **Hermes Agent**（内置型 Python Agent） | 记忆管线、Provider；上游 [`12` 模块](hermes-memory/60-evolution/12-upstream-hermes-agent-memory-snapshot.md)、[`13` run_agent 接线](hermes-memory/60-evolution/13-run-agent-memory-wiring-snapshot.md) | [`hermes-memory/index.md`](hermes-memory/index.md) · [`hermes-memory-analysis.md`](hermes-memory-analysis.md) |
-| **EvoMap / Evolver**（Node GEP / 图谱） | 因果、信号、叙事、与 CE 方面对照；**本地源码快照** [`evolver-memory/18-evolver-local-source-memory-architecture-snapshot.md`](evolver-memory/18-evolver-local-source-memory-architecture-snapshot.md) | [`evolver-memory/index.md`](evolver-memory/index.md) · 短链 [`evolver-memory-analysis.md`](evolver-memory-analysis.md) |
+| **EvoMap / Evolver**（Node GEP / 图谱） | 因果、信号、叙事、与 CE 方面对照；**本地源码快照** [`evolver-memory/18-evolver-local-source-memory-architecture-snapshot.md`](evolver-memory/18-evolver-local-source-memory-architecture-snapshot.md)；**`localStateAwareness` + `evolve.js` 全链路** [`49`](evolver-memory/49-localStateAwareness-self-model-evolve-loop-full-integration.md) | [`evolver-memory/index.md`](evolver-memory/index.md) · 短链 [`evolver-memory-analysis.md`](evolver-memory-analysis.md) |
 | **Evo-Memory 论文** | 基准与 ReMem 架构、与 Claude-Mem 差距 | [`evo-memory-paper-analysis/index.md`](evo-memory-paper-analysis/index.md) · [`evo-memory-paper-analysis.md`](evo-memory-paper-analysis.md) |
 
 ## 按任务（BlueCortexCE 落地）
@@ -34,6 +34,7 @@
 | **高级模式**（PRM 多步骤评分 / Epigenetic Marks / Anti-Pattern Zone / Innovation Catalyst / Adaptive Reflection） | [`evolver-memory/25-advanced-patterns-prm-epigenetic-antipattern.md`](evolver-memory/25-advanced-patterns-prm-epigenetic-antipattern.md) |
 | **环境指纹 + CapabilityMatch**（`envFingerprintKey` 同类环境判断；Jaccard+successRate 任务匹配；CE runtime_env 字段建议） | [`evolver-memory/38-env-fingerprint-capability-match.md`](evolver-memory/38-env-fingerprint-capability-match.md) |
 | **Device Identity + Innovation Catalyst**（deviceId.js 7层 fallback 设备标识 / 容器检测 / 双路径持久化 / CE instance_id；innovation.js 弱领域驱动创意生成 / 功能发现借鉴） | [`evolver-memory/41-device-identity-and-innovation-catalyst.md`](evolver-memory/41-device-identity-and-innovation-catalyst.md) |
+| **Gene as Compressed Memory + 完整闭环架构**（Gene=压缩可执行记忆 / signal→Gene→outcome→边权重闭环 / Laplace平滑+半衰 / 内容寻址幂等写入 / Session Scope 隔离 / CE P0/P1/P2） | [`evolver-memory/48-gene-as-compressed-memory-closed-loop-architecture.md`](evolver-memory/48-gene-as-compressed-memory-closed-loop-architecture.md) |
 | **Evo-Memory 论文（Refine / WriteBack）** | [`evo-memory-paper-analysis/02-remem-architecture.md`](evo-memory-paper-analysis/02-remem-architecture.md)、[`07-roadmap-and-bypass-adaptation.md`](evo-memory-paper-analysis/07-roadmap-and-bypass-adaptation.md) |
 | **可勾选接力队列** | Evolver：[`evolver-memory/11-research-backlog.md`](evolver-memory/11-research-backlog.md) · Hermes 课题：[`hermes-memory/11-research-backlog.md`](hermes-memory/11-research-backlog.md) |
 
