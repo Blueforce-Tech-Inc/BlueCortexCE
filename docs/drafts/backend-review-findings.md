@@ -1,7 +1,64 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-24 08:08 (Java SDK Review #10 — Experience Float 修复)
+> **最后更新**: 2026-04-25 02:34 (Go SDK Review #10 — 0 P0/P1/P2)
+
+---
+
+## 2026-04-25 02:34 | Go SDK Review #10
+
+**审查方向**: Go SDK (`cortex-mem-go/`)
+
+**审查范围**:
+- `client_impl.go` — HTTP 客户端基础设施（retry、backoff、error extraction）
+- `client_methods.go` — 全部 26 个 API 方法
+- `error.go` — ValidationError/APIError 双层错误处理
+- `dto/observation.go` — Observation/Update/Request DTOs（含 4 个新字段）
+- `dto/extraction.go` — ExtractionResult DTO（sessionId camelCase 验证）
+- `eino/retriever.go` — Eino Retriever 集成（8 tests）
+- `genkit/retriever.go` — Genkit Retriever 集成（13 tests）
+- `langchaingo/memory.go` — LangChainGo Memory 集成（12 tests）
+- `examples/http-server/main.go` — Go HTTP Server Demo（871 行）
+
+**编译验证**: ✅ `go build ./...` 无错误
+**测试验证**: ✅ main 255 + eino 8 + genkit 13 + langchaingo 12 = **288 tests** 全通过
+**Go vet**: ✅ 无问题
+
+#### 发现的问题
+
+**无 P0/P1/P2 问题**。
+
+#### 代码质量验证
+
+| 检查项 | error.go | client_impl | client_methods | eino | genkit | langchaingo |
+|--------|---------|------------|----------------|------|--------|-------------|
+| 输入验证 | ✅ ValidationError 字段级错误 | ✅ baseUrl/timeout/backoff 校验 | ✅ 全部 26 方法 TrimSpace 校验 | ✅ nil client panic | ✅ nil client panic | ✅ nil client panic |
+| 错误处理 | ✅ errors.As unwrap 链 | ✅ ctx fast-fail | ✅ ValidationError vs APIError 分离 | ✅ warn log + 返回 error | ✅ warn log + 返回 error | ✅ warn log + 返回空字符串 |
+| Retry 策略 | N/A | ✅ isRetryable 排除 500 | ✅ fire-and-forget 分离 | N/A | N/A | N/A |
+| Fire-and-forget | N/A | ✅ swallow error after retries | ✅ 三种模式（Silent/Throws/Return） | N/A | N/A | N/A |
+| Wire Format | N/A | ✅ 正确序列化 | ✅ camelCase/snake_case 映射 | ✅ snake_case metadata | ✅ snake_case metadata | ✅ — |
+| 线程安全 | ✅ errors.Is/As 线程安全 | ✅ rand 全局锁安全 | ✅ 无共享可变状态 | ✅ 无共享可变状态 | ✅ 无共享可变状态 | ✅ 无共享可变状态 |
+
+#### 交叉验证（Backend 契约）
+
+| 验证项 | 结果 |
+|--------|------|
+| `sessionId` camelCase（ExtractionController L131） | ✅ 确认 backend 发送 `"sessionId"`，Go SDK `json:"sessionId"` 正确 |
+| 4 个新字段（access_count, refined_at, refined_from_ids, user_comment） | ✅ `dto/observation.go` Observation struct 完整包含 |
+| StringList JSONB 双格式（array + string-encoded array） | ✅ `UnmarshalJSON` 逻辑正确 |
+| ObservationUpdate `HasConflict()` + `Validate()` | ✅ Content/Narrative 别名冲突检测 |
+| README 测试数量（255 main + 33 integration = 288） | ✅ 实测 194+61+8+13+12 = 288 ✅ |
+
+#### 亮点
+
+- **jitteredBackoff**: linear backoff（`base * attempt`）+ ±25% jitter；注释明确说明与 Java SDK exponential 的设计差异
+- **extractErrorMessage**: 支持 JSON object/array/string 三种错误格式，空 body 返回 `"(empty response body)"`
+- **Genkit Retrieve**: per-call field override（Project/Count/Source/UserID），input 覆盖 retriever 默认值
+- **Eino Retrieve**: 简洁实现，RetrieveExperiences 直接映射到 Experience[]
+- **LangChainGo Memory**: SaveContext/Clear 为 no-op（由 Cortex CE capture lifecycle 管理），注释清晰
+- **README 测试数**: 最近 commit `eee9252` 修正 288→255（主模块），集成包独立运行增加 33 个
+
+**审查结论**: 0 个 P0/P1/P2 问题。Go SDK 代码质量优秀，26 个 API 方法实现完整，retry 机制健壮，wire format 与 backend 完全对齐，集成层测试覆盖率高。
 
 ---
 
