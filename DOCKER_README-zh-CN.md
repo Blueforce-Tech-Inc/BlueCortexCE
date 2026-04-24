@@ -82,7 +82,7 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 | `JAVA_OPTS` | JVM 选项 | `-XX:+UseZGC -XX:MaxRAMPercentage=75.0` |
 | `SERVER_PORT` | 应用在主机上的端口 | `37777` |
 
-> **注意**：`SERVER_ADDRESS` 在 Docker 容器中硬编码为 `0.0.0.0`，无法通过环境变量覆盖。
+> **注意**：`SERVER_ADDRESS` 由 Docker Compose 的 `docker-compose.yml` 环境变量配置为 `0.0.0.0`，无法从主机覆盖——应用必须在容器内绑定到 `0.0.0.0` 才能通过映射端口访问。
 
 ## 健康检查
 

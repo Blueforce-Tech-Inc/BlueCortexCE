@@ -82,7 +82,7 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 | `JAVA_OPTS` | JVM options | `-XX:+UseZGC -XX:MaxRAMPercentage=75.0` |
 | `SERVER_PORT` | Application port on host | `37777` |
 
-> **Note:** `SERVER_ADDRESS` is hardcoded to `0.0.0.0` in the Docker container and cannot be overridden via environment variables.
+> **Note:** `SERVER_ADDRESS` is set to `0.0.0.0` by the Docker Compose `docker-compose.yml` environment variable and cannot be overridden from the host — the application must bind to `0.0.0.0` inside the container to be accessible via mapped ports.
 
 ## Commands
 
@@ -301,6 +301,13 @@ The test scripts use non-conflicting ports to avoid interference with local deve
 - The app runs as non-root user inside container
 - Logs are persisted in `claude-mem-logs` volume
 
+## Data Persistence
+
+Data is persisted via Docker volumes:
+
+- `postgres_data` — PostgreSQL data directory
+- `claude-mem-logs` — Application log directory
+
 ## Repository Structure
 
 ```
@@ -317,6 +324,43 @@ BlueCortexCE/
 ├── docs/                 # Documentation
 └── webui/                # WebUI (submodule: claude-mem repo)
 ```
+
+## Environment Variables Example
+
+Copy `.env.docker` to `.env` and configure your keys:
+
+```bash
+cp .env.docker .env
+```
+
+`.env.docker` template contents:
+
+```bash
+# Database
+DB_NAME=claude_mem
+DB_USERNAME=postgres
+DB_PASSWORD=your_secure_password_here
+
+# Spring Profile
+SPRING_PROFILES_ACTIVE=prd
+
+# OpenAI / DeepSeek
+SPRING_AI_OPENAI_API_KEY=your_api_key_here
+SPRING_AI_OPENAI_EMBEDDING_API_KEY=your_embedding_key_here
+
+# Optional: Switch to Anthropic
+# CLAUDEMEM_LLM_PROVIDER=anthropic
+# SPRING_AI_ANTHROPIC_API_KEY=your_anthropic_key_here
+```
+
+## Security Recommendations
+
+- Always change `DB_PASSWORD` to a strong password in production
+- Never commit API keys to version control
+- Use `SPRING_PROFILES_ACTIVE=prd` in production
+- Consider restricting external access to port 5433 (PostgreSQL)
+- The application runs as a non-root user inside the container
+- Logs are persisted via the `claude-mem-logs` Docker volume
 
 ---
 
