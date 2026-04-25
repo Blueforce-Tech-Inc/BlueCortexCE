@@ -231,6 +231,7 @@ docker run -d \
   -e SPRING_AI_OPENAI_BASE_URL=https://api.openai.com \
   -e SPRING_AI_OPENAI_API_KEY=your-api-key \
   -e SPRING_AI_OPENAI_EMBEDDING_API_KEY=your-embedding-key \
+  -e SPRING_AI_OPENAI_EMBEDDING_BASE_URL=https://api.openai.com \
   cortex-ce:latest
 ```
 
