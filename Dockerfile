@@ -50,7 +50,7 @@ EXPOSE 37777
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:37777/actuator/health || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:37777/api/health || exit 1
 
 # JVM options for production
 ENV JAVA_OPTS="-XX:+UseZGC -XX:MaxRAMPercentage=75.0 -XX:+HeapDumpOnOutOfMemoryError"

@@ -98,7 +98,7 @@ Pull pre-built images from GitHub Container Registry:
 docker pull ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main
 
 # Pull specific version
-docker pull ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:v0.1.0
+docker pull ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:v0.1.0-beta
 ```
 
 ### 2.3 Custom Build

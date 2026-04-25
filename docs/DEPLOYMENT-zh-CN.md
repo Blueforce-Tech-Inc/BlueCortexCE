@@ -98,7 +98,7 @@ curl http://localhost:37777/api/health
 docker pull ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main
 
 # 拉取特定版本
-docker pull ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:v0.1.0
+docker pull ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:v0.1.0-beta
 ```
 
 ### 2.3 自定义构建
