@@ -23,8 +23,19 @@ public record ObservationsRequest(
         private Integer limit = 20;
 
         public Builder project(String project) { this.project = project; return this; }
-        public Builder offset(Integer offset) { this.offset = offset; return this; }
+        public Builder offset(Integer offset) {
+            if (offset != null && offset < 0) {
+                throw new IllegalArgumentException("offset must not be negative (got " + offset + ")");
+            }
+            this.offset = offset;
+            return this;
+        }
         public Builder limit(Integer limit) {
+            // limit=0 is intentionally allowed: SDK will omit it from the request,
+            // letting the backend use its default.
+            if (limit != null && limit < 0) {
+                throw new IllegalArgumentException("limit must not be negative (got " + limit + ")");
+            }
             if (limit != null && limit > 100) {
                 throw new IllegalArgumentException("limit must not exceed 100 (got " + limit + ")");
             }

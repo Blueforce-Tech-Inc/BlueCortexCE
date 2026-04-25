@@ -50,8 +50,14 @@ public record ExperienceRequest(
 
         public Builder task(String task) { this.task = task; return this; }
         public Builder project(String project) { this.project = project; return this; }
-        public Builder count(Integer count) { this.count = count; return this; }
-        
+        public Builder count(Integer count) {
+            if (count != null && count <= 0) {
+                throw new IllegalArgumentException("count must be positive (got " + count + ")");
+            }
+            this.count = count;
+            return this;
+        }
+
         /**
          * Filter by source attribution (e.g., "tool_result", "user_statement", "llm_inference", "manual").
          */

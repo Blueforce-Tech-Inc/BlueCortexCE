@@ -51,13 +51,24 @@ public record SearchRequest(
         public Builder concept(String concept) { this.concept = concept; return this; }
         public Builder source(String source) { this.source = source; return this; }
         public Builder limit(Integer limit) {
+            // limit=0 is intentionally allowed: SDK will omit it from the request,
+            // letting the backend use its default. limit<0 throws.
+            if (limit != null && limit < 0) {
+                throw new IllegalArgumentException("limit must not be negative (got " + limit + ")");
+            }
             if (limit != null && limit > 100) {
                 throw new IllegalArgumentException("limit must not exceed 100 (got " + limit + ")");
             }
             this.limit = limit;
             return this;
         }
-        public Builder offset(Integer offset) { this.offset = offset; return this; }
+        public Builder offset(Integer offset) {
+            if (offset != null && offset < 0) {
+                throw new IllegalArgumentException("offset must not be negative (got " + offset + ")");
+            }
+            this.offset = offset;
+            return this;
+        }
         public Builder orderBy(String orderBy) { this.orderBy = orderBy; return this; }
 
         public SearchRequest build() {
