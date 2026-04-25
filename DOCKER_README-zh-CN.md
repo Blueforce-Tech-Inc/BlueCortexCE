@@ -53,7 +53,7 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| `DB_PASSWORD` | 数据库密码 | - |
+| `DB_PASSWORD` | 数据库密码（参见 `.env.docker` 模板） | - |
 | `SPRING_AI_OPENAI_API_KEY` | OpenAI/DeepSeek API key | - |
 | `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | Embedding API key（如 SiliconFlow） | - |
 

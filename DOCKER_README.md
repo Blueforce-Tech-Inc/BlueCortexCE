@@ -53,7 +53,7 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `DB_PASSWORD` | Database password | - |
+| `DB_PASSWORD` | Database password (see `.env.docker` template) | - |
 | `SPRING_AI_OPENAI_API_KEY` | OpenAI/DeepSeek API key | - |
 | `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | Embedding API key (e.g. SiliconFlow) | - |
 

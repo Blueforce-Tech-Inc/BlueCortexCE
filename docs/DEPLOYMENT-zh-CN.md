@@ -126,7 +126,8 @@ services:
     environment:
       POSTGRES_DB: ${DB_NAME:-claude_mem}
       POSTGRES_USER: ${DB_USERNAME:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-}
+      # DB_PASSWORD 必须设置在 .env 中（参考 .env.docker 模板）
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Database password is required — set DB_PASSWORD in your .env file}
     volumes:
       - ${POSTGRES_DATA_PATH:-postgres_data}:/var/lib/postgresql/data
     ports:
@@ -150,7 +151,8 @@ services:
       # 数据库配置
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-claude_mem}
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-}
+      # 使用 DB_PASSWORD — 必须设置在 .env 中（参考 .env.docker 模板）
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?Database password is required — set DB_PASSWORD in your .env file}
 
       # 服务配置
       SERVER_PORT: 37777
@@ -421,7 +423,7 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 | `SPRING_DATASOURCE_PASSWORD` | **是** | - | 数据库密码 |
 | `DB_NAME` | 否 | `claude_mem` | 数据库名称 |
 | `DB_USERNAME` | 否 | `postgres` | 数据库用户名（Docker Compose） |
-| `DB_PASSWORD` | **是** | - | 数据库密码（Docker Compose） |
+| `DB_PASSWORD` | **是** | - | 数据库密码 — 参考 `.env.docker` 模板（Docker Compose） |
 | `POSTGRES_PORT` | 否 | `5433` | PostgreSQL 主机端口（Docker Compose: `host:container`） |
 
 ### 5.3 LLM 配置
