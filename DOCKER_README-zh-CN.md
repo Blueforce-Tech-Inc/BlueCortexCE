@@ -260,12 +260,23 @@ cd scripts
 - `docker-e2e-test.sh`：PostgreSQL `15432`，Java API `38888`
 - `docker-compose-test.sh`：PostgreSQL `15433`，Java API `38889`
 
+### 测试覆盖
+
+| 测试类型 | 说明 |
+|---------|------|
+| API 端点测试 | 验证所有 REST API 端点 |
+| 数据库测试 | 验证 PostgreSQL 和 pgvector |
+| 健康检查测试 | 验证 `/api/health` 端点 |
+| MCP 服务测试 | 验证 MCP 服务器连接 |
+
 ## 生产环境注意事项
 
 - 在 `.env` 中修改默认数据库密码
 - 考虑为生产环境添加 TLS/SSL
 - 应用在容器内以非 root 用户运行
 - 日志通过 `claude-mem-logs` volume 持久化
+- 使用 `prd` profile（已在 docker-compose.yml 中设置）
+- 考虑限制 PostgreSQL 端口（5433）的外部访问
 
 ## 数据持久化
 
@@ -344,40 +355,6 @@ docker build -t cortex-ce:local -f Dockerfile .
 # 4. 使用本地镜像
 IMAGE_NAME=cortex-ce:local docker compose up -d
 ```
-
-## 端到端测试
-
-项目包含针对 Docker 部署的综合 E2E 测试脚本。
-
-### 运行完整 E2E 测试
-
-```bash
-cd scripts
-./docker-e2e-test.sh
-```
-
-该脚本会：
-- 启动 `docker-compose.yml` 中定义的所有服务
-- 运行回归测试验证 API 端点
-- 验证数据库连接和迁移
-- 检查健康检查端点
-
-### 测试覆盖
-
-| 测试类型 | 说明 |
-|---------|------|
-| API 端点测试 | 验证所有 REST API 端点 |
-| 数据库测试 | 验证 PostgreSQL 和 pgvector |
-| 健康检查测试 | 验证 `/api/health` 端点 |
-| MCP 服务测试 | 验证 MCP 服务器连接 |
-
-## 生产环境注意事项
-
-- 使用 `prd` profile（已在 docker-compose.yml 中设置）
-- 数据库密码必须使用强密码
-- 考虑限制 PostgreSQL 端口（5433）的外部访问
-- 生产环境建议配置 TLS/SSL
-- 日志通过 `claude-mem-logs` volume 持久化
 
 ## 仓库结构
 
