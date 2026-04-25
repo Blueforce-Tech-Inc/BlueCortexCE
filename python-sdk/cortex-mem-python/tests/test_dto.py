@@ -246,7 +246,7 @@ class TestDTOFromWire:
             "created_at_epoch": None,
         }
         obs = Observation.from_wire(data)
-        assert obs.quality_score == 0.0
+        assert obs.quality_score is None
         assert obs.prompt_number == 0
         assert obs.created_at_epoch == 0
 
@@ -936,7 +936,7 @@ class TestDTOFromWire:
         assert exp.strategy == ""
         assert exp.outcome == ""
         assert exp.reuse_condition == ""
-        assert exp.quality_score == 0.0
+        assert exp.quality_score is None
         assert exp.created_at == ""
 
     def test_extraction_result_from_wire_null_strings(self):
@@ -1053,10 +1053,10 @@ class TestNullSafetyExtra:
         assert resp.count == 0
 
     def test_experience_quality_score_null(self):
-        """Experience.quality_score should be 0.0 when backend sends null."""
+        """Experience.quality_score should be None when backend sends null (matches Java SDK Float)."""
         data = {"id": "e1", "quality_score": None}
         exp = Experience.from_wire(data)
-        assert exp.quality_score == 0.0
+        assert exp.quality_score is None
 
 
 class TestSanitizeExperience:

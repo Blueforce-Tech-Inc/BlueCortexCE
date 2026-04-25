@@ -67,6 +67,31 @@ def _to_float(v: object, default: float = 0.0) -> float:
     return default
 
 
+def _parse_nullable_float(v: object) -> float | None:
+    """Safely convert wire value to float | None (preserves null from backend).
+
+    Returns None if v is None (backend sent null).
+    Returns None for NaN/Inf to prevent invalid JSON output.
+    Matches _to_float()'s NaN/Inf sanitization for cross-function consistency.
+    """
+    if v is None:
+        return None
+    if isinstance(v, (int, float)):
+        f = float(v)
+        if f != f or f == float("inf") or f == float("-inf"):  # NaN or Inf
+            return None
+        return f
+    if isinstance(v, str):
+        try:
+            f = float(v)
+            if f != f or f == float("inf") or f == float("-inf"):
+                return None
+            return f
+        except ValueError:
+            return None
+    return None
+
+
 def _to_str_list(v: object, default: list[str] | None = None) -> list[str]:
     """Safely convert wire value to list[str].
 
@@ -233,7 +258,7 @@ class Experience:
     strategy: str = ""
     outcome: str = ""
     reuse_condition: str = ""
-    quality_score: float = 0.0
+    quality_score: float | None = None
     created_at: str = ""
 
     def __repr__(self) -> str:
@@ -267,7 +292,7 @@ class Experience:
             strategy=data.get("strategy") or "",
             outcome=data.get("outcome") or "",
             reuse_condition=_first_non_null(data, "reuse_condition", "reuseCondition") or "",
-            quality_score=_to_float(_first_non_null(data, "quality_score", "qualityScore"), 0.0),
+            quality_score=_parse_nullable_float(_first_non_null(data, "quality_score", "qualityScore")),
             created_at=_first_non_null(data, "created_at", "createdAt") or "",
         )
 
@@ -409,7 +434,7 @@ class Observation:
     concepts: list[str] = field(default_factory=list)
     files_read: list[str] = field(default_factory=list)
     files_modified: list[str] = field(default_factory=list)
-    quality_score: float = 0.0
+    quality_score: float | None = None
     feedback_type: str = ""  # SUCCESS/PARTIAL/FAILURE/UNKNOWN
     feedback_updated_at: str = ""
     source: str = ""
@@ -463,7 +488,7 @@ class Observation:
             d["files_read"] = self.files_read
         if self.files_modified:
             d["files_modified"] = self.files_modified
-        if self.quality_score:
+        if self.quality_score is not None:
             d["quality_score"] = _sanitize_for_json(self.quality_score)
         if self.feedback_type:
             d["feedback_type"] = self.feedback_type
@@ -512,7 +537,7 @@ class Observation:
             concepts=_to_str_list(data.get("concepts")),
             files_read=_to_str_list(_first_non_null(data, "files_read", "filesRead")),
             files_modified=_to_str_list(_first_non_null(data, "files_modified", "filesModified")),
-            quality_score=_to_float(_first_non_null(data, "quality_score", "qualityScore")),
+            quality_score=_parse_nullable_float(_first_non_null(data, "quality_score", "qualityScore")),
             feedback_type=_first_non_null(data, "feedback_type", "feedbackType") or "",
             feedback_updated_at=_first_non_null(data, "feedback_updated_at", "feedbackUpdatedAt") or "",
             source=data.get("source") or "",
