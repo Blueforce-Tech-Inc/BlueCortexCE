@@ -193,7 +193,7 @@ def search():
         query=request.args.get("query", ""),
         type_=request.args.get("type", ""),
         concept=request.args.get("concept") or "",
-        source=request.args.get("source") or None,
+        source=request.args.get("source", "") or "",
         limit=limit,
         offset=offset,
         order_by=request.args.get("orderBy") or "",
@@ -248,9 +248,9 @@ def experiences():
         task=task,
         project=project,
         count=count,
-        source=request.args.get("source") or None,
+        source=request.args.get("source", "") or "",
         required_concepts=required_concepts,
-        user_id=request.args.get("userId") or None,
+        user_id=request.args.get("userId", "") or "",
     )
     return jsonify(experiences=[e.to_dict() for e in exps], count=len(exps))
 
