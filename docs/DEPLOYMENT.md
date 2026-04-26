@@ -440,7 +440,7 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `SPRING_AI_ANTHROPIC_API_KEY` | **Yes** | - | Anthropic API key (alias: `ANTHROPIC_API_KEY`) |
+| `SPRING_AI_ANTHROPIC_API_KEY` | No | - | Anthropic API key — required only when `CLAUDEMEM_LLM_PROVIDER=anthropic` (alias: `ANTHROPIC_API_KEY`) |
 | `SPRING_AI_ANTHROPIC_BASE_URL` | No | `https://api.anthropic.com` | API base URL (alias: `ANTHROPIC_BASE_URL`) |
 | `SPRING_AI_ANTHROPIC_CHAT_MODEL` | No | `claude-sonnet-4-5` | Model name (alias: `ANTHROPIC_MODEL`) |
 | `CLAUDEMEM_LLM_PROVIDER` | No | `openai` | LLM provider (`openai`/`anthropic`) |
@@ -1111,5 +1111,5 @@ wrk -t4 -c50 -d30s \
 
 ---
 
-**Last Updated**: 2026-04-25
+**Last Updated**: 2026-04-26
 **Version**: 0.1.0-beta

@@ -440,7 +440,7 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 
 | 变量名 | 必填 | 默认值 | 说明 |
 |--------|------|--------|------|
-| `SPRING_AI_ANTHROPIC_API_KEY` | **是** | - | Anthropic API 密钥（别名：`ANTHROPIC_API_KEY`） |
+| `SPRING_AI_ANTHROPIC_API_KEY` | 否 | - | Anthropic API 密钥 — 仅在 `CLAUDEMEM_LLM_PROVIDER=anthropic` 时需要（别名：`ANTHROPIC_API_KEY`） |
 | `SPRING_AI_ANTHROPIC_BASE_URL` | 否 | `https://api.anthropic.com` | API 基础 URL（别名：`ANTHROPIC_BASE_URL`） |
 | `SPRING_AI_ANTHROPIC_CHAT_MODEL` | 否 | `claude-sonnet-4-5` | 模型名称（别名：`ANTHROPIC_MODEL`） |
 | `CLAUDEMEM_LLM_PROVIDER` | 否 | `openai` | LLM 提供商（openai/anthropic） |
@@ -1111,5 +1111,5 @@ wrk -t4 -c50 -d30s \
 
 ---
 
-**最后更新**: 2026-04-25
+**最后更新**: 2026-04-26
 **版本**: 0.1.0-beta
