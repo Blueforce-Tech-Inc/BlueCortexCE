@@ -267,10 +267,11 @@ class Experience:
     def to_dict(self) -> dict:
         """Serialize to a dict with Pythonic snake_case keys.
 
-        Only non-empty fields are included (consistent with other SDK DTOs).
-        For exact wire format matching the backend, see the Go/JS SDK serialization.
-        quality_score is sanitized via _sanitize_for_json to prevent NaN/Inf
-        from leaking into output (not valid JSON per RFC 7159).
+        All fields are always included (unlike Observation.to_dict() which omits
+        empty fields). This is intentional for Experience since it is a read-only
+        DTO — users construct Experience objects themselves, so there is no wire-format
+        round-trip concern. quality_score is sanitized via _sanitize_for_json to
+        prevent NaN/Inf from leaking into output (not valid JSON per RFC 7159).
         """
         return _sanitize_for_json({
             "id": self.id,
