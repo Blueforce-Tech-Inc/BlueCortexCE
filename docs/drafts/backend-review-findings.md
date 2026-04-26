@@ -3057,3 +3057,47 @@ Total: 426/426 tests passed
 | 设计质量 | ✅ LLM 可选注入 + 双模式 | ⚠️ withPage 语义问题 |
 
 **总结**: 无 P0/P1 问题。3 个 P2 问题（withPage offset 计算、serialVersionUID 缺失、equals 语义不一致），均为低风险改进项。
+
+
+
+---
+
+### 2026-04-25 08:35 | Python SDK Review #1
+
+**审查方向**: Python SDK (`python-sdk/cortex-mem-python/`)
+
+**审查范围**:
+- `cortex_mem/client.py` — 25 个 API 方法实现
+- `cortex_mem/dto.py` — 全部 DTO dataclasses（Session/Experience/Observation/Search/Extraction/Quality/Modes）
+- `cortex_mem/error.py` — 错误类型 + 15 个错误谓词函数
+- `examples/http-server/app.py` — Flask HTTP Server Demo
+
+**测试验证**: ✅ 374/374 tests passed
+
+#### 发现的问题
+
+**无 P0/P1/P2 问题**。
+
+#### 代码质量评价
+
+| 检查项 | client.py | dto.py | error.py | HTTP Server Demo |
+|--------|-----------|--------|----------|------------------|
+| 输入验证 | ✅ TrimSpace + requireNonBlank 全覆盖 | ✅ `or ""` null-safe | N/A | ✅ `_require` 中间件 |
+| 错误处理 | ✅ fire-and-forget vs propagate 分离 | ✅ _to_float NaN/Inf 防护 | ✅ 15 个 predicate 函数完整 | ✅ 分层错误处理器 |
+| 重试策略 | ✅ 线性退避 ±25% jitter，仅重试 429/502/503/504 | N/A | ✅ is_retryable/is_retryable_error | N/A |
+| Fire-and-forget | ✅ swallow error + maxRetries | N/A | N/A | N/A |
+| Wire Format | ✅ camelCase snake_case 双格式 | ✅ firstNonNullOr 双格式兼容 | ✅ statusCode/field/message 结构 | ✅ request body 原样透传 |
+| 类型安全 | ✅ 全面 Python typing | ✅ dataclass + ClassVar | ✅ isinstance 检查 | ✅ type() 检查 |
+| 并发安全 | ✅ 纯实例方法，无共享可变状态 | ✅ 纯 dataclass | ✅ 纯函数 | ✅ 纯函数 |
+
+#### 亮点
+
+- **Experience.quality_score Float 一致性**: Python `float` 在 backend 返回 null 时正确反序列化为 `0.0`（`_to_float` 默认值），与 Java SDK 的 `Float qualityScore → null → 0.0f` 行为完全一致。Python float 是对象类型（可赋 None），但此处 `0.0` 作为默认值是合理设计决策。
+- **content/narrative 冲突检测**: `client.py update_observation()` 正确检测 `content` 和 `narrative` 不能同时设置（两者映射到同一 backend 字段），抛出明确的 `ValidationError`，与 Java SDK 行为完全对齐。
+- **Observation 完整 4 个新字段**: `access_count`, `refined_at`, `refined_from_ids`, `user_comment` 均已在 `dto.py Observation.from_wire()` 中正确解析，使用 `_to_str_list` / `_to_int` / `_first_non_null` 防御性 helper。
+- **Fire-and-forget 语义**: `_fire_and_forget` 实现与 Go SDK 完全一致：线性 backoff (`baseDelay * attempt`) + ±25% jitter；非重试错误（is_retryable=False）立即放弃；最多 `max_retries` 次重试。
+- **Error predicate 全面**: 15 个错误谓词函数（is_retryable/is_validation_error/is_not_found/is_bad_request 等），与 Go/JS SDK 完全对齐。
+- **HTTP Server Demo**: `atexit.register(client.close)` 确保服务器关闭时释放 HTTP session；`_parse_int_param` 与 Go demo 解析逻辑对齐。
+
+**审查结论**: 0 个 P0/P1/P2 问题。Python SDK 代码质量优秀，25 个 API 方法实现完整，wire format 与 backend 完全对齐，错误处理健壮，374 个测试全部通过。HTTP Server Demo 正确暴露全部 25 个 SDK API 方法作为 REST 端点。
+

@@ -53,6 +53,6 @@ find docs/drafts/hermes-memory -name '*.md' -exec wc -c {} + | sort -n | tail -1
 - `07`（48485 → §45–§52 → [`30`](60-evolution/30-contradiction-detection-and-session-tools.md) ~33.6KB；§44–§45 RetainDB/Supermemory → [`29`](60-evolution/29-memory-provider-hooks-advanced-topics.md)）（2026-04-24）
 - `04`（48797 → §20–§22 ~22.6KB 保留原地；§24–§29 → [`06-honcho-holographic-deep-advanced.md`](50-honcho-holographic-deep/06-honcho-holographic-deep-advanced.md) ~25KB）（2026-04-24）
 
-> **新增（2026-04-19）**：[`60-evolution/17-smart-compression-and-exhaustion-fix.md`](60-evolution/17-smart-compression-and-exhaustion-fix.md)（8,487 bytes）— Smart compression anti-thrashing / MD5 dedup / exhaustion loop fix
+> **新增（2026-04-25）**：[`60-evolution/39-session-auto-prune-secrets-redaction-and-bugfixes.md`](60-evolution/39-session-auto-prune-secrets-redaction-and-bugfixes.md)（8,021 bytes）— Session Auto-Prune+VACUUM / Secrets Redaction in Compaction / Summary Fallback Fix / ContextEngine ABC Fix
 
 **上游源码（本地常见路径）**：内置工具侧 **`MemoryStore`** 等可在 `hermes-agent/tools/memory_tool.py` 对照（与 backlog「`memory_manager` / `memory_provider`」条目联动）；路径以本机克隆为准。

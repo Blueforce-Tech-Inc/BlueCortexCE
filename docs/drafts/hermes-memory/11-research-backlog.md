@@ -2,7 +2,7 @@
 
 > **角色**：可勾选短队列；**不**重复 [`20-recommendations/02-bluecortexce-recommendations.md`](20-recommendations/02-bluecortexce-recommendations.md) 表格全文。  
 > **CE 安全与出口现状盘点**：[`20-recommendations/05-ce-context-security-gap-inventory.md`](20-recommendations/05-ce-context-security-gap-inventory.md)  
-> **最后更新**：2026-04-24 11:33（Evolver E2E 走查：34/37/46 三链路已覆盖，无重大 gap；`context_references.py → CE 借鉴` 行动项已在 [`31`](60-evolution/31-context-references-file-expansion.md) §8 完整记录；上游无新记忆相关提交）
+> **最后更新**：2026-04-25 14:55（本地 HEAD `e5647d78` vs origin/main `e5647d78`（已同步）；`e69526be..e5647d78` ~1645 commits 扫描；memory 相关新增 doc 45（`260ae621` on_session_finalize expiry flush / `df55660e` Hindsight CPU 检测 / `0e235947` redact config bridge）；文档体系 45 篇总计 ~814KB，最大单稿 46922 字节，远低于 50KB 上限）
 
 ---
 
@@ -25,7 +25,8 @@
 - [x] **Session Search Tool — FTS5 + LLM Recall**：`tools/session_search_tool.py` — 双模式（空查询=recent / 有查询=FTS5 search）/ 智能截断（position-aware windowing）/ 并行 summarization / auxiliary model / delegation chain resolution → [`21`](60-evolution/21-session-search-tool.md)（2026-04-23 新增）
 - [x] **Hindsight 知识图谱深度解析**（TEMPR 四路检索 / Observation 合并 / 实体消解 / 双时间模型 / Reflect Agentic Loop / Disposition System）：→ [`22`](60-evolution/22-hindsight-knowledge-graph-deep-dive.md)（2026-04-23 新增；源自 Hindsight 官方文档 + Hermes Agent 源码；对照 CE 差距并按实施难度排序可执行借鉴项）
 - [x] **单文件逼近 50KB 时预拆分（2026-04-24）**: `06`（48903 → ~38.5KB）：§43–§44 → [`29`](60-evolution/29-memory-provider-hooks-advanced-topics.md)；`07`（48485 → §45–§52 → [`30`](60-evolution/30-contradiction-detection-and-session-tools.md) ~33.6KB，§44–§45 → [`29`](60-evolution/29-memory-provider-hooks-advanced-topics.md)）；`04`（48797 → §20–§22 ~22.6KB 原地，§24–§29 → [`06-honcho-holographic-deep-advanced.md`](50-honcho-holographic-deep/06-honcho-holographic-deep-advanced.md) ~25KB）；AGENT.md 预警表已更新。当前最大文件 ~47KB（`09`），下次逼近上限时继续拆分。
-- [x] **Preemptive split doc 02**（2026-04-24）：`02` 47794 字节 → 拆出 §11–§15 深度专题至 [`02b-deep-dives.md`](20-recommendations/02b-deep-dives.md)（16066 + 2730 字节）；更新 index.md 读序 + AGENT.md 预警表。
+- [x] **Session Auto-Prune + Secrets Redaction + Bug Fixes（2026-04-25 cron）**：`b8663813`（Session Auto-Prune + VACUUM at Startup，`state_meta` 幂等表，opt-in）/ `3368814a`（Secrets Redaction in Context Compaction 三层防御）/ `c0385873`（Summary Model Fallback NameError Fix）/ `a9a4416c`（ContextEngine ABC `has_content_to_compress()` plugin 兼容性） → [`39`](60-evolution/39-session-auto-prune-secrets-redaction-and-bugfixes.md)；更新 index.md + research backlog。
+- [x] **on_session_finalize Expiry Flush + Hindsight CPU Detection + Redact Config Bridge（2026-04-25 cron）**：`260ae621`（`on_session_finalize` 新增 expiry flush 调用点，4 调用点全览，Provider 均未实现该 hook，/resume 缺口）+ `25465fd8`（回归测试）+ `df55660e`（`_check_local_runtime()` CPU 检测graceful degrade）+ `0e235947`（`security.redact_secrets` config.yaml→env bridge before setup_logging，151 行测试） → [`45`](60-evolution/45-on-session-finalize-expiry-flush-cpu-detection-and-redact-bridge.md)；更新 index.md + research backlog；本地 Hermes Agent repo 同步至 `origin/main`（`e5647d78`）。
 - [x] **ContextEngine 可插拔架构新增分析**（2026-04-24）：`agent/context_engine.py`（184 lines）ABC 抽象 + 插件发现 + 生命周期 + Token 追踪 + 与 MemoryProvider 对比 → [`27`](60-evolution/27-context-engine-pluggable-architecture.md)；更新 index.md 读序（补全 23–27 编号）。
 - [x] **上游 hermes-agent 同步（2026-04-23 代码实地复核）**: 2026-04-15 之后 memory 相关文件**无新提交**；`memory_tool.py`、`holographic/`、`session_search_tool.py` 均无变化。快照 [`12`](60-evolution/12-upstream-hermes-agent-memory-snapshot.md) · [`13`](60-evolution/13-run-agent-memory-wiring-snapshot.md) 仍准确。
 - [x] **Auxiliary Client 深度解析**：`agent/auxiliary_client.py` (2615 lines) Provider Resolution Chain / 7-Provider Fallback / Payment Error Recovery / Codex & Anthropic Adapters → [`23`](60-evolution/23-auxiliary-client-resolution-chain.md)（2026-04-23 新增）
@@ -113,3 +114,40 @@
 - [x] **上游代码增量扫描**：`a5129c72..origin/main`（~30 commits）记忆相关最重要发现：`6a957a74` — **Write Origin Metadata**，向 `on_memory_write` hook 新增结构化 provenance metadata（`write_origin`/`execution_context`/`session_id`/`platform`/`task_id`/`tool_call_id`），通过 signature inspection 实现向后兼容的三种传递模式；相关：Tool Call Repair 三层（`17fc84c2`/`2d444fc8`/`7a192b12`）。分析文档 → [`37`](60-evolution/37-upstream-new-commits-write-origin-metadata-and-tool-call-repair.md)。
 - [x] **文档体量验证**：最大文件仍为 `09`（46922 字节），无增长，无需拆分。新增 `37` ~8.7KB。
 - [x] **Backlog 全部项 `[x]`**：无待跟进项（`context_references → CE` 行动项已记录于 [`31`](60-evolution/31-context-references-file-expansion.md) §8；Evolver E2E 走查已覆盖；`on_session_finalize` hook 已在 [`19`](60-evolution/19-gateway-session-expiry-watcher.md) 记录）。
+
+## 定时巡检（2026-04-25 06:55 CST）
+
+- [x] **文档体量验证**：全部 `.md` 文件字节数扫描，最大 46922 字节（`09-supermemory-capture-lifecycle.md`），远低于 50KB 上限。入口文件 `hermes-memory-analysis.md` 仅 1553 字节。无需拆分。
+- [x] **上游代码增量扫描（2026-04-25 06:55）**：本地 HEAD `e69526be` vs origin/main `c61547c0`（~40 commit 差距）。`e69526be` 是 origin/main 的超集（本地领先），两者间无新的记忆系统相关 commit。最近 upstream commits（`6f1eed39..HEAD`）涵盖 TUI null-guard / WhatsApp identity / Bedrock auth / OAuth token refresh，均与记忆系统无关。
+- [x] **RetainDB 深度分析候选**：RetainDB Provider（766 行）尚无独立深度分析文档，已知特性：SQLite write-behind queue / SOUL.md Agent self-model / Dialectic synthesis / `memory_type` 枚举；可作为下次巡检时补充。
+- [x] **Backlog 全部项 `[x]`**：无待跟进项。
+
+## 定时巡检（2026-04-25 07:15 CST）
+
+- [x] **上游代码增量扫描（`e69526be..4fade39c`）**：origin/main 从 `c61547c0` 前进了 `4fade39c`（~40 commit）。`e69526be..c61547c0` 仅 2 个 memory 相关：`6a957a74`（已在 doc 37）+ `8a2506af`（aux UI 修复）。`c61547c0..4fade39c` 核心记忆相关三 commit：
+  1. **`c630dfcd`**（2026-04-18）：**Dialectic Liveness 三机制** — stale-thread watchdog（`_thread_is_live()` 将 >`timeout×2.0` 的线程判死）/ stale-result discard（prefetch result 携带 fire turn，>`cadence×2` turns 未消费则丢弃）/ empty-streak backoff（连续空结果将 effective cadence 扩大至 `dialectic_cadence+streak`，上限 `cadence×8`）。这是 doc 07 `empty-streak backoff` 的**强化补丁**，需更新 doc 07。
+  2. **`6ab78401`**（2026-04-20）：**session_search extra_body + max_concurrency** — `extra_body` passthrough 透传给 auxiliary reasoning-heavy provider；`max_concurrency` 默认 3（clamp 1-5）防 429；`session_search_tool.py` 用信号量限制并发。值得在 doc 21 + doc 23 中简注。
+  3. **`82b92777`**（2026-04-20）：**TUI /clean 重构** — memory helpers 90 LOC 重构（`circularBuffer`/`gracefulExit`/`memoryMonitor`），无行为变更，非核心系统。
+- [x] **文档体量验证**：全部 `.md` 文件字节数扫描，最大 46922 字节（`09`），远低于 50KB 上限。文档体系总计 ~785KB。
+- [x] **Doc 07 更新完成**（2026-04-25 07:15）：§3.3 新增 stale-thread watchdog（`_thread_is_live()` timeout×2.0 判死）/ §5.4 新增 prefetch 线程判活逻辑 / §5.5 新增 stale-result discard（fire_at 标签 + staleness 检查）/ §5.6 重命名 empty-streak backoff。文件大小 13522 字节，远低于 50KB。
+- [x] **Backlog 全部项 `[x]`**：无待跟进项。
+
+- [x] **RetainDB Provider 深度分析（2026-04-25）**：`plugins/memory/retaindb/__init__.py`（766 行）无独立分析文档 → [`44`](60-evolution/44-retaindb-provider-deep-dive.md)；覆盖：SQLite write-behind queue（crash-safe）/ Dialectic synthesis / SOUL.md seeding / 文件存储 5 工具 / memory_type 枚举 / `on_memory_write` 镜像；CE 可执行借鉴（SOUL.md 播种、crash-safe queue、memory_type 枚举）；更新 index.md（item 44）。
+- [x] **Supermemory + Mem0 Provider 深度分析（2026-04-25）**：8 个 Provider 中最后两个无独立分析文档 → Supermemory [`46`](60-evolution/46-supermemory-provider-deep-dive.md)（791 行）：trivial message 过滤 / profile frequency 节流 / write gating for subagent / multi-container / entity context 可配置提示词 / session-end batch ingest；Mem0 [`47`](60-evolution/47-mem0-provider-deep-dive.md)（373 行）：server-side extraction / circuit breaker 5-failure 120s / per-user+per-agent 双层过滤 / reranking 分级 / `infer=False` 显式存储 / API response 归一化；全部 8 Provider 分析完成；更新 index.md（item 46/47）。
+- [x] **文档体量验证（2026-04-25 16:55 CST）**：59 个 .md 文件总计 ~841KB，最大 46922 字节（`09-supermemory-capture-lifecycle.md`），全部低于 50KB 上限。新增 `46`（10406 字节）+ `47`（8487 字节）。
+- [x] **上游代码同步（2026-04-25 16:55 CST）**：HEAD 已同步 origin/main（`e5647d78`），无新 upstream commits。
+- [x] **`agent/memory_provider.py` ABC 源码核实（2026-04-25）**：240 行 ABC，15 个方法，10 个可选 hook；`on_memory_write` 已含 `metadata` 参数（`6a957a74` 引入）；docstring 自带详细说明，无需独立文档。
+- [x] **8 Provider 全部分析完成**：holographic / honcho / mem0 / hindsight / byterover / openviking / retaindb / supermemory — 每 Provider 至少一篇独立深度分析文档（部分如 holographic 有 3 篇）。
+
+## 定时巡检（2026-04-25 13:59 CST）
+
+- [x] **文档体量验证**：入口文件 `hermes-memory-analysis.md` 仅 1553 字节，远低于 50KB 上限。目录结构已合规（`index.md` 入口，子文档按 aspect 拆分），无需重构。
+- [x] **上游代码增量扫描（`e69526be..origin/main`，54 commits）**：记忆系统相关 commit 均已在 v8.3 分析覆盖（doc 37/38/40/43）：
+  - `6a957a74` — Write Origin Metadata（→ doc 37 ✅）
+  - `00c3d848` — Skip External-Provider Sync on Interrupted Turns（→ doc 38 ✅）
+  - `19a3e2ce` — Gateway /resume compression continuation（→ doc 40 ✅）
+  - `c52e5931` — Per-User Memory Scoping（→ doc 43 ✅）
+  - `8877688b` / `9d42aca2` — Hindsight 小修复（→ doc 43 ✅）
+  非记忆相关（工具/UI/Delegate/Auth）：`dbdefa43`（checkpoint dedup + NaN coercion）、`ef935545`（回归测试）、`8a2506af`（aux UI）、`05d8f110`（model context length）、`023b1bff`（delegate deadlock fix）等，均不影响记忆系统架构。
+- [x] **文档体系总计**：43 篇正文 + 入口 ~793KB，最大单稿 46922 字节（`09-supermemory-capture-lifecycle.md`），全部低于 50KB 上限。
+- [x] **Backlog 全部项 `[x]`**：v8.3 完成，无待跟进新发现。下一轮巡检继续跟踪上游新 commit。

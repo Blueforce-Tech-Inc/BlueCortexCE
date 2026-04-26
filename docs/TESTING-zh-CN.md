@@ -37,6 +37,32 @@
 ./scripts/phase3-acceptance-test.sh
 ```
 
+### 3. SDK 和演示集成测试
+
+位于 `scripts/` 目录：
+
+| 脚本 | 说明 |
+|------|------|
+| `go-sdk-e2e-test.sh` | Go SDK 端到端测试 |
+| `java-sdk-e2e-test.sh` | Java SDK 端到端测试 |
+| `js-sdk-e2e-test.sh` | JavaScript SDK 端到端测试 |
+| `python-demo-e2e-test.sh` | Python SDK 演示测试 |
+| `demo-v14-test.sh` | Demo v14 功能测试 |
+| `demo-v15-test.sh` | Demo v15 功能测试 |
+| `demo-v15-extraction-test.sh` | Demo v15 extraction 功能测试 |
+| `evo-memory-e2e-test.sh` | 进化记忆 E2E 测试 |
+| `openclaw-plugin-test.sh` | OpenClaw 插件集成测试 |
+
+**前置条件：** 与回归测试相同（后端运行，数据库已配置）。
+
+```bash
+# 运行指定 SDK 测试
+./scripts/go-sdk-e2e-test.sh
+
+# 运行所有演示测试
+./scripts/demo-v15-test.sh
+```
+
 ### 4. Git 子模块设置（WebUI）
 
 本项目使用 git 子模块引入 WebUI。构建前需初始化子模块：
@@ -170,3 +196,12 @@ cd backend
 2. 验证数据库连接
 3. 确认 API keys 已配置
 4. 查看测试输出中的具体错误
+
+---
+
+## 变更日志
+
+| 日期 | 变更 |
+|------|------|
+| 2026-04-26 | 新增第 3 节：SDK 和演示集成测试（9 个脚本）；修复章节编号缺失问题（原缺少 ### 3，现为 1–8 连续编号） |
+| 2026-04-03 | 新增 Phase 3 验收测试章节；在 E2E 表格中添加 webui-integration-test.sh 和 docker-e2e-test.sh |

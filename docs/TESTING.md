@@ -37,6 +37,32 @@ Located in `scripts/` directory:
 ./scripts/phase3-acceptance-test.sh
 ```
 
+### 3. SDK and Demo Integration Tests
+
+Located in `scripts/` directory:
+
+| Script | Description |
+|--------|-------------|
+| `go-sdk-e2e-test.sh` | Go SDK end-to-end tests |
+| `java-sdk-e2e-test.sh` | Java SDK end-to-end tests |
+| `js-sdk-e2e-test.sh` | JavaScript SDK end-to-end tests |
+| `python-demo-e2e-test.sh` | Python SDK demo tests |
+| `demo-v14-test.sh` | Demo v14 feature tests |
+| `demo-v15-test.sh` | Demo v15 feature tests |
+| `demo-v15-extraction-test.sh` | Demo v15 extraction feature tests |
+| `evo-memory-e2e-test.sh` | Evolutionary memory E2E tests |
+| `openclaw-plugin-test.sh` | OpenClaw plugin integration tests |
+
+**Prerequisites:** Same as regression tests (backend running, database configured).
+
+```bash
+# Run a specific SDK test
+./scripts/go-sdk-e2e-test.sh
+
+# Run all demo tests
+./scripts/demo-v15-test.sh
+```
+
 ### 4. Git Submodule Setup (WebUI)
 
 The project uses a git submodule for WebUI. Before building, initialize the submodule:
@@ -150,7 +176,7 @@ docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=123456 pgvector/pgvector:pg16
 
 ```bash
 # Start the server
-cd java/backend
+cd backend
 ./mvnw spring-boot:run
 ```
 
@@ -160,3 +186,12 @@ cd java/backend
 2. Verify database connection
 3. Confirm API keys are set
 4. Review test output for specific errors
+
+---
+
+## Changelog
+
+| Date | Change |
+|------|--------|
+| 2026-04-26 | Added Section 3: SDK and Demo Integration Tests (9 scripts); fixed section numbering gap (was missing ### 3, now 1–8 sequential) |
+| 2026-04-03 | Added Phase 3 acceptance test section; added webui-integration-test.sh and docker-e2e-test.sh to E2E table |

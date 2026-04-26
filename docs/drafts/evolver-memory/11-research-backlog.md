@@ -40,11 +40,12 @@
 
 ## Evolver 侧（外部源码）
 
+- [x] **`reflection.js` 模块深度分析**（`59` 新增）：computeReflectionInterval 三态算法（3/5/8）/ shouldReflect 双重条件（周期对齐+冷却30min）/ 预聚合统计（intent分布/gene频率）/ 5问战略复盘框架与精确JSON输出格式 / `buildSuggestedMutations` 信号→参数映射 / JSONL读写机制 / 与innovation.js功能/参数二级互补 / CE自我诊断框架与元级SummaryEntity提案。详见 [`59`](./59-reflection-js-module-deep-dive.md)。
 - [ ] **EvoMap/evolver 版本差分**：若本地仓库更新，在对应 `01`–`08` 分片增补差异摘要，**不在此文件**堆长文。
 
 - [x] **自适应策略策略借鉴**（`45` 新增）：Evolver 每周期动态计算执行策略（repair streak / failure streak / blast radius），CE `ContextService` 可参考实现注入策略动态切换。详见 [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) §1。
 - [x] **候选评估管线借鉴**（`45` 新增）：Evolver 从会话转录提取重复模式（≥3次），生成 Five Questions Shape 候选。CE 可参考实现高频观察模式自动发现。详见 [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) §2。
-- [ ] **Git 自修复借鉴**：Evolver 在进化前自动修复 Git 异常。CE 可参考实现写入前自检（数据库连接、事务状态）。详见 [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) §3。
+- [x] **Git 自修复借鉴**（`26` 已覆盖）：Evolver `self_repair.js` 在进化前自动修复 Git 异常（abort rebase/merge、删除 stale index.lock、可选 hard reset）。CE 可参考实现写入前自检（数据库连接、事务状态）。详见 [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) §3。
 - [x] **`policyCheck.js` 约束系统深度分析**（`42` 新增）：`isConstraintCountedPath` 路径匹配决策树（excludePrefix → includePrefix → extension 优先级）、`computeBlastRadius`（git numstat + untracked 行数统计 + baseline 对比）、`classifyBlastSeverity` 5级分类（hard_cap_breach / critical_overrun / exceeded / approaching_limit / within_limit）、验证命令白名单（`isValidationCommandAllowed` 禁止 `node -e`/shell 操作符）、伦理模式检测（5 种 regex 模式）、`detectDestructiveChanges` 关键文件删除/清空检测。详见 [`42`](./42-policycheck-constraint-system-deep-dive.md)。
 
 - [ ] **OMLS 启发式自适应休眠调度借鉴**（`45` 新增）：`idleScheduler.js` 提供 `getScheduleRecommendation()` 返回 `idle_seconds`、`intensity`、`sleep_multiplier`、`should_distill`。CE 巡检 cron 可参考实现：低活跃→2小时、中活跃→30分钟、高活跃→15分钟；连续空闲→最长4小时；`should_distill` 对应失败积累自动触发修复任务。详见 [`45`](./45-idleScheduler-OMLS-and-llmReview.md) §1。
