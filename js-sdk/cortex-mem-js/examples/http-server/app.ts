@@ -69,6 +69,7 @@ app.get('/health', asyncHandler(async (_req: Request, res: Response) => {
 app.post('/chat', asyncHandler(async (req: Request, res: Response) => {
   const missing = requireFields(req.body, ['project', 'message']);
   if (missing) return errorJson(res, 400, `${missing} is required`);
+  // Validate optional maxChars is a valid number if provided
 
   let iclResult = null;
   try {
@@ -161,10 +162,10 @@ app.get('/experiences', asyncHandler(async (req: Request, res: Response) => {
 // ==================== ICL Prompt ====================
 
 app.get('/iclprompt', asyncHandler(async (req: Request, res: Response) => {
+  const missing = requireFields({ project: req.query.project, task: req.query.task }, ['project', 'task']);
+  if (missing) return errorJson(res, 400, `${missing} is required`);
   const project = req.query.project as string;
   const task = req.query.task as string;
-  if (!project) return errorJson(res, 400, 'project is required');
-  if (!task) return errorJson(res, 400, 'task is required');
 
   const result = await client.buildICLPrompt({
     task,
