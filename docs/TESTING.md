@@ -122,6 +122,16 @@ cd scripts
 ./mcp-e2e-test.sh
 ```
 
+#### Run Docker Deployment Tests
+
+```bash
+# Docker Compose deployment tests
+./scripts/docker-compose-test.sh
+
+# Docker standalone E2E tests
+./scripts/docker-e2e-test.sh
+```
+
 ### 6. Test Environment Variables
 
 | Variable | Default | Description |
