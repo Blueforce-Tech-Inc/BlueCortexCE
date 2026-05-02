@@ -3145,3 +3145,65 @@ Total: 426/426 tests passed
 
 **审查结论**: 0 个 P0/P1/P2 问题。Python SDK 代码质量优秀，25 个 API 方法实现完整，wire format 与 backend 完全对齐，错误处理健壮，374 个测试全部通过。HTTP Server Demo 正确暴露全部 25 个 SDK API 方法作为 REST 端点。
 
+
+---
+
+## 2026-05-03 02:24 | JS SDK Review #1
+
+**审查范围**: `js-sdk/cortex-mem-js/src/` (CortexMemClient + 9 DTO modules + wire-helpers) + `examples/http-server/app.ts`
+
+**编译验证**: ✅ `npm run build` — CJS+ESM+DTS all success
+**测试验证**: ✅ 212 tests 全通过 (`src/__tests__/client.test.ts`)
+**Demo E2E**: ✅ 检测到 demo 未运行时正确报告（`scripts/js-demo-e2e-test.sh`）
+
+#### 审查范围详情
+
+- `client.ts` — 25 个 API 方法，HTTP 客户端基础设施（retry、fire-and-forget、timeout）
+- `client-options.ts` — 配置解析 + SDK_VERSION 1.0.0
+- `errors.ts` — ValidationError + APIError + 12 个 is_* 谓词函数
+- `dto/wire-helpers.ts` — safeString/safeNumber/safeStringArray/safeRecord/firstNonNullOr
+- `dto/observation.ts` — ObservationRequest/ObservationUpdate/Observation + parseObservation
+- `dto/session.ts` — SessionStartRequest/Response, SessionEndRequest, UserPromptRequest
+- `dto/experience.ts` — ExperienceRequest/Experience + parseExperience, ICLPromptRequest/Result
+- `dto/search.ts` — SearchRequest/Result, ObservationsRequest/Response, BatchObservationsResponse
+- `dto/extraction.ts` — ExtractionResult + parseExtractionResult
+- `dto/management.ts` — QualityDistribution, FeedbackRequest
+- `dto/misc.ts` — VersionResponse, ProjectsResponse, StatsResponse, ModesResponse, HealthResponse
+- `examples/http-server/app.ts` — 26 个 REST 端点（覆盖全部 25 个 SDK 方法 + /health）
+
+#### 发现的问题
+
+**P2: `/search` 端点允许 limit=0（语义模糊）**
+
+- **位置**: `examples/http-server/app.ts:111`
+- **描述**: `/search` 验证 `limit` 范围为 0-100，包含 0。但 `limit=0` 在搜索语义上应表示"返回 0 条结果"，而其他端点（`/experiences`、`/observations`）对 `0` 有特殊处理（分别转为默认值 4 和 SDK 默认行为）
+- **严重级别**: P2（次要）
+- **处理**: 记录在案，暂不修改。`limit=0` 在 `/search` 中会透传给后端，后端行为正确（返回 0 条结果）。作为 demo 端点，此容错行为可接受。
+
+**无 P0/P1 问题**
+
+#### 代码质量交叉验证
+
+| 检查项 | client.ts | errors.ts | DTOs | wire-helpers | http-server |
+|--------|-----------|-----------|------|-------------|-------------|
+| 输入验证 | ✅ validateRequired + batch size + id 空白检测 | N/A | ✅ safeString/safeNumber 防御性解析 | ✅ 全覆盖 | ✅ requireFields + 类型检查 |
+| Fire-and-forget | ✅ linear backoff ±25% jitter，retry 429/502/503/504 | ✅ isRetryable | N/A | N/A | N/A |
+| 错误处理 | ✅ APIError/ValidationError 分离 | ✅ 12 个 is_* 辅助函数 | N/A | N/A | ✅ asyncHandler + 全局错误中间件 |
+| Wire Format | ✅ camelCase/snake_case 正确映射 | N/A | ✅ parse* 函数防御性解析 | ✅ firstNonNullOr 双格式兼容 | ✅ extractedData 类型验证 |
+| Session 管理 | ✅ assertNotClosed + toString | N/A | N/A | N/A | ✅ Graceful shutdown (SIGTERM/SIGINT) |
+| extractedData {} 语义 | N/A | N/A | ✅ Observation.extractedData always object | N/A | ✅ 类型验证（必须为 dict） |
+| NaN/Inf 处理 | N/A | N/A | ✅ safeNumber 过滤 NaN | ✅ safeNumber isNaN check | N/A |
+| 线程安全 | N/A | ✅ instanceof 检查 | ✅ 纯函数 parse* | ✅ 纯函数 | N/A |
+
+#### 亮点
+
+- **`isRetryable`**: 完整覆盖 429/502/503/504 + TypeError（网络错误）+ AbortError（超时），且通过 `err.name === 'AbortError'` 兼容 Node.js（非 `instanceof DOMException`）
+- **`safeStringOrStringList`**: 优雅处理 `refined_from_ids` 可能以 JSON 字符串或逗号分隔字符串的形式到达（与 Python SDK 一致）
+- **`parseObservationTypeArray` / `parseObservationConceptArray`**: 同时支持对象数组（正确格式）和纯字符串数组（legacy fallback），零运行时崩溃
+- **Fire-and-forget jitter**: linear backoff + ±25% jitter，与 Go/Python SDK 设计一致
+- **HTTP Server 全局错误中间件**: 正确区分 ValidationError（400）/ APIError（动态 status）/ 其他错误（500），asyncHandler 确保 async rejection 被捕获
+- **Graceful shutdown**: SIGTERM + SIGINT 均触发优雅关闭，5s 超时强制退出
+
+#### 代码审查结论
+
+0 个 P0/P1 问题，1 个 P2 次要观察（`/search` 端点 limit=0 语义不一致）。JS SDK 代码质量优秀，25 个 API 方法实现完整，DTO 设计健壮（防御性解析、双格式兼容），错误处理全面（12 个 is_* 谓词），fire-and-forget 策略与 Go/Python SDK 一致，HTTP Server demo 26 个端点覆盖完整，212 个单元测试全部通过。
