@@ -1,7 +1,51 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-04-25 02:34 (Go SDK Review #10 — 0 P0/P1/P2)
+> **最后更新**: 2026-05-02 13:45 (Python SDK Review #1 — 0 P0/P1/P2)
+
+---
+
+## 2026-05-02 13:45 | Python SDK Review #1
+
+**审查范围**: `python-sdk/cortex-mem-python/cortex_mem/` (CortexMemClient + DTOs + error.py)
+
+**审查范围详情**:
+- `client.py` — 25 个 API 方法，HTTP 客户端基础设施（retry、backoff、fire-and-forget）
+- `dto.py` — 全部 15 个 DTO dataclass + ObservationUpdate 双模式支持
+- `error.py` — 8 个异常类 + raise_for_status + is_retryable 系列函数
+- `examples/http-server/app.py` — Flask HTTP Server Demo（全部 27 个端点）
+
+**编译验证**: ✅ `python3 -m py_compile` 无错误
+**测试验证**: ✅ 374 tests 全通过（dto + client + demo）
+
+#### 发现的问题
+
+**无 P0/P1/P2 问题**。
+
+#### 代码质量交叉验证
+
+| 检查项 | client.py | dto.py | error.py | Flask demo |
+|--------|-----------|--------|----------|------------|
+| 输入验证 | ✅ requireNonBlank + batch size + id 空白检测 | ✅ `__post_init__` content/narrative 互斥 | N/A | ✅ `_require()` + 类型检查 |
+| Fire-and-forget | ✅ linear backoff ±25% jitter，retry 429/502/503/504 | N/A | N/A | N/A |
+| 错误处理 | ✅ APIError/ValidationError 分离 | ✅ from_wire 防御性解析 | ✅ 12 个 is_* 辅助函数 | ✅ APIError/CortexError/Generic 分层 |
+| Wire Format | ✅ camelCase/snake_case 正确映射 | ✅ `_first_non_null` 双格式兼容 | N/A | ✅ updateFiles camelCase |
+| Session 管理 | ✅ context manager + close + atexit | N/A | N/A | ✅ atexit.register(client.close) |
+| extracted_data {} 语义 | ✅ `is_empty()` 和 `to_wire()` 一致 | ✅ `extracted_data={}` 视为 unset | N/A | N/A |
+| NaN/Inf 处理 | N/A | ✅ `_parse_nullable_float` + `_sanitize_for_json` | N/A | N/A |
+| 线程安全 | N/A | ✅ dataclass 不可变 | ✅ 纯函数 | N/A |
+
+#### 亮点
+
+- **`_first_non_null`**: 优雅处理 backend 可能返回 snake_case 或 camelCase 的双格式字段（ObservationUpdate/concepts/facts 等）
+- **ObservationUpdate `__post_init__`**: 在构造时强制检查 content/narrative 互斥，早期失败而非 wire 时才发现
+- **`_parse_nullable_float`**: 防御性处理 NaN/Inf → None，防止无效 JSON 输出（与 Java/Go/JS SDK 一致）
+- **Fire-and-forget jitter**: linear backoff + ±25% jitter，与 Go SDK 设计一致
+- **Flask demo `/observations/create`**: 类型验证 extractedData 必须是 dict（防止意外字符串/列表），与其他端点的 defensive parsing 一致
+
+#### 代码审查结论
+
+0 个 P0/P1/P2 问题。Python SDK 代码质量优秀，25 个 API 方法实现完整，DTO 设计健壮（防御性解析、NaN/Inf 处理、双格式兼容），错误处理分层清晰，Flask demo 端点完整。
 
 ---
 
