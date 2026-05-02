@@ -392,7 +392,7 @@ backend/                               # 主 Spring Boot 应用
 │   │   ├── application-dev.yml           # 开发环境配置
 │   │   ├── application-prod.yml          # 生产环境配置
 │   │   ├── application.yml.example       # 环境变量示例
-│   │   ├── db/migration/               # Flyway 迁移（V1-V16）
+│   │   ├── db/migration/               # Flyway 迁移（V1–V8, V11–V18）
 │   │   └── prompts/                     # LLM 提示词模板
 │   │
 │   ├── src/test/                        # 单元/集成测试

@@ -392,7 +392,7 @@ backend/                               # Main Spring Boot application
 │   │   ├── application-dev.yml         # Dev profile
 │   │   ├── application-prod.yml        # Production profile
 │   │   ├── application.yml.example      # Example env vars
-│   │   ├── db/migration/               # Flyway migrations (V1-V16)
+│   │   ├── db/migration/               # Flyway migrations (V1–V8, V11–V18)
 │   │   └── prompts/                     # LLM Prompt Templates
 │   │
 │   ├── src/test/                        # Unit/integration tests
