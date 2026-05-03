@@ -1287,6 +1287,7 @@ Returns a paginated list of observations, optionally filtered by project. Result
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `project` | string | No | null | Project path filter (returns all if omitted) |
+| `platformSource` | string | No | null | Platform source filter (e.g., `claude`, `cursor`) |
 | `offset` | int | No | 0 | Pagination offset (0-based) |
 | `limit` | int | No | 20 | Items per page (max 100) |
 
@@ -1405,7 +1406,7 @@ Retrieves multiple observations by their UUIDs. Supports optional project filter
 ### List Summaries
 
 ```
-GET /api/summaries?project=/path/to/project&limit=20&offset=0
+GET /api/summaries?project=/path/to/project&platformSource=claude&limit=20&offset=0
 ```
 
 Returns a paginated list of session summaries, sorted by `created_at` descending. Query parameters and response format are the same as List Observations (returns summary objects instead).
@@ -1413,7 +1414,7 @@ Returns a paginated list of session summaries, sorted by `created_at` descending
 ### List Prompts
 
 ```
-GET /api/prompts?project=/path/to/project&limit=20&offset=0
+GET /api/prompts?project=/path/to/project&platformSource=claude&limit=20&offset=0
 ```
 
 Returns a paginated list of user prompts, sorted by `created_at` descending. Query parameters and response format are the same as List Observations (returns user prompt objects instead).
@@ -2421,6 +2422,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-12 | 0.1.0-beta+34 | GET /api/stats: added optional `project` query parameter for project-scoped statistics (commit a75ad4c — ViewerController.getStats now accepts `@RequestParam(required=false) String project` and returns filtered counts via SessionRepository.countByProjectPath); added query parameter table, curl example with `?project=...`, and project-scoped response example showing extra `projectPath` field; synced Chinese version |
 | 2026-04-12 | 0.1.0-beta+35 | GET /api/observations, /api/summaries, /api/prompts: added missing sort order description — all three endpoints now always sort by `created_at` descending (most recent first) via OffsetPageRequest with `Sort.by(DESC, "createdAt")` (commit cafbae1); docs previously said nothing about sort order; synced Chinese version |
 | 2026-04-23 | 0.1.0-beta+36 | Added missing `POST /api/context/semantic` endpoint (V17) — query-based semantic context search for per-prompt injection; added request body fields (`q`/required min 20 chars, `project`, `limit`), parameter table, curl example, response example, and notes on empty-query and embedding-unavailable behavior; synced Chinese version; also fixed EN API.md `### Preview Context` which was missing the `#### GET /api/context/preview` H3 section (content existed but header was absent) |
+| 2026-05-03 | 0.1.0-beta+37 | Added `platformSource` query parameter to GET `/api/observations`, `/api/summaries`, `/api/prompts` (V18) — platform source filter (e.g., `claude`, `cursor`); updated EN URL examples and parameter table; synced Chinese version |
 
 ---
 

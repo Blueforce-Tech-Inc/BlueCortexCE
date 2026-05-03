@@ -856,6 +856,7 @@ WebUI 使用的端点，用于查看和搜索记忆。
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `project` | string | null | 项目路径过滤 |
+| `platformSource` | string | null | 平台来源过滤（如 `claude`、`cursor`） |
 | `offset` | int | 0 | 偏移量 |
 | `limit` | int | 20 | 每页数量（最大 100） |
 
@@ -2481,6 +2482,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-12 | 0.1.0-beta+34 | GET /api/stats：新增可选 `project` 查询参数，支持项目级统计过滤（commit a75ad4c — ViewerController.getStats 新增 `@RequestParam(required=false) String project`，通过 SessionRepository.countByProjectPath 返回过滤后计数）；补充查询参数表、带 `?project=...` 的 curl 示例、项目级响应示例（含额外 `projectPath` 字段）；同步英文版变更 |
 | 2026-04-12 | 0.1.0-beta+35 | GET /api/observations、/api/summaries、/api/prompts：补充缺失的排序说明——三个端点均始终按 `created_at` 降序排列（commit cafbae1 使用 OffsetPageRequest + Sort.by(DESC, "createdAt")）；此前文档未说明排序规则；同步英文版变更 |
 | 2026-04-23 | 0.1.0-beta+36 | 补充缺失的 `POST /api/context/semantic` 端点（V17）——基于查询的语义上下文搜索，用于逐 prompt 注入；添加请求体字段说明（`q`/必填最少 20 字符、`project`、`limit`）、参数表、curl 示例、响应示例及空查询和 embedding 服务不可用的行为说明；同步英文版变更 |
+| 2026-05-03 | 0.1.0-beta+37 | GET `/api/observations`、`/api/summaries`、`/api/prompts` 新增 `platformSource` 查询参数（V18）——平台来源过滤（如 `claude`、`cursor`）；更新英文版 URL 示例和参数表；同步中文版变更 |
 
 ---
 
