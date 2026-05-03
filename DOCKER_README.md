@@ -84,6 +84,8 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 
 > **Note:** `SERVER_ADDRESS` is set to `0.0.0.0` by the Docker Compose `docker-compose.yml` environment variable and cannot be overridden from the host — the application must bind to `0.0.0.0` inside the container to be accessible via mapped ports.
 
+> **Embedding Provider Note:** The default embedding settings above (`api.openai.com`, `text-embedding-3-small`, 1536 dimensions) match Docker Compose's `prd` profile defaults. **SiliconFlow is the recommended embedding provider** (see `.env.docker` for the recommended values: `https://api.siliconflow.cn`, `BAAI/bge-m3`, 1024 dimensions). For local development, `backend/.env.example` also uses SiliconFlow defaults.
+
 ## Commands
 
 ```bash

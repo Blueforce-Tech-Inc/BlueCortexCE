@@ -84,6 +84,8 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 
 > **注意**：`SERVER_ADDRESS` 由 Docker Compose 的 `docker-compose.yml` 环境变量配置为 `0.0.0.0`，无法从主机覆盖——应用必须在容器内绑定到 `0.0.0.0` 才能通过映射端口访问。
 
+> **Embedding Provider 注意**：上方面板中的默认 embedding 设置（`api.openai.com`、`text-embedding-3-small`、1536 维度）对应 Docker Compose 的 `prd` profile 默认值。**推荐使用 SiliconFlow** 作为 embedding 提供商（参见 `.env.docker` 中的推荐值：`https://api.siliconflow.cn`、`BAAI/bge-m3`、1024 维度）。本地开发时，`backend/.env.example` 也使用 SiliconFlow 默认值。
+
 ## 健康检查
 
 ```bash
