@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-05-03 15:57 (JS SDK Review #1 — 0 P0/P1/P2)
+> **最后更新**: 2026-05-03 20:57 (Java SDK Review #11 — 0 P0/P1/P2)
 
 ---
 
@@ -46,6 +46,59 @@
 #### 代码审查结论
 
 0 个 P0/P1/P2 问题。Python SDK 代码质量优秀，25 个 API 方法实现完整，DTO 设计健壮（防御性解析、NaN/Inf 处理、双格式兼容），错误处理分层清晰，Flask demo 端点完整。
+
+---
+
+## 2026-05-03 20:57 | Java SDK Review #11
+
+**审查方向**: Java SDK (`cortex-mem-spring-integration/`)
+
+**审查范围**:
+- `cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/CortexMemClient.java` — 25 个 API 方法接口
+- `cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/CortexMemClientImpl.java` — 全部 25 个方法实现
+- `cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/dto/SearchRequest.java` — Builder 模式，limit/offset 验证
+- `cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/dto/ObservationsRequest.java` — Builder 模式，验证
+- `cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/dto/ObservationResponse.java` — 22 字段（含 4 个新字段）
+- `cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/dto/ExtractionResponse.java` — Phase 3 提取响应
+- `cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/dto/ObservationUpdate.java` — PATCH DTO，isEmpty() 检查
+- `examples/cortex-mem-demo/src/main/java/com/example/cortexmem/SearchController.java` — 搜索端点
+- `examples/cortex-mem-demo/src/main/java/com/example/cortexmem/ObservationsController.java` — 观察列表 CRUD
+- `examples/cortex-mem-demo/src/main/java/com/example/cortexmem/ManagementController.java` — P1 管理 API
+- `examples/cortex-mem-demo/src/main/java/com/example/cortexmem/ExtractionController.java` — Phase 3 提取 API
+
+**编译验证**: ✅ `mvn compile` 无错误（cortex-mem-client + demo）
+**测试验证**: ✅ 120 tests（DtoTest 34 + CortexMemClientImplTest 86）— 与 README 一致
+
+#### 发现的问题
+
+**无 P0/P1/P2 问题**。
+
+#### 代码质量交叉验证
+
+| 检查项 | CortexMemClient | CortexMemClientImpl | SearchRequest | ObservationsRequest | Demo Controllers |
+|--------|----------------|---------------------|---------------|---------------------|------------------|
+| 输入验证 | ✅ 接口级 requireNonNull | ✅ requireNonBlank + requireAbsolutePath | ✅ limit≥0,≤100, offset≥0 | ✅ limit≥0,≤100, offset≥0 | ✅ 参数类型/范围检查 |
+| Fire-and-forget | N/A | ✅ `executeWithRetrySilent` capture ops | N/A | N/A | N/A |
+| 错误处理 | ✅ 异常规范清晰 | ✅ isRetryable(429/502-504) + jittered backoff | N/A | N/A | ✅ 分类错误返回 |
+| Wire Format | ✅ `@JsonProperty` camelCase | ✅ RestClient + ParameterizedTypeReference | ✅ Builder 省略默认值 | ✅ Builder 省略默认值 | ✅ SDK 调用而非原始 HTTP |
+| limit=0 语义 | N/A | ✅ >0 才发送，backend 默认生效 | ✅ >0 才发送 | ✅ >0 才发送 | ✅ limit=0 用 backend 默认 |
+| extractedData | ✅ Map<String, Object> | ✅ PATCH 透传 ObservationUpdate | N/A | N/A | ✅ 类型检查必须是 Map |
+| content/narrative 互斥 | N/A | N/A | N/A | N/A | ✅ 检查并拒绝同时设置 |
+| Session 管理 | ✅ startSession/updateSessionUserId | ✅ 传播错误，非 fire-and-forget | N/A | N/A | N/A |
+| 线程安全 | N/A | ✅ ThreadLocalRandom jitter | ✅ record 不可变 | ✅ record 不可变 | N/A |
+
+#### 亮点
+
+- **`requireAbsolutePath`**: 不仅检查 null/blank，还验证路径是绝对路径（Unix `/` 或 Windows 驱动器），防止相对路径误用
+- **`isEmpty()` check**: `updateObservation` 在发送 PATCH 前检查 `update.isEmpty()`，防止无意义请求
+- **`resolveSdkVersion()`**: 从 JAR manifest 动态读取 `Implementation-Version`，而非硬编码，发布版本自动对齐
+- **`tryExtractErrorMessage`**: 从 HTTP 响应体解析 JSON `error` 字段，fallback 到 status text，而非直接暴露原始异常
+- **Demo `content/narrative` 互斥检查**: ObservationsController 在 PATCH 前拒绝同时设置 content 和 narrative
+- **ObservationResponse backward-compat constructor**: 9 参数构造器支持旧代码，4 个新字段默认为 null
+
+#### 代码审查结论
+
+0 个 P0/P1/P2 问题。Java SDK 代码质量与 Go/Python/JS SDK 同级，25 个 API 方法实现完整，DTO 设计健壮，Builder 模式一致，retry 机制完善（transient-only retry + ±25% jitter backoff），Demo 控制器输入验证到位。与 README 文档 API 数量（25）完全一致，测试数量（120）完全一致。
 
 ---
 
