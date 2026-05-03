@@ -203,5 +203,6 @@ cd backend
 
 | Date | Change |
 |------|--------|
+| 2026-05-02 | Added missing 'Run Docker Deployment Tests' subsection (5th subsection in Section 5); aligned EN/ZH subsection structure |
 | 2026-04-26 | Added Section 3: SDK and Demo Integration Tests (9 scripts); fixed section numbering gap (was missing ### 3, now 1–8 sequential) |
 | 2026-04-03 | Added Phase 3 acceptance test section; added webui-integration-test.sh and docker-e2e-test.sh to E2E table |
