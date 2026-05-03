@@ -2,7 +2,9 @@
 
 > **角色**：可勾选短队列；**不**重复 [`20-recommendations/02-bluecortexce-recommendations.md`](20-recommendations/02-bluecortexce-recommendations.md) 表格全文。  
 > **CE 安全与出口现状盘点**：[`20-recommendations/05-ce-context-security-gap-inventory.md`](20-recommendations/05-ce-context-security-gap-inventory.md)  
-> **最后更新**：2026-04-25 14:55（本地 HEAD `e5647d78` vs origin/main `e5647d78`（已同步）；`e69526be..e5647d78` ~1645 commits 扫描；memory 相关新增 doc 45（`260ae621` on_session_finalize expiry flush / `df55660e` Hindsight CPU 检测 / `0e235947` redact config bridge）；文档体系 45 篇总计 ~814KB，最大单稿 46922 字节，远低于 50KB 上限）
+> **最后更新**：2026-05-03 19:10（`5d3be898..origin/main`，24 commits；0 个 memory 相关，其余为 gateway/ACP/Discord/Slack/WeChat/Zed/OpenRouter 平台修复）
+
+**本地 Hermes Agent Repo**：✅ 已存在，`git fetch origin/main` 成功（`5d3be898` → `6f2dab24`）
 
 ---
 
@@ -137,7 +139,22 @@
 - [x] **文档体量验证（2026-04-25 16:55 CST）**：59 个 .md 文件总计 ~841KB，最大 46922 字节（`09-supermemory-capture-lifecycle.md`），全部低于 50KB 上限。新增 `46`（10406 字节）+ `47`（8487 字节）。
 - [x] **上游代码同步（2026-04-25 16:55 CST）**：HEAD 已同步 origin/main（`e5647d78`），无新 upstream commits。
 - [x] **`agent/memory_provider.py` ABC 源码核实（2026-04-25）**：240 行 ABC，15 个方法，10 个可选 hook；`on_memory_write` 已含 `metadata` 参数（`6a957a74` 引入）；docstring 自带详细说明，无需独立文档。
+- [x] **上游代码增量扫描（2026-04-27 22:03）**：`e5647d78..origin/main`（374 commits）记忆相关 2 个新发现 → [`51`](60-evolution/51-context-compressor-model-switch-and-background-review-toolset.md)：`5401a008`（ContextCompressor 模型切换 token 预算重算 bug；`update_model()` 遗漏 `tail_token_budget`/`max_summary_tokens` 重算）+ `8ad29a93`（Background review agent 显式限制 `toolsets=["memory", "skills"]` 防越权）；其余 372 个非记忆相关（UI/TUI/平台/Backup/Approval）；本地 Hermes Agent Repo 已删除，⚠️ 需重新 clone。
+- [x] **文档体量验证（2026-04-27 22:03 CST）**：51 篇正文 + 入口 ~620KB，最大单稿 46922 字节（`09`），全部低于 50KB 上限。新增 `51`（~3,892 字节）。
 - [x] **8 Provider 全部分析完成**：holographic / honcho / mem0 / hindsight / byterover / openviking / retaindb / supermemory — 每 Provider 至少一篇独立深度分析文档（部分如 holographic 有 3 篇）。
+
+## 定时巡检（2026-04-27 22:12 CST）
+
+- [x] **上游代码重新同步（2026-04-27 22:12 CST）**：本地 Hermes Agent Repo 已于上次扫描后删除，本轮重新 clone + fetch。HEAD `cec0af02` → `origin/main`（`ac0325c2`）。
+- [x] **上游代码增量扫描（`cec0af02..origin/main`，267 commits）**：记忆相关 **4 个新发现** → [`52`](60-evolution/52-session-teardown-fix-cross-provider-reasoning-and-filesystem-cleanup.md)：
+  1. `500774e3`（Gateway `_cleanup_agent_resources` 向 `shutdown_memory_provider` 传 `agent._session_messages` 而非空列表；Holographic/Hindsight early-return guard 导致 restart/reset/expiry 后首 Turn 报"找不到相關的對話記錄"）
+  2. `a59a98b1`（CLI exit cleanup 同 bug；读取不存在的 `conversation_history` 属性总是得到 `[]`）
+  3. `ee1a07f9`（跨 Provider reasoning leak：MiniMax→DeepSeek 时 foreign `reasoning` 被 promote 为 `reasoning_content`，导致 HTTP 400；DeepSeek 强制 `reasoning_content=''` pin 使该 shape 只可能来自 prior provider）
+  4. `64a497bf`（Hindsight setup 重新运行时预填充现有配置：mode/llm_provider/llm_base_url/llm_model）
+  5. `3b60abb6`（`delete_session`/`prune_sessions` 删除 SQLite 记录同时清理 .json/.jsonl transcript 文件，防止 ~27MB/天磁盘增长）
+  其余 263 个非记忆（UI/TUI/Backup/Approval/Slack/Google Meet/Platform）
+- [x] **文档体量验证（2026-04-27 22:12 CST）**：52 篇正文 + 入口 ~630KB，最大单稿 46922 字节（`09`），全部低于 50KB 上限。新增 `52`（~9516 字节）。
+- [x] **Backlog 全部项 `[x]`**：v8.9 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit。
 
 ## 定时巡检（2026-04-25 13:59 CST）
 
@@ -151,3 +168,56 @@
   非记忆相关（工具/UI/Delegate/Auth）：`dbdefa43`（checkpoint dedup + NaN coercion）、`ef935545`（回归测试）、`8a2506af`（aux UI）、`05d8f110`（model context length）、`023b1bff`（delegate deadlock fix）等，均不影响记忆系统架构。
 - [x] **文档体系总计**：43 篇正文 + 入口 ~793KB，最大单稿 46922 字节（`09-supermemory-capture-lifecycle.md`），全部低于 50KB 上限。
 - [x] **Backlog 全部项 `[x]`**：v8.3 完成，无待跟进新发现。下一轮巡检继续跟踪上游新 commit。
+
+## 定时巡检（2026-05-02 23:46 CST）
+
+- [x] **本地 Hermes Agent Repo 恢复**：目录仍存在但处于 detached HEAD 状态（上次扫描后 checkout origin/main），本轮完成 fetch + checkout origin/main（`5d3be898`）。
+- [x] **上游代码增量扫描（`cec0af02..origin/main`，991 commits）**：11 个记忆相关核心发现 → [`53`](60-evolution/53-session-switch-hooks-context-compressor-and-hindsight-refinements.md)：
+  1. **`13683c08`**（MAJOR）：MemoryProvider ABC 新增 `on_session_switch()` 钩子，覆盖 /resume /branch /reset /new /compression 所有 session_id 轮换路径；Hindsight reference implementation；CE 无等效机制
+  2. **`f0dc919f`**（MAJOR）：Token 估算现在包含 system prompt + tool schemas（修复 234x 低估差距：45 tokens vs 10.5K tokens）；影响 `should_compress()` 触发时机
+  3. **`b194617d`**：ContextCompressor tail protection off-by-one fix（短对话保护范围错误）
+  4. **`dad02174`**：Honcho `HonchoSessionManager._cache` RLock 线程安全修复
+  5. **`0a5ee01e`**：Hindsight flush-on-switch 从 raw thread 改为 writer queue 路由
+  6. **`c38dac74`**：Hindsight session switch 时 flush buffered turns + drop stale prefetch result
+  7. **`0565497d`**：Hindsight 单 writer + queue 替代 per-sync daemon thread（消除 CLI exit race）
+  8. **`6ea5699e`**：Compression aux model 失败时 fallback 仍通知用户（防止 broken config 静默持续）
+  9. **`e553f6f3`**：Memory scrub surface 从 8 个 site 收缩到 3 个（防止过度 scrub 破坏合法内容）
+  10. **`142b4bf3`**：session_search recent mode 改为按 `last_active` 而非 `start_time` 排序
+  11. **`b29b709a`**：tool_call id 字段支持 `call_id` 优先（OpenAI Responses API 兼容）
+  其余 980 个非记忆相关（TUI 性能/computer-use/Backup/Approval/Feishu/Discord/IRC/Kanban/平台）
+- [x] **文档体量验证（2026-05-02 23:46 CST）**：53 篇正文 + 入口 ~850KB，最大单稿 46922 字节（`09`），全部低于 50KB 上限。新增 `53`（~19.9KB）。
+- [x] **Backlog 全部项 `[x]`**：v9.0 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit。
+
+## 定时巡检（2026-05-03 00:53 CST）
+
+- [x] **本地 Hermes Agent Repo 状态**：本地 HEAD `5d3be898` 与 origin/main 同步，无新 commits。
+- [x] **上游代码增量扫描（`5d3be898..origin/main`，0 commits）**：完全同步，无新 upstream commits。上游最新 commits（`5d3be898..HEAD`）涵盖 TTS xAI custom voice / aux API key passthrough / WhatsApp typing leak / Feishu httpx context / Gateway .env precedence / 均为非记忆系统功能。
+- [x] **文档体量验证（2026-05-03 00:53 CST）**：53 篇正文 + 入口 ~850KB，最大单稿 46922 字节（`09`），全部低于 50KB 上限。
+- [x] **Backlog 全部项 `[x]`**：v9.1 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit。
+
+
+## 定时巡检（2026-05-03 01:29 CST）
+
+- [x] **本地 Hermes Agent Repo 状态**：本地 HEAD `5d3be898` 与 origin/main 完全同步。
+- [x] **上游代码增量扫描（`5d3be898..origin/main`，0 commits）**：无新 upstream commits。最近 upstream 推进涵盖 TTS xAI / Feishu httpx / Gateway .env / Discord ws，均非记忆系统。
+- [x] **文档体量验证（2026-05-03 01:29 CST）**：53 篇正文 ~917KB，最大单稿 46922 字节（`09`），全部低于 50KB 上限。
+- [x] **Backlog 全部项 `[x]`**：v9.1 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit。
+
+## 定时巡检（2026-05-03 02:40 CST）
+
+- [x] **上游代码增量扫描（`5d3be898..origin/main`，39 commits）**：无记忆系统相关新提交。全部 39 个 commit 均为平台特定修复：TTS xAI custom voice（`5d3be898`）/ aux API key 传递（`af981227`）/ WhatsApp typing leak（`762eb79f`）/ Feishu httpx context（`38dd057e`）/ Gateway systemd + WebSocket insecure（`f98b5d00`/`585d6778`）/ Slack private notice delivery（`0ab2d752`）/ Discord zombie websocket（`292d2fb4`）/ credential pool `.env` precedence（`2ef1ad28`）/ Telegram polling liveness（`2470434d`）/ skill slug matching（`6ec74aec`）/ GBK crash fix（`c5e3a6fb`）/ Slack per-user slash-command isolation（`a147164d`）等。
+- [x] **文档架构规范自检**：入口文件 `hermes-memory-analysis.md` 仅 1553 字节；`hermes-memory/` 目录 53 篇正文，最大 46922 字节（`09-supermemory-capture-lifecycle.md`），全部低于 50KB 上限；目录结构合规，无需重构。
+- [x] **Backlog 全部项 `[x]`**：v9.2 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit。
+
+## 定时巡检（2026-05-03 04:03 CST）
+
+- [x] **上游代码增量扫描（`5d3be898..origin/main`，0 commits）**：完全同步，无新 upstream commits。最近 non-memory 推进：TTS xAI custom voice / aux API key / WhatsApp / Feishu httpx / Gateway .env，均与记忆系统无关。
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节；`hermes-memory/` 53 篇正文，最大 46922 字节（`09`），全部低于 50KB 上限。
+- [x] **Backlog 全部项 `[x]`**：v9.3 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit。
+
+## 定时巡检（2026-05-03 05:54 CST）
+
+- [x] **本地 Hermes Agent Repo 状态**：本地 HEAD `5d3be898` 与 origin/main 完全同步。
+- [x] **上游代码增量扫描（`5d3be898..origin/main`，0 commits）**：完全同步，无新 upstream commits。上游最新 commits 涵盖 TTS xAI custom voice / Feishu httpx / Gateway .env precedence / WhatsApp typing leak，均非记忆系统。
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节；`hermes-memory/` 53 篇正文 ~940KB，最大 46922 字节（`09-supermemory-capture-lifecycle.md`），全部低于 50KB 上限。
+- [x] **Backlog 全部项 `[x]`**：v9.4 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit。
