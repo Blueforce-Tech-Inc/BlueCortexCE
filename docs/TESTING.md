@@ -44,6 +44,7 @@ Located in `scripts/` directory:
 | Script | Description |
 |--------|-------------|
 | `go-sdk-e2e-test.sh` | Go SDK end-to-end tests |
+| `go-sdk-unit-test.sh` | Go SDK unit tests (all submodules: root + dto + eino + genkit + langchaingo) |
 | `java-sdk-e2e-test.sh` | Java SDK end-to-end tests |
 | `js-sdk-e2e-test.sh` | JavaScript SDK end-to-end tests |
 | `python-demo-e2e-test.sh` | Python SDK demo tests |
@@ -52,6 +53,7 @@ Located in `scripts/` directory:
 | `demo-v15-extraction-test.sh` | Demo v15 extraction feature tests |
 | `evo-memory-e2e-test.sh` | Evolutionary memory E2E tests |
 | `openclaw-plugin-test.sh` | OpenClaw plugin integration tests |
+| `codex-watcher-test.sh` | Codex CLI watcher integration tests |
 
 **Prerequisites:** Same as regression tests (backend running, database configured).
 
@@ -203,6 +205,7 @@ cd backend
 
 | Date | Change |
 |------|--------|
+| 2026-05-03 | Added `go-sdk-unit-test.sh` and `codex-watcher-test.sh` to Section 3 SDK table (9→11 scripts); updated EN/ZH in sync |
 | 2026-05-02 | Added missing 'Run Docker Deployment Tests' subsection (5th subsection in Section 5); aligned EN/ZH subsection structure |
 | 2026-04-26 | Added Section 3: SDK and Demo Integration Tests (9 scripts); fixed section numbering gap (was missing ### 3, now 1–8 sequential) |
 | 2026-04-03 | Added Phase 3 acceptance test section; added webui-integration-test.sh and docker-e2e-test.sh to E2E table |
