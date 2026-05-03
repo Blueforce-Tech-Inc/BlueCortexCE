@@ -1,7 +1,7 @@
 # 研究 / 决策 backlog（可接力）
 
 > **角色**：给后续人类或 Agent 的**短队列**——可勾选、可补链接；**不**重复 [`09`](./09-aspect-bluecortex-bridge.md) 的 P0/P1 定义本身。  
-> **最后更新**：2026-04-24 08:47（`46` Hub Ecosystem Integration 新增：`**directoryClient.js` Hub 目录 API 客户端**（searchByQuery 语义搜索 / searchBySignals 信号搜索 / getAgentProfile / discoverForTask；与 hubSearch 的本质区别：远端 Hub 目录 vs 本地资产）；详见 [`46`](./46-hub-ecosystem-integration-taskreview-issue.md) §2.6）
+> **最后更新**：2026-05-03（`77` 完成：Doc 56 时间戳勘误 + Doc 24 Gene/Strategy CE翻译全覆盖标记✅ + OMLSA/llmReview backlog勾选✅；`73` 三层信号提取架构现实核查 + 新机会信号；`72` inferOutcomeEnhanced baseline/current delta + 双聚合链；`71` MCP Semantic Capability 产品评估；`70` v1.48–v1.78 新增子系统深度分析；backlog ✅）
 
 ---
 
@@ -14,12 +14,8 @@
 
 ## 架构与产品
 
-- [ ] **Gene/Strategy 层对 BlueCortexCE 的借鉴**：
-  - Strategy presets（repair/optimize/innovate 比例）→ "观察注入策略"控制注入比例
-  - 多因子 Gene selector（exact + semantic + epigenetic + learning）→ `SearchService` 增强：exact signal filter + bag-of-words fallback + capability gap boost
-  - Mutation safety → "观察风险分级"（error=low / capability_gap=medium / user_feature_request=high）
-  - 详见 [`24`](./24-gene-strategy-layer.md)
-- [ ] **MCP 是否暴露与 Hook 对齐的 `semantic` 能力**：产品与安全评估（现状：MCP **无**同名工具，见 [`12`](./12-bluecortex-api-memory-surface.md) **§3.2**）。
+- [x] **Gene/Strategy 层对 BlueCortexCE 的借鉴** ✅：Strategy presets（repair/optimize/innovate 比例）→ "观察注入策略"（doc 24 §2.3）/ 多因子 Gene selector → `SearchService` 增强（doc 24 §3.4）/ Mutation safety → 观察风险分级（doc 24 §4.3）/ Bag-of-words fallback → 轻量语义备选（doc 24 §6.2）/ Candidates pool → CE暂无对应；详见 [`24`](./24-gene-strategy-layer.md)
+- [x] **MCP 是否暴露与 Hook 对齐的 `semantic` 能力** ✅：源码确认（`ClaudeMemMcpTools.java`），MCP `search` 工具**支持语义搜索**（`embeddingService.embed(query)` → pgvector 混合策略），但**无**名为 `semantic` 的同名工具；MCP `search` ≠ Hook `semantic` 注入块——前者是通用检索（返回 `{observations, strategy, fell_back}`），后者专用于「prompt 拼注入块」；两者底层均走 EmbeddingService → SearchService，**基础设施对齐，产品形态不同**；详见 doc 12 §3.2 + `ClaudeMemMcpTools.java` L84–L103。
 - [x] **Hook 是否调用 `semantic`**：`session-init` 在 `CLAUDE_MEM_SEMANTIC_INJECT=true`（默认）且 `prompt≥20` 时调用 **worker** `POST /api/context/semantic`（`webui/src/cli/handlers/session-init.ts`）。见 [`12`](./12-bluecortex-api-memory-surface.md) §3。
 - [ ] **Java（pgvector）与 Worker（Chroma）语义结果一致性**：同名路由、异存储；全 Java / 混合部署下的对齐、评测与文档。HTTP 契约与字段对照见 [`12`](./12-bluecortex-api-memory-surface.md) **§1.1**；实现锚点另见 [`10`](./10-aspect-bluecortex-implementation-map.md) §3。
 - [ ] **语义注入与时间线并存的 token 预算**：`additionalContext` 与主上下文拼接策略、关闭开关与延迟预算。
@@ -28,9 +24,8 @@
   - **BlueCortexCE 落点**：`ObservationEntity.extractedData` JSONB 已有，dedup 用 `contentHash`（精确哈希），两类机制可共存：`extractedData.error_sig_norm` 存规范化签名用于"同类错误聚合"检索；`content_hash` 保持精确去重。
   - **实施路径**：参考 [`21`](./21-signal-taxonomy-and-gene-selection-memory.md) §2 的 `normalizeErrorSignature` 实现；在 `AgentService.saveObservation` 路径对 `type=error` 观察写入规范化签名。
   - **✅ 提案完成**：见 [`22`](./22-error-sig-norm-implementation-proposal.md)（规范化算法 + JSONB schema + 写入路径 + 实施检查清单）
-- [ ] **`inferOutcomeEnhanced` 的 baseline vs current delta 机制**：Evolver 用 `recent_error_count` 差值和 `scan_ms` 差值微调 outcome score（各 ±0.12 / ±0.06）。BlueCortexCE 暂无对应机制；若引入"观察质量评分"，可参考此 delta 启发式。另见 PRM 多步骤评分 [`25`](./25-advanced-patterns-prm-epigenetic-antipattern.md) §1（8 阶段加权合成）。
-  - 源码：`memoryGraph.js` §560–§590，`clamp01(score)` 保证边界。
-- [ ] **双聚合链（signal×gene 边 vs gene 先验）**：Evolver `getMemoryAdvice` 维护两条独立衰减链：`(signal_key, gene_id)` 边（30天半衰）和 `gene_id` 先验（45天半衰），加权组合 `best + prior*0.12` 或纯先验 `prior*0.4`。BlueCortexCE `SearchService` 暂无此双链机制；若引入"历史检索成功率"，可参考此分层衰减设计。
+- [x] **`inferOutcomeEnhanced` baseline vs current delta 机制 + 双聚合链**（`72`）：`memoryGraph.js` L551–L592 源码确认：`recent_error_count` delta → ±0.12（`delta/50` clamp）/ `scan_ms` ratio → ±0.06（`ratio` clamp）/ 真实证据优先（`tryParseLastEvolutionEventOutcome`）/ `clamp01(score)` 边界保护；`getMemoryAdvice` 双链：`(signal, gene)` 边 30 天半衰 vs gene 先验 45 天半衰，`best + prior*0.12` 混合策略；BlueCortexCE 借鉴：ObservationEntity 新增 `baselineMetrics` JSONB / 双链搜索排序 / clamp01；详见 [`72`](./72-inferOutcomeEnhanced-and-dual-aggregation-chains.md)。
+- [x] **三层信号提取架构现实核查（`73`）** ✅：⚠️ **Doc 56 结论错误需修正**：`src/gep/signals.js` v1.78.1（444行）确认 Layer 1/2/3 真实存在；`SIGNAL_PROFILES` 加权关键词评分（累积 evidence → 阈值触发）；`_extractLLM` Hub 调用（每 5 cycle 一次，节流）；`_mergeSignals` 三路合并 + observability；`execFileSync` argv 防命令注入；新增 7 个机会信号（`issue_already_resolved`/`openclaw_self_healed`/`empty_cycle_loop_detected`/`explore_opportunity`/`hub_search_miss_with_problem`/`plateau_pivot_required`/`plateau_pivot_suggested`）；详见 [`73`](./73-reality-check-three-layer-signals-and-new-opportunity-signals.md)。
 
 ## 实现与数据
 
@@ -40,16 +35,26 @@
 
 ## Evolver 侧（外部源码）
 
+- [x] **EvoMap/evolver 版本同步 + 新增子系统源码分析**（`70`）：
+  - ✅ `skill2gep.js`（645行）完整源码分析：逆向蒸馏管道（parseSkillMd / detectForgery / assembleCapsule / 双通道发布）
+  - ✅ `selfPR.js`（408行）完整源码分析：多门禁自动 PR 贡献（score/streak/risk/blask 多重门禁 + leakCheck + diffHash 去重）
+  - ✅ `validator/` 子系统（~900行）完整源码分析：sandboxExecutor 两层白名单 + BLOCKED_NODE_FLAGS + 隔离 env + stakeBootstrap 磁盘持久化退避 + 独立守护进程
+  - ✅ `portable.js` / `claimNudge.js` / `mailboxTransport.js` 综合分析
+  - 详见 [`70`](./70-new-subsystems-v148-v178-deep-dive.md)；backlog 版本同步状态 ✅
+
 - [x] **`reflection.js` 模块深度分析**（`59` 新增）：computeReflectionInterval 三态算法（3/5/8）/ shouldReflect 双重条件（周期对齐+冷却30min）/ 预聚合统计（intent分布/gene频率）/ 5问战略复盘框架与精确JSON输出格式 / `buildSuggestedMutations` 信号→参数映射 / JSONL读写机制 / 与innovation.js功能/参数二级互补 / CE自我诊断框架与元级SummaryEntity提案。详见 [`59`](./59-reflection-js-module-deep-dive.md)。
+- [x] **ATP（Agent Transaction Protocol）+ Adapters 系统深度分析**（`75` 新增）：ATP Hub Client 275行（proxy/direct 双路由 / 10个 API 端点）/ Merchant Agent 商家模板 118行 / Consumer Agent 消费者模板 157行 / autoBuyer ~200行（三重预算保护 + 24h去重 + cold-start半额）/ hookAdapter 207行（detectPlatform + mergeJsonFile + copyHookScripts + 4平台adapter）/ BlueCortexCE P1（hookAdapter 跨平台适配）/ P2（ATP Market 能力采购）/ P3（资源控制备选）；详见 [`75`](./75-atp-agent-transaction-protocol-and-adapters.md)。
 - [ ] **EvoMap/evolver 版本差分**：若本地仓库更新，在对应 `01`–`08` 分片增补差异摘要，**不在此文件**堆长文。
+- [x] **`featureFlags.js`（114行 v1.78 新增）**：源码核实 `src/featureFlags.js` 在 origin/main v1.78.1 **不存在**，该条目为 stale 信息。✅ 核实完成（2026-05-03，doc 75）。
+- [x] **Doc 56 时间戳勘误** ✅：在 doc 56 文件开头添加时间戳说明，澄清「本文结论对 v1.47 正确，v1.78 已引入三层架构」，并链接到 doc 73。
 
 - [x] **自适应策略策略借鉴**（`45` 新增）：Evolver 每周期动态计算执行策略（repair streak / failure streak / blast radius），CE `ContextService` 可参考实现注入策略动态切换。详见 [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) §1。
 - [x] **候选评估管线借鉴**（`45` 新增）：Evolver 从会话转录提取重复模式（≥3次），生成 Five Questions Shape 候选。CE 可参考实现高频观察模式自动发现。详见 [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) §2。
 - [x] **Git 自修复借鉴**（`26` 已覆盖）：Evolver `self_repair.js` 在进化前自动修复 Git 异常（abort rebase/merge、删除 stale index.lock、可选 hard reset）。CE 可参考实现写入前自检（数据库连接、事务状态）。详见 [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) §3。
 - [x] **`policyCheck.js` 约束系统深度分析**（`42` 新增）：`isConstraintCountedPath` 路径匹配决策树（excludePrefix → includePrefix → extension 优先级）、`computeBlastRadius`（git numstat + untracked 行数统计 + baseline 对比）、`classifyBlastSeverity` 5级分类（hard_cap_breach / critical_overrun / exceeded / approaching_limit / within_limit）、验证命令白名单（`isValidationCommandAllowed` 禁止 `node -e`/shell 操作符）、伦理模式检测（5 种 regex 模式）、`detectDestructiveChanges` 关键文件删除/清空检测。详见 [`42`](./42-policycheck-constraint-system-deep-dive.md)。
 
-- [ ] **OMLS 启发式自适应休眠调度借鉴**（`45` 新增）：`idleScheduler.js` 提供 `getScheduleRecommendation()` 返回 `idle_seconds`、`intensity`、`sleep_multiplier`、`should_distill`。CE 巡检 cron 可参考实现：低活跃→2小时、中活跃→30分钟、高活跃→15分钟；连续空闲→最长4小时；`should_distill` 对应失败积累自动触发修复任务。详见 [`45`](./45-idleScheduler-OMLS-and-llmReview.md) §1。
-- [ ] **LLM 驱动代码评审借鉴**（`45` 新增）：`llmReview.js` 在 solidify 流程中对 mutation 变更做 LLM 评审（approved/issues/score/reasoning），与 policyCheck 形成「规则门禁 + 语义评审」双层。CE 可在 ValidationReport 基础上叠加 LLM 评审层，评审结果写入 `GeneEntity.reviewScore`。详见 [`45`](./45-idleScheduler-OMLS-and-llmReview.md) §2。
+- [x] **OMLS 启发式自适应休眠调度借鉴** ✅（`45`）：`idleScheduler.js` `getScheduleRecommendation()` 返回 `idle_seconds`/`intensity`/`sleep_multiplier`/`should_distill`；CE 巡检 cron 可参考实现：低活跃→2小时、中活跃→30分钟、高活跃→15分钟；详见 [`45`](./45-idleScheduler-OMLS-and-llmReview.md) §1。
+- [x] **LLM 驱动代码评审借鉴** ✅（`45`）：`llmReview.js` 在 solidify 流程中做 LLM 评审（approved/issues/score/reasoning），与 policyCheck 形成「规则门禁 + 语义评审」双层；CE 可在 ValidationReport 基础上叠加；详见 [`45`](./45-idleScheduler-OMLS-and-llmReview.md) §2。
 
 ## 安全与上下文出口（Hermes 对照）
 

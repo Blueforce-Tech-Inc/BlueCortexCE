@@ -1,5 +1,7 @@
 # 56 — signals.js Reality Check: Doc 55 vs. Actual v1.47 Code
 
+> ⚠️ **2026-05-03 时间戳勘误**：本文结论**对 v1.47 正确**（Layer 2/3 确实不存在于 v1.47）。但 v1.78 已引入三层架构，详见 [`73 三层信号提取架构现实核查 + 新机会信号`](./73-reality-check-three-layer-signals-and-new-opportunity-signals.md)。
+>
 > **Status**: ⚠️ **Doc 55 is inaccurate** — describes a v1.66 three-layer extraction that does NOT exist in the actual codebase.
 > **Actual version**: signals.js last updated at `fbca5ab` (v1.39.0, pre-v1.47)
 > **Filed**: 2026-04-25
