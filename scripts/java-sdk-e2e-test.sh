@@ -370,7 +370,7 @@ info "Test N+1: GET /memory/experiences/filtered — source and requiredConcepts
 FILTEXPS=$(curl -sf --max-time 10 "$DEMO_BASE/../memory/experiences/filtered?project=$PROJECT&task=test&source=java_test&count=5" 2>/dev/null || echo "FAIL")
 if [ "$FILTEXPS" = "FAIL" ]; then
     fail "GET /memory/experiences/filtered" "Request timed out or failed"
-elif echo "$FILTEXPS" | grep -qE "observations\|experiences\|experience"; then
+elif echo "$FILTEXPS" | grep -qE "observations|experiences|experience"; then
     pass "GET /memory/experiences/filtered"
 else
     fail "GET /memory/experiences/filtered" "Unexpected response format"
@@ -381,7 +381,7 @@ info "Test N+2: GET /memory/icl/truncated — maxChars truncation"
 TRUNCICL=$(curl -sf --max-time 10 "$DEMO_BASE/../memory/icl/truncated?project=$PROJECT&task=test&maxChars=500" 2>/dev/null || echo "FAIL")
 if [ "$TRUNCICL" = "FAIL" ]; then
     fail "GET /memory/icl/truncated" "Request timed out or failed"
-elif echo "$TRUNCICL" | grep -qE "prompt\|truncated"; then
+elif echo "$TRUNCICL" | grep -qE "prompt|truncated"; then
     pass "GET /memory/icl/truncated"
 else
     fail "GET /memory/icl/truncated" "Unexpected response format"
@@ -460,7 +460,7 @@ info "Test N+6: GET /memory/health — memory system health check"
 MEMHEALTH=$(curl -sf --max-time 10 "$DEMO_BASE/../memory/health" 2>/dev/null || echo "FAIL")
 if [ "$MEMHEALTH" = "FAIL" ]; then
     fail "GET /memory/health" "Request timed out or failed"
-elif echo "$MEMHEALTH" | grep -qE "status\|ok\|healthy"; then
+elif echo "$MEMHEALTH" | grep -qE "status|ok|healthy"; then
     pass "GET /memory/health"
 else
     fail "GET /memory/health" "Unexpected response format"
@@ -513,7 +513,7 @@ else
     RUN_RESP=$(curl -sf --max-time 30 -X POST "$BACKEND_URL/api/extraction/run?projectPath=$PROJECT" 2>/dev/null || echo "FAIL")
     if [ "$RUN_RESP" = "FAIL" ]; then
         fail "POST /api/extraction/run" "Request timed out or failed"
-    elif echo "$RUN_RESP" | grep -qi "error\|failed"; then
+    elif echo "$RUN_RESP" | grep -qi "error|failed"; then
         fail "POST /api/extraction/run" "Extraction returned error"
     else
         pass "POST /api/extraction/run — Extraction triggered"
@@ -524,9 +524,9 @@ else
     LATEST=$(curl -sf --max-time 10 "$BACKEND_URL/api/extraction/user_preferences/latest?projectPath=$PROJECT&userId=alice" 2>/dev/null || echo "FAIL")
     if [ "$LATEST" = "FAIL" ]; then
         fail "GET /api/extraction/latest" "Request timed out or failed"
-    elif echo "$LATEST" | grep -qi "not_found\|not found"; then
+    elif echo "$LATEST" | grep -qi "not_found|not found"; then
         fail "GET /api/extraction/latest" "No extraction found"
-    elif echo "$LATEST" | grep -qi "extractedData\|data\|preferences"; then
+    elif echo "$LATEST" | grep -qi "extractedData|data|preferences"; then
         pass "GET /api/extraction/latest — Extraction result found"
     else
         pass "GET /api/extraction/latest — Extraction returned"
@@ -537,7 +537,7 @@ else
     BOB_LATEST=$(curl -sf --max-time 10 "$BACKEND_URL/api/extraction/user_preferences/latest?projectPath=$PROJECT&userId=bob" 2>/dev/null || echo "FAIL")
     if [ "$BOB_LATEST" = "FAIL" ]; then
         fail "Multi-user isolation" "Request timed out or failed"
-    elif echo "$BOB_LATEST" | grep -qi "not_found\|not found"; then
+    elif echo "$BOB_LATEST" | grep -qi "not_found|not found"; then
         pass "Multi-user isolation — Bob has no extraction (correct)"
     elif echo "$BOB_LATEST" | grep -qi "alice"; then
         fail "Multi-user isolation" "Bob can see alice's data!"
@@ -550,7 +550,7 @@ else
     HISTORY=$(curl -sf --max-time 10 "$BACKEND_URL/api/extraction/user_preferences/history?projectPath=$PROJECT&userId=alice&limit=5" 2>/dev/null || echo "FAIL")
     if [ "$HISTORY" = "FAIL" ]; then
         fail "GET /api/extraction/history" "Request timed out or failed"
-    elif echo "$HISTORY" | grep -qi "extractedData\|data\|preferences"; then
+    elif echo "$HISTORY" | grep -qi "extractedData|data|preferences"; then
         pass "GET /api/extraction/history — History returned"
     else
         pass "GET /api/extraction/history — API responded"
