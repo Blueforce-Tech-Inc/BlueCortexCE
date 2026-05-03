@@ -29,7 +29,6 @@ public class CortexMemClientImpl implements CortexMemClient {
 
     private static final Logger log = LoggerFactory.getLogger(CortexMemClientImpl.class);
 
-    /** SDK version for User-Agent header. Update when releasing new SDK versions. */
     /**
      * SDK version for User-Agent header. Read dynamically from JAR manifest (Implementation-Version)
      * to stay in sync with the project version. Falls back to "unknown" if not available (e.g., tests).
