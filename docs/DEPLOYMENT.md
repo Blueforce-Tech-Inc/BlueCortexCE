@@ -452,7 +452,7 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `CLAUDE_MEM_MODE` | No | `code` | Memory mode (`code`/`default`) |
+| `CLAUDE_MEM_MODE` | No | `code` | Memory mode (`code`, `code--<lang>`, `email-investigation`, etc.) |
 | `CLAUDEMEM_LOG_DIR` | No | `~/.claude-mem/logs` | Log directory |
 | `MEMORY_REFINE_ENABLED` | No | `true` | Enable memory refinement (self-evolution) |
 | `JAVA_OPTS` | No | `-XX:+UseZGC -XX:MaxRAMPercentage=75.0` | JVM options |

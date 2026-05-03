@@ -452,7 +452,7 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 
 | 变量名 | 必填 | 默认值 | 说明 |
 |--------|------|--------|------|
-| `CLAUDE_MEM_MODE` | 否 | `code` | 记忆模式（code/default） |
+| `CLAUDE_MEM_MODE` | 否 | `code` | 记忆模式（code、code--<lang>、email-investigation 等） |
 | `CLAUDEMEM_LOG_DIR` | 否 | `~/.claude-mem/logs` | 日志目录 |
 | `MEMORY_REFINE_ENABLED` | 否 | `true` | 启用记忆精炼（自我进化） |
 | `JAVA_OPTS` | 否 | `-XX:+UseZGC -XX:MaxRAMPercentage=75.0` | JVM 参数 |
