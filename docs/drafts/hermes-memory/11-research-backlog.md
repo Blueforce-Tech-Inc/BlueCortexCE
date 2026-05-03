@@ -221,3 +221,13 @@
 - [x] **上游代码增量扫描（`5d3be898..origin/main`，0 commits）**：完全同步，无新 upstream commits。上游最新 commits 涵盖 TTS xAI custom voice / Feishu httpx / Gateway .env precedence / WhatsApp typing leak，均非记忆系统。
 - [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节；`hermes-memory/` 53 篇正文 ~940KB，最大 46922 字节（`09-supermemory-capture-lifecycle.md`），全部低于 50KB 上限。
 - [x] **Backlog 全部项 `[x]`**：v9.4 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit。
+
+## 定时巡检（2026-05-03 21:07 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：fetch + checkout origin/main（`5d3be898` → `d87fd9f0`）。
+- [x] **上游代码增量扫描（`5d3be898..origin/main`，26 commits）**：**0 个记忆系统相关新提交**。2 个 gateway session 相关但非核心记忆架构：
+  1. `f1e02925`（MAJOR session 行为变更）：**Crash/Restart 后 Session Resume 替代 Blanket Suspend** — `suspend_recently_active()` 改为设置 `resume_pending=True` 而非无条件 `suspended=True`，避免 `get_or_create_session()` 在每次重启时清除对话历史；stuck-loop 可在 3 次失败后 escalation；影响 `gateway/session.py` + `gateway/run.py`
+  2. `93410347`：**/new response 顺序修复** — `/new` 时在 `cancel_session_processing()` 前先发响应，避免 race 丢响应（`platforms/base.py`）；非记忆核心
+  其余 24 个 commit 均为平台修复（Goals/TUI/WeChat/Zed/Model/Bedrock），无记忆系统变化。
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节；`hermes-memory/` 53 篇正文 ~940KB，最大 46922 字节（`09-supermemory-capture-lifecycle.md`），全部低于 50KB 上限。架构合规，无需重构。
+- [x] **Backlog 全部项 `[x]`**：v9.5 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit。
