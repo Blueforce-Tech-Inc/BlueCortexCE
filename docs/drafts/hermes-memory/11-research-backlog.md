@@ -231,3 +231,10 @@
   其余 24 个 commit 均为平台修复（Goals/TUI/WeChat/Zed/Model/Bedrock），无记忆系统变化。
 - [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节；`hermes-memory/` 53 篇正文 ~940KB，最大 46922 字节（`09-supermemory-capture-lifecycle.md`），全部低于 50KB 上限。架构合规，无需重构。
 - [x] **Backlog 全部项 `[x]`**：v9.5 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit。
+
+## 定时巡检（2026-05-03 22:54 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：fetch + checkout origin/main（`d87fd9f0` → `d87fd9f0`）。
+- [x] **上游代码增量扫描（`d87fd9f0..origin/main`，0 commits）**：完全同步，无新 upstream commits。
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节；`hermes-memory/` 53 篇正文 ~940KB，最大 46922 字节（`09-supermemory-capture-lifecycle.md`），全部低于 50KB 上限。架构合规，无需重构。
+- [x] **Backlog 全部项 `[x]`**：v9.6 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit。
