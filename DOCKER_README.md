@@ -72,7 +72,7 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 | `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | Embedding API endpoint | `https://api.openai.com` |
 | `SPRING_AI_OPENAI_EMBEDDING_MODEL` | Embedding model | `text-embedding-3-small` |
 | `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | Embedding dimensions | `1536` |
-| `CLAUDE_MEM_MODE` | Application mode (`code`/`default`) | `code` |
+| `CLAUDE_MEM_MODE` | Application mode (`code`, `code--<lang>`, `email-investigation`, etc.) | `code` |
 | `CLAUDEMEM_LLM_PROVIDER` | LLM provider (`openai`/`anthropic`) | `openai` |
 | `SPRING_AI_ANTHROPIC_API_KEY` | Anthropic API key (when provider=anthropic) | - |
 | `SPRING_AI_ANTHROPIC_BASE_URL` | Anthropic API endpoint | `https://api.anthropic.com` |

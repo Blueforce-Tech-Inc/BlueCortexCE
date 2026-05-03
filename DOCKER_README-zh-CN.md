@@ -72,7 +72,7 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 | `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | Embedding API 端点 | `https://api.openai.com` |
 | `SPRING_AI_OPENAI_EMBEDDING_MODEL` | Embedding 模型 | `text-embedding-3-small` |
 | `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | Embedding 维度 | `1536` |
-| `CLAUDE_MEM_MODE` | 应用模式（`code`/`default`） | `code` |
+| `CLAUDE_MEM_MODE` | 应用模式（`code`、`code--<lang>`、`email-investigation` 等） | `code` |
 | `CLAUDEMEM_LLM_PROVIDER` | LLM 提供商（`openai`/`anthropic`） | `openai` |
 | `SPRING_AI_ANTHROPIC_API_KEY` | Anthropic API key（provider=anthropic 时） | - |
 | `SPRING_AI_ANTHROPIC_BASE_URL` | Anthropic API 端点 | `https://api.anthropic.com` |
