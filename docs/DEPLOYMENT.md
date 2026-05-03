@@ -108,12 +108,6 @@ Build the image from source:
 ```bash
 # Build the image
 docker build -t ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main .
-
-# Build with arguments
-docker build \
-  -t ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main \
-  --build-arg JAVA_OPTS="-XX:+UseZGC -XX:MaxRAMPercentage=80.0" \
-  .
 ```
 
 ### 2.4 Docker Compose Service Details

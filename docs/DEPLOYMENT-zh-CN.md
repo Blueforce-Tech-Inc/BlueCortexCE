@@ -108,12 +108,6 @@ docker pull ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:v0.1.0-beta
 ```bash
 # 构建镜像
 docker build -t ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main .
-
-# 带构建参数
-docker build \
-  -t ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:main \
-  --build-arg JAVA_OPTS="-XX:+UseZGC -XX:MaxRAMPercentage=80.0" \
-  .
 ```
 
 ### 2.4 Docker Compose 服务说明

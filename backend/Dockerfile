@@ -25,9 +25,9 @@ WORKDIR /app
 # Copy the built jar from builder stage
 COPY --from=builder /app/target/cortex-ce-*.jar app.jar
 
-# Default port (can be overridden by SERVER_PORT env var)
-ENV SERVER_PORT=8080
-EXPOSE 8080
+# Default port (37777 — can be overridden by SERVER_PORT env var)
+ENV SERVER_PORT=37777
+EXPOSE 37777
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=60s \
