@@ -3207,3 +3207,69 @@ Total: 426/426 tests passed
 #### 代码审查结论
 
 0 个 P0/P1 问题，1 个 P2 次要观察（`/search` 端点 limit=0 语义不一致）。JS SDK 代码质量优秀，25 个 API 方法实现完整，DTO 设计健壮（防御性解析、双格式兼容），错误处理全面（12 个 is_* 谓词），fire-and-forget 策略与 Go/Python SDK 一致，HTTP Server demo 26 个端点覆盖完整，212 个单元测试全部通过。
+
+---
+
+## 2026-05-03 06:10 | Demo Review #2
+
+**审查方向**: Demo 代码（轮换：Java SDK → Go SDK → Python SDK → JS SDK → Demo → Backend）
+**审查范围**:
+- Java Demo: 10 控制器（SearchController, ObservationsController, ManagementController, SessionLifecycleController, IngestController, MemoryController, ChatController, FeedbackController, ProjectsController, ExtractionController）
+- Go Demo: basic/main.go, http-server/main.go (871 行), eino/, genkit/, langchaingo/
+- Python Demo: Flask http-server/app.py (648 行)
+- JS Demo: basic.ts, http-server/app.ts (464 行)
+
+**编译验证**: N/A（Demo 无独立构建产物）
+**E2E 测试**: 上次 Demo E2E 回归测试全通过
+
+#### 审查范围详情
+
+**Java Demo (10 控制器)**:
+- `SearchController.java` — GET /demo/search，SearchRequest DTO 构造，limit 0-100 校验
+- `ObservationsController.java` — GET/POST/PATCH/DELETE observation 端点，PATCH content/narrative alias 互斥校验，batch 100 上限
+- `ManagementController.java` — GET /demo/manage/version|stats|quality|modes|settings|projects
+- `SessionLifecycleController.java` — 完整 4 步 session 生命周期 + /lifecycle 一键执行，PATCH /session/user
+- `IngestController.java` — POST /demo/ingest/prompt + /session-end，CortexSessionContext begin/end 包裹
+- `MemoryController.java` — /memory/experiences|icl|quality|refine|icl/truncated|experiences/filtered，source/concept 过滤
+- `ChatController.java` — GET /chat，Spring AI ChatClient + CortexMemoryAdvisor，支持 ?conversationId= 和 ?useTools=
+- `FeedbackController.java` — POST /demo/feedback，observationId + feedbackType 必填校验
+- `ProjectsController.java` — GET /demo/projects，demo.projects 配置展示
+- `ExtractionController.java` — GET /demo/extraction/latest|history，blank userId → null 规范化为 SDK 参数省略语义
+
+**Go Demo**:
+- `examples/basic/main.go` — 18 步完整端到端流程（session start → record → search → list → version → health）
+- `examples/http-server/main.go` (871 行) — 全部 25+ 端点，recover() 中间件，MaxBytesReader body 限制，graceful shutdown (SIGTERM/SIGINT)
+- Go http-server `/batch-observations` 路径（而非 `/observations/batch`）—— Go 1.25+ ServeMux 冲突规避，属于 Go 特异性，非 bug ✅
+
+**Python Flask Demo** (`examples/http-server/app.py`, 648 行):
+- 全部 27 个端点（/health, /chat, /search, /experiences, /iclprompt, /observations/*, /projects, /stats, /modes, /settings, /quality, /extraction/*, /refine, /feedback, /session/*, /ingest/*)
+- `_require()` 辅助函数 + 类型校验（extractedData 必须是 dict）
+- fire-and-forget: atexit.register(client.close)
+- `/extraction/latest` user_id=request.args.get("userId", "") → SDK 内部 `if user_id:` 判断，空字符串不传参数 ✅
+
+**JS HTTP Server Demo** (`examples/http-server/app.ts`, 464 行):
+- 全部 26 个端点（25 API + /health）
+- asyncHandler 包装器捕获 async rejection
+- global error handler: ValidationError → 400, APIError → err.statusCode, else → 500
+- graceful shutdown: SIGTERM/SIGINT + 5s forced exit
+- ObservationUpdate PATCH: content/narrative 无互斥检查（Python/JS/Go 也无此检查，只有 Java Demo 有）—— 这是一致的，因为 PATCH 是"传什么更新什么"，content 和 narrative 在 updateObservation 中后端有互斥处理 ✅
+
+**JS Basic Demo** (`examples/basic.ts`):
+- 18 步完整流程，fire-and-forget observation/prompt/session-end
+- client.close() 在 finally 块中确保清理
+
+#### 发现的问题
+
+**无 P0/P1/P2 问题**。
+
+#### 亮点
+
+- **Java `ExtractionController`**: blank userId → null 归一化，`isFound()` + 404 返回，result.message() null 安全处理
+- **Java `ObservationsController` PATCH**: content + narrative 互斥校验（别名语义，backend 同一字段）
+- **Python Flask**: `_parse_json()` 统一 Content-Type 验证 + silent=True JSON 解析，异常统一 `jsonify(error=...)`
+- **Go http-server**: `http.MaxBytesReader` body 大小硬限制，recovery() middleware panic 恢复，statusRecorder WriteHeader 劫持
+- **JS HTTP**: asyncHandler 包装器，global error handler 分层（ValidationError/APIError/other）
+
+#### 代码审查结论
+
+0 个 P0/P1/P2 问题。Demo 代码质量优秀——跨 SDK 对比验证无一致性遗漏，端点覆盖完整，验证逻辑健壮（extractedData 类型、batch size、blank userId 规范化），fire-and-forget 资源清理（atexit/SIGTERM），graceful shutdown 完整。
