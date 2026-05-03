@@ -225,15 +225,19 @@ git submodule update --init --recursive
 docker build -t cortex-ce:latest .
 
 # 使用环境变量运行
+# 注意: host.docker.internal 需要 Linux + Docker 20.10+。macOS/Windows 请使用 Docker Compose (docker compose up -d)。
 docker run -d \
   -p 37777:37777 \
-  -e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/claude_mem \
+  -e SPRING_PROFILES_ACTIVE=prd \
+  -e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5433/claude_mem \
   -e SPRING_DATASOURCE_USERNAME=postgres \
   -e SPRING_DATASOURCE_PASSWORD=postgres \
   -e SPRING_AI_OPENAI_BASE_URL=https://api.openai.com \
   -e SPRING_AI_OPENAI_API_KEY=your-api-key \
   -e SPRING_AI_OPENAI_EMBEDDING_API_KEY=your-embedding-key \
   -e SPRING_AI_OPENAI_EMBEDDING_BASE_URL=https://api.openai.com \
+  -e SPRING_AI_OPENAI_EMBEDDING_MODEL=text-embedding-3-small \
+  -e SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS=1536 \
   cortex-ce:latest
 ```
 
