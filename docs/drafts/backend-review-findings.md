@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-05-02 13:45 (Python SDK Review #1 — 0 P0/P1/P2)
+> **最后更新**: 2026-05-03 15:57 (JS SDK Review #1 — 0 P0/P1/P2)
 
 ---
 
@@ -3273,3 +3273,48 @@ Total: 426/426 tests passed
 #### 代码审查结论
 
 0 个 P0/P1/P2 问题。Demo 代码质量优秀——跨 SDK 对比验证无一致性遗漏，端点覆盖完整，验证逻辑健壮（extractedData 类型、batch size、blank userId 规范化），fire-and-forget 资源清理（atexit/SIGTERM），graceful shutdown 完整。
+
+## 2026-05-03 18:50 | Java SDK Review #11（cortex-mem-spring-integration）
+
+### 审查范围
+- `CortexMemClient.java` — 接口定义（25 个 API 方法）
+- `CortexMemClientImpl.java` — REST 实现（778 行）
+- `CortexMemProperties.java` — 配置属性
+- `dto/SearchRequest.java` — 搜索请求 DTO
+- `dto/ObservationUpdate.java` — V14 更新 DTO（含 content/narrative 别名互斥）
+- `dto/ObservationsRequest.java` — 分页请求 DTO
+- 单元测试: DtoTest (34 tests) + CortexMemClientImplTest (86 tests) = **120 SDK tests** ✅
+
+### 代码质量评估
+
+| 维度 | 评级 | 说明 |
+|------|------|------|
+| 输入验证 | ✅ 优秀 | `requireNonBlank` + `requireAbsolutePath` + Builder 校验（limit/offset 范围） |
+| 错误处理 | ✅ 优秀 | 三层分离：`executeWithRetrySilent`(fire-forget) / `executeWithRetry`(显式错误) / `executeWithRetryReturn`(值返回) |
+| 重试机制 | ✅ 优秀 | 指数退避 + ±25% jitter，`isRetryable()` 仅重试 429/502/503/504，网络错误全量重试 |
+| DTO 设计 | ✅ 优秀 | Record + Builder 模式，`@JsonInclude(NON_NULL)`，blank orderBy 静默清零 |
+| 线程安全 | ✅ 优秀 | HttpClient/RestClient 不可变，`ThreadLocalRandom` 用于 jitter |
+| Fire-and-forget | ✅ 优秀 | `recordObservation`/`recordUserPrompt` 静默吞错，不阻塞 AI pipeline |
+| BACKOFF 零值保护 | ✅ 优秀 | `backoff.isZero() → 500ms fallback` |
+
+### 亮点
+
+- **`ObservationUpdate`**: `content` + `narrative` 别名互斥在 Builder 层校验（throw IllegalStateException），backend 同一字段语义正确处理
+- **`SearchRequest`**: limit=0 语义正确（省略参数，backend 使用默认值 20）；offset=0 语义正确（省略参数，backend 使用默认值 0）
+- **`ObservationsRequest`**: project 可选（null = 全项目搜索）
+- **`getExtractionHistory`**: limit=0 时正确省略参数（backend 会 clamp 为 1）
+- **SDK 版本读取**: JAR manifest `Implementation-Version` 动态读取，fallback "unknown"
+
+### 发现的问题
+
+**无 P0/P1/P2 问题**。
+
+### E2E 测试结果
+
+- **核心 17/17 ✅** — Search/List/Batch/P0/P1 全通过
+- **补充 N+ 测试**: `/memory/icl/truncated` ✅ `/memory/health` ✅（grep bug 已修复）
+- **173 单元测试 ✅** (DtoTest 34 + ClientImplTest 86 + Spring AI 46 + Starter 7)
+
+### 代码审查结论
+
+0 个 P0/P1/P2 问题。Java SDK 代码质量优秀，设计严谨。重试策略分层清晰（fire-forget / 显式抛错 / 值返回），DTO 验证完整，Builder 模式使用得当。与 Go/Python/JS SDK 行为一致。
