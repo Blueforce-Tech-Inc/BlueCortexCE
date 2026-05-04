@@ -39,7 +39,7 @@
 find docs/drafts/hermes-memory -name '*.md' -exec wc -c {} + | sort -n | tail -15
 ```
 
-**复核快照（2026-05-04 12:08）**：全部 `.md` 文件字节数扫描，最大单文件仍为 `09`（46,922 字节），远低于 50KB 上限。无需拆分。上游 `d87fd9f0..origin/main`（35 commits）**1 个记忆相关**——`408dd8aa`（ContextCompressor dedup pass 安全 guard：非字符串 content 跳过 hash；其余 34 个为 cron/skills/gateway/TUI/Approval/MCP/kanban/file/vision，非记忆系统变更）。已新增 [`55`](60-evolution/55-compressor-dedup-non-string-content-fix.md)。
+**复核快照（2026-05-04 17:59 CST）**：全部 `.md` 文件字节数扫描，最大单文件仍为 `09`（46,922 字节），远低于 50KB 上限。无需拆分。上游 `8163d3719..origin/main`（~20 commits）新增记忆相关：`6da970f15`（TUI teardown AIAgent.close() FD leak fix）+ `e2211b268`（ContextCompressor on_session_reset 重置 cooldown timer）；其余为 TUI/Dashboard/平台集成变更。已新增 [`60`](60-evolution/60-upstream-fd-leak-and-compressor-cooldown-reset.md)。
 
 | 字节数（约） | 路径 |
 |-------------|------|

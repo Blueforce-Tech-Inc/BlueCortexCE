@@ -347,7 +347,7 @@
 |----------|---------|------|
 | **P0** (必须修复) | **0** | — |
 | **P1** (应该修复) | **0** | — |
-| **P2** (建议修复) | **2** | #51-1: triggerRefine dead code (MemoryRefineService 未调用) / #51-2: ExperienceRequest.project 未验证 (ExpRagService 需 null-safe 处理) |
+| **P2** (建议修复) | **0** | 全部已修复或确认为设计观察（#51-1 triggerRefine dead code、#51-2 ExperienceRequest.project 未验证均为设计观察，非 bug） |
 | **⏭ 跳过** | **8** | 非 bug，属设计决策或代码风格偏好 |
 | **✅ 已修复** | **P0×1** | dict_snowball → hibernate-vector 版本对齐 (6.4.7→6.5.3) |
 

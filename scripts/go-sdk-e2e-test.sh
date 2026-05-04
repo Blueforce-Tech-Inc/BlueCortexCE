@@ -13,7 +13,7 @@
 
 set -e
 
-DEMO_BASE="http://localhost:8080"
+DEMO_BASE="${DEMO_BASE:-http://localhost:8080}"
 BACKEND_URL="http://127.0.0.1:37777"
 PROJECT="/tmp/e2e-go-test"
 

@@ -74,7 +74,7 @@
 
 57. **上游新提交分析（2026-05-04 补充）— 无新增记忆相关变更**：`d87fd9f0..a11aed1ac`（~20 commits），**0 个记忆相关** — Docker 单容器化 / CLI launch directory / TUI npm peer-flag / write_file 参数校验 / Cron non-dict origin；结论：文档保持最新，下次巡检从 `a11aed1ac` 起扫描 → [`57-upstream-no-new-memory-commits-through-may-04.md`](60-evolution/57-upstream-no-new-memory-commits-through-may-04.md)（2026-05-04 新增）
 
-56. **双层压缩架构分析（2026-05-04 新增）**：`trajectory_compressor.py` (65KB) + `agent/trajectory.py` + `agent/insights.py` — Session 级 ContextCompressor（实时，保持活跃对话在 context limit 内）与 TrajectoryCompressor（离线，压缩轨迹为 RL 训练数据）的完整对比；压缩策略差异（Token budget tail vs Fixed turns protection）；ShareGPT JSONL 格式轨迹持久化；InsightsEngine 历史会话分析（token/cost/tool 使用模式）；BlueCortexCE 借鉴：双层分离架构、轨迹分段保护策略、ShareGPT 格式标准化、Insights API 端点设计 → [`56`](60-evolution/56-trajectory-compression-vs-session-compression-dual-layer-design.md)（2026-05-04 新增；首次深度覆盖 RL 训练数据 pipeline）
+58. **惰性 Session 创建与 Ghost Session 防护（2026-05-04 新增）**：`c5b4c481` (#18370) — 移除 `AIAgent.__init__()` 中的 eager `create_session()` 调用，改为 `_ensure_db_session()` 在 `run_conversation()` 首次消息 flush 时按需创建；`_session_db_created` 标志位 + INSERT OR IGNORE 幂等插入；一次性迁移 `prune_empty_ghost_sessions()` 清理 24h 前无消息的 TUI 空 session；CE 借鉴：SessionEntity 惰性创建、幂等插入、ghost session 清理；附 `f1e029251` crash/restart 后 session resume 机制 → [`58`](60-evolution/58-lazy-session-creation-and-ghost-session-prevention.md)（2026-05-04 新增；源自 `run_agent.py` + `hermes_state.py` + `cli.py` 源码）
 
 ## 按 aspect 浏览
 

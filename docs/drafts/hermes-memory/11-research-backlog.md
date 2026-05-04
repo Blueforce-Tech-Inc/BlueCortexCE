@@ -2,9 +2,9 @@
 
 > **角色**：可勾选短队列；**不**重复 [`20-recommendations/02-bluecortexce-recommendations.md`](20-recommendations/02-bluecortexce-recommendations.md) 表格全文。  
 > **CE 安全与出口现状盘点**：[`20-recommendations/05-ce-context-security-gap-inventory.md`](20-recommendations/05-ce-context-security-gap-inventory.md)  
-> **最后更新**：2026-05-03 19:10（`5d3be898..origin/main`，24 commits；0 个 memory 相关，其余为 gateway/ACP/Discord/Slack/WeChat/Zed/OpenRouter 平台修复）
+> **最后更新**：2026-05-04 02:12（`d87fd9f0..origin/main`，9 commits；0 个 memory 相关，为 TUI resize/terminal/Approval/Gateway 修复）
 
-**本地 Hermes Agent Repo**：✅ 已存在，`git fetch origin/main` 成功（`5d3be898` → `6f2dab24`）
+**本地 Hermes Agent Repo**：✅ 已存在，`git fetch origin/main` 成功（`d87fd9f0` → `0dd8e3f8`）
 
 ---
 
@@ -238,3 +238,15 @@
 - [x] **上游代码增量扫描（`d87fd9f0..origin/main`，5 commits，0 记忆相关）**：仅 `e527240b`(tools/write_file) / `6b4fb9f8`(cron) / `69dd0f7c`(approval) / `3c59566c`(release) / `b59bb4e3`(gateway)；无记忆/上下文/压缩/session/hook/provider 相关。分析文档 → [`54`](60-evolution/54-upstream-new-commits-may-03.md)。
 - [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节；`hermes-memory/` 53 篇正文 ~940KB，最大 46922 字节（`09-supermemory-capture-lifecycle.md`），全部低于 50KB 上限。架构合规，无需重构。
 - [x] **Backlog 全部项 `[x]`**：v9.6 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit。
+
+## 定时巡检（2026-05-04 15:40 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：fetch + checkout origin/main（`ac0325c25` → `8163d3719`）。
+- [x] **上游代码增量扫描（`ac0325c25..origin/main`，~250 commits）**：记忆/上下文/压缩/session 相关核心发现：
+  1. **`408dd8aa`**（2026-05-04 补充）：Compressor deduplication pass 对非字符串 content 安全防护（`AttributeError` 修复）→ [`55`](60-evolution/55-compressor-dedup-non-string-content-fix.md)；**已在 doc 55 覆盖** ✅
+  2. **`f1e02925`**（2026-05-03）：**Crash/Restart 后 Session Resume 替代 Blanket Suspend** — `suspend_recently_active()` 改为设置 `resume_pending=True` 而非无条件 `suspended=True`；影响 `gateway/session.py` + `gateway/run.py`；这是 session 行为变更，非核心记忆系统但影响 session 生命周期管理。
+  3. **`c5b4c481`**（2026-04-29）：**Lazy Session 创建** — `defer DB row until first message`（`#18370`）；减少空 session DB 开销，与 BlueCortexCE SessionEntity 惰性创建设计思路一致。
+  4. **`93410347`**（2026-05-02）：**/new response 顺序修复** — 在 `cancel_session_processing()` 前先发响应，避免 race 丢响应；与 doc 52 的 session teardown bug 修复正交（均为 session 生命周期边界）。
+  其余 memory-adjacent 变更：`f0dc919f9`（已在 doc 53）/`ec4cb16a2`（Honcho RLock 已在 doc 53）/`4a2f82213`（MCP session reconnect，与记忆系统无直接关联）。
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节；`hermes-memory/` 55 篇正文，最大 46922 字节（`09`），全部低于 50KB 上限。
+- [x] **Backlog 全部项 `[x]`**：v9.7 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit。
