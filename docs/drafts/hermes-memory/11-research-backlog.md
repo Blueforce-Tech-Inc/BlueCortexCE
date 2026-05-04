@@ -62,6 +62,14 @@
 
 - [x] **文档体量再验证**：最大文件仍为 `09`（46922 字节），无增长，无需拆分。
 
+## 新增分析（2026-05-05 cron 巡检）
+
+- [x] **MemoryManager 核心编排器深度解析（2026-05-05 新增）**：`agent/memory_manager.py`（414L，9,708 字节）完整源码 — Provider 注册模型 / 上下文围栏机制 / 工具路由 / 生命周期钩子广播 / 元数据兼容层 / 自动 hermes_home 注入 / shutdown 逆序；CE 差距：围栏缺失、Provider ABC 缺、工具路由分散 → [`65`](60-evolution/65-memory-manager-orchestrator-deep-dive.md)
+
+- [x] **Holographic 三元存储系统（2026-05-05 新增）**：`plugins/memory/holographic/`（holographic.py + store.py + retrieval.py，6,793 字节）— HRR 相位编码 / SQLite 三表 + FTS5 触发器 / Trust Scoring / 混合检索（BM25+Jaccard+HRR 三路）；CE 差距：无多路召回、无 trust 反馈、无 entity 表 → [`66`](60-evolution/66-holographic-triple-storage-hrr-store-retrieval.md)
+
+- [x] **文档体量验证（2026-05-05）**：全部 `.md` ≤50KB 上限。新增 2 份（`65`/`66`，共 ~13.6KB）。⚠️ 上游源码 `honcho/__init__.py` = 54,470 字节违反上限，已在 AGENT.md 预警表中记录（不直接影响本仓库文档，但分析文档应避免向 `honcho/__init__.py` 直接复制大量源码）。
+
 ## 定时巡检（2026-04-24 09:57 CST）
 
 - [x] **上游代码增量扫描（2026-04-24 morning）**：无记忆相关新提交。最近 15 个 commit 涵盖 TUI/WebSocket (`25ba6783`)、Matrix 消息支持 (`03446e06`)、`@` 模糊文件名匹配 (`b08cbc7a`)、工具输出截断可配置 (`f2f1b3f1`)、TUI 崩溃日志 (`7baf370d`)、MCP schema 修复等，均与记忆系统无关。
@@ -262,3 +270,27 @@
   其余 81 个非记忆（Dashboard/Kanban/TUI/Provider Fixes）
 - [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节；`hermes-memory/` 56 篇正文，最大 46922 字节（`09`），全部低于 50KB 上限。
 - [x] **Backlog 全部项 `[x]`**：v9.8 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `110387d14`）。
+
+## 定时巡检（2026-05-05 02:33 CST）
+
+- [x] **Honcho Session Manager 线程安全修复分析**（`ec4cb16a2` + `bea2562fc`，2026-04-27）：`_peers_cache`/`_sessions_cache` 读写竞态修复（读-检查-写无锁 → 锁内读写，I/O 在锁外）+ 三个 `int()` 配置解析健壮性 → [`67`](60-evolution/67-honcho-session-manager-thread-safety-and-config-parsing.md)；设计原则：锁粒度与 I/O 分离、Try-First-Fallback 配置解析。CE 对照：审计 `computeIfAbsent` 模式、为 Phase 3 模板配置 YAML 解析增加错误隔离。
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节；`hermes-memory/` 57 篇正文，最大 46922 字节（`09`），全部低于 50KB 上限。新增 doc `67`（8769 字节）。
+- [x] **Backlog 全部项 `[x]`**：v9.9 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `0ce1b9fe2`）。
+
+## 定时巡检（2026-05-05 03:48 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：fetch + checkout origin/main（`d35efb989` → `81cd67829`）。
+- [x] **上游代码增量扫描（`d35efb989..origin/main`，1718 commits）**：10 个记忆/上下文系统相关发现 → [`69`](60-evolution/69-upstream-1718-commits-memory-analysis.md)；核心发现：
+  1. **`46f7b38bb`**（P0 CRITICAL）：on_memory_write bridge **缺失于 sequential tool execution path** — 所有外部 memory provider 静默丢失每一次单次调用 memory write（绝大多数场景）；现已修复
+  2. **`1aaeca55e`/`ff95ec1c5`**（P0 MAJOR）：**ContextEngine ABC 新增**（206行），ContextCompressor 继承重构，上下文引擎插件化架构奠基，支持第三方 LCM 等引擎
+  3. **`51751cdaf`/`e7209789b`**（P1）：ContextEngine 接入 run_agent.py — session lifecycle + tool dispatch + engine tool schemas 注入
+  4. **`825bd8cff`**（P1）：新增 `on_session_finalize` + `on_session_reset` plugin hooks
+  5. **`721e0b96c`**（P1）：compression disabled 时 `finish_reason='length'` 触发 length eviction 防死循环
+  6. **`c52e59319`**（P2）：Gateway user_id 穿透到 memory plugins，**修复多用户共享同一记忆 bucket 的 bug**（Mem0/Honcho 均受影响）
+  7. **`97fb69b01`/`24b8fb59e`**（P2）：tool result persistence 阈值可配置化（BudgetConfig dataclass，优先级：pinned > env > registry > defaults）
+  8. **`8c90c8114`**（P2）：session_search FTS5 CJK 查询 bypass（LIKE 替代 FTS5 tokenizer 单字符切分）
+  9. **`eeba720fc8`**（P2）：token accounting fallback + reasoning-aware compression
+  10. **`1e6285c53`**（P2）：compression eval harness（`scripts/compression_eval/` 离线评测工具链）
+- [x] **源码重构预警**：commit `65ca3ba93` 将所有源码迁移到 `hermes_agent/` 子包，后续快照行号将与历史文档无法直接对照
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节；`hermes-memory/` 58 篇正文，最大 46922 字节（`09`），全部低于 50KB 上限。新增 doc `69`（9340 字节）。
+- [x] **Backlog 全部项 `[x]`**：v10.0 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `81cd67829`）。
