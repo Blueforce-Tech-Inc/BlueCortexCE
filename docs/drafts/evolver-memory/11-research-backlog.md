@@ -1,7 +1,7 @@
 # 研究 / 决策 backlog（可接力）
 
 > **角色**：给后续人类或 Agent 的**短队列**——可勾选、可补链接；**不**重复 [`09`](./09-aspect-bluecortex-bridge.md) 的 P0/P1 定义本身。  
-> **最后更新**：2026-05-03（`77` 完成：Doc 56 时间戳勘误 + Doc 24 Gene/Strategy CE翻译全覆盖标记✅ + OMLSA/llmReview backlog勾选✅；`73` 三层信号提取架构现实核查 + 新机会信号；`72` inferOutcomeEnhanced baseline/current delta + 双聚合链；`71` MCP Semantic Capability 产品评估；`70` v1.48–v1.78 新增子系统深度分析；backlog ✅）
+> **最后更新**：2026-05-04（`80` v1.78.5 版本增量同步（Claude Code `tool_input.*` signal-detect 修复）+ Doc 56 时间戳勘误 ✅（v1.47 结论正确，v1.78 三层架构已引入，链接到 doc 73）/ Doc 24 Gene/Strategy CE翻译全覆盖 ✅/ OMLSA自适应休眠 ✅ + LLM驱动代码评审 ✅（均已在doc 45覆盖）；backlog 架构与产品区已清空4项；v8.8: selectGeneAndCapsule决策管线+Failed Capsule Ban（`76`）✅ | [`11`](./evolver-memory/11-research-backlog.md)；backlog ✅；v8.9: v1.78.5版本同步 ✅）（4级强度 / 跨平台空闲检测 / `sleep_multiplier`/`should_distill`×`should_reflect` 联动 / CE P0提案）+ ContentHash 内容寻址系统（`canonicalize`/`computeAssetId`/`verifyAssetId` / CE P2 提案）；`73` 三层信号提取架构现实核查 + 新机会信号；`72` inferOutcomeEnhanced baseline/current delta + 双聚合链；`71` MCP Semantic Capability 产品评估；`70` v1.48–v1.78 新增子系统深度分析；backlog ✅）
 
 ---
 
@@ -35,6 +35,8 @@
 
 ## Evolver 侧（外部源码）
 
+- [x] **EvoMap/evolver v1.78.1→v1.78.5 版本增量同步**（`80` 新增 ✅）：v1.78.5 较 v1.78.1 共 4 个新 commit；其中关键修复：`cbc4870 fix(adapters): read tool_input.* in signal-detect for Claude Code (#522)`——Claude Code 的 PostToolUse payload 将工具参数嵌套在 `tool_input.*` 下（原只读顶级字段导致 Edit 事件信号检测静默返回 `{}`）；修复后优先读 `ti.content`/`ti.new_string`/`ti.file_content` 及 `tr.filePath`，fallback 兼容旧格式；修复对 Cursor/Codex/Kiro 等其他平台无影响。详见 [`79c`](./79c-evolver-hook-adapter-system-deep-dive.md) Hook 适配系统深度分析。
+- [x] **v1.47→v1.78.5 架构演进总览 + config.js 集中配置模式**（`80` 新增 ✅）：⚠️ 本地工作树实际在 v1.47.0（`e72778e`），docs 原误标为 v1.78.5；v1.78.5 代码在 git 未检出；核心发现：evolve.js 从 ~2500L 瘦身为 ~300L（-2176行），+3670/-9156行净减；新增 ATP/adapters/ops/validator 四大子系统；`src/config.js`（215行）集中所有 magic number + env override，5类配置组（Network/Solidify/Evolution/Gene/Ops/Self-PR/LeakCheck），CE P0 行动项：创建 `MemoryConfig.java` 集中配置；详见 [`80`](./80-architecture-evolution-v147-v178-config-centralization.md)。
 - [x] **EvoMap/evolver 版本同步 + 新增子系统源码分析**（`70`）：
   - ✅ `skill2gep.js`（645行）完整源码分析：逆向蒸馏管道（parseSkillMd / detectForgery / assembleCapsule / 双通道发布）
   - ✅ `selfPR.js`（408行）完整源码分析：多门禁自动 PR 贡献（score/streak/risk/blask 多重门禁 + leakCheck + diffHash 去重）
@@ -48,12 +50,14 @@
 - [x] **`featureFlags.js`（114行 v1.78 新增）**：源码核实 `src/featureFlags.js` 在 origin/main v1.78.1 **不存在**，该条目为 stale 信息。✅ 核实完成（2026-05-03，doc 75）。
 - [x] **Doc 56 时间戳勘误** ✅：在 doc 56 文件开头添加时间戳说明，澄清「本文结论对 v1.47 正确，v1.78 已引入三层架构」，并链接到 doc 73。
 
+- [x] **`src/proxy/` 子系统 v1.78 新增源码分析**（`78` 新增 ✅）：EvoMapProxy 中间代理层 250L / MailboxStore 持久化 415L（JSONL+Mem索引 / prototype pollution safeAssign / UUID v7 / .tmp+rename 原子写）/ SyncEngine 双向同步 316L（Outbound 批量 flush MAX_BATCH=50+10次重试 / Inbound Cursor分页 10s活跃/60s空闲轮询）/ LifecycleManager 322L（hello/hb/reauth / hello_rate_limit / envFingerprint）/ REST Routes 463L（/mailbox /asset /task /session /dm）/ SessionHandler 141L P2P协作（create/join/leave/delegate subtask ≤16KB）/ hookAdapter 多平台检测 + deepMerge原子写 / ClaudeCode(163L)/Codex(172L)/Kiro(203L)/Cursor(89L) 适配器 / CE P0（原子写+Cursor分页+批量重试+safeAssign）/ P1（分层API路由+批量确认）/ P2（Proxy中间层思想+多平台Adapter模式）。详见 [`78`](./78-v178-proxy-subsystem-architecture.md)。
 - [x] **自适应策略策略借鉴**（`45` 新增）：Evolver 每周期动态计算执行策略（repair streak / failure streak / blast radius），CE `ContextService` 可参考实现注入策略动态切换。详见 [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) §1。
 - [x] **候选评估管线借鉴**（`45` 新增）：Evolver 从会话转录提取重复模式（≥3次），生成 Five Questions Shape 候选。CE 可参考实现高频观察模式自动发现。详见 [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) §2。
 - [x] **Git 自修复借鉴**（`26` 已覆盖）：Evolver `self_repair.js` 在进化前自动修复 Git 异常（abort rebase/merge、删除 stale index.lock、可选 hard reset）。CE 可参考实现写入前自检（数据库连接、事务状态）。详见 [`26`](./26-runtime-orchestration-adaptive-policy-candidates.md) §3。
 - [x] **`policyCheck.js` 约束系统深度分析**（`42` 新增）：`isConstraintCountedPath` 路径匹配决策树（excludePrefix → includePrefix → extension 优先级）、`computeBlastRadius`（git numstat + untracked 行数统计 + baseline 对比）、`classifyBlastSeverity` 5级分类（hard_cap_breach / critical_overrun / exceeded / approaching_limit / within_limit）、验证命令白名单（`isValidationCommandAllowed` 禁止 `node -e`/shell 操作符）、伦理模式检测（5 种 regex 模式）、`detectDestructiveChanges` 关键文件删除/清空检测。详见 [`42`](./42-policycheck-constraint-system-deep-dive.md)。
 
 - [x] **OMLS 启发式自适应休眠调度借鉴** ✅（`45`）：`idleScheduler.js` `getScheduleRecommendation()` 返回 `idle_seconds`/`intensity`/`sleep_multiplier`/`should_distill`；CE 巡检 cron 可参考实现：低活跃→2小时、中活跃→30分钟、高活跃→15分钟；详见 [`45`](./45-idleScheduler-OMLS-and-llmReview.md) §1。
+  - **源码级深度**（`77`）：157行完整源码分析：4级强度（`signal_only/normal/aggressive/deep`）× `sleep_multiplier`（3/1/0.5/0.25）× 三联动标志；跨平台空闲检测（Windows PowerShell `GetLastInputInfo` / macOS `ioreg` / Linux `xprintidle`）；`idle_schedule_state.json` 持久化；详见 [`77`](./77-idleScheduler-contentHash-OMLS-adaptive-memory-scheduling.md) §1。
 - [x] **LLM 驱动代码评审借鉴** ✅（`45`）：`llmReview.js` 在 solidify 流程中做 LLM 评审（approved/issues/score/reasoning），与 policyCheck 形成「规则门禁 + 语义评审」双层；CE 可在 ValidationReport 基础上叠加；详见 [`45`](./45-idleScheduler-OMLS-and-llmReview.md) §2。
 
 ## 安全与上下文出口（Hermes 对照）
