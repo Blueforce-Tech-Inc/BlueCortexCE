@@ -3428,3 +3428,68 @@ Total: 426/426 tests passed
 ### 代码审查结论
 
 0 个 P0/P1/P2 问题，2 个 S2 建议。Java SDK 代码质量稳定，设计严谨。编译 clean，测试全通过。建议后续迭代修复 S2-1/S2-2 设计不一致问题。
+
+---
+
+## 2026-05-04 14:42 | Go SDK Review #11
+
+**审查方向**: Go SDK (`go-sdk/cortex-mem-go/`)
+
+**审查范围**:
+- `client.go` — 25 个 API 方法接口定义
+- `client_impl.go` — HTTP 客户端实现（重试、fire-and-forget、错误处理）
+- `client_methods.go` — 25 个 API 方法实现
+- `dto/observation.go` — ObservationRequest、ObservationUpdate、Observation DTOs
+- `dto/search.go` — SearchRequest、SearchResult DTOs
+- `error.go` — 错误类型（ValidationError、APIError、IsRetryable、sentinel errors）
+- `genkit/retriever.go` — Genkit 集成
+- `eino/retriever.go` — Eino 集成
+- `langchaingo/memory.go` — LangChainGo 集成
+- 编译验证: ✅ `go test ./...` 全通过
+- 测试验证: ✅ 349 tests (client 255 + dto 61 + genkit 13 + langchaingo 12 + eino 8)
+
+### 代码质量评估
+
+| 维度 | 评级 | 说明 |
+|------|------|------|
+| 输入验证 | ✅ 优秀 | `ValidationError` 在调用前 fail-fast，DTO 字段校验完整 |
+| 错误处理 | ✅ 优秀 | `ValidationError` / `APIError` / `IsRetryable` / sentinel errors 分层清晰 |
+| 重试机制 | ✅ 优秀 | 线性退避 + ±25% jitter，`IsRetryable()` 重试 429/502/503/504，网络错误全量重试 |
+| DTO 设计 | ✅ 优秀 | `StringList` 支持双重 JSON 格式（array + string-encoded array），`ObservationUpdate` 互斥校验 |
+| 线程安全 | ✅ 优秀 | `http.Client` 不可变，无全局状态 |
+| Wire format | ✅ 优秀 | `session_id`/`cwd`/`tool_name` 等字段与 backend 完全对应，`@JsonProperty` 标注已验证 |
+| Fire-and-forget | ✅ 优秀 | `doFireAndForget` 静默吞错，不阻塞 AI pipeline |
+| 集成层 | ✅ 优秀 | genkit/eino/langchaingo 三层均实现 nil client panic guard |
+
+### 亮点
+
+- **`StringList` Unmarshal**: 支持 `["a","b"]` 和 `"[\"a\",\"b\"]"` 两种 JSON 格式，兼容 WebUI 的 JSONB string serialization
+- **`extractErrorMessage`**: 解析 `{"error":"..."}` / `{"message":"..."}` / `{"detail":"..."}` / `"string"` / `[{"error":"..."}]` 全模式
+- **`ObservationUpdate.Validate()`**: `IsEmpty()` + `HasConflict()` 双重校验，在发送 PATCH 前提前暴露错误
+- **`GetObservation`**: 内部调用 `GetObservationsByIds`，复用 batch 接口（优雅）
+- **`doFireAndForget`**: ctx 已取消时跳过执行（fire-and-forget 优化），ctx 取消时静默吞错
+- **零依赖**: 仅使用 Go 标准库，无外部依赖
+- **集成层 guard**: `NewRetriever` / `NewMemory` 对 nil client panic，提前暴露编程错误
+
+### 发现的问题
+
+**无 P0/P1/P2 问题。** 发现 1 个 S2（suggested）级别的设计不一致：
+
+#### S2-1: `GetStats` 接受 `projectPath` 参数但被 backend 忽略
+- **位置**: `client_methods.go` `GetStats()` 方法 + `dto/management.go` `StatsResponse`
+- **问题**: `GetStats(ctx, projectPath)` 接受 `projectPath` 参数，但 backend `/api/stats` 是全局端点，完全忽略此参数。用户可能误以为 stats 是按 project 分组的。
+- **严重级别**: S2（建议修复，不阻断）
+- **当前行为**: `projectPath` 参数被静默忽略（无 warning）
+- **建议**: 在方法 Javadoc 中明确注明 "projectPath is accepted for API symmetry but ignored by the backend — stats are global"，或添加 validation warning log
+- **影响范围**: 仅影响直接使用 `GetStats` 并传入 projectPath 的调用方
+- **对比**: Java SDK 的 `getStats` 方法有相同行为（backend 层面决定）
+
+### 测试结果
+
+- `go test ./...` ✅ 全部通过
+- 单元测试: client 255 + dto 61 = **316 tests** ✅
+- 集成测试: genkit 13 + langchaingo 12 + eino 8 = **33 tests** ✅
+
+### 代码审查结论
+
+0 个 P0/P1/P2 问题，1 个 S2 建议。Go SDK 代码质量卓越，设计优雅。零依赖实现，`StringList` 双重 JSON 解析、`extractErrorMessage` 全模式支持、fire-and-forget ctx 取消优化等细节体现工程严谨。集成层均有 nil guard。与 Java/JS/Python SDK 行为一致。
