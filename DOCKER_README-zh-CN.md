@@ -395,11 +395,23 @@ SPRING_PROFILES_ACTIVE=prd
 
 # OpenAI / DeepSeek
 SPRING_AI_OPENAI_API_KEY=your_api_key_here
+SPRING_AI_OPENAI_BASE_URL=https://api.openai.com
+SPRING_AI_OPENAI_CHAT_MODEL=gpt-4o
+
+# Embedding 模型
 SPRING_AI_OPENAI_EMBEDDING_API_KEY=your_embedding_key_here
+SPRING_AI_OPENAI_EMBEDDING_BASE_URL=https://api.openai.com
+SPRING_AI_OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS=1536
+
+# Cortex CE 配置
+CLAUDE_MEM_MODE=code
 
 # 可选：切换到 Anthropic
 # CLAUDEMEM_LLM_PROVIDER=anthropic
 # SPRING_AI_ANTHROPIC_API_KEY=your_anthropic_key_here
+# SPRING_AI_ANTHROPIC_BASE_URL=https://api.anthropic.com
+# SPRING_AI_ANTHROPIC_CHAT_MODEL=claude-sonnet-4-5
 ```
 
 ## 安全建议
