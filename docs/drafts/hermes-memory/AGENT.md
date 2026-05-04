@@ -39,7 +39,7 @@
 find docs/drafts/hermes-memory -name '*.md' -exec wc -c {} + | sort -n | tail -15
 ```
 
-**复核快照（2026-05-05 03:51 CST）**：全部 `.md` 文件字节数扫描（见下表）。新增 3 份分析（`67`/`68`/`69`，均 <13KB）。
+**复核快照（2026-05-05 07:52 CST）**：全部 `.md` 文件字节数扫描（见下表）。新增 1 份分析（`73`，7662 字节）。全部低于 50KB 上限。
 
 ⚠️ **硬上限违反**：上游源码文件 `plugins/memory/honcho/__init__.py` = **54,470 字节**（>50KB 上限），需拆分。该文件是上游 Hermes 源码，非本仓库文档，但其在 `docs/drafts/hermes-memory/` 中的分析文档应避免再增长。
 
@@ -60,14 +60,16 @@ find docs/drafts/hermes-memory -name '*.md' -exec wc -c {} + | sort -n | tail -1
 | 41590 | [`40-context-compression/03-memory-context-injection-and-prefetch-lifecycle.md`](40-context-compression/03-memory-context-injection-and-prefetch-lifecycle.md) |
 | ~39.5KB | [`60-evolution/06-memory-provider-hooks-inventory.md`](60-evolution/06-memory-provider-hooks-inventory.md) |
 | ~37.8KB | [`00-overview/01-architecture-positioning-and-toc.md`](00-overview/01-architecture-positioning-and-toc.md) |
-| ~36.4KB | [`11-research-backlog.md`](11-research-backlog.md) |
+| ~45.7KB（⚠️ 逼近 50KB 上限） | [`11-research-backlog.md`](11-research-backlog.md)（每次巡检追加一行，接近上限时需考虑拆分或归档历史巡检条目） |
 | ~34.2KB | [`60-evolution/10-holographic-hrr-implementation.md`](60-evolution/10-holographic-hrr-implementation.md) |
 | ~33.6KB | [`60-evolution/30-contradiction-detection-and-session-tools.md`](60-evolution/30-contradiction-detection-and-session-tools.md) |
 | 9,708 | [`60-evolution/65-memory-manager-orchestrator-deep-dive.md`](60-evolution/65-memory-manager-orchestrator-deep-dive.md)（2026-05-05 新增；MemoryManager 414L 全解 + CE 对照） |
 | 6,793 | [`60-evolution/66-holographic-triple-storage-hrr-store-retrieval.md`](60-evolution/66-holographic-triple-storage-hrr-store-retrieval.md)（2026-05-05 新增；HRR+store+retrieval 三元组） |
 | 8,769 | [`60-evolution/67-honcho-session-manager-thread-safety-and-config-parsing.md`](60-evolution/67-honcho-session-manager-thread-safety-and-config-parsing.md)（2026-05-05 新增；Honcho RLock + 配置解析） |
 | 931 | [`60-evolution/68-upstream-zero-memory-commits-telegram-topic-mode.md`](60-evolution/68-upstream-zero-memory-commits-telegram-topic-mode.md)（2026-05-05 新增；0 记忆相关，Telegram topic mode） |
+| 5,657 | [`60-evolution/60-upstream-110387d14-to-origin-main-memory-analysis.md`](60-evolution/60-upstream-110387d14-to-origin-main-memory-analysis.md)（2026-05-05 新增；89 commits，3 记忆发现；⭐ P2 Compressor Pass2+Prune boundary+SessionSearch source fix） |
 | 12,310 | [`60-evolution/69-upstream-1718-commits-memory-analysis.md`](60-evolution/69-upstream-1718-commits-memory-analysis.md)（2026-05-05 新增；1718 commits，10 个记忆发现；⭐ P0 on_memory_write bridge 缺失 + ContextEngine ABC） |
+| 7,662 | [`60-evolution/73-upstream-739b30bc0-to-origin-main-memory-analysis.md`](60-evolution/73-upstream-739b30bc0-to-origin-main-memory-analysis.md)（2026-05-05 新增；237 commits，4 个记忆发现；⭐ P2 cooldown漏清理 + 大上下文假溢出 + preflight状态广播） |
 
 **已处理**：
 - `06`（48903 → ~38.5KB）：§43–§44 迁入 [`29-memory-provider-hooks-advanced-topics.md`](60-evolution/29-memory-provider-hooks-advanced-topics.md)（2026-04-24）
