@@ -84,6 +84,8 @@
 
 62. **Compressor Pass 2 Non-String Content Fix（2026-05-04 新增）**：`a7417f8a4` — Pass 2（summarization/pruning）修复，与 doc 55 Pass 1（`408dd8aa`）相同模式，`isinstance(content, str)` guard 补全；CE 借鉴：tool result content 处理前必须类型检查 → [`62-compressor-pass2-non-string-content-fix.md`](60-evolution/62-compressor-pass2-non-string-content-fix.md)（2026-05-04 新增；eeb05cf55..origin/main 5 commits 中唯一记忆相关，下次扫描起点：`54e78cadb`）
 
+63. **上游扫描（2026-05-05）— 无新增记忆相关变更**：`a7417f8a4..origin/main` 8 commits，**0 个记忆相关**（TUI prompt separator / Teams plugin slash exec / Opus 4.6 fast mode restriction）；文档保持最新 → [`63-upstream-no-memory-commits-since-a7417f8a4.md`](60-evolution/63-upstream-no-memory-commits-since-a7417f8a4.md)（2026-05-05 新增；下次扫描起点：`0ce1b9fe2`）
+
 ## 按 aspect 浏览
 
 | 方面 | 路径 | 说明 |
