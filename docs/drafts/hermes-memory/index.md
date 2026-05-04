@@ -76,6 +76,14 @@
 
 58. **惰性 Session 创建与 Ghost Session 防护（2026-05-04 新增）**：`c5b4c481` (#18370) — 移除 `AIAgent.__init__()` 中的 eager `create_session()` 调用，改为 `_ensure_db_session()` 在 `run_conversation()` 首次消息 flush 时按需创建；`_session_db_created` 标志位 + INSERT OR IGNORE 幂等插入；一次性迁移 `prune_empty_ghost_sessions()` 清理 24h 前无消息的 TUI 空 session；CE 借鉴：SessionEntity 惰性创建、幂等插入、ghost session 清理；附 `f1e029251` crash/restart 后 session resume 机制 → [`58`](60-evolution/58-lazy-session-creation-and-ghost-session-prevention.md)（2026-05-04 新增；源自 `run_agent.py` + `hermes_state.py` + `cli.py` 源码）
 
+59. **上游新提交分析（a11aed1ac → origin/main，85 commits，2026-05-04 新增）**：3 个记忆系统相关 + 1 个工具结果存储相关：`6b88f46c5`（Compressor timeout fallback fix：HTTP 408/429/502/504 及 timeout 字符串触发 fallback 到主模型，防止上下文无限增长）/ `e2211b268`（`on_session_reset()` 清理 `_summary_failure_cooldown_until` 防止新 session 被旧 cooldown 阻塞）/ `c653f5dc3`（session_search auxiliary model 文档澄清）/ `e50809b77`（`read_file` max_result_size_chars=100K 封顶，闭合 tool_result_storage.py Layer 2 防御缺口）；CE 借鉴：StructuredExtractionService 增加 transient vs permanent 错误分类、session 重置清理所有 transient 状态、tool result 增加大小封顶；其余 81 个非记忆相关（Dashboard/Kanban/TUI/Provider） → [`59`](60-evolution/59-upstream-a11aed1ac-to-origin-main-memory-analysis.md)（2026-05-04 新增；下次扫描起点：`origin/main` `110387d14`）
+
+60. **TUI FD Leak + 压缩机 Cooldown Session Reset（2026-05-04）**：`6da970f15`（TUI session teardown FD leak fix：`session.close()` 现调用 `AIAgent.close()` 关闭 httpx transport pool）/ `e2211b268`（`on_session_reset()` 清理 `_summary_failure_cooldown_until`）；CE 借鉴：session teardown 必须清理所有资源（包括 HTTP 客户端）、transient cooldown 状态必须在 session reset 时清理 → [`60-upstream-fd-leak-and-compressor-cooldown-reset.md`](60-evolution/60-upstream-fd-leak-and-compressor-cooldown-reset.md)（2026-05-04 18:03 创建）
+
+61. **上游新提交分析（8163d3719 → eeb05cf55，1830 commits，2026-05-04 新增）**：25 个记忆相关：⭐ Per-user memory scoping（`c52e59319`：Gateway user_id 透传到 MemoryProvider，实现多用户内存隔离）/ ContextCompressor 边界方向修复（`b7bbc6250`）/ Timeout fallback（`6b88f46c5`）/ Cooldown reset（`e2211b268`）/ Image size cap + token charging（`02e328c41`）/ Compression eval harness（`1e6285c53`）/ Honcho CLI registration 重构（`824c691ec`）；CE 借鉴：多用户场景必需 per-user scoping、transient/permanent 错误分类、eval harness 可迁移用于 Structured Extraction 质量评估 → [`61-upstream-8163d3719-to-eeb05cf55-memory-analysis.md`](60-evolution/61-upstream-8163d3719-to-eeb05cf55-memory-analysis.md)（2026-05-04 21:00 创建；下次扫描起点：`eeb05cf55`）
+
+62. **Compressor Pass 2 Non-String Content Fix（2026-05-04 新增）**：`a7417f8a4` — Pass 2（summarization/pruning）修复，与 doc 55 Pass 1（`408dd8aa`）相同模式，`isinstance(content, str)` guard 补全；CE 借鉴：tool result content 处理前必须类型检查 → [`62-compressor-pass2-non-string-content-fix.md`](60-evolution/62-compressor-pass2-non-string-content-fix.md)（2026-05-04 新增；eeb05cf55..origin/main 5 commits 中唯一记忆相关，下次扫描起点：`54e78cadb`）
+
 ## 按 aspect 浏览
 
 | 方面 | 路径 | 说明 |
