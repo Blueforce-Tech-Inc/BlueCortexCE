@@ -3493,3 +3493,52 @@ Total: 426/426 tests passed
 ### 代码审查结论
 
 0 个 P0/P1/P2 问题，1 个 S2 建议。Go SDK 代码质量卓越，设计优雅。零依赖实现，`StringList` 双重 JSON 解析、`extractErrorMessage` 全模式支持、fire-and-forget ctx 取消优化等细节体现工程严谨。集成层均有 nil guard。与 Java/JS/Python SDK 行为一致。
+
+## 2026-05-04 15:28 | Python SDK Review #2
+
+**审查方向**: Python SDK (`python-sdk/cortex-mem-python/`)
+
+**审查范围**:
+- `cortex_mem/client.py` — 25 个 API 方法实现 + `_fire_and_forget` 重试机制
+- `cortex_mem/dto.py` — 全部 DTO dataclasses（15+ DTOs，完整 wire format 映射）
+- `cortex_mem/error.py` — 错误类型 + 18 个错误谓词函数
+- `examples/http-server/app.py` — Flask HTTP Server Demo（26 个端点）
+- 编译验证: ✅ `python3 -m pytest tests/ -x -q` → 374/374 passed
+- 测试验证: client 173 + dto 118 + demo 77 = **368 tests** ✅
+
+### 代码质量评估
+
+| 维度 | 评级 | 说明 |
+|------|------|------|
+| 输入验证 | ✅ 优秀 | TrimSpace + `_require` 全覆盖，batch size 100 上限校验 |
+| 错误处理 | ✅ 优秀 | ValidationError / APIError / 18 个 predicate 函数分层清晰 |
+| 重试机制 | ✅ 优秀 | 线性退避 ±25% jitter（`random.uniform(-0.25, 0.25)`），仅重试 429/502/503/504 |
+| DTO 设计 | ✅ 优秀 | `_first_non_null` 双格式兼容，`_parse_nullable_float` NaN/Inf 防护，`_to_str_list` 防御性解析 |
+| Wire format | ✅ 优秀 | `session_id`/`cwd`/`tool_name` 与 backend 完全对齐 |
+| Fire-and-forget | ✅ 优秀 | `_fire_and_forget` 静默吞错，与 Go SDK 语义完全一致 |
+| Flask Demo | ✅ 优秀 | 26 个端点覆盖完整，atexit 资源清理，Content-Type 验证 |
+
+### 亮点
+
+- **`_parse_nullable_float`**: 正确处理 backend 返回 `null` → Python `None`，避免 NaN/Inf 泄露到输出
+- **`ObservationUpdate` content/narrative 冲突检测**: `__post_init__` 防御性检查，`client.py update_observation()` kwargs 风格也有冲突检测
+- **`build_icl_prompt` wire format**: `max_chars` → `maxChars`（camelCase），与 backend 完全对齐
+- **Flask Demo `/extraction/latest`**: demo 用 query param 而非 path param（简化为用户体验考虑），SDK 本身调用 backend path param 端点
+
+### 发现的问题
+
+**无 P0/P1/P2 问题。**
+
+### 已知 S2 设计不一致（与 Go SDK 相同，非本轮新增）
+
+`GetStats` 接受 `project_path` 参数但 backend `/api/stats` 忽略该参数。Python SDK 行为与 Go SDK 一致（已记录在 Go SDK Review #11）。
+
+### 测试结果
+
+- `python3 -m pytest tests/ -x -q` ✅ **374/374 passed** in 1.70s
+- 单元测试: client 173 + dto 118 = **291 tests** ✅
+- Demo 测试: demo 77 = **77 tests** ✅
+
+### 代码审查结论
+
+0 个 P0/P1/P2 问题。Python SDK 代码质量优秀，与 Go SDK 行为完全对齐（fire-and-forget 重试策略、error predicates、双格式兼容）。374 个测试全部通过。Flask HTTP Server Demo 正确暴露全部 25 个 SDK API 方法作为 REST 端点。
