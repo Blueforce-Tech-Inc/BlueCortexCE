@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-05-03 20:57 (Java SDK Review #11 — 0 P0/P1/P2)
+> **最后更新**: 2026-05-04 13:22 (Java SDK Review #12 — 0 P0/P1/P2, 2 suggestions)
 
 ---
 
@@ -3371,3 +3371,60 @@ Total: 426/426 tests passed
 ### 代码审查结论
 
 0 个 P0/P1/P2 问题。Java SDK 代码质量优秀，设计严谨。重试策略分层清晰（fire-forget / 显式抛错 / 值返回），DTO 验证完整，Builder 模式使用得当。与 Go/Python/JS SDK 行为一致。
+
+---
+
+## 2026-05-04 13:22 | Java SDK Review #12
+
+**审查方向**: Java SDK (`cortex-mem-spring-integration/cortex-mem-client/`)
+
+**审查范围**:
+- `CortexMemClient.java` — 25 个 API 方法接口
+- `CortexMemClientImpl.java` — REST 实现（778 行）
+- `dto/SearchRequest.java` — Builder 模式，limit/offset 验证
+- `dto/ObservationsRequest.java` — 分页请求 DTO
+- `dto/ObservationResponse.java` — 22 字段（含 4 个扩展字段）
+- `dto/ObservationUpdate.java` — V14 更新 DTO（content/narrative 别名）
+- `dto/ExtractionResponse.java` — Phase 3 提取响应
+- 编译验证: ✅ `mvn compile -pl cortex-mem-client` 无错误
+- 测试验证: ✅ DtoTest 全通过
+
+### 代码质量评估
+
+| 维度 | 评级 | 说明 |
+|------|------|------|
+| 输入验证 | ✅ 良好 | `requireNonBlank` + `requireAbsolutePath` + Builder limit 范围校验 |
+| 错误处理 | ✅ 优秀 | 三层分离：fire-forget / 显式抛错 / 值返回 |
+| 重试机制 | ✅ 优秀 | 指数退避 + ±25% jitter，`isRetryable()` 仅重试 429/502/503/504 |
+| DTO 设计 | ✅ 优秀 | Record + Builder，`@JsonInclude(NON_NULL)`，blank orderBy 静默清零 |
+| 线程安全 | ✅ 优秀 | HttpClient/RestClient 不可变，`ThreadLocalRandom` jitter |
+
+### 亮点
+
+- **`CortexMemClientImpl`**: 实现健壮，`mapToObservationResponse` 防御性处理所有 22 字段
+- **`ObservationUpdate`**: Builder 层校验 `content` + `narrative` 互斥，提前暴露错误
+- **`SearchRequest`**: limit=0/offset=0 语义正确（省略参数，backend 使用默认值）
+- **SDK 版本读取**: JAR manifest 动态读取，IDE/test fallback "unknown"
+- **编译无警告**: ✅ clean compile
+
+### 发现的问题
+
+**无 P0/P1/P2 问题。** 发现 2 个 S2（suggested）级别的设计不一致：
+
+#### S2-1: `SearchRequest` 便利构造函数未验证 `project` 字段
+- **位置**: `dto/SearchRequest.java` 第 77 行附近
+- **问题**: `new SearchRequest(project)` 允许 `project=null`，但 `CortexMemClientImpl.search()` 会在调用时 `requireNonBlank(request.project(), "project")` 才发现。违反 fail-fast 原则。
+- **严重级别**: S2（建议修复，不阻断）
+- **建议**: 在构造函数中添加 `requireNonBlank(project, "project")` 校验，或在构造函数 Javadoc 中注明"project 为必填，失败延迟到调用时"
+- **影响范围**: 仅直接使用构造函数的调用方（demo 使用 Builder 模式，无影响）
+
+#### S2-2: `SearchRequest.Builder.offset()` 缺少上限校验
+- **位置**: `dto/SearchRequest.java` `Builder.offset()` 方法
+- **问题**: `limit` 有 `> 100` 上限校验，但 `offset` 没有类似上限校验。虽然 `offset` 极大值会被 backend 自然拒绝，但与 `limit` 行为不一致。
+- **严重级别**: S2（建议修复，不阻断）
+- **建议**: 可添加 `if (offset != null && offset > 1_000_000) throw` 或类似上限，或在 Javadoc 中说明无上限原因（由 backend 负责）
+- **对比**: `ObservationsRequest.Builder.offset()` 同样无上限，与 `SearchRequest` 一致
+
+### 代码审查结论
+
+0 个 P0/P1/P2 问题，2 个 S2 建议。Java SDK 代码质量稳定，设计严谨。编译 clean，测试全通过。建议后续迭代修复 S2-1/S2-2 设计不一致问题。
