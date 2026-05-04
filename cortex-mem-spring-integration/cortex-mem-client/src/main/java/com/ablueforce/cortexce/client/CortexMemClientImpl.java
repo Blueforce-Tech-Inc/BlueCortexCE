@@ -837,11 +837,6 @@ public class CortexMemClientImpl implements CortexMemClient {
     }
 
     /**
-     * Safely convert an Object to String.
-     * Handles both String and temporal types (OffsetDateTime, LocalDateTime, etc.)
-     * that Jackson deserializes temporal JSON values as objects, not strings.
-     */
-    /**
      * Resolve SDK version from JAR manifest's Implementation-Version entry.
      * Falls back to "unknown" when running from IDE, test classpath, or any non-packaged context.
      */
@@ -869,6 +864,11 @@ public class CortexMemClientImpl implements CortexMemClient {
         }
     }
 
+    /**
+     * Safely convert an Object to String.
+     * Handles both String and temporal types (OffsetDateTime, LocalDateTime, etc.)
+     * that Jackson deserializes temporal JSON values as objects, not strings.
+     */
     private static String str(Object v) {
         if (v == null) return null;
         return v.toString();
