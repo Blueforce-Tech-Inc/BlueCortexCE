@@ -226,6 +226,8 @@ docker build -t cortex-ce:latest .
 
 # 使用环境变量运行
 # 注意: host.docker.internal 需要 Linux + Docker 20.10+。macOS/Windows 请使用 Docker Compose (docker compose up -d)。
+# Docker Compose 部署请在 .env 文件中设置 DB_PASSWORD（必填）。
+# 本独立运行示例中，SPRING_DATASOURCE_PASSWORD 须与宿主机 postgres 密码一致。
 docker run -d \
   -p 37777:37777 \
   -e SPRING_PROFILES_ACTIVE=prd \

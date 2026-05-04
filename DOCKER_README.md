@@ -237,6 +237,8 @@ docker build -t cortex-ce:latest .
 # Run with environment variables
 # NOTE: host.docker.internal requires Linux with Docker 20.10+.
 # For macOS/Windows, use Docker Compose instead (docker compose up -d).
+# For Docker Compose deployments, set DB_PASSWORD in your .env file (required).
+# For this standalone run example, SPRING_DATASOURCE_PASSWORD must match your host postgres password.
 docker run -d \
   -p 37777:37777 \
   -e SPRING_PROFILES_ACTIVE=prd \

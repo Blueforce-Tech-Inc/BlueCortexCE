@@ -43,30 +43,32 @@ Located in `scripts/` directory:
 
 | Script | Description |
 |--------|-------------|
-| `go-sdk-e2e-test.sh` | Go SDK end-to-end tests |
-| `go-sdk-unit-test.sh` | Go SDK unit tests (all submodules: root + dto + eino + genkit + langchaingo) |
-| `java-sdk-e2e-test.sh` | Java SDK end-to-end tests |
-| `js-sdk-e2e-test.sh` | JavaScript SDK end-to-end tests |
-| `python-sdk-e2e-test.sh` | Python SDK end-to-end tests |
-| `python-demo-e2e-test.sh` | Python Flask demo E2E tests |
-| `demo-v14-test.sh` | Demo v14 feature tests |
-| `demo-v15-test.sh` | Demo v15 feature tests |
-| `demo-v15-extraction-test.sh` | Demo v15 extraction feature tests |
-| `evo-memory-e2e-test.sh` | Evolutionary memory E2E tests |
-| `openclaw-plugin-test.sh` | OpenClaw plugin integration tests |
-| `codex-watcher-test.sh` | Codex CLI watcher integration tests |
-| `export-test.sh` | Export functionality end-to-end tests |
-| `folder-claudemd-test.sh` | Folder CLAUDE.md update feature tests |
-| `js-demo-e2e-test.sh` | JS/TS Express demo E2E acceptance tests |
-| `evo-memory-value-test.sh` | Evolutionary memory business value demonstration tests |
+| Script | Description | Lines |
+|--------|-------------|-------|
+| `go-sdk-e2e-test.sh` | Go SDK end-to-end tests | 809 |
+| `go-sdk-unit-test.sh` | Go SDK unit tests (all submodules: root + dto + eino + genkit + langchaingo) | 76 |
+| `java-sdk-e2e-test.sh` | Java SDK end-to-end tests | 569 |
+| `js-sdk-e2e-test.sh` | JavaScript SDK end-to-end tests | 415 |
+| `python-sdk-e2e-test.sh` | Python SDK end-to-end tests | 643 |
+| `python-demo-e2e-test.sh` | Python Flask demo E2E tests | 490 |
+| `demo-v14-test.sh` | Demo v14 feature tests | 196 |
+| `demo-v15-test.sh` | Demo v15 feature tests | 149 |
+| `demo-v15-extraction-test.sh` | Demo v15 extraction feature tests | 460 |
+| `evo-memory-e2e-test.sh` | Evolutionary memory E2E tests | 350 |
+| `openclaw-plugin-test.sh` | OpenClaw plugin integration tests | 580 |
+| `codex-watcher-test.sh` | Codex CLI watcher integration tests | 215 |
+| `export-test.sh` | Export functionality end-to-end tests | 225 |
+| `folder-claudemd-test.sh` | Folder CLAUDE.md update feature tests | 104 |
+| `js-demo-e2e-test.sh` | JS/TS Express demo E2E acceptance tests | 479 |
+| `evo-memory-value-test.sh` | Evolutionary memory business value demonstration tests | 585 |
 
 #### 3.5 Additional Test Utilities
 
-| Script | Description |
-|--------|-------------|
-| `seed-diverse-data.sh` | Seeds diverse test data for WebUI testing (various types, concepts, content) |
-| `test-llm-provider.sh` | LLM provider connectivity and response validation tests |
-| `run-all-e2e.sh` | Orchestrator — runs all 10 local E2E suites in one pass (excludes Docker suites and test-llm-provider.sh) |
+| Script | Description | Lines |
+|--------|-------------|-------|
+| `seed-diverse-data.sh` | Seeds diverse test data for WebUI testing (various types, concepts, content) | 231 |
+| `test-llm-provider.sh` | LLM provider connectivity and response validation tests | 196 |
+| `run-all-e2e.sh` | Orchestrator — runs all 10 local E2E suites in one pass (excludes Docker suites and test-llm-provider.sh) | 154 |
 
 **Prerequisites:** Same as regression tests (backend running, database configured).
 
