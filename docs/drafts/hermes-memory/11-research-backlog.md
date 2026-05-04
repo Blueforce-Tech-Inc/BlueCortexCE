@@ -250,3 +250,15 @@
   其余 memory-adjacent 变更：`f0dc919f9`（已在 doc 53）/`ec4cb16a2`（Honcho RLock 已在 doc 53）/`4a2f82213`（MCP session reconnect，与记忆系统无直接关联）。
 - [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节；`hermes-memory/` 55 篇正文，最大 46922 字节（`09`），全部低于 50KB 上限。
 - [x] **Backlog 全部项 `[x]`**：v9.7 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit。
+
+## 定时巡检（2026-05-04 19:37 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：fetch + checkout origin/main（`8163d3719` → `110387d14`）。
+- [x] **上游代码增量扫描（`a11aed1ac..origin/main`，85 commits）**：3 个记忆系统相关 + 1 个工具结果存储相关 → [`59`](60-evolution/59-upstream-a11aed1ac-to-origin-main-memory-analysis.md)：
+  1. **`6b88f46c5`**：Compressor timeout fallback — HTTP 408/429/502/504 及 `timeout` 字符串触发 fallback 到主模型，防止上下文无限增长；CE StructuredExtractionService 应增加 transient vs permanent 错误分类
+  2. **`e2211b268`**：`on_session_reset()` 清理 `_summary_failure_cooldown_until`，防止新 session 被旧 cooldown 阻塞；CE session 重置时应清理所有 transient 状态
+  3. **`c653f5dc3`**：session_search auxiliary model 文档澄清；CE `/api/memory/search` 应补充 fallback 行为说明
+  4. **`e50809b77`**：`read_file` max_result_size_chars=100K 封顶，闭合 tool_result_storage.py Layer 2 防御缺口；CE `submitFeedback` 应增加结果截断
+  其余 81 个非记忆（Dashboard/Kanban/TUI/Provider Fixes）
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节；`hermes-memory/` 56 篇正文，最大 46922 字节（`09`），全部低于 50KB 上限。
+- [x] **Backlog 全部项 `[x]`**：v9.8 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `110387d14`）。

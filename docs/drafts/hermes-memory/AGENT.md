@@ -39,13 +39,20 @@
 find docs/drafts/hermes-memory -name '*.md' -exec wc -c {} + | sort -n | tail -15
 ```
 
-**复核快照（2026-05-04 17:59 CST）**：全部 `.md` 文件字节数扫描，最大单文件仍为 `09`（46,922 字节），远低于 50KB 上限。无需拆分。上游 `8163d3719..origin/main`（~20 commits）新增记忆相关：`6da970f15`（TUI teardown AIAgent.close() FD leak fix）+ `e2211b268`（ContextCompressor on_session_reset 重置 cooldown timer）；其余为 TUI/Dashboard/平台集成变更。已新增 [`60`](60-evolution/60-upstream-fd-leak-and-compressor-cooldown-reset.md)。
+**复核快照（2026-05-05 00:34 CST）**：全部 `.md` 文件字节数扫描。发现 `09`/`08`/`05` 三文件逼近 50KB 上限（~46KB），已执行预防性拆分：
+- `09`（46,922B）→ `09-supermemory-capture-lifecycle.md`（§56–§69，41,910B）+ `09a-supermemory-lifecycle-continued.md`（§70–§73，5,012B）
+- `08`（46,224B）→ `08-builtin-memory-tool-bounded-snapshot.md`（§54–§61，40,571B）+ `08a-builtin-memory-providers-continued.md`（§62+§53，5,653B）
+- `05`（46,001B）→ `05-multimodal-memory-clarification.md`（§30–§35，42,912B）+ `05a-honcho-holographic-continued.md`（§36，3,089B）
+- 原始文件保留为 `*-original.md` 备份。
 
 | 字节数（约） | 路径 |
 |-------------|------|
-| 46922 | [`60-evolution/09-supermemory-capture-lifecycle.md`](60-evolution/09-supermemory-capture-lifecycle.md) |
-| 46224 | [`60-evolution/08-builtin-memory-tool-bounded-snapshot.md`](60-evolution/08-builtin-memory-tool-bounded-snapshot.md) |
-| 46001 | [`50-honcho-holographic-deep/05-multimodal-memory-clarification.md`](50-honcho-holographic-deep/05-multimodal-memory-clarification.md) |
+| 41,910 | [`60-evolution/09-supermemory-capture-lifecycle.md`](60-evolution/09-supermemory-capture-lifecycle.md)（§56–§69；续写至 `09a`） |
+| 5,012 | [`60-evolution/09a-supermemory-lifecycle-continued.md`](60-evolution/09a-supermemory-lifecycle-continued.md)（§70–§73） |
+| 42,912 | [`50-honcho-holographic-deep/05-multimodal-memory-clarification.md`](50-honcho-holographic-deep/05-multimodal-memory-clarification.md)（§30–§35；续写至 `05a`） |
+| 3,089 | [`50-honcho-holographic-deep/05a-honcho-holographic-continued.md`](50-honcho-holographic-deep/05a-honcho-holographic-continued.md)（§36） |
+| 40,571 | [`60-evolution/08-builtin-memory-tool-bounded-snapshot.md`](60-evolution/08-builtin-memory-tool-bounded-snapshot.md)（§54–§61；续写至 `08a`） |
+| 5,653 | [`60-evolution/08a-builtin-memory-providers-continued.md`](60-evolution/08a-builtin-memory-providers-continued.md)（§62+§53） |
 | 41590 | [`40-context-compression/03-memory-context-injection-and-prefetch-lifecycle.md`](40-context-compression/03-memory-context-injection-and-prefetch-lifecycle.md) |
 | ~39.5KB | [`60-evolution/06-memory-provider-hooks-inventory.md`](60-evolution/06-memory-provider-hooks-inventory.md) |
 | ~37.8KB | [`00-overview/01-architecture-positioning-and-toc.md`](00-overview/01-architecture-positioning-and-toc.md) |
