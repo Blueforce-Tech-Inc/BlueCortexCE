@@ -47,7 +47,8 @@ Located in `scripts/` directory:
 | `go-sdk-unit-test.sh` | Go SDK unit tests (all submodules: root + dto + eino + genkit + langchaingo) |
 | `java-sdk-e2e-test.sh` | Java SDK end-to-end tests |
 | `js-sdk-e2e-test.sh` | JavaScript SDK end-to-end tests |
-| `python-demo-e2e-test.sh` | Python SDK demo tests |
+| `python-sdk-e2e-test.sh` | Python SDK end-to-end tests |
+| `python-demo-e2e-test.sh` | Python Flask demo E2E tests |
 | `demo-v14-test.sh` | Demo v14 feature tests |
 | `demo-v15-test.sh` | Demo v15 feature tests |
 | `demo-v15-extraction-test.sh` | Demo v15 extraction feature tests |
@@ -205,7 +206,7 @@ cd backend
 
 | Date | Change |
 |------|--------|
-| 2026-05-03 | Added `go-sdk-unit-test.sh` and `codex-watcher-test.sh` to Section 3 SDK table (9→11 scripts); updated EN/ZH in sync |
+| 2026-05-03 | Added `go-sdk-unit-test.sh` and `codex-watcher-test.sh` to Section 3 SDK table (10→12 scripts); added missing `python-sdk-e2e-test.sh` to table (EN/ZH in sync) |
 | 2026-05-02 | Added missing 'Run Docker Deployment Tests' subsection (5th subsection in Section 5); aligned EN/ZH subsection structure |
-| 2026-04-26 | Added Section 3: SDK and Demo Integration Tests (9 scripts); fixed section numbering gap (was missing ### 3, now 1–8 sequential) |
+| 2026-04-26 | Added Section 3: SDK and Demo Integration Tests (10 scripts); fixed section numbering gap (was missing ### 3, now 1–8 sequential); note: `python-sdk-e2e-test.sh` existed but was omitted |
 | 2026-04-03 | Added Phase 3 acceptance test section; added webui-integration-test.sh and docker-e2e-test.sh to E2E table |
