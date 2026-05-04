@@ -3608,3 +3608,83 @@ Total: 426/426 tests passed
 ### 代码审查结论
 
 0 个 P0/P1/P2 问题。全部 Demo（Java/Go/Python）代码质量优秀，一致性良好。三种 Demo 使用不同技术栈（Spring MVC / Go net.http / Flask）但 API 行为完全对齐。Go Demo 特别针对 Go 1.25+ ServeMux 路径冲突做了端点改名处理，设计周到。
+
+---
+
+## 2026-05-05 07:29 | Backend Review #52（每30分钟 cron）
+
+**审查方向**: Backend 代码随机抽查（轮换：Java SDK → Go SDK → Python SDK → JS SDK → Demo → Backend）
+
+**审查范围**:
+- `backend/src/main/java/com/ablueforce/cortexce/service/SessionManagementService.java` — Session 生命周期管理
+- `backend/src/main/java/com/ablueforce/cortexce/controller/ViewerController.java` — Viewer REST API 控制器
+- `backend/src/main/java/com/ablueforce/cortexce/common/LogMarkers.java` — 结构化日志常量
+- `backend/src/main/java/com/ablueforce/cortexce/config/MdcAutoFilter.java` — MDC 自动管理 Filter
+
+### 代码质量评估
+
+| 维度 | SessionManagementService | ViewerController | LogMarkers | MdcAutoFilter |
+|------|-------------------------|-----------------|------------|---------------|
+| 输入验证 | ✅ null/blank projectPath fallback | ✅ Math.min/max + validatedLimit | N/A | ✅ header null/blank 检测 |
+| 错误处理 | ✅ RuntimeException for save failure | ✅ try/catch + ResponseEntity 5xx | N/A | ✅ MDC.clear() in finally |
+| 事务管理 | ✅ Spring @Service managed | N/A | N/A | N/A |
+| 日志规范 | ✅ LogHelper 接口 | ✅ Slf4j structured logging | ✅ 常量规范 | ✅ MDC correlationId |
+| 线程安全 | ✅ 无共享可变状态 | ✅ Repository 调用无锁 | ✅ 常量 | ✅ UUID.randomUUID 线程安全 |
+
+### 发现的问题
+
+#### P2: `SessionManagementService.createSession` — `saved == null` 永远不会为 true
+
+**文件**: `backend/src/main/java/com/ablueforce/cortexce/service/SessionManagementService.java`
+**行号**: ~第 80-82 行
+**问题描述**:
+
+```java
+SessionEntity saved = sessionRepository.save(session);
+if (saved == null) {
+    logFailure("Failed to save new session for contentSessionId: {}", contentSessionId);
+    throw new RuntimeException("Failed to create session: " + contentSessionId);
+}
+return saved;
+```
+
+`JpaRepository.save()` 的契约是：**永不返回 null**。成功时返回持久化后的实体，失败时抛出 `DataAccessException`。因此 `if (saved == null)` 这个条件永远不会被触发，是死代码。
+
+**严重级别**: P2（建议修复，不紧急）
+**建议**: 直接删除 `if (saved == null)` 分支，或改为 `Objects.requireNonNull(saved)` 显式断言。
+
+#### S2: `ViewerController.getTimeline` — `@SuppressWarnings` 使用 raw types 应指定精确警告码
+
+**文件**: `backend/src/main/java/com/ablueforce/cortexce/controller/ViewerController.java`
+**行号**: ~第 280 行
+**问题描述**:
+
+```java
+@SuppressWarnings({"rawtypes", "unchecked"})
+public ResponseEntity<Object> getTimeline(...) {
+    ...
+    if (anchorId != null || query != null) {
+        return (ResponseEntity) timelineService.getTimelineByAnchor(...);  // raw cast
+    }
+    ...
+}
+```
+
+使用 `@SuppressWarnings({"rawtypes", "unchecked"})` 而非精确的警告码（如 `@SuppressWarnings("unchecked")`）来抑制警告，是代码异味。建议改为：
+1. `TimelineService.getTimelineByAnchor` 应声明具体的返回类型（非 `ResponseEntity<Object>`）
+2. 或者将 `(ResponseEntity)` 强制转换改为 `(ResponseEntity<SomeSpecificType>)`
+
+**严重级别**: S2（建议优化，不紧急）
+
+### 亮点
+
+- **`SessionManagementService` `initializeSession` / `ensureSession`**: 清晰的双方法设计，`initializeSession` 用于正常启动流程，`ensureSession` 用于延迟初始化场景，`effectiveProjectPath` fallback 逻辑一致
+- **`ViewerController`**: 全面的 Swagger 文档（@Operation/@ApiResponse 每个端点），输入验证严谨（Math.min/max validatedLimit），错误处理统一（try/catch + 5xx ResponseEntity）
+- **`MdcAutoFilter`**: 完整的 MDC 管理（correlationId + sessionId），自动生成 12-char 短 ID（48-bit，碰撞概率 ~10^-7 at 1M req/day），`MDC.clear()` 在 finally 中确保不泄漏
+- **`LogMarkers`**: 清晰的常量分类（Data Flow / Status / Special），格式与 TypeScript 版本对齐
+
+### 代码审查结论
+
+0 P0/P1 问题，1 P2 + 1 S2 建议。`SessionManagementService` 的 `saved == null` 是 P2 死代码（JpaRepository.save() 永不返回 null）；`ViewerController` 的 `@SuppressWarnings({"rawtypes", "unchecked"})` 应指定精确警告码。两者均为低优先级，建议随常规代码清理一并处理。
+
+**Backend P0/P1/P2 状态**: 0 / 0 / 1（1 个历史 P2：ClaudeMemMcpTools search offset 忽略）
