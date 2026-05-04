@@ -140,13 +140,11 @@ cd scripts
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `SERVER_URL` | http://127.0.0.1:37777 | Server URL |
-| `DB_HOST` | 127.0.0.1 | Database host |
-| `DB_NAME` | claude_mem_dev | Database name |
-| `DB_USER` | postgres | Database user |
-| `DB_PASS` | 123456 | Database password |
+| `DB_NAME` | claude_mem | Database name |
+| `DB_USERNAME` | postgres | Database username |
+| `DB_PASSWORD` | - | Database password |
 | `SPRING_AI_OPENAI_API_KEY` | - | OpenAI/DeepSeek API key |
 | `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | - | Embedding API key |
-| `SPRING_AI_MCP_SERVER_PROTOCOL` | SSE | MCP protocol (SSE or STREAMABLE) |
 
 ### 7. MCP Protocol Auto-Detection
 
@@ -206,6 +204,7 @@ cd backend
 
 | Date | Change |
 |------|--------|
+| 2026-05-04 | Section 6: Fixed 4 environment variable errors — removed fictitious `DB_HOST` and `SPRING_AI_MCP_SERVER_PROTOCOL`, corrected `DB_USER`→`DB_USERNAME` and `DB_PASS`→`DB_PASSWORD`, corrected `DB_NAME` default `claude_mem_dev`→`claude_mem` (matches docker-compose.yml); EN+ZH in sync |
 | 2026-05-03 | Added `go-sdk-unit-test.sh` and `codex-watcher-test.sh` to Section 3 SDK table (10→12 scripts); added missing `python-sdk-e2e-test.sh` to table (EN/ZH in sync) |
 | 2026-05-02 | Added missing 'Run Docker Deployment Tests' subsection (5th subsection in Section 5); aligned EN/ZH subsection structure |
 | 2026-04-26 | Added Section 3: SDK and Demo Integration Tests (10 scripts); fixed section numbering gap (was missing ### 3, now 1–8 sequential); note: `python-sdk-e2e-test.sh` existed but was omitted |

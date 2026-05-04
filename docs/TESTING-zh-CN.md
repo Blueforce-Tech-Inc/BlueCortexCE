@@ -140,13 +140,11 @@ cd scripts
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `SERVER_URL` | http://127.0.0.1:37777 | 服务器 URL |
-| `DB_HOST` | 127.0.0.1 | 数据库主机 |
-| `DB_NAME` | claude_mem_dev | 数据库名称 |
-| `DB_USER` | postgres | 数据库用户 |
-| `DB_PASS` | 123456 | 数据库密码 |
+| `DB_NAME` | claude_mem | 数据库名称 |
+| `DB_USERNAME` | postgres | 数据库用户名 |
+| `DB_PASSWORD` | - | 数据库密码 |
 | `SPRING_AI_OPENAI_API_KEY` | - | OpenAI/DeepSeek API key |
 | `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | - | Embedding API key |
-| `SPRING_AI_MCP_SERVER_PROTOCOL` | SSE | MCP 协议（SSE 或 STREAMABLE） |
 
 ### 7. MCP 协议自动检测
 
@@ -206,6 +204,7 @@ cd backend
 
 | 日期 | 变更 |
 |------|------|
+| 2026-05-04 | 第 6 节修复 4 个环境变量错误——移除不存在的 `DB_HOST` 和 `SPRING_AI_MCP_SERVER_PROTOCOL`，修正 `DB_USER`→`DB_USERNAME` 和 `DB_PASS`→`DB_PASSWORD`，修正 `DB_NAME` 默认值 `claude_mem_dev`→`claude_mem`（与 docker-compose.yml 一致）；中英文同步更新 |
 | 2026-05-03 | 在第 3 节 SDK 表格中新增 `go-sdk-unit-test.sh` 和 `codex-watcher-test.sh`（10→12 个脚本）；补充遗漏的 `python-sdk-e2e-test.sh`；中英文同步更新 |
 | 2026-04-26 | 新增第 3 节：SDK 和演示集成测试（10 个脚本）；修复章节编号缺失问题（原缺少 ### 3，现为 1–8 连续编号）；注：`python-sdk-e2e-test.sh` 已存在但被遗漏 |
 | 2026-04-03 | 新增 Phase 3 验收测试章节；在 E2E 表格中添加 webui-integration-test.sh 和 docker-e2e-test.sh |
