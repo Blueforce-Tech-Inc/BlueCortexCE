@@ -39,14 +39,19 @@
 find docs/drafts/hermes-memory -name '*.md' -exec wc -c {} + | sort -n | tail -15
 ```
 
-**复核快照（2026-04-24）**：下列文件已 **≥45KB**，新增大段前优先拆分或开新 aspect 文件，避免顶格爆线：
+**复核快照（2026-05-04 10:47）**：全部 `.md` 文件字节数扫描，最大单文件仍为 `09`（46,922 字节），远低于 50KB 上限。无需拆分。上游 `d87fd9f0..origin/main`（35 commits）**0 个记忆相关**——cron/skills/gateway/TUI/Approval/MCP/kanban/文件/vision，非记忆系统变更；仅 `context_compressor.py` 一个文件被触及（bug fix: skip non-string tool content in dedup pass）。
 
 | 字节数（约） | 路径 |
 |-------------|------|
-| ~33.6KB | [`60-evolution/30-contradiction-detection-and-session-tools.md`](60-evolution/30-contradiction-detection-and-session-tools.md)（2026-04-24 拆分自 `07` §45–§52） |
-| ~25KB | [`50-honcho-holographic-deep/06-honcho-holographic-deep-advanced.md`](50-honcho-holographic-deep/06-honcho-holographic-deep-advanced.md)（2026-04-24 拆分自 `04` §24–§29） |
-| ~16000 | [`20-recommendations/02-bluecortexce-recommendations.md`](20-recommendations/02-bluecortexce-recommendations.md)（§11–§15 深度专题已拆分至 [`02b-deep-dives.md`](20-recommendations/02b-deep-dives.md)） |
 | 46922 | [`60-evolution/09-supermemory-capture-lifecycle.md`](60-evolution/09-supermemory-capture-lifecycle.md) |
+| 46224 | [`60-evolution/08-builtin-memory-tool-bounded-snapshot.md`](60-evolution/08-builtin-memory-tool-bounded-snapshot.md) |
+| 46001 | [`50-honcho-holographic-deep/05-multimodal-memory-clarification.md`](50-honcho-holographic-deep/05-multimodal-memory-clarification.md) |
+| 41590 | [`40-context-compression/03-memory-context-injection-and-prefetch-lifecycle.md`](40-context-compression/03-memory-context-injection-and-prefetch-lifecycle.md) |
+| ~39.5KB | [`60-evolution/06-memory-provider-hooks-inventory.md`](60-evolution/06-memory-provider-hooks-inventory.md) |
+| ~37.8KB | [`00-overview/01-architecture-positioning-and-toc.md`](00-overview/01-architecture-positioning-and-toc.md) |
+| ~36.4KB | [`11-research-backlog.md`](11-research-backlog.md) |
+| ~34.2KB | [`60-evolution/10-holographic-hrr-implementation.md`](60-evolution/10-holographic-hrr-implementation.md) |
+| ~33.6KB | [`60-evolution/30-contradiction-detection-and-session-tools.md`](60-evolution/30-contradiction-detection-and-session-tools.md) |
 
 **已处理**：
 - `06`（48903 → ~38.5KB）：§43–§44 迁入 [`29-memory-provider-hooks-advanced-topics.md`](60-evolution/29-memory-provider-hooks-advanced-topics.md)（2026-04-24）
