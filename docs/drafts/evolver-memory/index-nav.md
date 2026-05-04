@@ -100,6 +100,11 @@
 | [89](./89-hubsearch-two-phase-semantic-and-dual-cache-deep-dive.md) | hubSearch 两阶段搜索 + 语义增强 + 双层 LRU 缓存 |
 | [90](./90-executiontrace-gitops-deep-dive.md) | executionTrace.js + gitOps.js 源码级深度（431行） |
 | [91](./91-atp-heartbeatsignalshandler-deep-dive.md) | heartbeatSignalsHandler.js ATP 心跳旁路交付（254行 / 三重保护 / Ledger防重 / 终态错误分离） |
+| [92](./92-prompt-js-schema-enforcement-and-token-budget.md) | `prompt.js` GEP Schema Enforcement + Token Budget 深度（616行 / 5-Mandatory-Object / JSON-Only / 分层截断 / 条件注入 / 宪法伦理 / Skill质量门） |
+| [93](./93-directoryclient-agent-discovery-deep-dive.md) | `directoryClient.js` Agent Capability Directory API（110行 / 语义+信号搜索 / Profile获取 / 静默降级 / Hub三发现接口） |
+| [94](./94-v1789-version-delta-and-regression-guards.md) | v1.78.7–v1.78.9 版本差分与回归测试（dotenv加载顺序#526 / MemoryGraph轮转#519 / AGENT_SESSIONS_DIR#527） |
+| [96](./96-forceupdate-hub-heartbeat-driven-version-migration.md) | `forceUpdate.js` Hub心跳驱动三通道强制更新（100行 / degit+npm+manual / 版本校验三段semver / 白名单保护 / CE P3） |
+| [95](./95-a2aProtocol-and-a2a-deep-dive.md) | `a2aProtocol.js` + `a2a.js` 双层深度（1221+173行 / NodeId 7层fallback / HMAC签名 / 双传输引擎 / 心跳+Hub反馈 / SSE+轮询降级 / Hub DID+信用+审计） |
 
 ---
 
@@ -129,6 +134,8 @@
 | **`error_sig_norm` 落地** | [22](./22-error-sig-norm-implementation-proposal.md) |
 | **Hub Search-First + 两阶段搜索** | [89](./89-hubsearch-two-phase-semantic-and-dual-cache-deep-dive.md) |
 | **taskReceiver Worker Pool + Capability Match** | [88](./88-taskreceiver-workerpool-privacy-capability-deep-dive.md) |
+| **A2A Protocol / Agent-to-Agent 通信** | [95](./95-a2aProtocol-and-a2a-deep-dive.md) |
+| **Hub Agent Directory / directoryClient** | [93](./93-directoryclient-agent-discovery-deep-dive.md) |
 | **Hub Ecosystem Integration** | [46](./46-hub-ecosystem-integration-taskreview-issue.md) |
 | **Personality State Machine** | [44](./44-personality-state-machine-and-hub-search-caching.md) §1 |
 | **Hub Search 缓存 + deadline 控制** | [44](./44-personality-state-machine-and-hub-search-caching.md) §2 |
@@ -147,6 +154,7 @@
 | **Ops 模块套件 / 集中配置 / Canary** | [27](./27-ops-suite-runtime-config-canary.md) |
 | **IdleScheduler OMLS 自适应调度** | [77](./77-idleScheduler-contentHash-OMLS-adaptive-memory-scheduling.md) |
 | **v1.78 新增 Proxy 子系统** | [78](./78-v178-proxy-subsystem-architecture.md) |
+| **ForceUpdate 版本迁移（Hub心跳驱动）** | [96](./96-forceupdate-hub-heartbeat-driven-version-migration.md) |
 | **Ops 自我修复基础设施** | [60](./60-evolver-ops-self-healing-infrastructure.md) |
 | **三层自调节架构综合** | [31](./31-reflection-remote-adapter-local-state.md) §5 |
 | **环境指纹 / CapabilityMatch** | [38](./38-env-fingerprint-capability-match.md) |
@@ -161,6 +169,8 @@
 | **ATP Heartbeat 旁路交付机制** | [91](./91-atp-heartbeatsignalshandler-deep-dive.md) |
 | **skillDistiller.js 完整管线** | [84](./84-skilldistiller-full-pipeline-deep-dive.md) |
 | **Solidify PRM + Epigenetic** | [82](./82-solidify-prm-process-scoring-and-epigenetic-marks.md) |
+| **GEP Prompt Schema Enforcement + Token Budget** | [92](./92-prompt-js-schema-enforcement-and-token-budget.md) |
+| **v1.78.7–v1.78.9 版本差分 + 回归测试护栏** | [94](./94-v1789-version-delta-and-regression-guards.md) |
 | **Post-Solidify 完整管线** | [68](./68-post-solidify-pipeline-executiontrace-gitops-skillpublisher-questiongen-a2a.md) |
 | **Hub-Selector 反馈闭环** | [63](./63-hub-selector-feedback-loop-and-skilldistiller-validate-deep-dive.md)；[64](./64-hub-selector-feedback-and-skilldistiller-validate-v147.md) |
 | **v1.48–v1.78 新增子系统深度** | [70](./70-new-subsystems-v148-v178-deep-dive.md) |
