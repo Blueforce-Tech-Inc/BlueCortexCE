@@ -530,15 +530,15 @@ curl http://localhost:37777/actuator/health | jq
 {
   "status": "UP",
   "components": {
-    "db": {"status": "UP"},
+    "db": {
+      "status": "UP",
+      "details": {"database": "PostgreSQL", "validationQuery": "isValid()"}
+    },
     "diskSpace": {"status": "UP"},
     "ping": {"status": "UP"},
-    "staleMessageQueue": {
+    "messageQueue": {
       "status": "UP",
-      "details": {
-        "staleCount": 0,
-        "threshold": 5
-      }
+      "details": {"pending": 0, "processing": 0, "stale": 0, "last_processed": "2026-05-04T03:08:25.906Z"}
     }
   }
 }
@@ -635,6 +635,8 @@ management:
 
 ```yaml
 # prometheus.yml
+# NOTE: Requires micrometer-registry-prometheus dependency and
+# spring.boot.actuator.prometheus.metrics.export.enabled=true
 scrape_configs:
   - job_name: 'claude-mem-java'
     static_configs:
@@ -650,7 +652,7 @@ scrape_configs:
 | `process.cpu.usage` | CPU usage | > 80% |
 | `hikaricp.connections.active` | Active DB connections | > 20 |
 | `http.server.requests` | HTTP request latency | P99 > 1s |
-| `stale.message.queue.count` | Stale message count | > 5 |
+| `hikaricp.connections.pending` | Pending DB connection requests | > 5 |
 
 ---
 
@@ -1105,5 +1107,5 @@ wrk -t4 -c50 -d30s \
 
 ---
 
-**Last Updated**: 2026-05-03
+**Last Updated**: 2026-05-04
 **Version**: 0.1.0-beta
