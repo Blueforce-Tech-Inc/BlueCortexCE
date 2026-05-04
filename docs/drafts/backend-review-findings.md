@@ -3542,3 +3542,69 @@ Total: 426/426 tests passed
 ### 代码审查结论
 
 0 个 P0/P1/P2 问题。Python SDK 代码质量优秀，与 Go SDK 行为完全对齐（fire-and-forget 重试策略、error predicates、双格式兼容）。374 个测试全部通过。Flask HTTP Server Demo 正确暴露全部 25 个 SDK API 方法作为 REST 端点。
+
+---
+
+## 2026-05-05 05:45 | Demo Review #5
+
+**审查方向**: Demo 代码全面审查（轮换：Java SDK → Go SDK → Python SDK → JS SDK → Demo → Backend）
+
+**审查范围**:
+- Java Demo: `ExperiencesController`, `FeedbackController`, `SessionLifecycleController`, `ToolsController`, `ProjectsController`, `ChatController`, `ObservationsController`
+- Go Demo: `go-sdk/cortex-mem-go/examples/http-server/main.go`（完整 27 个端点）
+- Python Demo: `python-sdk/cortex-mem-python/examples/http-server/app.py`（完整 26 个端点）
+
+### 代码质量评估
+
+| 维度 | Java Demo | Go http-server | Python Flask Demo |
+|------|-----------|----------------|-------------------|
+| 输入验证 | ✅ `required` + blank 检测 + 范围校验 | ✅ `maxRequestBodySize` + method check + range validation | ✅ `_require()` + type check + batch size limit |
+| 错误处理 | ✅ `log.error` + `internalServerError` | ✅ `recovery` middleware + `writeJSONError` | ✅ `@errorhandler` decorators + 413 handler |
+| 资源清理 | ✅ `CortexSessionContext.end()` in `finally` | ✅ `defer client.Close()` + graceful shutdown | ✅ `atexit.register(client.close)` |
+| HTTP 安全 | ✅ Spring MVC defaults | ✅ `Read/Write/IdleTimeout` + request size limit | ✅ `MAX_CONTENT_LENGTH` config |
+| 完整性 | ✅ 10 controllers | ✅ 27 endpoints | ✅ 26 endpoints |
+
+### Java Demo 亮点
+
+- **`SessionLifecycleController`**: 完整的 start→prompt→tool→end 生命周期，one-shot `/lifecycle` 端点，良好的 try/finally 确保 context 释放
+- **`FeedbackController`**: 使用 Java 21 pattern matching (`instanceof String s`) 简化类型检查
+- **`ToolsController`**: 明确的 `@Tool` 自调用警告（Spring AOP 限制）
+- **`ProjectsController`**: 展示 demo 多项目配置
+
+### Go Demo 亮点
+
+- **`recovery` middleware**: 防御性 panic 恢复，防止一个请求崩溃整个服务器
+- **`statusRecorder`**: 准确记录响应状态码用于日志
+- **`readJSON` + `maxRequestBodySize`**: 请求体大小限制防止 DoS
+- **Graceful shutdown**: SIGINT/SIGTERM 处理，5s 超时
+- **`/observations/{id}` 统一处理器**: GET/PATCH/DELETE 三合一，避免 Go 1.25+ ServeMux 路径冲突
+- **`/batch-observations`**: 从 `/observations/batch` 改名避免冲突
+- **`/create-observation`**: 从 `/observations/create` 改名避免冲突
+
+### Python Demo 亮点
+
+- **Flask `@errorhandler` decorators**: 统一的 APIError / CortexError / generic Exception 处理
+- **`_parse_int_param`**: 统一的整数参数解析 + ValueError 传播
+- **双 endpoint 兼容**: `/observations/batch` 和 `/observations/create`（Python 路由无冲突问题，Go 有此限制所以改名）
+- **`updateFiles` camelCase 输出**: 与 WebUI API 契约对齐
+
+### Demo 间一致性检查
+
+| 特性 | Java | Go | Python | 一致? |
+|------|------|----|--------|-------|
+| `count=0` 行为 | SDK default | SDK default | SDK default | ✅ |
+| `limit=0` 行为 | backend default | backend default | backend default | ✅ |
+| `maxChars=0` 行为 | omit from request | backend default | omit | ✅ |
+| `/session/start` | `session_id` | `session_id` | `session_id` | ✅ |
+| `/session/user` | `session_id`, `user_id` | `session_id`, `user_id` | `session_id`, `user_id` | ✅ |
+| `/experiences` | `requiredConcepts` CSV | `requiredConcepts` CSV | `requiredConcepts` CSV | ✅ |
+| `/observations` | `project` optional | `project` optional | `project` optional | ✅ |
+| Batch size limit | 100 | 100 | 100 | ✅ |
+
+### 发现的问题
+
+**无 P0/P1/P2 问题。**
+
+### 代码审查结论
+
+0 个 P0/P1/P2 问题。全部 Demo（Java/Go/Python）代码质量优秀，一致性良好。三种 Demo 使用不同技术栈（Spring MVC / Go net.http / Flask）但 API 行为完全对齐。Go Demo 特别针对 Go 1.25+ ServeMux 路径冲突做了端点改名处理，设计周到。
