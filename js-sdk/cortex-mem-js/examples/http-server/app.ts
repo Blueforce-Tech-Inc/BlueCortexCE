@@ -108,6 +108,7 @@ app.get('/search', asyncHandler(async (req: Request, res: Response) => {
   const source = req.query.source as string | undefined;
   const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
   const offset = req.query.offset ? parseInt(req.query.offset as string, 10) : undefined;
+  const orderBy = (req.query.orderBy as string) || undefined;
   if (limit !== undefined && (isNaN(limit) || limit < 0 || limit > 100)) return errorJson(res, 400, 'limit must be between 0 and 100');
   if (offset !== undefined && (isNaN(offset) || offset < 0)) return errorJson(res, 400, 'offset must be non-negative');
 
@@ -119,6 +120,7 @@ app.get('/search', asyncHandler(async (req: Request, res: Response) => {
     ...(source ? { source } : {}),
     ...(limit !== undefined && { limit }),
     ...(offset !== undefined && { offset }),
+    ...(orderBy && { orderBy }),
   });
   res.json(result);
 }));
@@ -418,7 +420,7 @@ const server = app.listen(PORT, () => {
   console.log('Endpoints:');
   console.log('  GET    /health              - Health check');
   console.log('  POST   /chat                - Chat with memory');
-  console.log('  GET    /search              - Search observations');
+  console.log('  GET    /search              - Search observations (supports orderBy)');
   console.log('  GET    /version             - Backend version');
   console.log('  GET    /experiences         - Retrieve experiences');
   console.log('  GET    /iclprompt           - Build ICL prompt');
