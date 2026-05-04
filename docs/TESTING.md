@@ -55,6 +55,18 @@ Located in `scripts/` directory:
 | `evo-memory-e2e-test.sh` | Evolutionary memory E2E tests |
 | `openclaw-plugin-test.sh` | OpenClaw plugin integration tests |
 | `codex-watcher-test.sh` | Codex CLI watcher integration tests |
+| `export-test.sh` | Export functionality end-to-end tests |
+| `folder-claudemd-test.sh` | Folder CLAUDE.md update feature tests |
+| `js-demo-e2e-test.sh` | JS/TS Express demo E2E acceptance tests |
+| `evo-memory-value-test.sh` | Evolutionary memory business value demonstration tests |
+
+#### 3.5 Additional Test Utilities
+
+| Script | Description |
+|--------|-------------|
+| `seed-diverse-data.sh` | Seeds diverse test data for WebUI testing (various types, concepts, content) |
+| `test-llm-provider.sh` | LLM provider connectivity and response validation tests |
+| `run-all-e2e.sh` | Orchestrator — runs all 10 local E2E suites in one pass (excludes Docker suites and test-llm-provider.sh) |
 
 **Prerequisites:** Same as regression tests (backend running, database configured).
 

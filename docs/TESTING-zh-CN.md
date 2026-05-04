@@ -55,6 +55,18 @@
 | `evo-memory-e2e-test.sh` | 进化记忆 E2E 测试 |
 | `openclaw-plugin-test.sh` | OpenClaw 插件集成测试 |
 | `codex-watcher-test.sh` | Codex CLI 监听器集成测试 |
+| `export-test.sh` | 导出功能端到端测试 |
+| `folder-claudemd-test.sh` | 文件夹 CLAUDE.md 更新功能测试 |
+| `js-demo-e2e-test.sh` | JS/TS Express 演示 E2E 验收测试 |
+| `evo-memory-value-test.sh` | 进化记忆商业价值演示测试 |
+
+#### 3.5 其他测试工具
+
+| 脚本 | 说明 |
+|------|------|
+| `seed-diverse-data.sh` | 为 WebUI 测试植入多样化测试数据（多种类型、概念、内容） |
+| `test-llm-provider.sh` | LLM 提供商连接和响应验证测试 |
+| `run-all-e2e.sh` | 编排脚本 — 一次运行全部 10 个本地 E2E 套件（不含 Docker 套件和 test-llm-provider.sh） |
 
 **前置条件：** 与回归测试相同（后端运行，数据库已配置）。
 
