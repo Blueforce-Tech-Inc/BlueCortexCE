@@ -509,8 +509,6 @@ class Observation:
             d["last_accessed_at"] = self.last_accessed_at
         if self.access_count:
             d["access_count"] = self.access_count
-        else:
-            d["access_count"] = 0
         if self.refined_at:
             d["refined_at"] = self.refined_at
         if self.refined_from_ids:

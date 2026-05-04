@@ -97,3 +97,4 @@ go-sdk/cortex-mem-go/examples/http-server/http-server-new
 codex-watcher/dist
 codex-watcher/node_modules
 openclaw-plugin/dist
+memory/.dreams
