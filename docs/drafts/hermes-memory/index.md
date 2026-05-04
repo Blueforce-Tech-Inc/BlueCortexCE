@@ -98,6 +98,8 @@
 
 69. **上游大批量新提交分析（d35efb989 → 81cd67829，1718 commits，2026-05-05 新增）**：10 个记忆/上下文系统相关发现 → [`69`](60-evolution/69-upstream-1718-commits-memory-analysis.md)；核心：⭐ **`46f7b38bb`** P0 CRITICAL — on_memory_write bridge 缺失于 sequential tool execution path，外部 Provider 静默丢失全部单次调用 memory write；⭐ **`1aaeca55e`** P0 MAJOR — ContextEngine ABC 新增（206行），ContextCompressor 继承重构，**上下文引擎插件化架构**奠基；P1：`51751cdaf` ContextEngine 接入 run_agent.py / `825bd8cff` on_session_finalize+on_session_reset hooks / `721e0b96c` length eviction 防 compression disabled 死循环；P2：`c52e59319` 多用户记忆 bucket 共享 bug（Gateway user_id 穿透修复）/ `97fb69b01` tool result persistence 阈值可配置化 / `8c90c8114` FTS5 CJK bypass；⚠️ `65ca3ba93` 将所有源码迁移到 `hermes_agent/` 子包，后续行号映射需重新建立。
 
+70. **上游新提交分析（d35efb989 → 8fabef9d3，22 commits，2026-05-05 新增）**：**0 个记忆相关** — docs/cron/tui/gateway/kanban 等功能修复；`fbc477df7` 修复 IterationBudget.used 属性线程安全（但不影响记忆系统）；结论：文档保持最新 → [`70`](60-evolution/70-upstream-d35efb989-to-8fabef9d3-memory-scan.md)（2026-05-05 新增；下次扫描起点：`origin/main` `8fabef9d3`）
+
 ## 按 aspect 浏览
 
 | 方面 | 路径 | 说明 |
