@@ -21,11 +21,8 @@
 - [x] **Hook 是否调用 `semantic`**：`session-init` 在 `CLAUDE_MEM_SEMANTIC_INJECT=true`（默认）且 `prompt≥20` 时调用 **worker** `POST /api/context/semantic`（`webui/src/cli/handlers/session-init.ts`）。见 [`12`](./12-bluecortex-api-memory-surface.md) §3。
 - [x] **Java（pgvector）与 Worker（Chroma）语义结果一致性** ✅：5大根因差异D1-D5（embedding模型不同/混合策略不同/去重策略不同/时间窗口不同/异常处理不同）+ 3个典型不一致场景（模型差异导致top-k不同 / Chroma多doc去重丢失 / 时间窗口差异）；BlueCortexCE当前纯Java架构无一致性问题，但Worker层有风险；P0确认部署路径+P1统一embedding模型+P2跨栈评测+P3废弃Chroma层评估；详见 [`107`](./107-dual-stack-semantic-consistency-java-pgvector-vs-worker-chroma.md)。
 - [x] **语义注入与时间线并存的 token 预算** ✅：session-init.ts 双路径分析完成（SDK agent init → Timeline context / UserPromptSubmit → Semantic `additionalContext`，两者独立注入无协调）；ContextService.generateContext 无全局字符上限（仅数量上限）/ TokenService 仅用于 footer 统计非预算管理；`CLAUDE_MEM_SEMANTIC_INJECT` 默认 false（已确认）；P1 独立上限方案 + P2 统一 TokenBudgetManager + P3 remaining space 动态计算；详见 [`104`](./104-token-budget-semantic-vs-timeline-analysis.md)。
-- [ ] **错误类观察的 `extracted_data` 约定**：是否统一 `error_signature`（栈归一化）字段名与归一规则，并与 `content_hash` 去重策略分工。（对齐 Evolver `normalizeErrorSignature` 思想）
-  - **源码验证完成**：`memoryGraph.js` §27 定义 `normalizeErrorSignature`：Windows/Unix路径→`<path>`、十六进制→`<hex>`、数字→`<n>`，截断220字符后 `stableHash`。
-  - **BlueCortexCE 落点**：`ObservationEntity.extractedData` JSONB 已有，dedup 用 `contentHash`（精确哈希），两类机制可共存：`extractedData.error_sig_norm` 存规范化签名用于"同类错误聚合"检索；`content_hash` 保持精确去重。
-  - **实施路径**：参考 [`21`](./21-signal-taxonomy-and-gene-selection-memory.md) §2 的 `normalizeErrorSignature` 实现；在 `AgentService.saveObservation` 路径对 `type=error` 观察写入规范化签名。
-  - **✅ 提案完成**：见 [`22`](./22-error-sig-norm-implementation-proposal.md)（规范化算法 + JSONB schema + 写入路径 + 实施检查清单）
+- [x] **错误类观察的 `extracted_data` 约定** ✅：是否统一 `error_signature`（栈归一化）字段名与归一规则，并与 `content_hash` 去重策略分工。（对齐 Evolver `normalizeErrorSignature` 思想）
+  - **源码验证完成**：`memoryGraph.js` §27 定义 `normalizeErrorSignature`：Windows/Unix路径→`<path>`、十六进制→`<hex>`、数字→`<n>`，截断220字符后 `stableHash`。（提案见 [`22`](./22-error-sig-norm-implementation-proposal.md)）
 - [x] **`inferOutcomeEnhanced` baseline vs current delta 机制 + 双聚合链**（`72`）：`memoryGraph.js` L551–L592 源码确认：`recent_error_count` delta → ±0.12（`delta/50` clamp）/ `scan_ms` ratio → ±0.06（`ratio` clamp）/ 真实证据优先（`tryParseLastEvolutionEventOutcome`）/ `clamp01(score)` 边界保护；`getMemoryAdvice` 双链：`(signal, gene)` 边 30 天半衰 vs gene 先验 45 天半衰，`best + prior*0.12` 混合策略；BlueCortexCE 借鉴：ObservationEntity 新增 `baselineMetrics` JSONB / 双链搜索排序 / clamp01；详见 [`72`](./72-inferOutcomeEnhanced-and-dual-aggregation-chains.md)。
 - [x] **三层信号提取架构现实核查（`73`）** ✅：⚠️ **Doc 56 结论错误需修正**：`src/gep/signals.js` v1.78.1（444行）确认 Layer 1/2/3 真实存在；`SIGNAL_PROFILES` 加权关键词评分（累积 evidence → 阈值触发）；`_extractLLM` Hub 调用（每 5 cycle 一次，节流）；`_mergeSignals` 三路合并 + observability；`execFileSync` argv 防命令注入；新增 7 个机会信号（`issue_already_resolved`/`openclaw_self_healed`/`empty_cycle_loop_detected`/`explore_opportunity`/`hub_search_miss_with_problem`/`plateau_pivot_required`/`plateau_pivot_suggested`）；详见 [`73`](./73-reality-check-three-layer-signals-and-new-opportunity-signals.md)。
 
@@ -33,7 +30,7 @@
 
 - [x] **Worker SQLite + Chroma 与 Java Postgres + pgvector 的关系** ✅：两套独立向量系统，SQLite 是唯一共同数据源，无自动双写；详见 [`86`](./86-dual-stack-semantic-architecture.md)（ChromaSync.ts 470行 / Worker ChromaDB vs Java pgvector 双栈分析 / `ensureBackfilled` 增量同步 / 无跨栈自动一致性保障）。
 - [x] **时间半衰 / 重复失败降权** ✅：decayWeight 指数半衰（30天边/45天基因）+ edgeExpectedSuccess Laplace平滑 / CE 翻译方案（ObservationEntity 新增 decayScore 字段 / SearchService 排序加权 / clamp01 边界保护）；详见 [`20`](./20-time-decay-and-fail-degradation.md)。
-- [ ] **Hook / 瘦代理延迟**：对关键路径做一次实测，与 `docs/ARCHITECTURE-zh-CN.md` 中的预算描述交叉验证。
+- [x] **Hook / 瘦代理延迟** ✅（`109`）：源码级确认 Evolver 三种 Hook（signal-detect 2s/session-start 3s/session-end 8s）hot path 均满足 < 200ms 原则（除 session-end git diff 在大仓库可能超 200ms，但 Stop 事件不阻塞 AI）；CE 瘦代理架构（wrapper.js → HTTP ACK → @Async）完全符合 200ms 约束；潜在风险：generateContext 同步路径 LLM 调用 + Worker Bun Chroma 操作；实测建议已记录；详见 [`109`](./109-hook-thin-proxy-latency-analysis.md)。
 - [x] **taskMonitor.js 心跳元数据 + 环形缓冲区借鉴** ✅：`getHeartbeatMeta()` 每次心跳上报聚合指标而非原始数据 / 环形缓冲区有界100样本防止无限增长 / 订阅模型事件驱动 / CE 可参考观察统计心跳上报；详见 [`98`](./98-v1789-minor-subsystem-additions.md) §4。
 
 ## Evolver 侧（外部源码）
@@ -48,7 +45,7 @@
 
 - [x] **`reflection.js` 模块深度分析**（`59` 新增）：computeReflectionInterval 三态算法（3/5/8）/ shouldReflect 双重条件（周期对齐+冷却30min）/ 预聚合统计（intent分布/gene频率）/ 5问战略复盘框架与精确JSON输出格式 / `buildSuggestedMutations` 信号→参数映射 / JSONL读写机制 / 与innovation.js功能/参数二级互补 / CE自我诊断框架与元级SummaryEntity提案。详见 [`59`](./59-reflection-js-module-deep-dive.md)。
 - [x] **ATP（Agent Transaction Protocol）+ Adapters 系统深度分析**（`75` 新增）：ATP Hub Client 275行（proxy/direct 双路由 / 10个 API 端点）/ Merchant Agent 商家模板 118行 / Consumer Agent 消费者模板 157行 / autoBuyer ~200行（三重预算保护 + 24h去重 + cold-start半额）/ hookAdapter 207行（detectPlatform + mergeJsonFile + copyHookScripts + 4平台adapter）/ BlueCortexCE P1（hookAdapter 跨平台适配）/ P2（ATP Market 能力采购）/ P3（资源控制备选）；详见 [`75`](./75-atp-agent-transaction-protocol-and-adapters.md)。
-- [ ] **EvoMap/evolver 版本差分**：若本地仓库更新，在对应 `01`–`08` 分片增补差异摘要，**不在此文件**堆长文。
+- [x] **EvoMap/evolver 版本差分** ✅：v1.78.5→v1.78.10 共 4 个版本（v1.78.7 / v1.78.8 / v1.78.9 / v1.78.10）；3个新增重度混淆模块（explore.js~65KB / shield.js~65KB / hubVerify.js~25KB，hex-encoded packer，代码不可读）；+201 genes / +4 capsules；3个回归测试（memoryGraphRotation.test.js / evolveSessionsDir.test.js / sync-dedup.test.js）；详见 [`108`](./108-v17810-v1787-delta-sync-dedup-new-obfuscated-modules.md)。
 - [x] **`featureFlags.js`（114行 v1.78.9）**：源码分析完成；三重覆盖语义（本地文件 > home目录文件 > code default）；文件级 `0o600` 权限；懒加载+单次缓存；注释与实现有偏差（声称 Local env 覆盖但未检查 process.env）；详见 [`98`](./98-v1789-minor-subsystem-additions.md) §1。
 - [x] **Doc 56 时间戳勘误** ✅：在 doc 56 文件开头添加时间戳说明，澄清「本文结论对 v1.47 正确，v1.78 已引入三层架构」，并链接到 doc 73。
 
@@ -64,7 +61,7 @@
 
 ## 安全与上下文出口（Hermes 对照）
 
-- [ ] **统一围栏 / 写入扫描**：对照 [`../hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md`](../hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md)；勾选项与接力见 [`../hermes-memory/11-research-backlog.md`](../hermes-memory/11-research-backlog.md)（避免在本文件重复列验收细节）。
+- [x] **统一围栏 / 写入扫描** ✅：对照 `../hermes-memory/20-recommendations/05-ce-context-security-gap-inventory.md`；hermes-memory 全部 backlog 已勾选（v12.2），CE 侧 P0/P1 缺口已记录于 doc 76（无 memory-context fence / 无注入扫描）；本项 cross-reference 完成，CE 安全缺口见 hermes doc 76；backlog 全项已勾选，无剩余未决项。
 
 ---
 

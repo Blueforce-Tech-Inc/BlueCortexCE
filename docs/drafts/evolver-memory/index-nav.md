@@ -116,6 +116,16 @@
 | [104](./104-token-budget-semantic-vs-timeline-analysis.md) | Token Budget 分析：语义注入 vs 时间线预算竞争（session-init.ts 双路径独立注入无协调 / ContextService.generateContext 无全局字符上限 / TokenService 仅用于 footer 统计非预算管理 / P1 独立上限方案 + P2 统一 TokenBudgetManager + P3 remaining space 动态计算） |
 | [106](./106-questioncomposer-bluecortex-context-pipeline-deep-dive.md) | questionComposer.js 深度 + BlueCortexCE 上下文生成 Pipeline 借鉴（133行 / 模板模式+策略模式+防御性+确定性4大设计模式 / capability→TEMPLATE规范化映射 / hash-seeded确定性选择 / _normalize规范化算法 / CE StructuredContext模板提案 / 4个具体行动项） |
 | [107](./107-dual-stack-semantic-consistency-java-pgvector-vs-worker-chroma.md) | Java pgvector vs Worker Chroma 双栈语义一致性（5大根因差异D1-D5：embedding模型/混合策略/去重策略/时间窗口/异常处理 / 3个典型不一致场景 / BlueCortexCE纯Java无当前问题 / P0确认部署路径+P1统一embedding+P2跨栈评测+P3废弃Chroma） |
+| [108](./108-v17810-v1787-delta-sync-dedup-new-obfuscated-modules.md) | v1.78.7–v1.78.10 Delta（v1.78.7: +201 genes/+4 capsules/+3个重度混淆模块（explore~65KB/shield~65KB/hubVerify~25KB，hex-encoded packer不可分析，env变量暗示arXiv探索/安全防护/Hub验证）/ v1.78.8: 全模块bump / v1.78.9: evolveSessionsDir.test.js 170L回归测试#527 / v1.78.10: index.js+58行CLI改进 / sync-dedup.test.js 192L端到端测试2个failure mode / 全模块31文件版本bump / 演进趋势：混淆模块+测试覆盖） |
+| [109](./109-hook-thin-proxy-latency-analysis.md) | Hook/瘦代理延迟源码级分析（Evolver三种Hook延迟特征：signal-detect<50ms O(n)关键词扫描+1.5s安全阀 / session-start<100ms JSONL读+Kiro 30min dedup / session-end<7s git diff同步子进程+Hub curl双路径 / CE 200ms约束交叉验证：CE瘦代理架构wrapper.js→HTTP ACK→@Async完全符合 / ⚠️ generateContext同步LLM调用+Worker Bun Chroma潜在风险 / 4项实测建议 / backlog Item ✅勾选） |
+| [110](./110-mutation-js-core-deep-dive.md) | `mutation.js` 核心深度（204L纯JS / 信号分类决策树（hasErrorishSignal/hasOpportunitySignal/优先级：error→drift→opportunity→strategy→optimize）/ 两层安全门禁（high-risk personality→innovate downgrade to optimize + high-risk mutation人格授权rigor≥0.6+risk_tol≤0.5）/ 8种Safety Signal机制 / 风险等级默认值（repair/low, optimize/low, innovate/medium, high需授权）/ isValidMutation 8-field验证 / normalizeMutation幂等规范化 / BlueCortexCE P1观察风险分级+P1 Safety Signal记录+P2人格驱动注入策略） |
+| [111](./111-strategy-js-evolution-presets-deep-dive.md) | `strategy.js` 进化策略预设深度（131L纯JS / 7种预设（balanced/innovate/harden/repair-only/early-stabilize/steady-state/auto）+ 参数（repair+optimize+innovate权重/repairLoopThreshold/label/description）/ 周期数≤5→early-stabilize自动切换（先修后创原则）/ 饱和信号→steady-state / FORCE_INNOVATION向后兼容（优先于自动检测）/ 双路径evolution_state.json读取 / strategy↔mutation联动：strategy.innovate≥0.5触发innovate类别 / BlueCortexCE P2策略驱动注入+P3周期感知模式+P3策略感知搜索排序） |
+| [113](./113-memorygraph-adapter-local-first-remote-additive-pattern-deep-dive.md) | `memoryGraphAdapter.js` Local-First/Remote-Addictive 适配器模式（203L纯JS / 10-method Adapter Interface Contract / Local-First写（本地JSONL→异步远程推送→Source of Truth）/ Remote-Addictive读（getAdvice 优先远程KG→降级本地）/ 5s超时+AbortController+Bearer Token / Graceful Degradation / Open-Closed扩展性 / BlueCortexCE P2多存储适配器提案） |
+| [114](./114-selector-js-multimode-selection-and-drift-deep-dive.md) | `selector.js` 多模态选择与漂移策略深度（417L纯JS / 3-mode信号匹配regex/alias/substring / BoW Cosine纯JS无依赖 / scoreGeneLearning四层history+epigenetic+anti-pattern+clamp / `1/√Ne`群体遗传学连续漂移 / diversity_directed drift / failed capsule双重条件封禁 / buildSelectorDecision零成本可观测性 / CE P2–P3行动项） |
+| [115](./115-personality-js-multi-layer-self-tuning-deep-dive.md) | `personality.js` 多层自我调优系统深度（379L纯JS / 5维状态空间rigor/creativity/verbosity/risk_tolerance/obedience / 三层突变（Natural Selection→Triggered→Reflection-driven）/ personalityScore Laplace平滑+小样本惩罚 / chooseBestKnownPersonality历史最优小步靠近 / 每轮≤2参数×±0.2防跳变 / CE P2 ModeService五维状态+P2人格驱动注入策略 / 源码证据） |
+| [116](./116-candidates-js-three-source-capability-extraction-deep-dive.md) | `candidates.js` 三源能力候选提取深度（208L纯JS / Transcript工具调用频率≥3 / Signal信号→能力映射10类 / Failed Capsule聚类按problem:*标签≥2次 / Five-Questions Shape标准结构 / stableHash去重幂等ID / CE P2 Observation能力缺口发现+P2候选表+P3 Gene-as-Capability / 源码证据） |
+| [117](./117-solidify-js-core-deep-dive.md) | `solidify.js` 核心深度（1344L纯JS / 8维PRM过程评分（signal×0.05+selection×0.10+mutation×0.05+blast×0.15+constraint×0.25+validation×0.25+protocol×0.10+canary×0.05）/ 三层验证门禁PolicyCheck→Canary→LLM Review / FailedCapsule rollback前diff零丢失捕获 / 表观遗传Marks+基因学习适配 / Anti-pattern opt-in发布 / LessonL轻量失败知识化 / Hub Task自动完成 / CE P1多维质量评分+P1上下文三层验证+P1失败Context保存+P2表观遗传+P2结构化failure_reason） |
+| [118](./118-localStateAwareness-and-analyzer-deep-dive.md) | `localStateAwareness.js`+`analyzer.js` 深度（244L+60L / captureLocalState五维状态自发现快照注入session-init / analyzeFailures元学习从MEMORY.md提取失败模式 / 两模块在session-init→solidify→narrative链路中位置 / CE P2状态快照注入+P3失败模式预注入） |
 | [105](./105-core-memory-architecture-deep-dive-evolver.md) | EvoMap 核心记忆架构源码深度（memoryGraph.js 完整解析 / 7种 MemoryGraphEvent 种类 / JSONL 追加+原子写 / Session Scope 隔离 / 4语言信号提取 / History-aware 去重+饱和检测 / expandSignals 标签化 / Laplace+半衰置信度评分 / 无标签结果推断 / 双栈适配器 / Narrative Memory / Reflection 自适应间隔 / localStateAwareness 五维自省 / BlueCortexCE 对照表） |
 
 ---
@@ -149,14 +159,17 @@
 | **A2A Protocol / Agent-to-Agent 通信** | [95](./95-a2aProtocol-and-a2a-deep-dive.md) |
 | **Hub Agent Directory / directoryClient** | [93](./93-directoryclient-agent-discovery-deep-dive.md) |
 | **Hub Ecosystem Integration** | [46](./46-hub-ecosystem-integration-taskreview-issue.md) |
-| **Personality State Machine** | [44](./44-personality-state-machine-and-hub-search-caching.md) §1 |
+| **Personality State Machine + 三层自我调优** | [44](./44-personality-state-machine-and-hub-search-caching.md) §1；[115](./115-personality-js-multi-layer-self-tuning-deep-dive.md)（自然选择+触发突变+反思驱动 / Laplace平滑 / 每轮≤2参数×±0.2） |
 | **Hub Search 缓存 + deadline 控制** | [44](./44-personality-state-machine-and-hub-search-caching.md) §2 |
 | **PRM 多步骤评分 / Epigenetic Marks** | [25](./25-advanced-patterns-prm-epigenetic-antipattern.md) §1–§2 |
-| **Adaptive Reflection / 自省循环** | [59](./59-reflection-js-module-deep-dive.md)；[31](./31-reflection-remote-adapter-local-state.md) §1 |
+| **Adaptive Reflection / 自省循环** | [59](./59-reflection-js-module-deep-dive.md)；[31](./31-reflection-remote-adapter-local-state.md) §1；[118](./118-localStateAwareness-and-analyzer-deep-dive.md)（`captureLocalState` 五维状态快照 / `analyzeFailures` 元学习失败模式提取） |
 | **主动自我管理**（signal扩展标签化 / 文件立即唤醒 / 技能自愈） | [102](./102-learningSignals-ops-trigger-skillsMonitor-selfManagement-deep-dive.md) |
 | **Signal Taxonomy 全链路 + Gene 四因子叠加** | [37](./37-signal-taxonomy-gene-selection-end-to-end.md) |
 | **多因子 Gene 选择 / 连续漂移** | [30](./30-multifactor-gene-selection-continuous-drift.md)；[65](./65-selector-gene-scoring-and-semantic-matching-deep-dive.md) |
 | **Solidify 管线端到端** | [34](./34-solidify-pipeline-end-to-end.md) |
+| **GEP Mutation 构建引擎 + 安全门禁** | [110](./110-mutation-js-core-deep-dive.md) |
+| **GEP 策略预设 + 自动检测** | [111](./111-strategy-js-evolution-presets-deep-dive.md) |
+| **Memory Graph 适配器模式（Local-First / Remote-Addictive）** | [113](./113-memorygraph-adapter-local-first-remote-additive-pattern-deep-dive.md) |
 | **Content-addressable ID / Atomic write / 验证报告** | [34](./34-solidify-pipeline-end-to-end.md) §3–§5；[87](./87-assetstore-contenthash-asset-lifecycle-deep-dive.md) |
 | **Failure Mode + Canary** | [40](./40-failure-mode-classification-and-canary.md)；[42](./42-policycheck-constraint-system-deep-dive.md) |
 | **policyCheck 约束系统深度** | [42](./42-policycheck-constraint-system-deep-dive.md) |
@@ -174,14 +187,14 @@
 | **MemoryGraph 事件模型完整** | [66](./66-memorygraph-event-model-confidence-edges-and-state-schema.md) |
 | **MemoryGraph 闭环反馈架构** | [50](./50-memory-graph-closed-loop-architecture.md) |
 | **Gene as Compressed Memory** | [48](./48-gene-as-compressed-memory-closed-loop-architecture.md) |
-| **Capability Candidate 生命周期管线** | [51](./51-capability-candidate-lifecycle-pipeline.md) |
+| **Capability Candidate 生命周期管线** | [51](./51-capability-candidate-lifecycle-pipeline.md)；[116](./116-candidates-js-three-source-capability-extraction-deep-dive.md)（三源提取：转录频率≥3+信号映射10类+失败聚类≥2次 / Five-Questions Shape / stableHash去重） |
 | **Curriculum + Mutation 闭环管线** | [74](./74-curriculum-mutation-closed-loop-pipeline.md) |
 | **ATP + Adapters 系统** | [75](./75-atp-agent-transaction-protocol-and-adapters.md) |
 | **ATP Execute + AutoDeliver + SelfRepair** | [81](./81-atp-execute-autodeliver-memorygraph-adapter-selfrepair.md) |
 | **ATP 商家端子系统** | [83](./83-atp-merchant-side-task-pickup-autobuyer-and-agent-templates.md) |
 | **ATP Heartbeat 旁路交付机制** | [91](./91-atp-heartbeatsignalshandler-deep-dive.md) |
 | **skillDistiller.js 完整管线** | [84](./84-skilldistiller-full-pipeline-deep-dive.md) |
-| **Solidify PRM + Epigenetic** | [82](./82-solidify-prm-process-scoring-and-epigenetic-marks.md) |
+| **Solidify PRM + Epigenetic** | [82](./82-solidify-prm-process-scoring-and-epigenetic-marks.md)；[117](./117-solidify-js-core-deep-dive.md)（`solidify.js` 1344行源码完整解析：8维PRM评分+三层验证门禁+FailedCapsule零丢失+表观遗传Marks+Anti-pattern发布+LessonL+Hub Task自动完成） |
 | **GEP Prompt Schema Enforcement + Token Budget** | [92](./92-prompt-js-schema-enforcement-and-token-budget.md) |
 | **v1.78.7–v1.78.9 版本差分 + 回归测试护栏** | [94](./94-v1789-version-delta-and-regression-guards.md) |
 | **Post-Solidify 完整管线** | [68](./68-post-solidify-pipeline-executiontrace-gitops-skillpublisher-questiongen-a2a.md) |
