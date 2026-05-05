@@ -734,7 +734,14 @@ curl -X POST "http://localhost:37777/api/context/semantic" \
 ---
 
 ## Extraction 结构化提取
+
+### 触发结构化提取
+### 获取最新提取结果
+### 获取提取历史
+
 ## 搜索
+
+### 搜索记忆
 
 #### GET `/api/search`
 
