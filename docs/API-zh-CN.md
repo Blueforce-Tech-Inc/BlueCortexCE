@@ -885,6 +885,7 @@ curl "http://localhost:37777/api/observations?project=/Users/dev/myproject&limit
       "feedback_type": "SUCCESS",
       "feedback_updated_at": "2026-04-01T10:15:00Z",
       "source": "claude-code",
+      "platform_source": "claude",
       "extractedData": {"framework": "Echo", "auth_type": "Bearer"},
       "prompt_number": 42,
       "created_at": "2026-04-01T09:00:00Z",
@@ -919,6 +920,7 @@ curl "http://localhost:37777/api/observations?project=/Users/dev/myproject&limit
 | `feedback_type` | string | 反馈类型：`SUCCESS`/`PARTIAL`/`FAILURE`/`UNKNOWN` |
 | `feedback_updated_at` | string | 最后反馈更新的 ISO-8601 时间戳 |
 | `source` | string | 来源归属（如 `claude-code`、`manual`） |
+| `platform_source` | string | 平台来源，用于多平台跟踪（V18，如 `claude`、`cursor`） |
 | `extractedData` | object | LLM 提取的结构化数据（camelCase 键名） |
 | `prompt_number` | int | 会话中的提示词编号 |
 | `created_at` | string | ISO-8601 创建时间戳 |

@@ -1316,6 +1316,7 @@ Returns a paginated list of observations, optionally filtered by project. Result
       "feedback_type": "SUCCESS",
       "feedback_updated_at": "2026-04-01T10:15:00Z",
       "source": "claude-code",
+      "platform_source": "claude",
       "extractedData": {"framework": "Echo", "auth_type": "Bearer"},
       "prompt_number": 42,
       "created_at": "2026-04-01T09:00:00Z",
@@ -1350,6 +1351,7 @@ Returns a paginated list of observations, optionally filtered by project. Result
 | `feedback_type` | string | Feedback type: `SUCCESS`/`PARTIAL`/`FAILURE`/`UNKNOWN` |
 | `feedback_updated_at` | string | ISO-8601 timestamp of last feedback update |
 | `source` | string | Source attribution (e.g., `claude-code`, `manual`) |
+| `platform_source` | string | Platform source for multi-platform tracking (V18, e.g., `claude`, `cursor`) |
 | `extractedData` | object | Structured data extracted by the LLM (camelCase keys) |
 | `prompt_number` | int | Prompt number in the session |
 | `created_at` | string | ISO-8601 creation timestamp |
