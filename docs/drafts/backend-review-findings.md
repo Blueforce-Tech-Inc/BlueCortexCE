@@ -1,7 +1,57 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-05-05 21:27 (Python SDK Review #2 — 0 P0/P1/P2, 374 tests pass)
+> **最后更新**: 2026-05-06 02:43 (Go SDK Review #1 — 0 P0/P1/P2, 288 tests pass)
+
+---
+
+## 2026-05-06 02:43 | Go SDK Review #1
+
+**审查方向**: Go SDK (`go-sdk/cortex-mem-go/`)
+
+**审查范围**:
+- `client.go` — 25 个 API 方法接口定义
+- `client_impl.go` — HTTP 客户端基础设施（retry、backoff、jitter、fire-and-forget）
+- `client_methods.go` — 全部 25 个方法实现
+- `error.go` — ValidationError + APIError + 12+ is_* 辅助函数
+- `dto/search.go` — SearchRequest（wire format 注释验证）
+- `dto/extraction.go` — ExtractionResult DTO
+- `examples/http-server/main.go` — 全部 26 个端点（含新增 batch-observations、create-observation）
+
+**编译验证**: ✅ `go test ./...` — core 6.8s, dto 1.3s, genkit 0.7s, langchaingo 0.6s, eino 0.7s
+**测试验证**: ✅ 288 tests 全通过（client 194 + dto 61 + genkit 13 + langchaingo 12 + eino 8）
+
+#### 发现的问题
+
+**无 P0/P1/P2 问题**。
+
+#### 代码质量交叉验证
+
+| 检查项 | client_impl.go | client_methods.go | error.go | HTTP Server Demo |
+|--------|---------------|-------------------|----------|------------------|
+| 输入验证 | ✅ TrimSpace + 合理性检查 | ✅ ValidationError 每个方法 | ✅ 12+ is_* 辅助函数 | ✅ checkMethod + readJSON + maxBytesReader |
+| Fire-and-forget | ✅ linear backoff + ±25% jitter | N/A | N/A | N/A |
+| 错误处理 | ✅ APIError + ValidationError | ✅ 分离 + status check | ✅ 全面 is_* 覆盖 | ✅ writeJSONError + StatusServiceUnavailable |
+| Wire Format | ✅ camelCase（API调用的params映射） | ✅ snake_case → camelCase 正确 | N/A | ✅ camelCase JSON responses |
+| Session 管理 | ✅ Close() + defer client.Close() | N/A | N/A | ✅ defer client.Close() |
+| extracted_data {} 语义 | N/A | N/A | N/A | ✅ updateFiles camelCase |
+| 重试机制 | ✅ isTransient = IsRetryable | N/A | ✅ IsRetryable 含网络错误 | N/A |
+| Panic 恢复 | N/A | N/A | N/A | ✅ recovery middleware |
+| 请求日志 | N/A | N/A | N/A | ✅ requestLogger middleware |
+
+#### 亮点
+
+- **`Search offset/limit 正确转发**：`client_methods.go` 的 `Search` 方法正确地将 `offset`/`limit`/`orderBy` 作为 query params 传递给 backend（**与 MCP search 工具忽略 offset 不同**——Go SDK 层无问题，是 backend MCP 工具层的问题）
+- **`jitteredBackoff`**：线性 backoff + ±25% jitter，防止惊群效应（thundering herd）
+- **Fast-fail context 检查**：`doRequest` 开头 `select { case <-ctx.Done(): ... }`，避免在已取消的 context 上浪费 JSON 序列化
+- **Fire-and-forget 语义正确**：错误被吞掉，但有日志；中间重试失败有 warn 日志；context 取消时静默跳过
+- **`LimitReader` OOM 防护**：`MaxResponseBytes = 10 << 20` 限制响应体大小，防止恶意服务器导致内存溢出
+- **HTTP Server Demo 中间件**：recovery（panic 恢复）+ requestLogger（请求日志）+ statusRecorder（捕获响应码）+ maxBytesReader（请求体限制）
+- **Integration layers**：genkit + langchaingo + eino 三个集成层全部测试通过，接口适配正确
+
+#### 代码审查结论
+
+0 个 P0/P1/P2 问题。Go SDK 代码质量优秀，25 个 API 方法实现完整，错误处理分层清晰（ValidationError/APIError/sentinel），fire-and-forget 语义正确，HTTP server demo 中间件健壮，集成层接口适配良好。
 
 ---
 
