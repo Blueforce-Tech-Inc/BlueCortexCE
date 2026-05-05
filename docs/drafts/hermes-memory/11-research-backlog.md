@@ -2,7 +2,7 @@
 
 > **角色**：可勾选短队列；**不**重复 [`20-recommendations/02-bluecortexce-recommendations.md`](20-recommendations/02-bluecortexce-recommendations.md) 表格全文。  
 > **CE 安全与出口现状盘点**：[`20-recommendations/05-ce-context-security-gap-inventory.md`](20-recommendations/05-ce-context-security-gap-inventory.md)  
-> **最后更新**：2026-05-06 01:17（`13a7cbcd6..origin/main`，23 commits 已全部分析；新增 [`85`](60-evolution/85-hermes-context-summary-end-marker-and-iterative-continuity.md) — Context Summary End Marker + 迭代压缩连续性深度解析）
+> **最后更新**：2026-05-06 05:40（`1fc8733a6..origin/main`，13 commits 已扫描；**0 个核心记忆系统代码变更** — 全部为文档国际化（中文 README/Tool Gateway/Windows WSL guide）+ AUTHOR_MAP + Open WebUI bootstrap + Ollama 本地运行指南；无记忆/上下文/压缩/provider/hook 相关）
 > **旧巡检日志（2026-04-24 → 2026-05-05 02:33）**：→ [`11-research-backlog-inspection-logs-2026-04-24-to-2026-05-05.md`](11-research-backlog-inspection-logs-2026-04-24-to-2026-05-05.md)
 
 **本地 Hermes Agent Repo**：✅ 已存在，`git fetch origin/main` 成功（`b93643c8f` 与 origin/main 同步）
@@ -133,3 +133,38 @@
 - [x] **上游代码增量扫描**：`agent/context_compressor.py` 2 条修复均已在 doc 84 记录，本次不做重复扫描。转为专题深化：新增 [`85`](60-evolution/85-hermes-context-summary-end-marker-and-iterative-continuity.md)（7,638 字节）— `2eef395e1`/`4a3e3e20e` 深度解析；⭐⭐⭐ **Context Summary End Marker** 可直接迁移至 `ContextService.renderTimeline()`（3行代码），解决 CE 模型混淆 summary 与用户输入的问题；**迭代提取连续性**（`_find_latest_context_summary` + identity rehydration）为 Phase 3 迭代提取引擎提供参考实现模式
 - [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；`index-reading-order.md` 45,026 字节（逼近 50KB，暂不追加条目）✅；`hermes-memory/` 69 篇正文 + 1 篇归档，全部低于 50KB ✅；新增 doc `85`（7,638 字节）
 - [x] **Backlog 全部项 `[x]`**：v11.1 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `b93643c8f`）
+
+## 定时巡检（2026-05-06 02:04 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：fetch + checkout origin/main（`b93643c8f` → `87b113c2e`）✅
+- [x] **上游代码增量扫描**（`b93643c8f..origin/main`，87 commits）：8 个记忆/上下文系统相关发现 → [`86`](60-evolution/86-upstream-b93643c8f-to-87b113c2e-memory-analysis.md)；⭐ **P1** `7f735b4db`（#16938）— 压缩后有效 session_id 追踪；⭐ **P1** `efe1cb00c`（#17055）— Reasoning 跨轮泄漏防护（turn boundary stop）；P2 `5795b3be4` — ACP `SessionDB.replace_messages()` 原子性历史重写；P2 `ecc909de3` — JSONL transcript append 锁序列化；P2 `0a7cc85ea` — Honcho 语义搜索（user_message as search_query）；P2 `c46bc9294`（#12977）— Aux provider context length 修复；P2 `fe8560fc1`（#20199）— X-Hermes-Session-Key long-term memory scoping；P3 `e8e914737` — ACP reasoning metadata persistence 测试
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；`hermes-memory/60-evolution/` 86 篇正文，全部低于 50KB ✅；新增 doc `86`（8996 字节）
+- [x] **Backlog 全部项 `[x]`**：v12 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `87b113c2e`）
+
+## 定时巡检（2026-05-06 03:04 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：origin/main 已在 `87b113c2e`（与上次巡检同 commit，无需 checkout）
+- [x] **上游代码增量扫描**（`b93643c8f..origin/main`，75 commits）：已全量覆盖于 doc 86；本次确认无新记忆系统相关 commit。`e8e914737`（ACP reasoning metadata 持久化测试）已记录为 P3
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；最大正文 `index-reading-order.md` 45,026 字节（逼近 50KB 但合规）✅；`hermes-memory/` 各子目录总计 69+ 篇正文，全部低于 50KB ✅
+- [x] **Backlog 全部项 `[x]`**：v12.1 完成，上游无新进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `87b113c2e`）
+
+## 定时巡检（2026-05-06 03:54 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：fetch + checkout origin/main（`87b113c2e` → `3b750715a`）✅
+- [x] **上游代码增量扫描**（`87b113c2e..origin/main`，2 commits）：1 个记忆系统相关 → [`87`](60-evolution/87-upstream-87b113c2e-to-3b750715a-memory-analysis.md)；⭐ **P1** `3b750715a` — Lazy session creation 回归修复（#18370 fallout，#20363）：ghost compression session 清理（`finalize_orphaned_compression_sessions()`）+ stale session_key 修复（`_finalize_session` 使用 `agent.session_id`）+ `pending_title` policy flags（auto-compression 保留用户意图）+ ValueError duplicate title 处理（#19029）+ empty response 归一化（#18765，3 种场景覆盖）；`0397be593`（CLI `/provider` 别名移除）— 无关
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；`hermes-memory/60-evolution/` 70 篇正文，全部低于 50KB ✅；新增 doc `87`（5471 字节）
+- [x] **Backlog 全部项 `[x]`**：v12.2 完成，上游无更多记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `3b750715a`）
+
+## 定时巡检（2026-05-06 04:57 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：fetch + checkout origin/main（`3b750715a` → `1fc8733a6`）✅
+- [x] **上游代码增量扫描**（`3b750715a..origin/main`，48 commits）：**0 个核心记忆系统代码变更** → [`88`](60-evolution/88-upstream-3b750715a-to-1fc8733a6-memory-analysis.md)；主要变更：Provider 全量可插拔化（`9022804d7`/`20a4f79ed`，33 个 provider）+ 文档完善 + TUI/CLI 修复；2 个轻微相关 doc-only 变更：`72c33dfe9`（移除过期 BuiltinMemoryProvider 文档引用）和 `e4723f671`（cron context_from 文档补充）；其余 46 个均为非记忆系统 commit
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；最大正文 `index-reading-order.md` 45,026 字节（逼近 50KB 但合规）✅；`hermes-memory/60-evolution/` 71 篇正文，全部低于 50KB ✅；新增 doc `88`（2510 字节）
+- [x] **Backlog 全部项 `[x]`**：v12.3 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `1fc8733a6`）
+
+## 定时巡检（2026-05-06 05:40 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：fetch + checkout origin/main（`1fc8733a6` → `50ab0a85a`）✅
+- [x] **上游代码增量扫描**（`1fc8733a6..origin/main`，13 commits）：**0 个核心记忆系统代码变更** — 全部为文档国际化（中文 README `05cdcac36` / 中文 Tool Gateway/Windows WSL guide `74e4f5f97`）+ AUTHOR_MAP 更新（5个）+ Open WebUI bootstrap script `1c42d8ff5` + Ollama 本地运行指南 `9a0a4c583` + VS Code ACP Client 集成 `0d945d154`；无记忆/上下文/压缩/provider/hook/insights 相关
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；最大正文 `index-reading-order.md` 45,026 字节（合规 < 50KB）✅；`hermes-memory/` 所有 `.md` 71+ 篇，全部低于 50KB ✅
+- [x] **Backlog 全部项 `[x]`**：v12.4 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `50ab0a85a`）
