@@ -115,6 +115,7 @@
 | [103](./103-v1789-delta-defaultHandler-tokenBudget-comparison.md) | v1.78.9 Delta（index.js+paths.js dotenv#526修复/genes.json+201/胶囊+4） + `atp/defaultHandler.js`（69行/ATP订单fallback/三态开关）+ Token Budget对比（CE固定50条 vs Evolver 20000chars+分层保护） |
 | [104](./104-token-budget-semantic-vs-timeline-analysis.md) | Token Budget 分析：语义注入 vs 时间线预算竞争（session-init.ts 双路径独立注入无协调 / ContextService.generateContext 无全局字符上限 / TokenService 仅用于 footer 统计非预算管理 / P1 独立上限方案 + P2 统一 TokenBudgetManager + P3 remaining space 动态计算） |
 | [106](./106-questioncomposer-bluecortex-context-pipeline-deep-dive.md) | questionComposer.js 深度 + BlueCortexCE 上下文生成 Pipeline 借鉴（133行 / 模板模式+策略模式+防御性+确定性4大设计模式 / capability→TEMPLATE规范化映射 / hash-seeded确定性选择 / _normalize规范化算法 / CE StructuredContext模板提案 / 4个具体行动项） |
+| [107](./107-dual-stack-semantic-consistency-java-pgvector-vs-worker-chroma.md) | Java pgvector vs Worker Chroma 双栈语义一致性（5大根因差异D1-D5：embedding模型/混合策略/去重策略/时间窗口/异常处理 / 3个典型不一致场景 / BlueCortexCE纯Java无当前问题 / P0确认部署路径+P1统一embedding+P2跨栈评测+P3废弃Chroma） |
 | [105](./105-core-memory-architecture-deep-dive-evolver.md) | EvoMap 核心记忆架构源码深度（memoryGraph.js 完整解析 / 7种 MemoryGraphEvent 种类 / JSONL 追加+原子写 / Session Scope 隔离 / 4语言信号提取 / History-aware 去重+饱和检测 / expandSignals 标签化 / Laplace+半衰置信度评分 / 无标签结果推断 / 双栈适配器 / Narrative Memory / Reflection 自适应间隔 / localStateAwareness 五维自省 / BlueCortexCE 对照表） |
 
 ---

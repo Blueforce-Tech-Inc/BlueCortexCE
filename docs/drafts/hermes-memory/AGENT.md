@@ -39,7 +39,7 @@
 find docs/drafts/hermes-memory -name '*.md' -exec wc -c {} + | sort -n | tail -15
 ```
 
-**复核快照（2026-05-05 07:52 CST）**：全部 `.md` 文件字节数扫描（见下表）。新增 1 份分析（`73`，7662 字节）。全部低于 50KB 上限。
+**复核快照（2026-05-05 21:51 CST）**：`index.md` 预防性拆分，阅读顺序 83 项（47KB）→ [`index-reading-order.md`](index-reading-order.md)（45KB）；`index.md` 现为 2.9KB。全部 `.md` 文件字节数扫描（见下表）。全部低于 50KB 上限。
 
 ⚠️ **硬上限违反**：上游源码文件 `plugins/memory/honcho/__init__.py` = **54,470 字节**（>50KB 上限），需拆分。该文件是上游 Hermes 源码，非本仓库文档，但其在 `docs/drafts/hermes-memory/` 中的分析文档应避免再增长。
 
@@ -51,6 +51,7 @@ find docs/drafts/hermes-memory -name '*.md' -exec wc -c {} + | sort -n | tail -1
 
 | 字节数（约） | 路径 |
 |-------------|------|
+| 45,026 | [`index-reading-order.md`](index-reading-order.md)（2026-05-05 新增；阅读顺序 83 项，预防性拆分自 `index.md`） |
 | 41,910 | [`60-evolution/09-supermemory-capture-lifecycle.md`](60-evolution/09-supermemory-capture-lifecycle.md)（§56–§69；续写至 `09a`） |
 | 5,012 | [`60-evolution/09a-supermemory-lifecycle-continued.md`](60-evolution/09a-supermemory-lifecycle-continued.md)（§70–§73） |
 | 42,912 | [`50-honcho-holographic-deep/05-multimodal-memory-clarification.md`](50-honcho-holographic-deep/05-multimodal-memory-clarification.md)（§30–§35；续写至 `05a`） |
