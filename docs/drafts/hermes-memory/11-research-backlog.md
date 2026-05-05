@@ -168,3 +168,10 @@
 - [x] **上游代码增量扫描**（`1fc8733a6..origin/main`，13 commits）：**0 个核心记忆系统代码变更** — 全部为文档国际化（中文 README `05cdcac36` / 中文 Tool Gateway/Windows WSL guide `74e4f5f97`）+ AUTHOR_MAP 更新（5个）+ Open WebUI bootstrap script `1c42d8ff5` + Ollama 本地运行指南 `9a0a4c583` + VS Code ACP Client 集成 `0d945d154`；无记忆/上下文/压缩/provider/hook/insights 相关
 - [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；最大正文 `index-reading-order.md` 45,026 字节（合规 < 50KB）✅；`hermes-memory/` 所有 `.md` 71+ 篇，全部低于 50KB ✅
 - [x] **Backlog 全部项 `[x]`**：v12.4 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `50ab0a85a`）
+
+## 定时巡检（2026-05-06 06:24 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：origin/main 已在 `50ab0a85a`（与上次巡检同 commit，无需 checkout）✅
+- [x] **上游代码增量扫描**（`50ab0a85a..origin/main`，0 commits）：无新 upstream 推进，文档保持最新
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；最大正文 `index-reading-order.md` 45,026 字节（合规 < 50KB）✅；`hermes-memory/60-evolution/` 71 篇正文，全部低于 50KB ✅；最大单稿 `05-multimodal-memory-clarification.md`（42,912 字节）< 50KB ✅
+- [x] **Backlog 全部项 `[x]`**：v12.5 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `50ab0a85a`）
