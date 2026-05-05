@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -129,11 +130,10 @@ public class SessionManagementService implements LogHelper {
         session.setStartedAtEpoch(Instant.now().toEpochMilli());
         session.setStatus("active");
 
-        SessionEntity saved = sessionRepository.save(session);
-        if (saved == null) {
-            logFailure("Failed to save new session for contentSessionId: {}", contentSessionId);
-            throw new RuntimeException("Failed to create session: " + contentSessionId);
-        }
+        // JpaRepository.save() never returns null — it throws DataAccessException on failure.
+        // Using Objects.requireNonNull for explicit intent documentation.
+        SessionEntity saved = Objects.requireNonNull(sessionRepository.save(session),
+                "Failed to create session: " + contentSessionId);
         return saved;
     }
 }

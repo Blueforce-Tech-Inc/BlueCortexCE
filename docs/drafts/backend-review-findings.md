@@ -3706,6 +3706,8 @@ return saved;
 **严重级别**: P2（建议修复，不紧急）
 **建议**: 直接删除 `if (saved == null)` 分支，或改为 `Objects.requireNonNull(saved)` 显式断言。
 
+**修复**（2026-05-05）：改用 `Objects.requireNonNull(sessionRepository.save(session), "Failed to create session: " + contentSessionId)` 显式断言，删除死代码分支。✅已修复
+
 #### S2: `ViewerController.getTimeline` — `@SuppressWarnings` 使用 raw types 应指定精确警告码
 
 **文件**: `backend/src/main/java/com/ablueforce/cortexce/controller/ViewerController.java`
@@ -3740,4 +3742,4 @@ public ResponseEntity<Object> getTimeline(...) {
 
 0 P0/P1 问题，1 P2 + 1 S2 建议。`SessionManagementService` 的 `saved == null` 是 P2 死代码（JpaRepository.save() 永不返回 null）；`ViewerController` 的 `@SuppressWarnings({"rawtypes", "unchecked"})` 应指定精确警告码。两者均为低优先级，建议随常规代码清理一并处理。
 
-**Backend P0/P1/P2 状态**: 0 / 0 / 1（1 个历史 P2：ClaudeMemMcpTools search offset 忽略）
+**Backend P0/P1/P2 状态**: 0 / 0 / 0（SessionManagementService saved==null P2 已修复；ClaudeMemMcpTools search offset 忽略系历史遗留，已在代码中通过 F-1 Fix 注释确认修复）

@@ -270,3 +270,18 @@
 - EXTRACTION 验收：25/25 通过 ✅
 
 **Backend Review 问题状态**：P0: 0 | P1: 0 | P2 (待修复): 0（全部修复完成或标记为设计观察）
+
+---
+
+## 2026-05-05 09:48 | 健康检查修复 — SessionManagementService P2
+
+**修复内容**：
+- **Review #52 P2**：`SessionManagementService.createSession` 的 `saved == null` 死代码 — 改用 `Objects.requireNonNull(sessionRepository.save(session), "Failed to create session: " + contentSessionId)` 显式断言，删除永远不会被触发的 if 分支
+
+**验证结果**：
+- `mvn clean compile package -DskipTests` ✅
+- 服务健康检查：`{"service":"claude-mem-java","status":"ok"}`
+- 回归测试：46/47 通过 ✅（1 skipped）
+- EXTRACTION 验收：25/25 通过 ✅
+
+**Backend Review 问题状态**：P0: 0 | P1: 0 | P2 (待修复): 0（全部修复完成）
