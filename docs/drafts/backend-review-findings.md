@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-05-05 09:22 (Go SDK Review #12 — 0 P0/P1/P2, 288 tests pass)
+> **最后更新**: 2026-05-05 21:27 (Python SDK Review #2 — 0 P0/P1/P2, 374 tests pass)
 
 ---
 
@@ -3781,3 +3781,57 @@ public ResponseEntity<Object> getTimeline(...) {
 #### 代码审查结论
 
 0 P0/P1/P2 问题，2 个 S2 建议均已处理。Java SDK 代码质量稳定，设计严谨。编译 clean，测试全通过（120/120），E2E 17/17 通过。
+
+---
+
+## 2026-05-05 21:27 | Python SDK Review #2
+
+**审查范围**: `python-sdk/cortex-mem-python/cortex_mem/` (client.py + dto.py + error.py + Flask demo)
+
+**审查范围详情**:
+- `client.py` — 25 个 API 方法，fire-and-forget，retry/backoff 逻辑
+- `dto.py` — 15 个 DTO dataclass + ObservationUpdate 双模式支持 + NaN/Inf 处理
+- `error.py` — 8 个异常类 + raise_for_status + is_retryable 系列函数
+- `examples/http-server/app.py` — Flask HTTP Server Demo（全部 27 个端点）
+
+**编译验证**: ✅ `python3 -m py_compile` 无错误
+**测试验证**: ✅ 374 tests 全通过（dto + client + demo）
+
+#### 自上次审查以来的变更
+
+**`c67e7a5`** — `Observation.to_dict()` 移除 `access_count` 永远输出 0 的 else 分支：
+```python
+# Before:
+if self.access_count:
+    d["access_count"] = self.access_count
+else:
+    d["access_count"] = 0  # 违反 docstring "Omit when empty/zero"
+
+# After:
+if self.access_count:
+    d["access_count"] = self.access_count
+# else: omitted — 与 docstring 和 Go SDK omitempty 一致
+```
+**判断**: ✅ 正确的修复，使行为与 docstring 承诺一致。
+
+#### 发现的问题
+
+**无 P0/P1/P2 问题**。
+
+#### 代码质量交叉验证
+
+| 检查项 | client.py | dto.py | error.py | Flask demo |
+|--------|-----------|--------|----------|------------|
+| 输入验证 | ✅ requireNonBlank + batch size 100 上限 + id 空白检测 | ✅ `__post_init__` content/narrative 互斥 | N/A | ✅ `_require()` + extractedData dict 类型检查 |
+| Fire-and-forget | ✅ linear backoff ±25% jitter，retry 429/502/503/504 | N/A | N/A | N/A |
+| 错误处理 | ✅ APIError/ValidationError/CortexError 分离 | ✅ from_wire 防御性解析 | ✅ 12 个 is_* 辅助函数 | ✅ APIError/CortexError/Generic 分层 |
+| Wire Format | ✅ camelCase/snake_case 正确映射 | ✅ `_first_non_null` 双格式兼容 | N/A | ✅ updateFiles camelCase |
+| Session 管理 | ✅ context manager + close + atexit | N/A | N/A | ✅ atexit.register(client.close) |
+| extracted_data {} 语义 | ✅ `is_empty()` 和 `to_wire()` 一致 | ✅ `extracted_data={}` 视为 unset | N/A | N/A |
+| NaN/Inf 处理 | N/A | ✅ `_parse_nullable_float` + `_sanitize_for_json` | N/A | N/A |
+| access_count omitempty | N/A | ✅ `c67e7a5` 修复后与 docstring 一致 | N/A | N/A |
+| 线程安全 | N/A | ✅ dataclass 不可变 | ✅ 纯函数 | N/A |
+
+#### 代码审查结论
+
+0 个 P0/P1/P2 问题。Python SDK 代码质量优秀，374 tests 全通过。`c67e7a5` 修复正确，使 `Observation.to_dict()` 行为与 docstring 和 Go SDK omitempty 语义一致。Flask demo 端点完整，验证健壮。
