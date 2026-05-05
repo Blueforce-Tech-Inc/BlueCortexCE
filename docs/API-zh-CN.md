@@ -736,8 +736,118 @@ curl -X POST "http://localhost:37777/api/context/semantic" \
 ## Extraction 结构化提取
 
 ### 触发结构化提取
+
+Phase 3 结构化数据提取端点，从会话观察中提取结构化数据（如用户偏好、过敏信息等）。
+
+#### POST `/api/extraction/run`
+
+触发结构化数据提取。
+
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `projectPath` | string | ✅ | 项目路径 |
+
+**请求示例**:
+```bash
+curl -X POST "http://localhost:37777/api/extraction/run?projectPath=/Users/dev/myproject"
+```
+
+**响应示例**:
+```json
+{
+  "status": "ok",
+  "projectPath": "/Users/dev/myproject",
+  "message": "Extraction completed"
+}
+```
+
+> ⚠️ **注意**: 此端点为同步执行——响应在提取完成后才返回，耗时取决于模板数量和观测数据量。
+
+---
+
 ### 获取最新提取结果
-### 获取提取历史
+
+#### GET `/api/extraction/{templateName}/latest`
+
+获取指定模板的最新提取结果。
+
+**路径参数**:
+- `templateName` - 提取模板名称（如 `user-preferences`、`allergy-info`）
+
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `projectPath` | string | ✅ | 项目路径 |
+| `userId` | string | ❌ | 用户 ID（用户级别提取时使用） |
+
+**请求示例**:
+```bash
+curl "http://localhost:37777/api/extraction/user-preferences/latest?projectPath=/Users/dev/myproject&userId=alice"
+```
+
+**响应示例**（有数据）:
+```json
+{
+  "status": "ok",
+  "template": "user-preferences",
+  "sessionId": "session-123",
+  "extractedData": { "preferredLanguage": "en", "theme": "dark" },
+  "createdAt": 1707878400000,
+  "observationId": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**响应示例**（无数据）:
+```json
+{
+  "status": "not_found",
+  "template": "user-preferences",
+  "message": "No extraction found"
+}
+```
+
+---
+
+### 获取历史
+
+#### GET `/api/extraction/{templateName}/history`
+
+获取指定模板的提取历史。
+
+**路径参数**:
+- `templateName` - 提取模板名称
+
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `projectPath` | string | ✅ | 项目路径 |
+| `userId` | string | ❌ | 用户 ID |
+| `limit` | int | 10 | 返回数量 |
+
+**请求示例**:
+```bash
+curl "http://localhost:37777/api/extraction/user-preferences/history?projectPath=/Users/dev/myproject&limit=5"
+```
+
+**响应示例**:
+```json
+[
+  {
+    "sessionId": "pref:abc123:alice",
+    "extractedData": { "preferredLanguage": "en", "theme": "dark" },
+    "createdAt": 1707878400000,
+    "observationId": "550e8400-e29b-41d4-a716-446655440000"
+  }
+]
+```
+
+> ⚠️ 响应为 JSON 数组（非对象），每个元素包含 `sessionId`、`extractedData`、`createdAt`、`observationId` 字段。
+
+---
 
 ## 搜索
 
@@ -860,114 +970,6 @@ curl "http://localhost:37777/api/search/by-file?project=/Users/dev/myproject&fil
 
 ---
 
-
-Phase 3 结构化数据提取端点，从会话观察中提取结构化数据（如用户偏好、过敏信息等）。
-
-#### POST `/api/extraction/run`
-
-触发结构化数据提取。
-
-**查询参数**:
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `projectPath` | string | ✅ | 项目路径 |
-
-**请求示例**:
-```bash
-curl -X POST "http://localhost:37777/api/extraction/run?projectPath=/Users/dev/myproject"
-```
-
-**响应示例**:
-```json
-{
-  "status": "ok",
-  "projectPath": "/Users/dev/myproject",
-  "message": "Extraction completed"
-}
-```
-
-> ⚠️ **注意**: 此端点为同步执行——响应在提取完成后才返回，耗时取决于模板数量和观测数据量。
-
----
-
-#### GET `/api/extraction/{templateName}/latest`
-
-获取指定模板的最新提取结果。
-
-**路径参数**:
-- `templateName` - 提取模板名称（如 `user-preferences`、`allergy-info`）
-
-**查询参数**:
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `projectPath` | string | ✅ | 项目路径 |
-| `userId` | string | ❌ | 用户 ID（用户级别提取时使用） |
-
-**请求示例**:
-```bash
-curl "http://localhost:37777/api/extraction/user-preferences/latest?projectPath=/Users/dev/myproject&userId=alice"
-```
-
-**响应示例**（有数据）:
-```json
-{
-  "status": "ok",
-  "template": "user-preferences",
-  "sessionId": "session-123",
-  "extractedData": { "preferredLanguage": "en", "theme": "dark" },
-  "createdAt": 1707878400000,
-  "observationId": "550e8400-e29b-41d4-a716-446655440000"
-}
-```
-
-**响应示例**（无数据）:
-```json
-{
-  "status": "not_found",
-  "template": "user-preferences",
-  "message": "No extraction found"
-}
-```
-
----
-
-#### GET `/api/extraction/{templateName}/history`
-
-获取指定模板的提取历史。
-
-**路径参数**:
-- `templateName` - 提取模板名称
-
-**查询参数**:
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `projectPath` | string | ✅ | 项目路径 |
-| `userId` | string | ❌ | 用户 ID |
-| `limit` | int | 10 | 返回数量 |
-
-**请求示例**:
-```bash
-curl "http://localhost:37777/api/extraction/user-preferences/history?projectPath=/Users/dev/myproject&limit=5"
-```
-
-**响应示例**:
-```json
-[
-  {
-    "sessionId": "pref:abc123:alice",
-    "extractedData": { "preferredLanguage": "en", "theme": "dark" },
-    "createdAt": 1707878400000,
-    "observationId": "550e8400-e29b-41d4-a716-446655440000"
-  }
-]
-```
-
-> ⚠️ 响应为 JSON 数组（非对象），每个元素包含 `sessionId`、`extractedData`、`createdAt`、`observationId` 字段。
-
----
 
 ## Viewer 查看器
 
@@ -2504,7 +2506,8 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-05-03 | 0.1.0-beta+37 | GET `/api/observations`、`/api/summaries`、`/api/prompts` 新增 `platformSource` 查询参数（V18）——平台来源过滤（如 `claude`、`cursor`）；更新中文版 URL 示例和参数表；与英文版同步变更 |
 | 2026-05-05 | 0.1.0-beta+38 | 结构重组：Settings 端点（GET+POST /api/settings）从 ## 搜索 移至 ## 管理；Timeline 端点（GET /api/timeline）、SDK Sessions 端点（POST /api/sdk-sessions/batch）、Modes 端点（GET+POST /api/modes）从 ## 搜索 移至 ## Viewer 查看器；## 搜索 现仅含搜索和批量获取端点；与英文版结构对齐 |
 | 2026-05-05 | 0.1.0-beta+39 | GET `/api/projects`：更新响应示例，新增 `sources` 和 `projectsBySource` 字段（V18）——对应 ViewerController.getProjects() 返回平台来源列表和分组；SSE `/stream` initial_load 事件：更新示例，新增 `sources` 和 `projectsBySource`（V18）；与英文版同步 |
-| 2026-05-06 | 0.1.0-beta+40 | 结构重组：## 搜索 章节（原位于 ## Mode 模式 之后）移至 ## Extraction 结构化提取 之后，与英文版结构顺序对齐（Search → Management → Mode）；## 管理（Projects/Stats/Settings）和 ## Mode 模式（ModeController 端点）保持不变，仅移动 ## 搜索 章节位置；## 更新日志 |
+| 2026-05-06 | 0.1.0-beta+40 | 结构重组：## 搜索 章节（原位于 ## Mode 模式 之后）移至 ## Extraction 结构化提取 之后，与英文版结构顺序对齐（Search → Management → Mode）；## 管理（Projects/Stats/Settings）和 ## Mode 模式（ModeController 端点）保持不变，仅移动 ## 搜索 章节位置 |
+| 2026-05-06 | 0.1.0-beta+41 | ZH API 文档：修复 Extraction 章节孤立的小节标题（### 触发结构化提取/获取最新提取结果/获取历史 为空标题，无实际内容）；重组 Extraction 内容，正确嵌套于各小节之下；ZH 结构现已与英文版一致（Extraction 含3个小节 → 搜索 → Viewer） |
 
 ---
 
