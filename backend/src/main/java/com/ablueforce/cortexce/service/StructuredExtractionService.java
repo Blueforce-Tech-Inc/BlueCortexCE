@@ -92,7 +92,16 @@ public class StructuredExtractionService {
                 runTemplateExtraction(projectPath, template);
             } catch (Exception e) {
                 log.error("Extraction failed for template '{}': {}", template.getName(), e.getMessage(), e);
-                extractionStorageService.storeDLQ(projectPath, template.getName(), e.getMessage());
+                // F-2 Fix: DLQ failure now propagates to avoid silent transaction rollback.
+                // If DLQ write also fails, the exception propagates to caller.
+                try {
+                    extractionStorageService.storeDLQ(projectPath, template.getName(), e.getMessage());
+                } catch (Exception dlqEx) {
+                    log.error("DLQ storage failed for template '{}' (original error: {}): DLQ entry lost, original error not persisted",
+                        template.getName(), e.getMessage(), dlqEx);
+                    // Rethrow so caller knows DLQ failed (original error + DLQ failure are both lost)
+                    throw new RuntimeException("Extraction failed and DLQ unavailable for template: " + template.getName(), e);
+                }
             }
         }
 
@@ -515,6 +524,9 @@ public class StructuredExtractionService {
                 for (Map<String, Object> newItem : applicableAddItems) {
                     if (!existingKeys.contains(buildItemKey(newItem, keyFields))) {
                         combined.add(newItem);
+                        // F-1 Fix: update existingKeys as items are added, preventing
+                        // duplicate items within the same applicableAddItems list.
+                        existingKeys.add(buildItemKey(newItem, keyFields));
                     }
                 }
                 entry.setValue(combined);

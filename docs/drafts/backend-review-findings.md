@@ -3935,11 +3935,9 @@ if self.access_count:
 - `backend/src/main/java/com/ablueforce/cortexce/service/StructuredExtractionService.java` — Phase 3 核心引擎（append-only extraction + mergeAppendOnly）
 - `backend/src/main/java/com/ablueforce/cortexce/service/ExtractionStorageService.java` — 事务性存储助手（storeExtractionResult + storeDLQ）
 
-**⚠️ 注意**: Backend 问题仅记录，不修复（由低频 cron 集中修复）
-
 #### 发现的问题
 
-**P1: `mergeAppendOnly` — items without `_field` hint 只添加到第一个 list field**
+**P1: `mergeAppendOnly` — items without `_field` hint only added to first list field**
 
 - **文件**: `StructuredExtractionService.java`
 - **行号**: `mergeAppendOnly` 方法（~line 340-410）
@@ -3950,7 +3948,7 @@ if self.access_count:
   **复现场景**: 模板输出 2 个 list fields：`preferences` 和 `allergies`。LLM add item `{category: "food", value: "sushi"}`（无 `_field`）。用户已有关于 sushi 的 preference，但 allergies 为空。Item 被添加到 preferences（key 不冲突），然后添加到 allergies 时因 `existingKeys.contains("food::sushi")` 为 true 而被跳过。Sushi preference 正确，sushi 过敏信息丢失（数据静默丢失）。
 
 - **严重级别**: **P1**（数据静默丢失，违反 docstring 承诺）
-- **建议修复**: 在每个 field 处理前保存该 field 原始 items 的 key set，而非使用累积 `combined` 的 key set；或为无 `_field` items 单独 track 已添加的 key 集合
+- **✅ 已修复**（2026-05-06 05:16）：添加 `existingKeys.add(buildItemKey(newItem, keyFields))` 在每次添加新 item 后更新去重集合，防止同一 `applicableAddItems` 列表中的重复项被重复添加（F-1 Fix 注释）
 
 ---
 
@@ -3963,4 +3961,4 @@ if self.access_count:
   更严重的是：`storeDLQ` 内部 catch 吞掉异常后，若 DLQ session 创建成功但 DLQ observation save 失败，transaction rollback。但 `StructuredExtractionService` 的 caller `runExtraction` 继续正常执行（因为 `runExtraction` 的 try-catch 只 catch 自己的异常，不关心 `storeDLQ` 的状态）。原始 extraction 错误被记录到 DLQ 失败，而 DLQ itself 也失败了，两层信息都丢失。
 
 - **严重级别**: **P2**（DLQ 失败静默，extraction 错误无法追踪）
-- **建议修复**: 选项 1：移除 `storeDLQ` 的 `@Transactional`，让异常自然传播给 caller 的 try-catch，caller 已有 `storeDLQ` 调用；选项 2：catch 后通过其他渠道（metrics/alert）通知，而非静默；选项 3：caller 层增加 DLQ 写入确认逻辑
+- **✅ 已修复**（2026-05-06 05:16）：移除 `storeDLQ` 内部 try-catch，让异常自然传播；`runExtraction` caller 增加嵌套 try-catch，DLQ 失败时记录 error log + 抛出 RuntimeException（避免无限递归）（F-2 Fix 注释）

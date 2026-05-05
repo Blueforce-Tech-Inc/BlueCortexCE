@@ -1,5 +1,48 @@
 # Backend 修复进度记录
 
+## 2026-05-06 05:16 | 健康检查修复 — Backend Review #20 P1+P2 问题批量修复
+
+### P1: `mergeAppendOnly` — within-field duplicate items not deduplicated
+
+**修复内容**：
+- **文件**: `StructuredExtractionService.java`
+- **问题**: `existingKeys` 集合在遍历 `applicableAddItems` 时未更新，导致同一 `applicableAddItems` 列表中的重复项（如 LLM 返回了 2 个相同 key 的 item）被重复添加到 `combined`
+- **修复**: 添加 `existingKeys.add(buildItemKey(newItem, keyFields))` 在每次添加新 item 后更新去重集合（F-1 Fix 注释）
+
+```java
+// F-1 Fix: update existingKeys as items are added, preventing
+// duplicate items within the same applicableAddItems list.
+existingKeys.add(buildItemKey(newItem, keyFields));
+```
+
+### P2: `storeDLQ` — silent transaction rollback, DLQ failure invisible to caller
+
+**修复内容**：
+- **文件**: `ExtractionStorageService.java` + `StructuredExtractionService.java`
+- **问题**: `storeDLQ` 内部 catch 吞掉异常，transaction rollback 对 caller 完全不可见，DLQ 写入失败时原始 extraction 错误和 DLQ 失败都丢失
+- **修复 1**: 移除 `storeDLQ` 内部 try-catch，异常自然传播（F-2 Fix 注释）
+- **修复 2**: `runExtraction` caller 增加嵌套 try-catch：DLQ 失败时记录 error log + 抛出 RuntimeException（避免无限递归）
+
+```java
+// F-2 Fix: DLQ failure now propagates to avoid silent transaction rollback.
+try {
+    extractionStorageService.storeDLQ(projectPath, template.getName(), e.getMessage());
+} catch (Exception dlqEx) {
+    log.error("DLQ storage failed... DLQ entry lost");
+    throw new RuntimeException("Extraction failed and DLQ unavailable...", e);
+}
+```
+
+**验证结果**：
+- 编译: `mvn clean compile package -DskipTests` ✅
+- 回归测试: 46/47 通过 ✅（1 skipped）
+- EXTRACTION 验收: 25/25 通过 ✅
+- 服务重启后健康检查正常 ✅
+
+**Backend Review 问题状态**: P1: 0 (已修复 #20-1) | P2: 0 (已修复 #20-2)
+
+---
+
 ## 2026-04-16 17:16 | 健康检查修复 — PendingMessageEventListenerTest 构造器参数数量不匹配
 
 **修复内容**：

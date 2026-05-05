@@ -100,44 +100,37 @@ public class ExtractionStorageService {
     /**
      * Store extraction failure in DLQ (dead letter queue).
      * Transactional: session creation + DLQ observation save are atomic.
+     *
+     * @throws RuntimeException if DLQ storage fails (caller should handle)
      */
     @Transactional
     public void storeDLQ(String projectPath, String templateName, String errorMsg) {
-        try {
-            String dlqSessionId = "dlq:extraction";
-            sessionRepository.findByContentSessionId(dlqSessionId)
-                .orElseGet(() -> {
-                    log.info("Creating DLQ session: {}", dlqSessionId);
-                    SessionEntity session = new SessionEntity();
-                    session.setContentSessionId(dlqSessionId);
-                    session.setProjectPath(projectPath);
-                    session.setStatus("dlq");
-                    session.setStartedAtEpoch(System.currentTimeMillis());
-                    return sessionRepository.save(session);
-                });
+        String dlqSessionId = "dlq:extraction";
+        sessionRepository.findByContentSessionId(dlqSessionId)
+            .orElseGet(() -> {
+                log.info("Creating DLQ session: {}", dlqSessionId);
+                SessionEntity session = new SessionEntity();
+                session.setContentSessionId(dlqSessionId);
+                session.setProjectPath(projectPath);
+                session.setStatus("dlq");
+                session.setStartedAtEpoch(System.currentTimeMillis());
+                return sessionRepository.save(session);
+            });
 
-            ObservationEntity dlq = new ObservationEntity();
-            dlq.setContentSessionId(dlqSessionId);
-            dlq.setProjectPath(projectPath);
-            dlq.setType("dlq_" + templateName);
-            dlq.setTitle("DLQ: " + templateName);
-            dlq.setContent("Extraction failed for template: " + templateName);
-            dlq.setSource("dlq");
-            dlq.setExtractedData(Map.of("error", errorMsg, "template", templateName));
-            dlq.setCreatedAt(Instant.now().atOffset(java.time.ZoneOffset.UTC));
-            dlq.setCreatedAtEpoch(System.currentTimeMillis());
-            dlq.setPromptNumber(0);
-            dlq.setConcepts(List.of("dlq", templateName));
+        ObservationEntity dlq = new ObservationEntity();
+        dlq.setContentSessionId(dlqSessionId);
+        dlq.setProjectPath(projectPath);
+        dlq.setType("dlq_" + templateName);
+        dlq.setTitle("DLQ: " + templateName);
+        dlq.setContent("Extraction failed for template: " + templateName);
+        dlq.setSource("dlq");
+        dlq.setExtractedData(Map.of("error", errorMsg, "template", templateName));
+        dlq.setCreatedAt(Instant.now().atOffset(java.time.ZoneOffset.UTC));
+        dlq.setCreatedAtEpoch(System.currentTimeMillis());
+        dlq.setPromptNumber(0);
+        dlq.setConcepts(List.of("dlq", templateName));
 
-            observationRepository.save(dlq);
-            log.warn("Stored DLQ entry for template '{}': {}", templateName, errorMsg);
-        } catch (Exception e) {
-            // Do NOT rethrow — caller (StructuredExtractionService.runProjectExtractions) catches
-            // all exceptions and calls storeDLQ(). If we rethrow IllegalStateException, the same
-            // catch block would call storeDLQ() again, causing infinite recursion.
-            // Instead, log the failure and let the current transaction rollback gracefully.
-            log.error("Failed to store DLQ entry for template '{}' (DLQ unavailable, letting transaction rollback): {}",
-                templateName, e.getMessage(), e);
-        }
+        observationRepository.save(dlq);
+        log.warn("Stored DLQ entry for template '{}': {}", templateName, errorMsg);
     }
 }
