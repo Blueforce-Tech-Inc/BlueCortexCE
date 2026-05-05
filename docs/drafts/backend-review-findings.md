@@ -3835,3 +3835,42 @@ if self.access_count:
 #### 代码审查结论
 
 0 个 P0/P1/P2 问题。Python SDK 代码质量优秀，374 tests 全通过。`c67e7a5` 修复正确，使 `Observation.to_dict()` 行为与 docstring 和 Go SDK omitempty 语义一致。Flask demo 端点完整，验证健壮。
+
+## 2026-05-06 01:09 | Python SDK Review #3
+
+**审查方向**: Python SDK (`python-sdk/cortex-mem-python/`) — 每30分钟轮换巡检
+
+**审查范围**: `client.py` (682行) + `dto.py` (891行) + `error.py` + Flask demo
+
+**审查要点**:
+- 公共API方法: 25个 + `close()` = 26个公开方法
+- 374 tests: `test_client.py` (1692行) + `test_dto.py` (1161行) + `test_demo.py` (617行) — **全部通过**
+- `ObservationUpdate._WIRE_FIELDS`: content/narrative 双key映射到"narrative"，`__post_init__` 正确互斥检查
+- `extracted_data={}` 语义: `is_empty()` 和 `to_wire()` 一致（都视为unset）—— 与 Go SDK 对齐
+- Fire-and-forget: linear backoff ±25% jitter，重试 429/502/503/504 —— 与 Go/JS 一致
+- `is_retryable_error`: 正确处理 APIError(status_code) + requests.RequestException + ConnectionError/TimeoutError/OSError
+- `to_dict()` NaN/Inf 防护: `_sanitize_for_json()` 递归替换为 None，JSON 输出安全
+- `SessionStartResponse.update_files`: camelCase `updateFiles`（`@JsonProperty("updateFiles")` 契约）
+- `SearchResult` / `ObservationsResponse`: `has_more` 字段名 —— Python SDK 不直接暴露 WebUI，无需担心
+- Flask demo `/search` `concept=""` 传入: Python SDK `if concept:` 正确跳过空字符串
+
+**测试验证**: ✅ 374 tests 全通过
+
+#### 发现的问题
+
+**无 P0/P1/P2 问题**。
+
+#### 代码质量交叉验证
+
+| 检查项 | client.py | dto.py | error.py | Flask demo |
+|--------|-----------|--------|----------|------------|
+| API 方法数量 | ✅ 25 + close | ✅ 15 DTOs | ✅ 15 异常类 | ✅ 26 endpoints |
+| 输入验证 | ✅ requireNonBlank + batch 100 + id空白检测 | ✅ `__post_init__` content/narrative | ✅ 12 is_* predicates | ✅ `_require()` + dict类型检查 |
+| 线程安全 | ✅ requests.Session 需外部同步 | ✅ dataclass 不可变 | ✅ 纯函数 | N/A |
+| Wire Format | ✅ camelCase/snake_case 正确映射 | ✅ `_first_non_null` 双格式兼容 | N/A | ✅ updateFiles camelCase |
+| NaN/Inf 处理 | N/A | ✅ `_sanitize_for_json` | N/A | N/A |
+| extracted_data {} 语义 | ✅ is_empty/to_wire 一致 | ✅ extracted_data={} 视为 unset | N/A | N/A |
+
+#### 代码审查结论
+
+0 个 P0/P1/P2 问题。Python SDK 代码质量优秀，上次审查（#2，2026-05-05）以来无代码变更，状态保持。374 tests 全通过。
