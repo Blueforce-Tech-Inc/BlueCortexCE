@@ -951,6 +951,125 @@ curl "http://localhost:37777/api/observations?project=/Users/dev/myproject&limit
 
 ---
 
+#### GET `/api/timeline`
+
+获取按日期分组的观察时间线。
+
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `project` | string | ✅ | 项目路径 |
+| `startEpoch` | long | ❌ | 开始时间戳（默认 90 天前） |
+| `endEpoch` | long | ❌ | 结束时间戳（默认现在） |
+| `anchorId` | string | ❌ | 锚点观察 ID |
+| `depthBefore` | int | ❌ | 锚点前项目数 |
+| `depthAfter` | int | ❌ | 锚点后项目数 |
+| `query` | string | ❌ | 查询（用于查找锚点） |
+
+**请求示例**:
+```bash
+curl "http://localhost:37777/api/timeline?project=/Users/dev/myproject"
+```
+
+**响应示例**:
+```json
+[
+  {
+    "date": "2026-03-13",
+    "count": 15,
+    "ids": ["id1", "id2", ...]
+  },
+  {
+    "date": "2026-03-12",
+    "count": 8,
+    "ids": ["id3", "id4", ...]
+  }
+]
+```
+
+**错误响应**:
+```json
+{
+  "error": "Date range exceeds 1 year maximum"
+}
+```
+
+---
+
+#### POST `/api/sdk-sessions/batch`
+
+批量查询会话信息（用于导出脚本）。
+
+**请求体**:
+```json
+{
+  "contentSessionIds": ["mem-1", "mem-2", "mem-3"]
+}
+```
+
+**响应示例**:
+```json
+[
+  {
+    "id": "session-uuid",
+    "content_session_id": "content-123",
+    "project": "/Users/dev/myproject",
+    "user_prompt": "Add feature",
+    "started_at_epoch": 1707878400000,
+    "completed_at_epoch": 1707882000000,
+    "status": "completed"
+  }
+]
+```
+
+---
+
+#### GET `/api/modes`
+
+获取当前活动模式配置。
+
+**请求示例**:
+```bash
+curl http://localhost:37777/api/modes
+```
+
+**响应示例**:
+```json
+{
+  "id": "code",
+  "name": "Code Development",
+  "description": "Software development and engineering work",
+  "version": "1.0.0",
+  "observation_types": [...],
+  "observation_concepts": [...]
+}
+```
+
+---
+
+#### POST `/api/modes`
+
+设置活动模式。
+
+**请求体**:
+```json
+{
+  "mode": "code--zh"
+}
+```
+
+**响应示例**:
+```json
+{
+  "success": true,
+  "mode": "code--zh",
+  "name": "Code Development"
+}
+```
+
+---
+
 ## 管理
 
 #### GET `/api/projects`
@@ -1039,6 +1158,78 @@ curl http://localhost:37777/api/processing-status
 {
   "isProcessing": false,
   "queueDepth": 5
+}
+```
+
+---
+
+#### GET `/api/settings`
+
+获取当前设置，返回所有 `CLAUDE_MEM_*` 配置字段及活跃模式信息。
+
+**请求示例**:
+```bash
+curl http://localhost:37777/api/settings
+```
+
+**响应示例**:
+```json
+{
+  "CLAUDE_MEM_MODE": "code",
+  "CLAUDE_MEM_PROVIDER": "openai",
+  "CLAUDE_MEM_MODEL": "gpt-4o",
+  "CLAUDE_MEM_LOG_LEVEL": "INFO",
+  "CLAUDE_MEM_CONTEXT_OBSERVATIONS": 50,
+  "CLAUDE_MEM_CONTEXT_FULL_COUNT": 5,
+  "CLAUDE_MEM_CONTEXT_FULL_FIELD": "full_content",
+  "CLAUDE_MEM_CONTEXT_SESSION_COUNT": 10,
+  "CLAUDE_MEM_CONTEXT_OBSERVATION_TYPES": [],
+  "CLAUDE_MEM_CONTEXT_OBSERVATION_CONCEPTS": [],
+  "CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS": 100,
+  "CLAUDE_MEM_CONTEXT_SHOW_READ_TOKENS": true,
+  "CLAUDE_MEM_CONTEXT_SHOW_WORK_TOKENS": true,
+  "CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_AMOUNT": true,
+  "CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_PERCENT": true,
+  "CLAUDE_MEM_CONTEXT_SHOW_LAST_SUMMARY": true,
+  "CLAUDE_MEM_CONTEXT_SHOW_LAST_MESSAGE": true,
+  "CLAUDE_MEM_FOLDER_CLAUDEMD_ENABLED": false,
+  "CLAUDE_MEM_EXCLUDED_PROJECTS": [],
+  "CLAUDE_MEM_DATA_DIR": "",
+  "modeName": "Code",
+  "modeDescription": "Tracks code evolution"
+}
+```
+
+> **注意**: 具体字段值取决于当前 `settings.json` 和环境变量覆盖。`modeName` 和 `modeDescription` 由活跃的 Mode 配置注入。
+
+---
+
+#### POST `/api/settings`
+
+保存设置。支持任意 `CLAUDE_MEM_*` 前缀字段。如果 `mode` 或 `CLAUDE_MEM_MODE` 变更，同时更新活跃模式。
+
+**请求体**:
+```json
+{
+  "CLAUDE_MEM_MODE": "all",
+  "CLAUDE_MEM_MODEL": "gpt-4o-mini"
+}
+```
+
+> **注意**: 也可以使用 `"mode": "all"` 作为 `"CLAUDE_MEM_MODE": "all"` 的简写。
+
+**响应示例**:
+```json
+{
+  "success": true
+}
+```
+
+**错误响应** (`500`):
+```json
+{
+  "success": false,
+  "error": "Failed to save settings: ..."
 }
 ```
 
@@ -1308,197 +1499,6 @@ curl "http://localhost:37777/api/search/by-file?project=/Users/dev/myproject&fil
     }
   ],
   "count": 1
-}
-```
-
----
-
-#### GET `/api/timeline`
-
-获取按日期分组的观察时间线。
-
-**查询参数**:
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `project` | string | ✅ | 项目路径 |
-| `startEpoch` | long | ❌ | 开始时间戳（默认 90 天前） |
-| `endEpoch` | long | ❌ | 结束时间戳（默认现在） |
-| `anchorId` | string | ❌ | 锚点观察 ID |
-| `depthBefore` | int | ❌ | 锚点前项目数 |
-| `depthAfter` | int | ❌ | 锚点后项目数 |
-| `query` | string | ❌ | 查询（用于查找锚点） |
-
-**请求示例**:
-```bash
-curl "http://localhost:37777/api/timeline?project=/Users/dev/myproject"
-```
-
-**响应示例**:
-```json
-[
-  {
-    "date": "2026-03-13",
-    "count": 15,
-    "ids": ["id1", "id2", ...]
-  },
-  {
-    "date": "2026-03-12",
-    "count": 8,
-    "ids": ["id3", "id4", ...]
-  }
-]
-```
-
-**错误响应**:
-```json
-{
-  "error": "Date range exceeds 1 year maximum"
-}
-```
-
----
-
-#### POST `/api/sdk-sessions/batch`
-
-批量查询会话信息（用于导出脚本）。
-
-**请求体**:
-```json
-{
-  "contentSessionIds": ["mem-1", "mem-2", "mem-3"]
-}
-```
-
-**响应示例**:
-```json
-[
-  {
-    "id": "session-uuid",
-    "content_session_id": "content-123",
-    "project": "/Users/dev/myproject",
-    "user_prompt": "Add feature",
-    "started_at_epoch": 1707878400000,
-    "completed_at_epoch": 1707882000000,
-    "status": "completed"
-  }
-]
-```
-
----
-
-#### GET `/api/settings`
-
-获取当前设置，返回所有 `CLAUDE_MEM_*` 配置字段及活跃模式信息。
-
-**请求示例**:
-```bash
-curl http://localhost:37777/api/settings
-```
-
-**响应示例**:
-```json
-{
-  "CLAUDE_MEM_MODE": "code",
-  "CLAUDE_MEM_PROVIDER": "openai",
-  "CLAUDE_MEM_MODEL": "gpt-4o",
-  "CLAUDE_MEM_LOG_LEVEL": "INFO",
-  "CLAUDE_MEM_CONTEXT_OBSERVATIONS": 50,
-  "CLAUDE_MEM_CONTEXT_FULL_COUNT": 5,
-  "CLAUDE_MEM_CONTEXT_FULL_FIELD": "full_content",
-  "CLAUDE_MEM_CONTEXT_SESSION_COUNT": 10,
-  "CLAUDE_MEM_CONTEXT_OBSERVATION_TYPES": [],
-  "CLAUDE_MEM_CONTEXT_OBSERVATION_CONCEPTS": [],
-  "CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS": 100,
-  "CLAUDE_MEM_CONTEXT_SHOW_READ_TOKENS": true,
-  "CLAUDE_MEM_CONTEXT_SHOW_WORK_TOKENS": true,
-  "CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_AMOUNT": true,
-  "CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_PERCENT": true,
-  "CLAUDE_MEM_CONTEXT_SHOW_LAST_SUMMARY": true,
-  "CLAUDE_MEM_CONTEXT_SHOW_LAST_MESSAGE": true,
-  "CLAUDE_MEM_FOLDER_CLAUDEMD_ENABLED": false,
-  "CLAUDE_MEM_EXCLUDED_PROJECTS": [],
-  "CLAUDE_MEM_DATA_DIR": "",
-  "modeName": "Code",
-  "modeDescription": "Tracks code evolution"
-}
-```
-
-> **注意**: 具体字段值取决于当前 `settings.json` 和环境变量覆盖。`modeName` 和 `modeDescription` 由活跃的 Mode 配置注入。
-
----
-
-#### POST `/api/settings`
-
-保存设置。支持任意 `CLAUDE_MEM_*` 前缀字段。如果 `mode` 或 `CLAUDE_MEM_MODE` 变更，同时更新活跃模式。
-
-**请求体**:
-```json
-{
-  "CLAUDE_MEM_MODE": "all",
-  "CLAUDE_MEM_MODEL": "gpt-4o-mini"
-}
-```
-
-> **注意**: 也可以使用 `"mode": "all"` 作为 `"CLAUDE_MEM_MODE": "all"` 的简写。
-
-**响应示例**:
-```json
-{
-  "success": true
-}
-```
-
-**错误响应** (`500`):
-```json
-{
-  "success": false,
-  "error": "Failed to save settings: ..."
-}
-```
-
----
-
-#### GET `/api/modes`
-
-获取当前活动模式配置。
-
-**请求示例**:
-```bash
-curl http://localhost:37777/api/modes
-```
-
-**响应示例**:
-```json
-{
-  "id": "code",
-  "name": "Code Development",
-  "description": "Software development and engineering work",
-  "version": "1.0.0",
-  "observation_types": [...],
-  "observation_concepts": [...]
-}
-```
-
----
-
-#### POST `/api/modes`
-
-设置活动模式。
-
-**请求体**:
-```json
-{
-  "mode": "code--zh"
-}
-```
-
-**响应示例**:
-```json
-{
-  "success": true,
-  "mode": "code--zh",
-  "name": "Code Development"
 }
 ```
 
@@ -2483,6 +2483,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-12 | 0.1.0-beta+35 | GET /api/observations、/api/summaries、/api/prompts：补充缺失的排序说明——三个端点均始终按 `created_at` 降序排列（commit cafbae1 使用 OffsetPageRequest + Sort.by(DESC, "createdAt")）；此前文档未说明排序规则；同步英文版变更 |
 | 2026-04-23 | 0.1.0-beta+36 | 补充缺失的 `POST /api/context/semantic` 端点（V17）——基于查询的语义上下文搜索，用于逐 prompt 注入；添加请求体字段说明（`q`/必填最少 20 字符、`project`、`limit`）、参数表、curl 示例、响应示例及空查询和 embedding 服务不可用的行为说明；同步英文版变更 |
 | 2026-05-03 | 0.1.0-beta+37 | GET `/api/observations`、`/api/summaries`、`/api/prompts` 新增 `platformSource` 查询参数（V18）——平台来源过滤（如 `claude`、`cursor`）；更新英文版 URL 示例和参数表；同步中文版变更 |
+| 2026-05-05 | 0.1.0-beta+38 | 结构重组：Settings 端点（GET+POST /api/settings）从 ## 搜索 移至 ## 管理；Timeline 端点（GET /api/timeline）、SDK Sessions 端点（POST /api/sdk-sessions/batch）、Modes 端点（GET+POST /api/modes）从 ## 搜索 移至 ## Viewer 查看器；## 搜索 现仅含搜索和批量获取端点；与英文版结构对齐 |
 
 ---
 
