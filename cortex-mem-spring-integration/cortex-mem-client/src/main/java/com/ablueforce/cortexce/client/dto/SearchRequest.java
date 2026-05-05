@@ -28,11 +28,17 @@ public record SearchRequest(
     }
 
     /**
-     * Convenience constructor with required fields only.
-     * offset defaults to null (omitted from request, backend uses 0).
+     * Compact convenience constructor: validates project before delegating to the
+     * canonical constructor. Fails fast if project is null or blank rather than
+     * deferring detection to call time (see {@link CortexMemClientImpl#search}).
+     *
+     * @param project Project path (required)
+     * @throws IllegalArgumentException if project is null or blank
      */
-    public SearchRequest(String project) {
-        this(project, null, null, null, null, 20, null, null);
+    public SearchRequest {
+        if (project == null || project.isBlank()) {
+            throw new IllegalArgumentException("project must not be null or blank");
+        }
     }
 
     public static class Builder {
@@ -66,6 +72,8 @@ public record SearchRequest(
             if (offset != null && offset < 0) {
                 throw new IllegalArgumentException("offset must not be negative (got " + offset + ")");
             }
+            // No upper bound: extremely large offsets are naturally rejected by the backend.
+            // Matches the behavior of {@link ObservationsRequest.Builder#offset()}.
             this.offset = offset;
             return this;
         }
