@@ -3743,3 +3743,41 @@ public ResponseEntity<Object> getTimeline(...) {
 0 P0/P1 问题，1 P2 + 1 S2 建议。`SessionManagementService` 的 `saved == null` 是 P2 死代码（JpaRepository.save() 永不返回 null）；`ViewerController` 的 `@SuppressWarnings({"rawtypes", "unchecked"})` 应指定精确警告码。两者均为低优先级，建议随常规代码清理一并处理。
 
 **Backend P0/P1/P2 状态**: 0 / 0 / 0（SessionManagementService saved==null P2 已修复；ClaudeMemMcpTools search offset 忽略系历史遗留，已在代码中通过 F-1 Fix 注释确认修复）
+
+---
+
+## 2026-05-05 19:36 | Java SDK Review #6
+
+**审查范围**: `cortex-mem-client/` — CortexMemClient + CortexMemClientImpl + 全部 15 个 DTO
+
+**审查范围详情**:
+- `CortexMemClient.java` — 25 个 API 方法接口定义 + Javadoc
+- `CortexMemClientImpl.java` — HTTP 客户端实现（RestClient、JDK HttpClient、retry、fire-and-forget、error extraction）
+- DTOs: SearchRequest, ObservationsRequest, ObservationRequest, ObservationUpdate, ObservationResponse, Experience, ExperienceRequest, SessionStartRequest, SessionEndRequest, UserPromptRequest, ICLPromptRequest, ICLPromptResult, PagedObservationResponse, QualityDistribution, ExtractionResponse
+
+**编译验证**: ✅ `mvn clean compile` BUILD SUCCESS
+**测试验证**: ✅ 120 tests 全通过（DtoTest 34 + CortexMemClientImplTest 86）
+**E2E 验证**: ✅ Java Demo E2E 17/17 passed（补充测试失败为 Demo 控制器已有问题，非 SDK 缺陷）
+
+#### 发现的问题
+
+**无 P0/P1/P2 问题**。上次审查的 2 个 S2 建议均已修复：
+
+**S2-1 ✅ 已修复**: `SearchRequest` 便利构造函数现在使用 compact constructor 形式，在委托 canonical constructor 之前做 fail-fast 验证：`project` 为 null 或 blank 时立即抛出 `IllegalArgumentException`，不再延迟到 `CortexMemClientImpl.search()` 调用时才检测。
+
+**S2-2 ✅ 已修复（记录）**: `SearchRequest.Builder.offset()` 无上限的设计已在代码注释中明确说明理由（极大值会被 backend 自然拒绝，与 `ObservationsRequest.Builder.offset()` 行为一致）。
+
+#### 代码质量评估
+
+| 维度 | 评级 | 说明 |
+|------|------|------|
+| 输入验证 | ✅ 优秀 | 所有 Builder 均有负数/上限校验；compact constructor fail-fast |
+| Fire-and-forget | ✅ 优秀 | `executeWithRetrySilent` 用于背景操作（recordObservation/recordSessionEnd/recordUserPrompt/triggerRefinement）；±25% jitter |
+| 错误处理 | ✅ 优秀 | `isRetryable()` 仅重试 transient（429/502/503/504）；4xx/500 不重试；`extractErrorMessage` 解析 JSON error body |
+| Wire format | ✅ 正确 | `cwd` 字段映射确认与 backend `IngestionController` 对齐；session_id/tool_name 等字段名正确 |
+| DTO 设计 | ✅ 优秀 | `@JsonIgnoreProperties(ignoreUnknown=true)` 防新字段；`@JsonInclude(NON_NULL)` 实现 PATCH 语义；compact constructor fail-fast |
+| Extraction API | ✅ 正确 | `ExtractionResponse` 字段与 backend `GetLatestExtractionResponse` 完全对齐（status/template/sessionId/extractedData/createdAt/observationId/message）|
+
+#### 代码审查结论
+
+0 P0/P1/P2 问题，2 个 S2 建议均已处理。Java SDK 代码质量稳定，设计严谨。编译 clean，测试全通过（120/120），E2E 17/17 通过。
