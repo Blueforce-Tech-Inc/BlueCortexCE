@@ -34,7 +34,7 @@ output, err := retriever.Retrieve(ctx, genkit.RetrieverInput{
     Project: "/my-project", // optional if set in NewRetriever
 })
 // output.Documents[i].Content - document text
-// output.Documents[i].Metadata - metadata (id, task, qualityScore, reuseCondition, createdAt)
+// output.Documents[i].Metadata - metadata (id, task, quality_score, reuse_condition, created_at)
 ```
 
 ## Options
