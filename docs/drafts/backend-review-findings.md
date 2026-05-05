@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-05-06 02:43 (Go SDK Review #1 — 0 P0/P1/P2, 288 tests pass)
+> **最后更新**: 2026-05-06 07:38 (Demo Review #1 — 0 P0/P1/P2)
 
 ---
 
@@ -3964,3 +3964,44 @@ if self.access_count:
 - **✅ 已修复**（2026-05-06 05:16）：移除 `storeDLQ` 内部 try-catch，让异常自然传播；`runExtraction` caller 增加嵌套 try-catch，DLQ 失败时记录 error log + 抛出 RuntimeException（避免无限递归）（F-2 Fix 注释）
 
 **Backend P0/P1/P2 状态**: 0 / 0 / 0（#20 P1+P2 已修复，commit `316c165`）
+
+
+---
+
+## 2026-05-06 07:38 | Demo Review #1
+
+**审查方向**: Demo 代码（Go + Python + JS HTTP Server demos）
+
+**审查范围**:
+- `go-sdk/cortex-mem-go/examples/basic/main.go` — 基础 Go demo
+- `go-sdk/cortex-mem-go/examples/eino/main.go` — Eino retriever 集成
+- `go-sdk/cortex-mem-go/examples/genkit/main.go` — Genkit retriever 集成
+- `go-sdk/cortex-mem-go/examples/langchaingo/main.go` — LangChainGo memory 集成
+- `go-sdk/cortex-mem-go/examples/http-server/main.go` — 全部 26 个 REST 端点
+- `python-sdk/cortex-mem-python/examples/http-server/app.py` — Flask HTTP Server（26 个端点）
+- `js-sdk/cortex-mem-js/examples/http-server/app.ts` — Express HTTP Server（26 个端点）
+
+**编译验证**:
+- ✅ Go SDK: `go build ./...` — 无错误
+- ✅ Python SDK: `from cortex_mem import CortexMemClient` — 导入正常
+- ✅ JS SDK: `npx tsc --noEmit` — TypeScript 编译零错误
+
+#### 发现的问题
+
+**无 P0/P1/P2 问题**。
+
+#### 代码质量交叉验证
+
+| 检查项 | Go http-server | Go basic | Go eino/genkit/langchaingo | Python Flask | JS Express |
+|--------|---------------|----------|---------------------------|--------------|------------|
+| 端点完整性 | ✅ 26 endpoints | N/A | N/A | ✅ 26 endpoints | ✅ 26 endpoints |
+| 错误处理 | ✅ 完善 | ✅ | ✅ | ✅ 完善 | ✅ 完善 |
+| 请求体限制 | ✅ 1MB | N/A | N/A | ✅ 1MB | ✅ 1MB |
+| Recovery middleware | ✅ panic recovery | N/A | N/A | ✅ error handlers | ✅ 全局错误处理 |
+| Request logging | ✅ | N/A | N/A | ✅ | ✅ |
+| Graceful shutdown | ✅ SIGTERM/SIGINT | N/A | N/A | ✅ | ✅ SIGTERM/SIGINT |
+| 参数字段验证 | ✅ 完善 | ✅ | ✅ | ✅ 完善 | ✅ 完善 |
+| 返回值一致性 | ✅ camelCase | ✅ | ✅ | ✅ 部分用 camelCase | ✅ 全部保持 |
+
+**Demo P0/P1/P2 状态**: 0 / 0 / 0
+
