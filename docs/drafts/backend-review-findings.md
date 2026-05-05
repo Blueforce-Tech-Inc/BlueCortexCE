@@ -3924,3 +3924,43 @@ if self.access_count:
 #### 代码审查结论
 
 0 个 P0/P1/P2 问题。Python SDK 代码质量优秀，上次审查（#2，2026-05-05）以来无代码变更，状态保持。374 tests 全通过。
+
+---
+
+## 2026-05-06 04:39 | Backend Review #20
+
+**审查方向**: Backend — Phase 3 核心服务
+
+**审查范围**:
+- `backend/src/main/java/com/ablueforce/cortexce/service/StructuredExtractionService.java` — Phase 3 核心引擎（append-only extraction + mergeAppendOnly）
+- `backend/src/main/java/com/ablueforce/cortexce/service/ExtractionStorageService.java` — 事务性存储助手（storeExtractionResult + storeDLQ）
+
+**⚠️ 注意**: Backend 问题仅记录，不修复（由低频 cron 集中修复）
+
+#### 发现的问题
+
+**P1: `mergeAppendOnly` — items without `_field` hint 只添加到第一个 list field**
+
+- **文件**: `StructuredExtractionService.java`
+- **行号**: `mergeAppendOnly` 方法（~line 340-410）
+- **问题描述**: `merged` map 是 in-place 修改的。对于每个 list field，`getApplicableAddItems` 正确返回 `__all__` bucket 中的 items（无 `_field` hint 的 items），但 `combined` 累积了之前 field 处理的结果。同一 item 在后续 field 中被 `existingKeys.contains()` 判定为重复而跳过。
+
+  **Docstring 明确承诺**: _"Items without '_field' hint are removed from / added to ALL list fields (legacy behavior for single-field schemas)."_ 但实际行为：只添加到 iteration order 中遇到的第一个 list field。
+
+  **复现场景**: 模板输出 2 个 list fields：`preferences` 和 `allergies`。LLM add item `{category: "food", value: "sushi"}`（无 `_field`）。用户已有关于 sushi 的 preference，但 allergies 为空。Item 被添加到 preferences（key 不冲突），然后添加到 allergies 时因 `existingKeys.contains("food::sushi")` 为 true 而被跳过。Sushi preference 正确，sushi 过敏信息丢失（数据静默丢失）。
+
+- **严重级别**: **P1**（数据静默丢失，违反 docstring 承诺）
+- **建议修复**: 在每个 field 处理前保存该 field 原始 items 的 key set，而非使用累积 `combined` 的 key set；或为无 `_field` items 单独 track 已添加的 key 集合
+
+---
+
+**P2: `storeDLQ` — DLQ 存储失败静默，transaction rollback 对调用者不可见**
+
+- **文件**: `ExtractionStorageService.java`
+- **行号**: `storeDLQ` 方法（catch block）
+- **问题描述**: `storeDLQ` 有 `@Transactional` + 内部 try-catch。异常被 catch 并 log.error 后**不 rethrow**，导致 DLQ entry 永远不会被写入，但 `StructuredExtractionService.runExtraction()` 的 caller 也永远不知道 DLQ 失败了。Transaction rollback 完全静默——没有告警、没有 fallback、没有传播给 caller。
+
+  更严重的是：`storeDLQ` 内部 catch 吞掉异常后，若 DLQ session 创建成功但 DLQ observation save 失败，transaction rollback。但 `StructuredExtractionService` 的 caller `runExtraction` 继续正常执行（因为 `runExtraction` 的 try-catch 只 catch 自己的异常，不关心 `storeDLQ` 的状态）。原始 extraction 错误被记录到 DLQ 失败，而 DLQ itself 也失败了，两层信息都丢失。
+
+- **严重级别**: **P2**（DLQ 失败静默，extraction 错误无法追踪）
+- **建议修复**: 选项 1：移除 `storeDLQ` 的 `@Transactional`，让异常自然传播给 caller 的 try-catch，caller 已有 `storeDLQ` 调用；选项 2：catch 后通过其他渠道（metrics/alert）通知，而非静默；选项 3：caller 层增加 DLQ 写入确认逻辑
