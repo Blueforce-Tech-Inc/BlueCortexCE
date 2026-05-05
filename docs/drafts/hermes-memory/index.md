@@ -109,6 +109,10 @@
 
 74. **上游新提交分析（2026-04-26 ~ 05-04，224 commits）**：基准 `739b30bc0` → `81cd67829`，9 个记忆相关发现 → [`74-upstream-compressor-honcho-session-fixes.md`](60-evolution/74-upstream-compressor-honcho-session-fixes.md)；⭐ **P1** `a7417f8a4` + `408dd8aa2` — Compressor 双 Pass（dedup+pruning）非字符串 content 守卫；⭐ **P1** `b7bbc6250` — `_prune_old_tool_results` 边界方向修复（索引→计数空间转换防静默截断）；⭐ **P2** `6b88f46c5` — TimeoutError 触发 fallback；⭐ **P2** `e2211b268` — `on_session_reset()` 未清理 `_summary_failure_cooldown_until`；⭐ **P2** `f1e029251` — Gateway 重启 `suspended=True` 改为 `resume_pending=True`；⭐ **P2** `ec4cb16a2` — Honcho cache check-then-act 竞态；⭐ **P2** `6b4ccb9b1` — SessionSearch 报告已解析父 session 而非 FTS5 child session；P3 `142b4bf3c` — SessionSearch recent 按 last_activity 排序；P3 `bea2562fc` — Honcho config safe helper（2026-05-05 新增）
 
+75. **Shell Hooks 外部脚本桥接（2026-05-05 新增）**：`agent/shell_hooks.py`（836 行）— 外部 shell 脚本注册为 hook 回调的完整架构；wire protocol（JSON stdin/stdout）、三层安全防护（shell=False/TTY 首次确认/allowlist 持久化）、幂等注册（CLI+Gateway 双重安全调用）、response 归一化（Claude-Code 兼容格式翻译）；记忆系统集成：`on_memory_write`/`on_session_end`/`on_delegation` 等事件均可被 shell 脚本订阅；CE 借鉴：Java ProcessBuilder 实现外部脚本 hook 桥接、`~/.cortex-ce/shell-hooks-allowlist.json` 安全模型、stdout JSON 响应归一化；与 Provider hooks 互补（进程内 vs 独立 subprocess）；commit `3988c3c2` 源码级深度解析 → [`75`](60-evolution/75-shell-hooks-external-script-bridge.md)（2026-05-05 新增）
+
+**⚠️ 上游最新**：origin/main 已推进至 `601e5f1d5`，本地 HEAD 落后。`b816fd4e2..origin/main` 共 13 个新提交，**0 个记忆相关**（全部为 Teams plugin / misc fixes）；下次扫描起点：`origin/main` `601e5f1d5`
+
 ## 按 aspect 浏览
 
 | 方面 | 路径 | 说明 |
