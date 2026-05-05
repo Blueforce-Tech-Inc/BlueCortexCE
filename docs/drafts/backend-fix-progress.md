@@ -328,3 +328,18 @@ try {
 - EXTRACTION 验收：25/25 通过 ✅
 
 **Backend Review 问题状态**：P0: 0 | P1: 0 | P2 (待修复): 0（全部修复完成）
+
+---
+
+## 2026-05-06 05:23 | F-1+P-2 Fix — mergeAppendOnly dedup + storeDLQ exception propagation
+
+**修复内容**：
+- **F-1 (P1)**：`mergeAppendOnly` 去重 bug — `existingKeys` 在处理同一 field 的 `applicableAddItems` 时没有更新，导致同一 item 被重复添加（或在某些场景下被静默跳过）。修复：在 `combined.add()` 后立即 `existingKeys.add(buildItemKey(newItem, keyFields))` 更新去重集合
+- **F-2 (P2)**：`storeDLQ` 异常被内部 catch 吞掉，transaction rollback 对调用者完全不可见，DLQ 写入失败静默。修复：移除 `storeDLQ` 内部 try-catch，异常自然传播；`runExtraction` caller 增加嵌套 try-catch，DLQ 失败时记录 error log + 抛出 RuntimeException
+
+**验证结果**：
+- `mvn clean compile package -DskipTests` ✅
+- 回归测试：46/46 通过 ✅
+- EXTRACTION 验收：25/25 通过 ✅
+
+**Backend Review 问题状态**：P0: 0 | P1: 0 | P2: 0（#20 P1+P2 已修复，commit `316c165`）

@@ -3962,3 +3962,5 @@ if self.access_count:
 
 - **严重级别**: **P2**（DLQ 失败静默，extraction 错误无法追踪）
 - **✅ 已修复**（2026-05-06 05:16）：移除 `storeDLQ` 内部 try-catch，让异常自然传播；`runExtraction` caller 增加嵌套 try-catch，DLQ 失败时记录 error log + 抛出 RuntimeException（避免无限递归）（F-2 Fix 注释）
+
+**Backend P0/P1/P2 状态**: 0 / 0 / 0（#20 P1+P2 已修复，commit `316c165`）
