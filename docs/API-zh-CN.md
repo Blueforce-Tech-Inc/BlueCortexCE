@@ -1074,7 +1074,7 @@ curl http://localhost:37777/api/modes
 
 #### GET `/api/projects`
 
-获取所有已知项目列表。
+获取所有已知项目路径列表，支持平台来源分组（V18）。
 
 **请求示例**:
 ```bash
@@ -1087,7 +1087,12 @@ curl http://localhost:37777/api/projects
   "projects": [
     "/Users/dev/myproject",
     "/Users/dev/another-project"
-  ]
+  ],
+  "sources": ["claude", "cursor"],
+  "projectsBySource": {
+    "claude": ["/Users/dev/myproject"],
+    "cursor": ["/Users/dev/another-project"]
+  }
 }
 ```
 
@@ -2027,11 +2032,16 @@ eventSource.onmessage = (event) => {
 }
 ```
 
-**初始加载事件**:
+**初始加载事件**（V18 新增平台来源分组）：
 ```json
 {
   "type": "initial_load",
   "projects": ["/path/to/project1", "/path/to/project2"],
+  "sources": ["claude", "cursor"],
+  "projectsBySource": {
+    "claude": ["/path/to/project1"],
+    "cursor": ["/path/to/project2"]
+  },
   "timestamp": 1707878400000
 }
 ```
@@ -2484,6 +2494,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-23 | 0.1.0-beta+36 | 补充缺失的 `POST /api/context/semantic` 端点（V17）——基于查询的语义上下文搜索，用于逐 prompt 注入；添加请求体字段说明（`q`/必填最少 20 字符、`project`、`limit`）、参数表、curl 示例、响应示例及空查询和 embedding 服务不可用的行为说明；同步英文版变更 |
 | 2026-05-03 | 0.1.0-beta+37 | GET `/api/observations`、`/api/summaries`、`/api/prompts` 新增 `platformSource` 查询参数（V18）——平台来源过滤（如 `claude`、`cursor`）；更新英文版 URL 示例和参数表；同步中文版变更 |
 | 2026-05-05 | 0.1.0-beta+38 | 结构重组：Settings 端点（GET+POST /api/settings）从 ## 搜索 移至 ## 管理；Timeline 端点（GET /api/timeline）、SDK Sessions 端点（POST /api/sdk-sessions/batch）、Modes 端点（GET+POST /api/modes）从 ## 搜索 移至 ## Viewer 查看器；## 搜索 现仅含搜索和批量获取端点；与英文版结构对齐 |
+| 2026-05-05 | 0.1.0-beta+39 | GET `/api/projects`：更新响应示例，新增 `sources` 和 `projectsBySource` 字段（V18）——对应 ViewerController.getProjects() 返回平台来源列表和分组；SSE `/stream` initial_load 事件：更新示例，新增 `sources` 和 `projectsBySource`（V18）；与英文版同步 |
 
 ---
 

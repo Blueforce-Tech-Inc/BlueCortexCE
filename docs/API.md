@@ -993,7 +993,7 @@ curl "http://localhost:37777/api/search?project=/Users/dev/myproject&query=authe
 GET /api/projects
 ```
 
-Returns all known project paths.
+Returns all known project paths with platform source grouping (V18).
 
 **Response** (`200 OK`):
 ```json
@@ -1001,7 +1001,12 @@ Returns all known project paths.
   "projects": [
     "/Users/dev/myproject",
     "/Users/dev/another-project"
-  ]
+  ],
+  "sources": ["claude", "cursor"],
+  "projectsBySource": {
+    "claude": ["/Users/dev/myproject"],
+    "cursor": ["/Users/dev/another-project"]
+  }
 }
 ```
 
@@ -1946,11 +1951,16 @@ eventSource.onmessage = (event) => {
 }
 ```
 
-**Initial Load Event**:
+**Initial Load Event** (V18 includes platform source grouping):
 ```json
 {
   "type": "initial_load",
   "projects": ["/path/to/project1", "/path/to/project2"],
+  "sources": ["claude", "cursor"],
+  "projectsBySource": {
+    "claude": ["/path/to/project1"],
+    "cursor": ["/path/to/project2"]
+  },
   "timestamp": 1707878400000
 }
 ```
@@ -2423,6 +2433,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-12 | 0.1.0-beta+35 | GET /api/observations, /api/summaries, /api/prompts: added missing sort order description — all three endpoints now always sort by `created_at` descending (most recent first) via OffsetPageRequest with `Sort.by(DESC, "createdAt")` (commit cafbae1); docs previously said nothing about sort order; synced Chinese version |
 | 2026-04-23 | 0.1.0-beta+36 | Added missing `POST /api/context/semantic` endpoint (V17) — query-based semantic context search for per-prompt injection; added request body fields (`q`/required min 20 chars, `project`, `limit`), parameter table, curl example, response example, and notes on empty-query and embedding-unavailable behavior; synced Chinese version; also fixed EN API.md `### Preview Context` which was missing the `#### GET /api/context/preview` H3 section (content existed but header was absent) |
 | 2026-05-03 | 0.1.0-beta+37 | Added `platformSource` query parameter to GET `/api/observations`, `/api/summaries`, `/api/prompts` (V18) — platform source filter (e.g., `claude`, `cursor`); updated EN URL examples and parameter table; synced Chinese version |
+| 2026-05-05 | 0.1.0-beta+39 | GET `/api/projects`: updated response example to include `sources` and `projectsBySource` fields (V18) — matches ViewerController.getProjects() returning platform source list and grouping; SSE `/stream` initial_load event: updated example to include `sources` and `projectsBySource` (V18); synced Chinese version |
 
 ---
 
