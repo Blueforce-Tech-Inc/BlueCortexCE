@@ -2,10 +2,10 @@
 
 > **角色**：可勾选短队列；**不**重复 [`20-recommendations/02-bluecortexce-recommendations.md`](20-recommendations/02-bluecortexce-recommendations.md) 表格全文。  
 > **CE 安全与出口现状盘点**：[`20-recommendations/05-ce-context-security-gap-inventory.md`](20-recommendations/05-ce-context-security-gap-inventory.md)  
-> **最后更新**：2026-05-05 19:52（`13a7cbcd6..origin/main`，23 commits，4 个记忆相关发现）
+> **最后更新**：2026-05-06 01:17（`13a7cbcd6..origin/main`，23 commits 已全部分析；新增 [`85`](60-evolution/85-hermes-context-summary-end-marker-and-iterative-continuity.md) — Context Summary End Marker + 迭代压缩连续性深度解析）
 > **旧巡检日志（2026-04-24 → 2026-05-05 02:33）**：→ [`11-research-backlog-inspection-logs-2026-04-24-to-2026-05-05.md`](11-research-backlog-inspection-logs-2026-04-24-to-2026-05-05.md)
 
-**本地 Hermes Agent Repo**：✅ 已存在，`git fetch origin/main` 成功（`601e5f1d5` → `13a7cbcd6`）
+**本地 Hermes Agent Repo**：✅ 已存在，`git fetch origin/main` 成功（`b93643c8f` 与 origin/main 同步）
 
 ---
 
@@ -126,3 +126,10 @@
 - [x] **上游代码增量扫描（`13a7cbcd6..origin/main`，23 commits）**：4 个记忆/上下文系统相关发现 → [`84`](60-evolution/84-upstream-13a7cbcd6-to-origin-main-memory-analysis.md)；⭐ **P1** `4a3e3e20e` 迭代压缩摘要连续性修复（`_find_latest_context_summary` 在压缩窗口内从后向前扫描已有 summary，防重复压缩+摘要链断裂）；P2 `2eef395e1` role=user fallback 结束标记（防弱模型误读 summary 为新输入）；P2 `aacf36e94` 手动 /compress 结果持久化到 session_db；P2 `2a285d5ec` 新增 `agent/think_scrubber.py`（386行流式 reasoning block 状态机过滤）
 - [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；`hermes-memory/` 68 篇正文 + 1 篇归档，最大 46922 字节（`09`），全部低于 50KB 上限 ✅；新增 doc `84`（5190 字节）
 - [x] **Backlog 全部项 `[x]`**：v11 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `b93643c8f`）
+
+## 定时巡检（2026-05-06 01:17 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：origin/main 已与本地 HEAD 同步（`b93643c8f`）；77 个新 commit（2026-05-05 全天），2 个记忆/上下文相关
+- [x] **上游代码增量扫描**：`agent/context_compressor.py` 2 条修复均已在 doc 84 记录，本次不做重复扫描。转为专题深化：新增 [`85`](60-evolution/85-hermes-context-summary-end-marker-and-iterative-continuity.md)（7,638 字节）— `2eef395e1`/`4a3e3e20e` 深度解析；⭐⭐⭐ **Context Summary End Marker** 可直接迁移至 `ContextService.renderTimeline()`（3行代码），解决 CE 模型混淆 summary 与用户输入的问题；**迭代提取连续性**（`_find_latest_context_summary` + identity rehydration）为 Phase 3 迭代提取引擎提供参考实现模式
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；`index-reading-order.md` 45,026 字节（逼近 50KB，暂不追加条目）✅；`hermes-memory/` 69 篇正文 + 1 篇归档，全部低于 50KB ✅；新增 doc `85`（7,638 字节）
+- [x] **Backlog 全部项 `[x]`**：v11.1 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `b93643c8f`）

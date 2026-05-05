@@ -2,12 +2,12 @@
 
 本目录按**主题方面（aspect）**组织多份 Markdown（单文件 ≤50KB；文件名英文，正文可为中文）。**入口**：原根文件 [`../hermes-memory-analysis.md`](../hermes-memory-analysis.md) 仅作跳转，勿在其中堆长文。
 
-> **体量（2026-05-05）**：根入口文件不足 50KB；本目录内最大单稿 ~43KB（`05`）。`06`/`07`/`04` 均已拆分（见下文）；`09`/`08`/`05` 已预防性拆分（各产出一个 `*a` 续写文件）。所有正文 ≤43KB。续写逼近上限前请先读 [`AGENT.md`](./AGENT.md) **「体量预警」** 并按表拆分。
+> **体量（2026-05-06）**：根入口文件不足 50KB；本目录内最大单稿 ~43KB（`05`）。`06`/`07`/`04` 均已拆分（见下文）；`09`/`08`/`05` 已预防性拆分（各产出一个 `*a` 续写文件）。所有正文 ≤43KB。续写逼近上限前请先读 [`AGENT.md`](./AGENT.md) **「体量预警」** 并按表拆分。
 
 
 ## 建议阅读顺序
 
-> **完整列表（83 项，~44KB）已移至**：[`index-reading-order.md`](index-reading-order.md)（2026-05-05 预防性拆分，规避 50KB 上限）
+> **完整列表（84 项，~45KB）已移至**：[`index-reading-order.md`](index-reading-order.md)（2026-05-05 预防性拆分，规避 50KB 上限；2026-05-06 新增条目 84）
 
 ## 按 aspect 浏览
 
@@ -21,6 +21,7 @@
 | 50-honcho-holographic-deep | [`50-honcho-holographic-deep/`](50-honcho-holographic-deep/) | Honcho 四工具、多模态澄清等 |
 | 60-evolution | [`60-evolution/`](60-evolution/) | Hooks、Supermemory、内置 Memory Tool、HRR；上游快照 [`12`](60-evolution/12-upstream-hermes-agent-memory-snapshot.md)、[`13` `run_agent` 接线](60-evolution/13-run-agent-memory-wiring-snapshot.md)；现场复核与路线图 |
 | **速查卡** | [`79-ce-developer-quick-reference.md`](79-ce-developer-quick-reference.md) | **CE 开发者 Top-10 落地借鉴**（注入防护/Memory Fence/会话搜索/Tool Result 持久化/可插拔压缩/Auxiliary LLM/Per-User/Redaction/Frozen Snapshot/Eval Harness） |
+| **60-evolution 新增** | [`60-evolution/85-hermes-context-summary-end-marker-and-iterative-continuity.md`](60-evolution/85-hermes-context-summary-end-marker-and-iterative-continuity.md) | **Context Summary End Marker + 迭代压缩连续性**深度解析（`2eef395e1` / `4a3e3e20e`）；CE 落地：围栏信号（⭐⭐⭐ 立即可落地） + 迭代提取身份保护（Phase 3 参考） |
 
 ## 本仓库其他记忆分析草稿（交叉索引）
 

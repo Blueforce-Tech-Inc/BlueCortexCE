@@ -76,6 +76,8 @@ find docs/drafts/hermes-memory -name '*.md' -exec wc -c {} + | sort -n | tail -1
 | 9,213 | [`79-ce-developer-quick-reference.md`](79-ce-developer-quick-reference.md)（2026-05-05 新增；CE 开发者 Top-10 落地借鉴；P0注入防护/Memory Fence/P1会话搜索/Tool Result持久化/可插拔压缩/Auxiliary LLM/Per-User Scoping/Secrets Redaction/Frozen Snapshot/Compression Eval Harness） |
 | 5,493 | [`60-evolution/82-compression-eval-harness-and-scrubber-pipeline.md`](60-evolution/82-compression-eval-harness-and-scrubber-pipeline.md)（2026-05-05 新增；Compression Eval Harness 完整分析；9步 scrubber + 6维 rubric + CE Phase3 迁移路径） |
 | 5,841 | [`60-evolution/83-upstream-0ce1b9fe2-to-13a7cbcd6-memory-analysis.md`](60-evolution/83-upstream-0ce1b9fe2-to-13a7cbcd6-memory-analysis.md)（2026-05-05 新增；54 commits，6 个记忆发现；⭐ P1: Compression Eval Harness + Credential Redaction；P2: Image Token Charging + /recap + Memory Logging） |
+| 7,310 | [`60-evolution/84-upstream-13a7cbcd6-to-origin-main-memory-analysis.md`](60-evolution/84-upstream-13a7cbcd6-to-origin-main-memory-analysis.md)（2026-05-05 新增；23 commits，2 个记忆发现；⭐ P1 迭代压缩摘要连续性 + P2 role=user fallback 结束标记） |
+| 7,638 | [`60-evolution/85-hermes-context-summary-end-marker-and-iterative-continuity.md`](60-evolution/85-hermes-context-summary-end-marker-and-iterative-continuity.md)（2026-05-06 新增；`2eef395e1`/`4a3e3e20e` 深度解析；⭐⭐⭐ Context Summary End Marker CE 落地 + 迭代提取身份保护 Phase 3 借鉴） |
 
 **已处理**：
 - `06`（48903 → ~38.5KB）：§43–§44 迁入 [`29-memory-provider-hooks-advanced-topics.md`](60-evolution/29-memory-provider-hooks-advanced-topics.md)（2026-04-24）
