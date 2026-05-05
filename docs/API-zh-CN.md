@@ -1027,6 +1027,25 @@ curl "http://localhost:37777/api/timeline?project=/Users/dev/myproject"
 
 ---
 
+#### GET `/api/processing-status`
+
+获取当前处理状态。
+
+**请求示例**:
+```bash
+curl http://localhost:37777/api/processing-status
+```
+
+**响应示例**:
+```json
+{
+  "isProcessing": false,
+  "queueDepth": 5
+}
+```
+
+---
+
 #### GET `/api/modes`
 
 获取当前活动模式配置。
@@ -1146,25 +1165,6 @@ curl http://localhost:37777/api/stats?project=/path/to/project
     "totalProjects": 1,
     "projectPath": "/path/to/project"
   }
-}
-```
-
----
-
-#### GET `/api/processing-status`
-
-获取当前处理状态。
-
-**请求示例**:
-```bash
-curl http://localhost:37777/api/processing-status
-```
-
-**响应示例**:
-```json
-{
-  "isProcessing": false,
-  "queueDepth": 5
 }
 ```
 

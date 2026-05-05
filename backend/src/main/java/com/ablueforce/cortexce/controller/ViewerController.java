@@ -593,7 +593,7 @@ public class ViewerController {
     ) {
         // P0: Anchor-based query mode (for MCP timeline tool)
         if (anchorId != null || query != null) {
-            return (ResponseEntity) timelineService.getTimelineByAnchor(project, anchorId, query, depthBefore, depthAfter);
+            return (ResponseEntity<Object>) timelineService.getTimelineByAnchor(project, anchorId, query, depthBefore, depthAfter);
         }
 
         // Default to last 90 days if not specified

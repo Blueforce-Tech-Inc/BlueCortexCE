@@ -111,7 +111,15 @@
 
 75. **Shell Hooks 外部脚本桥接（2026-05-05 新增）**：`agent/shell_hooks.py`（836 行）— 外部 shell 脚本注册为 hook 回调的完整架构；wire protocol（JSON stdin/stdout）、三层安全防护（shell=False/TTY 首次确认/allowlist 持久化）、幂等注册（CLI+Gateway 双重安全调用）、response 归一化（Claude-Code 兼容格式翻译）；记忆系统集成：`on_memory_write`/`on_session_end`/`on_delegation` 等事件均可被 shell 脚本订阅；CE 借鉴：Java ProcessBuilder 实现外部脚本 hook 桥接、`~/.cortex-ce/shell-hooks-allowlist.json` 安全模型、stdout JSON 响应归一化；与 Provider hooks 互补（进程内 vs 独立 subprocess）；commit `3988c3c2` 源码级深度解析 → [`75`](60-evolution/75-shell-hooks-external-script-bridge.md)（2026-05-05 新增）
 
-**⚠️ 上游最新**：origin/main 已推进至 `601e5f1d5`，本地 HEAD 落后。`b816fd4e2..origin/main` 共 13 个新提交，**0 个记忆相关**（全部为 Teams plugin / misc fixes）；下次扫描起点：`origin/main` `601e5f1d5`
+76. **BlueCortexCE P0/P1 差距盘点与不安全 UTF-8 威胁分析（2026-05-05 新增）**：对照 doc 02 P0/P1 建议逐项源码验证 — ✅ 已实现：pgvector/苏制/source 字段/maxChars/SES/extraction/extractedData；❌ 未实现（均为 P0）：无 memory-context fence（`</memory-context>` 可逃逸）、无注入扫描（仅长度截断，无 regex/不可见 unicode/RTL 检测）；❌ 未实现（P1）：无 BM25 排名 FTS、无 session 历史搜索（FTS→截断→LLM 链）、无 frozen system prompt snapshot（每次 context/generate 重新组装破坏 prompt cache）、无 auxiliary LLM 模型；威胁模型：Fence 逃逸 ✅ 脆弱 / 零宽字符隐写 ✅ 脆弱 / RTL 覆盖注入 ✅ 脆弱 / HTML注入 ✅ 脆弱；参考实现锚点：Hermes `context_engine.py` `_scan_memory_content()` + `memory_manager.py` `sanitize_context()`；优先修复顺序：P0 注入扫描 → P0 fence → P1 BM25 → P1 auxiliary LLM → P1 session search → P2 frozen snapshot → [`76`](60-evolution/76-ce-gap-inventory-and-p0-unsafe-utf8-analysis.md)（2026-05-05 新增）
+
+82. **Compression Eval Harness + Scrubber Pipeline 完整分析（2026-05-05 新增）**：`1e6285c53` — `scripts/compression_eval/` 18 文件完整解析；9 步 scrubber 管道（`scrub_fixtures.py`：`redact_sensitive_text` + username 归一化 + reasoning 剥离 + personality paraphrase + 2KB tool-output 截断）；4 probe 类型（recall/artifact/continuation/decision）+ 六维 rubric（accuracy/context_awareness/artifact_trail/completeness/continuity/instruction_following）；两阶段（Continuation+Grading）LLM 评估；CE Phase 3 Structured Extraction 质量评估迁移路径：Session observations 作为 fixture、extraction output 作为 answers、adapted rubric 评分 → [`82`](60-evolution/82-compression-eval-harness-and-scrubber-pipeline.md)（2026-05-05 新增；5493 字节）
+
+83. **上游新提交分析（0ce1b9fe2 → 13a7cbcd6，54 commits，2026-05-05 新增）**：6 个记忆/上下文系统相关发现 → [`83`](60-evolution/83-upstream-0ce1b9fe2-to-13a7cbcd6-memory-analysis.md)；⭐ **P1** `1e6285c53` — Compression Eval Harness（完整 18 文件框架）→ [`82`]；⭐ **P1** `72d53e14a` — Summary Pipeline Credential Redaction（三注入点 `redact_sensitive_text`：serializer/previous-summary/存储前）；⭐ **P2** `02e328c41` — Image Token Charging（flat 1600 token/image + `_content_length_for_budget` helper）；⭐ **P2** `4a3eac5fe` — `/recap` 无 LLM Session 摘要（纯本地计算，跨平台，工具词汇定制）；P2 `6366fb9c8` — Periodic Gateway Memory Logging（`gateway/memory_monitor.py`，daemon thread，5min 间隔，`resource.getrusage()`）；P3 `319141a0d` — session_search None tool_name 截断修复；⚠️ `65ca3ba93` 全量源码迁入 `hermes_agent/` 子包；下次扫描起点：`origin/main` `13a7cbcd6`
+
+**⚠️ 上游最新**：origin/main 已推进至 `13a7cbcd6`，本地 HEAD 已同步。`0ce1b9fe2..origin/main` 共 54 个新提交，6 个记忆相关（已分析）；下次扫描起点：`origin/main` `13a7cbcd6`
+
+77. **Prompt Builder 与系统提示词组装架构（2026-05-05 新增）**：`agent/prompt_builder.py`（1180 行）+ `run_agent.py` `_build_system_prompt()`（~100 行）完整解析 — 13 层系统提示词组装流程 / `_scan_context_content()` 10 类威胁模式 + 10 种不可见 Unicode 扫描 / `MEMORY_GUIDANCE` / `SESSION_SEARCH_GUIDANCE` / Model-Specific 执行纪律 / Skills Manifest 两级缓存（进程内 LRU + 磁盘快照）/ SOUL.md 特殊处理 / 双扫描防护体系对照（`_scan_context_content` vs `_scan_memory_content`）；BlueCortexCE 借鉴：P0 `ContextSecurityService` 威胁模式库 + Unicode 扫描、Tool-Aware Guidance 文本设计、系统提示词分层架构 → [`77`](77-prompt-builder-context-injection-architecture.md)（2026-05-05 新增；14,502 字节）
 
 ## 按 aspect 浏览
 
@@ -123,6 +131,7 @@
 | 40-context-compression | [`40-context-compression/`](40-context-compression/) | Memory context 注入、Prefetch、Session 截断等 |
 | 50-honcho-holographic-deep | [`50-honcho-holographic-deep/`](50-honcho-holographic-deep/) | Honcho 四工具、多模态澄清等 |
 | 60-evolution | [`60-evolution/`](60-evolution/) | Hooks、Supermemory、内置 Memory Tool、HRR；上游快照 [`12`](60-evolution/12-upstream-hermes-agent-memory-snapshot.md)、[`13` `run_agent` 接线](60-evolution/13-run-agent-memory-wiring-snapshot.md)；现场复核与路线图 |
+| **速查卡** | [`79-ce-developer-quick-reference.md`](79-ce-developer-quick-reference.md) | **CE 开发者 Top-10 落地借鉴**（注入防护/Memory Fence/会话搜索/Tool Result 持久化/可插拔压缩/Auxiliary LLM/Per-User/Redaction/Frozen Snapshot/Eval Harness） |
 
 ## 本仓库其他记忆分析草稿（交叉索引）
 

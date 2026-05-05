@@ -2,10 +2,10 @@
 
 > **角色**：可勾选短队列；**不**重复 [`20-recommendations/02-bluecortexce-recommendations.md`](20-recommendations/02-bluecortexce-recommendations.md) 表格全文。  
 > **CE 安全与出口现状盘点**：[`20-recommendations/05-ce-context-security-gap-inventory.md`](20-recommendations/05-ce-context-security-gap-inventory.md)  
-> **最后更新**：2026-05-05 16:44（`601e5f1d5..origin/main`，0 新 upstream commits）
+> **最后更新**：2026-05-05 18:12（`13a7cbcd6..origin/main`，54 commits，6 个记忆相关发现）
 > **旧巡检日志（2026-04-24 → 2026-05-05 02:33）**：→ [`11-research-backlog-inspection-logs-2026-04-24-to-2026-05-05.md`](11-research-backlog-inspection-logs-2026-04-24-to-2026-05-05.md)
 
-**本地 Hermes Agent Repo**：✅ 已存在，`git fetch origin/main` 成功（`b816fd4e2` → `601e5f1d5`）
+**本地 Hermes Agent Repo**：✅ 已存在，`git fetch origin/main` 成功（`601e5f1d5` → `13a7cbcd6`）
 
 ---
 
@@ -105,3 +105,17 @@
 - [x] **Backlog 全部项 `[x]`**：v10.5 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `601e5f1d5`）
 
 全局导航：[`../memory-research-hub.md`](../memory-research-hub.md)
+
+## 定时巡检（2026-05-05 17:27 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：fetch + checkout origin/main（`601e5f1d5`，无新 upstream commits）
+- [x] **上游代码增量扫描（`601e5f1d5..origin/main`，0 commits）**：上游无推进，文档保持最新
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；`hermes-memory/` 65 篇正文 + 1 篇归档，最大 46922 字节（`09`），全部低于 50KB 上限 ✅；新增 doc `79`（9213 字节）
+- [x] **Backlog 全部项 `[x]`**：v10.8 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `601e5f1d5`）
+
+## 定时巡检（2026-05-05 18:12 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：fetch + checkout origin/main（`601e5f1d5` → `13a7cbcd6`）✅
+- [x] **上游代码增量扫描（`0ce1b9fe2..origin/main`，54 commits）**：6 个记忆/上下文系统相关发现 → [`83`](60-evolution/83-upstream-0ce1b9fe2-to-13a7cbcd6-memory-analysis.md)；⭐ **P1** `1e6285c53` Compression Eval Harness（18 文件，9步 scrubber，6维 rubric，CE Phase3 迁移）→ [`82`](60-evolution/82-compression-eval-harness-and-scrubber-pipeline.md)；⭐ **P1** `72d53e14a` Summary Pipeline Credential Redaction（三注入点 `redact_sensitive_text`）；⭐ **P2** `02e328c41` Image Token Charging（flat 1600 token/image）；⭐ **P2** `4a3eac5fe` `/recap` 无 LLM Session 摘要；P2 `6366fb9c8` Periodic Gateway Memory Logging；P3 `319141a0d` session_search None tool_name Truncation Fix
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；`hermes-memory/` 67 篇正文 + 1 篇归档，最大 46922 字节（`09`），全部低于 50KB 上限 ✅；新增 doc `82`（5493 字节）+ doc `83`（5841 字节）
+- [x] **Backlog 全部项 `[x]`**：v10.9 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `13a7cbcd6`）

@@ -1,6 +1,6 @@
 # Evolver 记忆系统分析（详细导航）
 
-**完整变更历史**：见 [`../evolver-memory-analysis.md`](../evolver-memory-analysis.md) 文首 changelog（与本文完全对齐）。
+**完整变更历史（changelog 条目）**：见 [`changelog-entries.md`](./changelog-entries.md)（与本文 changelog 编号完全对齐）。
 
 ---
 
@@ -105,6 +105,17 @@
 | [94](./94-v1789-version-delta-and-regression-guards.md) | v1.78.7–v1.78.9 版本差分与回归测试（dotenv加载顺序#526 / MemoryGraph轮转#519 / AGENT_SESSIONS_DIR#527） |
 | [96](./96-forceupdate-hub-heartbeat-driven-version-migration.md) | `forceUpdate.js` Hub心跳驱动三通道强制更新（100行 / degit+npm+manual / 版本校验三段semver / 白名单保护 / CE P3） |
 | [95](./95-a2aProtocol-and-a2a-deep-dive.md) | `a2aProtocol.js` + `a2a.js` 双层深度（1221+173行 / NodeId 7层fallback / HMAC签名 / 双传输引擎 / 心跳+Hub反馈 / SSE+轮询降级 / Hub DID+信用+审计） |
+| [96](./96-forceupdate-hub-heartbeat-driven-version-migration.md) | `forceUpdate.js` Hub心跳驱动三通道强制更新（100行 / degit+npm+manual / 版本校验三段semver / 白名单保护 / CE P3） |
+| [97](./97-issue-reporter-and-validation-report-deep-dive.md) | `issueReporter.js` + `validationReport.js` 深度（GitHub Issue自动报告机制 / SHA-256错误签名去重+24h冷却 / ValidationReport标准化+环境指纹+Content-addressable asset_id） |
+| [98](./98-v1789-minor-subsystem-additions.md) | v1.78.9 Minor Subsystem Additions（featureFlags.js三层覆盖 / dmHandler.js / skillUpdater.js备份策略 / taskMonitor.js环形缓冲区+心跳元数据） |
+| [99](./99-evolver-v147-evolvejs-safety-infrastructure.md) | v1.47.0 `evolve.js` 安全系统深度（竞速检测/队列上限/负载感知/循环门控/修复断路器/6h skills缓存/mood awareness/CWD恢复/Auto-update clawhub/Dormant假设恢复；CE P1–P3行动项） |
+| [100](./100-evolvejs-complete-cycle-memory-graph-mapping.md) | `evolve.js` 完整周期→Memory Graph 操作映射（10阶段完整映射 / memory_graph.jsonl vs events.jsonl 双文件存储 / 完整状态流转图 / CE cron等价格式实现） |
+| [101](./101-core-memory-architecture-patterns-deep-dive.md) | 核心架构模式深度分析（memoryGraph.js 788行源码综合 / 7大可借鉴模式：append-only双层分离 / stable signal key / 时间衰减+Laplace平滑 / dormant hypothesis中断恢复 / narrative+graph双重历史 / content-addressable asset / execution trace脱敏 / BlueCortexCE优先级P0–P3映射） |
+| [102](./102-learningSignals-ops-trigger-skillsMonitor-selfManagement-deep-dive.md) | 主动自我管理三模块深度（learningSignals信号扩展标签化→action:repair/optimize/innovate标签+领域标签 / ops/trigger.js WAKE文件立即唤醒polling-wake机制 / ops/skillsMonitor.js v2.0技能自愈监控missing node_modules+SKILL.md自动修复 / 成熟度L0–L4分级 / CE P1信号扩展标签化+P2立即唤醒+P2技能自愈） |
+| [103](./103-v1789-delta-defaultHandler-tokenBudget-comparison.md) | v1.78.9 Delta（index.js+paths.js dotenv#526修复/genes.json+201/胶囊+4） + `atp/defaultHandler.js`（69行/ATP订单fallback/三态开关）+ Token Budget对比（CE固定50条 vs Evolver 20000chars+分层保护） |
+| [104](./104-token-budget-semantic-vs-timeline-analysis.md) | Token Budget 分析：语义注入 vs 时间线预算竞争（session-init.ts 双路径独立注入无协调 / ContextService.generateContext 无全局字符上限 / TokenService 仅用于 footer 统计非预算管理 / P1 独立上限方案 + P2 统一 TokenBudgetManager + P3 remaining space 动态计算） |
+| [106](./106-questioncomposer-bluecortex-context-pipeline-deep-dive.md) | questionComposer.js 深度 + BlueCortexCE 上下文生成 Pipeline 借鉴（133行 / 模板模式+策略模式+防御性+确定性4大设计模式 / capability→TEMPLATE规范化映射 / hash-seeded确定性选择 / _normalize规范化算法 / CE StructuredContext模板提案 / 4个具体行动项） |
+| [105](./105-core-memory-architecture-deep-dive-evolver.md) | EvoMap 核心记忆架构源码深度（memoryGraph.js 完整解析 / 7种 MemoryGraphEvent 种类 / JSONL 追加+原子写 / Session Scope 隔离 / 4语言信号提取 / History-aware 去重+饱和检测 / expandSignals 标签化 / Laplace+半衰置信度评分 / 无标签结果推断 / 双栈适配器 / Narrative Memory / Reflection 自适应间隔 / localStateAwareness 五维自省 / BlueCortexCE 对照表） |
 
 ---
 
@@ -126,7 +137,7 @@
 | **方面级旁路映射** | [09](./09-aspect-bluecortex-bridge.md) |
 | **CE 实现锚点 / 缺口** | [10](./10-aspect-bluecortex-implementation-map.md) |
 | **CE 记忆 API / 数据平面** | [12](./12-bluecortex-api-memory-surface.md) |
-| **CE 上下文产出调用链** | [14](./14-context-output-pipeline-sketch.md) |
+| **CE 上下文产出调用链** | [14](./14-context-output-pipeline-sketch.md)；[106](./106-questioncomposer-bluecortex-context-pipeline-deep-dive.md)（questionComposer模板模式借鉴） |
 | **CE Java 摄入 / 写入链** | [16](./16-ingestion-write-path-sketch.md) |
 | **CE Java 会话 start / end** | [17](./17-session-lifecycle-java-sketch.md) |
 | **运行时集成面（Worker / Java）** | [15](./15-runtime-integration-surfaces.md) |
@@ -141,6 +152,7 @@
 | **Hub Search 缓存 + deadline 控制** | [44](./44-personality-state-machine-and-hub-search-caching.md) §2 |
 | **PRM 多步骤评分 / Epigenetic Marks** | [25](./25-advanced-patterns-prm-epigenetic-antipattern.md) §1–§2 |
 | **Adaptive Reflection / 自省循环** | [59](./59-reflection-js-module-deep-dive.md)；[31](./31-reflection-remote-adapter-local-state.md) §1 |
+| **主动自我管理**（signal扩展标签化 / 文件立即唤醒 / 技能自愈） | [102](./102-learningSignals-ops-trigger-skillsMonitor-selfManagement-deep-dive.md) |
 | **Signal Taxonomy 全链路 + Gene 四因子叠加** | [37](./37-signal-taxonomy-gene-selection-end-to-end.md) |
 | **多因子 Gene 选择 / 连续漂移** | [30](./30-multifactor-gene-selection-continuous-drift.md)；[65](./65-selector-gene-scoring-and-semantic-matching-deep-dive.md) |
 | **Solidify 管线端到端** | [34](./34-solidify-pipeline-end-to-end.md) |

@@ -63,3 +63,7 @@ if (content instanceof String) {
 
 - **字节数**：~2,800（远低于 50KB 上限）
 - **状态**：✅ 合规
+
+## 后续跟进（2026-05-05）
+
+提交 `a7417f8a4`（JasonOA888，2026-05-04）在 Pass 2（summarization/pruning）中应用了相同的 `isinstance(content, str)` guard，延续了 Pass 1 的修复。详见 → [`60-upstream-110387d14-to-origin-main-memory-analysis.md`](60-upstream-110387d14-to-origin-main-memory-analysis.md)
