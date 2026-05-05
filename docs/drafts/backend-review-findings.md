@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-05-04 13:22 (Java SDK Review #12 — 0 P0/P1/P2, 2 suggestions)
+> **最后更新**: 2026-05-05 09:22 (Go SDK Review #12 — 0 P0/P1/P2, 288 tests pass)
 
 ---
 
@@ -3428,6 +3428,59 @@ Total: 426/426 tests passed
 ### 代码审查结论
 
 0 个 P0/P1/P2 问题，2 个 S2 建议。Java SDK 代码质量稳定，设计严谨。编译 clean，测试全通过。建议后续迭代修复 S2-1/S2-2 设计不一致问题。
+
+---
+
+## 2026-05-05 09:22 | Go SDK Review #12
+
+**审查方向**: Go SDK (`go-sdk/cortex-mem-go/`)
+
+**审查范围**:
+- `client_impl.go` — HTTP 客户端实现（fire-and-forget、retry、error extraction）
+- `client_methods.go` — 全部 25 个 API 方法实现
+- `dto/search.go` — SearchRequest、SearchResult DTOs（wire format 验证）
+- `dto/observation.go` — ObservationRequest、ObservationUpdate、Observation DTOs
+- `dto/observations.go` — ObservationsRequest、BatchObservationsRequest DTOs
+- `dto/session.go` — SessionStartRequest、SessionEndRequest、UserPromptRequest DTOs
+- `genkit/retriever.go` + `genkit/retriever_test.go` — Genkit 集成（13 tests）
+- `eino/retriever.go` + `eino/retriever_test.go` — Eino 集成（8 tests）
+- `langchaingo/memory.go` + `langchaingo/memory_test.go` — LangChainGo 集成（12 tests）
+- `examples/http-server/main.go` — Go HTTP Server Demo（40+ 端点）
+- 编译验证: ✅ `go build ./...` 无错误
+- 测试验证: ✅ 288 tests 全通过（client 194 + dto 61 + genkit 13 + langchaingo 12 + eino 8）
+
+### 代码质量评估
+
+| 维度 | 评级 | 说明 |
+|------|------|------|
+| 输入验证 | ✅ 优秀 | TrimSpace + batch size + range checks，ValidationError 在调用前 fail-fast |
+| Fire-and-forget | ✅ 优秀 | linear ±25% jitter，ctx 已取消时跳过执行 |
+| 错误处理 | ✅ 优秀 | extractErrorMessage 支持 6 种格式（object/array/string/plain/empty/fallback） |
+| Wire format | ✅ 优秀 | `session_id`/`cwd`/`tool_name` 与 backend 完全对齐，`url.PathEscape` 防 injection |
+| DTO 设计 | ✅ 优秀 | `StringList` 双 JSON 格式（array + string-encoded），`ObservationUpdate` content/narrative 互斥校验 |
+| TLS/安全 | ✅ 优秀 | `InsecureSkipVerify: false`，MaxResponseBytes=10MB OOM 防护，LimitReader |
+| 线程安全 | ✅ 优秀 | Go 1.20+ 全局 rand 函数线程安全，http.Client 不可变 |
+| 集成层 | ✅ 优秀 | genkit/eino/langchaingo 均有 nil client panic guard |
+| HTTP Server Demo | ✅ 优秀 | 1MB body limit，recovery middleware，graceful shutdown，timeout 配置 |
+
+### 亮点
+
+- **`jitteredBackoff`**: Linear backoff ±25% jitter，注释明确说明与 Java SDK 指数退避的设计差异
+- **`doFireAndForget` ctx cancel**: 在重试循环中检查 `ctx.Done()`，已取消时跳过执行，避免浪费资源
+- **`MaxResponseBytes = 10 << 20`**: 10MB 响应体上限 + `LimitReader` 防 OOM
+- **`extractErrorMessage`**: 支持 6 种错误格式 fallback，`(empty response body)` 回退信息
+- **`GetStats` 注释**: 明确注明 `projectPath` 被 backend 忽略（已在 Go SDK Review #11 记录为 S2）
+- **`LoadMemoryVariables` fail-safe**: backend 不可用时返回空字符串而非传播错误，不阻断 AI pipeline
+- **HTTP Server `/observations/{id}`**: Go 1.25+ 路由合并处理正确（GET+PATCH+DELETE 三方法合一）
+- **HTTP Server `/batch-observations`**: 从 `/observations/batch` 重命名以避免与 `/observations/{id}` 路由冲突
+
+### 发现的问题
+
+**无 P0/P1/P2 问题。** 已知 S2 保持不变（`GetStats` projectPath 被 backend 忽略，已记录于 Review #11）。
+
+### 代码审查结论
+
+0 个 P0/P1/P2 问题，288 tests 全通过。Go SDK 代码质量卓越，设计严谨。所有 25 个 API 方法实现完整，DTO wire format 与 backend 完全对齐，集成层均有 nil guard。HTTP Server Demo 工程质量优秀（recovery、logging、graceful shutdown 全覆盖）。
 
 ---
 
