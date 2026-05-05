@@ -2,10 +2,10 @@
 
 > **角色**：可勾选短队列；**不**重复 [`20-recommendations/02-bluecortexce-recommendations.md`](20-recommendations/02-bluecortexce-recommendations.md) 表格全文。  
 > **CE 安全与出口现状盘点**：[`20-recommendations/05-ce-context-security-gap-inventory.md`](20-recommendations/05-ce-context-security-gap-inventory.md)  
-> **最后更新**：2026-05-05 06:27（`e493b1c48..origin/main`，3 commits；0 个 memory 相关）
+> **最后更新**：2026-05-05 16:44（`601e5f1d5..origin/main`，0 新 upstream commits）
 > **旧巡检日志（2026-04-24 → 2026-05-05 02:33）**：→ [`11-research-backlog-inspection-logs-2026-04-24-to-2026-05-05.md`](11-research-backlog-inspection-logs-2026-04-24-to-2026-05-05.md)
 
-**本地 Hermes Agent Repo**：✅ 已存在，`git fetch origin/main` 成功（`e493b1c48` → `b8fb9270c`）
+**本地 Hermes Agent Repo**：✅ 已存在，`git fetch origin/main` 成功（`b816fd4e2` → `601e5f1d5`）
 
 ---
 
@@ -79,11 +79,29 @@
 - [x] **新增分析：InsightsEngine 会话分析引擎（2026-05-05 新增）**：`agent/insights.py`（930 行）— Session 数据仓库 SQL 查询 / Token+Cost 估算（CanonicalUsage）/ 多维度分析报告（模型/平台/工具/Skill 使用量分布 / 活动规律 / Top Sessions）/ 双输出格式（Terminal 文本 + Gateway JSON）/ BlueCortexCE 借鉴：会话分析 API `/api/insights` 设计 + ShareGPT 格式轨迹持久化 → [`71`](60-evolution/71-insights-engine-session-analytics-deep-dive.md)
 - [x] **Backlog 全部项 `[x]`**：v10.2 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `b8fb9270c`）
 
-## 定时巡检（2026-05-05 07:52 CST）
+## 定时巡检（2026-05-05 13:49 CST）
 
-- [x] **本地 Hermes Agent Repo 同步**：fetch + checkout origin/main（`739b30bc0` → `b816fd4e2`）
-- [x] **上游代码增量扫描（`739b30bc0..b816fd4e2`，237 commits）**：4 个记忆/上下文系统相关发现 → [`73`](60-evolution/73-upstream-739b30bc0-to-origin-main-memory-analysis.md)；⭐ P2 `e2211b268` — `on_session_reset()` 未清理 `_summary_failure_cooldown_until`，新 session 被旧 cooldown 阻塞；⭐ P2 `d29f90e89` — error_classifier 大上下文假溢出 heuristics（1M context 被错误归类）；P3 `8bdec8088` — preflight compression `_emit_status` 统一反馈；Test `ccb5d8707` — max-iterations summary sanitization 回归测试
-- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；`hermes-memory/` 61 篇正文 + 1 篇归档，最大 46922 字节（`09`），全部低于 50KB 上限 ✅。新增 doc `73`（7662 字节）
-- [x] **Backlog 全部项 `[x]`**：v10.3 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `b816fd4e2`）
+- [x] **本地 Hermes Agent Repo 同步**：fetch + checkout origin/main（`b816fd4e2` → `601e5f1d5`）
+- [x] **上游代码增量扫描（`b816fd4e2..origin/main`，13 commits）**：**0 个记忆系统相关** — 全部为 Microsoft Teams 集成修复（`601e5f1d5` reply fallback / `3f023450d` threading 400 fallback / `69aeba0df` Teams threading 实现 / `c77a6e3fa` OSV-Scanner CI）+ 测试修复（`2333b7a7e`）+ 文档（Teams 接入 sidebar / platform lists）；无记忆/上下文/压缩/provider/hook 相关
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；`hermes-memory/` 61 篇正文 + 1 篇归档，最大 46922 字节（`09`），全部低于 50KB 上限 ✅
+- [x] **Backlog 全部项 `[x]`**：v10.4 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `601e5f1d5`）
+
+- [x] **Prompt Builder 与系统提示词组装架构深度分析**（2026-05-05 15:23）：`agent/prompt_builder.py`（1180 行）+ `run_agent.py` `_build_system_prompt()` — 13 层系统提示词组装 / 注入扫描双层防护 / Tool-Aware Guidance / Skills 两级缓存 / BlueCortexCE P0 ContextSecurityService 借鉴方案 → [`77`](77-prompt-builder-context-injection-architecture.md)
+
+## 定时巡检（2026-05-05 16:44 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：fetch + checkout origin/main（`601e5f1d5`，无新 upstream commits）
+- [x] **上游代码增量扫描（`b8fb9270c..origin/main`，19 commits）**：**1 个轻微相关** — `b816fd4e2 fix(tui): complete absolute paths as paths`（TUI路径处理，非核心记忆）；其余 18 个全部为 Teams 集成、terminal 修复、security（OSV-Scanner）；无压缩/provider/hook/insights 相关
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；`hermes-memory/` 63 篇正文 + 1 篇归档，最大 46922 字节（`09`），全部低于 50KB 上限 ✅；新增 doc `78`（23,127 字节）
+- [x] **新增分析：跨-cutting 架构模式综合提炼（2026-05-05 新增）**：从 97 篇分析文档中提炼 11 个跨领域架构模式 — ① 分层隔离（5层记忆管线）② 生命周期钩子体系（7 Hook × 触发时机）③ 向后兼容与渐进演进 ④ 事务边界与状态一致性 ⑤ 可观测性架构 ⑥ 安全架构（fence/injection/redaction 三层）⑦ 性能工程（cache友好/自适应压缩/write-behind）⑧ 错误处理与降级（circuit breaker/auxiliary fallback/timeout chain）⑨ 多租户与权限模型 ⑩ 测试策略（contract tests）⑪ 实施优先级矩阵（P0-P3，10项）；每项含 CE 实施建议代码锚点 → [`78`](78-cross-cutting-architectural-patterns-synthesis.md)
+- [x] **Backlog 全部项 `[x]`**：v10.6 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `601e5f1d5`）
+
+## 定时巡检（2026-05-05 14:27 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：fetch + checkout origin/main（`b816fd4e2` → `601e5f1d5`）✅
+- [x] **上游代码增量扫描（`b816fd4e2..origin/main`，13 commits）**：**0 个记忆系统相关**（已在 v10.4 记录）
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；`hermes-memory/` 62 篇正文 + 1 篇归档，最大 46922 字节（`09`），全部低于 50KB 上限 ✅；新增 doc `76`（8121 字节）
+- [x] **新增分析：BlueCortexCE P0/P1 差距盘点 + 不安全 UTF-8 威胁分析（2026-05-05 新增）**：对照 doc 02 逐项源码验证 — 确认 2 个 P0 缺口：① 无 memory-context fence（`IngestionController` 无围栏标签）② 无注入扫描（仅长度截断，无 regex/不可见 unicode/RTL 检测）；P1 缺口：BM25 FTS / session 历史搜索 / frozen snapshot / auxiliary LLM 均未实现；威胁模型：5 类攻击面均脆弱；参考 Hermes 锚点：`context_engine.py` `_scan_memory_content()` + `memory_manager.py` `sanitize_context()` → [`76`](60-evolution/76-ce-gap-inventory-and-p0-unsafe-utf8-analysis.md)
+- [x] **Backlog 全部项 `[x]`**：v10.5 完成，无待跟进项。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `601e5f1d5`）
 
 全局导航：[`../memory-research-hub.md`](../memory-research-hub.md)
