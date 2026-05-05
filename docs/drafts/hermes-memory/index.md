@@ -107,6 +107,8 @@
 
 73. **上游新提交分析（739b30bc0 → b816fd4e2，237 commits，2026-05-05 新增）**：扫描 `739b30bc0..b816fd4e2`，4 个记忆/上下文系统相关发现 → [`73`](60-evolution/73-upstream-739b30bc0-to-origin-main-memory-analysis.md)；⭐ **P2** `e2211b268` — `on_session_reset()` 未清理 `_summary_failure_cooldown_until`，cooldown 携带到新 session 导致 middle turns 静默丢弃；⭐ **P2** `d29f90e89` — error_classifier 大上下文假溢出 heuristics，1M context session 被错误归类为 `context_overflow`（绝对 token/message 阈值仅应作用于 <=256K context）；P3 `8bdec8088` — preflight compression 状态反馈从 `_safe_print` 迁移到 `_emit_status`（CLI/Gateway/WebUI 统一感知）；Test `ccb5d8707` — max-iterations summary 消息 sanitization 回归测试（orphan tool result 排除 + missing stub 插入）；其余 233 个非记忆（Dashboard/Kanban/TUI/Telegram/Teams/Docker/cron 等）；CE 借鉴：session 创建时清理所有 transient error cooldown / ErrorClassifier large-context-aware heuristics / StructuredExtractionService lifecycle 状态广播
 
+74. **上游新提交分析（2026-04-26 ~ 05-04，224 commits）**：基准 `739b30bc0` → `81cd67829`，9 个记忆相关发现 → [`74-upstream-compressor-honcho-session-fixes.md`](60-evolution/74-upstream-compressor-honcho-session-fixes.md)；⭐ **P1** `a7417f8a4` + `408dd8aa2` — Compressor 双 Pass（dedup+pruning）非字符串 content 守卫；⭐ **P1** `b7bbc6250` — `_prune_old_tool_results` 边界方向修复（索引→计数空间转换防静默截断）；⭐ **P2** `6b88f46c5` — TimeoutError 触发 fallback；⭐ **P2** `e2211b268` — `on_session_reset()` 未清理 `_summary_failure_cooldown_until`；⭐ **P2** `f1e029251` — Gateway 重启 `suspended=True` 改为 `resume_pending=True`；⭐ **P2** `ec4cb16a2` — Honcho cache check-then-act 竞态；⭐ **P2** `6b4ccb9b1` — SessionSearch 报告已解析父 session 而非 FTS5 child session；P3 `142b4bf3c` — SessionSearch recent 按 last_activity 排序；P3 `bea2562fc` — Honcho config safe helper（2026-05-05 新增）
+
 ## 按 aspect 浏览
 
 | 方面 | 路径 | 说明 |

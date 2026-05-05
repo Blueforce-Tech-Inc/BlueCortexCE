@@ -70,6 +70,7 @@ find docs/drafts/hermes-memory -name '*.md' -exec wc -c {} + | sort -n | tail -1
 | 5,657 | [`60-evolution/60-upstream-110387d14-to-origin-main-memory-analysis.md`](60-evolution/60-upstream-110387d14-to-origin-main-memory-analysis.md)（2026-05-05 新增；89 commits，3 记忆发现；⭐ P2 Compressor Pass2+Prune boundary+SessionSearch source fix） |
 | 12,310 | [`60-evolution/69-upstream-1718-commits-memory-analysis.md`](60-evolution/69-upstream-1718-commits-memory-analysis.md)（2026-05-05 新增；1718 commits，10 个记忆发现；⭐ P0 on_memory_write bridge 缺失 + ContextEngine ABC） |
 | 7,662 | [`60-evolution/73-upstream-739b30bc0-to-origin-main-memory-analysis.md`](60-evolution/73-upstream-739b30bc0-to-origin-main-memory-analysis.md)（2026-05-05 新增；237 commits，4 个记忆发现；⭐ P2 cooldown漏清理 + 大上下文假溢出 + preflight状态广播） |
+| 7,764 | [`60-evolution/74-upstream-compressor-honcho-session-fixes.md`](60-evolution/74-upstream-compressor-honcho-session-fixes.md)（2026-05-05 新增；224 commits，9 个记忆发现；⭐ P1 Compressor 双Pass非字符串guard + 边界方向bug；⭐ P2 Timeout fallback + cooldown清理 + resume_pending + Honcho竞态 + SessionSearch父session） |
 
 **已处理**：
 - `06`（48903 → ~38.5KB）：§43–§44 迁入 [`29-memory-provider-hooks-advanced-topics.md`](60-evolution/29-memory-provider-hooks-advanced-topics.md)（2026-04-24）
