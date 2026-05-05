@@ -2437,6 +2437,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-05-03 | 0.1.0-beta+37 | Added `platformSource` query parameter to GET `/api/observations`, `/api/summaries`, `/api/prompts` (V18) — platform source filter (e.g., `claude`, `cursor`); updated EN URL examples and parameter table; synced Chinese version |
 | 2026-05-05 | 0.1.0-beta+38 | Structural reorganization: Settings endpoints (GET+POST /api/settings) are now in ## Management; Timeline (GET /api/timeline), SDK Sessions (POST /api/sdk-sessions/batch), Modes (GET+POST /api/modes) are in ## Viewer; ## Search now contains only Search Memory; EN structure was already in this state — this changelog entry added for completeness and to sync with ZH |
 | 2026-05-05 | 0.1.0-beta+39 | GET `/api/projects`: updated response example to include `sources` and `projectsBySource` fields (V18) — matches ViewerController.getProjects() returning platform source list and grouping; SSE `/stream` initial_load event: updated example to include `sources` and `projectsBySource` (V18); synced Chinese version |
+| 2026-05-06 | 0.1.0-beta+40 | Structural fix: ## Search section moved from after ## Mode to after ## Extraction in ZH doc, aligning ZH section order with EN (Search → Management → Mode); ## Management (Projects/Stats/Settings) and ## Mode (ModeController endpoints) remain in place; only ## Search section position changed; EN doc structure unchanged |
 
 ---
 

@@ -734,6 +734,125 @@ curl -X POST "http://localhost:37777/api/context/semantic" \
 ---
 
 ## Extraction 结构化提取
+## 搜索
+
+#### GET `/api/search`
+
+语义搜索 + 文本搜索。
+
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `project` | string | ✅ | 项目路径 |
+| `query` | string | ❌ | 搜索查询 |
+| `type` | string | ❌ | 类型过滤 |
+| `concept` | string | ❌ | 概念过滤 |
+| `source` | string | ❌ | 来源过滤（如 `manual`、`auto`） |
+| `limit` | int | 20 | 结果数量 |
+| `offset` | int | 0 | 偏移量 |
+| `orderBy` | string | ❌ | 排序字段（支持 `created_at_epoch` 或 `createdAtEpoch`，按创建时间降序排列） |
+
+**请求示例**:
+```bash
+curl "http://localhost:37777/api/search?project=/Users/dev/myproject&query=authentication&limit=10"
+```
+
+**响应示例**:
+```json
+{
+  "observations": [...],
+  "strategy": "hybrid",
+  "fell_back": false,
+  "count": 10
+}
+```
+
+**搜索策略说明**:
+- `hybrid`: 组合搜索——pgvector 语义搜索 + PostgreSQL tsvector 全文搜索
+- `tsvector`: PostgreSQL 全文搜索回退（pgvector 不可用时使用）
+- `filter`: 纯过滤搜索（无查询文本，基于 type/concept/source 过滤条件）
+- `recent`: 默认列表（无查询、无过滤，返回最新观察）
+- `none`: 所有搜索方法均失败（返回空结果）
+
+---
+
+#### GET `/api/search/by-file`
+
+根据文件/文件夹路径搜索观察。
+
+**查询参数**:
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `project` | string | (必填) | 项目路径 |
+| `filePath` | string | (必填) | 文件/文件夹路径 |
+| `isFolder` | boolean | false | 是否为文件夹 |
+| `limit` | int | 20 | 结果数量 |
+| `debug` | boolean | false | 调试模式 |
+
+**请求示例**:
+```bash
+curl "http://localhost:37777/api/search/by-file?project=/Users/dev/myproject&filePath=/src/auth&isFolder=true"
+```
+
+**响应示例**:
+```json
+{
+  "observations": [...],
+  "count": 5,
+  "filePath": "/src/auth",
+  "isFolder": true
+}
+```
+
+---
+
+#### POST `/api/observations/batch`
+
+批量获取观察详情。
+
+**请求体**:
+```json
+{
+  "ids": ["id1", "id2", "id3"],
+  "project": "/Users/dev/myproject",
+  "orderBy": "created_at_epoch",
+  "limit": 100
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `ids` | string[] | ✅ | 要获取的观察 UUID 列表 |
+| `project` | string | ❌ | 可选的项目过滤器 |
+| `orderBy` | string | ❌ | 排序字段（支持 `created_at_epoch` 或 `createdAtEpoch`） |
+| `limit` | int | ❌ | 最大返回结果数 |
+
+**响应示例**:
+```json
+{
+  "observations": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "session_id": "content-session-uuid",
+      "project": "/Users/dev/myproject",
+      "type": "feature",
+      "title": "Feature implementation",
+      "narrative": "Implemented JWT authentication...",
+      "facts": ["Uses RS256 algorithm"],
+      "concepts": ["authentication"],
+      "quality_score": 0.85,
+      "created_at_epoch": 1743488400000,
+      "access_count": 3
+    }
+  ],
+  "count": 1
+}
+```
+
+---
+
 
 Phase 3 结构化数据提取端点，从会话观察中提取结构化数据（如用户偏好、过敏信息等）。
 
@@ -1388,125 +1507,6 @@ curl http://localhost:37777/api/mode
 **响应示例**:
 ```json
 ["how-it-works", "architecture", "best-practice"]
-```
-
----
-
-## 搜索
-
-#### GET `/api/search`
-
-语义搜索 + 文本搜索。
-
-**查询参数**:
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `project` | string | ✅ | 项目路径 |
-| `query` | string | ❌ | 搜索查询 |
-| `type` | string | ❌ | 类型过滤 |
-| `concept` | string | ❌ | 概念过滤 |
-| `source` | string | ❌ | 来源过滤（如 `manual`、`auto`） |
-| `limit` | int | 20 | 结果数量 |
-| `offset` | int | 0 | 偏移量 |
-| `orderBy` | string | ❌ | 排序字段（支持 `created_at_epoch` 或 `createdAtEpoch`，按创建时间降序排列） |
-
-**请求示例**:
-```bash
-curl "http://localhost:37777/api/search?project=/Users/dev/myproject&query=authentication&limit=10"
-```
-
-**响应示例**:
-```json
-{
-  "observations": [...],
-  "strategy": "hybrid",
-  "fell_back": false,
-  "count": 10
-}
-```
-
-**搜索策略说明**:
-- `hybrid`: 组合搜索——pgvector 语义搜索 + PostgreSQL tsvector 全文搜索
-- `tsvector`: PostgreSQL 全文搜索回退（pgvector 不可用时使用）
-- `filter`: 纯过滤搜索（无查询文本，基于 type/concept/source 过滤条件）
-- `recent`: 默认列表（无查询、无过滤，返回最新观察）
-- `none`: 所有搜索方法均失败（返回空结果）
-
----
-
-#### GET `/api/search/by-file`
-
-根据文件/文件夹路径搜索观察。
-
-**查询参数**:
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `project` | string | (必填) | 项目路径 |
-| `filePath` | string | (必填) | 文件/文件夹路径 |
-| `isFolder` | boolean | false | 是否为文件夹 |
-| `limit` | int | 20 | 结果数量 |
-| `debug` | boolean | false | 调试模式 |
-
-**请求示例**:
-```bash
-curl "http://localhost:37777/api/search/by-file?project=/Users/dev/myproject&filePath=/src/auth&isFolder=true"
-```
-
-**响应示例**:
-```json
-{
-  "observations": [...],
-  "count": 5,
-  "filePath": "/src/auth",
-  "isFolder": true
-}
-```
-
----
-
-#### POST `/api/observations/batch`
-
-批量获取观察详情。
-
-**请求体**:
-```json
-{
-  "ids": ["id1", "id2", "id3"],
-  "project": "/Users/dev/myproject",
-  "orderBy": "created_at_epoch",
-  "limit": 100
-}
-```
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `ids` | string[] | ✅ | 要获取的观察 UUID 列表 |
-| `project` | string | ❌ | 可选的项目过滤器 |
-| `orderBy` | string | ❌ | 排序字段（支持 `created_at_epoch` 或 `createdAtEpoch`） |
-| `limit` | int | ❌ | 最大返回结果数 |
-
-**响应示例**:
-```json
-{
-  "observations": [
-    {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "session_id": "content-session-uuid",
-      "project": "/Users/dev/myproject",
-      "type": "feature",
-      "title": "Feature implementation",
-      "narrative": "Implemented JWT authentication...",
-      "facts": ["Uses RS256 algorithm"],
-      "concepts": ["authentication"],
-      "quality_score": 0.85,
-      "created_at_epoch": 1743488400000,
-      "access_count": 3
-    }
-  ],
-  "count": 1
-}
 ```
 
 ---
@@ -2497,6 +2497,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-05-03 | 0.1.0-beta+37 | GET `/api/observations`、`/api/summaries`、`/api/prompts` 新增 `platformSource` 查询参数（V18）——平台来源过滤（如 `claude`、`cursor`）；更新中文版 URL 示例和参数表；与英文版同步变更 |
 | 2026-05-05 | 0.1.0-beta+38 | 结构重组：Settings 端点（GET+POST /api/settings）从 ## 搜索 移至 ## 管理；Timeline 端点（GET /api/timeline）、SDK Sessions 端点（POST /api/sdk-sessions/batch）、Modes 端点（GET+POST /api/modes）从 ## 搜索 移至 ## Viewer 查看器；## 搜索 现仅含搜索和批量获取端点；与英文版结构对齐 |
 | 2026-05-05 | 0.1.0-beta+39 | GET `/api/projects`：更新响应示例，新增 `sources` 和 `projectsBySource` 字段（V18）——对应 ViewerController.getProjects() 返回平台来源列表和分组；SSE `/stream` initial_load 事件：更新示例，新增 `sources` 和 `projectsBySource`（V18）；与英文版同步 |
+| 2026-05-06 | 0.1.0-beta+40 | 结构重组：## 搜索 章节（原位于 ## Mode 模式 之后）移至 ## Extraction 结构化提取 之后，与英文版结构顺序对齐（Search → Management → Mode）；## 管理（Projects/Stats/Settings）和 ## Mode 模式（ModeController 端点）保持不变，仅移动 ## 搜索 章节位置；## 更新日志 |
 
 ---
 
