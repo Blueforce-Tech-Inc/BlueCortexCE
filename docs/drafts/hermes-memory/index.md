@@ -2,12 +2,12 @@
 
 本目录按**主题方面（aspect）**组织多份 Markdown（单文件 ≤50KB；文件名英文，正文可为中文）。**入口**：原根文件 [`../hermes-memory-analysis.md`](../hermes-memory-analysis.md) 仅作跳转，勿在其中堆长文。
 
-> **体量（2026-05-06）**：根入口文件不足 50KB；本目录内最大单稿 ~43KB（`05`）。`06`/`07`/`04` 均已拆分（见下文）；`09`/`08`/`05` 已预防性拆分（各产出一个 `*a` 续写文件）。所有正文 ≤43KB。续写逼近上限前请先读 [`AGENT.md`](./AGENT.md) **「体量预警」** 并按表拆分。
+> **体量（2026-05-07）**：根入口文件不足 50KB；本目录内最大单稿 ~43KB（`05`）。entries 1-20 已归档至 [`index-reading-order-archive-1.md`](index-reading-order-archive-1.md)；所有正文 ≤43KB。续写逼近上限前请先读 [`AGENT.md`](./AGENT.md) **「体量预警」** 并按表拆分。
 
 
 ## 建议阅读顺序
 
-> **完整列表（84 项，~45KB）已移至**：[`index-reading-order.md`](index-reading-order.md)（2026-05-05 预防性拆分，规避 50KB 上限；2026-05-06 新增条目 84）
+> **完整列表（89 项，~44KB）已移至**：[`index-reading-order.md`](index-reading-order.md)（2026-05-05 预防性拆分，规避 50KB 上限；2026-05-06 新增条目 84-88；2026-05-07 归档 entries 1-20 + 新增条目 89；**早期条目 1-20** → [`index-reading-order-archive-1.md`](index-reading-order-archive-1.md)）
 
 ## 新增（2026-05-07）
 
@@ -33,6 +33,9 @@
 | **60-evolution 新增** | [`60-evolution/91-streaming-scrubber-and-memory-security-scanning.md`](60-evolution/91-streaming-scrubber-and-memory-security-scanning.md) | **双 Scrubber 管道**（`StreamingContextScrubber` + `StreamingThinkScrubber`）**+ 内存写入安全扫描**（`_scan_memory_content`）深度解析；CE 落地：proxy 层 SSE 过滤（P1）+ ingest 入口安全扫描（P1）+ 冻结快照（P2） |
 | **60-evolution 新增** | [`60-evolution/92-upstream-aa88dcc57-memory-analysis.md`](60-evolution/92-upstream-aa88dcc57-memory-analysis.md) | **`aa88dcc57` salvage batch**（2026-05-06）：⭐⭐⭐ **P0** 压缩后 cached agent 未清除 + ⭐⭐⭐ **P1** Memory authority 升级（`informational → authoritative reference data`）+ ⭐⭐ **P1** Summary prefix 权威性声明 + **P2** 正则向后兼容新旧措辞 |
 | **60-evolution 新增** | [`60-evolution/96-hermes-memory-architecture-synthesis-and-ce-roadmap.md`](60-evolution/96-hermes-memory-architecture-synthesis-and-ce-roadmap.md) | **架构综合与 CE 落地路线图**（2026-05-07）：三记忆层×双系统全貌 / `aa88dcc57` P0 发现（压缩后 cached agent 未清除 + Memory authority 升级）/ 安全三层防护 / 原子写入 / 优先级矩阵 |
+| **60-evolution 新增** | [`60-evolution/99-upstream-append-mode-and-honcho-prefetch-semantic.md`](60-evolution/99-upstream-append-mode-and-honcho-prefetch-semantic.md) | **Hindsight Append-Mode + Honcho Prefetch 语义搜索（2026-05-07）**：`3082fa082` ⭐⭐⭐ P0 Hindsight `/version` 探测 + `threading.Lock` 双检缓存 + `update_mode='append'` 跨进程去重（API ≥ 0.5.0，镜像 `hindsight-integrations/openclaw`）；`0a7cc85ea` ⭐⭐ P1 Honcho `get_prefetch_context` 启用 `user_message` 语义搜索；CE 借鉴：API 版本兼容性探测模式 + `ContextService.prefetchContext()` semantic query |
+| **100** | `（无新文档）` | **上游扫描 2026-05-07**：8 commits（`5044e1cbf..f1a8e9994`），**0 记忆相关** — TUI/gateway/auth/docs；已在 v14.5 补扫 `f1a8e9994..53a024994` |
+| **101** | `（无新文档）` | **上游扫描 2026-05-07 05:40**：2 commits（`f1a8e9994..53a024994`），**0 记忆系统相关** — Docker CI（#20890 overlapping builds guard）；无 Python 源码变更；本地 Hermes Agent 已同步至 `53a024994` |
 
 ## 本仓库其他记忆分析草稿（交叉索引）
 

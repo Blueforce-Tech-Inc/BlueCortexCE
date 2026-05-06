@@ -5,7 +5,7 @@
 > **最后更新**：2026-05-07 00:45（v13.5：新增 [`95`](60-evolution/95-atomic-file-write-and-char-limit-design.md)—原子文件写入模式（temp+fsync+atomic_replace）+ 独立 .lock 文件设计 + 字符预算模型（2200/1375 chars）+ Section Sign `§` 分隔符设计；上游 `b62a82e0c` 与本地同步）
 > **旧巡检日志（2026-04-24 → 2026-05-05 02:33）**：→ [`11-research-backlog-inspection-logs-2026-04-24-to-2026-05-05.md`](11-research-backlog-inspection-logs-2026-04-24-to-2026-05-05.md)
 
-**本地 Hermes Agent Repo**：✅ 已存在，`git fetch origin/main` 成功（`b62a82e0c` 与 origin/main 同步）
+**本地 Hermes Agent Repo**：⚠️ 本地 HEAD `946ef0ea1`，origin/main `f1a8e9994`（落后 8 commits）；需 `cd ~/.hermes/hermes-agent && git fetch origin main && git checkout origin/main` 同步后再进行源码实地分析
 
 ---
 
@@ -265,3 +265,17 @@
 - [x] **上游代码增量扫描（从 b8fb9270c 补扫）**：b8fb9270c..946ef0ea1 共 30 commits，**0 个记忆系统相关** — TUI virtual history bounds（`946ef0ea1`）+ CI typecheck（`a345f7b6e`/`9627ee70e`）+ Feishu topic threading（`28299afc2`/`441ef75d1`）+ SearXNG web search（`48c241840`/`94016dd1a`/`5c906d702`/`cd2cbc73b`）+ Dashboard theme（`6388aafbd`）+ OpenCode Go（`a24789d73`）+ Linear docs（`ad7aad251`）+ Checkpoints v2（`a0fedfbb1`）+ Kanban 修复（`a2ff19305`/`b1d420e75`）；无记忆/上下文/压缩/provider/hook/hindsight/curator/guardrail/insights 相关
 - [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；最大正文 `index-reading-order.md` 46,443 字节（合规 < 50KB）✅；`hermes-memory/` 全部正文 < 50KB ✅
 - [x] **Backlog 全部项 `[x]`**：v14.3 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `946ef0ea1`）
+
+## 定时巡检（2026-05-07 05:03 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：fetch + checkout origin/main（`5044e1cbf` → `f1a8e9994`）❌ 本地 HEAD `946ef0ea1` 仍落后 8 commits，下次巡检前需手动同步
+- [x] **上游代码增量扫描**（`5044e1cbf..origin/main`，8 commits）：**0 个记忆系统相关** — TUI skin highlight colors（`f1a8e9994`）+ TUI virtual offset refresh（`da6019820`）+ CLI thin PTY LF enter（`5044e1cbf`）+ gateway per-platform restart notification（`b71f80e6c`）+ auth JSON fallback（`33bf5f629`）+ tool-gateway docs rewrite（`d514dd405`）；无记忆/上下文/压缩/provider/hook/hindsight/curator/guardrail/insights/compressor 相关
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；最大正文 `index-reading-order.md` 44,860 字节（合规 < 50KB）✅；归档 entries 1-20 → `index-reading-order-archive-1.md`（3,445 字节）；`index.md` 更新为 7,281 字节 ✅；`AGENT.md` 更新体量预警表 ✅；`hermes-memory/` 全部正文 < 50KB ✅
+- [x] **Backlog 全部项 `[x]`**：v14.4 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `f1a8e9994`）
+
+## 定时巡检（2026-05-07 05:40 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：fetch + checkout origin/main（`f1a8e9994` → `53a024994`）✅（v14.4 记录本地落后 8 commits，现已同步至最新 `53a024994`）
+- [x] **上游代码增量扫描**（`f1a8e9994..53a024994`，2 commits）：**0 个记忆系统相关** — Docker CI 修复（`53a024994` merge #20890 / `f4031df05` overlapping builds guard）；无 Python 源码变更；无记忆/上下文/压缩/provider/hook/hindsight/curator/guardrail/insights/compressor 相关
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；`11-research-backlog.md` 41,180 字节（合规 < 50KB）✅；`hermes-memory/` 全部正文 < 50KB ✅
+- [x] **Backlog 全部项 `[x]`**：v14.5 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `53a024994`）
