@@ -136,8 +136,7 @@ def _to_dict_list(v: object, default: list[dict] | None = None) -> list[dict]:
         elif item is not None:
             # Defensive: convert non-dict items to empty dict
             result.append({})
-        else:
-            result.append({})
+        # else: item is None → skip (None items are filtered)
     return result
 
 
@@ -305,6 +304,9 @@ class ICLPromptResult:
     prompt: str = ""
     experience_count: int = 0
     max_chars: int = 0
+
+    def __repr__(self) -> str:
+        return f"ICLPromptResult(experience_count={self.experience_count}, max_chars={self.max_chars})"
 
     @classmethod
     def from_wire(cls, data: dict) -> ICLPromptResult:
@@ -640,6 +642,9 @@ class QualityDistribution:
     medium: int = 0
     low: int = 0
     unknown: int = 0
+
+    def __repr__(self) -> str:
+        return f"QualityDistribution(project={self.project!r}, high={self.high}, medium={self.medium}, low={self.low}, unknown={self.unknown}, total={self.total})"
 
     @property
     def total(self) -> int:
