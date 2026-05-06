@@ -994,7 +994,9 @@ curl "http://localhost:37777/api/observations?project=/Users/dev/myproject&limit
 
 ### Get Observations by IDs
 
-#### POST `/api/observations/batch`
+```
+POST /api/observations/batch
+```
 
 批量获取观察详情。
 
@@ -1041,7 +1043,9 @@ curl "http://localhost:37777/api/observations?project=/Users/dev/myproject&limit
 
 ### Search by File
 
-#### GET `/api/search/by-file`
+```
+GET /api/search/by-file
+```
 
 根据文件/文件夹路径搜索观察。
 
@@ -2522,6 +2526,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-05-06 | 0.1.0-beta+42 | GET /api/settings：修正 6 个示例值以匹配 AppSettings.toMap() 实际默认值（PROVIDER openai→claude、MODEL gpt-4o→claude-sonnet-4-5、MAX_OBSERVATIONS 100→50、FULL_FIELD full_content→narrative、OBSERVATION_TYPES/CONCEPTS 从 [] 修正为实际列表）；移除 3 个错误文档化的字段（CLAUDE_MEM_WORKER_PORT/CLAUDE_MEM_WORKER_HOST/CLAUDE_MEM_SKIP_TOOLS）—— 这些字段存在于 AppSettings 但未在 toMap() 中序列化；与英文版同步 |
 | 2026-05-06 | 0.1.0-beta+43 | POST /api/extraction/run：补充遗漏的 500 错误响应（`{"error": "Failed to trigger extraction: Extraction failed and DLQ unavailable for template: ..."}`）——后端修复（316c165 F-2）使 DLQ 存储失败从静默事务回滚变为 HTTP 500 错误返回；与英文版同步 |
 | 2026-05-07 | 0.1.0-beta+44 | 修复 ZH API 文档严重结构错误：`#### GET /api/search/by-file` 和 `#### POST /api/observations/batch` 错误放置于 `## 搜索` 章节（应为 `## Viewer`）；已将两节移至 Viewer 章节并添加 `### Get Observations by IDs` 和 `### Search by File` 小节标题，与英文版结构对齐 |
+| 2026-05-07 | 0.1.0-beta+45 | ZH API 文档：修复 beta+44 不完整修复——`### Get Observations by IDs` 和 `### Search by File` 虽已添加为小节标题，但其子节点 `#### POST /api/observations/batch` 和 `#### GET /api/search/by-file` 仍处于 `####` 级别而非 `###` 级别，形成空标题嵌套；移除两个空 `###` 父标题并将子节点升级为 `###` 级别（URL 以代码块格式展示），与英文版结构完全对齐 |
 ---
 
 **文档维护**: 本文档应随 API 变更同步更新。如有疑问，请参考源代码 Controller 类或提交 Issue。
