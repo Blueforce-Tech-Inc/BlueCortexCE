@@ -4054,3 +4054,57 @@ if self.access_count:
 | Barrel export 完整性 | ✅ index.ts re-export 所有类型、函数、错误类型 |
 
 **JS SDK P0/P1/P2 状态**: 0 / 0 / 0
+
+---
+
+## 2026-05-06 20:40 | Java SDK Review #1
+
+**审查方向**: Java SDK (`cortex-mem-spring-integration/`)
+
+**审查范围**:
+- `cortex-mem-client`: CortexMemClient (25-method interface), CortexMemClientImpl (full implementation), 15 DTOs
+- `cortex-mem-spring-ai`: 6 Spring AI integration components (advisor, aspect, context, observation, retrieval, tools)
+- `cortex-mem-starter`: Auto-configuration + HealthIndicator
+
+**编译验证**: ✅ `mvn clean compile` — 无错误无警告
+**测试验证**: ✅ 173 tests 全通过（client 120 + spring-ai 46 + starter 7）
+
+#### 发现的问题
+
+**无 P0/P1 问题**。
+
+**2 个 P2 问题（均已当场修复）**：
+
+| # | 文件 | 问题 | 严重度 | 状态 |
+|---|------|------|--------|------|
+| JS-1 | `CortexMemClientImpl.java:374` | `triggerExtraction` Javadoc 声明"fire-and-forget"（错误被吞掉），但实现使用 `executeWithRetry`（最终失败会抛 RuntimeException）。与 `triggerRefinement`、`recordObservation` 等真正的 fire-and-forget 方法行为不一致 | P2 | ✅ 已修复：改为 `executeWithRetrySilent` |
+| JS-2 | `SearchRequest.java:Builder.build()` | Builder 的 `build()` 方法未校验 `project` 必填，`new SearchRequest(null, ...)` 延迟到 compact constructor 才报错，错误信息混淆（"project must not be null or blank"） | P2 | ✅ 已修复：`build()` 中添加 fail-fast 校验，提示"project is required (set via project())" |
+
+#### 代码质量交叉验证
+
+| 检查项 | client interface | client_impl | DTOs | Spring AI | Starter |
+|--------|----------------|-------------|------|----------|---------|
+| API 完整性（25 方法） | ✅ 25 个方法 | ✅ 全部实现 | — | — | — |
+| Wire 格式正确性 | — | ✅ snake_case params | ✅ toWireFormat + @JsonProperty | — | — |
+| 字段验证 | — | ✅ requireNonBlank + requireAbsolutePath | ✅ compact constructor + Builder | — | — |
+| Fire-and-forget 语义 | — | ✅ executeWithRetrySilent | — | — | — |
+| Retry + Jitter | — | ✅ jitteredBackoff ±25% | — | — | — |
+| isRetryable 策略 | — | ✅ 429/502-504 retry, 4xx/500 skip | — | — | — |
+| Spring AI 集成 | — | — | — | ✅ Advisor/Aspect/Retrieval | — |
+| Auto-config | — | — | — | — | ✅ @ConditionalOnProperty |
+| Health Indicator | — | — | — | — | ✅ Actuator 兼容 |
+
+#### 亮点
+
+- **`triggerExtraction` 与 Go SDK 行为对齐**：Go SDK `TriggerExtraction` 也是 fire-and-forget（错误被吞）。Java SDK 修复后行为完全一致
+- **Builder fail-fast 改进**：`SearchRequest.Builder` 现在在 `build()` 中立即校验 `project` 必填，避免"在错误层报错"的困惑
+- **Wire format 精确匹配**：所有 DTO 的 `@JsonProperty` 均与 backend `ApiRequests`/`ApiResponses` 对照验证，snake_case/camelCase 无歧义
+- **Spring AI 集成严谨**：`CortexToolAspect` 设置 `HIGHEST_PRECEDENCE + 100` 确保在最外层拦截；跳过 `CortexMemoryTools` 防止递归；异常不破坏主 pipeline
+- **`Experience` DTO 双向兼容**：`@JsonProperty(snake) + @JsonAlias(camel)` 容许 backend 任意命名策略
+- **全模块无警告编译**：client + spring-ai + starter 三个模块全部 clean compile
+
+#### 代码审查结论
+
+0 P0 / 0 P1 / 0 P2（2 个 P2 已当场修复后记录）。Java SDK 代码质量优秀，25 个 API 方法实现完整，Wire format 与 backend 完全对齐，Spring AI 集成设计严谨。
+
+**Java SDK P0/P1/P2 状态**: 0 / 0 / 0（修复后）
