@@ -14,6 +14,8 @@
 | 编号 | 路径 | 说明 |
 |------|------|------|
 | **95** | [`60-evolution/95-atomic-file-write-and-char-limit-design.md`](60-evolution/95-atomic-file-write-and-char-limit-design.md) | **原子文件写入 + Char-Limit 设计模式**：temp file + `os.fsync` + `atomic_replace` 三步走；独立 `.lock` 文件设计；字符预算模型（2200/1375 chars，model-independent）；`ENTRY_DELIMITER = "\n§\n"` Section Sign 分隔符；CE 落地：P1 原子写入（安全关键）+ P1 字符限制（MEMORY.md）+ P2 ingest 入口扫描 |
+| **97** | [`60-evolution/97-curator-skill-lifecycle-and-background-maintenance-orchestrator.md`](60-evolution/97-curator-skill-lifecycle-and-background-maintenance-orchestrator.md) | **Curator 技能生命周期管理与后台维护编排器**：1674 行；空闲触发调度（`should_run_now()` + idle hours）+ 纯函数状态机（active → stale → archived）+ LLM 驱动的伞形化评审 + 原子状态持久化 + 分类启发式（consolidation vs pruning）+ 双输出报告 + Dry-run；CE 借鉴：后台 Observation 生命周期管理 |
+| **98** | [`60-evolution/98-tool-call-loop-guardrails-and-file-safety.md`](60-evolution/98-tool-call-loop-guardrails-and-file-safety.md) | **Tool Call Loop Guardrails + File Safety**：455+111 行；`ToolCallGuardrailController` 三模式检测（exact failure / same-tool failure / idempotent no-progress）+ SHA256 签名 + opt-in hard stop；`FileSafety` 双防线（denylist + safe root 隔离）；CE 落地：P1 MCPTools GuardrailController + P1 文件路径 denylist；CE 安全纵深 L1-L4 缺口对照 |
 
 ## 按 aspect 浏览
 

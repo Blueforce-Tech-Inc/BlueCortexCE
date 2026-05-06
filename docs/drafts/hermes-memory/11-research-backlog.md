@@ -234,3 +234,19 @@
 - [x] **上游代码增量扫描**（`b62a82e0c..origin/main`，0 commits）：无新 upstream 推进，文档保持最新
 - [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；最大正文 `index-reading-order.md` 45,026 字节（合规 < 50KB）✅；`hermes-memory/60-evolution/` 77 篇正文，全部低于 50KB ✅；新增 doc `95`（7,850 字节）— 原子文件写入模式（temp+fsync+atomic_replace）+ 独立 .lock 文件设计 + 字符预算模型（2200/1375 chars）+ Section Sign `§` 分隔符设计
 - [x] **Backlog 全部项 `[x]`**：v13.5 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `b62a82e0c`）
+
+## 定时巡检（2026-05-07 02:01 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：fetch + checkout origin/main（`b62a82e0c` → `28299afc2`）✅
+- [x] **上游代码增量扫描**（`b62a82e0c..origin/main`，9 commits）：**0 个记忆系统相关** — 全部为 Feishu topic thread 修复（`28299afc2`/`441ef75d1`）+ SearXNG web search（`48c241840`/`94016dd1a`/`5c906d702`/`cd2cbc73b`）+ Dashboard theme（`6388aafbd`）+ OpenCode Go 修复（`a24789d73`）+ Linear docs（`ad7aad251`）；无记忆/上下文/压缩/provider/hook/hindsight 相关
+- [x] **新增分析：Curator 技能生命周期管理与后台维护编排器（2026-05-07 新增）**：`agent/curator.py`（1674 行）— 空闲触发调度（`should_run_now()` + idle hours）+ 纯函数状态机（active → stale → archived）+ LLM 驱动的伞形化评审（`CURATOR_REVIEW_PROMPT`）+ 原子状态持久化（temp+fsync+replace，与 doc 95 一致）+ 分类启发式（consolidation vs pruning）+ 双输出报告系统（run.json + REPORT.md）+ Dry-run 模式；CE 借鉴：后台 Observation 生命周期管理 + 相似 Observation 自动合并 + Session 自动过期刷新 → [`97`](60-evolution/97-curator-skill-lifecycle-and-background-maintenance-orchestrator.md)（12,067 字节）
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；最大正文 `index-reading-order.md` 45,026 字节（合规 < 50KB）✅；`hermes-memory/60-evolution/` 78 篇正文，全部低于 50KB ✅；新增 doc `97`（12,067 字节）
+- [x] **Backlog 全部项 `[x]`**：v14.0 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `28299afc2`）
+
+## 定时巡检（2026-05-07 02:58 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：fetch + checkout origin/main（`28299afc2` → `946ef0ea1`）✅
+- [x] **上游代码增量扫描**（`28299afc2..origin/main`，5 commits）：**0 个记忆系统相关** — 全部为 TUI 修复（`946ef0ea1` virtual history offset bounds）+ Kanban 修复（`a2ff19305`/`b1d420e75`）+ typecheck merge（`a345f7b6e`）；无记忆/上下文/压缩/provider/hook/hindsight 相关
+- [x] **新增分析：Tool Call Loop Guardrails + File Safety（2026-05-07 新增）**：`agent/tool_guardrails.py`（455 行）+ `agent/file_safety.py`（111 行）— ⭐⭐ **ToolCallGuardrailController** 三模式检测（exact failure / same-tool failure / idempotent no-progress）+ SHA256 签名标准化 + opt-in hard stop + 可配置阈值矩阵 + synthetic result 输出；⭐⭐ **FileSafety** 双防线（denylist 精确路径 + 目录前缀 + safe root 隔离 + Hermes 内部缓存读取拦截）；CE 借鉴：P1 MCPTools 层 GuardrailController（防止工具循环）+ P1 文件路径 denylist（`ContextService` 补充）；CE 安全纵深 L1-L4 缺口对照；Tool Signature 模式值得在 CE SDK 层实现 → [`98`](60-evolution/98-tool-call-loop-guardrails-and-file-safety.md)（10,038 字节）
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；最大正文 `index-reading-order.md` 45,026 字节（合规 < 50KB）✅；`hermes-memory/60-evolution/` 79 篇正文，全部低于 50KB ✅；新增 doc `98`（10,038 字节）
+- [x] **Backlog 全部项 `[x]`**：v14.1 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `946ef0ea1`）
