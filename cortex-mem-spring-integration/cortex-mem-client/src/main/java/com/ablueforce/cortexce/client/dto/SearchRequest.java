@@ -80,6 +80,11 @@ public record SearchRequest(
         public Builder orderBy(String orderBy) { this.orderBy = orderBy; return this; }
 
         public SearchRequest build() {
+            // Fail-fast on missing required project, rather than deferring to the record compact
+            // constructor (which would surface a confusing "project must not be null or blank" message).
+            if (project == null || project.isBlank()) {
+                throw new IllegalArgumentException("project is required (set via project())");
+            }
             // Silently nullify blank orderBy to avoid sending empty string to backend.
             String resolvedOrderBy = (orderBy != null && orderBy.isBlank()) ? null : orderBy;
             return new SearchRequest(project, query, type, concept, source, limit, offset, resolvedOrderBy);

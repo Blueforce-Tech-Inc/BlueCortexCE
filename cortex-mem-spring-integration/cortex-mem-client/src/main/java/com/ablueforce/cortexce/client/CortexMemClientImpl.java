@@ -373,7 +373,7 @@ public class CortexMemClientImpl implements CortexMemClient {
     @Override
     public void triggerExtraction(String projectPath) {
         requireNonBlank(projectPath, "projectPath");
-        executeWithRetry("triggerExtraction", () ->
+        executeWithRetrySilent("triggerExtraction", () ->
             restClient.post()
                 .uri(uriBuilder -> uriBuilder
                     .path("/api/extraction/run")
