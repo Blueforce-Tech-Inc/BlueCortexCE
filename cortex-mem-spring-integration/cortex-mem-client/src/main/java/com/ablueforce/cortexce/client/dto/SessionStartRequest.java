@@ -33,6 +33,12 @@ public record SessionStartRequest(
         public Builder userId(String userId) { this.userId = userId; return this; }
 
         public SessionStartRequest build() {
+            if (sessionId == null || sessionId.isBlank()) {
+                throw new IllegalArgumentException("sessionId is required (set via sessionId())");
+            }
+            if (projectPath == null || projectPath.isBlank()) {
+                throw new IllegalArgumentException("projectPath is required (set via projectPath())");
+            }
             return new SessionStartRequest(sessionId, projectPath, userId);
         }
     }
