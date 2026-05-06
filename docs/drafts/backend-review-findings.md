@@ -1,7 +1,7 @@
 > **用途**: 记录 Backend 代码审查发现的问题及修复状态
 > **维护者**: PM Agent
 > **更新频率**: 每次巡检审查 Backend 时更新
-> **最后更新**: 2026-05-06 07:38 (Demo Review #1 — 0 P0/P1/P2)
+> **最后更新**: 2026-05-07 07:19 (Demo Review #2 — Java Demo: 0 P0/0 P1/1 P2)
 
 ---
 
@@ -4108,3 +4108,40 @@ if self.access_count:
 0 P0 / 0 P1 / 0 P2（2 个 P2 已当场修复后记录）。Java SDK 代码质量优秀，25 个 API 方法实现完整，Wire format 与 backend 完全对齐，Spring AI 集成设计严谨。
 
 **Java SDK P0/P1/P2 状态**: 0 / 0 / 0（修复后）
+
+---
+
+## 2026-05-07 07:19 | Demo Review #2（Java Demo 专项）
+
+**审查方向**: Java Demo 代码（`examples/cortex-mem-demo/`）
+
+**审查范围**:
+- `ChatController.java` — Memory-augmented chat（含 useTools 模式、CortexSessionContext 生命周期）
+- `SearchController.java` — Search API（orderBy、source 过滤、分页）
+- `ObservationsController.java` — Observations List + CRUD（10 个端点）
+- `ManagementController.java` — Version/Stats/Modes/Settings/Projects/Quality/Refine
+- `ExtractionController.java` — Extraction latest/history/run（Phase 3）
+
+**审查覆盖**: Java Demo（Go/Python/JS HTTP Server demos 在 Demo Review #1 中已审查，0 P0/P1/P2）
+
+#### 发现的问题
+
+**P2-1: `/refine` 响应格式跨 SDK 不一致**
+
+| Demo | 响应 |
+|------|------|
+| Java Demo（ManagementController.java） | `{"status": "refinement triggered", "project": "/test"}` |
+| Go Demo | `{"status": "refined"}` |
+| Python Demo | `{"status": "refined"}` |
+| JS Demo | `{"status": "refined"}` |
+
+**分析**: Java Demo 响应更详细（包含 project），对调试更友好，但与其他 3 个 SDK 的 demo 不一致。属于"实现 vs 参考"取舍问题：Java Demo 偏重有用性（返回 project 有助于调试），Go/Python/JS 偏重最小响应原则。
+
+**建议处理方案（二选一）**:
+1. **推荐**: 保持 Java Demo 现状（更有信息量），将 Go/Python/JS 的 `/refine` 改为也返回 `{"status": "refined", "project": "..."}` — 3 个文件修改
+2. 保守: 保持现状（实际不影响功能，demo 不做响应格式断言）
+
+**是否当场修复**: 否（P2 cosmetic，且 Java demo 响应实际上更有用；修复需要改 3 个 SDK 的 demo）
+
+**Demo P0/P1/P2 状态**: 0 / 0 / 1
+
