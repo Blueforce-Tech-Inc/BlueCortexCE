@@ -22,6 +22,6 @@
 
 ---
 
-## 最新分析（cron 2026-05-06 06:56）
+## 最新分析（cron 2026-05-07 05:56）
 
-**cron 巡检 2026-05-07 01:55**：目录 **133** 个 .md；最大 45633B；所有 < 50KB ✅；**backlog 全项已勾选 ✅**；backlog **0 项未决**；上游 v1.79.1 已覆盖（本地 checkout v1.47.0，main 分支领先 56 commits）；v1.79.1 新增 `integrityCheck.js`（重度混淆，不可分析）+ 2个测试文件，无新可分析生产源码。**持续维护 pass，无新增分析任务。**
+**cron 巡检 2026-05-07 06:45**：目录 **136** 个 .md；最大 44877B；所有 < 50KB ✅；**backlog 全项已勾选 ✅**；backlog **0 项未决**；上游 v1.79.1 已覆盖（本地 checkout v1.47.0 `e72778e`，main 分支领先 56 commits）；无新增可分析源码（v1.78.10→v1.79.1 新增 `scripts/build_binaries.js` 已覆盖 + 4个重度混淆模块 explore/shield/hubVerify/integrityCheck + skillDistiller 440KB 不可分析，skillDistiller v1.47.0 可读版已在 doc 84 分析）；本地 v1.47.0 可读源码 54个 gep/*.js 已全覆盖；proxy/ATP/Adapter 子系统均已深度覆盖；**持续维护 pass，无新增分析任务**。
