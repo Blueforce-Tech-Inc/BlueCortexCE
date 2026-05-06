@@ -1068,16 +1068,16 @@ Returns current application settings with all `CLAUDE_MEM_*` configuration field
 ```json
 {
   "CLAUDE_MEM_MODE": "code",
-  "CLAUDE_MEM_PROVIDER": "openai",
-  "CLAUDE_MEM_MODEL": "gpt-4o",
+  "CLAUDE_MEM_PROVIDER": "claude",
+  "CLAUDE_MEM_MODEL": "claude-sonnet-4-5",
   "CLAUDE_MEM_LOG_LEVEL": "INFO",
   "CLAUDE_MEM_CONTEXT_OBSERVATIONS": 50,
   "CLAUDE_MEM_CONTEXT_FULL_COUNT": 5,
-  "CLAUDE_MEM_CONTEXT_FULL_FIELD": "full_content",
+  "CLAUDE_MEM_CONTEXT_FULL_FIELD": "narrative",
   "CLAUDE_MEM_CONTEXT_SESSION_COUNT": 10,
-  "CLAUDE_MEM_CONTEXT_OBSERVATION_TYPES": [],
-  "CLAUDE_MEM_CONTEXT_OBSERVATION_CONCEPTS": [],
-  "CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS": 100,
+  "CLAUDE_MEM_CONTEXT_OBSERVATION_TYPES": ["bugfix","feature","refactor","discovery","decision","change"],
+  "CLAUDE_MEM_CONTEXT_OBSERVATION_CONCEPTS": ["how-it-works","why-it-exists","what-changed","problem-solution","gotcha","pattern","trade-off"],
+  "CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS": 50,
   "CLAUDE_MEM_CONTEXT_SHOW_READ_TOKENS": true,
   "CLAUDE_MEM_CONTEXT_SHOW_WORK_TOKENS": true,
   "CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_AMOUNT": true,
@@ -1087,6 +1087,9 @@ Returns current application settings with all `CLAUDE_MEM_*` configuration field
   "CLAUDE_MEM_FOLDER_CLAUDEMD_ENABLED": false,
   "CLAUDE_MEM_EXCLUDED_PROJECTS": [],
   "CLAUDE_MEM_DATA_DIR": "",
+  "CLAUDE_MEM_WORKER_PORT": "37777",
+  "CLAUDE_MEM_WORKER_HOST": "127.0.0.1",
+  "CLAUDE_MEM_SKIP_TOOLS": "ListMcpResourcesTool,SlashCommand,Skill,TodoWrite,AskUserQuestion",
   "modeName": "Code",
   "modeDescription": "Tracks code evolution"
 }
@@ -2438,6 +2441,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-05-05 | 0.1.0-beta+38 | Structural reorganization: Settings endpoints (GET+POST /api/settings) are now in ## Management; Timeline (GET /api/timeline), SDK Sessions (POST /api/sdk-sessions/batch), Modes (GET+POST /api/modes) are in ## Viewer; ## Search now contains only Search Memory; EN structure was already in this state — this changelog entry added for completeness and to sync with ZH |
 | 2026-05-05 | 0.1.0-beta+39 | GET `/api/projects`: updated response example to include `sources` and `projectsBySource` fields (V18) — matches ViewerController.getProjects() returning platform source list and grouping; SSE `/stream` initial_load event: updated example to include `sources` and `projectsBySource` (V18); synced Chinese version |
 | 2026-05-06 | 0.1.0-beta+40 | Structural fix: ## Search section moved from after ## Mode to after ## Extraction in ZH doc, aligning ZH section order with EN (Search → Management → Mode); ## Management (Projects/Stats/Settings) and ## Mode (ModeController endpoints) remain in place; only ## Search section position changed; EN doc structure unchanged |
+| 2026-05-06 | 0.1.0-beta+42 | GET /api/settings: added 3 missing fields (CLAUDE_MEM_WORKER_PORT/CLAUDE_MEM_WORKER_HOST/CLAUDE_MEM_SKIP_TOOLS) from AppSettings.toMap(); corrected 6 example values to match actual defaults (PROVIDER openai→claude, MODEL gpt-4o→claude-sonnet-4-5, MAX_OBSERVATIONS 100→50, FULL_FIELD full_content→narrative, OBSERVATION_TYPES/CONCEPTS from [] to actual lists); synced Chinese version |
 | 2026-05-06 | 0.1.0-beta+41 | ZH API doc: fixed orphaned Extraction subsection headers (### 触发结构化提取/获取最新提取结果/获取历史 were empty with no content); reorganized Extraction content to be properly nested under each subsection; ZH structure now matches EN (Extraction with 3 subsections → Search → Viewer). |
 
 ---
