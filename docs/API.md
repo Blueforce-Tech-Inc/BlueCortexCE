@@ -1094,9 +1094,6 @@ Returns current application settings with all `CLAUDE_MEM_*` configuration field
   "CLAUDE_MEM_FOLDER_CLAUDEMD_ENABLED": false,
   "CLAUDE_MEM_EXCLUDED_PROJECTS": [],
   "CLAUDE_MEM_DATA_DIR": "",
-  "CLAUDE_MEM_WORKER_PORT": "37777",
-  "CLAUDE_MEM_WORKER_HOST": "127.0.0.1",
-  "CLAUDE_MEM_SKIP_TOOLS": "ListMcpResourcesTool,SlashCommand,Skill,TodoWrite,AskUserQuestion",
   "modeName": "Code",
   "modeDescription": "Tracks code evolution"
 }
@@ -2449,7 +2446,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-05-05 | 0.1.0-beta+39 | GET `/api/projects`: updated response example to include `sources` and `projectsBySource` fields (V18) — matches ViewerController.getProjects() returning platform source list and grouping; SSE `/stream` initial_load event: updated example to include `sources` and `projectsBySource` (V18); synced Chinese version |
 | 2026-05-06 | 0.1.0-beta+40 | Structural fix: ## Search section moved from after ## Mode to after ## Extraction in ZH doc, aligning ZH section order with EN (Search → Management → Mode); ## Management (Projects/Stats/Settings) and ## Mode (ModeController endpoints) remain in place; only ## Search section position changed; EN doc structure unchanged |
 | 2026-05-06 | 0.1.0-beta+43 | POST /api/extraction/run: added missing 500 error response (`{"error": "Failed to trigger extraction: Extraction failed and DLQ unavailable for template: ..."}`) — backend fix (316c165 F-2) surfaces DLQ storage failures as HTTP 500 instead of silent transaction rollback; synced Chinese version |
-| 2026-05-06 | 0.1.0-beta+42 | GET /api/settings: added 3 missing fields (CLAUDE_MEM_WORKER_PORT/CLAUDE_MEM_WORKER_HOST/CLAUDE_MEM_SKIP_TOOLS) from AppSettings.toMap(); corrected 6 example values to match actual defaults (PROVIDER openai→claude, MODEL gpt-4o→claude-sonnet-4-5, MAX_OBSERVATIONS 100→50, FULL_FIELD full_content→narrative, OBSERVATION_TYPES/CONCEPTS from [] to actual lists); synced Chinese version |
+| 2026-05-06 | 0.1.0-beta+42 | GET /api/settings: corrected 6 example values to match actual AppSettings.toMap() defaults (PROVIDER openai→claude, MODEL gpt-4o→claude-sonnet-4-5, MAX_OBSERVATIONS 100→50, FULL_FIELD full_content→narrative, OBSERVATION_TYPES/CONCEPTS from [] to actual lists); removed 3 incorrectly documented fields (CLAUDE_MEM_WORKER_PORT/CLAUDE_MEM_WORKER_HOST/CLAUDE_MEM_SKIP_TOOLS) — present in AppSettings but not serialized by toMap(); synced Chinese version |
 | 2026-05-06 | 0.1.0-beta+41 | ZH API doc: fixed orphaned Extraction subsection headers (### 触发结构化提取/获取最新提取结果/获取历史 were empty with no content); reorganized Extraction content to be properly nested under each subsection; ZH structure now matches EN (Extraction with 3 subsections → Search → Viewer). |
 
 ---

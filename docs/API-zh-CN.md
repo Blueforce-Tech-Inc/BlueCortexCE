@@ -1337,9 +1337,6 @@ curl http://localhost:37777/api/settings
   "CLAUDE_MEM_FOLDER_CLAUDEMD_ENABLED": false,
   "CLAUDE_MEM_EXCLUDED_PROJECTS": [],
   "CLAUDE_MEM_DATA_DIR": "",
-  "CLAUDE_MEM_WORKER_PORT": "37777",
-  "CLAUDE_MEM_WORKER_HOST": "127.0.0.1",
-  "CLAUDE_MEM_SKIP_TOOLS": "ListMcpResourcesTool,SlashCommand,Skill,TodoWrite,AskUserQuestion",
   "modeName": "Code",
   "modeDescription": "Tracks code evolution"
 }
@@ -2518,7 +2515,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-05-05 | 0.1.0-beta+39 | GET `/api/projects`：更新响应示例，新增 `sources` 和 `projectsBySource` 字段（V18）——对应 ViewerController.getProjects() 返回平台来源列表和分组；SSE `/stream` initial_load 事件：更新示例，新增 `sources` 和 `projectsBySource`（V18）；与英文版同步 |
 | 2026-05-06 | 0.1.0-beta+40 | 结构重组：## 搜索 章节（原位于 ## Mode 模式 之后）移至 ## Extraction 结构化提取 之后，与英文版结构顺序对齐（Search → Management → Mode）；## 管理（Projects/Stats/Settings）和 ## Mode 模式（ModeController 端点）保持不变，仅移动 ## 搜索 章节位置 |
 | 2026-05-06 | 0.1.0-beta+43 | POST /api/extraction/run：补充遗漏的 500 错误响应（`{"error": "Failed to trigger extraction: Extraction failed and DLQ unavailable for template: ..."}`）——后端修复（316c165 F-2）使 DLQ 存储失败从静默事务回滚变为 HTTP 500 错误返回；与英文版同步 |
-| 2026-05-06 | 0.1.0-beta+42 | GET /api/settings：补充 3 个遗漏字段（CLAUDE_MEM_WORKER_PORT/CLAUDE_MEM_WORKER_HOST/CLAUDE_MEM_SKIP_TOOLS，来自 AppSettings.toMap()）；修正 6 个示例值以匹配实际默认值（PROVIDER openai→claude、MODEL gpt-4o→claude-sonnet-4-5、MAX_OBSERVATIONS 100→50、FULL_FIELD full_content→narrative、OBSERVATION_TYPES/CONCEPTS 从 [] 修正为实际列表）；与英文版同步 |
+| 2026-05-06 | 0.1.0-beta+42 | GET /api/settings：修正 6 个示例值以匹配 AppSettings.toMap() 实际默认值（PROVIDER openai→claude、MODEL gpt-4o→claude-sonnet-4-5、MAX_OBSERVATIONS 100→50、FULL_FIELD full_content→narrative、OBSERVATION_TYPES/CONCEPTS 从 [] 修正为实际列表）；移除 3 个错误文档化的字段（CLAUDE_MEM_WORKER_PORT/CLAUDE_MEM_WORKER_HOST/CLAUDE_MEM_SKIP_TOOLS）—— 这些字段存在于 AppSettings 但未在 toMap() 中序列化；与英文版同步 |
 | 2026-05-06 | 0.1.0-beta+41 | ZH API 文档：修复 Extraction 章节孤立的小节标题（### 触发结构化提取/获取最新提取结果/获取历史 为空标题，无实际内容）；重组 Extraction 内容，正确嵌套于各小节之下；ZH 结构现已与英文版一致（Extraction 含3个小节 → 搜索 → Viewer） |
 
 ---
