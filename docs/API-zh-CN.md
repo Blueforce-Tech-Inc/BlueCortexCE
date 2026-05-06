@@ -901,82 +901,6 @@ curl "http://localhost:37777/api/search?project=/Users/dev/myproject&query=authe
 
 ---
 
-#### GET `/api/search/by-file`
-
-根据文件/文件夹路径搜索观察。
-
-**查询参数**:
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `project` | string | (必填) | 项目路径 |
-| `filePath` | string | (必填) | 文件/文件夹路径 |
-| `isFolder` | boolean | false | 是否为文件夹 |
-| `limit` | int | 20 | 结果数量 |
-| `debug` | boolean | false | 调试模式 |
-
-**请求示例**:
-```bash
-curl "http://localhost:37777/api/search/by-file?project=/Users/dev/myproject&filePath=/src/auth&isFolder=true"
-```
-
-**响应示例**:
-```json
-{
-  "observations": [...],
-  "count": 5,
-  "filePath": "/src/auth",
-  "isFolder": true
-}
-```
-
----
-
-#### POST `/api/observations/batch`
-
-批量获取观察详情。
-
-**请求体**:
-```json
-{
-  "ids": ["id1", "id2", "id3"],
-  "project": "/Users/dev/myproject",
-  "orderBy": "created_at_epoch",
-  "limit": 100
-}
-```
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `ids` | string[] | ✅ | 要获取的观察 UUID 列表 |
-| `project` | string | ❌ | 可选的项目过滤器 |
-| `orderBy` | string | ❌ | 排序字段（支持 `created_at_epoch` 或 `createdAtEpoch`） |
-| `limit` | int | ❌ | 最大返回结果数 |
-
-**响应示例**:
-```json
-{
-  "observations": [
-    {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "session_id": "content-session-uuid",
-      "project": "/Users/dev/myproject",
-      "type": "feature",
-      "title": "Feature implementation",
-      "narrative": "Implemented JWT authentication...",
-      "facts": ["Uses RS256 algorithm"],
-      "concepts": ["authentication"],
-      "quality_score": 0.85,
-      "created_at_epoch": 1743488400000,
-      "access_count": 3
-    }
-  ],
-  "count": 1
-}
-```
-
----
-
 
 ## Viewer 查看器
 
@@ -1065,6 +989,86 @@ curl "http://localhost:37777/api/observations?project=/Users/dev/myproject&limit
 | `refined_at` | string | 最后精炼时间的 ISO-8601 时间戳 |
 | `refined_from_ids` | string | 逗号分隔的源观察记录 ID（本次精炼的来源） |
 | `user_comment` | string | 用户提供的评论/注释 |
+
+---
+
+### Get Observations by IDs
+
+#### POST `/api/observations/batch`
+
+批量获取观察详情。
+
+**请求体**:
+```json
+{
+  "ids": ["id1", "id2", "id3"],
+  "project": "/Users/dev/myproject",
+  "orderBy": "created_at_epoch",
+  "limit": 100
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `ids` | string[] | ✅ | 要获取的观察 UUID 列表 |
+| `project` | string | ❌ | 可选的项目过滤器 |
+| `orderBy` | string | ❌ | 排序字段（支持 `created_at_epoch` 或 `createdAtEpoch`） |
+| `limit` | int | ❌ | 最大返回结果数 |
+
+**响应示例**:
+```json
+{
+  "observations": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "session_id": "content-session-uuid",
+      "project": "/Users/dev/myproject",
+      "type": "feature",
+      "title": "Feature implementation",
+      "narrative": "Implemented JWT authentication...",
+      "facts": ["Uses RS256 algorithm"],
+      "concepts": ["authentication"],
+      "quality_score": 0.85,
+      "created_at_epoch": 1743488400000,
+      "access_count": 3
+    }
+  ],
+  "count": 1
+}
+```
+
+---
+
+### Search by File
+
+#### GET `/api/search/by-file`
+
+根据文件/文件夹路径搜索观察。
+
+**查询参数**:
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `project` | string | (必填) | 项目路径 |
+| `filePath` | string | (必填) | 文件/文件夹路径 |
+| `isFolder` | boolean | false | 是否为文件夹 |
+| `limit` | int | 20 | 结果数量 |
+| `debug` | boolean | false | 调试模式 |
+
+**请求示例**:
+```bash
+curl "http://localhost:37777/api/search/by-file?project=/Users/dev/myproject&filePath=/src/auth&isFolder=true"
+```
+
+**响应示例**:
+```json
+{
+  "observations": [...],
+  "count": 5,
+  "filePath": "/src/auth",
+  "isFolder": true
+}
+```
 
 ---
 
@@ -2517,6 +2521,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-05-06 | 0.1.0-beta+41 | ZH API 文档：修复 Extraction 章节孤立的小节标题（### 触发结构化提取/获取最新提取结果/获取历史 为空标题，无实际内容）；重组 Extraction 内容，正确嵌套于各小节之下；ZH 结构现已与英文版一致（Extraction 含3个小节 → 搜索 → Viewer） |
 | 2026-05-06 | 0.1.0-beta+42 | GET /api/settings：修正 6 个示例值以匹配 AppSettings.toMap() 实际默认值（PROVIDER openai→claude、MODEL gpt-4o→claude-sonnet-4-5、MAX_OBSERVATIONS 100→50、FULL_FIELD full_content→narrative、OBSERVATION_TYPES/CONCEPTS 从 [] 修正为实际列表）；移除 3 个错误文档化的字段（CLAUDE_MEM_WORKER_PORT/CLAUDE_MEM_WORKER_HOST/CLAUDE_MEM_SKIP_TOOLS）—— 这些字段存在于 AppSettings 但未在 toMap() 中序列化；与英文版同步 |
 | 2026-05-06 | 0.1.0-beta+43 | POST /api/extraction/run：补充遗漏的 500 错误响应（`{"error": "Failed to trigger extraction: Extraction failed and DLQ unavailable for template: ..."}`）——后端修复（316c165 F-2）使 DLQ 存储失败从静默事务回滚变为 HTTP 500 错误返回；与英文版同步 |
+| 2026-05-07 | 0.1.0-beta+44 | 修复 ZH API 文档严重结构错误：`#### GET /api/search/by-file` 和 `#### POST /api/observations/batch` 错误放置于 `## 搜索` 章节（应为 `## Viewer`）；已将两节移至 Viewer 章节并添加 `### Get Observations by IDs` 和 `### Search by File` 小节标题，与英文版结构对齐 |
 ---
 
 **文档维护**: 本文档应随 API 变更同步更新。如有疑问，请参考源代码 Controller 类或提交 Issue。

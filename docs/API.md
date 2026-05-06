@@ -2448,6 +2448,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-05-06 | 0.1.0-beta+41 | ZH API doc: fixed orphaned Extraction subsection headers (### 触发结构化提取/获取最新提取结果/获取历史 were empty with no content); reorganized Extraction content to be properly nested under each subsection; ZH structure now matches EN (Extraction with 3 subsections → Search → Viewer). |
 | 2026-05-06 | 0.1.0-beta+42 | GET /api/settings: corrected 6 example values to match actual AppSettings.toMap() defaults (PROVIDER openai→claude, MODEL gpt-4o→claude-sonnet-4-5, MAX_OBSERVATIONS 100→50, FULL_FIELD full_content→narrative, OBSERVATION_TYPES/CONCEPTS from [] to actual lists); removed 3 incorrectly documented fields (CLAUDE_MEM_WORKER_PORT/CLAUDE_MEM_WORKER_HOST/CLAUDE_MEM_SKIP_TOOLS) — present in AppSettings but not serialized by toMap(); synced Chinese version |
 | 2026-05-06 | 0.1.0-beta+43 | POST /api/extraction/run: added missing 500 error response (`{"error": "Failed to trigger extraction: Extraction failed and DLQ unavailable for template: ..."}`) — backend fix (316c165 F-2) surfaces DLQ storage failures as HTTP 500 instead of silent transaction rollback; synced Chinese version |
+| 2026-05-07 | 0.1.0-beta+44 | ZH API doc: fixed structural bug — `GET /api/search/by-file` and `POST /api/observations/batch` were incorrectly placed under `## 搜索` (Search) section; moved both to `## Viewer` section with `### Get Observations by IDs` and `### Search by File` subsection headings, matching EN structure |
 
 ---
 
