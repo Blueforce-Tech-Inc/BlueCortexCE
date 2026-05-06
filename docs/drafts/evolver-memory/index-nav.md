@@ -126,6 +126,8 @@
 | [116](./116-candidates-js-three-source-capability-extraction-deep-dive.md) | `candidates.js` 三源能力候选提取深度（208L纯JS / Transcript工具调用频率≥3 / Signal信号→能力映射10类 / Failed Capsule聚类按problem:*标签≥2次 / Five-Questions Shape标准结构 / stableHash去重幂等ID / CE P2 Observation能力缺口发现+P2候选表+P3 Gene-as-Capability / 源码证据） |
 | [117](./117-solidify-js-core-deep-dive.md) | `solidify.js` 核心深度（1344L纯JS / 8维PRM过程评分（signal×0.05+selection×0.10+mutation×0.05+blast×0.15+constraint×0.25+validation×0.25+protocol×0.10+canary×0.05）/ 三层验证门禁PolicyCheck→Canary→LLM Review / FailedCapsule rollback前diff零丢失捕获 / 表观遗传Marks+基因学习适配 / Anti-pattern opt-in发布 / LessonL轻量失败知识化 / Hub Task自动完成 / CE P1多维质量评分+P1上下文三层验证+P1失败Context保存+P2表观遗传+P2结构化failure_reason） |
 | [118](./118-localStateAwareness-and-analyzer-deep-dive.md) | `localStateAwareness.js`+`analyzer.js` 深度（244L+60L / captureLocalState五维状态自发现快照注入session-init / analyzeFailures元学习从MEMORY.md提取失败模式 / 两模块在session-init→solidify→narrative链路中位置 / CE P2状态快照注入+P3失败模式预注入） |
+| [119](./119-curriculum-js-outcome-driven-learning-deep-dive.md) | `curriculum.js` Outcome-Driven Curriculum Learning 深度（163L纯JS / 从 outcomes 自动推导学习路径 / 三分类 mastered(≥80%,≥3次)/failing(≤30%)/frontier(中间) / `|rate-0.5|` 前沿优先选择最不确定技能 / `curriculum_target:gap:X` 来自candidates能力缺口 / `curriculum_target:frontier:Y` 来自frontier分析 / 进度追踪环形缓冲50条 / level 1-5 每5次成功升级 / `curriculum_state.json` 原子写入 / 无需预定义课程——从真实outcome数据自动发现学习路径 / CE P3 Outcome驱动课程学习提案） |
+| [120](./120-v1790-v1791-cycle-hard-timeout-and-windows-respawn-deep-dive.md) | v1.79.0/v1.79.1 Delta 深度（+89L index.js daemon 重写 / +127L `cycleHardTimeout.test.js` 回归测试 / +167L `spawnReplacementProcess.test.js` 单元测试 / +201 genes / +4 capsules / Cycle Hard-Timeout Issue #19：Promise.race 45min 硬超时 + CycleTimeoutError + progressTicker 30s 刷新 + writeCycleProgressAtomic / Windows Respawn Fix #528：spawn(detached) 在 Windows 开 cmd 弹窗 → 默认跳过，opt-in via EVOLVER_SUICIDE_WINDOWS=true / dotenv 加载顺序修复 #460+#526：cwd/.env 优先于 getRepoRoot 缓存 / CE P1 超时保护+P1 环境变量加载顺序+P2 跨平台进程管理） |
 | [105](./105-core-memory-architecture-deep-dive-evolver.md) | EvoMap 核心记忆架构源码深度（memoryGraph.js 完整解析 / 7种 MemoryGraphEvent 种类 / JSONL 追加+原子写 / Session Scope 隔离 / 4语言信号提取 / History-aware 去重+饱和检测 / expandSignals 标签化 / Laplace+半衰置信度评分 / 无标签结果推断 / 双栈适配器 / Narrative Memory / Reflection 自适应间隔 / localStateAwareness 五维自省 / BlueCortexCE 对照表） |
 
 ---
@@ -181,6 +183,7 @@
 | **IdleScheduler OMLS 自适应调度** | [77](./77-idleScheduler-contentHash-OMLS-adaptive-memory-scheduling.md) |
 | **v1.78 新增 Proxy 子系统** | [78](./78-v178-proxy-subsystem-architecture.md) |
 | **ForceUpdate 版本迁移（Hub心跳驱动）** | [96](./96-forceupdate-hub-heartbeat-driven-version-migration.md) |
+| **v1.79 Cycle Hard-Timeout + Windows Respawn** | [120](./120-v1790-v1791-cycle-hard-timeout-and-windows-respawn-deep-dive.md)（Promise.race 45min 硬超时 / CycleTimeoutError / progressTicker 30s / Windows cmd popup 修复 / dotenv 加载顺序） |
 | **Ops 自我修复基础设施** | [60](./60-evolver-ops-self-healing-infrastructure.md) |
 | **三层自调节架构综合** | [31](./31-reflection-remote-adapter-local-state.md) §5 |
 | **环境指纹 / CapabilityMatch** | [38](./38-env-fingerprint-capability-match.md) |
@@ -221,3 +224,6 @@
 | [staging.md](./staging.md) | 极短草稿；定稿后迁入对应分片或删除 |
 
 仓库根路径 [`../evolver-memory-analysis.md`](../evolver-memory-analysis.md) 为短链接入口，便于旧书签。
+
+| [121](./121-gitOps-hubReview-deep-dive.md) | `gitOps.js`+`hubReview.js` 深度（230L+206L / gitOps 三种回滚策略hard/stash/none + 关键文件保护名单 + 路径遍历双重防护normAbs.startsWith(normRepo) + DIFF_SNAPSHOT 8000截断 / hubReview 非阻塞评审提交（outcome×constraint双因素4档评分 + hub_review_history.json防重复 + 10s超时） / CE P1关键文件保护+P1路径遍历防护+P3复用资产评审） |
+| [122](./122-paths-js-path-architecture-deep-dive.md) | `paths.js` 路径架构+Session Scope隔离深度（133L纯JS / 集中路径管理+多租户Scope隔离（EVOLVER_SESSION_SCOPE）/ 三层路径遍历防护白名单字符+长度+禁止点点 / 自身目录优先防止误用父仓库 / getWorkspaceRoot三层fallback / 与doc 80 config集中化互补构成配置中枢 / CE P1多租户路径隔离+P1路径遍历防护+P2集中PathConfig） |
