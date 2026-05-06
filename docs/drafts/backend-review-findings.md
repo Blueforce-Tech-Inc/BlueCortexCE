@@ -4005,3 +4005,52 @@ if self.access_count:
 
 **Demo P0/P1/P2 状态**: 0 / 0 / 0
 
+
+---
+
+## 2026-05-06 09:18 | JS SDK Review #2
+
+**审查方向**: JS/TS SDK（TypeScript，cortex-mem-js）
+
+**审查范围**:
+- `src/client.ts` — 25 个 API 方法的主客户端实现
+- `src/dto/observation.ts` — ObservationRequest, ObservationUpdate, Observation, parseObservation
+- `src/dto/session.ts` — SessionStartRequest, SessionEndRequest, UserPromptRequest
+- `src/dto/experience.ts` — ExperienceRequest, ICLPromptRequest, parseExperience, parseICLPromptResult
+- `src/dto/search.ts` — SearchRequest, SearchResult, ObservationsRequest, ObservationsResponse
+- `src/dto/extraction.ts` — ExtractionResult, parseExtractionResult
+- `src/dto/misc.ts` — VersionResponse, StatsResponse, ModesResponse, HealthResponse 及所有 parse 函数
+- `src/errors.ts` — ValidationError, APIError, isRetryable 等错误类型和谓词函数
+- `src/client-options.ts` — CortexMemClientOptions, resolveConfig, SDK_VERSION
+- `src/index.ts` — 完整 barrel export
+- `examples/basic.ts` — 基础示例（18 个操作）
+- `examples/http-server/app.ts` — Express HTTP Server（26 个端点）
+- `tsup.config.ts` — CJS + ESM 双格式构建配置
+
+**编译/测试验证**:
+- ✅ TypeScript: `npx tsc --noEmit` — 零错误
+- ✅ Tests: `vitest run` — 212/212 tests passed
+
+#### 审查发现
+
+**无 P0/P1/P2 问题。**
+
+#### 代码质量交叉验证
+
+| 检查项 | 结果 |
+|--------|------|
+| 25 个 API 方法完整性 | ✅ `recordObservation`, `recordSessionEnd`, `recordUserPrompt`, `startSession`, `updateSessionUserId`, `retrieveExperiences`, `buildICLPrompt`, `search`, `listObservations`, `getObservation`, `getObservationsByIds`, `triggerRefinement`, `submitFeedback`, `updateObservation`, `deleteObservation`, `getQualityDistribution`, `healthCheck`, `triggerExtraction`, `getLatestExtraction`, `getExtractionHistory`, `getVersion`, `getProjects`, `getStats`, `getModes`, `getSettings` |
+| Fire-and-forget 重试机制 | ✅ `doFireAndForget` — 线性退避 + ±25% jitter，最多 3 次，isRetryable 智能判断 |
+| 字段级验证 | ✅ `validateRequired` 在所有 ingest/session 方法中校验 session_id, cwd, tool_name, prompt_text 等必填字段 |
+| 错误类型体系 | ✅ ValidationError（字段级）+ APIError（HTTP）+ 10+ 谓词函数（isRetryable, isNotFound, isBadRequest 等） |
+| 蛇峰/驼峰兼容 | ✅ `firstNonNullOr` 在所有 parse 函数中支持 snake_case 和 camelCase 混用 |
+| 10MB 响应体限制 | ✅ `doFetch` 中硬限制，防止内存耗尽 |
+| 客户端关闭状态 | ✅ `assertNotClosed()` 在所有方法入口检查 |
+| 响应解析完整性 | ✅ parseSearchResult, parseObservationsResponse, parseBatchObservationsResponse, parseModesResponse 全覆盖 |
+| ObservationUpdate 双字段 | ✅ `content` 和 `narrative` 均支持，JSDoc 注释清晰说明 backend 行为 |
+| cwd 验证 | ✅ `recordObservation` 和 `recordUserPrompt` 均校验 `cwd` 必填（非空字符串） |
+| CJS + ESM 双格式 | ✅ tsup format: [cjs, esm]，dts: true，目标 es2022 |
+| 26 个 HTTP 端点 | ✅ Express demo 覆盖所有 SDK 方法，含全局错误处理 + panic recovery |
+| Barrel export 完整性 | ✅ index.ts re-export 所有类型、函数、错误类型 |
+
+**JS SDK P0/P1/P2 状态**: 0 / 0 / 0
