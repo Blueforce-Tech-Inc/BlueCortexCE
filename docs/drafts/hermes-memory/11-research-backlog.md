@@ -250,3 +250,18 @@
 - [x] **新增分析：Tool Call Loop Guardrails + File Safety（2026-05-07 新增）**：`agent/tool_guardrails.py`（455 行）+ `agent/file_safety.py`（111 行）— ⭐⭐ **ToolCallGuardrailController** 三模式检测（exact failure / same-tool failure / idempotent no-progress）+ SHA256 签名标准化 + opt-in hard stop + 可配置阈值矩阵 + synthetic result 输出；⭐⭐ **FileSafety** 双防线（denylist 精确路径 + 目录前缀 + safe root 隔离 + Hermes 内部缓存读取拦截）；CE 借鉴：P1 MCPTools 层 GuardrailController（防止工具循环）+ P1 文件路径 denylist（`ContextService` 补充）；CE 安全纵深 L1-L4 缺口对照；Tool Signature 模式值得在 CE SDK 层实现 → [`98`](60-evolution/98-tool-call-loop-guardrails-and-file-safety.md)（10,038 字节）
 - [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；最大正文 `index-reading-order.md` 45,026 字节（合规 < 50KB）✅；`hermes-memory/60-evolution/` 79 篇正文，全部低于 50KB ✅；新增 doc `98`（10,038 字节）
 - [x] **Backlog 全部项 `[x]`**：v14.1 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `946ef0ea1`）
+
+## 定时巡检（2026-05-07 03:36 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：fetch + checkout origin/main（`b62a82e0c` → `946ef0ea1`）✅（本地曾退回到 `b62a82e0c`，现已恢复到 origin/main）
+- [x] **上游代码增量扫描**（`b62a82e0c..origin/main`，16 commits）：**0 个记忆系统相关** — 全部为 Feishu topic threading 修复（`28299afc2`/`441ef75d1`）+ TUI virtual history bounds（`946ef0ea1`）+ Web SearXNG 搜索（`48c241840`/`94016dd1a`/`5c906d702`/`cd2cbc73b`）+ Dashboard theme（`6388aafbd`）+ OpenCode Go 修复（`a24789d73`）+ Linear docs（`ad7aad251`）+ CI typecheck（`9627ee70e`）+ Kanban 修复（`a2ff19305`/`b1d420e75`）+ typecheck merge（`a345f7b6e`）；无记忆/上下文/压缩/provider/hook/hindsight/curator/guardrail/insights 相关
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；最大正文 `index-reading-order.md` 46,443 字节（合规 < 50KB）✅；`hermes-memory/60-evolution/` 79 篇正文，全部低于 50KB ✅
+- [x] **Backlog 全部项 `[x]`**：v14.2 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `946ef0ea1`）
+
+## 定时巡检（2026-05-07 04:39 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：origin/main 已在 `946ef0ea1`（与上次巡检同 commit，无需 checkout）✅
+- [x] **上游代码增量扫描**（`946ef0ea1..origin/main`，0 commits）：无新 upstream 推进，repo 已是最新 ✅
+- [x] **上游代码增量扫描（从 b8fb9270c 补扫）**：b8fb9270c..946ef0ea1 共 30 commits，**0 个记忆系统相关** — TUI virtual history bounds（`946ef0ea1`）+ CI typecheck（`a345f7b6e`/`9627ee70e`）+ Feishu topic threading（`28299afc2`/`441ef75d1`）+ SearXNG web search（`48c241840`/`94016dd1a`/`5c906d702`/`cd2cbc73b`）+ Dashboard theme（`6388aafbd`）+ OpenCode Go（`a24789d73`）+ Linear docs（`ad7aad251`）+ Checkpoints v2（`a0fedfbb1`）+ Kanban 修复（`a2ff19305`/`b1d420e75`）；无记忆/上下文/压缩/provider/hook/hindsight/curator/guardrail/insights 相关
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；最大正文 `index-reading-order.md` 46,443 字节（合规 < 50KB）✅；`hermes-memory/` 全部正文 < 50KB ✅
+- [x] **Backlog 全部项 `[x]`**：v14.3 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `946ef0ea1`）
