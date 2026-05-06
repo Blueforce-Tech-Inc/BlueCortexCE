@@ -9,6 +9,12 @@
 
 > **完整列表（84 项，~45KB）已移至**：[`index-reading-order.md`](index-reading-order.md)（2026-05-05 预防性拆分，规避 50KB 上限；2026-05-06 新增条目 84）
 
+## 新增（2026-05-07）
+
+| 编号 | 路径 | 说明 |
+|------|------|------|
+| **95** | [`60-evolution/95-atomic-file-write-and-char-limit-design.md`](60-evolution/95-atomic-file-write-and-char-limit-design.md) | **原子文件写入 + Char-Limit 设计模式**：temp file + `os.fsync` + `atomic_replace` 三步走；独立 `.lock` 文件设计；字符预算模型（2200/1375 chars，model-independent）；`ENTRY_DELIMITER = "\n§\n"` Section Sign 分隔符；CE 落地：P1 原子写入（安全关键）+ P1 字符限制（MEMORY.md）+ P2 ingest 入口扫描 |
+
 ## 按 aspect 浏览
 
 
@@ -22,6 +28,9 @@
 | 60-evolution | [`60-evolution/`](60-evolution/) | Hooks、Supermemory、内置 Memory Tool、HRR；上游快照 [`12`](60-evolution/12-upstream-hermes-agent-memory-snapshot.md)、[`13` `run_agent` 接线](60-evolution/13-run-agent-memory-wiring-snapshot.md)；现场复核与路线图 |
 | **速查卡** | [`79-ce-developer-quick-reference.md`](79-ce-developer-quick-reference.md) | **CE 开发者 Top-10 落地借鉴**（注入防护/Memory Fence/会话搜索/Tool Result 持久化/可插拔压缩/Auxiliary LLM/Per-User/Redaction/Frozen Snapshot/Eval Harness） |
 | **60-evolution 新增** | [`60-evolution/85-hermes-context-summary-end-marker-and-iterative-continuity.md`](60-evolution/85-hermes-context-summary-end-marker-and-iterative-continuity.md) | **Context Summary End Marker + 迭代压缩连续性**深度解析（`2eef395e1` / `4a3e3e20e`）；CE 落地：围栏信号（⭐⭐⭐ 立即可落地） + 迭代提取身份保护（Phase 3 参考） |
+| **60-evolution 新增** | [`60-evolution/91-streaming-scrubber-and-memory-security-scanning.md`](60-evolution/91-streaming-scrubber-and-memory-security-scanning.md) | **双 Scrubber 管道**（`StreamingContextScrubber` + `StreamingThinkScrubber`）**+ 内存写入安全扫描**（`_scan_memory_content`）深度解析；CE 落地：proxy 层 SSE 过滤（P1）+ ingest 入口安全扫描（P1）+ 冻结快照（P2） |
+| **60-evolution 新增** | [`60-evolution/92-upstream-aa88dcc57-memory-analysis.md`](60-evolution/92-upstream-aa88dcc57-memory-analysis.md) | **`aa88dcc57` salvage batch**（2026-05-06）：⭐⭐⭐ **P0** 压缩后 cached agent 未清除 + ⭐⭐⭐ **P1** Memory authority 升级（`informational → authoritative reference data`）+ ⭐⭐ **P1** Summary prefix 权威性声明 + **P2** 正则向后兼容新旧措辞 |
+| **60-evolution 新增** | [`60-evolution/96-hermes-memory-architecture-synthesis-and-ce-roadmap.md`](60-evolution/96-hermes-memory-architecture-synthesis-and-ce-roadmap.md) | **架构综合与 CE 落地路线图**（2026-05-07）：三记忆层×双系统全貌 / `aa88dcc57` P0 发现（压缩后 cached agent 未清除 + Memory authority 升级）/ 安全三层防护 / 原子写入 / 优先级矩阵 |
 
 ## 本仓库其他记忆分析草稿（交叉索引）
 
