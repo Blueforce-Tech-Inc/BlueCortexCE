@@ -8,13 +8,15 @@
 
 | 文件 | 内容（精简摘要） |
 |------|----------------|
-| [01](./01-intro-toc-memory-through-curriculum.md) | 元数据、架构定位、完整目录、§1–§11（memoryGraph → curriculum） |
+| [01a](./01a-overview-architecture-memoryGraph-narrative-signals-personality-learningSignals.md) | 元数据、架构定位、§1–§5（memoryGraph / narrativeMemory / signals / personality / learningSignals） |
+| [01b](./01b-overview-evolve-hermes-bluecortexce-solidify-selector-curriculum.md) | §6–§11（evolve.js / Hermes / CE借鉴 / solidify / selector / curriculum） |
 | [02](./02-skilldistiller-through-evolution-v04.md) | §12–§23 及 v0.4 前后增补 |
 | [03](./03-skillpublisher-through-signals-v07.md) | §24–§34（信号链 v0.7 等） |
 | [04](./04-mutation-through-policy-v09.md) | §35–§43（mutation、policy、idle、git、localState 等） |
 | [05](./05-sanitize-through-execution-trace-v10.md) | §44–§55（sanitize、安全隐私、Hub、executionTrace 等） |
 | [06](./06-assetcalllog-through-questiongen-v12.md) | §56–§65（assetCallLog、directory、memoryGraphAdapter、questionGenerator 等） |
-| [07](./07-idle-through-skillpublisher-v14.md) | §66–§75（idleScheduler、gitOps、bridge、a2a、skillPublisher v1.4 等） |
+| [07a](./07a-modules-idle-localstate-gitops-bridge-assets-v14.md) | §66–§70（idleScheduler / localStateAwareness / gitOps / bridge / assets v1.4） |
+| [07b](./07b-modules-a2a-privacy-assets-candidates-skillpublisher-v14.md) | §71–§75（privacyClient / a2a / candidates / skillPublisher v1.4） |
 | [08](./08-llmreview-assetstore-and-roadmap-v15.md) | §77–§78（llmReview、assetStore）及 v1.5 探索方向 |
 | [09](./09-aspect-bluecortex-bridge.md) | Evolver ↔ CE 方面、P0/P1、反模式 |
 | [10](./10-aspect-bluecortex-implementation-map.md) | 本仓库 schema、Repository、Service；§3 三路读出；缺口表 |
@@ -136,13 +138,13 @@
 
 | 主题 | 建议入口 |
 |------|----------|
-| 架构定位（Evolver vs CE） | [01](./01-intro-toc-memory-through-curriculum.md) 开篇；§7–§8 |
+| 架构定位（Evolver vs CE） | [01a](./01a-overview-architecture-memoryGraph-narrative-signals-personality-learningSignals.md) 开篇 + [01b](./01b-overview-evolve-hermes-bluecortexce-solidify-selector-curriculum.md) §7–§8 |
 | **Hermes Agent 记忆管线** | [`../hermes-memory/index.md`](../hermes-memory/index.md) |
-| 因果记忆图谱（JSONL） | [01](./01-intro-toc-memory-through-curriculum.md) §1；[18](./18-evolver-local-source-memory-architecture-snapshot.md) |
-| 叙事记忆（MD） | [01](./01-intro-toc-memory-through-curriculum.md) §2；[18](./18-evolver-local-source-memory-architecture-snapshot.md) §2 |
-| 信号 / learningSignals | [01](./01-intro-toc-memory-through-curriculum.md) §3–§5 |
-| 进化主循环与 GEP | [01](./01-intro-toc-memory-through-curriculum.md) §6；[19](./19-evolver-evolve-loop-memory-ordering-and-outcome-inference.md) |
-| 固化、选择器、课程、蒸馏 | [01](./01-intro-toc-memory-through-curriculum.md) §9–§11 |
+| 因果记忆图谱（JSONL） | [01a](./01a-overview-architecture-memoryGraph-narrative-signals-personality-learningSignals.md) §1；[18](./18-evolver-local-source-memory-architecture-snapshot.md) |
+| 叙事记忆（MD） | [01a](./01a-overview-architecture-memoryGraph-narrative-signals-personality-learningSignals.md) §2；[18](./18-evolver-local-source-memory-architecture-snapshot.md) §2 |
+| 信号 / learningSignals | [01a](./01a-overview-architecture-memoryGraph-narrative-signals-personality-learningSignals.md) §3–§5 |
+| 进化主循环与 GEP | [01b](./01b-overview-evolve-hermes-bluecortexce-solidify-selector-curriculum.md) §6；[19](./19-evolver-evolve-loop-memory-ordering-and-outcome-inference.md) |
+| 固化、选择器、课程、蒸馏 | [01b](./01b-overview-evolve-hermes-bluecortexce-solidify-selector-curriculum.md) §9–§11 |
 | Hub / A2A / 目录 | [46](./46-hub-ecosystem-integration-taskreview-issue.md) + [88](./88-taskreceiver-workerpool-privacy-capability-deep-dive.md) + [89](./89-hubsearch-two-phase-semantic-and-dual-cache-deep-dive.md) |
 | 安全、隐私、脱敏 | [61](./61-sanitize-privacy-pipeline-deep-dive.md)；[43](./43-privacy-computing-and-hub-ecosystem.md) |
 | 资产与存储 | [87](./87-assetstore-contenthash-asset-lifecycle-deep-dive.md)；[39](./39-content-addressable-asset-system.md) |
@@ -230,5 +232,6 @@
 | [123](./123-narrativeMemory-js-deep-dive.md) | `narrativeMemory.js` Markdown 双限制叙事记忆深度（108L纯JS / Markdown 追加写（`### [timestamp] CATEGORY - status`）/ 双重裁剪30entry+12KB + 原子 rename / 8-entry rolling summary / 与 MemoryGraph 互补（机器 JSONL vs 人类 Markdown 双轨）/ CE P3 Markdown Observation Narrative + P3 双限制 SummaryEntity） |
 | [124](./124-questionGenerator-js-deep-dive.md) | `questionGenerator.js` Hub Bounty 问题生成深度（212L纯JS / 6大策略信号→自然语言问题（recurring_error/capability_gap/saturation/failure_streak/feature_request/perf_bottleneck）/ 双层去重精确+模糊0.7 Jaccard / 3h限速+≤2条/轮 / 与 questionComposer.js (ATP) 区别（内部进化求助 vs 外部市场交易）/ CE P3 主动知识请求+P3 Observation fuzzy dedup） |
 | [125](./125-atp-taskpickup-execute-heartbeat-adapters-deep-dive.md) | ATP TaskPickup+Execute+Heartbeat+Adapters 深度（233+285+254+275+207+203+163+172+89L staged files / atpTaskPickup Ledger防重+原子写+冷却5min / atpExecute ContentHash幂等+HMAC签名+分阶段错误返回 / heartbeatSignalsHandler 旁路交付+共享Ledger双消费者+3态Ledger / hubClient proxy/direct双路由 / hookAdapter 平台检测+coldMerge+markerKey干净卸载 / kiro.js ClaudeCode Codex Cursor四平台适配器 / CE P1 ObservationEntity内容哈希幂等+P1 Cron Ledger防重+P1原子写+P2分阶段错误+P2终结错误码+P2markerKey卸载） |
+| [126](./126-gene-skillpublisher-memory-to-capability-pipeline-deep-dive.md) | Gene→SKILL.md transformation pipeline深度（352L纯JS `skillPublisher.js`源码 / sanitizeSkillName两-tier命名（hash→kebab + signal/summary回退）/ toTitleCase display name / SKILL.md六字段结构（name/summary/signals_match/content_hash/gene_id/created_at）/ content-addressable naming自动去重+版本管理 / 与 BlueCortexCE SummaryEntity对照 / CE P1 content_hash幂等+P1 provenance字段+P2 Gene-like StructuredExtraction+P3 Hub distribution） |
 | [117](./117-deviceId-js-node-identity-deep-dive.md) | `deviceId.js` 节点身份识别深度（209L / 7层降级：EVOMAP_DEVICE_ID env→~/.evomap/文件→项目本地文件→/etc/machine-id→IOPlatformUUID→Docker容器ID→MAC→随机 / 容器检测4方法（/.dockerenv + cgroup + /run/.containerenv + hostname hex）/ SHA-256隐私保护原始标识符（从不暴露MAC/UUID原值）/ 双路径持久化0o600权限 / CE P1节点指纹权限+P2多租户身份+P2 CLAUDE_MEM_NODE_ID env var） |
 | [118](./118-innovation-js-catalyst-deep-dive.md) | `innovation.js` 创新催化剂深度（67L / 6类技能分布分析：feishu/dev/media/security/automation/data / 3策略启发式：填补空白（最少2类）+ 优化现有（技能>50）+ 元级改进（始终）/ 最多返回3条ideas / 零LLM成本停滞突破 / 被 stagnation signal 触发调用 / CE P3停滞信号+P3技能分布分析参考） |
