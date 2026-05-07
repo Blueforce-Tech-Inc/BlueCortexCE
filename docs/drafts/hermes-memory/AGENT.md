@@ -29,7 +29,7 @@
 - `index.md` 中的相对链接仍有效  
 - 若引入新结论，标明复核日期或上游提交/版本（若已知）
 
-**本地 Hermes Agent Repo**：已同步至 `origin/main` `3cdbf334d`（gateway setup wizard 修复，非记忆系统）
+**本地 Hermes Agent Repo**：已同步至 `origin/main` `49c3c2e0d`（Kanban docs 修复，非记忆系统）
 
 ## 体量预警（cron / 续写前扫一眼）
 
@@ -41,9 +41,9 @@
 find docs/drafts/hermes-memory -name '*.md' -exec wc -c {} + | sort -n | tail -15
 ```
 
-**最后更新**：2026-05-07 08:49 CST
+**最后更新**：2026-05-07 12:20 CST
 
-**复核快照（2026-05-07 08:49 CST）**：`index-reading-order.md` 阅读顺序 95+4 项 → 48,419B；entries 1-20 归档 → [`index-reading-order-archive-1.md`](index-reading-order-archive-1.md)（3,445B）；`11-research-backlog.md` 18,383B；`11-research-backlog-inspection-logs-2026-05-05-to-2026-05-07.md` 28,824B（v9.9–v13.6）；`index.md` 现为 7.3KB。全部 `.md` 文件字节数扫描（见下表）。全部低于 50KB 上限。
+**复核快照（2026-05-07 12:20 CST）**：`index-reading-order.md`（entries 51-104）→ 25,929B；`index-reading-order-archive-2.md`（entries 21-50）→ 25,650B；`11-research-backlog.md` ~20KB；`index.md` ~8.4KB；`doc 103` 13,492B。全部低于 50KB 上限。
 
 ⚠️ **硬上限违反**：上游源码文件 `plugins/memory/honcho/__init__.py` = **54,470 字节**（>50KB 上限），需拆分。该文件是上游 Hermes 源码，非本仓库文档，但其在 `docs/drafts/hermes-memory/` 中的分析文档应避免再增长。
 
@@ -60,7 +60,8 @@ find docs/drafts/hermes-memory -name '*.md' -exec wc -c {} + | sort -n | tail -1
 
 | 字节数（约） | 路径 |
 |-------------|------|
-| 48,419 | [`index-reading-order.md`](index-reading-order.md)（2026-05-07 更新；阅读顺序 95+4 项，新增 entries 90-95，docs 95-98 + 上游扫描 100/101/102；staging 更新） |
+| 25,929 | [`index-reading-order.md`](index-reading-order.md)（2026-05-07 归档 entries 21-50 → archive-2；现 entries 51-104） |
+| 25,650 | [`index-reading-order-archive-2.md`](index-reading-order-archive-2.md)（2026-05-07 新增；entries 21-50 归档） |
 | 3,445 | [`index-reading-order-archive-1.md`](index-reading-order-archive-1.md)（2026-05-07 新增；entries 1-20 归档） |
 | 41,910 | [`60-evolution/09-supermemory-capture-lifecycle.md`](60-evolution/09-supermemory-capture-lifecycle.md)（§56–§69；续写至 `09a`） |
 | 5,012 | [`60-evolution/09a-supermemory-lifecycle-continued.md`](60-evolution/09a-supermemory-lifecycle-continued.md)（§70–§73） |
@@ -93,6 +94,7 @@ find docs/drafts/hermes-memory -name '*.md' -exec wc -c {} + | sort -n | tail -1
 | 3,498 | [`60-evolution/88-upstream-3b750715a-to-1fc8733a6-memory-analysis.md`](60-evolution/88-upstream-3b750715a-to-1fc8733a6-memory-analysis.md)（2026-05-06 新增；48 commits，0 个核心记忆系统代码变更；Provider 全量可插拔化（33 个）+ 文档完善） |
 | 4,726 | [`60-evolution/90-upstream-1fc8733a6-to-0d41e94ca-memory-analysis.md`](60-evolution/90-upstream-1fc8733a6-to-0d41e94ca-memory-analysis.md)（2026-05-06 新增；19 commits，1 个记忆发现；⭐ P1 Hindsight `update_mode='append'` 跨进程去重：`threading.Lock` 双检缓存 + semver 版本探测 + local_embedded 动态端口 + CE 借鉴：API 兼容性探测模式）
 7,676 | [`60-evolution/99-upstream-append-mode-and-honcho-prefetch-semantic.md`](60-evolution/99-upstream-append-mode-and-honcho-prefetch-semantic.md)（2026-05-07 新增；2 commits：⭐⭐⭐ P0 Hindsight Append-Mode + ⭐⭐ P1 Honcho Prefetch 语义搜索） |
+| 13,492 | [`60-evolution/103-honcho-dialectic-reasoning-and-conclusions-deep-dive.md`](60-evolution/103-honcho-dialectic-reasoning-and-conclusions-deep-dive.md)（2026-05-07 新增；Dialectic multi-pass reasoning / Conclusions 写入机制 / AI Identity Seeding / CE 落地 P2-P3） |
 
 **已处理**：
 - `06`（48903 → ~38.5KB）：§43–§44 迁入 [`29-memory-provider-hooks-advanced-topics.md`](60-evolution/29-memory-provider-hooks-advanced-topics.md)（2026-04-24）

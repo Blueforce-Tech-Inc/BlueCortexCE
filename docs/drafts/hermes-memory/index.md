@@ -7,7 +7,7 @@
 
 ## 建议阅读顺序
 
-> **完整列表（96 项，~48KB）已移至**：[`index-reading-order.md`](index-reading-order.md)（2026-05-05 预防性拆分，规避 50KB 上限；2026-05-07 新增条目 90-98 + 上游扫描 100-102；**早期条目 1-20** → [`index-reading-order-archive-1.md`](index-reading-order-archive-1.md)）
+> **完整列表（entries 51-104，~25KB）**：→ [`index-reading-order.md`](index-reading-order.md)；**entries 21-50** → [`index-reading-order-archive-2.md`](index-reading-order-archive-2.md)；**entries 1-20** → [`index-reading-order-archive-1.md`](index-reading-order-archive-1.md)（2026-05-07 归档，为遵守 50KB 上限）
 
 ## 新增（2026-05-07）
 
@@ -37,6 +37,7 @@
 | **100** | `（无新文档）` | **上游扫描 2026-05-07**：8 commits（`5044e1cbf..f1a8e9994`），**0 记忆相关** — TUI/gateway/auth/docs；已在 v14.5 补扫 `f1a8e9994..53a024994` |
 | **101** | `（无新文档）` | **上游扫描 2026-05-07 05:40**：2 commits（`f1a8e9994..53a024994`），**0 记忆系统相关** — Docker CI（#20890 overlapping builds guard）；无 Python 源码变更；本地 Hermes Agent 已同步至 `53a024994` |
 | **102** | `（无新文档）` | **上游扫描 2026-05-07 08:04**：3 commits（`53a024994..origin/main`），**0 记忆系统相关** — `3cdbf334d` gateway system-scope fix（Python）/ `04cf4788c` TUI voice push-to-talk（TS）/ `5ccab51fa` TUI scrollbar steadying（TS）；均与记忆管线无关 |
+| **103** | [`60-evolution/103-honcho-dialectic-reasoning-and-conclusions-deep-dive.md`](60-evolution/103-honcho-dialectic-reasoning-and-conclusions-deep-dive.md) | **Honcho Dialectic 多轮推理 + Conclusions 深度解析**：Dialectic multi-pass reasoning（depth 1-3 / cold-warm prompts / signal sufficiency early bailout / empty streak backoff / proportional reasoning levels）+ Conclusions 写入机制（peer 互评 / session 追溯）+ AI Identity Seeding（SOUL.md 导入）+ `get_session_context` / `search_context` / `get_ai_representation` 方法；CE 对照表；CE 落地：P2 多轮推理 Synthesis + P3 用户校正机制 + P3 AI Identity Seeding |
 
 ## 本仓库其他记忆分析草稿（交叉索引）
 
