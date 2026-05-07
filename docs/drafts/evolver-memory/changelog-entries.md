@@ -4,6 +4,8 @@
 
 **数据来源**：本地 `EvoMap/evolver/` 源码；本仓库见 `docs/ARCHITECTURE-zh-CN.md` 等。
 
+**cron 巡检 2026-05-07 13:16**：目录 **139** 个 .md；最大 44877B；所有 < 50KB ✅；**backlog 全项已勾选 ✅**；backlog **0 项未决**；上游 v1.80.0 已覆盖（本地 checkout v1.47.0 `e72778e`，main 分支领先 57 commits）；无新增可分析源码（v1.79.1→v1.80.0 新增 `src/adapters/opencode.js` 已覆盖 + 混淆模块 explore/shield/hubVerify/integrityCheck 不可分析）；本地 v1.47.0 可读源码已全覆盖（memoryGraph.js 788L / signals.js 444L / selector.js 417L / reflection.js 177L / narrativeMemory.js 108L / learningSignals.js 89L 等）；**持续维护 pass，无新增分析任务**。
+
 **cron 巡检 2026-05-07 06:25**：目录 **136** 个 .md；最大 44877B；所有 < 50KB ✅；**backlog 全项已勾选 ✅**；backlog **0 项未决**；上游 v1.79.1 已覆盖（本地 checkout v1.47.0 `e72778e`，main 分支领先 56 commits）；无新增可分析源码（v1.78.10→v1.79.1 新增 `scripts/build_binaries.js` 已覆盖 + 3个重度混淆模块 explore/shield/hubVerify/integrityCheck 不可分析）；本地 v1.47.0 可读源码已全覆盖（signals.js 662L / taskReceiver.js 565L / questionGenerator.js 415L / skill2gep.js 645L / gitOps.js 234L 等）；proxy/ATP/Adapter 子系统均已深度覆盖；**持续维护 pass，无新增分析任务**。
 
 ---
