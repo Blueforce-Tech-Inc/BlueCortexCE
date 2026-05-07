@@ -4,7 +4,7 @@
 
 ## 待完成
 
-- [ ] **AGENT.md 体量表更新**：`index-reading-order.md` 48,048B；新增 archive `11-research-backlog-inspection-logs-2026-05-05-to-2026-05-07.md`（28,824B）；需同步 AGENT.md 体量预警表
+（空）
 
 ## 已完成
 

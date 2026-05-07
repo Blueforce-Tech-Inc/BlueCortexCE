@@ -41,9 +41,9 @@
 find docs/drafts/hermes-memory -name '*.md' -exec wc -c {} + | sort -n | tail -15
 ```
 
-**最后更新**：2026-05-07 07:32 CST
+**最后更新**：2026-05-07 08:49 CST
 
-**复核快照（2026-05-07 06:40 CST）**：`index-reading-order.md` 阅读顺序 95 项 → 48,048B（新增 entries 90-95，docs 95-98 + 上游扫描 100/101）；entries 1-20 归档 → [`index-reading-order-archive-1.md`](index-reading-order-archive-1.md)（3,445B）；`index.md` 现为 7.3KB。全部 `.md` 文件字节数扫描（见下表）。全部低于 50KB 上限。全部 `.md` 文件字节数扫描（见下表）。全部低于 50KB 上限。
+**复核快照（2026-05-07 08:49 CST）**：`index-reading-order.md` 阅读顺序 95+4 项 → 48,419B；entries 1-20 归档 → [`index-reading-order-archive-1.md`](index-reading-order-archive-1.md)（3,445B）；`11-research-backlog.md` 18,383B；`11-research-backlog-inspection-logs-2026-05-05-to-2026-05-07.md` 28,824B（v9.9–v13.6）；`index.md` 现为 7.3KB。全部 `.md` 文件字节数扫描（见下表）。全部低于 50KB 上限。
 
 ⚠️ **硬上限违反**：上游源码文件 `plugins/memory/honcho/__init__.py` = **54,470 字节**（>50KB 上限），需拆分。该文件是上游 Hermes 源码，非本仓库文档，但其在 `docs/drafts/hermes-memory/` 中的分析文档应避免再增长。
 
@@ -60,7 +60,7 @@ find docs/drafts/hermes-memory -name '*.md' -exec wc -c {} + | sort -n | tail -1
 
 | 字节数（约） | 路径 |
 |-------------|------|
-| 48,048 | [`index-reading-order.md`](index-reading-order.md)（2026-05-07 更新；阅读顺序 95 项，新增 entries 90-95，docs 95-98 + 上游扫描 100/101） |
+| 48,419 | [`index-reading-order.md`](index-reading-order.md)（2026-05-07 更新；阅读顺序 95+4 项，新增 entries 90-95，docs 95-98 + 上游扫描 100/101/102；staging 更新） |
 | 3,445 | [`index-reading-order-archive-1.md`](index-reading-order-archive-1.md)（2026-05-07 新增；entries 1-20 归档） |
 | 41,910 | [`60-evolution/09-supermemory-capture-lifecycle.md`](60-evolution/09-supermemory-capture-lifecycle.md)（§56–§69；续写至 `09a`） |
 | 5,012 | [`60-evolution/09a-supermemory-lifecycle-continued.md`](60-evolution/09a-supermemory-lifecycle-continued.md)（§70–§73） |

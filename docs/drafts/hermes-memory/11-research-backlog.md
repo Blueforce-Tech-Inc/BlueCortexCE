@@ -132,3 +132,11 @@
   - `index-reading-order.md` 48,048 字节（合规 < 50KB）✅
   - `hermes-memory/` 全部正文 < 50KB ✅
 - [x] **Backlog 全部项 `[x]`**：v15.0 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `3cdbf334d`）
+
+## 定时巡检（2026-05-07 08:49 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：fetch origin/main（`3cdbf334d` → `3cdbf334d`）✅（已同步，同 commit）
+- [x] **上游代码增量扫描**（`3cdbf334d..origin/main`，0 commits）：repo 已是最新 ✅（v15.1 记录的上游 3 commits `53a024994..origin/main` 已在 HEAD `3cdbf334d`，0 记忆相关）
+- [x] **AGENT.md 体量预警表更新**：`index-reading-order.md` 48,419B；`11-research-backlog.md` 18,383B；`staging.md` 待完成项已清空 ✅
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；`index-reading-order.md` 48,419 字节（合规 < 50KB）✅；`hermes-memory/` 全部正文 < 50KB ✅
+- [x] **Backlog 全部项 `[x]`**：v15.2 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `3cdbf334d`）
