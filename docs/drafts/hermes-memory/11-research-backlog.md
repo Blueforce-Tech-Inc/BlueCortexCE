@@ -2,7 +2,7 @@
 
 > **角色**：可勾选短队列；**不**重复 [`20-recommendations/02-bluecortexce-recommendations.md`](20-recommendations/02-bluecortexce-recommendations.md) 表格全文。  
 > **CE 安全与出口现状盘点**：[`20-recommendations/05-ce-context-security-gap-inventory.md`](20-recommendations/05-ce-context-security-gap-inventory.md)  
-> **最后更新**：2026-05-07 11:49（v15.3：上游 `3cdbf334d..49c3c2e0d` 4 commits，0 记忆相关；本地已同步至 `49c3c2e0d`）
+> **最后更新**：2026-05-07 13:58（v16.1：上游 `53a024994..49c3c2e0d` 7 commits，0 记忆相关；本地已同步至 `49c3c2e0d`）
 > **旧巡检日志（2026-04-24 → 2026-05-05 02:33）**：→ [`11-research-backlog-inspection-logs-2026-04-24-to-2026-05-05.md`](11-research-backlog-inspection-logs-2026-04-24-to-2026-05-05.md)
 
 **本地 Hermes Agent Repo**：✅ 已在 `49c3c2e0d`（origin/main 最新）；上次巡检 `3cdbf334d` → 本次 `49c3c2e0d`
@@ -147,6 +147,13 @@
 - [x] **上游代码增量扫描**（`3cdbf334d..49c3c2e0d`，4 commits）：**0 个记忆系统相关** — Kanban docs 修复（`49c3c2e0d`/`45cbf9389`）+ Discord rate-limit 修复（`5a3cadf6e`）+ Gateway systemd readiness（`d797755a1`）；无 Python 源码变更；无记忆/上下文/压缩/provider/hook/hindsight/curator/guardrail/insights/compressor 相关
 - [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 1553 字节 ✅；`11-research-backlog.md` 19,084 字节（合规 < 50KB）✅；`hermes-memory/` 全部正文 < 50KB ✅
 - [x] **Backlog 全部项 `[x]`**：v15.3 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `49c3c2e0d`）
+
+## 定时巡检（2026-05-07 13:58 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：origin/main 已在 `49c3c2e0d`（与上次巡检同 commit）✅（v15.3 记录 `3cdbf334d → 49c3c2e0d` 4 commits 已合并）
+- [x] **上游代码增量扫描**（`53a024994..49c3c2e0d`，7 commits）：**0 个记忆系统相关** — Kanban docs（`49c3c2e0d`/`45cbf9389`）+ Discord rate-limit（`5a3cadf6e`）+ Gateway systemd readiness（`d797755a1`）+ Gateway setup wizard（`3cdbf334d`）+ TUI voice push-to-talk（`04cf4788c`）+ TUI scrollbar（`5ccab51fa`）；无 Python 源码变更；无记忆/上下文/压缩/provider/hook/hindsight/curator/guardrail/insights/compressor 相关
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 1553 字节 ✅；`11-research-backlog.md` 19KB（合规 < 50KB）✅；`hermes-memory/` 全部正文 < 50KB ✅
+- [x] **Backlog 全部项 `[x]`**：v16.1 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `49c3c2e0d`）
 
 ## 定时巡检（2026-05-07 12:20 CST）
 
