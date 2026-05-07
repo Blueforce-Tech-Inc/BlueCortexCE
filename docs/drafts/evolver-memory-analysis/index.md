@@ -2,6 +2,7 @@
 
 > 分析对象：`/Users/yangjiefeng/Documents/EvoMap/evolver`
 > 分析时间：2026-05-03
+> 最后更新：2026-05-07
 > 代码版本：基于 src/gep/ 目录核心文件
 
 ---
@@ -31,6 +32,7 @@ EvoMap/evolver 的记忆系统是整个自进化框架的"因果记忆中枢"。
 | **[11-hub-integration.md](./11-hub-integration.md)** | Hub 市场集成：两阶段查询、Task Receiver、能力匹配 |
 | **[12-curriculum.md](./12-curriculum.md)** | 自适应课程学习：三区划分、课程信号生成、进度追踪 |
 | **[13-safety-ops.md](./13-safety-ops.md)** | 安全、并发与运维：文件锁、GitOps 回滚、Seed 机制、隐私脱敏、Self-PR、ATP |
+| **[14-hub-review-asset-log.md](./14-hub-review-asset-log.md)** | Hub 使用反馈闭环：submitHubReview、Asset Call Log 可观测性、Skill 发布管道 |
 
 ---
 
@@ -116,4 +118,4 @@ Session Transcript / Today Log / Memory.md
 
 ---
 
-_由 Claude Code 分析生成 | 2026-05-03 | Doc 13（安全运维，2026-05-07）_
+_由 Claude Code 分析生成 | 2026-05-03 | Doc 14（Hub Review + Asset Log，2026-05-07）_

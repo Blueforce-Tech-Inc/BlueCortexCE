@@ -2,10 +2,10 @@
 
 > **角色**：可勾选短队列；**不**重复 [`20-recommendations/02-bluecortexce-recommendations.md`](20-recommendations/02-bluecortexce-recommendations.md) 表格全文。  
 > **CE 安全与出口现状盘点**：[`20-recommendations/05-ce-context-security-gap-inventory.md`](20-recommendations/05-ce-context-security-gap-inventory.md)  
-> **最后更新**：2026-05-07 13:58（v16.1：上游 `53a024994..49c3c2e0d` 7 commits，0 记忆相关；本地已同步至 `49c3c2e0d`）
+> **最后更新**：2026-05-07 15:29（v16.2：上游无新 main commits；feature branch `feat/browser-coordinate-click` 1 commit 与记忆无关；文档体量合规）
 > **旧巡检日志（2026-04-24 → 2026-05-05 02:33）**：→ [`11-research-backlog-inspection-logs-2026-04-24-to-2026-05-05.md`](11-research-backlog-inspection-logs-2026-04-24-to-2026-05-05.md)
 
-**本地 Hermes Agent Repo**：✅ 已在 `49c3c2e0d`（origin/main 最新）；上次巡检 `3cdbf334d` → 本次 `49c3c2e0d`
+**本地 Hermes Agent Repo**：✅ 已在 `49c3c2e0d`（origin/main 最新）；上次巡检 `3cdbf334d` → 本次 `49c3c2e0d`；本次无新 upstream 推进（origin/main 仍在 `49c3c2e0d`）；feature branch `feat/browser-coordinate-click` 有 1 commit（`451c55bd9..2af14bd40`），非 main 且与记忆系统无关
 
 ---
 
@@ -138,6 +138,14 @@
 - [x] **本地 Hermes Agent Repo 同步**：fetch origin/main（`3cdbf334d` → `3cdbf334d`）✅（已同步，同 commit）
 - [x] **上游代码增量扫描**（`3cdbf334d..origin/main`，0 commits）：repo 已是最新 ✅（v15.1 记录的上游 3 commits `53a024994..origin/main` 已在 HEAD `3cdbf334d`，0 记忆相关）
 - [x] **AGENT.md 体量预警表更新**：`index-reading-order.md` 48,419B；`11-research-backlog.md` 18,383B；`staging.md` 待完成项已清空 ✅
+
+## 定时巡检 v16.3（2026-05-07 16:16 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：fetch origin/main（`49c3c2e0d` → `49c3c2e0d`）✅（已在最新）
+- [x] **上游代码增量扫描**（`49c3c2e0d..origin/main`，0 commits）：repo 已是最新 ✅
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；`hermes-memory/` 全部正文 < 50KB ✅
+- [x] **新增分析：Shell Hooks 插件扩展架构（2026-05-07 新增）**：`agent/shell_hooks.py`（836 行）— Shell 脚本插件系统与 Hermes PluginManager 的集成；17 种 VALID_HOOKS 事件；JSON wire protocol（stdin/stdout）；`shell=False` 防注入安全设计；allowlist + TTY 同意书机制；`atomic_replace` 原子写入；CE 落地：P1 MCP 层自定义 pre-tool guard + P1 同意书安全模型 + P1 超时控制 → [`105`](60-evolution/105-shell-hooks-extensibility-architecture.md)（9,621 字节）
+- [x] **Backlog 全部项 `[x]`**：v16.3 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `49c3c2e0d`）
 - [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；`index-reading-order.md` 48,419 字节（合规 < 50KB）✅；`hermes-memory/` 全部正文 < 50KB ✅
 - [x] **Backlog 全部项 `[x]`**：v15.2 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `3cdbf334d`）
 
@@ -148,12 +156,14 @@
 - [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 1553 字节 ✅；`11-research-backlog.md` 19,084 字节（合规 < 50KB）✅；`hermes-memory/` 全部正文 < 50KB ✅
 - [x] **Backlog 全部项 `[x]`**：v15.3 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `49c3c2e0d`）
 
-## 定时巡检（2026-05-07 13:58 CST）
+## 定时巡检（2026-05-07 15:29 CST）
 
-- [x] **本地 Hermes Agent Repo 同步**：origin/main 已在 `49c3c2e0d`（与上次巡检同 commit）✅（v15.3 记录 `3cdbf334d → 49c3c2e0d` 4 commits 已合并）
-- [x] **上游代码增量扫描**（`53a024994..49c3c2e0d`，7 commits）：**0 个记忆系统相关** — Kanban docs（`49c3c2e0d`/`45cbf9389`）+ Discord rate-limit（`5a3cadf6e`）+ Gateway systemd readiness（`d797755a1`）+ Gateway setup wizard（`3cdbf334d`）+ TUI voice push-to-talk（`04cf4788c`）+ TUI scrollbar（`5ccab51fa`）；无 Python 源码变更；无记忆/上下文/压缩/provider/hook/hindsight/curator/guardrail/insights/compressor 相关
-- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 1553 字节 ✅；`11-research-backlog.md` 19KB（合规 < 50KB）✅；`hermes-memory/` 全部正文 < 50KB ✅
-- [x] **Backlog 全部项 `[x]`**：v16.1 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `49c3c2e0d`）
+- [x] **本地 Hermes Agent Repo 同步**：origin/main 已在 `49c3c2e0d` ✅（fetch 后确认无新 upstream 推进）
+- [x] **上游代码增量扫描**（`49c3c2e0d..origin/main`，0 commits）：origin/main 无新 commits；feature branch `feat/browser-coordinate-click` 有 1 commit（`451c55bd9..2af14bd40`），非 main 且与记忆系统无关 ✅
+- [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 1553 字节 ✅；`index-reading-order.md` 25,929 字节 ✅；`11-research-backlog.md` 22,611 字节 ✅；`index.md` 9,007 字节 ✅；`hermes-memory/` 全部正文 < 50KB ✅
+- [x] **Backlog 全部项 `[x]`**：v16.2 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `49c3c2e0d`）
+
+## 定时巡检（2026-05-07 13:58 CST）
 
 ## 定时巡检（2026-05-07 12:20 CST）
 

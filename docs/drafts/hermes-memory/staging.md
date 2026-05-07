@@ -6,6 +6,21 @@
 
 （空）
 
+## 定时巡检 v16.3（2026-05-07 16:16 CST）
+
+- [x] 上游 main 无新 commits（`49c3c2e0d` 仍在最新）
+- [x] feature branch `feat/browser-coordinate-click` 1 commit（浏览器坐标点击，记忆无关）
+- [x] 文档体量全部 < 50KB
+- [x] Backlog v16.3 更新完毕
+- [x] Doc 105：Shell Hooks Extensibility Architecture（`shell_hooks.py` 836L）→ `60-evolution/105-shell-hooks-extensibility-architecture.md`（9,621 字节）
+
+## 定时巡检 v16.2（2026-05-07 15:29）
+
+- [x] 上游 main 无新 commits（`49c3c2e0d` 仍在最新）
+- [x] feature branch `feat/browser-coordinate-click` 1 commit（浏览器坐标点击，记忆无关）
+- [x] 文档体量合规全部 < 50KB
+- [x] Backlog v16.2 更新完毕
+
 ## 已完成
 
 - [x] **v15.0 巡检（2026-05-07 07:32）**：上游 `04cf4788c..3cdbf334d`（1 commit），0 记忆相关；归档 v9.9–v13.6 巡检日志 → `11-research-backlog-inspection-logs-2026-05-05-to-2026-05-07.md`（28,824B）；`11-research-backlog.md` 17KB ✅；`index-reading-order.md` 48,048B ✅

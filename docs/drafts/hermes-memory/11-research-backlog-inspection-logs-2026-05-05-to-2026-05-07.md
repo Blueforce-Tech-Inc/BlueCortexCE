@@ -195,3 +195,12 @@
 - [x] **文档架构规范自检**：入口 `hermes-memory-analysis.md` 仅 1553 字节 ✅；最大正文 `index-reading-order.md` 45,026 字节（合规 < 50KB）✅；`hermes-memory/60-evolution/` 77 篇正文，全部低于 50KB ✅；新增 doc `95`（7,850 字节）— 原子文件写入模式（temp+fsync+atomic_replace）+ 独立 .lock 文件设计 + 字符预算模型（2200/1375 chars）+ Section Sign `§` 分隔符设计
 - [x] **Backlog 全部项 `[x]`**：v13.5 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `b62a82e0c`）
 
+
+## 定时巡检 v16.2（2026-05-07 14:53 CST）
+
+- [x] **本地 Hermes Agent Repo 同步**：origin/main 已在 `49c3c2e0d`（与上次巡检同 commit）✅
+- [x] **上游代码增量扫描**（`49c3c2e0d..origin/main`，0 commits）：repo 已是最新 ✅
+- [x] **文档架构规范自检**：
+  - 入口 `hermes-memory-analysis.md` 1553 字节 ✅
+  - `hermes-memory/` 全部正文 < 50KB ✅（最大 42,912B）
+- [x] **Backlog 全部项 `[x]`**：v16.2 完成，上游无核心记忆系统进展。下一轮巡检继续跟踪上游新 commit（起点：`origin/main` `49c3c2e0d`）
