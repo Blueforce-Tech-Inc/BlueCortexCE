@@ -332,6 +332,23 @@ class CortexMemClientImplTest {
     }
 
     @Test
+    void submitFeedback_nullComment_omitsCommentField() throws Exception {
+        // Backend only updates userComment when comment != null.
+        // When null, the comment field must be absent from the JSON body
+        // so the existing user comment is preserved.
+        server.enqueue(new MockResponse().setResponseCode(200));
+
+        client.submitFeedback("obs-uuid", "SUCCESS", null);
+
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getMethod()).isEqualTo("POST");
+        assertThat(req.getBody().readUtf8())
+            .contains("obs-uuid")
+            .contains("SUCCESS")
+            .doesNotContain("comment");  // null comment must NOT appear in body
+    }
+
+    @Test
     void getQualityDistribution_returnsResult() throws Exception {
         server.enqueue(new MockResponse()
             .setBody("{\"project\":\"/p\",\"high\":10,\"medium\":5,\"low\":3,\"unknown\":2}")
