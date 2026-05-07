@@ -4,30 +4,10 @@
 > **原因**：`index.md` 逼近 50KB 硬上限，遵循 AGENT.md 单文件 ≤50KB 规范。  
 > **返回索引**：[`index.md`](index.md)
 
-## 建议阅读顺序
-## 建议阅读顺序
 
-1. **总览与立场** → [`00-overview/01-architecture-positioning-and-toc.md`](00-overview/01-architecture-positioning-and-toc.md)（含历史级「目录」清单；跨文件锚点无效，请用本索引跳转）
-2. **借鉴总表** → [`20-recommendations/02-bluecortexce-recommendations.md`](20-recommendations/02-bluecortexce-recommendations.md)（§11–§15 深度专题 → [`02b-deep-dives.md`](20-recommendations/02b-deep-dives.md)；2026-04-24 preemptive split）
-3. **可执行优先级（综述）** → [`20-recommendations/03-borrowing-synthesis-executable-priorities.md`](20-recommendations/03-borrowing-synthesis-executable-priorities.md)（2026-04-24 preemptive split：§11–§15 深度专题移至 [`02b-deep-dives.md`](20-recommendations/02b-deep-dives.md)）
-4. **CE 注入面与 `/api/context` 对照（本仓库路径）** → [`20-recommendations/04-ce-injection-and-context-api-surface.md`](20-recommendations/04-ce-injection-and-context-api-surface.md)（§2.1 会话首跳 → [`../evolver-memory/15-runtime-integration-surfaces.md`](../evolver-memory/15-runtime-integration-surfaces.md) §5）
-5. **上下文安全缺口盘点（对照 Hermes 扫描）** → [`20-recommendations/05-ce-context-security-gap-inventory.md`](20-recommendations/05-ce-context-security-gap-inventory.md)
-5a. **Context 文件扫描机制深度解析（`_scan_context_content` vs `_scan_memory_content`）** → [`20-recommendations/06-context-file-scanning-deep-dive.md`](20-recommendations/06-context-file-scanning-deep-dive.md)（2026-04-24 新增；`_scan_context_content`/`_scan_memory_content` 源码对照 + CE 缺口 + 实施建议）
-6. **上下文 / 注入 / Prefetch（Hermes 机制长文）** → [`40-context-compression/03-memory-context-injection-and-prefetch-lifecycle.md`](40-context-compression/03-memory-context-injection-and-prefetch-lifecycle.md)
-7. **Honcho / 多模态等深度** → `50-honcho-holographic-deep/` 下各篇（[`04`](50-honcho-holographic-deep/04-honcho-four-tools-routing.md) §20–§22 · [`06`](50-honcho-holographic-deep/06-honcho-holographic-deep-advanced.md) §24–§29；2026-04-24 拆分）
-8. **演进与 Provider / 工具细节** → `60-evolution/` 下各篇（含 [`11-field-review-and-bypass-roadmap.md`](60-evolution/11-field-review-and-bypass-roadmap.md)）
-9. **上游源码现场快照（MemoryManager / Provider / MemoryStore）** → [`60-evolution/12-upstream-hermes-agent-memory-snapshot.md`](60-evolution/12-upstream-hermes-agent-memory-snapshot.md)（读代码接力起点；与 `06`/`08` 交叉）
-10. **`run_agent` 主循环接线**（prefetch / sync / 工具分发 / 双线 `_memory_store`∥`_memory_manager`） → [`60-evolution/13-run-agent-memory-wiring-snapshot.md`](60-evolution/13-run-agent-memory-wiring-snapshot.md)
-11. **Multi-Provider 插件发现架构** → [`60-evolution/14-multi-provider-plugin-discovery.md`](60-evolution/14-multi-provider-plugin-discovery.md)（discover/load/Collector 模式 + Provider 清单；byterover/hindsight/openviking 三新增 Provider 详见 [`18`](60-evolution/18-three-new-memory-providers.md)）
-12. **Session DB Flush 与 Duplicate-Write Bug Fix** → [`60-evolution/15-session-db-flush-and-duplicate-fix.md`](60-evolution/15-session-db-flush-and-duplicate-fix.md)（`_last_flushed_db_idx` 游标、幂等 flush、消息截断）
-13. **Extended Hooks**（`on_pre_compress` / `on_memory_write` / `on_delegation` / `queue_prefetch`） → [`60-evolution/16-extended-memory-provider-hooks.md`](60-evolution/16-extended-memory-provider-hooks.md)（RetainDB 三线程预取模型）
-14. **Smart Compression + Exhaustion Loop Fix**（2026-04-14 上游） → [`60-evolution/17-smart-compression-and-exhaustion-fix.md`](60-evolution/17-smart-compression-and-exhaustion-fix.md)（Smart tool collapse / MD5 dedup / Anti-thrashing / `failed: True` + session auto-reset）
-15. **三新增 Provider 分析**（byterover/hindsight/openviking） → [`60-evolution/18-three-new-memory-providers.md`](60-evolution/18-three-new-memory-providers.md)（ByteRover 层级 Tree / Hindsight 知识图谱+Reflect+本地嵌入 / OpenViking URI+tiered context+atexit）
-16. **Gateway 后台 Session 过期 Watcher**（proactive flush + `memory_flushed` 持久化 + 防覆盖注入 + cron 跳过） → [`60-evolution/19-gateway-session-expiry-watcher.md`](60-evolution/19-gateway-session-expiry-watcher.md)
-17. **Tool Result Persistence 3-Layer Defense**（per-tool truncation / per-result sandbox persist / per-turn 200K budget） → [`60-evolution/20-tool-result-persistence.md`](60-evolution/20-tool-result-persistence.md)
-18. **Session Search Tool — FTS5 + LLM Recall**（dual mode / smart truncation / parallel summarize / auxiliary model） → [`60-evolution/21-session-search-tool.md`](60-evolution/21-session-search-tool.md)
-19. **Hindsight 知识图谱深度解析**（TEMPR 四路检索 / Observation 合并 / 实体消解 / 双时间模型 / Reflect Agentic Loop / Disposition System） → [`60-evolution/22-hindsight-knowledge-graph-deep-dive.md`](60-evolution/22-hindsight-knowledge-graph-deep-dive.md)（2026-04-23 新增）
-20. **Auxiliary Client Provider Resolution Chain**（Auto-Detect / 7-Provider Fallback / Payment Error Recovery / Codex & Anthropic Adapters / Per-Task Config） → [`60-evolution/23-auxiliary-client-resolution-chain.md`](60-evolution/23-auxiliary-client-resolution-chain.md)（2026-04-23 新增）
+> **早期条目归档**：entries 1–20 已移至 [`index-reading-order-archive-1.md`](index-reading-order-archive-1.md)（2026-05-07 归档，为遵守 50KB 上限）。
+
+## 建议阅读顺序
 21. **ContextCompressor 完整算法解析**（四阶段压缩 / Tool Pruning 3-Pass / Token-Budget Tail / Structured Template / Iterative Update / Anti-Thrashing / Tool Pair 整治） → [`60-evolution/24-context-compressor-full-algorithm.md`](60-evolution/24-context-compressor-full-algorithm.md)（2026-04-23 新增；整合 06/07/09/17 散落分析）
 22. **Hindsight 本地嵌入 Daemon + PostgreSQL Schema**（hindsight-all 包架构 / HindsightEmbedded vs HindsightServer / Profile 机制 / pgvector/pgvectorscale/vchord 多扩展 / 连接池 / Schema 隔离 / LLM Provider 支持 / Docker 部署对比） → [`60-evolution/25-hindsight-local-embedded-daemon-and-postgresql-schema.md`](60-evolution/25-hindsight-local-embedded-daemon-and-postgresql-schema.md)（2026-04-23 新增；源自 Hindsight 官方安装文档 + API 参考 + Hermes 插件源码）
 23. **Supermemory Multi-Container & Search Mode**（多容器架构 / 搜索模式对比） → [`60-evolution/26-supermemory-multi-container-and-search-mode.md`](60-evolution/26-supermemory-multi-container-and-search-mode.md)
@@ -118,7 +98,35 @@
 
 83. **上游新提交分析（0ce1b9fe2 → 13a7cbcd6，54 commits，2026-05-05 新增）**：6 个记忆/上下文系统相关发现 → [`83`](60-evolution/83-upstream-0ce1b9fe2-to-13a7cbcd6-memory-analysis.md)；⭐ **P1** `1e6285c53` — Compression Eval Harness（完整 18 文件框架）→ [`82`]；⭐ **P1** `72d53e14a` — Summary Pipeline Credential Redaction（三注入点 `redact_sensitive_text`：serializer/previous-summary/存储前）；⭐ **P2** `02e328c41` — Image Token Charging（flat 1600 token/image + `_content_length_for_budget` helper）；⭐ **P2** `4a3eac5fe` — `/recap` 无 LLM Session 摘要（纯本地计算，跨平台，工具词汇定制）；P2 `6366fb9c8` — Periodic Gateway Memory Logging（`gateway/memory_monitor.py`，daemon thread，5min 间隔，`resource.getrusage()`）；P3 `319141a0d` — session_search None tool_name 截断修复；⚠️ `65ca3ba93` 全量源码迁入 `hermes_agent/` 子包；下次扫描起点：`origin/main` `13a7cbcd6`
 
-**⚠️ 上游最新**：origin/main 已推进至 `13a7cbcd6`，本地 HEAD 已同步。`0ce1b9fe2..origin/main` 共 54 个新提交，6 个记忆相关（已分析）；下次扫描起点：`origin/main` `13a7cbcd6`
+**⚠️ 上游最新**（已归档）：origin/main 已推进至 `13a7cbcd6`，本地 HEAD 已同步。`0ce1b9fe2..origin/main` 共 54 个新提交，6 个记忆相关（已分析）；已被后续扫描覆盖，下次扫描起点：`origin/main` `13a7cbcd6`
 
 77. **Prompt Builder 与系统提示词组装架构（2026-05-05 新增）**：`agent/prompt_builder.py`（1180 行）+ `run_agent.py` `_build_system_prompt()`（~100 行）完整解析 — 13 层系统提示词组装流程 / `_scan_context_content()` 10 类威胁模式 + 10 种不可见 Unicode 扫描 / `MEMORY_GUIDANCE` / `SESSION_SEARCH_GUIDANCE` / Model-Specific 执行纪律 / Skills Manifest 两级缓存（进程内 LRU + 磁盘快照）/ SOUL.md 特殊处理 / 双扫描防护体系对照（`_scan_context_content` vs `_scan_memory_content`）；BlueCortexCE 借鉴：P0 `ContextSecurityService` 威胁模式库 + Unicode 扫描、Tool-Aware Guidance 文本设计、系统提示词分层架构 → [`77`](77-prompt-builder-context-injection-architecture.md)（2026-05-05 新增；14,502 字节）
 
+
+84. **上游新提交分析（2026-05-06）— Hindsight Append-Mode + Honcho Prefetch 语义搜索**：扫描 `origin/main` 推进至 `946ef0ea1`，2 个记忆相关发现 → [`99`](60-evolution/99-upstream-append-mode-and-honcho-prefetch-semantic.md)；⭐⭐⭐ **P0** `3082fa082` — Hindsight `update_mode='append'` 跨进程去重（镜像 `hindsight-integrations/openclaw` 模式）：`/version` API 探测 + `threading.Lock` 双检缓存 + semver `packaging.version.Version` 比较 + 稳定 `session_id` doc_id + `update_mode='append'`（API ≥ 0.5.0）；legacy fallback 为 `f"{session_id}-{start_ts}"` per-process unique doc_id；local_embedded 特殊处理（取 `client.url` actual daemon port）；CE 借鉴：API 版本兼容性探测模式（CE 的 SpringAI/pgvector 版本能力检测）；⭐⭐ **P1** `0a7cc85ea` — Honcho `get_prefetch_context` 启用 `user_message` 作为 `search_query`：解决之前丢弃 `user_message` 的隐私理由不一致问题（Honcho 已通过 `saveMessages` 持久化全量消息）；语义搜索返回话题相关 conclusions 而非全量插入顺序 observations；CE 借鉴：`ContextService.prefetchContext()` 使用 userMessage 作为 semantic query
+
+85. **上游新提交分析（2026-05-06 07:58）— Hindsight Append-Mode 补扫**：`1fc8733a6..origin/main`（19 commits），1 个核心记忆相关 → [`90`](60-evolution/90-upstream-1fc8733a6-to-0d41e94ca-memory-analysis.md)；⭐⭐⭐ **P0** `3082fa082` — Hindsight `update_mode='append'` 跨进程去重（镜像 `hindsight-integrations/openclaw` 模式）：`/version` API 探测 + `threading.Lock` 双检缓存 + semver `packaging.version.Version` 比较 + 稳定 `session_id` doc_id + `update_mode='append'`（API ≥ 0.5.0）；legacy fallback 为 `f"{session_id}-{start_ts}"` per-process unique doc_id；CE 借鉴：API 版本兼容性探测模式（CE 的 SpringAI/pgvector 版本能力检测）；另有 1 个 API Server SSE token batching 性能优化（`3188e63b0`，可能影响上下文流式传输）
+
+86. **双 Scrubber 管道 + 内存写入安全扫描深度解析（2026-05-06 新增）**：`StreamingThinkScrubber`（386行）+ `StreamingContextScrubber`（~554行）+ `_scan_memory_content`（~279行）完整状态机解析 — 双管道并行（think_scrubber 过滤 `<think>` 块，context_scrubber 处理 `memory_context` block）+ 7 类流式状态（think/empty/start_tag/in_tag/end_tag/complete/error）+ 超时熔断（5min）+ 内存安全扫描（`_scan_memory_content`）10 类威胁模式；CE 借鉴：proxy 层 SSE 过滤（P1）+ ingest 入口安全扫描（P1）+ 冻结快照（P2）→ [`91`](60-evolution/91-streaming-scrubber-and-memory-security-scanning.md)（330+ 行；下次扫描起点：`origin/main` `946ef0ea1`）
+
+87. **上游 Commit `aa88dcc57` Memory Analysis（2026-05-06 新增）**：⭐⭐⭐ **P0** `aa88dcc57` — 压缩后 cached agent 未清除（`session hygiene` 后 + `/compress` 后均新增 `_evict_cached_agent`），导致 SOUL.md/memory/skills 更新后旧 system prompt 持续生效；⭐⭐⭐ **P1** Memory authority 升级（`informational background data` → `authoritative reference data`）跨 `memory_manager.py` + `context_compressor.py` 双文件；⭐⭐⭐ **P1** `SUMMARY_PREFIX` + `_compression_note` 新增 persistent memory 权威性声明；⭐⭐⭐ **P1** `_INTERNAL_NOTE_RE` 正则兼容新旧措辞（向后兼容旧 session）；**P2** `/compact` → `/compress` typo fix；CE P0 缺口：压缩后无 context 强制刷新机制（`ContextService` 需在压缩/Memory 写入后刷新 `lastMemoryUpdateTs`）→ [`92`](60-evolution/92-upstream-aa88dcc57-memory-analysis.md)（173+ 行）
+
+88. **Hindsight `update_mode='append'` 深度专项（2026-05-06 新增）**：`3082fa082` 源码级深度解析（`plugins/memory/hindsight/__init__.py`），聚焦 `_check_api_supports_update_mode_append` 完整实现：`threading.Lock` 双检缓存 + `_probe_url()` 处理 local_embedded 动态端口 + `_meets_minimum_version` semver 比较 + `on_session_switch` flush 针对旧 session 探测；CE 借鉴：API 版本兼容性探测模式（`ContextService` 检测 SpringAI/pgvector 版本能力）→ [`93`](60-evolution/93-hindsight-update-mode-append-and-cross-process-dedup.md)（203 行）
+
+89. **上游新提交分析（2026-05-07）— 无新增记忆相关变更**：`5044e1cbf..origin/main`（8 commits），**0 个记忆相关** — TUI skin highlight colors（`f1a8e9994`）/ TUI virtual offset refresh（`da6019820`）/ CLI thin PTY LF enter（`5044e1cbf`）/ gateway restart notification flag（`b71f80e6c`）/ auth JSON fallback（`33bf5f629`）/ tool-gateway docs rewrite（`d514dd405`）；结论：记忆系统文档保持最新 → `（本轮无新文档）`（2026-05-07 新增；下次扫描起点：`origin/main` `f1a8e9994`）
+
+90. **原子文件写入 + Char-Limit 设计模式（2026-05-07 新增）**：`honcho/memory.py` 完整解析 — temp file + `os.fsync` + `atomic_replace` 三步走；独立 `.lock` 文件设计（`{path}.lock`）；字符预算模型（2200/1375 chars，model-independent）；`ENTRY_DELIMITER = "\n§\n"` Section Sign 分隔符；CE 落地：P1 原子写入（`ObservationEntity` 写入安全关键）+ P1 字符限制（MEMORY.md）+ P2 ingest 入口扫描 → [`95`](60-evolution/95-atomic-file-write-and-char-limit-design.md)（7,850 字节）
+
+91. **Hermes 记忆系统架构综合与 CE 落地路线图（2026-05-07 新增）**：三记忆层×双系统全貌（HONCHO 进程内 / HINDSIGHT 外接图谱 / SUPERMEMORY 元认知）+ `aa88dcc57` P0 发现（压缩后 cached agent 未清除 + Memory authority 升级）+ 安全三层防护（fence/injection/redaction）+ 原子写入（temp+fsync+replace）+ FTS5+LLM 混合搜索 + 4-Phase 压缩管线 + 实施优先级矩阵（P0-P3）；CE 落地锚点 → [`96`](60-evolution/96-hermes-memory-architecture-synthesis-and-ce-roadmap.md)（11,432 字节）
+
+92. **Curator 技能生命周期管理与后台维护编排器（2026-05-07 新增）**：`agent/curator.py`（1674 行）— 空闲触发调度（`should_run_now()` + idle hours）+ 纯函数状态机（active → stale → archived）+ LLM 驱动的伞形化评审（`CURATOR_REVIEW_PROMPT`）+ 原子状态持久化（temp+fsync+replace，与 doc 95 一致）+ 分类启发式（consolidation vs pruning）+ 双输出报告系统（run.json + REPORT.md）+ Dry-run 模式；CE 借鉴：后台 Observation 生命周期管理 + 相似 Observation 自动合并 + Session 自动过期刷新 → [`97`](60-evolution/97-curator-skill-lifecycle-and-background-maintenance-orchestrator.md)（12,067 字节）
+
+93. **Tool Call Loop Guardrails + File Safety（2026-05-07 新增）**：`agent/tool_guardrails.py`（455行）+ `agent/file_safety.py`（111行）— ⭐⭐ **ToolCallGuardrailController** 三模式检测（exact failure / same-tool failure / idempotent no-progress）+ SHA256 签名标准化 + opt-in hard stop + 可配置阈值矩阵；⭐⭐ **FileSafety** 双防线（denylist 精确路径 + 目录前缀 + safe root 隔离 + Hermes 内部缓存读取拦截）；CE 落地：P1 MCPTools GuardrailController（防止工具循环）+ P1 文件路径 denylist（`ContextService` 补充）；CE 安全纵深 L1-L4 缺口对照 → [`98`](60-evolution/98-tool-call-loop-guardrails-and-file-safety.md)（13,220 字节）
+
+94. **上游新提交分析（2026-05-07 05:40）**：2 commits（`f1a8e9994..53a024994`），**0 记忆系统相关** — Docker CI（#20890 overlapping builds guard）；无 Python 源码变更；本地 Hermes Agent 已同步至 `53a024994` → `（无新文档）`（下次扫描起点：`origin/main` `53a024994`）
+
+95. **上游新提交分析（2026-05-07 05:51）**：1 commit（`53a024994..5ccab51fa`），**0 记忆系统相关** — TUI scrollbar 修复（`5ccab51fa` fix #20917：`ui-tui/`）；无 Python 源码变更 → `（无新文档）`（下次扫描起点：`origin/main` `5ccab51fa`）
+
+96. **上游新提交分析（2026-05-07 08:04）**：3 commits（`53a024994..origin/main`），**0 记忆系统相关** — `3cdbf334d` gateway system-scope fix（Python）/ `04cf4788c` TUI voice push-to-talk（TS）/ `5ccab51fa` TUI scrollbar steadying（TS）；均与记忆管线无关 → `（无新文档）`（下次扫描起点：`origin/main` `3cdbf334d`）
+
+**⚠️ 上游最新**：origin/main 已推进至 `3cdbf334d`（`3cdbf334d fix(gateway): don't dead-end setup wizard`），本地 HEAD 已同步。`53a024994..origin/main` 共 3 个新提交，**0 个记忆系统相关**。下次扫描起点：`origin/main` `3cdbf334d`
