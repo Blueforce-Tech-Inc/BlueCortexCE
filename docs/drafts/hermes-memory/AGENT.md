@@ -29,7 +29,7 @@
 - `index.md` 中的相对链接仍有效  
 - 若引入新结论，标明复核日期或上游提交/版本（若已知）
 
-**本地 Hermes Agent Repo**：已同步至 `origin/main` `49c3c2e0d`（Kanban docs 修复，非记忆系统）
+**本地 Hermes Agent Repo**：已同步至 `origin/main` `49c3c2e0d`（Kanban docs 修复，非记忆系统；`53a024994..49c3c2e0d` = 7 commits，0 记忆相关）
 
 ## 体量预警（cron / 续写前扫一眼）
 
@@ -94,6 +94,7 @@ find docs/drafts/hermes-memory -name '*.md' -exec wc -c {} + | sort -n | tail -1
 | 3,498 | [`60-evolution/88-upstream-3b750715a-to-1fc8733a6-memory-analysis.md`](60-evolution/88-upstream-3b750715a-to-1fc8733a6-memory-analysis.md)（2026-05-06 新增；48 commits，0 个核心记忆系统代码变更；Provider 全量可插拔化（33 个）+ 文档完善） |
 | 4,726 | [`60-evolution/90-upstream-1fc8733a6-to-0d41e94ca-memory-analysis.md`](60-evolution/90-upstream-1fc8733a6-to-0d41e94ca-memory-analysis.md)（2026-05-06 新增；19 commits，1 个记忆发现；⭐ P1 Hindsight `update_mode='append'` 跨进程去重：`threading.Lock` 双检缓存 + semver 版本探测 + local_embedded 动态端口 + CE 借鉴：API 兼容性探测模式）
 7,676 | [`60-evolution/99-upstream-append-mode-and-honcho-prefetch-semantic.md`](60-evolution/99-upstream-append-mode-and-honcho-prefetch-semantic.md)（2026-05-07 新增；2 commits：⭐⭐⭐ P0 Hindsight Append-Mode + ⭐⭐ P1 Honcho Prefetch 语义搜索） |
+| 5,087 | [`60-evolution/104-feature-branch-memory-commits-may-2026.md`](60-evolution/104-feature-branch-memory-commits-may-2026.md)（2026-05-07 新增；Feature-Branch P0×2 修复 doc 92 + backward-compatible regex + ContextService 文件变更检测） |
 | 13,492 | [`60-evolution/103-honcho-dialectic-reasoning-and-conclusions-deep-dive.md`](60-evolution/103-honcho-dialectic-reasoning-and-conclusions-deep-dive.md)（2026-05-07 新增；Dialectic multi-pass reasoning / Conclusions 写入机制 / AI Identity Seeding / CE 落地 P2-P3） |
 
 **已处理**：
