@@ -819,21 +819,34 @@ function shouldDistill() {
 
 ## 🔒 11. 安全、并发与运维保障
 
-### 11.1 并发控制：文件锁
+### 11.1 并发控制：原子写入
 
+EvoMap 的并发控制**不依赖文件锁**，而是依赖 **POSIX 原子替换**（`fs.renameSync`）和 **append-only 语义**：
+
+**JSONL 追加**（无锁）：
 ```javascript
-function withFileLock(targetPath, fn) {
-  const lockPath = targetPath + '.lock';
-  const lockPath = _acquireLock(targetPath);  // O_EXCL 原子创建
-  try {
-    return fn();  // 临界区：读-改-写
-  } finally {
-    _releaseLock(lockPath);
-  }
+function appendJsonl(filePath, obj) {
+  ensureDir(dir);
+  fs.appendFileSync(filePath, JSON.stringify(obj) + '\n', 'utf8');
+  // O(1) 追加，无锁竞争；追加是幂等的，多进程并发追加只产生交叉的完整行
 }
 ```
 
-**Stale lock 检测**：读取锁文件中的 PID，用 `process.kill(pid, 0)` 验证进程是否存活。
+**状态文件原子替换**：
+```javascript
+function writeJsonAtomic(filePath, obj) {
+  const tmp = `${filePath}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(obj, null, 2) + '\n');
+  fs.renameSync(tmp, filePath);  // POSIX rename 是原子的（同一文件系统）
+}
+```
+
+**幂等写入设计**：
+- `recordOutcomeFromState()` 通过 `last.outcome_recorded` 标志防止重复记录 outcome
+- `memory_graph_state.json` 是唯一可变状态，写入前先读取、检查标志
+- 多个进程同时 solidfy 时，只有第一个成功写入 outcome，后续调用检测到 `outcome_recorded=true` 直接返回 null
+
+**注意**：此设计假设所有写进程在**同一台机器**上（单机环境）。多机写入共享 NFS 时，`renameSync` 不保证原子性（取决于 NFS 实现）。
 
 ### 11.2 GitOps 回滚
 
@@ -877,7 +890,119 @@ const REDACT_PATTERNS = [
 
 ---
 
-## 📊 12. 与 Claude-Mem 的架构对比
+## 📊 12. 源码验证后的关键洞察
+
+> 以下内容经过 `src/gep/` 目录源码逐一验证，与初版文档可能存在差异，以本节为准。
+
+### 12.1 幂等写入：outcome 的防重复机制
+
+`recordOutcomeFromState()` 是整个事件链的**终点**，负责关闭 Signal→Attempt→Outcome 的因果环。它通过 `last.outcome_recorded` 标志实现幂等：
+
+```javascript
+// memoryGraph.js: recordOutcomeFromState()
+if (last.outcome_recorded) return null;  // 幂等检查
+// ... 写入 outcome event 到 JSONL ...
+last.outcome_recorded = true;
+last.outcome_recorded_at = ts;
+writeJsonAtomic(statePath, state);  // 写入状态文件
+```
+
+**设计意义**：即使 solidify 被多次调用（如重试），outcome 也只会被记录一次。这对于需要重试机制的自进化系统至关重要。
+
+### 12.2 唯一可变状态：`memory_graph_state.json`
+
+**整个系统只有这一个文件是可变的**，其余全部 append-only：
+
+```javascript
+// memoryGraph.js: recordAttempt() 写入状态
+state.last_action = {
+  action_id, signal_key, signals, mutation_id, gene_id,
+  hypothesis_id, capsules_used, had_error,
+  baseline_observed,           // ← 执行前的快照
+  outcome_recorded: false,     // ← 关键标志
+};
+writeJsonAtomic(statePath, state);  // 原子替换
+```
+
+`solidify()` 通过读取 `last_action` 中的 `baseline_observed` 与执行后的 `observations` 对比，计算 error count delta 和 scan time delta，从而得出 score。这要求 `baseline_observed` 在 attempt 阶段被正确保存。
+
+### 12.3 `confidence_edge` 事件：追加快照 vs 实时聚合
+
+每次 outcome 写入后，会**立即追加两条 confidence 事件**到 JSONL（用于审计）：
+
+```javascript
+// recordOutcomeFromState() 末尾
+appendJsonl(memoryGraphPath(), buildConfidenceEdgeEvent({ ..., halfLifeDays: 30 }));
+appendJsonl(memoryGraphPath(), buildGeneOutcomeConfidenceEvent({ ..., halfLifeDays: 45 }));
+```
+
+但 `getMemoryAdvice()` **并不依赖这些事件**，而是每次从 outcome 事件**重新聚合**边。这实现了"**写入端可审计，读取端可演进**"的设计：
+- 审计路径：直接读 confidence_edge 事件（已包含 Laplace 平滑值）
+- 推理路径：从 outcome 重新聚合（可随时修改聚合/衰减逻辑）
+
+### 12.4 `external_candidate` 不参与聚合
+
+```javascript
+// aggregateEdges() 只处理 kind === 'outcome' 的事件
+if (ev.kind !== 'outcome') continue;
+```
+
+外部资产（如 Hub 上的 Capsule）作为 `external_candidate` 事件记录，仅供人类调试和叙事记忆使用，**不影响图推理**。这是"外部信息只读不写"的清晰边界。
+
+### 12.5 Outcome 推断机制：当 evolver 无法直接观察结果时
+
+`inferOutcomeEnhanced()` 是优雅的降级策略。当没有直接的 EvolutionEvent JSON 可解析时，它会综合三层证据：
+
+```javascript
+function inferOutcomeEnhanced({ prevHadError, currentHasError, baselineObserved, currentObserved }) {
+  // 1. 优先：从当前 session tail 中解析 EvolutionEvent JSON
+  const observed = tryParseLastEvolutionEventOutcome(combinedEvidence);
+  if (observed) return observed;
+
+  // 2. 其次：错误信号有无变化的启发式
+  const base = inferOutcomeFromSignals({ prevHadError, currentHasError });
+
+  // 3. 最后：结合 error_count delta 和 scan_time delta 进行微调
+  score += Math.max(-0.12, Math.min(0.12, delta / 50));  // error 减少加分
+  score += Math.max(-0.06, Math.min(0.06, ratio));       // scan 加快加分
+  return { status: base.status, score: clamp01(score) };
+}
+```
+
+这使得系统即使在无法获取完整执行结果时，也能给出合理的 outcome 估计。
+
+### 12.6 Narrative Memory 与 Memory Graph 的完全解耦
+
+Narrative Memory（`narrativeMemory.js`，108 行）和 Memory Graph（`memoryGraph.js`，787 行）**完全独立**：
+
+| 维度 | Memory Graph | Narrative Memory |
+|------|-------------|-----------------|
+| 写入者 | `recordSignalSnapshot / Attempt / Outcome` | `recordNarrative()`（仅在 solidify 后调用） |
+| 触发时机 | 每个进化阶段 | 仅在 solidify 成功/失败后 |
+| 存储 | JSONL 追加 | Markdown 追加 + 修剪 |
+| 内容 | 完整因果事件链 | 人类可读的摘要条目 |
+| 推理依赖 | 是（getMemoryAdvice 依赖） | 否（人类可读日志） |
+
+两者共享同一个 `${MEMORY_DIR}/narrative.md` 文件，但写入路径完全不同。这是一种**读写分离**的设计：Graph 服务机器推理，Narrative 服务人类审计。
+
+### 12.7 原子性保证的局限性
+
+当前设计假设**单机文件系统**。关键保证：
+- `fs.appendFileSync` 在 POSIX 系统上是原子追加（单行 < PIPE_BUF = 4KB）
+- `fs.renameSync` 在同一文件系统上是原子替换
+
+**不保证的场景**：NFS 共享存储（rename 非原子）、Windows 网络共享（行为不确定）。这与"离线优先"的设计哲学一致——EvoMap 主要面向本地开发者机器。
+
+### 12.8 修正：Section 11.1 文件锁（已移除）
+
+初版文档描述的 `withFileLock` / `O_EXCL` / `stale lock detection` 在当前源码（2026-05-07）中**不存在**。当前并发控制完全依赖：
+1. JSONL 的幂等追加语义
+2. `outcome_recorded` 标志的幂等检查
+3. `writeJsonAtomic` 的原子替换
+
+---
+
+## 📊 13. 与 Claude-Mem 的架构对比
 
 | 维度 | EvoMap/evolver | Claude-Mem (BlueCortexCE) |
 |------|---------------|---------------------------|
@@ -895,15 +1020,13 @@ const REDACT_PATTERNS = [
 | PRM 多维评分 | 有（8 维度） | 无（向量相似度） |
 | Skill Distiller | 有（LLM 蒸馏 Gene） | 无 |
 | ATP 市场 | 有（完整市场经济层） | 无 |
-| 并发控制 | 有（文件锁） | 无（单进程设计） |
+| 并发控制 | 原子写入 + 幂等标志（无文件锁） | 无（单进程设计） |
 | GitOps 回滚 | 有 | 无 |
 | 隐私脱敏 | 有（26 种模式） | 无 |
 
----
+## 💡 14. 对 Claude-Mem 的借鉴价值
 
-## 💡 13. 对 Claude-Mem 的借鉴价值
-
-### 13.1 高优先级借鉴
+### 14.1 高优先级借鉴
 
 | 设计 | EvoMap 做法 | Claude-Mem 改进建议 |
 |------|------------|---------------------|
@@ -913,16 +1036,16 @@ const REDACT_PATTERNS = [
 | **多维评分** | PRM 8 维度评分 | 可引入多维度 context quality score |
 | **Adapter 模式** | Local/Remote 可插拔 | 引入多存储后端支持 |
 
-### 13.2 中优先级借鉴
+### 14.2 中优先级借鉴
 
 | 设计 | EvoMap 做法 | Claude-Mem 改进建议 |
 |------|------------|---------------------|
 | **信号系统** | 14 类信号 + 去重 | 可引入任务类型信号 |
 | **叙事记忆** | Markdown 时间线 | 可引入决策日志 |
 | **多语言支持** | EN/ZH-TW/JA | 可引入中文信号检测 |
-| **并发控制** | 文件锁（O_EXCL） | 多实例部署时的协调 |
+| **并发控制** | 原子写入 + 幂等标志 | 多实例部署时的协调（可借鉴幂等设计） |
 
-### 13.3 低优先级借鉴
+### 14.3 低优先级借鉴
 
 | 设计 | EvoMap 做法 | Claude-Mem 改进建议 |
 |------|------------|---------------------|
@@ -933,21 +1056,21 @@ const REDACT_PATTERNS = [
 
 ---
 
-## 📁 14. 关键文件索引
+## 📁 15. 关键文件索引
 
-| 文件 | 行数 | 职责 |
+| 文件 | 实际行数 | 职责 |
 |------|------|------|
-| `src/gep/memoryGraph.js` | ~1000 | 核心图存储与推理引擎 |
-| `src/gep/memoryGraphAdapter.js` | ~300 | Local/Remote 适配器 |
-| `src/gep/narrativeMemory.js` | ~200 | Markdown 叙事日志 |
-| `src/gep/signals.js` | ~500 | 信号提取与去重 |
-| `src/gep/learningSignals.js` | ~300 | 结构化信号展开、标签匹配 |
-| `src/gep/selector.js` | ~800 | 基因选择器（含漂移强度） |
-| `src/gep/solidify.js` | ~1344 | Solidify 机制、PRM 评分、基因学习 |
-| `src/gep/skillDistiller.js` | ~1344 | LLM 驱动的 Gene 蒸馏 |
-| `src/gep/paths.js` | ~100 | 存储路径解析 |
-| `src/gep/sanitize.js` | ~500 | 隐私脱敏 |
-| `src/gep/assetStore.js` | ~500 | 文件锁、原子写入 |
+| `src/gep/memoryGraph.js` | **787** | 核心图存储与推理引擎 |
+| `src/gep/memoryGraphAdapter.js` | **203** | Local/Remote 适配器 |
+| `src/gep/narrativeMemory.js` | **108** | Markdown 叙事日志 |
+| `src/gep/signals.js` | **444** | 信号提取与去重（4 语种） |
+| `src/gep/learningSignals.js` | **89** | 结构化信号展开、标签匹配 |
+| `src/gep/selector.js` | **417** | 基因选择器（含漂移强度） |
+| `src/gep/solidify.js` | **1344** | Solidify 机制、PRM 评分、基因学习 |
+| `src/gep/skillDistiller.js` | **1234** | LLM 驱动的 Gene 蒸馏 |
+| `src/gep/paths.js` | **133** | 存储路径解析 |
+| `src/gep/sanitize.js` | **157** | 隐私脱敏 |
+| `src/gep/assetStore.js` | **369** | 基因/capsule 持久化、原子写入 |
 
 ---
 
