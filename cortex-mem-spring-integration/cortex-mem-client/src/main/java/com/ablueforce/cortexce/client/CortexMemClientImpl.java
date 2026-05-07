@@ -217,14 +217,18 @@ public class CortexMemClientImpl implements CortexMemClient {
     public void submitFeedback(String observationId, String feedbackType, String comment) {
         requireNonBlank(observationId, "observationId");
         requireNonBlank(feedbackType, "feedbackType");
+        // Build request body conditionally: only include 'comment' when non-null.
+        // Backend only updates userComment when comment != null (preserves existing otherwise).
+        Map<String, Object> body = new java.util.HashMap<>();
+        body.put("observationId", observationId);
+        body.put("feedbackType", feedbackType);
+        if (comment != null) {
+            body.put("comment", comment);
+        }
         executeWithRetry("submitFeedback", () ->
             restClient.post()
                 .uri("/api/memory/feedback")
-                .body(Map.of(
-                    "observationId", observationId,
-                    "feedbackType", feedbackType,
-                    "comment", comment != null ? comment : ""
-                ))
+                .body(body)
                 .retrieve()
                 .toBodilessEntity()
         );
