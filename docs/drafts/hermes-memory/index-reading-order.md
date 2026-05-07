@@ -129,4 +129,8 @@
 
 96. **上游新提交分析（2026-05-07 08:04）**：3 commits（`53a024994..origin/main`），**0 记忆系统相关** — `3cdbf334d` gateway system-scope fix（Python）/ `04cf4788c` TUI voice push-to-talk（TS）/ `5ccab51fa` TUI scrollbar steadying（TS）；均与记忆管线无关 → `（无新文档）`（下次扫描起点：`origin/main` `3cdbf334d`）
 
+97. **上游扫描 2026-05-07**：8 commits（`5044e1cbf..f1a8e9994`），**0 记忆相关** — TUI/gateway/auth/docs；已在 v14.5 补扫 `f1a8e9994..53a024994` → `（无新文档）`（下次扫描起点：`origin/main` `f1a8e9994`）
+
+98. **上游扫描 2026-05-07 05:40**：2 commits（`f1a8e9994..53a024994`），**0 记忆系统相关** — Docker CI（#20890 overlapping builds guard）；无 Python 源码变更；已在 entry 96 覆盖 → `（无新文档）`（下次扫描起点：`origin/main` `53a024994`）
+
 **⚠️ 上游最新**：origin/main 已推进至 `3cdbf334d`（`3cdbf334d fix(gateway): don't dead-end setup wizard`），本地 HEAD 已同步。`53a024994..origin/main` 共 3 个新提交，**0 个记忆系统相关**。下次扫描起点：`origin/main` `3cdbf334d`
