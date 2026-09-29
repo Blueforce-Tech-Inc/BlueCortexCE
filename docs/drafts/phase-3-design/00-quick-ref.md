@@ -4,7 +4,7 @@
 **How**: YAML templates define what to extract + output schema. Code is generic.
 **Storage**: Results stored as `ObservationEntity` with `type="extracted_{template}"` + `extractedData` JSONB.
 **When**: Last step of `deepRefineProjectMemories()` (non-blocking) or scheduled daily.
-**Prerequisites**: 4 new methods (findBySourceIn, findNewObservations, findByTypeGlobal, chatCompletionStructured).
+**Implementation status**: All 10 Phase 3.1 prerequisites are implemented. See [15.md](15.md) for the bootstrap checklist and [21.md](21.md) for the verified implementation inventory.
 **Key insight**: `BeanOutputConverter<T>` needs Java `Class<T>`, not JSON Schema string. Use `templateClass` field.
 
 ```
