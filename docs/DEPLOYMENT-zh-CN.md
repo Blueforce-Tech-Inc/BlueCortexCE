@@ -1055,27 +1055,28 @@ LIMIT 10;
 
 ```bash
 # 健康检查
-curl http://localhost:37777/actuator/health
+curl http://localhost:37777/api/health
 
 # 创建测试会话
-curl -X POST http://localhost:37777/api/ingest/session-start \
+curl -X POST http://localhost:37777/api/session/start \
   -H "Content-Type: application/json" \
   -d '{
-    "contentSessionId": "test-session-001",
-    "projectPath": "/tmp/test-project",
-    "source": "manual"
+    "session_id": "test-session-001",
+    "project_path": "/tmp/test-project"
   }'
 
 # 记录观察
 curl -X POST http://localhost:37777/api/ingest/observation \
   -H "Content-Type: application/json" \
   -d '{
-    "contentSessionId": "test-session-001",
-    "observation": "Test observation for deployment verification"
+    "content_session_id": "test-session-001",
+    "project_path": "/tmp/test-project",
+    "title": "部署验证",
+    "content": "Test observation for deployment verification"
   }'
 
-# 搜索观察
-curl "http://localhost:37777/api/search?query=test&limit=10"
+# 搜索观察（project 为必填参数）
+curl "http://localhost:37777/api/search?project=/tmp/test-project&query=test&limit=10"
 
 # 查看统计
 curl http://localhost:37777/api/stats

@@ -1055,27 +1055,28 @@ LIMIT 10;
 
 ```bash
 # Health check
-curl http://localhost:37777/actuator/health
+curl http://localhost:37777/api/health
 
 # Create test session
-curl -X POST http://localhost:37777/api/ingest/session-start \
+curl -X POST http://localhost:37777/api/session/start \
   -H "Content-Type: application/json" \
   -d '{
-    "contentSessionId": "test-session-001",
-    "projectPath": "/tmp/test-project",
-    "source": "manual"
+    "session_id": "test-session-001",
+    "project_path": "/tmp/test-project"
   }'
 
 # Record observation
 curl -X POST http://localhost:37777/api/ingest/observation \
   -H "Content-Type: application/json" \
   -d '{
-    "contentSessionId": "test-session-001",
-    "observation": "Test observation for deployment verification"
+    "content_session_id": "test-session-001",
+    "project_path": "/tmp/test-project",
+    "title": "Deployment verification",
+    "content": "Test observation for deployment verification"
   }'
 
-# Search observations
-curl "http://localhost:37777/api/search?query=test&limit=10"
+# Search observations (project is required)
+curl "http://localhost:37777/api/search?project=/tmp/test-project&query=test&limit=10"
 
 # View statistics
 curl http://localhost:37777/api/stats
