@@ -25,7 +25,7 @@ type ObservationsRequest struct {
 //	{"items":[{...}, ...], "hasMore": true}
 type ObservationsResponse struct {
 	Items   []Observation `json:"items"`
-	HasMore bool          `json:"hasMore"` // ⚠️ WebUI compat: backend uses "hasMore" (camelCase)
+	HasMore bool          `json:"hasMore"`          // ⚠️ WebUI compat: backend uses "hasMore" (camelCase)
 	Total   int64         `json:"total,omitempty"`  // Not returned by backend; for local use only
 	Offset  int           `json:"offset,omitempty"` // Not returned by backend; for local use only
 	Limit   int           `json:"limit,omitempty"`  // Not returned by backend; for local use only

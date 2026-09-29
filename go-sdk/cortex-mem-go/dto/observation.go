@@ -144,11 +144,11 @@ type Observation struct {
 	Type              string         `json:"type"`
 	Title             string         `json:"title,omitempty"`
 	Subtitle          string         `json:"subtitle,omitempty"`
-	Content           string         `json:"narrative"` // @JsonProperty("narrative") on entity
-	Facts             StringList     `json:"facts,omitempty"`         // Backend serializes JSONB as string for WebUI
-	Concepts          StringList     `json:"concepts,omitempty"`      // Backend serializes JSONB as string for WebUI
-	FilesRead         StringList     `json:"files_read,omitempty"`    // Backend serializes JSONB as string for WebUI
-	FilesModified     StringList     `json:"files_modified,omitempty"` // Backend serializes JSONB as string for WebUI
+	Content           string         `json:"narrative"`                     // @JsonProperty("narrative") on entity
+	Facts             StringList     `json:"facts,omitempty"`               // Backend serializes JSONB as string for WebUI
+	Concepts          StringList     `json:"concepts,omitempty"`            // Backend serializes JSONB as string for WebUI
+	FilesRead         StringList     `json:"files_read,omitempty"`          // Backend serializes JSONB as string for WebUI
+	FilesModified     StringList     `json:"files_modified,omitempty"`      // Backend serializes JSONB as string for WebUI
 	QualityScore      float32        `json:"quality_score,omitempty"`       // SNAKE_CASE naming strategy
 	FeedbackType      string         `json:"feedback_type,omitempty"`       // SUCCESS/PARTIAL/FAILURE/UNKNOWN
 	FeedbackUpdatedAt string         `json:"feedback_updated_at,omitempty"` // SNAKE_CASE naming strategy
@@ -158,8 +158,8 @@ type Observation struct {
 	CreatedAt         string         `json:"created_at,omitempty"`       // SNAKE_CASE naming strategy
 	CreatedAtEpoch    int64          `json:"created_at_epoch,omitempty"` // SNAKE_CASE naming strategy
 	LastAccessedAt    string         `json:"last_accessed_at,omitempty"` // SNAKE_CASE naming strategy
-	AccessCount       int            `json:"access_count,omitempty"`            // SNAKE_CASE naming strategy
-	RefinedAt         string         `json:"refined_at,omitempty"`              // SNAKE_CASE naming strategy
-	RefinedFromIds    StringList     `json:"refined_from_ids,omitempty"`        // SNAKE_CASE naming strategy
-	UserComment       string         `json:"user_comment,omitempty"`            // SNAKE_CASE naming strategy
+	AccessCount       int            `json:"access_count,omitempty"`     // SNAKE_CASE naming strategy
+	RefinedAt         string         `json:"refined_at,omitempty"`       // SNAKE_CASE naming strategy
+	RefinedFromIds    StringList     `json:"refined_from_ids,omitempty"` // SNAKE_CASE naming strategy
+	UserComment       string         `json:"user_comment,omitempty"`     // SNAKE_CASE naming strategy
 }
