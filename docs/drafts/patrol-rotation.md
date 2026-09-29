@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: Java SDK (2026-09-30 05:03)
-**Next up**: Go SDK
+**Last completed**: Go SDK (2026-09-30 05:27)
+**Next up**: Python SDK
 
 ## History
 | DateTime | Direction | Findings |
@@ -25,3 +25,4 @@
 | 2026-09-30 04:23 | Demo | ✅ Fixed missing Go wrapper-module requirements in eino/genkit/langchaingo examples; Java/Go/Python/JS checks pass; Go HTTP E2E 39/39 |
 | 2026-09-30 04:32 | Backend | ✅ ViewerController and StructuredExtractionService spot-check found no code issues; Backend findings remain P0/P1/P2 = 0; next direction is Java SDK |
 | 2026-09-30 05:03 | Java SDK | ✅ All 3 modules pass (client 121 + spring-ai 46 + starter 7); wire format spot-checks match backend `@JsonProperty` definitions; baseline doc corrected 120→121 tests; next direction is Go SDK |
+| 2026-09-30 05:27 | Go SDK | ✅ Fixed gofmt alignment in 4 files (dto×3 + genkit retriever); 288 tests pass across 5 modules; Go demo E2E 39/39; full acceptance passed and new baseline set (b04ccf8); next direction is Python SDK |
