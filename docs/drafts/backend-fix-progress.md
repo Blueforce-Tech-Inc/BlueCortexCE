@@ -359,4 +359,5 @@ try {
 - 回归测试：45 passed / 0 failed / 1 skipped ✅
 - EXTRACTION 验收：25 passed / 0 failed / 0 skipped ✅
 - 文档增长检查：5 个持续追加文档均低于阈值 ✅
-- 代码指纹：待完整验收基线写入后同步更新
+- 代码指纹 v1：`5f22498429021f4e2bacaebe84ee832c1af015707221f6b76f268439cc4b3cc3`
+- 提交：`e5b94299de05edcd1647b4d31506422bb6642adf`（完整验收所对应的代码提交）
