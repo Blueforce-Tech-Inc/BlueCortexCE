@@ -24,6 +24,28 @@
 4. **git commit**（如有修复）
 5. **记录结果** — 将本次审查方向、发现的问题和处理结果写入 `docs/drafts/health-check-task.md` 的本轮报告
 
+### SDK Demo E2E 服务端口
+
+仅当本轮改动 SDK/Demo 并需要运行对应 E2E 时启动 Demo。后端健康检查固定使用 `37777`；辅助 Demo 使用以下专用端口，避免 `8080` 等常用端口。E2E 脚本可通过对应 URL 环境变量覆盖默认目标。
+
+| Demo | 端口 | 启动命令 | 健康端点 |
+|------|------|----------|----------|
+| Java | `37778` | `cd examples/cortex-mem-demo && mvn spring-boot:run -Plocal` | `/actuator/health` |
+| Go | `37779` | `cd go-sdk/cortex-mem-go/examples/http-server && PORT=37779 go run .` | `/health` |
+| Python | `37780` | `cd python-sdk/cortex-mem-python/examples/http-server && PORT=37780 python3 app.py` | `/health` |
+| JS/TS | `37781` | `cd js-sdk/cortex-mem-js && PORT=37781 npx tsx examples/http-server/app.ts` | `/health` |
+
+Java Demo 依赖及完整启动前置条件见 `examples/cortex-mem-demo/README.md`。运行 E2E 前必须用 HTTP 健康端点确认 Demo 就绪；结束后只停止本轮启动的 Demo 进程，不要终止其他服务。`js-sdk-e2e-test.sh` 的在线请求直接检查 Backend API，SDK 包装行为由 SDK 单元测试覆盖，不得把直接 curl 检查描述为 SDK 方法调用。
+
+### 可重复的组件验证命令
+
+- Java Demo：`cd examples/cortex-mem-demo && mvn test -q`
+- Go SDK/Demo：`cd go-sdk/cortex-mem-go && gofmt -d . && go test ./...`
+- Python SDK：`cd python-sdk/cortex-mem-python && python3 -m pytest tests/ -q`。不要依赖未必存在的裸 `pytest` 命令；`scripts/python-sdk-e2e-test.sh` 会自动把 checkout 加入 `PYTHONPATH` 并隔离第三方告警。
+- JS/TS SDK：`cd js-sdk/cortex-mem-js && npm test`、`npm run lint`、`npm run build`
+
+组件验证必须使用上述可重复入口；若命令缺少依赖，先记录实际错误并按项目声明的依赖安装或修复环境，不得把未执行记为通过。
+
 ### ⚠️ 核心原则
 
 - **发现的每个问题必须有落点——要么修复，要么记录到文档，绝不允许只发消息了事**

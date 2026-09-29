@@ -9,7 +9,7 @@
 
 ### 1. 轻量健康预检和基线读取
 
-先调用 `http://127.0.0.1:37777/api/health` 检查服务是否可用。项目后端固定使用专用端口 `37777`，巡检不得改用 `8080` 等常用端口。这一步只是代码审查前的轻量预检，不等同于完整回归测试。如果服务未运行，先执行 `bash scripts/start.sh --background`；如果已有构建产物不存在或启动失败，再执行 `bash scripts/start.sh --build --background`。启动脚本仍失败时，严格按照 `docs/drafts/health-check-task.md` 的“重启服务方法”加载环境变量并启动 JAR，然后每隔 2 秒轮询 `/api/health`，最多等待 60 秒。数据库不可达时，检查数据库状态并尝试恢复；服务恢复后继续执行后续任务。只有在所有启动和恢复方式都失败时，才将本轮标记为环境阻塞，并记录命令、错误输出和后续建议。读取 `docs/drafts/health-check-task.md` 顶部的“Latest Automated Acceptance Baseline”区块；如果该区块不存在、不完整，或上一次完整验收没有通过，则将本次标记为必须执行完整验收。
+先调用 `http://127.0.0.1:37777/api/health` 检查服务是否可用。项目后端固定使用专用端口 `37777`，巡检不得改用 `8080` 等常用端口；SDK Demo E2E 使用的专用端口和启动方法见 `docs/drafts/patrol-task.md`。这一步只是代码审查前的轻量预检，不等同于完整回归测试。如果服务未运行，先执行 `bash scripts/start.sh --background`；如果已有构建产物不存在或启动失败，再执行 `bash scripts/start.sh --build --background`。启动脚本仍失败时，严格按照 `docs/drafts/health-check-task.md` 的“重启服务方法”加载环境变量并启动 JAR，然后每隔 2 秒轮询 `/api/health`，最多等待 60 秒。数据库不可达时，检查数据库状态并尝试恢复；服务恢复后继续执行后续任务。只有在所有启动和恢复方式都失败时，才将本轮标记为环境阻塞，并记录命令、错误输出和后续建议。读取 `docs/drafts/health-check-task.md` 顶部的“Latest Automated Acceptance Baseline”区块；如果该区块不存在、不完整，或上一次完整验收没有通过，则将本次标记为必须执行完整验收。
 
 每轮开始和结束都执行 `bash scripts/doc-growth-check.sh` 检查持续追加的文档。脚本退出码 `0` 表示未超过阈值，退出码 `2` 表示需要压缩或归档，不是脚本故障；必须继续执行维护。当前阈值为任一文件超过 1000 行或 102400 字节。触发阈值时，保留文档顶部的任务规则、当前验收基线、未解决问题和机器可读状态，将已解决的历史报告按日期移动到 `docs/archive/YYYY-MM-DD_<descriptive-name>.md`，并在原文档留下归档链接、压缩摘要和最新活动记录。归档前先确认没有未解决事项被移出；归档后重新运行检查，直到所有活动文档低于阈值。更新 `docs/archive/README.md`，归档文件一旦创建不得修改。
 
@@ -17,7 +17,7 @@
 
 本次唤醒只审查一个轮换方向，依次轮换 Java SDK、Go SDK、Python SDK、JS/TS SDK、Demo 和 Backend，并根据 `docs/drafts/patrol-rotation.md` 或现有巡检状态确定当前方向。该部分总时长不超过 10 分钟。检查 `HEARTBEAT.md` 是否有未完成任务，有则优先继续处理。
 
-SDK 或 Demo 发现的问题必须当场修复并进行快速编译或测试验证；Backend 问题必须记录到 `docs/drafts/backend-review-findings.md`，简单问题可以当场修复；过时或错误的设计文档必须直接修复，或记录到合适的 `docs/drafts/` 文档中。每个发现的问题都必须有明确落点，不能只记录在本次报告里而不修复或登记。
+SDK 或 Demo 发现的问题必须当场修复并进行快速编译或测试验证；改动 SDK/Demo 后按 `docs/drafts/patrol-task.md` 启动相应 Demo 并运行 E2E。Backend 问题必须记录到 `docs/drafts/backend-review-findings.md`，简单问题可以当场修复；过时或错误的设计文档必须直接修复，或记录到合适的 `docs/drafts/` 文档中。每个发现的问题都必须有明确落点，不能只记录在本次报告里而不修复或登记。
 
 涉及后端 API 响应的任何修改，必须先检查 `webui/src/` 是否引用相关字段或接口，遵守 `TOOLS.md` 以及 WebUI 契约，SSE 必须使用 unnamed events 和 `onmessage`。若有修复，完成验证后提交必要的 git commit。
 
@@ -52,7 +52,7 @@ SDK 或 Demo 发现的问题必须当场修复并进行快速编译或测试验�
 
 ### 5. 修改后的统一验证规则
 
-任何代码修改都必须执行连续 3 轮深入检查；只要发现新的问题或再次修改，检查计数就重置为零，直到连续 3 轮没有发现问题且没有发生改动。代码修改后执行 `cd backend && mvn clean compile package -DskipTests`，必要时只终止服务端 Java 进程并重新启动服务，确认 `/api/health` 恢复正常。将 Backend 修复细节记录到 `docs/drafts/backend-fix-progress.md`，并将相关发现同步更新到 `docs/drafts/backend-review-findings.md`，最后提交必要的 git commit。
+任何代码修改都必须执行连续 3 轮深入检查；只要发现新的问题或再次修改，检查计数就重置为零，直到连续 3 轮没有发现问题且没有发生改动。按实际改动范围执行对应的构建和测试：Backend Java 使用 `cd backend && mvn clean compile package -DskipTests`；Java Demo 使用 `cd examples/cortex-mem-demo && mvn test -q`；Go SDK/Demo 使用 `cd go-sdk/cortex-mem-go && gofmt -d . && go test ./...`；Python SDK 使用 `cd python-sdk/cortex-mem-python && python3 -m pytest tests/ -q`，并运行相应 Demo E2E；JS/TS SDK/Demo 运行 `npm test`、`npm run lint`、`npm run build`。各 Demo 的固定端口和启动命令以 `docs/drafts/patrol-task.md` 为准。仅在受影响服务确实需要重新加载时重启该服务；Backend 的改动才要求重启 Backend 并确认 `http://127.0.0.1:37777/api/health` 恢复正常。将 Backend 修复细节记录到 `docs/drafts/backend-fix-progress.md`，并将相关发现同步更新到 `docs/drafts/backend-review-findings.md`，最后提交必要的 git commit。
 
 ## 基线和报告维护
 
