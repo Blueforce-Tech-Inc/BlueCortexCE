@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: Demo (2026-09-30 04:23)
-**Next up**: Backend
+**Last completed**: Backend (2026-09-30 04:32)
+**Next up**: Java SDK
 
 ## History
 | DateTime | Direction | Findings |
@@ -23,3 +23,4 @@
 | 2026-09-30 01:26 | Python SDK | ✅ No new issues — implementation and 374-test SDK suite reviewed; current code fingerprint recorded for full acceptance |
 | 2026-09-30 03:45 | JS/TS SDK | ✅ README and HTTP Demo contract reviewed; strict E2E checks pass; next direction is Demo |
 | 2026-09-30 04:23 | Demo | ✅ Fixed missing Go wrapper-module requirements in eino/genkit/langchaingo examples; Java/Go/Python/JS checks pass; Go HTTP E2E 39/39 |
+| 2026-09-30 04:32 | Backend | ✅ ViewerController and StructuredExtractionService spot-check found no code issues; Backend findings remain P0/P1/P2 = 0; next direction is Java SDK |
