@@ -6,16 +6,17 @@
 #
 # Prerequisites:
 # 1. Backend service running (port 37777)
-# 2. Go SDK http-server Demo running (port 8080)
+# 2. Go SDK http-server Demo running on the dedicated port 37779
 #
 # Run:
 #   bash scripts/go-sdk-e2e-test.sh
 
 set -e
 
-DEMO_BASE="${DEMO_BASE:-http://localhost:8080}"
+DEMO_BASE="${DEMO_BASE:-http://127.0.0.1:37779}"
 BACKEND_URL="http://127.0.0.1:37777"
 PROJECT="/tmp/e2e-go-test"
+MISSING_OBSERVATION_ID="$(python3 -c 'import uuid; print(uuid.uuid4())')"
 
 # Colors
 GREEN='\033[0;32m'
@@ -70,7 +71,7 @@ pass "Backend service OK (status=$BACKEND_STATUS)"
 info "Pre-check: Go SDK HTTP Demo..."
 DEMO_HEALTH=$(curl -sf "$DEMO_BASE/health" 2>/dev/null || echo "FAIL")
 if [ "$DEMO_HEALTH" = "FAIL" ]; then
-    echo "❌ Go SDK Demo not running! Please start it first: cd go-sdk/cortex-mem-go/examples/http-server && go run ."
+    echo "❌ Go SDK Demo not running! Start it with: cd go-sdk/cortex-mem-go/examples/http-server && PORT=37779 go run ."
     exit 1
 fi
 if ! contains_field "$DEMO_HEALTH" "service"; then
@@ -603,11 +604,13 @@ fi
 info "Test 31: POST /feedback — Submit observation feedback"
 FEEDBACK_STATUS=$(curl -so /dev/null -w "%{http_code}" --max-time 10 -X POST "$DEMO_BASE/feedback" \
     -H "Content-Type: application/json" \
-    -d '{"observationId": "test-id", "feedbackType": "useful"}' 2>/dev/null || echo "000")
+    -d "{\"observationId\":\"$MISSING_OBSERVATION_ID\",\"feedbackType\":\"useful\"}" 2>/dev/null || echo "000")
 if [ "$FEEDBACK_STATUS" = "000" ]; then
     fail "POST /feedback" "Connection failed or timed out"
+elif [ "$FEEDBACK_STATUS" = "404" ]; then
+    pass "POST /feedback (HTTP 404 — valid UUID is absent)"
 else
-    pass "POST /feedback" # Any HTTP response means endpoint works (test data is invalid, expected)
+    fail "POST /feedback" "Expected HTTP 404 for absent UUID, got $FEEDBACK_STATUS"
 fi
 
 # Test 32: /session/user
@@ -623,7 +626,7 @@ fi
 
 # Test 33: PATCH /observations/{id}
 info "Test 33: PATCH /observations/{id} — Update observation"
-OBS_PATCH_STATUS=$(curl -so /dev/null -w "%{http_code}" --max-time 10 -X PATCH "$DEMO_BASE/observations/test-id" \
+OBS_PATCH_STATUS=$(curl -so /dev/null -w "%{http_code}" --max-time 10 -X PATCH "$DEMO_BASE/observations/$MISSING_OBSERVATION_ID" \
     -H "Content-Type: application/json" \
     -d '{"source": "verified"}' 2>/dev/null || echo "000")
 if [ "$OBS_PATCH_STATUS" = "000" ]; then
@@ -631,9 +634,7 @@ if [ "$OBS_PATCH_STATUS" = "000" ]; then
 elif [ "$OBS_PATCH_STATUS" -ge 200 ] && [ "$OBS_PATCH_STATUS" -lt 300 ]; then
     pass "PATCH /observations/{id} (HTTP $OBS_PATCH_STATUS)"
 elif [ "$OBS_PATCH_STATUS" = "404" ]; then
-    pass "PATCH /observations/{id} (HTTP 404 — test ID not found, endpoint works)"
-elif [ "$OBS_PATCH_STATUS" = "400" ] || [ "$OBS_PATCH_STATUS" = "500" ]; then
-    pass "PATCH /observations/{id} (HTTP $OBS_PATCH_STATUS — test ID invalid, endpoint works)"
+    pass "PATCH /observations/{id} (HTTP 404 — valid UUID is absent)"
 else
     fail "PATCH /observations/{id}" "Unexpected HTTP $OBS_PATCH_STATUS"
 fi
@@ -641,15 +642,13 @@ fi
 # Test 34: DELETE /observations/{id}
 info "Test 34: DELETE /observations/{id} — Delete observation"
 # DELETE returns 204 No Content on success or JSON error; curl -sf succeeds on 2xx
-OBS_DELETE_STATUS=$(curl -so /dev/null -w "%{http_code}" --max-time 10 -X DELETE "$DEMO_BASE/observations/test-id" 2>/dev/null || echo "000")
+OBS_DELETE_STATUS=$(curl -so /dev/null -w "%{http_code}" --max-time 10 -X DELETE "$DEMO_BASE/observations/$MISSING_OBSERVATION_ID" 2>/dev/null || echo "000")
 if [ "$OBS_DELETE_STATUS" = "000" ]; then
     fail "DELETE /observations/{id}" "Connection failed or timed out"
 elif [ "$OBS_DELETE_STATUS" -ge 200 ] && [ "$OBS_DELETE_STATUS" -lt 300 ]; then
     pass "DELETE /observations/{id} (HTTP $OBS_DELETE_STATUS)"
 elif [ "$OBS_DELETE_STATUS" = "404" ]; then
-    pass "DELETE /observations/{id} (HTTP 404 — test ID not found, endpoint works)"
-elif [ "$OBS_DELETE_STATUS" = "400" ] || [ "$OBS_DELETE_STATUS" = "500" ]; then
-    pass "DELETE /observations/{id} (HTTP $OBS_DELETE_STATUS — test ID invalid, endpoint works)"
+    pass "DELETE /observations/{id} (HTTP 404 — valid UUID is absent)"
 else
     fail "DELETE /observations/{id}" "Unexpected HTTP $OBS_DELETE_STATUS"
 fi

@@ -380,6 +380,14 @@ func main() {
 				return
 			}
 			if err := client.UpdateObservation(r.Context(), id, update); err != nil {
+				if errors.Is(err, cortexmem.ErrNotFound) {
+					writeJSONError(w, http.StatusNotFound, fmt.Sprintf("observation %s not found", id))
+					return
+				}
+				if errors.Is(err, cortexmem.ErrBadRequest) {
+					writeJSONError(w, http.StatusBadRequest, err.Error())
+					return
+				}
 				if cortexmem.IsValidationError(err) || dto.IsObservationUpdateValidationError(err) {
 					writeJSONError(w, http.StatusBadRequest, err.Error())
 					return
@@ -390,6 +398,14 @@ func main() {
 			writeJSON(w, map[string]string{"status": "updated"})
 		case http.MethodDelete:
 			if err := client.DeleteObservation(r.Context(), id); err != nil {
+				if errors.Is(err, cortexmem.ErrNotFound) {
+					writeJSONError(w, http.StatusNotFound, fmt.Sprintf("observation %s not found", id))
+					return
+				}
+				if errors.Is(err, cortexmem.ErrBadRequest) || cortexmem.IsValidationError(err) {
+					writeJSONError(w, http.StatusBadRequest, err.Error())
+					return
+				}
 				writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to delete observation: %v", err))
 				return
 			}
@@ -624,6 +640,14 @@ func main() {
 			return
 		}
 		if err := client.SubmitFeedback(r.Context(), req.ObservationId, req.FeedbackType, req.Comment); err != nil {
+			if errors.Is(err, cortexmem.ErrNotFound) {
+				writeJSONError(w, http.StatusNotFound, fmt.Sprintf("observation %s not found", req.ObservationId))
+				return
+			}
+			if errors.Is(err, cortexmem.ErrBadRequest) || cortexmem.IsValidationError(err) {
+				writeJSONError(w, http.StatusBadRequest, err.Error())
+				return
+			}
 			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to submit feedback: %v", err))
 			return
 		}
@@ -816,7 +840,7 @@ func main() {
 	// Start HTTP server with timeouts
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "37779"
 	}
 	addr := ":" + port
 	fmt.Printf("🚀 Go SDK HTTP server starting on %s\n", addr)

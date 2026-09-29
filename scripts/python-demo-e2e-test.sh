@@ -6,16 +6,18 @@
 #
 # Prerequisites:
 # 1. Backend service running (port 37777)
-# 2. Python Demo running: cd python-sdk/cortex-mem-python/examples/http-server && python app.py
+# 2. Python Demo running on port 37780:
+#    cd python-sdk/cortex-mem-python/examples/http-server && PORT=37780 python3 app.py
 #
 # Run:
 #   bash scripts/python-demo-e2e-test.sh
 
 set -e
 
-DEMO_BASE="http://localhost:8080"
+DEMO_BASE="${DEMO_BASE:-http://127.0.0.1:37780}"
 BACKEND_URL="http://127.0.0.1:37777"
 PROJECT="/tmp/e2e-python-demo-test"
+MISSING_OBSERVATION_ID="$(python3 -c 'import uuid; print(uuid.uuid4())')"
 
 # Colors
 GREEN='\033[0;32m'
@@ -64,7 +66,7 @@ pass "Backend service OK"
 info "Pre-check: Python Demo..."
 DEMO_HEALTH=$(curl -sf "$DEMO_BASE/health" 2>/dev/null || echo "FAIL")
 if [ "$DEMO_HEALTH" = "FAIL" ]; then
-    echo "❌ Python Demo not running! Start: cd python-sdk/cortex-mem-python/examples/http-server && python app.py"
+    echo "❌ Python Demo not running! Start: cd python-sdk/cortex-mem-python/examples/http-server && PORT=37780 python3 app.py"
     exit 1
 fi
 DEMO_SERVICE=$(json_field "$DEMO_HEALTH" "service")
@@ -356,11 +358,13 @@ info "Testing /feedback..."
 # Backend validates observationId format and returns 400 for "nonexistent-id".
 FEEDBACK_STATUS=$(curl -so /dev/null -w "%{http_code}" -X POST "$DEMO_BASE/feedback" \
     -H "Content-Type: application/json" \
-    -d "{\"observationId\": \"nonexistent-id\", \"feedbackType\": \"positive\", \"comment\": \"test\"}" 2>/dev/null || echo "000")
+    -d "{\"observationId\":\"$MISSING_OBSERVATION_ID\",\"feedbackType\":\"positive\",\"comment\":\"test\"}" 2>/dev/null || echo "000")
 if [ "$FEEDBACK_STATUS" = "000" ]; then
     fail "POST /feedback" "Connection failed"
+elif [ "$FEEDBACK_STATUS" = "404" ]; then
+    pass "POST /feedback (HTTP 404 — valid UUID is absent)"
 else
-    pass "POST /feedback" # Any HTTP response means endpoint works (invalid ID format returns 400, expected)
+    fail "POST /feedback" "Expected HTTP 404 for absent UUID, got $FEEDBACK_STATUS"
 fi
 
 # ==================== Test: /session/user ====================
@@ -408,7 +412,7 @@ fi
 # ==================== Test: PATCH /observations/{id} ====================
 
 info "Testing PATCH /observations/{id}..."
-OBS_PATCH_STATUS=$(curl -so /dev/null -w "%{http_code}" -X PATCH "$DEMO_BASE/observations/test-id" \
+OBS_PATCH_STATUS=$(curl -so /dev/null -w "%{http_code}" -X PATCH "$DEMO_BASE/observations/$MISSING_OBSERVATION_ID" \
     -H "Content-Type: application/json" \
     -d '{"source": "verified", "title": "Updated Title"}' 2>/dev/null || echo "000")
 if [ "$OBS_PATCH_STATUS" = "000" ]; then
@@ -416,9 +420,7 @@ if [ "$OBS_PATCH_STATUS" = "000" ]; then
 elif [ "$OBS_PATCH_STATUS" -ge 200 ] && [ "$OBS_PATCH_STATUS" -lt 300 ]; then
     pass "PATCH /observations/{id} (HTTP $OBS_PATCH_STATUS)"
 elif [ "$OBS_PATCH_STATUS" = "404" ]; then
-    pass "PATCH /observations/{id} (HTTP 404 — test ID not found, endpoint works)"
-elif [ "$OBS_PATCH_STATUS" = "400" ] || [ "$OBS_PATCH_STATUS" = "500" ]; then
-    pass "PATCH /observations/{id} (HTTP $OBS_PATCH_STATUS — invalid UUID format, endpoint works)"
+    pass "PATCH /observations/{id} (HTTP 404 — valid UUID is absent)"
 else
     fail "PATCH /observations/{id}" "Unexpected HTTP $OBS_PATCH_STATUS"
 fi
@@ -426,15 +428,13 @@ fi
 # ==================== Test: DELETE /observations/{id} ====================
 
 info "Testing DELETE /observations/{id}..."
-OBS_DELETE_STATUS=$(curl -so /dev/null -w "%{http_code}" -X DELETE "$DEMO_BASE/observations/test-id" 2>/dev/null || echo "000")
+OBS_DELETE_STATUS=$(curl -so /dev/null -w "%{http_code}" -X DELETE "$DEMO_BASE/observations/$MISSING_OBSERVATION_ID" 2>/dev/null || echo "000")
 if [ "$OBS_DELETE_STATUS" = "000" ]; then
     fail "DELETE /observations/{id}" "Connection failed"
 elif [ "$OBS_DELETE_STATUS" -ge 200 ] && [ "$OBS_DELETE_STATUS" -lt 300 ]; then
     pass "DELETE /observations/{id} (HTTP $OBS_DELETE_STATUS)"
 elif [ "$OBS_DELETE_STATUS" = "404" ]; then
-    pass "DELETE /observations/{id} (HTTP 404 — test ID not found, endpoint works)"
-elif [ "$OBS_DELETE_STATUS" = "400" ] || [ "$OBS_DELETE_STATUS" = "500" ]; then
-    pass "DELETE /observations/{id} (HTTP $OBS_DELETE_STATUS — invalid UUID format, endpoint works)"
+    pass "DELETE /observations/{id} (HTTP 404 — valid UUID is absent)"
 else
     fail "DELETE /observations/{id}" "Unexpected HTTP $OBS_DELETE_STATUS"
 fi
@@ -442,11 +442,11 @@ fi
 # ==================== Test: GET /observations/{id} ====================
 
 info "Testing GET /observations/{id}..."
-GET_OBS_STATUS=$(curl -so /dev/null -w "%{http_code}" "$DEMO_BASE/observations/nonexistent-id" 2>/dev/null || echo "000")
+GET_OBS_STATUS=$(curl -so /dev/null -w "%{http_code}" "$DEMO_BASE/observations/$MISSING_OBSERVATION_ID" 2>/dev/null || echo "000")
 if [ "$GET_OBS_STATUS" = "000" ]; then
     fail "GET /observations/{id}" "Connection failed"
 elif [ "$GET_OBS_STATUS" = "404" ]; then
-    pass "GET /observations/{id} (HTTP 404 — test ID not found, endpoint works)"
+    pass "GET /observations/{id} (HTTP 404 — valid UUID is absent)"
 elif [ "$GET_OBS_STATUS" -ge 200 ] && [ "$GET_OBS_STATUS" -lt 300 ]; then
     GET_OBS_RESP=$(curl -sf "$DEMO_BASE/observations/nonexistent-id" 2>/dev/null || echo "FAIL")
     if [ "$GET_OBS_RESP" = "FAIL" ]; then
@@ -465,7 +465,7 @@ fi
 info "Testing /observations/batch..."
 BATCH_RESP=$(curl -sf -X POST "$DEMO_BASE/observations/batch" \
     -H "Content-Type: application/json" \
-    -d '{"ids": ["nonexistent-id"]}' 2>/dev/null || echo "FAIL")
+    -d "{\"ids\":[\"$MISSING_OBSERVATION_ID\"]}" 2>/dev/null || echo "FAIL")
 if [ "$BATCH_RESP" = "FAIL" ]; then
     fail "POST /observations/batch" "Request failed"
 elif ! contains_field "$BATCH_RESP" "observations"; then

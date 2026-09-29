@@ -4,12 +4,21 @@
 #
 # Prerequisites:
 # 1. Backend service running (port 37777)
-# 2. Python SDK installed: cd python-sdk/cortex-mem-python && pip install -e .
+# 2. Python 3 with the SDK checkout available (the script sets PYTHONPATH)
 #
 # Run:
 #   bash scripts/python-sdk-e2e-test.sh
 
 set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SDK_DIR="$SCRIPT_DIR/../python-sdk/cortex-mem-python"
+# Run against the checkout so the E2E script is reproducible without requiring
+# a prior editable install in the cron agent's environment.
+export PYTHONPATH="$SDK_DIR${PYTHONPATH:+:$PYTHONPATH}"
+# Third-party dependency warnings must not be mixed into the JSON/scalar
+# results parsed by this strict E2E script.
+export PYTHONWARNINGS="ignore"
 
 BACKEND_URL="http://127.0.0.1:37777"
 PROJECT="/tmp/e2e-python-test"

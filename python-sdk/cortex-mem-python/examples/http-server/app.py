@@ -5,7 +5,7 @@ Exposes all 25 SDK API methods as REST endpoints, mirroring the Go http-server d
 
 Usage:
     export CORTEX_BASE_URL=http://127.0.0.1:37777  # optional
-    export PORT=8080                                 # optional
+    export PORT=37780                                # optional
     python3 app.py
 """
 
@@ -24,7 +24,7 @@ logger = logging.getLogger("demo")
 app = Flask(__name__)
 
 CORTEX_BASE_URL = os.environ.get("CORTEX_BASE_URL", "http://127.0.0.1:37777")
-PORT = int(os.environ.get("PORT", "8080"))
+PORT = int(os.environ.get("PORT", "37780"))
 
 # Request body size limit: 1 MB (matches Go http-server demo)
 MAX_CONTENT_LENGTH = int(os.environ.get("MAX_CONTENT_LENGTH", str(1 << 20)))

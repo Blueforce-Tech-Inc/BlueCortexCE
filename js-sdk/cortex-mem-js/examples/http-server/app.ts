@@ -6,7 +6,7 @@
  *
  * Usage:
  *   npm install express
- *   CORTEX_BASE_URL=http://127.0.0.1:37777 PORT=8080 npx tsx examples/http-server/app.ts
+ *   CORTEX_BASE_URL=http://127.0.0.1:37777 PORT=37781 npx tsx examples/http-server/app.ts
  */
 
 import express, { Request, Response, NextFunction } from 'express';
@@ -14,7 +14,7 @@ import { CortexMemClient, APIError, ValidationError } from '../../src';
 import type { ObservationUpdate } from '../../src';
 
 const CORTEX_BASE_URL = process.env.CORTEX_BASE_URL ?? 'http://127.0.0.1:37777';
-const PORT = parseInt(process.env.PORT ?? '8080', 10);
+const PORT = parseInt(process.env.PORT ?? '37781', 10);
 
 const client = new CortexMemClient({ baseURL: CORTEX_BASE_URL });
 const app = express();

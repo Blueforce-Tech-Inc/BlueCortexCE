@@ -11,7 +11,7 @@
 - **25 个 API 方法** —— 覆盖 Go/Java SDK 的所有端点
 - **212 个单元测试** —— 全面覆盖 Wire 格式和客户端行为
 - **双格式 CJS + ESM** —— 同时支持 CommonJS 和 ES Modules
-- **Fire-and-forget 捕获** —— 非阻塞的观察记录，内置重试机制
+- **尽力而为的捕获** —— 对暂时性故障重试；重试耗尽后记录日志并吞掉采集错误
 
 ## 安装
 
@@ -146,6 +146,7 @@ client.close();
 | `getModes()` | `GET /api/modes` | 模式设置 |
 | `getSettings()` | `GET /api/settings` | 当前设置 |
 | `close()` | — | 关闭客户端 |
+| `toString()` | — | 生成用于日志的调试表示 |
 
 ### 错误处理
 

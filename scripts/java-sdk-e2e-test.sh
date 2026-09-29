@@ -6,14 +6,15 @@
 #
 # Prerequisites:
 # 1. Backend service running (port 37777)
-# 2. Java Demo running (port 8080)
+# 2. Java Demo running on the dedicated port 37778
 #
 # Run:
 #   bash scripts/java-sdk-e2e-test.sh
 
 set -e
 
-DEMO_BASE="http://localhost:8080/demo"
+DEMO_BASE="${JAVA_DEMO_BASE:-http://127.0.0.1:37778/demo}"
+JAVA_DEMO_ROOT="${DEMO_BASE%/demo}"
 BACKEND_URL="http://127.0.0.1:37777"
 PROJECT="/tmp/e2e-java-test"
 
@@ -26,10 +27,13 @@ NC='\033[0m'
 TOTAL=0
 PASSED=0
 FAILED=0
+SKIPPED=0
 ERRORS=""
+MISSING_OBSERVATION_ID="$(python3 -c 'import uuid; print(uuid.uuid4())')"
 
 pass() { ((TOTAL++)); ((PASSED++)); echo -e "${GREEN}✅ PASS${NC}: $1"; }
 fail() { ((TOTAL++)); ((FAILED++)); echo -e "${RED}❌ FAIL${NC}: $1"; ERRORS="$ERRORS\n  - $1: $2"; }
+skip() { ((SKIPPED++)); echo -e "${YELLOW}⏭ SKIP${NC}: $1"; }
 info() { echo -e "${YELLOW}ℹ️  $1${NC}"; }
 
 # Helper: check if response contains expected field
@@ -68,7 +72,7 @@ fi
 pass "Backend service OK (status=$BACKEND_STATUS)"
 
 info "Pre-check: Java Demo service..."
-DEMO_HEALTH=$(curl -sf --max-time 10 "http://localhost:8080/actuator/health" 2>/dev/null || echo "FAIL")
+DEMO_HEALTH=$(curl -sf --max-time 10 "$JAVA_DEMO_ROOT/actuator/health" 2>/dev/null || echo "FAIL")
 if [ "$DEMO_HEALTH" = "FAIL" ]; then
     echo "❌ Java Demo service not running! Please start the demo first"
     exit 1
@@ -344,13 +348,13 @@ if [ $FAILED -gt 0 ]; then
     echo ""
     echo "Please check:"
     echo "  1. Is Backend running? curl $BACKEND_URL/api/health"
-    echo "  2. Is Demo running? curl http://localhost:8080/actuator/health (actuator at root, demo at /demo/*)"
+    echo "  2. Is Demo running on port 37778? curl $JAVA_DEMO_ROOT/actuator/health (actuator at root, demo at /demo/*)"
     echo "  3. Check Backend logs: tail -f logs/cortex-ce.log"
     exit 1
 fi
 
 echo ""
-echo "🎉 Java SDK Demo E2E test all passed!"
+echo "Core Java Demo E2E checks passed."
 echo ""
 echo "Verified checkpoints:"
 echo "  ✅ Backend health check (status=ok)"
@@ -370,10 +374,10 @@ info "Test N+1: GET /memory/experiences/filtered — source and requiredConcepts
 FILTEXPS=$(curl -sf --max-time 10 "$DEMO_BASE/../memory/experiences/filtered?project=$PROJECT&task=test&source=java_test&count=5" 2>/dev/null || echo "FAIL")
 if [ "$FILTEXPS" = "FAIL" ]; then
     fail "GET /memory/experiences/filtered" "Request timed out or failed"
-elif echo "$FILTEXPS" | grep -qE "observations|experiences|experience"; then
+elif echo "$FILTEXPS" | python3 -c 'import json,sys; value=json.load(sys.stdin); sys.exit(0 if isinstance(value, list) else 1)' 2>/dev/null; then
     pass "GET /memory/experiences/filtered"
 else
-    fail "GET /memory/experiences/filtered" "Unexpected response format"
+    fail "GET /memory/experiences/filtered" "Expected a JSON array"
 fi
 
 # Test N+2: /memory/icl/truncated
@@ -398,11 +402,15 @@ fi
 
 # Test N+4: /demo/extraction/latest
 info "Test N+4: GET /demo/extraction/latest — extraction result query"
-EXTRACTLATEST=$(curl -sf --max-time 10 "$DEMO_BASE/extraction/latest?project=$PROJECT&template=user_preferences&userId=alice" 2>/dev/null || echo "FAIL")
-if [ "$EXTRACTLATEST" = "FAIL" ]; then
-    fail "GET /demo/extraction/latest" "Request timed out or failed"
+EXTRACTLATEST_STATUS=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 "$DEMO_BASE/extraction/latest?project=$PROJECT&template=user_preferences&userId=alice" 2>/dev/null || echo "000")
+if [ "$EXTRACTLATEST_STATUS" = "000" ]; then
+    fail "GET /demo/extraction/latest" "Connection failed"
+elif [ "$EXTRACTLATEST_STATUS" = "404" ]; then
+    pass "GET /demo/extraction/latest (HTTP 404 — no extraction exists yet)"
+elif [ "$EXTRACTLATEST_STATUS" -ge 200 ] && [ "$EXTRACTLATEST_STATUS" -lt 300 ]; then
+    pass "GET /demo/extraction/latest (HTTP $EXTRACTLATEST_STATUS)"
 else
-    pass "GET /demo/extraction/latest"
+    fail "GET /demo/extraction/latest" "Unexpected HTTP $EXTRACTLATEST_STATUS"
 fi
 
 # Test N+5: /demo/extraction/history
@@ -429,7 +437,7 @@ fi
 
 # Test N+5b: PATCH /demo/observations/{id}
 info "Test N+5b: PATCH /demo/observations/{id} — Update observation"
-OBS_PATCH_STATUS=$(curl -so /dev/null -w "%{http_code}" --max-time 10 -X PATCH "$DEMO_BASE/observations/test-id" \
+OBS_PATCH_STATUS=$(curl -so /dev/null -w "%{http_code}" --max-time 10 -X PATCH "$DEMO_BASE/observations/$MISSING_OBSERVATION_ID" \
     -H "Content-Type: application/json" \
     -d '{"source": "verified", "title": "Updated Title"}' 2>/dev/null || echo "000")
 if [ "$OBS_PATCH_STATUS" = "000" ]; then
@@ -437,20 +445,20 @@ if [ "$OBS_PATCH_STATUS" = "000" ]; then
 elif [ "$OBS_PATCH_STATUS" -ge 200 ] && [ "$OBS_PATCH_STATUS" -lt 300 ]; then
     pass "PATCH /demo/observations/{id} (HTTP $OBS_PATCH_STATUS)"
 elif [ "$OBS_PATCH_STATUS" = "404" ]; then
-    pass "PATCH /demo/observations/{id} (HTTP 404 — test ID not found, endpoint works)"
+    pass "PATCH /demo/observations/{id} (HTTP 404 — valid UUID is absent)"
 else
     fail "PATCH /demo/observations/{id}" "Unexpected HTTP $OBS_PATCH_STATUS"
 fi
 
 # Test N+5c: DELETE /demo/observations/{id}
 info "Test N+5c: DELETE /demo/observations/{id} — Delete observation"
-OBS_DELETE_STATUS=$(curl -so /dev/null -w "%{http_code}" --max-time 10 -X DELETE "$DEMO_BASE/observations/test-id" 2>/dev/null || echo "000")
+OBS_DELETE_STATUS=$(curl -so /dev/null -w "%{http_code}" --max-time 10 -X DELETE "$DEMO_BASE/observations/$MISSING_OBSERVATION_ID" 2>/dev/null || echo "000")
 if [ "$OBS_DELETE_STATUS" = "000" ]; then
     fail "DELETE /demo/observations/{id}" "Connection failed"
 elif [ "$OBS_DELETE_STATUS" -ge 200 ] && [ "$OBS_DELETE_STATUS" -lt 300 ]; then
     pass "DELETE /demo/observations/{id} (HTTP $OBS_DELETE_STATUS)"
 elif [ "$OBS_DELETE_STATUS" = "404" ]; then
-    pass "DELETE /demo/observations/{id} (HTTP 404 — test ID not found, endpoint works)"
+    pass "DELETE /demo/observations/{id} (HTTP 404 — valid UUID is absent)"
 else
     fail "DELETE /demo/observations/{id}" "Unexpected HTTP $OBS_DELETE_STATUS"
 fi
@@ -468,29 +476,37 @@ fi
 
 # Test N+7: /chat
 info "Test N+7: GET /chat — chat endpoint"
-CHATGET=$(curl -sf --max-time 10 "$DEMO_BASE/../chat?project=$PROJECT" 2>/dev/null || echo "FAIL")
-if [ "$CHATGET" = "FAIL" ]; then
-    fail "GET /chat" "Request timed out or failed"
+if [ -n "${OPENAI_API_KEY:-}${SPRING_AI_OPENAI_API_KEY:-}" ]; then
+    CHATGET=$(curl -sf --max-time 10 "$DEMO_BASE/../chat?project=$PROJECT&message=E2E+health+check" 2>/dev/null || echo "FAIL")
+    if [ "$CHATGET" = "FAIL" ]; then
+        fail "GET /chat" "Request timed out or failed"
+    else
+        pass "GET /chat"
+    fi
 else
-    pass "GET /chat"
+    skip "GET /chat (no OpenAI-compatible API key configured)"
 fi
 
 # Test N+8: POST /demo/session/prompt
-info "Test N+8: POST /demo/session/prompt — record user prompt"
-PROMPTRESP=$(curl -sf --max-time 10 -X POST "$DEMO_BASE/session/prompt?project=$PROJECT&session_id=e2e-session&prompt=E2E+test+prompt" 2>/dev/null || echo "FAIL")
+info "Test N+8: POST /demo/ingest/prompt — record user prompt"
+PROMPTRESP=$(curl -sf --max-time 10 -X POST "$DEMO_BASE/ingest/prompt" \
+    -H "Content-Type: application/json" \
+    -d "{\"project\":\"$PROJECT\",\"session_id\":\"e2e-session\",\"prompt\":\"E2E test prompt\"}" 2>/dev/null || echo "FAIL")
 if [ "$PROMPTRESP" = "FAIL" ]; then
-    fail "POST /demo/session/prompt" "Request timed out or failed"
+    fail "POST /demo/ingest/prompt" "Request timed out or failed"
 else
-    pass "POST /demo/session/prompt"
+    pass "POST /demo/ingest/prompt"
 fi
 
-# Test N+9: POST /demo/session/end
-info "Test N+9: POST /demo/session/end — end session"
-ENDRESP=$(curl -sf --max-time 10 -X POST "$DEMO_BASE/session/end?project=$PROJECT&session_id=e2e-session" 2>/dev/null || echo "FAIL")
+# Test N+9: POST /demo/ingest/session-end
+info "Test N+9: POST /demo/ingest/session-end — end session"
+ENDRESP=$(curl -sf --max-time 10 -X POST "$DEMO_BASE/ingest/session-end" \
+    -H "Content-Type: application/json" \
+    -d "{\"project\":\"$PROJECT\",\"session_id\":\"e2e-session\"}" 2>/dev/null || echo "FAIL")
 if [ "$ENDRESP" = "FAIL" ]; then
-    fail "POST /demo/session/end" "Request timed out or failed"
+    fail "POST /demo/ingest/session-end" "Request timed out or failed"
 else
-    pass "POST /demo/session/end"
+    pass "POST /demo/ingest/session-end"
 fi
 
 echo ""
@@ -566,4 +582,12 @@ else
     fi
 
     echo "Extraction scenario tests complete."
+fi
+
+echo ""
+echo "Overall Java SDK Demo E2E: $PASSED passed, $FAILED failed, $SKIPPED skipped"
+if [ "$FAILED" -gt 0 ]; then
+    echo "Failure details:"
+    echo -e "$ERRORS"
+    exit 1
 fi

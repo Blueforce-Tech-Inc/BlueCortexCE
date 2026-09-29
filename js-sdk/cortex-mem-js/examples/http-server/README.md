@@ -1,6 +1,6 @@
 # JS SDK HTTP Server Demo
 
-An Express HTTP server that exposes all 26 Cortex CE SDK API methods as 26 REST endpoints.
+An Express HTTP server exposing 26 REST endpoints, including its own `/health` endpoint, backed by the Cortex CE SDK.
 
 Mirrors the Go `http-server` and Python Flask demos.
 
@@ -14,8 +14,8 @@ npm install -D @types/express
 # Set backend URL (optional, defaults to http://127.0.0.1:37777)
 export CORTEX_BASE_URL=http://127.0.0.1:37777
 
-# Set port (optional, defaults to 8080)
-export PORT=8080
+# The example uses a dedicated port to avoid common development ports.
+export PORT=37781
 
 # Run
 npx tsx examples/http-server/app.ts
@@ -56,21 +56,21 @@ npx tsx examples/http-server/app.ts
 
 ```bash
 # Health check
-curl http://localhost:8080/health
+curl http://localhost:37781/health
 
 # Chat with memory
-curl -X POST http://localhost:8080/chat \
+curl -X POST http://localhost:37781/chat \
   -H 'Content-Type: application/json' \
   -d '{"project": "/my/project", "message": "How do I parse JSON?"}'
 
 # Search observations
-curl "http://localhost:8080/search?project=/my/project&query=error+handling"
+curl "http://localhost:37781/search?project=/my/project&query=error+handling"
 
 # Get experiences with source filter
-curl "http://localhost:8080/experiences?project=/my/project&task=debugging&source=manual"
+curl "http://localhost:37781/experiences?project=/my/project&task=debugging&source=manual"
 
 # Update observation
-curl -X PATCH http://localhost:8080/observations/obs-123 \
+curl -X PATCH http://localhost:37781/observations/obs-123 \
   -H 'Content-Type: application/json' \
   -d '{"title": "Fixed", "source": "verified"}'
 ```

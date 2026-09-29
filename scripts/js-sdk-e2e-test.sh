@@ -1,6 +1,6 @@
 #!/bin/bash
-# js-sdk-e2e-test.sh — JS/TS SDK End-to-End Acceptance Test
-# Coverage: E2E test script → JS SDK → Backend API
+# js-sdk-e2e-test.sh — JS/TS SDK and backend live acceptance checks
+# Unit tests exercise the SDK client; live HTTP probes exercise backend endpoints directly.
 #
 # Prerequisites:
 # 1. Backend service running (port 37777)
@@ -14,6 +14,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SDK_DIR="$SCRIPT_DIR/../js-sdk/cortex-mem-js"
 BACKEND_URL="http://127.0.0.1:37777"
 PROJECT="/tmp/e2e-js-test"
+MISSING_OBSERVATION_ID="$(python3 -c 'import uuid; print(uuid.uuid4())')"
 
 # Colors
 GREEN='\033[0;32m'
@@ -225,20 +226,22 @@ else
     pass "POST /api/memory/refine"
 fi
 
-# Test 12: POST /api/memory/feedback
+# Test 12: POST /api/memory/feedback with a syntactically valid but absent UUID
 info "Test 12: POST /api/memory/feedback (SubmitFeedback)"
-FEEDBACK_RESP=$(curl -sf --max-time 10 -X POST "$BACKEND_URL/api/memory/feedback" \
+FEEDBACK_STATUS=$(curl -so /dev/null -w "%{http_code}" --max-time 10 -X POST "$BACKEND_URL/api/memory/feedback" \
     -H "Content-Type: application/json" \
-    -d '{"observationId":"test-id","feedbackType":"useful"}' 2>/dev/null || echo "FAIL")
-if [ "$FEEDBACK_RESP" = "FAIL" ]; then
+    -d "{\"observationId\":\"$MISSING_OBSERVATION_ID\",\"feedbackType\":\"useful\"}" 2>/dev/null || echo "000")
+if [ "$FEEDBACK_STATUS" = "000" ]; then
     fail "POST /api/memory/feedback" "Request failed"
+elif [ "$FEEDBACK_STATUS" = "404" ]; then
+    pass "POST /api/memory/feedback (HTTP 404 — valid UUID is absent)"
 else
-    pass "POST /api/memory/feedback"
+    fail "POST /api/memory/feedback" "Expected HTTP 404 for absent UUID, got $FEEDBACK_STATUS"
 fi
 
 # Test 13: PATCH /api/memory/observations/{id}
 info "Test 13: PATCH /api/memory/observations/{id} (UpdateObservation)"
-OBS_PATCH_STATUS=$(curl -so /dev/null -w "%{http_code}" --max-time 10 -X PATCH "$BACKEND_URL/api/memory/observations/test-id" \
+OBS_PATCH_STATUS=$(curl -so /dev/null -w "%{http_code}" --max-time 10 -X PATCH "$BACKEND_URL/api/memory/observations/$MISSING_OBSERVATION_ID" \
     -H "Content-Type: application/json" \
     -d '{"source":"verified"}' 2>/dev/null || echo "000")
 if [ "$OBS_PATCH_STATUS" = "000" ]; then
@@ -246,20 +249,20 @@ if [ "$OBS_PATCH_STATUS" = "000" ]; then
 elif [ "$OBS_PATCH_STATUS" -ge 200 ] && [ "$OBS_PATCH_STATUS" -lt 300 ]; then
     pass "PATCH /api/memory/observations/{id} (HTTP $OBS_PATCH_STATUS)"
 elif [ "$OBS_PATCH_STATUS" = "404" ]; then
-    pass "PATCH /api/memory/observations/{id} (HTTP 404 — test ID not found, endpoint works)"
+    pass "PATCH /api/memory/observations/{id} (HTTP 404 — valid UUID is absent)"
 else
     fail "PATCH /api/memory/observations/{id}" "Unexpected HTTP $OBS_PATCH_STATUS"
 fi
 
 # Test 14: DELETE /api/memory/observations/{id}
 info "Test 14: DELETE /api/memory/observations/{id} (DeleteObservation)"
-DEL_STATUS=$(curl -so /dev/null -w "%{http_code}" --max-time 10 -X DELETE "$BACKEND_URL/api/memory/observations/test-id" 2>/dev/null || echo "000")
+DEL_STATUS=$(curl -so /dev/null -w "%{http_code}" --max-time 10 -X DELETE "$BACKEND_URL/api/memory/observations/$MISSING_OBSERVATION_ID" 2>/dev/null || echo "000")
 if [ "$DEL_STATUS" = "000" ]; then
     fail "DELETE /api/memory/observations/{id}" "Connection failed"
-elif [ "$DEL_STATUS" -ge 200 ] && [ "$DEL_STATUS" -lt 500 ]; then
-    pass "DELETE /api/memory/observations/{id} (HTTP $DEL_STATUS)"
+elif [ "$DEL_STATUS" = "404" ]; then
+    pass "DELETE /api/memory/observations/{id} (HTTP 404 — valid UUID is absent)"
 else
-    fail "DELETE /api/memory/observations/{id}" "HTTP $DEL_STATUS"
+    fail "DELETE /api/memory/observations/{id}" "Expected HTTP 404 for absent UUID, got $DEL_STATUS"
 fi
 
 # Test 15: GET /api/memory/quality-distribution
@@ -369,8 +372,8 @@ fi
 # ==================== Coverage Summary ====================
 
 echo ""
-echo "--- JS SDK Method Coverage ---"
-echo "All 26 SDK methods verified via direct backend API calls:"
+echo "--- Backend API Endpoint Smoke Coverage ---"
+echo "Live HTTP probes call backend endpoints directly; SDK wrapper behavior is checked by the Vitest suite."
 echo "  ✅ StartSession            POST /api/session/start"
 echo "  ✅ UpdateSessionUserId     PATCH /api/session/{id}/user (Test 2)"
 echo "  ✅ RecordObservation       POST /api/ingest/tool-use"
@@ -395,7 +398,6 @@ echo "  ✅ GetProjects             GET /api/projects"
 echo "  ✅ GetStats                GET /api/stats"
 echo "  ✅ GetModes                GET /api/modes"
 echo "  ✅ GetSettings             GET /api/settings"
-echo "  ✅ Close                   (lifecycle, no API)"
 
 # ==================== Final Report ====================
 
