@@ -33,16 +33,22 @@ Start the Java backend service with dev profile.
 **Usage:**
 
 ```bash
-# Start with existing build
+# Start with existing build in the foreground
 ./start.sh
 
-# Build and start
+# Start in the background for scheduled checks
+./start.sh --background
+
+# Build and start in the foreground
 ./start.sh --build
+
+# Build and start in the background
+./start.sh --build --background
 ```
 
 **Features:**
 - Loads environment variables from `.env` file
-- Kills existing process on port 8080
+- Uses the dedicated backend port 37777 and stops an existing process on that port
 - Optional Maven build before starting
 
 ### `start-all.sh`

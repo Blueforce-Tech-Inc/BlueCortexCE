@@ -159,7 +159,10 @@ wait_for_server() {
     local attempt=1
 
     while [ $attempt -le $max_attempts ]; do
-        if curl -sf "${SERVER_URL}/actuator/health" > /dev/null 2>&1; then
+        # /api/health is the stable project contract; keep Actuator as a
+        # compatibility fallback for older locally-built artifacts.
+        if curl -sf --max-time 5 "${SERVER_URL}/api/health" > /dev/null 2>&1 || \
+            curl -sf --max-time 5 "${SERVER_URL}/actuator/health" > /dev/null 2>&1; then
             log_success "Server is healthy"
             return 0
         fi

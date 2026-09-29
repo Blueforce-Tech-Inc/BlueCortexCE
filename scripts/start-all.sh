@@ -34,9 +34,9 @@ load_env() {
 kill_port() {
     local port=$1
     local name=$2
-    if lsof -ti:$port > /dev/null 2>&1; then
+    if lsof -nP -tiTCP:"$port" -sTCP:LISTEN > /dev/null 2>&1; then
         echo "[start-all] Stopping existing $name on port $port..."
-        lsof -ti:$port | xargs -r kill -9 2>/dev/null || true
+        lsof -nP -tiTCP:"$port" -sTCP:LISTEN | xargs -r kill 2>/dev/null || true
         sleep 1
     fi
 }
@@ -66,8 +66,8 @@ echo ""
 # Load env vars
 load_env
 
-# Kill existing processes
-kill_port 8080 "Java backend"
+# Kill existing processes. The backend uses the dedicated non-common port.
+kill_port 37777 "Java backend"
 kill_port 37778 "Thin Proxy"
 
 # Build Java if requested
@@ -96,7 +96,7 @@ load_env
 # Start Java backend
 echo "[start-all] Starting Java backend..."
 cd ../backend
-java -jar target/backend-0.1.0-SNAPSHOT.jar --spring.profiles.active=dev > /tmp/claude-mem.log 2>&1 &
+java -jar target/cortex-ce-0.1.0-beta.jar --spring.profiles.active=dev --server.port=37777 > /tmp/claude-mem.log 2>&1 &
 JAVA_PID=$!
 cd "$SCRIPT_DIR"
 
@@ -105,7 +105,7 @@ echo "[start-all] Java backend started (PID: $JAVA_PID)"
 # Wait for Java to be ready
 echo "[start-all] Waiting for Java backend..."
 for i in {1..30}; do
-    if curl -sf http://127.0.0.1:37777/actuator/health > /dev/null 2>&1; then
+    if curl -sf http://127.0.0.1:37777/api/health > /dev/null 2>&1; then
         echo -e "${GREEN}[OK]${NC} Java backend is ready"
         break
     fi

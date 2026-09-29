@@ -1,5 +1,9 @@
 # Backend 修复进度记录
 
+> **Purpose**: 记录健康验收和集中修复阶段的代码修复、验证与 commit。
+> **Updated by**: 定时项目维护任务。
+> **Update rule**: 新修复追加到顶部；超过文档增长阈值时保留未完成项并将已完成历史归档。
+
 ## 2026-05-06 05:16 | 健康检查修复 — Backend Review #20 P1+P2 问题批量修复
 
 ### P1: `mergeAppendOnly` — within-field duplicate items not deduplicated
@@ -343,3 +347,16 @@ try {
 - EXTRACTION 验收：25/25 通过 ✅
 
 **Backend Review 问题状态**：P0: 0 | P1: 0 | P2: 0（#20 P1+P2 已修复，commit `316c165`）
+
+---
+
+## 2026-09-30 01:26 | 巡检与完整验收
+
+**审查结论**：Python SDK 方向无新问题；API 文档与 Controller 路径、方法和 `37777` 基础 URL 对照一致。遗留 P2-1（Java Demo `/refine` 文案差异）已明确标记为设计性跳过，不属于共享 API 契约。
+
+**验证结果**：
+- 服务健康：`/api/health` ✅（专用端口 `37777`）
+- 回归测试：45 passed / 0 failed / 1 skipped ✅
+- EXTRACTION 验收：25 passed / 0 failed / 0 skipped ✅
+- 文档增长检查：5 个持续追加文档均低于阈值 ✅
+- 代码指纹：待完整验收基线写入后同步更新
