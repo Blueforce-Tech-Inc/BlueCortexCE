@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: Python SDK (2026-09-30 05:32)
-**Next up**: JS/TS SDK
+**Last completed**: JS/TS SDK (2026-09-30 05:37)
+**Next up**: Demo
 
 ## History
 | DateTime | Direction | Findings |
@@ -27,3 +27,4 @@
 | 2026-09-30 05:03 | Java SDK | ✅ All 3 modules pass (client 121 + spring-ai 46 + starter 7); wire format spot-checks match backend `@JsonProperty` definitions; baseline doc corrected 120→121 tests; next direction is Go SDK |
 | 2026-09-30 05:27 | Go SDK | ✅ Fixed gofmt alignment in 4 files (dto×3 + genkit retriever); 288 tests pass across 5 modules; Go demo E2E 39/39; full acceptance passed and new baseline set (b04ccf8); next direction is Python SDK |
 | 2026-09-30 05:32 | Python SDK | ✅ 374/374 tests pass; 25 API methods and dual-mode ObservationUpdate verified; no issues, no changes; next direction is JS/TS SDK |
+| 2026-09-30 05:37 | JS/TS SDK | ✅ 212/212 tests, lint clean, CJS+ESM+DTS build complete; no issues, no changes; next direction is Demo |
