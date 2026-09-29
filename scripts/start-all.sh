@@ -102,9 +102,11 @@ cd "$SCRIPT_DIR"
 
 echo "[start-all] Java backend started (PID: $JAVA_PID)"
 
-# Wait for Java to be ready
+# Wait for Java to be ready. Cold starts can take nearly 40 seconds while
+# Flyway and the embedding client initialize, so allow the same 60-second
+# recovery window as the scheduled maintenance instructions.
 echo "[start-all] Waiting for Java backend..."
-for i in {1..30}; do
+for i in {1..60}; do
     if curl -sf http://127.0.0.1:37777/api/health > /dev/null 2>&1; then
         echo -e "${GREEN}[OK]${NC} Java backend is ready"
         break
