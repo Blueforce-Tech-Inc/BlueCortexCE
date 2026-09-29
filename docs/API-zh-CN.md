@@ -8,6 +8,33 @@
 
 ---
 
+## 目录
+
+1. [概述](#概述)
+2. [认证](#认证)
+3. [通用响应格式](#通用响应格式)
+4. [Session 会话管理](#session-会话管理)
+5. [Ingestion 数据摄入](#ingestion-数据摄入)
+6. [Memory 记忆管理](#memory-记忆管理)
+7. [Extraction 结构化提取](#extraction-结构化提取)
+8. [Context 上下文](#context-上下文)
+9. [搜索](#搜索)
+10. [管理](#管理)
+11. [Mode 模式](#mode-模式)
+12. [Viewer 查看器](#viewer-查看器)
+13. [Import 数据导入](#import-数据导入)
+14. [Logs 日志管理](#logs-日志管理)
+15. [Health 健康检查](#health-健康检查)
+16. [Cursor IDE 集成](#cursor-ide-集成)
+17. [SSE 流式推送](#sse-流式推送)
+18. [错误码说明](#错误码说明)
+19. [Test 测试端点](#test-测试端点)
+20. [使用示例](#使用示例)
+21. [附录](#附录)
+22. [更新日志](#更新日志)
+
+---
+
 ## 概述
 
 本文档描述 Cortex Community Edition 后端的 REST API。API 遵循 RESTful 原则，支持同步请求和 Server-Sent Events (SSE) 流式响应。
@@ -25,33 +52,6 @@ http://localhost:37777
 ```
 Content-Type: application/json
 ```
-
----
-
-## 目录
-
-1. [概述](#概述)
-2. [认证](#认证)
-3. [通用响应格式](#通用响应格式)
-4. [错误码说明](#错误码说明)
-5. [Health 健康检查](#health-健康检查)
-6. [Session 会话管理](#session-会话管理)
-7. [Context 上下文](#context-上下文)
-8. [Ingestion 数据摄入](#ingestion-数据摄入)
-9. [Extraction 结构化提取](#extraction-结构化提取)
-10. [搜索](#搜索)
-11. [Viewer 查看器](#viewer-查看器)
-12. [管理](#管理)
-13. [Mode 模式](#mode-模式)
-14. [Memory 记忆管理](#memory-记忆管理)
-15. [Logs 日志管理](#logs-日志管理)
-16. [Import 数据导入](#import-数据导入)
-17. [Cursor IDE 集成](#cursor-ide-集成)
-18. [SSE 流式推送](#sse-流式推送)
-19. [Test 测试端点](#test-测试端点)
-20. [使用示例](#使用示例)
-21. [附录](#附录)
-22. [更新日志](#更新日志)
 
 ---
 
@@ -92,134 +92,6 @@ Content-Type: application/json
   "code": "ERROR_CODE"
 }
 ```
-
----
-
-## 错误码说明
-
-### HTTP 状态码
-
-| 状态码 | 含义 | 说明 |
-|--------|------|------|
-| 200 | OK | 请求成功 |
-| 201 | Created | 资源创建成功 |
-| 400 | Bad Request | 请求参数错误 |
-| 401 | Unauthorized | 未授权 |
-| 403 | Forbidden | 禁止访问 |
-| 404 | Not Found | 资源不存在 |
-| 429 | Too Many Requests | 速率限制触发 |
-| 500 | Internal Server Error | 服务器内部错误 |
-| 503 | Service Unavailable | 服务不可用（数据库连接失败等） |
-
-### 业务错误码
-
-| 错误码 | 说明 |
-|--------|------|
-| `MISSING_FIELD` | 缺少必填字段 |
-| `INVALID_FORMAT` | 字段格式错误 |
-| `NOT_FOUND` | 资源不存在 |
-| `RATE_LIMIT_EXCEEDED` | 速率限制触发（10 次/60秒） |
-| `DB_ERROR` | 数据库操作失败 |
-| `LLM_ERROR` | LLM 服务调用失败 |
-| `EMBEDDING_ERROR` | 向量嵌入生成失败 |
-
----
-
-
----
-
-## Health 健康检查
-
-#### GET `/api/health`
-
-基础健康检查端点，适合负载均衡器和 Kubernetes 探针。
-
-**请求示例**:
-```bash
-curl http://localhost:37777/api/health
-```
-
-**响应示例** (`200 OK`, 数据库正常):
-```json
-{
-  "status": "ok",
-  "timestamp": 1707878400000,
-  "service": "claude-mem-java"
-}
-```
-
-**响应示例** (`200 OK`, 数据库不可用，降级模式):
-```json
-{
-  "status": "degraded",
-  "timestamp": 1707878400000,
-  "service": "claude-mem-java"
-}
-```
-
----
-
-#### GET `/api/readiness`
-
-就绪检查端点，检查服务是否完全准备好接收流量。
-
-**请求示例**:
-```bash
-curl http://localhost:37777/api/readiness
-```
-
-**响应示例**:
-```json
-{
-  "status": "ready",
-  "checks": {
-    "database": "ready",
-    "queueDepth": 5,
-    "queueStatus": "ready"
-  },
-  "timestamp": 1707878400000
-}
-```
-
-**响应示例** (`503 服务未就绪`):
-```json
-{
-  "status": "not_ready",
-  "checks": {
-    "database": "not_ready",
-    "queueDepth": 0,
-    "queueStatus": "ready"
-  },
-  "timestamp": 1707878400000
-}
-```
-
-**状态码**:
-- `200` - 服务就绪
-- `503` - 服务未就绪（数据库连接失败等）
-
----
-
-#### GET `/api/version`
-
-获取服务版本信息。
-
-**请求示例**:
-```bash
-curl http://localhost:37777/api/version
-```
-
-**响应示例**:
-```json
-{
-  "version": "0.1.0-beta",
-  "service": "claude-mem-java",
-  "java": "24.0.1",
-  "springBoot": "3.3.13"
-}
-```
-
-> **说明**: `java` 字段反映运行时 JVM 版本，随部署环境不同而变化。
 
 ---
 
@@ -339,6 +211,529 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
   "userId": "user-123"
 }
 ```
+
+---
+
+## Ingestion 数据摄入
+
+这些端点由 Claude Code hooks（通过 `wrapper.js`）调用，用于异步处理事件。
+
+#### POST `/api/ingest/tool-use`
+
+记录工具使用事件，触发异步 LLM 处理生成观察。
+
+**请求体**:
+```json
+{
+  "session_id": "content-session-id",
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "/path/to/file.ts",
+    "old_string": "...",
+    "new_string": "..."
+  },
+  "tool_response": "File updated successfully",
+  "cwd": "/path/to/project"
+}
+```
+
+**字段说明**:
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `session_id` | string | ✅ | 内容会话 ID |
+| `tool_name` | string | ✅ | 工具名称（Edit, Write, Read, Bash） |
+| `tool_input` | object/string | ❌ | 工具输入参数 |
+| `tool_response` | object/string | ❌ | 工具响应 |
+| `cwd` | string | ❌ | 当前工作目录 |
+
+**响应示例**:
+```json
+{
+  "status": "accepted"
+}
+```
+
+**错误响应**:
+- `400` — `{"error": "Missing required field: session_id"}` 或 `{"error": "Missing required field: tool_name"}`（缺少必填字段）
+- `429` — `{"error": "Rate limit exceeded", "retry_after": "45"}`（速率限制）
+
+**速率限制**: 10 次/60秒/会话
+
+---
+
+#### POST `/api/ingest/session-end`
+
+结束会话，触发异步摘要生成。
+
+**请求体**:
+```json
+{
+  "session_id": "content-session-id",
+  "last_assistant_message": "Task completed successfully",
+  "cwd": "/path/to/project"
+}
+```
+
+**字段说明**:
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `session_id` | string | ✅ | 内容会话 ID |
+| `last_assistant_message` | string | ❌ | 最后的助手消息 |
+| `cwd` | string | ❌ | 当前工作目录 |
+
+**响应示例**:
+```json
+{
+  "status": "ok"
+}
+```
+
+**错误响应**:
+- `400` — `{"error": "Missing required field: session_id"}`（缺少必填字段）
+
+---
+
+#### POST `/api/ingest/user-prompt`
+
+记录用户提示。
+
+**请求体**:
+```json
+{
+  "session_id": "content-session-id",
+  "prompt_text": "Add authentication feature",
+  "prompt_number": 1,
+  "cwd": "/path/to/project"
+}
+```
+
+**字段说明**:
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `session_id` | string | ✅ | 内容会话 ID |
+| `prompt_text` | string | ❌ | 提示文本 |
+| `prompt_number` | int | ❌ | 提示编号（默认 1） |
+| `cwd` | string | ❌ | 当前工作目录 |
+
+**响应示例**:
+```json
+{
+  "status": "ok"
+}
+```
+
+**错误响应**:
+- `400` — `{"error": "Missing required field: session_id"}`（缺少必填字段）
+
+---
+
+#### POST `/api/ingest/observation`
+
+直接创建观察（带自动嵌入）。**仅用于测试**。
+
+**请求体字段**:
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `content_session_id` | string | ✅ | 内容会话 ID（可使用 `session_id` 别名） |
+| `project_path` | string | ✅ | 项目路径（可使用 `cwd` 别名） |
+| `type` | string | ❌ | 观察类型（如 `feature`、`bugfix`） |
+| `title` | string | ❌ | 观察标题 |
+| `subtitle` | string | ❌ | 观察副标题 |
+| `narrative` | string | ❌ | 观察叙述（可使用 `content` 别名） |
+| `facts` | string[] | ❌ | 事实陈述列表 |
+| `concepts` | string[] | ❌ | 概念标签列表 |
+| `source` | string | ❌ | 来源标识（如 `manual`） |
+| `extractedData` | object | ❌ | 结构化提取数据 |
+| `files_read` | string[] | ❌ | 已读取文件列表 |
+| `files_modified` | string[] | ❌ | 已修改文件列表 |
+| `prompt_number` | int | ❌ | 提示编号（用于排序） |
+
+**字段别名**: `session_id` 可替代 `content_session_id`，`cwd` 可替代 `project_path`，`content` 可替代 `narrative`。
+
+**请求示例**:
+```json
+{
+  "content_session_id": "mem-abc-123",
+  "project_path": "/path/to/project",
+  "title": "Feature implementation",
+  "subtitle": "Added authentication",
+  "narrative": "Implemented JWT authentication...",
+  "type": "feature",
+  "facts": ["JWT tokens configured", "Middleware added"],
+  "concepts": ["authentication", "security"],
+  "source": "manual",
+  "extractedData": {"key": "value"},
+  "files_read": ["/src/auth.ts"],
+  "files_modified": ["/src/middleware.ts"],
+  "prompt_number": 1
+}
+```
+
+**响应示例**:
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "title": "Feature implementation",
+  "type": "feature",
+  ...
+}
+```
+
+**错误响应**:
+- `400` — `{"error": "Missing required field: content_session_id (or session_id)"}`（缺少必填字段）
+- `400` — `{"error": "Missing required field: project_path"}`（缺少必填字段）
+
+---
+
+## Memory 记忆管理
+
+#### POST `/api/memory/refine`
+
+触发记忆精炼（异步）。
+
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `project` | string | ✅ | 项目绝对路径 |
+
+**响应示例** (`200 OK`):
+```json
+{
+  "status": "triggered",
+  "project": "/Users/dev/my-project",
+  "message": "Memory refinement event has been published"
+}
+```
+
+**错误响应** (`400 Bad Request`):
+```json
+{
+  "error": "project is required"
+}
+```
+
+#### POST `/api/memory/experiences`
+
+获取经验（ExpRAG）。
+
+**请求体**:
+```json
+{
+  "task": "database optimization",
+  "project": "/path/to/project",
+  "count": 5,
+  "source": "manual",
+  "requiredConcepts": ["how-it-works"],
+  "userId": "user-123"
+}
+```
+
+**字段说明**:
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `task` | string | ✅ | 任务或问题描述，用于查找相关经验 |
+| `project` | string | ❌ | 项目路径（用于范围限定） |
+| `count` | int | ❌ | 返回的最大经验数（默认 4） |
+| `source` | string | ❌ | 来源过滤（如 `manual`、`tool_result`） |
+| `requiredConcepts` | string[] | ❌ | 概念过滤（仅返回包含这些概念的经验） |
+| `userId` | string | ❌ | 用户 ID（多用户隔离） |
+
+**响应示例** (`200 OK`): JSON 数组格式的经验对象：
+```json
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "task": "database optimization",
+    "strategy": "Use connection pooling with HikariCP",
+    "outcome": "Query latency reduced by 40%",
+    "reuse_condition": "When optimizing database-heavy services",
+    "quality_score": 0.85,
+    "created_at": "2026-03-13T10:15:00Z"
+  }
+]
+```
+
+**错误响应**:
+- `400` — `{"error": "task is required"}`（`task` 字段缺失或为空）
+
+#### POST `/api/memory/icl-prompt`
+
+获取上下文学习提示。
+
+**请求体**:
+```json
+{
+  "task": "database optimization",
+  "project": "/path/to/project",
+  "maxChars": 4000,
+  "userId": "user-123"
+}
+```
+
+**字段说明**:
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `task` | string | ✅ | 当前任务/问题（用于上下文检索） |
+| `project` | string | ❌ | 项目路径（用于范围限定） |
+| `maxChars` | int | ❌ | 最大提示长度（默认 4000） |
+| `userId` | string | ❌ | 用户 ID（多用户隔离） |
+
+**响应示例** (`200 OK`):
+```json
+{
+  "prompt": "# Relevant Experiences\n\n...",
+  "experienceCount": 3,
+  "maxChars": 4000
+}
+```
+
+**错误响应**:
+- `400` — `{"error": "task is required"}`（`task` 字段缺失或为空）
+
+#### GET `/api/memory/quality-distribution`
+
+获取质量分布统计（高/中/低/未知观察数量）。
+
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `project` | string | ✅ | 项目绝对路径 |
+
+**响应示例** (`200 OK`):
+```json
+{
+  "project": "/Users/dev/my-project",
+  "high": 10,
+  "medium": 20,
+  "low": 5,
+  "unknown": 3
+}
+```
+
+**错误响应**:
+- `400` — `{"error": "project is required"}`（`project` 参数缺失或为空）
+- `500`:
+```json
+{
+  "project": "/Users/dev/my-project",
+  "error": "Failed to get quality distribution: ...",
+  "high": 0,
+  "medium": 0,
+  "low": 0,
+  "unknown": 0
+}
+```
+
+#### POST `/api/memory/feedback`
+
+提交反馈。
+
+**请求体**:
+```json
+{
+  "observationId": "550e8400-e29b-41d4-a716-446655440000",
+  "feedbackType": "SUCCESS",
+  "comment": "Task completed successfully"
+}
+```
+
+**字段说明**:
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `observationId` | string | ✅ | 要提供反馈的观察 UUID |
+| `feedbackType` | string | ✅ | 反馈类型（如 `SUCCESS`、`FAILURE`） |
+| `comment` | string | ❌ | 可选的反馈评论 |
+
+**响应示例** (`200 OK`):
+```json
+{
+  "status": "ok",
+  "observationId": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**错误响应**:
+- `400` — 缺少 `observationId` 或 `feedbackType`，或 UUID 格式无效
+- `404` — 观察不存在
+
+#### PATCH `/api/memory/observations/{id}`
+
+部分更新观察（仅更新请求体中包含的字段，null 值清空字段，未包含的字段保持不变）。
+
+**路径参数**:
+- `id` - 观察 UUID
+
+**请求体**:
+```json
+{
+  "title": "Updated title",
+  "source": "manual",
+  "extractedData": {"key": "value"}
+}
+```
+
+**响应示例** (`200 OK`):
+```json
+{
+  "status": "updated",
+  "id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+支持的字段: `title`, `content`（或 `narrative`）, `subtitle`, `source`, `facts`, `concepts`, `extractedData`。null 值清空字段，缺失字段保持不变。
+
+**错误响应**:
+- `400` — 请求体字段类型无效（如 `title must be a string`）
+- `404` — 给定 UUID 的观察不存在
+
+#### DELETE `/api/memory/observations/{id}`
+
+删除观察。
+
+**路径参数**:
+- `id` - 观察 UUID
+
+**响应** (`200 OK`):
+```json
+{
+  "status": "deleted",
+  "id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+## Observations
+
+> 观察记录列表见 [Viewer 查看器](#viewer-查看器) 章节。
+
+## Extraction 结构化提取
+
+### 触发结构化提取
+
+Phase 3 结构化数据提取端点，从会话观察中提取结构化数据（如用户偏好、过敏信息等）。
+
+#### POST `/api/extraction/run`
+
+触发结构化数据提取。
+
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `projectPath` | string | ✅ | 项目路径 |
+
+**请求示例**:
+```bash
+curl -X POST "http://localhost:37777/api/extraction/run?projectPath=/Users/dev/myproject"
+```
+
+**响应示例**:
+```json
+{
+  "status": "ok",
+  "projectPath": "/Users/dev/myproject",
+  "message": "Extraction completed"
+}
+```
+
+**错误响应** (`500 Internal Server Error`):
+```json
+{
+  "error": "Failed to trigger extraction: Extraction failed and DLQ unavailable for template: user-preferences"
+}
+```
+
+> ⚠️ **注意**: 此端点为同步执行——响应在提取完成后才返回，耗时取决于模板数量和观测数据量。
+
+---
+
+### 获取最新提取结果
+
+#### GET `/api/extraction/{templateName}/latest`
+
+获取指定模板的最新提取结果。
+
+**路径参数**:
+- `templateName` - 提取模板名称（如 `user-preferences`、`allergy-info`）
+
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `projectPath` | string | ✅ | 项目路径 |
+| `userId` | string | ❌ | 用户 ID（用户级别提取时使用） |
+
+**请求示例**:
+```bash
+curl "http://localhost:37777/api/extraction/user-preferences/latest?projectPath=/Users/dev/myproject&userId=alice"
+```
+
+**响应示例**（有数据）:
+```json
+{
+  "status": "ok",
+  "template": "user-preferences",
+  "sessionId": "session-123",
+  "extractedData": { "preferredLanguage": "en", "theme": "dark" },
+  "createdAt": 1707878400000,
+  "observationId": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**响应示例**（无数据）:
+```json
+{
+  "status": "not_found",
+  "template": "user-preferences",
+  "message": "No extraction found"
+}
+```
+
+---
+
+### 获取历史
+
+#### GET `/api/extraction/{templateName}/history`
+
+获取指定模板的提取历史。
+
+**路径参数**:
+- `templateName` - 提取模板名称
+
+**查询参数**:
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `projectPath` | string | ✅ | 项目路径 |
+| `userId` | string | ❌ | 用户 ID |
+| `limit` | int | 10 | 返回数量 |
+
+**请求示例**:
+```bash
+curl "http://localhost:37777/api/extraction/user-preferences/history?projectPath=/Users/dev/myproject&limit=5"
+```
+
+**响应示例**:
+```json
+[
+  {
+    "sessionId": "pref:abc123:alice",
+    "extractedData": { "preferredLanguage": "en", "theme": "dark" },
+    "createdAt": 1707878400000,
+    "observationId": "550e8400-e29b-41d4-a716-446655440000"
+  }
+]
+```
+
+> ⚠️ 响应为 JSON 数组（非对象），每个元素包含 `sessionId`、`extractedData`、`createdAt`、`observationId` 字段。
 
 ---
 
@@ -558,304 +953,6 @@ curl -X POST "http://localhost:37777/api/context/semantic" \
 
 ---
 
-## Ingestion 数据摄入
-
-这些端点由 Claude Code hooks（通过 `wrapper.js`）调用，用于异步处理事件。
-
-#### POST `/api/ingest/tool-use`
-
-记录工具使用事件，触发异步 LLM 处理生成观察。
-
-**请求体**:
-```json
-{
-  "session_id": "content-session-id",
-  "tool_name": "Edit",
-  "tool_input": {
-    "file_path": "/path/to/file.ts",
-    "old_string": "...",
-    "new_string": "..."
-  },
-  "tool_response": "File updated successfully",
-  "cwd": "/path/to/project"
-}
-```
-
-**字段说明**:
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `session_id` | string | ✅ | 内容会话 ID |
-| `tool_name` | string | ✅ | 工具名称（Edit, Write, Read, Bash） |
-| `tool_input` | object/string | ❌ | 工具输入参数 |
-| `tool_response` | object/string | ❌ | 工具响应 |
-| `cwd` | string | ❌ | 当前工作目录 |
-
-**响应示例**:
-```json
-{
-  "status": "accepted"
-}
-```
-
-**错误响应**:
-- `400` — `{"error": "Missing required field: session_id"}` 或 `{"error": "Missing required field: tool_name"}`（缺少必填字段）
-- `429` — `{"error": "Rate limit exceeded", "retry_after": "45"}`（速率限制）
-
-**速率限制**: 10 次/60秒/会话
-
----
-
-#### POST `/api/ingest/session-end`
-
-结束会话，触发异步摘要生成。
-
-**请求体**:
-```json
-{
-  "session_id": "content-session-id",
-  "last_assistant_message": "Task completed successfully",
-  "cwd": "/path/to/project"
-}
-```
-
-**字段说明**:
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `session_id` | string | ✅ | 内容会话 ID |
-| `last_assistant_message` | string | ❌ | 最后的助手消息 |
-| `cwd` | string | ❌ | 当前工作目录 |
-
-**响应示例**:
-```json
-{
-  "status": "ok"
-}
-```
-
-**错误响应**:
-- `400` — `{"error": "Missing required field: session_id"}`（缺少必填字段）
-
----
-
-#### POST `/api/ingest/user-prompt`
-
-记录用户提示。
-
-**请求体**:
-```json
-{
-  "session_id": "content-session-id",
-  "prompt_text": "Add authentication feature",
-  "prompt_number": 1,
-  "cwd": "/path/to/project"
-}
-```
-
-**字段说明**:
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `session_id` | string | ✅ | 内容会话 ID |
-| `prompt_text` | string | ❌ | 提示文本 |
-| `prompt_number` | int | ❌ | 提示编号（默认 1） |
-| `cwd` | string | ❌ | 当前工作目录 |
-
-**响应示例**:
-```json
-{
-  "status": "ok"
-}
-```
-
-**错误响应**:
-- `400` — `{"error": "Missing required field: session_id"}`（缺少必填字段）
-
----
-
-#### POST `/api/ingest/observation`
-
-直接创建观察（带自动嵌入）。**仅用于测试**。
-
-**请求体字段**:
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `content_session_id` | string | ✅ | 内容会话 ID（可使用 `session_id` 别名） |
-| `project_path` | string | ✅ | 项目路径（可使用 `cwd` 别名） |
-| `type` | string | ❌ | 观察类型（如 `feature`、`bugfix`） |
-| `title` | string | ❌ | 观察标题 |
-| `subtitle` | string | ❌ | 观察副标题 |
-| `narrative` | string | ❌ | 观察叙述（可使用 `content` 别名） |
-| `facts` | string[] | ❌ | 事实陈述列表 |
-| `concepts` | string[] | ❌ | 概念标签列表 |
-| `source` | string | ❌ | 来源标识（如 `manual`） |
-| `extractedData` | object | ❌ | 结构化提取数据 |
-| `files_read` | string[] | ❌ | 已读取文件列表 |
-| `files_modified` | string[] | ❌ | 已修改文件列表 |
-| `prompt_number` | int | ❌ | 提示编号（用于排序） |
-
-**字段别名**: `session_id` 可替代 `content_session_id`，`cwd` 可替代 `project_path`，`content` 可替代 `narrative`。
-
-**请求示例**:
-```json
-{
-  "content_session_id": "mem-abc-123",
-  "project_path": "/path/to/project",
-  "title": "Feature implementation",
-  "subtitle": "Added authentication",
-  "narrative": "Implemented JWT authentication...",
-  "type": "feature",
-  "facts": ["JWT tokens configured", "Middleware added"],
-  "concepts": ["authentication", "security"],
-  "source": "manual",
-  "extractedData": {"key": "value"},
-  "files_read": ["/src/auth.ts"],
-  "files_modified": ["/src/middleware.ts"],
-  "prompt_number": 1
-}
-```
-
-**响应示例**:
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "title": "Feature implementation",
-  "type": "feature",
-  ...
-}
-```
-
-**错误响应**:
-- `400` — `{"error": "Missing required field: content_session_id (or session_id)"}`（缺少必填字段）
-- `400` — `{"error": "Missing required field: project_path"}`（缺少必填字段）
-
----
-
-## Extraction 结构化提取
-
-### 触发结构化提取
-
-Phase 3 结构化数据提取端点，从会话观察中提取结构化数据（如用户偏好、过敏信息等）。
-
-#### POST `/api/extraction/run`
-
-触发结构化数据提取。
-
-**查询参数**:
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `projectPath` | string | ✅ | 项目路径 |
-
-**请求示例**:
-```bash
-curl -X POST "http://localhost:37777/api/extraction/run?projectPath=/Users/dev/myproject"
-```
-
-**响应示例**:
-```json
-{
-  "status": "ok",
-  "projectPath": "/Users/dev/myproject",
-  "message": "Extraction completed"
-}
-```
-
-**错误响应** (`500 Internal Server Error`):
-```json
-{
-  "error": "Failed to trigger extraction: Extraction failed and DLQ unavailable for template: user-preferences"
-}
-```
-
-> ⚠️ **注意**: 此端点为同步执行——响应在提取完成后才返回，耗时取决于模板数量和观测数据量。
-
----
-
-### 获取最新提取结果
-
-#### GET `/api/extraction/{templateName}/latest`
-
-获取指定模板的最新提取结果。
-
-**路径参数**:
-- `templateName` - 提取模板名称（如 `user-preferences`、`allergy-info`）
-
-**查询参数**:
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `projectPath` | string | ✅ | 项目路径 |
-| `userId` | string | ❌ | 用户 ID（用户级别提取时使用） |
-
-**请求示例**:
-```bash
-curl "http://localhost:37777/api/extraction/user-preferences/latest?projectPath=/Users/dev/myproject&userId=alice"
-```
-
-**响应示例**（有数据）:
-```json
-{
-  "status": "ok",
-  "template": "user-preferences",
-  "sessionId": "session-123",
-  "extractedData": { "preferredLanguage": "en", "theme": "dark" },
-  "createdAt": 1707878400000,
-  "observationId": "550e8400-e29b-41d4-a716-446655440000"
-}
-```
-
-**响应示例**（无数据）:
-```json
-{
-  "status": "not_found",
-  "template": "user-preferences",
-  "message": "No extraction found"
-}
-```
-
----
-
-### 获取历史
-
-#### GET `/api/extraction/{templateName}/history`
-
-获取指定模板的提取历史。
-
-**路径参数**:
-- `templateName` - 提取模板名称
-
-**查询参数**:
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `projectPath` | string | ✅ | 项目路径 |
-| `userId` | string | ❌ | 用户 ID |
-| `limit` | int | 10 | 返回数量 |
-
-**请求示例**:
-```bash
-curl "http://localhost:37777/api/extraction/user-preferences/history?projectPath=/Users/dev/myproject&limit=5"
-```
-
-**响应示例**:
-```json
-[
-  {
-    "sessionId": "pref:abc123:alice",
-    "extractedData": { "preferredLanguage": "en", "theme": "dark" },
-    "createdAt": 1707878400000,
-    "observationId": "550e8400-e29b-41d4-a716-446655440000"
-  }
-]
-```
-
-> ⚠️ 响应为 JSON 数组（非对象），每个元素包含 `sessionId`、`extractedData`、`createdAt`、`observationId` 字段。
-
----
-
 ## 搜索
 
 ### 搜索记忆
@@ -901,6 +998,307 @@ curl "http://localhost:37777/api/search?project=/Users/dev/myproject&query=authe
 
 ---
 
+
+## 管理
+
+#### GET `/api/projects`
+
+获取所有已知项目路径列表，支持平台来源分组（V18）。
+
+**请求示例**:
+```bash
+curl http://localhost:37777/api/projects
+```
+
+**响应示例**:
+```json
+{
+  "projects": [
+    "/Users/dev/myproject",
+    "/Users/dev/another-project"
+  ],
+  "sources": ["claude", "cursor"],
+  "projectsBySource": {
+    "claude": ["/Users/dev/myproject"],
+    "cursor": ["/Users/dev/another-project"]
+  }
+}
+```
+
+---
+
+#### GET `/api/stats`
+
+获取数据库和处理统计信息。可通过 project 查询参数筛选指定项目的统计。
+
+**查询参数**:
+| 参数    | 类型   | 必填 | 说明                     |
+|---------|--------|------|--------------------------|
+| `project` | string | 否   | 项目路径，用于筛选统计信息 |
+
+**请求示例**:
+```bash
+curl http://localhost:37777/api/stats
+# 或指定项目：
+curl http://localhost:37777/api/stats?project=/path/to/project
+```
+
+**响应示例**（全局统计）:
+```json
+{
+  "worker": {
+    "isProcessing": false,
+    "queueDepth": 5
+  },
+  "database": {
+    "totalObservations": 1234,
+    "totalSummaries": 56,
+    "totalSessions": 78,
+    "totalProjects": 3
+  }
+}
+```
+
+**项目级响应**（`?project=...`）:
+```json
+{
+  "worker": {
+    "isProcessing": false,
+    "queueDepth": 0
+  },
+  "database": {
+    "totalObservations": 42,
+    "totalSummaries": 5,
+    "totalSessions": 3,
+    "totalProjects": 1,
+    "projectPath": "/path/to/project"
+  }
+}
+```
+
+---
+
+#### GET `/api/settings`
+
+获取当前设置，返回所有 `CLAUDE_MEM_*` 配置字段及活跃模式信息。
+
+**请求示例**:
+```bash
+curl http://localhost:37777/api/settings
+```
+
+**响应示例**:
+```json
+{
+  "CLAUDE_MEM_MODE": "code",
+  "CLAUDE_MEM_PROVIDER": "claude",
+  "CLAUDE_MEM_MODEL": "claude-sonnet-4-5",
+  "CLAUDE_MEM_LOG_LEVEL": "INFO",
+  "CLAUDE_MEM_CONTEXT_OBSERVATIONS": 50,
+  "CLAUDE_MEM_CONTEXT_FULL_COUNT": 5,
+  "CLAUDE_MEM_CONTEXT_FULL_FIELD": "narrative",
+  "CLAUDE_MEM_CONTEXT_SESSION_COUNT": 10,
+  "CLAUDE_MEM_CONTEXT_OBSERVATION_TYPES": ["bugfix","feature","refactor","discovery","decision","change"],
+  "CLAUDE_MEM_CONTEXT_OBSERVATION_CONCEPTS": ["how-it-works","why-it-exists","what-changed","problem-solution","gotcha","pattern","trade-off"],
+  "CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS": 50,
+  "CLAUDE_MEM_CONTEXT_SHOW_READ_TOKENS": true,
+  "CLAUDE_MEM_CONTEXT_SHOW_WORK_TOKENS": true,
+  "CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_AMOUNT": true,
+  "CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_PERCENT": true,
+  "CLAUDE_MEM_CONTEXT_SHOW_LAST_SUMMARY": true,
+  "CLAUDE_MEM_CONTEXT_SHOW_LAST_MESSAGE": true,
+  "CLAUDE_MEM_FOLDER_CLAUDEMD_ENABLED": false,
+  "CLAUDE_MEM_EXCLUDED_PROJECTS": [],
+  "CLAUDE_MEM_DATA_DIR": "",
+  "modeName": "Code",
+  "modeDescription": "Tracks code evolution"
+}
+```
+
+> **注意**: 具体字段值取决于当前 `settings.json` 和环境变量覆盖。`modeName` 和 `modeDescription` 由活跃的 Mode 配置注入。
+
+---
+
+#### POST `/api/settings`
+
+保存设置。支持任意 `CLAUDE_MEM_*` 前缀字段。如果 `mode` 或 `CLAUDE_MEM_MODE` 变更，同时更新活跃模式。
+
+**请求体**:
+```json
+{
+  "CLAUDE_MEM_MODE": "all",
+  "CLAUDE_MEM_MODEL": "gpt-4o-mini"
+}
+```
+
+> **注意**: 也可以使用 `"mode": "all"` 作为 `"CLAUDE_MEM_MODE": "all"` 的简写。
+
+**响应示例**:
+```json
+{
+  "success": true
+}
+```
+
+**错误响应** (`500`):
+```json
+{
+  "success": false,
+  "error": "Failed to save settings: ..."
+}
+```
+
+---
+
+## Mode 模式
+
+#### GET `/api/mode`
+
+获取当前活动模式信息。
+
+**请求示例**:
+```bash
+curl http://localhost:37777/api/mode
+```
+
+**响应示例**:
+```json
+{
+  "mode_id": "code",
+  "name": "Code Development",
+  "description": "Software development and engineering work",
+  "version": "1.0.0",
+  "observation_types": [
+    {
+      "id": "bugfix",
+      "label": "Bug Fix",
+      "description": "Something was broken, now fixed",
+      "emoji": "🔴",
+      "work_emoji": "🛠️"
+    }
+  ],
+  "observation_concepts": [
+    {
+      "id": "how-it-works",
+      "label": "How It Works",
+      "description": "Understanding mechanisms"
+    }
+  ]
+}
+```
+
+---
+
+#### PUT `/api/mode`
+
+设置活动模式。
+
+**请求体** (snake_case):
+```json
+{
+  "mode_id": "code--zh"
+}
+```
+
+**响应示例**:
+```json
+{
+  "mode_id": "code--zh",
+  "name": "代码模式",
+  "description": "开发工作流模式",
+  "version": "1.0.0",
+  "observation_types": [...],
+  "observation_concepts": [...]
+}
+```
+
+---
+
+#### GET `/api/mode/types`
+
+获取所有观察类型列表。
+
+**响应示例**:
+```json
+[
+  {
+    "id": "bugfix",
+    "label": "Bug Fix",
+    "description": "Something was broken, now fixed",
+    "emoji": "🔴",
+    "work_emoji": "🛠️"
+  }
+]
+```
+
+---
+
+#### GET `/api/mode/concepts`
+
+获取所有观察概念列表。
+
+**响应示例**:
+```json
+[
+  {
+    "id": "how-it-works",
+    "label": "How It Works",
+    "description": "Understanding mechanisms"
+  }
+]
+```
+
+---
+
+#### GET `/api/mode/types/{typeId}/validate`
+
+验证观察类型是否有效。
+
+**响应示例**:
+```json
+{
+  "valid": true
+}
+```
+
+---
+
+#### GET `/api/mode/types/{typeId}/emoji`
+
+获取观察类型的 emoji。
+
+**响应示例**:
+```json
+{
+  "emoji": "🐛",
+  "workEmoji": "🔧",
+  "label": "Bug Fix"
+}
+```
+
+---
+
+#### GET `/api/mode/types/valid`
+
+获取所有有效观察类型 ID 列表。
+
+**响应示例**:
+```json
+["bugfix", "feature", "refactor", "discovery"]
+```
+
+---
+
+#### GET `/api/mode/concepts/valid`
+
+获取所有有效观察概念 ID 列表。
+
+**响应示例**:
+```json
+["how-it-works", "architecture", "best-practice"]
+```
+
+---
 
 ## Viewer 查看器
 
@@ -1234,603 +1632,6 @@ curl http://localhost:37777/api/modes
 
 ---
 
-## 管理
-
-#### GET `/api/projects`
-
-获取所有已知项目路径列表，支持平台来源分组（V18）。
-
-**请求示例**:
-```bash
-curl http://localhost:37777/api/projects
-```
-
-**响应示例**:
-```json
-{
-  "projects": [
-    "/Users/dev/myproject",
-    "/Users/dev/another-project"
-  ],
-  "sources": ["claude", "cursor"],
-  "projectsBySource": {
-    "claude": ["/Users/dev/myproject"],
-    "cursor": ["/Users/dev/another-project"]
-  }
-}
-```
-
----
-
-#### GET `/api/stats`
-
-获取数据库和处理统计信息。可通过 project 查询参数筛选指定项目的统计。
-
-**查询参数**:
-| 参数    | 类型   | 必填 | 说明                     |
-|---------|--------|------|--------------------------|
-| `project` | string | 否   | 项目路径，用于筛选统计信息 |
-
-**请求示例**:
-```bash
-curl http://localhost:37777/api/stats
-# 或指定项目：
-curl http://localhost:37777/api/stats?project=/path/to/project
-```
-
-**响应示例**（全局统计）:
-```json
-{
-  "worker": {
-    "isProcessing": false,
-    "queueDepth": 5
-  },
-  "database": {
-    "totalObservations": 1234,
-    "totalSummaries": 56,
-    "totalSessions": 78,
-    "totalProjects": 3
-  }
-}
-```
-
-**项目级响应**（`?project=...`）:
-```json
-{
-  "worker": {
-    "isProcessing": false,
-    "queueDepth": 0
-  },
-  "database": {
-    "totalObservations": 42,
-    "totalSummaries": 5,
-    "totalSessions": 3,
-    "totalProjects": 1,
-    "projectPath": "/path/to/project"
-  }
-}
-```
-
----
-
-#### GET `/api/settings`
-
-获取当前设置，返回所有 `CLAUDE_MEM_*` 配置字段及活跃模式信息。
-
-**请求示例**:
-```bash
-curl http://localhost:37777/api/settings
-```
-
-**响应示例**:
-```json
-{
-  "CLAUDE_MEM_MODE": "code",
-  "CLAUDE_MEM_PROVIDER": "claude",
-  "CLAUDE_MEM_MODEL": "claude-sonnet-4-5",
-  "CLAUDE_MEM_LOG_LEVEL": "INFO",
-  "CLAUDE_MEM_CONTEXT_OBSERVATIONS": 50,
-  "CLAUDE_MEM_CONTEXT_FULL_COUNT": 5,
-  "CLAUDE_MEM_CONTEXT_FULL_FIELD": "narrative",
-  "CLAUDE_MEM_CONTEXT_SESSION_COUNT": 10,
-  "CLAUDE_MEM_CONTEXT_OBSERVATION_TYPES": ["bugfix","feature","refactor","discovery","decision","change"],
-  "CLAUDE_MEM_CONTEXT_OBSERVATION_CONCEPTS": ["how-it-works","why-it-exists","what-changed","problem-solution","gotcha","pattern","trade-off"],
-  "CLAUDE_MEM_CONTEXT_MAX_OBSERVATIONS": 50,
-  "CLAUDE_MEM_CONTEXT_SHOW_READ_TOKENS": true,
-  "CLAUDE_MEM_CONTEXT_SHOW_WORK_TOKENS": true,
-  "CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_AMOUNT": true,
-  "CLAUDE_MEM_CONTEXT_SHOW_SAVINGS_PERCENT": true,
-  "CLAUDE_MEM_CONTEXT_SHOW_LAST_SUMMARY": true,
-  "CLAUDE_MEM_CONTEXT_SHOW_LAST_MESSAGE": true,
-  "CLAUDE_MEM_FOLDER_CLAUDEMD_ENABLED": false,
-  "CLAUDE_MEM_EXCLUDED_PROJECTS": [],
-  "CLAUDE_MEM_DATA_DIR": "",
-  "modeName": "Code",
-  "modeDescription": "Tracks code evolution"
-}
-```
-
-> **注意**: 具体字段值取决于当前 `settings.json` 和环境变量覆盖。`modeName` 和 `modeDescription` 由活跃的 Mode 配置注入。
-
----
-
-#### POST `/api/settings`
-
-保存设置。支持任意 `CLAUDE_MEM_*` 前缀字段。如果 `mode` 或 `CLAUDE_MEM_MODE` 变更，同时更新活跃模式。
-
-**请求体**:
-```json
-{
-  "CLAUDE_MEM_MODE": "all",
-  "CLAUDE_MEM_MODEL": "gpt-4o-mini"
-}
-```
-
-> **注意**: 也可以使用 `"mode": "all"` 作为 `"CLAUDE_MEM_MODE": "all"` 的简写。
-
-**响应示例**:
-```json
-{
-  "success": true
-}
-```
-
-**错误响应** (`500`):
-```json
-{
-  "success": false,
-  "error": "Failed to save settings: ..."
-}
-```
-
----
-
-## Mode 模式
-
-#### GET `/api/mode`
-
-获取当前活动模式信息。
-
-**请求示例**:
-```bash
-curl http://localhost:37777/api/mode
-```
-
-**响应示例**:
-```json
-{
-  "mode_id": "code",
-  "name": "Code Development",
-  "description": "Software development and engineering work",
-  "version": "1.0.0",
-  "observation_types": [
-    {
-      "id": "bugfix",
-      "label": "Bug Fix",
-      "description": "Something was broken, now fixed",
-      "emoji": "🔴",
-      "work_emoji": "🛠️"
-    }
-  ],
-  "observation_concepts": [
-    {
-      "id": "how-it-works",
-      "label": "How It Works",
-      "description": "Understanding mechanisms"
-    }
-  ]
-}
-```
-
----
-
-#### PUT `/api/mode`
-
-设置活动模式。
-
-**请求体** (snake_case):
-```json
-{
-  "mode_id": "code--zh"
-}
-```
-
-**响应示例**:
-```json
-{
-  "mode_id": "code--zh",
-  "name": "代码模式",
-  "description": "开发工作流模式",
-  "version": "1.0.0",
-  "observation_types": [...],
-  "observation_concepts": [...]
-}
-```
-
----
-
-#### GET `/api/mode/types`
-
-获取所有观察类型列表。
-
-**响应示例**:
-```json
-[
-  {
-    "id": "bugfix",
-    "label": "Bug Fix",
-    "description": "Something was broken, now fixed",
-    "emoji": "🔴",
-    "work_emoji": "🛠️"
-  }
-]
-```
-
----
-
-#### GET `/api/mode/concepts`
-
-获取所有观察概念列表。
-
-**响应示例**:
-```json
-[
-  {
-    "id": "how-it-works",
-    "label": "How It Works",
-    "description": "Understanding mechanisms"
-  }
-]
-```
-
----
-
-#### GET `/api/mode/types/{typeId}/validate`
-
-验证观察类型是否有效。
-
-**响应示例**:
-```json
-{
-  "valid": true
-}
-```
-
----
-
-#### GET `/api/mode/types/{typeId}/emoji`
-
-获取观察类型的 emoji。
-
-**响应示例**:
-```json
-{
-  "emoji": "🐛",
-  "workEmoji": "🔧",
-  "label": "Bug Fix"
-}
-```
-
----
-
-#### GET `/api/mode/types/valid`
-
-获取所有有效观察类型 ID 列表。
-
-**响应示例**:
-```json
-["bugfix", "feature", "refactor", "discovery"]
-```
-
----
-
-#### GET `/api/mode/concepts/valid`
-
-获取所有有效观察概念 ID 列表。
-
-**响应示例**:
-```json
-["how-it-works", "architecture", "best-practice"]
-```
-
----
-
-## Memory 记忆管理
-
-#### POST `/api/memory/refine`
-
-触发记忆精炼（异步）。
-
-**查询参数**:
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `project` | string | ✅ | 项目绝对路径 |
-
-**响应示例** (`200 OK`):
-```json
-{
-  "status": "triggered",
-  "project": "/Users/dev/my-project",
-  "message": "Memory refinement event has been published"
-}
-```
-
-**错误响应** (`400 Bad Request`):
-```json
-{
-  "error": "project is required"
-}
-```
-
-#### POST `/api/memory/experiences`
-
-获取经验（ExpRAG）。
-
-**请求体**:
-```json
-{
-  "task": "database optimization",
-  "project": "/path/to/project",
-  "count": 5,
-  "source": "manual",
-  "requiredConcepts": ["how-it-works"],
-  "userId": "user-123"
-}
-```
-
-**字段说明**:
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `task` | string | ✅ | 任务或问题描述，用于查找相关经验 |
-| `project` | string | ❌ | 项目路径（用于范围限定） |
-| `count` | int | ❌ | 返回的最大经验数（默认 4） |
-| `source` | string | ❌ | 来源过滤（如 `manual`、`tool_result`） |
-| `requiredConcepts` | string[] | ❌ | 概念过滤（仅返回包含这些概念的经验） |
-| `userId` | string | ❌ | 用户 ID（多用户隔离） |
-
-**响应示例** (`200 OK`): JSON 数组格式的经验对象：
-```json
-[
-  {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "task": "database optimization",
-    "strategy": "Use connection pooling with HikariCP",
-    "outcome": "Query latency reduced by 40%",
-    "reuse_condition": "When optimizing database-heavy services",
-    "quality_score": 0.85,
-    "created_at": "2026-03-13T10:15:00Z"
-  }
-]
-```
-
-**错误响应**:
-- `400` — `{"error": "task is required"}`（`task` 字段缺失或为空）
-
-#### POST `/api/memory/icl-prompt`
-
-获取上下文学习提示。
-
-**请求体**:
-```json
-{
-  "task": "database optimization",
-  "project": "/path/to/project",
-  "maxChars": 4000,
-  "userId": "user-123"
-}
-```
-
-**字段说明**:
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `task` | string | ✅ | 当前任务/问题（用于上下文检索） |
-| `project` | string | ❌ | 项目路径（用于范围限定） |
-| `maxChars` | int | ❌ | 最大提示长度（默认 4000） |
-| `userId` | string | ❌ | 用户 ID（多用户隔离） |
-
-**响应示例** (`200 OK`):
-```json
-{
-  "prompt": "# Relevant Experiences\n\n...",
-  "experienceCount": 3,
-  "maxChars": 4000
-}
-```
-
-**错误响应**:
-- `400` — `{"error": "task is required"}`（`task` 字段缺失或为空）
-
-#### GET `/api/memory/quality-distribution`
-
-获取质量分布统计（高/中/低/未知观察数量）。
-
-**查询参数**:
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `project` | string | ✅ | 项目绝对路径 |
-
-**响应示例** (`200 OK`):
-```json
-{
-  "project": "/Users/dev/my-project",
-  "high": 10,
-  "medium": 20,
-  "low": 5,
-  "unknown": 3
-}
-```
-
-**错误响应**:
-- `400` — `{"error": "project is required"}`（`project` 参数缺失或为空）
-- `500`:
-```json
-{
-  "project": "/Users/dev/my-project",
-  "error": "Failed to get quality distribution: ...",
-  "high": 0,
-  "medium": 0,
-  "low": 0,
-  "unknown": 0
-}
-```
-
-#### POST `/api/memory/feedback`
-
-提交反馈。
-
-**请求体**:
-```json
-{
-  "observationId": "550e8400-e29b-41d4-a716-446655440000",
-  "feedbackType": "SUCCESS",
-  "comment": "Task completed successfully"
-}
-```
-
-**字段说明**:
-
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `observationId` | string | ✅ | 要提供反馈的观察 UUID |
-| `feedbackType` | string | ✅ | 反馈类型（如 `SUCCESS`、`FAILURE`） |
-| `comment` | string | ❌ | 可选的反馈评论 |
-
-**响应示例** (`200 OK`):
-```json
-{
-  "status": "ok",
-  "observationId": "550e8400-e29b-41d4-a716-446655440000"
-}
-```
-
-**错误响应**:
-- `400` — 缺少 `observationId` 或 `feedbackType`，或 UUID 格式无效
-- `404` — 观察不存在
-
-#### PATCH `/api/memory/observations/{id}`
-
-部分更新观察（仅更新请求体中包含的字段，null 值清空字段，未包含的字段保持不变）。
-
-**路径参数**:
-- `id` - 观察 UUID
-
-**请求体**:
-```json
-{
-  "title": "Updated title",
-  "source": "manual",
-  "extractedData": {"key": "value"}
-}
-```
-
-**响应示例** (`200 OK`):
-```json
-{
-  "status": "updated",
-  "id": "550e8400-e29b-41d4-a716-446655440000"
-}
-```
-
-支持的字段: `title`, `content`（或 `narrative`）, `subtitle`, `source`, `facts`, `concepts`, `extractedData`。null 值清空字段，缺失字段保持不变。
-
-**错误响应**:
-- `400` — 请求体字段类型无效（如 `title must be a string`）
-- `404` — 给定 UUID 的观察不存在
-
-#### DELETE `/api/memory/observations/{id}`
-
-删除观察。
-
-**路径参数**:
-- `id` - 观察 UUID
-
-**响应** (`200 OK`):
-```json
-{
-  "status": "deleted",
-  "id": "550e8400-e29b-41d4-a716-446655440000"
-}
-```
-
-## Logs 日志管理
-
-#### GET `/api/logs`
-
-获取应用日志。
-
-**查询参数**:
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `lines` | int | 1000 | 返回的最大行数 |
-
-**请求示例**:
-```bash
-curl "http://localhost:37777/api/logs?lines=500"
-```
-
-**响应示例**:
-```json
-{
-  "logs": "[2026-03-13 10:15:00] [INFO] [WORKER] Processing request...\n[2026-03-13 10:15:01] [DEBUG] [DB] Query executed in 23ms\n...",
-  "path": "/Users/dev/.claude-mem/logs",
-  "files": ["claude-mem-2026-03-13.log"],
-  "totalLines": 1523,
-  "returnedLines": 500,
-  "exists": true
-}
-```
-
-**日志格式**:
-```
-[timestamp] [LEVEL] [COMPONENT] [correlationId?] message
-```
-
-**示例**:
-```
-[2026-03-13 14:30:45.123] [INFO ] [WORKER] [obs-1-5] → Processing request
-[2026-03-13 14:30:45.456] [DEBUG] [DB    ] [obs-1-5]     Query executed in 23ms
-[2026-03-13 14:30:45.789] [ERROR] [HOOK  ]              ✗ Hook failed
-```
-
----
-
-#### POST `/api/logs/clear`
-
-清空当日日志文件。如果当日日志文件不存在，返回不同的消息。
-
-**请求示例**:
-```bash
-curl -X POST http://localhost:37777/api/logs/clear
-```
-
-**响应示例**（文件存在时）:
-```json
-{
-  "status": "ok",
-  "message": "Today's log file has been cleared",
-  "path": "/Users/dev/.claude-mem/logs/claude-mem-2026-03-13.log"
-}
-```
-
-**响应示例**（无文件可清空时）:
-```json
-{
-  "status": "ok",
-  "message": "No log file to clear",
-  "path": "/Users/dev/.claude-mem/logs/claude-mem-2026-03-13.log"
-}
-```
-
-**错误响应**:
-- `500` — `{"error": "Failed to clear log file"}`（IO 错误）
-
----
-
 ## Import 数据导入
 
 #### POST `/api/import`
@@ -1942,6 +1743,176 @@ curl -X POST http://localhost:37777/api/logs/clear
 **请求体**: 用户提示数组
 
 **响应格式**: 同 `/api/import/sessions`
+
+---
+
+## Logs 日志管理
+
+#### GET `/api/logs`
+
+获取应用日志。
+
+**查询参数**:
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `lines` | int | 1000 | 返回的最大行数 |
+
+**请求示例**:
+```bash
+curl "http://localhost:37777/api/logs?lines=500"
+```
+
+**响应示例**:
+```json
+{
+  "logs": "[2026-03-13 10:15:00] [INFO] [WORKER] Processing request...\n[2026-03-13 10:15:01] [DEBUG] [DB] Query executed in 23ms\n...",
+  "path": "/Users/dev/.claude-mem/logs",
+  "files": ["claude-mem-2026-03-13.log"],
+  "totalLines": 1523,
+  "returnedLines": 500,
+  "exists": true
+}
+```
+
+**日志格式**:
+```
+[timestamp] [LEVEL] [COMPONENT] [correlationId?] message
+```
+
+**示例**:
+```
+[2026-03-13 14:30:45.123] [INFO ] [WORKER] [obs-1-5] → Processing request
+[2026-03-13 14:30:45.456] [DEBUG] [DB    ] [obs-1-5]     Query executed in 23ms
+[2026-03-13 14:30:45.789] [ERROR] [HOOK  ]              ✗ Hook failed
+```
+
+---
+
+#### POST `/api/logs/clear`
+
+清空当日日志文件。如果当日日志文件不存在，返回不同的消息。
+
+**请求示例**:
+```bash
+curl -X POST http://localhost:37777/api/logs/clear
+```
+
+**响应示例**（文件存在时）:
+```json
+{
+  "status": "ok",
+  "message": "Today's log file has been cleared",
+  "path": "/Users/dev/.claude-mem/logs/claude-mem-2026-03-13.log"
+}
+```
+
+**响应示例**（无文件可清空时）:
+```json
+{
+  "status": "ok",
+  "message": "No log file to clear",
+  "path": "/Users/dev/.claude-mem/logs/claude-mem-2026-03-13.log"
+}
+```
+
+**错误响应**:
+- `500` — `{"error": "Failed to clear log file"}`（IO 错误）
+
+---
+
+## Health 健康检查
+
+#### GET `/api/health`
+
+基础健康检查端点，适合负载均衡器和 Kubernetes 探针。
+
+**请求示例**:
+```bash
+curl http://localhost:37777/api/health
+```
+
+**响应示例** (`200 OK`, 数据库正常):
+```json
+{
+  "status": "ok",
+  "timestamp": 1707878400000,
+  "service": "claude-mem-java"
+}
+```
+
+**响应示例** (`200 OK`, 数据库不可用，降级模式):
+```json
+{
+  "status": "degraded",
+  "timestamp": 1707878400000,
+  "service": "claude-mem-java"
+}
+```
+
+---
+
+#### GET `/api/readiness`
+
+就绪检查端点，检查服务是否完全准备好接收流量。
+
+**请求示例**:
+```bash
+curl http://localhost:37777/api/readiness
+```
+
+**响应示例**:
+```json
+{
+  "status": "ready",
+  "checks": {
+    "database": "ready",
+    "queueDepth": 5,
+    "queueStatus": "ready"
+  },
+  "timestamp": 1707878400000
+}
+```
+
+**响应示例** (`503 服务未就绪`):
+```json
+{
+  "status": "not_ready",
+  "checks": {
+    "database": "not_ready",
+    "queueDepth": 0,
+    "queueStatus": "ready"
+  },
+  "timestamp": 1707878400000
+}
+```
+
+**状态码**:
+- `200` - 服务就绪
+- `503` - 服务未就绪（数据库连接失败等）
+
+---
+
+#### GET `/api/version`
+
+获取服务版本信息。
+
+**请求示例**:
+```bash
+curl http://localhost:37777/api/version
+```
+
+**响应示例**:
+```json
+{
+  "version": "0.1.0-beta",
+  "service": "claude-mem-java",
+  "java": "24.0.1",
+  "springBoot": "3.3.13"
+}
+```
+
+> **说明**: `java` 字段反映运行时 JVM 版本，随部署环境不同而变化。
 
 ---
 
@@ -2082,6 +2053,39 @@ eventSource.onmessage = (event) => {
 ```
 
 **超时**: 30 分钟（可配置）
+
+---
+
+## 错误码说明
+
+### HTTP 状态码
+
+| 状态码 | 含义 | 说明 |
+|--------|------|------|
+| 200 | OK | 请求成功 |
+| 201 | Created | 资源创建成功 |
+| 400 | Bad Request | 请求参数错误 |
+| 401 | Unauthorized | 未授权 |
+| 403 | Forbidden | 禁止访问 |
+| 404 | Not Found | 资源不存在 |
+| 429 | Too Many Requests | 速率限制触发 |
+| 500 | Internal Server Error | 服务器内部错误 |
+| 503 | Service Unavailable | 服务不可用（数据库连接失败等） |
+
+### 业务错误码
+
+| 错误码 | 说明 |
+|--------|------|
+| `MISSING_FIELD` | 缺少必填字段 |
+| `INVALID_FORMAT` | 字段格式错误 |
+| `NOT_FOUND` | 资源不存在 |
+| `RATE_LIMIT_EXCEEDED` | 速率限制触发（10 次/60秒） |
+| `DB_ERROR` | 数据库操作失败 |
+| `LLM_ERROR` | LLM 服务调用失败 |
+| `EMBEDDING_ERROR` | 向量嵌入生成失败 |
+
+---
+
 
 ---
 
