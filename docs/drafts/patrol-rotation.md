@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: JS/TS SDK (2026-10-01 04:30, thirteenth cycle)
-**Next up**: Demo
+**Last completed**: Demo (2026-10-01 04:35, thirteenth cycle)
+**Next up**: Backend
 
 ## History
 | DateTime | Direction | Findings |
@@ -84,3 +84,4 @@
 | 2026-10-01 03:30 | Go SDK | ✅ Thirteenth cycle: dto/observations.go fully documented (honest local-only field notes); Go README integration section matches adapter signatures; no changes; next direction is Python SDK |
 | 2026-10-01 03:17 | Python SDK | ✅ Thirteenth cycle: Experience dataclass clean (documented to_dict rationale); design docs: 0.3.md refine→extraction ordering matches deepRefineProjectMemories code; no changes; next direction is JS/TS SDK |
 | 2026-10-01 04:30 | JS/TS SDK | ✅ Thirteenth cycle: dto/misc.ts matches live version/stats responses; architecture docs: Context 7-endpoint claim matches actual mappings; no changes; next direction is Demo |
+| 2026-10-01 04:35 | Demo | ✅ Thirteenth cycle: Java Demo e2e/ directory verified (single run-e2e.sh entry, no stale content — demo direction fully covered); user guide: TESTING.md changelog consistent historical record; no changes; next direction is Backend (fourteenth cycle) |
