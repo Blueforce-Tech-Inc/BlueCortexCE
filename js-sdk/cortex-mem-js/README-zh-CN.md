@@ -35,7 +35,8 @@ const session = await client.startSession({
   session_id: SESSION_ID,
   project_path: '/path/to/project',
 });
-// session.response 仅包含 session_db_id（数据库 UUID），不包含您传入的 session_id
+// session.response 暴露 session_db_id、context 和 prompt_number
+// （wire 中的 session_id 与 updateFiles 不在本 SDK 类型内）。
 
 // 记录观察（fire-and-forget）
 await client.recordObservation({

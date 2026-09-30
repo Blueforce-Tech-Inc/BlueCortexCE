@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: Backend (2026-09-30 23:34, third cycle)
-**Next up**: Go SDK
+**Last completed**: Go SDK (2026-09-30 23:39, third cycle)
+**Next up**: Python SDK
 
 ## History
 | DateTime | Direction | Findings |
@@ -36,3 +36,4 @@
 | 2026-09-30 23:30 | JS/TS SDK | ✅ Second cycle: client.ts private HTTP layer reviewed (closed-guard, AbortController timeout, 10MB limit); no issues, no changes; next direction is Demo |
 | 2026-09-30 23:32 | Demo | ✅ Second cycle: 3 named Java Demo controllers reviewed (validation aligned with SDK limits); no issues, no changes; next direction is Backend (third cycle) |
 | 2026-09-30 23:34 | Backend | ✅ Third cycle: WorktreeDetector (edge cases documented) and QualityScorer (clamped scoring, LLM fallback) clean; API-doc session-start examples verified snake_case in EN/ZH; no changes; next direction is Go SDK |
+| 2026-09-30 23:39 | Go SDK | ✅ Third cycle: StringList dual-format decoding and error.go parity verified; JS README session.response comment corrected (EN/ZH); no code changes; next direction is Python SDK |

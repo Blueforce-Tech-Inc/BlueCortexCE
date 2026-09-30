@@ -35,7 +35,8 @@ const session = await client.startSession({
   session_id: SESSION_ID,
   project_path: '/path/to/project',
 });
-// session.response only contains session_db_id (DB UUID), not the session_id you provided.
+// session.response exposes session_db_id, context and prompt_number
+// (session_id and updateFiles from the wire are not part of this SDK type).
 
 // Record observation (fire-and-forget)
 await client.recordObservation({
