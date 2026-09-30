@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: JS/TS SDK (2026-09-30 23:48, third cycle)
-**Next up**: Demo
+**Last completed**: Demo (2026-09-30 23:53, third cycle)
+**Next up**: Backend
 
 ## History
 | DateTime | Direction | Findings |
@@ -39,3 +39,4 @@
 | 2026-09-30 23:39 | Go SDK | ✅ Third cycle: StringList dual-format decoding and error.go parity verified; JS README session.response comment corrected (EN/ZH); no code changes; next direction is Python SDK |
 | 2026-09-30 23:42 | Python SDK | ✅ Third cycle: client.py request layer reviewed (jittered backoff, graceful degradation, retryable-only); design docs: index size table accurate within rounding, 8.md 10/10 claim verified; no changes; next direction is JS/TS SDK |
 | 2026-09-30 23:48 | JS/TS SDK | ✅ Third cycle: errors.ts retry semantics match Python/Go/Java (429/502/503/504 + network, 500 excluded); architecture docs: 16 migration files verified (V9/V10 absent, max V18), 13 controllers match; no changes; next direction is Demo |
+| 2026-09-30 23:53 | Demo | ✅ Third cycle: SessionLifecycle/Ingest controllers validated; user guide: DOCKER_README env-var defaults (6 rows) match docker-compose.yml exactly; no changes; next direction is Backend (fourth cycle) |
