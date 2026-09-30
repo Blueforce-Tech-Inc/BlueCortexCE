@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: Python SDK (2026-10-01 05:07, sixteenth cycle)
-**Next up**: JS/TS SDK
+**Last completed**: JS/TS SDK (2026-10-01 05:08, sixteenth cycle)
+**Next up**: Demo
 
 ## History
 | DateTime | Direction | Findings |
@@ -89,6 +89,7 @@
 | 2026-10-01 05:12 | Backend | ✅ Sixteenth cycle: fixed 2 stale tests contradicting accepted B-52/F-2 fixes (full mvn suite now 131/131); API-doc Modes section verified; full acceptance passed, new baseline 000a306; next direction is Go SDK |
 | 2026-10-01 05:17 | Go SDK | ✅ Sixteenth cycle: fresh full test run (5 modules pass); SDK README parity recheck clean; no changes; next direction is Python SDK |
 | 2026-10-01 05:07 | Python SDK | ✅ Sixteenth cycle: fresh full test run (374/374 pass); design docs: 50KB rule recheck clean; no changes; next direction is JS/TS SDK |
+| 2026-10-01 05:08 | JS/TS SDK | ✅ Sixteenth cycle: fresh test+lint+build all pass (212/212); architecture docs: EN/ZH parity held; no changes; next direction is Demo |
 | 2026-10-01 04:46 | Go SDK | ✅ Fifteenth cycle: fresh full test run (5 modules, 288 tests pass); SDK README parity recheck across all 4 languages (206=206 JS pair reflects synced R13 fix); no changes; next direction is Python SDK |
 | 2026-10-01 04:52 | Python SDK | ✅ Fifteenth cycle: fresh full test run (374/374 pass); design docs: 50KB rule recheck clean (0 files over limit); no changes; next direction is JS/TS SDK |
 | 2026-10-01 04:57 | JS/TS SDK | ✅ Fifteenth cycle: fresh test+lint+build all pass (212/212); architecture docs: EN/ZH parity held; no changes; next direction is Demo |
@@ -96,3 +97,4 @@
 | 2026-10-01 05:12 | Backend | ✅ Sixteenth cycle: fixed 2 stale tests contradicting accepted B-52/F-2 fixes (full mvn suite now 131/131); API-doc Modes section verified; full acceptance passed, new baseline 000a306; next direction is Go SDK |
 | 2026-10-01 05:17 | Go SDK | ✅ Sixteenth cycle: fresh full test run (5 modules pass); SDK README parity recheck clean; no changes; next direction is Python SDK |
 | 2026-10-01 05:07 | Python SDK | ✅ Sixteenth cycle: fresh full test run (374/374 pass); design docs: 50KB rule recheck clean; no changes; next direction is JS/TS SDK |
+| 2026-10-01 05:08 | JS/TS SDK | ✅ Sixteenth cycle: fresh test+lint+build all pass (212/212); architecture docs: EN/ZH parity held; no changes; next direction is Demo |
