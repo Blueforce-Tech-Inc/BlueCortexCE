@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: JS/TS SDK (2026-10-01 03:36, eleventh cycle)
-**Next up**: Demo
+**Last completed**: Demo (2026-10-01 03:41, eleventh cycle)
+**Next up**: Backend
 
 ## History
 | DateTime | Direction | Findings |
@@ -79,3 +79,4 @@
 | 2026-10-01 03:26 | Go SDK | ✅ Eleventh cycle: integration submodule go.mod hygiene verified (module/require/replace intact); Python README error-handling imports match error.py; no changes; next direction is Python SDK |
 | 2026-10-01 03:31 | Python SDK | ✅ Eleventh cycle: system methods clean — Python SDK now fully covered across cycles; design docs: 0.2.md array-handling solution matches implementation; no changes; next direction is JS/TS SDK |
 | 2026-10-01 03:36 | JS/TS SDK | ✅ Eleventh cycle: dto/management+misc verified against live responses; architecture docs: no-auth claim accurate (zero security dependencies in pom); no changes; next direction is Demo |
+| 2026-10-01 03:41 | Demo | ✅ Eleventh cycle: genkit example clean (all 5 Go examples now reviewed); user guide: DOCKER_README parity held after unification; no changes; next direction is Backend (twelfth cycle) |
