@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: Demo (2026-10-01 03:13, tenth cycle)
-**Next up**: Backend
+**Last completed**: Backend (2026-10-01 03:21, eleventh cycle)
+**Next up**: Go SDK
 
 ## History
 | DateTime | Direction | Findings |
@@ -75,3 +75,4 @@
 | 2026-10-01 03:12 | Python SDK | ✅ Tenth cycle: SessionStartResponse from_wire/to_dict carry inline updateFiles contract knowledge; design docs: 3.md honestly marked SUPERSEDED; no changes; next direction is JS/TS SDK |
 | 2026-10-01 03:17 | JS/TS SDK | ✅ Tenth cycle: dto/search.ts contracts verified (orderBy dual-format, fell_back, hasMore); architecture docs: virtual threads claim matches application.yml; no changes; next direction is Demo |
 | 2026-10-01 03:13 | Demo | ✅ Tenth cycle: langchaingo example clean; user guide: DEPLOYMENT.md 9 endpoint references verified (actuator/info+metrics 200, prometheus 404 correct as optional-dependency absence, section clearly marked Optional); no changes; next direction is Backend (eleventh cycle) |
+| 2026-10-01 03:21 | Backend | ✅ Eleventh cycle: MemoryRefineService.refineObservations (survivor tracking, cooldown filter) and LogsController clean; API-doc import endpoints verified bidirectionally (5/5); no changes; next direction is Go SDK |
