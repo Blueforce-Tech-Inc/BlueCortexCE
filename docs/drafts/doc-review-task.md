@@ -7,8 +7,8 @@
 ## Current Review Rotation
 
 - **轮换顺序**: API 文档 → SDK README → 设计文档 → 架构文档 → 用户指南
-- **最近完成**: 用户指南（2026-09-30 二轮，TESTING/DEVELOPMENT/DEPLOYMENT 脚本引用核验通过）
-- **下一方向**: API 文档（第三循环）
+- **最近完成**: API 文档（2026-09-30 三轮，session-start 示例中英均验证正确）
+- **下一方向**: SDK README（第三循环）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
 
 ## Pending Doc Issues
