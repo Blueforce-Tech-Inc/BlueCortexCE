@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: Python SDK (2026-10-01 01:06, sixth cycle)
-**Next up**: JS/TS SDK
+**Last completed**: JS/TS SDK (2026-10-01 01:09, sixth cycle)
+**Next up**: Demo
 
 ## History
 | DateTime | Direction | Findings |
@@ -53,3 +53,4 @@
 | 2026-10-01 00:50 | Backend | ✅ Sixth cycle: TemplateService (placeholder fail-fast) and CursorService (registry IO) clean; API-doc memory/refine section verified incl. live 400 test; no changes; next direction is Go SDK |
 | 2026-10-01 00:53 | Go SDK | ✅ Sixth cycle: experience/ICL dto camelCase wire fields match backend; @EnableCortexMem annotation verified as real @Import of the auto-configuration; no changes; next direction is Python SDK |
 | 2026-10-01 01:06 | Python SDK | ✅ Sixth cycle: list/get param building and batch validation match cross-SDK contract; design docs: 19.md 8-prerequisites claim verified method-by-method; no changes; next direction is JS/TS SDK |
+| 2026-10-01 01:09 | JS/TS SDK | ✅ Sixth cycle: client-options defaults match Go SDK; architecture docs: Viewer "15 methods" verified against 15 active mappings (16th grep hit is a commented-out route); no changes; next direction is Demo |
