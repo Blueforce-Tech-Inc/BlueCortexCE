@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: Go SDK (2026-09-30 23:22, second cycle)
-**Next up**: Python SDK
+**Last completed**: Python SDK (2026-09-30 23:27, second cycle)
+**Next up**: JS/TS SDK
 
 ## History
 | DateTime | Direction | Findings |
@@ -32,3 +32,4 @@
 | 2026-09-30 23:10 | Backend | ✅ Fixed SSEBroadcaster.broadcast() to catch IllegalStateException from completed emitters (was aborting the broadcast loop); TimelineService/StreamController clean; full acceptance passed, new baseline 24faf55; second rotation cycle begins, next direction is Java SDK |
 | 2026-09-30 23:18 | Java SDK | ✅ Second cycle: spring-ai/starter modules reviewed in depth (advisor fail-open, aspect truncation matches backend constant, autoconfiguration conditional beans correct); no issues, no changes; next direction is Go SDK |
 | 2026-09-30 23:22 | Go SDK | ✅ Second cycle: client_impl internals reviewed (context fast-fail, 10MB response cap, generic error mapping); no issues, no changes; next direction is Python SDK |
+| 2026-09-30 23:27 | Python SDK | ✅ Second cycle: error.py exception hierarchy and retry semantics verified (cross-SDK parity), Flask demo structure clean; 26.md DoD note added pointing to the script as the acceptance definition; next direction is JS/TS SDK |
