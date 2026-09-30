@@ -20,6 +20,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -208,7 +209,7 @@ class ExtractionStorageServiceTest {
     }
 
     @Test
-    void storeDLQ_doesNotPropagateException() {
+    void storeDLQ_propagatesException() {
         // Given: DLQ observation save fails (session save succeeds)
         SessionEntity dlqSession = new SessionEntity();
         dlqSession.setId(UUID.randomUUID());
@@ -219,8 +220,11 @@ class ExtractionStorageServiceTest {
         when(observationRepository.save(any(ObservationEntity.class)))
             .thenThrow(new RuntimeException("DB error"));
 
-        // When/Then: should NOT throw — self-protected
-        storageService.storeDLQ("/tmp/test", "test", "error"); // must not throw
+        // When/Then: F-2 — storeDLQ lets the failure propagate so the transaction
+        // rollback is visible; the caller (StructuredExtractionService.runExtraction)
+        // catches it, logs, and rethrows a wrapping RuntimeException.
+        assertThatThrownBy(() -> storageService.storeDLQ("/tmp/test", "test", "error"))
+            .isInstanceOf(RuntimeException.class);
     }
 
     @Test

@@ -69,11 +69,13 @@ class OffsetPageRequestTest {
     }
 
     @Test
-    void withPage_preservesOriginalOffset() {
+    void withPage_recomputesOffsetFromPageNumber() {
         OffsetPageRequest req = new OffsetPageRequest(0, 20, 50);
         Pageable p5 = req.withPage(5);
         assertEquals(5, p5.getPageNumber());
-        assertEquals(50, p5.getOffset()); // offset unchanged
+        // B-52: withPage recomputes offset as pageNumber × size (page-semantic
+        // paging); it does not preserve the original offset.
+        assertEquals(100, p5.getOffset());
         assertEquals(20, p5.getPageSize());
     }
 
