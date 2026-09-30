@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: Go SDK (2026-10-01 02:31, ninth cycle)
-**Next up**: Python SDK
+**Last completed**: Python SDK (2026-10-01 02:44, ninth cycle)
+**Next up**: JS/TS SDK
 
 ## History
 | DateTime | Direction | Findings |
@@ -67,3 +67,4 @@
 | 2026-10-01 02:19 | Demo | ✅ Eighth cycle: helper classes (FileReadTool AOP note, DemoProperties) clean; user guide: TESTING.md drift-prone Lines column removed in EN/ZH (4 tables, 5 drifted values) and duplicate table header fixed; "15 test functions" verified accurate; no code changes; next direction is Backend (ninth cycle) |
 | 2026-10-01 02:26 | Backend | ✅ Ninth cycle: fixed started_at never populated on all 5 session creation paths (JPA explicit insert bypassed column DEFAULT); verified live ISO timestamp; MemoryRefineService lock-sharing clean; full acceptance passed, new baseline 33dc573; next direction is Go SDK |
 | 2026-10-01 02:31 | Go SDK | ✅ Ninth cycle: dto package fully covered (management/misc/search verified against live responses); Java README properties table and method endpoints verified; no changes; next direction is Python SDK |
+| 2026-10-01 02:44 | Python SDK | ✅ Ninth cycle: management methods (dual-mode update with conflict detection, encoded paths) clean; design docs: 0.1.md v7 fixes verified in code (List param, BeanOutputConverter/templateClass); no changes; next direction is JS/TS SDK |
