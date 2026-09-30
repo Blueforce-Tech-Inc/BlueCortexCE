@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: JS/TS SDK (2026-10-01 03:17, tenth cycle)
-**Next up**: Demo
+**Last completed**: Demo (2026-10-01 03:13, tenth cycle)
+**Next up**: Backend
 
 ## History
 | DateTime | Direction | Findings |
@@ -74,3 +74,4 @@
 | 2026-10-01 03:07 | Go SDK | ✅ Tenth cycle: retry internals (jittered backoff, context fast-fail, sentinel mapping) verified; Go README option table and error section match implementation; no changes; next direction is Python SDK |
 | 2026-10-01 03:12 | Python SDK | ✅ Tenth cycle: SessionStartResponse from_wire/to_dict carry inline updateFiles contract knowledge; design docs: 3.md honestly marked SUPERSEDED; no changes; next direction is JS/TS SDK |
 | 2026-10-01 03:17 | JS/TS SDK | ✅ Tenth cycle: dto/search.ts contracts verified (orderBy dual-format, fell_back, hasMore); architecture docs: virtual threads claim matches application.yml; no changes; next direction is Demo |
+| 2026-10-01 03:13 | Demo | ✅ Tenth cycle: langchaingo example clean; user guide: DEPLOYMENT.md 9 endpoint references verified (actuator/info+metrics 200, prometheus 404 correct as optional-dependency absence, section clearly marked Optional); no changes; next direction is Backend (eleventh cycle) |
