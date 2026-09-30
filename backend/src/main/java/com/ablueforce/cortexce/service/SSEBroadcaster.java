@@ -66,6 +66,13 @@ public class SSEBroadcaster {
             } catch (IOException e) {
                 deadEmitters.add(emitter);
                 log.debug("Dead SSE connection detected");
+            } catch (IllegalStateException e) {
+                // P2: send() throws IllegalStateException on an emitter that completed
+                // (timeout/error callback) between the snapshot and this send. Treat it
+                // like a dead connection instead of letting it abort the broadcast loop
+                // and skip the remaining clients.
+                deadEmitters.add(emitter);
+                log.debug("SSE connection already completed, removing");
             }
         }
 
