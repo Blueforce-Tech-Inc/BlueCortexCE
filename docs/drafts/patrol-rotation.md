@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: Backend (2026-10-01 00:50, sixth cycle)
-**Next up**: Go SDK
+**Last completed**: Go SDK (2026-10-01 00:53, sixth cycle)
+**Next up**: Python SDK
 
 ## History
 | DateTime | Direction | Findings |
@@ -51,3 +51,4 @@
 | 2026-10-01 00:45 | JS/TS SDK | ✅ Fifth cycle: observation.ts extended-field parsing (safe conversion + dual key-variant fallback) matches live wire format; architecture docs: localhost binding claim matches application.yml default; no changes; next direction is Demo |
 | 2026-10-01 00:47 | Demo | ✅ Fifth cycle: Projects/Tools controllers validated (session context cleanup in finally); user guide: DEVELOPMENT.md structure claims verified; no changes; next direction is Backend (sixth cycle) |
 | 2026-10-01 00:50 | Backend | ✅ Sixth cycle: TemplateService (placeholder fail-fast) and CursorService (registry IO) clean; API-doc memory/refine section verified incl. live 400 test; no changes; next direction is Go SDK |
+| 2026-10-01 00:53 | Go SDK | ✅ Sixth cycle: experience/ICL dto camelCase wire fields match backend; @EnableCortexMem annotation verified as real @Import of the auto-configuration; no changes; next direction is Python SDK |
