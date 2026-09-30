@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: JS/TS SDK (2026-10-01 02:52, ninth cycle)
-**Next up**: Demo
+**Last completed**: Demo (2026-10-01 02:57, ninth cycle)
+**Next up**: Backend
 
 ## History
 | DateTime | Direction | Findings |
@@ -69,3 +69,4 @@
 | 2026-10-01 02:31 | Go SDK | ✅ Ninth cycle: dto package fully covered (management/misc/search verified against live responses); Java README properties table and method endpoints verified; no changes; next direction is Python SDK |
 | 2026-10-01 02:44 | Python SDK | ✅ Ninth cycle: management methods (dual-mode update with conflict detection, encoded paths) clean; design docs: 0.1.md v7 fixes verified in code (List param, BeanOutputConverter/templateClass); no changes; next direction is JS/TS SDK |
 | 2026-10-01 02:52 | JS/TS SDK | ✅ Ninth cycle: experience.ts dual-format parsing verified; architecture docs: MCP transport table verified against application.yml config + live /sse 200 (POST /mcp 404 expected under SSE protocol); no changes; next direction is Demo |
+| 2026-10-01 02:57 | Demo | ✅ Ninth cycle: Go eino example clean (post-fix module refs); user guide: TESTING.md sections 4-8 verified item-by-item (flags, workflows, SERVER_URL, MCP auto-detect matches live test); no changes; next direction is Backend (tenth cycle) |
