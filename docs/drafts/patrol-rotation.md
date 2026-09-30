@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: Go SDK (2026-10-01 00:39, fifth cycle)
-**Next up**: Python SDK
+**Last completed**: Python SDK (2026-10-01 00:42, fifth cycle)
+**Next up**: JS/TS SDK
 
 ## History
 | DateTime | Direction | Findings |
@@ -47,3 +47,4 @@
 | 2026-10-01 00:19 | Demo | ✅ Fourth cycle: Experiences/Feedback controllers validated; user guide: TESTING.md has no hardcoded test counts (complies with output-based discipline); no changes; next direction is Backend (fifth cycle) |
 | 2026-10-01 00:33 | Backend | ✅ Fifth cycle: fixed PendingMessageProcessor init log reading @Value before injection (always said enabled=false; now logged in @PostConstruct, verified enabled=true); LlmService clean; full acceptance passed, new baseline 32d5dfb; next direction is Go SDK |
 | 2026-10-01 00:39 | Go SDK | ✅ Fifth cycle: dto/session.go wire fields match backend; Python README Wire Format section verified claim-by-claim against @JsonProperty; no changes; next direction is Python SDK |
+| 2026-10-01 00:42 | Python SDK | ✅ Fifth cycle: record_observation wire building matches backend contract field-by-field; design docs: v30 lock-sharing claim verified in code, index 24.6.md description updated through v30; no code changes; next direction is JS/TS SDK |
