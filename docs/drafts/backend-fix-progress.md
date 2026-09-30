@@ -4,6 +4,24 @@
 > **Updated by**: 定时项目维护任务。
 > **Update rule**: 新修复追加到顶部；超过文档增长阈值时保留未完成项并将已完成历史归档。
 
+## 2026-10-01 05:12 | 陈旧测试对齐 — B-52 与 F-2 修复后的测试同步
+
+**修复内容**：
+- **OffsetPageRequestTest.withPage_preservesOriginalOffset** → 更名 `withPage_recomputesOffsetFromPageNumber`：B-52（2026-04-23）使 withPage 重算 offset=pageNumber×size，旧测试仍断言保留原 offset（期望 50 实得 100）
+- **ExtractionStorageServiceTest.storeDLQ_doesNotPropagateException** → 更名 `storeDLQ_propagatesException`：F-2（2026-05-06）使 storeDLQ 向上传播、由 runExtraction 捕获包装，旧测试仍断言自保护吞异常；改用 assertThatThrownBy（匹配文件 AssertJ 风格）
+
+**保留说明**：PendingMessageEventListenerTest 的两个 doesNotPropagate 测试为监听器有意的 fire-and-forget 语义，正确且通过，不修改。
+
+**根因分析**：两个测试写于对应修复落地之前且从未随修复同步；全量 mvn test 不在回归脚本/EXTRACTION 验收的执行范围内，故长期未被发现。本轮新鲜复证发现并已对齐。
+
+**验证结果**：
+- 后端全套件：131/131 通过 ✅（此前 1 失败 + 1 错误）
+- 回归测试：45/46 ✅（1 skipped）
+- EXTRACTION 验收：25/25 ✅
+- 新基线：`000a306` / `4d31dc3c…`
+
+---
+
 ## 2026-05-06 05:16 | 健康检查修复 — Backend Review #20 P1+P2 问题批量修复
 
 ### P1: `mergeAppendOnly` — within-field duplicate items not deduplicated
