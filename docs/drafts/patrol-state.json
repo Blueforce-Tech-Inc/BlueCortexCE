@@ -1,6 +1,6 @@
 {
-  "lastDirection": "python-sdk",
-  "lastRunAt": "2026-10-01T02:44:00+08:00",
-  "nextDirection": "js-ts-sdk",
-  "round": 50
+  "lastDirection": "js-ts-sdk",
+  "lastRunAt": "2026-10-01T02:52:00+08:00",
+  "nextDirection": "demo",
+  "round": 51
 }
