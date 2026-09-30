@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: Backend (2026-10-01 00:33, fifth cycle)
-**Next up**: Go SDK
+**Last completed**: Go SDK (2026-10-01 00:39, fifth cycle)
+**Next up**: Python SDK
 
 ## History
 | DateTime | Direction | Findings |
@@ -46,3 +46,4 @@
 | 2026-10-01 00:16 | JS/TS SDK | ✅ Fourth cycle: wire-helpers.ts defensive parsing verified; architecture docs: stale "Express" claims corrected to Node.js/axios in EN/ZH (proxy uses built-in http + axios only); no code changes; next direction is Demo |
 | 2026-10-01 00:19 | Demo | ✅ Fourth cycle: Experiences/Feedback controllers validated; user guide: TESTING.md has no hardcoded test counts (complies with output-based discipline); no changes; next direction is Backend (fifth cycle) |
 | 2026-10-01 00:33 | Backend | ✅ Fifth cycle: fixed PendingMessageProcessor init log reading @Value before injection (always said enabled=false; now logged in @PostConstruct, verified enabled=true); LlmService clean; full acceptance passed, new baseline 32d5dfb; next direction is Go SDK |
+| 2026-10-01 00:39 | Go SDK | ✅ Fifth cycle: dto/session.go wire fields match backend; Python README Wire Format section verified claim-by-claim against @JsonProperty; no changes; next direction is Python SDK |
