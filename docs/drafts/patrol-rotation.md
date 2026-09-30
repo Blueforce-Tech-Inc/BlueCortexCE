@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: JS/TS SDK (2026-09-30 23:30, second cycle)
-**Next up**: Demo
+**Last completed**: Demo (2026-09-30 23:32, second cycle)
+**Next up**: Backend
 
 ## History
 | DateTime | Direction | Findings |
@@ -34,3 +34,4 @@
 | 2026-09-30 23:22 | Go SDK | ✅ Second cycle: client_impl internals reviewed (context fast-fail, 10MB response cap, generic error mapping); no issues, no changes; next direction is Python SDK |
 | 2026-09-30 23:27 | Python SDK | ✅ Second cycle: error.py exception hierarchy and retry semantics verified (cross-SDK parity), Flask demo structure clean; 26.md DoD note added pointing to the script as the acceptance definition; next direction is JS/TS SDK |
 | 2026-09-30 23:30 | JS/TS SDK | ✅ Second cycle: client.ts private HTTP layer reviewed (closed-guard, AbortController timeout, 10MB limit); no issues, no changes; next direction is Demo |
+| 2026-09-30 23:32 | Demo | ✅ Second cycle: 3 named Java Demo controllers reviewed (validation aligned with SDK limits); no issues, no changes; next direction is Backend (third cycle) |
