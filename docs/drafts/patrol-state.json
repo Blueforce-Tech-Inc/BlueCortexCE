@@ -1,6 +1,6 @@
 {
-  "lastDirection": "demo",
-  "lastRunAt": "2026-10-01T06:48:00+08:00",
-  "nextDirection": "backend",
-  "round": 112
+  "lastDirection": "backend",
+  "lastRunAt": "2026-10-01T06:51:00+08:00",
+  "nextDirection": "go-sdk",
+  "round": 113
 }
