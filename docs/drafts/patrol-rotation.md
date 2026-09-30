@@ -129,6 +129,7 @@
 | 2026-10-01 07:18 | Go SDK | ✅ Thirty-first cycle: fresh full test run (5 modules pass); SDK README parity held; no changes; next direction is Python SDK |
 | 2026-10-01 07:19 | Python SDK | ✅ Thirty-first cycle: fresh full test run (374/374 pass); design docs: 50KB rule recheck clean; no changes; next direction is JS/TS SDK |
 | 2026-10-01 07:21 | JS/TS SDK | ✅ Thirty-first cycle: fresh test+lint+build all pass (212/212); architecture docs: EN/ZH parity held; no changes; next direction is Demo |
+| 2026-10-01 07:24 | Demo | ✅ Thirty-first cycle: Java Demo tests and 5 Go examples vet fresh pass; user guide: all 4 guide pairs H2 parity held; no changes; next direction is Backend (thirty-second cycle) |
 | 2026-10-01 05:07 | Python SDK | ✅ Sixteenth cycle: fresh full test run (374/374 pass); design docs: 50KB rule recheck clean; no changes; next direction is JS/TS SDK |
 | 2026-10-01 05:08 | JS/TS SDK | ✅ Sixteenth cycle: fresh test+lint+build all pass (212/212); architecture docs: EN/ZH parity held; no changes; next direction is Demo |
 | 2026-10-01 05:11 | Demo | ✅ Sixteenth cycle: Java Demo tests and 5 Go examples vet fresh pass; user guide: all 4 guide pairs H2 parity held; no changes; next direction is Backend (seventeenth cycle) |
@@ -187,6 +188,7 @@
 | 2026-10-01 07:18 | Go SDK | ✅ Thirty-first cycle: fresh full test run (5 modules pass); SDK README parity held; no changes; next direction is Python SDK |
 | 2026-10-01 07:19 | Python SDK | ✅ Thirty-first cycle: fresh full test run (374/374 pass); design docs: 50KB rule recheck clean; no changes; next direction is JS/TS SDK |
 | 2026-10-01 07:21 | JS/TS SDK | ✅ Thirty-first cycle: fresh test+lint+build all pass (212/212); architecture docs: EN/ZH parity held; no changes; next direction is Demo |
+| 2026-10-01 07:24 | Demo | ✅ Thirty-first cycle: Java Demo tests and 5 Go examples vet fresh pass; user guide: all 4 guide pairs H2 parity held; no changes; next direction is Backend (thirty-second cycle) |
 | 2026-10-01 05:07 | Python SDK | ✅ Sixteenth cycle: fresh full test run (374/374 pass); design docs: 50KB rule recheck clean; no changes; next direction is JS/TS SDK |
 | 2026-10-01 05:08 | JS/TS SDK | ✅ Sixteenth cycle: fresh test+lint+build all pass (212/212); architecture docs: EN/ZH parity held; no changes; next direction is Demo |
 | 2026-10-01 05:11 | Demo | ✅ Sixteenth cycle: Java Demo tests and 5 Go examples vet fresh pass; user guide: all 4 guide pairs H2 parity held; no changes; next direction is Backend (seventeenth cycle) |
