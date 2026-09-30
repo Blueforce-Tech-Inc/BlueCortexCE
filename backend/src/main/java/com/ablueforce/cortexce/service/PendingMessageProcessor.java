@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -34,10 +35,17 @@ public class PendingMessageProcessor {
     private boolean enabled;
 
     public PendingMessageProcessor(PendingMessageRepository pendingMessageRepository,
-                                  PendingMessageEventPublisher eventPublisher) {
+                                   PendingMessageEventPublisher eventPublisher) {
         this.pendingMessageRepository = pendingMessageRepository;
         this.eventPublisher = eventPublisher;
-        
+    }
+
+    /**
+     * Log the enabled flag after {@code @Value} injection — reading it in the
+     * constructor would always see the primitive default (false).
+     */
+    @PostConstruct
+    void logInitState() {
         if (enabled) {
             log.info("PendingMessageProcessor initialized, enabled=true");
         } else {
