@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: Backend (2026-10-01 00:00, fourth cycle)
-**Next up**: Go SDK
+**Last completed**: Go SDK (2026-10-01 00:02, fourth cycle)
+**Next up**: Python SDK
 
 ## History
 | DateTime | Direction | Findings |
@@ -41,3 +41,4 @@
 | 2026-09-30 23:48 | JS/TS SDK | ✅ Third cycle: errors.ts retry semantics match Python/Go/Java (429/502/503/504 + network, 500 excluded); architecture docs: 16 migration files verified (V9/V10 absent, max V18), 13 controllers match; no changes; next direction is Demo |
 | 2026-09-30 23:53 | Demo | ✅ Third cycle: SessionLifecycle/Ingest controllers validated; user guide: DOCKER_README env-var defaults (6 rows) match docker-compose.yml exactly; no changes; next direction is Backend (fourth cycle) |
 | 2026-10-01 00:00 | Backend | ✅ Fourth cycle: ModeService (cache/inheritance merge) and SettingsService (dual-prefix WebUI keys) clean; API-doc context/generate example verified against DTO `@JsonProperty`; no changes; next direction is Go SDK |
+| 2026-10-01 00:02 | Go SDK | ✅ Fourth cycle: NewClient config resolution hardened (normalization, minimums, TLS verify); langchaingo/genkit adapters follow functional-options; Go/Java README example signatures verified; no changes; next direction is Python SDK |
