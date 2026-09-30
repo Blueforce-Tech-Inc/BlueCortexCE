@@ -7,8 +7,8 @@
 ## Current Review Rotation
 
 - **轮换顺序**: API 文档 → SDK README → 设计文档 → 架构文档 → 用户指南
-- **最近完成**: API 文档（2026-10-01 九轮，Get Session 实测发现并推动修复 started_at 恒空缺陷）
-- **下一方向**: SDK README（第九循环）
+- **最近完成**: SDK README（2026-10-01 九轮，Java README 属性表与方法端点列核验一致）
+- **下一方向**: 设计文档（第九循环）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
 
 ## Pending Doc Issues
