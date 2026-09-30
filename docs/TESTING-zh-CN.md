@@ -12,23 +12,23 @@
 
 位于 `scripts/` 目录：
 
-| 脚本 | 说明 | 行数 |
-|------|------|------|
-| `regression-test.sh` | 核心功能回归测试 | 1535 |
-| `thin-proxy-test.sh` | 精简代理集成测试 | 775 |
-| `mcp-e2e-test.sh` | MCP 服务器端到端测试（SSE 模式） | 555 |
-| `mcp-streamable-e2e-test.sh` | MCP 服务器端到端测试（Streamable HTTP 模式） | 292 |
-| `docker-compose-test.sh` | Docker Compose 部署测试 | 546 |
-| `docker-e2e-test.sh` | Docker 独立端到端测试 | 701 |
-| `webui-integration-test.sh` | WebUI 集成测试 | 229 |
+| 脚本 | 说明 |
+|------|------|
+| `regression-test.sh` | 核心功能回归测试 |
+| `thin-proxy-test.sh` | 精简代理集成测试 |
+| `mcp-e2e-test.sh` | MCP 服务器端到端测试（SSE 模式） |
+| `mcp-streamable-e2e-test.sh` | MCP 服务器端到端测试（Streamable HTTP 模式） |
+| `docker-compose-test.sh` | Docker Compose 部署测试 |
+| `docker-e2e-test.sh` | Docker 独立端到端测试 |
+| `webui-integration-test.sh` | WebUI 集成测试 |
 
 ### 2. Phase 3 验收测试
 
 位于 `scripts/` 目录：
 
-| 脚本 | 说明 | 行数 |
-|------|------|------|
-| `phase3-acceptance-test.sh` | Phase 3 userId 隔离 + extraction 功能验收测试（15 个测试函数） | 714 |
+| 脚本 | 说明 |
+|------|------|
+| `phase3-acceptance-test.sh` | Phase 3 userId 隔离 + extraction 功能验收测试（15 个测试函数） |
 
 **前置条件：** 后端运行在 37777 端口，测试项目干净。
 

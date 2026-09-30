@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: JS/TS SDK (2026-10-01 02:11, eighth cycle)
-**Next up**: Demo
+**Last completed**: Demo (2026-10-01 02:19, eighth cycle)
+**Next up**: Backend
 
 ## History
 | DateTime | Direction | Findings |
@@ -64,3 +64,4 @@
 | 2026-10-01 02:17 | Go SDK | ✅ Eighth cycle: examples/basic idiomatic (error handling, V14 features); JS README error-handling example imports verified against exports; no changes; next direction is Python SDK |
 | 2026-10-01 02:22 | Python SDK | ✅ Eighth cycle: experiences/ICL wire mapping verified; design docs: 21.md 10-prerequisite table consistent with quick-ref, lock-leak finding has reasoned decision; no changes; next direction is JS/TS SDK |
 | 2026-10-01 02:11 | JS/TS SDK | ✅ Eighth cycle: session.ts request types match backend DTOs field-by-field; architecture docs: llm.provider config claim matches SpringAiConfig and application.yml; no changes; next direction is Demo |
+| 2026-10-01 02:19 | Demo | ✅ Eighth cycle: helper classes (FileReadTool AOP note, DemoProperties) clean; user guide: TESTING.md drift-prone Lines column removed in EN/ZH (4 tables, 5 drifted values) and duplicate table header fixed; "15 test functions" verified accurate; no code changes; next direction is Backend (ninth cycle) |
