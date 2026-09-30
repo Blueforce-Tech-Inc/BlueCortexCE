@@ -1063,12 +1063,7 @@ spring:
 
 ### 数据隐私
 
-```java
-// 隐私标签剥离
-public String stripPrivateTags(String content) {
-    return content.replaceAll("<private>.*?</private>", "[已编辑]");
-}
-```
+隐私标签剥离发生在代理层（`proxy/tag-stripping.js`），内容在转发到后端之前即被处理 —— `<private>…</private>`、`<claude-mem-context>`、`<system_instruction>` 与 `<system-instruction>` 块会被**整段移除**（而非替换为占位符），完全私有的提示词则被跳过。
 
 ### 网络安全
 

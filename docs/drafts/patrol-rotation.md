@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: Python SDK (2026-10-01 01:47, seventh cycle)
-**Next up**: JS/TS SDK
+**Last completed**: JS/TS SDK (2026-10-01 01:52, seventh cycle)
+**Next up**: Demo
 
 ## History
 | DateTime | Direction | Findings |
@@ -58,3 +58,4 @@
 | 2026-10-01 01:38 | Backend | ✅ Seventh cycle: ExpRagService deep review (userId isolation, fallback chains) and SummaryGenerationService clean; API-doc quality-distribution verified live (shape + 400); no changes; next direction is Go SDK |
 | 2026-10-01 01:42 | Go SDK | ✅ Seventh cycle: extraction dto camelCase fields match ApiResponses; JS README Wire Format claims (5 groups) verified against @JsonProperty incl. FeedbackRequest; no changes; next direction is Python SDK |
 | 2026-10-01 01:47 | Python SDK | ✅ Seventh cycle: session wire and URL-encoded PATCH path verified; design docs: 20.md all-resolved claim holds, formatExtractedData "not implemented" note still accurate; no changes; next direction is JS/TS SDK |
+| 2026-10-01 01:52 | JS/TS SDK | ✅ Seventh cycle: index.ts export surface complete; architecture docs: privacy-stripping claim corrected in EN/ZH (proxy strips tags entirely, not [REDACTED] replace; stripping happens in proxy/tag-stripping.js); no code changes; next direction is Demo |

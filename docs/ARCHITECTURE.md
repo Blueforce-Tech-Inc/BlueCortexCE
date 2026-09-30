@@ -1061,12 +1061,10 @@ spring:
 
 ### Data Privacy
 
-```java
-// Privacy tags stripping
-public String stripPrivateTags(String content) {
-    return content.replaceAll("<private>.*?</private>", "[REDACTED]");
-}
-```
+Privacy tag stripping happens in the proxy (`proxy/tag-stripping.js`) before content is
+forwarded to the backend — `<private>…</private>`, `<claude-mem-context>`,
+`<system_instruction>` and `<system-instruction>` blocks are **removed entirely** (not
+replaced with a placeholder), and prompts that are entirely private are skipped.
 
 ### Network Security
 
