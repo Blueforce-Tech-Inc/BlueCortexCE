@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: Python SDK (2026-10-01 03:12, tenth cycle)
-**Next up**: JS/TS SDK
+**Last completed**: JS/TS SDK (2026-10-01 03:17, tenth cycle)
+**Next up**: Demo
 
 ## History
 | DateTime | Direction | Findings |
@@ -73,3 +73,4 @@
 | 2026-10-01 03:02 | Backend | ✅ Tenth cycle: LlmQualityScorer and ExperienceTemplate clean; API-doc feedback error paths verified live (400 missing fields, 404 absent UUID); no changes; next direction is Go SDK |
 | 2026-10-01 03:07 | Go SDK | ✅ Tenth cycle: retry internals (jittered backoff, context fast-fail, sentinel mapping) verified; Go README option table and error section match implementation; no changes; next direction is Python SDK |
 | 2026-10-01 03:12 | Python SDK | ✅ Tenth cycle: SessionStartResponse from_wire/to_dict carry inline updateFiles contract knowledge; design docs: 3.md honestly marked SUPERSEDED; no changes; next direction is JS/TS SDK |
+| 2026-10-01 03:17 | JS/TS SDK | ✅ Tenth cycle: dto/search.ts contracts verified (orderBy dual-format, fell_back, hasMore); architecture docs: virtual threads claim matches application.yml; no changes; next direction is Demo |
