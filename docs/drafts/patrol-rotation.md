@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: Python SDK (2026-10-01 00:11, fourth cycle)
-**Next up**: JS/TS SDK
+**Last completed**: JS/TS SDK (2026-10-01 00:16, fourth cycle)
+**Next up**: Demo
 
 ## History
 | DateTime | Direction | Findings |
@@ -43,3 +43,4 @@
 | 2026-10-01 00:00 | Backend | ✅ Fourth cycle: ModeService (cache/inheritance merge) and SettingsService (dual-prefix WebUI keys) clean; API-doc context/generate example verified against DTO `@JsonProperty`; no changes; next direction is Go SDK |
 | 2026-10-01 00:02 | Go SDK | ✅ Fourth cycle: NewClient config resolution hardened (normalization, minimums, TLS verify); langchaingo/genkit adapters follow functional-options; Go/Java README example signatures verified; no changes; next direction is Python SDK |
 | 2026-10-01 00:11 | Python SDK | ✅ Fourth cycle: search param building matches backend contract (0-sentinel omission); design docs: 22.md findings verified implemented (ExpRagService userId isolation); no changes; next direction is JS/TS SDK |
+| 2026-10-01 00:16 | JS/TS SDK | ✅ Fourth cycle: wire-helpers.ts defensive parsing verified; architecture docs: stale "Express" claims corrected to Node.js/axios in EN/ZH (proxy uses built-in http + axios only); no code changes; next direction is Demo |

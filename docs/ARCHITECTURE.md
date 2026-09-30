@@ -66,7 +66,7 @@ Cortex CE uses a **Thin Proxy + Fat Server** architecture to decouple hook execu
 │         ▼                                                           │
 │  ┌──────────────┐                                                   │
 │  │  Thin Proxy  │  ← Receives request, forwards, responds immediately│
-│  │  (Express)   │                                                   │
+│  │  (Node.js)   │                                                   │
 │  └──────┬───────┘                                                   │
 └─────────┼───────────────────────────────────────────────────────────┘
           │
@@ -839,7 +839,7 @@ export SPRING_AI_MCP_SERVER_PROTOCOL=STREAMABLE  # if you prefer STREAMABLE
 | **Vector Search** | pgvector 0.8 | Native PostgreSQL integration, HNSW indexes |
 | **Migrations** | Flyway | Version-controlled schema evolution |
 | **Build** | Maven | Standard Java tooling |
-| **Proxy** | Node.js/Express | Lightweight, fast startup |
+| **Proxy** | Node.js/axios | Lightweight, fast startup |
 
 ### Java 21+ Features Used
 

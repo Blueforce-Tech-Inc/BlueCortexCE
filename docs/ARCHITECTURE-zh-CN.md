@@ -66,7 +66,7 @@ Cortex CE 使用 **瘦代理 + 胖服务器** 架构将 hook 执行与重量级�
 │         ▼                                                           │
 │  ┌──────────────┐                                                   │
 │  │  瘦代理       │  ← 接收请求，转发，立即响应                        │
-│  │  (Express)   │                                                   │
+│  │  (Node.js)   │                                                   │
 │  └──────┬───────┘                                                   │
 └─────────┼───────────────────────────────────────────────────────────┘
           │
@@ -841,7 +841,7 @@ export SPRING_AI_MCP_SERVER_PROTOCOL=STREAMABLE  # 如需使用 STREAMABLE
 | **向量搜索** | pgvector 0.8 | 原生 PostgreSQL 集成、HNSW 索引 |
 | **迁移** | Flyway | 版本控制的架构演进 |
 | **构建** | Maven | 标准 Java 工具 |
-| **代理** | Node.js/Express | 轻量级、快速启动 |
+| **代理** | Node.js/axios | 轻量级、快速启动 |
 
 ### 使用的 Java 21+ 特性
 
