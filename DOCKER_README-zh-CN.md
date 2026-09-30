@@ -86,9 +86,15 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 
 > **Embedding Provider 注意**：上方面板中的默认 embedding 设置（`api.openai.com`、`text-embedding-3-small`、1536 维度）对应 Docker Compose 的 `prd` profile 默认值。**推荐使用 SiliconFlow** 作为 embedding 提供商（参见 `.env.docker` 中的推荐值：`https://api.siliconflow.cn`、`BAAI/bge-m3`、1024 维度）。本地开发时，`backend/.env.example` 也使用 SiliconFlow 默认值。
 
-## 健康检查
+## 常用命令
 
 ```bash
+# 启动所有服务
+docker compose up -d
+
+# 重新构建并启动
+docker compose up -d --build
+
 # 应用健康检查（推荐）
 curl http://localhost:37777/api/health
 
@@ -97,12 +103,8 @@ curl http://localhost:37777/api/readiness
 
 # PostgreSQL 连接检查
 docker compose exec postgres pg_isready -U postgres
-```
 
-## 日志查看
-
-```bash
-# 实时查看所有服务日志
+# 查看所有服务日志
 docker compose logs -f
 
 # 仅查看应用日志
@@ -110,9 +112,59 @@ docker compose logs -f claude-mem
 
 # 仅查看数据库日志
 docker compose logs -f postgres
+
+# 停止服务（保留数据卷）
+docker compose down
+
+# 停止服务并删除数据卷（⚠️ 会丢失所有数据）
+docker compose down -v
 ```
 
-### 重建镜像（依赖变更后）
+## 故障排查
+
+### 服务启动失败
+
+```bash
+# 1. 检查容器状态
+docker compose ps
+
+# 2. 查看详细日志
+docker compose up
+
+# 3. 检查环境变量是否正确配置
+docker compose exec claude-mem env | grep SPRING
+```
+
+### 访问 PostgreSQL
+
+```bash
+docker compose exec postgres psql -U postgres -d claude_mem
+```
+
+### 数据库连接问题
+
+```bash
+# 1. 确认 PostgreSQL 已就绪
+docker compose exec postgres pg_isready -U postgres
+
+# 2. 测试连接
+docker compose exec postgres psql -U postgres -d claude_mem -c "SELECT 1;"
+```
+
+### 端口冲突
+
+如果 37777 或 5433 端口已被占用：
+
+```bash
+# 使用不同端口（编辑 .env）
+SERVER_PORT=37778
+POSTGRES_PORT=5434
+
+# 然后重启
+docker compose down && docker compose up -d
+```
+
+### 依赖变更后重建
 
 ```bash
 docker compose build --no-cache claude-mem
@@ -224,6 +276,10 @@ git submodule update --init --recursive
 # 构建 Docker 镜像
 docker build -t cortex-ce:latest .
 
+# 或以本地标签构建并通过 Docker Compose 使用
+docker build -t cortex-ce:local -f Dockerfile .
+IMAGE_NAME=cortex-ce:local docker compose up -d
+
 # 使用环境变量运行
 # 注意: host.docker.internal 需要 Linux + Docker 20.10+。macOS/Windows 请使用 Docker Compose (docker compose up -d)。
 # Docker Compose 部署请在 .env 文件中设置 DB_PASSWORD（必填）。
@@ -251,7 +307,15 @@ docker run -d \
 
 ```bash
 cd scripts
+
+# 运行完整测试套件（构建镜像、启动容器、运行测试、清理）
 ./docker-e2e-test.sh --cleanup
+
+# 跳过镜像构建（使用已有镜像）
+./docker-e2e-test.sh --skip-build --cleanup
+
+# 测试后保留容器运行（用于调试）
+./docker-e2e-test.sh --keep-running
 ```
 
 ### Docker Compose 测试
@@ -271,12 +335,19 @@ cd scripts
 
 ### 测试覆盖
 
-| 测试类型 | 说明 |
-|---------|------|
-| API 端点测试 | 验证所有 REST API 端点 |
-| 数据库测试 | 验证 PostgreSQL 和 pgvector |
-| 健康检查测试 | 验证 `/api/health` 端点 |
-| MCP 服务测试 | 验证 MCP 服务器连接 |
+E2E 测试套件验证：
+
+1. **健康检查端点** — 应用健康检查
+2. **会话创建** — 创建新的记忆会话
+3. **观察摄入** — 通过 API 存储观察
+4. **观察检索** — 查询已存储的观察
+5. **搜索端点** — 向量与文本搜索
+6. **统计端点** — 数据库统计
+7. **项目端点** — 列出项目
+8. **会话完成** — 关闭会话
+9. **数据库持久化** — 直接数据库验证
+10. **容器重启** — 重启后数据持久性
+11. **WebUI 静态文件** — WebUI 可访问性
 
 ## 生产环境注意事项
 
@@ -284,8 +355,6 @@ cd scripts
 - 考虑为生产环境添加 TLS/SSL
 - 应用在容器内以非 root 用户运行
 - 日志通过 `claude-mem-logs` volume 持久化
-- 使用 `prd` profile（已在 docker-compose.yml 中设置）
-- 考虑限制 PostgreSQL 端口（5433）的外部访问
 
 ## 数据持久化
 
@@ -293,77 +362,6 @@ cd scripts
 
 - `postgres_data`：PostgreSQL 数据目录
 - `claude-mem-logs`：应用日志目录
-
-## 停止服务
-
-```bash
-# 停止服务（保留数据卷）
-docker compose down
-
-# 停止服务并删除数据卷（⚠️ 会丢失所有数据）
-docker compose down -v
-```
-
-## 故障排查
-
-### 服务启动失败
-
-```bash
-# 1. 检查容器状态
-docker compose ps
-
-# 2. 查看详细日志
-docker compose up
-
-# 3. 检查环境变量是否正确配置
-docker compose exec claude-mem env | grep SPRING
-```
-
-### 数据库连接问题
-
-```bash
-# 1. 确认 PostgreSQL 已就绪
-docker compose exec postgres pg_isready -U postgres
-
-# 2. 测试连接
-docker compose exec postgres psql -U postgres -d claude_mem -c "SELECT 1;"
-```
-
-### 端口冲突
-
-如果 37777 或 5433 端口已被占用：
-
-```bash
-# 使用不同端口（编辑 .env）
-SERVER_PORT=37778
-POSTGRES_PORT=5434
-
-# 然后重启
-docker compose down && docker compose up -d
-```
-
-## 构建本地镜像
-
-Dockerfile 使用多阶段构建：
-
-1. **Stage 1 (java-builder)**：构建 Spring Boot JAR
-2. **Stage 2 (runtime)**：使用最小 JRE 镜像运行应用
-
-**重要**：构建前必须初始化 webui 子模块：
-
-```bash
-# 1. 初始化子模块（webui 是子模块）
-git submodule update --init --recursive
-
-# 2. 预构建 WebUI 资源
-./scripts/prebuild-webui.sh
-
-# 3. 构建镜像
-docker build -t cortex-ce:local -f Dockerfile .
-
-# 4. 使用本地镜像
-IMAGE_NAME=cortex-ce:local docker compose up -d
-```
 
 ## 仓库结构
 
@@ -378,11 +376,17 @@ BlueCortexCE/
 │   └── ...
 ├── proxy/                  # Claude Code 包装器（Node.js）
 ├── scripts/                # 部署和测试脚本
-├── docs/                  # 文档
-└── webui/                 # WebUI（子模块：claude-mem 仓库）
+├── docs/                   # 文档
+└── webui/                  # WebUI（子模块：claude-mem 仓库）
 ```
 
 ## 环境变量文件示例
+
+复制 `.env.docker` 为 `.env` 并配置你的密钥：
+
+```bash
+cp .env.docker .env
+```
 
 `.env.docker` 模板内容：
 

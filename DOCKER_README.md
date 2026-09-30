@@ -95,31 +95,73 @@ docker compose up -d
 # Rebuild and start
 docker compose up -d --build
 
-# Stop services
-docker compose down
+# Application health check (recommended)
+curl http://localhost:37777/api/health
 
-# View logs
+# Readiness check
+curl http://localhost:37777/api/readiness
+
+# PostgreSQL connection check
+docker compose exec postgres pg_isready -U postgres
+
+# View all service logs
+docker compose logs -f
+
+# View application logs only
 docker compose logs -f claude-mem
 
-# View database logs
+# View database logs only
 docker compose logs -f postgres
 
-# Reset everything (including data)
+# Stop services (keeps data volumes)
+docker compose down
+
+# Stop services and delete data volumes (⚠️ deletes all data)
 docker compose down -v
 ```
 
 ## Troubleshooting
 
-### Check service health
+### Service fails to start
 
 ```bash
-curl http://localhost:37777/api/health
+# 1. Check container status
+docker compose ps
+
+# 2. View detailed logs
+docker compose up
+
+# 3. Check environment variable configuration
+docker compose exec claude-mem env | grep SPRING
 ```
 
 ### Access PostgreSQL
 
 ```bash
 docker compose exec postgres psql -U postgres -d claude_mem
+```
+
+### Database connection issues
+
+```bash
+# 1. Confirm PostgreSQL is ready
+docker compose exec postgres pg_isready -U postgres
+
+# 2. Test the connection
+docker compose exec postgres psql -U postgres -d claude_mem -c "SELECT 1;"
+```
+
+### Port conflicts
+
+If port 37777 or 5433 is already in use:
+
+```bash
+# Use different ports (edit .env)
+SERVER_PORT=37778
+POSTGRES_PORT=5434
+
+# Then restart
+docker compose down && docker compose up -d
 ```
 
 ### Rebuild after dependency changes
@@ -233,6 +275,10 @@ git submodule update --init --recursive
 
 # Build the Docker image
 docker build -t cortex-ce:latest .
+
+# Or build under a local tag and use it via Docker Compose
+docker build -t cortex-ce:local -f Dockerfile .
+IMAGE_NAME=cortex-ce:local docker compose up -d
 
 # Run with environment variables
 # NOTE: host.docker.internal requires Linux with Docker 20.10+.
