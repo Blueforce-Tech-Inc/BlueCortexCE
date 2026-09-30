@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: JS/TS SDK (2026-10-01 00:16, fourth cycle)
-**Next up**: Demo
+**Last completed**: Demo (2026-10-01 00:19, fourth cycle)
+**Next up**: Backend
 
 ## History
 | DateTime | Direction | Findings |
@@ -44,3 +44,4 @@
 | 2026-10-01 00:02 | Go SDK | ✅ Fourth cycle: NewClient config resolution hardened (normalization, minimums, TLS verify); langchaingo/genkit adapters follow functional-options; Go/Java README example signatures verified; no changes; next direction is Python SDK |
 | 2026-10-01 00:11 | Python SDK | ✅ Fourth cycle: search param building matches backend contract (0-sentinel omission); design docs: 22.md findings verified implemented (ExpRagService userId isolation); no changes; next direction is JS/TS SDK |
 | 2026-10-01 00:16 | JS/TS SDK | ✅ Fourth cycle: wire-helpers.ts defensive parsing verified; architecture docs: stale "Express" claims corrected to Node.js/axios in EN/ZH (proxy uses built-in http + axios only); no code changes; next direction is Demo |
+| 2026-10-01 00:19 | Demo | ✅ Fourth cycle: Experiences/Feedback controllers validated; user guide: TESTING.md has no hardcoded test counts (complies with output-based discipline); no changes; next direction is Backend (fifth cycle) |
