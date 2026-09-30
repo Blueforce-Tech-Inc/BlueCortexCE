@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: JS/TS SDK (2026-10-01 00:45, fifth cycle)
-**Next up**: Demo
+**Last completed**: Demo (2026-10-01 00:47, fifth cycle)
+**Next up**: Backend
 
 ## History
 | DateTime | Direction | Findings |
@@ -49,3 +49,4 @@
 | 2026-10-01 00:39 | Go SDK | ✅ Fifth cycle: dto/session.go wire fields match backend; Python README Wire Format section verified claim-by-claim against @JsonProperty; no changes; next direction is Python SDK |
 | 2026-10-01 00:42 | Python SDK | ✅ Fifth cycle: record_observation wire building matches backend contract field-by-field; design docs: v30 lock-sharing claim verified in code, index 24.6.md description updated through v30; no code changes; next direction is JS/TS SDK |
 | 2026-10-01 00:45 | JS/TS SDK | ✅ Fifth cycle: observation.ts extended-field parsing (safe conversion + dual key-variant fallback) matches live wire format; architecture docs: localhost binding claim matches application.yml default; no changes; next direction is Demo |
+| 2026-10-01 00:47 | Demo | ✅ Fifth cycle: Projects/Tools controllers validated (session context cleanup in finally); user guide: DEVELOPMENT.md structure claims verified; no changes; next direction is Backend (sixth cycle) |
