@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: Go SDK (2026-10-01 03:07, tenth cycle)
-**Next up**: Python SDK
+**Last completed**: Python SDK (2026-10-01 03:12, tenth cycle)
+**Next up**: JS/TS SDK
 
 ## History
 | DateTime | Direction | Findings |
@@ -72,3 +72,4 @@
 | 2026-10-01 02:57 | Demo | ✅ Ninth cycle: Go eino example clean (post-fix module refs); user guide: TESTING.md sections 4-8 verified item-by-item (flags, workflows, SERVER_URL, MCP auto-detect matches live test); no changes; next direction is Backend (tenth cycle) |
 | 2026-10-01 03:02 | Backend | ✅ Tenth cycle: LlmQualityScorer and ExperienceTemplate clean; API-doc feedback error paths verified live (400 missing fields, 404 absent UUID); no changes; next direction is Go SDK |
 | 2026-10-01 03:07 | Go SDK | ✅ Tenth cycle: retry internals (jittered backoff, context fast-fail, sentinel mapping) verified; Go README option table and error section match implementation; no changes; next direction is Python SDK |
+| 2026-10-01 03:12 | Python SDK | ✅ Tenth cycle: SessionStartResponse from_wire/to_dict carry inline updateFiles contract knowledge; design docs: 3.md honestly marked SUPERSEDED; no changes; next direction is JS/TS SDK |
