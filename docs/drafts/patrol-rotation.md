@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: Backend (2026-09-30 23:10)
-**Next up**: Java SDK
+**Last completed**: Java SDK (2026-09-30 23:18, second cycle)
+**Next up**: Go SDK
 
 ## History
 | DateTime | Direction | Findings |
@@ -30,3 +30,4 @@
 | 2026-09-30 05:37 | JS/TS SDK | ✅ 212/212 tests, lint clean, CJS+ESM+DTS build complete; no issues, no changes; next direction is Demo |
 | 2026-09-30 09:26 | Demo | ✅ Java Demo verified (no unit tests by design, 12 @RestControllers counted, baseline corrected 10→12); Go 5 examples vet OK; no code changes; loop paused by user after this round; next direction is Backend |
 | 2026-09-30 23:10 | Backend | ✅ Fixed SSEBroadcaster.broadcast() to catch IllegalStateException from completed emitters (was aborting the broadcast loop); TimelineService/StreamController clean; full acceptance passed, new baseline 24faf55; second rotation cycle begins, next direction is Java SDK |
+| 2026-09-30 23:18 | Java SDK | ✅ Second cycle: spring-ai/starter modules reviewed in depth (advisor fail-open, aspect truncation matches backend constant, autoconfiguration conditional beans correct); no issues, no changes; next direction is Go SDK |
