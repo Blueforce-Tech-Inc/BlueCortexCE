@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: JS/TS SDK (2026-09-30 05:37)
-**Next up**: Demo
+**Last completed**: Demo (2026-09-30 09:26)
+**Next up**: Backend
 
 ## History
 | DateTime | Direction | Findings |
@@ -28,3 +28,4 @@
 | 2026-09-30 05:27 | Go SDK | ✅ Fixed gofmt alignment in 4 files (dto×3 + genkit retriever); 288 tests pass across 5 modules; Go demo E2E 39/39; full acceptance passed and new baseline set (b04ccf8); next direction is Python SDK |
 | 2026-09-30 05:32 | Python SDK | ✅ 374/374 tests pass; 25 API methods and dual-mode ObservationUpdate verified; no issues, no changes; next direction is JS/TS SDK |
 | 2026-09-30 05:37 | JS/TS SDK | ✅ 212/212 tests, lint clean, CJS+ESM+DTS build complete; no issues, no changes; next direction is Demo |
+| 2026-09-30 09:26 | Demo | ✅ Java Demo verified (no unit tests by design, 12 @RestControllers counted, baseline corrected 10→12); Go 5 examples vet OK; no code changes; loop paused by user after this round; next direction is Backend |
