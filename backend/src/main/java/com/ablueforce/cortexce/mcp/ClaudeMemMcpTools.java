@@ -15,6 +15,8 @@ import org.springaicommunity.mcp.annotation.McpTool;
 import org.springaicommunity.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Component;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -243,6 +245,7 @@ public class ClaudeMemMcpTools {
                     SessionEntity s = new SessionEntity();
                     s.setContentSessionId(manualSessionId);
                     s.setProjectPath("manual-memories");
+                    s.setStartedAt(OffsetDateTime.now(ZoneOffset.UTC));
                     s.setStartedAtEpoch(System.currentTimeMillis());
                     s.setStatus("completed");
                     return sessionRepository.save(s);

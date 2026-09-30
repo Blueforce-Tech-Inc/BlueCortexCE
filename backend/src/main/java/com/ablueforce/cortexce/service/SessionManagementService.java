@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -127,7 +128,12 @@ public class SessionManagementService implements LogHelper {
         session.setContentSessionId(contentSessionId);
         session.setProjectPath(projectPath);
         session.setUserPrompt(userPrompt);
-        session.setStartedAtEpoch(Instant.now().toEpochMilli());
+        Instant now = Instant.now();
+        // Set both representations: started_at would otherwise stay NULL (JPA inserts
+        // all columns explicitly, so the column's DEFAULT NOW() never applies) and the
+        // API would serialize an empty string instead of a timestamp.
+        session.setStartedAt(OffsetDateTime.ofInstant(now, ZoneOffset.UTC));
+        session.setStartedAtEpoch(now.toEpochMilli());
         session.setStatus("active");
 
         // JpaRepository.save() never returns null — it throws DataAccessException on failure.

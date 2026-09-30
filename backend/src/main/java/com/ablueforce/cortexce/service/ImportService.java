@@ -221,7 +221,13 @@ public class ImportService implements LogHelper {
         session.setContentSessionId(data.contentSessionId());
         session.setProjectPath(data.projectPath());
         session.setUserPrompt(data.userPrompt());
-        session.setStartedAtEpoch(data.startedAtEpoch() != null ? data.startedAtEpoch() : System.currentTimeMillis());
+        // Prefer the imported wall-clock timestamp when provided; keep started_at
+        // and started_at_epoch consistent so the API never serializes an empty string.
+        Instant effectiveStart = data.startedAtEpoch() != null
+            ? Instant.ofEpochMilli(data.startedAtEpoch())
+            : Instant.now();
+        session.setStartedAt(OffsetDateTime.ofInstant(effectiveStart, ZoneOffset.UTC));
+        session.setStartedAtEpoch(effectiveStart.toEpochMilli());
         session.setCompletedAtEpoch(data.completedAtEpoch());
         session.setStatus(data.status() != null ? data.status() : "active");
 

@@ -11,6 +11,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -69,6 +71,7 @@ public class ExtractionStorageService {
                 session.setContentSessionId(targetSessionId);
                 session.setProjectPath(projectPath);
                 session.setStatus("extraction");
+                session.setStartedAt(OffsetDateTime.now(ZoneOffset.UTC));
                 session.setStartedAtEpoch(System.currentTimeMillis());
                 return sessionRepository.save(session);
             });
@@ -113,6 +116,7 @@ public class ExtractionStorageService {
                 session.setContentSessionId(dlqSessionId);
                 session.setProjectPath(projectPath);
                 session.setStatus("dlq");
+                session.setStartedAt(OffsetDateTime.now(ZoneOffset.UTC));
                 session.setStartedAtEpoch(System.currentTimeMillis());
                 return sessionRepository.save(session);
             });
