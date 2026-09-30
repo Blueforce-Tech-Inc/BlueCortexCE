@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: Demo (2026-10-01 01:57, seventh cycle)
-**Next up**: Backend
+**Last completed**: Backend (2026-10-01 02:12, eighth cycle)
+**Next up**: Go SDK
 
 ## History
 | DateTime | Direction | Findings |
@@ -60,3 +60,4 @@
 | 2026-10-01 01:47 | Python SDK | ✅ Seventh cycle: session wire and URL-encoded PATCH path verified; design docs: 20.md all-resolved claim holds, formatExtractedData "not implemented" note still accurate; no changes; next direction is JS/TS SDK |
 | 2026-10-01 01:52 | JS/TS SDK | ✅ Seventh cycle: index.ts export surface complete; architecture docs: privacy-stripping claim corrected in EN/ZH (proxy strips tags entirely, not [REDACTED] replace; stripping happens in proxy/tag-stripping.js); no code changes; next direction is Demo |
 | 2026-10-01 01:57 | Demo | ✅ Seventh cycle: JS demo app.ts reviewed (Express structure clean — all 4 demo stacks covered); user guide: DEVELOPMENT.md ObservationService references verified as intentional convention examples; no changes; next direction is Backend (eighth cycle) |
+| 2026-10-01 02:12 | Backend | ✅ Eighth cycle: AgentService processToolUseAsync core flow reviewed (age guard, dedup, enqueue-first, exception taxonomy) — clean; API-doc search response shape verified live; no changes; next direction is Go SDK |
