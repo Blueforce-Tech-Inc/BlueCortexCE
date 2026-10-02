@@ -537,6 +537,35 @@ every candidate that *has* a quality score below it is deleted rather than
 rewritten. Records with no score at all are exempt and go to the rewrite path
 instead. Raising the threshold is the safe direction; lowering it removes data.
 
+**The backend's own rate limiter is configured separately, and none of its keys
+appear in `application.yml`.** `RateLimitService` reads them straight from
+`@Value` defaults, so they are live and tunable but invisible in the table above:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CLAUDEMEM_RATE_LIMIT_MAX_REQUESTS` | `10` | Requests allowed per window |
+| `CLAUDEMEM_RATE_LIMIT_WINDOW_SECONDS` | `60` | Sliding-window length in seconds |
+| `CLAUDEMEM_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS` | `300` | How often idle window entries are evicted |
+
+**It guards one endpoint, not the API.** The only call site is
+`IngestionController`, which applies it to `POST /api/ingest/tool-use` keyed by
+content session id. The other three ingest endpoints (`user-prompt`,
+`session-end`, `observation`) and every read endpoint are unlimited. Verified
+live: 10 tool-use calls on one session succeed and the 11th returns
+
+```json
+{"retry_after": "60", "error": "Rate limit exceeded"}
+```
+
+while 13 `GET /api/search` calls in the same period all return `200`. The
+`retry_after` value is the window length, so a client that backs off for that
+long is guaranteed a fresh allowance. The `cleanup-interval` is a memory
+control: the service keeps at most 10,000 window entries, so a short interval
+bounds growth when many distinct sessions are seen.
+
+This limiter is unrelated to the `429` an LLM provider can return — see the
+troubleshooting table above.
+
 ### 5.6 Data Persistence Paths (Docker Compose)
 
 | Variable | Required | Default | Description |

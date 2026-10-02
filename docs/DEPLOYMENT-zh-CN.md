@@ -525,6 +525,31 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 且低于该阈值的候选观测会被删除而非重写。完全没有评分的记录不在此列，它们走重写
 分支。调高阈值是安全方向，调低会丢数据。
 
+**后端自带的限流器单独配置，而且它的键在 `application.yml` 里一个都没有。**
+`RateLimitService` 直接从 `@Value` 默认值读取，因此这些键是真实生效且可调的，
+只是在上表中看不到：
+
+| 变量名 | 默认值 | 说明 |
+|--------|--------|------|
+| `CLAUDEMEM_RATE_LIMIT_MAX_REQUESTS` | `10` | 每个窗口内允许的请求数 |
+| `CLAUDEMEM_RATE_LIMIT_WINDOW_SECONDS` | `60` | 滑动窗口长度（秒） |
+| `CLAUDEMEM_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS` | `300` | 空闲窗口条目的清理间隔（秒） |
+
+**它只守一个端点，不是整个 API。** 唯一调用点是 `IngestionController`，
+把它用在 `POST /api/ingest/tool-use` 上、以内容会话 id 为键。另外三个 ingest
+端点（`user-prompt`、`session-end`、`observation`）与全部读端点**都不限流**。
+活体实测：同一会话连续 10 次 tool-use 均成功，第 11 次返回
+
+```json
+{"retry_after": "60", "error": "Rate limit exceeded"}
+```
+
+而同一时段内 13 次 `GET /api/search` 全部返回 `200`。`retry_after` 的值就是
+窗口长度，因此客户端按它退避即可确保拿到新的额度。`cleanup-interval` 是内存
+控制项：服务最多保留 10,000 条窗口记录，间隔越短，在会话数很多时增长越受控。
+
+这个限流器与 LLM 提供方可能返回的 `429` 无关——见上文排障表。
+
 ### 5.6 数据持久化路径（Docker Compose）
 
 | 变量名 | 必填 | 默认值 | 说明 |
