@@ -1458,8 +1458,34 @@ Retrieves multiple observations by their UUIDs. Supports optional project filter
 |-------|------|----------|-------------|
 | `ids` | string[] | ✅ | List of observation UUIDs to retrieve |
 | `project` | string | ❌ | Optional project filter |
-| `orderBy` | string | ❌ | Sort order (e.g., `created_at_epoch`) |
+| `orderBy` | string | ❌ | Sort order. Only `created_at_epoch` and `createdAtEpoch` are recognised (see the note below) |
 | `limit` | int | ❌ | Max results to return |
+
+**`orderBy` is a two-value whitelist, and anything else is silently ignored.**
+The handler only sorts when `orderBy` equals `created_at_epoch` or
+`createdAtEpoch`; no other value is rejected, logged, or echoed back, so a
+request carrying `orderBy: "quality_score"` returns `200` as though the sort
+had been applied. This matters more than an ignored sort key usually would,
+because **`limit` is applied after ordering**: the controller takes the
+repository's rows, optionally re-sorts them, and only then truncates to
+`limit`. With an unrecognised `orderBy` the rows keep the unspecified order
+of `findAllById`, so the truncation returns a *different set of observations*,
+not merely the same set in a different order.
+
+Verified live against 8 ids from the `openclaw` project with `limit: 4`:
+
+| `orderBy` | Returned ids (first 8 chars) |
+|-----------|-------------------------------|
+| `created_at_epoch` | `118af6be`, `42c0353d`, `7f6dacc7`, `9d275d10` |
+| `bogus_column` | `7f6dacc7`, `2b893525`, `42c0353d`, `118af6be` |
+| *(omitted)* | `7f6dacc7`, `2b893525`, `42c0353d`, `118af6be` |
+
+`2b893525` was sixth in the input and is returned, while `9d275d10` — first in
+the sorted answer — is dropped. So a caller that reads `orderBy` as "sort by
+this field" and pairs it with a `limit` smaller than the id list can receive
+an arbitrary subset and has no signal that the requested ordering was never
+performed. If the set of observations matters more than their order, pass all
+ids and sort client-side, or use `orderBy: "created_at_epoch"`.
 
 **Response** (`200 OK`):
 ```json

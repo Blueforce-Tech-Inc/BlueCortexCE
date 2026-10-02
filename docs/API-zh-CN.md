@@ -1460,8 +1460,28 @@ POST /api/observations/batch
 |------|------|------|------|
 | `ids` | string[] | ✅ | 要获取的观察 UUID 列表 |
 | `project` | string | ❌ | 可选的项目过滤器 |
-| `orderBy` | string | ❌ | 排序字段（支持 `created_at_epoch` 或 `createdAtEpoch`） |
+| `orderBy` | string | ❌ | 排序字段。仅识别 `created_at_epoch` 与 `createdAtEpoch`（见下方说明） |
 | `limit` | int | ❌ | 最大返回结果数 |
+
+**`orderBy` 是两个值的白名单，其他取值被静默忽略。** 处理器只在 `orderBy` 等于
+`created_at_epoch` 或 `createdAtEpoch` 时排序；其他任何取值既不会被拒绝、不会记日志，
+也不会在响应里回显，因此带 `orderBy: "quality_score"` 的请求会返回 `200`，看上去就像
+排序已生效。这一点比「排序键被忽略」通常更严重，因为**`limit` 是在排序之后才应用的**：
+控制器先取仓储的行，可选地重排，然后才截断到 `limit`。当 `orderBy` 不被识别时，行保持
+`findAllById` 那种未定义的顺序，于是截断返回的是**另一批观察**，而不仅仅是同一批的不同排列。
+
+对 `openclaw` 项目的 8 个 id 配 `limit: 4` 实测：
+
+| `orderBy` | 返回的 id（前 8 位） |
+|-----------|---------------------|
+| `created_at_epoch` | `118af6be`、`42c0353d`、`7f6dacc7`、`9d275d10` |
+| `bogus_column` | `7f6dacc7`、`2b893525`、`42c0353d`、`118af6be` |
+| *(省略)* | `7f6dacc7`、`2b893525`、`42c0353d`、`118af6be` |
+
+`2b893525` 在输入中排第六却被返回，而排序结果里排第一的 `9d275d10` 被丢弃。因此把
+`orderBy` 读作「按这个字段排序」、并搭配一个小于 id 列表长度的 `limit` 的调用方，可能拿到
+一批任意的观察，却收不到任何「所请求的排序从未执行」的信号。若更在意拿到哪几条而不是
+它们的顺序，请传全部 id 并在客户端排序，或使用 `orderBy: "created_at_epoch"`。
 
 **响应示例**:
 ```json
