@@ -340,7 +340,10 @@ func extractErrorMessage(data []byte) string {
 
 // jitteredBackoff calculates a jittered backoff delay for retry attempts.
 // Base delay = baseDelay * attempt (linear backoff), jittered to [0.75x, 1.25x] to prevent thundering herd.
-// Note: Java SDK uses exponential backoff (baseDelay * 2^attempt). Both are valid strategies.
+// All four SDKs use this same shape, and the same ±25% jitter band: Java multiplies
+// retryBackoff by attempt, Python by self._retry_backoff, JS by this.retryBackoff. None
+// of them doubles per attempt, so the strategies are not merely "both valid" — they
+// are identical, and a caller tuning one can carry the number to the others unchanged.
 func jitteredBackoff(baseDelay time.Duration, attempt int) time.Duration {
 	base := baseDelay * time.Duration(attempt)
 	jitterRange := int64(base) / 2
