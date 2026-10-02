@@ -1,6 +1,6 @@
 {
-  "lastDirection": "demo",
-  "lastRunAt": "2026-10-03T05:10:00+08:00",
-  "nextDirection": "backend",
-  "round": 188
+  "lastDirection": "backend",
+  "lastRunAt": "2026-10-03T05:25:00+08:00",
+  "nextDirection": "javaSdk",
+  "round": 189
 }
