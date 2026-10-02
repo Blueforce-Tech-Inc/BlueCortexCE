@@ -33,6 +33,26 @@ func writeJSONError(w http.ResponseWriter, status int, message string) {
 	json.NewEncoder(w).Encode(map[string]string{"error": message})
 }
 
+// writeSDKError maps an SDK error to an HTTP status and writes the JSON body.
+//
+// The Python demo (@app.errorhandler(APIError)) and the JS demo (its express
+// error middleware) both surface the backend's real status code. This keeps the
+// Go demo on the same contract instead of collapsing every SDK failure into 500,
+// which made a backend 404 or 429 indistinguishable from a genuine server fault.
+// Anything without a usable status stays 500.
+func writeSDKError(w http.ResponseWriter, err error, context string) {
+	status := http.StatusInternalServerError
+	if cortexmem.IsValidationError(err) || dto.IsObservationUpdateValidationError(err) {
+		status = http.StatusBadRequest
+	} else {
+		var apiErr *cortexmem.APIError
+		if errors.As(err, &apiErr) && apiErr.StatusCode >= 400 && apiErr.StatusCode < 600 {
+			status = apiErr.StatusCode
+		}
+	}
+	writeJSONError(w, status, fmt.Sprintf("%s: %v", context, err))
+}
+
 // maxRequestBodySize is the maximum request body size (1 MB).
 const maxRequestBodySize = 1 << 20
 
@@ -218,7 +238,7 @@ func main() {
 		}
 		result, err := client.Search(r.Context(), searchReq)
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("search failed: %v", err))
+			writeSDKError(w, err, "search failed")
 			return
 		}
 		writeJSON(w, result)
@@ -231,7 +251,7 @@ func main() {
 		}
 		result, err := client.GetVersion(r.Context())
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get version: %v", err))
+			writeSDKError(w, err, "failed to get version")
 			return
 		}
 		writeJSON(w, result)
@@ -286,7 +306,7 @@ func main() {
 		}
 		exps, err := client.RetrieveExperiences(r.Context(), req)
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to retrieve experiences: %v", err))
+			writeSDKError(w, err, "failed to retrieve experiences")
 			return
 		}
 		writeJSON(w, map[string]any{"experiences": exps, "count": len(exps)})
@@ -323,7 +343,7 @@ func main() {
 			UserID:   r.URL.Query().Get("userId"),
 		})
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to build ICL prompt: %v", err))
+			writeSDKError(w, err, "failed to build ICL prompt")
 			return
 		}
 		writeJSON(w, result)
@@ -360,7 +380,7 @@ func main() {
 			Offset:  offset,
 		})
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list observations: %v", err))
+			writeSDKError(w, err, "failed to list observations")
 			return
 		}
 		writeJSON(w, result)
@@ -379,7 +399,7 @@ func main() {
 		case http.MethodGet:
 			result, err := client.GetObservation(r.Context(), id)
 			if err != nil {
-				writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get observation: %v", err))
+				writeSDKError(w, err, "failed to get observation")
 				return
 			}
 			if result == nil {
@@ -409,7 +429,7 @@ func main() {
 					writeJSONError(w, http.StatusBadRequest, err.Error())
 					return
 				}
-				writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update observation: %v", err))
+				writeSDKError(w, err, "failed to update observation")
 				return
 			}
 			writeJSON(w, map[string]string{"status": "updated"})
@@ -423,7 +443,7 @@ func main() {
 					writeJSONError(w, http.StatusBadRequest, err.Error())
 					return
 				}
-				writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to delete observation: %v", err))
+				writeSDKError(w, err, "failed to delete observation")
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
@@ -463,7 +483,7 @@ func main() {
 		}
 		result, err := client.GetObservationsByIds(r.Context(), req.Ids)
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get observations: %v", err))
+			writeSDKError(w, err, "failed to get observations")
 			return
 		}
 		writeJSON(w, result)
@@ -476,7 +496,7 @@ func main() {
 		}
 		result, err := client.GetProjects(r.Context())
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get projects: %v", err))
+			writeSDKError(w, err, "failed to get projects")
 			return
 		}
 		writeJSON(w, result)
@@ -490,7 +510,7 @@ func main() {
 		project := r.URL.Query().Get("project")
 		result, err := client.GetStats(r.Context(), project)
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get stats: %v", err))
+			writeSDKError(w, err, "failed to get stats")
 			return
 		}
 		writeJSON(w, result)
@@ -503,7 +523,7 @@ func main() {
 		}
 		result, err := client.GetModes(r.Context())
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get modes: %v", err))
+			writeSDKError(w, err, "failed to get modes")
 			return
 		}
 		writeJSON(w, result)
@@ -516,7 +536,7 @@ func main() {
 		}
 		result, err := client.GetSettings(r.Context())
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get settings: %v", err))
+			writeSDKError(w, err, "failed to get settings")
 			return
 		}
 		writeJSON(w, result)
@@ -534,7 +554,7 @@ func main() {
 		}
 		result, err := client.GetQualityDistribution(r.Context(), project)
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get quality distribution: %v", err))
+			writeSDKError(w, err, "failed to get quality distribution")
 			return
 		}
 		writeJSON(w, result)
@@ -558,7 +578,7 @@ func main() {
 		userId := r.URL.Query().Get("userId")
 		result, err := client.GetLatestExtraction(r.Context(), projectPath, template, userId)
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get extraction: %v", err))
+			writeSDKError(w, err, "failed to get extraction")
 			return
 		}
 		writeJSON(w, result)
@@ -594,7 +614,7 @@ func main() {
 		}
 		result, err := client.GetExtractionHistory(r.Context(), projectPath, template, userId, limit)
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get extraction history: %v", err))
+			writeSDKError(w, err, "failed to get extraction history")
 			return
 		}
 		writeJSON(w, result)
@@ -611,7 +631,7 @@ func main() {
 			return
 		}
 		if err := client.TriggerExtraction(r.Context(), projectPath); err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to trigger extraction: %v", err))
+			writeSDKError(w, err, "failed to trigger extraction")
 			return
 		}
 		writeJSON(w, map[string]string{"status": "extraction triggered"})
@@ -628,7 +648,7 @@ func main() {
 			return
 		}
 		if err := client.TriggerRefinement(r.Context(), project); err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to trigger refinement: %v", err))
+			writeSDKError(w, err, "failed to trigger refinement")
 			return
 		}
 		writeJSON(w, map[string]string{"status": "refined"})
@@ -665,7 +685,7 @@ func main() {
 				writeJSONError(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to submit feedback: %v", err))
+			writeSDKError(w, err, "failed to submit feedback")
 			return
 		}
 		writeJSON(w, map[string]string{"status": "submitted"})
@@ -699,7 +719,7 @@ func main() {
 			UserID:      req.UserId,
 		})
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to start session: %v", err))
+			writeSDKError(w, err, "failed to start session")
 			return
 		}
 		writeJSON(w, result)
@@ -728,7 +748,7 @@ func main() {
 		}
 		result, err := client.UpdateSessionUserId(r.Context(), req.SessionId, req.UserId)
 		if err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update session user: %v", err))
+			writeSDKError(w, err, "failed to update session user")
 			return
 		}
 		writeJSON(w, result)
@@ -776,7 +796,7 @@ func main() {
 			Source:        req.Source,
 			ExtractedData: req.ExtractedData,
 		}); err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to record observation: %v", err))
+			writeSDKError(w, err, "failed to record observation")
 			return
 		}
 		writeJSON(w, map[string]string{"status": "recorded"})
@@ -815,7 +835,7 @@ func main() {
 			PromptText:   req.Prompt,
 			PromptNumber: req.PromptNumber,
 		}); err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to record prompt: %v", err))
+			writeSDKError(w, err, "failed to record prompt")
 			return
 		}
 		writeJSON(w, map[string]string{"status": "recorded"})
@@ -848,7 +868,7 @@ func main() {
 			SessionID:            req.Session,
 			LastAssistantMessage: req.LastAssistantMsg,
 		}); err != nil {
-			writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to record session end: %v", err))
+			writeSDKError(w, err, "failed to record session end")
 			return
 		}
 		writeJSON(w, map[string]string{"status": "ended"})
