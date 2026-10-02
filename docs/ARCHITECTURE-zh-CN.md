@@ -652,7 +652,7 @@ CREATE TABLE mem_pending_messages (
 CREATE TABLE observation_feedback (
     id BIGSERIAL PRIMARY KEY,
     observation_id UUID NOT NULL REFERENCES mem_observations(id) ON DELETE CASCADE,
-    signal_type VARCHAR(50) NOT NULL,
+    signal_type VARCHAR(50) NOT NULL,  -- 'semantic_inject'、'search_hit'、'explicit_retrieval'
     session_db_id UUID,
     created_at_epoch BIGINT NOT NULL,
     metadata TEXT
