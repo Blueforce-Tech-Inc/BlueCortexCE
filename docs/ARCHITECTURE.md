@@ -638,6 +638,7 @@ CREATE TABLE mem_pending_messages (
 );
 ```
 
+```sql
 -- Observation Feedback table (V17: Thompson Sampling)
 CREATE TABLE observation_feedback (
     id BIGSERIAL PRIMARY KEY,
@@ -651,6 +652,7 @@ CREATE TABLE observation_feedback (
 CREATE INDEX idx_feedback_observation ON observation_feedback(observation_id);
 CREATE INDEX idx_feedback_signal ON observation_feedback(signal_type);
 CREATE INDEX idx_feedback_session ON observation_feedback(session_db_id);
+```
 
 #### Semantic Search
 
@@ -1010,13 +1012,30 @@ claudemem:
 embedding_768  vector(768),
 embedding_1024 vector(1024),  -- Primary
 embedding_1536 vector(1536),
-embedding_model_id VARCHAR(50)
+embedding_model_id VARCHAR(255)
 ```
 
 **Rationale**:
 - Flexibility to switch models
 - Migration path without data loss
 - Model tracking for queries
+
+**Scope of the decision — storage only.** The three columns are written by
+dimension: `AgentService` switches on the vector length and stores into
+`embedding_768` / `embedding_1024` / `embedding_1536` accordingly. The read
+path does **not** do the same. `ObservationRepository.hybridSearch` always
+compares against `embedding_1024`, and `SearchService` computes the query
+dimension only to log it, so its "dimension-aware" comment describes an
+intention the code does not implement. `semanticSearch768` / `semanticSearch1024`
+/ `semanticSearch1536` carry the correct per-dimension SQL but have no callers.
+
+In practice this means the shipped `BAAI/bge-m3` setup (1024-dim) is the only
+configuration in which semantic search works end to end. Point
+`SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` at a 768- or 1536-dim model and
+ingestion keeps writing correctly, but every semantic query then fails with
+`different vector dimensions <n> and 1024` and is caught, falling back to
+full-text search. The degradation is visible rather than silent: the response
+reports `strategy: "tsvector"` with `fellBack: true`, and a WARN is logged.
 
 ---
 

@@ -1013,13 +1013,26 @@ claudemem:
 embedding_768  vector(768),
 embedding_1024 vector(1024),  -- 主索引
 embedding_1536 vector(1536),
-embedding_model_id VARCHAR(50)
+embedding_model_id VARCHAR(255)
 ```
 
 **理由**：
 - 切换模型的灵活性
 - 无数据丢失的迁移路径
 - 查询的模型跟踪
+
+**决策的适用范围——仅限写入侧。** 三个列按维度写入：`AgentService` 依据向量长度
+switch，分别存入 `embedding_768` / `embedding_1024` / `embedding_1536`。但读取侧
+并非如此：`ObservationRepository.hybridSearch` 始终与 `embedding_1024` 比较，而
+`SearchService` 算出查询向量维度后只用于打印日志——它那句 "dimension-aware" 注释
+描述的是代码并未实现的意图。`semanticSearch768` / `semanticSearch1024` /
+`semanticSearch1536` 三个方法带有正确的分维度 SQL，但没有任何调用方。
+
+实际后果是：只有随附的 `BAAI/bge-m3` 配置（1024 维）能让语义检索端到端工作。若把
+`SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` 改为 768 维或 1536 维模型，写入依旧正确，
+但每次语义查询都会因 `different vector dimensions <n> and 1024` 失败并被捕获，
+退化为全文检索。该降级是可见的而非静默的：响应会返回 `strategy: "tsvector"` 与
+`fellBack: true`，同时记录一条 WARN 日志。
 
 ---
 
