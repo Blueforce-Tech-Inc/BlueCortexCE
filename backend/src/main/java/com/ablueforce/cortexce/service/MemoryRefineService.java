@@ -236,8 +236,20 @@ public class MemoryRefineService {
             }
 
             // Phase 3: Run structured extraction after refinement
-            // Per-project lock prevents concurrent extractions for the same project
-            // (deepRefineProjectMemories is triggered from both SessionEnd hook and scheduled task)
+            // Per-project lock prevents concurrent extractions for the same project.
+            //
+            // NOTE: this method currently has NO callers. The comment that used to
+            // sit here claimed it was "triggered from both SessionEnd hook and
+            // scheduled task" — that is false, and it is what made this look like a
+            // live second trigger for extraction. Checked: the only references to
+            // deepRefineProjectMemories outside its own definition are two comments
+            // in StructuredExtractionService, which cite it as the *other* lock site
+            // for comparison. The live path is tryExecuteWithProjectLock, called by
+            // StructuredExtractionService.reExtractForSession.
+            //
+            // The 0.6f below is likewise dead, and a separate 0.6f in the live
+            // findRefineCandidates gates stale candidates instead. Neither is
+            // configurable; docs/DEPLOYMENT.md §5.5 records that accurately.
             if (extractionService != null) {
                 ReentrantLock lock = projectLocks.computeIfAbsent(projectPath, k -> new ReentrantLock());
                 boolean acquired = false;
