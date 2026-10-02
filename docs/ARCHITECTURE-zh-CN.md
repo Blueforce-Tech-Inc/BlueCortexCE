@@ -651,6 +651,8 @@ CREATE INDEX idx_feedback_observation ON observation_feedback(observation_id);
 CREATE INDEX idx_feedback_signal ON observation_feedback(signal_type);
 CREATE INDEX idx_feedback_session ON observation_feedback(session_db_id);
 
+```
+
 #### 语义搜索
 
 ```sql
