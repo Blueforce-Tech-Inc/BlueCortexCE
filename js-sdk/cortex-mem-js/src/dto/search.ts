@@ -51,13 +51,19 @@ export interface ObservationsRequest {
 
 /**
  * Paginated response from listing observations.
+ *
+ * The backend returns only `{items, hasMore}`. It does not echo `total`,
+ * `offset` or `limit` back, so all three are optional here: a present value
+ * comes from the server, an absent one means "the server did not say".
+ * Treat them as undefined rather than assuming a number -- the Go and Python
+ * SDKs carry the same three fields for the same reason.
  */
 export interface ObservationsResponse {
   items: Observation[];
   hasMore: boolean;
   total?: number;
-  offset: number;
-  limit: number;
+  offset?: number;
+  limit?: number;
 }
 
 /**

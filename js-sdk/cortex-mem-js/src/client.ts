@@ -705,6 +705,11 @@ export class CortexMemClient {
 
   /**
    * Parse raw paginated observations response.
+   *
+   * The backend sends only `{items, hasMore}`. `total`/`offset`/`limit` are
+   * copied through untouched when present and left undefined when not, rather
+   * than defaulting to 0 -- a 0 would read as "the server reported zero"
+   * instead of "the server did not report".
    */
   private parseObservationsResponse(raw: unknown): ObservationsResponse {
     const r = raw as Record<string, unknown>;
@@ -715,8 +720,8 @@ export class CortexMemClient {
       items,
       hasMore: (r.hasMore as boolean) ?? (r.has_more as boolean) ?? false,
       total: r.total as number | undefined,
-      offset: (r.offset as number) ?? 0,
-      limit: (r.limit as number) ?? 0,
+      offset: r.offset as number | undefined,
+      limit: r.limit as number | undefined,
     };
   }
 

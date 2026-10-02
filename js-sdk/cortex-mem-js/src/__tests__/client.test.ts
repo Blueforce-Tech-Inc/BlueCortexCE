@@ -409,6 +409,25 @@ describe('CortexMemClient', () => {
   });
 
   describe('listObservations', () => {
+
+    it('must not invent offset/limit the backend never sends', async () => {
+      // The real GET /api/observations response carries only {items, hasMore}.
+      // Verified live against the running backend. The other fixtures in this
+      // block include offset/limit, which let the fabricated values pass as if
+      // they were real -- so this case pins the actual wire shape.
+      fetchMock = mockFetch(200, { items: [], hasMore: false });
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+
+      const result = await client.listObservations({ project: '/tmp', limit: 20 });
+
+      expect(result.items).toEqual([]);
+      expect(result.hasMore).toBe(false);
+      // The request asked for limit=20, but the backend never reports one back,
+      // so 0 would be a fabricated answer rather than an absent one.
+      expect(result.limit).toBeUndefined();
+      expect(result.offset).toBeUndefined();
+    });
+
     it('should call GET /api/observations with params', async () => {
       const resp = { items: [], has_more: false, offset: 0, limit: 20 };
       fetchMock = mockFetch(200, resp);
