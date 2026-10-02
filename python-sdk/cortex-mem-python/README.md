@@ -127,6 +127,36 @@ Only non-None fields are sent to the backend (PATCH semantics).
 | `get_modes()` | Get mode settings |
 | `get_settings()` | Get current settings |
 
+### Lifecycle
+
+| Method | Description |
+|--------|-------------|
+| `close()` | Mark the client closed and release its HTTP session (see below for borrowed sessions) |
+
+After `close()`, every method raises `CortexError("client is closed")`. The client
+also works as a context manager, so the usual form needs no explicit call:
+
+```python
+with CortexMemClient(base_url="http://localhost:37777") as client:
+    result = client.search(project="/my-project", query="auth", limit=5)
+```
+
+### Session ownership
+
+`CortexMemClient(..., session=your_session)` borrows a `requests.Session` you
+already have, which is the way to share a connection pool with the rest of your
+application. Two things follow from that, and both are deliberate:
+
+- **Headers are per-request, never written into the session.** The SDK sends
+  `Accept`, `User-Agent` and `Authorization` on each call instead of mutating
+  `session.headers`. A borrowed session is shared with all of your other HTTP
+  traffic, so writing the API key into it would send that key to unrelated
+  hosts. Your own session headers are never overwritten, and the owned session
+  takes the same code path, so requests are byte-identical either way.
+- **`close()` does not close a borrowed session.** It marks the client closed
+  and releases the connection pool only when the SDK created the session. Closing
+  a session you still own is your call.
+
 ## Error Handling
 
 ```python

@@ -127,6 +127,33 @@ client.update_observation("obs-123", update, title="From Kwargs")
 | `get_modes()` | 获取模式设置 |
 | `get_settings()` | 获取当前设置 |
 
+### 生命周期
+
+| 方法 | 说明 |
+|------|------|
+| `close()` | 标记客户端已关闭并释放其 HTTP 会话（借用他人会话时的行为见下） |
+
+`close()` 之后，所有方法都会抛出 `CortexError("client is closed")`。客户端同时支持
+上下文管理器，因此通常无需显式调用：
+
+```python
+with CortexMemClient(base_url="http://localhost:37777") as client:
+    result = client.search(project="/my-project", query="auth", limit=5)
+```
+
+### 会话归属
+
+`CortexMemClient(..., session=your_session)` 会借用你已有的 `requests.Session`，
+这是与应用程序其余部分共享连接池的方式。由此产生两条行为，都是有意设计：
+
+- **请求头逐次传递，绝不写入会话**。SDK 在每次调用时单独发送 `Accept`、
+  `User-Agent` 和 `Authorization`，而不是去改 `session.headers`。借用的会话与
+  你其它所有 HTTP 流量共享，若把 API key 写进去，就等于把它发往无关主机。你自己
+  设置的会话头永远不会被覆盖；自建会话走同一条代码路径，因此两种情况下实际发出的
+  请求逐字节一致。
+- **`close()` 不会关闭借用的会话**。它只标记客户端已关闭，并且仅在会话由 SDK 自己
+  创建时才释放连接池。是否关闭仍归你所有的会话，由你决定。
+
 ## 错误处理
 
 ```python

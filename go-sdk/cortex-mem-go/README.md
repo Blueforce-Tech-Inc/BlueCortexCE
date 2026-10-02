@@ -87,6 +87,7 @@ func main() {
 | Extraction | `TriggerExtraction`, `GetLatestExtraction`, `GetExtractionHistory` |
 | Version | `GetVersion` |
 | P1 | `GetProjects`, `GetStats`, `GetModes`, `GetSettings` |
+| Lifecycle | `Close` (releases idle connections), `String` (debug representation) |
 
 ## Option Pattern
 

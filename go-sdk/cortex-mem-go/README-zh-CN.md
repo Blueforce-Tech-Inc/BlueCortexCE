@@ -87,6 +87,7 @@ func main() {
 | 提取 | `TriggerExtraction`, `GetLatestExtraction`, `GetExtractionHistory` |
 | 版本 | `GetVersion` |
 | P1 | `GetProjects`, `GetStats`, `GetModes`, `GetSettings` |
+| 生命周期 | `Close`（释放空闲连接）、`String`（调试表示） |
 
 ## Option 模式
 
