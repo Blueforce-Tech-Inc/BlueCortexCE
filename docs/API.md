@@ -247,6 +247,15 @@ Records a tool use event from Claude Code hooks (via `wrapper.js`). Triggers asy
 | `tool_response` | object/string | ❌ | Tool response |
 | `cwd` | string | ❌ | Current working directory |
 
+> **`cwd` is optional here, but only in the sense that the backend does not
+> reject it.** Omitting it and sending `"cwd": ""` both return `200
+> {"status": "accepted"}`, and the record is queued with an empty project path —
+> so it will not appear in any project-scoped query. `POST /api/ingest/observation`
+> is the one sibling endpoint that treats the project path as mandatory and
+> answers `400 Missing required field: project_path`. All four SDKs reject an
+> empty `cwd` client-side before sending, so this only affects callers using the
+> HTTP API directly.
+
 **Request Example**:
 ```json
 {
@@ -293,6 +302,13 @@ Records a user prompt event from Claude Code hooks. Automatically ensures the se
 | `prompt_number` | int | ❌ | Prompt number for ordering (default: 1) |
 | `cwd` | string | ❌ | Current working directory |
 
+> Both optional fields are accepted when missing **or** empty: a body carrying
+> only `session_id` returns `200 {"status": "ok"}` and the prompt is stored with
+> no text and no project. `session_id` is the only field this endpoint
+> enforces. `POST /api/ingest/observation` is stricter about the project path
+> and answers `400 Missing required field: project_path`. All four SDKs require
+> both `prompt_text` and `cwd` client-side.
+
 **Request Example**:
 ```json
 {
@@ -329,6 +345,12 @@ Signals the end of a session and triggers async summary generation.
 | `session_id` | string | ✅ | Content session ID |
 | `cwd` | string | ❌ | Current working directory |
 | `last_assistant_message` | string | ❌ | Last assistant message for summary generation |
+
+> An absent or empty `cwd` is accepted and the session is still closed; the
+> summary it triggers is filed against an empty project path. `session_id` is
+> the only field this endpoint enforces, and `POST /api/ingest/observation` is
+> the stricter sibling that rejects a blank project path with `400`. All four
+> SDKs require `cwd` client-side.
 
 **Request Example**:
 ```json

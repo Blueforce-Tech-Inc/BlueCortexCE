@@ -257,6 +257,12 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 | `tool_response` | object/string | ❌ | 工具响应 |
 | `cwd` | string | ❌ | 当前工作目录 |
 
+> **`cwd` 在此为可选，但仅仅意味着后端不会拒绝它。** 省略它与发送 `"cwd": ""`
+> 都会返回 `200 {"status": "accepted"}`，且该记录会以空项目路径入队——因此不会出现在
+> 任何按项目过滤的查询结果中。`POST /api/ingest/observation` 是唯一把项目路径视为必填的
+> 同级端点，它会返回 `400 Missing required field: project_path`。四家 SDK 均在发送前
+> 于客户端拒绝空 `cwd`，因此这只影响直接使用 HTTP API 的调用方。
+
 **响应示例**:
 ```json
 {
@@ -293,6 +299,10 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 | `last_assistant_message` | string | ❌ | 最后的助手消息 |
 | `cwd` | string | ❌ | 当前工作目录 |
 
+> `cwd` 缺失**或**为空都会被接受，会话仍会正常结束；由它触发的摘要会以空项目路径归档。
+> 该端点只强制 `session_id`，而更严格的同级端点 `POST /api/ingest/observation` 会对空项目
+> 路径返回 `400`。四家 SDK 均在客户端要求 `cwd`。
+
 **响应示例**:
 ```json
 {
@@ -327,6 +337,12 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 | `prompt_text` | string | ❌ | 提示文本 |
 | `prompt_number` | int | ❌ | 提示编号（默认 1） |
 | `cwd` | string | ❌ | 当前工作目录 |
+
+> 两个可选字段在**缺失或为空**时都会被接受：仅携带 `session_id` 的请求体会返回
+> `200 {"status": "ok"}`，且该提示会以「无文本、无项目」的形式存入。该端点只强制
+> `session_id`。`POST /api/ingest/observation` 对项目路径更严格，会返回
+> `400 Missing required field: project_path`。四家 SDK 均在客户端同时要求
+> `prompt_text` 与 `cwd`。
 
 **响应示例**:
 ```json

@@ -10,7 +10,7 @@
 |----------|------|------|
 | P0 | 0 | 立即修复并复测 |
 | P1 | 1 | 优先修复并复测 |
-| P2 | 2 | 本轮完整验收阶段处理或明确标记为已跳过 |
+| P2 | 3 | 本轮完整验收阶段处理或明确标记为已跳过 |
 
 > **Open 只统计尚未处理的条目**（⏸已记录不修 / 📌待修）。标记为 ✅已修复 或 ✅已跳过 的条目
 > 保留在本文件作为可追溯的历史，但**不计入** Open。
@@ -23,6 +23,9 @@
 > 故 P2 计数为 1。降级行为对调用方可见（`strategy` / `fellBack`），且仅在非 1024 维配置下触发。
 > 第 174 轮新增 P2-9（`MEMORY_QUALITY_THRESHOLD` 为死配置键，注释承诺的检索过滤器不存在），
 > 同样 ⏸已记录不修，P2 计数为 2。该项无行为影响，仅误导；文档已如实标注。
+> 第 175 轮新增 P2-10（四个 ingest 端点对项目路径的必填性不一致，仅 `/api/ingest/observation`
+> 严格），同样 ⏸已记录不修，P2 计数为 3。四家 SDK 均已在客户端拦截，故只影响直接调用
+> HTTP API 的用户；收紧契约属对外变更，留待 Backend 轮次决策。
 
 ## Open Findings
 
@@ -289,6 +292,34 @@
   用于 `MemoryRefineService:111` 的删除分支、`MEMORY_REFINE_COOLDOWN_DAYS` / `_STALE_DAYS`
   用于 `:43` / `:46`，四个 `EXTRACTION_*` 经 `ExtractionConfig` 的松散绑定
   （`initial-run-max-candidates` → `initialRunMaxCandidates`）正确对应。
+
+### P2-10: 四个 ingest 端点对项目路径的必填性不一致
+
+- **Scope**: `backend/.../controller/IngestionController.java` — `handleObservation`
+  （第 319 行 `if (projectPath == null || projectPath.isBlank())` → 400）与
+  `handleToolUse`（第 119 行）、`handleUserPrompt`（第 229 行）、`handleSessionEnd`
+  三个端点。后三者从 `body.cwd()` 取值后**不做任何校验**。
+- **Problem**: 同一族端点对同一个语义字段给出两种契约。实测（对运行中的后端）：
+  | 端点 | 缺失/空白 `project_path`（或 `cwd`） |
+  |------|------------------------------------|
+  | `POST /api/ingest/observation` | **400** `Missing required field: project_path` |
+  | `POST /api/ingest/tool-use` | **200** `{"status":"accepted"}` |
+  | `POST /api/ingest/user-prompt` | **200** `{"status":"ok"}` |
+  | `POST /api/ingest/session-end` | **200** `{"status":"ok"}` |
+  `cwd` 省略与发送 `"cwd": ""` 行为相同。
+- **实际影响**：仅影响直接使用 HTTP API 的调用方——四家 SDK 均已在客户端拒绝空
+  `project_path`（本轮刚为 Python 补齐），因此 SDK 路径不会触发。直接调 API 的调用方
+  会得到一条项目路径为空的记录：写入成功、返回 200，但该记录不会出现在任何按项目
+  过滤的查询里，**且不会有任何错误提示**。`user-prompt` 的 `prompt_text` 同样缺失即
+  接受（仅 `session_id` 被强制）。
+- **未修的原因**：收紧另三个端点属于**对外 API 契约变更**，会影响既有直接调用方与
+  薄代理 `wrapper.js` 的边界输入，属产品决策；本轮代码方向为 Python SDK，按轮换
+  纪律不在本轮动手。
+- **Status**: ⏸ 已记录不修（2026-10-02，第 175 轮 API 文档轮发现）。文档方向已在同轮
+  于 `docs/API.md` / `docs/API-zh-CN.md` 三个端点各加一段说明，逐条写明「缺失与空串
+  都会被接受」「`/api/ingest/observation` 是唯一严格的那个」「SDK 会在客户端拦截」，
+  使读者不必自行推断这层差异。API 文档原本对两者的「必填」标注**是正确的**
+  （observation 标 ✅、另三个标 ❌），本轮只是补上未言明的后果。
 
 ## Processing Rules
 
