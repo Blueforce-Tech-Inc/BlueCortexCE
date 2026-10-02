@@ -476,6 +476,44 @@ class TestHealth:
         with pytest.raises(CortexError):
             c.health_check()
 
+    @pytest.mark.parametrize(
+        "label,body,content_type",
+        [
+            ("html", "<html><body>502 Bad Gateway</body></html>", "text/html"),
+            ("plain text", "upstream connect error", "text/plain"),
+            ("empty body", "", "application/json"),
+            ("truncated json", '{"status":"ok"', "application/json"),
+            ("json array", '["ok"]', "application/json"),
+            ("json without status", '{"service":"claude-mem-java"}', "application/json"),
+        ],
+    )
+    @responses.activate
+    def test_health_check_non_json_body_is_not_healthy(self, label, body, content_type):
+        """A 200 that is not the health JSON must not pass as healthy.
+
+        _request_json returns None for a non-JSON body (graceful degradation),
+        so a bare `isinstance(data, dict)` guard let None through and the
+        readiness gate reported a proxy error page as a healthy backend.
+        """
+        responses.add(
+            responses.GET,
+            f"{BASE}/api/health",
+            body=body,
+            status=200,
+            content_type=content_type,
+        )
+        c = _client()
+        with pytest.raises(CortexError):
+            c.health_check()
+
+    @responses.activate
+    def test_health_check_204_no_content_is_not_healthy(self):
+        """A 204 carries no body, so it cannot confirm the backend is up."""
+        responses.add(responses.GET, f"{BASE}/api/health", status=204)
+        c = _client()
+        with pytest.raises(CortexError):
+            c.health_check()
+
 
 # ==================== Extraction ====================
 

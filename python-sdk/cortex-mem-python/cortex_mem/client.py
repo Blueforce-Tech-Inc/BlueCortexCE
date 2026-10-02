@@ -573,14 +573,20 @@ class CortexMemClient:
     def health_check(self) -> None:
         """Check backend health. GET /api/health.
 
-        Raises APIError if backend is unhealthy.
+        Raises CortexError if the backend is unhealthy, and also if the
+        response cannot be read as the health JSON at all. A health check that
+        cannot confirm the backend answered is not a health check: callers use
+        this as a readiness gate, so "unknown" must not pass as "healthy".
         """
         self._assert_not_closed()
         data = self._request_json("GET", "/api/health")
-        if isinstance(data, dict):
-            status = data.get("status")
-            if status != "ok":
-                raise CortexError(f"unhealthy: {data}")
+        if not isinstance(data, dict):
+            raise CortexError(
+                f"unhealthy: /api/health returned {type(data).__name__}, expected a JSON object"
+            )
+        status = data.get("status")
+        if status != "ok":
+            raise CortexError(f"unhealthy: {data}")
 
     # ==================== Extraction ====================
 
