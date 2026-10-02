@@ -649,9 +649,81 @@ class CortexMemClientImplTest {
         assertThat(req.getPath()).doesNotContain("limit=");
     }
 
+    /**
+     * The backend serializes facts/concepts/files_read/files_modified as
+     * JSON-encoded <em>strings</em> for the WebUI, not as JSON arrays. Verified
+     * live: a real observation came back with
+     * {@code concepts: "[\"allergy\",\"peanut\"]"}.
+     * <p>
+     * A plain {@code (List<String>)} cast threw ClassCastException there, and
+     * because listObservations wraps the mapping in a broad catch, the whole
+     * page came back empty — a live probe returned 0 items for a project that
+     * had 20. Every existing fixture here used an empty items array or an
+     * observation with no list fields at all, so none of them could have caught
+     * it; this one uses the real response shape.
+     */
     @Test
-    void getObservationsByIds_sendsCorrectBody() throws Exception {
+    void listObservations_parsesJsonbListFieldsSentAsJsonEncodedStrings() throws Exception {
+        String json = """
+            {"items":[{
+              "id":"6ba7da76-4e53-4c45-8b7d-b4dd2c3c5bfc",
+              "content_session_id":"test-hook-002",
+              "project":"/tmp/phase3-acceptance-test",
+              "narrative":"Testing hook mode compatibility",
+              "facts":"[\\"step one\\",\\"step two\\"]",
+              "concepts":"[\\"allergy\\",\\"peanut\\"]",
+              "files_read":"[\\"a.py\\"]",
+              "files_modified":"[]"
+            }],"hasMore":false}""";
         server.enqueue(new MockResponse()
+            .setBody(json)
+            .addHeader("Content-Type", "application/json"));
+
+        PagedObservationResponse result = client.listObservations(ObservationsRequest.builder()
+            .project("/tmp/phase3-acceptance-test")
+            .limit(20)
+            .build());
+
+        assertThat(result.items()).hasSize(1);
+        ObservationResponse o = result.items().get(0);
+        assertThat(o.facts()).containsExactly("step one", "step two");
+        assertThat(o.concepts()).containsExactly("allergy", "peanut");
+        assertThat(o.filesRead()).containsExactly("a.py");
+        assertThat(o.filesModified()).isEmpty();
+        // Scalars from the same body must keep working.
+        assertThat(o.projectPath()).isEqualTo("/tmp/phase3-acceptance-test");
+        assertThat(o.content()).isEqualTo("Testing hook mode compatibility");
+    }
+
+    /** The plain-array shape must keep working — the fix is additive. */
+    @Test
+    void listObservations_stillAcceptsRealArraysForJsonbListFields() throws Exception {
+        String json = """
+            {"items":[{
+              "id":"o1",
+              "facts":["a"],
+              "concepts":["b"],
+              "files_read":[],
+              "files_modified":null
+            }],"hasMore":false}""";
+        server.enqueue(new MockResponse()
+            .setBody(json)
+            .addHeader("Content-Type", "application/json"));
+
+        PagedObservationResponse result = client.listObservations(ObservationsRequest.builder()
+            .project("/proj")
+            .build());
+
+        assertThat(result.items()).hasSize(1);
+        ObservationResponse o = result.items().get(0);
+        assertThat(o.facts()).containsExactly("a");
+        assertThat(o.concepts()).containsExactly("b");
+        assertThat(o.filesRead()).isEmpty();
+        assertThat(o.filesModified()).isNull();
+    }
+
+    @Test
+    void getObservationsByIds_sendsCorrectBody() throws Exception {        server.enqueue(new MockResponse()
             .setBody("[]")
             .addHeader("Content-Type", "application/json"));
 

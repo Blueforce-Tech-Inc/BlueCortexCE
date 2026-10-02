@@ -13,6 +13,7 @@ import org.springframework.web.client.RestClientResponseException;
 import java.net.URL;
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -833,10 +834,10 @@ public class CortexMemClientImpl implements CortexMemClient {
             str(raw.get("title")),
             str(raw.get("subtitle")),
             str(raw.get("narrative")),
-            (List<String>) raw.get("facts"),
-            (List<String>) raw.get("concepts"),
-            (List<String>) raw.get("files_read"),
-            (List<String>) raw.get("files_modified"),
+            strList(raw.get("facts")),
+            strList(raw.get("concepts")),
+            strList(raw.get("files_read")),
+            strList(raw.get("files_modified")),
             raw.get("quality_score") != null ? ((Number) raw.get("quality_score")).floatValue() : null,
             str(raw.get("feedback_type")),
             str(raw.get("feedback_updated_at")),
@@ -889,5 +890,46 @@ public class CortexMemClientImpl implements CortexMemClient {
     private static String str(Object v) {
         if (v == null) return null;
         return v.toString();
+    }
+
+    /**
+     * Coerce a JSONB list column to {@code List<String>}.
+     * <p>
+     * The backend serializes {@code facts}, {@code concepts}, {@code files_read} and
+     * {@code files_modified} as <em>JSON-encoded strings</em> for the WebUI, not as
+     * JSON arrays, so a live observation carries
+     * {@code concepts: "[\"allergy\",\"peanut\"]"}. A plain cast to {@code List}
+     * therefore threw {@link ClassCastException} and, because the caller wraps the
+     * mapping in a broad catch, silently produced an empty result for the whole
+     * page. Both shapes are accepted here.
+     *
+     * @return the decoded list, or {@code null} when the value is absent or cannot
+     *         be interpreted as a list of strings
+     */
+    @SuppressWarnings("unchecked")
+    private static List<String> strList(Object v) {
+        if (v == null) return null;
+        if (v instanceof List<?> list) {
+            return (List<String>) list;
+        }
+        if (v instanceof String s) {
+            String trimmed = s.trim();
+            if (trimmed.isEmpty()) return null;
+            try {
+                Object parsed = new com.fasterxml.jackson.databind.ObjectMapper()
+                    .readValue(trimmed, Object.class);
+                if (parsed instanceof List<?> list) {
+                    return (List<String>) list;
+                }
+                return null;
+            } catch (Exception ignored) {
+                // Not JSON — degrade to a comma-separated split rather than losing it.
+                return Arrays.stream(trimmed.split(","))
+                        .map(String::trim)
+                        .filter(part -> !part.isEmpty())
+                        .toList();
+            }
+        }
+        return null;
     }
 }
