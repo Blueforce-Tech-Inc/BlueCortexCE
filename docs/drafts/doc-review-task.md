@@ -7,8 +7,8 @@
 ## Current Review Rotation
 
 - **轮换顺序**: API 文档 → SDK README → 设计文档 → 架构文档 → 用户指南
-- **最近完成**: SDK README（2026-10-02 三十五轮，Java SDK 降级契约按 26 个方法逐一核验后补齐中英版）
-- **下一方向**: SDK README（其余 Java/Go/Python/JS SDK README 继续复核，第三十五循环）
+- **最近完成**: SDK README（2026-10-02 三十六轮，Go/Python/JS 三份 README 的方法覆盖、签名、HTTP 映射、默认值逐条对照源码核验，全部一致）
+- **下一方向**: API 文档（第三十六循环，标题风格分歧作为本方向待处理项）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
 
 ## Pending Doc Issues
