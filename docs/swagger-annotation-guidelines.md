@@ -50,21 +50,37 @@ public record ModeSwitchRequest(
 
 ## 当前注解统计
 
-| Controller | @Operation | @Parameter | @Schema | @ApiResponse |
-|-----------|-----------|-----------|---------|-------------|
-| ContextController | 6 | 18 | 0 | 10 |
-| CursorController | 6 | 4 | 0 | 16 |
-| ExtractionController | 3 | 8 | 0 | 12 |
-| HealthController | 3 | 0 | 2 | 5 |
-| ImportController | 5 | 0 | 4 | 5 |
-| IngestionController | 4 | 0 | 1 | 13 |
-| LogsController | 2 | 1 | 0 | 4 |
-| MemoryController | 7 | 4 | 0 | 18 |
-| ModeController | 8 | 2 | 7 | 10 |
-| SessionController | 3 | 2 | 0 | 11 |
-| StreamController | 1 | 0 | 1 | 1 |
-| TestController | 3 | 0 | 0 | 7 |
-| ViewerController | 15 | 29 | 2 | 27 |
+> **统计时间**: 2026-10-02
+> **统计方法**: 对 `backend/src/main/java/com/ablueforce/cortexce/controller/*.java`
+> 先剥离 `//` 与 `/* */` 注释（`ViewerController` 中有被注释掉的 `/concepts` 映射），
+> 再统计注解的**出现次数**（不是包含它的行数）。`@Schema` 拆成两列，因为
+> `@Content(schema = @Schema(implementation = ...))` 指向响应类型，而直接写在
+> record 字段上的 `@Schema(description = ...)` 才是本规范要求的那一种。
+>
+> **交叉校验**: `@Operation` 合计 67，与本仓库其他章节独立统计出的 67 个生效端点
+> 数量一致，可作为该统计方法未漏计的旁证。
+
+| Controller | @Operation | @Parameter | @Schema(字段) | @Schema(impl) | @ApiResponse |
+|-----------|-----------|-----------|---------------|----------------|-------------|
+| ContextController | 7 | 18 | 0 | 6 | 7 |
+| CursorController | 6 | 4 | 7 | 8 | 13 |
+| ExtractionController | 3 | 8 | 0 | 6 | 9 |
+| HealthController | 3 | 0 | 3 | 0 | 4 |
+| ImportController | 5 | 0 | 4 | 5 | 5 |
+| IngestionController | 4 | 0 | 7 | 6 | 9 |
+| LogsController | 2 | 1 | 3 | 0 | 3 |
+| MemoryController | 7 | 4 | 11 | 7 | 16 |
+| ModeController | 8 | 2 | 14 | 2 | 9 |
+| SessionController | 3 | 2 | 0 | 10 | 8 |
+| StreamController | 1 | 0 | 1 | 0 | 1 |
+| TestController | 3 | 0 | 5 | 0 | 5 |
+| ViewerController | 15 | 33 | 13 | 11 | 22 |
+| **合计** | **67** | **72** | **68** | **61** | **111** |
+
+> 本表此前标注为 2026-03-27 的统计，其中 `@Schema` 与 `@ApiResponse` 多列偏低
+> （例如 `MemoryController` 的 `@Schema` 记为 0、实为 11+7；`ViewerController` 的
+> `@ApiResponse` 记为 27、实为 22）。原表未说明统计方法，无法复现，故一并改为
+> 可复现口径。
 
 ## 维护规则
 

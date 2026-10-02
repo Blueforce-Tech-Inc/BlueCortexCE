@@ -2,7 +2,8 @@
 
 > **Purpose**: Reference for SDK developers — which JSON key case each API endpoint uses
 > **Maintainer**: CortexCE development team
-> **Last verified**: 2026-03-29 (actual curl test against live service)
+> **Last verified**: 2026-10-02 (actual curl test against live service; the previous
+> verification on 2026-03-29 had drifted — see the Corrections section at the bottom)
 
 ## ⚠️ The Problem
 
@@ -27,6 +28,11 @@ Java field:      filesModified     →  JSON key: "files_modified"
 Java field:      contentHash       →  JSON key: "content_hash"
 Java field:      discoveryTokens   →  JSON key: "discovery_tokens"
 ```
+
+⚠️ **This is the default, not a guarantee.** A field carrying an explicit
+`@JsonProperty` override is not re-cased. `ObservationEntity` overrides three of them —
+`project`, `narrative` and `extractedData` — so that entity is a mix, not uniform
+snake_case. Always check the entity before assuming.
 
 ### Rule 2: Map.of() responses → keys as-written
 
@@ -59,20 +65,46 @@ Java field:      createdAt         →  "created_at"
 
 | Endpoint | Return Type | Naming |
 |----------|-------------|--------|
-| `GET /api/observations` | `PagedResponse<ObservationEntity>` | **snake_case** |
-| `GET /api/observations/{id}` | `ObservationEntity` | **snake_case** |
+| `GET /api/observations` | `PagedResponse<ObservationEntity>` | **mixed** — envelope camelCase, items snake_case |
+| `POST /api/observations/batch` | `BatchGetObservationsResponse` | **mixed** — envelope camelCase, items snake_case |
 
-Key fields: `id`, `content_session_id`, `project_path`, `type`, `title`, `content`, `facts`, `concepts`, `files_read`, `files_modified`, `content_hash`, `discovery_tokens`, `created_at_epoch`, `quality_score`, `feedback_type`, `last_accessed_at`, `access_count`, `refined_at`, `source`, `extracted_data`
+There is **no `GET /api/observations/{id}` endpoint** — a single observation is fetched
+by id through `POST /api/observations/batch` with `{"ids":["..."]}`.
+
+Envelope: `items`, `hasMore` (camelCase, WebUI compat — the backend sends no `total`,
+`offset` or `limit`, so SDKs must not fabricate them).
+
+Observation item keys, exactly as returned (verified live):
+
+`id`, `content_session_id`, **`project`** (not `project_path`), `type`, `title`, `subtitle`,
+**`narrative`** (not `content`), `facts`, `concepts`, `files_read`, `files_modified`,
+`content_hash`, `discovery_tokens`, `prompt_number`, `step_number`, `created_at`,
+`created_at_epoch`, `quality_score`, `feedback_type`, `feedback_updated_at`,
+`last_accessed_at`, `access_count`, `refined_at`, `refined_from_ids`, `user_comment`,
+`source`, **`extractedData`** (not `extracted_data`), `platform_source`,
+`generated_by_model`, `relevance_count`, `embedding_model_id`, `embedding_768`,
+`embedding_1024`, `embedding_1536`
+
+The three highlighted keys are the ones a snake_case assumption gets wrong: `project` and
+`narrative` are `@JsonProperty` overrides on the entity, and `extractedData` is the
+V14 camelCase override.
 
 ### Sessions
+
+`SessionController` exposes exactly three mappings: `POST /start`, `GET /{sessionId}`,
+`PATCH /{sessionId}/user`. There is no `/api/session/info` and no `PATCH /api/session/{id}`.
 
 | Endpoint | Return Type | Naming |
 |----------|-------------|--------|
 | `POST /api/session/start` | `Map.of(...)` | **mixed** — see below |
-| `GET /api/session/info` | `Map.of(...)` | **mixed** — see below |
-| `PATCH /api/session/{id}` | Entity update response | **snake_case** |
+| `GET /api/session/{id}` | `Map.of(...)` | **mixed** — see below |
+| `PATCH /api/session/{id}/user` | `Map.of(...)` | **camelCase** |
 
-Session start response keys: `context` (snake), `updateFiles` (**camelCase** — WebUI compat), `session_db_id` (snake), `prompt_number` (snake)
+Session start response keys (verified live): `session_id` (snake), `session_db_id`
+(snake), `prompt_number` (snake), `context` (single word), `updateFiles` (**camelCase** —
+WebUI compat), `source` (absent when not V18-tagged).
+
+`PATCH /api/session/{id}/user` response keys: `status`, `sessionId`, `userId` (all camelCase).
 
 ### Memory (MemoryController)
 
@@ -81,7 +113,7 @@ Session start response keys: `context` (snake), `updateFiles` (**camelCase** —
 | `POST /api/memory/experiences` | `List<Experience>` | **snake_case** |
 | `POST /api/memory/icl-prompt` | `Map.of(...)` | **camelCase** |
 
-ICL prompt response keys: `prompt`, `experienceCount`, `maxChars`
+ICL prompt response keys (verified live): `prompt`, `experienceCount`, `maxChars`
 
 ### Extraction (ExtractionController)
 
@@ -91,30 +123,33 @@ ICL prompt response keys: `prompt`, `experienceCount`, `maxChars`
 | `GET /api/extraction/{template}/history` | `List<Map.of(...)>` | **camelCase** |
 | `POST /api/extraction/run` | `Map.of(...)` | **camelCase** |
 
-Extraction response keys: `status`, `template`, `sessionId`, `extractedData`, `createdAt`, `observationId`
+Extraction response keys (verified live): `status`, `template`, `message`, `sessionId`,
+`extractedData`, `createdAt`, `observationId`
 
 ### Health (HealthController)
 
 | Endpoint | Return Type | Naming |
 |----------|-------------|--------|
-| `GET /api/health` | `Map.of(...)` | **camelCase-ish** (literal keys) |
+| `GET /api/health` | `Map.of(...)` | **literal keys** |
 
-Health response keys: `service`, `status`, `timestamp`
+Health response keys (verified live): `service`, `status`, `timestamp`
 
 ### Search (ViewerController)
 
 | Endpoint | Return Type | Naming |
 |----------|-------------|--------|
-| `GET /api/search` | `Map.of(...)` | **snake_case** (explicit HashMap keys) |
+| `GET /api/search` | `Map.of(...)` | **camelCase** (literal keys) |
 
-Search response keys: `results`, `query`, `project`, `source`, `result_count`, `algorithm`
+Search response keys (verified live): `observations`, `count`, `strategy`, `fell_back`
+— note `fell_back` is the only snake_case key in the object. There is no `results`,
+`query`, `project`, `source`, `result_count` or `algorithm` in the response.
 
 ### Ingestion (IngestionController)
 
 | Endpoint | Return Type | Naming |
 |----------|-------------|--------|
 | `POST /api/ingest/tool-use` | `Map.of(...)` | **camelCase** |
-| `POST /api/ingest/observation` | `ObservationEntity` | **snake_case** |
+| `POST /api/ingest/observation` | `ObservationEntity` | **mixed** (see Observations above) |
 | `POST /api/ingest/session-end` | `Map.of(...)` | **camelCase** |
 | `POST /api/ingest/user-prompt` | `Map.of(...)` | **camelCase** |
 
@@ -122,10 +157,20 @@ Search response keys: `results`, `query`, `project`, `source`, `result_count`, `
 
 | Endpoint | Return Type | Naming |
 |----------|-------------|--------|
-| `GET /api/summaries` | `PagedResponse<SummaryEntity>` | **snake_case** |
-| `GET /api/prompts` | `PagedResponse<UserPromptEntity>` | **snake_case** |
+| `GET /api/summaries` | `PagedResponse<SummaryEntity>` | **snake_case** items |
+| `GET /api/prompts` | `PagedResponse<UserPromptEntity>` | **snake_case** items |
 | `GET /api/stats` | `Map.of(...)` | **camelCase** |
 | `GET /api/projects` | `Map.of(...)` | **camelCase** |
+
+Summary item keys (verified live): `id`, `session_id`, `project`, `request`, `notes`,
+`files_read`, `files_edited`, `learned`, `investigated`, `completed`, `next_steps`,
+`prompt_number`, `created_at`, `created_at_epoch`, `platform_source`
+
+Prompt item keys (verified live): `id`, `content_session_id`, `project`, `prompt_text`,
+`prompt_number`, `created_at`, `created_at_epoch`, `platform_source`
+
+`GET /api/stats` returns `worker`, `database`. `GET /api/projects` returns `projects`,
+plus the V18 additions `sources` and `projectsBySource`.
 
 ### WebUI Compatibility Contract (DO NOT CHANGE)
 
@@ -196,6 +241,27 @@ curl -s "http://127.0.0.1:37777/api/extraction/user_preferences/latest?projectPa
 ```
 
 **DO NOT assume the naming convention. Always verify with curl.**
+
+## Corrections (2026-10-02 re-verification)
+
+The previous verification stamp was 2026-03-29. Re-running every claim in this document
+against a live backend found the following drift. They are listed so the next reviewer
+does not trust the older claims without re-checking:
+
+| Claimed before | Reality (verified by curl) |
+|----------------|---------------------------|
+| `GET /api/observations/{id}` exists and returns an `ObservationEntity` | **404.** No such endpoint. Single observations are fetched via `POST /api/observations/batch` |
+| Observation item key `project_path` | `project` |
+| Observation item key `content` | `narrative` |
+| Observation item key `extracted_data` | `extractedData` |
+| `GET /api/session/info` exists | **404.** `SessionController` maps only `POST /start`, `GET /{sessionId}`, `PATCH /{sessionId}/user` |
+| `PATCH /api/session/{id}` returns an entity update response | **405 Method Not Allowed.** The PATCH is on `/{sessionId}/user` and returns `{status, sessionId, userId}` |
+| `GET /api/search` returns `results`, `query`, `project`, `source`, `result_count`, `algorithm` in snake_case | Returns `observations`, `count`, `strategy`, `fell_back`. `fell_back` is the only snake_case key |
+| `GET /api/observations` is uniformly snake_case | The envelope is camelCase (`items`, `hasMore`); only the items are snake_case |
+
+The `observations` mistake is the one most likely to be repeated: `ObservationEntity`
+carries `@JsonProperty` overrides for `project`, `narrative` and `extractedData` precisely
+because they do **not** follow the global SNAKE_CASE strategy, so the entity is a mix.
 
 ## Lessons Learned
 

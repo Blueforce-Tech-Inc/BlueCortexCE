@@ -123,9 +123,11 @@ Java Demo 依赖及完整启动前置条件见 `examples/cortex-mem-demo/README.
 
 ## 已完成实施基准
 
-- Java SDK: 25 个 API 方法 (121 tests: DtoTest 34 + CortexMemClientImplTest 87)
-- Go SDK: 25 个 API 方法 + 8 DTO + 3 集成层 (288 tests: client 194 + dto 61 + genkit 13 + langchaingo 12 + eino 8)
-- Python SDK: 25 个 API 方法 + 15 DTO + ObservationUpdate + Flask Demo (374 tests: dto 118 + client 179 + demo 77)
-- JS/TS SDK: 25 个 API 方法 + CJS/ESM/DTS 输出 (212 tests)
+> 数字为 2026-10-02 实测（`mvn test` / `go test ./...` / `pytest` / `vitest`），非估算。
+
+- Java SDK: 25 个 API 方法（三模块 reactor；client 122 + spring-ai 46 + starter 7 = **175** tests）
+- Go SDK: 27 个接口方法 + DTO 包 + 3 集成层（**335** tests: core 228 + dto 61 + genkit 13 + langchaingo 12 + eino 8 + http-server 示例 13）
+- Python SDK: 25 个 API 方法 + 15 DTO + ObservationUpdate + Flask Demo（**385** tests）
+- JS/TS SDK: 25 个 API 方法 + CJS/ESM/DTS 输出（**216** tests）
 - Demo: Java 12 控制器 + Go 5 Demo + Python 1 Demo + JS 1 Demo
 - E2E 测试: 4 个严格验证脚本
