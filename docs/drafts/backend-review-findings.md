@@ -10,7 +10,7 @@
 |----------|------|------|
 | P0 | 0 | 立即修复并复测 |
 | P1 | 1 | 优先修复并复测 |
-| P2 | 0 | 本轮完整验收阶段处理或明确标记为已跳过 |
+| P2 | 1 | 本轮完整验收阶段处理或明确标记为已跳过 |
 
 > **Open 只统计尚未处理的条目**（⏸已记录不修 / 📌待修）。标记为 ✅已修复 或 ✅已跳过 的条目
 > 保留在本文件作为可追溯的历史，但**不计入** Open。
@@ -19,6 +19,8 @@
 > 故 P2 计数仍为 0；之所以仍登记条目，是因为它改变了 API 响应的 `errorMessages` 内容，属调用方可见变更。
 > 第 172 轮新增 P2-7（DLQ 记录混入精炼流水线，因 `type` 改名后排除条件失效），同样**已当场修复并复测**，
 > P2 计数仍为 0。
+> 第 173 轮新增 P2-8（读取侧无维度路由，检索恒定比 `embedding_1024`），状态 ⏸已记录不修，
+> 故 P2 计数为 1。降级行为对调用方可见（`strategy` / `fellBack`），且仅在非 1024 维配置下触发。
 
 ## Open Findings
 
@@ -229,6 +231,35 @@
   DLQ as `type=extraction_failed` with a scheduled retry task. No such task exists
   (no `@Scheduled` DLQ job) and `findByTypeGlobal` has no callers. Documentation corrected
   in round 172; see `docs/structured-extraction.md` and `docs/drafts/phase-3-design/11.md`.
+
+### P2-8: 读取侧没有维度路由 —— 写入按维度分列，检索恒定比 `embedding_1024`
+
+- **Scope**: 写入侧 `backend/.../service/AgentService.java:533-535`（`switch (vector.length)`，
+  `case 768/1024/1536` 分别调用 `setEmbedding768/1024/1536`）；读取侧
+  `backend/.../repository/ObservationRepository.java:268` `hybridSearch`（SQL 硬编码
+  `embedding_1024`）与 `backend/.../service/SearchService.java:57-59`。
+- **Problem**: `SearchService` 在 PATH 2 的注释自称 "Semantic search with pgvector
+  (dimension-aware)"，第 59 行也确实算出了 `int dim = request.queryVector().length`，
+  但该变量**只用于 debug 日志**，实际 SQL 始终与 `embedding_1024` 比较。仓库里
+  `semanticSearch768` / `semanticSearch1024` / `semanticSearch1536` 三个方法带有正确的
+  分维度 SQL，但**全仓零调用方**（`grep` 主代码与测试均无命中）。因此这是一个
+  写侧已实现、读侧未实现的非对称。
+- **Evidence**（对真实库 `claude_mem_dev` 实测，非源码推断）：以含 3568 行
+  `embedding_1024` 数据的真实项目执行 `hybridSearch` 形状的查询，768 维与 1536 维
+  查询向量均抛出 `DataException: different vector dimensions 768 and 1024` /
+  `1536 and 1024`；1024 维正常返回。
+- **实际影响有限且可见**：随附的 `BAAI/bge-m3` 为 1024 维，是唯一开箱可用的配置，
+  真实项目中 768/1536 列均为空（实测样本 22559 行中两列皆 0，唯一的非 1024 记录是
+  `/tmp/test4` 这条三列同时有值的合成测试夹具）。异常被 `SearchService:74` 捕获后退化为
+  全文检索，API 响应如实返回 `strategy: "tsvector"` 与 `fellBack: true`，并记录一条
+  WARN。**不是静默失败**，故定为 P2 而非 P1。
+- **未修的原因**：正确修复需为 `hybridSearch` 补 768/1536 变体，或在 `SearchService`
+  按维度分流；且需先决定同一项目内混合维度数据（既有 1024 又有 768 记录）如何处理。
+  这属于 Backend 轮次的设计决策，本轮代码方向为 Java SDK，按轮换纪律不在本轮动手。
+- **Status**: ⏸ 已记录不修（2026-10-02，第 173 轮 Java SDK 轮发现）。文档方向已在同轮
+  修正 `docs/ARCHITECTURE.md` / `docs/ARCHITECTURE-zh-CN.md` 的 ADR 4：原「Decision 4:
+  Multi-Dimension Embeddings」读起来像三种维度端到端可用，现已明确限定为**仅写入侧**，
+  并写明退化行为与可观测信号。
 
 ## Processing Rules
 
