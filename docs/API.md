@@ -1331,16 +1331,16 @@ Returns a paginated list of observations, optionally filtered by project. Result
   "items": [
     {
       "id": "550e8400-e29b-41d4-a716-446655440000",
-      "session_id": "content-session-uuid",
+      "content_session_id": "content-session-uuid",
       "project": "/Users/dev/myproject",
       "type": "feature",
       "title": "Feature implementation",
       "subtitle": "JWT authentication",
       "narrative": "Implemented JWT authentication...",
-      "facts": ["Uses RS256 algorithm", "Token expires in 3600s"],
-      "concepts": ["authentication", "security", "jwt"],
-      "files_read": ["src/auth/jwt.go", "pkg/middleware/auth.go"],
-      "files_modified": ["src/auth/jwt.go"],
+      "facts": "[\"Uses RS256 algorithm\", \"Token expires in 3600s\"]",
+      "concepts": "[\"authentication\", \"security\", \"jwt\"]",
+      "files_read": "[\"src/auth/jwt.go\", \"pkg/middleware/auth.go\"]",
+      "files_modified": "[\"src/auth/jwt.go\"]",
       "quality_score": 0.85,
       "feedback_type": "SUCCESS",
       "feedback_updated_at": "2026-04-01T10:15:00Z",
@@ -1366,30 +1366,37 @@ Returns a paginated list of observations, optionally filtered by project. Result
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | string | Observation UUID |
-| `session_id` | string | Claude Code content session ID |
-| `project` | string | Project path |
+| `content_session_id` | string | Claude Code content session ID (V13; **not** `session_id` — the entity overrides it) |
+| `project` | string | Project path (`@JsonProperty` override; **not** `project_path`) |
 | `type` | string | Observation type (e.g., `feature`, `bugfix`) |
 | `title` | string | Observation title |
 | `subtitle` | string | Observation subtitle |
-| `narrative` | string | Observation body text |
-| `facts` | string[] | List of factual statements extracted |
-| `concepts` | string[] | List of concept tags |
-| `files_read` | string[] | List of files read during this observation |
-| `files_modified` | string[] | List of files modified during this observation |
+| `narrative` | string | Observation body text (`@JsonProperty` override; **not** `content`) |
+| `facts` | string | **JSON-encoded array** of factual statements, e.g. `"[\"a\", \"b\"]"` |
+| `concepts` | string | **JSON-encoded array** of concept tags, e.g. `"[\"auth\", \"jwt\"]"` |
+| `files_read` | string | **JSON-encoded array** of files read, e.g. `"[]"` |
+| `files_modified` | string | **JSON-encoded array** of files modified, e.g. `"[]"` |
+| `refined_from_ids` | string \| null | JSON-encoded array of source observation UUIDs when this one was produced by refinement; `null` otherwise |
+| `content_hash` | string | Content hash used for duplicate detection |
+| `discovery_tokens` | int | Token count attributed to this observation (V17) |
 | `quality_score` | float | Quality score assigned by the refinement process (0.0–1.0) |
 | `feedback_type` | string | Feedback type: `SUCCESS`/`PARTIAL`/`FAILURE`/`UNKNOWN` |
 | `feedback_updated_at` | string | ISO-8601 timestamp of last feedback update |
+| `user_comment` | string | Free-text comment attached with feedback |
+| `access_count` | int | Number of times this observation was served |
+| `last_accessed_at` | string | ISO-8601 timestamp of the last access |
+| `refined_at` | string | ISO-8601 timestamp of the last refinement |
+| `relevance_count` | int | Times this observation was surfaced as relevant (V17) |
+| `generated_by_model` | string \| null | Model that generated the observation (V17) |
+| `step_number` | int \| null | Step index within the session, when recorded |
+| `embedding_model_id` | string \| null | Model ID of the stored embedding, when one exists |
 | `source` | string | Source attribution (e.g., `claude-code`, `manual`) |
 | `platform_source` | string | Platform source for multi-platform tracking (V18, e.g., `claude`, `cursor`) |
-| `extractedData` | object | Structured data extracted by the LLM (camelCase keys) |
+| `extractedData` | object | Structured data extracted by the LLM (`@JsonProperty` override; **not** `extracted_data`) |
 | `prompt_number` | int | Prompt number in the session |
 | `created_at` | string | ISO-8601 creation timestamp |
 | `created_at_epoch` | long | Epoch milliseconds of creation |
-| `last_accessed_at` | string | ISO-8601 timestamp of last access |
-| `access_count` | int | How many times this observation was retrieved |
-| `refined_at` | string | ISO-8601 timestamp of last refinement |
-| `refined_from_ids` | string | Comma-separated IDs of source observations this was refined from |
-| `user_comment` | string | User-provided comment/annotation |
+| `embedding_768` / `embedding_1024` / `embedding_1536` | number[] \| null | pgvector columns, dimension depends on the configured embedding model; all `null` when not populated |
 
 ### Get Observations by IDs
 
@@ -1423,13 +1430,13 @@ Retrieves multiple observations by their UUIDs. Supports optional project filter
   "observations": [
     {
       "id": "550e8400-e29b-41d4-a716-446655440000",
-      "session_id": "content-session-uuid",
+      "content_session_id": "content-session-uuid",
       "project": "/Users/dev/myproject",
       "type": "feature",
       "title": "Feature implementation",
       "narrative": "Implemented JWT authentication...",
-      "facts": ["Uses RS256 algorithm"],
-      "concepts": ["authentication"],
+      "facts": "[\"Uses RS256 algorithm\"]",
+      "concepts": "[\"authentication\"]",
       "quality_score": 0.85,
       "created_at_epoch": 1743488400000,
       "access_count": 3
@@ -2425,6 +2432,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 
 | Date | Version | Changes |
 |------|---------|---------|
+| 2026-10-02 | (unreleased) | **Corrected the observation response schema after live verification.** (1) `facts`, `concepts`, `files_read`, `files_modified` and `refined_from_ids` were typed `string[]`; the backend serializes these JSONB columns as **JSON-encoded strings** (`"concepts": "[\"auth\"]"`), verified with a round-trip POST/GET. (2) The response field was named `session_id`; the wire key is `content_session_id` (V13 `@JsonProperty` override) — the request-side `session_id` alias is unchanged and still valid. (3) Ten live fields were missing from the table: `content_hash`, `discovery_tokens`, `relevance_count`, `generated_by_model`, `step_number`, `embedding_model_id` and the three `embedding_*` vector columns. Two response examples corrected to match. The **request** side of `POST /api/ingest/observation` genuinely does accept real arrays and was left alone. This wrong type is the documented root of a Python SDK bug fixed in the same round (it parsed only real lists and so returned `[]` for every one of these fields) |
 | 2026-03-31 | 0.1.0-beta | Added Extraction (/run, /latest, /history), Cursor, Mode, Logs, Import, Viewer sections; Added Usage Examples, Appendix, Changelog; Synced with Chinese version |
 | 2026-03-31 | 0.1.0-beta+ | Enriched Viewer, Management, Mode, Health, Cursor, Logs sections with parameter tables and response examples; synced with Chinese version completeness |
 | 2026-03-31 | 0.1.0-beta++ | Added Session Start response example; corrected Delete Observation response (200 OK with body, not 204 No Content); synced Chinese changelog |

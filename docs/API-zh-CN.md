@@ -1344,10 +1344,10 @@ curl "http://localhost:37777/api/observations?project=/Users/dev/myproject&limit
       "title": "Feature implementation",
       "subtitle": "JWT authentication",
       "narrative": "Implemented JWT authentication...",
-      "facts": ["Uses RS256 algorithm", "Token expires in 3600s"],
-      "concepts": ["authentication", "security", "jwt"],
-      "files_read": ["src/auth/jwt.go", "pkg/middleware/auth.go"],
-      "files_modified": ["src/auth/jwt.go"],
+      "facts": "[\"Uses RS256 algorithm\", \"Token expires in 3600s\"]",
+      "concepts": "[\"authentication\", \"security\", \"jwt\"]",
+      "files_read": "[\"src/auth/jwt.go\", \"pkg/middleware/auth.go\"]",
+      "files_modified": "[\"src/auth/jwt.go\"]",
       "quality_score": 0.85,
       "feedback_type": "SUCCESS",
       "feedback_updated_at": "2026-04-01T10:15:00Z",
@@ -1373,30 +1373,37 @@ curl "http://localhost:37777/api/observations?project=/Users/dev/myproject&limit
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `id` | string | 观察记录 UUID |
-| `session_id` | string | Claude Code 内容会话 ID |
-| `project` | string | 项目路径 |
+| `content_session_id` | string | Claude Code 内容会话 ID（V13；**不是** `session_id`，实体上有覆盖） |
+| `project` | string | 项目路径（`@JsonProperty` 覆盖；**不是** `project_path`） |
 | `type` | string | 观察类型（如 `feature`、`bugfix`） |
 | `title` | string | 观察标题 |
 | `subtitle` | string | 观察副标题 |
-| `narrative` | string | 观察正文内容 |
-| `facts` | string[] | 提取的事实列表 |
-| `concepts` | string[] | 概念标签列表 |
-| `files_read` | string[] | 本次观察中读取的文件列表 |
-| `files_modified` | string[] | 本次观察中修改的文件列表 |
+| `narrative` | string | 观察正文内容（`@JsonProperty` 覆盖；**不是** `content`） |
+| `facts` | string | 事实列表，**JSON 编码的字符串**，如 `"[\"a\", \"b\"]"` |
+| `concepts` | string | 概念标签列表，**JSON 编码的字符串**，如 `"[\"auth\", \"jwt\"]"` |
+| `files_read` | string | 本次观察中读取的文件列表，**JSON 编码的字符串**，如 `"[]"` |
+| `files_modified` | string | 本次观察中修改的文件列表，**JSON 编码的字符串**，如 `"[]"` |
+| `refined_from_ids` | string \| null | 本条由精炼产生时为源观察 UUID 的 JSON 编码数组，否则为 `null` |
+| `content_hash` | string | 用于查重的内容哈希 |
+| `discovery_tokens` | int | 计入本条观察的 token 数（V17） |
 | `quality_score` | float | 精炼过程评定的质量分数（0.0–1.0） |
 | `feedback_type` | string | 反馈类型：`SUCCESS`/`PARTIAL`/`FAILURE`/`UNKNOWN` |
 | `feedback_updated_at` | string | 最后反馈更新的 ISO-8601 时间戳 |
+| `user_comment` | string | 用户提供的评论/注释 |
+| `access_count` | int | 该观察记录被检索的次数 |
+| `last_accessed_at` | string | 最后访问时间的 ISO-8601 时间戳 |
+| `refined_at` | string | 最后精炼时间的 ISO-8601 时间戳 |
+| `relevance_count` | int | 该记录被判定为相关并展示的次数（V17） |
+| `generated_by_model` | string \| null | 生成该观察的模型（V17） |
+| `step_number` | int \| null | 会话内的步骤序号（如有记录） |
+| `embedding_model_id` | string \| null | 已存 embedding 的模型 ID（如存在） |
 | `source` | string | 来源归属（如 `claude-code`、`manual`） |
 | `platform_source` | string | 平台来源，用于多平台跟踪（V18，如 `claude`、`cursor`） |
-| `extractedData` | object | LLM 提取的结构化数据（camelCase 键名） |
+| `extractedData` | object | LLM 提取的结构化数据（`@JsonProperty` 覆盖；**不是** `extracted_data`） |
 | `prompt_number` | int | 会话中的提示词编号 |
 | `created_at` | string | ISO-8601 创建时间戳 |
 | `created_at_epoch` | long | 创建时间的毫秒时间戳 |
-| `last_accessed_at` | string | 最后访问时间的 ISO-8601 时间戳 |
-| `access_count` | int | 该观察记录被检索的次数 |
-| `refined_at` | string | 最后精炼时间的 ISO-8601 时间戳 |
-| `refined_from_ids` | string | 逗号分隔的源观察记录 ID（本次精炼的来源） |
-| `user_comment` | string | 用户提供的评论/注释 |
+| `embedding_768` / `embedding_1024` / `embedding_1536` | number[] \| null | pgvector 列，维度取决于所配置的 embedding 模型；未写入时为 `null` |
 
 ---
 
@@ -1431,13 +1438,13 @@ POST /api/observations/batch
   "observations": [
     {
       "id": "550e8400-e29b-41d4-a716-446655440000",
-      "session_id": "content-session-uuid",
+      "content_session_id": "content-session-uuid",
       "project": "/Users/dev/myproject",
       "type": "feature",
       "title": "Feature implementation",
       "narrative": "Implemented JWT authentication...",
-      "facts": ["Uses RS256 algorithm"],
-      "concepts": ["authentication"],
+      "facts": "[\"Uses RS256 algorithm\"]",
+      "concepts": "[\"authentication\"]",
       "quality_score": 0.85,
       "created_at_epoch": 1743488400000,
       "access_count": 3
@@ -2494,6 +2501,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
+| 2026-10-02 | (unreleased) | **实跑核验后修正观察记录响应的字段表。** (1) `facts`、`concepts`、`files_read`、`files_modified`、`refined_from_ids` 原标注为 `string[]`，但后端把这些 JSONB 列序列化为 **JSON 编码的字符串**（`"concepts": "[\"auth\"]"`），已用 POST/GET 往返验证；(2) 响应字段原写作 `session_id`，实际 wire 键为 `content_session_id`（V13 `@JsonProperty` 覆盖）——请求侧的 `session_id` 别名仍然有效，未改动；(3) 补齐 10 个线上实际返回但表中缺失的字段：`content_hash`、`discovery_tokens`、`relevance_count`、`generated_by_model`、`step_number`、`embedding_model_id` 及三个 `embedding_*` 向量列。另修正两处响应示例。`POST /api/ingest/observation` 的**请求**侧确实接受真实数组，保持原样未动。该错误类型正是同轮修复的 Python SDK 缺陷的文档根因——它只解析真实数组，因而这些字段一律被读成 `[]` |
 | 2026-03-31 | 0.1.0-beta | 新增 Extraction (/run, /latest, /history)、Cursor、Mode、Logs、Import、Viewer 章节；修复 Session API 路径；同步英文版完整结构 |
 | 2026-03-31 | 0.1.0-beta+ | 补充 Viewer、Management、Mode、Health、Cursor、Logs 参数表和响应示例；同步英文版完整度 |
 | 2026-03-31 | 0.1.0-beta++ | 修正 Delete Observation 响应（200 OK with body，非 204 No Content）；同步英文版 Session Start 响应示例 |
