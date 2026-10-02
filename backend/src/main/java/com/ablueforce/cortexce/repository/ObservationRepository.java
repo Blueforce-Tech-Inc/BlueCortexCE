@@ -490,7 +490,16 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         WHERE project_path = :project
         AND quality_score < :threshold
         AND type NOT LIKE 'extracted_%'
-        AND type != 'extraction_failed'
+        -- Keep dead-letter records out of the refine pipeline. This used to be
+        -- `type != 'extraction_failed'`, but ExtractionStorageService.storeDLQ now
+        -- writes type = 'dlq_' + templateName with source = 'dlq', so that condition
+        -- matched nothing and DLQ records were being returned as refinement
+        -- candidates — LLM-rewritten, merged, or deleted, which defeats the point of
+        -- a dead letter queue. COALESCE is required: mem_observations.source is
+        -- nullable (V14) and about half of all observations have no source, so a bare
+        -- `source != 'dlq'` would evaluate to NULL for them and silently drop every
+        -- ordinary observation from refinement as well.
+        AND COALESCE(source, '') != 'dlq'
         ORDER BY quality_score ASC
         LIMIT :limit
         """, nativeQuery = true)
@@ -515,7 +524,16 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         AND (last_accessed_at IS NULL OR last_accessed_at < :accessThreshold)
         AND (quality_score IS NULL OR quality_score < :qualityThreshold)
         AND type NOT LIKE 'extracted_%'
-        AND type != 'extraction_failed'
+        -- Keep dead-letter records out of the refine pipeline. This used to be
+        -- `type != 'extraction_failed'`, but ExtractionStorageService.storeDLQ now
+        -- writes type = 'dlq_' + templateName with source = 'dlq', so that condition
+        -- matched nothing and DLQ records were being returned as refinement
+        -- candidates — LLM-rewritten, merged, or deleted, which defeats the point of
+        -- a dead letter queue. COALESCE is required: mem_observations.source is
+        -- nullable (V14) and about half of all observations have no source, so a bare
+        -- `source != 'dlq'` would evaluate to NULL for them and silently drop every
+        -- ordinary observation from refinement as well.
+        AND COALESCE(source, '') != 'dlq'
         ORDER BY quality_score ASC NULLS FIRST
         LIMIT :limit
         """, nativeQuery = true)
@@ -539,7 +557,16 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         WHERE project_path = :project
         AND (refined_at IS NULL OR refined_at < :cooldownThreshold)
         AND type NOT LIKE 'extracted_%'
-        AND type != 'extraction_failed'
+        -- Keep dead-letter records out of the refine pipeline. This used to be
+        -- `type != 'extraction_failed'`, but ExtractionStorageService.storeDLQ now
+        -- writes type = 'dlq_' + templateName with source = 'dlq', so that condition
+        -- matched nothing and DLQ records were being returned as refinement
+        -- candidates — LLM-rewritten, merged, or deleted, which defeats the point of
+        -- a dead letter queue. COALESCE is required: mem_observations.source is
+        -- nullable (V14) and about half of all observations have no source, so a bare
+        -- `source != 'dlq'` would evaluate to NULL for them and silently drop every
+        -- ordinary observation from refinement as well.
+        AND COALESCE(source, '') != 'dlq'
         ORDER BY refined_at ASC NULLS FIRST, quality_score ASC NULLS FIRST
         LIMIT :limit
         """, nativeQuery = true)

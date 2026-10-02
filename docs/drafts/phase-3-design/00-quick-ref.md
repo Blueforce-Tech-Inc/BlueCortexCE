@@ -17,7 +17,7 @@
 │ 4. Call LLM via BeanOutputConverter<T> (schema-enforced)│
 │ 5. Validate result → store as ObservationEntity         │
 │ 6. Update extraction state (transactional)              │
-│ 7. On failure → DLQ (type=extraction_failed)            │
+│ 7. On failure → DLQ (type=dlq_{template}, src=dlq)      │
 └─────────────────────────────────────────────────────────┘
 ```
 

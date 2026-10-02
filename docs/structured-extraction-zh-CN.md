@@ -646,7 +646,14 @@ templates:
 
 ### 死信队列（DLQ）
 
-失败的提取存储为 `ObservationEntity`，`type=extraction_failed`。定时重试任务处理 DLQ 条目。失败条目在 `extractedData` 中包含错误详情用于调试：
+失败的提取存储为 `ObservationEntity` 行，`type = "dlq_<template>"`、
+`source = "dlq"`、`content_session_id = "dlq:extraction"`（该 session 首次使用时创建，
+`status = "dlq"`）。错误详情保存在 `extractedData` 中用于调试：
+
+> **2026-10-02 对照实现更正。** 本节此前称 DLQ 使用 `type=extraction_failed`，并称有定时重试
+> 任务处理条目——两者都与实际代码不符：`ExtractionStorageService.storeDLQ` 写的是上面的
+> `dlq_<template>` 类型，且**不存在定时重试任务**，DLQ 条目仅供人工检查。它们通过
+> `source = 'dlq'` 被排除在精炼流水线之外，因此不会与普通观察记录一起被改写、合并或裁剪。
 
 ```json
 {

@@ -648,7 +648,16 @@ Extraction costs are managed through several mechanisms:
 
 ### Dead Letter Queue (DLQ)
 
-Failed extractions are stored as `ObservationEntity` with `type=extraction_failed`. A scheduled retry task processes DLQ entries. Failed entries include error details in `extractedData` for debugging:
+Failed extractions are stored as `ObservationEntity` rows with `type = "dlq_<template>"`,
+`source = "dlq"`, and `content_session_id = "dlq:extraction"` (the session is created on first
+use, with `status = "dlq"`). Error details are kept in `extractedData` for debugging:
+
+> **Corrected 2026-10-02 against the implementation.** This section previously said the DLQ
+> uses `type=extraction_failed` and that a scheduled retry task reprocesses entries. Neither is
+> true of the shipped code: `ExtractionStorageService.storeDLQ` writes the `dlq_<template>`
+> type described above, and **no scheduled retry task exists** — DLQ entries are kept for manual
+> inspection only. They are excluded from the refinement pipeline by `source = 'dlq'`, so they
+> are never rewritten, merged or pruned along with ordinary observations.
 
 ```json
 {

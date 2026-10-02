@@ -17,6 +17,8 @@
 > P1-2（导入端点把校验失败报成成功跳过）已于 2026-10-02 第 166 轮 Backend 集中修复并复测通过，
 > 降级为已解决条目。第 166 轮另新增 P2-6（缺 `projectPath` 校验导致 opaque 错误），**已当场修复**，
 > 故 P2 计数仍为 0；之所以仍登记条目，是因为它改变了 API 响应的 `errorMessages` 内容，属调用方可见变更。
+> 第 172 轮新增 P2-7（DLQ 记录混入精炼流水线，因 `type` 改名后排除条件失效），同样**已当场修复并复测**，
+> P2 计数仍为 0。
 
 ## Open Findings
 
@@ -187,6 +189,46 @@
   validates `sessionId` and `title` explicitly with `result.addError(...)`.
 - **Status**: ✅ 已当场修复并复测（2026-10-02，第 166 轮）。之所以仍登记为条目：它改变了 API 响应的
   `errorMessages` 内容（原先是数据库报错，现在是字段名），属于调用方可见的行为变更。
+
+### P2-7: DLQ records were reaching the refinement pipeline (the exclusion no longer matched)
+
+- **Scope**: `backend/.../repository/ObservationRepository.java` — `findLowQualityObservations`,
+  `findStaleObservations`, `findOverdueForRefine`, each of which carried
+  `AND type != 'extraction_failed'`.
+- **Problem**: `ExtractionStorageService.storeDLQ` writes dead-letter rows as
+  `type = "dlq_" + templateName` with `source = "dlq"` (into a dedicated `dlq:extraction`
+  session). Nothing anywhere writes the type `extraction_failed` any more — a repo-wide
+  search finds it only in those three SQL conditions, in documentation, and in archived
+  review history. So the exclusion matched nothing, and a DLQ row passed
+  `type NOT LIKE 'extracted_%'` unchecked. `storeDLQ` also never sets `quality_score`,
+  `refined_at` or `last_accessed_at`, so all three are NULL — which is exactly the profile
+  `findStaleObservations` (`last_accessed_at IS NULL OR …`, `quality_score IS NULL OR …`)
+  and `findOverdueForRefine` (`refined_at IS NULL OR …`) select for.
+  `MemoryRefineService` feeds both query results straight into the refine pipeline, whose
+  steps include merging, LLM rewriting and `deleteLowQualityObservations`. A failure record
+  could therefore be rewritten, merged away, or deleted — defeating the purpose of a dead
+  letter queue. `findLowQualityObservations` was unaffected only because
+  `quality_score < :threshold` is NULL for those rows.
+- **Reachability**: the DLQ only fills when extraction fails, and `EXTRACTION_ENABLED`
+  defaults to false. The live database currently has no DLQ session at all
+  (`POST /api/sdk-sessions/batch` with `dlq:extraction` returns `[]`), so this was not
+  demonstrated against real data — it is established from the source and from the column
+  nullability. Treat it as a latent data-loss path, not an active one.
+- **Fix**: the three conditions now read `AND COALESCE(source, '') != 'dlq'`. The
+  `COALESCE` is load-bearing and was the main hazard: `mem_observations.source` is nullable
+  (`V14__observation_source_and_extracted_data.sql` adds it as `TEXT` with no NOT NULL) and
+  about half of all observations have no source — a live sample of 50 returned 26 with a
+  source and 24 without — so a bare `source != 'dlq'` evaluates to NULL for those rows and
+  would have silently dropped every ordinary observation out of refinement as well.
+- **Status**: ✅ 已当场修复并复测（2026-10-02，第 172 轮）。回归 45/0/1 与 EXTRACTION 25/0/0
+  均通过；回归套件的 `test_memory_refine_api` 走的就是这条 refine 端到端路径。
+- **Untestable here**: the backend has no `@DataJpaTest` infrastructure, so the three
+  queries cannot be exercised in isolation — the live acceptance run is the only signal,
+  and it cannot cover the DLQ case because no DLQ data exists.
+- **Also corrected**: six design documents and both user-facing feature docs described the
+  DLQ as `type=extraction_failed` with a scheduled retry task. No such task exists
+  (no `@Scheduled` DLQ job) and `findByTypeGlobal` has no callers. Documentation corrected
+  in round 172; see `docs/structured-extraction.md` and `docs/drafts/phase-3-design/11.md`.
 
 ## Processing Rules
 
