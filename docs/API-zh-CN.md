@@ -464,7 +464,7 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `task` | string | ✅ | 任务或问题描述，用于查找相关经验 |
-| `project` | string | ❌ | 项目路径（用于范围限定） |
+| `project` | string | ❌ | 项目路径（用于范围限定）。**省略会返回空数组——并不存在「全部项目」模式**，实践上应视为必填，详见下方说明 |
 | `count` | int | ❌ | 返回的最大经验数（默认 4） |
 | `source` | string | ❌ | 来源过滤（如 `manual`、`tool_result`） |
 | `requiredConcepts` | string[] | ❌ | 概念过滤（仅返回包含这些概念的经验） |
@@ -488,6 +488,14 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 **错误响应**:
 - `400` — `{"error": "task is required"}`（`task` 字段缺失或为空）
 
+**`project` 标为可选却实际必填的原因**：该值被直接传入仓储查询
+（`findBySource` / `findHighQualityObservations`），代码中**没有任何跨全部项目的分支**。
+因此缺失、传空串或传不存在的项目都匹配不到任何内容，返回 `200` 加 `[]`——
+这一结果与「该项目确实没有经验」**无法区分**。活体实测：同一请求在
+`project` 省略、传 `""`、传不存在路径三种情况下均返回 `200 []`，
+而传真实项目路径返回 5 条经验。空的 `project` **不会**被拒绝——只有空的 `task` 会。
+`POST /api/memory/icl-prompt` 同理，此时返回 `experienceCount: 0` 与 28 字符的空提示。
+
 #### POST `/api/memory/icl-prompt`
 
 获取上下文学习提示。
@@ -507,7 +515,7 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `task` | string | ✅ | 当前任务/问题（用于上下文检索） |
-| `project` | string | ❌ | 项目路径（用于范围限定） |
+| `project` | string | ❌ | 项目路径（用于范围限定）。与 `POST /api/memory/experiences` 同理：省略会得到空提示，而非跨项目提示 |
 | `maxChars` | int | ❌ | 最大提示长度（默认 4000） |
 | `userId` | string | ❌ | 用户 ID（多用户隔离） |
 

@@ -536,7 +536,7 @@ Content-Type: application/json
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `task` | string | ✅ | Task or question to find relevant experiences for |
-| `project` | string | ❌ | Project path for scoping |
+| `project` | string | ❌ | Project path for scoping. **Omitting it returns an empty array — there is no "all projects" mode**, so treat it as required in practice. See the note below |
 | `count` | int | ❌ | Max experiences to return (default: 4) |
 | `source` | string | ❌ | Filter by source (e.g., `manual`, `tool_result`) |
 | `requiredConcepts` | string[] | ❌ | Filter to experiences containing these concepts |
@@ -560,6 +560,17 @@ Content-Type: application/json
 **Error Responses**:
 - `400` — `{"error": "task is required"}` (missing or blank `task` field)
 
+**Why `project` is marked optional but behaves as required**: the value is passed
+straight into the repository queries (`findBySource` / `findHighQualityObservations`),
+and there is no branch that searches across projects. A missing, empty, or
+unknown project therefore matches nothing and returns `200` with `[]` — a result
+that is indistinguishable from "this project genuinely has no experiences".
+Verified live: the same request returns `200 []` with `project` omitted, with
+`project: ""`, and with a non-existent path, while a real project path returns
+5 experiences. A blank `project` is **not** rejected — only a blank `task` is.
+The same applies to `POST /api/memory/icl-prompt`, which returns
+`experienceCount: 0` and a 28-character empty prompt in those cases.
+
 ### Get ICL Prompt
 
 ```
@@ -579,7 +590,7 @@ Content-Type: application/json
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `task` | string | ✅ | Current task/question for context retrieval |
-| `project` | string | ❌ | Project path for scoping |
+| `project` | string | ❌ | Project path for scoping. Same caveat as `POST /api/memory/experiences`: omitting it yields an empty prompt, not a cross-project one |
 | `maxChars` | int | ❌ | Max prompt length (default: 4000) |
 | `userId` | string | ❌ | User ID for multi-user isolation |
 
