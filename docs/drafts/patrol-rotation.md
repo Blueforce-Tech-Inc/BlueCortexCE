@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: Go SDK (2026-10-02 11:20, round 139, new cycle) — DTO layer and the three framework adapters audited; the deliberate difference in their error strategies is now documented in code and in both READMEs
-**Next up**: Python SDK
+**Last completed**: Python SDK (2026-10-02 11:28, round 140, new cycle) — the content/narrative alias guard now raises one exception type on every path and no longer drops a value on post-construction mutation
+**Next up**: JS/TS SDK
 
 ## History
 | DateTime | Direction | Findings |
@@ -216,3 +216,4 @@
 | 2026-10-02 11:11 | JS/TS SDK | ✅ Round 137: `package.json` files array omitted README-zh-CN.md, so the published npm tarball had no Chinese docs — added and verified with `npm pack --dry-run` (9 → 10 files); tsc clean, 212 Vitest tests, build OK, js-sdk-e2e-test.sh 27/27; 30 DTO types, dual CJS/ESM/DTS output and wire format (`cwd`/`tool_name`/`extractedData`) verified identical to Go/Python; regression 45/0/1 + EXTRACTION 25/0/0, baseline advanced to `d97f424` / `6e8789d5…`; open question for the user: js-sdk LICENSE says "Blueforce Tech Inc", root LICENSE says "Cortex Community Edition Contributors"; next cycle starts at Java SDK |
 | 2026-10-02 11:14 | Java SDK | ✅ New cycle, round 138: no defect found — SearchRequest fail-fast validation (limit bounds, offset unbounded by design, blank orderBy nullified, each with rationale comments), CortexSessionContext ThreadLocal cleanup and safe defaults, and every production `begin()` call site confirmed to use the two-arg overload with try/finally `end()`; `mvn test` 174 tests green across client/spring-ai/starter; no code change so acceptance skipped on unchanged fingerprint `6e8789d5…`; next direction is Go SDK |
 | 2026-10-02 11:20 | Go SDK | ✅ New cycle, round 139: the three framework adapters disagreed on error handling (Eino/Genkit propagate, LangChainGo degrades) and only the LangChainGo side explained why — documented each strategy in code and in both READMEs so nobody 'aligns' them by accident; DTO json tags verified annotated against backend @JsonProperty sources, UpdateObservation confirmed to call Validate() and use url.PathEscape; gofmt/vet clean, all three adapter submodules plus root+dto tests green; regression 45/0/1 + EXTRACTION 25/0/0, baseline advanced to `a517982` / `af95888…`; next direction is Python SDK |
+| 2026-10-02 11:28 | Python SDK | ✅ New cycle, round 140: fixed three linked defects in the ObservationUpdate alias guard — the docstring promised ValidationError while the dataclass path raised a bare ValueError (so `except ValidationError` never caught it), the two paths disagreed on type, and post-construction mutation bypassed __post_init__ so to_wire() silently discarded content; ValidationError now also subclasses ValueError for backward compatibility, to_wire() re-validates; 375 tests pass (+1 new), python-sdk-e2e-test.sh 28/28; design docs: 26.md size corrected 15KB→16KB, split structure and two implementation-anchored claims verified against source; regression 45/0/1 + EXTRACTION 25/0/0, baseline advanced to `ccee447` / `e52d9024…`; next direction is JS/TS SDK |
