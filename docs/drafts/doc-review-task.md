@@ -7,8 +7,8 @@
 ## Current Review Rotation
 
 - **轮换顺序**: API 文档 → SDK README → 设计文档 → 架构文档 → 用户指南
-- **最近完成**: 架构文档（2026-10-02 六十三轮，「Java 21+ Features Used」整段三段代码片段全部虚构：名为 `ObservationDto` 的 record 不存在、`instanceof ObservationEntity` 全仓库无此写法、文本块提示词实际是 `src/main/resources/prompts/*.txt` 外部资源（唯一在 Java 内拼装的 `SummaryGenerationService:108` 用字符串拼接）。已全部换成真实代码并标注文件行号。虚构的 `ObservationDto` 还把 `facts`/`concepts` 建模为 `List<String>`，正是第 157–158 轮跨三 SDK 修掉的 wire 形状——照抄会重新踩坑，故两版都补上经核实的「四个 JSONB 列在 wire 上是 JSON 编码字符串」说明，并说明这是承重契约而非缺陷；「语义搜索」下新增 Wire format 小节让交叉引用成立（先核实该小节原本不存在，否则是我自造的死链）。顺带核实无误：Java 21、Spring Boot 3.3.13、`pgvector/pgvector:pg16`、Node/axios、MCP 传输表与五个工具名均与 `application.yml` 及 `mcp/` 源码一致；Thin Proxy 性能表标注为 Target 而非实测，不构成可证伪声明。两版各 49 标题、层级逐位一致、围栏平衡、所有页内锚点可解析——校验器首轮报 4 个死锚点，查证后确认是脚本假阳性（GitHub slug 不合并连续空格，`Proxy + Fat` → `proxy--fat`））
-- **下一方向**: API 文档（六十四轮）
+- **最近完成**: API 文档（2026-10-02 六十四轮，`refined_from_ids` 描述错误且表格自相矛盾：`docs/API.md:1379` 写「JSON-encoded array」，而同一表格上方三行的示例写的是逗号分隔串 `"obs-abc-123,obs-def-456"`。类型 `string | null` 本来就对，错的只是描述，两版均已更正并写明这是 `TEXT` 列、后端用 `,` 拼接且从不 JSON 编码。同时更正第 157 轮那条把它与四个 JSONB 列归为一类的变更日志（标为 unreleased 故直接改写）。三重证据：V11 `refined_from_ids TEXT` + 列注释、唯一写入方 `ExtractionStorageService` 用 `Collectors.joining(",")`、活体记录 `json.loads()` 抛 JSONDecodeError 而同记录 `concepts` 正常解码。连带更正**我自己在第 162 轮写进架构文档的错误**（Wire format 小节写「behaves the same way」，与同文件 170 行前的 `refined_from_ids TEXT` 直接矛盾）——两版架构文档均已改写为显式例外说明。核实无误：观察响应表两版各 31 字段、键集合与顺序完全一致；`facts`/`concepts` 请求侧标 `string[]`、响应侧标 `string` 两侧都正确，不是分歧）
+- **下一方向**: SDK README（六十五轮）
 - **新增待决**: `docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分
 - **Pending 状态**: 文档问题清单已清空（0 项待处理）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
