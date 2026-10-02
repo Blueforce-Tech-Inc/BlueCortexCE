@@ -673,7 +673,7 @@ curl -X POST "http://localhost:37777/api/extraction/run?projectPath=/Users/dev/m
 **错误响应** (`500 Internal Server Error`):
 ```json
 {
-  "error": "Failed to trigger extraction: Extraction failed and DLQ unavailable for template: user-preferences"
+  "error": "Failed to trigger extraction: Extraction failed and DLQ unavailable for template: user_preference"
 }
 ```
 
@@ -688,7 +688,9 @@ curl -X POST "http://localhost:37777/api/extraction/run?projectPath=/Users/dev/m
 获取指定模板的最新提取结果。
 
 **路径参数**:
-- `templateName` - 提取模板名称（如 `user-preferences`、`allergy-info`）
+- `templateName` - 提取模板名称，取自 `application.yml` 的 `app.memory.extraction.templates[].name`；
+  目前**只随附一个模板** `user_preference`（下划线）。传入未配置的名称**不会被拒绝**：
+  `/latest` 返回 200 且 `status` 为 `not_found`，`/history` 返回 200 加空列表
 
 **查询参数**:
 
@@ -699,14 +701,14 @@ curl -X POST "http://localhost:37777/api/extraction/run?projectPath=/Users/dev/m
 
 **请求示例**:
 ```bash
-curl "http://localhost:37777/api/extraction/user-preferences/latest?projectPath=/Users/dev/myproject&userId=alice"
+curl "http://localhost:37777/api/extraction/user_preference/latest?projectPath=/Users/dev/myproject&userId=alice"
 ```
 
 **响应示例**（有数据）:
 ```json
 {
   "status": "ok",
-  "template": "user-preferences",
+  "template": "user_preference",
   "sessionId": "session-123",
   "extractedData": { "preferredLanguage": "en", "theme": "dark" },
   "createdAt": 1707878400000,
@@ -718,10 +720,18 @@ curl "http://localhost:37777/api/extraction/user-preferences/latest?projectPath=
 ```json
 {
   "status": "not_found",
-  "template": "user-preferences",
+  "template": "user_preference",
+  "sessionId": null,
+  "extractedData": null,
+  "createdAt": null,
+  "observationId": null,
   "message": "No extraction found"
 }
 ```
+
+注意：四个数据字段仍然存在，只是取值为 `null`。处理器返回的是同一个
+`GetLatestExtractionResponse` record，只是把那四个构造参数置为 null，因此它们会出现在
+JSON 里而非被省略——按 record 结构读取的客户端无论哪种情况都能看到这些键。
 
 ---
 
@@ -744,7 +754,7 @@ curl "http://localhost:37777/api/extraction/user-preferences/latest?projectPath=
 
 **请求示例**:
 ```bash
-curl "http://localhost:37777/api/extraction/user-preferences/history?projectPath=/Users/dev/myproject&limit=5"
+curl "http://localhost:37777/api/extraction/user_preference/history?projectPath=/Users/dev/myproject&limit=5"
 ```
 
 **响应示例**:

@@ -11,7 +11,10 @@
 | P0 | 0 | 立即修复并复测 |
 | P1 | 1 | 优先修复并复测 |
 | P2 | 2 | 本轮完整验收阶段处理或明确标记为已跳过 |
-
+> 第 184 轮新增 P2-11（未配置的抽取模板名不被拒绝，`user-preferences` 与 `user_preference`
+> 表现逐字节相同，且该错误名字已传播进 Swagger 注解与双语 API 文档），已在**注解与文档层**
+> 修复并复测；**后端本身仍不校验**未知模板名，返回 400 属对外契约变更，留待后续决策。
+> P2 Open 计数仍为 2（P2-8、P2-10）。
 > **Open 只统计尚未处理的条目**（⏸已记录不修 / 📌待修）。标记为 ✅已修复 或 ✅已跳过 的条目
 > 保留在本文件作为可追溯的历史，但**不计入** Open。
 > P1-2（导入端点把校验失败报成成功跳过）已于 2026-10-02 第 166 轮 Backend 集中修复并复测通过，
@@ -352,6 +355,42 @@
   都会被接受」「`/api/ingest/observation` 是唯一严格的那个」「SDK 会在客户端拦截」，
   使读者不必自行推断这层差异。API 文档原本对两者的「必填」标注**是正确的**
   （observation 标 ✅、另三个标 ❌），本轮只是补上未言明的后果。
+
+### P2-11: 未配置的抽取模板名不被拒绝，拼错与「尚未抽取」表现完全相同
+
+- **Scope**: `backend/.../controller/ExtractionController.java` 的 `getLatestExtraction` 与
+  `getExtractionHistory`；模板定义在 `application.yml:39`
+  （`app.memory.extraction.templates[].name`，目前**只有一项** `"user_preference"`）。
+- **Problem**: 两个端点都不校验 `templateName` 是否存在。实测（对运行中的后端）：
+
+  | `templateName` | `/latest` | `/history` |
+  |----------------|-----------|------------|
+  | `user_preference` | `200` `status: "not_found"` | `200` 空列表 |
+  | `user-preferences`（不存在的名字） | `200` `status: "not_found"` | `200` 空列表 |
+
+  两者**逐字节相同**。更值得注意的是文档侧的传播：`ExtractionController` 的两个
+  `@Parameter(example = "user-preferences")` 举的正是这个不存在的名字，ZH 文档还额外举了
+  `allergy-info`——两者都不存在。这使错误进入了生成的 OpenAPI 规范：任何据此生成的客户端
+  都会去请求一个永远 `not_found` 的模板，而且**没有任何信号**表明是名字写错了。
+- **实际影响**：调用方无法区分「这个项目还没抽取过」与「模板名拼错了」。诊断路径只能靠
+  读 `application.yml`。四家 SDK 均不校验该参数（它只是路径片段），因此 SDK 路径同样触发。
+- **Status**: ✅ **已修复（文档与注解层）**（2026-10-03，第 184 轮 Backend 轮）。
+  `ExtractionController` 两处 `@Parameter` 的 `example` 改为 `user_preference`，并在
+  description 中写明模板名取自 `app.memory.extraction.templates[].name`、目前只随附一个
+  模板、以及未配置的名字不会被拒绝（`/latest` 返 `not_found`、`/history` 返空列表）。
+  `docs/API.md` 与 `docs/API-zh-CN.md` 中 10 处 `user-preferences` 全部更正为
+  `user_preference`（正确名称此前出现 0 次），ZH 版多出的 `allergy-info` 一并删除。
+  **未修的部分**：后端仍不校验未知模板名。要让拼错的名字明确失败就得返回 400，而那会改变
+  现有调用方看到的行为，属对外契约变更，按纪律留给后续 Backend 轮次决策。
+- **同轮核实无误**：四家 SDK 都**正确**地把抽取结果的键建模为**驼峰**
+  （`sessionId` / `extractedData` / `createdAt` / `observationId`）——Map 键不受后端全局
+  `SNAKE_CASE` 策略影响，Go 更有专门的 `TestExtractionResult_CamelCaseFields` 钉住这一点。
+  且四家都能处理 `not_found` 响应中的 `null`（Python 用 `or ""` 与 `_to_dict`/`_to_int`，
+  JS 用 `safeStringOr`/`safeRecord(...) ?? {}`/`safeNumberOr`），不存在解析崩溃。
+  本轮另修正文档的 `not_found` 示例：它原本只列 3 个键，而**实际响应有 7 个**
+  （`sessionId`/`extractedData`/`createdAt`/`observationId` 均为 `null`）——处理器返回的是
+  同一个 `GetLatestExtractionResponse` record，只是把四个构造参数置空，故这些键出现在
+  JSON 中而非被省略。
 
 ## Processing Rules
 

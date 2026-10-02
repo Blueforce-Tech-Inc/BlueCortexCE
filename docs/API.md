@@ -701,7 +701,7 @@ Manually triggers structured data extraction. Runs **synchronously** — the res
 **Error Response** (`500 Internal Server Error`):
 ```json
 {
-  "error": "Failed to trigger extraction: Extraction failed and DLQ unavailable for template: user-preferences"
+  "error": "Failed to trigger extraction: Extraction failed and DLQ unavailable for template: user_preference"
 }
 ```
 
@@ -714,7 +714,11 @@ GET /api/extraction/{templateName}/latest?projectPath=/path/to/project&userId=us
 Returns the most recent extraction result for a given template name and project.
 
 **Path Parameters**:
-- `templateName` — Extraction template name (e.g., `user-preferences`)
+- `templateName` — Extraction template name, taken from `app.memory.extraction.templates[].name`
+  in `application.yml`. Exactly **one** template ships today: `user_preference`, spelled with an
+  underscore. An unconfigured name is **not rejected** — `/latest` answers `200` with
+  `status: "not_found"` and `/history` answers `200` with an empty list, so a typo looks exactly
+  like "nothing extracted yet".
 
 **Query Parameters**:
 
@@ -727,7 +731,7 @@ Returns the most recent extraction result for a given template name and project.
 ```json
 {
   "status": "ok",
-  "template": "user-preferences",
+  "template": "user_preference",
   "sessionId": "session-123",
   "extractedData": { "preferredLanguage": "en", "theme": "dark" },
   "createdAt": 1707878400000,
@@ -736,10 +740,20 @@ Returns the most recent extraction result for a given template name and project.
 ```
 
 **Response** (`200 OK`, not found):
+
+Note that the four data fields are still present, carrying `null`. The handler
+returns the same `GetLatestExtractionResponse` record with those four
+constructor arguments set to null, so they appear in the JSON rather than being
+omitted — a client reading the record shape will see the keys either way.
+
 ```json
 {
   "status": "not_found",
-  "template": "user-preferences",
+  "template": "user_preference",
+  "sessionId": null,
+  "extractedData": null,
+  "createdAt": null,
+  "observationId": null,
   "message": "No extraction found"
 }
 ```

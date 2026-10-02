@@ -54,7 +54,7 @@ public class ExtractionController {
             content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class)))
     })
     public ResponseEntity<Object> getLatestExtraction(
-            @Parameter(description = "Extraction template name (e.g., 'user-preferences', 'allergy-info')", required = true, example = "user-preferences")
+            @Parameter(description = "Extraction template name. Configured under app.memory.extraction.templates[].name in application.yml; 'user_preference' is the only template shipped today, and it is spelled with an underscore. An unknown name is not rejected — it returns 200 with status 'not_found' (latest) or an empty list (history).", required = true, example = "user_preference")
             @PathVariable String templateName,
             @Parameter(description = "Absolute project path", required = true, example = "/Users/dev/my-project")
             @RequestParam String projectPath,
@@ -107,7 +107,7 @@ public class ExtractionController {
         @ApiResponse(responseCode = "500", description = "Failed to retrieve extraction history due to internal error")
     })
     public ResponseEntity<Object> getExtractionHistory(
-            @Parameter(description = "Extraction template name", required = true, example = "user-preferences")
+            @Parameter(description = "Extraction template name, configured under app.memory.extraction.templates[].name. 'user_preference' is the only template shipped today. An unknown name returns 200 with an empty list.", required = true, example = "user_preference")
             @PathVariable String templateName,
             @Parameter(description = "Absolute project path", required = true, example = "/Users/dev/my-project")
             @RequestParam String projectPath,
