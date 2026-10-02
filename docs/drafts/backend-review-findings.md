@@ -53,6 +53,21 @@
 - **Options**: (a) 改为 Reactor Context 传播——bridge 用 `contextWrite` 写入会话信息，`CortexSessionContext` 暴露一个 `ThreadLocalAccessor` 并在 starter 中启用 `Hooks.enableAutomaticContextPropagation()`；(b) 退回「只在调用线程的装配窗口内持有上下文」并明确声明流式下不做工具捕获；(c) 把流式会话标识改为显式参数贯穿 `ToolCallingManager`。
 - **Status**: ⏸已记录，本轮**不修复**。三个选项都改变并发语义：(a) 会给使用方应用引入全局 Reactor hook 与额外 ThreadLocal 开销，(b) 是功能回退，(c) 需要改 Spring AI 的工具调用链。本轮已做的最小处置是**如实记录限制**：在 `cortex-mem-spring-integration/README.md` 与 `README-zh-CN.md` 的 Design Notes / 设计笔记 中写明该限制与规避方式（需要流式 + `@Tool` 捕获时用同步 `.call()`，或按 conversation id 显式调用 client），避免用户误以为流式下自动捕获可用。
   **复审触发条件**：出现下列任一情况即重新评估——(1) 有用户报告流式下工具观察缺失或串号；(2) 项目决定引入 Reactor 自动上下文传播；(3) Spring AI 版本升级改变了 `StreamAdvisorChain` 的订阅时机（若 `nextStream` 改为在调用线程内完成订阅与执行，本问题自然消失）。
+  **第 189 轮后补记（2026-10-03，第 190 轮 Java SDK 轮）——本条记录的后果清单不完整，漏掉了第三条。**
+  上述两条后果讲的是 `@Tool` **自动捕获**（`CortexToolAspect`）与上下文泄漏，但 `CortexMemoryTools`
+  的两个**读**工具受影响的方式不同：它们不跳过，而是**静默回落到别的项目**。
+  `resolveProjectPath()`（`CortexMemoryTools.java:197-205`）在 `CortexSessionContext` 取不到值时
+  直接返回构造时传入的 `defaultProjectPath`，该值来自 `cortex.mem.project-path`
+  （`CortexMemAutoConfiguration.java:121-122`，未配置则为**空串**），**全程无日志**。
+  两种结局都不自我暴露：配置了 `project-path` 时，Agent 拿到的是**另一个项目**的记忆并当成
+  当前对话的历史；未配置时，工具发出空项目，而 `retrieveExperiences` **不校验 project**
+  （只 `requireNonBlank(request.task())`），后端于是返回 `200` 加空列表，工具报告
+  「No relevant past experiences found」——与该项目确实没有历史**无法区分**。
+  活体实测（2026-10-03，后端 37777）：`POST /api/memory/experiences` 传 `project: ""` 返回
+  `200 []`，同一请求传真实项目路径返回 5 条经验。`buildICLPrompt` 同理。
+  受影响的方法：`searchMemories`、`getMemoryContext`（仅这两个调用 `resolveProjectPath()`；
+  `updateMemory` / `deleteMemory` 按 id 操作，不涉及项目）。
+  双语 README 的 P1-1 段落已由「两个后果」改为「三个后果」并补入上述实测。
 
 
 ### P2-1: Java Demo `/refine` response differs from other SDK demos
