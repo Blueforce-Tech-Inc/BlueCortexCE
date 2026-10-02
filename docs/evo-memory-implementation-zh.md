@@ -466,6 +466,14 @@ private boolean canRefine(ObservationEntity obs) {
 └──────────────────┘
 ```
 
+上图中的 `0.6` 是 `app.memory.quality-threshold` 的**出厂默认值**，不是写死的常量：
+`ExpRagService` 会读取它。但要注意调高它**不等于**返回更少的经验——当质量查询返回的
+行数不足 `count` 时，`ExpRagService` 会用该项目最近的观测把结果补齐，因此通常仍是
+`count` 条，只是质量更低。在 `openclaw` 项目上以 `count: 15` 实测：阈值从 `0.6`
+调到 `0.99` 后，15 条一条不少，但最小质量分从 `0.95` 降到 `0.80`，其中 8 条来自
+这条补齐路径。唯一没有补齐的是**按用户限定**的请求（传了 `userId`），它会跳过
+fallback，因此可能返回更少的行。
+
 ### 经验格式
 
 ```java
@@ -492,7 +500,8 @@ app:
     # 启用/禁用记忆精炼
     refine-enabled: true
     
-    # 检索质量阈值
+    # 经验检索阈值（ExpRagService -> findHighQualityObservations）
+    # 不是 search 或 context 检索的过滤器
     quality-threshold: 0.6
     
     refine:
@@ -509,7 +518,7 @@ app:
 | 变量 | 默认值 | 描述 |
 |------|--------|------|
 | `MEMORY_REFINE_ENABLED` | true | 启用精炼 |
-| `MEMORY_QUALITY_THRESHOLD` | 0.6 | 检索过滤 |
+| `MEMORY_QUALITY_THRESHOLD` | 0.6 | 经验检索过滤：观测被 `POST /api/memory/experiences`（ExpRagService）选为 ICL 样本所需的最低质量分。**不是** search 或 context 检索的过滤器；`MemoryRefineService.findStaleObservations` 中另有一处独立的硬编码 `0.6` 负责精炼候选门槛，不由本值驱动 |
 | `MEMORY_REFINE_DELETE_THRESHOLD` | 0.3 | 删除阈值 |
 | `MEMORY_REFINE_COOLDOWN_DAYS` | 7 | 冷却期 |
 | `MEMORY_REFINE_STALE_DAYS` | 30 | 陈旧阈值 |

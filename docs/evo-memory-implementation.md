@@ -466,6 +466,18 @@ New Task Request
 └──────────────────┘
 ```
 
+The `0.6` in that diagram is the shipped default of
+`app.memory.quality-threshold`, not a constant — `ExpRagService` reads it. Note
+what raising it does and does not do: it does **not** simply return fewer
+experiences. When the quality-aware query returns fewer than `count` rows,
+`ExpRagService` tops the set up from the project's most recent observations, so
+the result is normally still `count` items — just of lower quality. Measured on
+the `openclaw` project with `count: 15`, raising the threshold from `0.6` to
+`0.99` left all 15 in place but dropped the minimum quality from `0.95` to
+`0.80`, with eight items arriving through that fallback path. The one path with
+no such top-up is a user-scoped request (`userId` supplied), which skips the
+fallback and can therefore return fewer rows.
+
 ### Experience Format
 
 ```java
@@ -492,7 +504,8 @@ app:
     # Enable/disable memory refinement
     refine-enabled: true
     
-    # Quality threshold for retrieval
+    # Experience-retrieval threshold (ExpRagService -> findHighQualityObservations).
+    # Not a filter on search or context retrieval.
     quality-threshold: 0.6
     
     refine:
@@ -509,7 +522,7 @@ app:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `MEMORY_REFINE_ENABLED` | true | Enable refinement |
-| `MEMORY_QUALITY_THRESHOLD` | 0.6 | Retrieval filter |
+| `MEMORY_QUALITY_THRESHOLD` | 0.6 | Experience-retrieval filter: the minimum quality an observation needs to be picked as an ICL sample by `POST /api/memory/experiences` (ExpRagService). It is **not** a filter on search or context retrieval, and a separate hardcoded `0.6` in `MemoryRefineService.findStaleObservations` gates refine candidates independently of this value |
 | `MEMORY_REFINE_DELETE_THRESHOLD` | 0.3 | Delete threshold |
 | `MEMORY_REFINE_COOLDOWN_DAYS` | 7 | Cooldown period |
 | `MEMORY_REFINE_STALE_DAYS` | 30 | Stale threshold |
