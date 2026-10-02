@@ -811,6 +811,17 @@ only writer and builds it with `Collectors.joining(",")`, so there is no JSON la
 | Stream | `/stream` | SSE real-time updates |
 | Logs | `/api/logs` | Log access (get, clear) |
 | Health | `/api/health`, `/api/readiness`, `/api/version` | Health and version checks |
+
+> **SSE frames carry no event name — this is a load-bearing contract.**
+> `SSEBroadcaster.broadcast(Object data, String eventName)` sends
+> `SseEmitter.event().data(data)` with no `.name(...)`, so the emitted frame has
+> no `event:` field. The `eventName` argument is documentation only; the routing
+> key is the `"type"` field **inside** the data payload, and
+> `SSEBroadcaster`'s javadoc says so explicitly. A browser client using
+> `addEventListener('new_summary', …)` therefore receives **nothing at all**,
+> with no error — only `onmessage` (or a bare `addEventListener('message', …)`)
+> fires. This is the same failure mode as the JSONB columns noted below: a
+> client that guesses the wrong shape gets silence rather than an error.
 | Test | `/api/test/*` | Test/debug endpoints (llm, embedding, all) |
 
 ### MCP Server
