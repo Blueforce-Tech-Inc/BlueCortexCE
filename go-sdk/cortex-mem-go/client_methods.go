@@ -14,6 +14,16 @@ import (
 // ==================== Session ====================
 
 func (c *httpClient) StartSession(ctx context.Context, req dto.SessionStartRequest) (*dto.SessionStartResponse, error) {
+	// The backend rejects a blank session_id or project_path with 400, so this
+	// is not a data-loss path — but without the check the caller gets a
+	// server-side APIError instead of the client-side ValidationError that
+	// Java, Python and JS all raise here.
+	if strings.TrimSpace(req.SessionID) == "" {
+		return nil, &ValidationError{Field: "sessionID", Message: "sessionID is required"}
+	}
+	if strings.TrimSpace(req.ProjectPath) == "" {
+		return nil, &ValidationError{Field: "projectPath", Message: "projectPath is required"}
+	}
 	return doRequestJSON[dto.SessionStartResponse](c, ctx, http.MethodPost, "/api/session/start", req, nil)
 }
 

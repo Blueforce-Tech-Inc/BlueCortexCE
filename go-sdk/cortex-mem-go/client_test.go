@@ -1074,16 +1074,59 @@ func TestIsBadRequest(t *testing.T) {
 	}))
 	defer server.Close()
 
+	// Non-empty fields on purpose: StartSession now rejects blank ones
+	// client-side, so passing empties here would exercise the validation layer
+	// instead of the server's 400 that this test is about.
 	client := newTestClient(server)
 	_, err := client.StartSession(context.Background(), dto.SessionStartRequest{
-		SessionID:   "",
-		ProjectPath: "",
+		SessionID:   "s1",
+		ProjectPath: "/p",
 	})
 	if err == nil {
 		t.Fatal("expected error for 400")
 	}
 	if !cortexmem.IsBadRequest(err) {
 		t.Errorf("expected IsBadRequest, got: %v", err)
+	}
+}
+
+func TestStartSession_EmptySessionIDIsValidationError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("request must not be sent when sessionID is blank")
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.StartSession(context.Background(), dto.SessionStartRequest{
+		SessionID:   "",
+		ProjectPath: "/p",
+	})
+	if err == nil {
+		t.Fatal("expected a validation error for a blank sessionID")
+	}
+	if !cortexmem.IsValidationError(err) {
+		t.Errorf("expected IsValidationError, got: %T %v", err, err)
+	}
+}
+
+func TestStartSession_EmptyProjectPathIsValidationError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("request must not be sent when projectPath is blank")
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	_, err := client.StartSession(context.Background(), dto.SessionStartRequest{
+		SessionID:   "s1",
+		ProjectPath: "  ",
+	})
+	if err == nil {
+		t.Fatal("expected a validation error for a blank projectPath")
+	}
+	if !cortexmem.IsValidationError(err) {
+		t.Errorf("expected IsValidationError, got: %T %v", err, err)
 	}
 }
 
