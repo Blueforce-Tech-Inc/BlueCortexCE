@@ -188,6 +188,16 @@ HTTP 状态）：
 
 这是防护而非流式读取：响应体仍会作为一个完整字符串物化。
 
+### 空更新会被拒绝
+
+`updateObservation` 在更新未设置任何字段时抛 `ValidationError`，且不会发出任何请求。Go、Java、Python 三家规则与消息完全相同：
+
+```
+cortex-ce: validation error on update: at least one field must be provided for update
+```
+
+这一点很重要：不设置任何字段的 PATCH 在 wire 上是一次静默 no-op。若没有这道检查，调用方用用户输入拼出一个空更新后会看到调用 resolve，却无法得知其实什么都没写入。
+
 ## Wire 格式
 
 SDK 使用与后端 API 完全一致的 JSON 字段名。字段命名因端点而异：

@@ -227,6 +227,19 @@ The server's status code is returned alongside that error by the internal
 and not as an `APIError`. Keep `limit` on retrieval calls below the cap, or
 narrow the query.
 
+### Empty Updates Are Rejected
+
+`UpdateObservation` returns a `ValidationError` when the update sets no field, and no
+request is sent. The same rule and message apply in the Java, Python and JS SDKs:
+
+```
+cortex-ce: ObservationUpdate validation error: at least one field must be provided for update
+```
+
+It matters because a PATCH that sets nothing is a silent no-op on the wire: without
+the check, a caller who assembled an empty update from user input would see the call
+succeed and could not tell that nothing was written.
+
 ## Wire Format
 
 The SDK uses JSON field names that match the backend API exactly:

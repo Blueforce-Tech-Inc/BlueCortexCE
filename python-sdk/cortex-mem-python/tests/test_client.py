@@ -218,15 +218,19 @@ class TestCapture:
             c.get_extraction_history("/p", "t", limit=-1)
         assert exc_info.value.field == "limit"
 
-    def test_validation_error_field_for_update(self):
-        """Calling update_observation with no fields is a no-op (no ValidationError raised).
+    def test_update_with_no_fields_raises_validation_error(self):
+        """Calling update_observation with no fields is a client error, not a no-op.
 
-        Per the method docstring: "If no fields are provided, this method does nothing."
-        This matches is_empty() semantics where empty updates are silent no-ops.
+        This previously returned quietly, making it indistinguishable from a
+        successful write when no request had been made at all. Go
+        (update.Validate), Java (update.isEmpty) and JS (hasField) all reject
+        an update with nothing set, and Python was the only SDK that did not.
         """
         c = _client()
-        # No-op: no fields provided, returns immediately without raising
-        c.update_observation("o1")
+        with pytest.raises(ValidationError) as exc_info:
+            c.update_observation("o1")
+        assert exc_info.value.field == "update"
+        assert "at least one field" in exc_info.value.message
 
 
 # ==================== Retrieval ====================
@@ -713,20 +717,34 @@ class TestManagementExtended:
         assert body["extractedData"] == {"preference": "dark_mode"}
 
     @responses.activate
-    def test_update_observation_extracted_data_empty_omitted(self):
-        """extracted_data={} is treated as 'unset' and produces a no-op (no HTTP request).
+    def test_update_observation_extracted_data_empty_raises(self):
+        """An ObservationUpdate holding only extracted_data={} has nothing to write.
 
-        An empty dict is semantically equivalent to None — the backend's JSONB
-        column stores nothing for `{}`. Matches is_empty() semantics so that
-        update.is_empty() and sending only extracted_data={} are consistent
-        (both are no-ops, not errors).
+        to_wire() omits the empty dict, so the assembled body is empty — which is
+        now a ValidationError rather than a silent no-op. The wire-omission
+        behaviour itself is unchanged and still covered below.
         """
         responses.add(responses.PATCH, f"{BASE}/api/memory/observations/o1", status=204)
         c = _client()
         update = ObservationUpdate(extracted_data={})
-        c.update_observation("o1", update)
-        # No HTTP request should be made (early return on empty body)
-        assert len(responses.calls) == 0, "extracted_data={} should be a no-op, no request made"
+        with pytest.raises(ValidationError, match="at least one field"):
+            c.update_observation("o1", update)
+        assert len(responses.calls) == 0, "no request should be made for an empty update"
+
+    @responses.activate
+    def test_update_observation_extracted_data_empty_kwarg_is_sent(self):
+        """Passing extracted_data={} as a kwarg sends it, matching the JS SDK.
+
+        The dataclass path omits an empty extracted_data from to_wire(), while
+        the kwargs path writes it through verbatim. The JS SDK sends
+        {extractedData: {}} in the same situation, so the kwarg form is the one
+        that matches cross-SDK behaviour and is pinned here deliberately.
+        """
+        responses.add(responses.PATCH, f"{BASE}/api/memory/observations/o1", status=204)
+        c = _client()
+        c.update_observation("o1", extracted_data={})
+        assert len(responses.calls) == 1
+        assert json.loads(responses.calls[0].request.body) == {"extractedData": {}}
 
     def test_update_observation_extracted_data_empty_wire_omits(self):
         """ObservationUpdate(extracted_data={}).to_wire() must omit extractedData."""
@@ -813,18 +831,20 @@ class TestManagementExtended:
 
     @responses.activate
     @responses.activate
-    def test_update_observation_no_fields_noop(self):
-        """Calling update_observation with no fields is a no-op (no HTTP request).
+    def test_update_observation_no_fields_raises(self):
+        """No fields set — by kwargs or by an empty ObservationUpdate — is an error.
 
-        Per the method docstring: "If no fields are provided, this method does nothing."
-        This matches is_empty() semantics where empty updates are silent no-ops.
+        Both routes assemble an empty body, and both are now rejected without a
+        request being made, matching Go, Java and JS. Previously both returned
+        quietly, so a caller could not tell a discarded update from a write.
         """
         responses.add(responses.PATCH, f"{BASE}/api/memory/observations/o1", status=204)
         c = _client()
-        # Both cases: no HTTP request (early return on empty body)
-        c.update_observation("o1")
-        c.update_observation("o1", ObservationUpdate())
-        assert len(responses.calls) == 0, "no fields provided → no-op, no HTTP request made"
+        with pytest.raises(ValidationError, match="at least one field"):
+            c.update_observation("o1")
+        with pytest.raises(ValidationError, match="at least one field"):
+            c.update_observation("o1", ObservationUpdate())
+        assert len(responses.calls) == 0, "no request should be made for an empty update"
 
     @responses.activate
     def test_delete_observation_empty_raises(self):

@@ -355,6 +355,20 @@ class CustomService {
 }
 ```
 
+### Empty Updates Are Rejected
+
+`updateObservation(id, update)` throws `IllegalArgumentException` when `update` sets
+no field, and no request is sent. This is the same rule the Go, Python and JS SDKs
+apply, with the same message:
+
+```
+at least one field must be provided for update
+```
+
+It matters because a PATCH that sets nothing is a silent no-op on the wire: without
+the check, a caller who assembled an empty update from user input would see the call
+succeed and could not tell that nothing was written.
+
 ## Wire Format
 
 The SDK models the backend's actual wire shapes, which are not always what the field

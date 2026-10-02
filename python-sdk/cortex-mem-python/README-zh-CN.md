@@ -209,6 +209,16 @@ Python SDK 没有这样做，因为 `requests` 未提供可移植的流式大小
 3. **与 Go/Java SDK 兼容** —— 覆盖全部 25 个 API 方法
 4. **Fire-and-forget 捕获** —— 捕获操作内部重试并静默错误
 
+### 空更新会被拒绝
+
+`update_observation` 在更新未设置任何字段时抛 `ValidationError`，且不会发出任何请求。Go、Java、JS 三家规则与消息完全相同：
+
+```
+cortex-ce: validation error on update: at least one field must be provided for update
+```
+
+这一点很重要：不设置任何字段的 PATCH 在 wire 上是一次静默 no-op。若没有这道检查，调用方用用户输入拼出一个空更新后会看到调用正常返回，却无法得知其实什么都没写入。若要显式发送一个空的 JSONB 值，请以关键字参数传入 `extracted_data={}`——数据类形式 `ObservationUpdate(extracted_data={})` 会把它从 wire 中省略，因此仍属空更新。
+
 ## Wire 格式
 
 SDK 自动处理 Wire 格式差异：

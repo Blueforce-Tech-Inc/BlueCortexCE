@@ -534,6 +534,11 @@ class CortexMemClient:
             client.update_observation("obs-123", title="New", source="manual")
 
         If both ``update`` and ``kwargs`` are provided, kwargs override update fields.
+
+        An update with no fields set is a client error, not a silent no-op: Go,
+        Java and JS all reject it, and Python now matches them. Returning
+        quietly made a caller who assembled an empty update believe the write
+        had happened when no request was ever made.
         """
         self._assert_not_closed()
         if not observation_id:
@@ -561,7 +566,11 @@ class CortexMemClient:
             if kwarg in kwargs:
                 body[wire_key] = kwargs[kwarg]
         if not body:
-            return  # No-op: extracted_data={} is "unset" (matches is_empty() semantics)
+            # An update with no fields set is a client error. Go (update.Validate),
+            # Java (update.isEmpty) and JS (hasField) all reject it; Python was the
+            # only SDK that returned quietly, making a no-op indistinguishable
+            # from a successful write when no request was made at all.
+            raise ValidationError("at least one field must be provided for update", field="update")
         path = f"/api/memory/observations/{quote(observation_id, safe='')}"
         self._request_no_content("PATCH", path, json_body=body)
 

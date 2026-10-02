@@ -220,6 +220,16 @@ cortex-ce: response body exceeds 10485760 byte limit (raise the page size or spl
 因此超限的**成功**响应（`200`）表现为一个普通错误，既不是空结果也不是
 `APIError`。请把检索调用的 `limit` 控制在上限以内，或缩小查询范围。
 
+### 空更新会被拒绝
+
+`UpdateObservation` 在更新未设置任何字段时返回 `ValidationError`，且不会发出任何请求。Java、Python、JS 三家规则与消息完全相同：
+
+```
+cortex-ce: ObservationUpdate validation error: at least one field must be provided for update
+```
+
+这一点很重要：不设置任何字段的 PATCH 在 wire 上是一次静默 no-op。若没有这道检查，调用方用用户输入拼出一个空更新后会看到调用成功，却无法得知其实什么都没写入。
+
 ## Wire 格式
 
 SDK 使用与后端 API 完全一致的 JSON 字段名：

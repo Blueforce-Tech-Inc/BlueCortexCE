@@ -192,6 +192,19 @@ allocate a second buffer as large as the body.
 This is a guard, not a streaming reader: the body is still materialized as a
 single string.
 
+### Empty Updates Are Rejected
+
+`updateObservation` throws a `ValidationError` when the update sets no field, and no
+request is sent. The same rule and message apply in the Go, Java and Python SDKs:
+
+```
+cortex-ce: validation error on update: at least one field must be provided for update
+```
+
+It matters because a PATCH that sets nothing is a silent no-op on the wire: without
+the check, a caller who assembled an empty update from user input would see the call
+resolve and could not tell that nothing was written.
+
 ## Wire Format
 
 The SDK uses JSON field names that match the backend API exactly. Field naming varies by endpoint:

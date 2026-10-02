@@ -355,6 +355,16 @@ class CustomService {
 }
 ```
 
+### 空更新会被拒绝
+
+`updateObservation(id, update)` 在 `update` 未设置任何字段时抛 `IllegalArgumentException`，且不会发出任何请求。Go、Python、JS 三家规则与消息完全相同：
+
+```
+at least one field must be provided for update
+```
+
+这一点很重要：不设置任何字段的 PATCH 在 wire 上是一次静默 no-op。若没有这道检查，调用方用用户输入拼出一个空更新后会看到调用成功，却无法得知其实什么都没写入。
+
 ## Wire 格式
 
 SDK 建模的是后端**真实的** wire 形态，而字段名并不总能提示这一点：
