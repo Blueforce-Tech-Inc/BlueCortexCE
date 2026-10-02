@@ -130,4 +130,8 @@ Java Demo 依赖及完整启动前置条件见 `examples/cortex-mem-demo/README.
 - Python SDK: 25 个 API 方法 + 15 DTO + ObservationUpdate + Flask Demo（**403** tests；第 175 轮 PY-1/PY-2 补齐 8 处客户端校验时由 395 增至 403）
 - JS/TS SDK: 25 个 API 方法 + CJS/ESM/DTS 输出（**227** tests：client 222 + truncated-body 5）
 - Demo: Java 12 控制器 + Go 5 Demo + Python 1 Demo + JS 1 Demo
-- E2E 测试: 4 个严格验证脚本
+- E2E 测试：`scripts/` 下 12 个测试脚本（10 个 `*-e2e-test.sh` + `regression-test.sh` +
+  编排器 `run-all-e2e.sh`）；`run-all-e2e.sh` 一次跑完其中 **10 个本地套件**（脚本自身逐条
+  标注 `1/10`–`10/10`，不含 Docker 套件与 `test-llm-provider.sh`）。此行原写「4 个严格验证
+  脚本」，该数字既非脚本计数（2026-03-29 建档时与今日的脚本集合完全相同，都是同样 12 个），
+  也无其他可核实出处，故按可核实口径改写
