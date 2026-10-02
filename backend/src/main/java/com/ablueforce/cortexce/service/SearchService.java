@@ -1,5 +1,6 @@
 package com.ablueforce.cortexce.service;
 
+import com.ablueforce.cortexce.config.Constants;
 import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.ablueforce.cortexce.repository.ObservationRepository;
 import org.slf4j.Logger;
@@ -23,7 +24,8 @@ import java.util.List;
 public class SearchService {
 
     private static final Logger log = LoggerFactory.getLogger(SearchService.class);
-    private static final int DEFAULT_LIMIT = 20;
+    /** Page size used when the caller passes a non-positive limit. Package-private for tests. */
+    static final int DEFAULT_LIMIT = 20;
 
     private final ObservationRepository observationRepository;
 
@@ -40,9 +42,11 @@ public class SearchService {
         }
         String project = request.project();
         String query = request.query();
-        // P2: Handle Integer.MIN_VALUE edge case with robust limit handling
+        // P2: Handle Integer.MIN_VALUE edge case with robust limit handling.
+        // Clamp to the same [1, MAX_PAGE_SIZE] window the REST controller applies so the limit*2
+        // over-fetches below stay positive and bounded for every caller, MCP included.
         int rawLimit = request.limit();
-        int limit = rawLimit <= 0 ? DEFAULT_LIMIT : Math.max(1, rawLimit);
+        int limit = Math.min(rawLimit <= 0 ? DEFAULT_LIMIT : rawLimit, Constants.MAX_PAGE_SIZE);
 
         // PATH 1: Filter-only (no query text)
         if (query == null || query.isBlank()) {
@@ -63,7 +67,7 @@ public class SearchService {
                     List<ObservationEntity> results = observationRepository.hybridSearch(
                         project, query, vectorStr, minEpoch, limit * 2
                     );
-                    List<ObservationEntity> filtered = applyPostFilters(results, request);
+                    List<ObservationEntity> filtered = applyPostFilters(results, request, limit);
                     return new SearchResult(filtered, "hybrid", false);
                 } catch (IllegalArgumentException e) {
                     log.warn("Hybrid search rejected for project={}, falling back to tsvector: {}",
@@ -96,7 +100,7 @@ public class SearchService {
         log.debug("Full-text search fallback for project={}", project);
         try {
             List<ObservationEntity> results = observationRepository.fullTextSearch(project, query, limit * 2);
-            List<ObservationEntity> filtered = applyPostFilters(results, request);
+            List<ObservationEntity> filtered = applyPostFilters(results, request, limit);
             return new SearchResult(filtered, "tsvector", query != null && request.queryVector() != null);
         } catch (Exception e) {
             // P1: Use WARN level - fallback failure is expected behavior but worth noting
@@ -155,16 +159,17 @@ public class SearchService {
             strategy = "recent";
         }
         // Apply ordering + offset + limit via applyPostFilters for consistent ordering across all paths
-        List<ObservationEntity> filtered = applyPostFilters(results, request);
+        List<ObservationEntity> filtered = applyPostFilters(results, request, limit);
         return new SearchResult(filtered, strategy, false);
     }
 
     /**
      * Apply source/type/concept filters and offset as post-processing on semantic search results.
      * Needed because hybrid and full-text search queries don't support source filtering or offset natively.
-     * Fetches limit*2 results to compensate for filtering reducing the result set.
+     * Fetches limit*2 results to compensate for filtering reducing the result set, then trims back to
+     * {@code limit} — the caller's normalized cap — so the caller never receives more than it asked for.
      */
-    private List<ObservationEntity> applyPostFilters(List<ObservationEntity> results, SearchRequest request) {
+    private List<ObservationEntity> applyPostFilters(List<ObservationEntity> results, SearchRequest request, int limit) {
         String sourceFilter = blankToNull(request.source());
         String typeFilter = blankToNull(request.type());
         String conceptFilter = blankToNull(request.concept());
@@ -175,7 +180,9 @@ public class SearchService {
         boolean needsProcessing = hasFilter || offset > 0 || orderBy != null;
 
         if (!needsProcessing) {
-            return results;
+            // No filter/offset/order to apply, but the repository over-fetched limit*2 rows to leave
+            // headroom for post-filtering. Trim back so the caller gets at most `limit` rows.
+            return trimToLimit(results, limit);
         }
 
         var stream = results.stream();
@@ -205,7 +212,12 @@ public class SearchService {
             stream = stream.skip(offset);
         }
 
-        return stream.limit(request.limit()).toList();
+        return stream.limit(limit).toList();
+    }
+
+    /** Cap an already-ordered result list to {@code limit} rows without copying when it already fits. */
+    private static List<ObservationEntity> trimToLimit(List<ObservationEntity> results, int limit) {
+        return results.size() > limit ? results.subList(0, limit) : results;
     }
 
     /**

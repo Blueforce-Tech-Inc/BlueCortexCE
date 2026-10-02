@@ -1,5 +1,6 @@
 package com.ablueforce.cortexce.mcp;
 
+import com.ablueforce.cortexce.config.Constants;
 import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.ablueforce.cortexce.entity.SessionEntity;
 import com.ablueforce.cortexce.entity.SummaryEntity;
@@ -74,7 +75,7 @@ public class ClaudeMemMcpTools {
     public Map<String, Object> search(
             @McpToolParam(description = "Search query for semantic search", required = false) String query,
             @McpToolParam(description = "Project path filter", required = true) String project,
-            @McpToolParam(description = "Max results (default: 20)", required = false) Integer limit,
+            @McpToolParam(description = "Max results, 1-100 (default: 20)", required = false) Integer limit,
             @McpToolParam(description = "Observation type filter", required = false) String type,
             @McpToolParam(description = "Observation concept filter", required = false) String concept,
             @McpToolParam(description = "Pagination offset", required = false) Integer offset,
@@ -82,7 +83,12 @@ public class ClaudeMemMcpTools {
     ) {
         log.info("MCP search: query={}, project={}, limit={}", query, project, limit);
 
-        int effectiveLimit = limit != null ? limit : 20;
+        // Clamp to the same [1, MAX_PAGE_SIZE] window the REST controller applies. Without a cap here
+        // the caller controls the SQL LIMIT directly, which lets one tool call pull an entire project's
+        // rows (and their 1024-dim embeddings) into a single JSON-RPC response.
+        int effectiveLimit = limit != null
+                ? Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE)
+                : 20;
         int effectiveOffset = offset != null ? Math.max(0, offset) : 0;
 
         // F-1 Fix: Log warning for orderBy — ordering is applied in-memory (not SQL-level),
