@@ -166,6 +166,49 @@ class TestTypeConversionHelpers:
         assert obs.project_path == "/tmp/phase3-acceptance-test"
         assert obs.content == "Testing hook mode compatibility"
 
+    def test_observation_from_wire_parses_comma_separated_refined_from_ids(self):
+        """Pin the shape the backend actually sends for refined_from_ids.
+
+        mem_observations.refined_from_ids is a TEXT column, not JSONB:
+        ExtractionStorageService builds it with Collectors.joining(","), so the
+        wire carries a bare comma-separated list of UUIDs. Every other JSONB list
+        column (facts, concepts, files_read, files_modified) arrives as a
+        JSON-encoded *string*, which is what the sibling test pins.
+
+        This matters because the JSON-array spelling is valid input that the
+        backend never produces, so a test using it passes whether or not the
+        comma path works at all.
+        """
+        raw = (
+            "8f1bfe7f-cae0-4841-ae44-b041b59e70b9,"
+            "2a6b27bc-6cec-408e-a37e-a71dbb461fb1"
+        )
+        obs = Observation.from_wire({"id": "a", "refined_from_ids": raw})
+        assert obs.refined_from_ids == [
+            "8f1bfe7f-cae0-4841-ae44-b041b59e70b9",
+            "2a6b27bc-6cec-408e-a37e-a71dbb461fb1",
+        ]
+
+        # A single id is one element, not a list of characters, and not [].
+        single = "8f1bfe7f-cae0-4841-ae44-b041b59e70b9"
+        assert Observation.from_wire(
+            {"id": "a", "refined_from_ids": single}
+        ).refined_from_ids == [single]
+
+        # Whitespace around the separator must not leak into the ids.
+        spaced = Observation.from_wire(
+            {"id": "a", "refined_from_ids": f"{single} , {raw.split(',')[1]}"}
+        )
+        assert spaced.refined_from_ids == [
+            "8f1bfe7f-cae0-4841-ae44-b041b59e70b9",
+            "2a6b27bc-6cec-408e-a37e-a71dbb461fb1",
+        ]
+
+        # A null column stays an empty list rather than None.
+        assert Observation.from_wire(
+            {"id": "a", "refined_from_ids": None}
+        ).refined_from_ids == []
+
     def test_observation_from_wire_accepts_real_arrays_too(self):
         """The plain-array shape must keep working — the fix is additive."""
         obs = Observation.from_wire({
