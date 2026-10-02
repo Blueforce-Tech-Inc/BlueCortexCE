@@ -205,6 +205,54 @@ It matters because a PATCH that sets nothing is a silent no-op on the wire: with
 the check, a caller who assembled an empty update from user input would see the call
 resolve and could not tell that nothing was written.
 
+### Required Arguments Are Checked Client-Side
+
+Every argument below must be non-empty. The SDK throws a `ValidationError` and sends no
+request. The Go, Java and Python SDKs enforce exactly the same set. This SDK names the
+project argument `cwd` because that is the wire field; the other three call it
+`project_path`.
+
+| Method | Required arguments |
+|--------|--------------------|
+| `startSession` | `req.session_id`, `req.project_path` |
+| `updateSessionUserId` | `sessionId`, `userId` |
+| `recordObservation` | `req.session_id`, `req.cwd`, `req.tool_name` |
+| `recordSessionEnd` | `req.session_id`, `req.cwd` |
+| `recordUserPrompt` | `req.session_id`, `req.prompt_text`, `req.cwd` |
+| `retrieveExperiences` | `req.task` |
+| `buildICLPrompt` | `req.task` |
+| `search` | `req.project` |
+| `getObservation` | `id` |
+| `getObservationsByIds` | `ids` — non-empty, at most 100, no blank element |
+| `triggerRefinement` | `projectPath` |
+| `submitFeedback` | `req.observationId`, `req.feedbackType` |
+| `updateObservation` | `observationId`, plus at least one field to change |
+| `deleteObservation` | `observationId` |
+| `getQualityDistribution` | `projectPath` |
+| `triggerExtraction` | `projectPath` |
+| `getLatestExtraction` | `projectPath`, `templateName` |
+| `getExtractionHistory` | `projectPath`, `templateName`; `limit` must not be negative |
+
+The project argument is `cwd` on the three capture request objects because that is
+the wire field there, and a positional `projectPath` on the management methods. The
+other three SDKs call it `project_path` throughout.
+
+The checks are not decoration, and the capture methods are the clearest case.
+`recordObservation` is fire-and-forget, so it swallows whatever the backend replies:
+an empty `tool_name` comes back as `400 Missing required field: tool_name`, the SDK
+logs it and resolves, and the caller concludes the observation was captured when the
+server had just rejected it. An empty `cwd` is quieter still, because the backend
+*accepts* it — the record is queued against no project and then appears in no
+project-scoped query, with no error anywhere.
+
+`search` has the same shape of hazard: the SDK always sends `project`, and
+`GET /api/search?project=` answers `200` with an empty result set, so a caller who
+forgot the argument would read "no matches" rather than "your call was malformed".
+
+`listObservations` and the argument-free getters (`getStats`, `getProjects`,
+`getModes`, `getSettings`, `getVersion`, `healthCheck`) require nothing. `getStats`
+takes an optional project filter.
+
 ## Wire Format
 
 The SDK uses JSON field names that match the backend API exactly. Field naming varies by endpoint:

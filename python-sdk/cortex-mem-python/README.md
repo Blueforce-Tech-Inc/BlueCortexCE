@@ -231,6 +231,52 @@ return normally and could not tell that nothing was written. Pass `extracted_dat
 as a keyword argument to send an explicitly empty JSONB value — the dataclass form
 `ObservationUpdate(extracted_data={})` omits it from the wire and is therefore empty.
 
+### Required Arguments Are Checked Client-Side
+
+Every argument below must be non-empty. The SDK raises `ValidationError` and sends no
+request. The Go, Java and JS SDKs enforce exactly the same set.
+
+| Method | Required arguments |
+|--------|--------------------|
+| `start_session` | `session_id`, `project_path` |
+| `update_session_user_id` | `session_id`, `user_id` |
+| `record_observation` | `session_id`, `project_path`, `tool_name` |
+| `record_session_end` | `session_id`, `project_path` |
+| `record_user_prompt` | `session_id`, `prompt_text`, `project_path` |
+| `retrieve_experiences` | `task` |
+| `build_icl_prompt` | `task` |
+| `search` | `project` |
+| `get_observation` | `observation_id` |
+| `get_observations_by_ids` | `ids` — non-empty, at most 100, no blank element |
+| `trigger_refinement` | `project_path` |
+| `submit_feedback` | `observation_id`, `feedback_type` |
+| `update_observation` | `observation_id`, plus at least one field to change |
+| `delete_observation` | `observation_id` |
+| `get_quality_distribution` | `project_path` |
+| `trigger_extraction` | `project_path` |
+| `get_latest_extraction` | `project_path`, `template_name` |
+| `get_extraction_history` | `project_path`, `template_name`; `limit` must not be negative |
+
+`record_user_prompt` requires `project_path` positionally or by keyword — it has no
+default, so omitting it raises `TypeError` at the call site rather than quietly
+sending an empty `cwd`.
+
+The checks are not decoration, and the capture methods are the clearest case.
+`record_observation` is fire-and-forget, so it swallows whatever the backend replies:
+an empty `tool_name` comes back as `400 Missing required field: tool_name`, the SDK
+logs it and returns `None`, and the caller concludes the observation was captured when
+the server had just rejected it. An empty `project_path` is quieter still, because the
+backend *accepts* it — the record is queued against no project and then appears in no
+project-scoped query, with no error anywhere.
+
+`search` has the same shape of hazard: the SDK always sends `project`, and
+`GET /api/search?project=` answers `200` with an empty result set, so a caller who
+forgot the argument would read "no matches" rather than "your call was malformed".
+
+`list_observations` and the argument-free getters (`get_stats`, `get_projects`,
+`get_modes`, `get_settings`, `get_version`, `health_check`) require nothing.
+`get_stats` takes an optional project filter.
+
 ## Wire Format
 
 The SDK handles wire format differences automatically:

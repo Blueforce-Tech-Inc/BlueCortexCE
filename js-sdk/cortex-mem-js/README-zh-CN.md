@@ -198,6 +198,48 @@ cortex-ce: validation error on update: at least one field must be provided for u
 
 这一点很重要：不设置任何字段的 PATCH 在 wire 上是一次静默 no-op。若没有这道检查，调用方用用户输入拼出一个空更新后会看到调用 resolve，却无法得知其实什么都没写入。
 
+### 必填参数在客户端校验
+
+下表中的参数都必须非空。SDK 抛出 `ValidationError` 且不发出任何请求。Go、Java、Python 三家 SDK 强制的是完全相同的一组规则。
+
+| 方法 | 必填参数 |
+|------|----------|
+| `startSession` | `req.session_id`、`req.project_path` |
+| `updateSessionUserId` | `sessionId`、`userId` |
+| `recordObservation` | `req.session_id`、`req.cwd`、`req.tool_name` |
+| `recordSessionEnd` | `req.session_id`、`req.cwd` |
+| `recordUserPrompt` | `req.session_id`、`req.prompt_text`、`req.cwd` |
+| `retrieveExperiences` | `req.task` |
+| `buildICLPrompt` | `req.task` |
+| `search` | `req.project` |
+| `getObservation` | `id` |
+| `getObservationsByIds` | `ids`——非空、至多 100 个、元素不得为空 |
+| `triggerRefinement` | `projectPath` |
+| `submitFeedback` | `req.observationId`、`req.feedbackType` |
+| `updateObservation` | `observationId`，外加至少一个待修改字段 |
+| `deleteObservation` | `observationId` |
+| `getQualityDistribution` | `projectPath` |
+| `triggerExtraction` | `projectPath` |
+| `getLatestExtraction` | `projectPath`、`templateName` |
+| `getExtractionHistory` | `projectPath`、`templateName`；`limit` 不得为负 |
+
+项目参数在三个 capture 请求对象上叫 `cwd`（因为那才是 wire 字段名），在管理与抽取类
+方法上则是位置参数 `projectPath`。另外三家 SDK 统一称其为 `project_path`。
+
+这些检查不是装饰。其中三个 capture 方法最能说明问题：`recordObservation` 是
+fire-and-forget，会吞掉后端返回的一切——`tool_name` 为空时后端返回
+`400 Missing required field: tool_name`，SDK 记一条日志后 resolve，调用方于是认为
+观测已记录，而服务器刚刚拒绝了它。`cwd` 为空则更隐蔽，因为后端**接受**它：记录会以
+空项目路径入队，随后不出现在任何按项目过滤的查询里，全程没有任何错误提示。
+
+`search` 属于同一类隐患：SDK 总会发送 `project`，而 `GET /api/search?project=` 会
+返回 `200` 加一个空结果集，因此漏传参数的调用方读到的是「没有匹配」而不是「你的调用
+不合法」。
+
+`listObservations` 与无参的 getter（`getStats`、`getProjects`、`getModes`、
+`getSettings`、`getVersion`、`healthCheck`）没有必填参数；`getStats` 接受一个可选的
+项目过滤条件。
+
 ## Wire 格式
 
 SDK 使用与后端 API 完全一致的 JSON 字段名。字段命名因端点而异：

@@ -369,6 +369,51 @@ It matters because a PATCH that sets nothing is a silent no-op on the wire: with
 the check, a caller who assembled an empty update from user input would see the call
 succeed and could not tell that nothing was written.
 
+### Required Arguments Are Checked Client-Side
+
+Every argument below must be non-blank. The client throws `IllegalArgumentException`
+and sends no request. The Go, Python and JS SDKs enforce exactly the same set.
+
+| Method | Required arguments |
+|--------|--------------------|
+| `startSession` | `request.sessionId()`, `request.projectPath()` |
+| `updateSessionUserId` | `sessionId`, `userId` |
+| `recordObservation` | `request.sessionId()`, `request.projectPath()`, `request.toolName()` |
+| `recordSessionEnd` | `request.sessionId()`, `request.projectPath()` |
+| `recordUserPrompt` | `request.sessionId()`, `request.promptText()`, `request.projectPath()` |
+| `retrieveExperiences` | `request.task()` |
+| `buildICLPrompt` | `request.task()` |
+| `search` | `request.project()` |
+| `getObservation` | `observationId` |
+| `getObservationsByIds` | `ids` — non-empty, at most 100, no blank element |
+| `triggerRefinement` | `projectPath` |
+| `submitFeedback` | `observationId`, `feedbackType` |
+| `updateObservation` | `observationId`, plus at least one field to change |
+| `deleteObservation` | `observationId` |
+| `getQualityDistribution` | `projectPath` |
+| `triggerExtraction` | `projectPath` |
+| `getLatestExtraction` | `projectPath`, `templateName` |
+| `getExtractionHistory` | `projectPath`, `templateName`; `limit` must not be negative |
+
+The capture and retrieval methods take a request record and read their arguments
+through its accessors; the management and extraction methods take them positionally.
+
+The checks are not decoration, and the capture methods are the clearest case.
+`recordObservation` is fire-and-forget, so it swallows whatever the backend replies:
+an empty tool name comes back as `400 Missing required field: tool_name`, the client
+logs it and returns, and the caller concludes the observation was captured when the
+server had just rejected it. An empty project path is quieter still, because the
+backend *accepts* it — the record is queued against no project and then appears in no
+project-scoped query, with no error anywhere.
+
+`search` has the same shape of hazard: the client always sends `project`, and
+`GET /api/search?project=` answers `200` with an empty result set, so a caller who
+forgot the argument would read "no matches" rather than "your call was malformed".
+
+`listObservations` and the argument-free getters (`getStats`, `getProjects`,
+`getModes`, `getSettings`, `getVersion`, `healthCheck`) require nothing. `getStats`
+takes an optional project filter.
+
 ## Wire Format
 
 The SDK models the backend's actual wire shapes, which are not always what the field

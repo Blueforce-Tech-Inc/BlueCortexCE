@@ -219,6 +219,48 @@ cortex-ce: validation error on update: at least one field must be provided for u
 
 这一点很重要：不设置任何字段的 PATCH 在 wire 上是一次静默 no-op。若没有这道检查，调用方用用户输入拼出一个空更新后会看到调用正常返回，却无法得知其实什么都没写入。若要显式发送一个空的 JSONB 值，请以关键字参数传入 `extracted_data={}`——数据类形式 `ObservationUpdate(extracted_data={})` 会把它从 wire 中省略，因此仍属空更新。
 
+### 必填参数在客户端校验
+
+下表中的参数都必须非空。SDK 抛出 `ValidationError` 且不发出任何请求。Go、Java、JS 三家 SDK 强制的是完全相同的一组规则。
+
+| 方法 | 必填参数 |
+|------|----------|
+| `start_session` | `session_id`、`project_path` |
+| `update_session_user_id` | `session_id`、`user_id` |
+| `record_observation` | `session_id`、`project_path`、`tool_name` |
+| `record_session_end` | `session_id`、`project_path` |
+| `record_user_prompt` | `session_id`、`prompt_text`、`project_path` |
+| `retrieve_experiences` | `task` |
+| `build_icl_prompt` | `task` |
+| `search` | `project` |
+| `get_observation` | `observation_id` |
+| `get_observations_by_ids` | `ids`——非空、至多 100 个、元素不得为空 |
+| `trigger_refinement` | `project_path` |
+| `submit_feedback` | `observation_id`、`feedback_type` |
+| `update_observation` | `observation_id`，外加至少一个待修改字段 |
+| `delete_observation` | `observation_id` |
+| `get_quality_distribution` | `project_path` |
+| `trigger_extraction` | `project_path` |
+| `get_latest_extraction` | `project_path`、`template_name` |
+| `get_extraction_history` | `project_path`、`template_name`；`limit` 不得为负 |
+
+`record_user_prompt` 的 `project_path` 必须以位置或关键字方式传入——它没有默认值，
+因此漏传会在调用处直接抛 `TypeError`，而不是悄悄发出一个空 `cwd`。
+
+这些检查不是装饰。其中三个 capture 方法最能说明问题：`record_observation` 是
+fire-and-forget，会吞掉后端返回的一切——`tool_name` 为空时后端返回
+`400 Missing required field: tool_name`，SDK 记一条日志后返回 `None`，调用方于是认为
+观测已记录，而服务器刚刚拒绝了它。`project_path` 为空则更隐蔽，因为后端**接受**它：
+记录会以空项目路径入队，随后不出现在任何按项目过滤的查询里，全程没有任何错误提示。
+
+`search` 属于同一类隐患：SDK 总会发送 `project`，而 `GET /api/search?project=` 会
+返回 `200` 加一个空结果集，因此漏传参数的调用方读到的是「没有匹配」而不是「你的调用
+不合法」。
+
+`list_observations` 与无参的 getter（`get_stats`、`get_projects`、`get_modes`、
+`get_settings`、`get_version`、`health_check`）没有必填参数；`get_stats` 接受一个可选的
+项目过滤条件。
+
 ## Wire 格式
 
 SDK 自动处理 Wire 格式差异：
