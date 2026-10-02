@@ -7,8 +7,8 @@
 ## Current Review Rotation
 
 - **轮换顺序**: API 文档 → SDK README → 设计文档 → 架构文档 → 用户指南
-- **最近完成**: SDK README（2026-10-02 六十八轮，两项。DOC-1（P2）Java SDK README 缺 Wire Format 段落（第 164 轮记录的待办，本轮完成）——Go/Python/JS 三家都有，唯独 Java 没有，而 Java 侧恰有一处最易误解的建模差异；EN/ZH 已补四个 JSONB 列以 JSON 编码字符串到达、`refinedFromIds` 是逗号分隔 `TEXT` 列而非列表、`@JsonProperty` 命名映射。DOC-2（P1）**错误契约完全没有文档，而这正是本轮改的东西**：该契约刻意不统一（哪些抛出、哪些为 Spring AI 路径降级、哪些用 `fell_back`/`error` 标记降级），四家 README 中只有 Java 需要这张表，因为只有它的行为是分裂的。EN/ZH 已新增 Error Handling 段落。测试数重测：Java README 180→186，patrol-task 基准同步。核实无误：四家 README 中英标题层级序列逐位一致、围栏平衡（Java 42/42）
-- **下一方向**: 架构文档（六十九轮）
+- **最近完成**: 架构文档（2026-10-02 六十九轮，一项。DOC-1（P2）**PostgreSQL 端口写错**（`docs/ARCHITECTURE.md:1100` 与 `docs/ARCHITECTURE-zh-CN.md:1100`）——Network Security 表格把 PostgreSQL 固定写成 `127.0.0.1:5432`，但实际取决于运行方式。三个事实依据全部实地核对后才改：`docker-compose.yml:35` 映射 `"${POSTGRES_PORT:-5433}:5432"`（Docker 路径宿主端口是 **5433**）、`README.md:308` 明写 5433 是为避开本地已占用的 5432、`backend/src/main/resources/application.yml:74` 默认 `jdbc:postgresql://127.0.0.1/claude_mem_dev` 未写端口即 5432。现改为两端口并列，并补说明：Docker 路径必须用 `SPRING_DATASOURCE_URL` 覆写指向发布出来的端口，否则后端 5432 默认值会去找一个并不存在的服务器。**写作过程中自查出一处错误**：说明段落最初插在表格的 PostgreSQL 行与 Proxy 行之间，把表格从中间截断、`| Proxy |` 行会孤立成普通文本；两种语言均已重排为「表格完整 → 段落说明」。核实无误未改：Data Privacy 的四条隐私标签（`<private>`/`<claude-mem-context>`/`<system_instruction>`/`<system-instruction>` + entirely-private skip）与实际行为逐条相符。结构校验 `/tmp/arch_parity.py` 全通过：49 个标题、层级序列一致、围栏平衡、锚点可解析）
+- **下一方向**: 用户指南（七十轮）
 - **新增待决**: `docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分
 - **Pending 状态**: 文档问题清单已清空（0 项待处理）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
