@@ -5,6 +5,7 @@ import pytest
 import responses
 
 from cortex_mem import CortexMemClient, APIError, BadRequestError, NotFoundError, RateLimitError, CortexError, ValidationError, UnprocessableError
+from cortex_mem.version import __version__
 from cortex_mem.error import is_retryable, raise_for_status, ServerError, ConflictError, AuthError, is_retryable_error, is_bad_gateway, is_bad_request, is_service_unavailable, is_gateway_timeout, is_client_error, is_server_error, is_not_found, is_unauthorized, is_forbidden, is_conflict, is_rate_limited, is_unprocessable, is_validation_error
 from cortex_mem.error import MethodNotAllowedError
 from cortex_mem.dto import (
@@ -1696,7 +1697,63 @@ class TestCustomSession:
         c = CortexMemClient(base_url=BASE, session=s)
         c.close()
         # Session should still be usable (not closed) — verify it doesn't raise
-        assert s.headers.get("Accept") == "application/json"
+        assert s.headers.get("X-Probe") != "closed"
+
+    def test_custom_session_headers_not_mutated(self):
+        """A caller-supplied session must not gain the SDK's headers.
+
+        The session is shared with all of the caller's other HTTP traffic, so
+        writing Authorization into it would leak the API key to other hosts.
+        """
+        import requests
+        s = requests.Session()
+        s.headers["X-Trace"] = "abc123"
+        before = dict(s.headers)
+
+        CortexMemClient(base_url=BASE, api_key="sk-secret", session=s)
+
+        assert dict(s.headers) == before
+        assert "Authorization" not in s.headers
+        assert s.headers["X-Trace"] == "abc123"
+
+    def test_headers_sent_per_request_on_custom_session(self):
+        """The SDK headers still reach the wire, just as per-request headers."""
+        import requests
+        s = requests.Session()
+        captured = {}
+
+        class _Resp:
+            status_code = 200
+            content = b'{"status": "ok"}'
+
+            def json(self):
+                return {"status": "ok"}
+
+        def fake_send(self, req, **kw):
+            captured["auth"] = req.headers.get("Authorization")
+            captured["ua"] = req.headers.get("User-Agent")
+            captured["accept"] = req.headers.get("Accept")
+            return _Resp()
+
+        orig = requests.Session.send
+        requests.Session.send = fake_send
+        try:
+            c = CortexMemClient(base_url=BASE, api_key="sk-secret", session=s)
+            c.health_check()
+        finally:
+            requests.Session.send = orig
+
+        assert captured["auth"] == "Bearer sk-secret"
+        assert captured["ua"] == f"cortex-mem-python/{__version__}"
+        assert captured["accept"] == "application/json"
+
+    def test_custom_session_receives_no_authorization_without_api_key(self):
+        """Without an API key the SDK must not invent an Authorization header."""
+        import requests
+        s = requests.Session()
+        c = CortexMemClient(base_url=BASE, session=s)
+        assert "Authorization" not in c._headers
+        assert "Authorization" not in s.headers
 
     def test_default_session_closed_on_client_close(self):
         """When using default session, closing the client SHOULD close the session."""

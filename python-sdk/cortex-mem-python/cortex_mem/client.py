@@ -53,6 +53,18 @@ class CortexMemClient:
 
         with CortexMemClient() as client:
             client.health_check()
+
+    Args:
+        base_url: Backend base URL. A trailing slash is stripped.
+        timeout: Per-request timeout in seconds (floored at 0.1s).
+        max_retries: Attempts for fire-and-forget captures (floored at 1).
+        retry_backoff: Base backoff in seconds (floored at 0.1s).
+        api_key: Sent as ``Authorization: Bearer <key>`` on every request.
+        session: Optional caller-owned :class:`requests.Session`, typically to
+            share a connection pool. It is **never mutated** — the SDK sends its
+            headers per request and does not close a session it did not create,
+            so sharing one never leaks the API key or the SDK's User-Agent to
+            your other HTTP traffic.
     """
 
     def __init__(
@@ -78,14 +90,18 @@ class CortexMemClient:
             self._session = requests.Session()
             self._owns_session = True
 
-        self._session.headers.update(
-            {
-                "Accept": "application/json",
-                "User-Agent": f"cortex-mem-python/{__version__}",
-            }
-        )
+        # Per-request headers, never written into session.headers. A caller-supplied
+        # session is shared with all of the caller's other HTTP traffic, so writing
+        # Authorization into it would send this API key to unrelated hosts; the
+        # owned session is left untouched too, which keeps one code path.
+        # requests merges session headers with request headers, so an owned
+        # session still produces the same effective request headers as before.
+        self._headers: dict[str, str] = {
+            "Accept": "application/json",
+            "User-Agent": f"cortex-mem-python/{__version__}",
+        }
         if api_key:
-            self._session.headers["Authorization"] = f"Bearer {api_key}"
+            self._headers["Authorization"] = f"Bearer {api_key}"
 
         self._closed = False
 
@@ -110,6 +126,7 @@ class CortexMemClient:
             url,
             json=json_body,
             params=params,
+            headers=self._headers,
             timeout=self._timeout,
         )
         if resp.status_code >= 400:
