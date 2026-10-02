@@ -30,7 +30,7 @@ curl http://127.0.0.1:37777/api/health
 
 ## HTTP Server Demo
 
-The most comprehensive demo — a full HTTP server exposing all 27 SDK methods as REST endpoints. It serves as a testing harness, development tool, and reference implementation.
+The most comprehensive demo — a full HTTP server that wraps all 27 methods of the Go SDK `Client` interface, of which 25 are API methods served over 24 REST routes (`Close` and `String` are lifecycle/debug and have no route). It serves as a testing harness, development tool, and reference implementation.
 
 ### How to Run
 
@@ -41,7 +41,7 @@ go run .
 
 **Output:**
 ```
-🚀 Go SDK HTTP server starting on :8080
+🚀 Go SDK HTTP server starting on :37779 (backend: http://127.0.0.1:37777)
 Endpoints:
   GET    /health              - Health check
   POST   /chat                - Chat with memory
@@ -49,7 +49,15 @@ Endpoints:
   ...
 ```
 
-The server starts on port **8080** with graceful shutdown support (SIGINT/SIGTERM).
+The server binds **37779** by default — a dedicated demo port, not a common
+development port — with graceful shutdown on SIGINT/SIGTERM. Override it with
+`PORT` (and the backend with `CORTEX_BASE_URL`) if 37779 is taken:
+
+```bash
+PORT=38080 CORTEX_BASE_URL=http://127.0.0.1:37777 go run .
+```
+
+Every `curl` example below uses 37779; substitute your `PORT` if you changed it.
 
 ### All 24 Endpoints
 
@@ -58,7 +66,7 @@ The server starts on port **8080** with graceful shutdown support (SIGINT/SIGTER
 **GET /health** — Health check (proxies to backend)
 
 ```bash
-curl http://localhost:8080/health
+curl http://localhost:37779/health
 ```
 
 ```json
@@ -68,7 +76,7 @@ curl http://localhost:8080/health
 **GET /version** — Backend version info
 
 ```bash
-curl http://localhost:8080/version
+curl http://localhost:37779/version
 ```
 
 ```json
@@ -82,7 +90,7 @@ curl http://localhost:8080/version
 **PATCH /session/user** — Update session user ID
 
 ```bash
-curl -X PATCH http://localhost:8080/session/user \
+curl -X PATCH http://localhost:37779/session/user \
   -H "Content-Type: application/json" \
   -d '{"session_id": "my-session", "user_id": "alice"}'
 ```
@@ -98,7 +106,7 @@ curl -X PATCH http://localhost:8080/session/user \
 **GET /search** — Semantic search over observations
 
 ```bash
-curl "http://localhost:8080/search?project=/my-project&query=error+handling&limit=5"
+curl "http://localhost:37779/search?project=/my-project&query=error+handling&limit=5"
 ```
 
 ```json
@@ -118,7 +126,7 @@ Query parameters:
 **GET /observations** — List observations with pagination
 
 ```bash
-curl "http://localhost:8080/observations?project=/my-project&limit=10"
+curl "http://localhost:37779/observations?project=/my-project&limit=10"
 ```
 
 ```json
@@ -134,7 +142,7 @@ curl "http://localhost:8080/observations?project=/my-project&limit=10"
 **POST /observations/batch** — Get observations by IDs
 
 ```bash
-curl -X POST http://localhost:8080/observations/batch \
+curl -X POST http://localhost:37779/observations/batch \
   -H "Content-Type: application/json" \
   -d '{"ids": ["obs-1", "obs-2", "obs-3"]}'
 ```
@@ -146,7 +154,7 @@ curl -X POST http://localhost:8080/observations/batch \
 **PATCH /observation/patch** — Update an observation
 
 ```bash
-curl -X PATCH http://localhost:8080/observation/patch \
+curl -X PATCH http://localhost:37779/observation/patch \
   -H "Content-Type: application/json" \
   -d '{"id": "obs-123", "title": "Updated title", "source": "verified"}'
 ```
@@ -158,7 +166,7 @@ curl -X PATCH http://localhost:8080/observation/patch \
 **DELETE /observation/delete** — Delete an observation
 
 ```bash
-curl -X DELETE "http://localhost:8080/observation/delete?id=obs-123"
+curl -X DELETE "http://localhost:37779/observation/delete?id=obs-123"
 # Returns: 204 No Content
 ```
 
@@ -169,7 +177,7 @@ curl -X DELETE "http://localhost:8080/observation/delete?id=obs-123"
 **GET /experiences** — Retrieve relevant experiences
 
 ```bash
-curl "http://localhost:8080/experiences?project=/my-project&task=fix+authentication+bug"
+curl "http://localhost:37779/experiences?project=/my-project&task=fix+authentication+bug"
 ```
 
 ```json
@@ -184,7 +192,7 @@ curl "http://localhost:8080/experiences?project=/my-project&task=fix+authenticat
 **GET /iclprompt** — Build ICL prompt from experiences
 
 ```bash
-curl "http://localhost:8080/iclprompt?project=/my-project&task=recommend+phone"
+curl "http://localhost:37779/iclprompt?project=/my-project&task=recommend+phone"
 ```
 
 ```json
@@ -197,7 +205,7 @@ curl "http://localhost:8080/iclprompt?project=/my-project&task=recommend+phone"
 **GET /quality** — Quality distribution stats
 
 ```bash
-curl "http://localhost:8080/quality?project=/my-project"
+curl "http://localhost:37779/quality?project=/my-project"
 ```
 
 ```json
@@ -207,7 +215,7 @@ curl "http://localhost:8080/quality?project=/my-project"
 **POST /refine** — Trigger memory refinement
 
 ```bash
-curl -X POST "http://localhost:8080/refine?project=/my-project"
+curl -X POST "http://localhost:37779/refine?project=/my-project"
 ```
 
 ```json
@@ -217,7 +225,7 @@ curl -X POST "http://localhost:8080/refine?project=/my-project"
 **POST /feedback** — Submit observation feedback
 
 ```bash
-curl -X POST http://localhost:8080/feedback \
+curl -X POST http://localhost:37779/feedback \
   -H "Content-Type: application/json" \
   -d '{"observation_id": "obs-123", "feedback_type": "useful", "comment": "Very helpful"}'
 ```
@@ -233,7 +241,7 @@ curl -X POST http://localhost:8080/feedback \
 **GET /extraction/latest** — Latest extraction result for a template
 
 ```bash
-curl "http://localhost:8080/extraction/latest?template=user_preference&project=/my-project&userId=alice"
+curl "http://localhost:37779/extraction/latest?template=user_preference&project=/my-project&userId=alice"
 ```
 
 ```json
@@ -250,7 +258,7 @@ curl "http://localhost:8080/extraction/latest?template=user_preference&project=/
 **GET /extraction/history** — Extraction history (all snapshots)
 
 ```bash
-curl "http://localhost:8080/extraction/history?template=user_preference&project=/my-project&userId=alice&limit=5"
+curl "http://localhost:37779/extraction/history?template=user_preference&project=/my-project&userId=alice&limit=5"
 ```
 
 ```json
@@ -263,7 +271,7 @@ curl "http://localhost:8080/extraction/history?template=user_preference&project=
 **POST /extraction/run** — Manually trigger structured data extraction
 
 ```bash
-curl -X POST "http://localhost:8080/extraction/run?project=/my-project"
+curl -X POST "http://localhost:37779/extraction/run?project=/my-project"
 ```
 
 ```json
@@ -277,25 +285,25 @@ curl -X POST "http://localhost:8080/extraction/run?project=/my-project"
 **GET /projects** — List all projects
 
 ```bash
-curl http://localhost:8080/projects
+curl http://localhost:37779/projects
 ```
 
 **GET /stats** — Project statistics
 
 ```bash
-curl "http://localhost:8080/stats?project=/my-project"
+curl "http://localhost:37779/stats?project=/my-project"
 ```
 
 **GET /modes** — Memory mode settings
 
 ```bash
-curl http://localhost:8080/modes
+curl http://localhost:37779/modes
 ```
 
 **GET /settings** — Current system settings
 
 ```bash
-curl http://localhost:8080/settings
+curl http://localhost:37779/settings
 ```
 
 ---
@@ -305,7 +313,7 @@ curl http://localhost:8080/settings
 **POST /chat** — Simulated chat (demonstrates StartSession + RecordObservation)
 
 ```bash
-curl -X POST http://localhost:8080/chat \
+curl -X POST http://localhost:37779/chat \
   -H "Content-Type: application/json" \
   -d '{"project": "/my-project", "message": "Hello, remember this!"}'
 ```
@@ -317,7 +325,7 @@ curl -X POST http://localhost:8080/chat \
 **POST /ingest/prompt** — Record a user prompt
 
 ```bash
-curl -X POST http://localhost:8080/ingest/prompt \
+curl -X POST http://localhost:37779/ingest/prompt \
   -H "Content-Type: application/json" \
   -d '{"project": "/my-project", "prompt": "How do I fix this?", "session_id": "my-session"}'
 ```
@@ -329,7 +337,7 @@ curl -X POST http://localhost:8080/ingest/prompt \
 **POST /ingest/session-end** — Signal session end
 
 ```bash
-curl -X POST http://localhost:8080/ingest/session-end \
+curl -X POST http://localhost:37779/ingest/session-end \
   -H "Content-Type: application/json" \
   -d '{"project": "/my-project", "session_id": "my-session"}'
 ```
@@ -497,7 +505,7 @@ The Go SDK includes a comprehensive E2E test script that validates the full chai
 ### Prerequisites
 
 1. Backend running on port 37777
-2. HTTP server demo running on port 8080
+2. HTTP server demo running on port 37779
 
 ```bash
 # Terminal 1: Start backend
@@ -617,7 +625,7 @@ result, _ := client.Search(ctx, searchReq)
 
 **Solution:** Check that both services are running:
 1. Backend on port 37777: `curl http://127.0.0.1:37777/api/health`
-2. HTTP Demo on port 8080: `curl http://localhost:8080/health`
+2. HTTP Demo on port 37779: `curl http://localhost:37779/health`
 
 If the Demo returns `connection refused`, start it:
 
@@ -627,18 +635,21 @@ cd go-sdk/cortex-mem-go/examples/http-server && go run .
 
 ### Port Conflict
 
-**Problem:** Port 8080 is already in use
+**Problem:** Port 37779 is already in use
 
-**Solution:** The HTTP server demo hardcodes port 8080. If conflicting, modify the `addr` variable in `examples/http-server/main.go`:
-
-```go
-addr := ":9090"  // Change to available port
-```
-
-Then update E2E test script's `DEMO_BASE` variable:
+**Solution:** The port is not hardcoded — `main.go` reads it from the `PORT`
+environment variable and falls back to 37779. Pick another one at launch:
 
 ```bash
-DEMO_BASE="http://localhost:9090"
+cd go-sdk/cortex-mem-go/examples/http-server
+PORT=38080 go run .
+```
+
+No source change is needed. If you drive the E2E script, point it at the port you
+chose:
+
+```bash
+DEMO_BASE="http://localhost:38080"
 ```
 
 ### Fire-and-Forget Errors Not Visible
