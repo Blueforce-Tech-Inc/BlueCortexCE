@@ -455,7 +455,9 @@ SDK 的错误行为**刻意不统一**，因为两类调用方需要的东西不
 
 **部分降级**——这些方法在返回值里**标记**了降级，调用方据此可判定：
 `search` 与 `getStats` 附带 `"fell_back": true` 和 `"error"` 键，`getVersion` 报
-`"unknown"`，`getSettings` 附带 `"error"` 键。
+`"unknown"`，`getSettings` 附带 `"error"` 键，`getModes` 返回与 `/api/modes` 相同的键
+（`observation_types` / `observation_concepts` 为空）并附带 `"error"` 键。`healthCheck`
+列在上表，是因为它返回的 `false` 本身就是信号。
 
 ```java
 try {
@@ -677,26 +679,26 @@ mvn clean install -DskipTests
 ## 设计笔记
 
 - **即发即忘捕获**：捕获操作记录失败但不抛出异常，因此 AI 管道永不被阻塞。
-- **优雅降级**：读操作在后端失败时不抛异常，而是返回一个合成值。这是有意设计（记忆层不能拖垮 AI 管道），
-  但代价是：除非该方法显式回报错误，否则「后端不可达」和「确实没有数据」看起来完全一样。
+- **优雅降级**：大多数读操作在后端失败时不抛异常，而是返回一个合成值。这是有意设计（记忆层不能拖垮 AI 管道），
+  但代价是：**除非该方法标记了失败**，否则「后端不可达」和「确实没有数据」看起来完全一样。
+  有三个读方法是例外，它们直接向上抛出——`listObservations`、`getObservationsByIds` 与
+  `getProjects`——因为在这三个方法上，空结果与「查询确实没有匹配」无法区分。
 
-  | 方法 | 后端失败时的行为 |
-  |------|-----------------|
-  | `retrieveExperiences` | 返回空列表 |
-  | `buildICLPrompt` | 返回 prompt `""`、count `0` |
-  | `listObservations` | 返回空分页（`hasMore=false`） |
-  | `getObservationsByIds` | 返回空列表（因此 `getObservation` 返回 `null`） |
-  | `getVersion` | 返回 `{"service": "unknown", "version": "unknown"}` |
-  | `getProjects` / `getModes` | 返回空集合 |
-  | `search` | 返回 `{"observations": [], "strategy": "none", "fell_back": true, "count": 0, "error": "<message>"}` |
-  | `getStats` | 返回 `{"error": "<message>", "fell_back": true}` |
-  | `getSettings` | 返回 `{"settings": {}, "error": "<message>"}` |
-  | `getQualityDistribution` | 各项计数均为 `0` |
-  | `healthCheck` | 返回 `false` |
+  | 方法 | 后端失败时的行为 | 是否标记失败 |
+  |------|-----------------|------------|
+  | `retrieveExperiences` | 返回空列表 | 否 |
+  | `buildICLPrompt` | 返回 prompt `""`、count `0` | 否 |
+  | `getQualityDistribution` | 各项计数均为 `0` | 否 |
+  | `healthCheck` | 返回 `false` | 是（`false` 对 `true`） |
+  | `getVersion` | 返回 `{"service": "unknown", "version": "unknown"}` | 是 |
+  | `search` | 返回 `{"observations": [], "strategy": "none", "fell_back": true, "count": 0, "error": "<message>"}` | 是 |
+  | `getStats` | 返回 `{"error": "<message>", "fell_back": true}` | 是 |
+  | `getSettings` | 返回 `{"settings": {}, "error": "<message>"}` | 是 |
+  | `getModes` | 返回与 `/api/modes` 相同的键（`observation_types` / `observation_concepts` 为空）并附带 `"error"` 键 | 是 |
 
-  最后五行会回报失败原因，请检查 `error` 键（或 `false`）。上面的行不会——`retrieveExperiences`
-  或 `getProjects` 返回空结果时，无法区分「没有数据」和「后端挂了」。若必须区分，请先用
-  `healthCheck()`（或 `getVersion()` 并检查 `version` 是否为 `unknown`）再信任空结果。
+  前三行与「确实为空」无法区分，因此需要区分的调用方必须先用 `healthCheck()`（或
+  `getVersion()` 并检查 `version` 是否为 `unknown`）再信任空结果。`getModes` 与
+  `getProjects` 分开列出，是因为只有前者会降级。
 
   写入与变更类方法不降级，直接向上抛出：`startSession`、`recordObservation`、`recordUserPrompt`、
   `recordSessionEnd`、`submitFeedback`、`updateObservation`、`deleteObservation`、`updateSessionUserId`、

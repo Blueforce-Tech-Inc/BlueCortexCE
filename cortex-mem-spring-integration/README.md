@@ -464,7 +464,10 @@ agent's turn or take the application down:
 
 **Partial degradation** — these return a result that *marks* the fallback so a caller can
 detect it: `search` and `getStats` add `"fell_back": true` plus an `"error"` key,
-`getVersion` reports `"unknown"`, and `getSettings` adds an `"error"` key.
+`getVersion` reports `"unknown"`, `getSettings` adds an `"error"` key, and `getModes`
+returns the same keys `/api/modes` returns with empty `observation_types` /
+`observation_concepts` plus an `"error"` key. `healthCheck` is in the table above because
+its `false` is itself the signal.
 
 ```java
 try {
@@ -686,28 +689,29 @@ The client talks to these Cortex CE endpoints:
 ## Design Notes
 
 - **Fire-and-forget capture**: Capture operations log failures but never throw, so the AI pipeline is never blocked.
-- **Graceful degradation**: Read operations never throw on a backend failure — they return a
-  synthesized value. This is deliberate (a memory layer must not break the AI pipeline), but it
-  means "backend unreachable" and "no data" look identical unless the method reports the error.
+- **Graceful degradation**: Most read operations do not throw on a backend failure — they
+  return a synthesized value. This is deliberate (a memory layer must not break the AI
+  pipeline), but it means "backend unreachable" and "no data" look identical *unless the
+  method marks the failure*. Three reads are the exception and propagate instead —
+  `listObservations`, `getObservationsByIds` and `getProjects` — because an empty result
+  there is indistinguishable from a query that legitimately matched nothing.
 
-  | Method | Behaviour on backend failure |
-  |--------|-------------------------------|
-  | `retrieveExperiences` | returns empty list |
-  | `buildICLPrompt` | returns prompt `""`, count `0` |
-  | `listObservations` | returns empty page (`hasMore=false`) |
-  | `getObservationsByIds` | returns empty list (so `getObservation` returns `null`) |
-  | `getVersion` | returns `{"service": "unknown", "version": "unknown"}` |
-  | `getProjects` / `getModes` | return empty collections |
-  | `search` | returns `{"observations": [], "strategy": "none", "fell_back": true, "count": 0, "error": "<message>"}` |
-  | `getStats` | returns `{"error": "<message>", "fell_back": true}` |
-  | `getSettings` | returns `{"settings": {}, "error": "<message>"}` |
-  | `getQualityDistribution` | returns all counts `0` |
-  | `healthCheck` | returns `false` |
+  | Method | Behaviour on backend failure | Marks the failure? |
+  |--------|-------------------------------|--------------------|
+  | `retrieveExperiences` | returns empty list | no |
+  | `buildICLPrompt` | returns prompt `""`, count `0` | no |
+  | `getQualityDistribution` | returns all counts `0` | no |
+  | `healthCheck` | returns `false` | yes (`false` vs `true`) |
+  | `getVersion` | returns `{"service": "unknown", "version": "unknown"}` | yes |
+  | `search` | returns `{"observations": [], "strategy": "none", "fell_back": true, "count": 0, "error": "<message>"}` | yes |
+  | `getStats` | returns `{"error": "<message>", "fell_back": true}` | yes |
+  | `getSettings` | returns `{"settings": {}, "error": "<message>"}` | yes |
+  | `getModes` | returns the same keys `/api/modes` returns, with empty `observation_types` / `observation_concepts` plus an `"error"` key | yes |
 
-  The last five rows surface the failure, so check for the `error` key (or `false`) there. The
-  rows above it do not — an empty result from `retrieveExperiences` or `getProjects` cannot be
-  distinguished from a backend outage. Call `healthCheck()` (or `getVersion()` and look for
-  `version: "unknown"`) before trusting an empty result.
+  The first three rows are indistinguishable from a genuinely empty answer, so a caller
+  that needs to tell them apart must call `healthCheck()` (or `getVersion()` and look for
+  `version: "unknown"`) first. `getModes` is listed separately from `getProjects` because
+  only the former degrades.
 
   Write and mutation methods propagate instead of degrading: `startSession`, `recordObservation`,
   `recordUserPrompt`, `recordSessionEnd`, `submitFeedback`, `updateObservation`,

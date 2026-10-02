@@ -322,6 +322,19 @@ public class CortexMemClientImpl implements CortexMemClient {
         );
     }
 
+    // Also degrades instead of propagating, and it is named as one of the four
+    // deliberate degraders by the comment on retrieveExperiences /
+    // buildICLPrompt / getQualityDistribution — but the reasoning there does not
+    // transfer verbatim, so it is restated here rather than copy-pasted.
+    // Those three are called from @Tool methods, where an exception would break the
+    // agent's turn. This one has no @Tool caller: its only caller in the repository
+    // is CortexMemHealthIndicator.health(), which is polled by the actuator and
+    // already catches Exception itself. The observable difference is therefore not
+    // "DOWN vs. exception" but how DOWN is reported: returning false yields
+    // Health.down().withDetail("reason", "Health check returned false"), whereas
+    // throwing yields Health.down().withException(e), which attaches a stack trace
+    // to every poll for as long as the backend stays down. Keep returning false so
+    // a backend outage reads as a clean DOWN.
     @Override
     public boolean healthCheck() {
         try {
@@ -515,8 +528,11 @@ public class CortexMemClientImpl implements CortexMemClient {
             // looked empty for months. Go, Python and JS all propagate here.
             // Deliberate graceful degradation is kept for the four methods the
             // Spring AI integration depends on (retrieveExperiences, buildICLPrompt,
-            // getQualityDistribution, healthCheck) — a memory failure must not break
-            // the agent — and is documented on each of those methods.
+            // getQualityDistribution, healthCheck) and is documented on each of
+            // them. The first three degrade because a memory failure must not break
+            // the agent's turn; healthCheck is the odd one out and carries its own
+            // note, because its only caller is the actuator health indicator and the
+            // reason it must not throw is different.
             log.warn("Failed to list observations: {}", describe(e));
             throw new RuntimeException("listObservations failed: " + describe(e), e);
         }
