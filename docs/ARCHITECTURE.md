@@ -369,7 +369,7 @@ The Fat Server is the core Spring Boot application handling all business logic.
 │  RateLimitService       → Per-session rate limiting         │
 │  ProjectFilterService   → Project path filtering            │
 │  ModeService            → Memory mode management            │
-│  MemoryRefineService   → Memory refinement (per-project lock-based concurrent dedup via projectLocks)
+│  MemoryRefineService   → Refinement + extraction mutex      │
 │  StructuredExtractionService → Structured data extraction   │
 │  ExtractionStorageService → Extraction result persistence   │
 │  SessionManagementService → Session lifecycle               │
@@ -406,6 +406,19 @@ The Fat Server is the core Spring Boot application handling all business logic.
 │  ObservationFeedbackRepository → Feedback tracking (V17)     │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+**`projectLocks` guards extraction, not refinement, and it is not a dedup
+mechanism.** `MemoryRefineService` owns a `ConcurrentHashMap<String,
+ReentrantLock>` and uses it at two sites, both of which serialise *structured
+extraction* for a project: `tryExecuteWithProjectLock` (called by
+`StructuredExtractionService.reExtractForSession`) and the tail of
+`deepRefineProjectMemories`. Mutual exclusion is the whole behaviour — the
+actual duplicate suppression for captures is the `uk_session_tool_input` unique
+constraint over (session, tool_name, `tool_input_hash`) plus the
+`existsBySessionAndTool` check in `AgentService`. Note also that
+`deepRefineProjectMemories` has no callers anywhere in the codebase, so only
+the `tryExecuteWithProjectLock` site is reachable. Structured extraction is
+event-driven only — see [Structured extraction is not scheduled](drafts/phase-3-design/23.md).
 
 #### Core Pipeline: Observation Creation
 

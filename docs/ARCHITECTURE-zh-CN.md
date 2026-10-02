@@ -367,7 +367,7 @@ process.exit(0);
 │  RateLimitService       → 按会话速率限制                    │
 │  ProjectFilterService   → 项目路径过滤                     │
 │  ModeService            → 记忆模式管理                      │
-│  MemoryRefineService   → 记忆优化（项目级并发去重，通过 projectLocks 实现）│
+│  MemoryRefineService   → 记忆优化 + 抽取互斥锁              │
 │  StructuredExtractionService → 结构化数据提取               │
 │  ExtractionStorageService → 提取结果持久化                  │
 │  SessionManagementService → 会话生命周期                    │
@@ -404,6 +404,17 @@ process.exit(0);
 │  ObservationFeedbackRepository → 反馈跟踪 (V17)             │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+**`projectLocks` 保护的是抽取、不是精炼，而且它不是去重机制。**
+`MemoryRefineService` 持有一个 `ConcurrentHashMap<String, ReentrantLock>`，并在两处使用它，
+这两处串行化的是**结构化抽取**：`tryExecuteWithProjectLock`（由
+`StructuredExtractionService.reExtractForSession` 调用）以及
+`deepRefineProjectMemories` 的尾部。其行为就是互斥本身——捕获真正的重复抑制来自
+`uk_session_tool_input` 唯一约束（session、tool_name、`tool_input_hash` 三列）
+以及 `AgentService` 中的 `existsBySessionAndTool` 检查。另外注意
+`deepRefineProjectMemories` 在整个代码库中没有任何调用方，因此只有
+`tryExecuteWithProjectLock` 那一处是可达的。结构化抽取**完全由事件驱动**，
+参见 [抽取并非定时执行](drafts/phase-3-design/23.md)。
 
 #### 核心流程：观察创建
 
