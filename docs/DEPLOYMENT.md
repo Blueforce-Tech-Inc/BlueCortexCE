@@ -449,9 +449,9 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `SPRING_AI_OPENAI_API_KEY` | **Yes** | - | OpenAI API key |
-| `SPRING_AI_OPENAI_BASE_URL` | No | `https://api.openai.com` | API base URL |
-| `SPRING_AI_OPENAI_CHAT_MODEL` | No | `gpt-4o` | Chat model name |
+| `SPRING_AI_OPENAI_API_KEY` | **Yes** | - | OpenAI API key (alias: `OPENAI_API_KEY`) |
+| `SPRING_AI_OPENAI_BASE_URL` | No | `https://api.openai.com` | API base URL (alias: `OPENAI_BASE_URL`) |
+| `SPRING_AI_OPENAI_CHAT_MODEL` | No | `gpt-4o` | Chat model name (alias: `OPENAI_MODEL`) |
 
 #### Anthropic Compatible API (Claude, GLM, etc.)
 
@@ -466,19 +466,74 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | **Yes** | - | Embedding API key |
-| `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | No | `https://api.openai.com` | Embedding API URL |
-| `SPRING_AI_OPENAI_EMBEDDING_MODEL` | No | `text-embedding-3-small` | Embedding model name |
-| `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | No | `1536` | Embedding dimensions (768/1024/1536) |
+| `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | **Yes** | - | Embedding API key (alias: `EMBEDDING_API_KEY`) |
+| `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | No | `https://api.openai.com` | Embedding API URL (alias: `EMBEDDING_BASE_URL`) |
+| `SPRING_AI_OPENAI_EMBEDDING_MODEL` | No | `text-embedding-3-small` | Embedding model name (alias: `EMBEDDING_MODEL`) |
+| `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | No | `1536` | Embedding dimensions (768/1024/1536) (alias: `EMBEDDING_DIMENSIONS`) |
+
+> **The "Default" column is profile-specific.** Both tables above state the `prd`
+> profile's values, which is what `docker compose up` selects — `SPRING_PROFILES_ACTIVE`
+> defaults to `prd`. The `dev` profile ships different ones:
+>
+> | Variable | `prd` default | `dev` default |
+> |----------|---------------|---------------|
+> | `SPRING_AI_OPENAI_BASE_URL` | `https://api.openai.com` | `https://api.deepseek.com` |
+> | `SPRING_AI_OPENAI_CHAT_MODEL` | `gpt-4o` | `deepseek-chat` |
+> | `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | `https://api.openai.com` | `https://api.siliconflow.cn` |
+> | `SPRING_AI_OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small` | `BAAI/bge-m3` |
+> | `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | `1536` | `1024` |
+>
+> Set a variable explicitly and the profile no longer matters; leave it unset and
+> the profile decides. Section 5.7's development example relies on this — it pins
+> all five values rather than inheriting them.
+>
+> The short aliases above are defined in `application-prd.yml` only. The `dev`
+> profile reads the `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_MODEL` names
+> but has no `EMBEDDING_*` equivalents, so under `dev` those must be spelled out
+> in full.
+>
+> **Changing the dimension has a consequence worth knowing before you try it.**
+> Writes route by dimension, so a 768- or 1536-dim model is stored correctly. The
+> read path does not: semantic search always compares against the `embedding_1024`
+> column, so a mismatch raises `different vector dimensions <n> and 1024` and the
+> query falls back to full-text search. It is not silent — the search response
+> reports `strategy: "tsvector"` with `fellBack: true` — but the only outward sign
+> of a misconfigured embedding setup will be that no query ever uses the vector
+> index. `BAAI/bge-m3` at 1024 dimensions is the configuration the search path is
+> built around.
 
 ### 5.5 Runtime Configuration
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `CLAUDE_MEM_MODE` | No | `code` | Memory mode (`code`, `code--<lang>`, `email-investigation`, etc.) |
+| `CLAUDE_MEM_MODES_DIR` | No | *(empty)* | Directory of custom mode profiles. Empty means the JAR-embedded `classpath:modes/` in production and `plugin/modes/` during development. |
 | `CLAUDEMEM_LOG_DIR` | No | `~/.claude-mem/logs` | Log directory |
 | `MEMORY_REFINE_ENABLED` | No | `true` | Enable memory refinement (self-evolution) |
 | `JAVA_OPTS` | No | `-XX:+UseZGC -XX:MaxRAMPercentage=75.0` | JVM options |
+
+#### Evo-Memory and Structured Extraction Tuning
+
+`MEMORY_REFINE_ENABLED` switches refinement on, but not what it does — the four
+thresholds below decide which observations are touched, and all four are
+independent. Structured extraction (Phase 3) is a separate feature, disabled by
+default, with its own three batch controls.
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `MEMORY_QUALITY_THRESHOLD` | No | `0.6` | **Currently unused.** Declared in `application.yml` and described there as a retrieval filter, but no backend code reads it — setting it has no effect. |
+| `MEMORY_REFINE_DELETE_THRESHOLD` | No | `0.3` | Quality below which refinement deletes an observation (prune) |
+| `MEMORY_REFINE_STALE_DAYS` | No | `30` | Days without access before an observation counts as stale |
+| `MEMORY_REFINE_COOLDOWN_DAYS` | No | `7` | Days before a refined observation may be refined again |
+| `EXTRACTION_ENABLED` | No | `false` | Enable Phase 3 structured extraction |
+| `EXTRACTION_MAX_CANDIDATES` | No | `100` | Candidate observations considered on the first run of a template |
+| `EXTRACTION_BATCH_SIZE` | No | `20` | Observations per extraction batch |
+| `EXTRACTION_MAX_BATCHES` | No | `10` | Batches per template per run |
+
+`MEMORY_REFINE_DELETE_THRESHOLD` is the destructive one: during a refinement run
+every candidate that *has* a quality score below it is deleted rather than
+rewritten. Records with no score at all are exempt and go to the rewrite path
+instead. Raising the threshold is the safe direction; lowering it removes data.
 
 ### 5.6 Data Persistence Paths (Docker Compose)
 

@@ -445,9 +445,9 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 
 | 变量名 | 必填 | 默认值 | 说明 |
 |--------|------|--------|------|
-| `SPRING_AI_OPENAI_API_KEY` | **是** | - | OpenAI API 密钥 |
-| `SPRING_AI_OPENAI_BASE_URL` | 否 | `https://api.openai.com` | API 基础 URL |
-| `SPRING_AI_OPENAI_CHAT_MODEL` | 否 | `gpt-4o` | 聊天模型名称 |
+| `SPRING_AI_OPENAI_API_KEY` | **是** | - | OpenAI API 密钥（别名：`OPENAI_API_KEY`） |
+| `SPRING_AI_OPENAI_BASE_URL` | 否 | `https://api.openai.com` | API 基础 URL（别名：`OPENAI_BASE_URL`） |
+| `SPRING_AI_OPENAI_CHAT_MODEL` | 否 | `gpt-4o` | 聊天模型名称（别名：`OPENAI_MODEL`） |
 
 #### Anthropic 兼容 API（Claude、GLM 等）
 
@@ -462,19 +462,67 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 
 | 变量名 | 必填 | 默认值 | 说明 |
 |--------|------|--------|------|
-| `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | **是** | - | 嵌入 API 密钥 |
-| `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | 否 | `https://api.openai.com` | 嵌入 API URL |
-| `SPRING_AI_OPENAI_EMBEDDING_MODEL` | 否 | `text-embedding-3-small` | 嵌入模型名称 |
-| `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | 否 | `1536` | 嵌入维度（768/1024/1536） |
+| `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | **是** | - | 嵌入 API 密钥（别名：`EMBEDDING_API_KEY`） |
+| `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | 否 | `https://api.openai.com` | 嵌入 API URL（别名：`EMBEDDING_BASE_URL`） |
+| `SPRING_AI_OPENAI_EMBEDDING_MODEL` | 否 | `text-embedding-3-small` | 嵌入模型名称（别名：`EMBEDDING_MODEL`） |
+| `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | 否 | `1536` | 嵌入维度（768/1024/1536）（别名：`EMBEDDING_DIMENSIONS`） |
+
+> **「默认值」一列是按 profile 分化的。** 上方两张表写的都是 `prd` profile 的值，
+> 而 `docker compose up` 选中的正是它——`SPRING_PROFILES_ACTIVE` 默认 `prd`。
+> `dev` profile 则是另一套：
+>
+> | 变量名 | `prd` 默认值 | `dev` 默认值 |
+> |--------|--------------|--------------|
+> | `SPRING_AI_OPENAI_BASE_URL` | `https://api.openai.com` | `https://api.deepseek.com` |
+> | `SPRING_AI_OPENAI_CHAT_MODEL` | `gpt-4o` | `deepseek-chat` |
+> | `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | `https://api.openai.com` | `https://api.siliconflow.cn` |
+> | `SPRING_AI_OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small` | `BAAI/bge-m3` |
+> | `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | `1536` | `1024` |
+>
+> 显式设置则与 profile 无关；不设置则由 profile 决定。5.7 节的开发环境示例正是
+> 依赖这一点——它把五个值全部显式写出，而不是继承默认值。
+>
+> 上表的短别名只定义在 `application-prd.yml` 中。`dev` profile 识别
+> `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_MODEL`，但**没有**对应的
+> `EMBEDDING_*` 别名，因此 `dev` 下必须写全名。
+>
+> **改维度之前值得先知道它的后果。** 写入侧按维度分列，768 维或 1536 维模型都能
+> 正确存储；但读取侧不是：语义检索恒定与 `embedding_1024` 比较，维度不匹配会抛出
+> `different vector dimensions <n> and 1024`，查询退化为全文检索。这不是静默失败——
+> 检索响应会返回 `strategy: "tsvector"` 与 `fellBack: true`——但嵌入配置错误的唯一
+> 外在表现，也仅仅是「没有任何查询走到向量索引」。`BAAI/bge-m3` + 1024 维才是检索
+> 路径所围绕构建的配置。
 
 ### 5.5 运行时配置
 
 | 变量名 | 必填 | 默认值 | 说明 |
 |--------|------|--------|------|
 | `CLAUDE_MEM_MODE` | 否 | `code` | 记忆模式（code、code--<lang>、email-investigation 等） |
+| `CLAUDE_MEM_MODES_DIR` | 否 | *（空）* | 自定义模式配置目录。留空时，生产用 JAR 内嵌的 `classpath:modes/`，开发用 `plugin/modes/`。 |
 | `CLAUDEMEM_LOG_DIR` | 否 | `~/.claude-mem/logs` | 日志目录 |
 | `MEMORY_REFINE_ENABLED` | 否 | `true` | 启用记忆精炼（自我进化） |
 | `JAVA_OPTS` | 否 | `-XX:+UseZGC -XX:MaxRAMPercentage=75.0` | JVM 参数 |
+
+#### Evo-Memory 与结构化抽取调参
+
+`MEMORY_REFINE_ENABLED` 决定精炼开关，但**不决定精炼做什么**——下面四个阈值决定
+哪些观测会被处理，且彼此独立。结构化抽取（Phase 3）是另一项功能，默认关闭，有
+自己的三个批量控制参数。
+
+| 变量名 | 必填 | 默认值 | 说明 |
+|--------|------|--------|------|
+| `MEMORY_QUALITY_THRESHOLD` | 否 | `0.6` | **当前未被使用。** 在 `application.yml` 中声明，且注释称其为检索过滤器，但后端没有任何代码读取它——设置它不会产生任何效果。 |
+| `MEMORY_REFINE_DELETE_THRESHOLD` | 否 | `0.3` | 质量低于此值的观测在精炼时被删除（剪枝） |
+| `MEMORY_REFINE_STALE_DAYS` | 否 | `30` | 超过多少天未访问即视为陈旧 |
+| `MEMORY_REFINE_COOLDOWN_DAYS` | 否 | `7` | 精炼过的观测多少天后可再次精炼 |
+| `EXTRACTION_ENABLED` | 否 | `false` | 启用 Phase 3 结构化抽取 |
+| `EXTRACTION_MAX_CANDIDATES` | 否 | `100` | 模板首次运行时考察的候选观测数 |
+| `EXTRACTION_BATCH_SIZE` | 否 | `20` | 每批送入 LLM 的观测数 |
+| `EXTRACTION_MAX_BATCHES` | 否 | `10` | 每个模板每次运行的批次数上限 |
+
+`MEMORY_REFINE_DELETE_THRESHOLD` 是其中最具破坏性的一个：精炼运行时，**已有**质量分
+且低于该阈值的候选观测会被删除而非重写。完全没有评分的记录不在此列，它们走重写
+分支。调高阈值是安全方向，调低会丢数据。
 
 ### 5.6 数据持久化路径（Docker Compose）
 

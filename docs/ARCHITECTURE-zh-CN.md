@@ -949,6 +949,12 @@ claudemem:
 | `CLAUDE_MEM_MODE` | `code` | 记忆模式（`code`/`default`） |
 | `MEMORY_REFINE_ENABLED` | `true` | 启用记忆优化（自我进化） |
 
+> **上表的 LLM 与嵌入默认值是 `dev` profile 的，而 `SPRING_PROFILES_ACTIVE` 默认却是
+> `prd`。** 两者并不一致：`prd` 使用 `https://api.openai.com` 配 `gpt-4o`，以及
+> `text-embedding-3-small` + 1536 维；而此处显示的是 `https://api.deepseek.com` /
+> `deepseek-chat` 与 SiliconFlow `BAAI/bge-m3` + 1024 维。由于 Compose 选中的正是 `prd`，
+> 只设置 API 密钥的部署**不会**得到本表中的取值。完整对照见部署指南 §5.4。
+
 ---
 
 ## 设计决策
@@ -1028,11 +1034,18 @@ switch，分别存入 `embedding_768` / `embedding_1024` / `embedding_1536`。�
 描述的是代码并未实现的意图。`semanticSearch768` / `semanticSearch1024` /
 `semanticSearch1536` 三个方法带有正确的分维度 SQL，但没有任何调用方。
 
-实际后果是：只有随附的 `BAAI/bge-m3` 配置（1024 维）能让语义检索端到端工作。若把
+实际后果是：只有 1024 维能让语义检索端到端工作。若把
 `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` 改为 768 维或 1536 维模型，写入依旧正确，
 但每次语义查询都会因 `different vector dimensions <n> and 1024` 失败并被捕获，
 退化为全文检索。该降级是可见的而非静默的：响应会返回 `strategy: "tsvector"` 与
 `fellBack: true`，同时记录一条 WARN 日志。
+
+**默认拿到哪个维度取决于 profile。** `dev` profile 默认 `BAAI/bge-m3` + 1024 维，
+开箱即用。`prd` profile——`docker compose up` 选中的正是它，因为
+`SPRING_PROFILES_ACTIVE` 默认 `prd`——默认 `text-embedding-3-small` + **1536** 维，
+因此保持默认的 Compose 部署会写入 `embedding_1536` 并全程跑在全文检索上。
+若依赖 `prd`，请显式设置 `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS=1024`。
+完整的按 profile 对照表见部署指南 §5.4。
 
 ---
 

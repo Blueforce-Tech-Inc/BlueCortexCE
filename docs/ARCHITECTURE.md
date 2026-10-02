@@ -948,6 +948,14 @@ claudemem:
 | `CLAUDE_MEM_MODE` | `code` | Memory mode (`code`/`default`) |
 | `MEMORY_REFINE_ENABLED` | `true` | Enable memory refinement (self-evolution) |
 
+> **The LLM and embedding defaults above are the `dev` profile's, while
+> `SPRING_PROFILES_ACTIVE` defaults to `prd`.** The two do not agree: `prd` uses
+> `https://api.openai.com` with `gpt-4o` and `text-embedding-3-small` at 1536
+> dimensions, against the `https://api.deepseek.com` / `deepseek-chat` and
+> SiliconFlow `BAAI/bge-m3` / 1024 shown here. Since Compose selects `prd`, a
+> deployment that sets only an API key does not get the values in this table.
+> See the deployment guide's §5.4 for the full comparison.
+
 ---
 
 ## Design Decisions
@@ -1029,13 +1037,22 @@ dimension only to log it, so its "dimension-aware" comment describes an
 intention the code does not implement. `semanticSearch768` / `semanticSearch1024`
 / `semanticSearch1536` carry the correct per-dimension SQL but have no callers.
 
-In practice this means the shipped `BAAI/bge-m3` setup (1024-dim) is the only
-configuration in which semantic search works end to end. Point
+In practice this means a 1024-dim embedding is the only dimension in which
+semantic search works end to end. Point
 `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` at a 768- or 1536-dim model and
 ingestion keeps writing correctly, but every semantic query then fails with
 `different vector dimensions <n> and 1024` and is caught, falling back to
 full-text search. The degradation is visible rather than silent: the response
 reports `strategy: "tsvector"` with `fellBack: true`, and a WARN is logged.
+
+**Which dimension you get by default depends on the profile.** The `dev` profile
+defaults to `BAAI/bge-m3` at 1024 and therefore works out of the box. The `prd`
+profile — which is what `docker compose up` selects, since
+`SPRING_PROFILES_ACTIVE` defaults to `prd` — defaults to
+`text-embedding-3-small` at **1536**, so a Compose deployment left at its
+defaults ingests into `embedding_1536` and runs on full-text search. Set
+`SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS=1024` explicitly if you rely on `prd`.
+See the deployment guide's §5.4 for the full profile-by-profile table.
 
 ---
 

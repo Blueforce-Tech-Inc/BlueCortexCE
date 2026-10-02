@@ -10,7 +10,7 @@
 |----------|------|------|
 | P0 | 0 | 立即修复并复测 |
 | P1 | 1 | 优先修复并复测 |
-| P2 | 1 | 本轮完整验收阶段处理或明确标记为已跳过 |
+| P2 | 2 | 本轮完整验收阶段处理或明确标记为已跳过 |
 
 > **Open 只统计尚未处理的条目**（⏸已记录不修 / 📌待修）。标记为 ✅已修复 或 ✅已跳过 的条目
 > 保留在本文件作为可追溯的历史，但**不计入** Open。
@@ -21,6 +21,8 @@
 > P2 计数仍为 0。
 > 第 173 轮新增 P2-8（读取侧无维度路由，检索恒定比 `embedding_1024`），状态 ⏸已记录不修，
 > 故 P2 计数为 1。降级行为对调用方可见（`strategy` / `fellBack`），且仅在非 1024 维配置下触发。
+> 第 174 轮新增 P2-9（`MEMORY_QUALITY_THRESHOLD` 为死配置键，注释承诺的检索过滤器不存在），
+> 同样 ⏸已记录不修，P2 计数为 2。该项无行为影响，仅误导；文档已如实标注。
 
 ## Open Findings
 
@@ -260,6 +262,33 @@
   修正 `docs/ARCHITECTURE.md` / `docs/ARCHITECTURE-zh-CN.md` 的 ADR 4：原「Decision 4:
   Multi-Dimension Embeddings」读起来像三种维度端到端可用，现已明确限定为**仅写入侧**，
   并写明退化行为与可观测信号。
+
+### P2-9: `MEMORY_QUALITY_THRESHOLD` 是死配置键，注释描述的过滤器并不存在
+
+- **Scope**: `backend/src/main/resources/application.yml:16`
+  （`app.memory.quality-threshold: ${MEMORY_QUALITY_THRESHOLD:0.6}`）。
+- **Problem**: 该键的注释声称「Quality threshold for retrieval filtering (Phase 1) /
+  Observations with quality below this are filtered out」，但**后端没有任何代码读取它**。
+  逐项核实：`grep -rn "app.memory" --include=*.java backend/src/main` 只返回
+  `MemoryRefineService` 的四个注入点（`refine.delete-threshold`、`refine.cooldown-days`、
+  `refine.stale-days`、`refine-enabled`）与 `ExtractionConfig` 的
+  `@ConfigurationProperties(prefix = "app.memory.extraction")`，**没有 `quality-threshold`**；
+  全仓 `grep -rn "quality-threshold" backend/src` 仅命中 application.yml 自身一行。
+  检索侧确实存在一个形如 `quality_score < :threshold` 的 SQL
+  （`ObservationRepository.findLowQualityObservations:525`），但它的入参来自
+  `deleteThreshold`（`MemoryRefineService:153`、`:281`），**不是** `quality-threshold`——
+  这正是容易误判的地方：名字与语义都相近，但绑定的不是同一个键。
+- **实际影响**：无害但有误导性。设置该变量不改变任何行为；一个按注释理解它的运维
+  会以为检索有质量下限保护，实际没有。
+- **Status**: ⏸ 已记录不修（2026-10-02，第 174 轮运维/用户指南轮发现）。文档方向已在同轮
+  如实修正 `docs/DEPLOYMENT.md` / `docs/DEPLOYMENT-zh-CN.md` §5.5：新增的调参表把
+  `MEMORY_QUALITY_THRESHOLD` 标注为「**当前未被使用**」，并说明设置它不产生效果。
+  代码侧未改动，因为删除或接线都属于产品决策（要么删键，要么补上注释承诺的过滤器），
+  且本轮代码方向为 Go SDK。
+- **同轮核实无误**：其余八个新收录的变量均确认被真实读取——`MEMORY_REFINE_DELETE_THRESHOLD`
+  用于 `MemoryRefineService:111` 的删除分支、`MEMORY_REFINE_COOLDOWN_DAYS` / `_STALE_DAYS`
+  用于 `:43` / `:46`，四个 `EXTRACTION_*` 经 `ExtractionConfig` 的松散绑定
+  （`initial-run-max-candidates` → `initialRunMaxCandidates`）正确对应。
 
 ## Processing Rules
 
