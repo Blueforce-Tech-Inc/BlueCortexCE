@@ -8,7 +8,8 @@
 
 - **轮换顺序**: API 文档 → SDK README → 设计文档 → 架构文档 → 用户指南
 - **最近完成**: 架构文档（2026-10-02 六十九轮，一项。DOC-1（P2）**PostgreSQL 端口写错**（`docs/ARCHITECTURE.md:1100` 与 `docs/ARCHITECTURE-zh-CN.md:1100`）——Network Security 表格把 PostgreSQL 固定写成 `127.0.0.1:5432`，但实际取决于运行方式。三个事实依据全部实地核对后才改：`docker-compose.yml:35` 映射 `"${POSTGRES_PORT:-5433}:5432"`（Docker 路径宿主端口是 **5433**）、`README.md:308` 明写 5433 是为避开本地已占用的 5432、`backend/src/main/resources/application.yml:74` 默认 `jdbc:postgresql://127.0.0.1/claude_mem_dev` 未写端口即 5432。现改为两端口并列，并补说明：Docker 路径必须用 `SPRING_DATASOURCE_URL` 覆写指向发布出来的端口，否则后端 5432 默认值会去找一个并不存在的服务器。**写作过程中自查出一处错误**：说明段落最初插在表格的 PostgreSQL 行与 Proxy 行之间，把表格从中间截断、`| Proxy |` 行会孤立成普通文本；两种语言均已重排为「表格完整 → 段落说明」。核实无误未改：Data Privacy 的四条隐私标签（`<private>`/`<claude-mem-context>`/`<system_instruction>`/`<system-instruction>` + entirely-private skip）与实际行为逐条相符。结构校验 `/tmp/arch_parity.py` 全通过：49 个标题、层级序列一致、围栏平衡、锚点可解析）
-- **下一方向**: 用户指南（七十轮）
+- **最近完成**: 用户指南（2026-10-02 七十轮，一项。DOC-1（P2，已修）**PostgreSQL 端口分野未说明**，波及 `docs/TESTING.md`+`-zh-CN` 与 `docs/DEVELOPMENT.md`+`-zh-CN`（第 168 轮架构文档那处修正的同源延伸）。两份指南都假定 5432——**对原生安装和它们各自给出的 `docker run -p 5432:5432` 而言是正确的，不是错误陈述**；真正的缺口是项目自己的 `docker compose up -d` 把库发布在宿主机 **5433**（`docker-compose.yml:35`）而两处都没提，于是 compose 用户照 TESTING 排障命令会在 5432 上**再起一个空数据库**、数据却在 compose 容器里。已在 TESTING 的「前置条件」与「PostgreSQL 连接失败」、DEVELOPMENT 的 Docker 替代方案三处加注（中英双语），并在 TESTING 变更日志记一笔。**两处怀疑经核实被推翻、未改**：「10 个本地 E2E 套件」属实（`run-all-e2e.sh` 自身标注 `1/10`–`10/10`，变更日志的「12」指第 3 节脚本表格行数）；`phase3-acceptance-test.sh` 的「15 test functions」属实（套件报告的 25 是这 15 个函数下的断言数）——差点改掉两个正确的数字。校验：四个文件 U+FFFD=0、围栏平衡、中英标题层级逐位一致（TESTING 35/35、DEVELOPMENT 177/177））
+- **下一方向**: API 文档（七十一轮，回到轮换起点）
 - **新增待决**: `docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分
 - **Pending 状态**: 文档问题清单已清空（0 项待处理）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
