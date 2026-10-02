@@ -157,6 +157,34 @@ application. Two things follow from that, and both are deliberate:
   and releases the connection pool only when the SDK created the session. Closing
   a session you still own is your call.
 
+### Configuration
+
+All constructor arguments, with the defaults and floors applied in `client.py`:
+
+| Argument | Default | Notes |
+|----------|---------|-------|
+| `base_url` | `http://127.0.0.1:37777` | A trailing slash is stripped |
+| `timeout` | `30.0` | Per-request, **in seconds**; floored at `0.1` |
+| `max_retries` | `3` | Total **attempts**, not retries (3 = 3 requests); floored at `1` |
+| `retry_backoff` | `0.5` | Base backoff, **in seconds**; floored at `0.1` |
+| `api_key` | *(none)* | Sent as `Authorization: Bearer <key>` on every request |
+| `session` | *(new `requests.Session`)* | Borrowed if you pass one — see above |
+
+**Units differ from the other SDKs, so a ported config value needs converting.**
+Timeouts and backoff are seconds here; Go and Java take a `time.Duration` /
+Spring `Duration` and JS takes milliseconds. `500ms` is `0.5` here, not `500`.
+`max_retries` counts attempts, matching Java's `retry.max-attempts` and the Go
+and JS names — all four default to 3.
+
+Retries apply to the **fire-and-forget captures only** — `record_observation`,
+`record_session_end`, `record_user_prompt`. The 3-attempt budget is spent on
+transient failures and the error is then swallowed. No other method retries, so a
+backend blip surfaces on the first attempt for the rest of the API. Go and JS
+retry that same set of three and nothing else; the Java SDK retries **10** of its
+25 methods, adding the two extraction reads, three mutations, and
+`trigger_refinement` / `trigger_extraction`. That difference matters if you are
+porting retry-avoidance code between SDKs.
+
 ## Error Handling
 
 ```python

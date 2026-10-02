@@ -154,6 +154,32 @@ with CortexMemClient(base_url="http://localhost:37777") as client:
 - **`close()` 不会关闭借用的会话**。它只标记客户端已关闭，并且仅在会话由 SDK 自己
   创建时才释放连接池。是否关闭仍归你所有的会话，由你决定。
 
+### 配置项
+
+构造函数的全部参数，含 `client.py` 中实际生效的默认值与下限：
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `base_url` | `http://127.0.0.1:37777` | 末尾斜杠会被去掉 |
+| `timeout` | `30.0` | 单次请求超时，单位**秒**；下限 `0.1` |
+| `max_retries` | `3` | 总**尝试**次数而非重试次数（3 = 发 3 次）；下限 `1` |
+| `retry_backoff` | `0.5` | 退避基数，单位**秒**；下限 `0.1` |
+| `api_key` | *(无)* | 每次请求以 `Authorization: Bearer <key>` 发送 |
+| `session` | *(新建 `requests.Session`)* | 传入即借用，见上文 |
+
+**单位与另外三家不同，移植配置值时需要换算**：这里的超时与退避用**秒**，
+Go 与 Java 接受 `time.Duration` / Spring `Duration`，JS 接受毫秒。`500ms`
+在这里是 `0.5` 而不是 `500`。`max_retries` 计的是尝试次数，与 Java 的
+`retry.max-attempts` 以及 Go、JS 的同名项一致——四家默认值都是 3。
+
+重试**只作用于 fire-and-forget 捕获**——`record_observation`、
+`record_session_end`、`record_user_prompt`。3 次尝试的预算用于瞬时故障，
+耗尽后错误被静默吞掉。其它任何方法都不重试，因此后端偶发抖动对其余 API
+会在**第一次尝试**就直接暴露。Go 与 JS 同样只重试这三个；而 Java SDK 会重试
+25 个方法中的 **10** 个，额外包括两个抽取读方法、三个变更类方法，以及
+`trigger_refinement` / `trigger_extraction`。若要在 SDK 之间移植「避免重试」
+的代码，这个差异需要留意。
+
 ## 错误处理
 
 ```python
