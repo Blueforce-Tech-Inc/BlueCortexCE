@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import ClassVar
 
@@ -97,14 +98,47 @@ def _parse_nullable_float(v: object) -> float | None:
 def _to_str_list(v: object, default: list[str] | None = None) -> list[str]:
     """Safely convert wire value to list[str].
 
-    Returns default (or []) if v is None or not a list.
+    Handles the two shapes the backend actually sends for JSONB list columns:
+
+    - a real JSON array: ``["a", "b"]``
+    - a **JSON-encoded string**: ``'"[\\"a\\", \\"b\\"]"'`` — mem_observations' facts,
+      concepts, files_read and files_modified are serialized as strings for the
+      WebUI, so a plain ``isinstance(v, list)`` check silently discarded every
+      non-empty value. Verified live: the wire carried
+      ``concepts: '["allergy","peanut"]'`` and this helper returned ``[]``.
+    - a comma-separated string, as a last resort (matches the JS SDK's
+      ``safeStringOrStringList``), so an unexpected shape degrades to partial
+      data rather than none.
+
+    Returns default (or []) if v is None or cannot be interpreted as a list.
     Skips None values and converts non-string items via str() for defensive parsing.
-    Matches JS SDK's safeStringArray() for cross-SDK parity (null/undefined items are filtered).
     """
+    fallback = default if default is not None else []
+
+    if isinstance(v, str):
+        stripped = v.strip()
+        if not stripped:
+            return fallback
+        try:
+            decoded = json.loads(stripped)
+        except (ValueError, TypeError):
+            # Not JSON — treat as a comma-separated list.
+            return [part.strip() for part in stripped.split(",") if part.strip()]
+        if decoded is None:
+            return fallback
+        if isinstance(decoded, list):
+            return _str_list_from_sequence(decoded, fallback)
+        return fallback
+
     if not isinstance(v, list):
-        return default if default is not None else []
+        return fallback
+    return _str_list_from_sequence(v, fallback)
+
+
+def _str_list_from_sequence(items: list, fallback: list[str]) -> list[str]:
+    """Convert an already-decoded sequence to list[str], skipping None items."""
     result: list[str] = []
-    for item in v:
+    for item in items:
         if isinstance(item, str):
             result.append(item)
         elif item is not None:

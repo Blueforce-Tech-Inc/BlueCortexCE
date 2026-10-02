@@ -193,6 +193,13 @@ SDK 自动处理 Wire 格式差异：
 - `project_path` → 会话启动端点中使用 `project_path`
 - `extracted_data` → `extractedData` (camelCase)
 - `required_concepts` → `requiredConcepts` (camelCase)
+- JSON 编码的字符串列表字段（`facts`、`concepts`、`files_read`、
+  `files_modified`、`refined_from_ids`）→ Python `list[str]`
+
+最后一条值得展开说明，因为它不是推测：后端把这些 JSONB 列序列化成**字符串**，
+因此线上的一条 observation 到达时是 `concepts: '["allergy","peanut"]'`，
+而不是 JSON 数组。SDK 两种形态都能解析，因此 `observation.concepts` 始终是真正的
+列表。若字符串不是合法 JSON，则按逗号切分降级处理，与 JS SDK 一致。
 
 详见[设计文档](../../docs/drafts/python-sdk-design.md)。
 

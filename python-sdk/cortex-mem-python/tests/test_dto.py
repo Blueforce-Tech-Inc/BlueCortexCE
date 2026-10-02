@@ -110,8 +110,72 @@ class TestTypeConversionHelpers:
         assert _to_str_list(None, default=["x"]) == ["x"]
 
     def test_to_str_list_with_string_instead_of_list(self):
-        """If backend returns a string instead of array, return default."""
-        assert _to_str_list("not a list") == []
+        """A non-JSON string degrades to a comma-separated list, not to nothing.
+
+        This used to assert `== []` on the theory that the backend never sends a
+        string here. It does: mem_observations' JSONB columns are serialized as
+        JSON-encoded strings for the WebUI, so returning [] silently dropped
+        every non-empty facts/concepts/files value. Behaviour now matches the JS
+        SDK's safeStringOrStringList.
+        """
+        assert _to_str_list("a,b,c") == ["a", "b", "c"]
+        assert _to_str_list("not a list") == ["not a list"]
+
+    def test_to_str_list_with_json_encoded_string(self):
+        """The real wire shape for facts/concepts/files_read/files_modified.
+
+        Verified live: GET /api/observations returns
+        concepts: '["allergy","peanut"]' — a JSON-encoded *string*, not an array.
+        Before the fix this returned [] and the data was lost silently.
+        """
+        assert _to_str_list('["allergy","peanut"]') == ["allergy", "peanut"]
+        assert _to_str_list("[]") == []
+        assert _to_str_list('["a", 1, null, "b"]') == ["a", "1", "b"]
+
+    def test_to_str_list_with_json_encoded_string_honours_default(self):
+        assert _to_str_list("null", default=["x"]) == ["x"]
+        assert _to_str_list("   ", default=["x"]) == ["x"]
+        # A JSON string that decodes to a non-list must not be smuggled through.
+        assert _to_str_list('"a"', default=["x"]) == ["x"]
+        assert _to_str_list('{"a": 1}', default=["x"]) == ["x"]
+
+    def test_observation_from_wire_keeps_jsonb_lists(self):
+        """End-to-end through the DTO, using a real backend response body.
+
+        Every list field below arrives as a JSON-encoded string. This is the
+        regression that matters: it is the shape the backend actually sends, so
+        a test built on a hand-written array fixture would pass either way.
+        """
+        obs = Observation.from_wire({
+            "id": "6ba7da76-4e53-4c45-8b7d-b4dd2c3c5bfc",
+            "content_session_id": "test-hook-002",
+            "project": "/tmp/phase3-acceptance-test",
+            "narrative": "Testing hook mode compatibility",
+            "facts": '["step one","step two"]',
+            "concepts": '["allergy","peanut"]',
+            "files_read": '["a.py","b.py"]',
+            "files_modified": '["c.py"]',
+            "refined_from_ids": '["11111111-1111-1111-1111-111111111111"]',
+        })
+        assert obs.facts == ["step one", "step two"]
+        assert obs.concepts == ["allergy", "peanut"]
+        assert obs.files_read == ["a.py", "b.py"]
+        assert obs.files_modified == ["c.py"]
+        assert obs.refined_from_ids == ["11111111-1111-1111-1111-111111111111"]
+        # The scalar mappings the same response depends on must stay correct.
+        assert obs.project_path == "/tmp/phase3-acceptance-test"
+        assert obs.content == "Testing hook mode compatibility"
+
+    def test_observation_from_wire_accepts_real_arrays_too(self):
+        """The plain-array shape must keep working — the fix is additive."""
+        obs = Observation.from_wire({
+            "id": "x", "facts": ["a"], "concepts": ["b"],
+            "files_read": [], "files_modified": None,
+        })
+        assert obs.facts == ["a"]
+        assert obs.concepts == ["b"]
+        assert obs.files_read == []
+        assert obs.files_modified == []
 
     def test_to_str_list_with_number(self):
         """If backend returns a number instead of array, return default."""
@@ -253,15 +317,21 @@ class TestDTOFromWire:
     def test_observation_from_wire_defensive_list_parsing(self):
         """facts/concepts/files should gracefully handle non-list wire values.
 
-        Cross-SDK parity: JS SDK's safeStringArray returns undefined for non-arrays.
-        Python SDK should return [] instead of crashing.
+        Cross-SDK parity: JS SDK returns undefined for shapes that are neither an
+        array nor a string list, and the Python SDK returns [] instead of crashing.
+
+        The string case is deliberately absent from the "wrong type" list below:
+        the backend really does send these JSONB columns as JSON-encoded strings,
+        so treating a string as garbage is what caused the silent data loss. A
+        non-JSON string now degrades to a single-element list (comma-split), the
+        same as the JS SDK's safeStringOrStringList.
         """
         data = {
             "id": "o1",
-            "facts": "not a list",  # string instead of array
             "concepts": 42,  # number instead of array
             "filesRead": {"key": "val"},  # dict instead of array
             "filesModified": True,  # bool instead of array
+            "facts": 3.5,  # float instead of array
         }
         obs = Observation.from_wire(data)
         assert obs.facts == []  # gracefully degraded

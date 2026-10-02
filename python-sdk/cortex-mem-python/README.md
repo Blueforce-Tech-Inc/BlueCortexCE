@@ -198,6 +198,14 @@ The SDK handles wire format differences automatically:
 - `project_path` → `project_path` in session-start endpoint
 - `extracted_data` → `extractedData` (camelCase)
 - `required_concepts` → `requiredConcepts` (camelCase)
+- JSON-encoded string list fields (`facts`, `concepts`, `files_read`,
+  `files_modified`, `refined_from_ids`) → Python `list[str]`
+
+That last one is worth spelling out because it is not a guess: the backend
+serializes those JSONB columns as **strings**, so a live observation arrives as
+`concepts: '["allergy","peanut"]'` rather than a JSON array. The SDK decodes both
+shapes, so `observation.concepts` is always a real list. A string that is not
+valid JSON degrades to a comma-separated split, matching the JS SDK.
 
 See [design document](../../docs/drafts/python-sdk-design.md) for details.
 
