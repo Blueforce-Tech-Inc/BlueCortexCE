@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: Go SDK (2026-10-02 11:01, round 135 per `patrol-state.json`) — oversized responses now reported instead of silently truncated; Go/Python/JS READMEs verified against source with no drift
-**Next up**: Python SDK
+**Last completed**: Python SDK (2026-10-02 11:06, round 136 per `patrol-state.json`) — request layer, retry semantics, exception mapping and wire format verified against Go; long-running API-doc heading-style item closed as a documented decision
+**Next up**: JS/TS SDK
 
 ## History
 | DateTime | Direction | Findings |
@@ -212,3 +212,4 @@
 | 2026-10-02 10:49 | Backend | ✅ Round 133: RateLimitService fallback key made stable (UUID suffix removed — the limit could never trigger on the null-key path) + javadoc overload corrected; ProjectFilterService recorded and explicitly skipped as an unwired utility with a re-review trigger; API docs: ZH 3 parameter tables had defaults in the Required column — fixed, changelog 0.1.0-beta+46; 68 endpoints verified EN==ZH and all documented; backend rebuilt, restarted on 37777, regression 45/0/1 + EXTRACTION 25/0/0, baseline advanced to `78fd765` / `f11a28ca…`; health-check-task.md hit 1000 lines → 47 rounds archived to `2026-10-02_health-check-history-3.md`; next direction is Java SDK |
 | 2026-10-02 10:54 | Java SDK | ✅ Round 134: no code defect found in CortexMemClientImpl (26 public methods audited; degradation is intentional, unit-tested, and now documented); fixed the incomplete degradation contract in both SDK READMEs (7 silent / 5 error-reporting / 12 propagating, EN-ZH table parity checked); docs-only round so acceptance skipped on unchanged fingerprint `f11a28ca…`; next direction is Go SDK |
 | 2026-10-02 11:01 | Go SDK | ✅ Round 135: fixed silent truncation in `doRequest` — a >10MB response used to surface as a misleading JSON parse error and now returns an explicit size-limit error (test updated to the new contract); gofmt/vet clean, 255 test funcs pass, Go Demo E2E 39/39; SDK READMEs for Go (25 methods + 8 option defaults + 4 wire-format claims), Python (25 methods + exception types) and JS (25 methods + HTTP mappings) all verified against source with no changes; regression 45/0/1 + EXTRACTION 25/0/0, baseline advanced to `77787ed` / `a5efd8b8…`; next direction is Python SDK |
+| 2026-10-02 11:06 | Python SDK | ✅ Round 136: no code defect found — retry (429/502/503/504 + network), exception mapping (12 types) and wire format (`cwd`/`tool_name`/`extractedData`) verified identical to Go; 374 unit tests + 28/28 SDK E2E; closed the long-standing API-doc EN/ZH heading-style pending item by documenting the deliberate difference in both files (endpoint sets re-verified EN==ZH); docs-only so acceptance skipped on unchanged fingerprint `a5efd8b8…`; next direction is JS/TS SDK |
