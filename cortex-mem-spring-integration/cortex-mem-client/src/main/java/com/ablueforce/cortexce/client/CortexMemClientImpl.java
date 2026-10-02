@@ -584,8 +584,21 @@ public class CortexMemClientImpl implements CortexMemClient {
                 .retrieve()
                 .body(new ParameterizedTypeReference<>() {});
         } catch (Exception e) {
+            // The failure value keeps the keys /api/modes actually returns, so a caller reading
+            // observation_types or observation_concepts gets an empty list rather than null, and
+            // carries an `error` marker like search() and getSettings() do. The previous
+            // Map.of("modes", List.of()) invented a "modes" key that no response -- successful or
+            // failed -- has ever contained, and gave the caller no way to tell failure from
+            // "no modes configured".
             log.warn("Failed to get modes: {}", e.getMessage());
-            return Map.of("modes", List.of());
+            return Map.of(
+                "id", "",
+                "name", "",
+                "description", "",
+                "version", "",
+                "observation_types", List.of(),
+                "observation_concepts", List.of(),
+                "error", e.getMessage() != null ? e.getMessage() : "unknown error");
         }
     }
 

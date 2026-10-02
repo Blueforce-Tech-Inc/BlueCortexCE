@@ -872,15 +872,42 @@ class CortexMemClientImplTest {
 
     @Test
     void getModes_returnsResult() throws Exception {
+        // Real GET /api/modes shape, verified live: a single mode object, not a list under
+        // "modes". The previous fixture used {"modes":[...]} and so passed while the
+        // production failure path invented the same non-existent key.
         server.enqueue(new MockResponse()
-            .setBody("{\"modes\":[{\"name\":\"default\"}]}")
+            .setBody("{\"id\":\"code\",\"name\":\"Code Development\","
+                + "\"description\":\"Software development\",\"version\":\"1.0.0\","
+                + "\"observation_types\":[{\"id\":\"bugfix\",\"label\":\"Bug Fix\"}],"
+                + "\"observation_concepts\":[{\"id\":\"how-it-works\",\"label\":\"How It Works\"}]}")
             .addHeader("Content-Type", "application/json"));
 
         Map<String, Object> result = client.getModes();
 
-        assertThat(result).containsKey("modes");
+        assertThat(result).containsEntry("id", "code");
+        assertThat(result).containsEntry("name", "Code Development");
+        assertThat(result).containsKey("observation_types");
+        assertThat(result).containsKey("observation_concepts");
+        assertThat(result).doesNotContainKey("modes");
         RecordedRequest req = server.takeRequest();
         assertThat(req.getPath()).isEqualTo("/api/modes");
+    }
+
+    @Test
+    void getModes_onFailure_keepsRealKeysAndFlagsTheError() throws Exception {
+        // A failure must be detectable and must not fabricate a key the endpoint never returns.
+        server.enqueue(new MockResponse()
+            .setResponseCode(503)
+            .setBody("{\"error\":\"service unavailable\"}")
+            .addHeader("Content-Type", "application/json"));
+
+        Map<String, Object> result = client.getModes();
+
+        assertThat(result).containsKey("error");
+        assertThat(result).doesNotContainKey("modes");
+        assertThat(result.get("observation_types")).isEqualTo(List.of());
+        assertThat(result.get("observation_concepts")).isEqualTo(List.of());
+        assertThat(result).containsEntry("id", "");
     }
 
     @Test
