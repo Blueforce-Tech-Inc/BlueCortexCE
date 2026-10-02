@@ -468,7 +468,7 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 | `count` | int | ❌ | 返回的最大经验数（默认 4） |
 | `source` | string | ❌ | 来源过滤（如 `manual`、`tool_result`） |
 | `requiredConcepts` | string[] | ❌ | 概念过滤（仅返回包含这些概念的经验） |
-| `userId` | string | ❌ | 用户 ID（多用户隔离） |
+| `userId` | string | ❌ | 用户 ID（多用户隔离）。**省略它会返回该项目中所有用户的经验**，因此漏传的调用方拿到的是一个「看起来正常」的未限定结果而非报错——详见下方说明 |
 
 **响应示例** (`200 OK`): JSON 数组格式的经验对象：
 ```json
@@ -487,6 +487,14 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 
 **错误响应**:
 - `400` — `{"error": "task is required"}`（`task` 字段缺失或为空）
+
+**`userId` 限定的真实行为**：`userId` 是**会话**属性；`mem_observations` 没有用户列，
+因此该过滤是先把 id 解析成该用户的会话 id 集合，再只检索这些会话。活体实测（项目内
+仅有一条记在 `alice` 名下的观测）：`userId: "alice"` 返回 1 条经验，`userId: "bob"`
+返回 **0** 条，而**省略 `userId` 返回 5 条**——所有人的、未限定的。因此传错 id 是
+「安全失败」（空结果而非报错），**漏传 id 才是危险的那一种**，因为响应看起来完全正常。
+`POST /api/memory/icl-prompt` 行为相同。相比之下 `GET /api/search` 与
+`GET /api/observations` **根本不接受 `userId`**，始终是项目级的。
 
 **`project` 标为可选却实际必填的原因**：该值被直接传入仓储查询
 （`findBySource` / `findHighQualityObservations`），代码中**没有任何跨全部项目的分支**。

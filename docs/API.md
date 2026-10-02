@@ -540,7 +540,7 @@ Content-Type: application/json
 | `count` | int | ❌ | Max experiences to return (default: 4) |
 | `source` | string | ❌ | Filter by source (e.g., `manual`, `tool_result`) |
 | `requiredConcepts` | string[] | ❌ | Filter to experiences containing these concepts |
-| `userId` | string | ❌ | User ID for multi-user isolation |
+| `userId` | string | ❌ | User ID for multi-user isolation. **Omitting it returns every user's experiences in the project**, so a caller that forgot it gets a populated, unscoped result rather than an error — see the note below |
 
 **Response** (`200 OK`): JSON array of experience objects:
 ```json
@@ -559,6 +559,17 @@ Content-Type: application/json
 
 **Error Responses**:
 - `400` — `{"error": "task is required"}` (missing or blank `task` field)
+
+**How `userId` scoping actually behaves.** `userId` is a *session* attribute;
+`mem_observations` has no user column, so the filter resolves the id to that
+user's session ids and searches only those. Verified live on a project holding
+one observation recorded under `alice`: `userId: "alice"` returns 1 experience,
+`userId: "bob"` returns `0`, and **omitting `userId` returns 5** — every user's,
+unscoped. An unknown id is therefore an empty result, not an error, which is the
+safe failure; a *missing* id is the unsafe one, because the response looks
+healthy. `POST /api/memory/icl-prompt` behaves identically. By contrast
+`GET /api/search` and `GET /api/observations` take no `userId` at all and are
+always project-wide.
 
 **Why `project` is marked optional but behaves as required**: the value is passed
 straight into the repository queries (`findBySource` / `findHighQualityObservations`),

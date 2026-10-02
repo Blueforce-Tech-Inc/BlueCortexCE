@@ -727,6 +727,16 @@ mvn clean install -DskipTests
   也就是说，后端出现瞬时错误时，本 SDK 大部分 API 会在**第一次尝试**就把错误抛给你。
 - 另外三家的重试**只覆盖捕获路径**，因此同一个配置项在那边管到的调用更少：这两个抽取读方法的
   重试是 Java 独有的。为它们写「避免重试」补丁时，只需在 Java 侧做保护。
+- **自动路径不做按用户隔离**。若一个项目要服务多个用户，请注意：注入 Agent 的记忆是**项目级、
+  而非用户级**。后端本身**是支持**限定的——`POST /api/memory/experiences` 带 `userId`
+  会只返回该用户的经验，对其他人返回空列表（实测：alice 名下一条观测，alice 查到 1 条、
+  bob 查到 0 条）——而 `ICLPromptRequest` / `ExperienceRequest` 都带 `userId` 字段，
+  `DefaultMemoryRetrievalService` 也**已经实现并透传**。但 `CortexMemoryAdvisor` 与两个
+  `@Tool` 读方法都是从 `CortexSessionContext` 构造请求的，而那个类里只有 `sessionId`、
+  `projectPath` 和一个提示计数器——**没有 `userId` 字段，也没有任何接受它的 `begin()` 重载**。
+  因此自动路径在结构上**无法**按用户限定，同一项目里的每个 Agent 都会拿到相同的 ICL
+  上下文，其中包含**记在别人名下的偏好**。自行调用 `client.buildICLPrompt(...)` 并设置
+  `userId` 是可行的——那是可用的绕行方式。已记录为 P2-13。
 - **条件 Bean**：Advisor、AOP 切面和健康检查指示器仅在其依赖（Spring AI、AOP、Actuator）在 classpath 上时注册。
 - **Spring AI 1.1**：使用 `CallAdvisor` / `StreamAdvisor` 和 `ChatClientRequest`（非旧版 `CallAroundAdvisor`）。
 - **无响应体大小上限**：客户端使用 Spring 6 的 `RestClient`（底层为 `java.net.http.HttpClient`），它会一次性反序列化整个响应体，因此超大响应只受堆内存约束。Go 与 JS SDK 把上限设为 10 MiB 并抛出明确错误，本 SDK 没有这样做。在检索或批量列出大量 observation 时，请把 `limit` 控制得小一些。

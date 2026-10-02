@@ -19,6 +19,9 @@
 > 第 189 轮新增 P2-12（`MemoryRefineService.deepRefineProjectMemories` 无调用方，
 > 且其注释谎称自己由 SessionEnd 与定时任务共同触发——正是第 187 轮那处「定时抽取」
 > 虚构描述的代码侧残留），注释已改为如实说明，方法与配置键均**刻意不动**，记为已处理。
+> 第 195 轮新增 P2-13（`CortexSessionContext` 没有 `userId` 字段，导致
+> `CortexMemoryAdvisor` 与 `CortexMemoryTools` **结构上无法**按用户隔离注入给 Agent 的
+> 记忆，尽管后端与 SDK 下层都支持），⏸已记录不实现，README 已如实写明，P2 Open 计数仍为 2。
 > **Open 只统计尚未处理的条目**（⏸已记录不修 / 📌待修）。标记为 ✅已修复 或 ✅已跳过 的条目
 > 保留在本文件作为可追溯的历史，但**不计入** Open。
 > P1-2（导入端点把校验失败报成成功跳过）已于 2026-10-02 第 166 轮 Backend 集中修复并复测通过，
@@ -451,8 +454,32 @@
   「`MemoryRefineService.findStaleObservations` 中另有一处字面量 `0.6`……不由本值驱动」，
   加键反而要求改写这两处已正确的文档。P2 Open 计数仍为 2（P2-8、P2-10），本条记为已处理。
 
-## Processing Rules
+### P2-13: Spring AI 集成无法按用户隔离记忆——会话上下文里没有 userId
 
+- **Scope**: `cortex-mem-spring-integration/cortex-mem-spring-ai/.../context/CortexSessionContext.java`
+  （`SessionInfo` 仅 `sessionId` / `projectPath` / `promptCounter`，两个 `begin()` 重载都不接受 userId）、
+  `.../advisor/CortexMemoryAdvisor.java:119-123`（`buildICLPrompt` 只设 `.project(...)`，
+  全文 `userId` 出现 **0** 次）、`.../tools/CortexMemoryTools.java:70-75, 108-112`。
+- **Problem**: 后端**支持**按用户隔离 ICL 记忆（第 194 轮实测：同一项目下 alice 返 1 条
+  经验、bob 返 0 条），`ICLPromptRequest` / `ExperienceRequest` 也都带 `userId`，
+  `DefaultMemoryRetrievalService` 更是**已经实现并透传** `userId`。
+  但真正把记忆注入 Agent 的两个组件——`CortexMemoryAdvisor` 与
+  `CortexMemoryTools` 的两个读方法——**结构上做不到**：
+  它们唯一的会话级状态是 `CortexSessionContext`，而那个类里根本没有 `userId` 字段。
+  因此在多用户部署中，**自动注入给每个 Agent 的 ICL 上下文是项目级的、所有人相同**。
+  手工调用 `client.buildICLPrompt(...)` 并自行设置 `userId` 是可行的——
+  受影响的是自动路径。
+- **影响面**：与 P2-11（错模板名不被拒绝）不同，这不是静默错值，而是**缺少一个能力**；
+  后果是不同用户之间**记忆串味**（用户 A 的偏好会出现在用户 B 的提示里），
+  在「每用户独立档案」类应用中属于数据可见性问题。
+- **Status**: ⏸**已记录，本轮不实现**。修它需要给 `SessionInfo` 加字段、给 `begin()`
+  加重载、把 userId 从调用方一路串到 advisor 与工具，属于**新增能力**而非修 bug；
+  且 `CortexSessionContextBridgeAdvisor` 需要知道从何处取 userId（会话 id？应用配置？，
+  还是新的 `begin()` 入参），这个选择应由项目决定而不是由巡检轮次决定。
+  本轮已做的是**如实记录**：`cortex-mem-spring-integration/README.md` 与 `README-zh-CN.md`
+  新增多用户段落，写明自动路径不做用户隔离、哪些端点其实认 `userId`、以及可用的手工做法。
+
+## Processing Rules
 - SDK/Demo findings are fixed in place with focused compile/test verification.
 - Backend findings are fixed in place when small and safe; otherwise they remain here until the complete acceptance stage.
 - Every finding must end as a code fix, a documented design decision, or an explicit skipped status. Reporting alone is not a valid resolution.
