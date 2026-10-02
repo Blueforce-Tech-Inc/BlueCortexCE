@@ -7,9 +7,8 @@
 ## Current Review Rotation
 
 - **轮换顺序**: API 文档 → SDK README → 设计文档 → 架构文档 → 用户指南
-- **最近完成**: API 文档（2026-10-02 六十七轮，DOC-1（P1）导入响应三个计数的语义**完全没有文档**——`docs/API.md` 对 sessions/summaries/prompts 只写「Response: Same format as Import Observations」，从未说明 `skipped` 与 `errors` 各代表什么。**这正是 BACK-4/P1-2 长期存活的土壤**：只检查 `success` 的调用方无法区分「重复跳过（无害）」与「被拒绝（数据丢失）」，而后者是静默数据丢失。两版均已补：三桶语义表（imported 已写入 / skipped 是重复、无损失 / errors 被拒绝、errorMessages 说明原因）、`success` 只表示请求完成而非每条落地、活体实测矩阵，以及 snake_case 踩坑点（全局 `SNAKE_CASE` 策略下未绑定的 camelCase 字段等同缺失）。两版变更日志各新增一条并标为 **BEHAVIOUR CHANGE**——依赖旧 skip 计数的调用方会看到不同数字。核实无误：两版变更日志各 51 行一致、围栏均偶数（358 / 298））
-- **下一方向**: SDK README（六十八轮）
-- **新增待决（沿用）**: Java SDK README 没有 Wire Format 段落（第 164 轮核实发现），补齐需新增整节，超出「小而准」范围，留待专门一轮
+- **最近完成**: SDK README（2026-10-02 六十八轮，两项。DOC-1（P2）Java SDK README 缺 Wire Format 段落（第 164 轮记录的待办，本轮完成）——Go/Python/JS 三家都有，唯独 Java 没有，而 Java 侧恰有一处最易误解的建模差异；EN/ZH 已补四个 JSONB 列以 JSON 编码字符串到达、`refinedFromIds` 是逗号分隔 `TEXT` 列而非列表、`@JsonProperty` 命名映射。DOC-2（P1）**错误契约完全没有文档，而这正是本轮改的东西**：该契约刻意不统一（哪些抛出、哪些为 Spring AI 路径降级、哪些用 `fell_back`/`error` 标记降级），四家 README 中只有 Java 需要这张表，因为只有它的行为是分裂的。EN/ZH 已新增 Error Handling 段落。测试数重测：Java README 180→186，patrol-task 基准同步。核实无误：四家 README 中英标题层级序列逐位一致、围栏平衡（Java 42/42）
+- **下一方向**: 架构文档（六十九轮）
 - **新增待决**: `docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分
 - **Pending 状态**: 文档问题清单已清空（0 项待处理）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
