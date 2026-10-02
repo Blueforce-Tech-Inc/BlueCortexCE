@@ -10,7 +10,7 @@
 |----------|------|------|
 | P0 | 0 | 立即修复并复测 |
 | P1 | 0 | 优先修复并复测 |
-| P2 | 3 | 本轮完整验收阶段处理或明确标记为已跳过 |
+| P2 | 0 | 本轮完整验收阶段处理或明确标记为已跳过 |
 
 ## Open Findings
 
@@ -35,7 +35,10 @@
 - **Proposed fix**: drop the random suffix and keep `"fallback:" + hash(ip-or-thread + minute
   bucket)`. The hash is already privacy-preserving and stable within a minute, which is the
   granularity the comment claims to use.
-- **Status**: ⬜ 待修复（2026-10-02 三十三轮 Backend 轮发现）
+- **Status**: ✅已修复（2026-10-02）。`generateFallbackKey()` 去掉 `UUID.randomUUID()` 后缀，只保留
+  `"fallback:" + hex(hash(identifier + minuteBucket))`。键在同一分钟内稳定，滑动窗口重新生效；
+  隐私性不变（仍只暴露哈希），同时不再产生一次性窗口条目。同步移除随之失效的 `UUID` import。
+  编译验证：本轮 `mvn clean package -DskipTests` 通过，回归 + EXTRACTION 验收全部通过。
 
 ### P2-3: `RateLimitService` javadoc shows a method overload that does not exist
 
@@ -46,7 +49,8 @@
   Anyone copying the example gets a compile error and may conclude per-call limits are supported.
 - **Proposed fix**: correct the example to `tryAcquire("user:123")` and state that the threshold
   and window are configured via `claudemem.rate-limit.max-requests` / `window-seconds`.
-- **Status**: ⬜ 待修复（2026-10-02 三十三轮 Backend 轮发现）
+- **Status**: ✅已修复（2026-10-02）。示例改为 `tryAcquire("user:123")`，并写明阈值与窗口来自
+  `claudemem.rate-limit.max-requests` / `window-seconds` 配置。
 
 ### P2-4: `ProjectFilterService` is dead code kept alive only by its own unit tests
 
@@ -60,8 +64,11 @@
   generation or observation file capture) — a design change needing its own acceptance; or
   (b) delete the class and its test until a consumer exists, so the suite does not imply coverage
   that no runtime path provides.
-- **Status**: ⬜ 待决策（2026-10-02 三十三轮 Backend 轮发现）。删除会移除现有测试覆盖，接入属于
-  架构改动，两者都超出“当场小修”的范围，需明确选型后再动手。
+- **Status**: ✅已跳过（2026-10-02），保留为工具类。核查依据：`backend/src/main` 内除自身外无任何
+  引用，且全仓 `main` 源码没有任何目录遍历（`Files.walk` / `walkFileTree` / `Files.list`）——
+  当前设计里根本不存在“项目文件扫描”这条链路，接入等于凭空新增一条管线。删除则要连带删掉 40 个
+  正确的工具契约测试，收益为负。类注释已明确声明未接入流水线，故保持原样。
+  **复审触发条件**：一旦后端出现目录遍历/CLAUDE.md 写入路径过滤的需求，改为接入本类而非另写一套。
 
 ## Processing Rules
 
