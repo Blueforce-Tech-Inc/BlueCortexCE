@@ -21,7 +21,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 
@@ -98,17 +100,23 @@ public class LogsController {
             searchedFiles.add(logFile.getFileName().toString());
 
             try (BufferedReader reader = Files.newBufferedReader(logFile)) {
-                // Read last 'validatedLines' lines using O(n) single-pass algorithm
-                // (avoids loading entire file into memory for large log files)
-                List<String> window = new ArrayList<>();
+                // Read last 'validatedLines' lines using a single streaming pass
+                // (avoids loading entire file into memory for large log files).
+                // ArrayDeque keeps drop-oldest O(1); an ArrayList window would be
+                // O(fileLines * validatedLines) because remove(0) shifts every element.
+                Deque<String> window = new ArrayDeque<>(Math.min(validatedLines + 1, 1024));
+                int fileLines = 0;
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    window.add(line);
+                    fileLines++;
+                    window.addLast(line);
                     if (window.size() > validatedLines) {
-                        window.remove(0); // maintain sliding window of max validatedLines
+                        window.pollFirst(); // maintain sliding window of max validatedLines
                     }
                 }
-                totalLines += window.size();
+                // Count every line in the file, not just the window, so totalLines
+                // reports the real size of the searched log files.
+                totalLines += fileLines;
                 // Prepend older file's recent lines first (yesterday's oldest entries at front)
                 logLines.addAll(0, window);
             } catch (IOException e) {
