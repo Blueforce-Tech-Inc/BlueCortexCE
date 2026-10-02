@@ -55,7 +55,16 @@ public interface SummaryRepository extends JpaRepository<SummaryEntity, UUID> {
     /**
      * Find summaries by content session id for duplicate checking.
      * Used by Import API to prevent duplicate imports.
+     *
+     * <p>Ordered newest-first so the caller's {@code get(0)} is deterministic.
+     * {@code mem_summaries.content_session_id} carries a plain index, not a unique
+     * constraint, so a session can legitimately have many summaries — measured on
+     * this instance: 212 of 896 distinct session ids had more than one, up to 33
+     * rows each. Without ORDER BY, PostgreSQL guarantees no row order and
+     * {@code get(0)} can return a different id between calls. The DESC direction
+     * also matches the existing {@code idx_summaries_created (created_at_epoch DESC)}
+     * index, so the sort is served from the index.
      */
-    @Query("SELECT s FROM SummaryEntity s WHERE s.contentSessionId = :contentSessionId")
+    @Query("SELECT s FROM SummaryEntity s WHERE s.contentSessionId = :contentSessionId ORDER BY s.createdAtEpoch DESC")
     List<SummaryEntity> findByContentSessionId(@Param("contentSessionId") String contentSessionId);
 }

@@ -9,8 +9,11 @@
 | Severity | Open | Rule |
 |----------|------|------|
 | P0 | 0 | 立即修复并复测 |
-| P1 | 1 | 优先修复并复测 |
+| P1 | 2 | 优先修复并复测 |
 | P2 | 0 | 本轮完整验收阶段处理或明确标记为已跳过 |
+
+> P1-2 为 2026-10-02 新增（导入端点把校验失败报成成功跳过）；P2-5 同轮新增并已当场修复，
+> 因此 P2 计数仍为 0。
 
 ## Open Findings
 
@@ -88,6 +91,72 @@
   当前设计里根本不存在“项目文件扫描”这条链路，接入等于凭空新增一条管线。删除则要连带删掉 40 个
   正确的工具契约测试，收益为负。类注释已明确声明未接入流水线，故保持原样。
   **复审触发条件**：一旦后端出现目录遍历/CLAUDE.md 写入路径过滤的需求，改为接入本类而非另写一套。
+
+### P1-2: Import endpoints report validation failures as successful skips
+
+- **Scope**: `backend/src/main/java/com/ablueforce/cortexce/controller/ImportController.java:208, 229, 290, 349` (the single-record loops for sessions, summaries, user prompts and the two standalone `/import/*` endpoints).
+- **Problem**: Every loop does `if (result.imported()) { …imported… } else { …skipped… }`, but
+  `ImportService.ImportResult` has **three** factories, not two: `imported(id)`, `duplicate(id)`
+  and `error(message)`. The `else` branch therefore swallows `error(...)` into the skip counter,
+  while the response's `errors` / `errorMessages` only ever receive **thrown** exceptions
+  (`catch (Exception e) { errors.add(e.getMessage()); }`). A request that fails validation comes
+  back looking completely healthy.
+- **Reproduction** (verified 2026-10-02 against the live backend): the backend serialises with the
+  global SNAKE_CASE strategy, so `sessionId` does not bind from camelCase JSON and
+  `importSummary` returns `error("sessionId is required")`. The endpoint answers:
+
+  ```
+  POST /api/import/summaries  [{"sessionId":"r160-unique-…", …}]
+  {"success":true,"imported":0,"skipped":1,"errors":0,"errorMessages":[]}
+  ```
+
+  `success: true`, zero errors, and the record was silently dropped. A second probe with
+  `session_id` (snake_case) took the real path and reported a genuine failure correctly, because
+  the FK violation is **thrown** rather than returned:
+  `{"imported":0,"skipped":0,"errors":1,"errorMessages":["…violates foreign key constraint…"]}`.
+  So thrown errors are surfaced and returned errors are not — the same failure class reported
+  two different ways depending on where it originated.
+- **Impact**: silent data loss during import/migration. A client that mistypes a field name, uses
+  the wrong casing, or omits a required field gets a success response and no indication that
+  anything was dropped. `ImportResult.duplicate(id)` is distinguishable from
+  `ImportResult.error(message)` by `id() == null` (only the error factory leaves it null).
+- **The correct pattern already exists in this codebase**: `ImportService.importObservations`
+  (`ImportService.java:307-318`) explicitly separates validation failures with
+  `result.addError("sessionId is required")` and `BulkImportResult` carries its own `errors`
+  field. Only the single-record loops deviate.
+- **Proposed fix**: give the four loops a three-way branch —
+  `if (result.imported()) … else if (result.id() == null) { errors.add(result.message()); errorsCount++; } else { skipped++; }`
+  — and mirror the observations path's naming so all import routes report alike. A cleaner
+  alternative is to add an explicit discriminator to `ImportResult` (e.g. a `kind()` accessor)
+  rather than relying on the implicit null-id convention, but that changes a public record and so
+  is a larger blast radius than this round's Backend mandate.
+- **Status**: 📌记录待修（2026-10-02）。未当场修复的原因：需改动 4 处调用点且依赖 `id == null`
+  这一隐式约定，Backend 轮次按规则对复杂项只记录。证据链完整（两种载荷的对照响应已实测），
+  修复范式与 `importObservations` 一致，定点修复风险低。
+  **复审触发条件**：下一轮 Backend 集中修复时处理；修复后必须用 camelCase 载荷复测
+  `errors` 是否非零。
+
+### P2-5: `SummaryRepository.findByContentSessionId` returns rows in undefined order
+
+- **Scope**: `backend/src/main/java/com/ablueforce/cortexce/repository/SummaryRepository.java:59-60`,
+  consumed by `ImportService.java:378-382`.
+- **Problem**: The JPQL had no `ORDER BY`, and the caller takes `existing.get(0).getId()` and
+  reports it as the duplicate's id. `mem_summaries.content_session_id` carries a plain index
+  (`V1__init_schema.sql:109`, `V13:73`), **not** a unique constraint, so multiple summaries per
+  session are structurally allowed — and they exist in quantity. Measured on this instance by
+  paging `/api/summaries`: of 896 distinct session ids, **212 had more than one summary**, up to
+  33 rows for a single session. With no ordering guarantee, `get(0)` can return a different id
+  between calls, so the duplicate id reported to an importer is non-deterministic.
+  Note the symptom is **not** observable through the public API: `/api/import/summaries` returns
+  only counts (`imported`/`skipped`/`errors`), never the duplicate id.
+- **Status**: ✅已修复（2026-10-02）。查询加 `ORDER BY s.createdAtEpoch DESC`，与既有
+  `idx_summaries_created (created_at_epoch DESC)` 索引同向，排序可由索引提供；语义不变
+  （原本只是想给出一个已存在的 summary id），仅消除不确定性。签名未变，唯一调用方
+  `ImportService:378` 无需改动。JPQL 命名查询在 Spring Data 启动期校验，重启后端日志中
+  `QuerySyntaxException` / `Validation failed for query` 计数为 0。未添加仓储层测试：后端测试
+  全为纯单测，无 `@DataJpaTest` 基建，引入需要 testcontainers 或嵌入式库，超出本修复的分量。
+  残留效率观察（未处理）：该查询为取一个 id 却会把最多 33 行全部载入，可改为
+  `Pageable`/`LIMIT 1`，但那会变更签名，属于独立优化。
 
 ## Processing Rules
 
