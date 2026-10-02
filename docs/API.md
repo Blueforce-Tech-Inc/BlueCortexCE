@@ -988,7 +988,7 @@ GET /api/search?project=/path/to/project&query=search+terms&limit=10&type=bugfix
 | `type` | string | ❌ | — | Filter by observation type (e.g., `bugfix`, `feature`) |
 | `concept` | string | ❌ | — | Filter by observation concept (e.g., `how-it-works`, `architecture`) |
 | `source` | string | ❌ | — | Filter by source (e.g., `manual`, `auto`) |
-| `limit` | int | ❌ | 20 | Max results (max 100) |
+| `limit` | int | ❌ | 20 | Max results, silently clamped to 1–100 (see List Observations) |
 | `offset` | int | ❌ | 0 | Pagination offset |
 | `orderBy` | string | ❌ | — | Order by field (`created_at_epoch` or `createdAtEpoch` — orders by creation time descending) |
 
@@ -1323,7 +1323,22 @@ Returns a paginated list of observations, optionally filtered by project. Result
 | `project` | string | No | null | Project path filter (returns all if omitted) |
 | `platformSource` | string | No | null | Platform source filter (e.g., `claude`, `cursor`) |
 | `offset` | int | No | 0 | Pagination offset (0-based) |
-| `limit` | int | No | 20 | Items per page (max 100) |
+| `limit` | int | No | 20 | Items per page, silently clamped to 1–100 |
+
+`limit` is **silently clamped to 1–100** and an out-of-range value is not an error — there
+is no `400`. The same clamp applies to `/api/summaries`, `/api/prompts`, `/api/search` and
+`/api/search/by-file` (all five use `Math.min(Math.max(1, limit), MAX_PAGE_SIZE)`, and the
+MCP `search` tool mirrors the same window). Verified live against the running backend:
+
+| Request | `/api/observations`, `/api/summaries`, `/api/prompts` | `/api/search` |
+|---------|------------------------------------------------------|----------------|
+| `?limit=0` | 1 item | 1 result |
+| `?limit=-5` | 1 item | — |
+| `?limit=500` | 100 items | 100 results |
+| `?limit=7` | 7 items | 7 results |
+
+`hasMore` is the signal that a page was cut short; nothing in the response echoes the
+effective limit. `offset` is likewise floored at 0.
 
 **Response** (`200 OK`):
 ```json
@@ -1513,7 +1528,7 @@ GET /api/search/by-file?project=/path/to/project&filePath=/src/auth.ts&isFolder=
 | `project` | string | Yes | — | Project path |
 | `filePath` | string | Yes | — | File or folder path to search for |
 | `isFolder` | boolean | No | false | If true, match folder prefix |
-| `limit` | int | No | 20 | Max results (max 100) |
+| `limit` | int | No | 20 | Max results, silently clamped to 1–100 (see List Observations) |
 | `debug` | boolean | No | false | Enable debug logging |
 
 **Response** (`200 OK`):
@@ -2484,6 +2499,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 
 | Date | Version | Changes |
 |------|---------|---------|
+| 2026-10-02 | (unreleased) | Documented the `limit` clamp shared by the five paginated/search endpoints (`/api/observations`, `/api/summaries`, `/api/prompts`, `/api/search`, `/api/search/by-file`). All five apply `Math.min(Math.max(1, limit), MAX_PAGE_SIZE)` and the MCP `search` tool mirrors the same window, but the parameter tables only said "(max 100)", which reads like a rejection rather than a silent clamp — a caller passing `limit=0` expecting "no limit" gets one item and no error. Verified live: `?limit=0` and `?limit=-5` return 1 item on all three list endpoints; `?limit=500` returns 100 items and 100 search results; `?limit=7` returns 7. `/api/search/by-file` was confirmed on the lower bound only (`?limit=0` -> 1), because no fixture matches more than one record for a given path. Same class as the `/api/logs` clamp documented earlier today. EN+ZH in sync |
 | 2026-10-02 | (unreleased) | GET `/api/logs`: documented the `lines` clamp, which was previously unstated. `LogsController` applies `Math.min(Math.max(1, lines), 10000)`, so an out-of-range value is silently clamped and never returns `400` — verified live: `?lines=0` and `?lines=-5` both return `returnedLines: 1`, `?lines=50000` returns `10000`, `?lines=3` returns `3`. Also documented that `returnedLines` never exceeds the clamped `lines`, and that `totalLines` counts every line in the files searched — which can be two, because the endpoint reads today's log first and only falls back to yesterday's when today's holds fewer lines than requested (`files` lists what was read). A first draft of this entry claimed `returnedLines` *could* exceed `lines` across the day boundary; reading the controller disproved that (`subList(size - validatedLines, size)` bounds it), so it was removed rather than shipped. |
 | 2026-10-02 | (unreleased) | **BEHAVIOUR CHANGE: the four single-record import endpoints now report validation failures in `errors` instead of counting them as `skipped`.** `ImportResult` has three factories (`imported`, `duplicate`, `error`) but `ImportController` branched on `imported()` alone, so `error()` fell into the skip counter while `errors`/`errorMessages` only ever received *thrown* exceptions. The same failure class was therefore reported two different ways depending on whether it was thrown or returned. Live before: a payload whose fields did not bind returned `{"success":true,"imported":0,"skipped":1,"errors":0,"errorMessages":[]}` for a record that was silently dropped. `ImportResult.isError()` now discriminates on `id() == null` (only `error()` leaves it null) and all four call sites branch on it. Live after: `{"success":true,"imported":0,"skipped":0,"errors":1,"errorMessages":["projectPath is required"]}`. Genuine duplicates are unchanged and still count as skips. Also added: `importSession` and `importSummary` now validate `projectPath` (NOT NULL in both tables), so omitting it returns a message naming the field instead of `Could not commit JPA transaction` or a raw PostgreSQL constraint-violation dump. The three counters' semantics are now documented under Import Observations, since that gap is what let the bug survive. No WebUI impact: `webui`'s `POST /api/import` is a self-contained worker route writing to its own SQLite store and never calls these endpoints. |
 | 2026-10-02 | (unreleased) | **Corrected the observation response schema after live verification.** (1) `facts`, `concepts`, `files_read` and `files_modified` were typed `string[]`; the backend serializes these JSONB columns as **JSON-encoded strings** (`"concepts": "[\"auth\"]"`), verified with a round-trip POST/GET. `refined_from_ids` was in that group but is **not** a JSONB column — it is `TEXT` holding comma-separated UUIDs, corrected separately below. (2) The response field was named `session_id`; the wire key is `content_session_id` (V13 `@JsonProperty` override) — the request-side `session_id` alias is unchanged and still valid. (3) Ten live fields were missing from the table: `content_hash`, `discovery_tokens`, `relevance_count`, `generated_by_model`, `step_number`, `embedding_model_id` and the three `embedding_*` vector columns. Two response examples corrected to match. The **request** side of `POST /api/ingest/observation` genuinely does accept real arrays and was left alone. This wrong type is the documented root of a Python SDK bug fixed in the same round (it parsed only real lists and so returned `[]` for every one of these fields) |

@@ -980,7 +980,7 @@ curl -X POST "http://localhost:37777/api/context/semantic" \
 | `type` | string | ❌ | — | 类型过滤 |
 | `concept` | string | ❌ | — | 概念过滤 |
 | `source` | string | ❌ | — | 来源过滤（如 `manual`、`auto`） |
-| `limit` | int | ❌ | 20 | 结果数量（最大 100） |
+| `limit` | int | ❌ | 20 | 结果数量，静默钳制到 1–100（见 `/api/observations`） |
 | `offset` | int | ❌ | 0 | 偏移量 |
 | `orderBy` | string | ❌ | — | 排序字段（支持 `created_at_epoch` 或 `createdAtEpoch`，按创建时间降序排列） |
 
@@ -1325,7 +1325,22 @@ WebUI 使用的端点，用于查看和搜索记忆。
 | `project` | string | null | 项目路径过滤 |
 | `platformSource` | string | null | 平台来源过滤（如 `claude`、`cursor`） |
 | `offset` | int | 0 | 偏移量 |
-| `limit` | int | 20 | 每页数量（最大 100） |
+| `limit` | int | 20 | 每页数量，静默钳制到 1–100 |
+
+`limit` 会被**静默钳制到 1–100**，越界值不是错误——不会返回 `400`。同样的钳制也适用于
+`/api/summaries`、`/api/prompts`、`/api/search` 与 `/api/search/by-file`（五个端点都用
+`Math.min(Math.max(1, limit), MAX_PAGE_SIZE)`，MCP 的 `search` 工具也镜像同一窗口）。
+对运行中的后端实测：
+
+| 请求 | `/api/observations`、`/api/summaries`、`/api/prompts` | `/api/search` |
+|------|------------------------------------------------------|----------------|
+| `?limit=0` | 1 条 | 1 条 |
+| `?limit=-5` | 1 条 | — |
+| `?limit=500` | 100 条 | 100 条 |
+| `?limit=7` | 7 条 | 7 条 |
+
+`hasMore` 是判断本页被截断的信号；响应中没有任何字段回显实际生效的 limit。
+`offset` 同样以 0 为下界。
 
 **请求示例**:
 ```bash
@@ -1471,7 +1486,7 @@ GET /api/search/by-file
 | `project` | string | (必填) | 项目路径 |
 | `filePath` | string | (必填) | 文件/文件夹路径 |
 | `isFolder` | boolean | false | 是否为文件夹 |
-| `limit` | int | 20 | 结果数量 |
+| `limit` | int | 20 | 结果数量，静默钳制到 1–100（见 `/api/observations`） |
 | `debug` | boolean | false | 调试模式 |
 
 **请求示例**:
@@ -2547,6 +2562,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
+| 2026-10-02 | (unreleased) | 记录五个分页/搜索端点共用的 `limit` 钳制行为（`/api/observations`、`/api/summaries`、`/api/prompts`、`/api/search`、`/api/search/by-file`）。五者都应用 `Math.min(Math.max(1, limit), MAX_PAGE_SIZE)`，MCP 的 `search` 工具也镜像同一窗口，但参数表只写了「（最大 100）」——读起来像「会拒绝」而非「静默钳制」：调用方传 `limit=0` 期望「不限制」，实际只拿到 1 条且无报错。实测：`?limit=0` 与 `?limit=-5` 在三个列表端点均返回 1 条；`?limit=500` 返回 100 条列表与 100 条搜索结果；`?limit=7` 返回 7 条。`/api/search/by-file` 仅确认了下界（`?limit=0` -> 1），因为没有匹配同一路径的多条记录。与今日早些时候记录的 `/api/logs` 钳制属同一类问题；中英文同步 |
 | 2026-10-02 | (unreleased) | GET `/api/logs`：补充此前完全未记录的 `lines` 钳制行为。`LogsController` 中为 `Math.min(Math.max(1, lines), 10000)`，因此越界值会被静默钳制、**从不返回 `400`**——实测：`?lines=0` 与 `?lines=-5` 均返回 `returnedLines: 1`，`?lines=50000` 返回 `10000`，`?lines=3` 返回 `3`。同时说明 `returnedLines` 永远不超过钳制后的 `lines`，以及 `totalLines` 统计的是被搜索文件的全部行数（可能不止一个文件：该端点优先读今天的日志，仅当今天行数不足时才回退到昨天，`files` 列出实际读取的文件）。本条初稿曾写「跨日时 `returnedLines` 可能超过 `lines`」，读控制器后发现不成立（`subList(size - validatedLines, size)` 已将其限制住），遂删除而非发布。 |
 | 2026-10-02 | (unreleased) | **行为变更：四个单记录导入端点现在把校验失败计入 `errors`，不再计入 `skipped`。** `ImportResult` 有三个工厂（`imported`、`duplicate`、`error`），而 `ImportController` 只按 `imported()` 分支，于是 `error()` 落进了 skip 计数，而 `errors`/`errorMessages` **只接收抛出的异常**。同一类失败因此仅因「抛出」还是「返回」而被报告成两种完全不同的样子。修复前实测：字段未绑定的载荷返回 `{"success":true,"imported":0,"skipped":1,"errors":0,"errorMessages":[]}`，而那条记录已被静默丢弃。现新增 `ImportResult.isError()` 以 `id() == null` 区分（只有 `error()` 不设 id），四处调用点全部改为按它分支。修复后实测：`{"success":true,"imported":0,"skipped":0,"errors":1,"errorMessages":["projectPath is required"]}`。真正的重复**行为不变**，仍计为 skipped。另补：`importSession` 与 `importSummary` 现在校验 `projectPath`（两张表上均为 NOT NULL），缺字段时返回点名该字段的消息，而不是 `Could not commit JPA transaction` 或原始的 PostgreSQL 约束错误。三个计数的语义已补进「Import Observations」小节——正是这个空白让该缺陷长期存活。对 WebUI 零影响：`webui` 的 `POST /api/import` 是写入自有 SQLite store 的独立 worker 路由，从不调用这些端点。 |
 | 2026-10-02 | (unreleased) | **实跑核验后修正观察记录响应的字段表。** (1) `facts`、`concepts`、`files_read`、`files_modified` 原标注为 `string[]`，但后端把这些 JSONB 列序列化为 **JSON 编码的字符串**（`"concepts": "[\"auth\"]"`），已用 POST/GET 往返验证。`refined_from_ids` 当时也被归入这一组，但它**不是** JSONB 列——它是存放逗号分隔 UUID 的 `TEXT` 列，见下一条更正。(2) 响应字段原写作 `session_id`，实际 wire 键为 `content_session_id`（V13 `@JsonProperty` 覆盖）——请求侧的 `session_id` 别名仍然有效，未改动；(3) 补齐 10 个线上实际返回但表中缺失的字段：`content_hash`、`discovery_tokens`、`relevance_count`、`generated_by_model`、`step_number`、`embedding_model_id` 及三个 `embedding_*` 向量列。另修正两处响应示例。`POST /api/ingest/observation` 的**请求**侧确实接受真实数组，保持原样未动。该错误类型正是同轮修复的 Python SDK 缺陷的文档根因——它只解析真实数组，因而这些字段一律被读成 `[]` |
