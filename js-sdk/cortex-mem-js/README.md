@@ -249,6 +249,18 @@ project-scoped query, with no error anywhere.
 `GET /api/search?project=` answers `200` with an empty result set, so a caller who
 forgot the argument would read "no matches" rather than "your call was malformed".
 
+`retrieveExperiences` and `buildICLPrompt` are the one place where the table above
+is not a complete guide, because the hazard is on the *other* field. Both accept
+`req.project` and neither validates it, while `search` does validate its project.
+For these two that is the wrong way round: `POST /api/memory/experiences` and
+`POST /api/memory/icl-prompt` pass the value straight into the repository query
+with no cross-project branch, so a missing or empty project matches nothing and
+returns `200` with an empty result instead of an error. Verified live: omitting
+`project`, sending `""`, and sending a non-existent path all return `200 []`,
+while a real path returns experiences. Since `project` is optional in the
+TypeScript request type, omitting it type-checks fine and silently searches
+nothing.
+
 `listObservations` and the argument-free getters (`getStats`, `getProjects`,
 `getModes`, `getSettings`, `getVersion`, `healthCheck`) require nothing. `getStats`
 takes an optional project filter.

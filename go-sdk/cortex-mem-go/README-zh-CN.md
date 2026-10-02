@@ -259,6 +259,18 @@ cortex-ce: ObservationUpdate validation error: at least one field must be provid
 与 `RetrieveExperiences` 把限定范围的字段命名为 `Project` 而非 `ProjectPath`，因为在这
 两个端点上它上 wire 的名字就是 `project`。
 
+**`RetrieveExperiences` / `BuildICLPrompt` 的空 `Project` 是必填参数表里唯一值得
+单独说明的缺口。** 上表是准确的——这两个方法都不校验 `project`，而 `Search` 校验——
+但表格说的是「校验了什么」，不是「会发生什么」，而这两者在这里差别很大。
+`POST /api/memory/experiences` 与 `POST /api/memory/icl-prompt` 会把该值直接传给
+仓储查询，且**没有任何跨全部项目的分支**，因此缺失或为空的项目匹配不到内容，
+返回 `200` 加空结果，而**不是**报错。活体实测：省略 `project`、传 `""`、
+传不存在的路径，三者都返回 `200 []`，而真实项目路径才会返回经验。
+SDK 自带的适配器也继承了这个陷阱——`eino` 与 `genkit` 的 retriever 以及
+`langchaingo` 的 memory 都接收项目字符串，且**均不校验**。
+因此「项目未设置」与「该项目确实没有记忆」无法区分，尽管客户端不会替你把关，
+仍值得在调用处自行判断。四家 SDK 在这两个端点上都是如此。
+
 这些检查不是装饰。其中三个 capture 方法最能说明问题：`RecordObservation` 是
 fire-and-forget，会吞掉后端返回的一切——`ToolName` 为空时后端返回
 `400 Missing required field: tool_name`，SDK 记一条日志后正常返回，调用方于是认为

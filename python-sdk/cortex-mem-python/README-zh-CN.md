@@ -283,6 +283,15 @@ fire-and-forget，会吞掉后端返回的一切——`tool_name` 为空时后�
 返回 `200` 加一个空结果集，因此漏传参数的调用方读到的是「没有匹配」而不是「你的调用
 不合法」。
 
+`retrieve_experiences` 与 `build_icl_prompt` 是上面那张必填表**唯一不完整**的地方，
+而且隐患在**另一个**字段上：这两个签名的 `project` 默认值是 `""` 且都**不校验**，
+而 `search` 反而校验 project。对这两个方法来说这个顺序恰好是反的——
+`POST /api/memory/experiences` 与 `POST /api/memory/icl-prompt` 会把该值直接传入
+仓储查询且没有跨全部项目的分支，因此缺失或为空的项目匹配不到内容，返回 `200` 加
+空结果而不是报错。活体实测：省略 `project`、传 `""`、传不存在的路径三者都返回
+`200 []`，而真实项目路径才会返回经验。这个默认值让
+`retrieve_experiences(task="...")` 这种写法看起来像在全局检索——其实不是。
+
 `list_observations` 与无参的 getter（`get_stats`、`get_projects`、`get_modes`、
 `get_settings`、`get_version`、`health_check`）没有必填参数；`get_stats` 接受一个可选的
 项目过滤条件。

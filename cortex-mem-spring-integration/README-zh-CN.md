@@ -393,6 +393,18 @@ at least one field must be provided for update
 capture 与检索类方法接收一个请求 record 并通过其访问器读取参数；管理与抽取类方法则
 按位置传参。
 
+**`retrieveExperiences` / `buildICLPrompt` 的空 `project` 是这张表里唯一值得
+单独说明的缺口。** 表格本身准确——这两个方法都不校验 `project`，而 `search`
+校验——但它记录的是「校验了什么」，不是「会发生什么」，而这里的差别很关键。
+`POST /api/memory/experiences` 与 `POST /api/memory/icl-prompt` 会把该值直接
+传入仓储查询，**没有任何跨全部项目的分支**，因此缺失或为空的项目匹配不到内容，
+返回 `200` 加空结果，而**不是**报错。活体实测：省略 `project`、传 `""`、
+传不存在的路径三者都返回 `200 []`，而真实项目路径才会返回经验。
+这一点在本 SDK 尤其要紧：`CortexMemoryTools.searchMemories` 与
+`getMemoryContext` 的项目来自 `CortexSessionContext`，取不到时会回落到配置的
+`cortex.mem.project-path` 且**不打日志**（见下方 `StreamAdvisor` 一节）。
+于是「项目未设置」与「该项目确实没有记忆」无法区分。
+
 这些检查不是装饰。其中三个 capture 方法最能说明问题：`recordObservation` 是
 fire-and-forget，会吞掉后端返回的一切——工具名为空时后端返回
 `400 Missing required field: tool_name`，客户端记一条日志后正常返回，调用方于是认为

@@ -398,6 +398,21 @@ and sends no request. The Go, Python and JS SDKs enforce exactly the same set.
 The capture and retrieval methods take a request record and read their arguments
 through its accessors; the management and extraction methods take them positionally.
 
+**A blank `project` on `retrieveExperiences` / `buildICLPrompt` is the one gap in
+this table worth knowing about.** The table is accurate — neither method
+validates `project`, while `search` does — but it records what is *checked*, not
+what *happens*, and the difference matters here. `POST /api/memory/experiences`
+and `POST /api/memory/icl-prompt` pass the value straight into the repository
+query with **no cross-project branch**, so a missing or empty project matches
+nothing and returns `200` with an empty result rather than an error. Verified
+live: omitting `project`, sending `""`, and sending a non-existent path all
+return `200 []`, while a real path returns experiences. This matters more here
+than in the other SDKs, because `CortexMemoryTools.searchMemories` and
+`getMemoryContext` resolve their project from `CortexSessionContext` and fall
+back to the configured `cortex.mem.project-path` **without logging** — see the
+`StreamAdvisor` note below. An unset project is therefore indistinguishable
+from "this project genuinely has no memories".
+
 The checks are not decoration, and the capture methods are the clearest case.
 `recordObservation` is fire-and-forget, so it swallows whatever the backend replies:
 an empty tool name comes back as `400 Missing required field: tool_name`, the client

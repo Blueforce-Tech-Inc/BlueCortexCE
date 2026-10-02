@@ -271,6 +271,22 @@ take the values positionally. Note that `Search` and `RetrieveExperiences` name
 the scoping field `Project` rather than `ProjectPath`, because on those two
 endpoints it is sent as `project` on the wire.
 
+**A blank `Project` on `RetrieveExperiences` / `BuildICLPrompt` is the one
+required-argument gap worth knowing about.** The table above is accurate —
+neither method validates `project`, while `Search` does — but the table says
+what is *checked*, not what *happens*, and here the two differ sharply.
+`POST /api/memory/experiences` and `POST /api/memory/icl-prompt` pass the value
+straight to the repository query and have **no cross-project branch**, so a
+missing or empty project matches nothing and returns `200` with an empty result
+rather than an error. Verified live: omitting `project`, sending `""`, and
+sending a non-existent path all return `200 []`, while a real path returns
+experiences. The SDK's own adapters inherit the trap — the `eino` and `genkit`
+retrievers and the `langchaingo` memory all take a project string and none
+validates it. So an unset project is indistinguishable from "this project
+genuinely has no memories", which is worth guarding at the call site even though
+the client will not guard it for you. The same applies to any blank scoping
+value on these two endpoints, in all four SDKs.
+
 The checks are not decoration, and the two capture methods are the clearest case.
 `RecordObservation` is fire-and-forget, so it swallows whatever the backend replies:
 an empty `ToolName` comes back as `400 Missing required field: tool_name`, the SDK

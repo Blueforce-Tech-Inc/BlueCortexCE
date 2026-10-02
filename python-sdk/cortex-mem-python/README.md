@@ -301,6 +301,18 @@ project-scoped query, with no error anywhere.
 `GET /api/search?project=` answers `200` with an empty result set, so a caller who
 forgot the argument would read "no matches" rather than "your call was malformed".
 
+`retrieve_experiences` and `build_icl_prompt` are the one place where the required
+table above is not a complete guide, because the hazard is on the *other* field.
+Both signatures default `project` to `""` and neither validates it, while
+`search` does validate its project. That is the wrong way round for these two:
+`POST /api/memory/experiences` and `POST /api/memory/icl-prompt` pass the value
+straight into the repository query with no cross-project branch, so an empty or
+missing project matches nothing and returns `200` with an empty result instead of
+an error. Verified live: omitting `project`, sending `""`, and sending a
+non-existent path all return `200 []`, while a real path returns experiences. The
+default makes it easy to write `retrieve_experiences(task="...")` and believe you
+are searching globally; you are not.
+
 `list_observations` and the argument-free getters (`get_stats`, `get_projects`,
 `get_modes`, `get_settings`, `get_version`, `health_check`) require nothing.
 `get_stats` takes an optional project filter.
