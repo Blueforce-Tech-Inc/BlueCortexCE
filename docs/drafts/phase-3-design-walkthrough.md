@@ -2,7 +2,7 @@
 
 **Date**: 2026-03-21 → 2026-03-22 (updated 2026-03-31 to reflect append-only extraction)
 **Purpose**: Test the generalization capability of the extraction architecture through diverse scenarios.
-**Full design reference**: [phase-3-design.md](phase-3-design.md)
+**Full design reference**: [phase-3-design/index.md](phase-3-design/index.md)
 
 ---
 
@@ -26,7 +26,7 @@ Template config → Find candidates → Build prompt → LLM call → Parse → 
 **Finding**: Original schema defined single `{category, value, confidence}` object. LLM could only return one result.
 
 **Resolution**: Array-wrapped schema: `{preferences: [{...}, {...}]}`.
-**Design location**: Section 2.2 of [phase-3-design.md](phase-3-design.md)
+**Design location**: Section 2.2 of [phase-3-design/2.md](phase-3-design/2.md)
 
 **Status**: ✅ Resolved
 
@@ -89,7 +89,7 @@ Missing: session group scoping (e.g., "pref:{project}:{userId}:work")
 
 **Challenge**: Track how preferences change over time.
 
-**Resolution**: **Append-only extraction** (Solution D, Section 24.6 of [phase-3-design.md](phase-3-design.md)). The LLM only receives NEW observations (no prior context) and outputs `add`/`remove`/`keep_hint` operations. The service then merges with the FULL prior data from DB — no truncation, no data loss.
+**Resolution**: **Append-only extraction** (Solution D, Section 24.6 of [phase-3-design/24.6.md](phase-3-design/24.6.md)). The LLM only receives NEW observations (no prior context) and outputs `add`/`remove`/`keep_hint` operations. The service then merges with the FULL prior data from DB — no truncation, no data loss.
 
 ```
 Run 1 (no prior, full-state):
@@ -153,14 +153,14 @@ D. On-demand → Manual, forgettable
 ```
 Current design: Two triggers
   1. Last step of deepRefineProjectMemories() (Section 15.5)
-  2. Scheduled daily at 2am (Section 9.1)
+  2. Scheduled daily at 2am (Section 9.2 + Section 23.7)
 
 Missing: Keyword-triggered extraction (on-demand when trigger keywords appear)
 ```
 
-**Gap**: No keyword-based trigger. The `triggerKeywords` field in template exists but isn't used for real-time triggering.
+**Gap**: No keyword-based trigger. The `trigger-keywords` key appears in the design's YAML example ([2.md](phase-3-design/2.md) §2.2), but it is **not** a field on the implemented `ExtractionConfig.TemplateConfig` — that record declares only `name`, `enabled`, `template-class`, `session-id-pattern`, `source-filter`, `key-fields`, `prompt`, and `output-schema`, and the deployed `backend/src/main/resources/application.yml` template sets no such key. So there is no field to read yet, not merely an unused one.
 
-**Resolution**: Current design (scheduled + deepRefine) is the correct balance. `triggerKeywords` can be used as future enhancement — mark sessions needing extraction when keywords appear, scheduled task prioritizes marked sessions.
+**Resolution**: Current design (scheduled + deepRefine) is the correct balance. `trigger-keywords` can be added as a future enhancement — add the field to `TemplateConfig`, mark sessions needing extraction when keywords appear, and let the scheduled task prioritize marked sessions.
 
 **Status**: ✅ Resolved — scheduled + deepRefine sufficient for Phase 3.1. Keyword trigger deferred to Phase 3.2.
 
@@ -206,25 +206,25 @@ This is correct behavior for zero-shot: nothing to extract yet.
 | B. Encode in project path | Rejected (fragile) |
 | C. Infer from history | Rejected (unreliable) |
 
-**Documented in**: Section 20.2 of [phase-3-design.md](phase-3-design.md)
+**Documented in**: Section 20.2 of [phase-3-design/20.md](phase-3-design/20.md)
 
 ### Decision 2: Special Session ID
 
 **Decision**: `sessionIdPattern` in template config — generic system interprets pattern, doesn't need to understand semantics.
 
-**Documented in**: Section 20.3 of [phase-3-design.md](phase-3-design.md)
+**Documented in**: Section 20.3 of [phase-3-design/20.md](phase-3-design/20.md)
 
 ### Decision 3: Schema Design
 
 **Decision**: Array-wrapped schema for multi-item extraction (preference, allergy list, etc.)
 
-**Documented in**: Section 2.2 of [phase-3-design.md](phase-3-design.md)
+**Documented in**: Section 2.2 of [phase-3-design/2.md](phase-3-design/2.md)
 
 ### Decision 4: Evolution & Re-extraction
 
 **Decision**: **Append-only extraction** (Section 24.6) — LLM only receives new observations, outputs `add`/`remove`/`keep_hint` operations. Service merges with full prior from DB. Supersedes earlier "LLM re-extraction" approach (which passed prior context to LLM and risked silent data loss from truncation).
 
-**Documented in**: Section 24.6 of [phase-3-design.md](phase-3-design.md)
+**Documented in**: Section 24.6 of [phase-3-design/24.6.md](phase-3-design/24.6.md)
 
 ### Decision 5: Usage Modes
 
@@ -233,13 +233,13 @@ This is correct behavior for zero-shot: nothing to extract yet.
 | Hook (wrapper.js) | null | Project-level |
 | SDK (CortexMemClient) | Set by app | User-level |
 
-**Documented in**: Section 20.9 of [phase-3-design.md](phase-3-design.md)
+**Documented in**: Section 20.9 of [phase-3-design/20.md](phase-3-design/20.md)
 
 ### Decision 6: Cost Control
 
 **Decision**: Scheduled extraction (not real-time), incremental processing, batch size caps.
 
-**Documented in**: Section 23 of [phase-3-design.md](phase-3-design.md)
+**Documented in**: Section 23 of [phase-3-design/23.md](phase-3-design/23.md)
 
 ---
 

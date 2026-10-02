@@ -7,8 +7,8 @@
 ## Current Review Rotation
 
 - **轮换顺序**: API 文档 → SDK README → 设计文档 → 架构文档 → 用户指南
-- **最近完成**: SDK README（2026-10-02 四十九轮，Go HTTP Demo 此前完全没有 README）
-- **下一方向**: 设计文档（五十轮）
+- **最近完成**: 设计文档（2026-10-02 五十轮，`phase-3-design-walkthrough.md`：两处与实现不符的表述已修正，9 处设计引用改指拆分后的子文档）
+- **下一方向**: 架构文档（五十一轮）
 - **新增待决**: `docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分
 - **Pending 状态**: 文档问题清单已清空（0 项待处理）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
@@ -44,7 +44,7 @@
 
 1. **API 文档**：`docs/API.md` 与 `docs/API-zh-CN.md`，对照 Controller 和 OpenAPI 注解。
 2. **SDK README**：Java、Go、Python、JS/TS SDK README，核对源码签名和示例。
-3. **设计文档**：`docs/drafts/phase-3-design.md` 与 walkthrough，对照实际实现和测试脚本。
+3. **设计文档**：`docs/drafts/phase-3-design/`（拆分后的子文档，入口 `index.md`；根 `phase-3-design.md` 仅为指针文件）与 `phase-3-design-walkthrough.md`，对照实际实现和测试脚本。引用具体章节时应指向对应子文档（如 §2.2 → `2.md`），不要只指向指针文件。
 4. **架构文档**：`docs/ARCHITECTURE.md`、中文版本、`backend/README.md` 和根 README。
 5. **运维/用户指南**：部署、配置、测试、故障排查和 Docker 文档。
 
