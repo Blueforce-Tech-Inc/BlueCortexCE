@@ -64,9 +64,20 @@ public class FeedbackController {
             client.submitFeedback(observationId, feedbackType, comment);
             return ResponseEntity.ok(Map.of("status", "submitted"));
         } catch (Exception e) {
+            // The backend answers 404 for an unknown observationId. The SDK wraps
+            // that in a generic RuntimeException, so the status and the real reason
+            // are only reachable by walking the cause chain — without that, a
+            // missing observation surfaced here as 500 "submitFeedback failed",
+            // which both misreports the status and throws away the explanation.
+            if (DemoErrors.isNotFound(e)) {
+                return ResponseEntity.status(404)
+                        .body(Map.of("error", DemoErrors.messageOf(e)));
+            }
             log.error("Submit feedback failed for observationId={}", observationId, e);
+            String reason = DemoErrors.messageOf(e);
             return ResponseEntity.internalServerError()
-                    .body(Map.of("error", "Submit feedback failed: " + e.getMessage()));
+                    .body(Map.of("error", "Submit feedback failed: "
+                            + (reason != null ? reason : e.getMessage())));
         }
     }
 

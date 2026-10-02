@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
-import org.springframework.web.client.RestClientResponseException;
 
 import java.util.Map;
 import java.util.List;
@@ -31,13 +30,7 @@ public class ObservationsController {
     }
 
     private static boolean isNotFound(Throwable failure) {
-        for (Throwable current = failure; current != null; current = current.getCause()) {
-            if (current instanceof RestClientResponseException response
-                    && response.getStatusCode().value() == 404) {
-                return true;
-            }
-        }
-        return false;
+        return DemoErrors.isNotFound(failure);
     }
 
     /**
