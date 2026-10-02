@@ -8,6 +8,15 @@
 
 This document describes the REST API for Cortex Community Edition backend.
 
+> **Document structure (EN vs ZH)**: this English version titles each endpoint with a
+> descriptive H3 (e.g. `### List Observations`) and prints the request line in a code block
+> directly underneath. The Chinese version titles the same endpoints with a path-style H4
+> (e.g. ``#### GET `/api/observations` ``). The difference is deliberate — a path-style heading
+> is the more natural form in Chinese, and both versions expose the same HTTP method and path
+> for every endpoint. The endpoint sets are verified identical (67 live endpoints, checked
+> against the `@*Mapping` annotations in the controllers), so this is a presentation choice,
+> not a content gap. Do not "fix" one side to match the other.
+
 ## Table of Contents
 
 - [Overview](#overview)
