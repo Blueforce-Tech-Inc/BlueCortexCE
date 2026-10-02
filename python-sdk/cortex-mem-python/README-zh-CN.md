@@ -169,6 +169,30 @@ except APIError as e:
     print(f"API error {e.status_code}: {e.message}")
 ```
 
+### 畸形响应体
+
+`APIError` 只用于 HTTP 状态码。响应体**存在但无法解析**时（以 200 状态返回的 HTML
+错误页——反向代理或网关失败时正是这个形状）抛出的是 `CortexError`：
+
+```python
+from cortex_mem import CortexMemClient, APIError, CortexError
+
+try:
+    page = client.list_observations("myproject")
+except APIError as e:
+    print(f"backend returned {e.status_code}: {e.message}")
+except CortexError as e:
+    print(f"backend response was not usable: {e}")
+```
+
+这是刻意的。原先返回空结果，会让失败与「后端确实没有数据」无法区分：
+`start_session` 会交回一个 `session_id` 为空的响应对象，而调用方接下来整个会话都会
+用这个空 ID；每个读方法也都返回一个结构完整但内容为空的对象。Go 与 JS 对同样的输入
+都是抛错。
+
+**真正为空**的响应体（204 No Content，或零长度内容）不算错误，仍返回各方法文档化的
+默认值。
+
 ### 响应体大小上限
 
 本 SDK **没有**响应体大小上限。`requests` 会先把整个响应体缓冲下来，再由

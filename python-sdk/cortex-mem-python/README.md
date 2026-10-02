@@ -172,6 +172,32 @@ except APIError as e:
     print(f"API error {e.status_code}: {e.message}")
 ```
 
+### Malformed Response Bodies
+
+`APIError` is raised only for HTTP statuses. A response whose body is **present
+but unparseable** — an HTML error page served with a 200, which is what a reverse
+proxy or gateway returns on failure — raises `CortexError` instead:
+
+```python
+from cortex_mem import CortexMemClient, APIError, CortexError
+
+try:
+    page = client.list_observations("myproject")
+except APIError as e:
+    print(f"backend returned {e.status_code}: {e.message}")
+except CortexError as e:
+    print(f"backend response was not usable: {e}")
+```
+
+This is deliberate. Returning an empty result instead made a failure
+indistinguishable from "the backend genuinely has nothing": `start_session` handed
+back a response with an empty `session_id` that a caller would then use for the
+rest of the session, and every read method returned a well-formed empty object.
+Go and JS raise on the same input.
+
+A **genuinely empty** body (204 No Content, or zero-length content) is not an
+error — it still yields each method's documented default.
+
 ### Response Size Limit
 
 There is **no** response size cap in this SDK. `requests` buffers the whole body

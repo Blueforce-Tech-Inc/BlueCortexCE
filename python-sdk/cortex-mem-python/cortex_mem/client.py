@@ -142,15 +142,30 @@ class CortexMemClient:
     ) -> Any:
         """Make a request and return parsed JSON.
 
-        Returns None for 204 No Content or non-JSON responses (graceful degradation).
+        Returns None for a genuinely empty body (204 No Content, or zero-length
+        content) so the caller can apply its documented default.
+
+        A body that is present but unparseable RAISES. That case used to degrade
+        to None as well, which made it indistinguishable from "the server
+        legitimately has nothing to return" for all 19 call sites: an HTML error
+        page served with a 200 status — the normal shape of a reverse-proxy or
+        gateway failure — turned start_session into a response with an empty
+        session_id that a caller would then use for the rest of the session, and
+        turned every read method into a well-formed empty result.
+
+        Go (client_impl.go doRequest) and JS (client.ts requestJSON) both raise
+        on the same input with the same message shape; Python was the only SDK
+        that swallowed it.
         """
         resp = self._request(method, path, json_body, params)
         if resp.status_code == 204 or not resp.content:
             return None
         try:
             return resp.json()
-        except json.JSONDecodeError:
-            return None
+        except json.JSONDecodeError as e:
+            raise CortexError(
+                f"cortex-ce: failed to parse {path} response: {e}"
+            ) from e
 
     def _request_no_content(
         self,

@@ -491,9 +491,11 @@ class TestHealth:
     def test_health_check_non_json_body_is_not_healthy(self, label, body, content_type):
         """A 200 that is not the health JSON must not pass as healthy.
 
-        _request_json returns None for a non-JSON body (graceful degradation),
-        so a bare `isinstance(data, dict)` guard let None through and the
-        readiness gate reported a proxy error page as a healthy backend.
+        Two independent guards cover the two ways a body can fail to be health
+        JSON: an unparseable body now raises inside _request_json, and an
+        empty body returns None, which the isinstance(data, dict) guard rejects.
+        Without the second guard the readiness gate reported a proxy error page
+        as a healthy backend.
         """
         responses.add(
             responses.GET,
@@ -1156,9 +1158,19 @@ class TestRetrievalExtended:
 
 
 class TestJSONDecodeResilience:
+    """A present-but-unparseable body must raise; a genuinely empty body must not.
+
+    These three tests previously asserted the opposite — that a non-JSON 200
+    yields None and a default DTO. That encoded the real defect rather than a
+    contract: an HTML error page served with a 200 (what a reverse proxy or
+    gateway actually returns on failure) became a well-formed response object
+    with an empty session_id, which a caller would then use for the rest of the
+    session. Go and JS have always raised on the same input.
+    """
+
     @responses.activate
-    def test_non_json_response_returns_none(self):
-        """_request_json should return None for non-JSON responses instead of raising."""
+    def test_non_json_response_raises(self):
+        """_request_json raises for a present, unparseable body instead of returning None."""
         responses.add(
             responses.GET,
             f"{BASE}/api/version",
@@ -1167,13 +1179,54 @@ class TestJSONDecodeResilience:
             content_type="text/html",
         )
         c = _client()
-        # Should return None instead of raising JSONDecodeError
-        result = c._request_json("GET", "/api/version")
-        assert result is None
+        with pytest.raises(CortexError, match="failed to parse /api/version response"):
+            c._request_json("GET", "/api/version")
 
     @responses.activate
-    def test_start_session_non_json_response_graceful(self):
-        """start_session should return default SessionStartResponse on non-JSON 200 response."""
+    def test_truncated_json_response_raises(self):
+        """A body cut off mid-object is unparseable and must raise, not return None."""
+        responses.add(
+            responses.GET,
+            f"{BASE}/api/version",
+            body='{"version": "1.0"',
+            status=200,
+            content_type="application/json",
+        )
+        c = _client()
+        with pytest.raises(CortexError, match="failed to parse /api/version response"):
+            c._request_json("GET", "/api/version")
+
+    @responses.activate
+    def test_empty_body_still_returns_none(self):
+        """A zero-length body is genuinely 'no content' and must NOT raise.
+
+        This is the case that makes the change safe: 204 and empty bodies keep
+        their documented default, so only a real parse failure becomes an error.
+        """
+        responses.add(
+            responses.GET,
+            f"{BASE}/api/version",
+            body="",
+            status=200,
+            content_type="application/json",
+        )
+        c = _client()
+        assert c._request_json("GET", "/api/version") is None
+
+    @responses.activate
+    def test_204_still_returns_none(self):
+        """204 No Content is genuinely 'no content' and must NOT raise."""
+        responses.add(
+            responses.GET,
+            f"{BASE}/api/version",
+            status=204,
+        )
+        c = _client()
+        assert c._request_json("GET", "/api/version") is None
+
+    @responses.activate
+    def test_start_session_non_json_response_raises(self):
+        """start_session must raise rather than hand back a session with an empty id."""
         responses.add(
             responses.POST,
             f"{BASE}/api/session/start",
@@ -1182,16 +1235,29 @@ class TestJSONDecodeResilience:
             content_type="text/plain",
         )
         c = _client()
+        with pytest.raises(CortexError, match="failed to parse /api/session/start response"):
+            c.start_session("s1", "/p")
+
+    @responses.activate
+    def test_start_session_empty_body_still_returns_default(self):
+        """A genuinely empty 200 body still yields the documented default DTO."""
+        responses.add(
+            responses.POST,
+            f"{BASE}/api/session/start",
+            body="",
+            status=200,
+            content_type="application/json",
+        )
+        c = _client()
         resp = c.start_session("s1", "/p")
-        # Should NOT crash — returns default values
         assert isinstance(resp, SessionStartResponse)
         assert resp.session_id == ""
         assert resp.session_db_id == ""
         assert resp.update_files == []
 
     @responses.activate
-    def test_update_session_user_id_non_json_response_graceful(self):
-        """update_session_user_id should return empty DTO on non-JSON 200 response."""
+    def test_update_session_user_id_non_json_response_raises(self):
+        """update_session_user_id must raise rather than return an empty DTO."""
         responses.add(
             responses.PATCH,
             f"{BASE}/api/session/s1/user",
@@ -1200,8 +1266,21 @@ class TestJSONDecodeResilience:
             content_type="text/plain",
         )
         c = _client()
+        with pytest.raises(CortexError, match="failed to parse /api/session/s1/user response"):
+            c.update_session_user_id("s1", "u1")
+
+    @responses.activate
+    def test_update_session_user_id_empty_body_still_returns_default(self):
+        """A genuinely empty 200 body still yields the documented default DTO."""
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/api/session/s1/user",
+            body="",
+            status=200,
+            content_type="application/json",
+        )
+        c = _client()
         resp = c.update_session_user_id("s1", "u1")
-        # Should NOT crash — returns empty SessionUserUpdateResponse
         assert resp.status == ""
         assert resp.session_id == ""
         assert resp.user_id == ""
