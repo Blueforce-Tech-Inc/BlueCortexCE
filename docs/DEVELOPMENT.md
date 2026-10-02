@@ -184,6 +184,11 @@ sleep 5
 docker exec -it cortex-ce-postgres psql -U postgres -d claude_mem_dev -c "CREATE EXTENSION vector;"
 ```
 
+This standalone container publishes `5432`, which is what the backend's default JDBC URL
+targets. This project's `docker compose up -d` instead publishes **5433** (see
+`docs/DEPLOYMENT.md`) and needs `SPRING_DATASOURCE_URL` pointed at that port — pick one
+and do not run both.
+
 ### Installing Node.js (for Thin Proxy)
 
 ```bash

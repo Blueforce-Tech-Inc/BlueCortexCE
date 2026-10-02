@@ -184,6 +184,10 @@ sleep 5
 docker exec -it cortex-ce-postgres psql -U postgres -d claude_mem_dev -c "CREATE EXTENSION vector;"
 ```
 
+这个独立容器发布的是 `5432`，正是后端默认 JDBC URL 所指向的端口。而本项目的
+`docker compose up -d` 发布的是 **5433**（见 `docs/DEPLOYMENT.md`），需要把
+`SPRING_DATASOURCE_URL` 指向该端口——两种方式选其一，不要同时启动。
+
 ### 安装 Node.js（用于 Thin Proxy）
 
 ```bash

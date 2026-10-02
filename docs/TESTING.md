@@ -95,6 +95,12 @@ git submodule update --init --recursive
 - Java 21+
 - Required API keys in `.env`
 
+> **PostgreSQL port**: `5432` above assumes a native install or the `docker run -p 5432:5432`
+> used in Troubleshooting. This project's own `docker compose up -d` publishes the database on
+> host port **5433** instead (`"${POSTGRES_PORT:-5433}:5432"` in `docker-compose.yml`), and
+> that path also needs `SPRING_DATASOURCE_URL` pointed at the published port. Check which one
+> you actually have before concluding the database is down — see `docs/DEPLOYMENT.md`.
+
 #### Run Regression Tests
 
 ```bash
@@ -195,6 +201,11 @@ docker ps | grep postgres
 docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=123456 pgvector/pgvector:pg16
 ```
 
+If you started the backend with this project's `docker compose up -d`, PostgreSQL is
+**already running on 5433** and your data is in that container — the `docker run` above
+would start a second, *empty* database on 5432 and make the problem look worse. Point
+`SPRING_DATASOURCE_URL` at `jdbc:postgresql://127.0.0.1:5433/claude_mem` instead.
+
 ### Server Not Running
 
 ```bash
@@ -216,6 +227,7 @@ cd backend
 
 | Date | Change |
 |------|--------|
+| 2026-10-02 | Documented the PostgreSQL port split (`:5433`) in Prerequisites and in "PostgreSQL Connection Failed" — a user who started the backend with `docker compose up -d` and then followed the troubleshooting `docker run -p 5432:5432` would start a second, *empty* database on 5432 while their data sat in the compose container on 5433. Verified `run-all-e2e.sh` really does run 10 local suites and `phase3-acceptance-test.sh` really does define 15 test functions, so both counts were left unchanged; EN+ZH in sync |
 | 2026-05-04 | Section 6: Fixed 4 environment variable errors — removed fictitious `DB_HOST` and `SPRING_AI_MCP_SERVER_PROTOCOL`, corrected `DB_USER`→`DB_USERNAME` and `DB_PASS`→`DB_PASSWORD`, corrected `DB_NAME` default `claude_mem_dev`→`claude_mem` (matches docker-compose.yml); EN+ZH in sync |
 | 2026-05-03 | Added `go-sdk-unit-test.sh` and `codex-watcher-test.sh` to Section 3 SDK table (10→12 scripts); added missing `python-sdk-e2e-test.sh` to table (EN/ZH in sync) |
 | 2026-05-02 | Added missing 'Run Docker Deployment Tests' subsection (5th subsection in Section 5); aligned EN/ZH subsection structure |

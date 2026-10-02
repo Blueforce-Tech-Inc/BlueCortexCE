@@ -95,6 +95,12 @@ git submodule update --init --recursive
 - Java 21+
 - `.env` 中配置必要的 API keys
 
+> **PostgreSQL 端口**：上面的 `5432` 假设的是原生安装，或故障排查一节里用的
+> `docker run -p 5432:5432`。本项目自己的 `docker compose up -d` 会把数据库发布到宿主机
+> 端口 **5433**（`docker-compose.yml` 中的 `"${POSTGRES_PORT:-5433}:5432"`），该路径还需要
+> 把 `SPRING_DATASOURCE_URL` 指向发布出来的端口。在断定数据库没起来之前，先确认自己用的是
+> 哪一个——详见 `docs/DEPLOYMENT.md`。
+
 #### 运行回归测试
 
 ```bash
@@ -195,6 +201,11 @@ docker ps | grep postgres
 docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=123456 pgvector/pgvector:pg16
 ```
 
+如果你是用本项目的 `docker compose up -d` 启动后端的，PostgreSQL **已经在 5433 上运行**，
+数据也在那个容器里——上面这条 `docker run` 只会再起一个 5432 上的**空**数据库，让问题看起来
+更严重。正确做法是把 `SPRING_DATASOURCE_URL` 指向
+`jdbc:postgresql://127.0.0.1:5433/claude_mem`。
+
 ### 服务未运行
 
 ```bash
@@ -216,6 +227,7 @@ cd backend
 
 | 日期 | 变更 |
 |------|------|
+| 2026-10-02 | 在「前置条件」与「PostgreSQL 连接失败」中说明端口分野（`:5433`）——用 `docker compose up -d` 启动后端的用户若照排障里的 `docker run -p 5432:5432` 操作，会在 5432 上再起一个**空**数据库，而数据其实在 compose 容器的 5433 上。已核实 `run-all-e2e.sh` 确实运行 10 个本地套件、`phase3-acceptance-test.sh` 确实定义 15 个测试函数，两个计数均保持不变；中英文同步更新 |
 | 2026-05-04 | 第 6 节修复 4 个环境变量错误——移除不存在的 `DB_HOST` 和 `SPRING_AI_MCP_SERVER_PROTOCOL`，修正 `DB_USER`→`DB_USERNAME` 和 `DB_PASS`→`DB_PASSWORD`，修正 `DB_NAME` 默认值 `claude_mem_dev`→`claude_mem`（与 docker-compose.yml 一致）；中英文同步更新 |
 | 2026-05-03 | 在第 3 节 SDK 表格中新增 `go-sdk-unit-test.sh` 和 `codex-watcher-test.sh`（10→12 个脚本）；补充遗漏的 `python-sdk-e2e-test.sh`；中英文同步更新 |
 | 2026-05-02 | 新增遗漏的「运行 Docker 部署测试」小节（第 5 节的第 5 个小节）；中英文小节结构对齐 |
