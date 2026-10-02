@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -1197,5 +1198,72 @@ class CortexMemClientImplTest {
         org.junit.jupiter.api.Assertions.assertThrows(
             Exception.class,
             () -> client.updateSessionUserId("sess-1", "user-1"));
+    }
+}
+
+// ==================== Error message propagation ====================
+
+/**
+ * The retry helpers used to wrap every failure as RuntimeException(operation + " failed"),
+ * so a caller logging e.getMessage() saw "submitFeedback failed" instead of the backend's
+ * own reason. That is what forced the Java demo to walk the cause chain by hand
+ * (examples/cortex-mem-demo/.../DemoErrors.java) to recover "Observation not found: <id>".
+ * These cases pin the backend's message reaching the exception the caller sees.
+ */
+class CortexMemErrorMessageTest {
+
+    private MockWebServer server;
+    private CortexMemClient client;
+
+    @BeforeEach
+    void setUp() throws Exception {
+        server = new MockWebServer();
+        server.start();
+        CortexMemProperties props = new CortexMemProperties();
+        props.setBaseUrl(server.url("/").toString());
+        props.getRetry().setMaxAttempts(1);
+        client = new CortexMemClientImpl(props, RestClient.builder());
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        server.shutdown();
+    }
+
+    @Test
+    void shouldCarryTheBackendErrorMessageIntoTheThrownException() {
+        server.enqueue(new MockResponse()
+            .setResponseCode(404)
+            .setBody("{\"error\":\"Observation not found: obs-42\"}")
+            .addHeader("Content-Type", "application/json"));
+
+        assertThatThrownBy(() -> client.submitFeedback("obs-42", "SUCCESS", null))
+            .isInstanceOf(RuntimeException.class)
+            .hasMessageContaining("Observation not found: obs-42")
+            .hasMessageContaining("submitFeedback");
+    }
+
+    @Test
+    void shouldFallBackToTheStatusLineWhenTheBodyHasNoErrorField() {
+        server.enqueue(new MockResponse()
+            .setResponseCode(409)
+            .setBody("<html>gateway said no</html>")
+            .addHeader("Content-Type", "text/html"));
+
+        // 409 is not retryable, so it surfaces immediately with whatever reason we can recover.
+        assertThatThrownBy(() -> client.submitFeedback("obs-42", "SUCCESS", null))
+            .isInstanceOf(RuntimeException.class)
+            .hasMessageContaining("submitFeedback");
+    }
+
+    @Test
+    void shouldNotLoseTheOriginalExceptionAsTheCause() {
+        server.enqueue(new MockResponse()
+            .setResponseCode(404)
+            .setBody("{\"error\":\"Observation not found: obs-7\"}")
+            .addHeader("Content-Type", "application/json"));
+
+        assertThatThrownBy(() -> client.submitFeedback("obs-7", "SUCCESS", null))
+            .hasCauseInstanceOf(RestClientResponseException.class);
     }
 }

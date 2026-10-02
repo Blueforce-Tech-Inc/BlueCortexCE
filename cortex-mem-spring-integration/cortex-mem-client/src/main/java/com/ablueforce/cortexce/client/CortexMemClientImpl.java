@@ -635,7 +635,7 @@ public class CortexMemClientImpl implements CortexMemClient {
             } catch (Exception e) {
                 lastException = e;
                 if (!isRetryable(e)) {
-                    log.debug("[{}] Non-retryable error ({}), giving up", operation, e.getMessage());
+                    log.debug("[{}] Non-retryable error ({}), giving up", operation, describe(e));
                     break;
                 }
                 if (attempt < maxRetries) {
@@ -650,8 +650,8 @@ public class CortexMemClientImpl implements CortexMemClient {
                 }
             }
         }
-        log.warn("[{}] Failed after attempts: {}", operation, lastException.getMessage());
-        throw new RuntimeException(operation + " failed", lastException);
+        log.warn("[{}] Failed after attempts: {}", operation, describe(lastException));
+        throw new RuntimeException(operation + " failed: " + describe(lastException), lastException);
     }
 
     /**
@@ -671,7 +671,7 @@ public class CortexMemClientImpl implements CortexMemClient {
             } catch (Exception e) {
                 lastException = e;
                 if (!isRetryable(e)) {
-                    log.debug("[{}] Non-retryable error ({}), giving up", operation, e.getMessage());
+                    log.debug("[{}] Non-retryable error ({}), giving up", operation, describe(e));
                     break;
                 }
                 if (attempt < maxRetries) {
@@ -686,8 +686,8 @@ public class CortexMemClientImpl implements CortexMemClient {
                 }
             }
         }
-        log.warn("[{}] Failed after attempts: {}", operation, lastException.getMessage());
-        throw new RuntimeException(operation + " failed", lastException);
+        log.warn("[{}] Failed after attempts: {}", operation, describe(lastException));
+        throw new RuntimeException(operation + " failed: " + describe(lastException), lastException);
     }
 
     /**
@@ -704,11 +704,11 @@ public class CortexMemClientImpl implements CortexMemClient {
                 return;
             } catch (Exception e) {
                 if (!isRetryable(e)) {
-                    log.warn("[{}] Failed with non-retryable error: {}", operation, e.getMessage());
+                    log.warn("[{}] Failed with non-retryable error: {}", operation, describe(e));
                     return;
                 }
                 if (attempt == maxRetries) {
-                    log.warn("[{}] Failed after {} attempts: {}", operation, maxRetries, e.getMessage());
+                    log.warn("[{}] Failed after {} attempts: {}", operation, maxRetries, describe(e));
                 } else {
                     log.debug("[{}] Attempt {}/{} failed, retrying...", operation, attempt, maxRetries);
                     long jitteredMs = jitteredBackoff(attempt);
@@ -788,6 +788,33 @@ public class CortexMemClientImpl implements CortexMemClient {
         if (!java.nio.file.Paths.get(value).isAbsolute()) {
             throw new IllegalArgumentException(fieldName + " must be an absolute path (got: " + value + ")");
         }
+    }
+
+    /**
+     * Describe a failure for a log line or an exception message.
+     *
+     * <p>{@link RestClientResponseException#getMessage()} on its own is close to useless — it
+     * does not carry the backend's {@code {"error": "..."}} body. The retry helpers used to
+     * surface exactly that, so a caller that logged {@code e.getMessage()} saw
+     * {@code "submitFeedback failed"} instead of {@code "Observation not found: <id>"} and had
+     * to walk the cause chain by hand to recover the reason.
+     *
+     * @return the backend's message when the cause chain carries an HTTP error response,
+     *         otherwise {@code e.getMessage()}, or the class name when there is no message
+     */
+    private static String describe(Throwable e) {
+        for (Throwable current = e; current != null; current = current.getCause()) {
+            if (current instanceof RestClientResponseException httpEx) {
+                return tryExtractErrorMessage(httpEx);
+            }
+            if (current.getCause() == null) {
+                break;
+            }
+        }
+        String message = e == null ? null : e.getMessage();
+        return (message == null || message.isBlank())
+                ? (e == null ? "unknown error" : e.getClass().getSimpleName())
+                : message;
     }
 
     /**
