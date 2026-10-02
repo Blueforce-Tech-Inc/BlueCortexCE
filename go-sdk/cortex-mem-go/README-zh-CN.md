@@ -116,6 +116,10 @@ client := cortexmem.NewClient(
 
 ## 框架集成
 
+> **各适配器的错误处理有意不同**：Eino 与 Genkit 的 Retriever 会先记录日志再把错误返回给调用方，
+> 因为"空结果"与"没有相关记忆"无法区分；而 LangChainGo 的 `Memory` 会降级为空记忆串，
+> 以免中断提示词链路，同时记录日志保证错误仍然可见。
+
 ### Eino
 
 ```go

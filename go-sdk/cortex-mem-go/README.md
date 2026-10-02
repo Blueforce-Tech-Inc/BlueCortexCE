@@ -116,6 +116,12 @@ client := cortexmem.NewClient(
 
 ## Framework Integrations
 
+> **Error handling differs by adapter on purpose**: the Eino and Genkit retrievers log the
+> failure and then return it to the caller, because an empty result would be
+> indistinguishable from "no relevant memories". The LangChainGo `Memory` instead degrades
+> to an empty memory string so a prompt chain is never broken, and logs the error so it is
+> still observable.
+
 ### Eino
 
 ```go

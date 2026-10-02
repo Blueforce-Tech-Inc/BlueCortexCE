@@ -69,6 +69,12 @@ func NewRetriever(client cortexmem.Client, project string, opts ...RetrieverOpti
 
 // Retrieve performs a semantic search using Cortex CE and returns results
 // as Experience objects compatible with Eino's retriever pattern.
+//
+// Error strategy: unlike the LangChainGo adapter, which degrades to an empty
+// memory so the prompt chain never breaks, this retriever propagates the
+// failure to the caller — retrieval is the whole point of the component, and a
+// silent empty result would be indistinguishable from "no relevant memories".
+// The error is still logged first so it is observable in either style.
 func (r *Retriever) Retrieve(ctx context.Context, query string, _ ...any) ([]dto.Experience, error) {
 	if query == "" {
 		return []dto.Experience{}, nil

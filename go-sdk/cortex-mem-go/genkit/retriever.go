@@ -87,6 +87,14 @@ func NewRetriever(client cortexmem.Client, project string, opts ...RetrieverOpti
 
 // Retrieve performs a semantic search and returns Genkit-compatible documents.
 // This is designed to be compatible with Genkit Go's Retriever[In, Out] pattern.
+//
+// Per-call fields on input (project, count, source, userID) override the
+// constructor defaults; empty values fall back to them.
+//
+// Error strategy: matches the Eino adapter — the failure is logged and then
+// propagated rather than degraded to an empty result. The LangChainGo adapter
+// deliberately does the opposite because it sits inside a prompt chain. Both
+// behaviours are intentional; keep them in sync deliberately, not by accident.
 func (r *Retriever) Retrieve(ctx context.Context, input RetrieverInput) (RetrieverOutput, error) {
 	if input.Query == "" {
 		return RetrieverOutput{}, nil

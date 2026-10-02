@@ -81,6 +81,11 @@ func (m *Memory) MemoryVariables(_ context.Context) []string {
 // LoadMemoryVariables loads memory variables by building an ICL prompt
 // from Cortex CE's historical experiences.
 // The "input" key from inputs is used as the search query.
+//
+// Error strategy: this adapter degrades to an empty memory instead of
+// propagating, because it is invoked inside a prompt-assembly chain where an
+// error would break the whole call. The Eino and Genkit retrievers do the
+// opposite on purpose. Both behaviours are intentional.
 func (m *Memory) LoadMemoryVariables(ctx context.Context, inputs map[string]any) (map[string]any, error) {
 	query := ""
 	if t, ok := inputs["input"]; ok {
