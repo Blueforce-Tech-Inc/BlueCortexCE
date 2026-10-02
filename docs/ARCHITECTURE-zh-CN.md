@@ -277,15 +277,26 @@ proxy/
 
 ```javascript
 // wrapper.js - CLI 入口点
-const event = process.argv[2];  // 'session-start', 'tool-use' 等
+const event = process.argv[2];  // 'session-start', 'tool-use', 'session-end', 'user-prompt'
 const data = readFromStdin();
 
-// 快速转发到胖服务器
-await axios.post('http://localhost:37777/api/ingest/' + event, data);
+// 每个事件各有自己的端点——并不存在统一的 '/api/ingest/' 前缀
+const ENDPOINTS = {
+  'session-start': '/api/session/start',   // 由 SessionController 提供，而非 IngestionController
+  'tool-use':      '/api/ingest/tool-use',
+  'session-end':   '/api/ingest/session-end',
+  'user-prompt':   '/api/ingest/user-prompt',
+};
+await axios.post('http://localhost:37777' + ENDPOINTS[event], data);
 
 // 立即退出
 process.exit(0);
 ```
+
+**该映射是逐事件查表，不是前缀拼接。** `session-start` 由 `SessionController` 在
+`POST /api/session/start` 提供，而非 `IngestionController`：`POST /api/ingest/session-start`
+返回 **404**（2026-10-03 对运行中的后端实测）。`IngestionController` 恰好暴露四个端点
+——`tool-use`、`session-end`、`user-prompt`、`observation`——其中没有任何一个负责开启会话。
 
 #### 性能要求
 

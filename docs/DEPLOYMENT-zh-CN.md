@@ -505,13 +505,14 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 
 #### Evo-Memory 与结构化抽取调参
 
-`MEMORY_REFINE_ENABLED` 决定精炼开关，但**不决定精炼做什么**——下面四个阈值决定
-哪些观测会被处理，且彼此独立。结构化抽取（Phase 3）是另一项功能，默认关闭，有
-自己的三个批量控制参数。
+`MEMORY_REFINE_ENABLED` 决定精炼开关，但**不决定精炼做什么**——下面三个 `MEMORY_REFINE_*`
+阈值决定哪些观测会被处理，且彼此独立。`MEMORY_QUALITY_THRESHOLD` 排在首位，是因为它是
+唯一一个**不属于精炼**的质量旋钮：它只管经验检索。结构化抽取（Phase 3）是另一项功能，
+默认关闭，有自己的三个批量控制参数。
 
 | 变量名 | 必填 | 默认值 | 说明 |
 |--------|------|--------|------|
-| `MEMORY_QUALITY_THRESHOLD` | 否 | `0.6` | **当前未被使用。** 后端没有任何代码读取它，因此设置它不会产生效果。它本该生效的值被硬编码了：`MemoryRefineService` 在两个调用点向 `findStaleObservations` 传入字面量 `0.6f`。下面其余阈值均已正确注入。 |
+| `MEMORY_QUALITY_THRESHOLD` | 否 | `0.6` | 观测被 `POST /api/memory/experiences`（ExpRagService）选为 ICL 经验样本所需的最低质量分。不是 search 或 context 检索的过滤器。`MemoryRefineService.findStaleObservations` 中另有一处字面量 `0.6` 负责精炼候选门槛，不由本值驱动。 |
 | `MEMORY_REFINE_DELETE_THRESHOLD` | 否 | `0.3` | 质量低于此值的观测在精炼时被删除（剪枝） |
 | `MEMORY_REFINE_STALE_DAYS` | 否 | `30` | 超过多少天未访问即视为陈旧 |
 | `MEMORY_REFINE_COOLDOWN_DAYS` | 否 | `7` | 精炼过的观测多少天后可再次精炼 |

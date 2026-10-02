@@ -514,14 +514,16 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 
 #### Evo-Memory and Structured Extraction Tuning
 
-`MEMORY_REFINE_ENABLED` switches refinement on, but not what it does — the four
-thresholds below decide which observations are touched, and all four are
-independent. Structured extraction (Phase 3) is a separate feature, disabled by
-default, with its own three batch controls.
+`MEMORY_REFINE_ENABLED` switches refinement on, but not what it does — the three
+`MEMORY_REFINE_*` thresholds below decide which observations are touched, and they are
+independent. `MEMORY_QUALITY_THRESHOLD` is listed first because it is the one quality
+knob that is *not* part of refinement: it gates experience retrieval only. Structured
+extraction (Phase 3) is a separate feature, disabled by default, with its own three
+batch controls.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `MEMORY_QUALITY_THRESHOLD` | No | `0.6` | **Currently unused.** No backend code reads it, so setting it has no effect. Its intended value is hardcoded: `MemoryRefineService` passes the literal `0.6f` to `findStaleObservations` at two call sites. The other thresholds below are injected properly. |
+| `MEMORY_QUALITY_THRESHOLD` | No | `0.6` | Minimum quality an observation needs to be picked up as an ICL experience by `POST /api/memory/experiences` (ExpRagService). Not a filter on search or context retrieval. A separate literal `0.6` in `MemoryRefineService.findStaleObservations` gates refine candidates and is not driven by this value. |
 | `MEMORY_REFINE_DELETE_THRESHOLD` | No | `0.3` | Quality below which refinement deletes an observation (prune) |
 | `MEMORY_REFINE_STALE_DAYS` | No | `30` | Days without access before an observation counts as stale |
 | `MEMORY_REFINE_COOLDOWN_DAYS` | No | `7` | Days before a refined observation may be refined again |

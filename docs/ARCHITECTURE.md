@@ -277,15 +277,28 @@ proxy/
 
 ```javascript
 // wrapper.js - CLI entry point
-const event = process.argv[2];  // 'session-start', 'tool-use', etc.
+const event = process.argv[2];  // 'session-start', 'tool-use', 'session-end', 'user-prompt'
 const data = readFromStdin();
 
-// Quick forward to Fat Server
-await axios.post('http://localhost:37777/api/ingest/' + event, data);
+// Each event has its own endpoint — there is no shared '/api/ingest/' prefix
+const ENDPOINTS = {
+  'session-start': '/api/session/start',   // SessionController, not IngestionController
+  'tool-use':      '/api/ingest/tool-use',
+  'session-end':   '/api/ingest/session-end',
+  'user-prompt':   '/api/ingest/user-prompt',
+};
+await axios.post('http://localhost:37777' + ENDPOINTS[event], data);
 
 // Exit immediately
 process.exit(0);
 ```
+
+**The mapping is a per-event table, not a prefix concatenation.** `session-start` is
+served by `SessionController` at `POST /api/session/start`, not by
+`IngestionController`: `POST /api/ingest/session-start` returns **404** (verified
+against a running backend, 2026-10-03). `IngestionController` exposes exactly four
+endpoints — `tool-use`, `session-end`, `user-prompt`, `observation` — and none of
+them starts a session.
 
 #### Performance Requirements
 

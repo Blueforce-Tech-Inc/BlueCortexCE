@@ -10,7 +10,7 @@
 |----------|------|------|
 | P0 | 0 | 立即修复并复测 |
 | P1 | 1 | 优先修复并复测 |
-| P2 | 3 | 本轮完整验收阶段处理或明确标记为已跳过 |
+| P2 | 2 | 本轮完整验收阶段处理或明确标记为已跳过 |
 
 > **Open 只统计尚未处理的条目**（⏸已记录不修 / 📌待修）。标记为 ✅已修复 或 ✅已跳过 的条目
 > 保留在本文件作为可追溯的历史，但**不计入** Open。
@@ -22,9 +22,9 @@
 > 第 173 轮新增 P2-8（读取侧无维度路由，检索恒定比 `embedding_1024`），状态 ⏸已记录不修，
 > 故 P2 计数为 1。降级行为对调用方可见（`strategy` / `fellBack`），且仅在非 1024 维配置下触发。
 > 第 174 轮新增 P2-9（`MEMORY_QUALITY_THRESHOLD` 为死配置键，注释承诺的检索过滤器不存在），
-> 同样 ⏸已记录不修，P2 计数为 2。该项无行为影响，仅误导；文档已如实标注。
+> 状态 ⏸已记录不修，P2 计数为 2；**已于第 178 轮 Backend 轮修复并复测**，P2 计数回到 2。
 > 第 175 轮新增 P2-10（四个 ingest 端点对项目路径的必填性不一致，仅 `/api/ingest/observation`
-> 严格），同样 ⏸已记录不修，P2 计数为 3。四家 SDK 均已在客户端拦截，故只影响直接调用
+> 严格），⏸已记录不修。四家 SDK 均已在客户端拦截，故只影响直接调用
 > HTTP API 的用户；收紧契约属对外变更，留待 Backend 轮次决策。
 
 ## Open Findings
@@ -266,11 +266,13 @@
   Multi-Dimension Embeddings」读起来像三种维度端到端可用，现已明确限定为**仅写入侧**，
   并写明退化行为与可观测信号。
 
-### P2-9: `MEMORY_QUALITY_THRESHOLD` 是死配置键，注释描述的过滤器并不存在
+### ✅ P2-9（已修复，第 178 轮）: `MEMORY_QUALITY_THRESHOLD` 是死配置键，注释描述的过滤器实际被硬编码冻结
 
 - **Scope**: `backend/src/main/resources/application.yml:16`
   （`app.memory.quality-threshold: ${MEMORY_QUALITY_THRESHOLD:0.6}`）。
-- **Problem**: 该键的注释声称「Quality threshold for retrieval filtering (Phase 1) /
+- **Problem**（**末段结论已被第 178 轮推翻，见下方「第 178 轮修正」——「没有任何代码读取它」
+  只对 `grep "app.memory"` 这个检索式成立，检索式漏掉了不含该前缀的写法**）：该键的注释声称
+  「Quality threshold for retrieval filtering (Phase 1) /
   Observations with quality below this are filtered out」，但**后端没有任何代码读取它**。
   逐项核实：`grep -rn "app.memory" --include=*.java backend/src/main` 只返回
   `MemoryRefineService` 的四个注入点（`refine.delete-threshold`、`refine.cooldown-days`、
@@ -281,17 +283,28 @@
   （`ObservationRepository.findLowQualityObservations:525`），但它的入参来自
   `deleteThreshold`（`MemoryRefineService:153`、`:281`），**不是** `quality-threshold`——
   这正是容易误判的地方：名字与语义都相近，但绑定的不是同一个键。
-- **实际影响**：无害但有误导性。设置该变量不改变任何行为；一个按注释理解它的运维
-  会以为检索有质量下限保护，实际没有。
-- **Status**: ⏸ 已记录不修（2026-10-02，第 174 轮运维/用户指南轮发现）。文档方向已在同轮
-  如实修正 `docs/DEPLOYMENT.md` / `docs/DEPLOYMENT-zh-CN.md` §5.5：新增的调参表把
-  `MEMORY_QUALITY_THRESHOLD` 标注为「**当前未被使用**」，并说明设置它不产生效果。
-  代码侧未改动，因为删除或接线都属于产品决策（要么删键，要么补上注释承诺的过滤器），
-  且本轮代码方向为 Go SDK。
-- **同轮核实无误**：其余八个新收录的变量均确认被真实读取——`MEMORY_REFINE_DELETE_THRESHOLD`
-  用于 `MemoryRefineService:111` 的删除分支、`MEMORY_REFINE_COOLDOWN_DAYS` / `_STALE_DAYS`
-  用于 `:43` / `:46`，四个 `EXTRACTION_*` 经 `ExtractionConfig` 的松散绑定
-  （`initial-run-max-candidates` → `initialRunMaxCandidates`）正确对应。
+- **Status**: ✅ **已修复并复测**（2026-10-03，第 178 轮 Backend 轮，commit `b3c0865`）。
+  原判断「无行为影响、仅误导」是**错的**——见下方「第 178 轮修正」。修复内容：
+  `ExpRagService` 的 `private static final float MIN_QUALITY_THRESHOLD = 0.6f` 改为
+  `@Value("${app.memory.quality-threshold:0.6}") private float minQualityThreshold`，
+  调用点 `ExpRagService:104` → `findHighQualityObservations` 同步更新；该常量已从全仓移除。
+  `application.yml:15-21` 的失实注释一并改写。默认值不变，故默认配置下行为与修复前完全一致。
+  部署指南 §5.5 的说明同步改为「现已生效，默认 0.6，控制 ExpRagService 经验检索」。
+- **第 178 轮修正（此前判断有误）**：第 174 轮只搜了 `grep -rn "app.memory" --include=*.java`，
+  于是认定该键「没有任何代码读取」；第 177 轮又找到 `MemoryRefineService` 的两处 `0.6f`
+  字面量，便把它归为「该键本该生效的值被硬编码在两处」。两轮都**只找到了 0.6 这个数字，
+  没有找到真正使用该数字做过滤的站点**。第 178 轮沿调用链反查发现第三处、也是注释真正
+  描述的那一处：
+
+  | 站点 | 原写法 | 说明 |
+  |------|--------|------|
+  | `MemoryRefineService:217` | `findStaleObservations(…, 0.6f, …)` | 精炼候选门槛，与本键无关 |
+  | `MemoryRefineService:287` | `findStaleObservations(…, 0.6f, …)` | 同上 |
+  | `ExpRagService:27` | `private static final float MIN_QUALITY_THRESHOLD = 0.6f` | **注释所描述的 quality-aware 经验检索过滤器**，唯一调用方为 `ExpRagService:104` → `findHighQualityObservations`，被冻结为常量 |
+
+  `ExpRagService` 正是 `POST /api/memory/experiences` 的实现，「quality-aware retrieval」
+  一词直指它。所以该键并非「无害的死配置」，而是**看起来可调、实际改了毫无反应的旋钮**——
+  运维按注释调参会发现结果不变，且没有任何日志提示。
 - **根因（第 177 轮设计文档轮补充）**：这个键不是「写了没接」，而是**本该生效的值被硬编码
   在两处**。`MemoryRefineService.deepRefineProjectMemories:217` 与 `refineProject:287` 都向
   `observationRepository.findStaleObservations(projectPath, …, 0.6f, …)` 传入字面量 `0.6f`，
@@ -300,6 +313,17 @@
   任何效果。这比「未使用的配置项」更具体：它说明接线漏了一处，且现有值与配置默认值巧合一致，
   因此在默认配置下**看不出**任何异常——只有主动改环境变量的运维才会踩到。
   文档方向已在同轮把部署指南 §5.5 的说明从「未被使用」升级为写明这一硬编码事实。
+  **（第 178 轮补充：这一段当时只数到 2 处，实际是 3 处，遗漏的正是 `ExpRagService` 那一处。）**
+- **第 178 轮活体验证**（`POST /api/memory/experiences`，`{"task":"t","project":"openclaw","count":15}`）：
+  | 阈值 | 返回条数 | 最小质量分 | 质量分布 |
+  |------|---------|-----------|---------|
+  | 默认 `0.6` | 15 | **0.95** | `1.0×5, 0.98, 0.95×9` |
+  | `MEMORY_QUALITY_THRESHOLD=0.99` | 15 | **0.80** | 主路径 `1.0×6, 0.95×2`，其余 8 项经 fallback 路径以 0.80–0.85 进入 |
+
+  修复前不可能出现该差异：`MIN_QUALITY_THRESHOLD` 是 `static final`，无任何注入路径，
+  且 `quality-threshold` 在 Java 源码中出现次数为 0。
+- **同轮核实无误**：`0.3.md` 的代码片段、`23.md` 的成本算术、`type NOT LIKE 'extracted_%'`
+  三项（见第 177 轮）经复核仍与实现一致。
 
 ### P2-10: 四个 ingest 端点对项目路径的必填性不一致
 

@@ -69,7 +69,8 @@ async function main() {
   console.log('Session ID:', sessionId);
   console.log('Working directory:', cwd);
 
-  const data = await callJavaApi('/api/ingest/session-start', {
+  // /api/ingest/session-start no longer exists; SessionController serves it.
+  const data = await callJavaApi('/api/session/start', {
     session_id: sessionId,
     project_path: cwd,
     debug: true
