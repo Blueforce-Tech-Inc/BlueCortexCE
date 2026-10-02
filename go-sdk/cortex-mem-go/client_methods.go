@@ -315,8 +315,14 @@ func (c *httpClient) GetProjects(ctx context.Context) (*dto.ProjectsResponse, er
 }
 
 func (c *httpClient) GetStats(ctx context.Context, projectPath string) (*dto.StatsResponse, error) {
-	// Note: /api/stats is a global endpoint — projectPath is accepted for API symmetry but ignored by the backend.
-	return doRequestJSON[dto.StatsResponse](c, ctx, http.MethodGet, "/api/stats", nil, nil)
+	// The backend scopes the counts to `project` when the param is present and
+	// returns global counts otherwise. Send it through: a caller that asks about
+	// one project must not silently receive global numbers.
+	var params map[string]string
+	if strings.TrimSpace(projectPath) != "" {
+		params = map[string]string{"project": projectPath}
+	}
+	return doRequestJSON[dto.StatsResponse](c, ctx, http.MethodGet, "/api/stats", nil, params)
 }
 
 func (c *httpClient) GetModes(ctx context.Context) (*dto.ModesResponse, error) {

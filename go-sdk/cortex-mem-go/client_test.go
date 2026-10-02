@@ -1320,16 +1320,16 @@ func TestGetStats(t *testing.T) {
 		if r.URL.Path != "/api/stats" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
-		// /api/stats is a global endpoint — projectPath param is not used by the backend.
-		// We still accept it in the SDK for API symmetry but it is not sent.
-		if project := r.URL.Query().Get("project"); project != "" {
-			t.Errorf("expected no project query param, got %s", project)
+		// The backend scopes the counts when `project` is present, so a caller
+		// asking about one project must have it forwarded.
+		if project := r.URL.Query().Get("project"); project != "/my-project" {
+			t.Errorf("expected project query param /my-project, got %q", project)
 		}
 
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]any{
 			"worker":   map[string]any{"isProcessing": false, "queueDepth": 0},
-			"database": map[string]any{"totalObservations": float64(100), "totalSummaries": float64(5), "totalSessions": float64(10), "totalProjects": float64(2)},
+			"database": map[string]any{"totalObservations": float64(100), "totalSummaries": float64(5), "totalSessions": float64(10), "totalProjects": float64(1), "projectPath": "/my-project"},
 		})
 	}))
 	defer server.Close()
@@ -1346,9 +1346,10 @@ func TestGetStats(t *testing.T) {
 
 func TestGetStats_NoQueryParams(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// /api/stats accepts no query params — projectPath is accepted for SDK API symmetry only.
+		// An empty project means "global stats", so the param must be omitted
+		// rather than sent blank.
 		if project := r.URL.Query().Get("project"); project != "" {
-			t.Errorf("expected no project query param, got %s", project)
+			t.Errorf("expected no project query param, got %q", project)
 		}
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]any{
@@ -1365,6 +1366,25 @@ func TestGetStats_NoQueryParams(t *testing.T) {
 	}
 	if result.Database.TotalObservations != 0 {
 		t.Errorf("expected totalObservations=0, got %v", result.Database.TotalObservations)
+	}
+}
+
+func TestGetStats_BlankProjectOmitted(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, present := r.URL.Query()["project"]; present {
+			t.Errorf("blank project must not be sent, got %q", r.URL.Query().Get("project"))
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]any{
+			"worker":   map[string]any{"isProcessing": false, "queueDepth": 0},
+			"database": map[string]any{"totalObservations": float64(7)},
+		})
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	if _, err := client.GetStats(context.Background(), "   "); err != nil {
+		t.Fatalf("GetStats failed: %v", err)
 	}
 }
 

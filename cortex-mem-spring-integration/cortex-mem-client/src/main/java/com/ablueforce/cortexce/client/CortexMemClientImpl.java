@@ -552,7 +552,7 @@ public class CortexMemClientImpl implements CortexMemClient {
     @SuppressWarnings("unchecked")
     public Map<String, Object> getStats(String projectPath) {
         // Note: /api/stats supports project-scoped stats when projectPath is provided (backend B11-1 fix).
-        // When projectPath is null/blank, returns global stats. Matches Go SDK behavior.
+        // When projectPath is null/blank, returns global stats. Matches the Python and JS SDK behavior.
         try {
             return restClient.get()
                 .uri(uriBuilder -> {
