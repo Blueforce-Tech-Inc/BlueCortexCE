@@ -24,7 +24,16 @@ public interface SessionRepository extends JpaRepository<SessionEntity, UUID> {
     List<SessionEntity> findByStatus(@Param("status") String status);
 
     // P2-1: Context caching queries
-    List<SessionEntity> findByProjectPathAndStatus(String projectPath, String status);
+    //
+    // Ordered deliberately: both the context-cache read (ContextCacheService.getContextIfFresh)
+    // and its write (SessionController.cacheContextForProject) take element 0 of this result
+    // to decide which session owns the project-level cached context. Without an ORDER BY,
+    // SQL gives no row-order guarantee and an UPDATE elsewhere in mem_sessions can change
+    // which row comes first, so the two sides could land on different sessions. Newest-first
+    // matches findByProjectPathOrderByStartedAtEpochDesc above.
+    @Query("SELECT s FROM SessionEntity s WHERE s.projectPath = :projectPath AND s.status = :status ORDER BY s.startedAtEpoch DESC")
+    List<SessionEntity> findByProjectPathAndStatus(@Param("projectPath") String projectPath,
+                                                  @Param("status") String status);
 
     @Query("SELECT s FROM SessionEntity s WHERE s.needsContextRefresh = true AND s.status = 'active'")
     List<SessionEntity> findByNeedsContextRefreshTrue();
