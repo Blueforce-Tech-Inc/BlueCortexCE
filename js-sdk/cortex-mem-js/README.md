@@ -182,9 +182,15 @@ the failure is local rather than an HTTP status):
    the body being buffered at all.
 2. **After reading** — a backstop for servers that omit the header.
 
-The second check compares the *decoded* string length, so for multi-byte UTF-8
-content it is a slightly lenient bound. This is a guard, not a streaming reader:
-the body is still materialized as a single string.
+The second check counts the body's **UTF-8 byte length**, not the string's
+character count, so a multi-byte body cannot slip past on a code-unit count.
+(This was previously compared with `String.length`, which counts UTF-16 code
+units — a 15 MB body measured 5.2 M code units and was accepted.) The count is
+computed by walking the string rather than with `TextEncoder`, which would
+allocate a second buffer as large as the body.
+
+This is a guard, not a streaming reader: the body is still materialized as a
+single string.
 
 ## Wire Format
 

@@ -78,6 +78,69 @@ describe('response size guard', () => {
     const v = await c.getVersion();
     expect(v.version).toBe('1.0.0');
   });
+
+  // The cap is documented in bytes (README: 10 MiB = 10,485,760 bytes), but the
+  // post-read check only had text.length, which counts UTF-16 code units. The
+  // two "lying server" cases above use pure ASCII, where the two counts are
+  // equal, so neither could catch it.
+  it('rejects a multi-byte body over the byte cap even when its code-unit count is under', async () => {
+    const MAX = 10 * 1024 * 1024;
+    // '中' is 3 UTF-8 bytes but 1 UTF-16 code unit.
+    const body = JSON.stringify({ filler: '中'.repeat(Math.ceil((MAX * 1.5) / 3)) });
+    expect(body.length).toBeLessThan(MAX); // would have passed the old check
+    expect(new TextEncoder().encode(body).length).toBeGreaterThan(MAX); // over the cap
+
+    const fetchNoLength = vi.fn().mockResolvedValue({
+      status: 200,
+      headers: { get: () => null },
+      text: () => Promise.resolve(body),
+    });
+    const c = new CortexMemClient({
+      baseURL: 'http://localhost:37777',
+      fetch: fetchNoLength as unknown as typeof globalThis.fetch,
+    });
+
+    await expect(c.getVersion()).rejects.toThrow('exceeds 10MB limit');
+  });
+
+  it('rejects a multi-byte body over the byte cap when it is surrogate-paired', async () => {
+    const MAX = 10 * 1024 * 1024;
+    // '𝄞' is 4 UTF-8 bytes but 2 UTF-16 code units, so its ratio is 2 — still
+    // enough to cross the byte cap while staying under the code-unit count.
+    const body = JSON.stringify({ filler: '\u{1D11E}'.repeat(Math.ceil((MAX * 1.5) / 4)) });
+    expect(body.length).toBeLessThan(MAX);
+    expect(new TextEncoder().encode(body).length).toBeGreaterThan(MAX);
+
+    const fetchNoLength = vi.fn().mockResolvedValue({
+      status: 200,
+      headers: { get: () => null },
+      text: () => Promise.resolve(body),
+    });
+    const c = new CortexMemClient({
+      baseURL: 'http://localhost:37777',
+      fetch: fetchNoLength as unknown as typeof globalThis.fetch,
+    });
+
+    await expect(c.getVersion()).rejects.toThrow('exceeds 10MB limit');
+  });
+
+  it('still accepts a multi-byte body that is under the byte cap', async () => {
+    // The fix must not start rejecting legitimate multi-byte responses.
+    const payload = { version: '1.0.0', service: 'claude-mem-java', filler: '中'.repeat(1000) };
+    const fetchOk = vi.fn().mockResolvedValue({
+      status: 200,
+      headers: { get: () => null },
+      text: () => Promise.resolve(JSON.stringify(payload)),
+    });
+    const c = new CortexMemClient({
+      baseURL: 'http://localhost:37777',
+      fetch: fetchOk as unknown as typeof globalThis.fetch,
+    });
+
+    const v = await c.getVersion();
+    expect(v.version).toBe('1.0.0');
+    expect(v.service).toBe('claude-mem-java');
+  });
 });
 
 describe('CortexMemClient', () => {

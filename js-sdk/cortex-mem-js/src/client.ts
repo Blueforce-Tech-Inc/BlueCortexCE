@@ -74,6 +74,41 @@ function readContentLength(resp: { headers?: { get(name: string): string | null 
   }
 }
 
+/**
+ * Byte length of a string once encoded as UTF-8, without allocating the encoding.
+ *
+ * The response cap is documented in bytes (README: 10 MiB = 10,485,760 bytes),
+ * but the post-read backstop only holds the decoded string, and `text.length`
+ * counts UTF-16 code units. Measuring with TextEncoder would allocate a second
+ * buffer as large as the body — inside a memory guard — so walk the string.
+ *
+ * A lone surrogate encodes to U+FFFD, which is 3 bytes, and is counted as such
+ * rather than skipped.
+ */
+function utf8ByteLength(s: string): number {
+  let bytes = 0;
+  for (let i = 0; i < s.length; i++) {
+    const code = s.charCodeAt(i);
+    if (code < 0x80) {
+      bytes += 1;
+    } else if (code < 0x800) {
+      bytes += 2;
+    } else if (code >= 0xd800 && code <= 0xdbff && i + 1 < s.length) {
+      const next = s.charCodeAt(i + 1);
+      if (next >= 0xdc00 && next <= 0xdfff) {
+        // Surrogate pair: one 4-byte code point spanning two code units.
+        bytes += 4;
+        i++;
+        continue;
+      }
+      bytes += 3;
+    } else {
+      bytes += 3;
+    }
+  }
+  return bytes;
+}
+
 // ============================================================
 // Logger interface
 // ============================================================
@@ -596,6 +631,15 @@ export class CortexMemClient {
         return { text: '', status: resp.status };
       }
       if (text.length > maxSize) {
+        throw new Error('cortex-ce: response body exceeds 10MB limit');
+      }
+      // The cap is documented in bytes, but text.length counts UTF-16 code
+      // units, so a body of multi-byte characters passes the check above while
+      // still exceeding the byte cap — measured live at 1.5x the cap before
+      // this was fixed. The `* 3` precondition is a free early-out: no UTF-8
+      // character costs more than 3 bytes per code unit, so a string that
+      // short can never reach the byte cap whatever it contains.
+      if (text.length * 3 > maxSize && utf8ByteLength(text) > maxSize) {
         throw new Error('cortex-ce: response body exceeds 10MB limit');
       }
       return { text, status: resp.status };
