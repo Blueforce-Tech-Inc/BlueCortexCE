@@ -114,6 +114,8 @@ Server starts on `http://127.0.0.1:37777`.
 | GET | `/api/settings` | Get settings |
 | POST | `/api/settings` | Save settings |
 | POST | `/api/sdk-sessions/batch` | Batch SDK session operations |
+| GET | `/api/modes` | Get active mode configuration (see the note under **Mode**) |
+| POST | `/api/modes` | Switch the active mode at runtime |
 
 ### Session
 
@@ -148,6 +150,14 @@ Server starts on `http://127.0.0.1:37777`.
 | DELETE | `/api/memory/observations/{id}` | Delete observation |
 
 ### Mode
+
+Two distinct families of mode endpoints exist. They are served by different controllers and their
+responses are **not** interchangeable:
+
+| Family | Served by | Response id field | Used by |
+|--------|-----------|-------------------|---------|
+| `/api/mode/*` (singular) | `ModeController` | `mode_id` | WebUI, direct API callers |
+| `/api/modes` (plural) | `ViewerController` | `id` | All four SDKs (`GetModes`) |
 
 | Method | Path | Description |
 |--------|------|-------------|

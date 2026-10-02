@@ -66,6 +66,8 @@ TOOLS.md
 USER.md
 HEARTBEAT.md
 openclaw-plugin/node_modules
+proxy/node_modules
+admin-panel/node_modules
 CLAUDE.md
 .openclaw/workspace-state.json
 cover.out
