@@ -1022,7 +1022,7 @@ GET /api/search?project=/path/to/project&query=search+terms&limit=10&type=bugfix
 | `project` | string | ✅ | — | Project path to search within |
 | `query` | string | ❌ | — | Search query text for semantic search. If empty, returns filter-only results |
 | `type` | string | ❌ | — | Filter by observation type (e.g., `bugfix`, `feature`) |
-| `concept` | string | ❌ | — | Filter by observation concept (e.g., `how-it-works`, `architecture`) |
+| `concept` | string | ❌ | — | Filter by observation concept (e.g., `how-it-works`, `gotcha`). The full valid set is mode-dependent — see `GET /api/mode/concepts/valid` |
 | `source` | string | ❌ | — | Filter by source (e.g., `manual`, `auto`) |
 | `limit` | int | ❌ | 20 | Max results, silently clamped to 1–100 (see List Observations) |
 | `offset` | int | ❌ | 0 | Pagination offset |
@@ -1328,8 +1328,18 @@ GET /api/mode/types/valid
 
 **Response** (`200 OK`):
 ```json
-["bugfix", "feature", "refactor", "discovery"]
+["bugfix", "feature", "refactor", "change", "discovery", "decision"]
 ```
+
+The valid set is **mode-dependent** — it comes from the active mode's
+`observation_types` / `observation_concepts` (see `GET /api/modes`), so treat
+these two endpoints as the source of truth rather than this snapshot, which
+reflects the `code` mode. Both lists are accepted as-is: an unrecognised value
+is not rejected, it simply matches nothing. To check a value before sending it, call
+`GET /api/mode/types/{typeId}/validate` or `GET /api/mode/types/{typeId}/emoji`, which
+answer `{"valid": true}` / `{"valid": false}` — verified live: `types/bugfix/validate`
+returns `{"valid":true}` and `types/architecture/validate` returns `{"valid":false}`,
+while `GET /api/search?concept=architecture` still returns 200 with zero results.
 
 ### List Valid Concepts
 
@@ -1339,8 +1349,14 @@ GET /api/mode/concepts/valid
 
 **Response** (`200 OK`):
 ```json
-["how-it-works", "architecture", "best-practice"]
+["how-it-works", "why-it-exists", "what-changed", "problem-solution", "gotcha", "pattern", "trade-off"]
 ```
+
+The valid set is **mode-dependent** — it comes from the active mode's
+`observation_types` / `observation_concepts` (see `GET /api/modes`), so treat
+these two endpoints as the source of truth rather than this snapshot, which
+reflects the `code` mode. Both lists are accepted as-is: an unrecognised value
+is not rejected, it simply matches nothing.
 
 ## Viewer
 

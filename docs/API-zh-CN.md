@@ -1320,8 +1320,17 @@ curl http://localhost:37777/api/mode
 
 **响应示例**:
 ```json
-["bugfix", "feature", "refactor", "discovery"]
+["bugfix", "feature", "refactor", "change", "discovery", "decision"]
 ```
+
+有效集合**随模式而定**，取自当前模式定义的 `observation_types` / `observation_concepts`
+（见 `GET /api/modes`），因此应以这两个端点为准，而不是下面这份快照——它反映的是
+`code` 模式。两个列表都会被原样接受：无法识别的取值不会被拒绝，只是匹配不到任何内容。若要在发送前
+校验某个取值，可调用 `GET /api/mode/types/{typeId}/validate` 或
+`GET /api/mode/types/{typeId}/emoji`，它们会返回 `{"valid": true}` / `{"valid": false}`——
+实测：`types/bugfix/validate` 返回 `{"valid":true}`，
+`types/architecture/validate` 返回 `{"valid":false}`，而
+`GET /api/search?concept=architecture` 仍是 200 加零条结果。
 
 ---
 
@@ -1331,8 +1340,12 @@ curl http://localhost:37777/api/mode
 
 **响应示例**:
 ```json
-["how-it-works", "architecture", "best-practice"]
+["how-it-works", "why-it-exists", "what-changed", "problem-solution", "gotcha", "pattern", "trade-off"]
 ```
+
+有效集合**随模式而定**，取自当前模式定义的 `observation_types` / `observation_concepts`
+（见 `GET /api/modes`），因此应以这两个端点为准，而不是下面这份快照——它反映的是
+`code` 模式。两个列表都会被原样接受：无法识别的取值不会被拒绝，只是匹配不到任何内容。
 
 ---
 
