@@ -676,8 +676,10 @@ public class CortexMemClientImpl implements CortexMemClient {
     /**
      * Execute with retry. On final failure, throws the last exception.
      * Use for explicit user actions where the caller needs to know the outcome.
-     * Only retries on transient errors (network failures, 429 rate limited, 5xx server errors).
-     * Skips retry on 4xx client errors (bad request, unauthorized, forbidden, etc.).
+     * Only retries on transient errors: network/transport failures, and the specific
+     * statuses 429, 502, 503 and 504. A 500 is NOT retried — it signals a bug rather
+     * than a transient condition, and the same request would fail identically on
+     * every attempt. No 4xx is retried either. Matches the Go, Python and JS SDKs.
      * Backoff includes ±25% jitter to prevent thundering herd.
      */
     private void executeWithRetry(String operation, Runnable action) {
@@ -747,8 +749,10 @@ public class CortexMemClientImpl implements CortexMemClient {
     /**
      * Execute with retry. On final failure, logs a warning and swallows the error.
      * Use for background/hook operations where fire-and-forget is appropriate.
-     * Only retries on transient errors (network failures, 429 rate limited, 5xx server errors).
-     * Skips retry on 4xx client errors (bad request, unauthorized, forbidden, etc.).
+     * Only retries on transient errors: network/transport failures, and the specific
+     * statuses 429, 502, 503 and 504. A 500 is NOT retried — it signals a bug rather
+     * than a transient condition, and the same request would fail identically on
+     * every attempt. No 4xx is retried either. Matches the Go, Python and JS SDKs.
      * Backoff includes ±25% jitter to prevent thundering herd.
      */
     private void executeWithRetrySilent(String operation, Runnable action) {
