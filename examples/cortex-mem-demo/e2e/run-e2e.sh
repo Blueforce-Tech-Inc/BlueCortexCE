@@ -233,6 +233,28 @@ else
   run_status "observations create bad extractedData -> 400" 400 \
     -X POST "$DEMO_BASE/demo/observations/create" -H 'Content-Type: application/json' \
     -d "{\"project\":\"$DEMO_PROJECT\",\"session_id\":\"e2e-round171\",\"tool_name\":\"e2e\",\"extractedData\":\"nope\"}"
+
+  # Round 177: a backend 4xx is the caller's mistake, not a server failure. A
+  # malformed id is the backend's 400, and the handlers used to special-case
+  # only 404, so these three answered 500 -- telling someone who mistyped an id
+  # that they had broken the server. The Go demo writes StatusBadRequest on its
+  # non-404 branch, and the Python and JS demos pass the backend status through
+  # from their global handlers, so 400 is the aligned answer.
+  run_status "observations PATCH malformed id -> 400" 400 \
+    -X PATCH "$DEMO_BASE/demo/observations/not-a-uuid" -H 'Content-Type: application/json' \
+    -d '{"title":"round177 malformed id"}'
+  run_status "observations DELETE malformed id -> 400" 400 \
+    -X DELETE "$DEMO_BASE/demo/observations/not-a-uuid"
+  run_status "feedback malformed observationId -> 400" 400 \
+    -X POST "$DEMO_BASE/demo/feedback" -H 'Content-Type: application/json' \
+    -d '{"observationId":"not-a-uuid","feedbackType":"SUCCESS"}'
+
+  # ...and 404 still means 404, which is the distinction the fix had to preserve.
+  run_status "observations PATCH absent uuid -> 404" 404 \
+    -X PATCH "$DEMO_BASE/demo/observations/00000000-0000-0000-0000-000000000000" \
+    -H 'Content-Type: application/json' -d '{"title":"round177 absent"}'
+  run_status "observations DELETE absent uuid -> 404" 404 \
+    -X DELETE "$DEMO_BASE/demo/observations/00000000-0000-0000-0000-000000000000"
 fi
 
 echo ""

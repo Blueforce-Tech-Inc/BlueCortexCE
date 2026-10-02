@@ -7,6 +7,7 @@ import com.ablueforce.cortexce.client.dto.ObservationUpdate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
 
@@ -34,10 +35,6 @@ public class ObservationsController {
 
     public ObservationsController(CortexMemClient client) {
         this.client = client;
-    }
-
-    private static boolean isNotFound(Throwable failure) {
-        return DemoErrors.isNotFound(failure);
     }
 
     /**
@@ -325,8 +322,13 @@ public class ObservationsController {
             client.updateObservation(id, builder.build());
             return ResponseEntity.ok(Map.of("status", "updated", "id", id));
         } catch (Exception e) {
-            if (isNotFound(e)) {
-                return ResponseEntity.notFound().build();
+            // A malformed id is the backend's 400, not this demo's 500: the other
+            // three demos pass a backend 4xx through, so answering 500 here would
+            // tell a caller who mistyped an id that they broke the server.
+            HttpStatusCode clientStatus = DemoErrors.clientStatus(e);
+            if (clientStatus != null) {
+                return ResponseEntity.status(clientStatus)
+                        .body(Map.of("error", "Update observation failed: " + DemoErrors.messageOf(e)));
             }
             log.error("Update observation failed for id={}", id, e);
             return ResponseEntity.internalServerError()
@@ -349,8 +351,11 @@ public class ObservationsController {
             client.deleteObservation(id);
             return ResponseEntity.noContent().build();
         } catch (Exception e) {
-            if (isNotFound(e)) {
-                return ResponseEntity.notFound().build();
+            // Same as the update above: a backend 4xx (malformed id) is the
+            // caller's mistake and must not be reported as a server failure.
+            HttpStatusCode clientStatus = DemoErrors.clientStatus(e);
+            if (clientStatus != null) {
+                return ResponseEntity.status(clientStatus).build();
             }
             log.error("Delete observation failed for id={}", id, e);
             return ResponseEntity.internalServerError().build();

@@ -42,6 +42,27 @@ final class DemoErrors {
     }
 
     /**
+     * The backend's own 4xx status, or {@code null} when the failure did not
+     * come from a client error response.
+     *
+     * <p>A malformed observation id is the case that motivates this: the
+     * backend answers {@code 400 Invalid observationId format: not-a-uuid},
+     * and a handler that only special-cases 404 turns that into a 500 — telling
+     * the caller their typo broke the server. The Go, Python and JS demos all
+     * pass a backend 4xx straight through, so a demo response that says 500
+     * where the other three say 400 is a divergence, not a house style.</p>
+     *
+     * <p>5xx is deliberately excluded. A server-side failure stays a 500 here,
+     * which is what it is.</p>
+     *
+     * @return the status to answer with, or {@code null} to fall back
+     */
+    static HttpStatusCode clientStatus(Throwable failure) {
+        HttpStatusCode status = statusOf(failure);
+        return status != null && status.is4xxClientError() ? status : null;
+    }
+
+    /**
      * Extracts the backend's human-readable reason, preferring the {@code error} field of its
      * JSON body and falling back to the HTTP status line. Returns {@code null} when no HTTP
      * error response is in the chain, so callers can fall back to the SDK's generic message.

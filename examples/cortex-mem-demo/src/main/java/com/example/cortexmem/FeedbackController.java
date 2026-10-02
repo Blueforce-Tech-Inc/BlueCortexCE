@@ -3,6 +3,7 @@ package com.example.cortexmem;
 import com.ablueforce.cortexce.client.CortexMemClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
@@ -64,13 +65,16 @@ public class FeedbackController {
             client.submitFeedback(observationId, feedbackType, comment);
             return ResponseEntity.ok(Map.of("status", "submitted"));
         } catch (Exception e) {
-            // The backend answers 404 for an unknown observationId. The SDK wraps
-            // that in a generic RuntimeException, so the status and the real reason
-            // are only reachable by walking the cause chain — without that, a
-            // missing observation surfaced here as 500 "submitFeedback failed",
-            // which both misreports the status and throws away the explanation.
-            if (DemoErrors.isNotFound(e)) {
-                return ResponseEntity.status(404)
+            // The backend answers 404 for an unknown observationId and 400 for a
+            // malformed one. The SDK wraps both in a generic RuntimeException, so
+            // the status and the real reason are only reachable by walking the
+            // cause chain — without that, a missing observation surfaced here as
+            // 500 "submitFeedback failed", and a typo'd id as 500 too, which both
+            // misreports the status and throws away the explanation. The Go,
+            // Python and JS demos pass a backend 4xx straight through.
+            HttpStatusCode clientStatus = DemoErrors.clientStatus(e);
+            if (clientStatus != null) {
+                return ResponseEntity.status(clientStatus)
                         .body(Map.of("error", DemoErrors.messageOf(e)));
             }
             log.error("Submit feedback failed for observationId={}", observationId, e);

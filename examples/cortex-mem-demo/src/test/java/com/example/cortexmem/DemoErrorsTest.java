@@ -48,6 +48,36 @@ class DemoErrorsTest {
     }
 
     @Test
+    void shouldReturnClientStatusForAnyBackend4xx() {
+        // The case this exists for: a malformed observation id is the backend's
+        // 400, and reporting it as 500 tells the caller their typo broke the server.
+        for (int code : new int[]{400, 401, 403, 404, 409, 422}) {
+            Throwable wrapped = new RuntimeException("op failed", httpError(code, "{\"error\":\"nope\"}"));
+            assertThat(DemoErrors.clientStatus(wrapped))
+                    .as("status %d should pass through", code)
+                    .isEqualTo(HttpStatusCode.valueOf(code));
+        }
+    }
+
+    @Test
+    void shouldNotReturnClientStatusForServerErrors() {
+        // A 5xx genuinely is this demo's problem; it stays a 500.
+        for (int code : new int[]{500, 502, 503}) {
+            Throwable wrapped = new RuntimeException("op failed", httpError(code, "{\"error\":\"boom\"}"));
+            assertThat(DemoErrors.clientStatus(wrapped))
+                    .as("status %d must not be passed through", code)
+                    .isNull();
+        }
+    }
+
+    @Test
+    void shouldReturnNullClientStatusWhenNoHttpErrorIsInTheChain() {
+        Throwable plain = new RuntimeException("connection reset",
+                new IllegalStateException("no http here"));
+        assertThat(DemoErrors.clientStatus(plain)).isNull();
+    }
+
+    @Test
     void shouldFallBackToStatusLineWhenBodyHasNoErrorField() {
         Throwable wrapped = new RuntimeException("op failed", httpError(404, ""));
         assertThat(DemoErrors.isNotFound(wrapped)).isTrue();
