@@ -92,10 +92,26 @@ func requestLogger(next http.Handler) http.Handler {
 	})
 }
 
+// defaultBaseURL is the backend address used when CORTEX_BASE_URL is unset.
+// Kept identical to the Python/JS demos so all SDK demos can be pointed at the
+// same backend with one environment variable.
+const defaultBaseURL = "http://127.0.0.1:37777"
+
+// backendBaseURL resolves the backend address from CORTEX_BASE_URL,
+// falling back to defaultBaseURL.
+func backendBaseURL() string {
+	if url := strings.TrimSpace(os.Getenv("CORTEX_BASE_URL")); url != "" {
+		return url
+	}
+	return defaultBaseURL
+}
+
 func main() {
+	baseURL := backendBaseURL()
+
 	// Create a new client
 	client := cortexmem.NewClient(
-		cortexmem.WithBaseURL("http://127.0.0.1:37777"),
+		cortexmem.WithBaseURL(baseURL),
 	)
 	defer client.Close()
 
@@ -198,6 +214,7 @@ func main() {
 			Source:  r.URL.Query().Get("source"),
 			Limit:   limit,
 			Offset:  offset,
+			OrderBy: r.URL.Query().Get("orderBy"),
 		}
 		result, err := client.Search(r.Context(), searchReq)
 		if err != nil {
@@ -843,11 +860,11 @@ func main() {
 		port = "37779"
 	}
 	addr := ":" + port
-	fmt.Printf("🚀 Go SDK HTTP server starting on %s\n", addr)
+	fmt.Printf("🚀 Go SDK HTTP server starting on %s (backend: %s)\n", addr, baseURL)
 	fmt.Println("Endpoints:")
 	fmt.Println("  GET    /health              - Health check")
 	fmt.Println("  POST   /chat                - Chat with memory (project, message, userId?, maxChars?)")
-	fmt.Println("  GET    /search              - Search observations")
+	fmt.Println("  GET    /search              - Search observations (supports orderBy)")
 	fmt.Println("  GET    /version             - Backend version")
 	fmt.Println("  GET    /experiences         - Retrieve experiences")
 	fmt.Println("  GET    /iclprompt           - Build ICL prompt")
@@ -891,5 +908,9 @@ func main() {
 		srv.Shutdown(shutdownCtx)
 	}()
 
-	log.Fatal(srv.ListenAndServe())
+	// ErrServerClosed is the expected return value after a graceful shutdown —
+	// it must not be reported as a fatal error.
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Fatal(err)
+	}
 }

@@ -261,5 +261,5 @@ All planned features have been **fully implemented** and **compiled successfully
 
 ### Pending
 - [ ] Run regression tests: `./scripts/regression-test.sh`
-- [ ] Deploy with `docker compose -f docker-compose.prod.yml up -d`
+- [ ] Deploy with `docker compose up -d`
 - [ ] Commit changes

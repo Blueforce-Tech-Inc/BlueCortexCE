@@ -35,6 +35,26 @@ function errorJson(res: Response, status: number, message: string) {
   res.status(status).json({ error: message });
 }
 
+// Parse an optional integer query param.
+// Returns { ok: false, message } for non-integer input so handlers can answer 400
+// instead of silently falling back to the default (see the /search handler).
+function parseIntParam(
+  raw: unknown,
+  name: string,
+  opts: { min: number; max: number; range?: string },
+): { ok: true; value: number } | { ok: false; message: string } {
+  if (raw === undefined || raw === null || raw === '') return { ok: true, value: 0 };
+  const parsed = typeof raw === 'number' ? raw : parseInt(String(raw), 10);
+  if (isNaN(parsed) || !/^-?\d+$/.test(String(raw).trim())) {
+    return { ok: false, message: `${name} must be an integer` };
+  }
+  if (parsed < opts.min || parsed > opts.max) {
+    const range = opts.range ?? `between ${opts.min} and ${opts.max}`;
+    return { ok: false, message: `${name} must be ${range}` };
+  }
+  return { ok: true, value: parsed };
+}
+
 // Wrap async handlers for compatibility (Express 5 catches async rejections natively, but this ensures safety across runtimes)
 function asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<void>) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -169,10 +189,13 @@ app.get('/iclprompt', asyncHandler(async (req: Request, res: Response) => {
   const project = req.query.project as string;
   const task = req.query.task as string;
 
+  const maxChars = parseIntParam(req.query.maxChars, 'maxChars', { min: 0, max: 100000 });
+  if (!maxChars.ok) return errorJson(res, 400, maxChars.message);
+
   const result = await client.buildICLPrompt({
     task,
     project,
-    maxChars: parseInt(req.query.maxChars as string ?? '0', 10) || 0,
+    maxChars: maxChars.value,
     userId: (req.query.userId as string) ?? undefined,
   });
   res.json(result);
@@ -184,15 +207,19 @@ app.get('/observations', asyncHandler(async (req: Request, res: Response) => {
   // project is optional — empty/missing means all projects (consistent with Go/Java demos)
   const project = (req.query.project as string) || '';
 
-  const limit = parseInt(req.query.limit as string ?? '0', 10) || 0;
-  const offset = parseInt(req.query.offset as string ?? '0', 10) || 0;
-  if (limit < 0 || limit > 100) return errorJson(res, 400, 'limit must be between 0 and 100');
-  if (offset < 0) return errorJson(res, 400, 'offset must be non-negative');
+  const limit = parseIntParam(req.query.limit, 'limit', { min: 0, max: 100 });
+  if (!limit.ok) return errorJson(res, 400, limit.message);
+  const offset = parseIntParam(req.query.offset, 'offset', {
+    min: 0,
+    max: Number.MAX_SAFE_INTEGER,
+    range: 'non-negative',
+  });
+  if (!offset.ok) return errorJson(res, 400, offset.message);
 
   const result = await client.listObservations({
     project,
-    limit,
-    offset,
+    limit: limit.value,
+    offset: offset.value,
   });
   res.json(result);
 }));
@@ -315,11 +342,13 @@ app.get('/extraction/history', asyncHandler(async (req: Request, res: Response) 
   if (!project) return errorJson(res, 400, 'project is required');
 
   const userId = (req.query.userId as string) || undefined;
+  const limit = parseIntParam(req.query.limit, 'limit', { min: 0, max: 100 });
+  if (!limit.ok) return errorJson(res, 400, limit.message);
   const results = await client.getExtractionHistory(
     project,
     template,
     userId,
-    parseInt(req.query.limit as string ?? '0', 10) || undefined,
+    limit.value > 0 ? limit.value : undefined,
   );
   res.json(results);
 }));

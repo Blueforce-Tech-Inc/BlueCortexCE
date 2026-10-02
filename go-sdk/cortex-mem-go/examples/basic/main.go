@@ -4,16 +4,28 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go"
 	"github.com/Blueforce-Tech-Inc/BlueCortexCE/go-sdk/cortex-mem-go/dto"
 )
 
+// backendBaseURL resolves the backend address from CORTEX_BASE_URL (the same
+// environment variable used by the Python and JS demos), falling back to the
+// local default when it is unset or blank.
+func backendBaseURL() string {
+	if url := strings.TrimSpace(os.Getenv("CORTEX_BASE_URL")); url != "" {
+		return url
+	}
+	return "http://127.0.0.1:37777"
+}
+
 func main() {
 	// Create a new client
 	client := cortexmem.NewClient(
-		cortexmem.WithBaseURL("http://127.0.0.1:37777"),
+		cortexmem.WithBaseURL(backendBaseURL()),
 	)
 	defer client.Close()
 

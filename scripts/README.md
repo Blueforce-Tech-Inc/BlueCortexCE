@@ -9,18 +9,53 @@ This directory contains test and development scripts for the Claude-Mem Java imp
 | `start.sh` | Start Java backend (dev) | Java 21+ |
 | `start-all.sh` | Start Java + Thin Proxy | Java 21+, Node.js |
 | `deploy-webui.sh` | Deploy WebUI to Java | Node.js |
+| `prebuild-webui.sh` | Stage WebUI files for Docker build | Node.js |
 | `sync-resources.sh` | Sync TS resources to Java | jq |
 | `test-llm-provider.sh` | Test LLM/embedding APIs | Running backend |
 | `regression-test.sh` | E2E regression tests | PostgreSQL + backend |
+| `phase3-acceptance-test.sh` | Structured extraction acceptance | Running backend + PostgreSQL |
+| `run-all-e2e.sh` | Run the local E2E suites in one pass | Running backend + Node.js |
+| `java-sdk-e2e-test.sh` | Java SDK Demo E2E acceptance | Backend + Java Demo (37778) |
+| `go-sdk-unit-test.sh` | Go SDK unit tests (all submodules) | Go 1.25+ |
+| `go-sdk-e2e-test.sh` | Go SDK Demo E2E acceptance | Backend + Go Demo (37779) |
+| `python-sdk-e2e-test.sh` | Python SDK E2E acceptance | Backend + Python 3 |
+| `python-demo-e2e-test.sh` | Python Demo E2E acceptance | Backend + Python Demo (37780) |
+| `js-sdk-e2e-test.sh` | JS/TS SDK unit + live backend checks | Backend + Node.js |
+| `js-demo-e2e-test.sh` | JS Demo E2E acceptance | Backend + JS Demo (37781) |
 | `docker-e2e-test.sh` | Docker deployment tests | Docker |
 | `docker-compose-test.sh` | Docker Compose tests | Docker |
-| `mcp-e2e-test.sh` | MCP Server tests | Running backend |
+| `mcp-e2e-test.sh` | MCP Server tests (SSE) | Running backend |
+| `mcp-streamable-e2e-test.sh` | MCP Server tests (Streamable HTTP) | Running backend |
 | `thin-proxy-test.sh` | Thin Proxy tests | Node.js + backend |
 | `webui-integration-test.sh` | WebUI API tests | Running backend |
 | `openclaw-plugin-test.sh` | OpenClaw plugin tests | Node.js + backend |
+| `folder-claudemd-test.sh` | Folder CLAUDE.md hook flow | Node.js + backend |
+| `codex-watcher-test.sh` | Codex CLI watcher E2E | Node.js + backend |
+| `demo-v14-test.sh` | Java Demo V14 feature checks | Backend + Java Demo (37778) |
+| `demo-v15-test.sh` | Java Demo extraction endpoint checks | Backend + Java Demo (37778) |
+| `demo-v15-extraction-test.sh` | Extraction (userId, ICL isolation) | Backend with extraction enabled |
+| `evo-memory-e2e-test.sh` | Evo-Memory refinement E2E | Running backend |
+| `evo-memory-value-test.sh` | Evo-Memory value demonstration | Running backend |
+| `performance-test.sh` | Performance and stress tests | Running backend |
 | `export-memories.sh` | Export memory data | jq + running backend |
 | `export-test.sh` | Export function tests | jq + running backend |
 | `seed-diverse-data.sh` | Generate test data | Running backend |
+| `create-distribution.sh` | Package a release distribution | `zip` |
+| `code-fingerprint.sh` | Code-scope fingerprint (acceptance baseline) | git |
+| `doc-growth-check.sh` | Report documents over the growth threshold | git |
+
+### Demo Ports
+
+SDK/Demo E2E scripts talk to a Demo server on a dedicated port; the backend stays on `37777`.
+
+| Demo | Port | Start command |
+|------|------|---------------|
+| Java | 37778 | `cd examples/cortex-mem-demo && mvn spring-boot:run -Plocal` |
+| Go | 37779 | `cd go-sdk/cortex-mem-go/examples/http-server && PORT=37779 go run .` |
+| Python | 37780 | `cd python-sdk/cortex-mem-python/examples/http-server && PORT=37780 python3 app.py` |
+| JS/TS | 37781 | `cd js-sdk/cortex-mem-js && PORT=37781 npx tsx examples/http-server/app.ts` |
+
+Each Demo E2E script accepts a `DEMO_BASE` override (default `http://127.0.0.1:<port>`).
 
 ---
 
@@ -182,6 +217,101 @@ End-to-end regression test suite that verifies core functionality after code cha
 | 17 | Search by file endpoint |
 | 18 | Unified session start |
 
+### `phase3-acceptance-test.sh`
+
+Acceptance suite for Phase 3 structured extraction: userId propagation, template-driven
+extraction, ICL user isolation, and extraction history.
+
+**Prerequisites:**
+- Backend running on port 37777
+- PostgreSQL accessible
+
+**Usage:**
+
+```bash
+# With extraction disabled (default) — non-extraction assertions only
+bash scripts/phase3-acceptance-test.sh
+
+# Full extraction acceptance (required by the maintenance baseline)
+EXTRACTION_ENABLED=true bash scripts/phase3-acceptance-test.sh
+```
+
+`EXTRACTION_ENABLED=true` changes the backend runtime configuration; see
+`docs/structured-extraction.md` for the template lifecycle and the DLQ behaviour.
+
+### `run-all-e2e.sh`
+
+Runs the local E2E suites in one pass and prints a per-suite summary.
+
+**Coverage:** `regression-test.sh`, `thin-proxy-test.sh`, `webui-integration-test.sh`,
+`mcp-e2e-test.sh`, `mcp-streamable-e2e-test.sh` (skipped unless the server exposes
+Streamable HTTP), `export-test.sh`, `openclaw-plugin-test.sh`, `folder-claudemd-test.sh`,
+`evo-memory-e2e-test.sh`, `evo-memory-value-test.sh`.
+
+Docker suites and `test-llm-provider.sh` are intentionally excluded — run them separately.
+
+**Usage:**
+
+```bash
+# Run every suite; exit non-zero if any suite fails
+bash scripts/run-all-e2e.sh
+
+# Pass --skip-build to regression-test.sh and thin-proxy-test.sh
+bash scripts/run-all-e2e.sh --skip-build
+
+# Stop at the first failing suite
+bash scripts/run-all-e2e.sh --fail-fast
+```
+
+**Environment:** `SERVER_URL` (default `http://127.0.0.1:37777`).
+
+### SDK and Demo E2E Tests
+
+Each script verifies returned content, not just "response is non-empty".
+
+| Script | Chain |
+|--------|-------|
+| `java-sdk-e2e-test.sh` | script → Java Demo API (37778) → Java SDK → backend |
+| `go-sdk-e2e-test.sh` | script → Go Demo API (37779) → Go SDK → backend |
+| `python-sdk-e2e-test.sh` | script → Python SDK → backend |
+| `python-demo-e2e-test.sh` | script → Python Demo API (37780) → Python SDK → backend |
+| `js-sdk-e2e-test.sh` | script → JS/TS SDK unit tests + live backend probes |
+| `js-demo-e2e-test.sh` | script → JS Demo API (37781) → JS SDK → backend |
+
+**Usage:**
+
+```bash
+# Java SDK Demo must already run on 37778
+bash scripts/java-sdk-e2e-test.sh
+
+# Go SDK Demo must already run on 37779
+bash scripts/go-sdk-e2e-test.sh
+
+# Python SDK (no Demo required — the script sets PYTHONPATH itself)
+bash scripts/python-sdk-e2e-test.sh
+
+# Python Demo must already run on 37780
+bash scripts/python-demo-e2e-test.sh
+
+# JS/TS SDK: unit tests plus direct backend probes
+bash scripts/js-sdk-e2e-test.sh
+
+# JS Demo must already run on 37781
+bash scripts/js-demo-e2e-test.sh
+```
+
+**Environment:**
+- `DEMO_BASE` — Demo base URL (default `http://127.0.0.1:<demo port>`)
+- `EXTRACTION_ENABLED=true` — also run the extraction scenarios (skipped when unset)
+
+`go-sdk-unit-test.sh` runs the Go unit tests for the root module *and* every submodule
+(`eino`, `genkit`, `langchaingo`), which `go test ./...` from the root module does not cover:
+
+```bash
+bash scripts/go-sdk-unit-test.sh
+bash scripts/go-sdk-unit-test.sh -v   # verbose
+```
+
 ### `docker-e2e-test.sh`
 
 End-to-end test suite for Docker deployment.
@@ -286,6 +416,23 @@ MCP Server end-to-end tests for Spring AI MCP Server (WebMVC/SSE).
 9. REST API compatibility
 10. recent tool
 
+### `mcp-streamable-e2e-test.sh`
+
+MCP acceptance over the Streamable HTTP transport (`POST {server}/mcp`). If the server is
+running in SSE mode the script reports how to switch instead of failing obscurely.
+
+**Usage:**
+
+```bash
+# Default server
+bash scripts/mcp-streamable-e2e-test.sh
+
+# Custom server URL (positional argument)
+bash scripts/mcp-streamable-e2e-test.sh http://127.0.0.1:37777
+```
+
+**Environment:** `SERVER_URL`, `MCP_TEST_PROJECT` (default `/tmp/mcp-e2e-test-streamable`).
+
 ### `thin-proxy-test.sh`
 
 Thin Proxy integration tests for Claude Code hooks.
@@ -361,6 +508,79 @@ OpenClaw plugin integration tests.
 - Config parameters
 - Command simulation
 - API endpoint mapping
+
+### `folder-claudemd-test.sh`
+
+Simulates the real PostToolUse hook flow to verify the `--enable-folder-claudemd` option.
+
+**Usage:**
+
+```bash
+bash scripts/folder-claudemd-test.sh
+```
+
+### `codex-watcher-test.sh`
+
+Codex CLI watcher E2E: builds `codex-watcher`, feeds a Codex session transcript, and
+verifies the observations reach the backend.
+
+**Usage:**
+
+```bash
+# Build codex-watcher and start the backend if needed
+bash scripts/codex-watcher-test.sh
+
+# Reuse a running backend and skip the build
+bash scripts/codex-watcher-test.sh --skip-backend --skip-build
+```
+
+### `demo-v14-test.sh` / `demo-v15-test.sh`
+
+Feature checks against the Java Demo controllers.
+
+**Prerequisites:** backend on 37777 and the Java Demo on 37778
+(`cd examples/cortex-mem-demo && mvn spring-boot:run -Plocal`).
+
+```bash
+bash scripts/demo-v14-test.sh    # V14 endpoints (source attribution, extractedData, update/delete)
+bash scripts/demo-v15-test.sh    # Phase 3 extraction endpoints exposed by the Demo
+```
+
+### `demo-v15-extraction-test.sh`
+
+Validates userId support, structured extraction, ICL user isolation, and extraction history
+against the backend API directly (no Demo required).
+
+**Prerequisites:** backend on 37777 with extraction enabled.
+
+**Usage:**
+
+```bash
+BACKEND_URL=http://127.0.0.1:37777 bash scripts/demo-v15-extraction-test.sh
+```
+
+### `evo-memory-e2e-test.sh` / `evo-memory-value-test.sh`
+
+- `evo-memory-e2e-test.sh` — creates observations across quality levels, simulates
+  SUCCESS/PARTIAL/FAILURE feedback, triggers refinement, and verifies quality-based retrieval.
+- `evo-memory-value-test.sh` — demonstrates the business value of quality scoring,
+  refinement, experience reuse, and feedback inference.
+
+**Prerequisites:** running backend (LLM and embedding providers configured).
+
+```bash
+bash scripts/evo-memory-e2e-test.sh
+bash scripts/evo-memory-value-test.sh
+```
+
+### `performance-test.sh`
+
+Performance and stress suite (ingestion, search, and retrieval latency) against a running
+backend on 37777.
+
+```bash
+bash scripts/performance-test.sh
+```
 
 ### `test-llm-provider.sh`
 
@@ -466,25 +686,96 @@ Generate diverse test data for WebUI testing.
 
 ---
 
+## Maintenance Utilities
+
+### `code-fingerprint.sh`
+
+Prints the deterministic fingerprint of the code scope used by the scheduled maintenance
+task to decide whether a full acceptance run is required. Documentation, reports, and local
+memory files are excluded by design; the algorithm lives only in this script.
+
+**Usage:**
+
+```bash
+bash scripts/code-fingerprint.sh
+```
+
+**Output:**
+
+```
+CODE_FINGERPRINT_VERSION=1
+CODE_FINGERPRINT=<sha256>
+CODE_RECORD_COUNT=<n>
+```
+
+### `doc-growth-check.sh`
+
+Read-only check of the append-heavy project documents (line/byte thresholds). Exit code `0`
+means every document is below the threshold; exit code `2` means compaction or archival is
+required — it is not a script failure. Thresholds can be overridden with `MAX_LINES` and
+`MAX_BYTES`.
+
+**Usage:**
+
+```bash
+bash scripts/doc-growth-check.sh
+```
+
+### `create-distribution.sh`
+
+Packages the backend JAR, scripts, and documentation into a release directory.
+
+**Usage:**
+
+```bash
+bash scripts/create-distribution.sh --help
+bash scripts/create-distribution.sh <target_dir>
+```
+
+### `prebuild-webui.sh`
+
+Copies the WebUI submodule output where the Docker build expects it (git submodules are not
+resolved automatically during `docker build`).
+
+**Usage:**
+
+```bash
+bash scripts/prebuild-webui.sh            # stage WebUI resources
+bash scripts/prebuild-webui.sh --clean    # remove the copied files
+```
+
+---
+
 ## Configuration
 
 Override defaults via environment variables:
 
 ```bash
+# Backend under test (used by the E2E and regression suites)
 export SERVER_URL=http://127.0.0.1:37777
+
+# PostgreSQL credentials used by regression-test.sh
+# Note: the variable is DB_PASS, not DB_PASSWORD
 export DB_HOST=127.0.0.1
 export DB_NAME=claude_mem_dev
 export DB_USER=postgres
-export DB_PASSWORD=123456
+export DB_PASS=123456
 ```
+
+The Docker suites (`docker-e2e-test.sh`, `docker-compose-test.sh`) read the same `DB_*`
+variables but default to their own throwaway databases (`claude_mem_test` and
+`claude_mem_compose_test`) and a generated password, so they never touch the dev database.
 
 ## Prerequisites Summary
 
 | Tool | Required For |
 |------|--------------|
-| Java 21+ | All scripts |
-| Node.js 18+ | start-all.sh, deploy-webui.sh, thin-proxy-test.sh, openclaw-plugin-test.sh |
+| Java 21+ | All Java scripts |
+| Node.js 18+ | start-all.sh, deploy-webui.sh, prebuild-webui.sh, thin-proxy-test.sh, openclaw-plugin-test.sh, folder-claudemd-test.sh, codex-watcher-test.sh, js-sdk-e2e-test.sh, js-demo-e2e-test.sh |
+| Go 1.25+ | go-sdk-unit-test.sh, go-sdk-e2e-test.sh |
+| Python 3 | python-sdk-e2e-test.sh, python-demo-e2e-test.sh |
 | Docker | docker-e2e-test.sh, docker-compose-test.sh |
-| PostgreSQL 16 + pgvector | regression-test.sh |
+| PostgreSQL 16 + pgvector | regression-test.sh, phase3-acceptance-test.sh |
 | jq | sync-resources.sh, export-memories.sh, export-test.sh |
 | curl | All test scripts |
+| git | code-fingerprint.sh, doc-growth-check.sh |
