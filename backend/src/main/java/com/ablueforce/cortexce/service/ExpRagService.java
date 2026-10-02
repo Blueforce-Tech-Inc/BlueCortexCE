@@ -24,8 +24,17 @@ public class ExpRagService {
     private static final Logger log = LoggerFactory.getLogger(ExpRagService.class);
 
     // Configuration
-    private static final float MIN_QUALITY_THRESHOLD = 0.6f;
     private static final int DEFAULT_RETRIEVAL_COUNT = 4;
+
+    /**
+     * Minimum quality an observation needs to be picked up by quality-aware
+     * experience retrieval. This is the threshold {@code app.memory.quality-threshold}
+     * describes in application.yml, and it used to be the literal {@code 0.6f} here, so
+     * setting MEMORY_QUALITY_THRESHOLD changed nothing while appearing to be the knob
+     * for exactly this behaviour. Default unchanged at 0.6.
+     */
+    @org.springframework.beans.factory.annotation.Value("${app.memory.quality-threshold:0.6}")
+    private float minQualityThreshold;
 
     private final ObservationRepository observationRepository;
     private final SessionRepository sessionRepository;
@@ -101,7 +110,7 @@ public class ExpRagService {
         } else {
             // Use quality-aware repository method
             results = observationRepository
-                .findHighQualityObservations(projectPath, MIN_QUALITY_THRESHOLD, count * 3);
+                .findHighQualityObservations(projectPath, minQualityThreshold, count * 3);
         }
 
         // If not enough, get recent observations (respect filters)

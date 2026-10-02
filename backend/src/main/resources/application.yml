@@ -11,8 +11,13 @@ app:
     # When disabled, no refinement happens but quality scoring still works
     refine-enabled: ${MEMORY_REFINE_ENABLED:true}
     
-    # Quality threshold for retrieval filtering (Phase 1)
-    # Observations with quality below this are filtered out
+    # Minimum quality an observation needs to be returned by quality-aware
+    # experience retrieval (ExpRagService -> findHighQualityObservations).
+    # Observations scoring below this are not picked as ICL samples.
+    # This is NOT a filter on search or context retrieval — those paths do not
+    # look at quality_score. Note that a separate literal 0.6 also gates the
+    # refine candidate query (MemoryRefineService.findStaleObservations) and is
+    # not driven by this value.
     quality-threshold: ${MEMORY_QUALITY_THRESHOLD:0.6}
     
     # Refinement thresholds
