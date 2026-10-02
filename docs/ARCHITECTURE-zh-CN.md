@@ -1097,8 +1097,20 @@ spring:
 | 组件 | 绑定 | 访问 |
 |------|------|------|
 | 胖服务器 | 127.0.0.1:37777 | 仅本地 |
-| PostgreSQL | 127.0.0.1:5432 | 仅本地 |
+| PostgreSQL | 127.0.0.1:5433（Docker）或 :5432（原生） | 仅本地 |
 | 代理 | 不适用 (CLI) | 无网络 |
+
+端口取决于 PostgreSQL 的运行方式，两个值都正确：
+
+- **Docker Compose** 把容器的 `5432` 发布到宿主机的 **`5433`**
+  （`docker-compose.yml` 中的 `"${POSTGRES_PORT:-5433}:5432"`），正是为了不和已占用
+  5432 的本地 PostgreSQL 冲突。
+- **本地原生 PostgreSQL** 监听 `5432`，这正是后端默认 JDBC URL 所指向的：
+  `jdbc:postgresql://127.0.0.1/claude_mem_dev`。
+
+因此走 Docker 路径时需要用 `SPRING_DATASOURCE_URL` 指向发布出来的端口
+（`jdbc:postgresql://127.0.0.1:5433/claude_mem`），否则后端默认的 5432 会去找一个
+并不存在的服务器。
 
 ### 密钥管理
 

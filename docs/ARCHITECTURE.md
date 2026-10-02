@@ -1097,8 +1097,20 @@ replaced with a placeholder), and prompts that are entirely private are skipped.
 | Component | Binding | Access |
 |-----------|---------|--------|
 | Fat Server | 127.0.0.1:37777 | Local only |
-| PostgreSQL | 127.0.0.1:5432 | Local only |
+| PostgreSQL | 127.0.0.1:5433 (Docker) or :5432 (native) | Local only |
 | Proxy | N/A (CLI) | No network |
+
+The PostgreSQL port depends on how the database is running, and both values are correct:
+
+- **Docker Compose** publishes the container's `5432` on the host as **`5433`**
+  (`"${POSTGRES_PORT:-5433}:5432"` in `docker-compose.yml`), precisely so it does not
+  clash with a PostgreSQL already listening on 5432.
+- **A native local PostgreSQL** listens on `5432`, which is what the backend's default
+  JDBC URL targets: `jdbc:postgresql://127.0.0.1/claude_mem_dev`.
+
+So the Docker path needs `SPRING_DATASOURCE_URL` to point at the published port
+(`jdbc:postgresql://127.0.0.1:5433/claude_mem`), otherwise the backend's 5432 default
+looks for a server that is not there.
 
 ### Secrets Management
 
