@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: Backend (2026-10-02 10:49, round 133 per `patrol-state.json`) — 2 RateLimitService findings fixed, ProjectFilterService dead-code finding resolved as an explicit skip
-**Next up**: Java SDK
+**Last completed**: Java SDK (2026-10-02 10:54, round 134 per `patrol-state.json`) — client error paths verified method by method; README degradation contract completed in both languages
+**Next up**: Go SDK
 
 ## History
 | DateTime | Direction | Findings |
@@ -210,3 +210,4 @@
 | 2026-10-01 05:26 | Python SDK | ✅ Nineteenth cycle: fresh full test run (374/374 pass); design docs: 50KB rule recheck clean; no changes; next direction is JS/TS SDK |
 | 2026-10-02 10:36 | Demo | ✅ Thirty-third cycle: 4 Go/JS Demo issues fixed (CORTEX_BASE_URL, orderBy passthrough, graceful-shutdown exit, JS int-param validation) — gofmt/build/vet clean, go test pass, Go Demo E2E 39/39, JS lint+212 tests+build, JS Demo E2E 27/27; user guide: 3 issues fixed (nonexistent compose file, scripts/README 22 undocumented scripts, DB_PASS); full acceptance run (regression 45/0/1, EXTRACTION 25/0/0), baseline advanced to `bd46f01` / `84065a66…`; next direction is Backend |
 | 2026-10-02 10:49 | Backend | ✅ Round 133: RateLimitService fallback key made stable (UUID suffix removed — the limit could never trigger on the null-key path) + javadoc overload corrected; ProjectFilterService recorded and explicitly skipped as an unwired utility with a re-review trigger; API docs: ZH 3 parameter tables had defaults in the Required column — fixed, changelog 0.1.0-beta+46; 68 endpoints verified EN==ZH and all documented; backend rebuilt, restarted on 37777, regression 45/0/1 + EXTRACTION 25/0/0, baseline advanced to `78fd765` / `f11a28ca…`; health-check-task.md hit 1000 lines → 47 rounds archived to `2026-10-02_health-check-history-3.md`; next direction is Java SDK |
+| 2026-10-02 10:54 | Java SDK | ✅ Round 134: no code defect found in CortexMemClientImpl (26 public methods audited; degradation is intentional, unit-tested, and now documented); fixed the incomplete degradation contract in both SDK READMEs (7 silent / 5 error-reporting / 12 propagating, EN-ZH table parity checked); docs-only round so acceptance skipped on unchanged fingerprint `f11a28ca…`; next direction is Go SDK |
