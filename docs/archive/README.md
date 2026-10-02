@@ -46,3 +46,4 @@ The date prefix reflects when the document was last relevant (not when it was ar
 | `2026-10-01_health-check-history-2.md` | `docs/drafts/health-check-task.md` | 2026-10-01 | 52 轮巡检历史续（2026-10-01 05:03 ~ 05:21），二次达阈值时压缩迁移 |
 | `2026-10-02_health-check-history-3.md` | `docs/drafts/health-check-task.md` | 2026-10-02 | 47 轮巡检历史续（2026-10-01 05:26 ~ 07:35），三次达阈值时压缩迁移 |
 | `2026-10-02_health-check-history-4.md` | `docs/drafts/health-check-task.md` | 2026-10-02 | 第 115~148 轮（2026-10-02 10:36 ~ 13:18，17 条），四次达阈值时压缩迁移 |
+| `2026-10-02_health-check-history-5.md` | `docs/drafts/health-check-task.md` | 2026-10-02 | 第 149~157 轮（2026-10-02，9 条），五次达阈值时压缩迁移；归档时顺带纠正了第 157 轮曾被误插入 156 轮正文的顺序问题 |
