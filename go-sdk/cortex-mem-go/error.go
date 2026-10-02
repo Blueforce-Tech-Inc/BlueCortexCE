@@ -3,6 +3,8 @@ package cortexmem
 import (
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
 )
 
@@ -182,12 +184,31 @@ func IsInternal(err error) bool {
 //     database connection pool exhaustion).
 //
 // Matches:
-//   - Network/transport errors (non-HTTP, non-sentinel): connection refused, timeouts, DNS failures, etc.
+//   - Network/transport errors: connection refused, DNS failures, read/write timeouts, and a
+//     connection dropped part-way through a response body.
 //   - 429 (rate limited), 502 (bad gateway), 503 (service unavailable), 504 (gateway timeout).
 //
-// Does NOT match 500 (internal server error) — that's typically a code bug, not a transient failure.
+// Does NOT match:
+//   - 500 (internal server error) — typically a code bug, not a transient failure.
+//   - Client-side permanent failures: ValidationError, a cancelled context, an unparseable
+//     BaseURL, a json.Marshal failure, or a response over MaxResponseBytes. Retrying these
+//     produces the same failure every time.
+//
+// The default is "not retryable": an error is only retryable when it is positively identified
+// as transient. This matches the Python and JS SDKs, which likewise return false for anything
+// they cannot recognise as a network failure — a client with its own retry loop should not be
+// told to hammer the backend with requests that cannot succeed.
 func IsRetryable(err error) bool {
 	if err == nil {
+		return false
+	}
+	// A validation failure is permanent by construction: the same input fails the same
+	// way on every attempt. The new default below already returns false for it; this
+	// guard is kept so the most common case is stated at the top of the function rather
+	// than left to inference from the fallthrough. It is not load-bearing — removing it
+	// leaves every test green.
+	var ve *ValidationError
+	if errors.As(err, &ve) {
 		return false
 	}
 	// Check for specific HTTP status errors that are transient.
@@ -209,8 +230,21 @@ func IsRetryable(err error) bool {
 	if isSentinelError(err) {
 		return false
 	}
-	// Non-HTTP, non-sentinel errors are network/transport errors — always retryable.
-	return true
+	// Network/transport errors. net.Error is satisfied by *url.Error, *net.OpError and
+	// context.DeadlineExceeded, so connection refused, DNS failures and timeouts all
+	// match here.
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return true
+	}
+	// A connection dropped part-way through a response body surfaces as a plain io error
+	// rather than a net.Error — verified against a server that promises a Content-Length
+	// and then closes. That is transient, so it must stay retryable.
+	if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
+		return true
+	}
+	// Anything else is a permanent client-side failure. Not retried.
+	return false
 }
 
 // isSentinelError returns true if the error matches any of the known sentinel errors.

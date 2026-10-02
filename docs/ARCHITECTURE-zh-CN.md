@@ -666,6 +666,12 @@ ORDER BY embedding_1024 <=> :query_vector
 LIMIT :limit;
 ```
 
+**Wire format。** `mem_observations` 的四个 JSONB 列（`facts`、`concepts`、`files_read`、
+`files_modified`）返回的是 **JSON 编码的字符串**，不是 JSON 数组——
+`facts: "[\"allergy\",\"peanut\"]"`。`ObservationEntity` 通过标注 `@JsonProperty`、
+返回 `String` 的 getter 把它们暴露出去，供 TypeScript WebUI 调用 `JSON.parse`。
+`refined_from_ids` 行为相同。客户端必须先解码这个字符串，才能当作列表读取。
+
 ---
 
 ## 数据流
@@ -848,30 +854,45 @@ export SPRING_AI_MCP_SERVER_PROTOCOL=STREAMABLE  # 如需使用 STREAMABLE
 ### 使用的 Java 21+ 特性
 
 ```java
-// Records 用于 DTO
-public record ObservationDto(
-    String id,
-    String content,
-    List<String> facts,
-    List<String> concepts
+// Records 用于 DTO —— 真实代码：ApiRequests.ToolUseRequest（dto/ApiRequests.java）
+// wire 名由 @JsonProperty 指定为 snake_case；全局的
+// jackson.property-naming-strategy 并不作用于 record 组件。
+public record ToolUseRequest(
+    @JsonProperty("session_id") String sessionId,
+    @JsonProperty("cwd") String cwd,
+    @JsonProperty("tool_name") String toolName,
+    @JsonProperty("tool_input") Object toolInput,
+    @JsonProperty("tool_response") Object toolResponse,
+    @JsonProperty("source") String source,
+    @JsonProperty("extractedData") Map<String, Object> extractedData,
+    @JsonProperty("prompt_number") Integer promptNumber
 ) {}
 
-// 模式匹配
-if (entity instanceof ObservationEntity o) {
-    return o.getContent();
+// instanceof 模式匹配 —— 真实代码：dto/OffsetPageRequest.java:109
+@Override
+public boolean equals(Object o) {
+    if (this == o) return true;
+    if (!(o instanceof Pageable that)) return false;
+    return page == that.getPageNumber() && size == that.getPageSize();
 }
 
-// 虚拟线程 (Java 21)
-@Async  // 启用时使用虚拟线程
-public void processAsync() { ... }
+// 虚拟线程（Java 21）—— 真实代码：SummaryGenerationService:83、MemoryRefineService:88
+@Async  // 跑在虚拟线程上；application.yml 中 spring.threads.virtual.enabled=true
+public void generateSummaryAsync(...) { ... }
 
-// 文本块
-String prompt = """
-    You are a memory observer.
-    Analyze the following tool use:
-    %s
-    """.formatted(content);
+// 提示词是外部资源，而不是文本块：
+//   src/main/resources/prompts/{init,observation,summary,continuation}.txt
+// 运行时加载。唯一在 Java 内拼装的提示词
+// （SummaryGenerationService:108）用的是字符串拼接加 "\n"。
 ```
+
+> **JSONB 列在 wire 上不是 JSON 数组。** `mem_observations` 的 `facts`、`concepts`、
+> `files_read`、`files_modified` 存储类型是 `List<String>`，但**序列化后是一个 JSON 编码的
+> 字符串**——取一条 observation 得到的是 `facts: "[\"allergy\",\"peanut\"]"`，而不是
+> `facts: ["allergy","peanut"]`。getter 标注了 `@JsonProperty("facts")` 且返回 `String`
+> （`ObservationEntity.getFactsJson()`），因为 TypeScript WebUI 会调用
+> `JSON.parse(observation.facts)`。这是**承重的契约而不是缺陷**：**把这些字段建模为列表的
+> 客户端会静默地什么都收不到。** 参见[语义搜索](#语义搜索)下的 Wire format 说明。
 
 ### Spring Boot 配置
 

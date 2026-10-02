@@ -142,11 +142,16 @@ def is_retryable_error(err: Exception) -> bool:
 
     Retryable: 429 (rate limited), 502 (bad gateway), 503 (unavailable), 504 (timeout),
     and network/transport errors (ConnectionError, Timeout, RequestException).
-    NOT retryable: 500 (code bug), 4xx (client error).
+    NOT retryable: 500 (code bug), 4xx (client error), and client-side permanent
+    failures such as ValidationError.
 
     Matches Go's IsRetryable(err) and JS's isRetryable(err) for cross-SDK parity.
-    Go treats non-HTTP errors (network/transport) as always retryable.
-    JS treats TypeError (fetch network errors) and AbortError (timeouts) as retryable.
+    All three positively identify transient errors and return False for anything
+    unrecognised, so a caller with its own retry loop is never told to retry a
+    request that cannot succeed.
+    Go matches net.Error plus io.ErrUnexpectedEOF for a connection dropped
+    part-way through a response body; JS matches TypeError (fetch network errors)
+    and AbortError (timeouts).
     """
     if isinstance(err, APIError):
         return is_retryable(err.status_code)

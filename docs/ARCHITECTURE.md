@@ -665,6 +665,13 @@ ORDER BY embedding_1024 <=> :query_vector
 LIMIT :limit;
 ```
 
+**Wire format.** The four JSONB columns of `mem_observations` (`facts`, `concepts`,
+`files_read`, `files_modified`) come back as **JSON-encoded strings**, not JSON arrays —
+`facts: "[\"allergy\",\"peanut\"]"`. `ObservationEntity` exposes them through
+`@JsonProperty`-annotated getters returning `String` for the TypeScript WebUI, which calls
+`JSON.parse`. `refined_from_ids` behaves the same way. Clients must decode the string
+before reading it as a list.
+
 ---
 
 ## Data Flow
@@ -844,30 +851,46 @@ export SPRING_AI_MCP_SERVER_PROTOCOL=STREAMABLE  # if you prefer STREAMABLE
 ### Java 21+ Features Used
 
 ```java
-// Records for DTOs
-public record ObservationDto(
-    String id,
-    String content,
-    List<String> facts,
-    List<String> concepts
+// Records for DTOs — real: ApiRequests.ToolUseRequest (dto/ApiRequests.java)
+// @JsonProperty supplies the snake_case wire names; the global
+// jackson.property-naming-strategy does not apply to record components.
+public record ToolUseRequest(
+    @JsonProperty("session_id") String sessionId,
+    @JsonProperty("cwd") String cwd,
+    @JsonProperty("tool_name") String toolName,
+    @JsonProperty("tool_input") Object toolInput,
+    @JsonProperty("tool_response") Object toolResponse,
+    @JsonProperty("source") String source,
+    @JsonProperty("extractedData") Map<String, Object> extractedData,
+    @JsonProperty("prompt_number") Integer promptNumber
 ) {}
 
-// Pattern matching
-if (entity instanceof ObservationEntity o) {
-    return o.getContent();
+// Pattern matching for instanceof — real: dto/OffsetPageRequest.java:109
+@Override
+public boolean equals(Object o) {
+    if (this == o) return true;
+    if (!(o instanceof Pageable that)) return false;
+    return page == that.getPageNumber() && size == that.getPageSize();
 }
 
-// Virtual threads (Java 21)
-@Async  // Uses virtual threads when enabled
-public void processAsync() { ... }
+// Virtual threads (Java 21) — real: SummaryGenerationService:83, MemoryRefineService:88
+@Async  // runs on virtual threads; spring.threads.virtual.enabled=true in application.yml
+public void generateSummaryAsync(...) { ... }
 
-// Text blocks
-String prompt = """
-    You are a memory observer.
-    Analyze the following tool use:
-    %s
-    """.formatted(content);
+// Prompts are external resources, NOT text blocks:
+//   src/main/resources/prompts/{init,observation,summary,continuation}.txt
+// loaded at runtime. The one prompt assembled in Java
+// (SummaryGenerationService:108) uses string concatenation with "\n".
 ```
+
+> **The JSONB columns are not JSON arrays on the wire.** `mem_observations.facts`,
+> `concepts`, `files_read` and `files_modified` are stored as `List<String>` but are
+> **serialized as a JSON-encoded string** — a request for one observation returns
+> `facts: "[\"allergy\",\"peanut\"]"`, not `facts: ["allergy","peanut"]`. The getter is
+> annotated `@JsonProperty("facts")` and returns `String` (`ObservationEntity.getFactsJson()`)
+> because the TypeScript WebUI calls `JSON.parse(observation.facts)`. This is a load-bearing
+> contract, not a bug: **a client that models these fields as a list silently receives nothing.**
+> See the Wire Format note under [Semantic Search](#semantic-search).
 
 ### Spring Boot Configuration
 

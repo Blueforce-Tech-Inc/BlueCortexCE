@@ -25,7 +25,7 @@ type ClientConfig struct {
 	HTTPClient     *http.Client
 	Timeout        time.Duration // Overall request timeout (default: 30s)
 	ConnectTimeout time.Duration // Connection timeout via custom Transport (default: 10s)
-	MaxRetries     int // Total attempts for fire-and-forget operations (default: 3), despite the name
+	MaxRetries     int           // Total attempts for fire-and-forget operations (default: 3), despite the name
 	RetryBackoff   time.Duration // Base backoff duration for retries (default: 500ms)
 	Logger         Logger
 }

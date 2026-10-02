@@ -9,8 +9,11 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"os"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -2352,24 +2355,100 @@ func TestIsRetryable_NilError(t *testing.T) {
 	}
 }
 
-func TestIsRetryable_GenericError(t *testing.T) {
-	// Generic (non-API) errors are network/transport errors — always retryable
-	if !cortexmem.IsRetryable(errors.New("connection refused")) {
-		t.Error("IsRetryable should return true for generic network error")
+// dialError builds the error shape http.Client.Do actually returns for a
+// transport failure. The real chain observed against a refused connection is
+// *fmt.wrapError -> *url.Error -> *net.OpError -> *os.SyscallError -> syscall.Errno,
+// so a test that passes errors.New("connection refused") never exercises the
+// code path a caller's request takes.
+func dialError(op, net_ string, errno syscall.Errno) error {
+	return &url.Error{
+		Op:  op,
+		URL: "http://127.0.0.1:1/api/health",
+		Err: &net.OpError{Op: op, Net: net_, Err: os.NewSyscallError(op, errno)},
+	}
+}
+
+func TestIsRetryable_RealTransportError(t *testing.T) {
+	// The real shape of a connection-refused failure must be retryable.
+	// Verified against a live refused connection: the chain is
+	// *fmt.wrapError -> *url.Error -> *net.OpError -> *os.SyscallError -> syscall.Errno.
+	err := fmt.Errorf("cortex-ce: request failed: %w", dialError("dial", "tcp", syscall.ECONNREFUSED))
+	if !cortexmem.IsRetryable(err) {
+		t.Error("IsRetryable should return true for a real connection-refused transport error")
 	}
 }
 
 func TestIsRetryable_NetworkErrors(t *testing.T) {
-	// Network errors like timeouts, DNS failures, connection refused are all retryable
-	testCases := []string{
-		"connection refused",
-		"no such host",
-		"i/o timeout",
-		"dial tcp: lookup failed",
+	// Genuine network failures, each built with the Go type that actually
+	// carries it, because IsRetryable identifies transport errors by type
+	// (net.Error / io) rather than by message text.
+	testCases := []struct {
+		name string
+		err  error
+	}{
+		{"connection refused", dialError("dial", "tcp", syscall.ECONNREFUSED)},
+		{"no such host", dialError("dial", "tcp", syscall.ENOENT)},
+		{"i/o timeout", &net.OpError{Op: "read", Net: "tcp", Err: os.ErrDeadlineExceeded}},
+		{"DNS lookup failure", &net.DNSError{Err: "no such host", Name: "nope.invalid", IsNotFound: true}},
+		{"request context deadline exceeded", context.DeadlineExceeded},
+		{"body truncated mid-read", io.ErrUnexpectedEOF},
 	}
-	for _, msg := range testCases {
-		if !cortexmem.IsRetryable(errors.New(msg)) {
-			t.Errorf("IsRetryable should return true for network error: %q", msg)
+	for _, tc := range testCases {
+		if !cortexmem.IsRetryable(tc.err) {
+			t.Errorf("IsRetryable should return true for network error: %s (%T)", tc.name, tc.err)
+		}
+	}
+}
+
+func TestIsRetryable_TruncatedResponseIsRetryable(t *testing.T) {
+	// A server that promises a Content-Length and then drops the connection is
+	// the classic transient failure, and net/http reports it as a bare
+	// io.ErrUnexpectedEOF rather than a net.Error — so it needs its own case to
+	// stop a future tightening of the net.Error check from silently regressing
+	// it.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Length", "1000")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("0123456789"))
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+		if hj, ok := w.(http.Hijacker); ok {
+			if conn, _, err := hj.Hijack(); err == nil {
+				_ = conn.Close()
+			}
+		}
+	}))
+	defer srv.Close()
+
+	client := cortexmem.NewClient(cortexmem.WithBaseURL(srv.URL))
+	_, err := client.ListObservations(context.Background(), dto.ObservationsRequest{Limit: 10})
+	if err == nil {
+		t.Fatal("expected an error from a truncated response body")
+	}
+	if !cortexmem.IsRetryable(err) {
+		t.Errorf("a truncated response body should be retryable, got %T: %v", err, err)
+	}
+}
+
+func TestIsRetryable_PermanentClientErrors(t *testing.T) {
+	// A client-side failure that cannot succeed on a second attempt must not be
+	// reported as retryable. Before this was fixed, IsRetryable returned true for
+	// every one of these, so a caller with its own retry loop would hammer the
+	// backend with requests that could never succeed.
+	cases := []struct {
+		name string
+		err  error
+	}{
+		{"ValidationError", &cortexmem.ValidationError{Field: "sessionID", Message: "sessionID is required"}},
+		{"cancelled context", context.Canceled},
+		{"plain unknown error", errors.New("something went wrong")},
+		{"unparseable BaseURL", fmt.Errorf("cortex-ce: invalid URL %q: %w", "://bad", errors.New("missing protocol scheme"))},
+		{"response too large", fmt.Errorf("cortex-ce: response body exceeds %d byte limit", cortexmem.MaxResponseBytes)},
+	}
+	for _, tc := range cases {
+		if cortexmem.IsRetryable(tc.err) {
+			t.Errorf("IsRetryable should return false for %s (%T): %v", tc.name, tc.err, tc.err)
 		}
 	}
 }
