@@ -9,13 +9,18 @@
 This document describes the REST API for Cortex Community Edition backend.
 
 > **Document structure (EN vs ZH)**: this English version titles each endpoint with a
-> descriptive H3 (e.g. `### List Observations`) and prints the request line in a code block
-> directly underneath. The Chinese version titles the same endpoints with a path-style H4
-> (e.g. ``#### GET `/api/observations` ``). The difference is deliberate — a path-style heading
-> is the more natural form in Chinese, and both versions expose the same HTTP method and path
-> for every endpoint. The endpoint sets are verified identical (67 live endpoints, checked
-> against the `@*Mapping` annotations in the controllers), so this is a presentation choice,
-> not a content gap. Do not "fix" one side to match the other.
+> descriptive H3 (e.g. `### List Observations`) and usually prints the request line in a code
+> block directly underneath. The `## Context` section is the exception: there each endpoint
+> gets a path-style H4 beneath its descriptive H3 (e.g. ``#### GET `/api/context/recent` ``).
+> The Chinese version uses that path-style H4 throughout. The difference is deliberate — a
+> path-style heading is the more natural form in Chinese, and both versions expose the same HTTP
+> method and path for every endpoint. The endpoint sets are verified identical (67 live endpoints,
+> checked against the `@*Mapping` annotations in the controllers), so this is a presentation
+> choice, not a content gap. Do not "fix" one side to match the other. Every endpoint heading in this
+> file sits under a descriptive H3. The Chinese version mostly skips that level and hangs its
+> path-style H4 straight off the `##` section, so its outline usually reads
+> `## section → #### endpoint`, with a minority of endpoints under a descriptive H3. Neither shape
+> is a missing-parent bug — do not "repair" either.
 
 ## Table of Contents
 
@@ -840,6 +845,8 @@ Token Savings Summary
 
 ---
 
+### Get Recent Context
+
 #### GET `/api/context/recent`
 
 Get recent session context summary.
@@ -868,6 +875,8 @@ curl "http://localhost:37777/api/context/recent?project=/Users/dev/myproject&lim
   "count": 3
 }
 ```
+
+### Get Timeline Context
 
 #### GET `/api/context/timeline`
 
@@ -900,6 +909,8 @@ curl "http://localhost:37777/api/context/timeline?anchor=obs-123&project=/Users/
 }
 ```
 
+### Get Prior Messages
+
 #### GET `/api/context/prior-messages`
 
 Get messages from the previous session (for context continuity).
@@ -923,6 +934,8 @@ curl "http://localhost:37777/api/context/prior-messages?project=/Users/dev/mypro
   "assistantMessage": "I'll implement the authentication feature..."
 }
 ```
+
+### Semantic Context Search
 
 #### POST `/api/context/semantic`
 
