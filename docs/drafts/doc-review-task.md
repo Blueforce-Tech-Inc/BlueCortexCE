@@ -7,8 +7,8 @@
 ## Current Review Rotation
 
 - **轮换顺序**: API 文档 → SDK README → 设计文档 → 架构文档 → 用户指南
-- **最近完成**: API 文档（2026-10-02 五十三轮，**未发现缺陷**：26 处 `defaultValue` 与文档 Default 列系统比对无真实不符，`/api/context/preview` 9 参数、`platformSource`、`/api/modes` 响应均实测吻合）
-- **下一方向**: SDK README（五十四轮）
+- **最近完成**: SDK README（2026-10-02 五十四轮，Python 两版补 `close()` 与 `session=` 归属语义（第 146 轮的安全修复此前只存在于代码注释）、Go 两版补 `Close`/`String` 覆盖行）
+- **下一方向**: 设计文档（五十五轮）
 - **新增待决**: `docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分
 - **Pending 状态**: 文档问题清单已清空（0 项待处理）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
