@@ -7,6 +7,7 @@ import com.ablueforce.cortexce.ai.retrieval.MemoryRetrievalService;
 import com.ablueforce.cortexce.client.dto.Experience;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -185,10 +186,27 @@ public class MemoryController {
     /**
      * Memory health check.
      * Demonstrates V14 observation management.
+     *
+     * <p>Reachability is decided by {@code healthCheck()}, never by the sample
+     * retrieval below. {@code retrieveExperiences} is one of the client methods
+     * that degrades silently — on a backend outage it logs and returns an empty
+     * list — so using its result as a liveness signal reports "ok" precisely
+     * when memory is least likely to work. Verified against a running demo
+     * pointed at a dead backend: this endpoint answered 200 with
+     * {@code status: "ok"} while every memory call was failing.
      */
     @GetMapping("/memory/health")
     public ResponseEntity<Map<String, Object>> getMemoryHealth(@RequestParam(defaultValue = "/") String project) {
         String projectPath = resolveProject(project);
+
+        if (!cortexClient.healthCheck()) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(Map.of(
+                "status", "unavailable",
+                "project", projectPath,
+                "detail", "Backend did not answer GET /api/health — capture and retrieval are not working"
+            ));
+        }
+
         try {
             List<Experience> experiences = cortexClient.retrieveExperiences(
                 ExperienceRequest.builder()
