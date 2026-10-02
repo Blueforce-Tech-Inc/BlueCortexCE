@@ -218,5 +218,6 @@ cd backend
 |------|------|
 | 2026-05-04 | 第 6 节修复 4 个环境变量错误——移除不存在的 `DB_HOST` 和 `SPRING_AI_MCP_SERVER_PROTOCOL`，修正 `DB_USER`→`DB_USERNAME` 和 `DB_PASS`→`DB_PASSWORD`，修正 `DB_NAME` 默认值 `claude_mem_dev`→`claude_mem`（与 docker-compose.yml 一致）；中英文同步更新 |
 | 2026-05-03 | 在第 3 节 SDK 表格中新增 `go-sdk-unit-test.sh` 和 `codex-watcher-test.sh`（10→12 个脚本）；补充遗漏的 `python-sdk-e2e-test.sh`；中英文同步更新 |
+| 2026-05-02 | 新增遗漏的「运行 Docker 部署测试」小节（第 5 节的第 5 个小节）；中英文小节结构对齐 |
 | 2026-04-26 | 新增第 3 节：SDK 和演示集成测试（10 个脚本）；修复章节编号缺失问题（原缺少 ### 3，现为 1–8 连续编号）；注：`python-sdk-e2e-test.sh` 已存在但被遗漏 |
 | 2026-04-03 | 新增 Phase 3 验收测试章节；在 E2E 表格中添加 webui-integration-test.sh 和 docker-e2e-test.sh |

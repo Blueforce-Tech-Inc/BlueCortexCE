@@ -383,18 +383,37 @@ SELECT * FROM flyway_schema_history ORDER BY installed_rank;
 
 ### 4.4 回滚策略
 
-Flyway 社区版不支持自动回滚，建议策略：
+Flyway 社区版不支持自动回滚，并且**本仓库不提供回滚脚本**——每个迁移的逆向 DDL 都必须对照
+`backend/src/main/resources/db/migration/` 下的具体文件自行编写。
+
+多数情况下，安全的做法是用第 1 步的备份做恢复，而不是手工反向修改迁移：
 
 ```bash
-# 1. 备份数据库
+# 1. 先备份 —— 动 schema 之前务必执行
 docker exec cortex-ce-postgres pg_dump -U postgres claude_mem > backup_$(date +%Y%m%d).sql
 
-# 2. 手动回滚 SQL
-psql -U postgres -d claude_mem < rollback_V8.sql
+# 2. 如需撤销该迁移，恢复备份
+docker exec -i cortex-ce-postgres psql -U postgres claude_mem < backup_20260101_000000.sql
+```
 
-# 3. 更新 Flyway 历史记录
+如果确实需要逆向某个迁移，请以迁移文件本身为准——它是「当时到底执行了什么」的唯一记录。
+下面的示例是撤销 `V8__add_observation_content_hash.sql` 所涉及的内容，而两条警告正是说明
+为什么这不是一个机械流程：
+
+```sql
+-- V8 的逆向操作，依据 backend/src/main/resources/db/migration/V8__add_observation_content_hash.sql
+ALTER TABLE mem_observations DROP CONSTRAINT IF EXISTS fk_obs_memory_session;
+DROP INDEX IF EXISTS idx_obs_content_hash;
+ALTER TABLE mem_observations DROP COLUMN IF EXISTS content_hash;
 DELETE FROM flyway_schema_history WHERE version = '8';
 ```
+
+> **执行前务必先确认当前代码。** V8 新增的 `content_hash` 列并非历史遗留——
+> `ObservationRepository.findDuplicateByContentHash` 与 `AgentService` 都在用它做
+> observation 去重，删掉该列会直接破坏写入链路。另外，V8 建的 `fk_obs_memory_session`
+> 约束早已被 `V13__unify_session_id_on_content_session.sql` 删除并改用
+> `content_session_id` 模型，因此上面第一条语句实际上是空操作，schema 也早已不是
+> V8 执行后的状态。请优先使用备份恢复。
 
 ---
 

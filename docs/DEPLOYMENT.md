@@ -383,18 +383,41 @@ SELECT * FROM flyway_schema_history ORDER BY installed_rank;
 
 ### 4.4 Rollback Strategy
 
-Flyway Community Edition does not support automatic rollback. Recommended strategy:
+Flyway Community Edition does not support automatic rollback, and **this repository
+ships no rollback scripts** — each inverse DDL has to be written against that
+specific migration in `backend/src/main/resources/db/migration/`.
+
+For most situations the safe path is to restore the backup taken in step 1
+rather than to hand-undo a migration:
 
 ```bash
-# 1. Backup database
+# 1. Back up first — always do this before touching schema
 docker exec cortex-ce-postgres pg_dump -U postgres claude_mem > backup_$(date +%Y%m%d).sql
 
-# 2. Manual rollback SQL
-psql -U postgres -d claude_mem < rollback_V8.sql
+# 2. Restore if the migration needs to be undone
+docker exec -i cortex-ce-postgres psql -U postgres claude_mem < backup_20260101_000000.sql
+```
 
-# 3. Update Flyway history
+If you really do need to reverse a migration, work from the migration file itself —
+it is the only record of what was applied. The example below is what reversing
+`V8__add_observation_content_hash.sql` would involve, and the two warnings are why
+this is not a mechanical procedure:
+
+```sql
+-- The inverse of V8, per backend/src/main/resources/db/migration/V8__add_observation_content_hash.sql
+ALTER TABLE mem_observations DROP CONSTRAINT IF EXISTS fk_obs_memory_session;
+DROP INDEX IF EXISTS idx_obs_content_hash;
+ALTER TABLE mem_observations DROP COLUMN IF EXISTS content_hash;
 DELETE FROM flyway_schema_history WHERE version = '8';
 ```
+
+> **Do not apply the above without checking the current code first.** V8's
+> `content_hash` column is not historical — `ObservationRepository.findDuplicateByContentHash`
+> and `AgentService` use it for observation deduplication, so dropping the column
+> breaks ingestion. And V8's `fk_obs_memory_session` constraint was already dropped
+> by `V13__unify_session_id_on_content_session.sql`, which replaced it with the
+> `content_session_id` model — so the first statement is a no-op and the schema no
+> longer matches what V8 produced. Prefer restoring a backup.
 
 ---
 
