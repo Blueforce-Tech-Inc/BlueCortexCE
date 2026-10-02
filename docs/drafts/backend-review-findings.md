@@ -16,6 +16,9 @@
 > 与双语 API 文档），已在**注解与文档层**修复并复测；**后端本身仍不校验**未知模板名，
 > 返回 400 属对外契约变更，留待后续决策。
 > P2 Open 计数仍为 2（P2-8、P2-10）。
+> 第 189 轮新增 P2-12（`MemoryRefineService.deepRefineProjectMemories` 无调用方，
+> 且其注释谎称自己由 SessionEnd 与定时任务共同触发——正是第 187 轮那处「定时抽取」
+> 虚构描述的代码侧残留），注释已改为如实说明，方法与配置键均**刻意不动**，记为已处理。
 > **Open 只统计尚未处理的条目**（⏸已记录不修 / 📌待修）。标记为 ✅已修复 或 ✅已跳过 的条目
 > 保留在本文件作为可追溯的历史，但**不计入** Open。
 > P1-2（导入端点把校验失败报成成功跳过）已于 2026-10-02 第 166 轮 Backend 集中修复并复测通过，
@@ -407,6 +410,31 @@
   （`sessionId`/`extractedData`/`createdAt`/`observationId` 均为 `null`）——处理器返回的是
   同一个 `GetLatestExtractionResponse` record，只是把四个构造参数置空，故这些键出现在
   JSON 中而非被省略。
+
+### P2-12: `deepRefineProjectMemories` 无调用方，且其注释谎称自己有两个触发点
+
+- **Scope**: `backend/.../service/MemoryRefineService.java:203`（方法）与 `:238-240`（注释）。
+- **Problem**: 该方法在**全代码库没有任何调用方**。除自身定义外，仅有两处提到它，
+  且都是 `StructuredExtractionService` 的**注释**（第 113、120 行），把
+  `tryExecuteWithProjectLock` 与它并列为 `projectLocks` 的两个加锁点。
+  真正可达的是 `tryExecuteWithProjectLock`（由
+  `StructuredExtractionService.reExtractForSession` 在 `SessionController:327`
+  经 `PATCH /api/session/{id}/user` 调用）。
+  让它显得像活代码的是方法体内那句注释——
+  「deepRefineProjectMemories is triggered from both SessionEnd hook and scheduled
+  task」——**这句是假的**。定时任务 `scheduledRefineAll` 调的是 `quickRefine`，
+  不是它；`quickRefine` 的唯一调用方也正是 `scheduledRefineAll`。
+  第 187 轮已据此修正六份设计文档里「定时抽取」的虚构描述，本条是同一问题的代码侧残留。
+- **为什么值得记而不只是删掉**: 方法体本身写得没问题——它最后确实调用
+  `runExtraction`，代码审查时看这一段会认为「触发器 1 存在」。问题在于没人调用它，
+  所以第 184 轮那类「顺着方法体核对文档」的检查根本不会发现这一层。
+- **Status**: ✅ **部分修复**（2026-10-03，第 189 轮 Backend 轮）。
+  注释已改写为如实说明「本方法当前无调用方」、指出原注释为何不实、列出真正可达的路径，
+  并说明其中的 `0.6f` 与活路径 `findRefineCandidates` 里的另一处 `0.6f` 都不可配置。
+  **刻意不删方法、不加配置键**：删除会让 `StructuredExtractionService` 的两处注释指向空气；
+  而新增配置键属**对外契约变更**——`docs/DEPLOYMENT.md` §5.5 与 ZH 版**已经准确记录**
+  「`MemoryRefineService.findStaleObservations` 中另有一处字面量 `0.6`……不由本值驱动」，
+  加键反而要求改写这两处已正确的文档。P2 Open 计数仍为 2（P2-8、P2-10），本条记为已处理。
 
 ## Processing Rules
 
