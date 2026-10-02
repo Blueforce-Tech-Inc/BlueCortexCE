@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: JS/TS SDK (2026-10-02 11:11, round 137 per `patrol-state.json`) — npm package now ships README-zh-CN.md; 30 DTO types and dual CJS/ESM output verified; LICENSE copyright divergence raised for a user decision
-**Next up**: Java SDK (new rotation cycle)
+**Last completed**: Java SDK (2026-10-02 11:14, round 138, new cycle) — SearchRequest DTO validation, CortexSessionContext lifecycle and bridge-advisor begin/end pairing all verified; 174 Java SDK tests green
+**Next up**: Go SDK
 
 ## History
 | DateTime | Direction | Findings |
@@ -214,3 +214,4 @@
 | 2026-10-02 11:01 | Go SDK | ✅ Round 135: fixed silent truncation in `doRequest` — a >10MB response used to surface as a misleading JSON parse error and now returns an explicit size-limit error (test updated to the new contract); gofmt/vet clean, 255 test funcs pass, Go Demo E2E 39/39; SDK READMEs for Go (25 methods + 8 option defaults + 4 wire-format claims), Python (25 methods + exception types) and JS (25 methods + HTTP mappings) all verified against source with no changes; regression 45/0/1 + EXTRACTION 25/0/0, baseline advanced to `77787ed` / `a5efd8b8…`; next direction is Python SDK |
 | 2026-10-02 11:06 | Python SDK | ✅ Round 136: no code defect found — retry (429/502/503/504 + network), exception mapping (12 types) and wire format (`cwd`/`tool_name`/`extractedData`) verified identical to Go; 374 unit tests + 28/28 SDK E2E; closed the long-standing API-doc EN/ZH heading-style pending item by documenting the deliberate difference in both files (endpoint sets re-verified EN==ZH); docs-only so acceptance skipped on unchanged fingerprint `a5efd8b8…`; next direction is JS/TS SDK |
 | 2026-10-02 11:11 | JS/TS SDK | ✅ Round 137: `package.json` files array omitted README-zh-CN.md, so the published npm tarball had no Chinese docs — added and verified with `npm pack --dry-run` (9 → 10 files); tsc clean, 212 Vitest tests, build OK, js-sdk-e2e-test.sh 27/27; 30 DTO types, dual CJS/ESM/DTS output and wire format (`cwd`/`tool_name`/`extractedData`) verified identical to Go/Python; regression 45/0/1 + EXTRACTION 25/0/0, baseline advanced to `d97f424` / `6e8789d5…`; open question for the user: js-sdk LICENSE says "Blueforce Tech Inc", root LICENSE says "Cortex Community Edition Contributors"; next cycle starts at Java SDK |
+| 2026-10-02 11:14 | Java SDK | ✅ New cycle, round 138: no defect found — SearchRequest fail-fast validation (limit bounds, offset unbounded by design, blank orderBy nullified, each with rationale comments), CortexSessionContext ThreadLocal cleanup and safe defaults, and every production `begin()` call site confirmed to use the two-arg overload with try/finally `end()`; `mvn test` 174 tests green across client/spring-ai/starter; no code change so acceptance skipped on unchanged fingerprint `6e8789d5…`; next direction is Go SDK |
