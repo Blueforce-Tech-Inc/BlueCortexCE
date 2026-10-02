@@ -718,7 +718,7 @@ mvn clean install -DskipTests
 - **条件 Bean**：Advisor、AOP 切面和健康检查指示器仅在其依赖（Spring AI、AOP、Actuator）在 classpath 上时注册。
 - **Spring AI 1.1**：使用 `CallAdvisor` / `StreamAdvisor` 和 `ChatClientRequest`（非旧版 `CallAroundAdvisor`）。
 - **无响应体大小上限**：客户端使用 Spring 6 的 `RestClient`（底层为 `java.net.http.HttpClient`），它会一次性反序列化整个响应体，因此超大响应只受堆内存约束。Go 与 JS SDK 把上限设为 10 MiB 并抛出明确错误，本 SDK 没有这样做。在检索或批量列出大量 observation 时，请把 `limit` 控制得小一些。
-- **流式（`StreamAdvisor`）不做会话传播**：`CortexSessionContext` 是普通 `ThreadLocal`，而流式模型调用运行在不同于 advisor 调用线程的线程上。两个后果：流式下 `@Tool` 自动捕获被**静默跳过**；且调用线程上的会话上下文不会被释放（该线程池线程后续处理的请求可能被归到上一个会话）。这影响 `CortexSessionContextBridgeAdvisor` 与 `ChatClient.stream()` 的组合。若需要 `@Tool` 自动捕获，请改用同步的 `.call()`——它完全运行在调用线程上，不受影响。已记录为 [`docs/drafts/backend-review-findings.md`](../docs/drafts/backend-review-findings.md) 的 P1-1。
+- **流式（`StreamAdvisor`）不做会话传播**：`CortexSessionContext` 是普通 `ThreadLocal`，而流式模型调用运行在不同于 advisor 调用线程的线程上。三个后果：流式下 `@Tool` 自动捕获被**静默跳过**；调用线程上的会话上下文不会被释放（该线程池线程后续处理的请求可能被归到上一个会话）；以及两个 `@Tool` **读**方法——`searchMemories` 与 `getMemoryContext`——会回落到配置的 `cortex.mem.project-path`，而不是当前会话真实所属的项目，**且不打任何日志**。第三条值得展开，因为两种结果都不会自我暴露：若配置了 `project-path`，Agent 会被喂进**另一个项目**的记忆并当成当前对话的历史；若未配置，工具会发出空项目，后端返回 `200` 加空列表，工具于是报告「No relevant past experiences found」——与该项目确实没有历史**无法区分**。活体实测：`POST /api/memory/experiences` 传 `project: ""` 返回 `200 []`，同一请求传真实项目路径返回 5 条经验。这影响 `CortexSessionContextBridgeAdvisor` 与 `ChatClient.stream()` 的组合。若需要 `@Tool` 自动捕获，请改用同步的 `.call()`——它完全运行在调用线程上，不受影响。已记录为 [`docs/drafts/backend-review-findings.md`](../docs/drafts/backend-review-findings.md) 的 P1-1。
 
 ## 相关链接
 
