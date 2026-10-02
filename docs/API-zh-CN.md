@@ -1807,6 +1807,20 @@ curl http://localhost:37777/api/modes
 |------|------|--------|------|
 | `lines` | int | 1000 | 返回的最大行数 |
 
+`lines` 会被**静默钳制到 1–10000**，越界值不是错误——不会返回 `400`。
+对运行中的后端实测：
+
+| 请求 | `returnedLines` |
+|------|-----------------|
+| `?lines=0` | 1 |
+| `?lines=-5` | 1 |
+| `?lines=50000` | 10000 |
+| `?lines=3` | 3 |
+
+响应中的 `returnedLines` 是实际返回的行数，且**永远不超过**钳制后的 `lines`。
+`totalLines` 统计的是被搜索文件的全部行数，可能不止一个文件：该端点优先读今天的
+日志，只有当今天的行数不足时才回退到昨天；`files` 数组列出实际读取了哪些文件。
+
 **请求示例**:
 ```bash
 curl "http://localhost:37777/api/logs?lines=500"
@@ -2533,6 +2547,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
+| 2026-10-02 | (unreleased) | GET `/api/logs`：补充此前完全未记录的 `lines` 钳制行为。`LogsController` 中为 `Math.min(Math.max(1, lines), 10000)`，因此越界值会被静默钳制、**从不返回 `400`**——实测：`?lines=0` 与 `?lines=-5` 均返回 `returnedLines: 1`，`?lines=50000` 返回 `10000`，`?lines=3` 返回 `3`。同时说明 `returnedLines` 永远不超过钳制后的 `lines`，以及 `totalLines` 统计的是被搜索文件的全部行数（可能不止一个文件：该端点优先读今天的日志，仅当今天行数不足时才回退到昨天，`files` 列出实际读取的文件）。本条初稿曾写「跨日时 `returnedLines` 可能超过 `lines`」，读控制器后发现不成立（`subList(size - validatedLines, size)` 已将其限制住），遂删除而非发布。 |
 | 2026-10-02 | (unreleased) | **行为变更：四个单记录导入端点现在把校验失败计入 `errors`，不再计入 `skipped`。** `ImportResult` 有三个工厂（`imported`、`duplicate`、`error`），而 `ImportController` 只按 `imported()` 分支，于是 `error()` 落进了 skip 计数，而 `errors`/`errorMessages` **只接收抛出的异常**。同一类失败因此仅因「抛出」还是「返回」而被报告成两种完全不同的样子。修复前实测：字段未绑定的载荷返回 `{"success":true,"imported":0,"skipped":1,"errors":0,"errorMessages":[]}`，而那条记录已被静默丢弃。现新增 `ImportResult.isError()` 以 `id() == null` 区分（只有 `error()` 不设 id），四处调用点全部改为按它分支。修复后实测：`{"success":true,"imported":0,"skipped":0,"errors":1,"errorMessages":["projectPath is required"]}`。真正的重复**行为不变**，仍计为 skipped。另补：`importSession` 与 `importSummary` 现在校验 `projectPath`（两张表上均为 NOT NULL），缺字段时返回点名该字段的消息，而不是 `Could not commit JPA transaction` 或原始的 PostgreSQL 约束错误。三个计数的语义已补进「Import Observations」小节——正是这个空白让该缺陷长期存活。对 WebUI 零影响：`webui` 的 `POST /api/import` 是写入自有 SQLite store 的独立 worker 路由，从不调用这些端点。 |
 | 2026-10-02 | (unreleased) | **实跑核验后修正观察记录响应的字段表。** (1) `facts`、`concepts`、`files_read`、`files_modified` 原标注为 `string[]`，但后端把这些 JSONB 列序列化为 **JSON 编码的字符串**（`"concepts": "[\"auth\"]"`），已用 POST/GET 往返验证。`refined_from_ids` 当时也被归入这一组，但它**不是** JSONB 列——它是存放逗号分隔 UUID 的 `TEXT` 列，见下一条更正。(2) 响应字段原写作 `session_id`，实际 wire 键为 `content_session_id`（V13 `@JsonProperty` 覆盖）——请求侧的 `session_id` 别名仍然有效，未改动；(3) 补齐 10 个线上实际返回但表中缺失的字段：`content_hash`、`discovery_tokens`、`relevance_count`、`generated_by_model`、`step_number`、`embedding_model_id` 及三个 `embedding_*` 向量列。另修正两处响应示例。`POST /api/ingest/observation` 的**请求**侧确实接受真实数组，保持原样未动。该错误类型正是同轮修复的 Python SDK 缺陷的文档根因——它只解析真实数组，因而这些字段一律被读成 `[]` |
 | 2026-10-02 | (unreleased) | **更正 `refined_from_ids`——上一条把它与四个 JSONB 列归为一类。** V11 中声明为 `refined_from_ids TEXT`（`COMMENT ON COLUMN … IS 'Comma-separated IDs of merged observations'`），后端唯一的写入方是 `ExtractionStorageService`，用的是 `Collectors.joining(",")` 且从不 JSON 编码；活体抽取记录也证实了这一点：该记录的 wire 值用 `json.loads()` 解析会在第一个 UUID 处抛 `JSONDecodeError`，而同一条记录的 `concepts` 则能正常解码。类型 `string \| null` 本来就对，错的是描述里的「JSON 编码数组」，且与上方三行的示例自相矛盾。这也一并更正了同一天刚写进 `ARCHITECTURE.md`/`ARCHITECTURE-zh-CN.md` 的说法。该错误描述是有代价的：Go SDK 的 `StringList` 假定所有列表列要么是 JSON、要么是 JSON 编码数组，因此只要有一条记录带 `refined_from_ids`，整页观察记录就无法反序列化（同轮已修） |
