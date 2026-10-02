@@ -84,7 +84,7 @@ client.close();
 | `baseURL` | `http://127.0.0.1:37777` | 后端 URL |
 | `apiKey` | — | Bearer Token 认证 |
 | `timeout` | `30000` | 请求超时（毫秒） |
-| `maxRetries` | `3` | Fire-and-forget 操作最大重试次数 |
+| `maxRetries` | `3` | Fire-and-forget 操作的总**尝试**次数（3 = 发 3 次请求，即首次之后的 2 次重试） |
 | `retryBackoff` | `500` | 基础重试退避（毫秒） |
 | `logger` | 空操作 | 自定义日志器 |
 | `fetch` | 全局 `fetch` | 自定义 fetch 实现 |
@@ -201,6 +201,13 @@ SDK 使用与后端 API 完全一致的 JSON 字段名。字段命名因端点�
 
 **Feedback：**
 - `observationId`、`feedbackType` (camelCase) — `FeedbackRequest`
+
+**Observation（读取）—— JSONB 列表列：**
+无论线上以何种形态到达，`facts`、`concepts`、`filesRead`、`filesModified`、
+`refinedFromIds` 始终以 `string[]` 返回。这一点不是推测：后端为 WebUI 把这些
+JSONB 列序列化成 **JSON 编码的字符串**，因此线上的一条 observation 到达时是
+`concepts: '["allergy","peanut"]'`，而不是 JSON 数组。解析器两种形态都能处理；
+若字符串不是合法 JSON，则按逗号切分降级。
 
 详见 [JS SDK 设计文档](../../docs/drafts/js-sdk-design.md)。
 

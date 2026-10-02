@@ -20,7 +20,12 @@ export interface CortexMemClientOptions {
   /** Request timeout in milliseconds (default: 30000) */
   timeout?: number;
 
-  /** Maximum retries for fire-and-forget operations (default: 3) */
+  /**
+   * Total attempts for fire-and-forget operations (default: 3).
+   * Despite the name this counts attempts, not retries: 3 means three requests
+   * at most, i.e. two retries after the first. Values below 1 are raised to 1.
+   * Matches Python's "Attempts" wording and the Java SDK's maxAttempts property.
+   */
   maxRetries?: number;
 
   /** Base retry backoff in milliseconds (default: 500, minimum: 100). Matches Go/Python SDK. */

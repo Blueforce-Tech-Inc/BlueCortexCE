@@ -2,7 +2,7 @@
 // Observation DTOs
 // ============================================================
 
-import { safeString, safeStringOr, safeNumber, safeStringArray, safeRecord, safeStringOrStringList, firstNonNullOr } from './wire-helpers';
+import { safeString, safeStringOr, safeNumber, safeRecord, safeStringOrStringList, firstNonNullOr } from './wire-helpers';
 
 /**
  * Request to record a tool-use observation.
@@ -108,10 +108,15 @@ export function parseObservation(raw: Record<string, unknown>): Observation {
     title: safeString(raw.title),
     subtitle: safeString(raw.subtitle),
     content: safeStringOr(firstNonNullOr(raw, ['narrative', 'content']), ''),
-    facts: safeStringArray(raw.facts),
-    concepts: safeStringArray(raw.concepts),
-    filesRead: safeStringArray(firstNonNullOr(raw, ['files_read', 'filesRead'])),
-    filesModified: safeStringArray(firstNonNullOr(raw, ['files_modified', 'filesModified'])),
+    // facts/concepts/files_read/files_modified are JSONB columns that the
+    // backend serializes as JSON-encoded *strings* for the WebUI, so a live
+    // observation carries concepts: "[\"auth\"]" rather than a JSON array.
+    // safeStringArray only accepts real arrays and returned undefined for these,
+    // silently dropping the data. safeStringOrStringList handles both shapes.
+    facts: safeStringOrStringList(raw.facts),
+    concepts: safeStringOrStringList(raw.concepts),
+    filesRead: safeStringOrStringList(firstNonNullOr(raw, ['files_read', 'filesRead'])),
+    filesModified: safeStringOrStringList(firstNonNullOr(raw, ['files_modified', 'filesModified'])),
     qualityScore: safeNumber(firstNonNullOr(raw, ['quality_score', 'qualityScore'])),
     feedbackType: safeString(firstNonNullOr(raw, ['feedback_type', 'feedbackType'])),
     feedbackUpdatedAt: safeString(firstNonNullOr(raw, ['feedback_updated_at', 'feedbackUpdatedAt'])),

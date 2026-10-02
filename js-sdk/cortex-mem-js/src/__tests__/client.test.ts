@@ -1146,6 +1146,39 @@ describe('CortexMemClient', () => {
       });
       expect(callCount).toBe(3);
     });
+
+    // maxRetries counts total attempts, not retries after a first try — the
+    // option's name is misleading, so pin the behaviour rather than let a
+    // future "fix" silently change how many requests a failing capture sends.
+    // Matches Go, Python ("Attempts") and the Java SDK's maxAttempts property.
+    it('maxRetries should count total attempts, not retries', async () => {
+      for (const [max, wantCalls] of [[1, 1], [2, 2], [3, 3]] as const) {
+        let callCount = 0;
+        const always503 = vi.fn().mockImplementation(() => {
+          callCount++;
+          return Promise.resolve({
+            status: 503,
+            body: null,
+            text() { return Promise.resolve('{"error":"service unavailable"}'); },
+          });
+        });
+
+        const c = new CortexMemClient({
+          fetch: always503 as unknown as typeof globalThis.fetch,
+          maxRetries: max,
+          retryBackoff: 1,
+        });
+
+        // recordObservation is fire-and-forget: it swallows the error, so the
+        // call count is the only observable outcome.
+        await c.recordObservation({
+          session_id: 'sess-1',
+          cwd: '/tmp',
+          tool_name: 'Read',
+        });
+        expect(callCount).toBe(wantCalls);
+      }
+    });
   });
 
   // ==================== Lifecycle ====================
@@ -1316,6 +1349,49 @@ describe('parseObservation', () => {
     expect(obs.feedbackType).toBe(raw.feedback_type);
   });
 
+  // The fixture above uses real arrays, which is not what the backend sends.
+  // mem_observations' JSONB columns are serialized as JSON-encoded strings for
+  // the WebUI, so a live observation carries concepts: "[\"auth\"]". Parsing
+  // those with safeStringArray returned undefined, silently dropping the data —
+  // and unlike the Python SDK, the caller could not even tell "no concepts"
+  // from "parse failed". This is the shape the backend actually sends, so a
+  // hand-written array fixture would have passed either way.
+  it('should parse JSONB list fields sent as JSON-encoded strings', () => {
+    const obs = parseObservation({
+      id: '6ba7da76-4e53-4c45-8b7d-b4dd2c3c5bfc',
+      content_session_id: 'test-hook-002',
+      project: '/tmp/phase3-acceptance-test',
+      narrative: 'Testing hook mode compatibility',
+      facts: '["step one","step two"]',
+      concepts: '["allergy","peanut"]',
+      files_read: '["a.py","b.py"]',
+      files_modified: '["c.py"]',
+      refined_from_ids: '["11111111-1111-1111-1111-111111111111"]',
+    });
+    expect(obs.facts).toEqual(['step one', 'step two']);
+    expect(obs.concepts).toEqual(['allergy', 'peanut']);
+    expect(obs.filesRead).toEqual(['a.py', 'b.py']);
+    expect(obs.filesModified).toEqual(['c.py']);
+    expect(obs.refinedFromIds).toEqual(['11111111-1111-1111-1111-111111111111']);
+    // Scalars from the same body must keep working.
+    expect(obs.projectPath).toBe('/tmp/phase3-acceptance-test');
+    expect(obs.content).toBe('Testing hook mode compatibility');
+  });
+
+  it('should still accept real arrays for the JSONB list fields', () => {
+    const obs = parseObservation({
+      id: 'o1',
+      facts: ['a'],
+      concepts: ['b'],
+      files_read: [],
+      files_modified: null,
+    });
+    expect(obs.facts).toEqual(['a']);
+    expect(obs.concepts).toEqual(['b']);
+    expect(obs.filesRead).toEqual([]);
+    expect(obs.filesModified).toBeUndefined();
+  });
+
   it('should handle missing optional fields', () => {
     const obs = parseObservation({ id: 'o1' });
     expect(obs.id).toBe('o1');
@@ -1372,7 +1448,12 @@ describe('parseObservation', () => {
       quality_score: '0.85', // string instead of number
       prompt_number: '42',   // string instead of number
       created_at_epoch: '1700000000', // string instead of number
-      facts: 'not-an-array', // string instead of array
+      // A string is deliberately NOT used as the "wrong type" example for
+      // facts: the backend really does send these JSONB columns as JSON-encoded
+      // strings, so treating a string as garbage is what caused the data loss.
+      // Shapes that are neither a list nor a string still degrade to undefined.
+      facts: 42,          // number instead of array or string
+      concepts: { a: 1 }, // object instead of array or string
     };
 
     const obs = parseObservation(raw);
@@ -1380,7 +1461,8 @@ describe('parseObservation', () => {
     expect(obs.qualityScore).toBe(0.85);
     expect(obs.promptNumber).toBe(42);
     expect(obs.createdAtEpoch).toBe(1700000000);
-    expect(obs.facts).toBeUndefined(); // non-array → undefined
+    expect(obs.facts).toBeUndefined(); // neither array nor string → undefined
+    expect(obs.concepts).toBeUndefined();
   });
 
   it('should handle NaN in numeric fields', () => {

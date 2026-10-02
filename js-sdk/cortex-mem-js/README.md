@@ -84,7 +84,7 @@ client.close();
 | `baseURL` | `http://127.0.0.1:37777` | Backend URL |
 | `apiKey` | — | Bearer token for auth |
 | `timeout` | `30000` | Request timeout (ms) |
-| `maxRetries` | `3` | Max retries for fire-and-forget ops |
+| `maxRetries` | `3` | Total **attempts** for fire-and-forget ops (3 = 3 requests, i.e. 2 retries) |
 | `retryBackoff` | `500` | Base retry backoff (ms) |
 | `logger` | no-op | Custom logger |
 | `fetch` | global `fetch` | Custom fetch implementation |
@@ -203,6 +203,14 @@ The SDK uses JSON field names that match the backend API exactly. Field naming v
 
 **Feedback:**
 - `observationId`, `feedbackType` (camelCase) — `FeedbackRequest`
+
+**Observation (read) — JSONB list columns:**
+`facts`, `concepts`, `filesRead`, `filesModified` and `refinedFromIds` are always
+returned as `string[]`, whichever way they arrive on the wire. That last point is
+not a guess: the backend serializes those JSONB columns as **JSON-encoded strings**
+for the WebUI, so a live observation carries `concepts: '["allergy","peanut"]'`
+rather than a JSON array. The parser decodes both shapes; a string that is not
+valid JSON degrades to a comma-separated split.
 
 See [JS SDK Design Document](../../docs/drafts/js-sdk-design.md) for architecture and implementation details.
 
