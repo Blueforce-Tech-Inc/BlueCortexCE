@@ -1,8 +1,11 @@
 /**
  * Cortex CE JS SDK — Demo HTTP Server (Express).
  *
- * Exposes 26 REST endpoints covering all 25 public SDK API methods (plus /health),
- * mirroring the Go http-server and Python Flask demos.
+ * Exposes 26 REST endpoints, which together cover all 25 public SDK API methods:
+ * buildICLPrompt is reachable from two of them (/chat and /iclprompt), and close()
+ * is a lifecycle method with no route. /health is one of the 26 and is what maps to
+ * healthCheck() — it is not in addition to them.
+ * Mirrors the Go http-server and Python Flask demos.
  *
  * Usage:
  *   npm install express
@@ -126,11 +129,20 @@ app.get('/search', asyncHandler(async (req: Request, res: Response) => {
   const type = req.query.type as string | undefined;
   const concept = req.query.concept as string | undefined;
   const source = req.query.source as string | undefined;
-  const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
-  const offset = req.query.offset ? parseInt(req.query.offset as string, 10) : undefined;
+  // Use the same strict helper as the other handlers: a bare parseInt accepts
+  // trailing garbage ("10abc" -> 10), so this used to be the only endpoint in
+  // the file that answered 200 where /observations, /extraction/history and
+  // /iclprompt all answered 400 for the same input.
+  const limit = parseIntParam(req.query.limit, 'limit', { min: 0, max: 100 });
+  if (!limit.ok) return errorJson(res, 400, limit.message);
+  const offset = parseIntParam(req.query.offset, 'offset', {
+    min: 0,
+    max: Number.MAX_SAFE_INTEGER,
+    range: 'non-negative',
+  });
+  if (!offset.ok) return errorJson(res, 400, offset.message);
+
   const orderBy = (req.query.orderBy as string) || undefined;
-  if (limit !== undefined && (isNaN(limit) || limit < 0 || limit > 100)) return errorJson(res, 400, 'limit must be between 0 and 100');
-  if (offset !== undefined && (isNaN(offset) || offset < 0)) return errorJson(res, 400, 'offset must be non-negative');
 
   const result = await client.search({
     project,
@@ -138,8 +150,8 @@ app.get('/search', asyncHandler(async (req: Request, res: Response) => {
     ...(type && { type }),
     ...(concept && { concept }),
     ...(source ? { source } : {}),
-    ...(limit !== undefined && { limit }),
-    ...(offset !== undefined && { offset }),
+    ...(limit.value > 0 && { limit: limit.value }),
+    ...(offset.value > 0 && { offset: offset.value }),
     ...(orderBy && { orderBy }),
   });
   res.json(result);
