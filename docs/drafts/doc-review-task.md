@@ -7,8 +7,8 @@
 ## Current Review Rotation
 
 - **轮换顺序**: API 文档 → SDK README → 设计文档 → 架构文档 → 用户指南
-- **最近完成**: 用户指南（2026-10-02 六十二轮，`go-sdk-demo-guide.md` 端口全错：称 Demo 起于 8080 并给出 29 处 `localhost:8080` curl，而 `main.go` 从 `PORT` 读端口、默认 37779，且 How to Run 从未提及 `PORT`；故障排查段更声称「硬编码 8080」并要求改源码 `addr` 变量，实际端口可由环境变量配置。已全部改为 37779 并补环境变量说明、修正启动横幅、改为设环境变量而非改源码。改前核实：24 个 mux.HandleFunc 路由与「All 24 Endpoints」完全一致、Demo 调用的方法恰好是 Client 接口全部 27 个、开篇「exposing all 27 SDK methods as REST endpoints」措辞不严谨（25 个 API 方法分布在 24 条路由，Close/String 无路由）已改写；Go Demo 自身 README 早已全程 37779，现两文档一致；679 行、130 围栏（偶数）、无残缺表格行，剩余 3 处 8080 均为有意的替代端口示例）
-- **下一方向**: 架构文档（六十三轮）
+- **最近完成**: 架构文档（2026-10-02 六十三轮，「Java 21+ Features Used」整段三段代码片段全部虚构：名为 `ObservationDto` 的 record 不存在、`instanceof ObservationEntity` 全仓库无此写法、文本块提示词实际是 `src/main/resources/prompts/*.txt` 外部资源（唯一在 Java 内拼装的 `SummaryGenerationService:108` 用字符串拼接）。已全部换成真实代码并标注文件行号。虚构的 `ObservationDto` 还把 `facts`/`concepts` 建模为 `List<String>`，正是第 157–158 轮跨三 SDK 修掉的 wire 形状——照抄会重新踩坑，故两版都补上经核实的「四个 JSONB 列在 wire 上是 JSON 编码字符串」说明，并说明这是承重契约而非缺陷；「语义搜索」下新增 Wire format 小节让交叉引用成立（先核实该小节原本不存在，否则是我自造的死链）。顺带核实无误：Java 21、Spring Boot 3.3.13、`pgvector/pgvector:pg16`、Node/axios、MCP 传输表与五个工具名均与 `application.yml` 及 `mcp/` 源码一致；Thin Proxy 性能表标注为 Target 而非实测，不构成可证伪声明。两版各 49 标题、层级逐位一致、围栏平衡、所有页内锚点可解析——校验器首轮报 4 个死锚点，查证后确认是脚本假阳性（GitHub slug 不合并连续空格，`Proxy + Fat` → `proxy--fat`））
+- **下一方向**: API 文档（六十四轮）
 - **新增待决**: `docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分
 - **Pending 状态**: 文档问题清单已清空（0 项待处理）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
