@@ -1056,6 +1056,125 @@ func TestStringList_FromEmptyArrayString(t *testing.T) {
 	}
 }
 
+func TestStringList_FromCommaSeparatedString(t *testing.T) {
+	// mem_observations.refined_from_ids is a TEXT column, not JSONB: the backend
+	// writer does Collectors.joining(",") and never JSON-encodes it. This is the
+	// real wire shape, captured from a live extraction observation.
+	var sl StringList
+	wire := `"8f1bfe7f-cae0-4841-ae44-b041b59e70b9,2a6b27bc-6cec-408e-a37e-a71dbb461fb1,b1c34590-c32a-4c22-b7b7-e854039076c2"`
+	if err := json.Unmarshal([]byte(wire), &sl); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	want := []string{
+		"8f1bfe7f-cae0-4841-ae44-b041b59e70b9",
+		"2a6b27bc-6cec-408e-a37e-a71dbb461fb1",
+		"b1c34590-c32a-4c22-b7b7-e854039076c2",
+	}
+	if len(sl) != len(want) {
+		t.Fatalf("expected %d ids, got %d (%v)", len(want), len(sl), sl)
+	}
+	for i := range want {
+		if sl[i] != want[i] {
+			t.Errorf("id[%d]: expected %s, got %s", i, want[i], sl[i])
+		}
+	}
+}
+
+func TestStringList_SingleCommaSeparatedValue(t *testing.T) {
+	var sl StringList
+	if err := json.Unmarshal([]byte(`"8f1bfe7f-cae0-4841-ae44-b041b59e70b9"`), &sl); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if len(sl) != 1 || sl[0] != "8f1bfe7f-cae0-4841-ae44-b041b59e70b9" {
+		t.Errorf("expected one id, got %v", sl)
+	}
+}
+
+func TestStringList_CommaSeparatedTrimsAndDropsEmpties(t *testing.T) {
+	var sl StringList
+	if err := json.Unmarshal([]byte(`" a , ,b ,"`), &sl); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if len(sl) != 2 || sl[0] != "a" || sl[1] != "b" {
+		t.Errorf("expected [a b], got %v", sl)
+	}
+}
+
+func TestStringList_NeverErrorsOnUnrecognisedShape(t *testing.T) {
+	// A single list column arriving in an unexpected shape must not invalidate
+	// the whole enclosing struct: encoding/json aborts the entire observation as
+	// soon as one UnmarshalJSON returns an error, which is how a page of
+	// observations used to fail in full over one refined_from_ids value. Python,
+	// JS and Java all degrade to empty; Go must too.
+	for _, wire := range []string{`123`, `true`, `{"a":"b"}`, `"   "`, `","`} {
+		var sl StringList
+		if err := json.Unmarshal([]byte(wire), &sl); err != nil {
+			t.Errorf("StringList should not error on %s, got: %v", wire, err)
+		}
+		if len(sl) != 0 {
+			t.Errorf("StringList should degrade to empty for %s, got %v", wire, sl)
+		}
+	}
+}
+
+func TestObservation_RefinedFromIdsFromCommaSeparatedString(t *testing.T) {
+	// Regression: the real body of an extraction observation, with the four
+	// JSONB columns as JSON-encoded strings and refined_from_ids as plain
+	// comma-separated text. Before the fix this body failed to unmarshal and took
+	// the entire page of 100 observations down with it.
+	body := `{
+		"id": "6bbbc41a-d2a9-457f-b7e3-4534a067f2e3",
+		"content_session_id": "pref:3920f4f5:bob",
+		"project": "/tmp/phase3-acceptance-test",
+		"type": "extracted_user_preference",
+		"narrative": "structured extraction",
+		"facts": null,
+		"concepts": "[\"extraction\",\"user_preference\"]",
+		"files_read": null,
+		"files_modified": null,
+		"refined_from_ids": "8f1bfe7f-cae0-4841-ae44-b041b59e70b9,2a6b27bc-6cec-408e-a37e-a71dbb461fb1"
+	}`
+	var obs Observation
+	if err := json.Unmarshal([]byte(body), &obs); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if len(obs.RefinedFromIds) != 2 {
+		t.Errorf("expected 2 refined_from_ids, got %v", obs.RefinedFromIds)
+	}
+	// The JSONB columns on the same record must still decode correctly.
+	if len(obs.Concepts) != 2 || obs.Concepts[0] != "extraction" {
+		t.Errorf("expected concepts=[extraction user_preference], got %v", obs.Concepts)
+	}
+	if obs.Title != "" {
+		t.Errorf("sanity: unexpected title %q", obs.Title)
+	}
+}
+
+func TestObservationsResponse_ParsesPageContainingRefinedFromIds(t *testing.T) {
+	// The blast radius: one bad record used to fail the whole page.
+	page := `{"items":[
+		{"id":"a","content_session_id":"s","project":"/p","type":"tool-use","narrative":"x","refined_from_ids":null},
+		{"id":"b","content_session_id":"s","project":"/p","type":"extracted_user_preference","narrative":"y","refined_from_ids":"id-1,id-2,id-3"},
+		{"id":"c","content_session_id":"s","project":"/p","type":"tool-use","narrative":"z","concepts":"[\"k\"]"}
+	],"hasMore":true}`
+	var resp ObservationsResponse
+	if err := json.Unmarshal([]byte(page), &resp); err != nil {
+		t.Fatalf("page should parse even when a record carries refined_from_ids: %v", err)
+	}
+	if len(resp.Items) != 3 {
+		t.Fatalf("expected 3 items, got %d", len(resp.Items))
+	}
+	if resp.Items[0].RefinedFromIds != nil {
+		t.Errorf("null refined_from_ids should stay nil, got %v", resp.Items[0].RefinedFromIds)
+	}
+	if len(resp.Items[1].RefinedFromIds) != 3 {
+		t.Errorf("expected 3 ids on item b, got %v", resp.Items[1].RefinedFromIds)
+	}
+	if len(resp.Items[2].Concepts) != 1 {
+		t.Errorf("expected 1 concept on item c, got %v", resp.Items[2].Concepts)
+	}
+}
+
 func TestObservation_FactsFromStringEncodedJSON(t *testing.T) {
 	// Simulate backend response: facts is a JSON string containing an array
 	jsonData := `{"id":"obs-1","content_session_id":"sess-1","project":"/proj","type":"tool-use","narrative":"test","facts":"[\"fact1\",\"fact2\"]","concepts":"[\"concept1\"]"}`

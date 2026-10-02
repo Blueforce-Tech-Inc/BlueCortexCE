@@ -1383,7 +1383,7 @@ curl "http://localhost:37777/api/observations?project=/Users/dev/myproject&limit
 | `concepts` | string | 概念标签列表，**JSON 编码的字符串**，如 `"[\"auth\", \"jwt\"]"` |
 | `files_read` | string | 本次观察中读取的文件列表，**JSON 编码的字符串**，如 `"[]"` |
 | `files_modified` | string | 本次观察中修改的文件列表，**JSON 编码的字符串**，如 `"[]"` |
-| `refined_from_ids` | string \| null | 本条由精炼产生时为源观察 UUID 的 JSON 编码数组，否则为 `null` |
+| `refined_from_ids` | string \| null | 本条由精炼产生时为源观察 UUID 的**逗号分隔**串（如 `"obs-abc-123,obs-def-456"`），否则为 `null`。与上面四个字段不同，这是 `TEXT` 列而**非** JSONB——后端用 `,` 拼接 ID 且从不 JSON 编码，因此该值不是 JSON 编码数组 |
 | `content_hash` | string | 用于查重的内容哈希 |
 | `discovery_tokens` | int | 计入本条观察的 token 数（V17） |
 | `quality_score` | float | 精炼过程评定的质量分数（0.0–1.0） |
@@ -2501,7 +2501,8 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
-| 2026-10-02 | (unreleased) | **实跑核验后修正观察记录响应的字段表。** (1) `facts`、`concepts`、`files_read`、`files_modified`、`refined_from_ids` 原标注为 `string[]`，但后端把这些 JSONB 列序列化为 **JSON 编码的字符串**（`"concepts": "[\"auth\"]"`），已用 POST/GET 往返验证；(2) 响应字段原写作 `session_id`，实际 wire 键为 `content_session_id`（V13 `@JsonProperty` 覆盖）——请求侧的 `session_id` 别名仍然有效，未改动；(3) 补齐 10 个线上实际返回但表中缺失的字段：`content_hash`、`discovery_tokens`、`relevance_count`、`generated_by_model`、`step_number`、`embedding_model_id` 及三个 `embedding_*` 向量列。另修正两处响应示例。`POST /api/ingest/observation` 的**请求**侧确实接受真实数组，保持原样未动。该错误类型正是同轮修复的 Python SDK 缺陷的文档根因——它只解析真实数组，因而这些字段一律被读成 `[]` |
+| 2026-10-02 | (unreleased) | **实跑核验后修正观察记录响应的字段表。** (1) `facts`、`concepts`、`files_read`、`files_modified` 原标注为 `string[]`，但后端把这些 JSONB 列序列化为 **JSON 编码的字符串**（`"concepts": "[\"auth\"]"`），已用 POST/GET 往返验证。`refined_from_ids` 当时也被归入这一组，但它**不是** JSONB 列——它是存放逗号分隔 UUID 的 `TEXT` 列，见下一条更正。(2) 响应字段原写作 `session_id`，实际 wire 键为 `content_session_id`（V13 `@JsonProperty` 覆盖）——请求侧的 `session_id` 别名仍然有效，未改动；(3) 补齐 10 个线上实际返回但表中缺失的字段：`content_hash`、`discovery_tokens`、`relevance_count`、`generated_by_model`、`step_number`、`embedding_model_id` 及三个 `embedding_*` 向量列。另修正两处响应示例。`POST /api/ingest/observation` 的**请求**侧确实接受真实数组，保持原样未动。该错误类型正是同轮修复的 Python SDK 缺陷的文档根因——它只解析真实数组，因而这些字段一律被读成 `[]` |
+| 2026-10-02 | (unreleased) | **更正 `refined_from_ids`——上一条把它与四个 JSONB 列归为一类。** V11 中声明为 `refined_from_ids TEXT`（`COMMENT ON COLUMN … IS 'Comma-separated IDs of merged observations'`），后端唯一的写入方是 `ExtractionStorageService`，用的是 `Collectors.joining(",")` 且从不 JSON 编码；活体抽取记录也证实了这一点：该记录的 wire 值用 `json.loads()` 解析会在第一个 UUID 处抛 `JSONDecodeError`，而同一条记录的 `concepts` 则能正常解码。类型 `string \| null` 本来就对，错的是描述里的「JSON 编码数组」，且与上方三行的示例自相矛盾。这也一并更正了同一天刚写进 `ARCHITECTURE.md`/`ARCHITECTURE-zh-CN.md` 的说法。该错误描述是有代价的：Go SDK 的 `StringList` 假定所有列表列要么是 JSON、要么是 JSON 编码数组，因此只要有一条记录带 `refined_from_ids`，整页观察记录就无法反序列化（同轮已修） |
 | 2026-03-31 | 0.1.0-beta | 新增 Extraction (/run, /latest, /history)、Cursor、Mode、Logs、Import、Viewer 章节；修复 Session API 路径；同步英文版完整结构 |
 | 2026-03-31 | 0.1.0-beta+ | 补充 Viewer、Management、Mode、Health、Cursor、Logs 参数表和响应示例；同步英文版完整度 |
 | 2026-03-31 | 0.1.0-beta++ | 修正 Delete Observation 响应（200 OK with body，非 204 No Content）；同步英文版 Session Start 响应示例 |

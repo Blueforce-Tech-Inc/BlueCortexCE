@@ -670,7 +670,11 @@ LIMIT :limit;
 `files_modified`）返回的是 **JSON 编码的字符串**，不是 JSON 数组——
 `facts: "[\"allergy\",\"peanut\"]"`。`ObservationEntity` 通过标注 `@JsonProperty`、
 返回 `String` 的 getter 把它们暴露出去，供 TypeScript WebUI 调用 `JSON.parse`。
-`refined_from_ids` 行为相同。客户端必须先解码这个字符串，才能当作列表读取。
+客户端必须先解码这个字符串，才能当作列表读取。
+
+`refined_from_ids` 是例外：它是 `TEXT` 列而非 JSONB，返回的是**纯逗号分隔字符串**——
+`"uuid-1,uuid-2,uuid-3"`。它唯一的写入方是 `ExtractionStorageService`，用
+`Collectors.joining(",")` 构造，全程没有 JSON 这一层。
 
 ---
 

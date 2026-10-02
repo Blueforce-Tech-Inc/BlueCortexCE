@@ -669,8 +669,11 @@ LIMIT :limit;
 `files_read`, `files_modified`) come back as **JSON-encoded strings**, not JSON arrays —
 `facts: "[\"allergy\",\"peanut\"]"`. `ObservationEntity` exposes them through
 `@JsonProperty`-annotated getters returning `String` for the TypeScript WebUI, which calls
-`JSON.parse`. `refined_from_ids` behaves the same way. Clients must decode the string
-before reading it as a list.
+`JSON.parse`. Clients must decode the string before reading it as a list.
+
+`refined_from_ids` is the exception: it is a `TEXT` column, not JSONB, and comes back as a
+**plain comma-separated string** — `"uuid-1,uuid-2,uuid-3"`. `ExtractionStorageService` is its
+only writer and builds it with `Collectors.joining(",")`, so there is no JSON layer at all.
 
 ---
 

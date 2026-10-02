@@ -3,14 +3,26 @@ package dto
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
+	"strings"
 )
 
-// StringList is a []string that can unmarshal from both:
+// StringList is a []string that can unmarshal from any of the shapes the
+// backend uses for list-ish columns:
 //   - JSON array: ["a", "b"]
 //   - JSON string-encoded array: "[\"a\", \"b\"]" (backend serializes JSONB fields this way for WebUI)
+//   - comma-separated string: "a,b" (mem_observations.refined_from_ids is a TEXT
+//     column, not JSONB — the writer does Collectors.joining(",") — so it arrives
+//     as a bare comma-separated list of UUIDs)
 //
 // Marshal always produces a JSON array.
+//
+// It never returns an error. A single list column that arrives in an
+// unrecognised shape must not invalidate the whole observation: because
+// encoding/json aborts the entire enclosing struct as soon as one
+// UnmarshalJSON returns an error, returning one here meant that a page of
+// observations containing even one refined_from_ids value failed to parse in
+// full. The Python, JS and Java SDKs all degrade to an empty value for
+// unrecognised shapes; this matches them.
 type StringList []string
 
 func (sl *StringList) UnmarshalJSON(data []byte) error {
@@ -23,17 +35,36 @@ func (sl *StringList) UnmarshalJSON(data []byte) error {
 	// Try JSON string (backend serializes JSONB as string for WebUI JSON.parse())
 	var str string
 	if err := json.Unmarshal(data, &str); err != nil {
-		return fmt.Errorf("StringList: cannot unmarshal %s", string(data))
+		// Not a string and not an array — degrade rather than poison the record.
+		*sl = nil
+		return nil
 	}
 	if str == "" || str == "[]" {
 		*sl = nil
 		return nil
 	}
 	// The string is itself a JSON array
-	if err := json.Unmarshal([]byte(str), &arr); err != nil {
-		return fmt.Errorf("StringList: cannot parse string-encoded JSON: %w", err)
+	if err := json.Unmarshal([]byte(str), &arr); err == nil {
+		*sl = arr
+		return nil
 	}
-	*sl = arr
+	// Not JSON at all: a comma-separated list. This is the real shape of
+	// mem_observations.refined_from_ids, which is TEXT rather than JSONB —
+	// ExtractionStorageService builds it with Collectors.joining(",") and never
+	// JSON-encodes it, so json.Unmarshal above fails on the first UUID.
+	// Verified live: json.loads() of the wire value raises JSONDecodeError.
+	parts := strings.Split(str, ",")
+	out := make(StringList, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	if len(out) == 0 {
+		*sl = nil
+		return nil
+	}
+	*sl = out
 	return nil
 }
 
