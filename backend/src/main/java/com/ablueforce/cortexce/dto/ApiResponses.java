@@ -155,7 +155,7 @@ public final class ApiResponses {
         @Schema(description = "Extraction status: 'ok' or 'not_found'", example = "ok")
         String status,
         @JsonProperty("template")
-        @Schema(description = "Template name used for extraction", example = "user-preferences")
+        @Schema(description = "Template name used for extraction. Must match one of app.memory.extraction.templates[].name; 'user_preference' is the only one configured today. An unrecognised name is echoed back unchanged with status 'not_found'.", example = "user_preference")
         String template,
         @JsonProperty("sessionId")
         @Schema(description = "Content session ID that produced this extraction")
