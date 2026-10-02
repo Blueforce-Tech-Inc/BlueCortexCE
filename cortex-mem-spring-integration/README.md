@@ -23,7 +23,7 @@ Cortex CE is a memory backend that stores agent observations, generates summarie
 | **@Tool auto-capture** | AOP aspect intercepts `@Tool` methods and records executions |
 | **Session context** | ThreadLocal-based session and project scope |
 | **Health indicator** | Actuator integration for monitoring the memory backend |
-| **180 unit tests** | Comprehensive coverage across client, advisor, tools, and auto-config layers (127 client + 46 spring-ai + 7 starter) |
+| **186 unit tests** | Comprehensive coverage across client, advisor, tools, and auto-config layers (133 client + 46 spring-ai + 7 starter) |
 
 ## Requirements
 
@@ -352,6 +352,68 @@ class CustomService {
     public void feedback(String observationId, String feedbackType) {
         client.submitFeedback(observationId, feedbackType, "Very helpful");
     }
+}
+```
+
+## Wire Format
+
+The SDK models the backend's actual wire shapes, which are not always what the field
+names suggest:
+
+- **List columns arrive as JSON-encoded strings.** `facts`, `concepts`, `files_read` and
+  `files_modified` are JSONB columns that the backend serializes as **strings** for the
+  TypeScript WebUI, so a live observation carries `concepts: "[\"allergy\",\"peanut\"]"`
+  rather than a JSON array. The client decodes both shapes, so
+  `ObservationResponse.concepts()` is always a real `List<String>`.
+- **`refinedFromIds` is a plain String, not a list.** `mem_observations.refined_from_ids`
+  is a `TEXT` column holding **comma-separated** UUIDs (`"uuid-1,uuid-2"`), not a JSONB
+  list — the backend joins the ids with `,` and never JSON-encodes them. It is therefore
+  exposed as `String refinedFromIds`, not `List<String>`.
+- **Naming.** Record components are annotated with `@JsonProperty` where the wire name
+  differs from the Java name: `content_session_id` → `sessionId`, `project` →
+  `projectPath`, `extractedData` is camelCase, and most others are snake_case.
+
+Go, Python and Java all decode these the same way; see the Go and Python SDK READMEs for
+the same table in their own idioms.
+
+## Error Handling
+
+The SDK's error behaviour is **deliberately not uniform**, because two different callers
+need different things. Knowing which is which matters before you write a `try`/`catch`.
+
+**Propagation** — these throw `RuntimeException` carrying the backend's own
+`{"error": "..."}` text, so a failure is never confused with an empty result:
+
+| Method | Why it propagates |
+|--------|-------------------|
+| `listObservations` | An empty page is indistinguishable from a query that matched nothing |
+| `getObservationsByIds` | An empty list is indistinguishable from "none of those ids exist" |
+| `getProjects` | An empty project list is indistinguishable from "this backend has none yet" |
+| `startSession`, `updateObservation`, `deleteObservation`, `submitFeedback`, … | The caller must know the write happened |
+
+**Graceful degradation** — these return an empty or zeroed result and log a warning,
+because the Spring AI integration calls them from `@Tool` methods and from the
+auto-configured health indicator, where a memory backend outage must not break the
+agent's turn or take the application down:
+
+| Method | Returns on failure |
+|--------|--------------------|
+| `retrieveExperiences` | empty list |
+| `buildICLPrompt` | `ICLPromptResult("", 0)` |
+| `getQualityDistribution` | all-zero `QualityDistribution` |
+| `healthCheck` | `false` |
+
+**Partial degradation** — these return a result that *marks* the fallback so a caller can
+detect it: `search` and `getStats` add `"fell_back": true` plus an `"error"` key,
+`getVersion` reports `"unknown"`, and `getSettings` adds an `"error"` key.
+
+```java
+try {
+    PagedObservationResponse page = client.listObservations(req);
+    // page.items() is empty only because the query matched nothing
+} catch (RuntimeException e) {
+    // e.getMessage() carries the backend's reason, e.g. "project is required"
+    log.warn("memory listing failed", e);
 }
 ```
 

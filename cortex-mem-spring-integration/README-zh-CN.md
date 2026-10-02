@@ -23,7 +23,7 @@ Cortex CE 是一个记忆后端，用于存储代理观察结果、生成摘要�
 | **@Tool 自动捕获** | AOP 切面拦截 `@Tool` 方法并记录其执行 |
 | **会话上下文** | 基于 ThreadLocal 的会话和项目作用域 |
 | **健康检查指示器** | 用于监控记忆后端的 Actuator 集成 |
-| **180 个单元测试** | 覆盖客户端、Advisor、工具和自动配置各层（127 客户端 + 46 spring-ai + 7 starter） |
+| **186 个单元测试** | 覆盖客户端、Advisor、工具和自动配置各层（133 客户端 + 46 spring-ai + 7 starter） |
 
 ## 环境要求
 
@@ -352,6 +352,66 @@ class CustomService {
     public void feedback(String observationId, String feedbackType) {
         client.submitFeedback(observationId, feedbackType, "Very helpful");
     }
+}
+```
+
+## Wire 格式
+
+SDK 建模的是后端**真实的** wire 形态，而字段名并不总能提示这一点：
+
+- **列表列以 JSON 编码的字符串到达。** `facts`、`concepts`、`files_read`、
+  `files_modified` 是 JSONB 列，后端为 TypeScript WebUI 把它们序列化成**字符串**，
+  因此线上的一条 observation 到达时是 `concepts: "[\"allergy\",\"peanut\"]"` 而不是
+  JSON 数组。客户端两种形态都能解码，故 `ObservationResponse.concepts()` 始终是真正的
+  `List<String>`。
+- **`refinedFromIds` 是普通 String，不是列表。** `mem_observations.refined_from_ids`
+  是存放**逗号分隔** UUID（`"uuid-1,uuid-2"`）的 `TEXT` 列，不是 JSONB 列表——后端用
+  `,` 拼接 ID 且从不 JSON 编码。因此它暴露为 `String refinedFromIds` 而非
+  `List<String>`。
+- **命名。** 当 wire 名与 Java 名不同时，record 组件用 `@JsonProperty` 标注：
+  `content_session_id` → `sessionId`、`project` → `projectPath`、`extractedData` 为
+  camelCase，其余大多是 snake_case。
+
+Go、Python、Java 三家的解码方式一致；同一张表在各自语言风格下的版本见 Go 与 Python
+SDK 的 README。
+
+## 错误处理
+
+SDK 的错误行为**刻意不统一**，因为两类调用方需要的东西不同。写 `try`/`catch` 之前，
+先弄清某个方法属于哪一类。
+
+**向外抛出**——这些方法抛 `RuntimeException`，且异常消息携带后端自己的
+`{"error": "..."}` 文本，因此失败永远不会被误认为空结果：
+
+| 方法 | 之所以抛出 |
+|------|-----------|
+| `listObservations` | 空页与「查询确实没有匹配」无法区分 |
+| `getObservationsByIds` | 空列表与「这些 id 都不存在」无法区分 |
+| `getProjects` | 空项目列表与「该后端还没有任何项目」无法区分 |
+| `startSession`、`updateObservation`、`deleteObservation`、`submitFeedback` 等 | 调用方必须知道写入是否真的发生了 |
+
+**优雅降级**——这些方法返回空值或全零结果并记录 warning，因为 Spring AI 集成在
+`@Tool` 方法与自动配置的健康指示器中调用它们，记忆后端故障不能打断 agent 的对话轮次、
+也不能拖垮整个应用：
+
+| 方法 | 失败时返回 |
+|------|-----------|
+| `retrieveExperiences` | 空列表 |
+| `buildICLPrompt` | `ICLPromptResult("", 0)` |
+| `getQualityDistribution` | 全零 `QualityDistribution` |
+| `healthCheck` | `false` |
+
+**部分降级**——这些方法在返回值里**标记**了降级，调用方据此可判定：
+`search` 与 `getStats` 附带 `"fell_back": true` 和 `"error"` 键，`getVersion` 报
+`"unknown"`，`getSettings` 附带 `"error"` 键。
+
+```java
+try {
+    PagedObservationResponse page = client.listObservations(req);
+    // page.items() 为空只可能是因为查询确实没有匹配
+} catch (RuntimeException e) {
+    // e.getMessage() 携带后端给出的原因，例如 "project is required"
+    log.warn("memory listing failed", e);
 }
 ```
 

@@ -724,16 +724,23 @@ class CortexMemClientImplTest {
     }
 
     @Test
-    void getObservationsByIds_sendsCorrectBody() throws Exception {        server.enqueue(new MockResponse()
-            .setBody("[]")
+    void getObservationsByIds_sendsCorrectBody() throws Exception {
+        // The fixture used to be the JSON array "[]" while the SDK maps this response
+        // as an object, so extraction threw and the old catch-all discarded it. The
+        // test only asserted on the *request* and never on the result, so it passed
+        // for the same reason the round-158 bug stayed invisible: the failure was
+        // swallowed. Real shape below, and the parsed result is now asserted too.
+        server.enqueue(new MockResponse()
+            .setBody("{\"observations\":[{\"id\":\"id1\"},{\"id\":\"id2\"}],\"count\":2}")
             .addHeader("Content-Type", "application/json"));
 
-        client.getObservationsByIds(List.of("id1", "id2"));
+        List<ObservationResponse> result = client.getObservationsByIds(List.of("id1", "id2"));
 
         RecordedRequest req = server.takeRequest();
         assertThat(req.getMethod()).isEqualTo("POST");
         assertThat(req.getPath()).isEqualTo("/api/observations/batch");
         assertThat(req.getBody().readUtf8()).contains("id1", "id2");
+        assertThat(result).extracting(ObservationResponse::id).containsExactly("id1", "id2");
     }
 
     @Test
@@ -751,15 +758,33 @@ class CortexMemClientImplTest {
     }
 
     @Test
-    void listObservations_onError_returnsFallback() {
+    void listObservations_onError_propagates() {
+        // Was "returnsFallback": it enqueued a 500 and asserted an empty page, pinning
+        // the silent fallback. An empty page is indistinguishable from a query that
+        // matched nothing.
         server.enqueue(new MockResponse().setResponseCode(500));
+
+        assertThatThrownBy(() -> client.listObservations(ObservationsRequest.builder()
+                .project("/proj")
+                .build()))
+            .isInstanceOf(RuntimeException.class)
+            .hasMessageContaining("listObservations failed");
+    }
+
+    @Test
+    void listObservations_genuinelyEmptyPage_stillReturnsEmptyNotError() {
+        // The real "nothing matched" case must remain an empty page, not a throw.
+        // This is what makes the change above safe.
+        server.enqueue(new MockResponse()
+            .setBody("{\"items\":[],\"hasMore\":false}")
+            .addHeader("Content-Type", "application/json"));
 
         PagedObservationResponse result = client.listObservations(ObservationsRequest.builder()
             .project("/proj")
             .build());
 
-        assertThat(result.hasMore()).isFalse();
         assertThat(result.items()).isEmpty();
+        assertThat(result.hasMore()).isFalse();
     }
 
     @Test
@@ -826,12 +851,69 @@ class CortexMemClientImplTest {
     }
 
     @Test
-    void getObservationsByIds_onError_returnsFallback() {
+    void getObservationsByIds_onError_propagatesRatherThanReturningEmpty() {
+        // This used to assert isEmpty() under the name "returnsFallback", pinning the
+        // silent-fallback behaviour. An empty list is indistinguishable from "none of
+        // those ids exist", so a 500 or a transport failure was reported to the caller
+        // as a lookup miss — the same shape that hid the round-158 mapper
+        // ClassCastException behind "0 observations". Go, Python and JS all propagate.
         server.enqueue(new MockResponse().setResponseCode(500));
 
-        List<ObservationResponse> result = client.getObservationsByIds(List.of("id1"));
+        assertThatThrownBy(() -> client.getObservationsByIds(List.of("id1")))
+            .isInstanceOf(RuntimeException.class)
+            .hasMessageContaining("getObservationsByIds failed");
+    }
+
+    @Test
+    void getObservationsByIds_unknownIds_stillReturnsEmptyList() {
+        // The real "nothing matched" case must still be an empty list, not an error.
+        // Guarding this is what makes the change above safe.
+        server.enqueue(new MockResponse()
+            .setBody("{\"observations\":[],\"count\":0}")
+            .addHeader("Content-Type", "application/json"));
+
+        List<ObservationResponse> result = client.getObservationsByIds(List.of("no-such-id"));
 
         assertThat(result).isEmpty();
+    }
+
+    @Test
+    void listObservations_onError_propagatesRatherThanReturningEmptyPage() {
+        server.enqueue(new MockResponse().setResponseCode(503));
+
+        assertThatThrownBy(() -> client.listObservations(ObservationsRequest.builder().build()))
+            .isInstanceOf(RuntimeException.class)
+            .hasMessageContaining("listObservations failed");
+    }
+
+    @Test
+    void listObservations_errorMessageCarriesTheBackendReason() {
+        // Round 161 established that RestClientResponseException.getMessage() drops the
+        // backend body, so the thrown message must come from describe(), not getMessage().
+        server.enqueue(new MockResponse().setResponseCode(400)
+            .setBody("{\"error\":\"project is required\"}")
+            .addHeader("Content-Type", "application/json"));
+
+        assertThatThrownBy(() -> client.listObservations(ObservationsRequest.builder().build()))
+            .hasMessageContaining("project is required");
+    }
+
+    @Test
+    void getProjects_onError_propagatesRatherThanReturningEmpty() {
+        server.enqueue(new MockResponse().setResponseCode(500));
+
+        assertThatThrownBy(() -> client.getProjects())
+            .isInstanceOf(RuntimeException.class)
+            .hasMessageContaining("getProjects failed");
+    }
+
+    @Test
+    void getProjects_emptyBackend_stillReturnsEmptyList() {
+        server.enqueue(new MockResponse()
+            .setBody("{\"projects\":[]}")
+            .addHeader("Content-Type", "application/json"));
+
+        assertThat(client.getProjects()).containsEntry("projects", List.of());
     }
 
     @Test

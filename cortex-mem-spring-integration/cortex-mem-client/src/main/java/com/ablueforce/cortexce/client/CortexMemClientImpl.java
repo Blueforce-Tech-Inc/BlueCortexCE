@@ -165,6 +165,19 @@ public class CortexMemClientImpl implements CortexMemClient {
     // ==================== Retrieval ====================
 
     @Override
+    // Graceful degradation is deliberate on the four methods below
+    // (retrieveExperiences, buildICLPrompt, getQualityDistribution, healthCheck):
+    // the Spring AI integration calls them from @Tool methods and from the
+    // auto-configured health indicator, where a memory backend outage must not
+    // break the agent's turn or take the application down. Each returns an empty
+    // result and logs a warning instead of propagating.
+    //
+    // That reasoning does NOT extend to the rest of the client. listObservations,
+    // getObservationsByIds and getProjects propagate, because there an empty result
+    // is indistinguishable from a query that legitimately matched nothing, and no
+    // Spring AI code path calls them. Keep this split in mind before "fixing" one
+    // of them the other way.
+
     public List<Experience> retrieveExperiences(ExperienceRequest request) {
         Objects.requireNonNull(request, "request must not be null");
         requireNonBlank(request.task(), "task");
@@ -182,6 +195,19 @@ public class CortexMemClientImpl implements CortexMemClient {
     }
 
     @Override
+    // Graceful degradation is deliberate on the four methods below
+    // (retrieveExperiences, buildICLPrompt, getQualityDistribution, healthCheck):
+    // the Spring AI integration calls them from @Tool methods and from the
+    // auto-configured health indicator, where a memory backend outage must not
+    // break the agent's turn or take the application down. Each returns an empty
+    // result and logs a warning instead of propagating.
+    //
+    // That reasoning does NOT extend to the rest of the client. listObservations,
+    // getObservationsByIds and getProjects propagate, because there an empty result
+    // is indistinguishable from a query that legitimately matched nothing, and no
+    // Spring AI code path calls them. Keep this split in mind before "fixing" one
+    // of them the other way.
+
     public ICLPromptResult buildICLPrompt(ICLPromptRequest request) {
         Objects.requireNonNull(request, "request must not be null");
         requireNonBlank(request.task(), "task");
@@ -236,6 +262,19 @@ public class CortexMemClientImpl implements CortexMemClient {
     }
 
     @Override
+    // Graceful degradation is deliberate on the four methods below
+    // (retrieveExperiences, buildICLPrompt, getQualityDistribution, healthCheck):
+    // the Spring AI integration calls them from @Tool methods and from the
+    // auto-configured health indicator, where a memory backend outage must not
+    // break the agent's turn or take the application down. Each returns an empty
+    // result and logs a warning instead of propagating.
+    //
+    // That reasoning does NOT extend to the rest of the client. listObservations,
+    // getObservationsByIds and getProjects propagate, because there an empty result
+    // is indistinguishable from a query that legitimately matched nothing, and no
+    // Spring AI code path calls them. Keep this split in mind before "fixing" one
+    // of them the other way.
+
     public QualityDistribution getQualityDistribution(String projectPath) {
         requireNonBlank(projectPath, "projectPath");
         try {
@@ -469,8 +508,17 @@ public class CortexMemClientImpl implements CortexMemClient {
             Boolean hasMore = (Boolean) raw.getOrDefault("hasMore", false);
             return new PagedObservationResponse(items, hasMore != null && hasMore);
         } catch (Exception e) {
-            log.warn("Failed to list observations: {}", e.getMessage());
-            return new PagedObservationResponse(List.of(), false);
+            // Propagate rather than returning an empty page. A silent fallback is
+            // indistinguishable from a query that genuinely matched nothing, which is
+            // how the round-158 ClassCastException shipped: the mapper threw, this
+            // catch turned it into "0 observations", and a live project holding 20
+            // looked empty for months. Go, Python and JS all propagate here.
+            // Deliberate graceful degradation is kept for the four methods the
+            // Spring AI integration depends on (retrieveExperiences, buildICLPrompt,
+            // getQualityDistribution, healthCheck) — a memory failure must not break
+            // the agent — and is documented on each of those methods.
+            log.warn("Failed to list observations: {}", describe(e));
+            throw new RuntimeException("listObservations failed: " + describe(e), e);
         }
     }
 
@@ -514,8 +562,12 @@ public class CortexMemClientImpl implements CortexMemClient {
                 .map(o -> mapToObservationResponse((Map<String, Object>) o))
                 .toList();
         } catch (Exception e) {
-            log.warn("Failed to get observations by IDs: {}", e.getMessage());
-            return List.of();
+            // Same reasoning as listObservations: an empty list here is
+            // indistinguishable from "none of those ids exist", so a transport or
+            // server failure must not be reported as a lookup miss. Go, Python and JS
+            // all propagate.
+            log.warn("Failed to get observations by IDs: {}", describe(e));
+            throw new RuntimeException("getObservationsByIds failed: " + describe(e), e);
         }
     }
 
@@ -544,8 +596,10 @@ public class CortexMemClientImpl implements CortexMemClient {
                 .retrieve()
                 .body(new ParameterizedTypeReference<>() {});
         } catch (Exception e) {
-            log.warn("Failed to get projects: {}", e.getMessage());
-            return Map.of("projects", List.of());
+            // An empty project list is indistinguishable from "this backend has no
+            // projects yet", so propagate instead. Go, Python and JS all do.
+            log.warn("Failed to get projects: {}", describe(e));
+            throw new RuntimeException("getProjects failed: " + describe(e), e);
         }
     }
 
