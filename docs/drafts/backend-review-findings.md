@@ -9,11 +9,14 @@
 | Severity | Open | Rule |
 |----------|------|------|
 | P0 | 0 | 立即修复并复测 |
-| P1 | 2 | 优先修复并复测 |
+| P1 | 1 | 优先修复并复测 |
 | P2 | 0 | 本轮完整验收阶段处理或明确标记为已跳过 |
 
-> P1-2 为 2026-10-02 新增（导入端点把校验失败报成成功跳过）；P2-5 同轮新增并已当场修复，
-> 因此 P2 计数仍为 0。
+> **Open 只统计尚未处理的条目**（⏸已记录不修 / 📌待修）。标记为 ✅已修复 或 ✅已跳过 的条目
+> 保留在本文件作为可追溯的历史，但**不计入** Open。
+> P1-2（导入端点把校验失败报成成功跳过）已于 2026-10-02 第 166 轮 Backend 集中修复并复测通过，
+> 降级为已解决条目。第 166 轮另新增 P2-6（缺 `projectPath` 校验导致 opaque 错误），**已当场修复**，
+> 故 P2 计数仍为 0；之所以仍登记条目，是因为它改变了 API 响应的 `errorMessages` 内容，属调用方可见变更。
 
 ## Open Findings
 
@@ -130,11 +133,18 @@
   alternative is to add an explicit discriminator to `ImportResult` (e.g. a `kind()` accessor)
   rather than relying on the implicit null-id convention, but that changes a public record and so
   is a larger blast radius than this round's Backend mandate.
-- **Status**: 📌记录待修（2026-10-02）。未当场修复的原因：需改动 4 处调用点且依赖 `id == null`
-  这一隐式约定，Backend 轮次按规则对复杂项只记录。证据链完整（两种载荷的对照响应已实测），
-  修复范式与 `importObservations` 一致，定点修复风险低。
-  **复审触发条件**：下一轮 Backend 集中修复时处理；修复后必须用 camelCase 载荷复测
-  `errors` 是否非零。
+- **Status**: ✅ 已修复（2026-10-02，第 166 轮 Backend 集中修复）。复审触发条件已满足——
+  用 camelCase 载荷复测，`errors` 现为非零。采纳了本条自己提出的「更干净的替代方案」：
+  给 `ImportResult` 增加显式判别方法 `isError()`（`!imported && id == null`），而不是让 4 处
+  调用点各自依赖 `id == null` 的隐式约定；`isError()` 上写了完整 javadoc 说明三种工厂的判别方式与
+  「抛出/返回不对称」的根因。四处循环（session/summary 的批量循环与两个独立端点）全部改为三路分支。
+  修复后活体矩阵：缺 `session_id` → `errors:1 ["sessionId is required"]`；缺 `project_path` →
+  `errors:1 ["projectPath is required"]`；正常导入 → `imported:1`；同一会话导入两次 →
+  `skipped:1, errors:0`（**重复仍计为 skipped，行为不变**）；混合批次 → `imported:1, errors:2`。
+  校验先于重复判定，故「既无效又是重复」的记录报为 error 而非 skip。
+  改前已核对 `webui/`：其 `POST /api/import` 是写自有 SQLite store 的独立 worker 路由，
+  从不调用后端这四个端点，故对 WebUI 零影响。
+  回归 45/0/1 + EXTRACTION 25/0/0，基线 `038f93f` / `d5ce380a…`。
 
 ### P2-5: `SummaryRepository.findByContentSessionId` returns rows in undefined order
 
@@ -157,6 +167,26 @@
   全为纯单测，无 `@DataJpaTest` 基建，引入需要 testcontainers 或嵌入式库，超出本修复的分量。
   残留效率观察（未处理）：该查询为取一个 id 却会把最多 33 行全部载入，可改为
   `Pageable`/`LIMIT 1`，但那会变更签名，属于独立优化。
+
+### P2-6: `importSession` / `importSummary` do not validate `projectPath`, producing opaque errors
+
+- **Scope**: `backend/src/main/java/com/ablueforce/cortexce/service/ImportService.java`
+  (`importSession`, `importSummary`).
+- **Problem**: both methods validate their id field but not `projectPath`, which is `NOT NULL`
+  on `mem_sessions` and `mem_summaries`. Omitting it therefore fails at write time rather than
+  validation time, and the caller is told something about the database instead of the field.
+  Live before the fix:
+  `POST /api/import/sessions` → `{"errors":1,"errorMessages":["Could not commit JPA transaction"]}`
+  `POST /api/import/summaries` → `{"errors":1,"errorMessages":["could not execute statement
+  [ERROR: null value in column \"project_path\" of relation \"mem_summaries\" violates not-null
+  constraint…"]}`
+  Neither message names `projectPath`.
+- **Fix**: both methods now return `ImportResult.error("projectPath is required")` up front.
+  Live after: `{"errors":1,"errorMessages":["projectPath is required"]}`.
+- **The correct pattern was already in this codebase**: `ImportService.importObservations` already
+  validates `sessionId` and `title` explicitly with `result.addError(...)`.
+- **Status**: ✅ 已当场修复并复测（2026-10-02，第 166 轮）。之所以仍登记为条目：它改变了 API 响应的
+  `errorMessages` 内容（原先是数据库报错，现在是字段名），属于调用方可见的行为变更。
 
 ## Processing Rules
 

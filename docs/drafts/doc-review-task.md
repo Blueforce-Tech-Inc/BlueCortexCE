@@ -7,8 +7,8 @@
 ## Current Review Rotation
 
 - **轮换顺序**: API 文档 → SDK README → 设计文档 → 架构文档 → 用户指南
-- **最近完成**: 设计文档（2026-10-02 六十六轮，`phase-3-design/25.md` 的前置检查在本机必然失败：第 1 步是 `java -version | grep "21"`，而本仓库实际在 **JDK 24.0.1** 上开发、运行中后端自报 `{"java":"24.0.1"}`，该命令实测失败；清单开头明写「每步必须通过验证才能继续」，照做会**永远卡在第 1 步**。根因是 pom 的 `<java.version>21</java.version>` 是字节码目标而非 JDK 约束，24 是合法环境。已改为显式 `>= 21` 比较并**逐字执行验证**新命令通过、旧命令仍失败。顺带查出 `docs/DEVELOPMENT*.md` 两处 `java -version` 只打印不 grep，无问题。核实无误：设计文档全集 12 处 `45/45` 回归计数仍准确；`refined_from_ids` 在 phase-3-design 目录中**一次都没出现**，故第 163 轮的更正无需同步到此）
-- **下一方向**: API 文档（六十七轮）
+- **最近完成**: API 文档（2026-10-02 六十七轮，DOC-1（P1）导入响应三个计数的语义**完全没有文档**——`docs/API.md` 对 sessions/summaries/prompts 只写「Response: Same format as Import Observations」，从未说明 `skipped` 与 `errors` 各代表什么。**这正是 BACK-4/P1-2 长期存活的土壤**：只检查 `success` 的调用方无法区分「重复跳过（无害）」与「被拒绝（数据丢失）」，而后者是静默数据丢失。两版均已补：三桶语义表（imported 已写入 / skipped 是重复、无损失 / errors 被拒绝、errorMessages 说明原因）、`success` 只表示请求完成而非每条落地、活体实测矩阵，以及 snake_case 踩坑点（全局 `SNAKE_CASE` 策略下未绑定的 camelCase 字段等同缺失）。两版变更日志各新增一条并标为 **BEHAVIOUR CHANGE**——依赖旧 skip 计数的调用方会看到不同数字。核实无误：两版变更日志各 51 行一致、围栏均偶数（358 / 298））
+- **下一方向**: SDK README（六十八轮）
 - **新增待决（沿用）**: Java SDK README 没有 Wire Format 段落（第 164 轮核实发现），补齐需新增整节，超出「小而准」范围，留待专门一轮
 - **新增待决**: `docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分
 - **Pending 状态**: 文档问题清单已清空（0 项待处理）
