@@ -13,8 +13,8 @@
 6. Backend
 
 ## Current Position
-**Last completed**: Python SDK (2026-10-01 05:26, nineteenth cycle)
-**Next up**: JS/TS SDK
+**Last completed**: Demo (2026-10-02 10:36, thirty-third cycle per `patrol-state.json` round 132)
+**Next up**: Backend
 
 ## History
 | DateTime | Direction | Findings |
@@ -208,3 +208,4 @@
 | 2026-10-01 05:21 | Backend | ✅ Eighteenth cycle: fresh mvn test 131/131; API-doc project-scoped stats verified live; no changes; next direction is Go SDK |
 | 2026-10-01 05:23 | Go SDK | ✅ Nineteenth cycle: fresh full test run (5 modules pass); SDK README parity held; no changes; next direction is Python SDK |
 | 2026-10-01 05:26 | Python SDK | ✅ Nineteenth cycle: fresh full test run (374/374 pass); design docs: 50KB rule recheck clean; no changes; next direction is JS/TS SDK |
+| 2026-10-02 10:36 | Demo | ✅ Thirty-third cycle: 4 Go/JS Demo issues fixed (CORTEX_BASE_URL, orderBy passthrough, graceful-shutdown exit, JS int-param validation) — gofmt/build/vet clean, go test pass, Go Demo E2E 39/39, JS lint+212 tests+build, JS Demo E2E 27/27; user guide: 3 issues fixed (nonexistent compose file, scripts/README 22 undocumented scripts, DB_PASS); full acceptance run (regression 45/0/1, EXTRACTION 25/0/0), baseline advanced to `bd46f01` / `84065a66…`; next direction is Backend |
