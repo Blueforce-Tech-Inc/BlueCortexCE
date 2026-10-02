@@ -7,8 +7,9 @@
 ## Current Review Rotation
 
 - **轮换顺序**: API 文档 → SDK README → 设计文档 → 架构文档 → 用户指南
-- **最近完成**: API 文档（2026-10-02 六十四轮，`refined_from_ids` 描述错误且表格自相矛盾：`docs/API.md:1379` 写「JSON-encoded array」，而同一表格上方三行的示例写的是逗号分隔串 `"obs-abc-123,obs-def-456"`。类型 `string | null` 本来就对，错的只是描述，两版均已更正并写明这是 `TEXT` 列、后端用 `,` 拼接且从不 JSON 编码。同时更正第 157 轮那条把它与四个 JSONB 列归为一类的变更日志（标为 unreleased 故直接改写）。三重证据：V11 `refined_from_ids TEXT` + 列注释、唯一写入方 `ExtractionStorageService` 用 `Collectors.joining(",")`、活体记录 `json.loads()` 抛 JSONDecodeError 而同记录 `concepts` 正常解码。连带更正**我自己在第 162 轮写进架构文档的错误**（Wire format 小节写「behaves the same way」，与同文件 170 行前的 `refined_from_ids TEXT` 直接矛盾）——两版架构文档均已改写为显式例外说明。核实无误：观察响应表两版各 31 字段、键集合与顺序完全一致；`facts`/`concepts` 请求侧标 `string[]`、响应侧标 `string` 两侧都正确，不是分歧）
-- **下一方向**: SDK README（六十五轮）
+- **最近完成**: SDK README（2026-10-02 六十五轮，三项修复。DOC-1（P1）Python 与 JS 的 README（EN/ZH 共 4 份）仍把 `refined_from_ids` 与四个 JSONB 列归为一类并写「后端把这些 JSONB 列序列化成字符串」——正是第 163 轮在 API 文档里更正掉的错误，在 README 里依然活着；结论（→ `list[str]`/`string[]`）是对的、归类是错的，四份均已拆出单列并写明是 `TEXT` 列、后端用 `,` 拼接、无 JSON 层。DOC-2（P2）Go 的 README 完全没提列表列的 wire 形态，而 Python/JS 都有——尽管三种形态的处理正是 `dto.StringList` 一处完成的，EN/ZH 已补。DOC-3（P2）四家 README 与 patrol-task 基准的测试数全部过时，逐个重测而非按增量推算：Go 255→297（client 194→230、dto 61→67）、JS 212→224、Python 374→389、Java 173→180（client 120→127）、基准 Java 175→180 / Go 335→343 / Python 385→389 / JS 216→224；Go 集成包「额外 33 个」经核实仍正确故未动。这批数字第 156 轮刚按实测更正过，此后每轮加测试都会再次漂移。核实无误：四家 README 中英标题层级序列仍逐位一致、围栏平衡）
+- **下一方向**: 设计文档（六十六轮）
+- **新增待决**: Java SDK README 没有 Wire Format 段落（第 164 轮核实发现），补齐需新增整节，超出「小而准」范围，留待专门一轮
 - **新增待决**: `docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分
 - **Pending 状态**: 文档问题清单已清空（0 项待处理）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
