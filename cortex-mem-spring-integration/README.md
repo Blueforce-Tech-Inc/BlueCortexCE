@@ -186,8 +186,8 @@ All properties are under `cortex.mem`:
 | `retrieval-enabled` | boolean | `true` | Enable memory retrieval |
 | `memory-tools-enabled` | boolean | `false` | Create CortexMemoryTools bean. Tools are not auto-injected — add via `ChatClient.defaultTools(cortexMemoryTools)`. |
 | `context-bridge-enabled` | boolean | `true` | Create CortexSessionContextBridgeAdvisor. When CONVERSATION_ID is set, auto begin/end CortexSessionContext so @Tool capture works without manual context. |
-| `retry.max-attempts` | int | `3` | Retry attempts for capture calls |
-| `retry.backoff` | Duration | `500ms` | Base backoff between retries |
+| `retry.max-attempts` | int | `3` | Total **attempts** for the 10 methods that retry — see the retry-scope note below |
+| `retry.backoff` | Duration | `500ms` | Base backoff between retries (linear `backoff × attempt`, ±25% jitter) |
 
 ### Environment Variables
 
@@ -713,11 +713,24 @@ The client talks to these Cortex CE endpoints:
   `version: "unknown"`) first. `getModes` is listed separately from `getProjects` because
   only the former degrades.
 
-  Write and mutation methods propagate instead of degrading: `startSession`, `recordObservation`,
-  `recordUserPrompt`, `recordSessionEnd`, `submitFeedback`, `updateObservation`,
-  `deleteObservation`, `updateSessionUserId`, `triggerRefinement`, `triggerExtraction`,
-  `getLatestExtraction`, `getExtractionHistory`. Read retries with bounded backoff before they
-  give up.
+  Write and mutation methods propagate instead of degrading: `startSession`,
+  `updateSessionUserId`, `submitFeedback`, `updateObservation`, `deleteObservation`,
+  `triggerRefinement`, `triggerExtraction`, and the capture calls `recordObservation`,
+  `recordUserPrompt`, `recordSessionEnd`.
+- **Retry scope is neither "everything" nor "captures only"**: 10 of the 25 public methods
+  retry, with linear backoff (`retry.backoff × attempt`, ±25% jitter). Five capture/async
+  calls swallow their errors once the attempts are exhausted (`recordObservation`,
+  `recordUserPrompt`, `recordSessionEnd`, `triggerRefinement`, `triggerExtraction`); three
+  mutations propagate instead (`submitFeedback`, `updateObservation`, `deleteObservation`);
+  and the only two **reads** that retry are `getLatestExtraction` and `getExtractionHistory`.
+  The remaining 15 methods never retry — including every other read: `search`,
+  `listObservations`, `getObservation`, `getObservationsByIds`, `getProjects`, `getStats`,
+  `getModes`, `getSettings`, `getVersion`, `healthCheck`, `getQualityDistribution`,
+  `retrieveExperiences`, `buildICLPrompt`, plus `startSession` and `updateSessionUserId`.
+  A transient backend error therefore surfaces on the first attempt through most of the API.
+- The other three SDKs retry **only** the capture path, so the same setting covers a
+  smaller set of calls there: the two extraction reads retry on Java alone. A caller who
+  ports a retry-avoidance workaround for those two methods needs a guard on Java only.
 - **Conditional beans**: Advisor, AOP aspect, and health indicator are registered only when their dependencies (Spring AI, AOP, Actuator) are on the classpath.
 - **Spring AI 1.1**: Uses `CallAdvisor` / `StreamAdvisor` and `ChatClientRequest` (not legacy `CallAroundAdvisor`).
 - **No response size cap**: the client uses Spring 6's `RestClient` (backed by a `java.net.http.HttpClient`), which deserializes the whole body at once, so a very large response is bounded only by heap. The Go and JS SDKs cap at 10 MiB and raise an explicit error; this one does not. Keep `limit` modest when searching or listing large observation sets.

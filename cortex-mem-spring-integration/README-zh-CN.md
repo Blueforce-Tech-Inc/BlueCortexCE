@@ -186,8 +186,8 @@ try {
 | `retrieval-enabled` | boolean | `true` | 启用记忆检索 |
 | `memory-tools-enabled` | boolean | `false` | 创建 CortexMemoryTools bean。工具不会自动注入——需通过 `ChatClient.defaultTools(cortexMemoryTools)` 添加。 |
 | `context-bridge-enabled` | boolean | `true` | 创建 CortexSessionContextBridgeAdvisor。当设置 CONVERSATION_ID 时，自动 begin/end CortexSessionContext，使 @Tool 捕获无需手动管理上下文。 |
-| `retry.max-attempts` | int | `3` | 捕获调用的重试次数 |
-| `retry.backoff` | Duration | `500ms` | 重试间隔基数 |
+| `retry.max-attempts` | int | `3` | 会重试的那 10 个方法的总**尝试**次数——范围见下方「重试范围」 |
+| `retry.backoff` | Duration | `500ms` | 重试间隔基数（线性 `backoff × attempt`，±25% 抖动） |
 
 ### 环境变量
 
@@ -700,10 +700,21 @@ mvn clean install -DskipTests
   `getVersion()` 并检查 `version` 是否为 `unknown`）再信任空结果。`getModes` 与
   `getProjects` 分开列出，是因为只有前者会降级。
 
-  写入与变更类方法不降级，直接向上抛出：`startSession`、`recordObservation`、`recordUserPrompt`、
-  `recordSessionEnd`、`submitFeedback`、`updateObservation`、`deleteObservation`、`updateSessionUserId`、
-  `triggerRefinement`、`triggerExtraction`、`getLatestExtraction`、`getExtractionHistory`。
-  读方法在放弃前会做有界退避重试。
+  写入与变更类方法不降级，直接向上抛出：`startSession`、`updateSessionUserId`、`submitFeedback`、
+  `updateObservation`、`deleteObservation`、`triggerRefinement`、`triggerExtraction`，
+  以及捕获类调用 `recordObservation`、`recordUserPrompt`、`recordSessionEnd`。
+- **重试范围既不是「全部」也不只是「捕获」**：25 个 public 方法中有 10 个会重试，退避为线性
+  （`retry.backoff × attempt`，±25% 抖动）。其中五个捕获/异步调用在耗尽尝试后会**静默吞掉**错误
+  （`recordObservation`、`recordUserPrompt`、`recordSessionEnd`、`triggerRefinement`、
+  `triggerExtraction`）；三个变更类方法重试后**向上抛出**（`submitFeedback`、
+  `updateObservation`、`deleteObservation`）；而**唯二会重试的读方法**是
+  `getLatestExtraction` 与 `getExtractionHistory`。其余 15 个方法完全不会重试——包括其他所有读方法：
+  `search`、`listObservations`、`getObservation`、`getObservationsByIds`、`getProjects`、
+  `getStats`、`getModes`、`getSettings`、`getVersion`、`healthCheck`、`getQualityDistribution`、
+  `retrieveExperiences`、`buildICLPrompt`，以及 `startSession` 与 `updateSessionUserId`。
+  也就是说，后端出现瞬时错误时，本 SDK 大部分 API 会在**第一次尝试**就把错误抛给你。
+- 另外三家的重试**只覆盖捕获路径**，因此同一个配置项在那边管到的调用更少：这两个抽取读方法的
+  重试是 Java 独有的。为它们写「避免重试」补丁时，只需在 Java 侧做保护。
 - **条件 Bean**：Advisor、AOP 切面和健康检查指示器仅在其依赖（Spring AI、AOP、Actuator）在 classpath 上时注册。
 - **Spring AI 1.1**：使用 `CallAdvisor` / `StreamAdvisor` 和 `ChatClientRequest`（非旧版 `CallAroundAdvisor`）。
 - **无响应体大小上限**：客户端使用 Spring 6 的 `RestClient`（底层为 `java.net.http.HttpClient`），它会一次性反序列化整个响应体，因此超大响应只受堆内存约束。Go 与 JS SDK 把上限设为 10 MiB 并抛出明确错误，本 SDK 没有这样做。在检索或批量列出大量 observation 时，请把 `limit` 控制得小一些。
