@@ -13,7 +13,7 @@
 | `0.1.md` | 5KB | v7 关键 Bug 修复（findBySource List 参数、BeanOutputConverter Class） |
 | `0.2.md` | 3KB | v10 关键设计缺口（Schema-to-Class bridge、Array handling、missing impls） |
 | `0.3.md` | 1KB | Refine vs Extraction 概念澄清 |
-| `2.md` | 29KB | **核心**：通用 Structured Extraction 设计（模板/管道/DLQ/mergeAppendOnly） |
+| `2.md` | 29KB | **核心**：通用 Structured Extraction 设计（ExtractionTemplate 抽象 / YAML 配置模型 / GenericStructuredExtractionService 骨架 / 过敏原提取示例） |
 | `3.md` | 3KB | Memory Conflict Detection 设计 |
 | `03-deferred-roadmap-principles.md` | 1KB | UserProfile defer / Roadmap / Key Principles |
 | `7.md` | 8KB | Additional Considerations 深度探讨 |
@@ -21,7 +21,7 @@
 | `9.md` | 3KB | Implementation Feasibility Check |
 | `10.md` | 7KB | Critical Implementation Considerations |
 | `11.md` | 6KB | Error Handling & Recovery |
-| `12.md` | 4KB | Template Lifecycle Management |
+| `12.md` | 3KB | Template Lifecycle Management |
 | `13.md` | 4KB | Extraction Result Usage |
 | `14.md` | 2KB | Testing Strategy |
 | `15.md` | 21KB | **Implementation Bootstrap Checklist**（可执行步骤） |
@@ -71,9 +71,9 @@
 | 概念 | 文档 |
 |------|------|
 | append-only extraction | `24.6.md` |
-| BeanOutputConverter + Java Class | `0.1.md` §Bug1 |
-| mergeAppendOnly() | `2.md` §24.6 |
-| DLQ (Dead Letter Queue) | `2.md` §2.5 |
+| BeanOutputConverter + Java Class | `0.1.md` §Bug 2 |
+| mergeAppendOnly() | `24.6.md` |
+| DLQ (Dead Letter Queue) | `11.md` §11.3 |
 | Template lifecycle | `12.md` |
 | Token budget (~$0.0004/次) | `23.md` |
 | Idempotency | `17.md` |

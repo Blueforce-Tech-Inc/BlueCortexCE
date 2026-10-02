@@ -596,6 +596,7 @@ The client talks to these Cortex CE endpoints:
 - **Conditional beans**: Advisor, AOP aspect, and health indicator are registered only when their dependencies (Spring AI, AOP, Actuator) are on the classpath.
 - **Spring AI 1.1**: Uses `CallAdvisor` / `StreamAdvisor` and `ChatClientRequest` (not legacy `CallAroundAdvisor`).
 - **No response size cap**: the client uses Spring 6's `RestClient` (backed by a `java.net.http.HttpClient`), which deserializes the whole body at once, so a very large response is bounded only by heap. The Go and JS SDKs cap at 10 MiB and raise an explicit error; this one does not. Keep `limit` modest when searching or listing large observation sets.
+- **Streaming (`StreamAdvisor`) has no session propagation**: `CortexSessionContext` is a plain `ThreadLocal`, but a streaming model call runs on a different thread than the one that invoked the advisor. Two consequences: `@Tool` auto-capture is **silently skipped** during streaming, and the invoking thread's session context is not released (a later request served by that same pooled thread can be attributed to the previous conversation). This affects `CortexSessionContextBridgeAdvisor` with `ChatClient.stream()`. If you need `@Tool` auto-capture, use the synchronous `.call()` — it runs entirely on the calling thread and is unaffected. Tracked as P1-1 in [`docs/drafts/backend-review-findings.md`](../docs/drafts/backend-review-findings.md).
 
 ## See Also
 
