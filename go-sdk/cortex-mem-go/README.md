@@ -10,7 +10,7 @@ Go client library for [Cortex CE](https://github.com/Blueforce-Tech-Inc/BlueCort
 - **Full API coverage** — 25 methods covering Session, Capture, Retrieval, Management, Extraction, Version, P1
 - **Framework integrations** — optional Eino, LangChainGo, and Genkit modules
 - **Wire format compatible** — JSON field names match backend API exactly
-- **Comprehensive tests** — 255 unit tests with wire format verification (client 194 + dto 61); integration packages add 33 more (genkit 13 + langchaingo 12 + eino 8) when run from their own directories
+- **Comprehensive tests** — 297 unit tests with wire format verification (client 230 + dto 67); integration packages add 33 more (genkit 13 + langchaingo 12 + eino 8) when run from their own directories
 
 ## Installation
 
@@ -236,6 +236,15 @@ The SDK uses JSON field names that match the backend API exactly:
 - `type` → `tool_name` for tool observations
 - `requiredConcepts` (camelCase)
 - `observationId` (camelCase)
+
+**List columns do not all arrive the same way.** `Facts`, `Concepts`, `FilesRead` and
+`FilesModified` are JSONB columns that the backend serializes as **JSON-encoded strings**
+for the WebUI, so a live observation carries `concepts: "[\"allergy\",\"peanut\"]"` rather
+than a JSON array. `RefinedFromIds` is different: it is a `TEXT` column holding
+comma-separated UUIDs (`"uuid-1,uuid-2"`), and nothing JSON-encodes it — the backend joins
+the ids with `,`. `dto.StringList` accepts all three shapes (real array, JSON-encoded array,
+comma-separated string) and never returns an error, so one unexpected list column can never
+invalidate the observation carrying it.
 
 See `dto/` package for full wire format details.
 

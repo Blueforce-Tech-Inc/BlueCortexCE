@@ -8,7 +8,7 @@ Python SDK for the [Cortex CE](https://github.com/Blueforce-Tech-Inc/BlueCortexC
 
 - **Zero forced dependencies** — only `requests` required
 - **Full API coverage** — 25 methods covering Session, Capture, Retrieval, Management, Extraction
-- **374 unit tests** — Comprehensive coverage of client, DTO, and demo integration
+- **389 unit tests** — Comprehensive coverage of client, DTO, and demo integration
 - **Idiomatic Python** — dataclasses, kwargs, context manager
 - **Wire format compatible** — JSON field names match backend API exactly
 - **Fire-and-forget capture** — non-blocking observation recording with internal retry
@@ -199,13 +199,20 @@ The SDK handles wire format differences automatically:
 - `extracted_data` → `extractedData` (camelCase)
 - `required_concepts` → `requiredConcepts` (camelCase)
 - JSON-encoded string list fields (`facts`, `concepts`, `files_read`,
-  `files_modified`, `refined_from_ids`) → Python `list[str]`
+  `files_modified`) → Python `list[str]`
+- Comma-separated string field (`refined_from_ids`) → Python `list[str]`
 
-That last one is worth spelling out because it is not a guess: the backend
-serializes those JSONB columns as **strings**, so a live observation arrives as
-`concepts: '["allergy","peanut"]'` rather than a JSON array. The SDK decodes both
-shapes, so `observation.concepts` is always a real list. A string that is not
-valid JSON degrades to a comma-separated split, matching the JS SDK.
+That first one is worth spelling out because it is not a guess: the backend
+serializes those four JSONB columns as **strings**, so a live observation arrives
+as `concepts: '["allergy","peanut"]'` rather than a JSON array. The SDK decodes
+both shapes, so `observation.concepts` is always a real list. A string that is
+not valid JSON degrades to a comma-separated split, matching the JS SDK.
+
+`refined_from_ids` is a different case and is deliberately listed on its own: it
+is a `TEXT` column, not JSONB, and holds comma-separated UUIDs
+(`"uuid-1,uuid-2"`). Nothing JSON-encodes it — the backend joins the ids with
+`,` — so the comma-separated split is the only path that applies. Grouping it
+with the four above would misdescribe what the backend does.
 
 See [design document](../../docs/drafts/python-sdk-design.md) for details.
 

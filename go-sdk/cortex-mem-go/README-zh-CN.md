@@ -10,7 +10,7 @@
 - **完整 API 覆盖** —— 25 个方法，涵盖会话、捕获、检索、管理、提取、版本
 - **框架集成** —— 可选的 Eino、LangChainGo、Genkit 模块
 - **Wire 格式兼容** —— JSON 字段名与后端 API 完全一致
-- **全面测试** —— 255 个单元测试，含 Wire 格式验证（client 194 + dto 61）；集成包从各自目录运行时额外增加 33 个（genkit 13 + langchaingo 12 + eino 8）
+- **全面测试** —— 297 个单元测试，含 Wire 格式验证（client 230 + dto 67）；集成包从各自目录运行时额外增加 33 个（genkit 13 + langchaingo 12 + eino 8）
 
 ## 安装
 
@@ -229,6 +229,13 @@ SDK 使用与后端 API 完全一致的 JSON 字段名：
 - `type` → 工具观察中使用 `tool_name`
 - `requiredConcepts` (camelCase)
 - `observationId` (camelCase)
+
+**列表列的到达方式并不一致。** `Facts`、`Concepts`、`FilesRead`、`FilesModified` 是 JSONB 列，
+后端为 WebUI 把它们序列化成 **JSON 编码的字符串**，因此线上的一条 observation 到达时是
+`concepts: "[\"allergy\",\"peanut\"]"`，而不是 JSON 数组。`RefinedFromIds` 则不同：它是存放
+逗号分隔 UUID（`"uuid-1,uuid-2"`）的 `TEXT` 列，没有任何 JSON 编码——后端用 `,` 拼接 ID。
+`dto.StringList` 接受全部三种形态（真实数组、JSON 编码数组、逗号分隔串）且从不返回错误，
+因此某个意外的列表列永远无法让承载它的 observation 解析失败。
 
 详见 `dto/` 包中的完整 Wire 格式定义。
 

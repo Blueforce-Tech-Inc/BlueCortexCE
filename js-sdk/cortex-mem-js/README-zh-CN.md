@@ -9,7 +9,7 @@
 - **零依赖** —— 使用内置 `fetch` API（Node 18+、浏览器、Deno、Bun）
 - **完整 TypeScript 支持** —— 所有 DTO 的完整类型定义
 - **25 个 API 方法** —— 覆盖 Go/Java SDK 的所有端点
-- **212 个单元测试** —— 全面覆盖 Wire 格式和客户端行为
+- **224 个单元测试** —— 全面覆盖 Wire 格式和客户端行为
 - **双格式 CJS + ESM** —— 同时支持 CommonJS 和 ES Modules
 - **尽力而为的捕获** —— 对暂时性故障重试；重试耗尽后记录日志并吞掉采集错误
 
@@ -202,12 +202,16 @@ SDK 使用与后端 API 完全一致的 JSON 字段名。字段命名因端点�
 **Feedback：**
 - `observationId`、`feedbackType` (camelCase) — `FeedbackRequest`
 
-**Observation（读取）—— JSONB 列表列：**
+**Observation（读取）—— 列表列的到达形态不止一种：**
 无论线上以何种形态到达，`facts`、`concepts`、`filesRead`、`filesModified`、
-`refinedFromIds` 始终以 `string[]` 返回。这一点不是推测：后端为 WebUI 把这些
-JSONB 列序列化成 **JSON 编码的字符串**，因此线上的一条 observation 到达时是
-`concepts: '["allergy","peanut"]'`，而不是 JSON 数组。解析器两种形态都能处理；
-若字符串不是合法 JSON，则按逗号切分降级。
+`refinedFromIds` 始终以 `string[]` 返回。但它们**到达的方式并不相同**，这个区别值得知道。
+
+前四个是 JSONB 列，后端为 WebUI 把它们序列化成 **JSON 编码的字符串**，因此线上的一条
+observation 到达时是 `concepts: '["allergy","peanut"]'`，而不是 JSON 数组。
+解析器两种形态都能处理；若字符串不是合法 JSON，则按逗号切分降级。
+
+`refinedFromIds` 不在其列。它是存放逗号分隔 UUID（`"uuid-1,uuid-2"`）的 `TEXT` 列
+—— 完全没有 JSON 编码，后端用 `,` 拼接 ID —— 因此对它而言按逗号切分是唯一适用的路径。
 
 详见 [JS SDK 设计文档](../../docs/drafts/js-sdk-design.md)。
 

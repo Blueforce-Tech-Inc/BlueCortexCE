@@ -576,8 +576,23 @@ export class CortexMemClient {
       let text: string;
       try {
         text = await resp.text();
-      } catch {
-        // resp.text() can throw if body is null in some runtimes
+      } catch (err) {
+        // Per the Fetch spec resp.text() resolves to '' for a null body rather than
+        // throwing, so a throw here means the body could not be read to completion.
+        // A connection dropped mid-response surfaces as TypeError: terminated, and
+        // the client's own request timeout surfaces as AbortError.
+        //
+        // Rethrow those instead of swallowing them. Returning an empty body with the
+        // response's own status meant that a truncated 200 became a JSON parse error
+        // from requestJSON, a truncated capture became a *silent success* from
+        // requestNoContent, and in both cases the real error was discarded — so
+        // isRetryable, which recognises TypeError and AbortError precisely so they
+        // can be retried, never saw them and a transient network failure was never
+        // retried at all. The narrow fallback below is kept for genuinely unknown
+        // runtime quirks, which is the case the original comment described.
+        if (err instanceof TypeError || (err as { name?: string } | null)?.name === 'AbortError') {
+          throw err;
+        }
         return { text: '', status: resp.status };
       }
       if (text.length > maxSize) {

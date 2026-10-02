@@ -8,7 +8,7 @@
 
 - **零强制依赖** —— 仅需 `requests`
 - **完整 API 覆盖** —— 25 个方法，涵盖会话、捕获、检索、管理、提取
-- **374 个单元测试** —— 全面覆盖客户端、DTO 和 Demo 集成
+- **389 个单元测试** —— 全面覆盖客户端、DTO 和 Demo 集成
 - **Python 风格** —— dataclass、kwargs、上下文管理器
 - **Wire 格式兼容** —— JSON 字段名与后端 API 完全一致
 - **Fire-and-forget 捕获** —— 非阻塞的观察记录，内置重试机制
@@ -194,12 +194,17 @@ SDK 自动处理 Wire 格式差异：
 - `extracted_data` → `extractedData` (camelCase)
 - `required_concepts` → `requiredConcepts` (camelCase)
 - JSON 编码的字符串列表字段（`facts`、`concepts`、`files_read`、
-  `files_modified`、`refined_from_ids`）→ Python `list[str]`
+  `files_modified`）→ Python `list[str]`
+- 逗号分隔字符串字段（`refined_from_ids`）→ Python `list[str]`
 
-最后一条值得展开说明，因为它不是推测：后端把这些 JSONB 列序列化成**字符串**，
+第一条值得展开说明，因为它不是推测：后端把这四个 JSONB 列序列化成**字符串**，
 因此线上的一条 observation 到达时是 `concepts: '["allergy","peanut"]'`，
 而不是 JSON 数组。SDK 两种形态都能解析，因此 `observation.concepts` 始终是真正的
 列表。若字符串不是合法 JSON，则按逗号切分降级处理，与 JS SDK 一致。
+
+`refined_from_ids` 是另一种情况，因此单独列出：它是 `TEXT` 列而**非** JSONB，
+存放逗号分隔的 UUID（`"uuid-1,uuid-2"`）。它完全没有 JSON 这一层——后端用 `,`
+拼接 ID——所以按逗号切分是唯一适用的路径。把它与上面四个归为一类会错误描述后端的行为。
 
 详见[设计文档](../../docs/drafts/python-sdk-design.md)。
 

@@ -9,7 +9,7 @@ JavaScript/TypeScript client SDK for the [Cortex CE](https://github.com/Blueforc
 - **Zero runtime dependencies** — Uses the built-in `fetch` API (Node 18+, browsers, Deno, Bun)
 - **Full TypeScript support** — Complete type definitions for all DTOs
 - **25 API methods** — Covers all endpoints from the Go/Java SDKs
-- **212 unit tests** — Full coverage of wire format and client behavior
+- **224 unit tests** — Full coverage of wire format and client behavior
 - **Dual CJS + ESM** — Works with CommonJS and ES Modules
 - **Best-effort capture** — Retries transient failures; capture errors are logged and swallowed after retries
 
@@ -204,13 +204,20 @@ The SDK uses JSON field names that match the backend API exactly. Field naming v
 **Feedback:**
 - `observationId`, `feedbackType` (camelCase) — `FeedbackRequest`
 
-**Observation (read) — JSONB list columns:**
+**Observation (read) — list columns come in more than one shape:**
 `facts`, `concepts`, `filesRead`, `filesModified` and `refinedFromIds` are always
-returned as `string[]`, whichever way they arrive on the wire. That last point is
-not a guess: the backend serializes those JSONB columns as **JSON-encoded strings**
-for the WebUI, so a live observation carries `concepts: '["allergy","peanut"]'`
-rather than a JSON array. The parser decodes both shapes; a string that is not
-valid JSON degrades to a comma-separated split.
+returned as `string[]`, whichever way they arrive on the wire — but they do not
+arrive the same way, and the difference is worth knowing.
+
+The first four are JSONB columns that the backend serializes as **JSON-encoded
+strings** for the WebUI, so a live observation carries
+`concepts: '["allergy","peanut"]'` rather than a JSON array. The parser decodes
+both shapes; a string that is not valid JSON degrades to a comma-separated split.
+
+`refinedFromIds` is not one of them. It is a `TEXT` column holding
+comma-separated UUIDs (`"uuid-1,uuid-2"`) — nothing JSON-encodes it, the backend
+joins the ids with `,` — so the comma-separated split is the only path that
+applies to it.
 
 See [JS SDK Design Document](../../docs/drafts/js-sdk-design.md) for architecture and implementation details.
 
