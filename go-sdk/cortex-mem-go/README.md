@@ -87,7 +87,7 @@ func main() {
 | Extraction | `TriggerExtraction`, `GetLatestExtraction`, `GetExtractionHistory` |
 | Version | `GetVersion` |
 | P1 | `GetProjects`, `GetStats`, `GetModes`, `GetSettings` |
-| Lifecycle | `Close` (releases idle connections), `String` (debug representation) |
+| Lifecycle | `Close` (releases the SDK-owned connection pool; see below), `String` (debug representation) |
 
 ## Option Pattern
 
@@ -110,10 +110,21 @@ client := cortexmem.NewClient(
 | `WithAPIKey` | *(none)* | Bearer token for authentication |
 | `WithTimeout` | `30s` | Overall request timeout (matches Java SDK `readTimeout`) |
 | `WithConnectTimeout` | `10s` | Connection timeout (matches Java SDK `connectTimeout`) |
-| `WithHTTPClient` | *(auto-built)* | Custom `http.Client` (overrides timeout options) |
-| `WithMaxRetries` | `3` | Max retries for fire-and-forget operations |
+| `WithHTTPClient` | *(auto-built)* | Custom `http.Client` (overrides timeout options; caller owns it — see below) |
+| `WithMaxRetries` | `3` | Total **attempts** for fire-and-forget ops (3 = 3 requests, i.e. 2 retries) |
 | `WithRetryBackoff` | `500ms` | Base retry backoff (linear: `backoff × attempt`) |
 | `WithLogger` | *(nop)* | Custom logger (compatible with `*slog.Logger`) |
+
+### HTTP client ownership
+
+`WithHTTPClient` hands the SDK a client you own. The SDK never writes to it and
+never closes it: `Close()` only releases idle connections on a client the SDK
+built itself, because draining a pool you are still sharing with your own
+traffic would throw away warm connections and force a re-dial on your next call.
+
+Go's `http.Client` has no closed state, so the client stays usable after
+`Close()` either way. The difference is only whether the connection pool
+survives — assert on that, not on an error from the next call.
 
 ## Framework Integrations
 

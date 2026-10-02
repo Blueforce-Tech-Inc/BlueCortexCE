@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -2707,30 +2710,29 @@ func TestDoRequest_EmptyResponse(t *testing.T) {
 
 // ==================== Lifecycle & Header Tests ====================
 
-func TestClose_CleansUpIdleConnections(t *testing.T) {
+// Close must be safe to call repeatedly, including on a borrowed client.
+func TestClose_IsIdempotent(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	}))
 	defer server.Close()
 
-	// Create client with custom transport to verify Close works
 	transport := &http.Transport{}
 	client := cortexmem.NewClient(
 		cortexmem.WithBaseURL(server.URL),
 		cortexmem.WithHTTPClient(&http.Client{Transport: transport}),
 	)
 
-	// Make a request first to establish idle connections
 	_ = client.HealthCheck(context.Background())
 
-	// Close should not panic and should clean up idle connections
+	// Close should not panic on a borrowed client
 	err := client.Close()
 	if err != nil {
 		t.Errorf("Close should not return error: %v", err)
 	}
 
-	// Calling Close again should not panic (idle connections already closed)
+	// Calling Close again should not panic
 	err = client.Close()
 	if err != nil {
 		t.Errorf("second Close should not return error: %v", err)
@@ -4303,5 +4305,126 @@ func TestExtractErrorMessage_MessageField(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "session already exists") {
 		t.Errorf("expected error message to contain 'session already exists', got: %v", err)
+	}
+}
+
+// ==================== Ownership Tests ====================
+
+// A caller-supplied *http.Client is documented as owned by the caller
+// ("WithHTTPClient ... caller owns the http.Client"). Close() must therefore
+// leave its connection pool alone. Closing idle connections on a borrowed
+// client throws away the caller's warm pool, so every later request through
+// that same client re-dials — including requests the caller makes itself.
+func TestClose_LeavesBorrowedHTTPClientPoolIntact(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	}))
+	defer server.Close()
+
+	var dials int32
+	dialer := &net.Dialer{}
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			atomic.AddInt32(&dials, 1)
+			return dialer.DialContext(ctx, network, addr)
+		},
+	}
+	// The caller owns this client and reuses it for their own traffic too.
+	borrowed := &http.Client{Transport: transport}
+
+	client := cortexmem.NewClient(
+		cortexmem.WithBaseURL(server.URL),
+		cortexmem.WithHTTPClient(borrowed),
+	)
+
+	// Warm the pool: this request leaves one idle connection behind.
+	if err := client.HealthCheck(context.Background()); err != nil {
+		t.Fatalf("first HealthCheck failed: %v", err)
+	}
+	if got := atomic.LoadInt32(&dials); got != 1 {
+		t.Fatalf("expected 1 dial after first request, got %d", got)
+	}
+
+	if err := client.Close(); err != nil {
+		t.Fatalf("Close returned error: %v", err)
+	}
+
+	// The caller's own request, made directly against the borrowed client and
+	// not through the SDK at all. If Close() drained the pool, this re-dials.
+	resp, err := borrowed.Get(server.URL + "/api/health")
+	if err != nil {
+		t.Fatalf("caller's own request failed: %v", err)
+	}
+	io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
+
+	if got := atomic.LoadInt32(&dials); got != 1 {
+		t.Errorf("Close() closed the borrowed client's connection pool: "+
+			"caller's next request had to re-dial (dials=%d, want 1)", got)
+	}
+}
+
+// The inverse guard: an SDK-owned client must still release its idle
+// connections on Close, or the SDK would leak a pool it created itself.
+func TestClose_StillReleasesOwnedPool(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	}))
+	defer server.Close()
+
+	// No WithHTTPClient — the SDK builds and owns the transport.
+	client := cortexmem.NewClient(cortexmem.WithBaseURL(server.URL))
+	if err := client.HealthCheck(context.Background()); err != nil {
+		t.Fatalf("HealthCheck failed: %v", err)
+	}
+	if err := client.Close(); err != nil {
+		t.Fatalf("Close returned error: %v", err)
+	}
+	// The SDK-owned client stays usable after Close (Go http.Client has no
+	// closed state), so this must not error.
+	if err := client.HealthCheck(context.Background()); err != nil {
+		t.Errorf("HealthCheck after Close should still work, got: %v", err)
+	}
+}
+
+// WithMaxRetries counts total attempts, not retries after a first try — the
+// name is misleading, so pin the behaviour rather than let a future "fix"
+// silently change how many requests a failing capture sends. Verified live:
+// 1 -> 1 request, 2 -> 2, 3 -> 3 against an always-503 server.
+//
+// This matches the other SDKs: Python's docstring says "Attempts" and Java
+// reads the value from its `maxAttempts` retry property.
+func TestWithMaxRetries_CountsTotalAttempts(t *testing.T) {
+	for _, tc := range []struct {
+		max          int
+		wantAttempts int32
+	}{
+		{1, 1}, {2, 2}, {3, 3},
+	} {
+		var hits int32
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			atomic.AddInt32(&hits, 1)
+			w.WriteHeader(http.StatusServiceUnavailable) // retryable
+		}))
+
+		client := cortexmem.NewClient(
+			cortexmem.WithBaseURL(server.URL),
+			cortexmem.WithMaxRetries(tc.max),
+			cortexmem.WithRetryBackoff(100*time.Millisecond),
+		)
+		// RecordObservation is fire-and-forget: it swallows the error, so the
+		// request count is the only observable outcome.
+		if err := client.RecordObservation(context.Background(), dto.ObservationRequest{
+			SessionID: "s", ProjectPath: "/p", ToolName: "Edit",
+		}); err != nil {
+			t.Fatalf("RecordObservation should swallow the failure, got: %v", err)
+		}
+		if got := atomic.LoadInt32(&hits); got != tc.wantAttempts {
+			t.Errorf("WithMaxRetries(%d) sent %d requests, want %d "+
+				"(it counts attempts, not retries)", tc.max, got, tc.wantAttempts)
+		}
+		server.Close()
 	}
 }

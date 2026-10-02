@@ -25,7 +25,7 @@ type ClientConfig struct {
 	HTTPClient     *http.Client
 	Timeout        time.Duration // Overall request timeout (default: 30s)
 	ConnectTimeout time.Duration // Connection timeout via custom Transport (default: 10s)
-	MaxRetries     int
+	MaxRetries     int // Total attempts for fire-and-forget operations (default: 3), despite the name
 	RetryBackoff   time.Duration // Base backoff duration for retries (default: 500ms)
 	Logger         Logger
 }
@@ -66,7 +66,11 @@ func WithConnectTimeout(d time.Duration) Option {
 	return func(c *ClientConfig) { c.ConnectTimeout = d }
 }
 
-// WithMaxRetries sets the maximum number of retries for fire-and-forget operations.
+// WithMaxRetries sets the total number of attempts for fire-and-forget
+// operations. Despite the name this counts attempts, not retries: 3 means
+// three HTTP requests at most, i.e. two retries after the first. Values below
+// 1 are raised to 1 (a single attempt, no retry). Matches the Python SDK's
+// "Attempts" wording and the Java SDK's maxAttempts retry property.
 func WithMaxRetries(n int) Option {
 	return func(c *ClientConfig) { c.MaxRetries = n }
 }
@@ -130,7 +134,8 @@ func NewClient(opts ...Option) Client {
 	}
 
 	// If caller did not provide a custom http.Client, build one from timeout settings.
-	if cfg.HTTPClient == nil {
+	ownsHTTPClient := cfg.HTTPClient == nil
+	if ownsHTTPClient {
 		cfg.HTTPClient = &http.Client{
 			Timeout: cfg.Timeout,
 			Transport: &http.Transport{
@@ -148,7 +153,7 @@ func NewClient(opts ...Option) Client {
 			},
 		}
 	}
-	return &httpClient{config: cfg}
+	return &httpClient{config: cfg, ownsHTTPClient: ownsHTTPClient}
 }
 
 const (
@@ -163,6 +168,10 @@ const (
 // httpClient is the HTTP implementation of Client.
 type httpClient struct {
 	config *ClientConfig
+	// ownsHTTPClient records whether NewClient built the *http.Client itself
+	// (i.e. the caller did not pass WithHTTPClient). Only an owned client may
+	// have its idle connections closed by Close().
+	ownsHTTPClient bool
 }
 
 func (c *httpClient) doRequest(ctx context.Context, method, path string, body any, queryParams map[string]string) ([]byte, int, error) {

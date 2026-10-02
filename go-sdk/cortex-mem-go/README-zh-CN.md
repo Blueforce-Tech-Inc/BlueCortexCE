@@ -87,7 +87,7 @@ func main() {
 | 提取 | `TriggerExtraction`, `GetLatestExtraction`, `GetExtractionHistory` |
 | 版本 | `GetVersion` |
 | P1 | `GetProjects`, `GetStats`, `GetModes`, `GetSettings` |
-| 生命周期 | `Close`（释放空闲连接）、`String`（调试表示） |
+| 生命周期 | `Close`（释放 SDK 自建的连接池，见下文）、`String`（调试表示） |
 
 ## Option 模式
 
@@ -110,10 +110,19 @@ client := cortexmem.NewClient(
 | `WithAPIKey` | *(无)* | Bearer Token 认证 |
 | `WithTimeout` | `30s` | 总请求超时（与 Java SDK `readTimeout` 对齐） |
 | `WithConnectTimeout` | `10s` | 连接超时（与 Java SDK `connectTimeout` 对齐） |
-| `WithHTTPClient` | *(自动构建)* | 自定义 `http.Client`（覆盖超时选项） |
-| `WithMaxRetries` | `3` | Fire-and-forget 操作最大重试次数 |
+| `WithHTTPClient` | *(自动构建)* | 自定义 `http.Client`（覆盖超时选项；归调用方所有，见下文） |
+| `WithMaxRetries` | `3` | Fire-and-forget 操作的总**尝试**次数（3 = 发 3 次请求，即首次之后的 2 次重试） |
 | `WithRetryBackoff` | `500ms` | 基础重试退避（线性：`backoff × attempt`） |
 | `WithLogger` | *(空操作)* | 自定义日志器（兼容 `*slog.Logger`） |
+
+### HTTP 客户端归属
+
+`WithHTTPClient` 传入的客户端归调用方所有。SDK 不会改写它，也不会关闭它：
+`Close()` 只释放 SDK **自建**客户端的空闲连接——清空一个你仍在与自己业务共用的
+连接池，会白白丢掉热连接，并让你的下一次调用被迫重新建连。
+
+Go 的 `http.Client` 没有「已关闭」状态，因此无论是否调用 `Close()`，客户端都仍可
+使用。差别只在于连接池是否保留，断言时请针对这一点，而不是断言下一次调用是否报错。
 
 ## 框架集成
 

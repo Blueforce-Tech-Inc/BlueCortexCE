@@ -343,7 +343,20 @@ func (c *httpClient) GetSettings(ctx context.Context) (map[string]any, error) {
 
 // ==================== Lifecycle ====================
 
+// Close releases the connection resources the SDK owns.
+//
+// A *http.Client supplied through WithHTTPClient belongs to the caller — that
+// client is documented as "caller owns the http.Client" and is typically shared
+// with the caller's own traffic. Closing its idle connections would throw away
+// a warm pool the caller is still using, so Close() leaves a borrowed client
+// untouched and only releases connections the SDK created itself.
+//
+// Go's http.Client has no closed state, so the client remains usable after
+// Close() either way; the difference is only whether the pool survives.
 func (c *httpClient) Close() error {
+	if !c.ownsHTTPClient {
+		return nil
+	}
 	if c.config.HTTPClient != nil {
 		if t, ok := c.config.HTTPClient.Transport.(*http.Transport); ok {
 			t.CloseIdleConnections()
