@@ -7,9 +7,9 @@
 ## Current Review Rotation
 
 - **轮换顺序**: API 文档 → SDK README → 设计文档 → 架构文档 → 用户指南
-- **最近完成**: SDK README（2026-10-02 六十五轮，三项修复。DOC-1（P1）Python 与 JS 的 README（EN/ZH 共 4 份）仍把 `refined_from_ids` 与四个 JSONB 列归为一类并写「后端把这些 JSONB 列序列化成字符串」——正是第 163 轮在 API 文档里更正掉的错误，在 README 里依然活着；结论（→ `list[str]`/`string[]`）是对的、归类是错的，四份均已拆出单列并写明是 `TEXT` 列、后端用 `,` 拼接、无 JSON 层。DOC-2（P2）Go 的 README 完全没提列表列的 wire 形态，而 Python/JS 都有——尽管三种形态的处理正是 `dto.StringList` 一处完成的，EN/ZH 已补。DOC-3（P2）四家 README 与 patrol-task 基准的测试数全部过时，逐个重测而非按增量推算：Go 255→297（client 194→230、dto 61→67）、JS 212→224、Python 374→389、Java 173→180（client 120→127）、基准 Java 175→180 / Go 335→343 / Python 385→389 / JS 216→224；Go 集成包「额外 33 个」经核实仍正确故未动。这批数字第 156 轮刚按实测更正过，此后每轮加测试都会再次漂移。核实无误：四家 README 中英标题层级序列仍逐位一致、围栏平衡）
-- **下一方向**: 设计文档（六十六轮）
-- **新增待决**: Java SDK README 没有 Wire Format 段落（第 164 轮核实发现），补齐需新增整节，超出「小而准」范围，留待专门一轮
+- **最近完成**: 设计文档（2026-10-02 六十六轮，`phase-3-design/25.md` 的前置检查在本机必然失败：第 1 步是 `java -version | grep "21"`，而本仓库实际在 **JDK 24.0.1** 上开发、运行中后端自报 `{"java":"24.0.1"}`，该命令实测失败；清单开头明写「每步必须通过验证才能继续」，照做会**永远卡在第 1 步**。根因是 pom 的 `<java.version>21</java.version>` 是字节码目标而非 JDK 约束，24 是合法环境。已改为显式 `>= 21` 比较并**逐字执行验证**新命令通过、旧命令仍失败。顺带查出 `docs/DEVELOPMENT*.md` 两处 `java -version` 只打印不 grep，无问题。核实无误：设计文档全集 12 处 `45/45` 回归计数仍准确；`refined_from_ids` 在 phase-3-design 目录中**一次都没出现**，故第 163 轮的更正无需同步到此）
+- **下一方向**: API 文档（六十七轮）
+- **新增待决（沿用）**: Java SDK README 没有 Wire Format 段落（第 164 轮核实发现），补齐需新增整节，超出「小而准」范围，留待专门一轮
 - **新增待决**: `docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分
 - **Pending 状态**: 文档问题清单已清空（0 项待处理）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
