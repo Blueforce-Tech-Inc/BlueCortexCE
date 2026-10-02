@@ -565,7 +565,34 @@ The client talks to these Cortex CE endpoints:
 ## Design Notes
 
 - **Fire-and-forget capture**: Capture operations log failures but never throw, so the AI pipeline is never blocked.
-- **Graceful degradation**: Retrieval failures return empty lists; ICL failures return an empty prompt.
+- **Graceful degradation**: Read operations never throw on a backend failure — they return a
+  synthesized value. This is deliberate (a memory layer must not break the AI pipeline), but it
+  means "backend unreachable" and "no data" look identical unless the method reports the error.
+
+  | Method | Behaviour on backend failure |
+  |--------|-------------------------------|
+  | `retrieveExperiences` | returns empty list |
+  | `buildICLPrompt` | returns prompt `""`, count `0` |
+  | `listObservations` | returns empty page (`hasMore=false`) |
+  | `getObservationsByIds` | returns empty list (so `getObservation` returns `null`) |
+  | `getVersion` | returns `{"service": "unknown", "version": "unknown"}` |
+  | `getProjects` / `getModes` | return empty collections |
+  | `search` | returns `{"observations": [], "strategy": "none", "fell_back": true, "count": 0, "error": "<message>"}` |
+  | `getStats` | returns `{"error": "<message>", "fell_back": true}` |
+  | `getSettings` | returns `{"settings": {}, "error": "<message>"}` |
+  | `getQualityDistribution` | returns all counts `0` |
+  | `healthCheck` | returns `false` |
+
+  The last five rows surface the failure, so check for the `error` key (or `false`) there. The
+  rows above it do not — an empty result from `retrieveExperiences` or `getProjects` cannot be
+  distinguished from a backend outage. Call `healthCheck()` (or `getVersion()` and look for
+  `version: "unknown"`) before trusting an empty result.
+
+  Write and mutation methods propagate instead of degrading: `startSession`, `recordObservation`,
+  `recordUserPrompt`, `recordSessionEnd`, `submitFeedback`, `updateObservation`,
+  `deleteObservation`, `updateSessionUserId`, `triggerRefinement`, `triggerExtraction`,
+  `getLatestExtraction`, `getExtractionHistory`. Read retries with bounded backoff before they
+  give up.
 - **Conditional beans**: Advisor, AOP aspect, and health indicator are registered only when their dependencies (Spring AI, AOP, Actuator) are on the classpath.
 - **Spring AI 1.1**: Uses `CallAdvisor` / `StreamAdvisor` and `ChatClientRequest` (not legacy `CallAroundAdvisor`).
 

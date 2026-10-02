@@ -565,7 +565,31 @@ mvn clean install -DskipTests
 ## 设计笔记
 
 - **即发即忘捕获**：捕获操作记录失败但不抛出异常，因此 AI 管道永不被阻塞。
-- **优雅降级**：检索失败返回空列表；ICL 失败返回空提示。
+- **优雅降级**：读操作在后端失败时不抛异常，而是返回一个合成值。这是有意设计（记忆层不能拖垮 AI 管道），
+  但代价是：除非该方法显式回报错误，否则「后端不可达」和「确实没有数据」看起来完全一样。
+
+  | 方法 | 后端失败时的行为 |
+  |------|-----------------|
+  | `retrieveExperiences` | 返回空列表 |
+  | `buildICLPrompt` | 返回 prompt `""`、count `0` |
+  | `listObservations` | 返回空分页（`hasMore=false`） |
+  | `getObservationsByIds` | 返回空列表（因此 `getObservation` 返回 `null`） |
+  | `getVersion` | 返回 `{"service": "unknown", "version": "unknown"}` |
+  | `getProjects` / `getModes` | 返回空集合 |
+  | `search` | 返回 `{"observations": [], "strategy": "none", "fell_back": true, "count": 0, "error": "<message>"}` |
+  | `getStats` | 返回 `{"error": "<message>", "fell_back": true}` |
+  | `getSettings` | 返回 `{"settings": {}, "error": "<message>"}` |
+  | `getQualityDistribution` | 各项计数均为 `0` |
+  | `healthCheck` | 返回 `false` |
+
+  最后五行会回报失败原因，请检查 `error` 键（或 `false`）。上面的行不会——`retrieveExperiences`
+  或 `getProjects` 返回空结果时，无法区分「没有数据」和「后端挂了」。若必须区分，请先用
+  `healthCheck()`（或 `getVersion()` 并检查 `version` 是否为 `unknown`）再信任空结果。
+
+  写入与变更类方法不降级，直接向上抛出：`startSession`、`recordObservation`、`recordUserPrompt`、
+  `recordSessionEnd`、`submitFeedback`、`updateObservation`、`deleteObservation`、`updateSessionUserId`、
+  `triggerRefinement`、`triggerExtraction`、`getLatestExtraction`、`getExtractionHistory`。
+  读方法在放弃前会做有界退避重试。
 - **条件 Bean**：Advisor、AOP 切面和健康检查指示器仅在其依赖（Spring AI、AOP、Actuator）在 classpath 上时注册。
 - **Spring AI 1.1**：使用 `CallAdvisor` / `StreamAdvisor` 和 `ChatClientRequest`（非旧版 `CallAroundAdvisor`）。
 
