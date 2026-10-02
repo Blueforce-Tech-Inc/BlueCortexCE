@@ -7,7 +7,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -18,12 +17,14 @@ import java.util.concurrent.atomic.AtomicInteger;
  *
  * <p>Usage:</p>
  * <pre>
- * if (!rateLimitService.tryAcquire("user:123", 10, 60)) {
+ * if (!rateLimitService.tryAcquire("user:123")) {
  *     return ResponseEntity.status(429).body("Rate limit exceeded");
  * }
  * </pre>
  *
- * <p>Limits: 10 requests per 60 seconds per key.</p>
+ * <p>Limits: 10 requests per 60 seconds per key, configured via
+ * {@code claudemem.rate-limit.max-requests} and
+ * {@code claudemem.rate-limit.window-seconds}.</p>
  *
  * <p>P3: Constants are configurable via application.yml or environment variables.</p>
  */
@@ -243,7 +244,11 @@ public class RateLimitService {
 
     /**
      * P1: Generate hash-based fallback key for privacy.
-     * Uses timestamp bucket + random suffix to avoid exposing IP/thread info.
+     *
+     * <p>The key must be <b>stable</b> for the same caller within the same minute bucket,
+     * otherwise every request lands in its own window and the limit never triggers.
+     * The hash of (identifier + minute bucket) is already privacy-preserving, so no
+     * random component is added here.
      */
     private String generateFallbackKey() {
         String remoteAddr = getRemoteAddr();
@@ -261,7 +266,7 @@ public class RateLimitService {
         int hash = hashBase.hashCode();
         String hashSuffix = Integer.toHexString(Math.abs(hash));
 
-        return "fallback:" + hashSuffix + ":" + UUID.randomUUID().toString().substring(0, 8);
+        return "fallback:" + hashSuffix;
     }
 
     /**
