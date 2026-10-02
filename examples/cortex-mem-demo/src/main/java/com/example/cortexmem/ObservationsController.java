@@ -23,6 +23,13 @@ public class ObservationsController {
 
     private static final Logger log = LoggerFactory.getLogger(ObservationsController.class);
 
+    /**
+     * Fields the update endpoint understands. A body carrying none of these is a
+     * client error, and is rejected here rather than by the SDK.
+     */
+    private static final List<String> UPDATABLE_FIELDS = List.of(
+            "title", "subtitle", "content", "narrative", "facts", "concepts", "source", "extractedData");
+
     private final CortexMemClient client;
 
     public ObservationsController(CortexMemClient client) {
@@ -218,6 +225,16 @@ public class ObservationsController {
         if (body == null || body.isEmpty()) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "request body must contain at least one field to update"));
+        }
+        // A body of only unrecognised keys (a typo such as "titel") leaves the
+        // update empty, and the SDK rejects an empty update with
+        // IllegalArgumentException — which the generic catch below would report
+        // as a 500, telling the client its own typo was a server failure. Check
+        // the recognised keys here so it is a 400, matching the Go, Python and
+        // JS demos, which all return 400 with this same message.
+        if (body.keySet().stream().noneMatch(UPDATABLE_FIELDS::contains)) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "at least one field must be provided for update"));
         }
         try {
             ObservationUpdate.Builder builder = ObservationUpdate.builder();

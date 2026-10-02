@@ -9,6 +9,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEMO_BASE="${1:-http://localhost:37778}"
 BACKEND_BASE="${2:-http://localhost:37777}"
+# Project the Observations section writes captures under.
+DEMO_PROJECT="${DEMO_PROJECT:-/tmp/cortex-demo-e2e-project}"
 
 passed=0
 failed=0
@@ -26,6 +28,26 @@ run_ok() {
     echo "FAIL"
     echo "    expect match: $expect"
     echo "    got: ${out:0:120}..."
+    ((failed++)) || true
+  fi
+}
+
+# Status-code assertion. run_ok only matches the body, which cannot tell a 400
+# from a 500 that happens to carry a similar message — and that distinction is
+# exactly what the /demo/observations validation paths are about.
+run_status() {
+  local name="$1"
+  local expect="$2"
+  shift 2
+  echo -n "  $name ... "
+  code=$(curl -s -o /tmp/cortex-demo-e2e-body -w '%{http_code}' "$@" 2>/dev/null || echo "__ERR__")
+  if [[ "$code" == "$expect" ]]; then
+    echo "OK"
+    ((passed++)) || true
+  else
+    echo "FAIL"
+    echo "    expected HTTP $expect, got ${code}"
+    echo "    body: $(head -c 120 /tmp/cortex-demo-e2e-body 2>/dev/null)"
     ((failed++)) || true
   fi
 }
@@ -161,6 +183,56 @@ except Exception:
 else
   echo "  user-prompt capture FAIL — demo must use -Plocal with mvn install of cortex-mem-spring-integration"
   ((failed++)) || true
+fi
+
+echo ""
+echo "=== 7. Observations API ==="
+# This whole section was missing until round 171, which is why an unrecognised
+# update field could be reported as a 500 for so long: nothing here ever
+# exercised /demo/observations.
+obs_id=$(curl -sf "$BACKEND_BASE/api/observations?limit=1" 2>/dev/null \
+  | python3 -c "import json,sys;d=json.load(sys.stdin);i=d.get('items') or [];print(i[0].get('id','') if i else '')" 2>/dev/null || echo "")
+
+if [[ -z "$obs_id" ]]; then
+  echo "  observations API SKIP — backend has no observations to work with"
+  ((passed++)) || true
+else
+  run_status "observations/status"        200 "$DEMO_BASE/demo/observations/status"
+  run_status "observations list"          200 "$DEMO_BASE/demo/observations?limit=1"
+  run_status "observations list bad limit" 400 "$DEMO_BASE/demo/observations?limit=101"
+  run_status "observations list bad offset" 400 "$DEMO_BASE/demo/observations?offset=-1"
+  run_status "observations get by id"     200 "$DEMO_BASE/demo/observations/$obs_id"
+  run_status "observations batch"         200 \
+    -X POST "$DEMO_BASE/demo/observations/batch" -H 'Content-Type: application/json' \
+    -d "{\"ids\":[\"$obs_id\"]}"
+  run_status "observations batch no ids"  400 \
+    -X POST "$DEMO_BASE/demo/observations/batch" -H 'Content-Type: application/json' -d '{"ids":[]}'
+
+  # The regression this section exists for: a body of only unrecognised keys
+  # leaves the update empty, and the SDK raises IllegalArgumentException. Before
+  # the fix the generic catch turned that into a 500; the Go, Python and JS demos
+  # answer 400 for the same input.
+  run_status "observations PATCH unknown field -> 400" 400 \
+    -X PATCH "$DEMO_BASE/demo/observations/$obs_id" -H 'Content-Type: application/json' \
+    -d '{"titel":"typo"}'
+  run_status "observations PATCH empty body -> 400"    400 \
+    -X PATCH "$DEMO_BASE/demo/observations/$obs_id" -H 'Content-Type: application/json' -d '{}'
+  run_status "observations PATCH content+narrative -> 400" 400 \
+    -X PATCH "$DEMO_BASE/demo/observations/$obs_id" -H 'Content-Type: application/json' \
+    -d '{"content":"a","narrative":"b"}'
+  run_status "observations PATCH valid field -> 200" 200 \
+    -X PATCH "$DEMO_BASE/demo/observations/$obs_id" -H 'Content-Type: application/json' \
+    -d '{"title":"round171 e2e valid update"}'
+
+  run_status "observations create"  200 \
+    -X POST "$DEMO_BASE/demo/observations/create" -H 'Content-Type: application/json' \
+    -d "{\"project\":\"$DEMO_PROJECT\",\"session_id\":\"e2e-round171\",\"tool_name\":\"e2e\",\"tool_response\":\"round171\"}"
+  run_status "observations create no project -> 400" 400 \
+    -X POST "$DEMO_BASE/demo/observations/create" -H 'Content-Type: application/json' \
+    -d '{"session_id":"e2e-round171","tool_name":"e2e"}'
+  run_status "observations create bad extractedData -> 400" 400 \
+    -X POST "$DEMO_BASE/demo/observations/create" -H 'Content-Type: application/json' \
+    -d "{\"project\":\"$DEMO_PROJECT\",\"session_id\":\"e2e-round171\",\"tool_name\":\"e2e\",\"extractedData\":\"nope\"}"
 fi
 
 echo ""
