@@ -36,7 +36,7 @@
 | `24.md` | 12KB | LLM Re-Extraction Edge Cases（v24） |
 | `24.6.md` | 10KB | **Prior Truncation Silent Data Loss Fix**（v28 引入 append-only solution；v29 mergeAppendOnly/keep_hint 完善；v30 与 MemoryRefineService 共享 projectLocks 的并发修复） |
 | `25.md` | 42KB | **Implementation Plan Phase 3.1**（完整执行计划） |
-| `26.md` | 15KB | Acceptance Test Plan（Test-First） |
+| `26.md` | 16KB | Acceptance Test Plan（Test-First） |
 | `99-changelog.md` | 15KB | 版本历史 Changelog |
 
 ---

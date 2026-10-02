@@ -18,11 +18,17 @@ class APIError(CortexError):
         super().__init__(f"cortex-ce: API error {status_code}: {message}")
 
 
-class ValidationError(CortexError):
+class ValidationError(CortexError, ValueError):
     """Client-side validation error (e.g., empty required field, batch size exceeded).
 
     Matches Go SDK's ValidationError for cross-SDK parity.
     Both Go and JS SDKs expose a ``field`` attribute for structured error handling.
+
+    Also inherits from :class:`ValueError` for backward compatibility: earlier
+    releases raised a bare ``ValueError`` from ``ObservationUpdate.__post_init__``,
+    so existing ``except ValueError`` handlers must keep working. The SDK's own
+    exception type is the documented one, and it now catches every validation
+    failure regardless of which call path detected it.
     """
 
     def __init__(self, message: str, field: str = "") -> None:

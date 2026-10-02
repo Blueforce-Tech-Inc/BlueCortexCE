@@ -6,6 +6,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import ClassVar
 
+from .error import ValidationError
+
 
 def _first_non_null(data: dict, *keys: str) -> object:
     """Return the first non-None value for any of the given keys.
@@ -354,9 +356,12 @@ class ObservationUpdate:
 
     def __post_init__(self) -> None:
         if self.content is not None and self.narrative is not None:
-            raise ValueError(
+            # ValidationError also subclasses ValueError, so handlers written
+            # against the previous bare ValueError keep working.
+            raise ValidationError(
                 "content and narrative cannot both be set — they are aliases for the same "
-                "backend field. Use either content=... or narrative=..., but not both."
+                "backend field. Use either content=... or narrative=..., but not both.",
+                field="content|narrative",
             )
 
     def is_empty(self) -> bool:
@@ -398,13 +403,21 @@ class ObservationUpdate:
     def to_wire(self) -> dict:
         """Convert to wire format, omitting None fields.
 
-        Both 'content' and 'narrative' map to the backend's ``narrative`` field.
-        If both are set, ``narrative`` takes precedence (last-one-wins) since both
-        Python attributes target the same wire key.
+        Both 'content' and 'narrative' map to the backend's ``narrative`` field,
+        so at most one of them may be present. ``__post_init__`` already rejects
+        that combination at construction time; this method re-checks because a
+        dataclass is mutable and ``update.narrative = ...`` can be assigned after
+        construction, which would otherwise discard the earlier value silently.
         ``extracted_data={}`` is treated as "unset" (omitted) to match ``is_empty()``
         semantics — an empty dict is semantically equivalent to None on the backend
         (JSONB stores nothing for `{}`).
         """
+        if self.content is not None and self.narrative is not None:
+            raise ValidationError(
+                "content and narrative cannot both be set — they are aliases for the same "
+                "backend field. Use either content=... or narrative=..., but not both.",
+                field="content|narrative",
+            )
         body: dict = {}
         for attr, wire_key in self._WIRE_FIELDS.items():
             val = getattr(self, attr)

@@ -706,13 +706,28 @@ class TestManagementExtended:
 
     @responses.activate
     def test_update_observation_both_content_and_narrative_dataclass(self):
-        """Both content and narrative are set via dataclass — raises ValueError.
+        """Both content and narrative are set via dataclass — raises ValidationError.
 
-        ObservationUpdate.__post_init__ raises ValueError to prevent constructing
-        an invalid state. Matches Java SDK behavior for cross-SDK parity.
+        ValidationError also subclasses ValueError, so the previous
+        ``pytest.raises(ValueError)`` assertion still holds; the SDK's own
+        exception type is what the docs promise, on both call paths now.
         """
+        with pytest.raises(ValidationError, match="content and narrative cannot both be set"):
+            ObservationUpdate(content="the content", narrative="the narrative")
         with pytest.raises(ValueError, match="content and narrative cannot both be set"):
             ObservationUpdate(content="the content", narrative="the narrative")
+
+    def test_update_observation_both_set_after_construction(self):
+        """Mutating an update after construction must not silently drop a value.
+
+        dataclasses are mutable, so ``__post_init__`` cannot be the only guard:
+        assigning the alias afterwards used to make to_wire() keep 'narrative'
+        and discard 'content' without any error.
+        """
+        update = ObservationUpdate(content="the content")
+        update.narrative = "the narrative"
+        with pytest.raises(ValidationError, match="content and narrative cannot both be set"):
+            update.to_wire()
 
     @responses.activate
     def test_update_observation_both_content_and_narrative_kwargs(self):
