@@ -292,6 +292,14 @@
   用于 `MemoryRefineService:111` 的删除分支、`MEMORY_REFINE_COOLDOWN_DAYS` / `_STALE_DAYS`
   用于 `:43` / `:46`，四个 `EXTRACTION_*` 经 `ExtractionConfig` 的松散绑定
   （`initial-run-max-candidates` → `initialRunMaxCandidates`）正确对应。
+- **根因（第 177 轮设计文档轮补充）**：这个键不是「写了没接」，而是**本该生效的值被硬编码
+  在两处**。`MemoryRefineService.deepRefineProjectMemories:217` 与 `refineProject:287` 都向
+  `observationRepository.findStaleObservations(projectPath, …, 0.6f, …)` 传入字面量 `0.6f`，
+  而同一方法里的 `deleteThreshold`、`staleDays`、`cooldownDays` 都是 `@Value` 注入的。
+  也就是说 0.6 这个数字**恰好等于** `MEMORY_QUALITY_THRESHOLD` 的默认值，但改环境变量不会有
+  任何效果。这比「未使用的配置项」更具体：它说明接线漏了一处，且现有值与配置默认值巧合一致，
+  因此在默认配置下**看不出**任何异常——只有主动改环境变量的运维才会踩到。
+  文档方向已在同轮把部署指南 §5.5 的说明从「未被使用」升级为写明这一硬编码事实。
 
 ### P2-10: 四个 ingest 端点对项目路径的必填性不一致
 

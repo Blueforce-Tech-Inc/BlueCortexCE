@@ -511,7 +511,7 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 
 | 变量名 | 必填 | 默认值 | 说明 |
 |--------|------|--------|------|
-| `MEMORY_QUALITY_THRESHOLD` | 否 | `0.6` | **当前未被使用。** 在 `application.yml` 中声明，且注释称其为检索过滤器，但后端没有任何代码读取它——设置它不会产生任何效果。 |
+| `MEMORY_QUALITY_THRESHOLD` | 否 | `0.6` | **当前未被使用。** 后端没有任何代码读取它，因此设置它不会产生效果。它本该生效的值被硬编码了：`MemoryRefineService` 在两个调用点向 `findStaleObservations` 传入字面量 `0.6f`。下面其余阈值均已正确注入。 |
 | `MEMORY_REFINE_DELETE_THRESHOLD` | 否 | `0.3` | 质量低于此值的观测在精炼时被删除（剪枝） |
 | `MEMORY_REFINE_STALE_DAYS` | 否 | `30` | 超过多少天未访问即视为陈旧 |
 | `MEMORY_REFINE_COOLDOWN_DAYS` | 否 | `7` | 精炼过的观测多少天后可再次精炼 |

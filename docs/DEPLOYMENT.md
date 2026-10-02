@@ -521,7 +521,7 @@ default, with its own three batch controls.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `MEMORY_QUALITY_THRESHOLD` | No | `0.6` | **Currently unused.** Declared in `application.yml` and described there as a retrieval filter, but no backend code reads it — setting it has no effect. |
+| `MEMORY_QUALITY_THRESHOLD` | No | `0.6` | **Currently unused.** No backend code reads it, so setting it has no effect. Its intended value is hardcoded: `MemoryRefineService` passes the literal `0.6f` to `findStaleObservations` at two call sites. The other thresholds below are injected properly. |
 | `MEMORY_REFINE_DELETE_THRESHOLD` | No | `0.3` | Quality below which refinement deletes an observation (prune) |
 | `MEMORY_REFINE_STALE_DAYS` | No | `30` | Days without access before an observation counts as stale |
 | `MEMORY_REFINE_COOLDOWN_DAYS` | No | `7` | Days before a refined observation may be refined again |
