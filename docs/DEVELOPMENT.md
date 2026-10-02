@@ -486,13 +486,23 @@ mvn clean package -DskipTests
 
 ### Build Profiles
 
-```bash
-# Development build
-./mvnw clean package -DskipTests -Pdev
+`backend/pom.xml` defines no `dev` or `prod` profile. The only profiles available
+are `native` and `nativeTest`, inherited from the `spring-boot-starter-parent`
+3.3.13 POM; both build GraalVM native images and need a `native-image` toolchain
+installed, so they are not part of a normal development loop.
 
-# Production build (with optimization)
-./mvnw clean package -Pprod
+```bash
+# Check which profiles this build actually has
+./mvnw help:all-profiles
+
+# Normal development and CI build (no profile)
+./mvnw clean package -DskipTests
 ```
+
+> Passing `-Pdev` or `-Pprod` does **not** fail the build, but Maven emits
+> `[WARNING] The requested profile "dev" could not be activated because it does
+> not exist.` and proceeds with the default configuration — an easy way to
+> believe an optimised build ran when it did not.
 
 ### Common Build Issues
 

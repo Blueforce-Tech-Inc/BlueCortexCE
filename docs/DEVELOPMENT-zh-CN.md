@@ -486,13 +486,22 @@ mvn clean package -DskipTests
 
 ### 构建 profiles
 
-```bash
-# 开发构建
-./mvnw clean package -DskipTests -Pdev
+`backend/pom.xml` 并未定义 `dev` 或 `prod` profile。实际可用的只有从
+`spring-boot-starter-parent` 3.3.13 POM 继承而来的 `native` 与 `nativeTest`；
+两者都会构建 GraalVM 原生镜像，需要预装 `native-image` 工具链，因此不属于常规
+开发流程。
 
-# 生产构建（带优化）
-./mvnw clean package -Pprod
+```bash
+# 查看本构建实际拥有哪些 profile
+./mvnw help:all-profiles
+
+# 常规开发与 CI 构建（不使用 profile）
+./mvnw clean package -DskipTests
 ```
+
+> 传入 `-Pdev` 或 `-Pprod` **不会**让构建失败，但 Maven 会输出
+> `[WARNING] The requested profile "dev" could not be activated because it does
+> not exist.` 然后按默认配置继续——很容易误以为跑过的是「优化构建」，其实并不是。
 
 ### 常见构建问题
 
