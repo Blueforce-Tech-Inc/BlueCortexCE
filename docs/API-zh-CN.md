@@ -714,7 +714,7 @@ curl "http://localhost:37777/api/extraction/user-preferences/latest?projectPath=
 |------|------|------|------|
 | `projectPath` | string | ✅ | 项目路径 |
 | `userId` | string | ❌ | 用户 ID |
-| `limit` | int | 10 | 返回数量 |
+| `limit` | int | ❌ | 返回数量（默认 10）|
 
 **请求示例**:
 ```bash
@@ -868,12 +868,12 @@ curl "http://localhost:37777/api/context/recent?project=/Users/dev/myproject&lim
 
 **查询参数**:
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `anchor` | string | ❌ | 锚点 ID（UUID 或会话 ID） |
-| `depth_before` | int | 10 | 锚点前的项目数 |
-| `depth_after` | int | 10 | 锚点后的项目数 |
-| `project` | string | ❌ | 项目路径 |
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `anchor` | string | ❌ | — | 锚点 ID（UUID 或会话 ID） |
+| `depth_before` | int | ❌ | 10 | 锚点前的项目数 |
+| `depth_after` | int | ❌ | 10 | 锚点后的项目数 |
+| `project` | string | ❌ | — | 项目路径 |
 
 **请求示例**:
 ```bash
@@ -963,16 +963,16 @@ curl -X POST "http://localhost:37777/api/context/semantic" \
 
 **查询参数**:
 
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| `project` | string | ✅ | 项目路径 |
-| `query` | string | ❌ | 搜索查询 |
-| `type` | string | ❌ | 类型过滤 |
-| `concept` | string | ❌ | 概念过滤 |
-| `source` | string | ❌ | 来源过滤（如 `manual`、`auto`） |
-| `limit` | int | 20 | 结果数量 |
-| `offset` | int | 0 | 偏移量 |
-| `orderBy` | string | ❌ | 排序字段（支持 `created_at_epoch` 或 `createdAtEpoch`，按创建时间降序排列） |
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `project` | string | ✅ | — | 项目路径 |
+| `query` | string | ❌ | — | 搜索查询 |
+| `type` | string | ❌ | — | 类型过滤 |
+| `concept` | string | ❌ | — | 概念过滤 |
+| `source` | string | ❌ | — | 来源过滤（如 `manual`、`auto`） |
+| `limit` | int | ❌ | 20 | 结果数量（最大 100） |
+| `offset` | int | ❌ | 0 | 偏移量 |
+| `orderBy` | string | ❌ | — | 排序字段（支持 `created_at_epoch` 或 `createdAtEpoch`，按创建时间降序排列） |
 
 **请求示例**:
 ```bash
@@ -2531,6 +2531,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-05-06 | 0.1.0-beta+43 | POST /api/extraction/run：补充遗漏的 500 错误响应（`{"error": "Failed to trigger extraction: Extraction failed and DLQ unavailable for template: ..."}`）——后端修复（316c165 F-2）使 DLQ 存储失败从静默事务回滚变为 HTTP 500 错误返回；与英文版同步 |
 | 2026-05-07 | 0.1.0-beta+44 | 修复 ZH API 文档严重结构错误：`#### GET /api/search/by-file` 和 `#### POST /api/observations/batch` 错误放置于 `## 搜索` 章节（应为 `## Viewer`）；已将两节移至 Viewer 章节并添加 `### Get Observations by IDs` 和 `### Search by File` 小节标题，与英文版结构对齐 |
 | 2026-05-07 | 0.1.0-beta+45 | ZH API 文档：修复 beta+44 不完整修复——`### Get Observations by IDs` 和 `### Search by File` 虽已添加为小节标题，但其子节点 `#### POST /api/observations/batch` 和 `#### GET /api/search/by-file` 仍处于 `####` 级别而非 `###` 级别，形成空标题嵌套；移除两个空 `###` 父标题并将子节点升级为 `###` 级别（URL 以代码块格式展示），与英文版结构完全对齐 |
+| 2026-10-02 | 0.1.0-beta+46 | ZH API 文档：3 张查询参数表把数值默认值写进了「必填」列，导致 `limit`/`offset`/`depth_before`/`depth_after` 实际显示为「必填 = 20 / 0 / 10」。修正：Extraction history 的 `limit` 改为 ❌ 并在说明中标注「（默认 10）」（与英文版排版一致）；Search 与 Context Timeline 两张表新增「默认值」列，与英文版逐格对应；与英文版同步 |
 ---
 
 **文档维护**: 本文档应随 API 变更同步更新。如有疑问，请参考源代码 Controller 类或提交 Issue。
