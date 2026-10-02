@@ -142,6 +142,17 @@ except APIError as e:
     print(f"API error {e.status_code}: {e.message}")
 ```
 
+### Response Size Limit
+
+There is **no** response size cap in this SDK. `requests` buffers the whole body
+before `resp.json()` parses it, so a very large response is bounded only by the
+memory available to your process.
+
+This is a deliberate difference from the Go and JS SDKs, which cap at 10 MiB and
+raise an explicit error; the Python SDK does not, because `requests` gives no
+portable hook for a streaming size check. Keep `limit` modest when searching or
+listing large observation sets.
+
 ## Design Principles
 
 1. **Zero forced dependencies** — only `requests` required

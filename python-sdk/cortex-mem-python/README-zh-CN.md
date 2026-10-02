@@ -142,6 +142,15 @@ except APIError as e:
     print(f"API error {e.status_code}: {e.message}")
 ```
 
+### 响应体大小上限
+
+本 SDK **没有**响应体大小上限。`requests` 会先把整个响应体缓冲下来，再由
+`resp.json()` 解析，因此超大响应只受进程可用内存约束。
+
+这是与 Go / JS SDK 的有意差异：后两者把上限设为 10 MiB 并抛出明确错误，而
+Python SDK 没有这样做，因为 `requests` 未提供可移植的流式大小检查钩子。在检索或
+批量列出大量 observation 时，请把 `limit` 控制得小一些。
+
 ## 设计原则
 
 1. **零强制依赖** —— 仅需 `requests`

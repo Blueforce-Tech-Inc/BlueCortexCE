@@ -165,6 +165,27 @@ try {
 }
 ```
 
+### Response Size Limit
+
+Responses larger than **10 MiB** (`10 * 1024 * 1024`) are rejected:
+
+```
+cortex-ce: response body exceeds 10MB limit
+```
+
+(The message says `10MB`; the cap is 10 MiB — 10,485,760 bytes.)
+
+Two checks guard the body, both throwing a plain `Error` (not an `APIError`, since
+the failure is local rather than an HTTP status):
+
+1. **Before reading** — a declared `Content-Length` above the cap throws without
+   the body being buffered at all.
+2. **After reading** — a backstop for servers that omit the header.
+
+The second check compares the *decoded* string length, so for multi-byte UTF-8
+content it is a slightly lenient bound. This is a guard, not a streaming reader:
+the body is still materialized as a single string.
+
 ## Wire Format
 
 The SDK uses JSON field names that match the backend API exactly. Field naming varies by endpoint:

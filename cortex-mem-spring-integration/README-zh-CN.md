@@ -592,6 +592,7 @@ mvn clean install -DskipTests
   读方法在放弃前会做有界退避重试。
 - **条件 Bean**：Advisor、AOP 切面和健康检查指示器仅在其依赖（Spring AI、AOP、Actuator）在 classpath 上时注册。
 - **Spring AI 1.1**：使用 `CallAdvisor` / `StreamAdvisor` 和 `ChatClientRequest`（非旧版 `CallAroundAdvisor`）。
+- **无响应体大小上限**：客户端使用 Spring 6 的 `RestClient`（底层为 `java.net.http.HttpClient`），它会一次性反序列化整个响应体，因此超大响应只受堆内存约束。Go 与 JS SDK 把上限设为 10 MiB 并抛出明确错误，本 SDK 没有这样做。在检索或批量列出大量 observation 时，请把 `limit` 控制得小一些。
 
 ## 相关链接
 

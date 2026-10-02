@@ -198,6 +198,23 @@ if err != nil {
 }
 ```
 
+### Response Size Limit
+
+The SDK never buffers a response body larger than **10 MiB**
+(`cortexmem.MaxResponseBytes`, `10 << 20`). The body is read with a limit of
+`MaxResponseBytes + 1` bytes, so an oversized response is reported as an
+explicit error instead of being silently truncated and then failing to parse:
+
+```
+cortex-ce: response body exceeds 10485760 byte limit (raise the page size or split the query)
+```
+
+The server's status code is returned alongside that error by the internal
+`doRequest`, but the public methods return only `error` — so an oversized
+*successful* response (`200`) surfaces as a plain error, not as an empty result
+and not as an `APIError`. Keep `limit` on retrieval calls below the cap, or
+narrow the query.
+
 ## Wire Format
 
 The SDK uses JSON field names that match the backend API exactly:

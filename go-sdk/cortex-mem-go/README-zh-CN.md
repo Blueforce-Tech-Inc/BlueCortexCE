@@ -196,6 +196,20 @@ if err != nil {
 }
 ```
 
+### 响应体大小上限
+
+SDK 不会缓冲超过 **10 MiB** 的响应体（`cortexmem.MaxResponseBytes`，即
+`10 << 20`）。读取时的上限是 `MaxResponseBytes + 1` 字节，因此超限响应会以
+明确的错误返回，而不是被静默截断后再解析失败：
+
+```
+cortex-ce: response body exceeds 10485760 byte limit (raise the page size or split the query)
+```
+
+内部 `doRequest` 会把服务端状态码与该错误一起返回，但公开方法只返回 `error` ——
+因此超限的**成功**响应（`200`）表现为一个普通错误，既不是空结果也不是
+`APIError`。请把检索调用的 `limit` 控制在上限以内，或缩小查询范围。
+
 ## Wire 格式
 
 SDK 使用与后端 API 完全一致的 JSON 字段名：

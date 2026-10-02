@@ -595,6 +595,7 @@ The client talks to these Cortex CE endpoints:
   give up.
 - **Conditional beans**: Advisor, AOP aspect, and health indicator are registered only when their dependencies (Spring AI, AOP, Actuator) are on the classpath.
 - **Spring AI 1.1**: Uses `CallAdvisor` / `StreamAdvisor` and `ChatClientRequest` (not legacy `CallAroundAdvisor`).
+- **No response size cap**: the client uses Spring 6's `RestClient` (backed by a `java.net.http.HttpClient`), which deserializes the whole body at once, so a very large response is bounded only by heap. The Go and JS SDKs cap at 10 MiB and raise an explicit error; this one does not. Keep `limit` modest when searching or listing large observation sets.
 
 ## See Also
 
