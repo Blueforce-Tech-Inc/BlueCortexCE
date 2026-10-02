@@ -13,14 +13,22 @@ Spring Boot application demonstrating **cortex-mem-spring-integration**: project
 ### 1. Build & Run
 
 ```bash
-# Local integration (with startSession, recommended for development)
+# Build the SDK from this repository first — the demo defaults to the `local`
+# profile, which resolves cortex-mem-starter:1.0.0-SNAPSHOT from ~/.m2.
 cd cortex-mem-spring-integration && mvn install -DskipTests
-cd examples/cortex-mem-demo
-mvn spring-boot:run -Plocal
 
-# Or JitPack (requires push to trigger build)
+cd examples/cortex-mem-demo
 mvn spring-boot:run
+
+# `-Plocal` is now the default, so it may be passed explicitly if you prefer
+mvn spring-boot:run -Plocal
 ```
+
+> **About the `jitpack` profile**: it pins a fixed upstream commit
+> (`6aa5de459c`, 2026-03-18) that predates `SessionStartRequest` and
+> `CortexMemClient.updateSessionUserId`, so the demo does not compile against it.
+> It is kept as an opt-in (`mvn -Pjitpack …`) for dependency-resolution
+> experiments only — do not use it to build or run the demo.
 
 ### 2. Configuration
 

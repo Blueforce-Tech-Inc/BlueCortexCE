@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -57,7 +58,7 @@ public class ChatController {
         this.memoryTools = memoryTools;
     }
 
-    @GetMapping("/chat")
+    @GetMapping(value = "/chat", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> chat(
             @RequestParam(defaultValue = "Hello") String message,
             @RequestParam(required = false) String project,
@@ -94,7 +95,7 @@ public class ChatController {
                 var spec = client.prompt()
                     .advisors(spec1 -> spec1.param(ChatMemory.CONVERSATION_ID, effectiveConvId))
                     .user(message);
-                return ResponseEntity.ok(spec.call().content());
+                return chatResponse(spec.call().content(), projectPath, effectiveConvId);
             } catch (Exception e) {
                 log.error("Chat failed for conversationId={}", effectiveConvId, e);
                 return ResponseEntity.internalServerError()
@@ -105,7 +106,7 @@ public class ChatController {
         CortexSessionContext.begin(effectiveConvId, projectPath);
         try {
             CortexSessionContext.incrementAndGetPromptNumber();
-            return ResponseEntity.ok(client.prompt().user(message).call().content());
+            return chatResponse(client.prompt().user(message).call().content(), projectPath, effectiveConvId);
         } catch (Exception e) {
             log.error("Chat failed for sessionId={}", effectiveConvId, e);
             return ResponseEntity.internalServerError()
@@ -113,5 +114,21 @@ public class ChatController {
         } finally {
             CortexSessionContext.end();
         }
+    }
+
+    /**
+     * Wrap the assistant reply in JSON.
+     *
+     * <p>The Go, Python and JS demos all answer {@code POST /chat} with a JSON object
+     * ({@code response} / {@code project} / {@code timestamp}); returning bare text here
+     * made this the only demo endpoint that answered with two different content types —
+     * plain text on success, JSON on failure.
+     */
+    private ResponseEntity<Map<String, Object>> chatResponse(String content, String projectPath, String conversationId) {
+        return ResponseEntity.ok(Map.of(
+            "response", content,
+            "project", projectPath,
+            "conversation_id", conversationId
+        ));
     }
 }

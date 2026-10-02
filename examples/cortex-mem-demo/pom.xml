@@ -69,26 +69,44 @@
     </dependencies>
 
     <profiles>
-        <!-- Default: JitPack (requires push to trigger build for startSession) -->
-        <profile>
-            <id>jitpack</id>
-            <activation><activeByDefault>true</activeByDefault></activation>
-            <dependencies>
-                <dependency>
-                    <groupId>com.github.Blueforce-Tech-Inc</groupId>
-                    <artifactId>BlueCortexCE</artifactId>
-                    <version>6aa5de459c</version>
-                </dependency>
-            </dependencies>
-        </profile>
-        <!-- mvn -Plocal: local cortex-mem-starter (with startSession; run cortex-mem-spring-integration mvn install first) -->
+        <!--
+          Default: the local cortex-mem-starter built from THIS repository.
+
+          It used to default to the jitpack profile below, but that profile pins a
+          fixed upstream commit (6aa5de459c, 2026-03-18) which predates
+          SessionStartRequest and CortexMemClient.updateSessionUserId. The demo
+          source has moved on since, so a plain `mvn test` compiled against that
+          stale artifact and failed with "cannot find symbol" errors in files the
+          caller never touched. Building against the sibling modules in this repo
+          removes that trap; a fresh clone must run the install step below once.
+
+              cd cortex-mem-spring-integration && mvn install -DskipTests
+              cd examples/cortex-mem-demo && mvn test
+        -->
         <profile>
             <id>local</id>
+            <activation><activeByDefault>true</activeByDefault></activation>
             <dependencies>
                 <dependency>
                     <groupId>com.ablueforce.cortexce</groupId>
                     <artifactId>cortex-mem-starter</artifactId>
                     <version>1.0.0-SNAPSHOT</version>
+                </dependency>
+            </dependencies>
+        </profile>
+        <!--
+          Opt-in: the published JitPack artifact. Use -Pjitpack to build against
+          the pinned upstream commit instead of the local modules. Note the pin
+          predates SessionStartRequest, so the demo does NOT compile against it;
+          this profile exists for dependency-resolution experiments only.
+        -->
+        <profile>
+            <id>jitpack</id>
+            <dependencies>
+                <dependency>
+                    <groupId>com.github.Blueforce-Tech-Inc</groupId>
+                    <artifactId>BlueCortexCE</artifactId>
+                    <version>6aa5de459c</version>
                 </dependency>
             </dependencies>
         </profile>
