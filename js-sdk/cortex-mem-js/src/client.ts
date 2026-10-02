@@ -51,6 +51,30 @@ import {
 } from './dto';
 
 // ============================================================
+// Response helpers
+// ============================================================
+
+/**
+ * Read the declared Content-Length from a fetch Response, in bytes.
+ *
+ * Returns null when the header is absent, unparseable, or when the runtime
+ * does not expose headers at all — every caller must treat null as "unknown"
+ * rather than "zero". Minimal mock responses and some edge runtimes omit the
+ * headers object entirely.
+ */
+function readContentLength(resp: { headers?: { get(name: string): string | null } | undefined }): number | null {
+  try {
+    const raw = resp.headers?.get('content-length');
+    if (raw === null || raw === undefined || raw === '') return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  } catch {
+    // Some runtimes throw on header access for opaque responses.
+    return null;
+  }
+}
+
+// ============================================================
 // Logger interface
 // ============================================================
 
@@ -530,10 +554,25 @@ export class CortexMemClient {
         signal: controller.signal,
       });
 
-      // Read response body with 10MB size limit.
+      // Guard against oversized payloads.
+      //
+      // The declared Content-Length is checked BEFORE the body is read, so a
+      // server that reports its size never has its body buffered at all. That
+      // check cannot be the only one: the header is optional and a lying server
+      // can omit it, so the post-read length check stays as a backstop.
+      // Note that this is a guard, not a streaming reader — the body is still
+      // materialized as one string, so the peak memory cost is the response
+      // size, and the runtime's fetch implementation is what bounds that.
+      const maxSize = 10 * 1024 * 1024;
+      const declaredLength = readContentLength(resp);
+      if (declaredLength !== null && declaredLength > maxSize) {
+        throw new Error(
+          `cortex-ce: response body exceeds 10MB limit (Content-Length: ${declaredLength})`,
+        );
+      }
+      // Read response body with the same 10MB ceiling applied afterwards.
       // Uses resp.text() for broad compatibility (works in browsers, Node.js, and edge runtimes).
       // 204 No Content and null bodies return empty string.
-      const maxSize = 10 * 1024 * 1024;
       let text: string;
       try {
         text = await resp.text();

@@ -31,6 +31,55 @@ function mockFetch(status: number, body: unknown): typeof globalThis.fetch {
   });
 }
 
+describe('response size guard', () => {
+  it('rejects before reading the body when Content-Length exceeds 10MB', async () => {
+    const textSpy = vi.fn(() => Promise.resolve('{}'));
+    const oversizedFetch = vi.fn().mockResolvedValue({
+      status: 200,
+      headers: { get: (name: string) => (name.toLowerCase() === 'content-length' ? String(11 * 1024 * 1024) : null) },
+      text: textSpy,
+    });
+    const c = new CortexMemClient({
+      baseURL: 'http://localhost:37777',
+      fetch: oversizedFetch as unknown as typeof globalThis.fetch,
+    });
+
+    await expect(c.getVersion()).rejects.toThrow('exceeds 10MB limit');
+    // The whole point: the body must never be materialized.
+    expect(textSpy).not.toHaveBeenCalled();
+  });
+
+  it('keeps the post-read check when the server omits or lies about Content-Length', async () => {
+    const bigString = 'x'.repeat(11 * 1024 * 1024);
+    const lyingFetch = vi.fn().mockResolvedValue({
+      status: 200,
+      // Declares a tiny body but sends a huge one.
+      headers: { get: () => '10' },
+      text: () => Promise.resolve(bigString),
+    });
+    const c = new CortexMemClient({
+      baseURL: 'http://localhost:37777',
+      fetch: lyingFetch as unknown as typeof globalThis.fetch,
+    });
+
+    await expect(c.getVersion()).rejects.toThrow('exceeds 10MB limit');
+  });
+
+  it('still reads normally when the runtime exposes no headers object', async () => {
+    const headerlessFetch = vi.fn().mockResolvedValue({
+      status: 200,
+      text: () => Promise.resolve(JSON.stringify({ version: '1.0.0', service: 'x' })),
+    });
+    const c = new CortexMemClient({
+      baseURL: 'http://localhost:37777',
+      fetch: headerlessFetch as unknown as typeof globalThis.fetch,
+    });
+
+    const v = await c.getVersion();
+    expect(v.version).toBe('1.0.0');
+  });
+});
+
 describe('CortexMemClient', () => {
   let client: CortexMemClient;
   let fetchMock: ReturnType<typeof mockFetch>;
