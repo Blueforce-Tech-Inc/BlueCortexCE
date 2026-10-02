@@ -1,5 +1,16 @@
 ## Changelog
 
+> **Correction note (2026-10-03)**: several entries below — v30 and v13 in
+> particular — describe `deepRefineProjectMemories()` as a live "scheduled/hook
+> path" and extraction as a scheduled job. **That has never been true of the
+> shipped code**: `deepRefineProjectMemories()` has no callers anywhere in the
+> codebase, and the backend has no cron schedule at all (five `@Scheduled` jobs,
+> all `fixedRateString`, none running extraction). Extraction is event-driven from
+> `POST /api/extraction/run` and `PATCH /api/session/{id}/user`. The entries are
+> left as written because they are a historical record of what was designed, but
+> they should not be read as a description of current behaviour. See
+> [23.md §23.7](23.md).
+
 - **2026-04-08 v30**: (1) **Section 24.4**: Fixed remaining HC-3 race condition — `reExtractForSession()` (PATCH userId path) was NOT protected by the per-project `ReentrantLock` even though `deepRefineProjectMemories()` (scheduled/hook path) was. Added `MemoryRefineService.tryExecuteWithProjectLock(projectPath, task)` method that shares the same `projectLocks` map, and `StructuredExtractionService.reExtractForSession()` now calls this before processing. Section 24.4 IMPLEMENTATION NOTE updated to reflect the complete fix — both paths are now protected by the same lock map. (2) **Section 15.7**: Updated IMPLEMENTATION NOTE to clarify that `projectLocks` is shared between `deepRefineProjectMemories()` and `reExtractForSession()` via the new `tryExecuteWithProjectLock()` method.
 
 - **2026-03-22 v29**: (1) **Section 24.6 `mergeAppendOnly()`**: Fixed critical design gaps — `keep_hint` was extracted but never used in merge logic; `deduplicate()` was called but undefined. Replaced with: (a) `buildItemKey()` method for consistent deduplication keying (category+value composite); (b) `keep_hint` used to protect items from removal (not stored in merged result — actual code logs but doesn't persist); (c) existing-key check prevents duplicate adds. (2) **Section 24.6 `buildAppendOnlyPrompt()`**: Added item schema hint and `keep_hint` semantics clarification — LLM now knows the expected structure of array elements and MUST include `category`+`value` fields for deduplication. (3) **Section 23.4b**: Added append-only cost comparison — ~20% cheaper than truncated-prior approach, while eliminating data loss risk. (4) **Section 2.3 `summarizePriorExtraction()`**: Added design note cross-referencing Section 24.6 data loss risk and append-only alternative.
