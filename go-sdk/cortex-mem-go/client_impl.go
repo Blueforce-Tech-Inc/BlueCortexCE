@@ -218,10 +218,17 @@ func (c *httpClient) doRequest(ctx context.Context, method, path string, body an
 	}
 	defer resp.Body.Close()
 
-	// Limit response body to MaxResponseBytes to prevent OOM from misbehaving servers.
-	respBody, err := io.ReadAll(io.LimitReader(resp.Body, MaxResponseBytes))
+	// Read one byte past the limit so an oversized response is reported explicitly.
+	// io.LimitReader alone would silently truncate and surface as a confusing
+	// "unexpected end of JSON input" from the parser.
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, MaxResponseBytes+1))
 	if err != nil {
 		return nil, resp.StatusCode, fmt.Errorf("cortex-ce: failed to read response: %w", err)
+	}
+	if int64(len(respBody)) > MaxResponseBytes {
+		return nil, resp.StatusCode, fmt.Errorf(
+			"cortex-ce: response body exceeds %d byte limit (raise the page size or split the query)",
+			MaxResponseBytes)
 	}
 
 	return respBody, resp.StatusCode, nil

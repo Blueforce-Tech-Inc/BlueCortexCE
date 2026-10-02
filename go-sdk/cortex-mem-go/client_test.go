@@ -3029,11 +3029,11 @@ func TestNewClient_EmptyBaseURL_UsesDefault(t *testing.T) {
 
 func TestDoRequest_ResponseBodyLimit(t *testing.T) {
 	// Server sends a response larger than MaxResponseBytes.
-	// The client should still succeed (reads up to the limit), but the response
-	// should be truncated. In practice, the JSON parse will fail on truncated data.
+	// The client must report the limit explicitly instead of silently truncating
+	// and letting the caller see a misleading JSON parse error.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		// Write a 11MB response (> 10MB MaxResponseBytes)
+		// Write an 11MB response (> 10MB MaxResponseBytes)
 		chunk := make([]byte, 1024*1024) // 1MB
 		for i := range chunk {
 			chunk[i] = 'x'
@@ -3046,12 +3046,15 @@ func TestDoRequest_ResponseBodyLimit(t *testing.T) {
 
 	client := newTestClient(server)
 	_, err := client.GetVersion(context.Background())
-	// Should get a parse error because the truncated response isn't valid JSON
 	if err == nil {
-		t.Fatal("expected parse error for oversized response")
+		t.Fatal("expected an error for an oversized response")
 	}
-	if !strings.Contains(err.Error(), "failed to parse") {
-		t.Errorf("expected parse error, got: %v", err)
+	if !strings.Contains(err.Error(), "exceeds") || !strings.Contains(err.Error(), "byte limit") {
+		t.Errorf("expected an explicit response-size error, got: %v", err)
+	}
+	// The limit must be reported, not a downstream JSON parse failure.
+	if strings.Contains(err.Error(), "failed to parse") {
+		t.Errorf("oversized response must not surface as a parse error, got: %v", err)
 	}
 }
 
