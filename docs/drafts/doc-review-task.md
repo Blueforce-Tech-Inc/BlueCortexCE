@@ -7,8 +7,8 @@
 ## Current Review Rotation
 
 - **轮换顺序**: API 文档 → SDK README → 设计文档 → 架构文档 → 用户指南
-- **最近完成**: 架构文档（2026-10-02 五十一轮，`backend/README.md` 补齐 SDK 实际调用的 `/api/modes` 两族端点区分；根 `.gitignore` 补 `proxy/`、`admin-panel/` 的 node_modules）
-- **下一方向**: 用户指南（五十二轮）
+- **最近完成**: 用户指南（2026-10-02 五十二轮，`DEVELOPMENT.md`/`-zh-CN.md` 的 `-Pdev`/`-Pprod` 构建 profile 在 `backend/pom.xml` 中并不存在，已改写为实际的 `native`/`nativeTest` 并附警告）
+- **下一方向**: API 文档（五十三轮）
 - **新增待决**: `docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分
 - **Pending 状态**: 文档问题清单已清空（0 项待处理）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
