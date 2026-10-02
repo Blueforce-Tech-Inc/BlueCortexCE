@@ -1704,6 +1704,42 @@ Response:
 }
 ```
 
+**What the three counts mean.** Every record lands in exactly one bucket, and the
+distinction matters because a client that only checks `success` will otherwise treat
+dropped records as success:
+
+| Counter | Meaning |
+|---------|---------|
+| `imported` | The record was written. |
+| `skipped` | The record was a **duplicate** of an existing row and was deliberately not written again. Nothing was lost. |
+| `errors` | The record was **rejected** — a required field was missing, a foreign key did not resolve, or the write failed. Nothing was written, and `errorMessages` says why. |
+
+`success` is about the request completing, not about every record landing. A response
+with `skipped > 0` is healthy; a response with `errors > 0` means data was lost and
+`errorMessages` must be read.
+
+Validation failures and thrown exceptions are reported identically — both increment
+`errors` and both append to `errorMessages`. A missing required field (for example
+`session_id` or `project_path` on the session and summary imports, which are
+`NOT NULL` in the schema) produces a message naming the field, such as
+`"projectPath is required"`, rather than a database constraint error.
+
+Verified live against the running backend:
+
+```jsonc
+// one invalid record
+{"success":true,"imported":0,"skipped":0,"errors":1,
+ "errorMessages":["projectPath is required"]}
+
+// the same session imported twice — a duplicate, not an error
+{"success":true,"imported":0,"skipped":1,"errors":0,"errorMessages":[]}
+```
+
+**Note on the field names.** The backend's global `jackson.property-naming-strategy` is
+`SNAKE_CASE`, so request fields must be snake_case (`session_id`, `project_path`). A
+camelCase field does not bind and is treated as absent — it produces a validation error
+naming the missing field rather than being silently ignored.
+
 ### Import Sessions
 
 ```
@@ -2432,6 +2468,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 
 | Date | Version | Changes |
 |------|---------|---------|
+| 2026-10-02 | (unreleased) | **BEHAVIOUR CHANGE: the four single-record import endpoints now report validation failures in `errors` instead of counting them as `skipped`.** `ImportResult` has three factories (`imported`, `duplicate`, `error`) but `ImportController` branched on `imported()` alone, so `error()` fell into the skip counter while `errors`/`errorMessages` only ever received *thrown* exceptions. The same failure class was therefore reported two different ways depending on whether it was thrown or returned. Live before: a payload whose fields did not bind returned `{"success":true,"imported":0,"skipped":1,"errors":0,"errorMessages":[]}` for a record that was silently dropped. `ImportResult.isError()` now discriminates on `id() == null` (only `error()` leaves it null) and all four call sites branch on it. Live after: `{"success":true,"imported":0,"skipped":0,"errors":1,"errorMessages":["projectPath is required"]}`. Genuine duplicates are unchanged and still count as skips. Also added: `importSession` and `importSummary` now validate `projectPath` (NOT NULL in both tables), so omitting it returns a message naming the field instead of `Could not commit JPA transaction` or a raw PostgreSQL constraint-violation dump. The three counters' semantics are now documented under Import Observations, since that gap is what let the bug survive. No WebUI impact: `webui`'s `POST /api/import` is a self-contained worker route writing to its own SQLite store and never calls these endpoints. |
 | 2026-10-02 | (unreleased) | **Corrected the observation response schema after live verification.** (1) `facts`, `concepts`, `files_read` and `files_modified` were typed `string[]`; the backend serializes these JSONB columns as **JSON-encoded strings** (`"concepts": "[\"auth\"]"`), verified with a round-trip POST/GET. `refined_from_ids` was in that group but is **not** a JSONB column — it is `TEXT` holding comma-separated UUIDs, corrected separately below. (2) The response field was named `session_id`; the wire key is `content_session_id` (V13 `@JsonProperty` override) — the request-side `session_id` alias is unchanged and still valid. (3) Ten live fields were missing from the table: `content_hash`, `discovery_tokens`, `relevance_count`, `generated_by_model`, `step_number`, `embedding_model_id` and the three `embedding_*` vector columns. Two response examples corrected to match. The **request** side of `POST /api/ingest/observation` genuinely does accept real arrays and was left alone. This wrong type is the documented root of a Python SDK bug fixed in the same round (it parsed only real lists and so returned `[]` for every one of these fields) |
 | 2026-10-02 | (unreleased) | **Corrected `refined_from_ids`, which the entry above had grouped with the four JSONB columns.** It is declared `refined_from_ids TEXT` in V11 (`COMMENT ON COLUMN … IS 'Comma-separated IDs of merged observations'`), the only writer in the backend is `ExtractionStorageService`, which does `Collectors.joining(",")` and never JSON-encodes, and a live extraction observation confirms it: `json.loads()` of the wire value raises `JSONDecodeError` on the first UUID while `concepts` on the same record decodes fine. The type `string \| null` was already right; the description said "JSON-encoded array" and contradicted the example three lines above it. This also corrected a claim added to `ARCHITECTURE.md`/`ARCHITECTURE-zh-CN.md` the same day. The misdescription had a real cost: the Go SDK's `StringList` assumed every list column was JSON or a JSON-encoded array, so one record carrying `refined_from_ids` made a whole page of observations fail to unmarshal (fixed in the same round) |
 | 2026-03-31 | 0.1.0-beta | Added Extraction (/run, /latest, /history), Cursor, Mode, Logs, Import, Viewer sections; Added Usage Examples, Appendix, Changelog; Synced with Chinese version |

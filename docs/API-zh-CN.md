@@ -1741,6 +1741,38 @@ curl http://localhost:37777/api/modes
 }
 ```
 
+**三个计数的含义。** 每条记录恰好落入其中一个桶，这个区分很重要——只检查 `success`
+的调用方会把被丢弃的记录当成成功：
+
+| 计数 | 含义 |
+|------|------|
+| `imported` | 该记录已写入。 |
+| `skipped` | 该记录与已有行**重复**，因此有意不再写入。没有数据丢失。 |
+| `errors` | 该记录被**拒绝**——缺少必填字段、外键无法解析，或写入失败。什么都没写入，`errorMessages` 说明原因。 |
+
+`success` 说的是**请求完成**，不是每条记录都落地。`skipped > 0` 的响应是健康的；
+`errors > 0` 意味着有数据丢失，必须读 `errorMessages`。
+
+**校验失败与抛出的异常现在报告方式完全一致**——两者都让 `errors` 加一并都追加到
+`errorMessages`。缺少必填字段时（例如会话与摘要导入中 schema 上为 `NOT NULL` 的
+`session_id` 与 `project_path`），得到的是点名该字段的消息（如
+`"projectPath is required"`），而不是数据库约束错误。
+
+对运行中的后端实测：
+
+```jsonc
+// 一条无效记录
+{"success":true,"imported":0,"skipped":0,"errors":1,
+ "errorMessages":["projectPath is required"]}
+
+// 同一会话导入两次——是重复，不是错误
+{"success":true,"imported":0,"skipped":1,"errors":0,"errorMessages":[]}
+```
+
+**字段名注意**。后端全局 `jackson.property-naming-strategy` 是 `SNAKE_CASE`，
+请求字段必须用 snake_case（`session_id`、`project_path`）。camelCase 字段不会绑定、
+会被当作缺失——它产生的是点名缺失字段的校验错误，而不是被静默忽略。
+
 ---
 
 #### POST `/api/import/summaries`
@@ -2501,6 +2533,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
+| 2026-10-02 | (unreleased) | **行为变更：四个单记录导入端点现在把校验失败计入 `errors`，不再计入 `skipped`。** `ImportResult` 有三个工厂（`imported`、`duplicate`、`error`），而 `ImportController` 只按 `imported()` 分支，于是 `error()` 落进了 skip 计数，而 `errors`/`errorMessages` **只接收抛出的异常**。同一类失败因此仅因「抛出」还是「返回」而被报告成两种完全不同的样子。修复前实测：字段未绑定的载荷返回 `{"success":true,"imported":0,"skipped":1,"errors":0,"errorMessages":[]}`，而那条记录已被静默丢弃。现新增 `ImportResult.isError()` 以 `id() == null` 区分（只有 `error()` 不设 id），四处调用点全部改为按它分支。修复后实测：`{"success":true,"imported":0,"skipped":0,"errors":1,"errorMessages":["projectPath is required"]}`。真正的重复**行为不变**，仍计为 skipped。另补：`importSession` 与 `importSummary` 现在校验 `projectPath`（两张表上均为 NOT NULL），缺字段时返回点名该字段的消息，而不是 `Could not commit JPA transaction` 或原始的 PostgreSQL 约束错误。三个计数的语义已补进「Import Observations」小节——正是这个空白让该缺陷长期存活。对 WebUI 零影响：`webui` 的 `POST /api/import` 是写入自有 SQLite store 的独立 worker 路由，从不调用这些端点。 |
 | 2026-10-02 | (unreleased) | **实跑核验后修正观察记录响应的字段表。** (1) `facts`、`concepts`、`files_read`、`files_modified` 原标注为 `string[]`，但后端把这些 JSONB 列序列化为 **JSON 编码的字符串**（`"concepts": "[\"auth\"]"`），已用 POST/GET 往返验证。`refined_from_ids` 当时也被归入这一组，但它**不是** JSONB 列——它是存放逗号分隔 UUID 的 `TEXT` 列，见下一条更正。(2) 响应字段原写作 `session_id`，实际 wire 键为 `content_session_id`（V13 `@JsonProperty` 覆盖）——请求侧的 `session_id` 别名仍然有效，未改动；(3) 补齐 10 个线上实际返回但表中缺失的字段：`content_hash`、`discovery_tokens`、`relevance_count`、`generated_by_model`、`step_number`、`embedding_model_id` 及三个 `embedding_*` 向量列。另修正两处响应示例。`POST /api/ingest/observation` 的**请求**侧确实接受真实数组，保持原样未动。该错误类型正是同轮修复的 Python SDK 缺陷的文档根因——它只解析真实数组，因而这些字段一律被读成 `[]` |
 | 2026-10-02 | (unreleased) | **更正 `refined_from_ids`——上一条把它与四个 JSONB 列归为一类。** V11 中声明为 `refined_from_ids TEXT`（`COMMENT ON COLUMN … IS 'Comma-separated IDs of merged observations'`），后端唯一的写入方是 `ExtractionStorageService`，用的是 `Collectors.joining(",")` 且从不 JSON 编码；活体抽取记录也证实了这一点：该记录的 wire 值用 `json.loads()` 解析会在第一个 UUID 处抛 `JSONDecodeError`，而同一条记录的 `concepts` 则能正常解码。类型 `string \| null` 本来就对，错的是描述里的「JSON 编码数组」，且与上方三行的示例自相矛盾。这也一并更正了同一天刚写进 `ARCHITECTURE.md`/`ARCHITECTURE-zh-CN.md` 的说法。该错误描述是有代价的：Go SDK 的 `StringList` 假定所有列表列要么是 JSON、要么是 JSON 编码数组，因此只要有一条记录带 `refined_from_ids`，整页观察记录就无法反序列化（同轮已修） |
 | 2026-03-31 | 0.1.0-beta | 新增 Extraction (/run, /latest, /history)、Cursor、Mode、Logs、Import、Viewer 章节；修复 Session API 路径；同步英文版完整结构 |

@@ -207,6 +207,8 @@ public class ImportController {
                 ImportService.ImportResult result = importService.importSession(session);
                 if (result.imported()) {
                     stats = stats.addSessionImported();
+                } else if (result.isError()) {
+                    stats = stats.addError(result.message());
                 } else {
                     stats = stats.addSessionSkipped();
                 }
@@ -228,6 +230,8 @@ public class ImportController {
                 ImportService.ImportResult result = importService.importSummary(summary);
                 if (result.imported()) {
                     stats = stats.addSummaryImported();
+                } else if (result.isError()) {
+                    stats = stats.addError(result.message());
                 } else {
                     stats = stats.addSummarySkipped();
                 }
@@ -289,6 +293,8 @@ public class ImportController {
                 ImportService.ImportResult result = importService.importSession(session);
                 if (result.imported()) {
                     imported++;
+                } else if (result.isError()) {
+                    errors.add(result.message());
                 } else {
                     skipped++;
                 }
@@ -348,6 +354,8 @@ public class ImportController {
                 ImportService.ImportResult result = importService.importSummary(summary);
                 if (result.imported()) {
                     imported++;
+                } else if (result.isError()) {
+                    errors.add(result.message());
                 } else {
                     skipped++;
                 }

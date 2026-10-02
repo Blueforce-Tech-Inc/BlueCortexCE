@@ -67,6 +67,26 @@ public class ImportService implements LogHelper {
         public static ImportResult error(String message) {
             return new ImportResult(false, null, message);
         }
+
+        /**
+         * True when this result is a validation failure rather than a skip.
+         *
+         * <p>{@link #imported()} alone is not enough to tell the three cases apart:
+         * both {@code duplicate} and {@code error} report {@code imported == false}, so
+         * callers that branch on it alone silently counted validation failures as
+         * duplicates and answered {@code {"success":true,"skipped":1,"errors":0}} for
+         * records that were dropped on the floor. Only {@link #error()} leaves
+         * {@code id} null, which is what distinguishes it from a real duplicate that
+         * resolved to an existing row.
+         *
+         * <p>Note the asymmetry this exists to correct: a failure <em>thrown</em> from
+         * the service was always reported through the caller's error list, while the
+         * same failure <em>returned</em> was not. Both paths now land in the error
+         * count.
+         */
+        public boolean isError() {
+            return !imported && id == null;
+        }
     }
 
     /**
@@ -209,6 +229,13 @@ public class ImportService implements LogHelper {
     public ImportResult importSession(SessionImportData data) {
         if (data.contentSessionId() == null || data.contentSessionId().isBlank()) {
             return ImportResult.error("contentSessionId is required");
+        }
+        // mem_sessions.project_path is NOT NULL. Without this check the save fails at
+        // commit time and the caller is told "Could not commit JPA transaction", which
+        // names neither the field nor the constraint. Verified live: omitting
+        // project_path produced exactly that opaque message.
+        if (data.projectPath() == null || data.projectPath().isBlank()) {
+            return ImportResult.error("projectPath is required");
         }
 
         Optional<SessionEntity> existing = sessionRepository.findByContentSessionId(data.contentSessionId());
@@ -373,6 +400,12 @@ public class ImportService implements LogHelper {
     public ImportResult importSummary(SummaryImportData data) {
         if (data.sessionId() == null || data.sessionId().isBlank()) {
             return ImportResult.error("sessionId is required");
+        }
+        // mem_summaries.project_path is NOT NULL. Same reason as importSession: without
+        // this check the caller gets a raw PostgreSQL constraint-violation dump instead
+        // of a message naming the field.
+        if (data.projectPath() == null || data.projectPath().isBlank()) {
+            return ImportResult.error("projectPath is required");
         }
 
         List<SummaryEntity> existing = summaryRepository.findByContentSessionId(data.sessionId());
