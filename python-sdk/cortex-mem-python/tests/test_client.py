@@ -178,23 +178,69 @@ class TestCapture:
         with pytest.raises(ValidationError, match="session_id is required"):
             c.record_observation("", "/p", "Read")
 
+    def test_record_observation_empty_project_path_raises(self):
+        """Empty project_path should raise, matching Go/Java/JS.
+
+        The backend accepts an empty cwd with 200 and queues the observation,
+        so without this check the row is filed against no project and the
+        caller is told nothing.
+        """
+        c = _client()
+        with pytest.raises(ValidationError, match="project_path is required"):
+            c.record_observation("s1", "", "Read")
+
+    def test_record_observation_empty_tool_name_raises(self):
+        """Empty tool_name should raise, matching Go/Java/JS.
+
+        This is the one that loses data outright: the backend answers an empty
+        tool_name with 400 "Missing required field: tool_name", and
+        fire-and-forget swallows that, so the caller would believe the
+        observation was captured.
+        """
+        c = _client()
+        with pytest.raises(ValidationError, match="tool_name is required"):
+            c.record_observation("s1", "/p", "")
+
     def test_record_session_end_empty_session_id_raises(self):
         """Empty session_id should raise CortexError."""
         c = _client()
         with pytest.raises(ValidationError, match="session_id is required"):
             c.record_session_end("", "/p")
 
+    def test_record_session_end_empty_project_path_raises(self):
+        """Empty project_path should raise, matching Go/Java/JS."""
+        c = _client()
+        with pytest.raises(ValidationError, match="project_path is required"):
+            c.record_session_end("s1", "")
+
     def test_record_user_prompt_empty_session_id_raises(self):
         """Empty session_id should raise CortexError."""
         c = _client()
         with pytest.raises(ValidationError, match="session_id is required"):
-            c.record_user_prompt("", "hello")
+            c.record_user_prompt("", "hello", project_path="/p")
 
     def test_record_user_prompt_empty_prompt_text_raises(self):
         """Empty prompt_text should raise CortexError."""
         c = _client()
         with pytest.raises(ValidationError, match="prompt_text is required"):
-            c.record_user_prompt("s1", "")
+            c.record_user_prompt("s1", "", project_path="/p")
+
+    def test_record_user_prompt_empty_project_path_raises(self):
+        """Empty project_path should raise, matching Go/Java/JS.
+
+        project_path used to default to "" and was never checked. The backend
+        answers an empty cwd with 200 and queues the record, so the prompt was
+        filed against no project with no signal to the caller.
+        """
+        c = _client()
+        with pytest.raises(ValidationError, match="project_path is required"):
+            c.record_user_prompt("s1", "hello", project_path="")
+
+    def test_record_user_prompt_project_path_is_required(self):
+        """Omitting project_path must be a TypeError, not a silent empty cwd."""
+        c = _client()
+        with pytest.raises(TypeError):
+            c.record_user_prompt("s1", "hello")  # type: ignore[call-arg]
 
     def test_validation_error_has_field_attribute(self):
         """ValidationError should expose field attribute for cross-SDK parity (Go/JS have it)."""
@@ -237,6 +283,34 @@ class TestCapture:
 
 
 class TestRetrieval:
+    def test_search_empty_project_raises(self):
+        """Empty project must raise, matching Go/Java/JS.
+
+        This is the one that answers wrongly rather than loudly: the backend
+        accepts `project=` and replies 200 with an empty result set, so a
+        caller who forgot the argument would read "no matches" instead of
+        "your call was malformed".
+        """
+        c = _client()
+        with pytest.raises(ValidationError, match="project is required"):
+            c.search("")
+
+    def test_retrieve_experiences_empty_task_raises(self):
+        """Empty task must raise, matching Go/Java/JS.
+
+        Without the check the backend answers 400 "task is required", so a
+        caller's typo costs a round trip and surfaces as a server error.
+        """
+        c = _client()
+        with pytest.raises(ValidationError, match="task is required"):
+            c.retrieve_experiences("")
+
+    def test_build_icl_prompt_empty_task_raises(self):
+        """Empty task must raise, matching Go/Java/JS."""
+        c = _client()
+        with pytest.raises(ValidationError, match="task is required"):
+            c.build_icl_prompt("")
+
     @responses.activate
     def test_retrieve_experiences(self):
         # Wire format uses Jackson SNAKE_CASE naming strategy

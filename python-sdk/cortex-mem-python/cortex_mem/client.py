@@ -271,10 +271,22 @@ class CortexMemClient:
 
         Wire format: project_path → "cwd", tool_name → "tool_name",
         extracted_data → "extractedData" (camelCase).
+
+        Raises:
+            ValidationError: if session_id, project_path or tool_name is empty.
+                The other three SDKs all reject these client-side, and the
+                reasons differ: the backend answers an empty tool_name with a
+                400 that fire-and-forget would swallow, and it accepts an empty
+                cwd with a 200 and queues it, so neither failure would reach
+                the caller on its own.
         """
         self._assert_not_closed()
         if not session_id:
             raise ValidationError("session_id is required", field="session_id")
+        if not project_path:
+            raise ValidationError("project_path is required", field="project_path")
+        if not tool_name:
+            raise ValidationError("tool_name is required", field="tool_name")
         body: dict[str, Any] = {
             "session_id": session_id,
             "cwd": project_path,
@@ -301,10 +313,18 @@ class CortexMemClient:
         """Signal session end. POST /api/ingest/session-end (fire-and-forget).
 
         Wire format: project_path → "cwd".
+
+        Raises:
+            ValidationError: if session_id or project_path is empty. The backend
+                answers an empty cwd with a 200 and queues the session end, so
+                without this check the caller would never learn the record was
+                filed against no project.
         """
         self._assert_not_closed()
         if not session_id:
             raise ValidationError("session_id is required", field="session_id")
+        if not project_path:
+            raise ValidationError("project_path is required", field="project_path")
         body: dict[str, Any] = {
             "session_id": session_id,
             "cwd": project_path,
@@ -317,24 +337,34 @@ class CortexMemClient:
         self,
         session_id: str,
         prompt_text: str,
-        project_path: str = "",
+        project_path: str,
         prompt_number: int = 0,
     ) -> None:
         """Record a user prompt. POST /api/ingest/user-prompt (fire-and-forget).
 
         Wire format: project_path → "cwd".
+
+        ``project_path`` is required and has no default. It used to default to
+        an empty string, which made omitting it the easy path and the silent
+        one: the backend accepts an empty cwd, so the prompt was filed against
+        no project and the caller heard nothing. Go, Java and JS all require
+        the field.
+
+        Raises:
+            ValidationError: if session_id, prompt_text or project_path is empty.
         """
         self._assert_not_closed()
         if not session_id:
             raise ValidationError("session_id is required", field="session_id")
         if not prompt_text:
             raise ValidationError("prompt_text is required", field="prompt_text")
+        if not project_path:
+            raise ValidationError("project_path is required", field="project_path")
         body: dict[str, Any] = {
             "session_id": session_id,
             "prompt_text": prompt_text,
+            "cwd": project_path,
         }
-        if project_path:
-            body["cwd"] = project_path
         if prompt_number:
             body["prompt_number"] = prompt_number
         self._fire_and_forget("RecordUserPrompt", "POST", "/api/ingest/user-prompt", json_body=body)
@@ -354,8 +384,15 @@ class CortexMemClient:
         """Retrieve relevant experiences. POST /api/memory/experiences.
 
         Wire format: required_concepts → "requiredConcepts", user_id → "userId".
+
+        Raises:
+            ValidationError: if task is empty. The backend rejects it with
+                400 "task is required", so without this check a caller's typo
+                costs a round trip and surfaces as a server error.
         """
         self._assert_not_closed()
+        if not task:
+            raise ValidationError("task is required", field="task")
         body: dict[str, Any] = {"task": task}
         if project:
             body["project"] = project
@@ -383,8 +420,14 @@ class CortexMemClient:
         """Build an ICL prompt. POST /api/memory/icl-prompt.
 
         Wire format: max_chars → "maxChars", user_id → "userId".
+
+        Raises:
+            ValidationError: if task is empty. The backend rejects it with
+                400 "task is required".
         """
         self._assert_not_closed()
+        if not task:
+            raise ValidationError("task is required", field="task")
         body: dict[str, Any] = {"task": task}
         if project:
             body["project"] = project
@@ -418,8 +461,18 @@ class CortexMemClient:
             limit: Maximum results to return (0 = backend default).
             offset: Pagination offset (0 = no offset).
             order_by: Sort order, e.g. "created_at_epoch" for newest first.
+
+        Raises:
+            ValidationError: if project is empty. This one is worth calling out
+                because the backend does not complain: ``project=`` empty is
+                accepted and returns 200 with an empty result set, so a caller
+                who forgot the argument would read "no matches" instead of
+                "your call was malformed". Omitting the parameter entirely is
+                a 400, which is why the SDK must not send an empty one.
         """
         self._assert_not_closed()
+        if not project:
+            raise ValidationError("project is required", field="project")
         params: dict[str, str] = {"project": project}
         if query:
             params["query"] = query
