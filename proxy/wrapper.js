@@ -1086,16 +1086,26 @@ async function handleSessionEnd(event) {
  * @param event Hook event from Claude Code
  */
 async function handleUserPrompt(event) {
-  const { cwd, session_id, prompt_text, prompt_number } = event;
+  const { cwd, session_id, prompt_number } = event;
+
+  // Claude Code's UserPromptSubmit payload carries the submitted text in `prompt`
+  // (https://code.claude.com/docs/en/hooks — "UserPromptSubmit hooks receive the
+  // `prompt` field containing the text the user submitted"). `prompt_text` is the
+  // legacy/TS-aligned spelling and is still accepted for older callers, but it must
+  // not be the only source: reading it alone recorded an empty prompt for every real
+  // Claude Code session while still logging "User prompt recorded".
+  const rawPromptText = event.prompt !== undefined && event.prompt !== null
+    ? event.prompt
+    : event.prompt_text;
 
   console.error(`[claude-mem] User prompt submitted: ${session_id}`);
 
-  // TS Alignment: Strip privacy tags from prompt_text
+  // TS Alignment: Strip privacy tags from the prompt text
   // If prompt is entirely private (strips to empty), skip recording
-  const strippedPromptText = prompt_text ? stripMemoryTagsFromPrompt(prompt_text) : '';
+  const strippedPromptText = rawPromptText ? stripMemoryTagsFromPrompt(rawPromptText) : '';
 
   // Skip processing if prompt is entirely private
-  if (isEntirelyPrivate(prompt_text)) {
+  if (isEntirelyPrivate(rawPromptText)) {
     console.error(`[claude-mem] User prompt is entirely private, skipping recording`);
     process.exit(0);
     return;

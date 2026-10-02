@@ -238,12 +238,16 @@ func (c *httpClient) HealthCheck(ctx context.Context) error {
 	if status >= 400 {
 		return &APIError{StatusCode: status, Message: extractErrorMessage(data)}
 	}
-	// Verify response body contains status:ok
+	// A health check that cannot confirm the backend answered is not a health check.
+	// Anything other than a JSON object carrying status:"ok" — a proxy error page,
+	// a captive portal, a truncated body, an empty 200 — must surface as an error,
+	// because callers use HealthCheck as a readiness gate.
 	var resp map[string]any
-	if err := json.Unmarshal(data, &resp); err == nil {
-		if s, ok := resp["status"].(string); !ok || s != "ok" {
-			return fmt.Errorf("cortex-ce: unhealthy: %v", resp)
-		}
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return fmt.Errorf("cortex-ce: unhealthy: /api/health returned a non-JSON body (%d bytes)", len(data))
+	}
+	if s, ok := resp["status"].(string); !ok || s != "ok" {
+		return fmt.Errorf("cortex-ce: unhealthy: %v", resp)
 	}
 	return nil
 }

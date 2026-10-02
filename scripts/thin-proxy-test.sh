@@ -724,6 +724,37 @@ console.log(isEntirelyPrivate(input));
         log_fail "UserPromptSubmit did not correctly skip fully private prompt"
         echo "Output: $STDERR"
     fi
+
+    # Test 16i: the official Claude Code field is `prompt`, not `prompt_text`.
+    # Regression guard: the handler used to read only `prompt_text`, so every real
+    # Claude Code session recorded an empty prompt while still logging "recorded".
+    echo ""
+    echo "--- Test 16i: UserPromptSubmit honours the official \`prompt\` field ---"
+    SESSION_ID="official-prompt-field-test-$$"
+    INPUT='{"session_id":"'"$SESSION_ID"'","cwd":"'"$TEST_DIR"'","prompt":"OFFICIAL_FIELD_MARKER_'"$SESSION_ID"'","prompt_number":1}'
+    echo "$INPUT" | node "$WRAPPER" user-prompt --url "$JAVA_API_URL" >/dev/null 2>&1
+    sleep 1
+    RECORDED=$(curl -s "$JAVA_API_URL/api/prompts?project=${TEST_DIR}&limit=20" 2>/dev/null)
+    if echo "$RECORDED" | grep -q "OFFICIAL_FIELD_MARKER_${SESSION_ID}"; then
+        log_pass "UserPromptSubmit persisted the text from the official \`prompt\` field"
+    else
+        log_fail "UserPromptSubmit dropped the official \`prompt\` field (recorded an empty prompt)"
+    fi
+
+    # Test 16j: the legacy `prompt_text` spelling must keep working.
+    echo ""
+    echo "--- Test 16j: UserPromptSubmit still accepts legacy \`prompt_text\` ---"
+    LEGACY_SESSION_ID="legacy-prompt-field-test-$$"
+    INPUT='{"session_id":"'"$LEGACY_SESSION_ID"'","cwd":"'"$TEST_DIR"'","prompt_text":"LEGACY_FIELD_MARKER_'"$LEGACY_SESSION_ID"'","prompt_number":1}'
+    echo "$INPUT" | node "$WRAPPER" user-prompt --url "$JAVA_API_URL" >/dev/null 2>&1
+    sleep 1
+    RECORDED=$(curl -s "$JAVA_API_URL/api/prompts?project=${TEST_DIR}&limit=20" 2>/dev/null)
+    if echo "$RECORDED" | grep -q "LEGACY_FIELD_MARKER_${LEGACY_SESSION_ID}"; then
+        log_pass "UserPromptSubmit still persists the legacy \`prompt_text\` field"
+    else
+        log_fail "UserPromptSubmit regressed on the legacy \`prompt_text\` field"
+    fi
+
 }
 
 #######################################

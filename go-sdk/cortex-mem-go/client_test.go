@@ -1758,6 +1758,39 @@ func TestFireAndForget_CustomBackoff(t *testing.T) {
 	}
 }
 
+func TestHealthCheck_NonJSONBodyIsNotHealthy(t *testing.T) {
+	// A 200 that is not the health JSON means something other than the backend
+	// answered (proxy error page, captive portal, truncated body). Reporting
+	// that as healthy is worse than reporting an error, because callers use
+	// HealthCheck as a readiness gate.
+	for _, tc := range []struct {
+		name string
+		body string
+	}{
+		{"html", "<html><body>502 Bad Gateway</body></html>"},
+		{"plain text", "upstream connect error"},
+		{"empty body", ""},
+		{"truncated json", `{"status":"ok"`},
+		{"json but not an object", `["ok"]`},
+		{"json object without status", `{"service":"claude-mem-java"}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				if tc.body != "" {
+					w.Write([]byte(tc.body))
+				}
+			}))
+			defer server.Close()
+
+			client := newTestClient(server)
+			if err := client.HealthCheck(context.Background()); err == nil {
+				t.Fatalf("HealthCheck reported healthy for a 200 whose body was %q", tc.body)
+			}
+		})
+	}
+}
+
 func TestHealthCheck_Unhealthy(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
