@@ -81,8 +81,11 @@ public class MemoryRefineService {
 
     /**
      * Trigger memory refinement for a project.
-     * Called at SessionEnd or by scheduled task.
-     * 
+     * Reached from the Spring event published at SessionEnd
+     * ({@code SummaryGenerationService}) and from the manual refine endpoint
+     * ({@code MemoryController}). It is <em>not</em> reached by the scheduled
+     * task — {@code scheduledRefineAll} calls {@link #quickRefine} directly.
+     *
      * @param projectPath Project path to refine
      */
     @Async
@@ -196,8 +199,15 @@ public class MemoryRefineService {
     }
 
     /**
-     * Deep refinement - called by daily scheduled task.
-     * Includes cross-session merging and rule extraction.
+     * Deep refinement - includes cross-session merging and rule extraction.
+     *
+     * <p>No callers. An earlier version of this javadoc said "called by daily
+     * scheduled task", which was never true: the scheduled job
+     * {@code scheduledRefineAll} calls {@link #quickRefine(String, int)}, not
+     * this method, and {@code quickRefine}'s only caller is
+     * {@code scheduledRefineAll}. The false javadoc is why this method read as
+     * a live second trigger for structured extraction in the design docs; the
+     * reachable extraction path is {@link #tryExecuteWithProjectLock}.
      */
     @Async
     public void deepRefineProjectMemories(String projectPath) {
