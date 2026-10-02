@@ -176,11 +176,25 @@ retriever := genkit.NewRetriever(client, "/my-project",
 
 ## Testing
 
-```bash
-# Run all tests
-go test -v ./...
+**This SDK is 9 separate Go modules, not one.** `eino/`, `genkit/`, `langchaingo/`
+and each directory under `examples/` carry their own `go.mod`, so a bare
+`go test ./...` run from this directory only reaches the root module — 299 of
+the 345 tests. The four adapter and example modules it skips are exactly the
+ones most likely to rot against an upstream framework upgrade, so run all nine:
 
-# Run with coverage
+```bash
+# Run all tests, one module at a time (stops at the first failure)
+find . -name go.mod -exec dirname {} \; | sort | while read -r d; do
+  (cd "$d" && go test ./... -count=1) || exit 1
+done
+```
+
+Measured on 2026-10-03, all nine green: core 232 + dto 67 + eino 8 + genkit 13
++ langchaingo 12 + `examples/http-server` 13 = **345**. The other four
+`examples/` modules have no test files and report `[no test files]`.
+
+```bash
+# Coverage for the root module only (the adapters need their own -cover run)
 go test -cover ./...
 ```
 
@@ -302,6 +316,24 @@ forgot the argument would read "no matches" rather than "your call was malformed
 `ListObservations` and the argument-free getters (`GetStats`, `GetProjects`,
 `GetModes`, `GetSettings`, `GetVersion`, `HealthCheck`) require nothing. `GetStats`
 takes an optional project filter.
+
+That is a statement about required arguments, not about blast radius, and on
+this one method the two point in opposite directions. `ListObservations` is the
+only retrieval method whose project filter **widens** instead of emptying: omit
+`project` — and pass an empty string if you like, because all four SDKs convert
+that to omission — and no `project` is sent at all, so the backend answers with
+observations from **every project on the instance**. Verified live against a
+populated backend: `GET /api/observations` with no `project` returned 16
+distinct projects inside a single 100-item page. A *direct* HTTP call with a
+literal `?project=` is the opposite case and returns nothing, because the
+repository query tests `IS NULL` rather than blank — worth knowing before you
+bypass the SDK.
+
+So this is the mirror image of the two ICL endpoints above: there a blank
+project silently empties the result, here it silently over-broadens it. In a
+multi-tenant deployment that is cross-tenant exposure rather than a missing
+answer, and no client-side check will catch it, because the call is
+well-formed.
 
 ## Wire Format
 

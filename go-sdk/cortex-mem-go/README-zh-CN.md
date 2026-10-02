@@ -172,11 +172,24 @@ retriever := genkit.NewRetriever(client, "/my-project",
 
 ## 测试
 
-```bash
-# 运行所有测试
-go test -v ./...
+**本 SDK 是 9 个独立的 Go module，而不是一个。** `eino/`、`genkit/`、
+`langchaingo/` 以及 `examples/` 下的每个目录都有自己的 `go.mod`，因此在本目录
+直接执行 `go test ./...` **只能覆盖根模块**——345 个测试里的 299 个。被跳过的
+四个适配器与示例模块，恰恰是最容易随上游框架升级而失效的部分，所以请跑全部九个：
 
-# 运行测试并查看覆盖率
+```bash
+# 逐个 module 运行全部测试（遇到第一个失败即中止）
+find . -name go.mod -exec dirname {} \; | sort | while read -r d; do
+  (cd "$d" && go test ./... -count=1) || exit 1
+done
+```
+
+2026-10-03 实测九个全绿：core 232 + dto 67 + eino 8 + genkit 13
++ langchaingo 12 + `examples/http-server` 13 = **345**。其余四个 `examples/`
+模块没有测试文件，会输出 `[no test files]`。
+
+```bash
+# 覆盖率仅统计根模块（各适配器需各自加 -cover 单独运行）
 go test -cover ./...
 ```
 
@@ -284,6 +297,18 @@ fire-and-forget，会吞掉后端返回的一切——`ToolName` 为空时后端
 `ListObservations` 与无参的 getter（`GetStats`、`GetProjects`、`GetModes`、
 `GetSettings`、`GetVersion`、`HealthCheck`）没有必填参数；`GetStats` 接受一个可选的
 项目过滤条件。
+
+这句说的是**必填参数**，不是**影响范围**——而在 `ListObservations` 上两者指向相反
+方向。`ListObservations` 是唯一一个项目过滤会**放宽**而非**清空**的检索方法：省略 `project`
+（传空串也一样，四家 SDK 都会把它转成省略），SDK 就不会发出 `project` 参数，
+后端随即返回**该实例上全部项目**的观测。活体实测：省略 `project` 的
+`GET /api/observations` 在一个 100 条的单页里返回了 **16 个不同项目**的数据。
+而**直连 HTTP** 带上字面量 `?project=` 则是相反的情形、会返回空——因为仓储查询判的是
+`IS NULL` 而非空串；绕过 SDK 直连前值得知道这一点。
+
+因此它与上面那两个 ICL 端点恰好互为镜像：那里空项目**静默清空**结果，这里空项目
+**静默放宽**结果。在多租户部署中，这是**跨租户数据外泄**而不是「少给了一条答案」，
+而且没有任何客户端校验能拦住它——因为这个调用本身是合法的。
 
 ## Wire 格式
 

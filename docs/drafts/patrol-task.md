@@ -40,7 +40,7 @@ Java Demo 依赖及完整启动前置条件见 `examples/cortex-mem-demo/README.
 ### 可重复的组件验证命令
 
 - Java Demo：`cd examples/cortex-mem-demo && mvn test -q`
-- Go SDK/Demo：`cd go-sdk/cortex-mem-go && gofmt -d . && go test ./...`
+- Go SDK/Demo：`cd go-sdk/cortex-mem-go && gofmt -d . && go vet ./...`，**再逐模块跑测试**（该 SDK 是 9 个独立 module，`go test ./...` 只覆盖根模块的 299/345）：`find . -name go.mod -exec dirname {} \; | sort | while read -r d; do (cd "$d" && go test ./... -count=1) || exit 1; done`
 - Python SDK：`cd python-sdk/cortex-mem-python && python3 -m pytest tests/ -q`。不要依赖未必存在的裸 `pytest` 命令；`scripts/python-sdk-e2e-test.sh` 会自动把 checkout 加入 `PYTHONPATH` 并隔离第三方告警。
 - JS/TS SDK：`cd js-sdk/cortex-mem-js && npm test`、`npm run lint`、`npm run build`
 
@@ -123,10 +123,10 @@ Java Demo 依赖及完整启动前置条件见 `examples/cortex-mem-demo/README.
 
 ## 已完成实施基准
 
-> 数字为 2026-10-03 实测（`mvn test` / `go test ./...` / `pytest` / `vitest`），非估算。
+> 数字为 2026-10-03 实测（`mvn test` / 逐 module `go test` / `pytest` / `vitest`），非估算。Go 一项必须逐 module 统计：单条 `go test ./...` 只见根模块。
 
 - Java SDK: 25 个 API 方法（三模块 reactor；client 133 + spring-ai 46 + starter 7 = **186** tests）
-- Go SDK: 27 个接口方法 + DTO 包 + 3 集成层（**343** tests: core 230 + dto 67 + genkit 13 + langchaingo 12 + eino 8 + http-server 示例 13）
+- Go SDK: 27 个接口方法 + DTO 包 + 3 集成层（**345** tests: core 232 + dto 67 + genkit 13 + langchaingo 12 + eino 8 + http-server 示例 13；第 196 轮逐 module 实测，原记 343 系 core 230 少计 2）
 - Python SDK: 25 个 API 方法 + 15 DTO + ObservationUpdate + Flask Demo（**403** tests；第 175 轮 PY-1/PY-2 补齐 8 处客户端校验时由 395 增至 403）
 - JS/TS SDK: 25 个 API 方法 + CJS/ESM/DTS 输出（**227** tests：client 222 + truncated-body 5）
 - Demo: Java 12 控制器 + Go 5 Demo + Python 1 Demo + JS 1 Demo

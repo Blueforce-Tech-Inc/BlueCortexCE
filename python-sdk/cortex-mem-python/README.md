@@ -317,6 +317,24 @@ are searching globally; you are not.
 `get_modes`, `get_settings`, `get_version`, `health_check`) require nothing.
 `get_stats` takes an optional project filter.
 
+That is a statement about required arguments, not about blast radius, and on
+this one method the two point in opposite directions. `list_observations` is the
+only retrieval method whose project filter **widens** instead of emptying: omit
+`project` — and pass an empty string if you like, because all four SDKs convert
+that to omission — and no `project` is sent at all, so the backend answers with
+observations from **every project on the instance**. Verified live against a
+populated backend: `GET /api/observations` with no `project` returned 16
+distinct projects inside a single 100-item page. A *direct* HTTP call with a
+literal `?project=` is the opposite case and returns nothing, because the
+repository query tests `IS NULL` rather than blank — worth knowing before you
+bypass the SDK.
+
+So this is the mirror image of the two ICL endpoints above: there a blank
+project silently empties the result, here it silently over-broadens it. In a
+multi-tenant deployment that is cross-tenant exposure rather than a missing
+answer, and no client-side check will catch it, because the call is
+well-formed.
+
 ## Wire Format
 
 The SDK handles wire format differences automatically:
