@@ -1039,6 +1039,16 @@ GET /api/search?project=/path/to/project&query=search+terms&limit=10&type=bugfix
 | `offset` | int | ❌ | 0 | Pagination offset |
 | `orderBy` | string | ❌ | — | Order by field (`created_at_epoch` or `createdAtEpoch` — orders by creation time descending) |
 
+> **There is no `userId` filter here, and this endpoint is not user-scoped.**
+> `userId` is a session attribute; observations carry no user column, so search
+> returns every observation in the project regardless of which user recorded it.
+> The ICL endpoints do honour it — `POST /api/memory/experiences` and
+> `POST /api/memory/icl-prompt` return a different result per user (measured:
+> one observation under `alice` gives 1 experience for `alice` and 0 for `bob`).
+> In a multi-user deployment, give each user their own project path if you need
+> isolation here. Same caveat for `GET /api/observations` and
+> `POST /api/observations/batch`.
+
 **Request Example**:
 ```bash
 curl "http://localhost:37777/api/search?project=/Users/dev/myproject&query=authentication&limit=10"

@@ -479,7 +479,7 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 > | `SPRING_AI_OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small` | `BAAI/bge-m3` |
 > | `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | `1536` | `1024` |
 >
-> 显式设置则与 profile 无关；不设置则由 profile 决定。5.7 节的开发环境示例正是
+> 显式设置则与 profile 无关；不设置则由 profile 决定。5.8 节的开发环境示例正是
 > 依赖这一点——它把五个值全部显式写出，而不是继承默认值。
 >
 > 上表的短别名只定义在 `application-prd.yml` 中。`dev` profile 识别
@@ -557,7 +557,32 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 | `POSTGRES_DATA_PATH` | 否 | `postgres_data` | PostgreSQL 数据卷路径（Docker Compose 主机路径） |
 | `LOGS_PATH` | 否 | `claude-mem-logs` | 应用日志卷路径（Docker Compose 主机路径） |
 
-### 5.7 配置示例
+### 5.7 多用户部署
+
+`userId` 是**会话级**属性，在会话开始时设置（`POST /api/session/start` 的 `user_id`
+字段），或事后挂接（`PATCH /api/session/{id}/user`）。它**不是**观测的属性：
+`mem_observations` 没有用户列，因此无法从一条已存记录上读出它属于谁。
+
+**部分端点认 `userId`，而两个常用端点不认。** 在一个只含 alice 一条观测的项目上实测：
+
+| 端点 | 是否接受 `userId` | 结果 |
+|------|------------------|------|
+| `POST /api/memory/experiences` | 是 | `alice` → 1 条经验，`bob` → 0 条 |
+| `POST /api/memory/icl-prompt` | 是 | 同样按用户限定 |
+| `GET`/`POST /api/extraction/{t}/latest`、`/history` | 是 | 同样按用户限定 |
+| `GET /api/search` | **否** | 返回 alice 的观测，且无法再收窄 |
+| `GET /api/observations`、`POST /api/observations/batch` | **否** | 返回该项目的全部观测 |
+
+ICL 这一侧隔离是正确的：Agent 要 alice 的提示就拿到 alice 的经验，传错或不存在的
+id 返回空结果而不是别人的。`GET /api/search` 则不论传什么都返回整个项目——因为压根
+没有用户可供过滤。
+
+若一个项目要服务多个用户，请把 `/api/search` 与 `/api/observations` 当作
+**项目级、而非用户级**接口。若需要在这两个端点上也做按用户隔离，就给每个用户分配
+各自的项目路径；或者干脆不要把它们暴露给终端用户——四家 SDK 都暴露了这两个方法，
+因此任何持有 API key 的客户端都能调到。
+
+### 5.8 配置示例
 
 #### 开发环境
 

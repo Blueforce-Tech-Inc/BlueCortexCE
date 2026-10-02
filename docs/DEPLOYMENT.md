@@ -484,7 +484,7 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 > | `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | `1536` | `1024` |
 >
 > Set a variable explicitly and the profile no longer matters; leave it unset and
-> the profile decides. Section 5.7's development example relies on this — it pins
+> the profile decides. Section 5.8's development example relies on this — it pins
 > all five values rather than inheriting them.
 >
 > The short aliases above are defined in `application-prd.yml` only. The `dev`
@@ -572,8 +572,38 @@ troubleshooting table above.
 |----------|----------|---------|-------------|
 | `POSTGRES_DATA_PATH` | No | `postgres_data` | PostgreSQL data volume path (Docker Compose host path) |
 | `LOGS_PATH` | No | `claude-mem-logs` | Application logs volume path (Docker Compose host path) |
+### 5.7 Multi-User Deployments
 
-### 5.7 Configuration Examples
+`userId` is a **session-level** attribute, set when a session starts
+(`POST /api/session/start`, field `user_id`) or attached later
+(`PATCH /api/session/{id}/user`). It is not a property of an observation:
+`mem_observations` has no user column, so a user cannot be read off a stored
+record.
+
+**Some endpoints honour `userId` and two common ones do not.** Measured against
+a project containing one observation recorded under `userId: alice`:
+
+| Endpoint | `userId` accepted? | Result |
+|----------|--------------------|--------|
+| `POST /api/memory/experiences` | yes | `alice` → 1 experience, `bob` → 0 |
+| `POST /api/memory/icl-prompt` | yes | scoped the same way |
+| `GET`/`POST /api/extraction/{t}/latest`, `/history` | yes | scoped the same way |
+| `GET /api/search` | **no** | returns alice's observation, and cannot be narrowed |
+| `GET /api/observations`, `POST /api/observations/batch` | **no** | returns every observation in the project |
+
+The ICL surface is properly isolated: an agent asked for alice's prompt gets
+alice's experiences, and a wrong or unknown id returns an empty result rather
+than someone else's. `GET /api/search` returns the whole project regardless,
+because there is no user to filter on.
+
+If you are serving more than one user from one project, treat `/api/search` and
+`/api/observations` as **project-wide, not user-scoped**. Give each user their
+own project path if you need per-user isolation on those endpoints, or do not
+expose them to end users — the four SDKs surface both, so they are reachable
+from any client holding an API key.
+
+
+### 5.8 Configuration Examples
 
 #### Development Environment
 

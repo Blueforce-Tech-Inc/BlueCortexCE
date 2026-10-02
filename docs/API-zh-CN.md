@@ -1018,6 +1018,13 @@ curl -X POST "http://localhost:37777/api/context/semantic" \
 | `offset` | int | ❌ | 0 | 偏移量 |
 | `orderBy` | string | ❌ | — | 排序字段（支持 `created_at_epoch` 或 `createdAtEpoch`，按创建时间降序排列） |
 
+> **这里没有 `userId` 过滤参数，该端点也不按用户隔离。** `userId` 是会话属性，
+> 而观测上没有用户列，因此无论由谁记录，search 都会返回该项目下的全部观测。
+> ICL 那一侧则认它——`POST /api/memory/experiences` 与 `POST /api/memory/icl-prompt`
+> 对不同用户返回不同结果（实测：alice 名下一条观测，alice 查到 1 条、bob 查到 0 条）。
+> 多用户部署若需要在此隔离，请为每个用户分配各自的项目路径。
+> `GET /api/observations` 与 `POST /api/observations/batch` 同理。
+
 **请求示例**:
 ```bash
 curl "http://localhost:37777/api/search?project=/Users/dev/myproject&query=authentication&limit=10"
