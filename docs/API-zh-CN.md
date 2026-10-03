@@ -579,7 +579,9 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 这一结果与「该项目确实没有经验」**无法区分**。活体实测：同一请求在
 `project` 省略、传 `""`、传不存在路径三种情况下均返回 `200 []`，
 而传真实项目路径返回 5 条经验。空的 `project` **不会**被拒绝——只有空的 `task` 会。
-`POST /api/memory/icl-prompt` 同理，此时返回 `experienceCount: 0` 与 28 字符的空提示。
+`POST /api/memory/icl-prompt` 同理，此时返回 `experienceCount: 0`，提示内容只有
+`"Current task:\n" + <你传的 task>`——即 14 个字符加上 task 本身，因此它的长度
+随请求变化，**不是一个固定值**。
 
 #### POST `/api/memory/icl-prompt`
 
@@ -601,7 +603,7 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 |------|------|------|------|
 | `task` | string | ✅ | 当前任务/问题（用于上下文检索） |
 | `project` | string | ❌ | 项目路径（用于范围限定）。与 `POST /api/memory/experiences` 同理：省略会得到空提示，而非跨项目提示 |
-| `maxChars` | int | ❌ | 最大提示长度（默认 4000） |
+| `maxChars` | int | ❌ | 最大提示长度。省略（或传 `null`）时使用默认值 **4000**。任何低于 100 的值——**包括 `0` 与负数**——都会被向上钳到 **100**，因此**不存在「0 表示默认」的路径**：传 `"maxChars": 0` 得到的是 100 字符的提示，而不是 4000 字符的。响应会回显实际生效的值，因此注入被截断这件事在 `maxChars` 里是看得见的 |
 | `userId` | string | ❌ | 用户 ID（多用户隔离） |
 
 **响应示例** (`200 OK`):
@@ -2790,6 +2792,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
+| 2026-10-03 | (unreleased) | `POST /api/memory/icl-prompt`：关于 `maxChars` 的两处更正，均已对活体后端核实。①字段表原先只写「默认 4000」而漏掉钳制——该端点实际按 `maxChars != null ? Math.max(100, maxChars) : 4000` 解析，故任何低于 100 的值（**含 `0` 与负数**）都会被向上钳到 **100**，**不存在「0 表示默认」的路径**：实测传 `{"maxChars": 0}` 得到的是 53 字符的提示，而非 4000 字符的。响应会回显实际生效的值，因此截断在 `maxChars` 里看得见。②「缺少 `project` 会得到 28 字符的空提示」把一个并非固定的量写成了固定数字——`ExpRagService:188` 返回的是 `"Current task:\n" + currentTask`，长度等于 14 加上 task 长度；task 长 1 / 21 / 43 时实测分别为 15 / 35 / 57。后端自身的 `@Schema` 仍写着「0 = backend default ~4000」，那属对外 OpenAPI 契约变更，已记为 P2-25、不在本文档层实施。中英文同步更新 |
 | 2026-10-03 | (unreleased) | 三处「按 `created_at` 降序排列」的表述与 `created_at` 的字段类型**两个方向都错了**。**排序键**：端点实际按 `created_at_epoch` 排序而非 `created_at`——按后者排会返回**最旧**的行，即 P1-3，已于同轮修复。**类型**：`created_at` 原被标为非空 `string`，但只有导入路径会写它，捕获路径只存 epoch。实测（2026-10-03）：观测 38,120 条中 18,377 条（48%）有值、摘要 6,590 条中 1 条、用户提示 2,785 条中 0 条。现改为 `string \| null` 并把实测数据写进表内，客户端被引导至 `created_at_epoch`。2026-04-12 那条历史记录**按原样保留**——它记录的是当时的认知，不是现在的事实 |
 | 2026-10-03 | (unreleased) | `relevance_count` 与 `generated_by_model` 原被描述成 V17 反馈追踪已在生效，实际两者都**没有写入方**：活体库 38,104 条观测的 `relevance_count` 全为 `0`、`generated_by_model` 全为 `null`，`observation_feedback` 表 0 行。两行现如实写出实际取值。相关：`ObservationFeedbackEntity` 还映射了一个 V17 从未创建的 `created_at` 列，任何触及该实体的 JPQL 都会失败——已修，见 P2-24 |
 | 2026-10-03 | (unreleased) | 记录 `limit` 的**解析**行为——与 2026-10-02 记录的钳制是两件事，此前五者均未说明。五个端点都把该参数绑定为 Java `int`，值先经 Spring 转换再进入钳制，而这一步会容忍前后空白、前导 `+`，以及最出人意料的 **`0x`/`0X` 十六进制前缀**：`?limit=0x10` 返回 16 条、状态码 `200`，响应中没有任何迹象表明读的是十六进制字面量。`010` 是十进制 10 而非八进制 8，因为规则是先 trim，带十六进制前缀走 `Integer.decode`、否则走 `Integer.valueOf`。完全无法转换是该参数**唯一**产生 `400` 的情形（`10abc`、`1.5`、`1e3`、`1_0`、`1+1` 及 int 溢出）；空值绑定为 `defaultValue`。已在五者上逐一实测。**同日修正范围**：这既不是 `limit` 的属性，也不是这五个端点的属性。把后端全部数值型 `@RequestParam` 枚举出来共 **22 个**、分布在 **11 个**端点，行为完全一致——`/api/logs` 的 `?lines=0x10` 返回 `{"returnedLines": 16}`，`/api/timeline` 的 `startEpoch` 与 `/api/context/preview` 的 `maxObservations` 同样接受十六进制前缀。通用规则现已统一记录在「查询参数约定」一节并附完整参数清单，`limit` 小节改为指向它。布尔参数不受影响（`?includeObservations=0x1` 是 `400`）。中英文同步 |

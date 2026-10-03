@@ -667,7 +667,9 @@ Verified live: the same request returns `200 []` with `project` omitted, with
 `project: ""`, and with a non-existent path, while a real project path returns
 5 experiences. A blank `project` is **not** rejected — only a blank `task` is.
 The same applies to `POST /api/memory/icl-prompt`, which returns
-`experienceCount: 0` and a 28-character empty prompt in those cases.
+`experienceCount: 0` and a prompt consisting of nothing but
+`"Current task:\n" + <your task>` — 14 characters plus the task text, so its
+length varies with the request rather than being a fixed value.
 
 ### Get ICL Prompt
 
@@ -689,7 +691,7 @@ Content-Type: application/json
 |-------|------|----------|-------------|
 | `task` | string | ✅ | Current task/question for context retrieval |
 | `project` | string | ❌ | Project path for scoping. Same caveat as `POST /api/memory/experiences`: omitting it yields an empty prompt, not a cross-project one |
-| `maxChars` | int | ❌ | Max prompt length (default: 4000) |
+| `maxChars` | int | ❌ | Max prompt length. Omit it (or send `null`) to get the default **4000**. Anything below 100 — including `0` and negatives — is clamped up to **100**, so there is **no "0 means default" path**: sending `"maxChars": 0` returns a 100-character prompt, not a 4000-character one. The response echoes the value actually applied, so a truncated injection is visible in `maxChars` |
 | `userId` | string | ❌ | User ID for multi-user isolation |
 
 **Response** (`200 OK`):
@@ -2774,6 +2776,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 
 | Date | Version | Changes |
 |------|---------|---------|
+| 2026-10-03 | (unreleased) | `POST /api/memory/icl-prompt`: two corrections on `maxChars`, verified against the live backend. (1) The field table said only "default: 4000" and omitted the clamp — the endpoint resolves it as `maxChars != null ? Math.max(100, maxChars) : 4000`, so anything below 100 (including `0` and negatives) is clamped up to **100**, and there is **no "0 means default" path**: `{"maxChars": 0}` returned a 53-character prompt, not a 4000-character one. The response echoes the applied value, so the truncation is visible there. (2) The claim that a missing `project` yields "a 28-character empty prompt" was a fixed number for a value that is not fixed — `ExpRagService:188` returns `"Current task:\n" + currentTask`, so the length is 14 + the task length. Measured 15 / 35 / 57 for tasks of 1 / 21 / 43 characters. The backend's own `@Schema` still claims "0 = backend default ~4000"; that is an outward OpenAPI contract change and is recorded as P2-25 rather than fixed here. EN+ZH in sync |
 | 2026-10-03 | (unreleased) | The three "sorted by `created_at` descending" statements and the `created_at` field type were wrong in both directions. **The sort key**: the endpoints order by `created_at_epoch`, not `created_at` — sorting on the latter returned the *oldest* rows, which is P1-3, fixed in the same round. **The type**: `created_at` was documented as a non-null `string`, but only the import path sets it; the capture path stores the epoch alone. Measured 2026-10-03: 18,377 of 38,120 observations (48%) have it, 1 of 6,590 summaries, 0 of 2,785 prompts. It is now `string \| null` with the measurement inline, and clients are pointed at `created_at_epoch`. The 2026-04-12 changelog entry is left as written: it records what was believed at the time, not what is true now |
 | 2026-10-03 | (unreleased) | `relevance_count` and `generated_by_model` were documented as if V17's feedback tracking were live. Neither has a writer: `relevance_count` is `0` on all 38,104 observations in the live database, `generated_by_model` is `null` on all of them, and `observation_feedback` has zero rows. Both rows now state the actual values. Related: `ObservationFeedbackEntity` mapped a `created_at` column that V17 never created, so any JPQL touching that entity would fail — fixed, see P2-24 |
 | 2026-10-03 | (unreleased) | Documented how `limit` is **parsed**, which is separate from the clamp recorded on 2026-10-02 and was previously unstated on all five endpoints. Each binds the parameter as a Java `int`, so Spring converts the text before the clamp runs, and the conversion honours surrounding whitespace, a leading `+`, and — the surprising part — a `0x`/`0X` **hex prefix**: `?limit=0x10` returns 16 items with a `200` and nothing in the response says a hexadecimal literal was read. `010` is decimal 10, not octal 8, because the rule is trim, then `Integer.decode` for a hex prefix and `Integer.valueOf` otherwise. A value that cannot be converted at all is the only way this parameter yields a `400` (`10abc`, `1.5`, `1e3`, `1_0`, `1+1`, and int overflow); empty binds to the `defaultValue`. Verified live on all five. **Scope corrected the same day:** this is not a property of `limit` or of these five endpoints. Enumerating every numeric `@RequestParam` in the backend gives 22 of them across 11 endpoints, and all 22 behave identically -- `?lines=0x10` on `/api/logs` returns `{"returnedLines": 16}`, `/api/timeline`'s `startEpoch`, and `/api/context/preview`'s `maxObservations` all accept a hex prefix too. The general rule is now documented once under *Query Parameter Conventions* with the full parameter list, and the `limit` section points at it. Boolean parameters are unaffected (`?includeObservations=0x1` is a 400). EN+ZH in sync |

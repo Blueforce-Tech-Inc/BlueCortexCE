@@ -11,6 +11,13 @@
 | P0 | 0 | 立即修复并复测 |
 | P1 | 1 | 优先修复并复测 |
 | P2 | 2 | 本轮完整验收阶段处理或明确标记为已跳过 |
+> 第 225 轮新增 **P2-25**（`maxChars` 的 Swagger 描述承诺「0 = backend default ~4000」，
+> 而后端判的是 `!= null`、不存在该分支，传 0 实得 **100** 字符注入），**记录不修**——
+> 改注解即改对外 OpenAPI 契约；**文档层已先行更正**（API 文档双语写明 100 下限与 0 的真实行为）。
+> 同轮**已在 Java SDK 侧修复**：`ICLPromptRequest.toWireFormat()` 只判 `null`、会把 0 发上 wire，
+> 与 Go（`omitempty`）、Python（`if max_chars:`）不一致，已改为 `maxChars > 0` 才发送；
+> **JS SDK 无此防护**，其 example `/chat` 默认传 0，属 JS/TS 方向的发现。
+> **P2 Open 计数仍为 2**（P2-8、P2-10）。
 > 第 224 轮新增 **P1-4 并已修复**（`/api/context/semantic` 的 `@RequestBody` 简写因本文件
 > 第 18 行的 Swagger `RequestBody` import 而解析成**错误的注解**，Spring 遂把裸 `Map`
 > 当 `@ModelAttribute`，绑定必抛 `No primary or single unique constructor found`，
@@ -952,6 +959,41 @@
   `HTTP/1.1 500` + `Content-Length: 0`；`grep '@Scheduled'` 列出全部四个定时任务
   （ContextCacheService / MemoryRefineService / PendingMessageProcessor /
   StaleMessageRecoveryTask），**均不触及 SSEBroadcaster**。
+
+### P2-25: `maxChars` 的 Swagger 描述承诺了一个后端并不存在的「0 = 默认」分支
+
+- **Scope**: `ApiRequests.ICLPromptRequest.maxChars`（`ApiRequests.java:147`）的
+  `@Schema(description = "Max prompt length (0 = backend default ~4000)")`，
+  该描述原样出现在 `/v3/api-docs` 与 Swagger UI 中。
+- **Problem**: 后端**没有**「0 表示默认」的分支。`MemoryController` 第 154 行写的是
+  `int maxChars = request.maxChars() != null ? Math.max(100, request.maxChars()) : 4000;`
+  —— 判的是 `!= null`，不是 `> 0`。于是显式传 `0` 会走进 `Math.max(100, 0)`，
+  得到 **100**，而非描述承诺的 ~4000。客户端作者照此实现「不传就传 0」的惯例，
+  会把注入的 ICL 记忆上下文截到 100 字符，**且没有任何错误提示**（HTTP 200）。
+- **Reproduction**（2026-10-03，活体 37777，对同一 task）：
+
+  | 请求 `maxChars` | 响应回显 | 实际 prompt 长度 |
+  |---|---|---|
+  | 省略 | 4000 | 680 |
+  | `0` | **100** | **53** |
+  | `-5` | 100 | 53 |
+  | `100` | 100 | 53 |
+  | `4000` | 4000 | 680 |
+
+- **Status**: ⏸ **记录不修** —— 改 `@Schema` 描述即改**对外 OpenAPI 契约**，
+  按既定纪律留待项目决策。**文档层已先行更正**（沿用 P2-11 / P2-22 的先例）：
+  `docs/API.md` 与 `docs/API-zh-CN.md` 的 `maxChars` 字段表现已写明 100 的下限、
+  `0` 与负数被钳到 100、以及「不存在 0 表示默认的路径」，并说明响应会回显实际生效值。
+- **关联修复（第 225 轮已实施，属 SDK 侧、非契约变更）**: Java SDK 的
+  `ICLPromptRequest.toWireFormat()` 原为 `if (maxChars != null)`，会把 `0` 原样发到
+  wire 上，与 Go SDK 的 `json:"maxChars,omitempty"`、Python SDK 的 `if max_chars:`
+  **不一致**——那两家会省略 0 从而正确落到后端默认。已改为 `maxChars != null && maxChars > 0`。
+  少发一个可选字段不改变 wire 契约，且与另两家对齐。**JS SDK 无防护**（`buildICLPrompt`
+  原样透传 req），其 `examples/http-server` 的 `/chat` 默认 `maxChars: req.body.maxChars ?? 0`，
+  属 JS/TS SDK 方向的发现，留待该方向轮次处理。
+- **复核记录**: 第 225 轮文档方向发现。取证：`curl /v3/api-docs` 读出该描述原文；
+  读 `MemoryController:154` 得真实解析式；上表六组取值逐条实测；`grep "0 = backend default"`
+  确认**全仓仅此一处**这样的错误描述；`ExpRagService:188` 复核了 DOC-1 的字符串拼接。
 
 
 ## Processing Rules
