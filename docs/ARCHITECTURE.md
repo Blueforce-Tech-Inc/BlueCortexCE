@@ -593,6 +593,24 @@ CREATE TABLE mem_observations (
     platform_source VARCHAR(50) DEFAULT 'claude'  -- V18: multi-platform
 );
 
+> **`created_at_epoch` is the authoritative ordering column — not `created_at`.**
+> The `DEFAULT NOW()` above is the DDL default, but it only applies to rows
+> inserted by plain SQL. The application inserts through JPA, and `AgentService`
+> (the main capture path) sets only `createdAtEpoch`; there is no `@PrePersist`
+> hook and no JPA auditing, so Hibernate sends `created_at` as NULL and the
+> default never fires. Only `ImportService` assigns the timestamp column
+> explicitly. In a live database this leaves the majority of rows with
+> `created_at IS NULL` — measured 2026-10-03: 19,711 of 38,088 observations
+> (51.8%) and 6,589 of 6,590 summaries (99.98%).
+>
+> PostgreSQL sorts NULLs **last** under `DESC`, so any `ORDER BY created_at DESC`
+> returns the *oldest* non-NULL rows rather than the newest ones. All hand-written
+> `@Query` statements in `ObservationRepository` and `SummaryRepository` sort on
+> `created_at_epoch` for this reason, and the Spring Data derived queries must
+> therefore be named `…OrderByCreatedAtEpochDesc`. A method named
+> `…OrderByCreatedAtDesc` looks correct and silently inverts the result. See
+> P1-3 in the review findings.
+
 -- Vector indexes (HNSW, V2)
 CREATE INDEX idx_obs_embedding_768 ON mem_observations
     USING hnsw (embedding_768 vector_cosine_ops);

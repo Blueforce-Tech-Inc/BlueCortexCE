@@ -589,6 +589,21 @@ CREATE TABLE mem_observations (
     platform_source VARCHAR(50) DEFAULT 'claude'  -- V18: 多平台
 );
 
+> **排序的权威列是 `created_at_epoch`，不是 `created_at`。**
+> 上面的 `DEFAULT NOW()` 是 DDL 默认值，但它只对**直接 SQL 插入**的行生效。
+> 应用通过 JPA 写入，而主捕获路径 `AgentService` 只设置 `createdAtEpoch`；
+> 既没有 `@PrePersist` 钩子也没有 JPA auditing，于是 Hibernate 把 `created_at`
+> 原样发成 NULL，默认值从未触发。只有 `ImportService` 会显式赋值该时间列。
+> 活体库实测（2026-10-03）结果是**大多数行的 `created_at` 为 NULL**：
+> 观测表 38,088 行中有 19,711 行（51.8%），摘要表 6,590 行中有 6,589 行（99.98%）。
+>
+> PostgreSQL 在 `DESC` 下把 NULL 排在**最后**，因此任何 `ORDER BY created_at DESC`
+> 返回的是**最旧**的非 NULL 行，而不是最新的行。`ObservationRepository` 与
+> `SummaryRepository` 里所有手写 `@Query` 正是为此才按 `created_at_epoch` 排序，
+> Spring Data 的派生方法也**必须**命名为 `…OrderByCreatedAtEpochDesc`——
+> 命名为 `…OrderByCreatedAtDesc` 看起来完全合理，却会静默地把结果取反。
+> 详见评审记录中的 P1-3。
+
 -- 向量索引 (HNSW, V2)
 CREATE INDEX idx_obs_embedding_768 ON mem_observations
     USING hnsw (embedding_768 vector_cosine_ops);
