@@ -24,7 +24,10 @@
 > 记忆，尽管后端与 SDK 下层都支持），⏸已记录不实现，README 已如实写明，P2 Open 计数仍为 2。
 > 第 197 轮新增 P2-14（`ObservationRepository.findNewObservations` 零调用方——它注释明写
 > 「for incremental extraction」，而增量抽取从未实现；V16 迁移还专门为它建了复合索引），
-> ⏸已记录不实现，四份设计文档的相应断言已更正。P2 Open 计数仍为 2。
+> ⏸已记录不实现，四份设计文档的相应断言已更正。
+> 第 200 轮新增 P2-15（`save_memory` 创建共享 manual-memories 会话是 check-then-act，
+> 并发下第二次插入必撞唯一约束、整次保存被报成失败），⏸已记录不实现。
+> P2 Open 计数仍为 2。
 > **Open 只统计尚未处理的条目**（⏸已记录不修 / 📌待修）。标记为 ✅已修复 或 ✅已跳过 的条目
 > 保留在本文件作为可追溯的历史，但**不计入** Open。
 > P1-2（导入端点把校验失败报成成功跳过）已于 2026-10-02 第 166 轮 Backend 集中修复并复测通过，
@@ -505,6 +508,24 @@
   过期/重建语义应由项目决定。本轮已做的是**如实记录**：23.md §23.5 策略 3/4/5 全部补上
   「designed, not implemented」声明，并给出真实的候选选取路径与排序方向；
   8.md 第 5 条、0.2.md Gap 3、17.md §17.2 三处同一断言一并更正。
+
+### P2-15: `save_memory` 的共享会话是 check-then-act，并发下必然丢失一次保存
+
+- **Scope**: `mcp/ClaudeMemMcpTools.java:249-258`（`findByContentSessionId("manual-memories")
+  .orElseGet(() -> sessionRepository.save(...))`），整段被外层 `catch (Exception)`（:290）覆盖。
+- **Problem**: `mem_sessions.content_session_id` 上有**活体确认**的唯一约束
+  （`pg_constraint`: `mem_sessions_content_session_id_key UNIQUE (content_session_id)`），
+  而这里是典型的 check-then-act：两个并发的 `save_memory` 调用都会查不到、都会走
+  `orElseGet` 去插入，第二次必然撞唯一约束。异常被外层捕获，返回
+  `{"success": false, "error": "Failed to save memory: ..."}`。
+- **影响面**：**不会写脏数据、也不会假报成功**（安全方向），但一次本该成功的
+  记忆保存被报成失败，且信息误导——调用方看到的是「保存失败」而不是「并发冲突，请重试」。
+  重试即可成功（此时会话已存在），所以属于瞬时可恢复的伪失败。
+  MCP 工具调用可由 agent 并行发起，多客户端同理，因此并发是现实场景而非理论场景。
+- **Status**: ⏸**已记录，不实现**。常规修法是捕获 `DataIntegrityViolationException`
+  后重新查询会话再继续，但那要在 `orElseGet` 的懒执行路径里插入一次重试，
+  改变的是该工具的错误语义与重试行为，属应由项目拍板的契约问题而非巡检轮次的修 bug。
+  与 P2-13/P2-14 同一套判断。
 
 ## Processing Rules
 

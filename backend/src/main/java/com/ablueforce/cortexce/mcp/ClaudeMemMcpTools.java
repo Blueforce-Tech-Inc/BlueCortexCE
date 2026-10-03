@@ -200,14 +200,21 @@ public class ClaudeMemMcpTools {
                 .collect(Collectors.toList());
         }
 
-        // Apply ordering if specified
-        if ("created_at_epoch".equals(orderBy) || "createdAtEpoch".equals(orderBy)) {
-            observations = observations.stream()
-                .sorted((a, b) -> Long.compare(
-                    b.getCreatedAtEpoch() != null ? b.getCreatedAtEpoch() : 0,
-                    a.getCreatedAtEpoch() != null ? a.getCreatedAtEpoch() : 0
-                ))
-                .collect(Collectors.toList());
+        // Apply ordering if specified. Match the same case-insensitive two-value
+        // whitelist the search tool above uses, and warn on anything else: an
+        // unrecognised value used to be dropped in silence here, so a caller
+        // asking for an order it did not get had no way to tell.
+        if (orderBy != null && !orderBy.isBlank()) {
+            if ("created_at_epoch".equalsIgnoreCase(orderBy) || "createdAtEpoch".equalsIgnoreCase(orderBy)) {
+                observations = observations.stream()
+                    .sorted((a, b) -> Long.compare(
+                        b.getCreatedAtEpoch() != null ? b.getCreatedAtEpoch() : 0,
+                        a.getCreatedAtEpoch() != null ? a.getCreatedAtEpoch() : 0
+                    ))
+                    .collect(Collectors.toList());
+            } else {
+                log.warn("Unsupported MCP get_observations orderBy value '{}' — only 'created_at_epoch' is supported; ignoring", orderBy);
+            }
         }
 
         // Apply limit if specified
@@ -308,7 +315,14 @@ public class ClaudeMemMcpTools {
             @McpToolParam(description = "Project path filter", required = true) String project,
             @McpToolParam(description = "Number of recent sessions (default: 3)", required = false) Integer limit) {
 
-        int effectiveLimit = limit != null ? limit : 3;
+        // Clamp for the same reason the search tool does: findByProjectLimited
+        // passes :limit straight into SQL with no cap of its own, and every row
+        // that comes back is then appended to a single text blob in the
+        // response, so an uncapped limit lets one tool call pull an entire
+        // project's summaries into one JSON-RPC message.
+        int effectiveLimit = limit != null
+                ? Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE)
+                : 3;
         log.info("MCP recent: project={}, limit={}", project, effectiveLimit);
 
         Map<String, Object> response = new HashMap<>();
