@@ -19,9 +19,73 @@ from cortex_mem.dto import (
     SessionUserUpdateResponse,
     _to_int,
     _to_float,
+    _to_str,
     _to_str_list,
     _to_dict,
 )
+
+
+class TestToStr:
+    """_to_str keeps every str-annotated field a str, whatever the wire sends.
+
+    The file previously used `_first_non_null(data, "x") or ""` and
+    `data.get("x") or ""` for all 50 string fields. That idiom only normalised
+    None, so a number stayed an int and an object stayed a dict inside a field
+    annotated `str` — `obs.created_at.upper()` then raised AttributeError on
+    data the type promised was a string.
+    """
+
+    def test_none_and_empty_become_empty_string(self):
+        assert _to_str(None) == ""
+        assert _to_str("") == ""
+
+    def test_string_passes_through(self):
+        assert _to_str("2026-04-01T09:00:00Z") == "2026-04-01T09:00:00Z"
+
+    def test_scalars_are_stringified(self):
+        # JS's safeString does the same; Go's encoding/json raises and drops.
+        assert _to_str(123) == "123"
+        assert _to_str(0) == "0"
+        assert _to_str(True) == "True"
+        assert _to_str(1.5) == "1.5"
+
+    def test_containers_and_unknown_types_drop_to_empty(self):
+        # No sensible string form exists, and echoing repr() of a dict would
+        # be worse than an empty value.
+        assert _to_str({"a": 1}) == ""
+        assert _to_str(["a"]) == ""
+        assert _to_str(object()) == ""
+
+    def test_non_string_default_is_honoured(self):
+        assert _to_str(None, default="n/a") == "n/a"
+        assert _to_str({"a": 1}, default="n/a") == "n/a"
+
+    def test_observation_string_fields_never_leak_a_foreign_type(self):
+        """The defect as it was reachable: a real DTO, not just the helper."""
+        for wire_value in (None, "", 0, 123, False, [], {"a": 1}):
+            obs = Observation.from_wire(
+                {
+                    "id": "x",
+                    "title": wire_value,
+                    "narrative": "n",
+                    "created_at": wire_value,
+                    "created_at_epoch": 0,
+                }
+            )
+            assert isinstance(obs.created_at, str), wire_value
+            assert isinstance(obs.title, str), wire_value
+
+    def test_emoji_fields_are_covered_too(self):
+        """Round 203 fixed these two fields; the same idiom was still unchecked.
+
+        They are the fields a caller is most likely to index or slice, so a
+        leaked int would surface immediately in a UI.
+        """
+        t = ObservationType.from_wire({"id": "code", "label": "Code", "emoji": 7, "work_emoji": {"a": 1}})
+        assert isinstance(t.emoji, str)
+        assert isinstance(t.work_emoji, str)
+        assert t.emoji == "7"
+        assert t.work_emoji == ""
 
 
 class TestTypeConversionHelpers:

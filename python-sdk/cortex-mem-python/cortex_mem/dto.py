@@ -29,6 +29,44 @@ def _first_non_null(data: dict, *keys: str) -> object:
     return None
 
 
+def _to_str(v: object, default: str = "") -> str:
+    """Safely convert a wire value to ``str``.
+
+    The scalar counterpart of :func:`_to_int`, :func:`_to_float` and
+    :func:`_to_dict`, which every other field type here already had.
+
+    It exists because ``_first_non_null(data, "created_at") or ""`` — the
+    idiom this file used for all 17 string fields — only normalises ``None``
+    and empty values. Any other wrong type passed straight through into a
+    field annotated ``str``: a JSON number stayed an ``int`` and an object
+    stayed a ``dict``, so a caller doing ``obs.created_at.upper()`` or
+    ``obs.created_at.split("T")[0]`` got an ``AttributeError`` on data the
+    type annotation promised was a string.
+
+    The two other SDKs that coerce, JS's ``safeString`` and Go's
+    ``encoding/json``, both end up with a string or nothing: JS stringifies
+    numbers and booleans and drops objects and arrays, Go raises and drops
+    every mismatched type. Converting scalars and dropping the rest keeps
+    the annotation true in all three.
+
+    ``bool`` is checked before ``int`` only for clarity — ``str(True)`` is
+    ``"True"`` either way.
+    """
+    if v is None:
+        return default
+    if isinstance(v, str):
+        return v
+    if isinstance(v, (int, float, bool)):
+        return str(v)
+    # dict, list and anything else have no sensible string form here.
+    return default
+
+
+def _str_field(data: dict, *keys: str) -> str:
+    """``_first_non_null`` + :func:`_to_str` for a string-typed field."""
+    return _to_str(_first_non_null(data, *keys))
+
+
 def _to_int(v: object, default: int = 0) -> int:
     """Safely convert wire value to int (handles string numbers, floats, NaN, and Inf)."""
     if isinstance(v, int):
@@ -235,9 +273,9 @@ class SessionStartResponse:
     @classmethod
     def from_wire(cls, data: dict) -> SessionStartResponse:
         return cls(
-            session_db_id=_first_non_null(data, "session_db_id", "sessionDbId") or "",
-            session_id=_first_non_null(data, "session_id", "sessionId") or "",
-            context=_first_non_null(data, "context") or "",
+            session_db_id=_str_field(data, "session_db_id", "sessionDbId"),
+            session_id=_str_field(data, "session_id", "sessionId"),
+            context=_str_field(data, "context"),
             update_files=_to_dict_list(_first_non_null(data, "updateFiles")),
             prompt_number=_to_int(_first_non_null(data, "prompt_number", "promptNumber")),
         )
@@ -275,9 +313,9 @@ class SessionUserUpdateResponse:
     @classmethod
     def from_wire(cls, data: dict) -> SessionUserUpdateResponse:
         return cls(
-            status=data.get("status") or "",
-            session_id=_first_non_null(data, "session_id", "sessionId") or "",
-            user_id=_first_non_null(data, "user_id", "userId") or "",
+            status=_to_str(data.get("status")),
+            session_id=_str_field(data, "session_id", "sessionId"),
+            user_id=_str_field(data, "user_id", "userId"),
         )
 
 
@@ -321,15 +359,15 @@ class Experience:
     @classmethod
     def from_wire(cls, data: dict) -> Experience:
         # Wire format uses Jackson SNAKE_CASE naming strategy.
-        # Use `or ""` instead of default "" to handle null values from backend.
+        # _to_str handles both the null the backend sends and any wrong type.
         return cls(
-            id=data.get("id") or "",
-            task=data.get("task") or "",
-            strategy=data.get("strategy") or "",
-            outcome=data.get("outcome") or "",
-            reuse_condition=_first_non_null(data, "reuse_condition", "reuseCondition") or "",
+            id=_to_str(data.get("id")),
+            task=_to_str(data.get("task")),
+            strategy=_to_str(data.get("strategy")),
+            outcome=_to_str(data.get("outcome")),
+            reuse_condition=_str_field(data, "reuse_condition", "reuseCondition"),
             quality_score=_parse_nullable_float(_first_non_null(data, "quality_score", "qualityScore")),
-            created_at=_first_non_null(data, "created_at", "createdAt") or "",
+            created_at=_str_field(data, "created_at", "createdAt"),
         )
 
 
@@ -347,7 +385,7 @@ class ICLPromptResult:
     @classmethod
     def from_wire(cls, data: dict) -> ICLPromptResult:
         return cls(
-            prompt=data.get("prompt") or "",
+            prompt=_to_str(data.get("prompt")),
             experience_count=_to_int(_first_non_null(data, "experience_count", "experienceCount")),
             max_chars=_to_int(_first_non_null(data, "max_chars", "maxChars")),
         )
@@ -570,34 +608,34 @@ class Observation:
     def from_wire(cls, data: dict) -> Observation:
         # Wire format uses Jackson SNAKE_CASE naming strategy.
         # Key field renames: sessionId→content_session_id, projectPath→project, content→narrative
-        # Use `or ""` for string fields to handle null values from backend.
+        # _to_str handles both the null the backend sends and any wrong type.
         # List/dict fields use defensive helpers (_to_str_list, _to_dict) to guard
         # against unexpected wire types (matches JS SDK's safeStringArray/safeRecord).
         return cls(
-            id=data.get("id") or "",
-            session_id=data.get("content_session_id") or "",
-            project_path=data.get("project") or "",
-            type=data.get("type") or "",
-            title=data.get("title") or "",
-            subtitle=data.get("subtitle") or "",
-            content=data.get("narrative") or "",
+            id=_to_str(data.get("id")),
+            session_id=_to_str(data.get("content_session_id")),
+            project_path=_to_str(data.get("project")),
+            type=_to_str(data.get("type")),
+            title=_to_str(data.get("title")),
+            subtitle=_to_str(data.get("subtitle")),
+            content=_to_str(data.get("narrative")),
             facts=_to_str_list(data.get("facts")),
             concepts=_to_str_list(data.get("concepts")),
             files_read=_to_str_list(_first_non_null(data, "files_read", "filesRead")),
             files_modified=_to_str_list(_first_non_null(data, "files_modified", "filesModified")),
             quality_score=_parse_nullable_float(_first_non_null(data, "quality_score", "qualityScore")),
-            feedback_type=_first_non_null(data, "feedback_type", "feedbackType") or "",
-            feedback_updated_at=_first_non_null(data, "feedback_updated_at", "feedbackUpdatedAt") or "",
-            source=data.get("source") or "",
+            feedback_type=_str_field(data, "feedback_type", "feedbackType"),
+            feedback_updated_at=_str_field(data, "feedback_updated_at", "feedbackUpdatedAt"),
+            source=_to_str(data.get("source")),
             extracted_data=_to_dict(_first_non_null(data, "extractedData", "extracted_data")),
             prompt_number=_to_int(_first_non_null(data, "prompt_number", "promptNumber")),
-            created_at=_first_non_null(data, "created_at", "createdAt") or "",
+            created_at=_str_field(data, "created_at", "createdAt"),
             created_at_epoch=_to_int(_first_non_null(data, "created_at_epoch", "createdAtEpoch")),
-            last_accessed_at=_first_non_null(data, "last_accessed_at", "lastAccessedAt") or "",
+            last_accessed_at=_str_field(data, "last_accessed_at", "lastAccessedAt"),
             access_count=_to_int(_first_non_null(data, "access_count", "accessCount")),
-            refined_at=_first_non_null(data, "refined_at", "refinedAt") or "",
+            refined_at=_str_field(data, "refined_at", "refinedAt"),
             refined_from_ids=_to_str_list(_first_non_null(data, "refined_from_ids", "refinedFromIds")),
-            user_comment=_first_non_null(data, "user_comment", "userComment") or "",
+            user_comment=_str_field(data, "user_comment", "userComment"),
         )
 
 
@@ -629,7 +667,7 @@ class SearchResult:
     def from_wire(cls, data: dict) -> SearchResult:
         return cls(
             observations=[Observation.from_wire(o) for o in data.get("observations") or []],
-            strategy=data.get("strategy") or "",
+            strategy=_to_str(data.get("strategy")),
             fell_back=bool(_first_non_null(data, "fell_back", "fellBack") or False),
             count=_to_int(data.get("count")),
         )
@@ -700,7 +738,7 @@ class QualityDistribution:
     @classmethod
     def from_wire(cls, data: dict) -> QualityDistribution:
         return cls(
-            project=data.get("project") or "",
+            project=_to_str(data.get("project")),
             high=_to_int(_first_non_null(data, "high")),
             medium=_to_int(_first_non_null(data, "medium")),
             low=_to_int(_first_non_null(data, "low")),
@@ -753,13 +791,13 @@ class ExtractionResult:
     @classmethod
     def from_wire(cls, data: dict) -> ExtractionResult:
         return cls(
-            status=data.get("status") or "",
-            template=data.get("template") or "",
-            message=data.get("message") or "",
-            session_id=_first_non_null(data, "session_id", "sessionId") or "",
+            status=_to_str(data.get("status")),
+            template=_to_str(data.get("template")),
+            message=_to_str(data.get("message")),
+            session_id=_str_field(data, "session_id", "sessionId"),
             extracted_data=_to_dict(_first_non_null(data, "extractedData", "extracted_data")),
             created_at=_to_int(_first_non_null(data, "created_at", "createdAt")),
-            observation_id=_first_non_null(data, "observation_id", "observationId") or "",
+            observation_id=_str_field(data, "observation_id", "observationId"),
         )
 
 
@@ -778,10 +816,10 @@ class VersionResponse:
     @classmethod
     def from_wire(cls, data: dict) -> VersionResponse:
         return cls(
-            version=data.get("version") or "",
-            service=data.get("service") or "",
-            java=data.get("java") or "",
-            spring_boot=data.get("springBoot") or "",
+            version=_to_str(data.get("version")),
+            service=_to_str(data.get("service")),
+            java=_to_str(data.get("java")),
+            spring_boot=_to_str(data.get("springBoot")),
         )
 
 
@@ -858,14 +896,14 @@ class ObservationType:
     def from_wire(cls, data: object) -> "ObservationType":
         if isinstance(data, dict):
             return cls(
-                id=data.get("id") or "",
-                label=data.get("label") or "",
-                description=data.get("description") or "",
+                id=_to_str(data.get("id")),
+                label=_to_str(data.get("label")),
+                description=_to_str(data.get("description")),
                 # Read independently on purpose. A single shared lookup would let
                 # one field stand in for the other, so a type carrying only
                 # work_emoji would report it as its badge too.
-                emoji=_first_non_null(data, "emoji") or "",
-                work_emoji=_first_non_null(data, "work_emoji", "workEmoji") or "",
+                emoji=_str_field(data, "emoji"),
+                work_emoji=_str_field(data, "work_emoji", "workEmoji"),
             )
         # Backward compatibility: string input
         if isinstance(data, str):
@@ -897,9 +935,9 @@ class ObservationConcept:
     def from_wire(cls, data: object) -> "ObservationConcept":
         if isinstance(data, dict):
             return cls(
-                id=data.get("id") or "",
-                label=data.get("label") or "",
-                description=data.get("description") or "",
+                id=_to_str(data.get("id")),
+                label=_to_str(data.get("label")),
+                description=_to_str(data.get("description")),
             )
         if isinstance(data, str):
             return cls(id=data, label=data, description="")
@@ -943,10 +981,10 @@ class ModesResponse:
     @classmethod
     def from_wire(cls, data: dict) -> ModesResponse:
         return cls(
-            id=data.get("id") or "",
-            name=data.get("name") or "",
-            description=data.get("description") or "",
-            version=data.get("version") or "",
+            id=_to_str(data.get("id")),
+            name=_to_str(data.get("name")),
+            description=_to_str(data.get("description")),
+            version=_to_str(data.get("version")),
             observation_types=_parse_observation_type_list(_first_non_null(data, "observation_types", "observationTypes")),
             observation_concepts=_parse_observation_concept_list(_first_non_null(data, "observation_concepts", "observationConcepts")),
         )
