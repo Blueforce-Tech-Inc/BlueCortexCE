@@ -25,7 +25,7 @@ python3 app.py
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/health` | Health check |
-| POST | `/chat` | Chat with memory |
+| POST | `/chat` | `project` and `message` required; body `maxChars` ≥ 0 (0 = backend default ~4000), non-integer or negative returns `400` |
 | GET | `/search` | Search observations |
 | GET | `/version` | Backend version |
 | GET | `/experiences` | Retrieve experiences |

@@ -36,7 +36,7 @@ Stop it with `Ctrl-C`; the process shuts down gracefully and ignores the
 | Method | Path | Notes |
 |--------|------|-------|
 | GET | `/health` | Demo liveness; `503` when the SDK health check fails |
-| POST | `/chat` | Records a tool observation, then returns a text completion |
+| POST | `/chat` | Builds an ICL prompt from memory and returns it as `memoryContext`; records nothing |
 | GET | `/version` | Backend version |
 | GET | `/search` | `project` required; `limit` 0–100, `offset` ≥ 0; forwards `query`, `type`, `concept`, `source`, `orderBy` |
 | GET | `/experiences` | `project` and `task` required; `count` 0–100 |
