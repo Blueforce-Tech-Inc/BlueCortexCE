@@ -542,7 +542,7 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 |------|------|------|------|
 | `task` | string | ✅ | 任务或问题描述，用于查找相关经验 |
 | `project` | string | ❌ | 项目路径（用于范围限定）。**省略会返回空数组——并不存在「全部项目」模式**，实践上应视为必填，详见下方说明 |
-| `count` | int | ❌ | 返回的最大经验数（默认 4） |
+| `count` | int | ❌ | 返回的最大经验数（默认 4）。**`0` 或负数会返回空数组而不是报错** —— 详见下方说明 |
 | `source` | string | ❌ | 来源过滤（如 `manual`、`tool_result`） |
 | `requiredConcepts` | string[] | ❌ | 概念过滤（仅返回包含这些概念的经验） |
 | `userId` | string | ❌ | 用户 ID（多用户隔离）。**省略它会返回该项目中所有用户的经验**，因此漏传的调用方拿到的是一个「看起来正常」的未限定结果而非报错——详见下方说明 |
@@ -582,6 +582,16 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 `POST /api/memory/icl-prompt` 同理，此时返回 `experienceCount: 0`，提示内容只有
 `"Current task:\n" + <你传的 task>`——即 14 个字符加上 task 本身，因此它的长度
 随请求变化，**不是一个固定值**。
+
+**`count` 的真实行为**：控制器只在字段**缺失**时才代入默认值
+（`request.count() != null ? … : 4`），随后 `ExpRagService` 会短路——
+`if (count <= 0)` 就以 debug 级别记一条日志并返回**空列表**。因此
+`count: 0` **并不等于**省略该字段：省略得到 4 条，而 `0` 得到 0 条，负数同理。
+活体实测（项目内有 22,763 条观测）：`count: 4` 返回 4 条经验，
+`count: 0` 与 `count: -1` 都返回 `200` 加 `[]`。**响应里没有任何信息能把这个结果
+与「该项目确实没有匹配的经验」区分开**。四家 SDK 规避它的方式并不一致：
+Java、Python 与 JS 都会省略非正数 `count` 从而回落到后端默认值，
+而 Go 的 `json:"count,omitempty"` 只会省掉 `0`、**负数照发**——见 P2-36。
 
 #### POST `/api/memory/icl-prompt`
 

@@ -390,6 +390,64 @@ describe('CortexMemClient', () => {
     });
   });
 
+  describe('retrieveExperiences count handling', () => {
+    /**
+     * `ExpRagService` returns an empty list for `count <= 0` and the endpoint
+     * still answers 200, so a literal 0 or a negative on the wire yields zero
+     * experiences with no error — indistinguishable from "no relevant memories".
+     * Measured live: count=4 returns 4 results, count=-1 returns 0.
+     *
+     * Unlike Python and Go, `JSON.stringify` has no omitempty, so 0 really does
+     * reach the wire here and the explicit drop is load-bearing rather than
+     * merely defensive.
+     */
+    it('should omit a non-positive count from the request body', async () => {
+      fetchMock = mockFetch(200, []);
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+
+      const bodies: string[] = [];
+      for (const count of [0, -1]) {
+        await client.retrieveExperiences({ task: 'test task', project: '/tmp', count });
+        const [, opts] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[bodies.length];
+        bodies.push(String(opts.body));
+      }
+
+      expect(bodies[0]).not.toContain('count');
+      expect(bodies[1]).not.toContain('count');
+    });
+
+    it('should keep a positive count on the request body', async () => {
+      fetchMock = mockFetch(200, []);
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+
+      await client.retrieveExperiences({ task: 'test task', project: '/tmp', count: 4 });
+
+      const [, opts] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(String(opts.body)).toContain('"count":4');
+    });
+
+    /** Guard against over-correcting: 1 is positive and must still be sent. */
+    it('should keep a small positive count of 1 on the request body', async () => {
+      fetchMock = mockFetch(200, []);
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+
+      await client.retrieveExperiences({ task: 'test task', project: '/tmp', count: 1 });
+
+      const [, opts] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(String(opts.body)).toContain('"count":1');
+    });
+
+    it('should send no count field when the caller omits it', async () => {
+      fetchMock = mockFetch(200, []);
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+
+      await client.retrieveExperiences({ task: 'test task', project: '/tmp' });
+
+      const [, opts] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(String(opts.body)).not.toContain('count');
+    });
+  });
+
   describe('search', () => {
     it('should call GET /api/search with query params', async () => {
       const searchResult = { observations: [], strategy: 'hybrid', fell_back: false, count: 0 };

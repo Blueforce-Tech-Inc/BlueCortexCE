@@ -209,10 +209,32 @@ export class CortexMemClient {
    * Retrieve relevant experiences.
    * POST /api/memory/experiences
    */
+  /**
+   * Retrieve relevant experiences.
+   * POST /api/memory/experiences
+   *
+   * A non-positive {@link ExperienceRequest.count} is dropped from the request
+   * body so the backend applies its own default of 4. The endpoint resolves the
+   * field as null-checked, and `ExpRagService` returns an empty list for
+   * `count <= 0` while still answering 200 — so a `count` of 0 or a negative
+   * would yield zero experiences with no error, indistinguishable from "no
+   * relevant memories". This matters more here than for `maxChars`, because
+   * `JSON.stringify` has no omitempty: without the explicit drop below a
+   * `count` of 0 really does go out on the wire, whereas the Python and Java
+   * SDKs drop it structurally and fall back to the backend default.
+   * Matches the Python SDK's `count > 0` guard. Go does NOT — its
+   * `json:"count,omitempty"` omits 0 for the same structural reason but has no
+   * way to express "negative means unset" without a custom marshaller. Tracked
+   * as P2-36.
+   */
   async retrieveExperiences(req: ExperienceRequest): Promise<Experience[]> {
     this.assertNotClosed();
     this.validateRequired('task', req.task);
-    const raw = await this.requestJSON<unknown>('POST', '/api/memory/experiences', req);
+    const body: ExperienceRequest =
+      req.count !== undefined && req.count <= 0
+        ? { ...req, count: undefined }
+        : req;
+    const raw = await this.requestJSON<unknown>('POST', '/api/memory/experiences', body);
     const arr = Array.isArray(raw) ? raw as Record<string, unknown>[] : [];
     return arr.map(parseExperience);
   }

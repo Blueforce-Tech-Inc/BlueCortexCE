@@ -624,7 +624,7 @@ Content-Type: application/json
 |-------|------|----------|-------------|
 | `task` | string | ✅ | Task or question to find relevant experiences for |
 | `project` | string | ❌ | Project path for scoping. **Omitting it returns an empty array — there is no "all projects" mode**, so treat it as required in practice. See the note below |
-| `count` | int | ❌ | Max experiences to return (default: 4) |
+| `count` | int | ❌ | Max experiences to return (default: 4). **0 or less returns an empty array rather than an error** — see the note below |
 | `source` | string | ❌ | Filter by source (e.g., `manual`, `tool_result`) |
 | `requiredConcepts` | string[] | ❌ | Filter to experiences containing these concepts |
 | `userId` | string | ❌ | User ID for multi-user isolation. **Omitting it returns every user's experiences in the project**, so a caller that forgot it gets a populated, unscoped result rather than an error — see the note below |
@@ -670,6 +670,19 @@ The same applies to `POST /api/memory/icl-prompt`, which returns
 `experienceCount: 0` and a prompt consisting of nothing but
 `"Current task:\n" + <your task>` — 14 characters plus the task text, so its
 length varies with the request rather than being a fixed value.
+
+**How `count` actually behaves.** The controller only substitutes the default
+when the field is absent (`request.count() != null ? … : 4`), and
+`ExpRagService` then short-circuits: `if (count <= 0)` it logs at debug and
+returns an **empty list**. So `count: 0` is *not* the same as omitting the
+field — omitting it yields 4, while `0` yields nothing. The same applies to any
+negative value. Verified live against a project holding 22,763 observations:
+`count: 4` returns 4 experiences, and both `count: 0` and `count: -1` return
+`200` with `[]`. Nothing in the response distinguishes that from a project that
+genuinely has no matching experiences. The four SDKs disagree on how to avoid
+it: Java and Python omit a non-positive `count` and fall back to the backend
+default, JS does the same, and Go's `json:"count,omitempty"` omits `0` but sends
+a negative — see P2-36.
 
 ### Get ICL Prompt
 
