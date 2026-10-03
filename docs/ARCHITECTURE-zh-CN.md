@@ -520,7 +520,7 @@ public class AgentService {
 #### 架构概览
 
 ```sql
--- 会话表 (V1 + V4, V12, V13, V15, V18 迁移)
+-- 会话表 (V1 + V4, V11, V12, V13, V15, V18 迁移)
 CREATE TABLE mem_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     content_session_id VARCHAR(255) UNIQUE NOT NULL,  -- V13: 替代 memory_session_id
@@ -533,8 +533,8 @@ CREATE TABLE mem_sessions (
     completed_at TIMESTAMP WITH TIME ZONE,
     completed_at_epoch BIGINT,
     status VARCHAR(50) DEFAULT 'active',  -- active/completed/skipped
-    total_steps INT DEFAULT 0,            -- V12: 步骤效率追踪
-    avg_steps_per_task FLOAT,             -- V12
+    total_steps INT DEFAULT 0,            -- V11: 步骤效率追踪（V12 用 IF NOT EXISTS 重复声明，实为空操作）
+    avg_steps_per_task FLOAT,             -- V11（同上）
     -- 上下文缓存 (V4)
     cached_context TEXT,
     context_refreshed_at_epoch BIGINT,
@@ -542,7 +542,7 @@ CREATE TABLE mem_sessions (
     platform_source VARCHAR(50) DEFAULT 'claude'  -- V18: 多平台
 );
 
--- 观察表 (V1 + V2, V8, V11, V12, V13, V14, V16, V17, V18 迁移)
+-- 观察表 (V1 + V2, V7, V8, V11, V12, V13, V14, V16, V17, V18 迁移)
 CREATE TABLE mem_observations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     content_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(content_session_id),  -- V13: 统一会话链接（替代 memory_session_id）
@@ -606,7 +606,7 @@ CREATE INDEX idx_obs_project_source ON mem_observations (project_path, source);
 -- extracted_data JSONB 查询索引 (V14)
 CREATE INDEX idx_obs_extracted_data_gin ON mem_observations USING GIN (extracted_data jsonb_path_ops);
 
--- 摘要表 (V1 + V13)
+-- 摘要表 (V1 + V13, V18)
 CREATE TABLE mem_summaries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     content_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(content_session_id),  -- V13: 替代 memory_session_id
@@ -625,7 +625,7 @@ CREATE TABLE mem_summaries (
     platform_source VARCHAR(50) DEFAULT 'claude'  -- V18: 多平台
 );
 
--- 用户提示表 (V1 + V5)
+-- 用户提示表 (V1 + V5, V18)
 CREATE TABLE mem_user_prompts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     content_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(content_session_id),
@@ -637,7 +637,7 @@ CREATE TABLE mem_user_prompts (
     platform_source VARCHAR(50) DEFAULT 'claude'  -- V18: 多平台
 );
 
--- 待处理消息表 (V1 + V6)
+-- 待处理消息表 (V1 + V3, V6)
 CREATE TABLE mem_pending_messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_db_id UUID NOT NULL REFERENCES mem_sessions(id) ON DELETE CASCADE,

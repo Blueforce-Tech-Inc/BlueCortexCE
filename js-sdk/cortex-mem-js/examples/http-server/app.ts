@@ -177,10 +177,16 @@ app.get('/experiences', asyncHandler(async (req: Request, res: Response) => {
     ? conceptsStr.split(',').map(c => c.trim()).filter(Boolean)
     : undefined;
 
-  const rawCount = parseInt(req.query.count as string ?? '4', 10);
-  if (isNaN(rawCount) || rawCount < 0 || rawCount > 100) return errorJson(res, 400, 'count must be between 0 and 100');
+  // Use the same strict helper as every other numeric param in this file. A bare
+  // parseInt turns "10abc" into 10, so this used to be the only endpoint that
+  // answered 200 where /search, /observations, /iclprompt and
+  // /extraction/history all answered 400 for the same trailing garbage.
+  // One deliberate alignment: count= (empty) is now treated as unset, like
+  // limit= and maxChars=, where the bare parseInt used to reject it with 400.
+  const rawCount = parseIntParam(req.query.count ?? '4', 'count', { min: 0, max: 100 });
+  if (!rawCount.ok) return errorJson(res, 400, rawCount.message);
   // count=0 means "use SDK default" (consistent with Java demo)
-  const count = rawCount > 0 ? rawCount : 4;
+  const count = rawCount.value > 0 ? rawCount.value : 4;
 
   const experiences = await client.retrieveExperiences({
     task,
