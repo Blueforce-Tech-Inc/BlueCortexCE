@@ -16,6 +16,9 @@
 > 与双语 API 文档），已在**注解与文档层**修复并复测；**后端本身仍不校验**未知模板名，
 > 返回 400 属对外契约变更，留待后续决策。
 > P2 Open 计数仍为 2（P2-8、P2-10）。
+> 第 212 轮新增 P2-23（SSE 连接数超 100 返回 500 而非 503，且全仓无心跳广播，
+> 死连接最长占用名额 30 分钟），**记录不修**——改状态码属对外契约变更，补心跳会
+> 改变流量形态与 emitter 生命周期，均留待项目决策。
 > 第 210 轮新增 P2-22（`/api/cursor/projects` 的 Swagger 示例把 ISO-8601 时间戳写成 epoch
 > 数字，客户端照此生成会解析失败），**记录不修**——改注解即改对外 OpenAPI 契约；
 > 文档层已先行更正（`API.md` / `API-zh-CN.md` 该节原本连响应示例都没有）。
@@ -773,6 +776,39 @@
 - **复核记录**: 第 210 轮文档方向发现。取证：活体 `GET /api/cursor/projects` →
   `{"count":16,"projects":[{"workspacePath":...,"installedAt":"...","projectName":...}]}`，
   `installedAt` 类型实测为 `str`；`CursorService.java:52` 记录分量为 `String installedAt`。
+
+
+### P2-23: SSE 连接数超限返回 500（应为 503），且没有心跳，死连接最长占用名额 30 分钟
+
+- **Scope**: `backend/.../controller/StreamController.java:60-73` 配合
+  `backend/.../service/SSEBroadcaster.java:26-34`（`add()` 抛
+  `IllegalStateException`）与 `Constants.MAX_SSE_CONNECTIONS = 100`。
+- **Problem 1 —— 状态码语义错误**：第 101 个客户端被拒时，后端**没有任何
+  `@ControllerAdvice` / `@ExceptionHandler`**（全仓唯一命中的是
+  `config/AsyncConfig.java` 的 `AsyncUncaughtExceptionHandler`，与 MVC 异常无关），
+  `IllegalStateException` 直穿到容器默认处理。活体实测（105 条并发裸 socket）：
+  **恰好 100 条 `200`，第 101–105 条 `500`**。容量耗尽是「服务暂时不可用」，
+  返回 500 会让任何按 5xx 告警的监控在**每次触顶时都误报为服务故障**；应为 503
+  （或 429）。且 `stream()` 的 `@ApiResponse` **只声明了 200**，该分支在契约中不存在。
+  活体响应 `Content-Length: 0`，**不泄漏内部信息**——问题纯粹在状态码。
+- **Problem 2 —— 没有心跳，死连接要等下一次事件才被回收**：清理只发生在
+  `SseEmitter` 的 `onCompletion` / `onError` / `onTimeout` 回调，以及
+  `broadcast()` 捕获 `IOException` / `IllegalStateException` 时。全仓**没有任何周期性
+  心跳广播**——四处 `broadcast()` 调用全部是事件驱动的
+  （`IngestionController:272,365`、`SummaryGenerationService:153`、`AgentService:288`），
+  `SSEBroadcaster` 自身也没有 `@Scheduled` 清理。因此**服务端毫无活动时，废弃连接会一直
+  留在名单里**，直到 `claudemem.sse.timeout-ms`（默认 1800000ms = **30 分钟**）触发
+  `onTimeout`。**100 个「连上就断」的客户端即可让所有新 SSE 客户端在最长 30 分钟内
+  持续拿到 500**，而此时后端可能一条事件都没产生过。这正是代理与浏览器普遍掐断空闲
+  SSE 连接的场景。
+- **Status**: ⏸ **记录不修** —— 把 500 改成 503 属**对外契约变更**（客户端与监控
+  都会看到不同状态码），按既定纪律留待项目决策；补心跳则会改变流量形态与
+  `SseEmitter` 生命周期，同样需要决策。**两者都已写入本条，后端代码一字未改。**
+- **复核记录**: 第 212 轮代码方向发现。取证：`grep` 全仓确认无 MVC 层异常处理器；
+  裸 socket 并发 105 条得到 `{200: 100, 500: 5}` 的首行分布；第 101 条的完整响应头为
+  `HTTP/1.1 500` + `Content-Length: 0`；`grep '@Scheduled'` 列出全部四个定时任务
+  （ContextCacheService / MemoryRefineService / PendingMessageProcessor /
+  StaleMessageRecoveryTask），**均不触及 SSEBroadcaster**。
 
 
 ## Processing Rules

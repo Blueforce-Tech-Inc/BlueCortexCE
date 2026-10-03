@@ -2300,6 +2300,22 @@ eventSource.onmessage = (event) => {
 
 **Timeout**: 30 minutes (configurable via `claudemem.sse.timeout-ms`)
 
+**Connection limit**: a single backend instance accepts at most **100 concurrent**
+`/stream` connections (`Constants.MAX_SSE_CONNECTIONS`). Beyond that, new
+connections are rejected — and as currently implemented they are rejected with
+**`500`** and an empty body, not `503` or `429`. Treat that `500` as "at
+capacity, retry later" rather than as a server fault; it is tracked as an
+open finding (P2-23) and the status code may change.
+
+> **There is no keepalive.** The server sends the two initial events and then
+> stays silent until something happens — there is no periodic heartbeat. A
+> client whose connection has been dropped by a proxy or browser is therefore
+> not noticed until the next event is broadcast, and the emitter keeps its slot
+> until the 30-minute timeout fires. Idle SSE connections are commonly reaped by
+> intermediaries, so a browser tab left open can hold a slot for up to half an
+> hour. If your proxy terminates idle connections, plan to reconnect on the
+> browser's `onerror` rather than assuming the server closed the stream.
+
 ## Error Codes
 
 ### HTTP Status Codes
