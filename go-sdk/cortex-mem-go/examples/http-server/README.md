@@ -64,6 +64,15 @@ Stop it with `Ctrl-C`; the process shuts down gracefully and ignores the
 
 Request bodies are capped at 1 MB.
 
+**Two of these paths are named differently from the other three demos.** The Java,
+Python and JS demos serve the same two operations as `/observations/batch` and
+`/observations/create`; this one uses `/batch-observations` and
+`/create-observation`. The other 21 endpoints are spelled identically across all
+four, so a curl copied from any of the other three will `404` on exactly these
+two. The names here are the ones the code registers (`main.go:470` and
+`main.go:771`) and the ones `scripts/go-sdk-e2e-test.sh` exercises — they are not
+a typo. Tracked as P2-33.
+
 ## Error responses
 
 Every error is `{"error": "<message>"}`. The status code is the SDK's, not a

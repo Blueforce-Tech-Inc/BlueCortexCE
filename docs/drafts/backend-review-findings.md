@@ -11,85 +11,31 @@
 | P0 | 0 | 立即修复并复测 |
 | P1 | 1 | 优先修复并复测 |
 | P2 | 2 | 本轮完整验收阶段处理或明确标记为已跳过 |
+> 第 235 轮新增 **P2-33**（四家 demo 各暴露 23 个端点，**21 个同名、2 个异名，
+> 且例外全在 Go 一家**：批量取观测与直接创建观测，Go 用 `/batch-observations`
+> 与 `/create-observation`，另三家用 `/observations/batch` 与 `/observations/create`
+> ——照 JS/Python 的 curl 抄一遍打到 Go demo 上会得 **404**）。Go demo 的 README 与
+> `go-sdk-e2e-test.sh` **都与代码一致，故不是文档错误，而是跨 demo 契约分歧**。
+> **记录不修**：改路由会同时打断 e2e 脚本与已发布示例，属跨 demo 契约决策。
+> **同轮更正了自己第 229 轮的两处事实错误**：那条把 Go 的写入端点记成
+> 「`main.go:801` 的 `/observations/create`」，实为**第 771 行注册的
+> `/create-observation`**（`/observations/create` 是 JS/Python 的路径；801 行是
+> handler **体内**的调用而非注册处），已在两处轮换记录同步更正；**核心结论复核仍成立**
+> （`/chat` 内 `RecordObservation` 与 `RecordToolUse` 各 **0** 次）。
+> **P2 Open 计数仍为 2**（P2-8、P2-10）。
 > 第 234 轮新增 **P2-32**（**两个 Dockerfile 都不设 `SERVER_ADDRESS`**，而
 > `application.yml:3` 默认 `127.0.0.1` → 裸 `docker run -p 37777:37777` **对外不通**，
-> 根 `Dockerfile` 文件头给的正是这条命令；且**健康检查是绿的、服务却不可达**）。
-> 另：根 `Dockerfile` 的 healthcheck **写死 `37777`** 且无 `ENV SERVER_PORT`，
-> 而 `backend/Dockerfile` 用 `${SERVER_PORT}` —— **同一件事两个文件做法不一致**，
-> 于是照 `DEPLOYMENT.md:845` 的排障建议改 `SERVER_PORT` 会把健康应用判成 unhealthy。
-> **活体证据**：进程 `lsof` 显示只监听 `127.0.0.1:37777`，同机 LAN 地址
-> `10.166.1.125` 上 `curl` 得 **HTTP=000**。`docker-compose.yml` 显式写了
-> `SERVER_ADDRESS: 0.0.0.0` 故**恰好绕过**，问题只在裸 `docker run` 路径暴露。
-> **记录不修**：本机**无 Docker**，改 Dockerfile 后**无法验证修复效果**，
-> 不把未验证的改动当已完成的修复提交；修法已写明留待实施。
-> **一处刻意不报**：根镜像 healthcheck 依赖 `wget` 而运行阶段是 Debian 基的
-> `eclipse-temurin:21-jre`（非 Alpine），**`wget` 是否存在本机无法验证**，不下结论。
-> **核实无误**：`DEPLOYMENT.md` 的 compose 片段与真实 `docker-compose.yml`
-> **逐键逐值完全一致**（差异只有为可读性新增的注释与键序分组）。
+> 而根 `Dockerfile` 文件头给的正是这条命令；**健康检查却是绿的**。另：根 Dockerfile 的
+> healthcheck **写死 `37777`**（`backend/Dockerfile` 用 `${SERVER_PORT}`），照
+> `DEPLOYMENT.md:845` 的排障建议改 `SERVER_PORT` 会把**健康应用判成 unhealthy**。
+> **活体证据**：`lsof` 只监听 `127.0.0.1:37777`，LAN 地址 `10.166.1.125` 上 curl 得
+> **HTTP=000**；`docker-compose.yml` 显式写了 `0.0.0.0` 故**恰好绕过**。
+> **记录不修**：本机**无 Docker**，**无法验证修复效果**。**一处刻意不报**：根镜像
+> healthcheck 依赖的 `wget` 在 Debian 基运行镜像里是否存在，本机无法验证。
 > **P2 Open 计数仍为 2**（P2-8、P2-10）。
-> 第 233 轮新增 **P2-31**（Go SDK 的 `omitempty` 只省略 **0**、**负数照发**，
-> 后端 `Math.max(100, maxChars)` 把负数钳成 **100** → 注入只剩 **53 字符**，
-> 而省略字段是 **564 字符**，且 **200 OK 无任何错误**）。**Python 曾是同一形态**
-> （`if max_chars:` 只跳过 0），**本轮已修**为 `max_chars > 0`，与第 225 轮 Java、
-> 第 228 轮 JS 同一处修法；**双向注入验证为真**（改回 `if max_chars:` → 负数用例
-> **恰好 1 条**失败），Python **428 → 431** 全过，Java **192**、JS **239** 与基线一致。
-> **同时更正两处源码注释**：Java 与 JS 都写着「四家对 `maxChars` 的 0 语义一致」，
-> **那两句只对 0 成立**，现写明 Go 是唯一例外并注明在 P2-31 关闭前不要再说四家一致。
-> **Go 记录不修**：`omitempty` 判的是零值而非正数，两条修法（改 `*int` 破坏调用点 /
-> 自定义 `MarshalJSON` 改 wire 内容）**均属公开 API 变更**。
-> **P2 Open 计数仍为 2**（P2-8、P2-10）。
-> 第 232 轮新增 **P2-30**（同一个非法 `limit` 值，四家 SDK 有**三种行为**：
-> Java **抛异常**、Go 与 JS **静默丢弃**、Python **照发**；后端 `Math.max(1, limit)`
-> 会把负数钳成 **1**，于是 Go 调用方拿到的是**满页 20 条**、看起来完全正常）。
-> **Go SDK 自身也不一致**：`Search` / `ListObservations` 静默丢弃负数，
-> 而同一个 SDK 的 `GetExtractionHistory` **会抛 `ValidationError`**——同一份代码里
-> 两种处理、且未给出任何理由。**记录不修**：让 Go 对负数抛错会让**当前能正常返回**
-> 的调用方开始失败，属公开 API 行为变更；四家对齐更属跨 SDK 契约决策。
-> **文档层已先行更正**（Go README 双语明写三个方法的差异与四家对拍）。
-> **本轮同时完成第二批归档**：P1-3、P1-4 两条无条件已解决条目 **79 行逐字**迁入
-> `docs/archive/2026-10-03_backend-review-history-resolved-2.md`（加本条前本文件已 980 行、
-> 逼近 1000 行阈值），**P2-24 因仍带 ⏸ 残留刻意保留**，两批均经 `git show HEAD` 逐字校验。
-> **P2 Open 计数仍为 2**（P2-8、P2-10）。
-> 第 231 轮新增 **P2-29**（tool-use 去重键 `(session, tool_name, SHA-256(tool_input))`
-> **既不是一次工具调用的身份、也没有被原子地强制**：① 哈希只覆盖 `tool_input`，
-> `tool_response` 不在键内，故「同一 input、不同结果」的事件在处理窗口内被
-> **静默丢弃、调用方仍收到 `200 {"status":"accepted"}`**（预置 in-flight 行后确定性复现）；
-> ② `tool_name` 是客户端自由文本、未规范化，`Read` 与 `read` 携带**完全相同的
-> input 哈希**时双双入队（实测；不过全表仅此 1 组、且是本次探针，**生产从未发生**）；
-> ③ check-then-insert 非原子，**而本该兜底的唯一约束根本不存在**——
-> `ddl-auto: none` 且无任何迁移创建 `uk_session_tool_input`，故
-> `AgentService` 里那句 "Duplicate pending message detected (concurrent insert)"
-> 的处理器是**死代码**（8 个并发同请求实测落 **8 行**）。**记录不修**：三条修法都要改
-> 对外行为，尤其补唯一约束会让「失败后重试」这条合法路径因约束冲突而 500
-> （应用层检查忽略 `failed` 行，唯一索引不会）。**文档层已先行更正**（Java SDK README
-> 双语）。**P2 Open 计数仍为 2**（P2-8、P2-10）。
-> 第 230 轮新增 **P2-28**（`/api/test/all` 只取两个子处理器的 `.getBody()`、
-> **丢弃状态码，故障时仍返 200**——实测嵌入密钥失效时 `/api/test/embedding` 返 **500**
-> 而 `/api/test/all` 返 **200** 并内嵌同一个 `status:"error"`），**记录不修**：
-> 传播子状态码属对外契约变更且需同步改 Swagger 注解；**文档层已先行更正**（双语明写
-> 「恒返回 200」、给出健康与故障两种真实示例、并告诉巡检脚本应读嵌套 `status`）。
-> **影响面已核实**：四家 SDK **零调用方**，项目自带 `test-llm-provider.sh`
-> **只调 `/llm` 与 `/embedding`、从不调 `/all`**——仓库自身也绕开了它。
-> **P2 Open 计数仍为 2**（P2-8、P2-10）。
-> 第 227 轮新增 **P2-27**（Python SDK **无法清空 `extractedData`**：`None` 与 `{}` 两种写法
-> 都被跳过，探针确认 `to_wire()` 均为 `{}`；活体确认后端 `null`→NULL、`{}`→`{}` 两种都接受，
-> 而库中 `{}` 此前 **0 条先例**）。四家阶梯：JS 完全 > Java 部分（只能发 `{}`）>
-> **Go = Python 完全不能**。**行为记录不修**（改行为或新增 API 均属契约变更）；
-> **注释已修**——类 docstring 原称「matching Go's pointer-field-with-omitempty pattern」，
-> **两处不准**（Python 用 `Optional[T]` 非指针；且对切片字段两家行为恰恰相反），
-> 已逐字段改写为两家实际异同。**Python 行为一字未改，428 测试全过。**
-> **P2 Open 计数仍为 2**（P2-8、P2-10）。
-> 第 226 轮新增 **P2-26**（Go SDK 的 `Facts`/`Concepts`/`ExtractedData` 带 `omitempty`，
-> 空切片与空 map 被整个丢弃，**结构上无法清空这三个字段**；后端本身接受 `[]` 清空且已实测，
-> Java/Python/JS 三家都能清空，**Go 是唯一的问题家**）。只设空切片时报「at least one field」，
-> 配合其他字段时**静默无操作且返回 200 `updated`——假成功**。**记录不修**：对齐需改字段类型
-> （破坏所有调用点）或加自定义 `MarshalJSON`（改变现有 wire 内容），**均属公开 API 变更**。
-> **文档层已先行说明**（Go README 双语新增小节）。**Go SDK 代码一字未改。**
-> **P2 Open 计数仍为 2**（P2-8、P2-10）。
->
-> **第 233 轮压缩说明**：本区块原先逐轮追加叙述，加 P2-31 后达 **1013 行**、越过
-> `MAX_LINES=1000`。已删除**第 225 轮及更早**的逐轮摘要（第 73–187 行，共 115 行），
-> **最近九轮（225–233）原样保留**。删除的内容**没有任何信息损失**，因为每一条都在下面
+> **压缩说明（第 233 / 235 轮两次执行）**：本区块原先逐轮追加叙述，加条目后两次越过
+> `MAX_LINES=1000`（第 233 轮达 1013 行、第 235 轮达 1002 行）。两次累计删除**第 230 轮及更早**的
+> 逐轮摘要，**最近两轮（234、235）原样保留**。删除的内容**没有任何信息损失**，因为每一条都在下面
 > `## Open Findings` 里有**完整条目**（Scope / Problem / Reproduction / Status / 复核记录），
 > 且逐轮全文另存于 `docs/drafts/patrol-rotation.md` 与 `docs/drafts/doc-review-task.md`。
 > 仍然有效的汇总信息保留如下：
@@ -961,6 +907,37 @@
   **一处刻意不报**：根 Dockerfile 的 healthcheck 依赖 `wget`，而运行阶段是
   Debian 基的 `eclipse-temurin:21-jre`（**非** Alpine）——`wget` 是否存在**本机无法验证**，
   按「没验证的不写」**不下结论**，故未列入本条。
+
+### P2-33: Go demo 的两个端点名与另外三家 demo 不同
+
+- **Scope**: `go-sdk/cortex-mem-go/examples/http-server/main.go:470` 与 `:771`
+  的路由注册。
+- **Problem**: 四家 demo 暴露 23 个端点，其中 **21 个完全同名**，只有两个例外，
+  且**例外全在 Go 这一家**：
+
+  | 操作 | JS demo | Python demo | Go demo |
+  |------|---------|-------------|---------|
+  | 批量取观测 | `/observations/batch`（`app.ts:339`） | `/observations/batch`（`app.py:430`） | **`/batch-observations`**（`main.go:470`） |
+  | 直接创建观测 | `/observations/create`（`app.ts:304`） | `/observations/create`（`app.py:415`） | **`/create-observation`**（`main.go:771`） |
+
+  Go demo 的 README（如实记录了自己的路径）与 `scripts/go-sdk-e2e-test.sh`
+  （第 567 行确实调 `/batch-observations`）**都与代码一致**——**这不是文档错误，
+  而是四家 demo 之间的契约分歧**：照着 JS 或 Python demo 的 curl 抄一遍，
+  打到 Go demo 上会得到 **404**。
+- **Status**: ⏸ **记录不修** —— 改路由名会同时打断 `scripts/go-sdk-e2e-test.sh`
+  与该 demo README 里已发布的示例，属**跨 demo 契约决策**，按既定纪律
+  （沿用第 229 轮「四家统一上界与否」的同一判断）留待项目决策。
+  **文档层已先行补充**：Go demo 两份 README 现明写这两个端点的**命名与另外三家不同**。
+- **复核记录**: 第 235 轮代码方向（Demo）发现，方法是对四家 demo 逐个提取路由注册
+  后做集合差集——21 个同名、2 个异名，一眼看出不是随机差异而是**成对的同一处分歧**。
+  **本轮同时更正了自己在第 229 轮写下的两处事实错误**：那一条把 Go demo 的写入端点
+  记作「`main.go:801` 的 `/observations/create`」，而实际是**第 771 行注册的
+  `/create-observation`**——`/observations/create` 是 **JS 与 Python** 两家的路径，
+  且 801 行是该 handler **函数体内的 `RecordObservation` 调用**而非注册处。
+  该错误已同步更正于 `patrol-rotation.md` 与 `doc-review-task.md` 两处轮换记录。
+  **第 229 轮的核心结论经复核仍成立**：Go demo 的 `/chat` handler
+  （`main.go:170-213`）内 `client.*` 调用**只有 1 个 `BuildICLPrompt`**，
+  `RecordObservation` 与 `RecordToolUse` **各 0 次**——`/chat` 确实什么都没记录。
 
 ## Processing Rules
 
