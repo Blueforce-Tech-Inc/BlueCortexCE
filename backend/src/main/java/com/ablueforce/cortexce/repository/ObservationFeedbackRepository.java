@@ -29,14 +29,19 @@ public interface ObservationFeedbackRepository extends JpaRepository<Observation
     List<ObservationFeedbackEntity> findByObservationId(UUID observationId);
 
     /**
-     * Find all feedback for a specific observation, ordered by creation time.
+     * Find all feedback for a specific observation, most recent first.
+     *
+     * <p>Renamed from {@code findByObservationIdOrderByCreatedAtDesc}: the
+     * {@code @Query} has always sorted on {@code createdAtEpoch}, and the table
+     * has no {@code created_at} column at all, so the old name described a
+     * column that does not exist. It had no callers.
      */
     @Query("""
         SELECT f FROM ObservationFeedbackEntity f
         WHERE f.observation.id = :observationId
         ORDER BY f.createdAtEpoch DESC
         """)
-    List<ObservationFeedbackEntity> findByObservationIdOrderByCreatedAtDesc(
+    List<ObservationFeedbackEntity> findByObservationIdOrderByCreatedAtEpochDesc(
         @Param("observationId") UUID observationId
     );
 

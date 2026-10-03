@@ -50,14 +50,16 @@ public class ObservationFeedbackEntity {
     private UUID sessionDbId;
 
     /**
-     * When this feedback was recorded.
-     */
-    @Column(name = "created_at")
-    @JsonProperty("created_at")
-    private OffsetDateTime createdAt;
-
-    /**
      * Epoch timestamp for efficient indexing and range queries.
+     *
+     * <p>This is the only timestamp column the table has. An earlier version of
+     * this entity also mapped a {@code created_at} OffsetDateTime, but
+     * {@code V17__observation_feedback.sql} never created that column, so any
+     * query touching this entity asked PostgreSQL for a column that does not
+     * exist and failed with "column \"created_at\" does not exist". Nothing
+     * caught it because the table has no rows, the repository has no callers,
+     * and the DDL block in ARCHITECTURE.md lists only {@code created_at_epoch}.
+     * Do not re-add a plain timestamp here without a migration that creates it.
      */
     @Column(name = "created_at_epoch", nullable = false)
     @JsonProperty("created_at_epoch")
@@ -89,9 +91,6 @@ public class ObservationFeedbackEntity {
 
     public UUID getSessionDbId() { return sessionDbId; }
     public void setSessionDbId(UUID sessionDbId) { this.sessionDbId = sessionDbId; }
-
-    public OffsetDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
 
     public Long getCreatedAtEpoch() { return createdAtEpoch; }
     public void setCreatedAtEpoch(Long createdAtEpoch) { this.createdAtEpoch = createdAtEpoch; }
