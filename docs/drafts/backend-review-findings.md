@@ -60,6 +60,19 @@
 > 但已新增「Query Parameter Conventions / 查询参数约定」一节完整记录（**并因此修正了
 > 上一轮把该行为写成「五个 `limit` 端点的属性」的范围过窄**——**修掉一个说法 ≠ 修掉
 > 这个说法**，第 205 轮刚写下的内容本轮就发现范围划小了）。P2 Open 计数仍为 2。
+> 第 207 轮新增 **P2-21**（`CortexMemHealthIndicator` 在真故障时**不给原因**：
+> `healthCheck()` 自己 `catch` 后 `return false`、**从不抛出**，故指示器的
+> `catch` 分支在生产中**不可达**、`withException(e)` 的 `error` 键**永不填充**。
+> 活体实测（真实 client 指向死端口）`status=DOWN` 但
+> `details={service=..., reason=Health check returned false}`、`hasErrorKey=false`
+> ——「不可达」与「degraded」两种情况文案完全相同，真正的连接错误被客户端
+> `log.debug` 吞掉。**更值得记的是测试钉死了假象**：
+> `health_whenClientThrows_returnsDown` 用 mock 制造 client 抛出的状态并断言
+> `containsKey("error")`，而**真实 client 永远产生不了该状态**——与第 197 轮
+> 「夹具传后端从不下发的值」同类，**测试覆盖的是一个虚构状态**。核实无误的部分：
+> `"ok"` 的大小写正确（后端返回小写 `dbReady ? "ok" : "degraded"`），
+> 三分支判定本身无误，**缺陷只在「原因丢失」与「测试虚构」**。修复需改
+> `healthCheck()` 的行为契约或新增公开 API，⏸已记录不实现），P2 Open 计数仍为 2。
 > **Open 只统计尚未处理的条目**（⏸已记录不修 / 📌待修）。标记为 ✅已修复 或 ✅已跳过 的条目
 > 保留在本文件作为可追溯的历史，但**不计入** Open。
 > P1-2（导入端点把校验失败报成成功跳过）已于 2026-10-02 第 166 轮 Backend 集中修复并复测通过，
@@ -695,6 +708,46 @@
   Backend，已做的是**如实记录**：`docs/API.md` + `-zh-CN` 新增「Query Parameter
   Conventions / 查询参数约定」一节，写明通用规则、完整参数清单与该排查陷阱，
   并把 `limit` 小节改为指向它而非重复叙述。
+
+### P2-21: 健康指示器在真故障时不给原因，而测试钉死了一个不可能发生的分支
+
+- **Scope**: `cortex-mem-starter/.../CortexMemHealthIndicator.java`（`health()` 的
+  `catch (Exception e)` 分支与 `withException(e)` 详情）配合
+  `cortex-mem-client/.../CortexMemClientImpl.java:339-360`（`healthCheck()`）。
+- **Problem**: `healthCheck()` 自己 `catch (Exception e)` 后 **`return false`**，
+  **从不向外抛出**。因此 `CortexMemHealthIndicator.health()` 的 `catch` 分支
+  在生产中**不可达**，`withException(e)` 写出的 `error` 键**永远不会被填充**。
+  活体实测（真实 `CortexMemClientImpl`，指向死端口 39999，超时 500ms）：
+
+  ```
+  status  = DOWN
+  details = {service=Cortex CE Memory Backend, reason=Health check returned false}
+  hasErrorKey = false
+  ```
+
+  指向真实后端时 `status=UP`。也就是说运维在 `/actuator/health` 里看到后端挂掉时，
+  只能读到「Health check returned false」——**连接被拒 / 超时 / DNS 失败这些真正
+  的原因全部丢失**，因为它们在客户端被 `log.debug` 吞掉（默认不输出）。
+  「后端不可达」与「后端自报 degraded」两种完全不同的情况，指示器给出**完全相同**的
+  文案。
+- **测试反而钉死了这个假象**：`CortexMemHealthIndicatorTest.health_whenClientThrows_returnsDown`
+  用 **mock** 让 client 抛出，并断言 `containsKey("error")`。这个状态
+  **真实 client 永远无法产生**，所以该用例**恒真却毫无保护作用**——
+  它让人以为异常路径已被覆盖，而生产中恰恰走不到。
+  这与第 197 轮「夹具传了后端从不下发的值」是同一类：测试覆盖的是一个**虚构状态**。
+- **核实无误的部分**：`healthCheck()` 判定 `"ok"` 的大小写是对的——后端
+  `HealthController.java:62` 返回 `dbReady ? "ok" : "degraded"`（**小写**），
+  活体 `GET /api/health` 亦为 `{"status":"ok"}`；null body、非 `ok`、异常三种
+  情况均正确返回 `false`，指示器据此 UP/DOWN 的三分支本身也正确。
+  **缺陷只在「原因丢失」与「测试虚构」两处，不在判定逻辑。**
+- **Status**: ⏸**已记录，不实现**。要让原因到达指示器，需要 `healthCheck()`
+  改为向上抛出（**改变既有方法的行为契约**，所有调用方的 `catch` 都要重审），
+  或为 client **新增公开 API**（如 `getLastHealthFailure()`）供指示器读取——
+  两者都属对外契约变更，与 P2-13~P2-20 同一套判断，需项目先定方向。
+  本轮代码方向为 Java SDK，已做的是**如实记录**与**如实核实**（含一次假设被证伪：
+  初判「环境变量形式无法关闭 `capture-enabled`」，改用**真实环境变量**复测后
+  证明 `CORTEX_MEM_CAPTURE_ENABLED=false` **有效**——原结论来自
+  `withPropertyValues` 不模拟环境变量这一**探针缺陷**）。
 
 ## Processing Rules
 
