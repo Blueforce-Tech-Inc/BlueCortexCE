@@ -421,14 +421,33 @@ public class ContextController {
      *
      * Request: { "q": "query text", "project": "/path/to/project", "limit": 5 }
      * Response: { "context": "## Relevant Past Work...", "count": N }
+     *
+     * <p>The {@code @RequestBody} below is fully qualified on purpose. This file
+     * imports {@code io.swagger.v3.oas.annotations.parameters.RequestBody} for
+     * the OpenAPI {@code @ApiResponse} content blocks, so the short
+     * {@code @RequestBody} resolves to the <em>Swagger</em> annotation. Spring
+     * then sees a bare {@code Map} parameter with no recognised body annotation,
+     * treats it as a model attribute, and fails while binding it:
+     * "No primary or single unique constructor found for interface
+     * java.util.Map" — every request to this endpoint answered 500. The other
+     * seven controllers hit the same import conflict and all spell it out in
+     * full; this one was the only method that did not.
      */
     @PostMapping(value = "/semantic", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Semantic context search",
         description = "Performs semantic search for observations relevant to a query. Returns formatted context for per-prompt injection.")
     @ApiResponse(responseCode = "200", description = "Semantic context retrieved")
-    public Map<String, Object> semanticContext(@RequestBody Map<String, Object> body) {
-        String query = (String) body.get("q");
-        String project = (String) body.get("project");
+    public Map<String, Object> semanticContext(
+            @org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
+        // Guarded casts, not bare ones. The body is a raw Map, so a client that
+        // sends {"q": 123} would otherwise throw ClassCastException and get a
+        // 500; the limit field below already used instanceof for this reason.
+        // A non-string q is treated as absent, which lands on the same
+        // "query too short" answer a missing q produces.
+        Object rawQuery = body.get("q");
+        String query = rawQuery instanceof String ? (String) rawQuery : null;
+        Object rawProject = body.get("project");
+        String project = rawProject instanceof String ? (String) rawProject : null;
         int limit = 5;
 
         if (body.get("limit") instanceof Number) {
