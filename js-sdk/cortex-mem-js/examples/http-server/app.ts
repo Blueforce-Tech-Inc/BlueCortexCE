@@ -447,6 +447,16 @@ app.post('/ingest/session-end', asyncHandler(async (req: Request, res: Response)
 
 // Global error handler (asyncHandler catches async rejections, this catches sync errors)
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  // body-parser signals a body it could not accept by throwing rather than by
+  // calling next() with a value: a SyntaxError carrying status 400 for
+  // unparsable JSON, or status 413 past the 1mb limit above. Those are client
+  // errors and the other three demos answer 400/413 — falling through to the
+  // generic branch reported them as 500 and echoed the raw parser message back.
+  const bodyStatus = (err as { status?: unknown } | null | undefined)?.status;
+  if (err instanceof SyntaxError && (bodyStatus === 400 || bodyStatus === 413)) {
+    errorJson(res, bodyStatus, err.message);
+    return;
+  }
   console.error('Unhandled error:', err);
   if (err instanceof ValidationError) {
     errorJson(res, 400, err.message);

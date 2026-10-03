@@ -25,7 +25,7 @@ java -jar target/cortex-ce-*.jar
 
 # Verify backend is healthy
 curl http://127.0.0.1:37777/api/health
-# Expected: {"service":"cortex-ce","status":"ok",...}
+# Expected: {"service":"claude-mem-java","status":"ok","timestamp":...}
 ```
 
 ## HTTP Server Demo
@@ -80,8 +80,11 @@ curl http://localhost:37779/version
 ```
 
 ```json
-{"version":"1.0.0","build":"abc1234"}
+{"version":"0.1.0-beta","service":"claude-mem-java","java":"24.0.1","springBoot":"3.3.13"}
 ```
+
+The `version`, `java` and `springBoot` values reflect whatever built the running jar; the
+key set is always these four.
 
 ---
 
@@ -96,7 +99,7 @@ curl -X PATCH http://localhost:37779/session/user \
 ```
 
 ```json
-{"sessionId":"my-session","userId":"alice"}
+{"status":"ok","sessionId":"my-session","userId":"alice"}
 ```
 
 ---
@@ -132,43 +135,54 @@ curl "http://localhost:37779/observations?project=/my-project&limit=10"
 ```json
 {
   "items": [...],
-  "hasMore": false,
-  "total": 42,
-  "offset": 0,
-  "limit": 10
+  "hasMore": false
 }
 ```
 
-**POST /observations/batch** — Get observations by IDs
+`total`, `offset` and `limit` are **not** in the response and never were — the backend's
+`PagedResponse` carries only these two keys, and the Go SDK's `omitempty` tags drop the
+three fields it keeps for local use when they are zero.
+
+**POST /batch-observations** — Get observations by IDs
 
 ```bash
-curl -X POST http://localhost:37779/observations/batch \
+curl -X POST http://localhost:37779/batch-observations \
   -H "Content-Type: application/json" \
   -d '{"ids": ["obs-1", "obs-2", "obs-3"]}'
 ```
 
 ```json
-[{"id":"obs-1","type":"tool_use","content":"..."}, ...]
+{"observations": [{"id":"obs-1","type":"tool_use","content":"..."}], "count": 1}
 ```
 
-**PATCH /observation/patch** — Update an observation
+> The route is `/batch-observations`, not `/observations/batch`. Go 1.22+ `ServeMux`
+> resolves `/observations/{id}` as a wildcard, so the old path does not 404 — it matches
+> that pattern with `id="batch"` and answers **405 Method Not Allowed**, which reads like a
+> working endpoint. The same rewrite applies to `/create-observation`.
+
+**PATCH /observations/{id}** — Update an observation
 
 ```bash
-curl -X PATCH http://localhost:37779/observation/patch \
+curl -X PATCH http://localhost:37779/observations/obs-123 \
   -H "Content-Type: application/json" \
-  -d '{"id": "obs-123", "title": "Updated title", "source": "verified"}'
+  -d '{"title": "Updated title", "source": "verified"}'
 ```
+
+The id is the path segment, not a body field — `/observation/patch` does not exist and
+answers 404.
 
 ```json
 {"status": "updated"}
 ```
 
-**DELETE /observation/delete** — Delete an observation
+**DELETE /observations/{id}** — Delete an observation
 
 ```bash
-curl -X DELETE "http://localhost:37779/observation/delete?id=obs-123"
+curl -X DELETE "http://localhost:37779/observations/obs-123"
 # Returns: 204 No Content
 ```
+
+`/observation/delete` does not exist and answers 404.
 
 ---
 
@@ -198,7 +212,8 @@ curl "http://localhost:37779/iclprompt?project=/my-project&task=recommend+phone"
 ```json
 {
   "prompt": "## Relevant Past Experiences\n\n...",
-  "experienceCount": "3"
+  "experienceCount": 3,
+  "maxChars": 2000
 }
 ```
 
@@ -246,14 +261,23 @@ curl "http://localhost:37779/extraction/latest?template=user_preference&project=
 
 ```json
 {
-  "templateName": "user_preference",
-  "data": {
+  "status": "ok",
+  "template": "user_preference",
+  "sessionId": "pref:/my-project:alice",
+  "extractedData": {
     "preferences": [
       {"category": "phone_brand", "value": "小米", "sentiment": "positive"}
     ]
-  }
+  },
+  "createdAt": 1774398000000,
+  "observationId": "..."
 }
 ```
+
+> The payload key is `extractedData`, not `data`, and the template name is echoed as
+> `template`, not `templateName`. When nothing has been extracted yet the same endpoint
+> answers `200` with `{"status":"not_found","template":"user_preference","message":"No
+> extraction found","sessionId":"","extractedData":null,"createdAt":0,"observationId":""}`.
 
 **GET /extraction/history** — Extraction history (all snapshots)
 
@@ -263,10 +287,13 @@ curl "http://localhost:37779/extraction/history?template=user_preference&project
 
 ```json
 [
-  {"extractedAt":"2026-03-25T02:00:00Z","data":{...}},
-  {"extractedAt":"2026-03-24T02:00:00Z","data":{...}}
+  {"sessionId":"pref:/my-project:alice","extractedData":{...},"createdAt":1774398000000,"observationId":"..."},
+  {"sessionId":"pref:/my-project:alice","extractedData":{...},"createdAt":1774311600000,"observationId":"..."}
 ]
 ```
+
+Each entry uses the same keys as `/extraction/latest`; the timestamp is `createdAt` in
+epoch milliseconds, not `extractedAt` in ISO form. An empty history is `[]`.
 
 **POST /extraction/run** — Manually trigger structured data extraction
 
@@ -559,7 +586,7 @@ After E2E testing, the following SDK methods are verified:
 - ✅ RetrieveExperiences (via /experiences)
 - ✅ BuildICLPrompt (via /iclprompt)
 - ✅ ListObservations (via /observations)
-- ✅ GetObservationsByIds (via /observations/batch)
+- ✅ GetObservationsByIds (via /batch-observations)
 - ✅ GetProjects (via /projects)
 - ✅ GetStats (via /stats)
 - ✅ GetModes (via /modes)
@@ -571,8 +598,8 @@ After E2E testing, the following SDK methods are verified:
 - ✅ TriggerRefinement (via /refine)
 - ✅ SubmitFeedback (via /feedback)
 - ✅ UpdateSessionUserId (via /session/user)
-- ✅ UpdateObservation (via /observation/patch)
-- ✅ DeleteObservation (via /observation/delete)
+- ✅ UpdateObservation (via /observations/{id})
+- ✅ DeleteObservation (via /observations/{id})
 - ✅ RecordUserPrompt (via /ingest/prompt)
 - ✅ RecordSessionEnd (via /ingest/session-end)
 

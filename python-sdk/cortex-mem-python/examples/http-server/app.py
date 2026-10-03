@@ -15,6 +15,7 @@ import os
 from datetime import datetime, timezone
 
 from flask import Flask, jsonify, request
+from werkzeug.exceptions import HTTPException
 
 from cortex_mem import APIError, CortexError, CortexMemClient
 
@@ -52,6 +53,22 @@ def handle_cortex_error(exc: CortexError):
     """Return structured JSON for SDK logic errors (validation, closed client, etc.)."""
     logger.warning("SDK error: %s", exc)
     return jsonify(error=str(exc)), 400
+
+
+@app.errorhandler(HTTPException)
+def handle_http_exception(exc: HTTPException):
+    """Keep Flask's own status for routing and method errors.
+
+    HTTPException is a subclass of Exception, so the catch-all below used to
+    swallow it: a typo'd route and a wrong HTTP method both answered 500,
+    telling the caller the server had broken when their request was simply
+    malformed -- and logging a full exc_info traceback for a routine client
+    mistake, which is noise that trains operators to ignore it. Flask resolves
+    handlers along the exception's MRO, so registering HTTPException here wins
+    over Exception. Measured on the other three demos, a wrong method answers
+    405 (Java, Go) or 404 (JS) and an unknown route answers 404.
+    """
+    return jsonify(error=exc.description), exc.code or 500
 
 
 @app.errorhandler(Exception)

@@ -610,6 +610,27 @@ class TestErrorHandling:
         assert resp.status_code == 500
         assert "internal server error" in resp.get_json()["error"]
 
+    def test_routing_errors_keep_their_own_status(self, app, client):
+        """A wrong method or a typo'd route is a client error, not a server fault.
+
+        werkzeug's NotFound and MethodNotAllowed are both subclasses of
+        Exception, so the catch-all handler used to answer 500 for them --
+        asserting the server had broken when the request was simply malformed.
+        Verified on the other three demos: a wrong method answers 405 (Java,
+        Go) or 404 (JS) and an unknown route answers 404 everywhere.
+        """
+        resp = client.post("/health")
+        assert resp.status_code in (404, 405), (
+            f"wrong method should keep its client-error status, got {resp.status_code}"
+        )
+        assert resp.status_code < 500
+
+        resp = client.get("/definitely-not-a-route")
+        assert resp.status_code == 404, (
+            f"unknown route should stay 404, got {resp.status_code}"
+        )
+        assert "error" in resp.get_json()
+
 
 # ==================== Version ====================
 
