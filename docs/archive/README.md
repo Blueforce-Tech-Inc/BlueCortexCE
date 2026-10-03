@@ -42,6 +42,10 @@ The date prefix reflects when the document was last relevant (not when it was ar
 | `2026-03-24_performance-test-results-en.md` | `performance-test-results.md` | 2026-03-24 | Performance test results (duplicate) |
 | `2026-09-30_backend-review-findings-history.md` | `docs/drafts/backend-review-findings.md` | 2026-09-30 | Complete Backend review history archived during activity-log compaction |
 | `2026-09-30_doc-review-history.md` | `docs/drafts/doc-review-task.md` | 2026-09-30 | Complete document-review history archived during activity-log compaction |
+| `2026-10-03_doc-review-history-69-81.md` | `docs/drafts/doc-review-task.md` | 2026-10-03 | 第六十九–八十一轮逐字迁出（第三批压缩），源文件条目未改写 |
+| `2026-10-03_doc-review-history-82-93.md` | `docs/drafts/doc-review-task.md` | 2026-10-03 | 第八十二–九十三轮逐字迁出（第四批压缩） |
+| `2026-10-03_doc-review-history-94-107.md` | `docs/drafts/doc-review-task.md` | 2026-10-03 | 第九十四–一百零七轮共 14 条逐字迁出，该轮前为 91263 字节、加条目将越过 `MAX_BYTES=102400`；未为没有时间戳的轮次编造时间 |
+| `2026-10-03_doc-review-history-108-119.md` | `docs/drafts/doc-review-task.md` | 2026-10-03 | 第一百零八–一百一十九轮共 12 条逐字迁出（第五批压缩），该文件达 99568 字节、加本轮条目将越过阈值；一百二十轮及以后保留在工作文件 |
 | `2026-10-01_health-check-history.md` | `docs/drafts/health-check-task.md` | 2026-10-01 | 58 轮健康检查/巡检历史（2026-04-08 ~ 2026-10-01 00:53），达 1000 行阈值时压缩迁移 |
 | `2026-10-01_health-check-history-2.md` | `docs/drafts/health-check-task.md` | 2026-10-01 | 52 轮巡检历史续（2026-10-01 05:03 ~ 05:21），二次达阈值时压缩迁移 |
 | `2026-10-02_health-check-history-3.md` | `docs/drafts/health-check-task.md` | 2026-10-02 | 47 轮巡检历史续（2026-10-01 05:26 ~ 07:35），三次达阈值时压缩迁移 |

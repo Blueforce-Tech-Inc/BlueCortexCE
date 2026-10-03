@@ -82,7 +82,7 @@ client.close();
 
 | 选项 | 默认值 | 说明 |
 |------|--------|------|
-| `baseURL` | `http://127.0.0.1:37777` | 后端 URL |
+| `baseURL` | `http://127.0.0.1:37777` | 后端 URL。**路径前缀会被保留**：`'http://host/memory'` 会把请求发到 `http://host/memory/api/…`，与 Go、Python、Java 三家一致——**反向代理或基于路径的网关后面就用这个**。尾部斜杠会被去掉。 |
 | `apiKey` | — | Bearer Token 认证 |
 | `timeout` | `30000` | 请求超时（毫秒） |
 | `maxRetries` | `3` | Fire-and-forget 操作的总**尝试**次数（3 = 发 3 次请求，即首次之后的 2 次重试） |

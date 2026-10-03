@@ -560,7 +560,26 @@ export class CortexMemClient {
     path: string,
     queryParams?: Record<string, string>,
   ): string {
-    const url = new URL(path, this.config.baseURL);
+    // Concatenate rather than relying on `new URL(path, baseURL)`.
+    //
+    // A leading-slash `path` is *absolute* per the URL spec, so the two-argument
+    // form silently DISCARDS any path prefix in baseURL: with
+    // baseURL = 'http://host/memory' and path = '/api/search', it resolved to
+    // 'http://host/api/search'. The prefix is not a corner case — it is how a
+    // backend is addressed behind a reverse proxy or under a path-based gateway,
+    // and baseURL is the only place a caller can express it.
+    //
+    // Go (url.Parse(baseURL + path)), Python (base_url + path) and Java
+    // (RestClient .baseUrl(…).uri(…)) all keep the prefix, so the same caller got
+    // correct URLs from three SDKs and 404s from this one. Measured through each
+    // SDK's real client against a local server: for baseURL 'http://h/proxy' the
+    // request arrived as /proxy/api/observations in Go, Python and Java, and as
+    // /api/observations here.
+    //
+    // baseURL is already trailing-slash-normalised in resolveConfig, so a single
+    // concatenation cannot produce a double slash. The path prefix is added
+    // defensively so a caller-supplied path without a leading slash still joins.
+    const url = new URL(this.config.baseURL + (path.startsWith('/') ? path : `/${path}`));
     if (queryParams) {
       for (const [k, v] of Object.entries(queryParams)) {
         if (v !== undefined && v !== '') {

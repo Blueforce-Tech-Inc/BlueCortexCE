@@ -84,7 +84,7 @@ client.close();
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `baseURL` | `http://127.0.0.1:37777` | Backend URL |
+| `baseURL` | `http://127.0.0.1:37777` | Backend URL. A **path prefix is kept**: `'http://host/memory'` sends requests to `http://host/memory/api/…`, matching the Go, Python and Java SDKs. This is what you need behind a reverse proxy or a path-based gateway. Trailing slashes are stripped. |
 | `apiKey` | — | Bearer token for auth |
 | `timeout` | `30000` | Request timeout (ms) |
 | `maxRetries` | `3` | Total **attempts** for fire-and-forget ops (3 = 3 requests, i.e. 2 retries) |

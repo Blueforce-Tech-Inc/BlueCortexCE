@@ -11,6 +11,22 @@
 | P0 | 0 | 立即修复并复测 |
 | P1 | 1 | 优先修复并复测 |
 | P2 | 2 | 本轮完整验收阶段处理或明确标记为已跳过 |
+> 第 234 轮新增 **P2-32**（**两个 Dockerfile 都不设 `SERVER_ADDRESS`**，而
+> `application.yml:3` 默认 `127.0.0.1` → 裸 `docker run -p 37777:37777` **对外不通**，
+> 根 `Dockerfile` 文件头给的正是这条命令；且**健康检查是绿的、服务却不可达**）。
+> 另：根 `Dockerfile` 的 healthcheck **写死 `37777`** 且无 `ENV SERVER_PORT`，
+> 而 `backend/Dockerfile` 用 `${SERVER_PORT}` —— **同一件事两个文件做法不一致**，
+> 于是照 `DEPLOYMENT.md:845` 的排障建议改 `SERVER_PORT` 会把健康应用判成 unhealthy。
+> **活体证据**：进程 `lsof` 显示只监听 `127.0.0.1:37777`，同机 LAN 地址
+> `10.166.1.125` 上 `curl` 得 **HTTP=000**。`docker-compose.yml` 显式写了
+> `SERVER_ADDRESS: 0.0.0.0` 故**恰好绕过**，问题只在裸 `docker run` 路径暴露。
+> **记录不修**：本机**无 Docker**，改 Dockerfile 后**无法验证修复效果**，
+> 不把未验证的改动当已完成的修复提交；修法已写明留待实施。
+> **一处刻意不报**：根镜像 healthcheck 依赖 `wget` 而运行阶段是 Debian 基的
+> `eclipse-temurin:21-jre`（非 Alpine），**`wget` 是否存在本机无法验证**，不下结论。
+> **核实无误**：`DEPLOYMENT.md` 的 compose 片段与真实 `docker-compose.yml`
+> **逐键逐值完全一致**（差异只有为可读性新增的注释与键序分组）。
+> **P2 Open 计数仍为 2**（P2-8、P2-10）。
 > 第 233 轮新增 **P2-31**（Go SDK 的 `omitempty` 只省略 **0**、**负数照发**，
 > 后端 `Math.max(100, maxChars)` 把负数钳成 **100** → 注入只剩 **53 字符**，
 > 而省略字段是 **564 字符**，且 **200 OK 无任何错误**）。**Python 曾是同一形态**
@@ -894,6 +910,57 @@
   `quote(x, safe='')`，与 Go 的 `url.PathEscape`、JS 的 `encodeURIComponent` 一致，
   **四家无一处漏转义**；请求超时恒有设置（下限 0.1s）；重试为线性退避 + ±25% 抖动、
   仅重试瞬时错误。
+
+### P2-32: 两个 Dockerfile 都不设 `SERVER_ADDRESS`，默认部署下服务对外不可达；根镜像的 healthcheck 还写死了端口
+
+- **Scope**: 根 `Dockerfile`（`HEALTHCHECK` 行与文件头注释里的 `docker run` 示例）、
+  `backend/Dockerfile`（`HEALTHCHECK` 行）、`backend/src/main/resources/application.yml:3`。
+- **Problem**: 两条独立缺陷，叠加后的失败形态是**最难排查的那种**：
+
+  1. **默认只绑回环。** `application.yml:3` 是
+     `address: ${SERVER_ADDRESS:127.0.0.1}`，而**两个 Dockerfile 都没有
+     `ENV SERVER_ADDRESS`**。`docker run -p 37777:37777 …` 的端口映射转发到容器的
+     外部网卡，而进程只监听容器内的 `127.0.0.1` —— **映射过去没人接**。
+     根 `Dockerfile` 文件头自己给的运行示例就是
+     `docker run -p 37777:37777 cortex-ce:latest`，**按默认配置这条命令不通**。
+  2. **根镜像的 healthcheck 写死了 `37777`。** 它没有 `ENV SERVER_PORT`，
+     `HEALTHCHECK` 却硬编码 `http://localhost:37777/api/health`；
+     而 `backend/Dockerfile` 写的是 `${SERVER_PORT}` 并配了 `ENV SERVER_PORT=37777`
+     —— **两个 Dockerfile 对同一件事的做法不一致**。
+- **Impact**: 第 1 条让容器**健康检查通过、服务却对外不可达**（healthcheck 走的是
+  容器内回环，进程确实在听，所以它是绿的）。第 2 条则命中部署指南自己在
+  `DEPLOYMENT.md:845` 给出的排障建议——「`Port 37777 already in use` → 改 `SERVER_PORT`」——
+  于是 `docker run -e SERVER_PORT=8080` 会让 healthcheck 去探测 37777，
+  **把一个完全健康的应用判成 unhealthy**。`docker-compose.yml` 因为显式写了
+  `SERVER_ADDRESS: 0.0.0.0` 而**恰好绕过了第 1 条**，所以问题只在裸 `docker run` 路径上暴露。
+- **Reproduction**（2026-10-04）:
+
+  | 事实 | 证据 |
+  |------|------|
+  | 默认绑回环 | `application.yml:3` 源码 |
+  | 该默认值确实生效 | 活体进程 `lsof` 显示 `TCP 127.0.0.1:37777 (LISTEN)` |
+  | 对外确实不可达 | 同机 `curl http://10.166.1.125:37777/api/health` → **HTTP=000**（连接失败） |
+  | 两个 Dockerfile 都没设 `SERVER_ADDRESS` | 逐文件读，两者只有 `EXPOSE 37777` |
+  | compose 显式绕开了 | `docker-compose.yml` 有 `SERVER_ADDRESS: 0.0.0.0` |
+  | 两个 healthcheck 不一致 | 根：`http://localhost:37777/…` 且无 `ENV SERVER_PORT`；backend：`http://localhost:${SERVER_PORT}/…` 且有 `ENV SERVER_PORT=37777` |
+
+  **未验证的部分（如实标注）**：本机**没有 Docker**（`which docker` 无输出），
+  因此上述容器内行为是**源码与配置层面的推断 + 宿主机 bind 行为的实测**，
+  **没有真的构建镜像跑一遍**。修法很直接且与 `backend/Dockerfile` 已有的正确写法一致：
+  两个 Dockerfile 都加 `ENV SERVER_ADDRESS=0.0.0.0`；根 `Dockerfile` 再把 healthcheck
+  改成 `${SERVER_PORT}` 并补 `ENV SERVER_PORT=37777`。
+- **Status**: ⏸ **记录不修** —— 改 Dockerfile 属**部署产物变更**，且本机无 Docker
+  **无法验证修复效果**；按既定纪律，不把未验证的改动当作已完成的修复提交。
+  修法已在上文写明，留待有 Docker 环境的轮次或项目方实施。
+  **文档层无需改动**：部署指南的 compose 片段经**逐键逐值对拍**与真实
+  `docker-compose.yml` **完全一致**（差异只有为可读性新增的注释与键序分组，
+  无任何键、值或默认值不同），**没有发现错误陈述**。
+- **复核记录**: 第 234 轮文档方向（运维/用户指南）发现。取证：`lsof` + 对非回环地址
+  `curl` 实测 bind 行为；逐文件读两个 Dockerfile 与 `application.yml`；
+  用脚本把 `DEPLOYMENT.md` 里的 compose 片段与真实文件做 `difflib` 逐行对拍。
+  **一处刻意不报**：根 Dockerfile 的 healthcheck 依赖 `wget`，而运行阶段是
+  Debian 基的 `eclipse-temurin:21-jre`（**非** Alpine）——`wget` 是否存在**本机无法验证**，
+  按「没验证的不写」**不下结论**，故未列入本条。
 
 ## Processing Rules
 

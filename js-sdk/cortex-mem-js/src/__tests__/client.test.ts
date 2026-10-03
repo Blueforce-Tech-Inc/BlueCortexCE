@@ -1345,6 +1345,60 @@ describe('CortexMemClient', () => {
       const [url] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(url).toBe('http://localhost:37777/api/health');
     });
+
+    it('should keep a bare host working', async () => {
+      // Positive control. The prefix fix must not disturb the common case; if this
+      // ever fails, the join has regressed for every existing caller.
+      fetchMock = mockFetch(200, { status: 'ok', service: 'test' });
+      client = new CortexMemClient({
+        baseURL: 'http://localhost:37777',
+        fetch: fetchMock as unknown as typeof globalThis.fetch,
+      });
+
+      await client.healthCheck();
+      const [url] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toBe('http://localhost:37777/api/health');
+    });
+
+    it('should preserve a path prefix in baseURL', async () => {
+      // A leading-slash path is absolute per the URL spec, so the two-argument
+      // `new URL(path, baseURL)` form silently discarded this prefix. Go, Python
+      // and Java all keep it, so the same caller got correct URLs from three SDKs
+      // and 404s from this one.
+      fetchMock = mockFetch(200, { status: 'ok', service: 'test' });
+      client = new CortexMemClient({
+        baseURL: 'http://localhost:37777/memory',
+        fetch: fetchMock as unknown as typeof globalThis.fetch,
+      });
+
+      await client.healthCheck();
+      const [url] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toBe('http://localhost:37777/memory/api/health');
+    });
+
+    it('should preserve a multi-segment path prefix and not double the slash', async () => {
+      fetchMock = mockFetch(200, { status: 'ok', service: 'test' });
+      client = new CortexMemClient({
+        baseURL: 'http://localhost:37777/a/b/',
+        fetch: fetchMock as unknown as typeof globalThis.fetch,
+      });
+
+      await client.healthCheck();
+      const [url] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toBe('http://localhost:37777/a/b/api/health');
+    });
+
+    it('should keep the prefix on a request that also carries query params', async () => {
+      fetchMock = mockFetch(200, { observations: [], count: 0 });
+      client = new CortexMemClient({
+        baseURL: 'http://localhost:37777/memory',
+        fetch: fetchMock as unknown as typeof globalThis.fetch,
+      });
+
+      await client.listObservations({ project: '/p' });
+      const [url] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toBe('http://localhost:37777/memory/api/observations?project=%2Fp');
+    });
   });
 });
 
