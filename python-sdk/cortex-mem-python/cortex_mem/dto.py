@@ -398,8 +398,19 @@ class ICLPromptResult:
 class ObservationUpdate:
     """Partial update for an existing observation (PATCH semantics).
 
-    Only non-None fields are sent to the backend, matching Go's
-    pointer-field-with-omitempty pattern.
+    Only non-None fields are sent to the backend. The Go SDK reaches the same
+    outcome through ``omitempty``, but it is not the same mechanism and the two
+    do not agree everywhere:
+
+    * Go's string fields are real pointers (``*string``); the equivalent here is
+      ``Optional[str]``, which is a nullable value rather than a pointer.
+    * Go's ``Facts``/``Concepts`` are slices, and ``omitempty`` drops a
+      zero-length slice, so Go cannot clear those two fields at all. Python can:
+      ``facts=[]`` is not None, so it is sent as ``"facts": []`` and the backend
+      clears the column. Go's behaviour is tracked as P2-26.
+    * For ``extracted_data`` the two do agree, and neither can clear it: Python
+      skips both ``None`` and ``{}`` (see :meth:`to_wire`), and Go's ``omitempty``
+      drops the empty map too. Java and JS can both put ``{}`` on the wire.
 
     Usage::
 
@@ -440,12 +451,20 @@ class ObservationUpdate:
         """Return True if no fields are set (nothing to send).
 
         Matches Go SDK's ObservationUpdate.IsEmpty() for cross-SDK parity.
-        ``extracted_data={}`` is treated as "unset" — an empty dict is
-        semantically equivalent to ``None`` (backend stores nothing in JSONB).
+        ``extracted_data={}`` is treated as "unset". The two really are
+        equivalent when the value is *read* — ExtractionController normalises
+        both with ``getExtractedData() != null ? ... : Map.of()``, and the live
+        table has 0 rows where extracted_data is an empty object — but that
+        equivalence is why this field cannot be cleared, not a reason it does
+        not need clearing. The backend accepts ``{}`` and stores it, and also
+        accepts ``null`` and stores NULL; this SDK sends neither. Java and JS
+        can send ``{}``, JS can send ``null``. Tracked as P2-27.
         """
         for attr in self._WIRE_FIELDS:
             val = getattr(self, attr)
-            # extracted_data={} is semantically equivalent to None (no meaningful data)
+            # Reading-wise {} and None are the same; writing-wise {} is the
+            # only thing this SDK could send to clear the column, so the skip
+            # below is a real capability gap, not just a tidy-up.
             if attr == "extracted_data" and isinstance(val, dict) and not val:
                 continue
             if val is not None:
@@ -480,9 +499,11 @@ class ObservationUpdate:
         that combination at construction time; this method re-checks because a
         dataclass is mutable and ``update.narrative = ...`` can be assigned after
         construction, which would otherwise discard the earlier value silently.
-        ``extracted_data={}`` is treated as "unset" (omitted) to match ``is_empty()``
-        semantics — an empty dict is semantically equivalent to None on the backend
-        (JSONB stores nothing for `{}`).
+        ``extracted_data={}`` is treated as "unset" (omitted), matching
+        :meth:`is_empty`. Note the consequence: the backend would accept ``{}``
+        and clear the column, but this SDK can send neither ``{}`` nor ``null``,
+        so ``extracted_data`` cannot be cleared through this client at all.
+        Tracked as P2-27.
         """
         if self.content is not None and self.narrative is not None:
             raise ValidationError(
@@ -493,7 +514,8 @@ class ObservationUpdate:
         body: dict = {}
         for attr, wire_key in self._WIRE_FIELDS.items():
             val = getattr(self, attr)
-            # extracted_data={} is semantically equivalent to None — omit from wire
+            # Reading-wise {} and None are the same. Writing-wise {} is the only
+            # value this SDK could send to clear the column — see P2-27.
             if attr == "extracted_data" and isinstance(val, dict) and not val:
                 continue
             if val is not None:
