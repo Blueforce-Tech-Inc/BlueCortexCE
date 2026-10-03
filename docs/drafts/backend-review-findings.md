@@ -11,6 +11,15 @@
 | P0 | 0 | 立即修复并复测 |
 | P1 | 1 | 优先修复并复测 |
 | P2 | 2 | 本轮完整验收阶段处理或明确标记为已跳过 |
+> 第 219 轮新增 **P2-24**：代码侧两处已修——`ObservationFeedbackEntity` 映射了一个
+> **V17 从未创建的 `created_at` 列**（任何触及该实体的 JPQL 都会报
+> `column "created_at" does not exist`；属**潜伏缺陷**，表 0 行、repository 零调用方，
+> 故从未在运行时暴露），以及 `findByObservationIdOrderByCreatedAtDesc` 方法名描述了一个
+> 不存在的列（实际按 epoch 排序，零调用方）——两者均为 P1-3 同一类「名字与实际不符」陷阱。
+> **未实现部分记录不修**：V17 声明的 Thompson Sampling 基础**完全没有写入方**
+> （`observation_feedback` 0 行、`generated_by_model` 0 行、`relevance_count` 恒 0、
+> `setRelevanceCount` 零命中），接入属新增特性而非修 bug。
+> **P2 Open 计数仍为 2**（P2-8、P2-10）——P2-24 的未实现部分按既定纪律不计入 Open。
 > 第 218 轮新增 **P1-3 并已修复**（三个 Spring Data 派生方法按可空且 52% 为 NULL 的
 > `created_at` 排序，「取最近 N 条」实际返回最旧的数据；活体实测使 timeline 锚点上下文
 > **完全失效**、生成的 CLAUDE.md 漏掉最近 8 天工作、「上次会话的下一步」取错行）。
@@ -102,6 +111,44 @@
 > HTTP API 的用户；收紧契约属对外变更，留待 Backend 轮次决策。
 
 ## Open Findings
+
+### P2-24: V17 反馈机制整体未接线 —— 实体还映射了一个不存在的列
+
+- **Scope**: `entity/ObservationFeedbackEntity.java`（已修）、
+  `repository/ObservationFeedbackRepository.java`（已修）、
+  以及 V17 迁移所声明的三项能力（**均未实现**）。
+- **Problem**：本轮从 P1-3 顺藤摸下来，发现 **V17 从未被记录为 finding**。三条实证：
+  ①`ObservationFeedbackEntity` 有一个 `@Column(name = "created_at")` 的 `OffsetDateTime` 字段，
+  而 `V17__observation_feedback.sql` **从未创建该列**——活体 `information_schema` 确认
+  `observation_feedback` 只有 `id / observation_id / signal_type / session_db_id /
+  created_at_epoch / metadata` 六列。Hibernate 对 `SELECT f FROM ObservationFeedbackEntity f`
+  这类不指定列的 JPQL 会**逐个 SELECT 全部映射列**，因此**任何**触及该实体的查询都会报
+  `column "created_at" does not exist`。**已修**：删除该字段与其 getter/setter，
+  并在 `createdAtEpoch` 上写明不要在无迁移的情况下加回。
+  ②`findByObservationIdOrderByCreatedAtDesc` 的 `@Query` 实际按 `createdAtEpoch` 排序，
+  **方法名描述的列根本不存在**，且零调用方。**已修**：改名为
+  `findByObservationIdOrderByCreatedAtEpochDesc`，与 P1-3 是同一类「名字与实际不符」的陷阱。
+  ③**V17 声明的三项能力全部没有写入方**：活体库 `observation_feedback` **0 行**、
+  `generated_by_model` 非空 **0 行**、`relevance_count <> 0` **0 行**；
+  `grep setRelevanceCount` 在 `main` 源码中**零命中**。
+  即「Thompson Sampling 优化的基础」目前是**纯脚手架**。
+- **Severity 说明**：①是**潜伏缺陷**而非启动即崩——注入回错误映射后后端**仍能正常启动**，
+  因为该表 0 行、repository 零调用方，Spring Data 不会预校验 JPQL 引用的列。
+  它会在**第一次真正使用该实体时**炸掉。③是**未实现特性**而非错误行为。
+- **Verification**（2026-10-03）：修复后 `mvn package` 通过、后端启动干净、
+  日志中 `QuerySyntaxException` / `column does not exist` **零命中**。
+  SQL 层双向证明（各自独立连接，避免事务中止干扰）：
+  含幽灵列的 6 列 SELECT → `FAILS: column "created_at" does not exist`；
+  修复后的 5 列 SELECT → **OK**。
+- **Status**：①②✅ **已修复**（2026-10-03，第 219 轮）。
+  ③⏸ **记录不实现** —— 接入反馈采集属**新增特性**（需要新的写入路径、信号定义与
+  Thompson Sampling 算法），不是修 bug，按既定纪律留待项目决策。
+  **注**：`CLAUDE.md:39` 把 V17 标为「✅ Complete」，该文件已被 gitignore，
+  并入既有的 `AGENTS.md` / `CLAUDE.md` 开放项，不在本轮静默修改范围内。
+- **复核记录**：第 219 轮代码方向，从 P1-3 的同类线索（时间戳列）出发扩展。
+  取证：`information_schema.columns` 确认列集；活体 `count(*)` 确认三张表全为 0；
+  `grep -rn "ObservationFeedback" main 源码` 确认除实体与 repository 外**零引用**；
+  `grep -n "V17" AGENTS.md CLAUDE.md` 确认其完成度声明。
 
 ### P1-3: 四个派生查询按 `created_at` 排序，而该列有 52% 为 NULL —— 「最近」返回的是最旧的数据
 

@@ -589,7 +589,7 @@ CREATE TABLE mem_observations (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_at_epoch BIGINT NOT NULL,
     generated_by_model VARCHAR(100),  -- V17: model that generated this observation
-    relevance_count INT DEFAULT 0,     -- V17: times reused in context/s search
+    relevance_count INT DEFAULT 0,     -- V17: reserved for usage signals; no writer exists yet (P2-24)
     platform_source VARCHAR(50) DEFAULT 'claude'  -- V18: multi-platform
 );
 

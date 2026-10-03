@@ -1578,8 +1578,8 @@ curl "http://localhost:37777/api/observations?project=/Users/dev/myproject&limit
 | `access_count` | int | 该观察记录被检索的次数 |
 | `last_accessed_at` | string | 最后访问时间的 ISO-8601 时间戳 |
 | `refined_at` | string | 最后精炼时间的 ISO-8601 时间戳 |
-| `relevance_count` | int | 该记录被判定为相关并展示的次数（V17） |
-| `generated_by_model` | string \| null | 生成该观察的模型（V17） |
+| `relevance_count` | int | 恒为 `0`。V17 建了该列，但**目前没有任何代码写入它**——不存在记录相关性信号的代码路径（见 P2-24） |
+| `generated_by_model` | string \| null | 同样恒为 `null`：V17 建了列，但没有代码填充它 |
 | `step_number` | int \| null | 会话内的步骤序号（如有记录） |
 | `embedding_model_id` | string \| null | 已存 embedding 的模型 ID（如存在） |
 | `source` | string | 来源归属（如 `claude-code`、`manual`） |
@@ -2789,6 +2789,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
+| 2026-10-03 | (unreleased) | `relevance_count` 与 `generated_by_model` 原被描述成 V17 反馈追踪已在生效，实际两者都**没有写入方**：活体库 38,104 条观测的 `relevance_count` 全为 `0`、`generated_by_model` 全为 `null`，`observation_feedback` 表 0 行。两行现如实写出实际取值。相关：`ObservationFeedbackEntity` 还映射了一个 V17 从未创建的 `created_at` 列，任何触及该实体的 JPQL 都会失败——已修，见 P2-24 |
 | 2026-10-03 | (unreleased) | 记录 `limit` 的**解析**行为——与 2026-10-02 记录的钳制是两件事，此前五者均未说明。五个端点都把该参数绑定为 Java `int`，值先经 Spring 转换再进入钳制，而这一步会容忍前后空白、前导 `+`，以及最出人意料的 **`0x`/`0X` 十六进制前缀**：`?limit=0x10` 返回 16 条、状态码 `200`，响应中没有任何迹象表明读的是十六进制字面量。`010` 是十进制 10 而非八进制 8，因为规则是先 trim，带十六进制前缀走 `Integer.decode`、否则走 `Integer.valueOf`。完全无法转换是该参数**唯一**产生 `400` 的情形（`10abc`、`1.5`、`1e3`、`1_0`、`1+1` 及 int 溢出）；空值绑定为 `defaultValue`。已在五者上逐一实测。**同日修正范围**：这既不是 `limit` 的属性，也不是这五个端点的属性。把后端全部数值型 `@RequestParam` 枚举出来共 **22 个**、分布在 **11 个**端点，行为完全一致——`/api/logs` 的 `?lines=0x10` 返回 `{"returnedLines": 16}`，`/api/timeline` 的 `startEpoch` 与 `/api/context/preview` 的 `maxObservations` 同样接受十六进制前缀。通用规则现已统一记录在「查询参数约定」一节并附完整参数清单，`limit` 小节改为指向它。布尔参数不受影响（`?includeObservations=0x1` 是 `400`）。中英文同步 |
 | 2026-10-02 | (unreleased) | 记录五个分页/搜索端点共用的 `limit` 钳制行为（`/api/observations`、`/api/summaries`、`/api/prompts`、`/api/search`、`/api/search/by-file`）。五者都应用 `Math.min(Math.max(1, limit), MAX_PAGE_SIZE)`，MCP 的 `search` 工具也镜像同一窗口，但参数表只写了「（最大 100）」——读起来像「会拒绝」而非「静默钳制」：调用方传 `limit=0` 期望「不限制」，实际只拿到 1 条且无报错。实测：`?limit=0` 与 `?limit=-5` 在三个列表端点均返回 1 条；`?limit=500` 返回 100 条列表与 100 条搜索结果；`?limit=7` 返回 7 条。`/api/search/by-file` 仅确认了下界（`?limit=0` -> 1），因为没有匹配同一路径的多条记录。与今日早些时候记录的 `/api/logs` 钳制属同一类问题；中英文同步 |
 | 2026-10-02 | (unreleased) | GET `/api/logs`：补充此前完全未记录的 `lines` 钳制行为。`LogsController` 中为 `Math.min(Math.max(1, lines), 10000)`，因此越界值会被静默钳制、**从不返回 `400`**——实测：`?lines=0` 与 `?lines=-5` 均返回 `returnedLines: 1`，`?lines=50000` 返回 `10000`，`?lines=3` 返回 `3`。同时说明 `returnedLines` 永远不超过钳制后的 `lines`，以及 `totalLines` 统计的是被搜索文件的全部行数（可能不止一个文件：该端点优先读今天的日志，仅当今天行数不足时才回退到昨天，`files` 列出实际读取的文件）。本条初稿曾写「跨日时 `returnedLines` 可能超过 `lines`」，读控制器后发现不成立（`subList(size - validatedLines, size)` 已将其限制住），遂删除而非发布。 |

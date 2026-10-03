@@ -585,7 +585,7 @@ CREATE TABLE mem_observations (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_at_epoch BIGINT NOT NULL,
     generated_by_model VARCHAR(100),  -- V17: 生成此观察的模型
-    relevance_count INT DEFAULT 0,     -- V17: 在上下文/搜索中重用的次数
+    relevance_count INT DEFAULT 0,     -- V17: 为使用信号预留；目前尚无写入方（P2-24）
     platform_source VARCHAR(50) DEFAULT 'claude'  -- V18: 多平台
 );
 
