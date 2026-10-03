@@ -29,6 +29,7 @@
 | 242 | P2-39 | ⏸ 记录不修（`POST /api/import` 外层 `@Transactional` + 逐行 catch = **一行坏数据毁掉整批**，且逐行统计变 500） |
 | 243 | P2-38 | ✅ **已修**（紧凑构造器统一校验，4 条新测试，139→143；`ICLPromptRequest` 复核本就正确） |
 | 244 | P2-40 | ⏸ 记录不修（四家 SDK **能写 prompts 与 summaries、却都读不回来**；新增公开方法属产品决策） |
+| 245 | P2-41 | ⏸ 记录不修（`platform_source` / `content_hash` 等**四家一致不暴露**，SDK 用户无法按平台区分观测） |
 
 > 历次压缩的批次与理由统一记在文末 `## Archived History`（最新一批见 batch 3），
 > **此处不再重复**——两处原本记着同一批压缩事件，每次压缩都要改两遍。
@@ -868,6 +869,40 @@
   `Math.min(Math.max(1, limit), MAX_PAGE_SIZE)` 的钳制（`API.md` 已记载），
   且 `hasMore` 是**驼峰**而条目内字段是 **snake_case**——Go 的 DTO 已按此混合约定建模
   （`dto/observations.go:28` 有 ⚠️ 注记），新方法应复用同一约定。**四家 SDK 代码一字未改。**
+
+### P2-41: `platform_source` 等四个字段后端每条观测都在返回、WebUI 也在按它过滤——而四家 SDK 既不暴露、也不接受过滤
+
+- **Scope**: 后端 `ViewerController` 的观测列表响应与 `platformSource` 查询参数；
+  四家 SDK 的 `Observation` 响应 DTO 与列表请求参数。
+- **Problem**: 与 P2-40 同族的能力缺口，但这次卡在**字段**层面而非端点层面。
+  后端**每条观测都返回** `platform_source`（V18 为多平台追踪新增）、`content_hash`
+  （V8 新增、P2-29 的去重键组成部分）、`relevance_count`（V17 反馈）与 `step_number`；
+  `API.md` **把 `platformSource` 作为查询过滤器写进了文档**（4 处）。
+  而**四家 SDK 无一在响应 DTO 上暴露这些字段，也无一在请求侧接受 `platformSource` 过滤**。
+  实际后果很具体：**SDK 用户无法区分一条观测来自 Claude 还是 Codex/OpenClaw**，
+  也无法按平台筛选——而这正是 V18 加这个字段的目的。WebUI 侧的
+  `viewer-bundle.js` 已经在按 `platform_source` 过滤，所以「能用」只在浏览器里成立。
+- **Evidence（活体 + 四家逐文件比对）**:
+  | 事实 | 证据 |
+  |------|------|
+  | 后端每条观测都带这三个字段 | 活体 `GET /api/observations?limit=1` → `platform_source='claude'`、`content_hash='1ed602d868bef3f8'`、`relevance_count=0` |
+  | 文档把它当过滤器 | `API.md` 中 `platformSource` 出现 **4** 处，含列表端点参数 |
+  | 四家 SDK 都不接受该过滤器 | 对四家 SDK 源码 `grep -i platformsource\|platform_source` → **零命中** |
+  | 四家响应 DTO 都没有该字段 | `Observation` 字段清单逐个列出：Go / JS / Java / Python **均无** |
+  | `narrative` 则四家都有 | Go / JS / Java / Python **均暴露**——说明这不是「响应 DTO 一律精简」，而是有选择 |
+- **一处探针自身出错并先识别再采信**：首版探针把「DTO 解析后的对象」当 dict 处理
+  （Python DTO 是 dataclass），于是**每个键都被报成丢弃**、看起来像一片灾难；
+  抽查区反而暴露了真问题（`content_hash` 属性不存在），促使改用
+  `dataclasses.fields()` 内省。修正后 15 个「丢弃」里**大部分只是改名**
+  （`content_session_id`→`session_id`、`project`→`project_path`、`hasMore`→`has_more`、
+  `springBoot`→`spring_boot`、`extractedData`→`extracted_data`），
+  真正缺失的才是上面那几个——**若不复核就会写成一条夸大的假发现**。
+- **Status**: ⏸ **记录不修** —— 与 P2-40 同一判断：补字段属**新增公开 API**，
+  且**四家完全一致地缺失**，说明要么是有意的范围划定、要么是共同疏漏，
+  都需要项目层面拍板而非某轮单方面扩大某一家的 DTO。
+  **若将来实施**，注意 `platform_source` 已经是列表端点的**过滤维度**而非纯展示字段，
+  补齐时应同时覆盖**响应字段**与**请求过滤参数**两侧，否则只补一半仍然无法按平台检索。
+  **四家 SDK 代码一字未改。**
 
 ## Processing Rules
 - SDK/Demo findings are fixed in place with focused compile/test verification.
