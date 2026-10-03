@@ -313,6 +313,32 @@ take the values positionally. Note that `Search` and `RetrieveExperiences` name
 the scoping field `Project` rather than `ProjectPath`, because on those two
 endpoints it is sent as `project` on the wire.
 
+**The `limit` note in that table applies to one method only, and the other two
+handle a negative value differently.** `GetExtractionHistory` rejects it with a
+`ValidationError`; `Search` and `ListObservations` **silently drop it**, because both
+build their query with `if req.Limit > 0`. Verified against a local `httptest`
+server, not by reading: `ListObservations(Limit: -5)` puts **nothing** on the wire
+(same as `Limit: 0`), so the backend applies its own default and returns a full
+**20-item** page for `/api/observations` (**5** for `/api/search`) — a result that
+looks entirely normal. If you had sent it, the backend's
+`Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE)` would have clamped it to
+**1**; verified live, `?limit=-5` and `?limit=0` both return 1 item while omitting
+it returns 20.
+
+The four SDKs disagree about the same invalid input, which matters if you are
+porting:
+
+| SDK | `limit < 0` on `Search` / `ListObservations` |
+|-----|----------------------------------------------|
+| Java | **throws** `IllegalArgumentException` (and also throws above 100) |
+| Go | silently dropped → backend default page |
+| JS | silently dropped → backend default page |
+| Python | sent as-is → backend clamps to 1 |
+
+Java is the only one that tells you. Porting a Java caller to Go or JS loses the
+check with no signal, so validate `Limit >= 0` yourself if the value is computed.
+Tracked as P2-30.
+
 **A blank `Project` on `RetrieveExperiences` / `BuildICLPrompt` is the one
 required-argument gap worth knowing about.** The table above is accurate —
 neither method validates `project`, while `Search` does — but the table says

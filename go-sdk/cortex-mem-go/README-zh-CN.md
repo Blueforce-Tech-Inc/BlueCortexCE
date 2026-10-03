@@ -299,6 +299,29 @@ API 变更，已记为 P2-26、不在本轮实施。
 与 `RetrieveExperiences` 把限定范围的字段命名为 `Project` 而非 `ProjectPath`，因为在这
 两个端点上它上 wire 的名字就是 `project`。
 
+**上表里那条 `limit` 说明只适用于一个方法，另两个方法对负数的处理并不相同。**
+`GetExtractionHistory` 会抛 `ValidationError` 拒绝负数；而 `Search` 与
+`ListObservations` **静默丢弃**它——两者都用 `if req.Limit > 0` 拼查询。这一点是拿本地
+`httptest` 服务端**实测出参**确认的，不是读码推断：`ListObservations(Limit: -5)`
+在 wire 上**什么都没带**（与 `Limit: 0` 相同），于是后端套用自己的默认值，
+`/api/observations` 返回**满 20 条**一页（`/api/search` 是 **5** 条）——**结果看起来
+完全正常**。若真把它发出去，后端的
+`Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE)` 会把它钳成 **1**；
+活体实测 `?limit=-5` 与 `?limit=0` 都返回 1 条，而不带该参数返回 20 条。
+
+四家 SDK 对同一个非法输入的处理并不一致，**移植代码时这一点很要紧**：
+
+| SDK | `Search` / `ListObservations` 收到 `limit < 0` |
+|-----|----------------------------------------------|
+| Java | **抛 `IllegalArgumentException`**（且超过 100 也抛） |
+| Go | 静默丢弃 → 走后端默认页 |
+| JS | 静默丢弃 → 走后端默认页 |
+| Python | 照发 → 被后端钳成 1 |
+
+**只有 Java 会把问题告诉调用方。** 把 Java 的调用方移植到 Go 或 JS，这个校验会**整个
+消失**且没有任何提示，所以当 `Limit` 是算出来的值时，请自行校验 `Limit >= 0`。
+已记录为 P2-30。
+
 **`RetrieveExperiences` / `BuildICLPrompt` 的空 `Project` 是必填参数表里唯一值得
 单独说明的缺口。** 上表是准确的——这两个方法都不校验 `project`，而 `Search` 校验——
 但表格说的是「校验了什么」，不是「会发生什么」，而这两者在这里差别很大。

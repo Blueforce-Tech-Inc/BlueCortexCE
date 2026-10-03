@@ -11,6 +11,18 @@
 | P0 | 0 | 立即修复并复测 |
 | P1 | 1 | 优先修复并复测 |
 | P2 | 2 | 本轮完整验收阶段处理或明确标记为已跳过 |
+> 第 232 轮新增 **P2-30**（同一个非法 `limit` 值，四家 SDK 有**三种行为**：
+> Java **抛异常**、Go 与 JS **静默丢弃**、Python **照发**；后端 `Math.max(1, limit)`
+> 会把负数钳成 **1**，于是 Go 调用方拿到的是**满页 20 条**、看起来完全正常）。
+> **Go SDK 自身也不一致**：`Search` / `ListObservations` 静默丢弃负数，
+> 而同一个 SDK 的 `GetExtractionHistory` **会抛 `ValidationError`**——同一份代码里
+> 两种处理、且未给出任何理由。**记录不修**：让 Go 对负数抛错会让**当前能正常返回**
+> 的调用方开始失败，属公开 API 行为变更；四家对齐更属跨 SDK 契约决策。
+> **文档层已先行更正**（Go README 双语明写三个方法的差异与四家对拍）。
+> **本轮同时完成第二批归档**：P1-3、P1-4 两条无条件已解决条目 **79 行逐字**迁入
+> `docs/archive/2026-10-03_backend-review-history-resolved-2.md`（加本条前本文件已 980 行、
+> 逼近 1000 行阈值），**P2-24 因仍带 ⏸ 残留刻意保留**，两批均经 `git show HEAD` 逐字校验。
+> **P2 Open 计数仍为 2**（P2-8、P2-10）。
 > 第 231 轮新增 **P2-29**（tool-use 去重键 `(session, tool_name, SHA-256(tool_input))`
 > **既不是一次工具调用的身份、也没有被原子地强制**：① 哈希只覆盖 `tool_input`，
 > `tool_response` 不在键内，故「同一 input、不同结果」的事件在处理窗口内被
@@ -201,86 +213,6 @@
   取证：`information_schema.columns` 确认列集；活体 `count(*)` 确认三张表全为 0；
   `grep -rn "ObservationFeedback" main 源码` 确认除实体与 repository 外**零引用**；
   `grep -n "V17" AGENTS.md CLAUDE.md` 确认其完成度声明。
-
-### P1-3: 四个派生查询按 `created_at` 排序，而该列有 52% 为 NULL —— 「最近」返回的是最旧的数据
-
-- **Scope**: `ObservationRepository.findByProjectPathOrderByCreatedAtDesc`（两个重载）与
-  `SummaryRepository.findByProjectPathOrderByCreatedAtDesc`。调用方共 7 处：
-  `ClaudeMdService:55,108`、`TimelineService:118`、`ContextService:360,904,933,961`。
-  本轮已全部改名为 `…OrderByCreatedAtEpochDesc`。
-- **Problem**: 派生方法名里的 `CreatedAt` 让 Spring Data 生成 `ORDER BY created_at DESC`，
-  而该列**可空且实际大面积为 NULL**——只有 `ImportService` 会显式 `setCreatedAt(...)`，
-  主捕获路径 `AgentService:248` 只设 `createdAtEpoch`，且**没有 `@PrePersist`、没有 JPA auditing**
-  兜底。PostgreSQL 在 `DESC` 下把 NULL 排在**最后**，于是「取最近 N 条」实际取回的是
-  **最旧的那批非 NULL 行**。活体库实测：`mem_observations` 38,088 行中 **19,711 行（51.8%）**
-  `created_at IS NULL`；`mem_summaries` 6,590 行中 **6,589 行（99.98%）** 为 NULL。
-  **同一文件里 15 处手写 `@Query` 一律用 `created_at_epoch`**，唯独这三个派生方法不是——
-  这正是它们显得「本该正确」的原因。
-- **Reproduction**（2026-10-03，修复前，活体 37777）：对本项目取最新一条观测
-  `b3ce4c56…`（`created_at_epoch` = 2026-04-09 19:59）作为 timeline 锚点——
-  ①`GET /api/timeline?anchorId=b3ce4c56…&project=<repo>` 返回
-  **`{"observations": [], "anchor_id": "b3ce4c56…"}`**：锚点在该项目 1,362 条观测里按
-  `created_at` 排序**落在 500 条窗口之外**，`findAnchorIndex` 返回 -1，**整个锚点上下文功能静默失效**，
-  且响应里连 `anchor_index` 字段都没有（走的是提前返回分支，看起来像「这个锚点没有上下文」）。
-  ②同一项目 `POST /api/session/start` 生成的 `updateFiles[].content` 里，
-  `## Recent Work` 的日期是 **2026-04-01 10:58 / 04-01 12:04 / 04-02 01:24**，
-  而该项目真实的最近观测是 **2026-04-09 19:59**——**最近 8 天的全部工作不出现在 CLAUDE.md 里**。
-  ③`ContextService.generateContinuation` 取 `summaries.get(0)` 作为「上次会话的下一步」，
-  取到的也是错的行。
-- **Fix**: 三个方法改名为 `…OrderByCreatedAtEpochDesc`（排序到 `created_at_epoch`），
-  7 处调用方与 `TimelineServiceTest` 的 8 处 stub 同步改名，并在方法上写明**为什么不能用
-  `created_at`**——避免下次有人「统一风格」改回去。**未改任何 DTO、端点、字段或序列化**，
-  返回结构完全不变，故不属对外契约变更。
-- **Verification**（双向，2026-10-03）：修复后 `GET /api/timeline?anchorId=b3ce4c56…` 返回
-  **6 条观测、`anchor_index: 0`**，CLAUDE.md 首条日期变为 **2026-04-09 19:59**；
-  **把三个方法名注入回 `CreatedAt` 并重新构建后，两个症状同时复现**
-  （timeline 回到 `observations: []`、CLAUDE.md 回到 2026-04-01），确认修复被真实钉住。
-  `mvn package` 通过；`TimelineServiceTest` 的 11 个 error 为**既有问题**（JDK 25 下
-  Mockito inline 无法 mock `EmbeddingService`），已用 `git stash` 在修复前的代码上复现确认与本次无关。
-- **Status**: ✅ **已修复**（2026-10-03，第 218 轮）。指纹变化（`.java`），完整验收
-  45/0/1 + EXTRACTION 25/0/0 全通过。**遗留（未修，需项目决策）**：`created_at` 本身仍是
-  稀疏的——`ExpRagService:237` 已为此写了「null 则回退到 epoch」的补丁，`ContextService:917`
-  仍把可能为 null 的 `createdAt` 直接放进响应。**补 `DEFAULT`/`@PrePersist` 属数据层变更**，
-  且会改变既有行的取值，超出「修排序」的范围，故记录不修。
-- **复核记录**: 第 218 轮代码方向发现（Backend）。取证：`information_schema` 无关，
-  直接对活体库 `count(*) FILTER (WHERE created_at IS NULL)`；`grep -rn "setCreatedAt"`
-  确认只有 `ImportService` 与 `ExtractionStorageService` 会赋值；`grep '@PrePersist|EnableJpaAuditing'`
-  零命中；`grep -rn "ORDER BY created_at"` 确认 15 处手写查询全用 epoch 列。
-
-### P1-4: `/api/context/semantic` 的 `@RequestBody` 解析成了 Swagger 注解 —— 该端点自上线起 100% 返 500
-
-- **Scope**: `ContextController.semanticContext(...)`（第 421 行起）。同方法的
-  `q` / `project` 裸强转为第二处缺陷，一并修复。
-- **Problem**: 该文件第 18 行 `import io.swagger.v3.oas.annotations.parameters.RequestBody`
-  是为下面几个方法的 OpenAPI `@ApiResponse` 内容块而引入的。于是方法参数上**简写**的
-  `@RequestBody` 解析到的是 **Swagger 那个注解**，不是 Spring 的。Spring 拿到一个
-  没有任何可识别 body 注解的裸 `Map`，按 `@ModelAttribute` 处理，绑定时抛
-  `No primary or single unique constructor found for interface java.util.Map`，
-  **任何请求都返回 500**——包括 `docs/API.md:1085` 里那段可以直接复制粘贴的
-  curl 示例。**全仓另外七个 controller 存在同样的 import 冲突，全部写成全限定名**
-  （同文件的 `/generate` 在第 271 行也是），**此方法是唯一的例外**。
-  第二处：`body.get("q")` 与 `body.get("project")` 是裸 `(String)` 强转，wire 传
-  `{"q": 123}` 即 `ClassCastException` → 500；而**相邻的 `limit` 字段早已用
-  `instanceof Number` 守卫**，同一方法内两种写法并存。
-- **Reproduction**（2026-10-03，修复前，活体 37777）：`docs/API.md:1085` 的示例请求
-  → **500**；`{"q": 123, "project": "<repo>"}` → **500**；`{"q": ["a"], "project": "<repo>"}`
-  → **500**；`{"q": "valid long query...", "project": 99}` → **500**；`{}` → **500**。
-  修复后上述全部 → **200**。
-- **Verification**（双向，2026-10-03）：**注入 1**——把注解改回简写，文档示例立即复现
-  **500**；**注入 2**——恢复 `q` / `project` 的裸强转，`{"q": 123, ...}` 立即复现
-  **500**。两次注入均确认修复被真实钉住。同批回归
-  `/api/context/{recent,preview,generate}` 三个兄弟端点**无回归**。
-- **Status**: ✅ **已修复**（2026-10-03，第 224 轮）。注解改为
-  `@org.springframework.web.bind.annotation.RequestBody` 并加注释记录该陷阱；
-  `q` / `project` 改为 `instanceof` 守卫（非字符串视为缺失，落到与「缺失 q」相同的
-  「query 不足 20 字符」答案）。`mvn package` 通过；指纹变化（`.java`），完整验收
-  回归 45/0/1 + EXTRACTION 25/0/0 全通过。`docs/API.md` 的字段表（`q` 为 string、
-  min 20 字符）**本来就是正确的**，未改，端点现已真正可达。
-- **复核记录**: 第 224 轮代码方向发现（Backend）。取证：`grep -rn "import io.swagger.v3.oas.annotations.parameters.RequestBody"`
-  在八个 controller 中命中，逐一检查其方法参数写法确认只有 `ContextController` 用简写；
-  `grep -rn "@org.springframework.web.bind.annotation.RequestBody"` 确认其余七处均为全限定名；
-  `mvn package` 后对活体 37777 逐例发请求复现。**零测试覆盖、零 SDK 暴露**是该缺陷
-  长期存活的直接原因——`grep -rn "context/semantic"` 在四家 SDK 与全部测试中零命中。
 
 ### P1-1: `CortexSessionContextBridgeAdvisor.adviseStream` 依赖普通 ThreadLocal，流式下既丢捕获又泄漏会话
 
@@ -964,6 +896,57 @@
   `read`/`edit`/`write` 误称为「大小写孪生」得 307 组，改用
   `(session, lower(tool_name), hash)` 精确分组后为 **1 组**。
 
+### P2-30: 负数 `limit` 在四家 SDK 有三种行为，而 Go 自身也不一致
+
+- **Scope**: Go `client_methods.go:124`（`Search`）、`:145`（`ListObservations`）、
+  `:297`（`GetExtractionHistory`）；对照 Java `SearchRequest.java:62` 与
+  `ObservationsRequest.java:36`、JS `client.ts:264` 与 `:840`、Python `client.py:508`。
+- **Problem**: 同一个非法输入 `limit = -5`，四家给出**三种**结果：
+
+  | SDK | 对 `limit < 0` 的处理 | 位置 |
+  |-----|----------------------|------|
+  | **Java** | **抛 `IllegalArgumentException`**，另在 `> 100` 时也抛 | `SearchRequest.java:62,65`；`ObservationsRequest.java:36,39` |
+  | **Go** | `Search` / `ListObservations` **静默丢弃**（`if req.Limit > 0`） | `client_methods.go:124,145` |
+  | **JS** | **静默丢弃**（`req.limit > 0`） | `client.ts:264,840` |
+  | **Python** | **照发**（`if limit:`，负数在 Python 里为真值） | `client.py:508` |
+
+  **Go 自身也不一致**：同一个 SDK 的 `GetExtractionHistory`（`client_methods.go:297`）
+  对负数 **抛 `ValidationError`**，而两个最常用的检索方法静默丢弃——**同一份代码里两种
+  处理，且代码与 README 都没给出任何理由**。
+- **Reproduction**（2026-10-03，httptest 抓实际出参，非读码推断）:
+
+  | 调用 | 实际 rawQuery |
+  |------|--------------|
+  | `ListObservations(Limit: -5)` | `""`（参数被丢弃） |
+  | `ListObservations(Limit: 0)` | `""` |
+  | `ListObservations(Limit: 100)` | `limit=100` |
+  | `Search(Limit: -5)` | `project=%2Fp&query=q`（无 `limit`） |
+  | `GetExtractionHistory(limit: -5)` | 返回 `cortex-ce: validation error on limit: limit must not be negative` |
+
+  后端裁定（活体 37777，`ViewerController` 的 `Math.min(Math.max(1, limit), 100)`）：
+  `GET /api/observations?limit=-5` → **1 条**；`?limit=0` → **1 条**；不带 `limit` → **20 条**。
+  `GET /api/search?...&limit=-5` → **1 条**，不带 → **5 条**。
+- **Impact**: 真实伤害在**移植路径**上。Java 是四家中**唯一**会把这个错误告诉调用方的；
+  把 Java 代码移植到 Go 或 JS，校验**整个消失**且没有任何提示——Go/JS 的调用方拿到的是
+  一页**满额 20 条**、结构完全正常的结果，比报错更难发现；Python 拿到的是被钳成 1 条的
+  退化页。典型触发场景是调用方自己算分页（`limit = total - offset` 之类）算出负数。
+- **Status**: ⏸ **记录不修** —— 让 Go 对负数抛错，会让**当前能正常返回**的调用方开始失败，
+  属公开 API 行为变更；四家对齐更属跨 SDK 契约决策。**文档层已先行更正**：
+  Go SDK 两份 README 现明写 `Search` / `ListObservations` / `GetExtractionHistory`
+  三者对负数的**不同**处理，并附四家对拍表与后端裁定值。**Go SDK 代码一字未改。**
+- **复核记录**: 第 232 轮代码方向（Go SDK）发现，359 测试全过。本轮**四个新角度核实无误**：
+  错误分类法（`statusCodeToError` 覆盖 11 个状态码、`IsRetryable` 判定与注释逐条吻合）、
+  查询参数编码（走 `url.Values.Encode`，无注入面）、响应体上限（`LimitReader` 多读 1 字节后
+  显式报错，**不会**退化成 JSON 截断错误）、DTO 时间字段（建模为 `string`/`int64`，无解析失败面）。
+  **一个假设在写成发现前被证伪**：怀疑 `GetObservation` 未找到时返回 `nil, nil` 会让调用方
+  空指针崩溃——**四家其实完全一致且都有文档**（Java 返回 `null`、Python 返回
+  `Observation | None`、JS 返回 `Observation | null`、Go 返回 `nil` 且接口注释写明），
+  **不是缺陷**。取证：临时 httptest 文件
+  （跑完即删，工作区无残留）确认 Go 实际出参；`grep` 逐家读源码确认四家行为；
+  活体 curl 确认后端钳位值。**探针自身错一次并先识别再采信**：统计根模块测试数时用
+  `^--- PASS` 只数顶层用例得 270，与基线 359 不符；改用含子测试的模式逐模块统计得
+  **299 + 8 + 13 + 12 + 27 = 359**，**确认是计数口径问题、既有记录无误**。
+
 ## Processing Rules
 
 - SDK/Demo findings are fixed in place with focused compile/test verification.
@@ -976,5 +959,7 @@
 The complete historical review log through 2026-05-07 is preserved in [`2026-09-30_backend-review-findings-history.md`](../archive/2026-09-30_backend-review-findings-history.md). Do not modify that archive; future resolved history should use a new dated archive when this file reaches the growth threshold again.
 
 Ten entries whose status is unconditionally resolved — P1-2, P2-1, P2-2, P2-3, P2-4, P2-5, P2-6, P2-7, P2-9 and P2-12 — were moved verbatim on 2026-10-03 (round 225) into [`2026-10-03_backend-review-history-resolved.md`](../archive/2026-10-03_backend-review-history-resolved.md), when this file reached 1008 lines against the `MAX_LINES=1000` threshold. That archive records the selection rule and must not be modified.
+
+A second batch — **P1-3 and P1-4, 79 lines moved verbatim** — went into [`2026-10-03_backend-review-history-resolved-2.md`](../archive/2026-10-03_backend-review-history-resolved-2.md) on 2026-10-03 (round 232), when this file stood at 980 lines and adding P2-30 would have crossed the threshold. **P2-24 was deliberately left behind**: it carries a ⏸ remainder even though its first two parts are ✅ fixed, so it still holds live reasoning rather than history. Verbatim equality of both batches was verified by diffing the extracted block against `git show HEAD` before the source lines were removed.
 
 Entries carrying a `⏸` "recorded, not fixing" status stay here on purpose: they hold the reasoning behind each decision and are the live record, not history. P2-11 also stays, because its backend half is still undecided even though the documentation and annotation layers were fixed.
