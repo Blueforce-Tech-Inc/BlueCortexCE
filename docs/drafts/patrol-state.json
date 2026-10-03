@@ -1,6 +1,6 @@
 {
-  "lastDirection": "goSdk",
-  "lastRunAt": "2026-10-03T08:10:00+08:00",
-  "nextDirection": "pythonSdk",
-  "round": 196
+  "lastDirection": "pythonSdk",
+  "lastRunAt": "2026-10-03T08:45:00+08:00",
+  "nextDirection": "jsSdk",
+  "round": 197
 }
