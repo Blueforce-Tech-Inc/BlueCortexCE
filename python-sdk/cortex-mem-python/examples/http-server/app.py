@@ -152,6 +152,27 @@ def _parse_int_param(key: str, default: int = 0) -> int:
         raise ValueError(f"{key} must be an integer")
 
 
+def _parse_int_body(data: dict, key: str, default: int = 0) -> int:
+    """Parse an optional integer JSON-body field, using the same grammar as
+    :func:`_parse_int_param`.
+
+    Missing, null and empty-string values all take the default, matching what
+    the other three demos do. A value that is present but is not an integer --
+    a JSON string, a float, a list -- raises ValueError, because the caller's
+    ``except`` below would otherwise turn the backend's 400 into a 200 with no
+    memoryContext and no error, which is indistinguishable from "this project
+    has no memories".
+    """
+    raw = data.get(key)
+    if raw is None or raw == "":
+        return default
+    if isinstance(raw, bool) or not isinstance(raw, (int, str)):
+        raise ValueError(f"{key} must be an integer")
+    if isinstance(raw, str) and not _INT_RE.fullmatch(raw.strip()):
+        raise ValueError(f"{key} must be an integer")
+    return int(raw)
+
+
 # ==================== Health ====================
 
 
@@ -184,11 +205,22 @@ def chat():
     user_id = data.get("userId")
     if user_id is not None and user_id.strip() == "":
         user_id = None  # treat empty string as "not provided" (matches Java/Go behavior)
+    # Validate maxChars before the try below. Without this a non-numeric value
+    # reaches the backend, the backend answers 400, and the except swallows it
+    # into a 200 with no memoryContext -- the caller cannot tell that apart
+    # from "no memories". The /iclprompt handler validates the same field via
+    # _parse_int_param; this is its body-reading twin.
+    try:
+        max_chars = _parse_int_body(data, "maxChars", 0)
+    except ValueError as e:
+        return _error(400, str(e))
+    if max_chars < 0:
+        return _error(400, "maxChars must be non-negative")
     try:
         icl_result = client.build_icl_prompt(
             task=data["message"],
             project=data["project"],
-            max_chars=data.get("maxChars", 0),
+            max_chars=max_chars,
             user_id=user_id,
         )
     except Exception as e:
