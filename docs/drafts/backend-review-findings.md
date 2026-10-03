@@ -11,6 +11,15 @@
 | P0 | 0 | 立即修复并复测 |
 | P1 | 1 | 优先修复并复测 |
 | P2 | 2 | 本轮完整验收阶段处理或明确标记为已跳过 |
+> 第 224 轮新增 **P1-4 并已修复**（`/api/context/semantic` 的 `@RequestBody` 简写因本文件
+> 第 18 行的 Swagger `RequestBody` import 而解析成**错误的注解**，Spring 遂把裸 `Map`
+> 当 `@ModelAttribute`，绑定必抛 `No primary or single unique constructor found`，
+> **该端点自上线起 100% 返 500**——包括 `docs/API.md:1085` 那段可复制的 curl 示例；
+> 全仓另七个 controller 有同样 import 冲突、全部写成全限定名，**此方法是唯一例外**）。
+> 同方法第二处 `q` / `project` 的裸强转一并改为 `instanceof` 守卫（相邻 `limit` 早已如此）。
+> **双向注入验证**两处均可复可消；`docs/API.md` 字段表本来就正确、未改。
+> **零测试覆盖、零 SDK 暴露**是其长期存活的直接原因。完整验收 45/0/1 + 25/0/0 通过。
+> P1 Open 计数仍为 1（P1-1）。
 > 第 219 轮新增 **P2-24**：代码侧两处已修——`ObservationFeedbackEntity` 映射了一个
 > **V17 从未创建的 `created_at` 列**（任何触及该实体的 JPQL 都会报
 > `column "created_at" does not exist`；属**潜伏缺陷**，表 0 行、repository 零调用方，
@@ -194,6 +203,41 @@
   直接对活体库 `count(*) FILTER (WHERE created_at IS NULL)`；`grep -rn "setCreatedAt"`
   确认只有 `ImportService` 与 `ExtractionStorageService` 会赋值；`grep '@PrePersist|EnableJpaAuditing'`
   零命中；`grep -rn "ORDER BY created_at"` 确认 15 处手写查询全用 epoch 列。
+
+### P1-4: `/api/context/semantic` 的 `@RequestBody` 解析成了 Swagger 注解 —— 该端点自上线起 100% 返 500
+
+- **Scope**: `ContextController.semanticContext(...)`（第 421 行起）。同方法的
+  `q` / `project` 裸强转为第二处缺陷，一并修复。
+- **Problem**: 该文件第 18 行 `import io.swagger.v3.oas.annotations.parameters.RequestBody`
+  是为下面几个方法的 OpenAPI `@ApiResponse` 内容块而引入的。于是方法参数上**简写**的
+  `@RequestBody` 解析到的是 **Swagger 那个注解**，不是 Spring 的。Spring 拿到一个
+  没有任何可识别 body 注解的裸 `Map`，按 `@ModelAttribute` 处理，绑定时抛
+  `No primary or single unique constructor found for interface java.util.Map`，
+  **任何请求都返回 500**——包括 `docs/API.md:1085` 里那段可以直接复制粘贴的
+  curl 示例。**全仓另外七个 controller 存在同样的 import 冲突，全部写成全限定名**
+  （同文件的 `/generate` 在第 271 行也是），**此方法是唯一的例外**。
+  第二处：`body.get("q")` 与 `body.get("project")` 是裸 `(String)` 强转，wire 传
+  `{"q": 123}` 即 `ClassCastException` → 500；而**相邻的 `limit` 字段早已用
+  `instanceof Number` 守卫**，同一方法内两种写法并存。
+- **Reproduction**（2026-10-03，修复前，活体 37777）：`docs/API.md:1085` 的示例请求
+  → **500**；`{"q": 123, "project": "<repo>"}` → **500**；`{"q": ["a"], "project": "<repo>"}`
+  → **500**；`{"q": "valid long query...", "project": 99}` → **500**；`{}` → **500**。
+  修复后上述全部 → **200**。
+- **Verification**（双向，2026-10-03）：**注入 1**——把注解改回简写，文档示例立即复现
+  **500**；**注入 2**——恢复 `q` / `project` 的裸强转，`{"q": 123, ...}` 立即复现
+  **500**。两次注入均确认修复被真实钉住。同批回归
+  `/api/context/{recent,preview,generate}` 三个兄弟端点**无回归**。
+- **Status**: ✅ **已修复**（2026-10-03，第 224 轮）。注解改为
+  `@org.springframework.web.bind.annotation.RequestBody` 并加注释记录该陷阱；
+  `q` / `project` 改为 `instanceof` 守卫（非字符串视为缺失，落到与「缺失 q」相同的
+  「query 不足 20 字符」答案）。`mvn package` 通过；指纹变化（`.java`），完整验收
+  回归 45/0/1 + EXTRACTION 25/0/0 全通过。`docs/API.md` 的字段表（`q` 为 string、
+  min 20 字符）**本来就是正确的**，未改，端点现已真正可达。
+- **复核记录**: 第 224 轮代码方向发现（Backend）。取证：`grep -rn "import io.swagger.v3.oas.annotations.parameters.RequestBody"`
+  在八个 controller 中命中，逐一检查其方法参数写法确认只有 `ContextController` 用简写；
+  `grep -rn "@org.springframework.web.bind.annotation.RequestBody"` 确认其余七处均为全限定名；
+  `mvn package` 后对活体 37777 逐例发请求复现。**零测试覆盖、零 SDK 暴露**是该缺陷
+  长期存活的直接原因——`grep -rn "context/semantic"` 在四家 SDK 与全部测试中零命中。
 
 ### P1-1: `CortexSessionContextBridgeAdvisor.adviseStream` 依赖普通 ThreadLocal，流式下既丢捕获又泄漏会话
 
