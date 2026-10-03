@@ -409,9 +409,17 @@ process.exit(0);
 `MemoryRefineService` 持有一个 `ConcurrentHashMap<String, ReentrantLock>`，并在两处使用它，
 这两处串行化的是**结构化抽取**：`tryExecuteWithProjectLock`（由
 `StructuredExtractionService.reExtractForSession` 调用）以及
-`deepRefineProjectMemories` 的尾部。其行为就是互斥本身——捕获真正的重复抑制来自
-`uk_session_tool_input` 唯一约束（session、tool_name、`tool_input_hash` 三列）
-以及 `AgentService` 中的 `existsBySessionAndTool` 检查。另外注意
+`deepRefineProjectMemories` 的尾部。其行为就是互斥本身——捕获真正的重复抑制**仅**来自
+`AgentService` 中的 `existsBySessionAndTool` 检查。实体上虽然声明了
+`@UniqueConstraint(name = "uk_session_tool_input")`（session、tool_name、
+`tool_input_hash` 三列），`AgentService` 里也有一段注释写着
+"Duplicate pending message detected (concurrent insert)" 的
+`catch (DataIntegrityViolationException)` 看起来依赖它——但**该约束在任何已部署的
+数据库里都不存在**：`application.yml` 设的是 `spring.jpa.hibernate.ddl-auto: none`，
+且没有任何 Flyway 迁移创建它，故 Hibernate 永远不会生成。真正在执行去重的只有应用层
+那道检查，而它是**非原子的先查后写**：实测 8 个并发的相同 tool-use 事件落了 **8 行**
+而非 1 行。参见
+[P2-29](drafts/backend-review-findings.md)。另外注意
 `deepRefineProjectMemories` 在整个代码库中没有任何调用方，因此只有
 `tryExecuteWithProjectLock` 那一处是可达的。结构化抽取**完全由事件驱动**，
 参见 [抽取并非定时执行](drafts/phase-3-design/23.md)。
@@ -502,13 +510,13 @@ public class AgentService {
 │  • tool_name                                            │
 │  • tool_input, tool_response                            │
 │  • tool_input_hash ← 去重 (V6)                          │
-│  • status (pending/processing/processed/failed)         │
+│  • status (pending/processing/processed/failed/skipped) │
 │  • retry_count                                          │
 │  • created_at_epoch                                     │
 │                                                         │
-│  PendingMessageProcessor 在启动时 + 定期运行:             │
-│  1. 查找 status='pending' 的消息                         │
-│  2. 通过 tool_input_hash 去重处理                        │
+│  PendingMessageProcessor 在启动时 + 定期运行:           │
+│  1. 查找 status='pending' 的消息                        │
+│  2. 处理（去重已在入队时完成）                          │
 │  3. 标记为 processed 或 failed                          │
 └─────────────────────────────────────────────────────────┘
 ```

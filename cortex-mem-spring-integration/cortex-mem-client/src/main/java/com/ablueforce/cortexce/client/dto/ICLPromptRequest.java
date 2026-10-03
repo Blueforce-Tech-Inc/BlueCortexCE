@@ -70,10 +70,16 @@ public record ICLPromptRequest(
         // A non-positive maxChars is treated as "unset" and omitted, so the backend
         // applies its own default. The backend resolves the field as
         // maxChars != null ? Math.max(100, maxChars) : 4000 — it has no zero-means-
-        // default branch, so sending an explicit 0 would clamp to 100 characters
-        // and silently truncate the injected memory context. Omitting the field
-        // matches the Go SDK (json:"maxChars,omitempty") and the Python SDK
-        // (if max_chars:), so all four SDKs agree on what 0 means.
+        // default branch, so sending an explicit 0 or a negative value would clamp
+        // to 100 characters and silently truncate the injected memory context.
+        // Measured live with one fixed task: omitting the field yields a 564-
+        // character prompt, while both 0 and -5 yield 53.
+        // Parity: the JS SDK (<= 0) and the Python SDK (max_chars > 0) apply the
+        // same rule. Go does NOT — json:"maxChars,omitempty" omits 0 for the same
+        // structural reason but has no way to express "negative means unset"
+        // without a custom marshaller, so Go still puts a negative on the wire
+        // and gets the 100-character clamp. Tracked as P2-31; do not describe the
+        // four SDKs as agreeing until that is closed.
         if (maxChars != null && maxChars > 0) {
             map.put("maxChars", maxChars);
         }

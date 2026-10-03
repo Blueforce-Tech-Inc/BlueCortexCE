@@ -413,9 +413,19 @@ ReentrantLock>` and uses it at two sites, both of which serialise *structured
 extraction* for a project: `tryExecuteWithProjectLock` (called by
 `StructuredExtractionService.reExtractForSession`) and the tail of
 `deepRefineProjectMemories`. Mutual exclusion is the whole behaviour — the
-actual duplicate suppression for captures is the `uk_session_tool_input` unique
-constraint over (session, tool_name, `tool_input_hash`) plus the
-`existsBySessionAndTool` check in `AgentService`. Note also that
+actual duplicate suppression for captures is the `existsBySessionAndTool` check in
+`AgentService` **alone**. The entity declares
+`@UniqueConstraint(name = "uk_session_tool_input")` over (session, tool_name,
+`tool_input_hash`), and `AgentService` has a
+`catch (DataIntegrityViolationException)` commented "Duplicate pending message
+detected (concurrent insert)" that appears to rely on it — but **that constraint
+does not exist in any deployed database**: `application.yml` sets
+`spring.jpa.hibernate.ddl-auto: none` and no Flyway migration creates it, so
+Hibernate never emits it. The only thing actually enforcing dedup is the
+application-level check, which is a non-atomic check-then-act; eight concurrent
+identical tool-use events were measured producing eight rows rather than one.
+See P2-29 in [`drafts/backend-review-findings.md`](drafts/backend-review-findings.md).
+Note also that
 `deepRefineProjectMemories` has no callers anywhere in the codebase, so only
 the `tryExecuteWithProjectLock` site is reachable. Structured extraction is
 event-driven only — see [Structured extraction is not scheduled](drafts/phase-3-design/23.md).
@@ -506,13 +516,13 @@ public class AgentService {
 │  • tool_name                                            │
 │  • tool_input, tool_response                            │
 │  • tool_input_hash ← Deduplication (V6)                 │
-│  • status (pending/processing/processed/failed)         │
+│  • status (pending/processing/processed/failed/skipped) │
 │  • retry_count                                          │
 │  • created_at_epoch                                     │
 │                                                         │
 │  PendingMessageProcessor runs on startup + periodic:    │
 │  1. Find messages with status='pending'                 │
-│  2. Process with deduplication via tool_input_hash      │
+│  2. Process (dedup already happened at enqueue time)    │
 │  3. Mark as processed or failed                         │
 └─────────────────────────────────────────────────────────┘
 ```

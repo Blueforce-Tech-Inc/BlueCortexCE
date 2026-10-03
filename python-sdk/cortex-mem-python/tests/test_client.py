@@ -1217,6 +1217,41 @@ class TestRetrievalExtended:
         assert body["maxChars"] == 2000
 
     @responses.activate
+    def test_build_icl_prompt_drops_zero_max_chars(self):
+        """0 means 'unset': the backend tests null, never zero, so 0 clamps to 100 chars."""
+        responses.add(responses.POST, f"{BASE}/api/memory/icl-prompt", json={}, status=200)
+        c = _client()
+        c.build_icl_prompt("t", "/p", max_chars=0)
+        body = json.loads(responses.calls[0].request.body)
+        assert "maxChars" not in body
+
+    @responses.activate
+    def test_build_icl_prompt_drops_negative_max_chars(self):
+        """A truthiness test is not enough: every non-zero int is truthy in Python.
+
+        A negative reaches the wire and the backend clamps it to 100 characters —
+        measured live: omitting the field gives a 564-character prompt, -5 gives 53.
+        """
+        responses.add(responses.POST, f"{BASE}/api/memory/icl-prompt", json={}, status=200)
+        c = _client()
+        c.build_icl_prompt("t", "/p", max_chars=-5)
+        body = json.loads(responses.calls[0].request.body)
+        assert "maxChars" not in body
+
+    @responses.activate
+    def test_build_icl_prompt_keeps_small_positive_max_chars(self):
+        """Guard against over-correcting: 1 is positive and must still be sent.
+
+        The endpoint clamps to a 100-character floor, but that is the backend's
+        documented behaviour for a small positive value, not a client-side concern.
+        """
+        responses.add(responses.POST, f"{BASE}/api/memory/icl-prompt", json={}, status=200)
+        c = _client()
+        c.build_icl_prompt("t", "/p", max_chars=1)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["maxChars"] == 1
+
+    @responses.activate
     def test_search_with_type_filter(self):
         """Verify type filter is sent as query param (type is a Python keyword, works as kwonly arg)."""
         responses.add(responses.GET, f"{BASE}/api/search", json={"observations": [], "count": 0}, status=200)

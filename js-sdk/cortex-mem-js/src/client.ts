@@ -226,8 +226,13 @@ export class CortexMemClient {
    * as `maxChars != null ? Math.max(100, maxChars) : 4000` — it tests for null,
    * never for zero — so sending an explicit 0 or a negative value would clamp
    * the injected memory context to 100 characters instead of the default
-   * ~4000, and the call still returns 200. Matches the Java SDK's
-   * `maxChars > 0` guard, and the Go and Python SDKs, which omit 0 as well.
+   * ~4000, and the call still returns 200. Measured live with one fixed task:
+   * omitting the field yields a 564-character prompt, while both 0 and -5 yield
+   * 53. Matches the Java SDK's `maxChars > 0` guard and the Python SDK's
+   * `max_chars > 0` guard. Go does NOT — `json:"maxChars,omitempty"` omits 0 for
+   * the same structural reason but has no way to express "negative means unset"
+   * without a custom marshaller, so Go still puts a negative on the wire and
+   * gets the 100-character clamp. Tracked as P2-31.
    */
   async buildICLPrompt(req: ICLPromptRequest): Promise<ICLPromptResult> {
     this.assertNotClosed();

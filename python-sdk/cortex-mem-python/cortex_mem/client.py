@@ -421,6 +421,21 @@ class CortexMemClient:
 
         Wire format: max_chars → "maxChars", user_id → "userId".
 
+        A non-positive max_chars is treated as "unset" and omitted from the body.
+        The endpoint resolves the field as
+        ``maxChars != null ? Math.max(100, maxChars) : 4000`` — it tests for null,
+        never for zero — so sending an explicit 0 or a negative value would clamp
+        the injected memory context to 100 characters instead of the default 4000,
+        and the call still returns 200. Measured on a live backend with one fixed
+        task: omitting the field yields a 564-character prompt, while both 0 and
+        -5 yield 53 characters. Note that a plain truthiness test is not enough
+        here — ``if max_chars:`` skips 0 but happily sends a negative, since every
+        non-zero int is truthy in Python. This matches the Java SDK's
+        ``maxChars > 0`` guard and the JS SDK's ``<= 0`` drop. Go still sends
+        negatives: its ``json:"maxChars,omitempty"`` omits 0 for the same
+        structural reason but has no way to express "negative means unset"
+        without a custom marshaller (tracked as P2-31).
+
         Raises:
             ValidationError: if task is empty. The backend rejects it with
                 400 "task is required".
@@ -431,7 +446,7 @@ class CortexMemClient:
         body: dict[str, Any] = {"task": task}
         if project:
             body["project"] = project
-        if max_chars:
+        if max_chars > 0:
             body["maxChars"] = max_chars
         if user_id:
             body["userId"] = user_id

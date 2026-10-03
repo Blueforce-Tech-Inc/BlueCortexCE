@@ -11,6 +11,17 @@
 | P0 | 0 | 立即修复并复测 |
 | P1 | 1 | 优先修复并复测 |
 | P2 | 2 | 本轮完整验收阶段处理或明确标记为已跳过 |
+> 第 233 轮新增 **P2-31**（Go SDK 的 `omitempty` 只省略 **0**、**负数照发**，
+> 后端 `Math.max(100, maxChars)` 把负数钳成 **100** → 注入只剩 **53 字符**，
+> 而省略字段是 **564 字符**，且 **200 OK 无任何错误**）。**Python 曾是同一形态**
+> （`if max_chars:` 只跳过 0），**本轮已修**为 `max_chars > 0`，与第 225 轮 Java、
+> 第 228 轮 JS 同一处修法；**双向注入验证为真**（改回 `if max_chars:` → 负数用例
+> **恰好 1 条**失败），Python **428 → 431** 全过，Java **192**、JS **239** 与基线一致。
+> **同时更正两处源码注释**：Java 与 JS 都写着「四家对 `maxChars` 的 0 语义一致」，
+> **那两句只对 0 成立**，现写明 Go 是唯一例外并注明在 P2-31 关闭前不要再说四家一致。
+> **Go 记录不修**：`omitempty` 判的是零值而非正数，两条修法（改 `*int` 破坏调用点 /
+> 自定义 `MarshalJSON` 改 wire 内容）**均属公开 API 变更**。
+> **P2 Open 计数仍为 2**（P2-8、P2-10）。
 > 第 232 轮新增 **P2-30**（同一个非法 `limit` 值，四家 SDK 有**三种行为**：
 > Java **抛异常**、Go 与 JS **静默丢弃**、Python **照发**；后端 `Math.max(1, limit)`
 > 会把负数钳成 **1**，于是 Go 调用方拿到的是**满页 20 条**、看起来完全正常）。
@@ -59,120 +70,20 @@
 > （破坏所有调用点）或加自定义 `MarshalJSON`（改变现有 wire 内容），**均属公开 API 变更**。
 > **文档层已先行说明**（Go README 双语新增小节）。**Go SDK 代码一字未改。**
 > **P2 Open 计数仍为 2**（P2-8、P2-10）。
-> 第 225 轮新增 **P2-25**（`maxChars` 的 Swagger 描述承诺「0 = backend default ~4000」，
-> 而后端判的是 `!= null`、不存在该分支，传 0 实得 **100** 字符注入），**记录不修**——
-> 改注解即改对外 OpenAPI 契约；**文档层已先行更正**（API 文档双语写明 100 下限与 0 的真实行为）。
-> 同轮**已在 Java SDK 侧修复**：`ICLPromptRequest.toWireFormat()` 只判 `null`、会把 0 发上 wire，
-> 与 Go（`omitempty`）、Python（`if max_chars:`）不一致，已改为 `maxChars > 0` 才发送；
-> **JS SDK 无此防护**，其 example `/chat` 默认传 0，属 JS/TS 方向的发现。
-> **P2 Open 计数仍为 2**（P2-8、P2-10）。
-> 第 224 轮新增 **P1-4 并已修复**（`/api/context/semantic` 的 `@RequestBody` 简写因本文件
-> 第 18 行的 Swagger `RequestBody` import 而解析成**错误的注解**，Spring 遂把裸 `Map`
-> 当 `@ModelAttribute`，绑定必抛 `No primary or single unique constructor found`，
-> **该端点自上线起 100% 返 500**——包括 `docs/API.md:1085` 那段可复制的 curl 示例；
-> 全仓另七个 controller 有同样 import 冲突、全部写成全限定名，**此方法是唯一例外**）。
-> 同方法第二处 `q` / `project` 的裸强转一并改为 `instanceof` 守卫（相邻 `limit` 早已如此）。
-> **双向注入验证**两处均可复可消；`docs/API.md` 字段表本来就正确、未改。
-> **零测试覆盖、零 SDK 暴露**是其长期存活的直接原因。完整验收 45/0/1 + 25/0/0 通过。
-> P1 Open 计数仍为 1（P1-1）。
-> 第 219 轮新增 **P2-24**：代码侧两处已修——`ObservationFeedbackEntity` 映射了一个
-> **V17 从未创建的 `created_at` 列**（任何触及该实体的 JPQL 都会报
-> `column "created_at" does not exist`；属**潜伏缺陷**，表 0 行、repository 零调用方，
-> 故从未在运行时暴露），以及 `findByObservationIdOrderByCreatedAtDesc` 方法名描述了一个
-> 不存在的列（实际按 epoch 排序，零调用方）——两者均为 P1-3 同一类「名字与实际不符」陷阱。
-> **未实现部分记录不修**：V17 声明的 Thompson Sampling 基础**完全没有写入方**
-> （`observation_feedback` 0 行、`generated_by_model` 0 行、`relevance_count` 恒 0、
-> `setRelevanceCount` 零命中），接入属新增特性而非修 bug。
-> **P2 Open 计数仍为 2**（P2-8、P2-10）——P2-24 的未实现部分按既定纪律不计入 Open。
-> 第 218 轮新增 **P1-3 并已修复**（三个 Spring Data 派生方法按可空且 52% 为 NULL 的
-> `created_at` 排序，「取最近 N 条」实际返回最旧的数据；活体实测使 timeline 锚点上下文
-> **完全失效**、生成的 CLAUDE.md 漏掉最近 8 天工作、「上次会话的下一步」取错行）。
-> 改名为 `…OrderByCreatedAtEpochDesc` 并同步 7 处调用方与 8 处测试 stub，**双向注入验证**
-> 症状可复可消；未改任何 DTO / 端点 / 字段，不属对外契约变更。完整验收 45/0/1 + 25/0/0 通过。
-> **遗留不修**：`created_at` 本身的稀疏性（数据层变更，会改变既有行取值）留待项目决策。
-> P1 Open 计数仍为 1（P1-1）。
-> 第 184 轮新增 P2-11（未配置的抽取模板名不被拒绝，拼错的名字与「尚未抽取」得到同样的
-> `not_found`、只有 `/latest` 的 `template` 回显字段暴露了差异，且该错误名字已传播进 Swagger 注解
-> 与双语 API 文档），已在**注解与文档层**修复并复测；**后端本身仍不校验**未知模板名，
-> 返回 400 属对外契约变更，留待后续决策。
-> P2 Open 计数仍为 2（P2-8、P2-10）。
-> 第 212 轮新增 P2-23（SSE 连接数超 100 返回 500 而非 503，且全仓无心跳广播，
-> 死连接最长占用名额 30 分钟），**记录不修**——改状态码属对外契约变更，补心跳会
-> 改变流量形态与 emitter 生命周期，均留待项目决策。
-> 第 210 轮新增 P2-22（`/api/cursor/projects` 的 Swagger 示例把 ISO-8601 时间戳写成 epoch
-> 数字，客户端照此生成会解析失败），**记录不修**——改注解即改对外 OpenAPI 契约；
-> 文档层已先行更正（`API.md` / `API-zh-CN.md` 该节原本连响应示例都没有）。
-> 第 189 轮新增 P2-12（`MemoryRefineService.deepRefineProjectMemories` 无调用方，
-> 且其注释谎称自己由 SessionEnd 与定时任务共同触发——正是第 187 轮那处「定时抽取」
-> 虚构描述的代码侧残留），注释已改为如实说明，方法与配置键均**刻意不动**，记为已处理。
-> 第 195 轮新增 P2-13（`CortexSessionContext` 没有 `userId` 字段，导致
-> `CortexMemoryAdvisor` 与 `CortexMemoryTools` **结构上无法**按用户隔离注入给 Agent 的
-> 记忆，尽管后端与 SDK 下层都支持），⏸已记录不实现，README 已如实写明，P2 Open 计数仍为 2。
-> 第 197 轮新增 P2-14（`ObservationRepository.findNewObservations` 零调用方——它注释明写
-> 「for incremental extraction」，而增量抽取从未实现；V16 迁移还专门为它建了复合索引），
-> ⏸已记录不实现，四份设计文档的相应断言已更正。
-> 第 200 轮新增 P2-15（`save_memory` 创建共享 manual-memories 会话是 check-then-act，
-> 并发下第二次插入必撞唯一约束、整次保存被报成失败），⏸已记录不实现。
-> 第 201 轮新增 P2-16（Java SDK 无任何类型化异常，HTTP 状态码只能靠遍历 cause 链取得；
-> Go 16 / Python 27 / JS 16 而 Java 为 0，项目自己的 Java demo 已为此写了 DemoErrors），
-> ⏸已记录不实现，两份 README 已补上取状态码的可复制做法。P2 Open 计数仍为 2。
-> 第 202 轮新增两条，均由「按断言清扫设计文档的成本模型」牵出：**P2-17**
-> （`EXTRACTION_MAX_BATCHES` 在随附默认值下**永远不可能生效**——候选已被
-> `EXTRACTION_MAX_CANDIDATES=100` 截断，单用户最多 5 批 × 20，够不到 10；
-> 单独调高它无效，需同时提高候选上限）与 **P2-18**
-> （`reExtractForSession`，即 `PATCH /api/session/{id}/user` 这个**第二个活入口**，
-> **绕过全部三个上限**，把整会话观测一次性送入 LLM，**无上界**，
-> 超窗失败被 `catch` 吞掉而调用方仍见成功）。两者皆 ⏸已记录不实现
-> （均属对外契约变更），P2 Open 计数仍为 2。
-> 第 203 轮新增 **P2-19**（Java SDK 的 `triggerRefinement` / `triggerExtraction`
-> 走 `executeWithRetrySilent`，**把失败全部吞掉**，调用方拿到正常返回的 `void`
-> 而无从得知精炼/抽取根本没跑；Go / JS / Python 三家**都抛错**，且 Go 在
-> `client_methods.go:189` 写明理由「NOT fire-and-forget: this is an explicit
-> user action, errors must propagate」。Java 自己的 javadoc 声称
-> 「Matches the Go, Python and JS SDKs」——重试策略确实一致，但**错误传播**
-> 恰恰是它唯一不同的地方，而这正是调用方能感知的部分），⏸已记录不实现
-> （改这两处会改变现有调用方可观测到的行为）。P2 Open 计数仍为 2。
-> 第 206 轮新增 **P2-20**（**全部 22 个**数值查询参数、11 个端点都静默接受十六进制
-> 字面量：Spring 默认转换对 `0x`/`0X` 前缀走 `Integer.decode`。实测 `?lines=0x10`
-> 返回 `{"returnedLines":16}`、`?limit=0x10` 返回 16 条，状态码一律 `200` 且响应中
-> 无任何迹象。**危害最大的是时间戳**：`/api/timeline` 的 `startEpoch`/`endEpoch`
-> 会被解释成 1970 年附近的 epoch 而**静默返回空时间窗**。关键机制细节：
-> `?limit=010` 返回 **10 而非八进制 8**，说明仅十六进制前缀走 decode。**排查陷阱**：
-> `/api/context/timeline` 对无法解析的 `?limit=abc` 与 `?limit=0x3` 返回**完全相同**的
-> `400 {"error":"No anchor found"}`——那是解析成功后的领域错误，只看状态码会误判为
-> 「该端点严格拒绝十六进制」而漏掉这条；真正的解析失败返回 Spring 默认的
-> `{"status":400,"error":"Bad Request"}`。**状态码不等于原因，必须读响应体**。
-> 收紧会把一批 `200` 变成 `400`、波及 11 个端点，属对外契约变更），⏸已记录不实现，
-> 但已新增「Query Parameter Conventions / 查询参数约定」一节完整记录（**并因此修正了
-> 上一轮把该行为写成「五个 `limit` 端点的属性」的范围过窄**——**修掉一个说法 ≠ 修掉
-> 这个说法**，第 205 轮刚写下的内容本轮就发现范围划小了）。P2 Open 计数仍为 2。
-> 第 207 轮新增 **P2-21**（`CortexMemHealthIndicator` 在真故障时**不给原因**：
-> `healthCheck()` 自己 `catch` 后 `return false`、**从不抛出**，故指示器的
-> `catch` 分支在生产中**不可达**、`withException(e)` 的 `error` 键**永不填充**。
-> 活体实测（真实 client 指向死端口）`status=DOWN` 但
-> `details={service=..., reason=Health check returned false}`、`hasErrorKey=false`
-> ——「不可达」与「degraded」两种情况文案完全相同，真正的连接错误被客户端
-> `log.debug` 吞掉。**更值得记的是测试钉死了假象**：
-> `health_whenClientThrows_returnsDown` 用 mock 制造 client 抛出的状态并断言
-> `containsKey("error")`，而**真实 client 永远产生不了该状态**——与第 197 轮
-> 「夹具传后端从不下发的值」同类，**测试覆盖的是一个虚构状态**。核实无误的部分：
-> `"ok"` 的大小写正确（后端返回小写 `dbReady ? "ok" : "degraded"`），
-> 三分支判定本身无误，**缺陷只在「原因丢失」与「测试虚构」**。修复需改
-> `healthCheck()` 的行为契约或新增公开 API，⏸已记录不实现），P2 Open 计数仍为 2。
-> **Open 只统计尚未处理的条目**（⏸已记录不修 / 📌待修）。标记为 ✅已修复 或 ✅已跳过 的条目
-> 保留在本文件作为可追溯的历史，但**不计入** Open。
-> P1-2（导入端点把校验失败报成成功跳过）已于 2026-10-02 第 166 轮 Backend 集中修复并复测通过，
-> 降级为已解决条目。第 166 轮另新增 P2-6（缺 `projectPath` 校验导致 opaque 错误），**已当场修复**，
-> 故 P2 计数仍为 0；之所以仍登记条目，是因为它改变了 API 响应的 `errorMessages` 内容，属调用方可见变更。
-> 第 172 轮新增 P2-7（DLQ 记录混入精炼流水线，因 `type` 改名后排除条件失效），同样**已当场修复并复测**，
-> P2 计数仍为 0。
-> 第 173 轮新增 P2-8（读取侧无维度路由，检索恒定比 `embedding_1024`），状态 ⏸已记录不修，
-> 故 P2 计数为 1。降级行为对调用方可见（`strategy` / `fellBack`），且仅在非 1024 维配置下触发。
-> 第 174 轮新增 P2-9（`MEMORY_QUALITY_THRESHOLD` 为死配置键，注释承诺的检索过滤器不存在），
-> 状态 ⏸已记录不修，P2 计数为 2；**已于第 178 轮 Backend 轮修复并复测**，P2 计数回到 2。
-> 第 175 轮新增 P2-10（四个 ingest 端点对项目路径的必填性不一致，仅 `/api/ingest/observation`
-> 严格），⏸已记录不修。四家 SDK 均已在客户端拦截，故只影响直接调用
-> HTTP API 的用户；收紧契约属对外变更，留待 Backend 轮次决策。
+>
+> **第 233 轮压缩说明**：本区块原先逐轮追加叙述，加 P2-31 后达 **1013 行**、越过
+> `MAX_LINES=1000`。已删除**第 225 轮及更早**的逐轮摘要（第 73–187 行，共 115 行），
+> **最近九轮（225–233）原样保留**。删除的内容**没有任何信息损失**，因为每一条都在下面
+> `## Open Findings` 里有**完整条目**（Scope / Problem / Reproduction / Status / 复核记录），
+> 且逐轮全文另存于 `docs/drafts/patrol-rotation.md` 与 `docs/drafts/doc-review-task.md`。
+> 仍然有效的汇总信息保留如下：
+
+| 轮次 | 条目 | 一句话 |
+|------|------|--------|
+| 219 / 218 / 224 | P2-24 / P1-3 / P1-4 | 代码侧已修；P1-3、P1-4 已归档，P2-24 仍带 ⏸ 残留故保留 |
+| 225–228 | P2-25 / P2-26 / P2-27 / P2-28 | 全部 ⏸ 记录不修（契约或公开 API 变更） |
+| 229 | — | 纯 Demo 修复，无新增 finding |
+| 230–233 | P2-28 / P2-29 / P2-30 / P2-31 | 全部 ⏸ 记录不修；P2-31 的 Python 半边已修 |
 
 ## Open Findings
 
@@ -946,6 +857,43 @@
   活体 curl 确认后端钳位值。**探针自身错一次并先识别再采信**：统计根模块测试数时用
   `^--- PASS` 只数顶层用例得 270，与基线 359 不符；改用含子测试的模式逐模块统计得
   **299 + 8 + 13 + 12 + 27 = 359**，**确认是计数口径问题、既有记录无误**。
+
+### P2-31: Go SDK 仍把负数 `maxChars` 发上 wire，注入被钳到 100 字符
+
+- **Scope**: `go-sdk/cortex-mem-go/dto/experience.go:38` 与 `:46` 的
+  `MaxChars int \`json:"maxChars,omitempty"\``。
+- **Problem**: `omitempty` 只省略 **0**，**负数照发**（`omitempty` 判定的是 Go 零值，
+  而 `-5` 不是零值）。后端解析式是 `maxChars != null ? Math.max(100, maxChars) : 4000`
+  （`MemoryController.java:154`），**判 null 不判 0**，于是负数落进 `Math.max(100, -5)`
+  → **100**。**Python 曾是同一形态**（`if max_chars:` 只跳过 0），本轮已修（见下）。
+- **Reproduction**（2026-10-03，活体 37777，同一条 task）：
+
+  | 请求 | 响应回显 `maxChars` | 实际 prompt 长度 |
+  |------|--------------------|-----------------|
+  | 省略字段 | 4000 | **564** 字符 |
+  | `maxChars: 0` | 100 | **53** 字符 |
+  | `maxChars: -5` | 100 | **53** 字符 |
+  | `maxChars: 4000` | 4000 | 564 字符 |
+
+  **200 OK、无任何错误**，调用方只会看到一份被压到 53 字符的注入。
+- **Status**: ⏸ **记录不修** —— Go 里没有 `if x > 0` 这种写法可用；两条路都属
+  **公开 API 变更**：把字段改成 `*int`（破坏所有调用点）或写自定义 `MarshalJSON`
+  （改变现有 wire 内容）。**本轮已修 Python**：守卫由 `if max_chars:` 改为
+  `max_chars > 0`，与第 225 轮的 Java、第 228 轮的 JS 同一处修法。
+  **同时更正了两处源码注释**——Java 的 `ICLPromptRequest` 原写「matches the Go SDK
+  … and the Python SDK … so all four SDKs agree on what 0 means」，JS 的
+  `buildICLPrompt` 原写「and the Go and Python SDKs, which omit 0 as well」：
+  **两句都只对 0 成立**，现已写明 Go 是唯一例外、且注明在 P2-31 关闭前**不要再说
+  四家一致**。**双向注入验证为真**：把 Python 守卫改回 `if max_chars:` →
+  负数用例**恰好 1 条**失败（零值与正值用例理应不失败，正数那条的作用正是防过度修复）；
+  恢复后 Python **431** 全过（原 428），Java **192**、JS **239** 均与基线一致。
+- **复核记录**: 第 233 轮代码方向（Python SDK）发现。取证：读四家源码确认守卫形态；
+  活体 curl 四种取值裁定后端行为；`grep -rn "max_chars" tests/` 确认**无既有测试
+  钉死该行为**（故是改正而非与测试冲突）。**顺带核实无误**：Python 五处路径拼接
+  （`session_id` / `observation_id` / `template_name`）**全部**用
+  `quote(x, safe='')`，与 Go 的 `url.PathEscape`、JS 的 `encodeURIComponent` 一致，
+  **四家无一处漏转义**；请求超时恒有设置（下限 0.1s）；重试为线性退避 + ±25% 抖动、
+  仅重试瞬时错误。
 
 ## Processing Rules
 
