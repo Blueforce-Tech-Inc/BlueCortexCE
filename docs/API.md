@@ -93,13 +93,45 @@ Content-Type: application/json
 
 ### Error Response
 
+**There are two error body shapes, and which one you get depends on who
+produced the error.** There is no global `@ControllerAdvice` in this backend, so
+framework-level failures are rendered by Spring's default error handling while
+handler-thrown failures are whatever the handler put in the map.
+
+**Framework errors** — type-conversion failures on a query parameter, an
+unknown path, a method the path does not accept, a path variable that will not
+convert:
+
 ```json
 {
-  "error": "Error message",
-  "status": "failed",
-  "code": "ERROR_CODE"
+  "timestamp": "2026-10-03T07:33:19.797+00:00",
+  "status": 400,
+  "error": "Bad Request",
+  "path": "/api/observations"
 }
 ```
+
+Note `status` is the **numeric** HTTP status, not a string, and `error` is
+Spring's short reason phrase (`Bad Request`, `Not Found`, `Method Not
+Allowed`) rather than a description of what was wrong with your input.
+
+**Handler errors** — a missing required field, an empty `projectPath`, and
+similar validation the endpoint performs itself:
+
+```json
+{
+  "error": "Missing required field: content_session_id (or session_id)"
+}
+```
+
+Only `error` is present, and it carries the actionable message. This is the
+shape most of the per-endpoint error examples in this reference use.
+
+**There is no `code` field.** An earlier revision of this section showed
+`{"error": ..., "status": "failed", "code": "ERROR_CODE"}`; that shape is not
+produced by any endpoint. If you are writing a client, read `error` — it is
+the one key both shapes carry — and treat `status` as present-or-absent
+depending on which layer failed.
 
 ### Query Parameter Conventions
 

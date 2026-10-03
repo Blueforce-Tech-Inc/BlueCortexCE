@@ -95,13 +95,41 @@ Content-Type: application/json
 
 ### 错误响应
 
+**错误响应体有两种形态，取决于错误由谁产生。** 后端**没有全局
+`@ControllerAdvice`**，因此框架层失败由 Spring 的默认错误处理渲染，而 handler
+自己抛出的失败则是 handler 放进 map 里的内容。
+
+**框架错误** —— 查询参数类型转换失败、未知路径、该路径不接受的方法、无法转换的
+路径变量：
+
 ```json
 {
-  "error": "Error message",
-  "status": "failed",
-  "code": "ERROR_CODE"
+  "timestamp": "2026-10-03T07:33:19.797+00:00",
+  "status": 400,
+  "error": "Bad Request",
+  "path": "/api/observations"
 }
 ```
+
+注意 `status` 是**数字**形式的 HTTP 状态码而非字符串，且 `error` 是 Spring 的
+简短原因短语（`Bad Request`、`Not Found`、`Method Not Allowed`），**不是**对你
+输入哪里不对的描述。
+
+**Handler 错误** —— 缺必填字段、`projectPath` 为空等由端点自身完成的校验：
+
+```json
+{
+  "error": "Missing required field: content_session_id (or session_id)"
+}
+```
+
+此时**只有** `error` 一个键，而它携带的正是可操作的信息。本参考中各端点下的错误
+示例大多采用这一形态。
+
+**不存在 `code` 字段。** 本节早前版本写的是
+`{"error": ..., "status": "failed", "code": "ERROR_CODE"}`，**没有任何端点会产生
+该形态**。写客户端时请读 `error`——它是两种形态**唯一共有**的键——并把 `status`
+当作「取决于哪一层失败，可能存在也可能不存在」。
 
 ### 查询参数约定
 
