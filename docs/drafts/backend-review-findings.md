@@ -30,6 +30,14 @@
 > 第 201 轮新增 P2-16（Java SDK 无任何类型化异常，HTTP 状态码只能靠遍历 cause 链取得；
 > Go 16 / Python 27 / JS 16 而 Java 为 0，项目自己的 Java demo 已为此写了 DemoErrors），
 > ⏸已记录不实现，两份 README 已补上取状态码的可复制做法。P2 Open 计数仍为 2。
+> 第 202 轮新增两条，均由「按断言清扫设计文档的成本模型」牵出：**P2-17**
+> （`EXTRACTION_MAX_BATCHES` 在随附默认值下**永远不可能生效**——候选已被
+> `EXTRACTION_MAX_CANDIDATES=100` 截断，单用户最多 5 批 × 20，够不到 10；
+> 单独调高它无效，需同时提高候选上限）与 **P2-18**
+> （`reExtractForSession`，即 `PATCH /api/session/{id}/user` 这个**第二个活入口**，
+> **绕过全部三个上限**，把整会话观测一次性送入 LLM，**无上界**，
+> 超窗失败被 `catch` 吞掉而调用方仍见成功）。两者皆 ⏸已记录不实现
+> （均属对外契约变更），P2 Open 计数仍为 2。
 > **Open 只统计尚未处理的条目**（⏸已记录不修 / 📌待修）。标记为 ✅已修复 或 ✅已跳过 的条目
 > 保留在本文件作为可追溯的历史，但**不计入** Open。
 > P1-2（导入端点把校验失败报成成功跳过）已于 2026-10-02 第 166 轮 Backend 集中修复并复测通过，
@@ -505,11 +513,24 @@
   「增量」，也不是「全量重扫」——是「每次重扫最新的 N 条」。
 - **影响面**：纯成本与覆盖问题，不会返回错值；但 23.md 曾把它列为
   「primary cost reduction mechanism」，运维据此估算 token 预算会系统性偏低。
+- **量化证据（第 202 轮补测）**：在真实库上按 `refined_from_ids` 统计，
+  18,373 次带输入的抽取共涉及 **3,885 个不同观测**，其中 **3,880 个（99.9%）
+  被送入 LLM 超过一次**，**单个观测最多被重复发送 689 次**。
+  这把「会重复」从代码推断变成了实测幅度。（另一条独立的量化视角：
+  当前候选窗口与全部历史输入的交集为 0，说明窗口确实只随时间前移——
+  旧观测是**掉出**窗口而非被去重排除。）
 - **Status**: ⏸**已记录，不实现**。接上它需要持久化抽取状态（7.md §7.1 提议用
   `type="extraction_state"` 的观测行承载），属新增特性而非修 bug；且抽取状态的
   过期/重建语义应由项目决定。本轮已做的是**如实记录**：23.md §23.5 策略 3/4/5 全部补上
   「designed, not implemented」声明，并给出真实的候选选取路径与排序方向；
   8.md 第 5 条、0.2.md Gap 3、17.md §17.2 三处同一断言一并更正。
+  **第 202 轮续做**：该次清扫**按文件逐个进行**，因此漏掉了同断言的另外两处
+  （`00-quick-ref.md:14`、`15.md:211`）。本轮改为**按断言清扫**，并额外发现
+  成本模型本身建立在这个不存在的机制上——23.md §23.2/§23.2b/§23.4/§23.5/§23.7
+  已整体重写（月度抽取成本 $0.23 → $1.13，提炼占比 97%+ → ~89%），
+  `0.3.md`、`structured-extraction.md`、`DEPLOYMENT.md` 三处同源说法一并更正。
+  由此另立 **P2-17**（`EXTRACTION_MAX_BATCHES` 失效）与 **P2-18**
+  （`reExtractForSession` 绕过全部上限）。
 
 ### P2-15: `save_memory` 的共享会话是 check-then-act，并发下必然丢失一次保存
 
@@ -555,6 +576,45 @@
   两份 README 的 Error Handling 章节新增「HTTP 状态码不在异常上」小节，
   给出实测的异常形态、可直接复制的 `statusOf` 辅助方法、
   以及「这是与另三家的已知不对称」这一事实。
+
+### P2-17: `EXTRACTION_MAX_BATCHES` 在随附默认值下永远不可能生效
+
+- **Scope**: `ExtractionConfig.java:29`（`maxBatchesPerTemplate = 10`，绑定
+  `EXTRACTION_MAX_BATCHES`）与 `StructuredExtractionService.java:234-235` 的批处理循环。
+- **Problem**: 该上限被文档当作真实生效的调参手段，但**在随附默认值下它是死的**。
+  循环条件是 `i < userObs.size() && i < maxTotal`，其中
+  `maxTotal = maxObservationsPerBatch × maxBatchesPerTemplate = 20 × 10 = 200`；
+  而 `userObs` 是候选列表按用户分组后的一个切片，候选列表本身已被
+  `initialRunMaxCandidates`（默认 100）截断。因此单个用户的观测数**永远 ≤ 100**，
+  批次数上限是 `ceil(100/20) = 5`，**永远够不到 10**。
+- **精确边界**（避免说成「无条件失效」）：它并非任何时候都无效。当
+  `EXTRACTION_MAX_CANDIDATES > EXTRACTION_BATCH_SIZE × EXTRACTION_MAX_BATCHES`
+  （随附默认下为 200）时它才开始起作用。所以**单独调高它没有任何效果**，
+  必须同时调高候选上限；单独调低到 ≤5 才有效。
+- **影响**: 运维看到「Batches per template per run: 10」这一行，会合理地以为它是
+  抽取成本的主要闸门，实际唯一生效的闸门是候选上限。这是**配置契约层面的误导**，
+  修法要么调默认值，要么在 `ExtractionConfig` 里对二者做一致性校验。
+- **Status**: ⏸**已记录，不实现**。改变任一默认值的取值范围属对外配置契约变更。
+  本轮已在 `23.md` §23.5/§23.7、`docs/structured-extraction.md`、`docs/DEPLOYMENT.md`
+  四处**按各自措辞**更正为「随附默认值下不生效」并写明生效条件。
+
+### P2-18: `reExtractForSession` 绕过全部抽取上限，整会话一次性送入 LLM
+
+- **Scope**: `StructuredExtractionService.java:135-160`（`doReExtractForSession`），
+  入口为 `SessionController.java:327`（`PATCH /api/session/{id}/user`）。
+- **Problem**: 这是结构化抽取的**第二个活入口**，但它**完全不走批处理循环**。
+  候选来自 `findByContentSessionIdOrderByCreatedAtEpochAsc(sessionId)`——
+  一个无 `LIMIT` 的派生查询，返回该会话的**全部**观测；随后对每个启用模板直接
+  `extractByTemplate(template, filtered, priorJson)` **一次调用**，
+  整个 `filtered` 列表进同一个 prompt。`initialRunMaxCandidates`、
+  `maxObservationsPerBatch`、`maxBatchesPerTemplate` **三个上限一个都不生效**。
+- **影响**: 一个含 60 条匹配观测的会话会产生一次输入约为 20 条批量 **3 倍**的
+  调用，而所有成本文档的「每次调用」价格都是从 20 条批量推出的。更严重的是
+  **无上界**——会话越长，单次 prompt 越大，直到超出模型上下文窗口才失败。
+  失败被 `catch (Exception)` 吞掉并记日志（`:161-162`），调用方看到的仍是成功。
+- **Status**: ⏸**已记录，不实现**。接入上限会改变该端点的既有行为，属对外契约变更。
+  本轮已在 `23.md` §23.4 记录该入口未被任何成本表计价，并在
+  `StructuredExtractionService` 的既有注释中保持路径事实不变。
 
 ## Processing Rules
 
