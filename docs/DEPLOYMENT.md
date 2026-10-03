@@ -528,9 +528,9 @@ batch controls.
 | `MEMORY_REFINE_STALE_DAYS` | No | `30` | Days without access before an observation counts as stale |
 | `MEMORY_REFINE_COOLDOWN_DAYS` | No | `7` | Days before a refined observation may be refined again |
 | `EXTRACTION_ENABLED` | No | `false` | Enable Phase 3 structured extraction |
-| `EXTRACTION_MAX_CANDIDATES` | No | `100` | Candidate observations considered on the first run of a template |
-| `EXTRACTION_BATCH_SIZE` | No | `20` | Observations per extraction batch |
-| `EXTRACTION_MAX_BATCHES` | No | `10` | Batches per template per run |
+| `EXTRACTION_MAX_CANDIDATES` | No | `100` | Candidate observations considered per run. Despite the "initial run" name this applies to **every** run — there is no extraction watermark, so the newest 100 matching observations are re-sent each time and anything older is never extracted |
+| `EXTRACTION_BATCH_SIZE` | No | `20` | Observations per extraction batch, applied per user |
+| `EXTRACTION_MAX_BATCHES` | No | `10` | Batches per user per run. No effect at the shipped defaults — the 100-candidate cap already limits a user to 5 batches of 20. Takes effect only if `EXTRACTION_MAX_CANDIDATES` is raised above `EXTRACTION_BATCH_SIZE × EXTRACTION_MAX_BATCHES` |
 
 `MEMORY_REFINE_DELETE_THRESHOLD` is the destructive one: during a refinement run
 every candidate that *has* a quality score below it is deleted rather than

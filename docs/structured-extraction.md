@@ -624,9 +624,18 @@ For Map templates, the `output-schema` is appended to the system prompt as a JSO
 Extraction costs are managed through several mechanisms:
 
 - **On-demand processing** — extraction runs when triggered via API, not per-observation
-- **Initial run cap** — `initial-run-max-candidates` (default 100) limits first-run processing
-- **Batch size** — observations are chunked into batches of `max-observations-per-batch` (default 20) per LLM call
-- **Max batches** — `max-batches-per-template` (default 10) caps total LLM calls per run
+- **Candidate cap** — `initial-run-max-candidates` (default 100) limits how many
+  observations are considered. Despite the name it applies to **every** run, not just a
+  first one: there is no extraction watermark, so each run re-sends the newest 100
+  matching observations to the LLM even when they were extracted before. Because the
+  window is ordered by recency, observations older than the newest 100 are never
+  extracted at all.
+- **Batch size** — observations are chunked into batches of `max-observations-per-batch` (default 20) per LLM call, **per user** rather than per template
+- **Max batches** — `max-batches-per-template` (default 10) has no effect at the
+  shipped defaults: the 100-candidate cap already limits a single user to 5 batches of
+  20, so this value is unreachable. It only starts to bind if the candidate cap is
+  raised above `EXTRACTION_BATCH_SIZE × EXTRACTION_MAX_BATCHES`. The candidate cap is
+  the only limit that binds out of the box.
 
 ### Privacy Considerations
 

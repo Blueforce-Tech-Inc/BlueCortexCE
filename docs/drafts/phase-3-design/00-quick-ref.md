@@ -11,12 +11,12 @@
 ┌─────────────────────────────────────────────────────────┐
 │ Extraction Pipeline (per template per project)          │
 ├─────────────────────────────────────────────────────────┤
-│ 1. Get incremental candidates (since last extraction)   │
+│ 1. Get candidates (newest N matching, every run)        │
 │ 2. Chunk by token count (respect context window)        │
 │ 3. Build prompt (template.prompt + candidate data)      │
 │ 4. Call LLM via BeanOutputConverter<T> (schema-enforced)│
 │ 5. Validate result → store as ObservationEntity         │
-│ 6. Update extraction state (transactional)              │
+│ 6. (no extraction state is kept)                        │
 │ 7. On failure → DLQ (type=dlq_{template}, src=dlq)      │
 └─────────────────────────────────────────────────────────┘
 ```
