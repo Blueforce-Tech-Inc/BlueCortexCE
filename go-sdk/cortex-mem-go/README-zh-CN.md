@@ -243,6 +243,33 @@ cortex-ce: ObservationUpdate validation error: at least one field must be provid
 
 这一点很重要：不设置任何字段的 PATCH 在 wire 上是一次静默 no-op。若没有这道检查，调用方用用户输入拼出一个空更新后会看到调用成功，却无法得知其实什么都没写入。
 
+### 列表与映射字段无法清空
+
+`Facts`、`Concepts`、`ExtractedData` 三个字段带 `omitempty`，因此**空的** `[]string{}`
+或 `map[string]any{}` 会像 nil 一样被整个从请求体里丢弃。**Go SDK 因此无法清空这三个
+字段**，而后端本身是支持的：
+
+```
+// 后端：PATCH {"facts": []}  →  setFacts([])  →  已清空
+// Go SDK：Facts: []string{}  →  {"title": "..."}  →  facts 缺失  →  不变
+```
+
+具体表现取决于同时还设置了什么：
+
+| 更新内容 | 结果 |
+|----------|------|
+| 只有 `Facts: []string{}` | 返回 `ValidationError: at least one field must be provided for update`——你设的那个字段不被计入 |
+| `Title: &t` 加上 `Facts: []string{}` | 请求照发，`facts` 被静默省略，服务端回 `200 {"status":"updated"}`，什么都没清掉 |
+
+三个字符串字段不受影响：它们是指针类型，`Title: ptr("")` 会作为 `"title": ""` 发出，
+后端确实会写入。
+
+**这是 Go 独有的限制。** Java（`@JsonInclude(NON_NULL)`）、Python（`if val is not None`）
+与 JS（`JSON.stringify`）都会把空集合放上 wire，因此这三家都能清空 `facts` 与 `concepts`。
+要让 Go 对齐，只有两条路：把这三个字段改成「指向切片的指针」，那会**破坏所有现有调用点**；
+或者给结构体加自定义 `MarshalJSON`，那会**改变现有代码发上 wire 的内容**。两者都是公开
+API 变更，已记为 P2-26、不在本轮实施。
+
 ### 必填参数在客户端校验
 
 下表中的参数都必须非空。SDK 返回 `ValidationError` 且不发出任何请求。Java、Python、JS 三家 SDK 强制的是完全相同的一组规则。

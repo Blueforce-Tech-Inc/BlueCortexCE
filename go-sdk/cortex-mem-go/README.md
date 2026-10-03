@@ -254,6 +254,34 @@ It matters because a PATCH that sets nothing is a silent no-op on the wire: with
 the check, a caller who assembled an empty update from user input would see the call
 succeed and could not tell that nothing was written.
 
+### List And Map Fields Cannot Be Cleared
+
+`Facts`, `Concepts` and `ExtractedData` carry `omitempty`, so an **empty** `[]string{}`
+or `map[string]any{}` is dropped from the request body exactly like a nil one. The Go
+SDK therefore cannot clear those three fields, even though the backend supports it:
+
+```
+// Backend: PATCH {"facts": []}  →  setFacts([])  →  cleared
+// Go SDK:  Facts: []string{}    →  {"title": "..."}  →  facts absent  →  unchanged
+```
+
+What you observe depends on what else you set:
+
+| Update | Result |
+|--------|--------|
+| `Facts: []string{}` alone | `ValidationError: at least one field must be provided for update` — the field you set is not counted |
+| `Title: &t` plus `Facts: []string{}` | request sent, `facts` silently omitted, server replies `200 {"status":"updated"}` and nothing is cleared |
+
+The three string fields are pointers, so they are unaffected: `Title: ptr("")` is sent
+as `"title": ""` and the backend does set it.
+
+This is a Go-only limitation. Java (`@JsonInclude(NON_NULL)`), Python (`if val is not
+None`) and JS (`JSON.stringify`) all put an empty collection on the wire, so all three
+can clear `facts` and `concepts`. Aligning Go would mean either changing these fields
+to pointer-to-slice, which breaks every existing call site, or giving the struct a
+custom `MarshalJSON`, which changes what existing code puts on the wire. Both are
+public API changes and are tracked as P2-26 rather than applied here.
+
 ### Required Arguments Are Checked Client-Side
 
 Every argument below must be non-empty. The SDK returns a `ValidationError` and sends

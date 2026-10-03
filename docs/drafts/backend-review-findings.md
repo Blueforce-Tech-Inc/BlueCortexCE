@@ -11,6 +11,13 @@
 | P0 | 0 | 立即修复并复测 |
 | P1 | 1 | 优先修复并复测 |
 | P2 | 2 | 本轮完整验收阶段处理或明确标记为已跳过 |
+> 第 226 轮新增 **P2-26**（Go SDK 的 `Facts`/`Concepts`/`ExtractedData` 带 `omitempty`，
+> 空切片与空 map 被整个丢弃，**结构上无法清空这三个字段**；后端本身接受 `[]` 清空且已实测，
+> Java/Python/JS 三家都能清空，**Go 是唯一的问题家**）。只设空切片时报「at least one field」，
+> 配合其他字段时**静默无操作且返回 200 `updated`——假成功**。**记录不修**：对齐需改字段类型
+> （破坏所有调用点）或加自定义 `MarshalJSON`（改变现有 wire 内容），**均属公开 API 变更**。
+> **文档层已先行说明**（Go README 双语新增小节）。**Go SDK 代码一字未改。**
+> **P2 Open 计数仍为 2**（P2-8、P2-10）。
 > 第 225 轮新增 **P2-25**（`maxChars` 的 Swagger 描述承诺「0 = backend default ~4000」，
 > 而后端判的是 `!= null`、不存在该分支，传 0 实得 **100** 字符注入），**记录不修**——
 > 改注解即改对外 OpenAPI 契约；**文档层已先行更正**（API 文档双语写明 100 下限与 0 的真实行为）。
@@ -718,6 +725,50 @@
 - **复核记录**: 第 225 轮文档方向发现。取证：`curl /v3/api-docs` 读出该描述原文；
   读 `MemoryController:154` 得真实解析式；上表六组取值逐条实测；`grep "0 = backend default"`
   确认**全仓仅此一处**这样的错误描述；`ExpRagService:188` 复核了 DOC-1 的字符串拼接。
+
+### P2-26: Go SDK 的 `omitempty` 让 `facts` / `concepts` / `extractedData` 无法清空，且静默返回「updated」
+
+- **Scope**: `go-sdk/cortex-mem-go/dto/observation.go` 的 `ObservationUpdate` 三个字段：
+  `Facts []string`、`Concepts []string` 均带 `,omitempty`，`ExtractedData map[string]any` 同。
+  客户端路径 `client_methods.go:211 UpdateObservation`。
+- **Problem**: 后端 `PATCH /api/memory/observations/{id}` 的语义是
+  「**字段存在但为 `null` → 清空；`[]` → `setFacts([])` 清空；字段缺失 → 不变**」
+  （`MemoryController:346-375` 三处分支都实测确认）。而 Go 的 `omitempty` 对
+  **长度为 0 的 slice/map 同样生效**，于是 `Facts: []string{}` 被整个从请求体里丢弃，
+  与 `nil` 无法区分 —— **Go SDK 结构上无法表达「清空」**。三个字符串字段是指针，
+  `Title: ptr("")` 会作为 `"title": ""` 发出，故不受影响。
+  表现分两种：只设 `Facts: []string{}` 时 `Validate()` 判 `IsEmpty()` 为真、报
+  「at least one field must be provided for update」——**用户明确要清空却被告知没提供字段**；
+  同时设了 `Title` 等其他字段时请求照发，`facts` 被静默省略，服务端回
+  `200 {"status":"updated"}` ——**静默无操作 + 假成功**。
+- **Reproduction**（2026-10-03，活体 37777，读 `mem_observations` 实际值）：
+  设 `{"facts":["alpha","beta"],"concepts":["c1","c2"]}` → DB 为
+  `['alpha','beta'] / ['c1','c2']`；发 `{"facts":[],"concepts":[]}` → DB 为 `[] / []`
+  （**后端确实接受空数组清空**）；再发 Go `omitempty` 实际产出的 `{"title":"rt226 probe"}`
+  → DB **纹丝不动**仍为 `['alpha','beta'] / ['c1','c2']`，HTTP 却是 200 `updated`。
+  Go 序列化行为另用探针逐项确认：`ptr("")` → `{"title":""}`、`[]string{}` → `{}`、
+  `nil` → `{}`、`map[string]any{}` → `{}`、`["x"]` → `{"facts":["x"]}`。
+- **四家对拍**: Go ✗ 无法清空；Java `@JsonInclude(NON_NULL)` 只排除 null、空 list 会发出 ✓；
+  Python `if val is not None`（`[]` 非 None）会发出 ✓；JS `JSON.stringify` 保留 `[]` 且
+  源码注释明写「null = clear field, undefined = skip」✓。**Go 是唯一的问题家。**
+  附带一处文档误导：Python `ObservationUpdate` 的 docstring 写着
+  「matching Go's pointer-field-with-omitempty pattern」，但 Go 的 `Facts` **不是指针**，
+  两者行为实际不同 —— Python 把一个错误模式当成了对齐基准。
+- **Status**: ⏸ **记录不修** —— 对齐只有两条路，都属**公开 API 变更**：把三个字段改成
+  `*[]string`（**破坏所有现有调用点**，源码不兼容），或给结构体加自定义 `MarshalJSON`
+  （**改变现有代码发上 wire 的内容**，`[]string{}` 从「不变」变成「清空」）。
+  按既定纪律留待项目决策。**文档层已先行说明**：`README.md` / `README-zh-CN.md` 新增
+  「List And Map Fields Cannot Be Cleared / 列表与映射字段无法清空」小节，写明两种表现、
+  指针字段为何不受影响、与其他三家的差异及两条修复路径各自的代价。
+  **Go SDK 代码一字未改。**
+- **复核记录**: 第 226 轮代码方向发现。取证：Go 探针 `json.Marshal` 逐项输出；
+  `MemoryController:346-375` 读三处分支；活体 PATCH 三步并以 `psycopg2` 直读
+  `mem_observations.facts/concepts` 确认落库结果；四家 DTO 源码逐个对拍。
+  **探针自身错一次并先识别再采信**：先前用 `GET /api/memory/observations/{id}` 读回，
+  但该路径**只有 PATCH 与 DELETE、GET 返回 405**，读到的是错误响应里的 `facts: null`；
+  改用 `psycopg2` 直查数据库后才拿到真实值——**没有据此得出「后端不写库」的错误结论**。
+  另核实 `docs/API.md` 的会话启动路径是 `/api/session/start`、**正确**，
+  幻影路径 `/api/ingest/session-start` 只存在于被 gitignore 的 `AGENTS.md`（已在待决策项）。
 
 
 ## Processing Rules
