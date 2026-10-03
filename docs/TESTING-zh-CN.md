@@ -209,10 +209,28 @@ docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=123456 pgvector/pgvector:pg16
 ### 服务未运行
 
 ```bash
-# 启动服务
+# 推荐：自动加载 .env、释放 37777 端口、等待健康检查通过
+./scripts/start.sh
+
+# 等价的手动方式 —— 但注意它不会读取 .env
 cd backend
 ./mvnw spring-boot:run
 ```
+
+> **`.env` 不会被自动加载。** Spring Boot 的配置里没有任何读取 `.env` 的机制
+> （既无 dotenv 依赖，也没有 `spring.config.import`），所以 `./mvnw spring-boot:run`
+> 只会用当前 shell 里已导出的变量启动服务。如果 API key 只存在于某个 `.env` 文件里，
+> 服务仍然能起来，但第一次调用 LLM 或 embedding 时就会失败。要么先 `export` 这些变量，
+> 要么用 `scripts/start.sh`：它的第一步就是加载 `.env`。
+>
+> **两个启动脚本读的不是同一个文件。** `scripts/start.sh` 会先切到 `backend/` 再读
+> `backend/.env`；`scripts/start-all.sh` 则切到 `scripts/` 读 `../.env`，也就是
+> `docker compose` 使用的仓库根 `.env`（模板见 `.env.docker`、`.env.example`）。
+> 如果你照 compose 的说明只建了根目录的 `.env`，那么 `start.sh` 会在完全没有
+> key 的情况下把后端启动起来。
+>
+> `scripts/start.sh --build` 会先重新构建 JAR，`--background` 则以后台方式启动并轮询
+> `/api/health` 直到就绪。无论用哪种方式，后端监听的都是 **37777**，不是 8080。
 
 ### 测试失败
 
@@ -227,6 +245,7 @@ cd backend
 
 | 日期 | 变更 |
 |------|------|
+| 2026-10-03 | 「服务未运行」一节只给出 `./mvnw spring-boot:run`，而该命令**不会**读取 `.env`——Spring Boot 配置中既无 dotenv 依赖也无 `spring.config.import`，key 只存在于 `.env` 文件里的用户会得到一个能启动、却在首次调用 LLM/embedding 时失败的服务。补充 `scripts/start.sh`（加载 `.env`、固定 37777、支持 `--build`/`--background`），并说明 `start.sh` 读的是 `backend/.env`、而 `start-all.sh` 与 `docker compose` 读的是仓库根 `.env`——只建了根 `.env` 的用户用 `start.sh` 会启动出一个没有 key 的后端；中英文同步更新 |
 | 2026-10-02 | 在「前置条件」与「PostgreSQL 连接失败」中说明端口分野（`:5433`）——用 `docker compose up -d` 启动后端的用户若照排障里的 `docker run -p 5432:5432` 操作，会在 5432 上再起一个**空**数据库，而数据其实在 compose 容器的 5433 上。已核实 `run-all-e2e.sh` 确实运行 10 个本地套件、`phase3-acceptance-test.sh` 确实定义 15 个测试函数，两个计数均保持不变；中英文同步更新 |
 | 2026-05-04 | 第 6 节修复 4 个环境变量错误——移除不存在的 `DB_HOST` 和 `SPRING_AI_MCP_SERVER_PROTOCOL`，修正 `DB_USER`→`DB_USERNAME` 和 `DB_PASS`→`DB_PASSWORD`，修正 `DB_NAME` 默认值 `claude_mem_dev`→`claude_mem`（与 docker-compose.yml 一致）；中英文同步更新 |
 | 2026-05-03 | 在第 3 节 SDK 表格中新增 `go-sdk-unit-test.sh` 和 `codex-watcher-test.sh`（10→12 个脚本）；补充遗漏的 `python-sdk-e2e-test.sh`；中英文同步更新 |

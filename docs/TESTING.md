@@ -209,10 +209,32 @@ would start a second, *empty* database on 5432 and make the problem look worse. 
 ### Server Not Running
 
 ```bash
-# Start the server
+# Preferred: loads .env for you, frees port 37777, waits until healthy
+./scripts/start.sh
+
+# Equivalent manual route — but note that it does NOT read .env
 cd backend
 ./mvnw spring-boot:run
 ```
+
+> **`.env` is not auto-loaded.** Nothing in the Spring Boot configuration
+> (no dotenv dependency, no `spring.config.import`) reads `.env` for you, so
+> `./mvnw spring-boot:run` starts the service with whatever happens to be
+> exported in your shell. If the API keys live only in a `.env` file, the
+> service will still boot and then fail on the first LLM or embedding call.
+> Either `export` the variables first, or use `scripts/start.sh`, whose first
+> step is to load `.env`.
+>
+> **The two startup scripts do not read the same file.** `scripts/start.sh`
+> changes into `backend/` and reads `backend/.env`; `scripts/start-all.sh`
+> changes into `scripts/` and reads `../.env`, i.e. the repo-root `.env` that
+> `docker compose` uses (templates: `.env.docker`, `.env.example`). If you
+> followed the compose instructions and only created the root `.env`, then
+> `start.sh` will start the backend with no keys at all.
+>
+> `scripts/start.sh --build` rebuilds the JAR first, and `--background` starts
+> it detached and polls `/api/health` until it is up. Either way the backend
+> listens on **37777**, not 8080.
 
 ### Test Failures
 
@@ -227,6 +249,7 @@ cd backend
 
 | Date | Change |
 |------|--------|
+| 2026-10-03 | "Server Not Running" pointed only at `./mvnw spring-boot:run`, which does **not** read `.env` — no dotenv dependency and no `spring.config.import` exist in the Spring Boot config, so a user whose keys live in a `.env` file gets a service that boots and then fails on the first LLM/embedding call. Documented `scripts/start.sh` (loads `.env`, pins 37777, `--build`/`--background`) and the fact that `start.sh` reads `backend/.env` while `start-all.sh` and `docker compose` read the repo-root `.env` — a user who created only the root `.env` gets a keyless backend from `start.sh`. EN+ZH in sync |
 | 2026-10-02 | Documented the PostgreSQL port split (`:5433`) in Prerequisites and in "PostgreSQL Connection Failed" — a user who started the backend with `docker compose up -d` and then followed the troubleshooting `docker run -p 5432:5432` would start a second, *empty* database on 5432 while their data sat in the compose container on 5433. Verified `run-all-e2e.sh` really does run 10 local suites and `phase3-acceptance-test.sh` really does define 15 test functions, so both counts were left unchanged; EN+ZH in sync |
 | 2026-05-04 | Section 6: Fixed 4 environment variable errors — removed fictitious `DB_HOST` and `SPRING_AI_MCP_SERVER_PROTOCOL`, corrected `DB_USER`→`DB_USERNAME` and `DB_PASS`→`DB_PASSWORD`, corrected `DB_NAME` default `claude_mem_dev`→`claude_mem` (matches docker-compose.yml); EN+ZH in sync |
 | 2026-05-03 | Added `go-sdk-unit-test.sh` and `codex-watcher-test.sh` to Section 3 SDK table (10→12 scripts); added missing `python-sdk-e2e-test.sh` to table (EN/ZH in sync) |
