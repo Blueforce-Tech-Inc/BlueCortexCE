@@ -188,6 +188,42 @@ class DtoTest {
     }
 
     @Test
+    void iclPromptRequest_toWireFormat_omitsUnsetMaxChars() {
+        var wire = ICLPromptRequest.builder().task("t").project("/p").build().toWireFormat();
+        assertThat(wire).containsEntry("task", "t").containsEntry("project", "/p");
+        assertThat(wire).doesNotContainKey("maxChars");
+    }
+
+    @Test
+    void iclPromptRequest_toWireFormat_includesPositiveMaxChars() {
+        var wire = ICLPromptRequest.builder().task("t").project("/p").maxChars(4000).build().toWireFormat();
+        assertThat(wire).containsEntry("maxChars", 4000);
+    }
+
+    /**
+     * The backend resolves maxChars as {@code maxChars != null ? Math.max(100, maxChars) : 4000}
+     * — it has no zero-means-default branch, so an explicit 0 clamps the injected
+     * memory context to 100 characters instead of falling back to ~4000. Omitting
+     * the field keeps 0 meaning "backend default", matching the Go SDK's
+     * {@code json:"maxChars,omitempty"} and the Python SDK's {@code if max_chars:}.
+     */
+    @Test
+    void iclPromptRequest_toWireFormat_omitsNonPositiveMaxChars() {
+        var zero = ICLPromptRequest.builder().task("t").project("/p").maxChars(0).build().toWireFormat();
+        assertThat(zero).doesNotContainKey("maxChars");
+
+        var negative = ICLPromptRequest.builder().task("t").project("/p").maxChars(-1).build().toWireFormat();
+        assertThat(negative).doesNotContainKey("maxChars");
+    }
+
+    /** maxChars at or below the backend's 100-char floor still travels as given. */
+    @Test
+    void iclPromptRequest_toWireFormat_keepsSmallPositiveMaxChars() {
+        var wire = ICLPromptRequest.builder().task("t").project("/p").maxChars(100).build().toWireFormat();
+        assertThat(wire).containsEntry("maxChars", 100);
+    }
+
+    @Test
     void iclPromptResult_experienceCountAndMaxChars() {
         assertThat(new ICLPromptResult("", 3, 5000).experienceCount()).isEqualTo(3);
         assertThat(new ICLPromptResult("", 3, 5000).maxChars()).isEqualTo(5000);

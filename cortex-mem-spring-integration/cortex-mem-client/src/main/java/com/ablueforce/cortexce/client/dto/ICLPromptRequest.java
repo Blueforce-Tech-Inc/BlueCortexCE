@@ -8,9 +8,10 @@ import java.util.Map;
  *
  * @param task The current task to find relevant memories for
  * @param project Project path to scope the search
- * @param maxChars Maximum characters for the ICL prompt. If null, the backend
- *                 decides the default. Configure based on your model's context
- *                 window size (e.g., 8000-12000 for 128K models).
+ * @param maxChars Maximum characters for the ICL prompt. If null, 0 or negative,
+ *                 the backend applies its own default (~4000) and the field is
+ *                 omitted from the wire format. Configure based on your model's
+ *                 context window size (e.g., 8000-12000 for 128K models).
  * @param userId Optional user ID for user-scoped memory retrieval
  */
 public record ICLPromptRequest(
@@ -39,7 +40,8 @@ public record ICLPromptRequest(
          * For 32K context models: 4000-6000
          * For 8K context models: 2000-3000
          *
-         * If not set, the backend uses its own default.
+         * If not set — or set to 0 or a negative value — the field is omitted
+         * from the wire format and the backend uses its own default.
          */
         public Builder maxChars(Integer maxChars) { this.maxChars = maxChars; return this; }
 
@@ -65,7 +67,14 @@ public record ICLPromptRequest(
         if (project != null && !project.isBlank()) {
             map.put("project", project);
         }
-        if (maxChars != null) {
+        // A non-positive maxChars is treated as "unset" and omitted, so the backend
+        // applies its own default. The backend resolves the field as
+        // maxChars != null ? Math.max(100, maxChars) : 4000 — it has no zero-means-
+        // default branch, so sending an explicit 0 would clamp to 100 characters
+        // and silently truncate the injected memory context. Omitting the field
+        // matches the Go SDK (json:"maxChars,omitempty") and the Python SDK
+        // (if max_chars:), so all four SDKs agree on what 0 means.
+        if (maxChars != null && maxChars > 0) {
             map.put("maxChars", maxChars);
         }
         if (userId != null) {

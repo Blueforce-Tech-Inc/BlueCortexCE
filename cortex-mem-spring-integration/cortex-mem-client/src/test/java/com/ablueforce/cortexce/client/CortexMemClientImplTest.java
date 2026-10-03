@@ -286,6 +286,48 @@ class CortexMemClientImplTest {
         assertThat(body).contains("8000");
     }
 
+    /**
+     * The request body, not just the DTO map, must omit a non-positive maxChars.
+     * The backend has no zero-means-default branch — it computes
+     * {@code maxChars != null ? Math.max(100, maxChars) : 4000} — so a literal
+     * {@code "maxChars": 0} on the wire silently truncates the injected memory
+     * context to 100 characters. The null and positive cases were already
+     * covered above; zero was not, which is how it survived.
+     */
+    @Test
+    void buildICLPrompt_zeroMaxChars_omitsFromRequestBody() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("{\"prompt\":\"ok\",\"experienceCount\":2}")
+            .addHeader("Content-Type", "application/json"));
+
+        client.buildICLPrompt(ICLPromptRequest.builder()
+            .task("fix bug")
+            .project("/app")
+            .maxChars(0)
+            .build());
+
+        RecordedRequest req = server.takeRequest();
+        String body = req.getBody().readUtf8();
+        assertThat(body).doesNotContain("maxChars");
+    }
+
+    @Test
+    void buildICLPrompt_negativeMaxChars_omitsFromRequestBody() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("{\"prompt\":\"ok\",\"experienceCount\":2}")
+            .addHeader("Content-Type", "application/json"));
+
+        client.buildICLPrompt(ICLPromptRequest.builder()
+            .task("fix bug")
+            .project("/app")
+            .maxChars(-1)
+            .build());
+
+        RecordedRequest req = server.takeRequest();
+        String body = req.getBody().readUtf8();
+        assertThat(body).doesNotContain("maxChars");
+    }
+
     @Test
     void triggerRefinement_nullProjectPath_throws() {
         assertThatThrownBy(() -> client.triggerRefinement(null))
