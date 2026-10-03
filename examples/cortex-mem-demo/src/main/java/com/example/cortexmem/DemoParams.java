@@ -54,7 +54,8 @@ final class DemoParams {
     }
 
     /**
-     * @param raw         the raw query value; {@code null} or blank means "not supplied"
+     * @param raw         the raw query value; {@code null} or the empty string means
+     *                     "not supplied"
      * @param defaultValue value to use when the parameter is absent or empty
      * @param min         inclusive lower bound
      * @param max         inclusive upper bound
@@ -63,7 +64,12 @@ final class DemoParams {
      * @throws InvalidParam if the value is not an integer, or is out of range
      */
     static int boundedInt(String raw, int defaultValue, int min, int max, String name) {
-        if (raw == null || raw.isBlank()) {
+        // Only a genuinely empty value means "not supplied". A whitespace-only
+        // value such as "?limit=%20" is NOT the same as an absent parameter: the
+        // backend trims and then fails to convert "", so it answers 400, and
+        // Go/JS/Python all agree. Treating isBlank() as absent made this demo the
+        // only one of the four to accept it (round 211 recheck).
+        if (raw == null || raw.isEmpty()) {
             return defaultValue;
         }
         String text = raw.trim();

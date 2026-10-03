@@ -103,6 +103,30 @@ class TestSearch:
         assert resp.status_code == 400
         assert "limit must be an integer" in resp.get_json()["error"]
 
+    def test_search_limit_digit_separator_is_rejected(self, client):
+        """int("1_0") is 10 in Python, but the shared grammar has no separators.
+
+        Until the round 211 recheck this demo was the only one of the four to
+        accept it, while Java/Go/JS and the backend all answered 400.
+        """
+        resp = client.get("/search?project=/p&limit=1_0")
+        assert resp.status_code == 400
+        assert "limit must be an integer" in resp.get_json()["error"]
+
+    def test_search_whitespace_only_limit_is_rejected(self, client):
+        """A blank value is not an absent parameter — the backend answers 400."""
+        resp = client.get("/search?project=/p&limit=%20")
+        assert resp.status_code == 400
+        assert "limit must be an integer" in resp.get_json()["error"]
+
+    def test_search_empty_limit_uses_backend_default(self, client):
+        """An actually empty value is still the default, matching the backend."""
+        from cortex_mem import SearchResult
+        app = client.application
+        app._mock_client.search.return_value = SearchResult(observations=[], strategy="hybrid", count=0)
+        resp = client.get("/search?project=/p&query=test&limit=")
+        assert resp.status_code == 200
+
     def test_search_limit_too_high(self, client):
         resp = client.get("/search?project=/p&limit=101")
         assert resp.status_code == 400

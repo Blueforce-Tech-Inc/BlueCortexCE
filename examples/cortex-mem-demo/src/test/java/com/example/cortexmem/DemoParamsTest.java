@@ -33,7 +33,19 @@ class DemoParamsTest {
     void absentOrEmptyUsesTheDefault() {
         assertEquals(0, limit(null));
         assertEquals(0, limit(""));
-        assertEquals(0, limit("   "));
+    }
+
+    /**
+     * A whitespace-only value is NOT an absent parameter. The backend trims and
+     * then fails to convert the empty string, so it answers 400; Go, Python and
+     * JS all matched that. This demo used to answer 200 here because the check
+     * was isBlank() -- and the test below used to assert that, pinning the
+     * divergence in place until the round 211 recheck.
+     */
+    @Test
+    void whitespaceOnlyIsRejectedRatherThanTreatedAsAbsent() {
+        assertThrows(DemoParams.InvalidParam.class, () -> limit("   "));
+        assertThrows(DemoParams.InvalidParam.class, () -> limit(" "));
     }
 
     @Test
@@ -101,5 +113,15 @@ class DemoParamsTest {
         DemoParams.InvalidParam e = assertThrows(DemoParams.InvalidParam.class,
                 () -> DemoParams.boundedInt("abc", 0, 0, 100, "count"));
         assertEquals("count must be an integer", e.getMessage());
+    }
+
+    /**
+     * Digit separators are not part of the accepted grammar. Python's int()
+     * reads "1_0" as 10, so the Python demo answered 200 until the round 211
+     * recheck pinned the grammar with a regex there too.
+     */
+    @Test
+    void digitSeparatorIsRejected() {
+        assertThrows(DemoParams.InvalidParam.class, () -> limit("1_0"));
     }
 }

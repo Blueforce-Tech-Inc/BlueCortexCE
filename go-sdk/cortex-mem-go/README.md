@@ -10,7 +10,7 @@ Go client library for [Cortex CE](https://github.com/Blueforce-Tech-Inc/BlueCort
 - **Full API coverage** — 25 methods covering Session, Capture, Retrieval, Management, Extraction, Version, P1
 - **Framework integrations** — optional Eino, LangChainGo, and Genkit modules
 - **Wire format compatible** — JSON field names match backend API exactly
-- **Comprehensive tests** — 297 unit tests with wire format verification (client 230 + dto 67); integration packages add 33 more (genkit 13 + langchaingo 12 + eino 8) when run from their own directories
+- **Comprehensive tests** — 359 tests with wire format verification. The root module runs 299 (core 232 + dto 67); the adapter and example modules add 60 more when run from their own directories (eino 8 + genkit 13 + langchaingo 12 + `examples/http-server` 27). See [Testing](#testing) for why `go test ./...` alone only reaches the root module.
 
 ## Installation
 

@@ -12,6 +12,7 @@ Usage:
 import atexit
 import logging
 import os
+import re
 from datetime import datetime, timezone
 
 from flask import Flask, jsonify, request
@@ -26,6 +27,11 @@ app = Flask(__name__)
 
 CORTEX_BASE_URL = os.environ.get("CORTEX_BASE_URL", "http://127.0.0.1:37777")
 PORT = int(os.environ.get("PORT", "37780"))
+
+# The one grammar every integer query param in this demo accepts: an optional
+# sign then digits, nothing else. Mirrors the Java demo's hand-written check and
+# the JS demo's /^[+-]?\d+$/; Go gets it from strconv.Atoi.
+_INT_RE = re.compile(r"[+-]?\d+")
 
 # Request body size limit: 1 MB (matches Go http-server demo)
 MAX_CONTENT_LENGTH = int(os.environ.get("MAX_CONTENT_LENGTH", str(1 << 20)))
@@ -132,8 +138,16 @@ def _parse_int_param(key: str, default: int = 0) -> int:
     raw = request.args.get(key)
     if raw is None or raw == "":
         return default
+    # int() is more permissive than the other three demos in two ways that
+    # matter here: it accepts digit separators ("1_0" -> 10) and it strips
+    # surrounding whitespace before failing. A regex pins the grammar to
+    # "optional sign, then digits" -- the same rule the Java demo spells out
+    # and the JS demo's /^[+-]?\d+$/ enforces -- so all four demos match the
+    # backend, which rejects "1_0" with 400 (round 211 recheck).
+    if not _INT_RE.fullmatch(raw.strip()):
+        raise ValueError(f"{key} must be an integer")
     try:
-        return int(raw)
+        return int(raw.strip())
     except (ValueError, TypeError):
         raise ValueError(f"{key} must be an integer")
 
