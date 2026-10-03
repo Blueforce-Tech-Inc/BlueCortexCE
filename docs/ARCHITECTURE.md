@@ -982,7 +982,7 @@ claudemem:
 | `SPRING_AI_ANTHROPIC_API_KEY` | — | Anthropic API key (when provider=anthropic) |
 | `SPRING_AI_ANTHROPIC_BASE_URL` | `https://api.anthropic.com` | Anthropic base URL |
 | `SPRING_AI_ANTHROPIC_CHAT_MODEL` | `claude-sonnet-4-5` | Anthropic chat model |
-| `CLAUDE_MEM_MODE` | `code` | Memory mode (`code`/`default`) |
+| `CLAUDE_MEM_MODE` | `code` | Memory mode — see the note below |
 | `MEMORY_REFINE_ENABLED` | `true` | Enable memory refinement (self-evolution) |
 
 > **The LLM and embedding defaults above are the `dev` profile's, while
@@ -992,6 +992,25 @@ claudemem:
 > SiliconFlow `BAAI/bge-m3` / 1024 shown here. Since Compose selects `prd`, a
 > deployment that sets only an API key does not get the values in this table.
 > See the deployment guide's §5.4 for the full comparison.
+>
+> **There is no `default` mode.** An earlier revision of this table offered
+> `code`/`default` as the two values; only `code` is a real mode name. The 32
+> shipped profiles are `code`, `code--<lang>` (30 variants, including
+> `code--chill`), and `email-investigation`. Setting `CLAUDE_MEM_MODE=default`
+> does not fail loudly: `ModeService` resolves `<modes-dir>/default.json`, finds
+> nothing, catches the exception and falls back to an **embedded copy of the
+> `code` mode** — the same 6 observation types and 7 concepts — logging
+> `Failed to load mode 'default', using embedded default` at **WARN**. The
+> practical effect is therefore mild (you get roughly what `code` gives you,
+> plus a warning), but the value is not a supported one: use `code` directly.
+>
+> Note that with **no profile at all** — `java -jar app.jar` with
+> `SPRING_PROFILES_ACTIVE` unset, as the project's own build instructions
+> suggest — none of `application-dev.yml` or `application-prd.yml` is loaded.
+> The LLM and embedding values in this table still apply, because
+> `SpringAiConfig` supplies its own `@Value` fallbacks that happen to mirror
+> `dev`; but `app.memory.extraction.enabled` falls back to the base value
+> `false`, not `dev`'s `true`.
 
 ---
 

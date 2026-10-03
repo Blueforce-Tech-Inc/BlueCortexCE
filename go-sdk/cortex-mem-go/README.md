@@ -179,7 +179,7 @@ retriever := genkit.NewRetriever(client, "/my-project",
 **This SDK is 9 separate Go modules, not one.** `eino/`, `genkit/`, `langchaingo/`
 and each directory under `examples/` carry their own `go.mod`, so a bare
 `go test ./...` run from this directory only reaches the root module — 299 of
-the 345 tests. The four adapter and example modules it skips are exactly the
+the 359 tests. The four adapter and example modules it skips are exactly the
 ones most likely to rot against an upstream framework upgrade, so run all nine:
 
 ```bash
@@ -190,7 +190,7 @@ done
 ```
 
 Measured on 2026-10-03, all nine green: core 232 + dto 67 + eino 8 + genkit 13
-+ langchaingo 12 + `examples/http-server` 13 = **345**. The other four
++ langchaingo 12 + `examples/http-server` 27 = **359**. The other four
 `examples/` modules have no test files and report `[no test files]`.
 
 ```bash

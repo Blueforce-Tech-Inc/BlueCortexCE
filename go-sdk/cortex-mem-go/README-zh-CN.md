@@ -174,7 +174,7 @@ retriever := genkit.NewRetriever(client, "/my-project",
 
 **本 SDK 是 9 个独立的 Go module，而不是一个。** `eino/`、`genkit/`、
 `langchaingo/` 以及 `examples/` 下的每个目录都有自己的 `go.mod`，因此在本目录
-直接执行 `go test ./...` **只能覆盖根模块**——345 个测试里的 299 个。被跳过的
+直接执行 `go test ./...` **只能覆盖根模块**——359 个测试里的 299 个。被跳过的
 四个适配器与示例模块，恰恰是最容易随上游框架升级而失效的部分，所以请跑全部九个：
 
 ```bash
@@ -185,7 +185,7 @@ done
 ```
 
 2026-10-03 实测九个全绿：core 232 + dto 67 + eino 8 + genkit 13
-+ langchaingo 12 + `examples/http-server` 13 = **345**。其余四个 `examples/`
++ langchaingo 12 + `examples/http-server` 27 = **359**。其余四个 `examples/`
 模块没有测试文件，会输出 `[no test files]`。
 
 ```bash

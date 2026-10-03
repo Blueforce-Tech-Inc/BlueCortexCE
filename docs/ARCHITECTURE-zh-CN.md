@@ -978,7 +978,7 @@ claudemem:
 | `SPRING_AI_ANTHROPIC_API_KEY` | — | Anthropic API 密钥（当 provider=anthropic 时） |
 | `SPRING_AI_ANTHROPIC_BASE_URL` | `https://api.anthropic.com` | Anthropic 基础 URL |
 | `SPRING_AI_ANTHROPIC_CHAT_MODEL` | `claude-sonnet-4-5` | Anthropic 聊天模型 |
-| `CLAUDE_MEM_MODE` | `code` | 记忆模式（`code`/`default`） |
+| `CLAUDE_MEM_MODE` | `code` | 记忆模式——见下方注记 |
 | `MEMORY_REFINE_ENABLED` | `true` | 启用记忆优化（自我进化） |
 
 > **上表的 LLM 与嵌入默认值是 `dev` profile 的，而 `SPRING_PROFILES_ACTIVE` 默认却是
@@ -986,6 +986,21 @@ claudemem:
 > `text-embedding-3-small` + 1536 维；而此处显示的是 `https://api.deepseek.com` /
 > `deepseek-chat` 与 SiliconFlow `BAAI/bge-m3` + 1024 维。由于 Compose 选中的正是 `prd`，
 > 只设置 API 密钥的部署**不会**得到本表中的取值。完整对照见部署指南 §5.4。
+>
+> **并不存在 `default` 模式。** 本表早前版本把 `code`/`default` 列为两个可选值，但只有
+> `code` 是真实的模式名。实际发布的 32 个 profile 是 `code`、`code--<语言>`
+> （30 个变体，含 `code--chill`）与 `email-investigation`。设置
+> `CLAUDE_MEM_MODE=default` **不会**大声报错：`ModeService` 会去解析
+> `<modes-dir>/default.json`，找不到后捕获异常，回退到一份**内嵌的 `code` 模式副本**
+> ——同样的 6 种观测类型与 7 个概念——并以 **WARN** 级别记录
+> `Failed to load mode 'default', using embedded default`。因此实际影响并不严重
+> （拿到的基本就是 `code` 的效果，外加一条告警），但该取值并非受支持项：请直接用 `code`。
+>
+> 另需注意：**完全不设 profile** 时（即按项目自身构建说明执行 `java -jar app.jar`
+> 而未设 `SPRING_PROFILES_ACTIVE`），`application-dev.yml` 与 `application-prd.yml`
+> **都不会被加载**。本表中的 LLM 与嵌入取值此时仍然成立，因为 `SpringAiConfig`
+> 自带 `@Value` 兜底、恰好镜像了 `dev`；但 `app.memory.extraction.enabled`
+> 会落到基础配置的 `false`，而不是 `dev` 的 `true`。
 
 ---
 

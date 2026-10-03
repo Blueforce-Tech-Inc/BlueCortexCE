@@ -40,7 +40,7 @@ Java Demo 依赖及完整启动前置条件见 `examples/cortex-mem-demo/README.
 ### 可重复的组件验证命令
 
 - Java Demo：`cd examples/cortex-mem-demo && mvn test -q`
-- Go SDK/Demo：`cd go-sdk/cortex-mem-go && gofmt -d . && go vet ./...`，**再逐模块跑测试**（该 SDK 是 9 个独立 module，`go test ./...` 只覆盖根模块的 299/345）：`find . -name go.mod -exec dirname {} \; | sort | while read -r d; do (cd "$d" && go test ./... -count=1) || exit 1; done`
+- Go SDK/Demo：`cd go-sdk/cortex-mem-go && gofmt -d . && go vet ./...`，**再逐模块跑测试**（该 SDK 是 9 个独立 module，`go test ./...` 只覆盖根模块的 299/359）：`find . -name go.mod -exec dirname {} \; | sort | while read -r d; do (cd "$d" && go test ./... -count=1) || exit 1; done`
 - Python SDK：`cd python-sdk/cortex-mem-python && python3 -m pytest tests/ -q`。不要依赖未必存在的裸 `pytest` 命令；`scripts/python-sdk-e2e-test.sh` 会自动把 checkout 加入 `PYTHONPATH` 并隔离第三方告警。
 - JS/TS SDK：`cd js-sdk/cortex-mem-js && npm test`、`npm run lint`、`npm run build`
 
@@ -126,7 +126,7 @@ Java Demo 依赖及完整启动前置条件见 `examples/cortex-mem-demo/README.
 > 数字为 2026-10-03 实测（`mvn test` / 逐 module `go test` / `pytest` / `vitest`），非估算。Go 一项必须逐 module 统计：单条 `go test ./...` 只见根模块。
 
 - Java SDK: 25 个 API 方法（三模块 reactor；client 133 + spring-ai 46 + starter 7 = **186** tests）
-- Go SDK: 27 个接口方法 + DTO 包 + 3 集成层（**345** tests: core 232 + dto 67 + genkit 13 + langchaingo 12 + eino 8 + http-server 示例 13；第 196 轮逐 module 实测，原记 343 系 core 230 少计 2）
+- Go SDK: 27 个接口方法 + DTO 包 + 3 集成层（**359** tests: core 232 + dto 67 + genkit 13 + langchaingo 12 + eino 8 + http-server 示例 27；第 196 轮逐 module 实测，原记 343 系 core 230 少计 2，343 → 345 为当日 README 同步 http-server 口径，345 → **359** 为第 208 轮实测 http-server 已由 3 顶层 + 24 子测试（原 13）增长）
 - Python SDK: 25 个 API 方法 + DTO + ObservationUpdate + Flask Demo（**418** tests；395 → 403 为第 175 轮 PY-1/PY-2 补齐 8 处客户端校验，403 → 406 为第 197 轮 demo 去除后端从不下发的 `total/offset/limit` 后补的测试（原记 403 未同步），406 → 416 为第 203 轮 `ObservationType` 补齐 `emoji`/`work_emoji` 新增 10 条，416 → **418** 为第 205 轮 demo 整数查询参数规则对齐新增 2 条）
 - JS/TS SDK: 25 个 API 方法 + CJS/ESM/DTS 输出（**235** tests：client 222 + truncated-body 5 + demo `parseIntParam` 8（第 205 轮新增，vitest 的 include 已扩展到 `examples/**/*.test.ts`））
 - Demo: Java 12 控制器 + Go 5 Demo + Python 1 Demo + JS 1 Demo；**四家 demo 必须在各自端口并跑**（Java 37778 走 `/demo/*` 前缀、Go 37779、Python 37780、JS 37781），并跑后逐一按端口停掉自己启动的进程
