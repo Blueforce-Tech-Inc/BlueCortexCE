@@ -1252,6 +1252,47 @@ class TestRetrievalExtended:
         assert body["maxChars"] == 1
 
     @responses.activate
+    def test_retrieve_experiences_with_count(self):
+        """A positive count reaches the wire in camelCase-compatible form."""
+        responses.add(responses.POST, f"{BASE}/api/memory/experiences", json=[], status=200)
+        c = _client()
+        c.retrieve_experiences("t", "/p", count=4)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["count"] == 4
+
+    @responses.activate
+    def test_retrieve_experiences_drops_zero_count(self):
+        """0 means 'unset': ExpRagService returns an empty list for count <= 0."""
+        responses.add(responses.POST, f"{BASE}/api/memory/experiences", json=[], status=200)
+        c = _client()
+        c.retrieve_experiences("t", "/p", count=0)
+        body = json.loads(responses.calls[0].request.body)
+        assert "count" not in body
+
+    @responses.activate
+    def test_retrieve_experiences_drops_negative_count(self):
+        """A truthiness test is not enough: every non-zero int is truthy in Python.
+
+        A negative count reaches the wire, ExpRagService returns an empty list and
+        the backend still answers 200 — indistinguishable from "no relevant memories".
+        Measured live: count=4 returns 4 results, count=-1 returns 0 with HTTP 200.
+        """
+        responses.add(responses.POST, f"{BASE}/api/memory/experiences", json=[], status=200)
+        c = _client()
+        c.retrieve_experiences("t", "/p", count=-5)
+        body = json.loads(responses.calls[0].request.body)
+        assert "count" not in body
+
+    @responses.activate
+    def test_retrieve_experiences_keeps_small_positive_count(self):
+        """Guard against over-correcting: 1 is positive and must still be sent."""
+        responses.add(responses.POST, f"{BASE}/api/memory/experiences", json=[], status=200)
+        c = _client()
+        c.retrieve_experiences("t", "/p", count=1)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["count"] == 1
+
+    @responses.activate
     def test_search_with_type_filter(self):
         """Verify type filter is sent as query param (type is a Python keyword, works as kwonly arg)."""
         responses.add(responses.GET, f"{BASE}/api/search", json={"observations": [], "count": 0}, status=200)

@@ -385,6 +385,17 @@ class CortexMemClient:
 
         Wire format: required_concepts → "requiredConcepts", user_id → "userId".
 
+        A non-positive count is treated as "unset" and omitted from the body, for
+        the same reason ``build_icl_prompt`` drops a non-positive ``max_chars``:
+        the endpoint tests the field for null, never for zero, and a negative
+        count makes ``ExpRagService`` return an empty list while still answering
+        200 — which is indistinguishable from "no relevant memories". A plain
+        truthiness test is not enough, since every non-zero int is truthy in
+        Python. Note the neighbouring ``limit`` / ``offset`` sites in ``search``
+        and ``list_observations`` still use truthiness; there the backend clamps
+        into range (1..100) rather than emptying the result, so it is recorded
+        as P2-30 rather than fixed here.
+
         Raises:
             ValidationError: if task is empty. The backend rejects it with
                 400 "task is required", so without this check a caller's typo
@@ -396,7 +407,7 @@ class CortexMemClient:
         body: dict[str, Any] = {"task": task}
         if project:
             body["project"] = project
-        if count:
+        if count > 0:
             body["count"] = count
         if source:
             body["source"] = source
