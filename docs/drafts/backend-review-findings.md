@@ -26,6 +26,7 @@
 | 239 | — | Python `count` 真缺陷**已修**（负数静默返空）；自查更正三份中文版 README 陈旧数字 |
 | 240 | — | JS `count` 真缺陷**已修**（`0` 亦照发，比 Python 更重）；API 文档 `count` 语义缺口双语音补 |
 | 241 | P2-37 / P2-38 | ⏸ 记录不修（四家 demo `/chat` 方法分歧）；Java `count` 构造器/builder 校验分裂，**修法已写明、留待 Java SDK 方向** |
+| 242 | P2-39 | ⏸ 记录不修（`POST /api/import` 外层 `@Transactional` + 逐行 catch = **一行坏数据毁掉整批**，且逐行统计变 500） |
 
 > 历次压缩的批次与理由统一记在文末 `## Archived History`（最新一批见 batch 3），
 > **此处不再重复**——两处原本记着同一批压缩事件，每次压缩都要改两遍。
@@ -920,6 +921,49 @@
   最初假设「Java 是连续第三家同型缺陷」，读代码时发现 `Builder.count()` **有校验**，
   遂把结论收窄为「构造器与 builder 校验分裂」，并用探针把两条路径并排实测后才落笔
   ——**没有把更耸动的说法直接写进记录**。
+
+### P2-39: `POST /api/import` 的外层 `@Transactional` 与逐行 catch 相撞——一行坏数据毁掉整批，逐行统计变成 500
+
+- **Scope**: `ImportController.bulkImport()`（`@Transactional` + 逐行 `try/catch`）、
+  `ImportService.importSession()`（同样 `@Transactional`，REQUIRED 并入外层）、
+  `mem_sessions.content_session_id varchar(255)` 与 `status varchar(50)`。
+- **Problem**: 该端点**专门收集逐行错误**（`stats.addError(result.message())`）并在响应里
+  返回 `imported / skipped / errors` 统计——**但这层设计被事务语义彻底击穿**：
+  1. `importSession` 是 `@Transactional`（默认 REQUIRED），**并入** `bulkImport` 的同一个事务；
+  2. 行数据触发数据库异常（如 `content_session_id` 超 255 字符）时，异常穿出 `importSession`，
+     Spring 的事务拦截器把**共享事务标记为 rollback-only**；
+  3. 控制器第 2 层 `catch (Exception e)` **吞掉**该异常并继续循环、继续统计；
+  4. 方法返回时提交，Spring 抛 **`UnexpectedRollbackException`（"Transaction silently rolled back"）**
+     → 调用方拿到 **HTTP 500**，**逐行统计一个都没送到**，**整批合法行全部回滚丢失**。
+  即：端点为「部分成功」设计的响应结构，在最需要它的场景下**完全不起作用**。
+- **Evidence（活体，2026-10-04，同一份三行输入打两个端点）**:
+  | 端点 | 外层事务 | 结果 |
+  |------|----------|------|
+  | `POST /api/import/sessions` | **无** | **HTTP 200**，`imported: 2, errors: 1`，错误信息精确到 `value too long for type character varying(255)`；**两条合法行成功落库** |
+  | `POST /api/import` | **有** | **HTTP 500**，仅 `{"status":500,"error":"Internal Server Error"}`；**两条合法行一条未落库** |
+  - 直查库确认：`r242-a-ok1` / `r242-a-ok2` 存在，`r242-b-ok1` / `r242-b-ok2` **不存在**（已回滚）。
+  - 后端日志中确认出现 **`UnexpectedRollbackException`** 与 **`Transaction silently rolled back`**。
+  - 探针数据已清理（3 行删除，残留 0）。
+- **同一类问题的既有痕迹**：`ImportService.importSession` 第 233-236 行已有一段注释，
+  记录过 `project_path` 缺失导致「save 在提交时才失败、调用方只看到
+  `Could not commit JPA transaction`」并为此**补了前置校验**。也就是说**这个坑已被踩过一次、
+  修过其中一个字段**，而 `content_session_id` 与 `status` 的 `varchar` 宽度**至今未校验**，
+  外层事务的 rollback-only 语义**也从未被处理**。
+- **附带一处次要观察（不单独立项）**：wire 格式是 **snake_case**
+  （`spring.jackson.property-naming-strategy: SNAKE_CASE`），传 camelCase 的
+  `contentSessionId` 会得到错误信息 **`"contentSessionId is required"`**——
+  该信息**报的是 Java 字段名而非用户实际发来的 wire 字段名**，具有误导性。
+  且 `API.md` 对 `/api/import/sessions`、`/summaries`、`/prompts` **只有一句
+  「Request body: Array of session objects」，没有任何字段清单或示例**，
+  用户无从得知该用 snake_case。
+- **Status**: ⏸ **记录不修** —— 两种修法各改一项**已成文的对外契约**：
+  ①去掉 `bulkImport` 的 `@Transactional`（与另外四个同族端点一致）→ 放弃
+  `@Operation` 明写的 "in a single **atomic** transaction"；
+  ②保留原子性但不再吞掉 rollback-only（重新抛出）→ 调用方仍拿不到逐行统计，
+  只是从「假 500」变成「真 500」。**真正的修法需要先决定这个端点到底承诺
+  「全有或全无」还是「逐行部分成功」——那是产品契约决策**。
+  只补 `varchar` 宽度校验**不足以解决**：它只覆盖最常见的一种触发方式，
+  而任何未来的数据库异常仍会重演整批丢失，且会让人误以为问题已解决。**后端代码一字未改。**
 
 ## Processing Rules
 - SDK/Demo findings are fixed in place with focused compile/test verification.
