@@ -27,7 +27,9 @@
 > ⏸已记录不实现，四份设计文档的相应断言已更正。
 > 第 200 轮新增 P2-15（`save_memory` 创建共享 manual-memories 会话是 check-then-act，
 > 并发下第二次插入必撞唯一约束、整次保存被报成失败），⏸已记录不实现。
-> P2 Open 计数仍为 2。
+> 第 201 轮新增 P2-16（Java SDK 无任何类型化异常，HTTP 状态码只能靠遍历 cause 链取得；
+> Go 16 / Python 27 / JS 16 而 Java 为 0，项目自己的 Java demo 已为此写了 DemoErrors），
+> ⏸已记录不实现，两份 README 已补上取状态码的可复制做法。P2 Open 计数仍为 2。
 > **Open 只统计尚未处理的条目**（⏸已记录不修 / 📌待修）。标记为 ✅已修复 或 ✅已跳过 的条目
 > 保留在本文件作为可追溯的历史，但**不计入** Open。
 > P1-2（导入端点把校验失败报成成功跳过）已于 2026-10-02 第 166 轮 Backend 集中修复并复测通过，
@@ -526,6 +528,33 @@
   后重新查询会话再继续，但那要在 `orElseGet` 的懒执行路径里插入一次重试，
   改变的是该工具的错误语义与重试行为，属应由项目拍板的契约问题而非巡检轮次的修 bug。
   与 P2-13/P2-14 同一套判断。
+
+### P2-16: Java SDK 没有任何类型化异常，HTTP 状态码只能靠遍历 cause 链取得
+
+- **Scope**: `cortex-mem-spring-integration/cortex-mem-client/.../CortexMemClientImpl.java`
+  （`executeWithRetry` / `executeWithRetryReturn` 均以
+  `throw new RuntimeException(operation + " failed: " + describe(e), e)` 收尾；
+  `describe()` 只回传后端 `error` 字段文本，**不含状态码**）；
+  整个 `cortex-mem-client` 模块 **18 个类中没有任何错误类型**。
+- **Problem**: 跨 SDK 错误面严重不对称——Go 有 `APIError` 且 `Unwrap()` 覆盖 11 个哨兵错误、
+  Python 有 13 个状态码异常类 + 谓词（共 27）、JS 有 16 个，**Java 为 0**。
+  实测（stub 返回 `404 {"error":"Observation not found: abc"}`）：
+  抛出的是裸 `java.lang.RuntimeException`，消息为
+  `getObservationsByIds failed: Observation not found: abc`（有后端原因、**无状态码**），
+  cause 链末端才是 Spring 的 `HttpClientErrorException$NotFound`。
+  异常类型本身**没有任何状态访问器**。
+- **影响面**：要区分「没有这条观测」（404）与「后端挂了」（5xx）的调用方必须自己写
+  cause 链遍历。项目自己的 Java demo 正是为此写了一份
+  `examples/cortex-mem-demo/.../DemoErrors.java`（`statusOf` / `messageOf` / `clientStatus`），
+  其 javadoc 明确记载了这个痛点——**这是本条最有力的证据**：
+  同一仓库内的消费者已经为此付出过实现成本。
+- **Status**: ⏸**已记录，不实现**。补齐意味着给本 SDK **新增公开异常类型**
+  （如 `CortexMemException` / `APIError`），属新增对外 API 而非修 bug，
+  且会改变所有 25 个方法的异常类型，对已有调用方的 `catch` 行为有影响，
+  与 P2-13/P2-14/P2-15 同一套判断。本轮已做的是**如实记录**：
+  两份 README 的 Error Handling 章节新增「HTTP 状态码不在异常上」小节，
+  给出实测的异常形态、可直接复制的 `statusOf` 辅助方法、
+  以及「这是与另三家的已知不对称」这一事实。
 
 ## Processing Rules
 

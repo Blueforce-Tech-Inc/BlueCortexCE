@@ -512,6 +512,49 @@ try {
 }
 ```
 
+**The HTTP status code is not on the exception.** This is the one thing the table
+above cannot tell you, and it is worth stating plainly: every failure arrives as a
+plain `java.lang.RuntimeException`, and its message holds the backend's `error`
+text but **not** the status. A 404 and a 500 produce the same exception type, so
+code that needs to tell "no such observation" from "the backend is down" has to
+walk the cause chain itself. Verified against a stub returning
+`404 {"error":"Observation not found: abc"}`:
+
+```
+thrown   : java.lang.RuntimeException
+message  : getObservationsByIds failed: Observation not found: abc
+cause[0] : org.springframework.web.client.HttpClientErrorException$NotFound
+           404 Not Found: "{"error":"Observation not found: abc"}"
+```
+
+```java
+import org.springframework.web.client.RestClientResponseException;
+
+static int statusOf(Throwable failure) {
+    for (Throwable t = failure; t != null; t = t.getCause()) {
+        if (t instanceof RestClientResponseException http) {
+            return http.getStatusCode().value();
+        }
+    }
+    return 0; // not an HTTP failure
+}
+
+try {
+    client.getObservation(id);
+} catch (RuntimeException e) {
+    int status = statusOf(e);
+    if (status == 404) { /* not found */ } else { /* 5xx, transport, ... */ }
+}
+```
+
+This is a known asymmetry rather than an oversight you can code around for free:
+the Go, Python and JS SDKs all raise a typed `APIError` carrying `statusCode`
+(Go additionally unwraps 11 sentinel errors), and their clients never write this
+loop. The Java demo carries its own copy of the helper above for exactly this
+reason. Closing the gap means adding public exception types to this SDK, which is
+an API addition rather than a fix, so it is tracked as P2-16 rather than changed
+here.
+
 ## Modules
 
 | Module | Description |

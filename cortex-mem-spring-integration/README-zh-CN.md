@@ -493,6 +493,45 @@ try {
 }
 ```
 
+**HTTP 状态码不在异常上。** 这是上面那张表无法告诉你的、唯一需要特别说明的一点：
+所有失败都以**裸 `java.lang.RuntimeException`** 抛出，消息里带着后端的 `error` 文本，
+但**不含状态码**。404 与 500 得到的是同一种异常类型，因此要区分「没有这条观测」和
+「后端挂了」的代码必须自己遍历 cause 链。对一个返回
+`404 {"error":"Observation not found: abc"}` 的 stub 实测：
+
+```
+thrown   : java.lang.RuntimeException
+message  : getObservationsByIds failed: Observation not found: abc
+cause[0] : org.springframework.web.client.HttpClientErrorException$NotFound
+           404 Not Found: "{"error":"Observation not found: abc"}"
+```
+
+```java
+import org.springframework.web.client.RestClientResponseException;
+
+static int statusOf(Throwable failure) {
+    for (Throwable t = failure; t != null; t = t.getCause()) {
+        if (t instanceof RestClientResponseException http) {
+            return http.getStatusCode().value();
+        }
+    }
+    return 0; // 并非 HTTP 失败
+}
+
+try {
+    client.getObservation(id);
+} catch (RuntimeException e) {
+    int status = statusOf(e);
+    if (status == 404) { /* 未找到 */ } else { /* 5xx、传输失败…… */ }
+}
+```
+
+这是一个**已知的不对称**，而不是可以顺手绕开的疏忽：Go、Python、JS 三家都抛出带
+`statusCode` 的类型化 `APIError`（Go 还额外 `Unwrap` 了 11 个哨兵错误），
+它们的调用方从不需要写这个循环；本项目的 Java demo 正是为此自带了一份上面这样的
+辅助方法。补齐这个缺口意味着给本 SDK **新增公开异常类型**，属新增 API 而非修 bug，
+故记为 P2-16 而不在此处改动。
+
 ## 模块
 
 | 模块 | 说明 |
