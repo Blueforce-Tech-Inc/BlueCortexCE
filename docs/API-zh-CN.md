@@ -2668,7 +2668,7 @@ def listen_to_stream():
 | `SPRING_DATASOURCE_URL` | 数据库 URL | jdbc:postgresql://127.0.0.1/claude_mem_dev |
 | `SPRING_DATASOURCE_USERNAME` | 数据库用户名 | postgres |
 | `SPRING_DATASOURCE_PASSWORD` | 数据库密码 | (required) |
-| `SPRING_AI_OPENAI_API_KEY` | LLM API Key | (required) |
+| `SPRING_AI_OPENAI_API_KEY` | LLM API Key — 仅在 `CLAUDEMEM_LLM_PROVIDER=openai` 时需要 | （见注） |
 | `SPRING_AI_OPENAI_BASE_URL` | LLM API Base URL | https://api.deepseek.com |
 | `SPRING_AI_OPENAI_CHAT_MODEL` | LLM 模型 | deepseek-chat |
 | `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | 嵌入 API Key | (required) |
@@ -2681,6 +2681,13 @@ def listen_to_stream():
 | `CLAUDEMEM_LLM_PROVIDER` | LLM 提供商（`openai` 或 `anthropic`） | openai |
 
 > **注意**: 旧版变量名（`DB_URL`、`DB_USERNAME`、`DB_PASSWORD`、`OPENAI_API_KEY`、`OPENAI_BASE_URL`、`OPENAI_MODEL`）仍作为 fallback 支持。
+
+> **注意**：两个 **chat** API 密钥是二选一，不是一对——只有与
+> `CLAUDEMEM_LLM_PROVIDER` 匹配的那个才需要。`SPRING_AI_OPENAI_API_KEY` 对应
+> `openai`（默认），`SPRING_AI_ANTHROPIC_API_KEY` 对应 `anthropic`；只配 Anthropic
+> 密钥的部署**不需要** OpenAI 密钥。**嵌入**密钥则不同：
+> `SPRING_AI_OPENAI_EMBEDDING_API_KEY` 确实**始终必填**，因为嵌入没有 provider 开关，
+> 始终走 OpenAI 兼容端点。机制详见部署指南。
 
 #### application.yml 配置
 

@@ -449,7 +449,7 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `SPRING_AI_OPENAI_API_KEY` | **Yes** | - | OpenAI API key (alias: `OPENAI_API_KEY`) |
+| `SPRING_AI_OPENAI_API_KEY` | No | - | OpenAI API key — required only when `CLAUDEMEM_LLM_PROVIDER=openai` (the default) (alias: `OPENAI_API_KEY`) |
 | `SPRING_AI_OPENAI_BASE_URL` | No | `https://api.openai.com` | API base URL (alias: `OPENAI_BASE_URL`) |
 | `SPRING_AI_OPENAI_CHAT_MODEL` | No | `gpt-4o` | Chat model name (alias: `OPENAI_MODEL`) |
 
@@ -461,6 +461,23 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 | `SPRING_AI_ANTHROPIC_BASE_URL` | No | `https://api.anthropic.com` | API base URL (alias: `ANTHROPIC_BASE_URL`) |
 | `SPRING_AI_ANTHROPIC_CHAT_MODEL` | No | `claude-sonnet-4-5` | Model name (alias: `ANTHROPIC_MODEL`) |
 | `CLAUDEMEM_LLM_PROVIDER` | No | `openai` | LLM provider (`openai`/`anthropic`) |
+
+> **The two chat API keys are alternatives, not a pair.** An earlier revision of
+> this table marked `SPRING_AI_OPENAI_API_KEY` as unconditionally **required**
+> while giving the Anthropic key its "only when `provider=anthropic`" qualifier —
+> the mirror-image row said something different about the same mechanism. Only
+> the key matching the active provider is needed: `SpringAiConfig` registers
+> `openAiChatModel` and `anthropicChatModel` under the same
+> `@ConditionalOnProperty(name = "api-key")` pattern, each returning `null` when
+> its key is blank or its provider does not match, and the `chatClient` bean
+> (`@ConditionalOnMissingBean`) takes the first non-null `ChatModel`. Its own
+> startup warning says as much: *"Configure spring.ai.openai.api-key **or**
+> spring.ai.anthropic.api-key."* With `provider=anthropic`, an anthropic-only
+> deployment starts and serves LLM calls without an OpenAI key.
+>
+> The **embedding** key below is genuinely always required, and the asymmetry
+> there is real: embeddings have no provider switch, so they always go through
+> the OpenAI-compatible endpoint regardless of which chat provider is active.
 
 ### 5.4 Embedding Model Configuration
 

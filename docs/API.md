@@ -2643,7 +2643,7 @@ def listen_to_stream():
 | `SPRING_DATASOURCE_URL` | Database URL | jdbc:postgresql://127.0.0.1/claude_mem_dev |
 | `SPRING_DATASOURCE_USERNAME` | Database username | postgres |
 | `SPRING_DATASOURCE_PASSWORD` | Database password | (required) |
-| `SPRING_AI_OPENAI_API_KEY` | LLM API Key | (required) |
+| `SPRING_AI_OPENAI_API_KEY` | LLM API Key — required only when `CLAUDEMEM_LLM_PROVIDER=openai` | (see note) |
 | `SPRING_AI_OPENAI_BASE_URL` | LLM API Base URL | https://api.deepseek.com |
 | `SPRING_AI_OPENAI_CHAT_MODEL` | LLM model | deepseek-chat |
 | `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | Embedding API Key | (required) |
@@ -2656,6 +2656,14 @@ def listen_to_stream():
 | `CLAUDEMEM_LLM_PROVIDER` | LLM provider (`openai` or `anthropic`) | openai |
 
 > **Note**: Legacy variable names (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`) are still supported as fallbacks.
+
+> **Note**: The two **chat** API keys are alternatives, not a pair — only the key
+> matching `CLAUDEMEM_LLM_PROVIDER` is needed. `SPRING_AI_OPENAI_API_KEY` applies
+> when the provider is `openai` (the default), `SPRING_AI_ANTHROPIC_API_KEY` when
+> it is `anthropic`; an anthropic-only deployment needs no OpenAI key. The
+> **embedding** key is different: `SPRING_AI_OPENAI_EMBEDDING_API_KEY` really is
+> always required, because embeddings have no provider switch and always use the
+> OpenAI-compatible endpoint. See the deployment guide for the mechanism.
 
 #### application.yml Configuration
 

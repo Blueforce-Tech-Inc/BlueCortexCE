@@ -445,7 +445,7 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 
 | 变量名 | 必填 | 默认值 | 说明 |
 |--------|------|--------|------|
-| `SPRING_AI_OPENAI_API_KEY` | **是** | - | OpenAI API 密钥（别名：`OPENAI_API_KEY`） |
+| `SPRING_AI_OPENAI_API_KEY` | 否 | - | OpenAI API 密钥 — 仅在 `CLAUDEMEM_LLM_PROVIDER=openai`（默认）时需要（别名：`OPENAI_API_KEY`） |
 | `SPRING_AI_OPENAI_BASE_URL` | 否 | `https://api.openai.com` | API 基础 URL（别名：`OPENAI_BASE_URL`） |
 | `SPRING_AI_OPENAI_CHAT_MODEL` | 否 | `gpt-4o` | 聊天模型名称（别名：`OPENAI_MODEL`） |
 
@@ -457,6 +457,20 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 | `SPRING_AI_ANTHROPIC_BASE_URL` | 否 | `https://api.anthropic.com` | API 基础 URL（别名：`ANTHROPIC_BASE_URL`） |
 | `SPRING_AI_ANTHROPIC_CHAT_MODEL` | 否 | `claude-sonnet-4-5` | 模型名称（别名：`ANTHROPIC_MODEL`） |
 | `CLAUDEMEM_LLM_PROVIDER` | 否 | `openai` | LLM 提供商（openai/anthropic） |
+
+> **两个 chat API 密钥是二选一，不是一对。** 本表早前版本把
+> `SPRING_AI_OPENAI_API_KEY` 标为无条件**必填**，却给镜像的那一行（Anthropic 密钥）
+> 加了「仅在 `provider=anthropic` 时需要」的限定——**同一套机制，两行说法不同**。
+> 实际上只有与当前 provider 匹配的那个密钥才是需要的：`SpringAiConfig` 用**完全相同**的
+> `@ConditionalOnProperty(name = "api-key")` 模式注册 `openAiChatModel` 与
+> `anthropicChatModel`，各自在密钥为空或 provider 不匹配时返回 `null`，再由
+> `chatClient` bean（`@ConditionalOnMissingBean`）取第一个非 null 的 `ChatModel`。
+> 它自己的启动告警写得很直白：*"Configure spring.ai.openai.api-key **or**
+> spring.ai.anthropic.api-key."* 因此在 `provider=anthropic` 下，**只配 Anthropic
+> 密钥**的部署可以正常启动并提供 LLM 能力。
+>
+> 但下面的**嵌入**密钥确实是始终必填，且这处不对称是真实的：**嵌入没有 provider 开关**，
+> 无论启用哪个 chat 提供商，嵌入请求始终走 OpenAI 兼容端点。
 
 ### 5.4 嵌入模型配置
 
