@@ -11,6 +11,14 @@
 | P0 | 0 | 立即修复并复测 |
 | P1 | 1 | 优先修复并复测 |
 | P2 | 2 | 本轮完整验收阶段处理或明确标记为已跳过 |
+> 第 227 轮新增 **P2-27**（Python SDK **无法清空 `extractedData`**：`None` 与 `{}` 两种写法
+> 都被跳过，探针确认 `to_wire()` 均为 `{}`；活体确认后端 `null`→NULL、`{}`→`{}` 两种都接受，
+> 而库中 `{}` 此前 **0 条先例**）。四家阶梯：JS 完全 > Java 部分（只能发 `{}`）>
+> **Go = Python 完全不能**。**行为记录不修**（改行为或新增 API 均属契约变更）；
+> **注释已修**——类 docstring 原称「matching Go's pointer-field-with-omitempty pattern」，
+> **两处不准**（Python 用 `Optional[T]` 非指针；且对切片字段两家行为恰恰相反），
+> 已逐字段改写为两家实际异同。**Python 行为一字未改，428 测试全过。**
+> **P2 Open 计数仍为 2**（P2-8、P2-10）。
 > 第 226 轮新增 **P2-26**（Go SDK 的 `Facts`/`Concepts`/`ExtractedData` 带 `omitempty`，
 > 空切片与空 map 被整个丢弃，**结构上无法清空这三个字段**；后端本身接受 `[]` 清空且已实测，
 > Java/Python/JS 三家都能清空，**Go 是唯一的问题家**）。只设空切片时报「at least one field」，
@@ -769,6 +777,56 @@
   改用 `psycopg2` 直查数据库后才拿到真实值——**没有据此得出「后端不写库」的错误结论**。
   另核实 `docs/API.md` 的会话启动路径是 `/api/session/start`、**正确**，
   幻影路径 `/api/ingest/session-start` 只存在于被 gitignore 的 `AGENTS.md`（已在待决策项）。
+
+### P2-27: Python SDK 无法清空 `extractedData` —— 与 Go 并列最弱，而它的注释把这一点说成了「对齐 Go」
+
+- **Scope**: `python-sdk/cortex-mem-python/cortex_mem/dto.py` 的
+  `ObservationUpdate.is_empty()` 与 `to_wire()`，两处都有一句
+  `if attr == "extracted_data" and isinstance(val, dict) and not val: continue`。
+  另含 `ObservationUpdate` 类 docstring 中一句**对 Go 的事实性错误描述**（已修，见下）。
+- **Problem**: 后端 `PATCH` 接受两种清空写法并都能落库——实测
+  `{"extractedData": null}` → 列变 **NULL**，`{"extractedData": {}}` → 列变 **`{}`**。
+  Python **两种都发不出**：`None` 走 `if val is not None` 被跳过，`{}` 走上面那句
+  `continue` 被显式跳过。探针确认 `extracted_data=None` 与 `extracted_data={}`
+  的 `to_wire()` **都是 `{}`**，且 `is_empty()` **都是 True**。因此
+  **「一条已有 extractedData 的观测无法通过 Python SDK 清空它」**。
+  活体数据佐证该字段是真实使用的：`mem_observations` 38,200 行中
+  `extracted_data` 非空对象 **20,780**、NULL **17,420**、**空对象 `{}` 为 0**——
+  后端自身从不写 `{}`，所以走 `{}` 这条路会造出库中从未出现过的状态。
+- **四家能力阶梯（清空 extractedData）**:
+
+  | SDK | 能否发 `null` | 能否发 `{}` | 结果 |
+  |---|---|---|---|
+  | JS | ✓（原样透传给 `JSON.stringify`） | ✓ | 真清空 |
+  | Java | ✗（`@JsonInclude(NON_NULL)`） | ✓ | 只能落 `{}` |
+  | **Go** | ✗（`omitempty`） | ✗（`omitempty`） | **完全不能** |
+  | **Python** | ✗（`if val is not None`） | ✗（显式 `continue`） | **完全不能** |
+
+  注意 Go 与 Python **在 facts/concepts 上能力相反**（Go 因 `omitempty` 丢弃空切片而
+  不能清空，Python 因 `[] is not None` 而能清空）——见 P2-26。
+- **已修（注释，非行为）**: `ObservationUpdate` 类 docstring 原写
+  「Only non-None fields are sent to the backend, **matching Go's
+  pointer-field-with-omitempty pattern**」。这句有两处不准：Python 用的是
+  `Optional[T]` 而非指针；且**对切片字段两家行为恰恰相反**。已改写为逐条说明四个字段
+  上两家的实际异同。`is_empty()` 与 `to_wire()` 里那两处 `continue` 的注释也改为
+  如实写明「读取时 `{}` 与 `None` 等价，但**写入时 `{}` 是本 SDK 唯一能发的清空形态**，
+  所以这里跳过是真实的能力缺口」，并去掉原来那句会误导的
+  「an empty dict is semantically equivalent to None (backend stores nothing in JSONB)」。
+  **行为一字未改**：428 测试全过，探针输出与改动前逐字相同。
+- **Status**: ⏸ **行为记录不修** —— 改行为只有两条路：让 `{}` 发上 wire
+  （**改变现有调用方的可观测行为**，`extracted_data={}` 从「不变」变成「落 `{}`」），
+  或新增显式清空入口（**新增公开 API**）。按既定纪律留待项目决策。
+  **注释层已先行更正**。
+- **复核记录**: 第 227 轮代码方向发现。取证：Python 探针逐例打印
+  `is_empty()` / `to_wire()`；活体两次 PATCH 后以 `psycopg2` 直读
+  `mem_observations.extracted_data` 确认 NULL 与 `{}` 两种落库结果；
+  `ExtractionController:84,132` 读出 `getExtractedData() != null ? ... : Map.of()`
+  确认**读取端**两者确实等价；四家 DTO 源码逐个对拍。
+  **探针自身错一次并先识别再采信**：查 `MemoryRefineService` 是否含
+  `extractionService.runExtraction` 时，工具输出**明确给出了第 273 行**，
+  我却据此断定「该行不存在」并准备按此写结论——**是误读了自己的输出**。
+  复查后确认该行就在 `deepRefineProjectMemories`（213–292）内，ordering 属实；
+  真正的缺陷是那个方法零调用方（见 0.3.md 的 DOC-1），与本条无关。
 
 
 ## Processing Rules
