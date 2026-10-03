@@ -28,6 +28,7 @@
 | 241 | P2-37 / P2-38 | ⏸ 记录不修（四家 demo `/chat` 方法分歧）；Java `count` 构造器/builder 校验分裂，**修法已写明、留待 Java SDK 方向** |
 | 242 | P2-39 | ⏸ 记录不修（`POST /api/import` 外层 `@Transactional` + 逐行 catch = **一行坏数据毁掉整批**，且逐行统计变 500） |
 | 243 | P2-38 | ✅ **已修**（紧凑构造器统一校验，4 条新测试，139→143；`ICLPromptRequest` 复核本就正确） |
+| 244 | P2-40 | ⏸ 记录不修（四家 SDK **能写 prompts 与 summaries、却都读不回来**；新增公开方法属产品决策） |
 
 > 历次压缩的批次与理由统一记在文末 `## Archived History`（最新一批见 batch 3），
 > **此处不再重复**——两处原本记着同一批压缩事件，每次压缩都要改两遍。
@@ -79,33 +80,7 @@
 - **Problem**: `adviseStream` 在**调用线程**上 `begin()`，却把清理放进 `flux.doFinally(...)`。Reactor 的 `doFinally` 运行在**发出终止信号的线程**上；任何真实模型客户端（Reactor Netty / WebClient）都会切线程。产生两个后果：
   1. **捕获被静默丢弃** —— 工具实际执行的线程看不到该 ThreadLocal，`CortexSessionContext.isActive()` 为 false，`CortexToolAspect` 直接 `proceed()` 跳过捕获。`@Tool` 自动捕获在流式下等于失效，且无任何日志。
   2. **会话上下文泄漏** —— `doFinally` 清掉的是信号线程（一个空 ThreadLocal），调用线程的 ThreadLocal 永不清除。线程池复用该线程后，`begin()` 因 conversation id 缺失而提前 return 的那条路径**也不会**清理，于是残留的 `sessionId` 会被下一次请求的 `CortexToolAspect` 当作有效会话使用——工具观察被归到**上一个会话**。这是静默的跨会话数据串号。
-- **Reproduction** (deterministic, verified 2026-10-02): 现有 `CortexSessionContextBridgeAdvisorTest.adviseStream_whenConversationIdSet_...` 用 `Flux.just(response)`，在订阅线程同步发射，因此恰好绕开跨线程场景。改用 `Flux.just(response).subscribeOn(Schedulers.boundedElastic())` 后实测：
-  ```
-  PROBE callingThread    = main
-  PROBE emitterThread    = boundedElastic-1
-  PROBE visibleOnEmitter = false      <-- 后果 1
-  PROBE activeAfter      = true       <-- 后果 2：调用线程仍处于激活态
-  PROBE sessionIdAfter   = conv-x     <-- 且绑定的是上一个会话
-  ```
-- **Options**: (a) 改为 Reactor Context 传播——bridge 用 `contextWrite` 写入会话信息，`CortexSessionContext` 暴露一个 `ThreadLocalAccessor` 并在 starter 中启用 `Hooks.enableAutomaticContextPropagation()`；(b) 退回「只在调用线程的装配窗口内持有上下文」并明确声明流式下不做工具捕获；(c) 把流式会话标识改为显式参数贯穿 `ToolCallingManager`。
-- **Status**: ⏸已记录，本轮**不修复**。三个选项都改变并发语义：(a) 会给使用方应用引入全局 Reactor hook 与额外 ThreadLocal 开销，(b) 是功能回退，(c) 需要改 Spring AI 的工具调用链。本轮已做的最小处置是**如实记录限制**：在 `cortex-mem-spring-integration/README.md` 与 `README-zh-CN.md` 的 Design Notes / 设计笔记 中写明该限制与规避方式（需要流式 + `@Tool` 捕获时用同步 `.call()`，或按 conversation id 显式调用 client），避免用户误以为流式下自动捕获可用。
-  **复审触发条件**：出现下列任一情况即重新评估——(1) 有用户报告流式下工具观察缺失或串号；(2) 项目决定引入 Reactor 自动上下文传播；(3) Spring AI 版本升级改变了 `StreamAdvisorChain` 的订阅时机（若 `nextStream` 改为在调用线程内完成订阅与执行，本问题自然消失）。
-  **第 189 轮后补记（2026-10-03，第 190 轮 Java SDK 轮）——本条记录的后果清单不完整，漏掉了第三条。**
-  上述两条后果讲的是 `@Tool` **自动捕获**（`CortexToolAspect`）与上下文泄漏，但 `CortexMemoryTools`
-  的两个**读**工具受影响的方式不同：它们不跳过，而是**静默回落到别的项目**。
-  `resolveProjectPath()`（`CortexMemoryTools.java:197-205`）在 `CortexSessionContext` 取不到值时
-  直接返回构造时传入的 `defaultProjectPath`，该值来自 `cortex.mem.project-path`
-  （`CortexMemAutoConfiguration.java:121-122`，未配置则为**空串**），**全程无日志**。
-  两种结局都不自我暴露：配置了 `project-path` 时，Agent 拿到的是**另一个项目**的记忆并当成
-  当前对话的历史；未配置时，工具发出空项目，而 `retrieveExperiences` **不校验 project**
-  （只 `requireNonBlank(request.task())`），后端于是返回 `200` 加空列表，工具报告
-  「No relevant past experiences found」——与该项目确实没有历史**无法区分**。
-  活体实测（2026-10-03，后端 37777）：`POST /api/memory/experiences` 传 `project: ""` 返回
-  `200 []`，同一请求传真实项目路径返回 5 条经验。`buildICLPrompt` 同理。
-  受影响的方法：`searchMemories`、`getMemoryContext`（仅这两个调用 `resolveProjectPath()`；
-  `updateMemory` / `deleteMemory` 按 id 操作，不涉及项目）。
-  双语 README 的 P1-1 段落已由「两个后果」改为「三个后果」并补入上述实测。
-
+- **实测记录**: 原始 Reproduction/Evidence 已归档 → [`2026-10-04_backend-review-reproduction-5.md`](../archive/2026-10-04_backend-review-reproduction-5.md)（第 244 轮逐字迁出；Scope / Problem / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-8: 读取侧没有维度路由 —— 写入按维度分列，检索恒定比 `embedding_1024`
 
 - **Scope**: 写入侧 `backend/.../service/AgentService.java:533-535`（`switch (vector.length)`，
@@ -118,23 +93,7 @@
   `semanticSearch768` / `semanticSearch1024` / `semanticSearch1536` 三个方法带有正确的
   分维度 SQL，但**全仓零调用方**（`grep` 主代码与测试均无命中）。因此这是一个
   写侧已实现、读侧未实现的非对称。
-- **Evidence**（对真实库 `claude_mem_dev` 实测，非源码推断）：以含 3568 行
-  `embedding_1024` 数据的真实项目执行 `hybridSearch` 形状的查询，768 维与 1536 维
-  查询向量均抛出 `DataException: different vector dimensions 768 and 1024` /
-  `1536 and 1024`；1024 维正常返回。
-- **实际影响有限且可见**：随附的 `BAAI/bge-m3` 为 1024 维，是唯一开箱可用的配置，
-  真实项目中 768/1536 列均为空（实测样本 22559 行中两列皆 0，唯一的非 1024 记录是
-  `/tmp/test4` 这条三列同时有值的合成测试夹具）。异常被 `SearchService:74` 捕获后退化为
-  全文检索，API 响应如实返回 `strategy: "tsvector"` 与 `fellBack: true`，并记录一条
-  WARN。**不是静默失败**，故定为 P2 而非 P1。
-- **未修的原因**：正确修复需为 `hybridSearch` 补 768/1536 变体，或在 `SearchService`
-  按维度分流；且需先决定同一项目内混合维度数据（既有 1024 又有 768 记录）如何处理。
-  这属于 Backend 轮次的设计决策，本轮代码方向为 Java SDK，按轮换纪律不在本轮动手。
-- **Status**: ⏸ 已记录不修（2026-10-02，第 173 轮 Java SDK 轮发现）。文档方向已在同轮
-  修正 `docs/ARCHITECTURE.md` / `docs/ARCHITECTURE-zh-CN.md` 的 ADR 4：原「Decision 4:
-  Multi-Dimension Embeddings」读起来像三种维度端到端可用，现已明确限定为**仅写入侧**，
-  并写明退化行为与可观测信号。
-
+- **实测记录**: 原始 Reproduction/Evidence 已归档 → [`2026-10-04_backend-review-reproduction-5.md`](../archive/2026-10-04_backend-review-reproduction-5.md)（第 244 轮逐字迁出；Scope / Problem / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-10: 四个 ingest 端点对项目路径的必填性不一致
 
 - **Scope**: `backend/.../controller/IngestionController.java` — `handleObservation`
@@ -586,21 +545,7 @@
   200**，从而永远不会告警。Swagger 注解（第 116 行）**只声明了 200**，
   与实现一致 —— 也就是说**契约本身就是这样声明的**，问题不在契约与实现不符，
   而在这个契约让该端点失去了作为测试端点的意义。
-- **Reproduction**（2026-10-03，活体 37777，嵌入密钥失效的状态下）：
-
-  | 端点 | HTTP | 响应体 |
-  |------|------|--------|
-  | `GET /api/test/llm` | 200 | `{"status":"success", ...}` |
-  | `GET /api/test/embedding` | **500** | `{"status":"error","message":"Embedding failed: 401 - ...Token is invalid."}` |
-  | `GET /api/test/all` | **200** | 内含**同一个** `embedding.status = "error"` |
-
-  同一故障，一边 500 一边 200，实测复现。
-- **Status**: ⏸ **记录不修** —— 让 `/all` 传播子状态码属**对外契约变更**
-  （监控与脚本会看到不同状态码），且需同步修改只声明 200 的 Swagger 注解，
-  按既定纪律留待项目决策。**文档层已先行更正**：`docs/API.md` 与
-  `docs/API-zh-CN.md` 的 Test All 章节现明写「该端点恒返回 200」、给出两种真实
-  响应示例（健康 / 嵌入故障各一），并直接告诉巡检脚本应读嵌套 `status` 而非状态码。
-- **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-2.md`](../archive/2026-10-04_backend-review-provenance-2.md)（第 238 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
+- **实测记录**: 原始 Reproduction/Evidence 已归档 → [`2026-10-04_backend-review-reproduction-5.md`](../archive/2026-10-04_backend-review-reproduction-5.md)（第 244 轮逐字迁出；Scope / Problem / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-29: tool-use 去重键不是一次调用的身份，且未被原子强制
 
 - **Scope**: `AgentService.calculateToolInputHash()`（`AgentService.java:466-482`）、
@@ -636,50 +581,7 @@
      `catch (DataIntegrityViolationException)`——注释写着
      "Duplicate pending message detected (concurrent insert)"——**是死代码**：
      它等待的那个异常永远不会发生。并发请求于是全部通过检查。
-- **Reproduction**（2026-10-03，活体 37777）:
-
-  | 探针 | 做法 | 结果 |
-  |------|------|------|
-  | 静默丢弃 | 先直插一行 `status='processing'`、三元组与随后请求一致，再 POST 一次带**全新** `tool_response` 的 tool-use | HTTP **200** `{"status":"accepted"}`，但库里**只有那行预置数据**，新结果**未落库** |
-  | 原子性 | 8 个线程并发 POST **完全相同**的 tool-use | 8 个 200，库里**落了 8 行**；`created_at_epoch` 全部落在 **1 ms** 窗口内，且都在最后一行写入后 **58 ms** 才转 `failed`——即 8 次去重检查都在任何一次落库转 `failed` 之前跑完了 |
-  | 命名绕行 | 同 session 先 `Read` 后 `read`，input 相同 | 两行都在，input 哈希相同（`45ff9481fce2…`） |
-
-  关于「窗口」要如实补一句：**是否丢弃取决于时序**。上面第一行之所以稳定复现，
-  是因为预置行卡在 `processing`；而在本机（嵌入密钥失效、处理毫秒级失败）
-  真正背靠背连发两次时，前一条往往已转 `failed`、去重条件不再命中，
-  两次**都会**留下。生产环境嵌入/LLM 正常时处理耗时以秒计，窗口远宽于此——
-  但这个「取决于时序」本身正是缺陷的一部分：**同一段代码的行为不可预测**。
-- **规模**: 排除本次探针后 `mem_pending_messages` 共 **10,682** 行、
-  distinct `tool_input_hash` 仅 **7,305**。其中 **2,682 行（25.1%）** 的
-  `tool_input` 是空对象 `{}`，**共享同一个哈希**——对这些客户端而言去重键
-  实际退化成 `(session, tool_name)`。最大的一组是单个 session 内 `exec`
-  工具的 **208 行、全部 `failed`**。全表状态分布：`processed` 7,295 /
-  `failed` 3,282 / `skipped` 105。
-- **Status**: ⏸ **记录不修** —— 三条修法都改对外行为：
-  (a) 把 `tool_response` 纳入哈希 → 幂等重发不再被吸收，削弱崩溃恢复保护；
-  (b) 规范化 `tool_name` → 存量数据里 `readFile`/`write_file` 这类异名需迁移；
-  (c) 补 `uk_session_tool_input` 唯一约束 → **会直接打断「失败后重试」这条
-  合法路径**：应用层检查刻意忽略 `failed` 行，而唯一索引不忽略，于是重试会撞
-  约束异常返回 500。要同时做对，需要重新设计「什么算同一次调用」，
-  属设计决策，按既定纪律留待项目决策。**文档层已先行更正**：
-  `cortex-mem-spring-integration/README.md` 与 `README-zh-CN.md` 现明写
-  捕获路径的这一静默丢弃形态。**SDK 与后端代码一字未改。**
-- **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-2.md`](../archive/2026-10-04_backend-review-provenance-2.md)（第 238 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
-### P2-30: 负数 `limit` 在四家 SDK 有三种行为，而 Go 自身也不一致
-
-- **Scope**: Go `client_methods.go:124`（`Search`）、`:145`（`ListObservations`）、
-  `:297`（`GetExtractionHistory`）；对照 Java `SearchRequest.java:62` 与
-  `ObservationsRequest.java:36`、JS `client.ts:264` 与 `:840`、Python `client.py:508`。
-- **Problem**: 同一个非法输入 `limit = -5`，四家给出**三种**结果：
-
-  | SDK | 对 `limit < 0` 的处理 | 位置 |
-  |-----|----------------------|------|
-  | **Java** | **抛 `IllegalArgumentException`**，另在 `> 100` 时也抛 | `SearchRequest.java:62,65`；`ObservationsRequest.java:36,39` |
-  | **Go** | `Search` / `ListObservations` **静默丢弃**（`if req.Limit > 0`） | `client_methods.go:124,145` |
-  | **JS** | **静默丢弃**（`req.limit > 0`） | `client.ts:264,840` |
-  | **Python** | **照发**（`if limit:`，负数在 Python 里为真值） | `client.py:508` |
-
-  **Go 自身也不一致**：同一个 SDK 的 `GetExtractionHistory`（`client_methods.go:297`）
+- **实测记录**: 原始 Reproduction/Evidence 已归档 → [`2026-10-04_backend-review-reproduction-5.md`](../archive/2026-10-04_backend-review-reproduction-5.md)（第 244 轮逐字迁出；Scope / Problem / Status 按 ⏸ 规则全部保留在本文件）。
   对负数 **抛 `ValidationError`**，而两个最常用的检索方法静默丢弃——**同一份代码里两种
   处理，且代码与 README 都没给出任何理由**。
 - **Reproduction**: 原始实测记录已归档 → [`2026-10-04_backend-review-reproduction-4.md`](../archive/2026-10-04_backend-review-reproduction-4.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
@@ -714,29 +616,7 @@
   于是 `docker run -e SERVER_PORT=8080` 会让 healthcheck 去探测 37777，
   **把一个完全健康的应用判成 unhealthy**。`docker-compose.yml` 因为显式写了
   `SERVER_ADDRESS: 0.0.0.0` 而**恰好绕过了第 1 条**，所以问题只在裸 `docker run` 路径上暴露。
-- **Reproduction**（2026-10-04）:
-
-  | 事实 | 证据 |
-  |------|------|
-  | 默认绑回环 | `application.yml:3` 源码 |
-  | 该默认值确实生效 | 活体进程 `lsof` 显示 `TCP 127.0.0.1:37777 (LISTEN)` |
-  | 对外确实不可达 | 同机 `curl http://10.166.1.125:37777/api/health` → **HTTP=000**（连接失败） |
-  | 两个 Dockerfile 都没设 `SERVER_ADDRESS` | 逐文件读，两者只有 `EXPOSE 37777` |
-  | compose 显式绕开了 | `docker-compose.yml` 有 `SERVER_ADDRESS: 0.0.0.0` |
-  | 两个 healthcheck 不一致 | 根：`http://localhost:37777/…` 且无 `ENV SERVER_PORT`；backend：`http://localhost:${SERVER_PORT}/…` 且有 `ENV SERVER_PORT=37777` |
-
-  **未验证的部分（如实标注）**：本机**没有 Docker**（`which docker` 无输出），
-  因此上述容器内行为是**源码与配置层面的推断 + 宿主机 bind 行为的实测**，
-  **没有真的构建镜像跑一遍**。修法很直接且与 `backend/Dockerfile` 已有的正确写法一致：
-  两个 Dockerfile 都加 `ENV SERVER_ADDRESS=0.0.0.0`；根 `Dockerfile` 再把 healthcheck
-  改成 `${SERVER_PORT}` 并补 `ENV SERVER_PORT=37777`。
-- **Status**: ⏸ **记录不修** —— 改 Dockerfile 属**部署产物变更**，且本机无 Docker
-  **无法验证修复效果**；按既定纪律，不把未验证的改动当作已完成的修复提交。
-  修法已在上文写明，留待有 Docker 环境的轮次或项目方实施。
-  **文档层无需改动**：部署指南的 compose 片段经**逐键逐值对拍**与真实
-  `docker-compose.yml` **完全一致**（差异只有为可读性新增的注释与键序分组，
-  无任何键、值或默认值不同），**没有发现错误陈述**。
-- **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
+- **实测记录**: 原始 Reproduction/Evidence 已归档 → [`2026-10-04_backend-review-reproduction-5.md`](../archive/2026-10-04_backend-review-reproduction-5.md)（第 244 轮逐字迁出；Scope / Problem / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-33: Go demo 的两个端点名与另外三家 demo 不同
 
 - **Scope**: `go-sdk/cortex-mem-go/examples/http-server/main.go:470` 与 `:771`
@@ -768,23 +648,7 @@
   实际返回的是**绝对路径**（本机实测 `/Users/yangjiefeng/.claude-mem/logs`）。
   `/v3/api-docs` 是生成客户端代码的来源，所以这个缺失会传播到任何按 OpenAPI
   生成的 SDK 模型里。
-- **Reproduction**（2026-10-04，活体 37777，`?lines=3`）:
-
-  ```json
-  {"exists": true, "files": ["claude-mem-2026-10-04.log"],
-   "logs": "[2026-10-04 01:53:16.718] [INFO ] [SERVIC] …",
-   "path": "/Users/yangjiefeng/.claude-mem/logs",
-   "returnedLines": 3, "totalLines": 302}
-  ```
-
-  6 个键，其中 **`files` 在注解示例里没有**。
-- **对比**：`docs/API.md:2055-2065` 与 `docs/API-zh-CN.md:2039-2047` 的示例
-  **六个键齐全**、用的是绝对路径，中文版前文还解释了 `files` 数组的语义
-  （今天优先、不足才回落昨天）。**两版人工文档都正确，无需改动。**
-- **Status**: ⏸ **记录不修** —— 改 `@ApiResponse` 的示例即改**对外 OpenAPI 契约**
-  （沿用 P2-11 / P2-22 / P2-25 的同一判断）。**文档层无需更正**：
-  人工撰写的两版 API 文档本来就是对的。
-- **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
+- **实测记录**: 原始 Reproduction/Evidence 已归档 → [`2026-10-04_backend-review-reproduction-5.md`](../archive/2026-10-04_backend-review-reproduction-5.md)（第 244 轮逐字迁出；Scope / Problem / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-35: `CortexToolAspect` 结构上无法捕获失败的 `@Tool` 调用，而质量模型恰恰以失败为一档
 
 - **Scope**: `CortexToolAspect.interceptToolExecution()`
@@ -970,6 +834,40 @@
   「全有或全无」还是「逐行部分成功」——那是产品契约决策**。
   只补 `varchar` 宽度校验**不足以解决**：它只覆盖最常见的一种触发方式，
   而任何未来的数据库异常仍会重演整批丢失，且会让人误以为问题已解决。**后端代码一字未改。**
+
+### P2-40: 四家 SDK 都能写入 prompts 与 summaries，却没有一家读得回来
+
+- **Scope**: 后端 `ViewerController` 的 `GET /api/summaries` 与 `GET /api/prompts`；
+  四家 SDK 的全部公开方法（Go `client.go`/`client_methods.go`、Python `client.py`、
+  JS `client.ts`、Java `CortexMemClient`）。
+- **Problem**: 这**不是缺陷而是能力缺口**，但它没有被任何一处写下来，容易被当成疏漏。
+  两个端点都**活体可用**、都在 `API.md` 里有完整记载（`/api/prompts` 出现 8 处）、
+  WebUI 都在用；而**四家 SDK 没有任何方法能调用它们，四家 demo 也都没有暴露对应端点**
+  （三家 demo 里唯一的 "summar" 字样是统计字段 `totalSummaries`，不是端点）。
+  与之形成鲜明对比的是**写的一侧齐备**：`POST /api/ingest/session-end`（会话结束即生成摘要）
+  与 `POST /api/ingest/user-prompt` 四家**全部**有方法（Go/Python/JS/Java 的
+  session-end 与 user-prompt 引用数分别为 3/3、4/3、6/6、2/2）。
+  即：**SDK 用户可以产生摘要与提示词，却永远无法把它们读回来**——想读只能自己发 HTTP。
+- **Evidence（活体）**:
+  | 端点 | 活体 | 文档 | SDK 方法 | demo 端点 |
+  |------|------|------|----------|-----------|
+  | `GET /api/summaries?limit=2` | **200**，返回 items | ✅ | ❌ | ❌ |
+  | `GET /api/prompts?limit=1` | **200**，返回 items | ✅ | ❌ | ❌ |
+  | `POST /api/ingest/session-end` | ✅ | ✅ | ✅ 四家 | ✅ |
+  | `POST /api/ingest/user-prompt` | ✅ | ✅ | ✅ 四家 | ✅ |
+- **一处探针自身出错并先识别再采信**：初版探针想用 `dto.SummariesResponse` 去解析
+  活体响应，编译失败——**这个类型根本不存在**，而这恰恰印证了「没有 summaries 方法」
+  这一判断本身（同一次探针的另一个版本甚至编译不过）。改为直接统计四家 SDK 里
+  非测试代码对 `summar(y|ies)` 的引用数（排除 `totalSummaries` 等统计字段），
+  四家**均为 0**。
+- **Status**: ⏸ **记录不修** —— 补一个方法是**新增公开 API**，按既定纪律
+  「新增公开 API 留待项目决策、不单方面实施」。且这不是「某一家漏了」的缺陷：
+  **四家完全一致地缺失**，因此它要么是有意的范围划定、要么是共同的疏漏，
+  两种解读都指向需要项目层面拍板而非某轮自行补齐。
+  **若将来实施**，需注意与既有分页约定对齐：这两个端点与 `/api/observations` 共用
+  `Math.min(Math.max(1, limit), MAX_PAGE_SIZE)` 的钳制（`API.md` 已记载），
+  且 `hasMore` 是**驼峰**而条目内字段是 **snake_case**——Go 的 DTO 已按此混合约定建模
+  （`dto/observations.go:28` 有 ⚠️ 注记），新方法应复用同一约定。**四家 SDK 代码一字未改。**
 
 ## Processing Rules
 - SDK/Demo findings are fixed in place with focused compile/test verification.

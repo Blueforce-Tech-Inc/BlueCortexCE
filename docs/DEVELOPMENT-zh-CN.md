@@ -530,6 +530,39 @@ rm -rf ~/.m2/repository
 
 ---
 
+## 构建与测试 SDK
+
+上一节构建的是后端。**四个 SDK 都是各自独立的构建** —— 其中三个用各自的构建工具，
+而 Java SDK 是一个**三模块 Maven 构建、且目录下没有 Maven Wrapper**，
+因此照抄后端那一节的 `./mvnw` 命令在这里会失败：
+
+```bash
+# ── Java SDK（Spring Boot 集成）—— 3 个模块，本目录下无 ./mvnw
+cd cortex-mem-spring-integration
+mvn test                      # cortex-mem-client + cortex-mem-spring-ai + cortex-mem-starter
+mvn -pl cortex-mem-client test
+
+# ── Go SDK —— 只跑根模块并不覆盖各适配器
+cd go-sdk/cortex-mem-go
+./test-all.sh                 # 根 + genkit + eino + langchaingo（359 即此口径）
+go test ./...                 # 仅根 + dto
+
+# ── Python SDK
+cd python-sdk/cortex-mem-python
+PYTHONPATH="$PWD" python3 -m pytest tests/ -q
+
+# ── JS/TS SDK（vitest，不是 jest）
+cd js-sdk/cortex-mem-js
+npm test
+npm run lint                  # tsc --noEmit
+npm run build                 # tsup -> dist
+```
+
+> **JS SDK 里 `npx jest` 跑不起来**，尽管配置形似 Jest：项目实际使用 **vitest**，
+> 直接调 Jest 会拉到另一个 runner，并在执行任何用例之前就因 ESM 配置报错。
+
+---
+
 ## 运行应用程序
 
 ### 配置

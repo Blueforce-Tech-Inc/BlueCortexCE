@@ -532,6 +532,40 @@ rm -rf ~/.m2/repository
 
 ---
 
+## Building and Testing the SDKs
+
+The section above builds the backend. **All four SDKs are separate builds** — three use
+their own build tool, and the Java SDK is a three-module Maven build that does **not** ship
+a Maven wrapper, so copying the `./mvnw` commands from the backend section fails there:
+
+```bash
+# ── Java SDK (Spring Boot integration) — 3 modules, no ./mvnw in this directory
+cd cortex-mem-spring-integration
+mvn test                      # cortex-mem-client + cortex-mem-spring-ai + cortex-mem-starter
+mvn -pl cortex-mem-client test
+
+# ── Go SDK — the root module alone does not cover the adapters
+cd go-sdk/cortex-mem-go
+./test-all.sh                 # root + genkit + eino + langchaingo (this is what 359 counts)
+go test ./...                 # root + dto only
+
+# ── Python SDK
+cd python-sdk/cortex-mem-python
+PYTHONPATH="$PWD" python3 -m pytest tests/ -q
+
+# ── JS/TS SDK (vitest, not jest)
+cd js-sdk/cortex-mem-js
+npm test
+npm run lint                  # tsc --noEmit
+npm run build                 # tsup -> dist
+```
+
+> **`npx jest` will not work in the JS SDK** even though the config is Jest-shaped: the
+> project runs **vitest**, and invoking Jest directly pulls a different runner that fails
+> on the ESM config before a single test executes.
+
+---
+
 ## Running the Application
 
 ### Configuration
