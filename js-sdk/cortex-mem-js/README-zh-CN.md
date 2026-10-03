@@ -35,8 +35,9 @@ const session = await client.startSession({
   session_id: SESSION_ID,
   project_path: '/path/to/project',
 });
-// session.response 暴露 session_db_id、context 和 prompt_number
-// （wire 中的 session_id 与 updateFiles 不在本 SDK 类型内）。
+// 三个响应字段是返回对象上的**顶层**字段——不存在嵌套的 `response` 属性：
+//   session.session_db_id、session.context、session.prompt_number
+// （wire 中的 session_id 与 updateFiles 也会到达，但不在 SessionStartResponse 类型内）。
 
 // 记录观察（fire-and-forget）
 await client.recordObservation({

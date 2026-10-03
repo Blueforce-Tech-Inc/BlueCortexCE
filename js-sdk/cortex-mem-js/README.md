@@ -35,8 +35,11 @@ const session = await client.startSession({
   session_id: SESSION_ID,
   project_path: '/path/to/project',
 });
-// session.response exposes session_db_id, context and prompt_number
-// (session_id and updateFiles from the wire are not part of this SDK type).
+// The three response fields are top-level on the returned object — there is
+// no nested `response` property:
+//   session.session_db_id, session.context, session.prompt_number
+// (session_id and updateFiles also arrive on the wire but are not part of the
+// SessionStartResponse type.)
 
 // Record observation (fire-and-forget)
 await client.recordObservation({
