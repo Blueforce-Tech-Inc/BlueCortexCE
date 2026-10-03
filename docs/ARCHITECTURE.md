@@ -1108,11 +1108,21 @@ See the deployment guide's §5.4 for the full profile-by-profile table.
 
 ### Current Limits
 
-| Resource | Limit | Mitigation |
-|----------|-------|------------|
-| Observations per project | ~1M | Partitioning, archival |
-| Concurrent sessions | ~100 | Rate limiting |
-| Vector search latency | ~100ms | Index tuning, caching |
+**These are estimates, not measurements.** Nothing in the backend enforces or
+reports a ceiling of any of them, and no benchmark in this repository produces
+these numbers. They are planning figures, kept here so the scaling discussion
+below has something to push against — not characteristics to design against.
+
+| Resource | Estimated limit | Actually enforced today |
+|----------|-----------------|-------------------------|
+| Observations per project | ~1M (estimate) | No limit. A single project is bounded only by disk |
+| Concurrent sessions | ~100 (estimate) | **No concurrency limit exists.** The one rate limiter (`RateLimitService`) is a per-key request-rate cap of **10 requests / 60 s**, and its only call site is `IngestionController` guarding `POST /api/ingest/tool-use` with the key `tool-use:{contentSessionId}`. It throttles ingest rate for that one endpoint; it does not count or bound concurrent sessions |
+| Vector search latency | ~100ms (estimate) | No SLO. A measured figure depends on embedding dimension, HNSW parameters and result count, none of which are pinned in this repository |
+
+The distinction matters because the original table listed "Rate limiting" as the
+mitigation for concurrent sessions. That mitigation addresses a different problem
+than the one in the row: it caps how often one session may report a tool call, not
+how many sessions may be open at once.
 
 ### Scaling Strategies
 
@@ -1128,13 +1138,22 @@ See the deployment guide's §5.4 for the full profile-by-profile table.
 
 3. **Caching Layer**
    ```java
+   // NOT IMPLEMENTED — illustrative only. No @Cacheable annotation exists in
+   // the backend. The nearest shipped thing is ContextCacheService, which
+   // holds pre-rendered context text and refreshes it on a fixed rate
+   // (claudemem.cache.refresh-interval-seconds, default 60s); it is not a
+   // query cache and does not sit in front of search().
    @Cacheable("observations")
    public List<Observation> search(String query) { ... }
    ```
 
 4. **Database Partitioning**
    ```sql
-   -- Partition by project_path for large deployments
+   -- NOT IMPLEMENTED — illustrative only. There is no project_path_hash
+   -- column anywhere in the schema; this sketch invents one. Note also that
+   -- LIST partitioning on a high-cardinality key (project_path) would create
+   -- roughly one partition per project, and this database already holds
+   -- thousands.
    CREATE TABLE mem_observations (
        ...
    ) PARTITION BY LIST (project_path_hash);

@@ -1096,11 +1096,19 @@ switch，分别存入 `embedding_768` / `embedding_1024` / `embedding_1536`。�
 
 ### 当前限制
 
-| 资源 | 限制 | 缓解措施 |
-|------|------|----------|
-| 每个项目的观察数 | ~100 万 | 分区、归档 |
-| 并发会话 | ~100 | 速率限制 |
-| 向量搜索延迟 | ~100ms | 索引调优、缓存 |
+**以下为估算值，不是实测值。** 后端既不强制、也不上报其中任何一项上限，
+本仓库也没有任何基准测试产出这些数字。它们是规划用的参考值，保留在此是为了
+给下方的扩展策略提供讨论起点，而不是可以据此做设计的既有特性。
+
+| 资源 | 估算上限 | 实际生效的约束 |
+|------|----------|----------------|
+| 每个项目的观察数 | ~100 万（估算） | 无上限。单项目只受磁盘容量约束 |
+| 并发会话 | ~100（估算） | **不存在并发限制。** 唯一的限流器（`RateLimitService`）是按 key 的请求频率上限 **10 次 / 60 秒**，而它唯一的调用点是 `IngestionController` 对 `POST /api/ingest/tool-use` 的保护，key 为 `tool-use:{contentSessionId}`。它限制的是**该单个端点的写入频率**，既不统计也不约束并发会话数 |
+| 向量搜索延迟 | ~100ms（估算） | 无 SLO。实测值取决于嵌入维度、HNSW 参数与返回条数，这些在本仓库中均未固定 |
+
+这个区分之所以重要：原表把「速率限制」列为并发会话一行的缓解措施，
+但该措施针对的是另一个问题——它限制单个会话上报工具调用的频率，
+而不是同时打开多少个会话。
 
 ### 扩展策略
 
@@ -1116,13 +1124,19 @@ switch，分别存入 `embedding_768` / `embedding_1024` / `embedding_1536`。�
 
 3. **缓存层**
    ```java
+   // 未实现 —— 仅为示意。后端不存在任何 @Cacheable 注解。
+   // 已上线的最接近之物是 ContextCacheService：它保存的是**预渲染的上下文文本**，
+   // 按固定频率刷新（claudemem.cache.refresh-interval-seconds，默认 60s），
+   // 既不是查询缓存，也不位于 search() 之前。
    @Cacheable("observations")
    public List<Observation> search(String query) { ... }
    ```
 
 4. **数据库分区**
    ```sql
-   -- 按 project_path 分区用于大型部署
+   -- 未实现 —— 仅为示意。schema 中根本不存在 project_path_hash 列，
+   -- 这段草稿凭空造了一个。另外，按高基数键（project_path）做 LIST 分区
+   -- 会产生近乎「每项目一个分区」，而本库的项目数已达数千。
    CREATE TABLE mem_observations (
        ...
    ) PARTITION BY LIST (project_path_hash);
