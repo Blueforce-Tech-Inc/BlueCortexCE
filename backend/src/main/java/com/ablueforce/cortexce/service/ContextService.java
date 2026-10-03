@@ -357,7 +357,7 @@ public class ContextService implements LogHelper {
         // Query summaries
         List<SummaryEntity> allSummaries = new ArrayList<>();
         if (includeSummaries) {
-            allSummaries = summaryRepository.findByProjectPathOrderByCreatedAtDesc(validatedPath);
+            allSummaries = summaryRepository.findByProjectPathOrderByCreatedAtEpochDesc(validatedPath);
         }
 
         // Apply max summaries limit
@@ -901,7 +901,7 @@ public class ContextService implements LogHelper {
             return List.of();
         }
 
-        List<ObservationEntity> observations = observationRepository.findByProjectPathOrderByCreatedAtDesc(projectPath);
+        List<ObservationEntity> observations = observationRepository.findByProjectPathOrderByCreatedAtEpochDesc(projectPath);
         return observations.stream()
             .limit(limit)
             .map(obs -> {
@@ -930,7 +930,7 @@ public class ContextService implements LogHelper {
             return List.of();
         }
 
-        List<SummaryEntity> summaries = summaryRepository.findByProjectPathOrderByCreatedAtDesc(projectPath);
+        List<SummaryEntity> summaries = summaryRepository.findByProjectPathOrderByCreatedAtEpochDesc(projectPath);
         return summaries.stream()
             .limit(limit)
             .map(sum -> {
@@ -958,7 +958,7 @@ public class ContextService implements LogHelper {
         }
 
         try {
-            List<SummaryEntity> summaries = summaryRepository.findByProjectPathOrderByCreatedAtDesc(projectPath);
+            List<SummaryEntity> summaries = summaryRepository.findByProjectPathOrderByCreatedAtEpochDesc(projectPath);
             if (!summaries.isEmpty()) {
                 SummaryEntity lastSummary = summaries.get(0);
                 if (lastSummary.getNextSteps() != null && !lastSummary.getNextSteps().isEmpty()) {

@@ -50,7 +50,12 @@ public interface SummaryRepository extends JpaRepository<SummaryEntity, UUID> {
 
     long countByProjectPath(String projectPath);
 
-    List<SummaryEntity> findByProjectPathOrderByCreatedAtDesc(String projectPath);
+    // Sorted on created_at_epoch, not created_at: the timestamp column is
+    // nullable and is NULL for every summary written by the normal capture path
+    // (only ImportService sets it), so ordering by created_at put the NULL rows
+    // last and returned the oldest summaries instead of the newest. The two
+    // hand-written queries above this method already order by the epoch column.
+    List<SummaryEntity> findByProjectPathOrderByCreatedAtEpochDesc(String projectPath);
 
     /**
      * Find summaries by content session id for duplicate checking.

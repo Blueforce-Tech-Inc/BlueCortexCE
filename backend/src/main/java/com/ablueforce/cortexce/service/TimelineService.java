@@ -115,7 +115,7 @@ public class TimelineService {
         final int windowSize = (before + after) * 2 + 1;
         final int maxObs = Math.min(windowSize, 500);
         Pageable limitOne = PageRequest.of(0, maxObs);
-        List<ObservationEntity> allObs = observationRepository.findByProjectPathOrderByCreatedAtDesc(project, limitOne).getContent();
+        List<ObservationEntity> allObs = observationRepository.findByProjectPathOrderByCreatedAtEpochDesc(project, limitOne).getContent();
         int anchorIndex = findAnchorIndex(allObs, anchorUuid);
 
         if (anchorIndex < 0) {

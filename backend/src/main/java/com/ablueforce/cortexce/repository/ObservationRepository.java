@@ -211,10 +211,20 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     long countByProjectPath(String projectPath);
 
     // Find all observations for a project, ordered by creation time (descending)
-    List<ObservationEntity> findByProjectPathOrderByCreatedAtDesc(String projectPath);
+    //
+    // Ordered by created_at_epoch, not created_at. Every hand-written @Query in
+    // this repository already sorts on the epoch column, and it has to: the
+    // timestamp column is nullable and in practice usually NULL, because only
+    // ImportService assigns it explicitly while AgentService (the main capture
+    // path) sets just createdAtEpoch, and there is no @PrePersist or JPA
+    // auditing to fill it in. In PostgreSQL NULLs sort last under DESC, so
+    // ordering by created_at silently returned the oldest non-NULL rows instead
+    // of the newest ones.
+    List<ObservationEntity> findByProjectPathOrderByCreatedAtEpochDesc(String projectPath);
 
     // Find recent observations for a project with pagination (avoids loading all into memory)
-    Page<ObservationEntity> findByProjectPathOrderByCreatedAtDesc(String projectPath, Pageable pageable);
+    // Sorted on created_at_epoch for the same reason as above.
+    Page<ObservationEntity> findByProjectPathOrderByCreatedAtEpochDesc(String projectPath, Pageable pageable);
 
     // Find observations for a session, ordered ascending (for summary generation)
     List<ObservationEntity> findByContentSessionIdOrderByCreatedAtEpochAsc(String contentSessionId);

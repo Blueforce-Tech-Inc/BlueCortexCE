@@ -52,7 +52,7 @@ public class ClaudeMdService {
 
         // Recent observations (paged query avoids loading all into memory)
         Page<ObservationEntity> page = observationRepository
-            .findByProjectPathOrderByCreatedAtDesc(projectPath, PageRequest.of(0, 10));
+            .findByProjectPathOrderByCreatedAtEpochDesc(projectPath, PageRequest.of(0, 10));
         List<ObservationEntity> recentObs = page.getContent();
 
         if (!recentObs.isEmpty()) {
@@ -105,7 +105,7 @@ public class ClaudeMdService {
         }
 
         Page<ObservationEntity> page = observationRepository
-            .findByProjectPathOrderByCreatedAtDesc(projectPath, PageRequest.of(0, 5));
+            .findByProjectPathOrderByCreatedAtEpochDesc(projectPath, PageRequest.of(0, 5));
 
         return new ProjectMemorySummary(projectPath, page.getTotalElements(), page.getContent());
     }

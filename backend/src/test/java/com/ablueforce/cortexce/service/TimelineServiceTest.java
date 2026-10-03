@@ -62,7 +62,7 @@ class TimelineServiceTest {
     @Test
     void getTimelineMap_withValidAnchor_returnsWindow() {
         // Given: anchor at index 1, depth 1 before/after
-        when(observationRepository.findByProjectPathOrderByCreatedAtDesc(
+        when(observationRepository.findByProjectPathOrderByCreatedAtEpochDesc(
                 eq("/tmp/test"), any(Pageable.class)))
             .thenReturn(new PageImpl<>(List.of(obs3, obs2, obs1)));
         when(observationRepository.findById(UUID.fromString("00000000-0000-0000-0000-000000000002")))
@@ -82,7 +82,7 @@ class TimelineServiceTest {
     @Test
     void getTimelineMap_withDepthZero_returnsOnlyAnchor() {
         // Given: anchor at index 1, depth 0
-        when(observationRepository.findByProjectPathOrderByCreatedAtDesc(
+        when(observationRepository.findByProjectPathOrderByCreatedAtEpochDesc(
                 eq("/tmp/test"), any(Pageable.class)))
             .thenReturn(new PageImpl<>(List.of(obs3, obs2, obs1)));
         when(observationRepository.findById(UUID.fromString("00000000-0000-0000-0000-000000000002")))
@@ -102,7 +102,7 @@ class TimelineServiceTest {
     @Test
     void getTimelineMap_anchorAtStart_respectsWindowBoundaries() {
         // Given: anchor at index 0 (newest), depth 2 before
-        when(observationRepository.findByProjectPathOrderByCreatedAtDesc(
+        when(observationRepository.findByProjectPathOrderByCreatedAtEpochDesc(
                 eq("/tmp/test"), any(Pageable.class)))
             .thenReturn(new PageImpl<>(List.of(obs3, obs2, obs1)));
         when(observationRepository.findById(UUID.fromString("00000000-0000-0000-0000-000000000003")))
@@ -122,7 +122,7 @@ class TimelineServiceTest {
     @Test
     void getTimelineMap_anchorAtEnd_respectsWindowBoundaries() {
         // Given: anchor at last index
-        when(observationRepository.findByProjectPathOrderByCreatedAtDesc(
+        when(observationRepository.findByProjectPathOrderByCreatedAtEpochDesc(
                 eq("/tmp/test"), any(Pageable.class)))
             .thenReturn(new PageImpl<>(List.of(obs3, obs2, obs1)));
         when(observationRepository.findById(UUID.fromString("00000000-0000-0000-0000-000000000001")))
@@ -156,7 +156,7 @@ class TimelineServiceTest {
     void getTimelineMap_anchorNotFoundInRepo_returnsAnchorNotFoundError() {
         // Given: valid UUID but not in DB
         String uuid = "00000000-0000-0000-0000-000000000001";
-        when(observationRepository.findByProjectPathOrderByCreatedAtDesc(
+        when(observationRepository.findByProjectPathOrderByCreatedAtEpochDesc(
                 eq("/tmp/test"), any(Pageable.class)))
             .thenReturn(new PageImpl<>(List.of(obs3, obs2, obs1)));
         when(observationRepository.findById(UUID.fromString(uuid)))
@@ -173,7 +173,7 @@ class TimelineServiceTest {
     @Test
     void getTimelineMap_anchorNotInList_returnsEmptyObservations() {
         // Given: anchor exists in DB but not in the paginated list
-        when(observationRepository.findByProjectPathOrderByCreatedAtDesc(
+        when(observationRepository.findByProjectPathOrderByCreatedAtEpochDesc(
                 eq("/tmp/test"), any(Pageable.class)))
             .thenReturn(new PageImpl<>(List.of(obs2, obs3))); // obs1 not in this list
         when(observationRepository.findById(UUID.fromString("00000000-0000-0000-0000-000000000001")))
@@ -193,7 +193,7 @@ class TimelineServiceTest {
     @Test
     void getTimelineMap_defaultDepthValues() {
         // Given
-        when(observationRepository.findByProjectPathOrderByCreatedAtDesc(
+        when(observationRepository.findByProjectPathOrderByCreatedAtEpochDesc(
                 eq("/tmp/test"), any(Pageable.class)))
             .thenReturn(new PageImpl<>(List.of(obs3, obs2, obs1)));
         when(observationRepository.findById(UUID.fromString("00000000-0000-0000-0000-000000000002")))
@@ -212,7 +212,7 @@ class TimelineServiceTest {
     @Test
     void getTimelineMap_withQuery_findsAnchorViaSemanticSearch() throws Exception {
         // Given: no anchorId, but query provided
-        when(observationRepository.findByProjectPathOrderByCreatedAtDesc(
+        when(observationRepository.findByProjectPathOrderByCreatedAtEpochDesc(
                 eq("/tmp/test"), any(Pageable.class)))
             .thenReturn(new PageImpl<>(List.of(obs2)));
         when(observationRepository.findById(UUID.fromString("00000000-0000-0000-0000-000000000002")))
