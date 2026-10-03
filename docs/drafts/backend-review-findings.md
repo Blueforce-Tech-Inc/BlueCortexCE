@@ -46,6 +46,20 @@
 > 「Matches the Go, Python and JS SDKs」——重试策略确实一致，但**错误传播**
 > 恰恰是它唯一不同的地方，而这正是调用方能感知的部分），⏸已记录不实现
 > （改这两处会改变现有调用方可观测到的行为）。P2 Open 计数仍为 2。
+> 第 206 轮新增 **P2-20**（**全部 22 个**数值查询参数、11 个端点都静默接受十六进制
+> 字面量：Spring 默认转换对 `0x`/`0X` 前缀走 `Integer.decode`。实测 `?lines=0x10`
+> 返回 `{"returnedLines":16}`、`?limit=0x10` 返回 16 条，状态码一律 `200` 且响应中
+> 无任何迹象。**危害最大的是时间戳**：`/api/timeline` 的 `startEpoch`/`endEpoch`
+> 会被解释成 1970 年附近的 epoch 而**静默返回空时间窗**。关键机制细节：
+> `?limit=010` 返回 **10 而非八进制 8**，说明仅十六进制前缀走 decode。**排查陷阱**：
+> `/api/context/timeline` 对无法解析的 `?limit=abc` 与 `?limit=0x3` 返回**完全相同**的
+> `400 {"error":"No anchor found"}`——那是解析成功后的领域错误，只看状态码会误判为
+> 「该端点严格拒绝十六进制」而漏掉这条；真正的解析失败返回 Spring 默认的
+> `{"status":400,"error":"Bad Request"}`。**状态码不等于原因，必须读响应体**。
+> 收紧会把一批 `200` 变成 `400`、波及 11 个端点，属对外契约变更），⏸已记录不实现，
+> 但已新增「Query Parameter Conventions / 查询参数约定」一节完整记录（**并因此修正了
+> 上一轮把该行为写成「五个 `limit` 端点的属性」的范围过窄**——**修掉一个说法 ≠ 修掉
+> 这个说法**，第 205 轮刚写下的内容本轮就发现范围划小了）。P2 Open 计数仍为 2。
 > **Open 只统计尚未处理的条目**（⏸已记录不修 / 📌待修）。标记为 ✅已修复 或 ✅已跳过 的条目
 > 保留在本文件作为可追溯的历史，但**不计入** Open。
 > P1-2（导入端点把校验失败报成成功跳过）已于 2026-10-02 第 166 轮 Backend 集中修复并复测通过，
@@ -650,6 +664,37 @@
   （原本被吞掉的异常会开始上抛），属对外行为契约变更，与 P2-13/P2-15/P2-16
   同一套判断；且需项目先决定这两条触发路径是否应纳入 fire-and-forget 语义。
   本轮代码方向为 Python SDK，已核实 Python 侧行为正确，故只记录。
+
+### P2-20: 全部 22 个数值查询参数都会静默接受十六进制字面量
+
+- **Scope**: 全部声明为 `int`/`long`/`Integer`/`Long` 的 `@RequestParam`，共 **22** 个、
+  分布在 **11** 个端点（`ViewerController` 13 处、`ContextController` 7 处、
+  `LogsController` 1 处、`ExtractionController` 1 处）。完整清单见
+  `docs/API.md` 的「Query Parameter Conventions」一节。
+- **Problem**: Spring 的默认数字转换会**静默采纳 `0x`/`0X` 十六进制前缀**。
+  规则是：先 trim，带十六进制前缀走 `Integer.decode`，否则走 `Integer.valueOf`。
+  实测（活体）：`?limit=0x10` → **16 条**、`?lines=0x10` → `{"returnedLines":16}`、
+  `?maxObservations=0x10` → 200、`?startEpoch=0x10` → 200、`?offset=0x2` → 200。
+  状态码一律 `200`，**响应中没有任何字段表明读的是一个十六进制字面量**。
+  顺带定住机制的一点：`?limit=010` 返回 **10 而非八进制 8**——若真是 `Integer.decode`
+  一路到底，`010` 会被读成 8，因此是「仅对十六进制前缀走 decode」。
+- **危害**：`startEpoch` / `endEpoch` 是**时间戳**，`0x` 前缀会把它们解释成一个
+  1970 年附近的 epoch 毫秒值，**静默返回空时间窗而无任何报错**。`lines` 会被读成
+  一个行数，`maxObservations` 会被读成一个条数。都没有校验、没有警告。
+- **一个必须说明的排查陷阱**：`/api/context/timeline` 对 `?limit=abc`（**根本无法
+  解析**）与 `?limit=0x3` 返回**完全相同**的 `400 {"error":"No anchor found"}`——
+  那是**解析成功之后**的领域错误。若只看状态码，会误判为「该端点严格拒绝十六进制」
+  而漏掉这条。真正的解析失败返回的是 Spring 默认的
+  `{"status":400,"error":"Bad Request"}`（如 `/api/context/preview` 所返回的）。
+  **状态码不等于原因，必须读响应体。**
+- **对照**：布尔参数**不受影响**（`?includeObservations=0x1` → 400）；四家 SDK 把这些
+  参数声明为数字类型，**根本无法**把十六进制字面量放到线上，故只影响直接调用
+  HTTP API 的代码。
+- **Status**: ⏸**已记录，不实现**。收紧会把一批当前的 `200` 变成 `400`，
+  属**对外 API 契约变更**，且波及 11 个端点；需项目先决定是否值得。本轮代码方向为
+  Backend，已做的是**如实记录**：`docs/API.md` + `-zh-CN` 新增「Query Parameter
+  Conventions / 查询参数约定」一节，写明通用规则、完整参数清单与该排查陷阱，
+  并把 `limit` 小节改为指向它而非重复叙述。
 
 ## Processing Rules
 

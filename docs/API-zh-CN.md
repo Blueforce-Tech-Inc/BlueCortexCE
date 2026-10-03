@@ -103,6 +103,55 @@ Content-Type: application/json
 }
 ```
 
+### 查询参数约定
+
+**整数查询参数由 Spring 的默认绑定转换，宽松程度超出「一个整数」的直觉。**
+这不是某个端点的特性：本 API 全部 **22 个**数值查询参数都受影响，因为它们无一
+例外都声明为 Java `int`/`long`，转换发生在任何端点自身的校验之前。
+
+| 输入 | 结果 |
+|------|------|
+| `7` | 7 |
+| （空值） | 该参数的 `defaultValue` |
+| `+5` | 5——接受前导 `+` |
+| `␣5` 或 `5␣` | 5——前后空白被 trim |
+| `010` | **10，十进制**——前导 0 无特殊含义 |
+| `0x10` | **16，十六进制** |
+| `0X10`、`+0x10` | 16——前缀大小写不敏感，且可带符号 |
+| `0xff` | 255（若该端点有钳制，随后被钳） |
+| `10abc`、`1.5`、`1e3`、`1_0`、`1+1` | `400 Bad Request` |
+| 超出 `int`/`long` 范围的值 | `400 Bad Request` |
+
+底层规则是：先 trim，带 `0x`/`0X` 前缀走 `Integer.decode`，否则走
+`Integer.valueOf`——这也正是 `010` 是十而不是八的原因。
+
+十六进制前缀被**静默采纳**：`/api/logs` 的 `?lines=0x10` 返回
+`{"returnedLines": 16}`，任何分页端点的 `?limit=0x10` 返回 16 条，两者状态码都是
+`200`，而响应中没有任何迹象表明读的是一个十六进制字面量。
+
+**受影响的参数一览：**
+
+| 端点 | 参数 |
+|------|------|
+| `/api/observations` | `limit`、`offset` |
+| `/api/summaries` | `limit`、`offset` |
+| `/api/prompts` | `limit`、`offset` |
+| `/api/search` | `limit`、`offset` |
+| `/api/search/by-file` | `limit` |
+| `/api/context/recent` | `limit` |
+| `/api/context/timeline` | `depth_before`、`depth_after` |
+| `/api/context/preview` | `maxObservations`、`maxSummaries`、`sessionCount`、`fullCount` |
+| `/api/timeline` | `startEpoch`、`endEpoch`、`depthBefore`、`depthAfter` |
+| `/api/extraction/{templateName}/history` | `limit` |
+| `/api/logs` | `lines` |
+
+数值参数返回 `400` **只**意味着文本无法转换。范围处理是另一回事，按端点分别记录：
+分页端点是**静默钳制**而非拒绝。`limit` 的钳制与实测示例见 *List Observations*。
+
+布尔参数**不受影响**——`?includeObservations=0x1` 是 `400`。手工拼接查询字符串的
+调用方应自行校验整数，或者直接用四家 SDK——那里这些参数是数字类型，十六进制
+字面量根本无法表达。
+
 ---
 
 ## Session 会话管理
@@ -1406,9 +1455,8 @@ WebUI 使用的端点，用于查看和搜索记忆。
 
 **`limit` 的「解析」与「钳制」是两件事，而此前只记录了后者。** 五个端点都把该参数
 绑定为 Java `int`，因此在钳制发生之前值已先被 Spring 转换，而这一步的宽松程度
-超出「一个整数」的直觉。已在运行中的后端上对五者逐一实测（`/api/search/by-file`
-在补上它必填的 `filePath` 后表现完全一致——不补时它对任何 `limit` 都返 `400`，
-那是缺参数而非 limit 问题）：
+超出「一个整数」的直觉。这就是「查询参数约定」一节描述的**通用**行为；此处仅列
+`limit` 自身的结果，已在运行中的后端上对五者逐一实测：
 
 | `?limit=` | 结果 | 原因 |
 |-----------|------|------|
@@ -2676,7 +2724,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
-| 2026-10-03 | (unreleased) | 记录 `limit` 的**解析**行为——与 2026-10-02 记录的钳制是两件事，此前五者均未说明。五个端点都把该参数绑定为 Java `int`，值先经 Spring 转换再进入钳制，而这一步会容忍前后空白、前导 `+`，以及最出人意料的 **`0x`/`0X` 十六进制前缀**：`?limit=0x10` 返回 16 条、状态码 `200`，响应中没有任何迹象表明读的是十六进制字面量。`010` 是十进制 10 而非八进制 8，因为规则是先 trim，带十六进制前缀走 `Integer.decode`、否则走 `Integer.valueOf`。完全无法转换是该参数**唯一**产生 `400` 的情形（`10abc`、`1.5`、`1e3`、`1_0`、`1+1` 及 int 溢出）；空值绑定为 `defaultValue`。已在五者上逐一实测；`/api/search/by-file` 补上必填 `filePath` 后表现一致，不补时对任何 `limit` 均返 `400`。中英文同步 |
+| 2026-10-03 | (unreleased) | 记录 `limit` 的**解析**行为——与 2026-10-02 记录的钳制是两件事，此前五者均未说明。五个端点都把该参数绑定为 Java `int`，值先经 Spring 转换再进入钳制，而这一步会容忍前后空白、前导 `+`，以及最出人意料的 **`0x`/`0X` 十六进制前缀**：`?limit=0x10` 返回 16 条、状态码 `200`，响应中没有任何迹象表明读的是十六进制字面量。`010` 是十进制 10 而非八进制 8，因为规则是先 trim，带十六进制前缀走 `Integer.decode`、否则走 `Integer.valueOf`。完全无法转换是该参数**唯一**产生 `400` 的情形（`10abc`、`1.5`、`1e3`、`1_0`、`1+1` 及 int 溢出）；空值绑定为 `defaultValue`。已在五者上逐一实测。**同日修正范围**：这既不是 `limit` 的属性，也不是这五个端点的属性。把后端全部数值型 `@RequestParam` 枚举出来共 **22 个**、分布在 **11 个**端点，行为完全一致——`/api/logs` 的 `?lines=0x10` 返回 `{"returnedLines": 16}`，`/api/timeline` 的 `startEpoch` 与 `/api/context/preview` 的 `maxObservations` 同样接受十六进制前缀。通用规则现已统一记录在「查询参数约定」一节并附完整参数清单，`limit` 小节改为指向它。布尔参数不受影响（`?includeObservations=0x1` 是 `400`）。中英文同步 |
 | 2026-10-02 | (unreleased) | 记录五个分页/搜索端点共用的 `limit` 钳制行为（`/api/observations`、`/api/summaries`、`/api/prompts`、`/api/search`、`/api/search/by-file`）。五者都应用 `Math.min(Math.max(1, limit), MAX_PAGE_SIZE)`，MCP 的 `search` 工具也镜像同一窗口，但参数表只写了「（最大 100）」——读起来像「会拒绝」而非「静默钳制」：调用方传 `limit=0` 期望「不限制」，实际只拿到 1 条且无报错。实测：`?limit=0` 与 `?limit=-5` 在三个列表端点均返回 1 条；`?limit=500` 返回 100 条列表与 100 条搜索结果；`?limit=7` 返回 7 条。`/api/search/by-file` 仅确认了下界（`?limit=0` -> 1），因为没有匹配同一路径的多条记录。与今日早些时候记录的 `/api/logs` 钳制属同一类问题；中英文同步 |
 | 2026-10-02 | (unreleased) | GET `/api/logs`：补充此前完全未记录的 `lines` 钳制行为。`LogsController` 中为 `Math.min(Math.max(1, lines), 10000)`，因此越界值会被静默钳制、**从不返回 `400`**——实测：`?lines=0` 与 `?lines=-5` 均返回 `returnedLines: 1`，`?lines=50000` 返回 `10000`，`?lines=3` 返回 `3`。同时说明 `returnedLines` 永远不超过钳制后的 `lines`，以及 `totalLines` 统计的是被搜索文件的全部行数（可能不止一个文件：该端点优先读今天的日志，仅当今天行数不足时才回退到昨天，`files` 列出实际读取的文件）。本条初稿曾写「跨日时 `returnedLines` 可能超过 `lines`」，读控制器后发现不成立（`subList(size - validatedLines, size)` 已将其限制住），遂删除而非发布。 |
 | 2026-10-02 | (unreleased) | **行为变更：四个单记录导入端点现在把校验失败计入 `errors`，不再计入 `skipped`。** `ImportResult` 有三个工厂（`imported`、`duplicate`、`error`），而 `ImportController` 只按 `imported()` 分支，于是 `error()` 落进了 skip 计数，而 `errors`/`errorMessages` **只接收抛出的异常**。同一类失败因此仅因「抛出」还是「返回」而被报告成两种完全不同的样子。修复前实测：字段未绑定的载荷返回 `{"success":true,"imported":0,"skipped":1,"errors":0,"errorMessages":[]}`，而那条记录已被静默丢弃。现新增 `ImportResult.isError()` 以 `id() == null` 区分（只有 `error()` 不设 id），四处调用点全部改为按它分支。修复后实测：`{"success":true,"imported":0,"skipped":0,"errors":1,"errorMessages":["projectPath is required"]}`。真正的重复**行为不变**，仍计为 skipped。另补：`importSession` 与 `importSummary` 现在校验 `projectPath`（两张表上均为 NOT NULL），缺字段时返回点名该字段的消息，而不是 `Could not commit JPA transaction` 或原始的 PostgreSQL 约束错误。三个计数的语义已补进「Import Observations」小节——正是这个空白让该缺陷长期存活。对 WebUI 零影响：`webui` 的 `POST /api/import` 是写入自有 SQLite store 的独立 worker 路由，从不调用这些端点。 |
