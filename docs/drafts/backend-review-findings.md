@@ -16,6 +16,9 @@
 > 与双语 API 文档），已在**注解与文档层**修复并复测；**后端本身仍不校验**未知模板名，
 > 返回 400 属对外契约变更，留待后续决策。
 > P2 Open 计数仍为 2（P2-8、P2-10）。
+> 第 210 轮新增 P2-22（`/api/cursor/projects` 的 Swagger 示例把 ISO-8601 时间戳写成 epoch
+> 数字，客户端照此生成会解析失败），**记录不修**——改注解即改对外 OpenAPI 契约；
+> 文档层已先行更正（`API.md` / `API-zh-CN.md` 该节原本连响应示例都没有）。
 > 第 189 轮新增 P2-12（`MemoryRefineService.deepRefineProjectMemories` 无调用方，
 > 且其注释谎称自己由 SessionEnd 与定时任务共同触发——正是第 187 轮那处「定时抽取」
 > 虚构描述的代码侧残留），注释已改为如实说明，方法与配置键均**刻意不动**，记为已处理。
@@ -748,6 +751,29 @@
   初判「环境变量形式无法关闭 `capture-enabled`」，改用**真实环境变量**复测后
   证明 `CORTEX_MEM_CAPTURE_ENABLED=false` **有效**——原结论来自
   `withPropertyValues` 不模拟环境变量这一**探针缺陷**）。
+
+### P2-22: `/api/cursor/projects` 的 Swagger 示例把 ISO 字符串写成了 epoch 数字
+
+- **Scope**: `backend/.../controller/CursorController.java:143`（`@ApiResponse` 的
+  `@Schema(example = ...)`）。
+- **Problem**: 示例写作
+  `"{\"projects\":[{\"projectName\":\"my-project\",\"workspacePath\":\"/path\",\"installedAt\":1709000000000}],\"count\":1}"`，
+  即把 `installedAt` 标成一个 **epoch 毫秒数字**。实际类型是 **String**：
+  `CursorService.CursorProjectEntry(String workspacePath, String installedAt)`
+  （`CursorService.java:52-55`），活体返回
+  `"installedAt": "2026-03-18T17:50:11.192503Z"`。**照此示例生成的客户端会把该字段
+  当数字解析并直接失败**；同一控制器里 `GET /api/cursor/register/{projectName}` 的
+  `installedAt` 示例同样是 epoch 数字，需一并核对。
+- **Status**: ⏸ **记录不修** —— 修 Swagger 注解虽是小改动，但会改变对外发布的
+  OpenAPI 契约内容，属对外契约变更，留待项目决策。**文档层已先行更正**：
+  `docs/API.md` 与 `docs/API-zh-CN.md` 的 `GET /api/cursor/projects` 原本**只有
+  一个代码块、既无描述也无响应示例**（英文版连中文版那一行描述都没有），现已按
+  活体与源码补上完整响应示例，并明确 `installedAt` 是 ISO-8601 字符串、
+  `count` 恒等于 `projects.length`（活体 16 == 16，已核对）。
+- **复核记录**: 第 210 轮文档方向发现。取证：活体 `GET /api/cursor/projects` →
+  `{"count":16,"projects":[{"workspacePath":...,"installedAt":"...","projectName":...}]}`，
+  `installedAt` 类型实测为 `str`；`CursorService.java:52` 记录分量为 `String installedAt`。
+
 
 ## Processing Rules
 

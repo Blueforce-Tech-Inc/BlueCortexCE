@@ -2168,6 +2168,25 @@ DELETE /api/cursor/register/{projectName}
 GET /api/cursor/projects
 ```
 
+Returns every project currently registered for Cursor auto-context updates, with its workspace path and registration timestamp.
+
+**Response** (`200 OK`):
+```json
+{
+  "projects": [
+    {
+      "projectName": "my-project",
+      "workspacePath": "/path/to/project",
+      "installedAt": "2026-03-18T17:50:11.192503Z"
+    }
+  ],
+  "count": 1
+}
+```
+
+> **Note**: `installedAt` is an **ISO-8601 timestamp string**, not an epoch number.
+> `count` always equals `projects.length`.
+
 ### Update Context
 
 ```

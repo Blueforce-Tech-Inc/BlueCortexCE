@@ -2186,6 +2186,24 @@ Cursor IDE 集成端点，用于自动上下文文件更新。
 
 获取所有已注册的 Cursor 项目列表。
 
+**响应**（`200 OK`）：
+
+```json
+{
+  "projects": [
+    {
+      "projectName": "my-project",
+      "workspacePath": "/path/to/project",
+      "installedAt": "2026-03-18T17:50:11.192503Z"
+    }
+  ],
+  "count": 1
+}
+```
+
+> **注意**：`installedAt` 是 **ISO-8601 时间戳字符串**，不是 epoch 数字。
+> `count` 恒等于 `projects.length`。
+
 ---
 
 #### POST `/api/cursor/context/{projectName}`
