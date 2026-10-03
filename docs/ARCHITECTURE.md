@@ -935,15 +935,21 @@ public record ToolUseRequest(
     @JsonProperty("prompt_number") Integer promptNumber
 ) {}
 
-// Pattern matching for instanceof — real: dto/OffsetPageRequest.java:109
+// Pattern matching for instanceof — real: dto/OffsetPageRequest.java:107-114
+// (the instanceof line itself is 109). Quoted verbatim: the real equals
+// compares FOUR fields, and an earlier version of this snippet showed only two,
+// which read as though offset and sort were ignored.
 @Override
 public boolean equals(Object o) {
     if (this == o) return true;
     if (!(o instanceof Pageable that)) return false;
-    return page == that.getPageNumber() && size == that.getPageSize();
+    return page == that.getPageNumber()
+        && size == that.getPageSize()
+        && offset == that.getOffset()
+        && sort.equals(that.getSort());
 }
 
-// Virtual threads (Java 21) — real: SummaryGenerationService:83, MemoryRefineService:88
+// Virtual threads (Java 21) — real: SummaryGenerationService:83, MemoryRefineService:91
 @Async  // runs on virtual threads; spring.threads.virtual.enabled=true in application.yml
 public void generateSummaryAsync(...) { ... }
 

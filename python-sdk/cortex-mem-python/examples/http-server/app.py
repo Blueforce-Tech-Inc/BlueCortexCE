@@ -424,8 +424,15 @@ def observations_create():
     })
     if missing:
         return _error(400, f"{missing} is required")
-    # Validate extractedData type if provided (must be dict, not string or list)
-    if "extractedData" in data and not isinstance(data["extractedData"], dict):
+    # Validate extractedData type if provided (must be dict, not string or list).
+    # ``None`` is deliberately NOT rejected. The backend accepts an explicit
+    # null -- on PATCH that clears the column and stores SQL NULL -- so refusing
+    # it here would reject a request the real backend honours, and it would
+    # report it with the same "must be a JSON object" message as a genuine type
+    # error, which is simply untrue. (``isinstance(None, dict)`` is False, so the
+    # old check caught null as a side effect rather than by intent.) The Java
+    # demo's create path already drew this distinction.
+    if "extractedData" in data and data["extractedData"] is not None and not isinstance(data["extractedData"], dict):
         return _error(400, "extractedData must be a JSON object")
 
     client.record_observation(
@@ -448,8 +455,15 @@ def observations_update(obs_id: str):
     data = _parse_json()
     if isinstance(data, tuple):
         return data
-    # Validate extractedData type if provided (must be dict, not string or list)
-    if "extractedData" in data and not isinstance(data["extractedData"], dict):
+    # Validate extractedData type if provided (must be dict, not string or list).
+    # ``None`` is deliberately NOT rejected. The backend accepts an explicit
+    # null -- on PATCH that clears the column and stores SQL NULL -- so refusing
+    # it here would reject a request the real backend honours, and it would
+    # report it with the same "must be a JSON object" message as a genuine type
+    # error, which is simply untrue. (``isinstance(None, dict)`` is False, so the
+    # old check caught null as a side effect rather than by intent.) The Java
+    # demo's create path already drew this distinction.
+    if "extractedData" in data and data["extractedData"] is not None and not isinstance(data["extractedData"], dict):
         return _error(400, "extractedData must be a JSON object")
     kwargs = {}
     for key in ("title", "subtitle", "content", "narrative", "facts", "concepts", "source"):

@@ -927,15 +927,20 @@ public record ToolUseRequest(
     @JsonProperty("prompt_number") Integer promptNumber
 ) {}
 
-// instanceof 模式匹配 —— 真实代码：dto/OffsetPageRequest.java:109
+// instanceof 模式匹配 —— 真实代码：dto/OffsetPageRequest.java:107-114
+// （instanceof 那一行本身在 109）。此处逐字引用：真实的 equals 比较**四个**字段，
+// 而早前的版本只写了两个，读起来会以为 offset 与 sort 未被比较。
 @Override
 public boolean equals(Object o) {
     if (this == o) return true;
     if (!(o instanceof Pageable that)) return false;
-    return page == that.getPageNumber() && size == that.getPageSize();
+    return page == that.getPageNumber()
+        && size == that.getPageSize()
+        && offset == that.getOffset()
+        && sort.equals(that.getSort());
 }
 
-// 虚拟线程（Java 21）—— 真实代码：SummaryGenerationService:83、MemoryRefineService:88
+// 虚拟线程（Java 21）—— 真实代码：SummaryGenerationService:83、MemoryRefineService:91
 @Async  // 跑在虚拟线程上；application.yml 中 spring.threads.virtual.enabled=true
 public void generateSummaryAsync(...) { ... }
 

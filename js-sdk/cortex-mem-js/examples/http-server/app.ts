@@ -305,8 +305,14 @@ app.post('/observations/create', asyncHandler(async (req: Request, res: Response
   const missing = requireFields(req.body, ['project', 'session_id', 'tool_name']);
   if (missing) return errorJson(res, 400, `${missing} is required`);
 
-  // Validate extractedData type if provided (must be object, not string or array)
-  if ('extractedData' in req.body && (typeof req.body.extractedData !== 'object' || Array.isArray(req.body.extractedData) || req.body.extractedData === null)) {
+  // Validate extractedData type if provided (must be object, not string or array).
+  // `null` is deliberately NOT rejected. The backend accepts an explicit null —
+  // on PATCH that clears the column and stores SQL NULL — so refusing it here
+  // would reject a request the real backend honours, and it would report it with
+  // the same "must be a JSON object" message as a genuine type error, which is
+  // simply untrue. The Java demo's create path already drew this distinction
+  // (`edObj != null && !(edObj instanceof Map)`).
+  if ('extractedData' in req.body && req.body.extractedData !== null && (typeof req.body.extractedData !== 'object' || Array.isArray(req.body.extractedData))) {
     return errorJson(res, 400, 'extractedData must be a JSON object');
   }
 
@@ -324,8 +330,14 @@ app.post('/observations/create', asyncHandler(async (req: Request, res: Response
 }));
 
 app.patch('/observations/:id', asyncHandler(async (req: Request, res: Response) => {
-  // Validate extractedData type if provided (must be object, not string or array)
-  if ('extractedData' in req.body && (typeof req.body.extractedData !== 'object' || Array.isArray(req.body.extractedData) || req.body.extractedData === null)) {
+  // Validate extractedData type if provided (must be object, not string or array).
+  // `null` is deliberately NOT rejected. The backend accepts an explicit null —
+  // on PATCH that clears the column and stores SQL NULL — so refusing it here
+  // would reject a request the real backend honours, and it would report it with
+  // the same "must be a JSON object" message as a genuine type error, which is
+  // simply untrue. The Java demo's create path already drew this distinction
+  // (`edObj != null && !(edObj instanceof Map)`).
+  if ('extractedData' in req.body && req.body.extractedData !== null && (typeof req.body.extractedData !== 'object' || Array.isArray(req.body.extractedData))) {
     return errorJson(res, 400, 'extractedData must be a JSON object');
   }
 

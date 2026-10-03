@@ -30,7 +30,8 @@
 | 243 | P2-38 | ✅ **已修**（紧凑构造器统一校验，4 条新测试，139→143；`ICLPromptRequest` 复核本就正确） |
 | 244 | P2-40 | ⏸ 记录不修（四家 SDK **能写 prompts 与 summaries、却都读不回来**；新增公开方法属产品决策） |
 | 245 | P2-41 | ⏸ 记录不修（`platform_source` / `content_hash` 等**四家一致不暴露**，SDK 用户无法按平台区分观测） |
-| 246 | P2-27 表更正 + P2-42 | ✅ **JS `ObservationUpdate` 类型已修**（八个字段 `T \| null`，此前 `null` 在 `strict` 下**编译不过**）；⏸ 记录不修（`tsconfig` 排除测试文件，`lint` 查不到测试里的类型错误） |
+| 246 | P2-27 表更正 + P2-42 | ✅ **JS `ObservationUpdate` 类型已修**（八个字段可空，此前 `null` 在 `strict` 下**编译不过**）；⏸ 记录不修（`tsconfig` 排除测试文件，`lint` 查不到测试里的类型错误） |
+| 247 | Demo + P2-43 | ✅ **JS / Python demo 的 `extractedData` 守卫已修**（把「清空」与「类型错误」混为一谈，拒掉后端接受的请求）；⏸ 记录不修（Python 两种调用风格对 `None` 语义相反） |
 
 > 历次压缩的批次与理由统一记在文末 `## Archived History`（最新一批见 batch 3），
 > **此处不再重复**——两处原本记着同一批压缩事件，每次压缩都要改两遍。
@@ -518,6 +519,11 @@
   | **Go** | ✗（`omitempty`） | ✗（`omitempty`） | **完全不能** |
   | **Python** | ✗（`if val is not None`） | ✗（显式 `continue`） | **完全不能** |
 
+  （**第 247 轮补注**：`✗` 只对 Python 的 **dataclass 调用路径**成立。
+  `update_observation(id, title=None)` 这种 **kwargs 写法不经过 `to_wire()`**，
+  而是逐字段原样拷贝，故 `None` 会真的发上 wire 并清空字段——探针与 demo 活体均已确认。
+  即 Python **能**经 kwargs 清空、**不能**经 dataclass 清空。详见 **P2-43**。）
+
   注意 Go 与 Python **在 facts/concepts 上能力相反**（Go 因 `omitempty` 丢弃空切片而
   不能清空，Python 因 `[] is not None` 而能清空）——见 P2-26。
 - **更正（2026-10-04 第 246 轮，本表 JS 行的判定依据当时不成立）**: 该行原以
@@ -676,13 +682,7 @@
   `FAILURE_BASE = 0.20f` 与 `FeedbackType.FAILURE`（第 24-26、59-61 行），
   即**整个 Evo-Memory 质量模型就是围绕「区分成功与失败」建立的**——
   而这条自动捕获路径**一条 FAILURE 都产不出来**。
-- **Evidence**:
-  | 事实 | 证据 |
-  |------|------|
-  | 失败有独立评分档 | `QualityScorer.java:26` `FAILURE_BASE = 0.20f`；`:61` `FAILURE, // Task failed` |
-  | 捕获跳过失败 | `CortexToolAspect.java:60` 的 `proceed()` 不在 try 内，无 catch 兜底 |
-  | **零测试覆盖** | `CortexToolAspectTest` 共 **4** 条：context 激活/未激活、大小输入截断/不截断——**无一条让工具抛异常** |
-  | 另一条捕获路径同样如此 | 薄代理只有 `PostToolUse` 钩子，**没有「工具失败」钩子**；故两条路径都产不出失败记录 |
+- **Evidence**: 活体/比对证据已逐字迁入 [`2026-10-04_backend-review-reproduction-6.md`](../archive/2026-10-04_backend-review-reproduction-6.md)（P2-35）。
 - **Status**: ⏸ **记录不修** —— 修它会让**所有用户的库里开始出现新的失败观测**，
   改变已存储的数据形态，属**产品决策**而非纯 bug 修复（沿用 P2-24「接入属新增特性
   而非修 bug」的同一判断）。修法：把 `proceed()` 包进 try，catch 后**先记录再重抛**
@@ -701,29 +701,7 @@
   于是构造函数传入负数时，兜底「回退」到的正是那个负数，**原样发上 wire**。
   测试名 `TestRetrieve_NegativeCount_FallsBackToDefault` 读起来像「负数已被处理」，
   但它把**构造函数传的是合法值 3**、只测 per-call 分支——**真正漏的那条路径无覆盖**。
-- **Evidence（wire 级用真实 `cortexmem.NewClient` 打 httptest，非 mock；后端活体取有 22,763
-  条观测的真实 project）**:
-  | 适配器 | 入口 | 实际发上 wire 的报文 |
-  |--------|------|---------------------|
-  | eino | `WithRetrieverCount(4)` | `{"task":…,"project":…,"count":4}` |
-  | eino | `WithRetrieverCount(0)` | `{"task":…,"project":…}` — 被 `omitempty` 省掉 |
-  | eino | `WithRetrieverCount(-1)` | `{…,"count":-1}` ← **原样发出** |
-  | eino | `WithRetrieverCount(-100)` | `{…,"count":-100}` ← **原样发出** |
-  | genkit | per-call `Count:-1`（构造值 4） | `{…,"count":4}` — 兜底**生效** |
-  | genkit | 构造 `WithRetrieverCount(-1)` | `{…,"count":-1}` ← 兜底**不生效** |
-  | langchaingo | `WithMemoryMaxChars(0)` | `{"task":…,"project":…}` — 被省掉 |
-  | langchaingo | `WithMemoryMaxChars(-1)` | `{…,"maxChars":-1}` ← **原样发出** |
-  | 后端 | `POST /experiences` `count:4` | 4 条，HTTP 200 |
-  | 后端 | `POST /experiences` `count:-1` | **0 条，HTTP 200** |
-  | 后端 | `POST /experiences` `count:0` | 0 条，HTTP 200 |
-  | 后端 | `POST /icl-prompt` `maxChars:4000` | 提示词 **528** 字符，回显 4000 |
-  | 后端 | `POST /icl-prompt` `maxChars:-1` | 提示词 **53** 字符（**-90%**），回显 **100**，`experienceCount` **仍为 4**，HTTP 200 |
-  > 现有适配器测试**全部使用 mock client**（`mockClient` / `captureClient`），它们在
-  > `dto.ExperienceRequest` 层面取值，**结构上无法观测序列化**——这就是这条缺陷能长期
-  > 存活的原因，也是本轮必须换成真实客户端 + httptest 的原因。两条路径**都不报错**：
-  > 负 `count` 让 eino/genkit 静默返回「没有相关记忆」，而 eino 自己的注释明确写着它
-  > 之所以向上抛错正是因为「静默空结果与『没有相关记忆』无法区分」；负 `maxChars` 更隐蔽
-  > ——4 条经验**确实检索到了**，只是被压进 53 字符里。
+- **Evidence**: 活体/比对证据已逐字迁入 [`2026-10-04_backend-review-reproduction-6.md`](../archive/2026-10-04_backend-review-reproduction-6.md)（P2-36）。
 - **附带一处被丢弃的透明信号**: 后端把**实际生效值**回显在 `ICLPromptResult.maxChars`，
   Go 的 `dto.ICLPromptResult.MaxChars` **确实有这个字段**（`dto/experience.go:46`），
   但全 SDK **无任何非测试代码读它**——`LoadMemoryVariables` 只取 `result.Prompt`。
@@ -753,10 +731,7 @@
   | **Java** | **GET** | **查询参数** `?message&project&conversationId&useTools` | `{response, project, conversation_id}`，**无 `timestamp`、无 `memoryContext`** | **真实调用 LLM**，经 `CortexMemoryAdvisor` **自动捕获** |
 
   即四家共用一个端点名，却在**方法、输入载体、响应结构、行为语义**四个维度上各不相同。
-- **Evidence（活体，非推断）** 本轮启动 Java demo（37778，PID 43601）实测：
-  - 照抄另三家的 `POST` + JSON body → **`{"status":405,"error":"Method Not Allowed","path":"/chat"}`**
-  - 用 Java 自己的 `GET /chat?message=…&project=…` → 请求**确实进入了 handler**
-    （返回 500 是本机 LLM 密钥失效这一**已知环境问题**，不作为缺陷计）
+- **Evidence**: 活体/比对证据已逐字迁入 [`2026-10-04_backend-review-reproduction-6.md`](../archive/2026-10-04_backend-review-reproduction-6.md)（P2-37）。
 - **分歧是「已知且被写下」的**：`ChatController` 自己的 Javadoc 明写
   「The Go, Python and JS demos all answer `POST /chat` with a JSON object」，
   **紧接着就改用 `@GetMapping`**——写下了差异却没有解决。
@@ -778,13 +753,7 @@
   `map.put("count", count != null ? count : 4)` —— 于是经构造器传入的 `0` 或负数
   **原样上线**，而后端 `ExpRagService` 对 `count <= 0` **返回空列表且 HTTP 200**，
   调用方拿到「零条相关记忆」而**无法与真实的空结果区分**。
-- **Evidence（真实 JUnit 探针，两条路径并排）**:
-  | 路径 | 输入 | 实际结果 |
-  |------|------|----------|
-  | `Builder.count(0)` | 0 | **REJECTED** — `count must be positive (got 0)` |
-  | `new ExperienceRequest("t","/p",0)` | 0 | wire = `{task=t, count=0, project=/p}` |
-  | `new ExperienceRequest("t","/p",-1)` | -1 | wire = `{task=t, count=-1, project=/p}` |
-  | `new ExperienceRequest("t","/p",null)` | null | wire = `{task=t, count=4, project=/p}` ✅ |
+- **Evidence**: 活体/比对证据已逐字迁入 [`2026-10-04_backend-review-reproduction-6.md`](../archive/2026-10-04_backend-review-reproduction-6.md)（P2-38）。
 - **严重度低于 P2-36 的姊妹项**：与第 239/240 轮修掉的 Python、JS 不同，
   Java 的 **builder 路径是受保护的**，README 推荐的也正是 builder；
   **只有公开构造器这条路漏**。但「同一个类两条路径校验不一致」本身仍是缺陷。
@@ -822,14 +791,7 @@
   4. 方法返回时提交，Spring 抛 **`UnexpectedRollbackException`（"Transaction silently rolled back"）**
      → 调用方拿到 **HTTP 500**，**逐行统计一个都没送到**，**整批合法行全部回滚丢失**。
   即：端点为「部分成功」设计的响应结构，在最需要它的场景下**完全不起作用**。
-- **Evidence（活体，2026-10-04，同一份三行输入打两个端点）**:
-  | 端点 | 外层事务 | 结果 |
-  |------|----------|------|
-  | `POST /api/import/sessions` | **无** | **HTTP 200**，`imported: 2, errors: 1`，错误信息精确到 `value too long for type character varying(255)`；**两条合法行成功落库** |
-  | `POST /api/import` | **有** | **HTTP 500**，仅 `{"status":500,"error":"Internal Server Error"}`；**两条合法行一条未落库** |
-  - 直查库确认：`r242-a-ok1` / `r242-a-ok2` 存在，`r242-b-ok1` / `r242-b-ok2` **不存在**（已回滚）。
-  - 后端日志中确认出现 **`UnexpectedRollbackException`** 与 **`Transaction silently rolled back`**。
-  - 探针数据已清理（3 行删除，残留 0）。
+- **Evidence**: 活体/比对证据已逐字迁入 [`2026-10-04_backend-review-reproduction-6.md`](../archive/2026-10-04_backend-review-reproduction-6.md)（P2-39）。
 - **同一类问题的既有痕迹**：`ImportService.importSession` 第 233-236 行已有一段注释，
   记录过 `project_path` 缺失导致「save 在提交时才失败、调用方只看到
   `Could not commit JPA transaction`」并为此**补了前置校验**。也就是说**这个坑已被踩过一次、
@@ -864,13 +826,7 @@
   与 `POST /api/ingest/user-prompt` 四家**全部**有方法（Go/Python/JS/Java 的
   session-end 与 user-prompt 引用数分别为 3/3、4/3、6/6、2/2）。
   即：**SDK 用户可以产生摘要与提示词，却永远无法把它们读回来**——想读只能自己发 HTTP。
-- **Evidence（活体）**:
-  | 端点 | 活体 | 文档 | SDK 方法 | demo 端点 |
-  |------|------|------|----------|-----------|
-  | `GET /api/summaries?limit=2` | **200**，返回 items | ✅ | ❌ | ❌ |
-  | `GET /api/prompts?limit=1` | **200**，返回 items | ✅ | ❌ | ❌ |
-  | `POST /api/ingest/session-end` | ✅ | ✅ | ✅ 四家 | ✅ |
-  | `POST /api/ingest/user-prompt` | ✅ | ✅ | ✅ 四家 | ✅ |
+- **Evidence**: 活体/比对证据已逐字迁入 [`2026-10-04_backend-review-reproduction-6.md`](../archive/2026-10-04_backend-review-reproduction-6.md)（P2-40）。
 - **一处探针自身出错并先识别再采信**：初版探针想用 `dto.SummariesResponse` 去解析
   活体响应，编译失败——**这个类型根本不存在**，而这恰恰印证了「没有 summaries 方法」
   这一判断本身（同一次探针的另一个版本甚至编译不过）。改为直接统计四家 SDK 里
@@ -942,6 +898,29 @@
   受影响的只是「测试文件本身写错类型不会被发现」这一层。
   故第 246 轮的类型层验证改用**直接对 `src/dto/observation.ts` 的探针文件**做双向注入
   （修复后 0 error / 回退后恰好 8 个 / 恢复后 0），而不是依赖 `npm test`。
+
+### P2-43: Python SDK 的两种调用风格对 `None` 的含义相反——dataclass 路径丢弃它、kwargs 路径原样发上 wire
+
+- **Scope**: `python-sdk/cortex-mem-python/cortex_mem/client.py` 的
+  `update_observation()` kwargs 分支，与同文件 `dto.py` 的 `ObservationUpdate.to_wire()`。
+- **Problem**: 同一个 `None` 在两条路径上语义不同，且**只有 kwargs 那条符合 PATCH 的清空语义**。
+  - dataclass 路径：`ObservationUpdate(title=None).to_wire()` → **`{}`**（`if val is not None` 跳过），
+    `is_empty()` → **True**，于是纯清空请求被当成「空更新」而**根本发不出去**。
+  - kwargs 路径：`update_observation(id, title=None)` 里是
+    `for kwarg, wire_key in ObservationUpdate._WIRE_FIELDS.items(): if kwarg in kwargs: body[wire_key] = kwargs[kwarg]`
+    ——**原样拷贝、不做 None 过滤**，于是 `body = {"title": None}`，
+    `if not body` 为假（非空字典），**`{"title": null}` 真的上了 wire 并清空了字段**。
+  - 探针实证：`ObservationUpdate(title=None)` → `to_wire() == {}`、`is_empty() == True`；
+    而经 demo 活体 `PATCH {"title": null}` → **200** 且 `mem_observations.title` 确实变 NULL。
+  - **对 P2-27 的影响**：该条能力表把 Python 判为「✗（`if val is not None`）」——
+    这对 dataclass 路径成立，**对 kwargs 路径不成立**。按「按断言清扫」的标准，
+    那行只覆盖了一半的调用面，应当标注。
+- **Status**: ⏸ **记录不修** —— 两种收法都改变现有调用方的可观测行为：
+  ①让 dataclass 路径也发 `None`（原本静默不发请求的 `ObservationUpdate(title=None)` 会突然发出一次 PATCH）；
+  ②让 kwargs 路径也过滤 `None`（**本条是真缺陷**：今天经 kwargs 清空是能成功的，
+  改掉等于让已经能用的能力失效，且 Python demo 的 PATCH 正是走 kwargs 路径）。
+  真正的修法要先决定**哪种写法才是 SDK 想支持的清空方式**，属 API 契约决策。
+  **但 P2-27 的能力表应当立即标注 kwargs 路径**——那是文档层的事实更正，已在下方补注。
 
 ## Processing Rules
 - SDK/Demo findings are fixed in place with focused compile/test verification.
