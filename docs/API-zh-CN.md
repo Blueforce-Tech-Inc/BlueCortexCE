@@ -1455,7 +1455,7 @@ WebUI 使用的端点，用于查看和搜索记忆。
 
 #### GET `/api/observations`
 
-分页获取观察列表，始终按 `created_at` 降序排列（最新的在前）。
+分页获取观察列表，始终按 `created_at_epoch` 降序排列（最新的在前）。
 
 **查询参数**:
 
@@ -1586,7 +1586,8 @@ curl "http://localhost:37777/api/observations?project=/Users/dev/myproject&limit
 | `platform_source` | string | 平台来源，用于多平台跟踪（V18，如 `claude`、`cursor`） |
 | `extractedData` | object | LLM 提取的结构化数据（`@JsonProperty` 覆盖；**不是** `extracted_data`） |
 | `prompt_number` | int | 会话中的提示词编号 |
-| `created_at` | string | ISO-8601 创建时间戳 |
+| `created_at` | string \| null | ISO-8601 创建时间戳，**通常为 `null`**。只有导入路径会写它——捕获路径只存 `created_at_epoch`。实测（2026-10-03）：38,120 条观测中仅 18,377 条（48%）有值。凡与时间相关的用途请用 `created_at_epoch` |
+| `created_at_epoch` | long | 创建时间的 epoch 毫秒——**始终有值**，且是所有端点实际排序所用的列 |
 | `created_at_epoch` | long | 创建时间的毫秒时间戳 |
 | `embedding_768` / `embedding_1024` / `embedding_1536` | number[] \| null | pgvector 列，维度取决于所配置的 embedding 模型；未写入时为 `null` |
 
@@ -1698,7 +1699,7 @@ curl "http://localhost:37777/api/search/by-file?project=/Users/dev/myproject&fil
 
 #### GET `/api/summaries`
 
-分页获取摘要列表，始终按 `created_at` 降序排列。
+分页获取摘要列表，始终按 `created_at_epoch` 降序排列。
 
 **查询参数**: 同 `/api/observations`
 
@@ -1708,7 +1709,7 @@ curl "http://localhost:37777/api/search/by-file?project=/Users/dev/myproject&fil
 
 #### GET `/api/prompts`
 
-分页获取用户提示列表，始终按 `created_at` 降序排列。
+分页获取用户提示列表，始终按 `created_at_epoch` 降序排列。
 
 **查询参数**: 同 `/api/observations`
 
@@ -2789,6 +2790,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
+| 2026-10-03 | (unreleased) | 三处「按 `created_at` 降序排列」的表述与 `created_at` 的字段类型**两个方向都错了**。**排序键**：端点实际按 `created_at_epoch` 排序而非 `created_at`——按后者排会返回**最旧**的行，即 P1-3，已于同轮修复。**类型**：`created_at` 原被标为非空 `string`，但只有导入路径会写它，捕获路径只存 epoch。实测（2026-10-03）：观测 38,120 条中 18,377 条（48%）有值、摘要 6,590 条中 1 条、用户提示 2,785 条中 0 条。现改为 `string \| null` 并把实测数据写进表内，客户端被引导至 `created_at_epoch`。2026-04-12 那条历史记录**按原样保留**——它记录的是当时的认知，不是现在的事实 |
 | 2026-10-03 | (unreleased) | `relevance_count` 与 `generated_by_model` 原被描述成 V17 反馈追踪已在生效，实际两者都**没有写入方**：活体库 38,104 条观测的 `relevance_count` 全为 `0`、`generated_by_model` 全为 `null`，`observation_feedback` 表 0 行。两行现如实写出实际取值。相关：`ObservationFeedbackEntity` 还映射了一个 V17 从未创建的 `created_at` 列，任何触及该实体的 JPQL 都会失败——已修，见 P2-24 |
 | 2026-10-03 | (unreleased) | 记录 `limit` 的**解析**行为——与 2026-10-02 记录的钳制是两件事，此前五者均未说明。五个端点都把该参数绑定为 Java `int`，值先经 Spring 转换再进入钳制，而这一步会容忍前后空白、前导 `+`，以及最出人意料的 **`0x`/`0X` 十六进制前缀**：`?limit=0x10` 返回 16 条、状态码 `200`，响应中没有任何迹象表明读的是十六进制字面量。`010` 是十进制 10 而非八进制 8，因为规则是先 trim，带十六进制前缀走 `Integer.decode`、否则走 `Integer.valueOf`。完全无法转换是该参数**唯一**产生 `400` 的情形（`10abc`、`1.5`、`1e3`、`1_0`、`1+1` 及 int 溢出）；空值绑定为 `defaultValue`。已在五者上逐一实测。**同日修正范围**：这既不是 `limit` 的属性，也不是这五个端点的属性。把后端全部数值型 `@RequestParam` 枚举出来共 **22 个**、分布在 **11 个**端点，行为完全一致——`/api/logs` 的 `?lines=0x10` 返回 `{"returnedLines": 16}`，`/api/timeline` 的 `startEpoch` 与 `/api/context/preview` 的 `maxObservations` 同样接受十六进制前缀。通用规则现已统一记录在「查询参数约定」一节并附完整参数清单，`limit` 小节改为指向它。布尔参数不受影响（`?includeObservations=0x1` 是 `400`）。中英文同步 |
 | 2026-10-02 | (unreleased) | 记录五个分页/搜索端点共用的 `limit` 钳制行为（`/api/observations`、`/api/summaries`、`/api/prompts`、`/api/search`、`/api/search/by-file`）。五者都应用 `Math.min(Math.max(1, limit), MAX_PAGE_SIZE)`，MCP 的 `search` 工具也镜像同一窗口，但参数表只写了「（最大 100）」——读起来像「会拒绝」而非「静默钳制」：调用方传 `limit=0` 期望「不限制」，实际只拿到 1 条且无报错。实测：`?limit=0` 与 `?limit=-5` 在三个列表端点均返回 1 条；`?limit=500` 返回 100 条列表与 100 条搜索结果；`?limit=7` 返回 7 条。`/api/search/by-file` 仅确认了下界（`?limit=0` -> 1），因为没有匹配同一路径的多条记录。与今日早些时候记录的 `/api/logs` 钳制属同一类问题；中英文同步 |

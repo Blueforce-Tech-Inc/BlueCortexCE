@@ -1485,7 +1485,7 @@ is not rejected, it simply matches nothing.
 GET /api/observations?project=/path/to/project&limit=20&offset=0
 ```
 
-Returns a paginated list of observations, optionally filtered by project. Results are always sorted by `created_at` descending (most recent first).
+Returns a paginated list of observations, optionally filtered by project. Results are always sorted by `created_at_epoch` descending (most recent first).
 
 **Query Parameters**:
 
@@ -1615,8 +1615,8 @@ take raw query strings, were aligned to one shared rule for the same reason.
 | `platform_source` | string | Platform source for multi-platform tracking (V18, e.g., `claude`, `cursor`) |
 | `extractedData` | object | Structured data extracted by the LLM (`@JsonProperty` override; **not** `extracted_data`) |
 | `prompt_number` | int | Prompt number in the session |
-| `created_at` | string | ISO-8601 creation timestamp |
-| `created_at_epoch` | long | Epoch milliseconds of creation |
+| `created_at` | string \| null | ISO-8601 creation timestamp, **usually `null`**. Only the import path sets it — the capture path stores `created_at_epoch` alone. Measured 2026-10-03: present on 18,377 of 38,120 observations (48%). Use `created_at_epoch` for anything time-related |
+| `created_at_epoch` | long | Epoch milliseconds of creation — always populated, and the column every endpoint sorts on |
 | `embedding_768` / `embedding_1024` / `embedding_1536` | number[] \| null | pgvector columns, dimension depends on the configured embedding model; all `null` when not populated |
 
 ### Get Observations by IDs
@@ -1699,7 +1699,7 @@ ids and sort client-side, or use `orderBy: "created_at_epoch"`.
 GET /api/summaries?project=/path/to/project&platformSource=claude&limit=20&offset=0
 ```
 
-Returns a paginated list of session summaries, sorted by `created_at` descending. Query parameters and response format are the same as List Observations (returns summary objects instead).
+Returns a paginated list of session summaries, sorted by `created_at_epoch` descending. Query parameters and response format are the same as List Observations (returns summary objects instead).
 
 ### List Prompts
 
@@ -1707,7 +1707,7 @@ Returns a paginated list of session summaries, sorted by `created_at` descending
 GET /api/prompts?project=/path/to/project&platformSource=claude&limit=20&offset=0
 ```
 
-Returns a paginated list of user prompts, sorted by `created_at` descending. Query parameters and response format are the same as List Observations (returns user prompt objects instead).
+Returns a paginated list of user prompts, sorted by `created_at_epoch` descending. Query parameters and response format are the same as List Observations (returns user prompt objects instead).
 
 ### Get Timeline
 
@@ -2774,6 +2774,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 
 | Date | Version | Changes |
 |------|---------|---------|
+| 2026-10-03 | (unreleased) | The three "sorted by `created_at` descending" statements and the `created_at` field type were wrong in both directions. **The sort key**: the endpoints order by `created_at_epoch`, not `created_at` — sorting on the latter returned the *oldest* rows, which is P1-3, fixed in the same round. **The type**: `created_at` was documented as a non-null `string`, but only the import path sets it; the capture path stores the epoch alone. Measured 2026-10-03: 18,377 of 38,120 observations (48%) have it, 1 of 6,590 summaries, 0 of 2,785 prompts. It is now `string \| null` with the measurement inline, and clients are pointed at `created_at_epoch`. The 2026-04-12 changelog entry is left as written: it records what was believed at the time, not what is true now |
 | 2026-10-03 | (unreleased) | `relevance_count` and `generated_by_model` were documented as if V17's feedback tracking were live. Neither has a writer: `relevance_count` is `0` on all 38,104 observations in the live database, `generated_by_model` is `null` on all of them, and `observation_feedback` has zero rows. Both rows now state the actual values. Related: `ObservationFeedbackEntity` mapped a `created_at` column that V17 never created, so any JPQL touching that entity would fail — fixed, see P2-24 |
 | 2026-10-03 | (unreleased) | Documented how `limit` is **parsed**, which is separate from the clamp recorded on 2026-10-02 and was previously unstated on all five endpoints. Each binds the parameter as a Java `int`, so Spring converts the text before the clamp runs, and the conversion honours surrounding whitespace, a leading `+`, and — the surprising part — a `0x`/`0X` **hex prefix**: `?limit=0x10` returns 16 items with a `200` and nothing in the response says a hexadecimal literal was read. `010` is decimal 10, not octal 8, because the rule is trim, then `Integer.decode` for a hex prefix and `Integer.valueOf` otherwise. A value that cannot be converted at all is the only way this parameter yields a `400` (`10abc`, `1.5`, `1e3`, `1_0`, `1+1`, and int overflow); empty binds to the `defaultValue`. Verified live on all five. **Scope corrected the same day:** this is not a property of `limit` or of these five endpoints. Enumerating every numeric `@RequestParam` in the backend gives 22 of them across 11 endpoints, and all 22 behave identically -- `?lines=0x10` on `/api/logs` returns `{"returnedLines": 16}`, `/api/timeline`'s `startEpoch`, and `/api/context/preview`'s `maxObservations` all accept a hex prefix too. The general rule is now documented once under *Query Parameter Conventions* with the full parameter list, and the `limit` section points at it. Boolean parameters are unaffected (`?includeObservations=0x1` is a 400). EN+ZH in sync |
 | 2026-10-02 | (unreleased) | Documented the `limit` clamp shared by the five paginated/search endpoints (`/api/observations`, `/api/summaries`, `/api/prompts`, `/api/search`, `/api/search/by-file`). All five apply `Math.min(Math.max(1, limit), MAX_PAGE_SIZE)` and the MCP `search` tool mirrors the same window, but the parameter tables only said "(max 100)", which reads like a rejection rather than a silent clamp — a caller passing `limit=0` expecting "no limit" gets one item and no error. Verified live: `?limit=0` and `?limit=-5` return 1 item on all three list endpoints; `?limit=500` returns 100 items and 100 search results; `?limit=7` returns 7. `/api/search/by-file` was confirmed on the lower bound only (`?limit=0` -> 1), because no fixture matches more than one record for a given path. Same class as the `/api/logs` clamp documented earlier today. EN+ZH in sync |
