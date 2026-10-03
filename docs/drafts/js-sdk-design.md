@@ -31,6 +31,7 @@
 │   ├── errors.ts             # Error types (APIError, error predicates)
 │   ├── dto/
 │   │   ├── index.ts          # DTO barrel export
+│   │   ├── wire-helpers.ts   # Shared wire-format coercion helpers
 │   │   ├── session.ts        # SessionStartRequest/Response, SessionEndRequest
 │   │   ├── observation.ts    # ObservationRequest, ObservationUpdate, Observation
 │   │   ├── experience.ts     # ExperienceRequest, Experience, ICLPromptRequest/Result
@@ -39,12 +40,15 @@
 │   │   ├── extraction.ts     # ExtractionResult
 │   │   └── misc.ts           # VersionResponse, ProjectsResponse, StatsResponse, etc.
 │   └── __tests__/
-│       └── client.test.ts    # Unit tests with vitest
+│       ├── client.test.ts    # Unit tests with vitest
+│       └── truncated-body.test.ts
 ├── examples/
-│   └── basic.ts              # Basic usage example
+│   ├── basic.ts              # Basic usage example
+│   └── http-server/          # Demo REST server mirroring the Go/Python demos
 ├── README.md
-└── CHANGELOG.md
 ```
+
+There is no `CHANGELOG.md`; release history is tracked in git.
 
 ## Design Principles
 
@@ -85,16 +89,20 @@ const prompt = result?.prompt ?? '';
 {
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.js"
     }
   },
-  "main": "./dist/index.cjs",
+  "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts"
 }
 ```
+
+`tsup` is configured with `format: ['cjs', 'esm']`. Because `package.json` has no
+`"type": "module"`, the CJS output is named `index.js`, not `index.cjs` — matching
+`main`/`require` above.
 
 ### 4. Error Handling
 
@@ -132,23 +140,32 @@ Capture operations (RecordObservation, RecordSessionEnd, RecordUserPrompt) use f
 | 8 | `search` | GET | `/api/search` |
 | 9 | `listObservations` | GET | `/api/observations` |
 | 10 | `getObservationsByIds` | POST | `/api/observations/batch` |
-| 11 | `triggerRefinement` | POST | `/api/memory/refine` |
-| 12 | `submitFeedback` | POST | `/api/memory/feedback` |
-| 13 | `updateObservation` | PATCH | `/api/memory/observations/{id}` |
-| 14 | `deleteObservation` | DELETE | `/api/memory/observations/{id}` |
-| 15 | `getQualityDistribution` | GET | `/api/memory/quality-distribution` |
-| 16 | `healthCheck` | GET | `/api/health` |
-| 17 | `triggerExtraction` | POST | `/api/extraction/run` |
-| 18 | `getLatestExtraction` | GET | `/api/extraction/{template}/latest` |
-| 19 | `getExtractionHistory` | GET | `/api/extraction/{template}/history` |
-| 20 | `getVersion` | GET | `/api/version` |
-| 21 | `getProjects` | GET | `/api/projects` |
-| 22 | `getStats` | GET | `/api/stats` |
-| 23 | `getModes` | GET | `/api/modes` |
-| 24 | `getSettings` | GET | `/api/settings` |
-| 25 | `close` | — | (cleanup idle connections) |
+| 11 | `getObservation` | POST | `/api/observations/batch` |
+| 12 | `triggerRefinement` | POST | `/api/memory/refine` |
+| 13 | `submitFeedback` | POST | `/api/memory/feedback` |
+| 14 | `updateObservation` | PATCH | `/api/memory/observations/{id}` |
+| 15 | `deleteObservation` | DELETE | `/api/memory/observations/{id}` |
+| 16 | `getQualityDistribution` | GET | `/api/memory/quality-distribution` |
+| 17 | `healthCheck` | GET | `/api/health` |
+| 18 | `triggerExtraction` | POST | `/api/extraction/run` |
+| 19 | `getLatestExtraction` | GET | `/api/extraction/{template}/latest` |
+| 20 | `getExtractionHistory` | GET | `/api/extraction/{template}/history` |
+| 21 | `getVersion` | GET | `/api/version` |
+| 22 | `getProjects` | GET | `/api/projects` |
+| 23 | `getStats` | GET | `/api/stats` |
+| 24 | `getModes` | GET | `/api/modes` |
+| 25 | `getSettings` | GET | `/api/settings` |
+| 26 | `close` | — | (cleanup idle connections) |
 
-Wait — the Go SDK has 26 methods. Let me recount: StartSession, UpdateSessionUserId, RecordObservation, RecordSessionEnd, RecordUserPrompt, RetrieveExperiences, BuildICLPrompt, Search, ListObservations, GetObservationsByIds, TriggerRefinement, SubmitFeedback, UpdateObservation, DeleteObservation, GetQualityDistribution, HealthCheck, TriggerExtraction, GetLatestExtraction, GetExtractionHistory, GetVersion, GetProjects, GetStats, GetModes, GetSettings, Close. That's 25 + Close. The task description says 26 methods. The Go Client interface has exactly 25 methods including Close.
+`getObservation(id)` is a convenience wrapper over `getObservationsByIds([id])`
+that returns `null` instead of an empty batch. The backend has **no**
+single-observation read endpoint — `GET /api/observations/{id}` answers **404** and
+`GET /api/memory/observations/{id}` answers **405** (that path is PATCH/DELETE
+only) — so the batch call is the only way to fetch one.
+
+Counting note: 25 of these are HTTP-backed plus `close()`, giving 26. The client
+also exposes four logger methods (`debug`/`info`/`warn`/`error`) and `toString()`;
+those are not part of the API surface.
 
 ## Wire Format Notes
 
@@ -185,15 +202,18 @@ const client = new CortexMemClient({
   timeout: 10000,
 });
 
-// Start session
+// Start session. Keep the session_id you chose — the response does not echo it
+// back, so it is not readable from the returned object.
+const SESSION_ID = 'my-session-001';
 const session = await client.startSession({
-  session_id: 'my-session-001',
+  session_id: SESSION_ID,
   project_path: '/path/to/project',
 });
+// session.session_db_id, session.context, session.prompt_number
 
 // Record observation (fire-and-forget)
 await client.recordObservation({
-  session_id: session.session_id,
+  session_id: SESSION_ID,
   cwd: '/path/to/project',
   tool_name: 'Read',
   tool_input: { file: 'main.go' },
@@ -214,7 +234,7 @@ const icl = await client.buildICLPrompt({
 
 // End session
 await client.recordSessionEnd({
-  session_id: session.session_id,
+  session_id: SESSION_ID,
   cwd: '/path/to/project',
 });
 
