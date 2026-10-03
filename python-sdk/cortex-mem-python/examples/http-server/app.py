@@ -120,11 +120,17 @@ def _parse_json():
 def _parse_int_param(key: str, default: int = 0) -> int:
     """Parse an optional integer query param.
 
-    Returns default if param is missing.
-    Raises ValueError if param is present but not a valid integer.
+    Returns default if the param is missing OR present but empty -- an empty
+    value is the same as not supplying it, which is what the backend, the Go
+    demo, the JS demo and the Java demo all do. Previously only a missing param
+    took the default, so ``?limit=`` raised while ``?limit=0`` did not, and this
+    demo was the only one of the four to reject it.
+
+    Raises ValueError if the param is present with a non-empty value that is not
+    an integer.
     """
     raw = request.args.get(key)
-    if raw is None:
+    if raw is None or raw == "":
         return default
     try:
         return int(raw)

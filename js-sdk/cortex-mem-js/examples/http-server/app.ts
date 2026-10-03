@@ -13,6 +13,7 @@
  */
 
 import express, { Request, Response, NextFunction } from 'express';
+import { pathToFileURL } from 'node:url';
 import { CortexMemClient, APIError, ValidationError } from '../../src';
 import type { ObservationUpdate } from '../../src';
 
@@ -41,14 +42,21 @@ function errorJson(res: Response, status: number, message: string) {
 // Parse an optional integer query param.
 // Returns { ok: false, message } for non-integer input so handlers can answer 400
 // instead of silently falling back to the default (see the /search handler).
-function parseIntParam(
+//
+// The pattern allows a leading sign, and only a sign: "0x10" and "1e3" are
+// rejected. parseInt() would happily accept "10abc" (returning 10) and
+// Number("0x10") would return 16, so the check is done against the raw text
+// rather than against the parsed value. A leading "+" is accepted because the
+// backend, the Go demo, the Python demo and the Java demo all accept it, and
+// the four demos are meant to demonstrate one contract, not four.
+export function parseIntParam(
   raw: unknown,
   name: string,
   opts: { min: number; max: number; range?: string },
 ): { ok: true; value: number } | { ok: false; message: string } {
   if (raw === undefined || raw === null || raw === '') return { ok: true, value: 0 };
   const parsed = typeof raw === 'number' ? raw : parseInt(String(raw), 10);
-  if (isNaN(parsed) || !/^-?\d+$/.test(String(raw).trim())) {
+  if (isNaN(parsed) || !/^[+-]?\d+$/.test(String(raw).trim())) {
     return { ok: false, message: `${name} must be an integer` };
   }
   if (parsed < opts.min || parsed > opts.max) {
@@ -470,7 +478,14 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 
 // ==================== Start ====================
 
-const server = app.listen(PORT, () => {
+// Only bind a port when this file is the entry point. parseIntParam is exported
+// so its rule can be unit-tested, and importing the module for a test must not
+// start a server or leave vitest hanging on an open handle.
+const isEntryPoint = process.argv[1]
+  ? import.meta.url === pathToFileURL(process.argv[1]).href
+  : false;
+
+const server = isEntryPoint ? app.listen(PORT, () => {
   console.log(`🚀 JS SDK HTTP server starting on :${PORT}`);
   console.log(`   Backend: ${CORTEX_BASE_URL}`);
   console.log();
@@ -501,13 +516,15 @@ const server = app.listen(PORT, () => {
   console.log('  DELETE /observations/:id    - Delete observation');
   console.log('  POST   /ingest/prompt       - Ingest user prompt');
   console.log('  POST   /ingest/session-end  - Ingest session end');
-});
+})
+  : null;
 
 // ==================== Graceful shutdown ====================
 
 function shutdown(signal: string) {
   console.log(`\n${signal} received, shutting down gracefully...`);
-  server.close(() => {
+  // server is null when this module was imported rather than run (see isEntryPoint).
+  server?.close(() => {
     client.close();
     console.log('Server closed.');
     process.exit(0);

@@ -43,25 +43,21 @@ public class ObservationsController {
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> listObservations(
             @RequestParam(required = false) String project,
-            @RequestParam(defaultValue = "0") Integer limit,
-            @RequestParam(defaultValue = "0") Integer offset) {
+            @RequestParam(required = false) String limit,
+            @RequestParam(required = false) String offset) {
 
         // project is optional per SDK contract (null = all projects)
-        // limit=0 means "use backend default" (consistent with Python/JS demos)
-        if (limit < 0 || limit > 100) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("error", "limit must be between 0 and 100"));
-        }
-        if (offset < 0) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("error", "offset must be non-negative"));
-        }
+        // limit/offset are taken as raw text and validated by DemoParams: binding them
+        // to Integer let Spring read "0x10" as hexadecimal 16 and answer 200, which
+        // the other three demos reject.
+        int limitValue = DemoParams.boundedInt(limit, 0, 0, 100, "limit");
+        int offsetValue = DemoParams.boundedInt(offset, 0, 0, Integer.MAX_VALUE, "offset");
 
         try {
             ObservationsRequest request = ObservationsRequest.builder()
                     .project(project)
-                    .limit(limit)
-                    .offset(offset)
+                    .limit(limitValue)
+                    .offset(offsetValue)
                     .build();
 
             var result = client.listObservations(request);

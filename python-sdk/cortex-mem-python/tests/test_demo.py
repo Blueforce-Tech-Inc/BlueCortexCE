@@ -681,3 +681,43 @@ class TestVersion:
         assert data["version"] == "2.0.0"
         assert data["java"] == "21.0.2"
         assert data["spring_boot"] == "3.3.0"
+
+
+class TestIntParamRule:
+    """The integer query-param rule the four demos now share.
+
+    Measured against a live backend rather than chosen: ``?limit= 5`` and
+    ``?limit=+5`` both return 5 rows, ``?limit=0x10`` returns 16 (Spring binds
+    the int through ``Integer.decode`` semantics), and ``?limit=`` returns the
+    backend's default page. This demo used to be the only one of the four that
+    rejected an empty value while accepting ``0``.
+    """
+
+    def test_rule(self, app, client):
+        """Exercise the rule through the real endpoint rather than the helper."""
+        from cortex_mem import ObservationsResponse, Observation
+        app._mock_client.list_observations.return_value = ObservationsResponse(
+            items=[Observation(id="o1", content="test")], has_more=False
+        )
+
+        # empty and absent both mean "backend default" -> 200
+        assert client.get("/observations?project=/p&limit=").status_code == 200
+        assert client.get("/observations?project=/p").status_code == 200
+        # optional sign is an integer
+        assert client.get("/observations?project=/p&limit=%2B5").status_code == 200
+        # surrounding whitespace is tolerated
+        assert client.get("/observations?project=/p&limit=%205").status_code == 200
+        # hex, fraction, exponent and trailing garbage are not integers
+        for bad in ("0x10", "1.5", "1e3", "10abc"):
+            assert client.get(f"/observations?project=/p&limit={bad}").status_code == 400, bad
+        # out of range is a range error, still 400
+        assert client.get("/observations?project=/p&limit=-1").status_code == 400
+
+    def test_empty_limit_is_forwarded_as_default_not_rejected(self, app, client):
+        """The specific regression: an empty value used to raise while 0 did not."""
+        from cortex_mem import ObservationsResponse
+        app._mock_client.list_observations.return_value = ObservationsResponse(
+            items=[], has_more=False
+        )
+        assert client.get("/observations?project=/p&limit=").status_code == 200
+        assert app._mock_client.list_observations.call_args.kwargs["limit"] == 0

@@ -75,7 +75,7 @@ public class ExtractionController {
             @RequestParam String project,
             @RequestParam String template,
             @RequestParam(required = false) String userId,
-            @RequestParam(defaultValue = "0") Integer limit) {
+            @RequestParam(required = false) String limit) {
 
         if (project.isBlank()) {
             return ResponseEntity.badRequest()
@@ -85,15 +85,13 @@ public class ExtractionController {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "template is required"));
         }
-        if (limit < 0 || limit > 100) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("error", "limit must be between 0 and 100"));
-        }
+        // Raw text + DemoParams rather than Integer binding; see DemoParams for why.
+        int limitValue = DemoParams.boundedInt(limit, 0, 0, 100, "limit");
 
         try {
             // Normalize blank userId to null so SDK omits the parameter
             String normalizedUserId = (userId != null && userId.isBlank()) ? null : userId;
-            List<Map<String, Object>> result = client.getExtractionHistory(project, template, normalizedUserId, limit);
+            List<Map<String, Object>> result = client.getExtractionHistory(project, template, normalizedUserId, limitValue);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("Get extraction history failed for project={}, template={}", project, template, e);

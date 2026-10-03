@@ -36,22 +36,17 @@ public class SearchController {
             @RequestParam(required = false) String observationType,
             @RequestParam(required = false) String concept,
             @RequestParam(required = false) String source,
-            @RequestParam(defaultValue = "0") Integer limit,
-            @RequestParam(defaultValue = "0") Integer offset,
+            @RequestParam(required = false) String limit,
+            @RequestParam(required = false) String offset,
             @RequestParam(required = false) String orderBy) {
 
         if (project == null || project.isBlank()) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "project is required"));
         }
-        if (limit < 0 || limit > 100) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("error", "limit must be between 0 and 100"));
-        }
-        if (offset < 0) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("error", "offset must be non-negative"));
-        }
+        // Raw text + DemoParams rather than Integer binding; see DemoParams for why.
+        int limitValue = DemoParams.boundedInt(limit, 0, 0, 100, "limit");
+        int offsetValue = DemoParams.boundedInt(offset, 0, 0, Integer.MAX_VALUE, "offset");
 
         try {
             SearchRequest request = SearchRequest.builder()
@@ -60,8 +55,8 @@ public class SearchController {
                     .type(observationType)
                     .concept(concept)
                     .source(source)
-                    .limit(limit)
-                    .offset(offset)
+                    .limit(limitValue)
+                    .offset(offsetValue)
                     .orderBy(orderBy)
                     .build();
 

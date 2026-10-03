@@ -56,6 +56,18 @@ func writeSDKError(w http.ResponseWriter, err error, context string) {
 // maxRequestBodySize is the maximum request body size (1 MB).
 const maxRequestBodySize = 1 << 20
 
+// atoiParam parses a query-parameter integer, tolerating surrounding
+// whitespace. strconv.Atoi does not trim, so "?limit= 5" used to be rejected
+// here while the backend (Spring's int binding), the Python demo, the JS demo
+// and the Java demo all accepted it and read 5. Every integer query param in
+// this demo goes through this helper so the demos keep teaching one contract.
+//
+// Note it still rejects "0x10" and "10abc": Atoi accepts neither, which is the
+// behaviour the other three demos already had.
+func atoiParam(s string) (int, error) {
+	return strconv.Atoi(strings.TrimSpace(s))
+}
+
 // readJSON decodes the request body into dst, enforcing a size limit.
 func readJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 	r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySize)
@@ -210,7 +222,7 @@ func main() {
 		}
 		limit := 0 // 0 = backend default
 		if l := r.URL.Query().Get("limit"); l != "" {
-			parsed, err := strconv.Atoi(l)
+			parsed, err := atoiParam(l)
 			if err != nil || parsed < 0 || parsed > 100 {
 				writeJSONError(w, http.StatusBadRequest, "limit must be a non-negative integer (0=default) up to 100")
 				return
@@ -219,7 +231,7 @@ func main() {
 		}
 		offset := 0
 		if o := r.URL.Query().Get("offset"); o != "" {
-			parsed, err := strconv.Atoi(o)
+			parsed, err := atoiParam(o)
 			if err != nil || parsed < 0 {
 				writeJSONError(w, http.StatusBadRequest, "offset must be a non-negative integer")
 				return
@@ -274,7 +286,7 @@ func main() {
 		}
 		count := 4
 		if c := r.URL.Query().Get("count"); c != "" {
-			parsed, err := strconv.Atoi(c)
+			parsed, err := atoiParam(c)
 			if err != nil || parsed < 0 || parsed > 100 {
 				writeJSONError(w, http.StatusBadRequest, "count must be between 0 and 100")
 				return
@@ -329,7 +341,7 @@ func main() {
 		}
 		maxChars := 0 // 0 = backend default
 		if mc := r.URL.Query().Get("maxChars"); mc != "" {
-			parsed, err := strconv.Atoi(mc)
+			parsed, err := atoiParam(mc)
 			if err != nil || parsed < 0 {
 				writeJSONError(w, http.StatusBadRequest, "maxChars must be a non-negative integer")
 				return
@@ -358,7 +370,7 @@ func main() {
 		project := r.URL.Query().Get("project")
 		limit := 0 // 0 = backend default
 		if l := r.URL.Query().Get("limit"); l != "" {
-			parsed, err := strconv.Atoi(l)
+			parsed, err := atoiParam(l)
 			if err != nil || parsed < 0 || parsed > 100 {
 				writeJSONError(w, http.StatusBadRequest, "limit must be a non-negative integer (0=default) up to 100")
 				return
@@ -367,7 +379,7 @@ func main() {
 		}
 		offset := 0
 		if o := r.URL.Query().Get("offset"); o != "" {
-			parsed, err := strconv.Atoi(o)
+			parsed, err := atoiParam(o)
 			if err != nil || parsed < 0 {
 				writeJSONError(w, http.StatusBadRequest, "offset must be a non-negative integer")
 				return
@@ -602,7 +614,7 @@ func main() {
 		userId := r.URL.Query().Get("userId")
 		limit := 0 // 0 = backend default (10)
 		if l := r.URL.Query().Get("limit"); l != "" {
-			parsed, err := strconv.Atoi(l)
+			parsed, err := atoiParam(l)
 			if err != nil || parsed < 0 || parsed > 100 {
 				writeJSONError(w, http.StatusBadRequest, "limit must be between 0 and 100")
 				return

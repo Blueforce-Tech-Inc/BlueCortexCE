@@ -84,3 +84,50 @@ func emptyUpdateErr(t *testing.T) error {
 	}
 	return err
 }
+
+// TestAtoiParam pins the integer-query-parameter rule the four demos share.
+//
+// The rule was measured, not chosen. Against a live backend, ?limit= 5 and
+// ?limit=+5 both return 5, ?limit=0x10 returns 16 observations (Spring converts
+// through Integer.decode semantics), and ?limit= returns the backend default.
+// strconv.Atoi trims nothing, so this demo was the only one of the four that
+// rejected " 5" while the backend and the other demos accepted it.
+func TestAtoiParam(t *testing.T) {
+	tests := []struct {
+		name    string
+		in      string
+		want    int
+		wantErr bool
+	}{
+		{"plain", "5", 5, false},
+		{"leading plus", "+5", 5, false},
+		{"leading minus", "-5", -5, false},
+		{"leading space", " 5", 5, false},
+		{"trailing space", "5 ", 5, false},
+		{"surrounded by whitespace", "\t 5 \n", 5, false},
+		{"zero", "0", 0, false},
+		{"hex is not an integer here", "0x10", 0, true},
+		{"trailing garbage", "10abc", 0, true},
+		{"fraction", "1.5", 0, true},
+		{"exponent", "1e3", 0, true},
+		{"empty", "", 0, true},
+		{"lone sign", "+", 0, true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := atoiParam(tc.in)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("atoiParam(%q) = %d, want error", tc.in, got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("atoiParam(%q) unexpected error: %v", tc.in, err)
+			}
+			if got != tc.want {
+				t.Fatalf("atoiParam(%q) = %d, want %d", tc.in, got, tc.want)
+			}
+		})
+	}
+}
