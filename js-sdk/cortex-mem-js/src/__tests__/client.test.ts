@@ -354,6 +354,40 @@ describe('CortexMemClient', () => {
     it('should throw on missing task', async () => {
       await expect(client.buildICLPrompt({ task: '' })).rejects.toThrow('task');
     });
+
+    /**
+     * The backend resolves the field as
+     * `maxChars != null ? Math.max(100, maxChars) : 4000` — it tests for null,
+     * never for zero — so a literal 0 on the wire clamps the injected context
+     * to 100 characters and still returns 200. Asserting on the serialized body
+     * rather than on the DTO, which is what actually reaches the backend.
+     */
+    it('should omit a non-positive maxChars from the request body', async () => {
+      const resp = { prompt: 'test prompt', experienceCount: 3, maxChars: 4000 };
+      fetchMock = mockFetch(200, resp);
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+
+      const bodies: string[] = [];
+      for (const maxChars of [0, -1]) {
+        await client.buildICLPrompt({ task: 'test task', project: '/tmp', maxChars });
+        const [, opts] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[bodies.length];
+        bodies.push(String(opts.body));
+      }
+
+      expect(bodies[0]).not.toContain('maxChars');
+      expect(bodies[1]).not.toContain('maxChars');
+    });
+
+    it('should keep a positive maxChars on the request body', async () => {
+      const resp = { prompt: 'test prompt', experienceCount: 3, maxChars: 8000 };
+      fetchMock = mockFetch(200, resp);
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+
+      await client.buildICLPrompt({ task: 'test task', project: '/tmp', maxChars: 8000 });
+
+      const [, opts] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(String(opts.body)).toContain('8000');
+    });
   });
 
   describe('search', () => {

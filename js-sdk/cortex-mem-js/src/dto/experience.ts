@@ -63,6 +63,13 @@ export function parseExperience(raw: Record<string, unknown>): Experience {
 export interface ICLPromptRequest {
   task: string;
   project?: string;
+  /**
+   * Maximum characters for the ICL prompt. Leave it unset — or pass 0 or a
+   * negative value — to let the backend use its own default (~4000). Any
+   * non-positive value is dropped from the request body, because the endpoint
+   * clamps whatever it receives up to 100 characters rather than treating a
+   * zero as "use the default".
+   */
   maxChars?: number;
   userId?: string;
 }

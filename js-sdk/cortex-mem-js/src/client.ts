@@ -220,11 +220,23 @@ export class CortexMemClient {
   /**
    * Build an ICL prompt from historical experiences.
    * POST /api/memory/icl-prompt
+   *
+   * A non-positive {@link ICLPromptRequest.maxChars} is dropped from the request
+   * body so the backend applies its own default. The endpoint resolves the field
+   * as `maxChars != null ? Math.max(100, maxChars) : 4000` — it tests for null,
+   * never for zero — so sending an explicit 0 or a negative value would clamp
+   * the injected memory context to 100 characters instead of the default
+   * ~4000, and the call still returns 200. Matches the Java SDK's
+   * `maxChars > 0` guard, and the Go and Python SDKs, which omit 0 as well.
    */
   async buildICLPrompt(req: ICLPromptRequest): Promise<ICLPromptResult> {
     this.assertNotClosed();
     this.validateRequired('task', req.task);
-    const raw = await this.requestJSON<unknown>('POST', '/api/memory/icl-prompt', req);
+    const body: ICLPromptRequest =
+      req.maxChars !== undefined && req.maxChars <= 0
+        ? { ...req, maxChars: undefined }
+        : req;
+    const raw = await this.requestJSON<unknown>('POST', '/api/memory/icl-prompt', body);
     return parseICLPromptResult(raw as Record<string, unknown>);
   }
 

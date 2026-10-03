@@ -122,14 +122,24 @@ app.get('/health', asyncHandler(async (_req: Request, res: Response) => {
 app.post('/chat', asyncHandler(async (req: Request, res: Response) => {
   const missing = requireFields(req.body, ['project', 'message']);
   if (missing) return errorJson(res, 400, `${missing} is required`);
-  // Validate optional maxChars is a valid number if provided
+  // Validate optional maxChars is a valid number if provided. Without this the
+  // raw body value goes straight to the SDK, a non-numeric value reaches the
+  // backend as-is, the backend answers 400, and the catch below turns that into
+  // a 200 with no memoryContext at all — the caller cannot tell the difference
+  // between "no memories" and "your input was rejected". Same helper and bounds
+  // as the /search handler below.
+  const maxChars = parseIntParam(req.body.maxChars, 'maxChars', { min: 0, max: 100000 });
+  if (!maxChars.ok) return errorJson(res, 400, maxChars.message);
 
   let iclResult = null;
   try {
     iclResult = await client.buildICLPrompt({
       task: req.body.message,
       project: req.body.project,
-      maxChars: req.body.maxChars ?? 0,
+      // 0 means "let the backend choose"; the SDK drops non-positive values
+      // rather than putting a 0 on the wire, which the backend would clamp to
+      // 100 characters.
+      maxChars: maxChars.value,
       userId: req.body.userId,
     });
   } catch (e: unknown) {
