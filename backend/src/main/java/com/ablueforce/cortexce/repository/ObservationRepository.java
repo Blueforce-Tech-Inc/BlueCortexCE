@@ -408,6 +408,10 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      *
      * @param contentHash SHA-256 hash of observation content (16 chars)
      * @param windowStart Epoch timestamp for the start of the dedup window
+     * @param projectPath Project path scoping the search — required. The backing native
+     *                    query filters {@code project_path = :projectPath}, so it is not
+     *                    an optional refinement: omitting it would widen the search
+     *                    across every project on the instance.
      * @return Existing observation if found within window, null otherwise
      */
     @Query(value = """

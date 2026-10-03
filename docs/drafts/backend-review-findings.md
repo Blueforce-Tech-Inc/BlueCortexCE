@@ -17,9 +17,8 @@
 > 本区块曾在 2026-10-03 至 10-04 之间多次越过 `MAX_LINES=1000` 而被迫压缩，
 > 逐轮删减并不能根治——**根因是逐轮叙述本就不该放在这里**，故改为只保留下表。
 >
-> 压缩记录：第 225 轮（1008 行，10 条已解决条目移入归档）、第 232 轮（980 行，
-> P1-3 与 P1-4 共 79 行移入归档-2）、第 233 与 235 轮（1013 / 1002 行，逐轮摘要并入下表）、
-> 第 236 轮（**本区块结构化，不再保留逐轮叙述**）。
+> 压缩记录：225（1008 行，10 条已解决条目归档）、232（980 行，P1-3+P1-4 共 79 行归档）、
+> 233 / 235（1013 / 1002 行，逐轮摘要并入下表）、236（**本区块结构化**）。
 | 轮次 | 条目 | 一句话 |
 |------|------|--------|
 | 219 / 218 / 224 | P2-24 / P1-3 / P1-4 | 代码侧已修；P1-3、P1-4 已归档，P2-24 仍带 ⏸ 残留故保留 |
@@ -29,6 +28,11 @@
 | 234 | P2-32 | ⏸ 记录不修（本机无 Docker，无法验证修复效果） |
 | 235 | P2-33 | ⏸ 记录不修（跨 demo 契约决策） |
 | 236 | P2-34 | ⏸ 记录不修（改注解即改 OpenAPI 契约）；**人工撰写的 API 文档本来就正确** |
+| 237 | P2-35 | ⏸ 记录不修（会让所有用户的库里开始出现失败观测，属产品决策） |
+
+> **本文件已结构性饱和**：第 236 轮移除逐轮叙述后，第 237 轮加入 P2-35 即回到 **1000 行**。
+> 27 条中 25 条为 ⏸「记录不修」，按规则**必须保留**（承载决策推理而非历史），**无可归档余量**，
+> 故下一条新发现必然再次触发压缩。
 
 **本文件最值得记住的一点**：P2-32、P2-33、P2-34 连续三条的形态完全一样 ——
 **机器可读的那一份**（Dockerfile 的默认绑定、demo 的路由名、Swagger 注解的示例）
@@ -70,10 +74,7 @@
   Thompson Sampling 算法），不是修 bug，按既定纪律留待项目决策。
   **注**：`CLAUDE.md:39` 把 V17 标为「✅ Complete」，该文件已被 gitignore，
   并入既有的 `AGENTS.md` / `CLAUDE.md` 开放项，不在本轮静默修改范围内。
-- **复核记录**：第 219 轮代码方向，从 P1-3 的同类线索（时间戳列）出发扩展。
-  取证：`information_schema.columns` 确认列集；活体 `count(*)` 确认三张表全为 0；
-  `grep -rn "ObservationFeedback" main 源码` 确认除实体与 repository 外**零引用**；
-  `grep -n "V17" AGENTS.md CLAUDE.md` 确认其完成度声明。
+- **复核记录**（原文见 [`2026-10-03_backend-review-provenance.md`](../archive/2026-10-03_backend-review-provenance.md)，逐轮全文另见 `patrol-rotation.md`）
 
 ### P1-1: `CortexSessionContextBridgeAdvisor.adviseStream` 依赖普通 ThreadLocal，流式下既丢捕获又泄漏会话
 
@@ -136,6 +137,7 @@
   修正 `docs/ARCHITECTURE.md` / `docs/ARCHITECTURE-zh-CN.md` 的 ADR 4：原「Decision 4:
   Multi-Dimension Embeddings」读起来像三种维度端到端可用，现已明确限定为**仅写入侧**，
   并写明退化行为与可观测信号。
+
 ### P2-10: 四个 ingest 端点对项目路径的必填性不一致
 
 - **Scope**: `backend/.../controller/IngestionController.java` — `handleObservation`
@@ -214,6 +216,7 @@
   （`sessionId`/`extractedData`/`createdAt`/`observationId` 均为 `null`）——处理器返回的是
   同一个 `GetLatestExtractionResponse` record，只是把四个构造参数置空，故这些键出现在
   JSON 中而非被省略。
+
 ### P2-13: Spring AI 集成无法按用户隔离记忆——会话上下文里没有 userId
 
 - **Scope**: `cortex-mem-spring-integration/cortex-mem-spring-ai/.../context/CortexSessionContext.java`
@@ -476,10 +479,7 @@
   一个代码块、既无描述也无响应示例**（英文版连中文版那一行描述都没有），现已按
   活体与源码补上完整响应示例，并明确 `installedAt` 是 ISO-8601 字符串、
   `count` 恒等于 `projects.length`（活体 16 == 16，已核对）。
-- **复核记录**: 第 210 轮文档方向发现。取证：活体 `GET /api/cursor/projects` →
-  `{"count":16,"projects":[{"workspacePath":...,"installedAt":"...","projectName":...}]}`，
-  `installedAt` 类型实测为 `str`；`CursorService.java:52` 记录分量为 `String installedAt`。
-
+- **复核记录**（原文见 [`2026-10-03_backend-review-provenance.md`](../archive/2026-10-03_backend-review-provenance.md)，逐轮全文另见 `patrol-rotation.md`）
 
 ### P2-23: SSE 连接数超限返回 500（应为 503），且没有心跳，死连接最长占用名额 30 分钟
 
@@ -507,11 +507,7 @@
 - **Status**: ⏸ **记录不修** —— 把 500 改成 503 属**对外契约变更**（客户端与监控
   都会看到不同状态码），按既定纪律留待项目决策；补心跳则会改变流量形态与
   `SseEmitter` 生命周期，同样需要决策。**两者都已写入本条，后端代码一字未改。**
-- **复核记录**: 第 212 轮代码方向发现。取证：`grep` 全仓确认无 MVC 层异常处理器；
-  裸 socket 并发 105 条得到 `{200: 100, 500: 5}` 的首行分布；第 101 条的完整响应头为
-  `HTTP/1.1 500` + `Content-Length: 0`；`grep '@Scheduled'` 列出全部四个定时任务
-  （ContextCacheService / MemoryRefineService / PendingMessageProcessor /
-  StaleMessageRecoveryTask），**均不触及 SSEBroadcaster**。
+- **复核记录**（原文见 [`2026-10-03_backend-review-provenance.md`](../archive/2026-10-03_backend-review-provenance.md)，逐轮全文另见 `patrol-rotation.md`）
 
 ### P2-25: `maxChars` 的 Swagger 描述承诺了一个后端并不存在的「0 = 默认」分支
 
@@ -544,9 +540,7 @@
   少发一个可选字段不改变 wire 契约，且与另两家对齐。**JS SDK 无防护**（`buildICLPrompt`
   原样透传 req），其 `examples/http-server` 的 `/chat` 默认 `maxChars: req.body.maxChars ?? 0`，
   属 JS/TS SDK 方向的发现，留待该方向轮次处理。
-- **复核记录**: 第 225 轮文档方向发现。取证：`curl /v3/api-docs` 读出该描述原文；
-  读 `MemoryController:154` 得真实解析式；上表六组取值逐条实测；`grep "0 = backend default"`
-  确认**全仓仅此一处**这样的错误描述；`ExpRagService:188` 复核了 DOC-1 的字符串拼接。
+- **复核记录**（原文见 [`2026-10-03_backend-review-provenance.md`](../archive/2026-10-03_backend-review-provenance.md)，逐轮全文另见 `patrol-rotation.md`）
 
 ### P2-26: Go SDK 的 `omitempty` 让 `facts` / `concepts` / `extractedData` 无法清空，且静默返回「updated」
 
@@ -583,14 +577,7 @@
   「List And Map Fields Cannot Be Cleared / 列表与映射字段无法清空」小节，写明两种表现、
   指针字段为何不受影响、与其他三家的差异及两条修复路径各自的代价。
   **Go SDK 代码一字未改。**
-- **复核记录**: 第 226 轮代码方向发现。取证：Go 探针 `json.Marshal` 逐项输出；
-  `MemoryController:346-375` 读三处分支；活体 PATCH 三步并以 `psycopg2` 直读
-  `mem_observations.facts/concepts` 确认落库结果；四家 DTO 源码逐个对拍。
-  **探针自身错一次并先识别再采信**：先前用 `GET /api/memory/observations/{id}` 读回，
-  但该路径**只有 PATCH 与 DELETE、GET 返回 405**，读到的是错误响应里的 `facts: null`；
-  改用 `psycopg2` 直查数据库后才拿到真实值——**没有据此得出「后端不写库」的错误结论**。
-  另核实 `docs/API.md` 的会话启动路径是 `/api/session/start`、**正确**，
-  幻影路径 `/api/ingest/session-start` 只存在于被 gitignore 的 `AGENTS.md`（已在待决策项）。
+- **复核记录**（原文见 [`2026-10-03_backend-review-provenance.md`](../archive/2026-10-03_backend-review-provenance.md)，逐轮全文另见 `patrol-rotation.md`）
 
 ### P2-27: Python SDK 无法清空 `extractedData` —— 与 Go 并列最弱，而它的注释把这一点说成了「对齐 Go」
 
@@ -631,17 +618,7 @@
   （**改变现有调用方的可观测行为**，`extracted_data={}` 从「不变」变成「落 `{}`」），
   或新增显式清空入口（**新增公开 API**）。按既定纪律留待项目决策。
   **注释层已先行更正**。
-- **复核记录**: 第 227 轮代码方向发现。取证：Python 探针逐例打印
-  `is_empty()` / `to_wire()`；活体两次 PATCH 后以 `psycopg2` 直读
-  `mem_observations.extracted_data` 确认 NULL 与 `{}` 两种落库结果；
-  `ExtractionController:84,132` 读出 `getExtractedData() != null ? ... : Map.of()`
-  确认**读取端**两者确实等价；四家 DTO 源码逐个对拍。
-  **探针自身错一次并先识别再采信**：查 `MemoryRefineService` 是否含
-  `extractionService.runExtraction` 时，工具输出**明确给出了第 273 行**，
-  我却据此断定「该行不存在」并准备按此写结论——**是误读了自己的输出**。
-  复查后确认该行就在 `deepRefineProjectMemories`（213–292）内，ordering 属实；
-  真正的缺陷是那个方法零调用方（见 0.3.md 的 DOC-1），与本条无关。
-
+- **复核记录**（原文见 [`2026-10-03_backend-review-provenance.md`](../archive/2026-10-03_backend-review-provenance.md)，逐轮全文另见 `patrol-rotation.md`）
 
 ### P2-28: `/api/test/all` 丢弃两个子处理器的状态码，故障时仍返回 200
 
@@ -953,24 +930,34 @@
 - **Status**: ⏸ **记录不修** —— 改 `@ApiResponse` 的示例即改**对外 OpenAPI 契约**
   （沿用 P2-11 / P2-22 / P2-25 的同一判断）。**文档层无需更正**：
   人工撰写的两版 API 文档本来就是对的。
-- **复核记录**: 第 236 轮代码方向（Backend）首次审 `LogsController`
-  （13 个 controller 里此前未被作为代码审查对象的一个）。
-  **三个假设在写成发现前被证伪，全部靠实测而非推理**：
-  ①**「截断被 appender 持有的日志文件会产生 NUL 空洞」——证伪。**
-  这是 Java 日志的经典坑，但用一个 scratch 文件精确复现了机制
-  （持久 `FileOutputStream(append=true)` 写入 21 字节 → 旁路
-  `Files.writeString(p,"")` 截断 → appender 再写）：**结果 size=7、NUL=0、
-  内容为 `line-4`**，因为**追加模式强制 `O_APPEND`，每次写都落到当前文件末尾**，
-  根本不存在「记住的偏移量」。若不做这个实验就会写成一条假发现。
-  ②**「appender 写的文件名与控制器读的不一致」——证伪。**
-  `RollingFileAppender` 写 `${APP_NAME}.log`，而控制器读 `claude-mem-{日期}.log`，
-  看着像不匹配；但磁盘实况显示**正在被写的是 `claude-mem-2026-10-04.log`**
-  （01:58 仍在增长），而 `claude-mem.log` 始终 **0 字节**。原因是项目自带
-  `ClaudeMemLogAppender`（第 222 行）写的正是 `claude-mem-` + 日期 + `.log`，
-  **与控制器完全一致**。
-  ③**路径穿越**不成立：文件名完全由 `LocalDate.now()` 推导，**没有任何用户输入
-  进入路径**；`lines` 的钳位实测正确（`0`→1、`-5`→1、`99999`→10000），
-  而 `0x10`→16 属**已记录的 P2-20**（全部 22 个数值参数一致），不重复立项。
+- **复核记录**: 第 236 轮代码方向（Backend）首次审 `LogsController`（13 个 controller 里此前未被作为审查对象的一个）。**三个假设在写成发现前被证伪，全部靠实测而非推理**：①**「截断被 appender 持有的日志文件会产生 NUL 空洞」——证伪。** 用 scratch 文件精确复现机制（持久 `FileOutputStream(append=true)` 写 21 字节 → 旁路 `Files.writeString(p,"")` 截断 → appender 再写）：**结果 size=7、NUL=0、内容 `line-4`**，因为**追加模式强制 `O_APPEND`、每次写都落到当前文件末尾**，根本不存在「记住的偏移量」——不做这个实验就会写成一条假发现。②**「appender 写的文件名与控制器读的不一致」——证伪。** `RollingFileAppender` 写 `${APP_NAME}.log` 而控制器读 `claude-mem-{日期}.log`，看着像不匹配； 但磁盘实况显示**正在被写的是带日期的那个**（01:58 仍在增长），`claude-mem.log` 恒 **0 字节**——项目自带 `ClaudeMemLogAppender`（第 222 行）写的正是同一命名。③**路径穿越不成立**：文件名完全由 `LocalDate.now()` 推导，**无任何用户输入进入路径**；`lines` 钳位实测正确（`0`→1、`-5`→1、`99999`→10000），`0x10`→16 属**已记录的 P2-20**。**核实无误**：`API.md` 与 `API-zh-CN.md` 的示例**六个键齐全**、用绝对路径，中文版前文还解释了 `files` 语义——**两版人工文档本来就正确，无需改动**。
+
+### P2-35: `CortexToolAspect` 结构上无法捕获失败的 `@Tool` 调用，而质量模型恰恰以失败为一档
+
+- **Scope**: `CortexToolAspect.interceptToolExecution()`
+  （`CortexToolAspect.java:60` 的 `joinPoint.proceed()` **在 try 块之外**，
+  try 只包住第 62-73 行的捕获调用）。
+- **Problem**: 工具方法抛异常时，异常从第 60 行直接向上传播，**捕获整段被跳过**，
+  调用方拿到的仍是原始异常（这一点是对的），但**这次工具调用在记忆里不留任何痕迹**。
+  **关键在于这与后端的设计意图相反**：`QualityScorer` 明确有
+  `FAILURE_BASE = 0.20f` 与 `FeedbackType.FAILURE`（第 24-26、59-61 行），
+  即**整个 Evo-Memory 质量模型就是围绕「区分成功与失败」建立的**——
+  而这条自动捕获路径**一条 FAILURE 都产不出来**。
+- **Evidence**:
+  | 事实 | 证据 |
+  |------|------|
+  | 失败有独立评分档 | `QualityScorer.java:26` `FAILURE_BASE = 0.20f`；`:61` `FAILURE, // Task failed` |
+  | 捕获跳过失败 | `CortexToolAspect.java:60` 的 `proceed()` 不在 try 内，无 catch 兜底 |
+  | **零测试覆盖** | `CortexToolAspectTest` 共 **4** 条：context 激活/未激活、大小输入截断/不截断——**无一条让工具抛异常** |
+  | 另一条捕获路径同样如此 | 薄代理只有 `PostToolUse` 钩子，**没有「工具失败」钩子**；故两条路径都产不出失败记录 |
+- **Status**: ⏸ **记录不修** —— 修它会让**所有用户的库里开始出现新的失败观测**，
+  改变已存储的数据形态，属**产品决策**而非纯 bug 修复（沿用 P2-24「接入属新增特性
+  而非修 bug」的同一判断）。修法：把 `proceed()` 包进 try，catch 后**先记录再重抛**
+  （捕获本身已 fire-and-forget，不会掩盖原始异常），并补一条「工具抛异常时仍被捕获」
+  的测试。**SDK 代码一字未改。**
+- **复核记录**: 第 237 轮代码方向（Java SDK）。切入点是读 `interceptToolExecution`
+  的控制流时发现 `proceed()` 的位置。取证：`CortexToolAspectTest` **逐条枚举 4 条测试**、
+  `QualityScorer` 的评分档与枚举**从文件读**（不用正则数）。
 
 ## Processing Rules
 
@@ -986,5 +973,7 @@ The complete historical review log through 2026-05-07 is preserved in [`2026-09-
 Ten entries whose status is unconditionally resolved — P1-2, P2-1, P2-2, P2-3, P2-4, P2-5, P2-6, P2-7, P2-9 and P2-12 — were moved verbatim on 2026-10-03 (round 225) into [`2026-10-03_backend-review-history-resolved.md`](../archive/2026-10-03_backend-review-history-resolved.md), when this file reached 1008 lines against the `MAX_LINES=1000` threshold. That archive records the selection rule and must not be modified.
 
 A second batch — **P1-3 and P1-4, 79 lines moved verbatim** — went into [`2026-10-03_backend-review-history-resolved-2.md`](../archive/2026-10-03_backend-review-history-resolved-2.md) on 2026-10-03 (round 232), when this file stood at 980 lines and adding P2-30 would have crossed the threshold. **P2-24 was deliberately left behind**: it carries a ⏸ remainder even though its first two parts are ✅ fixed, so it still holds live reasoning rather than history. Verbatim equality of both batches was verified by diffing the extracted block against `git show HEAD` before the source lines were removed.
+
+**Provenance note.** On 2026-10-04 (round 237) the `- **复核记录**:` sections of P2-22 through P2-27 were moved verbatim into [`2026-10-03_backend-review-provenance.md`](../archive/2026-10-03_backend-review-provenance.md), each replaced by a one-line pointer. The file is structurally saturated — 27 entries, 25 of them ⏸ — and the ⏸ rule below protects the **decision reasoning** (Scope / Problem / Status), which stayed. `复核记录` is provenance: which round found it and how the evidence was gathered, and the same text is stored verbatim per round in `patrol-rotation.md` and `doc-review-task.md`. **This is the first move of this kind**; if the ⏸ rule is later read to cover provenance too, the sections can be restored from the archive without loss.
 
 Entries carrying a `⏸` "recorded, not fixing" status stay here on purpose: they hold the reasoning behind each decision and are the live record, not history. P2-11 also stays, because its backend half is still undecided even though the documentation and annotation layers were fixed.
