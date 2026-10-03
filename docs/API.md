@@ -1424,6 +1424,42 @@ MCP `search` tool mirrors the same window). Verified live against the running ba
 `hasMore` is the signal that a page was cut short; nothing in the response echoes the
 effective limit. `offset` is likewise floored at 0.
 
+**How `limit` is parsed is separate from how it is clamped, and only the clamp was
+documented until now.** All five endpoints bind the parameter as a Java `int`, so the
+value is converted by Spring before the clamp ever runs, and that conversion is more
+permissive than "an integer" suggests. Verified live against the running backend on all
+five (`/api/search/by-file` behaves identically once its required `filePath` is
+supplied — without it the endpoint answers `400` for any `limit`, which is a missing
+parameter rather than a limit problem):
+
+| `?limit=` | Result | Why |
+|-----------|--------|-----|
+| `7` | 7 items | ordinary decimal |
+| `0`, `-5` | 1 item | clamped up to the minimum of 1 |
+| `500` | 100 items | clamped down to `MAX_PAGE_SIZE` |
+| *(empty)* | 20 items | empty binds to the `defaultValue` |
+| `+5` | 5 items | a leading `+` is accepted |
+| `␣5` or `5␣` | 5 items | surrounding whitespace is trimmed |
+| `010` | 10 items | **decimal**, not octal — a leading zero is not special |
+| `0x10` | **16 items** | **read as hexadecimal 16** |
+| `0X10`, `+0x10` | 16 items | the prefix is case-insensitive and may carry a sign |
+| `0xff` | 100 items | 255, then clamped to 100 |
+| `10abc`, `1.5`, `1e3`, `1_0`, `1+1` | `400` | not parseable as an integer |
+| `99999999999999999999` | `400` | overflows an `int` |
+
+The `0x` row is the one worth knowing about: a hex prefix is honoured silently, so
+`?limit=0x10` returns 16 rows with a `200` and no indication that a hexadecimal literal
+was read. The underlying rule is Spring's number conversion — trim, then `Integer.decode`
+for a `0x`/`0X` prefix and `Integer.valueOf` otherwise — which is also why `010` is ten
+rather than eight.
+
+A value that cannot be converted at all is the **only** way this parameter produces a
+`400`; everything in range is silently clamped, and nothing echoes the effective limit
+back. All four SDKs type `limit` as a number (Python `int`, Go `int`, JS `number`, Java
+`int`), so a caller cannot put a hex literal on the wire through them at all — the
+exposure is to code that calls the HTTP API directly. The four demo servers, which do
+take raw query strings, were aligned to one shared rule for the same reason.
+
 **Response** (`200 OK`):
 ```json
 {
@@ -2609,6 +2645,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 
 | Date | Version | Changes |
 |------|---------|---------|
+| 2026-10-03 | (unreleased) | Documented how `limit` is **parsed**, which is separate from the clamp recorded on 2026-10-02 and was previously unstated on all five endpoints. Each binds the parameter as a Java `int`, so Spring converts the text before the clamp runs, and the conversion honours surrounding whitespace, a leading `+`, and — the surprising part — a `0x`/`0X` **hex prefix**: `?limit=0x10` returns 16 items with a `200` and nothing in the response says a hexadecimal literal was read. `010` is decimal 10, not octal 8, because the rule is trim, then `Integer.decode` for a hex prefix and `Integer.valueOf` otherwise. A value that cannot be converted at all is the only way this parameter yields a `400` (`10abc`, `1.5`, `1e3`, `1_0`, `1+1`, and int overflow); empty binds to the `defaultValue`. Verified live on all five; `/api/search/by-file` matches the others once its required `filePath` is supplied, and answers `400` for any `limit` without it. EN+ZH in sync |
 | 2026-10-02 | (unreleased) | Documented the `limit` clamp shared by the five paginated/search endpoints (`/api/observations`, `/api/summaries`, `/api/prompts`, `/api/search`, `/api/search/by-file`). All five apply `Math.min(Math.max(1, limit), MAX_PAGE_SIZE)` and the MCP `search` tool mirrors the same window, but the parameter tables only said "(max 100)", which reads like a rejection rather than a silent clamp — a caller passing `limit=0` expecting "no limit" gets one item and no error. Verified live: `?limit=0` and `?limit=-5` return 1 item on all three list endpoints; `?limit=500` returns 100 items and 100 search results; `?limit=7` returns 7. `/api/search/by-file` was confirmed on the lower bound only (`?limit=0` -> 1), because no fixture matches more than one record for a given path. Same class as the `/api/logs` clamp documented earlier today. EN+ZH in sync |
 | 2026-10-02 | (unreleased) | GET `/api/logs`: documented the `lines` clamp, which was previously unstated. `LogsController` applies `Math.min(Math.max(1, lines), 10000)`, so an out-of-range value is silently clamped and never returns `400` — verified live: `?lines=0` and `?lines=-5` both return `returnedLines: 1`, `?lines=50000` returns `10000`, `?lines=3` returns `3`. Also documented that `returnedLines` never exceeds the clamped `lines`, and that `totalLines` counts every line in the files searched — which can be two, because the endpoint reads today's log first and only falls back to yesterday's when today's holds fewer lines than requested (`files` lists what was read). A first draft of this entry claimed `returnedLines` *could* exceed `lines` across the day boundary; reading the controller disproved that (`subList(size - validatedLines, size)` bounds it), so it was removed rather than shipped. |
 | 2026-10-02 | (unreleased) | **BEHAVIOUR CHANGE: the four single-record import endpoints now report validation failures in `errors` instead of counting them as `skipped`.** `ImportResult` has three factories (`imported`, `duplicate`, `error`) but `ImportController` branched on `imported()` alone, so `error()` fell into the skip counter while `errors`/`errorMessages` only ever received *thrown* exceptions. The same failure class was therefore reported two different ways depending on whether it was thrown or returned. Live before: a payload whose fields did not bind returned `{"success":true,"imported":0,"skipped":1,"errors":0,"errorMessages":[]}` for a record that was silently dropped. `ImportResult.isError()` now discriminates on `id() == null` (only `error()` leaves it null) and all four call sites branch on it. Live after: `{"success":true,"imported":0,"skipped":0,"errors":1,"errorMessages":["projectPath is required"]}`. Genuine duplicates are unchanged and still count as skips. Also added: `importSession` and `importSummary` now validate `projectPath` (NOT NULL in both tables), so omitting it returns a message naming the field instead of `Could not commit JPA transaction` or a raw PostgreSQL constraint-violation dump. The three counters' semantics are now documented under Import Observations, since that gap is what let the bug survive. No WebUI impact: `webui`'s `POST /api/import` is a self-contained worker route writing to its own SQLite store and never calls these endpoints. |
