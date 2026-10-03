@@ -454,7 +454,13 @@ if obs == nil {
 }
 ```
 
-**Backend endpoint:** `GET /api/observations/{id}`
+**Backend endpoint:** `POST /api/observations/batch` with body `{"ids": ["obs-123"]}`
+
+There is **no `GET /api/observations/{id}` endpoint** — it returns **404**. This
+convenience method is a client-side wrapper over the batch endpoint:
+`GetObservation` calls `GetObservationsByIds(ctx, []string{id})` and returns
+`nil, nil` when the batch comes back empty. That is why a missing observation is
+signalled by a nil pointer rather than an error.
 
 #### GetObservationsByIds
 
