@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for DTO wire format and builder behavior.
@@ -178,6 +179,50 @@ class DtoTest {
     void experienceRequest_defaultCount() {
         var req = ExperienceRequest.builder().task("x").project("/p").build();
         assertThat(req.count()).isEqualTo(4);
+    }
+
+    /**
+     * The backend answers {@code count <= 0} with an empty list and HTTP 200
+     * (ExpRagService short-circuits), so a non-positive count that reaches the wire
+     * yields zero experiences with no error — indistinguishable from "none exist".
+     * The rule must hold on every construction path, not just the builder.
+     */
+    @Test
+    void experienceRequest_directConstructor_rejectsNonPositiveCount() {
+        assertThatThrownBy(() -> new ExperienceRequest("t", "/p", 0))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("count must be positive");
+        assertThatThrownBy(() -> new ExperienceRequest("t", "/p", -1))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("count must be positive");
+        // The five-argument convenience constructor delegates to the same one.
+        assertThatThrownBy(() -> new ExperienceRequest("t", "/p", 0, "manual", List.of()))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("count must be positive");
+    }
+
+    @Test
+    void experienceRequest_builder_rejectsNonPositiveCount() {
+        assertThatThrownBy(() -> ExperienceRequest.builder().task("t").count(0))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("count must be positive");
+        assertThatThrownBy(() -> ExperienceRequest.builder().task("t").count(-5))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("count must be positive");
+    }
+
+    /** Guard against over-correcting: 1 is positive and must still reach the wire. */
+    @Test
+    void experienceRequest_directConstructor_keepsPositiveCount() {
+        assertThat(new ExperienceRequest("t", "/p", 1).toWireFormat())
+            .containsEntry("count", 1);
+    }
+
+    /** null stays legal and still maps to the backend default of 4. */
+    @Test
+    void experienceRequest_directConstructor_keepsNullAsBackendDefault() {
+        assertThat(new ExperienceRequest("t", "/p", null).toWireFormat())
+            .containsEntry("count", 4);
     }
 
     @Test

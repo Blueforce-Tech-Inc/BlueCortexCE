@@ -22,6 +22,31 @@ public record ExperienceRequest(
     List<String> requiredConcepts,
     String userId
 ) {
+    /**
+     * Enforces the same rule on every construction path.
+     *
+     * <p>Until this existed the check lived only in {@link Builder#count(Integer)}, so
+     * {@code new ExperienceRequest("t", "/p", 0)} slipped past it and
+     * {@link #toWireFormat()} emitted {@code "count": 0}. The backend answers
+     * {@code count <= 0} with an empty list and HTTP 200
+     * ({@code ExpRagService} short-circuits), so the caller received zero experiences
+     * with no error — indistinguishable from a project that genuinely has none.
+     * A compact constructor covers the canonical constructor, both convenience
+     * constructors and the builder, so no path can bypass it.
+     *
+     * <p>{@code null} stays legal: {@link #toWireFormat()} maps it to the backend default
+     * of 4. Only a non-positive value is rejected. No valid input changes on the wire.
+     */
+    public ExperienceRequest {
+        requirePositiveCount(count);
+    }
+
+    private static void requirePositiveCount(Integer count) {
+        if (count != null && count <= 0) {
+            throw new IllegalArgumentException("count must be positive (got " + count + ")");
+        }
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -50,10 +75,14 @@ public record ExperienceRequest(
 
         public Builder task(String task) { this.task = task; return this; }
         public Builder project(String project) { this.project = project; return this; }
+        /**
+         * Number of experiences to retrieve. Must be positive; {@code null} means "let the
+         * backend choose" and is sent as its default of 4. A non-positive value is rejected
+         * here for early feedback, and again by the compact constructor, which is what
+         * actually makes the rule hold for the direct constructors too.
+         */
         public Builder count(Integer count) {
-            if (count != null && count <= 0) {
-                throw new IllegalArgumentException("count must be positive (got " + count + ")");
-            }
+            requirePositiveCount(count);
             this.count = count;
             return this;
         }
