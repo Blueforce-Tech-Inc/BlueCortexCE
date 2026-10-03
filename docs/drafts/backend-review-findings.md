@@ -11,6 +11,19 @@
 | P0 | 0 | 立即修复并复测 |
 | P1 | 1 | 优先修复并复测 |
 | P2 | 2 | 本轮完整验收阶段处理或明确标记为已跳过 |
+> 第 231 轮新增 **P2-29**（tool-use 去重键 `(session, tool_name, SHA-256(tool_input))`
+> **既不是一次工具调用的身份、也没有被原子地强制**：① 哈希只覆盖 `tool_input`，
+> `tool_response` 不在键内，故「同一 input、不同结果」的事件在处理窗口内被
+> **静默丢弃、调用方仍收到 `200 {"status":"accepted"}`**（预置 in-flight 行后确定性复现）；
+> ② `tool_name` 是客户端自由文本、未规范化，`Read` 与 `read` 携带**完全相同的
+> input 哈希**时双双入队（实测；不过全表仅此 1 组、且是本次探针，**生产从未发生**）；
+> ③ check-then-insert 非原子，**而本该兜底的唯一约束根本不存在**——
+> `ddl-auto: none` 且无任何迁移创建 `uk_session_tool_input`，故
+> `AgentService` 里那句 "Duplicate pending message detected (concurrent insert)"
+> 的处理器是**死代码**（8 个并发同请求实测落 **8 行**）。**记录不修**：三条修法都要改
+> 对外行为，尤其补唯一约束会让「失败后重试」这条合法路径因约束冲突而 500
+> （应用层检查忽略 `failed` 行，唯一索引不会）。**文档层已先行更正**（Java SDK README
+> 双语）。**P2 Open 计数仍为 2**（P2-8、P2-10）。
 > 第 230 轮新增 **P2-28**（`/api/test/all` 只取两个子处理器的 `.getBody()`、
 > **丢弃状态码，故障时仍返 200**——实测嵌入密钥失效时 `/api/test/embedding` 返 **500**
 > 而 `/api/test/all` 返 **200** 并内嵌同一个 `status:"error"`），**记录不修**：
@@ -873,6 +886,83 @@
   `ls ... | grep -v Test` 过滤测试文件，结果把 `TestController.java` 一并滤掉，
   数出 12 而记录是 13；改用 `grep -rln "@RestController"` 复核得 13，
   **确认是过滤器缺陷、既有记录无误**，没有据此改写任何结论。
+
+### P2-29: tool-use 去重键不是一次调用的身份，且未被原子强制
+
+- **Scope**: `AgentService.calculateToolInputHash()`（`AgentService.java:466-482`）、
+  `AgentService.handleToolUse()` 去重分支（第 147-158 行）、
+  `PendingMessageRepository.existsBySessionAndTool()`（第 38-45 行）、
+  `PendingMessageEntity` 的 `@UniqueConstraint`（第 8-11 行）。
+- **Problem**: 去重键是 `(content_session_id, tool_name, SHA-256(tool_input))`，
+  判定条件额外要求 `status <> 'failed'`。三处各自独立地削弱了它：
+
+  1. **键里没有 `tool_response`。** 哈希只覆盖 `toolInput` 字符串。因此一次
+     「同样的工具、同样的入参、但结果不同」的调用，在前一条仍处于
+     `pending`/`processing` 时会被**直接 `return` 丢弃**，而调用方拿到的是
+     `AgentService.java:150` 记录的 "Duplicate tool-use event skipped" 日志加上
+     HTTP `200 {"status":"accepted"}`——**与真正入队完全无法区分**。
+     对 fire-and-forget 的 SDK 捕获路径（`recordObservation` 等）而言，
+     调用方只能得出「已记录」这个错误结论。
+  2. **`tool_name` 未规范化。** 它是客户端自由文本，却参与键的比较。实测同一
+     session 内 `Read` 与 `read` 携带**完全相同的 input 哈希**
+     （`45ff9481fce2…`）时**双双入队**，即大小写不同即可绕过去重。
+     不过要如实说明规模：全表按 `(session, lower(tool_name), hash)` 精确分组后，
+     大小写孪生组**只有 1 个，且就是本次探针**——**生产数据里从未发生过**。
+     真正普遍的是命名本身跨客户端不一致（`Read` / `readFile` / `read`、
+     `Edit` / `edit` / `write_file` 同时存在），近 30 天仍有 `readFile` 13 次、
+     `write_file` 4 次在流入。
+  3. **检查与写入不是原子的，而唯一的兜底约束并不存在。**
+     `PendingMessageEntity` 声明了
+     `@UniqueConstraint(name = "uk_session_tool_input", columnNames = {...})`，
+     但 `application.yml:91` 是 `spring.jpa.hibernate.ddl-auto: none`，
+     且**全部 18 个 Flyway 迁移中没有任何一条创建该约束**；活体
+     `pg_constraint` 查询确认该表只有 pkey、两个 CHECK 和一个 FK，
+     手工插入一条完全相同的三元组**成功**（已回滚）。
+     后果是 `AgentService` 里那段
+     `catch (DataIntegrityViolationException)`——注释写着
+     "Duplicate pending message detected (concurrent insert)"——**是死代码**：
+     它等待的那个异常永远不会发生。并发请求于是全部通过检查。
+- **Reproduction**（2026-10-03，活体 37777）:
+
+  | 探针 | 做法 | 结果 |
+  |------|------|------|
+  | 静默丢弃 | 先直插一行 `status='processing'`、三元组与随后请求一致，再 POST 一次带**全新** `tool_response` 的 tool-use | HTTP **200** `{"status":"accepted"}`，但库里**只有那行预置数据**，新结果**未落库** |
+  | 原子性 | 8 个线程并发 POST **完全相同**的 tool-use | 8 个 200，库里**落了 8 行**；`created_at_epoch` 全部落在 **1 ms** 窗口内，且都在最后一行写入后 **58 ms** 才转 `failed`——即 8 次去重检查都在任何一次落库转 `failed` 之前跑完了 |
+  | 命名绕行 | 同 session 先 `Read` 后 `read`，input 相同 | 两行都在，input 哈希相同（`45ff9481fce2…`） |
+
+  关于「窗口」要如实补一句：**是否丢弃取决于时序**。上面第一行之所以稳定复现，
+  是因为预置行卡在 `processing`；而在本机（嵌入密钥失效、处理毫秒级失败）
+  真正背靠背连发两次时，前一条往往已转 `failed`、去重条件不再命中，
+  两次**都会**留下。生产环境嵌入/LLM 正常时处理耗时以秒计，窗口远宽于此——
+  但这个「取决于时序」本身正是缺陷的一部分：**同一段代码的行为不可预测**。
+- **规模**: 排除本次探针后 `mem_pending_messages` 共 **10,682** 行、
+  distinct `tool_input_hash` 仅 **7,305**。其中 **2,682 行（25.1%）** 的
+  `tool_input` 是空对象 `{}`，**共享同一个哈希**——对这些客户端而言去重键
+  实际退化成 `(session, tool_name)`。最大的一组是单个 session 内 `exec`
+  工具的 **208 行、全部 `failed`**。全表状态分布：`processed` 7,295 /
+  `failed` 3,282 / `skipped` 105。
+- **Status**: ⏸ **记录不修** —— 三条修法都改对外行为：
+  (a) 把 `tool_response` 纳入哈希 → 幂等重发不再被吸收，削弱崩溃恢复保护；
+  (b) 规范化 `tool_name` → 存量数据里 `readFile`/`write_file` 这类异名需迁移；
+  (c) 补 `uk_session_tool_input` 唯一约束 → **会直接打断「失败后重试」这条
+  合法路径**：应用层检查刻意忽略 `failed` 行，而唯一索引不忽略，于是重试会撞
+  约束异常返回 500。要同时做对，需要重新设计「什么算同一次调用」，
+  属设计决策，按既定纪律留待项目决策。**文档层已先行更正**：
+  `cortex-mem-spring-integration/README.md` 与 `README-zh-CN.md` 现明写
+  捕获路径的这一静默丢弃形态。**SDK 与后端代码一字未改。**
+- **复核记录**: 第 231 轮代码方向（Java SDK）发现。切入点是 Java SDK 的
+  `ObservationRequest.toWireFormat()` 发了 `toolResponse`/`promptNumber`/`source`
+  却发现它们**都不参与去重**。取证链：读 `AgentService.java:147-158` 与
+  `PendingMessageRepository.java:25,38` 确认键与判定条件；`grep` 确认后端
+  **零引用** `tool_use_id`（真正的键不是它）；预置 in-flight 行做确定性丢弃
+  复现；并发 8 发验证原子性；`pg_constraint` + 事务内重复插入验证约束不存在；
+  `grep -rn "UNIQUE" backend/src/main/resources/db/migration/` 确认无迁移创建。
+  **探针自身错一次并先识别再采信**：并发探针脚本在同一次运行里查库，
+  读到 0 行、险些据此断言「事件根本没落库」；复查发现是**落库晚于响应返回**，
+  稍后重查为 8 行——**先识别为探针时序问题再采信**，未据此改写结论。
+  另修正了自己一次统计口径错误：最初按 `(session, hash)` 分组把
+  `read`/`edit`/`write` 误称为「大小写孪生」得 307 组，改用
+  `(session, lower(tool_name), hash)` 精确分组后为 **1 组**。
 
 ## Processing Rules
 

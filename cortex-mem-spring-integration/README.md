@@ -421,6 +421,30 @@ server had just rejected it. An empty project path is quieter still, because the
 backend *accepts* it — the record is queued against no project and then appears in no
 project-scoped query, with no error anywhere.
 
+**The backend's own tool-use deduplication is the third capture hazard, and the only
+one this client cannot see coming.** `POST /api/ingest/tool-use` identifies an event by
+`(content_session_id, tool_name, SHA-256(tool_input))` and skips any event whose triple
+is already present in a non-`failed` state. `toolResponse` and `promptNumber` are on the
+wire but **not in that key**. So if the same tool is called twice with the same input
+and a *different* result — re-running a command, re-reading a file, any retry that is
+not a byte-identical resend — and the first is still being processed, the second is
+**silently discarded** and the caller still receives `200 {"status":"accepted"}`,
+which is byte-identical to the response for an event that really was queued. Verified
+live: with an in-flight row planted on the same triple, a tool-use carrying a brand-new
+`tool_response` returned `200 accepted` and left the table unchanged.
+
+Two properties make this worse rather than better. First, the window is exactly as long
+as the first event takes to process, so the outcome is **timing-dependent** — the same
+two calls can both land or have the second dropped, run to run. Second, the check and
+the insert are not atomic, and the unique constraint that the backend's own code
+assumes exists (`uk_session_tool_input`) is **not** created by any migration, so
+concurrent identical calls are not backstopped either: eight identical concurrent
+`recordObservation` calls produced eight rows. Note the flip side, which is why the
+SDK's retry is safe: a byte-identical resend *is* absorbed, which is exactly the
+idempotency you want. The key simply cannot tell a resend from a new result.
+`toolName` is also compared as free-form client text, so `Read` and `read` bypass the
+check completely. Tracked as P2-29.
+
 `search` has the same shape of hazard: the client always sends `project`, and
 `GET /api/search?project=` answers `200` with an empty result set, so a caller who
 forgot the argument would read "no matches" rather than "your call was malformed".
@@ -804,6 +828,10 @@ The client talks to these Cortex CE endpoints:
   `getModes`, `getSettings`, `getVersion`, `healthCheck`, `getQualityDistribution`,
   `retrieveExperiences`, `buildICLPrompt`, plus `startSession` and `updateSessionUserId`.
   A transient backend error therefore surfaces on the first attempt through most of the API.
+  Retrying `recordObservation` is safe from the double-record point of view, because the
+  backend's tool-use dedup absorbs a byte-identical resend — but the same key also
+  absorbs a call whose *result* differs, so a retry is not what makes the capture path
+  lossy here. See the deduplication hazard above.
 - The other three SDKs retry **only** the capture path, so the same setting covers a
   smaller set of calls there: the two extraction reads retry on Java alone. A caller who
   ports a retry-avoidance workaround for those two methods needs a guard on Java only.
