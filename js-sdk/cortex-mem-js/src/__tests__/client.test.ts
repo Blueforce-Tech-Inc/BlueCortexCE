@@ -1878,6 +1878,27 @@ describe('safeStringArray', () => {
   it('should return empty array for empty array input', () => {
     expect(safeStringArray([])).toEqual([]);
   });
+
+  // The next two pin behaviour that looks like a bug and is not reachable
+  // through the API, so nothing else would notice if it changed. The backend
+  // rejects a non-string element in a JSONB list column at the request
+  // boundary (POST /api/ingest/observation with facts: ["ok", 123] answers
+  // 400), and no live row holds one — checked with
+  // jsonb_array_elements(...) WHERE jsonb_typeof(e) <> 'string', which
+  // returns 0 across all 38k+ observations. These cases therefore only decide
+  // what a hand-built payload does.
+  it('stringifies an object item as [object Object]', () => {
+    // Note the contrast with safeString, which deliberately returns undefined
+    // for objects "to avoid silent [object Object] corruption" — the doc on
+    // that function says so. Here the same corruption is produced instead.
+    expect(safeString(['a', { x: 1 }])).toBeUndefined();
+    expect(safeStringArray(['a', { x: 1 }])).toEqual(['a', '[object Object]']);
+  });
+
+  it('flattens a nested array item via Array.prototype.toString', () => {
+    expect(safeStringArray(['a', ['b']])).toEqual(['a', 'b']);
+    expect(safeStringArray(['a', ['b', 'c']])).toEqual(['a', 'b,c']);
+  });
 });
 
 describe('firstNonNullOr', () => {

@@ -47,6 +47,16 @@ export function safeNumberOr(v: unknown, fallback: number): number {
  * Safely convert unknown value to string array.
  * Returns undefined for null/undefined/non-array.
  * Converts non-string items via String().
+ *
+ * Note the deliberate difference from {@link safeString}, which returns
+ * undefined for an object specifically to avoid "[object Object]". Here the
+ * same string is produced instead, because a list column with one bad element
+ * should keep its good elements rather than lose the whole field. A nested
+ * array is flattened the same way, since String(['b']) is 'b'.
+ *
+ * Unreachable through the API: the backend rejects a non-string element in a
+ * JSONB list column at the request boundary, and no stored row contains one.
+ * The behaviour is pinned by tests rather than left to chance.
  */
 export function safeStringArray(v: unknown): string[] | undefined {
   if (v === null || v === undefined) return undefined;
