@@ -2443,16 +2443,41 @@ GET /api/test/all
 
 Runs both LLM and Embedding connectivity tests and returns combined results.
 
-**Response** (`200 OK`):
+**This endpoint always returns `200`.** It calls the two handlers above and
+embeds their bodies, discarding their status codes, so a failing provider shows
+up as `status: "error"` inside the matching object and never as a non-2xx
+response. Measured with an invalid embedding key: `GET /api/test/embedding`
+returns `500`, while `GET /api/test/all` returns `200` carrying the same failure.
+A script that polls `/api/test/all` for its status code therefore cannot detect
+a broken provider — read the nested `status` fields instead. See P2-28.
+
+**Response** (`200 OK`, both providers healthy):
 ```json
 {
   "llm": {
     "status": "success",
-    "message": "LLM is working!"
+    "message": "LLM (DeepSeek) is working!",
+    "response": "Hello from DeepSeek!"
   },
   "embedding": {
     "status": "success",
+    "message": "Embedding (SiliconFlow BGE-M3) is working!",
     "dimensions": 1024
+  }
+}
+```
+
+**Response** (`200 OK`, embedding provider failing — note the status code):
+```json
+{
+  "llm": {
+    "status": "success",
+    "message": "LLM (DeepSeek) is working!",
+    "response": "Hello from DeepSeek!"
+  },
+  "embedding": {
+    "status": "error",
+    "message": "Embedding failed: 401 - {\"code\":30014,\"data\":null,\"message\":\"Token is invalid.\"}"
   }
 }
 ```

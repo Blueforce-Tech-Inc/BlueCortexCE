@@ -11,6 +11,14 @@
 | P0 | 0 | 立即修复并复测 |
 | P1 | 1 | 优先修复并复测 |
 | P2 | 2 | 本轮完整验收阶段处理或明确标记为已跳过 |
+> 第 230 轮新增 **P2-28**（`/api/test/all` 只取两个子处理器的 `.getBody()`、
+> **丢弃状态码，故障时仍返 200**——实测嵌入密钥失效时 `/api/test/embedding` 返 **500**
+> 而 `/api/test/all` 返 **200** 并内嵌同一个 `status:"error"`），**记录不修**：
+> 传播子状态码属对外契约变更且需同步改 Swagger 注解；**文档层已先行更正**（双语明写
+> 「恒返回 200」、给出健康与故障两种真实示例、并告诉巡检脚本应读嵌套 `status`）。
+> **影响面已核实**：四家 SDK **零调用方**，项目自带 `test-llm-provider.sh`
+> **只调 `/llm` 与 `/embedding`、从不调 `/all`**——仓库自身也绕开了它。
+> **P2 Open 计数仍为 2**（P2-8、P2-10）。
 > 第 227 轮新增 **P2-27**（Python SDK **无法清空 `extractedData`**：`None` 与 `{}` 两种写法
 > 都被跳过，探针确认 `to_wire()` 均为 `{}`；活体确认后端 `null`→NULL、`{}`→`{}` 两种都接受，
 > 而库中 `{}` 此前 **0 条先例**）。四家阶梯：JS 完全 > Java 部分（只能发 `{}`）>
@@ -828,6 +836,43 @@
   复查后确认该行就在 `deepRefineProjectMemories`（213–292）内，ordering 属实；
   真正的缺陷是那个方法零调用方（见 0.3.md 的 DOC-1），与本条无关。
 
+
+### P2-28: `/api/test/all` 丢弃两个子处理器的状态码，故障时仍返回 200
+
+- **Scope**: `TestController.testAll()`（`TestController.java:118-123`）。
+  `testLlm()` 与 `testEmbedding()` 各自会返回 `ResponseEntity.status(500)`
+  （第 67、106 行），但 `testAll` 只取 `.getBody()` 塞进 Map，
+  **状态码被丢弃**，自身恒返 `200 OK`。
+- **Problem**: 同一份「测试连通性」的语义，两个端点给出**互相矛盾的失败信号**。
+  类级 `@Profile("!prod")` 门控是正确的（第 26 行），四家 SDK 也都零调用方，
+  暴露面有限；但**任何用 `/all` 做巡检的脚本或监控，在提供方完全不可用时仍会看到
+  200**，从而永远不会告警。Swagger 注解（第 116 行）**只声明了 200**，
+  与实现一致 —— 也就是说**契约本身就是这样声明的**，问题不在契约与实现不符，
+  而在这个契约让该端点失去了作为测试端点的意义。
+- **Reproduction**（2026-10-03，活体 37777，嵌入密钥失效的状态下）：
+
+  | 端点 | HTTP | 响应体 |
+  |------|------|--------|
+  | `GET /api/test/llm` | 200 | `{"status":"success", ...}` |
+  | `GET /api/test/embedding` | **500** | `{"status":"error","message":"Embedding failed: 401 - ...Token is invalid."}` |
+  | `GET /api/test/all` | **200** | 内含**同一个** `embedding.status = "error"` |
+
+  同一故障，一边 500 一边 200，实测复现。
+- **Status**: ⏸ **记录不修** —— 让 `/all` 传播子状态码属**对外契约变更**
+  （监控与脚本会看到不同状态码），且需同步修改只声明 200 的 Swagger 注解，
+  按既定纪律留待项目决策。**文档层已先行更正**：`docs/API.md` 与
+  `docs/API-zh-CN.md` 的 Test All 章节现明写「该端点恒返回 200」、给出两种真实
+  响应示例（健康 / 嵌入故障各一），并直接告诉巡检脚本应读嵌套 `status` 而非状态码。
+- **复核记录**: 第 230 轮代码方向发现（首次审 `TestController`）。取证：活体
+  三端点分别 curl 取状态码；读 `TestController.java:118-123` 确认
+  `testLlm().getBody()` 丢弃了 `ResponseEntity` 的状态部分；
+  `grep -rn "api/test"` 确认四家 SDK **零命中**，而项目自带的
+  `scripts/test-llm-provider.sh` **只调用 `/llm` 与 `/embedding`**（第 43、76 行
+  正是靠 `%{http_code}` 判定）、**从不调用 `/all`** —— 说明仓库自身也绕开了它。
+  **探针自身错一次并先识别再采信**：统计 controller 数量时用
+  `ls ... | grep -v Test` 过滤测试文件，结果把 `TestController.java` 一并滤掉，
+  数出 12 而记录是 13；改用 `grep -rln "@RestController"` 复核得 13，
+  **确认是过滤器缺陷、既有记录无误**，没有据此改写任何结论。
 
 ## Processing Rules
 

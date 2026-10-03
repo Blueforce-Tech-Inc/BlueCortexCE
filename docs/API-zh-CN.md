@@ -2460,16 +2460,39 @@ curl http://localhost:37777/api/test/embedding
 curl http://localhost:37777/api/test/all
 ```
 
-**响应示例** (`200 OK`):
+> **该端点恒返回 `200`。** 它调用上面两个处理器并把响应体嵌进来，**丢掉了它们的状态码**，
+> 因此某个提供方故障只会表现为对应对象里的 `status: "error"`，**绝不会**表现为非 2xx 响应。
+> 用失效的嵌入密钥实测：`GET /api/test/embedding` 返回 **500**，而 `GET /api/test/all`
+> 带着**同一个故障**返回 **200**。所以**只看状态码的巡检脚本发现不了提供方已挂**——
+> 应改为读嵌套的 `status` 字段。见 P2-28。
+
+**响应示例** (`200 OK`，两个提供方均正常):
 ```json
 {
   "llm": {
     "status": "success",
-    "message": "LLM is working!"
+    "message": "LLM (DeepSeek) is working!",
+    "response": "Hello from DeepSeek!"
   },
   "embedding": {
     "status": "success",
+    "message": "Embedding (SiliconFlow BGE-M3) is working!",
     "dimensions": 1024
+  }
+}
+```
+
+**响应示例** (`200 OK`，嵌入提供方故障——**请注意状态码仍是 200**):
+```json
+{
+  "llm": {
+    "status": "success",
+    "message": "LLM (DeepSeek) is working!",
+    "response": "Hello from DeepSeek!"
+  },
+  "embedding": {
+    "status": "error",
+    "message": "Embedding failed: 401 - {\"code\":30014,\"data\":null,\"message\":\"Token is invalid.\"}"
   }
 }
 ```
