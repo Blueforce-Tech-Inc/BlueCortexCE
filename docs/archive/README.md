@@ -49,3 +49,4 @@ The date prefix reflects when the document was last relevant (not when it was ar
 | `2026-10-02_health-check-history-5.md` | `docs/drafts/health-check-task.md` | 2026-10-02 | 第 149~157 轮（2026-10-02，9 条），五次达阈值时压缩迁移；归档时顺带纠正了第 157 轮曾被误插入 156 轮正文的顺序问题 |
 | `2026-10-02_health-check-history-6.md` | `docs/drafts/health-check-task.md` | 2026-10-02 | 第 158~162 轮（2026-10-02 15:12 ~ 17:55，5 条），六次达阈值时压缩迁移；按轮号提取并逐块断言自报轮号（沿用第 5 次归档确立的模式） |
 | `2026-10-02_health-check-history-7.md` | `docs/drafts/health-check-task.md` | 2026-10-02 | 第 163~170 轮（2026-10-02 18:15 ~ 21:05，8 条），七次达阈值时压缩迁移；写入前活动文件 904 行、追加 112 行将达 1016 行，故先迁出；同样按轮号提取并逐块断言自报轮号 |
+| `2026-10-03_backend-review-history-resolved.md` | `docs/drafts/backend-review-findings.md` | 2026-10-03 | 10 条无条件已解决条目（P1-2、P2-1~P2-7、P2-9、P2-12，273 行）逐字迁出，达 `MAX_LINES=1000` 阈值时压缩；⏸ 决策记录与 Open 条目一律保留，归档文件内载明筛选规则 |
