@@ -253,13 +253,38 @@ class TestObservations:
     def test_list_ok(self, app, client):
         from cortex_mem import ObservationsResponse, Observation
         app._mock_client.list_observations.return_value = ObservationsResponse(
-            items=[Observation(id="o1", content="test")], has_more=False, total=1
+            items=[Observation(id="o1", content="test")], has_more=False
         )
         resp = client.get("/observations?project=/p&limit=10")
         assert resp.status_code == 200
         data = resp.get_json()
         assert len(data["items"]) == 1
         assert data["items"][0]["id"] == "o1"
+
+    def test_list_does_not_invent_pagination_fields(self, app, client):
+        """Pin the real wire shape of GET /api/observations.
+
+        The backend's PagedResponse carries only `items` and `hasMore` — verified
+        live. ObservationsResponse still has total/offset/limit fields for local
+        construction, and they stay 0 against a real server, so a handler that
+        serialises them emits "total": 0 beside a non-empty items array. The
+        earlier fixture here passed `total=1`, a value the backend never sends,
+        which is why the fabricated zeros went unnoticed: every test only
+        asserted on `items`.
+        """
+        from cortex_mem import ObservationsResponse, Observation
+        app._mock_client.list_observations.return_value = ObservationsResponse(
+            items=[Observation(id="o1", content="test")], has_more=True
+        )
+        resp = client.get("/observations?project=/p&limit=10")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["has_more"] is True
+        for fabricated in ("total", "offset", "limit"):
+            assert fabricated not in data, (
+                f"{fabricated!r} is not sent by the backend and must not be "
+                f"synthesised; got {sorted(data)}"
+            )
 
     def test_list_limit_zero_uses_backend_default(self, app, client):
         """limit=0 is accepted — SDK omits it from request, backend applies its default."""

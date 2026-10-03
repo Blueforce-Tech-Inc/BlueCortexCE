@@ -22,6 +22,9 @@
 > 第 195 轮新增 P2-13（`CortexSessionContext` 没有 `userId` 字段，导致
 > `CortexMemoryAdvisor` 与 `CortexMemoryTools` **结构上无法**按用户隔离注入给 Agent 的
 > 记忆，尽管后端与 SDK 下层都支持），⏸已记录不实现，README 已如实写明，P2 Open 计数仍为 2。
+> 第 197 轮新增 P2-14（`ObservationRepository.findNewObservations` 零调用方——它注释明写
+> 「for incremental extraction」，而增量抽取从未实现；V16 迁移还专门为它建了复合索引），
+> ⏸已记录不实现，四份设计文档的相应断言已更正。P2 Open 计数仍为 2。
 > **Open 只统计尚未处理的条目**（⏸已记录不修 / 📌待修）。标记为 ✅已修复 或 ✅已跳过 的条目
 > 保留在本文件作为可追溯的历史，但**不计入** Open。
 > P1-2（导入端点把校验失败报成成功跳过）已于 2026-10-02 第 166 轮 Backend 集中修复并复测通过，
@@ -479,7 +482,32 @@
   本轮已做的是**如实记录**：`cortex-mem-spring-integration/README.md` 与 `README-zh-CN.md`
   新增多用户段落，写明自动路径不做用户隔离、哪些端点其实认 `userId`、以及可用的手工做法。
 
+### P2-14: `findNewObservations` 零调用方——增量抽取从未实现，却有索引为它而建
+
+- **Scope**: `ObservationRepository.java:619-634`（`findNewObservations(project, sources,
+  sinceEpoch, limit)`，javadoc 写「Find new observations since a given epoch for
+  **incremental extraction**」）；调用方为 `StructuredExtractionService.java:211`，
+  它用的是 `findBySourceIn(projectPath, sources, initialRunMaxCandidates)`；
+  `V16__composite_source_index.sql:11` 把 `findNewObservations` 列为新建复合索引服务的查询之一。
+- **Problem**: 增量抽取**没有实现**。后端全文没有 `extraction_state`（0 命中），
+  每次运行都调用 `findBySourceIn` 取最新的 N 条，**没有「上次抽取之后」的过滤**。
+  `findNewObservations` 本身实现完好、SQL 正确（`created_at_epoch > :sinceEpoch`
+  且 `ORDER BY created_at_epoch ASC`），但 `backend/src/main` 中**零调用方**——
+  连单元测试都没有引用它。这是 P2-12（`deepRefineProjectMemories` 无调用方）的同型：
+  一个从未接线的特性，只留下方法、注释和一条为它建的索引。
+- **实际行为（与文档描述不同）**：`findBySourceIn` 是 `ORDER BY created_at_epoch DESC LIMIT N`，
+  所以新观测**会**进来，但超出上限的旧观测**永远不会被抽取**。既不是文档所称的
+  「增量」，也不是「全量重扫」——是「每次重扫最新的 N 条」。
+- **影响面**：纯成本与覆盖问题，不会返回错值；但 23.md 曾把它列为
+  「primary cost reduction mechanism」，运维据此估算 token 预算会系统性偏低。
+- **Status**: ⏸**已记录，不实现**。接上它需要持久化抽取状态（7.md §7.1 提议用
+  `type="extraction_state"` 的观测行承载），属新增特性而非修 bug；且抽取状态的
+  过期/重建语义应由项目决定。本轮已做的是**如实记录**：23.md §23.5 策略 3/4/5 全部补上
+  「designed, not implemented」声明，并给出真实的候选选取路径与排序方向；
+  8.md 第 5 条、0.2.md Gap 3、17.md §17.2 三处同一断言一并更正。
+
 ## Processing Rules
+
 - SDK/Demo findings are fixed in place with focused compile/test verification.
 - Backend findings are fixed in place when small and safe; otherwise they remain here until the complete acceptance stage.
 - Every finding must end as a code fix, a documented design decision, or an explicit skipped status. Reporting alone is not a valid resolution.

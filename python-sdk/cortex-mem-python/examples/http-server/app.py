@@ -301,12 +301,15 @@ def observations_list():
     # letting the backend apply its defaults (consistent with Python SDK semantics).
 
     result = client.list_observations(project=project, limit=limit, offset=offset)
+    # Only `items` and `has_more` are returned. The backend's PagedResponse carries
+    # no total/offset/limit, so result.total/offset/limit are always 0 against a
+    # real server — emitting them would put "total": 0 next to a non-empty items
+    # array, which reads as a contradiction. Go (json omitempty), JS (undefined is
+    # dropped by res.json) and Java (the record has no such components) all pass
+    # the two real fields through untouched; this endpoint now matches them.
     return jsonify(
         items=[o.to_dict() for o in result.items],
         has_more=result.has_more,
-        total=result.total,
-        offset=result.offset,
-        limit=result.limit,
     )
 
 
