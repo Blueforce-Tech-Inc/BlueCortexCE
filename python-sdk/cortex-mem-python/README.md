@@ -8,7 +8,7 @@ Python SDK for the [Cortex CE](https://github.com/Blueforce-Tech-Inc/BlueCortexC
 
 - **Zero forced dependencies** — only `requests` required
 - **Full API coverage** — 25 methods covering Session, Capture, Retrieval, Management, Extraction
-- **389 unit tests** — Comprehensive coverage of client, DTO, and demo integration
+- **431 unit tests** — Comprehensive coverage of client, DTO, and demo integration (207 client + 140 DTO + 84 demo)
 - **Idiomatic Python** — dataclasses, kwargs, context manager
 - **Wire format compatible** — JSON field names match backend API exactly
 - **Fire-and-forget capture** — non-blocking observation recording with internal retry

@@ -11,41 +11,29 @@
 | P0 | 0 | 立即修复并复测 |
 | P1 | 1 | 优先修复并复测 |
 | P2 | 2 | 本轮完整验收阶段处理或明确标记为已跳过 |
-> 第 235 轮新增 **P2-33**（四家 demo 各暴露 23 个端点，**21 个同名、2 个异名，
-> 且例外全在 Go 一家**：批量取观测与直接创建观测，Go 用 `/batch-observations`
-> 与 `/create-observation`，另三家用 `/observations/batch` 与 `/observations/create`
-> ——照 JS/Python 的 curl 抄一遍打到 Go demo 上会得 **404**）。Go demo 的 README 与
-> `go-sdk-e2e-test.sh` **都与代码一致，故不是文档错误，而是跨 demo 契约分歧**。
-> **记录不修**：改路由会同时打断 e2e 脚本与已发布示例，属跨 demo 契约决策。
-> **同轮更正了自己第 229 轮的两处事实错误**：那条把 Go 的写入端点记成
-> 「`main.go:801` 的 `/observations/create`」，实为**第 771 行注册的
-> `/create-observation`**（`/observations/create` 是 JS/Python 的路径；801 行是
-> handler **体内**的调用而非注册处），已在两处轮换记录同步更正；**核心结论复核仍成立**
-> （`/chat` 内 `RecordObservation` 与 `RecordToolUse` 各 **0** 次）。
-> **P2 Open 计数仍为 2**（P2-8、P2-10）。
-> 第 234 轮新增 **P2-32**（**两个 Dockerfile 都不设 `SERVER_ADDRESS`**，而
-> `application.yml:3` 默认 `127.0.0.1` → 裸 `docker run -p 37777:37777` **对外不通**，
-> 而根 `Dockerfile` 文件头给的正是这条命令；**健康检查却是绿的**。另：根 Dockerfile 的
-> healthcheck **写死 `37777`**（`backend/Dockerfile` 用 `${SERVER_PORT}`），照
-> `DEPLOYMENT.md:845` 的排障建议改 `SERVER_PORT` 会把**健康应用判成 unhealthy**。
-> **活体证据**：`lsof` 只监听 `127.0.0.1:37777`，LAN 地址 `10.166.1.125` 上 curl 得
-> **HTTP=000**；`docker-compose.yml` 显式写了 `0.0.0.0` 故**恰好绕过**。
-> **记录不修**：本机**无 Docker**，**无法验证修复效果**。**一处刻意不报**：根镜像
-> healthcheck 依赖的 `wget` 在 Debian 基运行镜像里是否存在，本机无法验证。
-> **P2 Open 计数仍为 2**（P2-8、P2-10）。
-> **压缩说明（第 233 / 235 轮两次执行）**：本区块原先逐轮追加叙述，加条目后两次越过
-> `MAX_LINES=1000`（第 233 轮达 1013 行、第 235 轮达 1002 行）。两次累计删除**第 230 轮及更早**的
-> 逐轮摘要，**最近两轮（234、235）原样保留**。删除的内容**没有任何信息损失**，因为每一条都在下面
-> `## Open Findings` 里有**完整条目**（Scope / Problem / Reproduction / Status / 复核记录），
-> 且逐轮全文另存于 `docs/drafts/patrol-rotation.md` 与 `docs/drafts/doc-review-task.md`。
-> 仍然有效的汇总信息保留如下：
-
+> **逐轮叙述不再保留在本区块。** 每一条发现都在下面 `## Open Findings` 里有**完整条目**
+> （Scope / Problem / Reproduction / Status / 复核记录）；逐轮的完整上下文另存于
+> `docs/drafts/patrol-rotation.md` 与 `docs/drafts/doc-review-task.md`。
+> 本区块曾在 2026-10-03 至 10-04 之间多次越过 `MAX_LINES=1000` 而被迫压缩，
+> 逐轮删减并不能根治——**根因是逐轮叙述本就不该放在这里**，故改为只保留下表。
+>
+> 压缩记录：第 225 轮（1008 行，10 条已解决条目移入归档）、第 232 轮（980 行，
+> P1-3 与 P1-4 共 79 行移入归档-2）、第 233 与 235 轮（1013 / 1002 行，逐轮摘要并入下表）、
+> 第 236 轮（**本区块结构化，不再保留逐轮叙述**）。
 | 轮次 | 条目 | 一句话 |
 |------|------|--------|
 | 219 / 218 / 224 | P2-24 / P1-3 / P1-4 | 代码侧已修；P1-3、P1-4 已归档，P2-24 仍带 ⏸ 残留故保留 |
 | 225–228 | P2-25 / P2-26 / P2-27 / P2-28 | 全部 ⏸ 记录不修（契约或公开 API 变更） |
 | 229 | — | 纯 Demo 修复，无新增 finding |
 | 230–233 | P2-28 / P2-29 / P2-30 / P2-31 | 全部 ⏸ 记录不修；P2-31 的 Python 半边已修 |
+| 234 | P2-32 | ⏸ 记录不修（本机无 Docker，无法验证修复效果） |
+| 235 | P2-33 | ⏸ 记录不修（跨 demo 契约决策） |
+| 236 | P2-34 | ⏸ 记录不修（改注解即改 OpenAPI 契约）；**人工撰写的 API 文档本来就正确** |
+
+**本文件最值得记住的一点**：P2-32、P2-33、P2-34 连续三条的形态完全一样 ——
+**机器可读的那一份**（Dockerfile 的默认绑定、demo 的路由名、Swagger 注解的示例）
+与**人工撰写的那一份**（compose 文件、demo README、API 文档）不一致或残缺。
+三处的**文档层都已先行更正或本来正确**，代码/产物层则因契约变更留待项目决策。
 
 ## Open Findings
 
@@ -938,6 +926,51 @@
   **第 229 轮的核心结论经复核仍成立**：Go demo 的 `/chat` handler
   （`main.go:170-213`）内 `client.*` 调用**只有 1 个 `BuildICLPrompt`**，
   `RecordObservation` 与 `RecordToolUse` **各 0 次**——`/chat` 确实什么都没记录。
+
+### P2-34: `GET /api/logs` 的 Swagger 示例漏掉 `files`，且把绝对路径写成 `/logs`
+
+- **Scope**: `LogsController.getLogs()` 的 `@ApiResponse` 示例
+  （`LogsController.java:81-82`）。**人类撰写的文档是对的**，错的只有注解。
+- **Problem**: 实现用 `Map.of(...)` 返回 **6** 个键
+  —— `logs` / `path` / **`files`** / `totalLines` / `returnedLines` / `exists`，
+  而注解的示例只有 **5** 个，**漏掉 `files`**；且示例写 `"path":"/logs"`，
+  实际返回的是**绝对路径**（本机实测 `/Users/yangjiefeng/.claude-mem/logs`）。
+  `/v3/api-docs` 是生成客户端代码的来源，所以这个缺失会传播到任何按 OpenAPI
+  生成的 SDK 模型里。
+- **Reproduction**（2026-10-04，活体 37777，`?lines=3`）:
+
+  ```json
+  {"exists": true, "files": ["claude-mem-2026-10-04.log"],
+   "logs": "[2026-10-04 01:53:16.718] [INFO ] [SERVIC] …",
+   "path": "/Users/yangjiefeng/.claude-mem/logs",
+   "returnedLines": 3, "totalLines": 302}
+  ```
+
+  6 个键，其中 **`files` 在注解示例里没有**。
+- **对比**：`docs/API.md:2055-2065` 与 `docs/API-zh-CN.md:2039-2047` 的示例
+  **六个键齐全**、用的是绝对路径，中文版前文还解释了 `files` 数组的语义
+  （今天优先、不足才回落昨天）。**两版人工文档都正确，无需改动。**
+- **Status**: ⏸ **记录不修** —— 改 `@ApiResponse` 的示例即改**对外 OpenAPI 契约**
+  （沿用 P2-11 / P2-22 / P2-25 的同一判断）。**文档层无需更正**：
+  人工撰写的两版 API 文档本来就是对的。
+- **复核记录**: 第 236 轮代码方向（Backend）首次审 `LogsController`
+  （13 个 controller 里此前未被作为代码审查对象的一个）。
+  **三个假设在写成发现前被证伪，全部靠实测而非推理**：
+  ①**「截断被 appender 持有的日志文件会产生 NUL 空洞」——证伪。**
+  这是 Java 日志的经典坑，但用一个 scratch 文件精确复现了机制
+  （持久 `FileOutputStream(append=true)` 写入 21 字节 → 旁路
+  `Files.writeString(p,"")` 截断 → appender 再写）：**结果 size=7、NUL=0、
+  内容为 `line-4`**，因为**追加模式强制 `O_APPEND`，每次写都落到当前文件末尾**，
+  根本不存在「记住的偏移量」。若不做这个实验就会写成一条假发现。
+  ②**「appender 写的文件名与控制器读的不一致」——证伪。**
+  `RollingFileAppender` 写 `${APP_NAME}.log`，而控制器读 `claude-mem-{日期}.log`，
+  看着像不匹配；但磁盘实况显示**正在被写的是 `claude-mem-2026-10-04.log`**
+  （01:58 仍在增长），而 `claude-mem.log` 始终 **0 字节**。原因是项目自带
+  `ClaudeMemLogAppender`（第 222 行）写的正是 `claude-mem-` + 日期 + `.log`，
+  **与控制器完全一致**。
+  ③**路径穿越**不成立：文件名完全由 `LocalDate.now()` 推导，**没有任何用户输入
+  进入路径**；`lines` 的钳位实测正确（`0`→1、`-5`→1、`99999`→10000），
+  而 `0x10`→16 属**已记录的 P2-20**（全部 22 个数值参数一致），不重复立项。
 
 ## Processing Rules
 

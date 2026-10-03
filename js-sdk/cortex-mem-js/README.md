@@ -9,7 +9,7 @@ JavaScript/TypeScript client SDK for the [Cortex CE](https://github.com/Blueforc
 - **Zero runtime dependencies** — Uses the built-in `fetch` API (Node 18+, browsers, Deno, Bun)
 - **Full TypeScript support** — Complete type definitions for all DTOs
 - **25 API methods** — Covers all endpoints from the Go/Java SDKs
-- **224 unit tests** — Full coverage of wire format and client behavior
+- **243 unit tests** — Full coverage of wire format and client behavior (230 client + 5 truncated-body + 8 http-server example)
 - **Dual CJS + ESM** — Works with CommonJS and ES Modules
 - **Best-effort capture** — Retries transient failures; capture errors are logged and swallowed after retries
 

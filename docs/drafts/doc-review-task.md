@@ -29,7 +29,52 @@
 - **最近完成**: 架构文档（2026-10-04 一百三十四轮，三项，双语）。**DOC-1（P2，已修）** **第 231 轮在代码里证伪的那个约束，在架构文档里被写成了「真正的去重机制」。** `ARCHITECTURE.md:416` 原写「actual duplicate suppression for captures is the `uk_session_tool_input` unique constraint over (session, tool_name, `tool_input_hash`) **plus** the `existsBySessionAndTool` check」——而该约束**在任何已部署库里都不存在**（`ddl-auto: none`、18 个迁移无一条创建、`pg_constraint` 查不到、事务内重复插入成功）。读者据此会以为捕获去重有数据库兜底、并发安全；**实际只有那道非原子的先查后写**（第 231 轮实测 8 并发落 8 行）。现改为如实写出「去重仅来自 `existsBySessionAndTool` 检查」，并点明实体上的 `@UniqueConstraint` 与那段 "Duplicate pending message detected (concurrent insert)" 的 catch **都在等一个永不发生的异常**、链到 P2-29。**DOC-2（已修，双语）** 同一张表的 ASCII 框把状态枚举写成 `pending/processing/processed/failed` **四个**，而 `V3__add_skipped_status.sql` 早已把 `'skipped'` 加进 CHECK 约束、活体库有 **105** 行 `skipped`——**漏了一个真实存在的状态**。**DOC-3（已修，双语）** 框里第 2 步写「Process with deduplication via tool_input_hash」，但逐符号核对 `PendingMessageProcessor`：该类**只调 `findByStatusOrderByCreatedAtEpochAsc("pending")`，`existsBySessionAndTool` 与 `toolInputHash` 零命中**——**去重发生在入队时（`AgentService`），不在处理器里**。三处均已更正。**顺带对齐了中文版 ASCII 框的显示宽度**：该框原本就不等宽（按 East Asian Width 算为 61/60/61/59），本轮一并统一到 **59** 列。**核实无误**：两处计数断言**均准确**——`ContextController` 标注「7 endpoints incl. /semantic」，用 OpenAPI 与源码 `@*Mapping` **双向**核实确为 7 条路径 7 个操作；Viewer 标注「WebUI data (15 methods)」，按 OpenAPI 逐路径数操作数（13 条路径，其中 `/api/settings` 与 `/api/modes` 各 2 个）得 **15，精确正确**；组件数**从文件读**（不用正则数）为 **13 控制器 / 29 服务 / 6 仓储 / 6 实体**，与第 203 轮一致。**代码方向（Python SDK）一处真缺陷已修 + 新立 P2-31** 沿 `maxChars` 线索收口四家，发现 **Python 与 Go 仍把负数发上 wire**：后端 `maxChars != null ? Math.max(100, maxChars) : 4000` **判 null 不判 0**，负数落进 `Math.max(100, -5)` → **100**。**活体实测（同一条 task）**：省略字段 **564 字符**、`0` 与 `-5` 都只有 **53 字符**、显式 4000 是 564——**200 OK、无任何错误**。Python 侧根因是 `if max_chars:` **只跳过 0**（Python 里负数是真值），已改为 `max_chars > 0`，与第 225 轮 Java、第 228 轮 JS **同一处修法**。**双向注入验证为真**：改回 `if max_chars:` → 负数用例**恰好 1 条**失败（零值与正值用例理应不失败，**正数那条的作用正是防过度修复**），恢复后 **431** 全过（原 428），Java **192**、JS **239** 与基线一致。**按断言清扫**：Java 的 `ICLPromptRequest` 原注释写「matches the Go SDK … and the Python SDK … so **all four SDKs agree on what 0 means**」，JS 的 `buildICLPrompt` 原写「and the Go and Python SDKs, which omit 0 as well」——**两句都只对 0 成立**，现写明 Go 是唯一例外并注明在 P2-31 关闭前不要再说四家一致。**Go 记录不修**：`omitempty` 判的是零值而非正数，两条修法（改 `*int` 破坏调用点 / 自定义 `MarshalJSON` 改 wire 内容）**均属公开 API 变更**。**顺带核实无误**：Python 五处路径拼接**全部**用 `quote(x, safe='')`，与 Go 的 `url.PathEscape`、JS 的 `encodeURIComponent` 一致，**四家无一处漏转义**；超时恒有设置（下限 0.1s）。**本轮第三次压缩**：`backend-review-findings.md` 加 P2-31 后达 **1013 行**、越过阈值，故删除 Current Status 区块里**第 225 轮及更早**的逐轮摘要（115 行），**最近九轮原样保留**，并补上「每条在下方都有完整条目、逐轮全文另存于 `patrol-rotation.md` 与本文档」的说明与一张汇总表——**零信息损失**，回落 913 行。指纹 `c78e6213…` → `1d63ad0d…`，回归 **45/0/1** + EXTRACTION **25/0/0** 全通过，基线推进至 `1491f5b` / `1d63ad0d…`。
 - **最近完成**: 运维/用户指南（2026-10-04 一百三十五轮，一项，双语）。**DOC-1（已修，双语）** **`baseURL` 里的路径前缀，JS 一家把它扔了。** 配置表原先只写「后端 URL / Backend URL」，对前缀只字未提。**代码方向（JS/TS SDK）本轮改的是代码**：`buildURL` 用的是 `new URL(path, this.config.baseURL)`，而**带前导斜杠的 `path` 按 URL 规范是绝对路径**，于是 `baseURL = 'http://host/memory'` 配 `path = '/api/search'` 会解析成 `http://host/api/search`——**前缀被静默丢弃，且无任何提示**。这不是边角用法：反向代理或基于路径的网关后面就是这么部署的，而 `baseURL` 是调用方**唯一**能表达这件事的地方。**四家对拍（每家都用自己的真实客户端打本地服务，非读码推断）**：`baseURL` 后缀取空 / `/` / `/proxy` / `/proxy/` / `/a/b` 五种，Go 得 `/api/observations`、`/api/observations`、`/proxy/…`、`/proxy/…`、`/a/b/…`（**全对**）；Python **同样五种全对**；Java 用 `baseURL='http://localhost:37777/proxy'` 调 `getVersion()` 拿到**降级形态** `{version=unknown, service=unknown}` 而非真实响应，即它请求了 `/proxy/api/version` 吃 **404** 后走了兜底——**也保留了前缀**；**只有 JS 五种情形全部退化成 `/api/observations`**。已改为字符串拼接（`baseURL` 在 `resolveConfig` 里已做尾部斜杠归一化，不会产生双斜杠，另防御性地补前导斜杠）。**4 条新测试、239 → 243**。**双向注入验证为真**：改回 `new URL(path, baseURL)` → **恰好 3 条**失败（全是前缀用例），而「裸主机仍正确」与「尾部斜杠」两条**对照用例理应不失败**——前者正是防过度修复的那条。恢复后重建 dist 并复测，五种情形与 Go/Python **逐字一致**。`tsc --noEmit` 干净。**新立 P2-32（记录不修）** 两个 Dockerfile **都不设 `SERVER_ADDRESS`**，而 `application.yml:3` 是 `address: ${SERVER_ADDRESS:127.0.0.1}`——**根 `Dockerfile` 文件头自己给的 `docker run -p 37777:37777` 按默认配置就不通**，而 `docker-compose.yml` 因为显式写了 `SERVER_ADDRESS: 0.0.0.0` **恰好绕过**，所以问题只在裸 `docker run` 路径暴露。叠加第二点：根 Dockerfile 的 healthcheck **写死 `37777`** 且无 `ENV SERVER_PORT`，而 `backend/Dockerfile` 用 `${SERVER_PORT}`——**同一件事两个文件做法不一致**，于是照 `DEPLOYMENT.md:845` 的排障建议改 `SERVER_PORT` 会把**健康应用判成 unhealthy**。**活体证据**：进程 `lsof` 显示只监听 `TCP 127.0.0.1:37777`，同机 LAN 地址 `10.166.1.125` 上 `curl` 得 **HTTP=000**。**记录不修的理由**：本机**无 Docker**，改 Dockerfile 后**无法验证修复效果**，不把未验证的改动当已完成的修复提交；修法已写明留待实施。**一处刻意不报**：根镜像 healthcheck 依赖 `wget`，而运行阶段是 **Debian 基**的 `eclipse-temurin:21-jre`（**非** Alpine）——`wget` 是否存在**本机无法验证**，按「没验证的不写」**不下结论**。**核实无误**：`DEPLOYMENT.md` 的 compose 片段与真实 `docker-compose.yml` 用 `difflib` **逐行对拍**，**逐键逐值完全一致**，差异只有为可读性新增的注释与键序分组（Database / Server / LLM / Embedding / JVM / Runtime），**没有任何键、值或默认值不同**。**探针自身错一次并先识别再采信**：最初用裸 `url.Parse(base + path)` 探 Go，得出「Go 会产生双斜杠」的结论——**探针绕过了 SDK 自己的归一化**（`client_impl.go:121` 就写着 strip trailing slash）；改用真实客户端 + `httptest` 复测后 Go **五种情形全对**，**据此撤回了那个判断**。另清理了三个临时探针文件（Go 测试、Java 测试、JS 脚本），工作区无残留。**本轮第四次压缩**：`doc-review-task.md` 达 **99568 字节**、加本轮条目将越过 102400，故把**第一百零八–一百一十九轮共 12 条逐字**迁入 `docs/archive/2026-10-03_doc-review-history-108-119.md`（以 `diff` 逐字校验后才删源行），回落 **60397** 字节；**顺带补齐了 `docs/archive/README.md` 漏登记的前三批 doc-review 归档**——索引表里只有最早的 `2026-09-30` 一批，后三批一直没登记。指纹 `1d63ad0d…` → `a5f2a567…`，回归 **45/0/1** + EXTRACTION **25/0/0** 全通过，基线推进至 `006d5c0` / `a5f2a567…`。
 - **最近完成**: API 文档（2026-10-04 一百三十六轮，**核实无误、未改**）。**用活体 OpenAPI 做了端点全覆盖对拍**：从 `/v3/api-docs` 抽出全部 **67** 个操作（GET/POST/PUT/PATCH/DELETE），逐个确认路径在文档中出现——**67/67，零缺失**；再把解析式收紧到「方法 + 路径」成对匹配，两版各匹配 **66/67**，唯一未匹配的是 `GET /stream`——**而它两版都有**（英文第 2275 行、中文第 2285 行），只是**我的正则限定了 `/api/` 前缀**而 `/stream` 不在其中，**是探针局限、不是文档缺口**。**第二次探针错、同样先识别再采信**：第一版正则不含 `#`，中文版用 `#### GET /api/...` 路径式标题，结果只匹配到 **2** 条、看着像「中文版几乎全缺」——**绝不能据此写 DOC-1**；改正字符类后两版结果一致为 66/67。**顺带核实 P2-23 的文档表述准确**：`/stream` 节明写「上限 100 条、超出返回 `500` 且响应体为空、并非 `503` 或 `429`、请当作已达容量上限、已记录为 P2-23」——与 `Constants.MAX_SSE_CONNECTIONS = 100` 及 `SSEBroadcaster:28-29` **逐条吻合**。**代码方向（Demo）新立 P2-33（记录不修）** 逐个提取四家 demo 的路由注册做集合差集：各 **23** 个端点，**21 个完全同名**，只有两个例外且**全在 Go 一家**——批量取观测与直接创建观测，Go demo 注册 `/batch-observations`（`main.go:470`）与 `/create-observation`（`main.go:771`），另三家用 `/observations/batch`（`app.ts:339` / `app.py:430`）与 `/observations/create`（`app.ts:304` / `app.py:415`）。**照 JS/Python 的 curl 抄一遍打到 Go demo 上会得 404**。**Go demo 的 README 与 `scripts/go-sdk-e2e-test.sh`（第 567 行确实调 `/batch-observations`）都与代码一致——所以这不是文档错误，而是跨 demo 契约分歧**。**记录不修**：改路由会同时打断 e2e 脚本与已发布示例，属跨 demo 契约决策（沿用第 229 轮「四家统一上界与否」的同一判断）；**文档层先行补充**：Go demo README 现明写这两个路径与另三家命名不同、并说明「不是拼写错误」。**本轮最有价值的一步是抓出我自己写下的两处事实错误**：第 229 轮那条把 Go demo 的写入端点记成「`main.go:801` 的 `/observations/create`」，而实际是**第 771 行注册的 `/create-observation`**——`/observations/create` 是 **JS 与 Python** 两家的路径，且 801 行是该 handler **函数体内的 `RecordObservation` 调用**而非注册处。已在 `patrol-rotation.md` 与 `doc-review-task.md` **两处**同步更正并注明来源轮次。**第 229 轮的核心结论经复核仍成立**：Go demo 的 `/chat` handler（`main.go:170-213`）内 `client.*` 调用**只有 1 个 `BuildICLPrompt`**，`RecordObservation` 与 `RecordToolUse` **各 0 次**——`/chat` 确实什么都没记录。**压缩（第五次，含 findings）**：`backend-review-findings.md` 加 P2-33 后达 **1002 行**、再次越过 `MAX_LINES=1000`，故把 Current Status 里**第 230 轮及更早**的逐轮摘要并入既有的汇总表（**最近两轮 234、235 原样保留**），并顺手把 P2-32 的状态块由 15 行压到 9 行，回落 **957** 行；压缩说明已写明两次执行的原因与「零信息损失」的依据。纯 `.md`，指纹 `a5f2a567…` **未变**，按门控**不跑完整验收、不推进基线**。
-- **下一方向**: SDK README（一百三十七轮）
+- **最近完成**: SDK README（2026-10-04 一百三十七轮，三项）。**DOC-1（P2，已修）** **本项目每轮都在提醒「新增测试会让 README 里的测试数过期」——而三家的那个数字，本身早就过期了。** 那是第 112 与第 126 轮立下的检查项（当时明确记录「JS 与 Python README **不含任何测试数字声明**，故本轮新增 N 条测试不会让文档过期」）。**本轮实测发现三家都含，且都已漂移**：
+
+  | SDK | README 声明 | 实测 | 偏差 |
+  |-----|------------|------|------|
+  | JS | 224 unit tests | **243** | +19 |
+  | Python | 389 unit tests | **431** | +42 |
+  | Java | 186 unit tests | **192** | +6 |
+  | **Go** | 359 tests | **359** | **0** |
+
+  三处均按实测值改正，并**补上分解**（JS 230+5+8、Python 207+140+84、Java 139+46+7），
+  使下一个人不必再逐模块数一遍。**Java 那条尤其值得一提**：它原本就写了分解
+  「133 client + 46 spring-ai + 7 starter」，而 client 实际是 **139**——**连分解都一起漂了**。
+  **唯一准确的是 Go**：复核 299+8+13+12+27 = **359** 与声明精确一致，且该 README
+  本身早就解释了「`go test ./...` 只覆盖根模块、四个适配器与示例模块需分别跑」——
+  **这份 README 的细致程度与另外三家形成了鲜明对比**。**按断言清扫**：三家的
+  **中文版 README 均不含任何测试数声明**（Go 中文版亦然），故无可清扫之处。
+  **漂移是本会话自己造成的**：第 228 与 234 轮给 JS 加了 6 条、第 221 与 233 轮给
+  Python 加了 42 条、第 225 轮给 Java 加了 6 条——**每轮都只检查了「会不会让文档过期」，
+  没人回头核对那个已经存在的数字**。这与第 208 轮「只改了文末 Testing 章节、没回头
+  检查同一份文件顶部的同一类断言」是**同一形态的第三次复发**。
+  **Code direction（Backend）新立 P2-34（记录不修）** 首次审 `LogsController`
+  （13 个 controller 中此前未被作为审查对象的一个）：实现的 `Map.of` 恒返 **6** 个键
+  （`logs`/`path`/**`files`**/`totalLines`/`returnedLines`/`exists`），而
+  `@ApiResponse` 示例只有 **5** 个、**漏掉 `files`**，且把 `path` 写成 `/logs`
+  而实际是**绝对路径**（活体实测 `/Users/yangjiefeng/.claude-mem/logs`）。
+  `/v3/api-docs` 是生成客户端代码的来源，缺失会传播。**记录不修**：改注解即改
+  **对外 OpenAPI 契约**（沿用 P2-11 / P2-22 / P2-25）。**文档层无需更正**——
+  `API.md` 与 `API-zh-CN.md` 的示例**六个键齐全**、用的是绝对路径，中文版前文还解释了
+  `files` 语义，**两版人工文档本来就是对的**。**三个假设被实测证伪，全部是「不做实验
+  就会写成假发现」的那类**：①**「截断被 appender 持有的日志文件会产生 NUL 空洞」**——
+  这是 Java 日志的经典坑，用 scratch 文件精确复现机制（持久
+  `FileOutputStream(append=true)` 写 21 字节 → 旁路 `Files.writeString(p,"")` 截断 →
+  appender 再写）：**结果 size=7、NUL=0、内容 `line-4`**，因为**追加模式强制
+  `O_APPEND`、每次写都落到当前末尾**，根本不存在「记住的偏移量」；②**「appender 写的
+  `${APP_NAME}.log` 与控制器读的 `claude-mem-{日期}.log` 疑似不匹配」**——磁盘实况显示
+  **正在被写的是带日期的那个**（`claude-mem.log` 恒 **0 字节**），因为项目自带
+  `ClaudeMemLogAppender`（第 222 行）写的正是同一命名；③**路径穿越不成立**——文件名
+  完全由 `LocalDate.now()` 推导，**无任何用户输入进入路径**；`lines` 钳位实测正确
+  （`0`→1、`-5`→1、`99999`→10000），`0x10`→16 属**已记录的 P2-20** 不重复立项。
+  **第六次压缩，且这次是结构性解决**：`backend-review-findings.md` 此前已在 225 / 232 /
+  233 / 235 轮四次因逐轮摘要越线，**逐轮删减并不能根治**——**根因是逐轮叙述本就不该放在
+  Current Status 里**。现把该区块改为**只保留严重度表 + 压缩记录 + 一张轮次汇总表**，
+  并写明「每条发现下方都有完整条目、逐轮全文另存于 `patrol-rotation.md` 与本文档」，
+  补齐 234–236 轮行。回落至 990 行。纯 `.md`，指纹 `a5f2a567…` **未变**，按门控
+  **不跑完整验收、不推进基线**。
+- **下一方向**: 设计文档（一百三十八轮）
 - **新增待决**: `docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分
 - **Pending 状态**: 文档问题清单已清空（0 项待处理）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
