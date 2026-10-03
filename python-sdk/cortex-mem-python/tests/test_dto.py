@@ -14,6 +14,7 @@ from cortex_mem.dto import (
     ProjectsResponse,
     StatsResponse,
     ModesResponse,
+    ObservationType,
     SessionStartResponse,
     SessionUserUpdateResponse,
     _to_int,
@@ -1272,3 +1273,92 @@ class TestSanitizeForJson:
         assert ed["neg"] == -1.5
         assert ed["str"] == "ok"
         assert ed["bool"] is True
+
+
+class TestObservationTypeEmoji:
+    """GET /api/modes sends five keys per type; the two emoji fields are independent.
+
+    The backend's live shape, captured from /api/modes on a running backend::
+
+        {"id": "bugfix", "label": "Bug Fix", "description": "...",
+         "emoji": "\U0001F534", "work_emoji": "\U0001F6E0️"}
+
+    Go (dto/management.go) and JS (dto/misc.ts) both carry both fields; this
+    SDK previously modelled only id/label/description and dropped the rest.
+    """
+
+    FULL = {
+        "id": "bugfix",
+        "label": "Bug Fix",
+        "description": "Something was broken, now fixed",
+        "emoji": "\U0001F534",
+        "work_emoji": "\U0001F6E0️",
+    }
+
+    def test_parses_both_emoji_fields(self):
+        t = ObservationType.from_wire(self.FULL)
+        assert t.id == "bugfix"
+        assert t.label == "Bug Fix"
+        assert t.description == "Something was broken, now fixed"
+        assert t.emoji == "\U0001F534"
+        assert t.work_emoji == "\U0001F6E0️"
+
+    def test_work_emoji_does_not_leak_into_emoji(self):
+        """A type carrying only work_emoji must not report it as its badge.
+
+        Reading both through one shared lookup would make this pass.
+        """
+        t = ObservationType.from_wire({"id": "t1", "label": "T", "work_emoji": "⚙️"})
+        assert t.work_emoji == "⚙️"
+        assert t.emoji == ""
+
+    def test_emoji_does_not_leak_into_work_emoji(self):
+        t = ObservationType.from_wire({"id": "t1", "label": "T", "emoji": "\U0001F534"})
+        assert t.emoji == "\U0001F534"
+        assert t.work_emoji == ""
+
+    def test_camel_case_work_emoji_fallback(self):
+        t = ObservationType.from_wire({"id": "t1", "workEmoji": "\U0001F528"})
+        assert t.work_emoji == "\U0001F528"
+
+    def test_snake_case_work_emoji_wins_over_camel_case(self):
+        t = ObservationType.from_wire({"id": "t1", "work_emoji": "⚙️", "workEmoji": "\U0001F528"})
+        assert t.work_emoji == "⚙️"
+
+    def test_absent_emoji_fields_default_to_empty(self):
+        t = ObservationType.from_wire({"id": "t1", "label": "T", "description": "d"})
+        assert t.emoji == ""
+        assert t.work_emoji == ""
+
+    def test_null_emoji_fields_default_to_empty(self):
+        t = ObservationType.from_wire(
+            {"id": "t1", "emoji": None, "work_emoji": None}
+        )
+        assert t.emoji == ""
+        assert t.work_emoji == ""
+
+    def test_to_dict_round_trips_both_fields(self):
+        d = ObservationType.from_wire(self.FULL).to_dict()
+        assert d["emoji"] == "\U0001F534"
+        assert d["work_emoji"] == "\U0001F6E0️"
+        assert ObservationType.from_wire(d).to_dict() == d
+
+    def test_modes_response_carries_emoji_through(self):
+        """The gap was reachable from the public get_modes() path, not just the DTO."""
+        mr = ModesResponse.from_wire(
+            {
+                "id": "code",
+                "name": "code",
+                "version": "1.0",
+                "observation_types": [self.FULL],
+                "observation_concepts": [{"id": "why-it-exists", "label": "Why"}],
+            }
+        )
+        assert mr.observation_types[0].emoji == "\U0001F534"
+        assert mr.observation_types[0].work_emoji == "\U0001F6E0️"
+
+    def test_string_input_backward_compat_has_no_emoji(self):
+        t = ObservationType.from_wire("feature")
+        assert t.id == "feature"
+        assert t.emoji == ""
+        assert t.work_emoji == ""

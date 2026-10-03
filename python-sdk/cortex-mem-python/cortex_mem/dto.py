@@ -839,12 +839,20 @@ class StatsResponse:
 class ObservationType:
     """Structured observation type from GET /api/modes.
 
-    Backend returns observation_types as array of objects: [{id, label, description}, ...]
+    Backend returns observation_types as an array of objects carrying five keys:
+    ``{id, label, description, emoji, work_emoji}``. ``emoji`` and ``work_emoji``
+    are independent -- the backend sends both for every type, and neither
+    substitutes for the other.
     """
 
     id: str = ""
     label: str = ""
     description: str = ""
+    #: Badge emoji, e.g. "🔴". Distinct from :attr:`work_emoji`.
+    emoji: str = ""
+    #: Emoji used while the agent is working on this type, e.g. "🛠️".
+    #: The backend sends both; neither is a fallback for the other.
+    work_emoji: str = ""
 
     @classmethod
     def from_wire(cls, data: object) -> "ObservationType":
@@ -853,6 +861,11 @@ class ObservationType:
                 id=data.get("id") or "",
                 label=data.get("label") or "",
                 description=data.get("description") or "",
+                # Read independently on purpose. A single shared lookup would let
+                # one field stand in for the other, so a type carrying only
+                # work_emoji would report it as its badge too.
+                emoji=_first_non_null(data, "emoji") or "",
+                work_emoji=_first_non_null(data, "work_emoji", "workEmoji") or "",
             )
         # Backward compatibility: string input
         if isinstance(data, str):
@@ -860,7 +873,13 @@ class ObservationType:
         return cls()
 
     def to_dict(self) -> dict:
-        return {"id": self.id, "label": self.label, "description": self.description}
+        return {
+            "id": self.id,
+            "label": self.label,
+            "description": self.description,
+            "emoji": self.emoji,
+            "work_emoji": self.work_emoji,
+        }
 
 
 @dataclass

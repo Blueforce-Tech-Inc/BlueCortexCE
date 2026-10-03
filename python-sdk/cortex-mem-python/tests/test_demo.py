@@ -446,14 +446,34 @@ class TestManagement:
 
     def test_modes_ok(self, app, client):
         from cortex_mem import ModesResponse, ObservationType
+        # Non-empty emoji values: the demo passes the DTO's to_dict() straight
+        # through, so empty strings would pass even if the fields were dropped.
         app._mock_client.get_modes.return_value = ModesResponse(
-            id="m1", name="default", observation_types=[ObservationType(id="type1", label="Type 1", description="")]
+            id="m1",
+            name="default",
+            observation_types=[
+                ObservationType(
+                    id="type1",
+                    label="Type 1",
+                    description="",
+                    emoji="\U0001F534",
+                    work_emoji="\U0001F6E0️",
+                )
+            ],
         )
         resp = client.get("/modes")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["name"] == "default"
-        assert data["observation_types"] == [{"id": "type1", "label": "Type 1", "description": ""}]
+        assert data["observation_types"] == [
+            {
+                "id": "type1",
+                "label": "Type 1",
+                "description": "",
+                "emoji": "\U0001F534",
+                "work_emoji": "\U0001F6E0️",
+            }
+        ]
 
     def test_settings_ok(self, app, client):
         app._mock_client.get_settings.return_value = {"key": "val"}
