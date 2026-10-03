@@ -249,11 +249,15 @@ def search():
 @app.get("/version")
 def version():
     v = client.get_version()
+    # "springBoot", not "spring_boot". The wire key is camelCase — the backend,
+    # the Go demo and the JS demo all answer with springBoot, and the SDK's
+    # VersionResponse dataclass renames it to spring_boot internally, which is
+    # what this handler was accidentally echoing back out.
     resp = {"version": v.version, "service": v.service}
     if v.java:
         resp["java"] = v.java
     if v.spring_boot:
-        resp["spring_boot"] = v.spring_boot
+        resp["springBoot"] = v.spring_boot
     return jsonify(resp)
 
 
@@ -449,13 +453,18 @@ def projects():
 @app.get("/stats")
 def stats():
     result = client.get_stats(project_path=request.args.get("project", ""))
+    # camelCase keys, not the dataclass attribute names. The backend, the Go
+    # demo and the JS demo all answer with totalObservations / isProcessing, so
+    # emitting total_observations here made this the only one of the four that a
+    # camelCase client could not read. The SDK models these as snake_case
+    # dataclasses, so the mapping has to be written out.
     return jsonify(
-        worker={"is_processing": result.worker.is_processing, "queue_depth": result.worker.queue_depth},
+        worker={"isProcessing": result.worker.is_processing, "queueDepth": result.worker.queue_depth},
         database={
-            "total_observations": result.database.total_observations,
-            "total_summaries": result.database.total_summaries,
-            "total_sessions": result.database.total_sessions,
-            "total_projects": result.database.total_projects,
+            "totalObservations": result.database.total_observations,
+            "totalSummaries": result.database.total_summaries,
+            "totalSessions": result.database.total_sessions,
+            "totalProjects": result.database.total_projects,
         },
     )
 
@@ -487,8 +496,13 @@ def quality():
     if not project:
         return _error(400, "project is required")
     result = client.get_quality_distribution(project)
+    # No "total" key. The SDK exposes total as a computed property
+    # (high + medium + low + unknown), and sending it here made this the only
+    # one of the four demos answering with a field the backend never sends —
+    # the Go and JS demos pass the response through unchanged. Round 197 fixed
+    # exactly this shape of invented field, on total/offset/limit.
     return jsonify(project=result.project, high=result.high, medium=result.medium,
-                   low=result.low, unknown=result.unknown, total=result.total)
+                   low=result.low, unknown=result.unknown)
 
 
 # ==================== Extraction ====================

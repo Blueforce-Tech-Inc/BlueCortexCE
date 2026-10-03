@@ -465,8 +465,16 @@ class TestManagement:
         resp = client.get("/stats")
         assert resp.status_code == 200
         data = resp.get_json()
-        assert data["worker"]["is_processing"] is True
-        assert data["database"]["total_observations"] == 100
+        # camelCase, because that is the wire key. The SDK models these as
+        # snake_case dataclasses, so the demo has to translate. It used to emit
+        # the dataclass attribute names verbatim, which made this the only one
+        # of the four demos a camelCase client could not read — the backend,
+        # the Go demo and the JS demo all answer with isProcessing.
+        assert data["worker"]["isProcessing"] is True
+        assert data["worker"]["queueDepth"] == 3
+        assert data["database"]["totalObservations"] == 100
+        assert "is_processing" not in data["worker"]
+        assert "total_observations" not in data["database"]
 
     def test_modes_ok(self, app, client):
         from cortex_mem import ModesResponse, ObservationType
@@ -518,7 +526,12 @@ class TestManagement:
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["high"] == 5
-        assert data["total"] == 9
+        assert data["medium"] == 3
+        assert data["low"] == 1
+        # No "total": it is a computed property on the SDK dataclass, not a
+        # field the backend sends. The demo used to forward it, which is the
+        # same invented-field shape round 197 removed from /observations.
+        assert "total" not in data
 
 
 # ==================== Extraction ====================
@@ -704,7 +717,10 @@ class TestVersion:
         data = resp.get_json()
         assert data["version"] == "2.0.0"
         assert data["java"] == "21.0.2"
-        assert data["spring_boot"] == "3.3.0"
+        # springBoot, not spring_boot — the wire key is camelCase and the
+        # VersionResponse dataclass renames it internally.
+        assert data["springBoot"] == "3.3.0"
+        assert "spring_boot" not in data
 
 
 class TestIntParamRule:
