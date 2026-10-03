@@ -362,6 +362,15 @@ func jitteredBackoff(baseDelay time.Duration, attempt int) time.Duration {
 // Retries internally on transient errors, logs on failure. Errors are swallowed (fire-and-forget semantics).
 // Retries on network errors, 429, 502, 503, 504. Does NOT retry on 4xx or 500.
 // If the context is already cancelled, skips execution entirely (fire-and-forget optimization).
+//
+// Retrying a POST is only safe because the backend deduplicates: RecordObservation
+// lands on POST /api/ingest/tool-use -> IngestionController.handleObservation ->
+// AgentService.saveObservation, which hashes title/narrative/facts/concepts and
+// returns the existing row when a match exists inside a 30-second window. The
+// default retry span is ~1.5s (3 attempts, 500ms linear backoff with ±25% jitter),
+// so a retry always lands well inside that window and cannot create a duplicate.
+// Raising RetryBackoff or MaxRetries past ~30s total would break that guarantee —
+// re-check the window before changing either.
 func (c *httpClient) doFireAndForget(ctx context.Context, name string, fn func() error) error {
 	// Check context before wasting effort on an already-cancelled request
 	select {
