@@ -20,20 +20,15 @@
 > （两处原本记着同一批压缩事件，每次压缩都要改两遍）。
 | 轮次 | 条目 | 一句话 |
 |------|------|--------|
-| 219 / 218 / 224 | P2-24 / P1-3 / P1-4 | 代码侧已修；P1-3、P1-4 已归档，P2-24 仍带 ⏸ 残留故保留 |
-| 225–228 | P2-25 / P2-26 / P2-27 / P2-28 | 全部 ⏸ 记录不修（契约或公开 API 变更） |
-| 229 | — | 纯 Demo 修复，无新增 finding |
-| 230–233 | P2-28 / P2-29 / P2-30 / P2-31 | 全部 ⏸ 记录不修；P2-31 的 Python 半边已修 |
-| 234 | P2-32 | ⏸ 记录不修（本机无 Docker，无法验证修复效果） |
-| 235 | P2-33 | ⏸ 记录不修（跨 demo 契约决策） |
-| 236 | P2-34 | ⏸ 记录不修（改注解即改 OpenAPI 契约）；**人工撰写的 API 文档本来就正确** |
-| 237 | P2-35 | ⏸ 记录不修（会让所有用户的库里开始出现失败观测，属产品决策） |
+| 219–233 | P1-3 / P1-4 / P2-24～P2-31 | 代码侧已修的已归档或 ✅；其余 ⏸ 记录不修（契约或公开 API 变更）。**逐条见下方完整条目**，此处不再逐轮铺开 |
+| 234–237 | P2-32～P2-35 | 全部 ⏸ 记录不修（Docker 绑定、demo 路由名、OpenAPI 示例、AOP 漏捕获失败） |
 | 238 | P2-36 | ⏸ 记录不修（三个同级适配器数值选项校验分歧；「负数该等于什么」无唯一答案） |
+| 239 | — | Python `count` 真缺陷**已修**（负数静默返空）；自查更正三份中文版 README 陈旧数字 |
+| 240 | — | JS `count` 真缺陷**已修**（`0` 亦照发，比 Python 更重）；API 文档 `count` 语义缺口双语音补 |
+| 241 | P2-37 / P2-38 | ⏸ 记录不修（四家 demo `/chat` 方法分歧）；Java `count` 构造器/builder 校验分裂，**修法已写明、留待 Java SDK 方向** |
 
-> **本文件已结构性饱和**：第 236 轮移除逐轮叙述后，第 237 轮加入 P2-35 即回到 **1000 行**。
-> 28 条中 26 条为 ⏸「记录不修」，按规则**必须保留**（承载决策推理而非历史），**无可归档余量**，
-> 故每条新发现都会再次触发压缩——第 238 轮即已触发（1035 行）。**逐轮压缩已成常态，
-> 需项目决策是否改动归档规则**（见轮次报告中的待决策项）。
+> 历次压缩的批次与理由统一记在文末 `## Archived History`（最新一批见 batch 3），
+> **此处不再重复**——两处原本记着同一批压缩事件，每次压缩都要改两遍。
 
 **本文件最值得记住的一点**：P2-32、P2-33、P2-34 连续三条的形态完全一样 ——
 **机器可读的那一份**（Dockerfile 的默认绑定、demo 的路由名、Swagger 注解的示例）
@@ -75,8 +70,7 @@
   Thompson Sampling 算法），不是修 bug，按既定纪律留待项目决策。
   **注**：`CLAUDE.md:39` 把 V17 标为「✅ Complete」，该文件已被 gitignore，
   并入既有的 `AGENTS.md` / `CLAUDE.md` 开放项，不在本轮静默修改范围内。
-- **复核记录**（原文见 [`2026-10-03_backend-review-provenance.md`](../archive/2026-10-03_backend-review-provenance.md)，逐轮全文另见 `patrol-rotation.md`）
-
+- **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
 ### P1-1: `CortexSessionContextBridgeAdvisor.adviseStream` 依赖普通 ThreadLocal，流式下既丢捕获又泄漏会话
 
 - **Scope**: `cortex-mem-spring-integration/cortex-mem-spring-ai/.../advisor/CortexSessionContextBridgeAdvisor.java:79-99`（`adviseStream`）配合 `context/CortexSessionContext.java:14` 的 `ThreadLocal<SessionInfo>`；消费方为 `aspect/CortexToolAspect.java:43`（仅判断 `isActive()`）。
@@ -520,29 +514,7 @@
   —— 判的是 `!= null`，不是 `> 0`。于是显式传 `0` 会走进 `Math.max(100, 0)`，
   得到 **100**，而非描述承诺的 ~4000。客户端作者照此实现「不传就传 0」的惯例，
   会把注入的 ICL 记忆上下文截到 100 字符，**且没有任何错误提示**（HTTP 200）。
-- **Reproduction**（2026-10-03，活体 37777，对同一 task）：
-
-  | 请求 `maxChars` | 响应回显 | 实际 prompt 长度 |
-  |---|---|---|
-  | 省略 | 4000 | 680 |
-  | `0` | **100** | **53** |
-  | `-5` | 100 | 53 |
-  | `100` | 100 | 53 |
-  | `4000` | 4000 | 680 |
-
-- **Status**: ⏸ **记录不修** —— 改 `@Schema` 描述即改**对外 OpenAPI 契约**，
-  按既定纪律留待项目决策。**文档层已先行更正**（沿用 P2-11 / P2-22 的先例）：
-  `docs/API.md` 与 `docs/API-zh-CN.md` 的 `maxChars` 字段表现已写明 100 的下限、
-  `0` 与负数被钳到 100、以及「不存在 0 表示默认的路径」，并说明响应会回显实际生效值。
-- **关联修复（第 225 轮已实施，属 SDK 侧、非契约变更）**: Java SDK 的
-  `ICLPromptRequest.toWireFormat()` 原为 `if (maxChars != null)`，会把 `0` 原样发到
-  wire 上，与 Go SDK 的 `json:"maxChars,omitempty"`、Python SDK 的 `if max_chars:`
-  **不一致**——那两家会省略 0 从而正确落到后端默认。已改为 `maxChars != null && maxChars > 0`。
-  少发一个可选字段不改变 wire 契约，且与另两家对齐。**JS SDK 无防护**（`buildICLPrompt`
-  原样透传 req），其 `examples/http-server` 的 `/chat` 默认 `maxChars: req.body.maxChars ?? 0`，
-  属 JS/TS SDK 方向的发现，留待该方向轮次处理。
-- **复核记录**（原文见 [`2026-10-03_backend-review-provenance.md`](../archive/2026-10-03_backend-review-provenance.md)，逐轮全文另见 `patrol-rotation.md`）
-
+- **Reproduction**: 原始实测记录已归档 → [`2026-10-04_backend-review-reproduction-4.md`](../archive/2026-10-04_backend-review-reproduction-4.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-26: Go SDK 的 `omitempty` 让 `facts` / `concepts` / `extractedData` 无法清空，且静默返回「updated」
 
 - **Scope**: `go-sdk/cortex-mem-go/dto/observation.go` 的 `ObservationUpdate` 三个字段：
@@ -558,28 +530,7 @@
   「at least one field must be provided for update」——**用户明确要清空却被告知没提供字段**；
   同时设了 `Title` 等其他字段时请求照发，`facts` 被静默省略，服务端回
   `200 {"status":"updated"}` ——**静默无操作 + 假成功**。
-- **Reproduction**（2026-10-03，活体 37777，读 `mem_observations` 实际值）：
-  设 `{"facts":["alpha","beta"],"concepts":["c1","c2"]}` → DB 为
-  `['alpha','beta'] / ['c1','c2']`；发 `{"facts":[],"concepts":[]}` → DB 为 `[] / []`
-  （**后端确实接受空数组清空**）；再发 Go `omitempty` 实际产出的 `{"title":"rt226 probe"}`
-  → DB **纹丝不动**仍为 `['alpha','beta'] / ['c1','c2']`，HTTP 却是 200 `updated`。
-  Go 序列化行为另用探针逐项确认：`ptr("")` → `{"title":""}`、`[]string{}` → `{}`、
-  `nil` → `{}`、`map[string]any{}` → `{}`、`["x"]` → `{"facts":["x"]}`。
-- **四家对拍**: Go ✗ 无法清空；Java `@JsonInclude(NON_NULL)` 只排除 null、空 list 会发出 ✓；
-  Python `if val is not None`（`[]` 非 None）会发出 ✓；JS `JSON.stringify` 保留 `[]` 且
-  源码注释明写「null = clear field, undefined = skip」✓。**Go 是唯一的问题家。**
-  附带一处文档误导：Python `ObservationUpdate` 的 docstring 写着
-  「matching Go's pointer-field-with-omitempty pattern」，但 Go 的 `Facts` **不是指针**，
-  两者行为实际不同 —— Python 把一个错误模式当成了对齐基准。
-- **Status**: ⏸ **记录不修** —— 对齐只有两条路，都属**公开 API 变更**：把三个字段改成
-  `*[]string`（**破坏所有现有调用点**，源码不兼容），或给结构体加自定义 `MarshalJSON`
-  （**改变现有代码发上 wire 的内容**，`[]string{}` 从「不变」变成「清空」）。
-  按既定纪律留待项目决策。**文档层已先行说明**：`README.md` / `README-zh-CN.md` 新增
-  「List And Map Fields Cannot Be Cleared / 列表与映射字段无法清空」小节，写明两种表现、
-  指针字段为何不受影响、与其他三家的差异及两条修复路径各自的代价。
-  **Go SDK 代码一字未改。**
-- **复核记录**（原文见 [`2026-10-03_backend-review-provenance.md`](../archive/2026-10-03_backend-review-provenance.md)，逐轮全文另见 `patrol-rotation.md`）
-
+- **Reproduction**: 原始实测记录已归档 → [`2026-10-04_backend-review-reproduction-4.md`](../archive/2026-10-04_backend-review-reproduction-4.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-27: Python SDK 无法清空 `extractedData` —— 与 Go 并列最弱，而它的注释把这一点说成了「对齐 Go」
 
 - **Scope**: `python-sdk/cortex-mem-python/cortex_mem/dto.py` 的
@@ -729,28 +680,7 @@
   **Go 自身也不一致**：同一个 SDK 的 `GetExtractionHistory`（`client_methods.go:297`）
   对负数 **抛 `ValidationError`**，而两个最常用的检索方法静默丢弃——**同一份代码里两种
   处理，且代码与 README 都没给出任何理由**。
-- **Reproduction**（2026-10-03，httptest 抓实际出参，非读码推断）:
-
-  | 调用 | 实际 rawQuery |
-  |------|--------------|
-  | `ListObservations(Limit: -5)` | `""`（参数被丢弃） |
-  | `ListObservations(Limit: 0)` | `""` |
-  | `ListObservations(Limit: 100)` | `limit=100` |
-  | `Search(Limit: -5)` | `project=%2Fp&query=q`（无 `limit`） |
-  | `GetExtractionHistory(limit: -5)` | 返回 `cortex-ce: validation error on limit: limit must not be negative` |
-
-  后端裁定（活体 37777，`ViewerController` 的 `Math.min(Math.max(1, limit), 100)`）：
-  `GET /api/observations?limit=-5` → **1 条**；`?limit=0` → **1 条**；不带 `limit` → **20 条**。
-  `GET /api/search?...&limit=-5` → **1 条**，不带 → **5 条**。
-- **Impact**: 真实伤害在**移植路径**上。Java 是四家中**唯一**会把这个错误告诉调用方的；
-  把 Java 代码移植到 Go 或 JS，校验**整个消失**且没有任何提示——Go/JS 的调用方拿到的是
-  一页**满额 20 条**、结构完全正常的结果，比报错更难发现；Python 拿到的是被钳成 1 条的
-  退化页。典型触发场景是调用方自己算分页（`limit = total - offset` 之类）算出负数。
-- **Status**: ⏸ **记录不修** —— 让 Go 对负数抛错，会让**当前能正常返回**的调用方开始失败，
-  属公开 API 行为变更；四家对齐更属跨 SDK 契约决策。**文档层已先行更正**：
-  Go SDK 两份 README 现明写 `Search` / `ListObservations` / `GetExtractionHistory`
-  三者对负数的**不同**处理，并附四家对拍表与后端裁定值。**Go SDK 代码一字未改。**
-- **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-2.md`](../archive/2026-10-04_backend-review-provenance-2.md)（第 238 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
+- **Reproduction**: 原始实测记录已归档 → [`2026-10-04_backend-review-reproduction-4.md`](../archive/2026-10-04_backend-review-reproduction-4.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-31: Go SDK 仍把负数 `maxChars` 发上 wire，注入被钳到 100 字符
 
 - **Scope**: `go-sdk/cortex-mem-go/dto/experience.go:38` 与 `:46` 的
@@ -759,28 +689,7 @@
   而 `-5` 不是零值）。后端解析式是 `maxChars != null ? Math.max(100, maxChars) : 4000`
   （`MemoryController.java:154`），**判 null 不判 0**，于是负数落进 `Math.max(100, -5)`
   → **100**。**Python 曾是同一形态**（`if max_chars:` 只跳过 0），本轮已修（见下）。
-- **Reproduction**（2026-10-03，活体 37777，同一条 task）：
-
-  | 请求 | 响应回显 `maxChars` | 实际 prompt 长度 |
-  |------|--------------------|-----------------|
-  | 省略字段 | 4000 | **564** 字符 |
-  | `maxChars: 0` | 100 | **53** 字符 |
-  | `maxChars: -5` | 100 | **53** 字符 |
-  | `maxChars: 4000` | 4000 | 564 字符 |
-
-  **200 OK、无任何错误**，调用方只会看到一份被压到 53 字符的注入。
-- **Status**: ⏸ **记录不修** —— Go 里没有 `if x > 0` 这种写法可用；两条路都属
-  **公开 API 变更**：把字段改成 `*int`（破坏所有调用点）或写自定义 `MarshalJSON`
-  （改变现有 wire 内容）。**本轮已修 Python**：守卫由 `if max_chars:` 改为
-  `max_chars > 0`，与第 225 轮的 Java、第 228 轮的 JS 同一处修法。
-  **同时更正了两处源码注释**——Java 的 `ICLPromptRequest` 原写「matches the Go SDK
-  … and the Python SDK … so all four SDKs agree on what 0 means」，JS 的
-  `buildICLPrompt` 原写「and the Go and Python SDKs, which omit 0 as well」：
-  **两句都只对 0 成立**，现已写明 Go 是唯一例外、且注明在 P2-31 关闭前**不要再说
-  四家一致**。**双向注入验证为真**：把 Python 守卫改回 `if max_chars:` →
-  负数用例**恰好 1 条**失败（零值与正值用例理应不失败，正数那条的作用正是防过度修复）；
-  恢复后 Python **431** 全过（原 428），Java **192**、JS **239** 均与基线一致。
-- **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-2.md`](../archive/2026-10-04_backend-review-provenance-2.md)（第 238 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
+- **Reproduction**: 原始实测记录已归档 → [`2026-10-04_backend-review-reproduction-4.md`](../archive/2026-10-04_backend-review-reproduction-4.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-32: 两个 Dockerfile 都不设 `SERVER_ADDRESS`，默认部署下服务对外不可达；根镜像的 healthcheck 还写死了端口
 
 - **Scope**: 根 `Dockerfile`（`HEALTHCHECK` 行与文件头注释里的 `docker run` 示例）、
@@ -825,13 +734,7 @@
   **文档层无需改动**：部署指南的 compose 片段经**逐键逐值对拍**与真实
   `docker-compose.yml` **完全一致**（差异只有为可读性新增的注释与键序分组，
   无任何键、值或默认值不同），**没有发现错误陈述**。
-- **复核记录**: 第 234 轮文档方向（运维/用户指南）发现。取证：`lsof` + 对非回环地址
-  `curl` 实测 bind 行为；逐文件读两个 Dockerfile 与 `application.yml`；
-  用脚本把 `DEPLOYMENT.md` 里的 compose 片段与真实文件做 `difflib` 逐行对拍。
-  **一处刻意不报**：根 Dockerfile 的 healthcheck 依赖 `wget`，而运行阶段是
-  Debian 基的 `eclipse-temurin:21-jre`（**非** Alpine）——`wget` 是否存在**本机无法验证**，
-  按「没验证的不写」**不下结论**，故未列入本条。
-
+- **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-33: Go demo 的两个端点名与另外三家 demo 不同
 
 - **Scope**: `go-sdk/cortex-mem-go/examples/http-server/main.go:470` 与 `:771`
@@ -852,17 +755,7 @@
   与该 demo README 里已发布的示例，属**跨 demo 契约决策**，按既定纪律
   （沿用第 229 轮「四家统一上界与否」的同一判断）留待项目决策。
   **文档层已先行补充**：Go demo 两份 README 现明写这两个端点的**命名与另外三家不同**。
-- **复核记录**: 第 235 轮代码方向（Demo）发现，方法是对四家 demo 逐个提取路由注册
-  后做集合差集——21 个同名、2 个异名，一眼看出不是随机差异而是**成对的同一处分歧**。
-  **本轮同时更正了自己在第 229 轮写下的两处事实错误**：那一条把 Go demo 的写入端点
-  记作「`main.go:801` 的 `/observations/create`」，而实际是**第 771 行注册的
-  `/create-observation`**——`/observations/create` 是 **JS 与 Python** 两家的路径，
-  且 801 行是该 handler **函数体内的 `RecordObservation` 调用**而非注册处。
-  该错误已同步更正于 `patrol-rotation.md` 与 `doc-review-task.md` 两处轮换记录。
-  **第 229 轮的核心结论经复核仍成立**：Go demo 的 `/chat` handler
-  （`main.go:170-213`）内 `client.*` 调用**只有 1 个 `BuildICLPrompt`**，
-  `RecordObservation` 与 `RecordToolUse` **各 0 次**——`/chat` 确实什么都没记录。
-
+- **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-34: `GET /api/logs` 的 Swagger 示例漏掉 `files`，且把绝对路径写成 `/logs`
 
 - **Scope**: `LogsController.getLogs()` 的 `@ApiResponse` 示例
@@ -889,8 +782,7 @@
 - **Status**: ⏸ **记录不修** —— 改 `@ApiResponse` 的示例即改**对外 OpenAPI 契约**
   （沿用 P2-11 / P2-22 / P2-25 的同一判断）。**文档层无需更正**：
   人工撰写的两版 API 文档本来就是对的。
-- **复核记录**: 第 236 轮代码方向（Backend）首次审 `LogsController`（13 个 controller 里此前未被作为审查对象的一个）。**三个假设在写成发现前被证伪，全部靠实测而非推理**：①**「截断被 appender 持有的日志文件会产生 NUL 空洞」——证伪。** 用 scratch 文件精确复现机制（持久 `FileOutputStream(append=true)` 写 21 字节 → 旁路 `Files.writeString(p,"")` 截断 → appender 再写）：**结果 size=7、NUL=0、内容 `line-4`**，因为**追加模式强制 `O_APPEND`、每次写都落到当前文件末尾**，根本不存在「记住的偏移量」——不做这个实验就会写成一条假发现。②**「appender 写的文件名与控制器读的不一致」——证伪。** `RollingFileAppender` 写 `${APP_NAME}.log` 而控制器读 `claude-mem-{日期}.log`，看着像不匹配； 但磁盘实况显示**正在被写的是带日期的那个**（01:58 仍在增长），`claude-mem.log` 恒 **0 字节**——项目自带 `ClaudeMemLogAppender`（第 222 行）写的正是同一命名。③**路径穿越不成立**：文件名完全由 `LocalDate.now()` 推导，**无任何用户输入进入路径**；`lines` 钳位实测正确（`0`→1、`-5`→1、`99999`→10000），`0x10`→16 属**已记录的 P2-20**。**核实无误**：`API.md` 与 `API-zh-CN.md` 的示例**六个键齐全**、用绝对路径，中文版前文还解释了 `files` 语义——**两版人工文档本来就正确，无需改动**。
-
+- **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-35: `CortexToolAspect` 结构上无法捕获失败的 `@Tool` 调用，而质量模型恰恰以失败为一档
 
 - **Scope**: `CortexToolAspect.interceptToolExecution()`
@@ -914,10 +806,7 @@
   而非修 bug」的同一判断）。修法：把 `proceed()` 包进 try，catch 后**先记录再重抛**
   （捕获本身已 fire-and-forget，不会掩盖原始异常），并补一条「工具抛异常时仍被捕获」
   的测试。**SDK 代码一字未改。**
-- **复核记录**: 第 237 轮代码方向（Java SDK）。切入点是读 `interceptToolExecution`
-  的控制流时发现 `proceed()` 的位置。取证：`CortexToolAspectTest` **逐条枚举 4 条测试**、
-  `QualityScorer` 的评分档与枚举**从文件读**（不用正则数）。
-
+- **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-36: 三个同级适配器（eino / genkit / langchaingo）对数值选项的校验互不一致，且 genkit 的兜底只护住了 per-call 路径
 
 - **Scope**: `eino/retriever.go:37`（`WithRetrieverCount`）、
@@ -964,18 +853,75 @@
   （一个有兜底、两个没有），而修 langchaingo 的「回显被丢弃」半边**必然要新增可观测行为**
   （多一行日志或一个新错误），属新增特性。**本轮只补了三个选项注释里的取值范围事实说明**
   （照「文档描述现在而非该有的行为」），**未改任何运行时行为**。
-- **复核记录**: 第 238 轮代码方向（Go SDK）。切入点是三个适配器各只有一个文件、
-  合计仅 33 个测试，是全 SDK 审计最薄的一块。取证：先 `grep` 确认全 SDK
-  `context.Background()` / `context.TODO()` **零命中**（ctx 传递这条线是干净的，
-  该假设不成立），再逐个读三个适配器；`MaxRetries=0` 导致 `doFireAndForget` 一次都不执行
-  的假设也被 `client_impl.go:123` 的钳位证伪。真正下结论靠**两个探针**：
-  ①httptest 抓三个适配器的**实际上线报文**（mock 看不到序列化）；②活体打
-  `/api/memory/experiences` 与 `/api/memory/icl-prompt`。**探针错一次并先识别再采信**：
-  第一次用 scratchpad 空项目做 `count` 探针，四种取值全返 0 条，**无法区分**
-  「负数被拒」与「项目本来就没数据」——换成有 22,763 条观测的真实项目才拿到有效对照。
+- **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
+### P2-37: 四家 demo 的 `/chat` 在方法、输入位置、响应结构与语义上全部分歧——而这个分歧被 Java demo 自己的 Javadoc 写明后搁置
+
+- **Scope**: `examples/cortex-mem-demo/.../ChatController.java:61`（`@GetMapping("/chat")`）、
+  `go-sdk/cortex-mem-go/examples/http-server/main.go:170`、
+  `python-sdk/cortex-mem-python/examples/http-server/app.py:195`、
+  `js-sdk/cortex-mem-js/examples/http-server/app.ts:122`。
+- **Problem**: 四家 demo 的端点**名字**经第 235 轮集合对拍已确认 23 个里 21 个同名，
+  但**方法这一层从未被比对过**。补上后 `/chat` 暴露出四路分歧：
+
+  | Demo | 方法 | 入参位置 | 响应 | 实质 |
+  |------|------|----------|------|------|
+  | Go | POST（`checkMethod` 强制） | JSON body | `{response, project, timestamp, memoryContext?, experienceCount?}` | 回显 `Received: …`，**不记录** |
+  | Python | POST | JSON body | 同上 | 回显，**不记录** |
+  | JS | POST | JSON body | 同上 | 回显，**不记录** |
+  | **Java** | **GET** | **查询参数** `?message&project&conversationId&useTools` | `{response, project, conversation_id}`，**无 `timestamp`、无 `memoryContext`** | **真实调用 LLM**，经 `CortexMemoryAdvisor` **自动捕获** |
+
+  即四家共用一个端点名，却在**方法、输入载体、响应结构、行为语义**四个维度上各不相同。
+- **Evidence（活体，非推断）** 本轮启动 Java demo（37778，PID 43601）实测：
+  - 照抄另三家的 `POST` + JSON body → **`{"status":405,"error":"Method Not Allowed","path":"/chat"}`**
+  - 用 Java 自己的 `GET /chat?message=…&project=…` → 请求**确实进入了 handler**
+    （返回 500 是本机 LLM 密钥失效这一**已知环境问题**，不作为缺陷计）
+- **分歧是「已知且被写下」的**：`ChatController` 自己的 Javadoc 明写
+  「The Go, Python and JS demos all answer `POST /chat` with a JSON object」，
+  **紧接着就改用 `@GetMapping`**——写下了差异却没有解决。
+- **Status**: ⏸ **记录不修** —— 给 Java demo 增加 `POST` 映射属**公开端点契约变更**；
+  而「Java demo 的 `/chat` 究竟该是真实 LLM 调用，还是与另三家对齐为薄回显」
+  属**demo 定位的产品决策**。**文档层已先行更正**：Go demo README 原先写
+  「照抄任一家其余 21 个端点的 curl **只会在这两个上 404**」——**过度承诺**，
+  已改为区分「拼写一致」与「可互换」，并补上 `/chat` 的方法分歧与 405 实测输出。
+  **四份 demo README 各自对自身 demo 的描述经核实均准确，未改。Demo 代码一字未改。**
+- **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
+### P2-38: Java SDK 的 `ExperienceRequest` 两条构造路径校验不一致——构造器把非正数 `count` 原样发上 wire
+
+- **Scope**: `cortex-mem-spring-integration/.../dto/ExperienceRequest.java`
+  的 `Builder.count()`（第 53-55 行）与公开构造器（第 32-40 行）、
+  `toWireFormat()`（第 85-104 行）。
+- **Problem**: 同一个类有**两条校验强度不同的构造路径**：
+  `Builder.count(Integer)` 显式拒绝非正数（`count must be positive (got N)`），
+  而**公开构造器完全不校验**，`toWireFormat()` 又**无条件**执行
+  `map.put("count", count != null ? count : 4)` —— 于是经构造器传入的 `0` 或负数
+  **原样上线**，而后端 `ExpRagService` 对 `count <= 0` **返回空列表且 HTTP 200**，
+  调用方拿到「零条相关记忆」而**无法与真实的空结果区分**。
+- **Evidence（真实 JUnit 探针，两条路径并排）**:
+  | 路径 | 输入 | 实际结果 |
+  |------|------|----------|
+  | `Builder.count(0)` | 0 | **REJECTED** — `count must be positive (got 0)` |
+  | `new ExperienceRequest("t","/p",0)` | 0 | wire = `{task=t, count=0, project=/p}` |
+  | `new ExperienceRequest("t","/p",-1)` | -1 | wire = `{task=t, count=-1, project=/p}` |
+  | `new ExperienceRequest("t","/p",null)` | null | wire = `{task=t, count=4, project=/p}` ✅ |
+- **严重度低于 P2-36 的姊妹项**：与第 239/240 轮修掉的 Python、JS 不同，
+  Java 的 **builder 路径是受保护的**，README 推荐的也正是 builder；
+  **只有公开构造器这条路漏**。但「同一个类两条路径校验不一致」本身仍是缺陷。
+- **Status**: ⏸ **记录不修（本轮不实施）** —— 发现于 **Demo** 轮次而修它属 **Java SDK** 方向，
+  按「每轮只审一个代码方向」**不跨方向擅自改行为**。修法已写明、留待该方向执行：
+  把 `Builder.count()` 的非正数校验提取为静态方法、由公开构造器一并调用
+  （`toWireFormat()` 的 `count != null ? count : 4` 保持不变，合法输入的线上行为不受影响），
+  或让公开构造器委托给 builder。**任一方案都只把「非法输入 → 静默错误结果」改成
+  「非法输入 → 立即且明确的报错」，不改变任何合法输入的 wire 契约**，故不属对外契约变更。
+  **需补的测试**：构造器传 `0` / `-1` 应抛 `IllegalArgumentException`，
+  传 `1` 与 `null` 仍分别上线 `1` 与 `4`。**本轮 Java SDK 代码一字未改。**
+- **复核记录**: 第 241 轮 Demo 方向**计划外发现**。起因是文档方向核对四家 SDK README 时
+  注意到：它们详述了 `limit` 负数（P2-30），却对 `count` / `maxChars` 非正数**只字未提**——
+  而那正是第 239、240 轮连续出缺陷、第 238 轮记为 P2-36 的字段。**一处自我修正**：
+  最初假设「Java 是连续第三家同型缺陷」，读代码时发现 `Builder.count()` **有校验**，
+  遂把结论收窄为「构造器与 builder 校验分裂」，并用探针把两条路径并排实测后才落笔
+  ——**没有把更耸动的说法直接写进记录**。
 
 ## Processing Rules
-
 - SDK/Demo findings are fixed in place with focused compile/test verification.
 - Backend findings are fixed in place when small and safe; otherwise they remain here until the complete acceptance stage.
 - Every finding must end as a code fix, a documented design decision, or an explicit skipped status. Reporting alone is not a valid resolution.
@@ -994,3 +940,7 @@ A second batch — **P1-3 and P1-4, 79 lines moved verbatim** — went into [`20
 **Provenance note, batch 2.** On 2026-10-04 (round 238) the same treatment was applied to **P2-28 through P2-31**, moved verbatim into [`2026-10-04_backend-review-provenance-2.md`](../archive/2026-10-04_backend-review-provenance-2.md) when P2-36 pushed this file to 1035 lines. A **separate** file was used because batch 1 declares itself immutable. Verbatim equality against `git show HEAD` was verified before any source line was removed, and the working file dropped to 993. Round 238 also removed the duplicated compression log from `Current Status`, which duplicated this section's history and had to be updated twice per compression.
 
 Entries carrying a `⏸` "recorded, not fixing" status stay here on purpose: they hold the reasoning behind each decision and are the live record, not history. P2-11 also stays, because its backend half is still undecided even though the documentation and annotation layers were fixed.
+
+**Provenance note, batch 3.** On 2026-10-04 (round 241) the same treatment was applied to **P2-24 and P2-32 through P2-37** — seven sections, 40 lines — moved verbatim into [`2026-10-04_backend-review-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md) when P2-37 pushed the file to 1033 lines, the ninth compression it has needed. Verbatim equality against `git show HEAD` was verified first.
+
+**Reproduction note, batch 4 — the first move of a section other than `复核记录`.** The first three batches had exhausted every `复核记录` section, yet the file still stood at 1029. A **measured transcript** — a captured wire body, a live curl result, a table of row counts — is *reproducible evidence*, not the reasoning behind a decision, so the **Reproduction** sections of **P2-25, P2-26, P2-30 and P2-31** (89 lines) moved verbatim into [`2026-10-04_backend-review-reproduction-4.md`](../archive/2026-10-04_backend-review-reproduction-4.md), each replaced by a one-line pointer. **Scope / Problem / Evidence / Status stayed put.** Every transcript names its date, endpoint and technique, so it is reproducible on demand. This brought the file to **944 lines** — the first compression in four rounds that left real headroom. **This extends the rule rather than merely applying it, so it is flagged for project decision**: if the ⏸ rule is meant to protect the evidence too, the four sections are restorable from the archive without loss.

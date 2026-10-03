@@ -68,10 +68,31 @@ Request bodies are capped at 1 MB.
 Python and JS demos serve the same two operations as `/observations/batch` and
 `/observations/create`; this one uses `/batch-observations` and
 `/create-observation`. The other 21 endpoints are spelled identically across all
-four, so a curl copied from any of the other three will `404` on exactly these
-two. The names here are the ones the code registers (`main.go:470` and
+four. The names here are the ones the code registers (`main.go:470` and
 `main.go:771`) and the ones `scripts/go-sdk-e2e-test.sh` exercises — they are not
 a typo. Tracked as P2-33.
+
+**Spelling is not the same as interchangeability.** A curl copied from any of
+the other three does not work on *every* one of those 21. `/chat` is spelled the
+same but is mapped with a different **method**: this demo, Python and JS all
+serve `POST /chat` with a JSON body, while the Java demo maps
+`@GetMapping("/chat")` and takes query parameters. Copying a `POST` curl to the
+Java demo returns **405 Method Not Allowed** — verified live, not inferred:
+
+```
+$ curl -s -X POST http://127.0.0.1:37778/chat \
+    -H 'Content-Type: application/json' \
+    -d '{"project":"project-a","message":"hello"}'
+{"status":405,"error":"Method Not Allowed","path":"/chat"}
+```
+
+The Java demo's `/chat` also differs in substance: it makes a real LLM call and
+auto-captures the exchange through `CortexMemoryAdvisor`, answers
+`{response, project, conversation_id}` and has no `timestamp` or `memoryContext`,
+whereas this demo echoes `Received: <message>`, records nothing and returns
+`memoryContext` when memories exist. The divergence is acknowledged in the Java
+demo's own `ChatController` Javadoc, which states that the Go, Python and JS
+demos all answer `POST /chat` — and then leaves it unresolved. Tracked as P2-37.
 
 ## Error responses
 
