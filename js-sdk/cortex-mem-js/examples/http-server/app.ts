@@ -27,6 +27,28 @@ app.use(express.json({ limit: '1mb' }));
 
 // ==================== Middleware ====================
 
+// express.json() only parses a request whose Content-Type is application/json.
+// For anything else — no body at all, or a form/text body — it leaves req.body
+// as undefined, and every handler below dereferences it (req.body.project,
+// 'title' in req.body, ...). That threw a TypeError inside the handler, which
+// asyncHandler forwarded to the error middleware, which had no branch for it
+// and answered 500 while echoing the internal message back to the caller:
+//
+//   PATCH /observations/xyz   (no body, no Content-Type)
+//     -> 500 {"error":"Cannot use 'in' operator to search for 'extractedData' in undefined"}
+//
+// Go (readJSON) and Python (_parse_json) both reject the same request with 400
+// before any handler runs, and the Java demo never reads a body it did not
+// receive. A request that simply has no body is a client mistake, so report it
+// as one: normalise the missing body to an empty object and let each handler's
+// own validation produce its usual 400. That keeps the per-endpoint messages
+// ("project is required", "ids is required", ...) rather than inventing one
+// generic "body required" error here.
+app.use((req: Request, _res: Response, next: NextFunction) => {
+  if (req.body === undefined) req.body = {};
+  next();
+});
+
 function requireFields(data: Record<string, unknown>, fields: string[]): string | null {
   for (const f of fields) {
     const v = data[f];
@@ -456,12 +478,22 @@ app.post('/ingest/session-end', asyncHandler(async (req: Request, res: Response)
 // Global error handler (asyncHandler catches async rejections, this catches sync errors)
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   // body-parser signals a body it could not accept by throwing rather than by
-  // calling next() with a value: a SyntaxError carrying status 400 for
-  // unparsable JSON, or status 413 past the 1mb limit above. Those are client
-  // errors and the other three demos answer 400/413 — falling through to the
-  // generic branch reported them as 500 and echoed the raw parser message back.
+  // calling next() with a value. Those are client errors and the other three
+  // demos answer 400/413 — falling through to the generic branch reported them
+  // as 500 and echoed the raw parser message back.
+  //
+  // The two rejections are different types, so matching on the class alone is
+  // not enough: unparsable JSON is a SyntaxError (status 400), while a body
+  // over the 1mb limit is a PayloadTooLargeError (status 413). An earlier fix
+  // here tested `err instanceof SyntaxError && (status === 400 || 413)`, which
+  // reads as if it covers both but can only ever match the first — the 413 arm
+  // was dead, and a 2mb POST answered 500 {"error":"request entity too large"}.
+  // Python answers 413 for the same request and Go 400. Key off the status the
+  // parser attached, which both types carry, and keep the class check as a guard
+  // so an unrelated 4xx thrown from a handler is not relabelled as a body error.
   const bodyStatus = (err as { status?: unknown } | null | undefined)?.status;
-  if (err instanceof SyntaxError && (bodyStatus === 400 || bodyStatus === 413)) {
+  const isBodyParserError = err instanceof SyntaxError || (err as { type?: unknown })?.type === 'entity.too.large';
+  if (isBodyParserError && (bodyStatus === 400 || bodyStatus === 413)) {
     errorJson(res, bodyStatus, err.message);
     return;
   }
