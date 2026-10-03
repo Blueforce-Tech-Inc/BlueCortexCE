@@ -38,6 +38,14 @@
 > **绕过全部三个上限**，把整会话观测一次性送入 LLM，**无上界**，
 > 超窗失败被 `catch` 吞掉而调用方仍见成功）。两者皆 ⏸已记录不实现
 > （均属对外契约变更），P2 Open 计数仍为 2。
+> 第 203 轮新增 **P2-19**（Java SDK 的 `triggerRefinement` / `triggerExtraction`
+> 走 `executeWithRetrySilent`，**把失败全部吞掉**，调用方拿到正常返回的 `void`
+> 而无从得知精炼/抽取根本没跑；Go / JS / Python 三家**都抛错**，且 Go 在
+> `client_methods.go:189` 写明理由「NOT fire-and-forget: this is an explicit
+> user action, errors must propagate」。Java 自己的 javadoc 声称
+> 「Matches the Go, Python and JS SDKs」——重试策略确实一致，但**错误传播**
+> 恰恰是它唯一不同的地方，而这正是调用方能感知的部分），⏸已记录不实现
+> （改这两处会改变现有调用方可观测到的行为）。P2 Open 计数仍为 2。
 > **Open 只统计尚未处理的条目**（⏸已记录不修 / 📌待修）。标记为 ✅已修复 或 ✅已跳过 的条目
 > 保留在本文件作为可追溯的历史，但**不计入** Open。
 > P1-2（导入端点把校验失败报成成功跳过）已于 2026-10-02 第 166 轮 Backend 集中修复并复测通过，
@@ -615,6 +623,33 @@
 - **Status**: ⏸**已记录，不实现**。接入上限会改变该端点的既有行为，属对外契约变更。
   本轮已在 `23.md` §23.4 记录该入口未被任何成本表计价，并在
   `StructuredExtractionService` 的既有注释中保持路径事实不变。
+
+### P2-19: Java SDK 静默吞掉 refinement / extraction 触发失败，另三家都抛错
+
+- **Scope**: `CortexMemClientImpl.java:231`（`triggerRefinement`）与 `:432`
+  （`triggerExtraction`），二者都走 `executeWithRetrySilent`（`:775-799`）。
+- **Problem**: `executeWithRetrySilent` 返回 `void`，**任何失败都被吞掉**，只在
+  日志里留一条 WARN。调用方拿到的是一个正常返回的 `void`，**无从得知触发失败**——
+  精炼没跑、抽取没跑，而调用方以为跑了。
+- **另三家都抛错，且是刻意为之**：
+  - Go `client_methods.go:189` 甚至写了注释说明理由——
+    「NOT fire-and-forget: this is an explicit user action, errors must propagate」；
+  - JS `client.ts:300-306` / `:395-399` 走 `requestNoContent`，异常上抛；
+  - Python `client.py:543-550` / `:670-677` 走 `_request_no_content`，异常上抛。
+- **Java 自己的注释是误导的**：`executeWithRetrySilent` 的 javadoc 写着
+  「Matches the Go, Python and JS SDKs」。就**重试与退避策略**而言确实一致
+  （±25% 抖动、不重试 4xx/500），但**错误传播**恰恰是三家里 Java 唯一不同的那一点，
+  而这正是调用方唯一能感知的部分。注释只对上了次要的一半。
+- **同族的非静默差异**（不单独立项）：Java 还对 `submitFeedback` /
+  `updateObservation` / `deleteObservation` / `getLatestExtraction` /
+  `getExtractionHistory` 做了重试包装（`executeWithRetry` / `...Return`），
+  而 Go/JS/Python 只在三个 fire-and-forget 采集方法上重试。这三个写操作
+  本身**仍然抛错**，所以不是静默失败，只是重试面更宽——是否扩大属设计选择，
+  与上面那条性质不同。
+- **Status**: ⏸**已记录，不实现**。改这两处会**改变现有调用方的可观测行为**
+  （原本被吞掉的异常会开始上抛），属对外行为契约变更，与 P2-13/P2-15/P2-16
+  同一套判断；且需项目先决定这两条触发路径是否应纳入 fire-and-forget 语义。
+  本轮代码方向为 Python SDK，已核实 Python 侧行为正确，故只记录。
 
 ## Processing Rules
 
