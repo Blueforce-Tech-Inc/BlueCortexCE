@@ -29,18 +29,42 @@ export interface ObservationRequest {
  * Wire format: extractedData is camelCase.
  * Both "content" and "narrative" are accepted by the backend for the narrative field.
  * If both are provided, "content" takes priority over "narrative".
+ *
+ * PATCH has three states per field, and all three are spelled out in the types:
+ * - **omit** the key (or pass `undefined`) — leave the field unchanged
+ * - pass a value — set the field
+ * - pass `null` — **clear** the field
+ *
+ * The `null` state is why every field is `| null` rather than just optional.
+ * The backend honours it — measured live, a PATCH of
+ * `{"title":null,"subtitle":null,"source":null,"facts":null,"concepts":null,"extractedData":null,"content":null}`
+ * returned 200 and stored SQL NULL for all seven — and `CortexMemClient.updateObservation`
+ * documents it, but the types used to say `string | undefined`, so under this package's
+ * own `"strict": true` a caller had to write `null as unknown as string` to reach it
+ * (which is what the tests had to do). JSON.stringify has no omitempty, so null always
+ * reaches the wire; only the type was blocking it.
+ *
+ * This makes JS the only SDK that can clear a string field to NULL: Java omits nulls
+ * via `@JsonInclude(NON_NULL)`, Go via `omitempty`, and Python skips `None`. See P2-27
+ * for the four-way capability table and P2-26 for the facts/concepts split.
  */
 export interface ObservationUpdate {
-  title?: string;
-  subtitle?: string;
-  /** Observation content/narrative. Alias for "narrative" — backend uses "narrative" wire field. */
-  content?: string;
-  /** Observation content/narrative. Alias for "content". When both are set, backend processes whichever is present. */
-  narrative?: string;
-  facts?: string[];
-  concepts?: string[];
-  source?: string;
-  extractedData?: Record<string, unknown>;
+  /** `null` clears the title. */
+  title?: string | null;
+  /** `null` clears the subtitle. */
+  subtitle?: string | null;
+  /** Observation content/narrative. Alias for "narrative" — backend uses "narrative" wire field. `null` clears it. */
+  content?: string | null;
+  /** Observation content/narrative. Alias for "content". When both are set, backend processes whichever is present. `null` clears it. */
+  narrative?: string | null;
+  /** `[]` replaces the list; `null` clears the column. Both reach the wire (no omitempty). */
+  facts?: string[] | null;
+  /** `[]` replaces the list; `null` clears the column. Both reach the wire (no omitempty). */
+  concepts?: string[] | null;
+  /** `null` clears the source. */
+  source?: string | null;
+  /** `null` clears it; `{}` is stored as an empty object rather than NULL, so prefer `null`. */
+  extractedData?: Record<string, unknown> | null;
 }
 
 /**

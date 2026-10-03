@@ -208,6 +208,34 @@ It matters because a PATCH that sets nothing is a silent no-op on the wire: with
 the check, a caller who assembled an empty update from user input would see the call
 resolve and could not tell that nothing was written.
 
+### Three States Per Field: Skip, Set, Clear
+
+`ObservationUpdate` gives every field three distinct states, and all three are spelled
+out in the type — omit the key, pass a value, or pass `null`:
+
+```ts
+// skip: subtitle is left alone (the key is never sent)
+await client.updateObservation(id, { title: 'New title' });
+
+// set
+await client.updateObservation(id, { concepts: ['auth'] });
+
+// clear: stored as SQL NULL
+await client.updateObservation(id, { source: null, extractedData: null });
+```
+
+`null` is a value, not an absent field, so every field is typed `T | null` rather than
+merely optional. Under this package's `"strict": true` the narrower `T | undefined`
+spelling made the clear semantic unreachable from TypeScript — a caller had to write
+`null as unknown as string` to reach behaviour the client already implemented and the
+backend already honours. The backend stores SQL NULL for all seven clearable fields.
+
+This SDK is the only one of the four that can clear a string field to NULL: Java omits
+nulls via `@JsonInclude(NON_NULL)`, Go via `omitempty`, and Python skips `None`. For
+the `facts` and `concepts` lists, `[]` and `null` are different outcomes — `[]` stores an
+empty array, `null` stores NULL — and both reach the wire, because `JSON.stringify` has
+no `omitempty`.
+
 ### Required Arguments Are Checked Client-Side
 
 Every argument below must be non-empty. The SDK throws a `ValidationError` and sends no

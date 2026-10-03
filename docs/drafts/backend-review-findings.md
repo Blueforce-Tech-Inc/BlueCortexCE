@@ -30,6 +30,7 @@
 | 243 | P2-38 | ✅ **已修**（紧凑构造器统一校验，4 条新测试，139→143；`ICLPromptRequest` 复核本就正确） |
 | 244 | P2-40 | ⏸ 记录不修（四家 SDK **能写 prompts 与 summaries、却都读不回来**；新增公开方法属产品决策） |
 | 245 | P2-41 | ⏸ 记录不修（`platform_source` / `content_hash` 等**四家一致不暴露**，SDK 用户无法按平台区分观测） |
+| 246 | P2-27 表更正 + P2-42 | ✅ **JS `ObservationUpdate` 类型已修**（八个字段 `T \| null`，此前 `null` 在 `strict` 下**编译不过**）；⏸ 记录不修（`tsconfig` 排除测试文件，`lint` 查不到测试里的类型错误） |
 
 > 历次压缩的批次与理由统一记在文末 `## Archived History`（最新一批见 batch 3），
 > **此处不再重复**——两处原本记着同一批压缩事件，每次压缩都要改两遍。
@@ -512,13 +513,27 @@
 
   | SDK | 能否发 `null` | 能否发 `{}` | 结果 |
   |---|---|---|---|
-  | JS | ✓（原样透传给 `JSON.stringify`） | ✓ | 真清空 |
+  | JS | ✓（原样透传给 `JSON.stringify`）**（类型于第 246 轮修正，见下注）** | ✓ | 真清空 |
   | Java | ✗（`@JsonInclude(NON_NULL)`） | ✓ | 只能落 `{}` |
   | **Go** | ✗（`omitempty`） | ✗（`omitempty`） | **完全不能** |
   | **Python** | ✗（`if val is not None`） | ✗（显式 `continue`） | **完全不能** |
 
   注意 Go 与 Python **在 facts/concepts 上能力相反**（Go 因 `omitempty` 丢弃空切片而
   不能清空，Python 因 `[] is not None` 而能清空）——见 P2-26。
+- **更正（2026-10-04 第 246 轮，本表 JS 行的判定依据当时不成立）**: 该行原以
+  「原样透传给 `JSON.stringify`」为由把 JS 判为「能发 `null`」。**运行时确实透传，但类型不允许**：
+  `ObservationUpdate` 当时声明为 `title?: string` 等，在本包自身的 `"strict": true` 下
+  `{ title: null }` 是**编译错误**——实测 `tsc` 报 `TS2322: Type 'null' is not assignable
+  to type 'string | undefined'`，八个字段全中。**本 SDK 自己的测试就是证据**：
+  `client.test.ts` 里那两个名为 "should accept null fields for PATCH clear semantics" /
+  "should accept all-null fields" 的用例，必须写 `null as unknown as string` 才能表达这个能力。
+  故该行在第 246 轮之前实际应记作「**运行时可、类型不可达**」，Python `dto.py` 里
+  「JS can send `null`」那句同样只是运行时成立。**第 246 轮已把八个字段放宽为 `T | null`**，
+  现在该行按字面成立。四家的**净能力**（能否真正把字符串字段清空为 NULL）也随之明确：
+  **只有 JS 能**，Java / Go / Python 三家都只能落 `{}` 或空串——上表未反映这一点。
+- **该缺陷为何能存活**: `js-sdk/cortex-mem-js/tsconfig.json` 的 `exclude` 含
+  `"**/*.test.ts"`，而 `npm run lint` 就是 `tsc --noEmit`——**测试文件根本不参与类型检查**，
+  于是类型层与断言层之间的裂缝没有任何自动关卡。已独立立为 **P2-42**。
 - **已修（注释，非行为）**: `ObservationUpdate` 类 docstring 原写
   「Only non-None fields are sent to the backend, **matching Go's
   pointer-field-with-omitempty pattern**」。这句有两处不准：Python 用的是
@@ -903,6 +918,30 @@
   **若将来实施**，注意 `platform_source` 已经是列表端点的**过滤维度**而非纯展示字段，
   补齐时应同时覆盖**响应字段**与**请求过滤参数**两侧，否则只补一半仍然无法按平台检索。
   **四家 SDK 代码一字未改。**
+
+### P2-42: JS SDK 的 `tsconfig.json` 把测试文件排除在类型检查之外——`npm run lint` 查不到测试里的任何类型错误
+
+- **Scope**: `js-sdk/cortex-mem-js/tsconfig.json` 的 `exclude`（含 `"**/*.test.ts"`），
+  以及 `package.json` 里 `lint` 脚本就是 `tsc --noEmit`。
+- **Problem**: 这两项叠加的结果是**整个测试套件从不参与类型检查**。
+  `include` 是 `src/**/*`（测试文件确实在里面），但 `exclude` 又把它们摘了出去，
+  于是 `tsc` 只检查 `src` 下的非测试源码。**活体证据**：往
+  `src/__tests__/client.test.ts` 里注入 `const __bad: string = 42;`，
+  `npm run lint` **依然退出 0、无任何输出**。
+  后果是类型层与断言层之间可以长期存在裂缝而没有任何自动关卡——
+  第 246 轮修的那个 P2-27 能力表错判正是这样活下来的：
+  `ObservationUpdate` 声明为 `title?: string`，而**本 SDK 自己的测试**
+  （名为 "should accept null fields for PATCH clear semantics" 的用例）
+  必须写 `null as unknown as string` 才能表达它声称在测的能力，**却一直全绿**。
+- **Status**: ⏸ **记录不修** —— 修法是加一道 `tsconfig.test.json`（`extends` 主配置、
+  覆盖 `exclude`）并并入 `lint`。这属**构建配置变更**，且一旦接上就会一次性暴露
+  三个测试文件（含 `examples/http-server/parse-int-param.test.ts`）里既有的潜在类型错误，
+  影响面超出单轮范围，留待项目决策。
+  **注意**：本条**不影响**第 246 轮的修复——`ObservationUpdate` 是 `src/dto/` 下的
+  导出源码，**在检查范围内**，`tsc --noEmit` 对它的类型改动有把关；
+  受影响的只是「测试文件本身写错类型不会被发现」这一层。
+  故第 246 轮的类型层验证改用**直接对 `src/dto/observation.ts` 的探针文件**做双向注入
+  （修复后 0 error / 回退后恰好 8 个 / 恢复后 0），而不是依赖 `npm test`。
 
 ## Processing Rules
 - SDK/Demo findings are fixed in place with focused compile/test verification.

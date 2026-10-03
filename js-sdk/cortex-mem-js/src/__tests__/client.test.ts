@@ -798,10 +798,15 @@ describe('CortexMemClient', () => {
 
     it('should accept null fields for PATCH clear semantics', async () => {
       // PATCH semantics: null = clear field (per API docs: "Null values clear the field")
+      //
+      // No cast: these used to need `null as unknown as string`, which is what
+      // showed the type was narrower than the behaviour the client already
+      // implemented. Under the package's own "strict": true the old types made
+      // the documented clear semantic unreachable from TypeScript.
       fetchMock = mockFetch(204, null);
       client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
 
-      await client.updateObservation('obs-1', { title: null as unknown as string, content: 'new content' });
+      await client.updateObservation('obs-1', { title: null, content: 'new content' });
       const [, opts] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
       const body = JSON.parse(opts.body);
       expect(body.title).toBeNull();
@@ -812,11 +817,65 @@ describe('CortexMemClient', () => {
       fetchMock = mockFetch(204, null);
       client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
 
-      await client.updateObservation('obs-1', { title: null as unknown as string, content: null as unknown as string });
+      await client.updateObservation('obs-1', { title: null, content: null });
       const [, opts] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
       const body = JSON.parse(opts.body);
       expect(body.title).toBeNull();
       expect(body.content).toBeNull();
+    });
+
+    it('should send null for every clearable field without a cast', async () => {
+      // The backend stores SQL NULL for all seven (measured live, 200 OK), so
+      // each one has to be reachable from TypeScript, not just from JavaScript.
+      fetchMock = mockFetch(200, { status: 'updated' });
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+
+      await client.updateObservation('obs-1', {
+        title: null,
+        subtitle: null,
+        content: null,
+        narrative: null,
+        facts: null,
+        concepts: null,
+        source: null,
+        extractedData: null,
+      });
+      const [url, opts] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(url).toContain('/api/memory/observations/obs-1');
+      const body = JSON.parse(opts.body);
+      // All eight keys present (JSON.stringify has no omitempty) and all null.
+      expect(Object.keys(body).sort()).toEqual([
+        'concepts', 'content', 'extractedData', 'facts',
+        'narrative', 'source', 'subtitle', 'title',
+      ]);
+      for (const [k, v] of Object.entries(body)) {
+        expect(v, `${k} should be null`).toBeNull();
+      }
+    });
+
+    it('should distinguish null (clear) from [] (replace) for list fields', async () => {
+      // Both reach the wire — there is no omitempty — but they mean different
+      // things: [] stores an empty array, null stores NULL.
+      fetchMock = mockFetch(200, { status: 'updated' });
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+
+      await client.updateObservation('obs-1', { facts: [], concepts: null });
+      const [, opts] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
+      const body = JSON.parse(opts.body);
+      expect(body.facts).toEqual([]);
+      expect(body.concepts).toBeNull();
+    });
+
+    it('should still omit undefined fields rather than sending them as null', async () => {
+      // The three states must stay distinct: an omitted key means "skip".
+      fetchMock = mockFetch(200, { status: 'updated' });
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+
+      await client.updateObservation('obs-1', { title: 'keep', subtitle: undefined });
+      const [, opts] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
+      const body = JSON.parse(opts.body);
+      expect(Object.keys(body)).toEqual(['title']);
+      expect(body.title).toBe('keep');
     });
   });
 

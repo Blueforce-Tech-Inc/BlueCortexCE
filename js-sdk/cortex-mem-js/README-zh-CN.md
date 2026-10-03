@@ -199,6 +199,30 @@ cortex-ce: validation error on update: at least one field must be provided for u
 
 这一点很重要：不设置任何字段的 PATCH 在 wire 上是一次静默 no-op。若没有这道检查，调用方用用户输入拼出一个空更新后会看到调用 resolve，却无法得知其实什么都没写入。
 
+### 每个字段有三种状态：跳过、设置、清空
+
+`ObservationUpdate` 的每个字段都有三种彼此不同的状态，且三种都写在类型里——省略该键、传值、传 `null`：
+
+```ts
+// 跳过：subtitle 保持原样（该键根本不会被发送）
+await client.updateObservation(id, { title: 'New title' });
+
+// 设置
+await client.updateObservation(id, { concepts: ['auth'] });
+
+// 清空：落库为 SQL NULL
+await client.updateObservation(id, { source: null, extractedData: null });
+```
+
+`null` 是一个值，而不是「字段缺失」，所以每个字段的类型都是 `T | null` 而不只是可选。
+在本包自身的 `"strict": true` 下，更窄的 `T | undefined` 写法会让清空语义**在 TypeScript 里无法触达**
+——调用方必须写 `null as unknown as string` 才能走到客户端早已实现、后端也早已接受的行为。
+实测后端对七个可清空字段全部按 SQL NULL 落库。
+
+四家 SDK 中**只有本家能把字符串字段清空为 NULL**：Java 用 `@JsonInclude(NON_NULL)` 省略 null，
+Go 用 `omitempty`，Python 直接跳过 `None`。对 `facts` 与 `concepts` 两个列表字段，`[]` 与 `null`
+的结果不同——`[]` 存空数组，`null` 存 NULL——且两者都会上 wire，因为 `JSON.stringify` 没有 `omitempty`。
+
 ### 必填参数在客户端校验
 
 下表中的参数都必须非空。SDK 抛出 `ValidationError` 且不发出任何请求。Go、Java、Python 三家 SDK 强制的是完全相同的一组规则。
