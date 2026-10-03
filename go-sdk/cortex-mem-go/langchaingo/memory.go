@@ -29,7 +29,16 @@ func WithMemoryProject(project string) MemoryOption {
 	return func(m *Memory) { m.project = project }
 }
 
-// WithMemoryMaxChars sets the maximum ICL prompt characters.
+// WithMemoryMaxChars sets the maximum ICL prompt characters. Default: 4000.
+//
+// Non-positive values are NOT clamped. 0 is dropped by the wire format's
+// omitempty, so the backend applies its own 4000 default; a negative value is
+// sent as-is and the backend clamps it to 100, truncating the prompt to roughly
+// 53 characters while still reporting HTTP 200 and a non-zero experienceCount.
+// The backend echoes the value it actually applied in ICLPromptResult.MaxChars,
+// but this adapter keeps only result.Prompt and discards that signal, so the
+// truncation is invisible to callers — see P2-36 in
+// docs/drafts/backend-review-findings.md.
 func WithMemoryMaxChars(n int) MemoryOption {
 	return func(m *Memory) { m.maxChars = n }
 }

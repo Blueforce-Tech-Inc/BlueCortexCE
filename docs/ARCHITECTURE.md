@@ -983,7 +983,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: none  # Flyway handles schema
-    show-sql: false
+    open-in-view: false  # no Open Session In View; repositories are the boundary
 
 # LLM provider (openai or anthropic) — wired manually in SpringAiConfig
 claudemem:

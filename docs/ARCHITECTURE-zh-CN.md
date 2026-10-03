@@ -974,7 +974,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: none  # Flyway 处理架构
-    show-sql: false
+    open-in-view: false  # 关闭 Open Session In View，仓储层即为边界
 
 # LLM 提供商 (openai 或 anthropic) — 在 SpringAiConfig 中手动装配
 claudemem:

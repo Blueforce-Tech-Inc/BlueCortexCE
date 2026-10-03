@@ -16,9 +16,8 @@
 > `docs/drafts/patrol-rotation.md` 与 `docs/drafts/doc-review-task.md`。
 > 本区块曾在 2026-10-03 至 10-04 之间多次越过 `MAX_LINES=1000` 而被迫压缩，
 > 逐轮删减并不能根治——**根因是逐轮叙述本就不该放在这里**，故改为只保留下表。
->
-> 压缩记录：225（1008 行，10 条已解决条目归档）、232（980 行，P1-3+P1-4 共 79 行归档）、
-> 233 / 235（1013 / 1002 行，逐轮摘要并入下表）、236（**本区块结构化**）。
+> 历次压缩的批次与理由统一记在文末 `## Archived History`，**此处不再重复**
+> （两处原本记着同一批压缩事件，每次压缩都要改两遍）。
 | 轮次 | 条目 | 一句话 |
 |------|------|--------|
 | 219 / 218 / 224 | P2-24 / P1-3 / P1-4 | 代码侧已修；P1-3、P1-4 已归档，P2-24 仍带 ⏸ 残留故保留 |
@@ -29,10 +28,12 @@
 | 235 | P2-33 | ⏸ 记录不修（跨 demo 契约决策） |
 | 236 | P2-34 | ⏸ 记录不修（改注解即改 OpenAPI 契约）；**人工撰写的 API 文档本来就正确** |
 | 237 | P2-35 | ⏸ 记录不修（会让所有用户的库里开始出现失败观测，属产品决策） |
+| 238 | P2-36 | ⏸ 记录不修（三个同级适配器数值选项校验分歧；「负数该等于什么」无唯一答案） |
 
 > **本文件已结构性饱和**：第 236 轮移除逐轮叙述后，第 237 轮加入 P2-35 即回到 **1000 行**。
-> 27 条中 25 条为 ⏸「记录不修」，按规则**必须保留**（承载决策推理而非历史），**无可归档余量**，
-> 故下一条新发现必然再次触发压缩。
+> 28 条中 26 条为 ⏸「记录不修」，按规则**必须保留**（承载决策推理而非历史），**无可归档余量**，
+> 故每条新发现都会再次触发压缩——第 238 轮即已触发（1035 行）。**逐轮压缩已成常态，
+> 需项目决策是否改动归档规则**（见轮次报告中的待决策项）。
 
 **本文件最值得记住的一点**：P2-32、P2-33、P2-34 连续三条的形态完全一样 ——
 **机器可读的那一份**（Dockerfile 的默认绑定、demo 的路由名、Swagger 注解的示例）
@@ -646,17 +647,7 @@
   按既定纪律留待项目决策。**文档层已先行更正**：`docs/API.md` 与
   `docs/API-zh-CN.md` 的 Test All 章节现明写「该端点恒返回 200」、给出两种真实
   响应示例（健康 / 嵌入故障各一），并直接告诉巡检脚本应读嵌套 `status` 而非状态码。
-- **复核记录**: 第 230 轮代码方向发现（首次审 `TestController`）。取证：活体
-  三端点分别 curl 取状态码；读 `TestController.java:118-123` 确认
-  `testLlm().getBody()` 丢弃了 `ResponseEntity` 的状态部分；
-  `grep -rn "api/test"` 确认四家 SDK **零命中**，而项目自带的
-  `scripts/test-llm-provider.sh` **只调用 `/llm` 与 `/embedding`**（第 43、76 行
-  正是靠 `%{http_code}` 判定）、**从不调用 `/all`** —— 说明仓库自身也绕开了它。
-  **探针自身错一次并先识别再采信**：统计 controller 数量时用
-  `ls ... | grep -v Test` 过滤测试文件，结果把 `TestController.java` 一并滤掉，
-  数出 12 而记录是 13；改用 `grep -rln "@RestController"` 复核得 13，
-  **确认是过滤器缺陷、既有记录无误**，没有据此改写任何结论。
-
+- **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-2.md`](../archive/2026-10-04_backend-review-provenance-2.md)（第 238 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-29: tool-use 去重键不是一次调用的身份，且未被原子强制
 
 - **Scope**: `AgentService.calculateToolInputHash()`（`AgentService.java:466-482`）、
@@ -720,20 +711,7 @@
   属设计决策，按既定纪律留待项目决策。**文档层已先行更正**：
   `cortex-mem-spring-integration/README.md` 与 `README-zh-CN.md` 现明写
   捕获路径的这一静默丢弃形态。**SDK 与后端代码一字未改。**
-- **复核记录**: 第 231 轮代码方向（Java SDK）发现。切入点是 Java SDK 的
-  `ObservationRequest.toWireFormat()` 发了 `toolResponse`/`promptNumber`/`source`
-  却发现它们**都不参与去重**。取证链：读 `AgentService.java:147-158` 与
-  `PendingMessageRepository.java:25,38` 确认键与判定条件；`grep` 确认后端
-  **零引用** `tool_use_id`（真正的键不是它）；预置 in-flight 行做确定性丢弃
-  复现；并发 8 发验证原子性；`pg_constraint` + 事务内重复插入验证约束不存在；
-  `grep -rn "UNIQUE" backend/src/main/resources/db/migration/` 确认无迁移创建。
-  **探针自身错一次并先识别再采信**：并发探针脚本在同一次运行里查库，
-  读到 0 行、险些据此断言「事件根本没落库」；复查发现是**落库晚于响应返回**，
-  稍后重查为 8 行——**先识别为探针时序问题再采信**，未据此改写结论。
-  另修正了自己一次统计口径错误：最初按 `(session, hash)` 分组把
-  `read`/`edit`/`write` 误称为「大小写孪生」得 307 组，改用
-  `(session, lower(tool_name), hash)` 精确分组后为 **1 组**。
-
+- **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-2.md`](../archive/2026-10-04_backend-review-provenance-2.md)（第 238 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-30: 负数 `limit` 在四家 SDK 有三种行为，而 Go 自身也不一致
 
 - **Scope**: Go `client_methods.go:124`（`Search`）、`:145`（`ListObservations`）、
@@ -772,19 +750,7 @@
   属公开 API 行为变更；四家对齐更属跨 SDK 契约决策。**文档层已先行更正**：
   Go SDK 两份 README 现明写 `Search` / `ListObservations` / `GetExtractionHistory`
   三者对负数的**不同**处理，并附四家对拍表与后端裁定值。**Go SDK 代码一字未改。**
-- **复核记录**: 第 232 轮代码方向（Go SDK）发现，359 测试全过。本轮**四个新角度核实无误**：
-  错误分类法（`statusCodeToError` 覆盖 11 个状态码、`IsRetryable` 判定与注释逐条吻合）、
-  查询参数编码（走 `url.Values.Encode`，无注入面）、响应体上限（`LimitReader` 多读 1 字节后
-  显式报错，**不会**退化成 JSON 截断错误）、DTO 时间字段（建模为 `string`/`int64`，无解析失败面）。
-  **一个假设在写成发现前被证伪**：怀疑 `GetObservation` 未找到时返回 `nil, nil` 会让调用方
-  空指针崩溃——**四家其实完全一致且都有文档**（Java 返回 `null`、Python 返回
-  `Observation | None`、JS 返回 `Observation | null`、Go 返回 `nil` 且接口注释写明），
-  **不是缺陷**。取证：临时 httptest 文件
-  （跑完即删，工作区无残留）确认 Go 实际出参；`grep` 逐家读源码确认四家行为；
-  活体 curl 确认后端钳位值。**探针自身错一次并先识别再采信**：统计根模块测试数时用
-  `^--- PASS` 只数顶层用例得 270，与基线 359 不符；改用含子测试的模式逐模块统计得
-  **299 + 8 + 13 + 12 + 27 = 359**，**确认是计数口径问题、既有记录无误**。
-
+- **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-2.md`](../archive/2026-10-04_backend-review-provenance-2.md)（第 238 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-31: Go SDK 仍把负数 `maxChars` 发上 wire，注入被钳到 100 字符
 
 - **Scope**: `go-sdk/cortex-mem-go/dto/experience.go:38` 与 `:46` 的
@@ -814,14 +780,7 @@
   四家一致**。**双向注入验证为真**：把 Python 守卫改回 `if max_chars:` →
   负数用例**恰好 1 条**失败（零值与正值用例理应不失败，正数那条的作用正是防过度修复）；
   恢复后 Python **431** 全过（原 428），Java **192**、JS **239** 均与基线一致。
-- **复核记录**: 第 233 轮代码方向（Python SDK）发现。取证：读四家源码确认守卫形态；
-  活体 curl 四种取值裁定后端行为；`grep -rn "max_chars" tests/` 确认**无既有测试
-  钉死该行为**（故是改正而非与测试冲突）。**顺带核实无误**：Python 五处路径拼接
-  （`session_id` / `observation_id` / `template_name`）**全部**用
-  `quote(x, safe='')`，与 Go 的 `url.PathEscape`、JS 的 `encodeURIComponent` 一致，
-  **四家无一处漏转义**；请求超时恒有设置（下限 0.1s）；重试为线性退避 + ±25% 抖动、
-  仅重试瞬时错误。
-
+- **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-2.md`](../archive/2026-10-04_backend-review-provenance-2.md)（第 238 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-32: 两个 Dockerfile 都不设 `SERVER_ADDRESS`，默认部署下服务对外不可达；根镜像的 healthcheck 还写死了端口
 
 - **Scope**: 根 `Dockerfile`（`HEALTHCHECK` 行与文件头注释里的 `docker run` 示例）、
@@ -959,6 +918,62 @@
   的控制流时发现 `proceed()` 的位置。取证：`CortexToolAspectTest` **逐条枚举 4 条测试**、
   `QualityScorer` 的评分档与枚举**从文件读**（不用正则数）。
 
+### P2-36: 三个同级适配器（eino / genkit / langchaingo）对数值选项的校验互不一致，且 genkit 的兜底只护住了 per-call 路径
+
+- **Scope**: `eino/retriever.go:37`（`WithRetrieverCount`）、
+  `genkit/retriever.go:54`（`WithRetrieverCount`）、
+  `langchaingo/memory.go:32`（`WithMemoryMaxChars`）、`dto/experience.go:12,38`。
+- **Problem**: 这三个文件是同一个 SDK 里为同一目的写的三块适配层，**却对「非正数怎么办」
+  给出三种不同答案**：genkit 有 `if count <= 0 { count = r.count }` 兜底、eino 与
+  langchaingo **完全没有校验**。更关键的是 **genkit 的兜底本身是半截的**——它只作用于
+  `Retrieve` 收到的**每次调用**的 `input.Count`，而兜底的落点 `r.count` **从未被校验**；
+  于是构造函数传入负数时，兜底「回退」到的正是那个负数，**原样发上 wire**。
+  测试名 `TestRetrieve_NegativeCount_FallsBackToDefault` 读起来像「负数已被处理」，
+  但它把**构造函数传的是合法值 3**、只测 per-call 分支——**真正漏的那条路径无覆盖**。
+- **Evidence（wire 级用真实 `cortexmem.NewClient` 打 httptest，非 mock；后端活体取有 22,763
+  条观测的真实 project）**:
+  | 适配器 | 入口 | 实际发上 wire 的报文 |
+  |--------|------|---------------------|
+  | eino | `WithRetrieverCount(4)` | `{"task":…,"project":…,"count":4}` |
+  | eino | `WithRetrieverCount(0)` | `{"task":…,"project":…}` — 被 `omitempty` 省掉 |
+  | eino | `WithRetrieverCount(-1)` | `{…,"count":-1}` ← **原样发出** |
+  | eino | `WithRetrieverCount(-100)` | `{…,"count":-100}` ← **原样发出** |
+  | genkit | per-call `Count:-1`（构造值 4） | `{…,"count":4}` — 兜底**生效** |
+  | genkit | 构造 `WithRetrieverCount(-1)` | `{…,"count":-1}` ← 兜底**不生效** |
+  | langchaingo | `WithMemoryMaxChars(0)` | `{"task":…,"project":…}` — 被省掉 |
+  | langchaingo | `WithMemoryMaxChars(-1)` | `{…,"maxChars":-1}` ← **原样发出** |
+  | 后端 | `POST /experiences` `count:4` | 4 条，HTTP 200 |
+  | 后端 | `POST /experiences` `count:-1` | **0 条，HTTP 200** |
+  | 后端 | `POST /experiences` `count:0` | 0 条，HTTP 200 |
+  | 后端 | `POST /icl-prompt` `maxChars:4000` | 提示词 **528** 字符，回显 4000 |
+  | 后端 | `POST /icl-prompt` `maxChars:-1` | 提示词 **53** 字符（**-90%**），回显 **100**，`experienceCount` **仍为 4**，HTTP 200 |
+  > 现有适配器测试**全部使用 mock client**（`mockClient` / `captureClient`），它们在
+  > `dto.ExperienceRequest` 层面取值，**结构上无法观测序列化**——这就是这条缺陷能长期
+  > 存活的原因，也是本轮必须换成真实客户端 + httptest 的原因。两条路径**都不报错**：
+  > 负 `count` 让 eino/genkit 静默返回「没有相关记忆」，而 eino 自己的注释明确写着它
+  > 之所以向上抛错正是因为「静默空结果与『没有相关记忆』无法区分」；负 `maxChars` 更隐蔽
+  > ——4 条经验**确实检索到了**，只是被压进 53 字符里。
+- **附带一处被丢弃的透明信号**: 后端把**实际生效值**回显在 `ICLPromptResult.maxChars`，
+  Go 的 `dto.ICLPromptResult.MaxChars` **确实有这个字段**（`dto/experience.go:46`），
+  但全 SDK **无任何非测试代码读它**——`LoadMemoryVariables` 只取 `result.Prompt`。
+  即：直接用核心客户端的调用方**能**看到钳制，**走适配器的调用方看不到**。
+- **Status**: ⏸ **记录不修** —— 与 P2-30 同族但**不是同一条**：P2-30 记的是核心客户端
+  `limit` 的四家分歧，本条记的是**适配层** `count` / `maxChars` 的**块内分歧**。不修的理由：
+  ①「负数该等于什么」**没有唯一正确答案**（0 条？不限？回退默认？三个作者都没写），
+  单方面选一个就是替项目做产品决策；②只修 genkit 会让 SDK **看起来更不一致**
+  （一个有兜底、两个没有），而修 langchaingo 的「回显被丢弃」半边**必然要新增可观测行为**
+  （多一行日志或一个新错误），属新增特性。**本轮只补了三个选项注释里的取值范围事实说明**
+  （照「文档描述现在而非该有的行为」），**未改任何运行时行为**。
+- **复核记录**: 第 238 轮代码方向（Go SDK）。切入点是三个适配器各只有一个文件、
+  合计仅 33 个测试，是全 SDK 审计最薄的一块。取证：先 `grep` 确认全 SDK
+  `context.Background()` / `context.TODO()` **零命中**（ctx 传递这条线是干净的，
+  该假设不成立），再逐个读三个适配器；`MaxRetries=0` 导致 `doFireAndForget` 一次都不执行
+  的假设也被 `client_impl.go:123` 的钳位证伪。真正下结论靠**两个探针**：
+  ①httptest 抓三个适配器的**实际上线报文**（mock 看不到序列化）；②活体打
+  `/api/memory/experiences` 与 `/api/memory/icl-prompt`。**探针错一次并先识别再采信**：
+  第一次用 scratchpad 空项目做 `count` 探针，四种取值全返 0 条，**无法区分**
+  「负数被拒」与「项目本来就没数据」——换成有 22,763 条观测的真实项目才拿到有效对照。
+
 ## Processing Rules
 
 - SDK/Demo findings are fixed in place with focused compile/test verification.
@@ -975,5 +990,7 @@ Ten entries whose status is unconditionally resolved — P1-2, P2-1, P2-2, P2-3,
 A second batch — **P1-3 and P1-4, 79 lines moved verbatim** — went into [`2026-10-03_backend-review-history-resolved-2.md`](../archive/2026-10-03_backend-review-history-resolved-2.md) on 2026-10-03 (round 232), when this file stood at 980 lines and adding P2-30 would have crossed the threshold. **P2-24 was deliberately left behind**: it carries a ⏸ remainder even though its first two parts are ✅ fixed, so it still holds live reasoning rather than history. Verbatim equality of both batches was verified by diffing the extracted block against `git show HEAD` before the source lines were removed.
 
 **Provenance note.** On 2026-10-04 (round 237) the `- **复核记录**:` sections of P2-22 through P2-27 were moved verbatim into [`2026-10-03_backend-review-provenance.md`](../archive/2026-10-03_backend-review-provenance.md), each replaced by a one-line pointer. The file is structurally saturated — 27 entries, 25 of them ⏸ — and the ⏸ rule below protects the **decision reasoning** (Scope / Problem / Status), which stayed. `复核记录` is provenance: which round found it and how the evidence was gathered, and the same text is stored verbatim per round in `patrol-rotation.md` and `doc-review-task.md`. **This is the first move of this kind**; if the ⏸ rule is later read to cover provenance too, the sections can be restored from the archive without loss.
+
+**Provenance note, batch 2.** On 2026-10-04 (round 238) the same treatment was applied to **P2-28 through P2-31**, moved verbatim into [`2026-10-04_backend-review-provenance-2.md`](../archive/2026-10-04_backend-review-provenance-2.md) when P2-36 pushed this file to 1035 lines. A **separate** file was used because batch 1 declares itself immutable. Verbatim equality against `git show HEAD` was verified before any source line was removed, and the working file dropped to 993. Round 238 also removed the duplicated compression log from `Current Status`, which duplicated this section's history and had to be updated twice per compression.
 
 Entries carrying a `⏸` "recorded, not fixing" status stay here on purpose: they hold the reasoning behind each decision and are the live record, not history. P2-11 also stays, because its backend half is still undecided even though the documentation and annotation layers were fixed.

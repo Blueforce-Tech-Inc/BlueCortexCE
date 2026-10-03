@@ -34,7 +34,14 @@ func WithRetrieverSource(source string) RetrieverOption {
 	return func(r *Retriever) { r.source = source }
 }
 
-// WithRetrieverCount sets the number of results to retrieve.
+// WithRetrieverCount sets the number of results to retrieve. Default: 4.
+//
+// Non-positive values are NOT clamped. 0 is dropped by the wire format's
+// omitempty, so the backend applies its own default of 4; a negative value is
+// sent as-is, and the backend answers HTTP 200 with an empty list. A negative
+// count therefore yields zero results and no error — see P2-36 in
+// docs/drafts/backend-review-findings.md. This adapter has no per-call
+// override and no fallback, unlike the Genkit adapter.
 func WithRetrieverCount(n int) RetrieverOption {
 	return func(r *Retriever) { r.count = n }
 }

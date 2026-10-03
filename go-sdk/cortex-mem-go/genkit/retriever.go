@@ -51,7 +51,15 @@ func WithRetrieverSource(source string) RetrieverOption {
 	return func(r *Retriever) { r.source = source }
 }
 
-// WithRetrieverCount sets the maximum number of results.
+// WithRetrieverCount sets the maximum number of results. Default: 4.
+//
+// Retrieve clamps a non-positive per-call input.Count back to this value, but
+// this constructor value is NOT clamped: with a negative here, the fallback
+// resolves to the same negative and it reaches the backend, which answers
+// HTTP 200 with an empty list. The existing
+// TestRetrieve_NegativeCount_FallsBackToDefault only covers the per-call path
+// with a valid constructor count, so it does not exercise this case — see
+// P2-36 in docs/drafts/backend-review-findings.md.
 func WithRetrieverCount(n int) RetrieverOption {
 	return func(r *Retriever) { r.count = n }
 }
