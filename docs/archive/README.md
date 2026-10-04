@@ -64,3 +64,4 @@ The date prefix reflects when the document was last relevant (not when it was ar
 | `2026-10-04_doc-review-history-120-132.md` | `docs/drafts/doc-review-task.md` | 2026-10-04 | 第 120～132 轮文档审查条目（共 14 条）逐字迁出（第 244 轮后达 **102,881 字节**、越过 `MAX_BYTES=102400`；119 轮及更早已在前三批归档）；沿用 `69-81`/`82-93`/`94-107` 的**按轮次区间命名**惯例，迁出前以 `git show HEAD` 逐字校验。回落 102,881 → **51,940 字节** |
 | `2026-10-04_health-check-history-9.md` | `docs/drafts/health-check-task.md` | 2026-10-04 | 第 231~240 轮巡检报告逐字迁出（第 246 轮后达 1094 行、越过 1000 行阈值），承前七批同规则；源文件保留第 241~246 轮 |
 | `2026-10-04_backend-review-reproduction-6.md` | `docs/drafts/backend-review-findings.md` | 2026-10-04 | 第 247 轮第六批（**第十三次压缩**）：P2-35~P2-40 六条的 **Evidence** 段（活体/比对证据，共 56 行）逐字迁出，Scope / Problem / Status 即决策推理留在原处；findings 997 → 948 行 |
+| `2026-10-04_backend-review-resolved-3.md` | `docs/drafts/backend-review-findings.md` | 2026-10-04 | 第 250 轮第三批（**第十四次压缩**）：P2-11 与 P2-38 两条**无条件已解决**条目（86 行）整体逐字迁出，源文件留一行指针；findings 1019 → 935 行 |

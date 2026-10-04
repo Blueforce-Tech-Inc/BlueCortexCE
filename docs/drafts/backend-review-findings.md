@@ -34,6 +34,7 @@
 | 247 | Demo + P2-43 | ✅ **JS / Python demo 的 `extractedData` 守卫已修**（把「清空」与「类型错误」混为一谈，拒掉后端接受的请求）；⏸ 记录不修（Python 两种调用风格对 `None` 语义相反） |
 | 248 | Backend + 运维指南 | ✅ **`CursorController.updateContext` 已修**（传 `projectName` 而非 `workspacePath`，对着 1,632 条观测写出「no memories yet」；双实例 A/B：163 → 17,750 字节）；✅ **十处构建命令的 jar 名已修**（三种错名，改为通配符） |
 | 249 | Java SDK + API 文档 | ⏸ 记录不修（**P2-44**：`CortexSessionContextBridgeAdvisor` 与手动 `begin/end` 不可嵌套，外层作用域被静默销毁，已补 Javadoc 约束）；✅ **`/api/context/recent` 的 `limit` 已钳制到 [1,20]**（负数此前打到 PostgreSQL 返 **HTTP 500**；双实例 A/B：500 → 200、4610 条无上界 → 20 条）；✅ API.md/中文版 62/62 路径零幻影、query 参数零漂移 |
+| 250 | Go SDK + SDK README | ⏸ 记录不修（**P2-45**：会话启动的 `projects` 能生成多项目上下文、API.md 已载，**四家 SDK 一律只发 3 个字段**；同区域另记 `is_worktree`/`parent_project` 只进日志、`WorktreeDetector` 零调用者）；✅ **两份 JS README 的测试数已更正 247 → 250**（第 246 轮我自己加的 3 条测试没同步进文档） |
 
 > 历次压缩的批次与理由统一记在文末 `## Archived History`（最新一批见 batch 3），
 > **此处不再重复**——两处原本记着同一批压缩事件，每次压缩都要改两遍。
@@ -127,57 +128,7 @@
   使读者不必自行推断这层差异。API 文档原本对两者的「必填」标注**是正确的**
   （observation 标 ✅、另三个标 ❌），本轮只是补上未言明的后果。
 
-### P2-11: 未配置的抽取模板名不被拒绝，拼错与「尚未抽取」得到同样的 `not_found`
-
-- **Scope**: `backend/.../controller/ExtractionController.java` 的 `getLatestExtraction` 与
-  `getExtractionHistory`；模板定义在 `application.yml:39`
-  （`app.memory.extraction.templates[].name`，目前**只有一项** `"user_preference"`）。
-- **Problem**: 两个端点都不校验 `templateName` 是否存在。实测（对运行中的后端）：
-
-  | `templateName` | `/latest` | `/history` |
-  |----------------|-----------|------------|
-  | `user_preference` | `200` `status: "not_found"`，`template` 回显 `user_preference` | `200` 空列表 |
-  | `user-preferences`（不存在的名字） | `200` `status: "not_found"`，`template` 回显 `user-preferences` | `200` 空列表 |
-
-  **数据字段完全相同**：`status` 相同，四个数据字段（`sessionId` / `extractedData` /
-  `createdAt` / `observationId`）均为 `null`，`message` 也相同。两者的**唯一**差异是
-  `/latest` 会把请求里的名字原样回显进 `template`——所以严格说并非逐字节相同
-  （第 184 轮此处表述有误，第 185 轮据实更正）。`/history` 则完全不回显名字，
-  返回的是逐字节相同的 `[]`，连间接线索都没有。
-  更值得注意的是文档侧的传播：`ExtractionController` 的两个
-  `@Parameter(example = "user-preferences")` 举的正是这个不存在的名字，ZH 文档还额外举了
-  `allergy-info`——两者都不存在。这使错误进入了生成的 OpenAPI 规范：任何据此生成的客户端
-  都会去请求一个永远 `not_found` 的模板，而且**没有任何信号**表明是名字写错了。
-- **实际影响**：`status` 本身不携带任何信息，调用方无法从它区分「这个项目还没抽取过」与
-  「模板名拼错了」——除非自己把响应里的 `template` 与想请求的名字比对，而这恰恰是四家 SDK
-  都没做的事（Java 的 `isFound()` 只看 `status`，另三家同样只判 status/空列表）。
-  `p.observationId` 之类的诊断线索一律没有，`/history` 连回显都没有。
-  四家 SDK 均不校验该参数（它只是路径片段），因此 SDK 路径同样触发。
-- **Status**: ✅ **已修复（文档与注解层）**（2026-10-03，第 184 轮 Backend 轮）。
-  `ExtractionController` 两处 `@Parameter` 的 `example` 改为 `user_preference`，并在
-  description 中写明模板名取自 `app.memory.extraction.templates[].name`、目前只随附一个
-  模板、以及未配置的名字不会被拒绝（`/latest` 返 `not_found`、`/history` 返空列表）。
-  `docs/API.md` 与 `docs/API-zh-CN.md` 中 10 处 `user-preferences` 全部更正为
-  `user_preference`（正确名称此前出现 0 次），ZH 版多出的 `allergy-info` 一并删除。
-  **第 184 轮的修正不完整，第 185 轮补齐**：当时只搜了 `docs/` 与控制器，
-  `git grep` 复查后又在两处发现同一错误名字——`backend/.../dto/ApiResponses.java:158` 的
-  `@Schema(example = "user-preferences")`（**这才是真正喂给生成 OpenAPI 响应 schema 的
-  示例**，比控制器的 `@Parameter` 更靠后也更隐蔽），以及 Java SDK
-  `ExtractionResponse.java:13` 的 Javadoc。两处均已更正。测试夹具中的同名字符串
-  （Go `client_test.go` / `dto_test.go`、JS `client.test.ts`）**刻意保留**：那里任意字符串
-  都是合法输入，且「服务端原样回显请求值」本身就是一个值得覆盖的场景。
-  **未修的部分**：后端仍不校验未知模板名。要让拼错的名字明确失败就得返回 400，而那会改变
-  现有调用方看到的行为，属对外契约变更，按纪律留给后续 Backend 轮次决策。
-- **同轮核实无误**：四家 SDK 都**正确**地把抽取结果的键建模为**驼峰**
-  （`sessionId` / `extractedData` / `createdAt` / `observationId`）——Map 键不受后端全局
-  `SNAKE_CASE` 策略影响，Go 更有专门的 `TestExtractionResult_CamelCaseFields` 钉住这一点。
-  且四家都能处理 `not_found` 响应中的 `null`（Python 用 `or ""` 与 `_to_dict`/`_to_int`，
-  JS 用 `safeStringOr`/`safeRecord(...) ?? {}`/`safeNumberOr`），不存在解析崩溃。
-  本轮另修正文档的 `not_found` 示例：它原本只列 3 个键，而**实际响应有 7 个**
-  （`sessionId`/`extractedData`/`createdAt`/`observationId` 均为 `null`）——处理器返回的是
-  同一个 `GetLatestExtractionResponse` record，只是把四个构造参数置空，故这些键出现在
-  JSON 中而非被省略。
-
+<!-- P2-11 已无条件解决，逐字迁入 2026-10-04_backend-review-resolved-3.md -->
 ### P2-13: Spring AI 集成无法按用户隔离记忆——会话上下文里没有 userId
 
 - **Scope**: `cortex-mem-spring-integration/cortex-mem-spring-ai/.../context/CortexSessionContext.java`
@@ -744,41 +695,7 @@
   已改为区分「拼写一致」与「可互换」，并补上 `/chat` 的方法分歧与 405 实测输出。
   **四份 demo README 各自对自身 demo 的描述经核实均准确，未改。Demo 代码一字未改。**
 - **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
-### P2-38: Java SDK 的 `ExperienceRequest` 两条构造路径校验不一致——构造器把非正数 `count` 原样发上 wire
-
-- **Scope**: `cortex-mem-spring-integration/.../dto/ExperienceRequest.java`
-  的 `Builder.count()`（第 53-55 行）与公开构造器（第 32-40 行）、
-  `toWireFormat()`（第 85-104 行）。
-- **Problem**: 同一个类有**两条校验强度不同的构造路径**：
-  `Builder.count(Integer)` 显式拒绝非正数（`count must be positive (got N)`），
-  而**公开构造器完全不校验**，`toWireFormat()` 又**无条件**执行
-  `map.put("count", count != null ? count : 4)` —— 于是经构造器传入的 `0` 或负数
-  **原样上线**，而后端 `ExpRagService` 对 `count <= 0` **返回空列表且 HTTP 200**，
-  调用方拿到「零条相关记忆」而**无法与真实的空结果区分**。
-- **Evidence**: 活体/比对证据已逐字迁入 [`2026-10-04_backend-review-reproduction-6.md`](../archive/2026-10-04_backend-review-reproduction-6.md)（P2-38）。
-- **严重度低于 P2-36 的姊妹项**：与第 239/240 轮修掉的 Python、JS 不同，
-  Java 的 **builder 路径是受保护的**，README 推荐的也正是 builder；
-  **只有公开构造器这条路漏**。但「同一个类两条路径校验不一致」本身仍是缺陷。
-- **Status**: ✅ **已修（第 243 轮，Java SDK 方向）** —— 改用**紧凑构造器**校验，
-  它同时覆盖规范构造器、两个便捷构造器与 builder，**任何构造路径都绕不过**；
-  `Builder.count()` 改为复用同一处 `requirePositiveCount()`，避免消息重复漂移。
-  `null` 仍然合法（`toWireFormat()` 仍映射为后端默认 4），**合法输入的 wire 行为一字未变**。
-  **按断言清扫确认 `ICLPromptRequest` 本就无此问题**：它的守卫在**序列化层**
-  （`toWireFormat()` 只在 `maxChars > 0` 时下发），任何构造路径都绕不过——
-  这也正是本条的根因：`ExperienceRequest` 走的是**下发**而非丢弃，
-  只能依赖构造期校验，而那个校验当初只写在了 builder 上。
-  **4 条新测试**（三条构造路径拒绝非正数 / 正数 1 仍上线 / null 仍映射为 4），
-  Java client **139 → 143**，总测试数 **192 → 196**（两份 README 已同步）。
-  **双向注入验证为真**：移除紧凑构造器（保留 builder 侧校验，即修复前状态）后
-  **恰好 1 条失败**——即构造器路径那条，而 builder、正值 1、null 默认三条对照
-  **理应不失败**。
-- **复核记录**: 第 241 轮 Demo 方向**计划外发现**。起因是文档方向核对四家 SDK README 时
-  注意到：它们详述了 `limit` 负数（P2-30），却对 `count` / `maxChars` 非正数**只字未提**——
-  而那正是第 239、240 轮连续出缺陷、第 238 轮记为 P2-36 的字段。**一处自我修正**：
-  最初假设「Java 是连续第三家同型缺陷」，读代码时发现 `Builder.count()` **有校验**，
-  遂把结论收窄为「构造器与 builder 校验分裂」，并用探针把两条路径并排实测后才落笔
-  ——**没有把更耸动的说法直接写进记录**。
-
+<!-- P2-38 已无条件解决，逐字迁入 2026-10-04_backend-review-resolved-3.md -->
 ### P2-39: `POST /api/import` 的外层 `@Transactional` 与逐行 catch 相撞——一行坏数据毁掉整批，逐行统计变成 500
 
 - **Scope**: `ImportController.bulkImport()`（`@Transactional` + 逐行 `try/catch`）、
@@ -956,6 +873,42 @@
   **已做的零风险部分**：在 `CortexSessionContextBridgeAdvisor` 的类 Javadoc 中
   写明「不可嵌套」这一约束、外层被静默销毁的实测后果、以及 demo 为何二分——
   **纯注释，行为一字未改**。现有 6 个该 advisor 的测试无一覆盖嵌套。
+
+### P2-45: 会话启动的 `projects` 字段能生成多项目上下文、API.md 也写了——而四家 SDK 一律发不出去
+
+- **Scope**: 后端 `SessionController.startSession` 与 `ApiRequests.SessionStartRequest`；
+  四家 SDK 的会话启动请求模型。
+- **Problem**: 后端的会话启动契约有 **7** 个字段
+  （`session_id` / `project_path` / `cwd` / `user_id` / `projects` / `is_worktree` / `parent_project`），
+  **四家 SDK 一律只暴露 3 个**（`session_id`、`project_path`、`user_id`）：
+  Go 是 `dto.SessionStartRequest` 结构体，Java 是同名 record，JS 是同名 interface，
+  Python 是 `start_session(session_id, project_path, user_id=None)` 三个位置参数。
+  **其中 `projects` 是真实生效的能力**——`SessionController` 在它含逗号时走
+  `parseProjectsParam` 并生成**多项目上下文**。**活体实测（同一 `project_path`，只差 `projects`）**：
+  不带时返回 `"# phase3-acceptance-test — no memories yet"`，
+  带上 `"projects":"openclaw,/tmp/phase3-acceptance-test"` 后返回
+  `"# openclaw recent context … 📊 25 observations | 📖 6,109 read tokens"`。
+  **后果**：SDK 用户永远拿不到多项目上下文，只能自己发 HTTP。
+  `API.md` 的 `/api/session/start` 字段表**完整记载**了 `projects`（"Multi-project support,
+  comma-separated"），所以这不是未公开特性。
+- **Status**: ⏸ **记录不修** —— 补字段是**新增公开 API**，且**四家完全一致地缺失**，
+  与 P2-40 / P2-41 同理：要么是有意的范围划定、要么是共同疏漏，都指向项目层面拍板。
+  **若将来实施**，注意四个模型的形态各不相同（Go/Java/JS 是对象字段、Python 是位置参数），
+  需一并考虑向后兼容。
+- **同区域另两处事实（均记录，留待各自轮次处理）**:
+  ①**`is_worktree` / `parent_project` 只进日志**——`SessionController` 读了两者后
+  **仅用于一条 `log.info`**，不落库、不参与 `initializeSession`；而本该让 worktree 真正生效的
+  `WorktreeDetector` 服务**在 `backend/src/` 内零调用者**（除自身文件外无任何引用）。
+  活体佐证：带 `is_worktree:true` + `parent_project` 的请求与不带时的响应**完全相同**。
+  **但 `API.md` 把两者作为正式字段记载并写进了示例 body**（「Whether this is a worktree」、
+  「Parent project name (worktree mode)」），**文档描述的是尚未实现的能力**。
+  属 API 文档方向的问题，留待下一轮 API 文档审查更正。
+  ②**`CLAUDE.md` 的 Go 测试数与 Go README 互相矛盾**：CLAUDE.md 写「372 unit tests
+  (278 core + 61 dto + 13 genkit + 12 langchaingo + 8 eino)」，而 Go README 写 359 并给出
+  **实测吻合的分解**（根模块 299 = core 232 + dto 67，另加 eino 8 + genkit 13 +
+  langchaingo 12 + `examples/http-server` 27 = 359）。两者的 core/dto 拆分互相矛盾，
+  且 CLAUDE.md 漏了 `examples/http-server` 的 27 条。**以 Go README 为准**（其分解经复核成立），
+  但 `CLAUDE.md` 的更正留待项目决策（该文件是否纳入版本控制仍在待决事项中）。
 
 ## Processing Rules
 - SDK/Demo findings are fixed in place with focused compile/test verification.
