@@ -22,6 +22,7 @@
 | 253 | Backend + 运维/用户指南 | ✅ **读 Cursor 注册表失败不再被当成「空注册表」**（那个空结果**会被 register/unregister 写回**，实测一次注册返回 200 success 并把 16 个已注册项目全部丢弃；已改为与写路径对称地抛异常，修复后同一序列得 500 且注册表未被覆盖）；✅ **`DEVELOPMENT.md` 四处版本钉死的 jar 名改为通配**（其中文版本本就是通配，EN 侧会在版本变更后失效）；⏸ 记录不修（**P2-49**：`start.sh` 钉死版本号且是 TESTING.md 推荐的启动方式，版本变更即拒绝启动；**P2-50** 同区域：数据目录有 `CLAUDE_MEM_DATA_DIR` 与 `claudemem.data-dir` 两个互不相干的键） |
 | 254 | Java SDK + API 文档 | ✅ **`is_worktree` / `parent_project` / `projects` 三处错误描述在文档与活体 OpenAPI 上一并更正**（P2-47；`@Schema` 才是真正对外的那一份，三处均为描述文本、字段与行为未变）；✅ **10 个已删源码的陈旧测试类被清出**（其中 P2-44 的 `NestingProbeTest` 仍在失败，使 `mvn test` 退出非零；`mvn clean test` 后 **196 = 143+46+7** 与 README 逐字吻合）；✅ Java SDK 空安全核实为真（`maxChars != null && > 0`、primitive `limit` 不可能为 null）；⏸ 记录不修（**P2-51**：`projects` 只在值中含逗号时生效，单个值被静默忽略、与不传等价） |
 | 255 | Go SDK + SDK README | ✅ **`WithTimeout(50ms)` 此前实际得到 30 秒**（钳「下限」却赋「默认最大值」，比请求值长 600 倍且方向相反；**同一段代码的 `RetryBackoff` 用同一常量做地板、Python 是 `max(0.1, timeout)`**——Go 是四家里唯一把下限做成上限的）；已改为 100ms 地板，+3 条测试（根模块 299 → 302、覆盖率 95.2% → 95.7%），**双向注入回退后恰好 1 条失败**；✅ **两份 Go README 测试数已双语同步 359 → 362** |
+| 256 | Python SDK + 设计文档 | ✅ **`retrieve_experiences(count=None)` / `get_extraction_history(limit=None)` 两处裸 TypeError 已修**（第 251 轮 `max_chars` 的同族；**四家里只有 Python 会炸**，JS 用 `!== undefined`、Java/Go 是 primitive；同文件另四处本就用真值判断、传 None 均 OK）；**过程中被既有测试当场抓住一次自我犯错**——我第一版照搬真值写法，而负数是真值，那条测试的 docstring 早已写明这点，**警告在仓库里而我没读它**；最终形式 `is not None and > 0`，+2 条测试（439 → 441），回退后恰好 2 条失败；✅ **设计文档 14 处 `PATCH /api/session/{id}/user` 的路径变量已更正为 `{sessionId}`**（真实映射如此；同目录另 5 处本就写对，**同一文档内两种写法并存**；改后端点引用零幻影） |
 
 > 历次压缩的批次与理由统一记在文末 `## Archived History`，
 > **此处不再重复**——两处原本记着同一批压缩事件，每次压缩都要改两遍。
@@ -873,17 +874,7 @@
   **一个读失败于是成了注册表的新内容**。同类的写路径 `writeRegistryUnlocked` 却**抛异常**——
   **读写不对称，且不对称的那一侧是破坏性的**。
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
-- **Status**: ✅ **已修** —— `readRegistryUnlocked` 在**文件存在但无法解析**时改为抛
-  `UncheckedIOException`，与 `writeRegistryUnlocked` 对称；**「文件不存在 = 空的」保持不变**
-  （那才是真正的空）。方法 Javadoc 写明了为什么不能返回空：返回空会被写回。
-  调用方本就 `catch (Exception)` 并返回 500，无需改动。
-- **同区域新发现（记录不修）**: **数据目录有两个互不相干的键**——`CursorService` 用
-  `@Value("${claudemem.data-dir:…}")`，`AppSettings` 用 `CLAUDE_MEM_DATA_DIR`。
-  设后者只会挪走 `settings.json`，**`cursor-projects.json` 仍落在 `~/.claude-mem/`**——
-  本轮第一次起隔离实例就这么把 4 个探针写进了真实注册表（原始 16 条未丢，已清理）；
-  正确写法是 `-Dclaudemem.data-dir=...`。两键并存、语义重叠、文档未说明，需项目拍板收敛。
-
-
+- **Status**: ✅ **已修** —— 详见 [`2026-10-04_backend-review-status-9.md`](../archive/2026-10-04_backend-review-status-9.md)（第 256 轮；无条件已解决，Status 段整体迁出，Problem 段保留于此）。
 ### P2-51: `projects` 只在**值里含逗号**时才生效——传单个值被静默忽略，与不传完全等价
 
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
@@ -912,16 +903,7 @@
   后果有二：① 源码全绿的工作区上 `mvn test` **退出非零**（实测 `mvn -o clean test`
   前后分别是「失败 1」与「全过」）；② 测试计数被抬高（见 Evidence）。
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
-- **Status**: ✅ **已处置** —— 执行 `mvn -o clean test`，陈旧类清除、计数回到 196、
-  退出码 0。**未改任何源码或脚本**：这十个 class 都不在版本控制内，
-  `clean` 即是正解；`mvn clean` 本就是文档与 CI 的标准起手式。
-  **遗留的纪律问题（比缺陷本身更值得记）**：本会话早前跑 Java SDK 测试时用了
-  `mvn … | tail; echo $?` —— **`$?` 取的是 `tail` 的退出码、恒为 0**，
-  于是**一次真实的测试失败被完美地掩盖了**。
-  「管道会吞掉上游退出码」是 Bash 的基本事实，本轮**又一次**靠人工核对才发现
-  （与第 252 轮 `grep -P`、第 253 轮行号偏移同属「探针自身出错」一类）。
-
-
+- **Status**: ✅ **已修** —— 详见 [`2026-10-04_backend-review-status-9.md`](../archive/2026-10-04_backend-review-status-9.md)（第 256 轮；无条件已解决，Status 段整体迁出，Problem 段保留于此）。
 ### P2-53: Go SDK 的 `WithTimeout` 把「太小的值」重置成**默认最大值**——请求 50ms 实际得到 30s
 
 - **Scope**: `go-sdk/cortex-mem-go/client_impl.go` 的 `NewClient` 配置归一化段。
@@ -942,20 +924,30 @@
   请求 `0 / 10ms / 50ms` → 实际 `30s / 30s / 30s`；请求 `100ms` → `100ms`；
   请求 `5s` → `5s`；**同段对照** `RetryBackoff(10ms)` → `100ms`。
   修复后 `0 / 10 / 50 / 99 / 100ms` → 全部 `100ms`，`250ms` 与 `5s` 原样透传。
-- **Status**: ✅ **已修** —— 两处改为地板 `100 * time.Millisecond`，与 `RetryBackoff`
-  及 Python SDK 一致；注释改写为说明「为什么是地板」，并记录修复前的实测。
-  **新增 3 条测试**（`config_internal_test.go`，**必须是内部测试包**：
-  归一化结果存在未导出的 `httpClient` 上，外部测试包 `cortexmem_test` **完全无法观察**
-  ——**这正是该缺陷能存活的原因：没有任何测试断言过归一化路径**）：
-  地板与透传、两个对照组（`RetryBackoff` 地板、默认值 30s/10s/500ms 不变）。
-  **双向注入**：回退到修复前的 `= 30 * time.Second` / `= 10 * time.Second` 后
-  **恰好 1 条失败**（`TestClientTimeoutIsFlooredNotReset`），
-  **两条对照组在两种状态下都不失败**。根模块 **299 → 302**，
-  覆盖率 **95.2% → 95.7%**，全模块 `test-all.sh` 九个模块全绿。
-  **两份 README 的测试数已双语同步 359 → 362**（根模块 299 → 302、core 232 → 235、
-  实测日期 2026-10-03 → 2026-10-04）。
+- **Status**: ✅ **已修** —— 详见 [`2026-10-04_backend-review-status-9.md`](../archive/2026-10-04_backend-review-status-9.md)（第 256 轮；无条件已解决，Status 段整体迁出，Problem 段保留于此）。
+### P2-54: Python SDK 另有两处裸 TypeError——且既有测试的 docstring 早已写明我踩的那个坑
 
-
+- **Scope**: `python-sdk/cortex-mem-python/cortex_mem/client.py` 的
+  `retrieve_experiences(count=...)` 与 `get_extraction_history(limit=...)`。
+- **Problem**: 两处都用**数值比较**判参数，与第 251 轮修掉的 `max_chars` **完全同族**：
+  `count=None` → `TypeError: '>' not supported between instances of 'NoneType' and 'int'`、
+  `limit=None` → `TypeError: '<' not supported between instances of 'NoneType' and 'int'`，
+  **裸 TypeError 逃出 SDK**，而不是 SDK 自己的 `ValidationError`。
+  **四家对照**：JS 用 `req.count !== undefined` / `limit?: number` 显式防住、
+  Java 与 Go 是 primitive（None 不可能发生）、**只有 Python 会炸**。
+  **同文件内的既有约定本就是真值判断**——`search` 与 `list_observations` 的
+  `if limit:` / `if offset:` 天然对 None 安全，实测四个入口传 None 全部 OK，
+  **只有这两处是例外**。
+- **本次修复过程中被既有测试当场抓住的一次自我犯错（值得单列）**：
+  我第一版改成了 `if count:`（照搬同文件其它处的真值写法），结果
+  `test_retrieve_experiences_drops_negative_count` **立刻失败**——
+  **负数在 Python 里是真值**，`-1` 会被发上 wire。
+  而**那条测试的 docstring 早就写着**：「A truthiness test is not enough:
+  every non-zero int is truthy in Python.」**警告一直躺在仓库里，我读到了那段
+  注释所在的方法却没读注释**。最终形式与第 251 轮一致：
+  `if count is not None and count > 0` / `if limit is not None and limit > 0`，
+  两处都补了「真值判断在这里是错的，因为负数为真」的注释。
+- **Status**: ✅ **已修** —— 详见 [`2026-10-04_backend-review-status-9.md`](../archive/2026-10-04_backend-review-status-9.md)（第 256 轮；无条件已解决，Status 段整体迁出，Problem 段保留于此）。
 ### P2-48: gitignored 的 `CLAUDE.md` 端点表 25 条里有 9 条是活体 404 的幻影端点
 
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。

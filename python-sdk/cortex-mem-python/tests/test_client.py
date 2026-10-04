@@ -1310,6 +1310,22 @@ class TestRetrievalExtended:
         assert body["count"] == 1
 
     @responses.activate
+    def test_retrieve_experiences_none_count_is_omitted_not_TypeError(self):
+        """count=None meant 'unset' and raised a bare TypeError before round 256.
+
+        A numeric comparison on None escapes the SDK as
+        TypeError: '>' not supported between instances of 'NoneType' and 'int',
+        rather than as this SDK's own ValidationError. The JS SDK guards the
+        same field with `count !== undefined`, so None is a value the other SDKs
+        already accept.
+        """
+        responses.add(responses.POST, f"{BASE}/api/memory/experiences", json=[], status=200)
+        c = _client()
+        c.retrieve_experiences("t", "/p", count=None)
+        body = json.loads(responses.calls[0].request.body)
+        assert "count" not in body
+
+    @responses.activate
     def test_search_with_type_filter(self):
         """Verify type filter is sent as query param (type is a Python keyword, works as kwonly arg)."""
         responses.add(responses.GET, f"{BASE}/api/search", json={"observations": [], "count": 0}, status=200)
@@ -2066,3 +2082,22 @@ class TestCustomSession:
         # Subsequent requests should fail
         with pytest.raises(Exception, match="closed"):
             c.health_check()
+
+    @responses.activate
+    def test_get_extraction_history_none_limit_is_omitted_not_TypeError(self):
+        """limit=None meant 'unset' and raised a bare TypeError before round 256.
+
+        Same family as retrieve_experiences(count=None), and the same fix shape:
+        the guard is `limit is not None and limit > 0`, not a truthiness test --
+        a negative limit is truthy, and the negative guard above already rejects
+        those with a ValidationError.
+        """
+        responses.add(
+            responses.GET,
+            f"{BASE}/api/extraction/tpl/history",
+            json=[],
+            status=200,
+        )
+        c = _client()
+        c.get_extraction_history("/p", "tpl", limit=None)
+        assert "limit" not in responses.calls[0].request.url

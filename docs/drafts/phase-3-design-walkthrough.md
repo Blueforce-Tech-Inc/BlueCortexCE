@@ -164,7 +164,7 @@ Missing: Keyword-triggered extraction (on-demand when trigger keywords appear)
 > **Corrected against the code**: neither trigger above fires.
 > `deepRefineProjectMemories()` has no callers, and no scheduled extraction
 > exists. The two triggers that actually run are `POST /api/extraction/run`
-> and the re-extraction on `PATCH /api/session/{id}/user`. Keyword-triggered
+> and the re-extraction on `PATCH /api/session/{sessionId}/user`. Keyword-triggered
 > extraction is still missing.
 
 **Gap**: No keyword-based trigger. The `trigger-keywords` key appears in the design's YAML example ([2.md](phase-3-design/2.md) §2.2), but it is **not** a field on the implemented `ExtractionConfig.TemplateConfig` — that record declares only `name`, `enabled`, `template-class`, `session-id-pattern`, `source-filter`, `key-fields`, `prompt`, and `output-schema`, and the deployed `backend/src/main/resources/application.yml` template sets no such key. So there is no field to read yet, not merely an unused one.

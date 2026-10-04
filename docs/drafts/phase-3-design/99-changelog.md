@@ -6,7 +6,7 @@
 > shipped code**: `deepRefineProjectMemories()` has no callers anywhere in the
 > codebase, and the backend has no cron schedule at all (five `@Scheduled` jobs,
 > all `fixedRateString`, none running extraction). Extraction is event-driven from
-> `POST /api/extraction/run` and `PATCH /api/session/{id}/user`. The entries are
+> `POST /api/extraction/run` and `PATCH /api/session/{sessionId}/user`. The entries are
 > left as written because they are a historical record of what was designed, but
 > they should not be read as a description of current behaviour. See
 > [23.md §23.7](23.md).

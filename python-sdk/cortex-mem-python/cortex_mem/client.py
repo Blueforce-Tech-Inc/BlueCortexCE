@@ -7,7 +7,7 @@ import json
 import logging
 import random
 import time
-from typing import Any
+from typing import Any, Optional
 from urllib.parse import quote
 
 import requests
@@ -376,7 +376,7 @@ class CortexMemClient:
         task: str,
         project: str = "",
         *,
-        count: int = 0,
+        count: Optional[int] = 0,
         source: str = "",
         required_concepts: list[str] | None = None,
         user_id: str = "",
@@ -407,7 +407,9 @@ class CortexMemClient:
         body: dict[str, Any] = {"task": task}
         if project:
             body["project"] = project
-        if count > 0:
+        # Truthiness would be wrong here: a negative count is truthy, so -1 would
+        # go on the wire. Only a real positive value is sent, and None means unset.
+        if count is not None and count > 0:
             body["count"] = count
         if source:
             body["source"] = source
@@ -736,21 +738,31 @@ class CortexMemClient:
         project_path: str,
         template_name: str,
         user_id: str = "",
-        limit: int = 0,
+        limit: Optional[int] = 0,
     ) -> list[ExtractionResult]:
-        """Get extraction history. GET /api/extraction/{template}/history."""
+        """Get extraction history. GET /api/extraction/{template}/history.
+
+        ``limit=None`` means "unset" and omits the parameter, matching how
+        ``search`` and ``list_observations`` in this same file already treat it
+        (both use a truthiness test) and how the JS SDK guards with
+        ``limit !== undefined``. Before this, a numeric comparison raised a bare
+        ``TypeError: '<' not supported between instances of 'NoneType' and 'int'``
+        straight out of the SDK rather than a ``ValidationError``.
+        """
         self._assert_not_closed()
         if not project_path:
             raise ValidationError("project_path is required", field="project_path")
         if not template_name:
             raise ValidationError("template_name is required", field="template_name")
-        if limit < 0:
+        if limit is not None and limit < 0:
             raise ValidationError("limit must not be negative", field="limit")
         path = f"/api/extraction/{quote(template_name, safe='')}/history"
         params: dict[str, str] = {"projectPath": project_path}
         if user_id:
             params["userId"] = user_id
-        if limit > 0:
+        # Same reason as retrieve_experiences: a negative limit is truthy, so it
+        # must be compared numerically. The guard above already rejects those.
+        if limit is not None and limit > 0:
             params["limit"] = str(limit)
         data = self._request_json("GET", path, params=params)
         if not isinstance(data, list):
