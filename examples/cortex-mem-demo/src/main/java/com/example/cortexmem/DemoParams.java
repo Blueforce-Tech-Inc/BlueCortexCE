@@ -32,9 +32,19 @@ import java.util.Map;
  *   <li>the result must fall inside the caller's range</li>
  * </ul>
  *
- * <p>Controllers take the raw {@code String} and call {@link #boundedInt} rather
- * than declaring an {@code Integer} parameter, so this rule is the only thing
- * that can decide what a value means.</p>
+ * <p>Controllers that take the raw {@code String} and call {@link #boundedInt} rather than
+ * declaring an {@code Integer} parameter are covered by this rule. <strong>Not every
+ * controller is:</strong> {@code SearchController}, {@code ObservationsController} and
+ * {@code ExtractionController} use it, while {@code ExperiencesController} declares
+ * {@code count} and {@code maxChars} as {@code Integer} and range-checks them inside the
+ * handler. Those two parameters therefore get Spring's own binding instead, which accepts a
+ * different set of values and answers with a different 400 body — measured live on one
+ * process, {@code /demo/observations?limit=1_0} answers
+ * {@code {"error":"limit must be an integer"}} while {@code /demo/experiences?count=1_0}
+ * answers Spring's default {@code {"timestamp":…,"status":400,"error":"Bad Request"}},
+ * and {@code count=0x10} is accepted there while {@code limit=0x10} is rejected here.
+ * Tracked as P2-56; closing it means choosing an integer grammar first (P2-55), so this
+ * note describes the code as it stands rather than as it is meant to be.</p>
  */
 final class DemoParams {
 
