@@ -425,7 +425,7 @@ class CortexMemClient:
         task: str,
         project: str = "",
         *,
-        max_chars: int = 0,
+        max_chars: int | None = 0,
         user_id: str = "",
     ) -> ICLPromptResult:
         """Build an ICL prompt. POST /api/memory/icl-prompt.
@@ -447,6 +447,16 @@ class CortexMemClient:
         structural reason but has no way to express "negative means unset"
         without a custom marshaller (tracked as P2-31).
 
+        ``max_chars=None`` means "unset" and omits the field, the same as the
+        Java SDK, whose ``ICLPromptRequest.toWireFormat`` guards with
+        ``maxChars != null && maxChars > 0`` and whose field comment reads
+        "null by default — let the backend decide". A bare ``max_chars > 0``
+        raised ``TypeError: '>' not supported between instances of 'NoneType'
+        and 'int'`` for that input — a raw TypeError escaping the SDK rather
+        than a ValidationError, and the only parameter in this method that was
+        not None-safe: ``project`` and ``user_id`` are both tested for
+        truthiness, which treats None as absent.
+
         Raises:
             ValidationError: if task is empty. The backend rejects it with
                 400 "task is required".
@@ -457,7 +467,7 @@ class CortexMemClient:
         body: dict[str, Any] = {"task": task}
         if project:
             body["project"] = project
-        if max_chars > 0:
+        if max_chars is not None and max_chars > 0:
             body["maxChars"] = max_chars
         if user_id:
             body["userId"] = user_id

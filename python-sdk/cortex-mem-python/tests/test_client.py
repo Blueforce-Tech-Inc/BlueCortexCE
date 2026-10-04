@@ -1239,6 +1239,23 @@ class TestRetrievalExtended:
         assert "maxChars" not in body
 
     @responses.activate
+    def test_build_icl_prompt_drops_none_max_chars(self):
+        """None means 'unset', exactly as in the Java SDK.
+
+        `maxChars != null && maxChars > 0` in ICLPromptRequest.toWireFormat, with
+        the field commented "null by default — let the backend decide". A bare
+        `max_chars > 0` raised a raw TypeError here instead of omitting the field,
+        which made this the only parameter in the method that was not None-safe:
+        project and user_id are both tested for truthiness.
+        """
+        responses.add(responses.POST, f"{BASE}/api/memory/icl-prompt", json={}, status=200)
+        c = _client()
+        c.build_icl_prompt("t", "/p", max_chars=None)
+        body = json.loads(responses.calls[0].request.body)
+        assert "maxChars" not in body
+        assert body["task"] == "t"
+
+    @responses.activate
     def test_build_icl_prompt_keeps_small_positive_max_chars(self):
         """Guard against over-correcting: 1 is positive and must still be sent.
 
