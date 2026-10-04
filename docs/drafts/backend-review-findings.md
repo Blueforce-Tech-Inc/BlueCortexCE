@@ -806,13 +806,7 @@
   `start-all.sh` 的启动顺序与 `.env` 加载一起看，并在真实版本变更下验证一次。
 
 ### P2-50: 读 Cursor 注册表失败被当成「空注册表」，而这个空结果**会被写回**
-
-- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
-- **Problem**: 读失败返回**空 Map**，而这两个调用方都是「读 → 改 → 写回」，
-  **一个读失败于是成了注册表的新内容**。同类的写路径 `writeRegistryUnlocked` 却**抛异常**——
-  **读写不对称，且不对称的那一侧是破坏性的**。
-- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
-- **Status**: ✅ **已修** —— 详见 [`2026-10-04_backend-review-status-9.md`](../archive/2026-10-04_backend-review-status-9.md)（第 256 轮；无条件已解决，Status 段整体迁出，Problem 段保留于此）。
+- 已解决条目：正文逐字迁入 [`2026-10-04_backend-review-resolved-13.md`](../archive/2026-10-04_backend-review-resolved-13.md)（第 260 轮；**无条件已解决、无待决问题**，故按第 250 轮先例整体迁出）。
 ### P2-51: `projects` 只在**值里含逗号**时才生效——传单个值被静默忽略，与不传完全等价
 
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
@@ -830,58 +824,11 @@
 
 
 ### P2-52: `target/` 里残留 10 个**源码已删**的测试类——其中一个仍在失败，使 `mvn test` 退出非零
-
-- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
-- **Problem**: Maven 不会因为源文件被删而清理 `target/test-classes`，
-  于是 **`mvn test` 会继续编译目录里已有的陈旧 class 并执行它们**。
-  这类 class 是历轮排查留下的探针（源码在确认结论后按惯例删除、未提交），
-  **它们在源码里不存在，却仍在测试阶段运行**。本轮的 `NestingProbeTest` 正是
-  第 249 轮为 P2-44 写的探针，它**断言外层作用域应当存活**——
-  而那正是 P2-44 记录的**未修缺陷**，所以它**必然失败**。
-  后果有二：① 源码全绿的工作区上 `mvn test` **退出非零**（实测 `mvn -o clean test`
-  前后分别是「失败 1」与「全过」）；② 测试计数被抬高（见 Evidence）。
-- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
-- **Status**: ✅ **已修** —— 详见 [`2026-10-04_backend-review-status-9.md`](../archive/2026-10-04_backend-review-status-9.md)（第 256 轮；无条件已解决，Status 段整体迁出，Problem 段保留于此）。
+- 已解决条目：正文逐字迁入 [`2026-10-04_backend-review-resolved-13.md`](../archive/2026-10-04_backend-review-resolved-13.md)（第 260 轮；**无条件已解决、无待决问题**，故按第 250 轮先例整体迁出）。
 ### P2-53: Go SDK 的 `WithTimeout` 把「太小的值」重置成**默认最大值**——请求 50ms 实际得到 30s
-
-- **Scope**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
-- **Problem**: 归一化写的是
-  `if cfg.Timeout < 100*time.Millisecond { cfg.Timeout = 30 * time.Second }`——
-  **触发条件是「太小」，赋的却是「默认值里的最大值」**。于是调用方
-  `WithTimeout(50*time.Millisecond)` 得到 **30 秒**，比要求的值长 **600 倍**，
-  且方向正好相反：想用短超时给健康探针兜底的人，拿到的是最长的那个。
-  `ConnectTimeout` 同样（`10 * time.Second`）。
-  **两处证据把意图钉死为「地板」而非「重置」**：
-  ①**同一段代码的下一行** `RetryBackoff` 用的是**同一个触发常量**而赋值
-  `100 * time.Millisecond`——它才是地板；②**Python SDK** 同一概念是
-  `self._timeout = max(0.1, timeout)`，注释写「Minimum 100ms to prevent immediate timeout」。
-  三家对照：Java 的 `readTimeout` **完全不钳制**、Python 钳到 0.1s 地板、**Go 钳到 30s 天花板**——
-  **Go 是唯一把下限做成上限的一家**。`DefaultClientConfig` 本身就已是 30s / 10s，
-  所以这段归一化**只会在调用方显式传小值时触发**，而那正是它要服务的场景。
-- **Evidence**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
-- **Status**: ✅ **已修** —— 详见 [`2026-10-04_backend-review-status-9.md`](../archive/2026-10-04_backend-review-status-9.md)（第 256 轮；无条件已解决，Status 段整体迁出，Problem 段保留于此）。
+- 已解决条目：正文逐字迁入 [`2026-10-04_backend-review-resolved-13.md`](../archive/2026-10-04_backend-review-resolved-13.md)（第 260 轮；**无条件已解决、无待决问题**，故按第 250 轮先例整体迁出）。
 ### P2-54: Python SDK 另有两处裸 TypeError——且既有测试的 docstring 早已写明我踩的那个坑
-
-- **Scope**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
-- **Problem**: 两处都用**数值比较**判参数，与第 251 轮修掉的 `max_chars` **完全同族**：
-  `count=None` → `TypeError: '>' not supported between instances of 'NoneType' and 'int'`、
-  `limit=None` → `TypeError: '<' not supported between instances of 'NoneType' and 'int'`，
-  **裸 TypeError 逃出 SDK**，而不是 SDK 自己的 `ValidationError`。
-  **四家对照**：JS 用 `req.count !== undefined` / `limit?: number` 显式防住、
-  Java 与 Go 是 primitive（None 不可能发生）、**只有 Python 会炸**。
-  **同文件内的既有约定本就是真值判断**——`search` 与 `list_observations` 的
-  `if limit:` / `if offset:` 天然对 None 安全，实测四个入口传 None 全部 OK，
-  **只有这两处是例外**。
-- **本次修复过程中被既有测试当场抓住的一次自我犯错（值得单列）**：
-  我第一版改成了 `if count:`（照搬同文件其它处的真值写法），结果
-  `test_retrieve_experiences_drops_negative_count` **立刻失败**——
-  **负数在 Python 里是真值**，`-1` 会被发上 wire。
-  而**那条测试的 docstring 早就写着**：「A truthiness test is not enough:
-  every non-zero int is truthy in Python.」**警告一直躺在仓库里，我读到了那段
-  注释所在的方法却没读注释**。最终形式与第 251 轮一致：
-  `if count is not None and count > 0` / `if limit is not None and limit > 0`，
-  两处都补了「真值判断在这里是错的，因为负数为真」的注释。
-- **Status**: ✅ **已修** —— 详见 [`2026-10-04_backend-review-status-9.md`](../archive/2026-10-04_backend-review-status-9.md)（第 256 轮；无条件已解决，Status 段整体迁出，Problem 段保留于此）。
+- 已解决条目：正文逐字迁入 [`2026-10-04_backend-review-resolved-13.md`](../archive/2026-10-04_backend-review-resolved-13.md)（第 260 轮；**无条件已解决、无待决问题**，故按第 250 轮先例整体迁出）。
 ### P2-55: 四个 demo 为同一件事立了同一份文法契约，却 2:2 分裂——而且**与后端一致的那两家是「碰巧」一致的**
 
 - **Scope**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
@@ -950,6 +897,50 @@
   **我在本轮第一次扫这一族时也踩了同一个坑**：grep 命中的是第 47 行的文档示例而非第 72 行的默认值，
   一度得出「Java 与 Python 是 2:2 分裂」的错误结论——**改用排除注释的探针后才看清真实的 3:1**。
 - **Status**: ⏸ 记录不修（改公开默认端点属对外契约变更；证据与建议方向已齐备，修复只需一行）。
+
+### P2-58: 四家 SDK 的响应 DTO **同缺**活体观测的 7 个字段——其中 3 个正是 V17 / V18 专门加的，而 Go 的 DTO 在 V17/V18 之后**还被改过**
+
+- **Scope**: 四家的观测响应类型：
+  `go-sdk/cortex-mem-go/dto/observation.go`、
+  `cortex-mem-spring-integration/.../dto/ObservationResponse.java`、
+  `js-sdk/cortex-mem-js/src/dto/observation.ts`、
+  `python-sdk/cortex-mem-python/cortex_mem/dto.py`。
+  **这是第 258 轮记录的请求侧 `platformSource` 缺口（无一家 SDK 暴露它）的响应侧同族问题。**
+- **Problem**: 取活体 `GET /api/observations?limit=1` 的一条真实观测（**34 个字段**），
+  与四家响应 DTO 声明的字段名逐一比对，**四家同缺同样这 7 个**：
+
+  | 字段 | 来自迁移 | 性质 |
+  |------|----------|------|
+  | `platform_source` | **V18** `V18__add_platform_source.sql` | **V18 专门新增**（平台来源归属） |
+  | `generated_by_model` | **V17** `V17__observation_feedback.sql` | V17 反馈机制 |
+  | `relevance_count` | **V17** 同上 | V17 反馈机制 |
+  | `content_hash` | V8 | 内部去重列 |
+  | `step_number` | V12 | 步骤效率 |
+  | `discovery_tokens` | V1 | 统计列 |
+  | `embedding_model_id` | V2 | 内部向量元数据 |
+
+  Go 与 JavaScript 的 `encoding/json` / Jackson **默认忽略未知字段**，
+  所以这些字段**被服务端发过来、被 SDK 静默丢弃**——不报错、不告警，
+  调用方只能看到「SDK 里没这个字段」。
+- **Evidence**: 四家逐家实测（活体字段集 = 同一条观测的 34 个键）：
+
+  | SDK | 覆盖 | 未覆盖（已排除三个向量列） |
+  |-----|------|--------------------------|
+  | Go | 24/34 | 上表 **7** 个 |
+  | JavaScript | 24/34 | 上表 **7** 个（完全相同） |
+  | Python | 23/34 | 上表 7 个 + `extractedData`（该 SDK 另有 camelCase 别名，**大概率是我的探针没匹配到，非缺陷**） |
+  | Java | — | 上表 **7** 个（`ObservationResponse` 40 个组件） |
+
+  **关键时间证据**：V17 与 V18 迁移均提交于 **2026-04-16**，
+  而 `go-sdk/cortex-mem-go/dto/observation.go` 的**最近一次改动是 2026-10-02**——
+  **DTO 在 V17/V18 之后被改过，却没有补上这两个迁移新增的列**。
+  所以这不是「SDK 早于迁移、没来得及跟上」，而是**改过之后仍然漏了**。
+- **不修的理由**: ①**跨四家**，不属于任何一个方向的轮次；
+  ②这 7 个里**性质不同**——`platform_source` 与 V17 两项是**面向使用方的能力**
+  （V18 的存在意义就是让调用方知道一条记忆来自哪个平台），
+  而 `content_hash` / `embedding_model_id` 很可能与三个向量列一样属**内部列、本就不该暴露**；
+  ③**该暴露哪一部分无法由证据确定**。按既定规则**记录不单方面实施**。
+- **Status**: ⏸ 记录不修（跨家 + 暴露范围待定；证据与字段来源已逐条落到迁移文件）。
 
 ### P2-48: gitignored 的 `CLAUDE.md` 端点表 25 条里有 9 条是活体 404 的幻影端点
 
