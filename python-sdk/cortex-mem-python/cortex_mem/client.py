@@ -44,10 +44,16 @@ class CortexMemClient:
 
     Usage::
 
-        client = CortexMemClient(base_url="http://localhost:37777")
+        client = CortexMemClient()
         session = client.start_session("s1", "/project")
         experiences = client.retrieve_experiences("task", "/project")
         client.close()
+
+    The default base URL is written as the IPv4 loopback literal, not as the
+    hostname "localhost". The backend binds 127.0.0.1 only, while "localhost"
+    resolves to ::1 first on many systems, so the hostname form depends on the
+    client falling back to the second address. (The Java SDK's default is that
+    hostname form; see P2-57.)
 
     Or as a context manager::
 
