@@ -566,6 +566,26 @@ class TestExtraction:
         resp = client.get("/extraction/history?template=t&project=/p&limit=abc")
         assert resp.status_code == 400
 
+    def test_history_limit_too_high(self, client):
+        """This handler used to skip the range check the other three demos apply."""
+        resp = client.get("/extraction/history?template=t&project=/p&limit=101")
+        assert resp.status_code == 400
+        assert "limit must be between 0 and 100" in resp.get_json()["error"]
+
+    def test_history_negative_limit(self, client):
+        resp = client.get("/extraction/history?template=t&project=/p&limit=-1")
+        assert resp.status_code == 400
+
+    def test_history_limit_at_upper_bound(self, client, app):
+        """100 is the accepted boundary; it must still reach the SDK."""
+        from cortex_mem import ExtractionResult
+        app._mock_client.get_extraction_history.return_value = [
+            ExtractionResult(status="ok", template="t", created_at=1000)
+        ]
+        resp = client.get("/extraction/history?template=t&project=/p&limit=100")
+        assert resp.status_code == 200
+        assert app._mock_client.get_extraction_history.call_args.kwargs["limit"] == 100
+
     def test_history_ok(self, app, client):
         from cortex_mem import ExtractionResult
         app._mock_client.get_extraction_history.return_value = [

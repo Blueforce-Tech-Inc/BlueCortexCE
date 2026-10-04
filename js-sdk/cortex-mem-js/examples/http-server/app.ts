@@ -128,7 +128,7 @@ app.post('/chat', asyncHandler(async (req: Request, res: Response) => {
   // a 200 with no memoryContext at all — the caller cannot tell the difference
   // between "no memories" and "your input was rejected". Same helper and bounds
   // as the /search handler below.
-  const maxChars = parseIntParam(req.body.maxChars, 'maxChars', { min: 0, max: 100000 });
+  const maxChars = parseIntParam(req.body.maxChars, 'maxChars', { min: 0, max: Number.MAX_SAFE_INTEGER });
   if (!maxChars.ok) return errorJson(res, 400, maxChars.message);
 
   let iclResult = null;
@@ -247,7 +247,13 @@ app.get('/iclprompt', asyncHandler(async (req: Request, res: Response) => {
   const project = req.query.project as string;
   const task = req.query.task as string;
 
-  const maxChars = parseIntParam(req.query.maxChars, 'maxChars', { min: 0, max: 100000 });
+  // The backend only clamps the lower bound -- MemoryController.java:151 is
+  // `request.maxChars() != null ? Math.max(100, request.maxChars()) : 4000`,
+  // with no upper bound, and it echoes the value it used. This demo used to cap
+  // at 100000, which made it the only one of the four to answer 400 to
+  // maxChars=100001; the Go, Python and Java demos all answered 200, as does the
+  // backend itself. The cap had no basis in the backend contract, so it is gone.
+  const maxChars = parseIntParam(req.query.maxChars, 'maxChars', { min: 0, max: Number.MAX_SAFE_INTEGER });
   if (!maxChars.ok) return errorJson(res, 400, maxChars.message);
 
   const result = await client.buildICLPrompt({

@@ -11,13 +11,10 @@
 | P0 | 0 | 立即修复并复测 |
 | P1 | 1 | 优先修复并复测 |
 | P2 | 2 | 本轮完整验收阶段处理或明确标记为已跳过 |
-> **逐轮叙述不再保留在本区块。** 每一条发现都在下面 `## Open Findings` 里有**完整条目**
-> （Scope / Problem / Reproduction / Status / 复核记录）；逐轮的完整上下文另存于
-> `docs/drafts/patrol-rotation.md` 与 `docs/drafts/doc-review-task.md`。
-> 本区块曾在 2026-10-03 至 10-04 之间多次越过 `MAX_LINES=1000` 而被迫压缩，
-> 逐轮删减并不能根治——**根因是逐轮叙述本就不该放在这里**，故改为只保留下表。
-> 历次压缩的批次与理由统一记在文末 `## Archived History`，**此处不再重复**
-> （两处原本记着同一批压缩事件，每次压缩都要改两遍）。
+> **逐轮叙述不再保留在本区块**：每条发现在下面 `## Open Findings` 里都有**完整条目**，
+> 逐轮上下文另存于 `patrol-rotation.md` 与 `doc-review-task.md`；历次压缩批次记在文末
+> `## Archived History`。本区块曾在 10-03~10-04 间多次越过 `MAX_LINES=1000` 而被迫压缩，
+> 逐轮删减不能根治——**根因是逐轮叙述本就不该放在这里**。
 | 轮次 | 条目 | 一句话 |
 |------|------|--------|
 | 219–233 | P1-3 / P1-4 / P2-24～P2-31 | 代码侧已修的已归档或 ✅；其余 ⏸ 记录不修（契约或公开 API 变更）。**逐条见下方完整条目**，此处不再逐轮铺开 |
@@ -36,14 +33,15 @@
 | 249 | Java SDK + API 文档 | ⏸ 记录不修（**P2-44**：`CortexSessionContextBridgeAdvisor` 与手动 `begin/end` 不可嵌套，外层作用域被静默销毁，已补 Javadoc 约束）；✅ **`/api/context/recent` 的 `limit` 已钳制到 [1,20]**（负数此前打到 PostgreSQL 返 **HTTP 500**；双实例 A/B：500 → 200、4610 条无上界 → 20 条）；✅ API.md/中文版 62/62 路径零幻影、query 参数零漂移 |
 | 250 | Go SDK + SDK README | ⏸ 记录不修（**P2-45**：会话启动的 `projects` 能生成多项目上下文、API.md 已载，**四家 SDK 一律只发 3 个字段**；同区域另记 `is_worktree`/`parent_project` 只进日志、`WorktreeDetector` 零调用者）；✅ **两份 JS README 的测试数已更正 247 → 250**（第 246 轮我自己加的 3 条测试没同步进文档） |
 | 251 | Python SDK + 设计文档 | ✅ **`build_icl_prompt(max_chars=None)` 的裸 `TypeError` 已修**（第 233 轮把 `if max_chars:` 改成 `if max_chars > 0:` 后，该方法**唯一不对 None 安全的参数**；Java SDK 本就是 `!= null && > 0`）；✅ **`phase-3-design/25.md` 的幻影清理端点已改**（`DELETE /api/memory/observations?project_path=…` **活体 404**，改为脚本真正用的「取 id + 逐条删」，并实跑验证 1 → 0）；⏸ 记录不修（**P2-46**：验收脚本 `cleanup()` **定义了从未被调用**、内含幻影端点，Test 6 的 `not_found` 分支早已是死代码；**P2-47**：API.md 双语把只进日志的 `is_worktree`/`parent_project` 当正式字段记载） |
+| 252 | Demo + 架构文档 | ✅ **Python demo 的 `/extraction/history` 补上了它唯一缺失的范围校验**（解析了 `limit` 却从不校验，四家里只有它对 `limit=101` 返 200、另三家均 400）；✅ **JS demo 去掉了后端根本没有的 `maxChars` 100000 上界**（后端只有下界 `Math.max(100, …)`，四家里只有它对 `100001` 返 400）；✅ 架构文档的控制器图、服务图、迁移树**双语全部核实准确**（13 控制器 / 31 服务 / 16 迁移，零幻影零遗漏）；⏸ 记录不修（**P2-48**：gitignored 的 `CLAUDE.md` 端点表 **25 条中 9 条是活体 404** 的幻影端点） |
 
-> 历次压缩的批次与理由统一记在文末 `## Archived History`（最新一批见 batch 3），
+> 历次压缩的批次与理由统一记在文末 `## Archived History`，
 > **此处不再重复**——两处原本记着同一批压缩事件，每次压缩都要改两遍。
 
-**本文件最值得记住的一点**：P2-32、P2-33、P2-34 连续三条的形态完全一样 ——
-**机器可读的那一份**（Dockerfile 的默认绑定、demo 的路由名、Swagger 注解的示例）
-与**人工撰写的那一份**（compose 文件、demo README、API 文档）不一致或残缺。
-三处的**文档层都已先行更正或本来正确**，代码/产物层则因契约变更留待项目决策。
+**本文件最值得记住的一点**：P2-32、P2-33、P2-34 连续三条形态完全一样 ——
+**机器可读的那一份**（Dockerfile 默认绑定、demo 路由名、Swagger 示例）与
+**人工撰写的那一份**（compose、demo README、API 文档）不一致或残缺；
+三处的**文档层都已先行更正或本来正确**，代码/产物层因契约变更留待项目决策。
 
 ## Open Findings
 
@@ -905,12 +903,10 @@
   「Parent project name (worktree mode)」），**文档描述的是尚未实现的能力**。
   属 API 文档方向的问题，留待下一轮 API 文档审查更正。
   ②**`CLAUDE.md` 的 Go 测试数与 Go README 互相矛盾**：CLAUDE.md 写「372 unit tests
-  (278 core + 61 dto + 13 genkit + 12 langchaingo + 8 eino)」，而 Go README 写 359 并给出
-  **实测吻合的分解**（根模块 299 = core 232 + dto 67，另加 eino 8 + genkit 13 +
-  langchaingo 12 + `examples/http-server` 27 = 359）。两者的 core/dto 拆分互相矛盾，
-  且 CLAUDE.md 漏了 `examples/http-server` 的 27 条。**以 Go README 为准**（其分解经复核成立），
-  但 `CLAUDE.md` 的更正留待项目决策（该文件是否纳入版本控制仍在待决事项中）。
-  ①②已分别独立立为 **P2-47** 与上文的 CLAUDE.md 待决项。
+  (278 core + 61 dto + …)」，Go README 写 359 并给出**实测吻合的分解**（根模块 299 =
+  core 232 + dto 67，另加 eino 8 + genkit 13 + langchaingo 12 + `examples/http-server` 27）；
+  两者 core/dto 拆分矛盾且 CLAUDE.md 漏了 27 条。**以 Go README 为准**（分解经复核成立），
+  更正留待项目决策。①②已分别独立立为 **P2-47** 与 P2-48（`CLAUDE.md` 的端点表幻影）。
 
 ### P2-46: 验收脚本的 `cleanup()` **定义了却从未被调用**——其幻影端点从未生效，而 Test 6 的前提因此早已不成立
 
@@ -919,40 +915,32 @@
   两处缺陷叠加：
   ① `cleanup()` 在全文件**只出现一次**（定义处）——`grep -nE "cleanup|trap|EXIT"` 只有第 45 行，
   `main` 里没有调用，也没有 `trap ... EXIT`，`bash -n` 通过。它是死代码。
-  ② 它内部那行清理请求本身也不成立：
-  `DELETE /api/memory/observations?project_path=...` **活体 404**
-  （`{"status":404,"error":"Not Found","path":"/api/memory/observations"}`）。
-  后端只有 `DELETE /api/memory/observations/{id}` **单条**映射：活体 OpenAPI 里
-  `/api/memory/observations` 这个前缀下**只有 `/api/memory/observations/{id}` 一条路径**
-  （`patch` 与 `delete` 两个方法），**没有任何按 `project_path` 批量删除的端点**；
-  `/api/observations`（GET 列表）才是脚本真正该用的端点。
-  `|| true` 把 404 吞掉，因此这个失败**永远不会让脚本失败**。
-- **Evidence（活体，第 251 轮）**:
-  - 该项目 `latest` 返回 `{"status":"ok", …}` 而**非** `not_found`；
-    `history` 已累积 **50** 条（`limit=50`）；`GET /api/observations` 返回 `hasMore: true`。
-  - Test 6 的注释写着「**should return not_found for new project**」，但它有两个分支：
-    `not_found` → pass，`'"status"'` → pass。清理从不生效，**第一个分支自首次成功抽取后就是死代码**，
-    实际一直走 `elif`。
-  - **本轮验收输出直接印证**：跑 `EXTRACTION_ENABLED=true bash scripts/phase3-acceptance-test.sh`
-    得到 `PASS Test 6: GET latest returns status field`——正是那条兜底分支，`not_found` 分支从未触发。
+  ② 它内部那行清理请求本身也不成立：`DELETE /api/memory/observations?project_path=...`
+  **活体 404**。活体 OpenAPI 里该前缀下**只有 `/api/memory/observations/{id}` 一条路径**
+  （`patch` 与 `delete`），**没有任何按 `project_path` 批量删除的端点**；
+  `/api/observations`（GET 列表）才是脚本真正该用的。or-true 兜底把 404 吞掉，
+  因此这个失败**永远不会让脚本失败**。
+- **Evidence（活体，第 251 轮）**: 该项目 `latest` 返回 `{"status":"ok", …}` 而**非** `not_found`；
+  `history` 已累积 **50** 条（`limit=50`）；`GET /api/observations` 返回 `hasMore: true`。
+  Test 6 的注释写着「**should return not_found for new project**」，但它两个分支都 pass，
+  清理从不生效，**第一个分支自首次成功抽取后就是死代码**，实际一直走 `elif`——
+  **本轮验收输出直接印证**：跑出来的是 `PASS Test 6: GET latest returns status field`。
   - **累积已把 Test 14 退化成恒真式**：它名为「Re-extraction **removes** invalidated preference」，
-    但真正的断言只有 `pref_count >= 1`（`test_reextraction_remove`，断言在脚本第 **515** 行，
-    计数取自 504–514 的内联 python）。
-    本轮输出为 `PASS Test 14: Re-extraction updated with 1173 preferences`
-    ——**1173 条**累积偏好让「至少有一条偏好」必然成立，该测试**已不再验证任何移除语义**；
-    同函数末尾的 `Bonus — Xiaomi correctly removed` 分支本轮**未触发**（小米仍在结果中）。
+    但真正的断言只有 `pref_count >= 1`（脚本第 **515** 行，计数取自 504–514 的内联 python），
+    而本轮输出是 `Re-extraction updated with **1173** preferences`——
+    累积到这个量级，「至少有一条偏好」必然成立，该测试**已不再验证任何移除语义**；
+    同函数末尾的 `Bonus — Xiaomi correctly removed` 分支本轮**未触发**。
 - **Status**: ⏸ **记录不修** —— 属脚本方向，不在本轮（Python SDK）的代码轮换内；
   且**若真把清理接上，Test 6 会切回 `not_found` 分支、累积数据会被删除**，
   属于会改变门控自身行为的改动，需在自己的轮次里单独做 A/B。
-- **对既有结论的影响（必须如实记录）**: 第 249–251 轮报告的「EXTRACTION 25/0/0 全通过」
-  **仍是 25 条测试全部通过**，但其中 **Test 6 走的是兜底分支**（与其注释声明的断言不同），
-  **Test 14 的断言已因数据累积而恒真**。这不使任何一条已记录的修复失效
-  （被修的代码路径本就在别处被独立验证），但今后引用该数字时须带上这两条限定。
+- **对既有结论的影响（必须如实记录）**: 第 249–251 轮的「EXTRACTION 25/0/0 全通过」
+  **仍是 25 条全部通过**，但 **Test 6 走的是兜底分支**、**Test 14 的断言已因数据累积而恒真**。
+  这不使任何一条已记录的修复失效（被修代码路径本就在别处被独立验证），
+  但今后引用该数字须带上这两条限定（基线区块已写明）。
 - **同族事实（已修）**: 同一幻影端点也出现在**设计文档** `phase-3-design/25.md:699`
-  （`scripts/demo-v15-extraction-test.sh` 的 Cleanup 段）——该轮已改为脚本真正使用的
+  （`demo-v15-extraction-test.sh` 的 Cleanup 段），已改为脚本真正使用的
   「先 `GET /api/observations` 取 id、再逐条 `DELETE /api/memory/observations/{id}`」，
-  并在一次性项目上实跑验证（观测数 1 → 0）。
-  `demo-v15-extraction-test.sh` 本身**行为正确**（`cleanup_test_data` 在测试前后各调一次，
+  并实跑验证（观测数 1 → 0）。该脚本本身**行为正确**（`cleanup_test_data` 测试前后各调一次，
   `limit=100` 恰等于 `Constants.MAX_PAGE_SIZE`，不截断），**只有验收脚本是坏的**。
 
 ### P2-47: `API.md` 双语把 `is_worktree` / `parent_project` 当正式字段记载并写进示例 body——而两者只进一条 `log.info`
@@ -969,11 +957,36 @@
   但 `API.md` 两版都用正式字段表条目（"Whether this is a worktree" /
   "Parent project name (worktree mode)"）记载，并写进示例 body。
   **读者据此会以为传了就有用。**
-- **Status**: ⏸ **记录不修** —— 属 API 文档方向，留待该方向轮次（第 254 轮）更正。
-  更正方向有二：**要么**把两字段标注为「仅记录日志、当前不生效」，
-  **要么**在实现侧接上 `WorktreeDetector`（属新增行为，同样需项目拍板）。
-  本轮不改，是因为**同一断言还在 `SessionController.java:94-95` 的 `@Operation` 示例里**
-  被复述了一遍——按「按断言清扫而非按文件」的既定做法，须与代码同批处理，不能只改文档半边。
+- **Status**: ⏸ **记录不修** —— 属 API 文档方向，留待该方向轮次更正。两个方向：
+  **要么**把两字段标注为「仅记录日志、当前不生效」，**要么**在实现侧接上
+  `WorktreeDetector`（属新增行为，同样需项目拍板）。本轮不改，是因为**同一断言还在
+  `SessionController.java:94-95` 的 `@Operation` 示例里被复述了一遍**——按「按断言清扫
+  而非按文件」，须与代码同批处理，不能只改文档半边。
+
+### P2-48: gitignored 的 `CLAUDE.md` 端点表 25 条里有 9 条是活体 404 的幻影端点
+
+- **Scope**: `CLAUDE.md`（本地文件，**未纳入版本控制**）。`AGENTS.md` 已跟踪，**无幻影**（表内 0 条端点）。
+- **Problem**: 把 `CLAUDE.md` 里形如 `| METHOD | \`/path\` |` 的表格行逐条对拍活体 `/v3/api-docs`：
+  **25 条中匹配 16 条，幻影 9 条**，9 条**逐条实测为 404**：
+  `POST /api/ingest/session-start`、`POST /api/memory/save`、`POST /api/context/observations`、
+  `GET /api/memory/quality-stats`（真实为 `quality-distribution`）、
+  `GET|POST /api/modes/active`、`GET /api/sessions`、`GET /api/sessions/{id}`、
+  `POST /api/sessions/import`（真实为 `/api/import/sessions`）；
+  `/api/ingest` 下实际只有 `observation` / `session-end` / `tool-use` / `user-prompt` 四条。
+  其中 `GET /api/sessions` 与幻影 MCP 工具 `__IMPORTANT`、`V17` 标为「✅ Complete」
+  早已被观察到，并入既有的 `AGENTS.md` / `CLAUDE.md` 待决项；**其余 7 条是本轮首次精确计量**。
+  同区域的另一处漂移：`CLAUDE.md` 的项目结构写「controller/ # 17 controllers」，
+  **实测 13 个**（service 写「28+」，实测 29，属「+」的合法范围，不计）。
+- **Evidence**: 其中 `POST /api/ingest/session-start` 是本轮探针的**意外来源**——
+  验证 `backend/README.md` 的 walkthrough 时误用了该路径，**404** 之下才查出幻影只在
+  `CLAUDE.md` 里；`backend/README.md` 本身**完全正确**（只列 4 个真实 ingest 端点，
+  walkthrough 用的 `tool-use` 与 `session-end` 均真实存在）。
+- **Status**: ⏸ **记录不修** —— `CLAUDE.md` 是 **gitignored 的本地文件**
+  （`git ls-files` 未跟踪、`git check-ignore` 命中），改动**不会进入版本控制**，
+  且「是否取消其 gitignore」本身仍是待用户决策事项；不在本轮静默修改。
+  **待该决策落地后**，修法即按 `API.md` 的真实路径逐条更正这 9 行；其中
+  `ingest/session-start`、`memory/save`、`context/observations` 三条
+  **须先确认是被重命名还是从未存在**——若是后者则是纯粹删除。
 
 ## Processing Rules
 - SDK/Demo findings are fixed in place with focused compile/test verification.
@@ -983,18 +996,5 @@
 
 ## Archived History
 
-The complete historical review log through 2026-05-07 is preserved in [`2026-09-30_backend-review-findings-history.md`](../archive/2026-09-30_backend-review-findings-history.md). Do not modify that archive; future resolved history should use a new dated archive when this file reaches the growth threshold again.
-
-Ten entries whose status is unconditionally resolved — P1-2, P2-1, P2-2, P2-3, P2-4, P2-5, P2-6, P2-7, P2-9 and P2-12 — were moved verbatim on 2026-10-03 (round 225) into [`2026-10-03_backend-review-history-resolved.md`](../archive/2026-10-03_backend-review-history-resolved.md), when this file reached 1008 lines against the `MAX_LINES=1000` threshold. That archive records the selection rule and must not be modified.
-
-A second batch — **P1-3 and P1-4, 79 lines moved verbatim** — went into [`2026-10-03_backend-review-history-resolved-2.md`](../archive/2026-10-03_backend-review-history-resolved-2.md) on 2026-10-03 (round 232), when this file stood at 980 lines and adding P2-30 would have crossed the threshold. **P2-24 was deliberately left behind**: it carries a ⏸ remainder even though its first two parts are ✅ fixed, so it still holds live reasoning rather than history. Verbatim equality of both batches was verified by diffing the extracted block against `git show HEAD` before the source lines were removed.
-
-**Provenance note.** On 2026-10-04 (round 237) the `- **复核记录**:` sections of P2-22 through P2-27 were moved verbatim into [`2026-10-03_backend-review-provenance.md`](../archive/2026-10-03_backend-review-provenance.md), each replaced by a one-line pointer. The file is structurally saturated — 27 entries, 25 of them ⏸ — and the ⏸ rule below protects the **decision reasoning** (Scope / Problem / Status), which stayed. `复核记录` is provenance: which round found it and how the evidence was gathered, and the same text is stored verbatim per round in `patrol-rotation.md` and `doc-review-task.md`. **This is the first move of this kind**; if the ⏸ rule is later read to cover provenance too, the sections can be restored from the archive without loss.
-
-**Provenance note, batch 2.** On 2026-10-04 (round 238) the same treatment was applied to **P2-28 through P2-31**, moved verbatim into [`2026-10-04_backend-review-provenance-2.md`](../archive/2026-10-04_backend-review-provenance-2.md) when P2-36 pushed this file to 1035 lines. A **separate** file was used because batch 1 declares itself immutable. Verbatim equality against `git show HEAD` was verified before any source line was removed, and the working file dropped to 993. Round 238 also removed the duplicated compression log from `Current Status`, which duplicated this section's history and had to be updated twice per compression.
-
-Entries carrying a `⏸` "recorded, not fixing" status stay here on purpose: they hold the reasoning behind each decision and are the live record, not history. P2-11 also stays, because its backend half is still undecided even though the documentation and annotation layers were fixed.
-
-**Provenance note, batch 3.** On 2026-10-04 (round 241) the same treatment was applied to **P2-24 and P2-32 through P2-37** — seven sections, 40 lines — moved verbatim into [`2026-10-04_backend-review-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md) when P2-37 pushed the file to 1033 lines, the ninth compression it has needed. Verbatim equality against `git show HEAD` was verified first.
-
-**Reproduction note, batch 4 — the first move of a section other than `复核记录`.** The first three batches had exhausted every `复核记录` section, yet the file still stood at 1029. A **measured transcript** — a captured wire body, a live curl result, a table of row counts — is *reproducible evidence*, not the reasoning behind a decision, so the **Reproduction** sections of **P2-25, P2-26, P2-30 and P2-31** (89 lines) moved verbatim into [`2026-10-04_backend-review-reproduction-4.md`](../archive/2026-10-04_backend-review-reproduction-4.md), each replaced by a one-line pointer. **Scope / Problem / Evidence / Status stayed put.** Every transcript names its date, endpoint and technique, so it is reproducible on demand. This brought the file to **944 lines** — the first compression in four rounds that left real headroom. **This extends the rule rather than merely applying it, so it is flagged for project decision**: if the ⏸ rule is meant to protect the evidence too, the four sections are restorable from the archive without loss.
+历次压缩批次的完整记录已逐字迁入 [`2026-10-04_backend-review-compression-log.md`](../archive/2026-10-04_backend-review-compression-log.md)（第 252 轮迁出）；各批次在 `docs/archive/README.md` 中亦有逐条登记。
+2026-05-07 之前的完整审查日志见 [`2026-09-30_backend-review-findings-history.md`](../archive/2026-09-30_backend-review-findings-history.md)。

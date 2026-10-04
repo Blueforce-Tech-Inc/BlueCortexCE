@@ -583,6 +583,13 @@ def extraction_history():
         limit = _parse_int_param("limit")
     except ValueError as e:
         return _error(400, str(e))
+    # This handler was the only numeric one in this demo that parsed "limit"
+    # without ever range-checking it, so this demo answered 200 to ?limit=101
+    # while the Java, Go and JS demos all answered 400 with the same message.
+    # /search and /observations in this same file already check the range, so
+    # the rule was applied here too.
+    if limit < 0 or limit > 100:
+        return _error(400, "limit must be between 0 and 100")
 
     results = client.get_extraction_history(project, template, user_id=request.args.get("userId", ""), limit=limit)
     return jsonify([r.to_dict() for r in results])
