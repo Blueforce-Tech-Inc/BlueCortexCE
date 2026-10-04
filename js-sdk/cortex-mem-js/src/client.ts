@@ -208,10 +208,6 @@ export class CortexMemClient {
   /**
    * Retrieve relevant experiences.
    * POST /api/memory/experiences
-   */
-  /**
-   * Retrieve relevant experiences.
-   * POST /api/memory/experiences
    *
    * A non-positive {@link ExperienceRequest.count} is dropped from the request
    * body so the backend applies its own default of 4. The endpoint resolves the

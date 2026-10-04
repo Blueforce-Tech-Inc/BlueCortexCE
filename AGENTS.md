@@ -136,19 +136,21 @@ WebUI 通过 git 子模块引入（`https://github.com/Blueforce-Tech-Inc/claude
 | `/api/summaries` | `hasMore` | 同上 |
 | `/api/prompts` | `hasMore` | 同上 |
 | `/api/session/start` | `updateFiles` | `proxy/proxy.js` |
-| `/api/context/generate` | `updateFiles` | `proxy/proxy.js` |
+| `/api/context/inject` | `updateFiles` | `proxy/proxy.js` |
 | `/api/settings` | `CLAUDE_MEM_*` | `src/ui/viewer/hooks/useSettings.ts` |
 
 ### 可安全修改为 snake_case 的字段
 
 | 端点 | 字段 | 原因 |
 |------|------|------|
-| `/api/modes` | `observation_types/concepts` | WebUI 从本地 ModeManager 读取 |
-| `/api/settings` | `observation_types/concepts` | WebUI 不读此字段 |
+| `/api/modes` | `observation_types/observation_concepts` | WebUI 从本地 ModeManager 读取（`ModeManager.getInstance().getActiveMode()`），不读 API 响应 |
+| `/api/settings` | `modeName`/`modeDescription` | WebUI 与 proxy 均不引用；`ViewerController` 直接 `response.put` 产出 |
 
 ### 检查方式
 
 ```bash
 # 修改前搜索 WebUI 引用
-grep -rn "hasMore\|updateFiles\|observationTypes" webui/src/
+# 注意 updateFiles 的消费方在 proxy/proxy.js，不在 webui/src/ ——
+# 只扫 webui/ 会得到零命中，看起来"没人用"，而它其实是硬契约。
+grep -rn "hasMore\|updateFiles\|observationTypes" webui/src/ proxy/
 ```
