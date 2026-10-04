@@ -193,8 +193,18 @@ public class CursorController {
         }
 
         try {
-            // Generate context
-            String context = contextService.generateContext(projectName);
+            // Generate context.
+            //
+            // Must be the workspace PATH, not the registry's project name.
+            // ContextService.generateContext(String projectPath) documents and
+            // implements its argument as a project path — it validates it as one
+            // and queries mem_observations.project_path / mem_summaries.project_path
+            // with it. Passing the display name here matched no rows at all, so the
+            // endpoint reported success:true and wrote a "no memories yet" file for
+            // a project that had tens of thousands of observations (measured: 22,799
+            // rows, 165-byte stub written). The write three lines below already used
+            // entry.workspacePath(); this call was the odd one out.
+            String context = contextService.generateContext(entry.workspacePath());
 
             if (context == null || context.isBlank()) {
                 return ResponseEntity.ok(Map.of(

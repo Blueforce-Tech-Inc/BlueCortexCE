@@ -16,7 +16,7 @@
 #   1. Make sure Java backend is running:
 #      export OPENAI_API_KEY=xxx
 #      export SILICONFLOW_API_KEY=xxx
-#      java -jar target/claude-mem-java-0.1.0-SNAPSHOT.jar --spring.profiles.active=dev &
+#      java -jar target/cortex-ce-*.jar --spring.profiles.active=dev &
 #
 #   2. Then run the test:
 #      ./openclaw-plugin-test.sh
@@ -564,7 +564,7 @@ main() {
     else
         echo ""
         log_info "Java backend not running, skipping API related tests"
-        log_info "Start command: java -jar target/claude-mem-java-0.1.0-SNAPSHOT.jar --spring.profiles.active=dev"
+        log_info "Start command: java -jar target/cortex-ce-*.jar --spring.profiles.active=dev"
         echo ""
 
         # Still run tests that do not depend on backend

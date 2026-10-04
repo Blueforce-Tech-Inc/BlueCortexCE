@@ -23,7 +23,7 @@ export OPENAI_API_KEY=your_api_key
 export SPRING_AI_OPENAI_EMBEDDING_API_KEY=your_embedding_key
 
 # 启动后端 (dev profile 会自动加载 .env)
-java -jar target/cortexce-0.1.0-SNAPSHOT.jar --spring.profiles.active=dev &
+java -jar target/cortex-ce-*.jar --spring.profiles.active=dev &
 ```
 
 验证后端已启动:

@@ -32,6 +32,7 @@
 | 245 | P2-41 | ⏸ 记录不修（`platform_source` / `content_hash` 等**四家一致不暴露**，SDK 用户无法按平台区分观测） |
 | 246 | P2-27 表更正 + P2-42 | ✅ **JS `ObservationUpdate` 类型已修**（八个字段可空，此前 `null` 在 `strict` 下**编译不过**）；⏸ 记录不修（`tsconfig` 排除测试文件，`lint` 查不到测试里的类型错误） |
 | 247 | Demo + P2-43 | ✅ **JS / Python demo 的 `extractedData` 守卫已修**（把「清空」与「类型错误」混为一谈，拒掉后端接受的请求）；⏸ 记录不修（Python 两种调用风格对 `None` 语义相反） |
+| 248 | Backend + 运维指南 | ✅ **`CursorController.updateContext` 已修**（传 `projectName` 而非 `workspacePath`，对着 1,632 条观测写出「no memories yet」；双实例 A/B：163 → 17,750 字节）；✅ **十处构建命令的 jar 名已修**（三种错名，改为通配符） |
 
 > 历次压缩的批次与理由统一记在文末 `## Archived History`（最新一批见 batch 3），
 > **此处不再重复**——两处原本记着同一批压缩事件，每次压缩都要改两遍。

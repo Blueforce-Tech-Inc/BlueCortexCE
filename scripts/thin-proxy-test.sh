@@ -794,7 +794,7 @@ main() {
         test_privacy_tags  # Privacy Tags test (TS Alignment)
     else
         echo "Java backend not running, skipping API related tests"
-        echo "Start command: java -jar target/claude-mem-java-0.1.0-SNAPSHOT.jar --spring.profiles.active=dev"
+        echo "Start command: java -jar target/cortex-ce-*.jar --spring.profiles.active=dev"
     fi
 
     echo ""

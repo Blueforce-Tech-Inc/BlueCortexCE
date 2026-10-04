@@ -112,7 +112,7 @@ check_server_health() {
         print_error "Server is not responding (HTTP $HTTP_STATUS)"
         print_info "Please start the server first:"
         echo "  cd $PROJECT_ROOT/java/backend"
-        echo "  java -jar target/backend-0.1.0-SNAPSHOT.jar --spring.profiles.active=dev"
+        echo "  java -jar target/cortex-ce-*.jar --spring.profiles.active=dev"
         return 1
     fi
 }
