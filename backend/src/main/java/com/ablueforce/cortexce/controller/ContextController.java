@@ -183,8 +183,22 @@ public class ContextController {
 
         log.debug("Recent context request, project: {}, limit: {}", projectName, limit);
 
+        // Clamp before it reaches SQL.
+        //
+        // The query is a native `LIMIT :limit`, and PostgreSQL rejects a negative
+        // LIMIT outright (InvalidRowCountInLimitClause: "LIMIT must not be
+        // negative"), so an unguarded `limit=-1` surfaced as HTTP 500 — a client
+        // input error reported as a server fault. Reproduced 3/3 before this guard.
+        // `limit=0` was wrong in a quieter way: LIMIT 0 yields no rows, and the
+        // empty branch then told the caller "No previous sessions found for
+        // project X" when sessions plainly existed.
+        //
+        // Range matches POST /api/context/semantic, whose `limit` means the same
+        // thing ("how many to return") and is already clamped to [1, 20] below.
+        int validatedLimit = Math.min(Math.max(1, limit), 20);
+
         // Get recent summaries for the project
-        List<SummaryEntity> summaries = summaryRepository.findByProjectLimited(projectName, limit);
+        List<SummaryEntity> summaries = summaryRepository.findByProjectLimited(projectName, validatedLimit);
 
         if (summaries.isEmpty()) {
             return ResponseEntity.ok(new RecentContextResponse(

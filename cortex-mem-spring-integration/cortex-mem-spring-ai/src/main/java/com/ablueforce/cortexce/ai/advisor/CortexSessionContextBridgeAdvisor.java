@@ -36,6 +36,20 @@ import reactor.core.publisher.Flux;
  *   <li>Increment prompt number for capture ordering</li>
  *   <li>Call {@code CortexSessionContext.end()} in finally after the chain completes</li>
  * </ol>
+ * <p>
+ * <b>Do not nest this advisor inside a manual {@code CortexSessionContext.begin}/{@code end}
+ * scope.</b> The two are alternatives, not layers: this advisor's {@code begin} overwrites
+ * whatever context is already on the thread, and its {@code end} then removes it, so an
+ * outer scope does not survive the call. Measured on the 2026-10-04 review: with
+ * {@code begin("outer-session", "/outer/project")} already active, one {@code adviseCall}
+ * left {@code isActive() == false}, {@code getSessionId() == "unknown-session"} and an empty
+ * project path — silently, with no error. Any later {@code @Tool} call in that outer scope
+ * then records against those fallback values. The Java demo keeps the two paths strictly
+ * separate for this reason: a request carrying {@code CONVERSATION_ID} goes through this
+ * advisor and never calls {@code begin} manually, while a request without one calls
+ * {@code begin} manually and this advisor passes straight through. Tracked as P2-44 —
+ * making it nest-safe needs either a save/restore on {@link CortexSessionContext} (new
+ * public surface) or a decision about which context should win when the two differ.
  *
  * @see CortexMemoryAdvisor
  * @see com.ablueforce.cortexce.ai.aspect.CortexToolAspect

@@ -33,6 +33,7 @@
 | 246 | P2-27 表更正 + P2-42 | ✅ **JS `ObservationUpdate` 类型已修**（八个字段可空，此前 `null` 在 `strict` 下**编译不过**）；⏸ 记录不修（`tsconfig` 排除测试文件，`lint` 查不到测试里的类型错误） |
 | 247 | Demo + P2-43 | ✅ **JS / Python demo 的 `extractedData` 守卫已修**（把「清空」与「类型错误」混为一谈，拒掉后端接受的请求）；⏸ 记录不修（Python 两种调用风格对 `None` 语义相反） |
 | 248 | Backend + 运维指南 | ✅ **`CursorController.updateContext` 已修**（传 `projectName` 而非 `workspacePath`，对着 1,632 条观测写出「no memories yet」；双实例 A/B：163 → 17,750 字节）；✅ **十处构建命令的 jar 名已修**（三种错名，改为通配符） |
+| 249 | Java SDK + API 文档 | ⏸ 记录不修（**P2-44**：`CortexSessionContextBridgeAdvisor` 与手动 `begin/end` 不可嵌套，外层作用域被静默销毁，已补 Javadoc 约束）；✅ **`/api/context/recent` 的 `limit` 已钳制到 [1,20]**（负数此前打到 PostgreSQL 返 **HTTP 500**；双实例 A/B：500 → 200、4610 条无上界 → 20 条）；✅ API.md/中文版 62/62 路径零幻影、query 参数零漂移 |
 
 > 历次压缩的批次与理由统一记在文末 `## Archived History`（最新一批见 batch 3），
 > **此处不再重复**——两处原本记着同一批压缩事件，每次压缩都要改两遍。
@@ -922,6 +923,39 @@
   改掉等于让已经能用的能力失效，且 Python demo 的 PATCH 正是走 kwargs 路径）。
   真正的修法要先决定**哪种写法才是 SDK 想支持的清空方式**，属 API 契约决策。
   **但 P2-27 的能力表应当立即标注 kwargs 路径**——那是文档层的事实更正，已在下方补注。
+
+### P2-44: `CortexSessionContextBridgeAdvisor` 与手动 `begin/end` 不能嵌套——外层作用域会被**静默**销毁
+
+- **Scope**: `cortex-mem-spring-integration/cortex-mem-spring-ai` 的
+  `CortexSessionContextBridgeAdvisor.adviseCall/adviseStream` 与
+  `CortexSessionContext.begin/end`。**与 P1-1 无关**：P1-1 是流式下 ThreadLocal 跨线程丢失，
+  本条是**单线程内的嵌套**，两条路径独立。
+- **Problem**: `CortexSessionContext.begin()` 是裸的 `CURRENT.set(new SessionInfo(...))`、
+  `end()` 是裸的 `CURRENT.remove()`——**既无重入保护、也不保存/恢复**。
+  advisor 每见到 `CONVERSATION_ID` 就无条件 `begin`，并在 `finally` 里 `end`。
+  于是**外层已存在的作用域被覆盖、并在调用返回后被删除**。
+  **探针实测**（`CortexSessionContextBridgeAdvisorTest` 旁的一次性用例，未提交）：
+  在 `begin("outer-session", "/outer/project")` 已激活时调一次 `adviseCall`，前后状态为
+  | 时点 | `isActive()` | `getSessionId()` | `getProjectPath()` |
+  |---|---|---|---|
+  | 调用前 | `true` | `outer-session` | `/outer/project` |
+  | **调用后** | **`false`** | **`unknown-session`** | **（空串）** |
+  断言「外层应当存活」**失败**，即缺陷成立。**全程无异常、无告警**——
+  此后同一外层作用域里的任何 `@Tool` 调用都会以 `unknown-session` 与空项目路径入库。
+  调用**内部**看到的是 advisor 自己的上下文（`/advisor/project|conv-inner`），
+  即内层正确、**外层被毁**。
+- **为什么不是示例代码的 bug**: `ChatController` 刻意把两条路径二分——
+  带 `conversationId` 的请求走 bridge 且**不**手动 `begin`；不带的手动 `begin`，
+  而 bridge 因无 `CONVERSATION_ID` 直接透传。**从不嵌套**。故这是**误用场景**，
+  而非已交付代码里的活 bug。
+- **Status**: ⏸ **记录不修** —— 两种收法都改变现有调用方的可观测行为：
+  ①在 `CortexSessionContext` 上加保存/恢复（需要把 private 的 `SessionInfo` 暴露为公开类型，
+  属**新增公开 API**）；②已激活时跳过 `begin/end`、让外层胜出（零新增 API，
+  但当内外 session 不同时，内层会被记到**外层**的会话上，属跨会话串号）。
+  真正的修法要先决定**两者冲突时谁该赢**，属产品决策。
+  **已做的零风险部分**：在 `CortexSessionContextBridgeAdvisor` 的类 Javadoc 中
+  写明「不可嵌套」这一约束、外层被静默销毁的实测后果、以及 demo 为何二分——
+  **纯注释，行为一字未改**。现有 6 个该 advisor 的测试无一覆盖嵌套。
 
 ## Processing Rules
 - SDK/Demo findings are fixed in place with focused compile/test verification.

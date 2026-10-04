@@ -1016,7 +1016,17 @@ Get recent session context summary.
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `project` | string | No | cwd | Project path |
-| `limit` | int | No | 3 | Number of sessions to return |
+| `limit` | int | No | 3 | Number of sessions to return. Clamped to **[1, 20]** |
+
+> **`limit` is clamped, and why that matters.** A value outside `[1, 20]` is
+> silently corrected to the nearest bound — the endpoint never returns an error for
+> it. Two cases were previously wrong: a negative `limit` reached the native
+> `LIMIT :limit` clause, which PostgreSQL rejects outright
+> (`InvalidRowCountInLimitClause`), so `limit=-1` returned **HTTP 500** — a client
+> input error reported as a server fault; and `limit=0` produced `LIMIT 0`, no rows,
+> and the empty-result branch then told the caller "No previous sessions found for
+> project X" for a project that plainly had thousands. The same range is used by
+> `POST /api/context/semantic`, whose `limit` carries the same meaning.
 
 **Request Example**:
 ```bash

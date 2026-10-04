@@ -981,7 +981,14 @@ Token Savings Summary
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `project` | string | (cwd) | 项目路径 |
-| `limit` | int | 3 | 返回的会话数量 |
+| `limit` | int | 3 | 返回的会话数量，**钳制到 [1, 20]** |
+
+> **`limit` 会被钳制，以及为什么这件事值得写下来。** 超出 `[1, 20]` 的取值会被静默修正到最近的边界，
+> 该端点**不会**为此报错。此前有两种情况是错的：负数 `limit` 会一路传到原生 `LIMIT :limit` 子句，
+> 而 PostgreSQL 直接拒绝（`InvalidRowCountInLimitClause`），于是 `limit=-1` 返回 **HTTP 500**——
+> 客户端输入错误被报成了服务端故障；`limit=0` 则产生 `LIMIT 0`、取不到任何行，
+> 空结果分支随后对一个明明有数千条摘要的项目宣称「No previous sessions found」。
+> 同一区间也用于 `POST /api/context/semantic`，其 `limit` 含义相同。
 
 **请求示例**:
 ```bash
