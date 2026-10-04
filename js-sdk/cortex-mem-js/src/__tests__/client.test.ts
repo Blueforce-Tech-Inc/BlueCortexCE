@@ -2740,3 +2740,59 @@ describe('getQualityDistribution defensive parsing', () => {
     expect(result.unknown).toBe(0);
   });
 });
+
+// ==================== safeStringOrStringList: the one wire helper that reads two shapes ==========
+//
+// Imported from '../index', not from '../dto/wire-helpers'. The other six wire
+// helpers have direct unit tests that import the deep path, which is why the
+// omission of this one from the public barrel went unnoticed: nothing imported
+// the wire-helper family through the package entry point at all. Importing it
+// the way a consumer would pins the export as well as the behaviour.
+
+import { safeStringOrStringList } from '../index';
+
+describe('safeStringOrStringList', () => {
+  it('returns a real array unchanged', () => {
+    expect(safeStringOrStringList(['a', 'b'])).toEqual(['a', 'b']);
+  });
+
+  it('parses a JSON-encoded array string, which is how JSONB list columns arrive', () => {
+    expect(safeStringOrStringList('["a","b"]')).toEqual(['a', 'b']);
+  });
+
+  it('splits a comma-separated string, the other shape these columns take', () => {
+    expect(safeStringOrStringList('a,b')).toEqual(['a', 'b']);
+  });
+
+  it('trims whitespace and drops empty segments from a comma-separated list', () => {
+    expect(safeStringOrStringList(' a , ,b ')).toEqual(['a', 'b']);
+  });
+
+  it('returns an empty array for an empty JSON-encoded string rather than undefined', () => {
+    expect(safeStringOrStringList('[]')).toEqual([]);
+  });
+
+  it('returns undefined for null and undefined, so "absent" stays distinguishable from "empty"', () => {
+    expect(safeStringOrStringList(null)).toBeUndefined();
+    expect(safeStringOrStringList(undefined)).toBeUndefined();
+  });
+
+  it('returns undefined for a non-list, non-string value', () => {
+    expect(safeStringOrStringList(42)).toBeUndefined();
+    expect(safeStringOrStringList({ a: 1 })).toBeUndefined();
+  });
+
+  it('does not throw on a JSON-encoded string that is not an array', () => {
+    // JSON.parse succeeds but yields a non-array; that must not become a list.
+    expect(safeStringOrStringList('{"a":1}')).toBeUndefined();
+  });
+
+  it('returns undefined for a JSON-encoded scalar, which is not a list shape', () => {
+    // JSON.parse succeeds here and yields a string, so the comma-separated
+    // fallback is not reached: only a *failed* parse falls back to splitting.
+    // The documented contract is arrays, JSON-encoded arrays, and unparseable
+    // strings; a JSON scalar is none of those, so it reads as "absent".
+    expect(safeStringOrStringList('"a"')).toBeUndefined();
+    expect(safeStringOrStringList('42')).toBeUndefined();
+  });
+});

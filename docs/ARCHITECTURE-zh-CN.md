@@ -734,7 +734,7 @@ LIMIT :limit;
 
 1. 会话开始
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│ Claude Code │────▶│ wrapper.js  │────▶│ Ingestion   │────▶│ PostgreSQL  │
+│ Claude Code │────▶│ wrapper.js  │────▶│ Session     │────▶│ PostgreSQL  │
 │  Hook       │     │ session-start│    │ Controller  │     │ Session     │
 └─────────────┘     └─────────────┘     └─────────────┘     │ 已创建      │
                     < 200ms             异步                └─────────────┘
@@ -742,7 +742,7 @@ LIMIT :limit;
 2. 工具使用 (观察)
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │ Claude Code │────▶│ wrapper.js  │────▶│ Ingestion   │
-│ PostToolUse │     │ observation │     │ Controller  │
+│ PostToolUse │     │ tool-use    │     │ Controller  │
 └─────────────┘     └─────────────┘     └──────┬──────┘
                     < 200ms                    │ @Async
                                                ▼
@@ -780,8 +780,8 @@ LIMIT :limit;
 3. 上下文注入
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │ Claude Code │────▶│ wrapper.js  │────▶│ Context     │────▶│ PostgreSQL  │
-│ SessionStart│     │ context-get │     │ Service     │     │ 向量搜索    │
-│ (下一会话)  │     │             │     │             │     │             │
+│ SessionStart│     │ session-start│    │ Service     │     │ 向量搜索    │
+│ (下一会话)  │     │ (响应中返回)│             │     │             │
 └─────────────┘     └─────────────┘     └──────┬──────┘     └─────────────┘
                     < 200ms                    │                    │
                                                ▼                    │
@@ -810,7 +810,7 @@ LIMIT :limit;
 4. 会话结束 (摘要)
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │ Claude Code │────▶│ wrapper.js  │────▶│ Ingestion   │────▶│ PostgreSQL  │
-│ SessionEnd  │     │ summarize   │     │ Controller  │     │ Summary     │
+│ SessionEnd  │     │ session-end │     │ Controller  │     │ Summary     │
 └─────────────┘     └─────────────┘     └──────┬──────┘     │ 已保存      │
                     < 200ms                    │ @Async      └─────────────┘
                                                ▼
@@ -824,6 +824,18 @@ LIMIT :limit;
                     │                                              │
                     └─────────────────────────────────────────────┘
 ```
+
+> **本图已于第 262 轮（2026-10-04）对照源码更正。** 它与上文那份**本来就是正确的**
+> [Hook 事件流程](#hook-事件流程) 表产生了分歧——**同一份文档自相矛盾**。四处修正，逐条核实：
+>
+> | 图中写的 | 实际 |
+> |----------|------|
+> | `session-start` → **Ingestion** Controller | → **Session** Controller（`SessionController.java:47,108`） |
+> | PostToolUse → `wrapper.js observation` | → `wrapper.js tool-use` |
+> | 上下文注入 → `wrapper.js context-get` | **该命令不存在。** `wrapper.js` 只有四个：`session-start` / `tool-use` / `session-end` / `user-prompt`。上下文是**随 `session-start` 的响应**回到调用方的——`proxy/` 下**没有任何地方调用 `/api/context/*`** |
+> | SessionEnd → `wrapper.js summarize` | → `wrapper.js session-end` |
+>
+> `POST /api/ingest/session-start` 仍是 404；薄代理那份逐事件映射表才是代码的真实行为。
 
 ---
 

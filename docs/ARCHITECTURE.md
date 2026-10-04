@@ -744,7 +744,7 @@ only writer and builds it with `Collectors.joining(",")`, so there is no JSON la
 
 1. SESSION START
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│ Claude Code │────▶│ wrapper.js  │────▶│ Ingestion   │────▶│ PostgreSQL  │
+│ Claude Code │────▶│ wrapper.js  │────▶│ Session     │────▶│ PostgreSQL  │
 │  Hook       │     │ session-start│    │ Controller  │     │ Session     │
 └─────────────┘     └─────────────┘     └─────────────┘     │ Created     │
                     < 200ms             Async                └─────────────┘
@@ -752,7 +752,7 @@ only writer and builds it with `Collectors.joining(",")`, so there is no JSON la
 2. TOOL USE (Observation)
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │ Claude Code │────▶│ wrapper.js  │────▶│ Ingestion   │
-│  PostToolUse│     │ observation │     │ Controller  │
+│  PostToolUse│     │ tool-use    │     │ Controller  │
 └─────────────┘     └─────────────┘     └──────┬──────┘
                     < 200ms                    │ @Async
                                                ▼
@@ -790,8 +790,8 @@ only writer and builds it with `Collectors.joining(",")`, so there is no JSON la
 3. CONTEXT INJECTION
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │ Claude Code │────▶│ wrapper.js  │────▶│ Context     │────▶│ PostgreSQL  │
-│ SessionStart│     │ context-get │     │ Service     │     │ Vector      │
-│ (next sess) │     │             │     │             │     │ Search      │
+│ SessionStart│     │ session-start│    │ Service     │     │ Vector      │
+│ (next sess) │     │ (ctx in resp)│     │             │     │ Search      │
 └─────────────┘     └─────────────┘     └──────┬──────┘     └─────────────┘
                     < 200ms                    │                    │
                                                ▼                    │
@@ -817,7 +817,7 @@ only writer and builds it with `Collectors.joining(",")`, so there is no JSON la
 4. SESSION END (Summary)
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │ Claude Code │────▶│ wrapper.js  │────▶│ Ingestion   │────▶│ PostgreSQL  │
-│  SessionEnd │     │ summarize   │     │ Controller  │     │ Summary     │
+│  SessionEnd │     │ session-end │     │ Controller  │     │ Summary     │
 └─────────────┘     └─────────────┘     └──────┬──────┘     │ Saved       │
                     < 200ms                    │ @Async      └─────────────┘
                                                ▼
@@ -831,6 +831,20 @@ only writer and builds it with `Collectors.joining(",")`, so there is no JSON la
                     │                                              │
                     └─────────────────────────────────────────────┘
 ```
+
+> **This diagram was corrected against the source in round 262 (2026-10-04).** It had
+> drifted from the [Hook Event Flow](#hook-event-flow) table above, which was already
+> correct — the same file disagreed with itself. Four fixes, each verified:
+>
+> | Diagram said | Actually |
+> |---|---|
+> | `session-start` → **Ingestion** Controller | → **Session** Controller (`SessionController.java:47,108`) |
+> | PostToolUse → `wrapper.js observation` | → `wrapper.js tool-use` |
+> | Context injection → `wrapper.js context-get` | **No such command.** `wrapper.js` has exactly four: `session-start`, `tool-use`, `session-end`, `user-prompt`. Context reaches the caller **in the `session-start` response** — nothing under `proxy/` calls `/api/context/*` at all |
+> | SessionEnd → `wrapper.js summarize` | → `wrapper.js session-end` |
+>
+> `POST /api/ingest/session-start` remains a 404; the thin proxy's per-event table is
+> what the code actually does.
 
 ---
 

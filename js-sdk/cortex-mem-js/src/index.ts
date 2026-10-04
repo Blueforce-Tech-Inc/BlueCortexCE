@@ -77,6 +77,12 @@ export {
   safeNumber,
   safeNumberOr,
   safeStringArray,
+  // Exported alongside its siblings because it is the one that handles the wire
+  // shape list columns actually arrive in: a JSON array or a comma-separated
+  // string (refined_from_ids). parseObservation uses it for facts, concepts,
+  // files_read, files_modified and refined_from_ids, so it is what a caller
+  // needs to read those fields the same way the SDK does.
+  safeStringOrStringList,
   safeRecord,
 } from './dto';
 

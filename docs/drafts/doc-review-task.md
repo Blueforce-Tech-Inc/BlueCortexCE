@@ -103,7 +103,22 @@
 
   **Code direction（Python SDK）修完上一轮留下的待办**：`client.py` 的类 docstring 示例写 `CortexMemClient(base_url="http://localhost:37777")`，而**下方第 72 行的真实默认值是 `http://127.0.0.1:37777`** —— 示例教的值与默认值不是同一个，且**恰好是 P2-57 证明会在 `preferIPv6Addresses` 下失败的主机名形式**。已改为不带参数的默认写法，并补一段说明为何用 IPv4 字面量而非主机名。**其余部分核实为真**：重试判定与另三家同集、**不可解析的 body 会抛错而非退化成空结果**、**docstring 声明的「绝不改动调用方 session」在代码里确实成立**（`_owns_session` 控制关闭、headers 逐请求不写入 `session.headers`，避免 API key 泄漏到调用方的其它流量）。**一处跨家差异不立 finding**：Python **无响应体上限**而 Go/JS 有 10MB，但 SDK 自带 README 已写明该差异**及其原因**（`requests` 无可移植的流式大小钩子），属**有据的设计决策**而非缺陷。**上一轮 P2-58 里我标注「大概率是探针问题」的一条已闭环**：Python 通过显式 wire 映射 `"extracted_data" → "extractedData"` 正常处理。**变更检测**：改了 `.py`，指纹 `6b856f89…` → **`ec1c529c…`**，按门控跑完整验收：回归 **45/0/1**、`EXTRACTION_ENABLED=true` 验收 **25/0/0**（带 P2-46 限定）、Python **441/441**。
 
-- **下一方向**: 架构文档（一百六十三轮）
+- **最近完成**: 架构文档（2026-10-04 一百六十三轮，**四处，双语，文档自相矛盾**）。**DOC-1（已修，双语）** **同一份文档里，上方那张逐事件映射表早就写对了，下方那张事件流图却错了四处 —— 其中一个是根本不存在的命令。** 第 153 轮与第 259 轮已核实过本文件的控制器图、服务图、迁移树、`§Current Limits` 与 MCP 工具接线，故本轮取**从未核过的 `## Data Flow → Complete Event Flow`**。逐条落到源码：
+
+  | 图中写的 | 实际 | 证据 |
+  |----------|------|------|
+  | `session-start` → **Ingestion** Controller | → **Session** Controller | `SessionController.java:47,108`（`@RequestMapping("/api/session")` + `@PostMapping("/start")`）；`IngestionController` 只有 `/api/ingest/*` 四条 |
+  | PostToolUse → `wrapper.js observation` | → `wrapper.js tool-use` | `wrapper.js:39-61` 头注释与 `ENDPOINTS` 表 |
+  | 上下文注入 → `wrapper.js context-get` | **该命令不存在** | 全文 `grep -c context-get` = **0**；`wrapper.js` 只有四个命令；**`proxy/` 下没有任何地方调用 `/api/context/*`** —— 上下文是随 `/api/session/start` 的响应回来的（`wrapper.js:532`） |
+  | SessionEnd → `wrapper.js summarize` | → `wrapper.js session-end` | 同上 |
+
+  **最值得记的是「文档自相矛盾」这个形态**：`ARCHITECTURE.md:283-301`（中文版同段）**本来就已经写对了**，甚至明确注明「`session-start` 由 `SessionController` 提供，而非 `IngestionController`：`POST /api/ingest/session-start` 返 **404**（活体验证，2026-10-03）」——**同一份文件的三百行之外，那张图还在画着错误答案**。这说明**校验过某一处不等于该断言在全文唯一**，与第 260 轮「按断言清扫而非按文件」是同一条纪律的另一面。**四处修正 + 图后加一条对照说明**（双语），写明每处「图中说的 vs 实际的」与证据位置，使下一个读者不必重新推导。
+
+  **过程中我自己制造并当场发现两个问题**：①把说明文字拆成两行导致 `wrapper.js` 方框**底部边框丢失**；②中文版同一格因 **CJK 字符占两个显示列**而**超框 8 列**（改前 21、框宽 13）——两者都在提交前用显示宽度校验（`east_asian_width`）发现并修正。**锚点校验脚本自己错了两次**：先把全角标点当 CJK 字母保留（GitHub 实际删除标点），又把参照格切错位置；**两次都是文档对、探针错**。改正后两语种各 16 个内部锚点**全部解析**，含我新加的两个。
+
+  **Code direction（JS/TS SDK）**：`src/index.ts` 的「Wire helpers（安全类型转换工具）」一组导出了 8 个中的 **6 个**，漏掉的 `safeStringOrStringList` 恰恰是**唯一处理列表列真实 wire 形态的那一个**（JSON 数组**或**逗号分隔串），且被主解析器 `parseObservation` 用了 **5 次**（`facts`/`concepts`/`files_read`/`files_modified`/`refined_from_ids`）。**它为何能存活：没有任何测试从包入口导入 wire helpers** —— 既有单测直接引 `../dto/wire-helpers` 绕过 barrel，**甚至导了 barrel 里根本没有的 `firstNonNullOr`**。已补导出 + **9 条直接单测**（从 `'../index'` 导入，**同时钉住导出面与行为**）。**我第一版测试预期是错的、被 runner 立刻抓住**：我以为 JSON 编码标量会落到逗号切分；追实现发现 `JSON.parse` 成功、得到非列表、返回 `undefined`，**这正是文档契约所述**，故改测真实行为。**双向注入还揭示了「谁抓得住」**：撤掉导出后 **`tsc` 退出 0**（`tsconfig` 的 `exclude` 含 `**/*.test.ts`，即既有 P2-42），**真正拦住它的是运行时** —— vitest 撤掉时退出 1、恢复时退出 0。**变更检测**：改了 2 个 `.ts`，指纹 `ec1c529c…` → **`9ce7fd25…`**，按门控跑完整验收：回归 **45/0/1**、`EXTRACTION_ENABLED=true` 验收 **25/0/0**（带 P2-46 限定）、JS **259/259**（250 + 9）。
+
+- **下一方向**: 运维/用户指南（一百六十四轮）
 - **新增待决**: `docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分
 - **Pending 状态**: 文档问题清单已清空（0 项待处理）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
