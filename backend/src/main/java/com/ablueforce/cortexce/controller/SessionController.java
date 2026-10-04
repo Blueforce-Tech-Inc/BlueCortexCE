@@ -90,9 +90,11 @@ public class SessionController {
      *   "session_id": "content-session-id",
      *   "project_path": "/path/to/project",
      *   "cwd": "/path/to/project",
-     *   "projects": "project1,project2",  // Optional: for worktree support
-     *   "is_worktree": true,               // Optional: worktree flag
-     *   "parent_project": "parent"         // Optional: parent project name
+     *   "projects": "project1,project2",  // Optional: comma-separated; generates
+     *                                     // multi-project context, NOT worktree support
+     *   "is_worktree": true,               // Optional: accepted and logged only —
+     *                                     // NOT persisted, does not affect behaviour
+     *   "parent_project": "parent"         // Optional: same — logged only, not persisted
      * }
      *
      * Returns:
@@ -105,7 +107,7 @@ public class SessionController {
      */
     @PostMapping(value = "/start", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Start or resume a session",
-        description = "Initializes a new session or retrieves an existing one. Generates context for Claude Code injection and optionally updates CLAUDE.md files. Supports worktree multi-project context via the 'projects' parameter. Called by wrapper.js session-start hook.")
+        description = "Initializes a new session or retrieves an existing one. Generates context for Claude Code injection and optionally updates CLAUDE.md files. Multi-project context is generated from the 'projects' parameter, and only when it contains a comma — a single value is ignored. Called by wrapper.js session-start hook.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Session started successfully, returns context and updateFiles",
             content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.StartSessionResponse.class))),
@@ -338,10 +340,13 @@ public class SessionController {
 
     /**
      * Parse comma-separated projects parameter.
-     * Used for worktree multi-project context queries.
+     * Used for multi-project context queries.
      *
-     * @param projectsParam Comma-separated project names (e.g., "parent,worktree")
-     * @return List of project names
+     * <p>Note the caller only invokes this when the parameter contains a comma;
+     * a single value never reaches here and is silently ignored.</p>
+     *
+     * @param projectsParam Comma-separated project identifiers (e.g. "parent,worktree")
+     * @return List of project identifiers, in the order given
      */
     private List<String> parseProjectsParam(String projectsParam) {
         if (projectsParam == null || projectsParam.isBlank()) {

@@ -208,10 +208,16 @@ Content-Type: application/json
 | `session_id` | string | ✅ | Claude Code 内容会话 ID |
 | `project_path` | string | ✅ | 项目路径 |
 | `cwd` | string | ❌ | 当前工作目录 |
-| `projects` | string | ❌ | 多项目支持（逗号分隔） |
-| `is_worktree` | boolean | ❌ | 是否为 worktree |
-| `parent_project` | string | ❌ | 父项目名称（worktree 模式） |
+| `projects` | string | ❌ | 逗号分隔的项目标识，用于生成多项目上下文 —— **仅当值中含逗号时才生效**；单个值会被静默忽略，仍只按 `project_path` 生成 |
+| `is_worktree` | boolean | ❌ | 是否为 worktree —— **只被接收并记入日志，不落库、不影响任何行为**（见下方说明） |
+| `parent_project` | string | ❌ | 父项目名称（worktree 模式）—— **同上：只记日志，不落库** |
 | `user_id` | string | ❌ | 用户 ID（Phase 3 多用户支持） |
+
+> **`is_worktree` / `parent_project` 会被接收，但当前不产生任何效果。**
+> `SessionController` 读出两者后**只在一处使用**——一条 `log.info`。
+> 它们**不写入 `mem_sessions`**，**不传给 `initializeSession`**，
+> 而本该让它们生效的 `WorktreeDetector` 服务在 `backend/src/` 内**没有任何调用者**。
+> 传了是安全的，但**不会改变任何行为**；若指望它改变行为则不会生效。已记为 P2-47。
 
 **响应示例**:
 ```json

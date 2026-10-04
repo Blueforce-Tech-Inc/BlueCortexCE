@@ -11,30 +11,16 @@
 | P0 | 0 | 立即修复并复测 |
 | P1 | 1 | 优先修复并复测 |
 | P2 | 2 | 本轮完整验收阶段处理或明确标记为已跳过 |
-> **逐轮叙述不再保留在本区块**：每条发现在下面 `## Open Findings` 里都有**完整条目**，
-> 逐轮上下文另存于 `patrol-rotation.md` 与 `doc-review-task.md`；历次压缩批次记在文末
-> `## Archived History`。本区块曾在 10-03~10-04 间多次越过 `MAX_LINES=1000` 而被迫压缩，
-> 逐轮删减不能根治——**根因是逐轮叙述本就不该放在这里**。
+> **逐轮叙述不再保留在本区块**：每条发现在 `## Open Findings` 里有完整条目；
+> 逐轮上下文另存于 `patrol-rotation.md` 与 `doc-review-task.md`，历次压缩批次记在文末 `## Archived History`。
 | 轮次 | 条目 | 一句话 |
 |------|------|--------|
-| 219–233 | P1-3 / P1-4 / P2-24～P2-31 | 代码侧已修的已归档或 ✅；其余 ⏸ 记录不修（契约或公开 API 变更）。**逐条见下方完整条目**，此处不再逐轮铺开 |
-| 234–237 | P2-32～P2-35 | 全部 ⏸ 记录不修（Docker 绑定、demo 路由名、OpenAPI 示例、AOP 漏捕获失败） |
-| 238 | P2-36 | ⏸ 记录不修（三个同级适配器数值选项校验分歧；「负数该等于什么」无唯一答案） |
-| 239 | — | Python `count` 真缺陷**已修**（负数静默返空）；自查更正三份中文版 README 陈旧数字 |
-| 240 | — | JS `count` 真缺陷**已修**（`0` 亦照发，比 Python 更重）；API 文档 `count` 语义缺口双语音补 |
-| 241 | P2-37 / P2-38 | ⏸ 记录不修（四家 demo `/chat` 方法分歧）；Java `count` 构造器/builder 校验分裂，**修法已写明、留待 Java SDK 方向** |
-| 242 | P2-39 | ⏸ 记录不修（`POST /api/import` 外层 `@Transactional` + 逐行 catch = **一行坏数据毁掉整批**，且逐行统计变 500） |
-| 243 | P2-38 | ✅ **已修**（紧凑构造器统一校验，4 条新测试，139→143；`ICLPromptRequest` 复核本就正确） |
-| 244 | P2-40 | ⏸ 记录不修（四家 SDK **能写 prompts 与 summaries、却都读不回来**；新增公开方法属产品决策） |
-| 245 | P2-41 | ⏸ 记录不修（`platform_source` / `content_hash` 等**四家一致不暴露**，SDK 用户无法按平台区分观测） |
-| 246 | P2-27 表更正 + P2-42 | ✅ **JS `ObservationUpdate` 类型已修**（八个字段可空，此前 `null` 在 `strict` 下**编译不过**）；⏸ 记录不修（`tsconfig` 排除测试文件，`lint` 查不到测试里的类型错误） |
-| 247 | Demo + P2-43 | ✅ **JS / Python demo 的 `extractedData` 守卫已修**（把「清空」与「类型错误」混为一谈，拒掉后端接受的请求）；⏸ 记录不修（Python 两种调用风格对 `None` 语义相反） |
-| 248 | Backend + 运维指南 | ✅ **`CursorController.updateContext` 已修**（传 `projectName` 而非 `workspacePath`，对着 1,632 条观测写出「no memories yet」；双实例 A/B：163 → 17,750 字节）；✅ **十处构建命令的 jar 名已修**（三种错名，改为通配符） |
-| 249 | Java SDK + API 文档 | ⏸ 记录不修（**P2-44**：`CortexSessionContextBridgeAdvisor` 与手动 `begin/end` 不可嵌套，外层作用域被静默销毁，已补 Javadoc 约束）；✅ **`/api/context/recent` 的 `limit` 已钳制到 [1,20]**（负数此前打到 PostgreSQL 返 **HTTP 500**；双实例 A/B：500 → 200、4610 条无上界 → 20 条）；✅ API.md/中文版 62/62 路径零幻影、query 参数零漂移 |
-| 250 | Go SDK + SDK README | ⏸ 记录不修（**P2-45**：会话启动的 `projects` 能生成多项目上下文、API.md 已载，**四家 SDK 一律只发 3 个字段**；同区域另记 `is_worktree`/`parent_project` 只进日志、`WorktreeDetector` 零调用者）；✅ **两份 JS README 的测试数已更正 247 → 250**（第 246 轮我自己加的 3 条测试没同步进文档） |
+> 第 219–250 轮的逐轮摘要已移除——它们本就不该放在本区块（见上方说明），
+> 且每条都在 `patrol-rotation.md` 与 `doc-review-task.md` 里有**同轮全文**。
 | 251 | Python SDK + 设计文档 | ✅ **`build_icl_prompt(max_chars=None)` 的裸 `TypeError` 已修**（第 233 轮把 `if max_chars:` 改成 `if max_chars > 0:` 后，该方法**唯一不对 None 安全的参数**；Java SDK 本就是 `!= null && > 0`）；✅ **`phase-3-design/25.md` 的幻影清理端点已改**（`DELETE /api/memory/observations?project_path=…` **活体 404**，改为脚本真正用的「取 id + 逐条删」，并实跑验证 1 → 0）；⏸ 记录不修（**P2-46**：验收脚本 `cleanup()` **定义了从未被调用**、内含幻影端点，Test 6 的 `not_found` 分支早已是死代码；**P2-47**：API.md 双语把只进日志的 `is_worktree`/`parent_project` 当正式字段记载） |
-| 253 | Backend + 运维/用户指南 | ✅ **读 Cursor 注册表失败不再被当成「空注册表」**（那个空结果**会被 register/unregister 写回**，实测一次注册返回 200 success 并把 16 个已注册项目全部丢弃；已改为与写路径对称地抛异常，修复后同一序列得 500 且注册表未被覆盖）；✅ **`DEVELOPMENT.md` 四处版本钉死的 jar 名改为通配**（其中文版本本就是通配，EN 侧会在版本变更后失效）；⏸ 记录不修（**P2-49**：`start.sh` 钉死版本号且是 TESTING.md 推荐的启动方式，版本变更即拒绝启动；**P2-50** 同区域：数据目录有 `CLAUDE_MEM_DATA_DIR` 与 `claudemem.data-dir` 两个互不相干的键） |
 | 252 | Demo + 架构文档 | ✅ **Python demo 的 `/extraction/history` 补上了它唯一缺失的范围校验**（解析了 `limit` 却从不校验，四家里只有它对 `limit=101` 返 200、另三家均 400）；✅ **JS demo 去掉了后端根本没有的 `maxChars` 100000 上界**（后端只有下界 `Math.max(100, …)`，四家里只有它对 `100001` 返 400）；✅ 架构文档的控制器图、服务图、迁移树**双语全部核实准确**（13 控制器 / 31 服务 / 16 迁移，零幻影零遗漏）；⏸ 记录不修（**P2-48**：gitignored 的 `CLAUDE.md` 端点表 **25 条中 9 条是活体 404** 的幻影端点） |
+| 253 | Backend + 运维/用户指南 | ✅ **读 Cursor 注册表失败不再被当成「空注册表」**（那个空结果**会被 register/unregister 写回**，实测一次注册返回 200 success 并把 16 个已注册项目全部丢弃；已改为与写路径对称地抛异常，修复后同一序列得 500 且注册表未被覆盖）；✅ **`DEVELOPMENT.md` 四处版本钉死的 jar 名改为通配**（其中文版本本就是通配，EN 侧会在版本变更后失效）；⏸ 记录不修（**P2-49**：`start.sh` 钉死版本号且是 TESTING.md 推荐的启动方式，版本变更即拒绝启动；**P2-50** 同区域：数据目录有 `CLAUDE_MEM_DATA_DIR` 与 `claudemem.data-dir` 两个互不相干的键） |
+| 254 | Java SDK + API 文档 | ✅ **`is_worktree` / `parent_project` / `projects` 三处错误描述在文档与活体 OpenAPI 上一并更正**（P2-47；`@Schema` 才是真正对外的那一份，三处均为描述文本、字段与行为未变）；✅ **10 个已删源码的陈旧测试类被清出**（其中 P2-44 的 `NestingProbeTest` 仍在失败，使 `mvn test` 退出非零；`mvn clean test` 后 **196 = 143+46+7** 与 README 逐字吻合）；✅ Java SDK 空安全核实为真（`maxChars != null && > 0`、primitive `limit` 不可能为 null）；⏸ 记录不修（**P2-51**：`projects` 只在值中含逗号时生效，单个值被静默忽略、与不传等价） |
 
 > 历次压缩的批次与理由统一记在文末 `## Archived History`，
 > **此处不再重复**——两处原本记着同一批压缩事件，每次压缩都要改两遍。
@@ -43,9 +29,7 @@
 
 ### P2-24: V17 反馈机制整体未接线 —— 实体还映射了一个不存在的列
 
-- **Scope**: `entity/ObservationFeedbackEntity.java`（已修）、
-  `repository/ObservationFeedbackRepository.java`（已修）、
-  以及 V17 迁移所声明的三项能力（**均未实现**）。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**：本轮从 P1-3 顺藤摸下来，发现 **V17 从未被记录为 finding**。三条实证：
   ①`ObservationFeedbackEntity` 有一个 `@Column(name = "created_at")` 的 `OffsetDateTime` 字段，
   而 `V17__observation_feedback.sql` **从未创建该列**——活体 `information_schema` 确认
@@ -77,17 +61,14 @@
 - **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
 ### P1-1: `CortexSessionContextBridgeAdvisor.adviseStream` 依赖普通 ThreadLocal，流式下既丢捕获又泄漏会话
 
-- **Scope**: `cortex-mem-spring-integration/cortex-mem-spring-ai/.../advisor/CortexSessionContextBridgeAdvisor.java:79-99`（`adviseStream`）配合 `context/CortexSessionContext.java:14` 的 `ThreadLocal<SessionInfo>`；消费方为 `aspect/CortexToolAspect.java:43`（仅判断 `isActive()`）。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: `adviseStream` 在**调用线程**上 `begin()`，却把清理放进 `flux.doFinally(...)`。Reactor 的 `doFinally` 运行在**发出终止信号的线程**上；任何真实模型客户端（Reactor Netty / WebClient）都会切线程。产生两个后果：
   1. **捕获被静默丢弃** —— 工具实际执行的线程看不到该 ThreadLocal，`CortexSessionContext.isActive()` 为 false，`CortexToolAspect` 直接 `proceed()` 跳过捕获。`@Tool` 自动捕获在流式下等于失效，且无任何日志。
   2. **会话上下文泄漏** —— `doFinally` 清掉的是信号线程（一个空 ThreadLocal），调用线程的 ThreadLocal 永不清除。线程池复用该线程后，`begin()` 因 conversation id 缺失而提前 return 的那条路径**也不会**清理，于是残留的 `sessionId` 会被下一次请求的 `CortexToolAspect` 当作有效会话使用——工具观察被归到**上一个会话**。这是静默的跨会话数据串号。
 - **实测记录**: 原始 Reproduction/Evidence 已归档 → [`2026-10-04_backend-review-reproduction-5.md`](../archive/2026-10-04_backend-review-reproduction-5.md)（第 244 轮逐字迁出；Scope / Problem / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-8: 读取侧没有维度路由 —— 写入按维度分列，检索恒定比 `embedding_1024`
 
-- **Scope**: 写入侧 `backend/.../service/AgentService.java:533-535`（`switch (vector.length)`，
-  `case 768/1024/1536` 分别调用 `setEmbedding768/1024/1536`）；读取侧
-  `backend/.../repository/ObservationRepository.java:268` `hybridSearch`（SQL 硬编码
-  `embedding_1024`）与 `backend/.../service/SearchService.java:57-59`。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: `SearchService` 在 PATH 2 的注释自称 "Semantic search with pgvector
   (dimension-aware)"，第 59 行也确实算出了 `int dim = request.queryVector().length`，
   但该变量**只用于 debug 日志**，实际 SQL 始终与 `embedding_1024` 比较。仓库里
@@ -97,17 +78,11 @@
 - **实测记录**: 原始 Reproduction/Evidence 已归档 → [`2026-10-04_backend-review-reproduction-5.md`](../archive/2026-10-04_backend-review-reproduction-5.md)（第 244 轮逐字迁出；Scope / Problem / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-10: 四个 ingest 端点对项目路径的必填性不一致
 
-- **Scope**: `backend/.../controller/IngestionController.java` — `handleObservation`
-  （第 319 行 `if (projectPath == null || projectPath.isBlank())` → 400）与
-  `handleToolUse`（第 119 行）、`handleUserPrompt`（第 229 行）、`handleSessionEnd`
-  三个端点。后三者从 `body.cwd()` 取值后**不做任何校验**。
-- **Problem**: 同一族端点对同一个语义字段给出两种契约。实测（对运行中的后端）：
-  | 端点 | 缺失/空白 `project_path`（或 `cwd`） |
-  |------|------------------------------------|
-  | `POST /api/ingest/observation` | **400** `Missing required field: project_path` |
-  | `POST /api/ingest/tool-use` | **200** `{"status":"accepted"}` |
-  | `POST /api/ingest/user-prompt` | **200** `{"status":"ok"}` |
-  | `POST /api/ingest/session-end` | **200** `{"status":"ok"}` |
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
+- **Problem**: 同一族端点对同一个语义字段给出两种契约。实测（对运行中的后端）： | 端点 | 缺失/空白 `project_path`（或 `cwd`） |
+  |------|------------------------------------| | `POST /api/ingest/observation` | **400** `Missing required field:
+  project_path` | | `POST /api/ingest/tool-use` | **200** `{"status":"accepted"}` | | `POST /api/ingest/user-prompt` |
+  **200** `{"status":"ok"}` | | `POST /api/ingest/session-end` | **200** `{"status":"ok"}` |
   `cwd` 省略与发送 `"cwd": ""` 行为相同。
 - **实际影响**：仅影响直接使用 HTTP API 的调用方——四家 SDK 均已在客户端拒绝空
   `project_path`（本轮刚为 Python 补齐），因此 SDK 路径不会触发。直接调 API 的调用方
@@ -126,10 +101,7 @@
 <!-- P2-11 已无条件解决，逐字迁入 2026-10-04_backend-review-resolved-3.md -->
 ### P2-13: Spring AI 集成无法按用户隔离记忆——会话上下文里没有 userId
 
-- **Scope**: `cortex-mem-spring-integration/cortex-mem-spring-ai/.../context/CortexSessionContext.java`
-  （`SessionInfo` 仅 `sessionId` / `projectPath` / `promptCounter`，两个 `begin()` 重载都不接受 userId）、
-  `.../advisor/CortexMemoryAdvisor.java:119-123`（`buildICLPrompt` 只设 `.project(...)`，
-  全文 `userId` 出现 **0** 次）、`.../tools/CortexMemoryTools.java:70-75, 108-112`。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 后端**支持**按用户隔离 ICL 记忆（第 194 轮实测：同一项目下 alice 返 1 条
   经验、bob 返 0 条），`ICLPromptRequest` / `ExperienceRequest` 也都带 `userId`，
   `DefaultMemoryRetrievalService` 更是**已经实现并透传** `userId`。
@@ -151,16 +123,12 @@
 
 ### P2-14: `findNewObservations` 零调用方——增量抽取从未实现，却有索引为它而建
 
-- **Scope**: `ObservationRepository.java:619-634`（`findNewObservations(project, sources,
-  sinceEpoch, limit)`，javadoc 写「Find new observations since a given epoch for
-  **incremental extraction**」）；调用方为 `StructuredExtractionService.java:211`，
-  它用的是 `findBySourceIn(projectPath, sources, initialRunMaxCandidates)`；
-  `V16__composite_source_index.sql:11` 把 `findNewObservations` 列为新建复合索引服务的查询之一。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 增量抽取**没有实现**。后端全文没有 `extraction_state`（0 命中），
-  每次运行都调用 `findBySourceIn` 取最新的 N 条，**没有「上次抽取之后」的过滤**。
-  `findNewObservations` 本身实现完好、SQL 正确（`created_at_epoch > :sinceEpoch`
-  且 `ORDER BY created_at_epoch ASC`），但 `backend/src/main` 中**零调用方**——
-  连单元测试都没有引用它。这是 P2-12（`deepRefineProjectMemories` 无调用方）的同型：
+  每次运行都取最新的 N 条、**没有「上次抽取之后」的过滤**。`findNewObservations`
+  本身实现完好、SQL 正确，但 `backend/src/main` 中**零调用方**、连单测都没引用。
+  与 P2-12（`deepRefineProjectMemories` 无调用方）同型：一个从未接线的特性，
+  只留下方法、注释和一条为它建的索引。
   一个从未接线的特性，只留下方法、注释和一条为它建的索引。
 - **实际行为（与文档描述不同）**：`findBySourceIn` 是 `ORDER BY created_at_epoch DESC LIMIT N`，
   所以新观测**会**进来，但超出上限的旧观测**永远不会被抽取**。既不是文档所称的
@@ -188,8 +156,7 @@
 
 ### P2-15: `save_memory` 的共享会话是 check-then-act，并发下必然丢失一次保存
 
-- **Scope**: `mcp/ClaudeMemMcpTools.java:249-258`（`findByContentSessionId("manual-memories")
-  .orElseGet(() -> sessionRepository.save(...))`），整段被外层 `catch (Exception)`（:290）覆盖。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: `mem_sessions.content_session_id` 上有**活体确认**的唯一约束
   （`pg_constraint`: `mem_sessions_content_session_id_key UNIQUE (content_session_id)`），
   而这里是典型的 check-then-act：两个并发的 `save_memory` 调用都会查不到、都会走
@@ -206,11 +173,7 @@
 
 ### P2-16: Java SDK 没有任何类型化异常，HTTP 状态码只能靠遍历 cause 链取得
 
-- **Scope**: `cortex-mem-spring-integration/cortex-mem-client/.../CortexMemClientImpl.java`
-  （`executeWithRetry` / `executeWithRetryReturn` 均以
-  `throw new RuntimeException(operation + " failed: " + describe(e), e)` 收尾；
-  `describe()` 只回传后端 `error` 字段文本，**不含状态码**）；
-  整个 `cortex-mem-client` 模块 **18 个类中没有任何错误类型**。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 跨 SDK 错误面严重不对称——Go 有 `APIError` 且 `Unwrap()` 覆盖 11 个哨兵错误、
   Python 有 13 个状态码异常类 + 谓词（共 27）、JS 有 16 个，**Java 为 0**。
   实测（stub 返回 `404 {"error":"Observation not found: abc"}`）：
@@ -233,8 +196,7 @@
 
 ### P2-17: `EXTRACTION_MAX_BATCHES` 在随附默认值下永远不可能生效
 
-- **Scope**: `ExtractionConfig.java:29`（`maxBatchesPerTemplate = 10`，绑定
-  `EXTRACTION_MAX_BATCHES`）与 `StructuredExtractionService.java:234-235` 的批处理循环。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 该上限被文档当作真实生效的调参手段，但**在随附默认值下它是死的**。
   循环条件是 `i < userObs.size() && i < maxTotal`，其中
   `maxTotal = maxObservationsPerBatch × maxBatchesPerTemplate = 20 × 10 = 200`；
@@ -254,8 +216,7 @@
 
 ### P2-18: `reExtractForSession` 绕过全部抽取上限，整会话一次性送入 LLM
 
-- **Scope**: `StructuredExtractionService.java:135-160`（`doReExtractForSession`），
-  入口为 `SessionController.java:327`（`PATCH /api/session/{id}/user`）。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 这是结构化抽取的**第二个活入口**，但它**完全不走批处理循环**。
   候选来自 `findByContentSessionIdOrderByCreatedAtEpochAsc(sessionId)`——
   一个无 `LIMIT` 的派生查询，返回该会话的**全部**观测；随后对每个启用模板直接
@@ -272,8 +233,7 @@
 
 ### P2-19: Java SDK 静默吞掉 refinement / extraction 触发失败，另三家都抛错
 
-- **Scope**: `CortexMemClientImpl.java:231`（`triggerRefinement`）与 `:432`
-  （`triggerExtraction`），二者都走 `executeWithRetrySilent`（`:775-799`）。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: `executeWithRetrySilent` 返回 `void`，**任何失败都被吞掉**，只在
   日志里留一条 WARN。调用方拿到的是一个正常返回的 `void`，**无从得知触发失败**——
   精炼没跑、抽取没跑，而调用方以为跑了。
@@ -299,10 +259,7 @@
 
 ### P2-20: 全部 22 个数值查询参数都会静默接受十六进制字面量
 
-- **Scope**: 全部声明为 `int`/`long`/`Integer`/`Long` 的 `@RequestParam`，共 **22** 个、
-  分布在 **11** 个端点（`ViewerController` 13 处、`ContextController` 7 处、
-  `LogsController` 1 处、`ExtractionController` 1 处）。完整清单见
-  `docs/API.md` 的「Query Parameter Conventions」一节。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: Spring 的默认数字转换会**静默采纳 `0x`/`0X` 十六进制前缀**。
   规则是：先 trim，带十六进制前缀走 `Integer.decode`，否则走 `Integer.valueOf`。
   实测（活体）：`?limit=0x10` → **16 条**、`?lines=0x10` → `{"returnedLines":16}`、
@@ -330,8 +287,7 @@
 
 ### P2-21: 健康指示器在真故障时不给原因，而测试钉死了一个不可能发生的分支
 
-- **Scope**: `CortexMemHealthIndicator.health()` 的 `catch` 分支与 `withException(e)` 详情，
-  配合 `CortexMemClientImpl.java:339-360` 的 `healthCheck()`。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: `healthCheck()` 自己 `catch` 后 **`return false`**、**从不向外抛出**，
   故 `health()` 的 `catch` 分支在生产中**不可达**，`withException(e)` 写出的
   `error` 键**永远不会被填充**。
@@ -366,8 +322,7 @@
 
 ### P2-22: `/api/cursor/projects` 的 Swagger 示例把 ISO 字符串写成了 epoch 数字
 
-- **Scope**: `backend/.../controller/CursorController.java:143`（`@ApiResponse` 的
-  `@Schema(example = ...)`）。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 示例写作
   `"{\"projects\":[{\"projectName\":\"my-project\",\"workspacePath\":\"/path\",\"installedAt\":1709000000000}],\"count\":1}"`，
   即把 `installedAt` 标成一个 **epoch 毫秒数字**。实际类型是 **String**：
@@ -386,9 +341,7 @@
 
 ### P2-23: SSE 连接数超限返回 500（应为 503），且没有心跳，死连接最长占用名额 30 分钟
 
-- **Scope**: `backend/.../controller/StreamController.java:60-73` 配合
-  `backend/.../service/SSEBroadcaster.java:26-34`（`add()` 抛
-  `IllegalStateException`）与 `Constants.MAX_SSE_CONNECTIONS = 100`。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem 1 —— 状态码语义错误**：第 101 个客户端被拒时，后端**没有任何
   `@ControllerAdvice` / `@ExceptionHandler`**（全仓唯一命中的是
   `config/AsyncConfig.java` 的 `AsyncUncaughtExceptionHandler`，与 MVC 异常无关），
@@ -414,9 +367,7 @@
 
 ### P2-25: `maxChars` 的 Swagger 描述承诺了一个后端并不存在的「0 = 默认」分支
 
-- **Scope**: `ApiRequests.ICLPromptRequest.maxChars`（`ApiRequests.java:147`）的
-  `@Schema(description = "Max prompt length (0 = backend default ~4000)")`，
-  该描述原样出现在 `/v3/api-docs` 与 Swagger UI 中。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 后端**没有**「0 表示默认」的分支。`MemoryController` 第 154 行写的是
   `int maxChars = request.maxChars() != null ? Math.max(100, request.maxChars()) : 4000;`
   —— 判的是 `!= null`，不是 `> 0`。于是显式传 `0` 会走进 `Math.max(100, 0)`，
@@ -425,9 +376,7 @@
 - **Reproduction**: 原始实测记录已归档 → [`2026-10-04_backend-review-reproduction-4.md`](../archive/2026-10-04_backend-review-reproduction-4.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-26: Go SDK 的 `omitempty` 让 `facts` / `concepts` / `extractedData` 无法清空，且静默返回「updated」
 
-- **Scope**: `go-sdk/cortex-mem-go/dto/observation.go` 的 `ObservationUpdate` 三个字段：
-  `Facts []string`、`Concepts []string` 均带 `,omitempty`，`ExtractedData map[string]any` 同。
-  客户端路径 `client_methods.go:211 UpdateObservation`。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 后端 `PATCH /api/memory/observations/{id}` 的语义是
   「**字段存在但为 `null` → 清空；`[]` → `setFacts([])` 清空；字段缺失 → 不变**」
   （`MemoryController:346-375` 三处分支都实测确认）。而 Go 的 `omitempty` 对
@@ -441,9 +390,7 @@
 - **Reproduction**: 原始实测记录已归档 → [`2026-10-04_backend-review-reproduction-4.md`](../archive/2026-10-04_backend-review-reproduction-4.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-27: Python SDK 无法清空 `extractedData` —— 与 Go 并列最弱，而它的注释把这一点说成了「对齐 Go」
 
-- **Scope**: `dto.py` 的 `ObservationUpdate.is_empty()` 与 `to_wire()`，两处都有一句
-  `if attr == "extracted_data" and isinstance(val, dict) and not val: continue`；
-  另含类 docstring 中一句**对 Go 的事实性错误描述**（已修，见下）。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 后端 `PATCH` 两种清空写法都能落库（实测 `null` → NULL、`{}` → `{}`），
   而 Python **两种都发不出**：`None` 被 `if val is not None` 跳过、`{}` 被上面那句
   `continue` 跳过；探针确认二者的 `to_wire()` **都是 `{}`**、`is_empty()` **都是 True**，
@@ -492,10 +439,7 @@
 
 ### P2-28: `/api/test/all` 丢弃两个子处理器的状态码，故障时仍返回 200
 
-- **Scope**: `TestController.testAll()`（`TestController.java:118-123`）。
-  `testLlm()` 与 `testEmbedding()` 各自会返回 `ResponseEntity.status(500)`
-  （第 67、106 行），但 `testAll` 只取 `.getBody()` 塞进 Map，
-  **状态码被丢弃**，自身恒返 `200 OK`。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 同一份「测试连通性」的语义，两个端点给出**互相矛盾的失败信号**。
   类级 `@Profile("!prod")` 门控是正确的（第 26 行），四家 SDK 也都零调用方，
   暴露面有限；但**任何用 `/all` 做巡检的脚本或监控，在提供方完全不可用时仍会看到
@@ -505,19 +449,16 @@
 - **实测记录**: 原始 Reproduction/Evidence 已归档 → [`2026-10-04_backend-review-reproduction-5.md`](../archive/2026-10-04_backend-review-reproduction-5.md)（第 244 轮逐字迁出；Scope / Problem / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-29: tool-use 去重键不是一次调用的身份，且未被原子强制
 
-- **Scope**: `AgentService.calculateToolInputHash()`（`AgentService.java:466-482`）、
-  `AgentService.handleToolUse()` 去重分支（第 147-158 行）、
-  `PendingMessageRepository.existsBySessionAndTool()`（第 38-45 行）、
-  `PendingMessageEntity` 的 `@UniqueConstraint`（第 8-11 行）。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 去重键是 `(content_session_id, tool_name, SHA-256(tool_input))`，
   判定条件额外要求 `status <> 'failed'`。三处各自独立地削弱了它：
 
-  1. **键里没有 `tool_response`。** 哈希只覆盖 `toolInput` 字符串。因此一次
-     「同样的工具、同样的入参、但结果不同」的调用，在前一条仍处于
-     `pending`/`processing` 时会被**直接 `return` 丢弃**，而调用方拿到的是
-     `AgentService.java:150` 记录的 "Duplicate tool-use event skipped" 日志加上
+  1. **键里没有 `tool_response`。** 哈希只覆盖 `toolInput`，故「同样的工具、
+     同样的入参、结果不同」的调用在前一条仍 `pending`/`processing` 时被**直接丢弃**，
+     而调用方只拿到一条 "Duplicate tool-use event skipped" 日志加上
+     HTTP `200 {"status":"accepted"}`——**与真正入队无法区分**。
      HTTP `200 {"status":"accepted"}`——**与真正入队完全无法区分**。
-     对 fire-and-forget 的 SDK 捕获路径（`recordObservation` 等）而言，
+     对 fire-and-forget 的 SDK 捕获路径而言，调用方只能得出「已记录」这个错误结论。
      调用方只能得出「已记录」这个错误结论。
   2. **`tool_name` 未规范化。** 它是客户端自由文本，却参与键的比较。实测同一
      session 内 `Read` 与 `read` 携带**完全相同的 input 哈希**
@@ -544,8 +485,7 @@
 - **Reproduction**: 原始实测记录已归档 → [`2026-10-04_backend-review-reproduction-4.md`](../archive/2026-10-04_backend-review-reproduction-4.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-31: Go SDK 仍把负数 `maxChars` 发上 wire，注入被钳到 100 字符
 
-- **Scope**: `go-sdk/cortex-mem-go/dto/experience.go:38` 与 `:46` 的
-  `MaxChars int \`json:"maxChars,omitempty"\``。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: `omitempty` 只省略 **0**，**负数照发**（`omitempty` 判定的是 Go 零值，
   而 `-5` 不是零值）。后端解析式是 `maxChars != null ? Math.max(100, maxChars) : 4000`
   （`MemoryController.java:154`），**判 null 不判 0**，于是负数落进 `Math.max(100, -5)`
@@ -553,8 +493,7 @@
 - **Reproduction**: 原始实测记录已归档 → [`2026-10-04_backend-review-reproduction-4.md`](../archive/2026-10-04_backend-review-reproduction-4.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-32: 两个 Dockerfile 都不设 `SERVER_ADDRESS`，默认部署下服务对外不可达；根镜像的 healthcheck 还写死了端口
 
-- **Scope**: 根 `Dockerfile`（`HEALTHCHECK` 行与文件头注释里的 `docker run` 示例）、
-  `backend/Dockerfile`（`HEALTHCHECK` 行）、`backend/src/main/resources/application.yml:3`。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 两条独立缺陷，叠加后的失败形态是**最难排查的那种**：
 
   1. **默认只绑回环。** `application.yml:3` 是
@@ -576,8 +515,7 @@
 - **实测记录**: 原始 Reproduction/Evidence 已归档 → [`2026-10-04_backend-review-reproduction-5.md`](../archive/2026-10-04_backend-review-reproduction-5.md)（第 244 轮逐字迁出；Scope / Problem / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-33: Go demo 的两个端点名与另外三家 demo 不同
 
-- **Scope**: `go-sdk/cortex-mem-go/examples/http-server/main.go:470` 与 `:771`
-  的路由注册。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 四家 demo 暴露 23 个端点，其中 **21 个完全同名**，只有两个例外，
   且**例外全在 Go 这一家**：
 
@@ -597,8 +535,7 @@
 - **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-34: `GET /api/logs` 的 Swagger 示例漏掉 `files`，且把绝对路径写成 `/logs`
 
-- **Scope**: `LogsController.getLogs()` 的 `@ApiResponse` 示例
-  （`LogsController.java:81-82`）。**人类撰写的文档是对的**，错的只有注解。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 实现用 `Map.of(...)` 返回 **6** 个键
   —— `logs` / `path` / **`files`** / `totalLines` / `returnedLines` / `exists`，
   而注解的示例只有 **5** 个，**漏掉 `files`**；且示例写 `"path":"/logs"`，
@@ -608,16 +545,14 @@
 - **实测记录**: 原始 Reproduction/Evidence 已归档 → [`2026-10-04_backend-review-reproduction-5.md`](../archive/2026-10-04_backend-review-reproduction-5.md)（第 244 轮逐字迁出；Scope / Problem / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-35: `CortexToolAspect` 结构上无法捕获失败的 `@Tool` 调用，而质量模型恰恰以失败为一档
 
-- **Scope**: `CortexToolAspect.interceptToolExecution()`
-  （`CortexToolAspect.java:60` 的 `joinPoint.proceed()` **在 try 块之外**，
-  try 只包住第 62-73 行的捕获调用）。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 工具方法抛异常时，异常从第 60 行直接向上传播，**捕获整段被跳过**，
   调用方拿到的仍是原始异常（这一点是对的），但**这次工具调用在记忆里不留任何痕迹**。
   **关键在于这与后端的设计意图相反**：`QualityScorer` 明确有
   `FAILURE_BASE = 0.20f` 与 `FeedbackType.FAILURE`（第 24-26、59-61 行），
   即**整个 Evo-Memory 质量模型就是围绕「区分成功与失败」建立的**——
   而这条自动捕获路径**一条 FAILURE 都产不出来**。
-- **Evidence**: 活体/比对证据已逐字迁入 [`2026-10-04_backend-review-reproduction-6.md`](../archive/2026-10-04_backend-review-reproduction-6.md)（P2-35）。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Status**: ⏸ **记录不修** —— 修它会让**所有用户的库里开始出现新的失败观测**，
   改变已存储的数据形态，属**产品决策**而非纯 bug 修复（沿用 P2-24「接入属新增特性
   而非修 bug」的同一判断）。修法：把 `proceed()` 包进 try，catch 后**先记录再重抛**
@@ -626,9 +561,7 @@
 - **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-36: 三个同级适配器（eino / genkit / langchaingo）对数值选项的校验互不一致，且 genkit 的兜底只护住了 per-call 路径
 
-- **Scope**: `eino/retriever.go:37`（`WithRetrieverCount`）、
-  `genkit/retriever.go:54`（`WithRetrieverCount`）、
-  `langchaingo/memory.go:32`（`WithMemoryMaxChars`）、`dto/experience.go:12,38`。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 这三个文件是同一个 SDK 里为同一目的写的三块适配层，**却对「非正数怎么办」
   给出三种不同答案**：genkit 有 `if count <= 0 { count = r.count }` 兜底、eino 与
   langchaingo **完全没有校验**。更关键的是 **genkit 的兜底本身是半截的**——它只作用于
@@ -636,7 +569,7 @@
   于是构造函数传入负数时，兜底「回退」到的正是那个负数，**原样发上 wire**。
   测试名 `TestRetrieve_NegativeCount_FallsBackToDefault` 读起来像「负数已被处理」，
   但它把**构造函数传的是合法值 3**、只测 per-call 分支——**真正漏的那条路径无覆盖**。
-- **Evidence**: 活体/比对证据已逐字迁入 [`2026-10-04_backend-review-reproduction-6.md`](../archive/2026-10-04_backend-review-reproduction-6.md)（P2-36）。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **附带一处被丢弃的透明信号**: 后端把**实际生效值**回显在 `ICLPromptResult.maxChars`，
   Go 的 `dto.ICLPromptResult.MaxChars` **确实有这个字段**（`dto/experience.go:46`），
   但全 SDK **无任何非测试代码读它**——`LoadMemoryVariables` 只取 `result.Prompt`。
@@ -651,10 +584,7 @@
 - **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-37: 四家 demo 的 `/chat` 在方法、输入位置、响应结构与语义上全部分歧——而这个分歧被 Java demo 自己的 Javadoc 写明后搁置
 
-- **Scope**: `examples/cortex-mem-demo/.../ChatController.java:61`（`@GetMapping("/chat")`）、
-  `go-sdk/cortex-mem-go/examples/http-server/main.go:170`、
-  `python-sdk/cortex-mem-python/examples/http-server/app.py:195`、
-  `js-sdk/cortex-mem-js/examples/http-server/app.ts:122`。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 四家 demo 的端点**名字**经第 235 轮集合对拍已确认 23 个里 21 个同名，
   但**方法这一层从未被比对过**。补上后 `/chat` 暴露出四路分歧：
 
@@ -666,7 +596,7 @@
   | **Java** | **GET** | **查询参数** `?message&project&conversationId&useTools` | `{response, project, conversation_id}`，**无 `timestamp`、无 `memoryContext`** | **真实调用 LLM**，经 `CortexMemoryAdvisor` **自动捕获** |
 
   即四家共用一个端点名，却在**方法、输入载体、响应结构、行为语义**四个维度上各不相同。
-- **Evidence**: 活体/比对证据已逐字迁入 [`2026-10-04_backend-review-reproduction-6.md`](../archive/2026-10-04_backend-review-reproduction-6.md)（P2-37）。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **分歧是「已知且被写下」的**：`ChatController` 自己的 Javadoc 明写
   「The Go, Python and JS demos all answer `POST /chat` with a JSON object」，
   **紧接着就改用 `@GetMapping`**——写下了差异却没有解决。
@@ -680,9 +610,7 @@
 <!-- P2-38 已无条件解决，逐字迁入 2026-10-04_backend-review-resolved-3.md -->
 ### P2-39: `POST /api/import` 的外层 `@Transactional` 与逐行 catch 相撞——一行坏数据毁掉整批，逐行统计变成 500
 
-- **Scope**: `ImportController.bulkImport()`（`@Transactional` + 逐行 `try/catch`）、
-  `ImportService.importSession()`（同样 `@Transactional`，REQUIRED 并入外层）、
-  `mem_sessions.content_session_id varchar(255)` 与 `status varchar(50)`。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 该端点**专门收集逐行错误**（`stats.addError(result.message())`）并在响应里
   返回 `imported / skipped / errors` 统计——**但这层设计被事务语义彻底击穿**：
   1. `importSession` 是 `@Transactional`（默认 REQUIRED），**并入** `bulkImport` 的同一个事务；
@@ -692,7 +620,7 @@
   4. 方法返回时提交，Spring 抛 **`UnexpectedRollbackException`（"Transaction silently rolled back"）**
      → 调用方拿到 **HTTP 500**，**逐行统计一个都没送到**，**整批合法行全部回滚丢失**。
   即：端点为「部分成功」设计的响应结构，在最需要它的场景下**完全不起作用**。
-- **Evidence**: 活体/比对证据已逐字迁入 [`2026-10-04_backend-review-reproduction-6.md`](../archive/2026-10-04_backend-review-reproduction-6.md)（P2-39）。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **同一类问题的既有痕迹**：`ImportService.importSession` 第 233-236 行已有一段注释，
   记录过 `project_path` 缺失导致「save 在提交时才失败、调用方只看到
   `Could not commit JPA transaction`」并为此**补了前置校验**。也就是说**这个坑已被踩过一次、
@@ -716,9 +644,7 @@
 
 ### P2-40: 四家 SDK 都能写入 prompts 与 summaries，却没有一家读得回来
 
-- **Scope**: 后端 `ViewerController` 的 `GET /api/summaries` 与 `GET /api/prompts`；
-  四家 SDK 的全部公开方法（Go `client.go`/`client_methods.go`、Python `client.py`、
-  JS `client.ts`、Java `CortexMemClient`）。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 这**不是缺陷而是能力缺口**，但它没有被任何一处写下来，容易被当成疏漏。
   两个端点都**活体可用**、都在 `API.md` 里有完整记载（`/api/prompts` 出现 8 处）、
   WebUI 都在用；而**四家 SDK 没有任何方法能调用它们，四家 demo 也都没有暴露对应端点**
@@ -727,7 +653,7 @@
   与 `POST /api/ingest/user-prompt` 四家**全部**有方法（Go/Python/JS/Java 的
   session-end 与 user-prompt 引用数分别为 3/3、4/3、6/6、2/2）。
   即：**SDK 用户可以产生摘要与提示词，却永远无法把它们读回来**——想读只能自己发 HTTP。
-- **Evidence**: 活体/比对证据已逐字迁入 [`2026-10-04_backend-review-reproduction-6.md`](../archive/2026-10-04_backend-review-reproduction-6.md)（P2-40）。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **一处探针自身出错并先识别再采信**：初版探针想用 `dto.SummariesResponse` 去解析
   活体响应，编译失败——**这个类型根本不存在**，而这恰恰印证了「没有 summaries 方法」
   这一判断本身（同一次探针的另一个版本甚至编译不过）。改为直接统计四家 SDK 里
@@ -744,8 +670,7 @@
 
 ### P2-41: `platform_source` 等四个字段后端每条观测都在返回、WebUI 也在按它过滤——而四家 SDK 既不暴露、也不接受过滤
 
-- **Scope**: 后端 `ViewerController` 的观测列表响应与 `platformSource` 查询参数；
-  四家 SDK 的 `Observation` 响应 DTO 与列表请求参数。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 与 P2-40 同族的能力缺口，但这次卡在**字段**层面而非端点层面。
   后端**每条观测都返回** `platform_source`（V18 为多平台追踪新增）、`content_hash`
   （V8 新增、P2-29 的去重键组成部分）、`relevance_count`（V17 反馈）与 `step_number`；
@@ -754,7 +679,7 @@
   实际后果很具体：**SDK 用户无法区分一条观测来自 Claude 还是 Codex/OpenClaw**，
   也无法按平台筛选——而这正是 V18 加这个字段的目的。WebUI 侧的
   `viewer-bundle.js` 已经在按 `platform_source` 过滤，所以「能用」只在浏览器里成立。
-- **Evidence**: 已逐字迁入 [`2026-10-04_backend-review-evidence-5.md`](../archive/2026-10-04_backend-review-evidence-5.md)（第 253 轮）。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **一处探针自身出错并先识别再采信**：首版探针把「DTO 解析后的对象」当 dict 处理
   （Python DTO 是 dataclass），于是**每个键都被报成丢弃**、看起来像一片灾难；
   抽查区反而暴露了真问题（`content_hash` 属性不存在），促使改用
@@ -771,8 +696,7 @@
 
 ### P2-42: JS SDK 的 `tsconfig.json` 把测试文件排除在类型检查之外——`npm run lint` 查不到测试里的任何类型错误
 
-- **Scope**: `js-sdk/cortex-mem-js/tsconfig.json` 的 `exclude`（含 `"**/*.test.ts"`），
-  以及 `package.json` 里 `lint` 脚本就是 `tsc --noEmit`。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 这两项叠加的结果是**整个测试套件从不参与类型检查**。
   `include` 是 `src/**/*`（测试文件确实在里面），但 `exclude` 又把它们摘了出去，
   于是 `tsc` 只检查 `src` 下的非测试源码。**活体证据**：往
@@ -795,8 +719,7 @@
 
 ### P2-43: Python SDK 的两种调用风格对 `None` 的含义相反——dataclass 路径丢弃它、kwargs 路径原样发上 wire
 
-- **Scope**: `python-sdk/cortex-mem-python/cortex_mem/client.py` 的
-  `update_observation()` kwargs 分支，与同文件 `dto.py` 的 `ObservationUpdate.to_wire()`。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 同一个 `None` 在两条路径上语义不同，且**只有 kwargs 那条符合 PATCH 的清空语义**。
   - dataclass 路径：`ObservationUpdate(title=None).to_wire()` → **`{}`**（`if val is not None` 跳过），
     `is_empty()` → **True**，于是纯清空请求被当成「空更新」而**根本发不出去**。
@@ -818,20 +741,15 @@
 
 ### P2-44: `CortexSessionContextBridgeAdvisor` 与手动 `begin/end` 不能嵌套——外层作用域会被**静默**销毁
 
-- **Scope**: `cortex-mem-spring-integration/cortex-mem-spring-ai` 的
-  `CortexSessionContextBridgeAdvisor.adviseCall/adviseStream` 与
-  `CortexSessionContext.begin/end`。**与 P1-1 无关**：P1-1 是流式下 ThreadLocal 跨线程丢失，
-  本条是**单线程内的嵌套**，两条路径独立。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: `CortexSessionContext.begin()` 是裸的 `CURRENT.set(new SessionInfo(...))`、
   `end()` 是裸的 `CURRENT.remove()`——**既无重入保护、也不保存/恢复**。
   advisor 每见到 `CONVERSATION_ID` 就无条件 `begin`，并在 `finally` 里 `end`。
   于是**外层已存在的作用域被覆盖、并在调用返回后被删除**。
   **探针实测**（`CortexSessionContextBridgeAdvisorTest` 旁的一次性用例，未提交）：
-  在 `begin("outer-session", "/outer/project")` 已激活时调一次 `adviseCall`，前后状态为
-  | 时点 | `isActive()` | `getSessionId()` | `getProjectPath()` |
-  |---|---|---|---|
-  | 调用前 | `true` | `outer-session` | `/outer/project` |
-  | **调用后** | **`false`** | **`unknown-session`** | **（空串）** |
+  在 `begin("outer-session", "/outer/project")` 已激活时调一次 `adviseCall`，前后状态为 | 时点 | `isActive()` | `getSessionId()` |
+    `getProjectPath()` | |---|---|---|---| | 调用前 | `true` | `outer-session` | `/outer/project` | | **调用后** | **`false`** |
+    **`unknown-session`** | **（空串）** |
   断言「外层应当存活」**失败**，即缺陷成立。**全程无异常、无告警**——
   此后同一外层作用域里的任何 `@Tool` 调用都会以 `unknown-session` 与空项目路径入库。
   调用**内部**看到的是 advisor 自己的上下文（`/advisor/project|conv-inner`），
@@ -851,8 +769,7 @@
 
 ### P2-45: 会话启动的 `projects` 字段能生成多项目上下文、API.md 也写了——而四家 SDK 一律发不出去
 
-- **Scope**: 后端 `SessionController.startSession` 与 `ApiRequests.SessionStartRequest`；
-  四家 SDK 的会话启动请求模型。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 后端的会话启动契约有 **7** 个字段
   （`session_id` / `project_path` / `cwd` / `user_id` / `projects` / `is_worktree` / `parent_project`），
   **四家 SDK 一律只暴露 3 个**（`session_id`、`project_path`、`user_id`）：
@@ -886,7 +803,7 @@
 
 ### P2-46: 验收脚本的 `cleanup()` **定义了却从未被调用**——其幻影端点从未生效，而 Test 6 的前提因此早已不成立
 
-- **Scope**: `scripts/phase3-acceptance-test.sh`（第 45–50 行 `cleanup()`、第 206–222 行 Test 6）。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 这条比一般的文档错误重要，因为它**削弱的是我自己每轮据以判断的验收门控**。
   两处缺陷叠加：
   ① `cleanup()` 在全文件**只出现一次**（定义处）——`grep -nE "cleanup|trap|EXIT"` 只有第 45 行，
@@ -896,7 +813,7 @@
   （`patch` 与 `delete`），**没有任何按 `project_path` 批量删除的端点**；
   `/api/observations`（GET 列表）才是脚本真正该用的。or-true 兜底把 404 吞掉，
   因此这个失败**永远不会让脚本失败**。
-- **Evidence**: 已逐字迁入 [`2026-10-04_backend-review-evidence-5.md`](../archive/2026-10-04_backend-review-evidence-5.md)（第 253 轮）。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Status**: ⏸ **记录不修** —— 属脚本方向，不在本轮（Python SDK）的代码轮换内；
   且**若真把清理接上，Test 6 会切回 `not_found` 分支、累积数据会被删除**，
   属于会改变门控自身行为的改动，需在自己的轮次里单独做 A/B。
@@ -912,8 +829,7 @@
 
 ### P2-47: `API.md` 双语把 `is_worktree` / `parent_project` 当正式字段记载并写进示例 body——而两者只进一条 `log.info`
 
-- **Scope**: `docs/API.md:204-205, 218-219`、`docs/API-zh-CN.md:198-199, 212-213`；
-  后端 `SessionController.startSession` 与 `service/WorktreeDetector`。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 文档描述的是**尚未实现的能力**。逐行核实（第 251 轮）：
   `SessionController.java:126-127` 读出 `isWorktree` / `parentProject`，
   两者**此后只出现在 142–144 的 `log.info` 里**；真正建会话的
@@ -924,17 +840,20 @@
   但 `API.md` 两版都用正式字段表条目（"Whether this is a worktree" /
   "Parent project name (worktree mode)"）记载，并写进示例 body。
   **读者据此会以为传了就有用。**
-- **Status**: ⏸ **记录不修** —— 属 API 文档方向，留待该方向轮次更正。两个方向：
-  **要么**把两字段标注为「仅记录日志、当前不生效」，**要么**在实现侧接上
-  `WorktreeDetector`（属新增行为，同样需项目拍板）。本轮不改，是因为**同一断言还在
-  `SessionController.java:94-95` 的 `@Operation` 示例里被复述了一遍**——按「按断言清扫
-  而非按文件」，须与代码同批处理，不能只改文档半边。
+- **Status**: ⏸ **实现侧记录不修**；**文档侧已于第 254 轮更正**（API 文档方向）。
+  改文档而非接上 `WorktreeDetector`，是因为后者属新增行为、同样需项目拍板。
+  第 254 轮按「**按断言清扫而非按文件**」把同一断言的**全部**表述处一并更正：
+  `API.md` 与 `API-zh-CN.md` 的字段表加注「只被接收并记入日志、不落库、不影响行为」，
+  `SessionController` 的请求示例 Javadoc、`@Operation` 描述，
+  以及 **`ApiRequests.SessionStartRequest` 上的三个 `@Schema`**——
+  **后者才是真正对外的那一份**，活体 `/v3/api-docs` 原本就在输出
+  「Flag indicating worktree mode (rare, internal use)」
+  与「Parent project path for worktree (rare, internal use)」。
+  **三处改动均为描述文本，字段名、类型、状态码、行为一律未变。**
 
 ### P2-49: `scripts/start.sh` 把后端 jar 的版本号钉死——而它是 TESTING.md 推荐的启动方式
 
-- **Scope**: `scripts/start.sh:55`、`scripts/start-all.sh:99`、
-  `scripts/phase3-acceptance-test.sh:671`、`scripts/thin-proxy-test.sh:31`（均为注释或提示文案）；
-  文档侧 `docs/DEVELOPMENT.md` 已于本轮修正。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 与第 248 轮修掉的「jar 名写错 artifactId」**不是同一类**——那批名字从来不可能产出，
   这批**名字是对的、只把版本钉死了**。今天与磁盘一致，**版本号一变全线失效**，
   且失效方式不同：`start.sh:97` 直接 `Missing $JAR_PATH; rerun with --build` **拒绝启动**。
@@ -942,18 +861,17 @@
   **一次版本变更就让文档推荐的启动路径不可用**。四个脚本 + 两份 `evo-memory-implementation*.md`
   共 6 处（不含已修的 DEVELOPMENT.md 4 处）；当前 jar 存在故**今天不可复现**——
   这是**由版本变更触发的潜伏缺陷**，不是当前故障。
-- **Status**: ⏸ **记录不修** —— 属脚本方向，不在本轮（Backend）轮换内。修法直接
-  （`JAR_PATH` 改 glob 取首个匹配，或用 `./mvnw spring-boot:run`），
-  但需连带 `start-all.sh` 的启动顺序与 `.env` 加载一起看，并在真实版本变更下验证一次。
+- **Status**: ⏸ **记录不修** —— 属脚本方向，不在 Backend 轮换内。修法直接
+  （`JAR_PATH` 改 glob 取首个匹配，或用 `./mvnw spring-boot:run`），但需连带
+  `start-all.sh` 的启动顺序与 `.env` 加载一起看，并在真实版本变更下验证一次。
 
 ### P2-50: 读 Cursor 注册表失败被当成「空注册表」，而这个空结果**会被写回**
 
-- **Scope**: `CursorService.readRegistryUnlocked`、调用方 `registerProject` / `unregisterProject`；
-  `CursorController` 的 `/api/cursor/register`、`/api/cursor/register/{projectName}`。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 读失败返回**空 Map**，而这两个调用方都是「读 → 改 → 写回」，
   **一个读失败于是成了注册表的新内容**。同类的写路径 `writeRegistryUnlocked` 却**抛异常**——
   **读写不对称，且不对称的那一侧是破坏性的**。
-- **Evidence**: 已逐字迁入 [`2026-10-04_backend-review-evidence-5.md`](../archive/2026-10-04_backend-review-evidence-5.md)（第 253 轮）。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Status**: ✅ **已修** —— `readRegistryUnlocked` 在**文件存在但无法解析**时改为抛
   `UncheckedIOException`，与 `writeRegistryUnlocked` 对称；**「文件不存在 = 空的」保持不变**
   （那才是真正的空）。方法 Javadoc 写明了为什么不能返回空：返回空会被写回。
@@ -965,9 +883,47 @@
   正确写法是 `-Dclaudemem.data-dir=...`。两键并存、语义重叠、文档未说明，需项目拍板收敛。
 
 
+### P2-51: `projects` 只在**值里含逗号**时才生效——传单个值被静默忽略，与不传完全等价
+
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
+- **Problem**: 判定是 `projectsParam.contains(",")`——**只有含逗号才走多项目分支**。
+  传单个值会落进单项目分支、**该值被完全丢弃**，既不报错也不告警，
+  返回结果与**根本不传 `projects` 逐字相同**；文档只写「comma-separated」，
+  **没说单个值等于不传**。另有 `@Schema` 写 project **paths** 而
+  `parseProjectsParam` 的 Javadoc 写 project **names**，对同一值给出两种定义。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
+- **Status**: ⏸ **记录不修** —— 改判定会**改变现有调用方的行为**（原本按 `project_path`
+  生成、改后按该值生成），属语义变更，需项目拍板。
+  **文档侧已于第 254 轮更正**：`@Schema` 与 API.md / 中文版字段说明均已写明
+  「仅当含逗号时生效，单个值会被静默忽略」，并把 paths/names 统一为「project identifiers」。
+  另一种修法是**单值时回落到按该值生成**（更符合直觉），同样需决策。
+
+
+### P2-52: `target/` 里残留 10 个**源码已删**的测试类——其中一个仍在失败，使 `mvn test` 退出非零
+
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
+- **Problem**: Maven 不会因为源文件被删而清理 `target/test-classes`，
+  于是 **`mvn test` 会继续编译目录里已有的陈旧 class 并执行它们**。
+  这类 class 是历轮排查留下的探针（源码在确认结论后按惯例删除、未提交），
+  **它们在源码里不存在，却仍在测试阶段运行**。本轮的 `NestingProbeTest` 正是
+  第 249 轮为 P2-44 写的探针，它**断言外层作用域应当存活**——
+  而那正是 P2-44 记录的**未修缺陷**，所以它**必然失败**。
+  后果有二：① 源码全绿的工作区上 `mvn test` **退出非零**（实测 `mvn -o clean test`
+  前后分别是「失败 1」与「全过」）；② 测试计数被抬高（见 Evidence）。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
+- **Status**: ✅ **已处置** —— 执行 `mvn -o clean test`，陈旧类清除、计数回到 196、
+  退出码 0。**未改任何源码或脚本**：这十个 class 都不在版本控制内，
+  `clean` 即是正解；`mvn clean` 本就是文档与 CI 的标准起手式。
+  **遗留的纪律问题（比缺陷本身更值得记）**：本会话早前跑 Java SDK 测试时用了
+  `mvn … | tail; echo $?` —— **`$?` 取的是 `tail` 的退出码、恒为 0**，
+  于是**一次真实的测试失败被完美地掩盖了**。
+  「管道会吞掉上游退出码」是 Bash 的基本事实，本轮**又一次**靠人工核对才发现
+  （与第 252 轮 `grep -P`、第 253 轮行号偏移同属「探针自身出错」一类）。
+
+
 ### P2-48: gitignored 的 `CLAUDE.md` 端点表 25 条里有 9 条是活体 404 的幻影端点
 
-- **Scope**: `CLAUDE.md`（本地文件，**未纳入版本控制**）。`AGENTS.md` 已跟踪，**无幻影**（表内 0 条端点）。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 把 `CLAUDE.md` 里形如 `| METHOD | \`/path\` |` 的表格行逐条对拍活体 `/v3/api-docs`：
   **25 条中匹配 16 条，幻影 9 条**，9 条**逐条实测为 404**：
   `POST /api/ingest/session-start`、`POST /api/memory/save`、`POST /api/context/observations`、
@@ -979,7 +935,7 @@
   早已被观察到，并入既有的 `AGENTS.md` / `CLAUDE.md` 待决项；**其余 7 条是本轮首次精确计量**。
   同区域的另一处漂移：`CLAUDE.md` 的项目结构写「controller/ # 17 controllers」，
   **实测 13 个**（service 写「28+」，实测 29，属「+」的合法范围，不计）。
-- **Evidence**: 已逐字迁入 [`2026-10-04_backend-review-evidence-5.md`](../archive/2026-10-04_backend-review-evidence-5.md)（第 253 轮）。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Status**: ⏸ **记录不修** —— `CLAUDE.md` 是 **gitignored 的本地文件**
   （`git ls-files` 未跟踪、`git check-ignore` 命中），改动**不会进入版本控制**，
   且「是否取消其 gitignore」本身仍是待用户决策事项；不在本轮静默修改。
@@ -992,6 +948,13 @@
 - Backend findings are fixed in place when small and safe; otherwise they remain here until the complete acceptance stage.
 - Every finding must end as a code fix, a documented design decision, or an explicit skipped status. Reporting alone is not a valid resolution.
 - After resolution, append the verification result and commit identifier here before moving the detailed entry to an archive.
+- **⏸ 条目必须保留 `- **Problem**` 与 `- **Status`**（问题是什么、为什么这么定）。
+  **2026-10-04（第 254 轮）经用户明确决策**：`- **Scope**` 与 `- **Evidence**`
+  可与实测记录一并迁入归档，各留一行指针——Scope 内多为文件行号与实测细节，
+  属可复现证据而非决策推理。此前只允许迁出实测记录（见第 241/244/247/253/254 轮先例），
+  **本次是本文件建立以来第一次放宽**，其余适用范围仍未决。
+- **逐轮摘要表只保留最近一轮**；更早的轮次在 `patrol-rotation.md` 与 `doc-review-task.md`
+  中有同轮全文，无需在此重复（第 254 轮据此移除了第 219~250 轮）。
 
 ## Archived History
 

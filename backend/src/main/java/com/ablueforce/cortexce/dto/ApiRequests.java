@@ -26,11 +26,14 @@ public class ApiRequests {
         @JsonProperty("cwd") String cwd,
         @Schema(description = "User ID for multi-user isolation")
         @JsonProperty("user_id") String userId,
-        @Schema(description = "Comma-separated project paths for worktree support")
+        @Schema(description = "Comma-separated project identifiers used to generate multi-project context. "
+            + "Takes effect ONLY when the value contains a comma — a single value is silently ignored "
+            + "and the session falls back to single-project context for project_path.")
         @JsonProperty("projects") String projects,
-        @Schema(description = "Flag indicating worktree mode (rare, internal use)")
+        @Schema(description = "Accepted and written to the application log only. Not persisted and does not "
+            + "affect any behaviour; WorktreeDetector has no callers.")
         @JsonProperty("is_worktree") Boolean isWorktree,
-        @Schema(description = "Parent project path for worktree (rare, internal use)")
+        @Schema(description = "Same as is_worktree: logged only, not persisted, no effect on behaviour.")
         @JsonProperty("parent_project") String parentProject
     ) {}
 

@@ -214,10 +214,18 @@ Content-Type: application/json
 | `session_id` | string | ✅ | Claude Code content session ID |
 | `project_path` | string | ✅ | Project path |
 | `cwd` | string | ❌ | Current working directory |
-| `projects` | string | ❌ | Multi-project support (comma-separated) |
-| `is_worktree` | boolean | ❌ | Whether this is a worktree |
-| `parent_project` | string | ❌ | Parent project name (worktree mode) |
+| `projects` | string | ❌ | Comma-separated project identifiers for multi-project context — **takes effect only when the value contains a comma**; a single value is silently ignored and the session uses `project_path` alone |
+| `is_worktree` | boolean | ❌ | Whether this is a worktree — **accepted and logged only; it is not persisted and does not affect any behaviour** (see note below) |
+| `parent_project` | string | ❌ | Parent project name (worktree mode) — **same: logged only, not persisted** |
 | `user_id` | string | ❌ | User ID for Phase 3 multi-user support |
+
+> **`is_worktree` / `parent_project` are accepted but currently have no effect.**
+> `SessionController` reads both and uses them in exactly one place — a `log.info`
+> line. They are not written to `mem_sessions`, are not passed to
+> `initializeSession`, and the `WorktreeDetector` service that was meant to make
+> them work has no callers anywhere in `backend/src/`. Sending them is safe and
+> changes nothing; expecting them to change behaviour will not work. Tracked as
+> P2-47.
 
 **Response** (`200 OK`):
 ```json
