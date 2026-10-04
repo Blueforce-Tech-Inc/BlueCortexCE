@@ -11,15 +11,8 @@
 | P0 | 0 | 立即修复并复测 |
 | P1 | 1 | 优先修复并复测 |
 | P2 | 2 | 本轮完整验收阶段处理或明确标记为已跳过 |
-> **逐轮叙述不再保留在本区块**：每条发现在 `## Open Findings` 里有完整条目；
-> 逐轮上下文另存于 `patrol-rotation.md` 与 `doc-review-task.md`，历次压缩批次记在文末 `## Archived History`。
-> **逐轮摘要表已整体移除**（第 258 轮，第 219–256 轮的全部行）。本文件顶部的说明
-> 从一开始就写着「逐轮叙述不再保留在本区块」，而这张表恰恰违反它自己写下的规则；
-> 且每一行都在 `patrol-rotation.md` 与 `doc-review-task.md` 里有**同轮、同等或更完整**的叙述，
-> 属纯重复。第 254 轮已按同一理由移除第 219 轮以前的部分，本轮把剩余部分一并清掉。
 
-> 历次压缩的批次与理由统一记在文末 `## Archived History`，
-> **此处不再重复**——两处原本记着同一批压缩事件，每次压缩都要改两遍。
+- **已整体迁出**（current-status-note）: 逐字迁入 [`2026-10-04_backend-review-resolved-15.md`](../archive/2026-10-04_backend-review-resolved-15.md)（第 263 轮）。
 
 ## Open Findings
 
@@ -445,14 +438,7 @@
      它等待的那个异常永远不会发生。并发请求于是全部通过检查。
 - **实测记录**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
 - **Reproduction**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
-### P2-31: Go SDK 仍把负数 `maxChars` 发上 wire，注入被钳到 100 字符
-
-- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
-- **Problem**: `omitempty` 只省略 **0**，**负数照发**（`omitempty` 判定的是 Go 零值，
-  而 `-5` 不是零值）。后端解析式是 `maxChars != null ? Math.max(100, maxChars) : 4000`
-  （`MemoryController.java:154`），**判 null 不判 0**，于是负数落进 `Math.max(100, -5)`
-  → **100**。**Python 曾是同一形态**（`if max_chars:` 只跳过 0），本轮已修（见下）。
-- **Reproduction**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
+- **已整体迁出**（entry）: 逐字迁入 [`2026-10-04_backend-review-resolved-15.md`](../archive/2026-10-04_backend-review-resolved-15.md)（第 263 轮）。
 ### P2-32: 两个 Dockerfile 都不设 `SERVER_ADDRESS`，默认部署下服务对外不可达；根镜像的 healthcheck 还写死了端口
 
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
@@ -900,12 +886,7 @@
 
 ### P2-58: 四家 SDK 的响应 DTO **同缺**活体观测的 7 个字段——其中 3 个正是 V17 / V18 专门加的，而 Go 的 DTO 在 V17/V18 之后**还被改过**
 
-- **Scope**: 四家的观测响应类型：
-  `go-sdk/cortex-mem-go/dto/observation.go`、
-  `cortex-mem-spring-integration/.../dto/ObservationResponse.java`、
-  `js-sdk/cortex-mem-js/src/dto/observation.ts`、
-  `python-sdk/cortex-mem-python/cortex_mem/dto.py`。
-  **这是第 258 轮记录的请求侧 `platformSource` 缺口（无一家 SDK 暴露它）的响应侧同族问题。**
+- **Scope**: 逐字迁入 [`2026-10-04_backend-review-evidence-14.md`](../archive/2026-10-04_backend-review-evidence-14.md)（第 263 轮）。
 - **Problem**: 取活体 `GET /api/observations?limit=1` 的一条真实观测（**34 个字段**），
   与四家响应 DTO 声明的字段名逐一比对，**四家同缺同样这 7 个**：
 
@@ -922,25 +903,46 @@
   Go 与 JavaScript 的 `encoding/json` / Jackson **默认忽略未知字段**，
   所以这些字段**被服务端发过来、被 SDK 静默丢弃**——不报错、不告警，
   调用方只能看到「SDK 里没这个字段」。
-- **Evidence**: 四家逐家实测（活体字段集 = 同一条观测的 34 个键）：
-
-  | SDK | 覆盖 | 未覆盖（已排除三个向量列） |
-  |-----|------|--------------------------|
-  | Go | 24/34 | 上表 **7** 个 |
-  | JavaScript | 24/34 | 上表 **7** 个（完全相同） |
-  | Python | 23/34 | 上表 7 个 + `extractedData`（该 SDK 另有 camelCase 别名，**大概率是我的探针没匹配到，非缺陷**） |
-  | Java | — | 上表 **7** 个（`ObservationResponse` 40 个组件） |
-
-  **关键时间证据**：V17 与 V18 迁移均提交于 **2026-04-16**，
-  而 `go-sdk/cortex-mem-go/dto/observation.go` 的**最近一次改动是 2026-10-02**——
-  **DTO 在 V17/V18 之后被改过，却没有补上这两个迁移新增的列**。
-  所以这不是「SDK 早于迁移、没来得及跟上」，而是**改过之后仍然漏了**。
+- **Evidence**: 逐字迁入 [`2026-10-04_backend-review-evidence-14.md`](../archive/2026-10-04_backend-review-evidence-14.md)（第 263 轮）。
 - **不修的理由**: ①**跨四家**，不属于任何一个方向的轮次；
   ②这 7 个里**性质不同**——`platform_source` 与 V17 两项是**面向使用方的能力**
   （V18 的存在意义就是让调用方知道一条记忆来自哪个平台），
   而 `content_hash` / `embedding_model_id` 很可能与三个向量列一样属**内部列、本就不该暴露**；
   ③**该暴露哪一部分无法由证据确定**。按既定规则**记录不单方面实施**。
 - **Status**: ⏸ 记录不修（跨家 + 暴露范围待定；证据与字段来源已逐条落到迁移文件）。
+
+### P2-59: Java demo 十个控制器把后端 4xx 变成 500，**其中两个方向相反**——凭空造 404，和把 404 放大成 500
+
+- **Scope**: `examples/cortex-mem-demo/src/main/java/com/example/cortexmem/` 下 12 个控制器；
+  对照 `DemoErrors`、`ExtractionController`、`SessionLifecycleController`，
+  以及 Go / Python / JS 三家 demo 的 `main.go` / `app.py` / `app.ts`。
+- **Problem**: 四家 demo 在本机同时起（Java 37778、Go 37779、Python 37780、JS 37781），
+  对**同一个请求**打同一句话，结果是**两个相反方向**的分裂：
+  ①**放大**——后端 `PATCH /api/session/{sessionId}/user` 对未知 session 返 **404**
+  `{"error":"Session not found: no-such-session-xyz-263"}`；
+  Python / Go / JS 三个 demo **原样透传 404**，Java demo 返 **500**，
+  且 body 是 `{"error":"Failed to update session user: 404 Not Found: \"{\\\"error\\\":...\\\"}\""}`
+  ——**后端那段 JSON 被当成字符串二次转义塞进 `error` 字段**，调用方解析出来是一坨带转义的 JSON 文本。
+  ②**凭空造**——方向相反。后端 `GET /api/extraction/{templateName}/latest` 在**没有抽取结果**时
+  返的是 **HTTP 200** + in-band `{"status":"not_found", ...}`（活体实测，非 404）；
+  Python / Go / JS 三个 demo 透传 **200**，Java demo 却判 `!result.isFound()` 后**自己造了个 404**。
+  这不是边角：`ExtractionResponse` 的 Javadoc 写明 `user_preference` 是**唯一随包的模板**，
+  而任何新项目上它必然处于「还没抽过」的状态——**所以 Java demo 的这条路由在常见路径上就返 404**。
+  根因很干净：12 个控制器共 **40 个 `catch (Exception e)` 块**（脚本按花括号深度统计），
+  **只有 3 个**走到 `DemoErrors`——`ObservationsController` 2 个、`FeedbackController` 1 个，
+  **其余 10 个控制器一个都没有**，一律 `internalServerError()`。
+  顺带排除一个伪线索：Go demo 的 `/batch-observations`、`/create-observation` 与另三家不同名，
+  是**有意为之**（源码注释写明为避开 Go 1.25+ ServeMux 与 `/observations/{id}` 的路径歧义），
+  其 README 也已登记该差异——不是缺陷。
+- **已修**: `DemoErrors` 的类 Javadoc 原先写着「**Controllers** use `statusOf` / `messageOf`」，
+  在只有 2/12 控制器这么做时读起来像全覆盖声明。已按现状改写为精确表述
+  （12 个控制器 / 40 个 catch 块 / 3 个走 helper / 10 个控制器没有），
+  并点名 `PATCH /demo/session/user` 作为反例。**零行为变更**，`mvn -o test` 通过。
+- **不修的理由**: 修它要改 10 个控制器的 catch 块，**改的是 demo 对外的 HTTP 状态契约**
+  （500→404/400，且要决定 `error` 字段是否保留 SDK 前缀文本——Go/JS 加前缀、Python 不加，
+  三家自己就不一致）。按既定规则**对外契约变更记录不单方面实施**。
+  另注：`ErrorField` 的正则对 Spring 默认错误体（`{"timestamp":...,"error":"Bad Request"}`）
+  会取出 `"Bad Request"`，**这条是后端本身就没给解释**，不算信息丢失，故不单列。
 
 ### P2-48: gitignored 的 `CLAUDE.md` 端点表 25 条里有 9 条是活体 404 的幻影端点
 

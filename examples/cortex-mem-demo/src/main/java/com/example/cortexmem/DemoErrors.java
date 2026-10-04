@@ -14,9 +14,17 @@ import java.nio.charset.StandardCharsets;
  * useless text "submitFeedback failed" — a status code that lies about what happened, and a
  * message that discards the backend's explanation.
  *
- * <p>Controllers use {@link #statusOf} / {@link #messageOf} so a not-found stays a not-found
- * and the caller still learns why. The other three demos already do this: the Go demo maps
- * NotFound to 404, and the Python and JS demos pass the backend's status straight through.
+ * <p>Only {@link ObservationsController} and {@link FeedbackController} use
+ * {@link #statusOf} / {@link #messageOf}, so a not-found stays a not-found and the caller still
+ * learns why. They are <em>not</em> representative of this demo: the twelve controllers hold
+ * forty {@code catch (Exception e)} blocks between them, and only three of those reach these
+ * helpers — two in {@code ObservationsController}, one in {@code FeedbackController}. The ten
+ * other controllers answer a flat 500, so the same backend 404 that reaches a caller as 404 on
+ * the observation and feedback routes still reaches it as 500 everywhere else — for example
+ * {@code PATCH /demo/session/user} on an unknown session.
+ *
+ * <p>The other three demos have no such split: the Go demo maps NotFound to 404, and the Python
+ * and JS demos pass the backend's status straight through.
  */
 final class DemoErrors {
 
