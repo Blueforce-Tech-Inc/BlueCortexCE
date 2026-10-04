@@ -603,17 +603,17 @@ SPRING_AI_OPENAI_EMBEDDING_BASE_URL=https://api.siliconflow.cn
 # Load environment and run
 cd backend
 export $(cat .env | grep -v '^#' | grep -v '^$' | xargs)
-java -jar target/cortex-ce-0.1.0-beta.jar
+java -jar target/cortex-ce-*.jar
 
 # Run with dev profile
-java -jar target/cortex-ce-0.1.0-beta.jar --spring.profiles.active=dev
+java -jar target/cortex-ce-*.jar --spring.profiles.active=dev
 
 # Run with specific port
-java -jar target/cortex-ce-0.1.0-beta.jar --server.port=8080
+java -jar target/cortex-ce-*.jar --server.port=8080
 
 # Run with debug port
 java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 \
-     -jar target/cortex-ce-0.1.0-beta.jar
+     -jar target/cortex-ce-*.jar
 ```
 
 ### Using Maven Spring Boot Plugin

@@ -33,15 +33,11 @@
 | 249 | Java SDK + API 文档 | ⏸ 记录不修（**P2-44**：`CortexSessionContextBridgeAdvisor` 与手动 `begin/end` 不可嵌套，外层作用域被静默销毁，已补 Javadoc 约束）；✅ **`/api/context/recent` 的 `limit` 已钳制到 [1,20]**（负数此前打到 PostgreSQL 返 **HTTP 500**；双实例 A/B：500 → 200、4610 条无上界 → 20 条）；✅ API.md/中文版 62/62 路径零幻影、query 参数零漂移 |
 | 250 | Go SDK + SDK README | ⏸ 记录不修（**P2-45**：会话启动的 `projects` 能生成多项目上下文、API.md 已载，**四家 SDK 一律只发 3 个字段**；同区域另记 `is_worktree`/`parent_project` 只进日志、`WorktreeDetector` 零调用者）；✅ **两份 JS README 的测试数已更正 247 → 250**（第 246 轮我自己加的 3 条测试没同步进文档） |
 | 251 | Python SDK + 设计文档 | ✅ **`build_icl_prompt(max_chars=None)` 的裸 `TypeError` 已修**（第 233 轮把 `if max_chars:` 改成 `if max_chars > 0:` 后，该方法**唯一不对 None 安全的参数**；Java SDK 本就是 `!= null && > 0`）；✅ **`phase-3-design/25.md` 的幻影清理端点已改**（`DELETE /api/memory/observations?project_path=…` **活体 404**，改为脚本真正用的「取 id + 逐条删」，并实跑验证 1 → 0）；⏸ 记录不修（**P2-46**：验收脚本 `cleanup()` **定义了从未被调用**、内含幻影端点，Test 6 的 `not_found` 分支早已是死代码；**P2-47**：API.md 双语把只进日志的 `is_worktree`/`parent_project` 当正式字段记载） |
+| 253 | Backend + 运维/用户指南 | ✅ **读 Cursor 注册表失败不再被当成「空注册表」**（那个空结果**会被 register/unregister 写回**，实测一次注册返回 200 success 并把 16 个已注册项目全部丢弃；已改为与写路径对称地抛异常，修复后同一序列得 500 且注册表未被覆盖）；✅ **`DEVELOPMENT.md` 四处版本钉死的 jar 名改为通配**（其中文版本本就是通配，EN 侧会在版本变更后失效）；⏸ 记录不修（**P2-49**：`start.sh` 钉死版本号且是 TESTING.md 推荐的启动方式，版本变更即拒绝启动；**P2-50** 同区域：数据目录有 `CLAUDE_MEM_DATA_DIR` 与 `claudemem.data-dir` 两个互不相干的键） |
 | 252 | Demo + 架构文档 | ✅ **Python demo 的 `/extraction/history` 补上了它唯一缺失的范围校验**（解析了 `limit` 却从不校验，四家里只有它对 `limit=101` 返 200、另三家均 400）；✅ **JS demo 去掉了后端根本没有的 `maxChars` 100000 上界**（后端只有下界 `Math.max(100, …)`，四家里只有它对 `100001` 返 400）；✅ 架构文档的控制器图、服务图、迁移树**双语全部核实准确**（13 控制器 / 31 服务 / 16 迁移，零幻影零遗漏）；⏸ 记录不修（**P2-48**：gitignored 的 `CLAUDE.md` 端点表 **25 条中 9 条是活体 404** 的幻影端点） |
 
 > 历次压缩的批次与理由统一记在文末 `## Archived History`，
 > **此处不再重复**——两处原本记着同一批压缩事件，每次压缩都要改两遍。
-
-**本文件最值得记住的一点**：P2-32、P2-33、P2-34 连续三条形态完全一样 ——
-**机器可读的那一份**（Dockerfile 默认绑定、demo 路由名、Swagger 示例）与
-**人工撰写的那一份**（compose、demo README、API 文档）不一致或残缺；
-三处的**文档层都已先行更正或本来正确**，代码/产物层因契约变更留待项目决策。
 
 ## Open Findings
 
@@ -334,12 +330,11 @@
 
 ### P2-21: 健康指示器在真故障时不给原因，而测试钉死了一个不可能发生的分支
 
-- **Scope**: `cortex-mem-starter/.../CortexMemHealthIndicator.java`（`health()` 的
-  `catch (Exception e)` 分支与 `withException(e)` 详情）配合
-  `cortex-mem-client/.../CortexMemClientImpl.java:339-360`（`healthCheck()`）。
-- **Problem**: `healthCheck()` 自己 `catch (Exception e)` 后 **`return false`**，
-  **从不向外抛出**。因此 `CortexMemHealthIndicator.health()` 的 `catch` 分支
-  在生产中**不可达**，`withException(e)` 写出的 `error` 键**永远不会被填充**。
+- **Scope**: `CortexMemHealthIndicator.health()` 的 `catch` 分支与 `withException(e)` 详情，
+  配合 `CortexMemClientImpl.java:339-360` 的 `healthCheck()`。
+- **Problem**: `healthCheck()` 自己 `catch` 后 **`return false`**、**从不向外抛出**，
+  故 `health()` 的 `catch` 分支在生产中**不可达**，`withException(e)` 写出的
+  `error` 键**永远不会被填充**。
   活体实测（真实 `CortexMemClientImpl`，指向死端口 39999，超时 500ms）：
 
   ```
@@ -348,21 +343,18 @@
   hasErrorKey = false
   ```
 
-  指向真实后端时 `status=UP`。也就是说运维在 `/actuator/health` 里看到后端挂掉时，
-  只能读到「Health check returned false」——**连接被拒 / 超时 / DNS 失败这些真正
-  的原因全部丢失**，因为它们在客户端被 `log.debug` 吞掉（默认不输出）。
-  「后端不可达」与「后端自报 degraded」两种完全不同的情况，指示器给出**完全相同**的
-  文案。
+  指向真实后端时 `status=UP`。即运维看到后端挂掉只能读到「Health check returned false」——
+  **连接被拒 / 超时 / DNS 失败这些真正的原因全部丢失**，因为在客户端被 `log.debug` 吞掉
+  （默认不输出）；「后端不可达」与「后报 degraded」两种不同情况给出**完全相同**的文案。
 - **测试反而钉死了这个假象**：`CortexMemHealthIndicatorTest.health_whenClientThrows_returnsDown`
-  用 **mock** 让 client 抛出，并断言 `containsKey("error")`。这个状态
-  **真实 client 永远无法产生**，所以该用例**恒真却毫无保护作用**——
-  它让人以为异常路径已被覆盖，而生产中恰恰走不到。
-  这与第 197 轮「夹具传了后端从不下发的值」是同一类：测试覆盖的是一个**虚构状态**。
-- **核实无误的部分**：`healthCheck()` 判定 `"ok"` 的大小写是对的——后端
-  `HealthController.java:62` 返回 `dbReady ? "ok" : "degraded"`（**小写**），
-  活体 `GET /api/health` 亦为 `{"status":"ok"}`；null body、非 `ok`、异常三种
-  情况均正确返回 `false`，指示器据此 UP/DOWN 的三分支本身也正确。
-  **缺陷只在「原因丢失」与「测试虚构」两处，不在判定逻辑。**
+  用 **mock** 让 client 抛出并断言 `containsKey("error")`——该状态**真实 client 永远无法产生**，
+  故此用例**恒真却毫无保护作用**：让人以为异常路径已覆盖，而生产中恰恰走不到。
+  与第 197 轮「夹具传了后端从不下发的值」同类：测试覆盖的是**虚构状态**。
+- **核实无误的部分**：`healthCheck()` 判定 `"ok"` 的大小写是对的（后端
+  `HealthController.java:62` 返回 `dbReady ? "ok" : "degraded"`，**小写**；
+  活体 `GET /api/health` 亦为 `{"status":"ok"}`），null body / 非 `ok` / 异常
+  三种情况均正确返回 `false`，UP-DOWN 三分支本身正确——
+  **缺陷只在「原因丢失」与「测试虚构」，不在判定逻辑。**
 - **Status**: ⏸**已记录，不实现**。要让原因到达指示器，需要 `healthCheck()`
   改为向上抛出（**改变既有方法的行为契约**，所有调用方的 `catch` 都要重审），
   或为 client **新增公开 API**（如 `getLastHealthFailure()`）供指示器读取——
@@ -449,27 +441,18 @@
 - **Reproduction**: 原始实测记录已归档 → [`2026-10-04_backend-review-reproduction-4.md`](../archive/2026-10-04_backend-review-reproduction-4.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
 ### P2-27: Python SDK 无法清空 `extractedData` —— 与 Go 并列最弱，而它的注释把这一点说成了「对齐 Go」
 
-- **Scope**: `python-sdk/cortex-mem-python/cortex_mem/dto.py` 的
-  `ObservationUpdate.is_empty()` 与 `to_wire()`，两处都有一句
-  `if attr == "extracted_data" and isinstance(val, dict) and not val: continue`。
-  另含 `ObservationUpdate` 类 docstring 中一句**对 Go 的事实性错误描述**（已修，见下）。
-- **Problem**: 后端 `PATCH` 接受两种清空写法并都能落库——实测
-  `{"extractedData": null}` → 列变 **NULL**，`{"extractedData": {}}` → 列变 **`{}`**。
-  Python **两种都发不出**：`None` 走 `if val is not None` 被跳过，`{}` 走上面那句
-  `continue` 被显式跳过。探针确认 `extracted_data=None` 与 `extracted_data={}`
-  的 `to_wire()` **都是 `{}`**，且 `is_empty()` **都是 True**。因此
-  **「一条已有 extractedData 的观测无法通过 Python SDK 清空它」**。
-  活体数据佐证该字段是真实使用的：`mem_observations` 38,200 行中
-  `extracted_data` 非空对象 **20,780**、NULL **17,420**、**空对象 `{}` 为 0**——
-  后端自身从不写 `{}`，所以走 `{}` 这条路会造出库中从未出现过的状态。
-- **四家能力阶梯（清空 extractedData）**:
-
-  | SDK | 能否发 `null` | 能否发 `{}` | 结果 |
-  |---|---|---|---|
-  | JS | ✓（原样透传给 `JSON.stringify`）**（类型于第 246 轮修正，见下注）** | ✓ | 真清空 |
-  | Java | ✗（`@JsonInclude(NON_NULL)`） | ✓ | 只能落 `{}` |
-  | **Go** | ✗（`omitempty`） | ✗（`omitempty`） | **完全不能** |
-  | **Python** | ✗（`if val is not None`） | ✗（显式 `continue`） | **完全不能** |
+- **Scope**: `dto.py` 的 `ObservationUpdate.is_empty()` 与 `to_wire()`，两处都有一句
+  `if attr == "extracted_data" and isinstance(val, dict) and not val: continue`；
+  另含类 docstring 中一句**对 Go 的事实性错误描述**（已修，见下）。
+- **Problem**: 后端 `PATCH` 两种清空写法都能落库（实测 `null` → NULL、`{}` → `{}`），
+  而 Python **两种都发不出**：`None` 被 `if val is not None` 跳过、`{}` 被上面那句
+  `continue` 跳过；探针确认二者的 `to_wire()` **都是 `{}`**、`is_empty()` **都是 True**，
+  故**一条已有 extractedData 的观测无法通过 Python SDK 清空它**。
+  活体佐证该字段真实在用：38,200 行中非空 **20,780**、NULL **17,420**、**`{}` 为 0**——
+  后端自身从不写 `{}`，走这条路会造出库中从未出现过的状态。
+- **四家能力阶梯（清空 extractedData）**: JS 两种都能发（`null` 原样透传，类型于第 246 轮修正）→ **真清空**；
+  Java 只能发 `{}`（`@JsonInclude(NON_NULL)`）→ 只能落 `{}`；Go 两种都不能（`omitempty`）→ **完全不能**；
+  **Python 两种都不能**（`if val is not None` / 显式 `continue`）→ **完全不能**。
 
   （**第 247 轮补注**：`✗` 只对 Python 的 **dataclass 调用路径**成立。
   `update_observation(id, title=None)` 这种 **kwargs 写法不经过 `to_wire()`**，
@@ -771,14 +754,7 @@
   实际后果很具体：**SDK 用户无法区分一条观测来自 Claude 还是 Codex/OpenClaw**，
   也无法按平台筛选——而这正是 V18 加这个字段的目的。WebUI 侧的
   `viewer-bundle.js` 已经在按 `platform_source` 过滤，所以「能用」只在浏览器里成立。
-- **Evidence（活体 + 四家逐文件比对）**:
-  | 事实 | 证据 |
-  |------|------|
-  | 后端每条观测都带这三个字段 | 活体 `GET /api/observations?limit=1` → `platform_source='claude'`、`content_hash='1ed602d868bef3f8'`、`relevance_count=0` |
-  | 文档把它当过滤器 | `API.md` 中 `platformSource` 出现 **4** 处，含列表端点参数 |
-  | 四家 SDK 都不接受该过滤器 | 对四家 SDK 源码 `grep -i platformsource\|platform_source` → **零命中** |
-  | 四家响应 DTO 都没有该字段 | `Observation` 字段清单逐个列出：Go / JS / Java / Python **均无** |
-  | `narrative` 则四家都有 | Go / JS / Java / Python **均暴露**——说明这不是「响应 DTO 一律精简」，而是有选择 |
+- **Evidence**: 已逐字迁入 [`2026-10-04_backend-review-evidence-5.md`](../archive/2026-10-04_backend-review-evidence-5.md)（第 253 轮）。
 - **一处探针自身出错并先识别再采信**：首版探针把「DTO 解析后的对象」当 dict 处理
   （Python DTO 是 dataclass），于是**每个键都被报成丢弃**、看起来像一片灾难；
   抽查区反而暴露了真问题（`content_hash` 属性不存在），促使改用
@@ -920,16 +896,7 @@
   （`patch` 与 `delete`），**没有任何按 `project_path` 批量删除的端点**；
   `/api/observations`（GET 列表）才是脚本真正该用的。or-true 兜底把 404 吞掉，
   因此这个失败**永远不会让脚本失败**。
-- **Evidence（活体，第 251 轮）**: 该项目 `latest` 返回 `{"status":"ok", …}` 而**非** `not_found`；
-  `history` 已累积 **50** 条（`limit=50`）；`GET /api/observations` 返回 `hasMore: true`。
-  Test 6 的注释写着「**should return not_found for new project**」，但它两个分支都 pass，
-  清理从不生效，**第一个分支自首次成功抽取后就是死代码**，实际一直走 `elif`——
-  **本轮验收输出直接印证**：跑出来的是 `PASS Test 6: GET latest returns status field`。
-  - **累积已把 Test 14 退化成恒真式**：它名为「Re-extraction **removes** invalidated preference」，
-    但真正的断言只有 `pref_count >= 1`（脚本第 **515** 行，计数取自 504–514 的内联 python），
-    而本轮输出是 `Re-extraction updated with **1173** preferences`——
-    累积到这个量级，「至少有一条偏好」必然成立，该测试**已不再验证任何移除语义**；
-    同函数末尾的 `Bonus — Xiaomi correctly removed` 分支本轮**未触发**。
+- **Evidence**: 已逐字迁入 [`2026-10-04_backend-review-evidence-5.md`](../archive/2026-10-04_backend-review-evidence-5.md)（第 253 轮）。
 - **Status**: ⏸ **记录不修** —— 属脚本方向，不在本轮（Python SDK）的代码轮换内；
   且**若真把清理接上，Test 6 会切回 `not_found` 分支、累积数据会被删除**，
   属于会改变门控自身行为的改动，需在自己的轮次里单独做 A/B。
@@ -963,6 +930,41 @@
   `SessionController.java:94-95` 的 `@Operation` 示例里被复述了一遍**——按「按断言清扫
   而非按文件」，须与代码同批处理，不能只改文档半边。
 
+### P2-49: `scripts/start.sh` 把后端 jar 的版本号钉死——而它是 TESTING.md 推荐的启动方式
+
+- **Scope**: `scripts/start.sh:55`、`scripts/start-all.sh:99`、
+  `scripts/phase3-acceptance-test.sh:671`、`scripts/thin-proxy-test.sh:31`（均为注释或提示文案）；
+  文档侧 `docs/DEVELOPMENT.md` 已于本轮修正。
+- **Problem**: 与第 248 轮修掉的「jar 名写错 artifactId」**不是同一类**——那批名字从来不可能产出，
+  这批**名字是对的、只把版本钉死了**。今天与磁盘一致，**版本号一变全线失效**，
+  且失效方式不同：`start.sh:97` 直接 `Missing $JAR_PATH; rerun with --build` **拒绝启动**。
+  而 `docs/TESTING.md:212` 把 `scripts/start.sh` 列为**推荐**启动方式，
+  **一次版本变更就让文档推荐的启动路径不可用**。四个脚本 + 两份 `evo-memory-implementation*.md`
+  共 6 处（不含已修的 DEVELOPMENT.md 4 处）；当前 jar 存在故**今天不可复现**——
+  这是**由版本变更触发的潜伏缺陷**，不是当前故障。
+- **Status**: ⏸ **记录不修** —— 属脚本方向，不在本轮（Backend）轮换内。修法直接
+  （`JAR_PATH` 改 glob 取首个匹配，或用 `./mvnw spring-boot:run`），
+  但需连带 `start-all.sh` 的启动顺序与 `.env` 加载一起看，并在真实版本变更下验证一次。
+
+### P2-50: 读 Cursor 注册表失败被当成「空注册表」，而这个空结果**会被写回**
+
+- **Scope**: `CursorService.readRegistryUnlocked`、调用方 `registerProject` / `unregisterProject`；
+  `CursorController` 的 `/api/cursor/register`、`/api/cursor/register/{projectName}`。
+- **Problem**: 读失败返回**空 Map**，而这两个调用方都是「读 → 改 → 写回」，
+  **一个读失败于是成了注册表的新内容**。同类的写路径 `writeRegistryUnlocked` 却**抛异常**——
+  **读写不对称，且不对称的那一侧是破坏性的**。
+- **Evidence**: 已逐字迁入 [`2026-10-04_backend-review-evidence-5.md`](../archive/2026-10-04_backend-review-evidence-5.md)（第 253 轮）。
+- **Status**: ✅ **已修** —— `readRegistryUnlocked` 在**文件存在但无法解析**时改为抛
+  `UncheckedIOException`，与 `writeRegistryUnlocked` 对称；**「文件不存在 = 空的」保持不变**
+  （那才是真正的空）。方法 Javadoc 写明了为什么不能返回空：返回空会被写回。
+  调用方本就 `catch (Exception)` 并返回 500，无需改动。
+- **同区域新发现（记录不修）**: **数据目录有两个互不相干的键**——`CursorService` 用
+  `@Value("${claudemem.data-dir:…}")`，`AppSettings` 用 `CLAUDE_MEM_DATA_DIR`。
+  设后者只会挪走 `settings.json`，**`cursor-projects.json` 仍落在 `~/.claude-mem/`**——
+  本轮第一次起隔离实例就这么把 4 个探针写进了真实注册表（原始 16 条未丢，已清理）；
+  正确写法是 `-Dclaudemem.data-dir=...`。两键并存、语义重叠、文档未说明，需项目拍板收敛。
+
+
 ### P2-48: gitignored 的 `CLAUDE.md` 端点表 25 条里有 9 条是活体 404 的幻影端点
 
 - **Scope**: `CLAUDE.md`（本地文件，**未纳入版本控制**）。`AGENTS.md` 已跟踪，**无幻影**（表内 0 条端点）。
@@ -977,10 +979,7 @@
   早已被观察到，并入既有的 `AGENTS.md` / `CLAUDE.md` 待决项；**其余 7 条是本轮首次精确计量**。
   同区域的另一处漂移：`CLAUDE.md` 的项目结构写「controller/ # 17 controllers」，
   **实测 13 个**（service 写「28+」，实测 29，属「+」的合法范围，不计）。
-- **Evidence**: 其中 `POST /api/ingest/session-start` 是本轮探针的**意外来源**——
-  验证 `backend/README.md` 的 walkthrough 时误用了该路径，**404** 之下才查出幻影只在
-  `CLAUDE.md` 里；`backend/README.md` 本身**完全正确**（只列 4 个真实 ingest 端点，
-  walkthrough 用的 `tool-use` 与 `session-end` 均真实存在）。
+- **Evidence**: 已逐字迁入 [`2026-10-04_backend-review-evidence-5.md`](../archive/2026-10-04_backend-review-evidence-5.md)（第 253 轮）。
 - **Status**: ⏸ **记录不修** —— `CLAUDE.md` 是 **gitignored 的本地文件**
   （`git ls-files` 未跟踪、`git check-ignore` 命中），改动**不会进入版本控制**，
   且「是否取消其 gitignore」本身仍是待用户决策事项；不在本轮静默修改。

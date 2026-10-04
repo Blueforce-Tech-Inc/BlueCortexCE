@@ -95,6 +95,21 @@ public class CursorService {
     /**
      * Read registry from disk without acquiring registryLock.
      * Must only be called from within a synchronized(registryLock) block.
+     *
+     * <p>A missing file is genuinely empty and returns an empty map. A file that
+     * exists but cannot be parsed is a different thing entirely, and returning
+     * an empty map for it is destructive: {@link #registerProject} and
+     * {@link #unregisterProject} both read, mutate and write back, so an empty
+     * read is not merely a wrong answer to a question — it becomes the new
+     * contents of the registry. Measured on a live backend with a truncated
+     * registry, one register call returned {@code 200 {"success":true}} and left
+     * the file holding exactly the one entry it had just added, silently
+     * discarding every previously registered project.
+     *
+     * <p>So this now fails the same way {@link #writeRegistryUnlocked} already
+     * failed — with {@link UncheckedIOException} — rather than inventing an
+     * empty registry. Callers already handle it: {@code CursorController} catches
+     * and answers 500 instead of reporting a success that lost data.</p>
      */
     private Map<String, CursorProjectEntry> readRegistryUnlocked() {
         Path registryPath = getRegistryPath();
@@ -119,7 +134,10 @@ public class CursorService {
             return new HashMap<>(registry);
         } catch (IOException e) {
             log.error("Failed to read cursor registry: {}", e.getMessage());
-            return new HashMap<>();
+            // Not an empty registry. See the method Javadoc: returning one here
+            // is persisted by the register/unregister paths and destroys the
+            // projects that were already registered.
+            throw new UncheckedIOException("Failed to read cursor registry", e);
         }
     }
 
