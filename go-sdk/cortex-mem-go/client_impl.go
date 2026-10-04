@@ -123,11 +123,21 @@ func NewClient(opts ...Option) Client {
 	if cfg.MaxRetries < 1 {
 		cfg.MaxRetries = 1 // At least one attempt (no retries is valid)
 	}
+	// Floor the timeouts at 100ms rather than resetting them to the default.
+	// The previous code assigned the *default* (30s / 10s), which meant
+	// WithTimeout(50*time.Millisecond) silently produced a 30s timeout -- 600x
+	// longer than the caller asked for, and the opposite of what a caller
+	// bounding a fast liveness probe wants. Measured before the fix: 0, 10ms and
+	// 50ms all produced 30s. Two things pinned the intent to "floor": the
+	// sibling line below already floors RetryBackoff at exactly 100ms using the
+	// same trigger constant, and the Python SDK does `max(0.1, timeout)` with
+	// the comment "Minimum 100ms to prevent immediate timeout". Only the value
+	// after `=` was wrong.
 	if cfg.Timeout < 100*time.Millisecond {
-		cfg.Timeout = 30 * time.Second // Reset to default if unreasonably low
+		cfg.Timeout = 100 * time.Millisecond
 	}
 	if cfg.ConnectTimeout < 100*time.Millisecond {
-		cfg.ConnectTimeout = 10 * time.Second // Reset to default if unreasonably low
+		cfg.ConnectTimeout = 100 * time.Millisecond
 	}
 	if cfg.RetryBackoff < 100*time.Millisecond {
 		cfg.RetryBackoff = 100 * time.Millisecond // Minimum 100ms to prevent tight-loop retry

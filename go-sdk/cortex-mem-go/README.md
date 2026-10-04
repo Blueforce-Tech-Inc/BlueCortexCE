@@ -10,7 +10,7 @@ Go client library for [Cortex CE](https://github.com/Blueforce-Tech-Inc/BlueCort
 - **Full API coverage** — 25 methods covering Session, Capture, Retrieval, Management, Extraction, Version, P1
 - **Framework integrations** — optional Eino, LangChainGo, and Genkit modules
 - **Wire format compatible** — JSON field names match backend API exactly
-- **Comprehensive tests** — 359 tests with wire format verification. The root module runs 299 (core 232 + dto 67); the adapter and example modules add 60 more when run from their own directories (eino 8 + genkit 13 + langchaingo 12 + `examples/http-server` 27). See [Testing](#testing) for why `go test ./...` alone only reaches the root module.
+- **Comprehensive tests** — 362 tests with wire format verification. The root module runs 302 (core 235 + dto 67); the adapter and example modules add 60 more when run from their own directories (eino 8 + genkit 13 + langchaingo 12 + `examples/http-server` 27). See [Testing](#testing) for why `go test ./...` alone only reaches the root module.
 
 ## Installation
 
@@ -178,8 +178,8 @@ retriever := genkit.NewRetriever(client, "/my-project",
 
 **This SDK is 9 separate Go modules, not one.** `eino/`, `genkit/`, `langchaingo/`
 and each directory under `examples/` carry their own `go.mod`, so a bare
-`go test ./...` run from this directory only reaches the root module — 299 of
-the 359 tests. The four adapter and example modules it skips are exactly the
+`go test ./...` run from this directory only reaches the root module — 302 of
+the 362 tests. The four adapter and example modules it skips are exactly the
 ones most likely to rot against an upstream framework upgrade, so run all nine:
 
 ```bash
@@ -189,8 +189,8 @@ find . -name go.mod -exec dirname {} \; | sort | while read -r d; do
 done
 ```
 
-Measured on 2026-10-03, all nine green: core 232 + dto 67 + eino 8 + genkit 13
-+ langchaingo 12 + `examples/http-server` 27 = **359**. The other four
+Measured on 2026-10-04, all nine green: core 235 + dto 67 + eino 8 + genkit 13
++ langchaingo 12 + `examples/http-server` 27 = **362**. The other four
 `examples/` modules have no test files and report `[no test files]`.
 
 ```bash

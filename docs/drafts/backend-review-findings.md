@@ -21,6 +21,7 @@
 | 252 | Demo + 架构文档 | ✅ **Python demo 的 `/extraction/history` 补上了它唯一缺失的范围校验**（解析了 `limit` 却从不校验，四家里只有它对 `limit=101` 返 200、另三家均 400）；✅ **JS demo 去掉了后端根本没有的 `maxChars` 100000 上界**（后端只有下界 `Math.max(100, …)`，四家里只有它对 `100001` 返 400）；✅ 架构文档的控制器图、服务图、迁移树**双语全部核实准确**（13 控制器 / 31 服务 / 16 迁移，零幻影零遗漏）；⏸ 记录不修（**P2-48**：gitignored 的 `CLAUDE.md` 端点表 **25 条中 9 条是活体 404** 的幻影端点） |
 | 253 | Backend + 运维/用户指南 | ✅ **读 Cursor 注册表失败不再被当成「空注册表」**（那个空结果**会被 register/unregister 写回**，实测一次注册返回 200 success 并把 16 个已注册项目全部丢弃；已改为与写路径对称地抛异常，修复后同一序列得 500 且注册表未被覆盖）；✅ **`DEVELOPMENT.md` 四处版本钉死的 jar 名改为通配**（其中文版本本就是通配，EN 侧会在版本变更后失效）；⏸ 记录不修（**P2-49**：`start.sh` 钉死版本号且是 TESTING.md 推荐的启动方式，版本变更即拒绝启动；**P2-50** 同区域：数据目录有 `CLAUDE_MEM_DATA_DIR` 与 `claudemem.data-dir` 两个互不相干的键） |
 | 254 | Java SDK + API 文档 | ✅ **`is_worktree` / `parent_project` / `projects` 三处错误描述在文档与活体 OpenAPI 上一并更正**（P2-47；`@Schema` 才是真正对外的那一份，三处均为描述文本、字段与行为未变）；✅ **10 个已删源码的陈旧测试类被清出**（其中 P2-44 的 `NestingProbeTest` 仍在失败，使 `mvn test` 退出非零；`mvn clean test` 后 **196 = 143+46+7** 与 README 逐字吻合）；✅ Java SDK 空安全核实为真（`maxChars != null && > 0`、primitive `limit` 不可能为 null）；⏸ 记录不修（**P2-51**：`projects` 只在值中含逗号时生效，单个值被静默忽略、与不传等价） |
+| 255 | Go SDK + SDK README | ✅ **`WithTimeout(50ms)` 此前实际得到 30 秒**（钳「下限」却赋「默认最大值」，比请求值长 600 倍且方向相反；**同一段代码的 `RetryBackoff` 用同一常量做地板、Python 是 `max(0.1, timeout)`**——Go 是四家里唯一把下限做成上限的）；已改为 100ms 地板，+3 条测试（根模块 299 → 302、覆盖率 95.2% → 95.7%），**双向注入回退后恰好 1 条失败**；✅ **两份 Go README 测试数已双语同步 359 → 362** |
 
 > 历次压缩的批次与理由统一记在文末 `## Archived History`，
 > **此处不再重复**——两处原本记着同一批压缩事件，每次压缩都要改两遍。
@@ -919,6 +920,40 @@
   于是**一次真实的测试失败被完美地掩盖了**。
   「管道会吞掉上游退出码」是 Bash 的基本事实，本轮**又一次**靠人工核对才发现
   （与第 252 轮 `grep -P`、第 253 轮行号偏移同属「探针自身出错」一类）。
+
+
+### P2-53: Go SDK 的 `WithTimeout` 把「太小的值」重置成**默认最大值**——请求 50ms 实际得到 30s
+
+- **Scope**: `go-sdk/cortex-mem-go/client_impl.go` 的 `NewClient` 配置归一化段。
+- **Problem**: 归一化写的是
+  `if cfg.Timeout < 100*time.Millisecond { cfg.Timeout = 30 * time.Second }`——
+  **触发条件是「太小」，赋的却是「默认值里的最大值」**。于是调用方
+  `WithTimeout(50*time.Millisecond)` 得到 **30 秒**，比要求的值长 **600 倍**，
+  且方向正好相反：想用短超时给健康探针兜底的人，拿到的是最长的那个。
+  `ConnectTimeout` 同样（`10 * time.Second`）。
+  **两处证据把意图钉死为「地板」而非「重置」**：
+  ①**同一段代码的下一行** `RetryBackoff` 用的是**同一个触发常量**而赋值
+  `100 * time.Millisecond`——它才是地板；②**Python SDK** 同一概念是
+  `self._timeout = max(0.1, timeout)`，注释写「Minimum 100ms to prevent immediate timeout」。
+  三家对照：Java 的 `readTimeout` **完全不钳制**、Python 钳到 0.1s 地板、**Go 钳到 30s 天花板**——
+  **Go 是唯一把下限做成上限的一家**。`DefaultClientConfig` 本身就已是 30s / 10s，
+  所以这段归一化**只会在调用方显式传小值时触发**，而那正是它要服务的场景。
+- **Evidence**: 修复前实测（探针直接读归一化后的 `httpClient.config`）：
+  请求 `0 / 10ms / 50ms` → 实际 `30s / 30s / 30s`；请求 `100ms` → `100ms`；
+  请求 `5s` → `5s`；**同段对照** `RetryBackoff(10ms)` → `100ms`。
+  修复后 `0 / 10 / 50 / 99 / 100ms` → 全部 `100ms`，`250ms` 与 `5s` 原样透传。
+- **Status**: ✅ **已修** —— 两处改为地板 `100 * time.Millisecond`，与 `RetryBackoff`
+  及 Python SDK 一致；注释改写为说明「为什么是地板」，并记录修复前的实测。
+  **新增 3 条测试**（`config_internal_test.go`，**必须是内部测试包**：
+  归一化结果存在未导出的 `httpClient` 上，外部测试包 `cortexmem_test` **完全无法观察**
+  ——**这正是该缺陷能存活的原因：没有任何测试断言过归一化路径**）：
+  地板与透传、两个对照组（`RetryBackoff` 地板、默认值 30s/10s/500ms 不变）。
+  **双向注入**：回退到修复前的 `= 30 * time.Second` / `= 10 * time.Second` 后
+  **恰好 1 条失败**（`TestClientTimeoutIsFlooredNotReset`），
+  **两条对照组在两种状态下都不失败**。根模块 **299 → 302**，
+  覆盖率 **95.2% → 95.7%**，全模块 `test-all.sh` 九个模块全绿。
+  **两份 README 的测试数已双语同步 359 → 362**（根模块 299 → 302、core 232 → 235、
+  实测日期 2026-10-03 → 2026-10-04）。
 
 
 ### P2-48: gitignored 的 `CLAUDE.md` 端点表 25 条里有 9 条是活体 404 的幻影端点

@@ -10,7 +10,7 @@
 - **完整 API 覆盖** —— 25 个方法，涵盖会话、捕获、检索、管理、提取、版本、P1
 - **框架集成** —— 可选的 Eino、LangChainGo、Genkit 模块
 - **Wire 格式兼容** —— JSON 字段名与后端 API 完全一致
-- **全面测试** —— 359 个测试，含 Wire 格式验证。根模块跑 299 个（core 232 + dto 67）；适配器与示例模块从各自目录运行时再增加 60 个（eino 8 + genkit 13 + langchaingo 12 + `examples/http-server` 27）。为何单跑 `go test ./...` 只覆盖根模块，见[测试](#测试)。
+- **全面测试** —— 362 个测试，含 Wire 格式验证。根模块跑 302 个（core 235 + dto 67）；适配器与示例模块从各自目录运行时再增加 60 个（eino 8 + genkit 13 + langchaingo 12 + `examples/http-server` 27）。为何单跑 `go test ./...` 只覆盖根模块，见[测试](#测试)。
 
 ## 安装
 
@@ -174,7 +174,7 @@ retriever := genkit.NewRetriever(client, "/my-project",
 
 **本 SDK 是 9 个独立的 Go module，而不是一个。** `eino/`、`genkit/`、
 `langchaingo/` 以及 `examples/` 下的每个目录都有自己的 `go.mod`，因此在本目录
-直接执行 `go test ./...` **只能覆盖根模块**——359 个测试里的 299 个。被跳过的
+直接执行 `go test ./...` **只能覆盖根模块**——362 个测试里的 302 个。被跳过的
 四个适配器与示例模块，恰恰是最容易随上游框架升级而失效的部分，所以请跑全部九个：
 
 ```bash
@@ -184,8 +184,8 @@ find . -name go.mod -exec dirname {} \; | sort | while read -r d; do
 done
 ```
 
-2026-10-03 实测九个全绿：core 232 + dto 67 + eino 8 + genkit 13
-+ langchaingo 12 + `examples/http-server` 27 = **359**。其余四个 `examples/`
+2026-10-04 实测九个全绿：core 235 + dto 67 + eino 8 + genkit 13
++ langchaingo 12 + `examples/http-server` 27 = **362**。其余四个 `examples/`
 模块没有测试文件，会输出 `[no test files]`。
 
 ```bash
