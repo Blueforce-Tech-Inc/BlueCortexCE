@@ -19,24 +19,15 @@
 ### P2-24: V17 反馈机制整体未接线 —— 实体还映射了一个不存在的列
 
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
-- **Problem**：本轮从 P1-3 顺藤摸下来，发现 **V17 从未被记录为 finding**。三条实证：
-  ①`ObservationFeedbackEntity` 有一个 `@Column(name = "created_at")` 的 `OffsetDateTime` 字段，
-  而 `V17__observation_feedback.sql` **从未创建该列**——活体 `information_schema` 确认
-  `observation_feedback` 只有 `id / observation_id / signal_type / session_db_id /
-  created_at_epoch / metadata` 六列。Hibernate 对 `SELECT f FROM ObservationFeedbackEntity f`
-  这类不指定列的 JPQL 会**逐个 SELECT 全部映射列**，因此**任何**触及该实体的查询都会报
-  `column "created_at" does not exist`。**已修**：删除该字段与其 getter/setter，
-  并在 `createdAtEpoch` 上写明不要在无迁移的情况下加回。
-  ②`findByObservationIdOrderByCreatedAtDesc` 的 `@Query` 实际按 `createdAtEpoch` 排序，
-  **方法名描述的列根本不存在**，且零调用方。**已修**：改名为
-  `findByObservationIdOrderByCreatedAtEpochDesc`，与 P1-3 是同一类「名字与实际不符」的陷阱。
-  ③**V17 声明的三项能力全部没有写入方**：活体库 `observation_feedback` **0 行**、
-  `generated_by_model` 非空 **0 行**、`relevance_count <> 0` **0 行**；
-  `grep setRelevanceCount` 在 `main` 源码中**零命中**。
-  即「Thompson Sampling 优化的基础」目前是**纯脚手架**。
-- **Severity 说明**：①是**潜伏缺陷**而非启动即崩——注入回错误映射后后端**仍能正常启动**，
-  因为该表 0 行、repository 零调用方，Spring Data 不会预校验 JPQL 引用的列。
-  它会在**第一次真正使用该实体时**炸掉。③是**未实现特性**而非错误行为。
+- **Problem**：**V17 反馈机制整体未接线**，三条实证：①`ObservationFeedbackEntity` 映射了一个
+  `V17` **从未创建**的 `created_at` 列（活体 `information_schema` 只有六列），任何触及该实体的
+  查询都会报 `column "created_at" does not exist`；②`findByObservationIdOrderByCreatedAtDesc`
+  实际按 `createdAtEpoch` 排序、**方法名描述的列不存在**且零调用方；③V17 声明的三项能力
+  **全部没有写入方**，「Thompson Sampling 优化的基础」目前是**纯脚手架**。
+- **Severity 说明**：①是**潜伏缺陷**而非启动即崩——该表 0 行、repository 零调用方，Spring Data
+  不预校验 JPQL 引用的列，故后端仍能正常启动，会在**第一次真正使用该实体时**炸掉。
+  ③是**未实现特性**而非错误行为。
+- **实测证据**: 逐字迁入 [`2026-10-05_backend-review-evidence-16.md`](../archive/2026-10-05_backend-review-evidence-16.md)（第 267 轮）——含逐列清单、两个 `0 行 / 0 非空` 计数与 `grep setRelevanceCount` 零命中。
 - **Verification**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
 - **Status**：①②✅ **已修复**（2026-10-03，第 219 轮）。
   ③⏸ **记录不实现** —— 接入反馈采集属**新增特性**（需要新的写入路径、信号定义与
@@ -319,24 +310,15 @@
 ### P2-23: SSE 连接数超限返回 500（应为 503），且没有心跳，死连接最长占用名额 30 分钟
 
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
-- **Problem 1 —— 状态码语义错误**：第 101 个客户端被拒时，后端**没有任何
-  `@ControllerAdvice` / `@ExceptionHandler`**（全仓唯一命中的是
-  `config/AsyncConfig.java` 的 `AsyncUncaughtExceptionHandler`，与 MVC 异常无关），
-  `IllegalStateException` 直穿到容器默认处理。活体实测（105 条并发裸 socket）：
-  **恰好 100 条 `200`，第 101–105 条 `500`**。容量耗尽是「服务暂时不可用」，
-  返回 500 会让任何按 5xx 告警的监控在**每次触顶时都误报为服务故障**；应为 503
-  （或 429）。且 `stream()` 的 `@ApiResponse` **只声明了 200**，该分支在契约中不存在。
-  活体响应 `Content-Length: 0`，**不泄漏内部信息**——问题纯粹在状态码。
-- **Problem 2 —— 没有心跳，死连接要等下一次事件才被回收**：清理只发生在
-  `SseEmitter` 的 `onCompletion` / `onError` / `onTimeout` 回调，以及
-  `broadcast()` 捕获 `IOException` / `IllegalStateException` 时。全仓**没有任何周期性
-  心跳广播**——四处 `broadcast()` 调用全部是事件驱动的
-  （`IngestionController:272,365`、`SummaryGenerationService:153`、`AgentService:288`），
-  `SSEBroadcaster` 自身也没有 `@Scheduled` 清理。因此**服务端毫无活动时，废弃连接会一直
-  留在名单里**，直到 `claudemem.sse.timeout-ms`（默认 1800000ms = **30 分钟**）触发
-  `onTimeout`。**100 个「连上就断」的客户端即可让所有新 SSE 客户端在最长 30 分钟内
-  持续拿到 500**，而此时后端可能一条事件都没产生过。这正是代理与浏览器普遍掐断空闲
-  SSE 连接的场景。
+- **Problem 1 —— 状态码语义错误**：SSE 连接数触顶（第 101 个客户端被拒）时，后端**没有任何
+  `@ControllerAdvice` / `@ExceptionHandler`**，`IllegalStateException` 直穿到容器默认处理并返回
+  **500**；容量耗尽是「服务暂时不可用」，应为 503（或 429）。且 `stream()` 的 `@ApiResponse`
+  **只声明了 200**，该分支在契约中不存在。
+- **Problem 2 —— 没有心跳，死连接要等下一次事件才被回收**：清理只发生在 `SseEmitter` 的
+  `onCompletion` / `onError` / `onTimeout` 回调与 `broadcast()` 捕获异常时，全仓**无任何周期性
+  心跳广播**，故废弃连接会一直占住名额，直到 `claudemem.sse.timeout-ms`（默认 **30 分钟**）
+  触发 `onTimeout`。
+- **实测证据**: 逐字迁入 [`2026-10-05_backend-review-evidence-16.md`](../archive/2026-10-05_backend-review-evidence-16.md)（第 267 轮）——含 105 条并发裸 socket 实测（**恰好 100 条 200、第 101–105 条 500**）、四处 `broadcast()` 调用点行号，以及活体响应 `Content-Length: 0` 不泄漏内部信息。
 - **Status**: ⏸ **记录不修** —— 把 500 改成 503 属**对外契约变更**（客户端与监控
   都会看到不同状态码），按既定纪律留待项目决策；补心跳则会改变流量形态与
   `SseEmitter` 生命周期，同样需要决策。**两者都已写入本条，后端代码一字未改。**
@@ -955,24 +937,30 @@
 ### P2-48: gitignored 的 `CLAUDE.md` 端点表 25 条里有 9 条是活体 404 的幻影端点
 
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
-- **Problem**: 把 `CLAUDE.md` 里形如 `| METHOD | \`/path\` |` 的表格行逐条对拍活体 `/v3/api-docs`：
-  **25 条中匹配 16 条，幻影 9 条**，9 条**逐条实测为 404**：
-  `POST /api/ingest/session-start`、`POST /api/memory/save`、`POST /api/context/observations`、
-  `GET /api/memory/quality-stats`（真实为 `quality-distribution`）、
-  `GET|POST /api/modes/active`、`GET /api/sessions`、`GET /api/sessions/{id}`、
-  `POST /api/sessions/import`（真实为 `/api/import/sessions`）；
-  `/api/ingest` 下实际只有 `observation` / `session-end` / `tool-use` / `user-prompt` 四条。
-  其中 `GET /api/sessions` 与幻影 MCP 工具 `__IMPORTANT`、`V17` 标为「✅ Complete」
-  早已被观察到，并入既有的 `AGENTS.md` / `CLAUDE.md` 待决项；**其余 7 条是本轮首次精确计量**。
-  同区域的另一处漂移：`CLAUDE.md` 的项目结构写「controller/ # 17 controllers」，
-  **实测 13 个**（service 写「28+」，实测 29，属「+」的合法范围，不计）。
-- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
+- **Problem**: `CLAUDE.md` 的端点表 25 条里有 **9 条幻影端点**，9 条**逐条实测为 404**；
+  同区域另一处漂移：项目结构写「controller/ # 17 controllers」，**实测 13 个**。
+- **实测证据**: 逐字迁入 [`2026-10-05_backend-review-evidence-16.md`](../archive/2026-10-05_backend-review-evidence-16.md)（第 267 轮）——含 9 条路径逐条清单、`/api/ingest` 实际四条，以及 service「28+」实测 29 属合法范围故不计。
 - **Status**: ⏸ **记录不修** —— `CLAUDE.md` 是 **gitignored 的本地文件**
   （`git ls-files` 未跟踪、`git check-ignore` 命中），改动**不会进入版本控制**，
   且「是否取消其 gitignore」本身仍是待用户决策事项；不在本轮静默修改。
   **待该决策落地后**，修法即按 `API.md` 的真实路径逐条更正这 9 行；其中
   `ingest/session-start`、`memory/save`、`context/observations` 三条
   **须先确认是被重命名还是从未存在**——若是后者则是纯粹删除。
+### P2-61: `TestController` 的 `@Profile("!prod")` 指向一个本仓库**不存在的 profile**——它承诺的生产隔离从未生效
+- **Scope / Evidence**: `backend/src/main/java/com/ablueforce/cortexce/controller/TestController.java:26-27`。
+- **Problem**: 类级 `@Profile("!prod")` 与紧邻的 `@Tag` 描述都声称这些端点「Only available in
+  non-production environments」。但**本仓库只有 `dev` 与 `prd` 两个 profile**——只有
+  `application.yml` / `application-dev.yml` / `application-prd.yml`，**没有 `application-prod.yml`**；
+  全仓 `SPRING_PROFILES_ACTIVE` 只出现三个值：`prd`（`docker-compose.yml:52` 默认）、`dev`
+  （两个 e2e 脚本）、以及构建说明里「不设」。`!prod` 在这三种情形下**全部匹配**，即该门控
+  **永不排除任何东西**；它唯一会生效的场景（`SPRING_PROFILES_ACTIVE=prod`）恰恰是**没有对应
+  配置文件**的场景。后果是 `prd` 部署下三个**会实际消耗 LLM / 嵌入配额**的调试端点照常开放：
+  活体（`--spring.profiles.active=dev`）`/api/test/llm` → 200、`/api/test/all` → 200、
+  `/api/test/embedding` → 500（**已失效的嵌入密钥**，即 P2-28 记录的那一条，非本轮新缺陷）。
+  文档侧同源两处：`docs/ARCHITECTURE.md:880` 的 API 分层表列出 `/api/test/*` 时**未提任何
+  profile 限定**；P2-28 第 401 行「`@Profile("!prod")` 门控是**正确的**」据本条证据需要修正。
+- **Status**: ⏸ **记录不修** —— 把它改成 `!prd` 会让三个端点在**默认 compose 部署下消失**，
+  属**对外契约变更**；且本轮代码方向为 Python SDK，后端不在本轮范围内。**本轮未改任何后端代码。**
 
 ## Processing Rules
 - SDK/Demo findings are fixed in place with focused compile/test verification.

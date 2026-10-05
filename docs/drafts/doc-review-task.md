@@ -108,8 +108,14 @@
 
   **初筛本身是探针错**：我的否定词表没覆盖文档实际使用的措辞，于是把「文档正在说明它不存在」误报成「文档声称它存在」。**没有据此改任何一处。**
 
-- **下一方向**: 架构文档（一百六十八轮）
-- **新增待决**: ①`docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分；②**本仓库无任何 CI 跑测试**——`.github/workflows/` 下只有 `docker.yml`，做 checkout + QEMU/Buildx + 推多架构镜像，**不跑测试**，workflows 中 `go test` 零命中；接 CI 需决定跑哪些套件与是否 provisioning 数据库/密钥，属基础设施决策
+- **最近完成**: 架构文档（2026-10-05 一百六十八轮，**七个角度全扫，零缺陷**）。**DOC-1（核实无误、未改）** **行号引用**：全文仅 2 处 `文件:行号`，逐处核到源码——`SessionController.java:47` 正是 `@RestController`、`:108` 正是 `@PostMapping(value = "/start")`；`dto/OffsetPageRequest.java:107-114` 正是 `equals` 方法体、instanceof 落在 109 行，与文中自述「the instanceof line itself is 109」**完全一致**。**组件计数**：服务层图中 29 条与 `service/` 下**实测 29 个类一一对应**（`XmlParser` 标注在 util、`ClaudeMemMcpTools` 标注在 mcp，两处标注也都对）；仓储 6 ↔ 6；事件类图写「`PendingMessageEvent` + Listener + Publisher」「`MemoryRefineEvent` + Listener + Publisher」，`event/` 下**恰是这 6 个文件**。**端点数**：`ContextController` 声称「7 endpoints incl. /semantic」，`@*Mapping` 实测**恰 7**；Viewer 行声称「15 methods」，对活体 `/v3/api-docs` 逐路径数操作数 = **15，精确**（含 `/api/settings` 与 `/api/modes` 各 2 个操作才算得满）。**配置摘录**：`server.port/address`、`threads.virtual.enabled`、datasource 三层嵌套默认值、`jpa.ddl-auto: none` / `open-in-view: false`、`claudemem.llm.provider` 与实际 `application.yml` **逐项吻合**；紧随其后的 dev/prd 差异注记（`prd` 走 `api.openai.com` + `gpt-4o` + `text-embedding-3-small` @1536）实测属实。**模式数**：文中称 32 个 profile（`code` + 30 个 `code--*` + `email-investigation`），`modes/` 下**恰 32 个 json**、`code--` 前缀**恰 30**、其余恰为 `code.json` 与 `email-investigation.json`。**安全章节**：`proxy/tag-stripping.js` 存在且四种标签全在其中；compose 端口映射 `"${POSTGRES_PORT:-5433}:5432"` 在第 35 行；`.env.example` 存在。**目录树**：`proxy/` 列的 10 项**逐项存在**，含第 248 轮曾断言「仓库根本没有 `java/` 目录」时容易误判的 `proxy/java/proxy/test-full-flow.mjs`——那次说的是**仓库根**，此处确实有；`wrapper.js` 的真实事件→端点映射与文档 `ENDPOINTS` 表**逐项一致**。
+
+  **两个探针自身出错、先识别再采信**：①数 Go 的方法数时用 `awk '/^type Client interface/,/^}/'` 截取，把**嵌套接口**的 `String() string` 也算了进去得 27；改用「从第 9 行起、遇行首 `}` 即止」重新截取后为 **25**。②核端点存在性时拿文档里的 `/api/cursor/`、`/api/test/` 这类**前缀**去和活体的**全路径**做等值比较，得「活体无对应者」——实际两处都在（各 3 条路径）；改按前缀匹配后，文档 32 条 `/api` 引用中唯一在活体不存在的只有 `/api/ingest/session-start`，而**文档自己已两处写明它返回 404**，属**已声明**而非漂移。
+
+  **本轮唯一的真缺陷在后端而非文档**，已记为 **P2-61**：`TestController` 的类级 `@Profile("!prod")` 指向本仓库**不存在的 profile**（只有 `dev` 与 `prd`），该门控在项目实际使用的每一种 profile 下**都匹配、永不排除任何东西**，而 `@Tag` 描述却声称「Only available in non-production environments」。**架构文档 `ARCHITECTURE.md:880` 列出 `/api/test/*` 时不带任何 profile 限定，据此反而是准确的**——因为门控确实从不生效，本轮**未改该行**；代码方向为 Python SDK，后端不在本轮范围内，故 ⏸ 记录不修。
+
+- **下一方向**: 运维/用户指南（一百六十九轮）
+- **新增待决**: ①`docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分；②**本仓库无任何 CI 跑测试**——`.github/workflows/` 下只有 `docker.yml`，做 checkout + QEMU/Buildx + 推多架构镜像，**不跑测试**，workflows 中 `go test` 零命中；接 CI 需决定跑哪些套件与是否 provisioning 数据库/密钥，属基础设施决策；③**`backend-review-findings.md` 虽经第 267 轮压缩回到 988 行，但该杠杆已用到第三种**（⏸ 条目保留 Problem、只迁出其中的可复现实测细节），**第四种尚未出现**——是否拆分仍待决
 - **Pending 状态**: 文档问题清单已清空（0 项待处理）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
 
