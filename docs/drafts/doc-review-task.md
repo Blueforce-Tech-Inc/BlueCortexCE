@@ -183,7 +183,9 @@
   > **写之前特意验证了一环**：初稿写的是「发布镜像的 healthcheck 写死 37777」，而我只知道 `DOCKER_README` 的构建命令是 `docker build -t cortex-ce:latest .`——**那是推断不是证据**。补查 CI workflow 后才敢落笔：`context: .` + 无 `file:` 覆盖 ⇒ build-push-action 取根目录 `Dockerfile`，**推断升级为已证实**。**这正是「宁少勿错」的落地**：差这一步就是拿推断当事实写进文档。
 - **最近完成**: 架构文档（2026-10-06 一百八十九轮，**两个角度全核，零缺陷**）。**DOC-0（本轮零改动）** ①**技术栈表的版本声明逐项核实，七项全部为真**：Spring Boot **3.3.13** = `backend/pom.xml:10`；Java **21** = `<java.version>21</java.version>`；PostgreSQL **16** = 活体 `PostgreSQL 16.8` 且 compose 固定 `pgvector/pgvector:pg16`；pgvector **0.8** = 活体 `vector 0.8.1`（文档写的是小版本系列，**准确**）；Flyway = `flyway-core` 在依赖里；Proxy = `proxy/package.json` 依赖 `axios ^1.6.0`。②**「Java 21+ Features Used」的两处强声称**：`ApiRequests.ToolUseRequest` 确为 `public record` 且带 `@JsonProperty` 蛇形名（文档片段省略了交错的 `@Schema`，**但并未声称逐字**）；`OffsetPageRequest.java:107-114` 的 `equals` 与文档片段**逐字一致**、**109 行正是 instanceof 行**（与文中自述相容）、**确实比较四个字段**——文档还自记了「早期版本只显示两个字段、读起来像忽略了 offset 与 sort」的更正历史。
   > **一处差点误报的**：文档片段里的 record 少了交错的 `@Schema` 注解，乍看像「摘录不实」。查证后发现**该片段上方只写了「real: ApiRequests.ToolUseRequest」并未声称逐字**，而真正标注「Quoted verbatim」的是下面那段 `equals`——**那段确实逐字一致**。**判据**：**「是否声称逐字」要按每一段各自的标注读，不能按整节统一认定**。
-- **下一方向**: SDK README（一百九十轮）
+- **最近完成**: SDK README（2026-10-06 一百九十轮，**零缺陷**）。**DOC-0（本轮零改动）** 取 Go README 的错误处理段作对照：它教的是 `cortexmem.IsNotFound(err)` / `IsBadRequest(err)` 的 if-else 示范，而代码里实际有 **15 个** `Is*` 谓词，README 只提及 2 个。**逐条比对：README 提到的两个都真实存在，零幻影**；未提及的 13 个属**示意性示例而非穷举清单**（README 未声称穷举），与第 183 轮对 Python/JS 错误类覆盖的判定**同构**，故**非缺陷**。
+  > **本轮真正的新证据来自代码方向**：四家 SDK 各自解析 JSONB 列的既有形态，在后端侧第一次被端到底——活体 `GET /api/observations` 返回的 `facts` 是 **JSON 编码字符串**而非真数组，而 `docs/API.md` **两种形态都写对了**（请求体用真数组、响应示例用 JSON 编码字符串），与线上逐字一致。**文档与实现在这一处是吻合的，不存在「文档说数组、线上发字符串」的错位。**
+- **下一方向**: 设计文档（一百九十一轮）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
 
 ## Pending Doc Issues
