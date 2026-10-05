@@ -85,8 +85,21 @@ public class TimelineService {
             Integer depthBefore,
             Integer depthAfter) {
 
-        int before = depthBefore != null ? depthBefore : 5;
-        int after = depthAfter != null ? depthAfter : 5;
+        // Clamp both depths to >= 0 before they reach the window arithmetic below.
+        //
+        // The window is `subList(max(0, anchorIndex - before), min(size, anchorIndex + after + 1))`.
+        // A negative depth inverts that range: with anchorIndex = 0, before = -1 and after = -1
+        // the indices become fromIndex(1) > toIndex(0) and the JDK throws
+        // IllegalArgumentException: fromIndex(1) > toIndex(0) — an unhandled 500 on what is
+        // plainly a client input error. Both timeline entry points (GET /api/context/timeline
+        // and GET /api/timeline) funnel through this method, so flooring here covers both.
+        //
+        // Floored at 0, not 1, because 0 already has a working meaning on this endpoint:
+        // before=0/after=0 yields subList(0, 1), i.e. the anchor observation alone, which is
+        // exactly what the endpoints return today for depth 0. Values of 1, 10 and 5000 are
+        // untouched. Only the two crashing inputs change.
+        int before = depthBefore != null ? Math.max(0, depthBefore) : 5;
+        int after = depthAfter != null ? Math.max(0, depthAfter) : 5;
 
         // If query is provided, search for the best anchor
         UUID anchorUuid = null;

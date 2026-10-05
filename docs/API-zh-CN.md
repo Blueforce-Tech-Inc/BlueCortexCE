@@ -176,6 +176,31 @@ Content-Type: application/json
 数值参数返回 `400` **只**意味着文本无法转换。范围处理是另一回事，按端点分别记录：
 分页端点是**静默钳制**而非拒绝。`limit` 的钳制与实测示例见 *List Observations*。
 
+**范围处理并不统一，且有若干参数完全没有上界。** 转换之后，各参数的处理方式如下。
+「下钳到 0」指负值被**当作 `0` 处理**——它不是错误，响应仍是正常的 `200`。
+
+| 端点 | 参数 | 负值 | 上界 |
+|------|------|------|------|
+| `/api/observations`、`/api/summaries`、`/api/prompts`、`/api/search`、`/api/search/by-file` | `limit` | 上钳到 1 | 下钳到 100（`MAX_PAGE_SIZE`） |
+| `/api/context/recent` | `limit` | 上钳到 1 | 下钳到 20 |
+| `/api/extraction/{templateName}/history` | `limit` | 上钳到 1 | 下钳到 100 |
+| `/api/logs` | `lines` | 上钳到 1 | 下钳到 10 000 |
+| `/api/context/preview` | `maxObservations`、`maxSummaries` | 下钳到 0 | **无** |
+| `/api/context/preview` | `fullCount` | 下钳到 0 | 内部封顶 100 |
+| `/api/context/preview` | `sessionCount` | 被忽略——会话限定查询仅在取值大于 0 时才走，负值会静默退回不带会话限定的查询 | **无** |
+| `/api/context/timeline` | `depth_before`、`depth_after` | 下钳到 0 | **无** |
+| `/api/timeline` | `depthBefore`、`depthAfter` | 下钳到 0 | **无** |
+
+没有上界的参数会**照字面值**执行：`?maxObservations=5000` 与 `?depth_before=5000`
+都会把该项目持有的内容全部返回。这类参数**没有** `MAX_PAGE_SIZE` 式的保护，
+需要上界的客户端得自己加。
+
+在 2026-10-04 之前，四行「下钳到 0」是**崩溃**的：负的 `maxObservations` 触发
+PostgreSQL 的 `LIMIT must not be negative`，负的 `maxSummaries` 触发
+`IllegalArgumentException`，而 `/api/context/preview` 把两者都报成 `HTTP 200`、
+body 是纯文本 `Error: Failed to generate context preview`；两个 timeline 端点则直接
+抛出未处理的 `500`。详见下方变更记录。
+
 布尔参数**不受影响**——`?includeObservations=0x1` 是 `400`。手工拼接查询字符串的
 调用方应自行校验整数，或者直接用四家 SDK——那里这些参数是数字类型，十六进制
 字面量根本无法表达。
@@ -2838,6 +2863,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
+| 2026-10-04 | (unreleased) | 四个数值参数在取负值时会让后端崩溃，其中两个还把崩溃报成了 `HTTP 200`。负的 `maxObservations` 一路传到原生 SQL 的 `LIMIT :limit`，被 PostgreSQL 直接拒绝（`InvalidRowCountInLimitClause: LIMIT must not be negative`）；负的 `maxSummaries` 走的是 `Stream.limit(-1)`，其 `IllegalArgumentException` 的 message 字面就是 `-1`，于是日志里只剩 `"... preview for project X: -1"`。`/api/context/preview` 把两者都 catch 住并返回 `String`，Spring MVC 的状态码因此仍是 **200**、body 是 `Error: Failed to generate context preview`——**客户端输入错误被报成了成功**。两个 timeline 端点更糟：`depth_before`/`depth_after` 与 `depthBefore`/`depthAfter` 会进入 `subList(max(0, anchorIndex - before), min(size, anchorIndex + after + 1))`，负深度把这个区间反转成 `fromIndex(1) > toIndex(0)`，直接抛出未处理的 **500**。修法是**下钳到 0 而非 1**——因为这四者上 `0` 本就有既定含义（空结果，或仅返回锚点那一条），因此 0、1、10、5000 的行为**完全不变**，只有原本崩溃的输入变了。修复后用新构建的实例逐个值复测：负值现在与 0 一致、可用的取值输出逐字相同、日志零异常。timeline 端点的对照很硬（depth 0/1/10 分别返回 1/2/5 条观测），`maxObservations` 亦然（0/1/2/5000 的渲染结果肉眼可分）。「查询参数约定」一节新增了取值范围处理表，并记录了**完全没有上界**的七个参数——`?maxObservations=5000` 会把该项目持有的内容全部返回。另两个 preview 参数经查无需改动：`sessionCount` 在读取它的那条路径上永远取不到负值，因为会话限定查询仅在取值大于 0 时才走；`fullCount` 的消费方是 `for (i = 0; i < limit; i++)`，limit 为负时循环根本不执行。同类缺陷今天早些时候已在 `/api/context/recent` 上修过（`dc52c8c`），本条覆盖的是当时漏掉的三个端点。中英文同步 |
 | 2026-10-03 | (unreleased) | `POST /api/memory/icl-prompt`：关于 `maxChars` 的两处更正，均已对活体后端核实。①字段表原先只写「默认 4000」而漏掉钳制——该端点实际按 `maxChars != null ? Math.max(100, maxChars) : 4000` 解析，故任何低于 100 的值（**含 `0` 与负数**）都会被向上钳到 **100**，**不存在「0 表示默认」的路径**：实测传 `{"maxChars": 0}` 得到的是 53 字符的提示，而非 4000 字符的。响应会回显实际生效的值，因此截断在 `maxChars` 里看得见。②「缺少 `project` 会得到 28 字符的空提示」把一个并非固定的量写成了固定数字——`ExpRagService:188` 返回的是 `"Current task:\n" + currentTask`，长度等于 14 加上 task 长度；task 长 1 / 21 / 43 时实测分别为 15 / 35 / 57。后端自身的 `@Schema` 仍写着「0 = backend default ~4000」，那属对外 OpenAPI 契约变更，已记为 P2-25、不在本文档层实施。中英文同步更新 |
 | 2026-10-03 | (unreleased) | 三处「按 `created_at` 降序排列」的表述与 `created_at` 的字段类型**两个方向都错了**。**排序键**：端点实际按 `created_at_epoch` 排序而非 `created_at`——按后者排会返回**最旧**的行，即 P1-3，已于同轮修复。**类型**：`created_at` 原被标为非空 `string`，但只有导入路径会写它，捕获路径只存 epoch。实测（2026-10-03）：观测 38,120 条中 18,377 条（48%）有值、摘要 6,590 条中 1 条、用户提示 2,785 条中 0 条。现改为 `string \| null` 并把实测数据写进表内，客户端被引导至 `created_at_epoch`。2026-04-12 那条历史记录**按原样保留**——它记录的是当时的认知，不是现在的事实 |
 | 2026-10-03 | (unreleased) | `relevance_count` 与 `generated_by_model` 原被描述成 V17 反馈追踪已在生效，实际两者都**没有写入方**：活体库 38,104 条观测的 `relevance_count` 全为 `0`、`generated_by_model` 全为 `null`，`observation_feedback` 表 0 行。两行现如实写出实际取值。相关：`ObservationFeedbackEntity` 还映射了一个 V17 从未创建的 `created_at` 列，任何触及该实体的 JPQL 都会失败——已修，见 P2-24 |

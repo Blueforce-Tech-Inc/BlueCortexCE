@@ -183,6 +183,35 @@ converted. Range handling is separate and is documented per endpoint: the
 paginated endpoints silently clamp rather than reject. See *List Observations*
 for the `limit` clamp and its worked examples.
 
+**Range handling is not uniform, and several parameters have no upper bound at
+all.** After conversion, each parameter is treated as follows. "Floored at 0"
+means a negative value is treated exactly as `0`; it is not an error, and the
+response is a normal `200`.
+
+| Endpoint | Parameter | Negative value | Upper bound |
+|----------|-----------|----------------|-------------|
+| `/api/observations`, `/api/summaries`, `/api/prompts`, `/api/search`, `/api/search/by-file` | `limit` | clamped up to 1 | clamped down to 100 (`MAX_PAGE_SIZE`) |
+| `/api/context/recent` | `limit` | clamped up to 1 | clamped down to 20 |
+| `/api/extraction/{templateName}/history` | `limit` | clamped up to 1 | clamped down to 100 |
+| `/api/logs` | `lines` | clamped up to 1 | clamped down to 10 000 |
+| `/api/context/preview` | `maxObservations`, `maxSummaries` | floored at 0 | **none** |
+| `/api/context/preview` | `fullCount` | floored at 0 | capped at 100 internally |
+| `/api/context/preview` | `sessionCount` | ignored — the session-scoped query only runs when the value is greater than 0, so a negative value silently falls back to the unscoped query | **none** |
+| `/api/context/timeline` | `depth_before`, `depth_after` | floored at 0 | **none** |
+| `/api/timeline` | `depthBefore`, `depthAfter` | floored at 0 | **none** |
+
+A parameter with no upper bound is honoured as written: `?maxObservations=5000`
+and `?depth_before=5000` both return everything the project holds. There is no
+`MAX_PAGE_SIZE`-style protection on these, so a client that wants a bound has to
+impose it.
+
+Until 2026-10-04 the four "floored at 0" rows crashed instead: a negative
+`maxObservations` produced a PostgreSQL `LIMIT must not be negative` and a
+negative `maxSummaries` an `IllegalArgumentException`, both reported by
+`/api/context/preview` as an `HTTP 200` whose body was the plain string
+`Error: Failed to generate context preview`; the two timeline endpoints raised
+an unhandled `500`. See the changelog entry below.
+
 Boolean parameters are **not** affected — `?includeObservations=0x1` is a `400`.
 Clients that build query strings by hand should validate integers themselves, or
 use one of the four SDKs, where these parameters are typed as numbers and a hex
@@ -2832,6 +2861,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 
 | Date | Version | Changes |
 |------|---------|---------|
+| 2026-10-04 | (unreleased) | Four numeric parameters crashed the backend on a negative value, and two of them reported the crash as an `HTTP 200`. A negative `maxObservations` reached the native `LIMIT :limit` and PostgreSQL rejected it outright (`InvalidRowCountInLimitClause: LIMIT must not be negative`); a negative `maxSummaries` was applied as `Stream.limit(-1)`, whose `IllegalArgumentException` message is literally `-1`, so the log line read only `"... preview for project X: -1"`. `/api/context/preview` catches both and returns a `String`, so the Spring MVC status stayed **200** with the body `Error: Failed to generate context preview` — a client input error reported as a success. The two timeline endpoints were worse: `depth_before` / `depth_after` and `depthBefore` / `depthAfter` reach `subList(max(0, anchorIndex - before), min(size, anchorIndex + after + 1))`, and a negative depth inverts that range into `fromIndex(1) > toIndex(0)`, surfacing as an unhandled **500**. Fixed by flooring at **0**, not 1, because 0 already had a working meaning on every one of these (empty result, or the anchor observation alone) — so 0, 1, 10 and 5000 behave exactly as before and only the crashing inputs changed. Verified by re-running each value after the fix against a freshly built instance: negatives now match 0, the working values are byte-identical, and the logs show zero exceptions. Controls were strong on the timeline endpoints (depth 0/1/10 return 1/2/5 observations) and on `maxObservations` (0/1/2/5000 return visibly different renders). A range-handling table has been added under *Query Parameter Conventions*, which also records the seven parameters that have **no upper bound** — `?maxObservations=5000` returns everything the project holds. Two other preview parameters were checked and need no change: `sessionCount` is never negative on the path that reads it, because the session-scoped query only runs when the value is greater than 0, and `fullCount` is consumed by a `for (i = 0; i < limit; i++)` loop that simply never runs when the limit is negative. The same class of bug was fixed on `/api/context/recent` earlier today (`dc52c8c`); this entry covers the three endpoints that were missed. EN+ZH in sync |
 | 2026-10-03 | (unreleased) | `POST /api/memory/icl-prompt`: two corrections on `maxChars`, verified against the live backend. (1) The field table said only "default: 4000" and omitted the clamp — the endpoint resolves it as `maxChars != null ? Math.max(100, maxChars) : 4000`, so anything below 100 (including `0` and negatives) is clamped up to **100**, and there is **no "0 means default" path**: `{"maxChars": 0}` returned a 53-character prompt, not a 4000-character one. The response echoes the applied value, so the truncation is visible there. (2) The claim that a missing `project` yields "a 28-character empty prompt" was a fixed number for a value that is not fixed — `ExpRagService:188` returns `"Current task:\n" + currentTask`, so the length is 14 + the task length. Measured 15 / 35 / 57 for tasks of 1 / 21 / 43 characters. The backend's own `@Schema` still claims "0 = backend default ~4000"; that is an outward OpenAPI contract change and is recorded as P2-25 rather than fixed here. EN+ZH in sync |
 | 2026-10-03 | (unreleased) | The three "sorted by `created_at` descending" statements and the `created_at` field type were wrong in both directions. **The sort key**: the endpoints order by `created_at_epoch`, not `created_at` — sorting on the latter returned the *oldest* rows, which is P1-3, fixed in the same round. **The type**: `created_at` was documented as a non-null `string`, but only the import path sets it; the capture path stores the epoch alone. Measured 2026-10-03: 18,377 of 38,120 observations (48%) have it, 1 of 6,590 summaries, 0 of 2,785 prompts. It is now `string \| null` with the measurement inline, and clients are pointed at `created_at_epoch`. The 2026-04-12 changelog entry is left as written: it records what was believed at the time, not what is true now |
 | 2026-10-03 | (unreleased) | `relevance_count` and `generated_by_model` were documented as if V17's feedback tracking were live. Neither has a writer: `relevance_count` is `0` on all 38,104 observations in the live database, `generated_by_model` is `null` on all of them, and `observation_feedback` has zero rows. Both rows now state the actual values. Related: `ObservationFeedbackEntity` mapped a `created_at` column that V17 never created, so any JPQL touching that entity would fail — fixed, see P2-24 |

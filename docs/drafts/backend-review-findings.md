@@ -413,10 +413,8 @@
   1. **键里没有 `tool_response`。** 哈希只覆盖 `toolInput`，故「同样的工具、
      同样的入参、结果不同」的调用在前一条仍 `pending`/`processing` 时被**直接丢弃**，
      而调用方只拿到一条 "Duplicate tool-use event skipped" 日志加上
-     HTTP `200 {"status":"accepted"}`——**与真正入队无法区分**。
      HTTP `200 {"status":"accepted"}`——**与真正入队完全无法区分**。
      对 fire-and-forget 的 SDK 捕获路径而言，调用方只能得出「已记录」这个错误结论。
-     调用方只能得出「已记录」这个错误结论。
   2. **`tool_name` 未规范化。** 它是客户端自由文本，却参与键的比较。实测同一
      session 内 `Read` 与 `read` 携带**完全相同的 input 哈希**
      （`45ff9481fce2…`）时**双双入队**，即大小写不同即可绕过去重。

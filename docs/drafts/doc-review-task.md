@@ -71,7 +71,25 @@
 
   **本轮的角度与上轮不同**：第 259 轮对运维/用户指南做的是「环境变量端到端对拍」，本轮改做「**文档里的命令与数字逐条实测**」——脚本存在性、测试计数、版本区间、端口分工、路径引用五类，全是可直接验证的硬事实，**不需要凭理解下判断**。
 
-- **下一方向**: API 文档（一百六十五轮）
+- **最近完成**: API 文档（2026-10-04 一百六十五轮，**一处成体系的补全，双语**）。**DOC-1（已修，双语）** **数值参数只记了「怎么解析」，从未记「取值范围怎么处理」——而后者才是崩溃所在。** `Query Parameter Conventions` 一节原本详尽记录了解析（十六进制前缀、前导 `+`、空白 trim、唯一产生 `400` 的情形），却在范围处理上只留了一句含糊的「`0xff` → 255 (then clamped, if the endpoint clamps)」并把责任推给「按端点分别记录」——**而实际并没有任何端点记录**。已补一张逐参数的范围处理表，**负值**与**上界**两列都写实，并点明**七个参数完全没有上界**（`?maxObservations=5000` 返回该项目持有的全部内容，无 `MAX_PAGE_SIZE` 式保护）。表内 9 行、其中 4 行为「无上界」，中英文逐格对应。
+
+  | 端点 | 参数 | 负值 | 上界 |
+  |------|------|------|------|
+  | `/api/observations` 等 5 个分页端点 | `limit` | 上钳到 1 | 下钳到 100 |
+  | `/api/context/recent` | `limit` | 上钳到 1 | 下钳到 20 |
+  | `/api/extraction/{t}/history` | `limit` | 上钳到 1 | 下钳到 100 |
+  | `/api/logs` | `lines` | 上钳到 1 | 下钳到 10 000 |
+  | `/api/context/preview` | `maxObservations`、`maxSummaries` | 下钳到 0 | **无** |
+  | `/api/context/preview` | `fullCount` | 下钳到 0 | 内部封顶 100 |
+  | `/api/context/preview` | `sessionCount` | 被忽略（会话限定查询仅在 > 0 时才走） | **无** |
+  | `/api/context/timeline` | `depth_before`、`depth_after` | 下钳到 0 | **无** |
+  | `/api/timeline` | `depthBefore`、`depthAfter` | 下钳到 0 | **无** |
+
+  表下另附一段「2026-10-04 之前这四行是**崩溃**的」，写明旧行为（负 `maxObservations` 触发 PostgreSQL `LIMIT must not be negative`、负 `maxSummaries` 触发 `IllegalArgumentException`、preview 把两者报成 **200** + body `Error: Failed to generate context preview`、两个 timeline 端点抛未处理 500），**并指向变更记录**——文档描述系统**现在**的行为，同时不把历史抹掉。按仓库惯例双语各加一条 `(unreleased)` 变更记录。
+
+  **本轮自述数字当场改过一次**：变更记录里先写「四个没有上界的参数」，用脚本按逗号／顿号逐格统计后实为 **7 个**（分布在 4 行），已改正——**数字必须连同计数命令一起核对**。
+
+- **下一方向**: SDK README（一百六十六轮）
 - **新增待决**: `docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分
 - **Pending 状态**: 文档问题清单已清空（0 项待处理）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。

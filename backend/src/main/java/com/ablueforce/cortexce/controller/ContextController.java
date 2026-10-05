@@ -340,8 +340,32 @@ public class ContextController {
             @Parameter(description = "Number of observations to show full details for", required = false, example = "5")
             @RequestParam(required = false, defaultValue = "5") int fullCount) {
 
+        // Clamp before either value reaches the database or a Java stream.
+        //
+        // `maxObservations` is bound to a native `LIMIT :limit`, and PostgreSQL rejects a
+        // negative LIMIT outright (InvalidRowCountInLimitClause: "LIMIT must not be
+        // negative"). `maxSummaries` never reaches SQL — it is applied afterwards as
+        // `Stream.limit(...)`, and the JDK throws IllegalArgumentException whose message is
+        // literally "-1", so the log line reads "... preview for project X: -1".
+        // Both used to surface as the catch-all below, which returns a plain String and so
+        // answers **HTTP 200** with the body "Error: Failed to generate context preview" —
+        // a client input error reported as a success.
+        //
+        // Floored at 0 rather than 1 on purpose: 0 already has a working behaviour on this
+        // endpoint (LIMIT 0 / Stream.limit(0) both yield an empty result, which renders as
+        // "no memories yet"), so `Math.max(0, …)` leaves 0, 1, 2 and 5000 exactly as they
+        // behave today and only converts the two crashing inputs. This is the same shape as
+        // the guard added to `getRecentContext`, which floors at 1 because there 0 produced a
+        // misleading "No previous sessions found" message rather than an empty render.
+        //
+        // No upper bound is applied: capping 5000 down to some MAX_PAGE_SIZE would change the
+        // result for callers that legitimately ask for more, which is a contract change rather
+        // than a crash fix.
+        int validatedMaxObservations = Math.max(0, maxObservations);
+        int validatedMaxSummaries = Math.max(0, maxSummaries);
+
         log.debug("Context preview request, project: {}, types: {}, concepts: {}, includeObs: {}, includeSum: {}, maxObs: {}, sessions: {}, fullCount: {}",
-                project, observationTypes, concepts, includeObservations, includeSummaries, maxObservations, sessionCount, fullCount);
+                project, observationTypes, concepts, includeObservations, includeSummaries, validatedMaxObservations, sessionCount, fullCount);
 
         // Validate project parameter
         if (project == null || project.isBlank()) {
@@ -376,8 +400,8 @@ public class ContextController {
                     conceptList,
                     includeObservations,
                     includeSummaries,
-                    maxObservations,
-                    maxSummaries,
+                    validatedMaxObservations,
+                    validatedMaxSummaries,
                     sessionCount,
                     fullCount
             );
