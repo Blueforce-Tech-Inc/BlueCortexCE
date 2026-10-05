@@ -107,22 +107,42 @@ public class ProjectFilterService {
     }
 
     /**
-     * Expand home directory references in a path.
-     * Handles both ~ (current user) and ~username (specific user) forms.
+     * Expand a leading {@code ~} to the current user's home directory.
+     *
+     * <p><b>Only {@code ~} and {@code ~/…} are expanded.</b> A {@code ~username/…}
+     * form is <b>not</b> resolved to that user's home: the {@code ~username}
+     * prefix is replaced with the <i>current</i> user's home, so
+     * {@code ~alice/project} becomes {@code <currentUserHome>/project} and the
+     * {@code alice} component is silently dropped. A bare {@code ~username}
+     * with no slash is returned unchanged.
+     *
+     * <p>This is not hypothetical — verified by direct invocation:
+     * <pre>
+     *   ~/proj       -&gt; /Users/&lt;current&gt;/proj
+     *   ~alice/proj  -&gt; /Users/&lt;current&gt;/proj      (alice dropped)
+     *   ~alice       -&gt; ~alice                        (unchanged)
+     * </pre>
+     *
+     * <p>The substitution is done with {@link String#replaceFirst}, whose first
+     * argument is a <b>regular expression</b>, and {@code username} is
+     * interpolated into it unescaped. A metacharacter in that segment therefore
+     * behaves as a pattern: {@code ~a.b/proj} also expands to
+     * {@code /Users/<current>/proj}. Recorded as P2-62; the class is not wired
+     * into any pipeline, so nothing in production reaches this path today.
      */
     private String expandHomeDirectory(String path) {
         if (path == null) return path;
         if (path.startsWith("~")) {
             if (path.length() > 1 && path.charAt(1) == '/') {
-                // ~user/path or ~/path — expand current user home
+                // ~/path — expand current user home
                 return path.replaceFirst("^~", System.getProperty("user.home"));
             }
-            // ~username/path — expand to that user's home (best effort)
+            // ~username/path — NOT resolved to that user's home. The segment is
+            // dropped and replaced with the current user's home (see Javadoc).
             int slashIdx = path.indexOf('/');
             if (slashIdx > 0) {
                 String username = path.substring(1, slashIdx);
                 String userHome = System.getProperty("user.home");
-                // Fallback: if we can't resolve ~username, use current home
                 return path.replaceFirst("^~" + username, userHome);
             }
         }

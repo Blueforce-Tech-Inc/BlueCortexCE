@@ -397,31 +397,20 @@
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Problem**: 去重键是 `(content_session_id, tool_name, SHA-256(tool_input))`，
   判定条件额外要求 `status <> 'failed'`。三处各自独立地削弱了它：
-
-  1. **键里没有 `tool_response`。** 哈希只覆盖 `toolInput`，故「同样的工具、
-     同样的入参、结果不同」的调用在前一条仍 `pending`/`processing` 时被**直接丢弃**，
-     而调用方只拿到一条 "Duplicate tool-use event skipped" 日志加上
-     HTTP `200 {"status":"accepted"}`——**与真正入队完全无法区分**。
-     对 fire-and-forget 的 SDK 捕获路径而言，调用方只能得出「已记录」这个错误结论。
-  2. **`tool_name` 未规范化。** 它是客户端自由文本，却参与键的比较。实测同一
-     session 内 `Read` 与 `read` 携带**完全相同的 input 哈希**
-     （`45ff9481fce2…`）时**双双入队**，即大小写不同即可绕过去重。
-     不过要如实说明规模：全表按 `(session, lower(tool_name), hash)` 精确分组后，
-     大小写孪生组**只有 1 个，且就是本次探针**——**生产数据里从未发生过**。
-     真正普遍的是命名本身跨客户端不一致（`Read` / `readFile` / `read`、
-     `Edit` / `edit` / `write_file` 同时存在），近 30 天仍有 `readFile` 13 次、
-     `write_file` 4 次在流入。
-  3. **检查与写入不是原子的，而唯一的兜底约束并不存在。**
-     `PendingMessageEntity` 声明了
-     `@UniqueConstraint(name = "uk_session_tool_input", columnNames = {...})`，
-     但 `application.yml:91` 是 `spring.jpa.hibernate.ddl-auto: none`，
-     且**全部 18 个 Flyway 迁移中没有任何一条创建该约束**；活体
-     `pg_constraint` 查询确认该表只有 pkey、两个 CHECK 和一个 FK，
-     手工插入一条完全相同的三元组**成功**（已回滚）。
-     后果是 `AgentService` 里那段
-     `catch (DataIntegrityViolationException)`——注释写着
+  1. **键里没有 `tool_response`。** 哈希只覆盖 `toolInput`，故「同样的工具、同样入参、
+     结果不同」的调用在前一条仍 `pending`/`processing` 时被**直接丢弃**，而调用方只拿到
+     一条日志加 HTTP `200 {"status":"accepted"}`——**与真正入队完全无法区分**。
+  2. **`tool_name` 未规范化。** 它是客户端自由文本却参与键比较，故 `Read` 与 `read`
+     可绕过去重。**如实说明规模**：全表按 `(session, lower(tool_name), hash)` 分组后
+     大小写孪生组**只有 1 个、且就是本次探针**——**生产数据里从未发生过**；真正普遍的是
+     命名跨客户端不一致。
+  3. **检查与写入不是原子的，而唯一的兜底约束并不存在。** `PendingMessageEntity` 声明了
+     `@UniqueConstraint(name = "uk_session_tool_input")`，但 `ddl-auto: none` 且
+     **全部 18 个 Flyway 迁移中没有任何一条创建该约束**，手工插入完全相同的三元组**成功**。
+     后果是 `AgentService` 里那段 `catch (DataIntegrityViolationException)`——注释写着
      "Duplicate pending message detected (concurrent insert)"——**是死代码**：
-     它等待的那个异常永远不会发生。并发请求于是全部通过检查。
+     它等待的那个异常永远不会发生，并发请求于是全部通过检查。
+- **实测证据**: 逐字迁入 [`2026-10-05_backend-review-evidence-19.md`](../archive/2026-10-05_backend-review-evidence-19.md)（第 270 轮）——含具体 input 哈希、近 30 天命名计数、活体 `pg_constraint` 查询结果与手工插入记录。
 - **实测记录**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
 - **Reproduction**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
 - **P2-31 已整体迁出**: 逐字迁入 [`2026-10-04_backend-review-resolved-15.md`](../archive/2026-10-04_backend-review-resolved-15.md)（第 263 轮）。
@@ -967,6 +956,21 @@
   profile 限定**；P2-28 第 401 行「`@Profile("!prod")` 门控是**正确的**」据本条证据需要修正。
 - **Status**: ⏸ **记录不修** —— 把它改成 `!prd` 会让三个端点在**默认 compose 部署下消失**，
   属**对外契约变更**；且本轮代码方向为 Python SDK，后端不在本轮范围内。**本轮未改任何后端代码。**
+### P2-62: `ProjectFilterService` 的 `~username` 展开**丢弃用户名**、改写到当前用户家目录——Javadoc 说的是另一回事
+- **Scope / Evidence**: `backend/.../service/ProjectFilterService.java:109-152`（含本轮已修正的
+  Javadoc）；测试头 `src/test/java/.../ProjectFilterServiceTest.java:10-14`。
+- **Problem**: 原 Javadoc 写 "Handles both `~` (current user) and `~username` (specific user)
+  forms"，行内注释写 "expand to that user's home (best effort)"——**代码里不存在 resolve 分支**：
+  `replaceFirst("^~" + username, userHome)` 把 `~username` **整段**替换成**当前**用户的家目录，
+  用户名被**静默丢弃**；且 `username` 未转义即拼进**正则**。**反射实测**：`~/proj →
+  /Users/<当前>/proj`；`~alice/proj → /Users/<当前>/proj`（**alice 消失**）；`~alice`（无斜杠）
+  原样返回；`~a.b/proj → /Users/<当前>/proj`（`.` 成通配）。
+- **影响面**：该类**未注册为 Bean**、生产代码**零引用**，类 Javadoc 自陈 "not currently wired
+  into any processing pipeline" —— **当前影响为零**；风险是有人照该 Javadoc 接上后静默改写路径。
+  **测试头曾声称覆盖 "expandHomeDirectory edge cases"，而全文零个 `~` 用例**。
+- **Status**: ⏸ **记录不修** —— 正确的 `~username` 解析属**设计决策**，且**无生产调用方可验证**。
+  **已修（零行为变更）**：Javadoc 改为如实描述并附实测结果；测试头的不实声明已更正，并写明
+  **为何不补测试**——补了就等于把可疑行为钉死。后端 **167 测试全绿**、`mvn package` EXIT=0。
 
 ## Processing Rules
 - SDK/Demo findings are fixed in place with focused compile/test verification.

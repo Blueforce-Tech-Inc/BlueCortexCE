@@ -9,8 +9,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Unit tests for ProjectFilterService.
- * Tests: shouldInclude, isUnsafeDirectory, loadPatterns, expandHomeDirectory edge cases.
+ * Tests: shouldInclude, isUnsafeDirectory, loadPatterns.
  * Note: DEFAULT_EXCLUDES patterns use double-asterisk glob (e.g. patterns like dot-git paths) designed for relative paths.
+ *
+ * <p><b>There is deliberately no {@code expandHomeDirectory} test here.</b> This
+ * header previously claimed coverage of "expandHomeDirectory edge cases" while
+ * the file contained none — no test passes a {@code ~} path at all. It was left
+ * that way rather than filled in because the behaviour those tests would have
+ * to pin is itself the open question: {@code ~alice/proj} expands to the
+ * <i>current</i> user's home with {@code alice} silently dropped, which is
+ * almost certainly not what a caller means. See P2-62 in
+ * {@code docs/drafts/backend-review-findings.md}. Add tests once the intended
+ * semantics are decided, not before.
  */
 class ProjectFilterServiceTest {
 
