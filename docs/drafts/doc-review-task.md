@@ -102,8 +102,14 @@
 
   **测试数复核为准确、未动**：README 声称 196（143 client + 46 spring-ai + 7 starter），`mvn -o test` 实测 **143 / 46 / 7，BUILD SUCCESS**，分解逐项吻合。
 
-- **下一方向**: 设计文档（一百六十七轮）
-- **新增待决**: `docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分
+- **最近完成**: 设计文档（2026-10-05 一百六十七轮，**四个角度全扫，零缺陷**）。**DOC-1（核实无误、未改）** **行号引用**：全文仅 7 处 `文件:行号`，逐处核到源码——`AgentService.java:241` 正是传 `projectPath` 的调用点、`ExtractionStorageService.java:49` 正是 `@Transactional`、`:127` 正是 DLQ 构造、`StructuredExtractionService.java:211` 与 `:315` 正是 `findBySourceIn` 与 `extractAppendOnly` 的调用点；余下 2 处（`ObservationRepository.java:425`/`:644`）指向查询串的**收尾行而非声明行**，**差一行**，但实质主张（三参数签名、`findNewObservations` 存在）**均正确**，故不修。**表行数**：`18.md` 声称 `extracted_user_preference` **18,373** 行，对活体库逐条核**分毫不差**，`dlq_*` / `extraction_state` / `extraction_audit` **均 0**，四个数字全对。**内部链接** 11 条全部可解析，**跨文件锚点 0 条**。**方法名级扫描**：99 个 `foo()` 形态标识符，**真幻影 0 个**。
+
+  最后一类是本轮最值得记的：初筛报出 26 个「未找到」，逐条读上下文后发现**绝大多数是文档本就在说明它不存在**——「appear **0 times** in `backend/src/`」「have no definitions and no callers anywhere」「neither `CostConfig` nor `BudgetExceededException` exists as a class」「SUPERSEDED」「IMPLEMENTATION NOTE: … pseudocode」——或属外部库（`pg_try_advisory_lock`、`BeanOutputConverter.getJsonSchema()`）。唯一值得追的 `resolveOutputClass()` / `buildSchemaHint()` 出现在 `99-changelog.md` 的 **2026-03-21 设计文档版本记录**里，而**当前的 `2.md` §2.3 仍在定义并使用这两个方法**，故该 changelog 条目**准确且自洽**——设计伪代码里的方法名与实现里的不同本属正常，**不加注**（承第 261 轮「历史决策记录只加注、不改写」的判断）。
+
+  **初筛本身是探针错**：我的否定词表没覆盖文档实际使用的措辞，于是把「文档正在说明它不存在」误报成「文档声称它存在」。**没有据此改任何一处。**
+
+- **下一方向**: 架构文档（一百六十八轮）
+- **新增待决**: ①`docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分；②**本仓库无任何 CI 跑测试**——`.github/workflows/` 下只有 `docker.yml`，做 checkout + QEMU/Buildx + 推多架构镜像，**不跑测试**，workflows 中 `go test` 零命中；接 CI 需决定跑哪些套件与是否 provisioning 数据库/密钥，属基础设施决策
 - **Pending 状态**: 文档问题清单已清空（0 项待处理）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
 
