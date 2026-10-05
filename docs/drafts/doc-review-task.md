@@ -131,6 +131,12 @@
 - **下一方向**: 运维/用户指南（一百七十四轮）
 - **新增待决**: ①`docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分；②**本仓库无任何 CI 跑测试**——`.github/workflows/` 下只有 `docker.yml`，做 checkout + QEMU/Buildx + 推多架构镜像，**不跑测试**，workflows 中 `go test` 零命中；接 CI 需决定跑哪些套件与是否 provisioning 数据库/密钥，属基础设施决策；③**`backend-review-findings.md` 第 271 轮收在 1000/1000 整**，**下一条 finding 必然再次触发 `COMPACTION_REQUIRED`**；④**P2-63 暴露的规则缺口**：现行压缩断言只查边界行首与「指针数=归档块数」，**没有一条检查「工作文件里曾存在的条目是否还在」**——补这一条属规则变更，需项目决策
 - **Pending 状态**: 文档问题清单已清空（0 项待处理）
+- **最近完成**: 运维/用户指南（2026-10-05 一百七十四轮，**两处已修 + 九维零缺陷**，**含一处本轮自我更正**）。**DOC-1（已修，双语）** 根 `README.md:165-169` 的 `### Common Commands` 写 `cd ~/.cortexce` 再跑 `docker compose`。**本轮开始时我判定「`~/.cortexce` 全仓再无第二处提及」，这是错的**：README 自身第 85 行 `mkdir -p ~/.cortexce`、第 114-115 行把 `docker-compose.yml` 与 `proxy/` 复制进去、第 129-132 行的 hook 路径也指向 `~/.cortexce/proxy/wrapper.js`。进一步核实 `docker-compose.yml` 用**预构建镜像、只依赖 `.env`**，该布局**确实自洽**。**故真正的缺陷不是「目录不存在」，而是同一份 README 提供了两套安装布局（Quick Start Option 1 的 `cd BlueCortexCE`、Quick Setup Step 1-3 的 `~/.cortexce`），而命令块只默认其中一种、且未加任何说明**——照上面推荐路径装的人执行会直接 `cd: no such file or directory`。两版均改为显式并列两种布局。
+  > **这条正是本批反复强调的「探针出错与缺陷真伪同形」的又一次命中**：错误结论已经写进了本轮计划，  > 差点变成 finding。**先识别再采信**把它挡在提交之前。
+**DOC-2（已修）** `DOCKER_README.md` 与中文版**「端到端测试」章节内 H3 次序不一致**：EN 是 `[运行完整 E2E, 测试覆盖, Docker Compose 测试, 测试端口]`，ZH 把「测试覆盖」排到了最后。**纯移动，15 删 15 增、零内容变化**。上一轮刚统一过两文件的 H2 顺序（各 14 节逐项对应），**H3 残留是那次统一的遗漏**。
+**零缺陷（逐项核实）**：DOCKER_README 环境变量 vs `docker-compose.yml` **23 / 23 集合完全相等**（零缺零多）；20 个可选变量默认值逐个吻合；仓库结构树 8 / 8 项全在且 `webui` 确为 submodule（`.gitmodules` 核实）；**E2E 覆盖清单与 `docker-e2e-test.sh` 的 11 个 `test_*` 函数逐项同序**；测试端口 15432/38888、15433/38889 精确吻合；三份运维文档 × 37 个脚本引用**零幻影**；DEPLOYMENT 中英 H2 11 / H3 37 / H4 35 / 围栏 94 / 表格 119 **五项全等且编号次序完全一致**；内部链接 0 断链、两版目录各 8 条锚点**全部可解析**；DEPLOYMENT 引用的 12 个端点**全部真实存在**。
+**两个探针命中的是文档已解释过的事，均证伪后未写**：① `backup.sh` / `recovery.sh` 不是引用仓库脚本，而是文档内**让用户自建的脚本示例**（`#!/bin/bash` + `# backup.sh` 注释 + cron 里写 `/path/to/backup.sh` 占位路径）；② `/api/session/start` 我怀疑是 `/api/ingest/session-start` 的笔误，**活体 OpenAPI 证明它是真实的 POST 端点**，（我首版探针的前缀匹配过松、把它蒙混过关了，重新列全量路径才看清）。
+- **下一方向**: API 文档（一百七十五轮）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
 
 ## Pending Doc Issues

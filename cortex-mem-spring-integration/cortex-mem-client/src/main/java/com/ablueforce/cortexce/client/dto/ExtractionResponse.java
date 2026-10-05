@@ -1,5 +1,6 @@
 package com.ablueforce.cortexce.client.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -47,7 +48,14 @@ public record ExtractionResponse(
 ) {
     /**
      * Returns true if extraction was found (status = "ok").
+     *
+     * <p><b>Annotated {@code @JsonIgnore} deliberately.</b> Jackson serialises every
+     * record accessor as a property, so this computed {@code isX()} helper was emitted
+     * on the wire as a spurious {@code "found": …} field the server never sent. Parsing
+     * is unaffected, but the re-serialised payload did not match the server's shape.
+     * See P2-64.
      */
+    @JsonIgnore
     public boolean isFound() {
         return "ok".equals(status);
     }

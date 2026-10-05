@@ -161,12 +161,16 @@ claude mcp add --transport sse cortexce http://127.0.0.1:37777/sse
 
 ### 常用命令
 
+在存放 `docker-compose.yml` 的目录下执行——可以是仓库根目录（快速开始，选项一），
+也可以是 `~/.cortexce`（Claude Code 用户快速设置，步骤三）。
+
 ```bash
-cd ~/.cortexce
+cd BlueCortexCE     # 或者：cd ~/.cortexce
+
 docker compose up -d     # 启动
-docker compose restart  # 重启
+docker compose restart   # 重启
 docker compose logs -f   # 查看日志
-docker compose down     # 停止
+docker compose down      # 停止
 ```
 
 ---

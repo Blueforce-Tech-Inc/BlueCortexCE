@@ -502,7 +502,6 @@
   `FAILURE_BASE = 0.20f` 与 `FeedbackType.FAILURE`（第 24-26、59-61 行），
   即**整个 Evo-Memory 质量模型就是围绕「区分成功与失败」建立的**——
   而这条自动捕获路径**一条 FAILURE 都产不出来**。
-- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Status**: ⏸ **记录不修** —— 修它会让**所有用户的库里开始出现新的失败观测**，
   改变已存储的数据形态，属**产品决策**而非纯 bug 修复（沿用 P2-24「接入属新增特性
   而非修 bug」的同一判断）。修法：把 `proceed()` 包进 try，catch 后**先记录再重抛**
@@ -519,7 +518,6 @@
   于是构造函数传入负数时，兜底「回退」到的正是那个负数，**原样发上 wire**。
   测试名 `TestRetrieve_NegativeCount_FallsBackToDefault` 读起来像「负数已被处理」，
   但它把**构造函数传的是合法值 3**、只测 per-call 分支——**真正漏的那条路径无覆盖**。
-- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **附带一处被丢弃的透明信号**: 后端把**实际生效值**回显在 `ICLPromptResult.maxChars`，
   Go 的 `dto.ICLPromptResult.MaxChars` **确实有这个字段**（`dto/experience.go:46`），
   但全 SDK **无任何非测试代码读它**——`LoadMemoryVariables` 只取 `result.Prompt`。
@@ -546,7 +544,6 @@
   | **Java** | **GET** | **查询参数** `?message&project&conversationId&useTools` | `{response, project, conversation_id}`，**无 `timestamp`、无 `memoryContext`** | **真实调用 LLM**，经 `CortexMemoryAdvisor` **自动捕获** |
 
   即四家共用一个端点名，却在**方法、输入载体、响应结构、行为语义**四个维度上各不相同。
-- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **分歧是「已知且被写下」的**：`ChatController` 自己的 Javadoc 明写
   「The Go, Python and JS demos all answer `POST /chat` with a JSON object」，
   **紧接着就改用 `@GetMapping`**——写下了差异却没有解决。
@@ -591,7 +588,6 @@
   与 `POST /api/ingest/user-prompt` 四家**全部**有方法（Go/Python/JS/Java 的
   session-end 与 user-prompt 引用数分别为 3/3、4/3、6/6、2/2）。
   即：**SDK 用户可以产生摘要与提示词，却永远无法把它们读回来**——想读只能自己发 HTTP。
-- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **一处探针自身出错并先识别再采信**: 逐字迁入 [`2026-10-04_backend-review-evidence-11.md`](../archive/2026-10-04_backend-review-evidence-11.md)（第 258 轮）。
 - **Status**: ⏸ **记录不修** —— 补一个方法是**新增公开 API**，按既定纪律
   「新增公开 API 留待项目决策、不单方面实施」。且这不是「某一家漏了」的缺陷：
@@ -613,7 +609,6 @@
   实际后果很具体：**SDK 用户无法区分一条观测来自 Claude 还是 Codex/OpenClaw**，
   也无法按平台筛选——而这正是 V18 加这个字段的目的。WebUI 侧的
   `viewer-bundle.js` 已经在按 `platform_source` 过滤，所以「能用」只在浏览器里成立。
-- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **一处探针自身出错并先识别再采信**: 逐字迁入 [`2026-10-04_backend-review-evidence-11.md`](../archive/2026-10-04_backend-review-evidence-11.md)（第 258 轮）。
 - **Status**: ⏸ **记录不修** —— 与 P2-40 同一判断：补字段属**新增公开 API**，
   且**四家完全一致地缺失**，说明要么是有意的范围划定、要么是共同疏漏，
@@ -674,14 +669,9 @@
   `end()` 是裸的 `CURRENT.remove()`——**既无重入保护、也不保存/恢复**。
   advisor 每见到 `CONVERSATION_ID` 就无条件 `begin`，并在 `finally` 里 `end`。
   于是**外层已存在的作用域被覆盖、并在调用返回后被删除**。
-  **探针实测**（`CortexSessionContextBridgeAdvisorTest` 旁的一次性用例，未提交）：
-  在 `begin("outer-session", "/outer/project")` 已激活时调一次 `adviseCall`，前后状态为 | 时点 | `isActive()` | `getSessionId()` |
-    `getProjectPath()` | |---|---|---|---| | 调用前 | `true` | `outer-session` | `/outer/project` | | **调用后** | **`false`** |
-    **`unknown-session`** | **（空串）** |
-  断言「外层应当存活」**失败**，即缺陷成立。**全程无异常、无告警**——
-  此后同一外层作用域里的任何 `@Tool` 调用都会以 `unknown-session` 与空项目路径入库。
-  调用**内部**看到的是 advisor 自己的上下文（`/advisor/project|conv-inner`），
-  即内层正确、**外层被毁**。
+  **探针实测**（一次性用例，未提交）：外层 `begin("outer-session","/outer/project")` 已激活时
+  调 advisor，断言「外层应当存活」**失败**——sessionId 变 `unknown-session`、projectPath 变空串，
+  而调用**内部**看到的是 advisor 自己的上下文：**内层正确、外层被毁**，**全程无异常无告警**。
 - **为什么不是示例代码的 bug**: `ChatController` 刻意把两条路径二分——
   带 `conversationId` 的请求走 bridge 且**不**手动 `begin`；不带的手动 `begin`，
   而 bridge 因无 `CONVERSATION_ID` 直接透传。**从不嵌套**。故这是**误用场景**，
@@ -729,7 +719,6 @@
   （`patch` 与 `delete`），**没有任何按 `project_path` 批量删除的端点**；
   `/api/observations`（GET 列表）才是脚本真正该用的。or-true 兜底把 404 吞掉，
   因此这个失败**永远不会让脚本失败**。
-- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Status**: ⏸ **记录不修** —— 属脚本方向，不在本轮（Python SDK）的代码轮换内；
   且**若真把清理接上，Test 6 会切回 `not_found` 分支、累积数据会被删除**，
   属于会改变门控自身行为的改动，需在自己的轮次里单独做 A/B。
@@ -791,7 +780,6 @@
   返回结果与**根本不传 `projects` 逐字相同**；文档只写「comma-separated」，
   **没说单个值等于不传**。另有 `@Schema` 写 project **paths** 而
   `parseProjectsParam` 的 Javadoc 写 project **names**，对同一值给出两种定义。
-- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
 - **Status**: ⏸ **记录不修** —— 改判定会**改变现有调用方的行为**（原本按 `project_path`
   生成、改后按该值生成），属语义变更，需项目拍板。
   **文档侧已于第 254 轮更正**：`@Schema` 与 API.md / 中文版字段说明均已写明
@@ -998,3 +986,15 @@
 
 历次压缩批次的完整记录已逐字迁入 [`2026-10-04_backend-review-compression-log.md`](../archive/2026-10-04_backend-review-compression-log.md)（第 252 轮迁出）；各批次在 `docs/archive/README.md` 中亦有逐条登记。
 2026-05-07 之前的完整审查日志见 [`2026-09-30_backend-review-findings-history.md`](../archive/2026-09-30_backend-review-findings-history.md)。
+
+### P2-64: Jackson 把 record 上的 `isX()` 当属性序列化——Java SDK 每个 PATCH 都多发一个调用方从未设置过的 `empty` 字段
+- **Scope / Evidence**: `cortex-mem-client/.../dto/ObservationUpdate.java:37`（`isEmpty()`）、
+  `ExtractionResponse.java:51`（`isFound()`）。
+- **Problem**: Jackson 对 **record 的每个访问器**都按属性序列化，故 `isEmpty()` 被发上 wire 成
+  `"empty": false`——**每个 PATCH 都带一个调用方从未设置的字段**，与该类 Javadoc 自称的
+  "only explicitly set fields are sent" **直接矛盾**。**实测（修复前，编译产物直接序列化）**：
+  `{"title":"T","empty":false}`；`ExtractionResponse` 同理多出 `"found"`。**后端忽略未知键**
+  （活体 PATCH 带 `empty` 仍 200 且 title 已更新），故**无功能损坏**，但报文与成文契约不符。
+- **Status**: ✅ **已修（第 273 轮）** —— 两个访问器加 `@JsonIgnore`。修复后实测 `{"title":"T"}`，
+  且 null→省略、`facts=[]`→照发等**原有语义全部保持**，`isFound()` 仍正确求值；
+  **无任何测试断言该字段**。Java SDK **196/0/0/0** 全绿。

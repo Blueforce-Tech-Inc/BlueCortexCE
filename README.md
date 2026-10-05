@@ -161,12 +161,17 @@ See [Cursor Integration Guide](proxy/CURSOR-INTEGRATION.md)
 
 ### Common Commands
 
+Run these from the directory that holds `docker-compose.yml` — either the repo
+root (Quick Start, Option 1) or `~/.cortexce` (Quick Setup for Claude Code Users,
+Step 3).
+
 ```bash
-cd ~/.cortexce
+cd BlueCortexCE     # or: cd ~/.cortexce
+
 docker compose up -d     # start
-docker compose restart  # restart
+docker compose restart   # restart
 docker compose logs -f   # view logs
-docker compose down     # stop
+docker compose down      # stop
 ```
 
 ---

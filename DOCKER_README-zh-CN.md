@@ -318,21 +318,6 @@ cd scripts
 ./docker-e2e-test.sh --keep-running
 ```
 
-### Docker Compose 测试
-
-使用 Docker Compose 进行测试：
-
-```bash
-cd scripts
-./docker-compose-test.sh --cleanup
-```
-
-### 测试端口
-
-测试脚本使用不冲突的端口，避免干扰本地开发：
-- `docker-e2e-test.sh`：PostgreSQL `15432`，Java API `38888`
-- `docker-compose-test.sh`：PostgreSQL `15433`，Java API `38889`
-
 ### 测试覆盖
 
 E2E 测试套件验证：
@@ -348,6 +333,21 @@ E2E 测试套件验证：
 9. **数据库持久化** — 直接数据库验证
 10. **容器重启** — 重启后数据持久性
 11. **WebUI 静态文件** — WebUI 可访问性
+
+### Docker Compose 测试
+
+使用 Docker Compose 进行测试：
+
+```bash
+cd scripts
+./docker-compose-test.sh --cleanup
+```
+
+### 测试端口
+
+测试脚本使用不冲突的端口，避免干扰本地开发：
+- `docker-e2e-test.sh`：PostgreSQL `15432`，Java API `38888`
+- `docker-compose-test.sh`：PostgreSQL `15433`，Java API `38889`
 
 ## 生产环境注意事项
 
