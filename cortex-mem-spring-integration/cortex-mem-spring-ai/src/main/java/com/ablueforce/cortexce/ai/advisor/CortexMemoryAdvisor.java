@@ -224,6 +224,26 @@ public class CortexMemoryAdvisor implements CallAdvisor, StreamAdvisor {
         /**
          * Enable or disable auto-capture of user prompts when CortexSessionContext is active.
          * Default is true.
+         *
+         * <p><b>Capture does not require a project, and omitting one has a consequence worth
+         * knowing about.</b> A prompt is recorded whenever a session id resolves — from the Spring
+         * AI conversation id or from {@link CortexSessionContext} — and
+         * {@link Builder#projectPath(String)} is only consulted when {@code CortexSessionContext}
+         * is <em>not</em> active. This builder's {@code projectPath} defaults to the empty string,
+         * and the empty string is not {@code null}, so it survives the null check in
+         * {@code UserPromptRequest.toWireFormat()} and is sent as {@code "cwd": ""}. The backend
+         * accepts that and stores the row with {@code project_path = ''}:
+         *
+         * <pre>{@code GET /api/ingest/user-prompt  {"session_id":"s1","cwd":"","prompt_text":"..."}
+         *   -> 200 {"status":"ok"}, row persisted with project_path = ''}</pre>
+         *
+         * <p>Such a row is retrievable only by querying with an empty project; no realistic
+         * caller queries that way, so in practice the prompt is recorded but never recalled. This
+         * is the rare spelling of a broader situation — clients that omit {@code cwd} entirely
+         * store {@code NULL} instead, and {@code NULL} is by far the most common value in a real
+         * database. <b>Set {@code projectPath(...)} explicitly, or wrap the call in
+         * {@code CortexSessionContext.begin(sessionId, projectPath)}, if you want captured
+         * prompts to be findable again.</b>
          */
         public Builder captureEnabled(boolean captureEnabled) {
             this.captureEnabled = captureEnabled;

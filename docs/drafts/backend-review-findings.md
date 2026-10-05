@@ -436,7 +436,7 @@
      它等待的那个异常永远不会发生。并发请求于是全部通过检查。
 - **实测记录**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
 - **Reproduction**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
-- **已整体迁出**（entry）: 逐字迁入 [`2026-10-04_backend-review-resolved-15.md`](../archive/2026-10-04_backend-review-resolved-15.md)（第 263 轮）。
+- **P2-31 已整体迁出**: 逐字迁入 [`2026-10-04_backend-review-resolved-15.md`](../archive/2026-10-04_backend-review-resolved-15.md)（第 263 轮）。
 ### P2-32: 两个 Dockerfile 都不设 `SERVER_ADDRESS`，默认部署下服务对外不可达；根镜像的 healthcheck 还写死了端口
 
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
@@ -911,9 +911,7 @@
 
 ### P2-59: Java demo 十个控制器把后端 4xx 变成 500，**其中两个方向相反**——凭空造 404，和把 404 放大成 500
 
-- **Scope**: `examples/cortex-mem-demo/src/main/java/com/example/cortexmem/` 下 12 个控制器；
-  对照 `DemoErrors`、`ExtractionController`、`SessionLifecycleController`，
-  以及 Go / Python / JS 三家 demo 的 `main.go` / `app.py` / `app.ts`。
+- **Scope**: 逐字迁入 [`2026-10-04_backend-review-evidence-15.md`](../archive/2026-10-04_backend-review-evidence-15.md)（第 265 轮）。
 - **Problem**: 四家 demo 在本机同时起（Java 37778、Go 37779、Python 37780、JS 37781），
   对**同一个请求**打同一句话，结果是**两个相反方向**的分裂：
   ①**放大**——后端 `PATCH /api/session/{sessionId}/user` 对未知 session 返 **404**
@@ -941,6 +939,18 @@
   三家自己就不一致）。按既定规则**对外契约变更记录不单方面实施**。
   另注：`ErrorField` 的正则对 Spring 默认错误体（`{"timestamp":...,"error":"Bad Request"}`）
   会取出 `"Bad Request"`，**这条是后端本身就没给解释**，不算信息丢失，故不单列。
+
+### P2-60: `CortexMemoryAdvisor` 的 `projectPath` 默认为空串——不设 `cortex.mem.project-path` 时，被捕获的提示**记下了却再也召回不了**
+
+- **Problem**: `Builder.projectPath` 默认 `""`，自动装配又显式做 `getProjectPath() != null ? … : ""`；
+  空串不是 `null`，能通过 `UserPromptRequest.toWireFormat()` 的 null 判断，被当作 `"cwd": ""` 发出。
+  **活体实测**：后端返 `200`，行以 `project_path = ''` 落库，只有用空项目查才取得到。
+  **规模**：库中 `EMPTY-STRING` 仅 **2 行**（都是我自己的探针），多数形态是 `NULL`
+  （**2043 行 / 2011 会话**）——**属既有普遍现象的罕见写法，非 Java 特有缺陷**。
+- **已修**: advisor 的 Javadoc 与两份 SDK README 均已按现状写明，**零行为变更**。
+- **不修的理由**: 三种改法（`null` / `user.dir` / 拒绝记录）都改已发布 SDK 的公开默认行为；
+  其中 `user.dir` 还会把提示归到用户并未选择的项目下，比现状更糟，故**不单方面实施**。
+- **Status**: ⏸ 记录不修（文档已更正；行为变更待项目决定）。
 
 ### P2-48: gitignored 的 `CLAUDE.md` 端点表 25 条里有 9 条是活体 404 的幻影端点
 

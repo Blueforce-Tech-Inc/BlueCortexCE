@@ -89,7 +89,20 @@
 
   **本轮自述数字当场改过一次**：变更记录里先写「四个没有上界的参数」，用脚本按逗号／顿号逐格统计后实为 **7 个**（分布在 4 行），已改正——**数字必须连同计数命令一起核对**。
 
-- **下一方向**: SDK README（一百六十六轮）
+- **最近完成**: SDK README（2026-10-05 一百六十六轮，**一处，双语**）。**DOC-1（已修，双语）** **「捕获需要会话 ID」写了，紧接着的「项目路径」一个字没写——而后者才决定这条提示日后查不查得回来。** `cortex-mem-spring-integration/README.md` / `-zh-CN.md` 的捕获小节原先只交代会话 ID 的两种给法（Spring AI 会话 ID / `CortexSessionContext`），**没有把项目路径作为独立前提提出来**；配置表里 `project-path` 一行连默认值都没写，只写着「用于记忆隔离」。已补一节，写明两者**互不替代**：会话 ID 决定提示**是否被记录**，项目路径决定它**归入哪个项目**，而所有按项目检索的查询都按后者过滤；`CortexSessionContext.begin(sessionId, projectPath)` 同时提供两者，走会话 ID 那条路则必须搭配 `project-path` 或 builder 的 `.projectPath(...)`。附实测报文：
+
+  ```text
+  POST /api/ingest/user-prompt  {"session_id":"s1","cwd":"","prompt_text":"..."}
+    -> 200 {"status":"ok"}，行以 project_path = '' 落库
+  ```
+
+  并说明该行**只有用空项目查才取得到**、任何真实项目路径都查不到，且点明 `NULL` 才是真实库中的多数形态（**2043 行 / 2011 会话**，而 `EMPTY-STRING` 仅 2 行）。配置表 `project-path` 行同步补上后果。ICL 检索路径不受影响，亦已写明。
+
+  **刻意没加锚点链接**：先写了个猜的 `#java-sdk--spring-ai-integration`，随即按「坏链正是我在抓的东西」删掉——宁可指向"上文一节"也不留一个可能是死的锚点。
+
+  **测试数复核为准确、未动**：README 声称 196（143 client + 46 spring-ai + 7 starter），`mvn -o test` 实测 **143 / 46 / 7，BUILD SUCCESS**，分解逐项吻合。
+
+- **下一方向**: 设计文档（一百六十七轮）
 - **新增待决**: `docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分
 - **Pending 状态**: 文档问题清单已清空（0 项待处理）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。

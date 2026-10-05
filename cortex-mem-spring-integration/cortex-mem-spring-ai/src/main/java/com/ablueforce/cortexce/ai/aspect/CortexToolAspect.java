@@ -23,6 +23,17 @@ import java.util.Map;
  * <p>
  * Requires an active {@link CortexSessionContext} to identify the session
  * and project. If no context is active, the tool executes normally without capture.
+ * <p>
+ * <b>Only tools that return are captured.</b> {@code joinPoint.proceed()} is invoked before the
+ * capture block, so a tool that throws propagates its exception and no observation is written —
+ * the aspect is fail-open in the sense that it never turns a tool failure into a different
+ * failure, but it also means a failing tool leaves no trace in memory. The exception itself is
+ * not something this aspect can record either: {@link ObservationRequest} has no status field,
+ * and neither does the backend's {@code ToolUseRequest} for {@code POST /api/ingest/tool-use},
+ * so {@code failed} — a value the backend's duplicate-key rule explicitly tests for
+ * ({@code status <> 'failed'}) — cannot be expressed on the write path at all. This behaviour is
+ * currently untested; the four cases in {@code CortexToolAspectTest} cover capture-when-active,
+ * no-capture-when-inactive, and truncation in both directions.
  */
 @Aspect
 public class CortexToolAspect implements Ordered {

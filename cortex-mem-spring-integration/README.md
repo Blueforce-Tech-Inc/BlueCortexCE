@@ -154,6 +154,17 @@ Session ID resolution (aligned with Spring AI `ChatMemory.CONVERSATION_ID`). Whe
 1. **Spring AI conversation ID** — set via `.advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, id))`
 2. **CortexSessionContext** — fallback when wrapping with `begin`/`end`
 
+**A session ID alone is not enough for a captured prompt to be findable again — it also needs a project path.** The two are independent: the session id decides *whether* a prompt is recorded, the project path decides *which project* it is filed under, and every project-scoped query filters on the latter. `CortexSessionContext.begin(sessionId, projectPath)` supplies both. The conversation-id path supplies only the first, so it is paired with `cortex.mem.project-path` (or the builder's `.projectPath(...)`).
+
+That property has **no default**. Left unset, the auto-configuration substitutes the empty string, which is not `null`, so it survives the null check in `UserPromptRequest.toWireFormat()` and is sent as `"cwd": ""`:
+
+```text
+POST /api/ingest/user-prompt  {"session_id":"s1","cwd":"","prompt_text":"..."}
+  -> 200 {"status":"ok"},  row persisted with project_path = ''
+```
+
+The backend accepts this and answers `200`, so nothing looks wrong. But the row is retrievable only by querying with an empty project, which no caller does — in practice the prompt is recorded and never recalled. This is merely the rare spelling of a broader situation: clients that omit `cwd` entirely store `NULL` instead, and `NULL` is the most common value in a real database. **Set `project-path` if you rely on capture.** Retrieval via the ICL path is unaffected either way.
+
 ```java
 // Option A: Spring AI conversation ID (aligns with MessageChatMemoryAdvisor)
 chatClient.prompt()
@@ -177,7 +188,7 @@ All properties are under `cortex.mem`:
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `base-url` | String | `http://localhost:37777` | Cortex CE backend URL |
-| `project-path` | String | — | Project path (for memory isolation) |
+| `project-path` | String | — | Project path. Unset means the empty string, which is stored as `project_path = ''` and is then unretrievable by project — see the capture section above |
 | `connect-timeout` | Duration | `10s` | HTTP connect timeout |
 | `read-timeout` | Duration | `30s` | HTTP read timeout |
 | `default-experience-count` | int | `4` | Max experiences per retrieval |

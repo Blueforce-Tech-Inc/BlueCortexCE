@@ -154,6 +154,24 @@ class AiController {
 1. **Spring AI 会话 ID** — 通过 `.advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, id))` 设置
 2. **CortexSessionContext** — 用 `begin`/`end` 包装时的后备方案
 
+**仅有会话 ID 不足以让被捕获的提示「日后查得回」——它还需要项目路径。** 两者是独立的：
+会话 ID 决定提示**是否被记录**，项目路径决定它被归入**哪个项目**，而所有按项目检索的查询都按后者过滤。
+`CortexSessionContext.begin(sessionId, projectPath)` 同时提供两者；走会话 ID 那条路径只提供前者，
+因此需要搭配 `cortex.mem.project-path`（或 builder 的 `.projectPath(...)`）。
+
+该属性**没有默认值**。不设置时自动装配会代入空字符串——空串不是 `null`，
+因此能通过 `UserPromptRequest.toWireFormat()` 里的 null 判断，被当作 `"cwd": ""` 发出：
+
+```text
+POST /api/ingest/user-prompt  {"session_id":"s1","cwd":"","prompt_text":"..."}
+  -> 200 {"status":"ok"}，行以 project_path = '' 落库
+```
+
+后端接受这个请求并返回 `200`，所以表面看不出任何异常。但该行**只有用空项目去查才取得到**，
+而没有调用方会那样查——实际上就是记下了、再也召回不了。这只是同一现象的**罕见写法**：
+完全省略 `cwd` 的客户端会存成 `NULL`，而 `NULL` 才是真实库中最常见的状态。
+**依赖提示捕获就请设置 `project-path`。** ICL 检索路径不受影响。
+
 ```java
 // 选项 A：Spring AI 会话 ID（与 MessageChatMemoryAdvisor 对齐）
 chatClient.prompt()
@@ -177,7 +195,7 @@ try {
 | 属性 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `base-url` | String | `http://localhost:37777` | Cortex CE 后端 URL |
-| `project-path` | String | — | 项目路径（用于记忆隔离） |
+| `project-path` | String | — | 项目路径。不设置即为空字符串，会以 `project_path = ''` 落库、随后按项目查不到——见上文捕获一节 |
 | `connect-timeout` | Duration | `10s` | HTTP 连接超时 |
 | `read-timeout` | Duration | `30s` | HTTP 读取超时 |
 | `default-experience-count` | int | `4` | 每次检索的最大经验数 |
