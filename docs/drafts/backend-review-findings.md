@@ -784,7 +784,6 @@
   `strconv.Atoi` 与 **JS 的 `\d`（规范定义即 `[0-9]`）是纯 ASCII**。
   这是这条不变式的**第二次**被打破（第 211 轮修过 `?limit=%20` 一族，
   第 252 轮又发现 Python 不校验 `limit` 范围）。
-- **Evidence**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
 - **不修的理由**: 修哪一边都是**改动 HTTP 对外契约**，而方向无法由证据确定——
   若收紧 Python + Java，就与它们声称要对齐的后端**背离**；
   若放宽 Go + JS，等于正式认可后端这个由 `Integer.decode` 带来的**意外行为**为契约。
@@ -803,7 +802,8 @@
   三个文件里，而 `ExperiencesController` 把 `count` 与 `maxChars` **直接绑成 `Integer`**，
   再在方法体里手写 `count < 0 || count > 100` / `maxChars < 0`。
   后果是**同一个进程内部出现两种 400**：`InvalidParamAdvice` 只匹配 `InvalidParam`，
-- **Evidence**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
+  **无人处理 Spring 的 `MethodArgumentTypeMismatchException`**（`DemoErrors` 只管后端异常），
+  故两种 400 的**状态码相同、body 形状完全不同**（前者 `{"error":"…"}`、后者 Spring 默认体）。
 - **Status**: ⏸ 记录不修（Javadoc 已按现状更正；实现待 P2-55 的文法决定）。
 
 ### P2-57: Java SDK 的默认 base URL 是四家里唯一用主机名的——而后端**只绑 IPv4 回环**，一个 JVM 开关就能把它变成连不上
@@ -815,7 +815,6 @@
   今天能通**只是因为 HTTP 客户端做了地址族回退**。
 - **实测证据**（四家对拍表、文件行号、`lsof` 与 `[::1]` 直连结果）: 逐字迁入
   [`2026-10-05_backend-review-evidence-21.md`](../archive/2026-10-05_backend-review-evidence-21.md)（第 271 轮）。
-- **Evidence**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
 - **不修的理由**: 改一行即可（把默认值换成 `127.0.0.1:37777`），且从证据看方向明确：
   它会让 Java 与另三家及后端自身的 `server.address` 一致，
   且在任何「当前默认值可用」的环境里新默认值同样可用。
@@ -829,31 +828,18 @@
 
 ### P2-58: 四家 SDK 的响应 DTO **同缺**活体观测的 7 个字段——其中 3 个正是 V17 / V18 专门加的，而 Go 的 DTO 在 V17/V18 之后**还被改过**
 
-- **Scope**: 逐字迁入 [`2026-10-04_backend-review-evidence-14.md`](../archive/2026-10-04_backend-review-evidence-14.md)（第 263 轮）。
+- **Scope**: 逐字迁入 [`2026-10-04_backend-review-evidence-14.md`](../archive/2026-10-04_backend-review-evidence-14.md)（第 263 轮）；
+  **第 277 轮再迁出** 7 字段 ↔ 迁移来源的逐行对照表与取样方法 → [`2026-10-06_backend-review-evidence-28.md`](../archive/2026-10-06_backend-review-evidence-28.md)。
 - **Problem**: 取活体 `GET /api/observations?limit=1` 的一条真实观测（**34 个字段**），
   与四家响应 DTO 声明的字段名逐一比对，**四家同缺同样这 7 个**：
-
-  | 字段 | 来自迁移 | 性质 |
-  |------|----------|------|
-  | `platform_source` | **V18** `V18__add_platform_source.sql` | **V18 专门新增**（平台来源归属） |
-  | `generated_by_model` | **V17** `V17__observation_feedback.sql` | V17 反馈机制 |
-  | `relevance_count` | **V17** 同上 | V17 反馈机制 |
-  | `content_hash` | V8 | 内部去重列 |
-  | `step_number` | V12 | 步骤效率 |
-  | `discovery_tokens` | V1 | 统计列 |
-  | `embedding_model_id` | V2 | 内部向量元数据 |
-
-  Go 与 JavaScript 的 `encoding/json` / Jackson **默认忽略未知字段**，
-  所以这些字段**被服务端发过来、被 SDK 静默丢弃**——不报错、不告警，
-  调用方只能看到「SDK 里没这个字段」。
-- **Evidence**: 逐字迁入 [`2026-10-04_backend-review-evidence-14.md`](../archive/2026-10-04_backend-review-evidence-14.md)（第 263 轮）。
-- **不修的理由**: ①**跨四家**，不属于任何一个方向的轮次；
-  ②这 7 个里**性质不同**——`platform_source` 与 V17 两项是**面向使用方的能力**
-  （V18 的存在意义就是让调用方知道一条记忆来自哪个平台），
+  `platform_source`（**V18 专门新增**）、`generated_by_model` 与 `relevance_count`（**V17**）、
+  `content_hash`（V8）、`step_number`（V12）、`discovery_tokens`（V1）、`embedding_model_id`（V2）。
+  Go 与 JS 的 `encoding/json` / Jackson **默认忽略未知字段**，故这些字段**被服务端发来、被 SDK 静默丢弃**。
+- **不修的理由**: ①**跨四家**，不属于任何单一方向的轮次；②这 7 个里**性质不同**——
+  `platform_source` 与 V17 两项是**面向使用方的能力**（V18 的存在意义就是让调用方知道一条记忆来自哪个平台），
   而 `content_hash` / `embedding_model_id` 很可能与三个向量列一样属**内部列、本就不该暴露**；
   ③**该暴露哪一部分无法由证据确定**。按既定规则**记录不单方面实施**。
 - **Status**: ⏸ 记录不修（跨家 + 暴露范围待定；证据与字段来源已逐条落到迁移文件）。
-
 ### P2-59: Java demo 十个控制器把后端 4xx 变成 500，**其中两个方向相反**——凭空造 404，和把 404 放大成 500
 
 - **Scope**: 逐字迁入 [`2026-10-04_backend-review-evidence-15.md`](../archive/2026-10-04_backend-review-evidence-15.md)（第 265 轮）；**第 274 轮再迁出**字面响应体与控制器普查原文 → [`2026-10-06_backend-review-evidence-23.md`](../archive/2026-10-06_backend-review-evidence-23.md)。
@@ -877,14 +863,13 @@
 
 - **Problem**: `Builder.projectPath` 默认 `""`，自动装配又显式做 `getProjectPath() != null ? … : ""`；
   空串不是 `null`，能通过 `UserPromptRequest.toWireFormat()` 的 null 判断，被当作 `"cwd": ""` 发出。
-  **活体实测**：后端返 `200`，行以 `project_path = ''` 落库，只有用空项目查才取得到。
-  **规模**：库中 `EMPTY-STRING` 仅 **2 行**（都是我自己的探针），多数形态是 `NULL`
-  （**2043 行 / 2011 会话**）——**属既有普遍现象的罕见写法，非 Java 特有缺陷**。
+  **活体实测与规模**（后端返 200、行以 `project_path = ''` 落库、只有用空项目查才取得到；
+  库中 `EMPTY-STRING` 仅 2 行且都是探针，多数形态是 `NULL`，2043 行 / 2011 会话）
+  逐字见 [`2026-10-06_backend-review-evidence-27.md`](../archive/2026-10-06_backend-review-evidence-27.md)。
 - **已修**: advisor 的 Javadoc 与两份 SDK README 均已按现状写明，**零行为变更**。
 - **不修的理由**: 三种改法（`null` / `user.dir` / 拒绝记录）都改已发布 SDK 的公开默认行为；
   其中 `user.dir` 还会把提示归到用户并未选择的项目下，比现状更糟，故**不单方面实施**。
 - **Status**: ⏸ 记录不修（文档已更正；行为变更待项目决定）。
-
 ### P2-48: gitignored 的 `CLAUDE.md` 端点表 25 条里有 9 条是活体 404 的幻影端点
 
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
@@ -998,3 +983,18 @@
   一律被忽略，**含 `content` 为 null**」并附实测四例。`tsc --noEmit` 干净、**259/259** 全绿。
   **检测不实施、只记录**：给 JS 补上冲突拒绝是**让原本被接受的调用变成抛错**，属收窄已发布契约；
   JSDoc 已写明「prefer setting exactly one」。
+### P2-67: `AsyncConfig` 的类 Javadoc 把「按任务超时」列为它提供的能力——**全后端不存在任何超时机制**
+- **Scope / Evidence**: `backend/.../config/AsyncConfig.java` 类 Javadoc 第二条「Timeout handling for async
+  methods」与行内注释「values from application.yml with defaults」。
+- **Problem**: `getAsyncExecutor()` 只配了 core/max/queue/threadNamePrefix/拒绝处理器/关机等待，**无任何按任务超时**；
+  全后端搜 `setTimeout` / `TimeoutInterceptor` / `Future.get(` **零命中**。唯一与时长有关的是
+  `await-termination-seconds`，它约束**关机时等运行中任务多久**，不是**任务能跑多久**。
+  5 个 `@Async` 方法**任一都没有时间上限**。**影响**：一次卡住的 LLM 调用会**长期占住一个池线程**；
+  队列打满后拒绝处理器回退到调用线程执行，**把阻塞带回调用方**——而 `@Async` 的前提正是不阻塞调用方。
+  第二处较轻的不实：注释称线程池参数「values from application.yml」，而 **yml 里没有 `claudemem.async` 块**，四个 `@Value` 默认值（10/50/100/60）永远生效。
+- **Status**: ✅ **注释已修（第 277 轮，零行为变更）** —— 类 Javadoc 如实列出它真正提供的两件事，
+  并写明「**不存在按任务超时**」及其搜索证据、讲清 `await-termination-seconds` 的真实语义、指向 P2-67；
+  行内注释注明 yml 无该配置块。`mvn -o compile` EXIT=0、**后端 167 测试全绿**。
+  **能力本身只记录不实施**：加真正的超时需先定策略（中断，还是跑完但丢弃结果），属设计决策。
+  **该类其余部分核实为真**：`AsyncUncaughtExceptionHandler` 与点名的两个 critical 方法确实存在，
+  回退处理器也确有日志与兜底 try/catch。

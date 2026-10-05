@@ -19,10 +19,26 @@ import java.util.concurrent.Executor;
  *
  * <p>Provides:</p>
  * <ul>
- *   <li>Configurable thread pool for async tasks</li>
- *   <li>Timeout handling for async methods</li>
- *   <li>Exception handling for void methods</li>
+ *   <li>A thread pool for async tasks, with a rejection handler that runs the task
+ *       in the caller's thread when the queue is full</li>
+ *   <li>Exception handling for void methods, via
+ *       {@link AsyncUncaughtExceptionHandler}</li>
  * </ul>
+ *
+ * <p><b>There is no per-task timeout.</b> An earlier version of this comment listed
+ * "Timeout handling for async methods" as a capability of this class; it never
+ * existed. A search of the whole backend for {@code setTimeout},
+ * {@code TimeoutInterceptor} and {@code Future.get} returns nothing, so an async
+ * task runs to completion however long it takes. The one duration configured here
+ * is {@code await-termination-seconds}, which bounds how long shutdown waits for
+ * running tasks — not how long a task may run. Adding a real timeout means picking
+ * a policy (cancel, or let the thread finish and discard the result) and is a
+ * design decision, not a config toggle. See P2-67.
+ *
+ * <p>The four {@code claudemem.async.*} properties below are read with
+ * {@code @Value} defaults, but {@code application.yml} defines no
+ * {@code claudemem.async} block, so the defaults are always what applies unless a
+ * deployment supplies the variables externally.
  */
 @Configuration
 @EnableAsync(proxyTargetClass = true)
@@ -31,7 +47,8 @@ public class AsyncConfig implements AsyncConfigurer {
 
     private static final Logger log = LoggerFactory.getLogger(AsyncConfig.class);
 
-    // P2: Thread pool configuration - values from application.yml with defaults
+    // P2: Thread pool configuration. NOTE: no `claudemem.async` block exists in
+    // application.yml, so these @Value defaults are what actually applies.
     @Value("${claudemem.async.core-pool-size:10}")
     private int corePoolSize;
 
