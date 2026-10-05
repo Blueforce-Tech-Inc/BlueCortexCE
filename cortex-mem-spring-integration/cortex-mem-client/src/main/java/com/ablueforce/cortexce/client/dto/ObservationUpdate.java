@@ -35,9 +35,11 @@ public record ObservationUpdate(
      * Check if all fields are null (no update intended).
      * Used by the client to reject no-op PATCH requests.
      *
-     * <p><b>Annotated {@code @JsonIgnore} deliberately.</b> Jackson serialises every
-     * record accessor as a property, so an {@code isX()} method matching the JavaBeans
-     * convention was emitted on the wire as a spurious {@code "empty": false} field on
+     * <p><b>Annotated {@code @JsonIgnore} deliberately.</b> Jackson treats a record's
+     * components plus any accessor matching the JavaBeans convention ({@code getXxx()} for
+     * any type, {@code isXxx()} for booleans) as properties — a plain no-arg method with any
+     * other name is invisible. This one matched, so it was emitted on the wire as a spurious
+     * {@code "empty": false} field on
      * <em>every</em> PATCH request — a field the caller never set, contradicting the
      * class Javadoc's promise that "only explicitly set fields" are sent. The backend
      * ignores unknown keys so nothing broke, but the payload did not match the

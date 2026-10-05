@@ -49,9 +49,11 @@ public record ExtractionResponse(
     /**
      * Returns true if extraction was found (status = "ok").
      *
-     * <p><b>Annotated {@code @JsonIgnore} deliberately.</b> Jackson serialises every
-     * record accessor as a property, so this computed {@code isX()} helper was emitted
-     * on the wire as a spurious {@code "found": …} field the server never sent. Parsing
+     * <p><b>Annotated {@code @JsonIgnore} deliberately.</b> Jackson treats a record's
+     * components plus any accessor matching the JavaBeans convention ({@code getXxx()} for
+     * any type, {@code isXxx()} for booleans) as properties — a plain no-arg method with any
+     * other name is invisible. This one matched, so it was emitted on the wire as a spurious
+     * {@code "found": …} field the server never sent. Parsing
      * is unaffected, but the re-serialised payload did not match the server's shape.
      * See P2-64.
      */
