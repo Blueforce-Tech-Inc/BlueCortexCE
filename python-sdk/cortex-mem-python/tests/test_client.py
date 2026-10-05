@@ -2,6 +2,7 @@
 
 import json
 import pytest
+import requests
 import responses
 
 from cortex_mem import CortexMemClient, APIError, BadRequestError, NotFoundError, RateLimitError, CortexError, ValidationError, UnprocessableError
@@ -1707,6 +1708,64 @@ class TestIsRetryable:
 
     def test_200_not_retryable(self):
         assert is_retryable(200) is False
+
+
+class TestIsRetryableAcceptsErrors:
+    """is_retryable() also takes an exception, matching Go and JS by name.
+
+    Go's IsRetryable(err) and JS's isRetryable(err) both take an error under
+    this name. Before this widening, a mechanically ported ``is_retryable(e)``
+    returned False for every error without raising -- including the 429 and
+    503 those two answer True to -- so a caller's own retry loop silently
+    never fired. Each case below is the Go/JS answer for the same input.
+    """
+
+    def test_rate_limited_error(self):
+        assert is_retryable(RateLimitError()) is True
+
+    def test_bad_gateway_error(self):
+        assert is_retryable(APIError(502, "bad gateway")) is True
+
+    def test_service_unavailable_error(self):
+        assert is_retryable(APIError(503, "unavailable")) is True
+
+    def test_gateway_timeout_error(self):
+        assert is_retryable(APIError(504, "timeout")) is True
+
+    def test_internal_server_error_is_not_retryable(self):
+        assert is_retryable(ServerError(500, "internal")) is False
+
+    def test_bad_request_error_is_not_retryable(self):
+        assert is_retryable(BadRequestError()) is False
+
+    def test_network_error_is_retryable(self):
+        # Go matches net.Error, JS matches TypeError; both say retry.
+        assert is_retryable(requests.ConnectionError()) is True
+
+    def test_timeout_error_is_retryable(self):
+        assert is_retryable(requests.Timeout()) is True
+
+    def test_unrelated_exception_is_not_retryable(self):
+        assert is_retryable(ValueError("something")) is False
+
+    def test_agrees_with_is_retryable_error(self):
+        for err in (
+            RateLimitError(), APIError(502, "x"), APIError(503, "x"),
+            APIError(504, "x"), ServerError(500, "x"), BadRequestError(),
+        ):
+            assert is_retryable(err) is is_retryable_error(err), err
+
+    def test_unrecognised_argument_fails_closed(self):
+        # A wrong type is a caller bug, but it must not be read as "retry".
+        for junk in ("429", None, 4.5, [429], object()):
+            assert is_retryable(junk) is False, junk
+
+    def test_status_code_path_still_works(self):
+        # The original signature must be untouched by the widening.
+        for code in (429, 502, 503, 504):
+            assert is_retryable(code) is True, code
+        for code in (200, 400, 404, 500):
+            assert is_retryable(code) is False, code
 
 
 class TestErrorPredicates:

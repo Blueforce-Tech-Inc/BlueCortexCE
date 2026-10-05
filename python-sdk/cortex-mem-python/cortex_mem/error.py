@@ -132,9 +132,27 @@ def raise_for_status(status_code: int, body: bytes) -> None:
     raise APIError(status_code, message)
 
 
-def is_retryable(status_code: int) -> bool:
-    """Return True if the status code indicates a transient, retryable error."""
-    return status_code in (429, 502, 503, 504)
+def is_retryable(err_or_status: int | BaseException) -> bool:
+    """Return True if the argument indicates a transient, retryable error.
+
+    Accepts **either** a status code or an exception.
+
+    <p>Accepting both is deliberate and was added after this was found to be a
+    silent trap rather than a cosmetic mismatch. Go's ``IsRetryable(err)`` and
+    JS's ``isRetryable(err)`` both take an <em>error</em> under exactly this
+    name, but this function took only a status code. A retry loop ported
+    mechanically from either of them — ``is_retryable(e)`` — therefore returned
+    ``False`` for every error without raising, including the 429 and 503 that
+    both of those answer ``True`` to. The caller's own retry loop simply never
+    fired, with nothing to indicate why.
+
+    <p>Status-code behaviour is unchanged, so existing callers are unaffected.
+    Passing anything else returns ``False``, matching the fail-closed rule the
+    rest of this module states. See P2-65.
+    """
+    if isinstance(err_or_status, BaseException):
+        return is_retryable_error(err_or_status)
+    return err_or_status in (429, 502, 503, 504)
 
 
 def is_retryable_error(err: Exception) -> bool:

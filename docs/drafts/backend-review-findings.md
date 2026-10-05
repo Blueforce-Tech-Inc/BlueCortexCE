@@ -879,24 +879,13 @@
 ### P2-59: Java demo 十个控制器把后端 4xx 变成 500，**其中两个方向相反**——凭空造 404，和把 404 放大成 500
 
 - **Scope**: 逐字迁入 [`2026-10-04_backend-review-evidence-15.md`](../archive/2026-10-04_backend-review-evidence-15.md)（第 265 轮）。
-- **Problem**: 四家 demo 在本机同时起（Java 37778、Go 37779、Python 37780、JS 37781），
-  对**同一个请求**打同一句话，结果是**两个相反方向**的分裂：
-  ①**放大**——后端 `PATCH /api/session/{sessionId}/user` 对未知 session 返 **404**
-  `{"error":"Session not found: no-such-session-xyz-263"}`；
-  Python / Go / JS 三个 demo **原样透传 404**，Java demo 返 **500**，
-  且 body 是 `{"error":"Failed to update session user: 404 Not Found: \"{\\\"error\\\":...\\\"}\""}`
-  ——**后端那段 JSON 被当成字符串二次转义塞进 `error` 字段**，调用方解析出来是一坨带转义的 JSON 文本。
-  ②**凭空造**——方向相反。后端 `GET /api/extraction/{templateName}/latest` 在**没有抽取结果**时
-  返的是 **HTTP 200** + in-band `{"status":"not_found", ...}`（活体实测，非 404）；
-  Python / Go / JS 三个 demo 透传 **200**，Java demo 却判 `!result.isFound()` 后**自己造了个 404**。
-  这不是边角：`ExtractionResponse` 的 Javadoc 写明 `user_preference` 是**唯一随包的模板**，
-  而任何新项目上它必然处于「还没抽过」的状态——**所以 Java demo 的这条路由在常见路径上就返 404**。
-  根因很干净：12 个控制器共 **40 个 `catch (Exception e)` 块**（脚本按花括号深度统计），
-  **只有 3 个**走到 `DemoErrors`——`ObservationsController` 2 个、`FeedbackController` 1 个，
-  **其余 10 个控制器一个都没有**，一律 `internalServerError()`。
-  顺带排除一个伪线索：Go demo 的 `/batch-observations`、`/create-observation` 与另三家不同名，
-  是**有意为之**（源码注释写明为避开 Go 1.25+ ServeMux 与 `/observations/{id}` 的路径歧义），
-  其 README 也已登记该差异——不是缺陷。
+- **Problem**: 四家 demo 在本机同时起（Java 37778、Go 37779、Python 37780、JS 37781），对**同一个请求**打同一句话，
+  结果是**两个相反方向**的分裂：①**放大**——后端对未知 session 返 404，Python / Go / JS 三个 demo
+  **原样透传**，Java demo 返 **500** 且把后端那段 JSON 当字符串二次转义塞进 `error`；
+  ②**凭空造**——方向相反：后端在「还没抽过」时返的是 **HTTP 200** + in-band `status:"not_found"`（活体实测，非 404），
+  另三家透传 200，Java demo 判 `!result.isFound()` 后**自己造了个 404**。
+  **字面响应体、40 个 catch 块普查与一个已排除的伪线索**（Go demo 路由改名是有意为之）逐字见归档。
+  根因很干净：12 个控制器共 40 个 `catch (Exception e)` 块，**只有 3 个**走到 `DemoErrors`，**其余 10 个控制器一个都没有**。
 - **已修**: `DemoErrors` 的类 Javadoc 原先写着「**Controllers** use `statusOf` / `messageOf`」，
   在只有 2/12 控制器这么做时读起来像全覆盖声明。已按现状改写为精确表述
   （12 个控制器 / 40 个 catch 块 / 3 个走 helper / 10 个控制器没有），
@@ -906,7 +895,6 @@
   三家自己就不一致）。按既定规则**对外契约变更记录不单方面实施**。
   另注：`ErrorField` 的正则对 Spring 默认错误体（`{"timestamp":...,"error":"Bad Request"}`）
   会取出 `"Bad Request"`，**这条是后端本身就没给解释**，不算信息丢失，故不单列。
-
 ### P2-60: `CortexMemoryAdvisor` 的 `projectPath` 默认为空串——不设 `cortex.mem.project-path` 时，被捕获的提示**记下了却再也召回不了**
 
 - **Problem**: `Builder.projectPath` 默认 `""`，自动装配又显式做 `getProjectPath() != null ? … : ""`；
@@ -947,21 +935,18 @@
 - **Status**: ⏸ **记录不修** —— 把它改成 `!prd` 会让三个端点在**默认 compose 部署下消失**，
   属**对外契约变更**；且本轮代码方向为 Python SDK，后端不在本轮范围内。**本轮未改任何后端代码。**
 ### P2-62: `ProjectFilterService` 的 `~username` 展开**丢弃用户名**、改写到当前用户家目录——Javadoc 说的是另一回事
-- **Scope / Evidence**: `backend/.../service/ProjectFilterService.java:109-152`（含本轮已修正的
-  Javadoc）；测试头 `src/test/java/.../ProjectFilterServiceTest.java:10-14`。
+- **Scope / Evidence**: 逐字迁入 [`2026-10-06_backend-review-evidence-23.md`](../archive/2026-10-06_backend-review-evidence-23.md)（第 274 轮）。
 - **Problem**: 原 Javadoc 写 "Handles both `~` (current user) and `~username` (specific user)
   forms"，行内注释写 "expand to that user's home (best effort)"——**代码里不存在 resolve 分支**：
   `replaceFirst("^~" + username, userHome)` 把 `~username` **整段**替换成**当前**用户的家目录，
-  用户名被**静默丢弃**；且 `username` 未转义即拼进**正则**。**反射实测**：`~/proj →
-  /Users/<当前>/proj`；`~alice/proj → /Users/<当前>/proj`（**alice 消失**）；`~alice`（无斜杠）
-  原样返回；`~a.b/proj → /Users/<当前>/proj`（`.` 成通配）。
+  用户名被**静默丢弃**；且 `username` 未转义即拼进**正则**。
+  **反射实测表**（`~/proj` / `~alice/proj` / `~alice` / `~a.b/proj` 四例）逐字见归档。
 - **影响面**：该类**未注册为 Bean**、生产代码**零引用**，类 Javadoc 自陈 "not currently wired
   into any processing pipeline" —— **当前影响为零**；风险是有人照该 Javadoc 接上后静默改写路径。
   **测试头曾声称覆盖 "expandHomeDirectory edge cases"，而全文零个 `~` 用例**。
 - **Status**: ⏸ **记录不修** —— 正确的 `~username` 解析属**设计决策**，且**无生产调用方可验证**。
   **已修（零行为变更）**：Javadoc 改为如实描述并附实测结果；测试头的不实声明已更正，并写明
   **为何不补测试**——补了就等于把可疑行为钉死。后端 **167 测试全绿**、`mvn package` EXIT=0。
-
 ## Processing Rules
 - SDK/Demo findings are fixed in place with focused compile/test verification.
 - Backend findings are fixed in place when small and safe; otherwise they remain here until the complete acceptance stage.
@@ -998,3 +983,18 @@
 - **Status**: ✅ **已修（第 273 轮）** —— 两个访问器加 `@JsonIgnore`。修复后实测 `{"title":"T"}`，
   且 null→省略、`facts=[]`→照发等**原有语义全部保持**，`isFound()` 仍正确求值；
   **无任何测试断言该字段**。Java SDK **196/0/0/0** 全绿。
+### P2-65: Python SDK 的 `is_retryable` 只收状态码，而 Go/JS 的**同名函数收的是 error**——跨家移植得到一个永远返回 False 的重试判定
+- **Scope / Evidence**: `error.py:135-137`（修复前）、`client.py:199`（内部唯一调用点，**用法本就正确**）、`__init__.py:46,93`（**两个名字都在 `__all__` 里公开导出**）。
+- **Problem**: Go `IsRetryable(err error)`、JS `isRetryable(err: unknown)` **都只有一个函数且收 error**；
+  Python 有**两个**：`is_retryable(status_code)` 与 `is_retryable_error(err)`，而**与 Go/JS 同名的那个收状态码**。
+  机械移植的重试循环写成 `is_retryable(e)` 时，**对每个错误都静默返回 False、不抛异常**——实测
+  `RateLimitError`(429) 与 `APIError(502/503/504)` 全部 `False`，而 Go/JS 对同样输入返回 `True`。
+  **后果是调用方自己的重试循环永不触发且无任何迹象**；不重试的错误返回 False 是对的，故这个坑**只在本该重试时暴露**。
+  README 对两个函数**零提及**。
+- **Status**: ✅ **已修（第 274 轮）** —— 按「**纯加宽 / 向后兼容即可修**」，把 `is_retryable` 参数**加宽为 `int | BaseException`**：
+  收异常转发 `is_retryable_error`，收状态码**行为一行未变**，其它类型 fail-closed 返回 `False`。
+  **未改名、未删任何公开符号**。**+12 条测试**（441 → **453**），**双向注入**：只回退这处加宽则**恰好 7 条失败**
+  （4 个可重试 API 错误、2 个网络错误、与 `is_retryable_error` 的一致性对拍），**另 5 条两种状态下均不失败**（3 条 fail-closed 对照、
+  1 条不重试错误对照、1 条状态码向后兼容守卫）。**顺带更正 Python SDK README 测试数**（两版 441 → 453，226 + 140 + 87），
+  否则就是本循环反复在抓的「改了测试没回头改这个数」。**未单方面做的**：把两个函数改名以真正对齐 Go/JS 属**改已发布公开 API 的名字**，
+  按规则记录不实施。另记**非缺陷**：Go 独有 `IsInternal`(500)，JS 与 Python 无对应谓词——是 Go 多一个。
