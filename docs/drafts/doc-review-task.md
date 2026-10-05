@@ -114,8 +114,12 @@
 
   **本轮唯一的真缺陷在后端而非文档**，已记为 **P2-61**：`TestController` 的类级 `@Profile("!prod")` 指向本仓库**不存在的 profile**（只有 `dev` 与 `prd`），该门控在项目实际使用的每一种 profile 下**都匹配、永不排除任何东西**，而 `@Tag` 描述却声称「Only available in non-production environments」。**架构文档 `ARCHITECTURE.md:880` 列出 `/api/test/*` 时不带任何 profile 限定，据此反而是准确的**——因为门控确实从不生效，本轮**未改该行**；代码方向为 Python SDK，后端不在本轮范围内，故 ⏸ 记录不修。
 
-- **下一方向**: 运维/用户指南（一百六十九轮）
-- **新增待决**: ①`docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分；②**本仓库无任何 CI 跑测试**——`.github/workflows/` 下只有 `docker.yml`，做 checkout + QEMU/Buildx + 推多架构镜像，**不跑测试**，workflows 中 `go test` 零命中；接 CI 需决定跑哪些套件与是否 provisioning 数据库/密钥，属基础设施决策；③**`backend-review-findings.md` 虽经第 267 轮压缩回到 988 行，但该杠杆已用到第三种**（⏸ 条目保留 Problem、只迁出其中的可复现实测细节），**第四种尚未出现**——是否拆分仍待决
+- **最近完成**: 运维/用户指南（2026-10-05 一百六十九轮，**五个角度全扫，零缺陷**）。**DOC-1（核实无误、未改）** **`TESTING.md`**：§3 表中 16 个脚本 + §3.5 的 3 个工具**逐个存在（20/20）**；`phase3-acceptance-test.sh` 的「15 test functions」实测**恰 15** 个且函数名可逐个列出；`run-all-e2e.sh` 的「10 local E2E suites」实测编号**恰为 1/10…10/10**；`regression-test.sh` 的五个选项**全部存在**、`--help` 实跑退出 0；§7 的 MCP 自动探测与 `mcp-e2e-test.sh:97` 的判定条件 `[ "$sse_status" = "200" ] && [ "$mcp_status" = "404" ]` **逐字一致**，活体实测 `/sse` 200 / `POST /mcp` 404 **正是文档描述的 SSE 态**；§8「CI/CD Integration」**只列 `docker.yml` 且未声称跑测试**，与已记录的「本仓库无任何 CI 跑测试」一致。**`DEPLOYMENT.md` §2.4** 与 `docker-compose.yml` 逐行 diff：**键值集合完全一致**（剥注释 + 排序后 `diff` 为空），差异**纯为注释与排版**；§4.1 迁移表 **16 行**文件名与 `db/migration/` 下 16 个文件**逐字吻合**，且**未虚列 V9/V10**；V1 的「5 core tables」实测**恰 5** 张表；§4.3 的容器名与库名均与 compose 一致。**双语同步**：两份 TESTING 的 15/10、两份 DEPLOYMENT 的迁移表 16 行，**两版计数逐项相同**。
+
+  **一个探针命中的是文档已经解释过的事**：扫 §5 的 49 个环境变量名时，`CLAUDEMEM_RATE_LIMIT_*` 三个在后端配置中查无此物——但**文档自己就写着**「none of its keys appear in `application.yml`」，并说明 `RateLimitService` 直接从 `@Value` 默认值读取。实测 `max-requests:10` / `window-seconds:60` / `cleanup-interval-seconds:300`，**三个默认值与文档表格逐项吻合**。**探针错、文档对，未据此改任何一处**（与第 166、167 轮同型）。
+
+- **下一方向**: API 文档（一百七十轮）
+- **新增待决**: ①`docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分；②**本仓库无任何 CI 跑测试**——`.github/workflows/` 下只有 `docker.yml`，做 checkout + QEMU/Buildx + 推多架构镜像，**不跑测试**，workflows 中 `go test` 零命中；接 CI 需决定跑哪些套件与是否 provisioning 数据库/密钥，属基础设施决策；③**`backend-review-findings.md` 988/1000 行**，第 267 轮已用到第三种压缩杠杆（⏸ 条目保留 Problem、只迁出可复现实测细节），**第四种尚未出现**——是否拆分仍待决
 - **Pending 状态**: 文档问题清单已清空（0 项待处理）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
 
