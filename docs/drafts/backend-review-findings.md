@@ -9,7 +9,7 @@
 | Severity | Open | Rule |
 |----------|------|------|
 | P0 | 0 | 立即修复并复测 |
-| P1 | 1 | 优先修复并复测 |
+| P1 | 2 | 优先修复并复测 |
 | P2 | 2 | 本轮完整验收阶段处理或明确标记为已跳过 |
 
 - **已整体迁出**（current-status-note）: 逐字迁入 [`2026-10-04_backend-review-resolved-15.md`](../archive/2026-10-04_backend-review-resolved-15.md)（第 263 轮）。
@@ -42,6 +42,21 @@
   1. **捕获被静默丢弃** —— 工具实际执行的线程看不到该 ThreadLocal，`CortexSessionContext.isActive()` 为 false，`CortexToolAspect` 直接 `proceed()` 跳过捕获。`@Tool` 自动捕获在流式下等于失效，且无任何日志。
   2. **会话上下文泄漏** —— `doFinally` 清掉的是信号线程（一个空 ThreadLocal），调用线程的 ThreadLocal 永不清除。线程池复用该线程后，`begin()` 因 conversation id 缺失而提前 return 的那条路径**也不会**清理，于是残留的 `sessionId` 会被下一次请求的 `CortexToolAspect` 当作有效会话使用——工具观察被归到**上一个会话**。这是静默的跨会话数据串号。
 - **实测记录**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
+### P1-2: Java demo 的 `?path=` **无任何路径校验**，且服务绑 `*:37778` —— 同网段可读走本机任意文件
+- **Scope / Evidence**: `examples/cortex-mem-demo/.../FileReadTool.java:23-25`；三个 HTTP 入口
+  `ToolsController.java:36-48`、`SessionLifecycleController.java:104-111`、`:186-217`；
+  `src/main/resources/application.yml:2`（**只设 `server.port`，无 `server.address`**）。
+- **Problem**: `readFile` 直接 `Files.readString(Path.of(path))`，**无根目录约束、无 `..` 检查、无白名单**；
+  `?project=` 只约束**记忆捕获**的项目，**与文件读取无关**。同时 `application.yml` 未设
+  `server.address`，Spring Boot 默认绑 `*:37778` —— 而后端显式设了
+  `address: ${SERVER_ADDRESS:127.0.0.1}`，两者姿态相反。
+- **实测记录**: 逐字迁入 [`2026-10-05_backend-review-evidence-18.md`](../archive/2026-10-05_backend-review-evidence-18.md)（第 269 轮）。
+- **Severity 说明**：demo 全局无鉴权是**已知设计**（架构文档写明 "Currently no authentication
+  (local development)"），但**「无鉴权」与「可读任意文件」是两件事** —— 前者只暴露记忆 API，
+  后者可取走 `~/.ssh/id_rsa`、`~/.aws/credentials`、含密钥的 `.env`，同网段即可触发。
+- **Status**: ⏸ **记录不修** —— 加路径约束是**收窄行为**，会改变 demo 已发布端点的语义，
+  按纪律属**对外契约变更**。**已修（零行为变更）**：demo README 端点表下新增事实性警告。
+  **本轮未改任何 Java 代码**，实测用的 demo 进程与探针文件已清理。
 ### P2-8: 读取侧没有维度路由 —— 写入按维度分列，检索恒定比 `embedding_1024`
 
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
@@ -259,26 +274,17 @@
 - **Problem**: `healthCheck()` 自己 `catch` 后 **`return false`**、**从不向外抛出**，
   故 `health()` 的 `catch` 分支在生产中**不可达**，`withException(e)` 写出的
   `error` 键**永远不会被填充**。
-  活体实测（真实 `CortexMemClientImpl`，指向死端口 39999，超时 500ms）：
-
-  ```
-  status  = DOWN
-  details = {service=Cortex CE Memory Backend, reason=Health check returned false}
-  hasErrorKey = false
-  ```
-
-  指向真实后端时 `status=UP`。即运维看到后端挂掉只能读到「Health check returned false」——
-  **连接被拒 / 超时 / DNS 失败这些真正的原因全部丢失**，因为在客户端被 `log.debug` 吞掉
-  （默认不输出）；「后端不可达」与「后报 degraded」两种不同情况给出**完全相同**的文案。
+  活体实测确证：真实 client 指向死端口时 `status=DOWN`、
+  `reason=Health check returned false`、`hasErrorKey=false`；指向真实后端则 `UP`。
+  即**连接被拒 / 超时 / DNS 失败这些真正的原因全部丢失**（在 client 侧被 `log.debug`
+  吞掉，默认不输出），「后端不可达」与「后端 degraded」给出**完全相同**的文案。
 - **测试反而钉死了这个假象**：`CortexMemHealthIndicatorTest.health_whenClientThrows_returnsDown`
-  用 **mock** 让 client 抛出并断言 `containsKey("error")`——该状态**真实 client 永远无法产生**，
-  故此用例**恒真却毫无保护作用**：让人以为异常路径已覆盖，而生产中恰恰走不到。
-  与第 197 轮「夹具传了后端从不下发的值」同类：测试覆盖的是**虚构状态**。
-- **核实无误的部分**：`healthCheck()` 判定 `"ok"` 的大小写是对的（后端
-  `HealthController.java:62` 返回 `dbReady ? "ok" : "degraded"`，**小写**；
-  活体 `GET /api/health` 亦为 `{"status":"ok"}`），null body / 非 `ok` / 异常
-  三种情况均正确返回 `false`，UP-DOWN 三分支本身正确——
-  **缺陷只在「原因丢失」与「测试虚构」，不在判定逻辑。**
+  用 **mock** 让 client 抛出并断言 `containsKey("error")`——真实 client 永远产生不了该
+  状态，故此用例**恒真却毫无保护作用**（与第 197 轮同类：测试覆盖的是虚构状态）。
+- **核实无误**：`"ok"` 的大小写判定正确（后端 `HealthController.java:62` 返回
+  `dbReady ? "ok" : "degraded"`，**小写**）；null body / 非 `ok` / 异常三种情况均正确返回
+  `false`，UP-DOWN 三分支本身正确——**缺陷只在「原因丢失」与「测试虚构」，不在判定逻辑。**
+- **实测证据**: 逐字迁入 [`2026-10-05_backend-review-evidence-17.md`](../archive/2026-10-05_backend-review-evidence-17.md)（第 269 轮）。
 - **Status**: ⏸**已记录，不实现**。要让原因到达指示器，需要 `healthCheck()`
   改为向上抛出（**改变既有方法的行为契约**，所有调用方的 `catch` 都要重审），
   或为 client **新增公开 API**（如 `getLastHealthFailure()`）供指示器读取——

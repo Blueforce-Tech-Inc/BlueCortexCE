@@ -55,6 +55,21 @@ Demo runs on `http://localhost:37778`.
 | `GET /demo/tool?path=...&project=project-a` | Tool call scoped to project |
 | `GET /actuator/health` | Health check |
 
+> **`?path=` is not sandboxed, and the demo listens on every interface.**
+> `FileReadTool.readFile` calls `Files.readString(Path.of(path))` with no root
+> confinement, so `?path=` accepts **any** path the JVM can read — `/etc/passwd`,
+> `~/.ssh/id_rsa`, or a `.env` file — and the endpoint returns the contents
+> verbatim. `?project=` scopes only the *memory capture*, never the file read.
+> Separately, `application.yml` sets `server.port` but **not** `server.address`, so
+> the server binds `*:37778` rather than loopback; the backend does the opposite
+> (`address: ${SERVER_ADDRESS:127.0.0.1}`). Anything that can reach port 37778 on
+> your network can therefore read files as your user account. The demo's own
+> E2E script only ever reads from `/tmp`, so this is not covered by tests.
+> This is intentional for a throwaway demo — it exists to show the `@Tool`
+> capture path — but do not copy the endpoint, or run it on a shared network,
+> without adding path validation. Recorded as P1-2 in
+> [`docs/drafts/backend-review-findings.md`](../../docs/drafts/backend-review-findings.md).
+
 ### 4. E2E Test
 
 ```bash

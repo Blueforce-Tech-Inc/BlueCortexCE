@@ -118,8 +118,10 @@
 
   **一个探针命中的是文档已经解释过的事**：扫 §5 的 49 个环境变量名时，`CLAUDEMEM_RATE_LIMIT_*` 三个在后端配置中查无此物——但**文档自己就写着**「none of its keys appear in `application.yml`」，并说明 `RateLimitService` 直接从 `@Value` 默认值读取。实测 `max-requests:10` / `window-seconds:60` / `cleanup-interval-seconds:300`，**三个默认值与文档表格逐项吻合**。**探针错、文档对，未据此改任何一处**（与第 166、167 轮同型）。
 
-- **下一方向**: API 文档（一百七十轮）
-- **新增待决**: ①`docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分；②**本仓库无任何 CI 跑测试**——`.github/workflows/` 下只有 `docker.yml`，做 checkout + QEMU/Buildx + 推多架构镜像，**不跑测试**，workflows 中 `go test` 零命中；接 CI 需决定跑哪些套件与是否 provisioning 数据库/密钥，属基础设施决策；③**`backend-review-findings.md` 988/1000 行**，第 267 轮已用到第三种压缩杠杆（⏸ 条目保留 Problem、只迁出可复现实测细节），**第四种尚未出现**——是否拆分仍待决
+- **最近完成**: API 文档（2026-10-05 一百七十轮，**四个角度全核，零缺陷**）。**DOC-1（核实无误、未改）** **端点覆盖率**：把活体 `/v3/api-docs` 的 **62 条**路径逐条在 `API.md` / `API-zh-CN.md` 中查找，**两版各 0 条缺失**。首次扫描曾报「4 条未显式写出」（`/api/context/prior-messages`、`/api/context/recent`、`/api/context/timeline`、`/stream`），但那是**我的正则只认单行内联的 `METHOD /path` 写法**——这四条其实分别以 `#### GET \`…\`` 四级标题和代码块形式记载，**探针错、文档对**。**第 264 轮新增的逐参数范围表**（9 行）逐行实测：①`limit` 在五个分页端点为 `Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE)`，`MAX_PAGE_SIZE = 100`，活体 `limit=0`/`-5` → 1 条、`500` → 100 条；②`/api/context/recent` 为 `Math.min(Math.max(1, limit), 20)`；③`/api/extraction/{t}/history` 为 `if (limit<1) limit=1; if (limit>100) limit=100;`；④`/api/logs` 为 `Math.min(Math.max(1, lines), 10000)`——**四种写法不同，行为与表内断言逐项吻合**（前两条我一度用 `grep Math\.` 漏检，实为探针匹配方式单一）。⑤「下钳到 0」的六行经**补齐必填 `project`、把 epoch 区间缩到 7 天、给 `/api/context/timeline` 带上真实 `anchor`** 后实测**全值域 200**（`-5 / 0 / 1 / 5 / 5000`），第 264 轮的修复仍成立。**三次探针自身出错、先识别再采信**：缺必填 `project` 让四个请求齐返 400（几乎可以写成「第 264 轮修复已回退」的假发现）；epoch 区间 578 天触发 `Date range exceeds 1 year maximum`；缺 `anchor` 触发业务 400 `No anchor found`。**决定性的是对照**——合法值 `depthBefore=5` 同样返 400，一度让「负值致 400」看起来成立，直到跑出对照才确认 400 与 depth 无关。**中英范围表各 11 行，同步。**
+
+- **下一方向**: SDK README（一百七十一轮）
+- **新增待决**: ①`docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分；②**本仓库无任何 CI 跑测试**——`.github/workflows/` 下只有 `docker.yml`，做 checkout + QEMU/Buildx + 推多架构镜像，**不跑测试**，workflows 中 `go test` 零命中；接 CI 需决定跑哪些套件与是否 provisioning 数据库/密钥，属基础设施决策；③**`backend-review-findings.md` 994/1000**，第 269 轮已写入 **P1-2**（Java demo 任意文件读取），是否拆分仍待决
 - **Pending 状态**: 文档问题清单已清空（0 项待处理）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
 
