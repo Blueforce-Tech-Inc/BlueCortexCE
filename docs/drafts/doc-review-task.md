@@ -124,8 +124,10 @@
 
   **一处看着像缺陷、查源码后确认是忠实镜像，故未改**：Go README 的分类表有一行字面叫 **「P1」**，装着 `GetProjects` / `GetStats` / `GetModes` / `GetSettings`——与本仓库 P0/P1/P2 的严重级用词撞名，初看像是把优先级标签误当成分类。**但 `client.go:96` 与 `client_methods.go:325` 的段头正是 `// ==================== P1 Management ====================`，其后恰是这四个方法**，README 是在镜像源码自己的分组。改它反而会让文档与源码脱节。**又一次「先识别再采信」——这次是识别出「看起来可疑」的部分其实没问题。**
 
-- **下一方向**: 设计文档（一百七十二轮）
-- **新增待决**: ①`docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分；②**本仓库无任何 CI 跑测试**——`.github/workflows/` 下只有 `docker.yml`，做 checkout + QEMU/Buildx + 推多架构镜像，**不跑测试**，workflows 中 `go test` 零命中；接 CI 需决定跑哪些套件与是否 provisioning 数据库/密钥，属基础设施决策；③**`backend-review-findings.md` 998/1000**，第 270 轮写入 **P2-62** 时一度触发 `COMPACTION_REQUIRED`（1001 行、退出码 2），收紧后才回落；是否拆分仍待决
+- **最近完成**: 设计文档（2026-10-05 一百七十二轮，**两个角度全核，零缺陷**）。**DOC-1（核实无误、未改）** **内部链接**：对 `docs/drafts/phase-3-design/` 全部子文档加 `phase-3-design.md` / `phase-3-design-walkthrough.md` 扫非 http 链接，**25 条全部可解析，零断链**。**`文件:行号` 引用仍是第 166 轮那 7 处，无新增、无漂移**，抽查 5 处精确命中：`AgentService.java:241` 正是去重查询、`ExtractionStorageService.java:49` 正是 `@Transactional`、`:127` 正是 `dlq.setType("dlq_" + templateName)`、`StructuredExtractionService.java:211` 正是 `observationRepository.find…`、`:315` 正是 `return extractAppendOnly(template, candidates, priorJson)`。本轮**没有新角度可换**——第 166 轮已做过行号、表行数、链接、方法名四个角度且均为零缺陷，故不制造修改。
+
+- **下一方向**: 架构文档（一百七十三轮）
+- **新增待决**: ①`docs/drafts/` 下 3 个文件超 50KB（`go-sdk-design.md` 195KB 等），50KB 规范原文仅约束 `phase-3-design/` 子目录，需明确适用范围或安排拆分；②**本仓库无任何 CI 跑测试**——`.github/workflows/` 下只有 `docker.yml`，做 checkout + QEMU/Buildx + 推多架构镜像，**不跑测试**，workflows 中 `go test` 零命中；接 CI 需决定跑哪些套件与是否 provisioning 数据库/密钥，属基础设施决策；③**`backend-review-findings.md` 第 271 轮收在 1000/1000 整**（`lines > 1000` 才判越线），**下一条 finding 必然再次触发 `COMPACTION_REQUIRED`**；④**P2-63 暴露的规则缺口**：现行压缩断言只查边界行首与「指针数=归档块数」，**没有一条检查「工作文件里曾存在的条目是否还在」**——补这一条属规则变更，需项目决策
 - **Pending 状态**: 文档问题清单已清空（0 项待处理）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
 

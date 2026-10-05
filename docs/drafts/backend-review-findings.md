@@ -414,6 +414,33 @@
 - **实测记录**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
 - **Reproduction**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
 - **P2-31 已整体迁出**: 逐字迁入 [`2026-10-04_backend-review-resolved-15.md`](../archive/2026-10-04_backend-review-resolved-15.md)（第 263 轮）。
+### P2-30: 同一个非法 `limit = -5` 在**四家 SDK 有三种行为**，且 **Go 自身也不一致**（第 271 轮从压缩事故中恢复）
+- **Problem**: Java **抛 `IllegalArgumentException`**（且 >100 也抛）、Go 与 JS **静默丢弃**、
+  Python **照发**（负数在 Python 是真值）而被后端钳成 **1**。Go 内部亦分裂：`Search` /
+  `ListObservations` 静默丢弃而 `GetExtractionHistory` **抛 `ValidationError`**，无理由说明。
+  **本条曾于某次压缩中整块销毁且未进归档，第 271 轮据幸存片段恢复**——`Problem` 为
+  **据第 133 轮日志的重建，非逐字**。
+- **Impact / Status / Reproduction（逐字幸存）** 与事故经过：见
+  [`2026-10-05_backend-review-recovered-P2-30.md`](../archive/2026-10-05_backend-review-recovered-P2-30.md)。
+- **Status**: ⏸ **记录不修** —— 让 Go 抛错会让**当前能正常返回**的调用方开始失败，属公开 API
+  行为变更；四家对齐更属跨 SDK 契约决策。**文档层已先行更正**（Go README 双语）。
+### P2-63: 一次压缩把 P2-30 **整块销毁且未进归档**——正是 P2-47 事故的复发，而现行校验规则本该拦住它
+- **Scope / Evidence**: `git log -S'### P2-30:' -- docs/drafts/backend-review-findings.md`
+  仅两条命中（`1491f5b` 建立 / **`adf4366` 销毁**）；该提交对工作文件 **+41 / −143**，
+  diff 中**无任何含 P2-30 的新增行**，其新建归档 `…-reproduction-5.md` 自述内容为
+  P1-1 / P2-8 / P2-28 / P2-29 / P2-32 / P2-34，**不含 P2-30**。
+- **Problem**: 压缩日志第 141 轮明写迁出 P2-30 的 Reproduction 时「Scope / Problem /
+  Evidence / **Status** stayed put」——**故其主体本应留在工作文件中，不是有意归档**。
+  `Impact` / `Status` / `Reproduction` / `复核记录` 幸存于两个归档，**`Problem` 彻底丢失**。
+  后果：工作文件第 265 行到 P2-32 之间**没有 P2-30**（`sed -n '413,420p'` 可见），
+  而 `python-sdk/cortex-mem-python/cortex_mem/client.py:403` 的 docstring 明写邻近站点
+  「is recorded as **P2-30**」——**读者被指向一个查不到的条目**。这与 `Processing Rules`
+  记录的 **P2-47 事故（第 258 轮）是同一失效模式**，且那次已立为常设断言。
+- **Status**: ✅ **已恢复**（第 271 轮）—— 条目骨架已回到工作文件，`client.py:403` 的引用
+  重新可解析；`Problem` 标为**重建**而非逐字，`Impact`/`Status`/`Reproduction` 保持指向
+  原始归档。**现行断言为何没拦住**：那几条校验针对的是「边界断言覆盖三种行首」与
+  「指针数 = 归档块数」，**没有一条检查「工作文件里曾经存在的条目是否还在」**——
+  补这一条属规则变更，需项目决策，未自行添加。
 ### P2-32: 两个 Dockerfile 都不设 `SERVER_ADDRESS`，默认部署下服务对外不可达；根镜像的 healthcheck 还写死了端口
 
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
@@ -543,19 +570,7 @@
   4. 方法返回时提交，Spring 抛 **`UnexpectedRollbackException`（"Transaction silently rolled back"）**
      → 调用方拿到 **HTTP 500**，**逐行统计一个都没送到**，**整批合法行全部回滚丢失**。
   即：端点为「部分成功」设计的响应结构，在最需要它的场景下**完全不起作用**。
-- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
-- **同一类问题的既有痕迹**：`ImportService.importSession` 第 233-236 行已有一段注释，
-  记录过 `project_path` 缺失导致「save 在提交时才失败、调用方只看到
-  `Could not commit JPA transaction`」并为此**补了前置校验**。也就是说**这个坑已被踩过一次、
-  修过其中一个字段**，而 `content_session_id` 与 `status` 的 `varchar` 宽度**至今未校验**，
-  外层事务的 rollback-only 语义**也从未被处理**。
-- **附带一处次要观察（不单独立项）**：wire 格式是 **snake_case**
-  （`spring.jackson.property-naming-strategy: SNAKE_CASE`），传 camelCase 的
-  `contentSessionId` 会得到错误信息 **`"contentSessionId is required"`**——
-  该信息**报的是 Java 字段名而非用户实际发来的 wire 字段名**，具有误导性。
-  且 `API.md` 对 `/api/import/sessions`、`/summaries`、`/prompts` **只有一句
-  「Request body: Array of session objects」，没有任何字段清单或示例**，
-  用户无从得知该用 snake_case。
+- **旁证与附带观察**: 逐字迁入 [`2026-10-05_backend-review-evidence-20.md`](../archive/2026-10-05_backend-review-evidence-20.md)（第 271 轮）——含「这个坑已被踩过一次、修过其中一个字段而 `varchar` 宽度至今未校验」的既有痕迹，以及 wire 名报 Java 字段名、`API.md` 三个 import 端点无字段清单这两处附带观察。
 - **Status**: ⏸ **记录不修** —— 两种修法各改一项**已成文的对外契约**：
   ①去掉 `bulkImport` 的 `@Transactional`（与另外四个同族端点一致）→ 放弃
   `@Operation` 明写的 "in a single **atomic** transaction"；
@@ -828,21 +843,12 @@
 ### P2-57: Java SDK 的默认 base URL 是四家里唯一用主机名的——而后端**只绑 IPv4 回环**，一个 JVM 开关就能把它变成连不上
 
 - **Scope**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
-- **Problem**: 四家 SDK 的默认端点**本应一致**，实测却是 **3:1** 而非对称：
-
-  | SDK | 默认 base URL | 位置 |
-  |-----|---------------|------|
-  | **Java** | **`http://localhost:37777`** | `CortexMemProperties.java:12`（字段初始值） |
-  | Python | `http://127.0.0.1:37777` | `client.py:72`（签名默认值） |
-  | Go | `http://127.0.0.1:37777` | `client_impl.go:102` / `:119` |
-  | JS | `http://127.0.0.1:37777` | `client-options.ts:68` |
-
-  **Java 是唯一的异类**。而**后端自己**在 `application.yml:3` 写的是
-  `address: ${SERVER_ADDRESS:127.0.0.1}`——**只监听 IPv4 回环**。
-  本机 `lsof` 亦确认监听项为 `TCP 127.0.0.1:37777`，
-  直连 `[::1]:37777` **连接失败**。
-  问题在于 `localhost` 是**要解析的主机名**，本机解析顺序实测为
-  **`::1` 在前、`127.0.0.1` 在后**。今天能通，**只是因为 HTTP 客户端做了地址族回退**。
+- **Problem**: 四家 SDK 的默认端点**本应一致**，实测却是 **3:1** 而非对称——**Java 是唯一的异类**，
+  用主机名 `localhost:37777` 而另三家一律 `127.0.0.1:37777`；而后端 `application.yml:3` 写的是
+  `address: ${SERVER_ADDRESS:127.0.0.1}`，**只监听 IPv4 回环**。本机解析顺序实测 `::1` 在前，
+  今天能通**只是因为 HTTP 客户端做了地址族回退**。
+- **实测证据**（四家对拍表、文件行号、`lsof` 与 `[::1]` 直连结果）: 逐字迁入
+  [`2026-10-05_backend-review-evidence-21.md`](../archive/2026-10-05_backend-review-evidence-21.md)（第 271 轮）。
 - **Evidence**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
 - **不修的理由**: 改一行即可（把默认值换成 `127.0.0.1:37777`），且从证据看方向明确：
   它会让 Java 与另三家及后端自身的 `server.address` 一致，
@@ -850,13 +856,9 @@
   **但它改的是已发布 SDK 的公开默认端点**——唯一会被它影响到的情形，
   是某台机器上 `localhost` 与 `127.0.0.1` 指向**不同的后端**（那本身已是矛盾配置）。
   即便风险极小，它仍属**对外契约变更**，按既定规则**记录不单方面实施**，留待项目拍板。
-- **同区域一处文档不一致（记录，未改）**: `python-sdk/cortex-mem-python/cortex_mem/client.py:47`
-  的 **Javadoc 示例**写 `CortexMemClient(base_url="http://localhost:37777")`，
-  与**该文件第 72 行的真实默认值 `http://127.0.0.1:37777` 矛盾**——
-  **示例教用户写的值，与实际默认值不是同一个**。属零行为变化的描述修正，
-  但落在 Python SDK 方向，不在本轮（Java SDK），故留待该方向按断言清扫。
-  **我在本轮第一次扫这一族时也踩了同一个坑**：grep 命中的是第 47 行的文档示例而非第 72 行的默认值，
-  一度得出「Java 与 Python 是 2:2 分裂」的错误结论——**改用排除注释的探针后才看清真实的 3:1**。
+- **同区域一处文档不一致：✅ 已解决**（第 271 轮核实）——`client.py` 的 Javadoc 示例原写
+  `base_url="http://localhost:37777"`、与真实默认值矛盾，现已改为**显式说明**为何默认值用
+  IPv4 字面量并**回指 P2-57**（`client.py:51-56`），该引用有效。原文与当时的探针失误一并归档。
 - **Status**: ⏸ 记录不修（改公开默认端点属对外契约变更；证据与建议方向已齐备，修复只需一行）。
 
 ### P2-58: 四家 SDK 的响应 DTO **同缺**活体观测的 7 个字段——其中 3 个正是 V17 / V18 专门加的，而 Go 的 DTO 在 V17/V18 之后**还被改过**
