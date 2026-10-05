@@ -114,13 +114,12 @@
 
 ### P2-14: `findNewObservations` 零调用方——增量抽取从未实现，却有索引为它而建
 
-- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）；**第 275 轮**删除 Problem 段一处**逐字重复句**并迁出整条原文 → [`2026-10-06_backend-review-evidence-25.md`](../archive/2026-10-06_backend-review-evidence-25.md)。
 - **Problem**: 增量抽取**没有实现**。后端全文没有 `extraction_state`（0 命中），
   每次运行都取最新的 N 条、**没有「上次抽取之后」的过滤**。`findNewObservations`
   本身实现完好、SQL 正确，但 `backend/src/main` 中**零调用方**、连单测都没引用。
   与 P2-12（`deepRefineProjectMemories` 无调用方）同型：一个从未接线的特性，
   只留下方法、注释和一条为它建的索引。
-  一个从未接线的特性，只留下方法、注释和一条为它建的索引。
 - **实际行为（与文档描述不同）**：`findBySourceIn` 是 `ORDER BY created_at_epoch DESC LIMIT N`，
   所以新观测**会**进来，但超出上限的旧观测**永远不会被抽取**。既不是文档所称的
   「增量」，也不是「全量重扫」——是「每次重扫最新的 N 条」。
@@ -242,23 +241,17 @@
 
 ### P2-20: 全部 22 个数值查询参数都会静默接受十六进制字面量
 
-- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
-- **Problem**: Spring 的默认数字转换会**静默采纳 `0x`/`0X` 十六进制前缀**。
-  规则是：先 trim，带十六进制前缀走 `Integer.decode`，否则走 `Integer.valueOf`。
-  实测（活体）：`?limit=0x10` → **16 条**、`?lines=0x10` → `{"returnedLines":16}`、
-  `?maxObservations=0x10` → 200、`?startEpoch=0x10` → 200、`?offset=0x2` → 200。
-  状态码一律 `200`，**响应中没有任何字段表明读的是一个十六进制字面量**。
-  顺带定住机制的一点：`?limit=010` 返回 **10 而非八进制 8**——若真是 `Integer.decode`
-  一路到底，`010` 会被读成 8，因此是「仅对十六进制前缀走 decode」。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）；
+  **本轮（第 275 轮）再迁出**活体实测清单与排查陷阱原文 → [`2026-10-06_backend-review-evidence-25.md`](../archive/2026-10-06_backend-review-evidence-25.md)。
+- **Problem**: Spring 的默认数字转换会**静默采纳 `0x`/`0X` 十六进制前缀**：先 trim，
+  带十六进制前缀走 `Integer.decode`，否则走 `Integer.valueOf`。
+  **五个端点的活体实测清单**（`?limit=0x10` 返回 16 条、`?lines=0x10`、`?maxObservations=0x10`、
+  `?startEpoch=0x10`、`?offset=0x2`，**状态码一律 200 且响应中没有任何字段表明读的是十六进制**）
+  与**一处必须说明的排查陷阱**（`/api/context/timeline` 对无法解析的 `?limit=abc` 与 `?limit=0x3`
+  返回**完全相同**的 400，只看状态码会漏判；真正的解析失败返回 Spring 默认体）逐字见归档。
 - **危害**：`startEpoch` / `endEpoch` 是**时间戳**，`0x` 前缀会把它们解释成一个
   1970 年附近的 epoch 毫秒值，**静默返回空时间窗而无任何报错**。`lines` 会被读成
   一个行数，`maxObservations` 会被读成一个条数。都没有校验、没有警告。
-- **一个必须说明的排查陷阱**：`/api/context/timeline` 对 `?limit=abc`（**根本无法
-  解析**）与 `?limit=0x3` 返回**完全相同**的 `400 {"error":"No anchor found"}`——
-  那是**解析成功之后**的领域错误。若只看状态码，会误判为「该端点严格拒绝十六进制」
-  而漏掉这条。真正的解析失败返回的是 Spring 默认的
-  `{"status":400,"error":"Bad Request"}`（如 `/api/context/preview` 所返回的）。
-  **状态码不等于原因，必须读响应体。**
 - **对照**：布尔参数**不受影响**（`?includeObservations=0x1` → 400）；四家 SDK 把这些
   参数声明为数字类型，**根本无法**把十六进制字面量放到线上，故只影响直接调用
   HTTP API 的代码。
@@ -267,7 +260,6 @@
   Backend，已做的是**如实记录**：`docs/API.md` + `-zh-CN` 新增「Query Parameter
   Conventions / 查询参数约定」一节，写明通用规则、完整参数清单与该排查陷阱，
   并把 `limit` 小节改为指向它而非重复叙述。
-
 ### P2-21: 健康指示器在真故障时不给原因，而测试钉死了一个不可能发生的分支
 
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
@@ -355,33 +347,25 @@
 - **Reproduction**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
 ### P2-27: Python SDK 无法清空 `extractedData` —— 与 Go 并列最弱，而它的注释把这一点说成了「对齐 Go」
 
-- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）；**第 275 轮再迁出**活体行级统计与第 246 轮更正原文 → [`2026-10-06_backend-review-evidence-24.md`](../archive/2026-10-06_backend-review-evidence-24.md)。
 - **Problem**: 后端 `PATCH` 两种清空写法都能落库（实测 `null` → NULL、`{}` → `{}`），
-  而 Python **两种都发不出**：`None` 被 `if val is not None` 跳过、`{}` 被上面那句
-  `continue` 跳过；探针确认二者的 `to_wire()` **都是 `{}`**、`is_empty()` **都是 True**，
+  而 Python **两种都发不出**：`None` 被 `if val is not None` 跳过、`{}` 被那句 `continue` 跳过；
+  探针确认二者的 `to_wire()` **都是 `{}`**、`is_empty()` **都是 True**，
   故**一条已有 extractedData 的观测无法通过 Python SDK 清空它**。
-  活体佐证该字段真实在用：38,200 行中非空 **20,780**、NULL **17,420**、**`{}` 为 0**——
-  后端自身从不写 `{}`，走这条路会造出库中从未出现过的状态。
-- **四家能力阶梯（清空 extractedData）**: 逐字迁入 [`2026-10-04_backend-review-evidence-11.md`](../archive/2026-10-04_backend-review-evidence-11.md)（第 258 轮）。
-- **更正（2026-10-04 第 246 轮，本表 JS 行的判定依据当时不成立）**: 逐字迁入 [`2026-10-04_backend-review-evidence-11.md`](../archive/2026-10-04_backend-review-evidence-11.md)（第 258 轮）。
-- **该缺陷为何能存活**: `js-sdk/cortex-mem-js/tsconfig.json` 的 `exclude` 含
-  `"**/*.test.ts"`，而 `npm run lint` 就是 `tsc --noEmit`——**测试文件根本不参与类型检查**，
-  于是类型层与断言层之间的裂缝没有任何自动关卡。已独立立为 **P2-42**。
-- **已修（注释，非行为）**: `ObservationUpdate` 类 docstring 原写
-  「Only non-None fields are sent to the backend, **matching Go's
-  pointer-field-with-omitempty pattern**」。这句有两处不准：Python 用的是
-  `Optional[T]` 而非指针；且**对切片字段两家行为恰恰相反**。已改写为逐条说明四个字段
-  上两家的实际异同。`is_empty()` 与 `to_wire()` 里那两处 `continue` 的注释也改为
-  如实写明「读取时 `{}` 与 `None` 等价，但**写入时 `{}` 是本 SDK 唯一能发的清空形态**，
-  所以这里跳过是真实的能力缺口」，并去掉原来那句会误导的
-  「an empty dict is semantically equivalent to None (backend stores nothing in JSONB)」。
-  **行为一字未改**：428 测试全过，探针输出与改动前逐字相同。
+  活体佐证该字段真实在用、且后端自身从不写 `{}`：38,200 行中非空 20,780、NULL 17,420、**`{}` 为 0**
+  ——走这条路会造出库中从未出现过的状态。逐行数据见
+  [`2026-10-04_backend-review-evidence-11.md`](../archive/2026-10-04_backend-review-evidence-11.md)（第 258 轮，含四家能力阶梯表与第 246 轮更正）。
+- **该缺陷为何能存活**: `tsconfig.json` 的 `exclude` 含 `"**/*.test.ts"`，而 `npm run lint` 就是 `tsc --noEmit`
+  ——**测试文件根本不参与类型检查**，于是类型层与断言层之间的裂缝没有任何自动关卡。已独立立为 **P2-42**。
+- **已修（注释，非行为）**: `ObservationUpdate` 类 docstring 原写「Only non-None fields are sent to the backend,
+  **matching Go's pointer-field-with-omitempty pattern**」——Python 用的是 `Optional[T]` 而非指针，
+  且**对切片字段两家行为恰恰相反**。已改写为逐条说明四个字段上两家的实际异同；
+  `is_empty()` / `to_wire()` 里两处 `continue` 的注释也改为如实写明
+  「读取时 `{}` 与 `None` 等价，但**写入时 `{}` 是本 SDK 唯一能发的清空形态**」，
+  并去掉原来那句会误导的「an empty dict is semantically equivalent to None」。**行为一字未改**（428 测试全过）。
 - **Status**: ⏸ **行为记录不修** —— 改行为只有两条路：让 `{}` 发上 wire
   （**改变现有调用方的可观测行为**，`extracted_data={}` 从「不变」变成「落 `{}`」），
-  或新增显式清空入口（**新增公开 API**）。按既定纪律留待项目决策。
-  **注释层已先行更正**。
-- **复核记录**（原文见 [`2026-10-03_backend-review-provenance.md`](../archive/2026-10-03_backend-review-provenance.md)，逐轮全文另见 `patrol-rotation.md`）
-
+  或新增显式清空入口（**新增公开 API**）。按既定纪律留待项目决策。**注释层已先行更正**。
 ### P2-28: `/api/test/all` 丢弃两个子处理器的状态码，故障时仍返回 200
 
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
@@ -878,7 +862,7 @@
 
 ### P2-59: Java demo 十个控制器把后端 4xx 变成 500，**其中两个方向相反**——凭空造 404，和把 404 放大成 500
 
-- **Scope**: 逐字迁入 [`2026-10-04_backend-review-evidence-15.md`](../archive/2026-10-04_backend-review-evidence-15.md)（第 265 轮）。
+- **Scope**: 逐字迁入 [`2026-10-04_backend-review-evidence-15.md`](../archive/2026-10-04_backend-review-evidence-15.md)（第 265 轮）；**第 274 轮再迁出**字面响应体与控制器普查原文 → [`2026-10-06_backend-review-evidence-23.md`](../archive/2026-10-06_backend-review-evidence-23.md)。
 - **Problem**: 四家 demo 在本机同时起（Java 37778、Go 37779、Python 37780、JS 37781），对**同一个请求**打同一句话，
   结果是**两个相反方向**的分裂：①**放大**——后端对未知 session 返 404，Python / Go / JS 三个 demo
   **原样透传**，Java demo 返 **500** 且把后端那段 JSON 当字符串二次转义塞进 `error`；
@@ -998,3 +982,18 @@
   1 条不重试错误对照、1 条状态码向后兼容守卫）。**顺带更正 Python SDK README 测试数**（两版 441 → 453，226 + 140 + 87），
   否则就是本循环反复在抓的「改了测试没回头改这个数」。**未单方面做的**：把两个函数改名以真正对齐 Go/JS 属**改已发布公开 API 的名字**，
   按规则记录不实施。另记**非缺陷**：Go 独有 `IsInternal`(500)，JS 与 Python 无对应谓词——是 Go 多一个。
+### P2-66: JS SDK 的 `content`/`narrative` 注释写了一条后端**并不遵循**的优先级规则，而它是四家里唯一不做冲突检测的
+- **Scope / Evidence**: `js-sdk/.../dto/observation.ts:56,58`（修复前的两条 JSDoc）、`src/client.ts:363-379`（**原样透传**）；后端依据 `MemoryController.java:317-319` 的 `body.getOrDefault("content", body.get("narrative"))`。
+- **Problem**: 原注释称 `content` 走「backend uses "narrative" wire field」、`narrative` 则
+  「When both are set, backend processes **whichever is present**」——**两条都与实测不符**。
+  `mem_observations` **根本没有 `narrative` 列**（只有 `content`），两个 key 是同一列的两个入口。
+  **实测四例**：`{content:A,narrative:B}` → 存 **A**；**`{content:null,narrative:C}` → 存 NULL、narrative 被整个丢弃**；
+  仅 `narrative:D` → D；仅 `content:E` → E。**根因是 `getOrDefault` 的语义**——key 存在即返回其映射值、
+  **哪怕该值就是 `null`**，故 `content` 的显式 null 会压过 `narrative`。
+  **四家对拍**：Go 有 `HasConflict()`（13 处测试引用）、Java Builder 抛 `IllegalStateException`、
+  Python 抛 `ValidationError`，**只有 JS 一处检测都没有**，而注释是唯一一处说明且写错了。
+  **危害**：JS 用户写 `{content:null,narrative:"文本"}`（本意是设置 narrative）会**静默清空该字段并丢弃所写内容**。
+- **Status**: ✅ **注释已修（第 275 轮，零行为变更）** —— 两条 JSDoc 改为如实描述「`content` 存在时 `narrative`
+  一律被忽略，**含 `content` 为 null**」并附实测四例。`tsc --noEmit` 干净、**259/259** 全绿。
+  **检测不实施、只记录**：给 JS 补上冲突拒绝是**让原本被接受的调用变成抛错**，属收窄已发布契约；
+  JSDoc 已写明「prefer setting exactly one」。

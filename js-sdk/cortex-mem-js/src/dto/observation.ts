@@ -53,9 +53,24 @@ export interface ObservationUpdate {
   title?: string | null;
   /** `null` clears the subtitle. */
   subtitle?: string | null;
-  /** Observation content/narrative. Alias for "narrative" — backend uses "narrative" wire field. `null` clears it. */
+  /**
+   * Observation content. Alias for `narrative` — the backend reads `content` **first**
+   * and ignores `narrative` entirely whenever `content` is present, *including when
+   * `content` is `null`*. `null` clears it.
+   *
+   * Measured live against the PATCH endpoint:
+   * `{"content":"A","narrative":"B"}` stored `A`;
+   * `{"content":null,"narrative":"C"}` stored **NULL** — the narrative was discarded.
+   */
   content?: string | null;
-  /** Observation content/narrative. Alias for "content". When both are set, backend processes whichever is present. `null` clears it. */
+  /**
+   * Observation narrative. Alias for `content`. Only used when `content` is **absent**;
+   * it is ignored whenever `content` is present, `null` included. `null` clears it.
+   *
+   * ⚠️ Setting both does **not** merge or pick either one — `content` always wins.
+   * Go, Java and Python all reject that combination client-side; this SDK is the only
+   * one that does not, so prefer setting exactly one. See P2-66.
+   */
   narrative?: string | null;
   /** `[]` replaces the list; `null` clears the column. Both reach the wire (no omitempty). */
   facts?: string[] | null;
