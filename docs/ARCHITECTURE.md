@@ -1255,9 +1255,21 @@ replaced with a placeholder), and prompts that are entirely private are skipped.
 
 | Component | Binding | Access |
 |-----------|---------|--------|
-| Fat Server | 127.0.0.1:37777 | Local only |
-| PostgreSQL | 127.0.0.1:5433 (Docker) or :5432 (native) | Local only |
+| Fat Server | 127.0.0.1:37777 natively; **all interfaces under Docker Compose** | Local only natively — **network-reachable under Compose** |
+| PostgreSQL | 127.0.0.1:5433 (Docker) or :5432 (native) | **Network-reachable under Compose** |
 | Proxy | N/A (CLI) | No network |
+
+> **The Docker Compose deployment is not loopback-only, and the table above used to say it was.**
+> Both `ports:` entries in `docker-compose.yml` omit a host IP —
+> `"${SERVER_PORT:-37777}:37777"` and `"${POSTGRES_PORT:-5433}:5432"` — and a port
+> mapping without a host address is published on **every** interface, not on `127.0.0.1`.
+> Compose additionally sets `SERVER_ADDRESS: 0.0.0.0`, so the application itself also
+> binds every interface inside the container. Since authentication is off (see above),
+> **the recommended Docker deployment is reachable from the whole network**.
+> Restricting it is a one-line change per mapping — `127.0.0.1:${SERVER_PORT:-37777}:37777`
+> — but it would break anyone reaching the backend from another host, so it is recorded
+> rather than applied unilaterally. The table is accurate for a native run, which is what
+> `application.yml`'s `address: ${SERVER_ADDRESS:127.0.0.1}` default gives you.
 
 The PostgreSQL port depends on how the database is running, and both values are correct:
 

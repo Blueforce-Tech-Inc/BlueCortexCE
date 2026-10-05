@@ -10,7 +10,7 @@
 |----------|------|------|
 | P0 | 0 | 立即修复并复测 |
 | P1 | 2 | 优先修复并复测 |
-| P2 | 2 | 本轮完整验收阶段处理或明确标记为已跳过 |
+| P2 | 3 | 本轮完整验收阶段处理或明确标记为已跳过 |
 
 - **已整体迁出**（current-status-note）: 逐字迁入 [`2026-10-04_backend-review-resolved-15.md`](../archive/2026-10-04_backend-review-resolved-15.md)（第 263 轮）。
 
@@ -34,7 +34,7 @@
   Thompson Sampling 算法），不是修 bug，按既定纪律留待项目决策。
   **注**：`CLAUDE.md:39` 把 V17 标为「✅ Complete」，该文件已被 gitignore，
   并入既有的 `AGENTS.md` / `CLAUDE.md` 开放项，不在本轮静默修改范围内。
-- **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
+- **复核记录**: 第 241 轮逐字归档 → [`…-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（Problem / Status 留本文件，Scope / Evidence 第 254 轮迁出）。
 ### P1-1: `CortexSessionContextBridgeAdvisor.adviseStream` 依赖普通 ThreadLocal，流式下既丢捕获又泄漏会话
 
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
@@ -250,16 +250,13 @@
 - **Problem**: `healthCheck()` 自己 `catch` 后 **`return false`**、**从不向外抛出**，
   故 `health()` 的 `catch` 分支在生产中**不可达**，`withException(e)` 写出的
   `error` 键**永远不会被填充**。
-  活体实测确证：真实 client 指向死端口时 `status=DOWN`、
-  `reason=Health check returned false`、`hasErrorKey=false`；指向真实后端则 `UP`。
-  即**连接被拒 / 超时 / DNS 失败这些真正的原因全部丢失**（在 client 侧被 `log.debug`
-  吞掉，默认不输出），「后端不可达」与「后端 degraded」给出**完全相同**的文案。
+  活体实测确证：死端口时 `status=DOWN`、`hasErrorKey=false`，真实后端则 `UP` ——
+  **连接被拒 / 超时 / DNS 失败等真因全部丢失**，「不可达」与「degraded」文案完全相同 → [`…-36.md`](../archive/2026-10-06_backend-review-evidence-36.md) 第 1 块（第 291 轮逐字迁出）。
 - **测试反而钉死了这个假象**：`CortexMemHealthIndicatorTest.health_whenClientThrows_returnsDown`
   用 **mock** 让 client 抛出并断言 `containsKey("error")`——真实 client 永远产生不了该
   状态，故此用例**恒真却毫无保护作用**（与第 197 轮同类：测试覆盖的是虚构状态）。
-- **核实无误**：`"ok"` 的大小写判定正确（后端 `HealthController.java:62` 返回
-  `dbReady ? "ok" : "degraded"`，**小写**）；null body / 非 `ok` / 异常三种情况均正确返回
-  `false`，UP-DOWN 三分支本身正确——**缺陷只在「原因丢失」与「测试虚构」，不在判定逻辑。**
+- **核实无误**：`"ok"` 大小写判定正确，null body / 非 `ok` / 异常三种情况均正确返回
+  `false`，UP-DOWN 三分支本身正确 → [`…-36.md`](../archive/2026-10-06_backend-review-evidence-36.md) 第 2 块（第 291 轮逐字迁出）。
 - **实测证据**: 逐字迁入 [`2026-10-05_backend-review-evidence-17.md`](../archive/2026-10-05_backend-review-evidence-17.md)（第 269 轮）。
 - **Status**: ⏸**已记录，不实现**。要让原因到达指示器，需要 `healthCheck()`
   改为向上抛出（**改变既有方法的行为契约**，所有调用方的 `catch` 都要重审），
@@ -336,17 +333,12 @@
   而 Python **两种都发不出**：`None` 被 `if val is not None` 跳过、`{}` 被那句 `continue` 跳过；
   探针确认二者的 `to_wire()` **都是 `{}`**、`is_empty()` **都是 True**，
   故**一条已有 extractedData 的观测无法通过 Python SDK 清空它**。
-  活体佐证该字段真实在用、且后端自身从不写 `{}`：38,200 行中非空 20,780、NULL 17,420、**`{}` 为 0**
-  ——走这条路会造出库中从未出现过的状态。逐行数据见
-  [`2026-10-04_backend-review-evidence-11.md`](../archive/2026-10-04_backend-review-evidence-11.md)（第 258 轮，含四家能力阶梯表与第 246 轮更正）。
+  活体佐证该字段真实在用、且后端自身从不写 `{}`（38,200 行中非空 20,780、NULL 17,420、
+  **`{}` 为 0**）→ [`…-11.md`](../archive/2026-10-04_backend-review-evidence-11.md)（含四家能力阶梯表与第 246 轮更正）与 [`…-36.md`](../archive/2026-10-06_backend-review-evidence-36.md) 第 3 块（第 291 轮逐字迁出）。
 - **该缺陷为何能存活**: `tsconfig.json` 的 `exclude` 含 `"**/*.test.ts"`，而 `npm run lint` 就是 `tsc --noEmit`
   ——**测试文件根本不参与类型检查**，于是类型层与断言层之间的裂缝没有任何自动关卡。已独立立为 **P2-42**。
-- **已修（注释，非行为）**: `ObservationUpdate` 类 docstring 原写「Only non-None fields are sent to the backend,
-  **matching Go's pointer-field-with-omitempty pattern**」——Python 用的是 `Optional[T]` 而非指针，
-  且**对切片字段两家行为恰恰相反**。已改写为逐条说明四个字段上两家的实际异同；
-  `is_empty()` / `to_wire()` 里两处 `continue` 的注释也改为如实写明
-  「读取时 `{}` 与 `None` 等价，但**写入时 `{}` 是本 SDK 唯一能发的清空形态**」，
-  并去掉原来那句会误导的「an empty dict is semantically equivalent to None」。**行为一字未改**（428 测试全过）。
+- **已修（注释层，行为一字未改）**: `ObservationUpdate` docstring 与 `is_empty()` /
+  `to_wire()` 两处 `continue` 注释已按现状改写（428 测试全过）→ [`…-36.md`](../archive/2026-10-06_backend-review-evidence-36.md) 第 4 块（第 291 轮逐字迁出）。
 - **Status**: ⏸ **行为记录不修** —— 改行为只有两条路：让 `{}` 发上 wire
   （**改变现有调用方的可观测行为**，`extracted_data={}` 从「不变」变成「落 `{}`」），
   或新增显式清空入口（**新增公开 API**）。按既定纪律留待项目决策。**注释层已先行更正**。
@@ -369,15 +361,10 @@
      结果不同」的调用在前一条仍 `pending`/`processing` 时被**直接丢弃**，而调用方只拿到
      一条日志加 HTTP `200 {"status":"accepted"}`——**与真正入队完全无法区分**。
   2. **`tool_name` 未规范化。** 它是客户端自由文本却参与键比较，故 `Read` 与 `read`
-     可绕过去重。**如实说明规模**：全表按 `(session, lower(tool_name), hash)` 分组后
-     大小写孪生组**只有 1 个、且就是本次探针**——**生产数据里从未发生过**；真正普遍的是
-     命名跨客户端不一致。
+  **P2-29 第 2 点 · 规模实测**：逐字迁入 [`…-35.md`](../archive/2026-10-06_backend-review-evidence-35.md)（第 291 轮）。
   3. **检查与写入不是原子的，而唯一的兜底约束并不存在。** `PendingMessageEntity` 声明了
      `@UniqueConstraint(name = "uk_session_tool_input")`，但 `ddl-auto: none` 且
-     **全部 18 个 Flyway 迁移中没有任何一条创建该约束**，手工插入完全相同的三元组**成功**。
-     后果是 `AgentService` 里那段 `catch (DataIntegrityViolationException)`——注释写着
-     "Duplicate pending message detected (concurrent insert)"——**是死代码**：
-     它等待的那个异常永远不会发生，并发请求于是全部通过检查。
+  **P2-29 第 3 点 · 迁移约束取证与死代码后果**：逐字迁入 [`…-35.md`](../archive/2026-10-06_backend-review-evidence-35.md)（第 291 轮）。
 - **实测证据**: 逐字迁入 [`2026-10-05_backend-review-evidence-19.md`](../archive/2026-10-05_backend-review-evidence-19.md)（第 270 轮）——含具体 input 哈希、近 30 天命名计数、活体 `pg_constraint` 查询结果与手工插入记录。
 - **实测记录**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
 - **Reproduction**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
@@ -450,7 +437,7 @@
   与该 demo README 里已发布的示例，属**跨 demo 契约决策**，按既定纪律
   （沿用第 229 轮「四家统一上界与否」的同一判断）留待项目决策。
   **文档层已先行补充**：Go demo 两份 README 现明写这两个端点的**命名与另外三家不同**。
-- **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
+- **复核记录**: 第 241 轮逐字归档 → [`…-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（Problem / Status 留本文件，Scope / Evidence 第 254 轮迁出）。
 ### P2-34: `GET /api/logs` 的 Swagger 示例漏掉 `files`，且把绝对路径写成 `/logs`
 
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
@@ -475,7 +462,7 @@
   而非修 bug」的同一判断）。修法：把 `proceed()` 包进 try，catch 后**先记录再重抛**
   （捕获本身已 fire-and-forget，不会掩盖原始异常），并补一条「工具抛异常时仍被捕获」
   的测试。**SDK 代码一字未改。**
-- **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
+- **复核记录**: 第 241 轮逐字归档 → [`…-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（Problem / Status 留本文件，Scope / Evidence 第 254 轮迁出）。
 ### P2-36: 三个同级适配器（eino / genkit / langchaingo）对数值选项的校验互不一致，且 genkit 的兜底只护住了 per-call 路径
 
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
@@ -497,7 +484,7 @@
   （一个有兜底、两个没有），而修 langchaingo 的「回显被丢弃」半边**必然要新增可观测行为**
   （多一行日志或一个新错误），属新增特性。**本轮只补了三个选项注释里的取值范围事实说明**
   （照「文档描述现在而非该有的行为」），**未改任何运行时行为**。
-- **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
+- **复核记录**: 第 241 轮逐字归档 → [`…-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（Problem / Status 留本文件，Scope / Evidence 第 254 轮迁出）。
 ### P2-37: 四家 demo 的 `/chat` 在方法、输入位置、响应结构与语义上全部分歧——而这个分歧被 Java demo 自己的 Javadoc 写明后搁置
 
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
@@ -521,7 +508,7 @@
   「照抄任一家其余 21 个端点的 curl **只会在这两个上 404**」——**过度承诺**，
   已改为区分「拼写一致」与「可互换」，并补上 `/chat` 的方法分歧与 405 实测输出。
   **四份 demo README 各自对自身 demo 的描述经核实均准确，未改。Demo 代码一字未改。**
-- **复核记录**: 已归档 → [`2026-10-04_backend-review-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（第 241 轮逐字迁出；Scope / Problem / Evidence / Status 按 ⏸ 规则全部保留在本文件）。
+- **复核记录**: 第 241 轮逐字归档 → [`…-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（Problem / Status 留本文件，Scope / Evidence 第 254 轮迁出）。
 <!-- P2-38 已无条件解决，逐字迁入 2026-10-04_backend-review-resolved-3.md -->
 ### P2-39: `POST /api/import` 的外层 `@Transactional` 与逐行 catch 相撞——一行坏数据毁掉整批，逐行统计变成 500
 
@@ -814,10 +801,8 @@
   另三家透传 200，Java demo 判 `!result.isFound()` 后**自己造了个 404**。
   **字面响应体、40 个 catch 块普查与一个已排除的伪线索**（Go demo 路由改名是有意为之）逐字见归档。
   根因很干净：12 个控制器共 40 个 `catch (Exception e)` 块，**只有 3 个**走到 `DemoErrors`，**其余 10 个控制器一个都没有**。
-- **已修**: `DemoErrors` 的类 Javadoc 原先写着「**Controllers** use `statusOf` / `messageOf`」，
-  在只有 2/12 控制器这么做时读起来像全覆盖声明。已按现状改写为精确表述
-  （12 个控制器 / 40 个 catch 块 / 3 个走 helper / 10 个控制器没有），
-  并点名 `PATCH /demo/session/user` 作为反例。**零行为变更**，`mvn -o test` 通过。
+- **已修（零行为变更）**: `DemoErrors` 类 Javadoc 已按现状改写并点名反例（12 控制器 /
+  40 catch 块 / 3 个走 helper）→ [`…-36.md`](../archive/2026-10-06_backend-review-evidence-36.md) 第 5 块（第 291 轮逐字迁出）。
 - **不修的理由**: 修它要改 10 个控制器的 catch 块，**改的是 demo 对外的 HTTP 状态契约**
   （500→404/400，且要决定 `error` 字段是否保留 SDK 前缀文本——Go/JS 加前缀、Python 不加，
   三家自己就不一致）。按既定规则**对外契约变更记录不单方面实施**。
@@ -854,11 +839,10 @@
   全仓 `SPRING_PROFILES_ACTIVE` 只出现三个值：`prd`（`docker-compose.yml:52` 默认）、`dev`
   （两个 e2e 脚本）、以及构建说明里「不设」。`!prod` 在这三种情形下**全部匹配**，即该门控
   **永不排除任何东西**；它唯一会生效的场景（`SPRING_PROFILES_ACTIVE=prod`）恰恰是**没有对应
-  配置文件**的场景。后果是 `prd` 部署下三个**会实际消耗 LLM / 嵌入配额**的调试端点照常开放：
-  活体（`--spring.profiles.active=dev`）`/api/test/llm` → 200、`/api/test/all` → 200、
-  `/api/test/embedding` → 500（**已失效的嵌入密钥**，即 P2-28 记录的那一条，非本轮新缺陷）。
-  文档侧同源两处：`docs/ARCHITECTURE.md:880` 的 API 分层表列出 `/api/test/*` 时**未提任何
-  profile 限定**；P2-28 第 401 行「`@Profile("!prod")` 门控是**正确的**」据本条证据需要修正。
+  配置文件**的场景。后果是 `prd` 部署下三个**会实际消耗 LLM / 嵌入配额**的调试端点照常开放。
+  活体三端点响应逐字见 [`…-36.md`](../archive/2026-10-06_backend-review-evidence-36.md) 第 6 块（第 291 轮逐字迁出）。文档侧同源两处：`docs/ARCHITECTURE.md` 的
+  API 分层表列出 `/api/test/*` 时未提任何 profile 限定；P2-28 的 Problem 段称该门控
+  「是正确的」据本条证据需要修正。
 - **Status**: ⏸ **记录不修** —— 把它改成 `!prd` 会让三个端点在**默认 compose 部署下消失**，
   属**对外契约变更**；且本轮代码方向为 Python SDK，后端不在本轮范围内。**本轮未改任何后端代码。**
 ### P2-62: `ProjectFilterService` 的 `~username` 展开**丢弃用户名**、改写到当前用户家目录——Javadoc 说的是另一回事
@@ -908,12 +892,8 @@
   "only explicitly set fields are sent" **直接矛盾**。**实测（修复前，编译产物直接序列化）**：
   `{"title":"T","empty":false}`；`ExtractionResponse` 同理多出 `"found"`。**后端忽略未知键**
   （活体 PATCH 带 `empty` 仍 200 且 title 已更新），故**无功能损坏**，但报文与成文契约不符。
-  > **第 276 轮更正本条的一处过宽表述**：初稿写「每个访问器都按属性序列化」，**这句是错的**。
-  > 受控实验（一个 record 同时带 `isEmpty()` / `getSubtitle()` / `content()` / `total()` / `hasThing()`）
-  > 实测输出 `{"title":"T","narrative":"N","empty":false,"subtitle":"G"}`——**只有符合 JavaBeans 约定的
-  > `isXxx()` 与 `getXxx()` 泄漏**，其余三个普通无参方法全部不可见。该轮据此**全量复查** SDK 的 21 个
-  > DTO record：带 `isXxx()` 的**只有已修的那两个**，**无任何 record 带 `getXxx()`**。
-  > **故 P2-64 的修复完整，无遗漏项。**
+  **第 276 轮更正过宽表述并全量复查 21 个 DTO**：受控实验证明**只有** JavaBeans 约定的
+  `isXxx()` / `getXxx()` 泄漏为属性，普通无参方法不可见，**修复完整、无遗漏** → [`…-36.md`](../archive/2026-10-06_backend-review-evidence-36.md) 第 7 块（第 291 轮逐字迁出）。
 - **Status**: ✅ **已修（第 273 轮）** —— 两个访问器加 `@JsonIgnore`。修复后实测 `{"title":"T"}`，
   且 null→省略、`facts=[]`→照发等**原有语义全部保持**，`isFound()` 仍正确求值；
   **无任何测试断言该字段**。Java SDK **196/0/0/0** 全绿。
@@ -968,3 +948,7 @@
 - **Scope / Evidence**: `SessionLifecycleController.java:82`；活体对拍与落库记录见 [`2026-10-06_backend-review-evidence-31.md`](../archive/2026-10-06_backend-review-evidence-31.md)（第 282 轮）。
 - **Problem**: demo 其余五个数值参数（`count` ×3、`maxChars` ×2）都在方法体里写了范围检查，唯独 `promptNumber` 从绑定直接流入 `UserPromptRequest`。实测 `promptNumber=-1` 返回 200「prompt recorded」，且 `mem_user_prompts.prompt_number` 真实落库为 `-1`；`0x10` 落库为 `16`。
 - **Status**: ⏸ 记录不修——给已发布端点补范围检查属收窄其接受的值域，是对外契约变更；且与 P2-55 / P2-56 同属一条文法线，应与那次产品决定一并处理。
+### P2-70: Compose 把数据库与后端都发布到**所有网卡**，而架构文档的 Network Security 表称二者「仅本地」
+- **Scope / Evidence**: `docker-compose.yml:35,88` 两条 `ports:` 与 `:60` 的 `SERVER_ADDRESS`；`docs/ARCHITECTURE.md` Network Security 表（第 291 轮已双语更正）。
+- **Problem**: 两条端口映射**均无主机 IP 前缀**，而**不带主机地址的映射默认发布到所有网卡**；compose 另设 `SERVER_ADDRESS: 0.0.0.0`，应用在容器内也绑全网卡；`grep "127.0.0.1:"` **零命中**。**该部署默认关闭鉴权**，故推荐的 Docker 部署可被整个网络访问。该表对**原生**运行准确（`address` 默认 `127.0.0.1`，活体一致），**对 compose 不准确**。
+- **Status**: ⏸ 记录不修（文档侧已双语更正并写明原因）。收紧只需给两条映射各加 `127.0.0.1:` 前缀，但那会破坏「从另一台主机访问后端」，**属对外行为变更**。与 P1-2 同族但成因不同：P1-2 是 demo 漏设 `server.address`，此处是 **compose 显式要求**绑全网卡否则映射不通（P2-32 第一条）。
