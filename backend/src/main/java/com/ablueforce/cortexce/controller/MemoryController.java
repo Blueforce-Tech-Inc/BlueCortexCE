@@ -265,7 +265,13 @@ public class MemoryController {
      * PATCH /api/memory/observations/{id}
      * Body: {"title": "...", "content": "...", "facts": [...], "concepts": [...], "source": "...", "extractedData": {...}}
      *
-     * Null values in the body are ignored (field left unchanged).
+     * Only fields present in the body are touched. An explicit null CLEARS the
+     * field; an absent field is left unchanged. (An earlier revision of this
+     * comment said nulls were ignored, which is the opposite of what the code
+     * does and of what the @Operation description below states — verified live
+     * by PATCHing {"content":null,"narrative":"x"}, which stored NULL. The
+     * machine-readable description has always been the correct one, and it is
+     * what /v3/api-docs and the generated SDKs consume. See P2-68.)
      * Invalid types return 400 Bad Request to prevent silent data loss.
      */
     @PatchMapping("/observations/{id}")

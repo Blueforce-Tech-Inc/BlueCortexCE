@@ -66,7 +66,7 @@ Located in `scripts/` directory:
 |--------|-------------|
 | `seed-diverse-data.sh` | Seeds diverse test data for WebUI testing (various types, concepts, content) |
 | `test-llm-provider.sh` | LLM provider connectivity and response validation tests |
-| `run-all-e2e.sh` | Orchestrator — runs all 10 local E2E suites in one pass (excludes Docker suites and test-llm-provider.sh) |
+| `run-all-e2e.sh` | Orchestrator — runs the 10 local E2E suites defined here in one pass (excludes Docker suites and test-llm-provider.sh). **Suite 5/10, `mcp-streamable-e2e-test.sh`, is conditional**: it is skipped unless the server exposes Streamable HTTP on `/mcp` (a `POST` of an `initialize` request to `/mcp` must answer 200). The backend's default MCP transport is SSE, so on a default install this orchestrator runs **9** suites and reports 1 skipped — that is expected, not a failure. |
 
 **Prerequisites:** Same as regression tests (backend running, database configured).
 

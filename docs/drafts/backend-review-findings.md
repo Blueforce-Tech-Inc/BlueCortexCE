@@ -114,31 +114,25 @@
 
 ### P2-14: `findNewObservations` 零调用方——增量抽取从未实现，却有索引为它而建
 
-- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）；**第 275 轮**删除 Problem 段一处**逐字重复句**并迁出整条原文 → [`2026-10-06_backend-review-evidence-25.md`](../archive/2026-10-06_backend-review-evidence-25.md)。
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）；**第 275 轮**删除 Problem 段一处**逐字重复句**并迁出整条原文 → [`2026-10-06_backend-review-evidence-25.md`](../archive/2026-10-06_backend-review-evidence-25.md)；**第 278 轮**再迁出其 Status 的压缩过程原文 → [`2026-10-06_backend-review-evidence-29.md`](../archive/2026-10-06_backend-review-evidence-29.md)。
 - **Problem**: 增量抽取**没有实现**。后端全文没有 `extraction_state`（0 命中），
   每次运行都取最新的 N 条、**没有「上次抽取之后」的过滤**。`findNewObservations`
   本身实现完好、SQL 正确，但 `backend/src/main` 中**零调用方**、连单测都没引用。
-  与 P2-12（`deepRefineProjectMemories` 无调用方）同型：一个从未接线的特性，
-  只留下方法、注释和一条为它建的索引。
+  与 P2-12（`deepRefineProjectMemories` 无调用方）同型：一个从未接线的特性，只留下方法、注释和一条为它建的索引。
 - **实际行为（与文档描述不同）**：`findBySourceIn` 是 `ORDER BY created_at_epoch DESC LIMIT N`，
-  所以新观测**会**进来，但超出上限的旧观测**永远不会被抽取**。既不是文档所称的
-  「增量」，也不是「全量重扫」——是「每次重扫最新的 N 条」。
-- **影响面**：纯成本与覆盖问题，不会返回错值；但 23.md 曾把它列为
-  「primary cost reduction mechanism」，运维据此估算 token 预算会系统性偏低。
+  所以新观测**会**进来，但超出上限的旧观测**永远不会被抽取**——既不是文档所称的
+  「增量」，也不是「全量重扫」，是「每次重扫最新的 N 条」。**纯成本与覆盖问题，不会返回错值**；
+  但 23.md 曾把它列为「primary cost reduction mechanism」，运维据此估算 token 预算会系统性偏低。
 - **量化证据（第 202 轮补测）**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
 - **Status**: ⏸**已记录，不实现**。接上它需要持久化抽取状态（7.md §7.1 提议用
-  `type="extraction_state"` 的观测行承载），属新增特性而非修 bug；且抽取状态的
-  过期/重建语义应由项目决定。本轮已做的是**如实记录**：23.md §23.5 策略 3/4/5 全部补上
-  「designed, not implemented」声明，并给出真实的候选选取路径与排序方向；
-  8.md 第 5 条、0.2.md Gap 3、17.md §17.2 三处同一断言一并更正。
-  **第 202 轮续做**：该次清扫**按文件逐个进行**，因此漏掉了同断言的另外两处
-  （`00-quick-ref.md:14`、`15.md:211`）。本轮改为**按断言清扫**，并额外发现
-  成本模型本身建立在这个不存在的机制上——23.md §23.2/§23.2b/§23.4/§23.5/§23.7
-  已整体重写（月度抽取成本 $0.23 → $1.13，提炼占比 97%+ → ~89%），
+  `type="extraction_state"` 的观测行承载），属新增特性而非修 bug，且过期/重建语义应由项目决定。
+  **已做的是如实记录**：23.md §23.5 策略 3/4/5 补上「designed, not implemented」声明并给出真实的
+  候选选取路径与排序方向；8.md 第 5 条、0.2.md Gap 3、17.md §17.2 三处同一断言一并更正。
+  **第 202 轮那次按文件逐个清扫，漏掉了同断言的另外两处**（`00-quick-ref.md:14`、`15.md:211`）；
+  本轮改为**按断言清扫**，并发现**成本模型本身建立在这个不存在的机制上**——23.md §23.2/§23.2b/§23.4/
+  §23.5/§23.7 已整体重写（月度抽取成本 $0.23 → $1.13，提炼占比 97%+ → ~89%），
   `0.3.md`、`structured-extraction.md`、`DEPLOYMENT.md` 三处同源说法一并更正。
-  由此另立 **P2-17**（`EXTRACTION_MAX_BATCHES` 失效）与 **P2-18**
-  （`reExtractForSession` 绕过全部上限）。
-
+  由此另立 **P2-17**（`EXTRACTION_MAX_BATCHES` 失效）与 **P2-18**（`reExtractForSession` 绕过全部上限）。
 ### P2-15: `save_memory` 的共享会话是 check-then-act，并发下必然丢失一次保存
 
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
@@ -687,29 +681,11 @@
 
 ### P2-46: 验收脚本的 `cleanup()` **定义了却从未被调用**——其幻影端点从未生效，而 Test 6 的前提因此早已不成立
 
-- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
-- **Problem**: 这条比一般的文档错误重要，因为它**削弱的是我自己每轮据以判断的验收门控**。
-  两处缺陷叠加：
-  ① `cleanup()` 在全文件**只出现一次**（定义处）——`grep -nE "cleanup|trap|EXIT"` 只有第 45 行，
-  `main` 里没有调用，也没有 `trap ... EXIT`，`bash -n` 通过。它是死代码。
-  ② 它内部那行清理请求本身也不成立：`DELETE /api/memory/observations?project_path=...`
-  **活体 404**。活体 OpenAPI 里该前缀下**只有 `/api/memory/observations/{id}` 一条路径**
-  （`patch` 与 `delete`），**没有任何按 `project_path` 批量删除的端点**；
-  `/api/observations`（GET 列表）才是脚本真正该用的。or-true 兜底把 404 吞掉，
-  因此这个失败**永远不会让脚本失败**。
-- **Status**: ⏸ **记录不修** —— 属脚本方向，不在本轮（Python SDK）的代码轮换内；
-  且**若真把清理接上，Test 6 会切回 `not_found` 分支、累积数据会被删除**，
-  属于会改变门控自身行为的改动，需在自己的轮次里单独做 A/B。
-- **对既有结论的影响（必须如实记录）**: 第 249–251 轮的「EXTRACTION 25/0/0 全通过」
-  **仍是 25 条全部通过**，但 **Test 6 走的是兜底分支**、**Test 14 的断言已因数据累积而恒真**。
-  这不使任何一条已记录的修复失效（被修代码路径本就在别处被独立验证），
-  但今后引用该数字须带上这两条限定（基线区块已写明）。
-- **同族事实（已修）**: 同一幻影端点也出现在**设计文档** `phase-3-design/25.md:699`
-  （`demo-v15-extraction-test.sh` 的 Cleanup 段），已改为脚本真正使用的
-  「先 `GET /api/observations` 取 id、再逐条 `DELETE /api/memory/observations/{id}`」，
-  并实跑验证（观测数 1 → 0）。该脚本本身**行为正确**（`cleanup_test_data` 测试前后各调一次，
-  `limit=100` 恰等于 `Constants.MAX_PAGE_SIZE`，不截断），**只有验收脚本是坏的**。
-
+- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）；**第 278 轮再迁出**两处缺陷的逐行取证（grep 行号、活体 OpenAPI 路径枚举）→ [`2026-10-06_backend-review-evidence-30.md`](../archive/2026-10-06_backend-review-evidence-30.md)。
+- **Problem**: 这条比一般的文档错误重要，因为它**削弱的是我自己每轮据以判断的验收门控**。两处缺陷叠加：① `cleanup()` 在全文件**只出现一次**（定义处），`main` 里没有调用、也没有 `trap ... EXIT`，`bash -n` 通过——**它是死代码**；② 它内部那行清理请求 `DELETE /api/memory/observations?project_path=...` **活体 404**（该前缀下只有 `/api/memory/observations/{id}` 一条路径），而 `|| true` 兜底把 404 吞掉，**这个失败永远不会让脚本失败**。
+- **Status**: ⏸ **记录不修** —— 属脚本方向，不在本轮（Python SDK）的代码轮换内；且**若真把清理接上，Test 6 会切回 `not_found` 分支、累积数据会被删除**，属于会改变门控自身行为的改动，需在自己的轮次里单独做 A/B。
+- **对既有结论的影响（必须如实记录）**: 第 249–251 轮的「EXTRACTION 25/0/0 全通过」**仍是 25 条全部通过**，但 **Test 6 走的是兜底分支**、**Test 14 的断言已因数据累积而恒真**。这不使任何一条已记录的修复失效（被修代码路径本就在别处被独立验证），但今后引用该数字须带上这两条限定（基线区块已写明）。
+- **同族事实（已修）**: 同一幻影端点也出现在**设计文档** `phase-3-design/25.md:699`，已改为脚本真正使用的「先 `GET /api/observations` 取 id、再逐条 `DELETE /api/memory/observations/{id}`」并实跑验证（观测数 1 → 0）。该脚本本身**行为正确**，**只有验收脚本是坏的**。
 ### P2-47: `API.md` 双语把 `is_worktree` / `parent_project` 当正式字段记载并写进示例 body——而两者只进一条 `log.info`
 
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
@@ -998,3 +974,7 @@
   **能力本身只记录不实施**：加真正的超时需先定策略（中断，还是跑完但丢弃结果），属设计决策。
   **该类其余部分核实为真**：`AsyncUncaughtExceptionHandler` 与点名的两个 critical 方法确实存在，
   回退处理器也确有日志与兜底 try/catch。
+### P2-68: `updateObservation` 的 Javadoc 说「null 会被忽略」，其下的 `@Operation` 说「null 会清空」——**后者才是真的**
+- **Scope / Evidence**: `MemoryController.java:268`（修复前的 Javadoc）与 `:273`（同一方法的 `@Operation`）。
+- **Problem**: 同一方法上两处说明**直接相反**：Javadoc 写「**Null values in the body are ignored**」、`@Operation` 写「**null values clear the field**」。**实测站在 `@Operation` 这边**——第 275 轮探针 PATCH `{"content":null,"narrative":"C"}` 落库 **NULL**（narrative 被丢弃），**不是**「忽略」。**危害在于可信度不同**：`@Operation` 是**机器可读的那一份**（`/v3/api-docs`、SDK 生成器、`docs/API.md` 全以它为准），**读源码的人看到的却是 Javadoc**，即恰好相反的指示——「null 被忽略」也正是 P2-26/27/66 一直在绕开的那条错误行为。
+- **Status**: ✅ **已修（第 278 轮，零行为变更）** —— Javadoc 改为如实描述并附活体探针证据、写明机器可读的那份一直是对的。**全后端扫过**：错误表述**仅此一处**，正确表述共 **8 处**。`mvn -o compile` EXIT=0。

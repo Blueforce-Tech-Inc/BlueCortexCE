@@ -66,7 +66,7 @@
 |------|------|
 | `seed-diverse-data.sh` | 为 WebUI 测试植入多样化测试数据（多种类型、概念、内容） |
 | `test-llm-provider.sh` | LLM 提供商连接和响应验证测试 |
-| `run-all-e2e.sh` | 编排脚本 — 一次运行全部 10 个本地 E2E 套件（不含 Docker 套件和 test-llm-provider.sh） |
+| `run-all-e2e.sh` | 编排脚本 — 一次运行此处定义的 10 个本地 E2E 套件（不含 Docker 套件和 test-llm-provider.sh）。**其中 5/10 `mcp-streamable-e2e-test.sh` 是条件执行的**：除非服务器在 `/mcp` 上暴露 Streamable HTTP（向 `/mcp` 发一个 `initialize` 请求必须返回 200），否则会被跳过。后端默认的 MCP 传输是 SSE，因此在默认安装下该编排脚本实际运行 **9** 个套件并报告 1 个跳过——**这是预期行为，不是失败**。 |
 
 **前置条件：** 与回归测试相同（后端运行，数据库已配置）。
 

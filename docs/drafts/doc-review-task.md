@@ -151,6 +151,11 @@
 - **最近完成**: 架构文档（2026-10-06 一百七十八轮，**零缺陷**，含**一处探针按错口径差点写出两处「漏项」**）。**DOC-0（本轮零改动）** 「Async Processing」段是**代码示例**、并未声称超时能力；活体数量 service 29 / controller 13 / entity 6 / repository 6 / event 6，与历轮记录一致。
   > **迁移归属是本轮唯一有争议的断言，结论是文档对、探针错**：`ARCHITECTURE.md:537,559` 分别声明  > `mem_sessions` 与 `mem_observations` 各自由哪些迁移改。首版探针按「该迁移文件里**出现过**表名」判定，  > 得出**两处漏项**（V8→sessions、V15→observations）。**查原文后两条都是偶然提及**：  > V8 只在 `FOREIGN KEY REFERENCES mem_sessions(...)` 里提到它、ALTER 目标全是 `mem_observations`；  > V15 只在一条注释里提到 observations、ALTER 目标是 `mem_sessions`。**判定口径应是「实际改哪张表」。**
 - **下一方向**: 用户指南（一百七十九轮）
+- **最近完成**: 运维/用户指南（2026-10-06 一百七十九轮，**发现一处双语同形缺陷**，**并记录一个「数字对、问题问错」的成因**）。**DOC-1（已修，双语）** `docs/TESTING.md` / `-zh-CN` 的脚本表写「**一次运行全部 10 个本地 E2E 套件**」——**这是错的**。`run-all-e2e.sh:129-133` 把 5/10 包在 `if is_streamable_mcp` 里，判定函数探测 `POST /mcp` 的 `initialize` 是否返回 200，**脚本自己的头注释就写明了**。**活体实测本机返回 404**（后端默认 MCP 传输是 SSE），**即默认配置下 10 个里只跑 9 个**。
+  > **成因值得记**：该文档的 changelog 写着「Verified `run-all-e2e.sh` really does run 10 local suites …   > so both counts were left unchanged」——**那次核实数的是「定义了几个套件」，而文档问的是「会跑几个」。  > 数字对、问题问错了。** 这与第 161 轮「测试数陈旧」是不同形状：那次是数字错，这次是**数字对但语义错**。
+  > 同文档的另一个计数 `phase3-acceptance-test.sh` 的 **15 个测试函数**逐个函数名核实**精确吻合**，未动。
+修正后两版结构对拍：标题各 36、表格字符各 186、围栏各 20，**完全一致**。
+- **下一方向**: 架构文档（一百八十轮）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
 
 ## Pending Doc Issues
