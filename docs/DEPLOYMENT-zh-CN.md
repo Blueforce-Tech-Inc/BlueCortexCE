@@ -818,7 +818,7 @@ docker compose ps
 |------|------|---------|
 | `Connection refused` | 数据库未就绪 | 等待数据库健康检查通过 |
 | `Authentication failed` | 数据库密码错误 | 检查 `DB_PASSWORD` |
-| `Port 37777 already in use` | 端口冲突 | 修改 `SERVER_PORT` 或停止冲突服务 |
+| `Port 37777 already in use` | 端口冲突 | 停止冲突服务。在已发布镜像上**只改 `SERVER_PORT` 行不通**：其健康检查被写死在 37777，应用改了端口而 Docker 仍去探测 37777，结果是把容器判成 unhealthy |
 
 #### 7.1.2 数据库连接失败
 

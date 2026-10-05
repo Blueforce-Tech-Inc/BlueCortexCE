@@ -842,7 +842,7 @@ docker compose ps
 |-------|-------|----------|
 | `Connection refused` | Database not ready | Wait for database health check to pass |
 | `Authentication failed` | Database password wrong | Check `DB_PASSWORD` |
-| `Port 37777 already in use` | Port conflict | Change `SERVER_PORT` or stop conflicting service |
+| `Port 37777 already in use` | Port conflict | Stop the conflicting service. Changing `SERVER_PORT` alone does not work on the published image: its health check is pinned to port 37777, so the app would listen elsewhere while Docker still probes 37777 and marks the container unhealthy |
 
 #### 7.1.2 Database Connection Failed
 

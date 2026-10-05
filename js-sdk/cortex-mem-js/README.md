@@ -11,7 +11,7 @@ JavaScript/TypeScript client SDK for the [Cortex CE](https://github.com/Blueforc
 - **25 API methods** — Covers all endpoints from the Go/Java SDKs
 - **259 unit tests** — Full coverage of wire format and client behavior (246 client + 5 truncated-body + 8 http-server example)
 - **Dual CJS + ESM** — Works with CommonJS and ES Modules
-- **Best-effort capture** — Retries transient failures; capture errors are logged and swallowed after retries
+- **Best-effort capture** — Retries transient failures; capture errors are swallowed after retries, and reach your logs only if you supply a `logger` — the default one is a no-op
 
 ## Installation
 

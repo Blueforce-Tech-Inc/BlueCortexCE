@@ -179,7 +179,9 @@
   > **本轮探针有一处判据不足、写入前已识别**：端点扫描**不认识文档自带的内联核对批注**，把已被逐条裁定并附实请求证据的历史设想又扫了一遍。**这不是文档缺陷**——若照首扫结果写成「10 条幻影端点」，就等于把**已经主动标注清楚的诚实**再报一次错。故正确结论是「未经裁定者 0 条」。**判据记下**：同类扫描应把「已被内联批注裁定」计入排除条件。
 - **最近完成**: 架构文档（2026-10-06 一百八十七轮，**两个角度全核，零缺陷**）。**DOC-0（本轮零改动）** ①**全部 `文件:行号` 引用**：两版各 **2 处**，逐条核到源码**精确命中**——`SessionController.java:47` 正是 `@RequestMapping("/api/session")`，`dto/OffsetPageRequest.java:107` 正是 `public boolean equals(Object o) {`（与文中自述的「instanceof 落在 109 行」相容）。②**端点数声明**：`ContextController → /api/context/* (7 endpoints incl. /semantic)` 对活体前缀逐路径数操作数 = **7，精确**；`Viewer` 行声明的 **15 methods**，按**文档自己列举的 13 条路径**逐条对活体数操作数，**13/13 全部吻合**（`/api/settings` 与 `/api/modes` 各 2 个操作），**合计 15 = 声明值，精确**。
   > **首版按前缀归组统计 Viewer 得 16 而非 15**，因为把 `/api/health` 与 `/api/version`（属别的控制器）算了进去——**写入前识别并改用正确口径**。**判据与第 255 轮同源**：**数字必须连同计数口径一起核对**，「文档自己列举的那张表逐条数」与「按路径前缀扫」是两个不同口径，前者才是此处该问的问题。
-- **下一方向**: 运维/用户指南（一百八十八轮）
+- **最近完成**: 运维/用户指南（2026-10-06 一百八十八轮，**一处，已修，双语**）。**DOC-1（P2，已修，双语）** **一条排障建议，在默认部署路径上是主动有害的。** `DEPLOYMENT.md` 的排障表在「`Port 37777 already in use`」行建议「**Change `SERVER_PORT`** or stop conflicting service」——**照做会让事情更糟**。链条逐环核实、**每环都是实测而非推断**：①`docker-compose.yml` **无 `build:` 段**，后端用**预构建镜像** `${IMAGE_NAME:-ghcr.io/…/cortex-ce:main}`；②`.github/workflows/docker.yml` 的 build-push 步骤为 `context: .` 且**无 `file:` 覆盖**，故发布镜像由**根 `Dockerfile`** 构建；③根 `Dockerfile` 的 `HEALTHCHECK` **写死** `http://localhost:37777/api/health`、且**无 `ENV SERVER_PORT`**（对照 `backend/Dockerfile` 用 `${SERVER_PORT}` 并配了 `ENV SERVER_PORT=37777`）；④照建议改端口后，应用听新端口而 Docker 仍探测 37777，**把一个完全健康的应用判成 unhealthy**。**与 P2-32 同源但结论更强**：P2-32 记的是「根 Dockerfile 的问题」，本轮证实它**命中的正是默认部署路径**。已双语改为「停止冲突服务；在已发布镜像上只改 `SERVER_PORT` 行不通」。**Dockerfile 与 CI 本身按 P2-32 仍记录不修**（本机无 Docker，改完无法验证修复效果）。
+  > **写之前特意验证了一环**：初稿写的是「发布镜像的 healthcheck 写死 37777」，而我只知道 `DOCKER_README` 的构建命令是 `docker build -t cortex-ce:latest .`——**那是推断不是证据**。补查 CI workflow 后才敢落笔：`context: .` + 无 `file:` 覆盖 ⇒ build-push-action 取根目录 `Dockerfile`，**推断升级为已证实**。**这正是「宁少勿错」的落地**：差这一步就是拿推断当事实写进文档。
+- **下一方向**: 架构文档（一百八十九轮）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
 
 ## Pending Doc Issues
