@@ -128,11 +128,7 @@
   `type="extraction_state"` 的观测行承载），属新增特性而非修 bug，且过期/重建语义应由项目决定。
   **已做的是如实记录**：23.md §23.5 策略 3/4/5 补上「designed, not implemented」声明并给出真实的
   候选选取路径与排序方向；8.md 第 5 条、0.2.md Gap 3、17.md §17.2 三处同一断言一并更正。
-  **第 202 轮那次按文件逐个清扫，漏掉了同断言的另外两处**（`00-quick-ref.md:14`、`15.md:211`）；
-  本轮改为**按断言清扫**，并发现**成本模型本身建立在这个不存在的机制上**——23.md §23.2/§23.2b/§23.4/
-  §23.5/§23.7 已整体重写（月度抽取成本 $0.23 → $1.13，提炼占比 97%+ → ~89%），
-  `0.3.md`、`structured-extraction.md`、`DEPLOYMENT.md` 三处同源说法一并更正。
-  由此另立 **P2-17**（`EXTRACTION_MAX_BATCHES` 失效）与 **P2-18**（`reExtractForSession` 绕过全部上限）。
+  **按断言清扫的逐处经过**：逐字迁入 [`…-32.md`](../archive/2026-10-06_backend-review-evidence-32.md)（第 282 轮）。
 ### P2-15: `save_memory` 的共享会话是 check-then-act，并发下必然丢失一次保存
 
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
@@ -606,11 +602,7 @@
   覆盖 `exclude`）并并入 `lint`。这属**构建配置变更**，且一旦接上就会一次性暴露
   三个测试文件（含 `examples/http-server/parse-int-param.test.ts`）里既有的潜在类型错误，
   影响面超出单轮范围，留待项目决策。
-  **注意**：本条**不影响**第 246 轮的修复——`ObservationUpdate` 是 `src/dto/` 下的
-  导出源码，**在检查范围内**，`tsc --noEmit` 对它的类型改动有把关；
-  受影响的只是「测试文件本身写错类型不会被发现」这一层。
-  故第 246 轮的类型层验证改用**直接对 `src/dto/observation.ts` 的探针文件**做双向注入
-  （修复后 0 error / 回退后恰好 8 个 / 恢复后 0），而不是依赖 `npm test`。
+  **验证方法**（首版区间短了 4 行，段尾补入 `-34`）：逐字迁入 [`…-33.md`](../archive/2026-10-06_backend-review-evidence-33.md) 与 [`…-34.md`](../archive/2026-10-06_backend-review-evidence-34.md)（第 282 轮）。
 
 ### P2-43: Python SDK 的两种调用风格对 `None` 的含义相反——dataclass 路径丢弃它、kwargs 路径原样发上 wire
 
@@ -701,14 +693,7 @@
   **读者据此会以为传了就有用。**
 - **Status**: ⏸ **实现侧记录不修**；**文档侧已于第 254 轮更正**（API 文档方向）。
   改文档而非接上 `WorktreeDetector`，是因为后者属新增行为、同样需项目拍板。
-  第 254 轮按「**按断言清扫而非按文件**」把同一断言的**全部**表述处一并更正：
-  `API.md` 与 `API-zh-CN.md` 的字段表加注「只被接收并记入日志、不落库、不影响行为」，
-  `SessionController` 的请求示例 Javadoc、`@Operation` 描述，
-  以及 **`ApiRequests.SessionStartRequest` 上的三个 `@Schema`**——
-  **后者才是真正对外的那一份**，活体 `/v3/api-docs` 原本就在输出
-  「Flag indicating worktree mode (rare, internal use)」
-  与「Parent project path for worktree (rare, internal use)」。
-  **三处改动均为描述文本，字段名、类型、状态码、行为一律未变。**
+  **按断言清扫的逐处经过**（首版区间短了 4 行，段尾补入 `-34`）：逐字迁入 [`…-33.md`](../archive/2026-10-06_backend-review-evidence-33.md) 与 [`…-34.md`](../archive/2026-10-06_backend-review-evidence-34.md)（第 282 轮）。
 
 ### P2-49: `scripts/start.sh` 把后端 jar 的版本号钉死——而它是 TESTING.md 推荐的启动方式
 
@@ -768,19 +753,22 @@
   故必须留档。**修之前需要一次产品决定**：整数文法是否只认 ASCII。
 - **Status**: ⏸ 记录不修（待产品决定：整数文法是否仅限 ASCII 数字）。本轮已把四条代码路径与活体后端全部实测完毕，无需再取证。
 
-### P2-56: Java demo 里四个控制器有三个用了共享校验类，第四个把两个数值参数整个绕过去了——**而那个类的 Javadoc 宣称自己覆盖了所有控制器**
+### P2-56: Java demo 里**三个**控制器把**六个**数值参数整个绕过了共享校验类——**而那条 Javadoc 只点名了其中一个**
 
-- **Scope**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
-- **Problem**: `DemoParams` 的 Javadoc 原本写着「Controllers take the raw `String` and call
-  `boundedInt` rather than declaring an `Integer` parameter, **so this rule is the only thing
-  that can decide what a value means**」。**这句话对 `ExperiencesController` 是假的**：
+- **Scope**: 第 259 轮原始条目（逐字）见 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)；
+  **第 282 轮的范围更正与完整活体对拍**（用方 3 个文件 5 处 / 绕过 3 个控制器 6 个参数、六组请求的 HTTP 与 body 原文、
+  `-1` 与 `16` 的落库记录）见 [`2026-10-06_backend-review-evidence-31.md`](../archive/2026-10-06_backend-review-evidence-31.md)。
+- **Problem**: `DemoParams` 的 Javadoc 原本写着「…**so this rule is the only thing
+  that can decide what a value means**」。**这句话对三个控制器是假的**：
   `boundedInt` 的调用点只落在 `SearchController` / `ObservationsController` / `ExtractionController`
-  三个文件里，而 `ExperiencesController` 把 `count` 与 `maxChars` **直接绑成 `Integer`**，
-  再在方法体里手写 `count < 0 || count > 100` / `maxChars < 0`。
-  后果是**同一个进程内部出现两种 400**：`InvalidParamAdvice` 只匹配 `InvalidParam`，
+  **三个文件、5 处**，而 `ExperiencesController`（`count`、`maxChars`，`Integer`）、
+  `MemoryController`（两个端点的 `count` 与 `maxChars`，原生 `int`）、
+  `SessionLifecycleController`（`promptNumber`，原生 `int`）**共六个数值参数**全部直接绑定，
+  再在方法体里手写范围检查。后果是**同一个进程内部出现两种 400**：`InvalidParamAdvice` 只匹配 `InvalidParam`，
   **无人处理 Spring 的 `MethodArgumentTypeMismatchException`**（`DemoErrors` 只管后端异常），
-  故两种 400 的**状态码相同、body 形状完全不同**（前者 `{"error":"…"}`、后者 Spring 默认体）。
-- **Status**: ⏸ 记录不修（Javadoc 已按现状更正；实现待 P2-55 的文法决定）。
+  故两种 400 的**状态码相同、body 形状完全不同**；且**六个参数全部接受十六进制**，与文法契约相反。
+- **Status**: ⏸ 记录不修（第 282 轮已把 `DemoParams` 的 Javadoc 按实测更正为完整枚举，零行为变化；
+  实现待 P2-55 的文法决定）。**本条目此前低估了范围**——原文记「第四个控制器、两个参数」，实测为三个控制器、六个参数，原条目已逐字迁档。
 
 ### P2-57: Java SDK 的默认 base URL 是四家里唯一用主机名的——而后端**只绑 IPv4 回环**，一个 JVM 开关就能把它变成连不上
 
@@ -939,9 +927,7 @@
   README 对两个函数**零提及**。
 - **Status**: ✅ **已修（第 274 轮）** —— 按「**纯加宽 / 向后兼容即可修**」，把 `is_retryable` 参数**加宽为 `int | BaseException`**：
   收异常转发 `is_retryable_error`，收状态码**行为一行未变**，其它类型 fail-closed 返回 `False`。
-  **未改名、未删任何公开符号**。**+12 条测试**（441 → **453**），**双向注入**：只回退这处加宽则**恰好 7 条失败**
-  （4 个可重试 API 错误、2 个网络错误、与 `is_retryable_error` 的一致性对拍），**另 5 条两种状态下均不失败**（3 条 fail-closed 对照、
-  1 条不重试错误对照、1 条状态码向后兼容守卫）。**顺带更正 Python SDK README 测试数**（两版 441 → 453，226 + 140 + 87），
+  **双向注入的逐条用例明细（7 失败 / 5 对照）**：逐字迁入 [`…-32.md`](../archive/2026-10-06_backend-review-evidence-32.md)（第 282 轮）。
   否则就是本循环反复在抓的「改了测试没回头改这个数」。**未单方面做的**：把两个函数改名以真正对齐 Go/JS 属**改已发布公开 API 的名字**，
   按规则记录不实施。另记**非缺陷**：Go 独有 `IsInternal`(500)，JS 与 Python 无对应谓词——是 Go 多一个。
 ### P2-66: JS SDK 的 `content`/`narrative` 注释写了一条后端**并不遵循**的优先级规则，而它是四家里唯一不做冲突检测的
@@ -978,3 +964,7 @@
 - **Scope / Evidence**: `MemoryController.java:268`（修复前的 Javadoc）与 `:273`（同一方法的 `@Operation`）。
 - **Problem**: 同一方法上两处说明**直接相反**：Javadoc 写「**Null values in the body are ignored**」、`@Operation` 写「**null values clear the field**」。**实测站在 `@Operation` 这边**——第 275 轮探针 PATCH `{"content":null,"narrative":"C"}` 落库 **NULL**（narrative 被丢弃），**不是**「忽略」。**危害在于可信度不同**：`@Operation` 是**机器可读的那一份**（`/v3/api-docs`、SDK 生成器、`docs/API.md` 全以它为准），**读源码的人看到的却是 Javadoc**，即恰好相反的指示——「null 被忽略」也正是 P2-26/27/66 一直在绕开的那条错误行为。
 - **Status**: ✅ **已修（第 278 轮，零行为变更）** —— Javadoc 改为如实描述并附活体探针证据、写明机器可读的那份一直是对的。**全后端扫过**：错误表述**仅此一处**，正确表述共 **8 处**。`mvn -o compile` EXIT=0。
+### P2-69: `SessionLifecycleController` 的 `promptNumber` 是 demo 里**唯一没有范围检查**的数值参数——负数被接受并落库
+- **Scope / Evidence**: `SessionLifecycleController.java:82`；活体对拍与落库记录见 [`2026-10-06_backend-review-evidence-31.md`](../archive/2026-10-06_backend-review-evidence-31.md)（第 282 轮）。
+- **Problem**: demo 其余五个数值参数（`count` ×3、`maxChars` ×2）都在方法体里写了范围检查，唯独 `promptNumber` 从绑定直接流入 `UserPromptRequest`。实测 `promptNumber=-1` 返回 200「prompt recorded」，且 `mem_user_prompts.prompt_number` 真实落库为 `-1`；`0x10` 落库为 `16`。
+- **Status**: ⏸ 记录不修——给已发布端点补范围检查属收窄其接受的值域，是对外契约变更；且与 P2-55 / P2-56 同属一条文法线，应与那次产品决定一并处理。

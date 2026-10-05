@@ -33,16 +33,25 @@ import java.util.Map;
  * </ul>
  *
  * <p>Controllers that take the raw {@code String} and call {@link #boundedInt} rather than
- * declaring an {@code Integer} parameter are covered by this rule. <strong>Not every
- * controller is:</strong> {@code SearchController}, {@code ObservationsController} and
- * {@code ExtractionController} use it, while {@code ExperiencesController} declares
- * {@code count} and {@code maxChars} as {@code Integer} and range-checks them inside the
- * handler. Those two parameters therefore get Spring's own binding instead, which accepts a
- * different set of values and answers with a different 400 body — measured live on one
- * process, {@code /demo/observations?limit=1_0} answers
- * {@code {"error":"limit must be an integer"}} while {@code /demo/experiences?count=1_0}
- * answers Spring's default {@code {"timestamp":…,"status":400,"error":"Bad Request"}},
- * and {@code count=0x10} is accepted there while {@code limit=0x10} is rejected here.
+ * declaring an integer parameter are covered by this rule. <strong>Not every controller
+ * is:</strong> the call sites sit in {@code SearchController}, {@code ObservationsController}
+ * and {@code ExtractionController} alone, while <strong>three</strong> other controllers bind
+ * their numeric parameters directly — {@code ExperiencesController} ({@code count} and
+ * {@code maxChars}, both {@code Integer}, range-checked in the handler),
+ * {@code MemoryController} ({@code count} on two endpoints plus {@code maxChars}, all primitive
+ * {@code int}, range-checked in the handler) and {@code SessionLifecycleController}
+ * ({@code promptNumber}, also primitive {@code int} and the only numeric parameter in this demo
+ * with no range check at all, so a negative value is accepted and persisted).
+ * Those six parameters therefore get Spring's own binding instead, which accepts a different
+ * set of values and answers with a different 400 body — measured live on one process,
+ * {@code /demo/observations?limit=1_0} answers
+ * {@code {"error":"limit must be an integer"}} while {@code /demo/experiences?count=1_0},
+ * {@code /memory/experiences?count=1_0}, {@code /demo/iclprompt?maxChars=1_0} and
+ * {@code /demo/session/prompt?promptNumber=1_0} all answer Spring's default
+ * {@code {"timestamp":…,"status":400,"error":"Bad Request"}}, and {@code 0x10} is accepted on
+ * every one of those six while {@code limit=0x10} is rejected here. Note that
+ * {@code MemoryController} is the one controller served outside the {@code /demo} prefix, so
+ * its paths read {@code /memory/...} — that is what the demo README documents.
  * Tracked as P2-56; closing it means choosing an integer grammar first (P2-55), so this
  * note describes the code as it stands rather than as it is meant to be.</p>
  */
