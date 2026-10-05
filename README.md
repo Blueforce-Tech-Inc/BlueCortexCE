@@ -278,7 +278,10 @@ See [OpenClaw Integration Guide](openclaw-plugin/OPENCLAW-INTEGRATION.md)
 
 ### Build & Test
 
+The Maven project lives in `backend/` — there is no `pom.xml` at the repository root.
+
 ```bash
+cd backend
 mvn compile    # compile
 mvn test       # run tests
 mvn package    # build jar

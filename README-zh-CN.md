@@ -277,7 +277,10 @@ docker compose down      # 停止
 
 ### 构建与测试
 
+Maven 工程在 `backend/` 目录下，仓库根目录没有 `pom.xml`。
+
 ```bash
+cd backend
 mvn compile    # 编译
 mvn test       # 运行测试
 mvn package    # 构建 jar 包
