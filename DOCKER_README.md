@@ -285,8 +285,13 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 # For macOS/Windows, use Docker Compose instead (docker compose up -d).
 # For Docker Compose deployments, set DB_PASSWORD in your .env file (required).
 # For this standalone run example, SPRING_DATASOURCE_PASSWORD must match your host postgres password.
+# SERVER_ADDRESS=0.0.0.0 is REQUIRED here. The application binds ${SERVER_ADDRESS:127.0.0.1}
+# (application.yml), and a process listening only on the container's loopback is not reachable
+# through a published port, so without it the container starts, passes its health check, and is
+# still unreachable from the host. docker-compose.yml already sets it; a bare docker run does not.
 docker run -d \
   -p 37777:37777 \
+  -e SERVER_ADDRESS=0.0.0.0 \
   -e SPRING_PROFILES_ACTIVE=prd \
   -e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5433/claude_mem \
   -e SPRING_DATASOURCE_USERNAME=postgres \

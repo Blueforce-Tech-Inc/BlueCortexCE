@@ -284,8 +284,12 @@ IMAGE_NAME=cortex-ce:local docker compose up -d
 # 注意: host.docker.internal 需要 Linux + Docker 20.10+。macOS/Windows 请使用 Docker Compose (docker compose up -d)。
 # Docker Compose 部署请在 .env 文件中设置 DB_PASSWORD（必填）。
 # 本独立运行示例中，SPRING_DATASOURCE_PASSWORD 须与宿主机 postgres 密码一致。
+# 这里必须设置 SERVER_ADDRESS=0.0.0.0。应用默认绑定 ${SERVER_ADDRESS:127.0.0.1}（application.yml），
+# 而只监听容器回环地址的进程无法通过映射端口访问——不设置的话容器会正常启动、健康检查也是绿的，
+# 但宿主机依然连不上。docker-compose.yml 已设置该变量，裸 docker run 不会。
 docker run -d \
   -p 37777:37777 \
+  -e SERVER_ADDRESS=0.0.0.0 \
   -e SPRING_PROFILES_ACTIVE=prd \
   -e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5433/claude_mem \
   -e SPRING_DATASOURCE_USERNAME=postgres \
