@@ -200,8 +200,8 @@
 | `/api/search` | 1 | 1 | 7 | 100 |
 
 **16/16 与文档声明完全一致。** 另有两处**特意写成「弱版本就通不过」**的断言：①`offset=-5` 与 `offset=0` 返回同一批（确被钳到下界），**且** `offset=5` 返回**不同**批——后者证明 offset 真的生效而非恒为 0，否则「钳到 0」也可能被一个永远返 0 的实现蒙混通过；②`hasMore` 在 limit=3 / 100 且库中 22943 条时均为 `true`，越界 `offset=22943` 返回空页。**`/api/search/by-file`** 是文档**自己诚实标注**「只验过下界，因为没有 fixture 能匹配同一路径下多于一条记录」的那一条——**我第一版用编造的 `filePath`，`limit=0` 返 0，正是该标注所警告的情形**；从库里取出真实文件路径后重测，`limit=0 → 1`、`limit=-5 → 1`，**与文档一致**。其上界 100 在此端点**无法被观测**（该路径只匹配 2 条），**这是文档已声明的覆盖限制，不是新缺陷**。
-- **最近完成**: 架构文档（2026-10-06 二百零四轮，**零缺陷**）。**DOC-0（本轮零改动）** 第 199 轮查的是双语结构、版本与行号，本轮换到**端点计数与组件名**。**①API Layers 表的「15 methods」是对着活体 OpenAPI 数出来的**：文档 Viewer 行列出 13 条路径模式却写 「**15 methods**」，乍看自相矛盾；拉活体 `/v3/api-docs`（**62 paths / 67 operations**）按 Viewer 前缀逐条数，**恰好 15 个操作**——因为 `/api/settings` 与 `/api/modes` **各含 GET+POST 两个操作**（13 路径 − 2 重复 + 4 = 15），**数字精确吻合**。**②`/api/test/*` 与文档所列 (llm, embedding, all) 逐条对上**，活体恰 3 个操作。**③文档断言的 13 个类名全部存在、零幻影**（按 `Service`/`Controller`/`Repository`/`Entity`/`Tool`/`Advisor`/`Aspect`/`Config`/`Manager`/`Filter`/`Handler` 后缀提取）。
-- **下一方向**: 运维/用户指南（二百零五轮）
+- **最近完成**: 运维/用户指南（2026-10-06 二百零五轮，**零缺陷**）。**DOC-0（本轮零改动）** 从**跨文档引用**入手：`ARCHITECTURE.md` 把 prd/dev 差异指向「deployment guide's §5.4」，本轮核这个指向及其内容。**①§5.4 存在且引用有效**（`DEPLOYMENT.md:482`）。**②prd/dev 五组默认值逐条对上**：`https://api.openai.com` ↔ `https://api.deepseek.com`、`gpt-4o` ↔ `deepseek-chat`、`https://api.openai.com` ↔ `https://api.siliconflow.cn`、`text-embedding-3-small` ↔ `BAAI/bge-m3`、`1536` ↔ `1024`。**③「短别名只定义在 prd」属实**：`EMBEDDING_API_KEY`/`BASE_URL`/`MODEL`/`DIMENSIONS` 确在 `application-prd.yml:10/11/13/14`，**`application-dev.yml` 里一个都没有**。**④「§5.8 的开发示例钉了全部五个值」属实**：§5.8（`:623`）存在，那五个变量在其中出现 **5 次**。**⑤§5.6 数据持久化路径——两个变量都真被插值**且默认值逐字相符：`docker-compose.yml:33` 的 `${POSTGRES_DATA_PATH:-postgres_data}` 与 `:86` 的 `${LOGS_PATH:-claude-mem-logs}`；文档内联的 compose 片段（`:126`/`:182`）与真实文件一致。
+- **下一方向**: API 文档（二百零六轮）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
 
 ## Pending Doc Issues
