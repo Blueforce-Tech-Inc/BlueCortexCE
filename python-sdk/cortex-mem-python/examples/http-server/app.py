@@ -142,8 +142,19 @@ def _parse_int_param(key: str, default: int = 0) -> int:
     # matter here: it accepts digit separators ("1_0" -> 10) and it strips
     # surrounding whitespace before failing. A regex pins the grammar to
     # "optional sign, then digits" -- the same rule the Java demo spells out
-    # and the JS demo's /^[+-]?\d+$/ enforces -- so all four demos match the
-    # backend, which rejects "1_0" with 400 (round 211 recheck).
+    # and the JS demo's /^[+-]?\d+$/ enforces -- so all four demos agree with
+    # each other, and with the backend on this grammar: the backend rejects
+    # "1_0" with 400 (round 211 recheck), and it reads "010" as decimal 10
+    # rather than octal 8.
+    #
+    # One divergence is shared by all four demos and is deliberately left in
+    # place: the backend ALSO accepts a hex literal. Measured live against a
+    # project holding 100 observations, ?limit=0x10 returns 16 items and
+    # ?limit=0x5 returns 5 -- Spring's NumberUtils takes a 0x prefix as hex.
+    # Every demo rejects that input, this one included, because "0x10" is not
+    # "optional sign then digits". So "matches the backend" holds for the
+    # decimal grammar only; hex is a real, accepted backend input that the
+    # demos are stricter than.
     if not _INT_RE.fullmatch(raw.strip()):
         raise ValueError(f"{key} must be an integer")
     try:
