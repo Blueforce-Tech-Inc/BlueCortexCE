@@ -383,8 +383,8 @@ backend/                               # Main Spring Boot application
 │   │   │   └── TestController.java          # Debug endpoints
 │   │   │
 │   │   ├── service/                    # Business Logic (29 services)
-│   │   ├── repository/                  # Data Access (5 repositories)
-│   │   ├── entity/                      # JPA Entities (5 entities)
+│   │   ├── repository/                  # Data Access (6 repositories)
+│   │   ├── entity/                      # JPA Entities (6 entities)
 │   │   ├── dto/                         # API request/response objects
 │   │   ├── event/                       # Domain events
 │   │   ├── exception/                   # Custom exceptions
@@ -395,7 +395,7 @@ backend/                               # Main Spring Boot application
 │   ├── src/main/resources/
 │   │   ├── application.yml              # Main configuration
 │   │   ├── application-dev.yml         # Dev profile
-│   │   ├── application-prod.yml        # Production profile
+│   │   ├── application-prd.yml         # Production profile (activated as "prd")
 │   │   ├── application.yml.example      # Example env vars
 │   │   ├── db/migration/               # Flyway migrations (V1–V8, V11–V18)
 │   │   └── prompts/                     # LLM Prompt Templates
@@ -420,7 +420,7 @@ backend/                               # Main Spring Boot application
 ├── webui/                              # Web UI (git submodule)
 ├── openclaw-plugin/                    # OpenClaw integration
 │
-├── scripts/                            # Utility scripts (40+ scripts)
+├── scripts/                            # Utility scripts (37 shell scripts)
 │   ├── regression-test.sh              # API regression tests
 │   ├── thin-proxy-test.sh              # Proxy tests
 │   ├── webui-integration-test.sh      # WebUI tests

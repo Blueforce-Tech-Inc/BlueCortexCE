@@ -10,7 +10,7 @@
 |----------|------|------|
 | P0 | 0 | 立即修复并复测 |
 | P1 | 1 | 优先修复并复测 |
-| P2 | 5 | 本轮完整验收阶段处理或明确标记为已跳过 |
+| P2 | 7 | 本轮完整验收阶段处理或明确标记为已跳过 |
 
 - **已整体迁出**（current-status-note）: 逐字迁入 [`2026-10-04_backend-review-resolved-15.md`](../archive/2026-10-04_backend-review-resolved-15.md)（第 263 轮）。
 
@@ -952,6 +952,56 @@
   而注解是**对外发布的 API 契约描述**；且此处是**描述偏窄**（400 的成因少列一种）、
   **不是陈述错误**，按既定规则「**遗漏 ≠ 失实**」不单方面改写对外契约。
   修法若要采纳，最小形态是给两处 `400` 补一句「或 path 中的 id 不是合法 UUID」。
+### P2-76: demo 40 个 catch 块里只有 3 个做后端 4xx 直通，`PATCH /demo/session/user` 因此把 404 报成 500
+
+- **Scope / Evidence**: `examples/cortex-mem-demo/.../SessionLifecycleController.java:171-175`（缺陷点）、
+  `:151-176`（端点）；已做直通的三个点：`FeedbackController.java:75-79`、
+  `ObservationsController.java:324-328` 与 `:352-355`；`DemoErrors.clientStatus` 为共用机制。
+- **Problem**: `FeedbackController.java:68-74` 的注释把理由写死了——不直通就会
+  「把一个缺失的观测报成 500，也把打错的 id 报成 500，既误报状态又丢掉解释」，
+  并写明「The Go, Python and JS demos pass a backend 4xx straight through」。
+  **这个机制只落在了 3 个 catch 上；demo 全部 40 个 catch 里其余 37 个仍一律转 500。**
+  活体实测（demo 37778，后端 37777）：
+
+  | 请求 | 后端直打 | 经 demo |
+  |---|---|---|
+  | `PATCH /api/session/no-such/user` | **404** `{"error":"Session not found: …"}` | **500** `{"error":"Failed to update session user: 404 Not Found: \"{…}\""}` |
+  | `POST /demo/feedback` 未知 observationId（**对照组**） | 404 | **404** ✓ 直通生效 |
+
+  对照组与缺陷点在**同一个 JVM、同一次运行**内，证明这不是 `clientStatus` 失效或后端行为漂移，
+  而是该端点没有使用它。打错一个 session id 得到 500，等于告诉调用方「你把服务器弄坏了」。
+  **其余 37 处不可达**：`ManagementController` 与 `MemoryController` 的入参都是自由文本
+  （project/task/count/maxChars，demo 自校验），后端按自由文本存不存在记录，
+  调用方无法靠输入构造出一个后端 4xx——所以实际暴露面是**这一个端点**，不是 37 个。
+- **Status**: ⏸ **记录不修** —— 让已发布 demo 端点的响应码从 500 变成 404 属对外行为变更。
+  修法若采纳，最小形态是在 `SessionLifecycleController.updateSessionUser` 的 catch 里
+  套用 `FeedbackController` 已有的 6 行模式（同仓库已有现成写法，不需新机制）。
+### P2-77: 四个 `/memory/*` 端点把「参数存在但为空」报成 **500**，而「参数缺失」是 400——同一类调用方错误，两个状态码
+
+- **Scope / Evidence**: `examples/cortex-mem-demo/.../MemoryController.java:55-72`（`/memory/experiences`）、
+  `:74-84`（`/memory/icl`）、`:121` 起（`/memory/icl/truncated`）与 `/memory/experiences/filtered`；
+  对照组同文件外的 `ExperiencesController` 两个 `/demo/*` 端点。
+- **Problem**: 四者都用 `@RequestParam String task`（**必填**），且方法体里**都没有空白检查**，
+  直接流入 SDK 的 `requireNonBlank`。活体实测（demo 37778）：
+
+  | 请求 | 实测 |
+  |---|---|
+  | `GET /memory/experiences`（**不传** task） | **400**（Spring 必填校验） |
+  | `GET /memory/experiences?task=`（**传空**） | **500** `{"error":"…: task must not be null or blank"}` |
+  | `GET /memory/icl?task=` | **500** 同上 |
+  | `GET /memory/experiences/filtered?task=` | **500** 同上 |
+  | `GET /memory/icl/truncated?task=` | **500** 同上 |
+  | `GET /demo/experiences?task=`、`GET /demo/iclprompt?task=` | **400** ✓ 正确的形态 |
+
+  抛的是 SDK 的 `IllegalArgumentException`，被兜底 `catch (Exception e)` 吞成 500；
+  `DemoErrors.clientStatus` 对它返回 `null`（本就不该走那条路），所以机制上**不是漏了直通，是缺了入口校验**。
+  同一模块的 `/demo/*` 兄弟端点**自己校验了空白并返 400**，形态是对的。
+- **⚠️ 一处中间断言先错后改**：初判为「`/memory/experiences` 返 400 而 `/memory/icl` 返 500，是两者不对称」。
+  **那个 400 来自「参数缺失」，不是「参数为空」**；补测 `?task=` 后 `/memory/experiences`
+  **同样返 500**。原判据站不住，**问题反而更整齐**：四个端点在「空」这一形态上完全一致地错。
+- **Status**: ⏸ **记录不修** —— 同 P2-76，响应码变更属对外行为变更。
+  修法若采纳，最小形态是在四个方法体开头各加一行空白检查（与同文件 `count`/`maxChars` 的既有写法同构）。
+  **注**：`promptNumber` 无范围检查是同族但已单独立项（P2-69），本条只管「空白必填参数报 500」。
 
 ## Processing Rules
 - **第 293 轮续记**：把第 292 轮的做法推广到其余 7 类**逐字重复**行（实测记录 6、Reproduction 3、已解决条目 4、复核记录 5+2、探针记录 2），一律只缩短显示名、链接目标不变，**零信息损失**。**至此本文件里已没有可再压缩的重复**：余下每一行要么是决策、要么是问题陈述、要么是指针。

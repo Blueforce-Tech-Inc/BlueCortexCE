@@ -382,8 +382,8 @@ backend/                               # 主 Spring Boot 应用
 │   │   │   └── TestController.java         # 调试端点
 │   │   │
 │   │   ├── service/                    # 业务逻辑（29 个服务）
-│   │   ├── repository/                  # 数据访问（5 个仓库）
-│   │   ├── entity/                      # JPA 实体（5 个实体）
+│   │   ├── repository/                  # 数据访问（6 个仓库）
+│   │   ├── entity/                      # JPA 实体（6 个实体）
 │   │   ├── dto/                         # API 请求/响应对象
 │   │   ├── event/                       # 领域事件
 │   │   ├── exception/                   # 自定义异常
@@ -394,7 +394,7 @@ backend/                               # 主 Spring Boot 应用
 │   ├── src/main/resources/
 │   │   ├── application.yml              # 主配置
 │   │   ├── application-dev.yml           # 开发环境配置
-│   │   ├── application-prod.yml          # 生产环境配置
+│   │   ├── application-prd.yml           # 生产环境配置（profile 名为 "prd"）
 │   │   ├── application.yml.example       # 环境变量示例
 │   │   ├── db/migration/               # Flyway 迁移（V1–V8, V11–V18）
 │   │   └── prompts/                     # LLM 提示词模板
@@ -419,7 +419,7 @@ backend/                               # 主 Spring Boot 应用
 ├── webui/                              # Web UI（git 子模块）
 ├── openclaw-plugin/                    # OpenClaw 集成
 │
-├── scripts/                            # 实用脚本（40+ 个脚本）
+├── scripts/                            # 实用脚本（37 个 shell 脚本）
 │   ├── regression-test.sh              # API 回归测试
 │   ├── thin-proxy-test.sh              # Proxy 测试
 │   ├── webui-integration-test.sh      # WebUI 测试
