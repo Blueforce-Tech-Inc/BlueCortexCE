@@ -1176,6 +1176,33 @@
   **未把脚本接进编排**：那会改变一条命令实际执行什么（且这些脚本有副作用、
   无法在本轮逐一验证自动运行安全），属需拍板的变更。
   **接不接、接哪些，留待用户决策。**
+### P2-82: 三家 SDK 都给响应体设了 **10 MB 上限**，**只有 Python 完全没有**——`requests` 会把整个 body 缓冲进内存
+
+- **Scope / Evidence**: `python-sdk/cortex-mem-python/cortex_mem/client.py:128-140`（`_request`）；
+  对照 `go-sdk/cortex-mem-go/client_impl.go:173-175,243-250`
+  与 `js-sdk/cortex-mem-js/src/client.ts:655-699`。
+- **Problem**: 同一道安全阀，三家形态如下：
+
+  | SDK | 上限 | 形态 |
+  |---|---|---|
+  | **Go** | **10 MB** | `MaxResponseBytes = 10 << 20`，**导出具名常量**；`io.LimitReader(body, Max+1)` 读超一字节再显式报错 |
+  | **JS** | **10 MB** | `const maxSize = 10 * 1024 * 1024`，**三道检查**：读前查声明的 `Content-Length`、读后查 `text.length`、外加 UTF-8 字节感知的第三次 |
+  | **Python** | **无** | `_request` 拿到 `requests.Response` 后**直接取 `resp.content`**，全路径零体积判断 |
+
+  `grep -nE 'MAX_RESPONSE|max_response|10 \* 1024 \* 1024|10485760' python-sdk/cortex-mem-python/cortex_mem/*.py`
+  **零命中**。`requests` 默认把整个响应体缓冲进内存，故一个超大响应（或拦截它的代理）
+  **会在 Python 侧被完整读入**，而 Go 与 JS 会中止并显式报错。
+  **这不是「少写了个常量」而是失效形态不同**：同一次异常后端响应，
+  Go/JS 得到「响应体超过上限」的可诊断错误，Python 得到一次内存暴涨。
+  **佐证这道阀是后加的且必要**：JS 的注释记着它是在实测「多字节字符使 `text.length`
+  低估体积达上限的 1.5 倍」之后才补的第三道检查——即**它确实在真实场景下漏过**。
+- **Status**: ⏸ **记录不修** —— 给 Python 加上限会让**原本成功的超大响应变成抛错**，
+  属**收窄已发布 SDK 的接受范围**，按既定纪律不单方面实施。
+  修法若采纳，与 Go 对齐即在 `_request` 里用 `stream=True` + 边读边计长，
+  超限抛 `CortexError`（与 JS 的 `resp.text()` 双检同构）。
+- **未证实的部分，不写**：本轮**未实测**「真的让 Python 侧 OOM」——
+  上面是**代码路径层面的断言**（无上限检查、requests 会缓冲），
+  **不是**「已复现的内存事故」。
 
 ## Processing Rules
 - **第 293 轮续记**：把第 292 轮的做法推广到其余 7 类**逐字重复**行（实测记录 6、Reproduction 3、已解决条目 4、复核记录 5+2、探针记录 2），一律只缩短显示名、链接目标不变，**零信息损失**。**至此本文件里已没有可再压缩的重复**：余下每一行要么是决策、要么是问题陈述、要么是指针。

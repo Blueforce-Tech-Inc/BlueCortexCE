@@ -214,7 +214,12 @@
 **①Network Security 表双语同步且准确**：两条 `ports:` 无主机 IP、Compose 设 `SERVER_ADDRESS: 0.0.0.0`、鉴权关闭 → 推荐的 Docker 部署全网可达。**P2-70 的双语更正仍在位、未漂移**。
 **②Authentication 段**「Currently no authentication (local development)」——与**第 311 轮实测**（后端 `HttpStatus.UNAUTHORIZED` **零命中**、从不返 401）**互相印证**。
 **③Data Privacy 段（本轮新查）**称隐私标签剥离在 `proxy/tag-stripping.js`——**文件确实存在**，且它实际处理的**四个标签逐字对上**（`<claude-mem-context>` / `<private>` / `<system_instruction>` / `<system-instruction>`），`replace(/…[\s\S]*?…/g, '')` 证实「**整个移除**」而非截断。**零幻影。**
-- **下一方向**: 运维/用户指南（二百一十五轮）
+- **最近完成**: 运维/用户指南（2026-10-06 二百一十五轮，**零缺陷**）。**DOC-0（本轮零改动）** 取 `docs/TESTING.md`，并**顺着 P2-81 查「跑哪些套件」的交代是否说过头**（上一轮刚在脚本侧抓到过度承诺）。
+**①脚本与文档的对照结论很有意思**：`TESTING.md` 三张表把各套件**列全**（含四家 SDK E2E、`go-sdk-unit-test.sh`、`phase3-acceptance-test.sh`），且对 `run-all-e2e.sh` 的描述**比脚本旧头注释更准**——它写「runs the **10** local E2E suites defined here …（excludes Docker suites and test-llm-provider.sh）」，**没有**声称跑遍所有表列脚本。**故 P2-81 的失实在脚本侧，不在文档侧**（脚本头注释已修）。
+**②选项表逐项核实**：`--skip-build` / `--parallel` / `--verbose` / `--cleanup` / `--help|-h` **全部真实存在于 `regression-test.sh:65-83` 的解析分支** ✓。
+**③PostgreSQL 端口提示准确**：`docker compose` 发布在 **5433**、原生 5432，与 `docker-compose.yml` 的 `"${POSTGRES_PORT:-5433}:5432"` 一致 ✓。
+**④一条很具体的断言逐字命中**：`go-sdk-unit-test.sh` 声称覆盖「root + dto + eino + genkit + langchaingo」，脚本 `:59-62` **确实**跑这四个目标（root 一个目标已含 client + dto）；**且它自己的头注释 `:4-5` 恰好记录了「各集成层独立 `go.mod`，`go test ./...` 只覆盖 root + dto」**——正是 P2-81 暴露的那个陷阱 ✓。
+- **下一方向**: API 文档（二百一十六轮）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
 
 ## Pending Doc Issues
