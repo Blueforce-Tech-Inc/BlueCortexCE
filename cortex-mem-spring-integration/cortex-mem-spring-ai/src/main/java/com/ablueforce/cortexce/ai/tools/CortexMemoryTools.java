@@ -63,12 +63,13 @@ public class CortexMemoryTools {
         if (task == null || task.isBlank()) {
             return "No search task provided.";
         }
-        // The 1-10 range above is enforced, but only on the branch the model supplies: a value of
-        // zero or less falls back to `defaultCount`, and an explicit value is clamped by
-        // Math.min(count, 10). `defaultCount` itself is not clamped, so configuring
-        // cortex.mem.default-experience-count above 10 means a call that omits `count` asks for
-        // more than the range this parameter advertises. That is deliberate on the configurator's
-        // part — the value was set explicitly — but the two branches do not agree.
+        // The 1-10 range above holds on both branches. An explicit value is clamped by
+        // Math.min(count, 10); a value of zero or less falls back to `defaultCount`, and the
+        // constructor already clamped `defaultCount` itself to [1, 10] with
+        // Math.max(1, Math.min(defaultCount, 10)). Measured on 2026-10-07 with a mocked client:
+        // configured 20 and `count` omitted sends 10, not 20; configured -5 sends 1; configured 3
+        // sends 3; an explicit 99 sends 10. So cortex.mem.default-experience-count above 10 does
+        // not widen this parameter's range — it only moves the default up to the cap.
         int effectiveCount = (count == null || count <= 0) ? defaultCount : Math.min(count, 10);
         String project = resolveProjectPath();
 

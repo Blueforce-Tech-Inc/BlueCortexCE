@@ -1369,6 +1369,58 @@
   3. 顺带在 findings 的 Processing Rules 里加一句「本文件编号仅在本文件内有效」。
 - **Status**: ⏸ **记录不修** —— 编号来源需作者确认，见上。
 
+### P2-92: `CortexMemoryTools` 的注释说 `defaultCount` **未被钳制**，而它上面两行的构造函数**恰恰钳了**
+
+- **Scope / Evidence**:
+  `cortex-mem-spring-integration/cortex-mem-spring-ai/src/main/java/com/ablueforce/cortexce/ai/tools/CortexMemoryTools.java`
+  —— 注释 `:66-71`，被它描述的那行代码 `:46`，以及被它断言的分叉 `:72`
+- **矛盾就在同一个类的 6 行之内**:
+  ```java
+  // :46  构造函数
+  this.defaultCount = Math.max(1, Math.min(defaultCount, 10));   // ← 钳到 [1, 10]
+  ...
+  // :66-71  注释却写
+  // "`defaultCount` itself is not clamped, so configuring
+  //  cortex.mem.default-experience-count above 10 means a call that omits `count` asks for
+  //  more than the range this parameter advertises. ... the two branches do not agree."
+  // :72
+  int effectiveCount = (count == null || count <= 0) ? defaultCount : Math.min(count, 10);
+  ```
+  注释描述的场景**在代码里不可能发生**：`:46` 已经把 `defaultCount` 钳进 `[1, 10]`，
+  省略 `count` 时最坏也只发 **10**，落在 `@ToolParam` 宣称的 `1-10` 之内。
+  **两条分支实际是一致的**，注释说的「不一致」不存在。
+- **配置链路（确认钳制只发生在这一处，没有别处再放开）**:
+  `CortexMemProperties.defaultExperienceCount`（默认 `4`，setter **不做任何钳制**）
+  → `CortexMemAutoConfiguration:121-123` 原样传入 → `CortexMemoryTools:46` 钳制。
+- **受控实验**（临时 `CortexMemoryTools` + Mockito `CortexMemClient` 探针，捕获真正上线的
+  `ExperienceRequest.count()`；测完即删）：
+
+  | 配置的 defaultCount | 模型给的 count | **实际发出** |
+  |---|---|---|
+  | 20 | 省略 | **10**（不是 20） |
+  | 10 | 省略 | 10 |
+  | 3 | 省略 | 3 |
+  | -5 | 省略 | **1** |
+  | 20 | 99 | 10 |
+  | 20 | 0 | 10 |
+
+  六行全部落在 `1-10`，**没有任何一行越界**，与注释所称的缺陷相反。
+- **为什么可以单方面改**（判据：**失实陈述 + 正确值被权威确定**）:
+  正确值就在同一文件的 `:46`，并已由上表实测坐实；改动**只涉及注释，零行为变化**。
+  与 P2-87（版本钉，正确值只能推断）不同，本条不存在需要推断的成分。
+- **一处顺带核实**：Java SDK README 对该配置项的描述是中性的
+  （`README.md:194` / `README-zh-CN.md:201` 均只写「Max experiences per retrieval」/
+  「每次检索的最大经验数」），**未复述这条错误断言**，故文档侧无需改动。
+- **两处探针自身错误，均在采信前识别**:
+  ①`ExperienceRequest` 是 **record**，访问器是 `count()` 而非 `getCount()`，首版编译失败；
+  ②首版 `capturedCount` 把 mock 建好却**没有交给 tools**，却去 verify 那个 mock，
+  Mockito 报「Wanted but not invoked … Actually, there were zero interactions with this mock」——
+  读 surefire 报告确认后才改，**没有把探针报错当成产品缺陷**。
+- **Severity**: 低（纯注释失实，不影响行为；但它是**给下一个维护者设的误导性路标**，
+  且描述的是一个已不存在的缺陷）。
+- **Status**: ✅ **已修（第 330 轮，零行为变更）** —— 注释改为如实描述两条分叉都由 `[1,10]`
+  钳制，并附上上表的实测数字。`mvn test` 全绿（exit 0）。
+
 ## Processing Rules
 - **第 316 轮新增流程规则（连续三轮教训的归纳）——落笔前先查该模块自己的文档**：
   本循环已**连续三轮**出现同一模式：先凭代码把某处判成「缺口/缺陷」，下一轮才发现**它是被双语文档明确记载的有意设计**。
@@ -1409,63 +1461,15 @@
 2026-05-07 之前的完整审查日志见 [`2026-09-30_backend-review-findings-history.md`](../archive/2026-09-30_backend-review-findings-history.md)。
 
 ### P2-64: Jackson 把 record 上的 `isX()` 当属性序列化——Java SDK 每个 PATCH 都多发一个调用方从未设置过的 `empty` 字段
-- **Scope / Evidence**: `cortex-mem-client/.../dto/ObservationUpdate.java:37`（`isEmpty()`）、
-  `ExtractionResponse.java:51`（`isFound()`）。
-- **Problem**: Jackson 把 record 的**组件**与**符合 JavaBeans 约定的访问器**
-  （`getXxx()` 任意类型、`isXxx()` 布尔）当属性序列化，故 `isEmpty()` 被发上 wire 成
-  `"empty": false`——**每个 PATCH 都带一个调用方从未设置的字段**，与该类 Javadoc 自称的
-  "only explicitly set fields are sent" **直接矛盾**。**实测（修复前，编译产物直接序列化）**：
-  `{"title":"T","empty":false}`；`ExtractionResponse` 同理多出 `"found"`。**后端忽略未知键**
-  （活体 PATCH 带 `empty` 仍 200 且 title 已更新），故**无功能损坏**，但报文与成文契约不符。
-  **第 276 轮更正过宽表述并全量复查 21 个 DTO**：受控实验证明**只有** JavaBeans 约定的
-  `isXxx()` / `getXxx()` 泄漏为属性，普通无参方法不可见，**修复完整、无遗漏** → [`…-36.md`](../archive/2026-10-06_backend-review-evidence-36.md) 第 7 块（第 291 轮逐字迁出）。
-- **Status**: ✅ **已修（第 273 轮）** —— 两个访问器加 `@JsonIgnore`。修复后实测 `{"title":"T"}`，
-  且 null→省略、`facts=[]`→照发等**原有语义全部保持**，`isFound()` 仍正确求值；
-  **无任何测试断言该字段**。Java SDK **196/0/0/0** 全绿。
+- **Status**: ✅ **已修（第 273 轮）** —— 两个访问器加 `@JsonIgnore`。实测 `{"title":"T"}`，null→省略、`facts=[]`→照发等**原有语义全部保持**，`isFound()` 仍正确求值，**无任何测试断言该字段**。条目全文已逐字迁入 [`…-43.md`](../archive/2026-10-07_backend-review-evidence-43.md)（第 330 轮）。
 ### P2-65: Python SDK 的 `is_retryable` 只收状态码，而 Go/JS 的**同名函数收的是 error**——跨家移植得到一个永远返回 False 的重试判定
-- **Scope / Evidence**: `error.py:135-137`（修复前）、`client.py:199`（内部唯一调用点，**用法本就正确**）、`__init__.py:46,93`（**两个名字都在 `__all__` 里公开导出**）。
-- **Problem**: Go `IsRetryable(err error)`、JS `isRetryable(err: unknown)` **都只有一个函数且收 error**；
-  Python 有**两个**：`is_retryable(status_code)` 与 `is_retryable_error(err)`，而**与 Go/JS 同名的那个收状态码**。
-  机械移植的重试循环写成 `is_retryable(e)` 时，**对每个错误都静默返回 False、不抛异常**——实测
-  `RateLimitError`(429) 与 `APIError(502/503/504)` 全部 `False`，而 Go/JS 对同样输入返回 `True`。
-  **后果是调用方自己的重试循环永不触发且无任何迹象**；不重试的错误返回 False 是对的，故这个坑**只在本该重试时暴露**。
-  README 对两个函数**零提及**。
-- **Status**: ✅ **已修（第 274 轮）** —— 按「**纯加宽 / 向后兼容即可修**」，把 `is_retryable` 参数**加宽为 `int | BaseException`**：
-  收异常转发 `is_retryable_error`，收状态码**行为一行未变**，其它类型 fail-closed 返回 `False`。
-  **双向注入的逐条用例明细（7 失败 / 5 对照）**：逐字迁入 [`…-32.md`](../archive/2026-10-06_backend-review-evidence-32.md)（第 282 轮）。
-  否则就是本循环反复在抓的「改了测试没回头改这个数」。**未单方面做的**：把两个函数改名以真正对齐 Go/JS 属**改已发布公开 API 的名字**，
-  按规则记录不实施。另记**非缺陷**：Go 独有 `IsInternal`(500)，JS 与 Python 无对应谓词——是 Go 多一个。
+- **Status**: ✅ **已修（第 274 轮）** —— 按「**纯加宽 / 向后兼容即可修**」，把 `is_retryable` 参数**加宽为 `int | BaseException`**：收异常转发 `is_retryable_error`，收状态码**行为一行未变**，其它类型 fail-closed 返回 `False`。**未单方面做的**：把两个函数改名以真正对齐 Go/JS 属**改已发布公开 API 的名字**，按规则记录不实施。条目全文已逐字迁入 [`…-43.md`](../archive/2026-10-07_backend-review-evidence-43.md)（第 330 轮）。
 ### P2-66: JS SDK 的 `content`/`narrative` 注释写了一条后端**并不遵循**的优先级规则，而它是四家里唯一不做冲突检测的
-- **Scope / Evidence**: `js-sdk/.../dto/observation.ts:56,58`（修复前的两条 JSDoc）、`src/client.ts:363-379`（**原样透传**）；后端依据 `MemoryController.java:317-319` 的 `body.getOrDefault("content", body.get("narrative"))`。
-- **Problem**: 原注释称 `content` 走「backend uses "narrative" wire field」、`narrative` 则
-  「When both are set, backend processes **whichever is present**」——**两条都与实测不符**。
-  `mem_observations` **根本没有 `narrative` 列**（只有 `content`），两个 key 是同一列的两个入口。
-  **实测四例**与**四家对拍**（Go `HasConflict()` / Java `IllegalStateException` /
-  Python `ValidationError`，**只有 JS 一处检测都没有**）逐字见
-  [`…-38.md`](../archive/2026-10-06_backend-review-evidence-38.md) 第 1 块（第 292 轮逐字迁出）。
-- **Status**: ✅ **注释已修（第 275 轮，零行为变更）** —— 两条 JSDoc 改为如实描述「`content` 存在时 `narrative`
-  一律被忽略，**含 `content` 为 null**」并附实测四例。`tsc --noEmit` 干净、**259/259** 全绿。
-  **检测不实施、只记录**：给 JS 补上冲突拒绝是**让原本被接受的调用变成抛错**，属收窄已发布契约；
-  JSDoc 已写明「prefer setting exactly one」。
+- **Status**: ✅ **注释已修（第 275 轮，零行为变更）** —— 两条 JSDoc 改为如实描述「`content` 存在时 `narrative` 一律被忽略，**含 `content` 为 null**」并附实测四例；`tsc --noEmit` 干净、**259/259** 全绿。**检测不实施、只记录**：给 JS 补上冲突拒绝是**让原本被接受的调用变成抛错**，属收窄已发布契约。条目全文已逐字迁入 [`…-43.md`](../archive/2026-10-07_backend-review-evidence-43.md)（第 330 轮）。
 ### P2-67: `AsyncConfig` 的类 Javadoc 把「按任务超时」列为它提供的能力——**全后端不存在任何超时机制**
-- **Scope / Evidence**: `backend/.../config/AsyncConfig.java` 类 Javadoc 第二条「Timeout handling for async
-  methods」与行内注释「values from application.yml with defaults」。
-- **Problem**: `getAsyncExecutor()` 只配了 core/max/queue/threadNamePrefix/拒绝处理器/关机等待，**无任何按任务超时**；
-  全后端搜 `setTimeout` / `TimeoutInterceptor` / `Future.get(` **零命中**。唯一与时长有关的是
-  `await-termination-seconds`，它约束**关机时等运行中任务多久**，不是**任务能跑多久**。
-  5 个 `@Async` 方法**任一都没有时间上限**。**影响**：一次卡住的 LLM 调用会**长期占住一个池线程**；
-  队列打满后拒绝处理器回退到调用线程执行，**把阻塞带回调用方**——而 `@Async` 的前提正是不阻塞调用方。
-  第二处较轻的不实：注释称线程池参数「values from application.yml」，而 **yml 里没有 `claudemem.async` 块**，四个 `@Value` 默认值（10/50/100/60）永远生效。
-- **Status**: ✅ **注释已修（第 277 轮，零行为变更）** —— 类 Javadoc 如实列出它真正提供的两件事，
-  并写明「**不存在按任务超时**」及其搜索证据、讲清 `await-termination-seconds` 的真实语义、指向 P2-67；
-  行内注释注明 yml 无该配置块。`mvn -o compile` EXIT=0、**后端 167 测试全绿**。
-  **能力本身只记录不实施**：加真正的超时需先定策略（中断，还是跑完但丢弃结果），属设计决策。
-  **该类其余部分核实为真**：`AsyncUncaughtExceptionHandler` 与点名的两个 critical 方法确实存在，
-  回退处理器也确有日志与兜底 try/catch。
+- **Status**: ✅ **注释已修（第 277 轮，零行为变更）** —— 类 Javadoc 如实列出它真正提供的两件事，并写明「**不存在按任务超时**」及其搜索证据、讲清 `await-termination-seconds` 的真实语义。**能力本身只记录不实施**：加真正的超时需先定策略（中断，还是跑完但丢弃结果），属设计决策。条目全文已逐字迁入 [`…-43.md`](../archive/2026-10-07_backend-review-evidence-43.md)（第 330 轮）。
 ### P2-68: `updateObservation` 的 Javadoc 说「null 会被忽略」，其下的 `@Operation` 说「null 会清空」——**后者才是真的**
-- **Scope / Evidence**: `MemoryController.java:268`（修复前的 Javadoc）与 `:273`（同一方法的 `@Operation`）。
-- **Problem**: 同一方法上两处说明**直接相反**：Javadoc 写「**Null values in the body are ignored**」、`@Operation` 写「**null values clear the field**」。**实测站在 `@Operation` 这边**——第 275 轮探针 PATCH `{"content":null,"narrative":"C"}` 落库 **NULL**（narrative 被丢弃），**不是**「忽略」。**危害在于可信度不同**：`@Operation` 是**机器可读的那一份**（`/v3/api-docs`、SDK 生成器、`docs/API.md` 全以它为准），**读源码的人看到的却是 Javadoc**，即恰好相反的指示——「null 被忽略」也正是 P2-26/27/66 一直在绕开的那条错误行为。
-- **Status**: ✅ **已修（第 278 轮，零行为变更）** —— Javadoc 改为如实描述并附活体探针证据、写明机器可读的那份一直是对的。**全后端扫过**：错误表述**仅此一处**，正确表述共 **8 处**。`mvn -o compile` EXIT=0。
+- **Status**: ✅ **已修（第 278 轮，零行为变更）** —— Javadoc 改为如实描述并附活体探针证据、写明机器可读的那份一直是对的。**全后端扫过**：错误表述**仅此一处**，正确表述共 **8 处**。`mvn -o compile` EXIT=0。条目全文已逐字迁入 [`…-43.md`](../archive/2026-10-07_backend-review-evidence-43.md)（第 330 轮）。
 ### P2-69: `SessionLifecycleController` 的 `promptNumber` 是 demo 里**唯一没有范围检查**的数值参数——负数被接受并落库
 - **Scope / Evidence**: `SessionLifecycleController.java:82`；活体对拍与落库记录见 [`2026-10-06_backend-review-evidence-31.md`](../archive/2026-10-06_backend-review-evidence-31.md)（第 282 轮）。
 - **Problem**: demo 其余五个数值参数（`count` ×3、`maxChars` ×2）都在方法体里写了范围检查，唯独 `promptNumber` 从绑定直接流入 `UserPromptRequest`。实测 `promptNumber=-1` 返回 200「prompt recorded」，且 `mem_user_prompts.prompt_number` 真实落库为 `-1`；`0x10` 落库为 `16`。
