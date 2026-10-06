@@ -118,8 +118,17 @@ func NewClient(opts ...Option) Client {
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = "http://127.0.0.1:37777"
 	}
-	// Normalize: strip trailing slash to prevent double-slash in URLs (e.g., //api/health)
-	cfg.BaseURL = strings.TrimSuffix(cfg.BaseURL, "/")
+	// Normalize: strip ALL trailing slashes to prevent double-slash in URLs
+	// (e.g., //api/health). TrimRight, not TrimSuffix: TrimSuffix removes only
+	// ONE trailing slash, so a doubled base URL such as "http://host:37777//"
+	// survived it and every request was then built as "//api/..." — which the
+	// backend answers with 404 (verified live; Spring does not collapse the
+	// empty path segment, it reports path="//api/version"). The sibling SDKs
+	// already remove all of them — Python base_url.rstrip("/") and the JS SDK's
+	// .replace(/\/+$/, '') — so the same config value worked in three of four
+	// clients and produced a total outage in this one. No input that works today
+	// changes behaviour; this only stops accepting the ones that never worked.
+	cfg.BaseURL = strings.TrimRight(cfg.BaseURL, "/")
 	if cfg.MaxRetries < 1 {
 		cfg.MaxRetries = 1 // At least one attempt (no retries is valid)
 	}

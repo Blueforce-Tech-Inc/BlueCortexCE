@@ -1282,6 +1282,36 @@
   **已刻意排除**：归档文件（不可修改）、`patrol-rotation.md`（历史记录，记的是当时做了什么）、
   health-check / doc-review / findings 三份工作文件（其中提到该字符串的是历史叙述，非断言）。
 
+### P2-84: Go SDK 的 `base_url` 规范化**只去一个**尾斜杠，而另三家去全部 —— 同一份配置在四家里三成一败
+
+- **Scope / Evidence**: 四家实现逐行对照 + 活体实测。
+  | SDK | 位置 | 写法 | 去掉几个尾斜杠 |
+  |---|---|---|---|
+  | Python | `cortex_mem/client.py:86` | `base_url.rstrip("/")` | **全部** |
+  | JS/TS | `src/client-options.ts:68` | `.replace(/\/+$/, '')` | **全部** |
+  | **Go** | `client_impl.go`（原 `:122`） | `strings.TrimSuffix(cfg.BaseURL, "/")` | **仅一个** |
+  | Java | `CortexMemClientImpl` | 交给 `RestClient.baseUrl()` 内部处理 | 不适用 |
+- **Problem**: `TrimSuffix` 的语义是「删掉末尾**一个** `/`」。
+  故 `WithBaseURL("http://host:37777//")` 规范化后仍是 `http://host:37777/`，
+  与 `path` 拼接成 `http://host:37777//api/version`。
+  **这不是理论问题——活体实测后端不折叠空路径段**：
+  `GET http://127.0.0.1:37777//api/version` → **HTTP 404**，
+  响应体为 Spring 的 `{"status":404,"error":"Not Found","path":"//api/version"}`。
+  **即该配置下 Go SDK 的每一个请求都是 404**，而**完全相同的配置值在 Python 与 JS 里正常工作**。
+  形态与第 300 轮记的「重试极性三对一」同型：**四家里三家行为一致、第四家单独不同**，
+  而差异只在**多写一个斜杠**时才显形，故极难在正常使用中察觉。
+  **既有测试只覆盖单个尾斜杠**：`client_test.go` 的 `TestNewClient_TrailingSlashNormalization`
+  传的是 `server.URL + "/"`；**双斜杠此前无任何测试**。
+  **文档侧亦无自陈**：Go SDK README 中英双语 `grep -i "trailing|尾斜杠|末尾斜杠"` **零命中**。
+- **Severity**: 低——`http://host//` 属配置笔误，正常输入（无尾斜杠、单个尾斜杠）本就正确。
+  但**失败形态是最坏的一种**：不是报错而是**静默的全量 404**，且**只在一家里发生**。
+- **Status**: ✅ **已修（第 319 轮）** —— `TrimSuffix` → `TrimRight`。
+  属**纯加宽 / 向后兼容修正**：**当前能工作的任何输入行为都不变**，
+  受影响的只有那些**本来就 100% 失败**的输入，故可单方面实施。
+  **补测一条**（`TestNewClient_DoubledTrailingSlashNormalization`）覆盖此前完全无覆盖的双斜杠。
+  **双向注入验证**：保留修复后全绿 → 回退为 `TrimSuffix` 后**恰好**新测试失败、
+  既有单斜杠测试仍通过 → 恢复后全绿。**是数据与断言互相印证，不是只跑通就算数。**
+
 ## Processing Rules
 - **第 316 轮新增流程规则（连续三轮教训的归纳）——落笔前先查该模块自己的文档**：
   本循环已**连续三轮**出现同一模式：先凭代码把某处判成「缺口/缺陷」，下一轮才发现**它是被双语文档明确记载的有意设计**。

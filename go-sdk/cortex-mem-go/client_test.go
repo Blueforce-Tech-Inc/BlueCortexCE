@@ -3187,6 +3187,32 @@ func TestNewClient_TrailingSlashNormalization(t *testing.T) {
 	}
 }
 
+func TestNewClient_DoubledTrailingSlashNormalization(t *testing.T) {
+	// A DOUBLED trailing slash must be normalized too. The normalization used
+	// strings.TrimSuffix, which removes only ONE, so a base URL ending in "//"
+	// survived it and every request was built as "//api/..." — the backend
+	// answers that with 404 rather than collapsing the empty path segment.
+	// Python (base_url.rstrip("/")) and the JS SDK (.replace(/\/+$/, '')) both
+	// already removed all of them, so the same config worked in three of four
+	// clients and produced a total outage in this one.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "//") {
+			t.Errorf("URL path should not contain double-slash: %s", r.URL.Path)
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	}))
+	defer server.Close()
+
+	client := cortexmem.NewClient(cortexmem.WithBaseURL(server.URL + "//"))
+	defer client.Close()
+
+	err := client.HealthCheck(context.Background())
+	if err != nil {
+		t.Fatalf("HealthCheck should succeed with doubled trailing slash: %v", err)
+	}
+}
+
 func TestNewClient_EmptyBaseURL_UsesDefault(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
