@@ -206,7 +206,8 @@
 - **最近完成**: API 文档（2026-10-06 二百一十一轮，两处，双语各修两）。**DOC-1（已修）** **Error Codes 一节的「业务错误码」表列了七个码，而七个都不存在。** `MISSING_FIELD` / `INVALID_FORMAT` / `NOT_FOUND` / `RATE_LIMIT_EXCEEDED` / `DB_ERROR` / `LLM_ERROR` / `EMBEDDING_ERROR` 在后端与**四家 SDK** 中**全部零命中**（`NOT_FOUND` 的命中全是 `HttpStatus.NOT_FOUND` 这个 HTTP 枚举，不是业务码）。**活体实测七类不同错误，响应体只有两种形态、都不带 `code` 字段**：①应用错误 `{"error":"observationId is required"}`（各端点手写的自由文本）；②框架错误 `{timestamp,status,error,path}`（Spring 默认，产生于控制器执行之前：类型转换失败、必填参数缺失、路由未匹配）。**危害是具体的**：按这七个码写分支的客户端会**每次都走进错误分支**。**②同一节的 HTTP 状态码表更隐蔽**：九项里**四项不可达**——`HttpStatus.CREATED` / `UNAUTHORIZED` / `FORBIDDEN` / `SERVICE_UNAVAILABLE` 在后端**各 0 命中**；其中 401/403 尤其误导，**本 API 不做鉴权**。**403 仍可能出现，但来源是 Spring 的 CORS 预检拒绝**（CORS 未配置时），不是应用返回的。**429 属实但仅守一个端点**（`POST /api/ingest/tool-use`，第 305 轮已查清），故在表里点明。
 **改法**：删掉幻影业务码表，改为如实描述**两种真实响应体**并给出 JSON 示例 + 一句「请按状态码分支，不要匹配文案」；状态码表**加一列可达性**并逐项标注。**顺带写下一条此前无人记录的事实**：path 里的 id 畸形时走的是**框架错误**形态而非应用错误——即 `PATCH`/`DELETE /api/memory/observations/{id}` 返 **400** 而非 404（与 P2-75 同源，此处是它在中英双语 API 文档里的落点）。
 **刻意未改**：`docs/API.md` **完全没有 CORS 章节**——但按「遗漏 ≠ 失实」，文档没覆盖某情况不等于说错了，不制造修改。
-- **下一方向**: SDK README（二百一十二轮）
+- **最近完成**: SDK README（2026-10-06 二百一十二轮，**零缺陷**）。**DOC-0（本轮零改动）** 选 Python SDK README 双语（Round 302 已查过四份 README 的错误面，故换维度）。**①方法表逐名比对，不只对计数**：client 的公开方法 **26** 个（`def` 共 35，去掉下划线开头后 26），两份 README 方法表**各恰好 26 行**，**零缺失、零幻影**。**②路径对活体**：SDK 的 **19** 条 `/api/**` 路径对**活体 OpenAPI（62 paths）零幻影**；**43 条活体未覆盖不判缺陷**——SDK 覆盖的是策展子集，README **从未声称全覆盖**，按「遗漏 ≠ 失实」处理。**③四条配置断言逐条命中**：默认 `base_url=http://127.0.0.1:37777`、`rstrip("/")` 去尾斜杠、`timeout=30.0` 且 `max(0.1, …)` 地板、User-Agent `cortex-mem-python/{__version__}`。
+- **下一方向**: 设计文档（二百一十三轮）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
 
 ## Pending Doc Issues

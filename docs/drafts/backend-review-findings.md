@@ -1035,6 +1035,39 @@
   另一条 PATCH 端点路径同样 200；**回归检查**：未授权 origin 仍 **403 且 ACAO 头出现 0 次**。
   `mvn -o compile` 与 `package -DskipTests` 均 EXIT=0。
   **按纪律进入连续 3 轮复查计数（第 311 轮为 1/3，第 312、313 轮各复查一遍）。**
+- **第 312 轮复查 2/3 的结果：新发现问题，计数重置** —— 见 P2-79。
+
+### P2-79: CORS 的凭据开关**只检查列表第 0 位**是否含 `*`——`*` 出现在别处时**整个 API 返 500**
+
+- **Scope / Evidence**: `backend/src/main/java/com/ablueforce/cortexce/config/WebConfig.java:49`
+  （`boolean allowCredentials = origins.length > 0 && !origins[0].equals("*");`），
+  与紧邻的注释「Determine if we should allow credentials (only if not using wildcard)」。
+- **Problem**: 该行**只判断 `origins[0]`**，而它自己的注释声称「only if not using wildcard」——
+  **只要 `*` 出现在列表的任何非首位位置，意图就被违背**。
+  Spring 的 `CorsConfiguration.validateAllowCredentials` 在 `allowCredentials=true` 且
+  `allowedOrigins` 含 `*` 时**抛 `IllegalArgumentException`**，且该校验**每个请求都会走到**。
+  **活体三配置对照（37790，逐次重启、改同一处配置）**：
+
+  | `claudemem.cors.allowed-origins` | 普通请求 `GET /api/stats` | 预检 | 日志异常数 |
+  |---|---|---|---|
+  | `http://a.example,*`（**星号非首位**） | **500** | 403，无 CORS 头 | **每次请求抛异常** |
+  | `*,http://a.example`（星号在首位） | **200** | 200，但**无 ACAO 头** | 0 |
+  | `http://a.example`（无星号） | 200 | 200 + ACAO + 凭据 | 0 |
+
+  **失效形态远重于「跨域不工作」：整个 API 返回 500**，连不带 `Origin` 的普通请求也是 500。
+  异常原文：`When allowCredentials is true, allowedOrigins cannot contain the special value "*"…`
+  **第二行也不是正确形态**：`allowedOrigins` 混用 `*` 与具体源时 Spring 不做通配匹配，
+  预检**不返回 ACAO 头** → 浏览器照样拦截。两种错法不同，**都错**。
+  **今天不可触发**：该配置项全仓从未被设置（与 P2-78 同一条证据）。
+- **⚠️ 为什么不能顺手改**：最直觉的修法（`*` 出现在任意位置就把 `allowCredentials` 置 false）
+  **是安全放宽**——此时 Spring 会回 `Access-Control-Allow-Origin: *`，
+  等于**给所有 origin 开口**，比运维显式列出的那一个**更宽**。
+  正确修法只有两条，都涉及策略决定：改用 `allowedOriginPatterns`（支持带凭据的通配），
+  或**启动期拒绝这份配置并给出清晰错误**（fail fast）。
+- **Status**: ⏸ **记录不修** —— 上条已说明「直觉修法是安全放宽」，本条属**安全策略决策**，
+  不单方面实施。修法若采纳，建议 `allowedOriginPatterns` + 启动期对 `*` 与具体源混用给出显式告警。
+- **对 P2-78 复查计数的影响**：第 312 轮为 P2-78 的第 **2/3** 次复查，
+  **但在同一段代码里发现本条新问题 → 按既定纪律计数重置**，从第 312 轮重新记 1/3。
 
 ## Processing Rules
 - **第 293 轮续记**：把第 292 轮的做法推广到其余 7 类**逐字重复**行（实测记录 6、Reproduction 3、已解决条目 4、复核记录 5+2、探针记录 2），一律只缩短显示名、链接目标不变，**零信息损失**。**至此本文件里已没有可再压缩的重复**：余下每一行要么是决策、要么是问题陈述、要么是指针。
