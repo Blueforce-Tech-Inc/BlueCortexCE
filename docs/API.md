@@ -1813,8 +1813,8 @@ session start time descending and use offset pagination.
 The paired WebUI uses these singular viewer routes for UUID-backed feed rows:
 
 ```
-DELETE /api/observation/{uuid}
-DELETE /api/summary/{uuid}
+DELETE /api/observation/{id}
+DELETE /api/summary/{id}
 DELETE /api/sessions/{platformSource}/{contentSessionId}
 ```
 

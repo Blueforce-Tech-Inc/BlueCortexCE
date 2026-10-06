@@ -1809,8 +1809,8 @@ GET /api/sessions?project=/path/to/project&platformSource=claude&limit=20&offset
 配套 WebUI 使用以下单数路径删除 UUID 标识的 feed 行：
 
 ```text
-DELETE /api/observation/{uuid}
-DELETE /api/summary/{uuid}
+DELETE /api/observation/{id}
+DELETE /api/summary/{id}
 DELETE /api/sessions/{platformSource}/{contentSessionId}
 ```
 

@@ -1345,6 +1345,34 @@
   **纯注释改动**：13 增 / 2 删，经 `git diff -U0` 逐行核验**每一行都以 `#` 开头或为空行**，
   **无任何可执行行变更**；Python **453/453** 全绿。
 
+### P2-86: API 文档把两条 DELETE 路由的路径变量写成 `{uuid}`，活体是 `{id}` —— 第 157/317 轮同类
+
+- **Scope / Evidence**: **活体 `/v3/api-docs` 权威写法**（37777 实例）：
+  ```
+  DELETE  /api/summary/{id}      params=[('id', 'path')]
+  DELETE  /api/observation/{id}  params=[('id', 'path')]
+  ```
+  源码 `ViewerSessionController.java:43,49` 亦为 `@DeleteMapping("/observation/{id}")` / `("/summary/{id}")`。
+- **Problem**: `docs/API.md:1816-1817` 与 `docs/API-zh-CN.md:1812-1813` 把这两条写成
+  **`/api/observation/{uuid}` 与 `/api/summary/{uuid}`**，**共 4 处**。
+  这批文档由另一进程在 `6e5890d` 中新增，正落在本轮文档轮换方向内。
+  **这不是新错误类**：第 157 轮修过 14 处、第 317 轮修过 11 处同一类（`{id}` → `{sessionId}`）。
+  **成因可解释但仍为失实**：`deleteObservation(@PathVariable UUID id)` 的**参数类型**是 `UUID`，
+  作者据类型写了 `{uuid}`，而**路由变量名**是 `id` —— **类型与变量名是两回事**。
+- **危害与当年相同**：读者照抄 `{uuid}` 去拼 URL 或据其做模板断言替换，会与真实路径模板不符；
+  文档若被生成工具消费，这类错位会造成难以定位的失败。
+- **按断言清扫的结果**：全库（排除归档与 `node_modules` 第三方内容）**恰好这 4 处**，
+  分布在 **2 个文件**。**该文件自身即自相矛盾**：`API.md` 全文路径变量普查为
+  `{typeId}`×6、`{templateName}`×4、`{projectName}`×4、**`{id}`×3**、`{uuid}`×2、`{sessionId}`×2、
+  `{platformSource}`×1、`{contentSessionId}`×1 —— 同一份文档里 `{id}` 与 `{uuid}` 并存。
+- **Status**: ✅ **已修（第 321 轮）** —— 4 处改为 `{id}`，中英双语一并处理，属**失实陈述的更正**。
+  改后核验：**残留 0**；`git diff --numstat` 恰为 **每文件 2 增 / 2 删**，
+  且逐行核验**只有那 4 行路径行变动**、无任何附带改动。
+- **⚠️ 刻意未验证的部分**：该节其余断言（SSE `item_deleted`/`session_deleted`、`afterCommit` 时机、
+  409 的四个状态、`limit` 钳制、`offset` 下限）**逐条核到源码为真**
+  （`ViewerSessionService.java:55,60,106,123,136,149,158`），
+  但 **DELETE 是破坏性端点，本轮一律未调用**；404/409 的**运行时**行为**未实测**，仅代码可证。
+
 ## Processing Rules
 - **第 316 轮新增流程规则（连续三轮教训的归纳）——落笔前先查该模块自己的文档**：
   本循环已**连续三轮**出现同一模式：先凭代码把某处判成「缺口/缺陷」，下一轮才发现**它是被双语文档明确记载的有意设计**。
