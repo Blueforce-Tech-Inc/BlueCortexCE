@@ -42,7 +42,7 @@ public class WebConfig implements WebMvcConfigurer {
         // P0: Fixed CORS configuration - use allowed origins from config or deny
         // Never combine allowCredentials(true) with wildcard origins
         String[] origins = allowedOrigins != null && !allowedOrigins.isBlank()
-            ? allowedOrigins.split(",")
+            ? parseOrigins(allowedOrigins)
             : new String[]{};
 
         // Determine if we should allow credentials (only if not using wildcard)
@@ -68,5 +68,24 @@ public class WebConfig implements WebMvcConfigurer {
             .allowedHeaders("*")
             .allowCredentials(allowCredentials)
             .maxAge(3600);
+    }
+
+    /**
+     * Split the comma-separated origin list, trimming each element and dropping
+     * empty ones.
+     *
+     * <p>{@code String.split(",")} alone leaves surrounding whitespace on every
+     * element after the first, so a config written the way the guide suggests
+     * ("https://a.example, https://b.example") compares the literal string
+     * {@code " https://b.example"} against an {@code Origin} header that never
+     * has a leading space. The result is a silent failure: the first origin
+     * works, every later one is rejected with 403 and no CORS headers, and
+     * nothing is logged. See P2-80.
+     */
+    private static String[] parseOrigins(String raw) {
+        return java.util.Arrays.stream(raw.split(","))
+            .map(String::trim)
+            .filter(o -> !o.isEmpty())
+            .toArray(String[]::new);
     }
 }

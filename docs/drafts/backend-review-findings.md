@@ -1069,6 +1069,83 @@
 - **对 P2-78 复查计数的影响**：第 312 轮为 P2-78 的第 **2/3** 次复查，
   **但在同一段代码里发现本条新问题 → 按既定纪律计数重置**，从第 312 轮重新记 1/3。
 
+### P2-80: CORS 的 origin 列表**不 trim**——按文档教的「逗号分隔」写，**只有第一个域名生效**
+
+- **Scope / Evidence**: `backend/src/main/java/com/ablueforce/cortexce/config/WebConfig.java:44-46`
+  （修复前的 `allowedOrigins.split(",")`）；指导文档 `docs/drafts/spring-ai-integration-plan.md:138`
+  「需配置 `claudemem.cors.allowed-origins`（**多个域名用逗号分隔**）」。
+- **Problem**: `String.split(",")` **不会去掉分隔符两侧的空白**，于是第 2 个及之后的元素
+  带着前导空格，成为字面量 `" https://b.example"`，与永不带前导空格的 `Origin` 头**永不相等**。
+  **这不是报错，是静默失效**：
+  **活体实测（37790，配置 `http://a.example, http://b.example`，逗号后一个空格）**：
+
+  | 请求头 `Origin` | 实测 |
+  |---|---|
+  | `http://a.example` | **200** + `Access-Control-Allow-Origin: http://a.example` + `ACAC: true` |
+  | `http://b.example` | **403 "Invalid CORS request"**，**无任何 CORS 头** |
+
+  日志中 `IllegalArgumentException` **0 次**——**与 P2-79 是两种不同机制**
+  （那条是每个请求抛异常导致全站 500，这条什么都不抛，只是第二个及以后的域名静默失配）。
+  **为什么值得记**：文档教的就是「逗号分隔」，而人在逗号后打一个空格是极自然的写法，
+  结果**第一个域名之外的全部失效且无任何线索**。
+- **⚠️ 一处探针错，先质疑探针再采信数据**：初版探针用 `curl -o 文件` 后去 grep 响应头，
+  读到的永远是空（`-o` 存的是**响应体**、`-D` 才是响应头），
+  于是 a.example 一度显示「200 但无 ACAO」。**改用 `-D` 倒原始响应头后**，
+  `Access-Control-Allow-Origin: http://a.example` **确实存在**——
+  **数据没错，是探针错了**；改正后结论反而更硬（b.example 是确凿的 403）。
+- **Status**: ✅ **已修（第 313 轮）** —— 新增 `private static String[] parseOrigins(String)`：
+  `split(",")` → `trim()` → **丢弃空元素**。
+  **按既定规则归类为「已损坏行为」而单方面实施**：它不是安全放宽——
+  trim 只让**运维自己写进列表里**的那个域名真正生效，**不可能放行列表之外的任何 origin**
+  （`d.example` 与 `evil.example` 实测仍 403）；原行为则是**静默忽略配置的一部分**。
+  **修后实测**（重启 37790 载入新 jar，`unzip -p … WebConfig.class | strings` 确认含 `parseOrigins`），
+  配置**刻意写成脏的** `'http://a.example, http://b.example , ,http://c.example'`：
+
+  | `Origin` | 实测 |
+  |---|---|
+  | `http://a.example` / `http://b.example` / `http://c.example` | **200**，**各自回正确的 ACAO** |
+  | `http://d.example`（未列出） | **403**，无 ACAO |
+  | `http://evil.example`（未列出） | **403**，无 ACAO |
+  | `ACRM=PATCH` | **200**，`ACAM=GET,POST,PUT,DELETE,PATCH,OPTIONS`（P2-78 未回退） |
+  | 普通请求 `GET /api/stats` | **200** |
+
+  异常数 **0**。`mvn -o compile` 与 `package -DskipTests` 均 EXIT=0。
+  **进入连续 3 轮复查计数（第 313 轮为 1/3）**。
+
+### P2-81: `run-all-e2e.sh` 声称跑「全部」E2E 脚本并逐条列出 3 个排除项——**实际漏掉 13 个**，其中 7 个的前置与它自己完全相同
+
+- **Scope / Evidence**: `scripts/run-all-e2e.sh:1-3` 与 `:18-20`（修复前的头注释）；
+  `:125-138`（实际调用的 10 个套件）。
+- **Problem**: 头注释原文是「Run **all local E2E test scripts** in one pass (excluding Docker
+  suites and test-llm-provider.sh)」，并另起一节「**Excluded by design (per project convention)**」
+  **逐条列出**三个：`docker-e2e-test.sh`、`docker-compose-test.sh`、`test-llm-provider.sh`。
+  **两处都不成立**。`scripts/` 下共 **37** 个 `.sh`，其中测试类 **26** 个；
+  **从未被它调用的是 16 个** = **头注释已声明的 3 个排除项** + **未声明的 13 个遗漏**：
+
+  | 未声明的遗漏（13） | 声明的前置 | 本质 |
+  |---|---|---|
+  | `java-sdk-e2e-test.sh` / `python-sdk-e2e-test.sh` / `js-sdk-e2e-test.sh` | **仅「Backend service running (port 37777)」** | **与本脚本自身前置完全相同** |
+  | `phase3-acceptance-test.sh` | **仅「Backend running on port 37777」** | 同上 |
+  | `go-sdk-unit-test.sh` / `demo-v15-extraction-test.sh` / `performance-test.sh` | 无额外服务迹象 | 同上 |
+  | `demo-v14-test.sh` / `demo-v15-test.sh` | 需 Java demo @ 37778 | 额外服务，**排除本身合理** |
+  | `go-sdk-e2e-test.sh` | 需 Go demo @ 37779 | 额外服务，**排除本身合理** |
+  | `js-demo-e2e-test.sh` / `python-demo-e2e-test.sh` / `codex-watcher-test.sh` | 需各自 demo / npm | 额外服务，**排除本身合理** |
+
+  **⚠️ 本条第一版把 16 写成 13**：口径是用正则从 `run-all-e2e.sh` 全文里抓 `.sh` 名字，
+  结果**连「Excluded by design」注释里提到的 3 个也算成了"已调用"**。
+  重算后拆成「16 个未调用 = 3 已声明 + 13 未声明」才准确。**下表 13 行与「7 + 6」的拆分自洽。**
+
+  **危害是「静默的假完整」**：照头注释理解，跑完这一条就等于跑完全部验收，
+  实际上**三家的 SDK 套件与 Phase 3 验收一次都没执行**且**没有任何提示**。
+  **附带的结构事实**：三个适配器（`eino`/`genkit`/`langchaingo`）是**独立 go.mod**，
+  故从 `cortex-mem-go` 跑 `go test ./...` **根本不会执行它们**（实测只出 2 个包）。
+  **CI 不构成补偿**：唯一 workflow `docker.yml` 只构建推送镜像，不跑任何测试。
+- **Status**: ✅ **头注释已修（第 313 轮，零行为变更）** —— 按「失实陈述的修正可修」，
+  头注释改为如实写明「跑的是哪 10 个、另外 13 个是什么、为何排除、单独怎么跑」。
+  **未把脚本接进编排**：那会改变一条命令实际执行什么（且这些脚本有副作用、
+  无法在本轮逐一验证自动运行安全），属需拍板的变更。
+  **接不接、接哪些，留待用户决策。**
+
 ## Processing Rules
 - **第 293 轮续记**：把第 292 轮的做法推广到其余 7 类**逐字重复**行（实测记录 6、Reproduction 3、已解决条目 4、复核记录 5+2、探针记录 2），一律只缩短显示名、链接目标不变，**零信息损失**。**至此本文件里已没有可再压缩的重复**：余下每一行要么是决策、要么是问题陈述、要么是指针。
 - **第 292 轮补充压缩规则**：第 254 轮把 33 条条目的 Scope / Evidence 整体迁入同一个归档，于是在本文件里留下 **33 条逐字相同**的行。本轮把其中 33 条**完全相同**的改写为短显示名 `…-8.md`（链接目标不变），**零信息损失**；另有 **5 条带第 275 / 278 轮追加内容**的**一行未碰**。与第 291 轮压缩 5 条「复核记录」是同一手法：**同一事实不必逐字重复 N 遍**。

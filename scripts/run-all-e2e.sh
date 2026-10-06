@@ -1,6 +1,21 @@
 #!/usr/bin/env bash
 #
-# Run all local E2E test scripts in one pass (excluding Docker suites and test-llm-provider.sh).
+# Run the 10 backend-only E2E test scripts in one pass.
+#
+# SCOPE (corrected in round 313): this script does NOT run every test script in
+# scripts/. An earlier revision of this header claimed "all local E2E test
+# scripts" and listed only three exclusions, which was wrong on both counts.
+# It runs the 10 suites below. It does NOT run the 7 further scripts that need
+# nothing beyond the backend this script already requires:
+#   - java-sdk-e2e-test.sh, python-sdk-e2e-test.sh, js-sdk-e2e-test.sh
+#   - phase3-acceptance-test.sh, go-sdk-unit-test.sh
+#   - demo-v15-extraction-test.sh, performance-test.sh
+# Nor the 6 that genuinely need an extra service (a demo on port 37778/37779,
+# or npm):
+#   - demo-v14-test.sh, demo-v15-test.sh      (Java demo, port 37778)
+#   - go-sdk-e2e-test.sh                      (Go demo, port 37779)
+#   - js-demo-e2e-test.sh, python-demo-e2e-test.sh, codex-watcher-test.sh
+# See scripts/README.md and docs/TESTING.md for how to run those individually.
 #
 # Prerequisites:
 #   - Backend running and healthy at SERVER_URL (default http://127.0.0.1:37777)
@@ -13,9 +28,9 @@
 # --skip-build   Passed to regression-test.sh and thin-proxy-test.sh only.
 # --fail-fast    Stop on first failing suite (default: run all, exit non-zero if any failed).
 #
-# Excluded by design (per project convention):
-#   - docker-e2e-test.sh, docker-compose-test.sh
-#   - test-llm-provider.sh
+# Excluded by design:
+#   - docker-e2e-test.sh, docker-compose-test.sh   (need Docker, not available locally)
+#   - test-llm-provider.sh                          (needs provider credentials)
 #
 # Note: mcp-streamable-e2e-test.sh runs only if the server exposes Streamable HTTP on /mcp;
 #       otherwise it is reported as SKIPPED (not a failure).
