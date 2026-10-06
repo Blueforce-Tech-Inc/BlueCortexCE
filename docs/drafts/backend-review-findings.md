@@ -892,6 +892,36 @@
   **若不希望 dev 档变吵，把 `application-dev.yml` 那一行改成 `INFO` 即可**——那是口味选择，不是缺陷，留给使用方决定。
   验证：完整验收在**含本轮改动的构建**上跑过（见 health-check 报告的新鲜度论证），回归 45/0/1、Phase 3 25/0/0，基线推进。
 
+### P2-74: 四家 SDK 的重试**默认极性三比一不同**——Go / Python / JS 是 fail-closed，**只有 Java 是 fail-open**；而这一分歧此前无处记载
+
+- **Scope**: Java `CortexMemClientImpl.isRetryable`（`:811`）、Go `error.go:201 IsRetryable`、
+  Python `error.py is_retryable`、JS `errors.ts:129 isRetryable`。
+- **Problem**: 四家在**状态码规则上完全一致**——都重试 **429/502/503/504**，都**不重试 500**
+  （Go 侧由 `isTransient` 委派给共享的 `IsRetryable`，见 `client_impl.go:443`）。
+  分歧在**无法识别的异常**上：
+
+  | SDK | 未识别的异常 | 措辞 |
+  |---|---|---|
+  | Go `IsRetryable` | **false** | 「The default is "not retryable": an error is only retryable when it is positively identified as transient」 |
+  | Python `is_retryable_error` | **false** | 「Passing anything else returns `False`, matching the **fail-closed** rule」 |
+  | JS `isRetryable` | **false** | 末尾 `return false` |
+  | **Java `isRetryable`** | **true** | 「Non-HTTP errors (network failures, timeouts) are **always worth retrying**」 |
+
+  **差异由运行时决定、不是疏忽**：Go 有 `net.Error`、JS 有 fetch 的 `TypeError` 可供匹配，
+  fail-closed 对它们是安全的；而 `RestTemplate` 把连接失败抛成 `ResourceAccessException`
+  ——一个**普通的非 HTTP 异常**——若在 Java 侧也 fail-closed，**恰恰会把它本该覆盖的那类错误静默变成不重试**。
+  **跨 SDK 移植重试逻辑时的实际后果**：来自 Java 客户端的一个意外异常会被带退避重试到 `maxRetries` 次才浮现，
+  同样的异常在其余三家**首次尝试即失败**。
+- **⚠️ 判读纪律**：原先怀疑 Java 那句 `// Matches Go SDK isTransient() for consistent behavior across SDKs`
+  是**失实陈述**，**逐字重读后撤回该判断**——该注释紧贴在四个状态码的 return 之上、
+  Javadoc 那句紧贴在「排除 500」之上，**两者各自限定的范围内都成立**。
+  按既定规则**「遗漏 ≠ 失实」**：此处是**分歧未被记载**，不是**说错了**，故不按失实陈述处理。
+- **Status**: ✅ **已按准确描述补注**（`isRetryable` 的 Javadoc 新增一段，写明默认极性的分歧、
+  运行时成因与移植后果；行内注释同步改为「四个状态码与 Go 完全一致，**但下面的 fall-through 刻意不一致，原因见 Javadoc**」）。
+  **纯注释、零行为变更**（diff 非注释行 **0**）。**行为本身不单方面改动**：
+  把 Java 改成 fail-closed 会让网络错误**不再重试**（真实回归），把另三家改成 fail-open 则更差——
+  两边都是行为变更，按既定规则**记录不实施**。**若要统一，需要先决定哪种极性为准。**
+
 ## Processing Rules
 - **第 293 轮续记**：把第 292 轮的做法推广到其余 7 类**逐字重复**行（实测记录 6、Reproduction 3、已解决条目 4、复核记录 5+2、探针记录 2），一律只缩短显示名、链接目标不变，**零信息损失**。**至此本文件里已没有可再压缩的重复**：余下每一行要么是决策、要么是问题陈述、要么是指针。
 - **第 292 轮补充压缩规则**：第 254 轮把 33 条条目的 Scope / Evidence 整体迁入同一个归档，于是在本文件里留下 **33 条逐字相同**的行。本轮把其中 33 条**完全相同**的改写为短显示名 `…-8.md`（链接目标不变），**零信息损失**；另有 **5 条带第 275 / 278 轮追加内容**的**一行未碰**。与第 291 轮压缩 5 条「复核记录」是同一手法：**同一事实不必逐字重复 N 遍**。

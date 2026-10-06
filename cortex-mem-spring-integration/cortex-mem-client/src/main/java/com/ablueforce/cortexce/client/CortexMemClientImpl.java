@@ -807,13 +807,30 @@ public class CortexMemClientImpl implements CortexMemClient {
      * indicates a code bug rather than a transient condition. If the backend returns 500 for
      * transient reasons (e.g., DB connection pool exhaustion), retrying would likely produce
      * the same error. This matches the Go SDK's {@code isTransient()} behavior.
+     * <p>
+     * <b>Where this does NOT match the other three SDKs — the default polarity.</b>
+     * The status-code rule above is identical in all four clients, and all four refuse to retry
+     * a 500. But they disagree on an error that is <em>not</em> recognised: Go's
+     * {@code IsRetryable}, Python's {@code is_retryable_error} and JS's {@code isRetryable} are
+     * fail-closed and return {@code false} for anything they cannot positively identify as
+     * transient, while this method is fail-open and returns {@code true}. The difference is
+     * driven by the runtime, not by accident: Go and JS have typed network errors
+     * ({@code net.Error}, fetch's {@code TypeError}) they can match on, so a fail-closed default
+     * is safe for them, whereas {@code RestTemplate} surfaces a connection failure as a
+     * {@code ResourceAccessException} — an ordinary non-HTTP exception — and a fail-closed
+     * default here would silently disable the retry path for exactly the case it exists to cover.
+     * <p>
+     * The practical consequence when porting retry logic between SDKs: an unexpected exception
+     * from this client is retried up to {@code maxRetries} with backoff before it surfaces,
+     * while the same exception in the other three fails on the first attempt.
      */
     private static boolean isRetryable(Exception e) {
         if (e instanceof RestClientResponseException httpEx) {
             int code = httpEx.getStatusCode().value();
             // Retry on 429 (rate limited), 502 (bad gateway), 503 (unavailable), 504 (timeout).
             // Do NOT retry on 500 (code bug) or other 5xx/4xx.
-            // Matches Go SDK isTransient() for consistent behavior across SDKs.
+            // The four status codes match Go SDK isTransient() exactly; note that the
+            // fall-through below deliberately does NOT, for the reason given in the Javadoc.
             return code == 429 || code == 502 || code == 503 || code == 504;
         }
         // Non-HTTP errors (network failures, timeouts) are always worth retrying
