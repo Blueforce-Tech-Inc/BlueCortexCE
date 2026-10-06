@@ -1117,126 +1117,19 @@
 
 ### P2-83: `PATCH /api/session/{id}/user` —— **11 处仍用错路径变量名**，是第 157 轮那次清扫的残留
 
-- **Scope / Evidence**: 活体 `/v3/api-docs` 权威写法
-  `PATCH /api/session/{sessionId}/user`，`params=['sessionId']`；
-  源码 `SessionController.java:294` 的 `@PatchMapping("/{sessionId}/user")`。
-- **Problem**: 全仓 `.md` 仍有 **11 处**把该路径写成 **`/api/session/{id}/user`**，
-  分布在 **10 个文件**：
-
-  | 文件 | 处数 |
-  |---|---|
-  | `backend/README.md` | 1 |
-  | `cortex-mem-spring-integration/README.md` / `README-zh-CN.md` | 1 + 1 |
-  | `js-sdk/cortex-mem-js/README.md` / `README-zh-CN.md` | 1 + 1 |
-  | `docs/DEPLOYMENT.md` / `DEPLOYMENT-zh-CN.md` | 1 + 1 |
-  | `docs/api-json-naming-convention.md` | 2 |
-  | `docs/go-sdk-guide.md` | 1 |
-  | `docs/drafts/js-sdk-design.md` | 1 |
-
-  **这不是新错误类**：第 157 轮已把同一处替换在**十个文件、十四处**全部更正
-  （见 `patrol-rotation.md` 第 256 轮条目），**这批是当时漏掉的**。
-  **危害与当年相同**：读者照抄去拼 URL 或按 `{id}` 做断言替换，会与真实路径模板不符；
-  更实际的是**这类文档被生成工具消费时**，变量名错位会造成难以定位的失败。
-- **⚠️ 刻意未动的同类写法**：`/api/memory/observations/{id}` 的变量名**确实是 `id`**
-  （活体 `params=['id']`，`MemoryController:277`、`:427`），全库 **94 处**全部保留，
-  **一个都没改**——第 157 轮已就此事立过规矩：**按断言清扫不等于按前缀清扫**。
-- **Status**: ✅ **已修（第 317 轮）** —— 11 处全部改为 `{sessionId}`，
-  属**失实陈述的更正**，中英双语一并处理。改后核验三项：
-  **非历史文件残留 0 处**；**`/api/memory/observations/{id}` 仍为 94 处（未被误伤）**；
-  `git diff --numstat` 恰为 **11 行增 / 11 行删**，无任何附带改动。
-  **已刻意排除**：归档文件（不可修改）、`patrol-rotation.md`（历史记录，记的是当时做了什么）、
-  health-check / doc-review / findings 三份工作文件（其中提到该字符串的是历史叙述，非断言）。
+- **Status**: ✅ **已修（第 317 轮）** —— 11 处路径变量全部改为 `{sessionId}`；条目全文已逐字迁入 [`…-42.md`](../archive/2026-10-07_backend-review-evidence-42.md)（第 325 轮）。
 
 ### P2-84: Go SDK 的 `base_url` 规范化**只去一个**尾斜杠，而另三家去全部 —— 同一份配置在四家里三成一败
 
-- **Scope / Evidence**: 四家实现逐行对照 + 活体实测。
-  | SDK | 位置 | 写法 | 去掉几个尾斜杠 |
-  |---|---|---|---|
-  | Python | `cortex_mem/client.py:86` | `base_url.rstrip("/")` | **全部** |
-  | JS/TS | `src/client-options.ts:68` | `.replace(/\/+$/, '')` | **全部** |
-  | **Go** | `client_impl.go`（原 `:122`） | `strings.TrimSuffix(cfg.BaseURL, "/")` | **仅一个** |
-  | Java | `CortexMemClientImpl` | 交给 `RestClient.baseUrl()` 内部处理 | 不适用 |
-- **Problem**: `TrimSuffix` 的语义是「删掉末尾**一个** `/`」。
-  故 `WithBaseURL("http://host:37777//")` 规范化后仍是 `http://host:37777/`，
-  与 `path` 拼接成 `http://host:37777//api/version`。
-  **这不是理论问题——活体实测后端不折叠空路径段**：
-  `GET http://127.0.0.1:37777//api/version` → **HTTP 404**，
-  响应体为 Spring 的 `{"status":404,"error":"Not Found","path":"//api/version"}`。
-  **即该配置下 Go SDK 的每一个请求都是 404**，而**完全相同的配置值在 Python 与 JS 里正常工作**。
-  形态与第 300 轮记的「重试极性三对一」同型：**四家里三家行为一致、第四家单独不同**，
-  而差异只在**多写一个斜杠**时才显形，故极难在正常使用中察觉。
-  **既有测试只覆盖单个尾斜杠**：`client_test.go` 的 `TestNewClient_TrailingSlashNormalization`
-  传的是 `server.URL + "/"`；**双斜杠此前无任何测试**。
-  **文档侧亦无自陈**：Go SDK README 中英双语 `grep -i "trailing|尾斜杠|末尾斜杠"` **零命中**。
-- **Severity**: 低——`http://host//` 属配置笔误，正常输入（无尾斜杠、单个尾斜杠）本就正确。
-  但**失败形态是最坏的一种**：不是报错而是**静默的全量 404**，且**只在一家里发生**。
-- **Status**: ✅ **已修（第 319 轮）** —— `TrimSuffix` → `TrimRight`。
-  属**纯加宽 / 向后兼容修正**：**当前能工作的任何输入行为都不变**，
-  受影响的只有那些**本来就 100% 失败**的输入，故可单方面实施。
-  **补测一条**（`TestNewClient_DoubledTrailingSlashNormalization`）覆盖此前完全无覆盖的双斜杠。
-  **双向注入验证**：保留修复后全绿 → 回退为 `TrimSuffix` 后**恰好**新测试失败、
-  既有单斜杠测试仍通过 → 恢复后全绿。**是数据与断言互相印证，不是只跑通就算数。**
+- **Status**: ✅ **已修（第 319 轮）** —— `TrimSuffix` → `TrimRight`，并经真实消费方前后对照结案 3/3；条目全文已逐字迁入 [`…-42.md`](../archive/2026-10-07_backend-review-evidence-42.md)（第 325 轮）。
 
 ### P2-85: Python demo 注释称「四家与后端一致」，但后端**接受十六进制**而四家全部拒绝 —— 实测断言
 
-- **Scope / Evidence**: `python-sdk/cortex-mem-python/examples/http-server/app.py` 的
-  `_parse_int_param` 注释（`:141-146`）原文：
-  > A regex pins the grammar to "optional sign, then digits" … **so all four demos match the backend**,
-  > which rejects "1_0" with 400 (round 211 recheck).
-- **Problem**: 该等价断言在**十六进制输入上不成立**。**活体实测**（对一个含 100 条观测的 project，
-  后端为本轮自起的 37790 实例）：
-
-  | 查询参数 | 后端实际行为 |
-  |---|---|
-  | `limit=10` | 返回 **10** 条 |
-  | `limit=0x10` | 返回 **16** 条 ← **十六进制** |
-  | `limit=0x5` | 返回 **5** 条 |
-  | `limit=010` | 返回 **10** 条 ← **十进制**，不是八进制 |
-  | `limit=1_0` | **400**（注释所举之例，确为真） |
-
-  Spring 的 `NumberUtils` 把 `0x` 前缀当十六进制，故 `0x10` = 16 ——
-  **`0x10`→16 与 `10`→10 不可混淆，属决定性证据**。
-  而**四个 demo 全部拒绝** `0x10`：Go demo 自己在 `main.go:65` 写明
-  「it still rejects "0x10" and "10abc"」，Python/JS/Java 三家则由 `[+-]?\d+` 这条文法排除。
-  **故「四家一致」为真，「四家与后端一致」为假。**
-- **按断言清扫的结果**：全库只有**这一处**写了「与后端一致」的等价断言。
-  Go demo 那句**本身准确**（它只陈述自己拒绝什么，未声称与后端等价），故**未动**。
-- **Severity**: 低——`?limit=0x10` 这类输入现实中几乎不出现，
-  且 demo 比后端**更严格**本身不是危害。**但它是本循环迄今第一次在源码注释里发现的失实陈述**，
-  而本项目的长期主题正是「宁可少说，不要说错」，故仍予更正。
-- **Status**: ✅ **已修（第 320 轮）** —— 改为**限定范围**的准确表述：
-  四家在**十进制文法上**互相一致、且与后端一致（并补上实测的 `010`→十进制 10），
-  另起一段说明**十六进制是四家共享的刻意分歧**（后端接受、四家拒绝）。
-  **纯注释改动**：13 增 / 2 删，经 `git diff -U0` 逐行核验**每一行都以 `#` 开头或为空行**，
-  **无任何可执行行变更**；Python **453/453** 全绿。
+- **Status**: ✅ **已修（第 320 轮）** —— 注释改为限定范围的准确表述；条目全文已逐字迁入 [`…-42.md`](../archive/2026-10-07_backend-review-evidence-42.md)（第 325 轮）。
 
 ### P2-86: API 文档把两条 DELETE 路由的路径变量写成 `{uuid}`，活体是 `{id}` —— 第 157/317 轮同类
 
-- **Scope / Evidence**: **活体 `/v3/api-docs` 权威写法**（37777 实例）：
-  ```
-  DELETE  /api/summary/{id}      params=[('id', 'path')]
-  DELETE  /api/observation/{id}  params=[('id', 'path')]
-  ```
-  源码 `ViewerSessionController.java:43,49` 亦为 `@DeleteMapping("/observation/{id}")` / `("/summary/{id}")`。
-- **Problem**: `docs/API.md:1816-1817` 与 `docs/API-zh-CN.md:1812-1813` 把这两条写成
-  **`/api/observation/{uuid}` 与 `/api/summary/{uuid}`**，**共 4 处**。
-  这批文档由另一进程在 `6e5890d` 中新增，正落在本轮文档轮换方向内。
-  **这不是新错误类**：第 157 轮修过 14 处、第 317 轮修过 11 处同一类（`{id}` → `{sessionId}`）。
-  **成因可解释但仍为失实**：`deleteObservation(@PathVariable UUID id)` 的**参数类型**是 `UUID`，
-  作者据类型写了 `{uuid}`，而**路由变量名**是 `id` —— **类型与变量名是两回事**。
-- **危害与当年相同**：读者照抄 `{uuid}` 去拼 URL 或据其做模板断言替换，会与真实路径模板不符；
-  文档若被生成工具消费，这类错位会造成难以定位的失败。
-- **按断言清扫的结果**：全库（排除归档与 `node_modules` 第三方内容）**恰好这 4 处**，
-  分布在 **2 个文件**。**该文件自身即自相矛盾**：`API.md` 全文路径变量普查为
-  `{typeId}`×6、`{templateName}`×4、`{projectName}`×4、**`{id}`×3**、`{uuid}`×2、`{sessionId}`×2、
-  `{platformSource}`×1、`{contentSessionId}`×1 —— 同一份文档里 `{id}` 与 `{uuid}` 并存。
-- **Status**: ✅ **已修（第 321 轮）** —— 4 处改为 `{id}`，中英双语一并处理，属**失实陈述的更正**。
-  改后核验：**残留 0**；`git diff --numstat` 恰为 **每文件 2 增 / 2 删**，
-  且逐行核验**只有那 4 行路径行变动**、无任何附带改动。
-- **⚠️ 刻意未验证的部分**：该节其余断言（SSE `item_deleted`/`session_deleted`、`afterCommit` 时机、
-  409 的四个状态、`limit` 钳制、`offset` 下限）**逐条核到源码为真**
-  （`ViewerSessionService.java:55,60,106,123,136,149,158`），
-  但 **DELETE 是破坏性端点，本轮一律未调用**；404/409 的**运行时**行为**未实测**，仅代码可证。
+- **Status**: ✅ **已修（第 321 轮）** —— 4 处改为 `{id}`，中英双语一并处理；条目全文已逐字迁入 [`…-42.md`](../archive/2026-10-07_backend-review-evidence-42.md)（第 325 轮）。
 
 ### P2-87: 架构文档的「后端参考提交」`ed37a1b2…` **在任何地方都解析不到**，版本配对声明半边失效
 
@@ -1392,6 +1285,54 @@
   更稳妥的做法是同时把该表改为**从目录自动生成或加一行「以
   `backend/src/main/resources/db/migration/` 为准」的时效声明**。
 - **Status**: ⏸ **记录不修** —— 待与 P2-83 / P2-86 同批做一次成体系的文档清扫。
+
+### P2-90: Go SDK README 的测试总数**双语共 7 处**硬编码 `362`，实测已是 `363` —— 差值恰为第 319 轮我自己新增的那 1 个测试
+
+- **Scope / Evidence**: `go-sdk/cortex-mem-go/README.md`（`:13`、`:181-182`、`:192-194`）
+  与 `README-zh-CN.md`（`:13`、`:177`、`:187-188`）
+- **实测（本轮亲跑，Go 1.25.14 darwin/arm64，9 个模块逐个 `go test -count=1 -v`）**。
+  **必须区分两个口径**，否则会把子测试重复计数：
+
+  | 模块 | 顶层测试 `^--- PASS` | + 子测试 `^    --- PASS` | 合计 |
+  |---|---|---|---|
+  | 根 `.` | 207 | 29 | **236** |
+  | 根 `./dto` | 67 | 0 | **67** |
+  | `eino` | 8 | 0 | **8** |
+  | `genkit` | 13 | 0 | **13** |
+  | `langchaingo` | 12 | 0 | **12** |
+  | `examples/http-server` | 3 | 24 | **27** |
+  | 其余 4 个 `examples/` | 0 | 0 | 0（`[no test files]`） |
+  | **合计** | **310** | **53** | **363** |
+
+  与 README 对照：`dto 67` / `eino 8` / `genkit 13` / `langchaingo 12` /
+  `examples/http-server 27` / 「适配器再加 60」**六项全部吻合**，
+  唯独 **`core` 235 应为 236**，故根模块 `302 → 303`、总数 `362 → 363`。
+- **差值完全归因，不是我的计数口径问题**：`7a78266`（2026-10-06，**第 319 轮 P2-84 修复**）
+  向 `go-sdk/cortex-mem-go/client_test.go` 新增了**恰好一个**顶层测试
+  `TestNewClient_DoubledTrailingSlashNormalization`（`git show 7a78266 -- '*.go' | grep -E '^\+func Test'`
+  全库只命中这一条）。
+  **即：这个过期数字是我自己在第 319 轮修 P2-84 时留下的，当时改了代码与测试却没回头更新 README 的计数。**
+- **一处比其余六处更值得记**: `README.md:13`（zh `:13`）Features 段写的是
+  「**Comprehensive tests** — 362 tests with wire format verification」，
+  **没有日期**，是现在时断言；`:192` 那处则明写「Measured on 2026-10-04」——
+  后者按字面**属实**（2026-10-04 当天确实是 362），前者则是**无日期的失实**。
+- **⚠️ 为什么不单方面改**:
+  正确值虽是实测得来、权威确定，但**这是 7 处双语硬编码，且任何一次新增测试的提交都会让它再次失效**
+  ——第 319 轮就是这样漏的。手改 7 处等于把一个**会周期性重复劳动的维护点**再推后一轮，
+  而真正该定的是**形态问题**：要么改写成不写死数字（只留可运行命令，让读者自己跑），
+  要么就明确接受它会过期并在同一次改动里同步。后者属文档策略决策。
+- **Severity**: 低（差 1 / 362，不影响任何行为、命令或结论；且带日期的那处按字面为真）。
+- **建议修法**（待决）：**推荐前者** —— 把 `README.md:13` / `:192` 与 `README-zh-CN.md:13` / `:187`
+  的硬编码总数改为「运行下方命令得到当前计数」，只保留**分模块口径**（dto/eino/genkit/
+  langchaingo/http-server 五个数仍需人工维护但变动频率低得多）；若维持现状，则规定
+  「凡新增或删除测试的提交，必须同批更新这 7 处」，并加一条门控断言。
+- **连带记录（不单列 finding）**：本地 gitignored 的 `CLAUDE.md` 记着
+  **372**（`:52` 与 `:268`「278 core + 61 dto + 13 genkit + 12 langchaingo + 8 eino」），
+  出处是 `:407` 一条 **2026-04-17** 的 Recent Work 条目（「Go SDK test count corrected to 372」）。
+  与实测 363 差 **9**，且两个分项（278 / 61）也都对不上（实测 236 / 67）——
+  即**约半年未更新**。按 **P2-48 已确立的先例**（`CLAUDE.md` 是 gitignored 的本地文件，
+  其问题一律记录不修），本轮**只记录不修**。
+- **Status**: ⏸ **记录不修** —— 待定文档形态策略，见上。
 
 ## Processing Rules
 - **第 316 轮新增流程规则（连续三轮教训的归纳）——落笔前先查该模块自己的文档**：
