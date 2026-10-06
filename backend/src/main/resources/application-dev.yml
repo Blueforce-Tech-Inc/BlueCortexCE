@@ -30,7 +30,7 @@ app:
 
 logging:
   level:
-    com.claudemem: DEBUG
+    com.ablueforce: DEBUG
     org.springframework.ai: DEBUG
     org.springframework.web.client: DEBUG
     org.springframework.http: DEBUG

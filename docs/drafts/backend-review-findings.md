@@ -865,6 +865,33 @@
 - **Problem**: **P2-71 的 JS 版，而 JS 还自相矛盾**。同一个 2xx + `null` 响应体，**9 个方法抛裸 `TypeError: Cannot read properties of null (reading 'items')`**，**5 个静默返回默认值**；其余四种非对象体（`[]`/字符串/数字/`false`）**14/14 静默**。该 `TypeError` **不在导出的两个异常类内、也不带 `cortex-ce:` 前缀**——而 SDK 每一处自有消息都带，按前缀过滤日志的调用方**看不到它**。**根因是 TypeScript 类型断言运行时是 no-op**，而同文件 234/486 行用的却是真正的 `Array.isArray` 检查。
 - **Status**: ⏸ **记录不修**（同 P2-71：加运行时校验属错误路径行为变更）。**跨家**：**Go 是唯一对全部非对象输入都给类型化错误的**。**核实为真、不记**：10 MB 两道守卫与 `utf8ByteLength` 实现正确且 **README 已完整文档化其裸 `Error` 选择及理由**；`clearTimeout` 在 `finally`；HTML 解析失败抛裸 `Error` 属 README 已确立的约定。
 
+### P2-73: 三份配置的 `logging.level.com.claudemem` 全部指向**已经不存在的包**——dev profile 的应用调试日志开关**从未生效**
+
+- **Scope**: `backend/src/main/resources/` 三处——`application.yml:137`（INFO）、`application-dev.yml:33`（**DEBUG**）、`application-prd.yml:18`（INFO）。
+- **Problem**: 第 294 轮给 demo 绑回环时顺带发现 `application.yml` 仍在配置 `com.claudemem` 的日志级别，遂全仓追查。
+  **该包已不存在**：`backend` 等 **9 个模块中声明 `package com.claudemem` 的文件数为 0**，83 个后端源文件**全部**是 `package com.ablueforce`；
+  打包产物 `cortex-ce-0.1.0-beta.jar` 内 `com/claudemem/` 条目 **0**，**活体 37777 进程的 classpath 上也是 0**。
+  而真正的 `com.ablueforce` 在**任何**日志配置里都没有级别。**后果按 profile 分级**：
+  `prd` 与默认档是 INFO、恰好等于 Spring Boot 默认值，故**看不出任何异常**；**只有 dev profile 是 DEBUG——
+  那一档本来就是为调试准备的，它的另外三个 key（`org.springframework.ai` / `org.springframework.web.client` / `org.springframework.http`）
+  都是真实第三方包、照常生效，唯独应用自身这一条是死的**。于是用 `--spring.profiles.active=dev` 排障的人能拿到
+  Spring AI 的 HTTP 明细日志，却**一条应用 DEBUG 都看不到**，且没有任何迹象指向「配置写错了」。
+  **活体双向实测**（37790，两次仅差 `com.claudemem`→`com.ablueforce` 这一处）：
+
+  | | DEBUG 总数 | 来自 `com.ablueforce.cortexce` | 来自 `org.springframework.ai`（未改，作对照） |
+  |---|---|---|---|
+  | 修复前 | 3 | **0** | 1 |
+  | 修复后 | 2228 | **2225** | 1 |
+
+  对照组两次都是 1，**正是它让这个断言有意义**——弱版本「有没有出现 DEBUG」在修复前那次也会通过（总数 3 ≠ 0）。
+- **Status**: ✅ **已修**（三处各改一个词）——`com.claudemem` → `com.ablueforce`。
+  `application.yml` / `application-prd.yml` 两处 INFO **与默认值相同，行为零变化**；
+  `application-dev.yml` 的 DEBUG **自此真正生效**（新增应用 DEBUG 输出），这是该档配置**一直在声称要做的事**。
+  **⚠️ 需知悉的副作用**：**本机常驻的 37777 实例正是以 `--spring.profiles.active=dev` 运行的**，
+  下次重启它会开始输出应用 DEBUG 日志（约 2200 行量级）。
+  **若不希望 dev 档变吵，把 `application-dev.yml` 那一行改成 `INFO` 即可**——那是口味选择，不是缺陷，留给使用方决定。
+  验证：完整验收在**含本轮改动的构建**上跑过（见 health-check 报告的新鲜度论证），回归 45/0/1、Phase 3 25/0/0，基线推进。
+
 ## Processing Rules
 - **第 293 轮续记**：把第 292 轮的做法推广到其余 7 类**逐字重复**行（实测记录 6、Reproduction 3、已解决条目 4、复核记录 5+2、探针记录 2），一律只缩短显示名、链接目标不变，**零信息损失**。**至此本文件里已没有可再压缩的重复**：余下每一行要么是决策、要么是问题陈述、要么是指针。
 - **第 292 轮补充压缩规则**：第 254 轮把 33 条条目的 Scope / Evidence 整体迁入同一个归档，于是在本文件里留下 **33 条逐字相同**的行。本轮把其中 33 条**完全相同**的改写为短显示名 `…-8.md`（链接目标不变），**零信息损失**；另有 **5 条带第 275 / 278 轮追加内容**的**一行未碰**。与第 291 轮压缩 5 条「复核记录」是同一手法：**同一事实不必逐字重复 N 遍**。

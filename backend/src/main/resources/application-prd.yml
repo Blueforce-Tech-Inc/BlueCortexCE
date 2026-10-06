@@ -15,5 +15,5 @@ spring:
 
 logging:
   level:
-    com.claudemem: INFO
+    com.ablueforce: INFO
     org.springframework.ai: WARN

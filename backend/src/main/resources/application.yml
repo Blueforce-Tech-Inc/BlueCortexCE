@@ -134,7 +134,7 @@ management:
 
 logging:
   level:
-    com.claudemem: INFO
+    com.ablueforce: INFO
     org.springframework.web: WARN
     org.hibernate.SQL: WARN
     # Suppress Spring AI MCP BeanPostProcessor warnings (known issue: spring-ai/issues/4694)
