@@ -374,6 +374,7 @@ backend/                               # Main Spring Boot application
 │   │   ├── controller/                 # REST Controllers
 │   │   │   ├── IngestionController.java     # Hook events
 │   │   │   ├── ViewerController.java        # WebUI API
+│   │   │   ├── ViewerSessionController.java # WebUI session catalog/deletion
 │   │   │   ├── ContextController.java       # Context retrieval
 │   │   │   ├── SessionController.java       # Session management
 │   │   │   ├── MemoryController.java        # Memory/Experience API
@@ -401,7 +402,7 @@ backend/                               # Main Spring Boot application
 │   │   ├── application-dev.yml         # Dev profile
 │   │   ├── application-prd.yml         # Production profile (activated as "prd")
 │   │   ├── application.yml.example      # Example env vars
-│   │   ├── db/migration/               # Flyway migrations (V1–V8, V11–V18)
+│   │   ├── db/migration/               # Flyway migrations (V1–V8, V11–V19)
 │   │   └── prompts/                     # LLM Prompt Templates
 │   │
 │   ├── src/test/                        # Unit/integration tests
@@ -421,7 +422,7 @@ backend/                               # Main Spring Boot application
 ├── python-sdk/                         # Python SDK
 ├── examples/                           # Example applications
 │   └── cortex-mem-demo/                # Spring Boot demo
-├── webui/                              # Web UI (git submodule)
+├── webui/                              # Paired Web UI git submodule
 ├── openclaw-plugin/                    # OpenClaw integration
 │
 ├── scripts/                            # Utility scripts (37 shell scripts)

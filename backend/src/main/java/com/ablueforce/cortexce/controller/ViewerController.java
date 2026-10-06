@@ -102,6 +102,8 @@ public class ViewerController {
         @RequestParam(required = false) String project,
         @Parameter(description = "Platform source filter (optional)", required = false, example = "claude")
         @RequestParam(required = false) String platformSource,
+        @Parameter(description = "Content session ID filter (optional)", required = false, example = "session-123")
+        @RequestParam(required = false) String contentSessionId,
         @Parameter(description = "Offset for pagination (0-based)", required = false, example = "0")
         @RequestParam(defaultValue = "0") int offset,
         @Parameter(description = "Number of items per page (max 100)", required = false, example = "20")
@@ -110,7 +112,7 @@ public class ViewerController {
         // Validate pagination parameters
         int validatedLimit = Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE);
         int validatedOffset = Math.max(0, offset);
-        Page<ObservationEntity> result = observationRepository.findAllPaged(project, platformSource,
+        Page<ObservationEntity> result = observationRepository.findAllPaged(project, platformSource, contentSessionId,
             new OffsetPageRequest(0, validatedLimit, validatedOffset,
                 Sort.by(Sort.Direction.DESC, "createdAt")));
         return ResponseEntity.ok(PagedResponse.of(result));
@@ -129,6 +131,8 @@ public class ViewerController {
         @RequestParam(required = false) String project,
         @Parameter(description = "Platform source filter (optional)", required = false, example = "claude")
         @RequestParam(required = false) String platformSource,
+        @Parameter(description = "Content session ID filter (optional)", required = false, example = "session-123")
+        @RequestParam(required = false) String contentSessionId,
         @Parameter(description = "Offset for pagination (0-based)", required = false, example = "0")
         @RequestParam(defaultValue = "0") int offset,
         @Parameter(description = "Number of items per page (max 100)", required = false, example = "20")
@@ -136,7 +140,7 @@ public class ViewerController {
     ) {
         int validatedLimit = Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE);
         int validatedOffset = Math.max(0, offset);
-        Page<SummaryEntity> result = summaryRepository.findAllPaged(project, platformSource,
+        Page<SummaryEntity> result = summaryRepository.findAllPaged(project, platformSource, contentSessionId,
             new OffsetPageRequest(0, validatedLimit, validatedOffset,
                 Sort.by(Sort.Direction.DESC, "createdAt")));
         return ResponseEntity.ok(PagedResponse.of(result));
@@ -155,6 +159,8 @@ public class ViewerController {
         @RequestParam(required = false) String project,
         @Parameter(description = "Platform source filter (optional)", required = false, example = "claude")
         @RequestParam(required = false) String platformSource,
+        @Parameter(description = "Content session ID filter (optional)", required = false, example = "session-123")
+        @RequestParam(required = false) String contentSessionId,
         @Parameter(description = "Offset for pagination (0-based)", required = false, example = "0")
         @RequestParam(defaultValue = "0") int offset,
         @Parameter(description = "Number of items per page (max 100)", required = false, example = "20")
@@ -162,7 +168,7 @@ public class ViewerController {
     ) {
         int validatedLimit = Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE);
         int validatedOffset = Math.max(0, offset);
-        Page<UserPromptEntity> result = userPromptRepository.findAllPaged(project, platformSource,
+        Page<UserPromptEntity> result = userPromptRepository.findAllPaged(project, platformSource, contentSessionId,
             new OffsetPageRequest(0, validatedLimit, validatedOffset,
                 Sort.by(Sort.Direction.DESC, "createdAt")));
         return ResponseEntity.ok(PagedResponse.of(result));
@@ -769,9 +775,10 @@ public class ViewerController {
         @JsonProperty("hasMore") boolean hasMore
     ) {
         public static <T> PagedResponse<T> of(Page<T> page) {
+            long nextOffset = page.getPageable().getOffset() + page.getNumberOfElements();
             return new PagedResponse<>(
                 page.getContent(),
-                page.hasNext()
+                page.getTotalElements() > nextOffset
             );
         }
     }

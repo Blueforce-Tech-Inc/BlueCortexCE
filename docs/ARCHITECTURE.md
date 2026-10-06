@@ -45,6 +45,13 @@ BlueCortexCE treats that repository as research material for inspiration and fea
 
 In this project, “upstream sync” therefore means a controlled compare-and-adapt process. It does not certify the experimental source, and the presence of a feature in the Java port is not evidence that the feature is safe or complete for production use.
 
+The backend/WebUI relationship is version-paired rather than “latest wins”.
+For the current reviewed capability set, the backend reference is
+`ed37a1b227b6067befe5c9ada331989d02cbfad0` and the compatible `webui/`
+submodule commit is `72e7804b13f89b03177f746867e0dd341fb12c8a`. The parent
+repository must record that WebUI gitlink together with the backend changes;
+the submodule must not drift to an unrelated newer commit.
+
 ---
 
 ## Architecture Pattern: Thin Proxy + Fat Server
@@ -867,7 +874,7 @@ only writer and builds it with `Collectors.joining(",")`, so there is no JSON la
 |-------|--------------|-------------|
 | Ingestion | `/api/ingest/*` | Hook event reception (tool-use, user-prompt, observation, session-end) |
 | Session | `/api/session/*` | Session lifecycle (start, get, patch user) |
-| Viewer | `/api/observations`, `/api/summaries`, `/api/prompts`, `/api/projects`, `/api/stats?project=...`, `/api/search`, `/api/search/by-file`, `/api/observations/batch`, `/api/settings` (GET/POST), `/api/modes` (GET/POST), `/api/timeline`, `/api/processing-status`, `/api/sdk-sessions/batch` | WebUI data (15 methods); `/api/stats` accepts optional `project` query param for project-scoped statistics |
+| Viewer | `/api/observations`, `/api/summaries`, `/api/prompts`, `/api/sessions`, `/api/observation/{id}`, `/api/summary/{id}`, `/api/sessions/{platformSource}/{contentSessionId}`, `/api/projects`, `/api/stats?project=...`, `/api/search`, `/api/search/by-file`, `/api/observations/batch`, `/api/settings` (GET/POST), `/api/modes` (GET/POST), `/api/timeline`, `/api/processing-status`, `/api/sdk-sessions/batch` | WebUI data, session catalog, and viewer deletion; `/api/stats` accepts optional `project` query param for project-scoped statistics |
 | Context | `/api/context/*` | Context retrieval (generate, inject, preview, prior-messages, recent, timeline, semantic) |
 | Memory | `/api/memory/*` | Memory operations (refine, experiences, icl-prompt, quality-distribution, feedback, patch/delete observation) |
 | Mode | `/api/mode/*` | Memory mode management (get/put, types, concepts, validation) |

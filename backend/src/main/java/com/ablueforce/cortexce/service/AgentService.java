@@ -266,6 +266,10 @@ public class AgentService implements LogHelper {
         obs.setPromptNumber(promptNumber);
         obs.setCreatedAtEpoch(Instant.now().toEpochMilli());
         obs.setContentHash(contentHash);
+        sessionRepository.findByContentSessionId(contentSessionId)
+            .map(SessionEntity::getPlatformSource)
+            .filter(source -> source != null && !source.isBlank())
+            .ifPresent(obs::setPlatformSource);
 
         // Set discoveryTokens
         if (discoveryTokens > 0) {
@@ -299,6 +303,17 @@ public class AgentService implements LogHelper {
      */
     public boolean isAnySessionProcessing() {
         return pendingMessageRepository.countByStatus("processing") > 0;
+    }
+
+    /**
+     * Returns whether a session still has queued or actively processing work.
+     * Viewer deletion uses this guard to avoid deleting data while an async
+     * observation is still able to write into the session.
+     */
+    public boolean isSessionProcessing(String contentSessionId) {
+        return contentSessionId != null
+            && pendingMessageRepository.existsByContentSessionIdAndStatusIn(
+                contentSessionId, List.of("pending", "processing"));
     }
 
     /**

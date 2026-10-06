@@ -45,6 +45,11 @@ BlueCortexCE 将该仓库视为汲取灵感和分析功能差距的研究材料�
 
 因此，本项目中的“同步上游”指受控的对比与适配流程，不代表对实验性源码的认证；Java 移植版中存在某个功能，也不代表该功能已经达到生产使用所需的安全性或完整性。
 
+后端与 WebUI 的关系是“版本配对”，而不是“谁最新就用谁”。本次评审的配对版本为：
+后端参考提交 `ed37a1b227b6067befe5c9ada331989d02cbfad0`，兼容的 `webui/` 子模块提交为
+`72e7804b13f89b03177f746867e0dd341fb12c8a`。父仓库必须在后端变更中同时记录这个 WebUI
+gitlink；子模块不能漂移到一个没有验证配套关系的更新提交。
+
 ---
 
 ## 架构模式：瘦代理 + 胖服务器
@@ -858,7 +863,7 @@ LIMIT :limit;
 |---|----------|------|
 | Ingestion | `/api/ingest/*` | Hook 事件接收（tool-use、user-prompt、observation、session-end） |
 | Session | `/api/session/*` | 会话生命周期（start、get、patch user） |
-| Viewer | `/api/observations`, `/api/summaries`, `/api/prompts`, `/api/projects`, `/api/stats?project=...`, `/api/search`, `/api/search/by-file`, `/api/observations/batch`, `/api/settings` (GET/POST), `/api/modes` (GET/POST), `/api/timeline`, `/api/processing-status`, `/api/sdk-sessions/batch` | WebUI 数据 (15 个方法)；`/api/stats` 接受可选的 `project` 查询参数以返回项目级统计 |
+| Viewer | `/api/observations`, `/api/summaries`, `/api/prompts`, `/api/sessions`, `/api/observation/{id}`, `/api/summary/{id}`, `/api/sessions/{platformSource}/{contentSessionId}`, `/api/projects`, `/api/stats?project=...`, `/api/search`, `/api/search/by-file`, `/api/observations/batch`, `/api/settings` (GET/POST), `/api/modes` (GET/POST), `/api/timeline`, `/api/processing-status`, `/api/sdk-sessions/batch` | WebUI 数据、会话目录和 Viewer 删除；`/api/stats` 接受可选的 `project` 查询参数以返回项目级统计 |
 | Context | `/api/context/*` | 上下文检索（generate、inject、preview、prior-messages、recent、timeline、semantic）|
 | Memory | `/api/memory/*` | 记忆操作（refine、experiences、icl-prompt、quality-distribution、feedback、patch/delete observation） |
 | Mode | `/api/mode/*` | 记忆模式管理（get/put、types、concepts、validation） |

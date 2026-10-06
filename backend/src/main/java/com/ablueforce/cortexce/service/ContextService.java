@@ -324,6 +324,22 @@ public class ContextService implements LogHelper {
             int maxSummaries,
             int sessionCount,
             int fullCount) {
+        return generateContextWithFilters(
+                projectPath, types, concepts, includeObservations, includeSummaries,
+                maxObservations, maxSummaries, sessionCount, fullCount, null);
+    }
+
+    public String generateContextWithFilters(
+            String projectPath,
+            List<String> types,
+            List<String> concepts,
+            boolean includeObservations,
+            boolean includeSummaries,
+            int maxObservations,
+            int maxSummaries,
+            int sessionCount,
+            int fullCount,
+            String platformSource) {
 
         if (projectPath == null || projectPath.isBlank()) {
             return renderEmptyState("unknown");
@@ -346,18 +362,29 @@ public class ContextService implements LogHelper {
             boolean conceptsEmpty = concepts.isEmpty();
             // Use session-aware query when sessionCount is specified
             if (sessionCount > 0) {
-                observations = observationRepository.findByTypeAndConceptsWithSessionLimit(
-                        validatedPath, safeTypes, concepts, conceptsEmpty, maxObservations, sessionCount);
+                observations = platformSource == null || platformSource.isBlank()
+                        ? observationRepository.findByTypeAndConceptsWithSessionLimit(
+                            validatedPath, safeTypes, concepts, conceptsEmpty, maxObservations, sessionCount)
+                        : observationRepository.findByTypeAndConceptsWithSessionLimitForPlatformSource(
+                            validatedPath, safeTypes, concepts, conceptsEmpty, maxObservations, sessionCount,
+                            platformSource);
             } else {
-                observations = observationRepository.findByTypeAndConcepts(
-                        validatedPath, safeTypes, concepts, conceptsEmpty, maxObservations);
+                observations = platformSource == null || platformSource.isBlank()
+                        ? observationRepository.findByTypeAndConcepts(
+                            validatedPath, safeTypes, concepts, conceptsEmpty, maxObservations)
+                        : observationRepository.findByTypeAndConceptsForPlatformSource(
+                            validatedPath, safeTypes, concepts, conceptsEmpty, maxObservations,
+                            platformSource);
             }
         }
 
         // Query summaries
         List<SummaryEntity> allSummaries = new ArrayList<>();
         if (includeSummaries) {
-            allSummaries = summaryRepository.findByProjectPathOrderByCreatedAtEpochDesc(validatedPath);
+            allSummaries = platformSource == null || platformSource.isBlank()
+                    ? summaryRepository.findByProjectPathOrderByCreatedAtEpochDesc(validatedPath)
+                    : summaryRepository.findByProjectPathAndPlatformSourceOrderByCreatedAtEpochDesc(
+                        validatedPath, platformSource);
         }
 
         // Apply max summaries limit

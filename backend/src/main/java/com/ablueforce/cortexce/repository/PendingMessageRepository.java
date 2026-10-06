@@ -18,6 +18,8 @@ public interface PendingMessageRepository extends JpaRepository<PendingMessageEn
 
     List<PendingMessageEntity> findBySessionDbIdAndStatusOrderByCreatedAtEpochAsc(UUID sessionDbId, String status);
 
+    boolean existsByContentSessionIdAndStatusIn(String contentSessionId, List<String> statuses);
+
     long countByStatus(String status);
 
     // Dedup: check if a message with same session + tool already exists (not failed)

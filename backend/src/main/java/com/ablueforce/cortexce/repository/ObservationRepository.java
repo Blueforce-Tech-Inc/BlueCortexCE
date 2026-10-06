@@ -4,6 +4,7 @@ import com.ablueforce.cortexce.entity.ObservationEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -20,10 +21,24 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     @Query("""
         SELECT o FROM ObservationEntity o
         WHERE (:project IS NULL OR o.projectPath = :project)
-        AND (:platformSource IS NULL OR o.platformSource = :platformSource)
-        ORDER BY o.createdAtEpoch DESC
+        AND (:platformSource IS NULL OR COALESCE(o.platformSource, 'claude') = :platformSource)
+        AND (:contentSessionId IS NULL OR o.contentSessionId = :contentSessionId)
+        ORDER BY o.createdAtEpoch DESC, o.id DESC
         """)
-    Page<ObservationEntity> findAllPaged(@Param("project") String project, @Param("platformSource") String platformSource, Pageable pageable);
+    Page<ObservationEntity> findAllPaged(
+        @Param("project") String project,
+        @Param("platformSource") String platformSource,
+        @Param("contentSessionId") String contentSessionId,
+        Pageable pageable
+    );
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM ObservationEntity o WHERE o.contentSessionId = :contentSessionId")
+    int deleteByContentSessionId(@Param("contentSessionId") String contentSessionId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM ObservationEntity o WHERE o.id = :id")
+    int deleteByIdForViewer(@Param("id") UUID id);
 
     // Paged query with userId-based filtering (Phase 3 multi-user support)
     /**
@@ -325,6 +340,27 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         @Param("limit") int limit
     );
 
+    @Query(value = """
+        SELECT * FROM mem_observations
+        WHERE project_path = :project
+        AND type IN (:types)
+        AND COALESCE(platform_source, 'claude') = :platformSource
+        AND (:conceptsEmpty = true OR EXISTS (
+            SELECT 1 FROM jsonb_array_elements_text(concepts::jsonb) elem
+            WHERE elem IN (:concepts)
+        ))
+        ORDER BY created_at_epoch DESC, id DESC
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<ObservationEntity> findByTypeAndConceptsForPlatformSource(
+        @Param("project") String project,
+        @Param("types") List<String> types,
+        @Param("concepts") List<String> concepts,
+        @Param("conceptsEmpty") boolean conceptsEmpty,
+        @Param("limit") int limit,
+        @Param("platformSource") String platformSource
+    );
+
     // P0: Query observations for multiple projects with type and concept filtering (worktree support)
     // FIX: Using jsonb_array_elements_text for proper text comparison
     // FIX: When concepts is empty, skip the concepts filter entirely
@@ -376,6 +412,36 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         @Param("conceptsEmpty") boolean conceptsEmpty,
         @Param("limit") int limit,
         @Param("sessionLimit") int sessionLimit
+    );
+
+    @Query(value = """
+        SELECT o.* FROM mem_observations o
+        WHERE o.project_path = :project
+        AND o.type IN (:types)
+        AND COALESCE(o.platform_source, 'claude') = :platformSource
+        AND (:conceptsEmpty = true OR EXISTS (
+            SELECT 1 FROM jsonb_array_elements_text(o.concepts::jsonb) elem
+            WHERE elem IN (:concepts)
+        ))
+        AND o.content_session_id IN (
+            SELECT content_session_id FROM mem_observations
+            WHERE project_path = :project
+              AND COALESCE(platform_source, 'claude') = :platformSource
+            GROUP BY content_session_id
+            ORDER BY MAX(created_at_epoch) DESC
+            LIMIT :sessionLimit
+        )
+        ORDER BY o.created_at_epoch DESC, o.id DESC
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<ObservationEntity> findByTypeAndConceptsWithSessionLimitForPlatformSource(
+        @Param("project") String project,
+        @Param("types") List<String> types,
+        @Param("concepts") List<String> concepts,
+        @Param("conceptsEmpty") boolean conceptsEmpty,
+        @Param("limit") int limit,
+        @Param("sessionLimit") int sessionLimit,
+        @Param("platformSource") String platformSource
     );
 
     // ==========================================================================

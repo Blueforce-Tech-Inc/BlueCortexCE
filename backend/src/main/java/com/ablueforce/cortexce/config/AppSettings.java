@@ -378,6 +378,7 @@ public class AppSettings {
         // Use CLAUDE_MEM_* field names to match @JsonProperty annotations
         // and WebUI useSettings.ts expectations
         map.put("CLAUDE_MEM_MODE", getMode());
+        map.put("CLAUDE_MEM_BACKEND", "java");
         map.put("CLAUDE_MEM_PROVIDER", getProvider());
         map.put("CLAUDE_MEM_MODEL", getModel());
         map.put("CLAUDE_MEM_LOG_LEVEL", getLogLevel());

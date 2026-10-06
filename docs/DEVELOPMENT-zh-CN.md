@@ -373,6 +373,7 @@ backend/                               # 主 Spring Boot 应用
 │   │   ├── controller/                 # REST 控制器
 │   │   │   ├── IngestionController.java     # Hook 事件
 │   │   │   ├── ViewerController.java        # WebUI API
+│   │   │   ├── ViewerSessionController.java # WebUI 会话目录/删除
 │   │   │   ├── ContextController.java       # 上下文检索
 │   │   │   ├── SessionController.java      # 会话管理
 │   │   │   ├── MemoryController.java       # 记忆/经验 API
@@ -400,7 +401,7 @@ backend/                               # 主 Spring Boot 应用
 │   │   ├── application-dev.yml           # 开发环境配置
 │   │   ├── application-prd.yml           # 生产环境配置（profile 名为 "prd"）
 │   │   ├── application.yml.example       # 环境变量示例
-│   │   ├── db/migration/               # Flyway 迁移（V1–V8, V11–V18）
+│   │   ├── db/migration/               # Flyway 迁移（V1–V8, V11–V19）
 │   │   └── prompts/                     # LLM 提示词模板
 │   │
 │   ├── src/test/                        # 单元/集成测试
@@ -420,7 +421,7 @@ backend/                               # 主 Spring Boot 应用
 ├── python-sdk/                         # Python SDK
 ├── examples/                           # 示例应用
 │   └── cortex-mem-demo/                # Spring Boot demo
-├── webui/                              # Web UI（git 子模块）
+├── webui/                              # 配套 Web UI（git 子模块）
 ├── openclaw-plugin/                    # OpenClaw 集成
 │
 ├── scripts/                            # 实用脚本（37 个 shell 脚本）

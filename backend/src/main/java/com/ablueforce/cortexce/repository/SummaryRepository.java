@@ -4,6 +4,7 @@ import com.ablueforce.cortexce.entity.SummaryEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -17,13 +18,34 @@ public interface SummaryRepository extends JpaRepository<SummaryEntity, UUID> {
     @Query("""
         SELECT s FROM SummaryEntity s
         WHERE (:project IS NULL OR s.projectPath = :project)
-        AND (:platformSource IS NULL OR s.platformSource = :platformSource)
-        ORDER BY s.createdAtEpoch DESC
+        AND (:platformSource IS NULL OR COALESCE(s.platformSource, 'claude') = :platformSource)
+        AND (:contentSessionId IS NULL OR s.contentSessionId = :contentSessionId)
+        ORDER BY s.createdAtEpoch DESC, s.id DESC
         """)
     Page<SummaryEntity> findAllPaged(
         @Param("project") String project,
         @Param("platformSource") String platformSource,
+        @Param("contentSessionId") String contentSessionId,
         Pageable pageable
+    );
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM SummaryEntity s WHERE s.contentSessionId = :contentSessionId")
+    int deleteByContentSessionId(@Param("contentSessionId") String contentSessionId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM SummaryEntity s WHERE s.id = :id")
+    int deleteByIdForViewer(@Param("id") UUID id);
+
+    @Query("""
+        SELECT s FROM SummaryEntity s
+        WHERE s.projectPath = :project
+        AND (:platformSource IS NULL OR COALESCE(s.platformSource, 'claude') = :platformSource)
+        ORDER BY s.createdAtEpoch DESC, s.id DESC
+        """)
+    List<SummaryEntity> findByProjectPathAndPlatformSourceOrderByCreatedAtEpochDesc(
+        @Param("project") String project,
+        @Param("platformSource") String platformSource
     );
 
     @Query(value = """

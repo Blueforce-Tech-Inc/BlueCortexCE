@@ -43,6 +43,25 @@ Local checkout paths are private machine information. Never write them to tracke
 
 If the local checkout's `origin` URL differs from the default, report the mismatch and ask whether it is intentional. Do not silently replace the user's remote or clone another repository.
 
+## Paired WebUI Invariant
+
+The `webui/` git submodule is a compatibility artifact, not an independently
+floating “latest WebUI” pointer. It must always point to the WebUI commit that
+is known to match the backend behavior selected for the current BlueCortexCE
+working tree.
+
+- Record the backend reference commit and the paired WebUI commit together in
+  the sync plan or implementation summary.
+- Do not advance `webui/` to `origin/main` merely because it is newer.
+- Before changing the gitlink, inspect the WebUI routes, response shapes, and
+  SSE events that the backend implements; verify that the backend contract is
+  compatible with the chosen WebUI commit.
+- If no compatible WebUI commit can be identified, keep the existing gitlink
+  and report the unresolved pairing instead of guessing.
+- When the backend changes after a pairing decision, re-check the WebUI
+  pointer before declaring the work complete. A checked-out submodule commit
+  is not enough—the parent repository must record the intended gitlink.
+
 ## Quick Reference
 
 ```bash
@@ -225,15 +244,19 @@ For every adapted idea, record the independent review required in the plan: sche
 
 ### WebUI submodule changes
 
-If alignment is requested and the source is correct:
+If alignment is requested and a compatible paired commit has been identified:
 
 ```bash
 git -C webui fetch origin main
-git -C webui checkout origin/main
+git -C webui checkout <paired-webui-commit>
 git add webui
 ```
 
-Explain that the parent repository records a new submodule pointer. Never commit the submodule pointer automatically unless the user explicitly requested a commit.
+Explain that the parent repository records a new submodule pointer. Never
+commit the submodule pointer automatically unless the user explicitly
+requested a commit. If the checked-out commit differs from the parent gitlink,
+report that as unfinished work rather than treating the worktree state as the
+final pairing.
 
 ## Step 5: Verify
 
@@ -251,7 +274,7 @@ Verify all of the following before declaring success:
 - migrations are numbered after the actual local maximum;
 - no duplicate V17/V18 migration is introduced;
 - API response contracts remain compatible with WebUI and Proxy consumers;
-- WebUI submodule status matches the intended decision;
+- WebUI submodule status and the parent gitlink match the intended backend/WebUI pairing;
 - private local paths are absent from tracked diffs and the sync plan;
 - adapted code has independent tests or an explicit testing gap;
 - build/test results are reported as passed, failed, skipped, or not run—never implied;
@@ -278,6 +301,7 @@ Append an implementation summary to `docs/drafts/upstream-sync-plan.md` without 
 ### Build and Test Status
 - Compile: <passed/failed/not run>
 - Regression: <passed/failed/not run>
+- Backend reference / paired WebUI commit: <public commit IDs>
 
 ### Pending
 - [ ] ...

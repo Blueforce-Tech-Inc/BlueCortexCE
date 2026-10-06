@@ -1513,6 +1513,7 @@ WebUI 使用的端点，用于查看和搜索记忆。
 |------|------|--------|------|
 | `project` | string | null | 项目路径过滤 |
 | `platformSource` | string | null | 平台来源过滤（如 `claude`、`cursor`） |
+| `contentSessionId` | string | null | 精确的 content session ID 过滤 |
 | `offset` | int | 0 | 偏移量 |
 | `limit` | int | 20 | 每页数量，静默钳制到 1–100 |
 
@@ -1564,7 +1565,7 @@ Go `int`、JS `number`、Java `int`），因此经 SDK 调用**根本无法**把
 
 **请求示例**:
 ```bash
-curl "http://localhost:37777/api/observations?project=/Users/dev/myproject&limit=10"
+curl "http://localhost:37777/api/observations?project=/Users/dev/myproject&platformSource=claude&contentSessionId=session-123&limit=10"
 ```
 
 **响应示例**:
@@ -1764,6 +1765,60 @@ curl "http://localhost:37777/api/search/by-file?project=/Users/dev/myproject&fil
 **查询参数**: 同 `/api/observations`
 
 **响应格式**: 同 `/api/observations`（但返回用户提示对象）
+
+---
+
+#### GET `/api/sessions`
+
+```text
+GET /api/sessions?project=/path/to/project&platformSource=claude&limit=20&offset=0
+```
+
+获取配套 WebUI 使用的会话目录。一个会话由
+`(platform_source, content_session_id)` 这一对字段标识，结果按会话开始时间倒序排列，
+使用 offset 分页。
+
+**查询参数**:
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `project` | string | null | 项目路径过滤 |
+| `platformSource` | string | null | 平台来源过滤；历史空值按 `claude` 处理 |
+| `offset` | int | 0 | 偏移量，最小为 0 |
+| `limit` | int | 100 | 每页数量，静默钳制到 1–100 |
+
+**响应示例** (`200 OK`):
+```json
+{
+  "sessions": [
+    {
+      "content_session_id": "session-123",
+      "project": "/Users/dev/myproject",
+      "platform_source": "claude",
+      "custom_title": null,
+      "started_at_epoch": 1743488400000,
+      "item_count": 12
+    }
+  ],
+  "hasMore": false
+}
+```
+
+#### Viewer 删除端点
+
+配套 WebUI 使用以下单数路径删除 UUID 标识的 feed 行：
+
+```text
+DELETE /api/observation/{uuid}
+DELETE /api/summary/{uuid}
+DELETE /api/sessions/{platformSource}/{contentSessionId}
+```
+
+删除成功返回 `204 No Content`，并在数据库事务提交后发布 `item_deleted` 或
+`session_deleted` SSE 载荷。删除会话会在一个事务中删除其观察、摘要、提示和会话行。
+状态为 `active`、`queued`、`processing` 或 `summarizing`，或仍有排队/处理中的任务时，
+返回 `409 Conflict`；行不存在时返回 `404 Not Found`。提示行暂不提供 Viewer 删除端点，
+因为删除单条提示可能使该会话后续派生的提示编号失效。
 
 ---
 
@@ -2937,6 +2992,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 | 2026-04-12 | 0.1.0-beta+35 | GET /api/observations、/api/summaries、/api/prompts：补充缺失的排序说明——三个端点均始终按 `created_at` 降序排列（commit cafbae1 使用 OffsetPageRequest + Sort.by(DESC, "createdAt")）；此前文档未说明排序规则；同步英文版变更 |
 | 2026-04-23 | 0.1.0-beta+36 | 补充缺失的 `POST /api/context/semantic` 端点（V17）——基于查询的语义上下文搜索，用于逐 prompt 注入；添加请求体字段说明（`q`/必填最少 20 字符、`project`、`limit`）、参数表、curl 示例、响应示例及空查询和 embedding 服务不可用的行为说明；同步英文版变更 |
 | 2026-05-03 | 0.1.0-beta+37 | GET `/api/observations`、`/api/summaries`、`/api/prompts` 新增 `platformSource` 查询参数（V18）——平台来源过滤（如 `claude`、`cursor`）；更新中文版 URL 示例和参数表；与英文版同步变更 |
+| 2026-10-06 | （未发布） | 记录配套 WebUI 会话目录、`contentSessionId` feed 过滤、UUID Viewer 删除端点、删除保护、事务提交后 SSE 事件及实验性参考仓库边界；与英文版同步 |
 | 2026-05-05 | 0.1.0-beta+38 | 结构重组：Settings 端点（GET+POST /api/settings）从 ## 搜索 移至 ## 管理；Timeline 端点（GET /api/timeline）、SDK Sessions 端点（POST /api/sdk-sessions/batch）、Modes 端点（GET+POST /api/modes）从 ## 搜索 移至 ## Viewer 查看器；## 搜索 现仅含搜索和批量获取端点；与英文版结构对齐 |
 | 2026-05-05 | 0.1.0-beta+39 | GET `/api/projects`：更新响应示例，新增 `sources` 和 `projectsBySource` 字段（V18）——对应 ViewerController.getProjects() 返回平台来源列表和分组；SSE `/stream` initial_load 事件：更新示例，新增 `sources` 和 `projectsBySource`（V18）；与英文版同步 |
 | 2026-05-05 | 0.1.0-beta+40 | 结构修复：## 搜索 章节从 ## Mode 之后移至 ## Extraction 之后（中文文档此前位置有误）；## 管理（Projects/Stats/Settings）和 ## Mode（ModeController 端点）保持不变；英文版结构未受影响 |

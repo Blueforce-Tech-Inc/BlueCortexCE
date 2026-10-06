@@ -34,7 +34,9 @@ public class ApiRequests {
             + "affect any behaviour; WorktreeDetector has no callers.")
         @JsonProperty("is_worktree") Boolean isWorktree,
         @Schema(description = "Same as is_worktree: logged only, not persisted, no effect on behaviour.")
-        @JsonProperty("parent_project") String parentProject
+        @JsonProperty("parent_project") String parentProject,
+        @Schema(description = "Source platform that owns this session (for example claude or codex)")
+        @JsonProperty("platform_source") String platformSource
     ) {}
 
     @Schema(description = "Update session user ID request")
@@ -57,6 +59,8 @@ public class ApiRequests {
         @JsonProperty("tool_input") Object toolInput,
         @Schema(description = "Tool response JSON")
         @JsonProperty("tool_response") Object toolResponse,
+        @Schema(description = "Source platform that owns this session")
+        @JsonProperty("platform_source") String platformSource,
         @Schema(description = "Source attribution (e.g., 'manual', 'tool_result')")
         @JsonProperty("source") String source,
         @Schema(description = "Structured extracted data (JSON object)")
@@ -84,7 +88,9 @@ public class ApiRequests {
         @Schema(description = "Project path")
         @JsonProperty("cwd") String cwd,
         @Schema(description = "Prompt number for ordering")
-        @JsonProperty("prompt_number") Integer promptNumber
+        @JsonProperty("prompt_number") Integer promptNumber,
+        @Schema(description = "Source platform that owns this session")
+        @JsonProperty("platform_source") String platformSource
     ) {}
 
     @Schema(description = "Direct observation creation request (V14)")
@@ -120,7 +126,9 @@ public class ApiRequests {
         @Schema(description = "List of files modified")
         @JsonProperty("files_modified") List<String> filesModified,
         @Schema(description = "Prompt number")
-        @JsonProperty("prompt_number") Integer promptNumber
+        @JsonProperty("prompt_number") Integer promptNumber,
+        @Schema(description = "Source platform that owns this session")
+        @JsonProperty("platform_source") String platformSource
     ) {}
 
     // ==================== Memory ====================

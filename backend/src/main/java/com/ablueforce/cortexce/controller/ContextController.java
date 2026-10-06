@@ -338,7 +338,9 @@ public class ContextController {
             @Parameter(description = "Number of recent sessions to query from", required = false, example = "10")
             @RequestParam(required = false, defaultValue = "10") int sessionCount,
             @Parameter(description = "Number of observations to show full details for", required = false, example = "5")
-            @RequestParam(required = false, defaultValue = "5") int fullCount) {
+            @RequestParam(required = false, defaultValue = "5") int fullCount,
+            @Parameter(description = "Platform source to filter context preview", required = false, example = "claude")
+            @RequestParam(required = false) String platformSource) {
 
         // Clamp before either value reaches the database or a Java stream.
         //
@@ -403,7 +405,8 @@ public class ContextController {
                     validatedMaxObservations,
                     validatedMaxSummaries,
                     sessionCount,
-                    fullCount
+                    fullCount,
+                    platformSource
             );
         } catch (Exception e) {
             log.error("Failed to generate context preview for project {}: {}", project, e.getMessage());

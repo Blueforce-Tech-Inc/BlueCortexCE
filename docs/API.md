@@ -1544,7 +1544,7 @@ is not rejected, it simply matches nothing.
 ### List Observations
 
 ```
-GET /api/observations?project=/path/to/project&limit=20&offset=0
+GET /api/observations?project=/path/to/project&platformSource=claude&contentSessionId=session-123&limit=20&offset=0
 ```
 
 Returns a paginated list of observations, optionally filtered by project. Results are always sorted by `created_at_epoch` descending (most recent first).
@@ -1555,6 +1555,7 @@ Returns a paginated list of observations, optionally filtered by project. Result
 |-----------|------|----------|---------|-------------|
 | `project` | string | No | null | Project path filter (returns all if omitted) |
 | `platformSource` | string | No | null | Platform source filter (e.g., `claude`, `cursor`) |
+| `contentSessionId` | string | No | null | Exact content session ID filter |
 | `offset` | int | No | 0 | Pagination offset (0-based) |
 | `limit` | int | No | 20 | Items per page, silently clamped to 1–100 |
 
@@ -1770,6 +1771,61 @@ GET /api/prompts?project=/path/to/project&platformSource=claude&limit=20&offset=
 ```
 
 Returns a paginated list of user prompts, sorted by `created_at_epoch` descending. Query parameters and response format are the same as List Observations (returns user prompt objects instead).
+
+### List Sessions
+
+```
+GET /api/sessions?project=/path/to/project&platformSource=claude&limit=20&offset=0
+```
+
+Returns the session catalog used by the paired WebUI. A session is identified
+by the pair `(platform_source, content_session_id)`. Results are ordered by
+session start time descending and use offset pagination.
+
+**Query Parameters**:
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `project` | string | No | null | Project path filter |
+| `platformSource` | string | No | null | Platform source filter; legacy null values are treated as `claude` |
+| `offset` | int | No | 0 | Pagination offset, floored at 0 |
+| `limit` | int | No | 100 | Items per page, silently clamped to 1–100 |
+
+**Response** (`200 OK`):
+```json
+{
+  "sessions": [
+    {
+      "content_session_id": "session-123",
+      "project": "/Users/dev/myproject",
+      "platform_source": "claude",
+      "custom_title": null,
+      "started_at_epoch": 1743488400000,
+      "item_count": 12
+    }
+  ],
+  "hasMore": false
+}
+```
+
+### Delete Viewer Items
+
+The paired WebUI uses these singular viewer routes for UUID-backed feed rows:
+
+```
+DELETE /api/observation/{uuid}
+DELETE /api/summary/{uuid}
+DELETE /api/sessions/{platformSource}/{contentSessionId}
+```
+
+Successful deletes return `204 No Content` and publish an SSE `item_deleted` or
+`session_deleted` payload after the database transaction commits. Session
+deletion removes its observations, summaries, prompts, and session row in one
+transaction. A session that is `active`, `queued`, `processing`, or
+`summarizing`, or that still has queued/processing work, returns `409 Conflict`.
+Missing rows return `404 Not Found`. Prompt rows are intentionally not exposed
+through a viewer delete route because deleting one prompt can invalidate the
+session's derived prompt numbering.
 
 ### Get Timeline
 
@@ -2938,6 +2994,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 | 2026-04-12 | 0.1.0-beta+35 | GET /api/observations, /api/summaries, /api/prompts: added missing sort order description — all three endpoints now always sort by `created_at` descending (most recent first) via OffsetPageRequest with `Sort.by(DESC, "createdAt")` (commit cafbae1); docs previously said nothing about sort order; synced Chinese version |
 | 2026-04-23 | 0.1.0-beta+36 | Added missing `POST /api/context/semantic` endpoint (V17) — query-based semantic context search for per-prompt injection; added request body fields (`q`/required min 20 chars, `project`, `limit`), parameter table, curl example, response example, and notes on empty-query and embedding-unavailable behavior; synced Chinese version; also fixed EN API.md `### Preview Context` which was missing the `#### GET /api/context/preview` H3 section (content existed but header was absent) |
 | 2026-05-03 | 0.1.0-beta+37 | Added `platformSource` query parameter to GET `/api/observations`, `/api/summaries`, `/api/prompts` (V18) — platform source filter (e.g., `claude`, `cursor`); updated EN URL examples and parameter table; synced Chinese version |
+| 2026-10-06 | (unreleased) | Documented the paired WebUI session catalog, `contentSessionId` feed filter, UUID viewer deletion routes, deletion guards, post-commit SSE events, and the experimental-reference boundary; synced Chinese version |
 | 2026-05-05 | 0.1.0-beta+38 | Structural reorganization: Settings endpoints (GET+POST /api/settings) are now in ## Management; Timeline (GET /api/timeline), SDK Sessions (POST /api/sdk-sessions/batch), Modes (GET+POST /api/modes) are in ## Viewer; ## Search now contains only Search Memory; EN structure was already in this state — this changelog entry added for completeness and to sync with ZH |
 | 2026-05-05 | 0.1.0-beta+39 | GET `/api/projects`: updated response example to include `sources` and `projectsBySource` fields (V18) — matches ViewerController.getProjects() returning platform source list and grouping; SSE `/stream` initial_load event: updated example to include `sources` and `projectsBySource` (V18); synced Chinese version |
 | 2026-05-06 | 0.1.0-beta+40 | Structural fix: ## Search section moved from after ## Mode to after ## Extraction in ZH doc, aligning ZH section order with EN (Search → Management → Mode); ## Management (Projects/Stats/Settings) and ## Mode (ModeController endpoints) remain in place; only ## Search section position changed; EN doc structure unchanged |

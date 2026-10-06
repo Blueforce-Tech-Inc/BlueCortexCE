@@ -128,6 +128,7 @@ public class SessionController {
         Boolean isWorktree = body.isWorktree();
         String parentProject = body.parentProject();
         String userId = body.userId();  // Phase 3: optional user identifier
+        String platformSource = body.platformSource();
 
         // P1: Validate required fields
         if (contentSessionId == null || contentSessionId.isBlank()) {
@@ -157,6 +158,8 @@ public class SessionController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("error", "Failed to initialize session: " + e.getMessage()));
         }
+
+        applyPlatformSource(session, platformSource);
         
         // Phase 3: Set userId on session (null is OK — means single-user mode)
         if (userId != null && !userId.isBlank() && session.getUserId() == null) {
@@ -218,6 +221,19 @@ public class SessionController {
         return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.StartSessionResponse(
             contentSessionId, context, updateFiles, sessionDbId, 1
         ));
+    }
+
+    private void applyPlatformSource(SessionEntity session, String platformSource) {
+        if (session == null || platformSource == null || platformSource.isBlank()) {
+            return;
+        }
+        String requested = platformSource.trim();
+        String existing = session.getPlatformSource();
+        if (existing == null || existing.isBlank()
+            || ("claude".equalsIgnoreCase(existing) && !"claude".equalsIgnoreCase(requested))) {
+            session.setPlatformSource(requested);
+            sessionManagementService.save(session);
+        }
     }
 
     /**

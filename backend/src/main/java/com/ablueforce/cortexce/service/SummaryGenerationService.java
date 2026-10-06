@@ -20,6 +20,8 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Summary generation service.
@@ -51,6 +53,7 @@ public class SummaryGenerationService implements LogHelper {
     private final ContextCacheService contextCacheService;
     private final MemoryRefineEventPublisher eventPublisher;
     private final QualityScorer qualityScorer;
+    private final Set<String> summarizingSessions = ConcurrentHashMap.newKeySet();
 
     public SummaryGenerationService(SessionManagementService sessionManagementService,
                                    ObservationRepository observationRepository,
@@ -82,6 +85,9 @@ public class SummaryGenerationService implements LogHelper {
      */
     @Async
     public void completeSessionAsync(String contentSessionId, String lastAssistantMessage) {
+        if (contentSessionId != null) {
+            summarizingSessions.add(contentSessionId);
+        }
         try {
             Optional<SessionEntity> sessionOpt = sessionManagementService.completeSessionForSummary(
                 contentSessionId, lastAssistantMessage);
@@ -124,7 +130,15 @@ public class SummaryGenerationService implements LogHelper {
 
         } catch (Exception e) {
             logFailure("Failed to generate summary for session {}", contentSessionId, e);
+        } finally {
+            if (contentSessionId != null) {
+                summarizingSessions.remove(contentSessionId);
+            }
         }
+    }
+
+    public boolean isSessionSummarizing(String contentSessionId) {
+        return contentSessionId != null && summarizingSessions.contains(contentSessionId);
     }
 
     /**
@@ -143,6 +157,10 @@ public class SummaryGenerationService implements LogHelper {
         summary.setNotes(parsed.notes);
         summary.setPromptNumber(promptNumber);
         summary.setCreatedAtEpoch(Instant.now().toEpochMilli());
+        sessionManagementService.findByContentSessionId(contentSessionId)
+            .map(SessionEntity::getPlatformSource)
+            .filter(source -> source != null && !source.isBlank())
+            .ifPresent(summary::setPlatformSource);
 
         SummaryEntity saved = summaryRepository.save(summary);
 

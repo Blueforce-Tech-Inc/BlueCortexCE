@@ -2,6 +2,8 @@ package com.ablueforce.cortexce.repository;
 
 import com.ablueforce.cortexce.entity.SessionEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -14,6 +16,17 @@ import java.util.UUID;
 public interface SessionRepository extends JpaRepository<SessionEntity, UUID> {
 
     Optional<SessionEntity> findByContentSessionId(String contentSessionId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        SELECT s FROM SessionEntity s
+        WHERE s.contentSessionId = :contentSessionId
+        AND COALESCE(s.platformSource, 'claude') = :platformSource
+        """)
+    Optional<SessionEntity> findForViewerDeletion(
+        @Param("contentSessionId") String contentSessionId,
+        @Param("platformSource") String platformSource
+    );
 
     @Query("SELECT DISTINCT s.projectPath FROM SessionEntity s ORDER BY s.projectPath")
     List<String> findAllProjects();
@@ -63,15 +76,14 @@ public interface SessionRepository extends JpaRepository<SessionEntity, UUID> {
     List<String> findSessionIdsByUserIdAndProject(@Param("userId") String userId, @Param("project") String project);
 
     // V18: Platform source support
-    @Query("SELECT DISTINCT s.platformSource FROM SessionEntity s WHERE s.platformSource IS NOT NULL ORDER BY s.platformSource")
+    @Query("SELECT DISTINCT COALESCE(s.platformSource, 'claude') FROM SessionEntity s ORDER BY COALESCE(s.platformSource, 'claude')")
     List<String> findAllPlatformSources();
 
     @Query("""
-        SELECT s.platformSource, s.projectPath
+        SELECT COALESCE(s.platformSource, 'claude'), s.projectPath
         FROM SessionEntity s
-        WHERE s.platformSource IS NOT NULL
-        GROUP BY s.platformSource, s.projectPath
-        ORDER BY s.platformSource, s.projectPath
+        GROUP BY COALESCE(s.platformSource, 'claude'), s.projectPath
+        ORDER BY COALESCE(s.platformSource, 'claude'), s.projectPath
         """)
     List<Object[]> findProjectsByPlatformSource();
 }

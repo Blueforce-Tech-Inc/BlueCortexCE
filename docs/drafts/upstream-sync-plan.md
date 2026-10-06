@@ -1,265 +1,202 @@
 # BlueCortexCE Upstream Sync Plan
 
-**Date**: 2026-04-16
-**Status**: Draft v6 (Iteration 5 - Final)
-**Reference**: claude-mem-java commits `7ba455cb4b8ef2a30e659681261dae0c7cfa1db5` onwards
+**Date**: 2026-10-06
+**Status**: Draft v8 — implementation and runtime verification complete; one concurrency gap remains
+**Positioning**: Experimental reference; inspiration and feature-gap analysis only
+**Backend source**: `https://github.com/wubuku/claude-mem-fork.git`
+**WebUI source**: `https://github.com/Blueforce-Tech-Inc/claude-mem.git`
+**Backend reference commit**: `ed37a1b227b6067befe5c9ada331989d02cbfad0`
+**Paired WebUI commit**: `72e7804b13f89b03177f746867e0dd341fb12c8a`
 
----
+The local checkout used for comparison is represented here as
+`<local-upstream-path>` and is intentionally not recorded as a machine-specific
+path in tracked documentation.
 
 ## Executive Summary
 
-This plan studies and selectively adapts ideas from the experimental claude-mem-java port (local checkout: `<local-upstream-path>`).
+The latest reference changes describe a coordinated backend/WebUI capability
+set: UUID-based feed records, platform-aware session identity, a session
+catalog, deletion flows, and live deletion events. BlueCortexCE selectively
+adapts the parts that fit its PostgreSQL/JPA architecture and preserves its
+existing `content_session_id` schema and API contracts.
 
-| Feature | Description | Migration | Risk |
-|---------|-------------|-----------|------|
-| Platform Source | Multi-platform tracking (claude/codex) | V18 | Low |
-| Observation Feedback | Thompson Sampling foundation | V17 | Low |
-| Session Age Guard | 4-hour wall-clock limit | Code | Low |
-| Semantic Endpoint | Per-prompt context injection | Code | Low |
+“Sync upstream” in this repository means **study, compare, review, and adapt**.
+The Java port is experimental: it has no required implementation-quality level
+and provides no guarantee of production readiness, operational safety,
+security, compatibility, or correctness. Its code, migrations, tests, and
+designs are research material, not a production authority or an automatic
+merge source.
 
-**Execution Order**: V18 → Entities/Repos → V17 → Services → Controllers → WebUI
+The `webui/` submodule is deliberately paired with the backend behavior under
+review. It must not be advanced to an unrelated “latest” WebUI commit.
 
----
+## Current State
 
-## Background
+| Component | Current observation | Decision |
+|-----------|--------------------|----------|
+| Backend reference | `ed37a1b227b6067befe5c9ada331989d02cbfad0` | Study as experimental reference only |
+| WebUI reference | `72e7804b13f89b03177f746867e0dd341fb12c8a` | Pair with the adapted backend contract |
+| Local migration baseline | `V18__add_platform_source.sql` | Implemented `V19__viewer_session_indexes.sql` |
+| Current WebUI worktree | Checked out at `72e7804b13f89b03177f746867e0dd341fb12c8a` | Parent gitlink change is intentional and must be retained |
+| Existing platform model | `platform_source` plus canonical `content_session_id` | Preserve existing V18/V13 behavior; do not duplicate migrations |
 
-### Repository Relationships
+The parent repository currently records the previous WebUI gitlink in `HEAD`
+while the working tree has the paired commit checked out. The gitlink change is
+intentional; the user-requested commit step must record it in the parent
+repository so the checked-out WebUI and the parent pointer agree.
 
-```
-claude-mem (upstream)
-    └── claude-mem-java (experimental Java port, commits 7ba455cb4... onwards)
-            └── Blueforce-Tech-Inc/claude-mem (WebUI submodule source)
-                    └── BlueCortexCE webui/ (Git submodule)
-```
+## Feature Gap Analysis
 
-BlueCortexCE uses claude-mem-java as an experimental reference. We need to study and selectively adapt:
-1. Backend improvements from claude-mem-java (V9, V10 features)
-2. WebUI improvements from Blueforce-Tech-Inc/claude-mem
+### Adapted
 
----
+| Reference idea | BlueCortexCE result | Review status |
+|----------------|---------------------|---------------|
+| UUID feed/session records and stable ordering | Observation, summary, and prompt pagination now accept `contentSessionId`, use UUID tie-break ordering, and preserve `items`/`hasMore` | Implemented |
+| Platform-aware feed filtering | Viewer feeds and context preview accept `platformSource`; legacy null values are treated as `claude` | Implemented |
+| Session catalog | Added `GET /api/sessions` with project/source filters, offset pagination, and item counts | Implemented |
+| Session and item deletion | Added paired WebUI deletion routes for sessions, observations, and summaries | Implemented |
+| Deletion safety | Protects active/queued/processing/summarizing sessions, pending work, and in-flight summary generation | Implemented; runtime concurrency test remains pending |
+| Post-commit live updates | Emits `item_deleted` and `session_deleted` SSE payloads after successful transactions | Implemented |
+| Platform propagation | New sessions, prompts, observations, and summaries inherit the session source | Implemented |
+| Viewer settings compatibility | Exposes `CLAUDE_MEM_BACKEND=java` without changing existing `CLAUDE_MEM_*` keys | Implemented |
+| Query performance | Adds V19 indexes for session ordering and per-session feed reads | Implemented |
 
-## Feature 1: Platform Source Support (V18)
+### Intentionally not copied
 
-### 1.1 Migration: V18__add_platform_source.sql
+- The experimental repository is not merged wholesale, and its quality is not
+  treated as evidence of production readiness.
+- V17 and V18 are already present locally; no duplicate migrations are added.
+- Prompt deletion remains read-only in the paired WebUI because deleting one
+  prompt can invalidate the session's derived prompt numbering.
+- Cloud-sync tombstones and remote-device deletion rules are not claimed by
+  this local PostgreSQL backend; the implementation deletes local rows only.
+- The existing schema keeps `content_session_id` globally unique. Full support
+  for the same content ID appearing under multiple platform sources would
+  require a separate identity/migration decision and is not silently implied by
+  adding source filters.
 
-**Path**: `backend/src/main/resources/db/migration/V18__add_platform_source.sql`
+### Known verification gaps
 
-```sql
--- V18: Add platform_source column for multi-platform tracking
--- Supports claude/codex filtering in WebUI
+- The deletion guard needs an integration test that races a queued or running
+  worker against a viewer deletion request.
+- The targeted WebUI tests use local route fixtures and browser fixtures; they
+  validate the WebUI contract and deletion lifecycle, while the live Java
+  service checks below validate the backend HTTP/SSE surface separately.
 
-ALTER TABLE mem_sessions ADD COLUMN IF NOT EXISTS platform_source VARCHAR(50) DEFAULT 'claude';
-CREATE INDEX IF NOT EXISTS idx_sessions_platform_source ON mem_sessions(platform_source);
+## Adaptation Plan
 
-ALTER TABLE mem_observations ADD COLUMN IF NOT EXISTS platform_source VARCHAR(50) DEFAULT 'claude';
-CREATE INDEX IF NOT EXISTS idx_observations_platform_source ON mem_observations(platform_source);
+1. Inspect the experimental backend reference and paired WebUI routes without
+   modifying either reference checkout.
+2. Confirm the local migration maximum before adding schema changes.
+3. Implement the backend contract in dependency order: migration, repositories,
+   services, controllers, async guards, and events.
+4. Verify WebUI consumers for response names, UUID IDs, query parameters, and
+   SSE payloads before changing the parent gitlink.
+5. Keep the parent `webui` gitlink at the known paired commit, not merely at a
+   newer remote tip.
+6. Run narrow and broad checks, then document passed, failed, skipped, and
+   unavailable verification explicitly.
 
-ALTER TABLE mem_summaries ADD COLUMN IF NOT EXISTS platform_source VARCHAR(50) DEFAULT 'claude';
-CREATE INDEX IF NOT EXISTS idx_summaries_platform_source ON mem_summaries(platform_source);
+## Implementation Summary (2026-10-06)
 
-ALTER TABLE mem_user_prompts ADD COLUMN IF NOT EXISTS platform_source VARCHAR(50) DEFAULT 'claude';
-CREATE INDEX IF NOT EXISTS idx_user_prompts_platform_source ON mem_user_prompts(platform_source);
+### Completed
 
-COMMENT ON COLUMN mem_sessions.platform_source IS 'Source platform (claude, codex, etc.)';
-```
+| Adapted idea | Status | Main files |
+|--------------|--------|------------|
+| Viewer feed filters and deterministic pagination | Done | `ViewerController.java`, `ObservationRepository.java`, `SummaryRepository.java`, `UserPromptRepository.java` |
+| Session catalog | Done | `ViewerSessionController.java`, `ViewerSessionService.java` |
+| Viewer deletion routes and transaction guards | Done | `ViewerSessionService.java`, `SessionRepository.java`, `PendingMessageRepository.java` |
+| Post-commit deletion SSE events | Done | `ViewerSessionService.java` |
+| Source propagation and settings compatibility | Done | `IngestionController.java`, `SessionController.java`, `AgentService.java`, `SummaryGenerationService.java`, `AppSettings.java` |
+| Platform-aware context preview | Done | `ContextController.java`, `ContextService.java`, `ObservationRepository.java`, `SummaryRepository.java` |
+| Viewer indexes | Done | `V19__viewer_session_indexes.sql` |
+| Paired WebUI pointer | Checked out | `webui` → `72e7804b13f89b03177f746867e0dd341fb12c8a` |
 
-### 1.2 Entity Updates
+### Independent Review
 
-**SessionEntity.java** - Add after `status` field:
-```java
-@Column(name = "platform_source")
-@JsonProperty("platform_source")
-private String platformSource = "claude";
-```
+- **Production-readiness assessment**: The reference Java port remains
+  experimental and is not a production guarantee. Adapted behavior is reviewed
+  against BlueCortexCE's own schema and contracts.
+- **API and WebUI compatibility**: WebUI routes, viewer types, deletion helpers,
+  pagination, and SSE event payloads were inspected. Existing `hasMore`,
+  `updateFiles`, and `CLAUDE_MEM_*` contracts remain intact.
+- **Migration safety**: The local maximum was V18; V19 is additive and does not
+  recreate V17 or V18.
+- **Concurrency and failure handling**: Session row locking, pending-work
+  checks, in-memory summarization protection, transaction-scoped deletion, and
+  after-commit SSE publication were reviewed. Live database race coverage is
+  still a gap.
+- **Security and privacy**: No new authentication boundary is introduced;
+  deletion behavior remains within the existing service trust boundary. The
+  reference checkout path is excluded from tracked documentation.
+- **Submodule pairing**: The backend reference commit and WebUI commit are
+  recorded together. The parent gitlink must be committed at the paired WebUI
+  commit before this work is considered clean.
 
-Add getter/setter after `setStatus()`:
-```java
-public String getPlatformSource() { return platformSource; }
-public void setPlatformSource(String platformSource) { this.platformSource = platformSource; }
-```
+### Build and Test Status
 
-**ObservationEntity.java**, **SummaryEntity.java**, **UserPromptEntity.java** - Same pattern.
+- Compile: passed — `backend/./mvnw clean compile -DskipTests`
+- Maven unit tests: passed — 167 tests, 0 failures, 0 errors, 0 skipped
+- Formatting/diff whitespace: passed — `git diff --check`
+- PostgreSQL/Flyway runtime verification: passed — an isolated rebuilt service
+  on port `37778` applied V19 successfully; `flyway_schema_history` is at V19
+  and all four viewer indexes exist. The existing service on `37777` was left
+  untouched.
+- Live Java HTTP/API verification: passed — health, Java backend settings,
+  session catalog, project/source metadata, filtered observations/summaries/
+  prompts, and safe 404 deletion responses all passed assertions.
+- Live Java SSE verification: passed — `/stream` emitted both `initial_load`
+  and `processing_status` events.
+- WebUI targeted contract tests: passed — installed the missing dependencies
+  through the configured proxy and ran 16 tests with 0 failures, including the
+  session catalog, deletion routes, and six browser deletion-lifecycle cases.
+- Backend reference / paired WebUI commit: `ed37a1b227b6067befe5c9ada331989d02cbfad0` / `72e7804b13f89b03177f746867e0dd341fb12c8a`
 
-### 1.3 Repository Updates
+### Pending
 
-**SessionRepository.java** - Add methods:
-```java
-@Query("SELECT DISTINCT s.platformSource FROM SessionEntity s WHERE s.platformSource IS NOT NULL ORDER BY s.platformSource")
-List<String> findAllPlatformSources();
-
-@Query("SELECT s.platformSource, s.projectPath FROM SessionEntity s WHERE s.platformSource IS NOT NULL GROUP BY s.platformSource, s.projectPath ORDER BY s.platformSource, s.projectPath")
-List<Object[]> findProjectsByPlatformSource();
-```
-
-**ObservationRepository.java**, **SummaryRepository.java**, **UserPromptRepository.java** - Update `findAllPaged` to accept `String platformSource`.
-
-### 1.4 Controller Updates
-
-**ViewerController.java**:
-- Add `@RequestParam(required = false) String platformSource` to `/observations`, `/summaries`, `/prompts`
-- Update `/projects` to return `{"projects": [...], "sources": [...], "projectsBySource": {...}}`
-
-**StreamController.java**:
-- Update SSE `initial_load` event to include `sources` and `projectsBySource`
-
----
-
-## Feature 2: Observation Feedback (V17)
-
-### 2.1 Migration: V17__observation_feedback.sql
-
-**Path**: `backend/src/main/resources/db/migration/V17__observation_feedback.sql`
-
-```sql
-CREATE TABLE IF NOT EXISTS observation_feedback (
-    id BIGSERIAL PRIMARY KEY,
-    observation_id UUID NOT NULL,
-    signal_type VARCHAR(50) NOT NULL,
-    session_db_id UUID,
-    created_at_epoch BIGINT NOT NULL,
-    metadata TEXT,
-    CONSTRAINT fk_feedback_observation
-        FOREIGN KEY (observation_id) REFERENCES mem_observations(id) ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS idx_feedback_observation ON observation_feedback(observation_id);
-CREATE INDEX IF NOT EXISTS idx_feedback_signal ON observation_feedback(signal_type);
-CREATE INDEX IF NOT EXISTS idx_feedback_session ON observation_feedback(session_db_id);
-
-ALTER TABLE mem_observations ADD COLUMN IF NOT EXISTS generated_by_model VARCHAR(100);
-ALTER TABLE mem_observations ADD COLUMN IF NOT EXISTS relevance_count INTEGER DEFAULT 0;
-```
-
-### 2.2 New Files
-
-**ObservationFeedbackEntity.java** and **ObservationFeedbackRepository.java** - Create based on upstream templates.
-
-### 2.3 ObservationEntity Updates
-
-Add fields:
-```java
-@Column(name = "generated_by_model")
-@JsonProperty("generated_by_model")
-private String generatedByModel;
-
-@Column(name = "relevance_count")
-@JsonProperty("relevance_count")
-private Integer relevanceCount = 0;
-```
-
----
-
-## Feature 3: Session Age Guard
-
-### 3.1 AgentService.java Changes
-
-Add constant:
-```java
-private static final long MAX_SESSION_AGE_MS = 4 * 60 * 60 * 1000;
-```
-
-Add methods:
-```java
-private boolean isSessionTooOld(SessionEntity session) {
-    if (session == null || session.getStartedAtEpoch() == null) return false;
-    return Instant.now().toEpochMilli() - session.getStartedAtEpoch() > MAX_SESSION_AGE_MS;
-}
-
-private void markSessionExpired(SessionEntity session, String reason) {
-    if (session == null) return;
-    session.setStatus("expired");
-    sessionRepository.save(session);
-}
-```
-
-Add guards in `processToolUseAsync()` and `handleSummarize()`.
-
----
-
-## Feature 4: Semantic Endpoint
-
-### 4.1 ContextController.java
-
-Add `POST /api/context/semantic` endpoint using existing `EmbeddingService` and `SearchService`.
-
----
-
-## Implementation Checklist
-
-- [ ] Create V18__add_platform_source.sql
-- [ ] Update SessionEntity, ObservationEntity, SummaryEntity, UserPromptEntity
-- [ ] Update SessionRepository, ObservationRepository, SummaryRepository, UserPromptRepository
-- [ ] Create V17__observation_feedback.sql
-- [ ] Create ObservationFeedbackEntity.java
-- [ ] Create ObservationFeedbackRepository.java
-- [ ] Update ObservationEntity with new fields
-- [ ] Update AgentService with session age guard
-- [ ] Update ViewerController with platformSource params
-- [ ] Update StreamController SSE events
-- [ ] Add semantic endpoint to ContextController
-- [ ] Compile: `./mvnw clean compile`
-- [ ] Test: `./scripts/regression-test.sh`
-- [ ] Update WebUI submodule
-
----
+- [ ] Add or run an integration test for deletion versus queued/async work.
+- [ ] Stage and commit the intentional `webui` gitlink together with the
+      backend/documentation changes when explicitly requested.
 
 ## Testing
 
+The minimum verification set for a future sync is:
+
 ```bash
-# API tests
-curl "http://localhost:37777/api/observations?platformSource=claude"
-curl "http://localhost:37777/api/projects"
-curl -X POST http://localhost:37777/api/context/semantic \
-  -H "Content-Type: application/json" \
-  -d '{"q": "What was implemented for authentication?", "limit": 3}'
+cd backend && ./mvnw clean compile
+cd backend && ./mvnw test
+cd .. && git diff --check
 ```
 
----
+When PostgreSQL and the service are available, additionally exercise:
+
+```bash
+curl "http://localhost:37777/api/sessions?platformSource=claude&limit=20&offset=0"
+curl "http://localhost:37777/api/observations?platformSource=claude&contentSessionId=<id>"
+curl "http://localhost:37777/api/summaries?platformSource=claude&contentSessionId=<id>"
+curl "http://localhost:37777/api/prompts?platformSource=claude&contentSessionId=<id>"
+```
+
+The WebUI pointer should be checked from the parent repository as well as from
+inside the submodule:
+
+```bash
+git -C webui rev-parse HEAD
+git ls-tree HEAD webui
+git diff --submodule=log -- webui
+```
 
 ## Rollback
 
-```bash
-./mvnw flyway:undo -Dflyway.targetVersion=V16
-```
-
----
+V19 only adds indexes, so application rollback does not require destructive
+data changes. If the adapted code must be reverted, deploy the previous
+application version and restore the parent WebUI gitlink to its previous
+committed value. Do not use an unreviewed Flyway undo operation against
+production data.
 
 ## Document History
 
 | Version | Date | Changes |
 |---------|------|---------|
-| v1-v5 | 2026-04-16 | Iterations 1-5 |
-| v6 | 2026-04-16 | Final version with simplified structure |
-
----
-
-## Implementation Summary (2026-04-16)
-
-All planned features have been **fully implemented** and **compiled successfully**.
-
-### Completed
-
-| Feature | Status | Files |
-|---------|--------|-------|
-| V18: Platform Source | ✅ Done | `V18__add_platform_source.sql` (NEW) |
-| V17: Observation Feedback | ✅ Done | `V17__observation_feedback.sql` (NEW) |
-| Session Age Guard | ✅ Done | `AgentService.java` |
-| Semantic Endpoint | ✅ Done | `ContextController.java` |
-| API Updates | ✅ Done | `ViewerController.java`, `StreamController.java` |
-| WebUI Submodule | ✅ Done | Updated to `origin/main` |
-
-### New Files
-- `backend/src/main/resources/db/migration/V18__add_platform_source.sql`
-- `backend/src/main/resources/db/migration/V17__observation_feedback.sql`
-- `backend/src/main/java/.../entity/ObservationFeedbackEntity.java`
-- `backend/src/main/java/.../repository/ObservationFeedbackRepository.java`
-
-### Build Status
-```
-./mvnw clean compile ✓
-```
-
-### Pending
-- [ ] Run regression tests: `./scripts/regression-test.sh`
-- [ ] Deploy with `docker compose up -d`
-- [ ] Commit changes
+| v7 | 2026-10-06 | Replaced the stale V17/V18 proposal with the paired backend/WebUI implementation plan and verification record |
+| v6 | 2026-04-16 | Superseded draft that proposed V17/V18 as new work |

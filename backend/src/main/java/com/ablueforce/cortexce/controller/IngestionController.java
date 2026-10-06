@@ -136,9 +136,10 @@ public class IngestionController {
         }
 
         // Resolve session DB ID from content session ID
-        java.util.UUID sessionDbId = sessionManagementService.findByContentSessionId(contentSessionId)
-            .map(SessionEntity::getId)
-            .orElse(null);
+        SessionEntity session = sessionManagementService.findByContentSessionId(contentSessionId)
+            .orElseGet(() -> sessionManagementService.ensureSession(contentSessionId, cwd, null));
+        applyPlatformSource(session, body.platformSource());
+        java.util.UUID sessionDbId = session.getId();
 
         // Fire and forget — async observation extraction
         agentService.processToolUseAsync(
@@ -250,7 +251,8 @@ public class IngestionController {
         // This handles the case where SessionStart hook failed or was skipped,
         // but UserPromptSubmit still needs to record the prompt.
         // If session already exists, this is a no-op; otherwise creates a new session.
-        sessionManagementService.ensureSession(contentSessionId, cwd, promptText);
+        SessionEntity session = sessionManagementService.ensureSession(contentSessionId, cwd, promptText);
+        applyPlatformSource(session, body.platformSource());
 
         UserPromptEntity prompt = new UserPromptEntity();
         prompt.setContentSessionId(contentSessionId);
@@ -258,6 +260,10 @@ public class IngestionController {
         prompt.setPromptNumber(promptNumber);
         prompt.setProjectPath(cwd);  // Set project path from cwd
         prompt.setCreatedAtEpoch(Instant.now().toEpochMilli());
+        sessionManagementService.findByContentSessionId(contentSessionId)
+            .map(SessionEntity::getPlatformSource)
+            .filter(source -> source != null && !source.isBlank())
+            .ifPresent(prompt::setPlatformSource);
         UserPromptEntity saved = userPromptRepository.save(prompt);
 
         // Broadcast SSE event for new_prompt after transaction commits (fixes race condition)
@@ -342,7 +348,8 @@ public class IngestionController {
         // P0: Ensure session exists before creating observation (fixes FK constraint error)
         // This handles the case where SessionStart hook failed or was skipped.
         // If session already exists, this is a no-op; otherwise creates a new session.
-        sessionManagementService.ensureSession(contentSessionId, projectPath, parsed.title);
+        SessionEntity session = sessionManagementService.ensureSession(contentSessionId, projectPath, parsed.title);
+        applyPlatformSource(session, body.platformSource());
 
         var observation = agentService.saveObservation(
             contentSessionId,
@@ -365,5 +372,18 @@ public class IngestionController {
         sseBroadcaster.broadcast(obsEventData, "new_observation");
 
         return ResponseEntity.ok(observation);
+    }
+
+    private void applyPlatformSource(SessionEntity session, String platformSource) {
+        if (session == null || platformSource == null || platformSource.isBlank()) {
+            return;
+        }
+        String requested = platformSource.trim();
+        String existing = session.getPlatformSource();
+        if (existing == null || existing.isBlank()
+            || ("claude".equalsIgnoreCase(existing) && !"claude".equalsIgnoreCase(requested))) {
+            session.setPlatformSource(requested);
+            sessionManagementService.save(session);
+        }
     }
 }
