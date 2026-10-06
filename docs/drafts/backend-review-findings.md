@@ -54,8 +54,7 @@
 - **Severity 说明**：demo 全局无鉴权是**已知设计**（架构文档写明 "Currently no authentication
   (local development)"），但**「无鉴权」与「可读任意文件」是两件事** —— 前者只暴露记忆 API，
   后者可取走 `~/.ssh/id_rsa`、`~/.aws/credentials`、含密钥的 `.env`，同网段即可触发。
-- **Status**: ✅ **已修（第 294 轮，经用户明确授权）** —— 此前多轮 ⏸ 的理由是「加路径约束属收窄已发布端点语义、是对外契约变更」，而这正是需要用户拍板的那一类，**已取得授权**。两步：①`application.yml` 补 `server.address: ${SERVER_ADDRESS:127.0.0.1}`（仍可用环境变量覆盖）；②`FileReadTool` 改为**解析到根目录内**——相对路径按根解析，绝对路径仅当已在根内才接受，逃逸则在**读取之前**拒绝且**不回显内容**，并同时做**词法 `..` 归一化与 `toRealPath()` 符号链接检查**（前者不跟链接、后者对不存在的路径会抛，两者不可互相替代）。三个控制器的 `?path=` 默认值由绝对路径 `/tmp/hello.txt` 改为相对路径 `hello.txt`（沙箱化后原默认值必被拦）。**活体验证**：`hello.txt` 正常返回；`/etc/passwd`、`/Users/<me>/.ssh/id_rsa`、`../pom.xml`、`/etc/../etc/passwd` 四种逃逸**全部在读取前被拒**且响应不含内容；`lsof` 实况 demo 由 `*:37778` 变为 **`127.0.0.1:37778`**，从本机非回环地址 `10.166.1.125:37778` **连接失败**。**+8 条测试**（`FileReadToolTest`，含符号链接逃逸），demo 套件 **25 → 33 全绿**。demo README 端点表下的警告改为如实描述现状。
-  **本轮未改任何 Java 代码**，实测用的 demo 进程与探针文件已清理。
+- **Status**: ✅ **已修** —— 逐字迁入 [`…-40.md`](../archive/2026-10-07_backend-review-evidence-40.md)（第 323 轮）。
 ### P2-8: 读取侧没有维度路由 —— 写入按维度分列，检索恒定比 `embedding_1024`
 
 - **Scope / Evidence**: [`…-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
@@ -1026,15 +1025,7 @@
   `application*.yml` / `docker-compose.yml` / `.env.example` / 脚本全部零命中），
   默认空值 → `allowedOrigins` 空数组 → **所有预检一律 403，CORS 默认关闭（安全默认成立）**。
   但那份 draft **明确指导浏览器前端用户去配置它**，照做之后恰好丢掉这两个端点。
-- **Status**: ✅ **已修（第 311 轮）** —— `allowedMethods` 补入 `"PATCH"`。
-  **按既定规则归类为「纯加宽」而单方面实施**：它只对**运维已显式配置的 origin** 生效，
-  不改变任何现有客户端的行为（原先被拒的调用变通，早先能通的调用不受影响），
-  且不引入有意义的攻击面（能跨域调 GET/POST/PUT/DELETE 的 origin 本就比 PATCH 权限更高）。
-  **修后实测**（重启 37790 载入新 jar，`unzip -p ... WebConfig.class` 内确认含 `PATCH`）：
-  六个方法**全部 200** 且 `Allow-Methods: GET,POST,PUT,DELETE,PATCH,OPTIONS`；
-  另一条 PATCH 端点路径同样 200；**回归检查**：未授权 origin 仍 **403 且 ACAO 头出现 0 次**。
-  `mvn -o compile` 与 `package -DskipTests` 均 EXIT=0。
-  **按纪律进入连续 3 轮复查计数（第 311 轮为 1/3，第 312、313 轮各复查一遍）。**
+- **Status**: ✅ **已修** —— 逐字迁入 [`…-40.md`](../archive/2026-10-07_backend-review-evidence-40.md)（第 323 轮）。
 - **第 312 轮复查 2/3 的结果：新发现问题，计数重置** —— 见 P2-79。
 
 ### P2-79: CORS 的凭据开关**只检查列表第 0 位**是否含 `*`——`*` 出现在别处时**整个 API 返 500**
@@ -1108,23 +1099,7 @@
   于是 a.example 一度显示「200 但无 ACAO」。**改用 `-D` 倒原始响应头后**，
   `Access-Control-Allow-Origin: http://a.example` **确实存在**——
   **数据没错，是探针错了**；改正后结论反而更硬（b.example 是确凿的 403）。
-- **Status**: ✅ **已修（第 313 轮）** —— 新增 `private static String[] parseOrigins(String)`：
-  `split(",")` → `trim()` → **丢弃空元素**。
-  **按既定规则归类为「已损坏行为」而单方面实施**：它不是安全放宽——
-  trim 只让**运维自己写进列表里**的那个域名真正生效，**不可能放行列表之外的任何 origin**
-  （`d.example` 与 `evil.example` 实测仍 403）；原行为则是**静默忽略配置的一部分**。
-  **修后实测**（重启 37790 载入新 jar，`unzip -p … WebConfig.class | strings` 确认含 `parseOrigins`），
-  配置**刻意写成脏的** `'http://a.example, http://b.example , ,http://c.example'`：
-
-  | `Origin` | 实测 |
-  |---|---|
-  | `http://a.example` / `http://b.example` / `http://c.example` | **200**，**各自回正确的 ACAO** |
-  | `http://d.example`（未列出） | **403**，无 ACAO |
-  | `http://evil.example`（未列出） | **403**，无 ACAO |
-  | `ACRM=PATCH` | **200**，`ACAM=GET,POST,PUT,DELETE,PATCH,OPTIONS`（P2-78 未回退） |
-  | 普通请求 `GET /api/stats` | **200** |
-
-  异常数 **0**。`mvn -o compile` 与 `package -DskipTests` 均 EXIT=0。
+- **Status**: ✅ **已修** —— 逐字迁入 [`…-40.md`](../archive/2026-10-07_backend-review-evidence-40.md)（第 323 轮）。
 - **⚠️ 第 314 轮复查 2/3：在本修复里发现一条加宽边 → 复查计数重置为 1/3**
   **实测（37790，配置 `' *'`，即星号前有一个空格）**：
 
@@ -1372,6 +1347,43 @@
   409 的四个状态、`limit` 钳制、`offset` 下限）**逐条核到源码为真**
   （`ViewerSessionService.java:55,60,106,123,136,149,158`），
   但 **DELETE 是破坏性端点，本轮一律未调用**；404/409 的**运行时**行为**未实测**，仅代码可证。
+
+### P2-87: 架构文档的「后端参考提交」`ed37a1b2…` **在任何地方都解析不到**，版本配对声明半边失效
+
+- **Scope / Evidence**: `docs/ARCHITECTURE.md:50` 与 `docs/ARCHITECTURE-zh-CN.md:49`
+  （另一进程于 `6e5890d` 新增的双语段落）：
+  > The backend/WebUI relationship is version-paired rather than "latest wins".
+  > For the current reviewed capability set, **the backend reference is `ed37a1b227b6067befe5c9ada331989d02cbfad0`**
+  > and the compatible `webui/` submodule commit is `72e7804b13f89b03177f746867e0dd341fb12c8a`.
+- **Problem**: 该段落的功能是**让读者能取回这一对版本**。**配对的另一半完全正常**：
+  `72e7804b…` 经三重核实**全部吻合** —— 子模块自身 `HEAD`、父仓库记录的 gitlink、
+  以及文档中的字面值。**而 `ed37a1b2…` 在任何地方都不存在**，逐项排查结果：
+
+  | 查证位置 | 结果 |
+  |---|---|
+  | 本仓全部 refs / 历史 | 无 |
+  | `git rev-list --all` 中以 `ed3` 开头的提交 | **零条** |
+  | reflog | 无 |
+  | 悬空 / 不可达对象（`git fsck`） | 无 |
+  | `webui/` 子模块历史 | `fatal: could not get object info` |
+  | origin 远端（本地与其已同步） | 无 |
+
+  故这段话**有一半无法兑现**：读者按它去 checkout 会直接失败。
+- **⚠️ 为什么不单方面改写（与 P2-86 的关键区别）**：
+  P2-86 的正确值是**被权威确定的** —— 活体 `/v3/api-docs` 的 `params=[('id','path')]`
+  与控制器注解都指向 `{id}`，因此可以照权威直接改。
+  **本条的正确值只能靠推断**：文档所说的「current reviewed capability set」
+  （viewer 会话目录 + 删除 + V19）经 `git log --diff-filter=A` 核实**只由一个提交引入**，
+  即 **`6e5890d`**（`ViewerSessionService.java` / `ViewerSessionController.java` /
+  `V19__viewer_session_indexes.sql` 三者同为该提交新增）。
+  **这使 `6e5890d` 成为高度可能的正解，但仍是推断而非判定** ——
+  作者也可能指的是自己某个已 rebase 掉的中间提交。故**记录并附证据，不猜改他人刚写的版本钉**：
+  **写错一个钉比标出一个坏钉更糟**。
+- **Severity**: 中（不高，但这是**架构文档里唯一一处读者会直接照着执行的断言**，
+  且该断言的**用途就是可执行性**）。
+- **建议修法**（待作者或用户确认）：把两处 `ed37a1b2…` 改为 `6e5890d`，
+  或改写为不钉具体 hash 的表述（例如只保留 WebUI 一侧的 hash 并注明后端以父仓库当前 `main` 为准）。
+- **Status**: ⏸ **记录不修** —— 需作者意图确认，见上。
 
 ## Processing Rules
 - **第 316 轮新增流程规则（连续三轮教训的归纳）——落笔前先查该模块自己的文档**：
