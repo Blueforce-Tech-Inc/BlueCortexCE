@@ -105,7 +105,7 @@ Run 3 (append-only, new obs "不喜欢Sony了"):
   Service merges → [{category: "耳机", value: "Bose"}]
 ```
 
-**Key insight**: The LLM never sees prior data — it only processes new observations. The service performs the merge with the full prior from DB. This prevents silent data loss from truncation while keeping token costs ~20% lower than full-prior approaches. Old extractions are preserved as history. Timestamp distinguishes current vs historical.
+**Key insight**: The LLM never sees prior data — it only processes new observations. The service performs the merge with the full prior from DB. This prevents silent data loss from truncation while keeping extraction input ~20% lower than today's truncated-prior path (~2500 → ~2000 tokens) and ~71% lower than a full-prior one (~7000 tokens) — see §23.4b of [phase-3-design/23.md](phase-3-design/23.md). Old extractions are preserved as history. Timestamp distinguishes current vs historical.
 
 **Implementation**: `mergeAppendOnly()` in `StructuredExtractionService.java` handles the merge logic. The `buildAppendOnlySystemPrompt()` generates the add/remove/keep_hint contract.
 
@@ -267,4 +267,4 @@ This is correct behavior for zero-shot: nothing to extract yet.
 
 **Architecture generalization: FULLY CONFIRMED. 8/8 scenarios supported.**
 
-The key architectural insight is **append-only extraction** — the LLM only processes new observations (no prior context), outputs `add`/`remove`/`keep_hint` operations, and the service merges with the full prior from DB. This prevents silent data loss from truncation while keeping token costs ~20% lower than full-prior approaches. All edge cases (conflicts, evolution, removal) are handled through explicit operations rather than LLM re-interpretation of the entire state.
+The key architectural insight is **append-only extraction** — the LLM only processes new observations (no prior context), outputs `add`/`remove`/`keep_hint` operations, and the service merges with the full prior from DB. This prevents silent data loss from truncation while keeping extraction input ~20% lower than today's truncated-prior path (~2500 → ~2000 tokens) and ~71% lower than a full-prior one (~7000 tokens) — see §23.4b of [phase-3-design/23.md](phase-3-design/23.md). All edge cases (conflicts, evolution, removal) are handled through explicit operations rather than LLM re-interpretation of the entire state.

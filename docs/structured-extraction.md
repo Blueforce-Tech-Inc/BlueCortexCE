@@ -446,7 +446,7 @@ Storing extraction results as `ObservationEntity` is a deliberate design choice.
 - **Consistent access patterns** — the same APIs that work for regular observations work for extraction results
 - **Embedding-based discovery** — extraction results have embeddings, enabling semantic search
 - **Append-only history** — every extraction run creates a new observation, preserving the full history
-- **Append-only extraction** — subsequent runs use `add`/`remove`/`keep_hint` operations (no prior context in LLM prompt), preventing data loss from truncation while keeping token costs ~20% lower than full-prior approaches
+- **Append-only extraction** — subsequent runs use `add`/`remove`/`keep_hint` operations (no prior context in LLM prompt), preventing data loss from truncation while keeping extraction input ~20% lower than today's truncated-prior path (~2500 → ~2000 tokens) and ~71% lower than a full-prior one (~7000 tokens)
 
 ## Scenarios
 
