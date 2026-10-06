@@ -354,6 +354,10 @@ code --install-extension GabrielBB.vscode-lombok
 ## 项目结构
 
 ```
+.agents/skills/                        # 项目级 Agent Skills
+│   ├── doc-management/SKILL.md        # 文档生命周期规则
+│   └── ...                             # 其他项目级技能
+
 backend/                               # 主 Spring Boot 应用
 │   ├── src/main/java/com/ablueforce/cortexce/
 │   │   │

@@ -2414,29 +2414,57 @@ open finding (P2-23) and the status code may change.
 
 ### HTTP Status Codes
 
-| Code | Description |
-|------|-------------|
-| 200 | OK |
-| 201 | Created |
-| 400 | Bad Request |
-| 401 | Unauthorized |
-| 403 | Forbidden |
-| 404 | Not Found |
-| 429 | Rate Limit Exceeded |
-| 500 | Internal Server Error |
-| 503 | Service Unavailable (health/readiness) |
+Verified against a live backend (`GET /v3/api-docs`, 67 operations) and against the
+source. Codes the application never emits are marked as such rather than listed as
+if they were reachable.
 
-### Business Error Codes
+| Code | Description | Emitted? |
+|------|-------------|----------|
+| 200 | OK | yes |
+| 201 | Created | **no** — `HttpStatus.CREATED` has zero occurrences in the backend |
+| 400 | Bad Request | yes — see the two body shapes below |
+| 401 | Unauthorized | **no** — this API implements **no authentication**, so it never challenges |
+| 403 | Forbidden | **no** by the application; a 403 can appear as **Spring's CORS preflight rejection** when `claudemem.cors.allowed-origins` is unset |
+| 404 | Not Found | yes |
+| 429 | Rate Limit Exceeded | yes — **only** `POST /api/ingest/tool-use` (see the rate-limit note there) |
+| 500 | Internal Server Error | yes |
+| 503 | Service Unavailable | **no** — `HttpStatus.SERVICE_UNAVAILABLE` has zero occurrences; a database outage surfaces as 500 |
 
-| Code | Description |
-|------|-------------|
-| `MISSING_FIELD` | Required field is missing |
-| `INVALID_FORMAT` | Field format is invalid |
-| `NOT_FOUND` | Resource not found |
-| `RATE_LIMIT_EXCEEDED` | Rate limit triggered (10 req/60s per session) |
-| `DB_ERROR` | Database operation failed |
-| `LLM_ERROR` | LLM service call failed |
-| `EMBEDDING_ERROR` | Embedding generation failed |
+### Error Response Bodies
+
+There is **no stable machine-readable error code** in this API. An earlier revision
+of this section listed seven business codes (`MISSING_FIELD`, `INVALID_FORMAT`,
+`NOT_FOUND`, `RATE_LIMIT_EXCEEDED`, `DB_ERROR`, `LLM_ERROR`, `EMBEDDING_ERROR`);
+none of them exists — all seven have **zero occurrences** across the backend and
+all four SDKs, and no response has ever carried one. Clients that branch on them
+would take their error branch every time.
+
+Errors arrive in exactly **two shapes**:
+
+**1. Application errors** — a single free-text message, no `code` field:
+
+```json
+{ "error": "observationId is required" }
+```
+
+The message is hand-written per endpoint and is **not** a stable contract; match on
+the HTTP status, not on the wording.
+
+**2. Framework errors** — Spring's default body, produced before the controller runs
+(type-conversion failures, missing required parameters, unmatched routes):
+
+```json
+{
+  "timestamp": "2026-10-06T08:28:06.016+00:00",
+  "status": 400,
+  "error": "Bad Request",
+  "path": "/api/memory/observations/not-a-uuid"
+}
+```
+
+Note that a malformed path id lands here rather than in shape 1 — `PATCH` and
+`DELETE /api/memory/observations/{id}` answer **400**, not 404, for an unparseable
+UUID (see the changelog entry for 2026-04-01 and P2-75).
 
 ---
 

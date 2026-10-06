@@ -2409,29 +2409,54 @@ eventSource.onmessage = (event) => {
 
 ### HTTP 状态码
 
-| 状态码 | 含义 | 说明 |
-|--------|------|------|
-| 200 | OK | 请求成功 |
-| 201 | Created | 资源创建成功 |
-| 400 | Bad Request | 请求参数错误 |
-| 401 | Unauthorized | 未授权 |
-| 403 | Forbidden | 禁止访问 |
-| 404 | Not Found | 资源不存在 |
-| 429 | Too Many Requests | 速率限制触发 |
-| 500 | Internal Server Error | 服务器内部错误 |
-| 503 | Service Unavailable | 服务不可用（数据库连接失败等） |
+下表已对活体后端（`GET /v3/api-docs`，67 个操作）与源码逐条核对。
+**应用自身从不返回**的状态码已如实标注，不再按「可达」列出。
 
-### 业务错误码
+| 状态码 | 含义 | 是否返回 |
+|--------|------|---------|
+| 200 | OK | 是 |
+| 201 | Created | **否** —— 后端 `HttpStatus.CREATED` 零命中 |
+| 400 | Bad Request | 是 —— 见下方两种响应体 |
+| 401 | Unauthorized | **否** —— 本 API **不做鉴权**，故从不发起质询 |
+| 403 | Forbidden | 应用本身**否**；当 `claudemem.cors.allowed-origins` 未配置时，可能出现 **Spring 的 CORS 预检拒绝**返回的 403 |
+| 404 | Not Found | 是 |
+| 429 | Rate Limit Exceeded | 是 —— 但**仅** `POST /api/ingest/tool-use`（见该端点的限流说明） |
+| 500 | Internal Server Error | 是 |
+| 503 | Service Unavailable | **否** —— `HttpStatus.SERVICE_UNAVAILABLE` 零命中；数据库故障表现为 500 |
 
-| 错误码 | 说明 |
-|--------|------|
-| `MISSING_FIELD` | 缺少必填字段 |
-| `INVALID_FORMAT` | 字段格式错误 |
-| `NOT_FOUND` | 资源不存在 |
-| `RATE_LIMIT_EXCEEDED` | 速率限制触发（10 次/60秒） |
-| `DB_ERROR` | 数据库操作失败 |
-| `LLM_ERROR` | LLM 服务调用失败 |
-| `EMBEDDING_ERROR` | 向量嵌入生成失败 |
+### 错误响应体
+
+本 API **没有稳定的机器可读错误码**。本节早期版本列出过七个业务错误码
+（`MISSING_FIELD`、`INVALID_FORMAT`、`NOT_FOUND`、`RATE_LIMIT_EXCEEDED`、
+`DB_ERROR`、`LLM_ERROR`、`EMBEDDING_ERROR`）——**七个都不存在**：
+在后端与四家 SDK 中**全部零命中**，也从未有任何响应携带过它们。
+按它们写分支的客户端会**每次都走进错误分支**。
+
+错误只有**两种形态**：
+
+**1. 应用错误** —— 单个自由文本消息，**无 `code` 字段**：
+
+```json
+{ "error": "observationId is required" }
+```
+
+该消息由各端点逐条手写，**不是稳定契约**；请按 HTTP 状态码分支，不要匹配文案。
+
+**2. 框架错误** —— Spring 默认响应体，产生于控制器执行之前
+（类型转换失败、必填参数缺失、路由未匹配）：
+
+```json
+{
+  "timestamp": "2026-10-06T08:28:06.016+00:00",
+  "status": 400,
+  "error": "Bad Request",
+  "path": "/api/memory/observations/not-a-uuid"
+}
+```
+
+注意 path 中的 id 畸形时走的是这一形态而非第一种：`PATCH` 与
+`DELETE /api/memory/observations/{id}` 对无法解析的 UUID 返 **400** 而不是 404
+（见 2026-04-01 变更日志与 P2-75）。
 
 ---
 

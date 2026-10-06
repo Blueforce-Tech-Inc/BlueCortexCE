@@ -1002,6 +1002,39 @@
 - **Status**: ⏸ **记录不修** —— 同 P2-76，响应码变更属对外行为变更。
   修法若采纳，最小形态是在四个方法体开头各加一行空白检查（与同文件 `count`/`maxChars` 的既有写法同构）。
   **注**：`promptNumber` 无范围检查是同族但已单独立项（P2-69），本条只管「空白必填参数报 500」。
+### P2-78: CORS 的 `allowedMethods` **漏了 PATCH**——按文档开启 CORS 后，两个 PATCH 端点对浏览器静默失效
+
+- **Scope / Evidence**: `backend/src/main/java/com/ablueforce/cortexce/config/WebConfig.java:52-57`
+  （`/api/**` 映射的 `allowedMethods`）；配置项 `claudemem.cors.allowed-origins` 定义于同文件 `:18`。
+- **Problem**: 允许方法列表是 `GET, POST, PUT, DELETE, OPTIONS`——**没有 `PATCH`**，
+  而活体 `/v3/api-docs` 明确有**两个 PATCH 端点**：
+  `PATCH /api/session/{sessionId}/user` 与 `PATCH /api/memory/observations/{id}`（活体方法分布
+  `GET 37 / POST 25 / PUT 1 / PATCH 2 / DELETE 2`）。**跨域预检按允许清单判定**，
+  清单里没有的方法**直接 403、不带任何 CORS 头**。
+  **实测对照（第 311 轮，37790 开启 CORS / 37777 未开启）**：
+
+  | `Access-Control-Request-Method` | 37790（已开启 CORS） | 37777（未开启） |
+  |---|---|---|
+  | `GET` / `POST` / `PUT` / `DELETE` / `OPTIONS` | **200** + `Allow-Methods` 头 | **403** |
+  | **`PATCH`** | **403，无任何 CORS 头** | **403** |
+
+  **对照组是关键**：37777 上 GET 与 PATCH **同为 403**，说明 37790 上 PATCH 的 403
+  **不是「CORS 没开」那个基线**，而是**被允许清单单独拒绝**——同一实例上 GET 200 / PATCH 403
+  就是判别实验本身。
+  **今天不可触发**：`claudemem.cors.allowed-origins` **全仓从未被设置**
+  （只在 `@Value` 默认值与 `docs/drafts/spring-ai-integration-plan.md:138` 出现；
+  `application*.yml` / `docker-compose.yml` / `.env.example` / 脚本全部零命中），
+  默认空值 → `allowedOrigins` 空数组 → **所有预检一律 403，CORS 默认关闭（安全默认成立）**。
+  但那份 draft **明确指导浏览器前端用户去配置它**，照做之后恰好丢掉这两个端点。
+- **Status**: ✅ **已修（第 311 轮）** —— `allowedMethods` 补入 `"PATCH"`。
+  **按既定规则归类为「纯加宽」而单方面实施**：它只对**运维已显式配置的 origin** 生效，
+  不改变任何现有客户端的行为（原先被拒的调用变通，早先能通的调用不受影响），
+  且不引入有意义的攻击面（能跨域调 GET/POST/PUT/DELETE 的 origin 本就比 PATCH 权限更高）。
+  **修后实测**（重启 37790 载入新 jar，`unzip -p ... WebConfig.class` 内确认含 `PATCH`）：
+  六个方法**全部 200** 且 `Allow-Methods: GET,POST,PUT,DELETE,PATCH,OPTIONS`；
+  另一条 PATCH 端点路径同样 200；**回归检查**：未授权 origin 仍 **403 且 ACAO 头出现 0 次**。
+  `mvn -o compile` 与 `package -DskipTests` 均 EXIT=0。
+  **按纪律进入连续 3 轮复查计数（第 311 轮为 1/3，第 312、313 轮各复查一遍）。**
 
 ## Processing Rules
 - **第 293 轮续记**：把第 292 轮的做法推广到其余 7 类**逐字重复**行（实测记录 6、Reproduction 3、已解决条目 4、复核记录 5+2、探针记录 2），一律只缩短显示名、链接目标不变，**零信息损失**。**至此本文件里已没有可再压缩的重复**：余下每一行要么是决策、要么是问题陈述、要么是指针。

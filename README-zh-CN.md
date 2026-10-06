@@ -290,6 +290,8 @@ mvn package    # 构建 jar 包
 
 ```
 cortexce/
+├── .agents/             # 项目级 Agent 配置与技能
+│   └── skills/           # 从项目目录加载的 Skill 定义
 ├── backend/           # Spring Boot 应用 (Java 21)
 ├── proxy/             # Thin Proxy (Node.js)
 ├── openclaw-plugin/   # OpenClaw 集成

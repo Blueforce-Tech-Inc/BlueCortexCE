@@ -291,6 +291,8 @@ mvn package    # build jar
 
 ```
 cortexce/
+├── .agents/             # Project-local agent configuration and skills
+│   └── skills/           # Skill definitions loaded from the project
 ├── backend/           # Spring Boot application (Java 21)
 ├── proxy/             # Thin Proxy (Node.js)
 ├── openclaw-plugin/   # OpenClaw integration

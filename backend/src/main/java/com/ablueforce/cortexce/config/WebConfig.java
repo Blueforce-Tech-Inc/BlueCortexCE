@@ -49,9 +49,14 @@ public class WebConfig implements WebMvcConfigurer {
         boolean allowCredentials = origins.length > 0 && !origins[0].equals("*");
 
         // API endpoints CORS
+        // PATCH is listed because two live endpoints use it
+        // (PATCH /api/session/{sessionId}/user, PATCH /api/memory/observations/{id}).
+        // Without it the preflight for those two answers 403 while every other
+        // method answers 200, so a browser client following the documented way
+        // to enable CORS silently loses exactly those two endpoints. See P2-78.
         registry.addMapping("/api/**")
             .allowedOrigins(origins)
-            .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+            .allowedMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
             .allowedHeaders("*")
             .allowCredentials(allowCredentials)
             .maxAge(3600);

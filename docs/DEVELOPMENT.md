@@ -355,6 +355,10 @@ Create `.vscode/launch.json`:
 ## Project Structure
 
 ```
+.agents/skills/                        # Project-local Agent Skills
+│   ├── doc-management/SKILL.md        # Documentation lifecycle rules
+│   └── ...                             # Additional project-local skills
+
 backend/                               # Main Spring Boot application
 │   ├── src/main/java/com/ablueforce/cortexce/
 │   │   │
