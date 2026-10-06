@@ -741,7 +741,7 @@ mvn clean install -DskipTests
 | 客户端方法 | 后端端点 | V14 | Phase 3 |
 |------------|---------|-----|---------|
 | `startSession()` | `POST /api/session/start` | | ✅ userId |
-| `updateSessionUserId()` | `PATCH /api/session/{id}/user` | | ✅ 新增 |
+| `updateSessionUserId()` | `PATCH /api/session/{sessionId}/user` | | ✅ 新增 |
 | `recordObservation()` | `POST /api/ingest/tool-use` | ✅ source, extractedData | |
 | `recordSessionEnd()` | `POST /api/ingest/session-end` | | |
 | `recordUserPrompt()` | `POST /api/ingest/user-prompt` | | |

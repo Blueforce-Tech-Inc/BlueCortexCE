@@ -100,7 +100,7 @@ client.close();
 | Method | HTTP | Description |
 |--------|------|-------------|
 | `startSession(req)` | `POST /api/session/start` | Start or resume session |
-| `updateSessionUserId(sessionId, userId)` | `PATCH /api/session/{id}/user` | Update session user |
+| `updateSessionUserId(sessionId, userId)` | `PATCH /api/session/{sessionId}/user` | Update session user |
 
 #### Capture (fire-and-forget)
 

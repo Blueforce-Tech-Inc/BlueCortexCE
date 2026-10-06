@@ -225,7 +225,12 @@
 **③Python README `:229-238`（中英双语同节）**：明写「There is **no** response size cap in this SDK」，并给出**原因**（`requests` 无可移植的流式检查钩子）、**后果**（只受进程内存约束）、**建议**（把 `limit` 控制小些）。
 **②结论：P2-82 不是「无人知晓的缺口」，而是已双语记载的、有理由的有意取舍**——上一轮记成缺陷**定性错了**。已更正记录：**技术事实不变**（Python 无上限、Go/JS 有 10 MiB），**只改定性**（缺口 → 已记载的取舍），剩下的问题降级为**产品决策**（要不要改），不是补缺口。
 **`docs/API.md` 本身本轮零改动**——它不含响应体上限的相关断言。
-- **下一方向**: SDK README（二百一十七轮）
+- **最近完成**: SDK README（2026-10-06 二百一十七轮，一项，**11 处**，双语同步已修）。**DOC-1（已修）** **一份 Go SDK 指南把会话端点的路径变量名写错了，而这是八十轮前那次清扫的残留。** `docs/go-sdk-guide.md:293` 写 `PATCH /api/session/{id}/user`；**活体 `/v3/api-docs` 是 `{sessionId}`（`params=['sessionId']`）**，源码 `SessionController.java:294` 亦然。**不是新错误类**：第 157 轮已把同一处替换在**十个文件、十四处**全部更正，**这批是当时漏掉的**。
+**按断言清扫得 11 处 / 10 文件**：`backend/README.md`、`cortex-mem-spring-integration/README.md`+`-zh-CN.md`、`js-sdk/cortex-mem-js/README.md`+`-zh-CN.md`、`docs/DEPLOYMENT.md`+`-zh-CN.md`、`docs/api-json-naming-convention.md`（**2 处**）、`docs/go-sdk-guide.md`、`docs/drafts/js-sdk-design.md`。
+**⚠️ 按断言清扫 ≠ 按前缀清扫**：`/api/memory/observations/{id}` 的变量名**确实是 `id`**（活体 `params=['id']`），全库 **94 处全部保留、一个未改**——第 157 轮就此事立过规矩。**刻意排除**：归档（不可改）、`patrol-rotation.md`（历史记录）、三份工作文件（其中是历史叙述非断言）。
+**改后核验三项**：非历史文件残留 **0**；`observations/{id}` 仍 **94**（未误伤）；`git diff --numstat` 恰为 **11 增 / 11 删**，无附带改动。
+**探针教训**：首次 grep 输出被终端**截断**，差点少算一处（`docs/drafts/js-sdk-design.md`）；改用脚本计数才发现真实值是 **11 而非 10**——**数字必须连同计数口径一起核对**。
+- **下一方向**: 设计文档（二百一十八轮）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
 
 ## Pending Doc Issues

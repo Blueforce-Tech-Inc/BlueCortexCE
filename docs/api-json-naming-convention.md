@@ -98,13 +98,13 @@ V14 camelCase override.
 |----------|-------------|--------|
 | `POST /api/session/start` | `Map.of(...)` | **mixed** — see below |
 | `GET /api/session/{id}` | `Map.of(...)` | **mixed** — see below |
-| `PATCH /api/session/{id}/user` | `Map.of(...)` | **camelCase** |
+| `PATCH /api/session/{sessionId}/user` | `Map.of(...)` | **camelCase** |
 
 Session start response keys (verified live): `session_id` (snake), `session_db_id`
 (snake), `prompt_number` (snake), `context` (single word), `updateFiles` (**camelCase** —
 WebUI compat), `source` (absent when not V18-tagged).
 
-`PATCH /api/session/{id}/user` response keys: `status`, `sessionId`, `userId` (all camelCase).
+`PATCH /api/session/{sessionId}/user` response keys: `status`, `sessionId`, `userId` (all camelCase).
 
 ### Memory (MemoryController)
 

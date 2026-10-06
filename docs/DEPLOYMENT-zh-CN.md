@@ -574,7 +574,7 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 ### 5.7 多用户部署
 
 `userId` 是**会话级**属性，在会话开始时设置（`POST /api/session/start` 的 `user_id`
-字段），或事后挂接（`PATCH /api/session/{id}/user`）。它**不是**观测的属性：
+字段），或事后挂接（`PATCH /api/session/{sessionId}/user`）。它**不是**观测的属性：
 `mem_observations` 没有用户列，因此无法从一条已存记录上读出它属于谁。
 
 **部分端点认 `userId`，而两个常用端点不认。** 在一个只含 alice 一条观测的项目上实测：

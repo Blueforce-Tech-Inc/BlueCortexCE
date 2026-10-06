@@ -593,7 +593,7 @@ troubleshooting table above.
 
 `userId` is a **session-level** attribute, set when a session starts
 (`POST /api/session/start`, field `user_id`) or attached later
-(`PATCH /api/session/{id}/user`). It is not a property of an observation:
+(`PATCH /api/session/{sessionId}/user`). It is not a property of an observation:
 `mem_observations` has no user column, so a user cannot be read off a stored
 record.
 

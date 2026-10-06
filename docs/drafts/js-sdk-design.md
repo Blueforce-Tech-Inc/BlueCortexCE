@@ -131,7 +131,7 @@ Capture operations (RecordObservation, RecordSessionEnd, RecordUserPrompt) use f
 | # | Method | HTTP | Endpoint |
 |---|--------|------|----------|
 | 1 | `startSession` | POST | `/api/session/start` |
-| 2 | `updateSessionUserId` | PATCH | `/api/session/{id}/user` |
+| 2 | `updateSessionUserId` | PATCH | `/api/session/{sessionId}/user` |
 | 3 | `recordObservation` | POST | `/api/ingest/tool-use` |
 | 4 | `recordSessionEnd` | POST | `/api/ingest/session-end` |
 | 5 | `recordUserPrompt` | POST | `/api/ingest/user-prompt` |

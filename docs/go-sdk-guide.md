@@ -290,7 +290,7 @@ if err != nil {
 fmt.Printf("Updated: session=%s user=%s\n", result.SessionID, result.UserID)
 ```
 
-**Backend endpoint:** `PATCH /api/session/{id}/user`
+**Backend endpoint:** `PATCH /api/session/{sessionId}/user`
 
 ---
 

@@ -762,7 +762,7 @@ The client talks to these Cortex CE endpoints:
 | Client Method | Backend Endpoint | V14 | Phase 3 |
 |---------------|-----------------|-----|---------|
 | `startSession()` | `POST /api/session/start` | | ✅ userId |
-| `updateSessionUserId()` | `PATCH /api/session/{id}/user` | | ✅ NEW |
+| `updateSessionUserId()` | `PATCH /api/session/{sessionId}/user` | | ✅ NEW |
 | `recordObservation()` | `POST /api/ingest/tool-use` | ✅ source, extractedData | |
 | `recordSessionEnd()` | `POST /api/ingest/session-end` | | |
 | `recordUserPrompt()` | `POST /api/ingest/user-prompt` | | |

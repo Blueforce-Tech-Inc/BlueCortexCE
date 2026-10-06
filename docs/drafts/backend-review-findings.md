@@ -1228,6 +1228,60 @@
   上面是**代码路径层面的断言**（无上限检查、requests 会缓冲），
   **不是**「已复现的内存事故」。
 
+### 加注（不改写归档）：归档条目 **30-2** 的跳过理由**已经过时**
+
+- **原条目**：[`2026-09-30_backend-review-findings-history.md`](../archive/2026-09-30_backend-review-findings-history.md) 第 1894 行（表格行 `30-2`）：
+  「`/api/logs` 和 `/api/logs/clear` 端点无认证/授权保护。日志内容可能包含敏感调试信息……
+  ⭭ 跳过（**设计决策：服务绑定 localhost，外网不可达**；添加认证属于架构变更）」。
+  **归档不得修改**，故在此加注。
+- **该前提今天不成立**（第 317 轮实测）：`docker-compose.yml:88` 的端口映射是
+  `"${SERVER_PORT:-37777}:37777"`，**没有主机 IP 前缀** → 发布到**所有网卡**；
+  `:60` 另设 `SERVER_ADDRESS: 0.0.0.0`（即 P2-70）。后端**唯一的 Servlet Filter 是
+  `MdcAutoFilter`**（关联 ID，**不是鉴权**），全仓无 `SecurityFilterChain`
+  → **推荐的 Docker 部署下，同网段任何人可读日志、并可 `POST /api/logs/clear` 抹掉它**。
+- **与 30-2 的关系**：**这不是新缺陷，是既有记录的前提失效**。
+  原条目本身仍然成立（无认证属实），**只是「外网不可达」这条免责理由在 compose 路径下已不适用**。
+  危害的措辞可以更准：`clear` 是**破坏性**端点（`LogsController:165` 用
+  `Files.writeString(todayLog, "")` 截断），因此「可读」之外还有「可销毁」。
+- **未验证的部分，不写**：本轮**没有调用** `POST /api/logs/clear`（它是破坏性的，
+  且会毁掉正在用于关联的日志）——截断行为是**读码确认**（`:161-185`），**非实测**。
+  **实测的只有只读部分**：`GET /api/logs?lines=3` 返回
+  `totalLines=48297 / returnedLines=3 / files=['claude-mem-2026-10-06.log']`，
+  且钳位与十六进制前缀解析与 `docs/API.md:2896-2897` **记载一致**（`0`→1、`-5`→1、
+  `99999`→10000、`0x10`→16）——**故该控制器与对应文档本身零缺陷**。
+
+### P2-83: `PATCH /api/session/{id}/user` —— **11 处仍用错路径变量名**，是第 157 轮那次清扫的残留
+
+- **Scope / Evidence**: 活体 `/v3/api-docs` 权威写法
+  `PATCH /api/session/{sessionId}/user`，`params=['sessionId']`；
+  源码 `SessionController.java:294` 的 `@PatchMapping("/{sessionId}/user")`。
+- **Problem**: 全仓 `.md` 仍有 **11 处**把该路径写成 **`/api/session/{id}/user`**，
+  分布在 **10 个文件**：
+
+  | 文件 | 处数 |
+  |---|---|
+  | `backend/README.md` | 1 |
+  | `cortex-mem-spring-integration/README.md` / `README-zh-CN.md` | 1 + 1 |
+  | `js-sdk/cortex-mem-js/README.md` / `README-zh-CN.md` | 1 + 1 |
+  | `docs/DEPLOYMENT.md` / `DEPLOYMENT-zh-CN.md` | 1 + 1 |
+  | `docs/api-json-naming-convention.md` | 2 |
+  | `docs/go-sdk-guide.md` | 1 |
+  | `docs/drafts/js-sdk-design.md` | 1 |
+
+  **这不是新错误类**：第 157 轮已把同一处替换在**十个文件、十四处**全部更正
+  （见 `patrol-rotation.md` 第 256 轮条目），**这批是当时漏掉的**。
+  **危害与当年相同**：读者照抄去拼 URL 或按 `{id}` 做断言替换，会与真实路径模板不符；
+  更实际的是**这类文档被生成工具消费时**，变量名错位会造成难以定位的失败。
+- **⚠️ 刻意未动的同类写法**：`/api/memory/observations/{id}` 的变量名**确实是 `id`**
+  （活体 `params=['id']`，`MemoryController:277`、`:427`），全库 **94 处**全部保留，
+  **一个都没改**——第 157 轮已就此事立过规矩：**按断言清扫不等于按前缀清扫**。
+- **Status**: ✅ **已修（第 317 轮）** —— 11 处全部改为 `{sessionId}`，
+  属**失实陈述的更正**，中英双语一并处理。改后核验三项：
+  **非历史文件残留 0 处**；**`/api/memory/observations/{id}` 仍为 94 处（未被误伤）**；
+  `git diff --numstat` 恰为 **11 行增 / 11 行删**，无任何附带改动。
+  **已刻意排除**：归档文件（不可修改）、`patrol-rotation.md`（历史记录，记的是当时做了什么）、
+  health-check / doc-review / findings 三份工作文件（其中提到该字符串的是历史叙述，非断言）。
+
 ## Processing Rules
 - **第 316 轮新增流程规则（连续三轮教训的归纳）——落笔前先查该模块自己的文档**：
   本循环已**连续三轮**出现同一模式：先凭代码把某处判成「缺口/缺陷」，下一轮才发现**它是被双语文档明确记载的有意设计**。

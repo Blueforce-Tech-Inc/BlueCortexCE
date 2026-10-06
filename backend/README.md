@@ -123,7 +123,7 @@ Server starts on `http://127.0.0.1:37777`.
 |--------|------|-------------|
 | POST | `/api/session/start` | Initialize session |
 | GET | `/api/session/{id}` | Get session details |
-| PATCH | `/api/session/{id}/user` | Update session user ID |
+| PATCH | `/api/session/{sessionId}/user` | Update session user ID |
 
 ### Context
 

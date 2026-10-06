@@ -98,7 +98,7 @@ client.close();
 | 方法 | HTTP | 说明 |
 |------|------|------|
 | `startSession(req)` | `POST /api/session/start` | 启动或恢复会话 |
-| `updateSessionUserId(sessionId, userId)` | `PATCH /api/session/{id}/user` | 更新会话用户 |
+| `updateSessionUserId(sessionId, userId)` | `PATCH /api/session/{sessionId}/user` | 更新会话用户 |
 
 #### 捕获（fire-and-forget）
 
