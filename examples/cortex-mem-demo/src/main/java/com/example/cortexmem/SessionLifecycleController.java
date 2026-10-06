@@ -105,7 +105,7 @@ public class SessionLifecycleController {
     public ResponseEntity<Map<String, Object>> runTool(
             @RequestParam String sessionId,
             @RequestParam String projectPath,
-            @RequestParam(defaultValue = "/tmp/hello.txt") String path) {
+            @RequestParam(defaultValue = "hello.txt") String path) {
         CortexSessionContext.begin(sessionId, projectPath);
         try {
             String result = fileReadTool.readFile(path);
@@ -187,7 +187,7 @@ public class SessionLifecycleController {
     public ResponseEntity<Map<String, Object>> fullLifecycle(
             @RequestParam(defaultValue = "default") String project,
             @RequestParam(defaultValue = "How to fix a bug?") String prompt,
-            @RequestParam(defaultValue = "/tmp/hello.txt") String toolPath) {
+            @RequestParam(defaultValue = "hello.txt") String toolPath) {
 
         String projectPath = demoProperties.resolveProjectPath(project);
         if (projectPath == null) projectPath = System.getProperty("user.dir");

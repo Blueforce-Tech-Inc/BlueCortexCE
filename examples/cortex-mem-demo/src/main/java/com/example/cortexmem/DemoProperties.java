@@ -27,12 +27,26 @@ public class DemoProperties {
      */
     private Map<String, String> projects = new LinkedHashMap<>();
 
+    /**
+     * Root directory the file read tool is confined to.
+     * Defaults to the process working directory; see {@link FileReadTool}.
+     */
+    private String fileReadRoot = System.getProperty("user.dir");
+
     public Map<String, String> getProjects() {
         return projects;
     }
 
     public void setProjects(Map<String, String> projects) {
         this.projects = projects;
+    }
+
+    public String getFileReadRoot() {
+        return fileReadRoot;
+    }
+
+    public void setFileReadRoot(String fileReadRoot) {
+        this.fileReadRoot = fileReadRoot;
     }
 
     /**

@@ -55,20 +55,20 @@ Demo runs on `http://localhost:37778`.
 | `GET /demo/tool?path=...&project=project-a` | Tool call scoped to project |
 | `GET /actuator/health` | Health check |
 
-> **`?path=` is not sandboxed, and the demo listens on every interface.**
-> `FileReadTool.readFile` calls `Files.readString(Path.of(path))` with no root
-> confinement, so `?path=` accepts **any** path the JVM can read — `/etc/passwd`,
-> `~/.ssh/id_rsa`, or a `.env` file — and the endpoint returns the contents
-> verbatim. `?project=` scopes only the *memory capture*, never the file read.
-> Separately, `application.yml` sets `server.port` but **not** `server.address`, so
-> the server binds `*:37778` rather than loopback; the backend does the opposite
-> (`address: ${SERVER_ADDRESS:127.0.0.1}`). Anything that can reach port 37778 on
-> your network can therefore read files as your user account. The demo's own
-> E2E script only ever reads from `/tmp`, so this is not covered by tests.
-> This is intentional for a throwaway demo — it exists to show the `@Tool`
-> capture path — but do not copy the endpoint, or run it on a shared network,
-> without adding path validation. Recorded as P1-2 in
-> [`docs/drafts/backend-review-findings.md`](../../docs/drafts/backend-review-findings.md).
+> **`?path=` is confined to the project root, and the demo listens on loopback only.**
+> `FileReadTool.readFile` resolves every path against `demo.file-read-root`
+> (default: the working directory) and refuses anything that escapes it —
+> a path outside the root is rejected **before** the read, with no content in
+> the response. Both a lexical `../` / absolute-path check and a symlink check
+> run, because a symlink placed inside the root can otherwise point out of it.
+> `?project=` still scopes only the *memory capture*, never the file read.
+> Separately, `application.yml` sets `server.address` to
+> `${SERVER_ADDRESS:127.0.0.1}`, so the server binds `127.0.0.1:37778` rather
+> than every interface; the backend does the same. Overridable by exporting
+> `SERVER_ADDRESS` if you deliberately want the demo reachable.
+> This was P1-2 — recorded across many rounds as "do not copy the endpoint, or
+> run it on a shared network" — and was fixed in round 294 after the user
+> authorised it. The confinement is pinned by `FileReadToolTest`.
 
 ### 4. E2E Test
 

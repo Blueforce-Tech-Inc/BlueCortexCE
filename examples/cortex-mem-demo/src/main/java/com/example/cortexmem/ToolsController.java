@@ -35,7 +35,7 @@ public class ToolsController {
      */
     @GetMapping("/demo/tool")
     public ResponseEntity<Map<String, Object>> runToolWithCapture(
-            @RequestParam(defaultValue = "/tmp/hello.txt") String path,
+            @RequestParam(defaultValue = "hello.txt") String path,
             @RequestParam(required = false) String project) {
         String sessionId = "demo-" + UUID.randomUUID();
         String projectPath = System.getProperty("user.dir");

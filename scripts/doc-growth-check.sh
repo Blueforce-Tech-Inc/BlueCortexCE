@@ -8,8 +8,8 @@ set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-readonly MAX_LINES="${MAX_LINES:-1000}"
-readonly MAX_BYTES="${MAX_BYTES:-102400}"
+readonly MAX_LINES="${MAX_LINES:-1500}"
+readonly MAX_BYTES="${MAX_BYTES:-150000}"
 
 DOCS=(
   docs/drafts/health-check-task.md

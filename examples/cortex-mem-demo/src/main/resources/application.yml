@@ -2,6 +2,10 @@
 
 server:
   port: 37778  # Dedicated demo port; do not use common development ports such as 8080.
+  # Loopback only. Without this the server binds *:37778, so anything on the
+  # network can reach the demo endpoints. The backend does the opposite
+  # (address: ${SERVER_ADDRESS:127.0.0.1}); P1-2.
+  address: ${SERVER_ADDRESS:127.0.0.1}
 
 # Cortex CE memory backend (must be running)
 cortex:
@@ -21,6 +25,9 @@ cortex:
 # Demo multi-project config — project isolation for memory
 # Switch via ?project=project-a
 demo:
+  # Root the file read tool is confined to. Paths outside it are refused, so the
+  # model can no longer be steered into reading ~/.ssh or ~/.aws; P1-2.
+  file-read-root: ${user.dir}
   projects:
     default: ${user.dir}
     project-a: /tmp/demo-project-a
