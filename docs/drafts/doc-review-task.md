@@ -210,7 +210,11 @@
 - **最近完成**: 设计文档（2026-10-06 二百一十三轮，**零缺陷**）。**DOC-0（本轮零改动）** 取 `docs/drafts/go-sdk-design.md`（195KB，最大设计文档，且正对本轮 Go 方向）。**①「15 个核心方法」看似过期，实为历史数字**——它**明确限定在 Phase 1**，且 §9 变更日志**逐迭代记录**后续新增（如「✅ 新增 `TriggerExtraction` 方法（Java SDK 未暴露）」）。**分阶段设计的阶段数字不是现状陈述，不判缺陷**（对照：接口实为 25 个 ctx 方法 + Close + String = 27）。
 **②附录 A「API 端点映射」17 行逐条对拍代码，17/17 全部一致，零幻影零错配**。未列出的 7 个方法（`Search`/`ListObservations`/`GetObservationsByIds`/`GetProjects`/`GetStats`/`GetModes`/`GetSettings`）属**遗漏非失实**，按既定规则不制造修改。
 **⚠️ 一处探针错（与本轮另一处同源）**：首版把 5 行判成「不一致」，实为**比较脚本没处理 `%s` 占位符**（`fmt.Sprintf` 的 `%s` 就是路径参数）；按占位符归一后全对。**两次教训同源：探针解析能力不足，不能当成数据错。**
-- **下一方向**: 架构文档（二百一十四轮）
+- **最近完成**: 架构文档（2026-10-06 二百一十四轮，**零缺陷**）。**DOC-0（本轮零改动）** 该方向已被查过三遍（300/304/309），故本轮换到**没人核过的具体断言**而非重扫结构。
+**①Network Security 表双语同步且准确**：两条 `ports:` 无主机 IP、Compose 设 `SERVER_ADDRESS: 0.0.0.0`、鉴权关闭 → 推荐的 Docker 部署全网可达。**P2-70 的双语更正仍在位、未漂移**。
+**②Authentication 段**「Currently no authentication (local development)」——与**第 311 轮实测**（后端 `HttpStatus.UNAUTHORIZED` **零命中**、从不返 401）**互相印证**。
+**③Data Privacy 段（本轮新查）**称隐私标签剥离在 `proxy/tag-stripping.js`——**文件确实存在**，且它实际处理的**四个标签逐字对上**（`<claude-mem-context>` / `<private>` / `<system_instruction>` / `<system-instruction>`），`replace(/…[\s\S]*?…/g, '')` 证实「**整个移除**」而非截断。**零幻影。**
+- **下一方向**: 运维/用户指南（二百一十五轮）
 - 完成本轮后必须把“最近完成”和“下一方向”更新在本节；详细历史保存在归档文件中。
 
 ## Pending Doc Issues
