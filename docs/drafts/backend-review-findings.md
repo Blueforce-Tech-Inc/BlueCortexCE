@@ -922,6 +922,37 @@
   把 Java 改成 fail-closed 会让网络错误**不再重试**（真实回归），把另三家改成 fail-open 则更差——
   两边都是行为变更，按既定规则**记录不实施**。**若要统一，需要先决定哪种极性为准。**
 
+### P2-75: 单条观测的 PATCH / DELETE **对畸形 id 返 400**，而 API 文档与 OpenAPI 注解都只把 400 写成「请求体字段类型错」
+
+- **Scope**: `MemoryController.java:277`（`@PatchMapping("/observations/{id}")`，`@PathVariable UUID id`）、
+  同文件 `:427`（`@DeleteMapping`）；文档侧 `docs/API.md:593` 起的中英双语小节 + 两处 `@ApiResponse` 注解。
+- **Problem**: `@PathVariable UUID` 在 id 不可解析时由 Spring 抛转换失败，**返回 400**，
+  **与「请求体字段类型错」是完全不同的成因，却共用同一个状态码**。**活体实测**（37777）：
+
+  | 请求 | 实测 |
+  |---|---|
+  | `PATCH /api/memory/observations/not-a-uuid` | **400** `{"status":400,"error":"Bad Request","path":"…"}` |
+  | `DELETE /api/memory/observations/not-a-uuid` | **400** 同上 |
+  | `PATCH /api/memory/observations/00000000-…-000000000000`（格式合法、不存在） | **404**（空体） |
+  | `POST /api/memory/feedback` `{"observationId":"not-a-uuid"}`（id 在**体**里） | **400** `{"error":"Invalid observationId format: not-a-uuid"}` |
+
+  文档把 `400` 写成「**Invalid field types in request body**（e.g. `title must be a string`）」、
+  `404` 写成「Observation with given UUID not found」——**读起来就是「id 写错属于 404」**。
+  实际不是：**path 里的 id 写错是 400**。**按 404 当「不存在」来写的客户端会落到通用错误分支。**
+  全库检索确认：**中英双语 API 文档从未提及这一情形**（`not-a-uuid` / `malformed id` / `畸形` 均 0 命中）。
+  **注意归因**：`MemoryController` 自己的 `@ApiResponse` 注解用的也是同一句窄措辞，
+  **所以 API.md 忠实镜像了注解——缺口源自代码里的契约描述，不是文档与代码不一致。**
+- **⚠️ 一处差点误记、已撤回**：初判为「后端对畸形 id 返 404、demo 注释失实」——**探针打错了路径**。
+  `MemoryController` 类级是 `@RequestMapping("/api/memory")`，真实全路径为
+  **`/api/memory/observations/{id}`**；我探的 `/api/observations/{id}` **根本不存在**，
+  那个 404 是**路由未匹配**而非 id 校验。改打正确路径后得到 400，
+  且**第 102 / 201 轮早已裁决过同一件事**（那句 `Invalid observationId format` **只对 `submitFeedback` 成立**）。
+  **若照字面采信，会写下一条完全错误的「失实陈述」。**
+- **Status**: ⏸ **记录不修** —— 要改就得同时动**控制器注解与中英双语文档**，
+  而注解是**对外发布的 API 契约描述**；且此处是**描述偏窄**（400 的成因少列一种）、
+  **不是陈述错误**，按既定规则「**遗漏 ≠ 失实**」不单方面改写对外契约。
+  修法若要采纳，最小形态是给两处 `400` 补一句「或 path 中的 id 不是合法 UUID」。
+
 ## Processing Rules
 - **第 293 轮续记**：把第 292 轮的做法推广到其余 7 类**逐字重复**行（实测记录 6、Reproduction 3、已解决条目 4、复核记录 5+2、探针记录 2），一律只缩短显示名、链接目标不变，**零信息损失**。**至此本文件里已没有可再压缩的重复**：余下每一行要么是决策、要么是问题陈述、要么是指针。
 - **第 292 轮补充压缩规则**：第 254 轮把 33 条条目的 Scope / Evidence 整体迁入同一个归档，于是在本文件里留下 **33 条逐字相同**的行。本轮把其中 33 条**完全相同**的改写为短显示名 `…-8.md`（链接目标不变），**零信息损失**；另有 **5 条带第 275 / 278 轮追加内容**的**一行未碰**。与第 291 轮压缩 5 条「复核记录」是同一手法：**同一事实不必逐字重复 N 遍**。

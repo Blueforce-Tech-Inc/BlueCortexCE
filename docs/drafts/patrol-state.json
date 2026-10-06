@@ -1,6 +1,6 @@
 {
-  "lastDirection": "java-sdk",
-  "lastRunAt": "2026-10-06T12:30:00+08:00",
-  "nextDirection": "go-sdk",
-  "round": 300
+  "lastDirection": "go-sdk",
+  "lastRunAt": "2026-10-06T12:55:00+08:00",
+  "nextDirection": "python-sdk",
+  "round": 301
 }
