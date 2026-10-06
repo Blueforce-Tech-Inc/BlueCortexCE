@@ -36,6 +36,8 @@
 - 🐘 **Production-grade Storage** — PostgreSQL + pgvector
 - 🔓 **MIT Licensed** — Free for personal and commercial use
 
+> **Upstream positioning:** The `claude-mem-java` repository is an experimental Java port used for inspiration and feature-gap analysis. It is not a production-ready dependency or an automatic merge authority; any idea adapted from it must be independently reviewed, implemented, and tested in BlueCortexCE.
+
 ---
 
 ## Quick Start

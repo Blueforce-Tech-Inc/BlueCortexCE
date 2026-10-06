@@ -1,4 +1,8 @@
-# Upstream Feature Reference
+# Experimental Upstream Feature Reference
+
+These snippets are portable research notes for the `upstream-sync` Skill. They are not a required design, a production guarantee, or a substitute for checking the current BlueCortexCE source, schema, API contracts, and tests.
+
+> These are historical implementation patterns from the experimental `claude-mem-java` port, not production guarantees or copy-and-paste instructions. Inspect the current BlueCortexCE code, migration baseline, API contracts, and tests before adapting any pattern.
 
 Detailed patterns for implementing upstream features in BlueCortexCE.
 

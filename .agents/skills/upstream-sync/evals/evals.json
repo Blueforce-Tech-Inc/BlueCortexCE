@@ -1,0 +1,41 @@
+{
+  "skill_name": "upstream-sync",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "同步 BlueCortexCE 到上游最新版本",
+      "expected_output": "Skill should recognize claude-mem-java as an experimental reference, use the default backend and WebUI URLs without asking for them, and ask only for the local claude-mem-java checkout path when it is not already provided. It must not treat the source as production-ready or proceed without a valid path, regardless of the Agent Skills-compatible host runtime.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "我们的后端需要合并 claude-mem 的新功能",
+      "expected_output": "Skill should use https://github.com/wubuku/claude-mem-fork.git and https://github.com/Blueforce-Tech-Inc/claude-mem.git by default, inspect WebUI alignment from Git, explain the experimental-source positioning, and describe the ideas to be evaluated.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "更新 WebUI 子模块并同步上游改进",
+      "expected_output": "Skill gathers or reuses the local checkout path, creates or updates docs/drafts/upstream-sync-plan.md without private paths, treats the work as controlled adaptation, checks API compatibility, and does not update or commit the WebUI submodule silently.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "追踪 claude-mem 的最新改进",
+      "expected_output": "Skill asks for the local path only when missing, analyzes recent commits from origin/main against a verified baseline, identifies feature gaps and risks, and creates an adaptation plan rather than assuming a production merge.",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "我想把上游的 platform_source 功能加到我们的项目里",
+      "expected_output": "Skill checks whether platform_source and V18 already exist in BlueCortexCE, avoids duplicate migrations, and proposes independent review and tests before adapting any remaining idea.",
+      "files": []
+    },
+    {
+      "id": 6,
+      "prompt": "请在 Codex 或 OpenClaw 中使用 upstream-sync，研究 claude-mem-java 的一个改进",
+      "expected_output": "Skill should work from the project-local .agents/skills/upstream-sync location without assuming Claude Code hooks, Codex-only commands, OpenClaw-only APIs, or a particular agent lifecycle. It should preserve the experimental-source warning, private-path redaction, WebUI/API compatibility checks, and controlled-adaptation workflow.",
+      "files": []
+    }
+  ]
+}

@@ -50,7 +50,7 @@ cortex-mem-python/
 from cortex_mem import CortexMemClient
 
 # 1. 创建客户端
-client = CortexMemClient(base_url="http://localhost:37777")
+client = CortexMemClient(base_url="http://127.0.0.1:37777")
 
 # 2. 启动会话
 session = client.start_session(session_id="my-session", project_path="/path/to/project")
@@ -87,7 +87,7 @@ client.close()
 ### 1.2 Context Manager 用法
 
 ```python
-with CortexMemClient(base_url="http://localhost:37777") as client:
+with CortexMemClient(base_url="http://127.0.0.1:37777") as client:
     session = client.start_session(session_id="s1", project_path="/p")
     # ... use client ...
 # 自动调用 close()
@@ -122,7 +122,7 @@ cortex-mem-python/
 
 ```python
 client = CortexMemClient(
-    base_url="http://localhost:37777",  # 默认
+    base_url="http://127.0.0.1:37777",  # 默认
     timeout=30,                          # 秒，默认 30
     max_retries=3,                       # 默认 3
     retry_backoff=0.5,                   # 秒，默认 0.5
@@ -130,6 +130,12 @@ client = CortexMemClient(
     session=None,                        # 可选 requests.Session
 )
 ```
+
+> **实施后修正（2026-10-06）**：本节原先把 `base_url` 写成 `http://localhost:37777` 并标注「默认」。
+> **落地实现的默认值是 IPv4 字面量 `http://127.0.0.1:37777`**（`client.py:78`），且该字面量是**刻意**选的：
+> 后端只绑定 `127.0.0.1`，而 `localhost` 在多数系统上先解析为 `::1`，主机名形式依赖客户端回退到第二个地址才连得上。
+> 实现里的类 docstring 就带着这段理由并指向 **P2-57**。本设计文档当时漏掉了同一处更正，
+> 第 162 轮已修 `client.py`，本轮把设计文档一并对齐。其余五个默认值与实现逐项相符，未改。
 
 ### 3.2 完整 API (26 个方法)
 
@@ -191,7 +197,7 @@ class CortexMemClient:
     # ==================== Health ====================
 
     def health_check(self) -> None:
-        """GET /api/health — raises APIError on failure"""
+        """GET /api/health — 失败抛 CortexError（HTTP 4xx/5xx 时才是 APIError）"""
 
     # ==================== Extraction ====================
 
@@ -231,6 +237,23 @@ class CortexMemClient:
     def __enter__(self) -> "CortexMemClient": ...
     def __exit__(self, *args) -> None: ...
 ```
+
+> **实施后修正（2026-10-06）**：本节的清单标题写「26 个方法」，实现里确实有 **26** 个公开方法
+> （AST 枚举核对，含 `close()`）；清单本身列出 **25** 个 API 方法 + `__enter__`/`__exit__`，
+> 少列的是 `get_observation`。属**遗漏**而非失实，故未补。
+>
+> `health_check` 原注「raises APIError on failure」，**窄了**。实现有三条失败路径，只有第一条抛 `APIError`：
+>
+> | 情形 | 抛出 |
+> |------|------|
+> | HTTP 4xx/5xx | `APIError`（`raise_for_status`） |
+> | 200 但 `status != "ok"` | **`CortexError`** |
+> | 响应体读不出 JSON 对象 | **`CortexError`** |
+>
+> 按本节与 §6 写出的层次，`except APIError:` **捕不到后两种**——而后两种恰恰是就绪探针要发现的状态。
+> 实现里的 docstring 已经把这条写对了（"Raises CortexError … A health check that cannot confirm
+> the backend answered is not a health check"）。**要捕获全部失败请用基类 `CortexError`**；
+> SDK README 的方法表对该方法的异常行为只字未提，故此处无第二处可对照。
 
 ---
 

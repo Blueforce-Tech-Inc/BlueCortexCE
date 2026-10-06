@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-This plan syncs BlueCortexCE with upstream improvements from claude-mem-java (located at `/Users/yangjiefeng/Documents/claude-mem`).
+This plan studies and selectively adapts ideas from the experimental claude-mem-java port (local checkout: `<local-upstream-path>`).
 
 | Feature | Description | Migration | Risk |
 |---------|-------------|-----------|------|
@@ -27,12 +27,12 @@ This plan syncs BlueCortexCE with upstream improvements from claude-mem-java (lo
 
 ```
 claude-mem (upstream)
-    └── claude-mem-java (fork, commits 7ba455cb4... onwards)
+    └── claude-mem-java (experimental Java port, commits 7ba455cb4... onwards)
             └── Blueforce-Tech-Inc/claude-mem (WebUI submodule source)
                     └── BlueCortexCE webui/ (Git submodule)
 ```
 
-BlueCortexCE is a fork of claude-mem-java. We need to sync:
+BlueCortexCE uses claude-mem-java as an experimental reference. We need to study and selectively adapt:
 1. Backend improvements from claude-mem-java (V9, V10 features)
 2. WebUI improvements from Blueforce-Tech-Inc/claude-mem
 

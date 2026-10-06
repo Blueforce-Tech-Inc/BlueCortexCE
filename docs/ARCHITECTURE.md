@@ -7,6 +7,7 @@ This document describes the architecture of Cortex Community Edition, including 
 ## Table of Contents
 
 - [Overview](#overview)
+- [Upstream Java Port Positioning](#upstream-java-port-positioning)
 - [Architecture Pattern: Thin Proxy + Fat Server](#architecture-pattern-thin-proxy--fat-server)
 - [System Architecture](#system-architecture)
 - [Core Components](#core-components)
@@ -33,6 +34,16 @@ Cortex Community Edition is a memory-enhanced system for AI assistants that prov
 - **Memory Evolution**: Automatic refinement and optimization
 
 The system is designed to solve the **CLI Hook Timeout Problem** in AI development environments, where synchronous processing of memory operations would block the AI assistant's response loop.
+
+---
+
+## Upstream Java Port Positioning
+
+The `claude-mem-java` repository at `https://github.com/wubuku/claude-mem-fork.git` is an **experimental Java port**. It has no required implementation-quality level and provides **no guarantee of production readiness, operational safety, security, compatibility, or correctness**.
+
+BlueCortexCE treats that repository as research material for inspiration and feature-gap analysis, not as a production upstream, release baseline, drop-in dependency, or automatic merge authority. Any idea borrowed from it must be independently reviewed, adapted to BlueCortexCE's architecture and API contracts, tested, and assessed for migration, failure-handling, security, and operational risks.
+
+In this project, “upstream sync” therefore means a controlled compare-and-adapt process. It does not certify the experimental source, and the presence of a feature in the Java port is not evidence that the feature is safe or complete for production use.
 
 ---
 
