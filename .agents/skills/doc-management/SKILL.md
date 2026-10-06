@@ -50,7 +50,7 @@ project-root/
 ├── examples/*/README.md      # Example project README (allowed)
 ├── go-sdk/*/README.md        # SDK README (allowed)
 ├── scripts/README.md         # Scripts README (allowed)
-├── skills/*/SKILL.md         # Skill definitions (allowed)
+├── .agents/skills/*/SKILL.md # Project-local skill definitions (allowed)
 ├── openclaw-plugin/skills/*/SKILL.md  # Plugin skill (allowed)
 └── memory/*.md               # Agent memory (.gitignored)
 ```

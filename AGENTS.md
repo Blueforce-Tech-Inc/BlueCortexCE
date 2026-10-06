@@ -6,6 +6,8 @@ Claude-mem is a **Java Spring Boot** implementation of a persistent memory syste
 
 ```
 cortexce/
+├── .agents/              # Agent configuration and project-local skills
+│   └── skills/           # Agent Skills
 ├── backend/              # Java Spring Boot backend service
 │   └── src/main/java/com/ablueforce/cortexce/
 │       ├── controller/   # REST API controllers
@@ -105,7 +107,7 @@ Integrated via `openclaw-plugin/`, provides search Skill.
 
 ### Documentation Management Rules
 
-**⚠️ BEFORE creating or moving any .md file**, activate `skills/doc-management/SKILL.md` and classify the document:
+**⚠️ BEFORE creating or moving any .md file**, activate `.agents/skills/doc-management/SKILL.md` and classify the document:
 
 | Type | Location | Example |
 |------|----------|---------|

@@ -60,7 +60,7 @@ memory/*.md
 BOOTSTRAP.md
 MEMORY.md
 SOUL.md
-skills/claude-code-controller/SKILL.md
+.agents/skills/claude-code-controller/SKILL.md
 IDENTITY.md
 TOOLS.md
 USER.md
