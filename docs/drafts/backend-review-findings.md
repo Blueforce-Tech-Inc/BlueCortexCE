@@ -18,23 +18,7 @@
 
 ### P2-24: V17 反馈机制整体未接线 —— 实体还映射了一个不存在的列
 
-- **Scope / Evidence**: [`…-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
-- **Problem**：**V17 反馈机制整体未接线**，三条实证：①`ObservationFeedbackEntity` 映射了一个
-  `V17` **从未创建**的 `created_at` 列（活体 `information_schema` 只有六列），任何触及该实体的
-  查询都会报 `column "created_at" does not exist`；②`findByObservationIdOrderByCreatedAtDesc`
-  实际按 `createdAtEpoch` 排序、**方法名描述的列不存在**且零调用方；③V17 声明的三项能力
-  **全部没有写入方**，「Thompson Sampling 优化的基础」目前是**纯脚手架**。
-- **Severity 说明**：①是**潜伏缺陷**而非启动即崩——该表 0 行、repository 零调用方，Spring Data
-  不预校验 JPQL 引用的列，故后端仍能正常启动，会在**第一次真正使用该实体时**炸掉。
-  ③是**未实现特性**而非错误行为。
-- **实测证据**: 逐字迁入 [`2026-10-05_backend-review-evidence-16.md`](../archive/2026-10-05_backend-review-evidence-16.md)（第 267 轮）——含逐列清单、两个 `0 行 / 0 非空` 计数与 `grep setRelevanceCount` 零命中。
-- **Verification**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
-- **Status**：①②✅ **已修复**（2026-10-03，第 219 轮）。
-  ③⏸ **记录不实现** —— 接入反馈采集属**新增特性**（需要新的写入路径、信号定义与
-  Thompson Sampling 算法），不是修 bug，按既定纪律留待项目决策。
-  **注**：`CLAUDE.md:39` 把 V17 标为「✅ Complete」，该文件已被 gitignore，
-  并入既有的 `AGENTS.md` / `CLAUDE.md` 开放项，不在本轮静默修改范围内。
-- **复核记录**: [`…-provenance-3.md`](../archive/2026-10-04_backend-review-provenance-3.md)（第 241 轮；Problem / Status 留本文件）。
+- **Status**: ✅ **已修复（2026-10-03，第 219 轮）** —— 条目全文已逐字迁入 [`…-41.md`](../archive/2026-10-07_backend-review-evidence-41.md)（第 324 轮）。
 ### P1-1: `CortexSessionContextBridgeAdvisor.adviseStream` 依赖普通 ThreadLocal，流式下既丢捕获又泄漏会话
 
 - **Scope / Evidence**: [`…-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
@@ -378,22 +362,7 @@
 - **Status**: ⏸ **记录不修** —— 让 Go 抛错会让**当前能正常返回**的调用方开始失败，属公开 API
   行为变更；四家对齐更属跨 SDK 契约决策。**文档层已先行更正**（Go README 双语）。
 ### P2-63: 一次压缩把 P2-30 **整块销毁且未进归档**——正是 P2-47 事故的复发，而现行校验规则本该拦住它
-- **Scope / Evidence**: `git log -S'### P2-30:' -- docs/drafts/backend-review-findings.md`
-  仅两条命中（`1491f5b` 建立 / **`adf4366` 销毁**）；该提交对工作文件 **+41 / −143**，
-  diff 中**无任何含 P2-30 的新增行**，其新建归档 `…-reproduction-5.md` 自述内容为
-  P1-1 / P2-8 / P2-28 / P2-29 / P2-32 / P2-34，**不含 P2-30**。
-- **Problem**: 压缩日志第 141 轮明写迁出 P2-30 的 Reproduction 时「Scope / Problem /
-  Evidence / **Status** stayed put」——**故其主体本应留在工作文件中，不是有意归档**。
-  `Impact` / `Status` / `Reproduction` / `复核记录` 幸存于两个归档，**`Problem` 彻底丢失**。
-  后果：工作文件第 265 行到 P2-32 之间**没有 P2-30**（`sed -n '413,420p'` 可见），
-  而 `python-sdk/cortex-mem-python/cortex_mem/client.py:403` 的 docstring 明写邻近站点
-  「is recorded as **P2-30**」——**读者被指向一个查不到的条目**。这与 `Processing Rules`
-  记录的 **P2-47 事故（第 258 轮）是同一失效模式**，且那次已立为常设断言。
-- **Status**: ✅ **已恢复**（第 271 轮）—— 条目骨架已回到工作文件，`client.py:403` 的引用
-  重新可解析；`Problem` 标为**重建**而非逐字，`Impact`/`Status`/`Reproduction` 保持指向
-  原始归档。**现行断言为何没拦住**：那几条校验针对的是「边界断言覆盖三种行首」与
-  「指针数 = 归档块数」，**没有一条检查「工作文件里曾经存在的条目是否还在」**——
-  补这一条属规则变更，需项目决策，未自行添加。
+- **Status**: ✅ **已恢复（第 271 轮）** —— 条目全文已逐字迁入 [`…-41.md`](../archive/2026-10-07_backend-review-evidence-41.md)（第 324 轮）。
 ### P2-32: 两个 Dockerfile 都不设 `SERVER_ADDRESS`，默认部署下服务对外不可达；根镜像的 healthcheck 还写死了端口
 
 - **Scope / Evidence**: [`…-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
@@ -866,60 +835,11 @@
 
 ### P2-73: 三份配置的 `logging.level.com.claudemem` 全部指向**已经不存在的包**——dev profile 的应用调试日志开关**从未生效**
 
-- **Scope**: `backend/src/main/resources/` 三处——`application.yml:137`（INFO）、`application-dev.yml:33`（**DEBUG**）、`application-prd.yml:18`（INFO）。
-- **Problem**: 第 294 轮给 demo 绑回环时顺带发现 `application.yml` 仍在配置 `com.claudemem` 的日志级别，遂全仓追查。
-  **该包已不存在**：`backend` 等 **9 个模块中声明 `package com.claudemem` 的文件数为 0**，83 个后端源文件**全部**是 `package com.ablueforce`；
-  打包产物 `cortex-ce-0.1.0-beta.jar` 内 `com/claudemem/` 条目 **0**，**活体 37777 进程的 classpath 上也是 0**。
-  而真正的 `com.ablueforce` 在**任何**日志配置里都没有级别。**后果按 profile 分级**：
-  `prd` 与默认档是 INFO、恰好等于 Spring Boot 默认值，故**看不出任何异常**；**只有 dev profile 是 DEBUG——
-  那一档本来就是为调试准备的，它的另外三个 key（`org.springframework.ai` / `org.springframework.web.client` / `org.springframework.http`）
-  都是真实第三方包、照常生效，唯独应用自身这一条是死的**。于是用 `--spring.profiles.active=dev` 排障的人能拿到
-  Spring AI 的 HTTP 明细日志，却**一条应用 DEBUG 都看不到**，且没有任何迹象指向「配置写错了」。
-  **活体双向实测**（37790，两次仅差 `com.claudemem`→`com.ablueforce` 这一处）：
-
-  | | DEBUG 总数 | 来自 `com.ablueforce.cortexce` | 来自 `org.springframework.ai`（未改，作对照） |
-  |---|---|---|---|
-  | 修复前 | 3 | **0** | 1 |
-  | 修复后 | 2228 | **2225** | 1 |
-
-  对照组两次都是 1，**正是它让这个断言有意义**——弱版本「有没有出现 DEBUG」在修复前那次也会通过（总数 3 ≠ 0）。
-- **Status**: ✅ **已修**（三处各改一个词）——`com.claudemem` → `com.ablueforce`。
-  `application.yml` / `application-prd.yml` 两处 INFO **与默认值相同，行为零变化**；
-  `application-dev.yml` 的 DEBUG **自此真正生效**（新增应用 DEBUG 输出），这是该档配置**一直在声称要做的事**。
-  **⚠️ 需知悉的副作用**：**本机常驻的 37777 实例正是以 `--spring.profiles.active=dev` 运行的**，
-  下次重启它会开始输出应用 DEBUG 日志（约 2200 行量级）。
-  **若不希望 dev 档变吵，把 `application-dev.yml` 那一行改成 `INFO` 即可**——那是口味选择，不是缺陷，留给使用方决定。
-  验证：完整验收在**含本轮改动的构建**上跑过（见 health-check 报告的新鲜度论证），回归 45/0/1、Phase 3 25/0/0，基线推进。
+- **Status**: ✅ **已修** —— 条目全文已逐字迁入 [`…-41.md`](../archive/2026-10-07_backend-review-evidence-41.md)（第 324 轮）。
 
 ### P2-74: 四家 SDK 的重试**默认极性三比一不同**——Go / Python / JS 是 fail-closed，**只有 Java 是 fail-open**；而这一分歧此前无处记载
 
-- **Scope**: Java `CortexMemClientImpl.isRetryable`（`:811`）、Go `error.go:201 IsRetryable`、
-  Python `error.py is_retryable`、JS `errors.ts:129 isRetryable`。
-- **Problem**: 四家在**状态码规则上完全一致**——都重试 **429/502/503/504**，都**不重试 500**
-  （Go 侧由 `isTransient` 委派给共享的 `IsRetryable`，见 `client_impl.go:443`）。
-  分歧在**无法识别的异常**上：
-
-  | SDK | 未识别的异常 | 措辞 |
-  |---|---|---|
-  | Go `IsRetryable` | **false** | 「The default is "not retryable": an error is only retryable when it is positively identified as transient」 |
-  | Python `is_retryable_error` | **false** | 「Passing anything else returns `False`, matching the **fail-closed** rule」 |
-  | JS `isRetryable` | **false** | 末尾 `return false` |
-  | **Java `isRetryable`** | **true** | 「Non-HTTP errors (network failures, timeouts) are **always worth retrying**」 |
-
-  **差异由运行时决定、不是疏忽**：Go 有 `net.Error`、JS 有 fetch 的 `TypeError` 可供匹配，
-  fail-closed 对它们是安全的；而 `RestTemplate` 把连接失败抛成 `ResourceAccessException`
-  ——一个**普通的非 HTTP 异常**——若在 Java 侧也 fail-closed，**恰恰会把它本该覆盖的那类错误静默变成不重试**。
-  **跨 SDK 移植重试逻辑时的实际后果**：来自 Java 客户端的一个意外异常会被带退避重试到 `maxRetries` 次才浮现，
-  同样的异常在其余三家**首次尝试即失败**。
-- **⚠️ 判读纪律**：原先怀疑 Java 那句 `// Matches Go SDK isTransient() for consistent behavior across SDKs`
-  是**失实陈述**，**逐字重读后撤回该判断**——该注释紧贴在四个状态码的 return 之上、
-  Javadoc 那句紧贴在「排除 500」之上，**两者各自限定的范围内都成立**。
-  按既定规则**「遗漏 ≠ 失实」**：此处是**分歧未被记载**，不是**说错了**，故不按失实陈述处理。
-- **Status**: ✅ **已按准确描述补注**（`isRetryable` 的 Javadoc 新增一段，写明默认极性的分歧、
-  运行时成因与移植后果；行内注释同步改为「四个状态码与 Go 完全一致，**但下面的 fall-through 刻意不一致，原因见 Javadoc**」）。
-  **纯注释、零行为变更**（diff 非注释行 **0**）。**行为本身不单方面改动**：
-  把 Java 改成 fail-closed 会让网络错误**不再重试**（真实回归），把另三家改成 fail-open 则更差——
-  两边都是行为变更，按既定规则**记录不实施**。**若要统一，需要先决定哪种极性为准。**
+- **Status**: ✅ **已按准确描述补注** —— 条目全文已逐字迁入 [`…-41.md`](../archive/2026-10-07_backend-review-evidence-41.md)（第 324 轮）。
 
 ### P2-75: 单条观测的 PATCH / DELETE **对畸形 id 返 400**，而 API 文档与 OpenAPI 注解都只把 400 写成「请求体字段类型错」
 
@@ -1132,37 +1052,7 @@
 
 ### P2-81: `run-all-e2e.sh` 声称跑「全部」E2E 脚本并逐条列出 3 个排除项——**实际漏掉 13 个**，其中 7 个的前置与它自己完全相同
 
-- **Scope / Evidence**: `scripts/run-all-e2e.sh:1-3` 与 `:18-20`（修复前的头注释）；
-  `:125-138`（实际调用的 10 个套件）。
-- **Problem**: 头注释原文是「Run **all local E2E test scripts** in one pass (excluding Docker
-  suites and test-llm-provider.sh)」，并另起一节「**Excluded by design (per project convention)**」
-  **逐条列出**三个：`docker-e2e-test.sh`、`docker-compose-test.sh`、`test-llm-provider.sh`。
-  **两处都不成立**。`scripts/` 下共 **37** 个 `.sh`，其中测试类 **26** 个；
-  **从未被它调用的是 16 个** = **头注释已声明的 3 个排除项** + **未声明的 13 个遗漏**：
-
-  | 未声明的遗漏（13） | 声明的前置 | 本质 |
-  |---|---|---|
-  | `java-sdk-e2e-test.sh` / `python-sdk-e2e-test.sh` / `js-sdk-e2e-test.sh` | **仅「Backend service running (port 37777)」** | **与本脚本自身前置完全相同** |
-  | `phase3-acceptance-test.sh` | **仅「Backend running on port 37777」** | 同上 |
-  | `go-sdk-unit-test.sh` / `demo-v15-extraction-test.sh` / `performance-test.sh` | 无额外服务迹象 | 同上 |
-  | `demo-v14-test.sh` / `demo-v15-test.sh` | 需 Java demo @ 37778 | 额外服务，**排除本身合理** |
-  | `go-sdk-e2e-test.sh` | 需 Go demo @ 37779 | 额外服务，**排除本身合理** |
-  | `js-demo-e2e-test.sh` / `python-demo-e2e-test.sh` / `codex-watcher-test.sh` | 需各自 demo / npm | 额外服务，**排除本身合理** |
-
-  **⚠️ 本条第一版把 16 写成 13**：口径是用正则从 `run-all-e2e.sh` 全文里抓 `.sh` 名字，
-  结果**连「Excluded by design」注释里提到的 3 个也算成了"已调用"**。
-  重算后拆成「16 个未调用 = 3 已声明 + 13 未声明」才准确。**下表 13 行与「7 + 6」的拆分自洽。**
-
-  **危害是「静默的假完整」**：照头注释理解，跑完这一条就等于跑完全部验收，
-  实际上**三家的 SDK 套件与 Phase 3 验收一次都没执行**且**没有任何提示**。
-  **附带的结构事实**：三个适配器（`eino`/`genkit`/`langchaingo`）是**独立 go.mod**，
-  故从 `cortex-mem-go` 跑 `go test ./...` **根本不会执行它们**（实测只出 2 个包）。
-  **CI 不构成补偿**：唯一 workflow `docker.yml` 只构建推送镜像，不跑任何测试。
-- **Status**: ✅ **头注释已修（第 313 轮，零行为变更）** —— 按「失实陈述的修正可修」，
-  头注释改为如实写明「跑的是哪 10 个、另外 13 个是什么、为何排除、单独怎么跑」。
-  **未把脚本接进编排**：那会改变一条命令实际执行什么（且这些脚本有副作用、
-  无法在本轮逐一验证自动运行安全），属需拍板的变更。
-  **接不接、接哪些，留待用户决策。**
+- **Status**: ✅ **头注释已修（第 313 轮，零行为变更）** —— 条目全文已逐字迁入 [`…-41.md`](../archive/2026-10-07_backend-review-evidence-41.md)（第 324 轮）。
 ### P2-82: 三家 SDK 都给响应体设了 **10 MB 上限**，**只有 Python 完全没有**——`requests` 会把整个 body 缓冲进内存
 
 - **Scope / Evidence**: `python-sdk/cortex-mem-python/cortex_mem/client.py:128-140`（`_request`）；
@@ -1384,6 +1274,124 @@
 - **建议修法**（待作者或用户确认）：把两处 `ed37a1b2…` 改为 `6e5890d`，
   或改写为不钉具体 hash 的表述（例如只保留 WebUI 一侧的 hash 并注明后端以父仓库当前 `main` 为准）。
 - **Status**: ⏸ **记录不修** —— 需作者意图确认，见上。
+
+### P2-88: `retrieval-enabled=false` 会**静默关掉全部 @Tool 捕获**，而 README 把该开关记作只管检索
+
+- **Scope / Evidence**:
+  `cortex-mem-spring-integration/cortex-mem-starter/src/main/java/com/ablueforce/cortexce/autoconfigure/CortexMemAutoConfiguration.java`
+  - `:80` —— `SpringAiAdvisorConfiguration` **整类**带
+    `@ConditionalOnProperty(prefix="cortex.mem", name="retrieval-enabled", matchIfMissing=true)`
+  - `:83-92` —— `cortexSessionContextBridgeAdvisor` bean 声明在该类**内部**，
+    再被 `:85` 的 `context-bridge-enabled` 门控
+  - `:148-154` —— `AopCaptureConfiguration`（含 `cortexToolAspect`）另受
+    `capture-enabled` 门控，**不**在检索门控之内
+- **受控实验**（临时 `ApplicationContextRunner` 探针，测完即删；三列而非两列，
+  第三列用来排除「两个顾问同生共死」这一竞争解释）：
+
+  | Bean | 对照：全默认 | `retrieval=false` + `capture=true` + `bridge=true` | 对照：`retrieval=true` + `bridge=false` |
+  |---|---|---|---|
+  | `CortexMemClient` | true | true | true |
+  | `ObservationCaptureService` | true | true | true |
+  | `MemoryRetrievalService` | true | **false** | true |
+  | `CortexToolAspect` | true | **true** | true |
+  | `CortexSessionContextBridgeAdvisor` | true | **false** | false |
+  | `CortexMemoryAdvisor` | true | **false** | true |
+
+  第三列是关键：**`bridge=false` 时 `CortexMemoryAdvisor` 存活**，证明第二列里
+  两个顾问的消失确实源于 `retrieval-enabled`，而非二者在任何情况下都绑定生死。
+- **后果链（每一环都已独立落实，非静态推断）**:
+  1. 第二列实测：`capture-enabled=true` 时 `CortexToolAspect` **仍然存在**（捕获切面在），
+     但 `CortexSessionContextBridgeAdvisor` **不存在**（`begin()` 的自动来源没了）。
+  2. `CortexToolAspect.java:54` 首行即守卫
+     `if (!CortexSessionContext.isActive()) return joinPoint.proceed();`
+  3. `CortexSessionContext.java:50-51` —— `isActive()` 就是 `CURRENT.get() != null`，
+     而 `CURRENT` 仅由 `begin()` 写入。
+  4. **桥接顾问是生产代码里 `begin()` 的唯一自动调用点**：
+     全模块 `main` 下 `CortexSessionContext.begin(` 只命中
+     `CortexSessionContextBridgeAdvisor.java:81`（call 路径）与 `:100`（stream 路径），
+     其余全部命中均为 Javadoc 或测试。
+  5. 负对照**已预先存在于测试套件**：`CortexToolAspectTest:60`
+     `whenContextInactive_toolExecutesWithoutCapture` 已经断言了「未激活 ⇒ 不捕获」。
+
+  净效果：设 `retrieval-enabled=false` 以节省检索开销的用户，会在**没有任何日志、异常或
+  启动失败**的情况下失去**全部** `@Tool` 捕获 —— 切面照常织入、照常执行，只是全部空转。
+- **影响范围（已收窄，不要过度声张）**: 只影响**选项 A**（README `:152` 所述、
+  依赖 `CONVERSATION_ID` 走桥接顾问的纯 ChatClient 用法）。走**选项 B** 的应用自行调用
+  `CortexSessionContext.begin/end` 者不受影响 —— 桥接顾问此时本就只做透传
+  （类 Javadoc `:40-52` 已自陈二者不可嵌套）。
+- **README 未记载此耦合（双语同缺）**:
+  - `cortex-mem-spring-integration/README.md:199`（zh `:206`）把 `context-bridge-enabled`
+    记作一个独立开关，只说「创建桥接顾问 / 使 @Tool 捕获无需手动上下文」，
+    **完全未提** `retrieval-enabled=false` 也会把它一并关掉。
+  - `README.md:197` 把 `retrieval-enabled` 记作「Enable memory retrieval」，未提任何副作用。
+  - 对照：`README.md:196` 明确为 `capture-user-prompt-enabled` 写了
+    “Independent of capture-enabled.” —— **「独立」二字只给了这一项，没给桥接**。
+  - `README.md:796`（zh `:775`）故障排查表把 `retrieval-enabled=false` 列为
+    「无 ICL 上下文」的已知原因，却**未**列为「@Tool 捕获全部消失」的原因；
+    同表 `:794` 的「Tool calls not captured」只给了自调用一条原因。
+- **⚠️ 次生后果：用户提示捕获同样被牵连，README 的「独立」措辞更易误导**:
+  同一张表里 `CortexMemoryAdvisor` 也随 `retrieval-enabled=false` 一起消失（见上表第二列），
+  故 `capture-user-prompt-enabled` 控制的**用户提示捕获**一并失效。
+  `README.md:196` 对该开关写的是「Enable user prompt auto-capture (CortexMemoryAdvisor).
+  **Independent of capture-enabled.**」—— 这句**就其字面而言为真**（它确实独立于
+  `capture-enabled`），但读者极易顺势外推为独立于其余全部开关，而实际它挂在
+  `retrieval-enabled` 下。**这是措辞引发的错误推论，不是陈述本身失实。**
+- **⚠️ 为什么不单方面改**:
+  - 按**「遗漏 ≠ 失实」**：README 那几句**本身没有说错** —— `retrieval-enabled`
+    确实是「启用记忆检索」，桥接开关确实创建桥接顾问。**这是省略，不是失实陈述**，
+    故不适用「失实陈述的文档修正可修」这条例外。
+  - 更关键的是**修法形状本身有歧义**：最小修法是文档补一句耦合说明；
+    但更像是作者意图的修法是**把桥接 bean 移出被检索门控的那个类**（或拆分配置类）——
+    那属于**对外契约变更**，必须由作者决策。若我先写下「此耦合是有意的」这种文档，
+    作者一旦选择解耦，那行文档立刻变成新的失实陈述。
+  - **测试侧同缺**：`CortexMemAutoConfigurationTest` 现有 4 例（base-url 有/无、
+    默认服务注册、capture 关闭），**唯独没有 `retrieval-enabled=false` 用例**，
+  上述组合从未被断言过 —— 补一个用例属低风险，但同样要跟着「耦合该保留还是该解」的
+  决定走，故一并待决。
+- **Severity**: 中（静默丢数据 + 与文档理解相反，但需用户主动设 `retrieval-enabled=false`
+  才触发，且有选项 B 绕行；不涉及安全或正确性破坏）。
+- **建议修法**（待作者或用户确认，二选一）:
+  1. **解耦**（推荐，若该耦合非有意）：把 `cortexSessionContextBridgeAdvisor` 移出
+     `SpringAiAdvisorConfiguration`，或拆出一个只受 `context-bridge-enabled` 门控的
+     配置类；同时补 `retrieval-enabled=false` 的装配用例。
+  2. **记为有意**：在双语 README 的属性表与故障排查表中补明该耦合并说明影响面。
+- **Status**: ⏸ **记录不修** —— 需作者确认该耦合是否为有意设计，见上。
+
+### P2-89: 部署指南的迁移清单**双语都停在 V18**，漏掉磁盘上已存在的 `V19__viewer_session_indexes.sql`
+
+- **Scope / Evidence**: `docs/DEPLOYMENT.md:324-341` §4.1「迁移策略」表、
+  `docs/DEPLOYMENT-zh-CN.md` 对应表
+- **计数核对（两个口径都给出来，不只给结论）**:
+  | 口径 | 命令 | 结果 |
+  |---|---|---|
+  | EN 表列出 | `grep -oE '^\| V[0-9]+' docs/DEPLOYMENT.md` | **16 条**：V1–V8、V11–V18 |
+  | ZH 表列出 | `grep -oE '^\| V[0-9]+' docs/DEPLOYMENT-zh-CN.md` | **16 条**，与 EN 逐项相同（`diff` 为空） |
+  | 磁盘实际 | `ls backend/src/main/resources/db/migration/` | **17 个**：以上 16 个 + **V19** |
+  | 差集 | `comm -13 <EN表> <磁盘>` | **V19**（反向差集为空，即表中没有多列的） |
+
+  编号断档本身**不是缺陷**：V9 / V10 在磁盘上确实没有对应文件，表里不列是正确的。
+  唯一缺失的是 **V19**。
+- **V19 是什么**：`V19__viewer_session_indexes.sql`，内容为纯 `CREATE INDEX IF NOT EXISTS`，
+  与 `ViewerSessionService` 的会话目录/删除功能（`6e5890d`）配套。
+- **同表其余数字经核对无误，未借机改动**: 「V1 | Initial schema (**5 core tables**)」
+  经 `grep -ciE 'CREATE TABLE' V1__init_schema.sql` 实测为 **5**，逐表名为
+  `mem_sessions` / `mem_observations` / `mem_summaries` / `mem_user_prompts` /
+  `mem_pending_messages` —— **该计数陈述为真**。
+- **为什么记为缺陷**: §4 是运维读者**唯一**的迁移清单入口，它会随 `V20` 继续漂移。
+  一个自称逐版本列出的表少列一项，读者无从判断「V18 之后是否还有别的」。
+- **⚠️ 为什么不单方面补**:
+  按**「遗漏 ≠ 失实」** —— 表没有声称自己完整，也没有计数声明（不同于 P2-64 那种
+  「26 个方法」标题），因此不适用「失实陈述的文档修正可修」。
+  补一行 V19 本身无害，但同一类问题在本文件已出现多次（见 P2-83 / P2-86 的同类清扫），
+  迁移表与 API 路径模板一样**应由一次成体系的扫描统一修**，而不是零散手补 ——
+  否则下一轮 V20 落地又得重来一次。
+- **Severity**: 低（纯文档遗漏；不影响部署正确性 —— Flyway 自动执行 §4.2 已写明，
+  缺行不会导致迁移漏跑）。
+- **建议修法**（待决）：在双语 §4.1 表尾补
+  `| V19 | V19__viewer_session_indexes.sql | Viewer 会话目录与删除的配套索引 |`，
+  更稳妥的做法是同时把该表改为**从目录自动生成或加一行「以
+  `backend/src/main/resources/db/migration/` 为准」的时效声明**。
+- **Status**: ⏸ **记录不修** —— 待与 P2-83 / P2-86 同批做一次成体系的文档清扫。
 
 ## Processing Rules
 - **第 316 轮新增流程规则（连续三轮教训的归纳）——落笔前先查该模块自己的文档**：
