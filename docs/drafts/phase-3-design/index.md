@@ -8,36 +8,36 @@
 
 | 文件 | 大小 | 内容 |
 |------|------|------|
-| `00-quick-ref.md` | 1KB | TL;DR 快速参考 + 核心 Pipeline 图示 |
+| `00-quick-ref.md` | 2KB | TL;DR 快速参考 + 核心 Pipeline 图示 |
 | `00-overview.md` | 1KB | 设计纠错 / 泛化思路 / Bug Fix 索引 / 架构分析 |
-| `0.1.md` | 5KB | v7 关键 Bug 修复（findBySource List 参数、BeanOutputConverter Class） |
-| `0.2.md` | 3KB | v10 关键设计缺口（Schema-to-Class bridge、Array handling、missing impls） |
-| `0.3.md` | 1KB | Refine vs Extraction 概念澄清 |
-| `2.md` | 29KB | **核心**：通用 Structured Extraction 设计（ExtractionTemplate 抽象 / YAML 配置模型 / GenericStructuredExtractionService 骨架 / 过敏原提取示例） |
+| `0.1.md` | 6KB | v7 关键 Bug 修复（findBySource List 参数、BeanOutputConverter Class） |
+| `0.2.md` | 4KB | v10 关键设计缺口（Schema-to-Class bridge、Array handling、missing impls） |
+| `0.3.md` | 3KB | Refine vs Extraction 概念澄清 |
+| `2.md` | 30KB | **核心**：通用 Structured Extraction 设计（ExtractionTemplate 抽象 / YAML 配置模型 / GenericStructuredExtractionService 骨架 / 过敏原提取示例） |
 | `3.md` | 3KB | Memory Conflict Detection 设计 |
 | `03-deferred-roadmap-principles.md` | 1KB | UserProfile defer / Roadmap / Key Principles |
-| `7.md` | 8KB | Additional Considerations 深度探讨 |
-| `8.md` | 2KB | Open Questions 状态（10/10 已解决） |
-| `9.md` | 3KB | Implementation Feasibility Check |
-| `10.md` | 7KB | Critical Implementation Considerations |
-| `11.md` | 6KB | Error Handling & Recovery |
+| `7.md` | 11KB | Additional Considerations 深度探讨 |
+| `8.md` | 3KB | Open Questions 状态（10/10 已解决） |
+| `9.md` | 4KB | Implementation Feasibility Check |
+| `10.md` | 8KB | Critical Implementation Considerations |
+| `11.md` | 7KB | Error Handling & Recovery |
 | `12.md` | 3KB | Template Lifecycle Management |
 | `13.md` | 4KB | Extraction Result Usage |
-| `14.md` | 2KB | Testing Strategy |
-| `15.md` | 21KB | **Implementation Bootstrap Checklist**（可执行步骤） |
+| `14.md` | 3KB | Testing Strategy |
+| `15.md` | 24KB | **Implementation Bootstrap Checklist**（可执行步骤） |
 | `16.md` | 2KB | Architecture Decision Records (ADRs) |
-| `17.md` | 2KB | Extraction Idempotency（v14） |
-| `18.md` | 2KB | Observation Type Namespace Reservation（v14） |
-| `19.md` | 8KB | Implementation Readiness & Practical Gaps（v15） |
-| `20.md` | 17KB | Walkthrough Findings（v16） |
-| `21.md` | 11KB | Implementation Inspection Findings（v19） |
+| `17.md` | 5KB | Extraction Idempotency（v14） |
+| `18.md` | 3KB | Observation Type Namespace Reservation（v14） |
+| `19.md` | 9KB | Implementation Readiness & Practical Gaps（v15） |
+| `20.md` | 18KB | Walkthrough Findings（v16） |
+| `21.md` | 13KB | Implementation Inspection Findings（v19） |
 | `22.md` | 5KB | SDK API Walkthrough Findings（v21） |
-| `23.md` | 8KB | Token Cost Analysis（v23） |
-| `24.md` | 12KB | LLM Re-Extraction Edge Cases（v24） |
-| `24.6.md` | 10KB | **Prior Truncation Silent Data Loss Fix**（v28 引入 append-only solution；v29 mergeAppendOnly/keep_hint 完善；v30 与 MemoryRefineService 共享 projectLocks 的并发修复） |
-| `25.md` | 42KB | **Implementation Plan Phase 3.1**（完整执行计划） |
+| `23.md` | 21KB | Token Cost Analysis（v23） |
+| `24.md` | 13KB | LLM Re-Extraction Edge Cases（v24） |
+| `24.6.md` | 12KB | **Prior Truncation Silent Data Loss Fix**（v28 引入 append-only solution；v29 mergeAppendOnly/keep_hint 完善；v30 与 MemoryRefineService 共享 projectLocks 的并发修复） |
+| `25.md` | 44KB | **Implementation Plan Phase 3.1**（完整执行计划） |
 | `26.md` | 16KB | Acceptance Test Plan（Test-First） |
-| `99-changelog.md` | 15KB | 版本历史 Changelog |
+| `99-changelog.md` | 16KB | 版本历史 Changelog |
 
 ---
 
@@ -81,4 +81,6 @@
 
 ---
 
-**体量合规**：30 个文件（不含本索引），最大 44.4KB（`25.md`，44,374 字节），均 ≤50KB ✅
+**大小口径**：表中「大小」为 **十进制 KB 向下取整**（`bytes // 1000`），核验命令 `ls -l docs/drafts/phase-3-design/*.md`；改写任一子文档后需同步本表。
+
+**体量合规**：30 个文件（不含本索引），最大 44.9KB（`25.md`，44,898 字节），均 ≤50KB ✅
