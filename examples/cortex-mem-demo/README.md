@@ -53,6 +53,12 @@ Demo runs on `http://localhost:37778`.
 | `GET /memory/health?project=project-a` | Memory health check |
 | `GET /chat?message=...&project=project-a` | Memory-augmented chat by project |
 | `GET /demo/tool?path=...&project=project-a` | Tool call scoped to project |
+
+> `?path=` defaults to `hello.txt`, resolved against the root above. That file is
+> not in the repository, so a fresh checkout returns
+> `{"status":"tool executed","result":"Error: ...NoSuchFileException..."}` —
+> create one (`echo hi > hello.txt`) to see a successful read. The status is 200
+> either way, which is the pre-existing shape for a missing file.
 | `GET /actuator/health` | Health check |
 
 > **`?path=` is confined to the project root, and the demo listens on loopback only.**
