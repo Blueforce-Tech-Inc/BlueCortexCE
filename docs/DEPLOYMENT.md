@@ -321,6 +321,12 @@ SELECT pg_reload_conf();
 
 Claude-Mem uses **Flyway** for database version management:
 
+> **This table is a reading aid, not the source of truth.** The authoritative list is
+> whatever is in `backend/src/main/resources/db/migration/` — Flyway applies those files
+> automatically (§4.2) and this table is not validated against them. Version numbers
+> skip on purpose: **V9 and V10 do not exist**. If a migration lands here without a row,
+> nothing breaks; if a row is wrong, trust the directory listing over this table.
+
 | Version | File | Description |
 |---------|------|-------------|
 | V1 | `V1__init_schema.sql` | Initial schema (5 core tables) |
@@ -339,6 +345,7 @@ Claude-Mem uses **Flyway** for database version management:
 | V16 | `V16__composite_source_index.sql` | Composite source index |
 | V17 | `V17__observation_feedback.sql` | Observation feedback tracking + extended columns |
 | V18 | `V18__add_platform_source.sql` | Add platform_source column for multi-platform tracking |
+| V19 | `V19__viewer_session_indexes.sql` | Indexes for the WebUI session catalog and feed queries |
 
 ### 4.2 Migration Execution
 

@@ -103,7 +103,7 @@ Claude Code 支持三种配置文件位置：
 
 | 字段 | 说明 |
 |-----|------|
-| `matcher` | 工具名称过滤模式 (如 `Edit|Write|Read\|Bash`)，留空表示匹配所有 |
+| `matcher` | 工具名称过滤模式 (如 `Edit\|Write\|Read\|Bash`)，留空表示匹配所有 |
 | `blocking` | `false`=失败不阻断，`true`=失败阻断 Claude 操作 |
 
 ---

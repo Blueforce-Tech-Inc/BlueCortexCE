@@ -321,6 +321,11 @@ SELECT pg_reload_conf();
 
 Claude-Mem 使用 **Flyway** 进行数据库版本管理：
 
+> **本表是阅读辅助，不是权威来源。** 权威清单是
+> `backend/src/main/resources/db/migration/` 目录里的实际内容——Flyway 会自动应用它们
+> （见 §4.2），而本表**不做**与之比对。版本号跳号是故意的：**V9 与 V10 并不存在**。
+> 若某个迁移已落地而本表缺行，不影响任何行为；若某行写错了，请以目录为准。
+
 | 版本 | 文件 | 说明 |
 |------|------|------|
 | V1 | `V1__init_schema.sql` | 初始化表结构（5 张核心表） |
@@ -339,6 +344,7 @@ Claude-Mem 使用 **Flyway** 进行数据库版本管理：
 | V16 | `V16__composite_source_index.sql` | 复合来源索引 |
 | V17 | `V17__observation_feedback.sql` | 观察反馈追踪 + 扩展字段 |
 | V18 | `V18__add_platform_source.sql` | 添加 platform_source 列用于多平台追踪 |
+| V19 | `V19__viewer_session_indexes.sql` | WebUI 会话目录与信息流查询的索引 |
 
 ### 4.2 迁移执行
 

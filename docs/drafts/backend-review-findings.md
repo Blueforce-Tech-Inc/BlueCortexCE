@@ -1166,40 +1166,7 @@
 - **Status**: ⏸ **记录不修** —— 需作者确认该耦合是否为有意设计，见上。
 
 ### P2-89: 部署指南的迁移清单**双语都停在 V18**，漏掉磁盘上已存在的 `V19__viewer_session_indexes.sql`
-
-- **Scope / Evidence**: `docs/DEPLOYMENT.md:324-341` §4.1「迁移策略」表、
-  `docs/DEPLOYMENT-zh-CN.md` 对应表
-- **计数核对（两个口径都给出来，不只给结论）**:
-  | 口径 | 命令 | 结果 |
-  |---|---|---|
-  | EN 表列出 | `grep -oE '^\| V[0-9]+' docs/DEPLOYMENT.md` | **16 条**：V1–V8、V11–V18 |
-  | ZH 表列出 | `grep -oE '^\| V[0-9]+' docs/DEPLOYMENT-zh-CN.md` | **16 条**，与 EN 逐项相同（`diff` 为空） |
-  | 磁盘实际 | `ls backend/src/main/resources/db/migration/` | **17 个**：以上 16 个 + **V19** |
-  | 差集 | `comm -13 <EN表> <磁盘>` | **V19**（反向差集为空，即表中没有多列的） |
-
-  编号断档本身**不是缺陷**：V9 / V10 在磁盘上确实没有对应文件，表里不列是正确的。
-  唯一缺失的是 **V19**。
-- **V19 是什么**：`V19__viewer_session_indexes.sql`，内容为纯 `CREATE INDEX IF NOT EXISTS`，
-  与 `ViewerSessionService` 的会话目录/删除功能（`6e5890d`）配套。
-- **同表其余数字经核对无误，未借机改动**: 「V1 | Initial schema (**5 core tables**)」
-  经 `grep -ciE 'CREATE TABLE' V1__init_schema.sql` 实测为 **5**，逐表名为
-  `mem_sessions` / `mem_observations` / `mem_summaries` / `mem_user_prompts` /
-  `mem_pending_messages` —— **该计数陈述为真**。
-- **为什么记为缺陷**: §4 是运维读者**唯一**的迁移清单入口，它会随 `V20` 继续漂移。
-  一个自称逐版本列出的表少列一项，读者无从判断「V18 之后是否还有别的」。
-- **⚠️ 为什么不单方面补**:
-  按**「遗漏 ≠ 失实」** —— 表没有声称自己完整，也没有计数声明（不同于 P2-64 那种
-  「26 个方法」标题），因此不适用「失实陈述的文档修正可修」。
-  补一行 V19 本身无害，但同一类问题在本文件已出现多次（见 P2-83 / P2-86 的同类清扫），
-  迁移表与 API 路径模板一样**应由一次成体系的扫描统一修**，而不是零散手补 ——
-  否则下一轮 V20 落地又得重来一次。
-- **Severity**: 低（纯文档遗漏；不影响部署正确性 —— Flyway 自动执行 §4.2 已写明，
-  缺行不会导致迁移漏跑）。
-- **建议修法**（待决）：在双语 §4.1 表尾补
-  `| V19 | V19__viewer_session_indexes.sql | Viewer 会话目录与删除的配套索引 |`，
-  更稳妥的做法是同时把该表改为**从目录自动生成或加一行「以
-  `backend/src/main/resources/db/migration/` 为准」的时效声明**。
-- **Status**: ⏸ **记录不修** —— 待与 P2-83 / P2-86 同批做一次成体系的文档清扫。
+- **Status**: ✅ **已修（第 345 轮，纯文档零行为变更）** —— 双语各补 `V19` 行**并**加时效声明（以 `db/migration/` 目录为准、明写 V9/V10 跳号）；双语各 17 行，与磁盘**双向差集皆空**。**旧状态「⏸ 待与 P2-83/P2-86 同批清扫」的前提已被推翻**——那两条第 317/321 轮早已结案归档，同批对象不存在。条目全文已逐字迁入 [`…-52.md`](../archive/2026-10-07_backend-review-evidence-52.md)（第 345 轮）。
 
 ### P2-90: Go SDK README 的测试总数**双语共 7 处**硬编码 `362`，实测已是 `363` —— 差值恰为第 319 轮我自己新增的那 1 个测试
 
@@ -1442,8 +1409,8 @@
 
 ### P2-105: Demo README 的 `/actuator/health` 行同样被挤到表外 —— 与 P2-104 **同一类**，靠全库扫描才发现
 - **Status**: ✅ **已修（第 344 轮）** —— 该行接回表尾。**超出本轮名义文档方向**但与 P2-104 同成因同仪器，按「已损坏行为可修」一并处理；全库 21 个 `.md` 扫描后归零。条目全文已逐字迁入 [`…-50.md`](../archive/2026-10-07_backend-review-evidence-50.md)（第 344 轮）。
-### P2-106: 全库 **100 行**表格的单元格数与表头不符 —— 多数是代码 span 里的裸 `|` 未转义，而**渲染器根本检测不到这一类**
-- **Status**: ⏸ **记录不修**（批量，逐文件核对成本高于本轮；本条按 Archived History 段的「标题紧跟 Status」体例排版以省 1 行） —— 分布：`evolver-memory/04` 35 行、`/05` 30 行、`archive/2026-09-30_backend-review-findings-history.md` **26 行（归档，按规则不可改）**、`evolver-memory-analysis/03-signals` 4 行、其余 5 行各 1（`proxy/CLAUDE-CODE-INTEGRATION-zh-CN.md:106` 的 `Edit|Write|Read\|Bash` **只转义了 3 个管道里的 1 个**、`phase-3-design/15.md:101` 末尾多一个空单元格）。**本轮已修的 4 行**在 `patrol-rotation.md`（`:243/246/248/251`），修后该文件直方图归一到 `{4: 259, 3: 119}`。**关键仪器结论**：受控样本证实 **pandoc 的 GFM 解析器不按代码 span 内的 `|` 切单元格**（386 行全报 3 单元格），而 GitHub 会切——故此类缺陷**必须数未转义管道，渲染器复核无效**，这正是 P2-99 当年改用直方图的原因。检查器 `/tmp/find-pipe-mismatch.py` 带自检（good=0 / code-span=1 / extra-col=1 / fenced=0）；其**首版公式 `pipes-1` 把无收尾竖线的行少算一个单元格**，被自检里那条无收尾行当场拦下。
+### P2-106: 全库 **98 行**表格的单元格数与表头不符 —— 多数是代码 span 里的裸 `|` 未转义，而**渲染器根本检测不到这一类**
+- **Status**: ⏸ **记录不修**（批量，逐文件核对成本高于本轮；本条按 Archived History 段的「标题紧跟 Status」体例排版以省 1 行） —— 分布：`evolver-memory/04` 35 行、`/05` 30 行、`archive/2026-09-30_backend-review-findings-history.md` **26 行（归档，按规则不可改）**、`evolver-memory-analysis/03-signals` 4 行、其余 5 行各 1（`proxy/CLAUDE-CODE-INTEGRATION-zh-CN.md:106` 的 `Edit|Write|Read\|Bash` **只转义了 3 个管道里的 1 个**（**第 345 轮已修**：三个管道全部转义）、`phase-3-design/15.md:101` 末尾多一个空单元格（**该行第 345 轮已修**））。**已修的 6 行**：`patrol-rotation.md` 4 行 + 上列 proxy zh 与 phase-3-design 各 1 行（`:243/246/248/251`），修后该文件直方图归一到 `{4: 259, 3: 119}`。**关键仪器结论**：受控样本证实 **pandoc 的 GFM 解析器不按代码 span 内的 `|` 切单元格**（386 行全报 3 单元格），而 GitHub 会切——故此类缺陷**必须数未转义管道，渲染器复核无效**，这正是 P2-99 当年改用直方图的原因。检查器 `/tmp/find-pipe-mismatch.py` 带自检（good=0 / code-span=1 / extra-col=1 / fenced=0）；其**首版公式 `pipes-1` 把无收尾竖线的行少算一个单元格**，被自检里那条无收尾行当场拦下。
 
 ## Processing Rules
 - **第 316 轮新增流程规则（连续三轮教训的归纳）——落笔前先查该模块自己的文档**：
