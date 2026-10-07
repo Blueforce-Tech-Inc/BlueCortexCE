@@ -115,6 +115,24 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- Pin test-classpath byte-buddy to 1.15.x for JDK 24 compatibility:
+             Mockito 5.11 (via spring-boot-starter-test BOM) ships byte-buddy
+             1.14.19, which cannot instrument classes on JDK 24 ("Mockito cannot
+             mock this class"). Test scope only — the runtime dependency stays
+             on the Boot-managed version. -->
+        <dependency>
+            <groupId>net.bytebuddy</groupId>
+            <artifactId>byte-buddy</artifactId>
+            <version>1.15.11</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.bytebuddy</groupId>
+            <artifactId>byte-buddy-agent</artifactId>
+            <version>1.15.11</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
