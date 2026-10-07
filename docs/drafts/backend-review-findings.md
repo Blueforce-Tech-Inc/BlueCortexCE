@@ -997,58 +997,7 @@
 
 ### P2-80: CORS 的 origin 列表**不 trim**——按文档教的「逗号分隔」写，**只有第一个域名生效**
 
-- **Scope / Evidence**: `backend/src/main/java/com/ablueforce/cortexce/config/WebConfig.java:44-46`
-  （修复前的 `allowedOrigins.split(",")`）；指导文档 `docs/drafts/spring-ai-integration-plan.md:138`
-  「需配置 `claudemem.cors.allowed-origins`（**多个域名用逗号分隔**）」。
-- **Problem**: `String.split(",")` **不会去掉分隔符两侧的空白**，于是第 2 个及之后的元素
-  带着前导空格，成为字面量 `" https://b.example"`，与永不带前导空格的 `Origin` 头**永不相等**。
-  **这不是报错，是静默失效**：
-  **活体实测（37790，配置 `http://a.example, http://b.example`，逗号后一个空格）**：
-
-  | 请求头 `Origin` | 实测 |
-  |---|---|
-  | `http://a.example` | **200** + `Access-Control-Allow-Origin: http://a.example` + `ACAC: true` |
-  | `http://b.example` | **403 "Invalid CORS request"**，**无任何 CORS 头** |
-
-  日志中 `IllegalArgumentException` **0 次**——**与 P2-79 是两种不同机制**
-  （那条是每个请求抛异常导致全站 500，这条什么都不抛，只是第二个及以后的域名静默失配）。
-  **为什么值得记**：文档教的就是「逗号分隔」，而人在逗号后打一个空格是极自然的写法，
-  结果**第一个域名之外的全部失效且无任何线索**。
-- **⚠️ 一处探针错，先质疑探针再采信数据**：初版探针用 `curl -o 文件` 后去 grep 响应头，
-  读到的永远是空（`-o` 存的是**响应体**、`-D` 才是响应头），
-  于是 a.example 一度显示「200 但无 ACAO」。**改用 `-D` 倒原始响应头后**，
-  `Access-Control-Allow-Origin: http://a.example` **确实存在**——
-  **数据没错，是探针错了**；改正后结论反而更硬（b.example 是确凿的 403）。
-- **Status**: ✅ **已修** —— 逐字迁入 [`…-40.md`](../archive/2026-10-07_backend-review-evidence-40.md)（第 323 轮）。
-- **⚠️ 第 314 轮复查 2/3：在本修复里发现一条加宽边 → 复查计数重置为 1/3**
-  **实测（37790，配置 `' *'`，即星号前有一个空格）**：
-
-  | `Origin` | 实测 |
-  |---|---|
-  | `http://anything.example` | **200** + `ACAO: *`，`ACAC` 头 **0** 次 |
-  | `https://totally-unrelated.example` | **200** + `ACAO: *` |
-
-  **对照修复前的行为**：`origins[0]` 会是字面量 `" *"`，既不等于 `"*"`（故凭据被算成开启），
-  列表里又没有字面 `"*"`（故 Spring 不抛异常）——**结果是没有任何 origin 能匹配，对所有来源一律失效**。
-  **trim 之后**它变成干净的 `["*"]`，于是走通配分支 → **对全网回显 `ACAO: *`**。
-  即：**本修复把一个「什么都不匹配」的输入，变成了一个「什么都匹配」的输入。**
-  **这与 P2-79 里那条「直觉修法」落到同一个结果上**（都是关凭据 → 回 `*`），
-  **故本条不能独立结案**：trim 对「多源列表」是纯粹的好处，
-  但它与「通配 + 凭据」这条策略问题**在边界上交汇**，
-  **必须与 P2-79 一并决策**（`allowedOriginPatterns` 或启动期 fail fast）才能收口。
-  **今天的实际风险为 0**：该配置项全仓从未被设置（与 P2-78、P2-79 同一条证据）。
-- **✅ 第 316 轮复查 3/3：技术验证完成，本条的代码侧结案。**
-  补测了前两轮**未覆盖**的两个边界，均正确：
-
-  | 边界 | 配置 | 实测 |
-  |---|---|---|
-  | **CRLF**（多行环境变量） | `'http://a.example,\r\nhttp://b.example'` | 两个源**各自精确放行**并回**各自的** ACAO；未列出的 **403**；异常 **0** |
-  | **退化输入**（只有分隔符与空白） | `' , '` | `parseOrigins` 丢弃空元素后得**空数组** → **CORS 退回全关的安全默认**（任意 origin 403、无 ACAO），普通请求仍 **200** |
-
-  **三轮合计覆盖**：逗号后空格（313）、制表符 + 前后空白 + 空元素 + 通配（315）、
-  CRLF + 退化输入（316）。**`parseOrigins` 在所有非通配输入上行为正确**。
-  **仍然开放的不是本条的技术问题**，而是上条那条**通配 + 凭据的策略决策**（与 P2-79 合并待决）。
-  **据此本条代码侧结案；若日后决定改通配策略，需连带复看本条的加宽边。**
+- **Status**: ✅ **已修** —— 逐字迁入 [`…-40.md`](../archive/2026-10-07_backend-review-evidence-40.md)（第 323 轮）；其余正文已逐字迁入 [`…-44.md`](../archive/2026-10-07_backend-review-evidence-44.md)（第 331 轮）。
 
 ### P2-81: `run-all-e2e.sh` 声称跑「全部」E2E 脚本并逐条列出 3 个排除项——**实际漏掉 13 个**，其中 7 个的前置与它自己完全相同
 
@@ -1371,55 +1320,68 @@
 
 ### P2-92: `CortexMemoryTools` 的注释说 `defaultCount` **未被钳制**，而它上面两行的构造函数**恰恰钳了**
 
+- **Status**: ✅ **已修（第 330 轮，零行为变更）** —— 注释改为如实描述两条分叉都由 `[1,10]` 钳制，并附实测数字（配置 20 且省略 `count` → 发 **10** 而非 20；`-5` → `1`；`3` → `3`；显式 `99` → `10`，**六行全部落在 1-10**）。`mvn test` 全绿（exit 0）。条目全文已逐字迁入 [`…-44.md`](../archive/2026-10-07_backend-review-evidence-44.md)（第 331 轮）。
+
+### P2-93: `submitFeedback` 的空评论在 Go / JS / Python 里被静默丢弃 —— **四家中只有 Java 能清空它**
+
 - **Scope / Evidence**:
-  `cortex-mem-spring-integration/cortex-mem-spring-ai/src/main/java/com/ablueforce/cortexce/ai/tools/CortexMemoryTools.java`
-  —— 注释 `:66-71`，被它描述的那行代码 `:46`，以及被它断言的分叉 `:72`
-- **矛盾就在同一个类的 6 行之内**:
+  后端 `MemoryController.java:253-254`（决定性分叉）、
+  `go-sdk/cortex-mem-go/dto/misc.go:26`（`omitempty`）、
+  `js-sdk/cortex-mem-js/src/client.ts:355`（`if (req.comment)`）、
+  `python-sdk/cortex-mem-python/cortex_mem/client.py:615`（`if comment:`）、
+  对照组 `cortex-mem-spring-integration/.../CortexMemClientImpl.java:252`（`if (comment != null)`）。
+- **后端语义（决定性，两行）**:
   ```java
-  // :46  构造函数
-  this.defaultCount = Math.max(1, Math.min(defaultCount, 10));   // ← 钳到 [1, 10]
-  ...
-  // :66-71  注释却写
-  // "`defaultCount` itself is not clamped, so configuring
-  //  cortex.mem.default-experience-count above 10 means a call that omits `count` asks for
-  //  more than the range this parameter advertises. ... the two branches do not agree."
-  // :72
-  int effectiveCount = (count == null || count <= 0) ? defaultCount : Math.min(count, 10);
+  if (request.comment() != null) {      // MemoryController.java:253
+      obs.setUserComment(request.comment());
+  }
   ```
-  注释描述的场景**在代码里不可能发生**：`:46` 已经把 `defaultCount` 钳进 `[1, 10]`，
-  省略 `count` 时最坏也只发 **10**，落在 `@ToolParam` 宣称的 `1-10` 之内。
-  **两条分支实际是一致的**，注释说的「不一致」不存在。
-- **配置链路（确认钳制只发生在这一处，没有别处再放开）**:
-  `CortexMemProperties.defaultExperienceCount`（默认 `4`，setter **不做任何钳制**）
-  → `CortexMemAutoConfiguration:121-123` 原样传入 → `CortexMemoryTools:46` 钳制。
-- **受控实验**（临时 `CortexMemoryTools` + Mockito `CortexMemClient` 探针，捕获真正上线的
-  `ExperienceRequest.count()`；测完即删）：
+  即 **`comment` 缺失 → 保留旧值；`comment` 存在（哪怕是空串）→ 覆盖**。
+  清空评论的**唯一**表达方式就是显式发 `""`。
+- **四家的写法**（关键差异只在**判空方式**）:
 
-  | 配置的 defaultCount | 模型给的 count | **实际发出** |
+  | SDK | 判空写法 | `""` 是否上 wire | 能否清空 |
+  |---|---|---|---|
+  | **Go** | `json:"comment,omitempty"` | ❌ 丢弃 | **否** |
+  | **JS** | `if (req.comment)`（`""` 为假值） | ❌ 丢弃 | **否** |
+  | **Python** | `if comment:`（`""` 为假值） | ❌ 丢弃 | **否** |
+  | **Java** | `if (comment != null)` | ✅ 发送 | **是** |
+
+  **Java 是唯一正确的那个**，而且它的注释**明确写出了这个区分**：
+  「only include 'comment' when non-null / Backend only updates userComment when comment != null
+  (preserves existing otherwise)」—— 说明该语义**是被设计过的**，只是另外三家没跟上。
+- **活体实测（三段式，含有效负对照）**（观测 `32ca7c75-…`，直查 `mem_observations.user_comment`）:
+
+  | 步骤 | 请求体 | 库中 `user_comment` |
   |---|---|---|
-  | 20 | 省略 | **10**（不是 20） |
-  | 10 | 省略 | 10 |
-  | 3 | 省略 | 3 |
-  | -5 | 省略 | **1** |
-  | 20 | 99 | 10 |
-  | 20 | 0 | 10 |
+  | 置入评论 | `{observationId, feedbackType, comment:"restored"}` | `restored` |
+  | **C：Go/JS/Python 体**（省略 comment） | `{observationId, feedbackType}` | **`restored`（未清空）** |
+  | **B：Java 体**（`comment:""`） | `{observationId, feedbackType, comment:""}` | **空（已清空）** |
 
-  六行全部落在 `1-10`，**没有任何一行越界**，与注释所称的缺陷相反。
-- **为什么可以单方面改**（判据：**失实陈述 + 正确值被权威确定**）:
-  正确值就在同一文件的 `:46`，并已由上表实测坐实；改动**只涉及注释，零行为变化**。
-  与 P2-87（版本钉，正确值只能推断）不同，本条不存在需要推断的成分。
-- **一处顺带核实**：Java SDK README 对该配置项的描述是中性的
-  （`README.md:194` / `README-zh-CN.md:201` 均只写「Max experiences per retrieval」/
-  「每次检索的最大经验数」），**未复述这条错误断言**，故文档侧无需改动。
-- **两处探针自身错误，均在采信前识别**:
-  ①`ExperienceRequest` 是 **record**，访问器是 `count()` 而非 `getCount()`，首版编译失败；
-  ②首版 `capturedCount` 把 mock 建好却**没有交给 tools**，却去 verify 那个 mock，
-  Mockito 报「Wanted but not invoked … Actually, there were zero interactions with this mock」——
-  读 surefire 报告确认后才改，**没有把探针报错当成产品缺陷**。
-- **Severity**: 低（纯注释失实，不影响行为；但它是**给下一个维护者设的误导性路标**，
-  且描述的是一个已不存在的缺陷）。
-- **Status**: ✅ **已修（第 330 轮，零行为变更）** —— 注释改为如实描述两条分叉都由 `[1,10]`
-  钳制，并附上上表的实测数字。`mvn test` 全绿（exit 0）。
+  **第一版把 C 跑在了已被 B 清空的状态上**，那样的 C 无法区分「保留」与「也清空了」，
+  读数会假阳。**重置评论后重跑**才得到上表 —— C 是真正的负对照。
+- **危害：完全静默**。两次都返回 **HTTP 200 `{"status":"ok","observationId":"…"}`**，
+  调用方**无从得知**评论没被清空。与 P2-26 相比这里**连半信号都没有**
+  （P2-26 至少在只设 `Facts` 时会抛「at least one field must be provided」）。
+- **与 P2-26 / P2-27 的关系**：同属「**空值被省略 → 无法表达清空**」这一族，但**不同端点、不同范围**：
+  P2-26 是 Go 的 PATCH observations、P2-27 是 Python 的 `extractedData`，而本条是
+  `feedback` 端点且**一次命中三家**。机制也不同：Go 靠 `omitempty`，JS/Python 靠**真值判断**。
+- **Severity**: 低（清空评论是低频操作，且无文档承诺它可行），但**跨三家、静默、且与 Java 不一致**
+  —— 与 P2-65（`is_retryable` 跨家签名不一致）同族。
+- **不单方面修**（判据：**遗漏 ≠ 失实**，且修法改的是**已发布 SDK 的线上行为**）:
+  API 文档（`API.md:817` / `API-zh-CN.md`）只写「Optional feedback comment」，
+  **从未声称可清空**；四家 README 也都没这么写。故不存在失实陈述可照权威直接改。
+  而修法（Go 改 `*string`、JS/Python 改显式 `is not None` 判断）会**改变现有调用方实际发出的报文**
+  —— 对从未设置过评论的用户，`""` 会突然开始上 wire。属**对外契约变更**，按规则记录不实施。
+  **建议作者先裁定语义**：`comment: ""` 到底该不该表示「清空」？
+  若该，三家同步改；若不该，则应在 API 文档补一句「空评论不生效」，把这条从隐性变成显性。
+- **Status**: ⏸ **记录不修** —— 待作者裁定空串语义，见上。
+
+### P2-94: `go-sdk-design.md` 的 module 路径**多了一节** —— 45 处指向一个不存在的模块，Quick Start 照抄必然失败
+
+- **Status**: ✅ **已修（第 331 轮，纯文档零行为变更）** —— 45 处 module 路径改正（原先多一节 `cortex-mem-go`，指向一个**不存在的模块**；对照实验：双节构建 EXIT=1、单节负对照 EXIT=0）；执行摘要 `genkit/` 的「预留」标注改为如实描述；§2 文件名分化与 §5.4「CI 至今不存在」**只加日期注记、不改写**。条目全文已逐字迁入 [`…-44.md`](../archive/2026-10-07_backend-review-evidence-44.md)（第 331 轮）。
+
+
 
 ## Processing Rules
 - **第 316 轮新增流程规则（连续三轮教训的归纳）——落笔前先查该模块自己的文档**：
