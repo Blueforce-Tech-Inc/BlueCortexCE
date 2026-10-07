@@ -1352,8 +1352,7 @@
 
 
 ### P2-96: `DemoErrors` 自陈的 catch 块数写错了 1 —— 而第 328 轮「核实四项计数全对」那次核实本身是错的
-
-- **Status**: ✅ **已修（第 340 轮，纯注释零行为变更）** —— `forty` 改为 `forty-one`，`mvn -o clean test` 全绿（40/0/0，exit 0）。条目全文已逐字迁入 [`…-45.md`](../archive/2026-10-07_backend-review-evidence-45.md)（第 340 轮）。
+- **Status**: ⚠️ **第 340 轮的修复本身是错的，已于第 346 轮更正（纯注释零行为变更）** —— 第 340 轮把 `forty` 改成 `forty-one`，**该方向改反了**：第 346 轮三种独立口径（`grep -o 'catch[[:space:]]*('` 逐文件、`grep -c`、`python re` 逐包）一致得出 **12 个 `@RestController` 文件共 40 个 catch 子句**，且 `catch(Exception)` 与 `catch(any)` 完全相等（无其他类型）。`forty` 本来就是对的，**改后成了错的**。同段另有一处从未被验过的失实：**helper 归属写反了**——文档称「two in ObservationsController, one in FeedbackController」，实测 `ObservationsController` **1** 处、`FeedbackController` **2** 处（总数 3 正确、分项相反），与第 340 轮 finding 自身批评的「42−1=41 错减法」同一形状。第 346 轮两处一并更正并加注「每个 catch 子句都属该类型」以便复核；`mvn -o clean compile` EXIT=0，可执行行 `git diff -U0` 为 **0**。**双向注入验证**：回退到修复前原文，检查器报 4 FAIL；仅对调分项也报 FAIL——检查器 `/tmp/check-demo-claims.py` 在此过程中自身错了三次（单位词正则不匹配 `blocks`、剥离 `{@code}` 后抓不到类名、`\bforty\b` 把 `forty-one` 误判为 `forty`），均由阳性对照当场拦下后重写。原条目全文见 [`…-45.md`](../archive/2026-10-07_backend-review-evidence-45.md)。
 ### P2-97: JS SDK README 的方法表里 **3 行参数名写成 `project`**，而源码、同表另外 3 行、以及 Python SDK 全都是 `projectPath` —— **同一个 bug 在 2026-04-01 修过一次，只改了 2 行**
 
 - **Status**: ✅ **已修（第 340 轮，纯文档零行为变更）** —— 6 行 `project`→`projectPath`、`project?`→`projectPath?`（双语各 3 行）；`git diff` = **6 增 6 删**、无其他改动；阴性 grep（错模式）EXIT=**1**、阳性 grep（新模式）EXIT=**0** 且 6 行齐全。条目全文已逐字迁入 [`…-46.md`](../archive/2026-10-07_backend-review-evidence-46.md)（第 340 轮）。
