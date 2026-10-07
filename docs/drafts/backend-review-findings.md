@@ -67,82 +67,28 @@
   与 P2-13/P2-14 同一套判断。 条目全文已逐字迁入 [`2026-10-07_backend-review-evidence-53.md`](../archive/2026-10-07_backend-review-evidence-53.md)（第 352 轮）。
 
 ### P2-16: Java SDK 没有任何类型化异常，HTTP 状态码只能靠遍历 cause 链取得
-
-- **Scope / Evidence**: [`…-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
-- **Problem**: 跨 SDK 错误面严重不对称——Go 有 `APIError` 且 `Unwrap()` 覆盖 11 个哨兵错误、
-  Python 有 13 个状态码异常类 + 谓词（共 27）、JS 有 16 个，**Java 为 0**。
-  实测（stub 返回 `404 {"error":"Observation not found: abc"}`）：
-  抛出的是裸 `java.lang.RuntimeException`，消息为
-  `getObservationsByIds failed: Observation not found: abc`（有后端原因、**无状态码**），
-  cause 链末端才是 Spring 的 `HttpClientErrorException$NotFound`。
-  异常类型本身**没有任何状态访问器**。
-- **影响面**：要区分「没有这条观测」（404）与「后端挂了」（5xx）的调用方必须自己写
-  cause 链遍历。项目自己的 Java demo 正是为此写了一份
-  `examples/cortex-mem-demo/.../DemoErrors.java`（`statusOf` / `messageOf` / `clientStatus`），
-  其 javadoc 明确记载了这个痛点——**这是本条最有力的证据**：
-  同一仓库内的消费者已经为此付出过实现成本。
 - **Status**: ⏸**已记录，不实现**。补齐意味着给本 SDK **新增公开异常类型**
   （如 `CortexMemException` / `APIError`），属新增对外 API 而非修 bug，
   且会改变所有 25 个方法的异常类型，对已有调用方的 `catch` 行为有影响，
   与 P2-13/P2-14/P2-15 同一套判断。本轮已做的是**如实记录**：
   两份 README 的 Error Handling 章节新增「HTTP 状态码不在异常上」小节，
   给出实测的异常形态、可直接复制的 `statusOf` 辅助方法、
-  以及「这是与另三家的已知不对称」这一事实。
+  以及「这是与另三家的已知不对称」这一事实。 条目全文已逐字迁入 [`2026-10-07_backend-review-evidence-54.md`](../archive/2026-10-07_backend-review-evidence-54.md)（第 353 轮）。
 
 ### P2-17: `EXTRACTION_MAX_BATCHES` 在随附默认值下永远不可能生效
-
-- **Scope / Evidence**: [`…-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
-- **Problem**: 该上限被文档当作真实生效的调参手段，但**在随附默认值下它是死的**。
-  循环条件是 `i < userObs.size() && i < maxTotal`，其中
-  `maxTotal = maxObservationsPerBatch × maxBatchesPerTemplate = 20 × 10 = 200`；
-  而 `userObs` 是候选列表按用户分组后的一个切片，候选列表本身已被
-  `initialRunMaxCandidates`（默认 100）截断。因此单个用户的观测数**永远 ≤ 100**，
-  批次数上限是 `ceil(100/20) = 5`，**永远够不到 10**。
-- **精确边界**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
-- **影响**: 运维看到「Batches per template per run: 10」这一行，会合理地以为它是
-  抽取成本的主要闸门，实际唯一生效的闸门是候选上限。这是**配置契约层面的误导**，
-  修法要么调默认值，要么在 `ExtractionConfig` 里对二者做一致性校验。
 - **Status**: ⏸**已记录，不实现**。改变任一默认值的取值范围属对外配置契约变更。
   本轮已在 `23.md` §23.5/§23.7、`docs/structured-extraction.md`、`docs/DEPLOYMENT.md`
-  四处**按各自措辞**更正为「随附默认值下不生效」并写明生效条件。
+  四处**按各自措辞**更正为「随附默认值下不生效」并写明生效条件。 条目全文已逐字迁入 [`2026-10-07_backend-review-evidence-54.md`](../archive/2026-10-07_backend-review-evidence-54.md)（第 353 轮）。
 
 ### P2-18: `reExtractForSession` 绕过全部抽取上限，整会话一次性送入 LLM
-
-- **Scope / Evidence**: [`…-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
-- **Problem**: 这是结构化抽取的**第二个活入口**，但它**完全不走批处理循环**。
-  候选来自 `findByContentSessionIdOrderByCreatedAtEpochAsc(sessionId)`——
-  一个无 `LIMIT` 的派生查询，返回该会话的**全部**观测；随后对每个启用模板直接
-  `extractByTemplate(template, filtered, priorJson)` **一次调用**，
-  整个 `filtered` 列表进同一个 prompt。`initialRunMaxCandidates`、
-  `maxObservationsPerBatch`、`maxBatchesPerTemplate` **三个上限一个都不生效**。
-- **影响**: 一个含 60 条匹配观测的会话会产生一次输入约为 20 条批量 **3 倍**的
-  调用，而所有成本文档的「每次调用」价格都是从 20 条批量推出的。更严重的是
-  **无上界**——会话越长，单次 prompt 越大，直到超出模型上下文窗口才失败。
-  失败被 `catch (Exception)` 吞掉并记日志（`:161-162`），调用方看到的仍是成功。
 - **Status**: ⏸**已记录，不实现**。接入上限会改变该端点的既有行为，属对外契约变更。
   本轮已在 `23.md` §23.4 记录该入口未被任何成本表计价，并在
-  `StructuredExtractionService` 的既有注释中保持路径事实不变。
+  `StructuredExtractionService` 的既有注释中保持路径事实不变。 条目全文已逐字迁入 [`2026-10-07_backend-review-evidence-55.md`](../archive/2026-10-07_backend-review-evidence-55.md)（第 353 轮）。
 
 ### P2-19: Java SDK 静默吞掉 refinement / extraction 触发失败，另三家都抛错
-
-- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）；
-  **第 276 轮再迁出**另三家的**逐文件行号引用**与其原文注释 → [`2026-10-06_backend-review-evidence-26.md`](../archive/2026-10-06_backend-review-evidence-26.md)。
-- **Problem**: `executeWithRetrySilent` 返回 `void`，**任何失败都被吞掉**，只在
-  日志里留一条 WARN。调用方拿到的是一个正常返回的 `void`，**无从得知触发失败**——
-  精炼没跑、抽取没跑，而调用方以为跑了。
-  **另三家都抛错，且是刻意为之**（逐条行号见归档）——Go 写了注释说明理由
-  「NOT fire-and-forget: this is an explicit user action, errors must propagate」；
-  JS 与 Python 走各自的 no-content 请求路径，异常上抛。
-- **Java 自己的注释是误导的**：`executeWithRetrySilent` 的 javadoc 写着
-  「Matches the Go, Python and JS SDKs」。就**重试与退避策略**而言确实一致
-  （±25% 抖动、不重试 4xx/500），但**错误传播**恰恰是 Java 唯一不同的那一点，
-  而这正是调用方唯一能感知的部分。注释只对上了次要的一半。
-- **同族的非静默差异**（不单独立项）：Java 还对 `submitFeedback` / `updateObservation` / `deleteObservation` /
-  `getLatestExtraction` / `getExtractionHistory` 做了重试包装，Go/JS/Python 只在三个 fire-and-forget
-  采集方法上重试。这些写操作本身**仍然抛错**，不是静默失败，只是重试面更宽——是否扩大属设计选择。
 - **Status**: ⏸**已记录，不实现**。改这两处会**改变现有调用方的可观测行为**
   （原本被吞掉的异常会开始上抛），属对外行为契约变更，与 P2-13/P2-15/P2-16
-  同一套判断；且需项目先决定这两条触发路径是否应纳入 fire-and-forget 语义。
+  同一套判断；且需项目先决定这两条触发路径是否应纳入 fire-and-forget 语义。 条目全文已逐字迁入 [`2026-10-07_backend-review-evidence-55.md`](../archive/2026-10-07_backend-review-evidence-55.md)（第 353 轮）。
 ### P2-20: 全部 22 个数值查询参数都会静默接受十六进制字面量
 
 - **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）；
@@ -1374,6 +1320,15 @@
 - **该稿其余可验证断言本轮逐条复验通过（零差异）**: ①「26 个公开方法」——AST 枚举实得 **26**（含 `close()`），与既有注记一致；清单本身列 **25** 个 API 方法（我独立重数：`2+3+5+5+1+3+1+4+1=25`）+ 2 个 dunder，缺 `get_observation`，**与既有注记吻合**。②§4 列的 13 个 DTO 在 `dto.py` 中**全部存在**。③`dependencies = ["requests>=2.28"]` 单依赖、`version = "1.0.0"`。④§3.1 五个默认值（`timeout=30.0` / `max_retries=3` / `retry_backoff=0.5` / `api_key=None` / `session=None`）逐项相符。⑤`scripts/python-sdk-e2e-test.sh` 确实存在。⑥§3.2 的 **24 条端点路径与实现逐字一致**（`close()` 无路径故不入比对）。
 - **端点比对器返工两次才可信**: 首版正则要求 docstring 以 `/` 开头，而实现写的是 `"""POST /api/session/start"""`——**比对数 0、差异 0**，属「只可能返回零的比较」；二版字符类含 `.`，把 18 条路径的句末句号一起吃进来，**造出 18 处假阳性**；三版排除 `.` 后零差异，并注入两处缺陷（`/api/searchX`、`/api/versionz`）各被抓到一次才算通过。
 - **§6 异常层次只列 6 类而实现有 12 类——不记为缺陷**: 该节无「完整/全部」措辞，是**节选**而非清单，按「遗漏 ≠ 失实」不构成 finding，也不修。
+
+### P2-109: `TimelineService` 的地板注释断言了一个**真实执行顺序到不了**的异常——`subList` 永不先抛，`PageRequest` 先抛
+- **Scope / Evidence**: `backend/src/main/java/com/ablueforce/cortexce/service/TimelineService.java`（原 90~100 行）。受控实验 `subList(1,0)` → `IllegalArgumentException: fromIndex(1) > toIndex(0)`（与注释逐字吻合）；`PageRequest.of(0,-3)` → `IllegalArgumentException: Page size must not be less than one!`；**按方法真实顺序复原**（`windowSize=(before+after)*2+1=-3` → `Math.min(-3,500)=-3` → `PageRequest.of(0,-3)`）→ **先抛 `Page size must not be less than one!`**，`extractWindow` 根本没被调用。
+- **Problem**: 注释原写「A negative depth inverts that range: with anchorIndex = 0, before = -1 and after = -1 the indices become fromIndex(1) > toIndex(0) and the JDK throws IllegalArgumentException: fromIndex(1) > toIndex(0)」。**这个名字与消息在真实代码里不可达**：能反转 `subList` 区间的 (before, after) 必然满足 before+after<0，于是 `windowSize<1`、`maxObs<1`，`PageRequest.of(0, maxObs)` 在**更早的一行**就抛了。结论（负数深度是未处理的 500）没错，**依据的机制是错的**。
+- **同一段的第二处失实**: 「before=0/after=0 yields subList(0, 1), i.e. the anchor observation alone, **which is exactly what the endpoints return today for depth 0**」。实测**只在锚点恰为该项目最新观测时成立**——因为抓取宽度是 `(0+0)*2+1=1` 行，锚点不在候选里时 `findAnchorIndex` 返回 -1，走**提前返回空列表**那条路。同一项目（1362 条观测）取四个位置的锚点活体实测 `depth_before=0&depth_after=0`：**最新→1 条、第 2 新→0、第 6 新→0、第 11 新→0**。补测 `1/1` 同样如此（2 新→3 条，6 新与 11 新→0）。
+- **为什么仍按「地板取 0 而非 1」修**: 该**结论依然正确**——地板取 1 会把上表三个 0 变成 3 条窗口，那才是行为变更。错的只是支撑它的两条事实，故只改注释、**零行为变更**。注释已改为：写明 `windowSize` 同时决定抓取宽度、真实首抛来自 `PageRequest`、并说明 `subList` 的异常真实存在但**在本方法里不可达**；再按四个锚点位置的实测值说明 depth 0 的真实返回。
+- **Status**: ✅ **已修（第 353 轮，零行为变更）** —— 改的是注释，`Math.max(0, …)` 一行未动。**新鲜度闸门**：改的是后端源码，豁免路径**不适用**，已 `mvn -o clean package -DskipTests`（BUILD SUCCESS）并重启 37777 后跑完整验收。
+- **本轮一并复验为零缺陷的相邻断言**: `ContextController` 350~360 行四条全部成立——`maxObservations` 确实进原生 `LIMIT :limit`（`ObservationRepository` 多处）、`maxSummaries` 确实走 `ContextService:392` 的 `stream().limit(...)`、端点是 `@GetMapping(produces = TEXT_PLAIN_VALUE)` 返回 `String` 故 catch-all 以 **200** 返回纯文本（结构上成立）、`0` 的行为实测正是渲染为 “**no memories yet**”。它引用的「`Stream.limit(-1)` 的消息字面就是 `-1`」也**实测为真**（`IllegalArgumentException: -1`）。
+- **一句「遗漏」不记为缺陷**: 注释说「Both timeline entry points (GET /api/context/timeline and GET /api/timeline) funnel through this method」。两者确实都经 `getTimelineByAnchor`（`TimelineService:60`）汇聚到 `getTimelineMap`，**该句字面为真**；但 `ClaudeMemMcpTools:146` 是**第三个**调用方（MCP `timeline` 工具直接调用）。按「遗漏 ≠ 失实」不记 finding——补记也只是正文加一句。
 
 ## Processing Rules
 - **第 316 轮新增流程规则（连续三轮教训的归纳）——落笔前先查该模块自己的文档**：

@@ -87,17 +87,30 @@ public class TimelineService {
 
         // Clamp both depths to >= 0 before they reach the window arithmetic below.
         //
-        // The window is `subList(max(0, anchorIndex - before), min(size, anchorIndex + after + 1))`.
-        // A negative depth inverts that range: with anchorIndex = 0, before = -1 and after = -1
-        // the indices become fromIndex(1) > toIndex(0) and the JDK throws
-        // IllegalArgumentException: fromIndex(1) > toIndex(0) — an unhandled 500 on what is
-        // plainly a client input error. Both timeline entry points (GET /api/context/timeline
-        // and GET /api/timeline) funnel through this method, so flooring here covers both.
+        // The window is `subList(max(0, anchorIndex - before), min(size, anchorIndex + after + 1))`,
+        // and the same two depths also size the *fetch*: `windowSize = (before + after) * 2 + 1`,
+        // capped at 500, is what PageRequest is built from.
         //
-        // Floored at 0, not 1, because 0 already has a working meaning on this endpoint:
-        // before=0/after=0 yields subList(0, 1), i.e. the anchor observation alone, which is
-        // exactly what the endpoints return today for depth 0. Values of 1, 10 and 5000 are
-        // untouched. Only the two crashing inputs change.
+        // A negative depth therefore fails one step earlier than the subList arithmetic would
+        // suggest. With before = -1 and after = -1, windowSize is -3, so `PageRequest.of(0, -3)`
+        // throws `IllegalArgumentException: Page size must not be less than one!` — and that
+        // happens *before* extractWindow is ever reached. The subList inversion is real
+        // (`subList(1, 0)` does throw `fromIndex(1) > toIndex(0)`), but it is unreachable here:
+        // any (before, after) that could invert the range sums to less than 0, which makes the
+        // page size less than 1, which throws first. Either way it was an unhandled 500 on what
+        // is plainly a client input error. Both timeline entry points (GET /api/context/timeline
+        // and GET /api/timeline) funnel through this method via getTimelineByAnchor, so flooring
+        // here covers both; the MCP `timeline` tool calls this method directly and is covered too.
+        //
+        // Floored at 0, not 1, because 0 already has a working meaning on this endpoint, and
+        // because flooring at 1 would *change* it. What depth 0 actually returns depends on where
+        // the anchor sits: the fetch is only (0 + 0) * 2 + 1 = 1 row wide, so the anchor is in that
+        // fetch only when it is the project's newest observation. Measured live on one project
+        // (1362 observations, anchor at each of four positions in the newest-first list):
+        // newest -> 1 observation, 2nd -> 0, 6th -> 0, 11th -> 0. Flooring at 0 preserves all four;
+        // flooring at 1 would turn the three empty ones into 3-observation windows, i.e. a
+        // behaviour change rather than a crash fix. Values of 1, 10 and 5000 are untouched, and
+        // only the two negative inputs change.
         int before = depthBefore != null ? Math.max(0, depthBefore) : 5;
         int after = depthAfter != null ? Math.max(0, depthAfter) : 5;
 
