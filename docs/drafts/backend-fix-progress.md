@@ -4,6 +4,18 @@
 > **Updated by**: 定时项目维护任务。
 > **Update rule**: 新修复追加到顶部；超过文档增长阈值时保留未完成项并将已完成历史归档。
 
+## 2026-10-02 00:56 | 构建修复 — test 作用域 byte-buddy 1.15.11（JDK 24 兼容）
+
+**问题**：本机 JDK 升至 Homebrew 24.0.2 后，后端全量 `mvn test` 11 个 Error —— Mockito 5.11（spring-boot-starter-test BOM）附带的 byte-buddy 1.14.19 无法在 JDK 24 上插桩（`Mockito cannot mock this class: EmbeddingService`）。代码无缺陷； EmbeddingService 非 final 且未近期改动。
+
+**修复**：backend/pom.xml 以 **test 作用域**固定 `net.bytebuddy:byte-buddy` 与 `byte-buddy-agent` 至 **1.15.11**；运行时依赖保持在 Boot BOM 版本，fat jar 中 byte-buddy 本为 0 条目（实测确认），零运行时影响。
+
+**验证**：JDK 24（Homebrew 24.0.2）**167/167** ✅；JDK 23.0.1 **167/167** ✅；回归 **45/46**（1 skipped）✅；EXTRACTION **25/25** ✅；fat jar 重打包成功。
+
+**提交**：`399c478`；新基线 `399c478 / 54fc7e95…`
+
+**备注**：本修复由第二会话验证轮发现并落地；与并行维护进程共享后端域，pom 变更已完整验收。
+
 ## 2026-10-01 05:12 | 陈旧测试对齐 — B-52 与 F-2 修复后的测试同步
 
 **修复内容**：
