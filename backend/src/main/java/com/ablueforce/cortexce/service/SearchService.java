@@ -15,10 +15,22 @@ import java.util.List;
 /**
  * Hybrid search service.
  * <p>
- * Strategy selection tree (per cookbook):
- * 1. No query → PostgreSQL filter search (type/concepts/files/dateRange via tsvector)
- * 2. Has query + embeddings available → pgvector semantic search
- * 3. pgvector fails → fallback to tsvector full-text search
+ * Strategy selection tree:
+ * 1. No query → PostgreSQL filter search (type/source/concept/dateRange). This path is plain
+ *    predicate SQL (`:p IS NULL OR col = :p` plus `concepts @> to_jsonb(:concept)`) and
+ *    does not touch search_vector at all; the full-text index is reached only from path 3.
+ *    Reported as strategy "filter", or "recent" when no filter is set.
+ * 2. Has query + embeddings available → hybrid search: a pgvector half and a tsvector half
+ *    unioned and ranked together. Reported as strategy "hybrid", not a pure vector search.
+ * 3. The vector failed validation, or pgvector raised a non-retryable error → fallback to
+ *    tsvector full-text search. Retryable errors (socket timeout/connect/timeout, or losing
+ *    the JDBC connection) are rethrown instead, so a database outage surfaces as an error
+ *    rather than silently degrading to text search.
+ * <p>
+ * Two claims this comment used to make were wrong and are deliberately not restated here:
+ * the filter path never filtered on `files` — no such field exists on {@link SearchRequest}
+ * and none of the three call sites pass one — and the old "per cookbook" citation pointed at
+ * a document that is not in this repository, so nothing could be checked against it.
  */
 @Service
 public class SearchService {

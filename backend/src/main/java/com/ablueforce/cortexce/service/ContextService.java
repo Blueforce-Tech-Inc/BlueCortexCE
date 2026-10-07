@@ -304,8 +304,14 @@ public class ContextService implements LogHelper {
      * This method is called by /api/context/preview endpoint.
      *
      * @param projectPath Project path
-     * @param types List of observation types to include (empty = all types)
-     * @param concepts List of concepts to filter by (empty = all concepts)
+     * @param types Observation types to include. An empty list does NOT mean "all types" —
+     *     it expands to the six-type whitelist applied below (bugfix, feature, refactor,
+     *     discovery, decision, change). Anything outside it (user_statement,
+     *     extracted_user_preference, test, documentation, and whatever a future capture
+     *     path adds) is silently excluded, so pass such types explicitly.
+     * @param concepts List of concepts to filter by (empty = all concepts). This one does
+     *     mean all: emptiness is carried down as `conceptsEmpty` and the SQL then skips
+     *     the concept predicate. The two parameters are not symmetric.
      * @param includeObservations Whether to include observations
      * @param includeSummaries Whether to include summaries
      * @param maxObservations Maximum observations to include
