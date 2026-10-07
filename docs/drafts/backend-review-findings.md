@@ -39,83 +39,32 @@
   写侧已实现、读侧未实现的非对称。
 - **实测记录**: [`…-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
 ### P2-10: 四个 ingest 端点对项目路径的必填性不一致
-
-- **Scope / Evidence**: [`…-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
-- **Problem**: 同一族端点对同一个语义字段给出两种契约。实测（对运行中的后端）： | 端点 | 缺失/空白 `project_path`（或 `cwd`） |
-  |------|------------------------------------| | `POST /api/ingest/observation` | **400** `Missing required field:
-  project_path` | | `POST /api/ingest/tool-use` | **200** `{"status":"accepted"}` | | `POST /api/ingest/user-prompt` |
-  **200** `{"status":"ok"}` | | `POST /api/ingest/session-end` | **200** `{"status":"ok"}` |
-  `cwd` 省略与发送 `"cwd": ""` 行为相同。
-- **实际影响**：仅影响直接使用 HTTP API 的调用方——四家 SDK 均已在客户端拒绝空
-  `project_path`（本轮刚为 Python 补齐），因此 SDK 路径不会触发。直接调 API 的调用方
-  会得到一条项目路径为空的记录：写入成功、返回 200，但该记录不会出现在任何按项目
-  过滤的查询里，**且不会有任何错误提示**。`user-prompt` 的 `prompt_text` 同样缺失即
-  接受（仅 `session_id` 被强制）。
-- **未修的原因**：收紧另三个端点属于**对外 API 契约变更**，会影响既有直接调用方与
-  薄代理 `wrapper.js` 的边界输入，属产品决策；本轮代码方向为 Python SDK，按轮换
-  纪律不在本轮动手。
 - **Status**: ⏸ 已记录不修（2026-10-02，第 175 轮 API 文档轮发现）。文档方向已在同轮
   于 `docs/API.md` / `docs/API-zh-CN.md` 三个端点各加一段说明，逐条写明「缺失与空串
   都会被接受」「`/api/ingest/observation` 是唯一严格的那个」「SDK 会在客户端拦截」，
   使读者不必自行推断这层差异。API 文档原本对两者的「必填」标注**是正确的**
-  （observation 标 ✅、另三个标 ❌），本轮只是补上未言明的后果。
+  （observation 标 ✅、另三个标 ❌），本轮只是补上未言明的后果。 条目全文已逐字迁入 [`2026-10-07_backend-review-evidence-53.md`](../archive/2026-10-07_backend-review-evidence-53.md)（第 352 轮）。
 
 <!-- P2-11 已无条件解决，逐字迁入 2026-10-04_backend-review-resolved-3.md -->
 ### P2-13: Spring AI 集成无法按用户隔离记忆——会话上下文里没有 userId
-
-- **Scope / Evidence**: [`…-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
-- **Problem**: 后端**支持**按用户隔离 ICL 记忆（第 194 轮实测：同一项目下 alice 返 1 条
-  经验、bob 返 0 条），`ICLPromptRequest` / `ExperienceRequest` 也都带 `userId`，
-  `DefaultMemoryRetrievalService` 更是**已经实现并透传** `userId`。
-  但真正把记忆注入 Agent 的两个组件——`CortexMemoryAdvisor` 与
-  `CortexMemoryTools` 的两个读方法——**结构上做不到**：
-  它们唯一的会话级状态是 `CortexSessionContext`，而那个类里根本没有 `userId` 字段。
-  因此在多用户部署中，**自动注入给每个 Agent 的 ICL 上下文是项目级的、所有人相同**。
-  手工调用 `client.buildICLPrompt(...)` 并自行设置 `userId` 是可行的——
-  受影响的是自动路径。
-- **影响面**：与 P2-11（错模板名不被拒绝）不同，这不是静默错值，而是**缺少一个能力**；
-  后果是不同用户之间**记忆串味**（用户 A 的偏好会出现在用户 B 的提示里），
-  在「每用户独立档案」类应用中属于数据可见性问题。
 - **Status**: ⏸**已记录，本轮不实现**。修它需要给 `SessionInfo` 加字段、给 `begin()`
   加重载、把 userId 从调用方一路串到 advisor 与工具，属于**新增能力**而非修 bug；
   且 `CortexSessionContextBridgeAdvisor` 需要知道从何处取 userId（会话 id？应用配置？，
   还是新的 `begin()` 入参），这个选择应由项目决定而不是由巡检轮次决定。
   本轮已做的是**如实记录**：`cortex-mem-spring-integration/README.md` 与 `README-zh-CN.md`
-  新增多用户段落，写明自动路径不做用户隔离、哪些端点其实认 `userId`、以及可用的手工做法。
+  新增多用户段落，写明自动路径不做用户隔离、哪些端点其实认 `userId`、以及可用的手工做法。 条目全文已逐字迁入 [`2026-10-07_backend-review-evidence-53.md`](../archive/2026-10-07_backend-review-evidence-53.md)（第 352 轮）。
 
 ### P2-14: `findNewObservations` 零调用方——增量抽取从未实现，却有索引为它而建
-
-- **Scope / Evidence**: 已逐字迁入 [`2026-10-04_backend-review-scope-evidence-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）；**第 275 轮**删除 Problem 段一处**逐字重复句**并迁出整条原文 → [`2026-10-06_backend-review-evidence-25.md`](../archive/2026-10-06_backend-review-evidence-25.md)；**第 278 轮**再迁出其 Status 的压缩过程原文 → [`2026-10-06_backend-review-evidence-29.md`](../archive/2026-10-06_backend-review-evidence-29.md)。
-- **Problem**: 增量抽取**没有实现**。后端全文没有 `extraction_state`（0 命中），
-  每次运行都取最新的 N 条、**没有「上次抽取之后」的过滤**。`findNewObservations`
-  本身实现完好、SQL 正确，但 `backend/src/main` 中**零调用方**、连单测都没引用。
-  与 P2-12（`deepRefineProjectMemories` 无调用方）同型：一个从未接线的特性，只留下方法、注释和一条为它建的索引。
-- **实际行为（与文档描述不同）**：`findBySourceIn` 是 `ORDER BY created_at_epoch DESC LIMIT N`，
-  所以新观测**会**进来，但超出上限的旧观测**永远不会被抽取**——既不是文档所称的
-  「增量」，也不是「全量重扫」，是「每次重扫最新的 N 条」。**纯成本与覆盖问题，不会返回错值**；
-  但 23.md 曾把它列为「primary cost reduction mechanism」，运维据此估算 token 预算会系统性偏低。
-- **量化证据（第 202 轮补测）**: 逐字迁入 [`2026-10-04_backend-review-evidence-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
 - **Status**: ⏸**已记录，不实现**。接上它需要持久化抽取状态（7.md §7.1 提议用
   `type="extraction_state"` 的观测行承载），属新增特性而非修 bug，且过期/重建语义应由项目决定。
   **已做的是如实记录**：23.md §23.5 策略 3/4/5 补上「designed, not implemented」声明并给出真实的
   候选选取路径与排序方向；8.md 第 5 条、0.2.md Gap 3、17.md §17.2 三处同一断言一并更正。
-  **按断言清扫的逐处经过**：逐字迁入 [`…-32.md`](../archive/2026-10-06_backend-review-evidence-32.md)（第 282 轮）。
+  **按断言清扫的逐处经过**：逐字迁入 [`…-32.md`](../archive/2026-10-06_backend-review-evidence-32.md)（第 282 轮）。 条目全文已逐字迁入 [`2026-10-07_backend-review-evidence-53.md`](../archive/2026-10-07_backend-review-evidence-53.md)（第 352 轮）。
 ### P2-15: `save_memory` 的共享会话是 check-then-act，并发下必然丢失一次保存
-
-- **Scope / Evidence**: [`…-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
-- **Problem**: `mem_sessions.content_session_id` 上有**活体确认**的唯一约束
-  （`pg_constraint`: `mem_sessions_content_session_id_key UNIQUE (content_session_id)`），
-  而这里是典型的 check-then-act：两个并发的 `save_memory` 调用都会查不到、都会走
-  `orElseGet` 去插入，第二次必然撞唯一约束。异常被外层捕获，返回
-  `{"success": false, "error": "Failed to save memory: ..."}`。
-- **影响面**：**不会写脏数据、也不会假报成功**（安全方向），但一次本该成功的
-  记忆保存被报成失败，且信息误导——调用方看到的是「保存失败」而不是「并发冲突，请重试」。
-  重试即可成功（此时会话已存在），所以属于瞬时可恢复的伪失败。
-  MCP 工具调用可由 agent 并行发起，多客户端同理，因此并发是现实场景而非理论场景。
 - **Status**: ⏸**已记录，不实现**。常规修法是捕获 `DataIntegrityViolationException`
   后重新查询会话再继续，但那要在 `orElseGet` 的懒执行路径里插入一次重试，
   改变的是该工具的错误语义与重试行为，属应由项目拍板的契约问题而非巡检轮次的修 bug。
-  与 P2-13/P2-14 同一套判断。
+  与 P2-13/P2-14 同一套判断。 条目全文已逐字迁入 [`2026-10-07_backend-review-evidence-53.md`](../archive/2026-10-07_backend-review-evidence-53.md)（第 352 轮）。
 
 ### P2-16: Java SDK 没有任何类型化异常，HTTP 状态码只能靠遍历 cause 链取得
 
@@ -1410,6 +1359,21 @@
 - **Status**: ✅ **已修（第 344 轮）** —— 该行接回表尾。**超出本轮名义文档方向**但与 P2-104 同成因同仪器，按「已损坏行为可修」一并处理；全库 21 个 `.md` 扫描后归零。条目全文已逐字迁入 [`…-50.md`](../archive/2026-10-07_backend-review-evidence-50.md)（第 344 轮）。
 ### P2-106: 全库 **98 行**表格的单元格数与表头不符 —— 多数是代码 span 里的裸 `|` 未转义，而**渲染器根本检测不到这一类**
 - **Status**: ⏸ **记录不修**（批量，逐文件核对成本高于本轮；本条按 Archived History 段的「标题紧跟 Status」体例排版以省 1 行） —— 分布：`evolver-memory/04` 35 行、`/05` 30 行、`archive/2026-09-30_backend-review-findings-history.md` **26 行（归档，按规则不可改）**、`evolver-memory-analysis/03-signals` 4 行、其余 5 行各 1（`proxy/CLAUDE-CODE-INTEGRATION-zh-CN.md:106` 的 `Edit|Write|Read\|Bash` **只转义了 3 个管道里的 1 个**（**第 345 轮已修**：三个管道全部转义）、`phase-3-design/15.md:101` 末尾多一个空单元格（**该行第 345 轮已修**））。**已修的 6 行**：`patrol-rotation.md` 4 行 + 上列 proxy zh 与 phase-3-design 各 1 行（`:243/246/248/251`），修后该文件直方图归一到 `{4: 259, 3: 119}`。**关键仪器结论**：受控样本证实 **pandoc 的 GFM 解析器不按代码 span 内的 `|` 切单元格**（386 行全报 3 单元格），而 GitHub 会切——故此类缺陷**必须数未转义管道，渲染器复核无效**，这正是 P2-99 当年改用直方图的原因。检查器 `/tmp/find-pipe-mismatch.py` 带自检（good=0 / code-span=1 / extra-col=1 / fenced=0）；其**首版公式 `pipes-1` 把无收尾竖线的行少算一个单元格**，被自检里那条无收尾行当场拦下。
+
+### P2-107: `DemoParams` 的类注释称 `MemoryController` 是**唯一**在 `/demo` 前缀外的控制器 —— 活体实测有**两个**，且它自己引用的 README 就列出了第二个
+- **Scope / Evidence**: `examples/cortex-mem-demo/src/main/java/com/example/cortexmem/DemoParams.java`（原 53 行）。活体实测于本轮自启的 demo（37778）：`GET /chat` 返回 500 而非 404（500 是**已知的 LLM 密钥失效**，非路由问题——`Error while extracting response`，见本文件 LLM 端点 401 那条），`GET /projects` 返回 **404**。
+- **Problem**: 原句为「`MemoryController` is **the one** controller served outside the `/demo` prefix, so its paths read `/memory/...` — that is what the demo README documents」。12 个控制器里**4 个没有类级 `@RequestMapping`**（`ChatController`、`MemoryController`、`ProjectsController`、`ToolsController`），但其中 `ProjectsController` → `/demo/projects`、`ToolsController` → `/demo/tool` **都在 `/demo` 下**；真正在前缀外的是**两个**：`MemoryController`（`/memory/...`）与 `ChatController`（`/chat`）。而 demo README 第 54 行**自己就列着** `GET /chat?message=...&project=project-a`——注释用来佐证的文档反证了它自己。
+- **为什么算失实而非「表述含糊」**: 该句在**局部范围**（上文那三个直接绑定数值的控制器）内成立，但它的**措辞是无限定词**的全局断言，且紧接着用「that is what the demo README documents」把读者导向一份直接反驳它的文档。按「失实陈述可修」单方面更正，**零行为变更**。
+- **Status**: ✅ **已修（第 352 轮，零行为变更）** —— 改为「the only one of **those three** served outside the `/demo` prefix」，并**主动补上**被漏掉的事实：`/chat` 同样在前缀外，另注明 `ProjectsController` / `ToolsController` 无类级映射却仍在 `/demo` 下。`mvn -o clean test` **40/40** 全绿。**检测手段**: 不是靠读映射表，而是**活体探针**（`/chat` 非 404 + `/projects` 404 双向钉死），因为「有没有类级 `@RequestMapping`」与「路径在不在 `/demo` 下」是两件事，只有后者决定原句真假。
+- **同段其余断言本轮全部活体复验通过**: 六个 Spring 绑定参数实测**恰好**接受 `0x10`（`/demo/experiences?count`、`/demo/iclprompt?maxChars`、`/memory/experiences?count`、`/memory/experiences/filtered?count`、`/memory/icl/truncated?maxChars`、`POST /demo/session/prompt?promptNumber`）而 `/demo/observations?limit=0x10` 被本类拒为 400；`1_0` 的五条 400 响应体（一条本类自定义 `{"error":"limit must be an integer"}`、四条 Spring 默认 `{"timestamp":…,"status":400,"error":"Bad Request"}`）逐字吻合。
+
+### P2-108: `python-sdk-design.md` 的**两份目录树**都停在设计日 —— 漏 `tests/test_demo.py` 与 `cortex_mem/py.typed`，并列出一个**并不存在**的 `LICENSE`
+- **Scope / Evidence**: `docs/drafts/python-sdk-design.md` §1 目录结构（21-34 行）与 §2 目录结构（100-115 行）。以磁盘为准实测（`python-sdk/cortex-mem-python/`）：`tests/` 实为 `conftest.py` / `test_client.py` / **`test_demo.py`** / `test_dto.py`；`cortex_mem/` 实含 `py.typed`（60 字节，非空）；顶层**无 `LICENSE`**。
+- **Problem**: 该文件是**零覆盖**设计稿（此前从未审过），日期标注 2026-03-27、状态「待审批」。§2 树把 `LICENSE` 列为包内文件，而它只存在于仓库根；两份树都漏了后加的 `test_demo.py` 与 `py.typed`，§1 那份还漏 `conftest.py`。**「带日期的快照不算失实陈述」**——但这份文件在本仓库早已被当作**活文档**维护：§3.1 与 §3.2 各自带「实施后修正（2026-10-06）」注记，第 162 轮还据它改过 `client.py`。既有体例明确是**加注记**而非重写树。
+- **Status**: ✅ **已修（第 352 轮）** —— 按本文件既有体例，在 §2 树后加「实施后修正（2026-10-07）」注记，**逐条列出实测到的三处漂移并声明以磁盘为准**，同时提示 §1 那份更简写的树有同样遗漏；**不重写树**，以免抹掉设计当时的记录。
+- **该稿其余可验证断言本轮逐条复验通过（零差异）**: ①「26 个公开方法」——AST 枚举实得 **26**（含 `close()`），与既有注记一致；清单本身列 **25** 个 API 方法（我独立重数：`2+3+5+5+1+3+1+4+1=25`）+ 2 个 dunder，缺 `get_observation`，**与既有注记吻合**。②§4 列的 13 个 DTO 在 `dto.py` 中**全部存在**。③`dependencies = ["requests>=2.28"]` 单依赖、`version = "1.0.0"`。④§3.1 五个默认值（`timeout=30.0` / `max_retries=3` / `retry_backoff=0.5` / `api_key=None` / `session=None`）逐项相符。⑤`scripts/python-sdk-e2e-test.sh` 确实存在。⑥§3.2 的 **24 条端点路径与实现逐字一致**（`close()` 无路径故不入比对）。
+- **端点比对器返工两次才可信**: 首版正则要求 docstring 以 `/` 开头，而实现写的是 `"""POST /api/session/start"""`——**比对数 0、差异 0**，属「只可能返回零的比较」；二版字符类含 `.`，把 18 条路径的句末句号一起吃进来，**造出 18 处假阳性**；三版排除 `.` 后零差异，并注入两处缺陷（`/api/searchX`、`/api/versionz`）各被抓到一次才算通过。
+- **§6 异常层次只列 6 类而实现有 12 类——不记为缺陷**: 该节无「完整/全部」措辞，是**节选**而非清单，按「遗漏 ≠ 失实」不构成 finding，也不修。
 
 ## Processing Rules
 - **第 316 轮新增流程规则（连续三轮教训的归纳）——落笔前先查该模块自己的文档**：

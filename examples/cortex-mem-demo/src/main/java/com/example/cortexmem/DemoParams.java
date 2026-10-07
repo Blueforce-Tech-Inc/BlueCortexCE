@@ -50,8 +50,11 @@ import java.util.Map;
  * {@code /demo/session/prompt?promptNumber=1_0} all answer Spring's default
  * {@code {"timestamp":…,"status":400,"error":"Bad Request"}}, and {@code 0x10} is accepted on
  * every one of those six while {@code limit=0x10} is rejected here. Note that
- * {@code MemoryController} is the one controller served outside the {@code /demo} prefix, so
- * its paths read {@code /memory/...} — that is what the demo README documents.
+ * {@code MemoryController} is the only one of those three served outside the {@code /demo} prefix,
+ * so its paths read {@code /memory/...} — that is what the demo README documents. It is not the
+ * only such path family in the demo: {@code GET /chat} in {@code ChatController} is also outside
+ * {@code /demo}, and {@code ProjectsController} and {@code ToolsController} carry no class-level
+ * {@code @RequestMapping} yet still answer under {@code /demo/projects} and {@code /demo/tool}.
  * Tracked as P2-56; closing it means choosing an integer grammar first (P2-55), so this
  * note describes the code as it stands rather than as it is meant to be.</p>
  */

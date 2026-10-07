@@ -114,6 +114,13 @@ cortex-mem-python/
     └── test_dto.py             # DTO 序列化测试
 ```
 
+> **实施后修正（2026-10-07）**：上面是设计期（2026-03-27）的布局快照，实现后已漂移三处，
+> 本节按体例只作标注、不重写树，以免抹掉设计当时的记录。以磁盘为准实测：
+> `tests/` 多出 `test_demo.py`（Flask demo 的单测），`cortex_mem/` 多出 `py.typed`，
+> 而本节列出的 `LICENSE` 在该包目录下并不存在。
+> §1 那份更简写的树省略了 `conftest.py` 与 `py.typed`，同样漏了 `test_demo.py`——
+> 读 §1 时也要按本条理解。
+
 ---
 
 ## 3. Client API 设计
