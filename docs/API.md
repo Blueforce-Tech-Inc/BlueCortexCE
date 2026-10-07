@@ -1654,30 +1654,30 @@ take raw query strings, were aligned to one shared rule for the same reason.
 | `project` | string | Project path (`@JsonProperty` override; **not** `project_path`) |
 | `type` | string | Observation type (e.g., `feature`, `bugfix`) |
 | `title` | string | Observation title |
-| `subtitle` | string | Observation subtitle |
-| `narrative` | string | Observation body text (`@JsonProperty` override; **not** `content`) |
-| `facts` | string | **JSON-encoded array** of factual statements, e.g. `"[\"a\", \"b\"]"` |
+| `subtitle` | string \| null | Observation subtitle |
+| `narrative` | string \| null | Observation body text (`@JsonProperty` override; **not** `content`) |
+| `facts` | string \| null | **JSON-encoded array** of factual statements, e.g. `"[\"a\", \"b\"]"` |
 | `concepts` | string | **JSON-encoded array** of concept tags, e.g. `"[\"auth\", \"jwt\"]"` |
-| `files_read` | string | **JSON-encoded array** of files read, e.g. `"[]"` |
-| `files_modified` | string | **JSON-encoded array** of files modified, e.g. `"[]"` |
+| `files_read` | string \| null | **JSON-encoded array** of files read, e.g. `"[]"` |
+| `files_modified` | string \| null | **JSON-encoded array** of files modified, e.g. `"[]"` |
 | `refined_from_ids` | string \| null | **Comma-separated** source observation UUIDs (e.g. `"obs-abc-123,obs-def-456"`) when this one was produced by refinement; `null` otherwise. Unlike the four fields above this is a `TEXT` column, **not** JSONB — the backend joins the IDs with `,` and never JSON-encodes them, so the value is not a JSON-encoded array |
-| `content_hash` | string | Content hash used for duplicate detection |
+| `content_hash` | string \| null | Content hash used for duplicate detection |
 | `discovery_tokens` | int | Token count attributed to this observation (V17) |
-| `quality_score` | float | Quality score assigned by the refinement process (0.0–1.0) |
-| `feedback_type` | string | Feedback type: `SUCCESS`/`PARTIAL`/`FAILURE`/`UNKNOWN` |
-| `feedback_updated_at` | string | ISO-8601 timestamp of last feedback update |
-| `user_comment` | string | Free-text comment attached with feedback |
+| `quality_score` | float \| null | Quality score assigned by the refinement process (0.0–1.0) |
+| `feedback_type` | string \| null | Feedback type: `SUCCESS`/`PARTIAL`/`FAILURE`/`UNKNOWN` |
+| `feedback_updated_at` | string \| null | ISO-8601 timestamp of last feedback update |
+| `user_comment` | string \| null | Free-text comment attached with feedback |
 | `access_count` | int | Number of times this observation was served |
-| `last_accessed_at` | string | ISO-8601 timestamp of the last access |
-| `refined_at` | string | ISO-8601 timestamp of the last refinement |
+| `last_accessed_at` | string \| null | ISO-8601 timestamp of the last access |
+| `refined_at` | string \| null | ISO-8601 timestamp of the last refinement |
 | `relevance_count` | int | Always `0`. The V17 column exists but nothing writes it yet — there is no code path that records a relevance signal (see P2-24) |
 | `generated_by_model` | string \| null | Always `null` for the same reason: V17 added the column but no code populates it |
 | `step_number` | int \| null | Step index within the session, when recorded |
 | `embedding_model_id` | string \| null | Model ID of the stored embedding, when one exists |
-| `source` | string | Source attribution (e.g., `claude-code`, `manual`) |
+| `source` | string \| null | Source attribution (e.g., `claude-code`, `manual`) |
 | `platform_source` | string | Platform source for multi-platform tracking (V18, e.g., `claude`, `cursor`) |
-| `extractedData` | object | Structured data extracted by the LLM (`@JsonProperty` override; **not** `extracted_data`) |
-| `prompt_number` | int | Prompt number in the session |
+| `extractedData` | object \| null | Structured data extracted by the LLM (`@JsonProperty` override; **not** `extracted_data`) |
+| `prompt_number` | int \| null | Prompt number in the session |
 | `created_at` | string \| null | ISO-8601 creation timestamp, **usually `null`**. Only the import path sets it — the capture path stores `created_at_epoch` alone. Measured 2026-10-03: present on 18,377 of 38,120 observations (48%). Use `created_at_epoch` for anything time-related |
 | `created_at_epoch` | long | Epoch milliseconds of creation — always populated, and the column every endpoint sorts on |
 | `embedding_768` / `embedding_1024` / `embedding_1536` | number[] \| null | pgvector columns, dimension depends on the configured embedding model; all `null` when not populated |
@@ -2945,6 +2945,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 
 | Date | Version | Changes |
 |------|---------|---------|
+| 2026-10-07 | (unreleased) | Fifteen fields in the observation wire-format table were typed as non-nullable while the backend sends explicit `null` for every one of them. The 2026-10-03 entry below fixed `created_at` on exactly this reasoning and left the other fifteen in the same table declaring `string` / `int` / `float` / `object`. Measured across all 38,967 observations: `user_comment` and `last_accessed_at` are null on **100%** of rows, `feedback_updated_at` / `feedback_type` / `quality_score` on 92%, `subtitle` 81%, `refined_at` 79%, `content_hash` 48%, `facts` / `files_read` / `files_modified` 47%, `extractedData` 46%, `source` 35%, `prompt_number` 15%, `narrative` 6%. All fifteen now read `... \| null`, matching the six fields that already said so. **The keys are never absent**: live `GET /api/observations` returns exactly 34 keys on every row and a sparse field arrives as an explicit `null`. The nine fields measured at 0.0-0.09% null — `id`, `content_session_id`, `project`, `type`, `title`, `concepts`, `platform_source`, `access_count`, `created_at_epoch` — keep their non-null types. The `POST /api/memory/observations` request table is deliberately untouched: it carries its own Required column, so optionality is already stated there. EN+ZH in sync |
 | 2026-10-04 | (unreleased) | Four numeric parameters crashed the backend on a negative value, and two of them reported the crash as an `HTTP 200`. A negative `maxObservations` reached the native `LIMIT :limit` and PostgreSQL rejected it outright (`InvalidRowCountInLimitClause: LIMIT must not be negative`); a negative `maxSummaries` was applied as `Stream.limit(-1)`, whose `IllegalArgumentException` message is literally `-1`, so the log line read only `"... preview for project X: -1"`. `/api/context/preview` catches both and returns a `String`, so the Spring MVC status stayed **200** with the body `Error: Failed to generate context preview` — a client input error reported as a success. The two timeline endpoints were worse: `depth_before` / `depth_after` and `depthBefore` / `depthAfter` reach `subList(max(0, anchorIndex - before), min(size, anchorIndex + after + 1))`, and a negative depth inverts that range into `fromIndex(1) > toIndex(0)`, surfacing as an unhandled **500**. Fixed by flooring at **0**, not 1, because 0 already had a working meaning on every one of these (empty result, or the anchor observation alone) — so 0, 1, 10 and 5000 behave exactly as before and only the crashing inputs changed. Verified by re-running each value after the fix against a freshly built instance: negatives now match 0, the working values are byte-identical, and the logs show zero exceptions. Controls were strong on the timeline endpoints (depth 0/1/10 return 1/2/5 observations) and on `maxObservations` (0/1/2/5000 return visibly different renders). A range-handling table has been added under *Query Parameter Conventions*, which also records the seven parameters that have **no upper bound** — `?maxObservations=5000` returns everything the project holds. Two other preview parameters were checked and need no change: `sessionCount` is never negative on the path that reads it, because the session-scoped query only runs when the value is greater than 0, and `fullCount` is consumed by a `for (i = 0; i < limit; i++)` loop that simply never runs when the limit is negative. The same class of bug was fixed on `/api/context/recent` earlier today (`dc52c8c`); this entry covers the three endpoints that were missed. EN+ZH in sync |
 | 2026-10-03 | (unreleased) | `POST /api/memory/icl-prompt`: two corrections on `maxChars`, verified against the live backend. (1) The field table said only "default: 4000" and omitted the clamp — the endpoint resolves it as `maxChars != null ? Math.max(100, maxChars) : 4000`, so anything below 100 (including `0` and negatives) is clamped up to **100**, and there is **no "0 means default" path**: `{"maxChars": 0}` returned a 53-character prompt, not a 4000-character one. The response echoes the applied value, so the truncation is visible there. (2) The claim that a missing `project` yields "a 28-character empty prompt" was a fixed number for a value that is not fixed — `ExpRagService:188` returns `"Current task:\n" + currentTask`, so the length is 14 + the task length. Measured 15 / 35 / 57 for tasks of 1 / 21 / 43 characters. The backend's own `@Schema` still claims "0 = backend default ~4000"; that is an outward OpenAPI contract change and is recorded as P2-25 rather than fixed here. EN+ZH in sync |
 | 2026-10-03 | (unreleased) | The three "sorted by `created_at` descending" statements and the `created_at` field type were wrong in both directions. **The sort key**: the endpoints order by `created_at_epoch`, not `created_at` — sorting on the latter returned the *oldest* rows, which is P1-3, fixed in the same round. **The type**: `created_at` was documented as a non-null `string`, but only the import path sets it; the capture path stores the epoch alone. Measured 2026-10-03: 18,377 of 38,120 observations (48%) have it, 1 of 6,590 summaries, 0 of 2,785 prompts. It is now `string \| null` with the measurement inline, and clients are pointed at `created_at_epoch`. The 2026-04-12 changelog entry is left as written: it records what was believed at the time, not what is true now |

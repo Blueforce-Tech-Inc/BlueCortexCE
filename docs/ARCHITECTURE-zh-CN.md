@@ -626,7 +626,9 @@ CREATE TABLE mem_observations (
 > `SummaryRepository` 里所有手写 `@Query` 正是为此才按 `created_at_epoch` 排序，
 > Spring Data 的派生方法也**必须**命名为 `…OrderByCreatedAtEpochDesc`——
 > 命名为 `…OrderByCreatedAtDesc` 看起来完全合理，却会静默地把结果取反。
-> 详见评审记录中的 P1-3。
+> 详见评审记录中的 P1-3——该条目在 findings 文件越过体积上限时已逐字迁入
+> [`2026-10-03_backend-review-history-resolved-2.md`](archive/2026-10-03_backend-review-history-resolved-2.md)，
+> `backend-review-findings.md` 中已不再保留它。
 
 -- 向量索引 (HNSW, V2)
 CREATE INDEX idx_obs_embedding_768 ON mem_observations

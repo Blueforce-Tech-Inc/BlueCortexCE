@@ -234,7 +234,12 @@ public class ExpRagService {
         String content = obs.getContent();
         String title = obs.getTitle();
 
-        // P2: Fallback createdAt from epoch if getCreatedAt() returns null (pre-migration data)
+        // Fallback createdAt from epoch when getCreatedAt() returns null.
+        // The column is null for every row the capture path writes, not only for
+        // pre-migration data: the DDL `DEFAULT NOW()` only applies to plain-SQL
+        // inserts, and the JPA capture path sets `createdAtEpoch` alone (no
+        // @PrePersist, no auditing). Only ImportService assigns the timestamp
+        // column. See the `created_at_epoch` note in ARCHITECTURE.md.
         java.time.OffsetDateTime createdAt = obs.getCreatedAt();
         if (createdAt == null) {
             Long epoch = obs.getCreatedAtEpoch();

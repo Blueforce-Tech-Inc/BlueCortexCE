@@ -1613,30 +1613,30 @@ curl "http://localhost:37777/api/observations?project=/Users/dev/myproject&platf
 | `project` | string | 项目路径（`@JsonProperty` 覆盖；**不是** `project_path`） |
 | `type` | string | 观察类型（如 `feature`、`bugfix`） |
 | `title` | string | 观察标题 |
-| `subtitle` | string | 观察副标题 |
-| `narrative` | string | 观察正文内容（`@JsonProperty` 覆盖；**不是** `content`） |
-| `facts` | string | 事实列表，**JSON 编码的字符串**，如 `"[\"a\", \"b\"]"` |
+| `subtitle` | string \| null | 观察副标题 |
+| `narrative` | string \| null | 观察正文内容（`@JsonProperty` 覆盖；**不是** `content`） |
+| `facts` | string \| null | 事实列表，**JSON 编码的字符串**，如 `"[\"a\", \"b\"]"` |
 | `concepts` | string | 概念标签列表，**JSON 编码的字符串**，如 `"[\"auth\", \"jwt\"]"` |
-| `files_read` | string | 本次观察中读取的文件列表，**JSON 编码的字符串**，如 `"[]"` |
-| `files_modified` | string | 本次观察中修改的文件列表，**JSON 编码的字符串**，如 `"[]"` |
+| `files_read` | string \| null | 本次观察中读取的文件列表，**JSON 编码的字符串**，如 `"[]"` |
+| `files_modified` | string \| null | 本次观察中修改的文件列表，**JSON 编码的字符串**，如 `"[]"` |
 | `refined_from_ids` | string \| null | 本条由精炼产生时为源观察 UUID 的**逗号分隔**串（如 `"obs-abc-123,obs-def-456"`），否则为 `null`。与上面四个字段不同，这是 `TEXT` 列而**非** JSONB——后端用 `,` 拼接 ID 且从不 JSON 编码，因此该值不是 JSON 编码数组 |
-| `content_hash` | string | 用于查重的内容哈希 |
+| `content_hash` | string \| null | 用于查重的内容哈希 |
 | `discovery_tokens` | int | 计入本条观察的 token 数（V17） |
-| `quality_score` | float | 精炼过程评定的质量分数（0.0–1.0） |
-| `feedback_type` | string | 反馈类型：`SUCCESS`/`PARTIAL`/`FAILURE`/`UNKNOWN` |
-| `feedback_updated_at` | string | 最后反馈更新的 ISO-8601 时间戳 |
-| `user_comment` | string | 用户提供的评论/注释 |
+| `quality_score` | float \| null | 精炼过程评定的质量分数（0.0–1.0） |
+| `feedback_type` | string \| null | 反馈类型：`SUCCESS`/`PARTIAL`/`FAILURE`/`UNKNOWN` |
+| `feedback_updated_at` | string \| null | 最后反馈更新的 ISO-8601 时间戳 |
+| `user_comment` | string \| null | 用户提供的评论/注释 |
 | `access_count` | int | 该观察记录被检索的次数 |
-| `last_accessed_at` | string | 最后访问时间的 ISO-8601 时间戳 |
-| `refined_at` | string | 最后精炼时间的 ISO-8601 时间戳 |
+| `last_accessed_at` | string \| null | 最后访问时间的 ISO-8601 时间戳 |
+| `refined_at` | string \| null | 最后精炼时间的 ISO-8601 时间戳 |
 | `relevance_count` | int | 恒为 `0`。V17 建了该列，但**目前没有任何代码写入它**——不存在记录相关性信号的代码路径（见 P2-24） |
 | `generated_by_model` | string \| null | 同样恒为 `null`：V17 建了列，但没有代码填充它 |
 | `step_number` | int \| null | 会话内的步骤序号（如有记录） |
 | `embedding_model_id` | string \| null | 已存 embedding 的模型 ID（如存在） |
-| `source` | string | 来源归属（如 `claude-code`、`manual`） |
+| `source` | string \| null | 来源归属（如 `claude-code`、`manual`） |
 | `platform_source` | string | 平台来源，用于多平台跟踪（V18，如 `claude`、`cursor`） |
-| `extractedData` | object | LLM 提取的结构化数据（`@JsonProperty` 覆盖；**不是** `extracted_data`） |
-| `prompt_number` | int | 会话中的提示词编号 |
+| `extractedData` | object \| null | LLM 提取的结构化数据（`@JsonProperty` 覆盖；**不是** `extracted_data`） |
+| `prompt_number` | int \| null | 会话中的提示词编号 |
 | `created_at` | string \| null | ISO-8601 创建时间戳，**通常为 `null`**。只有导入路径会写它——捕获路径只存 `created_at_epoch`。实测（2026-10-03）：38,120 条观测中仅 18,377 条（48%）有值。凡与时间相关的用途请用 `created_at_epoch` |
 | `created_at_epoch` | long | 创建时间的 epoch 毫秒——**始终有值**，且是所有端点实际排序所用的列 |
 | `created_at_epoch` | long | 创建时间的毫秒时间戳 |
@@ -2943,6 +2943,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
+| 2026-10-07 | (unreleased) | 观测 wire 格式表里有 **15 个字段**被写成非空类型，而后端对它们一律发显式 `null`。下方 2026-10-03 那条正是按这个理由改的 `created_at`，却把同一张表里另外 15 个仍写着 `string` / `int` / `float` / `object` 的字段留了下来。在全部 38,967 条观测上实测：`user_comment` 与 `last_accessed_at` **100%** 为 NULL，`feedback_updated_at` / `feedback_type` / `quality_score` 各 92%，`subtitle` 81%，`refined_at` 79%，`content_hash` 48%，`facts` / `files_read` / `files_modified` 各 47%，`extractedData` 46%，`source` 35%，`prompt_number` 15%，`narrative` 6%。这 15 个现均改为 `... \| null`，与早已如实标注的那 6 个字段一致。**键从不缺失**：活体 `GET /api/observations` 每行恒为 34 个键，稀疏字段到达时是显式 `null`。实测 NULL 率 0.0–0.09% 的 9 个字段——`id`、`content_session_id`、`project`、`type`、`title`、`concepts`、`platform_source`、`access_count`、`created_at_epoch`——保持非空类型。`POST /api/memory/observations` 的请求体表**刻意不动**：它自带 Required 列，可选性已在那里表达。 |
 | 2026-10-04 | (unreleased) | 四个数值参数在取负值时会让后端崩溃，其中两个还把崩溃报成了 `HTTP 200`。负的 `maxObservations` 一路传到原生 SQL 的 `LIMIT :limit`，被 PostgreSQL 直接拒绝（`InvalidRowCountInLimitClause: LIMIT must not be negative`）；负的 `maxSummaries` 走的是 `Stream.limit(-1)`，其 `IllegalArgumentException` 的 message 字面就是 `-1`，于是日志里只剩 `"... preview for project X: -1"`。`/api/context/preview` 把两者都 catch 住并返回 `String`，Spring MVC 的状态码因此仍是 **200**、body 是 `Error: Failed to generate context preview`——**客户端输入错误被报成了成功**。两个 timeline 端点更糟：`depth_before`/`depth_after` 与 `depthBefore`/`depthAfter` 会进入 `subList(max(0, anchorIndex - before), min(size, anchorIndex + after + 1))`，负深度把这个区间反转成 `fromIndex(1) > toIndex(0)`，直接抛出未处理的 **500**。修法是**下钳到 0 而非 1**——因为这四者上 `0` 本就有既定含义（空结果，或仅返回锚点那一条），因此 0、1、10、5000 的行为**完全不变**，只有原本崩溃的输入变了。修复后用新构建的实例逐个值复测：负值现在与 0 一致、可用的取值输出逐字相同、日志零异常。timeline 端点的对照很硬（depth 0/1/10 分别返回 1/2/5 条观测），`maxObservations` 亦然（0/1/2/5000 的渲染结果肉眼可分）。「查询参数约定」一节新增了取值范围处理表，并记录了**完全没有上界**的七个参数——`?maxObservations=5000` 会把该项目持有的内容全部返回。另两个 preview 参数经查无需改动：`sessionCount` 在读取它的那条路径上永远取不到负值，因为会话限定查询仅在取值大于 0 时才走；`fullCount` 的消费方是 `for (i = 0; i < limit; i++)`，limit 为负时循环根本不执行。同类缺陷今天早些时候已在 `/api/context/recent` 上修过（`dc52c8c`），本条覆盖的是当时漏掉的三个端点。中英文同步 |
 | 2026-10-03 | (unreleased) | `POST /api/memory/icl-prompt`：关于 `maxChars` 的两处更正，均已对活体后端核实。①字段表原先只写「默认 4000」而漏掉钳制——该端点实际按 `maxChars != null ? Math.max(100, maxChars) : 4000` 解析，故任何低于 100 的值（**含 `0` 与负数**）都会被向上钳到 **100**，**不存在「0 表示默认」的路径**：实测传 `{"maxChars": 0}` 得到的是 53 字符的提示，而非 4000 字符的。响应会回显实际生效的值，因此截断在 `maxChars` 里看得见。②「缺少 `project` 会得到 28 字符的空提示」把一个并非固定的量写成了固定数字——`ExpRagService:188` 返回的是 `"Current task:\n" + currentTask`，长度等于 14 加上 task 长度；task 长 1 / 21 / 43 时实测分别为 15 / 35 / 57。后端自身的 `@Schema` 仍写着「0 = backend default ~4000」，那属对外 OpenAPI 契约变更，已记为 P2-25、不在本文档层实施。中英文同步更新 |
 | 2026-10-03 | (unreleased) | 三处「按 `created_at` 降序排列」的表述与 `created_at` 的字段类型**两个方向都错了**。**排序键**：端点实际按 `created_at_epoch` 排序而非 `created_at`——按后者排会返回**最旧**的行，即 P1-3，已于同轮修复。**类型**：`created_at` 原被标为非空 `string`，但只有导入路径会写它，捕获路径只存 epoch。实测（2026-10-03）：观测 38,120 条中 18,377 条（48%）有值、摘要 6,590 条中 1 条、用户提示 2,785 条中 0 条。现改为 `string \| null` 并把实测数据写进表内，客户端被引导至 `created_at_epoch`。2026-04-12 那条历史记录**按原样保留**——它记录的是当时的认知，不是现在的事实 |

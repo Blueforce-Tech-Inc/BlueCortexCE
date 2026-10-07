@@ -637,7 +637,9 @@ CREATE TABLE mem_observations (
 > `created_at_epoch` for this reason, and the Spring Data derived queries must
 > therefore be named `…OrderByCreatedAtEpochDesc`. A method named
 > `…OrderByCreatedAtDesc` looks correct and silently inverts the result. See
-> P1-3 in the review findings.
+> P1-3 in the review findings — that entry was migrated verbatim to
+> [`2026-10-03_backend-review-history-resolved-2.md`](archive/2026-10-03_backend-review-history-resolved-2.md)
+> when the findings file crossed its size limit, and `backend-review-findings.md` no longer carries it.
 
 -- Vector indexes (HNSW, V2)
 CREATE INDEX idx_obs_embedding_768 ON mem_observations
