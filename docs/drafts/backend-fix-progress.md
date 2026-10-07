@@ -4,6 +4,16 @@
 > **Updated by**: 定时项目维护任务。
 > **Update rule**: 新修复追加到顶部；超过文档增长阈值时保留未完成项并将已完成历史归档。
 
+## 2026-10-02 01:57 | 构建修复第二轮 — docker-e2e 构建上下文 + byte-buddy 方案更正
+
+**docker-e2e-test.sh**：build context 指向 `$PROJECT_ROOT/..`（父目录），而 Dockerfile 的 `COPY backend/src` 等路径相对仓库根 —— 从本检出位置构建必然失败（`"/backend/src": not found`）。修复为 `build_context="$PROJECT_ROOT"`。
+
+**byte-buddy 方案更正**：初版将 byte-buddy 1.15.11 声明为 test 作用域直接依赖 —— Maven 最近优先原则使其从运行时类路径消失（容器内 `ClassNotFoundException: byte-buddy`，证实它是 Hibernate 代理所需的运行时依赖，fat jar 本应含 BOOT-INF/lib/byte-buddy）。更正为在既有 dependencyManagement 块（spring-ai BOM import 旁）固定版本 1.15.11：运行时与测试同时升级、scope 保留。
+
+**验证**：JDK 24 **167/167** ✅；JDK 23 **167/167** ✅；BOOT-INF/lib 含 byte-buddy-1.15.11 ✅；服务重启健康 ✅；回归 **45/46** ✅；EXTRACTION **25/25** ✅；**Docker E2E 全部通过**（含容器重启持久化、WebUI 可访问）✅。
+
+**提交**：`95de35b`；新基线 `95de35b / 903928c8…`
+
 ## 2026-10-02 00:56 | 构建修复 — test 作用域 byte-buddy 1.15.11（JDK 24 兼容）
 
 **问题**：本机 JDK 升至 Homebrew 24.0.2 后，后端全量 `mvn test` 11 个 Error —— Mockito 5.11（spring-boot-starter-test BOM）附带的 byte-buddy 1.14.19 无法在 JDK 24 上插桩（`Mockito cannot mock this class: EmbeddingService`）。代码无缺陷； EmbeddingService 非 final 且未近期改动。
