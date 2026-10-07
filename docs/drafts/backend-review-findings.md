@@ -27,18 +27,7 @@
   2. **会话上下文泄漏** —— `doFinally` 清掉的是信号线程（一个空 ThreadLocal），调用线程的 ThreadLocal 永不清除。线程池复用该线程后，`begin()` 因 conversation id 缺失而提前 return 的那条路径**也不会**清理，于是残留的 `sessionId` 会被下一次请求的 `CortexToolAspect` 当作有效会话使用——工具观察被归到**上一个会话**。这是静默的跨会话数据串号。
 - **实测记录**: [`…-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
 ### P1-2: Java demo 的 `?path=` **无任何路径校验**，且服务绑 `*:37778` —— 同网段可读走本机任意文件
-- **Scope / Evidence**: `examples/cortex-mem-demo/.../FileReadTool.java:23-25`；三个 HTTP 入口
-  `ToolsController.java:36-48`、`SessionLifecycleController.java:104-111`、`:186-217`；
-  `src/main/resources/application.yml:2`（**只设 `server.port`，无 `server.address`**）。
-- **Problem**: `readFile` 直接 `Files.readString(Path.of(path))`，**无根目录约束、无 `..` 检查、无白名单**；
-  `?project=` 只约束**记忆捕获**的项目，**与文件读取无关**。同时 `application.yml` 未设
-  `server.address`，Spring Boot 默认绑 `*:37778` —— 而后端显式设了
-  `address: ${SERVER_ADDRESS:127.0.0.1}`，两者姿态相反。
-- **实测记录**: 逐字迁入 [`2026-10-05_backend-review-evidence-18.md`](../archive/2026-10-05_backend-review-evidence-18.md)（第 269 轮）。
-- **Severity 说明**：demo 全局无鉴权是**已知设计**（架构文档写明 "Currently no authentication
-  (local development)"），但**「无鉴权」与「可读任意文件」是两件事** —— 前者只暴露记忆 API，
-  后者可取走 `~/.ssh/id_rsa`、`~/.aws/credentials`、含密钥的 `.env`，同网段即可触发。
-- **Status**: ✅ **已修** —— 逐字迁入 [`…-40.md`](../archive/2026-10-07_backend-review-evidence-40.md)（第 323 轮）。
+- **Status**: ✅ **已修** —— 条目全文已逐字迁入 [`…-40.md`](../archive/2026-10-07_backend-review-evidence-40.md)（第 323 轮）；实测记录迁入 [`…-18.md`](../archive/2026-10-05_backend-review-evidence-18.md)（第 269 轮）；其余正文已逐字迁入 [`…-46.md`](../archive/2026-10-07_backend-review-evidence-46.md)（第 340 轮）。第 334 轮已实证确认两半均已结案，故 P1 的 Open 只剩 P1-1。
 ### P2-8: 读取侧没有维度路由 —— 写入按维度分列，检索恒定比 `embedding_1024`
 
 - **Scope / Evidence**: [`…-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
@@ -923,30 +912,7 @@
   **注**：`promptNumber` 无范围检查是同族但已单独立项（P2-69），本条只管「空白必填参数报 500」。
 ### P2-78: CORS 的 `allowedMethods` **漏了 PATCH**——按文档开启 CORS 后，两个 PATCH 端点对浏览器静默失效
 
-- **Scope / Evidence**: `backend/src/main/java/com/ablueforce/cortexce/config/WebConfig.java:52-57`
-  （`/api/**` 映射的 `allowedMethods`）；配置项 `claudemem.cors.allowed-origins` 定义于同文件 `:18`。
-- **Problem**: 允许方法列表是 `GET, POST, PUT, DELETE, OPTIONS`——**没有 `PATCH`**，
-  而活体 `/v3/api-docs` 明确有**两个 PATCH 端点**：
-  `PATCH /api/session/{sessionId}/user` 与 `PATCH /api/memory/observations/{id}`（活体方法分布
-  `GET 37 / POST 25 / PUT 1 / PATCH 2 / DELETE 2`）。**跨域预检按允许清单判定**，
-  清单里没有的方法**直接 403、不带任何 CORS 头**。
-  **实测对照（第 311 轮，37790 开启 CORS / 37777 未开启）**：
-
-  | `Access-Control-Request-Method` | 37790（已开启 CORS） | 37777（未开启） |
-  |---|---|---|
-  | `GET` / `POST` / `PUT` / `DELETE` / `OPTIONS` | **200** + `Allow-Methods` 头 | **403** |
-  | **`PATCH`** | **403，无任何 CORS 头** | **403** |
-
-  **对照组是关键**：37777 上 GET 与 PATCH **同为 403**，说明 37790 上 PATCH 的 403
-  **不是「CORS 没开」那个基线**，而是**被允许清单单独拒绝**——同一实例上 GET 200 / PATCH 403
-  就是判别实验本身。
-  **今天不可触发**：`claudemem.cors.allowed-origins` **全仓从未被设置**
-  （只在 `@Value` 默认值与 `docs/drafts/spring-ai-integration-plan.md:138` 出现；
-  `application*.yml` / `docker-compose.yml` / `.env.example` / 脚本全部零命中），
-  默认空值 → `allowedOrigins` 空数组 → **所有预检一律 403，CORS 默认关闭（安全默认成立）**。
-  但那份 draft **明确指导浏览器前端用户去配置它**，照做之后恰好丢掉这两个端点。
-- **Status**: ✅ **已修** —— 逐字迁入 [`…-40.md`](../archive/2026-10-07_backend-review-evidence-40.md)（第 323 轮）。
-- **第 312 轮复查 2/3 的结果：新发现问题，计数重置** —— 见 P2-79。
+- **Status**: ✅ **已修** —— 条目全文已逐字迁入 [`…-40.md`](../archive/2026-10-07_backend-review-evidence-40.md)（第 323 轮）；第 312 轮那次复查 2/3 的结果是**新发现问题、计数重置**，该发现已立为 P2-79；其余正文已逐字迁入 [`…-45.md`](../archive/2026-10-07_backend-review-evidence-45.md)（第 340 轮）。
 
 ### P2-79: CORS 的凭据开关**只检查列表第 0 位**是否含 `*`——`*` 出现在别处时**整个 API 返 500**
 
@@ -1416,6 +1382,48 @@
 - **Status**: ⏸ **记录不修** —— 待作者按上述 4 行改完，见上。
 
 
+
+
+### P2-96: `DemoErrors` 自陈的 catch 块数写错了 1 —— 而第 328 轮「核实四项计数全对」那次核实本身是错的
+
+- **Status**: ✅ **已修（第 340 轮，纯注释零行为变更）** —— `forty` 改为 `forty-one`，`mvn -o clean test` 全绿（40/0/0，exit 0）。条目全文已逐字迁入 [`…-45.md`](../archive/2026-10-07_backend-review-evidence-45.md)（第 340 轮）。
+### P2-97: JS SDK README 的方法表里 **3 行参数名写成 `project`**，而源码、同表另外 3 行、以及 Python SDK 全都是 `projectPath` —— **同一个 bug 在 2026-04-01 修过一次，只改了 2 行**
+
+- **Status**: ✅ **已修（第 340 轮，纯文档零行为变更）** —— 6 行 `project`→`projectPath`、`project?`→`projectPath?`（双语各 3 行）；`git diff` = **6 增 6 删**、无其他改动；阴性 grep（错模式）EXIT=**1**、阳性 grep（新模式）EXIT=**0** 且 6 行齐全。条目全文已逐字迁入 [`…-46.md`](../archive/2026-10-07_backend-review-evidence-46.md)（第 340 轮）。
+### P2-98: `docs/archive/README.md` 的登记表**漏了 6 份已存在的归档** —— 而第 318 轮刚为同一件事给 `health-check-history-18` 补过一次登记
+
+- **Status**: ✅ **已修（第 340 轮）** —— 补齐 **6 行**漏登记的归档，并同时登记本轮新建的 `-45` / `-46` / `-47`；复跑差集 **missing 0**、磁盘与登记相等。行格式经 **4 组阳性对照**验证（注入未转义管道、缺收尾竖线各一，转义与正常行各一），**4/4 通过**，故「零畸形」是读数而非仪器故障。条目全文已逐字迁入 [`…-47.md`](../archive/2026-10-07_backend-review-evidence-47.md)（第 340 轮）。
+
+### P2-99: 登记表里有一行把**裸 `|` 写进了代码 span**，GFM 会把这一行的单元格**从中间切断**
+
+- **Status**: ✅ **已修（第 340 轮，纯渲染零信息变化）** —— 该行的裸管道改为转义写法，行文本其余部分**一字未动**；修后该行未转义管道数 = **5**、行尾收尾竖线在位，全表零畸形。条目全文已逐字迁入 [`…-47.md`](../archive/2026-10-07_backend-review-evidence-47.md)（第 340 轮）。
+
+### P2-100: `patrol-rotation.md` 的当前位置**第三次停摆**——两次「补齐 + 承诺自此随每轮更新」都没能阻止复发
+
+- **Scope / Evidence**: `docs/drafts/patrol-rotation.md` 的 `## Current Position` 段与 `## History` 表。
+- **Problem**: 该文件顶部 Update rule 明写「**每轮完成后同步更新本文件的当前位置和历史摘要**」，
+  而它已**三次违反同一条规则**：
+
+  | 更正轮次 | 停摆区间 | 停滞轮数 | 当时的修法 |
+  |---|---|---|---|
+  | 第 237 轮 | 第 184 → 237 轮 | **53** | 人工补齐 |
+  | 第 318 轮 | 第 237 → 318 轮 | **81** | 人工补齐 + 加注「自此随每轮更新」 |
+  | 第 340 轮 | 第 323 → 340 轮 | **17** | 人工补齐（本轮） |
+
+  第 318 轮那行加注写着「**本段自此随每轮更新**」——而实际只又跟了 **2 轮**（322、323）就再停。
+  **三次同因、同法、同复发，说明问题不在执行而在机制**：靠每轮自觉补一句，
+  而每轮的固定动作清单里**没有这一条**，漏掉不会有任何东西报警。
+  `History` 表最后一行即第 323 轮，**第 324–339 轮共 16 行缺失**（第 340 轮的行本轮已补上）。
+- **Severity**: 低。`patrol-state.json` 是机器可读的唯一状态源、且**始终同步正确**，
+  轮换行为不受影响；但 `cron-combined-task.md:18` 明确把本文件列为**判定当前方向的依据之一**，
+  一份停在 17 轮前的文档在那里是实打实的误导源。
+- **Status**: ⏸ **当前位置与本轮 History 行已同步、16 行历史不补**。`Current Position` 段本轮已更新为
+  第 340 轮（Demo → next Backend），并加注第三次更正。
+  **17 行 History 不补**：逐轮叙述的权威全文在 `health-check-task.md` 及其归档里，
+  凭归档**转写** 17 行摘要属**重建**而非**记录**，正是本仓库「宁少勿错」要避免的那类事。
+  **真正的修法在机制**，二选一待作者定：①把「同步本文件」写进每轮的固定动作清单
+  （或做成脚本里的一步，让漏掉会失败）；②**把它降格为周期性**摘要并改掉 Update rule 的措辞，
+  承认它不是逐轮台账。
 
 ## Processing Rules
 - **第 316 轮新增流程规则（连续三轮教训的归纳）——落笔前先查该模块自己的文档**：

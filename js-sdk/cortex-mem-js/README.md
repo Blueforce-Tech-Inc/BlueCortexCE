@@ -129,13 +129,13 @@ client.close();
 | `submitFeedback(req)` | `POST /api/memory/feedback` | Submit observation feedback (`FeedbackRequest`) |
 | `updateObservation(id, update)` | `PATCH /api/memory/observations/{id}` | Update observation |
 | `deleteObservation(id)` | `DELETE /api/memory/observations/{id}` | Delete observation |
-| `getQualityDistribution(project)` | `GET /api/memory/quality-distribution` | Get quality stats |
+| `getQualityDistribution(projectPath)` | `GET /api/memory/quality-distribution` | Get quality stats |
 
 #### Extraction
 
 | Method | HTTP | Description |
 |--------|------|-------------|
-| `triggerExtraction(project)` | `POST /api/extraction/run` | Trigger extraction |
+| `triggerExtraction(projectPath)` | `POST /api/extraction/run` | Trigger extraction |
 | `getLatestExtraction(projectPath, templateName, userId?)` | `GET /api/extraction/{templateName}/latest` | Latest extraction |
 | `getExtractionHistory(projectPath, templateName, userId?, limit?)` | `GET /api/extraction/{templateName}/history` | Extraction history |
 
@@ -146,7 +146,7 @@ client.close();
 | `healthCheck()` | `GET /api/health` | Health check |
 | `getVersion()` | `GET /api/version` | Backend version |
 | `getProjects()` | `GET /api/projects` | List projects |
-| `getStats(project?)` | `GET /api/stats` | Statistics |
+| `getStats(projectPath?)` | `GET /api/stats` | Statistics |
 | `getModes()` | `GET /api/modes` | Mode settings |
 | `getSettings()` | `GET /api/settings` | Current settings |
 | `close()` | — | Close client |

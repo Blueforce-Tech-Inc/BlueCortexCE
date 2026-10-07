@@ -17,7 +17,7 @@ import java.nio.charset.StandardCharsets;
  * <p>Only {@link ObservationsController} and {@link FeedbackController} use
  * {@link #statusOf} / {@link #messageOf}, so a not-found stays a not-found and the caller still
  * learns why. They are <em>not</em> representative of this demo: the twelve controllers hold
- * forty {@code catch (Exception e)} blocks between them, and only three of those reach these
+ * forty-one {@code catch (Exception e)} blocks between them, and only three of those reach these
  * helpers — two in {@code ObservationsController}, one in {@code FeedbackController}. The ten
  * other controllers answer a flat 500, so the same backend 404 that reaches a caller as 404 on
  * the observation and feedback routes still reaches it as 500 everywhere else — for example

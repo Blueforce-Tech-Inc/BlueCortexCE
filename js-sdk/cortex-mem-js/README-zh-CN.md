@@ -127,13 +127,13 @@ client.close();
 | `submitFeedback(req)` | `POST /api/memory/feedback` | 提交观察反馈 |
 | `updateObservation(id, update)` | `PATCH /api/memory/observations/{id}` | 更新观察 |
 | `deleteObservation(id)` | `DELETE /api/memory/observations/{id}` | 删除观察 |
-| `getQualityDistribution(project)` | `GET /api/memory/quality-distribution` | 获取质量分布 |
+| `getQualityDistribution(projectPath)` | `GET /api/memory/quality-distribution` | 获取质量分布 |
 
 #### 提取
 
 | 方法 | HTTP | 说明 |
 |------|------|------|
-| `triggerExtraction(project)` | `POST /api/extraction/run` | 触发提取 |
+| `triggerExtraction(projectPath)` | `POST /api/extraction/run` | 触发提取 |
 | `getLatestExtraction(projectPath, templateName, userId?)` | `GET /api/extraction/{templateName}/latest` | 最新提取结果 |
 | `getExtractionHistory(projectPath, templateName, userId?, limit?)` | `GET /api/extraction/{templateName}/history` | 提取历史 |
 
@@ -144,7 +144,7 @@ client.close();
 | `healthCheck()` | `GET /api/health` | 健康检查 |
 | `getVersion()` | `GET /api/version` | 后端版本 |
 | `getProjects()` | `GET /api/projects` | 列出项目 |
-| `getStats(project?)` | `GET /api/stats` | 统计信息 |
+| `getStats(projectPath?)` | `GET /api/stats` | 统计信息 |
 | `getModes()` | `GET /api/modes` | 模式设置 |
 | `getSettings()` | `GET /api/settings` | 当前设置 |
 | `close()` | — | 关闭客户端 |
