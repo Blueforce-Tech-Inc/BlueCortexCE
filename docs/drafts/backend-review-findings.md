@@ -1437,6 +1437,14 @@
 
 - **Status**: ✅ **已修（第 341 轮，纯注释零行为变更）** —— 注释改为如实写出「DDL 默认值只对 SQL 插入生效、JPA 捕获路径只设 `createdAtEpoch`、只有 `ImportService` 赋值」，并指向 `ARCHITECTURE.md`。`git diff -U0` 逐行核验**可执行行 0**；`mvn -o clean package -DskipTests` EXIT=0；重建 jar 后停掉本轮自己启动的 37777 进程并以新 jar 重启，按实跑满足新鲜度闸门；回归 **45/0/1** + EXTRACTION **25/0/0**。条目全文已逐字迁入 [`…-49.md`](../archive/2026-10-07_backend-review-evidence-49.md)（第 341 轮）。
 
+### P2-104: 架构文档 REST API 表的**最后一行被挤到表外** —— 2026-10-03 插入的 SSE 引用块落在表格中间，GFM 只渲染到 Health 行为止
+- **Status**: ✅ **已修（第 344 轮，纯排版零行为变更）** —— 双语各把 `| Test |` 行接回表尾、引用块整体下移至表后；表格行数 15 未丢行，pandoc 全文件复核 `tables=13` / 字面管道段落 `0`。**扫描器两版仪器错误均由自检拦下**（详见归档）。条目全文已逐字迁入 [`…-50.md`](../archive/2026-10-07_backend-review-evidence-50.md)（第 344 轮）。
+
+### P2-105: Demo README 的 `/actuator/health` 行同样被挤到表外 —— 与 P2-104 **同一类**，靠全库扫描才发现
+- **Status**: ✅ **已修（第 344 轮）** —— 该行接回表尾。**超出本轮名义文档方向**但与 P2-104 同成因同仪器，按「已损坏行为可修」一并处理；全库 21 个 `.md` 扫描后归零。条目全文已逐字迁入 [`…-50.md`](../archive/2026-10-07_backend-review-evidence-50.md)（第 344 轮）。
+### P2-106: 全库 **100 行**表格的单元格数与表头不符 —— 多数是代码 span 里的裸 `|` 未转义，而**渲染器根本检测不到这一类**
+- **Status**: ⏸ **记录不修**（批量，逐文件核对成本高于本轮；本条按 Archived History 段的「标题紧跟 Status」体例排版以省 1 行） —— 分布：`evolver-memory/04` 35 行、`/05` 30 行、`archive/2026-09-30_backend-review-findings-history.md` **26 行（归档，按规则不可改）**、`evolver-memory-analysis/03-signals` 4 行、其余 5 行各 1（`proxy/CLAUDE-CODE-INTEGRATION-zh-CN.md:106` 的 `Edit|Write|Read\|Bash` **只转义了 3 个管道里的 1 个**、`phase-3-design/15.md:101` 末尾多一个空单元格）。**本轮已修的 4 行**在 `patrol-rotation.md`（`:243/246/248/251`），修后该文件直方图归一到 `{4: 259, 3: 119}`。**关键仪器结论**：受控样本证实 **pandoc 的 GFM 解析器不按代码 span 内的 `|` 切单元格**（386 行全报 3 单元格），而 GitHub 会切——故此类缺陷**必须数未转义管道，渲染器复核无效**，这正是 P2-99 当年改用直方图的原因。检查器 `/tmp/find-pipe-mismatch.py` 带自检（good=0 / code-span=1 / extra-col=1 / fenced=0）；其**首版公式 `pipes-1` 把无收尾竖线的行少算一个单元格**，被自检里那条无收尾行当场拦下。
+
 ## Processing Rules
 - **第 316 轮新增流程规则（连续三轮教训的归纳）——落笔前先查该模块自己的文档**：
   本循环已**连续三轮**出现同一模式：先凭代码把某处判成「缺口/缺陷」，下一轮才发现**它是被双语文档明确记载的有意设计**。
@@ -1487,10 +1495,6 @@
 ### P2-68: `updateObservation` 的 Javadoc 说「null 会被忽略」，其下的 `@Operation` 说「null 会清空」——**后者才是真的**
 - **Status**: ✅ **已修（第 278 轮，零行为变更）** —— Javadoc 改为如实描述并附活体探针证据、写明机器可读的那份一直是对的。**全后端扫过**：错误表述**仅此一处**，正确表述共 **8 处**。`mvn -o compile` EXIT=0。条目全文已逐字迁入 [`…-43.md`](../archive/2026-10-07_backend-review-evidence-43.md)（第 330 轮）。
 ### P2-69: `SessionLifecycleController` 的 `promptNumber` 是 demo 里**唯一没有范围检查**的数值参数——负数被接受并落库
-- **Scope / Evidence**: `SessionLifecycleController.java:82`；活体对拍与落库记录见 [`2026-10-06_backend-review-evidence-31.md`](../archive/2026-10-06_backend-review-evidence-31.md)（第 282 轮）。
-- **Problem**: demo 其余五个数值参数（`count` ×3、`maxChars` ×2）都在方法体里写了范围检查，唯独 `promptNumber` 从绑定直接流入 `UserPromptRequest`。实测 `promptNumber=-1` 返回 200「prompt recorded」，且 `mem_user_prompts.prompt_number` 真实落库为 `-1`；`0x10` 落库为 `16`。
-- **Status**: ⏸ 记录不修——给已发布端点补范围检查属收窄其接受的值域，是对外契约变更；且与 P2-55 / P2-56 同属一条文法线，应与那次产品决定一并处理。
+- **Status**: ⏸ **记录不修（第 282 轮定）** —— 结论与证据均未变，本轮无待办动作；条目全文已逐字迁入 [`…-51.md`](../archive/2026-10-07_backend-review-evidence-51.md)（第 344 轮）。
 ### P2-70: Compose 把数据库与后端都发布到**所有网卡**，而架构文档的 Network Security 表称二者「仅本地」
-- **Scope / Evidence**: `docker-compose.yml:35,88` 两条 `ports:` 与 `:60` 的 `SERVER_ADDRESS`；`docs/ARCHITECTURE.md` Network Security 表（第 291 轮已双语更正）。
-- **Problem**: 两条端口映射**均无主机 IP 前缀**，而**不带主机地址的映射默认发布到所有网卡**；compose 另设 `SERVER_ADDRESS: 0.0.0.0`，应用在容器内也绑全网卡；`grep "127.0.0.1:"` **零命中**。**该部署默认关闭鉴权**，故推荐的 Docker 部署可被整个网络访问。该表对**原生**运行准确（`address` 默认 `127.0.0.1`，活体一致），**对 compose 不准确**。
-- **Status**: ⏸ 记录不修（文档侧已双语更正并写明原因）。收紧只需给两条映射各加 `127.0.0.1:` 前缀，但那会破坏「从另一台主机访问后端」，**属对外行为变更**。与 P1-2 同族但成因不同：P1-2 是 demo 漏设 `server.address`，此处是 **compose 显式要求**绑全网卡否则映射不通（P2-32 第一条）。
+- **Status**: ⏸ **记录不修（第 291 轮定，文档侧已双语更正）** —— 结论与证据均未变，本轮无待办动作；条目全文已逐字迁入 [`…-51.md`](../archive/2026-10-07_backend-review-evidence-51.md)（第 344 轮）。

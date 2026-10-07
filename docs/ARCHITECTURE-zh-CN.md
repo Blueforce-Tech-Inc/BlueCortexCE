@@ -875,6 +875,7 @@ LIMIT :limit;
 | Stream | `/stream` | SSE 实时更新 |
 | Logs | `/api/logs` | 日志访问（get、clear） |
 | Health | `/api/health`, `/api/readiness`, `/api/version` | 健康和版本检查 |
+| Test | `/api/test/*` | 测试/调试端点（llm、embedding、all） |
 
 > **SSE 帧不携带事件名——这是一条承重契约。**
 > `SSEBroadcaster.broadcast(Object data, String eventName)` 发送的是
@@ -885,7 +886,6 @@ LIMIT :limit;
 > 且没有任何报错——只有 `onmessage`（或裸的 `addEventListener('message', …)`）
 > 才会触发。这与下文关于 JSONB 列的失败模式相同：形状猜错的客户端得到的是沉默，
 > 而不是错误。
-| Test | `/api/test/*` | 测试/调试端点（llm、embedding、all） |
 
 ### MCP 服务器
 
