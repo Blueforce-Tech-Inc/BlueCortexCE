@@ -217,9 +217,10 @@ build_docker_images() {
     log_section "Building Docker Images"
 
     log_info "Building claude-mem-java image..."
-    
-    # Build context must be the parent directory (claude-mem root) to access WebUI source files
-    local build_context="$(cd "$PROJECT_ROOT/.." && pwd)"
+
+    # Build context must be the repository root: the Dockerfile COPYs
+    # backend/... and webui/... paths relative to the repo root.
+    local build_context="$PROJECT_ROOT"
     
     local build_output
     if build_output=$(docker build -t claude-mem-java:test -f "$PROJECT_ROOT/Dockerfile" "$build_context" 2>&1); then
