@@ -48,6 +48,7 @@ The date prefix reflects when the document was last relevant (not when it was ar
 | `2026-10-03_doc-review-history-108-119.md` | `docs/drafts/doc-review-task.md` | 2026-10-03 | 第一百零八–一百一十九轮共 12 条逐字迁出（第五批压缩），该文件达 99568 字节、加本轮条目将越过阈值；一百二十轮及以后保留在工作文件 |
 | `2026-10-01_health-check-history.md` | `docs/drafts/health-check-task.md` | 2026-10-01 | 58 轮健康检查/巡检历史（2026-04-08 ~ 2026-10-01 00:53），达 1000 行阈值时压缩迁移 |
 | `2026-10-01_health-check-history-2.md` | `docs/drafts/health-check-task.md` | 2026-10-01 | 52 轮巡检历史续（2026-10-01 05:03 ~ 05:21），二次达阈值时压缩迁移 |
+| `2026-10-08_health-check-history-11.md` | `docs/drafts/health-check-task.md` | 2026-10-08 | 第 312~359+ 轮巡检历史（2026-10-06 ~ 10-07），第三次压缩迁移（含并行进程轮次） |
 | `2026-10-02_health-check-history-3.md` | `docs/drafts/health-check-task.md` | 2026-10-02 | 47 轮巡检历史续（2026-10-01 05:26 ~ 07:35），三次达阈值时压缩迁移 |
 | `2026-10-02_health-check-history-4.md` | `docs/drafts/health-check-task.md` | 2026-10-02 | 第 115~148 轮（2026-10-02 10:36 ~ 13:18，17 条），四次达阈值时压缩迁移 |
 | `2026-10-02_health-check-history-5.md` | `docs/drafts/health-check-task.md` | 2026-10-02 | 第 149~157 轮（2026-10-02，9 条），五次达阈值时压缩迁移；归档时顺带纠正了第 157 轮曾被误插入 156 轮正文的顺序问题 |
