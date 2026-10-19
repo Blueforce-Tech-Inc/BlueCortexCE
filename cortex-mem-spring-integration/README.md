@@ -188,6 +188,7 @@ All properties are under `cortex.mem`:
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `base-url` | String | `http://localhost:37777` | Cortex CE backend URL |
+| `api-key` | String | — | Sent as `Authorization: Bearer <key>` on every request. **The current backend does not validate that header** (it has no authentication filter), so setting it protects nothing today — see the Authentication section of [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) |
 | `project-path` | String | — | Project path. Unset means the empty string, which is stored as `project_path = ''` and is then unretrievable by project — see the capture section above |
 | `connect-timeout` | Duration | `10s` | HTTP connect timeout |
 | `read-timeout` | Duration | `30s` | HTTP read timeout |

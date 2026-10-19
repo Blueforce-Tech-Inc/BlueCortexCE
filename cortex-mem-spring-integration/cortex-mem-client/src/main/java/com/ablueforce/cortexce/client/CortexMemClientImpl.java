@@ -84,7 +84,10 @@ public class CortexMemClientImpl implements CortexMemClient {
             .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
             .defaultHeader("User-Agent", "cortex-mem-java/" + SDK_VERSION);
 
-        // Bearer token auth when apiKey is configured (matches JS/Go SDK behavior)
+        // Bearer token header when apiKey is configured (the JS, Go and Python SDKs send
+        // it the same way). The current backend does not read it — see
+        // CortexMemProperties.apiKey — so this is a placeholder for a future
+        // server-side authentication, not protection today.
         if (properties.getApiKey() != null && !properties.getApiKey().isBlank()) {
             builder.defaultHeader("Authorization", "Bearer " + properties.getApiKey());
         }

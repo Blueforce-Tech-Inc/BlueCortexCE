@@ -1233,6 +1233,14 @@ spring:
           issuer-uri: https://auth.example.com
 ```
 
+> **四家 SDK 都能发送 API 密钥，但当前后端从不校验它。**
+> Java、Go、Python、JS 四家 SDK 都接受一个 API 密钥，并在每次请求上以
+> `Authorization: Bearer <key>` 发出。后端**根本不读这个头** —— 应用里没有任何鉴权过滤器，
+> 唯一的 Servlet 过滤器 `MdcAutoFilter` 是关联 ID 过滤器，不是鉴权过滤器。
+> 2026-10-20 活体实测：不带 `Authorization` 头、带一个垃圾 Bearer 令牌、带一个垃圾 Basic 令牌，
+> 三种请求都返回同样的 `200` 与**逐字相同**的响应体。故配置 API 密钥**今天保护不了任何东西**；
+> 它只有与上面那段 Spring Security 设想一起落地才有意义。
+
 ### 数据隐私
 
 隐私标签剥离发生在代理层（`proxy/tag-stripping.js`），内容在转发到后端之前即被处理 —— `<private>…</private>`、`<claude-mem-context>`、`<system_instruction>` 与 `<system-instruction>` 块会被**整段移除**（而非替换为占位符），完全私有的提示词则被跳过。

@@ -1264,6 +1264,17 @@ spring:
           issuer-uri: https://auth.example.com
 ```
 
+> **The four SDKs can send an API key, but the current backend never validates it.**
+> The Java, Go, Python and JS SDKs each accept an API key and send it as
+> `Authorization: Bearer <key>` on every request. The backend **does not read that
+> header** — the application has no authentication filter, and its only servlet
+> filter (`MdcAutoFilter`) is a correlation-ID filter, not an authentication one.
+> Verified live on 2026-10-20: a request with no `Authorization` header, one with a
+> garbage Bearer token, and one with a garbage Basic token all returned the same
+> `200` with a byte-identical body. Configuring an API key therefore **protects
+> nothing today**; it only becomes meaningful together with the Spring Security
+> setup sketched above.
+
 ### Data Privacy
 
 Privacy tag stripping happens in the proxy (`proxy/tag-stripping.js`) before content is

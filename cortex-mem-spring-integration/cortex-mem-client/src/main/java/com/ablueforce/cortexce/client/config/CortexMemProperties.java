@@ -11,7 +11,16 @@ public class CortexMemProperties {
 
     private String baseUrl = "http://localhost:37777";
     private String projectPath;
-    /** API key for authentication (sent as Bearer token). Null/blank = no auth. */
+    /**
+     * Optional API key, sent as an {@code Authorization: Bearer <key>} header on every
+     * request. All four SDKs (Java, Go, Python, JS) send it the same way.
+     * <p>
+     * <strong>The current backend does not validate that header</strong> — it has no
+     * authentication filter, and its only servlet filter ({@code MdcAutoFilter}) is a
+     * correlation-ID filter, not an authentication one. Setting this key therefore
+     * protects nothing today; it only becomes meaningful once the backend grows
+     * authentication. Blank or null means the header is not sent at all.
+     */
     private String apiKey;
     private Duration connectTimeout = Duration.ofSeconds(10);
     private Duration readTimeout = Duration.ofSeconds(30);

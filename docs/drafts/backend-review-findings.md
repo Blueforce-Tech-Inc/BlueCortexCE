@@ -11,7 +11,7 @@
   2. **会话上下文泄漏** —— `doFinally` 清掉的是信号线程（一个空 ThreadLocal），调用线程的 ThreadLocal 永不清除。线程池复用该线程后，`begin()` 因 conversation id 缺失而提前 return 的那条路径**也不会**清理，于是残留的 `sessionId` 会被下一次请求的 `CortexToolAspect` 当作有效会话使用——工具观察被归到**上一个会话**。这是静默的跨会话数据串号。
 - **实测记录**: [`…-12.md`](../archive/2026-10-04_backend-review-evidence-12.md)（第 259 轮）。
 ### P1-2: Java demo 的 `?path=` **无任何路径校验**，且服务绑 `*:37778` —— 同网段可读走本机任意文件
-- **Status**: ✅ **已修** —— 条目全文已逐字迁入 [`…-40.md`](../archive/2026-10-07_backend-review-evidence-40.md)（第 323 轮）；实测记录迁入 [`…-18.md`](../archive/2026-10-05_backend-review-evidence-18.md)（第 269 轮）；其余正文已逐字迁入 [`…-46.md`](../archive/2026-10-07_backend-review-evidence-46.md)（第 340 轮）。第 334 轮已实证确认两半均已结案，故 P1 的 Open 只剩 P1-1。
+- **Status**: ✅ **已修（第 323 轮）** —— 条目全文逐字见 [`2026-10-07_backend-review-evidence-40.md`](../archive/2026-10-07_backend-review-evidence-40.md)（第 323 轮）
 ### P2-8: 读取侧没有维度路由 —— 写入按维度分列，检索恒定比 `embedding_1024`
 
 - **Scope / Evidence**: [`…-8.md`](../archive/2026-10-04_backend-review-scope-evidence-8.md)（第 254 轮）。
@@ -727,7 +727,7 @@
 - **Status**: ✅ **已修** —— 条目全文已逐字迁入 [`…-41.md`](../archive/2026-10-07_backend-review-evidence-41.md)（第 324 轮）。
 
 ### P2-74: 四家 SDK 的重试**默认极性三比一不同**——Go / Python / JS 是 fail-closed，**只有 Java 是 fail-open**；而这一分歧此前无处记载
-- **Status**: ✅ **已按准确描述补注** —— 条目全文已逐字迁入 [`…-41.md`](../archive/2026-10-07_backend-review-evidence-41.md)（第 324 轮）。 条目全文已逐字迁入 [`…-59.md`](../archive/2026-10-19_backend-review-evidence-59.md)（第 361 轮）。
+- **Status**: ✅ **已修（第 324 轮）** —— 条目全文逐字见 [`2026-10-07_backend-review-evidence-41.md`](../archive/2026-10-07_backend-review-evidence-41.md)（第 324 轮）
 ### P2-75: 单条观测的 PATCH / DELETE **对畸形 id 返 400**，而 API 文档与 OpenAPI 注解都只把 400 写成「请求体字段类型错」
 
 - **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)、[scope-10](../archive/2026-10-20_backend-review-scope-evidence-10.md)
@@ -805,7 +805,7 @@
   **注**：`promptNumber` 无范围检查是同族但已单独立项（P2-69），本条只管「空白必填参数报 500」。
 ### P2-78: CORS 的 `allowedMethods` **漏了 PATCH**——按文档开启 CORS 后，两个 PATCH 端点对浏览器静默失效
 
-- **Status**: ✅ **已修** —— 条目全文已逐字迁入 [`…-40.md`](../archive/2026-10-07_backend-review-evidence-40.md)（第 323 轮）；第 312 轮那次复查 2/3 的结果是**新发现问题、计数重置**，该发现已立为 P2-79；其余正文已逐字迁入 [`…-45.md`](../archive/2026-10-07_backend-review-evidence-45.md)（第 340 轮）。
+- **Status**: ✅ **已修（第 323 轮）** —— 条目全文逐字见 [`2026-10-07_backend-review-evidence-40.md`](../archive/2026-10-07_backend-review-evidence-40.md)（第 323 轮）
 
 ### P2-79: CORS 的凭据开关**只检查列表第 0 位**是否含 `*`——`*` 出现在别处时**整个 API 返 500**
 
@@ -1051,7 +1051,7 @@
 - **Status**: ⏸ **记录不修** —— 需作者确认该耦合是否为有意设计，见上。
 
 ### P2-89: 部署指南的迁移清单**双语都停在 V18**，漏掉磁盘上已存在的 `V19__viewer_session_indexes.sql`
-- **Status**: ✅ **已修（第 345 轮，纯文档零行为变更）** —— 双语各补 `V19` 行**并**加时效声明（以 `db/migration/` 目录为准、明写 V9/V10 跳号）；双语各 17 行，与磁盘**双向差集皆空**。**旧状态「⏸ 待与 P2-83/P2-86 同批清扫」的前提已被推翻**——那两条第 317/321 轮早已结案归档，同批对象不存在。条目全文已逐字迁入 [`…-52.md`](../archive/2026-10-07_backend-review-evidence-52.md)（第 345 轮）。
+- **Status**: ✅ **已修（第 345 轮）** —— 条目全文逐字见 [`2026-10-07_backend-review-evidence-52.md`](../archive/2026-10-07_backend-review-evidence-52.md)（第 345 轮）
 
 ### P2-90: Go SDK README 的测试总数**双语共 7 处**硬编码 `362`，实测已是 `363` —— 差值恰为第 319 轮我自己新增的那 1 个测试
 
@@ -1347,16 +1347,19 @@
   **本条与 P2-43 记的是同一件事，以 P2-43 为准**；本条的证据与正文见 [`…-62.md`](../archive/2026-10-20_backend-review-evidence-62.md)（第 362 轮）。
 - **Status**: ⏸ **行为记录不修**（两种收法都改变现有调用方的可观测行为：让 kwargs 路径也过滤 `None`/`{}` 等于让今天已经能用的清空能力失效；新增显式清空入口等于新增公开 API）——**真正的修法要先决定「哪种写法才是 SDK 想支持的清空方式」，属 API 契约决策**，与 P2-26 的判断一致、不重复立条；**注释层的失实陈述本轮已修**（`dto.py` 三处 docstring + `client.py` 的 `update_observation` docstring + `README.md`/`README-zh-CN.md` 第 114 行，双语同步，**零行为变更由 AST 逐字证明**）。 条目全文已逐字迁入 [`…-62.md`](../archive/2026-10-20_backend-review-evidence-62.md)（第 362 轮）。
 ### P2-117: JS SDK 的源码注释与双语 README 仍断言「四家里只有 JS 能把字符串字段清空为 NULL，Python 跳过 `None`」——而该断言早在第 247 轮就被本仓库自己证伪
-- **Status**: ✅ **已修（第 363 轮，零行为变更）** —— 属**失实陈述的文档修正**：Java 用 `@JsonInclude(NON_NULL)`、Go 用 `omitempty`，**这两家发不出 null**（本轮独立核实，非沿用他人结论）；Python 的**数据类形式**跳过 `None` 而**关键字参数形式**原样发上 wire，故 **Python 也能清空为 NULL**、本家并非唯一。源码注释 + 双语 README 三处已改；改后全仓断言清扫**零命中**；`dist/` 已 `npm run build` 重建（产物含更正文本）；`tsc --noEmit` 退出 0、`vitest` 259 passed。 条目全文已逐字迁入 [`…-63.md`](../archive/2026-10-20_backend-review-evidence-63.md)（第 363 轮）。
+- **Status**: ✅ **已修（第 363 轮）** —— 条目全文逐字见 [`2026-10-20_backend-review-evidence-63.md`](../archive/2026-10-20_backend-review-evidence-63.md)（第 363 轮）
 ### P2-118: API 文档 2026-10-07 的 changelog 行把请求体表归在 `POST /api/memory/observations` 名下——而该端点根本不存在
-- **Status**: ✅ **已修（第 363 轮，纯文档零行为变更）** —— 失实陈述的文档修正：活体 `/v3/api-docs` 里 `/api/memory/observations/{id}` **只有 PATCH 与 DELETE**，**没有 `POST /api/memory/observations`**；那张自带 `Required` 列的请求体表实际属于 **`POST /api/ingest/observation`**。按更新日志既有体例（第 120 轮）**不改写 2026-10-07 那行**，而是在**双语 changelog 各补一条 2026-10-20 的更正行**。 条目全文已逐字迁入 [`…-63.md`](../archive/2026-10-20_backend-review-evidence-63.md)（第 363 轮）。
+- **Status**: ✅ **已修（第 363 轮）** —— 条目全文逐字见 [`2026-10-20_backend-review-evidence-63.md`](../archive/2026-10-20_backend-review-evidence-63.md)（第 363 轮）
 ### P2-119: 四家 demo 的监听地址 **1:3 分裂** —— Java demo 随 P1-2 硬化为只绑回环，**Go / Python / JS 三家至今绑所有网卡、零鉴权**，并把「只绑回环的后端」变成了**同网段可达**的 API
 - **Status**: ⏸ **记录不修** —— 把默认改成回环 = **收窄**可观测面（远程可达性消失）= **对外行为契约变更**；且 P1-2 那次同类硬化是**经用户授权**才实施的（第 294 轮）。按既定纪律（对外契约变更不单方面实施）先记后定。**建议修法（待决策）**：①三家默认改绑回环，并给 Go/Python/JS 各加一个与 Java `SERVER_ADDRESS` 对齐的 host 覆盖口（**纯加宽、默认行为不变**）；②保留默认，但在三份 README 写明暴露面与「经 demo 即等于经后端」的放大关系；③维持现状，仅记录。**本轮未实施任何代码改动**（零代码变更 → 指纹未变 → 按规则跳过完整验收、不推进基线）。 条目全文已逐字迁入 [`…-64.md`](../archive/2026-10-20_backend-review-evidence-64.md)（第 364 轮）。
 
 ### P2-120: 活体 OpenAPI 给 `POST /api/observations/batch` 声明了一个**不可达的 400**，并把 `ids` 标为必填 —— 而处理器每个分支都返回 200，非法 UUID 还被**静默丢弃**
-- **Status**: ✅ **已修（第 365 轮，零行为变更）** —— **机器可读契约的失实陈述更正**：①`ViewerController` 删掉那条**不可达**的 400 `@ApiResponse`（处理器**没有任何 400 分支**；唯一的 400 来自 Jackson 拒收 `ids` 类型，body 是 Spring 默认体，**不是**声明的 `ErrorResponse`）；②`ApiRequests.BatchObservationsRequest.ids` 去掉 `requiredMode = REQUIRED`（该注解**只影响 OpenAPI 文档**、不构成校验，后端自始至终接受 `ids` 缺失）；③`docs/API.md` 与 `docs/API-zh-CN.md` 的 `ids` 必填标注 ✅ → ❌，并各补一段**实测行为说明**（承 P2-10 体例）。**改动全是注解与文档，可执行行 0**；改前改后**整份 OpenAPI 逐字对拍**证明爆炸半径恰为「1 个端点 + 1 个 schema」，其余 65 条路径与全部其它 schema **逐字未变**；**行为一字未变**（五种探针的码与 count 与改前完全相同）。**未单方面收紧行为**的原因：仓库自身脚本**钉住了宽容行为**——`scripts/js-sdk-e2e-test.sh:211` 发 `{"ids":["nonexistent-id"]}`（**非法 UUID**）并要求 2xx（`curl -sf`），`scripts/java-sdk-e2e-test.sh:270` 对 demo 发非法 UUID 亦然；**是否改为「缺失或非法即 400」属对外行为契约变更，留待用户决策**（见归档正文的三选一）。 条目全文已逐字迁入 [`…-65.md`](../archive/2026-10-20_backend-review-evidence-65.md)（第 365 轮）。
+- **Status**: ✅ **已修（第 365 轮）** —— 条目全文逐字见 [`2026-10-20_backend-review-evidence-65.md`](../archive/2026-10-20_backend-review-evidence-65.md)（第 365 轮）
 ### P2-121: `docs/` 下 13 条相对链接的目标**根本不存在** —— 上游自动拆分后未更新，且「哪一篇承接了被引章节」需要内容判断，不宜机械改
 - **Status**: ⏸ **记录不修** —— 13 条断链的目标**在仓库里不存在任何候选**（`105-shell-hooks-extensibility-architecture.md`、`78-cross-cutting-architectural-patterns-synthesis.md`、`02-bluecortexce-recommendations.md` 从未在此路径存在；`01-intro-toc-memory-through-curriculum.md` 与 `07-idle-through-skillpublisher-v14.md` 已被上游自动拆成多篇，**被引的章节归属需逐条内容判断**）。**机械改到任一现存文件都可能指错章节**，故**只记录不猜**。**同批已修的 15 条另计**（见归档正文），二者不可混为一谈。 条目全文已逐字迁入 [`…-65.md`](../archive/2026-10-20_backend-review-evidence-65.md)（第 365 轮）。
+
+### P2-122: 四家 SDK 都能配 API 密钥，但**后端从不校验它** —— 密钥今天是**零保护**，而三份 README 把它写成「for auth」，Java SDK 的 javadoc 更直接断言「Null/blank = no auth」
+- **Status**: ⏸ **服务端鉴权本身记录不实施**（给后端加鉴权 = 改变**所有**现有部署的对外契约 = 对外行为契约变更，按既定纪律先记后定）—— **客户端侧四处失实陈述本轮已修**（全为注释与文档，可执行行 0）：①`CortexMemProperties.apiKey` 的 javadoc（原文「Null/blank = no auth」**为假**）；②`CortexMemClientImpl` 的「Bearer token auth」措辞；③Java SDK README 属性表**补 `api-key` 行**（此前完全没有）；④架构文档双语 `### Authentication` 段**各补一段**。Java SDK `mvn clean test` **196 通过 / 0 失败**。**三选一见归档正文**。 条目全文已逐字迁入 [`…-66.md`](../archive/2026-10-20_backend-review-evidence-66.md)（第 366 轮）。
 
 ## Processing Rules
 - **第 316 轮新增流程规则（连续三轮教训的归纳）——落笔前先查该模块自己的文档**：
