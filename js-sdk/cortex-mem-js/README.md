@@ -230,9 +230,11 @@ spelling made the clear semantic unreachable from TypeScript — a caller had to
 `null as unknown as string` to reach behaviour the client already implemented and the
 backend already honours. The backend stores SQL NULL for all seven clearable fields.
 
-This SDK is the only one of the four that can clear a string field to NULL: Java omits
-nulls via `@JsonInclude(NON_NULL)`, Go via `omitempty`, and Python skips `None`. For
-the `facts` and `concepts` lists, `[]` and `null` are different outcomes — `[]` stores an
+Java omits nulls via `@JsonInclude(NON_NULL)` and Go via `omitempty`, so neither of those
+two can put a null on the wire at all. Python's dataclass form skips `None` the same
+way, but its keyword-argument form copies the value straight onto the wire, so Python
+can clear a string field to NULL as well — this SDK is not the only one of the four that
+can. For the `facts` and `concepts` lists, `[]` and `null` are different outcomes — `[]` stores an
 empty array, `null` stores NULL — and both reach the wire, because `JSON.stringify` has
 no `omitempty`.
 

@@ -44,9 +44,13 @@ export interface ObservationRequest {
  * (which is what the tests had to do). JSON.stringify has no omitempty, so null always
  * reaches the wire; only the type was blocking it.
  *
- * This makes JS the only SDK that can clear a string field to NULL: Java omits nulls
- * via `@JsonInclude(NON_NULL)`, Go via `omitempty`, and Python skips `None`. See P2-27
- * for the four-way capability table and P2-26 for the facts/concepts split.
+ * Java omits nulls via `@JsonInclude(NON_NULL)` and Go via `omitempty`, so neither of
+ * those two can put a null on the wire at all. Python's **dataclass** form skips
+ * `None` the same way, but its **keyword-argument** form copies the value straight
+ * onto the wire, so Python can clear a string field to NULL as well — this SDK is
+ * not the only one of the four that can. See P2-43 and P2-116 for the two-path
+ * measurement, P2-27 for the four-way capability table and P2-26 for the
+ * facts/concepts split.
  */
 export interface ObservationUpdate {
   /** `null` clears the title. */

@@ -219,9 +219,11 @@ await client.updateObservation(id, { source: null, extractedData: null });
 ——调用方必须写 `null as unknown as string` 才能走到客户端早已实现、后端也早已接受的行为。
 实测后端对七个可清空字段全部按 SQL NULL 落库。
 
-四家 SDK 中**只有本家能把字符串字段清空为 NULL**：Java 用 `@JsonInclude(NON_NULL)` 省略 null，
-Go 用 `omitempty`，Python 直接跳过 `None`。对 `facts` 与 `concepts` 两个列表字段，`[]` 与 `null`
-的结果不同——`[]` 存空数组，`null` 存 NULL——且两者都会上 wire，因为 `JSON.stringify` 没有 `omitempty`。
+Java 用 `@JsonInclude(NON_NULL)` 省略 null，Go 用 `omitempty`，**这两家都发不出 null**；
+Python 的**数据类形式**同样跳过 `None`，但它的**关键字参数形式**会把值原样拷上 wire，
+故 **Python 也能把字符串字段清空为 NULL**——本家并非四家中唯一能做到的一家。对 `facts` 与
+`concepts` 两个列表字段，`[]` 与 `null` 的结果不同——`[]` 存空数组，`null` 存 NULL——且两者都会上 wire，
+因为 `JSON.stringify` 没有 `omitempty`。
 
 ### 必填参数在客户端校验
 

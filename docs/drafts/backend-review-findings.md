@@ -456,6 +456,16 @@
   - **对 P2-27 的影响**：该条能力表把 Python 判为「✗（`if val is not None`）」——
     这对 dataclass 路径成立，**对 kwargs 路径不成立**。按「按断言清扫」的标准，
     那行只覆盖了一半的调用面，应当标注。
+- **第 363 轮的补注（本条目在第 247 轮写下的「已在下方补注」，直到本轮才真正落地）**:
+  **那句补注从未出现在本条目里。** 第 247 轮与 P2-26 都写着「P2-27 的能力表应当立即标注
+  kwargs 路径……**已在下方补注**」，而本条目从那时起只有 Problem / Status 两段，
+  **无任何提及 kwargs 路径的字样**；本轮已**就地补上**（见上方第 362 轮的事实更正）。
+  **本条的证伪也从未被同步到 JS SDK 的复述点**——`js-sdk/cortex-mem-js/src/dto/observation.ts`
+  与其**双语 README** 至今仍写着「四家里只有 JS 能把字符串字段清空为 NULL、Python 跳过 `None`」，
+  而那句话在第 247 轮就已经被本条目证伪了。本轮已更正（**P2-117**）。
+  另：本条的证伪在**第 362 轮**被**用 SDK 本身**（而非 demo）做了活体端到端复验——
+  kwargs `content=None` 之后 `mem_observations.content` 列**实为 NULL**（`psql` 直查），
+  见 **P2-116**。
 - **Status**: ⏸ **记录不修** —— 两种收法都改变现有调用方的可观测行为：
   ①让 dataclass 路径也发 `None`（原本静默不发请求的 `ObservationUpdate(title=None)` 会突然发出一次 PATCH）；
   ②让 kwargs 路径也过滤 `None`（**本条是真缺陷**：今天经 kwargs 清空是能成功的，
@@ -1373,7 +1383,21 @@
 ### P2-115: `backend-review-findings.md` 的字节上限**已不可能靠压缩解决** —— 建议把阈值按第 293 轮同比例上调至 **2000 行 / 200000 字节**
 - **Status**: ⏸ **记录不修** —— 属流程契约变更，需用户决策。 条目全文已逐字迁入 [`…-61.md`](../archive/2026-10-19_backend-review-evidence-61.md)（第 361 轮）。
 ### P2-116: Python SDK 的两种 `update_observation` 调用风格**不等价** —— kwargs 路径真能清空 `narrative` / `extractedData`，而 SDK 自己的注释与 P2-27 都断言「不能清空」
+- **第 363 轮的更正（本条是 P2-43 的重复立条，缺陷计数不因本条增加）**: **P2-43 早在第 247 轮
+  就立了同一发现**（标题同义：「Python SDK 的两种调用风格对 `None` 的含义相反——dataclass 路径丢弃它、
+  kwargs 路径原样发上 wire」），其 Problem 的机制描述与 Status 的两条收法与本条**逐条相同**。
+  **第 362 轮立本条时未先查 P2-43，是一次重复立条**——按本文件「写之前先按主题搜全文」的纪律，
+  这一步本该先做。**保留本条而非删除**，是因为它带来三项 P2-43 没有的东西:
+  ①**用 SDK 本身**（而非 demo）的活体端到端复验，含 `extracted_data={}` 这一格；
+  ②**查出 P2-43 与 P2-26 都承诺过、却从未落盘的那句补注**；
+  ③**注释层的失实陈述已修**（P2-43 只要求「给能力表加注」，而 Python SDK 自己的 docstring
+  仍在说「cannot be cleared through this client at all」）。
+  **本条与 P2-43 记的是同一件事，以 P2-43 为准**；本条的证据与正文见 [`…-62.md`](../archive/2026-10-20_backend-review-evidence-62.md)（第 362 轮）。
 - **Status**: ⏸ **行为记录不修**（两种收法都改变现有调用方的可观测行为：让 kwargs 路径也过滤 `None`/`{}` 等于让今天已经能用的清空能力失效；新增显式清空入口等于新增公开 API）——**真正的修法要先决定「哪种写法才是 SDK 想支持的清空方式」，属 API 契约决策**，与 P2-26 的判断一致、不重复立条；**注释层的失实陈述本轮已修**（`dto.py` 三处 docstring + `client.py` 的 `update_observation` docstring + `README.md`/`README-zh-CN.md` 第 114 行，双语同步，**零行为变更由 AST 逐字证明**）。 条目全文已逐字迁入 [`…-62.md`](../archive/2026-10-20_backend-review-evidence-62.md)（第 362 轮）。
+### P2-117: JS SDK 的源码注释与双语 README 仍断言「四家里只有 JS 能把字符串字段清空为 NULL，Python 跳过 `None`」——而该断言早在第 247 轮就被本仓库自己证伪
+- **Status**: ✅ **已修（第 363 轮，零行为变更）** —— 属**失实陈述的文档修正**：Java 用 `@JsonInclude(NON_NULL)`、Go 用 `omitempty`，**这两家发不出 null**（本轮独立核实，非沿用他人结论）；Python 的**数据类形式**跳过 `None` 而**关键字参数形式**原样发上 wire，故 **Python 也能清空为 NULL**、本家并非唯一。源码注释 + 双语 README 三处已改；改后全仓断言清扫**零命中**；`dist/` 已 `npm run build` 重建（产物含更正文本）；`tsc --noEmit` 退出 0、`vitest` 259 passed。 条目全文已逐字迁入 [`…-63.md`](../archive/2026-10-20_backend-review-evidence-63.md)（第 363 轮）。
+### P2-118: API 文档 2026-10-07 的 changelog 行把请求体表归在 `POST /api/memory/observations` 名下——而该端点根本不存在
+- **Status**: ✅ **已修（第 363 轮，纯文档零行为变更）** —— 失实陈述的文档修正：活体 `/v3/api-docs` 里 `/api/memory/observations/{id}` **只有 PATCH 与 DELETE**，**没有 `POST /api/memory/observations`**；那张自带 `Required` 列的请求体表实际属于 **`POST /api/ingest/observation`**。按更新日志既有体例（第 120 轮）**不改写 2026-10-07 那行**，而是在**双语 changelog 各补一条 2026-10-20 的更正行**。 条目全文已逐字迁入 [`…-63.md`](../archive/2026-10-20_backend-review-evidence-63.md)（第 363 轮）。
 ## Processing Rules
 - **第 316 轮新增流程规则（连续三轮教训的归纳）——落笔前先查该模块自己的文档**：
   本循环已**连续三轮**出现同一模式：先凭代码把某处判成「缺口/缺陷」，下一轮才发现**它是被双语文档明确记载的有意设计**。
