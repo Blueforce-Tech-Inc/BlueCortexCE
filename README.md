@@ -189,7 +189,7 @@ docker compose down      # stop
          ▼
 ┌─────────────────┐         ┌──────────────────┐
 │  Thin Proxy     │         │  Fat Server      │
-│  (Express)      │────────▶│  (Spring Boot)   │
+│  (Node.js)      │────────▶│  (Spring Boot)   │
 └─────────────────┘         │  - LLM Processing│
                             │  - Embedding     │
                             └────────┬─────────┘
@@ -202,7 +202,12 @@ docker compose down      # stop
 
 ### Core Components
 
-- **Thin Proxy**: Lightweight Node.js proxy for fast CLI Hook response (<1s)
+- **Thin Proxy**: Lightweight Node.js proxy for fast CLI Hook response (<1s).
+  The layer is Node.js with **axios** as its only dependency — `proxy/proxy.js` is built on
+  Node's built-in `http` module, not on Express. Two components live in it and they are
+  **not** chained: `proxy/wrapper.js` is the CLI entry the hooks invoke and it calls the
+  backend **directly** on `127.0.0.1:37777`; `proxy/proxy.js` is an **optional** local
+  aggregation HTTP server that listens on `37778` and forwards to the same backend.
 - **Fat Server**: Spring Boot backend with async LLM/embedding processing
 - **PostgreSQL + pgvector**: Unified storage for vectors, relations, and full-text search
 
