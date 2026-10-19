@@ -75,8 +75,7 @@
   同一套判断；且需项目先决定这两条触发路径是否应纳入 fire-and-forget 语义。 条目全文已逐字迁入 [`2026-10-07_backend-review-evidence-55.md`](../archive/2026-10-07_backend-review-evidence-55.md)（第 353 轮）。
 ### P2-20: 全部 22 个数值查询参数都会静默接受十六进制字面量
 
-- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)
-  **本轮（第 275 轮）再迁出**活体实测清单与排查陷阱原文 → [`2026-10-06_backend-review-evidence-25.md`](../archive/2026-10-06_backend-review-evidence-25.md)。
+- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)、[scope-10](../archive/2026-10-20_backend-review-scope-evidence-10.md)
 - **Problem**: Spring 的默认数字转换会**静默采纳 `0x`/`0X` 十六进制前缀**：先 trim，
   带十六进制前缀走 `Integer.decode`，否则走 `Integer.valueOf`。
   **五个端点的活体实测清单**（`?limit=0x10` 返回 16 条、`?lines=0x10`、`?maxObservations=0x10`、
@@ -600,9 +599,7 @@
 
 ### P2-56: Java demo 里**三个**控制器把**六个**数值参数整个绕过了共享校验类——**而那条 Javadoc 只点名了其中一个**
 
-- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)
-  **第 282 轮的范围更正与完整活体对拍**（用方 3 个文件 5 处 / 绕过 3 个控制器 6 个参数、六组请求的 HTTP 与 body 原文、
-  `-1` 与 `16` 的落库记录）见 [`2026-10-06_backend-review-evidence-31.md`](../archive/2026-10-06_backend-review-evidence-31.md)。
+- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)、[scope-10](../archive/2026-10-20_backend-review-scope-evidence-10.md)
 - **Problem**: `DemoParams` 的 Javadoc 原本写着「…**so this rule is the only thing
   that can decide what a value means**」。**这句话对三个控制器是假的**：
   `boundedInt` 的调用点只落在 `SearchController` / `ObservationsController` / `ExtractionController`
@@ -637,8 +634,7 @@
 
 ### P2-58: 四家 SDK 的响应 DTO **同缺**活体观测的 7 个字段——其中 3 个正是 V17 / V18 专门加的，而 Go 的 DTO 在 V17/V18 之后**还被改过**
 
-- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)
-  **第 277 轮再迁出** 7 字段 ↔ 迁移来源的逐行对照表与取样方法 → [`2026-10-06_backend-review-evidence-28.md`](../archive/2026-10-06_backend-review-evidence-28.md)。
+- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)、[scope-10](../archive/2026-10-20_backend-review-scope-evidence-10.md)
 - **Problem**: 取活体 `GET /api/observations?limit=1` 的一条真实观测（**34 个字段**），
   与四家响应 DTO 声明的字段名逐一比对，**四家同缺同样这 7 个**：
   `platform_source`（**V18 专门新增**）、`generated_by_model` 与 `relevance_count`（**V17**）、
@@ -734,8 +730,7 @@
 - **Status**: ✅ **已按准确描述补注** —— 条目全文已逐字迁入 [`…-41.md`](../archive/2026-10-07_backend-review-evidence-41.md)（第 324 轮）。 条目全文已逐字迁入 [`…-59.md`](../archive/2026-10-19_backend-review-evidence-59.md)（第 361 轮）。
 ### P2-75: 单条观测的 PATCH / DELETE **对畸形 id 返 400**，而 API 文档与 OpenAPI 注解都只把 400 写成「请求体字段类型错」
 
-- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)
-  同文件 `:427`（`@DeleteMapping`）；文档侧 `docs/API.md:593` 起的中英双语小节 + 两处 `@ApiResponse` 注解。
+- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)、[scope-10](../archive/2026-10-20_backend-review-scope-evidence-10.md)
 - **Problem**: `@PathVariable UUID` 在 id 不可解析时由 Spring 抛转换失败，**返回 400**，
   **与「请求体字段类型错」是完全不同的成因，却共用同一个状态码**。**活体实测**（37777）：
 
@@ -764,9 +759,7 @@
   修法若要采纳，最小形态是给两处 `400` 补一句「或 path 中的 id 不是合法 UUID」。
 ### P2-76: demo 40 个 catch 块里只有 3 个做后端 4xx 直通，`PATCH /demo/session/user` 因此把 404 报成 500
 
-- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)
-  `:151-176`（端点）；已做直通的三个点：`FeedbackController.java:75-79`、
-  `ObservationsController.java:324-328` 与 `:352-355`；`DemoErrors.clientStatus` 为共用机制。
+- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)、[scope-10](../archive/2026-10-20_backend-review-scope-evidence-10.md)
 - **Problem**: `FeedbackController.java:68-74` 的注释把理由写死了——不直通就会
   「把一个缺失的观测报成 500，也把打错的 id 报成 500，既误报状态又丢掉解释」，
   并写明「The Go, Python and JS demos pass a backend 4xx straight through」。
@@ -788,9 +781,7 @@
   套用 `FeedbackController` 已有的 6 行模式（同仓库已有现成写法，不需新机制）。
 ### P2-77: 四个 `/memory/*` 端点把「参数存在但为空」报成 **500**，而「参数缺失」是 400——同一类调用方错误，两个状态码
 
-- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)
-  `:74-84`（`/memory/icl`）、`:121` 起（`/memory/icl/truncated`）与 `/memory/experiences/filtered`；
-  对照组同文件外的 `ExperiencesController` 两个 `/demo/*` 端点。
+- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)、[scope-10](../archive/2026-10-20_backend-review-scope-evidence-10.md)
 - **Problem**: 四者都用 `@RequestParam String task`（**必填**），且方法体里**都没有空白检查**，
   直接流入 SDK 的 `requireNonBlank`。活体实测（demo 37778）：
 
@@ -818,9 +809,7 @@
 
 ### P2-79: CORS 的凭据开关**只检查列表第 0 位**是否含 `*`——`*` 出现在别处时**整个 API 返 500**
 
-- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)
-  （`boolean allowCredentials = origins.length > 0 && !origins[0].equals("*");`），
-  与紧邻的注释「Determine if we should allow credentials (only if not using wildcard)」。
+- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)、[scope-10](../archive/2026-10-20_backend-review-scope-evidence-10.md)
 - **Problem**: 该行**只判断 `origins[0]`**，而它自己的注释声称「only if not using wildcard」——
   **只要 `*` 出现在列表的任何非首位位置，意图就被违背**。
   Spring 的 `CorsConfiguration.validateAllowCredentials` 在 `allowCredentials=true` 且
@@ -872,9 +861,7 @@
 - **Status**: ✅ **已修（第 324 轮）** —— 条目全文逐字见 [2026-10-07_backend-review-evidence-41](../archive/2026-10-07_backend-review-evidence-41.md)（第 324 轮）
 ### P2-82: 三家 SDK 都给响应体设了 **10 MB 上限**，**只有 Python 完全没有**——`requests` 会把整个 body 缓冲进内存
 
-- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)
-  对照 `go-sdk/cortex-mem-go/client_impl.go:173-175,243-250`
-  与 `js-sdk/cortex-mem-js/src/client.ts:655-699`。
+- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)、[scope-10](../archive/2026-10-20_backend-review-scope-evidence-10.md)
 - **Problem**: 同一道安全阀，三家形态如下：
 
   | SDK | 上限 | 形态 |
@@ -944,11 +931,7 @@
 - **Status**: ✅ **已修（第 361 轮）** —— 条目全文逐字见 [2026-10-19_backend-review-evidence-59](../archive/2026-10-19_backend-review-evidence-59.md)（第 361 轮）
 ### P2-87: 架构文档的「后端参考提交」`ed37a1b2…` **在任何地方都解析不到**，版本配对声明半边失效
 
-- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)
-  （另一进程于 `6e5890d` 新增的双语段落）：
-  > The backend/WebUI relationship is version-paired rather than "latest wins".
-  > For the current reviewed capability set, **the backend reference is `ed37a1b227b6067befe5c9ada331989d02cbfad0`**
-  > and the compatible `webui/` submodule commit is `72e7804b13f89b03177f746867e0dd341fb12c8a`.
+- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)、[scope-10](../archive/2026-10-20_backend-review-scope-evidence-10.md)
 - **Problem**: 该段落的功能是**让读者能取回这一对版本**。**配对的另一半完全正常**：
   `72e7804b…` 经三重核实**全部吻合** —— 子模块自身 `HEAD`、父仓库记录的 gitlink、
   以及文档中的字面值。**而 `ed37a1b2…` 在任何地方都不存在**，逐项排查结果：
@@ -981,14 +964,7 @@
 
 ### P2-88: `retrieval-enabled=false` 会**静默关掉全部 @Tool 捕获**，而 README 把该开关记作只管检索
 
-- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)
-  `cortex-mem-spring-integration/cortex-mem-starter/src/main/java/com/ablueforce/cortexce/autoconfigure/CortexMemAutoConfiguration.java`
-  - `:80` —— `SpringAiAdvisorConfiguration` **整类**带
-    `@ConditionalOnProperty(prefix="cortex.mem", name="retrieval-enabled", matchIfMissing=true)`
-  - `:83-92` —— `cortexSessionContextBridgeAdvisor` bean 声明在该类**内部**，
-    再被 `:85` 的 `context-bridge-enabled` 门控
-  - `:148-154` —— `AopCaptureConfiguration`（含 `cortexToolAspect`）另受
-    `capture-enabled` 门控，**不**在检索门控之内
+- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)、[scope-10](../archive/2026-10-20_backend-review-scope-evidence-10.md)
 - **受控实验**（临时 `ApplicationContextRunner` 探针，测完即删；三列而非两列，
   第三列用来排除「两个顾问同生共死」这一竞争解释）：
 
@@ -1079,8 +1055,7 @@
 
 ### P2-90: Go SDK README 的测试总数**双语共 7 处**硬编码 `362`，实测已是 `363` —— 差值恰为第 319 轮我自己新增的那 1 个测试
 
-- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)
-  与 `README-zh-CN.md`（`:13`、`:177`、`:187-188`）
+- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)、[scope-10](../archive/2026-10-20_backend-review-scope-evidence-10.md)
 - **实测（本轮亲跑，Go 1.25.14 darwin/arm64，9 个模块逐个 `go test -count=1 -v`）**。
   **必须区分两个口径**，否则会把子测试重复计数：
 
@@ -1127,14 +1102,7 @@
 
 ### P2-91: 后端源码里的 `P1-1` / `P1-2` / `P2-1` 标签与本仓库 findings 的编号**含义冲突**，而 `P1-2` 在本仓历史上已指代过三个不同主体
 
-- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)
-
-  | 位置 | 标签 | 实际类/主题 |
-  |---|---|---|
-  | `config/QueueHealthIndicator.java:12` | `P1-2:` | Custom health indicator for message queue monitoring |
-  | `service/StaleMessageRecoveryTask.java:17` | `P1-1:` | Stale message recovery task |
-  | `service/ContextCacheService.java:16` | `P2-1:` | Context caching service |
-
+- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)、[scope-10](../archive/2026-10-20_backend-review-scope-evidence-10.md)
   三者**内部自洽**：标签的优先级序号与主题一一对应（P1-1 恢复、P1-2 监控、P2-1 缓存），
   显然是一份**功能优先级清单**，不是缺陷编号。
 - **冲突是实打实的，不是理论风险**：本仓库 `docs/drafts/backend-review-findings.md` 里
@@ -1164,12 +1132,7 @@
 - **Status**: ✅ **已修（第 361 轮）** —— 条目全文逐字见 [2026-10-19_backend-review-evidence-59](../archive/2026-10-19_backend-review-evidence-59.md)（第 361 轮）
 ### P2-93: `submitFeedback` 的空评论在 Go / JS / Python 里被静默丢弃 —— **四家中只有 Java 能清空它**
 
-- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)
-  后端 `MemoryController.java:253-254`（决定性分叉）、
-  `go-sdk/cortex-mem-go/dto/misc.go:26`（`omitempty`）、
-  `js-sdk/cortex-mem-js/src/client.ts:355`（`if (req.comment)`）、
-  `python-sdk/cortex-mem-python/cortex_mem/client.py:615`（`if comment:`）、
-  对照组 `cortex-mem-spring-integration/.../CortexMemClientImpl.java:252`（`if (comment != null)`）。
+- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)、[scope-10](../archive/2026-10-20_backend-review-scope-evidence-10.md)
 - **后端语义（决定性，两行）**:
   ```java
   if (request.comment() != null) {      // MemoryController.java:253
@@ -1221,9 +1184,7 @@
 - **Status**: ✅ **已修（第 361 轮）** —— 条目全文逐字见 [2026-10-19_backend-review-evidence-59](../archive/2026-10-19_backend-review-evidence-59.md)（第 361 轮）
 ### P2-95: 架构文档把 17 行关键警告关在 ```sql 围栏**里面** —— 它渲染成代码，而不是提示
 
-- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)
-  而 `:624-640` 的 **17 行**是 Markdown 引用块散文；
-  `docs/ARCHITECTURE-zh-CN.md` **同型**：`:546` 开启、`:715` 闭合，`:616-629` **14 行**散文。
+- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)、[scope-10](../archive/2026-10-20_backend-review-scope-evidence-10.md)
 - **原文形态**（`:641-644` 可见散文之后又直接接回 SQL）：
 
   ```
@@ -1321,16 +1282,7 @@
 ### P2-111: `ContextService` 的 `@param types` 写「empty = all types」，而实现把它展开成**六项硬编码白名单**——同段的 `concepts` 却是真·全量
 - **Status**: ✅ **已修（第 360 轮）** —— 条目全文逐字见 [2026-10-19_backend-review-evidence-58](../archive/2026-10-19_backend-review-evidence-58.md)（第 360 轮）
 ### P2-112: `cortex-mem-starter` 的 `base-url` 一旦是**空串**就让**整个 Spring 应用启动失败** —— 而同一仓库的后端对**完全相同**的模式早已显式处理过
-- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)
-  - `cortex-mem-spring-integration/cortex-mem-starter/src/main/java/com/ablueforce/cortexce/autoconfigure/CortexMemAutoConfiguration.java:39`
-    —— `@ConditionalOnProperty(prefix = "cortex.mem", name = "base-url")`
-  - `cortex-mem-spring-integration/cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/CortexMemClientImpl.java:60-63`
-    —— `if (baseUrl == null || baseUrl.isBlank()) throw new IllegalArgumentException("baseUrl must not be null or blank");`
-  - **受控实验**（临时 `ApplicationContextRunner` 探针，并经 `YamlPropertySourceLoader` 装载**真实 `application.yml`**；
-    探针编译到 `/tmp`，跑完即删，**仓库零改动**）。三种 yml 写法 ——
-    `base-url: ${CORTEX_MEM_URL:}`、`base-url:`（YAML null）、`base-url: ""` ——
-    **全部**得到 `STARTUP_FAILURE: IllegalArgumentException: baseUrl must not be null or blank`；
-    另测 `base-url: "   "`（纯空白）**同样**失败。
+- **Scope**: → [scope-9](../archive/2026-10-19_backend-review-scope-evidence-9.md)、[scope-10](../archive/2026-10-20_backend-review-scope-evidence-10.md)
 - **不对称（本条的要害）**: 同样是「没有有效 URL」的三种状态，**两种安全、一种致命**：
 
   | 配置 | 结果 |
@@ -1398,6 +1350,9 @@
 - **Status**: ✅ **已修（第 363 轮，零行为变更）** —— 属**失实陈述的文档修正**：Java 用 `@JsonInclude(NON_NULL)`、Go 用 `omitempty`，**这两家发不出 null**（本轮独立核实，非沿用他人结论）；Python 的**数据类形式**跳过 `None` 而**关键字参数形式**原样发上 wire，故 **Python 也能清空为 NULL**、本家并非唯一。源码注释 + 双语 README 三处已改；改后全仓断言清扫**零命中**；`dist/` 已 `npm run build` 重建（产物含更正文本）；`tsc --noEmit` 退出 0、`vitest` 259 passed。 条目全文已逐字迁入 [`…-63.md`](../archive/2026-10-20_backend-review-evidence-63.md)（第 363 轮）。
 ### P2-118: API 文档 2026-10-07 的 changelog 行把请求体表归在 `POST /api/memory/observations` 名下——而该端点根本不存在
 - **Status**: ✅ **已修（第 363 轮，纯文档零行为变更）** —— 失实陈述的文档修正：活体 `/v3/api-docs` 里 `/api/memory/observations/{id}` **只有 PATCH 与 DELETE**，**没有 `POST /api/memory/observations`**；那张自带 `Required` 列的请求体表实际属于 **`POST /api/ingest/observation`**。按更新日志既有体例（第 120 轮）**不改写 2026-10-07 那行**，而是在**双语 changelog 各补一条 2026-10-20 的更正行**。 条目全文已逐字迁入 [`…-63.md`](../archive/2026-10-20_backend-review-evidence-63.md)（第 363 轮）。
+### P2-119: 四家 demo 的监听地址 **1:3 分裂** —— Java demo 随 P1-2 硬化为只绑回环，**Go / Python / JS 三家至今绑所有网卡、零鉴权**，并把「只绑回环的后端」变成了**同网段可达**的 API
+- **Status**: ⏸ **记录不修** —— 把默认改成回环 = **收窄**可观测面（远程可达性消失）= **对外行为契约变更**；且 P1-2 那次同类硬化是**经用户授权**才实施的（第 294 轮）。按既定纪律（对外契约变更不单方面实施）先记后定。**建议修法（待决策）**：①三家默认改绑回环，并给 Go/Python/JS 各加一个与 Java `SERVER_ADDRESS` 对齐的 host 覆盖口（**纯加宽、默认行为不变**）；②保留默认，但在三份 README 写明暴露面与「经 demo 即等于经后端」的放大关系；③维持现状，仅记录。**本轮未实施任何代码改动**（零代码变更 → 指纹未变 → 按规则跳过完整验收、不推进基线）。 条目全文已逐字迁入 [`…-64.md`](../archive/2026-10-20_backend-review-evidence-64.md)（第 364 轮）。
+
 ## Processing Rules
 - **第 316 轮新增流程规则（连续三轮教训的归纳）——落笔前先查该模块自己的文档**：
   本循环已**连续三轮**出现同一模式：先凭代码把某处判成「缺口/缺陷」，下一轮才发现**它是被双语文档明确记载的有意设计**。
