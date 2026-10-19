@@ -71,6 +71,15 @@
 
 **Config**: `cortex.mem.capture-enabled` (already exists).
 
+> **已实现后的更正（2026-10-19）**：本节描述的提案已由 §6 记录为**已实现**（2026-03-18），
+> §5 也已把它标为 ✅ Resolved，故本节作为「改进机会」保留仅供历史参照。
+> 其中上面「**Config**: `cortex.mem.capture-enabled`」一行的**配置项名有误** ——
+> 用户提示捕获的实际开关是 **`cortex.mem.capture-user-prompt-enabled`**：
+> `CortexMemAutoConfiguration:101` 以 `properties.isCaptureUserPromptEnabled()`
+> 喂给 `CortexMemoryAdvisor.Builder.captureEnabled()`，该字段在
+> `captureUserPromptIfActive()` 里被 `if (!captureEnabled) return;` 消费。
+> `capture-enabled` 控制的是 **@Tool 捕获**（§2 已正确说明），两者不可混用。
+
 ### 4.2 Optional AI Response Capture (Medium Value, Medium Effort)
 
 **Idea**: After `chain.nextCall()`, capture the assistant response.

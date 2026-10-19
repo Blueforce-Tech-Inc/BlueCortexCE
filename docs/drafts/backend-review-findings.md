@@ -1,19 +1,3 @@
-# Backend Review Findings
-
-> **Purpose**: 记录当前仍需处理的 Backend 代码审查发现。
-> **Updated by**: 定时项目维护任务。
-> **Update rule**: 新发现必须记录文件、行号、问题、严重级别和处理状态；已解决的详细历史归档，当前未解决项保留在本文件。
-
-## Current Status
-
-| Severity | Open | Rule |
-|----------|------|------|
-| P0 | 0 | 立即修复并复测 |
-| P1 | 1 | 优先修复并复测 |
-| P2 | 7 | 本轮完整验收阶段处理或明确标记为已跳过 |
-
-- **已整体迁出**（current-status-note）: 逐字迁入 [`2026-10-04_backend-review-resolved-15.md`](../archive/2026-10-04_backend-review-resolved-15.md)（第 263 轮）。
-
 ## Open Findings
 
 ### P2-24: V17 反馈机制整体未接线 —— 实体还映射了一个不存在的列
@@ -1032,6 +1016,19 @@
   - `README.md:796`（zh `:775`）故障排查表把 `retrieval-enabled=false` 列为
     「无 ICL 上下文」的已知原因，却**未**列为「@Tool 捕获全部消失」的原因；
     同表 `:794` 的「Tool calls not captured」只给了自调用一条原因。
+- **第 360 轮补充：受影响的不止 README，零覆盖设计稿同样未记载**:
+  `docs/drafts/cortex-mem-integration-capture-analysis.md` 的 §1「**Current** Capture Matrix」
+  把 Tool use 一行标为 `✅ Yes`（自动捕获），Notes 写「AOP intercepts `@Tool` methods
+  **when `CortexSessionContext` is active**」——**这正是被 `retrieval-enabled` 连带关掉的那一环**，
+  文档同样未提；其 §2 更用了与 README **完全相同**的措辞
+  「`capture-enabled` controls @Tool capture; `capture-user-prompt-enabled` controls
+  user prompt capture **independently**」。故「独立」这个误导性措辞在**仓库内至少两处**
+  （双语 README + 本设计稿）出现，而修法一旦定下来，**两处都要同步**。
+  （该设计稿的其余可验证断言本轮逐条复验为真：§1 五行的端点/类名/方法名/Auto? 判定、
+  §2 的两个配置项、§6 的四处实现位置、§7 的 `-Plocal` profile 与
+  `examples/cortex-mem-demo/e2e/run-e2e.sh` 全部存在；其中 `POST /api/session/start`
+  与 `/api/prompts` 两个曾被怀疑是幻影端点，经**活体请求**判定为真
+  ——`/api/session/start` 返 400、`/api/ingest/session-start` 才是 404。）
 - **⚠️ 次生后果：用户提示捕获同样被牵连，README 的「独立」措辞更易误导**:
   同一张表里 `CortexMemoryAdvisor` 也随 `retrieval-enabled=false` 一起消失（见上表第二列），
   故 `capture-user-prompt-enabled` 控制的**用户提示捕获**一并失效。
@@ -1295,12 +1292,9 @@
 - **Status**: ✅ **已修（第 341 轮，纯文档）** —— 双语各 **15 行**改为 `... \| null`，另在双语 changelog 各加一条 2026-10-07 记录；终验 **15/15** 稀疏字段已标可空、**9/9** 稠密字段仍非空、**双语类型零差异**，changelog 未转义管道直方图 `{4: 60}`。首版把 `\| null` 插成了**独立单元格**（4 列 vs 3 列表头，即 P2-99 那类缺陷），由未转义管道数断言当场拦下，回退后按表头列数重做。条目全文已逐字迁入 [`…-48.md`](../archive/2026-10-07_backend-review-evidence-48.md)（第 341 轮）。
 
 ### P2-103: `ExpRagService` 把 `created_at` 为 NULL 的成因写成「pre-migration data」——而**当前的捕获路径就在持续制造 NULL**
-
-- **Status**: ✅ **已修（第 341 轮，纯注释零行为变更）** —— 注释改为如实写出「DDL 默认值只对 SQL 插入生效、JPA 捕获路径只设 `createdAtEpoch`、只有 `ImportService` 赋值」，并指向 `ARCHITECTURE.md`。`git diff -U0` 逐行核验**可执行行 0**；`mvn -o clean package -DskipTests` EXIT=0；重建 jar 后停掉本轮自己启动的 37777 进程并以新 jar 重启，按实跑满足新鲜度闸门；回归 **45/0/1** + EXTRACTION **25/0/0**。条目全文已逐字迁入 [`…-49.md`](../archive/2026-10-07_backend-review-evidence-49.md)（第 341 轮）。
-
+- **Status**: ✅ **已修（第 341 轮，纯注释零行为变更）** —— 注释改为如实写出「DDL 默认值只对 SQL 插入生效、JPA 捕获路径只设 `createdAtEpoch`、只有 `ImportService` 赋值」，并指向 `ARCHITECTURE.md`。`git diff -U0` 逐行核验**可执行行 0**；`mvn -o clean package -DskipTests` EXIT=0；重建 jar 后停掉本轮自己启动的 37777 进程并以新 jar 重启，按实跑满足新鲜度闸门；回归 **45/0/1** + EXTRACTION **25/0/0**。条目全文已逐字迁入 [`…-49.md`](../archive/2026-10-07_backend-review-evidence-49.md)（第 341 轮）。 条目全文已逐字迁入 [`…-58.md`](../archive/2026-10-19_backend-review-evidence-58.md)（第 360 轮）。
 ### P2-104: 架构文档 REST API 表的**最后一行被挤到表外** —— 2026-10-03 插入的 SSE 引用块落在表格中间，GFM 只渲染到 Health 行为止
-- **Status**: ✅ **已修（第 344 轮，纯排版零行为变更）** —— 双语各把 `| Test |` 行接回表尾、引用块整体下移至表后；表格行数 15 未丢行，pandoc 全文件复核 `tables=13` / 字面管道段落 `0`。**扫描器两版仪器错误均由自检拦下**（详见归档）。条目全文已逐字迁入 [`…-50.md`](../archive/2026-10-07_backend-review-evidence-50.md)（第 344 轮）。
-
+- **Status**: ✅ **已修（第 344 轮，纯排版零行为变更）** —— 双语各把 `| Test |` 行接回表尾、引用块整体下移至表后；表格行数 15 未丢行，pandoc 全文件复核 `tables=13` / 字面管道段落 `0`。**扫描器两版仪器错误均由自检拦下**（详见归档）。条目全文已逐字迁入 [`…-50.md`](../archive/2026-10-07_backend-review-evidence-50.md)（第 344 轮）。 条目全文已逐字迁入 [`…-58.md`](../archive/2026-10-19_backend-review-evidence-58.md)（第 360 轮）。
 ### P2-105: Demo README 的 `/actuator/health` 行同样被挤到表外 —— 与 P2-104 **同一类**，靠全库扫描才发现
 - **Status**: ✅ **已修（第 344 轮）** —— 该行接回表尾。**超出本轮名义文档方向**但与 P2-104 同成因同仪器，按「已损坏行为可修」一并处理；全库 21 个 `.md` 扫描后归零。条目全文已逐字迁入 [`…-50.md`](../archive/2026-10-07_backend-review-evidence-50.md)（第 344 轮）。
 ### P2-106: 全库 **98 行**表格的单元格数与表头不符 —— 多数是代码 span 里的裸 `|` 未转义，而**渲染器根本检测不到这一类**
@@ -1314,16 +1308,64 @@
 - **Status**: ✅ **已修（第 353 轮，零行为变更）** —— 改的是注释，`Math.max(0, …)` 一行未动。**新鲜度闸门**：改的是后端源码，豁免路径**不适用**，已 `mvn -o clean package -DskipTests`（BUILD SUCCESS）并重启 37777 后跑完整验收。 条目全文已逐字迁入 [`…-57.md`](../archive/2026-10-07_backend-review-evidence-57.md)（第 359 轮）。
 
 ### P2-110: `SearchService` 的策略树注释列了一个**代码里不存在的维度**（`files`），并把 filter 路径说成「via tsvector」
-- **Scope / Evidence**: `backend/src/main/java/com/ablueforce/cortexce/service/SearchService.java`（原 14~22 行类 Javadoc）。原第 1 条写 `No query → PostgreSQL filter search (type/concepts/files/dateRange via tsvector)`。三条互相独立的证据：① **该词在整个文件里只出现这一次**——`grep -n files` 命中行号 19，正是这条注释本身；`SearchRequest` record（245~257 行）没有该字段，`findByAllFiltersWithOffset` 的 SQL（`ObservationRepository` 203~222 行）没有该条件，三个调用点（`ViewerController:324`、`ClaudeMemMcpTools:115`、`ContextController:517`）也都不传；② **filter 路径的 SQL 一处 tsvector 都没有**——`search_vector` / `ts_rank` / `plainto_tsquery` 在该 query 段命中 **0** 次，而同文件 `hybridSearch` 段命中 **2** 次（阳性对照）；③ **运行时自述也不符**——`GET /api/search` 活体实测，无 query 无 filter 返回 `strategy=recent`、无 query 带 `type` filter 返回 `strategy=filter`，而 `"tsvector"` 字面量在代码里只出现在 PATH 3（104 行）。
-- **Problem**: 三处失实。① **`files` 是幽灵维度**，注释却把它列为 filter 的四个维度之一；② **「via tsvector」不成立**——filter 路径走的是 `:p IS NULL OR col = :p` 组合谓词，全文索引只在 PATH 3 才被触及；③ **漏掉了实际存在的 `source`**，它是 record 字段、SQL 条件、`hasAnyFilter` 与 `applyPostFilters` 四处都处理的第四个维度。此外第 2 条把实为 hybrid（pgvector 半边 + tsvector 半边 UNION）的路径写成 `pgvector semantic search`，第 3 条把 fallback 写成无条件——`isRetryableException` 命中的连接类异常（SocketTimeout / Connect / Timeout / CannotGetJdbcConnection）是**重抛**而非降级。
-- **「per cookbook」不记为缺陷**: 仓库内确实没有 cookbook 文档（`docs/` 下 20 个 `.md` 零命中；同一 grep 查 "semantic search" 命中 22 个文件、"hybrid search" 命中 21 个，作为阳性对照），但三处 Java 注释用的是同一措辞（`AgentService:37`、`XmlParser:20`），指向的是**外部规范**。按「没匹配到 ≠ 不存在」，只在新注释里写明无法对账，**不据此记 finding**。
-- **Status**: ✅ **已修（第 359 轮，零行为变更）** —— 注释按真实分支重写：filter 路径写明是谓词 SQL 且**不触及** `search_vector`、hybrid 写明是 pgvector + tsvector 合并、fallback 写明**仅非可重试**异常降级而连接类异常重抛；并把 `files` 与「per cookbook」两处旧断言作为**明确不再复述**的对象记录在案。`git diff` 过滤注释行后**非注释变更 0**（grep 无匹配，退出码 1）。
-
+- **Status**: ✅ **已修（第 359 轮，零行为变更）** —— 注释按真实分支重写：filter 路径写明是谓词 SQL 且**不触及** `search_vector`、hybrid 写明是 pgvector + tsvector 合并、fallback 写明**仅非可重试**异常降级而连接类异常重抛；并把 `files` 与「per cookbook」两处旧断言作为**明确不再复述**的对象记录在案。`git diff` 过滤注释行后**非注释变更 0**（grep 无匹配，退出码 1）。 条目全文已逐字迁入 [`…-58.md`](../archive/2026-10-19_backend-review-evidence-58.md)（第 360 轮）。
 ### P2-111: `ContextService` 的 `@param types` 写「empty = all types」，而实现把它展开成**六项硬编码白名单**——同段的 `concepts` 却是真·全量
-- **Scope / Evidence**: `backend/src/main/java/com/ablueforce/cortexce/service/ContextService.java:307`（原 Javadoc）与 359~361 行的实现。原文 `@param types List of observation types to include (empty = all types)`；实现是 `List<String> safeTypes = types.isEmpty() ? List.of("bugfix", "feature", "refactor", "discovery", "decision", "change") : types;`。**端到端 A/B（`GET /api/context/preview`，项目 `/tmp/phase3-acceptance-test`）**：**A（`observationTypes` 留空）83 字节**，正文为 `# phase3-acceptance-test — no memories yet`；**B（显式传那六项）83 字节，与 A 逐字节相同**；**C（传全部 14 种）24065 字节、`📊 500 observations`**。C 是阳性对照，证明端点与探针本身通；A≡B 证明「空」精确等价于那六项。
-- **Problem**: 注释失实，且**掩盖了一个真实的静默丢弃**。该项目的三种 type —— `extracted_user_preference`(18369)、`user_statement`(3937)、`test`(727) —— **无一在白名单内**，于是空 types 下它们全部不出现，接口返回 **HTTP 200** 加一句「no memories yet」，**没有任何错误迹象**。全库 14 种 type 中被白名单排除的有 8 种，条数最多的两种（`extracted_user_preference` 18373、`user_statement` 3948）都在其中。同段的 `@param concepts … (empty = all concepts)` **是真的**——362 行的 `conceptsEmpty` 一路传到 SQL，由 `:conceptsEmpty = true OR …` 跳过谓词；故同一段 Javadoc 用同一措辞描述了**两种语义不同**的参数。
-- **为什么不改实现**: 把空 types 变成真·全量，会让现有调用方（`ContextController:399` 的 `/api/context/preview`，WebUI 设置面板经由它）**突然多出全部 8 类观测**，属**对外契约变更**，按规则只记录不单方面实施。
-- **Status**: ✅ **注释已修（第 359 轮，零行为变更）** —— `@param types` 改为写明展开成哪六项、哪几类会被排除因而须显式传入，并点明**与 `concepts` 不对称**。`git diff` 过滤注释行后**非注释变更 0**。**新鲜度闸门**：改的是后端源码，豁免路径**不适用**，已 `mvn -o clean package -DskipTests`（BUILD SUCCESS）并重启 37777 后跑完整验收。
+- **Status**: ✅ **注释已修（第 359 轮，零行为变更）** —— `@param types` 改为写明展开成哪六项、哪几类会被排除因而须显式传入，并点明**与 `concepts` 不对称**。`git diff` 过滤注释行后**非注释变更 0**。**新鲜度闸门**：改的是后端源码，豁免路径**不适用**，已 `mvn -o clean package -DskipTests`（BUILD SUCCESS）并重启 37777 后跑完整验收。 条目全文已逐字迁入 [`…-58.md`](../archive/2026-10-19_backend-review-evidence-58.md)（第 360 轮）。
+### P2-112: `cortex-mem-starter` 的 `base-url` 一旦是**空串**就让**整个 Spring 应用启动失败** —— 而同一仓库的后端对**完全相同**的模式早已显式处理过
+- **Scope / Evidence**:
+  - `cortex-mem-spring-integration/cortex-mem-starter/src/main/java/com/ablueforce/cortexce/autoconfigure/CortexMemAutoConfiguration.java:39`
+    —— `@ConditionalOnProperty(prefix = "cortex.mem", name = "base-url")`
+  - `cortex-mem-spring-integration/cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/CortexMemClientImpl.java:60-63`
+    —— `if (baseUrl == null || baseUrl.isBlank()) throw new IllegalArgumentException("baseUrl must not be null or blank");`
+  - **受控实验**（临时 `ApplicationContextRunner` 探针，并经 `YamlPropertySourceLoader` 装载**真实 `application.yml`**；
+    探针编译到 `/tmp`，跑完即删，**仓库零改动**）。三种 yml 写法 ——
+    `base-url: ${CORTEX_MEM_URL:}`、`base-url:`（YAML null）、`base-url: ""` ——
+    **全部**得到 `STARTUP_FAILURE: IllegalArgumentException: baseUrl must not be null or blank`；
+    另测 `base-url: "   "`（纯空白）**同样**失败。
+- **不对称（本条的要害）**: 同样是「没有有效 URL」的三种状态，**两种安全、一种致命**：
+
+  | 配置 | 结果 |
+  |---|---|
+  | 完全不设 `base-url` | 自动装配**不激活**，应用正常启动（无记忆功能） |
+  | `base-url=false` | 自动装配**不激活**，应用正常启动 |
+  | `base-url=`（空串 / null / 空白 / `${ENV:}`） | **整个应用启动失败** |
+
+  最后一行恰是**生产环境最常见的写法** `cortex.mem.base-url: ${CORTEX_MEM_URL:}`。
+  用户想表达「没配就等于没装」，得到的却是**整个应用起不来**；且错误信息
+  `baseUrl must not be null or blank` **不指向任何配置项名**，排查者只会去翻 Java 源码。
+- **仓库内已有同一模式的正确处理**: `backend/src/main/java/com/ablueforce/cortexce/config/SpringAiConfig.java:32,42-46`
+  用的是**完全相同**的 `@ConditionalOnProperty(name="api-key")` 形状，却显式判空并降级：
+  `log.warn("... property exists but is empty — ChatModel bean not created. ...")` 后 `return null`。
+  而后端自己的 `application-dev.yml:8` 正是
+  `api-key: ${SPRING_AI_OPENAI_API_KEY:${OPENAI_API_KEY:}}` ——
+  **同一份仓库里，一个模式已按「空即跳过」处理，另一个模式没有**。
+- **为什么会变成这样**: 那条 blank 校验来自 `cf78f5a`（2026-03-31），提交标题是
+  `fix(java-sdk): add defensive validation for **retry config and timeout properties**` ——
+  **baseUrl 根本不在该提交的意图里**，是被顺手加进去的。它在
+  `new CortexMemClientImpl(properties)` 的**手工构造路径**上是合理的防御；但在
+  **starter 自动装配路径**上，它把「属性存在但为空」从「不激活」变成了「启动炸弹」。
+- **范围已钉死，不夸大**: 同一批探针另测了其余属性在 yml 写 null 时的表现 ——
+  **引用类型**（`connect-timeout` / `read-timeout` / `retry.backoff` / `project-path`）绑定 null 时
+  **保留默认值**，安全；**基本类型**（`retry.max-attempts` / `default-experience-count`）绑定 null 时
+  抛 `A null value cannot be assigned to a primitive type` 同样启动失败，但那是
+  **Spring Boot Binder 对基本类型的通用行为**，任何用 `int` 的 `@ConfigurationProperties` 都如此，
+  **不是本 SDK 独有**。`base-url` 才是**本 SDK 特有**的那一个。
+- **README 未记载**（`cortex-mem-spring-integration/README.md:190` 只给出默认值
+  `http://localhost:37777`，未提空值会怎样）；`CortexMemProperties` 里 `baseUrl` 也**没有**
+  `@NotBlank` 一类的必填声明。
+- **为什么记录不修**: 修法形状**有歧义**（三条互斥路线，见下），且改的是**自动装配的激活条件**，
+  属对外可见的行为变更；按「对外契约变更不单方面实施」记录。
+- **建议修法（待确认，三选一）**:
+  1. **照搬后端先例**（推荐）：把 `@ConditionalOnProperty` 换成「属性存在、非 `false`、且**非空白**」的条件，
+     空值时 `log.warn` 一行（措辞可复用后端那句）后**不激活**整个自动装配。
+  2. **保留失败但给出可定位的错误**：异常信息带上属性名（如 `cortex.mem.base-url`）
+     与「该属性为空即不应启用记忆集成」的提示。
+  3. **降级为默认值**：空值时回落到 `http://localhost:37777` —— 但这会让应用在**未配置**的情况下
+     悄悄去连一个可能不存在的后端，**不推荐**。
+- **测试侧同缺**: `CortexMemAutoConfigurationTest` 现有 4 例覆盖 base-url **有 / 无**，
+  **没有**「base-url 为空」一例 —— 上述组合从未被断言过。
+- **Severity**: 中高（**整个应用无法启动**，触发写法极常见；但只需一个属性写空，不涉及安全或数据损坏）。
+- **Status**: ⏸ **记录不修** —— 修法形状需作者或用户确认，见上。
 
 ## Processing Rules
 - **第 316 轮新增流程规则（连续三轮教训的归纳）——落笔前先查该模块自己的文档**：
