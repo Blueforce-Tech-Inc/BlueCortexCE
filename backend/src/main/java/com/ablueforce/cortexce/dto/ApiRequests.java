@@ -191,7 +191,12 @@ public class ApiRequests {
 
     @Schema(description = "Batch observation retrieval request")
     public record BatchObservationsRequest(
-        @Schema(description = "List of observation UUIDs to retrieve", requiredMode = Schema.RequiredMode.REQUIRED)
+        // Not marked required: the handler answers a missing or empty `ids` with 200 and an
+        // empty result set, and ignores entries that are not valid UUIDs. Marking it required
+        // made the machine-readable contract promise a 400 the endpoint never produces.
+        @Schema(description = "List of observation UUIDs to retrieve. Optional — a missing or empty "
+            + "list returns an empty result. Entries that are not valid UUIDs are ignored, so a "
+            + "malformed id yields fewer observations rather than an error.")
         @JsonProperty("ids") List<String> ids,
         @Schema(description = "Optional project filter")
         @JsonProperty("project") String project,

@@ -1,7 +1,7 @@
 # 37 — Honcho 双维 cadence 门控机制（2026-04-25，含 c630dfcd 补丁）
 
 > **文件**：`plugins/memory/honcho/__init__.py`（~1290 行）
-> **关联**：[`04`](04-honcho-four-tools-routing.md) §21（`write_frequency` / `_turn_counter`）· [`34`](60-evolution/34-upstream-new-commits-session-lifecycle-and-context-engine.md) §11（`cc6e8941` 双层注入重构）· `c630dfcd`（dialectic liveness 三机制，2026-04-25 更新）
+> **关联**：[`04`](04-honcho-four-tools-routing.md) §21（`write_frequency` / `_turn_counter`）· [`34`](../60-evolution/34-upstream-new-commits-session-lifecycle-and-context-engine.md) §11（`cc6e8941` 双层注入重构）· `c630dfcd`（dialectic liveness 三机制，2026-04-25 更新）
 > **注意**：本篇聚焦**内部 cadence 管线**，与 [`04`](04-honcho-four-tools-routing.md) 的 `write_frequency`（写入频率）是**不同维度**；两者都在 `on_turn_start` 驱动下工作，但目的不同。
 
 ---
@@ -380,5 +380,5 @@ Honcho 的 `liveness_snapshot()` 是纯内存诊断 API,可返回当前轮次、
 |------|---------|
 | [`04-honcho-four-tools-routing.md`](04-honcho-four-tools-routing.md) §21 | `write_frequency` 写入频率机制 |
 | [`06-honcho-holographic-deep-advanced.md`](06-honcho-holographic-deep-advanced.md) | Honcho+Holographic 高级特性 |
-| [`34-upstream-new-commits-session-lifecycle-and-context-engine.md`](60-evolution/34-upstream-new-commits-session-lifecycle-and-context-engine.md) §11 | `cc6e8941` 双层注入重构 |
-| [`16-extended-memory-provider-hooks.md`](60-evolution/16-extended-memory-provider-hooks.md) | MemoryProvider hooks 全景 |
+| [`34-upstream-new-commits-session-lifecycle-and-context-engine.md`](../60-evolution/34-upstream-new-commits-session-lifecycle-and-context-engine.md) §11 | `cc6e8941` 双层注入重构 |
+| [`16-extended-memory-provider-hooks.md`](../60-evolution/16-extended-memory-provider-hooks.md) | MemoryProvider hooks 全景 |

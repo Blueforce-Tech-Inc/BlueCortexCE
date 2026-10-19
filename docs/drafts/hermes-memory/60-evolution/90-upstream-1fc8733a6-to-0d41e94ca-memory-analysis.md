@@ -67,7 +67,7 @@ Hindsight ≥ 0.5.0 支持 `update_mode='append'` 语义。Hermes 通过 `/versi
 - 版本探测 + 优雅降级的 API 兼容性策略
 - 在跨边界操作（flush/switch）前解析目标资源的命名策略
 
-**相关已有文档**：[`22`](60-evolution/22-hindsight-knowledge-graph-deep-dive.md)（Hindsight KG 深度解析）  
+**相关已有文档**：[`22`](../60-evolution/22-hindsight-knowledge-graph-deep-dive.md)（Hindsight KG 深度解析）  
 **锚点**：Hindsight provider cross-process dedup，doc 22 补充。
 
 ---

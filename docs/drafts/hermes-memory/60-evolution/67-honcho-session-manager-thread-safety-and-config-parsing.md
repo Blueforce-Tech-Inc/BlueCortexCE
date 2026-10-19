@@ -212,5 +212,5 @@ self._async_thread = threading.Thread(...)
 ## 5. 版本信息
 
 - 本分析基于 `origin/main`（commit `0ce1b9fe2`）的 `session.py` + `client.py`
-- Honcho Provider 完整 `__init__.py`（54KB）仍待深入分析（见 [`AGENT.md`](AGENT.md) 体量预警）
+- Honcho Provider 完整 `__init__.py`（54KB）仍待深入分析（见 [`AGENT.md`](../AGENT.md) 体量预警）
 - 相关 upstream 分析： Honcho Holographic Extended Memory Provider 已有部分覆盖（`50-honcho-holographic-deep/`）

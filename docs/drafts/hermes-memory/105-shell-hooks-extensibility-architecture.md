@@ -332,7 +332,7 @@ BlueCortexCE 若设计 SDK 级别的 hook extension，可参照此设计：
 
 ## 12. 相关文档
 
-- Doc 98: [`98-tool-call-loop-guardrails-and-file-safety.md`](98-tool-call-loop-guardrails-and-file-safety.md)（GuardrailController 与 Shell Hooks 在 `pre_tool_call` 的互补关系）
+- Doc 98: [`98-tool-call-loop-guardrails-and-file-safety.md`](60-evolution/98-tool-call-loop-guardrails-and-file-safety.md)（GuardrailController 与 Shell Hooks 在 `pre_tool_call` 的互补关系）
 - Doc 92: [`60-evolution/92-upstream-aa88dcc57-memory-analysis.md`](60-evolution/92-upstream-aa88dcc57-memory-analysis.md)（compressor 与 hook 交互）
 - Doc 96: [`60-evolution/96-hermes-memory-architecture-synthesis-and-ce-roadmap.md`](60-evolution/96-hermes-memory-architecture-synthesis-and-ce-roadmap.md)（架构综合与 CE 路线图）
 - 总导航：[`../memory-research-hub.md`](../memory-research-hub.md)

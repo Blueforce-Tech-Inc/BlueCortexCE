@@ -1703,10 +1703,30 @@ Retrieves multiple observations by their UUIDs. Supports optional project filter
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `ids` | string[] | ✅ | List of observation UUIDs to retrieve |
+| `ids` | string[] | ❌ | List of observation UUIDs to retrieve. Not enforced — see the note below |
 | `project` | string | ❌ | Optional project filter |
 | `orderBy` | string | ❌ | Sort order. Only `created_at_epoch` and `createdAtEpoch` are recognised (see the note below) |
 | `limit` | int | ❌ | Max results to return |
+
+**`ids` is not enforced, and a malformed id is not an error.** This endpoint has
+no 400 path of its own: a missing or empty `ids` is answered with `200` and an
+empty `observations` array, and an entry that is **not a valid UUID is silently
+ignored** — so a batch of ten ids where three are malformed returns seven
+observations and no error at all. Measured live on 2026-10-20:
+
+| Request | Response |
+|---------|----------|
+| `{"ids": ["<valid uuid>"]}` | `200`, `count: 1` |
+| `{"ids": ["<valid uuid>", "not-a-uuid"]}` | `200`, `count: 1` — the malformed entry is dropped silently |
+| `{"ids": ["not-a-uuid"]}` | `200`, `count: 0` |
+| `{"ids": []}` or `{}` | `200`, `count: 0` |
+| `{"ids": ""}` (wrong JSON type) | `400` — Spring's default error body, not an `error` key |
+
+The OpenAPI spec for this endpoint declares only `200`, for the same reason:
+until 2026-10-20 it also declared a `400` with an `ErrorResponse` body that no
+code path could produce. **Send the ids you want — the response will not tell
+you that some of them were malformed.** The four SDKs reject an empty `ids`
+client-side before sending, and so does the MCP `get_observations` tool.
 
 **`orderBy` is a two-value whitelist, and anything else is silently ignored.**
 The handler only sorts when `orderBy` equals `created_at_epoch` or

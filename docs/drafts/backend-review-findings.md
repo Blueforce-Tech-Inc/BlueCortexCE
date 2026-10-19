@@ -1353,6 +1353,11 @@
 ### P2-119: 四家 demo 的监听地址 **1:3 分裂** —— Java demo 随 P1-2 硬化为只绑回环，**Go / Python / JS 三家至今绑所有网卡、零鉴权**，并把「只绑回环的后端」变成了**同网段可达**的 API
 - **Status**: ⏸ **记录不修** —— 把默认改成回环 = **收窄**可观测面（远程可达性消失）= **对外行为契约变更**；且 P1-2 那次同类硬化是**经用户授权**才实施的（第 294 轮）。按既定纪律（对外契约变更不单方面实施）先记后定。**建议修法（待决策）**：①三家默认改绑回环，并给 Go/Python/JS 各加一个与 Java `SERVER_ADDRESS` 对齐的 host 覆盖口（**纯加宽、默认行为不变**）；②保留默认，但在三份 README 写明暴露面与「经 demo 即等于经后端」的放大关系；③维持现状，仅记录。**本轮未实施任何代码改动**（零代码变更 → 指纹未变 → 按规则跳过完整验收、不推进基线）。 条目全文已逐字迁入 [`…-64.md`](../archive/2026-10-20_backend-review-evidence-64.md)（第 364 轮）。
 
+### P2-120: 活体 OpenAPI 给 `POST /api/observations/batch` 声明了一个**不可达的 400**，并把 `ids` 标为必填 —— 而处理器每个分支都返回 200，非法 UUID 还被**静默丢弃**
+- **Status**: ✅ **已修（第 365 轮，零行为变更）** —— **机器可读契约的失实陈述更正**：①`ViewerController` 删掉那条**不可达**的 400 `@ApiResponse`（处理器**没有任何 400 分支**；唯一的 400 来自 Jackson 拒收 `ids` 类型，body 是 Spring 默认体，**不是**声明的 `ErrorResponse`）；②`ApiRequests.BatchObservationsRequest.ids` 去掉 `requiredMode = REQUIRED`（该注解**只影响 OpenAPI 文档**、不构成校验，后端自始至终接受 `ids` 缺失）；③`docs/API.md` 与 `docs/API-zh-CN.md` 的 `ids` 必填标注 ✅ → ❌，并各补一段**实测行为说明**（承 P2-10 体例）。**改动全是注解与文档，可执行行 0**；改前改后**整份 OpenAPI 逐字对拍**证明爆炸半径恰为「1 个端点 + 1 个 schema」，其余 65 条路径与全部其它 schema **逐字未变**；**行为一字未变**（五种探针的码与 count 与改前完全相同）。**未单方面收紧行为**的原因：仓库自身脚本**钉住了宽容行为**——`scripts/js-sdk-e2e-test.sh:211` 发 `{"ids":["nonexistent-id"]}`（**非法 UUID**）并要求 2xx（`curl -sf`），`scripts/java-sdk-e2e-test.sh:270` 对 demo 发非法 UUID 亦然；**是否改为「缺失或非法即 400」属对外行为契约变更，留待用户决策**（见归档正文的三选一）。 条目全文已逐字迁入 [`…-65.md`](../archive/2026-10-20_backend-review-evidence-65.md)（第 365 轮）。
+### P2-121: `docs/` 下 13 条相对链接的目标**根本不存在** —— 上游自动拆分后未更新，且「哪一篇承接了被引章节」需要内容判断，不宜机械改
+- **Status**: ⏸ **记录不修** —— 13 条断链的目标**在仓库里不存在任何候选**（`105-shell-hooks-extensibility-architecture.md`、`78-cross-cutting-architectural-patterns-synthesis.md`、`02-bluecortexce-recommendations.md` 从未在此路径存在；`01-intro-toc-memory-through-curriculum.md` 与 `07-idle-through-skillpublisher-v14.md` 已被上游自动拆成多篇，**被引的章节归属需逐条内容判断**）。**机械改到任一现存文件都可能指错章节**，故**只记录不猜**。**同批已修的 15 条另计**（见归档正文），二者不可混为一谈。 条目全文已逐字迁入 [`…-65.md`](../archive/2026-10-20_backend-review-evidence-65.md)（第 365 轮）。
+
 ## Processing Rules
 - **第 316 轮新增流程规则（连续三轮教训的归纳）——落笔前先查该模块自己的文档**：
   本循环已**连续三轮**出现同一模式：先凭代码把某处判成「缺口/缺陷」，下一轮才发现**它是被双语文档明确记载的有意设计**。

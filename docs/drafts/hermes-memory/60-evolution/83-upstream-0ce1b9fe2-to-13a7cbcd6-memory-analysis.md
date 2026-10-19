@@ -153,7 +153,7 @@
 
 | 文档 | 更新内容 |
 |------|----------|
-| [`70`](70-compression-eval-harness-and-scrubber-pipeline.md) | **新增**（5493 字节）— Compression Eval Harness + Scrubber Pipeline 完整分析 |
+| [`70`](82-compression-eval-harness-and-scrubber-pipeline.md) | **新增**（5493 字节）— Compression Eval Harness + Scrubber Pipeline 完整分析 |
 | `index.md` | 条目 70 + 71 追加 |
 | `AGENT.md` | 预警表追加 doc 70（5493 字节）|
 | 本文档 | **新增**（~8000 字节）— 54 commits 分析 |

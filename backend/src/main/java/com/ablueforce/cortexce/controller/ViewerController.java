@@ -348,11 +348,16 @@ public class ViewerController {
     @PostMapping("/observations/batch")
     @Operation(summary = "Batch get observations by IDs",
         description = "Retrieves multiple observations by their UUIDs. Supports optional project filtering, ordering by createdAtEpoch, and result limit. Used by MCP compatibility layer.")
+    // No 400 is declared here on purpose: this handler has no 400 path at all. A missing or
+    // empty `ids`, and an `ids` entry that is not a UUID, are all answered with 200 and an
+    // empty (or partial) result set — see the method body below. The only 400 this endpoint
+    // can produce comes from Jackson rejecting the `ids` type, and that answer carries
+    // Spring's default error body, not the ErrorResponse shape declared here, so declaring
+    // it was a false statement in the machine-readable contract. Same reason `ids` is not
+    // marked required in ApiRequests.BatchObservationsRequest.
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Observations retrieved",
-            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.BatchGetObservationsResponse.class))),
-        @ApiResponse(responseCode = "400", description = "Missing or invalid ids field",
-            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class)))
+            content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.BatchGetObservationsResponse.class)))
     })
     public ResponseEntity<com.ablueforce.cortexce.dto.ApiResponses.BatchGetObservationsResponse> batchGetObservations(
         @io.swagger.v3.oas.annotations.parameters.RequestBody(

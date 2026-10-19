@@ -615,8 +615,8 @@ Evo-Memory 核心功能已全部实现:
 ## 参考资料
 
 - [Evo-Memory 论文](https://arxiv.org/abs/2511.20857)
-- [Claude-Mem Java 后端](./backend/README.md)
-- [原始实现](./proxy/README.md)
+- [Claude-Mem Java 后端](../backend/README.md)
+- [原始实现](../proxy/README.md)
 
 ---
 

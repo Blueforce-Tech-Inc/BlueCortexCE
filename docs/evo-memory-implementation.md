@@ -619,8 +619,8 @@ All Evo-Memory core features have been implemented:
 ## References
 
 - [Evo-Memory Paper](https://arxiv.org/abs/2511.20857)
-- [Claude-Mem Java Backend](./backend/README.md)
-- [Original Implementation](./proxy/README.md)
+- [Claude-Mem Java Backend](../backend/README.md)
+- [Original Implementation](../proxy/README.md)
 
 ---
 
