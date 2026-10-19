@@ -111,7 +111,12 @@ client.update_observation("obs-123", update, title="From Kwargs")
 ```
 
 Supported fields: `title`, `subtitle`, `content`, `narrative`, `facts`, `concepts`, `source`, `extracted_data`.
-Only non-None fields are sent to the backend (PATCH semantics).
+In the **dataclass form**, only non-None fields are sent to the backend (PATCH semantics); the
+**keyword-argument form** is the exception — it puts `None` and `{}` on the wire, and that is how
+you **clear a field** (see below). The two forms are **not** equivalent on empty values: the
+dataclass form writes `ObservationUpdate(content=None)` or
+`ObservationUpdate(extracted_data={})` produce an **empty update** and are rejected
+(`at least one field must be provided`, with **no request sent**).
 
 ### Health / Extraction / Version
 

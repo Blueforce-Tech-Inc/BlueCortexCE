@@ -189,6 +189,21 @@
   ——**测试文件根本不参与类型检查**，于是类型层与断言层之间的裂缝没有任何自动关卡。已独立立为 **P2-42**。
 - **已修（注释层，行为一字未改）**: `ObservationUpdate` docstring 与 `is_empty()` /
   `to_wire()` 两处 `continue` 注释已按现状改写（428 测试全过）→ [`…-36.md`](../archive/2026-10-06_backend-review-evidence-36.md) 第 4 块（第 291 轮逐字迁出）。
+- **第 362 轮的事实更正（本条标题与 Problem 的一半已被推翻；P2-26 承诺的「下方补注」即本段）**:
+  **本条成立，但只对 dataclass 路径成立。** `client.update_observation` 的 **kwargs 路径
+  既不查 `None` 也不查空 dict**，故 `content=None` 真的把 `{"narrative": null}` 送上 wire、
+  `extracted_data={}` 真的把 `{"extractedData": {}}` 送上 wire；而后端 PATCH 语义是
+  **「显式 null ⇒ 清除该字段」**——故 **Python 其实能清空这两列，只是只有 kwargs 路径能**。
+  **本轮活体端到端实测**（建观测 → SDK kwargs 路径 PATCH → `psql` 查 `mem_observations`）：
+  kwargs `content=None` 后 **`content` 列为 NULL**、kwargs `extracted_data={}` 后
+  **`extracted_data` 列为 `{}`**；两条 dataclass 路径均抛 `ValidationError`、**不发请求**、
+  **库两列不变**（对照组）；后端侧另用 curl 直连 PATCH 独立确证同型结果。
+  **因此本条 Problem 里「Python **两种都发不出**」「**一条已有 extractedData 的观测无法通过
+  Python SDK 清空它**」为**失实**（对 kwargs 路径），Status 里「让 `{}` 发上 wire……**从「不变」
+  变成「落 `{}`」**」这一表述的**事实前提亦不成立**——它今天经 kwargs **已经在落 `{}`**。**
+  归档 `2026-10-04_backend-review-evidence-11.md` 的**四家能力阶梯表**（「Python 两种都不能 →
+  完全不能」）同样只覆盖了 dataclass 路径；**归档文件创建后不得修改，故更正只落在本处**。
+  **原文不改写**（追加式审计链只可标注），新证据与正文见 **P2-116**。
 - **Status**: ⏸ **行为记录不修** —— 改行为只有两条路：让 `{}` 发上 wire
   （**改变现有调用方的可观测行为**，`extracted_data={}` 从「不变」变成「落 `{}`」），
   或新增显式清空入口（**新增公开 API**）。按既定纪律留待项目决策。**注释层已先行更正**。
@@ -1357,6 +1372,8 @@
 - **Status**: ✅ **已修（第 361 轮，零行为变更，纯文档）** —— 架构图标注由 `(Express)` 改为 `(Node.js)`； 条目全文已逐字迁入 [`…-61.md`](../archive/2026-10-19_backend-review-evidence-61.md)（第 361 轮）。
 ### P2-115: `backend-review-findings.md` 的字节上限**已不可能靠压缩解决** —— 建议把阈值按第 293 轮同比例上调至 **2000 行 / 200000 字节**
 - **Status**: ⏸ **记录不修** —— 属流程契约变更，需用户决策。 条目全文已逐字迁入 [`…-61.md`](../archive/2026-10-19_backend-review-evidence-61.md)（第 361 轮）。
+### P2-116: Python SDK 的两种 `update_observation` 调用风格**不等价** —— kwargs 路径真能清空 `narrative` / `extractedData`，而 SDK 自己的注释与 P2-27 都断言「不能清空」
+- **Status**: ⏸ **行为记录不修**（两种收法都改变现有调用方的可观测行为：让 kwargs 路径也过滤 `None`/`{}` 等于让今天已经能用的清空能力失效；新增显式清空入口等于新增公开 API）——**真正的修法要先决定「哪种写法才是 SDK 想支持的清空方式」，属 API 契约决策**，与 P2-26 的判断一致、不重复立条；**注释层的失实陈述本轮已修**（`dto.py` 三处 docstring + `client.py` 的 `update_observation` docstring + `README.md`/`README-zh-CN.md` 第 114 行，双语同步，**零行为变更由 AST 逐字证明**）。 条目全文已逐字迁入 [`…-62.md`](../archive/2026-10-20_backend-review-evidence-62.md)（第 362 轮）。
 ## Processing Rules
 - **第 316 轮新增流程规则（连续三轮教训的归纳）——落笔前先查该模块自己的文档**：
   本循环已**连续三轮**出现同一模式：先凭代码把某处判成「缺口/缺陷」，下一轮才发现**它是被双语文档明确记载的有意设计**。

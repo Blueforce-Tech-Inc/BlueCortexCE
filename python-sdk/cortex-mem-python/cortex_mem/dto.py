@@ -398,7 +398,10 @@ class ICLPromptResult:
 class ObservationUpdate:
     """Partial update for an existing observation (PATCH semantics).
 
-    Only non-None fields are sent to the backend. The Go SDK reaches the same
+    Only non-None fields are sent to the backend **by this dataclass form**.
+    The keyword-argument form of :meth:`CortexMemClient.update_observation` does
+    not follow that rule — it puts ``None`` and ``{}`` on the wire — so the two
+    calling styles are **not** interchangeable for those values. The Go SDK reaches the same
     outcome through ``omitempty``, but it is not the same mechanism and the two
     do not agree everywhere:
 
@@ -408,9 +411,12 @@ class ObservationUpdate:
       zero-length slice, so Go cannot clear those two fields at all. Python can:
       ``facts=[]`` is not None, so it is sent as ``"facts": []`` and the backend
       clears the column. Go's behaviour is tracked as P2-26.
-    * For ``extracted_data`` the two do agree, and neither can clear it: Python
+    * For ``extracted_data`` the two do agree **in this dataclass form**, and
+      neither can clear it that way: Python
       skips both ``None`` and ``{}`` (see :meth:`to_wire`), and Go's ``omitempty``
       drops the empty map too. Java and JS can both put ``{}`` on the wire.
+      (The keyword-argument form is the exception — see
+      :meth:`CortexMemClient.update_observation`.)
 
     Usage::
 
@@ -457,8 +463,12 @@ class ObservationUpdate:
         table has 0 rows where extracted_data is an empty object — but that
         equivalence is why this field cannot be cleared, not a reason it does
         not need clearing. The backend accepts ``{}`` and stores it, and also
-        accepts ``null`` and stores NULL; this SDK sends neither. Java and JS
-        can send ``{}``, JS can send ``null``. Tracked as P2-27.
+        accepts ``null`` and stores NULL; **this dataclass form** sends neither.
+        Java and JS
+        can send ``{}``, JS can send ``null``. Tracked as P2-27; the
+        keyword-argument form of :meth:`CortexMemClient.update_observation`
+        **does** put ``{}`` and ``null`` on the wire and therefore **can** clear
+        the column — see P2-116.
         """
         for attr in self._WIRE_FIELDS:
             val = getattr(self, attr)
@@ -501,9 +511,11 @@ class ObservationUpdate:
         construction, which would otherwise discard the earlier value silently.
         ``extracted_data={}`` is treated as "unset" (omitted), matching
         :meth:`is_empty`. Note the consequence: the backend would accept ``{}``
-        and clear the column, but this SDK can send neither ``{}`` nor ``null``,
-        so ``extracted_data`` cannot be cleared through this client at all.
-        Tracked as P2-27.
+        and clear the column, but **this dataclass form** can send neither ``{}``
+        nor ``null``, so ``extracted_data`` cannot be cleared *this way*.
+        The keyword-argument form of :meth:`CortexMemClient.update_observation`
+        does put ``{}`` and ``null`` on the wire and does clear the column.
+        Tracked as P2-27 and P2-116.
         """
         if self.content is not None and self.narrative is not None:
             raise ValidationError(

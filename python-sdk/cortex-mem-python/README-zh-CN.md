@@ -111,7 +111,11 @@ client.update_observation("obs-123", update, title="From Kwargs")
 ```
 
 支持字段：`title`, `subtitle`, `content`, `narrative`, `facts`, `concepts`, `source`, `extracted_data`。
-只有非 None 字段会被发送到后端（PATCH 语义）。
+**数据类形式**下只有非 None 字段会被发送到后端（PATCH 语义）；**关键字参数形式**是例外——
+它会把 `None` 与 `{}` 一并送上 wire，而这正是**清空某个字段**的方式（见下文）。
+两种形式在「空值」上**不等价**：数据类形式写 `ObservationUpdate(content=None)`
+或 `ObservationUpdate(extracted_data={})` 会得到一个**空更新**并被拒绝
+（`at least one field must be provided`，**不发任何请求**）。
 
 ### 健康 / 提取 / 版本
 

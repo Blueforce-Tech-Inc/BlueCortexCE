@@ -632,6 +632,24 @@ class CortexMemClient:
 
         If both ``update`` and ``kwargs`` are provided, kwargs override update fields.
 
+        The two styles are **not** interchangeable for "empty" values, and the
+        difference falls out of *where* the value is filtered. The dataclass form
+        filters ``None`` and an empty ``extracted_data`` inside
+        :meth:`ObservationUpdate.to_wire`, so ``ObservationUpdate(content=None)``
+        and ``ObservationUpdate(extracted_data={})`` both produce an **empty**
+        update and are rejected with "at least one field must be provided" —
+        nothing is sent at all. The keyword-argument form copies the caller's
+        value straight onto the wire, so ``content=None`` sends
+        ``{"narrative": null}`` and ``extracted_data={}`` sends
+        ``{"extractedData": {}}``; the backend treats a null as "clear this
+        field" and an empty object as "store an empty JSONB value", so **those
+        two calls really do clear the columns**. Measured against a live backend
+        (round 362): after ``update_observation(id, content=None)`` the
+        ``mem_observations.content`` column was NULL, and after
+        ``update_observation(id, extracted_data={})`` the ``extracted_data``
+        column was ``{}``. **To clear a field, use the keyword-argument form.**
+        Tracked as P2-116.
+
         An update with no fields set is a client error, not a silent no-op: Go,
         Java and JS all reject it, and Python now matches them. Returning
         quietly made a caller who assembled an empty update believe the write
