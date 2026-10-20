@@ -4,6 +4,7 @@ Tests validation logic, error handlers, and request routing
 without requiring a real backend (mocked SDK client).
 """
 
+import re
 import sys
 from pathlib import Path
 
@@ -781,3 +782,76 @@ class TestIntParamRule:
         )
         assert client.get("/observations?project=/p&limit=").status_code == 200
         assert app._mock_client.list_observations.call_args.kwargs["limit"] == 0
+
+
+# ==================== Exposed surface ====================
+
+
+class TestDemoSurface:
+    """Pin which endpoints the demo exposes, and keep its README honest.
+
+    The demo's *behaviour* is covered by the tests above, but nothing pinned
+    *which* endpoints it exposes — so the README's headline "26 REST endpoints"
+    was an undated count that nothing could catch drifting. That is the same
+    shape as the Java demo README's "20 tests", which went stale unnoticed
+    while the script it described actually ran 25.
+
+    These two tests make the surface and the documentation one artifact: a new
+    route without a README row fails here, a README row without a route fails
+    here, and the headline number is checked against the routes themselves
+    rather than trusted.
+    """
+
+    README = (
+        Path(__file__).resolve().parent.parent
+        / "examples"
+        / "http-server"
+        / "README.md"
+    )
+
+    @staticmethod
+    def _norm(path: str) -> str:
+        """Flask's ``<param>`` placeholders and the README's ``{id}`` are one slot.
+
+        The demo spells the same slot two ways in code (``<observation_id>`` on
+        the GET, ``<obs_id>`` on the PATCH/DELETE) and the README spells it
+        ``{id}`` for all three, so both sides are normalised before comparing.
+        """
+        return re.sub(r"<[^>]+>", "{id}", path)
+
+    def _surface(self, app) -> set:
+        pairs = set()
+        for rule in app.url_map.iter_rules():
+            if rule.endpoint == "static":
+                continue  # Flask's own static-file route, not part of the demo API
+            for method in rule.methods - {"HEAD", "OPTIONS"}:
+                pairs.add((method, self._norm(rule.rule)))
+        return pairs
+
+    def _readme_rows(self) -> tuple:
+        readme = self.README.read_text(encoding="utf-8")
+        rows = set()
+        for line in readme.splitlines():
+            m = re.match(r"\|\s*(GET|POST|PATCH|DELETE|PUT)\s*\|\s*`([^`]+)`\s*\|", line)
+            if m:
+                rows.add((m.group(1), self._norm(m.group(2))))
+        return rows, readme
+
+    def test_surface_matches_readme_table(self, app):
+        surface = self._surface(app)
+        rows, _ = self._readme_rows()
+        assert surface - rows == set(), (
+            f"endpoints missing from the README table: {sorted(surface - rows)}"
+        )
+        assert rows - surface == set(), (
+            f"README rows with no endpoint behind them: {sorted(rows - surface)}"
+        )
+
+    def test_readme_headline_count_matches_the_routes(self, app):
+        surface = self._surface(app)
+        _, readme = self._readme_rows()
+        m = re.search(r"exposing (\d+) REST endpoints", readme)
+        assert m, "the README no longer states an endpoint count"
+        assert int(m.group(1)) == len(surface), (
+            f"the README says {m.group(1)} endpoints, the demo exposes {len(surface)}"
+        )

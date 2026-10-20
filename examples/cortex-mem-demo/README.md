@@ -86,7 +86,8 @@ Demo runs on `http://localhost:37778`.
 # V15 demo tests (3 tests - extraction endpoints)
 ./scripts/demo-v15-test.sh
 
-# Phase 3 acceptance tests (20 tests, all pass with EXTRACTION_ENABLED=true)
+# Phase 3 acceptance tests (25 tests, measured 2026-10-21; the script's own
+# "Passed:" line is the current count) — all pass with EXTRACTION_ENABLED=true
 EXTRACTION_ENABLED=true ./scripts/phase3-acceptance-test.sh
 ```
 

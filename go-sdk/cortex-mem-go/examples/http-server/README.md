@@ -76,10 +76,12 @@ Request bodies are capped at 1 MB.
 **Two of these paths are named differently from the other three demos.** The Java,
 Python and JS demos serve the same two operations as `/observations/batch` and
 `/observations/create`; this one uses `/batch-observations` and
-`/create-observation`. The other 21 endpoints are spelled identically across all
-four. The names here are the ones the code registers (`main.go:470` and
-`main.go:771`) and the ones `scripts/go-sdk-e2e-test.sh` exercises — they are not
-a typo. Tracked as P2-33.
+`/create-observation`. The other **22** paths are spelled identically across the
+**Go, Python and JS** demos — the Java demo prefixes them (`/demo/…`, `/memory/…`),
+so `/chat` is the only path spelled the same in all four, and even that one is
+mapped with a different **method** (below). The names here are the ones the code
+registers (`main.go:492` and `main.go:793`) and the ones
+`scripts/go-sdk-e2e-test.sh` exercises — they are not a typo. Tracked as P2-33.
 
 **Spelling is not the same as interchangeability.** A curl copied from any of
 the other three does not work on *every* one of those 21. `/chat` is spelled the
