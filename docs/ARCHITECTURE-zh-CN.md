@@ -850,7 +850,7 @@ LIMIT :limit;
 > |----------|------|
 > | `session-start` → **Ingestion** Controller | → **Session** Controller（`SessionController.java:47,108`） |
 > | PostToolUse → `wrapper.js observation` | → `wrapper.js tool-use` |
-> | 上下文注入 → `wrapper.js context-get` | **该命令不存在。** `wrapper.js` 只有四个：`session-start` / `tool-use` / `session-end` / `user-prompt`。上下文是**随 `session-start` 的响应**回到调用方的——`proxy/` 下**没有任何地方调用 `/api/context/*`** |
+> | 上下文注入 → `wrapper.js context-get` | **该命令不存在。** Claude Code 的钩子命令恰好是四个：`session-start` / `tool-use` / `session-end` / `user-prompt`。（wrapper.js 另有一套独立的 `cursor` 子命令命名空间——`cursor session-init` / `cursor context` / `cursor observation` / `cursor file-edit` / `cursor summarize`——属 Cursor IDE 集成，不是 Claude Code 钩子，且 `cursor context` 并不是 `context-get`。）上下文是**随 `session-start` 的响应**回到调用方的——`proxy/` 下**没有任何地方调用 `/api/context/*`** |
 > | SessionEnd → `wrapper.js summarize` | → `wrapper.js session-end` |
 >
 > `POST /api/ingest/session-start` 仍是 404；薄代理那份逐事件映射表才是代码的真实行为。

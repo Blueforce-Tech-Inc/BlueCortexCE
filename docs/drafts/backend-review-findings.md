@@ -1377,7 +1377,7 @@
 ### P2-126: API 文档的三个 ingest 端点请求体表**遗漏了活体 OpenAPI 声明的 6 个字段**——其中 `platform_source` 是 V18 引入且**确实生效**的，而 tool-use 的另三个是**接受却被静默丢弃**的
 - **Status**: ⏸ **tool-use 那三个字段要不要真用起来待决**（对外行为变更）—— **文档缺口已修**（双语）：三个 ingest 端点请求体表共补 **6 行**，其中 `platform_source`（V18 引入、**确实生效**）此前**请求侧完全没记载**，而 tool-use 的 `source` / `extractedData` / `prompt_number` 是**接受却被静默丢弃**的，现已逐条写明并补实测说明。**三选一见归档正文**。 条目全文已逐字迁入 [`…-69.md`](../archive/2026-10-20_backend-review-evidence-69.md)（第 368 轮）。
 ### P2-127: 活体 OpenAPI 把 `POST /api/ingest/user-prompt` 的 `prompt_text` 标为 **required**，而后端**只强制 `session_id`** —— 活体 spec 失实，而 API 文档是对的
-- **Status**: ⏸ **改后端注解、还是让实现真的强制、还是维持现状，待决**（对外行为契约变更）—— **本轮只记录不实施**：活体 OpenAPI 把 `prompt_text` 标为 required，而处理器**只校验 `session_id`**；活体实测（只带 `session_id` → **200**，不带 → **400**）证实 **spec 失实、API 文档是对的**。选项①（去掉注解 REQUIRED，**纯放宽**）属后端代码方向，建议下个后端轮次实施；选项②是**收紧**；选项③维持现状。**三选一见归档正文**。 条目全文已逐字迁入 [`…-69.md`](../archive/2026-10-20_backend-review-evidence-69.md)（第 368 轮）。
+- **Status**: ✅ **选项①已实施（第 371 轮）**：去掉 `prompt_text` 的 REQUIRED 注解（**纯放宽**，零运行时影响）⇒ 活体 spec 的 `required` 已变为 `['session_id']`，而服务端行为未变（只带 `session_id` 仍 **200**，不带仍 **400**）——**spec 失实、API 文档是对的**。**选项②（收紧）与③（维持现状）仍待决**。原条目全文见 [`…-69.md`](../archive/2026-10-20_backend-review-evidence-69.md)（第 368 轮），本轮更正见 [`…-72.md`](../archive/2026-10-20_backend-review-evidence-72.md)（第 371 轮）。
 
 ### P2-128: 四家 SDK 的**参数下限**只有 Python 的 README 写了；Java 的 `retry.backoff` / `read-timeout` **根本没有 100ms 下限**，且**只有 Go 有测试钉住**
 - **Status**: ⏸ **Java 要不要对齐另三家的下限、Go/Java README 要不要补下限，待决**（对外行为契约）—— **JS 已修**（双语补三行下限）：只有 Python 写了；Java 的 `retry.backoff` **无 100ms 下限**（实测 1ns 原样）、`read-timeout` **无任何下限**（0 原样）；**四家里只有 Go 有测试钉住**。**三选一见归档正文**。 条目全文已逐字迁入 [`…-70.md`](../archive/2026-10-20_backend-review-evidence-70.md)（第 369 轮）。
@@ -1385,6 +1385,8 @@
 ### P2-129: 四家 demo 的 404/405 响应**分裂成三种形态** —— JS 对方法不匹配答 **404 + HTML**、Go 对未知路径答 **text/plain**，而 Go demo 自己的 README 写着「Every error is {"error": "<message>"}」
 - **Status**: ⏸ **Java 的 404/405 体要不要也拉齐，待决**（对外契约）—— **Go 与 JS 已修**：四家现**状态码与 Content-Type 全部一致**（405/404 + application/json）；**三选一见归档正文**。 条目全文已逐字迁入 [`…-71.md`](../archive/2026-10-20_backend-review-evidence-71.md)（第 370 轮）。
 
+### P2-130: 活体 OpenAPI 里 tool-use 的 `source` / `extractedData` / `prompt_number` **不说自己被丢弃** —— 而同一 DTO 文件的既有体例都注明了「只进日志、不落库、无效果」，`prompt_number` 甚至宣称「for ordering」
+- **Status**: ✅ **已修（第 371 轮，纯 `@Schema` 描述文本、零可执行行）** —— 实测：tool-use 的 `prompt_number=42` 落库 **NULL**、`source`/`extractedData` 命中 **0 行**；同名字段在 `user-prompt`（`prompt_number=7`）与 `observation`（`source`/`extractedData`/`prompt_number=99`）都落库 ⇒ **字段级丢弃**。三处描述已按本文件既有体例改写。条目全文逐字见 [`…-72.md`](../archive/2026-10-20_backend-review-evidence-72.md)（第 371 轮）。
 ## Processing Rules
 - **第 316 轮新增流程规则（连续三轮教训的归纳）——落笔前先查该模块自己的文档**：
   本循环已**连续三轮**出现同一模式：先凭代码把某处判成「缺口/缺陷」，下一轮才发现**它是被双语文档明确记载的有意设计**。

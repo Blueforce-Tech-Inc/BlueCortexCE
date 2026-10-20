@@ -860,7 +860,7 @@ only writer and builds it with `Collectors.joining(",")`, so there is no JSON la
 > |---|---|
 > | `session-start` → **Ingestion** Controller | → **Session** Controller (`SessionController.java:47,108`) |
 > | PostToolUse → `wrapper.js observation` | → `wrapper.js tool-use` |
-> | Context injection → `wrapper.js context-get` | **No such command.** `wrapper.js` has exactly four: `session-start`, `tool-use`, `session-end`, `user-prompt`. Context reaches the caller **in the `session-start` response** — nothing under `proxy/` calls `/api/context/*` at all |
+> | Context injection → `wrapper.js context-get` | **No such command.** The Claude Code hook set is exactly four: `session-start`, `tool-use`, `session-end`, `user-prompt`. (wrapper.js additionally dispatches a separate `cursor` namespace — `cursor session-init`, `cursor context`, `cursor observation`, `cursor file-edit`, `cursor summarize` — for the Cursor IDE integration; those are not Claude Code hooks, and `cursor context` is not `context-get`.) Context reaches the caller **in the `session-start` response** — nothing under `proxy/` calls `/api/context/*` at all |
 > | SessionEnd → `wrapper.js summarize` | → `wrapper.js session-end` |
 >
 > `POST /api/ingest/session-start` remains a 404; the thin proxy's per-event table is

@@ -61,11 +61,17 @@ public class ApiRequests {
         @JsonProperty("tool_response") Object toolResponse,
         @Schema(description = "Source platform that owns this session")
         @JsonProperty("platform_source") String platformSource,
-        @Schema(description = "Source attribution (e.g., 'manual', 'tool_result')")
+        @Schema(description = "Source attribution (e.g., 'manual', 'tool_result'). Accepted but not persisted on "
+            + "this endpoint — the tool-use path never reads it. The same field IS persisted by "
+            + "POST /api/ingest/observation.")
         @JsonProperty("source") String source,
-        @Schema(description = "Structured extracted data (JSON object)")
+        @Schema(description = "Structured extracted data (JSON object). Accepted but not persisted on this "
+            + "endpoint — the tool-use path never reads it. The same field IS persisted by "
+            + "POST /api/ingest/observation.")
         @JsonProperty("extractedData") Map<String, Object> extractedData,
-        @Schema(description = "Prompt number for ordering")
+        @Schema(description = "Prompt number. Accepted but not used on this endpoint — the tool-use path records "
+            + "a null prompt number. The same field IS persisted by POST /api/ingest/observation "
+            + "(mem_observations.prompt_number) and by POST /api/ingest/user-prompt.")
         @JsonProperty("prompt_number") Integer promptNumber
     ) {}
 
@@ -83,7 +89,8 @@ public class ApiRequests {
     public record UserPromptRequest(
         @Schema(description = "Session ID", requiredMode = Schema.RequiredMode.REQUIRED)
         @JsonProperty("session_id") String sessionId,
-        @Schema(description = "User prompt text", requiredMode = Schema.RequiredMode.REQUIRED)
+        @Schema(description = "User prompt text. Optional — only session_id is validated. A request without this "
+            + "field is accepted and the prompt text is stored as an empty string.")
         @JsonProperty("prompt_text") String promptText,
         @Schema(description = "Project path")
         @JsonProperty("cwd") String cwd,
