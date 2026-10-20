@@ -9,7 +9,7 @@ JavaScript/TypeScript client SDK for the [Cortex CE](https://github.com/Blueforc
 - **Zero runtime dependencies** — Uses the built-in `fetch` API (Node 18+, browsers, Deno, Bun)
 - **Full TypeScript support** — Complete type definitions for all DTOs
 - **25 API methods** — Covers all endpoints from the Go/Java SDKs
-- **264 unit tests** — Full coverage of wire format and client behavior (measured 2026-10-20; `npm test` gives the current count). The breakdown at that date: 246 client + 5 truncated-body + 8 http-server example + 5 http-server error contract
+- **266 unit tests** — Full coverage of wire format and client behavior (measured 2026-10-21; `npm test` gives the current count). The breakdown at that date: 248 client + 5 truncated-body + 8 http-server example + 5 http-server error contract
 - **Dual CJS + ESM** — Works with CommonJS and ES Modules
 - **Best-effort capture** — Retries transient failures; capture errors are swallowed after retries, and reach your logs only if you supply a `logger` — the default one is a no-op
 
@@ -271,12 +271,14 @@ the wire field there, and a positional `projectPath` on the management methods. 
 other three SDKs call it `project_path` throughout.
 
 The checks are not decoration, and the capture methods are the clearest case.
-`recordObservation` is fire-and-forget, so it swallows whatever the backend replies:
-an empty `tool_name` comes back as `400 Missing required field: tool_name`, the SDK
-logs it and resolves, and the caller concludes the observation was captured when the
-server had just rejected it. An empty `cwd` is quieter still, because the backend
-*accepts* it — the record is queued against no project and then appears in no
-project-scoped query, with no error anywhere.
+`recordObservation` is fire-and-forget, so it swallows whatever the backend replies.
+Left unchecked, an empty `tool_name` would come back as
+`400 Missing required field: tool_name`, the SDK would log it and resolve, and the
+caller would conclude the observation was captured when the server had just rejected
+it. An empty `cwd` would be quieter still, because the backend *accepts* it — the
+record would be queued against no project and then appear in no project-scoped query,
+with no error anywhere. Both are caught client-side instead, so neither call reaches
+the wire: the SDK throws a `ValidationError` and sends no request at all.
 
 `search` has the same shape of hazard: the SDK always sends `project`, and
 `GET /api/search?project=` answers `200` with an empty result set, so a caller who
@@ -303,9 +305,11 @@ this one method the two point in opposite directions. `listObservations` is the
 only retrieval method whose project filter **widens** instead of emptying: omit
 `project` — and pass an empty string if you like, because all four SDKs convert
 that to omission — and no `project` is sent at all, so the backend answers with
-observations from **every project on the instance**. Verified live against a
-populated backend: `GET /api/observations` with no `project` returned 16
-distinct projects inside a single 100-item page. A *direct* HTTP call with a
+observations from **every project on the instance**. Verified live on 2026-10-21
+against a populated backend: `GET /api/observations` with no `project` returned 15
+distinct projects inside a single 100-item page. That count grows with the
+database, so it is a dated measurement rather than a live value — the point is the
+breadth across projects, not the exact number. A *direct* HTTP call with a
 literal `?project=` is the opposite case and returns nothing, because the
 repository query tests `IS NULL` rather than blank — worth knowing before you
 bypass the SDK.

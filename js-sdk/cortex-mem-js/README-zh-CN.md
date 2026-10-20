@@ -9,7 +9,7 @@
 - **零依赖** —— 使用内置 `fetch` API（Node 18+、浏览器、Deno、Bun）
 - **完整 TypeScript 支持** —— 所有 DTO 的完整类型定义
 - **25 个 API 方法** —— 覆盖 Go/Java SDK 的所有端点
-- **264 个单元测试** —— 全面覆盖 Wire 格式和客户端行为（2026-10-20 实测；当前值以 `npm test` 为准）。当日的构成：246 客户端 + 5 截断响应体 + 8 http-server 示例 + 5 http-server 错误契约
+- **266 个单元测试** —— 全面覆盖 Wire 格式和客户端行为（2026-10-21 实测；当前值以 `npm test` 为准）。当日的构成：248 客户端 + 5 截断响应体 + 8 http-server 示例 + 5 http-server 错误契约
 - **双格式 CJS + ESM** —— 同时支持 CommonJS 和 ES Modules
 - **尽力而为的捕获** —— 对暂时性故障重试；重试耗尽后吞掉采集错误，只有你自己传入 `logger` 时才会输出日志——默认的那个是空操作
 
@@ -254,10 +254,11 @@ Python 的**数据类形式**同样跳过 `None`，但它的**关键字参数形
 方法上则是位置参数 `projectPath`。另外三家 SDK 统一称其为 `project_path`。
 
 这些检查不是装饰。其中三个 capture 方法最能说明问题：`recordObservation` 是
-fire-and-forget，会吞掉后端返回的一切——`tool_name` 为空时后端返回
+fire-and-forget，会吞掉后端返回的一切。若不做检查，`tool_name` 为空时后端会返回
 `400 Missing required field: tool_name`，SDK 记一条日志后 resolve，调用方于是认为
 观测已记录，而服务器刚刚拒绝了它。`cwd` 为空则更隐蔽，因为后端**接受**它：记录会以
 空项目路径入队，随后不出现在任何按项目过滤的查询里，全程没有任何错误提示。
+这两个空值现在都由客户端拦下，请求根本不会发出：SDK 抛 `ValidationError`，不发送任何请求。
 
 `search` 属于同一类隐患：SDK 总会发送 `project`，而 `GET /api/search?project=` 会
 返回 `200` 加一个空结果集，因此漏传参数的调用方读到的是「没有匹配」而不是「你的调用
@@ -279,8 +280,10 @@ fire-and-forget，会吞掉后端返回的一切——`tool_name` 为空时后�
 这句说的是**必填参数**，不是**影响范围**——而在 `listObservations` 上两者指向相反
 方向。`listObservations` 是唯一一个项目过滤会**放宽**而非**清空**的检索方法：省略 `project`
 （传空串也一样，四家 SDK 都会把它转成省略），SDK 就不会发出 `project` 参数，
-后端随即返回**该实例上全部项目**的观测。活体实测：省略 `project` 的
-`GET /api/observations` 在一个 100 条的单页里返回了 **16 个不同项目**的数据。
+后端随即返回**该实例上全部项目**的观测。2026-10-21 活体实测：省略 `project` 的
+`GET /api/observations` 在一个 100 条的单页里返回了 **15 个不同项目**的数据。
+该数字随数据库的增长而变，故它是**带日期的实测值**而非实时值 —— 要点是**跨项目的广度**，
+而不是确切数字。
 而**直连 HTTP** 带上字面量 `?project=` 则是相反的情形、会返回空——因为仓储查询判的是
 `IS NULL` 而非空串；绕过 SDK 直连前值得知道这一点。
 

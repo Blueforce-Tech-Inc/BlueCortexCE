@@ -258,6 +258,25 @@ describe('CortexMemClient', () => {
         client.recordObservation({ session_id: 'sess-1', cwd: '', tool_name: 'Read' }),
       ).rejects.toThrow('cwd');
     });
+
+    it('should throw on missing tool_name', async () => {
+      await expect(
+        client.recordObservation({ session_id: 'sess-1', cwd: '/tmp', tool_name: '' }),
+      ).rejects.toThrow('tool_name');
+    });
+
+    it('should validate before sending the request', async () => {
+      // The check has to run before the request goes out. recordObservation is
+      // fire-and-forget: a request that reached the backend and was rejected
+      // would have its rejection swallowed, so the caller would never learn it
+      // failed — the exact failure the client-side check exists to prevent.
+      // A check placed after the request would still throw and still pass the
+      // test above, so the ordering needs its own assertion.
+      await expect(
+        client.recordObservation({ session_id: 'sess-1', cwd: '/tmp', tool_name: '' }),
+      ).rejects.toThrow('tool_name');
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
   });
 
   describe('recordSessionEnd', () => {
