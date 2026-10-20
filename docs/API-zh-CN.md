@@ -364,12 +364,27 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 | `tool_input` | object/string | ❌ | 工具输入参数 |
 | `tool_response` | object/string | ❌ | 工具响应 |
 | `cwd` | string | ❌ | 当前工作目录 |
+| `platform_source` | string | ❌ | 拥有该会话的来源平台（如 `claude`、`codex`）。入库时写入**会话**；已存的值不会被覆盖，唯一例外是请求值非 `claude` 时会替换已存的 `claude` |
+| `source` | string | ❌ | 来源归因（如 `manual`、`tool_result`）。**本端点接受但当前忽略** —— `handleToolUse` 从不读取它 |
+| `extractedData` | object | ❌ | 结构化提取数据（JSON 对象）。**本端点接受但当前忽略** —— `handleToolUse` 从不读取它 |
+| `prompt_number` | int | ❌ | 提示序号，用于排序。**本端点接受但当前忽略** —— `handleToolUse` 调用 `processToolUseAsync(..., null)` 时把提示序号**写死为 `null`**，故落库的观测其 `prompt_number` 恒为 `null` |
 
 > **`cwd` 在此为可选，但仅仅意味着后端不会拒绝它。** 省略它与发送 `"cwd": ""`
 > 都会返回 `200 {"status": "accepted"}`，且该记录会以空项目路径入队——因此不会出现在
 > 任何按项目过滤的查询结果中。`POST /api/ingest/observation` 是唯一把项目路径视为必填的
 > 同级端点，它会返回 `400 Missing required field: project_path`。四家 SDK 均在发送前
 > 于客户端拒绝空 `cwd`，因此这只影响直接使用 HTTP API 的调用方。
+
+> **请求体里有三个字段被接受但当前被忽略。** 活体 OpenAPI 在本请求体上声明了
+> `prompt_number`、`source` 与 `extractedData`，后端也照收不误 —— 但 `handleToolUse`
+> 从不读取 `source` 与 `extractedData`，且它调用 `processToolUseAsync(..., null)` 时把
+> 提示序号**写死为 `null`**，故无论你发什么，落库观测的 `prompt_number` 都是 `null`。
+> 2026-10-20 活体实测，**并带阳性对照**：一个携带 `prompt_number: 42` 的 `tool-use`
+> 请求，其 pending 行的 `prompt_number` 落库为 **NULL**；而同一字段在
+> `POST /api/ingest/user-prompt` 上落库为 **42** —— 说明探针**确实读得到**这个值，
+> 那个 NULL 是**丢弃**而非探针盲区。同级端点则三者都照用：
+> `POST /api/ingest/user-prompt` 用 `prompt_number`，`POST /api/ingest/observation`
+> 用 `prompt_number`、`source` 与 `extractedData`。`platform_source` 则三个端点都照用。
 
 **响应示例**:
 ```json
@@ -445,6 +460,7 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 | `prompt_text` | string | ❌ | 提示文本 |
 | `prompt_number` | int | ❌ | 提示编号（默认 1） |
 | `cwd` | string | ❌ | 当前工作目录 |
+| `platform_source` | string | ❌ | 拥有该会话的来源平台（如 `claude`、`codex`）。入库时写入**会话**；已存的值不会被覆盖，唯一例外是请求值非 `claude` 时会替换已存的 `claude` |
 
 > 两个可选字段在**缺失或为空**时都会被接受：仅携带 `session_id` 的请求体会返回
 > `200 {"status": "ok"}`，且该提示会以「无文本、无项目」的形式存入。该端点只强制
@@ -485,6 +501,7 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 | `files_read` | string[] | ❌ | 已读取文件列表 |
 | `files_modified` | string[] | ❌ | 已修改文件列表 |
 | `prompt_number` | int | ❌ | 提示编号（用于排序） |
+| `platform_source` | string | ❌ | 拥有该会话的来源平台（如 `claude`、`codex`）。入库时写入**会话**；已存的值不会被覆盖，唯一例外是请求值非 `claude` 时会替换已存的 `claude` |
 
 **字段别名**: `session_id` 可替代 `content_session_id`，`cwd` 可替代 `project_path`，`content` 可替代 `narrative`。
 

@@ -172,7 +172,7 @@ All constructor arguments, with the defaults and floors applied in `client.py`:
 | `timeout` | `30.0` | Per-request, **in seconds**; floored at `0.1` |
 | `max_retries` | `3` | Total **attempts**, not retries (3 = 3 requests); floored at `1` |
 | `retry_backoff` | `0.5` | Base backoff, **in seconds**; floored at `0.1` |
-| `api_key` | *(none)* | Sent as `Authorization: Bearer <key>` on every request |
+| `api_key` | *(none)* | Sent as `Authorization: Bearer <key>` on every request. **The current backend does not validate that header** (it has no authentication filter), so setting it protects nothing today — see the Authentication section of [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md) |
 | `session` | *(new `requests.Session`)* | Borrowed if you pass one — see above |
 
 **Units differ from the other SDKs, so a ported config value needs converting.**
@@ -327,9 +327,11 @@ this one method the two point in opposite directions. `list_observations` is the
 only retrieval method whose project filter **widens** instead of emptying: omit
 `project` — and pass an empty string if you like, because all four SDKs convert
 that to omission — and no `project` is sent at all, so the backend answers with
-observations from **every project on the instance**. Verified live against a
-populated backend: `GET /api/observations` with no `project` returned 16
-distinct projects inside a single 100-item page. A *direct* HTTP call with a
+observations from **every project on the instance**. Verified live on 2026-10-20
+against a populated backend: `GET /api/observations` with no `project` returned 15
+distinct projects inside a single 100-item page. That count grows with the
+database, so it is a dated measurement rather than a live value — the point is the
+breadth across projects, not the exact number. A *direct* HTTP call with a
 literal `?project=` is the opposite case and returns nothing, because the
 repository query tests `IS NULL` rather than blank — worth knowing before you
 bypass the SDK.

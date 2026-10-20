@@ -168,7 +168,7 @@ with CortexMemClient(base_url="http://localhost:37777") as client:
 | `timeout` | `30.0` | 单次请求超时，单位**秒**；下限 `0.1` |
 | `max_retries` | `3` | 总**尝试**次数而非重试次数（3 = 发 3 次）；下限 `1` |
 | `retry_backoff` | `0.5` | 退避基数，单位**秒**；下限 `0.1` |
-| `api_key` | *(无)* | 每次请求以 `Authorization: Bearer <key>` 发送 |
+| `api_key` | *(无)* | 每次请求以 `Authorization: Bearer <key>` 发出。**当前后端不校验这个头**（它没有任何鉴权过滤器），故配置它今天保护不了任何东西 —— 详见 [`docs/ARCHITECTURE-zh-CN.md`](../../docs/ARCHITECTURE-zh-CN.md) 的「认证」一节 |
 | `session` | *(新建 `requests.Session`)* | 传入即借用，见上文 |
 
 **单位与另外三家不同，移植配置值时需要换算**：这里的超时与退避用**秒**，
@@ -303,8 +303,10 @@ fire-and-forget，会吞掉后端返回的一切——`tool_name` 为空时后�
 这句说的是**必填参数**，不是**影响范围**——而在 `list_observations` 上两者指向相反
 方向。`list_observations` 是唯一一个项目过滤会**放宽**而非**清空**的检索方法：省略 `project`
 （传空串也一样，四家 SDK 都会把它转成省略），SDK 就不会发出 `project` 参数，
-后端随即返回**该实例上全部项目**的观测。活体实测：省略 `project` 的
-`GET /api/observations` 在一个 100 条的单页里返回了 **16 个不同项目**的数据。
+后端随即返回**该实例上全部项目**的观测。2026-10-20 活体实测：省略 `project` 的
+`GET /api/observations` 在一个 100 条的单页里返回了 **15 个不同项目**的数据。
+该数字随数据库的增长而变，故它是**带日期的实测值**而非实时值 —— 要点是**跨项目的广度**，
+而不是确切数字。
 而**直连 HTTP** 带上字面量 `?project=` 则是相反的情形、会返回空——因为仓储查询判的是
 `IS NULL` 而非空串；绕过 SDK 直连前值得知道这一点。
 

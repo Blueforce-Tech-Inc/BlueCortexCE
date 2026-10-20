@@ -1334,6 +1334,7 @@
 - **Status**: ✅ **已修（第 361 轮，零行为变更，纯文档）** —— 架构图标注由 `(Express)` 改为 `(Node.js)`； 条目全文已逐字迁入 [`…-61.md`](../archive/2026-10-19_backend-review-evidence-61.md)（第 361 轮）。
 ### P2-115: `backend-review-findings.md` 的字节上限**已不可能靠压缩解决** —— 建议把阈值按第 293 轮同比例上调至 **2000 行 / 200000 字节**
 - **Status**: ⏸ **记录不修** —— 属流程契约变更，需用户决策。 条目全文已逐字迁入 [`…-61.md`](../archive/2026-10-19_backend-review-evidence-61.md)（第 361 轮）。
+- **第 368 轮新证据**：实测**按现行规则已无法再压缩**（迁出待决条目 42 段后字节**反升** +1210，42 段里 **41 段本身是指针行**，该次压缩已**精确反推**）⇒ 本条**阈值上调已成下一轮写入的前置条件**（余量仅 33 字节）。详见 [scope-13](../archive/2026-10-20_backend-review-scope-evidence-13.md)。
 ### P2-116: Python SDK 的两种 `update_observation` 调用风格**不等价** —— kwargs 路径真能清空 `narrative` / `extractedData`，而 SDK 自己的注释与 P2-27 都断言「不能清空」
 - **第 363 轮的更正（本条是 P2-43 的重复立条，缺陷计数不因本条增加）**: **P2-43 早在第 247 轮
   就立了同一发现**（标题同义：「Python SDK 的两种调用风格对 `None` 的含义相反——dataclass 路径丢弃它、
@@ -1351,12 +1352,12 @@
 ### P2-118: API 文档 2026-10-07 的 changelog 行把请求体表归在 `POST /api/memory/observations` 名下——而该端点根本不存在
 - **Status**: ✅ **已修（第 363 轮）** —— 条目全文逐字见 [`2026-10-20_backend-review-evidence-63.md`](../archive/2026-10-20_backend-review-evidence-63.md)（第 363 轮）
 ### P2-119: 四家 demo 的监听地址 **1:3 分裂** —— Java demo 随 P1-2 硬化为只绑回环，**Go / Python / JS 三家至今绑所有网卡、零鉴权**，并把「只绑回环的后端」变成了**同网段可达**的 API
-- **Status**: ⏸ **记录不修** —— 把默认改成回环 = **收窄**可观测面（远程可达性消失）= **对外行为契约变更**；且 P1-2 那次同类硬化是**经用户授权**才实施的（第 294 轮）。按既定纪律（对外契约变更不单方面实施）先记后定。**建议修法（待决策）**：①三家默认改绑回环，并给 Go/Python/JS 各加一个与 Java `SERVER_ADDRESS` 对齐的 host 覆盖口（**纯加宽、默认行为不变**）；②保留默认，但在三份 README 写明暴露面与「经 demo 即等于经后端」的放大关系；③维持现状，仅记录。**本轮未实施任何代码改动**（零代码变更 → 指纹未变 → 按规则跳过完整验收、不推进基线）。 条目全文已逐字迁入 [`…-64.md`](../archive/2026-10-20_backend-review-evidence-64.md)（第 364 轮）。
+- **Status**: ⏸ **记录不修** —— 把默认改成回环 = **收窄**可观测面（远程可达性消失）= **对外行为契约变更**；且 P1-2 那次同类硬化是**经用户授权**才实施的（第 294 轮）。按既定纪律（对外契约变更不单方面实施）先记后定。**建议修法（待决策）**的三条与「本轮未实施任何代码改动」那段说明见归档正文。 条目全文已逐字迁入 [`…-64.md`](../archive/2026-10-20_backend-review-evidence-64.md)（第 364 轮）。
 
 ### P2-120: 活体 OpenAPI 给 `POST /api/observations/batch` 声明了一个**不可达的 400**，并把 `ids` 标为必填 —— 而处理器每个分支都返回 200，非法 UUID 还被**静默丢弃**
 - **Status**: ✅ **已修（第 365 轮）** —— 条目全文逐字见 [`2026-10-20_backend-review-evidence-65.md`](../archive/2026-10-20_backend-review-evidence-65.md)（第 365 轮）
 ### P2-121: `docs/` 下 13 条相对链接的目标**根本不存在** —— 上游自动拆分后未更新，且「哪一篇承接了被引章节」需要内容判断，不宜机械改
-- **Status**: ⏸ **记录不修** —— 13 条断链的目标**在仓库里不存在任何候选**（`105-shell-hooks-extensibility-architecture.md`、`78-cross-cutting-architectural-patterns-synthesis.md`、`02-bluecortexce-recommendations.md` 从未在此路径存在；`01-intro-toc-memory-through-curriculum.md` 与 `07-idle-through-skillpublisher-v14.md` 已被上游自动拆成多篇，**被引的章节归属需逐条内容判断**）。**机械改到任一现存文件都可能指错章节**，故**只记录不猜**。**同批已修的 15 条另计**（见归档正文），二者不可混为一谈。 条目全文已逐字迁入 [`…-65.md`](../archive/2026-10-20_backend-review-evidence-65.md)（第 365 轮）。
+- **Status**: ⏸ **记录不修** —— 13 条断链的目标**在仓库里不存在任何候选**（被引文件的逐条清单见归档正文）。**机械改到任一现存文件都可能指错章节**，故**只记录不猜**。**同批已修的 15 条另计**（见归档正文），二者不可混为一谈。 条目全文已逐字迁入 [`…-65.md`](../archive/2026-10-20_backend-review-evidence-65.md)（第 365 轮）。
 
 ### P2-122: 四家 SDK 都能配 API 密钥，但**后端从不校验它** —— 密钥今天是**零保护**，而三份 README 把它写成「for auth」，Java SDK 的 javadoc 更直接断言「Null/blank = no auth」
 - **Status**: ⏸ **服务端鉴权本身记录不实施**（给后端加鉴权 = 改变**所有**现有部署的对外契约 = 对外行为契约变更，按既定纪律先记后定）—— **客户端侧四处失实陈述本轮已修**（全为注释与文档，可执行行 0）：①`CortexMemProperties.apiKey` 的 javadoc（原文「Null/blank = no auth」**为假**）；②`CortexMemClientImpl` 的「Bearer token auth」措辞；③Java SDK README 属性表**补 `api-key` 行**（此前完全没有）；④架构文档双语 `### Authentication` 段**各补一段**。Java SDK `mvn clean test` **196 通过 / 0 失败**。**三选一见归档正文**。 条目全文已逐字迁入 [`…-66.md`](../archive/2026-10-20_backend-review-evidence-66.md)（第 366 轮）。
@@ -1365,6 +1366,16 @@
 - **Status**: ⏸ **服务端幂等化与 SDK 重试范围收窄留待用户决策**（对外行为契约变更）—— **注释层失实陈述本轮已修**（Go SDK 一个文件，**可执行行 0**）：链改对（`handleToolUse`）、机制写对（**第一道**防线是 pending 层 `(session, tool, SHA-256(tool_input))` + `status <> 'failed'`，**无时间窗**；30 秒内容哈希窗口是**第二道**防线）、范围写对（另两条**不幂等**）、「cannot create a duplicate」改为「**保证不绝对**」（见 P2-29）。**三选一见归档正文**。 条目全文已逐字迁入 [`…-67.md`](../archive/2026-10-20_backend-review-evidence-67.md)（第 367 轮）。
 ### P2-124: 部署指南的限流段把 `CLAUDEMEM_RATE_LIMIT_WINDOW_SECONDS` 写成「**滑动窗口**」，而实现是**固定窗口** —— 边界处上限可以**翻倍**；同段还把 `retry_after` 说成「窗口长度」，实际是**当前窗口的剩余秒数**
 - **Status**: ⏸ **限流器要不要改成真滑动窗口留待用户决策**（属行为变更）—— **失实陈述本轮已修**（双语，纯文档）：变量表的「Sliding-window / 滑动窗口」改为「**固定**窗口、到期整窗重置」；`retry_after` 改为「**当前窗口的剩余秒数**」（≤ 窗口长度，第 11 次请求实测读到 `59`）；并**新增一段实测**（边界处 20 个请求在约 2.5 秒内通过、第 21 个才 429）。**三选一见归档正文**。 条目全文已逐字迁入 [`…-67.md`](../archive/2026-10-20_backend-review-evidence-67.md)（第 367 轮）。
+
+
+### P2-125: Python SDK README 用一个**无日期的活体读数**（跨项目返回的 distinct project 数）支撑「`list_observations` 会放宽项目过滤」这个结论，而该读数**已经漂移**
+- **Status**: ⏸ **「省略 project 就跨项目返回」要不要在行为层收敛待决**（对外行为契约变更）—— **失实陈述已修**（双语）：无日期的活体读数 16 实测漂移到 **15**，现已**加日期 2026-10-20** 并注明「带日期的实测值」。**三选一见归档正文**。 条目全文已逐字迁入 [`…-68.md`](../archive/2026-10-20_backend-review-evidence-68.md)（第 368 轮）。
+
+
+### P2-126: API 文档的三个 ingest 端点请求体表**遗漏了活体 OpenAPI 声明的 6 个字段**——其中 `platform_source` 是 V18 引入且**确实生效**的，而 tool-use 的另三个是**接受却被静默丢弃**的
+- **Status**: ⏸ **tool-use 那三个字段要不要真用起来待决**（对外行为变更）—— **文档缺口已修**（双语）：三个 ingest 端点请求体表共补 **6 行**，其中 `platform_source`（V18 引入、**确实生效**）此前**请求侧完全没记载**，而 tool-use 的 `source` / `extractedData` / `prompt_number` 是**接受却被静默丢弃**的，现已逐条写明并补实测说明。**三选一见归档正文**。 条目全文已逐字迁入 [`…-69.md`](../archive/2026-10-20_backend-review-evidence-69.md)（第 368 轮）。
+### P2-127: 活体 OpenAPI 把 `POST /api/ingest/user-prompt` 的 `prompt_text` 标为 **required**，而后端**只强制 `session_id`** —— 活体 spec 失实，而 API 文档是对的
+- **Status**: ⏸ **改后端注解、还是让实现真的强制、还是维持现状，待决**（对外行为契约变更）—— **本轮只记录不实施**：活体 OpenAPI 把 `prompt_text` 标为 required，而处理器**只校验 `session_id`**；活体实测（只带 `session_id` → **200**，不带 → **400**）证实 **spec 失实、API 文档是对的**。选项①（去掉注解 REQUIRED，**纯放宽**）属后端代码方向，建议下个后端轮次实施；选项②是**收紧**；选项③维持现状。**三选一见归档正文**。 条目全文已逐字迁入 [`…-69.md`](../archive/2026-10-20_backend-review-evidence-69.md)（第 368 轮）。
 
 ## Processing Rules
 - **第 316 轮新增流程规则（连续三轮教训的归纳）——落笔前先查该模块自己的文档**：

@@ -370,6 +370,10 @@ Records a tool use event from Claude Code hooks (via `wrapper.js`). Triggers asy
 | `tool_input` | object/string | ❌ | Tool input parameters |
 | `tool_response` | object/string | ❌ | Tool response |
 | `cwd` | string | ❌ | Current working directory |
+| `platform_source` | string | ❌ | Source platform that owns this session (e.g. `claude`, `codex`). Applied to the **session** at ingest; an already-stored value is not overwritten, except that a non-`claude` request replaces a stored `claude` |
+| `source` | string | ❌ | Source attribution (e.g. `manual`, `tool_result`). **Accepted but currently ignored by this endpoint** — `handleToolUse` never reads it |
+| `extractedData` | object | ❌ | Structured extracted data (JSON object). **Accepted but currently ignored by this endpoint** — `handleToolUse` never reads it |
+| `prompt_number` | int | ❌ | Prompt number for ordering. **Accepted but currently ignored by this endpoint** — `handleToolUse` calls `processToolUseAsync(..., null)` with a hard-coded `null`, so the stored observation's `prompt_number` is `null` whatever you send |
 
 > **`cwd` is optional here, but only in the sense that the backend does not
 > reject it.** Omitting it and sending `"cwd": ""` both return `200
@@ -379,6 +383,21 @@ Records a tool use event from Claude Code hooks (via `wrapper.js`). Triggers asy
 > answers `400 Missing required field: project_path`. All four SDKs reject an
 > empty `cwd` client-side before sending, so this only affects callers using the
 > HTTP API directly.
+
+> **Three of the request fields are accepted but currently ignored.** The live
+> OpenAPI declares `prompt_number`, `source` and `extractedData` on this body,
+> and the backend accepts them without complaint — but `handleToolUse` never
+> reads `source` or `extractedData`, and it calls `processToolUseAsync(..., null)`
+> with a hard-coded `null` for the prompt number, so the stored observation's
+> `prompt_number` is `null` regardless of what you send. Measured live on
+> 2026-10-20 **with a positive control**: a `tool-use` request carrying
+> `prompt_number: 42` left the pending row's `prompt_number` **NULL**, while the
+> same field on `POST /api/ingest/user-prompt` was stored as **42** — so the
+> probe demonstrably reads that value, and the NULL is a discard rather than a
+> blind spot. The sibling endpoints do honour all of them:
+> `POST /api/ingest/user-prompt` uses `prompt_number`, and
+> `POST /api/ingest/observation` uses `prompt_number`, `source` and
+> `extractedData`. `platform_source` is honoured on all three.
 
 **Request Example**:
 ```json
@@ -425,6 +444,7 @@ Records a user prompt event from Claude Code hooks. Automatically ensures the se
 | `prompt_text` | string | ❌ | Prompt text (truncated if exceeds max length) |
 | `prompt_number` | int | ❌ | Prompt number for ordering (default: 1) |
 | `cwd` | string | ❌ | Current working directory |
+| `platform_source` | string | ❌ | Source platform that owns this session (e.g. `claude`, `codex`). Applied to the **session** at ingest; an already-stored value is not overwritten, except that a non-`claude` request replaces a stored `claude` |
 
 > Both optional fields are accepted when missing **or** empty: a body carrying
 > only `session_id` returns `200 {"status": "ok"}` and the prompt is stored with
@@ -521,6 +541,7 @@ Directly creates an observation with automatic embedding generation.
 | `files_read` | string[] | ❌ | List of files read |
 | `files_modified` | string[] | ❌ | List of files modified |
 | `prompt_number` | int | ❌ | Prompt number for ordering |
+| `platform_source` | string | ❌ | Source platform that owns this session (e.g. `claude`, `codex`). Applied to the **session** at ingest; an already-stored value is not overwritten, except that a non-`claude` request replaces a stored `claude` |
 
 **Field aliases**: `session_id` is accepted as an alias for `content_session_id`, `cwd` for `project_path`, and `content` for `narrative`.
 

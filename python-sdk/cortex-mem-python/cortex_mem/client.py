@@ -65,7 +65,10 @@ class CortexMemClient:
         timeout: Per-request timeout in seconds (floored at 0.1s).
         max_retries: Attempts for fire-and-forget captures (floored at 1).
         retry_backoff: Base backoff in seconds (floored at 0.1s).
-        api_key: Sent as ``Authorization: Bearer <key>`` on every request.
+        api_key: Sent as ``Authorization: Bearer <key>`` on every request. The
+            current backend does not read that header — it has no authentication
+            filter — so this protects nothing today; it only becomes meaningful
+            once the backend grows authentication.
         session: Optional caller-owned :class:`requests.Session`, typically to
             share a connection pool. It is **never mutated** — the SDK sends its
             headers per request and does not close a session it did not create,
