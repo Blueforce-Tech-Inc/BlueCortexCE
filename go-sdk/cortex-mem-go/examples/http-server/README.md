@@ -58,11 +58,20 @@ Stop it with `Ctrl-C`; the process shuts down gracefully and ignores the
 | POST | `/feedback` | `observationId` and `feedbackType` required |
 | POST | `/session/start` | `session_id` and `project` required |
 | PATCH | `/session/user` | `sessionId` and `userId` required |
-| POST | `/create-observation` | Direct observation creation |
+| POST | `/create-observation` | Record observation (tool-use path) |
 | POST | `/ingest/prompt` | Records a user prompt |
 | POST | `/ingest/session-end` | Ends a session |
 
 Request bodies are capped at 1 MB.
+
+> **`/create-observation` does not persist `source` or `extractedData`.** It calls
+> the SDK's `RecordObservation`, which posts to `POST /api/ingest/tool-use`; the
+> backend accepts those two fields there and then discards them, because its
+> tool-use handler reads only `session_id`, `cwd`, `tool_name`, `tool_input`,
+> `tool_response` and `platform_source`. Use `PATCH /observations/{id}` to set
+> `source` and `extractedData` on an existing observation — that path does
+> persist them. (This endpoint is **not** the backend's "direct creation" path:
+> `POST /api/ingest/observation` is that one, and no SDK exposes it.)
 
 **Two of these paths are named differently from the other three demos.** The Java,
 Python and JS demos serve the same two operations as `/observations/batch` and

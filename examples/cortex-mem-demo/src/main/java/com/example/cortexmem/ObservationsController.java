@@ -182,6 +182,14 @@ public class ObservationsController {
         }
 
         try {
+            // ⚠️ source / extractedData / promptNumber are accepted by this
+            // endpoint and then discarded. recordObservation posts to
+            // POST /api/ingest/tool-use, and that handler reads only
+            // session_id, cwd, tool_name, tool_input, tool_response and
+            // platform_source — the extractor it calls has no parameter for the
+            // first two and is handed null for the third. The sibling
+            // PATCH /demo/observations/{id} below is the path that actually
+            // persists source and extractedData.
             client.recordObservation(ObservationRequest.builder()
                     .projectPath(project)
                     .sessionId(sessionId)

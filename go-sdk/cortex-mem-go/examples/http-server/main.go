@@ -820,6 +820,13 @@ func main() {
 			writeJSONError(w, http.StatusBadRequest, "tool_name is required")
 			return
 		}
+		// ⚠️ Source / ExtractedData / PromptNumber are accepted by this endpoint
+		// and then discarded. RecordObservation posts to
+		// `POST /api/ingest/tool-use`, and that handler reads only session_id,
+		// cwd, tool_name, tool_input, tool_response and platform_source — the
+		// extractor it calls has no parameter for the first two and is handed
+		// null for the third. The sibling `PATCH /observations/{id}` below is
+		// the path that actually persists Source and ExtractedData.
 		if err := client.RecordObservation(r.Context(), dto.ObservationRequest{
 			ProjectPath:   req.Project,
 			SessionID:     req.SessionID,
