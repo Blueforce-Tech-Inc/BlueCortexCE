@@ -10,6 +10,14 @@ import { safeString, safeStringOr, safeNumber, safeRecord, safeStringOrStringLis
  *
  * Wire format: {"session_id":"...", "cwd":"/path", "tool_name":"Edit", ...}
  * Note: uses "cwd" (NOT "project_path"). extractedData is camelCase.
+ *
+ * ⚠️ The backend's tool-use handler reads only `session_id`, `cwd`,
+ * `tool_name`, `tool_input`, `tool_response` and `platform_source`.
+ * `source` and `extractedData` have no parameter at all in the extractor it
+ * calls, and `prompt_number` is passed to it as null — so all three are
+ * accepted on the wire and then discarded. Set them on the observation itself
+ * with `CortexMemClient.updateObservation` (PATCH
+ * /api/memory/observations/{id}), which does persist them.
  */
 export interface ObservationRequest {
   session_id: string;
@@ -17,8 +25,11 @@ export interface ObservationRequest {
   tool_name: string;
   tool_input?: unknown;
   tool_response?: unknown;
+  /** Accepted but discarded by the tool-use path — use `updateObservation`. */
   prompt_number?: number;
+  /** Accepted but discarded by the tool-use path — use `updateObservation`. */
   source?: string;
+  /** Accepted but discarded by the tool-use path — use `updateObservation`. */
   extractedData?: Record<string, unknown>;
 }
 

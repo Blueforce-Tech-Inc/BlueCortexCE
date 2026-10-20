@@ -324,6 +324,13 @@ app.post('/observations/create', asyncHandler(async (req: Request, res: Response
     return errorJson(res, 400, 'extractedData must be a JSON object');
   }
 
+  // ⚠️ `source` / `extractedData` / `prompt_number` are accepted by this
+  // endpoint and then discarded. `recordObservation` posts to
+  // `POST /api/ingest/tool-use`, and that handler reads only session_id, cwd,
+  // tool_name, tool_input, tool_response and platform_source — the extractor
+  // it calls has no parameter for the first two and is handed null for the
+  // third. The sibling `PATCH /observations/:id` below is the path that
+  // actually persists `source` and `extractedData`.
   await client.recordObservation({
     session_id: req.body.session_id,
     cwd: req.body.project,

@@ -184,6 +184,15 @@ Critical wire format details (inherited from Go SDK):
 - `getQualityDistribution`: uses query param `project` (not body)
 - `FeedbackRequest`: `observationId`, `feedbackType` are camelCase
 
+`ObservationRequest.extractedData`: camelCase describes the **mapping**, not where the
+value ends up. On the tool-use path — `recordObservation`, which posts to
+`POST /api/ingest/tool-use` — the backend accepts `source`, `extractedData` and
+`prompt_number` and then **discards** them: that handler reads only `session_id`,
+`cwd`, `tool_name`, `tool_input`, `tool_response` and `platform_source`, so the
+extractor it calls never receives the other three. Set them on the observation itself,
+with `updateObservation` (a `PATCH`), which does persist them. This SDK exposes no
+method for `POST /api/ingest/observation`.
+
 ## Quick Start
 
 ### Installation
@@ -202,8 +211,11 @@ const client = new CortexMemClient({
   timeout: 10000,
 });
 
-// Start session. Keep the session_id you chose — the response does not echo it
-// back, so it is not readable from the returned object.
+// Start session. Keep the session_id you chose. The response *does* echo it
+// back on the wire — the live body carries `session_id` alongside
+// `session_db_id`, `context`, `updateFiles` and `prompt_number` — but
+// `SessionStartResponse` does not expose it, so under this package's own
+// types it is not readable from the returned object. Keep your own copy.
 const SESSION_ID = 'my-session-001';
 const session = await client.startSession({
   session_id: SESSION_ID,

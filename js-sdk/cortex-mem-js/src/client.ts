@@ -165,6 +165,14 @@ export class CortexMemClient {
   /**
    * Record a tool-use observation (fire-and-forget).
    * POST /api/ingest/tool-use
+   *
+   * ⚠️ `source`, `extractedData` and `prompt_number` are accepted on this
+   * endpoint and then **discarded**: the backend's tool-use handler reads only
+   * `session_id`, `cwd`, `tool_name`, `tool_input`, `tool_response` and
+   * `platform_source`, so the extractor it calls never receives the other
+   * three. Persist them with {@link CortexMemClient.updateObservation}
+   * (PATCH /api/memory/observations/{id}), which does write them; this SDK
+   * exposes no method for POST /api/ingest/observation.
    */
   async recordObservation(req: ObservationRequest): Promise<void> {
     this.assertNotClosed();

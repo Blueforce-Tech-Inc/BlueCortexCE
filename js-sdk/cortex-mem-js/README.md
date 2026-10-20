@@ -328,6 +328,13 @@ The SDK uses JSON field names that match the backend API exactly. Field naming v
 - `session_id`, `cwd`, `tool_name` (snake_case) — `ObservationRequest`
 - `extractedData` (camelCase) — backend `@JsonProperty` override
 
+Those describe the **mapping**, not where the value ends up. On the tool-use path —
+`recordObservation`, which posts to `POST /api/ingest/tool-use` — the backend accepts
+`source`, `extractedData` and `prompt_number` and then **discards** them: that handler
+reads only `session_id`, `cwd`, `tool_name`, `tool_input`, `tool_response` and
+`platform_source`, so the extractor it calls never receives the other three. Set them on
+the observation itself, with `updateObservation` (a `PATCH`), which does persist them.
+
 **Experience & ICL:**
 - `requiredConcepts`, `userId` (camelCase) — `ExperienceRequest`, `ICLPromptRequest`
 

@@ -300,6 +300,13 @@ SDK 使用与后端 API 完全一致的 JSON 字段名。字段命名因端点�
 - `session_id`、`cwd`、`tool_name` (snake_case) — `ObservationRequest`
 - `extractedData` (camelCase) — 后端 `@JsonProperty` 覆盖
 
+上面这些描述的是**映射关系**，而不是值的最终去向。在 tool-use 路径上——也就是
+`recordObservation`，它发往 `POST /api/ingest/tool-use`——后端会接受 `source`、
+`extractedData` 与 `prompt_number`，然后把它们**丢弃**：该处理器只读 `session_id`、
+`cwd`、`tool_name`、`tool_input`、`tool_response` 与 `platform_source`，它调用的抽取器
+根本收不到那三个字段。请把它们设在观察结果本身上，用 `updateObservation`（一个
+`PATCH`），那里**确实**会落库。
+
 **Experience 和 ICL：**
 - `requiredConcepts`、`userId` (camelCase) — `ExperienceRequest`、`ICLPromptRequest`
 
