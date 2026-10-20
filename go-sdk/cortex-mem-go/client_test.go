@@ -2249,6 +2249,74 @@ func TestIsServerError(t *testing.T) {
 	}
 }
 
+// A sentinel-shaped error must classify the same way the APIError wrapper does.
+// Go has no error subclasses, so ErrBadRequest *is* this SDK's representation of
+// a 400 — without a sentinel fallback the two classification helpers reported
+// every bare sentinel as "not a client error" / "not a server error", which
+// contradicted their own names, IsInternal's docstring ("500, 502, 503, 504,
+// etc") and the parallel Python/JavaScript helpers.
+func TestIsClientError_SentinelFallback(t *testing.T) {
+	clientErrors := []struct {
+		name string
+		err  error
+	}{
+		{"ErrBadRequest", cortexmem.ErrBadRequest},
+		{"ErrUnauthorized", cortexmem.ErrUnauthorized},
+		{"ErrForbidden", cortexmem.ErrForbidden},
+		{"ErrNotFound", cortexmem.ErrNotFound},
+		{"ErrConflict", cortexmem.ErrConflict},
+		{"ErrUnprocessable", cortexmem.ErrUnprocessable},
+		{"ErrRateLimited", cortexmem.ErrRateLimited},
+	}
+	for _, c := range clientErrors {
+		if !cortexmem.IsClientError(c.err) {
+			t.Errorf("%s is a 4xx sentinel but IsClientError returned false", c.name)
+		}
+		if cortexmem.IsServerError(c.err) {
+			t.Errorf("%s is a 4xx sentinel but IsServerError returned true", c.name)
+		}
+	}
+}
+
+func TestIsServerError_SentinelFallback(t *testing.T) {
+	serverErrors := []struct {
+		name string
+		err  error
+	}{
+		{"ErrInternal", cortexmem.ErrInternal},
+		{"ErrBadGateway", cortexmem.ErrBadGateway},
+		{"ErrServiceUnavailable", cortexmem.ErrServiceUnavailable},
+		{"ErrGatewayTimeout", cortexmem.ErrGatewayTimeout},
+	}
+	for _, c := range serverErrors {
+		if !cortexmem.IsServerError(c.err) {
+			t.Errorf("%s is a 5xx sentinel but IsServerError returned false", c.name)
+		}
+		// IsInternal's own docstring claims 500/502/503/504 — pin that too.
+		if !cortexmem.IsInternal(c.err) {
+			t.Errorf("%s is a 5xx sentinel but IsInternal returned false", c.name)
+		}
+		if cortexmem.IsClientError(c.err) {
+			t.Errorf("%s is a 5xx sentinel but IsClientError returned true", c.name)
+		}
+	}
+}
+
+// Negative control: a plain error is neither a client nor a server error, in
+// either shape. Without this the two tests above could pass by accident.
+func TestErrorClassification_GenericErrorIsNeither(t *testing.T) {
+	generic := errors.New("something else")
+	if cortexmem.IsClientError(generic) {
+		t.Error("a generic error must not match IsClientError")
+	}
+	if cortexmem.IsServerError(generic) {
+		t.Error("a generic error must not match IsServerError")
+	}
+	if cortexmem.IsInternal(generic) {
+		t.Error("a generic error must not match IsInternal")
+	}
+}
+
 // ==================== IsRetryable Tests ====================
 
 func TestIsRetryable_RateLimited(t *testing.T) {

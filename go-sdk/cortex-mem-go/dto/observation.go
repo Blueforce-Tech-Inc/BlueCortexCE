@@ -74,15 +74,24 @@ func (sl *StringList) UnmarshalJSON(data []byte) error {
 // Wire format (verified against backend IngestionController.java):
 //
 //	{"session_id":"...", "cwd":"/path", "tool_name":"Edit", "tool_input":{...}, "tool_response":{...}, ...}
+//
+// ⚠️ The backend's tool-use handler reads only session_id, cwd, tool_name,
+// tool_input, tool_response and platform_source. PromptNumber, Source and
+// ExtractedData are accepted and then discarded on this endpoint — measured
+// live: a tool-use carrying prompt_number=42 left the column NULL, and
+// source/extractedData matched 0 rows, while the same field names do land on
+// POST /api/ingest/observation and on PATCH /api/memory/observations/{id}.
+// This SDK has no method for the former, so UpdateObservation (PATCH) is the
+// only way to persist Source and ExtractedData.
 type ObservationRequest struct {
 	SessionID     string         `json:"session_id"`
 	ProjectPath   string         `json:"cwd"`       // Wire: "cwd" (not "project_path")
 	ToolName      string         `json:"tool_name"` // Wire: "tool_name" (not "type") — required, no omitempty
 	ToolInput     any            `json:"tool_input,omitempty"`
 	ToolResponse  any            `json:"tool_response,omitempty"`
-	PromptNumber  int            `json:"prompt_number,omitempty"`
-	Source        string         `json:"source,omitempty"`        // V14: source attribution
-	ExtractedData map[string]any `json:"extractedData,omitempty"` // V14: camelCase! (not extracted_data)
+	PromptNumber  int            `json:"prompt_number,omitempty"` // ⚠️ Accepted but discarded by the tool-use path — see the type doc
+	Source        string         `json:"source,omitempty"`        // V14: source attribution — ⚠️ accepted but discarded by the tool-use path; persist it with UpdateObservation
+	ExtractedData map[string]any `json:"extractedData,omitempty"` // V14: camelCase! (not extracted_data) — ⚠️ accepted but discarded by the tool-use path; persist it with UpdateObservation
 }
 
 // ObservationUpdate updates an existing observation.

@@ -151,12 +151,21 @@ func IsUnprocessable(err error) bool {
 }
 
 // IsInternal returns true if the error is a 5xx server error (500, 502, 503, 504, etc).
+//
+// Both shapes of a server error are recognised: the APIError wrapper (by status
+// code) and the bare 5xx sentinels. The sentinel fallback matters because Go
+// has no error subclasses — ErrBadGateway *is* this SDK's representation of a
+// 502 — and the specific helpers below (IsBadGateway and friends) already
+// accept it.
 func IsInternal(err error) bool {
 	var apiErr *APIError
 	if errors.As(err, &apiErr) {
 		return apiErr.StatusCode >= 500
 	}
-	return errors.Is(err, ErrInternal)
+	return errors.Is(err, ErrInternal) ||
+		errors.Is(err, ErrBadGateway) ||
+		errors.Is(err, ErrServiceUnavailable) ||
+		errors.Is(err, ErrGatewayTimeout)
 }
 
 // IsRetryable returns true if the error is likely transient and the request can be retried.
@@ -290,16 +299,37 @@ func IsGatewayTimeout(err error) bool {
 }
 
 // IsClientError returns true if the error is a 4xx client error.
+//
+// Both shapes of a client error are recognised: the APIError wrapper (by status
+// code) and the bare 4xx sentinels. The sentinel fallback matters because Go
+// has no error subclasses — ErrBadRequest *is* this SDK's representation of a
+// 400 — and the specific helpers above (IsBadRequest and friends) already
+// accept it. Python's is_client_error and JavaScript's isClientError classify
+// their error objects the same way.
 func IsClientError(err error) bool {
 	var apiErr *APIError
 	if errors.As(err, &apiErr) {
 		return apiErr.StatusCode >= 400 && apiErr.StatusCode < 500
 	}
-	return false
+	return isClientSentinelError(err)
+}
+
+// isClientSentinelError returns true if the error matches one of the 4xx sentinel errors.
+func isClientSentinelError(err error) bool {
+	return errors.Is(err, ErrBadRequest) ||
+		errors.Is(err, ErrUnauthorized) ||
+		errors.Is(err, ErrForbidden) ||
+		errors.Is(err, ErrNotFound) ||
+		errors.Is(err, ErrConflict) ||
+		errors.Is(err, ErrUnprocessable) ||
+		errors.Is(err, ErrRateLimited)
 }
 
 // IsServerError returns true if the error is a 5xx server error.
 // This is an alias for IsInternal — prefer IsInternal for clarity.
+// It accepts the same two shapes as IsInternal: the APIError wrapper and the
+// bare 5xx sentinels (ErrInternal, ErrBadGateway, ErrServiceUnavailable,
+// ErrGatewayTimeout).
 func IsServerError(err error) bool {
 	return IsInternal(err)
 }
