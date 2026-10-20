@@ -281,6 +281,16 @@ class CortexMemClient:
         Wire format: project_path → "cwd", tool_name → "tool_name",
         extracted_data → "extractedData" (camelCase).
 
+        ⚠️ That wire format describes the **mapping**, not where the value ends
+        up. The backend's tool-use handler reads only session_id, cwd,
+        tool_name, tool_input, tool_response and platform_source: ``source``
+        and ``extracted_data`` have no parameter at all in the extractor it
+        calls, and ``prompt_number`` is passed to it as null. All three are
+        therefore accepted on the wire and then discarded. Persist them with
+        :meth:`update_observation` (PATCH /api/memory/observations/{id}), which
+        does write them; this SDK exposes no method for
+        POST /api/ingest/observation.
+
         Raises:
             ValidationError: if session_id, project_path or tool_name is empty.
                 The other three SDKs all reject these client-side, and the

@@ -33,7 +33,7 @@ python3 app.py
 | GET | `/observations` | List observations |
 | GET | `/observations/{id}` | Get observation by ID |
 | POST | `/observations/batch` | Batch get observations by IDs |
-| POST | `/observations/create` | Record observation |
+| POST | `/observations/create` | Record observation (tool-use path) |
 | PATCH | `/observations/{id}` | Update observation |
 | DELETE | `/observations/{id}` | Delete observation |
 | GET | `/projects` | Get projects |
@@ -50,6 +50,14 @@ python3 app.py
 | PATCH | `/session/user` | Update session user ID |
 | POST | `/ingest/prompt` | Ingest user prompt |
 | POST | `/ingest/session-end` | Ingest session end |
+
+> **`/observations/create` does not persist `source` or `extractedData`.** It calls
+> the SDK's `record_observation`, which posts to `POST /api/ingest/tool-use`; the
+> backend accepts those two fields there and then discards them, because its
+> tool-use handler reads only `session_id`, `cwd`, `tool_name`, `tool_input`,
+> `tool_response` and `platform_source`. Use `PATCH /observations/{id}` to set
+> `source` and `extractedData` on an existing observation — that path does
+> persist them.
 
 ## Examples
 

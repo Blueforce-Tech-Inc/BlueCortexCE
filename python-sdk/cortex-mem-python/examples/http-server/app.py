@@ -448,6 +448,13 @@ def observations_create():
     if "extractedData" in data and data["extractedData"] is not None and not isinstance(data["extractedData"], dict):
         return _error(400, "extractedData must be a JSON object")
 
+    # ⚠️ ``source`` / ``extractedData`` / ``prompt_number`` are accepted by this
+    # endpoint and then discarded. ``record_observation`` posts to
+    # ``POST /api/ingest/tool-use``, and that handler reads only session_id,
+    # cwd, tool_name, tool_input, tool_response and platform_source — the
+    # extractor it calls has no parameter for the first two and is handed null
+    # for the third. The sibling ``PATCH /observations/<id>`` below is the path
+    # that actually persists ``source`` and ``extractedData``.
     client.record_observation(
         session_id=data["session_id"],
         project_path=data["project"],

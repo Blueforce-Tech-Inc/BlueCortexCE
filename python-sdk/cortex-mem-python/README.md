@@ -366,6 +366,15 @@ is a `TEXT` column, not JSONB, and holds comma-separated UUIDs
 `,` — so the comma-separated split is the only path that applies. Grouping it
 with the four above would misdescribe what the backend does.
 
+The `extracted_data` → `extractedData` bullet describes the **mapping**, not
+where the value ends up. On the tool-use path — `record_observation`, which
+posts to `POST /api/ingest/tool-use` — the backend accepts `source`,
+`extracted_data` and `prompt_number` and then **discards** them: that handler
+reads only `session_id`, `cwd`, `tool_name`, `tool_input`, `tool_response` and
+`platform_source`, so the extractor it calls never receives the other three.
+Set them on the observation itself, with `update_observation` (a `PATCH`), which
+does persist them.
+
 See [design document](../../docs/drafts/python-sdk-design.md) for details.
 
 ## License
