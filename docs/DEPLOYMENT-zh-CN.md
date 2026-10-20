@@ -552,7 +552,7 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 | 变量名 | 默认值 | 说明 |
 |--------|--------|------|
 | `CLAUDEMEM_RATE_LIMIT_MAX_REQUESTS` | `10` | 每个窗口内允许的请求数 |
-| `CLAUDEMEM_RATE_LIMIT_WINDOW_SECONDS` | `60` | 滑动窗口长度（秒） |
+| `CLAUDEMEM_RATE_LIMIT_WINDOW_SECONDS` | `60` | 窗口长度（秒）。它是**固定**窗口、到期即整窗重置，而不是滑动窗口 —— 见下文说明 |
 | `CLAUDEMEM_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS` | `300` | 空闲窗口条目的清理间隔（秒） |
 
 **它只守一个端点，不是整个 API。** 唯一调用点是 `IngestionController`，
@@ -564,9 +564,24 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 {"retry_after": "60", "error": "Rate limit exceeded"}
 ```
 
-而同一时段内 13 次 `GET /api/search` 全部返回 `200`。`retry_after` 的值就是
-窗口长度，因此客户端按它退避即可确保拿到新的额度。`cleanup-interval` 是内存
-控制项：服务最多保留 10,000 条窗口记录，间隔越短，在会话数很多时增长越受控。
+而同一时段内 13 次 `GET /api/search` 全部返回 `200`。`retry_after` 的值是
+**当前窗口的剩余秒数**（`RateLimitService.getRemainingSeconds()` =
+`windowSeconds - (now - windowStart)`），因此只有当被拒请求落在开窗的同一秒里
+它才是 `60` —— 晚一秒读到的就是 `59`。按它退避仍然是正确的：窗口到期、计数归零。
+`cleanup-interval` 是内存控制项：服务最多保留 10,000 条窗口记录，间隔越短，
+在会话数很多时增长越受控。
+
+> **窗口是固定的，不是滑动的，且上限在边界处可以翻倍。**
+> `RateLimitService.SlidingWindow.tryIncrement` 在 `now - windowStart >= windowSeconds`
+> 时**整窗把计数归零** —— 窗口不会逐个请求地老化。2026-10-20 活体实测（同一会话）：
+> t+0.1s 发 1 次，t+58.1s 再发 9 次（全部 `200`，计数到 10），
+> 然后在 t+60.6s **再发 10 次、全部 `200`** —— 计数恰在边界处归零，
+> 而先前那 10 个**才 2.5 秒大**，若真是滑动窗口这 10 个应当**全部被拒**。
+> 于是 20 个请求彼此相隔**几秒**就全部放行 —— 那一次是 2.5 秒，
+> 同一探针复现是 3.3 秒 —— 第 21 个（同一会话）返回 `429`。
+> 关键是这间隔是**几秒**、而不是 60 秒：「每窗口 10 个请求」应理解为**每个窗口**的上限，
+> 而**不是**任意 60 秒区间内的硬上限。后端自己的 javadoc 里这个类仍叫
+> `SlidingWindow`、变量仍被写成滑动窗口 —— 两个名字描述的都是代码并未实现的算法。
 
 这个限流器与 LLM 提供方可能返回的 `429` 无关——见上文排障表。
 

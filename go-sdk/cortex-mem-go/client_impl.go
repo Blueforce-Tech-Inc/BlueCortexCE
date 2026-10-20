@@ -43,7 +43,11 @@ func WithBaseURL(baseURL string) Option {
 	return func(c *ClientConfig) { c.BaseURL = baseURL }
 }
 
-// WithAPIKey sets the API key for authentication.
+// WithAPIKey sets the API key, sent as an "Authorization: Bearer <key>" header
+// on every request (the Java, Python and JS SDKs send it the same way).
+// The current backend does not read that header — it has no authentication
+// filter — so this protects nothing today; it only becomes meaningful once the
+// backend grows authentication.
 func WithAPIKey(apiKey string) Option {
 	return func(c *ClientConfig) { c.APIKey = apiKey }
 }
@@ -237,6 +241,7 @@ func (c *httpClient) doRequest(ctx context.Context, method, path string, body an
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "cortex-mem-go/"+Version)
 	if c.config.APIKey != "" {
+		// The backend does not validate this header today — see WithAPIKey.
 		req.Header.Set("Authorization", "Bearer "+c.config.APIKey)
 	}
 
@@ -382,14 +387,34 @@ func jitteredBackoff(baseDelay time.Duration, attempt int) time.Duration {
 // Retries on network errors, 429, 502, 503, 504. Does NOT retry on 4xx or 500.
 // If the context is already cancelled, skips execution entirely (fire-and-forget optimization).
 //
-// Retrying a POST is only safe because the backend deduplicates: RecordObservation
-// lands on POST /api/ingest/tool-use -> IngestionController.handleObservation ->
-// AgentService.saveObservation, which hashes title/narrative/facts/concepts and
-// returns the existing row when a match exists inside a 30-second window. The
-// default retry span is ~1.5s (3 attempts, 500ms linear backoff with ±25% jitter),
-// so a retry always lands well inside that window and cannot create a duplicate.
-// Raising RetryBackoff or MaxRetries past ~30s total would break that guarantee —
-// re-check the window before changing either.
+// Retry safety differs per operation, and only ONE of the three is protected:
+//
+//   - RecordObservation -> POST /api/ingest/tool-use -> IngestionController.handleToolUse
+//     -> AgentService.processToolUseAsync. Safe to retry: before the LLM call,
+//     processToolUseAsync checks PendingMessageRepository.existsBySessionAndTool
+//     (contentSessionId, toolName, SHA-256(toolInput), status <> 'failed') and returns
+//     immediately on a match, so a repeated request is skipped instead of processed
+//     twice. That check has NO time window. A second line of defence is
+//     AgentService.saveObservation, which hashes title/narrative/facts/concepts and
+//     returns the existing row when the hash matches inside a 30-second window —
+//     but that window compares the two observation SAVE times, so what separates them
+//     is the LLM latency, not the retry span. The guarantee is not absolute: the
+//     pending check is check-then-insert, and the @UniqueConstraint declared on
+//     PendingMessageEntity is not enforced in the database (ddl-auto: none).
+//     See P2-29 in docs/drafts/backend-review-findings.md.
+//
+//   - RecordUserPrompt -> POST /api/ingest/user-prompt and RecordSessionEnd ->
+//     POST /api/ingest/session-end are NOT idempotent server-side: the first
+//     inserts a mem_user_prompts row per request, the second inserts a
+//     mem_summaries row per request (completeSessionForSummary is idempotent for
+//     the session itself, but always returns it, so the summary is generated again).
+//     A retry after a lost response therefore leaves a duplicate prompt row or a
+//     duplicate summary. Neither path has a server-side dedup.
+//
+// The default retry span is ~1.5s (3 attempts, 500ms linear backoff with ±25% jitter).
+// Before changing MaxRetries or RetryBackoff, re-read the two cases above: the
+// observation path is protected by a time-independent check, while the other two
+// duplicate rows the more they are retried.
 func (c *httpClient) doFireAndForget(ctx context.Context, name string, fn func() error) error {
 	// Check context before wasting effort on an already-cancelled request
 	select {

@@ -568,7 +568,7 @@ appear in `application.yml`.** `RateLimitService` reads them straight from
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `CLAUDEMEM_RATE_LIMIT_MAX_REQUESTS` | `10` | Requests allowed per window |
-| `CLAUDEMEM_RATE_LIMIT_WINDOW_SECONDS` | `60` | Sliding-window length in seconds |
+| `CLAUDEMEM_RATE_LIMIT_WINDOW_SECONDS` | `60` | Window length in seconds. It is a **fixed** window that resets wholesale when it expires, not a sliding one — see the note below |
 | `CLAUDEMEM_RATE_LIMIT_CLEANUP_INTERVAL_SECONDS` | `300` | How often idle window entries are evicted |
 
 **It guards one endpoint, not the API.** The only call site is
@@ -582,10 +582,30 @@ live: 10 tool-use calls on one session succeed and the 11th returns
 ```
 
 while 13 `GET /api/search` calls in the same period all return `200`. The
-`retry_after` value is the window length, so a client that backs off for that
-long is guaranteed a fresh allowance. The `cleanup-interval` is a memory
-control: the service keeps at most 10,000 window entries, so a short interval
-bounds growth when many distinct sessions are seen.
+`retry_after` value is **the number of seconds left in the current window**
+(`RateLimitService.getRemainingSeconds()` = `windowSeconds - (now - windowStart)`),
+so it is `60` only when the rejected request lands in the same second the
+window opened — one second later it reads `59`. Backing off for that many
+seconds is still correct: the window expires and the counter resets. The
+`cleanup-interval` is a memory control: the service keeps at most 10,000 window
+entries, so a short interval bounds growth when many distinct sessions are
+seen.
+
+> **The window is fixed, not sliding, and the limit can be doubled at a boundary.**
+> `RateLimitService.SlidingWindow.tryIncrement` resets the whole counter when
+> `now - windowStart >= windowSeconds` — the window does not age out request by
+> request. Measured live on 2026-10-20 on one session: 1 call at t+0.1s, 9 more
+> at t+58.1s (all `200`, counter now 10), then **10 more at t+60.6s, all `200`** —
+> the counter had reset at the boundary, and the previous ten were only 2.5
+> seconds old, so a true sliding window would have rejected every one of them.
+> 20 requests therefore passed within a couple of seconds of each other — 2.5 s
+> in that run, 3.3 s when the same probe was repeated — and the 21st (same
+> session) returned `429`. The gap is a few seconds, not 60, and that is the
+> point: treat "10 requests per window" as a per-window cap, not as a hard
+> ceiling on any 60-second span. The class is still named
+> `SlidingWindow` and the variable is still documented as a sliding window in
+> the backend's own javadoc — the two names describe an algorithm the code does
+> not implement.
 
 This limiter is unrelated to the `429` an LLM provider can return — see the
 troubleshooting table above.

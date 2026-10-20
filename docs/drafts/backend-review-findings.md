@@ -1098,7 +1098,7 @@
   与实测 363 差 **9**，且两个分项（278 / 61）也都对不上（实测 236 / 67）——
   即**约半年未更新**。按 **P2-48 已确立的先例**（`CLAUDE.md` 是 gitignored 的本地文件，
   其问题一律记录不修），本轮**只记录不修**。
-- **Status**: ⏸ **记录不修** —— 待定文档形态策略，见上。
+- **Status**: ⏸ **形态问题（「要不要彻底不写死数字」）仍留待用户决策** —— **数字部分本轮已修（第 367 轮，双语，纯文档）**：本轮**亲跑复测**六个模块（`=== RUN` 计数，含子测试）得根模块 **303**（core 236 + dto 67）+ eino 8 + genkit 13 + langchaingo 12 + `examples/http-server` 27 ⇒ **合计 363**，与本条记的归因（`7a78266` 新增恰好一个顶层测试）**完全吻合**；**双语的 6 处数字已改**：无日期的失实断言改为实测值并**加上测量日期**，带日期的快照同步为 2026-10-20 的实测。**本行替换了此前的「⏸ 记录不修」**——那一条针对的就是形态问题。
 
 ### P2-91: 后端源码里的 `P1-1` / `P1-2` / `P2-1` 标签与本仓库 findings 的编号**含义冲突**，而 `P1-2` 在本仓历史上已指代过三个不同主体
 
@@ -1218,7 +1218,7 @@
 
 
 ### P2-96: `DemoErrors` 自陈的 catch 块数写错了 1 —— 而第 328 轮「核实四项计数全对」那次核实本身是错的
-- **Status**: ⚠️ **第 340 轮的修复本身是错的，已于第 346 轮更正（纯注释零行为变更）** —— 第 340 轮把 `forty` 改成 `forty-one`，**该方向改反了**：第 346 轮三种独立口径（`grep -o 'catch[[:space:]]*('` 逐文件、`grep -c`、`python re` 逐包）一致得出 **12 个 `@RestController` 文件共 40 个 catch 子句**，且 `catch(Exception)` 与 `catch(any)` 完全相等（无其他类型）。`forty` 本来就是对的，**改后成了错的**。同段另有一处从未被验过的失实：**helper 归属写反了**——文档称「two in ObservationsController, one in FeedbackController」，实测 `ObservationsController` **1** 处、`FeedbackController` **2** 处（总数 3 正确、分项相反），与第 340 轮 finding 自身批评的「42−1=41 错减法」同一形状。第 346 轮两处一并更正并加注「每个 catch 子句都属该类型」以便复核；`mvn -o clean compile` EXIT=0，可执行行 `git diff -U0` 为 **0**。**双向注入验证**：回退到修复前原文，检查器报 4 FAIL；仅对调分项也报 FAIL——检查器 `/tmp/check-demo-claims.py` 在此过程中自身错了三次（单位词正则不匹配 `blocks`、剥离 `{@code}` 后抓不到类名、`\bforty\b` 把 `forty-one` 误判为 `forty`），均由阳性对照当场拦下后重写。原条目全文见 [`…-45.md`](../archive/2026-10-07_backend-review-evidence-45.md)。
+- **Status**: ⚠️ **第 340 轮的修复本身是错的，已于第 346 轮更正（纯注释零行为变更）** —— 第 340 轮把 `forty` 改成 `forty-one`，**该方向改反了**：（证据与仪器结论逐字见 [`…-11.md`](../archive/2026-10-20_backend-review-scope-evidence-11.md)）
 ### P2-97: JS SDK README 的方法表里 **3 行参数名写成 `project`**，而源码、同表另外 3 行、以及 Python SDK 全都是 `projectPath` —— **同一个 bug 在 2026-04-01 修过一次，只改了 2 行**
 
 - **Status**: ✅ **已修（第 340 轮）** —— 条目全文逐字见 [2026-10-07_backend-review-evidence-46](../archive/2026-10-07_backend-review-evidence-46.md)（第 340 轮）
@@ -1268,7 +1268,7 @@
 ### P2-105: Demo README 的 `/actuator/health` 行同样被挤到表外 —— 与 P2-104 **同一类**，靠全库扫描才发现
 - **Status**: ✅ **已修（第 344 轮）** —— 条目全文逐字见 [2026-10-07_backend-review-evidence-50](../archive/2026-10-07_backend-review-evidence-50.md)（第 344 轮）
 ### P2-106: 全库 **98 行**表格的单元格数与表头不符 —— 多数是代码 span 里的裸 `|` 未转义，而**渲染器根本检测不到这一类**
-- **Status**: ⏸ **记录不修**（批量，逐文件核对成本高于本轮；本条按 Archived History 段的「标题紧跟 Status」体例排版以省 1 行） —— 分布：`evolver-memory/04` 35 行、`/05` 30 行、`archive/2026-09-30_backend-review-findings-history.md` **26 行（归档，按规则不可改）**、`evolver-memory-analysis/03-signals` 4 行、其余 5 行各 1（`proxy/CLAUDE-CODE-INTEGRATION-zh-CN.md:106` 的 `Edit|Write|Read\|Bash` **只转义了 3 个管道里的 1 个**（**第 345 轮已修**：三个管道全部转义）、`phase-3-design/15.md:101` 末尾多一个空单元格（**该行第 345 轮已修**））。**已修的 6 行**：`patrol-rotation.md` 4 行 + 上列 proxy zh 与 phase-3-design 各 1 行（`:243/246/248/251`），修后该文件直方图归一到 `{4: 259, 3: 119}`。**关键仪器结论**：受控样本证实 **pandoc 的 GFM 解析器不按代码 span 内的 `|` 切单元格**（386 行全报 3 单元格），而 GitHub 会切——故此类缺陷**必须数未转义管道，渲染器复核无效**，这正是 P2-99 当年改用直方图的原因。检查器 `/tmp/find-pipe-mismatch.py` 带自检（good=0 / code-span=1 / extra-col=1 / fenced=0）；其**首版公式 `pipes-1` 把无收尾竖线的行少算一个单元格**，被自检里那条无收尾行当场拦下。
+- **Status**: ⏸ **记录不修**（批量，逐文件核对成本高于本轮；本条按 Archived History 段的「标题紧跟 Status」体例排版以省 1 行） （证据与仪器结论逐字见 [`…-11.md`](../archive/2026-10-20_backend-review-scope-evidence-11.md)）
 
 ### P2-107: `DemoParams` 的类注释称 `MemoryController` 是**唯一**在 `/demo` 前缀外的控制器 —— 活体实测有**两个**，且它自己引用的 README 就列出了第二个
 - **Status**: ✅ **已修（第 359 轮）** —— 条目全文逐字见 [2026-10-07_backend-review-evidence-57](../archive/2026-10-07_backend-review-evidence-57.md)（第 359 轮）
@@ -1360,6 +1360,11 @@
 
 ### P2-122: 四家 SDK 都能配 API 密钥，但**后端从不校验它** —— 密钥今天是**零保护**，而三份 README 把它写成「for auth」，Java SDK 的 javadoc 更直接断言「Null/blank = no auth」
 - **Status**: ⏸ **服务端鉴权本身记录不实施**（给后端加鉴权 = 改变**所有**现有部署的对外契约 = 对外行为契约变更，按既定纪律先记后定）—— **客户端侧四处失实陈述本轮已修**（全为注释与文档，可执行行 0）：①`CortexMemProperties.apiKey` 的 javadoc（原文「Null/blank = no auth」**为假**）；②`CortexMemClientImpl` 的「Bearer token auth」措辞；③Java SDK README 属性表**补 `api-key` 行**（此前完全没有）；④架构文档双语 `### Authentication` 段**各补一段**。Java SDK `mvn clean test` **196 通过 / 0 失败**。**三选一见归档正文**。 条目全文已逐字迁入 [`…-66.md`](../archive/2026-10-20_backend-review-evidence-66.md)（第 366 轮）。
+
+### P2-123: Go SDK 的 `doFireAndForget` 把「重试 POST 是安全的」写成**承重注释**，而它点名了**不在链上的处理器**、归因了**错误的机制**、覆盖了**三条里只有一条受保护**的操作
+- **Status**: ⏸ **服务端幂等化与 SDK 重试范围收窄留待用户决策**（对外行为契约变更）—— **注释层失实陈述本轮已修**（Go SDK 一个文件，**可执行行 0**）：链改对（`handleToolUse`）、机制写对（**第一道**防线是 pending 层 `(session, tool, SHA-256(tool_input))` + `status <> 'failed'`，**无时间窗**；30 秒内容哈希窗口是**第二道**防线）、范围写对（另两条**不幂等**）、「cannot create a duplicate」改为「**保证不绝对**」（见 P2-29）。**三选一见归档正文**。 条目全文已逐字迁入 [`…-67.md`](../archive/2026-10-20_backend-review-evidence-67.md)（第 367 轮）。
+### P2-124: 部署指南的限流段把 `CLAUDEMEM_RATE_LIMIT_WINDOW_SECONDS` 写成「**滑动窗口**」，而实现是**固定窗口** —— 边界处上限可以**翻倍**；同段还把 `retry_after` 说成「窗口长度」，实际是**当前窗口的剩余秒数**
+- **Status**: ⏸ **限流器要不要改成真滑动窗口留待用户决策**（属行为变更）—— **失实陈述本轮已修**（双语，纯文档）：变量表的「Sliding-window / 滑动窗口」改为「**固定**窗口、到期整窗重置」；`retry_after` 改为「**当前窗口的剩余秒数**」（≤ 窗口长度，第 11 次请求实测读到 `59`）；并**新增一段实测**（边界处 20 个请求在约 2.5 秒内通过、第 21 个才 429）。**三选一见归档正文**。 条目全文已逐字迁入 [`…-67.md`](../archive/2026-10-20_backend-review-evidence-67.md)（第 367 轮）。
 
 ## Processing Rules
 - **第 316 轮新增流程规则（连续三轮教训的归纳）——落笔前先查该模块自己的文档**：

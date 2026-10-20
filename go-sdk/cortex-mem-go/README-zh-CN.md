@@ -10,7 +10,7 @@
 - **完整 API 覆盖** —— 25 个方法，涵盖会话、捕获、检索、管理、提取、版本、P1
 - **框架集成** —— 可选的 Eino、LangChainGo、Genkit 模块
 - **Wire 格式兼容** —— JSON 字段名与后端 API 完全一致
-- **全面测试** —— 362 个测试，含 Wire 格式验证。根模块跑 302 个（core 235 + dto 67）；适配器与示例模块从各自目录运行时再增加 60 个（eino 8 + genkit 13 + langchaingo 12 + `examples/http-server` 27）。为何单跑 `go test ./...` 只覆盖根模块，见[测试](#测试)。
+- **全面测试** —— 363 个测试，含 Wire 格式验证（2026-10-20 实测；当前值见[测试](#测试)里的逐模块命令）。根模块跑 303 个（core 236 + dto 67）；适配器与示例模块从各自目录运行时再增加 60 个（eino 8 + genkit 13 + langchaingo 12 + `examples/http-server` 27）。为何单跑 `go test ./...` 只覆盖根模块，见[测试](#测试)。
 
 ## 安装
 
@@ -107,7 +107,7 @@ client := cortexmem.NewClient(
 | 选项 | 默认值 | 说明 |
 |------|--------|------|
 | `WithBaseURL` | `http://127.0.0.1:37777` | 后端基础 URL |
-| `WithAPIKey` | *(无)* | Bearer Token 认证 |
+| `WithAPIKey` | *(无)* | 每次请求以 `Authorization: Bearer <key>` 发出。**当前后端不校验这个头**（它没有任何鉴权过滤器），故配置它今天保护不了任何东西 —— 详见 [`docs/ARCHITECTURE-zh-CN.md`](../../docs/ARCHITECTURE-zh-CN.md) 的「认证」一节 |
 | `WithTimeout` | `30s` | 总请求超时（与 Java SDK `readTimeout` 对齐） |
 | `WithConnectTimeout` | `10s` | 连接超时（与 Java SDK `connectTimeout` 对齐） |
 | `WithHTTPClient` | *(自动构建)* | 自定义 `http.Client`（覆盖超时选项；归调用方所有，见下文） |
@@ -174,7 +174,7 @@ retriever := genkit.NewRetriever(client, "/my-project",
 
 **本 SDK 是 9 个独立的 Go module，而不是一个。** `eino/`、`genkit/`、
 `langchaingo/` 以及 `examples/` 下的每个目录都有自己的 `go.mod`，因此在本目录
-直接执行 `go test ./...` **只能覆盖根模块**——362 个测试里的 302 个。被跳过的
+直接执行 `go test ./...` **只能覆盖根模块**——363 个测试里的 303 个。被跳过的
 四个适配器与示例模块，恰恰是最容易随上游框架升级而失效的部分，所以请跑全部九个：
 
 ```bash
@@ -184,9 +184,10 @@ find . -name go.mod -exec dirname {} \; | sort | while read -r d; do
 done
 ```
 
-2026-10-04 实测九个全绿：core 235 + dto 67 + eino 8 + genkit 13
-+ langchaingo 12 + `examples/http-server` 27 = **362**。其余四个 `examples/`
-模块没有测试文件，会输出 `[no test files]`。
+2026-10-20 实测九个全绿：core 236 + dto 67 + eino 8 + genkit 13
++ langchaingo 12 + `examples/http-server` 27 = **363**。其余四个 `examples/`
+模块没有测试文件，会输出 `[no test files]`。这些计数是**带日期的实测值**而非实时值 ——
+当前值请重跑上面的命令。
 
 ```bash
 # 覆盖率仅统计根模块（各适配器需各自加 -cover 单独运行）
