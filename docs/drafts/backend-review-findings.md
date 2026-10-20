@@ -1370,7 +1370,7 @@
 - **Status**: ✅ **选项①已实施（371 轮）**：去掉 `prompt_text` 的 REQUIRED 注解（纯放宽，零运行时影响）⇒ 活体 spec 的 `required` 已变为 `['session_id']`。全文逐字见 [`…-69`](../archive/2026-10-20_backend-review-evidence-69.md)。
 
 ### P2-128: 四家 SDK 的参数下限只有 Python 的 README 写了；Java 的 `retry.backoff` / `read-timeout` 根本没有 100ms 下限，且只有 Go 有测试钉住
-- **Status**: ⏸ **Java 要不要对齐另三家的下限、Go/Java README 要不要补下限，待决**（对外行为契约）—— JS 已修（双语补三行下限）：只有 Python 写了；Java 的 `retry.backoff` 无 100ms 下限（实测 1ns 原样）、`read-timeout` 无任何下限（0 原样）；四家里只有 Go 有测试钉住。三选一见归档正文。 全文逐字见 [`…-70`](../archive/2026-10-20_backend-review-evidence-70.md)（369 轮）。
+- **Status**: ⏸ **Java 要不要对齐另三家的下限、Java README 要不要补下限，待决**（对外行为契约）—— **Go 侧已于 379 轮结转**（纯文档/注释、零可执行行：Go 的四个下限本就由 **5** 个测试钉住且本轮实测全 PASS，本轮把双语 README 的选项表补齐四行下限、并给三个 Option 的 doc 注释补上下限）；**Java 侧仍待决**。JS 已修（双语补三行下限）：只有 Python 写了；Java 的 `retry.backoff` 无 100ms 下限（实测 1ns 原样）、`read-timeout` 无任何下限（0 原样）；四家里只有 Go 有测试钉住。三选一见归档正文。 原文逐字见 [`…-70`](../archive/2026-10-20_backend-review-evidence-70.md)（369 轮）；Go 侧全文见 [`…-80`](../archive/2026-10-20_backend-review-evidence-80.md)。
 
 ### P2-129: 四家 demo 的 404/405 响应分裂成三种形态 —— JS 对方法不匹配答 404 + HTML、Go 对未知路径答 text/plain，而 Go demo 自己的 README 写着「Every error is {"error": "<message>"}」
 - **Status**: ⏸ **Java 的 404/405 体要不要也拉齐，待决**（对外契约）—— Go 与 JS 已修：四家现状态码与 Content-Type 全部一致（405/404 + application/json）；三选一见归档正文。 全文逐字见 [`…-71`](../archive/2026-10-20_backend-review-evidence-71.md)（370 轮）。
@@ -1405,6 +1405,8 @@
 - **Status**: ✅ 已修（378 轮，零可执行行）—— 3 个字段补 `@JsonProperty`、2 个 List getter 标 `@JsonIgnore`；不变量测试「宣告集 == 实际序列化集」钉住，阳性对照逐个点名那 5 个幽灵属性。全文逐字见 [`…-79`](../archive/2026-10-20_backend-review-evidence-79.md)。
 ### P2-144: `PUT /api/mode` 接受不存在的 `mode_id` 并静默回落到默认模式，响应里的 `mode_id` **回显请求值**而非真正生效的模式 —— 而它宣告的那个 400 分支是**死代码**
 - **Status**: ⏸ **行为要不要改留待用户决策**（对外行为契约变更）—— 三条候选修法见归档正文；失实陈述已修（400 宣告改「空体」+ `@Operation` 描述改真，零可执行行）。全文逐字见 [`…-79`](../archive/2026-10-20_backend-review-evidence-79.md)。
+### P2-145: Go SDK 英文 README 写「the **two** capture methods」—— 同一 commit 的中文版写「三个」，实现里也确实是三个；且接口注释只给其中一个标了 fire-and-forget
+- **Status**: ✅ 已修（379 轮，Go 侧，零可执行行）—— 英文「two」改「three」并点明三个捕获方法**都是** fire-and-forget（吞掉后端返回、报成功）；两版方法表的 Capture 组标注 (fire-and-forget)；`client.go` 接口注释给另两个方法补上标注；**Java 侧同型结转**（三个方法一个都没标）。**P2-128 的 Go 侧**同批结转（四个下限的文档）。全文逐字见 [`…-80`](../archive/2026-10-20_backend-review-evidence-80.md)。
 ## Processing Rules
 - 第 378 轮续记压缩杠杆：**缩短已结案条目的 Status 行**（第 292/293 轮杠杆）时，
   把「被删掉的细节」做成**可断言的形式** —— 拆出每个反引号/引号/数字 token，

@@ -80,7 +80,7 @@ func main() {
 | 类别 | 方法 |
 |------|------|
 | 会话 | `StartSession`, `UpdateSessionUserId` |
-| 捕获 | `RecordObservation`, `RecordSessionEnd`, `RecordUserPrompt` |
+| 捕获（fire-and-forget） | `RecordObservation`, `RecordSessionEnd`, `RecordUserPrompt` |
 | 检索 | `RetrieveExperiences`, `BuildICLPrompt`, `Search`, `ListObservations`, `GetObservation`, `GetObservationsByIds` |
 | 管理 | `TriggerRefinement`, `SubmitFeedback`, `UpdateObservation`, `DeleteObservation`, `GetQualityDistribution` |
 | 健康 | `HealthCheck` |
@@ -108,11 +108,11 @@ client := cortexmem.NewClient(
 |------|--------|------|
 | `WithBaseURL` | `http://127.0.0.1:37777` | 后端基础 URL |
 | `WithAPIKey` | *(无)* | 每次请求以 `Authorization: Bearer <key>` 发出。**当前后端不校验这个头**（它没有任何鉴权过滤器），故配置它今天保护不了任何东西 —— 详见 [`docs/ARCHITECTURE-zh-CN.md`](../../docs/ARCHITECTURE-zh-CN.md) 的「认证」一节 |
-| `WithTimeout` | `30s` | 总请求超时（与 Java SDK `readTimeout` 对齐） |
-| `WithConnectTimeout` | `10s` | 连接超时（与 Java SDK `connectTimeout` 对齐） |
+| `WithTimeout` | `30s` | 总请求超时（与 Java SDK `readTimeout` 对齐）；下限 `100ms` |
+| `WithConnectTimeout` | `10s` | 连接超时（与 Java SDK `connectTimeout` 对齐）；下限 `100ms` |
 | `WithHTTPClient` | *(自动构建)* | 自定义 `http.Client`（覆盖超时选项；归调用方所有，见下文） |
-| `WithMaxRetries` | `3` | Fire-and-forget 操作的总**尝试**次数（3 = 发 3 次请求，即首次之后的 2 次重试） |
-| `WithRetryBackoff` | `500ms` | 基础重试退避（线性：`backoff × attempt`） |
+| `WithMaxRetries` | `3` | Fire-and-forget 操作的总**尝试**次数（3 = 发 3 次请求，即首次之后的 2 次重试）。低于 `1` 的值会被抬到 `1` |
+| `WithRetryBackoff` | `500ms` | 基础重试退避（线性：`backoff × attempt`）；下限 `100ms` |
 | `WithLogger` | *(空操作)* | 自定义日志器（兼容 `*slog.Logger`） |
 
 ### HTTP 客户端归属
@@ -335,8 +335,9 @@ SDK 自带的适配器也继承了这个陷阱——`eino` 与 `genkit` 的 retr
 因此「项目未设置」与「该项目确实没有记忆」无法区分，尽管客户端不会替你把关，
 仍值得在调用处自行判断。四家 SDK 在这两个端点上都是如此。
 
-这些检查不是装饰。其中三个 capture 方法最能说明问题：`RecordObservation` 是
-fire-and-forget，会吞掉后端返回的一切——`ToolName` 为空时后端返回
+这些检查不是装饰。其中三个 capture 方法最能说明问题：`RecordObservation`、
+`RecordSessionEnd` 与 `RecordUserPrompt` **都是** fire-and-forget，会吞掉后端返回的一切——
+`ToolName` 为空时后端返回
 `400 Missing required field: tool_name`，SDK 记一条日志后正常返回，调用方于是认为
 观测已记录，而服务器刚刚拒绝了它。`ProjectPath` 为空则更隐蔽，因为后端**接受**它：
 记录会以空项目路径入队，随后不出现在任何按项目过滤的查询里，全程没有任何错误提示。

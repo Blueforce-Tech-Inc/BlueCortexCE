@@ -20,10 +20,10 @@ type Client interface {
 	// RecordObservation records a tool-use observation (fire-and-forget).
 	RecordObservation(ctx context.Context, req dto.ObservationRequest) error
 
-	// RecordSessionEnd signals session end.
+	// RecordSessionEnd signals session end (fire-and-forget).
 	RecordSessionEnd(ctx context.Context, req dto.SessionEndRequest) error
 
-	// RecordUserPrompt records a user prompt.
+	// RecordUserPrompt records a user prompt (fire-and-forget).
 	RecordUserPrompt(ctx context.Context, req dto.UserPromptRequest) error
 
 	// ==================== Retrieval ====================

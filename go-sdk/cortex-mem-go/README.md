@@ -80,7 +80,7 @@ func main() {
 | Category | Methods |
 |----------|---------|
 | Session | `StartSession`, `UpdateSessionUserId` |
-| Capture | `RecordObservation`, `RecordSessionEnd`, `RecordUserPrompt` |
+| Capture (fire-and-forget) | `RecordObservation`, `RecordSessionEnd`, `RecordUserPrompt` |
 | Retrieval | `RetrieveExperiences`, `BuildICLPrompt`, `Search`, `ListObservations`, `GetObservation`, `GetObservationsByIds` |
 | Management | `TriggerRefinement`, `SubmitFeedback`, `UpdateObservation`, `DeleteObservation`, `GetQualityDistribution` |
 | Health | `HealthCheck` |
@@ -108,11 +108,11 @@ client := cortexmem.NewClient(
 |--------|---------|-------------|
 | `WithBaseURL` | `http://127.0.0.1:37777` | Backend base URL |
 | `WithAPIKey` | *(none)* | Sent as `Authorization: Bearer <key>` on every request. **The current backend does not validate that header** (it has no authentication filter), so setting it protects nothing today — see the Authentication section of [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md) |
-| `WithTimeout` | `30s` | Overall request timeout (matches Java SDK `readTimeout`) |
-| `WithConnectTimeout` | `10s` | Connection timeout (matches Java SDK `connectTimeout`) |
+| `WithTimeout` | `30s` | Overall request timeout (matches Java SDK `readTimeout`); floored at `100ms` |
+| `WithConnectTimeout` | `10s` | Connection timeout (matches Java SDK `connectTimeout`); floored at `100ms` |
 | `WithHTTPClient` | *(auto-built)* | Custom `http.Client` (overrides timeout options; caller owns it — see below) |
-| `WithMaxRetries` | `3` | Total **attempts** for fire-and-forget ops (3 = 3 requests, i.e. 2 retries) |
-| `WithRetryBackoff` | `500ms` | Base retry backoff (linear: `backoff × attempt`) |
+| `WithMaxRetries` | `3` | Total **attempts** for fire-and-forget ops (3 = 3 requests, i.e. 2 retries). Values below `1` are raised to `1` |
+| `WithRetryBackoff` | `500ms` | Base retry backoff (linear: `backoff × attempt`); floored at `100ms` |
 | `WithLogger` | *(nop)* | Custom logger (compatible with `*slog.Logger`) |
 
 ### HTTP client ownership
@@ -357,9 +357,10 @@ genuinely has no memories", which is worth guarding at the call site even though
 the client will not guard it for you. The same applies to any blank scoping
 value on these two endpoints, in all four SDKs.
 
-The checks are not decoration, and the two capture methods are the clearest case.
-`RecordObservation` is fire-and-forget, so it swallows whatever the backend replies:
-an empty `ToolName` comes back as `400 Missing required field: tool_name`, the SDK
+The checks are not decoration, and the three capture methods are the clearest case.
+All three are fire-and-forget — `RecordObservation`, `RecordSessionEnd` and `RecordUserPrompt` —
+so they swallow whatever the backend replies and report success. `RecordObservation` is the
+sharpest case: an empty `ToolName` comes back as `400 Missing required field: tool_name`, the SDK
 logs it and returns nil, and the caller concludes the observation was captured when
 the server had just rejected it. An empty `ProjectPath` is quieter still, because the
 backend *accepts* it — the record is queued against no project and then appears in no

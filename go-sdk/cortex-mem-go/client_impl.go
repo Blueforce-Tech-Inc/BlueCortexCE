@@ -59,12 +59,14 @@ func WithHTTPClient(client *http.Client) Option {
 }
 
 // WithTimeout sets the overall request timeout (default: 30s, matching Java SDK readTimeout).
+// Values below 100ms are floored to 100ms rather than reset to the default.
 // Ignored if WithHTTPClient is used.
 func WithTimeout(d time.Duration) Option {
 	return func(c *ClientConfig) { c.Timeout = d }
 }
 
 // WithConnectTimeout sets the connection timeout (default: 10s, matching Java SDK connectTimeout).
+// Values below 100ms are floored to 100ms rather than reset to the default.
 // Applied via a custom http.Transport.DialContext. Ignored if WithHTTPClient is used.
 func WithConnectTimeout(d time.Duration) Option {
 	return func(c *ClientConfig) { c.ConnectTimeout = d }
@@ -80,6 +82,7 @@ func WithMaxRetries(n int) Option {
 }
 
 // WithRetryBackoff sets the base retry backoff duration.
+// Values below 100ms are floored to 100ms rather than reset to the default.
 // Actual backoff per attempt = RetryBackoff * attempt (linear backoff with ±25% jitter).
 // Jitter prevents thundering herd when multiple clients retry simultaneously.
 func WithRetryBackoff(d time.Duration) Option {
