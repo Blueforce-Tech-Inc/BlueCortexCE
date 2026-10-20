@@ -667,27 +667,39 @@ List<Experience> experiences = client.retrieveExperiences(
 
 ### Source Attribution
 
-Track the origin of each observation with the `source` field:
+Track the origin of an observation with the `source` field. Set it on the
+observation itself, through `updateObservation` (a `PATCH`):
 
 ```java
-client.recordObservation(ObservationRequest.builder()
-    .sessionId(sessionId)
-    .projectPath(projectPath)
-    .toolName("search")
-    .toolInput(Map.of("query", "Spring AI memory"))
-    .source("tool_result")  // V14: source attribution
+String observationId = client.listObservations(ObservationsRequest.builder()
+        .project(projectPath)
+        .limit(1)
+        .build())
+    .items().get(0).id();
+
+client.updateObservation(observationId, ObservationUpdate.builder()
+    .source("tool_result")
     .build());
 ```
 
+> **`recordObservation` accepts a `source` too — and the backend drops it.**
+> `recordObservation(...)` posts to `POST /api/ingest/tool-use`, and that path
+> reads only `session_id`, `cwd`, `tool_name`, `tool_input`, `tool_response` and
+> `platform_source`; `source`, `extractedData` and `prompt_number` are accepted
+> and then **silently discarded**. Measured live on 2026-10-20: a tool-use
+> carrying `source="p371src-tooluse"` left `mem_observations.source` with **0
+> matching rows**, while the same field sent through `updateObservation(...)`
+> was persisted. `recordObservation` is fire-and-forget and returns no id, so it
+> cannot hand you the observation to patch either — take the id from
+> `listObservations(...)` or `search(...)`.
+
 ### Structured Data Extraction
 
-Store structured key-value data with `extractedData`:
+Store structured key-value data with `extractedData` — again on the observation
+itself, not on the tool-use event:
 
 ```java
-client.recordObservation(ObservationRequest.builder()
-    .sessionId(sessionId)
-    .projectPath(projectPath)
-    .toolName("user_preference")
+client.updateObservation(observationId, ObservationUpdate.builder()
     .source("user_statement")
     .extractedData(Map.of(  // V14: structured key-value data
         "price_range", "3000",
@@ -696,6 +708,9 @@ client.recordObservation(ObservationRequest.builder()
     ))
     .build());
 ```
+
+`POST /api/ingest/observation` persists both fields as well, but this client
+exposes no method for that endpoint — `updateObservation` is the route from here.
 
 ### Adaptive Truncation (maxChars)
 
@@ -764,7 +779,7 @@ The client talks to these Cortex CE endpoints:
 |---------------|-----------------|-----|---------|
 | `startSession()` | `POST /api/session/start` | | ✅ userId |
 | `updateSessionUserId()` | `PATCH /api/session/{sessionId}/user` | | ✅ NEW |
-| `recordObservation()` | `POST /api/ingest/tool-use` | ✅ source, extractedData | |
+| `recordObservation()` | `POST /api/ingest/tool-use` | ⚠️ source, extractedData — accepted but **not persisted** by that endpoint | |
 | `recordSessionEnd()` | `POST /api/ingest/session-end` | | |
 | `recordUserPrompt()` | `POST /api/ingest/user-prompt` | | |
 | `retrieveExperiences()` | `POST /api/memory/experiences` | ✅ source, requiredConcepts | ✅ userId |
@@ -787,6 +802,12 @@ The client talks to these Cortex CE endpoints:
 | `getStats()` | `GET /api/stats` | | |
 | `getModes()` | `GET /api/modes` | | |
 | `getSettings()` | `GET /api/settings` | | |
+
+> **The ⚠️ row**: `POST /api/ingest/tool-use` accepts `source`, `extractedData` and
+> `prompt_number`, but the backend's tool-use handler never reads them, so the
+> values are dropped. Set them on the observation itself with
+> `updateObservation()` — that is a `PATCH /api/memory/observations/{id}`, and it
+> does persist them.
 
 ## Common Pitfalls
 

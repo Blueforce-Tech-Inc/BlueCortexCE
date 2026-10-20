@@ -429,7 +429,7 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 
 | 变量名 | 必填 | 默认值 | 说明 |
 |--------|------|--------|------|
-| `SPRING_PROFILES_ACTIVE` | 否 | `prd` | 环境配置（dev/prd） |
+| `SPRING_PROFILES_ACTIVE` | 否 | `prd`（**仅 Docker Compose 下**） | 环境配置（dev/prd）。把默认值定成 `prd` 的是 `docker-compose.yml:52`；原生 JAR 运行若不设该变量，则**没有任何激活的 profile** —— 见 5.4 节的第三种状态 |
 | `SERVER_PORT` | 否 | `37777` | HTTP 服务端口 |
 | `SERVER_ADDRESS` | 否 | `127.0.0.1`（本地 JAR）；Docker 中硬编码为 `0.0.0.0` | 监听地址 |
 
@@ -501,6 +501,35 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 >
 > 显式设置则与 profile 无关；不设置则由 profile 决定。5.8 节的开发环境示例正是
 > 依赖这一点——它把五个值全部显式写出，而不是继承默认值。
+>
+> **还有第三种状态，而原生 JAR 运行恰好落在这一种。**
+> `prd` 只是 **Docker Compose 下的**默认值（`docker-compose.yml:52`：
+> `SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prd}`）。原生启动 JAR 且不设该变量时，
+> Spring 会打印「No active profile set, falling back to 1 default profile: "default"」——
+> 此时**上面两张表都不适用**，因为 `application.yml` 自身根本没有定义任何 `spring.ai.openai.*`
+> 配置项。真正生效的是 `SpringAiConfig` 里的 `@Value` 兜底值，恰好与 `dev` 那一列一致：
+>
+> | 变量 | 无 profile 时实际生效的值 |
+> |------|--------------------------|
+> | `SPRING_AI_OPENAI_BASE_URL` | `https://api.deepseek.com` |
+> | `SPRING_AI_OPENAI_CHAT_MODEL` | `deepseek-chat` |
+> | `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | `https://api.siliconflow.cn` |
+> | `SPRING_AI_OPENAI_EMBEDDING_MODEL` | `BAAI/bge-m3` |
+> | `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | `1024` |
+>
+> **而且在没有 profile 时，上表里大部分变量会失效。** 2026-10-20 实测（无 profile 启动 JAR）：
+> 设置 `SPRING_AI_OPENAI_BASE_URL` 与 `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` **确实生效**，
+> 但 `SPRING_AI_OPENAI_CHAT_MODEL`、`SPRING_AI_OPENAI_EMBEDDING_MODEL` 与
+> `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` **被静默忽略**，短别名 `OPENAI_BASE_URL` /
+> `OPENAI_MODEL` 同样无效。原因在属性名上：`SpringAiConfig` 读模型与维度用的是
+> `spring.ai.openai.chat.options.model` 与 `spring.ai.openai.embedding.options.dimensions`，
+> 而 Spring 的宽松绑定把 `SPRING_AI_OPENAI_CHAT_MODEL` 映到 `spring.ai.openai.chat.model`、
+> 把 `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` 映到 `spring.ai.openai.embedding.dimensions`
+> —— **差一段**，值到不了字段。两个 base URL 读的是 `spring.ai.openai.base-url` /
+> `spring.ai.openai.embedding.base-url`，**恰好对得上**，所以它们仍然生效。在 `prd` 与 `dev`
+> 下这个问题不出现，因为那两个配置文件**自己**就把变量名写了出来
+> （`model: ${SPRING_AI_OPENAI_CHAT_MODEL:...}`）—— **映射变量名的是 profile，不是代码**。
+> 所以：**请显式设置 `SPRING_PROFILES_ACTIVE`，否则模型名会被忽略。**
 >
 > 上表的短别名只定义在 `application-prd.yml` 中。`dev` profile 识别
 > `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_MODEL`，但**没有**对应的

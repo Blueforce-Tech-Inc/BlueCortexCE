@@ -155,14 +155,20 @@ cd scripts
 
 ### 6. 测试环境变量
 
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `SERVER_URL` | http://127.0.0.1:37777 | 服务器 URL |
-| `DB_NAME` | claude_mem | 数据库名称 |
-| `DB_USERNAME` | postgres | 数据库用户名 |
-| `DB_PASSWORD` | - | 数据库密码 |
-| `SPRING_AI_OPENAI_API_KEY` | - | OpenAI/DeepSeek API key |
-| `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | - | Embedding API key |
+测试脚本与后端对同一批设置读的是**不同的变量**——导出 `DB_USERNAME` 并不能让测试脚本用上它，
+`scripts/README.md` 里就是这么写的（「Note: the variable is DB_PASS, not DB_PASSWORD」）。
+
+| 变量 | 由谁读取 | 默认值 | 说明 |
+|------|----------|--------|------|
+| `SERVER_URL` | 测试脚本 | http://127.0.0.1:37777 | 服务器 URL。`mcp-e2e-test.sh` 的默认值是 `http://localhost:37777`；`phase3-acceptance-test.sh` 读的是 `BACKEND_URL`（默认值相同） |
+| `DB_NAME` | `regression-test.sh` 与两个 Docker 套件 | `claude_mem_dev` | 数据库名。`regression-test.sh` 默认 `claude_mem_dev`，`docker-compose-test.sh` 默认 `claude_mem_compose_test`，`docker-e2e-test.sh` 默认 `claude_mem_test`。`claude_mem` 是 **docker-compose** 为应用自身数据库定的默认值，**不是**测试套件的默认值 |
+| `DB_HOST` | `regression-test.sh` | 127.0.0.1 | 脚本连接 PostgreSQL 用的主机 |
+| `DB_USER` | `regression-test.sh` 与两个 Docker 套件 | postgres | 脚本连接 PostgreSQL 用的用户名 |
+| `DB_PASS` | `regression-test.sh` 与两个 Docker 套件 | `123456` | 脚本连接 PostgreSQL 用的密码；两个 Docker 套件默认 `testpassword123` |
+| `DB_USERNAME` | **仅后端** | postgres | 后端自己的变量——`application.yml` 读 `${SPRING_DATASOURCE_USERNAME:${DB_USERNAME:postgres}}`。**测试脚本不读它** |
+| `DB_PASSWORD` | **仅后端** | `123456` | 后端自己的变量——`application.yml` 读 `${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:123456}}`。**测试脚本不读它** |
+| `SPRING_AI_OPENAI_API_KEY` | 后端、两个 Docker 套件、`java-sdk-e2e-test.sh` | - | OpenAI/DeepSeek API key |
+| `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | 后端、两个 Docker 套件 | - | Embedding API key |
 
 ### 7. MCP 协议自动检测
 
@@ -245,6 +251,7 @@ cd backend
 
 | 日期 | 变更 |
 |------|------|
+| 2026-10-20 | 第 6 节：表里把**后端**的 `DB_USERNAME` / `DB_PASSWORD` 写成了测试脚本的变量——脚本读的是 `DB_USER` / `DB_PASS`，`scripts/README.md` 里明写着（「Note: the variable is DB_PASS, not DB_PASSWORD」）；同时把 `DB_NAME` 的默认值写成了 docker-compose 的 `claude_mem` 而非各套件的 `claude_mem_dev`，并删掉了 `DB_HOST`——而 `regression-test.sh:41` 至今仍在读它。现表已逐行标明**由谁读取**与真实默认值，并补回 `DB_HOST` / `DB_USER` / `DB_PASS` 三行。此条**补充而非改写**下方的 2026-05-04 条目：那次为后端改了变量名，却没注意到这张表讲的是测试变量，于是把 `DB_HOST` 当作「不存在的」删掉，而脚本仍在读它；中英文同步更新 |
 | 2026-10-03 | 「服务未运行」一节只给出 `./mvnw spring-boot:run`，而该命令**不会**读取 `.env`——Spring Boot 配置中既无 dotenv 依赖也无 `spring.config.import`，key 只存在于 `.env` 文件里的用户会得到一个能启动、却在首次调用 LLM/embedding 时失败的服务。补充 `scripts/start.sh`（加载 `.env`、固定 37777、支持 `--build`/`--background`），并说明 `start.sh` 读的是 `backend/.env`、而 `start-all.sh` 与 `docker compose` 读的是仓库根 `.env`——只建了根 `.env` 的用户用 `start.sh` 会启动出一个没有 key 的后端；中英文同步更新 |
 | 2026-10-02 | 在「前置条件」与「PostgreSQL 连接失败」中说明端口分野（`:5433`）——用 `docker compose up -d` 启动后端的用户若照排障里的 `docker run -p 5432:5432` 操作，会在 5432 上再起一个**空**数据库，而数据其实在 compose 容器的 5433 上。已核实 `run-all-e2e.sh` 确实运行 10 个本地套件、`phase3-acceptance-test.sh` 确实定义 15 个测试函数，两个计数均保持不变；中英文同步更新 |
 | 2026-05-04 | 第 6 节修复 4 个环境变量错误——移除不存在的 `DB_HOST` 和 `SPRING_AI_MCP_SERVER_PROTOCOL`，修正 `DB_USER`→`DB_USERNAME` 和 `DB_PASS`→`DB_PASSWORD`，修正 `DB_NAME` 默认值 `claude_mem_dev`→`claude_mem`（与 docker-compose.yml 一致）；中英文同步更新 |

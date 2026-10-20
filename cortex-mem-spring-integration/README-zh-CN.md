@@ -645,27 +645,34 @@ List<Experience> experiences = client.retrieveExperiences(
 
 ### 来源归属
 
-使用 `source` 字段跟踪每个观察结果的来源：
+用 `source` 字段跟踪观察结果的来源。**要设在观察结果本身上**，通过 `updateObservation`（一个 `PATCH`）：
 
 ```java
-client.recordObservation(ObservationRequest.builder()
-    .sessionId(sessionId)
-    .projectPath(projectPath)
-    .toolName("search")
-    .toolInput(Map.of("query", "Spring AI memory"))
-    .source("tool_result")  // V14：来源归属
+String observationId = client.listObservations(ObservationsRequest.builder()
+        .project(projectPath)
+        .limit(1)
+        .build())
+    .items().get(0).id();
+
+client.updateObservation(observationId, ObservationUpdate.builder()
+    .source("tool_result")
     .build());
 ```
 
+> **`recordObservation` 也接受 `source` —— 而后端会把它丢掉。**
+> `recordObservation(...)` 发往 `POST /api/ingest/tool-use`，该路径只读 `session_id`、`cwd`、
+> `tool_name`、`tool_input`、`tool_response` 与 `platform_source`；`source`、`extractedData`
+> 与 `prompt_number` **被接受后静默丢弃**。2026-10-20 活体实测：带 `source="p371src-tooluse"`
+> 的 tool-use 让 `mem_observations.source` 命中 **0 行**，而同一个字段经 `updateObservation(...)`
+> 发出则**确实落库**。`recordObservation` 是 fire-and-forget、不返回 id，因此它也**给不出**
+> 要 patch 的那条观察结果 —— id 请从 `listObservations(...)` 或 `search(...)` 取。
+
 ### 结构化数据提取
 
-使用 `extractedData` 存储结构化键值数据：
+用 `extractedData` 存储结构化键值数据 —— 同样要设在**观察结果本身**上，而不是 tool-use 事件上：
 
 ```java
-client.recordObservation(ObservationRequest.builder()
-    .sessionId(sessionId)
-    .projectPath(projectPath)
-    .toolName("user_preference")
+client.updateObservation(observationId, ObservationUpdate.builder()
     .source("user_statement")
     .extractedData(Map.of(  // V14：结构化键值数据
         "price_range", "3000",
@@ -674,6 +681,9 @@ client.recordObservation(ObservationRequest.builder()
     ))
     .build());
 ```
+
+`POST /api/ingest/observation` 同样会落库这两个字段，但本客户端**没有**暴露该端点的方法 ——
+在本客户端里，路径就是上面的 `updateObservation`。
 
 ### 自适应截断（maxChars）
 
@@ -742,7 +752,7 @@ mvn clean install -DskipTests
 |------------|---------|-----|---------|
 | `startSession()` | `POST /api/session/start` | | ✅ userId |
 | `updateSessionUserId()` | `PATCH /api/session/{sessionId}/user` | | ✅ 新增 |
-| `recordObservation()` | `POST /api/ingest/tool-use` | ✅ source, extractedData | |
+| `recordObservation()` | `POST /api/ingest/tool-use` | ⚠️ source, extractedData —— 该端点接受但**不落库** | |
 | `recordSessionEnd()` | `POST /api/ingest/session-end` | | |
 | `recordUserPrompt()` | `POST /api/ingest/user-prompt` | | |
 | `retrieveExperiences()` | `POST /api/memory/experiences` | ✅ source, requiredConcepts | ✅ userId |
@@ -765,6 +775,10 @@ mvn clean install -DskipTests
 | `getStats()` | `GET /api/stats` | | |
 | `getModes()` | `GET /api/modes` | | |
 | `getSettings()` | `GET /api/settings` | | |
+
+> **⚠️ 那一行**：`POST /api/ingest/tool-use` 接受 `source`、`extractedData` 与 `prompt_number`，
+> 但后端的 tool-use 处理器**从不读它们**，值会被丢弃。请把它们设在观察结果本身上，用
+> `updateObservation()` —— 那是 `PATCH /api/memory/observations/{id}`，那里**确实**会落库。
 
 ## 常见问题
 

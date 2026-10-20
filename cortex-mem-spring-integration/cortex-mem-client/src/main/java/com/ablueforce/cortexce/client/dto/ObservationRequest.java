@@ -9,9 +9,12 @@ public record ObservationRequest(
     Object toolInput,
     Object toolResponse,
     Integer promptNumber,
-    // V14: source attribution
+    // V14: source attribution — accepted by the backend, but the tool-use path
+    // (POST /api/ingest/tool-use) never reads it, so it is discarded. Persist it
+    // with updateObservation (PATCH /api/memory/observations/{id}), which does.
     String source,
-    // V14: structured key-value data
+    // V14: structured key-value data — same story as source above: accepted and
+    // discarded by the tool-use path; updateObservation persists it.
     Map<String, Object> extractedData
 ) {
     public static Builder builder() {
@@ -45,6 +48,13 @@ public record ObservationRequest(
     /**
      * Convert to the wire format expected by /api/ingest/tool-use.
      * Only non-null fields are included (matches Go omitempty / Python conditional behavior).
+     * <p>
+     * The backend's tool-use handler reads only {@code session_id}, {@code cwd},
+     * {@code tool_name}, {@code tool_input}, {@code tool_response} and
+     * {@code platform_source}. {@code source}, {@code extractedData} and
+     * {@code prompt_number} are accepted and then discarded on this endpoint —
+     * use {@code updateObservation} (PATCH /api/memory/observations/{id}) to
+     * persist them.
      */
     public Map<String, Object> toWireFormat() {
         var map = new java.util.HashMap<String, Object>();

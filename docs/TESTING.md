@@ -155,14 +155,22 @@ cd scripts
 
 ### 6. Test Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SERVER_URL` | http://127.0.0.1:37777 | Server URL |
-| `DB_NAME` | claude_mem | Database name |
-| `DB_USERNAME` | postgres | Database username |
-| `DB_PASSWORD` | - | Database password |
-| `SPRING_AI_OPENAI_API_KEY` | - | OpenAI/DeepSeek API key |
-| `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | - | Embedding API key |
+The test scripts and the backend read **different** variables for the same
+settings — exporting `DB_USERNAME` does not make the test scripts use it, and
+`scripts/README.md` says so in as many words ("Note: the variable is DB_PASS,
+not DB_PASSWORD").
+
+| Variable | Read by | Default | Description |
+|----------|----------|---------|-------------|
+| `SERVER_URL` | test scripts | http://127.0.0.1:37777 | Server URL. `mcp-e2e-test.sh` defaults to `http://localhost:37777`; `phase3-acceptance-test.sh` reads `BACKEND_URL` (same default) instead |
+| `DB_NAME` | `regression-test.sh` and the Docker suites | `claude_mem_dev` | Database name. `regression-test.sh` defaults to `claude_mem_dev`, `docker-compose-test.sh` to `claude_mem_compose_test`, `docker-e2e-test.sh` to `claude_mem_test`. `claude_mem` is the **docker-compose** default for the application's own database, not a test-suite default |
+| `DB_HOST` | `regression-test.sh` | 127.0.0.1 | PostgreSQL host the scripts connect to |
+| `DB_USER` | `regression-test.sh` and the Docker suites | postgres | PostgreSQL user the scripts connect with |
+| `DB_PASS` | `regression-test.sh` and the Docker suites | `123456` | PostgreSQL password the scripts connect with; the two Docker suites default to `testpassword123` |
+| `DB_USERNAME` | **the backend only** | postgres | The backend's own variable — `application.yml` reads `${SPRING_DATASOURCE_USERNAME:${DB_USERNAME:postgres}}`. The test scripts do **not** read it |
+| `DB_PASSWORD` | **the backend only** | `123456` | The backend's own variable — `application.yml` reads `${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:123456}}`. The test scripts do **not** read it |
+| `SPRING_AI_OPENAI_API_KEY` | the backend, the two Docker suites, `java-sdk-e2e-test.sh` | - | OpenAI/DeepSeek API key |
+| `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | the backend, the two Docker suites | - | Embedding API key |
 
 ### 7. MCP Protocol Auto-Detection
 
@@ -249,6 +257,7 @@ cd backend
 
 | Date | Change |
 |------|--------|
+| 2026-10-20 | Section 6: the table listed the **backend's** `DB_USERNAME` / `DB_PASSWORD` as if the test scripts read them — the scripts read `DB_USER` / `DB_PASS`, as `scripts/README.md` states outright ("Note: the variable is DB_PASS, not DB_PASSWORD"); it also gave `DB_NAME` the docker-compose default `claude_mem` instead of the suites' `claude_mem_dev`, and omitted `DB_HOST`, which `regression-test.sh:41` still reads. The table now names the reader of each variable and its real default, and restores the `DB_HOST` / `DB_USER` / `DB_PASS` rows. This **supplements, and does not rewrite**, the 2026-05-04 entry below: that entry changed those names for the backend's sake without noticing the table is about test variables, so `DB_HOST` was dropped as "fictitious" while the scripts kept reading it; EN+ZH in sync |
 | 2026-10-03 | "Server Not Running" pointed only at `./mvnw spring-boot:run`, which does **not** read `.env` — no dotenv dependency and no `spring.config.import` exist in the Spring Boot config, so a user whose keys live in a `.env` file gets a service that boots and then fails on the first LLM/embedding call. Documented `scripts/start.sh` (loads `.env`, pins 37777, `--build`/`--background`) and the fact that `start.sh` reads `backend/.env` while `start-all.sh` and `docker compose` read the repo-root `.env` — a user who created only the root `.env` gets a keyless backend from `start.sh`. EN+ZH in sync |
 | 2026-10-02 | Documented the PostgreSQL port split (`:5433`) in Prerequisites and in "PostgreSQL Connection Failed" — a user who started the backend with `docker compose up -d` and then followed the troubleshooting `docker run -p 5432:5432` would start a second, *empty* database on 5432 while their data sat in the compose container on 5433. Verified `run-all-e2e.sh` really does run 10 local suites and `phase3-acceptance-test.sh` really does define 15 test functions, so both counts were left unchanged; EN+ZH in sync |
 | 2026-05-04 | Section 6: Fixed 4 environment variable errors — removed fictitious `DB_HOST` and `SPRING_AI_MCP_SERVER_PROTOCOL`, corrected `DB_USER`→`DB_USERNAME` and `DB_PASS`→`DB_PASSWORD`, corrected `DB_NAME` default `claude_mem_dev`→`claude_mem` (matches docker-compose.yml); EN+ZH in sync |

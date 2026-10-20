@@ -434,7 +434,7 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `SPRING_PROFILES_ACTIVE` | No | `prd` | Spring profile (`dev`/`prd`) |
+| `SPRING_PROFILES_ACTIVE` | No | `prd` **under Docker Compose only** | Spring profile (`dev`/`prd`). `docker-compose.yml:52` is what defaults it to `prd`; a native JAR run that leaves it unset has **no active profile** — see the third state in §5.4 |
 | `SERVER_PORT` | No | `37777` | HTTP service port |
 | `SERVER_ADDRESS` | No | `127.0.0.1` (local JAR); hardcoded `0.0.0.0` in Docker | Bind address |
 
@@ -510,6 +510,42 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 > Set a variable explicitly and the profile no longer matters; leave it unset and
 > the profile decides. Section 5.8's development example relies on this — it pins
 > all five values rather than inheriting them.
+>
+> **There is a third state, and it is the one a native JAR run lands in.**
+> `prd` is the default **only under Docker Compose** (`docker-compose.yml:52`:
+> `SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prd}`). Start the JAR
+> natively without that variable and Spring logs *"No active profile set,
+> falling back to 1 default profile: \"default\""* — and then **neither table
+> above applies**, because `application.yml` itself defines no `spring.ai.openai.*`
+> keys. What you get instead is the `@Value` fallback inside `SpringAiConfig`,
+> which happens to match the `dev` column:
+>
+> | Variable | value actually used with no profile |
+> |----------|--------------------------------------|
+> | `SPRING_AI_OPENAI_BASE_URL` | `https://api.deepseek.com` |
+> | `SPRING_AI_OPENAI_CHAT_MODEL` | `deepseek-chat` |
+> | `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` | `https://api.siliconflow.cn` |
+> | `SPRING_AI_OPENAI_EMBEDDING_MODEL` | `BAAI/bge-m3` |
+> | `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` | `1024` |
+>
+> **And with no profile, most of those variables stop working.** Measured on
+> 2026-10-20 by starting the JAR with no profile: setting
+> `SPRING_AI_OPENAI_BASE_URL` and `SPRING_AI_OPENAI_EMBEDDING_BASE_URL` **did**
+> take effect, but `SPRING_AI_OPENAI_CHAT_MODEL`,
+> `SPRING_AI_OPENAI_EMBEDDING_MODEL` and `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS`
+> were **silently ignored** — and so were the short aliases `OPENAI_BASE_URL` /
+> `OPENAI_MODEL`. The reason is in the property names: `SpringAiConfig` reads the
+> model and the dimensions from `spring.ai.openai.chat.options.model` and
+> `spring.ai.openai.embedding.options.dimensions`, while Spring's relaxed binding
+> maps `SPRING_AI_OPENAI_CHAT_MODEL` to `spring.ai.openai.chat.model` and
+> `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` to `spring.ai.openai.embedding.dimensions`
+> — one segment short, so the value never reaches the field. The two base URLs are
+> read from `spring.ai.openai.base-url` / `spring.ai.openai.embedding.base-url`,
+> which *do* match, which is why they still work. Under `prd` and `dev` this does
+> not bite, because those files spell the variables out themselves
+> (`model: ${SPRING_AI_OPENAI_CHAT_MODEL:...}`) — **it is the profile that maps
+> the names**, not the code. So: **set `SPRING_PROFILES_ACTIVE` explicitly, or
+> expect the model names to be ignored.**
 >
 > The short aliases above are defined in `application-prd.yml` only. The `dev`
 > profile reads the `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_MODEL` names
