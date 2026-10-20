@@ -1407,6 +1407,8 @@
 - **Status**: ⏸ **行为要不要改留待用户决策**（对外行为契约变更）—— 三条候选修法见归档正文；失实陈述已修（400 宣告改「空体」+ `@Operation` 描述改真，零可执行行）。全文逐字见 [`…-79`](../archive/2026-10-20_backend-review-evidence-79.md)。
 ### P2-145: Go SDK 英文 README 写「the **two** capture methods」—— 同一 commit 的中文版写「三个」，实现里也确实是三个；且接口注释只给其中一个标了 fire-and-forget
 - **Status**: ✅ 已修（379 轮，Go 侧，零可执行行）—— 英文「two」改「three」并点明三个捕获方法**都是** fire-and-forget（吞掉后端返回、报成功）；两版方法表的 Capture 组标注 (fire-and-forget)；`client.go` 接口注释给另两个方法补上标注；**Java 侧同型结转**（三个方法一个都没标）。**P2-128 的 Go 侧**同批结转（四个下限的文档）。全文逐字见 [`…-80`](../archive/2026-10-20_backend-review-evidence-80.md)。
+### P2-146: 四家 SDK 的 README 都写「空 `tool_name` 会被后端以 400 拒绝、SDK 记一条日志后吞掉」—— 而客户端校验早在请求发出**之前**就拦下了它，请求数实测为 **0**
+- **Status**: ✅ 已修（380 轮，Python 侧，文档 + 2 个回归测试）—— EN/ZH 双语 README 恢复反事实措辞并写明「客户端拦下、不发请求」（与 `client.py` 早已用对的 docstring 对齐）；两版首屏测试数 **453 → 455**；新增 2 个测试钉住「校验发生在请求之前」，变异测试证明**旧测试钉不住顺序**；**Go / JS / Java 三家同型结转**（共 8 份 README）。全文逐字见 [`…-81`](../archive/2026-10-20_backend-review-evidence-81.md)。
 ## Processing Rules
 - 第 378 轮续记压缩杠杆：**缩短已结案条目的 Status 行**（第 292/293 轮杠杆）时，
   把「被删掉的细节」做成**可断言的形式** —— 拆出每个反引号/引号/数字 token，

@@ -8,7 +8,7 @@
 
 - **零强制依赖** —— 仅需 `requests`
 - **完整 API 覆盖** —— 25 个方法，涵盖会话、捕获、检索、管理、提取
-- **453 个单元测试** —— 全面覆盖客户端、DTO 和 Demo 集成（客户端 226 + DTO 140 + Demo 87）
+- **455 个单元测试** —— 全面覆盖客户端、DTO 和 Demo 集成（客户端 228 + DTO 140 + Demo 87）
 - **Python 风格** —— dataclass、kwargs、上下文管理器
 - **Wire 格式兼容** —— JSON 字段名与后端 API 完全一致
 - **Fire-and-forget 捕获** —— 非阻塞的观察记录，内置重试机制
@@ -278,10 +278,11 @@ cortex-ce: validation error on update: at least one field must be provided for u
 因此漏传会在调用处直接抛 `TypeError`，而不是悄悄发出一个空 `cwd`。
 
 这些检查不是装饰。其中三个 capture 方法最能说明问题：`record_observation` 是
-fire-and-forget，会吞掉后端返回的一切——`tool_name` 为空时后端返回
+fire-and-forget，会吞掉后端返回的一切。若不做检查，`tool_name` 为空时后端会返回
 `400 Missing required field: tool_name`，SDK 记一条日志后返回 `None`，调用方于是认为
 观测已记录，而服务器刚刚拒绝了它。`project_path` 为空则更隐蔽，因为后端**接受**它：
 记录会以空项目路径入队，随后不出现在任何按项目过滤的查询里，全程没有任何错误提示。
+这两个空值现在都由客户端拦下，请求根本不会发出：SDK 抛 `ValidationError`，不发送任何请求。
 
 `search` 属于同一类隐患：SDK 总会发送 `project`，而 `GET /api/search?project=` 会
 返回 `200` 加一个空结果集，因此漏传参数的调用方读到的是「没有匹配」而不是「你的调用

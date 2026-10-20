@@ -8,7 +8,7 @@ Python SDK for the [Cortex CE](https://github.com/Blueforce-Tech-Inc/BlueCortexC
 
 - **Zero forced dependencies** — only `requests` required
 - **Full API coverage** — 25 methods covering Session, Capture, Retrieval, Management, Extraction
-- **453 unit tests** — Comprehensive coverage of client, DTO, and demo integration (226 client + 140 DTO + 87 demo)
+- **455 unit tests** — Comprehensive coverage of client, DTO, and demo integration (228 client + 140 DTO + 87 demo)
 - **Idiomatic Python** — dataclasses, kwargs, context manager
 - **Wire format compatible** — JSON field names match backend API exactly
 - **Fire-and-forget capture** — non-blocking observation recording with internal retry
@@ -295,12 +295,15 @@ default, so omitting it raises `TypeError` at the call site rather than quietly
 sending an empty `cwd`.
 
 The checks are not decoration, and the capture methods are the clearest case.
-`record_observation` is fire-and-forget, so it swallows whatever the backend replies:
-an empty `tool_name` comes back as `400 Missing required field: tool_name`, the SDK
-logs it and returns `None`, and the caller concludes the observation was captured when
-the server had just rejected it. An empty `project_path` is quieter still, because the
-backend *accepts* it — the record is queued against no project and then appears in no
-project-scoped query, with no error anywhere.
+`record_observation` is fire-and-forget, so it swallows whatever the backend replies.
+Left unchecked, an empty `tool_name` would come back as
+`400 Missing required field: tool_name`, the SDK would log it and return `None`, and
+the caller would conclude the observation was captured when the server had just
+rejected it. An empty `project_path` would be quieter still, because the backend
+*accepts* it — the record would be queued against no project and then appear in no
+project-scoped query, with no error anywhere. Both are caught client-side instead, so
+neither call reaches the wire: the SDK raises `ValidationError` and sends no request
+at all.
 
 `search` has the same shape of hazard: the SDK always sends `project`, and
 `GET /api/search?project=` answers `200` with an empty result set, so a caller who

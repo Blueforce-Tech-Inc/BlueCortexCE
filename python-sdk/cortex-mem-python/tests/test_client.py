@@ -193,14 +193,49 @@ class TestCapture:
     def test_record_observation_empty_tool_name_raises(self):
         """Empty tool_name should raise, matching Go/Java/JS.
 
-        This is the one that loses data outright: the backend answers an empty
-        tool_name with 400 "Missing required field: tool_name", and
-        fire-and-forget swallows that, so the caller would believe the
+        This is the one that loses data outright: the backend would answer an
+        empty tool_name with 400 "Missing required field: tool_name", and
+        fire-and-forget would swallow that, so the caller would believe the
         observation was captured.
         """
         c = _client()
         with pytest.raises(ValidationError, match="tool_name is required"):
             c.record_observation("s1", "/p", "")
+
+    @responses.activate
+    def test_record_observation_empty_tool_name_sends_no_request(self):
+        """The empty-tool_name check must run BEFORE the request goes out.
+
+        The README describes the failure this check exists to prevent: the
+        backend answers an empty tool_name with 400 "Missing required field:
+        tool_name" and fire-and-forget swallows it, so the caller believes the
+        observation was captured. A check placed after the request would still
+        raise, but the observation would already have been sent and swallowed —
+        so the ordering is pinned here, not just the exception.
+        """
+        responses.add(responses.POST, f"{BASE}/api/ingest/tool-use", status=200)
+        c = _client()
+        with pytest.raises(ValidationError, match="tool_name is required"):
+            c.record_observation("s1", "/p", "")
+        assert len(responses.calls) == 0, (
+            "no request may be sent for an empty tool_name"
+        )
+
+    @responses.activate
+    def test_record_observation_empty_project_path_sends_no_request(self):
+        """The empty-project_path check must run BEFORE the request goes out.
+
+        The backend accepts an empty cwd with 200 and queues the observation
+        against no project; the client-side check is the only thing keeping
+        that row from being written silently.
+        """
+        responses.add(responses.POST, f"{BASE}/api/ingest/tool-use", status=200)
+        c = _client()
+        with pytest.raises(ValidationError, match="project_path is required"):
+            c.record_observation("s1", "", "Read")
+        assert len(responses.calls) == 0, (
+            "no request may be sent for an empty project_path"
+        )
 
     def test_record_session_end_empty_session_id_raises(self):
         """Empty session_id should raise CortexError."""
