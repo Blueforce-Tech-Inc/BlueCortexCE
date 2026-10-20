@@ -45,12 +45,20 @@ spring:
         protocol: SSE
         sse-endpoint: /sse
         sse-message-endpoint: /mcp/message
+        streamable-http:
+          mcp-endpoint: /mcp
         capabilities:
           tool: true
           resource: false
           prompt: false
           completion: false
 ```
+
+> **第 370 轮补注**：原文这段 YAML 漏了实际存在的 `streamable-http: mcp-endpoint: /mcp`
+> 一块。`backend/src/main/resources/application.yml:118-119` 里有它，而
+> `application.yml` 同时还配了 `protocol: SSE` —— 也就是说 **`/mcp` 端点在配置里是登记了的，
+> 只是当前协议不是 STREAMABLE，所以它不生效**（见 2.1 的实测与 5.4 的更正）。
+> 省略它会让读者以为「换协议还要顺手加一段配置」，而实际那段配置早就在了。
 
 ### 2.3 已实现的 MCP Tools（5 个）
 
@@ -70,6 +78,15 @@ spring:
 | 回归测试 | ✅ 31 通过，1 跳过 | 2026-03-19 |
 | WebUI 集成测试 | ✅ 11/11 通过 | 2026-03-19 |
 | Thin Proxy 测试 | ✅ 18/18 通过 | 2026-03-19 |
+| MCP E2E 测试（复验，SSE 模式） | ✅ 12/12 通过 | 2026-10-20 |
+
+> **第 370 轮补注**：上表前三行的计数是 **2026-03-19 的快照**，本轮**未改写**它们。
+> 新增的复验行是活体实测：`SERVER_URL=http://127.0.0.1:37777 bash scripts/mcp-e2e-test.sh`
+> → **Passed 12 / Failed 0 / Skipped 0**，协议判定为 **SSE**（`/sse` 200、`/mcp` 404）。
+> 12 与表头的 16 不是矛盾 —— 脚本在这期间被重写过（现在有 11 个测试函数：
+> 5 个 SSE + 5 个 STREAMABLE + 1 个 REST API，HTTP 错误路径按协议各算一次），
+> 且**本轮只跑了 SSE 分支**（STREAMABLE 分支需要先把 `protocol` 切过去，本轮未切换生产配置）。
+> 表头的 16/16 测的是当时的脚本形态。**这两个数字都是带日期的实测值，不是实时值。**
 
 ### 2.5 MCP E2E 测试的 SSE 流程
 
@@ -238,8 +255,21 @@ MCP 官方在 2025-03-26 起，用 **Streamable HTTP** 取代 HTTP+SSE。最新�
 - 应用层足够健壮（project-based 隔离）
 
 **验证命令** (SSE 模式):
+> **第 370 轮更正**：原文这里给的是 `curl -X POST http://127.0.0.1:37777/sse ...`，
+> 而 **POST /sse 活体返回 404**（2026-10-20 实测）—— SSE 传输里 `/sse` 是**用 GET 建立长连接**的端点，
+> JSON-RPC 消息要发到 `/mcp/message?sessionId=...`。原文的命令与**本文 2.5 节自己描述的握手流程**也不一致
+> （2.5 写的是「1. GET /sse → 2. 从 event:endpoint 提取 MESSAGE_ENDPOINT → 3. POST → MESSAGE_ENDPOINT」）。
+> 下面是**按 2.5 节流程改写**、并在 2026-10-20 活体复验过的命令。
+
 ```bash
-curl -X POST http://127.0.0.1:37777/sse \
+# 1. GET /sse 建立长连接，从 event:endpoint 事件里取出消息端点（含 sessionId）
+#    （这条连接会一直挂着，工具调用的响应也从它上面读）
+curl -N -s http://127.0.0.1:37777/sse > /tmp/mcp-sse.txt &
+sleep 1
+MESSAGE_ENDPOINT=$(grep 'data:/mcp/message' /tmp/mcp-sse.txt | head -1 | sed 's/data://')
+
+# 2. POST initialize 到消息端点
+curl -s -X POST "http://127.0.0.1:37777${MESSAGE_ENDPOINT}" \
   -H "Content-Type: application/json" \
   -H "Accept: text/event-stream,application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'
@@ -248,10 +278,21 @@ curl -X POST http://127.0.0.1:37777/sse \
 **验证结果**:
 | 测试项 | 结果 |
 |--------|------|
-| `/mcp` 端点注册 | ✅ 200 OK |
-| initialize 请求 | ✅ 返回 `Mcp-Session-Id` header |
+| `GET /sse` 端点注册 | ✅ 200 OK |
+| `POST /sse` | 404 —— **按设计如此**：`/sse` 只接受 GET 建立流 |
+| `/mcp` 端点注册 | 404 —— **SSE 模式下按设计如此**，`/mcp` 是 STREAMABLE/STATELESS 的端点（见 5.2） |
+| initialize 请求 | ✅ 经消息端点返回结果（响应从 SSE 流上读回） |
 | tools/list | ✅ 返回 5 个工具 |
 | tools/call (search) | ✅ 成功返回结果 |
+
+> **第 370 轮更正**：原文这一行写的是「`/mcp` 端点注册 | ✅ 200 OK」，但**本节验的是 SSE 模式**，
+> 而 SSE 模式下 `/mcp` 恰恰**应该**是 404 —— 这正是 5.2 整节要解释的现象
+> （`scripts/mcp-e2e-test.sh` 开头的注释也写着「SSE mode: /sse returns 200, /mcp returns 404」）。
+> 2026-10-20 活体复验：`GET /sse` → **200**，`GET /mcp` → **404**，`POST /mcp` → **404**，
+> `POST /mcp/message`（无 sessionId）→ **400**。
+> 原文的「✅ 200 OK」与本文 5.2 节、以及 E2E 脚本自己写下的判据**互相矛盾**。
+> 5.4 的**决定**（`protocol: SSE` 作为默认协议，2026-03-19）**不因这次更正而改变** ——
+> 更正的只是**验证手段**与**验证结果**这两项可复现内容。
 
 **注意事项**:
 - Accept 头必须是 `text/event-stream,application/json`（不能用纯 `application/json`）
@@ -414,7 +455,12 @@ streamable-http:
 
 1. 当前是单机本地部署，无代理层，SSE 稳定性风险低
 2. SSE 兼容性最好，无需会话管理
-3. STREAMABLE 已验证通过 (14/14)，但作为备选
+3. STREAMABLE 曾在本文撰写时（2026-03-19）验证通过（14/14），但作为备选
+   > **第 370 轮补注**：原文这里的「(14/14)」**没有日期**，会被读成当前数字。
+   > 它是 **2026-03-19 写本文时的 STREAMABLE 分支跑分**，而**当前 SSE 分支的实测是 12/12**
+   > （2026-10-20 活体复验，见 2.4 的复验行）。两个数字测的是**不同协议分支**，
+   > 且都不是实时值。**STREAMABLE 分支本轮未复验**——它需要先把 `protocol` 切过去，
+   > 而本轮不动生产配置。
 
 **需要关注的风险**：
 

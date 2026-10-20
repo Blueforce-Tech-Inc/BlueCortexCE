@@ -72,7 +72,9 @@ def handle_http_exception(exc: HTTPException):
     mistake, which is noise that trains operators to ignore it. Flask resolves
     handlers along the exception's MRO, so registering HTTPException here wins
     over Exception. Measured on the other three demos, a wrong method answers
-    405 (Java, Go) or 404 (JS) and an unknown route answers 404.
+    405 and an unknown route answers 404 -- the JS demo used to answer 404
+    with an HTML page for both, and now answers 405/404 with JSON like the
+    other three.
     """
     return jsonify(error=exc.description), exc.code or 500
 

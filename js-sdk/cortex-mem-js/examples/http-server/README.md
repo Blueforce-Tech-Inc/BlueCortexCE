@@ -74,3 +74,22 @@ curl -X PATCH http://localhost:37781/observations/obs-123 \
   -H 'Content-Type: application/json' \
   -d '{"title": "Fixed", "source": "verified"}'
 ```
+
+## Error responses
+
+Every error is `{"error": "<message>"}`, and every error is JSON — including
+the ones a routing mistake produces. The status code is the SDK's, not a
+blanket 500:
+
+| Situation | Status |
+|-----------|--------|
+| Local validation (`ValidationError`, bad JSON, missing/blank field, out-of-range `limit`/`offset`) | `400` |
+| Wrong HTTP method on a path that exists | `405`, with an `Allow` header listing the methods that would have worked |
+| Unknown path | `404` — `{"error": "not found: <path>"}` |
+| Backend returned a status in `[400, 600)` | that status, passed through (`404`, `429`, `503`, …) |
+| No usable status — connection refused, timeout, any other error | `500` |
+| Demo health check reports the backend down | `503` |
+
+The Go, Python and Java demos answer the same statuses for the same mistakes.
+Keeping the four aligned matters: a client written against one demo should not
+see 500 where another returns 404.

@@ -138,6 +138,28 @@ func backendBaseURL() string {
 	return defaultBaseURL
 }
 
+// registerFallback installs the catch-all that answers a path no other pattern
+// matches.
+//
+// http.ServeMux answers an unmatched path with its own plain-text 404
+// ("404 page not found", Content-Type text/plain), so this demo returned a
+// non-JSON body for the one error every caller is most likely to hit — a typo
+// in the path. The demo's own README states the contract: "Every error is
+// {"error": "<message>"}", and the other demos honour it (Python through
+// @app.errorhandler(HTTPException), JS through its terminal handler, Java
+// through Spring's error body). Measured live before this handler: Go answered
+// text/plain while the other three answered application/json.
+//
+// Registering "/" makes this the fallback for every path no other pattern
+// matches. It does not shadow them: Go's ServeMux picks the most specific
+// pattern, and every pattern registered in main() is more specific than "/".
+func registerFallback(mux *http.ServeMux) {
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		writeJSONError(w, http.StatusNotFound, "not found: "+r.URL.Path)
+	})
+}
+
+// main is where the HTTP handlers are registered.
 func main() {
 	baseURL := backendBaseURL()
 
@@ -885,6 +907,8 @@ func main() {
 		}
 		writeJSON(w, map[string]string{"status": "ended"})
 	})
+
+	registerFallback(mux)
 
 	// Start HTTP server with timeouts
 	port := os.Getenv("PORT")

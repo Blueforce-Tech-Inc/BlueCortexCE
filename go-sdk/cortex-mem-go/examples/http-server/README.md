@@ -102,6 +102,7 @@ blanket 500:
 | Situation | Status |
 |-----------|--------|
 | Local validation (`ValidationError`, bad JSON, missing/blank field, out-of-range `limit`/`offset`, unknown method) | `400` (or `405` for a wrong HTTP method) |
+| Unknown path (no route matches) | `404` — `{"error": "not found: <path>"}` |
 | Backend returned a status in `[400, 600)` | that status, passed through (`404`, `429`, `503`, …) |
 | No usable status — connection refused, timeout, any other error | `500` |
 | Demo health check reports the backend down | `503` |

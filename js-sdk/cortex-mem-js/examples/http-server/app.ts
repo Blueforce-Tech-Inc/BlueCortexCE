@@ -21,7 +21,9 @@ const CORTEX_BASE_URL = process.env.CORTEX_BASE_URL ?? 'http://127.0.0.1:37777';
 const PORT = parseInt(process.env.PORT ?? '37781', 10);
 
 const client = new CortexMemClient({ baseURL: CORTEX_BASE_URL });
-const app = express();
+// Exported so the demo's own tests can drive it. Importing this module does
+// not start a server: the listen call below is guarded by isEntryPoint.
+export const app = express();
 
 app.use(express.json({ limit: '1mb' }));
 
@@ -500,6 +502,79 @@ app.post('/ingest/session-end', asyncHandler(async (req: Request, res: Response)
   });
   res.json({ status: 'ended' });
 }));
+
+// ==================== Terminal 404 / 405 ====================
+
+// Express's built-in 404 handler answers an HTML page ("Cannot GET /x"), and
+// Express does not answer 405 at all — a wrong method simply falls through to
+// that same HTML 404. Every other error path in this demo answers JSON, so a
+// typo'd path or a wrong verb produced text/html where a JSON client expected
+// {"error": "..."}. Measured live before this handler existed:
+//
+//   GET  /health            → 200 JSON
+//   POST /health            → 404 text/html   "Cannot POST /health"
+//   GET  /no-such-endpoint  → 404 text/html   "Cannot GET /no-such-endpoint"
+//
+// The Go demo README states the contract the demos share — "Every error is
+// {"error": "<message>"}", with 405 for a wrong HTTP method — and the Python
+// demo installs an @app.errorhandler(HTTPException) for exactly this reason.
+// The other three answer 405 with JSON for a wrong method and 404 with JSON for
+// an unknown path. This handler brings this demo onto the same contract.
+//
+// A wrong method is reported as 405 rather than 404 because the path *does*
+// exist — only the verb is wrong — and 405 is what Go, Python and Java answer.
+// The `Allow` header lists the methods that would have worked.
+//
+// The route table is read from the router Express itself built, so it cannot
+// drift from the registrations above. `app.router` is a documented Express 5
+// property; if a future upgrade reshapes it, `routeMethodsFor` returns an
+// empty set and the handler degrades to a plain JSON 404 rather than throwing.
+interface ExpressRouteLayer {
+  route?: {
+    path?: unknown;
+    methods?: Record<string, boolean | undefined>;
+  };
+}
+
+function routeMethodsFor(path: string): Set<string> {
+  const out = new Set<string>();
+  const router = (app as unknown as { router?: { stack?: ExpressRouteLayer[] } }).router;
+  const stack = router?.stack;
+  if (!Array.isArray(stack)) return out;
+  for (const layer of stack) {
+    const route = layer?.route;
+    if (!route || typeof route.path !== 'string') continue;
+    if (!pathMatches(route.path, path)) continue;
+    for (const [method, enabled] of Object.entries(route.methods ?? {})) {
+      if (enabled) out.add(method.toUpperCase());
+    }
+  }
+  return out;
+}
+
+// Matches a request path against one Express route pattern. The patterns used
+// by this demo are literal segments plus ':param' placeholders, so the
+// placeholders become "one non-empty segment" and everything else is literal.
+function pathMatches(pattern: string, path: string): boolean {
+  const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const source = escaped.replace(/:[A-Za-z0-9_]+/g, '[^/]+');
+  try {
+    return new RegExp(`^${source}/?$`).test(path);
+  } catch {
+    return false;
+  }
+}
+
+app.use((req: Request, res: Response) => {
+  const allowed = routeMethodsFor(req.path);
+  if (allowed.size > 0 && !allowed.has(req.method.toUpperCase())) {
+    const list = [...allowed].sort().join(', ');
+    res.setHeader('Allow', list);
+    errorJson(res, 405, `method not allowed: expected ${list}`);
+    return;
+  }
+  errorJson(res, 404, `not found: ${req.path}`);
+});
 
 // ==================== Async error handler ====================
 
