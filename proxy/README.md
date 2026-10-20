@@ -127,26 +127,26 @@ Edit `~/.claude/settings.json` (user-level) or `.claude/settings.json` (project-
       "matcher": "compact",
       "hooks": [{
         "type": "command",
-        "command": "/path/to/claude-mem/java/proxy/wrapper.js session-start --url http://127.0.0.1:37777"
+        "command": "/path/to/BlueCortexCE/proxy/wrapper.js session-start --url http://127.0.0.1:37777"
       }]
     }],
     "PostToolUse": [{
       "matcher": "Edit|Write|Read|Bash|...",
       "hooks": [{
         "type": "command",
-        "command": "/path/to/claude-mem/java/proxy/wrapper.js tool-use --url http://127.0.0.1:37777"
+        "command": "/path/to/BlueCortexCE/proxy/wrapper.js tool-use --url http://127.0.0.1:37777"
       }]
     }],
     "UserPromptSubmit": [{
       "hooks": [{
         "type": "command",
-        "command": "/path/to/claude-mem/java/proxy/wrapper.js user-prompt --url http://127.0.0.1:37777"
+        "command": "/path/to/BlueCortexCE/proxy/wrapper.js user-prompt --url http://127.0.0.1:37777"
       }]
     }],
     "SessionEnd": [{
       "hooks": [{
         "type": "command",
-        "command": "/path/to/claude-mem/java/proxy/wrapper.js session-end --url http://127.0.0.1:37777"
+        "command": "/path/to/BlueCortexCE/proxy/wrapper.js session-end --url http://127.0.0.1:37777"
       }]
     }]
   }
@@ -156,7 +156,7 @@ Edit `~/.claude/settings.json` (user-level) or `.claude/settings.json` (project-
 ### 5.3 Make Wrapper Executable
 
 ```bash
-chmod +x /path/to/claude-mem/java/proxy/wrapper.js
+chmod +x /path/to/BlueCortexCE/proxy/wrapper.js
 ```
 
 ---

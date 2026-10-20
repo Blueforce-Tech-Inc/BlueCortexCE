@@ -47,6 +47,43 @@ public class LlmService {
         return chatCompletionWithUsage(systemPrompt, userPrompt).content();
     }
 
+    /**
+     * Chat completion that surfaces provider failures to the caller instead of
+     * swallowing them.
+     *
+     * <p>{@link #chatCompletionWithUsage} catches every provider exception and
+     * returns {@link LlmResponse#empty()} — an empty string with zero tokens.
+     * That is the right behaviour for the callers that want a degraded result
+     * (they each check the content themselves), but it is wrong for a
+     * <em>diagnostic</em> caller: an empty string is indistinguishable from a
+     * successful call, so a connectivity probe would report success while the
+     * provider is returning 401/500.</p>
+     *
+     * <p>This method propagates the original exception so the caller can report
+     * the real cause. It does not change the behaviour of
+     * {@link #chatCompletion} or {@link #chatCompletionWithUsage}.</p>
+     */
+    public String chatCompletionReportingFailure(String systemPrompt, String userPrompt) {
+        ChatClient chatClient = this.chatClient.orElseThrow(() ->
+            new IllegalStateException("AI not configured. " +
+                "Set OPENAI_API_KEY environment variable, or configure spring.ai.openai in application.yml, " +
+                "or provide a custom ChatClient bean."));
+
+        ChatResponse response = chatClient.prompt()
+            .system(systemPrompt)
+            .user(userPrompt)
+            .call()
+            .chatResponse();
+
+        if (response == null) {
+            throw new IllegalStateException("LLM returned a null response");
+        }
+
+        return response.getResult() != null && response.getResult().getOutput() != null
+            ? response.getResult().getOutput().getText()
+            : "";
+    }
+
     public record LlmResponse(String content, int totalTokens) {
         public static LlmResponse empty() {
             return new LlmResponse("", 0);

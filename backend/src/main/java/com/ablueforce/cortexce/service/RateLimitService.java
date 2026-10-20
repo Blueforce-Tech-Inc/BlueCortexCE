@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * P1: In-memory rate limiting service using sliding window algorithm.
+ * P1: In-memory rate limiting service using a fixed-window algorithm.
  *
  * <p>Provides rate limiting for API endpoints to prevent abuse.</p>
  *
@@ -25,6 +25,12 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <p>Limits: 10 requests per 60 seconds per key, configured via
  * {@code claudemem.rate-limit.max-requests} and
  * {@code claudemem.rate-limit.window-seconds}.</p>
+ *
+ * <p>Note: the window is <em>fixed</em>, not sliding — when it expires the whole
+ * counter is reset at once, so a caller may in principle be allowed up to
+ * {@code max-requests} at the end of one window and another
+ * {@code max-requests} right after the reset. The inner class is still named
+ * {@code SlidingWindow} for historical reasons; its behaviour is fixed-window.</p>
  *
  * <p>P3: Constants are configurable via application.yml or environment variables.</p>
  */
@@ -49,8 +55,9 @@ public class RateLimitService {
     private volatile long lastCleanup = Instant.now().getEpochSecond();
 
     /**
-     * P1: Sliding window counter for rate limiting.
+     * P1: Fixed-window counter for rate limiting.
      * Uses synchronized to ensure thread-safe window reset and increment.
+     * The window resets wholesale when it expires (it does not slide).
      */
     private class SlidingWindow {
         private final AtomicInteger count = new AtomicInteger(0);

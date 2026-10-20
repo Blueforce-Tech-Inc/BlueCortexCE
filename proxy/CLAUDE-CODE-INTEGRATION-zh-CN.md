@@ -35,7 +35,7 @@ curl http://127.0.0.1:37777/actuator/health
 ### 3. 验证 Thin Proxy
 
 ```bash
-cd java/scripts
+cd ~/.cortexce/scripts
 ./thin-proxy-test.sh
 # 应全部通过
 ```
@@ -350,7 +350,7 @@ claude mcp add --transport sse cortexce http://127.0.0.1:37777/sse
 
 ```bash
 # 运行 MCP 端到端测试（自动检测协议）
-cd java/scripts
+cd ~/.cortexce/scripts
 ./mcp-e2e-test.sh
 
 # 应看到所有测试通过

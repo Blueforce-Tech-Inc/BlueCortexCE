@@ -18,13 +18,13 @@
 
 - [ ] Run Maven build with tests
   ```bash
-  cd java/backend
+  cd backend
   ./mvnw clean package -DskipTests
   ```
 - [ ] Verify JAR file generated in `target/`
 - [ ] Build Docker image (optional)
   ```bash
-  docker build -t ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:0.1.0-beta -f java/Dockerfile .
+  docker build -t ghcr.io/blueforce-tech-inc/bluecortexce/cortex-ce:0.1.0-beta -f Dockerfile .
   ```
 
 ### Testing
@@ -35,11 +35,11 @@
   ```
 - [ ] Run regression tests
   ```bash
-  ./java/scripts/regression-test.sh
+  ./scripts/regression-test.sh
   ```
 - [ ] Run WebUI integration tests
   ```bash
-  ./java/scripts/webui-integration-test.sh
+  ./scripts/webui-integration-test.sh
   ```
 
 ### Release Steps

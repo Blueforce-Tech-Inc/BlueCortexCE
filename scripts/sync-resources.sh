@@ -415,6 +415,6 @@ fi
 log_info "=== Sync Complete ==="
 echo ""
 log_info "Next steps:"
-log_info "  1. Rebuild Java project: cd java/backend && mvn clean package"
+log_info "  1. Rebuild Java project: cd backend && mvn clean package"
 log_info "  2. Restart Java server to pick up new resources"
 log_info "  3. Test mode loading with different modes (e.g., code--zh)"

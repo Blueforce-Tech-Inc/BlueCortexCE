@@ -50,7 +50,7 @@ public class TemplateService implements LogHelper {
     @PostConstruct
     void loadPromptTemplates() {
         // Load prompts from synced resources directory
-        // Prompts are synced from TS modes using: java/scripts/sync-prompts.sh
+        // Prompts are synced from TS modes using: scripts/sync-resources.sh
         initPromptTemplate = loadResource("prompts/init.txt");
         observationPromptTemplate = loadResource("prompts/observation.txt");
         summaryPromptTemplate = loadResource("prompts/summary.txt");

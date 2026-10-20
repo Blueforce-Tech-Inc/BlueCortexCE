@@ -55,7 +55,15 @@ public class TestController {
         result.put("message", "Testing LLM (DeepSeek)...");
 
         try {
-            String response = llmService.chatCompletion("You are a helpful assistant.", "Say 'Hello from DeepSeek!' in exactly these words.");
+            // chatCompletionReportingFailure propagates provider errors instead of
+            // degrading them to an empty string. Without it a failed call (e.g. a
+            // 401 from an expired key) is indistinguishable from a successful one,
+            // and this probe would report "success" while the LLM is unusable.
+            String response = llmService.chatCompletionReportingFailure(
+                "You are a helpful assistant.", "Say 'Hello from DeepSeek!' in exactly these words.");
+            if (response == null || response.isBlank()) {
+                throw new IllegalStateException("LLM returned an empty response");
+            }
             result.put("status", "success");
             result.put("message", "LLM (DeepSeek) is working!");
             result.put("response", response);

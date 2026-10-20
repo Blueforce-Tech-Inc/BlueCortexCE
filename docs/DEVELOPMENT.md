@@ -551,8 +551,8 @@ mvn -pl cortex-mem-client test
 
 # ── Go SDK — the root module alone does not cover the adapters
 cd go-sdk/cortex-mem-go
-./test-all.sh                 # root + genkit + eino + langchaingo (this is what 335 counts)
-go test ./...                 # root + dto only (302)
+./test-all.sh                 # all 9 modules (root + genkit + eino + langchaingo + examples) — this is what 372 counts
+go test ./...                 # root + dto only (306)
 
 # ── Python SDK
 cd python-sdk/cortex-mem-python

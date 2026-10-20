@@ -169,7 +169,7 @@ create_observation "decision" \
     '["Hooks must complete in < 5 seconds", "Node.js proxy exits immediately after forwarding", "Java service processes asynchronously", "Exit code 0 prevents terminal tab accumulation"]' \
     '["why-it-exists", "pattern", "trade-off"]' \
     '["docs/drafts/java-rewrite-plan.md"]' \
-    '["java/proxy/wrapper.js"]'
+    '["proxy/wrapper.js"]'
 
 create_observation "decision" \
     "Use camelCase in API but snake_case in JSON" \

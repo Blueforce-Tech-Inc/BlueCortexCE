@@ -4,7 +4,7 @@ set -e
 
 BASE_URL="http://127.0.0.1:37777"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -111,7 +111,7 @@ check_server_health() {
     else
         print_error "Server is not responding (HTTP $HTTP_STATUS)"
         print_info "Please start the server first:"
-        echo "  cd $PROJECT_ROOT/java/backend"
+        echo "  cd $PROJECT_ROOT/backend"
         echo "  java -jar target/cortex-ce-*.jar --spring.profiles.active=dev"
         return 1
     fi
@@ -120,7 +120,7 @@ check_server_health() {
 show_current_provider() {
     print_header "Current LLM Provider Configuration"
     
-    ENV_FILE="$PROJECT_ROOT/java/backend/.env"
+    ENV_FILE="$PROJECT_ROOT/backend/.env"
     
     if [ -f "$ENV_FILE" ]; then
         print_info "Reading from: $ENV_FILE"

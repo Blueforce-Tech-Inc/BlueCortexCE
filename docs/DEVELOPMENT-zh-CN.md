@@ -549,8 +549,8 @@ mvn -pl cortex-mem-client test
 
 # ── Go SDK —— 只跑根模块并不覆盖各适配器
 cd go-sdk/cortex-mem-go
-./test-all.sh                 # 根 + genkit + eino + langchaingo（335 即此口径）
-go test ./...                 # 仅根 + dto（302）
+./test-all.sh                 # 全部 9 个模块（根 + genkit + eino + langchaingo + examples）—— 372 即此口径
+go test ./...                 # 仅根 + dto（306）
 
 # ── Python SDK
 cd python-sdk/cortex-mem-python

@@ -28,9 +28,8 @@ fi
 # Get absolute path of script directory
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Get project root: parent of parent of script directory
-# Assume script is located under claude-mem/java/scripts/
-PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
+# Get project root: the repository root (this script lives in <root>/scripts)
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Target distribution directory
 DIST_DIR="${1:-$DIST_DIR}"
@@ -49,20 +48,20 @@ rm -rf "${DIST_DIR}"
 mkdir -p "${DIST_DIR}"
 
 # 1. Copy docker-compose.yml (includes Redis and Ollama service configuration)
-cp "${PROJECT_ROOT}/java/docker-compose.yml" "${DIST_DIR}/"
+cp "${PROJECT_ROOT}/docker-compose.yml" "${DIST_DIR}/"
 
 # 2. Copy proxy directory (only necessary files, exclude node_modules, java test dirs and package-lock.json)
 mkdir -p "${DIST_DIR}/proxy"
 
 # Copy necessary files from proxy directory
 for file in wrapper.js proxy.js tag-stripping.js package.json README.md CLAUDE-CODE-INTEGRATION.md CURSOR-INTEGRATION.md; do
-    if [[ -f "${PROJECT_ROOT}/java/proxy/${file}" ]]; then
-        cp "${PROJECT_ROOT}/java/proxy/${file}" "${DIST_DIR}/proxy/"
+    if [[ -f "${PROJECT_ROOT}/proxy/${file}" ]]; then
+        cp "${PROJECT_ROOT}/proxy/${file}" "${DIST_DIR}/proxy/"
     fi
 done
 
 # 3. Copy README documentation
-cp "${PROJECT_ROOT}/java/README.md" "${DIST_DIR}/README.md"
+cp "${PROJECT_ROOT}/README.md" "${DIST_DIR}/README.md"
 
 echo ""
 echo "=== Done! ==="
