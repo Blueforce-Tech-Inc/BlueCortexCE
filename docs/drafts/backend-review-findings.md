@@ -1377,6 +1377,9 @@
 ### P2-127: 活体 OpenAPI 把 `POST /api/ingest/user-prompt` 的 `prompt_text` 标为 **required**，而后端**只强制 `session_id`** —— 活体 spec 失实，而 API 文档是对的
 - **Status**: ⏸ **改后端注解、还是让实现真的强制、还是维持现状，待决**（对外行为契约变更）—— **本轮只记录不实施**：活体 OpenAPI 把 `prompt_text` 标为 required，而处理器**只校验 `session_id`**；活体实测（只带 `session_id` → **200**，不带 → **400**）证实 **spec 失实、API 文档是对的**。选项①（去掉注解 REQUIRED，**纯放宽**）属后端代码方向，建议下个后端轮次实施；选项②是**收紧**；选项③维持现状。**三选一见归档正文**。 条目全文已逐字迁入 [`…-69.md`](../archive/2026-10-20_backend-review-evidence-69.md)（第 368 轮）。
 
+### P2-128: 四家 SDK 的**参数下限**只有 Python 的 README 写了；Java 的 `retry.backoff` / `read-timeout` **根本没有 100ms 下限**，且**只有 Go 有测试钉住**
+- **Status**: ⏸ **Java 要不要对齐另三家的下限、Go/Java README 要不要补下限，待决**（对外行为契约）—— **JS 已修**（双语补三行下限）：只有 Python 写了；Java 的 `retry.backoff` **无 100ms 下限**（实测 1ns 原样）、`read-timeout` **无任何下限**（0 原样）；**四家里只有 Go 有测试钉住**。**三选一见归档正文**。 条目全文已逐字迁入 [`…-70.md`](../archive/2026-10-20_backend-review-evidence-70.md)（第 369 轮）。
+
 ## Processing Rules
 - **第 316 轮新增流程规则（连续三轮教训的归纳）——落笔前先查该模块自己的文档**：
   本循环已**连续三轮**出现同一模式：先凭代码把某处判成「缺口/缺陷」，下一轮才发现**它是被双语文档明确记载的有意设计**。

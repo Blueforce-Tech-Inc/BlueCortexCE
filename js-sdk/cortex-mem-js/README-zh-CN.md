@@ -83,10 +83,10 @@ client.close();
 | 选项 | 默认值 | 说明 |
 |------|--------|------|
 | `baseURL` | `http://127.0.0.1:37777` | 后端 URL。**路径前缀会被保留**：`'http://host/memory'` 会把请求发到 `http://host/memory/api/…`，与 Go、Python、Java 三家一致——**反向代理或基于路径的网关后面就用这个**。尾部斜杠会被去掉。 |
-| `apiKey` | — | Bearer Token 认证 |
-| `timeout` | `30000` | 请求超时（毫秒） |
-| `maxRetries` | `3` | Fire-and-forget 操作的总**尝试**次数（3 = 发 3 次请求，即首次之后的 2 次重试） |
-| `retryBackoff` | `500` | 基础重试退避（毫秒） |
+| `apiKey` | — | 每次请求以 `Authorization: Bearer <key>` 发出。**当前后端不校验这个头**（它没有任何鉴权过滤器），故配置它今天保护不了任何东西 —— 详见 [`docs/ARCHITECTURE-zh-CN.md`](../../docs/ARCHITECTURE-zh-CN.md) 的「认证」一节 |
+| `timeout` | `30000` | 请求超时（毫秒）；下限 `100` |
+| `maxRetries` | `3` | Fire-and-forget 操作的总**尝试**次数（3 = 发 3 次请求，即首次之后的 2 次重试）。低于 `1` 的值会被抬到 `1` |
+| `retryBackoff` | `500` | 基础重试退避（毫秒）；下限 `100` |
 | `logger` | 空操作 | 自定义日志器 |
 | `fetch` | 全局 `fetch` | 自定义 fetch 实现 |
 | `headers` | `{}` | 额外请求头 |

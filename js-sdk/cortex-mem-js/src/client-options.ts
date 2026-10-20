@@ -14,7 +14,12 @@ export interface CortexMemClientOptions {
   /** Backend base URL (default: "http://127.0.0.1:37777") */
   baseURL?: string;
 
-  /** API key for authentication (sent as Bearer token) */
+  /**
+   * API key (sent as `Authorization: Bearer <key>`). The current backend does
+   * not read that header — it has no authentication filter — so this protects
+   * nothing today; it only becomes meaningful once the backend grows
+   * authentication.
+   */
   apiKey?: string;
 
   /** Request timeout in milliseconds (default: 30000) */
