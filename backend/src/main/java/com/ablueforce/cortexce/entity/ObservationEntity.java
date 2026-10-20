@@ -1,5 +1,6 @@
 package com.ablueforce.cortexce.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -71,9 +72,11 @@ public class ObservationEntity {
     private List<String> filesModified;
 
     @Column(name = "content_hash")
+    @JsonProperty("content_hash")
     private String contentHash;
 
     @Column(name = "discovery_tokens")
+    @JsonProperty("discovery_tokens")
     private Integer discoveryTokens = 0;
 
     @Column(name = "prompt_number")
@@ -104,6 +107,7 @@ public class ObservationEntity {
     private float[] embedding1536;
 
     @Column(name = "embedding_model_id")
+    @JsonProperty("embedding_model_id")
     private String embeddingModelId;
 
     // V17: Observation feedback tracking fields
@@ -317,6 +321,13 @@ public class ObservationEntity {
         }
     }
 
+    /**
+     * The {@code files_read} wire key is owned by {@link #getFilesReadJson()}, which emits the
+     * JSON-encoded string the WebUI parses. This list accessor is kept for Java callers, but it
+     * must stay out of the JSON: without {@code @JsonIgnore} the OpenAPI advertised a second
+     * {@code filesRead} array property that the entity never serializes.
+     */
+    @JsonIgnore
     public List<String> getFilesRead() { return filesRead; }
     public void setFilesRead(List<String> filesRead) { this.filesRead = filesRead; }
 
@@ -331,6 +342,12 @@ public class ObservationEntity {
         }
     }
 
+    /**
+     * The {@code files_modified} wire key is owned by {@link #getFilesModifiedJson()}, which emits
+     * the JSON-encoded string the WebUI parses. See {@link #getFilesRead()} for why this accessor
+     * is excluded from the JSON.
+     */
+    @JsonIgnore
     public List<String> getFilesModified() { return filesModified; }
     public void setFilesModified(List<String> filesModified) { this.filesModified = filesModified; }
 

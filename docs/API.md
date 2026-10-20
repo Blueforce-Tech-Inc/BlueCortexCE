@@ -247,6 +247,7 @@ Content-Type: application/json
 | `is_worktree` | boolean | ❌ | Whether this is a worktree — **accepted and logged only; it is not persisted and does not affect any behaviour** (see note below) |
 | `parent_project` | string | ❌ | Parent project name (worktree mode) — **same: logged only, not persisted** |
 | `user_id` | string | ❌ | User ID for Phase 3 multi-user support |
+| `platform_source` | string | ❌ | Source platform that owns this session (e.g. `claude`, `codex`). Applied to the **session** at ingest; an already-stored value is not overwritten, except that a non-`claude` request replaces a stored `claude` |
 
 > **`is_worktree` / `parent_project` are accepted but currently have no effect.**
 > `SessionController` reads both and uses them in exactly one place — a `log.info`
@@ -397,7 +398,9 @@ Records a tool use event from Claude Code hooks (via `wrapper.js`). Triggers asy
 > blind spot. The sibling endpoints do honour all of them:
 > `POST /api/ingest/user-prompt` uses `prompt_number`, and
 > `POST /api/ingest/observation` uses `prompt_number`, `source` and
-> `extractedData`. `platform_source` is honoured on all three.
+> `extractedData`. `platform_source` is honoured on all four —
+> `POST /api/session/start` writes it to the session as well (verified live:
+> a `platform_source` of `codex` was stored on the session row).
 
 **Request Example**:
 ```json
@@ -1450,8 +1453,8 @@ Switches the active mode at runtime. Supports base modes (e.g., "code") and inhe
 ```json
 {
   "mode_id": "code--zh",
-  "name": "代码模式",
-  "description": "开发工作流模式",
+  "name": "Code Development (Chinese)",
+  "description": "Software development and engineering work",
   "version": "1.0.0",
   "observation_types": [...],
   "observation_concepts": [...]

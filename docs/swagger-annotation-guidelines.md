@@ -42,11 +42,31 @@
 
 **示例**:
 ```java
-public record ModeSwitchRequest(
+public record ActiveModeSwitchRequest(
     @Schema(description = "Mode ID to activate", example = "code", requiredMode = REQUIRED)
+    @JsonProperty("mode_id")
     String modeId
 ) {}
 ```
+
+### Q4: 请求 DTO 的类名和字段名有什么约束？
+
+**决策**: 请求/响应 DTO 的**简单类名必须全仓唯一**；字段的 wire 名必须用 `@JsonProperty` 显式钉住。
+
+**理由**（两条都由真实缺陷反推得出）:
+1. springdoc **按简单类名**解析请求体 schema。两个同名 record 会**归并成一个 schema**，
+   后注册的那个被静默丢弃 —— 表现为「A 端点宣告了 B 端点的字段」。
+   `dto.ApiRequests.ModeSwitchRequest`（字段 `mode`）与 controller 内的
+   `ModeController.ModeSwitchRequest`（字段 `mode_id`）曾因此共用一个 schema，
+   `PUT /api/mode` 对外宣告了它根本不接受的 `mode`。现已把后者改名为
+   `ActiveModeSwitchRequest`。
+2. springdoc **不套用** `spring.jackson.property-naming-strategy: SNAKE_CASE`。
+   没有 `@JsonProperty` 的多词字段会被宣告成 camelCase（`modeId`），
+   而运行时序列化成 snake_case（`mode_id`）—— 名字对不上。
+   同一条规则也适用于 Entity：未标注的字段会同时**多出**一个 camelCase 幽灵属性、
+   **少掉**运行时真正输出的 snake_case 属性。
+
+**推论**: 想让线上 wire 格式与 OpenAPI 一致，**唯一的可靠办法是显式 `@JsonProperty`**。
 
 ## 当前注解统计
 

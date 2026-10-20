@@ -237,6 +237,7 @@ body 是纯文本 `Error: Failed to generate context preview`；两个 timeline 
 | `is_worktree` | boolean | ❌ | 是否为 worktree —— **只被接收并记入日志，不落库、不影响任何行为**（见下方说明） |
 | `parent_project` | string | ❌ | 父项目名称（worktree 模式）—— **同上：只记日志，不落库** |
 | `user_id` | string | ❌ | 用户 ID（Phase 3 多用户支持） |
+| `platform_source` | string | ❌ | 拥有该会话的来源平台（如 `claude`、`codex`）。入库时写入**会话**；已存的值不会被覆盖，唯一例外是请求值非 `claude` 时会替换已存的 `claude` |
 
 > **`is_worktree` / `parent_project` 会被接收，但当前不产生任何效果。**
 > `SessionController` 读出两者后**只在一处使用**——一条 `log.info`。
@@ -384,7 +385,9 @@ curl -X PATCH http://localhost:37777/api/session/abc-123-def/user \
 > `POST /api/ingest/user-prompt` 上落库为 **42** —— 说明探针**确实读得到**这个值，
 > 那个 NULL 是**丢弃**而非探针盲区。同级端点则三者都照用：
 > `POST /api/ingest/user-prompt` 用 `prompt_number`，`POST /api/ingest/observation`
-> 用 `prompt_number`、`source` 与 `extractedData`。`platform_source` 则三个端点都照用。
+> 用 `prompt_number`、`source` 与 `extractedData`。`platform_source` 则**四个端点都照用** ——
+> `POST /api/session/start` 也把它写入会话（**活体实测**：请求里的 `platform_source`
+> 为 `codex` 时，会话行上确实存的就是 `codex`）。
 
 **响应示例**:
 ```json
@@ -1407,8 +1410,8 @@ curl http://localhost:37777/api/mode
 ```json
 {
   "mode_id": "code--zh",
-  "name": "代码模式",
-  "description": "开发工作流模式",
+  "name": "Code Development (Chinese)",
+  "description": "Software development and engineering work",
   "version": "1.0.0",
   "observation_types": [...],
   "observation_concepts": [...]

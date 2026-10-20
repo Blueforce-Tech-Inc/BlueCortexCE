@@ -4,6 +4,7 @@ import com.ablueforce.cortexce.config.ModeConfig.Mode;
 import com.ablueforce.cortexce.config.ModeConfig.ObservationType;
 import com.ablueforce.cortexce.config.ModeConfig.ObservationConcept;
 import com.ablueforce.cortexce.service.ModeService;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -49,7 +50,7 @@ public class ModeController {
     @Operation(summary = "Get current active mode",
         description = "Returns the currently active mode configuration including mode ID, name, description, version, observation types, and observation concepts.")
     @ApiResponse(responseCode = "200", description = "Active mode configuration returned",
-        content = @Content(schema = @Schema(example = "{\"modeId\":\"code\",\"name\":\"Code\",\"description\":\"Tracks code evolution\",\"version\":\"1.0\",\"observationTypes\":[],\"observationConcepts\":[]}")))
+        content = @Content(schema = @Schema(example = "{\"mode_id\":\"code\",\"name\":\"Code\",\"description\":\"Tracks code evolution\",\"version\":\"1.0\",\"observation_types\":[],\"observation_concepts\":[]}")))
     public ResponseEntity<ModeResponse> getActiveMode() {
         Mode mode = modeService.getActiveMode();
         return ResponseEntity.ok(new ModeResponse(
@@ -68,16 +69,16 @@ public class ModeController {
      */
     @PutMapping
     @Operation(summary = "Set active mode",
-        description = "Switches the active mode at runtime. Supports base modes (e.g., 'code') and inherited modes (e.g., 'code--zh'). Returns error if the mode ID is invalid.")
+        description = "Switches the active mode at runtime. Supports base modes (e.g., 'code') and inherited modes (e.g., 'code--zh'). An empty or missing mode_id is rejected with 400 and an empty body; an unknown mode_id is not rejected — the default mode stays active and the response echoes the requested id.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Mode switched successfully",
-            content = @Content(schema = @Schema(example = "{\"modeId\":\"code\",\"name\":\"Code\",\"description\":\"Tracks code evolution\",\"version\":\"1.0\",\"observationTypes\":[],\"observationConcepts\":[]}"))),
-        @ApiResponse(responseCode = "400", description = "Invalid mode ID or empty modeId provided",
-            content = @Content(schema = @Schema(example = "{\"modeId\":\"invalid\",\"name\":\"error\",\"description\":\"Invalid mode: invalid\",\"version\":null,\"observationTypes\":null,\"observationConcepts\":null}")))
+            content = @Content(schema = @Schema(example = "{\"mode_id\":\"code\",\"name\":\"Code\",\"description\":\"Tracks code evolution\",\"version\":\"1.0\",\"observation_types\":[],\"observation_concepts\":[]}"))),
+        @ApiResponse(responseCode = "400", description = "Empty or missing mode_id provided. The body is empty (0 bytes). An unknown (non-empty) mode_id is not rejected here — the default mode stays active and the response echoes the requested id.",
+            content = @Content(schema = @Schema(example = "")))
     })
     public ResponseEntity<ModeResponse> setActiveMode(
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Mode switch payload. Fields: modeId (required, mode ID to activate, e.g. 'code' or 'code--zh')", required = true)
-            @org.springframework.web.bind.annotation.RequestBody ModeSwitchRequest request) {
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Mode switch payload. Fields: mode_id (required, mode ID to activate, e.g. 'code' or 'code--zh')", required = true)
+            @org.springframework.web.bind.annotation.RequestBody ActiveModeSwitchRequest request) {
         String modeId = request.modeId();
         if (modeId == null || modeId.isBlank()) {
             return ResponseEntity.badRequest().build();
@@ -198,8 +199,23 @@ public class ModeController {
         List<ObservationConcept> observationConcepts
     ) {}
 
-    public record ModeSwitchRequest(
+    /**
+     * Request body of {@code PUT /api/mode}.
+     * <p>
+     * Deliberately named {@code ActiveModeSwitchRequest} and not {@code ModeSwitchRequest}:
+     * {@code com.ablueforce.cortexce.dto.ApiRequests} declares its own {@code ModeSwitchRequest}
+     * (used by {@code POST /api/modes}, wire field {@code mode}), and springdoc resolves
+     * request-body schemas by <em>simple class name</em>. Two same-named records collapsed into a
+     * single OpenAPI schema, so this endpoint advertised the other endpoint's field and rejected
+     * the field it advertised.
+     * <p>
+     * The explicit {@code @JsonProperty("mode_id")} leaves the wire format untouched — the global
+     * SNAKE_CASE naming strategy already produced {@code mode_id} for {@code modeId} — it only
+     * makes the advertised name match the one that is actually accepted.
+     */
+    public record ActiveModeSwitchRequest(
         @Schema(description = "Mode ID to activate (e.g., 'code', 'code--zh')", example = "code", requiredMode = Schema.RequiredMode.REQUIRED)
+        @JsonProperty("mode_id")
         String modeId
     ) {}
 }
