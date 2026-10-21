@@ -140,7 +140,7 @@ public class CursorController {
     @Operation(summary = "List all registered Cursor projects",
         description = "Returns a list of all projects currently registered for Cursor auto-context updates, including their workspace paths and registration timestamps.")
     @ApiResponse(responseCode = "200", description = "Registered projects list returned",
-        content = @Content(schema = @Schema(type = "object", example = "{\"projects\":[{\"projectName\":\"my-project\",\"workspacePath\":\"/path\",\"installedAt\":1709000000000}],\"count\":1}")))
+        content = @Content(schema = @Schema(type = "object", example = "{\"projects\":[{\"projectName\":\"my-project\",\"workspacePath\":\"/path\",\"installedAt\":\"2026-03-18T17:50:11.192503Z\"}],\"count\":1}")))
     public ResponseEntity<Map<String, Object>> getProjects() {
         Map<String, CursorProjectEntry> projects = cursorService.getAllProjects();
 
@@ -314,7 +314,7 @@ public class CursorController {
     @Operation(summary = "Check if a project is registered",
         description = "Checks whether a project is currently registered for Cursor auto-context updates. Returns registered=true with details if registered, registered=false if not.")
     @ApiResponse(responseCode = "200", description = "Registration status returned",
-        content = @Content(schema = @Schema(type = "object", example = "{\"registered\":true,\"projectName\":\"my-project\",\"workspacePath\":\"/path\",\"installedAt\":1709000000000}")))
+        content = @Content(schema = @Schema(type = "object", example = "{\"registered\":true,\"projectName\":\"my-project\",\"workspacePath\":\"/path\",\"installedAt\":\"2026-03-18T17:50:11.192503Z\"}")))
     public ResponseEntity<Map<String, Object>> checkRegistered(
         @Parameter(description = "Project name to check", required = true, example = "my-project")
         @PathVariable String projectName

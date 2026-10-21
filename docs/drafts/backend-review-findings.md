@@ -75,16 +75,7 @@
 
 ### P2-22: `/api/cursor/projects` 的 Swagger 示例把 ISO 字符串写成了 epoch 数字
 
-- **Scope**: → [scope-9][a6]
-- **Problem**: 示例写作
-  `"{\"projects\":[{\"projectName\":\"my-project\",\"workspacePath\":\"/path\",\"installedAt\":1709000000000}],\"count\":1}"`，
-  即把 `installedAt` 标成一个 epoch 毫秒数字。实际类型是 String：
-  `CursorService.CursorProjectEntry(String workspacePath, String installedAt)`
-  （`CursorService.java:52-55`），活体返回
-  `"installedAt": "2026-03-18T17:50:11.192503Z"`。**照此示例生成的客户端会把该字段
-  当数字解析并直接失败**；同一控制器里 `GET /api/cursor/register/{projectName}` 的
-  `installedAt` 示例同样是 epoch 数字，需一并核对。
-- **Status**: ⏸ 记录不修 —— 修 Swagger 注解虽是小改动，但会改变对外发布的 OpenAPI 契约内容，属对外契约变更，留待项目决策。文档层已先行更正： `docs/API.md` 与 `docs/API-zh-CN.md` 的 `GET /api/cursor/projects` 原本**只有 一个代码块、既无描述也无响应示例**（英文版连中文版那一行描述都没有），现已按 活体与源码补上完整响应示例，并明确 `installedAt` 是 ISO-8601 字符串、 `count` 恒等于 `projects.length`（活体 16 == 16，已核对）。
+- **Status**: ✅ **已修（401 轮，Backend 代码 + 文档方向）** —— 四个发布点（两个 Swagger 示例 + 两版参考文档的「检查注册」示例）一律改为 ISO-8601 字符串；本条正文与全部证据逐字见归档 [`…-102`][a60]。
 - 复核记录（原文见 [`…-provenance`][a23]，逐轮全文另见 `patrol-rotation.md`）
 
 ### P2-23: SSE 连接数超限返回 500（应为 503），且没有心跳，死连接最长占用名额 30 分钟
@@ -1210,6 +1201,12 @@
 - **Evidence**: → 归档 [`…-101`][a59]（Go SDK 九个 module 的**两种计数口径**实测、`test-all.sh` 与 `go test ./...` 的覆盖差异、DEVELOPMENT 双语两行的定位与全仓引用清扫）
 - **Status**: ✅ **已修（400 轮，文档方向，DEVELOPMENT 双语各一处）** —— 两处数字改为 **441**（含子测试）与 **371**（根模块，含子测试），各补一段写明口径与实测日期（2026-10-22）。与 **P2-90** 同族（测试总数要不要彻底不写死，仍待决；本轮沿用「同步数值 + 标注日期与推导」）。
 
+### P2-202: P2-22 的文档层更正**不完整** —— 同一节里 Note 明写「不是 epoch 数字」，示例却就是 epoch 数字（双语各一处）
+
+- **Scope**: → [scope-9][a6]
+- **Evidence**: → 归档 [`…-102`][a60]（活体注册表 **25** 条 `installedAt` 全为 ISO-8601 字符串的原始读数、全仓 `installedAt` 清扫表、两个方向的负控逐条读数）
+- **Status**: ✅ **已修（401 轮，文档方向 + Backend 代码方向）** —— 两版参考文档的「检查注册」示例改为 ISO-8601 字符串；新增 `CursorApiContractTest`（**8** 例）把「已发布的 OpenAPI example ↔ 运行时 record 组件类型」与「两版参考文档 ↔ 运行时」双向钉住；两个 Swagger 示例一并改正（见 P2-22）。
+
 ## Processing Rules
 - 第 384 轮新增两个压缩杠杆：**C8**（**⏸ 待决条目**的证据 bullets 整体迁入归档，工作文件留 `- **Scope**` 一行 + 一行 `- **Evidence**` 指针；`- **Problem**`（标题）、`- **⚠️ 为什么不单方面改**`、`- **Severity**`、`- **建议修法**`、`- **Status**` 一律留在工作文件——第 254 轮规则的应用，本轮首次用于 P2-88：归档侧持有证据段 **65 行 / 5355 字节**，工作文件真正迁出 **64 行 / 5307 字节**，全文件净 **−55 行 / −2027 字节**）；**C9**（归档指针行写成「一行说清迁走了什么 + 指向归档」，指针本身可回溯）。**探针自身的三处错**：①单文件 `grep -c "@Test"` 得 **118** 而 surefire 实收 **115** —— 差在**同一个文件里有第二个顶层测试类** `CortexMemErrorMessageTest`（3 个），故静态 `@Test` 计数只在逐文件与运行时分层对齐时才等于运行数；②两个变异叠在一起导致失败归因不清，拆成单变量后才各自点名；③变异 3 在变异 2 尚未还原时跑，报 2 红而非 1 红。硬证明与不动点见归档 `-85`。
 - 第 383 轮新增两个压缩杠杆：**C6**（被引用 ≥2 次的 **28** 个归档路径转引用式，显示名与目标不变，零信息损失，省 **1750** 字节；只出现 1 次的 26 处保持行内）；**C7**（**38** 处多行 `- **Status**` 的续行并回一行，**字符流守恒**，让出 **136 行**、省 272 字节）。**与 382 轮「折行重排不做」的区别**：那轮的对象是叙述正文，本轮是 Status 元数据行。硬证明与脚本自身的两处错见归档 `-84` 的「压缩记录」。终值 **1386 行 / 147578 字节**。
@@ -1331,3 +1328,4 @@
 [a57]: ../archive/2026-10-22_backend-review-evidence-99.md
 [a58]: ../archive/2026-10-22_backend-review-evidence-100.md
 [a59]: ../archive/2026-10-22_backend-review-evidence-101.md
+[a60]: ../archive/2026-10-22_backend-review-evidence-102.md

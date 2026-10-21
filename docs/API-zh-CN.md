@@ -2413,7 +2413,7 @@ Cursor IDE 集成端点，用于自动上下文文件更新。
   "registered": true,
   "projectName": "my-project",
   "workspacePath": "/path/to/project",
-  "installedAt": 1709000000000
+  "installedAt": "2026-03-18T17:50:11.192503Z"
 }
 ```
 
@@ -3034,6 +3034,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
+| 2026-10-22 | (unreleased) | Cursor 注册时间戳在四处被发布成了错误的 JSON 类型。注册表里它是字符串 —— `CursorService.CursorProjectEntry` 声明 `String installedAt`，`registerProject` 填的是 `Instant.now().toString()` —— 活体注册表的 **25** 条记录也全是 ISO-8601 字符串。但两版文档的「检查注册」示例都把它写成 epoch 数字 `1709000000000`，与上方那条「`installedAt` 是 **ISO-8601 时间戳字符串**，**不是** epoch 数字」的注直接矛盾；`GET /api/cursor/projects` 与 `GET /api/cursor/register/{projectName}` 两个 Swagger 注解在机器可读的 spec 里发布了同样错误的形状。现在四处一律发布 ISO-8601 字符串。新增一个测试，把已发布的 OpenAPI example 与两版参考文档都钉到运行时的 record 组件类型上，两侧不会再各走各的。EN+ZH 同步 |
 | 2026-10-21 | (unreleased) | 本文档现在覆盖 springdoc 不发布的那些端点，这项比对也不再只是一句承诺。开头结构说明称端点集合「已核验完全一致」，计数是 **71** 个操作、**66** 条路径 —— 那口径是 `/v3/api-docs` 里 `paths` 每个条目下的 `get`/`put`/`post`/`delete`/`patch` 键，只算 REST 层。运行中的服务器实际应答 **77** 个操作、**72** 条路径，多出的 **6** 个是 MCP 传输（`GET /sse`、`POST /mcp/message`）与 Spring Boot actuator（`GET /actuator`、`GET /actuator/health`、`GET /actuator/info`、`GET /actuator/metrics`）。MCP 那个端点是面向用户的集成面 —— `proxy/CLAUDE-CODE-INTEGRATION.md` 与 `proxy/CURSOR-INTEGRATION.md` 都教用户注册 `http://127.0.0.1:37777/sse` —— 却既没出现在两版文档里，也没有任何测试钉住，于是改一下 `application.yml` 里的 `spring.ai.mcp.server.sse-endpoint`，文档里的地址就跟着漂，且没有任何东西变红。新增 **传输层端点** 一节把 6 个端点连同产生它们的配置与实测日期一并写清。比对本身变成可执行的：`scripts/check-api-doc-surface.py` 从运行中服务器的 `/v3/api-docs` 读 REST 层，从活体 `/actuator` 链接页**发现** actuator 端点，从后端自己的 `application.yml` 推导出 MCP 传输并对它做活体探测，然后要求两版文档与这个并集逐条相等、彼此也相等。它的 `--self-test` 证明检查器能失败（六个坏样本），回归套件每次都会跑它。结构说明与「HTTP 状态码」两处的计数现在写明两层、总数、日期与脚本。EN+ZH 同步 |
 | 2026-10-21 | (unreleased) | 已发布的 OpenAPI 不再在请求体与响应体上自相矛盾。**51** 个 schema 一边宣告 `"type": "string"`，一边带着 JSON 对象或数组的 example —— 只写 `example` 不写 `type` 的 `@Schema` 会被解析成 `string`，于是同一处文档同时断言了两件互斥的事。最刺眼的一例是 `PATCH /api/memory/observations/{id}` 的请求体：按 spec 生成的客户端发出的是 JSON 字符串，端点回 400；而发出 example 展示的那个对象则回 200。现在每一个这样的 schema 都宣告了它自己的 example 早已展示的那个 type。其中 **49** 个对象形态的 example 逐字未变；三个数组响应（`GET /api/timeline`、`POST /api/sdk-sessions/batch`、`GET /api/extraction/{templateName}/history`）现宣告为 `type: array` 并带 `items`，其内联 example 被舍弃 —— 能留住数组 example 的注解写法无法同时带上 `items`，故取合法的数组 schema。另一套机制也一并修好：`GET /api/extraction/{templateName}/history` 的 200 原宣告 `type: object`，而处理器返回的是 JSON 数组。新增一个测试钉住该不变量 —— example 的 JSON 形态必须等于其 schema 宣告的 type。EN+ZH 同步 |
 | 2026-10-21 | (unreleased) | 本文档各处端点/操作计数里的 **67** 写下时是对的，此后已漂移：活体 `/v3/api-docs` 现在是 **71** 个操作、**66** 条路径（2026-10-21 实测）。计数口径是 `paths` 每个条目下的 `get`/`put`/`post`/`delete`/`patch` 键 —— 与 Controller 里 71 个 `@*Mapping` 注解一致，需排除 `ViewerController.java:214` 那个就地注释掉的路由（`/api/concepts`）。这个数字共出现在四处：本文件开头的结构说明、「HTTP 状态码」一节，以及中文版对应的两处；四处现在都写明实测值、日期与取数方式。中英两版所记载的**端点集合**仍完全一致（程序化比对，零差异）—— 只有计数过时了。EN+ZH 同步 |
