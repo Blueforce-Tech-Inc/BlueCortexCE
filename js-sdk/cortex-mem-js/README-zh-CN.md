@@ -9,7 +9,7 @@
 - **零依赖** —— 使用内置 `fetch` API（Node 18+、浏览器、Deno、Bun）
 - **完整 TypeScript 支持** —— 所有 DTO 的完整类型定义
 - **25 个 API 方法** —— 覆盖 Go/Java SDK 的所有端点
-- **373 个单元测试** —— 全面覆盖 Wire 格式和客户端行为（2026-10-21 实测；当前值以 `npm test` 为准）。当日的构成：255 客户端 + 97 必填参数 + 5 截断响应体 + 8 http-server 示例 + 5 http-server 错误契约 + 3 http-server 暴露面
+- **388 个单元测试** —— 全面覆盖 Wire 格式和客户端行为（2026-10-22 实测；当前值以 `npm test` 为准）。当日的构成：255 客户端 + 97 必填参数 + 15 wire 格式 + 5 截断响应体 + 8 http-server 示例 + 5 http-server 错误契约 + 3 http-server 暴露面
 - **双格式 CJS + ESM** —— 同时支持 CommonJS 和 ES Modules
 - **尽力而为的捕获** —— 对暂时性故障重试；重试耗尽后吞掉采集错误，只有你自己传入 `logger` 时才会输出日志——默认的那个是空操作
 
@@ -247,6 +247,16 @@ Python 的**数据类形式**同样跳过 `None`，但它的**关键字参数形
 故 **Python 也能把字符串字段清空为 NULL**——本家并非四家中唯一能做到的一家。对 `facts` 与
 `concepts` 两个列表字段，`[]` 与 `null` 的结果不同——`[]` 存空数组，`null` 存 NULL——且两者都会上 wire，
 因为 `JSON.stringify` 没有 `omitempty`。
+
+`content` 与 `narrative` 是**同一个后端字段的两个名字**，不是两个字段。两个都设时，后端
+**静默地保留 `content`、丢弃 `narrative`**——2026-10-22 对活体后端实测：
+`{"content":"AAA","narrative":"BBB"}` 存下的是 `AAA`，`{"content":null,"narrative":"CCC"}`
+存下的是 **NULL**，narrative 一并被丢掉。调用仍然返回 200，看起来就像写成功了。另三家 SDK
+**直接拒绝**这个组合——Go 抛 `content|narrative` 校验错误、Java 在
+`ObservationUpdate.Builder` 抛 `IllegalArgumentException`、Python 抛 `ValidationError`
+——所以从那三家移植过来的调用方**预期会报错**，实际拿到的是一次**只写了一半**的写入。
+本 SDK 不检测这个冲突：`content` 与 `narrative` 是 `ObservationUpdate` 上两个各自独立的
+可选属性，而请求体里没有任何东西能说明调用方指的是哪一个。二选一即可。
 
 ### 必填参数在客户端校验
 

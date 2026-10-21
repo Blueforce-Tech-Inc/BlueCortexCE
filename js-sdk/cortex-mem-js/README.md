@@ -9,7 +9,7 @@ JavaScript/TypeScript client SDK for the [Cortex CE](https://github.com/Blueforc
 - **Zero runtime dependencies** — Uses the built-in `fetch` API (Node 18+, browsers, Deno, Bun)
 - **Full TypeScript support** — Complete type definitions for all DTOs
 - **25 API methods** — Covers all endpoints from the Go/Java SDKs
-- **373 unit tests** — Full coverage of wire format and client behavior (measured 2026-10-21; `npm test` gives the current count). The breakdown at that date: 255 client + 97 required-arguments + 5 truncated-body + 8 http-server example + 5 http-server error contract + 3 http-server surface
+- **388 unit tests** — Full coverage of wire format and client behavior (measured 2026-10-22; `npm test` gives the current count). The breakdown at that date: 255 client + 97 required-arguments + 15 wire-format + 5 truncated-body + 8 http-server example + 5 http-server error contract + 3 http-server surface
 - **Dual CJS + ESM** — Works with CommonJS and ES Modules
 - **Best-effort capture** — Retries transient failures; capture errors are swallowed after retries, and reach your logs only if you supply a `logger` — the default one is a no-op
 
@@ -267,6 +267,18 @@ can clear a string field to NULL as well — this SDK is not the only one of the
 can. For the `facts` and `concepts` lists, `[]` and `null` are different outcomes — `[]` stores an
 empty array, `null` stores NULL — and both reach the wire, because `JSON.stringify` has
 no `omitempty`.
+
+`content` and `narrative` are **two names for one backend field**, not two fields. Set
+both and the backend **silently keeps `content` and discards `narrative`** — measured
+against a live backend on 2026-10-22: `{"content":"AAA","narrative":"BBB"}` stored `AAA`,
+and `{"content":null,"narrative":"CCC"}` stored **NULL**, dropping the narrative with it.
+The call still returns 200, so the write looks like it happened. The other three SDKs
+reject the combination outright — Go raises a `content|narrative` validation error, Java
+throws `IllegalArgumentException` from `ObservationUpdate.Builder`, Python raises
+`ValidationError` — so a caller ported from any of them expects an error and gets a
+partial write instead. This SDK does not detect it: `content` and `narrative` are two
+separate optional properties of `ObservationUpdate`, and nothing in the request body
+says which one the caller meant. Set one or the other.
 
 ### Required Arguments Are Checked Client-Side
 
