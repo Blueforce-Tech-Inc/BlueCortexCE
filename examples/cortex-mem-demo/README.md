@@ -75,7 +75,7 @@ Demo runs on `http://localhost:37778`.
 > renamed, added or dropped endpoint fails the build rather than silently
 > changing what this document promises.
 
-> **Only two of the seven health endpoints actually check the backend.**
+> **Only two of the eight health endpoints actually check the backend.**
 > `/memory/health` calls the SDK's `healthCheck()` and answers **503**
 > `{"status":"unavailable"}` when the backend does not answer;
 > `/actuator/health` is Spring Boot's own and answers **503** `{"status":"DOWN"}`
@@ -85,6 +85,13 @@ Demo runs on `http://localhost:37778`.
 > unreachable. Measured live against a demo pointed at a dead backend port, all
 > six answered **200 `status: "ok"`** while those two answered 503 in the same
 > process — the same process, the same moment, two different answers.
+>
+> The eight are the two real ones plus those six static beacons, and only
+> **seven** of the eight have "health" in their path: the sixth beacon is
+> `/demo/observations/status`, named `/status` to stay clear of the `/{id}`
+> variable. Counting only the paths that say "health" gives seven, and
+> "seven of the eight" is the arithmetic that produced the wrong number this
+> paragraph used to carry.
 >
 > A liveness probe pointed at one of the six therefore reports the demo healthy
 > exactly when the memory system behind it is down. This is the trap

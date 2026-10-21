@@ -549,8 +549,8 @@ mvn -pl cortex-mem-client test
 
 # ── Go SDK —— 只跑根模块并不覆盖各适配器
 cd go-sdk/cortex-mem-go
-./test-all.sh                 # 全部 9 个模块（根 + genkit + eino + langchaingo + examples）—— 372 即此口径
-go test ./...                 # 仅根 + dto（306）
+./test-all.sh                 # 全部 9 个模块（根 + genkit + eino + langchaingo + examples）—— 441 即此口径
+go test ./...                 # 仅根 + dto（371）
 
 # ── Python SDK
 cd python-sdk/cortex-mem-python
@@ -565,6 +565,12 @@ npm run build                 # tsup -> dist
 
 > **JS SDK 里 `npx jest` 跑不起来**，尽管配置形似 Jest：项目实际使用 **vitest**，
 > 直接调 Jest 会拉到另一个 runner，并在执行任何用例之前就因 ESM 配置报错。
+
+> **Go 那两个数字各数什么**（2026-10-22 实测）：**441** 是九个模块里**含子测试**的通过用例数 ——
+> 用 `go test -json` 按 `(package, test)` 对逐条计数；**只数顶层测试函数**是 **337**，
+> 两者相差在于表驱动用例会另立子测试条目。**371** 是同一口径下**只限根模块**的计数：
+> 在 `go-sdk/cortex-mem-go` 下跑 `go test ./...` 只覆盖 **core + dto**，这正是它小于九模块总数的原因。
+> 两个数字都会随用例增减而变，所以请按「截至 2026-10-22」来读，而不是当作 SDK 的固有属性。
 
 ---
 
