@@ -8,7 +8,7 @@
 
 - **零强制依赖** —— 仅需 `requests`
 - **完整 API 覆盖** —— 25 个方法，涵盖会话、捕获、检索、管理、提取
-- **460 个单元测试** —— 全面覆盖客户端、DTO 和 Demo 集成（客户端 231 + DTO 140 + Demo 89），2026-10-21 按 `pytest --collect-only` 实测
+- **471 个单元测试** —— 全面覆盖客户端、DTO 和 Demo 集成（客户端 231 + DTO 140 + Demo 89 + 错误契约 11），2026-10-21 按 `pytest --collect-only` 实测
 - **Python 风格** —— dataclass、kwargs、上下文管理器
 - **Wire 格式兼容** —— JSON 字段名与后端 API 完全一致
 - **Fire-and-forget 捕获** —— 非阻塞的观察记录，内置重试机制
@@ -114,8 +114,9 @@ client.update_observation("obs-123", update, title="From Kwargs")
 **数据类形式**下只有非 None 字段会被发送到后端（PATCH 语义）；**关键字参数形式**是例外——
 它会把 `None` 与 `{}` 一并送上 wire，而这正是**清空某个字段**的方式（见下文）。
 两种形式在「空值」上**不等价**：数据类形式写 `ObservationUpdate(content=None)`
-或 `ObservationUpdate(extracted_data={})` 会得到一个**空更新**并被拒绝
-（`at least one field must be provided`，**不发任何请求**）。
+或 `ObservationUpdate(extracted_data={})` 会得到一个**空更新**并被拒绝，错误为
+`cortex-ce: validation error on update: at least one field must be provided for update`，
+且**不发任何请求**。
 
 ### 健康 / 提取 / 版本
 
@@ -241,11 +242,25 @@ Python SDK 没有这样做，因为 `requests` 未提供可移植的流式大小
 
 ### 空更新会被拒绝
 
-`update_observation` 在更新未设置任何字段时抛 `ValidationError`，且不会发出任何请求。Go、Java、JS 三家规则与消息完全相同：
+`update_observation` 在更新未设置任何字段时抛 `ValidationError`，且不会发出任何请求：
 
 ```
 cortex-ce: validation error on update: at least one field must be provided for update
 ```
+
+Go、Java、JS 三家 SDK 执行的是**同一条规则**——空更新在请求发出之前就被拒绝——而且四家的消息**主体**逐字相同。
+但**完整字符串并不相同**，因为各家套的外壳不一样：
+
+| SDK | 错误类型 | 完整消息 |
+|-----|----------|----------|
+| 本 SDK | `ValidationError` | `cortex-ce: validation error on update: at least one field must be provided for update` |
+| Go | `dto.ObservationUpdateValidationError` | `cortex-ce: ObservationUpdate validation error: at least one field must be provided for update` |
+| Java | `IllegalArgumentException` | `at least one field must be provided for update` |
+| JS | `ValidationError` | `cortex-ce: validation error on update: at least one field must be provided for update` |
+
+所以按完整字符串匹配的调用方必须先剥掉前缀；按错误类型匹配的调用方还必须知道：
+Java 抛的是 `IllegalArgumentException` 而不是 `ValidationError`，Go 抛的是它自己的
+`dto.ObservationUpdateValidationError`，而不是它必填参数检查用的 `cortexmem.ValidationError`。
 
 这一点很重要：不设置任何字段的 PATCH 在 wire 上是一次静默 no-op。若没有这道检查，调用方用用户输入拼出一个空更新后会看到调用正常返回，却无法得知其实什么都没写入。若要显式发送一个空的 JSONB 值，请以关键字参数传入 `extracted_data={}`——数据类形式 `ObservationUpdate(extracted_data={})` 会把它从 wire 中省略，因此仍属空更新。
 

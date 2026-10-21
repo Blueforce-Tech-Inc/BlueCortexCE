@@ -8,7 +8,7 @@ Python SDK for the [Cortex CE](https://github.com/Blueforce-Tech-Inc/BlueCortexC
 
 - **Zero forced dependencies** — only `requests` required
 - **Full API coverage** — 25 methods covering Session, Capture, Retrieval, Management, Extraction
-- **460 unit tests** — Comprehensive coverage of client, DTO, and demo integration (231 client + 140 DTO + 89 demo), measured 2026-10-21 by `pytest --collect-only`
+- **471 unit tests** — Comprehensive coverage of client, DTO, and demo integration (231 client + 140 DTO + 89 demo + 11 error-contract), measured 2026-10-21 by `pytest --collect-only`
 - **Idiomatic Python** — dataclasses, kwargs, context manager
 - **Wire format compatible** — JSON field names match backend API exactly
 - **Fire-and-forget capture** — non-blocking observation recording with internal retry
@@ -115,8 +115,9 @@ In the **dataclass form**, only non-None fields are sent to the backend (PATCH s
 **keyword-argument form** is the exception — it puts `None` and `{}` on the wire, and that is how
 you **clear a field** (see below). The two forms are **not** equivalent on empty values: the
 dataclass form writes `ObservationUpdate(content=None)` or
-`ObservationUpdate(extracted_data={})` produce an **empty update** and are rejected
-(`at least one field must be provided`, with **no request sent**).
+`ObservationUpdate(extracted_data={})` produce an **empty update** and are rejected with
+`cortex-ce: validation error on update: at least one field must be provided for update`,
+and **no request is sent**.
 
 ### Health / Extraction / Version
 
@@ -252,11 +253,28 @@ listing large observation sets.
 ### Empty Updates Are Rejected
 
 `update_observation` raises `ValidationError` when the update sets no field, and no
-request is sent. The same rule and message apply in the Go, Java and JS SDKs:
+request is sent:
 
 ```
 cortex-ce: validation error on update: at least one field must be provided for update
 ```
+
+The Go, Java and JS SDKs apply the same **rule** — an empty update is rejected before
+any request goes out — and the message **body** is identical word for word in all
+four. The full string is not, because each SDK wraps it differently:
+
+| SDK | Error type | Full message |
+|-----|-------------|--------------|
+| This one | `ValidationError` | `cortex-ce: validation error on update: at least one field must be provided for update` |
+| Go | `dto.ObservationUpdateValidationError` | `cortex-ce: ObservationUpdate validation error: at least one field must be provided for update` |
+| Java | `IllegalArgumentException` | `at least one field must be provided for update` |
+| JS | `ValidationError` | `cortex-ce: validation error on update: at least one field must be provided for update` |
+
+So a caller that matches on the whole message has to strip the prefix, and a caller
+that matches on the error type has to know that Java raises `IllegalArgumentException`
+rather than a `ValidationError`, and that Go raises a type of its own
+(`dto.ObservationUpdateValidationError`) rather than the `cortexmem.ValidationError`
+its own required-argument checks use.
 
 It matters because a PATCH that sets nothing is a silent no-op on the wire: without
 the check, a caller who assembled an empty update from user input would see the call

@@ -1,5 +1,6 @@
 """Unit tests for CortexMemClient (mocked HTTP)."""
 
+import functools
 import json
 import pytest
 import requests
@@ -25,6 +26,61 @@ from cortex_mem.dto import (
 )
 
 BASE = "http://localhost:37777"
+
+
+def hermetic_client_guard(func):
+    """Run a case with the HTTP mock active, and fail it if a request escaped.
+
+    Why this exists
+    ---------------
+    The client-side validation cases used to run with **no mock at all** while
+    ``BASE`` points at ``http://localhost:37777`` — the resident backend. The
+    assertion "the SDK raises before sending" was therefore correct, but a
+    **regression** in the check would have issued a real request:
+
+    * for the three capture methods, ``_fire_and_forget`` swallows every
+      error ("Fire-and-forget: swallow all errors"), so the request would have
+      reached the resident backend and **written a row into the resident
+      database** — an invisible side effect that no assertion covers;
+    * for the non-capture methods, a real request would have gone out and
+      returned a normal-looking answer.
+
+    With the mock active and nothing registered, ``responses`` intercepts the
+    call and raises ``ConnectionError`` instead of letting it leave the
+    process, and the recorded call count makes the failure explicit. The case
+    then fails twice over: the expected exception is not raised, and the guard
+    below reports the request that should not have happened.
+
+    The check is ``len(responses.calls) == 0``, so it has to be able to go
+    above zero — ``TestNoRequestAssertionIsFalsifiable`` in
+    ``test_error_contract.py`` proves that.
+    """
+
+    @responses.activate
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        try:
+            func(self, *args, **kwargs)
+        except BaseException as exc:
+            # The body already failed — most likely because the expected
+            # exception was not raised, which is exactly what happens when the
+            # client-side check regressed and the request went out. The call
+            # count is the more specific diagnosis, so it is reported and the
+            # original failure is kept as its context.
+            calls = len(responses.calls)
+            if calls:
+                raise AssertionError(
+                    "this case asserts that the client-side check runs BEFORE the request; "
+                    "the mock recorded %d request(s) (original failure: %s)" % (calls, exc)
+                ) from exc
+            raise
+        calls = len(responses.calls)
+        assert calls == 0, (
+            "this case asserts that the client-side check runs BEFORE the request; "
+            "the mock recorded %d request(s)" % calls
+        )
+
+    return wrapper
 
 
 def _client():
@@ -207,12 +263,14 @@ class TestCapture:
         c.record_user_prompt("s1", "hello", project_path="/p")  # must not raise
         assert len(responses.calls) == 3
 
+    @hermetic_client_guard
     def test_record_observation_empty_session_id_raises(self):
         """Empty session_id should raise CortexError."""
         c = _client()
         with pytest.raises(ValidationError, match="session_id is required"):
             c.record_observation("", "/p", "Read")
 
+    @hermetic_client_guard
     def test_record_observation_empty_project_path_raises(self):
         """Empty project_path should raise, matching Go/Java/JS.
 
@@ -224,6 +282,7 @@ class TestCapture:
         with pytest.raises(ValidationError, match="project_path is required"):
             c.record_observation("s1", "", "Read")
 
+    @hermetic_client_guard
     def test_record_observation_empty_tool_name_raises(self):
         """Empty tool_name should raise, matching Go/Java/JS.
 
@@ -271,30 +330,35 @@ class TestCapture:
             "no request may be sent for an empty project_path"
         )
 
+    @hermetic_client_guard
     def test_record_session_end_empty_session_id_raises(self):
         """Empty session_id should raise CortexError."""
         c = _client()
         with pytest.raises(ValidationError, match="session_id is required"):
             c.record_session_end("", "/p")
 
+    @hermetic_client_guard
     def test_record_session_end_empty_project_path_raises(self):
         """Empty project_path should raise, matching Go/Java/JS."""
         c = _client()
         with pytest.raises(ValidationError, match="project_path is required"):
             c.record_session_end("s1", "")
 
+    @hermetic_client_guard
     def test_record_user_prompt_empty_session_id_raises(self):
         """Empty session_id should raise CortexError."""
         c = _client()
         with pytest.raises(ValidationError, match="session_id is required"):
             c.record_user_prompt("", "hello", project_path="/p")
 
+    @hermetic_client_guard
     def test_record_user_prompt_empty_prompt_text_raises(self):
         """Empty prompt_text should raise CortexError."""
         c = _client()
         with pytest.raises(ValidationError, match="prompt_text is required"):
             c.record_user_prompt("s1", "", project_path="/p")
 
+    @hermetic_client_guard
     def test_record_user_prompt_empty_project_path_raises(self):
         """Empty project_path should raise, matching Go/Java/JS.
 
@@ -334,6 +398,7 @@ class TestCapture:
             c.get_extraction_history("/p", "t", limit=-1)
         assert exc_info.value.field == "limit"
 
+    @hermetic_client_guard
     def test_update_with_no_fields_raises_validation_error(self):
         """Calling update_observation with no fields is a client error, not a no-op.
 
@@ -353,6 +418,7 @@ class TestCapture:
 
 
 class TestRetrieval:
+    @hermetic_client_guard
     def test_search_empty_project_raises(self):
         """Empty project must raise, matching Go/Java/JS.
 
@@ -365,6 +431,7 @@ class TestRetrieval:
         with pytest.raises(ValidationError, match="project is required"):
             c.search("")
 
+    @hermetic_client_guard
     def test_retrieve_experiences_empty_task_raises(self):
         """Empty task must raise, matching Go/Java/JS.
 
@@ -375,6 +442,7 @@ class TestRetrieval:
         with pytest.raises(ValidationError, match="task is required"):
             c.retrieve_experiences("")
 
+    @hermetic_client_guard
     def test_build_icl_prompt_empty_task_raises(self):
         """Empty task must raise, matching Go/Java/JS."""
         c = _client()
@@ -1097,6 +1165,7 @@ class TestExtractionExtended:
         assert "limit=25" in url
         assert "userId=u1" in url
 
+    @hermetic_client_guard
     def test_get_extraction_history_negative_limit(self):
         """Negative limit should raise ValidationError (cross-SDK parity with Go/JS)."""
         c = _client()
