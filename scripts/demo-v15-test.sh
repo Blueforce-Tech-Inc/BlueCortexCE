@@ -30,7 +30,15 @@ TESTS_FAILED=0
 
 # Check if demo is running
 check_demo() {
-    if curl -sf "${DEMO_URL}/actuator/health" > /dev/null 2>&1; then
+    # The probe must answer "is the DEMO up", not "is the backend up".
+    # /actuator/health aggregates the backend's own health, so it answers 503
+    # whenever the backend is down — measured live: a demo pointed at a dead
+    # backend port answered 503 on /actuator/health while serving every route
+    # normally. Using it here reported "demo is NOT running" and skipped the
+    # suite, which turns a backend outage into a misleading "start the demo"
+    # instruction. /demo/observations/status is a static endpoint of the demo
+    # itself, so it answers 200 exactly when the demo is up.
+    if curl -sf "${DEMO_URL}/demo/observations/status" > /dev/null 2>&1; then
         log_info "Demo is running at ${DEMO_URL}"
         return 0
     else
@@ -40,25 +48,57 @@ check_demo() {
     fi
 }
 
+# Fetch a URL, splitting the HTTP status code from the body.
+#
+# The old form was `curl -sf`, which fails on any status >= 400 and — because
+# of the -s — prints nothing at all, so the failure message carried no
+# information beyond the URL. Two consequences, both measured:
+#
+#   * `/demo/extraction/latest` answers 404 {"error":"No extraction found"} when
+#     the project has no extraction for that template and user. That is the
+#     endpoint's correct behaviour, and this project
+#     (TEST_PROJECT=/tmp/demo-v15-test) never has one, so -f turned the first
+#     test of this script into a guaranteed failure.
+#   * Any 500 was reported as "failed: " with an empty body.
+#
+# So the status code is read explicitly and the body is always captured.
+fetch() {
+    local url="$1"
+    local raw code body
+    raw=$(curl -s -w '\n%{http_code}' "$url" 2>/dev/null) || raw=$'\n000'
+    code=$(printf '%s' "$raw" | tail -n 1)
+    body=$(printf '%s' "$raw" | sed '$d')
+    HTTP_CODE="$code"
+    HTTP_BODY="$body"
+}
+
 # Test /demo/extraction/latest endpoint (V15: Extraction API)
 test_extraction_latest() {
     log_section "Test: /demo/extraction/latest (V15)"
 
-    local response
-    response=$(curl -sf "${DEMO_URL}/demo/extraction/latest?project=${TEST_PROJECT}&template=user_preferences&userId=alice" 2>&1) || {
-        log_fail "GET /demo/extraction/latest failed: $response"
-        return 1
-    }
+    fetch "${DEMO_URL}/demo/extraction/latest?project=${TEST_PROJECT}&template=user_preferences&userId=alice"
 
-    # Response should be JSON (may be empty or have status)
-    if echo "$response" | python3 -c "import sys, json; json.load(sys.stdin)" 2>/dev/null; then
-        log_info "Response is valid JSON"
-    else
-        log_fail "Response is not valid JSON"
+    # 404 is a legitimate answer here: the project has no extraction for that
+    # template and user. 200 means one exists. Anything else is a failure.
+    if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "404" ]; then
+        log_fail "GET /demo/extraction/latest returned HTTP ${HTTP_CODE}: ${HTTP_BODY}"
         return 1
     fi
 
-    log_info "Test PASSED"
+    # Response should be JSON (may be empty or have status)
+    if ! printf '%s' "$HTTP_BODY" | python3 -c "import sys, json; json.load(sys.stdin)" 2>/dev/null; then
+        log_fail "Response is not valid JSON (HTTP ${HTTP_CODE}): ${HTTP_BODY}"
+        return 1
+    fi
+
+    # A 404 has to say what is missing, or a caller cannot tell it apart from a
+    # routing error.
+    if [ "$HTTP_CODE" = "404" ] && ! printf '%s' "$HTTP_BODY" | grep -q "No extraction found"; then
+        log_fail "HTTP 404 body does not report the missing extraction: ${HTTP_BODY}"
+        return 1
+    fi
+
+    log_info "Test PASSED (HTTP ${HTTP_CODE})"
     ((TESTS_PASSED++))
     return 0
 }
@@ -67,21 +107,20 @@ test_extraction_latest() {
 test_extraction_history() {
     log_section "Test: /demo/extraction/history (V15)"
 
-    local response
-    response=$(curl -sf "${DEMO_URL}/demo/extraction/history?project=${TEST_PROJECT}&template=user_preferences&userId=alice&limit=5" 2>&1) || {
-        log_fail "GET /demo/extraction/history failed: $response"
-        return 1
-    }
+    fetch "${DEMO_URL}/demo/extraction/history?project=${TEST_PROJECT}&template=user_preferences&userId=alice&limit=5"
 
-    # Response should be a JSON list
-    if echo "$response" | python3 -c "import sys, json; data=json.load(sys.stdin); assert isinstance(data, list)" 2>/dev/null; then
-        log_info "Response is a list (extraction history)"
-    else
-        log_fail "Response is not a list"
+    if [ "$HTTP_CODE" != "200" ]; then
+        log_fail "GET /demo/extraction/history returned HTTP ${HTTP_CODE}: ${HTTP_BODY}"
         return 1
     fi
 
-    log_info "Test PASSED"
+    # Response should be a JSON list
+    if ! printf '%s' "$HTTP_BODY" | python3 -c "import sys, json; data=json.load(sys.stdin); assert isinstance(data, list)" 2>/dev/null; then
+        log_fail "Response is not a list (HTTP ${HTTP_CODE}): ${HTTP_BODY}"
+        return 1
+    fi
+
+    log_info "Test PASSED (HTTP ${HTTP_CODE})"
     ((TESTS_PASSED++))
     return 0
 }
@@ -90,20 +129,19 @@ test_extraction_history() {
 test_experiences_with_user() {
     log_section "Test: /memory/experiences with userId (V15 multi-user)"
 
-    local response
-    response=$(curl -sf "${DEMO_URL}/memory/experiences?task=test&project=${TEST_PROJECT}&count=2" 2>&1) || {
-        log_fail "GET /memory/experiences failed: $response"
-        return 1
-    }
+    fetch "${DEMO_URL}/memory/experiences?task=test&project=${TEST_PROJECT}&count=2"
 
-    if echo "$response" | python3 -c "import sys, json; data=json.load(sys.stdin); assert isinstance(data, list)" 2>/dev/null; then
-        log_info "Response is a list (experiences)"
-    else
-        log_fail "Response is not a list"
+    if [ "$HTTP_CODE" != "200" ]; then
+        log_fail "GET /memory/experiences returned HTTP ${HTTP_CODE}: ${HTTP_BODY}"
         return 1
     fi
 
-    log_info "Test PASSED"
+    if ! printf '%s' "$HTTP_BODY" | python3 -c "import sys, json; data=json.load(sys.stdin); assert isinstance(data, list)" 2>/dev/null; then
+        log_fail "Response is not a list (HTTP ${HTTP_CODE}): ${HTTP_BODY}"
+        return 1
+    fi
+
+    log_info "Test PASSED (HTTP ${HTTP_CODE})"
     ((TESTS_PASSED++))
     return 0
 }

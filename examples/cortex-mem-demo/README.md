@@ -50,16 +50,50 @@ Demo runs on `http://localhost:37778`.
 | `GET /demo/extraction/latest?template=...&project=...&userId=...` | Latest extraction result for user (V15) |
 | `GET /demo/extraction/history?template=...&project=...&userId=...&limit=10` | Extraction history for user (V15) |
 | `POST /demo/extraction/run?project=...` | Trigger extraction (V15) |
-| `GET /memory/health?project=project-a` | Memory health check |
+| `GET /memory/health?project=project-a` | **Real** health check — asks the backend, answers **503** when it is down |
+| `GET /demo/experiences/health` | Static beacon — constant `{"endpoint":"experiences","status":"ok"}`, never asks the backend |
+| `GET /demo/extraction/health` | Static beacon — constant `{"endpoint":"extraction","status":"ok"}`, never asks the backend |
+| `GET /demo/feedback/health` | Static beacon — constant `{"endpoint":"feedback","status":"ok"}`, never asks the backend |
+| `GET /demo/manage/health` | Static beacon — constant `{"endpoint":"manage","status":"ok"}`, never asks the backend |
+| `GET /demo/search/health` | Static beacon — constant `{"endpoint":"search","status":"ok"}`, never asks the backend |
+| `GET /demo/observations/status` | Static beacon — constant `{"endpoint":"observations","status":"ok"}`, never asks the backend (named `/status` to stay clear of the `/{id}` variable) |
 | `GET /chat?message=...&project=project-a` | Memory-augmented chat by project |
 | `GET /demo/tool?path=...&project=project-a` | Tool call scoped to project |
-| `GET /actuator/health` | Health check |
+| `GET /actuator/health` | Spring Boot's own health — answers **503** `{"status":"DOWN"}` when the backend is unreachable |
 
 > `?path=` defaults to `hello.txt`, resolved against the root above. That file is
 > not in the repository, so a fresh checkout returns
 > `{"status":"tool executed","result":"Error: ...NoSuchFileException..."}` —
 > create one (`echo hi > hello.txt`) to see a successful read. The status is 200
 > either way, which is the pre-existing shape for a missing file.
+
+> **The table above is a selection, not the full surface.** The demo serves
+> **44** endpoints across 12 controllers; the ones not listed are the
+> per-controller spellings of the same operations (`/demo/manage/*`,
+> `/demo/session/*`, `/demo/observations/*`, `/demo/extraction/*`, …). The
+> complete `(verb, path)` surface is pinned by `DemoEndpointSurfaceTest`, so a
+> renamed, added or dropped endpoint fails the build rather than silently
+> changing what this document promises.
+
+> **Only two of the seven health endpoints actually check the backend.**
+> `/memory/health` calls the SDK's `healthCheck()` and answers **503**
+> `{"status":"unavailable"}` when the backend does not answer;
+> `/actuator/health` is Spring Boot's own and answers **503** `{"status":"DOWN"}`
+> in the same situation. The other **six** are static: they return a constant
+> `{"endpoint":"…","status":"ok"}` and never touch the backend, so their answer
+> is byte-for-byte identical whether the backend is up or completely
+> unreachable. Measured live against a demo pointed at a dead backend port, all
+> six answered **200 `status: "ok"`** while those two answered 503 in the same
+> process — the same process, the same moment, two different answers.
+>
+> A liveness probe pointed at one of the six therefore reports the demo healthy
+> exactly when the memory system behind it is down. This is the trap
+> `/memory/health` fell into before round 183: it used `retrieveExperiences`,
+> which degrades silently, as its liveness signal and answered `status: "ok"`
+> while every memory call was failing. It now consults `healthCheck()` instead.
+> The static shape of the other six is pinned by `StaticHealthEndpointsTest`;
+> turning one of them into a real check would change what callers see, so that
+> is an author decision rather than a silent fix.
 
 > **`?path=` is confined to the project root, and the demo listens on loopback only.**
 > `FileReadTool.readFile` resolves every path against `demo.file-read-root`
@@ -75,6 +109,40 @@ Demo runs on `http://localhost:37778`.
 > This was P1-2 — recorded across many rounds as "do not copy the endpoint, or
 > run it on a shared network" — and was fixed in round 294 after the user
 > authorised it. The confinement is pinned by `FileReadToolTest`.
+
+### 3.1 How this demo's paths differ from the other three demos
+
+The four demos in this repository are four independent sample applications, not
+four implementations of one API — their paths are not interchangeable. This one
+is the odd one out in two ways:
+
+- **This demo prefixes most of its paths** (`/demo/…`, `/memory/…`). The Go,
+  Python and JS demos serve the same operations unprefixed (`/observations`,
+  `/experiences`, `/session/start`, …).
+- **`/chat` is a `GET` here**, taking query parameters. The Go, Python and JS
+  demos all serve `POST /chat` with a JSON body, so a `POST` curl copied from
+  one of them is rejected here — verified live, not inferred:
+
+  ```
+  $ curl -s -X POST http://127.0.0.1:37778/chat \
+      -H 'Content-Type: application/json' \
+      -d '{"message":"hi","project":"project-a"}'
+  {"timestamp":"…","status":405,"error":"Method Not Allowed","path":"/chat"}
+  ```
+
+One more spelling difference exists and is **not** this demo's: the Go demo
+serves the two observation-creation paths as `/batch-observations` and
+`/create-observation`, where this demo, Python and JS use
+`/observations/batch` and `/observations/create`. Tracked as P2-33; the Go
+demo's own README records the same divergence from its side.
+
+The Python and JS demos register an identical set of 26 `(verb, path)` pairs;
+across all four, the only business-path differences are the two spellings above
+and this demo's prefix.
+
+> The Go demo's README documents the same divergence from the Go side. It is
+> repeated here because a reader who starts from *this* demo is the one most
+> likely to paste a curl into the wrong one.
 
 ### 4. E2E Test
 

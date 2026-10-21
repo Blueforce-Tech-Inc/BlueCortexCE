@@ -30,7 +30,15 @@ TESTS_FAILED=0
 
 # Check if demo is running
 check_demo() {
-    if curl -sf "${DEMO_URL}/actuator/health" > /dev/null 2>&1; then
+    # The probe must answer "is the DEMO up", not "is the backend up".
+    # /actuator/health aggregates the backend's own health, so it answers 503
+    # whenever the backend is down — measured live: a demo pointed at a dead
+    # backend port answered 503 on /actuator/health while serving every route
+    # normally. Using it here reported "demo is NOT running" and skipped the
+    # suite, which turns a backend outage into a misleading "start the demo"
+    # instruction. /demo/observations/status is a static endpoint of the demo
+    # itself, so it answers 200 exactly when the demo is up.
+    if curl -sf "${DEMO_URL}/demo/observations/status" > /dev/null 2>&1; then
         log_info "Demo is running at ${DEMO_URL}"
         return 0
     else

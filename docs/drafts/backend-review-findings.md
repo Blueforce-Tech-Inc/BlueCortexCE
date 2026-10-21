@@ -611,27 +611,16 @@
 
 - **Scope**: → [scope-9][a6]、[scope-10][a7]
 - **Problem**: `@PathVariable UUID` 在 id 不可解析时由 Spring 抛转换失败，返回 400，
-  与「请求体字段类型错」是完全不同的成因，却共用同一个状态码。活体实测（37777）：
-
-  | 请求 | 实测 |
-  |---|---|
-  | `PATCH /api/memory/observations/not-a-uuid` | 400 `{"status":400,"error":"Bad Request","path":"…"}` |
-  | `DELETE /api/memory/observations/not-a-uuid` | 400 同上 |
-  | `PATCH /api/memory/observations/00000000-…-000000000000`（格式合法、不存在） | 404（空体） |
-  | `POST /api/memory/feedback` `{"observationId":"not-a-uuid"}`（id 在体里） | 400 `{"error":"Invalid observationId format: not-a-uuid"}` |
-
-  文档把 `400` 写成「Invalid field types in request body（e.g. `title must be a string`）」、
-  `404` 写成「Observation with given UUID not found」——读起来就是「id 写错属于 404」。
-  实际不是：path 里的 id 写错是 400。按 404 当「不存在」来写的客户端会落到通用错误分支。
-  全库检索确认：中英双语 API 文档从未提及这一情形（`not-a-uuid` / `malformed id` / `畸形` 均 0 命中）。
+  与「请求体字段类型错」是完全不同的成因，却共用同一个状态码；
+  path 里的 id 写错是 **400** 而**不是 404**，按 404 当「不存在」来写的客户端会落到通用错误分支。
+  活体实测表、API 文档对 400 与 404 的措辞原文、全库检索结果见归档。
   注意归因：`MemoryController` 自己的 `@ApiResponse` 注解用的也是同一句窄措辞，
   **所以 API.md 忠实镜像了注解——缺口源自代码里的契约描述，不是文档与代码不一致。**
-- ⚠️ 一处差点误记、已撤回：初判为「后端对畸形 id 返 404、demo 注释失实」——探针打错了路径。
-  `MemoryController` 类级是 `@RequestMapping("/api/memory")`，真实全路径为
-  `/api/memory/observations/{id}`；我探的 `/api/observations/{id}` 根本不存在，
-  那个 404 是路由未匹配而非 id 校验。改打正确路径后得到 400，
+- **Evidence**: → 归档 [`…-89`][a47]（活体实测四行表、API 文档对 400 与 404 的措辞原文、全库检索「从未提及畸形 id」的结果、⚠️ 一处差点误记已撤回的全文）
+- ⚠️ 一处差点误记、已撤回（**全文见归档**）: 初判为「后端对畸形 id 返 404、demo 注释失实」——**探针打错了路径**
+  （真实全路径是 `/api/memory/observations/{id}`，我探的 `/api/observations/{id}` 根本不存在，
+  那个 404 是路由未匹配而非 id 校验）；改打正确路径后得到 400，
   且**第 102 / 201 轮早已裁决过同一件事**（那句 `Invalid observationId format` **只对 `submitFeedback` 成立**）。
-  若照字面采信，会写下一条完全错误的「失实陈述」。
 - **Status**: ⏸ 记录不修 —— 要改就得同时动控制器注解与中英双语文档， 而注解是对外发布的 API 契约描述；且此处是描述偏窄（400 的成因少列一种）、 不是陈述错误，按既定规则「遗漏 ≠ 失实」不单方面改写对外契约。 修法若要采纳，最小形态是给两处 `400` 补一句「或 path 中的 id 不是合法 UUID」。
 ### P2-76: demo 40 个 catch 块里只有 3 个做后端 4xx 直通，`PATCH /demo/session/user` 因此把 404 报成 500
 
@@ -686,35 +675,12 @@
   **只要 `*` 出现在列表的任何非首位位置，意图就被违背**。
   Spring 的 `CorsConfiguration.validateAllowCredentials` 在 `allowCredentials=true` 且
   `allowedOrigins` 含 `*` 时**抛 `IllegalArgumentException`**，且该校验每个请求都会走到。
-  活体三配置对照（37790，逐次重启、改同一处配置）：
-
-  | `claudemem.cors.allowed-origins` | 普通请求 `GET /api/stats` | 预检 | 日志异常数 |
-  |---|---|---|---|
-  | `http://a.example,*`（星号非首位） | 500 | 403，无 CORS 头 | 每次请求抛异常 |
-  | `*,http://a.example`（星号在首位） | 200 | 200 + `ACAO: *` | 0 |
-  | `http://a.example`（无星号） | 200 | 200 + ACAO + 凭据 | 0 |
-
   失效形态远重于「跨域不工作」：整个 API 返回 500，连不带 `Origin` 的普通请求也是 500。
   异常原文：`When allowCredentials is true, allowedOrigins cannot contain the special value "*"…`
-  ⚠️ 第 314 轮更正本条第二行（且更正方向是加重，不是减轻）：
-  初版记作「200，但**无 ACAO 头** → 浏览器照样拦截；两种错法不同，都错」。
-  那个 ACAO 断言是用坏探针测的——`curl -o 文件` 存的是响应体，却去 grep 响应头，
-  读到的永远是空。第 313 轮已在同一段代码上栽过同一次并当场改正，本条当时未同步更正。
-  **用 `-D` 重测，结论相反**（37790，配置 `*,http://a.example`，原样无空格）：
-
-  | `Origin` | 实测 |
-  |---|---|
-  | `http://a.example`（列出） | 200 + `Access-Control-Allow-Origin: *`，`ACAC` 头 0 次 |
-  | `http://zzz-not-listed.example`（未列出） | 200 + `Access-Control-Allow-Origin: *` |
-
-  即第二种写法不是「坏了但安全」，而是对所有 origin 全开——
-  `allowCredentials` 被算成 false，Spring 便直接回显通配，通配压过同列表里的具体源。
-  **所以本条不是「两种错法都错」，而是「一种把整个 API 打挂、一种把它对全网敞开」**，
-  安全权重由此上升（初版低估了自己）。第 1 行的 500 与第 3 行的 ACAO 不受影响：
-  前者的 500 取自 `-w` 的状态码本身（非响应头 grep），后者出自第 311 轮用 `-D` 的测量。
-  今天不可触发：该配置项全仓从未被设置（与 P2-78 同一条证据）。
+  ⚠️ 第 314 轮曾更正本条第二行，且**更正方向是加重不是减轻** —— 全文见归档。
+- **Evidence**: → 归档 [`…-89`][a47]（活体三配置对照表、第 314 轮更正全文 —— 初版 ACAO 断言是用**坏探针**读出来的、`-D` 重测后的第二张表与「两种错法都错」⇒「一种打挂、一种对全网敞开」的结论订正）
 - ⚠️ 为什么不能顺手改：最直觉的修法（`*` 出现在任意位置就把 `allowCredentials` 置 false）
-  恰好制造出上表第二行那种结果——Spring 回 `Access-Control-Allow-Origin: *`，
+  恰好制造出**归档里那张对照表第二行**那种结果——Spring 回 `Access-Control-Allow-Origin: *`，
   等于给所有 origin 开口，比运维显式列出的那一个更宽。
   第 314 轮的实测正是这句话的证据：该行为并非推测，它就是 `*` 在首位时的实际表现。
   正确修法只有两条，都涉及策略决定：改用 `allowedOriginPatterns`（支持带凭据的通配），
@@ -733,36 +699,14 @@
 ### P2-82: 三家 SDK 都给响应体设了 10 MB 上限，只有 Python 完全没有——`requests` 会把整个 body 缓冲进内存
 
 - **Scope**: → [scope-9][a6]、[scope-10][a7]
-- **Problem**: 同一道安全阀，三家形态如下：
-
-  | SDK | 上限 | 形态 |
-  |---|---|---|
-  | Go | 10 MB | `MaxResponseBytes = 10 << 20`，导出具名常量；`io.LimitReader(body, Max+1)` 读超一字节再显式报错 |
-  | JS | 10 MB | `const maxSize = 10 * 1024 * 1024`，三道检查：读前查声明的 `Content-Length`、读后查 `text.length`、外加 UTF-8 字节感知的第三次 |
-  | Python | 无 | `_request` 拿到 `requests.Response` 后**直接取 `resp.content`**，全路径零体积判断 |
-
-  `grep -nE 'MAX_RESPONSE|max_response|10 \* 1024 \* 1024|10485760' python-sdk/cortex-mem-python/cortex_mem/*.py`
-  零命中。`requests` 默认把整个响应体缓冲进内存，故一个超大响应（或拦截它的代理）
-  会在 Python 侧被完整读入，而 Go 与 JS 会中止并显式报错。
-  这不是「少写了个常量」而是失效形态不同：同一次异常后端响应，
-  Go/JS 得到「响应体超过上限」的可诊断错误，Python 得到一次内存暴涨。
-  佐证这道阀是后加的且必要：JS 的注释记着它是在实测「多字节字符使 `text.length`
-  低估体积达上限的 1.5 倍」之后才补的第三道检查——即它确实在真实场景下漏过。
+- **Problem**: 同一道安全阀，Go / JS 都设 **10 MB** 上限、**Python 完全没有** ⇒ `requests` 会把整个 body 缓冲进内存；
+  这不是「少写了个常量」而是**失效形态不同**：同一次异常后端响应，Go/JS 得到「响应体超过上限」的
+  可诊断错误，Python 得到一次内存暴涨。三家形态表与探针读数见归档。
+- **Evidence**: → 归档 [`…-89`][a47]（三家形态表、`grep` 零命中的读数、JS 第三道检查的由来、Python README「Response Size Limit」节的逐条引文、Go/JS README 对拍、⚠️ 第 316 轮更正定性全文）
 - **Status**: ⏸ 记录不修，且第 316 轮已下调定性（见下） —— 给 Python 加上限会让原本成功的超大响应变成抛错， 属收窄已发布 SDK 的接受范围。
-- ⚠️ 第 316 轮更正定性：这不是「无人知晓的缺口」，而是已双语记载的有意权衡**
-  **上一轮定性为缺陷是错的**。`python-sdk/cortex-mem-python/README.md:229-238` 有一节
-  「**Response Size Limit**」，中文版 `:229-238` 同节同步，内容逐条如下：
-  - 明写「There is **no** response size cap in this SDK」；
-  - 给出**原因**：「`requests` gives **no portable hook** for a streaming size check」；
-  - 写出**后果**：「a very large response is bounded only by the memory available to your process」；
-  - 给出**建议**：「Keep `limit` modest when searching or listing large observation sets」。
-  **即技术事实不变（Python 无上限、Go/JS 有 10 MiB），但它的性质是「已记载的取舍」，
-  不是「静默的缺口」**——与 P2-78（配错了没人知道）不同类。
-  **仍然剩下的唯一问题是「要不要改这个取舍」，那是产品决策**（是否值得为 Python 引入
-  流式读取并承担 `requests` 之外的复杂度），**不是补缺口**，维持不修。
-  **对拍参考**：Go README `:227-235` 记着常量名、`10 << 20`、读 `Max+1` 字节与错误原文；
-  JS README `:171-179` 记着报错文案并**主动澄清**「文案写 `10MB`，实际上限是 10 MiB = 10,485,760 字节」。
-  **三家文档各自准确，双语同步。**
+- ⚠️ 第 316 轮更正定性（**全文见归档**）: 这不是「无人知晓的缺口」，而是**已双语记载的有意权衡**
+  —— 技术事实不变（Python 无上限、Go/JS 有 10 MiB），但性质是「已记载的取舍」不是「静默的缺口」；
+  剩下的唯一问题是「要不要改这个取舍」，属产品决策，**维持不修**。
 - **未证实的部分，不写**：本轮**未实测**「真的让 Python 侧 OOM」——
   上面是**代码路径层面的断言**（无上限检查、requests 会缓冲），
   **不是**「已复现的内存事故」。
@@ -1162,6 +1106,38 @@
 - **修法（本轮已修，JS 侧）**: ① **加测试** 3 个用例（`startSession` 对 503 只发 1 次 + 抛 `APIError` / `submitFeedback` 对 503 只发 1 次 + 抛 `APIError` / **阳性对照**：同一 mock 下 `recordObservation` 对 503 发 3 次）；② **补文档** 双语 README 新增「重试策略」一节，写明 `maxRetries` 只作用于捕获路径，并点明 Java 还重试那 7 个非捕获方法。
 - **Status**: ✅ **已修（387 轮）** —— 与 P2-161 **不是重复立条**：P2-161 是**吞错**轴，本条是**重试**轴；与 P2-113（失败默认可见性）也不同。
 
+### P2-167: Java demo 的 **44** 个端点暴露面**零测试钉住** —— 12 个 Controller、44 条 `(verb, path)`，此前**一个都没被断言过**
+
+- **Scope**: → [scope-9][a6]
+- **Evidence**: → 归档 [`…-89`][a47]（12 个 Controller 的端点清单、44 条的完整集合、测试文件的覆盖盘点、三次变异的红绿计数与还原校验）
+- **修法（本轮已修，Demo 侧，只加测试，实现零改动）**: 新增 `DemoEndpointSurfaceTest`（**3** 个用例）—— ① 断言 **44** 条 `(verb, path)` 的**集合相等**（多一条或少一条都红，不是包含关系）；② 断言无重复的 `(verb, path)`；③ 钉住「哪些 Controller 有 `/health` 兄弟端点」。
+- **Status**: ✅ **已修（388 轮）** —— demo 测试 **40 → 50**（暴露面 3 + 静态 health 7），全绿。
+
+### P2-168: demo 里 **6** 个静态 `/demo/*/health` 端点**恒返 200 `status:"ok"`** —— 后端完全宕机时仍报「健康」；与唯一的真健康检查 `/memory/health` **字段同名、语义相反**
+
+- **Scope**: → [scope-9][a6]
+- **Evidence**: → 归档 [`…-89`][a47]（2×2 活体对照矩阵：后端死/活各打 7 个 health 端点、逐字节相同的读数、第 183 轮那次修复的 Javadoc 原文、6 个静态端点的实现坐标）
+- **后果**: 拿这 6 个端点做存活探针的监控，在**后端完全不可达**时也会报「健康」；而同一进程里 `/memory/health` 与 `/actuator/health` 明明返 **503**。
+- **修法（本轮已修）**: ① **加测试** `StaticHealthEndpointsTest`（**7** 个用例）钉住「恒 200、恒 `status:ok`、**client 零交互**」，并附**阳性对照**（同一 mock 在 `/memory/health` 上**确实**被观察到）；② **补文档**：Demo README 端点表补这 6 条并标注「静态、不问后端」，另加一段写明**七条里只有两个真检查后端**。⭐ 改这 6 个端点的**行为**属对外契约变更 ⇒ 只记不实施。
+- **Status**: ✅ **已修（388 轮）** —— ⭐ 这是「**存活信号不能被别的东西代理**」这一族的**第三个实例**，方向与第 183 轮那次相反（那次是**假绿**，这 6 个是**恒绿**）。
+
+### P2-169: `scripts/demo-v15-test.sh` 用 `curl -sf` ⇒ 把**业务合法的 404** 判成失败 ⇒ 它的**第一个测试必然失败**；且 `-s` 让失败消息**恒为空**（不可诊断）
+
+- **Scope**: → [scope-9][a6]
+- **Evidence**: → 归档 [`…-89`][a47]（`-sf` 两个缺陷的活体读数、`TEST_PROJECT` 下零行的数据库查询、脚本的 JSON 校验本意分析、变异前后计数）
+- **根因**: `/demo/extraction/latest` 对「无抽取结果」返 **404 `{"error":"No extraction found"}`** —— 这是**正确**的业务语义；而脚本的 `TEST_PROJECT` 几乎不可能有抽取数据（实测该 project 下 `mem_observations` **0 行**）⇒ `curl -f` 遇 404 短路 ⇒ **第一个测试恒失败**。脚本后半段有 JSON 校验 ⇒ 作者**本意**是接受非 2xx 的 JSON 响应，`-f` 与本意冲突。
+- **修法（本轮已修，脚本层，零行为变更）**: 抽出 `fetch()` 显式拆状态码与响应体；`latest` 接受 **200 与 404**，并**加断言**「404 的 body 必须说明缺什么」；另两个要求 **200**。失败消息带 HTTP 状态码与完整响应体。
+- **Status**: ✅ **已修（388 轮）** —— 修前 **2/0/1**（exit 1），修后 **3/0/0**（exit 0）；⭐ 判定是**更精确**而非更松：5xx 仍判失败，变异证明 404 的 body 不合要求时**仍红**。
+
+### P2-170: 两个 demo e2e 脚本的 `check_demo` 用**后端**健康当 **demo** 存活的代理 ⇒ 后端宕机时误报「demo 没在跑」并**跳过整个套件** ⇒ 后端故障被伪装成「demo 没启动」
+
+- **Scope**: → [scope-9][a6]
+- **Evidence**: → 归档 [`…-89`][a47]（活体读数：后端死时 `/actuator/health` 返 503 而 `/demo/observations/status` 返 200、修正前后脚本在同一条命令下的两种结局、两次变异的对照）
+- **根因**: `check_demo` 打 `curl -sf "${DEMO_URL}/actuator/health"`，而该路径**聚合后端健康** ⇒ 后端一挂就返 **503** ⇒ 脚本报「Demo is NOT running」并 `exit 1` ⇒ **后端故障被伪装成「demo 没启动」**，排查方向被直接带偏。
+- **修法（本轮已修，脚本层，零行为变更）**: 判据改为 `/demo/observations/status` —— demo **自身**的静态端点，**不依赖后端**。修正后打同一个（后端死的）实例：脚本从「跳过」变成「1 通过 / 2 失败」，失败消息直接指出是后端 I/O 错误。
+- **Status**: ✅ **已修（388 轮）** —— ⭐ 与 **P2-168** 同族但**方向相反**（那是**假绿**，这是**假红**）；⭐ `scripts/run-all-e2e.sh` **不跑**这两个脚本 ⇒ 影响面是 `docs/TESTING.md`、Java demo README 与 `scripts/README.md` 三处把它当「会通过」的流程推荐。
+
+
 
 ## Processing Rules
 - 第 384 轮新增两个压缩杠杆：**C8**（**⏸ 待决条目**的证据 bullets 整体迁入归档，工作文件留 `- **Scope**` 一行 + 一行 `- **Evidence**` 指针；`- **Problem**`（标题）、`- **⚠️ 为什么不单方面改**`、`- **Severity**`、`- **建议修法**`、`- **Status**` 一律留在工作文件——第 254 轮规则的应用，本轮首次用于 P2-88：归档侧持有证据段 **65 行 / 5355 字节**，工作文件真正迁出 **64 行 / 5307 字节**，全文件净 **−55 行 / −2027 字节**）；**C9**（归档指针行写成「一行说清迁走了什么 + 指向归档」，指针本身可回溯）。**探针自身的三处错**：①单文件 `grep -c "@Test"` 得 **118** 而 surefire 实收 **115** —— 差在**同一个文件里有第二个顶层测试类** `CortexMemErrorMessageTest`（3 个），故静态 `@Test` 计数只在逐文件与运行时分层对齐时才等于运行数；②两个变异叠在一起导致失败归因不清，拆成单变量后才各自点名；③变异 3 在变异 2 尚未还原时跑，报 2 红而非 1 红。硬证明与不动点见归档 `-85`。
@@ -1272,3 +1248,4 @@
 [a44]: ../archive/2026-10-20_backend-review-evidence-86.md
 [a45]: ../archive/2026-10-20_backend-review-evidence-87.md
 [a46]: ../archive/2026-10-20_backend-review-evidence-88.md
+[a47]: ../archive/2026-10-20_backend-review-evidence-89.md
