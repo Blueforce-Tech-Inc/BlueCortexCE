@@ -8,7 +8,7 @@ The Go SDK ships with five demo projects that demonstrate different usage patter
 
 | Demo | Directory | Description |
 |------|-----------|-------------|
-| **HTTP Server** | `http-server/` | Full REST API wrapping all SDK methods — 24 endpoints |
+| **HTTP Server** | `http-server/` | Full REST API wrapping all 25 API methods — 26 endpoints (24 paths; `/observations/{id}` answers `GET`, `PATCH` and `DELETE` from one handler) |
 | **Basic** | `basic/` | Minimal SDK usage — session, observation, search |
 | **Eino** | `eino/` | Eino framework retriever integration |
 | **LangChainGo** | `langchaingo/` | LangChainGo memory integration |
@@ -375,7 +375,7 @@ curl -X POST http://localhost:37779/ingest/session-end \
 
 ### Use Cases
 
-1. **Testing SDK functionality** — All 27 SDK methods are exposed as HTTP endpoints, making it easy to test with `curl`, Postman, or scripts
+1. **Testing SDK functionality** — All 25 API methods are exposed as HTTP endpoints, making it easy to test with `curl`, Postman, or scripts. (`Close` and `String` are lifecycle and debug members, not API methods, so they are not exposed over HTTP; the SDK's 27-method interface is 25 API methods plus those two.)
 2. **E2E test target** — The `scripts/go-sdk-e2e-test.sh` script tests all endpoints against this server
 3. **Development proxy** — Run the HTTP server alongside the backend to have a clean API surface
 4. **Cross-language testing** — Use curl/HTTP to verify SDK behavior from non-Go environments
@@ -561,7 +561,7 @@ The E2E script runs 36 tests covering:
 | Backend direct | Health, Version, Search, Observations, Projects, Stats, Modes, Settings |
 | Chain verification | Test → Demo → Go SDK → Backend data flow |
 | SDK methods | UpdateSessionUserId, RetrieveExperiences, BuildICLPrompt, GetQualityDistribution |
-| All 24 endpoints | Every HTTP Demo endpoint is tested |
+| 21 of the 24 demo paths | The script exercises 21 of them. **`/create-observation`, `/extraction/run` and `/session/start` are not covered.** For comparison, measured across the other three demo scripts: the JS one covers both `/extraction/run` and `/session/start`, the Python one covers `/extraction/run` only, and the Java one covers `/session/start` only. The Go demo's `/create-observation` is the same route the other demos spell `/observations/create` (Java: `POST /demo/observations/create`) — and no script covers the Go spelling at all, while the JS and Python scripts do cover theirs |
 | Ingest | User prompt, Session end |
 
 **Expected output:**

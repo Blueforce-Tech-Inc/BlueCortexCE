@@ -10,7 +10,7 @@ Go client library for [Cortex CE](https://github.com/Blueforce-Tech-Inc/BlueCort
 - **Full API coverage** — 25 methods covering Session, Capture, Retrieval, Management, Extraction, Version, P1
 - **Framework integrations** — optional Eino, LangChainGo, and Genkit modules
 - **Wire format compatible** — JSON field names match backend API exactly
-- **Comprehensive tests** — 390 tests with wire format verification (measured 2026-10-21; the per-module commands in [Testing](#testing) give the current count). The root module runs 324 (core 257 + dto 67); the adapter and example modules add 66 more when run from their own directories (eino 8 + genkit 13 + langchaingo 12 + `examples/http-server` 33). See [Testing](#testing) for why `go test ./...` alone only reaches the root module.
+- **Comprehensive tests** — 394 tests with wire format verification (measured 2026-10-21; the per-module commands in [Testing](#testing) give the current count). The root module runs 324 (core 257 + dto 67); the adapter and example modules add 70 more when run from their own directories (eino 8 + genkit 13 + langchaingo 12 + `examples/http-server` 37). See [Testing](#testing) for why `go test ./...` alone only reaches the root module.
 
 ## Installation
 
@@ -179,7 +179,7 @@ retriever := genkit.NewRetriever(client, "/my-project",
 **This SDK is 9 separate Go modules, not one.** `eino/`, `genkit/`, `langchaingo/`
 and each directory under `examples/` carry their own `go.mod`, so a bare
 `go test ./...` run from this directory only reaches the root module — 324 of
-the 390 tests. The four adapter and example modules it skips are exactly the
+the 394 tests. The four adapter and example modules it skips are exactly the
 ones most likely to rot against an upstream framework upgrade, so run all nine:
 
 ```bash
@@ -190,7 +190,7 @@ done
 ```
 
 Measured on 2026-10-21, all nine green: core 257 + dto 67 + eino 8 + genkit 13
-+ langchaingo 12 + `examples/http-server` 33 = **390**. The other four
++ langchaingo 12 + `examples/http-server` 37 = **394**. The other four
 `examples/` modules have no test files and report `[no test files]`. The counts
 are a dated measurement, not a live value — re-run the command above for the
 current one.

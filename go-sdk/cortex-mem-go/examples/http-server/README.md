@@ -1,7 +1,14 @@
 # Cortex CE Go SDK — HTTP Server Demo
 
-A thin HTTP facade over every [Go SDK](../../README.md) API method. Each route
-validates its own input, calls exactly one SDK method, and returns JSON.
+A thin HTTP facade over every [Go SDK](../../README.md) API method, exposing 26 REST
+endpoints. Each route validates its own input, calls exactly one SDK method, and
+returns JSON.
+
+The count is 26 verb/path pairs over 24 paths: `/observations/{id}` answers `GET`,
+`PATCH` and `DELETE` from a single handler. The endpoint table below, the route
+list the server prints on startup and the handlers themselves are asserted to be
+the same set by `surface_test.go` — a renamed path or a flipped verb fails there
+rather than quietly drifting apart.
 
 It is also the reference for how a Cortex CE integration should surface
 failures — see [Error responses](#error-responses).
