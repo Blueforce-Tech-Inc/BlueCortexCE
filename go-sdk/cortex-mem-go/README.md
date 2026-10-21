@@ -10,7 +10,7 @@ Go client library for [Cortex CE](https://github.com/Blueforce-Tech-Inc/BlueCort
 - **Full API coverage** — 25 methods covering Session, Capture, Retrieval, Management, Extraction, Version, P1
 - **Framework integrations** — optional Eino, LangChainGo, and Genkit modules
 - **Wire format compatible** — JSON field names match backend API exactly
-- **Comprehensive tests** — 394 tests with wire format verification (measured 2026-10-21; the per-module commands in [Testing](#testing) give the current count). The root module runs 324 (core 257 + dto 67); the adapter and example modules add 70 more when run from their own directories (eino 8 + genkit 13 + langchaingo 12 + `examples/http-server` 37). See [Testing](#testing) for why `go test ./...` alone only reaches the root module.
+- **Comprehensive tests** — 441 tests with wire format verification (measured 2026-10-22; the per-module commands in [Testing](#testing) give the current count). The root module runs 371 (core 304 + dto 67); the adapter and example modules add 70 more when run from their own directories (eino 8 + genkit 13 + langchaingo 12 + `examples/http-server` 37). See [Testing](#testing) for why `go test ./...` alone only reaches the root module.
 
 ## Installation
 
@@ -178,8 +178,8 @@ retriever := genkit.NewRetriever(client, "/my-project",
 
 **This SDK is 9 separate Go modules, not one.** `eino/`, `genkit/`, `langchaingo/`
 and each directory under `examples/` carry their own `go.mod`, so a bare
-`go test ./...` run from this directory only reaches the root module — 324 of
-the 394 tests. The four adapter and example modules it skips are exactly the
+`go test ./...` run from this directory only reaches the root module — 371 of
+the 441 tests. The four adapter and example modules it skips are exactly the
 ones most likely to rot against an upstream framework upgrade, so run all nine:
 
 ```bash
@@ -189,8 +189,8 @@ find . -name go.mod -exec dirname {} \; | sort | while read -r d; do
 done
 ```
 
-Measured on 2026-10-21, all nine green: core 257 + dto 67 + eino 8 + genkit 13
-+ langchaingo 12 + `examples/http-server` 37 = **394**. The other four
+Measured on 2026-10-22, all nine green: core 304 + dto 67 + eino 8 + genkit 13
++ langchaingo 12 + `examples/http-server` 37 = **441**. The other four
 `examples/` modules have no test files and report `[no test files]`. The counts
 are a dated measurement, not a live value — re-run the command above for the
 current one.
@@ -309,7 +309,11 @@ public API changes and are tracked as P2-26 rather than applied here.
 ### Required Arguments Are Checked Client-Side
 
 Every argument below must be non-empty. The SDK returns a `ValidationError` and sends
-no request. The Java, Python and JS SDKs enforce the same set of non-blank checks —
+no request. One row of the table is the exception: the empty-update case of
+`UpdateObservation` throws `*dto.ObservationUpdateValidationError` instead, and
+`IsValidationError` returns false for it — see
+[Empty Updates Are Rejected](#empty-updates-are-rejected).
+The Java, Python and JS SDKs enforce the same set of non-blank checks —
 with one exception: **Java also requires `projectPath` to be an absolute path** in
 `RecordObservation`, `RecordSessionEnd` and `RecordUserPrompt`. Go, Python and JS
 accept any non-blank value there.

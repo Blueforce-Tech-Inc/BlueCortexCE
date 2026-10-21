@@ -10,7 +10,7 @@
 - **完整 API 覆盖** —— 25 个方法，涵盖会话、捕获、检索、管理、提取、版本、P1
 - **框架集成** —— 可选的 Eino、LangChainGo、Genkit 模块
 - **Wire 格式兼容** —— JSON 字段名与后端 API 完全一致
-- **全面测试** —— 394 个测试，含 Wire 格式验证（2026-10-21 实测；当前值见[测试](#测试)里的逐模块命令）。根模块跑 324 个（core 257 + dto 67）；适配器与示例模块从各自目录运行时再增加 70 个（eino 8 + genkit 13 + langchaingo 12 + `examples/http-server` 37）。为何单跑 `go test ./...` 只覆盖根模块，见[测试](#测试)。
+- **全面测试** —— 441 个测试，含 Wire 格式验证（2026-10-22 实测；当前值见[测试](#测试)里的逐模块命令）。根模块跑 371 个（core 304 + dto 67）；适配器与示例模块从各自目录运行时再增加 70 个（eino 8 + genkit 13 + langchaingo 12 + `examples/http-server` 37）。为何单跑 `go test ./...` 只覆盖根模块，见[测试](#测试)。
 
 ## 安装
 
@@ -174,7 +174,7 @@ retriever := genkit.NewRetriever(client, "/my-project",
 
 **本 SDK 是 9 个独立的 Go module，而不是一个。** `eino/`、`genkit/`、
 `langchaingo/` 以及 `examples/` 下的每个目录都有自己的 `go.mod`，因此在本目录
-直接执行 `go test ./...` **只能覆盖根模块**——394 个测试里的 324 个。被跳过的
+直接执行 `go test ./...` **只能覆盖根模块**——441 个测试里的 371 个。被跳过的
 四个适配器与示例模块，恰恰是最容易随上游框架升级而失效的部分，所以请跑全部九个：
 
 ```bash
@@ -184,8 +184,8 @@ find . -name go.mod -exec dirname {} \; | sort | while read -r d; do
 done
 ```
 
-2026-10-21 实测九个全绿：core 257 + dto 67 + eino 8 + genkit 13
-+ langchaingo 12 + `examples/http-server` 37 = **394**。其余四个 `examples/`
+2026-10-22 实测九个全绿：core 304 + dto 67 + eino 8 + genkit 13
++ langchaingo 12 + `examples/http-server` 37 = **441**。其余四个 `examples/`
 模块没有测试文件，会输出 `[no test files]`。这些计数是**带日期的实测值**而非实时值 ——
 当前值请重跑上面的命令。
 
@@ -291,7 +291,7 @@ API 变更，已记为 P2-26、不在本轮实施。
 
 ### 必填参数在客户端校验
 
-下表中的参数都必须非空。SDK 返回 `ValidationError` 且不发出任何请求。Java、Python、JS 三家 SDK 强制的是同一组「非空」检查——只有一处例外：**Java 还额外要求 `projectPath` 必须是绝对路径**，涉及 `RecordObservation`、`RecordSessionEnd`、`RecordUserPrompt` 三个方法。Go、Python、JS 在这三处只要求非空。
+下表中的参数都必须非空。SDK 返回 `ValidationError` 且不发出任何请求。表中有一行是例外：`UpdateObservation` 的空更新抛的是 `*dto.ObservationUpdateValidationError`，且 `IsValidationError` 对它返回 false——见[空更新会被拒绝](#空更新会被拒绝)。Java、Python、JS 三家 SDK 强制的是同一组「非空」检查——只有一处例外：**Java 还额外要求 `projectPath` 必须是绝对路径**，涉及 `RecordObservation`、`RecordSessionEnd`、`RecordUserPrompt` 三个方法。Go、Python、JS 在这三处只要求非空。
 
 | 方法 | 必填参数 |
 |------|----------|

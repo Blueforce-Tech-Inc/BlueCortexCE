@@ -71,3 +71,33 @@ func TestClientTimeoutDefaultsUnchanged(t *testing.T) {
 		t.Errorf("default RetryBackoff = %v, want 500ms", cfg.RetryBackoff)
 	}
 }
+
+// TestEmptyBaseURLFallsBackToThePublishedDefault pins the one normalisation
+// path that no test covered.
+//
+// A per-guard mutation sweep of the Go SDK client (one guard made permanently
+// false at a time, the whole multi-module suite re-run, the file restored byte
+// for byte) found that the `if cfg.BaseURL == ""` fallback was the only
+// configuration normalisation no test noticed: deleting it left every module
+// green.
+//
+// The external test that is named after this behaviour
+// (TestNewClient_EmptyBaseURL_UsesDefault in client_test.go) asserts nothing
+// about it -- it creates the client, comments that it "should have defaulted to
+// http://127.0.0.1:37777", and never looks. The fallback is observable only
+// from inside the package, because the configuration lives on the unexported
+// httpClient.
+//
+// The value compared here is DefaultClientConfig().BaseURL, and the external
+// test TestPublishedDefaultBaseURLMatchesRuntime pins THAT to the base URL the
+// README publishes in its configuration table -- so the three agree by
+// construction rather than by three copies of a literal.
+func TestEmptyBaseURLFallsBackToThePublishedDefault(t *testing.T) {
+	want := DefaultClientConfig().BaseURL
+	if want == "" {
+		t.Fatal("the default base URL must not be empty")
+	}
+	if got := NewClient(WithBaseURL("")).(*httpClient).config.BaseURL; got != want {
+		t.Errorf("NewClient(WithBaseURL(\"\")) -> %q, want %q", got, want)
+	}
+}
