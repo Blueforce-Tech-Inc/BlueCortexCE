@@ -23,7 +23,7 @@ Cortex CE 是一个记忆后端，用于存储代理观察结果、生成摘要�
 | **@Tool 自动捕获** | AOP 切面拦截 `@Tool` 方法并记录其执行 |
 | **会话上下文** | 基于 ThreadLocal 的会话和项目作用域 |
 | **健康检查指示器** | 用于监控记忆后端的 Actuator 集成 |
-| **196 个单元测试** | 覆盖客户端、Advisor、工具和自动配置各层（143 客户端 + 46 spring-ai + 7 starter） |
+| **213 个单元测试** | 覆盖客户端、Advisor、工具和自动配置各层（160 客户端 + 46 spring-ai + 7 starter），2026-10-21 按各模块 surefire 报告实测 |
 
 ## 环境要求
 
@@ -411,6 +411,16 @@ at least one field must be provided for update
 capture 与检索类方法接收一个请求 record 并通过其访问器读取参数；管理与抽取类方法则
 按位置传参。
 
+**捕获路径上有一条 Java 独有的规则：`projectPath` 必须是绝对路径。**
+`recordObservation`、`recordSessionEnd` 与 `recordUserPrompt` 遇到相对路径会抛
+`IllegalArgumentException`（`projectPath must be an absolute path (got: …)`）且不发请求。
+Go、Python、JS 三家都没有对应的校验，因此这是捕获路径上唯一一条**无法原样移植**的规则。
+它在自动捕获路径上发作得很安静：`cortex.mem.project-path` 会原样交给
+`CortexSessionContext.begin()` 而不被检查，于是填一个相对值就会让每次 `@Tool` 捕获与
+每次用户提示捕获都以一条 warning 收场
+（`Failed to record tool observation: projectPath must be an absolute path …`），
+此外再无任何迹象——Agent 管道照常运行，记忆则从未被写入。
+
 **`retrieveExperiences` / `buildICLPrompt` 的空 `project` 是这张表里唯一值得
 单独说明的缺口。** 表格本身准确——这两个方法都不校验 `project`，而 `search`
 校验——但它记录的是「校验了什么」，不是「会发生什么」，而这里的差别很关键。
@@ -424,10 +434,12 @@ capture 与检索类方法接收一个请求 record 并通过其访问器读取�
 于是「项目未设置」与「该项目确实没有记忆」无法区分。
 
 这些检查不是装饰。其中三个 capture 方法最能说明问题：`recordObservation` 是
-fire-and-forget，会吞掉后端返回的一切——工具名为空时后端返回
+fire-and-forget，会吞掉后端返回的一切。若不做这层校验，工具名为空时后端会返回
 `400 Missing required field: tool_name`，客户端记一条日志后正常返回，调用方于是认为
 观测已记录，而服务器刚刚拒绝了它。项目路径为空则更隐蔽，因为后端**接受**它：记录会以
-空项目路径入队，随后不出现在任何按项目过滤的查询里，全程没有任何错误提示。
+空项目路径入队，随后不出现在任何按项目过滤的查询里，全程没有任何错误提示。两者都在
+客户端被拦下，因此这两个调用**不会上 wire**：客户端抛 `IllegalArgumentException`，
+一个请求也不发。
 
 **后端自带的 tool-use 去重是第三个捕获隐患，也是本客户端唯一无法预见的那个。**
 `POST /api/ingest/tool-use` 用 `(content_session_id, tool_name, SHA-256(tool_input))`
@@ -792,7 +804,8 @@ mvn clean install -DskipTests
 
 ## 设计笔记
 
-- **即发即忘捕获**：捕获操作记录失败但不抛出异常，因此 AI 管道永不被阻塞。
+- **即发即忘捕获**：捕获操作会记录后端失败但**不把它抛出去**，因此 AI 管道永不被阻塞。
+  客户端校验是例外——它在请求发出之前抛 `IllegalArgumentException`，如上文所述。
 - **优雅降级**：大多数读操作在后端失败时不抛异常，而是返回一个合成值。这是有意设计（记忆层不能拖垮 AI 管道），
   但代价是：**除非该方法标记了失败**，否则「后端不可达」和「确实没有数据」看起来完全一样。
   有三个读方法是例外，它们直接向上抛出——`listObservations`、`getObservationsByIds` 与
@@ -814,9 +827,10 @@ mvn clean install -DskipTests
   `getVersion()` 并检查 `version` 是否为 `unknown`）再信任空结果。`getModes` 与
   `getProjects` 分开列出，是因为只有前者会降级。
 
-  写入与变更类方法不降级，直接向上抛出：`startSession`、`updateSessionUserId`、`submitFeedback`、
-  `updateObservation`、`deleteObservation`、`triggerRefinement`、`triggerExtraction`，
-  以及捕获类调用 `recordObservation`、`recordUserPrompt`、`recordSessionEnd`。
+  写入与变更类方法不降级，直接向上抛出：`startSession`、`updateSessionUserId`、
+  `submitFeedback`、`updateObservation`、`deleteObservation`。五个捕获/异步调用是例外——
+  `recordObservation`、`recordUserPrompt`、`recordSessionEnd`、`triggerRefinement`、
+  `triggerExtraction`——它们改为吞掉错误；完整的拆分见下面的重试范围一条。
 - **重试范围既不是「全部」也不只是「捕获」**：25 个 public 方法中有 10 个会重试，退避为线性
   （`retry.backoff × attempt`，±25% 抖动）。其中五个捕获/异步调用在耗尽尝试后会**静默吞掉**错误
   （`recordObservation`、`recordUserPrompt`、`recordSessionEnd`、`triggerRefinement`、

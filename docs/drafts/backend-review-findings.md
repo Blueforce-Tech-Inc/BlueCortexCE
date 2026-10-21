@@ -835,70 +835,7 @@
 ### P2-88: `retrieval-enabled=false` 会**静默关掉全部 @Tool 捕获**，而 README 把该开关记作只管检索
 
 - **Scope**: → [scope-9][a6]、[scope-10][a7]
-- **受控实验**（临时 `ApplicationContextRunner` 探针，测完即删；三列而非两列，
-  第三列用来排除「两个顾问同生共死」这一竞争解释）：
-
-  | Bean | 对照：全默认 | `retrieval=false` + `capture=true` + `bridge=true` | 对照：`retrieval=true` + `bridge=false` |
-  |---|---|---|---|
-  | `CortexMemClient` | true | true | true |
-  | `ObservationCaptureService` | true | true | true |
-  | `MemoryRetrievalService` | true | **false** | true |
-  | `CortexToolAspect` | true | **true** | true |
-  | `CortexSessionContextBridgeAdvisor` | true | **false** | false |
-  | `CortexMemoryAdvisor` | true | **false** | true |
-
-  第三列是关键：**`bridge=false` 时 `CortexMemoryAdvisor` 存活**，证明第二列里
-  两个顾问的消失确实源于 `retrieval-enabled`，而非二者在任何情况下都绑定生死。
-- **后果链（每一环都已独立落实，非静态推断）**:
-  1. 第二列实测：`capture-enabled=true` 时 `CortexToolAspect` **仍然存在**（捕获切面在），
-     但 `CortexSessionContextBridgeAdvisor` **不存在**（`begin()` 的自动来源没了）。
-  2. `CortexToolAspect.java:54` 首行即守卫
-     `if (!CortexSessionContext.isActive()) return joinPoint.proceed();`
-  3. `CortexSessionContext.java:50-51` —— `isActive()` 就是 `CURRENT.get() != null`，
-     而 `CURRENT` 仅由 `begin()` 写入。
-  4. **桥接顾问是生产代码里 `begin()` 的唯一自动调用点**：
-     全模块 `main` 下 `CortexSessionContext.begin(` 只命中
-     `CortexSessionContextBridgeAdvisor.java:81`（call 路径）与 `:100`（stream 路径），
-     其余全部命中均为 Javadoc 或测试。
-  5. 负对照**已预先存在于测试套件**：`CortexToolAspectTest:60`
-     `whenContextInactive_toolExecutesWithoutCapture` 已经断言了「未激活 ⇒ 不捕获」。
-
-  净效果：设 `retrieval-enabled=false` 以节省检索开销的用户，会在**没有任何日志、异常或
-  启动失败的情况下失去全部** `@Tool` 捕获 —— 切面照常织入、照常执行，只是全部空转。
-- **影响范围（已收窄，不要过度声张）: 只影响选项 A**（README `:152` 所述、
-  依赖 `CONVERSATION_ID` 走桥接顾问的纯 ChatClient 用法）。走**选项 B** 的应用自行调用
-  `CortexSessionContext.begin/end` 者不受影响 —— 桥接顾问此时本就只做透传
-  （类 Javadoc `:40-52` 已自陈二者不可嵌套）。
-- **README 未记载此耦合（双语同缺）**:
-  - `cortex-mem-spring-integration/README.md:199`（zh `:206`）把 `context-bridge-enabled`
-    记作一个独立开关，只说「创建桥接顾问 / 使 @Tool 捕获无需手动上下文」，
-    **完全未提** `retrieval-enabled=false` 也会把它一并关掉。
-  - `README.md:197` 把 `retrieval-enabled` 记作「Enable memory retrieval」，未提任何副作用。
-  - 对照：`README.md:196` 明确为 `capture-user-prompt-enabled` 写了
-    “Independent of capture-enabled.” —— **「独立」二字只给了这一项，没给桥接**。
-  - `README.md:796`（zh `:775`）故障排查表把 `retrieval-enabled=false` 列为
-    「无 ICL 上下文」的已知原因，却**未**列为「@Tool 捕获全部消失」的原因；
-    同表 `:794` 的「Tool calls not captured」只给了自调用一条原因。
-- **第 360 轮补充：受影响的不止 README，零覆盖设计稿同样未记载**:
-  `docs/drafts/cortex-mem-integration-capture-analysis.md` 的 §1「**Current** Capture Matrix」
-  把 Tool use 一行标为 `✅ Yes`（自动捕获），Notes 写「AOP intercepts `@Tool` methods
-  **when `CortexSessionContext` is active**」——**这正是被 `retrieval-enabled` 连带关掉的那一环**，
-  文档同样未提；其 §2 更用了与 README **完全相同**的措辞
-  「`capture-enabled` controls @Tool capture; `capture-user-prompt-enabled` controls
-  user prompt capture **independently」。故「独立」这个误导性措辞在仓库内至少两处**
-  （双语 README + 本设计稿）出现，而修法一旦定下来，**两处都要同步**。
-  （该设计稿的其余可验证断言本轮逐条复验为真：§1 五行的端点/类名/方法名/Auto? 判定、
-  §2 的两个配置项、§6 的四处实现位置、§7 的 `-Plocal` profile 与
-  `examples/cortex-mem-demo/e2e/run-e2e.sh` 全部存在；其中 `POST /api/session/start`
-  与 `/api/prompts` 两个曾被怀疑是幻影端点，经**活体请求**判定为真
-  ——`/api/session/start` 返 400、`/api/ingest/session-start` 才是 404。）
-- **⚠️ 次生后果：用户提示捕获同样被牵连，README 的「独立」措辞更易误导**:
-  同一张表里 `CortexMemoryAdvisor` 也随 `retrieval-enabled=false` 一起消失（见上表第二列），
-  故 `capture-user-prompt-enabled` 控制的**用户提示捕获**一并失效。
-  `README.md:196` 对该开关写的是「Enable user prompt auto-capture (CortexMemoryAdvisor).
-  **Independent of capture-enabled.」—— 这句就其字面而言为真**（它确实独立于
-  `capture-enabled`），但读者极易顺势外推为独立于其余全部开关，而实际它挂在
-  `retrieval-enabled` 下。**这是措辞引发的错误推论，不是陈述本身失实。**
+- **Evidence**: → 归档 [`…-85`][a43]（受控实验表、后果链五环、README 双语缺记载的逐行定位、第 360 轮设计稿补注、次生后果）
 - **⚠️ 为什么不单方面改**:
   - 按**「遗漏 ≠ 失实」**：README 那几句**本身没有说错** —— `retrieval-enabled`
     确实是「启用记忆检索」，桥接开关确实创建桥接顾问。**这是省略，不是失实陈述**，
@@ -918,7 +855,7 @@
      `SpringAiAdvisorConfiguration`，或拆出一个只受 `context-bridge-enabled` 门控的
      配置类；同时补 `retrieval-enabled=false` 的装配用例。
   2. **记为有意**：在双语 README 的属性表与故障排查表中补明该耦合并说明影响面。
-- **Status**: ⏸ **记录不修** —— 需作者确认该耦合是否为有意设计，见上。
+- **Status**: ⏸ **记录不修** —— 需作者确认该耦合是否为有意设计；证据全文见 [`…-85`][a43]。
 
 ### P2-89: 部署指南的迁移清单**双语都停在 V18**，漏掉磁盘上已存在的 `V19__viewer_session_indexes.sql`
 - **Status**: ✅ **已修（345 轮）** —— 全文逐字见 [`…-52`](../archive/2026-10-07_backend-review-evidence-52.md)
@@ -1270,9 +1207,9 @@
 ### P2-144: `PUT /api/mode` 接受不存在的 `mode_id` 并静默回落到默认模式，响应里的 `mode_id` **回显请求值**而非真正生效的模式 —— 而它宣告的那个 400 分支是**死代码**
 - **Status**: ⏸ **行为要不要改留待用户决策**（对外行为契约变更）—— 三条候选修法见归档正文；失实陈述已修（400 宣告改「空体」+ `@Operation` 描述改真，零可执行行）。全文逐字见 [`…-79`][a21]。
 ### P2-145: Go SDK 英文 README 写「the **two** capture methods」—— 同一 commit 的中文版写「三个」，实现里也确实是三个；且接口注释只给其中一个标了 fire-and-forget
-- **Status**: ✅ 已修（379 轮，Go 侧，零可执行行）—— 英文「two」改「three」并点明三个捕获方法**都是** fire-and-forget；两版方法表的 Capture 组标注 (fire-and-forget)；**Java 侧同型结转**（三个方法一个都没标）。**P2-128 的 Go 侧**同批结转（四个下限的文档）。全文逐字见 [`…-80`][a39]。
+- **Status**: ✅ 已修（379 轮，Go 侧，零可执行行）—— 英文「two」改「three」并点明三个捕获方法**都是** fire-and-forget；两版方法表的 Capture 组标注 (fire-and-forget)；**Java 侧同型结转已于 384 轮结转完成**（`CortexMemClient` 三个捕获方法的 Javadoc 全部补上 fire-and-forget 说明，并区分「后端失败被吞」与「客户端校验先抛」）。**P2-128 的 Go 侧**同批结转（四个下限的文档）。全文逐字见 [`…-80`][a39]。
 ### P2-146: 四家 SDK 的 README 都写「空 `tool_name` 会被后端以 400 拒绝、SDK 记一条日志后吞掉」—— 而客户端校验早在请求发出**之前**就拦下了它，请求数实测为 **0**
-- **Status**: ✅ 已修（380 轮，Python 侧，文档 + 2 个回归测试）—— EN/ZH 双语 README 恢复反事实措辞并写明「客户端拦下、不发请求」；两版首屏测试数 **453 → 455**；新增 2 个测试钉住「校验发生在请求之前」；**Go / JS / Java 三家同型结转**（8 份 README）。**JS 侧 381 轮结转完成**（双语 README 同型句已改为反事实措辞 + 首屏计数 264 → 266，另补测试缺口 P2-147）。**Go / Java 两家仍结转**。全文逐字见 [`…-81`](../archive/2026-10-20_backend-review-evidence-81.md)。
+- **Status**: ✅ 已修（380 轮，Python 侧，文档 + 2 个回归测试）—— EN/ZH 双语 README 恢复反事实措辞并写明「客户端拦下、不发请求」；两版首屏测试数 **453 → 455**；新增 2 个测试钉住「校验发生在请求之前」；**Go / JS / Java 三家同型结转**（8 份 README）。**JS 侧 381 轮结转完成**（双语 README 同型句已改为反事实措辞 + 首屏计数 264 → 266，另补测试缺口 P2-147）。**Java 侧 384 轮结转完成**（双语 README 同型句改为反事实措辞 + 写明「客户端抛 `IllegalArgumentException`、一个请求也不发」；另补 3 个「请求数 0」用例钉住「校验发生在请求之前」）。**Go 侧仍结转**。全文逐字见 [`…-81`](../archive/2026-10-20_backend-review-evidence-81.md)。
 ### P2-147: JS SDK 的 `recordObservation` 必填校验里，`tool_name` 是**同族里唯一没有被任何测试钉住**的那一个 —— 且没有任何用例钉住「校验发生在请求发出**之前**」
 - **Status**: ✅ 已修（381 轮，JS 侧，**只加测试、实现一行未改**）—— 补「空 `tool_name` 抛错」+「校验发生在请求之前（`fetchMock` 零调用）」两个用例；**变异测试**证明新用例失败而**旧用例仍通过** ⇒ 只断言异常的用例钉不住顺序。全文逐字见 [`…-82`][a40]。
 ### P2-148: JS SDK 双语 README 的「16 个不同项目」是**无日期**的测量断言 —— 活体实测（2026-10-21）是 **15**；Python 两版同一条却写「15」且**带日期**
@@ -1289,7 +1226,14 @@
 - **Status**: ✅ 已修（383 轮，Backend 代码方向）—— **两套机制**：M1 `@Schema(example=…)` 不写 `type` ⇒ 解析成 `string`（**51** 处）；M2 `@ApiResponse` 不写 `content` + `ResponseEntity<Object>` ⇒ 推成 `object` 而实际是数组。机制经**四种写法探针**选定（`implementation=` 会吃掉 example 且 type 仍是 string，被实测否掉）；3 个数组响应另带 `items`（**49** 个对象的 example 逐字未变）。新增不变量测试（反射扫全部控制器，**178** 个测试），**两次变异测试**各证明其能失败。全文逐字见 [`…-84`][a42]。
 ### P2-154: API 文档双语的端点/操作计数写「**67**」—— 活体是 **71** 个操作、**66** 条路径；同一份文档另一处却写「66 paths」
 - **Status**: ✅ 已修（383 轮，文档方向，零可执行行）—— **事后漂移**（`3d415a7` 当天正好 67 个映射）；四处计数改为「**71** 个操作 / **66** 条路径，2026-10-21 实测」并给出**取数方式**与计数规则的例外（`ViewerController.java:214` 那个注释掉的路由）。两版端点**集合**仍完全一致。全文逐字见 [`…-84`][a42]。
+### P2-155: Java SDK 捕获路径上有一道**Java 独有**的「`projectPath` 必须是绝对路径」校验 —— **零测试覆盖**、且在双语 README 里**零记载**
+- **Status**: ✅ 已修（384 轮，Java 侧，**只加测试** + 文档补记）—— 9 个新用例（3 抛错 + 3「请求数 0」+ 3 阳性对照）；**变异测试**删掉 `requireAbsolutePath` ⇒ 2 个新用例红、其余 113 仍绿；双语 README 补「Java 独有规则」一段。全文逐字见 [`…-85`][a43]。
+### P2-156: Java SDK 的「**吞错 vs 抛错**」契约 —— README 用它划分方法族，却**零测试钉住**（8 个方法一个都没测）
+- **Status**: ✅ 已修（384 轮，Java 侧，**只加测试**）—— 8 个新用例（5 静默 + 3 传播），每个都断言「请求确实发出」+「结果是文档写的那一个」；**两次变异测试**（静默↔传播互换）各证明其能失败。全文逐字见 [`…-85`][a43]。
+### P2-157: Java SDK 双语 README 的 Design Notes **自相矛盾** —— 同一节里相邻两条，把 5 个静默吞错的方法分别写成「propagate」与「swallow」
+- **Status**: ✅ 已修（384 轮，文档方向，零可执行行）—— **写入即假**（`1fa843e`(2026-10-02) 写下时实现已是 `executeWithRetrySilent`；`20e3661`(10-03) 又补入正确那条 ⇒ 文档内自相矛盾）；两处改为「5 个传播 + 5 个静默是例外」，并修正 `:824` 的「never throw」。全文逐字见 [`…-85`][a43]。
 ## Processing Rules
+- 第 384 轮新增两个压缩杠杆：**C8**（**⏸ 待决条目**的证据 bullets 整体迁入归档，工作文件留 `- **Scope**` 一行 + 一行 `- **Evidence**` 指针；`- **Problem**`（标题）、`- **⚠️ 为什么不单方面改**`、`- **Severity**`、`- **建议修法**`、`- **Status**` 一律留在工作文件——第 254 轮规则的应用，本轮首次用于 P2-88：归档侧持有证据段 **65 行 / 5355 字节**，工作文件真正迁出 **64 行 / 5307 字节**，全文件净 **−55 行 / −2027 字节**）；**C9**（归档指针行写成「一行说清迁走了什么 + 指向归档」，指针本身可回溯）。**探针自身的三处错**：①单文件 `grep -c "@Test"` 得 **118** 而 surefire 实收 **115** —— 差在**同一个文件里有第二个顶层测试类** `CortexMemErrorMessageTest`（3 个），故静态 `@Test` 计数只在逐文件与运行时分层对齐时才等于运行数；②两个变异叠在一起导致失败归因不清，拆成单变量后才各自点名；③变异 3 在变异 2 尚未还原时跑，报 2 红而非 1 红。硬证明与不动点见归档 `-85`。
 - 第 383 轮新增两个压缩杠杆：**C6**（被引用 ≥2 次的 **28** 个归档路径转引用式，显示名与目标不变，零信息损失，省 **1750** 字节；只出现 1 次的 26 处保持行内）；**C7**（**38** 处多行 `- **Status**` 的续行并回一行，**字符流守恒**，让出 **136 行**、省 272 字节）。**与 382 轮「折行重排不做」的区别**：那轮的对象是叙述正文，本轮是 Status 元数据行。硬证明与脚本自身的两处错见归档 `-84` 的「压缩记录」。终值 **1386 行 / 147578 字节**。
 - 第 378 轮续记压缩杠杆：**缩短已结案条目的 Status 行**（第 292/293 轮杠杆）时，
   把「被删掉的细节」做成**可断言的形式** —— 拆出每个反引号/引号/数字 token，
@@ -1392,3 +1336,5 @@
 [a40]: ../archive/2026-10-20_backend-review-evidence-82.md
 [a41]: ../archive/2026-10-20_backend-review-scope-evidence-11.md
 [a42]: ../archive/2026-10-20_backend-review-evidence-84.md
+
+[a43]: ../archive/2026-10-20_backend-review-evidence-85.md

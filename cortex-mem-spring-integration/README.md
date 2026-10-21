@@ -23,7 +23,7 @@ Cortex CE is a memory backend that stores agent observations, generates summarie
 | **@Tool auto-capture** | AOP aspect intercepts `@Tool` methods and records executions |
 | **Session context** | ThreadLocal-based session and project scope |
 | **Health indicator** | Actuator integration for monitoring the memory backend |
-| **196 unit tests** | Comprehensive coverage across client, advisor, tools, and auto-config layers (143 client + 46 spring-ai + 7 starter) |
+| **213 unit tests** | Comprehensive coverage across client, advisor, tools, and auto-config layers (160 client + 46 spring-ai + 7 starter), measured 2026-10-21 from each module's surefire reports |
 
 ## Requirements
 
@@ -410,6 +410,18 @@ and sends no request. The Go, Python and JS SDKs enforce exactly the same set.
 The capture and retrieval methods take a request record and read their arguments
 through its accessors; the management and extraction methods take them positionally.
 
+**One capture-side rule is Java-only: `projectPath` must be an absolute path.**
+`recordObservation`, `recordSessionEnd` and `recordUserPrompt` reject a relative path
+with `IllegalArgumentException` (`projectPath must be an absolute path (got: …)`) and
+send no request. The Go, Python and JS SDKs have no equivalent check, so this is the
+one capture-side rule a caller cannot port across unchanged. It bites quietly in the
+auto-capture path: `cortex.mem.project-path` is handed to `CortexSessionContext.begin()`
+without being checked, so a relative value there makes every `@Tool` capture and every
+user-prompt capture fail with a logged warning
+(`Failed to record tool observation: projectPath must be an absolute path …`) and
+nothing else — the agent pipeline keeps running and the memories are simply never
+written.
+
 **A blank `project` on `retrieveExperiences` / `buildICLPrompt` is the one gap in
 this table worth knowing about.** The table is accurate — neither method
 validates `project`, while `search` does — but it records what is *checked*, not
@@ -426,12 +438,15 @@ back to the configured `cortex.mem.project-path` **without logging** — see the
 from "this project genuinely has no memories".
 
 The checks are not decoration, and the capture methods are the clearest case.
-`recordObservation` is fire-and-forget, so it swallows whatever the backend replies:
-an empty tool name comes back as `400 Missing required field: tool_name`, the client
-logs it and returns, and the caller concludes the observation was captured when the
-server had just rejected it. An empty project path is quieter still, because the
-backend *accepts* it — the record is queued against no project and then appears in no
-project-scoped query, with no error anywhere.
+`recordObservation` is fire-and-forget, so it swallows whatever the backend replies.
+Left unchecked, an empty tool name would come back as
+`400 Missing required field: tool_name`, the client would log it and return, and the
+caller would conclude the observation was captured when the server had just rejected
+it. An empty project path would be quieter still, because the backend *accepts* it —
+the record would be queued against no project and then appear in no project-scoped
+query, with no error anywhere. Both are caught client-side instead, so neither call
+reaches the wire: the client throws `IllegalArgumentException` and sends no request
+at all.
 
 **The backend's own tool-use deduplication is the third capture hazard, and the only
 one this client cannot see coming.** `POST /api/ingest/tool-use` identifies an event by
@@ -821,7 +836,9 @@ The client talks to these Cortex CE endpoints:
 
 ## Design Notes
 
-- **Fire-and-forget capture**: Capture operations log failures but never throw, so the AI pipeline is never blocked.
+- **Fire-and-forget capture**: Capture operations log backend failures but never throw
+  them, so the AI pipeline is never blocked. Client-side validation is the exception —
+  it throws `IllegalArgumentException` before the request is sent, as described above.
 - **Graceful degradation**: Most read operations do not throw on a backend failure — they
   return a synthesized value. This is deliberate (a memory layer must not break the AI
   pipeline), but it means "backend unreachable" and "no data" look identical *unless the
@@ -847,9 +864,11 @@ The client talks to these Cortex CE endpoints:
   only the former degrades.
 
   Write and mutation methods propagate instead of degrading: `startSession`,
-  `updateSessionUserId`, `submitFeedback`, `updateObservation`, `deleteObservation`,
-  `triggerRefinement`, `triggerExtraction`, and the capture calls `recordObservation`,
-  `recordUserPrompt`, `recordSessionEnd`.
+  `updateSessionUserId`, `submitFeedback`, `updateObservation` and
+  `deleteObservation`. The five capture/async calls — `recordObservation`,
+  `recordUserPrompt`, `recordSessionEnd`, `triggerRefinement` and
+  `triggerExtraction` — are the exception and swallow their errors instead; the retry
+  scope note below gives the full split.
 - **Retry scope is neither "everything" nor "captures only"**: 10 of the 25 public methods
   retry, with linear backoff (`retry.backoff × attempt`, ±25% jitter). Five capture/async
   calls swallow their errors once the attempts are exhausted (`recordObservation`,

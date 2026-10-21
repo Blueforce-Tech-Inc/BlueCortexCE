@@ -13,11 +13,13 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
@@ -595,6 +597,133 @@ class CortexMemClientImplTest {
             .build()))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("sessionId");
+    }
+
+    // ==================== Absolute Project Path Tests ====================
+    //
+    // The capture methods are the only place in the client that rejects a *relative*
+    // project path. Go, Python and JS have no equivalent check, so this is the one
+    // capture-side rule a caller cannot port across unchanged — and it was the one
+    // capture-side rule with no test at all ("absolute"/"relative" appeared zero times).
+    //
+    // The path is built with Paths.get(...).toAbsolutePath() rather than hardcoded
+    // "/proj" so the case holds on Windows too, where "/proj" is NOT absolute.
+
+    private static String absoluteProjectPath() {
+        return Paths.get("/proj").toAbsolutePath().toString();
+    }
+
+    @Test
+    void recordObservation_relativeProjectPath_throws() {
+        assertThatThrownBy(() -> client.recordObservation(ObservationRequest.builder()
+            .sessionId("s1")
+            .projectPath("relative/proj")
+            .toolName("Read")
+            .build()))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("projectPath")
+            .hasMessageContaining("absolute");
+    }
+
+    @Test
+    void recordSessionEnd_relativeProjectPath_throws() {
+        assertThatThrownBy(() -> client.recordSessionEnd(SessionEndRequest.builder()
+            .sessionId("s1")
+            .projectPath("relative/proj")
+            .build()))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("projectPath")
+            .hasMessageContaining("absolute");
+    }
+
+    @Test
+    void recordUserPrompt_relativeProjectPath_throws() {
+        assertThatThrownBy(() -> client.recordUserPrompt(UserPromptRequest.builder()
+            .sessionId("s1")
+            .projectPath("relative/proj")
+            .promptText("hello")
+            .build()))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("projectPath")
+            .hasMessageContaining("absolute");
+    }
+
+    // The three cases above only assert the exception. These three pin the *order*:
+    // the check must happen before the request is sent, otherwise the backend sees a
+    // relative cwd and the rejection arrives as an HTTP error instead of a local throw.
+
+    @Test
+    void recordObservation_relativeProjectPath_sendsNoRequest() {
+        assertThatThrownBy(() -> client.recordObservation(ObservationRequest.builder()
+            .sessionId("s1")
+            .projectPath("relative/proj")
+            .toolName("Read")
+            .build()))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThat(server.getRequestCount()).isZero();
+    }
+
+    @Test
+    void recordSessionEnd_relativeProjectPath_sendsNoRequest() {
+        assertThatThrownBy(() -> client.recordSessionEnd(SessionEndRequest.builder()
+            .sessionId("s1")
+            .projectPath("relative/proj")
+            .build()))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThat(server.getRequestCount()).isZero();
+    }
+
+    @Test
+    void recordUserPrompt_relativeProjectPath_sendsNoRequest() {
+        assertThatThrownBy(() -> client.recordUserPrompt(UserPromptRequest.builder()
+            .sessionId("s1")
+            .projectPath("relative/proj")
+            .promptText("hello")
+            .build()))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThat(server.getRequestCount()).isZero();
+    }
+
+    // Positive control: the same three methods DO send a request when the path is
+    // absolute. Without this, the three assertions above would also pass if the
+    // client had simply stopped calling the backend.
+
+    @Test
+    void recordObservation_absoluteProjectPath_sendsRequest() {
+        server.enqueue(new MockResponse().setResponseCode(200));
+
+        client.recordObservation(ObservationRequest.builder()
+            .sessionId("s1")
+            .projectPath(absoluteProjectPath())
+            .toolName("Read")
+            .build());
+
+        assertThat(server.getRequestCount()).isEqualTo(1);
+    }
+
+    @Test
+    void recordSessionEnd_absoluteProjectPath_sendsRequest() {
+        server.enqueue(new MockResponse().setResponseCode(200));
+
+        client.recordSessionEnd(SessionEndRequest.builder()
+            .sessionId("s1")
+            .projectPath(absoluteProjectPath())
+            .build());
+
+        assertThat(server.getRequestCount()).isEqualTo(1);
+    }
+
+    @Test
+    void recordUserPrompt_absoluteProjectPath_sendsRequest() {
+        server.enqueue(new MockResponse().setResponseCode(200));
+
+        client.recordUserPrompt(UserPromptRequest.builder()
+            .sessionId("s1")
+            .projectPath(absoluteProjectPath())
+            .promptText("hello")
+            .build());
+
+        assertThat(server.getRequestCount()).isEqualTo(1);
     }
 
     // ==================== P0 API Tests ====================
@@ -1322,6 +1451,102 @@ class CortexMemClientImplTest {
         org.junit.jupiter.api.Assertions.assertThrows(
             Exception.class,
             () -> client.updateSessionUserId("sess-1", "user-1"));
+    }
+
+    // ==================== Swallow vs Propagate Contract Tests ====================
+    //
+    // The README's Design Notes draw a hard line between two families: five
+    // capture/async calls that swallow their errors once the attempts are exhausted,
+    // and the mutations that propagate. That line is the whole basis of the
+    // "fire-and-forget capture" promise — and before these cases, no test pinned it.
+    // Only startSession and updateSessionUserId (the two that propagate AND do not
+    // retry) had coverage.
+    //
+    // Each case asserts both halves: the request really went out (requestCount == 1)
+    // AND the outcome is the documented one. Asserting only "did not throw" would
+    // also pass if the client had quietly stopped calling the backend.
+
+    @Test
+    void recordObservation_serverError_swallowsError() {
+        server.enqueue(new MockResponse().setResponseCode(500));
+
+        assertThatCode(() -> client.recordObservation(ObservationRequest.builder()
+            .sessionId("s1")
+            .projectPath(absoluteProjectPath())
+            .toolName("Read")
+            .build()))
+            .doesNotThrowAnyException();
+        assertThat(server.getRequestCount()).isEqualTo(1);
+    }
+
+    @Test
+    void recordUserPrompt_serverError_swallowsError() {
+        server.enqueue(new MockResponse().setResponseCode(500));
+
+        assertThatCode(() -> client.recordUserPrompt(UserPromptRequest.builder()
+            .sessionId("s1")
+            .projectPath(absoluteProjectPath())
+            .promptText("hello")
+            .build()))
+            .doesNotThrowAnyException();
+        assertThat(server.getRequestCount()).isEqualTo(1);
+    }
+
+    @Test
+    void recordSessionEnd_serverError_swallowsError() {
+        server.enqueue(new MockResponse().setResponseCode(500));
+
+        assertThatCode(() -> client.recordSessionEnd(SessionEndRequest.builder()
+            .sessionId("s1")
+            .projectPath(absoluteProjectPath())
+            .build()))
+            .doesNotThrowAnyException();
+        assertThat(server.getRequestCount()).isEqualTo(1);
+    }
+
+    @Test
+    void triggerRefinement_serverError_swallowsError() {
+        server.enqueue(new MockResponse().setResponseCode(500));
+
+        assertThatCode(() -> client.triggerRefinement(absoluteProjectPath()))
+            .doesNotThrowAnyException();
+        assertThat(server.getRequestCount()).isEqualTo(1);
+    }
+
+    @Test
+    void triggerExtraction_serverError_swallowsError() {
+        server.enqueue(new MockResponse().setResponseCode(500));
+
+        assertThatCode(() -> client.triggerExtraction(absoluteProjectPath()))
+            .doesNotThrowAnyException();
+        assertThat(server.getRequestCount()).isEqualTo(1);
+    }
+
+    @Test
+    void submitFeedback_serverError_propagatesException() {
+        server.enqueue(new MockResponse().setResponseCode(500));
+
+        assertThatThrownBy(() -> client.submitFeedback("obs-1", "SUCCESS", null))
+            .isInstanceOf(Exception.class);
+        assertThat(server.getRequestCount()).isEqualTo(1);
+    }
+
+    @Test
+    void updateObservation_serverError_propagatesException() {
+        server.enqueue(new MockResponse().setResponseCode(500));
+
+        assertThatThrownBy(() -> client.updateObservation("obs-1", ObservationUpdate.builder().source("test").build()))
+            .isInstanceOf(Exception.class);
+        assertThat(server.getRequestCount()).isEqualTo(1);
+    }
+
+    @Test
+    void deleteObservation_serverError_propagatesException() {
+        server.enqueue(new MockResponse().setResponseCode(500));
+
+        assertThatThrownBy(() -> client.deleteObservation("obs-1"))
+            .isInstanceOf(Exception.class);
+        assertThat(server.getRequestCount()).isEqualTo(1);
     }
 }
 

@@ -22,16 +22,32 @@ public interface CortexMemClient {
 
     /**
      * Record a tool-use observation. Sends to POST /api/ingest/tool-use.
+     *
+     * <p><b>Fire-and-forget:</b> This method uses silent retry with final-error swallowing.
+     * A backend failure is logged, never thrown to the caller — the capture path must not
+     * break the caller's pipeline. Client-side validation is the exception: a blank
+     * sessionId/projectPath/toolName, or a projectPath that is not an absolute path, throws
+     * {@link IllegalArgumentException} <em>before</em> any request is sent.
      */
     void recordObservation(ObservationRequest request);
 
     /**
      * Signal session end. Sends to POST /api/ingest/session-end.
+     *
+     * <p><b>Fire-and-forget:</b> This method uses silent retry with final-error swallowing.
+     * A backend failure is logged, never thrown to the caller. Client-side validation is the
+     * exception: a blank sessionId/projectPath, or a projectPath that is not an absolute path,
+     * throws {@link IllegalArgumentException} <em>before</em> any request is sent.
      */
     void recordSessionEnd(SessionEndRequest request);
 
     /**
      * Record a user prompt. Sends to POST /api/ingest/user-prompt.
+     *
+     * <p><b>Fire-and-forget:</b> This method uses silent retry with final-error swallowing.
+     * A backend failure is logged, never thrown to the caller. Client-side validation is the
+     * exception: a blank sessionId/promptText/projectPath, or a projectPath that is not an
+     * absolute path, throws {@link IllegalArgumentException} <em>before</em> any request is sent.
      */
     void recordUserPrompt(UserPromptRequest request);
 
