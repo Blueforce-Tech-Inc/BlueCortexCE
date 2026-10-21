@@ -291,7 +291,7 @@ API 变更，已记为 P2-26、不在本轮实施。
 
 ### 必填参数在客户端校验
 
-下表中的参数都必须非空。SDK 返回 `ValidationError` 且不发出任何请求。表中有一行是例外：`UpdateObservation` 的空更新抛的是 `*dto.ObservationUpdateValidationError`，且 `IsValidationError` 对它返回 false——见[空更新会被拒绝](#空更新会被拒绝)。Java、Python、JS 三家 SDK 强制的是同一组「非空」检查——只有一处例外：**Java 还额外要求 `projectPath` 必须是绝对路径**，涉及 `RecordObservation`、`RecordSessionEnd`、`RecordUserPrompt` 三个方法。Go、Python、JS 在这三处只要求非空。
+下表中的参数都必须非空。SDK 返回 `ValidationError` 且不发出任何请求。表中有一行是例外：`UpdateObservation` 的空更新抛的是 `*dto.ObservationUpdateValidationError`，且 `IsValidationError` 对它返回 false——见[空更新会被拒绝](#空更新会被拒绝)。Java、Python、JS 三家 SDK 对下表参数执行的是同一组检查，但有**两处**差异。其一是 Java 独有的：**`projectPath` 必须是绝对路径**，涉及 `RecordObservation`、`RecordSessionEnd`、`RecordUserPrompt` 三个方法，另三家不做这项检查——因此相对路径在这里被接受、在那里被拒绝。其二是 Python 与另两家的不同：Go、Java、JS 把**纯空白**的值也当作空值一并拒绝，而 Python 只拒空串——`"   "` 能通过 Python 的检查并被发到 wire 上。
 
 | 方法 | 必填参数 |
 |------|----------|

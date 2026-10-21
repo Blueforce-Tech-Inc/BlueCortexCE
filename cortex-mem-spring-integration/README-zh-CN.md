@@ -385,7 +385,7 @@ at least one field must be provided for update
 
 ### 必填参数在客户端校验
 
-下表中的参数都必须非空白。客户端抛出 `IllegalArgumentException` 且不发出任何请求。Go、Python、JS 三家 SDK 强制的是同一组「非空白」检查——只有一处例外：**Java 还额外要求 `projectPath` 必须是绝对路径**，涉及 `recordObservation`、`recordSessionEnd`、`recordUserPrompt` 三个方法。Go、Python、JS 在这三处只要求非空白。
+下表中的参数都必须非空白。客户端抛出 `IllegalArgumentException` 且不发出任何请求。Go、Python、JS 三家 SDK 对下表参数执行的是同一组检查，但有**两处**差异。其一是 Java 独有的：**Java 还额外要求 `projectPath` 必须是绝对路径**，涉及 `recordObservation`、`recordSessionEnd`、`recordUserPrompt` 三个方法，另两家不做这项检查——因此相对路径在这里被接受、在那里被拒绝。其二是 Python 与另两家的不同：Go、Java、JS 把**纯空白**的值也当作空值一并拒绝，而 Python 只拒空串——`"   "` 能通过 Python 的检查并被发到 wire 上。
 
 请求对象本身为 `null` 时同样在发请求前被拦下，但抛的是 `NullPointerException` 而不是 `IllegalArgumentException` ——「请求对象缺失」是另一道检查，与上面的「非空白」检查不是同一道。
 

@@ -313,10 +313,13 @@ no request. One row of the table is the exception: the empty-update case of
 `UpdateObservation` throws `*dto.ObservationUpdateValidationError` instead, and
 `IsValidationError` returns false for it — see
 [Empty Updates Are Rejected](#empty-updates-are-rejected).
-The Java, Python and JS SDKs enforce the same set of non-blank checks —
-with one exception: **Java also requires `projectPath` to be an absolute path** in
-`RecordObservation`, `RecordSessionEnd` and `RecordUserPrompt`. Go, Python and JS
-accept any non-blank value there.
+The Java, Python and JS SDKs enforce the same set of checks on the arguments
+below, with **two** differences. The first is Java's: **`projectPath` must be an
+absolute path** in `RecordObservation`, `RecordSessionEnd` and `RecordUserPrompt`,
+which the other three do not check — a relative path is accepted there and
+rejected here. The second is Python's: Go, Java and JS treat a **whitespace-only**
+value as empty and reject it, while Python only rejects an empty string, so `"   "`
+passes Python's checks and is sent on the wire.
 
 | Method | Required arguments |
 |--------|--------------------|

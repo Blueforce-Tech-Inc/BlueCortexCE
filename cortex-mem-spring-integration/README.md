@@ -384,10 +384,13 @@ succeed and could not tell that nothing was written.
 ### Required Arguments Are Checked Client-Side
 
 Every argument below must be non-blank. The client throws `IllegalArgumentException`
-and sends no request. The Go, Python and JS SDKs enforce the same set of non-blank
-checks — with one exception: **Java also requires `projectPath` to be an absolute
-path** in `recordObservation`, `recordSessionEnd` and `recordUserPrompt`. Go, Python
-and JS accept any non-blank value there.
+and sends no request. The Go, Python and JS SDKs enforce the same set of checks on the
+arguments below, with **two** differences. The first is Java's: **Java also requires
+`projectPath` to be an absolute path** in `recordObservation`, `recordSessionEnd` and
+`recordUserPrompt`, which the other three do not check — a relative path is accepted
+there and rejected here. The second is Python's: Go, Java and JS treat a
+**whitespace-only** value as empty and reject it, while Python only rejects an empty
+string — `"   "` passes Python's checks and is sent on the wire.
 
 A `null` request object is rejected before the request too, but with
 `NullPointerException` instead of `IllegalArgumentException` — "the request itself

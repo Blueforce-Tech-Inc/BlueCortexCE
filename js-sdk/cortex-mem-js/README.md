@@ -271,10 +271,12 @@ no `omitempty`.
 ### Required Arguments Are Checked Client-Side
 
 Every argument below must be non-empty. The SDK throws a `ValidationError` and sends no
-request. The Go, Java and Python SDKs require exactly the same set of arguments — with one
-difference: the **Java** SDK additionally requires `project_path` to be an **absolute
-path** on the three capture methods, which the other three do not check. A relative
-path is therefore accepted here and rejected there.
+request. The Go, Java and Python SDKs require the same set of arguments, with **two**
+differences. The first is Java's: it additionally requires `project_path` to be an
+**absolute path** on the three capture methods, which the other three do not check — a
+relative path is therefore accepted here and rejected there. The second is Python's:
+Go, Java and JS treat a **whitespace-only** value as empty and reject it, while Python
+only rejects an empty string — `"   "` passes Python's checks and is sent on the wire.
 
 | Method | Required arguments |
 |--------|--------------------|
