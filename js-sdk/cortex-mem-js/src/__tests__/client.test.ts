@@ -2632,7 +2632,15 @@ describe('camelCase wire format fallback', () => {
 
 describe('ValidationError', () => {
   it('should be thrown for missing required fields', async () => {
-    const c = new CortexMemClient();
+    // Sealed: this was the only client in the suite built without an injected
+    // fetch, so it defaulted to the resident backend on 127.0.0.1:37777. With
+    // the session_id guard removed the call really went out over the network
+    // and came back as a live APIError instead of a client-side rejection.
+    // The spy turns that into a local failure instead of a real request.
+    const fetchMock = vi.fn().mockRejectedValue(new Error('unexpected request'));
+    const c = new CortexMemClient({
+      fetch: fetchMock as unknown as typeof globalThis.fetch,
+    });
     try {
       await c.startSession({ session_id: '', project_path: '/tmp' });
       expect.unreachable('should have thrown');
@@ -2641,6 +2649,7 @@ describe('ValidationError', () => {
       expect(isValidationError(err)).toBe(true);
       expect((err as ValidationError).field).toBe('session_id');
     }
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('should serialize to JSON with structured fields', () => {

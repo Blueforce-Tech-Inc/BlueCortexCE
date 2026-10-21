@@ -9,7 +9,7 @@
 - **零依赖** —— 使用内置 `fetch` API（Node 18+、浏览器、Deno、Bun）
 - **完整 TypeScript 支持** —— 所有 DTO 的完整类型定义
 - **25 个 API 方法** —— 覆盖 Go/Java SDK 的所有端点
-- **273 个单元测试** —— 全面覆盖 Wire 格式和客户端行为（2026-10-21 实测；当前值以 `npm test` 为准）。当日的构成：255 客户端 + 5 截断响应体 + 8 http-server 示例 + 5 http-server 错误契约
+- **370 个单元测试** —— 全面覆盖 Wire 格式和客户端行为（2026-10-21 实测；当前值以 `npm test` 为准）。当日的构成：255 客户端 + 97 必填参数 + 5 截断响应体 + 8 http-server 示例 + 5 http-server 错误契约
 - **双格式 CJS + ESM** —— 同时支持 CommonJS 和 ES Modules
 - **尽力而为的捕获** —— 对暂时性故障重试；重试耗尽后吞掉采集错误，只有你自己传入 `logger` 时才会输出日志——默认的那个是空操作
 
@@ -276,6 +276,26 @@ Python 的**数据类形式**同样跳过 `None`，但它的**关键字参数形
 项目参数在三个 capture 请求对象上叫 `cwd`（因为那才是 wire 字段名），在管理与抽取类
 方法上则是位置参数 `projectPath`。四家 SDK 在捕获方法上发的 wire 字段都是 `cwd`，
 差别只在 SDK 层的叫法——Go 叫 `ProjectPath`、Python 叫 `project_path`、Java 叫 `projectPath`。
+
+**上表里那条 `limit` 说明只适用于一个方法。** `getExtractionHistory` 会用
+`ValidationError` 拒绝负数 `limit`，而 `search` 与 `listObservations` **静默丢弃**它——
+两者都用 `limit > 0` 拼查询，于是负数 limit 根本不进 wire，后端改用自己的默认值 20。
+这是 wire 级实测而非读码推断：传 `limit: -5` 得到的请求 URL 里**没有** `limit` 参数，
+而传 `limit: 5` 得到的是 `limit=5`。后端对真正收到的值会钳制到 `[1, 100]`，所以同
+一个非法输入在各家落点不同——值上了 wire 的是一页 1 条，被丢掉的是默认的 20 条一页。
+
+四家对同一个输入的处理并不一致，跨家移植时要注意：
+
+| SDK | `search` / `listObservations` 收到 `limit < 0` |
+|-----|------------------------------------------------|
+| Java | **抛** `IllegalArgumentException`——但只在 `SearchRequest.Builder.limit()` 这条路径上；规范构造器并不校验 `limit`，走构造器时客户端会像 Go 和 JS 一样把它丢掉 |
+| Go | 静默丢弃 → 走后端默认页 |
+| JS | 静默丢弃 → 走后端默认页 |
+| Python | 原样发出 → 后端钳到 1 |
+
+只有 Java 会告诉你，而且连它的检查也长在 builder 上而不是构造器上。从 Java 移植过来的
+调用方会**悄无声息**地丢掉这道检查，所以当 limit 是算出来的值时，请自己校验
+`limit >= 0`。
 
 这些检查不是装饰。其中三个 capture 方法最能说明问题：`recordObservation` 是
 fire-and-forget，会吞掉后端返回的一切。若不做检查，`tool_name` 为空时后端会返回

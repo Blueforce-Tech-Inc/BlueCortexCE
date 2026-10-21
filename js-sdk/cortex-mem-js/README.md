@@ -9,7 +9,7 @@ JavaScript/TypeScript client SDK for the [Cortex CE](https://github.com/Blueforc
 - **Zero runtime dependencies** — Uses the built-in `fetch` API (Node 18+, browsers, Deno, Bun)
 - **Full TypeScript support** — Complete type definitions for all DTOs
 - **25 API methods** — Covers all endpoints from the Go/Java SDKs
-- **273 unit tests** — Full coverage of wire format and client behavior (measured 2026-10-21; `npm test` gives the current count). The breakdown at that date: 255 client + 5 truncated-body + 8 http-server example + 5 http-server error contract
+- **370 unit tests** — Full coverage of wire format and client behavior (measured 2026-10-21; `npm test` gives the current count). The breakdown at that date: 255 client + 97 required-arguments + 5 truncated-body + 8 http-server example + 5 http-server error contract
 - **Dual CJS + ESM** — Works with CommonJS and ES Modules
 - **Best-effort capture** — Retries transient failures; capture errors are swallowed after retries, and reach your logs only if you supply a `logger` — the default one is a no-op
 
@@ -302,6 +302,29 @@ the wire field there, and a positional `projectPath` on the management methods. 
 four SDKs put the same `cwd` on the wire for the capture methods; only the SDK-level
 name differs — Go says `ProjectPath`, Python says `project_path`, Java says
 `projectPath`.
+
+**The `limit` note in that table applies to one method only.** `getExtractionHistory`
+rejects a negative `limit` with a `ValidationError`, but `search` and
+`listObservations` **silently drop it** — both build their query with `limit > 0`, so
+a negative limit puts nothing on the wire at all and the backend applies its own
+default of 20. Measured on the wire, not by reading: `limit: -5` produces a request
+URL with no `limit` parameter, while `limit: 5` produces `limit=5`. The backend
+clamps whatever it does receive to `[1, 100]`, so the same invalid input lands
+differently per SDK — a one-item page where the value reaches the wire, the
+default 20-item page where it is dropped.
+
+The four SDKs disagree about that same input, which matters when porting:
+
+| SDK | `limit < 0` on `search` / `listObservations` |
+|-----|------------------------------------------------|
+| Java | **throws** `IllegalArgumentException` — but only through `SearchRequest.Builder.limit()`; the canonical record constructor does not validate `limit`, and the client then drops it like Go and JS do |
+| Go | silently dropped → backend default page |
+| JS | silently dropped → backend default page |
+| Python | sent as-is → backend clamps to 1 |
+
+Java is the only one that tells you, and even there the check lives in the builder
+rather than the constructor. A caller ported from Java loses the check with no
+signal, so validate `limit >= 0` yourself when the value is computed.
 
 The checks are not decoration, and the capture methods are the clearest case.
 `recordObservation` is fire-and-forget, so it swallows whatever the backend replies.
