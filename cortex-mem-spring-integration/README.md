@@ -23,7 +23,7 @@ Cortex CE is a memory backend that stores agent observations, generates summarie
 | **@Tool auto-capture** | AOP aspect intercepts `@Tool` methods and records executions |
 | **Session context** | ThreadLocal-based session and project scope |
 | **Health indicator** | Actuator integration for monitoring the memory backend |
-| **213 unit tests** | Comprehensive coverage across client, advisor, tools, and auto-config layers (160 client + 46 spring-ai + 7 starter), measured 2026-10-21 from each module's surefire reports |
+| **250 unit tests** | Comprehensive coverage across client, advisor, tools, and auto-config layers (197 client + 46 spring-ai + 7 starter), measured 2026-10-21 from each module's surefire reports |
 
 ## Requirements
 
@@ -885,8 +885,10 @@ The client talks to these Cortex CE endpoints:
   absorbs a call whose *result* differs, so a retry is not what makes the capture path
   lossy here. See the deduplication hazard above.
 - The other three SDKs retry **only** the capture path, so the same setting covers a
-  smaller set of calls there: the two extraction reads retry on Java alone. A caller who
-  ports a retry-avoidance workaround for those two methods needs a guard on Java only.
+  smaller set of calls there: **seven** methods retry on Java alone — `submitFeedback`,
+  `updateObservation`, `deleteObservation`, `triggerRefinement`, `triggerExtraction`,
+  `getLatestExtraction` and `getExtractionHistory`. A caller who ports a
+  retry-avoidance workaround for any of those seven needs a guard on Java only.
 - **No per-user isolation on the automatic path.** If you run more than one user out of a single project, note that the memory injected into the agent is **project-wide, not user-scoped**. The backend does support scoping — `POST /api/memory/experiences` with a `userId` returns that user's experiences and an empty list for anyone else (verified: one observation under `alice` gives 1 for `alice`, 0 for `bob`) — and `ICLPromptRequest` / `ExperienceRequest` both carry `userId`, and `DefaultMemoryRetrievalService` already forwards it. But `CortexMemoryAdvisor` and the two `@Tool` read methods build their requests from `CortexSessionContext`, which holds only `sessionId`, `projectPath` and a prompt counter — **there is no `userId` field and no `begin()` overload that accepts one**. So the automatic path structurally cannot scope by user, and every agent in a project receives the same ICL context, including preferences recorded for someone else. Calling `client.buildICLPrompt(...)` yourself and setting `userId` does work; that is the escape hatch. Tracked as P2-13.
 - **Conditional beans**: Advisor, AOP aspect, and health indicator are registered only when their dependencies (Spring AI, AOP, Actuator) are on the classpath.
 - **Spring AI 1.1**: Uses `CallAdvisor` / `StreamAdvisor` and `ChatClientRequest` (not legacy `CallAroundAdvisor`).

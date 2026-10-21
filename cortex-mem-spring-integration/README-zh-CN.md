@@ -23,7 +23,7 @@ Cortex CE 是一个记忆后端，用于存储代理观察结果、生成摘要�
 | **@Tool 自动捕获** | AOP 切面拦截 `@Tool` 方法并记录其执行 |
 | **会话上下文** | 基于 ThreadLocal 的会话和项目作用域 |
 | **健康检查指示器** | 用于监控记忆后端的 Actuator 集成 |
-| **213 个单元测试** | 覆盖客户端、Advisor、工具和自动配置各层（160 客户端 + 46 spring-ai + 7 starter），2026-10-21 按各模块 surefire 报告实测 |
+| **250 个单元测试** | 覆盖客户端、Advisor、工具和自动配置各层（197 客户端 + 46 spring-ai + 7 starter），2026-10-21 按各模块 surefire 报告实测 |
 
 ## 环境要求
 
@@ -844,8 +844,10 @@ mvn clean install -DskipTests
   从「不重复记录」的角度看，重试 `recordObservation` 是安全的——后端的 tool-use 去重
   会吸收逐字节相同的重发；但同一个键也会吸收**结果不同**的调用，所以让捕获路径丢数据的
   并不是重试。参见上文的去重隐患一节。
-- 另外三家的重试**只覆盖捕获路径**，因此同一个配置项在那边管到的调用更少：这两个抽取读方法的
-  重试是 Java 独有的。为它们写「避免重试」补丁时，只需在 Java 侧做保护。
+- 另外三家的重试**只覆盖捕获路径**，因此同一个配置项在那边管到的调用更少：**有七个方法的重试是
+  Java 独有的**——`submitFeedback`、`updateObservation`、`deleteObservation`、`triggerRefinement`、
+  `triggerExtraction`、`getLatestExtraction` 与 `getExtractionHistory`。为其中任意一个写
+  「避免重试」补丁时，只需在 Java 侧做保护。
 - **自动路径不做按用户隔离**。若一个项目要服务多个用户，请注意：注入 Agent 的记忆是**项目级、
   而非用户级**。后端本身**是支持**限定的——`POST /api/memory/experiences` 带 `userId`
   会只返回该用户的经验，对其他人返回空列表（实测：alice 名下一条观测，alice 查到 1 条、
