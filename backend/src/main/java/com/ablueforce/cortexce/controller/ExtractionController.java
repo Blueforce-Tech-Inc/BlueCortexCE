@@ -4,6 +4,7 @@ import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.ablueforce.cortexce.service.StructuredExtractionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -102,7 +103,10 @@ public class ExtractionController {
     @Operation(summary = "Get extraction history",
         description = "Returns historical extraction results for a given template name and project. Results are returned in reverse chronological order. The limit is clamped between 1 and 100.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Extraction history retrieved"),
+        @ApiResponse(responseCode = "200", description = "Extraction history retrieved",
+            content = @Content(array = @ArraySchema(
+                arraySchema = @Schema(type = "array", example = "[{\"sessionId\":\"session-1\",\"extractedData\":{\"key\":\"value\"},\"createdAt\":1709000000000,\"observationId\":\"550e8400-e29b-41d4-a716-446655440000\"}]"),
+                schema = @Schema(type = "object")))),
         @ApiResponse(responseCode = "400", description = "Missing required parameter: projectPath"),
         @ApiResponse(responseCode = "500", description = "Failed to retrieve extraction history due to internal error")
     })

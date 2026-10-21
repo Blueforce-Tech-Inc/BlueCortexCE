@@ -111,7 +111,7 @@ public class CursorController {
     @Operation(summary = "Unregister a Cursor project",
         description = "Removes a project from the Cursor auto-context update registry. The project's context file will no longer be automatically updated.")
     @ApiResponse(responseCode = "200", description = "Unregister request processed (success=true if was registered, success=false if was not registered)",
-        content = @Content(schema = @Schema(example = "{\"success\":true,\"message\":\"Project unregistered: my-project\"}")))
+        content = @Content(schema = @Schema(type = "object", example = "{\"success\":true,\"message\":\"Project unregistered: my-project\"}")))
     public ResponseEntity<Map<String, Object>> unregisterProject(
         @Parameter(description = "Project name to unregister", required = true, example = "my-project")
         @PathVariable String projectName
@@ -140,7 +140,7 @@ public class CursorController {
     @Operation(summary = "List all registered Cursor projects",
         description = "Returns a list of all projects currently registered for Cursor auto-context updates, including their workspace paths and registration timestamps.")
     @ApiResponse(responseCode = "200", description = "Registered projects list returned",
-        content = @Content(schema = @Schema(example = "{\"projects\":[{\"projectName\":\"my-project\",\"workspacePath\":\"/path\",\"installedAt\":1709000000000}],\"count\":1}")))
+        content = @Content(schema = @Schema(type = "object", example = "{\"projects\":[{\"projectName\":\"my-project\",\"workspacePath\":\"/path\",\"installedAt\":1709000000000}],\"count\":1}")))
     public ResponseEntity<Map<String, Object>> getProjects() {
         Map<String, CursorProjectEntry> projects = cursorService.getAllProjects();
 
@@ -247,13 +247,13 @@ public class CursorController {
         description = "Writes a custom context string directly to the .cursor/rules/claude-mem-context.mdc file for a registered project. Useful for providing manually curated context that differs from auto-generated observations.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Context written successfully",
-            content = @Content(schema = @Schema(example = "{\"success\":true,\"projectName\":\"my-project\"}"))),
+            content = @Content(schema = @Schema(type = "object", example = "{\"success\":true,\"projectName\":\"my-project\"}"))),
         @ApiResponse(responseCode = "400", description = "Missing required field: context",
-            content = @Content(schema = @Schema(example = "{\"success\":false,\"error\":\"context is required\"}"))),
+            content = @Content(schema = @Schema(type = "object", example = "{\"success\":false,\"error\":\"context is required\"}"))),
         @ApiResponse(responseCode = "404", description = "Project is not registered",
-            content = @Content(schema = @Schema(example = "{\"success\":false,\"error\":\"Project not registered: ...\"}"))),
+            content = @Content(schema = @Schema(type = "object", example = "{\"success\":false,\"error\":\"Project not registered: ...\"}"))),
         @ApiResponse(responseCode = "500", description = "Failed to write context file due to internal error",
-            content = @Content(schema = @Schema(example = "{\"success\":false,\"error\":\"Failed to write context: ...\"}")))
+            content = @Content(schema = @Schema(type = "object", example = "{\"success\":false,\"error\":\"Failed to write context: ...\"}")))
     })
     public ResponseEntity<Map<String, Object>> updateContextCustom(
         @Parameter(description = "Registered project name", required = true, example = "my-project")
@@ -314,7 +314,7 @@ public class CursorController {
     @Operation(summary = "Check if a project is registered",
         description = "Checks whether a project is currently registered for Cursor auto-context updates. Returns registered=true with details if registered, registered=false if not.")
     @ApiResponse(responseCode = "200", description = "Registration status returned",
-        content = @Content(schema = @Schema(example = "{\"registered\":true,\"projectName\":\"my-project\",\"workspacePath\":\"/path\",\"installedAt\":1709000000000}")))
+        content = @Content(schema = @Schema(type = "object", example = "{\"registered\":true,\"projectName\":\"my-project\",\"workspacePath\":\"/path\",\"installedAt\":1709000000000}")))
     public ResponseEntity<Map<String, Object>> checkRegistered(
         @Parameter(description = "Project name to check", required = true, example = "my-project")
         @PathVariable String projectName

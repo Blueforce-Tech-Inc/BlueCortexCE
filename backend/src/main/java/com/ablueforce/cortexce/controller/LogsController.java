@@ -79,7 +79,7 @@ public class LogsController {
     @Operation(summary = "Retrieve application logs",
         description = "Returns application log entries from ~/.claude-mem/logs/. Reads today's log file first, falls back to yesterday if insufficient lines. Returns raw log text with metadata including file paths, total line count, and returned count. Lines parameter is clamped between 1 and 10000.")
     @ApiResponse(responseCode = "200", description = "Log content returned with metadata",
-        content = @Content(schema = @Schema(example = "{\"logs\":\"[2025-01-02 14:30:45] [INFO] message\",\"path\":\"/logs\",\"totalLines\":100,\"returnedLines\":50,\"exists\":true}")))
+        content = @Content(schema = @Schema(type = "object", example = "{\"logs\":\"[2025-01-02 14:30:45] [INFO] message\",\"path\":\"/logs\",\"totalLines\":100,\"returnedLines\":50,\"exists\":true}")))
     public ResponseEntity<Map<String, Object>> getLogs(
             @Parameter(description = "Maximum number of log lines to return (1-10000, default 1000)", required = false, example = "1000")
             @RequestParam(defaultValue = "1000") int lines) {
@@ -154,9 +154,9 @@ public class LogsController {
         description = "Truncates today's application log file to empty content. Only affects today's log file. Returns the path of the cleared file.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Log file cleared successfully",
-            content = @Content(schema = @Schema(example = "{\"status\":\"ok\",\"message\":\"Today's log file has been cleared\",\"path\":\"/logs/claude-mem-2025-01-02.log\"}"))),
+            content = @Content(schema = @Schema(type = "object", example = "{\"status\":\"ok\",\"message\":\"Today's log file has been cleared\",\"path\":\"/logs/claude-mem-2025-01-02.log\"}"))),
         @ApiResponse(responseCode = "500", description = "Failed to clear log file due to IO error",
-            content = @Content(schema = @Schema(example = "{\"error\":\"Failed to clear log file\"}")))
+            content = @Content(schema = @Schema(type = "object", example = "{\"error\":\"Failed to clear log file\"}")))
     })
     public ResponseEntity<Map<String, String>> clearLogs() {
         Path todayLog = getLogFile(0);

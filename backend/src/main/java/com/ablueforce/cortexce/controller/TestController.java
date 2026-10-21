@@ -45,9 +45,9 @@ public class TestController {
         description = "Tests connectivity to the configured LLM provider (DeepSeek). Sends a simple prompt and returns the model's response. Use to verify API key configuration and connectivity.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "LLM test completed (status may be 'success', 'error', or 'disabled')",
-            content = @Content(schema = @Schema(example = "{\"status\":\"success\",\"message\":\"LLM (DeepSeek) is working!\",\"response\":\"Hello from DeepSeek!\"}"))),
+            content = @Content(schema = @Schema(type = "object", example = "{\"status\":\"success\",\"message\":\"LLM (DeepSeek) is working!\",\"response\":\"Hello from DeepSeek!\"}"))),
         @ApiResponse(responseCode = "500", description = "LLM test failed with internal error",
-            content = @Content(schema = @Schema(example = "{\"status\":\"error\",\"message\":\"LLM (DeepSeek) failed: ...\"}")))
+            content = @Content(schema = @Schema(type = "object", example = "{\"status\":\"error\",\"message\":\"LLM (DeepSeek) failed: ...\"}")))
     })
     public ResponseEntity<Map<String, Object>> testLlm() {
         Map<String, Object> result = new HashMap<>();
@@ -84,9 +84,9 @@ public class TestController {
         description = "Tests connectivity to the configured embedding provider (SiliconFlow BGE-M3). Generates an embedding for a test string and returns the dimensionality. Returns 'disabled' status if no API key is configured.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Embedding test completed (status may be 'success', 'error', or 'disabled')",
-            content = @Content(schema = @Schema(example = "{\"status\":\"success\",\"message\":\"Embedding (SiliconFlow BGE-M3) is working!\",\"dimensions\":1024}"))),
+            content = @Content(schema = @Schema(type = "object", example = "{\"status\":\"success\",\"message\":\"Embedding (SiliconFlow BGE-M3) is working!\",\"dimensions\":1024}"))),
         @ApiResponse(responseCode = "500", description = "Embedding test failed with internal error",
-            content = @Content(schema = @Schema(example = "{\"status\":\"error\",\"message\":\"Embedding failed: ...\"}")))
+            content = @Content(schema = @Schema(type = "object", example = "{\"status\":\"error\",\"message\":\"Embedding failed: ...\"}")))
     })
     public ResponseEntity<Map<String, Object>> testEmbedding() {
         Map<String, Object> result = new HashMap<>();
@@ -122,7 +122,7 @@ public class TestController {
     @Operation(summary = "Test both LLM and Embedding",
         description = "Runs both LLM and Embedding connectivity tests and returns combined results in a single response.")
     @ApiResponse(responseCode = "200", description = "All tests completed",
-        content = @Content(schema = @Schema(example = "{\"llm\":{\"status\":\"success\",\"message\":\"LLM is working!\"},\"embedding\":{\"status\":\"success\",\"dimensions\":1024}}")))
+        content = @Content(schema = @Schema(type = "object", example = "{\"llm\":{\"status\":\"success\",\"message\":\"LLM is working!\"},\"embedding\":{\"status\":\"success\",\"dimensions\":1024}}")))
     public ResponseEntity<Map<String, Object>> testAll() {
         Map<String, Object> result = new HashMap<>();
         result.put("llm", testLlm().getBody());

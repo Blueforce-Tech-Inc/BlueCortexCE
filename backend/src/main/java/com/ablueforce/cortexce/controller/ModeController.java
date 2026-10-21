@@ -50,7 +50,7 @@ public class ModeController {
     @Operation(summary = "Get current active mode",
         description = "Returns the currently active mode configuration including mode ID, name, description, version, observation types, and observation concepts.")
     @ApiResponse(responseCode = "200", description = "Active mode configuration returned",
-        content = @Content(schema = @Schema(example = "{\"mode_id\":\"code\",\"name\":\"Code\",\"description\":\"Tracks code evolution\",\"version\":\"1.0\",\"observation_types\":[],\"observation_concepts\":[]}")))
+        content = @Content(schema = @Schema(type = "object", example = "{\"mode_id\":\"code\",\"name\":\"Code\",\"description\":\"Tracks code evolution\",\"version\":\"1.0\",\"observation_types\":[],\"observation_concepts\":[]}")))
     public ResponseEntity<ModeResponse> getActiveMode() {
         Mode mode = modeService.getActiveMode();
         return ResponseEntity.ok(new ModeResponse(
@@ -72,7 +72,7 @@ public class ModeController {
         description = "Switches the active mode at runtime. Supports base modes (e.g., 'code') and inherited modes (e.g., 'code--zh'). An empty or missing mode_id is rejected with 400 and an empty body; an unknown mode_id is not rejected — the default mode stays active and the response echoes the requested id.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Mode switched successfully",
-            content = @Content(schema = @Schema(example = "{\"mode_id\":\"code\",\"name\":\"Code\",\"description\":\"Tracks code evolution\",\"version\":\"1.0\",\"observation_types\":[],\"observation_concepts\":[]}"))),
+            content = @Content(schema = @Schema(type = "object", example = "{\"mode_id\":\"code\",\"name\":\"Code\",\"description\":\"Tracks code evolution\",\"version\":\"1.0\",\"observation_types\":[],\"observation_concepts\":[]}"))),
         @ApiResponse(responseCode = "400", description = "Empty or missing mode_id provided. The body is empty (0 bytes). An unknown (non-empty) mode_id is not rejected here — the default mode stays active and the response echoes the requested id.",
             content = @Content(schema = @Schema(example = "")))
     })
@@ -134,7 +134,7 @@ public class ModeController {
     @Operation(summary = "Validate observation type ID",
         description = "Checks whether a given observation type ID is valid for the current active mode.")
     @ApiResponse(responseCode = "200", description = "Validation result returned",
-        content = @Content(schema = @Schema(example = "{\"valid\":true}")))
+        content = @Content(schema = @Schema(type = "object", example = "{\"valid\":true}")))
     public ResponseEntity<Map<String, Boolean>> validateType(
             @Parameter(description = "Observation type ID to validate", required = true, example = "bugfix")
             @PathVariable String typeId) {
@@ -148,7 +148,7 @@ public class ModeController {
     @Operation(summary = "Get emoji and label for observation type",
         description = "Returns the emoji (icon), work emoji (for active state), and human-readable label for a given observation type ID.")
     @ApiResponse(responseCode = "200", description = "Emoji and label returned",
-        content = @Content(schema = @Schema(example = "{\"emoji\":\"🔧\",\"workEmoji\":\"🔧\",\"label\":\"Bugfix\"}")))
+        content = @Content(schema = @Schema(type = "object", example = "{\"emoji\":\"🔧\",\"workEmoji\":\"🔧\",\"label\":\"Bugfix\"}")))
     public ResponseEntity<Map<String, String>> getTypeEmoji(
             @Parameter(description = "Observation type ID", required = true, example = "bugfix")
             @PathVariable String typeId) {

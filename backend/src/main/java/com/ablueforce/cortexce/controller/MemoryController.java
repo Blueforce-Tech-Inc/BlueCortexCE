@@ -67,9 +67,9 @@ public class MemoryController {
         description = "Publishes a memory refinement event for async processing. Refinement re-evaluates observation quality and updates the quality distribution for the project.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Refinement event published successfully",
-            content = @Content(schema = @Schema(example = "{\"status\":\"triggered\",\"project\":\"/path\",\"message\":\"Memory refinement event has been published\"}"))),
+            content = @Content(schema = @Schema(type = "object", example = "{\"status\":\"triggered\",\"project\":\"/path\",\"message\":\"Memory refinement event has been published\"}"))),
         @ApiResponse(responseCode = "400", description = "Missing required parameter: project",
-            content = @Content(schema = @Schema(example = "{\"error\":\"project is required\"}")))
+            content = @Content(schema = @Schema(type = "object", example = "{\"error\":\"project is required\"}")))
     })
     public ResponseEntity<Map<String, String>> triggerRefine(
             @Parameter(description = "Absolute project path to trigger refinement for", required = true, example = "/Users/dev/my-project")
@@ -169,9 +169,9 @@ public class MemoryController {
     @Operation(summary = "Get quality distribution",
         description = "Returns the quality distribution (high/medium/low/unknown counts) for observations in a project. Used by WebUI quality charts and memory refinement monitoring.")
     @ApiResponse(responseCode = "200", description = "Quality distribution retrieved (returns zeros if no data)",
-        content = @Content(schema = @Schema(example = "{\"project\":\"/path\",\"high\":10,\"medium\":20,\"low\":5,\"unknown\":3}")))
+        content = @Content(schema = @Schema(type = "object", example = "{\"project\":\"/path\",\"high\":10,\"medium\":20,\"low\":5,\"unknown\":3}")))
     @ApiResponse(responseCode = "500", description = "Database error retrieving quality distribution",
-        content = @Content(schema = @Schema(example = "{\"project\":\"/path\",\"error\":\"Failed to get quality distribution: ...\"}")))
+        content = @Content(schema = @Schema(type = "object", example = "{\"project\":\"/path\",\"error\":\"Failed to get quality distribution: ...\"}")))
     public ResponseEntity<Map<String, Object>> getQualityDistribution(
             @Parameter(description = "Absolute project path to query quality distribution for", required = true, example = "/Users/dev/my-project")
             @RequestParam String project) {
@@ -220,11 +220,11 @@ public class MemoryController {
     @Operation(summary = "Submit manual feedback for an observation",
         description = "Allows manual feedback submission for observations via WebUI. Updates feedback_type, user_comment, and feedback_updated_at on the observation.")
     @ApiResponse(responseCode = "200", description = "Feedback recorded successfully",
-        content = @Content(schema = @Schema(example = "{\"status\":\"ok\",\"observationId\":\"...\"}")))
+        content = @Content(schema = @Schema(type = "object", example = "{\"status\":\"ok\",\"observationId\":\"...\"}")))
     @ApiResponse(responseCode = "404", description = "Observation not found",
-        content = @Content(schema = @Schema(example = "{\"error\":\"Observation not found\"}")))
+        content = @Content(schema = @Schema(type = "object", example = "{\"error\":\"Observation not found\"}")))
     @ApiResponse(responseCode = "400", description = "Invalid request (missing observationId or feedbackType)",
-        content = @Content(schema = @Schema(example = "{\"error\":\"observationId is required\"}")))
+        content = @Content(schema = @Schema(type = "object", example = "{\"error\":\"observationId is required\"}")))
     @Transactional
     public ResponseEntity<Map<String, String>> submitFeedback(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
@@ -279,9 +279,9 @@ public class MemoryController {
         description = "Partially updates an existing observation. Only fields present in the request body are updated; null values clear the field, absent fields are left unchanged. Supports: title, content/narrative, subtitle, source, facts, concepts, extractedData. Returns 404 if observation not found.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Observation updated successfully",
-            content = @Content(schema = @Schema(example = "{\"status\":\"updated\",\"id\":\"550e8400-e29b-41d4-a716-446655440000\"}"))),
+            content = @Content(schema = @Schema(type = "object", example = "{\"status\":\"updated\",\"id\":\"550e8400-e29b-41d4-a716-446655440000\"}"))),
         @ApiResponse(responseCode = "400", description = "Invalid field types in request body",
-            content = @Content(schema = @Schema(example = "{\"error\":\"title must be a string\"}"))),
+            content = @Content(schema = @Schema(type = "object", example = "{\"error\":\"title must be a string\"}"))),
         @ApiResponse(responseCode = "404", description = "Observation with given UUID not found")
     })
     public ResponseEntity<Map<String, Object>> updateObservation(
@@ -300,6 +300,7 @@ public class MemoryController {
                     "Absent fields are left unchanged. Null values explicitly clear the field.",
                 required = true,
                 content = @Content(schema = @Schema(
+                    type = "object",
                     example = "{\"title\":\"Updated title\",\"content\":\"Updated narrative\",\"concepts\":[\"how-it-works\",\"architecture\"]}")))
             @org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
 
@@ -429,7 +430,7 @@ public class MemoryController {
         description = "Permanently deletes an observation by its UUID. Returns 404 if the observation does not exist.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Observation deleted successfully",
-            content = @Content(schema = @Schema(example = "{\"status\":\"deleted\",\"id\":\"550e8400-e29b-41d4-a716-446655440000\"}"))),
+            content = @Content(schema = @Schema(type = "object", example = "{\"status\":\"deleted\",\"id\":\"550e8400-e29b-41d4-a716-446655440000\"}"))),
         @ApiResponse(responseCode = "404", description = "Observation with given UUID not found")
     })
     public ResponseEntity<Map<String, String>> deleteObservation(

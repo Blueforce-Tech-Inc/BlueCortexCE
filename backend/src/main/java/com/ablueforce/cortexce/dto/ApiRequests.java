@@ -168,7 +168,8 @@ public class ApiRequests {
         @JsonProperty("userId") String userId
     ) {}
 
-    @Schema(description = "Feedback submission request (not yet implemented)")
+    @Schema(description = "Feedback submission request. The endpoint is implemented: it persists feedback_type, "
+        + "user_comment and feedback_updated_at on the observation.")
     public record FeedbackRequest(
         @Schema(description = "UUID of the observation to provide feedback for", requiredMode = Schema.RequiredMode.REQUIRED)
         @JsonProperty("observationId") String observationId,

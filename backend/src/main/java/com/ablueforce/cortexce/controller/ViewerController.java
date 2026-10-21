@@ -17,6 +17,7 @@ import com.ablueforce.cortexce.service.SettingsService;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
@@ -182,7 +183,7 @@ public class ViewerController {
     @Operation(summary = "List all projects",
         description = "Returns all known project paths that have active or completed sessions, plus platform sources and grouping.")
     @ApiResponse(responseCode = "200", description = "Project list retrieved with sources",
-        content = @Content(schema = @Schema(example = "{\"projects\":[\"/Users/dev/project1\"],\"sources\":[\"claude\"],\"projectsBySource\":{\"claude\":[\"/Users/dev/project1\"]}}")))
+        content = @Content(schema = @Schema(type = "object", example = "{\"projects\":[\"/Users/dev/project1\"],\"sources\":[\"claude\"],\"projectsBySource\":{\"claude\":[\"/Users/dev/project1\"]}}")))
     public ResponseEntity<Map<String, Object>> getProjects() {
         List<String> projects = sessionRepository.findAllProjects();
         List<String> sources = sessionRepository.findAllPlatformSources();
@@ -226,7 +227,7 @@ public class ViewerController {
         description = "Returns worker and database statistics including processing status, queue depth, and entity counts. " +
             "When project query param is provided, returns project-scoped counts.")
     @ApiResponse(responseCode = "200", description = "Statistics retrieved",
-        content = @Content(schema = @Schema(example = "{\"worker\":{\"isProcessing\":false,\"queueDepth\":0},\"database\":{\"totalObservations\":100,\"totalSummaries\":10,\"totalSessions\":20,\"totalProjects\":3}}")))
+        content = @Content(schema = @Schema(type = "object", example = "{\"worker\":{\"isProcessing\":false,\"queueDepth\":0},\"database\":{\"totalObservations\":100,\"totalSummaries\":10,\"totalSessions\":20,\"totalProjects\":3}}")))
     public ResponseEntity<Map<String, Object>> getStats(
             @Parameter(description = "Optional project path to filter statistics") @RequestParam(required = false) String project) {
         Map<String, Object> worker = Map.of(
@@ -264,7 +265,7 @@ public class ViewerController {
     @Operation(summary = "Get processing status",
         description = "Returns current processing state and queue depth. Useful for real-time UI updates.")
     @ApiResponse(responseCode = "200", description = "Processing status retrieved",
-        content = @Content(schema = @Schema(example = "{\"isProcessing\":false,\"queueDepth\":0}")))
+        content = @Content(schema = @Schema(type = "object", example = "{\"isProcessing\":false,\"queueDepth\":0}")))
     public ResponseEntity<Map<String, Object>> getProcessingStatus() {
         return ResponseEntity.ok(Map.of(
             "isProcessing", agentService.isAnySessionProcessing(),
@@ -451,7 +452,7 @@ public class ViewerController {
     @Operation(summary = "Get current settings",
         description = "Returns current application settings from file with environment variable overrides applied. Includes mode information.")
     @ApiResponse(responseCode = "200", description = "Settings retrieved successfully",
-        content = @Content(schema = @Schema(example = "{\"modeName\":\"code\",\"modeDescription\":\"Tracks code evolution\"}")))
+        content = @Content(schema = @Schema(type = "object", example = "{\"modeName\":\"code\",\"modeDescription\":\"Tracks code evolution\"}")))
     public ResponseEntity<Map<String, Object>> getSettings() {
         AppSettings appSettings = settingsService.getSettings();
         Map<String, Object> response = appSettings.toMap();
@@ -471,7 +472,7 @@ public class ViewerController {
     @Operation(summary = "Get active mode configuration",
         description = "Returns the current active mode configuration including name, description, version, observation types, and observation concepts.")
     @ApiResponse(responseCode = "200", description = "Mode configuration retrieved",
-        content = @Content(schema = @Schema(example = "{\"id\":\"code\",\"name\":\"Code\",\"description\":\"Tracks code evolution\",\"version\":\"1.0\",\"observation_types\":[],\"observation_concepts\":[]}")))
+        content = @Content(schema = @Schema(type = "object", example = "{\"id\":\"code\",\"name\":\"Code\",\"description\":\"Tracks code evolution\",\"version\":\"1.0\",\"observation_types\":[],\"observation_concepts\":[]}")))
     public ResponseEntity<Map<String, Object>> getActiveMode() {
         Mode mode = modeService.getActiveMode();
         Map<String, Object> response = new HashMap<>();
@@ -492,9 +493,9 @@ public class ViewerController {
         description = "Switches the active observation mode at runtime. Mode changes affect which observation types and concepts are considered valid for new observations.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Mode set successfully",
-            content = @Content(schema = @Schema(example = "{\"success\":true,\"mode\":\"code\",\"name\":\"Code\"}"))),
+            content = @Content(schema = @Schema(type = "object", example = "{\"success\":true,\"mode\":\"code\",\"name\":\"Code\"}"))),
         @ApiResponse(responseCode = "400", description = "Invalid mode ID provided",
-            content = @Content(schema = @Schema(example = "{\"success\":false,\"error\":\"Failed to load mode: ...\"}")))
+            content = @Content(schema = @Schema(type = "object", example = "{\"success\":false,\"error\":\"Failed to load mode: ...\"}")))
     })
     public ResponseEntity<Map<String, Object>> setActiveMode(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
@@ -537,9 +538,9 @@ public class ViewerController {
         description = "Persists settings updates to the settings file. If 'mode' or 'CLAUDE_MEM_MODE' is changed, also updates the active ModeService mode.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Settings saved successfully",
-            content = @Content(schema = @Schema(example = "{\"success\":true}"))),
+            content = @Content(schema = @Schema(type = "object", example = "{\"success\":true}"))),
         @ApiResponse(responseCode = "500", description = "Failed to save settings due to internal error",
-            content = @Content(schema = @Schema(example = "{\"success\":false,\"error\":\"...\"}")))
+            content = @Content(schema = @Schema(type = "object", example = "{\"success\":false,\"error\":\"...\"}")))
     })
     public ResponseEntity<Map<String, Object>> saveSettings(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
@@ -579,7 +580,9 @@ public class ViewerController {
         description = "Returns observations grouped by date for the viewer UI timeline. Supports date range queries and anchor-based queries for MCP compatibility. Date range is limited to 1 year maximum.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Timeline retrieved (returns list of timeline entries with date, count, and ids, or observations list for anchor queries)",
-            content = @Content(schema = @Schema(example = "[{\"date\":\"2025-01-02\",\"count\":5,\"ids\":[\"550e8400-e29b-41d4-a716-446655440000\"]}]"))),
+            content = @Content(array = @ArraySchema(
+                arraySchema = @Schema(type = "array", example = "[{\"date\":\"2025-01-02\",\"count\":5,\"ids\":[\"550e8400-e29b-41d4-a716-446655440000\"]}]"),
+                schema = @Schema(type = "object")))),
         @ApiResponse(responseCode = "400", description = "Date range exceeds 1 year maximum or invalid anchor parameters",
             content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiResponses.ErrorResponse.class))),
         @ApiResponse(responseCode = "500", description = "Timeline query failed",
@@ -722,7 +725,9 @@ public class ViewerController {
     @Operation(summary = "Batch get sessions by content session IDs",
         description = "Retrieves multiple sessions by their Claude Code content session IDs. Used by the export script to get session metadata. Returns session DB ID, content session ID, project, user prompt, timestamps, and status.")
     @ApiResponse(responseCode = "200", description = "Sessions retrieved (empty list if no matching sessions found)",
-        content = @Content(schema = @Schema(example = "[{\"id\":\"550e8400-e29b-41d4-a716-446655440000\",\"content_session_id\":\"session-1\",\"project\":\"/path\",\"user_prompt\":\"hello\",\"started_at_epoch\":1709000000000,\"completed_at_epoch\":1709000060000,\"status\":\"completed\"}]")))
+        content = @Content(array = @ArraySchema(
+            arraySchema = @Schema(type = "array", example = "[{\"id\":\"550e8400-e29b-41d4-a716-446655440000\",\"content_session_id\":\"session-1\",\"project\":\"/path\",\"user_prompt\":\"hello\",\"started_at_epoch\":1709000000000,\"completed_at_epoch\":1709000060000,\"status\":\"completed\"}]"),
+            schema = @Schema(type = "object"))))
     public ResponseEntity<List<Map<String, Object>>> batchGetSessions(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Request body with 'contentSessionIds' field containing a list of Claude Code session ID strings", required = true)
             @org.springframework.web.bind.annotation.RequestBody Map<String, Object> request

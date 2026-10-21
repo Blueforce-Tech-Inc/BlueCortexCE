@@ -9,7 +9,9 @@
 > **文档结构说明（中英差异）**：中文版用路径式 H4 标题标注端点（如 ``#### GET `/api/observations` ``），
 > 英文版用描述式 H3 标题（如 `### List Observations`）并在标题下方用代码块给出请求行。这是**有意保留**
 > 的差异——路径式标题在中文语境下更自然，且两版对每个端点都给出了相同的 HTTP 方法与路径。端点集合已核验
-> 完全一致（67 个生效端点，对照 Controller 的 `@*Mapping` 注解逐一比对），因此这只是呈现方式差异，
+> 完全一致（71 个生效操作、66 条路径，2026-10-21 实测——数 `/v3/api-docs` 里 `paths` 每个条目下的
+> `get`/`put`/`post`/`delete`/`patch` 键；与 Controller 里 71 个 `@*Mapping` 注解一致，需排除
+> `ViewerController.java:214` 那个就地注释掉的路由），因此这只是呈现方式差异，
 > 不存在内容缺失。请勿为了"对齐"而单方面修改某一版本。
 >
 > 中文版路径式 H4 的主要层级是「`##` 章节 → `####` 端点」——即 H4 直接挂在所属章节下，中间不插入
@@ -2501,7 +2503,7 @@ eventSource.onmessage = (event) => {
 
 ### HTTP 状态码
 
-下表已对活体后端（`GET /v3/api-docs`，67 个操作）与源码逐条核对。
+下表已对活体后端（`GET /v3/api-docs`，71 个操作、66 条路径，2026-10-21 实测）与源码逐条核对。
 **应用自身从不返回**的状态码已如实标注，不再按「可达」列出。
 
 | 状态码 | 含义 | 是否返回 |
@@ -2980,6 +2982,8 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
+| 2026-10-21 | (unreleased) | 已发布的 OpenAPI 不再在请求体与响应体上自相矛盾。**51** 个 schema 一边宣告 `"type": "string"`，一边带着 JSON 对象或数组的 example —— 只写 `example` 不写 `type` 的 `@Schema` 会被解析成 `string`，于是同一处文档同时断言了两件互斥的事。最刺眼的一例是 `PATCH /api/memory/observations/{id}` 的请求体：按 spec 生成的客户端发出的是 JSON 字符串，端点回 400；而发出 example 展示的那个对象则回 200。现在每一个这样的 schema 都宣告了它自己的 example 早已展示的那个 type。其中 **49** 个对象形态的 example 逐字未变；三个数组响应（`GET /api/timeline`、`POST /api/sdk-sessions/batch`、`GET /api/extraction/{templateName}/history`）现宣告为 `type: array` 并带 `items`，其内联 example 被舍弃 —— 能留住数组 example 的注解写法无法同时带上 `items`，故取合法的数组 schema。另一套机制也一并修好：`GET /api/extraction/{templateName}/history` 的 200 原宣告 `type: object`，而处理器返回的是 JSON 数组。新增一个测试钉住该不变量 —— example 的 JSON 形态必须等于其 schema 宣告的 type。EN+ZH 同步 |
+| 2026-10-21 | (unreleased) | 本文档各处端点/操作计数里的 **67** 写下时是对的，此后已漂移：活体 `/v3/api-docs` 现在是 **71** 个操作、**66** 条路径（2026-10-21 实测）。计数口径是 `paths` 每个条目下的 `get`/`put`/`post`/`delete`/`patch` 键 —— 与 Controller 里 71 个 `@*Mapping` 注解一致，需排除 `ViewerController.java:214` 那个就地注释掉的路由（`/api/concepts`）。这个数字共出现在四处：本文件开头的结构说明、「HTTP 状态码」一节，以及中文版对应的两处；四处现在都写明实测值、日期与取数方式。中英两版所记载的**端点集合**仍完全一致（程序化比对，零差异）—— 只有计数过时了。EN+ZH 同步 |
 | 2026-10-20 | (unreleased) | 更正下方 2026-10-07 那条：它把「刻意保留原样」的请求体表归在 `POST /api/memory/observations` 名下，而**该端点并不存在**——活体 spec 里 `/api/memory/observations/{id}` 只有 `PATCH` 与 `DELETE`。真正自带 `Required` 列的请求体表属于 **`POST /api/ingest/observation`**。2026-10-07 那条的实质内容不变，只是端点名写错了。已对活体 `/v3/api-docs` 核实：共 66 条路径，且每一条都在本文档中有记载。EN+ZH 同步 |
 | 2026-10-07 | (unreleased) | 观测 wire 格式表里有 **15 个字段**被写成非空类型，而后端对它们一律发显式 `null`。下方 2026-10-03 那条正是按这个理由改的 `created_at`，却把同一张表里另外 15 个仍写着 `string` / `int` / `float` / `object` 的字段留了下来。在全部 38,967 条观测上实测：`user_comment` 与 `last_accessed_at` **100%** 为 NULL，`feedback_updated_at` / `feedback_type` / `quality_score` 各 92%，`subtitle` 81%，`refined_at` 79%，`content_hash` 48%，`facts` / `files_read` / `files_modified` 各 47%，`extractedData` 46%，`source` 35%，`prompt_number` 15%，`narrative` 6%。这 15 个现均改为 `... \| null`，与早已如实标注的那 6 个字段一致。**键从不缺失**：活体 `GET /api/observations` 每行恒为 34 个键，稀疏字段到达时是显式 `null`。实测 NULL 率 0.0–0.09% 的 9 个字段——`id`、`content_session_id`、`project`、`type`、`title`、`concepts`、`platform_source`、`access_count`、`created_at_epoch`——保持非空类型。`POST /api/memory/observations` 的请求体表**刻意不动**：它自带 Required 列，可选性已在那里表达。 |
 | 2026-10-04 | (unreleased) | 四个数值参数在取负值时会让后端崩溃，其中两个还把崩溃报成了 `HTTP 200`。负的 `maxObservations` 一路传到原生 SQL 的 `LIMIT :limit`，被 PostgreSQL 直接拒绝（`InvalidRowCountInLimitClause: LIMIT must not be negative`）；负的 `maxSummaries` 走的是 `Stream.limit(-1)`，其 `IllegalArgumentException` 的 message 字面就是 `-1`，于是日志里只剩 `"... preview for project X: -1"`。`/api/context/preview` 把两者都 catch 住并返回 `String`，Spring MVC 的状态码因此仍是 **200**、body 是 `Error: Failed to generate context preview`——**客户端输入错误被报成了成功**。两个 timeline 端点更糟：`depth_before`/`depth_after` 与 `depthBefore`/`depthAfter` 会进入 `subList(max(0, anchorIndex - before), min(size, anchorIndex + after + 1))`，负深度把这个区间反转成 `fromIndex(1) > toIndex(0)`，直接抛出未处理的 **500**。修法是**下钳到 0 而非 1**——因为这四者上 `0` 本就有既定含义（空结果，或仅返回锚点那一条），因此 0、1、10、5000 的行为**完全不变**，只有原本崩溃的输入变了。修复后用新构建的实例逐个值复测：负值现在与 0 一致、可用的取值输出逐字相同、日志零异常。timeline 端点的对照很硬（depth 0/1/10 分别返回 1/2/5 条观测），`maxObservations` 亦然（0/1/2/5000 的渲染结果肉眼可分）。「查询参数约定」一节新增了取值范围处理表，并记录了**完全没有上界**的七个参数——`?maxObservations=5000` 会把该项目持有的内容全部返回。另两个 preview 参数经查无需改动：`sessionCount` 在读取它的那条路径上永远取不到负值，因为会话限定查询仅在取值大于 0 时才走；`fullCount` 的消费方是 `for (i = 0; i < limit; i++)`，limit 为负时循环根本不执行。同类缺陷今天早些时候已在 `/api/context/recent` 上修过（`dc52c8c`），本条覆盖的是当时漏掉的三个端点。中英文同步 |

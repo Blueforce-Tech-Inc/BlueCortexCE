@@ -53,7 +53,7 @@ public class HealthController {
     @Operation(summary = "Basic health check",
         description = "Returns service status if the application is running. Suitable for load balancers and Kubernetes liveness probes.")
     @ApiResponse(responseCode = "200", description = "Service is healthy",
-        content = @Content(schema = @Schema(example = "{\"status\":\"ok\",\"timestamp\":1709000000000,\"service\":\"claude-mem-java\"}")))
+        content = @Content(schema = @Schema(type = "object", example = "{\"status\":\"ok\",\"timestamp\":1709000000000,\"service\":\"claude-mem-java\"}")))
     public ResponseEntity<Map<String, Object>> health() {
         Map<String, Object> response = new HashMap<>();
 
@@ -85,7 +85,7 @@ public class HealthController {
         description = "Returns 200 only if the service is fully ready to accept traffic. Checks database connectivity and processing queue depth. Returns 503 if not ready.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Service is ready to accept traffic",
-            content = @Content(schema = @Schema(example = "{\"status\":\"ready\",\"checks\":{\"database\":\"ready\",\"queueDepth\":0,\"queueStatus\":\"ready\"},\"timestamp\":1709000000000}"))),
+            content = @Content(schema = @Schema(type = "object", example = "{\"status\":\"ready\",\"checks\":{\"database\":\"ready\",\"queueDepth\":0,\"queueStatus\":\"ready\"},\"timestamp\":1709000000000}"))),
         @ApiResponse(responseCode = "503", description = "Service is not ready (database unreachable or queue overloaded)")
     })
     public ResponseEntity<Map<String, Object>> readiness() {
@@ -122,7 +122,7 @@ public class HealthController {
     @Operation(summary = "Get version information",
         description = "Returns the application version, Java version, and Spring Boot version.")
     @ApiResponse(responseCode = "200", description = "Version information retrieved successfully",
-        content = @Content(schema = @Schema(example = "{\"version\":\"1.0.0\",\"service\":\"claude-mem-java\",\"java\":\"21.0.2\",\"springBoot\":\"3.3.0\"}")))
+        content = @Content(schema = @Schema(type = "object", example = "{\"version\":\"1.0.0\",\"service\":\"claude-mem-java\",\"java\":\"21.0.2\",\"springBoot\":\"3.3.0\"}")))
     public ResponseEntity<Map<String, Object>> version() {
         Map<String, Object> response = new HashMap<>();
         response.put("version", getVersion());
