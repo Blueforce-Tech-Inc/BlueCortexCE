@@ -23,7 +23,7 @@ Cortex CE 是一个记忆后端，用于存储代理观察结果、生成摘要�
 | **@Tool 自动捕获** | AOP 切面拦截 `@Tool` 方法并记录其执行 |
 | **会话上下文** | 基于 ThreadLocal 的会话和项目作用域 |
 | **健康检查指示器** | 用于监控记忆后端的 Actuator 集成 |
-| **250 个单元测试** | 覆盖客户端、Advisor、工具和自动配置各层（197 客户端 + 46 spring-ai + 7 starter），2026-10-21 按各模块 surefire 报告实测 |
+| **309 个单元测试** | 覆盖客户端、Advisor、工具和自动配置各层（256 客户端 + 46 spring-ai + 7 starter），2026-10-22 按各模块 surefire 报告实测 |
 
 ## 环境要求
 
@@ -385,7 +385,9 @@ at least one field must be provided for update
 
 ### 必填参数在客户端校验
 
-下表中的参数都必须非空白。客户端抛出 `IllegalArgumentException` 且不发出任何请求。Go、Python、JS 三家 SDK 强制的是完全相同的一组规则。
+下表中的参数都必须非空白。客户端抛出 `IllegalArgumentException` 且不发出任何请求。Go、Python、JS 三家 SDK 强制的是同一组「非空白」检查——只有一处例外：**Java 还额外要求 `projectPath` 必须是绝对路径**，涉及 `recordObservation`、`recordSessionEnd`、`recordUserPrompt` 三个方法。Go、Python、JS 在这三处只要求非空白。
+
+请求对象本身为 `null` 时同样在发请求前被拦下，但抛的是 `NullPointerException` 而不是 `IllegalArgumentException` ——「请求对象缺失」是另一道检查，与上面的「非空白」检查不是同一道。
 
 | 方法 | 必填参数 |
 |------|----------|

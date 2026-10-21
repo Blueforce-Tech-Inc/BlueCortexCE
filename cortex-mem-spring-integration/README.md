@@ -23,7 +23,7 @@ Cortex CE is a memory backend that stores agent observations, generates summarie
 | **@Tool auto-capture** | AOP aspect intercepts `@Tool` methods and records executions |
 | **Session context** | ThreadLocal-based session and project scope |
 | **Health indicator** | Actuator integration for monitoring the memory backend |
-| **250 unit tests** | Comprehensive coverage across client, advisor, tools, and auto-config layers (197 client + 46 spring-ai + 7 starter), measured 2026-10-21 from each module's surefire reports |
+| **309 unit tests** | Comprehensive coverage across client, advisor, tools, and auto-config layers (256 client + 46 spring-ai + 7 starter), measured 2026-10-22 from each module's surefire reports |
 
 ## Requirements
 
@@ -384,7 +384,14 @@ succeed and could not tell that nothing was written.
 ### Required Arguments Are Checked Client-Side
 
 Every argument below must be non-blank. The client throws `IllegalArgumentException`
-and sends no request. The Go, Python and JS SDKs enforce exactly the same set.
+and sends no request. The Go, Python and JS SDKs enforce the same set of non-blank
+checks — with one exception: **Java also requires `projectPath` to be an absolute
+path** in `recordObservation`, `recordSessionEnd` and `recordUserPrompt`. Go, Python
+and JS accept any non-blank value there.
+
+A `null` request object is rejected before the request too, but with
+`NullPointerException` instead of `IllegalArgumentException` — "the request itself
+is missing" is a different check from the blank-value checks above.
 
 | Method | Required arguments |
 |--------|--------------------|
