@@ -9,7 +9,7 @@ JavaScript/TypeScript client SDK for the [Cortex CE](https://github.com/Blueforc
 - **Zero runtime dependencies** — Uses the built-in `fetch` API (Node 18+, browsers, Deno, Bun)
 - **Full TypeScript support** — Complete type definitions for all DTOs
 - **25 API methods** — Covers all endpoints from the Go/Java SDKs
-- **266 unit tests** — Full coverage of wire format and client behavior (measured 2026-10-21; `npm test` gives the current count). The breakdown at that date: 248 client + 5 truncated-body + 8 http-server example + 5 http-server error contract
+- **273 unit tests** — Full coverage of wire format and client behavior (measured 2026-10-21; `npm test` gives the current count). The breakdown at that date: 255 client + 5 truncated-body + 8 http-server example + 5 http-server error contract
 - **Dual CJS + ESM** — Works with CommonJS and ES Modules
 - **Best-effort capture** — Retries transient failures; capture errors are swallowed after retries, and reach your logs only if you supply a `logger` — the default one is a no-op
 
@@ -92,6 +92,21 @@ client.close();
 | `logger` | no-op | Custom logger |
 | `fetch` | global `fetch` | Custom fetch implementation |
 | `headers` | `{}` | Extra request headers |
+
+### Retry Policy
+
+`maxRetries` applies to the **capture path only** — `recordObservation`,
+`recordSessionEnd` and `recordUserPrompt`, the three methods that go through the
+fire-and-forget wrapper. Every other method sends exactly one request: a `503`
+from the server surfaces as an `APIError` on the first response, with no retry.
+
+The Go and Python SDKs have the same split. The **Java** SDK retries more —
+besides the three capture methods it also retries `submitFeedback`,
+`updateObservation`, `deleteObservation`, `triggerRefinement`,
+`triggerExtraction`, `getLatestExtraction` and `getExtractionHistory`. A
+`maxRetries` setting ported across therefore covers a larger set of calls on
+Java, and a workaround written to avoid a retry on one of those seven needs a
+guard on Java only.
 
 ### Methods
 
@@ -198,11 +213,26 @@ single string.
 ### Empty Updates Are Rejected
 
 `updateObservation` throws a `ValidationError` when the update sets no field, and no
-request is sent. The same rule and message apply in the Go, Java and Python SDKs:
+request is sent:
 
 ```
 cortex-ce: validation error on update: at least one field must be provided for update
 ```
+
+The Go, Java and Python SDKs apply the same rule — an empty update is rejected before
+any request goes out — and the message **body** is identical word for word in all
+four. The full string is not, because each SDK wraps it differently:
+
+| SDK | Error type | Full message |
+|-----|-------------|--------------|
+| This one | `ValidationError` | `cortex-ce: validation error on update: at least one field must be provided for update` |
+| Go | `dto.ObservationUpdateValidationError` | `cortex-ce: ObservationUpdate validation error: at least one field must be provided for update` |
+| Python | `ValidationError` | `cortex-ce: validation error on update: at least one field must be provided for update` |
+| Java | `IllegalArgumentException` | `at least one field must be provided for update` |
+
+So a caller that matches on the whole message has to strip the prefix, and a caller
+that matches on the error type has to know that Java raises `IllegalArgumentException`
+rather than a `ValidationError`.
 
 It matters because a PATCH that sets nothing is a silent no-op on the wire: without
 the check, a caller who assembled an empty update from user input would see the call
@@ -241,9 +271,10 @@ no `omitempty`.
 ### Required Arguments Are Checked Client-Side
 
 Every argument below must be non-empty. The SDK throws a `ValidationError` and sends no
-request. The Go, Java and Python SDKs enforce exactly the same set. This SDK names the
-project argument `cwd` because that is the wire field; the other three call it
-`project_path`.
+request. The Go, Java and Python SDKs require exactly the same set of arguments — with one
+difference: the **Java** SDK additionally requires `project_path` to be an **absolute
+path** on the three capture methods, which the other three do not check. A relative
+path is therefore accepted here and rejected there.
 
 | Method | Required arguments |
 |--------|--------------------|
@@ -267,8 +298,10 @@ project argument `cwd` because that is the wire field; the other three call it
 | `getExtractionHistory` | `projectPath`, `templateName`; `limit` must not be negative |
 
 The project argument is `cwd` on the three capture request objects because that is
-the wire field there, and a positional `projectPath` on the management methods. The
-other three SDKs call it `project_path` throughout.
+the wire field there, and a positional `projectPath` on the management methods. All
+four SDKs put the same `cwd` on the wire for the capture methods; only the SDK-level
+name differs — Go says `ProjectPath`, Python says `project_path`, Java says
+`projectPath`.
 
 The checks are not decoration, and the capture methods are the clearest case.
 `recordObservation` is fire-and-forget, so it swallows whatever the backend replies.

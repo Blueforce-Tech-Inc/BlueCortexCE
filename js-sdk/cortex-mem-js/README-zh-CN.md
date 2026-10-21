@@ -9,7 +9,7 @@
 - **零依赖** —— 使用内置 `fetch` API（Node 18+、浏览器、Deno、Bun）
 - **完整 TypeScript 支持** —— 所有 DTO 的完整类型定义
 - **25 个 API 方法** —— 覆盖 Go/Java SDK 的所有端点
-- **266 个单元测试** —— 全面覆盖 Wire 格式和客户端行为（2026-10-21 实测；当前值以 `npm test` 为准）。当日的构成：248 客户端 + 5 截断响应体 + 8 http-server 示例 + 5 http-server 错误契约
+- **273 个单元测试** —— 全面覆盖 Wire 格式和客户端行为（2026-10-21 实测；当前值以 `npm test` 为准）。当日的构成：255 客户端 + 5 截断响应体 + 8 http-server 示例 + 5 http-server 错误契约
 - **双格式 CJS + ESM** —— 同时支持 CommonJS 和 ES Modules
 - **尽力而为的捕获** —— 对暂时性故障重试；重试耗尽后吞掉采集错误，只有你自己传入 `logger` 时才会输出日志——默认的那个是空操作
 
@@ -90,6 +90,18 @@ client.close();
 | `logger` | 空操作 | 自定义日志器 |
 | `fetch` | 全局 `fetch` | 自定义 fetch 实现 |
 | `headers` | `{}` | 额外请求头 |
+
+### 重试策略
+
+`maxRetries` **只作用于捕获路径**——即走 fire-and-forget 包装的
+`recordObservation`、`recordSessionEnd`、`recordUserPrompt` 这三个方法。其余每个方法都只发**一次**
+请求：服务端返回 `503` 时，第一次响应就直接以 `APIError` 抛出来，不会重试。
+
+Go 与 Python SDK 的切分方式相同。**Java** SDK 重试的范围更大——除三个捕获方法外，它还重试
+`submitFeedback`、`updateObservation`、`deleteObservation`、`triggerRefinement`、
+`triggerExtraction`、`getLatestExtraction` 与 `getExtractionHistory`。因此把 `maxRetries`
+配置搬过去时，它在 Java 侧管到的调用更多；而要为这七个方法之一写「避免重试」的补丁，
+只需在 Java 侧做保护。
 
 ### 方法
 
@@ -191,11 +203,22 @@ HTTP 状态）：
 
 ### 空更新会被拒绝
 
-`updateObservation` 在更新未设置任何字段时抛 `ValidationError`，且不会发出任何请求。Go、Java、Python 三家规则与消息完全相同：
+`updateObservation` 在更新未设置任何字段时抛 `ValidationError`，且不会发出任何请求：
 
 ```
 cortex-ce: validation error on update: at least one field must be provided for update
 ```
+
+Go、Java、Python 三家**规则**相同——空更新在任何请求发出之前就被拒——而且消息**主体**在四家里逐字相同。但**完整字符串**并不相同：各家包裹它的方式不同。
+
+| SDK | 错误类型 | 完整消息 |
+|-----|----------|----------|
+| 本家 | `ValidationError` | `cortex-ce: validation error on update: at least one field must be provided for update` |
+| Go | `dto.ObservationUpdateValidationError` | `cortex-ce: ObservationUpdate validation error: at least one field must be provided for update` |
+| Python | `ValidationError` | `cortex-ce: validation error on update: at least one field must be provided for update` |
+| Java | `IllegalArgumentException` | `at least one field must be provided for update` |
+
+因此，按整条消息匹配的调用方需要先剥掉前缀；按错误类型匹配的调用方则要知道 Java 抛的是 `IllegalArgumentException` 而不是 `ValidationError`。
 
 这一点很重要：不设置任何字段的 PATCH 在 wire 上是一次静默 no-op。若没有这道检查，调用方用用户输入拼出一个空更新后会看到调用 resolve，却无法得知其实什么都没写入。
 
@@ -227,7 +250,7 @@ Python 的**数据类形式**同样跳过 `None`，但它的**关键字参数形
 
 ### 必填参数在客户端校验
 
-下表中的参数都必须非空。SDK 抛出 `ValidationError` 且不发出任何请求。Go、Java、Python 三家 SDK 强制的是完全相同的一组规则。
+下表中的参数都必须非空。SDK 抛出 `ValidationError` 且不发出任何请求。Go、Java、Python 三家 SDK 要求的**参数集合**完全相同——只有一处例外：**Java** 侧在三个捕获方法上还额外要求 `project_path` 是**绝对路径**，另三家都不做这项检查。因此相对路径在这里被接受、在那里被拒绝。
 
 | 方法 | 必填参数 |
 |------|----------|
@@ -251,7 +274,8 @@ Python 的**数据类形式**同样跳过 `None`，但它的**关键字参数形
 | `getExtractionHistory` | `projectPath`、`templateName`；`limit` 不得为负 |
 
 项目参数在三个 capture 请求对象上叫 `cwd`（因为那才是 wire 字段名），在管理与抽取类
-方法上则是位置参数 `projectPath`。另外三家 SDK 统一称其为 `project_path`。
+方法上则是位置参数 `projectPath`。四家 SDK 在捕获方法上发的 wire 字段都是 `cwd`，
+差别只在 SDK 层的叫法——Go 叫 `ProjectPath`、Python 叫 `project_path`、Java 叫 `projectPath`。
 
 这些检查不是装饰。其中三个 capture 方法最能说明问题：`recordObservation` 是
 fire-and-forget，会吞掉后端返回的一切。若不做检查，`tool_name` 为空时后端会返回

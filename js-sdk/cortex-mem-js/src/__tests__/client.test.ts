@@ -815,6 +815,29 @@ describe('CortexMemClient', () => {
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
+    // The README states the exact error type and the exact full message for an
+    // empty update, and the table it carries compares that string against the
+    // Go, Python and Java SDKs. The two cases above only match the substring
+    // "at least one field", so neither the "cortex-ce: validation error on
+    // update: " prefix nor the error type was pinned — the documented string
+    // could drift and the suite would stay green.
+    it('should reject an empty update with the documented error type and message', async () => {
+      fetchMock = mockFetch(204, null);
+      client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
+
+      const err = await client
+        .updateObservation('obs-1', {})
+        .then(() => null)
+        .catch((e: unknown) => e);
+
+      expect(err).toBeInstanceOf(ValidationError);
+      expect((err as ValidationError).field).toBe('update');
+      expect((err as ValidationError).message).toBe(
+        'cortex-ce: validation error on update: at least one field must be provided for update',
+      );
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
     it('should accept null fields for PATCH clear semantics', async () => {
       // PATCH semantics: null = clear field (per API docs: "Null values clear the field")
       //
@@ -1411,6 +1434,132 @@ describe('CortexMemClient', () => {
         });
         expect(callCount).toBe(wantCalls);
       }
+    });
+
+    // The three capture methods are siblings: each one must swallow a backend
+    // failure and still report success. The six fire-and-forget cases above all
+    // drive recordObservation, so the other two had no case of their own —
+    // routing recordSessionEnd or recordUserPrompt to the propagating path
+    // left the whole suite green (verified: both mutations, 266 passed).
+    // Each case asserts both halves: the error is swallowed AND the request
+    // really went out (a call count of 0 would also satisfy "did not throw").
+
+    it('should swallow a recordSessionEnd failure', async () => {
+      fetchMock = mockFetch(500, { error: 'internal' });
+      client = new CortexMemClient({
+        fetch: fetchMock as unknown as typeof globalThis.fetch,
+        maxRetries: 1,
+      });
+
+      // Must not throw
+      await client.recordSessionEnd({
+        session_id: 'sess-1',
+        cwd: '/tmp',
+      });
+      expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
+    it('should swallow a recordUserPrompt failure', async () => {
+      fetchMock = mockFetch(500, { error: 'internal' });
+      client = new CortexMemClient({
+        fetch: fetchMock as unknown as typeof globalThis.fetch,
+        maxRetries: 1,
+      });
+
+      // Must not throw
+      await client.recordUserPrompt({
+        session_id: 'sess-1',
+        prompt_text: 'hello',
+        cwd: '/tmp',
+      });
+      expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
+    it('should swallow a recordUserPrompt failure after exhausting retries', async () => {
+      let callCount = 0;
+      const always503 = vi.fn().mockImplementation(() => {
+        callCount++;
+        return Promise.resolve({
+          status: 503,
+          body: null,
+          text() { return Promise.resolve('{"error":"service unavailable"}'); },
+        });
+      });
+
+      client = new CortexMemClient({
+        fetch: always503 as unknown as typeof globalThis.fetch,
+        maxRetries: 3,
+        retryBackoff: 1,
+      });
+
+      // Must not throw even when every attempt fails
+      await client.recordUserPrompt({
+        session_id: 'sess-1',
+        prompt_text: 'hello',
+        cwd: '/tmp',
+      });
+      expect(callCount).toBe(3);
+    });
+  });
+
+  // ==================== Retry policy ====================
+
+  // The three capture methods are the only ones that retry: doFireAndForget
+  // owns the retry loop, while requestJSON and requestNoContent — the paths
+  // every other method goes through — do not retry at all. The Go, Python and
+  // Java READMEs all treat this as a cross-SDK difference; this one did not
+  // say so, and nothing pinned it: adding a retry loop to startSession left
+  // the whole suite green (verified: 270 passed).
+  //
+  // Each case asserts the request count, so a broken retry loop cannot
+  // masquerade as "no retry". The last case is the positive control: the same
+  // mock, on the capture path, does retry.
+
+  describe('retry policy', () => {
+    const always503 = () => vi.fn().mockResolvedValue({
+      status: 503,
+      body: null,
+      text() { return Promise.resolve('{"error":"service unavailable"}'); },
+    });
+
+    it('should not retry a non-capture request that returns a retryable status', async () => {
+      const fetch503 = always503();
+      const c = new CortexMemClient({
+        fetch: fetch503 as unknown as typeof globalThis.fetch,
+        maxRetries: 3,
+        retryBackoff: 1,
+      });
+
+      await expect(
+        c.startSession({ session_id: 'sess-1', project_path: '/tmp' }),
+      ).rejects.toThrow(APIError);
+      expect(fetch503).toHaveBeenCalledOnce();
+    });
+
+    it('should not retry a non-capture no-content request either', async () => {
+      const fetch503 = always503();
+      const c = new CortexMemClient({
+        fetch: fetch503 as unknown as typeof globalThis.fetch,
+        maxRetries: 3,
+        retryBackoff: 1,
+      });
+
+      await expect(
+        c.submitFeedback({ observationId: 'obs-1', feedbackType: 'positive' }),
+      ).rejects.toThrow(APIError);
+      expect(fetch503).toHaveBeenCalledOnce();
+    });
+
+    it('should still retry the capture path on the same mock (positive control)', async () => {
+      const fetch503 = always503();
+      const c = new CortexMemClient({
+        fetch: fetch503 as unknown as typeof globalThis.fetch,
+        maxRetries: 3,
+        retryBackoff: 1,
+      });
+
+      await c.recordObservation({ session_id: 'sess-1', cwd: '/tmp', tool_name: 'Read' });
+      expect(fetch503).toHaveBeenCalledTimes(3);
     });
   });
 
