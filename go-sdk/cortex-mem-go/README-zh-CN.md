@@ -10,7 +10,7 @@
 - **完整 API 覆盖** —— 25 个方法，涵盖会话、捕获、检索、管理、提取、版本、P1
 - **框架集成** —— 可选的 Eino、LangChainGo、Genkit 模块
 - **Wire 格式兼容** —— JSON 字段名与后端 API 完全一致
-- **全面测试** —— 372 个测试，含 Wire 格式验证（2026-10-20 实测；当前值见[测试](#测试)里的逐模块命令）。根模块跑 306 个（core 239 + dto 67）；适配器与示例模块从各自目录运行时再增加 66 个（eino 8 + genkit 13 + langchaingo 12 + `examples/http-server` 33）。为何单跑 `go test ./...` 只覆盖根模块，见[测试](#测试)。
+- **全面测试** —— 373 个测试，含 Wire 格式验证（2026-10-21 实测；当前值见[测试](#测试)里的逐模块命令）。根模块跑 307 个（core 240 + dto 67）；适配器与示例模块从各自目录运行时再增加 66 个（eino 8 + genkit 13 + langchaingo 12 + `examples/http-server` 33）。为何单跑 `go test ./...` 只覆盖根模块，见[测试](#测试)。
 
 ## 安装
 
@@ -174,7 +174,7 @@ retriever := genkit.NewRetriever(client, "/my-project",
 
 **本 SDK 是 9 个独立的 Go module，而不是一个。** `eino/`、`genkit/`、
 `langchaingo/` 以及 `examples/` 下的每个目录都有自己的 `go.mod`，因此在本目录
-直接执行 `go test ./...` **只能覆盖根模块**——372 个测试里的 306 个。被跳过的
+直接执行 `go test ./...` **只能覆盖根模块**——373 个测试里的 307 个。被跳过的
 四个适配器与示例模块，恰恰是最容易随上游框架升级而失效的部分，所以请跑全部九个：
 
 ```bash
@@ -184,8 +184,8 @@ find . -name go.mod -exec dirname {} \; | sort | while read -r d; do
 done
 ```
 
-2026-10-20 实测九个全绿：core 239 + dto 67 + eino 8 + genkit 13
-+ langchaingo 12 + `examples/http-server` 33 = **372**。其余四个 `examples/`
+2026-10-21 实测九个全绿：core 240 + dto 67 + eino 8 + genkit 13
++ langchaingo 12 + `examples/http-server` 33 = **373**。其余四个 `examples/`
 模块没有测试文件，会输出 `[no test files]`。这些计数是**带日期的实测值**而非实时值 ——
 当前值请重跑上面的命令。
 
@@ -336,11 +336,13 @@ SDK 自带的适配器也继承了这个陷阱——`eino` 与 `genkit` 的 retr
 仍值得在调用处自行判断。四家 SDK 在这两个端点上都是如此。
 
 这些检查不是装饰。其中三个 capture 方法最能说明问题：`RecordObservation`、
-`RecordSessionEnd` 与 `RecordUserPrompt` **都是** fire-and-forget，会吞掉后端返回的一切——
-`ToolName` 为空时后端返回
+`RecordSessionEnd` 与 `RecordUserPrompt` **都是** fire-and-forget，会吞掉**后端**返回的一切——
+若不做这层校验，`ToolName` 为空时后端会返回
 `400 Missing required field: tool_name`，SDK 记一条日志后正常返回，调用方于是认为
 观测已记录，而服务器刚刚拒绝了它。`ProjectPath` 为空则更隐蔽，因为后端**接受**它：
 记录会以空项目路径入队，随后不出现在任何按项目过滤的查询里，全程没有任何错误提示。
+两者都在客户端被拦下，因此这两个调用**不会上 wire**：SDK 返回 `ValidationError`，
+一个请求也不发。
 
 `Search` 属于同一类隐患：SDK 总会发送 `project`，而 `GET /api/search?project=` 会
 返回 `200` 加一个空结果集，因此漏传参数的调用方读到的是「没有匹配」而不是「你的调用

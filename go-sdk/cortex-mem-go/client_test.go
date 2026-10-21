@@ -26,8 +26,60 @@ func newTestClient(server *httptest.Server) cortexmem.Client {
 	return cortexmem.NewClient(cortexmem.WithBaseURL(server.URL))
 }
 
-// ==================== Wire Format Tests ====================
-// These tests verify that JSON field names match backend expectations exactly.
+// newValidationClient creates a client for a test that must never reach the
+// network, pointed at a hermetic server that FAILS the test if it ever receives
+// a request.
+//
+// Why this exists: the validation checks are the only thing standing between a
+// blank required field and the backend. If one of them ever regressed, the
+// request would go out — and for the three capture methods the backend accepts
+// a blank project path (IngestionController validates session_id and tool_name
+// but NOT cwd), so the row would be written against no project, visible in no
+// project-scoped query and reported as an error nowhere.
+//
+// Pointing those tests at the default client (http://127.0.0.1:37777, the
+// resident backend) made that regression a live write into the resident
+// database rather than a test failure. This helper turns it back into a test
+// failure, and pins the ordering the old exception-only assertions could not:
+// a validation error raised AFTER the request would still satisfy them.
+func newValidationClient(t *testing.T) cortexmem.Client {
+	t.Helper()
+	var hits int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt64(&hits, 1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(func() {
+		server.Close()
+		if n := atomic.LoadInt64(&hits); n != 0 {
+			t.Errorf("client-side validation must run before the request, but the server received %d request(s)", n)
+		}
+	})
+	return cortexmem.NewClient(cortexmem.WithBaseURL(server.URL))
+}
+
+// Positive control for newValidationClient: the hermetic server it installs
+// DOES receive a request when the call is valid. Without this, "no request
+// arrived" would also be satisfied by a client that simply never talks to the
+// server — the guard would have no teeth.
+func TestValidationClient_HermeticServerDoesReceiveRequests(t *testing.T) {
+	var hits int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt64(&hits, 1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	client := cortexmem.NewClient(cortexmem.WithBaseURL(server.URL))
+	if _, err := client.Search(context.Background(), dto.SearchRequest{Project: "/proj"}); err == nil {
+		t.Fatal("expected an error from the 500 response")
+	}
+	if n := atomic.LoadInt64(&hits); n != 1 {
+		t.Fatalf("positive control: expected exactly 1 request to reach the server, got %d", n)
+	}
+}
+
+// ==================== Wire Format Tests ====================// These tests verify that JSON field names match backend expectations exactly.
 
 func TestObservationRequest_WireFormat(t *testing.T) {
 	// Backend expects: session_id, cwd, tool_name, tool_input, tool_response
@@ -3434,7 +3486,7 @@ func TestGetObservationsByIds_PropagatesError(t *testing.T) {
 }
 
 func TestGetExtractionHistory_NegativeLimit(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	_, err := client.GetExtractionHistory(context.Background(), "/project", "user-prefs", "user-1", -1)
 	if err == nil {
 		t.Fatal("GetExtractionHistory should fail with negative limit")
@@ -3716,7 +3768,7 @@ func TestIsHelpers_GenericError(t *testing.T) {
 // ==================== Input Validation Tests ====================
 
 func TestRecordObservation_Validation_EmptySessionID(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	err := client.RecordObservation(context.Background(), dto.ObservationRequest{
 		SessionID:   "", // empty should fail
 		ProjectPath: "/proj",
@@ -3731,7 +3783,7 @@ func TestRecordObservation_Validation_EmptySessionID(t *testing.T) {
 }
 
 func TestRecordObservation_Validation_EmptyProjectPath(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	err := client.RecordObservation(context.Background(), dto.ObservationRequest{
 		SessionID:   "sess-1",
 		ProjectPath: "", // empty should fail
@@ -3746,7 +3798,7 @@ func TestRecordObservation_Validation_EmptyProjectPath(t *testing.T) {
 }
 
 func TestRecordObservation_Validation_EmptyToolName(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	err := client.RecordObservation(context.Background(), dto.ObservationRequest{
 		SessionID:   "sess-1",
 		ProjectPath: "/proj",
@@ -3761,7 +3813,7 @@ func TestRecordObservation_Validation_EmptyToolName(t *testing.T) {
 }
 
 func TestRecordSessionEnd_Validation_EmptySessionID(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	err := client.RecordSessionEnd(context.Background(), dto.SessionEndRequest{
 		SessionID:   "", // empty should fail
 		ProjectPath: "/proj",
@@ -3775,7 +3827,7 @@ func TestRecordSessionEnd_Validation_EmptySessionID(t *testing.T) {
 }
 
 func TestRecordUserPrompt_Validation_EmptySessionID(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	err := client.RecordUserPrompt(context.Background(), dto.UserPromptRequest{
 		SessionID:   "", // empty should fail
 		PromptText:  "test",
@@ -3790,7 +3842,7 @@ func TestRecordUserPrompt_Validation_EmptySessionID(t *testing.T) {
 }
 
 func TestRecordUserPrompt_Validation_EmptyPromptText(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	err := client.RecordUserPrompt(context.Background(), dto.UserPromptRequest{
 		SessionID:   "sess-1",
 		PromptText:  "", // empty should fail
@@ -3805,7 +3857,7 @@ func TestRecordUserPrompt_Validation_EmptyPromptText(t *testing.T) {
 }
 
 func TestRecordUserPrompt_Validation_EmptyProjectPath(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	err := client.RecordUserPrompt(context.Background(), dto.UserPromptRequest{
 		SessionID:   "sess-1",
 		PromptText:  "test",
@@ -3820,7 +3872,7 @@ func TestRecordUserPrompt_Validation_EmptyProjectPath(t *testing.T) {
 }
 
 func TestRecordSessionEnd_Validation_EmptyProjectPath(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	err := client.RecordSessionEnd(context.Background(), dto.SessionEndRequest{
 		SessionID:   "sess-1",
 		ProjectPath: "", // empty should fail
@@ -3834,7 +3886,7 @@ func TestRecordSessionEnd_Validation_EmptyProjectPath(t *testing.T) {
 }
 
 func TestSearch_Validation_EmptyProject(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	_, err := client.Search(context.Background(), dto.SearchRequest{
 		Project: "", // empty project should fail client-side
 		Query:   "test",
@@ -3848,7 +3900,7 @@ func TestSearch_Validation_EmptyProject(t *testing.T) {
 }
 
 func TestRetrieveExperiences_Validation_EmptyTask(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	_, err := client.RetrieveExperiences(context.Background(), dto.ExperienceRequest{
 		Task:    "", // empty task should fail client-side
 		Project: "/proj",
@@ -3862,7 +3914,7 @@ func TestRetrieveExperiences_Validation_EmptyTask(t *testing.T) {
 }
 
 func TestBuildICLPrompt_Validation_EmptyTask(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	_, err := client.BuildICLPrompt(context.Background(), dto.ICLPromptRequest{
 		Task:    "", // empty task should fail client-side
 		Project: "/proj",
@@ -3923,7 +3975,7 @@ func TestListObservations_HasMore_CamelCase(t *testing.T) {
 }
 
 func TestGetObservationsByIds_Validation_EmptyIDs(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	_, err := client.GetObservationsByIds(context.Background(), []string{})
 	if err == nil {
 		t.Fatal("GetObservationsByIds should fail with empty IDs")
@@ -3934,7 +3986,7 @@ func TestGetObservationsByIds_Validation_EmptyIDs(t *testing.T) {
 }
 
 func TestGetObservationsByIds_Validation_NilIDs(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	_, err := client.GetObservationsByIds(context.Background(), nil)
 	if err == nil {
 		t.Fatal("GetObservationsByIds should fail with nil IDs")
@@ -3945,7 +3997,7 @@ func TestGetObservationsByIds_Validation_NilIDs(t *testing.T) {
 }
 
 func TestGetObservationsByIds_Validation_EmptyStringInIDs(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	_, err := client.GetObservationsByIds(context.Background(), []string{"obs-1", "", "obs-3"})
 	if err == nil {
 		t.Fatal("GetObservationsByIds should fail with empty string in IDs")
@@ -3959,7 +4011,7 @@ func TestGetObservationsByIds_Validation_EmptyStringInIDs(t *testing.T) {
 }
 
 func TestGetObservationsByIds_Validation_WhitespaceOnlyInIDs(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	_, err := client.GetObservationsByIds(context.Background(), []string{"obs-1", "   ", "obs-3"})
 	if err == nil {
 		t.Fatal("GetObservationsByIds should fail with whitespace-only string in IDs")
@@ -3973,7 +4025,7 @@ func TestGetObservationsByIds_Validation_WhitespaceOnlyInIDs(t *testing.T) {
 }
 
 func TestGetObservationsByIds_Validation_ExceedsMaxBatch(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	ids := make([]string, 101)
 	for i := range ids {
 		ids[i] = fmt.Sprintf("obs-%d", i)
@@ -4007,7 +4059,7 @@ func TestGetObservationsByIds_Validation_ExactlyMaxBatch(t *testing.T) {
 }
 
 func TestTriggerRefinement_Validation_EmptyProjectPath(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	err := client.TriggerRefinement(context.Background(), "")
 	if err == nil {
 		t.Fatal("TriggerRefinement should fail with empty projectPath")
@@ -4018,7 +4070,7 @@ func TestTriggerRefinement_Validation_EmptyProjectPath(t *testing.T) {
 }
 
 func TestTriggerRefinement_Validation_WhitespaceProjectPath(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	err := client.TriggerRefinement(context.Background(), "   ")
 	if err == nil {
 		t.Fatal("TriggerRefinement should fail with whitespace-only projectPath")
@@ -4029,7 +4081,7 @@ func TestTriggerRefinement_Validation_WhitespaceProjectPath(t *testing.T) {
 }
 
 func TestGetQualityDistribution_Validation_EmptyProjectPath(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	_, err := client.GetQualityDistribution(context.Background(), "")
 	if err == nil {
 		t.Fatal("GetQualityDistribution should fail with empty projectPath")
@@ -4087,7 +4139,7 @@ func TestWithAPIKey_EmptyKey_OmitsAuthHeader(t *testing.T) {
 // ==================== Extraction Validation ====================
 
 func TestTriggerExtraction_Validation_EmptyProjectPath(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	err := client.TriggerExtraction(context.Background(), "")
 	if err == nil {
 		t.Fatal("TriggerExtraction should fail with empty projectPath")
@@ -4098,7 +4150,7 @@ func TestTriggerExtraction_Validation_EmptyProjectPath(t *testing.T) {
 }
 
 func TestTriggerExtraction_Validation_WhitespaceProjectPath(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	err := client.TriggerExtraction(context.Background(), "   ")
 	if err == nil {
 		t.Fatal("TriggerExtraction should fail with whitespace-only projectPath")
@@ -4109,7 +4161,7 @@ func TestTriggerExtraction_Validation_WhitespaceProjectPath(t *testing.T) {
 }
 
 func TestGetLatestExtraction_Validation_EmptyProjectPath(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	_, err := client.GetLatestExtraction(context.Background(), "", "template", "")
 	if err == nil {
 		t.Fatal("GetLatestExtraction should fail with empty projectPath")
@@ -4120,7 +4172,7 @@ func TestGetLatestExtraction_Validation_EmptyProjectPath(t *testing.T) {
 }
 
 func TestGetLatestExtraction_Validation_EmptyTemplateName(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	_, err := client.GetLatestExtraction(context.Background(), "/project", "", "")
 	if err == nil {
 		t.Fatal("GetLatestExtraction should fail with empty templateName")
@@ -4131,7 +4183,7 @@ func TestGetLatestExtraction_Validation_EmptyTemplateName(t *testing.T) {
 }
 
 func TestGetExtractionHistory_Validation_EmptyProjectPath(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	_, err := client.GetExtractionHistory(context.Background(), "", "template", "", 10)
 	if err == nil {
 		t.Fatal("GetExtractionHistory should fail with empty projectPath")
@@ -4142,7 +4194,7 @@ func TestGetExtractionHistory_Validation_EmptyProjectPath(t *testing.T) {
 }
 
 func TestGetExtractionHistory_Validation_EmptyTemplateName(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	_, err := client.GetExtractionHistory(context.Background(), "/project", "", "", 10)
 	if err == nil {
 		t.Fatal("GetExtractionHistory should fail with empty templateName")
@@ -4153,7 +4205,7 @@ func TestGetExtractionHistory_Validation_EmptyTemplateName(t *testing.T) {
 }
 
 func TestGetExtractionHistory_Validation_NegativeLimit(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	_, err := client.GetExtractionHistory(context.Background(), "/project", "template", "", -1)
 	if err == nil {
 		t.Fatal("GetExtractionHistory should fail with negative limit")
@@ -4251,7 +4303,7 @@ func TestGetVersion_Error_Response(t *testing.T) {
 // ==================== Whitespace Validation Tests ====================
 
 func TestSubmitFeedback_Validation_WhitespaceObservationID(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	err := client.SubmitFeedback(context.Background(), "   ", "SUCCESS", "")
 	if err == nil {
 		t.Fatal("SubmitFeedback should fail with whitespace-only observationID")
@@ -4262,7 +4314,7 @@ func TestSubmitFeedback_Validation_WhitespaceObservationID(t *testing.T) {
 }
 
 func TestSubmitFeedback_Validation_WhitespaceFeedbackType(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	err := client.SubmitFeedback(context.Background(), "obs-1", "   ", "")
 	if err == nil {
 		t.Fatal("SubmitFeedback should fail with whitespace-only feedbackType")
@@ -4273,7 +4325,7 @@ func TestSubmitFeedback_Validation_WhitespaceFeedbackType(t *testing.T) {
 }
 
 func TestUpdateObservation_Validation_WhitespaceObservationID(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	err := client.UpdateObservation(context.Background(), "   ", dto.ObservationUpdate{})
 	if err == nil {
 		t.Fatal("UpdateObservation should fail with whitespace-only observationID")
@@ -4284,7 +4336,7 @@ func TestUpdateObservation_Validation_WhitespaceObservationID(t *testing.T) {
 }
 
 func TestDeleteObservation_Validation_WhitespaceObservationID(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	err := client.DeleteObservation(context.Background(), "   ")
 	if err == nil {
 		t.Fatal("DeleteObservation should fail with whitespace-only observationID")
@@ -4295,7 +4347,7 @@ func TestDeleteObservation_Validation_WhitespaceObservationID(t *testing.T) {
 }
 
 func TestUpdateSessionUserId_Validation_WhitespaceSessionID(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	_, err := client.UpdateSessionUserId(context.Background(), "   ", "user-1")
 	if err == nil {
 		t.Fatal("UpdateSessionUserId should fail with whitespace-only sessionID")
@@ -4306,7 +4358,7 @@ func TestUpdateSessionUserId_Validation_WhitespaceSessionID(t *testing.T) {
 }
 
 func TestUpdateSessionUserId_Validation_WhitespaceUserID(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 	_, err := client.UpdateSessionUserId(context.Background(), "sess-1", "   ")
 	if err == nil {
 		t.Fatal("UpdateSessionUserId should fail with whitespace-only userID")
@@ -4346,7 +4398,7 @@ func TestDefaultClientConfig_VerifyAllDefaults(t *testing.T) {
 // ==================== ValidationError Tests ====================
 
 func TestIsValidationError_TrueForValidationErrors(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 
 	// Test various methods that produce ValidationError
 	tests := []struct {
@@ -4406,7 +4458,7 @@ func TestValidationError_EmptyField(t *testing.T) {
 }
 
 func TestUpdateObservation_UsesValidationError(t *testing.T) {
-	client := cortexmem.NewClient()
+	client := newValidationClient(t)
 
 	// Empty update should produce a validation error (either ValidationError or ObservationUpdateValidationError)
 	err := client.UpdateObservation(context.Background(), "obs-1", dto.ObservationUpdate{})

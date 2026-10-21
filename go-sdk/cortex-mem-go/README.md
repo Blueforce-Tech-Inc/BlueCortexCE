@@ -10,7 +10,7 @@ Go client library for [Cortex CE](https://github.com/Blueforce-Tech-Inc/BlueCort
 - **Full API coverage** — 25 methods covering Session, Capture, Retrieval, Management, Extraction, Version, P1
 - **Framework integrations** — optional Eino, LangChainGo, and Genkit modules
 - **Wire format compatible** — JSON field names match backend API exactly
-- **Comprehensive tests** — 372 tests with wire format verification (measured 2026-10-20; the per-module commands in [Testing](#testing) give the current count). The root module runs 306 (core 239 + dto 67); the adapter and example modules add 66 more when run from their own directories (eino 8 + genkit 13 + langchaingo 12 + `examples/http-server` 33). See [Testing](#testing) for why `go test ./...` alone only reaches the root module.
+- **Comprehensive tests** — 373 tests with wire format verification (measured 2026-10-21; the per-module commands in [Testing](#testing) give the current count). The root module runs 307 (core 240 + dto 67); the adapter and example modules add 66 more when run from their own directories (eino 8 + genkit 13 + langchaingo 12 + `examples/http-server` 33). See [Testing](#testing) for why `go test ./...` alone only reaches the root module.
 
 ## Installation
 
@@ -178,8 +178,8 @@ retriever := genkit.NewRetriever(client, "/my-project",
 
 **This SDK is 9 separate Go modules, not one.** `eino/`, `genkit/`, `langchaingo/`
 and each directory under `examples/` carry their own `go.mod`, so a bare
-`go test ./...` run from this directory only reaches the root module — 306 of
-the 372 tests. The four adapter and example modules it skips are exactly the
+`go test ./...` run from this directory only reaches the root module — 307 of
+the 373 tests. The four adapter and example modules it skips are exactly the
 ones most likely to rot against an upstream framework upgrade, so run all nine:
 
 ```bash
@@ -189,8 +189,8 @@ find . -name go.mod -exec dirname {} \; | sort | while read -r d; do
 done
 ```
 
-Measured on 2026-10-20, all nine green: core 239 + dto 67 + eino 8 + genkit 13
-+ langchaingo 12 + `examples/http-server` 33 = **372**. The other four
+Measured on 2026-10-21, all nine green: core 240 + dto 67 + eino 8 + genkit 13
++ langchaingo 12 + `examples/http-server` 33 = **373**. The other four
 `examples/` modules have no test files and report `[no test files]`. The counts
 are a dated measurement, not a live value — re-run the command above for the
 current one.
@@ -359,12 +359,14 @@ value on these two endpoints, in all four SDKs.
 
 The checks are not decoration, and the three capture methods are the clearest case.
 All three are fire-and-forget — `RecordObservation`, `RecordSessionEnd` and `RecordUserPrompt` —
-so they swallow whatever the backend replies and report success. `RecordObservation` is the
-sharpest case: an empty `ToolName` comes back as `400 Missing required field: tool_name`, the SDK
-logs it and returns nil, and the caller concludes the observation was captured when
-the server had just rejected it. An empty `ProjectPath` is quieter still, because the
-backend *accepts* it — the record is queued against no project and then appears in no
-project-scoped query, with no error anywhere.
+so they swallow whatever the **backend** replies and report success. `RecordObservation` is the
+sharpest case: left unchecked, an empty `ToolName` would come back as
+`400 Missing required field: tool_name`, the SDK would log it and return nil, and the
+caller would conclude the observation was captured when the server had just rejected it.
+An empty `ProjectPath` would be quieter still, because the backend *accepts* it — the
+record would be queued against no project and then appear in no project-scoped query,
+with no error anywhere. Both are caught client-side instead, so neither call reaches
+the wire: the SDK returns a `ValidationError` and sends no request at all.
 
 `Search` has the same shape of hazard: the SDK always sends `project`, and
 `GET /api/search?project=` answers `200` with an empty result set, so a caller who
