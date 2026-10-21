@@ -989,17 +989,17 @@ curl "http://localhost:37777/api/context/inject?projects=/Users/dev/myproject"
 
 **查询参数**:
 
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `project` | string | (必填) | 项目路径 |
-| `observationTypes` | string | "" | 观察类型过滤（逗号分隔） |
-| `concepts` | string | "" | 概念过滤（逗号分隔） |
-| `includeObservations` | boolean | true | 是否包含观察 |
-| `includeSummaries` | boolean | true | 是否包含摘要 |
-| `maxObservations` | int | 50 | 最大观察数量 |
-| `maxSummaries` | int | 2 | 最大摘要数量 |
-| `sessionCount` | int | 10 | 查询的最近会话数 |
-| `fullCount` | int | 5 | 显示完整详情的观察数 |
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `project` | string | ✅ | — | 项目路径 |
+| `observationTypes` | string | ❌ | "" | 观察类型过滤（逗号分隔） |
+| `concepts` | string | ❌ | "" | 概念过滤（逗号分隔） |
+| `includeObservations` | boolean | ❌ | true | 是否包含观察 |
+| `includeSummaries` | boolean | ❌ | true | 是否包含摘要 |
+| `maxObservations` | int | ❌ | 50 | 最大观察数量 |
+| `maxSummaries` | int | ❌ | 2 | 最大摘要数量 |
+| `sessionCount` | int | ❌ | 10 | 查询的最近会话数 |
+| `fullCount` | int | ❌ | 5 | 显示完整详情的观察数 |
 
 **请求示例**:
 ```bash
@@ -1762,13 +1762,13 @@ GET /api/search/by-file
 
 **查询参数**:
 
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `project` | string | (必填) | 项目路径 |
-| `filePath` | string | (必填) | 文件/文件夹路径 |
-| `isFolder` | boolean | false | 是否为文件夹 |
-| `limit` | int | 20 | 结果数量，静默钳制到 1–100（见 `/api/observations`） |
-| `debug` | boolean | false | 调试模式 |
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| `project` | string | ✅ | — | 项目路径 |
+| `filePath` | string | ✅ | — | 文件/文件夹路径 |
+| `isFolder` | boolean | ❌ | false | 是否为文件夹 |
+| `limit` | int | ❌ | 20 | 结果数量，静默钳制到 1–100（见 `/api/observations`） |
+| `debug` | boolean | ❌ | false | 调试模式 |
 
 **请求示例**:
 ```bash

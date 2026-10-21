@@ -69,11 +69,7 @@
   `error` 键永远不会被填充。
   活体实测确证：死端口时 `status=DOWN`、`hasErrorKey=false`，真实后端则 `UP` ——
   **连接被拒 / 超时 / DNS 失败等真因全部丢失**，「不可达」与「degraded」文案完全相同 → [`…-36`][a4] 第 1 块（第 291 轮逐字迁出）。
-- 测试反而钉死了这个假象：`CortexMemHealthIndicatorTest.health_whenClientThrows_returnsDown`
-  用 mock 让 client 抛出并断言 `containsKey("error")`——真实 client 永远产生不了该
-  状态，故此用例恒真却毫无保护作用（与第 197 轮同类：测试覆盖的是虚构状态）。
-- 核实无误：`"ok"` 大小写判定正确，null body / 非 `ok` / 异常三种情况均正确返回
-  `false`，UP-DOWN 三分支本身正确 → [`…-36`][a4] 第 2 块（第 291 轮逐字迁出）。
+- **Evidence**: → 归档 [`…-90`][a48]（`CortexMemHealthIndicatorTest.health_whenClientThrows_returnsDown` 这个**恒真用例**的定位与「测试覆盖的是虚构状态」的判读、`"ok"` 大小写判定与 null body/非 `ok`/异常三分支的核实）
 - 实测证据: 逐字迁入 [`…-17`](../archive/2026-10-05_backend-review-evidence-17.md)（269 轮）。
 - **Status**: ⏸已记录，不实现。要让原因到达指示器，需要 `healthCheck()` 改为向上抛出（改变既有方法的行为契约，所有调用方的 `catch` 都要重审）， 或为 client **新增公开 API**（如 `getLastHealthFailure()`）供指示器读取—— 两者都属对外契约变更，与 P2-13~P2-20 同一套判断，需项目先定方向。 本轮代码方向为 Java SDK，已做的是如实记录与如实核实（含一次假设被证伪： 初判「环境变量形式无法关闭 `capture-enabled`」，改用真实环境变量复测后 证明 `CORTEX_MEM_CAPTURE_ENABLED=false` 有效——原结论来自 `withPropertyValues` 不模拟环境变量这一探针缺陷）。
 
@@ -138,25 +134,15 @@
   故**一条已有 extractedData 的观测无法通过 Python SDK 清空它**。
   活体佐证该字段真实在用、且后端自身从不写 `{}`（38,200 行中非空 20,780、NULL 17,420、
   **`{}` 为 0**）→ [`…-11`][a10]（含四家能力阶梯表与第 246 轮更正）与 [`…-36`][a4] 第 3 块（第 291 轮逐字迁出）。
-- 该缺陷为何能存活: `tsconfig.json` 的 `exclude` 含 `"**/*.test.ts"`，而 `npm run lint` 就是 `tsc --noEmit`
-  ——**测试文件根本不参与类型检查，于是类型层与断言层之间的裂缝没有任何自动关卡。已独立立为 P2-42**。
-- **已修（注释层，行为一字未改）**: `ObservationUpdate` docstring 与 `is_empty()` /
-  `to_wire()` 两处 `continue` 注释已按现状改写（428 测试全过）→ [`…-36`][a4] 第 4 块（第 291 轮逐字迁出）。
-- **第 362 轮的事实更正（本条标题与 Problem 的一半已被推翻；P2-26 承诺的「下方补注」即本段）**:
-  **本条成立，但只对 dataclass 路径成立。** `client.update_observation` 的 **kwargs 路径
-  既不查 `None` 也不查空 dict**，故 `content=None` 真的把 `{"narrative": null}` 送上 wire、
-  `extracted_data={}` 真的把 `{"extractedData": {}}` 送上 wire；而后端 PATCH 语义是
-  **「显式 null ⇒ 清除该字段」——故 Python 其实能清空这两列，只是只有 kwargs 路径能**。
-  **本轮活体端到端实测**（建观测 → SDK kwargs 路径 PATCH → `psql` 查 `mem_observations`）：
-  kwargs `content=None` 后 **`content` 列为 NULL**、kwargs `extracted_data={}` 后
-  **`extracted_data` 列为 `{}`**；两条 dataclass 路径均抛 `ValidationError`、**不发请求**、
-  **库两列不变**（对照组）；后端侧另用 curl 直连 PATCH 独立确证同型结果。
-  **因此本条 Problem 里「Python 两种都发不出」「**一条已有 extractedData 的观测无法通过
-  Python SDK 清空它**」为失实（对 kwargs 路径），Status 里「让 `{}` 发上 wire……**从「不变」
-  变成「落 `{}`」**」这一表述的事实前提亦不成立——它今天经 kwargs **已经在落 `{}`**。**
-  归档 `2026-10-04_backend-review-evidence-11.md` 的**四家能力阶梯表**（「Python 两种都不能 →
-  完全不能」）同样只覆盖了 dataclass 路径；**归档文件创建后不得修改，故更正只落在本处**。
-  **原文不改写（追加式审计链只可标注），新证据与正文见 P2-116**。
+- **Evidence**: → 归档 [`…-90`][a48]（该缺陷为何能存活：`tsconfig.json` 的 `exclude` 使测试文件不参与 `tsc --noEmit` ⇒ 类型层与断言层之间没有自动关卡，**已独立立为 P2-42**；注释层已按现状改写且行为一字未改；**第 362 轮的事实更正全文**）
+- ⚠️ **第 362 轮已推翻本条 Problem 的一半**（追加式审计链只可标注，**原文不改写**）：
+  本条**只对 dataclass 路径成立** —— `client.update_observation` 的 **kwargs 路径既不查 `None` 也不查空 dict**，
+  故 `content=None` / `extracted_data={}` **真的上了 wire**，而后端 PATCH 语义正是「显式 null ⇒ 清除该字段」
+  ⇒ **Python 其实能清空这两列，只是只有 kwargs 路径能**（活体端到端实测：`content` 列 NULL、`extracted_data` 列 `{}`）。
+  ⇒ Problem 里「Python 两种都发不出」「**一条已有 extractedData 的观测无法通过 Python SDK 清空它**」
+  对 kwargs 路径**为失实**，Status 里「让 `{}` 发上 wire……从「不变」变成「落 `{}`」」这一表述的
+  **事实前提亦不成立**（今天经 kwargs **已经在落 `{}`**）。归档 `-11` 的四家能力阶梯表同样只覆盖 dataclass 路径，
+  **归档文件创建后不得修改，故更正只落在本处**。新证据与正文见 **P2-116**。
 - **Status**: ⏸ **行为记录不修** —— 改行为只有两条路：让 `{}` 发上 wire （**改变现有调用方的可观测行为**，`extracted_data={}` 从「不变」变成「落 `{}`」）， 或新增显式清空入口（**新增公开 API）。按既定纪律留待项目决策。注释层已先行更正**。
 ### P2-28: `/api/test/all` 丢弃两个子处理器的状态码，故障时仍返回 200
 
@@ -266,10 +252,7 @@
   于是构造函数传入负数时，兜底「回退」到的正是那个负数，**原样发上 wire**。
   测试名 `TestRetrieve_NegativeCount_FallsBackToDefault` 读起来像「负数已被处理」，
   但它把**构造函数传的是合法值 3、只测 per-call 分支——真正漏的那条路径无覆盖**。
-- **附带一处被丢弃的透明信号: 后端把实际生效值**回显在 `ICLPromptResult.maxChars`，
-  Go 的 `dto.ICLPromptResult.MaxChars` **确实有这个字段**（`dto/experience.go:46`），
-  但全 SDK **无任何非测试代码读它**——`LoadMemoryVariables` 只取 `result.Prompt`。
-  即：直接用核心客户端的调用方**能看到钳制，走适配器的调用方看不到**。
+- **Evidence**: → 归档 [`…-90`][a48]（**附带一处被丢弃的透明信号**：后端把实际生效值回显在 `ICLPromptResult.maxChars`，Go 的 `dto.ICLPromptResult.MaxChars` **确实有这个字段**（`dto/experience.go:46`），但全 SDK **无任何非测试代码读它**——`LoadMemoryVariables` 只取 `result.Prompt` ⇒ 直接用核心客户端的调用方**能看到钳制，走适配器的调用方看不到**）
 - **Status**: ⏸ **记录不修 —— 与 P2-30 同族但不是同一条**：P2-30 记的是核心客户端 `limit` 的四家分歧，本条记的是**适配层** `count` / `maxChars` 的**块内分歧**。不修的理由： ①「负数该等于什么」**没有唯一正确答案**（0 条？不限？回退默认？三个作者都没写）， 单方面选一个就是替项目做产品决策；②只修 genkit 会让 SDK **看起来更不一致** （一个有兜底、两个没有），而修 langchaingo 的「回显被丢弃」半边**必然要新增可观测行为** （多一行日志或一个新错误），属新增特性。**本轮只补了三个选项注释里的取值范围事实说明** （照「文档描述现在而非该有的行为」），**未改任何运行时行为**。
 - **复核记录**: [`…-provenance-3`][a11]（第 241 轮；Problem / Status 留本文件）。
 ### P2-37: 四家 demo 的 `/chat` 在方法、输入位置、响应结构与语义上全部分歧——而这个分歧被 Java demo 自己的 Javadoc 写明后搁置
@@ -304,7 +287,7 @@
   4. 方法返回时提交，Spring 抛 **`UnexpectedRollbackException`（"Transaction silently rolled back"）**
      → 调用方拿到 **HTTP 500**，**逐行统计一个都没送到**，**整批合法行全部回滚丢失**。
   即：端点为「部分成功」设计的响应结构，在最需要它的场景下**完全不起作用**。
-- **旁证与附带观察**: 逐字迁入 [`…-20`](../archive/2026-10-05_backend-review-evidence-20.md)（271 轮）——含「这个坑已被踩过一次、修过其中一个字段而 `varchar` 宽度至今未校验」的既有痕迹，以及 wire 名报 Java 字段名、`API.md` 三个 import 端点无字段清单这两处附带观察。
+- **旁证与附带观察（全文见归档）**: 逐字见 [`…-20`](../archive/2026-10-05_backend-review-evidence-20.md)（271 轮）。
 - **Status**: ⏸ **记录不修 —— 两种修法各改一项已成文的对外契约**： ①去掉 `bulkImport` 的 `@Transactional`（与另外四个同族端点一致）→ 放弃 `@Operation` 明写的 "in a single **atomic** transaction"； ②保留原子性但不再吞掉 rollback-only（重新抛出）→ 调用方仍拿不到逐行统计， 只是从「假 500」变成「真 500」。**真正的修法需要先决定这个端点到底承诺 「全有或全无」还是「逐行部分成功」——那是产品契约决策**。 只补 `varchar` 宽度校验**不足以解决**：它只覆盖最常见的一种触发方式， 而任何未来的数据库异常仍会重演整批丢失，且会让人误以为问题已解决。**后端代码一字未改。**
 
 ### P2-40: 四家 SDK 都能写入 prompts 与 summaries，却没有一家读得回来
@@ -360,22 +343,15 @@
     `for kwarg, wire_key in ObservationUpdate._WIRE_FIELDS.items(): if kwarg in kwargs: body[wire_key] = kwargs[kwarg]`
     ——原样拷贝、不做 None 过滤，于是 `body = {"title": None}`，
     `if not body` 为假（非空字典），**`{"title": null}` 真的上了 wire 并清空了字段**。
-  - 探针实证：`ObservationUpdate(title=None)` → `to_wire() == {}`、`is_empty() == True`；
-    而经 demo 活体 `PATCH {"title": null}` → 200 且 `mem_observations.title` 确实变 NULL。
-  - 对 P2-27 的影响：该条能力表把 Python 判为「✗（`if val is not None`）」——
-    这对 dataclass 路径成立，对 kwargs 路径不成立。按「按断言清扫」的标准，
-    那行只覆盖了一半的调用面，应当标注。
-- **第 363 轮的补注（本条目在第 247 轮写下的「已在下方补注」，直到本轮才真正落地）**:
-  那句补注从未出现在本条目里。 第 247 轮与 P2-26 都写着「P2-27 的能力表应当立即标注
-  kwargs 路径……已在下方补注」，而本条目从那时起只有 Problem / Status 两段，
-  无任何提及 kwargs 路径的字样；本轮已就地补上（见上方第 362 轮的事实更正）。
-  本条的证伪也从未被同步到 JS SDK 的复述点——`js-sdk/cortex-mem-js/src/dto/observation.ts`
-  与其**双语 README** 至今仍写着「四家里只有 JS 能把字符串字段清空为 NULL、Python 跳过 `None`」，
-  而那句话在第 247 轮就已经被本条目证伪了。本轮已更正（P2-117）。
-  另：本条的证伪在第 362 轮被**用 SDK 本身**（而非 demo）做了活体端到端复验——
-  kwargs `content=None` 之后 `mem_observations.content` 列**实为 NULL**（`psql` 直查），
-  见 P2-116。
-- **Status**: ⏸ 记录不修 —— 两种收法都改变现有调用方的可观测行为： ①让 dataclass 路径也发 `None`（原本静默不发请求的 `ObservationUpdate(title=None)` 会突然发出一次 PATCH）； ②让 kwargs 路径也过滤 `None`（本条是真缺陷：今天经 kwargs 清空是能成功的， 改掉等于让已经能用的能力失效，且 Python demo 的 PATCH 正是走 kwargs 路径）。 真正的修法要先决定哪种写法才是 SDK 想支持的清空方式，属 API 契约决策。 但 P2-27 的能力表应当立即标注 kwargs 路径——那是文档层的事实更正，已在下方补注。
+- **Evidence**: → 归档 [`…-90`][a48]（探针实证：`ObservationUpdate(title=None)` → `to_wire() == {}`、`is_empty() == True`，而 demo 活体 `PATCH {"title": null}` → 200 且 `mem_observations.title` 确实变 NULL；**对 P2-27 的影响**：那条能力表把 Python 判为「✗（`if val is not None`）」——对 dataclass 路径成立、对 kwargs 路径不成立，**按「按断言清扫」的标准那行只覆盖了一半的调用面**）
+- **第 363 轮的补注（本条目在第 247 轮写下的「已在下方补注」，直到本轮才真正落地；全文见归档）**:
+  那句补注从未出现在本条目里 —— 第 247 轮与 P2-26 都写着「P2-27 的能力表应当立即标注 kwargs 路径……
+  已在下方补注」，而本条目从那时起只有 Problem / Status 两段。本轮已就地补上（见 **P2-27** 的第 362 轮更正）。
+  本条的证伪也从未被同步到 JS SDK 的复述点（`js-sdk/cortex-mem-js/src/dto/observation.ts` 与其**双语 README**
+  仍写着「四家里只有 JS 能把字符串字段清空为 NULL、Python 跳过 `None`」，而那句话在第 247 轮就已被本条目证伪），
+  本轮已更正（**P2-117**）；另，本条的证伪在第 362 轮被**用 SDK 本身**（而非 demo）做了活体端到端复验
+  —— kwargs `content=None` 之后 `mem_observations.content` 列**实为 NULL**（`psql` 直查），见 **P2-116**。
+- **Status**: ⏸ 记录不修 —— 两种收法都改变现有调用方的可观测行为： ①让 dataclass 路径也发 `None`（原本静默不发请求的 `ObservationUpdate(title=None)` 会突然发出一次 PATCH）； ②让 kwargs 路径也过滤 `None`（本条是真缺陷：今天经 kwargs 清空是能成功的， 改掉等于让已经能用的能力失效，且 Python demo 的 PATCH 正是走 kwargs 路径）。 真正的修法要先决定哪种写法才是 SDK 想支持的清空方式，属 API 契约决策。 但 P2-27 的能力表应当立即标注 kwargs 路径——那是文档层的事实更正，已在本条与 P2-27 的更正段中标出。
 
 ### P2-44: `CortexSessionContextBridgeAdvisor` 与手动 `begin/end` 不能嵌套——外层作用域会被静默销毁
 
@@ -387,10 +363,7 @@
   探针实测（一次性用例，未提交）：外层 `begin("outer-session","/outer/project")` 已激活时
   调 advisor，断言「外层应当存活」失败——sessionId 变 `unknown-session`、projectPath 变空串，
   而调用内部看到的是 advisor 自己的上下文：内层正确、外层被毁，全程无异常无告警。
-- 为什么不是示例代码的 bug: `ChatController` 刻意把两条路径二分——
-  带 `conversationId` 的请求走 bridge 且不手动 `begin`；不带的手动 `begin`，
-  而 bridge 因无 `CONVERSATION_ID` 直接透传。从不嵌套。故这是误用场景，
-  而非已交付代码里的活 bug。
+- **为什么不是示例代码的 bug（全文见归档）**: `ChatController` 刻意把两条路径二分。
 - **Status**: ⏸ 记录不修 —— 两种收法都改变现有调用方的可观测行为： ①在 `CortexSessionContext` 上加保存/恢复（需要把 private 的 `SessionInfo` 暴露为公开类型， 属**新增公开 API**）；②已激活时跳过 `begin/end`、让外层胜出（零新增 API， 但当内外 session 不同时，内层会被记到外层的会话上，属跨会话串号）。 真正的修法要先决定两者冲突时谁该赢，属产品决策。 已做的零风险部分：在 `CortexSessionContextBridgeAdvisor` 的类 Javadoc 中 写明「不可嵌套」这一约束、外层被静默销毁的实测后果、以及 demo 为何二分—— 纯注释，行为一字未改。现有 6 个该 advisor 的测试无一覆盖嵌套。
 
 ### P2-45: 会话启动的 `projects` 字段能生成多项目上下文、API.md 也写了——而四家 SDK 一律发不出去
@@ -417,8 +390,8 @@
 - **Scope**: → [scope-9][a6]
 - **Problem**: 这条比一般的文档错误重要，因为它削弱的是我自己每轮据以判断的验收门控。两处缺陷叠加：① `cleanup()` 在全文件只出现一次（定义处），`main` 里没有调用、也没有 `trap ... EXIT`，`bash -n` 通过——它是死代码；② 它内部那行清理请求 `DELETE /api/memory/observations?project_path=...` 活体 404（该前缀下只有 `/api/memory/observations/{id}` 一条路径），而 `|| true` 兜底把 404 吞掉，这个失败永远不会让脚本失败。
 - **Status**: ⏸ 记录不修 —— 属脚本方向，不在本轮（Python SDK）的代码轮换内；且**若真把清理接上，Test 6 会切回 `not_found` 分支、累积数据会被删除**，属于会改变门控自身行为的改动，需在自己的轮次里单独做 A/B。
-- 对既有结论的影响（必须如实记录）: 第 249–251 轮的「EXTRACTION 25/0/0 全通过」仍是 25 条全部通过，但 Test 6 走的是兜底分支、Test 14 的断言已因数据累积而恒真。这不使任何一条已记录的修复失效（被修代码路径本就在别处被独立验证），但今后引用该数字须带上这两条限定（基线区块已写明）。
-- 同族事实（已修）: 同一幻影端点也出现在设计文档 `phase-3-design/25.md:699`，已改为脚本真正使用的「先 `GET /api/observations` 取 id、再逐条 `DELETE /api/memory/observations/{id}`」并实跑验证（观测数 1 → 0）。该脚本本身行为正确，只有验收脚本是坏的。
+- **Evidence**: → 归档 [`…-90`][a48]（**对既有结论的影响，必须如实记录**：第 249–251 轮的「EXTRACTION 25/0/0 全通过」仍是 25 条全部通过，但其中一条走的是兜底分支——逐条读数见归档）
+- **同族事实（已修，全文见归档）**: 同一幻影端点也出现在设计文档 `phase-3-design/25.md:699`，已改为脚本真正使用的写法。
 ### P2-47: `API.md` 双语把 `is_worktree` / `parent_project` 当正式字段记载并写进示例 body——而两者只进一条 `log.info`
 
 - **Scope**: → [scope-9][a6]
@@ -514,9 +487,7 @@
   但它改的是已发布 SDK 的公开默认端点——唯一会被它影响到的情形，
   是某台机器上 `localhost` 与 `127.0.0.1` 指向不同的后端（那本身已是矛盾配置）。
   即便风险极小，它仍属对外契约变更，按既定规则记录不单方面实施，留待项目拍板。
-- 同区域一处文档不一致：✅ 已解决（第 271 轮核实）——`client.py` 的 Javadoc 示例原写
-  `base_url="http://localhost:37777"`、与真实默认值矛盾，现已改为显式说明为何默认值用
-  IPv4 字面量并回指 P2-57（`client.py:51-56`），该引用有效。原文与当时的探针失误一并归档。
+- **同区域一处文档不一致（全文见归档）**: ✅ 已解决（第 271 轮核实）。
 - **Status**: ⏸ 记录不修（改公开默认端点属对外契约变更；证据与建议方向已齐备，修复只需一行）。
 
 ### P2-58: 四家 SDK 的响应 DTO 同缺活体观测的 7 个字段——其中 3 个正是 V17 / V18 专门加的，而 Go 的 DTO 在 V17/V18 之后还被改过
@@ -587,9 +558,7 @@
   `replaceFirst("^~" + username, userHome)` 把 `~username` 整段替换成当前用户的家目录，
   用户名被静默丢弃；且 `username` 未转义即拼进正则。
   反射实测表（`~/proj` / `~alice/proj` / `~alice` / `~a.b/proj` 四例）逐字见归档。
-- 影响面：该类未注册为 Bean、生产代码零引用，类 Javadoc 自陈 "not currently wired
-  into any processing pipeline" —— 当前影响为零；风险是有人照该 Javadoc 接上后静默改写路径。
-  **测试头曾声称覆盖 "expandHomeDirectory edge cases"，而全文零个 `~` 用例**。
+- **Evidence**: → 归档 [`…-90`][a48]（**影响面**：该类未注册为 Bean、生产代码零引用，类 Javadoc 自陈 "not currently wired"——逐行读数见归档）
 - **Status**: ⏸ 记录不修 —— 正确的 `~username` 解析属设计决策，且无生产调用方可验证。 已修（零行为变更）：Javadoc 改为如实描述并附实测结果；测试头的不实声明已更正，并写明 为何不补测试——补了就等于把可疑行为钉死。后端 167 测试全绿、`mvn package` EXIT=0。
 ### P2-71: 12 个读方法的 `or {}` 把「存在但不是 JSON 对象」的响应体静默变成空结果，且对标量抛的异常**逃出 SDK 层次**
 - **Scope**: → [scope-9][a6]
@@ -660,9 +629,7 @@
   抛的是 SDK 的 `IllegalArgumentException`，被兜底 `catch (Exception e)` 吞成 500；
   `DemoErrors.clientStatus` 对它返回 `null`（本就不该走那条路），所以机制上不是漏了直通，是缺了入口校验。
   同一模块的 `/demo/*` 兄弟端点自己校验了空白并返 400，形态是对的。
-- ⚠️ 一处中间断言先错后改：初判为「`/memory/experiences` 返 400 而 `/memory/icl` 返 500，是两者不对称」。
-  那个 400 来自「参数缺失」，不是「参数为空」；补测 `?task=` 后 `/memory/experiences`
-  同样返 500。原判据站不住，问题反而更整齐：四个端点在「空」这一形态上完全一致地错。
+- ⚠️ **一处中间断言先错后改**（全文见归档）：初判为「`/memory/experiences` 返 400 而 `/memory/icl` 返 500，是两者不对称」——该初判已被推翻。
 - **Status**: ⏸ 记录不修 —— 同 P2-76，响应码变更属对外行为变更。 修法若采纳，最小形态是在四个方法体开头各加一行空白检查（与同文件 `count`/`maxChars` 的既有写法同构）。 注：`promptNumber` 无范围检查是同族但已单独立项（P2-69），本条只管「空白必填参数报 500」。
 ### P2-78: CORS 的 `allowedMethods` **漏了 PATCH**——按文档开启 CORS 后，两个 PATCH 端点对浏览器静默失效
 
@@ -748,18 +715,10 @@
 - **Scope**: → [scope-9][a6]、[scope-10][a7]
 - **Problem**: 该段落的功能是**让读者能取回这一对版本**。**配对的另一半完全正常**：
   `72e7804b…` 经三重核实**全部吻合** —— 子模块自身 `HEAD`、父仓库记录的 gitlink、
-  以及文档中的字面值。**而 `ed37a1b2…` 在任何地方都不存在**，逐项排查结果：
-
-  | 查证位置 | 结果 |
-  |---|---|
-  | 本仓全部 refs / 历史 | 无 |
-  | `git rev-list --all` 中以 `ed3` 开头的提交 | **零条** |
-  | reflog | 无 |
-  | 悬空 / 不可达对象（`git fsck`） | 无 |
-  | `webui/` 子模块历史 | `fatal: could not get object info` |
-  | origin 远端（本地与其已同步） | 无 |
-
-  故这段话**有一半无法兑现**：读者按它去 checkout 会直接失败。
+  以及文档中的字面值。**而 `ed37a1b2…` 在任何地方都不存在** —— 逐项排查**六处全空**
+  （refs/历史、`rev-list --all`、reflog、`git fsck` 悬空对象、`webui/` 子模块历史、origin 远端；
+  逐行读数见归档）⇒ 故这段话**有一半无法兑现**：读者按它去 checkout 会直接失败。
+- **Evidence**: → 归档 [`…-90`][a48]（`ed37a1b2…` 的六处排查读数表、`72e7804b…` 的三重核实）
 - **⚠️ 为什么不单方面改写（与 P2-86 的关键区别）**：
   P2-86 的正确值是**被权威确定的** —— 活体 `/v3/api-docs` 的 `params=[('id','path')]`
   与控制器注解都指向 `{id}`，因此可以照权威直接改。
@@ -788,8 +747,7 @@
     但更像是作者意图的修法是**把桥接 bean 移出被检索门控的那个类**（或拆分配置类）——
     那属于**对外契约变更**，必须由作者决策。若我先写下「此耦合是有意的」这种文档，
     作者一旦选择解耦，那行文档立刻变成新的失实陈述。
-  - **测试侧同缺**：`CortexMemAutoConfigurationTest` 现有 4 例（base-url 有/无、
-    默认服务注册、capture 关闭），**唯独没有 `retrieval-enabled=false` 用例**，
+  - **测试侧同缺（全文见归档）**: `CortexMemAutoConfigurationTest` 现有 4 例，**唯独没有 `retrieval-enabled=false` 用例**——上述组合从未被断言过。
   上述组合从未被断言过 —— 补一个用例属低风险，但同样要跟着「耦合该保留还是该解」的
   决定走，故一并待决。
 - **Severity**: 中（静默丢数据 + 与文档理解相反，但需用户主动设 `retrieval-enabled=false`
@@ -818,14 +776,9 @@
   的硬编码总数改为「运行下方命令得到当前计数」，只保留**分模块口径**（dto/eino/genkit/
   langchaingo/http-server 五个数仍需人工维护但变动频率低得多）；若维持现状，则规定
   「凡新增或删除测试的提交，必须同批更新这 7 处」，并加一条门控断言。
-- **连带记录（不单列 finding）**：本地 gitignored 的 `CLAUDE.md` 记着
-  **372**（`:52` 与 `:268`「278 core + 61 dto + 13 genkit + 12 langchaingo + 8 eino」），
-  出处是 `:407` 一条 **2026-04-17** 的 Recent Work 条目（「Go SDK test count corrected to 372」）。
-  与实测 363 差 **9**，且两个分项（278 / 61）也都对不上（实测 236 / 67）——
-  即**约半年未更新。按 P2-48 已确立的先例**（`CLAUDE.md` 是 gitignored 的本地文件，
-  其问题一律记录不修），本轮**只记录不修**。
+- **连带记录（不单列 finding）**: → 归档 [`…-90`][a48]（gitignored 的本地 `CLAUDE.md` 记着 **372**，与实测 363 差 **9**、两个分项也都对不上 ⇒ 约半年未更新；按 **P2-48** 先例只记录不修）
 - **Status**: ⏸ **形态问题（「要不要彻底不写死数字」）仍留待用户决策** —— **数字部分本轮已修（第 367 轮，双语，纯文档）**：本轮**亲跑复测**六个模块（`=== RUN` 计数，含子测试）得根模块 **303**（core 236 + dto 67）+ eino 8 + genkit 13 + langchaingo 12 + `examples/http-server` 27 ⇒ **合计 363**，与本条记的归因（`7a78266` 新增恰好一个顶层测试）**完全吻合**；**双语的 6 处数字已改：无日期的失实断言改为实测值并加上测量日期，带日期的快照同步为 2026-10-20 的实测。本行替换了此前的「⏸ 记录不修」**——那一条针对的就是形态问题。
-- **第 370 轮补注（同日漂移）**：本轮给 `examples/http-server` 加了 6 个测试用例（2 个顶层 + 4 个子用例），Go 侧 `=== RUN` 计数实测从 **363 变成 369**（`examples/http-server` 27 → **33**），**Go README 双语已同步**。**这正是本条「形态问题」最直接的证据**：**同一个测量日（2026-10-20）里数字就变了**——上次第 367 轮复测是 363，本轮同一���再测是 369，故「写死一个数」注定很快过期。
+- **第 370 轮补注（同日漂移，全文见归档）**：本轮给 `examples/http-server` 加了 6 个测试用例（2 个顶层 + 4 个子用例），Go 侧 `=== RUN` 计数实测从 **363 变成 369**（`examples/http-server` 27 → **33**），**Go README 双语已同步**。**这正是本条「形态问题」最直接的证据**：**同一个测量日（2026-10-20）里数字就变了**——上次第 367 轮复测是 363，本轮同一天再测是 369，故「写死一个数」注定很快过期。
 
 ### P2-91: 后端源码里的 `P1-1` / `P1-2` / `P2-1` 标签与本仓库 findings 的编号**含义冲突**，而 `P1-2` 在本仓历史上已指代过三个不同主体
 
@@ -835,11 +788,7 @@
 - **冲突是实打实的，不是理论风险**：本仓库 `docs/drafts/backend-review-findings.md` 里
   `P1-1` / `P1-2` 指的是另外的缺陷（P1-2 = 「Java demo 的 `?path=` **无任何路径校验**」）。
   于是在本仓 `grep P1-2` 得到的是**互不相关**的主体。
-- **而且冲突已经真实发生过一次**：巡检自己的归档记录了第 160 轮的
-  「**P1-2 导入端点把校验失败报成成功跳过**」（`2026-10-02_health-check-history-6.md:322,409,520`
-  与 `history-7.md:102,200,291`）。该条目**如今已不在工作 findings 里**（`grep 导入端点` 零命中），
-  已被修复或改号，而**现存的 `P1-2` 是另一个主题**。
-  故 `P1-2` 在本仓至少指代过：①导入端点校验、②Java demo 路径穿越、③队列健康指示器。
+- **Evidence**: → 归档 [`…-90`][a48]（第 160 轮那条「P1-2 导入端点把校验失败报成成功跳过」在归档里的**六处坐标**、它已不在工作 findings 的核实、`P1-2` 在本仓**至少指代过三个主体**：①导入端点校验 ②Java demo 路径穿越 ③队列健康指示器）
 - **⚠️ 为什么不单方面改**（判据同 P2-87）:
   - 源码那三处注释**本身没有说错**——它们在各自那套编号里是对的。
   - 真正的问题不在「哪一处错了」，而在这套编号**在全仓库任何地方都没有定义**：
@@ -864,9 +813,7 @@
 - **危害：完全静默。两次都返回 HTTP 200 `{"status":"ok","observationId":"…"}`**，
   调用方**无从得知评论没被清空。与 P2-26 相比这里连半信号都没有**
   （P2-26 至少在只设 `Facts` 时会抛「at least one field must be provided」）。
-- **与 P2-26 / P2-27 的关系：同属「空值被省略 → 无法表达清空」这一族，但不同端点、不同范围**：
-  P2-26 是 Go 的 PATCH observations、P2-27 是 Python 的 `extractedData`，而本条是
-  `feedback` 端点且**一次命中三家**。机制也不同：Go 靠 `omitempty`，JS/Python 靠**真值判断**。
+- **与 P2-26 / P2-27 的关系（全文见归档）**: 同属「空值被省略 → 无法表达清空」这一族，但**不同端点、不同范围**（P2-26 是 Go 的 PATCH observations、P2-27 是 Python 的 `extractedData`）。
 - **Severity: 低（清空评论是低频操作，且无文档承诺它可行），但跨三家、静默、且与 Java 不一致**
   —— 与 P2-65（`is_retryable` 跨家签名不一致）同族。
 - **不单方面修（判据：遗漏 ≠ 失实，且修法改的是已发布 SDK 的线上行为**）:
@@ -1138,6 +1085,28 @@
 - **Status**: ✅ **已修（388 轮）** —— ⭐ 与 **P2-168** 同族但**方向相反**（那是**假绿**，这是**假红**）；⭐ `scripts/run-all-e2e.sh` **不跑**这两个脚本 ⇒ 影响面是 `docs/TESTING.md`、Java demo README 与 `scripts/README.md` 三处把它当「会通过」的流程推荐。
 
 
+### P2-171: 后端的**端点暴露面**（**71** 个操作 / 66 条路径）**零测试钉住** —— 16 个后端测试类里**一个 `"/api/..."` 字面量都没有**
+
+- **Scope**: → [scope-9][a6]
+- **Evidence**: → 归档 [`…-90`][a48]（71 条 `(verb, path)` 完整集合、活体 OpenAPI 与反射扫描对拍、两次变异）
+- **修法（本轮已修，Backend 代码方向，只加测试）**: 新增 `BackendEndpointSurfaceTest`（**3** 个用例）—— 71 条**集合相等**（多一条少一条都红）、无重复、扫描**非空跑**。反射读注解，可离线跑。
+- **Status**: ✅ **已修（389 轮）** —— 后端单测 **178 → 181** 全绿；变异 A（`/api/stats` → `/api/stats-extra`）与变异 B（新增 `/api/p389-extra`）各恰好 **1** 红，`src/main` 按 sha256 逐字节还原。⭐ 同族第三例：Python demo（26）与 Java demo（44）此前各已补一条，**后端这块最大的面此前是唯一没管的**。
+
+### P2-172: ZH 的参数表把 **「(必填)」写在「默认值」列** —— 必填参数**没有默认值**，该单元格自相矛盾，且与 EN 表结构不同
+
+- **Scope**: → [scope-9][a6]
+- **Evidence**: → 归档 [`…-90`][a48]（两张错列表原文、EN 对照表、ZH 自己的 5 列体例先例、全量扫描：其余 4 张缺列的表参数**全部可选**）
+- **修法（本轮已修，文档方向，ZH 侧 2 张表）**: 改成 ZH 文档自有的 5 列体例 `参数 | 类型 | 必填 | 默认值 | 说明`，必填项的默认值写成 `—`。
+- **Status**: ✅ **已修（389 轮）** —— ⭐ 是第 160 轮那条（ZH 参数表把默认值写进必填列）的**镜像变体**：那次是「默认值跑进必填列」，这次是「必填跑进默认值列」。修后 `(必填)` 出现在默认值列的次数 **3 → 0**，EN/ZH 参数表**行级零分歧**。
+
+### P2-173: `/api/context/preview` 的 `platformSource` 参数在活体 OpenAPI 与代码里**都真实存在**，但中英双语文档**全篇 0 次提及**
+
+- **Scope**: → [scope-9][a6]
+- **Evidence**: → 归档 [`…-90`][a48]（活体 OpenAPI 的参数清单、代码里两条仓储查询分支、EN/ZH 全篇检索）
+- **后果**: 该参数会**切换到另一条仓储查询**，而读文档的人**无从得知它存在** ⇒ 机器可读契约有、手写契约没有。
+- **处置（⏸ 只记录不实施，判据「遗漏 ≠ 失实」）**: 补一行是**抄权威**，但 changelog 显示作者对 `platformSource` 的三次新增都**同步改了参数表** ⇒ 本条更像「加参数时漏了表」；三条候选修法见归档正文。
+- **Status**: ⏸ **只记录不实施** —— 文档完整性问题，等作者裁定。
+
 
 ## Processing Rules
 - 第 384 轮新增两个压缩杠杆：**C8**（**⏸ 待决条目**的证据 bullets 整体迁入归档，工作文件留 `- **Scope**` 一行 + 一行 `- **Evidence**` 指针；`- **Problem**`（标题）、`- **⚠️ 为什么不单方面改**`、`- **Severity**`、`- **建议修法**`、`- **Status**` 一律留在工作文件——第 254 轮规则的应用，本轮首次用于 P2-88：归档侧持有证据段 **65 行 / 5355 字节**，工作文件真正迁出 **64 行 / 5307 字节**，全文件净 **−55 行 / −2027 字节**）；**C9**（归档指针行写成「一行说清迁走了什么 + 指向归档」，指针本身可回溯）。**探针自身的三处错**：①单文件 `grep -c "@Test"` 得 **118** 而 surefire 实收 **115** —— 差在**同一个文件里有第二个顶层测试类** `CortexMemErrorMessageTest`（3 个），故静态 `@Test` 计数只在逐文件与运行时分层对齐时才等于运行数；②两个变异叠在一起导致失败归因不清，拆成单变量后才各自点名；③变异 3 在变异 2 尚未还原时跑，报 2 红而非 1 红。硬证明与不动点见归档 `-85`。
@@ -1249,3 +1218,4 @@
 [a45]: ../archive/2026-10-20_backend-review-evidence-87.md
 [a46]: ../archive/2026-10-20_backend-review-evidence-88.md
 [a47]: ../archive/2026-10-20_backend-review-evidence-89.md
+[a48]: ../archive/2026-10-20_backend-review-evidence-90.md
