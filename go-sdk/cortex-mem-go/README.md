@@ -10,7 +10,7 @@ Go client library for [Cortex CE](https://github.com/Blueforce-Tech-Inc/BlueCort
 - **Full API coverage** — 25 methods covering Session, Capture, Retrieval, Management, Extraction, Version, P1
 - **Framework integrations** — optional Eino, LangChainGo, and Genkit modules
 - **Wire format compatible** — JSON field names match backend API exactly
-- **Comprehensive tests** — 373 tests with wire format verification (measured 2026-10-21; the per-module commands in [Testing](#testing) give the current count). The root module runs 307 (core 240 + dto 67); the adapter and example modules add 66 more when run from their own directories (eino 8 + genkit 13 + langchaingo 12 + `examples/http-server` 33). See [Testing](#testing) for why `go test ./...` alone only reaches the root module.
+- **Comprehensive tests** — 390 tests with wire format verification (measured 2026-10-21; the per-module commands in [Testing](#testing) give the current count). The root module runs 324 (core 257 + dto 67); the adapter and example modules add 66 more when run from their own directories (eino 8 + genkit 13 + langchaingo 12 + `examples/http-server` 33). See [Testing](#testing) for why `go test ./...` alone only reaches the root module.
 
 ## Installation
 
@@ -178,8 +178,8 @@ retriever := genkit.NewRetriever(client, "/my-project",
 
 **This SDK is 9 separate Go modules, not one.** `eino/`, `genkit/`, `langchaingo/`
 and each directory under `examples/` carry their own `go.mod`, so a bare
-`go test ./...` run from this directory only reaches the root module — 307 of
-the 373 tests. The four adapter and example modules it skips are exactly the
+`go test ./...` run from this directory only reaches the root module — 324 of
+the 390 tests. The four adapter and example modules it skips are exactly the
 ones most likely to rot against an upstream framework upgrade, so run all nine:
 
 ```bash
@@ -189,8 +189,8 @@ find . -name go.mod -exec dirname {} \; | sort | while read -r d; do
 done
 ```
 
-Measured on 2026-10-21, all nine green: core 240 + dto 67 + eino 8 + genkit 13
-+ langchaingo 12 + `examples/http-server` 33 = **373**. The other four
+Measured on 2026-10-21, all nine green: core 257 + dto 67 + eino 8 + genkit 13
++ langchaingo 12 + `examples/http-server` 33 = **390**. The other four
 `examples/` modules have no test files and report `[no test files]`. The counts
 are a dated measurement, not a live value — re-run the command above for the
 current one.
@@ -245,12 +245,34 @@ narrow the query.
 
 ### Empty Updates Are Rejected
 
-`UpdateObservation` returns a `ValidationError` when the update sets no field, and no
-request is sent. The same rule and message apply in the Java, Python and JS SDKs:
+`UpdateObservation` returns a `*dto.ObservationUpdateValidationError` when the update
+sets no field, and no request is sent:
 
 ```
 cortex-ce: ObservationUpdate validation error: at least one field must be provided for update
 ```
+
+The **rule** is the same in all four SDKs — an empty update is rejected client-side and
+no request goes out — but the **type** and the **message** are not. A caller who
+catches the error by type has to know which type each SDK throws, and a caller who
+matches on the message has to know each SDK's prefix:
+
+| SDK | Error type | Full message |
+|-----|------------|--------------|
+| Go | `*dto.ObservationUpdateValidationError` | `cortex-ce: ObservationUpdate validation error: at least one field must be provided for update` |
+| JS | `ValidationError` | `cortex-ce: validation error on update: at least one field must be provided for update` |
+| Python | `ValidationError` | `cortex-ce: validation error on update: at least one field must be provided for update` |
+| Java | `IllegalArgumentException` | `at least one field must be provided for update` |
+
+Only the message **body** is shared; Java prepends nothing at all.
+
+**In Go this is a different type from the one the required-argument checks throw.**
+`cortexmem.ValidationError` — used for a blank `sessionID`, `projectPath`, `toolName`
+and so on — and `dto.ObservationUpdateValidationError`, used only for
+`ObservationUpdate`, are distinct Go types. `errors.As` never crosses between them, so
+`cortexmem.IsValidationError(err)` returns **false** for an empty update, while
+`dto.IsObservationUpdateValidationError(err)` returns true. Catch the dto type when
+you are handling an update rejection.
 
 It matters because a PATCH that sets nothing is a silent no-op on the wire: without
 the check, a caller who assembled an empty update from user input would see the call
@@ -271,7 +293,7 @@ What you observe depends on what else you set:
 
 | Update | Result |
 |--------|--------|
-| `Facts: []string{}` alone | `ValidationError: at least one field must be provided for update` — the field you set is not counted |
+| `Facts: []string{}` alone | `cortex-ce: ObservationUpdate validation error: at least one field must be provided for update` — the field you set is not counted |
 | `Title: &t` plus `Facts: []string{}` | request sent, `facts` silently omitted, server replies `200 {"status":"updated"}` and nothing is cleared |
 
 The three string fields are pointers, so they are unaffected: `Title: ptr("")` is sent
@@ -287,7 +309,10 @@ public API changes and are tracked as P2-26 rather than applied here.
 ### Required Arguments Are Checked Client-Side
 
 Every argument below must be non-empty. The SDK returns a `ValidationError` and sends
-no request. The Java, Python and JS SDKs enforce exactly the same set.
+no request. The Java, Python and JS SDKs enforce the same set of non-blank checks —
+with one exception: **Java also requires `projectPath` to be an absolute path** in
+`RecordObservation`, `RecordSessionEnd` and `RecordUserPrompt`. Go, Python and JS
+accept any non-blank value there.
 
 | Method | Required arguments |
 |--------|--------------------|
