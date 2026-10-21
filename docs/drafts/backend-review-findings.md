@@ -1084,54 +1084,13 @@
 ### P2-111: `ContextService` 的 `@param types` 写「empty = all types」，而实现把它展开成六项硬编码白名单——同段的 `concepts` 却是真·全量
 - **Status**: ✅ 已修（360 轮） —— 全文逐字见 [`…-58`][a14]
 ### P2-112: `cortex-mem-starter` 的 `base-url` 一旦是空串就让整个 Spring 应用启动失败 —— 而同一仓库的后端对完全相同的模式早已显式处理过
+
 - **Scope**: → [scope-9][a6]、[scope-10][a7]
-- 不对称（本条的要害）: 同样是「没有有效 URL」的三种状态，两种安全、一种致命：
-
-  | 配置 | 结果 |
-  |---|---|
-  | 完全不设 `base-url` | 自动装配不激活，应用正常启动（无记忆功能） |
-  | `base-url=false` | 自动装配不激活，应用正常启动 |
-  | `base-url=`（空串 / null / 空白 / `${ENV:}`） | 整个应用启动失败 |
-
-  最后一行恰是生产环境最常见的写法 `cortex.mem.base-url: ${CORTEX_MEM_URL:}`。
-  用户想表达「没配就等于没装」，得到的却是整个应用起不来；且错误信息
-  `baseUrl must not be null or blank` 不指向任何配置项名，排查者只会去翻 Java 源码。
-- 仓库内已有同一模式的正确处理: `backend/src/main/java/com/ablueforce/cortexce/config/SpringAiConfig.java:32,42-46`
-  用的是完全相同的 `@ConditionalOnProperty(name="api-key")` 形状，却显式判空并降级：
-  `log.warn("... property exists but is empty — ChatModel bean not created. ...")` 后 `return null`。
-  而后端自己的 `application-dev.yml:8` 正是
-  `api-key: ${SPRING_AI_OPENAI_API_KEY:${OPENAI_API_KEY:}}` ——
-  同一份仓库里，一个模式已按「空即跳过」处理，另一个模式没有。
-- 为什么会变成这样: 那条 blank 校验来自 `cf78f5a`（2026-03-31），提交标题是
-  `fix(java-sdk): add defensive validation for retry config and timeout properties` ——
-  **baseUrl 根本不在该提交的意图里**，是被顺手加进去的。它在
-  `new CortexMemClientImpl(properties)` 的手工构造路径上是合理的防御；但在
-  starter 自动装配路径上，它把「属性存在但为空」从「不激活」变成了「启动炸弹」。
-- 范围已钉死，不夸大: 同一批探针另测了其余属性在 yml 写 null 时的表现 ——
-  引用类型（`connect-timeout` / `read-timeout` / `retry.backoff` / `project-path`）绑定 null 时
-  保留默认值，安全；基本类型（`retry.max-attempts` / `default-experience-count`）绑定 null 时
-  抛 `A null value cannot be assigned to a primitive type` 同样启动失败，但那是
-  Spring Boot Binder 对基本类型的通用行为，任何用 `int` 的 `@ConfigurationProperties` 都如此，
-  **不是本 SDK 独有**。`base-url` 才是**本 SDK 特有**的那一个。
-- **README 未记载**（`cortex-mem-spring-integration/README.md:190` 只给出默认值
-  `http://localhost:37777`，未提空值会怎样）；`CortexMemProperties` 里 `baseUrl` 也没有
-  `@NotBlank` 一类的必填声明。
-- 为什么记录不修: 修法形状有歧义（三条互斥路线，见下），且改的是自动装配的激活条件，
-  属对外可见的行为变更；按「对外契约变更不单方面实施」记录。
-- 建议修法（待确认，三选一）:
-  1. 照搬后端先例（推荐）：把 `@ConditionalOnProperty` 换成「属性存在、非 `false`、且非空白」的条件，
-     空值时 `log.warn` 一行（措辞可复用后端那句）后不激活整个自动装配。
-  2. 保留失败但给出可定位的错误：异常信息带上属性名（如 `cortex.mem.base-url`）
-     与「该属性为空即不应启用记忆集成」的提示。
-  3. 降级为默认值：空值时回落到 `http://localhost:37777` —— 但这会让应用在未配置的情况下
-     悄悄去连一个可能不存在的后端，不推荐。
-- 测试侧同缺: `CortexMemAutoConfigurationTest` 现有 4 例覆盖 base-url 有 / 无，
-  没有「base-url 为空」一例 —— 上述组合从未被断言过。
-- Severity: 中高（整个应用无法启动，触发写法极常见；但只需一个属性写空，不涉及安全或数据损坏）。
+- **Evidence**: → 归档 [`…-87`][a45]（starter 空串 base-url 的复现与影响面、后端早已显式处理过同样模式的对照、README 未记载的逐行定位）
 - **Status**: ⏸ 记录不修 —— 修法形状需作者或用户确认，见上。
 
 ### P2-113: 四家 SDK 的 fire-and-forget 失败默认可见性 2:2 分裂 —— Python 与 Java 默认会记日志，Go 与 JS 默认完全无痕
-- **Status**: ⏸ 记录不修 —— 修法形状需作者或用户确认，见上。 全文逐字见 [`…-61`][a17]（361 轮）。
+- **Status**: ⏸ 记录不修 —— 修法形状需作者或用户确认，见上。 全文逐字见 [`…-61`][a17]（361 轮）。**同子系统的另一条轴见 P2-161**（哪些方法吞错，四家集合不一致）。
 ### P2-114: 根 README 的架构图把薄代理标为 (Express)，而同一仓库的 `ARCHITECTURE.md` 与中文版早在 2026-10-01 就已改正 —— 根 README 是那次漏改的那一份
 - **Status**: ✅ 已修（第 361 轮，零行为变更，纯文档） —— 架构图标注由 `(Express)` 改为 `(Node.js)`； 全文逐字见 [`…-61`][a17]
 ### P2-115: `backend-review-findings.md` 的字节上限已不可能靠压缩解决 —— 建议把阈值按第 293 轮同比例上调至 **2000 行 / 200000 字节**
@@ -1234,6 +1193,12 @@
 - **Status**: ✅ 已修（384 轮，文档方向，零可执行行）—— **写入即假**（`1fa843e`(2026-10-02) 写下时实现已是 `executeWithRetrySilent`；`20e3661`(10-03) 又补入正确那条 ⇒ 文档内自相矛盾）；两处改为「5 个传播 + 5 个静默是例外」，并修正 `:824` 的「never throw」。全文逐字见 [`…-85`][a43]。**同型已在 Go 侧随 P2-146 结转时一并修掉**：Go README 的「Required Arguments」段本就写着「sends no request」，而隐患段却说请求会出去并被 400 拒绝 ⇒ **同一文档内自相矛盾**；**四家 README 都有这一形状**。
 ### P2-158: Go SDK 的 **35** 个校验用例用裸 `NewClient()`（默认打**常驻实况后端** 37777），而全仓**零「请求数」断言** ⇒ 校验的**顺序**没被钉住，且一旦校验回归就会**往实况数据库写行**
 - **Status**: ✅ 已修（385 轮，Go 侧，**只改测试**）—— 35 个用例改到 hermetic server（收到请求即判失败）+ 1 个阳性对照；**变异测试**把 `toolName` 校验挪到请求之后 ⇒ **新守卫报错、旧断言仍通过**；该用例临时改回旧写法后**照样 PASS**（一次真实网络往返）。全文逐字见 [`…-86`][a44]。
+### P2-159: 四家 SDK README 的「必填参数规则集**完全相同**」—— Python / Go / JS 三家（双语共 6 处）都说「另三家强制的是完全相同的一组规则」，而 **Java 多一道 `projectPath` 必须是绝对路径**的检查
+- **Status**: ✅ 已修（386 轮，Python 侧，文档，零可执行行）—— **写入即假**（Java 那道校验 2026-04-15 引入，断言 2026-10-03 写下）；按断言清扫共 **8** 处，其中 **6** 处失实；Python 双语两处改为「参数集合相同，只有一处例外：Java 额外要求绝对路径」，**Go / JS 各 2 处结转**。全文逐字见 [`…-87`][a45]。
+### P2-160: Python SDK 的**三个** fire-and-forget 捕获方法里，只有 `record_observation` 的「吞错」契约被用例钉住 —— 另两个改成「抛错」路径后，全量 **457** 个测试**仍然全绿**
+- **Status**: ✅ 已修（386 轮，Python 侧，**只加测试**）—— 3 个新用例（2 个吞错 + 1 个重试耗尽后仍吞错），每个都断言「请求确实发出」；**变异测试**把两个捕获方法改成抛错路径 ⇒ 改前全量 **457** 个测试**仍全绿**、改后**恰好 3 个新用例红**。全文逐字见 [`…-87`][a45]。
+### P2-161: 四家 SDK 对「**哪些调用算异步后台任务**」的判定不一致 —— Java 吞掉 **5** 个方法的错误（3 个捕获 + `triggerRefinement` + `triggerExtraction`），另三家只吞 **3** 个；而**没有任何一份文档点出这条分歧**
+- **Status**: ⏸ **只记录不实施**（对外行为契约变更）—— 四家「哪些方法吞错」的集合不一致（Java 5 / 另三家 3），**无文档点出**；三条候选修法见归档正文。与 **P2-113**（默认可见性）是同一子系统的两条不同轴，并列记录。全文逐字见 [`…-87`][a45]。
 ## Processing Rules
 - 第 384 轮新增两个压缩杠杆：**C8**（**⏸ 待决条目**的证据 bullets 整体迁入归档，工作文件留 `- **Scope**` 一行 + 一行 `- **Evidence**` 指针；`- **Problem**`（标题）、`- **⚠️ 为什么不单方面改**`、`- **Severity**`、`- **建议修法**`、`- **Status**` 一律留在工作文件——第 254 轮规则的应用，本轮首次用于 P2-88：归档侧持有证据段 **65 行 / 5355 字节**，工作文件真正迁出 **64 行 / 5307 字节**，全文件净 **−55 行 / −2027 字节**）；**C9**（归档指针行写成「一行说清迁走了什么 + 指向归档」，指针本身可回溯）。**探针自身的三处错**：①单文件 `grep -c "@Test"` 得 **118** 而 surefire 实收 **115** —— 差在**同一个文件里有第二个顶层测试类** `CortexMemErrorMessageTest`（3 个），故静态 `@Test` 计数只在逐文件与运行时分层对齐时才等于运行数；②两个变异叠在一起导致失败归因不清，拆成单变量后才各自点名；③变异 3 在变异 2 尚未还原时跑，报 2 红而非 1 红。硬证明与不动点见归档 `-85`。
 - 第 383 轮新增两个压缩杠杆：**C6**（被引用 ≥2 次的 **28** 个归档路径转引用式，显示名与目标不变，零信息损失，省 **1750** 字节；只出现 1 次的 26 处保持行内）；**C7**（**38** 处多行 `- **Status**` 的续行并回一行，**字符流守恒**，让出 **136 行**、省 272 字节）。**与 382 轮「折行重排不做」的区别**：那轮的对象是叙述正文，本轮是 Status 元数据行。硬证明与脚本自身的两处错见归档 `-84` 的「压缩记录」。终值 **1386 行 / 147578 字节**。
@@ -1341,3 +1306,4 @@
 
 [a43]: ../archive/2026-10-20_backend-review-evidence-85.md
 [a44]: ../archive/2026-10-20_backend-review-evidence-86.md
+[a45]: ../archive/2026-10-20_backend-review-evidence-87.md

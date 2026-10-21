@@ -8,7 +8,7 @@ Python SDK for the [Cortex CE](https://github.com/Blueforce-Tech-Inc/BlueCortexC
 
 - **Zero forced dependencies** — only `requests` required
 - **Full API coverage** — 25 methods covering Session, Capture, Retrieval, Management, Extraction
-- **457 unit tests** — Comprehensive coverage of client, DTO, and demo integration (228 client + 140 DTO + 89 demo)
+- **460 unit tests** — Comprehensive coverage of client, DTO, and demo integration (231 client + 140 DTO + 89 demo), measured 2026-10-21 by `pytest --collect-only`
 - **Idiomatic Python** — dataclasses, kwargs, context manager
 - **Wire format compatible** — JSON field names match backend API exactly
 - **Fire-and-forget capture** — non-blocking observation recording with internal retry
@@ -267,7 +267,10 @@ as a keyword argument to send an explicitly empty JSONB value — the dataclass 
 ### Required Arguments Are Checked Client-Side
 
 Every argument below must be non-empty. The SDK raises `ValidationError` and sends no
-request. The Go, Java and JS SDKs enforce exactly the same set.
+request. The Go, Java and JS SDKs require exactly the same set of arguments — with one
+difference: the **Java** SDK additionally requires `project_path` to be an **absolute
+path** on the three capture methods, which the other three do not check. A relative
+path is therefore accepted here and rejected there.
 
 | Method | Required arguments |
 |--------|--------------------|

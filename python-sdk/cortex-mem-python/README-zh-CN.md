@@ -8,7 +8,7 @@
 
 - **零强制依赖** —— 仅需 `requests`
 - **完整 API 覆盖** —— 25 个方法，涵盖会话、捕获、检索、管理、提取
-- **457 个单元测试** —— 全面覆盖客户端、DTO 和 Demo 集成（客户端 228 + DTO 140 + Demo 89）
+- **460 个单元测试** —— 全面覆盖客户端、DTO 和 Demo 集成（客户端 231 + DTO 140 + Demo 89），2026-10-21 按 `pytest --collect-only` 实测
 - **Python 风格** —— dataclass、kwargs、上下文管理器
 - **Wire 格式兼容** —— JSON 字段名与后端 API 完全一致
 - **Fire-and-forget 捕获** —— 非阻塞的观察记录，内置重试机制
@@ -251,7 +251,7 @@ cortex-ce: validation error on update: at least one field must be provided for u
 
 ### 必填参数在客户端校验
 
-下表中的参数都必须非空。SDK 抛出 `ValidationError` 且不发出任何请求。Go、Java、JS 三家 SDK 强制的是完全相同的一组规则。
+下表中的参数都必须非空。SDK 抛出 `ValidationError` 且不发出任何请求。Go、Java、JS 三家 SDK 要求的**参数集合**完全相同——只有一处例外：**Java** 侧在三个捕获方法上还额外要求 `project_path` 是**绝对路径**，另三家都不做这项检查。因此相对路径在这里被接受、在那里被拒绝。
 
 | 方法 | 必填参数 |
 |------|----------|

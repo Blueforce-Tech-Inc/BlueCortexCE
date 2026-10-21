@@ -173,6 +173,40 @@ class TestCapture:
         with pytest.raises(requests.ConnectionError):
             c.search("/p", query="test")
 
+    # The three fire-and-forget capture methods are siblings: each one must swallow a
+    # backend failure and report success. The seven _fire_and_forget cases above all
+    # drive record_observation, so the other two had no case of their own — routing
+    # record_session_end or record_user_prompt to the propagating path left the whole
+    # suite green (verified: both mutations, 457 passed).
+    # Each case asserts both halves: the error is swallowed AND the request really
+    # went out (a call count of 0 would also satisfy "did not raise").
+
+    @responses.activate
+    def test_record_session_end_swallows_error(self):
+        """record_session_end is fire-and-forget: a backend failure is swallowed."""
+        responses.add(responses.POST, f"{BASE}/api/ingest/session-end", status=500)
+        c = _client()
+        c.record_session_end("s1", "/p")  # must not raise
+        assert len(responses.calls) == 1
+
+    @responses.activate
+    def test_record_user_prompt_swallows_error(self):
+        """record_user_prompt is fire-and-forget: a backend failure is swallowed."""
+        responses.add(responses.POST, f"{BASE}/api/ingest/user-prompt", status=500)
+        c = _client()
+        c.record_user_prompt("s1", "hello", project_path="/p")  # must not raise
+        assert len(responses.calls) == 1
+
+    @responses.activate
+    def test_record_user_prompt_swallows_error_after_exhausting_retries(self):
+        """record_user_prompt swallows even when every attempt fails."""
+        responses.add(responses.POST, f"{BASE}/api/ingest/user-prompt", status=502)
+        responses.add(responses.POST, f"{BASE}/api/ingest/user-prompt", status=502)
+        responses.add(responses.POST, f"{BASE}/api/ingest/user-prompt", status=502)
+        c = CortexMemClient(base_url=BASE, max_retries=3, retry_backoff=0.01)
+        c.record_user_prompt("s1", "hello", project_path="/p")  # must not raise
+        assert len(responses.calls) == 3
+
     def test_record_observation_empty_session_id_raises(self):
         """Empty session_id should raise CortexError."""
         c = _client()
