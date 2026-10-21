@@ -9,14 +9,18 @@
 > **文档结构说明（中英差异）**：中文版用路径式 H4 标题标注端点（如 ``#### GET `/api/observations` ``），
 > 英文版用描述式 H3 标题（如 `### List Observations`）并在标题下方用代码块给出请求行。这是**有意保留**
 > 的差异——路径式标题在中文语境下更自然，且两版对每个端点都给出了相同的 HTTP 方法与路径。端点集合已核验
-> 完全一致（71 个生效操作、66 条路径，2026-10-21 实测——数 `/v3/api-docs` 里 `paths` 每个条目下的
+> 完全一致（REST 层的 **71** 个生效操作、**66** 条路径，加上[传输层端点](#传输层端点)一节的 **6** 个传输层操作
+> ——合计 **77** 个操作、**72** 条路径，2026-10-21 实测：REST 层数 `/v3/api-docs` 里 `paths` 每个条目下的
 > `get`/`put`/`post`/`delete`/`patch` 键；与 Controller 里 71 个 `@*Mapping` 注解一致，需排除
-> `ViewerController.java:214` 那个就地注释掉的路由），因此这只是呈现方式差异，
+> `ViewerController.java:214` 那个就地注释掉的路由；那 6 个传输层操作是 MCP 传输与 Spring Boot actuator，
+> springdoc 不发布它们），因此这只是呈现方式差异，
 > 不存在内容缺失。请勿为了"对齐"而单方面修改某一版本。
 >
 > 中文版路径式 H4 的主要层级是「`##` 章节 → `####` 端点」——即 H4 直接挂在所属章节下，中间不插入
 > 描述式 H3；少数端点（如 Extraction、Search、Summaries 等章节）位于描述式 H3 之下。这种层级本身
 > 并不统一，是历史沿革，**不是缺失的父级标题**，请勿"补齐"或"统一"。
+>
+> 这项比对已不再是承诺：每次跑回归都会由 `scripts/check-api-doc-surface.py` 把两版与运行中的后端逐条对上。
 
 ---
 
@@ -39,11 +43,12 @@
 15. [Health 健康检查](#health-健康检查)
 16. [Cursor IDE 集成](#cursor-ide-集成)
 17. [SSE 流式推送](#sse-流式推送)
-18. [错误码说明](#错误码说明)
-19. [Test 测试端点](#test-测试端点)
-20. [使用示例](#使用示例)
-21. [附录](#附录)
-22. [更新日志](#更新日志)
+18. [传输层端点](#传输层端点)
+19. [错误码说明](#错误码说明)
+20. [Test 测试端点](#test-测试端点)
+21. [使用示例](#使用示例)
+22. [附录](#附录)
+23. [更新日志](#更新日志)
 
 ---
 
@@ -2499,11 +2504,58 @@ eventSource.onmessage = (event) => {
 
 ---
 
+## 传输层端点
+
+后端还提供 **6** 个 springdoc 不会写进 `/v3/api-docs` 的操作：MCP 传输与 Spring Boot actuator。
+本节把它们补齐，使本文档覆盖服务器会应答的**全部**操作——合计 **77 个操作、72 条路径**，
+其中 **71 个操作、66 条路径**是上文描述的 REST 层。
+
+#### GET `/sse`
+
+打开 MCP 的 Server-Sent Events 传输。响应是一条长连接事件流，它的第一个事件（`event:endpoint`）
+带有本次会话的消息端点，形如
+`/mcp/message?sessionId=550e8400-e29b-41d4-a716-446655440000`。客户端这样注册：
+
+```bash
+claude mcp add --transport sse cortexce http://127.0.0.1:37777/sse
+```
+
+#### POST `/mcp/message`
+
+SSE 传输的消息端点。路径与会话绑定：`sessionId` 查询参数必须是 `/sse` 那条流给出的那个，
+不带它发请求会得到 `400`。
+
+#### GET `/actuator`
+
+Spring Boot actuator 的链接页。它以 JSON 的 `_links` 列出本实例暴露的 actuator 端点。
+
+#### GET `/actuator/health`
+
+Spring Boot actuator 的健康端点。产品自己的健康端点是 `GET /api/health`
+（见 [Health 健康检查](#health-健康检查)）；两者回答不同——actuator 那个报的是 Spring Boot
+各组件的健康状况（数据库、磁盘空间、消息队列、ping）。
+
+#### GET `/actuator/info`
+
+运行实例的构建信息。
+
+#### GET `/actuator/metrics`
+
+Spring Boot actuator 的指标端点。
+
+**配置**：MCP 传输在 `backend/src/main/resources/application.yml` 的 `spring.ai.mcp.server`
+下配置（`protocol: SSE`、`sse-endpoint: /sse`、`sse-message-endpoint: /mcp/message`），
+actuator 的暴露范围在 `management.endpoints.web.exposure.include`（`health`、`metrics`、`info`）。
+与它们并列配置的 streamable-HTTP 端点 `/mcp` 在协议为 `SSE` 时**不被提供**。
+2026-10-21 对运行实例实测；`scripts/check-api-doc-surface.py` 每次跑回归都会把本节与运行中的服务器对上。
+
 ## 错误码说明
 
 ### HTTP 状态码
 
-下表已对活体后端（`GET /v3/api-docs`，71 个操作、66 条路径，2026-10-21 实测）与源码逐条核对。
+下表已对活体后端（`GET /v3/api-docs`，71 个操作、66 条路径，加上[传输层端点](#传输层端点)一节的
+6 个传输层操作——合计 77 个操作、72 条路径，2026-10-21 实测；`scripts/check-api-doc-surface.py`
+每次跑回归都会把整个集合重核一遍）与源码逐条核对。
 **应用自身从不返回**的状态码已如实标注，不再按「可达」列出。
 
 | 状态码 | 含义 | 是否返回 |
@@ -2982,6 +3034,7 @@ A: 所有导入端点都有自动去重检查，基于唯一标识符（如 `con
 
 | 日期 | 版本 | 变更 |
 |------|------|------|
+| 2026-10-21 | (unreleased) | 本文档现在覆盖 springdoc 不发布的那些端点，这项比对也不再只是一句承诺。开头结构说明称端点集合「已核验完全一致」，计数是 **71** 个操作、**66** 条路径 —— 那口径是 `/v3/api-docs` 里 `paths` 每个条目下的 `get`/`put`/`post`/`delete`/`patch` 键，只算 REST 层。运行中的服务器实际应答 **77** 个操作、**72** 条路径，多出的 **6** 个是 MCP 传输（`GET /sse`、`POST /mcp/message`）与 Spring Boot actuator（`GET /actuator`、`GET /actuator/health`、`GET /actuator/info`、`GET /actuator/metrics`）。MCP 那个端点是面向用户的集成面 —— `proxy/CLAUDE-CODE-INTEGRATION.md` 与 `proxy/CURSOR-INTEGRATION.md` 都教用户注册 `http://127.0.0.1:37777/sse` —— 却既没出现在两版文档里，也没有任何测试钉住，于是改一下 `application.yml` 里的 `spring.ai.mcp.server.sse-endpoint`，文档里的地址就跟着漂，且没有任何东西变红。新增 **传输层端点** 一节把 6 个端点连同产生它们的配置与实测日期一并写清。比对本身变成可执行的：`scripts/check-api-doc-surface.py` 从运行中服务器的 `/v3/api-docs` 读 REST 层，从活体 `/actuator` 链接页**发现** actuator 端点，从后端自己的 `application.yml` 推导出 MCP 传输并对它做活体探测，然后要求两版文档与这个并集逐条相等、彼此也相等。它的 `--self-test` 证明检查器能失败（六个坏样本），回归套件每次都会跑它。结构说明与「HTTP 状态码」两处的计数现在写明两层、总数、日期与脚本。EN+ZH 同步 |
 | 2026-10-21 | (unreleased) | 已发布的 OpenAPI 不再在请求体与响应体上自相矛盾。**51** 个 schema 一边宣告 `"type": "string"`，一边带着 JSON 对象或数组的 example —— 只写 `example` 不写 `type` 的 `@Schema` 会被解析成 `string`，于是同一处文档同时断言了两件互斥的事。最刺眼的一例是 `PATCH /api/memory/observations/{id}` 的请求体：按 spec 生成的客户端发出的是 JSON 字符串，端点回 400；而发出 example 展示的那个对象则回 200。现在每一个这样的 schema 都宣告了它自己的 example 早已展示的那个 type。其中 **49** 个对象形态的 example 逐字未变；三个数组响应（`GET /api/timeline`、`POST /api/sdk-sessions/batch`、`GET /api/extraction/{templateName}/history`）现宣告为 `type: array` 并带 `items`，其内联 example 被舍弃 —— 能留住数组 example 的注解写法无法同时带上 `items`，故取合法的数组 schema。另一套机制也一并修好：`GET /api/extraction/{templateName}/history` 的 200 原宣告 `type: object`，而处理器返回的是 JSON 数组。新增一个测试钉住该不变量 —— example 的 JSON 形态必须等于其 schema 宣告的 type。EN+ZH 同步 |
 | 2026-10-21 | (unreleased) | 本文档各处端点/操作计数里的 **67** 写下时是对的，此后已漂移：活体 `/v3/api-docs` 现在是 **71** 个操作、**66** 条路径（2026-10-21 实测）。计数口径是 `paths` 每个条目下的 `get`/`put`/`post`/`delete`/`patch` 键 —— 与 Controller 里 71 个 `@*Mapping` 注解一致，需排除 `ViewerController.java:214` 那个就地注释掉的路由（`/api/concepts`）。这个数字共出现在四处：本文件开头的结构说明、「HTTP 状态码」一节，以及中文版对应的两处；四处现在都写明实测值、日期与取数方式。中英两版所记载的**端点集合**仍完全一致（程序化比对，零差异）—— 只有计数过时了。EN+ZH 同步 |
 | 2026-10-20 | (unreleased) | 更正下方 2026-10-07 那条：它把「刻意保留原样」的请求体表归在 `POST /api/memory/observations` 名下，而**该端点并不存在**——活体 spec 里 `/api/memory/observations/{id}` 只有 `PATCH` 与 `DELETE`。真正自带 `Required` 列的请求体表属于 **`POST /api/ingest/observation`**。2026-10-07 那条的实质内容不变，只是端点名写错了。已对活体 `/v3/api-docs` 核实：共 66 条路径，且每一条都在本文档中有记载。EN+ZH 同步 |

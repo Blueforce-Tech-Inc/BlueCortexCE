@@ -23,8 +23,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Pins the backend's <em>exposed surface</em>: the exact set of
- * {@code (HTTP method, path)} pairs the server publishes.
+ * Pins the backend's <em>REST surface</em>: the exact set of
+ * {@code (HTTP method, path)} pairs the {@code @RestController} classes
+ * publish.
  *
  * <p>Why this needs pinning. The backend is the only component in this repository whose
  * surface is described in two places that are maintained independently: the hand-written
@@ -36,8 +37,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code "/api/..."} path literal before this one.
  *
  * <p>The same gap was closed for the Python demo (26 endpoints) and the Java demo
- * (44 endpoints) in earlier rounds; the backend is the largest surface of the three and
- * was the one still unguarded.
+ * (44 endpoints) in earlier rounds, and for the Go and JavaScript demos in later ones;
+ * the backend is the largest surface of the family and was the one still unguarded.
+ *
+ * <p><b>Scope.</b> This sweep sees the REST layer only, because it is built by
+ * reflecting over {@code @*Mapping} annotations. The running server publishes
+ * <em>more</em> than what is pinned here: the MCP transport and the Spring Boot
+ * actuator are registered by the framework and springdoc publishes neither, so the
+ * whole server answers 77 operations across 72 paths while this test pins 71 across
+ * 66. The remaining six are pinned by {@link BackendTransportEndpointSurfaceTest},
+ * and the running server is compared against both by
+ * {@code scripts/check-api-doc-surface.py}.
  *
  * <p>What is asserted.
  * <ol>

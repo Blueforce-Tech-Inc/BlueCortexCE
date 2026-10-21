@@ -14,11 +14,15 @@ This document describes the REST API for Cortex Community Edition backend.
 > gets a path-style H4 beneath its descriptive H3 (e.g. ``#### GET `/api/context/recent` ``).
 > The Chinese version uses that path-style H4 throughout. The difference is deliberate — a
 > path-style heading is the more natural form in Chinese, and both versions expose the same HTTP
-> method and path for every endpoint. The endpoint sets are verified identical (71 live operations
-> across 66 paths, measured 2026-10-21 — count the `get`/`put`/`post`/`delete`/`patch` keys under
-> each entry of `paths` in `/v3/api-docs`; the same 71 are the controllers' `@*Mapping` annotations,
-> minus the one route commented out in place at `ViewerController.java:214`), so this is a presentation
-> choice, not a content gap. Do not "fix" one side to match the other. Every endpoint heading in this
+> method and path for every endpoint. The endpoint sets are verified identical (the REST layer's
+> **71** operations across **66** paths, plus the **6** transport operations in
+> [Transport Endpoints](#transport-endpoints) — **77** operations across **72** paths in all, measured
+> 2026-10-21 — count the `get`/`put`/`post`/`delete`/`patch` keys under each entry of `paths` in
+> `/v3/api-docs` for the REST layer; the same 71 are the controllers' `@*Mapping` annotations, minus
+> the one route commented out in place at `ViewerController.java:214`; the six transport operations are
+> the MCP transport and the Spring Boot actuator, which springdoc does not publish), so this is a
+> presentation choice, not a content gap. The comparison is no longer a promise: both files are
+> checked against the running server by `scripts/check-api-doc-surface.py` on every regression run. Do not "fix" one side to match the other. Every endpoint heading in this
 > file sits under a descriptive H3. The Chinese version mostly skips that level and hangs its
 > path-style H4 straight off the `##` section, so its outline usually reads
 > `## section → #### endpoint`, with a minority of endpoints under a descriptive H3. Neither shape
@@ -43,6 +47,7 @@ This document describes the REST API for Cortex Community Edition backend.
 - [Health & Version](#health--version)
 - [Cursor](#cursor)
 - [Streaming](#streaming)
+- [Transport Endpoints](#transport-endpoints)
 - [Error Codes](#error-codes)
 - [Test Endpoints](#test-endpoints)
 - [Usage Examples](#usage-examples)
@@ -2512,12 +2517,93 @@ open finding (P2-23) and the status code may change.
 > hour. If your proxy terminates idle connections, plan to reconnect on the
 > browser's `onerror` rather than assuming the server closed the stream.
 
+## Transport Endpoints
+
+Six operations are served by the backend that springdoc does not publish in
+`/v3/api-docs`: the MCP transport and the Spring Boot actuator. They are listed
+here so that this reference covers every operation the server answers —
+**77 operations across 72 paths** in all, of which **71 operations across 66
+paths** are the REST layer described above.
+
+### MCP Server-Sent Events Transport
+
+```
+GET /sse
+```
+
+Opens the MCP Server-Sent Events transport. The response is a long-lived event
+stream whose first event (`event:endpoint`) carries the session-scoped message
+endpoint to post to, for example
+`/mcp/message?sessionId=550e8400-e29b-41d4-a716-446655440000`. Register the
+server with a client like this:
+
+```bash
+claude mcp add --transport sse cortexce http://127.0.0.1:37777/sse
+```
+
+### MCP Message Endpoint
+
+```
+POST /mcp/message
+```
+
+The message endpoint of the SSE transport. The path is session-scoped: the
+`sessionId` query parameter has to be the one the `/sse` stream handed out. A
+request without it is rejected with `400`.
+
+### Actuator Discovery Page
+
+```
+GET /actuator
+```
+
+The Spring Boot actuator links page. It lists the actuator endpoints this
+instance exposes, as JSON under `_links`.
+
+### Actuator Health
+
+```
+GET /actuator/health
+```
+
+The Spring Boot actuator health endpoint. The product's own health endpoint is
+`GET /api/health` (see [Health & Version](#health--version)); the two answer
+differently — the actuator one reports the Spring Boot component health
+(database, disk space, message queue, ping).
+
+### Actuator Info
+
+```
+GET /actuator/info
+```
+
+Build information of the running instance.
+
+### Actuator Metrics
+
+```
+GET /actuator/metrics
+```
+
+The Spring Boot actuator metrics endpoint.
+
+**Configuration**: the MCP transport is configured under `spring.ai.mcp.server`
+in `backend/src/main/resources/application.yml` (`protocol: SSE`,
+`sse-endpoint: /sse`, `sse-message-endpoint: /mcp/message`), and the actuator
+exposure under `management.endpoints.web.exposure.include` (`health`, `metrics`,
+`info`). The streamable-HTTP endpoint `/mcp` configured beside them is **not
+served** while the protocol is `SSE`. Measured 2026-10-21 against a running
+instance; `scripts/check-api-doc-surface.py` compares this section with the
+running server on every regression run.
+
 ## Error Codes
 
 ### HTTP Status Codes
 
-Verified against a live backend (`GET /v3/api-docs`, 71 operations across 66 paths, measured
-2026-10-21) and against the
+Verified against a live backend (`GET /v3/api-docs`, 71 operations across 66 paths, plus the
+6 transport operations in [Transport Endpoints](#transport-endpoints) — 77 operations across
+72 paths, measured 2026-10-21; `scripts/check-api-doc-surface.py` re-checks the whole set on
+every regression run) and against the
 source. Codes the application never emits are marked as such rather than listed as
 if they were reachable.
 
@@ -2992,6 +3078,7 @@ A: All import endpoints have automatic deduplication based on unique identifiers
 
 | Date | Version | Changes |
 |------|---------|---------|
+| 2026-10-21 | (unreleased) | The reference now covers the endpoints springdoc does not publish, and the comparison stops being a promise. The structure note claimed the endpoint sets are "verified identical" for **71** operations across **66** paths — that count is the `get`/`put`/`post`/`delete`/`patch` keys under each entry of `paths` in `/v3/api-docs`, i.e. the REST layer alone. The running server answers **77** operations across **72** paths; the **6** extra ones are the MCP transport (`GET /sse`, `POST /mcp/message`) and the Spring Boot actuator (`GET /actuator`, `GET /actuator/health`, `GET /actuator/info`, `GET /actuator/metrics`). The MCP endpoint is a user-facing integration surface — `proxy/CLAUDE-CODE-INTEGRATION.md` and `proxy/CURSOR-INTEGRATION.md` both tell users to register `http://127.0.0.1:37777/sse` — yet it appeared in neither reference nor in any test, so changing `spring.ai.mcp.server.sse-endpoint` in `application.yml` would have moved the documented URL with nothing turning red. A new **Transport Endpoints** section documents all six, together with the configuration that produces them and the date they were measured. The comparison itself is now executable: `scripts/check-api-doc-surface.py` reads the REST layer from the running server's `/v3/api-docs`, **discovers** the actuator endpoints from the live `/actuator` links page, derives the MCP transport from the backend's own `application.yml` and probes it live, then requires both published files to match that union exactly and to match each other. Its `--self-test` proves the checker can fail (six bad samples), and the regression suite runs it. The counts in the structure note and in "HTTP Status Codes" now state both layers, the total, the date and the script. EN+ZH in sync |
 | 2026-10-21 | (unreleased) | The published OpenAPI no longer contradicts itself on request and response bodies. **51** schemas declared `"type": "string"` while carrying a JSON object or array example — an `@Schema(example = …)` with no `type` resolves to `string`, so the document asserted two incompatible things at once. The sharpest case was the request body of `PATCH /api/memory/observations/{id}`: a client generated from the spec sent a JSON string and the endpoint answered 400, while sending the object the example shows was answered with 200. Every such schema now declares the type its own example already showed. The **49** object-shaped ones keep their example unchanged; the three array responses (`GET /api/timeline`, `POST /api/sdk-sessions/batch`, `GET /api/extraction/{templateName}/history`) are now declared as `type: array` with an `items` schema, and their inline example is dropped — the annotation form that keeps an array example cannot also carry `items`, and a valid array schema was preferred. A second mechanism was fixed as well: the 200 of `GET /api/extraction/{templateName}/history` declared `type: object` while the handler answers with a JSON array. A new test pins the invariant — an example's JSON kind must equal the type its schema declares. EN+ZH in sync |
 | 2026-10-21 | (unreleased) | The **67** in this file's endpoint and operation counts was correct when written and has since drifted: the live `/v3/api-docs` carries **71** operations across **66** paths (measured 2026-10-21). The count is the `get`/`put`/`post`/`delete`/`patch` keys under each entry of `paths` — the same 71 are the controllers' `@*Mapping` annotations, minus the route commented out in place at `ViewerController.java:214` (`/api/concepts`). Four places carried the number: the structure note at the top of this file, the "HTTP Status Codes" section, and their two Chinese counterparts; all four now state the measured value, the date, and how to re-derive it. The endpoint **sets** the two languages document remain identical (programmatic comparison, zero difference) — only the count was stale. EN+ZH in sync |
 | 2026-10-20 | (unreleased) | Correction to the 2026-10-07 entry below: that entry names `POST /api/memory/observations` as the endpoint whose request table was deliberately left alone, but **no such endpoint exists** — the live spec has only `PATCH` and `DELETE` on `/api/memory/observations/{id}`. The request table that carries its own `Required` column is the one under **`POST /api/ingest/observation`**. The substance of the 2026-10-07 entry is unchanged; only the endpoint name was mis-stated. Verified against the live `/v3/api-docs`: 66 paths, and every one of them is documented in this file. EN+ZH in sync |

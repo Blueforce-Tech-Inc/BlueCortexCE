@@ -1318,6 +1318,29 @@ test_experiences_with_filters() {
     return 0
 }
 
+# Test that the published API reference matches the running server
+# The two references (docs/API.md, docs/API-zh-CN.md) used to assert that they
+# described the same endpoints with no mechanism behind the claim: renaming a
+# route, adding one, or letting the two languages drift apart left them
+# silently stale. The checker compares them against the running server - the
+# REST layer from /v3/api-docs, the actuator discovered from the live
+# /actuator links page, and the MCP transport derived from the backend's own
+# application.yml and probed live.
+test_api_doc_surface() {
+    log_section "Test 27: Published API Reference Matches The Running Server"
+
+    local output
+    if ! output=$(python3 "$SCRIPT_DIR/check-api-doc-surface.py" --server-url "$SERVER_URL" 2>&1); then
+        log_fail "The published API reference does not match the running server"
+        echo "$output" | sed 's/^/    /'
+        return 1
+    fi
+
+    log_success "docs/API.md and docs/API-zh-CN.md match the running server"
+    echo "$output" | sed 's/^/    /'
+    return 0
+}
+
 # ==================== Backend Verification Helpers ====================
 
 # Verify observation exists in backend with expected field values
@@ -1518,6 +1541,7 @@ main() {
     test_search_by_source  # V14: search by source
     test_search_source_filter_with_query  # V14: source filter with query text (hybrid path regression)
     test_experiences_with_filters  # V14: experiences with source/requiredConcepts filters
+    test_api_doc_surface  # The published API reference must match the running server
 
     verify_database_state
 
