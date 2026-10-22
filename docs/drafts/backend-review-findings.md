@@ -1179,21 +1179,15 @@
 
 ### P2-196: JS SDK 的出站 wire 字段名：十个带 body 的端点，**请求体的键集合**无一被断言 —— 而 README 把这些名字当契约发布
 
-- **Scope**: → [scope-9][a6]
-- **Evidence**: → 归档 [`…-100`][a58]（10 个带 body 的端点的实测键集合与后端 `@JsonProperty` 的逐条对拍、既有 **20** 处 body 断言（**14** 处 `JSON.parse(opts.body)` + **6** 处 `String(opts.body)`）的逐处归属、README 发布名与实测名的差集、README 对 session-end **零发布**这一遗漏、变异复验 M0~M5 的逐条读数）
-- **Status**: ✅ **已修（399 轮，JS SDK 侧，只加测试 + 改文档，SDK 主源码零改动）** —— 新增 `src/__tests__/wire-format.test.ts`（**15** 例），逐端点钉住实际 JSON 键集合，并把 README 的「Wire Format / Wire 格式」段与实测键集合**双向**绑定。
+- **Status**: ✅ **已修（399 轮，JS SDK 侧，只加测试 + 改文档，SDK 主源码零改动）** —— 新增 `src/__tests__/wire-format.test.ts`（**15** 例），逐端点钉住实际 JSON 键集合，并把 README 的「Wire Format / Wire 格式」段与实测键集合**双向**绑定；正文与证据逐字见归档 [`…-103`][a61]。
 
 ### P2-197: `content` 与 `narrative` 是同一个后端字段的两个名字，而 **JS 是四家里唯一不检测这个冲突的 SDK** —— 它的双语 README **全篇 0 次**提及这两个字段
 
-- **Scope**: → [scope-10][a7]
-- **Evidence**: → 归档 [`…-100`][a58]（三段活体实测与查库读回、另三家的拒绝点行号、JS README 两语的 0 次提及计数、本机 DeepSeek 凭据失效导致工具使用路径静默丢行的排查与独立复验）
-- **Status**: ✅ **已修（399 轮，文档方向，两语各一段）+ 钉进测试**；Go / Java 两家 README 的同一处遗漏**只记录不实施**（属它们各自轮次的文档方向）。
+- **Status**: ✅ **已修（399 轮，文档方向，两语各一段）+ 钉进测试**；Go / Java 两家 README 的同一处遗漏**只记录不实施**（属它们各自轮次的文档方向）；正文与证据逐字见归档 [`…-103`][a61]。
 
 ### P2-200: Java demo README 的健康端点账目写成「**七条**」—— 而同一段自己列的是 2 真 + 6 静态 = **八条**，表里也是八行
 
-- **Scope**: → [scope-9][a6]
-- **Evidence**: → 归档 [`…-101`][a59]（demo 全部 **8** 个健康类端点的代码与文档逐条对账、README 表行与代码推导集的**三方相等**、新测试 `DemoHealthAccountingTest` 的 **3** 个用例、变异 M0~M4 的逐条读数，以及新测试自身两处判据错）
-- **Status**: ✅ **已修（400 轮，Demo 侧，测试 + 文档；demo 实现零改动）** —— README 标题的「seven」改为「eight」，并补一段点明「八个里只有**七个**路径带 health 字样」；新增 `DemoHealthAccountingTest`（**3** 例）—— 代码推导集（按 handler 名 `health` / `getMemoryHealth` 读注解）＝ README 表行 ＝ 手写声明集，**三方相等**；标题里的数字必须等于服务数；标着「Static beacon」的行必须恰好是那六个静态端点。**变异 M1 把标题改回「seven」⇒ 恰好 1 红**（当年那个错就是它）。
+- **Status**: ✅ **已修（400 轮，Demo 侧，测试 + 文档；demo 实现零改动）** —— README 标题的「seven」改为「eight」，并补一段点明「八个里只有**七个**路径带 health 字样」；新增 `DemoHealthAccountingTest`（**3** 例）—— 代码推导集（按 handler 名 `health` / `getMemoryHealth` 读注解）＝ README 表行 ＝ 手写声明集，**三方相等**；标题里的数字必须等于服务数；标着「Static beacon」的行必须恰好是那六个静态端点。**变异 M1 把标题改回「seven」⇒ 恰好 1 红**（当年那个错就是它）；正文与证据逐字见归档 [`…-103`][a61]。
 
 ### P2-201: 运维/用户指南的 Go SDK 测试数停在 **372 / 306**（第 377 轮口径），实测是 **441 / 371**
 
@@ -1206,6 +1200,18 @@
 - **Scope**: → [scope-9][a6]
 - **Evidence**: → 归档 [`…-102`][a60]（活体注册表 **25** 条 `installedAt` 全为 ISO-8601 字符串的原始读数、全仓 `installedAt` 清扫表、两个方向的负控逐条读数）
 - **Status**: ✅ **已修（401 轮，文档方向 + Backend 代码方向）** —— 两版参考文档的「检查注册」示例改为 ISO-8601 字符串；新增 `CursorApiContractTest`（**8** 例）把「已发布的 OpenAPI example ↔ 运行时 record 组件类型」与「两版参考文档 ↔ 运行时」双向钉住；两个 Swagger 示例一并改正（见 P2-22）。
+
+### P2-203: Java SDK 的**出站请求体键集合**零断言 —— 十个带 body 的端点无一被钉住
+
+- **Scope**: → [scope-9][a6]
+- **Evidence**: → 归档 [`…-103`][a61]（十个出站体的逐条键集、与后端 `ApiRequests` 的 `@JsonProperty` 对拍表、两个方向的负控读数）
+- **Status**: ✅ **已修（402 轮，Java SDK 侧，测试 + 注释；行为零改动）** —— 既有断言全是「包含某个值/某个键名」，**8 处 `containsKey` 全在响应上**；新增 `CortexMemWireFormatTest`（**4** 例）把十个端点的**完整键集合**一次性钉死，并把 README 发布的 wire 名与 SDK 实际的 `@JsonProperty` 绑定。另改正 `ObservationResponse` 类 Javadoc 两处失实：称「默认 Jackson SNAKE_CASE 命名策略」（**默认是 camelCase**；那五个字段恰好是单词故无后果，但**新加多词字段会踩坑**）、称用它反序列化「`GET /api/memory/observations/{id}`」（**该端点不存在**）与「search results」（**search 返回裸 `Map`**）。
+
+### P2-204: Java SDK README 的跨家断言「Go, Python and Java all decode these the same way」**失实** —— 四家里只有 Java 不拆 `refined_from_ids`，且这句漏掉 JS
+
+- **Scope**: → [scope-10][a7]
+- **Evidence**: → 归档 [`…-103`][a61]（四家 `refined_from_ids` 的真实类型与解码路径逐条对拍、README 交叉引用实际指向的形态）
+- **Status**: ✅ **已修（402 轮，文档方向，双语各一处）** —— `refinedFromIds` 条目改为「**这是四家唯一不一致的一处**：Go / Python / JS 会拆成 ID 列表（`[]string` / `list[str]` / `string[]`），从那三家移植过来的代码在这里必须自己拆」；结尾跨家句子改为「四个 JSONB 列表列在四家里解码一致……`refinedFromIds` 是唯一例外」。⏸ **行为本身不改**：`String` 改 `List<String>` 是破坏性对外 API 变更，留待项目决策。
 
 ## Processing Rules
 - 第 384 轮新增两个压缩杠杆：**C8**（**⏸ 待决条目**的证据 bullets 整体迁入归档，工作文件留 `- **Scope**` 一行 + 一行 `- **Evidence**` 指针；`- **Problem**`（标题）、`- **⚠️ 为什么不单方面改**`、`- **Severity**`、`- **建议修法**`、`- **Status**` 一律留在工作文件——第 254 轮规则的应用，本轮首次用于 P2-88：归档侧持有证据段 **65 行 / 5355 字节**，工作文件真正迁出 **64 行 / 5307 字节**，全文件净 **−55 行 / −2027 字节**）；**C9**（归档指针行写成「一行说清迁走了什么 + 指向归档」，指针本身可回溯）。**探针自身的三处错**：①单文件 `grep -c "@Test"` 得 **118** 而 surefire 实收 **115** —— 差在**同一个文件里有第二个顶层测试类** `CortexMemErrorMessageTest`（3 个），故静态 `@Test` 计数只在逐文件与运行时分层对齐时才等于运行数；②两个变异叠在一起导致失败归因不清，拆成单变量后才各自点名；③变异 3 在变异 2 尚未还原时跑，报 2 红而非 1 红。硬证明与不动点见归档 `-85`。
@@ -1329,3 +1335,4 @@
 [a58]: ../archive/2026-10-22_backend-review-evidence-100.md
 [a59]: ../archive/2026-10-22_backend-review-evidence-101.md
 [a60]: ../archive/2026-10-22_backend-review-evidence-102.md
+[a61]: ../archive/2026-10-22_backend-review-evidence-103.md

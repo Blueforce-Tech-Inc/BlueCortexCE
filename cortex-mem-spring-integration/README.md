@@ -520,14 +520,19 @@ names suggest:
   `ObservationResponse.concepts()` is always a real `List<String>`.
 - **`refinedFromIds` is a plain String, not a list.** `mem_observations.refined_from_ids`
   is a `TEXT` column holding **comma-separated** UUIDs (`"uuid-1,uuid-2"`), not a JSONB
-  list — the backend joins the ids with `,` and never JSON-encodes them. It is therefore
-  exposed as `String refinedFromIds`, not `List<String>`.
+  list — the backend joins the ids with `,` and never JSON-encodes them. The Java SDK
+  exposes the column as it arrives, as `String refinedFromIds`, not `List<String>`.
+  **This is the one place the four SDKs do not agree:** Go, Python and JS split the
+  column and hand you a list of ids (`[]string`, `list[str]`, `string[]`), so code
+  ported from any of them has to split it here — `Arrays.stream(refinedFromIds.split(","))`,
+  with a blank value yielding an empty list.
 - **Naming.** Record components are annotated with `@JsonProperty` where the wire name
   differs from the Java name: `content_session_id` → `sessionId`, `project` →
   `projectPath`, `extractedData` is camelCase, and most others are snake_case.
 
-Go, Python and Java all decode these the same way; see the Go and Python SDK READMEs for
-the same table in their own idioms.
+The four JSONB list columns decode identically in all four SDKs — Go, Python, JS and Java
+all hand you a real `List<String>`, whichever shape the wire used. `refinedFromIds` is the
+exception; see the Go, Python and JS SDK READMEs for the same table in their own idioms.
 
 ## Error Handling
 

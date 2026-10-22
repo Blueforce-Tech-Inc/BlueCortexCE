@@ -12,13 +12,21 @@ import java.util.Map;
  * Field names match the backend wire format:
  * <ul>
  *   <li>Fields with {@code @JsonProperty} annotations use the specified wire name</li>
- *   <li>Other fields use the default Jackson SNAKE_CASE naming strategy</li>
+ *   <li>Every other field keeps its Java name. The five such fields ({@code id},
+ *       {@code type}, {@code title}, {@code subtitle}, {@code source}) are single words,
+ *       so their wire name is the same under any naming strategy — but a
+ *       <em>new</em> multi-word field needs an explicit {@code @JsonProperty}: Jackson's
+ *       default is camelCase, not snake_case, and the client builds this record from
+ *       the raw response map by literal key</li>
  * </ul>
  * <p>
  * Wire format verified against {@code backend/src/main/java/com/ablueforce/cortexce/entity/ObservationEntity.java}.
  * <p>
- * This DTO is used by the client to deserialize observation responses from
- * {@code GET /api/observations}, {@code GET /api/memory/observations/{id}}, and search results.
+ * The client builds this record from {@code GET /api/observations} and from
+ * {@code POST /api/observations/batch}, which {@code getObservation(id)} wraps. There is
+ * no {@code GET /api/memory/observations/{id}} endpoint — that path carries only PATCH
+ * and DELETE — and a search result is returned as a raw {@code Map<String, Object>},
+ * not as this DTO.
  * It complements {@link ObservationUpdate} (PATCH request DTO) and {@link ObservationRequest} (POST request DTO).
  *
  * @param id observation UUID

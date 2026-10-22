@@ -493,14 +493,17 @@ SDK 建模的是后端**真实的** wire 形态，而字段名并不总能提示
   `List<String>`。
 - **`refinedFromIds` 是普通 String，不是列表。** `mem_observations.refined_from_ids`
   是存放**逗号分隔** UUID（`"uuid-1,uuid-2"`）的 `TEXT` 列，不是 JSONB 列表——后端用
-  `,` 拼接 ID 且从不 JSON 编码。因此它暴露为 `String refinedFromIds` 而非
-  `List<String>`。
+  `,` 拼接 ID 且从不 JSON 编码。Java SDK 按它到达的样子暴露它，即 `String refinedFromIds`
+  而非 `List<String>`。**这是四家 SDK 唯一不一致的一处**：Go、Python、JS 三家会把它拆开，
+  交给你一个 ID 列表（`[]string`、`list[str]`、`string[]`），因此从那三家移植过来的代码
+  在这里必须自己拆——`Arrays.stream(refinedFromIds.split(","))`，空值则得到空列表。
 - **命名。** 当 wire 名与 Java 名不同时，record 组件用 `@JsonProperty` 标注：
   `content_session_id` → `sessionId`、`project` → `projectPath`、`extractedData` 为
   camelCase，其余大多是 snake_case。
 
-Go、Python、Java 三家的解码方式一致；同一张表在各自语言风格下的版本见 Go 与 Python
-SDK 的 README。
+四个 JSONB 列表列在四家 SDK 里解码方式一致——Go、Python、JS、Java 都交给你真正的
+`List<String>`，无论 wire 上是哪种形态。`refinedFromIds` 是唯一的例外；同一张表在各自
+语言风格下的版本见 Go、Python 与 JS SDK 的 README。
 
 ## 错误处理
 
