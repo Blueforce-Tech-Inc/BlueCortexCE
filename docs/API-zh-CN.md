@@ -1005,6 +1005,7 @@ curl "http://localhost:37777/api/context/inject?projects=/Users/dev/myproject"
 | `maxSummaries` | int | ❌ | 2 | 最大摘要数量 |
 | `sessionCount` | int | ❌ | 10 | 查询的最近会话数 |
 | `fullCount` | int | ❌ | 5 | 显示完整详情的观察数 |
+| `platformSource` | string | ❌ | null | 平台来源过滤（如 `claude`、`cursor`） |
 
 **请求示例**:
 ```bash

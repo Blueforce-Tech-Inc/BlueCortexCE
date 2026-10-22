@@ -1048,6 +1048,7 @@ Preview project context as plain text (for UI display).
 | `maxSummaries` | int | No | 2 | Max summaries |
 | `sessionCount` | int | No | 10 | Recent sessions to query |
 | `fullCount` | int | No | 5 | Observations with full detail |
+| `platformSource` | string | No | null | Platform source filter (e.g., `claude`, `cursor`) |
 
 **Request Example**:
 ```bash
