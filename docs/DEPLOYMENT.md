@@ -667,7 +667,7 @@ a project containing one observation recorded under `userId: alice`:
 |----------|--------------------|--------|
 | `POST /api/memory/experiences` | yes | `alice` → 1 experience, `bob` → 0 |
 | `POST /api/memory/icl-prompt` | yes | scoped the same way |
-| `GET`/`POST /api/extraction/{t}/latest`, `/history` | yes | scoped the same way |
+| `GET /api/extraction/{templateName}/latest`, `/history` | yes | scoped the same way |
 | `GET /api/search` | **no** | returns alice's observation, and cannot be narrowed |
 | `GET /api/observations`, `POST /api/observations/batch` | **no** | returns every observation in the project |
 

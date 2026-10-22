@@ -633,7 +633,7 @@ DELETE FROM flyway_schema_history WHERE version = '8';
 |------|------------------|------|
 | `POST /api/memory/experiences` | 是 | `alice` → 1 条经验，`bob` → 0 条 |
 | `POST /api/memory/icl-prompt` | 是 | 同样按用户限定 |
-| `GET`/`POST /api/extraction/{t}/latest`、`/history` | 是 | 同样按用户限定 |
+| `GET /api/extraction/{templateName}/latest`、`/history` | 是 | 同样按用户限定 |
 | `GET /api/search` | **否** | 返回 alice 的观测，且无法再收窄 |
 | `GET /api/observations`、`POST /api/observations/batch` | **否** | 返回该项目的全部观测 |
 
