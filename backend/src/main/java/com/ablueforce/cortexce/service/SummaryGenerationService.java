@@ -20,6 +20,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -80,28 +81,29 @@ public class SummaryGenerationService implements LogHelper {
      * Gathers all observations for the session, calls LLM to produce a summary,
      * parses the XML, and persists the SummaryEntity.
      *
-     * @param contentSessionId       The session ID from Claude Code
+     * @param conversationId         internal conversation UUID, resolved by the caller
      * @param lastAssistantMessage   The last assistant message (from transcript)
      */
     @Async
-    public void completeSessionAsync(String contentSessionId, String lastAssistantMessage) {
-        if (contentSessionId != null) {
-            summarizingSessions.add(contentSessionId);
+    public void completeSessionAsync(UUID conversationId, String lastAssistantMessage) {
+        if (conversationId != null) {
+            summarizingSessions.add(conversationId.toString());
         }
         try {
             Optional<SessionEntity> sessionOpt = sessionManagementService.completeSessionForSummary(
-                contentSessionId, lastAssistantMessage);
+                conversationId, lastAssistantMessage);
             if (sessionOpt.isEmpty()) {
-                logFailure("Cannot summarize: session not found for {}", contentSessionId);
+                logFailure("Cannot summarize: conversation not found for {}", conversationId);
                 return;
             }
             SessionEntity session = sessionOpt.get();
+            String contentSessionId = session.getContentSessionId();
 
             List<ObservationEntity> observations = observationRepository
-                .findByContentSessionIdOrderByCreatedAtEpochAsc(contentSessionId);
+                .findByConversationIdOrderByCreatedAtEpochAsc(conversationId);
 
             if (observations.isEmpty()) {
-                logDataIn("No observations to summarize for session {}", contentSessionId);
+                logDataIn("No observations to summarize for conversation {}", conversationId);
                 return;
             }
 
@@ -119,7 +121,7 @@ public class SummaryGenerationService implements LogHelper {
             XmlParser.ParsedSummary parsed = XmlParser.parseSummary(llmResponse);
             int lastPromptNumber = observations.get(observations.size() - 1).getPromptNumber() != null
                 ? observations.get(observations.size() - 1).getPromptNumber() : 0;
-            saveSummary(contentSessionId, session.getProjectPath(), parsed, lastPromptNumber);
+            saveSummary(conversationId, session.getProjectPath(), parsed, lastPromptNumber);
 
             contextCacheService.markForRefresh(session.getProjectPath());
 
@@ -129,10 +131,10 @@ public class SummaryGenerationService implements LogHelper {
             triggerQualityScoringAndRefinement(session, observations, parsed, lastAssistantMessage);
 
         } catch (Exception e) {
-            logFailure("Failed to generate summary for session {}", contentSessionId, e);
+            logFailure("Failed to generate summary for conversation {}", conversationId, e);
         } finally {
-            if (contentSessionId != null) {
-                summarizingSessions.remove(contentSessionId);
+            if (conversationId != null) {
+                summarizingSessions.remove(conversationId.toString());
             }
         }
     }
@@ -144,10 +146,19 @@ public class SummaryGenerationService implements LogHelper {
     /**
      * Save a summary directly (from parsed XML or API input).
      */
-    public SummaryEntity saveSummary(String contentSessionId, String projectPath,
+    public SummaryEntity saveSummary(UUID conversationId, String projectPath,
                                       XmlParser.ParsedSummary parsed, Integer promptNumber) {
+        // The external id and platform are projections of the owning conversation, not
+        // inputs: two platforms can share an external id, so deriving them here would be a
+        // guess. A missing parent means the row cannot be attached at all.
+        SessionEntity parent = sessionManagementService.findById(conversationId)
+            .orElseThrow(() -> new IllegalStateException(
+                "cannot save summary: conversation " + conversationId + " does not exist"));
+
         SummaryEntity summary = new SummaryEntity();
-        summary.setContentSessionId(contentSessionId);
+        summary.setConversationId(parent.getId());
+        summary.setContentSessionId(parent.getContentSessionId());
+        summary.setPlatformSource(parent.getPlatformSource());
         summary.setProjectPath(projectPath);
         summary.setRequest(parsed.request);
         summary.setInvestigated(parsed.investigated);
@@ -157,10 +168,6 @@ public class SummaryGenerationService implements LogHelper {
         summary.setNotes(parsed.notes);
         summary.setPromptNumber(promptNumber);
         summary.setCreatedAtEpoch(Instant.now().toEpochMilli());
-        sessionManagementService.findByContentSessionId(contentSessionId)
-            .map(SessionEntity::getPlatformSource)
-            .filter(source -> source != null && !source.isBlank())
-            .ifPresent(summary::setPlatformSource);
 
         SummaryEntity saved = summaryRepository.save(summary);
 

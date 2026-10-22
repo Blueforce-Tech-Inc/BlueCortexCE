@@ -124,9 +124,14 @@ public class AgentService implements LogHelper {
                 logFailure("Cannot process tool use: both sessionDbId and contentSessionId are null");
                 return;
             }
-            SessionEntity session = sessionManagementService.ensureSession(contentSessionId, cwd, null);
+            // The external id alone is no longer a unique selector. Callers that have a
+            // Conversation pass its UUID; the fallback is the Claude compatibility lookup
+            // that legacy hook traffic relies on.
+            SessionEntity session = sessionManagementService.findLegacyClaude(contentSessionId)
+                .orElseThrow(() -> new IllegalStateException(
+                    "no conversation for legacy external id; caller must pass sessionDbId"));
             sessionDbId = session.getId();
-            log.debug("Resolved sessionDbId from contentSessionId via ensureSession: {}", sessionDbId);
+            log.debug("Resolved sessionDbId from contentSessionId via legacy lookup: {}", sessionDbId);
 
             // V17: Wall-clock age guard - refuse work for sessions older than 4 hours
             if (isSessionTooOld(session)) {
@@ -183,7 +188,8 @@ public class AgentService implements LogHelper {
 
             // Shared: build prompts, call LLM, parse, and save
             boolean saved = callLlmAndSaveObservation(
-                contentSessionId, toolName, toolInput, toolResponse, cwd, promptNumber, pending);
+                pending.getSessionDbId(), contentSessionId, toolName, toolInput,
+                toolResponse, cwd, promptNumber, pending);
             if (!saved) return;
 
             pending.setStatus("processed");
@@ -229,7 +235,15 @@ public class AgentService implements LogHelper {
     /**
      * Save an observation directly (from parsed XML or API input).
      */
-    public ObservationEntity saveObservation(String contentSessionId, String projectPath,
+    /**
+     * Persist an observation owned by a conversation.
+     *
+     * @param conversationId internal conversation UUID — the relation of record
+     * @param platformSource the owning conversation's canonical platform
+     * @param contentSessionId the external id, kept as a wire/diagnostic copy
+     */
+    public ObservationEntity saveObservation(java.util.UUID conversationId, String platformSource,
+                                              String contentSessionId, String projectPath,
                                               XmlParser.ParsedObservation parsed, Integer promptNumber,
                                               int discoveryTokens) {
         // Calculate content hash for deduplication
@@ -246,7 +260,10 @@ public class AgentService implements LogHelper {
         }
 
         ObservationEntity obs = new ObservationEntity();
+        obs.setConversationId(conversationId);
+        obs.setStandaloneKind(null);
         obs.setContentSessionId(contentSessionId);
+        obs.setPlatformSource(platformSource);
         obs.setProjectPath(projectPath);
         obs.setType(parsed.type != null ? parsed.type : "change");
         obs.setTitle(parsed.title);
@@ -266,10 +283,8 @@ public class AgentService implements LogHelper {
         obs.setPromptNumber(promptNumber);
         obs.setCreatedAtEpoch(Instant.now().toEpochMilli());
         obs.setContentHash(contentHash);
-        sessionRepository.findByContentSessionId(contentSessionId)
-            .map(SessionEntity::getPlatformSource)
-            .filter(source -> source != null && !source.isBlank())
-            .ifPresent(obs::setPlatformSource);
+        // platform_source is now taken from the owning conversation passed in by the caller;
+        // re-deriving it from the external id would pick another platform's row.
 
         // Set discoveryTokens
         if (discoveryTokens > 0) {
@@ -310,10 +325,12 @@ public class AgentService implements LogHelper {
      * Viewer deletion uses this guard to avoid deleting data while an async
      * observation is still able to write into the session.
      */
-    public boolean isSessionProcessing(String contentSessionId) {
-        return contentSessionId != null
-            && pendingMessageRepository.existsByContentSessionIdAndStatusIn(
-                contentSessionId, List.of("pending", "processing"));
+    public boolean isSessionProcessing(UUID conversationId) {
+        // Keyed on the internal UUID: two platforms may share an external id, so a bare-id
+        // check would let one platform's queue block (or fail to block) the other's delete.
+        return conversationId != null
+            && pendingMessageRepository.countPendingForSession(
+                conversationId, List.of("pending", "processing")) > 0;
     }
 
     /**
@@ -349,7 +366,8 @@ public class AgentService implements LogHelper {
 
             // Shared: build prompts, call LLM, parse, and save
             boolean saved = callLlmAndSaveObservation(
-                contentSessionId, toolName, toolInput, toolResponse, cwd, promptNumber, pending);
+                pending.getSessionDbId(), contentSessionId, toolName, toolInput,
+                toolResponse, cwd, promptNumber, pending);
             if (!saved) return;
 
             pending.setStatus("processed");
@@ -383,12 +401,14 @@ public class AgentService implements LogHelper {
      *
      * @return true if observation was saved, false if skipped
      */
-    private boolean callLlmAndSaveObservation(String contentSessionId, String toolName,
+    private boolean callLlmAndSaveObservation(java.util.UUID conversationId, String contentSessionId,
+                                                String toolName,
                                                 String toolInput, String toolResponse,
                                                 String cwd, Integer promptNumber,
                                                 PendingMessageEntity pending) {
-        // Get session context
-        Optional<SessionEntity> sessionOpt = sessionManagementService.findByContentSessionId(contentSessionId);
+        // Conversation context is read through the internal UUID. The external id could match
+        // a row owned by another platform once duplicate ids are legal.
+        Optional<SessionEntity> sessionOpt = sessionManagementService.findById(conversationId);
         String userPrompt = sessionOpt.map(SessionEntity::getUserPrompt).orElse("");
         String projectPath = sessionOpt.map(SessionEntity::getProjectPath).orElse(cwd);
 
@@ -425,7 +445,8 @@ public class AgentService implements LogHelper {
 
         // Parse and save observation
         XmlParser.ParsedObservation parsed = XmlParser.parseObservation(llmContent);
-        saveObservation(contentSessionId, projectPath, parsed, promptNumber, discoveryTokens);
+        saveObservation(conversationId, sessionOpt.map(SessionEntity::getPlatformSource).orElse("claude"),
+            contentSessionId, projectPath, parsed, promptNumber, discoveryTokens);
 
         // Mark context cache for refresh
         contextCacheService.markForRefresh(projectPath);

@@ -18,7 +18,10 @@ public interface PendingMessageRepository extends JpaRepository<PendingMessageEn
 
     List<PendingMessageEntity> findBySessionDbIdAndStatusOrderByCreatedAtEpochAsc(UUID sessionDbId, String status);
 
-    boolean existsByContentSessionIdAndStatusIn(String contentSessionId, List<String> statuses);
+    /** Delete the queue rows owned by one conversation (used when the conversation goes). */
+    @Modifying
+    @Query("DELETE FROM PendingMessageEntity p WHERE p.sessionDbId = :sessionDbId")
+    int deleteBySessionDbId(@Param("sessionDbId") UUID sessionDbId);
 
     long countByStatus(String status);
 

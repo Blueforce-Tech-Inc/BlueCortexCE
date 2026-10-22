@@ -2,264 +2,214 @@ package com.ablueforce.cortexce.service;
 
 import com.ablueforce.cortexce.config.ExtractionConfig.TemplateConfig;
 import com.ablueforce.cortexce.entity.ObservationEntity;
-import com.ablueforce.cortexce.entity.SessionEntity;
+import com.ablueforce.cortexce.identity.MemoryScopeKey;
 import com.ablueforce.cortexce.repository.ObservationRepository;
-import com.ablueforce.cortexce.repository.SessionRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.Instant;
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 /**
- * Unit tests for ExtractionStorageService.
- * Covers: session find-or-create, observation storage, DLQ handling.
- * Uses Mockito for all repository interactions.
+ * Unit tests for {@link ExtractionStorageService}.
+ *
+ * <p>These pin the post-refactor contract: extraction output and DLQ entries are
+ * <b>standalone</b> observations. They carry no {@code conversation_id}, are typed by
+ * {@code standalone_kind}, and belong to a memory scope. In particular the service must never
+ * create a synthetic session row — the old behaviour that made a dead-letter queue look like a
+ * conversation (and therefore deletable as one).
  */
 @ExtendWith(MockitoExtension.class)
 class ExtractionStorageServiceTest {
 
-    @Mock
-    private SessionRepository sessionRepository;
+    private static final UUID SCOPE_ID = UUID.randomUUID();
 
     @Mock
     private ObservationRepository observationRepository;
 
-    private ExtractionStorageService storageService;
+    @Mock
+    private MemoryScopeService memoryScopeService;
 
-    private SessionEntity existingSession;
+    private ExtractionStorageService storageService;
 
     @BeforeEach
     void setUp() {
-        storageService = new ExtractionStorageService(sessionRepository, observationRepository);
+        storageService = new ExtractionStorageService(observationRepository, memoryScopeService);
+    }
 
-        existingSession = new SessionEntity();
-        existingSession.setId(UUID.randomUUID());
-        existingSession.setContentSessionId("test-session-123");
-        existingSession.setProjectPath("/tmp/test-project");
-        existingSession.setStatus("active");
-        existingSession.setStartedAtEpoch(System.currentTimeMillis());
+    private static TemplateConfig makeTemplate(String name) {
+        TemplateConfig template = new TemplateConfig();
+        template.setName(name);
+        template.setEnabled(true);
+        template.setSessionIdPattern("ext:test:" + name);
+        template.setSourceFilter(List.of("user_statement", "manual"));
+        return template;
     }
 
     // ===== storeExtractionResult =====
 
     @Test
-    void storeExtractionResult_reusesExistingSession() {
-        // Given: session already exists
-        when(sessionRepository.findByContentSessionId("test-session-123"))
-            .thenReturn(Optional.of(existingSession));
+    @DisplayName("extraction output is a standalone observation in the project scope")
+    void storeExtractionResult_writesStandaloneObservation() {
+        when(memoryScopeService.resolveProjectScope("/tmp/test-project")).thenReturn(SCOPE_ID);
+        when(observationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         TemplateConfig template = makeTemplate("user_preferences");
-
         ObservationEntity srcObs = new ObservationEntity();
         srcObs.setId(UUID.randomUUID());
-
         Map<String, Object> result = Map.of("likes", List.of("coffee", "tea"));
 
-        // When
-        storageService.storeExtractionResult(template, result, List.of(srcObs), "test-session-123", "/tmp/test-project");
+        storageService.storeExtractionResult(template, result, List.of(srcObs),
+            "ext:hash:user-a", "/tmp/test-project");
 
-        // Then: session should NOT be created
-        verify(sessionRepository, never()).save(any(SessionEntity.class));
-        // And: observation should be saved
-        ArgumentCaptor<ObservationEntity> obsCaptor = ArgumentCaptor.forClass(ObservationEntity.class);
-        verify(observationRepository).save(obsCaptor.capture());
+        ArgumentCaptor<ObservationEntity> captor = ArgumentCaptor.forClass(ObservationEntity.class);
+        verify(observationRepository).save(captor.capture());
+        ObservationEntity saved = captor.getValue();
 
-        ObservationEntity saved = obsCaptor.getValue();
-        assertThat(saved.getContentSessionId()).isEqualTo("test-session-123");
+        assertThat(saved.getConversationId()).isNull();
+        assertThat(saved.getStandaloneKind()).isEqualTo("extraction");
+        assertThat(saved.getMemoryScopeId()).isEqualTo(SCOPE_ID);
+        // The synthetic key survives as a compatibility/correlation value only.
+        assertThat(saved.getContentSessionId()).isEqualTo("ext:hash:user-a");
         assertThat(saved.getType()).isEqualTo("extracted_user_preferences");
+        assertThat(saved.getSource()).isEqualTo("llm_extraction");
         assertThat(saved.getExtractedData()).isEqualTo(result);
         assertThat(saved.getRefinedFromIds()).contains(srcObs.getId().toString());
+        assertThat(saved.getTitle()).isEqualTo("Extraction: user_preferences");
+        assertThat(saved.getPromptNumber()).isZero();
+        assertThat(saved.getProjectPath()).isEqualTo("/tmp/test-project");
     }
 
     @Test
-    void storeExtractionResult_createsNewSessionIfNotFound() {
-        // Given: session does NOT exist
-        when(sessionRepository.findByContentSessionId("new-session"))
-            .thenReturn(Optional.empty());
-        when(sessionRepository.save(any(SessionEntity.class)))
-            .thenAnswer(inv -> {
-                SessionEntity s = inv.getArgument(0);
-                s.setId(UUID.randomUUID());
-                return s;
-            });
+    @DisplayName("the service never creates a synthetic session")
+    void storeExtractionResult_neverCreatesSession() {
+        when(memoryScopeService.resolveProjectScope(anyString())).thenReturn(SCOPE_ID);
+        when(observationRepository.save(any())).thenAnswer(inv -> {
+            ObservationEntity e = inv.getArgument(0);
+            if (e.getId() == null) e.setId(UUID.randomUUID());
+            return e;
+        });
 
-        TemplateConfig template = makeTemplate("allergies");
+        ObservationEntity src = new ObservationEntity();
+        src.setId(UUID.randomUUID());
+        storageService.storeExtractionResult(makeTemplate("t"), Map.of("k", "v"),
+            List.of(src), "ext:any", "/tmp/p");
 
-        ObservationEntity srcObs = new ObservationEntity();
-        srcObs.setId(UUID.randomUUID());
-
-        Map<String, Object> result = Map.of("allergens", List.of("peanuts"));
-
-        // When
-        storageService.storeExtractionResult(template, result, List.of(srcObs), "new-session", "/tmp/test-project");
-
-        // Then: session should be created and saved
-        verify(sessionRepository, times(1)).save(any(SessionEntity.class));
-        verify(observationRepository).save(any(ObservationEntity.class));
+        // The only collaborator is the observation repository plus the scope resolver:
+        // there is no session repository to call any more.
+        verifyNoMoreInteractions(memoryScopeService);
+        verify(observationRepository, times(1)).save(any());
     }
 
     @Test
     void storeExtractionResult_skipsWhenResultIsEmpty() {
-        // Given: empty result
-        TemplateConfig template = makeTemplate("test_template");
-
-        // When
-        storageService.storeExtractionResult(template, Map.of(), List.of(), "session-id", "/tmp/test");
-
-        // Then: no saves
-        verifyNoInteractions(sessionRepository);
+        storageService.storeExtractionResult(makeTemplate("t"), Map.of(), List.of(), "s", "/tmp/test");
+        verifyNoInteractions(memoryScopeService);
         verifyNoInteractions(observationRepository);
     }
 
     @Test
     void storeExtractionResult_skipsWhenResultIsNull() {
-        // Given: null result
-        TemplateConfig template = makeTemplate("test_template");
-
-        // When
-        storageService.storeExtractionResult(template, null, List.of(), "session-id", "/tmp/test");
-
-        // Then: no saves
-        verifyNoInteractions(sessionRepository);
+        storageService.storeExtractionResult(makeTemplate("t"), null, List.of(), "s", "/tmp/test");
+        verifyNoInteractions(memoryScopeService);
         verifyNoInteractions(observationRepository);
     }
 
     @Test
-    void storeExtractionResult_correctObservationFields() {
-        // Given
-        when(sessionRepository.findByContentSessionId("session-x"))
-            .thenReturn(Optional.of(existingSession));
-        when(observationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+    void storeExtractionResult_rejectsNullSourceObservations() {
+        assertThatThrownBy(() -> storageService.storeExtractionResult(
+            makeTemplate("t"), Map.of("k", "v"), null, "s", "/tmp/test"))
+            .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(observationRepository);
+    }
 
-        TemplateConfig template = makeTemplate("dietary");
-        ObservationEntity srcObs = new ObservationEntity();
-        srcObs.setId(UUID.randomUUID());
-
-        Map<String, Object> result = Map.of("prefers", "vegetarian");
-
-        // When
-        storageService.storeExtractionResult(template, result, List.of(srcObs), "session-x", "/tmp/test-project");
-
-        // Then
-        ArgumentCaptor<ObservationEntity> captor = ArgumentCaptor.forClass(ObservationEntity.class);
-        verify(observationRepository).save(captor.capture());
-
-        ObservationEntity saved = captor.getValue();
-        assertThat(saved.getSource()).isEqualTo("llm_extraction");
-        assertThat(saved.getTitle()).isEqualTo("Extraction: dietary");
-        assertThat(saved.getConcepts()).contains("extraction", "dietary");
-        assertThat(saved.getPromptNumber()).isEqualTo(0);
-        assertThat(saved.getProjectPath()).isEqualTo("/tmp/test-project");
+    @Test
+    void storeExtractionResult_rejectsBlankCorrelationKey() {
+        assertThatThrownBy(() -> storageService.storeExtractionResult(
+            makeTemplate("t"), Map.of("k", "v"), List.of(new ObservationEntity()), "  ", "/tmp/test"))
+            .isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(observationRepository);
     }
 
     // ===== storeDLQ =====
 
     @Test
-    void storeDLQ_createsDlqSessionAndObservation() {
-        // Given: no DLQ session exists
-        when(sessionRepository.findByContentSessionId("dlq:extraction"))
-            .thenReturn(Optional.empty());
-        when(sessionRepository.save(any(SessionEntity.class)))
-            .thenAnswer(inv -> {
-                SessionEntity s = inv.getArgument(0);
-                s.setId(UUID.randomUUID());
-                return s;
-            });
-        when(observationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+    @DisplayName("a DLQ entry is standalone and scoped to the failing observation's project")
+    void storeDLQ_writesStandaloneDlqEntry() {
+        when(memoryScopeService.resolveProjectScope("/tmp/beta")).thenReturn(SCOPE_ID);
+        when(observationRepository.save(any())).thenAnswer(inv -> {
+            ObservationEntity e = inv.getArgument(0);
+            if (e.getId() == null) e.setId(UUID.randomUUID());
+            return e;
+        });
 
-        // When
-        storageService.storeDLQ("/tmp/test-project", "user_preferences", "LLM timeout");
+        storageService.storeDLQ("/tmp/beta", "user_preferences", "LLM timeout");
 
-        // Then: DLQ session and observation should be saved
-        verify(sessionRepository, times(1)).save(any(SessionEntity.class));
-        verify(observationRepository).save(any(ObservationEntity.class));
-    }
-
-    @Test
-    void storeDLQ_reusesExistingDlqSession() {
-        // Given: DLQ session already exists
-        SessionEntity dlqSession = new SessionEntity();
-        dlqSession.setId(UUID.randomUUID());
-        dlqSession.setContentSessionId("dlq:extraction");
-
-        when(sessionRepository.findByContentSessionId("dlq:extraction"))
-            .thenReturn(Optional.of(dlqSession));
-        when(observationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
-        // When
-        storageService.storeDLQ("/tmp/test", "allergies", "invalid schema");
-
-        // Then: session should NOT be created
-        verify(sessionRepository, never()).save(any(SessionEntity.class));
-        verify(observationRepository).save(any(ObservationEntity.class));
-    }
-
-    @Test
-    void storeDLQ_propagatesException() {
-        // Given: DLQ observation save fails (session save succeeds)
-        SessionEntity dlqSession = new SessionEntity();
-        dlqSession.setId(UUID.randomUUID());
-        dlqSession.setContentSessionId("dlq:extraction");
-
-        when(sessionRepository.findByContentSessionId("dlq:extraction"))
-            .thenReturn(Optional.of(dlqSession));
-        when(observationRepository.save(any(ObservationEntity.class)))
-            .thenThrow(new RuntimeException("DB error"));
-
-        // When/Then: F-2 — storeDLQ lets the failure propagate so the transaction
-        // rollback is visible; the caller (StructuredExtractionService.runExtraction)
-        // catches it, logs, and rethrows a wrapping RuntimeException.
-        assertThatThrownBy(() -> storageService.storeDLQ("/tmp/test", "test", "error"))
-            .isInstanceOf(RuntimeException.class);
-    }
-
-    @Test
-    void storeDLQ_correctDlqObservationFields() {
-        // Given
-        SessionEntity dlqSession = new SessionEntity();
-        dlqSession.setId(UUID.randomUUID());
-        dlqSession.setContentSessionId("dlq:extraction");
-
-        when(sessionRepository.findByContentSessionId("dlq:extraction"))
-            .thenReturn(Optional.of(dlqSession));
-        when(observationRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
-        // When
-        storageService.storeDLQ("/tmp/test", "user_preferences", "network timeout");
-
-        // Then
         ArgumentCaptor<ObservationEntity> captor = ArgumentCaptor.forClass(ObservationEntity.class);
         verify(observationRepository).save(captor.capture());
-
         ObservationEntity saved = captor.getValue();
+
+        assertThat(saved.getConversationId()).isNull();
+        assertThat(saved.getStandaloneKind()).isEqualTo("dlq");
+        assertThat(saved.getMemoryScopeId()).isEqualTo(SCOPE_ID);
+        assertThat(saved.getContentSessionId()).isEqualTo("dlq:extraction");
         assertThat(saved.getType()).isEqualTo("dlq_user_preferences");
-        assertThat(saved.getTitle()).isEqualTo("DLQ: user_preferences");
         assertThat(saved.getSource()).isEqualTo("dlq");
-        assertThat(saved.getConcepts()).contains("dlq", "user_preferences");
-        assertThat(saved.getExtractedData()).containsEntry("error", "network timeout");
-        assertThat(saved.getExtractedData()).containsEntry("template", "user_preferences");
+        assertThat(saved.getProjectPath()).isEqualTo("/tmp/beta");
+        // The DLQ key is shared across projects, so scope must come from the row, not the key.
+        verify(memoryScopeService).resolveProjectScope("/tmp/beta");
     }
 
-    // ===== TemplateConfig factory helper =====
+    @Test
+    @DisplayName("two projects failing the same template land in different scopes")
+    void storeDLQ_scopesPerProject() {
+        UUID scopeA = UUID.randomUUID();
+        UUID scopeB = UUID.randomUUID();
+        when(memoryScopeService.resolveProjectScope("/tmp/a")).thenReturn(scopeA);
+        when(memoryScopeService.resolveProjectScope("/tmp/b")).thenReturn(scopeB);
+        when(observationRepository.save(any())).thenAnswer(inv -> {
+            ObservationEntity e = inv.getArgument(0);
+            if (e.getId() == null) e.setId(UUID.randomUUID());
+            return e;
+        });
 
-    private static TemplateConfig makeTemplate(String name) {
-        TemplateConfig tc = new TemplateConfig();
-        tc.setName(name);
-        tc.setEnabled(true);
-        return tc;
+        storageService.storeDLQ("/tmp/a", "t", "err");
+        storageService.storeDLQ("/tmp/b", "t", "err");
+
+        ArgumentCaptor<ObservationEntity> captor = ArgumentCaptor.forClass(ObservationEntity.class);
+        verify(observationRepository, times(2)).save(captor.capture());
+        assertThat(captor.getAllValues()).extracting(ObservationEntity::getMemoryScopeId)
+            .containsExactly(scopeA, scopeB);
+    }
+
+    @Test
+    @DisplayName("the manual-default scope key is never used for extraction or DLQ output")
+    void extractionNeverLandsInManualDefault() {
+        when(memoryScopeService.resolveProjectScope(anyString())).thenReturn(SCOPE_ID);
+        when(observationRepository.save(any())).thenAnswer(inv -> {
+            ObservationEntity e = inv.getArgument(0);
+            if (e.getId() == null) e.setId(UUID.randomUUID());
+            return e;
+        });
+
+        storageService.storeDLQ("/tmp/p", "t", "e");
+        ObservationEntity src2 = new ObservationEntity();
+        src2.setId(UUID.randomUUID());
+        storageService.storeExtractionResult(makeTemplate("t"), Map.of("k", "v"),
+            List.of(src2), "ext:k", "/tmp/p");
+
+        verify(memoryScopeService, never()).resolveManualDefault();
     }
 }

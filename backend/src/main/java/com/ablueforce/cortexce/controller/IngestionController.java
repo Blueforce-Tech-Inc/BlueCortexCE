@@ -2,6 +2,8 @@ package com.ablueforce.cortexce.controller;
 
 import com.ablueforce.cortexce.config.Constants;
 import com.ablueforce.cortexce.entity.SessionEntity;
+import com.ablueforce.cortexce.identity.ExternalSessionRef;
+import com.ablueforce.cortexce.identity.PlatformSource;
 import com.ablueforce.cortexce.entity.UserPromptEntity;
 import com.ablueforce.cortexce.repository.UserPromptRepository;
 import com.ablueforce.cortexce.service.AgentService;
@@ -28,6 +30,8 @@ import org.springframework.web.bind.annotation.*;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Ingestion controller — receives hook events from the thin proxy (wrapper.js).
@@ -128,17 +132,22 @@ public class IngestionController {
 
         log.debug("Tool use: session={}, tool={}", contentSessionId, toolName);
 
-        // Rate limit check (10 requests per 60 seconds per session)
-        if (!rateLimitService.tryAcquire("tool-use:" + contentSessionId)) {
-            log.warn("Rate limit exceeded for session: {}", contentSessionId);
+        // The rate-limit key is the full external identity, not the bare id: two platforms
+        // sharing one id are different sessions and must not drain each other's budget.
+        ExternalSessionRef ref;
+        try {
+            ref = ExternalSessionRef.of(body.platformSource(), contentSessionId);
+        } catch (PlatformSource.InvalidPlatformSourceException | ExternalSessionRef.InvalidExternalSessionRefException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+        String rateLimitKey = "tool-use:" + ref.logKey();
+        if (!rateLimitService.tryAcquire(rateLimitKey)) {
+            log.warn("Rate limit exceeded for session: {}", ref.logKey());
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .body(Map.of("error", "Rate limit exceeded", "retry_after", String.valueOf(rateLimitService.getResetSeconds("tool-use:" + contentSessionId))));
+                .body(Map.of("error", "Rate limit exceeded", "retry_after", String.valueOf(rateLimitService.getResetSeconds(rateLimitKey))));
         }
 
-        // Resolve session DB ID from content session ID
-        SessionEntity session = sessionManagementService.findByContentSessionId(contentSessionId)
-            .orElseGet(() -> sessionManagementService.ensureSession(contentSessionId, cwd, null));
-        applyPlatformSource(session, body.platformSource());
+        SessionEntity session = sessionManagementService.getOrCreate(ref, cwd, null);
         java.util.UUID sessionDbId = session.getId();
 
         // Fire and forget — async observation extraction
@@ -188,10 +197,27 @@ public class IngestionController {
             return ResponseEntity.badRequest().body(Map.of("error", "Missing required field: session_id"));
         }
 
-        log.debug("Session end: session={}", contentSessionId);
+        ExternalSessionRef ref;
+        try {
+            ref = ExternalSessionRef.of(body.platformSource(), contentSessionId);
+        } catch (PlatformSource.InvalidPlatformSourceException | ExternalSessionRef.InvalidExternalSessionRefException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
 
-        // Fire-and-forget: marks session completed AND generates summary asynchronously
-        summaryGenerationService.completeSessionAsync(contentSessionId, lastAssistantMessage);
+        // SessionEnd is a terminal, resolve-only event: it must never create a conversation.
+        // A replayed hook after deletion would otherwise resurrect the session and then
+        // regenerate a summary for it.
+        Optional<SessionEntity> resolved = sessionManagementService.find(ref);
+        if (resolved.isEmpty()) {
+            log.debug("Session end for unknown conversation: {}", ref.logKey());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("error", "Session not found"));
+        }
+        UUID conversationId = resolved.get().getId();
+        log.debug("Session end: conversation={} ({})", conversationId, ref.logKey());
+
+        // Fire-and-forget: marks the conversation completed and generates the summary.
+        summaryGenerationService.completeSessionAsync(conversationId, lastAssistantMessage);
 
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
@@ -251,19 +277,22 @@ public class IngestionController {
         // This handles the case where SessionStart hook failed or was skipped,
         // but UserPromptSubmit still needs to record the prompt.
         // If session already exists, this is a no-op; otherwise creates a new session.
-        SessionEntity session = sessionManagementService.ensureSession(contentSessionId, cwd, promptText);
-        applyPlatformSource(session, body.platformSource());
+        ExternalSessionRef ref;
+        try {
+            ref = ExternalSessionRef.of(body.platformSource(), contentSessionId);
+        } catch (PlatformSource.InvalidPlatformSourceException | ExternalSessionRef.InvalidExternalSessionRefException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+        SessionEntity session = sessionManagementService.getOrCreate(ref, cwd, promptText);
 
         UserPromptEntity prompt = new UserPromptEntity();
-        prompt.setContentSessionId(contentSessionId);
+        prompt.setConversationId(session.getId());
+        prompt.setContentSessionId(ref.contentSessionId());
+        prompt.setPlatformSource(session.getPlatformSource());
         prompt.setPromptText(promptText);
         prompt.setPromptNumber(promptNumber);
         prompt.setProjectPath(cwd);  // Set project path from cwd
         prompt.setCreatedAtEpoch(Instant.now().toEpochMilli());
-        sessionManagementService.findByContentSessionId(contentSessionId)
-            .map(SessionEntity::getPlatformSource)
-            .filter(source -> source != null && !source.isBlank())
-            .ifPresent(prompt::setPlatformSource);
         UserPromptEntity saved = userPromptRepository.save(prompt);
 
         // Broadcast SSE event for new_prompt after transaction commits (fixes race condition)
@@ -348,11 +377,18 @@ public class IngestionController {
         // P0: Ensure session exists before creating observation (fixes FK constraint error)
         // This handles the case where SessionStart hook failed or was skipped.
         // If session already exists, this is a no-op; otherwise creates a new session.
-        SessionEntity session = sessionManagementService.ensureSession(contentSessionId, projectPath, parsed.title);
-        applyPlatformSource(session, body.platformSource());
+        ExternalSessionRef ref;
+        try {
+            ref = ExternalSessionRef.of(body.platformSource(), contentSessionId);
+        } catch (PlatformSource.InvalidPlatformSourceException | ExternalSessionRef.InvalidExternalSessionRefException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+        SessionEntity session = sessionManagementService.getOrCreate(ref, projectPath, parsed.title);
 
         var observation = agentService.saveObservation(
-            contentSessionId,
+            session.getId(),
+            ref.platformSource(),
+            ref.contentSessionId(),
             projectPath,
             parsed,
             body.promptNumber(),
@@ -374,16 +410,4 @@ public class IngestionController {
         return ResponseEntity.ok(observation);
     }
 
-    private void applyPlatformSource(SessionEntity session, String platformSource) {
-        if (session == null || platformSource == null || platformSource.isBlank()) {
-            return;
-        }
-        String requested = platformSource.trim();
-        String existing = session.getPlatformSource();
-        if (existing == null || existing.isBlank()
-            || ("claude".equalsIgnoreCase(existing) && !"claude".equalsIgnoreCase(requested))) {
-            session.setPlatformSource(requested);
-            sessionManagementService.save(session);
-        }
-    }
 }

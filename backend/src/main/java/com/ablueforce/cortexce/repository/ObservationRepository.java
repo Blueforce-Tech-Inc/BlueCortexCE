@@ -18,23 +18,49 @@ import java.util.UUID;
 public interface ObservationRepository extends JpaRepository<ObservationEntity, UUID> {
 
     // Paged query with optional project and platformSource filter
+    /**
+     * Paged observation list with the frozen identity precedence.
+     *
+     * <ul>
+     *   <li>{@code conversationId} set: only that conversation's rows, never standalone.</li>
+     *   <li>else {@code standaloneKind} set: only typed standalone rows, scoped to the legacy
+     *       correlation key when {@code contentSessionId} is also given.</li>
+     *   <li>else {@code contentSessionId} set: standalone rows borrowing that key. A caller
+     *       wanting a real conversation resolves the UUID first (see ViewerController).</li>
+     * </ul>
+     *
+     * <p>The legacy sentinel {@code manual-memories} lands on the standalone branch, which is
+     * its documented meaning: manual rows, never a conversation.
+     */
     @Query("""
         SELECT o FROM ObservationEntity o
         WHERE (:project IS NULL OR o.projectPath = :project)
         AND (:platformSource IS NULL OR COALESCE(o.platformSource, 'claude') = :platformSource)
-        AND (:contentSessionId IS NULL OR o.contentSessionId = :contentSessionId)
+        AND (:conversationId IS NULL OR o.conversationId = :conversationId)
+        AND (:standaloneKind IS NULL OR o.standaloneKind = :standaloneKind)
+        AND ((:conversationId IS NOT NULL)
+             OR (:standaloneKind IS NULL AND :contentSessionId IS NULL)
+             OR o.contentSessionId = :contentSessionId)
         ORDER BY o.createdAtEpoch DESC, o.id DESC
         """)
     Page<ObservationEntity> findAllPaged(
         @Param("project") String project,
         @Param("platformSource") String platformSource,
+        @Param("conversationId") UUID conversationId,
         @Param("contentSessionId") String contentSessionId,
+        @Param("standaloneKind") String standaloneKind,
         Pageable pageable
     );
 
+    /**
+     * Delete every observation owned by one conversation.
+     *
+     * <p>Keyed on the internal UUID. Standalone rows have {@code conversation_id = NULL} and
+     * can never match, so deleting a conversation cannot destroy manual memories.
+     */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("DELETE FROM ObservationEntity o WHERE o.contentSessionId = :contentSessionId")
-    int deleteByContentSessionId(@Param("contentSessionId") String contentSessionId);
+    @Query("DELETE FROM ObservationEntity o WHERE o.conversationId = :conversationId")
+    int deleteByConversationId(@Param("conversationId") UUID conversationId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM ObservationEntity o WHERE o.id = :id")
@@ -53,12 +79,12 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     @Query("""
         SELECT o FROM ObservationEntity o
         WHERE o.projectPath = :projectPath
-        AND o.contentSessionId IN :sessionIds
+        AND o.conversationId IN :conversationIds
         ORDER BY o.createdAtEpoch DESC
         """)
-    Page<ObservationEntity> findByProjectPathAndContentSessionIdIn(
+    Page<ObservationEntity> findByProjectPathAndConversationIdIn(
         @Param("projectPath") String projectPath,
-        @Param("sessionIds") List<String> sessionIds,
+        @Param("conversationIds") List<UUID> conversationIds,
         Pageable pageable
     );
 
@@ -75,13 +101,13 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     @Query("""
         SELECT o FROM ObservationEntity o
         WHERE o.projectPath = :projectPath
-        AND o.contentSessionId IN :sessionIds
+        AND o.conversationId IN :conversationIds
         AND o.qualityScore >= :minQuality
         ORDER BY o.createdAtEpoch DESC
         """)
-    Page<ObservationEntity> findByProjectPathAndContentSessionIdInWithQuality(
+    Page<ObservationEntity> findByProjectPathAndConversationIdInWithQuality(
         @Param("projectPath") String projectPath,
-        @Param("sessionIds") List<String> sessionIds,
+        @Param("conversationIds") List<UUID> conversationIds,
         @Param("minQuality") double minQuality,
         Pageable pageable
     );
@@ -242,17 +268,53 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     Page<ObservationEntity> findByProjectPathOrderByCreatedAtEpochDesc(String projectPath, Pageable pageable);
 
     // Find observations for a session, ordered ascending (for summary generation)
-    List<ObservationEntity> findByContentSessionIdOrderByCreatedAtEpochAsc(String contentSessionId);
+    /**
+     * Observations of one conversation, oldest first (summary input).
+     *
+     * <p>Keyed on the internal UUID. The legacy external id stopped being a valid selector
+     * as soon as two platforms could share it, and it also matched the compatibility parent
+     * rows that standalone observations still reference.
+     */
+    @Query("""
+        SELECT o FROM ObservationEntity o
+        WHERE o.conversationId = :conversationId
+        ORDER BY o.createdAtEpoch ASC, o.id ASC
+        """)
+    List<ObservationEntity> findByConversationIdOrderByCreatedAtEpochAsc(
+        @Param("conversationId") UUID conversationId);
+
+    /**
+     * Standalone observations of a given kind, selected by project scope + legacy correlation
+     * key + type. Used for extraction prior/latest/history, where the correlation key is a
+     * compatibility value rather than a conversation identity.
+     */
+    @Query(value = """
+        SELECT o.* FROM mem_observations o
+        JOIN mem_memory_scopes ms ON ms.id = o.memory_scope_id
+        WHERE ms.scope_type = 'project'
+          AND ms.scope_key = cast(:project AS text) COLLATE "C"
+          AND o.standalone_kind = :kind
+          AND o.content_session_id = cast(:correlationKey AS text) COLLATE "C"
+          AND o.type = :type
+        ORDER BY o.created_at_epoch DESC, o.id DESC
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<ObservationEntity> findStandaloneByCorrelationKeyAndType(
+        @Param("project") String project,
+        @Param("kind") String kind,
+        @Param("correlationKey") String correlationKey,
+        @Param("type") String type,
+        @Param("limit") int limit);
 
     // Batch: find observations across multiple sessions (avoids N+1 query)
     @Query(value = """
         SELECT * FROM mem_observations
-        WHERE content_session_id IN (:sessionIds)
+        WHERE conversation_id IN (:conversationIds)
         ORDER BY created_at_epoch DESC
         LIMIT :limit
         """, nativeQuery = true)
-    List<ObservationEntity> findByContentSessionIdInOrderByCreatedAtEpochDesc(
-        @Param("sessionIds") List<String> sessionIds,
+    List<ObservationEntity> findByConversationIdInOrderByCreatedAtEpochDesc(
+        @Param("conversationIds") List<UUID> conversationIds,
         @Param("limit") int limit);
 
     // P2: Hybrid search combining pgvector semantic + tsvector full-text
@@ -449,17 +511,18 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     // ==========================================================================
 
     /**
-     * Find observation by session ID, title, and created_at_epoch for duplicate checking.
-     * Used by Import API to prevent duplicate imports.
+     * Find observation by conversation UUID, title, and created_at_epoch for duplicate
+     * checking. Keyed on the UUID so two platforms sharing an external id do not dedupe
+     * against each other.
      */
     @Query("""
         SELECT o FROM ObservationEntity o
-        WHERE o.contentSessionId = :sessionId
+        WHERE o.conversationId = :conversationId
         AND o.title = :title
         AND o.createdAtEpoch = :createdAtEpoch
         """)
     Optional<ObservationEntity> findBySessionIdAndTitleAndCreatedAtEpoch(
-        @Param("sessionId") String sessionId,
+        @Param("conversationId") UUID conversationId,
         @Param("title") String title,
         @Param("createdAtEpoch") long createdAtEpoch
     );
@@ -570,6 +633,10 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         WHERE project_path = :project
         AND quality_score < :threshold
         AND type NOT LIKE 'extracted_%'
+        -- Standalone rows (manual/extraction/dlq) never enter destruction or rewriting.
+        -- This is a hard kind check, not a source heuristic: manual memories are user-saved
+        -- content and must not be deleted, merged or reworded by generic refinement.
+        AND standalone_kind IS NULL
         -- Keep dead-letter records out of the refine pipeline. This used to be
         -- `type != 'extraction_failed'`, but ExtractionStorageService.storeDLQ now
         -- writes type = 'dlq_' + templateName with source = 'dlq', so that condition
@@ -604,6 +671,10 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         AND (last_accessed_at IS NULL OR last_accessed_at < :accessThreshold)
         AND (quality_score IS NULL OR quality_score < :qualityThreshold)
         AND type NOT LIKE 'extracted_%'
+        -- Standalone rows (manual/extraction/dlq) never enter destruction or rewriting.
+        -- This is a hard kind check, not a source heuristic: manual memories are user-saved
+        -- content and must not be deleted, merged or reworded by generic refinement.
+        AND standalone_kind IS NULL
         -- Keep dead-letter records out of the refine pipeline. This used to be
         -- `type != 'extraction_failed'`, but ExtractionStorageService.storeDLQ now
         -- writes type = 'dlq_' + templateName with source = 'dlq', so that condition
@@ -637,6 +708,10 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         WHERE project_path = :project
         AND (refined_at IS NULL OR refined_at < :cooldownThreshold)
         AND type NOT LIKE 'extracted_%'
+        -- Standalone rows (manual/extraction/dlq) never enter destruction or rewriting.
+        -- This is a hard kind check, not a source heuristic: manual memories are user-saved
+        -- content and must not be deleted, merged or reworded by generic refinement.
+        AND standalone_kind IS NULL
         -- Keep dead-letter records out of the refine pipeline. This used to be
         -- `type != 'extraction_failed'`, but ExtractionStorageService.storeDLQ now
         -- writes type = 'dlq_' + templateName with source = 'dlq', so that condition
@@ -745,15 +820,23 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     /**
      * Find existing extraction by session ID + type for LLM re-extraction prior context.
      */
+    /**
+     * Standalone observations of one kind plus legacy correlation key and type.
+     *
+     * <p>Extraction output keeps its synthetic key as a compatibility value, so it is looked
+     * up by that key together with the kind — never treated as a conversation identity.
+     */
     @Query(value = """
         SELECT * FROM mem_observations
-        WHERE content_session_id = :sessionId
+        WHERE standalone_kind = :kind
+        AND content_session_id = cast(:correlationKey AS text) COLLATE "C"
         AND type = :type
         ORDER BY created_at_epoch DESC
         LIMIT :limit
         """, nativeQuery = true)
-    List<ObservationEntity> findByContentSessionIdAndType(
-        @Param("sessionId") String sessionId,
+    List<ObservationEntity> findStandaloneByCorrelationKeyAndType(
+        @Param("correlationKey") String correlationKey,
+        @Param("kind") String kind,
         @Param("type") String type,
         @Param("limit") int limit);
 
@@ -761,5 +844,6 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      * Batch fetch observations by session IDs (for bulk import duplicate detection).
      * Use to check for existing observations in bulk before calling saveAll().
      */
-    List<ObservationEntity> findByContentSessionIdIn(List<String> sessionIds);
+    /** Batch lookup by conversation UUID (import duplicate detection). */
+    List<ObservationEntity> findByConversationIdIn(List<UUID> conversationIds);
 }

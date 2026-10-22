@@ -84,9 +84,9 @@ public class ExpRagService {
         List<ObservationEntity> results;
 
         // Phase 3: userId-based session filtering
-        List<String> userSessionIds = null;
+        List<java.util.UUID> userSessionIds = null;
         if (userId != null && !userId.isBlank()) {
-            userSessionIds = sessionRepository.findSessionIdsByUserIdAndProject(userId, projectPath);
+            userSessionIds = sessionRepository.findConversationIdsByUserIdAndProject(userId, projectPath);
             if (userSessionIds.isEmpty()) {
                 log.debug("No sessions found for userId={} in project={}", userId, projectPath);
                 return List.of();
@@ -97,7 +97,7 @@ public class ExpRagService {
         if (userSessionIds != null) {
             // User-scoped: fetch from user's sessions only
             results = observationRepository
-                .findByContentSessionIdInOrderByCreatedAtEpochDesc(userSessionIds, count * 3);
+                .findByConversationIdInOrderByCreatedAtEpochDesc(userSessionIds, count * 3);
             // Apply source filter in-memory (no session+source repo method exists)
             if (source != null && !source.isBlank()) {
                 results = results.stream()

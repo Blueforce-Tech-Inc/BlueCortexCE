@@ -5,6 +5,8 @@ import com.ablueforce.cortexce.config.AppSettings;
 import com.ablueforce.cortexce.config.ModeConfig.Mode;
 import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.ablueforce.cortexce.entity.SessionEntity;
+import com.ablueforce.cortexce.identity.ExternalSessionRef;
+import com.ablueforce.cortexce.service.SessionManagementService;
 import com.ablueforce.cortexce.entity.SummaryEntity;
 import com.ablueforce.cortexce.entity.UserPromptEntity;
 import com.ablueforce.cortexce.repository.ObservationRepository;
@@ -28,7 +30,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.ablueforce.cortexce.dto.OffsetPageRequest;
 import org.springframework.web.bind.annotation.*;
@@ -44,6 +48,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Viewer REST API controller.
@@ -67,6 +73,7 @@ public class ViewerController {
     private final ModeService modeService;
     private final SettingsService settingsService;
     private final TimelineService timelineService;
+    private final SessionManagementService sessionManagementService;
 
     public ViewerController(ObservationRepository observationRepository,
                             SummaryRepository summaryRepository,
@@ -77,7 +84,8 @@ public class ViewerController {
                             SearchService searchService,
                             ModeService modeService,
                             SettingsService settingsService,
-                            TimelineService timelineService) {
+                            TimelineService timelineService,
+                            SessionManagementService sessionManagementService) {
         this.observationRepository = observationRepository;
         this.summaryRepository = summaryRepository;
         this.userPromptRepository = userPromptRepository;
@@ -88,6 +96,7 @@ public class ViewerController {
         this.modeService = modeService;
         this.settingsService = settingsService;
         this.timelineService = timelineService;
+        this.sessionManagementService = sessionManagementService;
     }
 
     /**
@@ -105,18 +114,69 @@ public class ViewerController {
         @RequestParam(required = false) String platformSource,
         @Parameter(description = "Content session ID filter (optional)", required = false, example = "session-123")
         @RequestParam(required = false) String contentSessionId,
+        @Parameter(description = "Internal conversation UUID (highest priority; excludes standalone rows)", required = false)
+        @RequestParam(required = false) String conversationId,
+        @Parameter(description = "Standalone kind filter: manual|extraction|dlq (only with contentSessionId)", required = false)
+        @RequestParam(required = false) String standaloneKind,
         @Parameter(description = "Offset for pagination (0-based)", required = false, example = "0")
         @RequestParam(defaultValue = "0") int offset,
         @Parameter(description = "Number of items per page (max 100)", required = false, example = "20")
         @RequestParam(defaultValue = "20") int limit
     ) {
-        // Validate pagination parameters
         int validatedLimit = Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE);
         int validatedOffset = Math.max(0, offset);
-        Page<ObservationEntity> result = observationRepository.findAllPaged(project, platformSource, contentSessionId,
-            new OffsetPageRequest(0, validatedLimit, validatedOffset,
-                Sort.by(Sort.Direction.DESC, "createdAt")));
-        return ResponseEntity.ok(PagedResponse.of(result));
+        try {
+            UUID convId = resolveConversationFilter(conversationId, platformSource, contentSessionId, standaloneKind);
+            Page<ObservationEntity> result = observationRepository.findAllPaged(project, platformSource,
+                convId, contentSessionId, standaloneKind,
+                new OffsetPageRequest(0, validatedLimit, validatedOffset,
+                    Sort.by(Sort.Direction.DESC, "createdAt")));
+            return ResponseEntity.ok(PagedResponse.of(result));
+        } catch (ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode()).build();
+        }
+    }
+
+    /**
+     * Work out which filter a listing request really addresses.
+     *
+     * <p>Identity precedence (plan §5.3): an explicit {@code conversationId} wins outright.
+     * Otherwise a full {@code (platformSource, contentSessionId)} pair is resolved to the
+     * conversation UUID. The legacy {@code contentSessionId=manual-memories} sentinel is
+     * interpreted as "manual standalone rows", never as a conversation.
+     */
+    private UUID resolveConversationFilter(String conversationId, String platformSource,
+                                           String contentSessionId, String standaloneKind) {
+        if (conversationId != null && !conversationId.isBlank()) {
+            UUID id;
+            try {
+                id = UUID.fromString(conversationId);
+            } catch (IllegalArgumentException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "conversationId must be a UUID");
+            }
+            if (contentSessionId != null && !contentSessionId.isBlank()) {
+                // If both are supplied they must name the same conversation.
+                Optional<SessionEntity> byExternal = sessionManagementService.find(
+                    ExternalSessionRef.of(platformSource, contentSessionId));
+                if (byExternal.isEmpty() || !byExternal.get().getId().equals(id)) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "conversationId does not match contentSessionId/platformSource");
+                }
+            }
+            if (standaloneKind != null && !standaloneKind.isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "standaloneKind cannot be combined with conversationId");
+            }
+            return id;
+        }
+        if (contentSessionId != null && !contentSessionId.isBlank()
+            && !"manual-memories".equals(contentSessionId)) {
+            return sessionManagementService.find(ExternalSessionRef.of(platformSource, contentSessionId))
+                .map(SessionEntity::getId)
+                // No such conversation: answer with an empty set rather than every row.
+                .orElse(new UUID(0, 0));
+        }
+        return null;
     }
 
     /**
@@ -134,6 +194,8 @@ public class ViewerController {
         @RequestParam(required = false) String platformSource,
         @Parameter(description = "Content session ID filter (optional)", required = false, example = "session-123")
         @RequestParam(required = false) String contentSessionId,
+        @Parameter(description = "Internal conversation UUID filter (optional)", required = false)
+        @RequestParam(required = false) String conversationId,
         @Parameter(description = "Offset for pagination (0-based)", required = false, example = "0")
         @RequestParam(defaultValue = "0") int offset,
         @Parameter(description = "Number of items per page (max 100)", required = false, example = "20")
@@ -141,7 +203,8 @@ public class ViewerController {
     ) {
         int validatedLimit = Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE);
         int validatedOffset = Math.max(0, offset);
-        Page<SummaryEntity> result = summaryRepository.findAllPaged(project, platformSource, contentSessionId,
+        Page<SummaryEntity> result = summaryRepository.findAllPaged(project, platformSource,
+            parseConversationId(conversationId), contentSessionId,
             new OffsetPageRequest(0, validatedLimit, validatedOffset,
                 Sort.by(Sort.Direction.DESC, "createdAt")));
         return ResponseEntity.ok(PagedResponse.of(result));
@@ -162,6 +225,8 @@ public class ViewerController {
         @RequestParam(required = false) String platformSource,
         @Parameter(description = "Content session ID filter (optional)", required = false, example = "session-123")
         @RequestParam(required = false) String contentSessionId,
+        @Parameter(description = "Internal conversation UUID filter (optional)", required = false)
+        @RequestParam(required = false) String conversationId,
         @Parameter(description = "Offset for pagination (0-based)", required = false, example = "0")
         @RequestParam(defaultValue = "0") int offset,
         @Parameter(description = "Number of items per page (max 100)", required = false, example = "20")
@@ -169,7 +234,8 @@ public class ViewerController {
     ) {
         int validatedLimit = Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE);
         int validatedOffset = Math.max(0, offset);
-        Page<UserPromptEntity> result = userPromptRepository.findAllPaged(project, platformSource, contentSessionId,
+        Page<UserPromptEntity> result = userPromptRepository.findAllPaged(project, platformSource,
+            parseConversationId(conversationId), contentSessionId,
             new OffsetPageRequest(0, validatedLimit, validatedOffset,
                 Sort.by(Sort.Direction.DESC, "createdAt")));
         return ResponseEntity.ok(PagedResponse.of(result));
@@ -732,6 +798,25 @@ public class ViewerController {
             @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Request body with 'contentSessionIds' field containing a list of Claude Code session ID strings", required = true)
             @org.springframework.web.bind.annotation.RequestBody Map<String, Object> request
     ) {
+        // New form: sessionRefs = [{contentSessionId, platformSource}], which can address two
+        // platforms sharing one external id in a single request. Legacy contentSessionIds is
+        // still accepted and means "the Claude platform".
+        Object refsObj = request.get("sessionRefs");
+        if (refsObj instanceof List<?> refsList && !refsList.isEmpty()) {
+            List<Map<String, Object>> out = new ArrayList<>();
+            for (Object entry : refsList) {
+                if (!(entry instanceof Map<?, ?> ref)) continue;
+                Object cid = ref.get("contentSessionId");
+                Object ps = ref.get("platformSource");
+                if (!(cid instanceof String contentId) || contentId.isBlank()) continue;
+                String platform = ps instanceof String s2 && !s2.isBlank() ? s2 : "claude";
+                sessionManagementService.find(ExternalSessionRef.of(platform, contentId))
+                    .map(ViewerController::sessionToMap)
+                    .ifPresent(out::add);
+            }
+            return ResponseEntity.ok(out);
+        }
+
         Object idsObj = request.get("contentSessionIds");
         if (!(idsObj instanceof List<?> idsList) || idsList.isEmpty()) {
             return ResponseEntity.ok(List.of());
@@ -747,27 +832,36 @@ public class ViewerController {
         }
 
         try {
-            List<SessionEntity> sessions = sessionRepository.findByContentSessionIdIn(contentSessionIds);
-
-            List<Map<String, Object>> result = sessions.stream()
-                    .map(s -> {
-                        Map<String, Object> map = new HashMap<>();
-                        map.put("id", s.getId().toString());
-                        map.put("content_session_id", s.getContentSessionId());
-                        map.put("project", s.getProjectPath() != null ? s.getProjectPath() : "");
-                        map.put("user_prompt", s.getUserPrompt() != null ? s.getUserPrompt() : "");
-                        map.put("started_at_epoch", s.getStartedAtEpoch());
-                        map.put("completed_at_epoch", s.getCompletedAtEpoch() != null ? s.getCompletedAtEpoch() : 0);
-                        map.put("status", s.getStatus() != null ? s.getStatus() : "");
-                        return map;
-                    })
-                    .toList();
+            List<Map<String, Object>> result = new ArrayList<>();
+            for (String contentId : contentSessionIds) {
+                sessionManagementService.findLegacyClaude(contentId)
+                    .map(ViewerController::sessionToMap)
+                    .ifPresent(result::add);
+            }
 
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("Batch get sessions failed: {}", e.getMessage());
             return ResponseEntity.status(500).body(List.of());
         }
+    }
+
+    /** Wire projection of a Conversation for the export helper. */
+    private static Map<String, Object> sessionToMap(SessionEntity s) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", s.getId().toString());
+        map.put("content_session_id", s.getContentSessionId());
+        map.put("platform_source", s.getPlatformSource());
+        map.put("project", s.getProjectPath() != null ? s.getProjectPath() : "");
+        map.put("user_prompt", s.getUserPrompt() != null ? s.getUserPrompt() : "");
+        map.put("started_at_epoch", s.getStartedAtEpoch());
+        map.put("completed_at_epoch", s.getCompletedAtEpoch() != null ? s.getCompletedAtEpoch() : 0);
+        map.put("status", s.getStatus() != null ? s.getStatus() : "");
+        return map;
+    }
+
+    private static UUID parseConversationId(String raw) {
+        return raw == null || raw.isBlank() ? null : UUID.fromString(raw);
     }
 
     /**

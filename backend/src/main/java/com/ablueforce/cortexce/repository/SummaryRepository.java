@@ -19,19 +19,22 @@ public interface SummaryRepository extends JpaRepository<SummaryEntity, UUID> {
         SELECT s FROM SummaryEntity s
         WHERE (:project IS NULL OR s.projectPath = :project)
         AND (:platformSource IS NULL OR COALESCE(s.platformSource, 'claude') = :platformSource)
+        AND (:conversationId IS NULL OR s.conversationId = :conversationId)
         AND (:contentSessionId IS NULL OR s.contentSessionId = :contentSessionId)
         ORDER BY s.createdAtEpoch DESC, s.id DESC
         """)
     Page<SummaryEntity> findAllPaged(
         @Param("project") String project,
         @Param("platformSource") String platformSource,
+        @Param("conversationId") UUID conversationId,
         @Param("contentSessionId") String contentSessionId,
         Pageable pageable
     );
 
+    /** Delete the summaries a conversation owns. Keyed on the internal UUID. */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("DELETE FROM SummaryEntity s WHERE s.contentSessionId = :contentSessionId")
-    int deleteByContentSessionId(@Param("contentSessionId") String contentSessionId);
+    @Query("DELETE FROM SummaryEntity s WHERE s.conversationId = :conversationId")
+    int deleteByConversationId(@Param("conversationId") UUID conversationId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM SummaryEntity s WHERE s.id = :id")
@@ -93,5 +96,5 @@ public interface SummaryRepository extends JpaRepository<SummaryEntity, UUID> {
      * index, so the sort is served from the index.
      */
     @Query("SELECT s FROM SummaryEntity s WHERE s.contentSessionId = :contentSessionId ORDER BY s.createdAtEpoch DESC")
-    List<SummaryEntity> findByContentSessionId(@Param("contentSessionId") String contentSessionId);
+    List<SummaryEntity> findByConversationId(@Param("conversationId") UUID conversationId);
 }

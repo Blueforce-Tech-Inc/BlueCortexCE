@@ -6,6 +6,7 @@ import com.ablueforce.cortexce.entity.SessionEntity;
 import com.ablueforce.cortexce.entity.SummaryEntity;
 import com.ablueforce.cortexce.repository.ObservationRepository;
 import com.ablueforce.cortexce.repository.SessionRepository;
+import com.ablueforce.cortexce.service.MemoryScopeService;
 import com.ablueforce.cortexce.repository.SummaryRepository;
 import com.ablueforce.cortexce.service.EmbeddingService;
 import com.ablueforce.cortexce.service.SearchService;
@@ -48,6 +49,7 @@ public class ClaudeMemMcpTools {
     private final TimelineService timelineService;
     private final SummaryRepository summaryRepository;
     private final SessionRepository sessionRepository;
+    private final MemoryScopeService memoryScopeService;
 
     public ClaudeMemMcpTools(
             SearchService searchService,
@@ -55,13 +57,15 @@ public class ClaudeMemMcpTools {
             ObservationRepository observationRepository,
             TimelineService timelineService,
             SummaryRepository summaryRepository,
-            SessionRepository sessionRepository) {
+            SessionRepository sessionRepository,
+            MemoryScopeService memoryScopeService) {
         this.searchService = searchService;
         this.embeddingService = embeddingService;
         this.observationRepository = observationRepository;
         this.timelineService = timelineService;
         this.summaryRepository = summaryRepository;
         this.sessionRepository = sessionRepository;
+        this.memoryScopeService = memoryScopeService;
     }
 
     /**
@@ -238,9 +242,10 @@ public class ClaudeMemMcpTools {
     public Map<String, Object> saveMemory(
             @McpToolParam(description = "Content to remember (required)", required = true) String text,
             @McpToolParam(description = "Short title for the memory", required = false) String title,
-            @McpToolParam(description = "Project path", required = false) String project
+            @McpToolParam(description = "Project path", required = false) String project,
+            @McpToolParam(description = "Host platform that issued this call (defaults to claude)", required = false) String platformSource
     ) {
-        log.info("MCP save_memory: title={}, project={}", title, project);
+        log.info("MCP save_memory: title={}, has_project={}", title, project != null && !project.isBlank());
 
         Map<String, Object> response = new HashMap<>();
 
@@ -251,34 +256,32 @@ public class ClaudeMemMcpTools {
         }
 
         try {
-            // E.1 Fix: Find or create a shared manual-memories session to avoid session leakage
-            String manualSessionId = "manual-memories";
-            sessionRepository.findByContentSessionId(manualSessionId)
-                .orElseGet(() -> {
-                    SessionEntity s = new SessionEntity();
-                    s.setContentSessionId(manualSessionId);
-                    s.setProjectPath("manual-memories");
-                    s.setStartedAt(OffsetDateTime.now(ZoneOffset.UTC));
-                    s.setStartedAtEpoch(System.currentTimeMillis());
-                    s.setStatus("completed");
-                    return sessionRepository.save(s);
-                });
-            log.debug("Using manual-memories session: {}", manualSessionId);
+            // A manual memory is not a conversation: it belongs to a memory scope and has no
+            // conversation_id. The legacy "manual-memories" external id is kept on the row as
+            // a wire/correlation value only, so old clients that filter on it still work.
+            String legacyKey = com.ablueforce.cortexce.identity.MemoryScopeKey.LEGACY_MANUAL_PROJECT_PATH;
+            boolean hasExplicitProject = project != null && !project.isBlank();
+            String effectiveProject = hasExplicitProject ? project : legacyKey;
+            String normalizedPlatform = com.ablueforce.cortexce.identity.PlatformSource.normalize(platformSource);
 
-            // Create observation entity
-            // TS alignment: Use type='discovery' and subtitle='Manual memory' like MemoryRoutes.ts
-            // F-2 Fix: Use "manual-memories" as projectPath when project is null, for consistency
-            // with the session's projectPath="manual-memories". Without this fix, a null project
-            // would cause observation.projectPath=null while session.projectPath="manual-memories",
-            // breaking project-scoped queries that expect both to match.
-            String effectiveProject = (project != null && !project.isBlank()) ? project : "manual-memories";
+            // Scope: an explicit project path is a project scope (even if it happens to spell
+            // the legacy sentinel); only "no project" goes to the single manual-default scope.
+            java.util.UUID scopeId = hasExplicitProject
+                ? memoryScopeService.resolveProjectScope(effectiveProject)
+                : memoryScopeService.resolveManualDefault();
+
             ObservationEntity observation = new ObservationEntity();
             observation.setContent(text);
             observation.setTitle(title != null ? title : "Manual Memory");
             observation.setSubtitle("Manual memory");
             observation.setProjectPath(effectiveProject);
             observation.setType("discovery");  // TS uses 'discovery' type
-            observation.setContentSessionId(manualSessionId);
+            observation.setContentSessionId(legacyKey);   // compatibility value only
+            observation.setPlatformSource(normalizedPlatform);
+            observation.setSource("manual");               // record type, not the platform
+            observation.setConversationId(null);
+            observation.setStandaloneKind("manual");
+            observation.setMemoryScopeId(scopeId);
             observation.setCreatedAtEpoch(System.currentTimeMillis());
             observation.setPromptNumber(0);
             observation.setDiscoveryTokens(0);

@@ -76,13 +76,22 @@ public class ApiRequests {
     ) {}
 
     @Schema(description = "Session end event")
+    /**
+     * SessionEnd hook payload.
+     *
+     * <p>{@code platform_source} is optional; absent means the Claude compatibility default.
+     * Two platforms may share a {@code session_id}, so the platform is part of the identity
+     * and a multi-platform adapter must send it explicitly.
+     */
     public record SessionEndRequest(
         @Schema(description = "Session ID", requiredMode = Schema.RequiredMode.REQUIRED)
         @JsonProperty("session_id") String sessionId,
         @Schema(description = "Project path")
         @JsonProperty("cwd") String cwd,
         @Schema(description = "Last assistant message for summary generation")
-        @JsonProperty("last_assistant_message") String lastAssistantMessage
+        @JsonProperty("last_assistant_message") String lastAssistantMessage,
+        @Schema(description = "Source platform (defaults to claude when absent)")
+        @JsonProperty("platform_source") String platformSource
     ) {}
 
     @Schema(description = "User prompt event")

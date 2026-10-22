@@ -49,6 +49,9 @@ class ClaudeMemMcpToolsTest {
     @Mock
     private SessionRepository sessionRepository;
 
+    @Mock
+    private com.ablueforce.cortexce.service.MemoryScopeService memoryScopeService;
+
     private ClaudeMemMcpTools tools;
 
     @BeforeEach
@@ -56,7 +59,8 @@ class ClaudeMemMcpToolsTest {
         // Only the repositories these two tools touch are wired; the rest of the
         // constructor is unused by the paths under test.
         tools = new ClaudeMemMcpTools(
-                null, null, observationRepository, null, summaryRepository, sessionRepository);
+                null, null, observationRepository, null, summaryRepository, sessionRepository,
+                memoryScopeService);
     }
 
     private static ObservationEntity obs(long epoch) {

@@ -112,7 +112,7 @@ public class StructuredExtractionService {
      * Re-extract for a specific session (triggered by PATCH userId).
      * Shares per-project lock with deepRefineProjectMemories() to prevent concurrent extraction.
      */
-    public void reExtractForSession(String sessionId, String projectPath) {
+    public void reExtractForSession(java.util.UUID conversationId, String projectPath) {
         if (!extractionConfig.isEnabled() || !llmService.isAvailable()) {
             return;
         }
@@ -121,30 +121,31 @@ public class StructuredExtractionService {
         // is in progress for this project, skip (non-blocking).
         if (memoryRefineService != null) {
             boolean executed = memoryRefineService.tryExecuteWithProjectLock(projectPath, () -> {
-                doReExtractForSession(sessionId, projectPath);
+                doReExtractForSession(conversationId, projectPath);
             });
             if (!executed) {
-                log.info("Re-extraction skipped for session {} (project {}): another extraction in progress", sessionId, projectPath);
+                log.info("Re-extraction skipped for conversation {} (project {}): another extraction in progress", conversationId, projectPath);
             }
         } else {
             // Fallback: run without lock (extraction disabled or service unavailable)
-            doReExtractForSession(sessionId, projectPath);
+            doReExtractForSession(conversationId, projectPath);
         }
     }
 
-    private void doReExtractForSession(String sessionId, String projectPath) {
-        log.info("Re-extracting for session: {} (project: {})", sessionId, projectPath);
+    private void doReExtractForSession(java.util.UUID conversationId, String projectPath) {
+        log.info("Re-extracting for conversation: {} (project: {})", conversationId, projectPath);
 
+        // Conversation-owned observations are read by internal UUID. The legacy external id
+        // is no longer unique across platforms, so it cannot select a conversation's rows.
         List<ObservationEntity> observations = observationRepository
-            .findByContentSessionIdOrderByCreatedAtEpochAsc(sessionId);
+            .findByConversationIdOrderByCreatedAtEpochAsc(conversationId);
 
         if (observations.isEmpty()) {
-            log.debug("No observations for session {}, skipping re-extraction", sessionId);
+            log.debug("No observations for conversation {}, skipping re-extraction", conversationId);
             return;
         }
 
-        // Resolve userId via batch-compatible helper (avoids N+1 when iterating templates)
-        String userId = sessionRepository.findByContentSessionId(sessionId)
+        String userId = sessionRepository.findById(conversationId)
             .map(s -> s.getUserId() != null && !s.getUserId().isBlank() ? s.getUserId() : "__unknown__")
             .orElse("__unknown__");
 
@@ -155,12 +156,12 @@ public class StructuredExtractionService {
                 if (filtered.isEmpty()) continue;
 
                 String targetSessionId = resolveSessionId(template.getSessionIdPattern(), projectPath, userId);
-                String priorJson = fetchPriorJson(targetSessionId, template.getName());
+                String priorJson = fetchPriorJson(projectPath, targetSessionId, template.getName());
                 Map<String, Object> result = extractByTemplate(template, filtered, priorJson);
                 extractionStorageService.storeExtractionResult(template, result, filtered, targetSessionId, projectPath);
             } catch (Exception e) {
-                log.error("Re-extraction failed for session {} template {}: {}",
-                    sessionId, template.getName(), e.getMessage());
+                log.error("Re-extraction failed for conversation {} template {}: {}",
+                    conversationId, template.getName(), e.getMessage());
             }
         }
     }
@@ -174,7 +175,8 @@ public class StructuredExtractionService {
         String pattern = tmpl.map(TemplateConfig::getSessionIdPattern).orElse(null);
         String prefix = resolveSessionId(pattern, projectPath, userId != null ? userId : "__unknown__");
 
-        List<ObservationEntity> results = observationRepository.findByContentSessionIdAndType(prefix, type, 1);
+        List<ObservationEntity> results = observationRepository.findStandaloneByCorrelationKeyAndType(
+            projectPath, "extraction", prefix, type, 1);
         return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
     }
 
@@ -188,7 +190,11 @@ public class StructuredExtractionService {
         String pattern = tmpl.map(TemplateConfig::getSessionIdPattern).orElse(null);
         String prefix = resolveSessionId(pattern, projectPath, userId != null ? userId : "__unknown__");
 
-        return observationRepository.findByContentSessionIdAndType(prefix, type, limit);
+        // Extraction output is a standalone row: it has no conversation, so it is found by
+        // its project scope plus its kind plus the legacy correlation key. Reusing the old
+        // bare-key lookup would also match a real session that happened to use that key.
+        return observationRepository.findStandaloneByCorrelationKeyAndType(
+            projectPath, "extraction", prefix, type, limit);
     }
 
     // ==========================================================================
@@ -227,7 +233,7 @@ public class StructuredExtractionService {
 
             try {
                 String targetSessionId = resolveSessionId(template.getSessionIdPattern(), projectPath, userId);
-                String priorJson = fetchPriorJson(targetSessionId, template.getName());
+                String priorJson = fetchPriorJson(projectPath, targetSessionId, template.getName());
 
                 // Batch if too many observations
                 int batchSize = extractionConfig.getMaxObservationsPerBatch();
@@ -252,37 +258,38 @@ public class StructuredExtractionService {
     }
 
     /**
-     * Group observations by user ID (via session lookup).
-     * Sessions without userId get "__unknown__" key.
-     * Uses batch lookup to avoid N+1 queries.
+     * Group observations by their owning conversation's user.
+     *
+     * <p>Conversation-owned rows resolve through their internal UUID. Standalone rows (including
+     * manual memories when a template opts in) have no conversation, so they group under
+     * {@code __unknown__} — the same bucket the legacy technical parents produced, since those
+     * parents never carried a user. Looking a standalone row up by its legacy key would
+     * resurrect the carrier-session identity this refactor removed.
      */
     private Map<String, List<ObservationEntity>> groupByUser(List<ObservationEntity> observations) {
-        // Collect unique session IDs for batch lookup
-        Set<String> sessionIds = observations.stream()
-            .map(ObservationEntity::getContentSessionId)
+        Set<java.util.UUID> conversationIds = observations.stream()
+            .map(ObservationEntity::getConversationId)
             .filter(Objects::nonNull)
             .collect(Collectors.toSet());
 
-        // Batch-resolve userIds in a single query
-        Map<String, String> sessionIdToUserId;
-        if (sessionIds.isEmpty()) {
-            sessionIdToUserId = Map.of();
+        Map<java.util.UUID, String> conversationToUser;
+        if (conversationIds.isEmpty()) {
+            conversationToUser = Map.of();
         } else {
-            sessionIdToUserId = sessionRepository.findByContentSessionIdIn(new ArrayList<>(sessionIds)).stream()
+            conversationToUser = sessionRepository.findAllById(conversationIds).stream()
                 .collect(Collectors.toMap(
-                    com.ablueforce.cortexce.entity.SessionEntity::getContentSessionId,
+                    com.ablueforce.cortexce.entity.SessionEntity::getId,
                     s -> (s.getUserId() != null && !s.getUserId().isBlank()) ? s.getUserId() : "__unknown__"
                 ));
         }
 
-        // Group observations by resolved userId
         Map<String, List<ObservationEntity>> grouped = new LinkedHashMap<>();
         for (ObservationEntity obs : observations) {
-            String sessionId = obs.getContentSessionId();
-            String userId = (sessionId != null) ? sessionIdToUserId.getOrDefault(sessionId, "__unknown__") : "__unknown__";
+            String userId = obs.getConversationId() != null
+                ? conversationToUser.getOrDefault(obs.getConversationId(), "__unknown__")
+                : "__unknown__";
             grouped.computeIfAbsent(userId, k -> new ArrayList<>()).add(obs);
         }
-
         return grouped;
     }
 
@@ -745,10 +752,11 @@ public class StructuredExtractionService {
     /**
      * Fetch prior extraction JSON for re-extraction context.
      */
-    private String fetchPriorJson(String targetSessionId, String templateName) {
+    private String fetchPriorJson(String projectPath, String targetSessionId, String templateName) {
         String type = "extracted_" + templateName;
+        // Prior extraction output is a standalone row: scope + kind + legacy correlation key.
         List<ObservationEntity> priors = observationRepository
-            .findByContentSessionIdAndType(targetSessionId, type, 1);
+            .findStandaloneByCorrelationKeyAndType(projectPath, "extraction", targetSessionId, type, 1);
 
         if (priors.isEmpty()) return null;
 

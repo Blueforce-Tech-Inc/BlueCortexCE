@@ -2,6 +2,8 @@ package com.ablueforce.cortexce.service;
 
 import com.ablueforce.cortexce.config.Constants;
 import com.ablueforce.cortexce.entity.SessionEntity;
+import com.ablueforce.cortexce.identity.PlatformSource;
+import com.ablueforce.cortexce.repository.PendingMessageRepository;
 import com.ablueforce.cortexce.repository.ObservationRepository;
 import com.ablueforce.cortexce.repository.SessionRepository;
 import com.ablueforce.cortexce.repository.SummaryRepository;
@@ -17,6 +19,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Map;
 import java.util.UUID;
 
@@ -31,6 +34,7 @@ public class ViewerSessionService {
     private final AgentService agentService;
     private final SummaryGenerationService summaryGenerationService;
     private final SSEBroadcaster sseBroadcaster;
+    private final PendingMessageRepository pendingMessageRepository;
 
     public ViewerSessionService(NamedParameterJdbcTemplate jdbcTemplate,
                                 SessionRepository sessionRepository,
@@ -39,6 +43,7 @@ public class ViewerSessionService {
                                 UserPromptRepository userPromptRepository,
                                 AgentService agentService,
                                 SummaryGenerationService summaryGenerationService,
+                                PendingMessageRepository pendingMessageRepository,
                                 SSEBroadcaster sseBroadcaster) {
         this.jdbcTemplate = jdbcTemplate;
         this.sessionRepository = sessionRepository;
@@ -47,6 +52,7 @@ public class ViewerSessionService {
         this.userPromptRepository = userPromptRepository;
         this.agentService = agentService;
         this.summaryGenerationService = summaryGenerationService;
+        this.pendingMessageRepository = pendingMessageRepository;
         this.sseBroadcaster = sseBroadcaster;
     }
 
@@ -59,17 +65,17 @@ public class ViewerSessionService {
             .addValue("limit", pageSize + 1)
             .addValue("offset", Math.max(0, offset));
 
+        // Item counts are per conversation UUID. Counting by the external id would fold two
+        // platforms' rows together as soon as they share one.
         List<CatalogEntry> sessions = jdbcTemplate.query("""
-            SELECT s.content_session_id,
+            SELECT s.id,
+                   s.content_session_id,
                    s.project_path,
                    COALESCE(s.platform_source, 'claude') AS platform_source,
                    s.started_at_epoch,
-                   (SELECT COUNT(*) FROM mem_observations o
-                    WHERE o.content_session_id = s.content_session_id)
-                   + (SELECT COUNT(*) FROM mem_summaries sm
-                      WHERE sm.content_session_id = s.content_session_id)
-                   + (SELECT COUNT(*) FROM mem_user_prompts p
-                      WHERE p.content_session_id = s.content_session_id) AS item_count
+                   (SELECT COUNT(*) FROM mem_observations o WHERE o.conversation_id = s.id)
+                   + (SELECT COUNT(*) FROM mem_summaries sm WHERE sm.conversation_id = s.id)
+                   + (SELECT COUNT(*) FROM mem_user_prompts p WHERE p.conversation_id = s.id) AS item_count
             FROM mem_sessions s
             WHERE s.project_path <> ''
               AND (CAST(:project AS text) IS NULL OR s.project_path = :project)
@@ -92,37 +98,80 @@ public class ViewerSessionService {
         );
     }
 
+    /**
+     * Delete one Conversation and everything it owns.
+     *
+     * <p>Scope of the deletion is the Conversation UUID. Scope rows, standalone observations
+     * (manual/extraction/dlq) and other Conversations are never touched — including another
+     * platform's Conversation that happens to share the external id.
+     *
+     * <p>Ordering follows the schema: the parent row is locked first so a concurrent enqueue
+     * cannot slip work in after the "is it busy" check, then the conversation-owned children
+     * are removed. Feedback rows that merely *reference* this conversation as their trigger
+     * are preserved and have that reference cleared, because they describe an observation
+     * that still exists elsewhere.
+     */
     @Transactional
     public void deleteSession(String platformSource, String contentSessionId) {
-        String source = optionalFilter(platformSource);
-        if (source == null) {
-            source = "claude";
+        String source = PlatformSource.normalize(platformSource);
+
+        // Resolve through the (platform, external id) pair, then lock by UUID.
+        SessionEntity session = sessionRepository.findByPlatformSourceAndContentSessionId(
+                source, contentSessionId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found"));
+        UUID conversationId = session.getId();
+
+        Optional<UUID> locked = sessionRepository.lockSessionForUpdate(conversationId);
+        if (locked.isEmpty()) {
+            // Deleted between resolution and locking; treat as already gone.
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found");
         }
 
-        SessionEntity session = sessionRepository.findForViewerDeletion(contentSessionId, source)
+        // Re-read inside the lock: the state check must describe the row we are deleting.
+        SessionEntity current = sessionRepository.findById(conversationId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Session not found"));
 
-        String status = session.getStatus() == null ? "" : session.getStatus().toLowerCase();
+        String status = current.getStatus() == null ? "" : current.getStatus().toLowerCase();
         if (List.of("active", "queued", "processing", "summarizing").contains(status)
-            || agentService.isSessionProcessing(contentSessionId)
-            || summaryGenerationService.isSessionSummarizing(contentSessionId)) {
+            || agentService.isSessionProcessing(conversationId)
+            || summaryGenerationService.isSessionSummarizing(conversationId.toString())) {
             throw new ResponseStatusException(
                 HttpStatus.CONFLICT,
                 "Session is still active or has queued work"
             );
         }
 
-        String sessionId = session.getContentSessionId();
-        observationRepository.deleteByContentSessionId(sessionId);
-        summaryRepository.deleteByContentSessionId(sessionId);
-        userPromptRepository.deleteByContentSessionId(sessionId);
-        sessionRepository.delete(session);
+        // Preserve feedback that merely names this conversation as its trigger.
+        List<Map<String, Object>> cleared = jdbcTemplate.queryForList("""
+            UPDATE observation_feedback
+               SET session_db_id = NULL
+             WHERE session_db_id = :conversationId
+            RETURNING id
+            """, new MapSqlParameterSource("conversationId", conversationId));
+        if (!cleared.isEmpty()) {
+            log.info("Cleared {} feedback trigger reference(s) for deleted conversation {}",
+                cleared.size(), conversationId);
+        }
+
+        // Conversation-owned children only. Standalone rows have conversation_id = NULL and
+        // therefore cannot match, which is the guarantee that manual memories survive.
+        int observations = observationRepository.deleteByConversationId(conversationId);
+        int summaries = summaryRepository.deleteByConversationId(conversationId);
+        int prompts = userPromptRepository.deleteByConversationId(conversationId);
+
+        // Terminal queue rows belong to the conversation and go with it.
+        int pending = pendingMessageRepository.deleteBySessionDbId(conversationId);
+
+        sessionRepository.delete(current);
         sessionRepository.flush();
+
+        log.info("Deleted conversation {}: {} observations, {} summaries, {} prompts, {} queue rows",
+            conversationId, observations, summaries, prompts, pending);
 
         broadcastAfterCommit(Map.of(
             "type", "session_deleted",
-            "platformSource", source,
-            "contentSessionId", sessionId
+            "platformSource", current.getPlatformSource() == null ? source : current.getPlatformSource(),
+            "contentSessionId", current.getContentSessionId()
         ));
     }
 
@@ -164,6 +213,9 @@ public class ViewerSessionService {
     private String optionalFilter(String value) {
         return value == null || value.isBlank() ? null : value.trim();
     }
+
+    private static final org.slf4j.Logger log =
+        org.slf4j.LoggerFactory.getLogger(ViewerSessionService.class);
 
     public record CatalogPage(
         List<CatalogEntry> sessions,

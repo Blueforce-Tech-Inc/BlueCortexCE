@@ -1,6 +1,8 @@
 package com.ablueforce.cortexce.controller;
 
 import com.ablueforce.cortexce.entity.SessionEntity;
+import com.ablueforce.cortexce.identity.ExternalSessionRef;
+import com.ablueforce.cortexce.identity.PlatformSource;
 import com.ablueforce.cortexce.repository.SessionRepository;
 import com.ablueforce.cortexce.service.SessionManagementService;
 import com.ablueforce.cortexce.util.PathValidationUtil;
@@ -149,17 +151,24 @@ public class SessionController {
             log.info("Session start: session_id={}, project_path={}", contentSessionId, projectPath);
         }
 
-        // 1. Initialize or retrieve session
+        // 1. Resolve the external identity and get-or-create the Conversation.
+        //    The platform is part of the identity, so an absent value is the Claude
+        //    compatibility default rather than "whatever row exists".
+        ExternalSessionRef ref;
+        try {
+            ref = ExternalSessionRef.of(platformSource, contentSessionId);
+        } catch (PlatformSource.InvalidPlatformSourceException | ExternalSessionRef.InvalidExternalSessionRefException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+
         SessionEntity session;
         try {
-            session = sessionManagementService.initializeSession(contentSessionId, projectPath, null);
+            session = sessionManagementService.getOrCreate(ref, projectPath, null);
         } catch (Exception e) {
-            log.error("Failed to initialize session {}: {}", contentSessionId, e.getMessage());
+            log.error("Failed to initialize session {}: {}", ref.logKey(), e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("error", "Failed to initialize session: " + e.getMessage()));
         }
-
-        applyPlatformSource(session, platformSource);
         
         // Phase 3: Set userId on session (null is OK — means single-user mode)
         if (userId != null && !userId.isBlank() && session.getUserId() == null) {
@@ -223,19 +232,6 @@ public class SessionController {
         ));
     }
 
-    private void applyPlatformSource(SessionEntity session, String platformSource) {
-        if (session == null || platformSource == null || platformSource.isBlank()) {
-            return;
-        }
-        String requested = platformSource.trim();
-        String existing = session.getPlatformSource();
-        if (existing == null || existing.isBlank()
-            || ("claude".equalsIgnoreCase(existing) && !"claude".equalsIgnoreCase(requested))) {
-            session.setPlatformSource(requested);
-            sessionManagementService.save(session);
-        }
-    }
-
     /**
      * Get session information by content session ID.
      *
@@ -258,7 +254,9 @@ public class SessionController {
             @Parameter(description = "Content session ID (Claude Code session identifier)", required = true, example = "sess-abc123")
             @PathVariable String sessionId) {
         try {
-            Optional<SessionEntity> session = sessionRepository.findByContentSessionId(sessionId);
+            // Legacy path alias: safe-character ids only, Claude platform only. Callers that
+            // carry a real platform use GET /api/session?contentSessionId=..&platformSource=..
+            Optional<SessionEntity> session = sessionManagementService.findLegacyClaude(sessionId);
 
             if (session.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -326,7 +324,7 @@ public class SessionController {
             @org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.SessionUserUpdateRequest body) {
         String userId = body.userId();
         
-        SessionEntity session = sessionManagementService.findByContentSessionId(sessionId)
+        SessionEntity session = sessionManagementService.findLegacyClaude(sessionId)
             .orElse(null);
         if (session == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -342,7 +340,7 @@ public class SessionController {
         // Phase 3: Re-run extraction when userId changes (user-scoped results need updating)
         if (extractionService.isPresent() && session.getProjectPath() != null) {
             try {
-                extractionService.get().reExtractForSession(sessionId, session.getProjectPath());
+                extractionService.get().reExtractForSession(session.getId(), session.getProjectPath());
                 log.info("Re-extraction triggered for session {} after userId update", sessionId);
             } catch (Exception e) {
                 log.warn("Re-extraction failed for session {} after userId update: {}", sessionId, e.getMessage());

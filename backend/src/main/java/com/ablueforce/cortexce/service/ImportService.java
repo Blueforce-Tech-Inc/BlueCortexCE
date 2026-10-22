@@ -41,15 +41,18 @@ public class ImportService implements LogHelper {
     private final ObservationRepository observationRepository;
     private final SummaryRepository summaryRepository;
     private final UserPromptRepository userPromptRepository;
+    private final SessionManagementService sessionManagementService;
 
     public ImportService(SessionRepository sessionRepository,
                         ObservationRepository observationRepository,
                         SummaryRepository summaryRepository,
-                        UserPromptRepository userPromptRepository) {
+                        UserPromptRepository userPromptRepository,
+                        SessionManagementService sessionManagementService) {
         this.sessionRepository = sessionRepository;
         this.observationRepository = observationRepository;
         this.summaryRepository = summaryRepository;
         this.userPromptRepository = userPromptRepository;
+        this.sessionManagementService = sessionManagementService;
     }
 
     /**
@@ -138,14 +141,16 @@ public class ImportService implements LogHelper {
         String userPrompt,
         Long startedAtEpoch,
         Long completedAtEpoch,
-        String status
+        String status,
+        String platformSource
     ) {}
 
     /**
      * Import observation data.
      */
     public record ObservationImportData(
-        String sessionId,       // content_session_id (FK)
+        String sessionId,       // external session id (opaque, platform-scoped)
+        String platformSource,  // owning platform; null means the Claude compatibility default
         String projectPath,
         String type,
         String title,
@@ -169,7 +174,8 @@ public class ImportService implements LogHelper {
      * Import summary data.
      */
     public record SummaryImportData(
-        String sessionId,       // content_session_id (FK)
+        String sessionId,       // external session id
+        String platformSource,
         String projectPath,
         String request,
         String investigated,
@@ -187,7 +193,8 @@ public class ImportService implements LogHelper {
      * Import user prompt data.
      */
     public record UserPromptImportData(
-        String sessionId,       // content_session_id
+        String sessionId,       // external session id
+        String platformSource,
         Integer promptNumber,
         String promptText,
         Long createdAtEpoch
@@ -196,6 +203,35 @@ public class ImportService implements LogHelper {
     // ==========================================================================
     // Helper Methods
     // ==========================================================================
+
+    /**
+     * Resolve (or create) the local conversation an imported child row belongs to.
+     *
+     * <p>Import never trusts a UUID from the source database: the internal id is rebuilt
+     * locally from the external identity, so a round-trip between two deployments cannot
+     * alias unrelated conversations.
+     */
+    private SessionEntity resolveImportParent(String contentSessionId, String platformSource) {
+        if (contentSessionId == null || contentSessionId.isBlank()) {
+            throw new IllegalArgumentException("sessionId is required");
+        }
+        com.ablueforce.cortexce.identity.ExternalSessionRef ref =
+            com.ablueforce.cortexce.identity.ExternalSessionRef.of(platformSource, contentSessionId);
+        return sessionRepository.findByPlatformSourceAndContentSessionId(
+                ref.platformSource(), ref.contentSessionId())
+            .orElseThrow(() -> new IllegalArgumentException(
+                "unknown session for import: " + ref.logKey()
+                    + " (import the session before its children)"));
+    }
+
+    /** Same as {@link #resolveImportParent} but returns null instead of throwing (bulk scan). */
+    private SessionEntity resolveImportParentQuietly(String contentSessionId, String platformSource) {
+        try {
+            return resolveImportParent(contentSessionId, platformSource);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
 
     private OffsetDateTime epochToOffsetDateTime(Long epoch) {
         if (epoch == null) return null;
@@ -238,27 +274,25 @@ public class ImportService implements LogHelper {
             return ImportResult.error("projectPath is required");
         }
 
-        Optional<SessionEntity> existing = sessionRepository.findByContentSessionId(data.contentSessionId());
+        // Import identity is (platform, external id): the same external id on two platforms
+        // is two independent conversations and must not be merged.
+        com.ablueforce.cortexce.identity.ExternalSessionRef ref;
+        try {
+            ref = com.ablueforce.cortexce.identity.ExternalSessionRef.of(
+                data.platformSource(), data.contentSessionId());
+        } catch (IllegalArgumentException e) {
+            return ImportResult.error(e.getMessage());
+        }
+        Optional<SessionEntity> existing = sessionRepository.findByPlatformSourceAndContentSessionId(
+            ref.platformSource(), ref.contentSessionId());
         if (existing.isPresent()) {
-            log.debug("Session already exists: {}", data.contentSessionId());
+            log.debug("Session already exists: {}", ref.logKey());
             return ImportResult.duplicate(existing.get().getId().toString());
         }
 
-        SessionEntity session = new SessionEntity();
-        session.setContentSessionId(data.contentSessionId());
-        session.setProjectPath(data.projectPath());
-        session.setUserPrompt(data.userPrompt());
-        // Prefer the imported wall-clock timestamp when provided; keep started_at
-        // and started_at_epoch consistent so the API never serializes an empty string.
-        Instant effectiveStart = data.startedAtEpoch() != null
-            ? Instant.ofEpochMilli(data.startedAtEpoch())
-            : Instant.now();
-        session.setStartedAt(OffsetDateTime.ofInstant(effectiveStart, ZoneOffset.UTC));
-        session.setStartedAtEpoch(effectiveStart.toEpochMilli());
-        session.setCompletedAtEpoch(data.completedAtEpoch());
-        session.setStatus(data.status() != null ? data.status() : "active");
-
-        session = sessionRepository.save(session);
+        SessionEntity session = sessionManagementService.createImported(
+            ref, data.projectPath(), data.userPrompt(), data.startedAtEpoch(),
+            data.completedAtEpoch(), data.status());
         logSuccess("Imported session: {} -> {}", data.contentSessionId(), session.getId());
 
         return ImportResult.imported(session.getId().toString());
@@ -275,8 +309,14 @@ public class ImportService implements LogHelper {
 
         long createdAtEpoch = data.createdAtEpoch() != null ? data.createdAtEpoch() : System.currentTimeMillis();
 
+        SessionEntity parent;
+        try {
+            parent = resolveImportParent(data.sessionId(), data.platformSource());
+        } catch (IllegalArgumentException e) {
+            return ImportResult.error(e.getMessage());
+        }
         Optional<ObservationEntity> existing = observationRepository.findBySessionIdAndTitleAndCreatedAtEpoch(
-            data.sessionId(), data.title(), createdAtEpoch
+            parent.getId(), data.title(), createdAtEpoch
         );
         if (existing.isPresent()) {
             log.debug("Observation already exists: {} - {}", data.sessionId(), data.title());
@@ -284,6 +324,8 @@ public class ImportService implements LogHelper {
         }
 
         ObservationEntity obs = new ObservationEntity();
+        obs.setConversationId(parent.getId());
+        obs.setPlatformSource(parent.getPlatformSource());
         obs.setContentSessionId(data.sessionId());
         obs.setProjectPath(data.projectPath());
         obs.setType(data.type() != null ? data.type() : "unknown");
@@ -314,21 +356,20 @@ public class ImportService implements LogHelper {
     public BulkImportResult importObservations(List<ObservationImportData> observations) {
         BulkImportResult result = new BulkImportResult();
 
-        // Step 1: Collect all session IDs for batch duplicate check
-        List<String> sessionIds = observations.stream()
-            .map(ObservationImportData::sessionId)
-            .filter(s -> s != null && !s.isBlank())
-            .distinct()
-            .toList();
+        // Duplicate detection is scoped per conversation UUID. Grouping by the external id
+        // would deduplicate two platforms against each other.
+        Set<java.util.UUID> conversationIds = observations.stream()
+            .map(o -> resolveImportParentQuietly(o.sessionId(), o.platformSource()))
+            .filter(java.util.Objects::nonNull)
+            .map(SessionEntity::getId)
+            .collect(java.util.stream.Collectors.toSet());
 
-        // Step 2: Batch fetch existing observations (single DB round trip)
-        List<ObservationEntity> existingObs = sessionIds.isEmpty()
+        List<ObservationEntity> existingObs = conversationIds.isEmpty()
             ? List.of()
-            : observationRepository.findByContentSessionIdIn(sessionIds);
+            : observationRepository.findByConversationIdIn(new java.util.ArrayList<>(conversationIds));
 
-        // Step 3: Build duplicate key set: (sessionId, title, createdAtEpoch) -> id
         Set<String> duplicateKeys = existingObs.stream()
-            .map(o -> o.getContentSessionId() + "|" + o.getTitle() + "|" + o.getCreatedAtEpoch())
+            .map(o -> o.getConversationId() + "|" + o.getTitle() + "|" + o.getCreatedAtEpoch())
             .collect(java.util.stream.Collectors.toSet());
 
         // Step 4: Separate new observations from validation errors
@@ -408,7 +449,13 @@ public class ImportService implements LogHelper {
             return ImportResult.error("projectPath is required");
         }
 
-        List<SummaryEntity> existing = summaryRepository.findByContentSessionId(data.sessionId());
+        SessionEntity summaryParent;
+        try {
+            summaryParent = resolveImportParent(data.sessionId(), data.platformSource());
+        } catch (IllegalArgumentException e) {
+            return ImportResult.error(e.getMessage());
+        }
+        List<SummaryEntity> existing = summaryRepository.findByConversationId(summaryParent.getId());
 
         if (!existing.isEmpty()) {
             log.debug("Summary already exists for session: {}", data.sessionId());
@@ -418,6 +465,8 @@ public class ImportService implements LogHelper {
         long createdAtEpoch = data.createdAtEpoch() != null ? data.createdAtEpoch() : System.currentTimeMillis();
 
         SummaryEntity summary = new SummaryEntity();
+        summary.setConversationId(summaryParent.getId());
+        summary.setPlatformSource(summaryParent.getPlatformSource());
         summary.setContentSessionId(data.sessionId());
         summary.setProjectPath(data.projectPath());
         summary.setRequest(data.request());
@@ -447,8 +496,14 @@ public class ImportService implements LogHelper {
             return ImportResult.error("promptNumber is required");
         }
 
-        Optional<UserPromptEntity> existing = userPromptRepository.findByContentSessionIdAndPromptNumber(
-            data.sessionId(), data.promptNumber()
+        SessionEntity promptParent;
+        try {
+            promptParent = resolveImportParent(data.sessionId(), data.platformSource());
+        } catch (IllegalArgumentException e) {
+            return ImportResult.error(e.getMessage());
+        }
+        Optional<UserPromptEntity> existing = userPromptRepository.findByConversationIdAndPromptNumber(
+            promptParent.getId(), data.promptNumber()
         );
         if (existing.isPresent()) {
             log.debug("User prompt already exists: {} - #{}", data.sessionId(), data.promptNumber());
@@ -458,6 +513,8 @@ public class ImportService implements LogHelper {
         long createdAtEpoch = data.createdAtEpoch() != null ? data.createdAtEpoch() : System.currentTimeMillis();
 
         UserPromptEntity prompt = new UserPromptEntity();
+        prompt.setConversationId(promptParent.getId());
+        prompt.setPlatformSource(promptParent.getPlatformSource());
         prompt.setContentSessionId(data.sessionId());
         prompt.setPromptNumber(data.promptNumber());
         prompt.setPromptText(data.promptText());
@@ -477,21 +534,18 @@ public class ImportService implements LogHelper {
     public BulkImportResult importUserPrompts(List<UserPromptImportData> prompts) {
         BulkImportResult result = new BulkImportResult();
 
-        // Step 1: Collect all session IDs for batch duplicate check
-        List<String> sessionIds = prompts.stream()
-            .map(UserPromptImportData::sessionId)
-            .filter(s -> s != null && !s.isBlank())
-            .distinct()
-            .toList();
+        Set<java.util.UUID> conversationIds = prompts.stream()
+            .map(p -> resolveImportParentQuietly(p.sessionId(), p.platformSource()))
+            .filter(java.util.Objects::nonNull)
+            .map(SessionEntity::getId)
+            .collect(java.util.stream.Collectors.toSet());
 
-        // Step 2: Batch fetch existing prompts (single DB round trip)
-        List<UserPromptEntity> existingPrompts = sessionIds.isEmpty()
+        List<UserPromptEntity> existingPrompts = conversationIds.isEmpty()
             ? List.of()
-            : userPromptRepository.findByContentSessionIdIn(sessionIds);
+            : userPromptRepository.findByConversationIdIn(new java.util.ArrayList<>(conversationIds));
 
-        // Step 3: Build duplicate key set: (sessionId, promptNumber) -> id
         Set<String> duplicateKeys = existingPrompts.stream()
-            .map(p -> p.getContentSessionId() + "|" + p.getPromptNumber())
+            .map(p -> p.getConversationId() + "|" + p.getPromptNumber())
             .collect(java.util.stream.Collectors.toSet());
 
         // Step 4: Separate new prompts from validation errors

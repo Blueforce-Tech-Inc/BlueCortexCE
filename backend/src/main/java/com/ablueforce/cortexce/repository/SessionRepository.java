@@ -110,8 +110,9 @@ public interface SessionRepository extends JpaRepository<SessionEntity, UUID> {
     // Phase 3: Multi-user support — find sessions by userId
     List<SessionEntity> findByUserId(String userId);
 
-    @Query("SELECT s.contentSessionId FROM SessionEntity s WHERE s.userId = :userId AND s.projectPath = :project")
-    List<String> findSessionIdsByUserIdAndProject(@Param("userId") String userId, @Param("project") String project);
+    /** Conversation UUIDs for a user within a project (ExpRag user-scoped branch). */
+    @Query("SELECT s.id FROM SessionEntity s WHERE s.userId = :userId AND s.projectPath = :project")
+    List<UUID> findConversationIdsByUserIdAndProject(@Param("userId") String userId, @Param("project") String project);
 
     // V18: Platform source support
     @Query("SELECT DISTINCT COALESCE(s.platformSource, 'claude') FROM SessionEntity s ORDER BY COALESCE(s.platformSource, 'claude')")

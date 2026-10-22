@@ -27,38 +27,41 @@ public interface UserPromptRepository extends JpaRepository<UserPromptEntity, UU
         JOIN SessionEntity s ON s.contentSessionId = p.contentSessionId
         WHERE (:project IS NULL OR COALESCE(p.projectPath, s.projectPath) = :project)
         AND (:platformSource IS NULL OR COALESCE(s.platformSource, p.platformSource, 'claude') = :platformSource)
+        AND (:conversationId IS NULL OR p.conversationId = :conversationId)
         AND (:contentSessionId IS NULL OR p.contentSessionId = :contentSessionId)
         ORDER BY p.createdAtEpoch DESC, p.id DESC
         """)
     Page<UserPromptEntity> findAllPaged(
         @Param("project") String project,
         @Param("platformSource") String platformSource,
+        @Param("conversationId") UUID conversationId,
         @Param("contentSessionId") String contentSessionId,
         Pageable pageable
     );
 
-    Optional<UserPromptEntity> findByContentSessionIdAndPromptNumber(
-        String contentSessionId, Integer promptNumber
+    Optional<UserPromptEntity> findByConversationIdAndPromptNumber(
+        UUID conversationId, Integer promptNumber
     );
 
-    List<UserPromptEntity> findByContentSessionIdOrderByPromptNumberAsc(String contentSessionId);
+    List<UserPromptEntity> findByConversationIdOrderByPromptNumberAsc(UUID conversationId);
 
-    long countByContentSessionId(String contentSessionId);
+    long countByConversationId(UUID conversationId);
 
+    /** Delete the prompts a conversation owns. Keyed on the internal UUID. */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("DELETE FROM UserPromptEntity p WHERE p.contentSessionId = :contentSessionId")
-    int deleteByContentSessionId(@Param("contentSessionId") String contentSessionId);
+    @Query("DELETE FROM UserPromptEntity p WHERE p.conversationId = :conversationId")
+    int deleteByConversationId(@Param("conversationId") UUID conversationId);
 
     @Query("""
         SELECT p FROM UserPromptEntity p
-        WHERE p.contentSessionId = :contentSessionId
+        WHERE p.conversationId = :conversationId
         ORDER BY p.createdAtEpoch DESC, p.id DESC
         """)
-    List<UserPromptEntity> findByContentSessionIdOrderByCreatedAtEpochDesc(@Param("contentSessionId") String contentSessionId);
+    List<UserPromptEntity> findByConversationIdOrderByCreatedAtEpochDesc(@Param("conversationId") UUID conversationId);
 
     /**
      * Batch fetch user prompts by session IDs (for bulk import duplicate detection).
      * Use to check for existing prompts in bulk before calling saveAll().
      */
-    List<UserPromptEntity> findByContentSessionIdIn(List<String> sessionIds);
+    List<UserPromptEntity> findByConversationIdIn(List<UUID> conversationIds);
 }

@@ -1,9 +1,7 @@
 package com.ablueforce.cortexce.service;
 
 import com.ablueforce.cortexce.entity.ObservationEntity;
-import com.ablueforce.cortexce.entity.SessionEntity;
 import com.ablueforce.cortexce.repository.ObservationRepository;
-import com.ablueforce.cortexce.repository.SessionRepository;
 import com.ablueforce.cortexce.config.ExtractionConfig.TemplateConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.UUID;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -27,13 +26,13 @@ public class ExtractionStorageService {
 
     private static final Logger log = LoggerFactory.getLogger(ExtractionStorageService.class);
 
-    private final SessionRepository sessionRepository;
     private final ObservationRepository observationRepository;
+    private final MemoryScopeService memoryScopeService;
 
-    public ExtractionStorageService(SessionRepository sessionRepository,
-                                     ObservationRepository observationRepository) {
-        this.sessionRepository = sessionRepository;
+    public ExtractionStorageService(ObservationRepository observationRepository,
+                                    MemoryScopeService memoryScopeService) {
         this.observationRepository = observationRepository;
+        this.memoryScopeService = memoryScopeService;
     }
 
     /**
@@ -63,20 +62,18 @@ public class ExtractionStorageService {
             throw new IllegalArgumentException("targetSessionId must not be blank for template: " + template.getName());
         }
 
-        // Ensure target session exists (FK constraint: mem_observations.content_session_id → mem_sessions)
-        sessionRepository.findByContentSessionId(targetSessionId)
-            .orElseGet(() -> {
-                log.info("Creating extraction session: {}", targetSessionId);
-                SessionEntity session = new SessionEntity();
-                session.setContentSessionId(targetSessionId);
-                session.setProjectPath(projectPath);
-                session.setStatus("extraction");
-                session.setStartedAt(OffsetDateTime.now(ZoneOffset.UTC));
-                session.setStartedAtEpoch(System.currentTimeMillis());
-                return sessionRepository.save(session);
-            });
+        // Extraction output is a standalone observation, not a conversation: it has no
+        // conversation_id and lives in the project scope of the observations it summarises.
+        // The synthetic key is retained purely as a compatibility/correlation value, which is
+        // what prior/latest/history lookups key on together with the kind.
+        UUID scopeId = memoryScopeService.resolveProjectScope(projectPath);
 
         ObservationEntity extraction = new ObservationEntity();
+        extraction.setConversationId(null);
+        extraction.setStandaloneKind("extraction");
+        extraction.setMemoryScopeId(scopeId);
+        extraction.setPlatformSource(
+            com.ablueforce.cortexce.identity.PlatformSource.DEFAULT_SOURCE);
         extraction.setContentSessionId(targetSessionId);
         extraction.setProjectPath(projectPath);
         extraction.setType("extracted_" + template.getName());
@@ -108,20 +105,18 @@ public class ExtractionStorageService {
      */
     @Transactional
     public void storeDLQ(String projectPath, String templateName, String errorMsg) {
+        // A DLQ entry is a standalone observation in the project scope of the observation it
+        // failed to summarise — the parent path, never a shared synthetic parent's path, since
+        // one DLQ key legitimately spans several projects.
         String dlqSessionId = "dlq:extraction";
-        sessionRepository.findByContentSessionId(dlqSessionId)
-            .orElseGet(() -> {
-                log.info("Creating DLQ session: {}", dlqSessionId);
-                SessionEntity session = new SessionEntity();
-                session.setContentSessionId(dlqSessionId);
-                session.setProjectPath(projectPath);
-                session.setStatus("dlq");
-                session.setStartedAt(OffsetDateTime.now(ZoneOffset.UTC));
-                session.setStartedAtEpoch(System.currentTimeMillis());
-                return sessionRepository.save(session);
-            });
+        UUID dlqScopeId = memoryScopeService.resolveProjectScope(projectPath);
 
         ObservationEntity dlq = new ObservationEntity();
+        dlq.setConversationId(null);
+        dlq.setStandaloneKind("dlq");
+        dlq.setMemoryScopeId(dlqScopeId);
+        dlq.setPlatformSource(
+            com.ablueforce.cortexce.identity.PlatformSource.DEFAULT_SOURCE);
         dlq.setContentSessionId(dlqSessionId);
         dlq.setProjectPath(projectPath);
         dlq.setType("dlq_" + templateName);
