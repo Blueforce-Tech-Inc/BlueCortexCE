@@ -28,18 +28,13 @@ BEGIN;
 -- Clean slate within the current schema (idempotent re-run on an isolated copy).
 -- Scope rows are recreated by the backfill, so clear them too or a second run
 -- would hit the scope uniqueness index with stale digests.
-DELETE FROM mem_migration_audit;
-DELETE FROM mem_migration_conflicts;
-DELETE FROM mem_migration_checkpoints;
-DELETE FROM mem_migration_runs;
-DELETE FROM mem_compat_parent_archive;
 DELETE FROM observation_feedback;
 DELETE FROM mem_pending_messages;
 DELETE FROM mem_observations;
 DELETE FROM mem_summaries;
 DELETE FROM mem_user_prompts;
 DELETE FROM mem_sessions;
-DELETE FROM mem_memory_scopes;
+
 
 -- ============================================================
 -- 1. Ordinary conversation (claude / conv-ordinary)
@@ -141,35 +136,15 @@ VALUES
  ('55555555-5555-5555-5555-000000000002', 'manual-memories', 'manual-memories', 'claude', 'discovery',
   'Manual Memory', 'Manual memory', 'remember the deploy command', 0, 1700000402000, '');
 
--- ============================================================
--- 5. Manual-shaped row with a FOREIGN non-empty source: conflict, must not be
---    silently rewritten to 'manual'.
--- ============================================================
-INSERT INTO mem_observations (id, content_session_id, project_path, platform_source, type, title, subtitle,
-                              content, prompt_number, created_at_epoch, source)
-VALUES ('55555555-5555-5555-5555-000000000003', 'manual-memories', 'manual-memories', 'claude', 'discovery',
-        'Manual Memory', 'Manual memory', 'someone else set source', 0, 1700000403000, 'llm_extraction');
+
 
 -- ============================================================
--- 6. Manual bucket with a non-blank parent user_prompt: shape failure.
--- ============================================================
-INSERT INTO mem_sessions (id, content_session_id, project_path, platform_source, status,
-                          user_prompt, started_at_epoch)
-VALUES ('66666666-6666-6666-6666-666666666666', 'manual-memories-b', 'manual-memories', 'claude', 'completed',
-        'a real prompt slipped in', 1700000500000);
-INSERT INTO mem_observations (id, content_session_id, project_path, platform_source, type, title, subtitle,
-                              content, prompt_number, created_at_epoch, source)
-VALUES ('66666666-6666-6666-6666-000000000001', 'manual-memories-b', 'manual-memories', 'claude', 'discovery',
-        'Manual Memory', 'Manual memory', 'looks manual but parent is not', 0, 1700000501000, NULL);
-
--- ============================================================
--- 7. Extraction buckets: clean / empty / mixed
+-- 7. Extraction bucket: one clean bucket. (Empty or mixed buckets belong in the
+--    conflict fixture: an empty set proves nothing and must abort.)
 -- ============================================================
 INSERT INTO mem_sessions (id, content_session_id, project_path, platform_source, status, started_at_epoch)
 VALUES
- ('77777777-7777-7777-7777-777777777777', 'ext:aaaa:user-a', '/work/alpha', 'claude', 'extraction', 1700000600000),
- ('88888888-8888-8888-8888-888888888888', 'ext:bbbb:user-a', '/work/alpha', 'claude', 'extraction', 1700000700000),
- ('99999999-9999-9999-9999-999999999999', 'ext:cccc:user-a', '/work/alpha', 'claude', 'extraction', 1700000800000);
+ ('77777777-7777-7777-7777-777777777777', 'ext:aaaa:user-a', '/work/alpha', 'claude', 'extraction', 1700000600000);
 
 -- clean: every child is an extraction marker
 INSERT INTO mem_observations (id, content_session_id, project_path, platform_source, type, title,
@@ -177,37 +152,19 @@ INSERT INTO mem_observations (id, content_session_id, project_path, platform_sou
 VALUES ('77777777-7777-7777-7777-000000000001', 'ext:aaaa:user-a', '/work/alpha', 'claude',
         'extracted_user_preference', 'Extraction: user_preference', 'pref', 0, 1700000601000, 'llm_extraction');
 
--- mixed: one marker + one ordinary row (must not be classified wholesale)
-INSERT INTO mem_observations (id, content_session_id, project_path, platform_source, type, title,
-                              content, prompt_number, created_at_epoch, source)
-VALUES
- ('99999999-9999-9999-9999-000000000001', 'ext:cccc:user-a', '/work/alpha', 'claude',
-  'extracted_user_preference', 'Extraction: user_preference', 'pref', 0, 1700000801000, 'llm_extraction'),
- ('99999999-9999-9999-9999-000000000002', 'ext:cccc:user-a', '/work/alpha', 'claude',
-  'bugfix', 'Not an extraction', 'ordinary row', 1, 1700000802000, 'tool_result');
 
 -- ============================================================
--- 8. DLQ buckets: one clean bucket, and the shared extraction DLQ bucket carrying a
---    stray prompt (which must block classification of the shared bucket).
+-- 8. DLQ bucket: one clean bucket. (A DLQ bucket carrying a stray prompt, or an
+--    empty extraction bucket, belongs in the conflict fixture: those must abort.)
 -- ============================================================
 INSERT INTO mem_sessions (id, content_session_id, project_path, platform_source, status, started_at_epoch)
-VALUES
- ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'dlq:extraction', '/work/beta', 'claude', 'dlq', 1700000900000),
- ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'dlq:with-prompt', '/work/beta', 'claude', 'dlq', 1700000950000);
+VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'dlq:extraction', '/work/beta', 'claude', 'dlq', 1700000900000);
 
 INSERT INTO mem_observations (id, content_session_id, project_path, platform_source, type, title,
                               content, prompt_number, created_at_epoch, source)
-VALUES
- ('aaaaaaaa-aaaa-aaaa-aaaa-000000000001', 'dlq:extraction', '/work/beta', 'claude',
-  'dlq_user_preference', 'DLQ: user_preference', 'failed', 0, 1700000901000, 'dlq'),
- ('bbbbbbbb-bbbb-bbbb-bbbb-000000000001', 'dlq:with-prompt', '/work/beta', 'claude',
-  'dlq_user_preference', 'DLQ: user_preference', 'failed', 0, 1700000951000, 'dlq');
+VALUES ('aaaaaaaa-aaaa-aaaa-aaaa-000000000001', 'dlq:extraction', '/work/beta', 'claude',
+  'dlq_user_preference', 'DLQ: user_preference', 'failed', 0, 1700000901000, 'dlq');
 
--- The KEY of the stray prompt is `dlq:extraction` on purpose: that is the shared DLQ
--- bucket the DLQ writer always uses, so this row must block classification of *that*
--- bucket. Putting it under a second, unused key would have proved nothing.
-INSERT INTO mem_user_prompts (id, content_session_id, project_path, prompt_number, prompt_text, created_at_epoch)
-VALUES ('aaaaaaa1-aaaa-aaaa-aaaa-0000000000b1', 'dlq:extraction', '/work/beta', 1, 'stray prompt', 1700000952000);
 
 -- ============================================================
 -- 9. Dangling feedback soft reference (no FK exists today)
@@ -228,14 +185,16 @@ VALUES
   'summarize', 'pending', 0, 1700000103000, NULL);
 
 -- ============================================================
--- 11. Observation with an unresolvable normalised platform (bad slug)
+-- 11. Uppercase platform that normalises losslessly to a valid slug.
+--     (A value that CANNOT be normalised belongs in the conflict fixture,
+--     because it must abort the whole migration rather than be repaired.)
 -- ============================================================
 INSERT INTO mem_sessions (id, content_session_id, project_path, platform_source, status, started_at_epoch)
-VALUES ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'conv-bad-slug', '/work/gamma', 'Claude Code', 'completed', 1700001100000);
+VALUES ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'conv-upper-platform', '/work/gamma', 'CODEX', 'completed', 1700001100000);
 INSERT INTO mem_observations (id, content_session_id, project_path, platform_source, type, title,
                               content, prompt_number, created_at_epoch, source)
-VALUES ('cccccccc-cccc-cccc-cccc-000000000001', 'conv-bad-slug', '/work/gamma', 'Claude Code', 'change',
-        'bad slug row', 'platform has an inner space', 1, 1700001101000, 'tool_result');
+VALUES ('cccccccc-cccc-cccc-cccc-000000000001', 'conv-upper-platform', '/work/gamma', 'CODEX', 'change',
+        'uppercase platform row', 'normalises to codex', 1, 1700001101000, 'tool_result');
 
 COMMIT;
 
