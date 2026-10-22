@@ -946,12 +946,15 @@ export SPRING_AI_MCP_SERVER_PROTOCOL=STREAMABLE  # 如需使用 STREAMABLE
 // Records 用于 DTO —— 真实代码：ApiRequests.ToolUseRequest（dto/ApiRequests.java）
 // wire 名由 @JsonProperty 指定为 snake_case；全局的
 // jackson.property-naming-strategy 并不作用于 record 组件。
+// 该 record 有**九**个组件；早前的版本只写了 V18 platform-source 迁移之前的
+// 八个，那个迁移加上了 `platform_source`。此处省略了交错的 @Schema 注解。
 public record ToolUseRequest(
     @JsonProperty("session_id") String sessionId,
     @JsonProperty("cwd") String cwd,
     @JsonProperty("tool_name") String toolName,
     @JsonProperty("tool_input") Object toolInput,
     @JsonProperty("tool_response") Object toolResponse,
+    @JsonProperty("platform_source") String platformSource,
     @JsonProperty("source") String source,
     @JsonProperty("extractedData") Map<String, Object> extractedData,
     @JsonProperty("prompt_number") Integer promptNumber
@@ -970,14 +973,18 @@ public boolean equals(Object o) {
         && sort.equals(that.getSort());
 }
 
-// 虚拟线程（Java 21）—— 真实代码：SummaryGenerationService:83、MemoryRefineService:91
+// 虚拟线程（Java 21）—— 真实代码：SummaryGenerationService:86（该类唯一的
+// @Async 方法是 completeSessionAsync，在 86-87 行）、MemoryRefineService:91
+// （refineMemory）。早前的「83」在写下时是准确的；V18 platform-source 迁移
+// 在它上面加了 3 行。
 @Async  // 跑在虚拟线程上；application.yml 中 spring.threads.virtual.enabled=true
-public void generateSummaryAsync(...) { ... }
+public void completeSessionAsync(...) { ... }
 
 // 提示词是外部资源，而不是文本块：
 //   src/main/resources/prompts/{init,observation,summary,continuation}.txt
-// 运行时加载。唯一在 Java 内拼装的提示词
-// （SummaryGenerationService:108）用的是字符串拼接加 "\n"。
+// 运行时加载。摘要的 system prompt 不是加载来的，而是在 Java 内拼装——
+// 一个字面量字符串拼上 digest（SummaryGenerationService:114）；
+// Phase 3 的抽取提示词同样在 Java 内拼装（StructuredExtractionService）。
 ```
 
 > **JSONB 列在 wire 上不是 JSON 数组。** `mem_observations` 的 `facts`、`concepts`、

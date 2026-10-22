@@ -958,12 +958,16 @@ export SPRING_AI_MCP_SERVER_PROTOCOL=STREAMABLE  # if you prefer STREAMABLE
 // Records for DTOs — real: ApiRequests.ToolUseRequest (dto/ApiRequests.java)
 // @JsonProperty supplies the snake_case wire names; the global
 // jackson.property-naming-strategy does not apply to record components.
+// The record has NINE components; an earlier version of this snippet showed
+// only the eight that predate the V18 platform-source migration, which added
+// `platform_source`. The interleaved @Schema annotations are omitted here.
 public record ToolUseRequest(
     @JsonProperty("session_id") String sessionId,
     @JsonProperty("cwd") String cwd,
     @JsonProperty("tool_name") String toolName,
     @JsonProperty("tool_input") Object toolInput,
     @JsonProperty("tool_response") Object toolResponse,
+    @JsonProperty("platform_source") String platformSource,
     @JsonProperty("source") String source,
     @JsonProperty("extractedData") Map<String, Object> extractedData,
     @JsonProperty("prompt_number") Integer promptNumber
@@ -983,14 +987,19 @@ public boolean equals(Object o) {
         && sort.equals(that.getSort());
 }
 
-// Virtual threads (Java 21) — real: SummaryGenerationService:83, MemoryRefineService:91
+// Virtual threads (Java 21) — real: SummaryGenerationService:86 (its only
+// @Async method is completeSessionAsync, lines 86-87) and
+// MemoryRefineService:91 (refineMemory). The earlier "83" was exact when
+// written; the V18 platform-source migration added three lines above it.
 @Async  // runs on virtual threads; spring.threads.virtual.enabled=true in application.yml
-public void generateSummaryAsync(...) { ... }
+public void completeSessionAsync(...) { ... }
 
 // Prompts are external resources, NOT text blocks:
 //   src/main/resources/prompts/{init,observation,summary,continuation}.txt
-// loaded at runtime. The one prompt assembled in Java
-// (SummaryGenerationService:108) uses string concatenation with "\n".
+// loaded at runtime. The summary system prompt is assembled in Java rather
+// than loaded — a literal string concatenated with the digest
+// (SummaryGenerationService:114) — and the Phase 3 extraction prompts are
+// built in Java as well (StructuredExtractionService).
 ```
 
 > **The JSONB columns are not JSON arrays on the wire.** `mem_observations.facts`,
