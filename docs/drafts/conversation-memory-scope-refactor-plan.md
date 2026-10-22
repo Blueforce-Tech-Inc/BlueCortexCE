@@ -902,16 +902,74 @@ cd webui && bun run typecheck && bun test tests
 
 | 项目 | 实际值/证据位置 |
 |---|---|
-| 实施 commit 范围 | 待实施 |
-| 基线父仓库/WebUI SHA | 待重新核验 |
-| 目标环境/DB identity | 待 preflight |
-| Flyway before/after | 待迁移 |
-| 备份 SHA / restore proof | 待执行 |
-| 各表 before/after counts | 待执行 |
-| Conflict ledger | 待执行；必须为零或逐行批准 |
-| 单元/集成/SDK/WebUI/E2E 命令与结果 | 待执行 |
-| Shadow diff/window | 待执行 |
-| bridge rollback proof | 待执行 |
-| 操作人与复核人 | 待执行 |
+| 实施 commit 范围 | `325c817..f7b865e`（9 个提交，见文末清单） |
+| 基线父仓库/WebUI SHA | 父仓库 `325c817bbf580c0c1451212aa0ca472d7afa7089`；WebUI gitlink `72e7804b13f89b03177f746867e0dd341fb12c8a` |
+| 目标环境/DB identity | 仅隔离副本：pgvector/pg16 容器，`server_encoding=UTF8`、`en_US.utf8`。**未接触任何生产或业务数据库** |
+| Flyway before/after | before: V19（最高版本）；after: V20（一次性迁移，schema+回填+约束收紧同一事务） |
+| 备份 SHA / restore proof | 不适用：用户明确决定迁移模型为「可接受失败、手动介入、长时间停机，不考虑回退」。迁移失败即整体回滚，库回到迁移前状态 |
+| 各表 before/after counts | 干净 fixture：13 条观测 → 9 conversation + 2 manual + 1 extraction + 1 dlq，13/13 有 scope，0 孤儿 |
+| Conflict ledger | 冲突不再入长期账本：任何不可证明行 `RAISE EXCEPTION` 中止整个迁移并列出冲突行，人工处理后重跑。rehearse 验证了 6 类冲突全部中止且完整回滚 |
+| 单元/集成/SDK/WebUI/E2E 命令与结果 | 见 §16.3 |
+| Shadow diff/window | 不适用：无在线切换，无影子读 |
+| bridge rollback proof | 不适用：不考虑回退 |
+| 操作人与复核人 | 待真实部署时由操作人执行；本轮回填仅在隔离副本执行 |
+
+### 16.3 实施验证证据
+
+| 验证项 | 命令/方式 | 结果 |
+|---|---|---|
+| 后端单元/集成测试 | `cd backend && ./mvnw test` | **282 通过 / 0 失败 / 13 跳过**（跳过的 13 个是需真实数据库的 `MemoryScopeServiceDatabaseTest`） |
+| 真实数据库测试 | `MEMSCOPE_TEST_DB_URL=... ./mvnw test -Dtest=MemoryScopeServiceDatabaseTest` | **13 通过 / 0 失败**（含 `ON CONFLICT` 并发、`COLLATE "C"` 精确性、digest 碰撞 fail-closed） |
+| 构建产物 | `./mvnw -DskipTests package` | **成功**，`cortex-ce-0.1.0-beta.jar` |
+| 迁移重放（空库） | `scripts/db/rehearse-conversation-scope.sh` | **21 通过 / 0 失败**：V1–V19 重放、V20 提交+不变量、跨平台重复 ID 合法、二次执行被基线守卫拒绝、冲突 fixture 中止且完整回滚 |
+| 应用启动（V20 schema） | 隔离库从空库迁移到 V20 后启动打包 jar | **成功启动**；并修正了仅在运行期暴露的 4 个缺陷（JPQL `COLLATE`、陈旧 `@Query`、双构造器、裸 ID 去重残留） |
+| 真实 API 端到端 | 对运行中实例发 HTTP | 同 `session_id` 跨平台产生**两个不同 UUID**；两侧目录各自计数互不串扰；删除 Claude 侧后 Codex 侧完整保留、无孤儿；直连观测落到 conversation + project scope |
+| WebUI 类型检查 | `bun run typecheck:viewer` | **通过** |
+| WebUI 单元测试 | `bun test tests/viewer` | **86 通过 / 0 失败**（含 3 个新增 standalone 语义用例） |
+| WebUI 浏览器测试 | `bun test tests/ui/viewer --concurrency 1` | 见 §16.4 基线对比 |
+| Viewer 构建 | `node scripts/build-viewer.js` | **成功**；产物已部署到 `backend/src/main/resources/static`，SHA-256 manifest 记于提交 `f7b865e` |
+
+### 16.4 基线与新增问题区分
+
+浏览器套件在**未改动的基线**上即为 **105 通过 / 6 失败**，6 个失败全部是既有问题：
+- `session-keyboard-actions` 的 Enter/Space 两个用例（headless Chrome 经 CDP 派发按键超时）
+- 4 个依赖 `Bun.serve` 流式响应的用例（`Bun.serve` 默认 10s `idleTimeout` 导致的超时）
+
+本次改动**未新增浏览器失败**；键盘用例已加显式 opt-out（`CLAUDE_MEM_NATIVE_KEY_TESTS=0`），默认仍启用。
+
+### 16.5 实施提交清单
+
+```
+325c817  docs: add conversation and memory scope refactor plan        (基线)
+46e467b  db: add V20 additive expansion and read-only preflight
+02cca55  feat(identity): add canonical session identity and memory scope primitives
+0c7bd8d  feat(entity): expose conversation identity on the wire, keep scope ids internal
+cd6b972  feat(summary): add durable, resumable SessionEnd summary job
+d33efbd  feat(migration): add fail-closed classifier and checkpointed backfill runner
+63b5502  db: make V20 a single atomic migration with fail-closed conflicts
+8985fa3  refactor(session): resolve conversations by composite identity and internal UUID
+9a0e90b  refactor(scope): route observation reads through memory scope predicates
+a8cc175  fix: make the refactor start and serve on the real V20 schema
+f7b865e  build: pair WebUI gitlink and static viewer with the v2 identity wire   (HEAD)
+```
+
+**执行模型偏离说明**：本规划原定「在线零停机 + checkpoint 续跑 + 影子读 + 回退演练 + V21/V22 分段」。实施中用户明确裁定该部署为单实例自托管、可接受迁移失败与长时间停机、**不考虑回退**，因此改为「单事务一次性迁移 + 冲突即中止 + 跨平台一次放开」。回填 runner 与 conflict ledger 的长期形态因此被移除；fail-closed 判定保留为 `RAISE EXCEPTION`。`ConversationScopeBackfillRunner`/`BackfillCliMain`/`SummaryJobService` 仍保留在代码库中（前者已被 V20 的 SQL 内联取代，后两者为 durable summary job 的服务层），但迁移不再依赖 runner 续跑。
+
+
+### 16.6 Scope 轴残留 site 分类（每处有结论）
+
+ObservationRepository 的 31 处 project 谓词全部改为经 `memory_scope_id` 解析（`COLLATE "C"` 精确匹配）。以下残留**刻意保留**原始 `project_path` 语义，因为它们属于 Summary/Session（conversation-owned）读路径，规划 §4.3 第 7 条明确此类不改成 Scope 计数：
+
+| Site | 读者 | 结论 |
+|---|---|---|
+| `SummaryRepository:20` `findAllPaged` | Viewer summaries 列表 | conversation-owned；保持 summary.project_path 既有规则 |
+| `SummaryRepository:45` `findByProjectPathAndPlatformSource` | ContextService summaries | 同上 |
+| `SummaryRepository:56` `findByProjectLimited` | MCP `recent` | 同上 |
+| `SessionRepository:74` `findByProjectPathAndStatus` | context cache owner | Session 元数据；既有规则 |
+| `SessionRepository:87` `findLastCompletedSessionWithMessage` | prior-session message | Session 元数据；当前会话排除已改用 Conversation UUID |
+| `SessionRepository:100` `findConversationIdsByUserIdAndProject` | ExpRag userId 分支 | Session 选 UUID，观测按 UUID 取（Scope 轴在下游已应用） |
+| `UserPromptRepository:28` | Viewer prompts 列表 | conversation-owned；既有规则 |
+
+会话轴残留为零：`findByContentSessionId`/`deleteByContentSessionId`/`findByContentSessionIdIn` 均已删除；仅存的两处合法用途是 `findStandaloneByCorrelationKeyAndType`（standalone 兼容 key + kind，非会话身份）与 `findByPlatformSourceAndContentSessionId`（复合身份）。
 
 **最终建议**：执行这次聚焦式重构，但不能把它缩减为“V20 加一个 Scope 表”或“把唯一索引改成复合索引”。低风险的关键在于：先保护伪会话删除、固定 Scope 语义、把已有 UUID 用作关系真值、补齐所有身份路径、只读盘点后分阶段迁移、保持 wire 兼容，并把允许跨平台重复 ID 设为单独的不可逆发布门。
