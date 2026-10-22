@@ -74,6 +74,7 @@ public class AgentService implements LogHelper {
     private final ObservationRepository observationRepository;
     private final PendingMessageRepository pendingMessageRepository;
     private final SessionRepository sessionRepository;
+    private final MemoryScopeService memoryScopeService;
     private final SSEBroadcaster sseBroadcaster;
     private final EmbeddingService embeddingService;
     private final LlmService llmService;
@@ -88,6 +89,7 @@ public class AgentService implements LogHelper {
                         ObservationRepository observationRepository,
                         PendingMessageRepository pendingMessageRepository,
                         SessionRepository sessionRepository,
+                           MemoryScopeService memoryScopeService,
                         SSEBroadcaster sseBroadcaster,
                         EmbeddingService embeddingService,
                         LlmService llmService,
@@ -98,6 +100,7 @@ public class AgentService implements LogHelper {
         this.observationRepository = observationRepository;
         this.pendingMessageRepository = pendingMessageRepository;
         this.sessionRepository = sessionRepository;
+        this.memoryScopeService = memoryScopeService;
         this.sseBroadcaster = sseBroadcaster;
         this.embeddingService = embeddingService;
         this.llmService = llmService;
@@ -250,9 +253,13 @@ public class AgentService implements LogHelper {
         String contentForHash = buildContentForHash(parsed.title, parsed.narrative, parsed.facts, parsed.concepts);
         String contentHash = calculateContentHash(contentForHash);
 
-        // Check for duplicate within 30-second window
+        // Check for duplicate within a 30-second window, scoped to the observation's memory
+        // scope. Keying on the raw project path would suppress identical content in a
+        // different project; scoping on the resolved scope keeps that separation.
         long windowStart = Instant.now().toEpochMilli() - 30000;
-        Optional<ObservationEntity> existing = observationRepository.findDuplicateByContentHash(contentHash, windowStart, projectPath);
+        java.util.UUID scopeId = memoryScopeService.resolveProjectScope(projectPath);
+        Optional<ObservationEntity> existing = observationRepository.findDuplicateByContentHash(
+            contentHash, windowStart, scopeId);
         if (existing.isPresent()) {
             log.debug(LogMarkers.HAPPY_PATH + "Duplicate observation within 30s window, returning existing: {}",
                 existing.get().getId());
@@ -262,6 +269,7 @@ public class AgentService implements LogHelper {
         ObservationEntity obs = new ObservationEntity();
         obs.setConversationId(conversationId);
         obs.setStandaloneKind(null);
+        obs.setMemoryScopeId(scopeId);
         obs.setContentSessionId(contentSessionId);
         obs.setPlatformSource(platformSource);
         obs.setProjectPath(projectPath);
