@@ -85,6 +85,40 @@ class ObservationEntityWireFormatTest {
     }
 
     @Test
+    @DisplayName("conversation_id and standalone_kind are ALWAYS present, even when null")
+    void identityFieldsAreAlwaysPresent() throws Exception {
+        String json = appObjectMapper().writeValueAsString(sample());
+        // The raw text, not a deserialized map: a map would drop nulls and hide the bug
+        // where a standalone row omits conversation_id instead of emitting null.
+        assertTrue(json.contains("\"conversation_id\":null"),
+            "observation without a conversation must emit conversation_id:null; got " + json);
+        assertTrue(json.contains("\"standalone_kind\":null"),
+            "conversation-owned rows must emit standalone_kind:null; got " + json);
+
+        ObservationEntity standalone = sample();
+        standalone.setConversationId(null);
+        standalone.setStandaloneKind("manual");
+        String standaloneJson = appObjectMapper().writeValueAsString(standalone);
+        assertTrue(standaloneJson.contains("\"conversation_id\":null"));
+        assertTrue(standaloneJson.contains("\"standalone_kind\":\"manual\""));
+    }
+
+    @Test
+    @DisplayName("memory_scope_id never appears on the wire or in the OpenAPI schema")
+    void memoryScopeIdIsNeverExposed() throws Exception {
+        ObservationEntity entity = sample();
+        entity.setMemoryScopeId(java.util.UUID.randomUUID());
+        String json = appObjectMapper().writeValueAsString(entity);
+
+        // The wire keeps project/project_path as the caller-facing scope selector; a local
+        // database UUID must not leak, or clients would start persisting a per-deployment id.
+        assertTrue(!json.contains("memory_scope_id"), "wire leaked memory_scope_id: " + json);
+        assertTrue(!json.contains("memoryScopeId"), "wire leaked memoryScopeId: " + json);
+        assertTrue(!advertisedProperties(ObservationEntity.class).contains("memory_scope_id"),
+            "OpenAPI must not advertise memory_scope_id");
+    }
+
+    @Test
     @DisplayName("files_read / files_modified stay JSON-encoded strings, not arrays")
     void jsonEncodedListFieldsRemainStrings() throws Exception {
         String json = appObjectMapper().writeValueAsString(sample());

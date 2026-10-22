@@ -43,6 +43,15 @@ public class PendingMessageEventListener {
             if ("observation".equals(event.getMessageType())) {
                 agentService.processPendingMessage(event.getPendingMessageId());
                 log.info("Processed pending message: {}", event.getPendingMessageId());
+            } else if ("summarize".equals(event.getMessageType())) {
+                // A summarize row is a durable job, not dead-letter fodder. The generic
+                // "unsupported type -> failed" branch below used to destroy these rows
+                // within one scheduler cycle, which made crash recovery impossible: a
+                // restarted worker would find no job and regenerate the summary (or let
+                // the conversation be deleted mid-flight). Recovery is owned by the
+                // summary job path; anything arriving here is only ever re-checked.
+                log.info("Summarize job observed by scheduler: {} (recovery handled by the summary job path)",
+                    event.getPendingMessageId());
             } else {
                 // Mark unsupported message types as failed (dead-letter)
                 log.warn("Unsupported pending message type: {}, marking as failed", event.getMessageType());

@@ -15,7 +15,31 @@ import java.util.UUID;
 @Repository
 public interface SessionRepository extends JpaRepository<SessionEntity, UUID> {
 
+    /**
+     * Legacy lookup by bare external id.
+     *
+     * <p>Safe only while the single-column unique constraint is still in force (through
+     * V21). Once two platforms may share an external id this can return multiple rows, so
+     * callers that must remain correct afterwards use
+     * {@link #findByPlatformSourceAndContentSessionId}. Kept for the compatibility window
+     * and for paths that already resolved a platform.
+     */
     Optional<SessionEntity> findByContentSessionId(String contentSessionId);
+
+    /**
+     * Unambiguous external identity lookup: {@code (platform_source, content_session_id)}.
+     *
+     * <p>{@code platformSource} is compared after the same normalisation the writer applied
+     * (NULL/blank legacy rows count as {@code claude}), so a legacy row is still found.
+     */
+    @Query("""
+        SELECT s FROM SessionEntity s
+        WHERE s.contentSessionId = :contentSessionId
+        AND COALESCE(NULLIF(TRIM(BOTH ' ' FROM s.platformSource), ''), 'claude') = :platformSource
+        """)
+    Optional<SessionEntity> findByPlatformSourceAndContentSessionId(
+        @Param("platformSource") String platformSource,
+        @Param("contentSessionId") String contentSessionId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
@@ -27,6 +51,20 @@ public interface SessionRepository extends JpaRepository<SessionEntity, UUID> {
         @Param("contentSessionId") String contentSessionId,
         @Param("platformSource") String platformSource
     );
+
+    /**
+     * Take a pessimistic row lock on one Conversation, the shared anchor for every
+     * conversation-lifecycle mutation (SessionEnd, job state changes, deletion).
+     *
+     * <p>Uses the internal UUID, never the external id: two platforms may legitimately share
+     * an external id, and locking on that would make them contend with — or worse, serialise
+     * against — each other.
+     *
+     * @return the id if the row exists and is now locked; empty if it does not exist
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s.id FROM SessionEntity s WHERE s.id = :id")
+    Optional<UUID> lockSessionForUpdate(@Param("id") UUID id);
 
     @Query("SELECT DISTINCT s.projectPath FROM SessionEntity s ORDER BY s.projectPath")
     List<String> findAllProjects();

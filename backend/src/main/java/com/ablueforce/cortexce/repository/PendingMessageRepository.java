@@ -44,6 +44,78 @@ public interface PendingMessageRepository extends JpaRepository<PendingMessageEn
         @Param("toolInputHash") String toolInputHash
     );
 
+    // ========================================================================
+    // V20 durable summary job queries
+    // ========================================================================
+
+    /** The canonical durable job for a conversation, if it exists. */
+    @Query("""
+        SELECT p FROM PendingMessageEntity p
+        WHERE p.sessionDbId = :sessionDbId
+        AND p.messageType = 'summarize'
+        AND p.jobKey = :jobKey
+        """)
+    Optional<PendingMessageEntity> findSummaryJob(
+        @Param("sessionDbId") UUID sessionDbId,
+        @Param("jobKey") String jobKey);
+
+    /**
+     * Legacy {@code summarize} rows that carry no job key. Used only by the audited
+     * promotion path; a row set larger than one is ambiguity, never a choice.
+     */
+    @Query("""
+        SELECT p FROM PendingMessageEntity p
+        WHERE p.sessionDbId = :sessionDbId
+        AND p.messageType = 'summarize'
+        AND p.jobKey IS NULL
+        ORDER BY p.createdAtEpoch ASC, p.id ASC
+        """)
+    List<PendingMessageEntity> findUnkeyedSummarizeJobs(@Param("sessionDbId") UUID sessionDbId);
+
+    /**
+     * Does this conversation hold a summary job that makes deletion unsafe?
+     *
+     * <p>Deliberately keyed on {@code session_db_id}: the guard must apply to exactly one
+     * conversation, so two platforms sharing an external id cannot block each other.
+     */
+    @Query("""
+        SELECT CASE WHEN COUNT(p) > 0 THEN true ELSE false END
+        FROM PendingMessageEntity p
+        WHERE p.sessionDbId = :sessionDbId
+        AND p.messageType = 'summarize'
+        AND p.status IN :statuses
+        """)
+    boolean existsInFlightSummaryJob(
+        @Param("sessionDbId") UUID sessionDbId,
+        @Param("statuses") List<String> statuses);
+
+    /** The job that owns a given result, for tombstoning on result deletion. */
+    @Query("""
+        SELECT p FROM PendingMessageEntity p
+        WHERE p.resultSummaryId = :summaryId
+        """)
+    Optional<PendingMessageEntity> findByResultSummaryId(@Param("summaryId") UUID summaryId);
+
+    /**
+     * Correct dedup query: scoped to one Conversation by internal id.
+     *
+     * <p>Failed rows are excluded so a retry after failure is still allowed, matching the
+     * existing "failed may be retried, everything else dedups" rule that an unconditional
+     * unique constraint would have broken.
+     */
+    @Query("SELECT COUNT(p) FROM PendingMessageEntity p WHERE p.sessionDbId = :sessionDbId AND p.toolName = :toolName AND p.toolInputHash = :toolInputHash AND p.status <> 'failed'")
+    long countBySessionDbIdAndTool(
+        @Param("sessionDbId") UUID sessionDbId,
+        @Param("toolName") String toolName,
+        @Param("toolInputHash") String toolInputHash
+    );
+
+    /** Any pending row (any type) for a conversation, for the deletion guard. */
+    @Query("SELECT COUNT(p) FROM PendingMessageEntity p WHERE p.sessionDbId = :sessionDbId AND p.status IN :statuses")
+    long countPendingForSession(
+        @Param("sessionDbId") UUID sessionDbId,
+        @Param("statuses") List<String> statuses);
+
     // Find most recently completed message for health check
     @Query(value = "SELECT MAX(p.completedAtEpoch) FROM PendingMessageEntity p WHERE p.status = 'processed'")
     Long findLastProcessedEpoch();

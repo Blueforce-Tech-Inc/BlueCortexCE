@@ -28,10 +28,16 @@ public class SessionEntity {
     private UUID id;
 
     /**
-     * Business key from Claude Code - the session identifier passed to hooks.
-     * Unique across all sessions, provided by Claude Code CLI.
+     * External session identifier supplied by the host platform.
+     *
+     * <p>This is <b>not</b> unique on its own any more: uniqueness is
+     * {@code (platform_source, content_session_id)}. The old single-column database
+     * constraint is still present during the V20 compatibility window as a stronger
+     * temporary guard, but it lives in migrations, not in this mapping — the JPA
+     * {@code unique = true} metadata was removed so that enabling schema generation
+     * could never recreate the wrong global constraint behind our back.
      */
-    @Column(name = "content_session_id", unique = true, nullable = false)
+    @Column(name = "content_session_id", nullable = false)
     @NotBlank(message = "Content session ID cannot be blank")
     @JsonProperty("session_id")
     private String contentSessionId;

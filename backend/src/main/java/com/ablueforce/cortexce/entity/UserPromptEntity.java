@@ -1,5 +1,6 @@
 package com.ablueforce.cortexce.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import java.time.OffsetDateTime;
@@ -21,6 +22,14 @@ public class UserPromptEntity {
     @Column(name = "project_path")
     @JsonProperty("project")
     private String projectPath;
+
+    /**
+     * Internal relation to the owning Conversation ({@code mem_sessions.id}).
+     * Not serialised; the public wire keeps {@code content_session_id}.
+     */
+    @Column(name = "conversation_id", columnDefinition = "uuid")
+    @JsonIgnore
+    private UUID conversationId;
 
     @Column(name = "prompt_number", nullable = false)
     @JsonProperty("prompt_number")
@@ -69,4 +78,7 @@ public class UserPromptEntity {
 
     public String getPlatformSource() { return platformSource; }
     public void setPlatformSource(String platformSource) { this.platformSource = platformSource; }
+
+    public UUID getConversationId() { return conversationId; }
+    public void setConversationId(UUID conversationId) { this.conversationId = conversationId; }
 }

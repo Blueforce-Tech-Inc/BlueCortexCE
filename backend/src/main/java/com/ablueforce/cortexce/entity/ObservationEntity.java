@@ -1,6 +1,7 @@
 package com.ablueforce.cortexce.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -221,6 +222,55 @@ public class ObservationEntity {
     @Column(name = "platform_source")
     @JsonProperty("platform_source")
     private String platformSource = "claude";
+
+    // ========================================================================
+    // V20: Conversation / Memory Scope identity
+    // ========================================================================
+
+    /**
+     * Internal relationship key: the owning Conversation ({@code mem_sessions.id}).
+     *
+     * <p>Wire: emitted as {@code conversation_id}, explicitly {@code null} for standalone
+     * rows. {@code @JsonInclude(ALWAYS)} matters — a default mapper would drop a null and
+     * the Viewer would then be unable to tell "standalone" from "field omitted".
+     */
+    @Column(name = "conversation_id", columnDefinition = "uuid")
+    @JsonProperty("conversation_id")
+    @JsonInclude(JsonInclude.Include.ALWAYS)
+    private UUID conversationId;
+
+    /**
+     * {@code NULL} for conversation-owned rows; {@code manual | extraction | dlq} for rows
+     * that merely borrow a legacy wire key and belong to no conversation.
+     */
+    @Column(name = "standalone_kind")
+    @JsonProperty("standalone_kind")
+    @JsonInclude(JsonInclude.Include.ALWAYS)
+    private String standaloneKind;
+
+    /**
+     * Internal Memory Scope id.
+     *
+     * <p>Never serialised: the wire keeps {@code project}/{@code project_path} as the
+     * caller-facing selector (plan §1). Excluding it here rather than trusting "nobody
+     * will look" matters because several controllers return this entity directly.
+     * {@code @JsonIgnore} also keeps it out of the generated OpenAPI schema, so a
+     * generated client cannot come to depend on a local database UUID.
+     */
+    @Column(name = "memory_scope_id", columnDefinition = "uuid")
+    @JsonIgnore
+    private UUID memoryScopeId;
+
+    // V20 identity accessors
+
+    public UUID getConversationId() { return conversationId; }
+    public void setConversationId(UUID conversationId) { this.conversationId = conversationId; }
+
+    public String getStandaloneKind() { return standaloneKind; }
+    public void setStandaloneKind(String standaloneKind) { this.standaloneKind = standaloneKind; }
+
+    public UUID getMemoryScopeId() { return memoryScopeId; }
+    public void setMemoryScopeId(UUID memoryScopeId) { this.memoryScopeId = memoryScopeId; }
 
     // Getters and Setters for quality fields
 

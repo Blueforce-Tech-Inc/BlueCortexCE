@@ -1,5 +1,6 @@
 package com.ablueforce.cortexce.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import java.time.OffsetDateTime;
@@ -56,6 +57,25 @@ public class SummaryEntity {
     @Column(name = "notes")
     @JsonProperty("notes")
     private String notes;
+
+    /**
+     * Internal relation to the owning Conversation ({@code mem_sessions.id}).
+     *
+     * <p>Not serialised: the public Summary surface keeps {@code session_id}
+     * ({@code content_session_id}) exactly as before, and adding a UUID would invite
+     * clients to use a deployment-local id as a cross-install key.
+     */
+    @Column(name = "conversation_id", columnDefinition = "uuid")
+    @JsonIgnore
+    private UUID conversationId;
+
+    /**
+     * Internal idempotency key of the durable SessionEnd job that produced this row.
+     * Never serialised: it is an implementation detail of job recovery.
+     */
+    @Column(name = "summary_job_key")
+    @JsonIgnore
+    private String summaryJobKey;
 
     @Column(name = "prompt_number")
     @JsonProperty("prompt_number")
@@ -120,4 +140,12 @@ public class SummaryEntity {
 
     public String getPlatformSource() { return platformSource; }
     public void setPlatformSource(String platformSource) { this.platformSource = platformSource; }
+
+    // V20 internal identity (never serialised; see field docs)
+
+    public UUID getConversationId() { return conversationId; }
+    public void setConversationId(UUID conversationId) { this.conversationId = conversationId; }
+
+    public String getSummaryJobKey() { return summaryJobKey; }
+    public void setSummaryJobKey(String summaryJobKey) { this.summaryJobKey = summaryJobKey; }
 }
