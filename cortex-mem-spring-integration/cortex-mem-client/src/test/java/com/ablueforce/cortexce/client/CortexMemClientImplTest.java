@@ -429,6 +429,22 @@ class CortexMemClientImplTest {
     }
 
     @Test
+    void healthCheck_callsTheHealthEndpoint() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("{\"status\":\"ok\"}")
+            .addHeader("Content-Type", "application/json"));
+        assertThat(client.healthCheck()).isTrue();
+
+        // The path is what nothing else in the suite observes: the other
+        // health tests assert only the boolean outcome, and the mock server
+        // answers on any path. Measured before this test, pointing the client
+        // at a different path left the whole client suite green.
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getMethod()).isEqualTo("GET");
+        assertThat(req.getPath()).isEqualTo("/api/health");
+    }
+
+    @Test
     void healthCheck_returnsFalseWhenError() {
         server.enqueue(new MockResponse().setResponseCode(500));
         assertThat(client.healthCheck()).isFalse();

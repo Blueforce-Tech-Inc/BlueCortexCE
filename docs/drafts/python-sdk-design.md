@@ -154,7 +154,7 @@ class CortexMemClient:
         """POST /api/session/start"""
 
     def update_session_user_id(self, session_id: str, user_id: str) -> dict:
-        """PATCH /api/session/{session_id}/user"""
+        """PATCH /api/session/{sessionId}/user"""
 
     # ==================== Capture (fire-and-forget) ====================
 
@@ -212,10 +212,10 @@ class CortexMemClient:
         """POST /api/extraction/run"""
 
     def get_latest_extraction(self, project_path: str, template_name: str, user_id: str = "") -> ExtractionResult:
-        """GET /api/extraction/{template}/latest"""
+        """GET /api/extraction/{templateName}/latest"""
 
     def get_extraction_history(self, project_path: str, template_name: str, user_id: str = "", limit: int = 0) -> list[ExtractionResult]:
-        """GET /api/extraction/{template}/history"""
+        """GET /api/extraction/{templateName}/history"""
 
     # ==================== Version ====================
 

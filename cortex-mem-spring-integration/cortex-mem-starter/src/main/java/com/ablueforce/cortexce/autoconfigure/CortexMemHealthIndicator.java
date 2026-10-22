@@ -7,7 +7,9 @@ import org.springframework.boot.actuate.health.HealthIndicator;
 /**
  * Spring Boot Actuator health indicator for the Cortex CE backend.
  * <p>
- * Reports UP when the backend's /actuator/health responds successfully.
+ * Reports UP when the backend's /api/health responds successfully. The
+ * indicator asks the SDK client, and the client calls GET /api/health — not
+ * the backend's own /actuator/health.
  * Registered as "cortexMem" in the health endpoint.
  */
 public class CortexMemHealthIndicator implements HealthIndicator {

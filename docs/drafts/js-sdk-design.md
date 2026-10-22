@@ -148,8 +148,8 @@ Capture operations (RecordObservation, RecordSessionEnd, RecordUserPrompt) use f
 | 16 | `getQualityDistribution` | GET | `/api/memory/quality-distribution` |
 | 17 | `healthCheck` | GET | `/api/health` |
 | 18 | `triggerExtraction` | POST | `/api/extraction/run` |
-| 19 | `getLatestExtraction` | GET | `/api/extraction/{template}/latest` |
-| 20 | `getExtractionHistory` | GET | `/api/extraction/{template}/history` |
+| 19 | `getLatestExtraction` | GET | `/api/extraction/{templateName}/latest` |
+| 20 | `getExtractionHistory` | GET | `/api/extraction/{templateName}/history` |
 | 21 | `getVersion` | GET | `/api/version` |
 | 22 | `getProjects` | GET | `/api/projects` |
 | 23 | `getStats` | GET | `/api/stats` |

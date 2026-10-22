@@ -379,10 +379,10 @@ type Client interface {
 
     // ==================== Extraction (Phase 3) ====================
 
-    // GetLatestExtraction gets latest extraction result. GET /api/extraction/{template}/latest
+    // GetLatestExtraction gets latest extraction result. GET /api/extraction/{templateName}/latest
     GetLatestExtraction(ctx context.Context, projectPath, templateName, userID string) (map[string]any, error)
 
-    // GetExtractionHistory gets extraction history. GET /api/extraction/{template}/history
+    // GetExtractionHistory gets extraction history. GET /api/extraction/{templateName}/history
     GetExtractionHistory(ctx context.Context, projectPath, templateName, userID string, limit int) ([]map[string]any, error)
 
     // TriggerExtraction manually triggers extraction for a project. POST /api/extraction/run
@@ -1304,8 +1304,8 @@ jobs:
 | DeleteObservation | DELETE | /api/memory/observations/{id} | deleteObservation() |
 | GetQualityDistribution | GET | /api/memory/quality-distribution | getQualityDistribution() |
 | HealthCheck | GET | /api/health | healthCheck() |
-| GetLatestExtraction | GET | /api/extraction/{template}/latest | getLatestExtraction() |
-| GetExtractionHistory | GET | /api/extraction/{template}/history | getExtractionHistory() |
+| GetLatestExtraction | GET | /api/extraction/{templateName}/latest | getLatestExtraction() |
+| GetExtractionHistory | GET | /api/extraction/{templateName}/history | getExtractionHistory() |
 | TriggerExtraction | POST | /api/extraction/run | — (Go SDK 新增，Java SDK 未封装) |
 | UpdateSessionUserId | PATCH | /api/session/{sessionId}/user | updateSessionUserId() |
 | GetVersion | GET | /api/version | — (Phase 2，Java SDK 未封装) |
@@ -1561,8 +1561,8 @@ type Memory interface {
 10. ✅ `DeleteObservation` → `DELETE /api/memory/observations/{id}`
 11. ✅ `GetQualityDistribution` → `GET /api/memory/quality-distribution`
 12. ✅ `HealthCheck` → `GET /api/health`
-13. ✅ `GetLatestExtraction` → `GET /api/extraction/{template}/latest`
-14. ✅ `GetExtractionHistory` → `GET /api/extraction/{template}/history`
+13. ✅ `GetLatestExtraction` → `GET /api/extraction/{templateName}/latest`
+14. ✅ `GetExtractionHistory` → `GET /api/extraction/{templateName}/history`
 15. ✅ `UpdateSessionUserId` → `PATCH /api/session/{sessionId}/user`
 
 ### 后端有但 Java SDK 未封装的端点
@@ -1581,13 +1581,20 @@ type Memory interface {
 | `/api/context/{project}` | POST | 上下文注入 | ⚠️ 可选 |
 | `/api/observations/batch` | POST | 批量获取 | ✅ 需要 |
 | `/api/sdk-sessions/batch` | POST | 批量会话 | ⚠️ 可选 |
-| `/api/register/{project}` | GET | 项目注册状态 | ⚠️ 可选 |
-| `/api/register` | POST | 项目注册 | ⚠️ 可选 |
-| `/api/inject` | GET | 上下文注入 | ⚠️ 可选 |
-| `/api/preview` | GET | 预览 | ⚠️ 可选 |
+| `/api/cursor/register/{projectName}` | GET | 项目注册状态 | ⚠️ 可选 |
+| `/api/cursor/register` | POST | 项目注册 | ⚠️ 可选 |
+| `/api/context/inject` | GET | 上下文注入 | ⚠️ 可选 |
+| `/api/context/preview` | GET | 预览 | ⚠️ 可选 |
 | `/api/version` | GET | 版本信息 | ✅ 需要 |
-| `/api/types` | GET | 类型列表 | ⚠️ 可选 |
-| `/api/concepts` | GET | 概念列表 | ⚠️ 可选 |
+| `/api/mode/types` | GET | 类型列表 | ⚠️ 可选 |
+| `/api/mode/concepts` | GET | 概念列表 | ⚠️ 可选 |
+
+> **核对说明（2026-10-22）**：上表的表头是「后端有但 Java SDK 未封装的端点」，但其中 **6** 行的路径
+> **后端从未有过**（起草当天也没有），它们是本设计提出的候选端点，表头对这 6 行并不成立：
+> `/api/context/{project}`、`/api/embedding`、`/api/llm`、`/api/import/all`、`/api/memory/clear`、
+> `/api/mode/{id}`。
+> 其余各行的路径已按活体 OpenAPI spec 逐条核对并更正（此前有 13 处漏了 `/mode`、`/context`、
+> `/cursor` 前缀）；本表的「⚠️ 可选」标记与第 4 列的规划意图保持原样，未作改动。
 
 ### 结论
 
@@ -1858,8 +1865,8 @@ type Client interface {
 | 10 | DeleteObservation | DELETE /api/memory/observations/{id} | P1 |
 | 11 | GetQualityDistribution | GET /api/memory/quality-distribution | P1 |
 | 12 | HealthCheck | GET /api/health | P0 |
-| 13 | GetLatestExtraction | GET /api/extraction/{template}/latest | P1 |
-| 14 | GetExtractionHistory | GET /api/extraction/{template}/history | P1 |
+| 13 | GetLatestExtraction | GET /api/extraction/{templateName}/latest | P1 |
+| 14 | GetExtractionHistory | GET /api/extraction/{templateName}/history | P1 |
 | 15 | UpdateSessionUserId | PATCH /api/session/{sessionId}/user | P1 |
 
 ### Phase 2: 重要扩展（推荐）
@@ -5136,8 +5143,8 @@ retriever := eino.NewRetriever(client, "/project",
 | 10 | `deleteObservation` | `DELETE /api/memory/observations/{id}` | ✅ |
 | 11 | `getQualityDistribution` | `GET /api/memory/quality-distribution` | ✅ |
 | 12 | `healthCheck` | `GET /api/health` 或 `/actuator/health` | ✅ |
-| 13 | `getLatestExtraction` | `GET /api/extraction/{template}/latest` | ✅ |
-| 14 | `getExtractionHistory` | `GET /api/extraction/{template}/history` | ✅ |
+| 13 | `getLatestExtraction` | `GET /api/extraction/{templateName}/latest` | ✅ |
+| 14 | `getExtractionHistory` | `GET /api/extraction/{templateName}/history` | ✅ |
 | 15 | `updateSessionUserId` | `PATCH /api/session/{sessionId}/user` | ✅ |
 
 ### 后端有但 Java SDK 未封装的 API
@@ -5172,24 +5179,24 @@ retriever := eino.NewRetriever(client, "/project",
 | 29 | `/api/context/preview` | GET | 上下文预览 | `previewContext(project, mode)` |
 | 30 | `/api/context/recent` | GET | 最近上下文 | `getRecentContext(project, count)` |
 | 31 | `/api/context/prior-messages` | GET | 前一次会话消息 | `getPriorMessages(project, sessionId)` |
-| 32 | `/api/context/{projectName}` | POST | 注册项目上下文 | `registerContext(projectName)` |
-| 33 | `/api/context/{projectName}/custom` | POST | 自定义上下文 | `createCustomContext(projectName, config)` |
+| 32 | `/api/cursor/context/{projectName}` | POST | 注册项目上下文 | `registerContext(projectName)` |
+| 33 | `/api/cursor/context/{projectName}/custom` | POST | 自定义上下文 | `createCustomContext(projectName, config)` |
 | 34 | `/api/context/generate` | POST | 生成上下文 | `generateContext(project, options)` |
-| 35 | `/api/register/{projectName}` | GET | 项目注册状态 | `getRegistrationStatus(projectName)` |
-| 36 | `/api/register` | POST | 注册项目 | `registerProject(RegisterRequest)` |
-| 37 | `/api/register/{projectName}` | DELETE | 取消注册 | `unregisterProject(projectName)` |
+| 35 | `/api/cursor/register/{projectName}` | GET | 项目注册状态 | `getRegistrationStatus(projectName)` |
+| 36 | `/api/cursor/register` | POST | 注册项目 | `registerProject(RegisterRequest)` |
+| 37 | `/api/cursor/register/{projectName}` | DELETE | 取消注册 | `unregisterProject(projectName)` |
 
 #### P3: 高级功能（按需补充）
 
 | # | 后端端点 | 方法 | 说明 | 建议 Java 方法名 |
 |---|---------|------|------|----------------|
 | 38 | `/api/search/by-file` | GET | 按文件搜索 | `searchByFile(project, filePath)` |
-| 39 | `/api/concepts` | GET | 获取概念列表 | `getConcepts(project)` |
-| 40 | `/api/concepts/valid` | GET | 获取有效概念 | `getValidConcepts()` |
-| 41 | `/api/types` | GET | 获取类型列表 | `getTypes(project)` |
-| 42 | `/api/types/valid` | GET | 获取有效类型 | `getValidTypes()` |
-| 43 | `/api/types/{typeId}/emoji` | GET | 类型图标 | `getTypeEmoji(typeId)` |
-| 44 | `/api/types/{typeId}/validate` | GET | 验证类型 | `validateType(typeId)` |
+| 39 | `/api/mode/concepts` | GET | 获取概念列表 | `getConcepts(project)` |
+| 40 | `/api/mode/concepts/valid` | GET | 获取有效概念 | `getValidConcepts()` |
+| 41 | `/api/mode/types` | GET | 获取类型列表 | `getTypes(project)` |
+| 42 | `/api/mode/types/valid` | GET | 获取有效类型 | `getValidTypes()` |
+| 43 | `/api/mode/types/{typeId}/emoji` | GET | 类型图标 | `getTypeEmoji(typeId)` |
+| 44 | `/api/mode/types/{typeId}/validate` | GET | 验证类型 | `validateType(typeId)` |
 | 45 | `/api/timeline` | GET | 时间线 | `getTimeline(project, options)` |
 | 46 | `/api/processing-status` | GET | 处理状态 | `getProcessingStatus()` |
 | 47 | `/api/readiness` | GET | 就绪检查 | `isReady()` |
@@ -5206,7 +5213,7 @@ retriever := eino.NewRetriever(client, "/project",
 | 53 | `/api/import/prompts` | POST | 导入提示 | `importPrompts(ImportRequest)` |
 | 54 | `/api/import/summaries` | POST | 导入摘要 | `importSummaries(ImportRequest)` |
 | 55 | `/api/import/all` | GET | 获取所有导入 | `getAllImports(project)` |
-| 56 | `/api/test/observation` | POST | 测试观察 | `testObservation(TestRequest)` |
+| 56 | `/api/ingest/observation` | POST | 测试观察 | `testObservation(TestRequest)` |
 | 57 | `/api/mode/{id}` | PATCH | 更新模式 | `updateMode(id, request)` |
 | 58 | `/api/mode/{id}` | DELETE | 删除模式 | `deleteMode(id)` |
 | 59 | `/api/extraction/run` | POST | 手动触发提取 | `runExtraction(projectPath)` |
@@ -5576,10 +5583,10 @@ type Client interface {
     
     // ==================== Extraction ====================
     
-    // GetLatestExtraction gets latest extraction. GET /api/extraction/{template}/latest
+    // GetLatestExtraction gets latest extraction. GET /api/extraction/{templateName}/latest
     GetLatestExtraction(ctx context.Context, projectPath, templateName, userID string) (map[string]any, error)
     
-    // GetExtractionHistory gets extraction history. GET /api/extraction/{template}/history
+    // GetExtractionHistory gets extraction history. GET /api/extraction/{templateName}/history
     GetExtractionHistory(ctx context.Context, projectPath, templateName, userID string, limit int) ([]map[string]any, error)
     
     // ==================== Version ====================
@@ -5663,8 +5670,8 @@ type Client interface {
 
 | # | 方法 | HTTP | URL Path | Query Params | Request Body (JSON) | Response Type |
 |---|------|------|----------|-------------|-------------------|---------------|
-| 16 | `GetLatestExtraction` | GET | `/api/extraction/{template}/latest` | `projectPath`, `templateName` | — | `map[string]any` |
-| 17 | `GetExtractionHistory` | GET | `/api/extraction/{template}/history` | `projectPath`, `templateName`, `limit` | — | `[]map[string]any` |
+| 16 | `GetLatestExtraction` | GET | `/api/extraction/{templateName}/latest` | `projectPath`, `userId`（可选） | — | `map[string]any` |
+| 17 | `GetExtractionHistory` | GET | `/api/extraction/{templateName}/history` | `projectPath`, `limit`（可选，仅 > 0 时发送）, `userId`（可选） | — | `[]map[string]any` |
 
 #### Extension 方法（Phase 2，Go SDK 新增）
 
@@ -5695,20 +5702,21 @@ restClient.post()
         .build())
 ```
 
-#### 2. GetLatestExtraction 的双重参数传递
+#### 2. GetLatestExtraction 的模板名只作路径变量
 
-模板名同时出现在 URL path 和 query param 中：
+`templateName` 是**路径变量**，只出现在 URL path 中，**不是**查询参数：
 
 ```go
-// templateName 在 path 中用于路由，在 query param 中用于业务逻辑
+// templateName 只用于路由
 path := fmt.Sprintf("/api/extraction/%s/latest", url.PathEscape(templateName))
-query := fmt.Sprintf("?projectPath=%s&templateName=%s",
-    url.QueryEscape(projectPath),
-    url.QueryEscape(templateName))
+params := map[string]string{"projectPath": projectPath}
 if userID != "" {
-    query += "&userId=" + url.QueryEscape(userID)
+    params["userId"] = userID
 }
 ```
+
+查询参数只有 `projectPath`（必填）与 `userId`（可选）；`history` 另有 `limit`（仅 > 0 时发送）。
+后端把 `templateName` 声明为 `@PathVariable`，多余的同名查询参数会被静默忽略，因此**不要**同时发送。
 
 Java SDK 验证：
 ```java
@@ -5717,8 +5725,7 @@ restClient.get()
     .uri(uriBuilder -> {
         var builder = uriBuilder
             .path("/api/extraction/{template}/latest")
-            .queryParam("projectPath", projectPath)
-            .queryParam("templateName", templateName);  // ← Also as query param
+            .queryParam("projectPath", projectPath);
         if (userId != null) {
             builder.queryParam("userId", userId);
         }
@@ -5726,17 +5733,34 @@ restClient.get()
     })
 ```
 
-#### 3. HealthCheck 端点差异
+上面 Java 片段里的 `{template}` 是 RestTemplate 的 URI 模板变量名，属实现内部的占位符；
+对外的路径变量名是 `templateName`，两者展开出的 URL 完全相同。
+Java SDK 自身的测试也钉住了这一点：`getLatestExtraction_sendsCorrectPath` 断言
+`doesNotContain("templateName=")`，即模板名不得同时作为查询参数出现。
+
+> **历史说明（起草时的旧形态）**：本节最初写作「GetLatestExtraction 的双重参数传递」，
+> 描述模板名「同时出现在 URL path 和 query param 中」，并以 Java SDK 当时的实现作为验证依据——
+> 那一刻 Java SDK 确实会多发一个 `templateName` 查询参数。
+> 同日 `1772b33`（*fix(sdk): remove redundant templateName query param from extraction APIs*）
+> 移除了这个冗余参数，理由正是后端只把 `templateName` 声明为 `@PathVariable`。
+> 上面的 Go 代码已按移除后的形态给出。
+
+#### 3. HealthCheck 端点
 
 ```go
-// Go SDK 使用标准后端端点
+// Go SDK 与 Java SDK 客户端请求的是同一个后端端点
 GET /api/health
-
-// Java SDK 使用 Spring Actuator（仅限 Java 服务端场景）
-GET /actuator/health
 ```
 
+要区分两件事：后端自身另有 Spring Actuator 的 `/actuator/health`，但 **SDK 客户端不调用它**——
+Java SDK 的 `CortexMemClientImpl.healthCheck()` 请求的是 `/api/health`；
+`CortexMemHealthIndicator` 也是经由 `client.healthCheck()` 间接调用 `/api/health`。
+
 Go SDK 应使用 `/api/health`（通用，不依赖 Spring Actuator）。
+
+> **历史说明（起草时的旧形态）**：本节最初写作「HealthCheck 端点差异」，并称 Java SDK 使用
+> `/actuator/health`。那在起草时是成立的——Java SDK 当时确实请求该地址；
+> 同日 `a0df30a`（*fix(sdk): Java healthCheck endpoint*）改为 `/api/health`，与 Go SDK 对齐。
 
 #### 4. SubmitFeedback 的 Body 字段命名
 
