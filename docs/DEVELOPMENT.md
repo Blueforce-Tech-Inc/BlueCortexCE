@@ -551,8 +551,8 @@ mvn -pl cortex-mem-client test
 
 # ── Go SDK — the root module alone does not cover the adapters
 cd go-sdk/cortex-mem-go
-./test-all.sh                 # all 9 modules (root + genkit + eino + langchaingo + examples) — this is what 441 counts
-go test ./...                 # root + dto only (371)
+./test-all.sh                 # all 9 modules (root + genkit + eino + langchaingo + examples) — this is what 477 counts
+go test ./...                 # root + dto only (407)
 
 # ── Python SDK
 cd python-sdk/cortex-mem-python
@@ -569,11 +569,11 @@ npm run build                 # tsup -> dist
 > project runs **vitest**, and invoking Jest directly pulls a different runner that fails
 > on the ESM config before a single test executes.
 
-> **What the two Go numbers count** (measured 2026-10-22): **441** is the number of passing
+> **What the two Go numbers count** (measured 2026-10-22): **477** is the number of passing
 > cases across all nine modules **including subtests** — counted with `go test -json`, one
-> entry per `(package, test)` pair. The **top-level test functions** alone are **337**, and
+> entry per `(package, test)` pair. The **top-level test functions** alone are **340**, and
 > the two differ because table-driven cases register their subtests separately.
-> **371** is the same count restricted to the root module: `go test ./...` at
+> **407** is the same count restricted to the root module: `go test ./...` at
 > `go-sdk/cortex-mem-go` covers **core + dto** only, which is exactly why it is smaller than
 > the nine-module total. Both numbers move whenever a case is added, so read them as
 > "as of 2026-10-22" rather than as a property of the SDK.
