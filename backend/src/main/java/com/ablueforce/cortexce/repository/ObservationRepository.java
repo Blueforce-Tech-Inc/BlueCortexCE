@@ -37,7 +37,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         WHERE (:project IS NULL OR o.memoryScopeId IN (
                  SELECT ms.id FROM com.ablueforce.cortexce.entity.MemoryScopeEntity ms
                  WHERE ms.scopeType = 'project'
-                   AND ms.scopeKey = :project COLLATE "C"))
+                   AND ms.scopeKey = :project))
         AND (:platformSource IS NULL OR COALESCE(o.platformSource, 'claude') = :platformSource)
         AND (:conversationId IS NULL OR o.conversationId = :conversationId)
         AND (:standaloneKind IS NULL OR o.standaloneKind = :standaloneKind)
@@ -83,7 +83,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         SELECT o FROM ObservationEntity o
         WHERE o.memoryScopeId IN (SELECT ms.id FROM com.ablueforce.cortexce.entity.MemoryScopeEntity ms
                           WHERE ms.scopeType = 'project'
-                            AND ms.scopeKey = :projectPath COLLATE "C")
+                            AND ms.scopeKey = :projectPath)
         AND o.conversationId IN :conversationIds
         ORDER BY o.createdAtEpoch DESC
         """)
@@ -107,7 +107,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         SELECT o FROM ObservationEntity o
         WHERE o.memoryScopeId IN (SELECT ms.id FROM com.ablueforce.cortexce.entity.MemoryScopeEntity ms
                           WHERE ms.scopeType = 'project'
-                            AND ms.scopeKey = :projectPath COLLATE "C")
+                            AND ms.scopeKey = :projectPath)
         AND o.conversationId IN :conversationIds
         AND o.qualityScore >= :minQuality
         ORDER BY o.createdAtEpoch DESC

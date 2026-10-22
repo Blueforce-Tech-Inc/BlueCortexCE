@@ -95,6 +95,6 @@ public interface SummaryRepository extends JpaRepository<SummaryEntity, UUID> {
      * also matches the existing {@code idx_summaries_created (created_at_epoch DESC)}
      * index, so the sort is served from the index.
      */
-    @Query("SELECT s FROM SummaryEntity s WHERE s.contentSessionId = :contentSessionId ORDER BY s.createdAtEpoch DESC")
+    @Query("SELECT s FROM SummaryEntity s WHERE s.conversationId = :conversationId ORDER BY s.createdAtEpoch DESC")
     List<SummaryEntity> findByConversationId(@Param("conversationId") UUID conversationId);
 }

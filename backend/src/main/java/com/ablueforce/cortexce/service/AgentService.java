@@ -153,13 +153,15 @@ public class AgentService implements LogHelper {
         }
 
         try {
-            // Dedup — skip if same session+tool+input already exists
+            // Dedup — same conversation + tool + input already queued. Scoped on the
+            // internal UUID: with a bare external id, two platforms sharing an id would
+            // suppress each other's genuine work.
             String toolInputHash = calculateToolInputHash(toolInput);
-            boolean exists = pendingMessageRepository.existsBySessionAndTool(
-                contentSessionId,
+            boolean exists = pendingMessageRepository.countBySessionDbIdAndTool(
+                sessionDbId,
                 toolName != null ? toolName : "",
                 toolInputHash
-            );
+            ) > 0;
             if (exists) {
                 logDataIn("Duplicate tool-use event skipped: session={}, tool={}", contentSessionId, toolName);
                 return;

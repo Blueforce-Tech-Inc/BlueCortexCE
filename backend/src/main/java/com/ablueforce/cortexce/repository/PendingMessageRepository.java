@@ -25,28 +25,6 @@ public interface PendingMessageRepository extends JpaRepository<PendingMessageEn
 
     long countByStatus(String status);
 
-    // Dedup: check if a message with same session + tool already exists (not failed)
-    // P1: Using full SHA-256 hash string for collision-resistant deduplication
-    @Query("SELECT COUNT(p) FROM PendingMessageEntity p WHERE p.contentSessionId = :sessionId AND p.toolName = :toolName AND p.toolInputHash = :toolInputHash AND p.status <> 'failed'")
-    long countBySessionAndTool(
-        @Param("sessionId") String sessionId,
-        @Param("toolName") String toolName,
-        @Param("toolInputHash") String toolInputHash
-    );
-
-    /**
-     * P1: Check if duplicate exists (for deduplication).
-     * Uses full SHA-256 hash string for collision-resistant deduplication.
-     */
-    @Query("SELECT CASE WHEN COUNT(p) > 0 THEN true ELSE false END FROM PendingMessageEntity p " +
-           "WHERE p.contentSessionId = :sessionId AND p.toolName = :toolName " +
-           "AND p.toolInputHash = :toolInputHash AND p.status <> 'failed'")
-    boolean existsBySessionAndTool(
-        @Param("sessionId") String sessionId,
-        @Param("toolName") String toolName,
-        @Param("toolInputHash") String toolInputHash
-    );
-
     // ========================================================================
     // V20 durable summary job queries
     // ========================================================================

@@ -43,6 +43,7 @@ public class MemoryScopeService {
     private final NamedParameterJdbcTemplate jdbc;
     private final MemoryScopeKey.KeyDigester digester;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public MemoryScopeService(NamedParameterJdbcTemplate jdbc) {
         this(jdbc, MemoryScopeKey.sha256Digester());
     }

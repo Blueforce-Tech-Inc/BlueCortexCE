@@ -16,17 +16,6 @@ import java.util.UUID;
 public interface SessionRepository extends JpaRepository<SessionEntity, UUID> {
 
     /**
-     * Legacy lookup by bare external id.
-     *
-     * <p>Safe only while the single-column unique constraint is still in force (through
-     * V21). Once two platforms may share an external id this can return multiple rows, so
-     * callers that must remain correct afterwards use
-     * {@link #findByPlatformSourceAndContentSessionId}. Kept for the compatibility window
-     * and for paths that already resolved a platform.
-     */
-    Optional<SessionEntity> findByContentSessionId(String contentSessionId);
-
-    /**
      * Unambiguous external identity lookup: {@code (platform_source, content_session_id)}.
      *
      * <p>{@code platformSource} is compared after the same normalisation the writer applied
@@ -103,9 +92,6 @@ public interface SessionRepository extends JpaRepository<SessionEntity, UUID> {
 
     // Stats support: count sessions for a specific project
     long countByProjectPath(String projectPath);
-
-    // Export support: batch query sessions by content session IDs
-    List<SessionEntity> findByContentSessionIdIn(List<String> contentSessionIds);
 
     // Phase 3: Multi-user support — find sessions by userId
     List<SessionEntity> findByUserId(String userId);
