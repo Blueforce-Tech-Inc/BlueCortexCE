@@ -779,8 +779,8 @@ mvn clean install -DskipTests
 | `updateObservation()` | `PATCH /api/memory/observations/{id}` | ✅ V14 | |
 | `deleteObservation()` | `DELETE /api/memory/observations/{id}` | ✅ V14 | |
 | `getQualityDistribution()` | `GET /api/memory/quality-distribution` | | |
-| `getLatestExtraction()` | `GET /api/extraction/{template}/latest` | | ✅ 新增 |
-| `getExtractionHistory()` | `GET /api/extraction/{template}/history` | | ✅ 新增 |
+| `getLatestExtraction()` | `GET /api/extraction/{templateName}/latest` | | ✅ 新增 |
+| `getExtractionHistory()` | `GET /api/extraction/{templateName}/history` | | ✅ 新增 |
 | `triggerExtraction()` | `POST /api/extraction/run` | | ✅ 新增 |
 | `healthCheck()` | `GET /api/health` | | |
 | `search()` | `GET /api/search` | ✅ source | |

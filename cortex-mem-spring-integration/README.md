@@ -819,8 +819,8 @@ The client talks to these Cortex CE endpoints:
 | `updateObservation()` | `PATCH /api/memory/observations/{id}` | ✅ V14 | |
 | `deleteObservation()` | `DELETE /api/memory/observations/{id}` | ✅ V14 | |
 | `getQualityDistribution()` | `GET /api/memory/quality-distribution` | | |
-| `getLatestExtraction()` | `GET /api/extraction/{template}/latest` | | ✅ NEW |
-| `getExtractionHistory()` | `GET /api/extraction/{template}/history` | | ✅ NEW |
+| `getLatestExtraction()` | `GET /api/extraction/{templateName}/latest` | | ✅ NEW |
+| `getExtractionHistory()` | `GET /api/extraction/{templateName}/history` | | ✅ NEW |
 | `triggerExtraction()` | `POST /api/extraction/run` | | ✅ NEW |
 | `healthCheck()` | `GET /api/health` | | |
 | `search()` | `GET /api/search` | ✅ source | |
