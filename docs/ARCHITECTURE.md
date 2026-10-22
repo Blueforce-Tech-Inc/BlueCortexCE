@@ -47,7 +47,7 @@ In this project, “upstream sync” therefore means a controlled compare-and-ad
 
 The backend/WebUI relationship is version-paired rather than “latest wins”.
 For the current reviewed capability set, the backend reference is
-`ed37a1b227b6067befe5c9ada331989d02cbfad0` and the compatible `webui/`
+`6e5890dac5a3f50876d67ad3d60d530657809763` and the compatible `webui/`
 submodule commit is `72e7804b13f89b03177f746867e0dd341fb12c8a`. The parent
 repository must record that WebUI gitlink together with the backend changes;
 the submodule must not drift to an unrelated newer commit.
@@ -552,7 +552,7 @@ public class AgentService {
 #### Schema Overview
 
 ```sql
--- Sessions table (V1 + V4, V11, V12, V13, V15, V18 migrations)
+-- Sessions table (V1 + V4, V11, V12, V13, V15, V18, V19 migrations)
 CREATE TABLE mem_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     content_session_id VARCHAR(255) UNIQUE NOT NULL,  -- V13: replaces memory_session_id
@@ -574,7 +574,7 @@ CREATE TABLE mem_sessions (
     platform_source VARCHAR(50) DEFAULT 'claude'  -- V18: multi-platform
 );
 
--- Observations table (V1 + V2, V7, V8, V11, V12, V13, V14, V16, V17, V18 migrations)
+-- Observations table (V1 + V2, V7, V8, V11, V12, V13, V14, V16, V17, V18, V19 migrations)
 CREATE TABLE mem_observations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     content_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(content_session_id),  -- V13: unified session linkage (replaces memory_session_id)
@@ -658,7 +658,7 @@ CREATE INDEX idx_obs_project_source ON mem_observations (project_path, source);
 -- JSONB index for extracted_data queries (V14)
 CREATE INDEX idx_obs_extracted_data_gin ON mem_observations USING GIN (extracted_data jsonb_path_ops);
 
--- Summaries table (V1 + V13, V18)
+-- Summaries table (V1 + V13, V18, V19)
 CREATE TABLE mem_summaries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     content_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(content_session_id),  -- V13: replaces memory_session_id
@@ -677,7 +677,7 @@ CREATE TABLE mem_summaries (
     platform_source VARCHAR(50) DEFAULT 'claude'  -- V18: multi-platform
 );
 
--- User Prompts table (V1 + V5, V18)
+-- User Prompts table (V1 + V5, V18, V19)
 CREATE TABLE mem_user_prompts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     content_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(content_session_id),

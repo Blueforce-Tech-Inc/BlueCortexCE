@@ -23,7 +23,7 @@ Cortex CE is a memory backend that stores agent observations, generates summarie
 | **@Tool auto-capture** | AOP aspect intercepts `@Tool` methods and records executions |
 | **Session context** | ThreadLocal-based session and project scope |
 | **Health indicator** | Actuator integration for monitoring the memory backend |
-| **309 unit tests** | Comprehensive coverage across client, advisor, tools, and auto-config layers (256 client + 46 spring-ai + 7 starter), measured 2026-10-22 from each module's surefire reports |
+| **326 unit tests** | Comprehensive coverage across client, advisor, tools, and auto-config layers (273 client + 46 spring-ai + 7 starter), measured 2026-10-22 from each module's surefire reports |
 
 ## Requirements
 

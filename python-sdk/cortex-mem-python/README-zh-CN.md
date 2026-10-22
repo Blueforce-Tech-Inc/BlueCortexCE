@@ -8,7 +8,7 @@
 
 - **零强制依赖** —— 仅需 `requests`
 - **完整 API 覆盖** —— 25 个方法，涵盖会话、捕获、检索、管理、提取
-- **483 个单元测试** —— 全面覆盖客户端、DTO 和 Demo 集成（客户端 231 + DTO 140 + Demo 89 + 错误契约 11 + 必填参数 12），2026-10-22 按 `pytest --collect-only` 实测
+- **487 个单元测试** —— 全面覆盖客户端、DTO 和 Demo 集成（客户端 231 + DTO 140 + Demo 89 + 错误契约 11 + 必填参数 12 + 4 wire 格式），2026-10-22 按 `pytest --collect-only` 实测
 - **Python 风格** —— dataclass、kwargs、上下文管理器
 - **Wire 格式兼容** —— JSON 字段名与后端 API 完全一致
 - **Fire-and-forget 捕获** —— 非阻塞的观察记录，内置重试机制

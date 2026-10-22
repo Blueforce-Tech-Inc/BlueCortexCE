@@ -46,7 +46,7 @@ BlueCortexCE 将该仓库视为汲取灵感和分析功能差距的研究材料�
 因此，本项目中的“同步上游”指受控的对比与适配流程，不代表对实验性源码的认证；Java 移植版中存在某个功能，也不代表该功能已经达到生产使用所需的安全性或完整性。
 
 后端与 WebUI 的关系是“版本配对”，而不是“谁最新就用谁”。本次评审的配对版本为：
-后端参考提交 `ed37a1b227b6067befe5c9ada331989d02cbfad0`，兼容的 `webui/` 子模块提交为
+后端参考提交 `6e5890dac5a3f50876d67ad3d60d530657809763`，兼容的 `webui/` 子模块提交为
 `72e7804b13f89b03177f746867e0dd341fb12c8a`。父仓库必须在后端变更中同时记录这个 WebUI
 gitlink；子模块不能漂移到一个没有验证配套关系的更新提交。
 
@@ -544,7 +544,7 @@ public class AgentService {
 #### 架构概览
 
 ```sql
--- 会话表 (V1 + V4, V11, V12, V13, V15, V18 迁移)
+-- 会话表 (V1 + V4, V11, V12, V13, V15, V18, V19 迁移)
 CREATE TABLE mem_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     content_session_id VARCHAR(255) UNIQUE NOT NULL,  -- V13: 替代 memory_session_id
@@ -566,7 +566,7 @@ CREATE TABLE mem_sessions (
     platform_source VARCHAR(50) DEFAULT 'claude'  -- V18: 多平台
 );
 
--- 观察表 (V1 + V2, V7, V8, V11, V12, V13, V14, V16, V17, V18 迁移)
+-- 观察表 (V1 + V2, V7, V8, V11, V12, V13, V14, V16, V17, V18, V19 迁移)
 CREATE TABLE mem_observations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     content_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(content_session_id),  -- V13: 统一会话链接（替代 memory_session_id）
@@ -647,7 +647,7 @@ CREATE INDEX idx_obs_project_source ON mem_observations (project_path, source);
 -- extracted_data JSONB 查询索引 (V14)
 CREATE INDEX idx_obs_extracted_data_gin ON mem_observations USING GIN (extracted_data jsonb_path_ops);
 
--- 摘要表 (V1 + V13, V18)
+-- 摘要表 (V1 + V13, V18, V19)
 CREATE TABLE mem_summaries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     content_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(content_session_id),  -- V13: 替代 memory_session_id
@@ -666,7 +666,7 @@ CREATE TABLE mem_summaries (
     platform_source VARCHAR(50) DEFAULT 'claude'  -- V18: 多平台
 );
 
--- 用户提示表 (V1 + V5, V18)
+-- 用户提示表 (V1 + V5, V18, V19)
 CREATE TABLE mem_user_prompts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     content_session_id VARCHAR(255) NOT NULL REFERENCES mem_sessions(content_session_id),

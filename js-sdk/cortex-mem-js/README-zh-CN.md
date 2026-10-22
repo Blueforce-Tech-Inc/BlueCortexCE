@@ -9,7 +9,7 @@
 - **零依赖** —— 使用内置 `fetch` API（Node 18+、浏览器、Deno、Bun）
 - **完整 TypeScript 支持** —— 所有 DTO 的完整类型定义
 - **25 个 API 方法** —— 覆盖 Go/Java SDK 的所有端点
-- **388 个单元测试** —— 全面覆盖 Wire 格式和客户端行为（2026-10-22 实测；当前值以 `npm test` 为准）。当日的构成：255 客户端 + 97 必填参数 + 15 wire 格式 + 5 截断响应体 + 8 http-server 示例 + 5 http-server 错误契约 + 3 http-server 暴露面
+- **395 个单元测试** —— 全面覆盖 Wire 格式和客户端行为（2026-10-22 实测；当前值以 `npm test` 为准）。当日的构成：255 客户端 + 97 必填参数 + 15 wire 格式 + 5 截断响应体 + 7 查询参数 + 8 http-server 示例 + 5 http-server 错误契约 + 3 http-server 暴露面
 - **双格式 CJS + ESM** —— 同时支持 CommonJS 和 ES Modules
 - **尽力而为的捕获** —— 对暂时性故障重试；重试耗尽后吞掉采集错误，只有你自己传入 `logger` 时才会输出日志——默认的那个是空操作
 
