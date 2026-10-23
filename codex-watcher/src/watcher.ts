@@ -154,7 +154,7 @@ export class CodexWatcher {
 
     let sessionId = this.state.sessionIds.get(filePath);
     if (!sessionId) {
-      sessionId = "codex-" + basename(filePath, ".jsonl") + "-" + Date.now();
+      sessionId = "codex-" + basename(filePath, ".jsonl");
       this.state.sessionIds.set(filePath, sessionId);
     }
 
@@ -192,8 +192,5 @@ export class CodexWatcher {
 
     await this.api.processEvent(parsed, sessionId);
 
-    if (parsed.action === "session_end") {
-      await this.api.sessionEnd(sessionId);
-    }
   }
 }

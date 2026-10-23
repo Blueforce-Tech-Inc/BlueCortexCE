@@ -83,11 +83,12 @@ public class SearchService {
                     return new SearchResult(filtered, "hybrid", false);
                 } catch (IllegalArgumentException e) {
                     log.warn("Hybrid search rejected for project={}, falling back to tsvector: {}",
-                        project, e.getMessage());
+                        project, e.getClass().getSimpleName());
                 } catch (Exception e) {
                     boolean isRetryable = isRetryableException(e);
                     if (isRetryable) {
-                        log.warn("pgvector transient error for project={}, will retry: {}", project, e.getMessage());
+                        log.warn("pgvector transient error for project={}, will retry: {}",
+                            project, e.getClass().getSimpleName());
                         throw e;
                     }
                     // P2: Detect potential PostgreSQL/pgvector schema issues from exception type/message
@@ -97,10 +98,10 @@ public class SearchService {
                     if (isPgError) {
                         log.error("PostgreSQL/pgvector error for project={}. "
                                 + "Check that pgvector extension is installed and embedding_1024 column exists: {}",
-                            project, msg);
+                            project, e.getClass().getSimpleName());
                     } else {
                         log.warn("pgvector search failed for project={}, falling back to tsvector: {}",
-                            project, msg);
+                            project, e.getClass().getSimpleName());
                     }
                 }
             } else {
@@ -116,7 +117,8 @@ public class SearchService {
             return new SearchResult(filtered, "tsvector", query != null && request.queryVector() != null);
         } catch (Exception e) {
             // P1: Use WARN level - fallback failure is expected behavior but worth noting
-            log.warn("Full-text search also failed for project={}: {}", project, e.getMessage());
+            log.warn("Full-text search also failed for project={}: {}",
+                project, e.getClass().getSimpleName());
             return new SearchResult(Collections.emptyList(), "none", true);
         }
     }

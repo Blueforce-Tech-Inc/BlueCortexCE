@@ -64,7 +64,7 @@ type ModesResponse struct {
 }
 
 // SessionUserUpdateResponse contains the result of updating a session's userId.
-// PATCH /api/session/{sessionId}/user
+// PATCH /api/session/user?contentSessionId=...&platformSource=...
 type SessionUserUpdateResponse struct {
 	Status    string `json:"status"`
 	SessionID string `json:"sessionId"`

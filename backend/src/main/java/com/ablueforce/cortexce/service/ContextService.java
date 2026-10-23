@@ -226,7 +226,29 @@ public class ContextService implements LogHelper {
      * @param config       Context configuration
      * @param sessionId    Current session ID (used to skip when finding prior messages)
      */
+    /**
+     * Legacy context entry point. A bare session id is interpreted through the Claude
+     * compatibility identity before prior-session exclusion; it is never compared directly
+     * with a row's external id.
+     */
     public String generateContext(String projectPath, ContextConfig config, String sessionId) {
+        UUID currentConversationId = null;
+        if (sessionId != null && !sessionId.isEmpty()) {
+            currentConversationId = sessionRepository
+                .findByPlatformSourceAndContentSessionId("claude", sessionId)
+                .map(SessionEntity::getId)
+                .orElse(null);
+        }
+        return generateContext(projectPath, config, currentConversationId);
+    }
+
+    /** Generate context while excluding the exact internal Conversation UUID. */
+    public String generateContext(String projectPath, ContextConfig config, UUID currentConversationId) {
+        return generateContextInternal(projectPath, config, currentConversationId);
+    }
+
+    private String generateContextInternal(String projectPath, ContextConfig config,
+                                            UUID currentConversationId) {
         // P1: Validate project path to prevent path traversal
         String validatedPath = validateProjectPath(projectPath);
         // P2: Handle root path edge case - getFileName() returns null for root paths
@@ -239,7 +261,7 @@ public class ContextService implements LogHelper {
         }
 
         // P0: Get prior messages for context continuity
-        PriorMessages priorMessages = getPriorSessionMessages(projectPath, sessionId);
+        PriorMessages priorMessages = getPriorSessionMessages(projectPath, currentConversationId);
 
         // P0: Use filtered query with type and concept filtering
         List<String> types = new ArrayList<>(config.getObservationTypes());
@@ -289,14 +311,14 @@ public class ContextService implements LogHelper {
      * P0: Aligned with TS queryObservations.
      */
     public String generateContext(String projectPath) {
-        return generateContext(projectPath, new ContextConfig(), null);
+        return generateContext(projectPath, new ContextConfig(), (String) null);
     }
 
     /**
      * Generate context with custom configuration.
      */
     public String generateContext(String projectPath, ContextConfig config) {
-        return generateContext(projectPath, config, null);
+        return generateContext(projectPath, config, (String) null);
     }
 
     /**
@@ -825,6 +847,18 @@ public class ContextService implements LogHelper {
      * rather than reading from transcript files (which are local to the user's machine).
      */
     public PriorMessages getPriorSessionMessages(String projectPath, String currentSessionId) {
+        UUID currentConversationId = null;
+        if (currentSessionId != null && !currentSessionId.isEmpty()) {
+            currentConversationId = sessionRepository
+                .findByPlatformSourceAndContentSessionId("claude", currentSessionId)
+                .map(SessionEntity::getId)
+                .orElse(null);
+        }
+        return getPriorSessionMessages(projectPath, currentConversationId);
+    }
+
+    /** Find the prior message while excluding one exact Conversation UUID. */
+    public PriorMessages getPriorSessionMessages(String projectPath, UUID currentConversationId) {
         if (projectPath == null || projectPath.isEmpty()) {
             return new PriorMessages("", "");
         }
@@ -833,7 +867,7 @@ public class ContextService implements LogHelper {
 
         for (SessionEntity session : sessions) {
             // Skip if this is the current session
-            if (currentSessionId != null && Objects.equals(session.getContentSessionId(), currentSessionId)) {
+            if (currentConversationId != null && currentConversationId.equals(session.getId())) {
                 continue;
             }
             // Return the first prior session's assistant message
@@ -999,7 +1033,8 @@ public class ContextService implements LogHelper {
                 }
             }
         } catch (Exception e) {
-            logFailure("Failed to generate continuation for {}: {}", projectPath, e.getMessage());
+            logFailure("Failed to generate continuation for {}: {}",
+                projectPath, e.getClass().getSimpleName());
         }
         return "";
     }

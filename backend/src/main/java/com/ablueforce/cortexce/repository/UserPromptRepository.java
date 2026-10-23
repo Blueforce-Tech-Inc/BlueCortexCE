@@ -24,9 +24,9 @@ public interface UserPromptRepository extends JpaRepository<UserPromptEntity, UU
 
     @Query("""
         SELECT p FROM UserPromptEntity p
-        JOIN SessionEntity s ON s.contentSessionId = p.contentSessionId
+        JOIN SessionEntity s ON s.id = p.conversationId
         WHERE (:project IS NULL OR COALESCE(p.projectPath, s.projectPath) = :project)
-        AND (:platformSource IS NULL OR COALESCE(s.platformSource, p.platformSource, 'claude') = :platformSource)
+        AND (:platformSource IS NULL OR COALESCE(p.platformSource, s.platformSource, 'claude') = :platformSource)
         AND (:conversationId IS NULL OR p.conversationId = :conversationId)
         AND (:contentSessionId IS NULL OR p.contentSessionId = :contentSessionId)
         ORDER BY p.createdAtEpoch DESC, p.id DESC

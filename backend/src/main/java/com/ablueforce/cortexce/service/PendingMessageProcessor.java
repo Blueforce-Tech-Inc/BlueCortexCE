@@ -34,6 +34,9 @@ public class PendingMessageProcessor {
     @Value("${app.pending-message.enabled:true}")
     private boolean enabled;
 
+    @Value("${claudemem.summary-job-stale-ms:900000}")
+    private long summaryJobStaleMs;
+
     public PendingMessageProcessor(PendingMessageRepository pendingMessageRepository,
                                    PendingMessageEventPublisher eventPublisher) {
         this.pendingMessageRepository = pendingMessageRepository;
@@ -71,20 +74,27 @@ public class PendingMessageProcessor {
         }
 
         try {
-            // Find pending messages
+            // Include result_persisted rows and processing rows left by a crashed worker. The
+            // summary worker itself re-checks the parent lock and job state before doing work.
             List<PendingMessageEntity> pending = pendingMessageRepository
                 .findByStatusOrderByCreatedAtEpochAsc("pending");
+            List<PendingMessageEntity> recoveredSummaries = pendingMessageRepository
+                .findRecoverableSummaryJobs(
+                    System.currentTimeMillis() - Math.max(1L, summaryJobStaleMs));
+            java.util.LinkedHashMap<UUID, PendingMessageEntity> candidates = new java.util.LinkedHashMap<>();
+            pending.forEach(message -> candidates.put(message.getId(), message));
+            recoveredSummaries.forEach(message -> candidates.put(message.getId(), message));
 
-            if (pending.isEmpty()) {
+            if (candidates.isEmpty()) {
                 log.debug("No pending messages to process");
                 return;
             }
 
-            log.info("Found {} pending messages to process", pending.size());
+            log.info("Found {} pending or recoverable messages to process", candidates.size());
 
             // Process each pending message via event
             int processed = 0;
-            for (PendingMessageEntity msg : pending) {
+            for (PendingMessageEntity msg : candidates.values()) {
                 try {
                     eventPublisher.publishScheduledPendingMessageEvent(
                         msg.getId(),

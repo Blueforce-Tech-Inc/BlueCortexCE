@@ -110,6 +110,17 @@ class MemoryScopeKeyTest {
     }
 
     @Test
+    @DisplayName("a forced digest collision does not make distinct keys equal")
+    void digestCollisionDoesNotChangeIdentity() {
+        byte[] frozen = new byte[32];
+        MemoryScopeKey first = MemoryScopeKey.project("/repo/first", ignored -> frozen);
+        MemoryScopeKey second = MemoryScopeKey.project("/repo/second", ignored -> frozen);
+
+        assertArrayEquals(first.sha256(), second.sha256());
+        assertNotEquals(first, second);
+    }
+
+    @Test
     void toStringNeverLeaksTheProjectPath() {
         String s = MemoryScopeKey.project("/Users/alice/secret-project").toString();
         assertFalse(s.contains("alice"), "project paths must not be logged: " + s);

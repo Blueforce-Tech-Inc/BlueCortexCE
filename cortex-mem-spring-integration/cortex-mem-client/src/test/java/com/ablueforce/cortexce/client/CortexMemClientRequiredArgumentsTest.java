@@ -617,7 +617,7 @@ class CortexMemClientRequiredArgumentsTest {
     void exposedApiMethodCountIsPinned() {
         assertThat(CortexMemClient.class.getDeclaredMethods())
                 .as("the SDK's API method count (close and toString are not API methods)")
-                .hasSize(25);
+                .hasSize(26);
     }
 
     /**

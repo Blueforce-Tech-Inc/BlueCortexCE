@@ -85,7 +85,8 @@ public class ClaudeMemMcpTools {
             @McpToolParam(description = "Pagination offset", required = false) Integer offset,
             @McpToolParam(description = "Sort field (e.g., 'created_at_epoch')", required = false) String orderBy
     ) {
-        log.info("MCP search: query={}, project={}, limit={}", query, project, limit);
+        log.info("MCP search: has_query={}, project={}, limit={}",
+            query != null && !query.isBlank(), project, limit);
 
         // Clamp to the same [1, MAX_PAGE_SIZE] window the REST controller applies. Without a cap here
         // the caller controls the SQL LIMIT directly, which lets one tool call pull an entire project's
@@ -111,7 +112,8 @@ public class ClaudeMemMcpTools {
             try {
                 queryVector = embeddingService.embed(query);
             } catch (Exception e) {
-                log.warn("Embedding failed for query, falling back to text search: {}", e.getMessage());
+                log.warn("Embedding failed for MCP search, falling back to text search: {}",
+                    e.getClass().getSimpleName());
             }
         }
 
@@ -143,15 +145,16 @@ public class ClaudeMemMcpTools {
             @McpToolParam(description = "Number of items before anchor (default: 5)", required = false) Integer depthBefore,
             @McpToolParam(description = "Number of items after anchor (default: 5)", required = false) Integer depthAfter
     ) {
-        log.info("MCP timeline: project={}, anchorId={}, query={}", project, anchorId, query);
+        log.info("MCP timeline: project={}, anchorId={}, has_query={}",
+            project, anchorId, query != null && !query.isBlank());
 
         try {
             // E.5 Fix: Call getTimelineMap() directly, no ResponseEntity unwrapping needed
             return timelineService.getTimelineMap(project, anchorId, query, depthBefore, depthAfter);
         } catch (Exception e) {
-            log.error("Timeline query failed: {}", e.getMessage());
+            log.error("Timeline query failed: {}", e.getClass().getSimpleName());
             Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("error", e.getMessage());
+            errorResponse.put("error", "Timeline query failed");
             errorResponse.put("observations", List.of());
             return errorResponse;
         }
@@ -298,9 +301,9 @@ public class ClaudeMemMcpTools {
             response.put("id", saved.getId().toString());
             response.put("message", "Memory saved successfully");
         } catch (Exception e) {
-            log.error("Failed to save memory: {}", e.getMessage());
+            log.error("Failed to save memory: {}", e.getClass().getSimpleName());
             response.put("success", false);
-            response.put("error", "Failed to save memory: " + e.getMessage());
+            response.put("error", "Failed to save memory");
         }
 
         return response;

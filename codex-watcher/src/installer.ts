@@ -39,7 +39,6 @@ const CODEX_CONFIG_SECTION: TranscriptConfig = {
         { name: "assistant-message", match: { path: "payload.type", equals: "agent_message" }, action: "assistant_message", fields: { message: "payload.message" } },
         { name: "tool-use", match: { path: "payload.type", in: ["function_call", "custom_tool_call", "web_search_call"] }, action: "tool_use", fields: { toolId: "payload.call_id", toolName: { coalesce: ["payload.name", { value: "web_search" }] }, toolInput: { coalesce: ["payload.arguments", "payload.input", "payload.action"] } } },
         { name: "tool-result", match: { path: "payload.type", in: ["function_call_output", "custom_tool_call_output"] }, action: "tool_result", fields: { toolId: "payload.call_id", toolResponse: "payload.output" } },
-        { name: "session-end", match: { path: "payload.type", equals: "turn_aborted" }, action: "session_end" }
       ]
     }
   },

@@ -91,16 +91,18 @@ public class StructuredExtractionService {
             try {
                 runTemplateExtraction(projectPath, template);
             } catch (Exception e) {
-                log.error("Extraction failed for template '{}': {}", template.getName(), e.getMessage(), e);
+                log.error("Extraction failed for template '{}': {}",
+                    template.getName(), e.getClass().getSimpleName());
                 // F-2 Fix: DLQ failure now propagates to avoid silent transaction rollback.
                 // If DLQ write also fails, the exception propagates to caller.
                 try {
-                    extractionStorageService.storeDLQ(projectPath, template.getName(), e.getMessage());
+                    extractionStorageService.storeDLQ(projectPath, template.getName(), e);
                 } catch (Exception dlqEx) {
-                    log.error("DLQ storage failed for template '{}' (original error: {}): DLQ entry lost, original error not persisted",
-                        template.getName(), e.getMessage(), dlqEx);
+                    log.error("DLQ storage failed for template '{}' after {}: {}",
+                        template.getName(), e.getClass().getSimpleName(), dlqEx.getClass().getSimpleName());
                     // Rethrow so caller knows DLQ failed (original error + DLQ failure are both lost)
-                    throw new RuntimeException("Extraction failed and DLQ unavailable for template: " + template.getName(), e);
+                    throw new RuntimeException(
+                        "Extraction failed and DLQ unavailable for template: " + template.getName());
                 }
             }
         }
@@ -161,7 +163,7 @@ public class StructuredExtractionService {
                 extractionStorageService.storeExtractionResult(template, result, filtered, targetSessionId, projectPath);
             } catch (Exception e) {
                 log.error("Re-extraction failed for conversation {} template {}: {}",
-                    conversationId, template.getName(), e.getMessage());
+                    conversationId, template.getName(), e.getClass().getSimpleName());
             }
         }
     }
@@ -215,7 +217,8 @@ public class StructuredExtractionService {
         // Get candidates (all matching observations, up to limit)
         // Note: inner loop enforces per-user maxTotal = maxObservationsPerBatch * maxBatchesPerTemplate
         List<ObservationEntity> candidates = observationRepository.findBySourceIn(
-            projectPath, sources, extractionConfig.getInitialRunMaxCandidates());
+            projectPath, sources, template.isIncludeStandaloneManual(),
+            extractionConfig.getInitialRunMaxCandidates());
 
         if (candidates.isEmpty()) {
             log.debug("No candidates for template '{}'", template.getName());
@@ -252,7 +255,7 @@ public class StructuredExtractionService {
                 log.info("Extraction completed for user '{}' template '{}'", userId, template.getName());
             } catch (Exception e) {
                 log.error("Extraction failed for user '{}' template '{}': {}",
-                    userId, template.getName(), e.getMessage(), e);
+                    userId, template.getName(), e.getClass().getSimpleName());
             }
         }
     }
@@ -376,7 +379,7 @@ public class StructuredExtractionService {
         try {
             fullPriorData = MAPPER.readValue(priorJson, Map.class);
         } catch (JsonProcessingException e) {
-            log.warn("Failed to parse prior JSON, treating as empty: {}", e.getMessage());
+            log.warn("Failed to parse prior JSON, treating as empty: {}", e.getClass().getSimpleName());
             fullPriorData = new HashMap<>();
         }
 
@@ -452,10 +455,10 @@ public class StructuredExtractionService {
         Set<String> unexpectedKeys = new HashSet<>(actualKeys);
         unexpectedKeys.removeAll(expectedKeys);
         if (!unexpectedKeys.isEmpty()) {
-            log.warn("LLM returned unexpected top-level keys in append-only response: {}. "
+            log.warn("LLM returned {} unexpected top-level keys in append-only response. "
                 + "Expected: {}. These keys will be ignored (potential silent data loss). "
                 + "Consider updating the system prompt to enforce exact key names.",
-                unexpectedKeys, expectedKeys);
+                unexpectedKeys.size(), expectedKeys);
         }
 
         List<Map<String, Object>> addItems = safeListOfMaps(appendResult.get("add"), "add");
@@ -787,8 +790,8 @@ public class StructuredExtractionService {
         try {
             return MAPPER.readValue(json, Map.class);
         } catch (JsonProcessingException e) {
-            throw new IllegalStateException("Failed to parse LLM response as JSON: " + e.getMessage()
-                + " | Response: " + (response.length() > 200 ? response.substring(0, 200) + "..." : response), e);
+            throw new IllegalStateException("Failed to parse LLM response as JSON ("
+                + e.getClass().getSimpleName() + ")");
         }
     }
 
@@ -796,7 +799,7 @@ public class StructuredExtractionService {
         try {
             return MAPPER.writeValueAsString(obj);
         } catch (JsonProcessingException e) {
-            log.error("Failed to serialize object to JSON: {}", e.getMessage(), e);
+            log.error("Failed to serialize object to JSON: {}", e.getClass().getSimpleName());
             return "{}";
         }
     }
@@ -827,7 +830,7 @@ public class StructuredExtractionService {
             if (item instanceof Map<?, ?>) {
                 result.add((Map<String, Object>) item);
             } else {
-                log.warn("Non-Map item in '{}' list: {} (type {}). Skipping.", fieldName, item,
+                log.warn("Non-Map item in '{}' list (type {}). Skipping.", fieldName,
                     item != null ? item.getClass().getSimpleName() : "null");
             }
         }

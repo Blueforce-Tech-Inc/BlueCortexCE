@@ -87,7 +87,11 @@ class BackendQueryParamContractTest {
             Map.entry("GET /api/search/by-file",
                     List.of("project", "filePath", "isFolder", "limit", "debug")),
             Map.entry("GET /api/sessions",
-                    List.of("project", "platformSource", "offset", "limit")));
+                    List.of("project", "platformSource", "offset", "limit")),
+            Map.entry("GET /api/session", List.of("contentSessionId", "platformSource")),
+            Map.entry("PATCH /api/session/user", List.of("contentSessionId", "platformSource")),
+            Map.entry("DELETE /api/sessions",
+                    List.of("platformSource", "contentSessionId")));
 
     /** Path variable names, per {@code "VERB /path"}. */
     private static final Map<String, List<String>> EXPECTED_PATH_VARS = Map.ofEntries(

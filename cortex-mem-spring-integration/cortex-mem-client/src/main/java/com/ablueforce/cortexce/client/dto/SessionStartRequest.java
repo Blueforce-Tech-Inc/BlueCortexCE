@@ -10,8 +10,13 @@ import java.util.Map;
 public record SessionStartRequest(
     String sessionId,
     String projectPath,
-    String userId
+    String userId,
+    String platformSource
 ) {
+    public SessionStartRequest(String sessionId, String projectPath, String userId) {
+        this(sessionId, projectPath, userId, null);
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -20,17 +25,19 @@ public record SessionStartRequest(
      * Convenience constructor without userId (backward compatible).
      */
     public SessionStartRequest(String sessionId, String projectPath) {
-        this(sessionId, projectPath, null);
+        this(sessionId, projectPath, null, null);
     }
 
     public static class Builder {
         private String sessionId;
         private String projectPath;
         private String userId;
+        private String platformSource;
 
         public Builder sessionId(String sessionId) { this.sessionId = sessionId; return this; }
         public Builder projectPath(String projectPath) { this.projectPath = projectPath; return this; }
         public Builder userId(String userId) { this.userId = userId; return this; }
+        public Builder platformSource(String platformSource) { this.platformSource = platformSource; return this; }
 
         public SessionStartRequest build() {
             if (sessionId == null || sessionId.isBlank()) {
@@ -39,7 +46,7 @@ public record SessionStartRequest(
             if (projectPath == null || projectPath.isBlank()) {
                 throw new IllegalArgumentException("projectPath is required (set via projectPath())");
             }
-            return new SessionStartRequest(sessionId, projectPath, userId);
+            return new SessionStartRequest(sessionId, projectPath, userId, platformSource);
         }
     }
 
@@ -55,6 +62,9 @@ public record SessionStartRequest(
         }
         if (userId != null) {
             map.put("user_id", userId);
+        }
+        if (platformSource != null) {
+            map.put("platform_source", platformSource);
         }
         return map;
     }

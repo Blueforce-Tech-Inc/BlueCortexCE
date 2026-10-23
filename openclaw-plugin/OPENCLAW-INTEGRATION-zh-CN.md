@@ -347,7 +347,7 @@ Claude-Mem Projects
 
 | 事件 | 时机 | 插件行为 |
 |------|------|----------|
-| `session_start` | 用户发起新会话 (`/new`, `/reset`) | 初始化 claude-mem 会话 |
+| `session_start` | 用户发起或恢复会话 (`/new`, `/reset`、Gateway 恢复) | 初始化 claude-mem 会话；OpenClaw 提供 `resumedFrom` 时沿用原 Conversation 身份 |
 | `after_compaction` | 上下文压缩后 | 重新初始化会话 |
 | `before_agent_start` | Agent 执行前 | 跟踪工作区目录 |
 | `before_prompt_build` | 每次 LLM 调用前 | **通过 appendSystemContext 注入记忆上下文** |

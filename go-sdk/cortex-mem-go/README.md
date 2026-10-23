@@ -431,6 +431,7 @@ well-formed.
 The SDK uses JSON field names that match the backend API exactly:
 
 - `session_id` (snake_case)
+- `platform_source` (snake_case; optional, defaults to `claude`)
 - `project_path` → `cwd` for tool observations
 - `type` → `tool_name` for tool observations
 - `requiredConcepts` (camelCase)

@@ -115,7 +115,7 @@ guard on Java only.
 | Method | HTTP | Description |
 |--------|------|-------------|
 | `startSession(req)` | `POST /api/session/start` | Start or resume session |
-| `updateSessionUserId(sessionId, userId)` | `PATCH /api/session/{sessionId}/user` | Update session user |
+| `updateSessionUserId(sessionId, userId, platformSource?)` | `PATCH /api/session/user?contentSessionId=...&platformSource=...` | Update session user; defaults to Claude |
 
 #### Capture (fire-and-forget)
 
@@ -395,11 +395,11 @@ well-formed.
 The SDK uses JSON field names that match the backend API exactly. Field naming varies by endpoint:
 
 **Session:**
-- `session_id`, `project_path` (snake_case) — `SessionStartRequest`
+- `session_id`, `project_path`, `platform_source` (snake_case) — `SessionStartRequest`; platform defaults to `claude` when omitted
 - `user_id` (snake_case) — optional in `SessionStartRequest`
 
 **Observation (capture):**
-- `session_id`, `cwd`, `tool_name` (snake_case) — `ObservationRequest`
+- `session_id`, `cwd`, `tool_name`, `platform_source` (snake_case) — `ObservationRequest`
 - `extractedData` (camelCase) — backend `@JsonProperty` override
 
 Those describe the **mapping**, not where the value ends up. On the tool-use path —

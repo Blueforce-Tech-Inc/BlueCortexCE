@@ -115,3 +115,10 @@ type Client interface {
 	// String returns a debug representation of the client.
 	String() string
 }
+
+// PlatformSessionUserUpdater is an optional capability implemented by clients
+// that can update a session belonging to a non-Claude platform. Keeping this
+// separate preserves compatibility for applications that implement Client.
+type PlatformSessionUserUpdater interface {
+	UpdateSessionUserIdForPlatform(ctx context.Context, sessionID, userID, platformSource string) (*dto.SessionUserUpdateResponse, error)
+}

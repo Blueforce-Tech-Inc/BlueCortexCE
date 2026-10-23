@@ -10,6 +10,7 @@ type SessionStartRequest struct {
 	SessionID   string `json:"session_id"`
 	ProjectPath string `json:"project_path"` // Wire: "project_path" (NOT "cwd" for session start!)
 	UserID      string `json:"user_id,omitempty"`
+	PlatformSource string `json:"platform_source,omitempty"`
 }
 
 // SessionStartResponse is the response from starting a session.
@@ -33,6 +34,7 @@ type SessionEndRequest struct {
 	SessionID            string `json:"session_id"`
 	ProjectPath          string `json:"cwd"` // Wire: "cwd"!
 	LastAssistantMessage string `json:"last_assistant_message,omitempty"`
+	PlatformSource       string `json:"platform_source,omitempty"`
 }
 
 // UserPromptRequest records a user prompt.
@@ -46,4 +48,5 @@ type UserPromptRequest struct {
 	PromptText   string `json:"prompt_text"`
 	ProjectPath  string `json:"cwd"` // Wire: "cwd"!
 	PromptNumber int    `json:"prompt_number,omitempty"`
+	PlatformSource string `json:"platform_source,omitempty"`
 }

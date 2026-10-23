@@ -235,7 +235,7 @@ function normalizeCursorInput(event) {
 
   return {
     cwd: r.workspace_roots?.[0] || r.workspace_root || r.cwd || process.cwd(),
-    session_id: r.conversation_id || r.generation_id || r.session_id || `cursor-${Date.now()}`,
+    session_id: r.conversation_id || r.generation_id || r.session_id || null,
     prompt: r.prompt,  // TS对齐: beforeSubmitPrompt 会传递 prompt 字段
     toolName: isShellCommand ? 'Bash' : (r.tool_name || 'unknown'),
     toolInput: isShellCommand ? { command: r.command } : r.tool_input,
@@ -1145,6 +1145,12 @@ async function handleCursorBeforeSubmitPrompt(event) {
   const prompt_text = input.prompt || '';  // 从 normalizeCursorInput 获取 prompt
   const prompt_number = event?.prompt_number || 1;
 
+  if (!session_id) {
+    console.error('[claude-mem] Cursor event has no stable conversation ID; skipping capture');
+    console.log(JSON.stringify(formatCursorOutput({ continue: true })));
+    return;
+  }
+
   if (CONFIG.debug) {
     console.error(`[claude-mem] Cursor beforeSubmitPrompt: cwd=${cwd}, session_id=${session_id}, prompt_text="${prompt_text.slice(0, 50)}..."`);
   }
@@ -1158,13 +1164,15 @@ async function handleCursorBeforeSubmitPrompt(event) {
     session_id: session_id,
     cwd: cwd,  // Java expects "cwd" not "project_path"
     prompt_text: prompt_text,
-    prompt_number: prompt_number
+    prompt_number: prompt_number,
+    platform_source: 'cursor'
   });
 
   // Then call session-start API (handles init + context generation)
   const data = await callJavaApi('/api/session/start', {
     session_id: session_id,
     project_path: cwd,
+    platform_source: 'cursor',
     projects: projectContext.allProjects.join(','),
     is_worktree: projectContext.isWorktree,
     parent_project: projectContext.parent,
@@ -1217,6 +1225,12 @@ async function handleCursorAfterExecution(event) {
   const tool_input = input.toolInput;
   const tool_response = input.toolResponse;
 
+  if (!session_id) {
+    console.error('[claude-mem] Cursor event has no stable conversation ID; skipping capture');
+    console.log(JSON.stringify(formatCursorOutput({ continue: true })));
+    return;
+  }
+
   // Skip non-essential tools
   const skipTools = ['Glob', 'LS', 'ListFiles', 'GetFileDetails', 'CodebaseSearch'];
   if (skipTools.includes(tool_name)) {
@@ -1247,7 +1261,8 @@ async function handleCursorAfterExecution(event) {
     tool_name: tool_name,
     tool_input: strippedToolInput,
     tool_response: strippedToolResponse,
-    project_path: cwd,
+    cwd: cwd,
+    platform_source: 'cursor',
     projects: projectContext.allProjects.join(','),
     is_worktree: projectContext.isWorktree
   });
@@ -1275,6 +1290,12 @@ async function handleCursorStop(event) {
   const session_id = input.session_id;
   const transcript_path = input.transcriptPath;
 
+  if (!session_id) {
+    console.error('[claude-mem] Cursor event has no stable conversation ID; skipping capture');
+    console.log(JSON.stringify(formatCursorOutput({ continue: true })));
+    return;
+  }
+
   if (CONFIG.debug) {
     console.error(`[claude-mem] Cursor stop: ${session_id}`);
   }
@@ -1292,10 +1313,11 @@ async function handleCursorStop(event) {
 
   const data = await callJavaApi('/api/ingest/session-end', {
     session_id: session_id,
-    project_path: cwd,
+    cwd: cwd,
     projects: projectContext.allProjects.join(','),
     is_worktree: projectContext.isWorktree,
-    last_assistant_message: lastAssistantMessage
+    last_assistant_message: lastAssistantMessage,
+    platform_source: 'cursor'
   });
 
   if (data) {

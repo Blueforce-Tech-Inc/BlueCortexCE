@@ -90,21 +90,25 @@ class CortexMemWireFormatTest {
 
         actual.put("POST /api/session/start", keysOf(() ->
                 client.startSession(SessionStartRequest.builder()
-                    .sessionId("s1").projectPath("/proj").userId("u1").build()), "{}"));
+                    .sessionId("s1").projectPath("/proj").userId("u1")
+                    .platformSource("codex").build()), "{}"));
 
         actual.put("POST /api/ingest/tool-use", keysOf(() ->
                 client.recordObservation(ObservationRequest.builder()
                     .sessionId("s1").projectPath("/proj").toolName("Read")
                     .toolInput("{}").toolResponse("{}").promptNumber(3)
-                    .source("manual").extractedData(Map.of("pref", "dark")).build()), ""));
+                    .source("manual").extractedData(Map.of("pref", "dark"))
+                    .platformSource("codex").build()), ""));
 
         actual.put("POST /api/ingest/session-end", keysOf(() ->
                 client.recordSessionEnd(SessionEndRequest.builder()
-                    .sessionId("s1").projectPath("/proj").lastAssistantMessage("done").build()), ""));
+                    .sessionId("s1").projectPath("/proj").lastAssistantMessage("done")
+                    .platformSource("codex").build()), ""));
 
         actual.put("POST /api/ingest/user-prompt", keysOf(() ->
                 client.recordUserPrompt(UserPromptRequest.builder()
-                    .sessionId("s1").projectPath("/proj").promptText("hello").promptNumber(2).build()), "{}"));
+                    .sessionId("s1").projectPath("/proj").promptText("hello").promptNumber(2)
+                    .platformSource("codex").build()), "{}"));
 
         actual.put("POST /api/memory/experiences", keysOf(() ->
                 client.retrieveExperiences(ExperienceRequest.builder()
@@ -125,7 +129,7 @@ class CortexMemWireFormatTest {
                     .facts(List.of("f")).concepts(List.of("x"))
                     .source("manual").extractedData(Map.of("k", "v")).build()), ""));
 
-        actual.put("PATCH /api/session/sess-1/user", keysOf(() ->
+        actual.put("PATCH /api/session/user", keysOf(() ->
                 client.updateSessionUserId("sess-1", "u1"), "{}"));
 
         actual.put("POST /api/observations/batch", keysOf(() ->
@@ -133,14 +137,14 @@ class CortexMemWireFormatTest {
 
         Map<String, Set<String>> expected = new LinkedHashMap<>();
         expected.put("POST /api/session/start",
-            Set.of("session_id", "project_path", "user_id"));
+            Set.of("session_id", "project_path", "user_id", "platform_source"));
         expected.put("POST /api/ingest/tool-use",
             Set.of("session_id", "tool_name", "cwd", "tool_input", "tool_response",
-                   "prompt_number", "source", "extractedData"));
+                   "prompt_number", "source", "extractedData", "platform_source"));
         expected.put("POST /api/ingest/session-end",
-            Set.of("session_id", "cwd", "last_assistant_message"));
+            Set.of("session_id", "cwd", "last_assistant_message", "platform_source"));
         expected.put("POST /api/ingest/user-prompt",
-            Set.of("session_id", "prompt_text", "cwd", "prompt_number"));
+            Set.of("session_id", "prompt_text", "cwd", "prompt_number", "platform_source"));
         expected.put("POST /api/memory/experiences",
             Set.of("task", "project", "count", "source", "requiredConcepts", "userId"));
         expected.put("POST /api/memory/icl-prompt",
@@ -149,7 +153,7 @@ class CortexMemWireFormatTest {
             Set.of("observationId", "feedbackType", "comment"));
         expected.put("PATCH /api/memory/observations/obs-1",
             Set.of("title", "subtitle", "content", "facts", "concepts", "source", "extractedData"));
-        expected.put("PATCH /api/session/sess-1/user",
+        expected.put("PATCH /api/session/user",
             Set.of("user_id"));
         expected.put("POST /api/observations/batch",
             Set.of("ids"));

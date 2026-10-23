@@ -59,16 +59,16 @@ with CortexMemClient(base_url="http://localhost:37777") as client:
 
 | Method | Description |
 |--------|-------------|
-| `start_session(session_id, project_path, user_id=None)` | Start or resume a session |
-| `update_session_user_id(session_id, user_id)` | Update session user ID |
+| `start_session(session_id, project_path, user_id=None, platform_source=None)` | Start or resume a session |
+| `update_session_user_id(session_id, user_id, platform_source="claude")` | Update session user ID |
 
 ### Capture (fire-and-forget)
 
 | Method | Description |
 |--------|-------------|
-| `record_observation(session_id, project_path, tool_name, **kwargs)` | Record a tool-use observation |
-| `record_session_end(session_id, project_path, ...)` | Signal session end |
-| `record_user_prompt(session_id, prompt_text, ...)` | Record a user prompt |
+| `record_observation(session_id, project_path, tool_name, platform_source=None, **kwargs)` | Record a tool-use observation |
+| `record_session_end(session_id, project_path, platform_source=None, ...)` | Signal session end |
+| `record_user_prompt(session_id, prompt_text, ..., platform_source=None)` | Record a user prompt |
 
 ### Retrieval
 

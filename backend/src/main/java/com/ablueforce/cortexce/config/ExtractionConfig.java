@@ -65,6 +65,8 @@ public class ExtractionConfig {
         private String sessionIdPattern;
         /** Only extract from observations with these source values. */
         private List<String> sourceFilter = new ArrayList<>();
+        /** Whether this template may include manually saved standalone memories. */
+        private boolean includeStandaloneManual;
         /** LLM system prompt for extraction. */
         private String prompt;
         /** JSON Schema string for structured output (used with Map.class). */
@@ -86,6 +88,11 @@ public class ExtractionConfig {
 
         public List<String> getSourceFilter() { return sourceFilter; }
         public void setSourceFilter(List<String> sf) { this.sourceFilter = sf; }
+
+        public boolean isIncludeStandaloneManual() { return includeStandaloneManual; }
+        public void setIncludeStandaloneManual(boolean includeStandaloneManual) {
+            this.includeStandaloneManual = includeStandaloneManual;
+        }
 
         public String getPrompt() { return prompt; }
         public void setPrompt(String prompt) { this.prompt = prompt; }

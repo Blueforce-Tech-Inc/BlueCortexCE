@@ -116,7 +116,16 @@ public record ObservationResponse(
     String refinedFromIds,
 
     @JsonProperty("user_comment")
-    String userComment
+    String userComment,
+
+    @JsonProperty("conversation_id")
+    String conversationId,
+
+    @JsonProperty("standalone_kind")
+    String standaloneKind,
+
+    @JsonProperty("platform_source")
+    String platformSource
 ) {
     /**
      * Convenience constructor for backward compatibility.
@@ -136,7 +145,7 @@ public record ObservationResponse(
              facts, concepts, filesRead, filesModified, qualityScore,
              feedbackType, feedbackUpdatedAt, source, extractedData,
              promptNumber, createdAt, createdAtEpoch, lastAccessedAt,
-             null, null, null, null);
+             null, null, null, null, null, null, null);
     }
 
     /**

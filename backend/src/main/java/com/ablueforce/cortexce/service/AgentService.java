@@ -6,19 +6,17 @@ import com.ablueforce.cortexce.common.LogMarkers;
 import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.ablueforce.cortexce.entity.PendingMessageEntity;
 import com.ablueforce.cortexce.entity.SessionEntity;
-import com.ablueforce.cortexce.exception.DataValidationException;
-import com.ablueforce.cortexce.exception.RetryableException;
-import com.ablueforce.cortexce.repository.ObservationRepository;
 import com.ablueforce.cortexce.repository.PendingMessageRepository;
 import com.ablueforce.cortexce.repository.SessionRepository;
 import com.ablueforce.cortexce.util.XmlParser;
-import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -30,6 +28,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Objects;
+import java.time.Instant;
 
 /**
  * Agent service — orchestrates LLM interactions and observation/summary persistence.
@@ -71,11 +71,10 @@ public class AgentService implements LogHelper {
 
     private final SessionManagementService sessionManagementService;
     private final TemplateService templateService;
-    private final ObservationRepository observationRepository;
     private final PendingMessageRepository pendingMessageRepository;
     private final SessionRepository sessionRepository;
     private final MemoryScopeService memoryScopeService;
-    private final SSEBroadcaster sseBroadcaster;
+    private final ConversationWriteService conversationWriteService;
     private final EmbeddingService embeddingService;
     private final LlmService llmService;
     private final TokenService tokenService;
@@ -86,22 +85,20 @@ public class AgentService implements LogHelper {
 
     public AgentService(SessionManagementService sessionManagementService,
                         TemplateService templateService,
-                        ObservationRepository observationRepository,
                         PendingMessageRepository pendingMessageRepository,
                         SessionRepository sessionRepository,
-                           MemoryScopeService memoryScopeService,
-                        SSEBroadcaster sseBroadcaster,
+                        MemoryScopeService memoryScopeService,
+                        ConversationWriteService conversationWriteService,
                         EmbeddingService embeddingService,
                         LlmService llmService,
                         TokenService tokenService,
                         ContextCacheService contextCacheService) {
         this.sessionManagementService = sessionManagementService;
         this.templateService = templateService;
-        this.observationRepository = observationRepository;
         this.pendingMessageRepository = pendingMessageRepository;
         this.sessionRepository = sessionRepository;
         this.memoryScopeService = memoryScopeService;
-        this.sseBroadcaster = sseBroadcaster;
+        this.conversationWriteService = conversationWriteService;
         this.embeddingService = embeddingService;
         this.llmService = llmService;
         this.tokenService = tokenService;
@@ -112,125 +109,49 @@ public class AgentService implements LogHelper {
     // Tool use processing
     // ========================================================================
 
-    /**
-     * Process tool use event asynchronously.
-     */
-    @Async
-    public void processToolUseAsync(UUID sessionDbId, String contentSessionId,
-                                     String toolName, String toolInput, String toolResponse,
-                                     String cwd, Integer promptNumber) {
-        UUID pendingId = null;
-        PendingMessageEntity pending = null;
-
-        if (sessionDbId == null) {
-            if (contentSessionId == null) {
-                logFailure("Cannot process tool use: both sessionDbId and contentSessionId are null");
-                return;
-            }
-            // The external id alone is no longer a unique selector. Callers that have a
-            // Conversation pass its UUID; the fallback is the Claude compatibility lookup
-            // that legacy hook traffic relies on.
-            SessionEntity session = sessionManagementService.findLegacyClaude(contentSessionId)
-                .orElseThrow(() -> new IllegalStateException(
-                    "no conversation for legacy external id; caller must pass sessionDbId"));
-            sessionDbId = session.getId();
-            log.debug("Resolved sessionDbId from contentSessionId via legacy lookup: {}", sessionDbId);
-
-            // V17: Wall-clock age guard - refuse work for sessions older than 4 hours
-            if (isSessionTooOld(session)) {
-                log.warn("Session too old for new work (wall-clock age limit) - skipping: session_id={}", contentSessionId);
-                markSessionExpired(session, "tool-use");
-                return;
-            }
-        } else {
-            // V17: Check session age when sessionDbId is provided directly
-            SessionEntity session = sessionRepository.findById(sessionDbId).orElse(null);
-            if (session != null && isSessionTooOld(session)) {
-                log.warn("Session too old for new work (wall-clock age limit) - skipping: session_id={}", contentSessionId);
-                markSessionExpired(session, "tool-use");
-                return;
-            }
+    /** Persist queue admission before returning success to the hook caller. */
+    @Transactional
+    public Optional<UUID> enqueueToolUse(UUID conversationId, String contentSessionId,
+                                         String toolName, String toolInput, String toolResponse,
+                                         String cwd, Integer promptNumber) {
+        if (conversationId == null || sessionRepository.lockSessionForUpdate(conversationId).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Conversation not found");
+        }
+        SessionEntity session = sessionRepository.findById(conversationId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conversation not found"));
+        if (!Objects.equals(session.getContentSessionId(), contentSessionId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "tool-use external id does not match its Conversation");
+        }
+        if (!"active".equals(session.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Conversation no longer accepts new tool-use events");
+        }
+        if (isSessionTooOld(session)) {
+            markSessionExpired(session, "tool-use");
+            return Optional.empty();
         }
 
-        try {
-            // Dedup — same conversation + tool + input already queued. Scoped on the
-            // internal UUID: with a bare external id, two platforms sharing an id would
-            // suppress each other's genuine work.
-            String toolInputHash = calculateToolInputHash(toolInput);
-            boolean exists = pendingMessageRepository.countBySessionDbIdAndTool(
-                sessionDbId,
-                toolName != null ? toolName : "",
-                toolInputHash
-            ) > 0;
-            if (exists) {
-                logDataIn("Duplicate tool-use event skipped: session={}, tool={}", contentSessionId, toolName);
-                return;
-            }
-
-            // Enqueue for crash recovery
-            pending = new PendingMessageEntity();
-            pending.setSessionDbId(sessionDbId);
-            pending.setContentSessionId(contentSessionId);
-            pending.setMessageType("observation");
-            pending.setToolName(toolName);
-            pending.setToolInput(toolInput);
-            pending.setToolInputHash(toolInputHash);
-            pending.setToolResponse(toolResponse);
-            pending.setCwd(cwd);
-            pending.setPromptNumber(promptNumber);
-            pending.setStatus("pending");
-            pending.setRetryCount(0);
-            pending.setCreatedAtEpoch(Instant.now().toEpochMilli());
-            pending = pendingMessageRepository.save(pending);
-            pendingId = pending.getId();
-
-            logDataIn("Processing tool use event: session={}, tool={}, pendingId={}", contentSessionId, toolName, pendingId);
-
-            // Mark as processing
-            pending.setStatus("processing");
-            pending.setStartedProcessingAtEpoch(Instant.now().toEpochMilli());
-            pendingMessageRepository.save(pending);
-
-            // Shared: build prompts, call LLM, parse, and save
-            boolean saved = callLlmAndSaveObservation(
-                pending.getSessionDbId(), contentSessionId, toolName, toolInput,
-                toolResponse, cwd, promptNumber, pending);
-            if (!saved) return;
-
-            pending.setStatus("processed");
-            pending.setCompletedAtEpoch(Instant.now().toEpochMilli());
-            pendingMessageRepository.save(pending);
-            logSuccess("Observation saved for tool={} in session={}", toolName, contentSessionId);
-
-        } catch (RetryableException e) {
-            logHappyPath("Retryable error processing tool use: {}", e.getMessage());
-            if (pendingId != null) {
-                pendingMessageRepository.markFailedWithRetry(
-                    pendingId, maxRetries, Instant.now().toEpochMilli());
-            }
-        } catch (DataValidationException e) {
-            logFailure("Data validation error (no retry): {}", e.getMessage());
-            if (pending != null) {
-                pending.setStatus("failed");
-                pending.setCompletedAtEpoch(Instant.now().toEpochMilli());
-                pendingMessageRepository.save(pending);
-            }
-        } catch (DataIntegrityViolationException e) {
-            logDataIn("Duplicate pending message detected (concurrent insert): session={}, tool={}", contentSessionId, toolName);
-        } catch (Exception e) {
-            logFailure("Unexpected error processing tool use", e);
-            boolean isRetryable = isRetryableException(e);
-            if (pending != null) {
-                if (isRetryable) {
-                    pendingMessageRepository.markFailedWithRetry(
-                        pendingId, maxRetries, Instant.now().toEpochMilli());
-                } else {
-                    pending.setStatus("failed");
-                    pending.setCompletedAtEpoch(Instant.now().toEpochMilli());
-                    pendingMessageRepository.save(pending);
-                }
-            }
+        String toolInputHash = calculateToolInputHash(toolInput);
+        if (pendingMessageRepository.countBySessionDbIdAndTool(
+            conversationId, toolName != null ? toolName : "", toolInputHash) > 0) {
+            return Optional.empty();
         }
+
+        PendingMessageEntity pending = new PendingMessageEntity();
+        pending.setSessionDbId(conversationId);
+        pending.setContentSessionId(session.getContentSessionId());
+        pending.setMessageType("observation");
+        pending.setToolName(toolName);
+        pending.setToolInput(toolInput);
+        pending.setToolInputHash(toolInputHash);
+        pending.setToolResponse(toolResponse);
+        pending.setCwd(cwd);
+        pending.setPromptNumber(promptNumber);
+        pending.setStatus("pending");
+        pending.setRetryCount(0);
+        pending.setCreatedAtEpoch(Instant.now().toEpochMilli());
+        return Optional.of(pendingMessageRepository.saveAndFlush(pending).getId());
     }
 
     // ========================================================================
@@ -251,22 +172,23 @@ public class AgentService implements LogHelper {
                                               String contentSessionId, String projectPath,
                                               XmlParser.ParsedObservation parsed, Integer promptNumber,
                                               int discoveryTokens) {
+        return saveObservation(conversationId, null, platformSource, contentSessionId,
+            projectPath, parsed, promptNumber, discoveryTokens);
+    }
+
+    private ObservationEntity saveObservation(java.util.UUID conversationId, UUID pendingId,
+                                               String platformSource, String contentSessionId,
+                                               String projectPath, XmlParser.ParsedObservation parsed,
+                                               Integer promptNumber, int discoveryTokens) {
         // Calculate content hash for deduplication
         String contentForHash = buildContentForHash(parsed.title, parsed.narrative, parsed.facts, parsed.concepts);
         String contentHash = calculateContentHash(contentForHash);
 
-        // Check for duplicate within a 30-second window, scoped to the observation's memory
-        // scope. Keying on the raw project path would suppress identical content in a
-        // different project; scoping on the resolved scope keeps that separation.
+        // Final duplicate check runs under the Conversation lock in the writer. Resolve the
+        // Scope and generate embeddings before taking that lock to avoid holding it across
+        // potentially slow local or remote embedding work.
         long windowStart = Instant.now().toEpochMilli() - 30000;
         java.util.UUID scopeId = memoryScopeService.resolveProjectScope(projectPath);
-        Optional<ObservationEntity> existing = observationRepository.findDuplicateByContentHash(
-            contentHash, windowStart, scopeId);
-        if (existing.isPresent()) {
-            log.debug(LogMarkers.HAPPY_PATH + "Duplicate observation within 30s window, returning existing: {}",
-                existing.get().getId());
-            return existing.get();
-        }
 
         ObservationEntity obs = new ObservationEntity();
         obs.setConversationId(conversationId);
@@ -308,14 +230,12 @@ public class AgentService implements LogHelper {
         // Generate embedding
         generateEmbedding(parsed, obs);
 
-        ObservationEntity saved = observationRepository.save(obs);
-
-        // Broadcast SSE event
-        java.util.Map<String, Object> eventData = new java.util.HashMap<>();
-        eventData.put("type", "new_observation");
-        eventData.put("observation", saved);
-        sseBroadcaster.broadcast(eventData, "new_observation");
-
+        ObservationEntity saved = conversationWriteService.saveObservation(
+            conversationId, pendingId, obs, windowStart);
+        if (saved != obs) {
+            log.debug(LogMarkers.HAPPY_PATH + "Duplicate observation within 30s window, returning existing: {}",
+                saved.getId());
+        }
         return saved;
     }
 
@@ -348,23 +268,13 @@ public class AgentService implements LogHelper {
      * Called by PendingMessageEventListener (via Spring Event).
      */
     public void processPendingMessage(UUID pendingMessageId) {
-        PendingMessageEntity pending = pendingMessageRepository.findById(pendingMessageId).orElse(null);
-
+        PendingMessageEntity pending = conversationWriteService.claimObservationJob(pendingMessageId).orElse(null);
         if (pending == null) {
-            log.warn("Pending message not found: {}", pendingMessageId);
-            return;
-        }
-
-        if (!"pending".equals(pending.getStatus())) {
-            log.debug("Pending message {} already processed, status: {}", pendingMessageId, pending.getStatus());
+            log.debug("Pending Observation job {} is missing, closed, or already claimed", pendingMessageId);
             return;
         }
 
         log.info("Processing pending message: {}", pendingMessageId);
-
-        pending.setStatus("processing");
-        pending.setStartedProcessingAtEpoch(System.currentTimeMillis());
-        pendingMessageRepository.save(pending);
 
         try {
             String contentSessionId = pending.getContentSessionId();
@@ -380,28 +290,17 @@ public class AgentService implements LogHelper {
                 toolResponse, cwd, promptNumber, pending);
             if (!saved) return;
 
-            pending.setStatus("processed");
-            pending.setCompletedAtEpoch(System.currentTimeMillis());
-            pendingMessageRepository.save(pending);
-
             logSuccess("Processed pending message: {}", pendingMessageId);
 
         } catch (DataIntegrityViolationException e) {
             logDataIn("Duplicate pending message detected (concurrent insert): id={}", pendingMessageId);
+            conversationWriteService.markObservationFailed(
+                pendingMessageId, maxRetries, System.currentTimeMillis());
         } catch (Exception e) {
-            logFailure("Error processing pending message: {}", pendingMessageId, e);
-            boolean isRetryable = isRetryableException(e);
-            if (pending != null) {
-                int maxRetries = 3; // Default retry limit, consistent with processToolUseAsync
-                if (isRetryable) {
-                    pendingMessageRepository.markFailedWithRetry(
-                        pendingMessageId, maxRetries, System.currentTimeMillis());
-                } else {
-                    pending.setStatus("failed");
-                    pending.setCompletedAtEpoch(System.currentTimeMillis());
-                    pendingMessageRepository.save(pending);
-                }
-            }
+            log.error("Error processing pending Observation {}: {}",
+                pendingMessageId, e.getClass().getSimpleName());
+            conversationWriteService.markObservationFailed(
+                pendingMessageId, isRetryableException(e) ? maxRetries : 1, System.currentTimeMillis());
         }
     }
 
@@ -441,21 +340,21 @@ public class AgentService implements LogHelper {
         LlmService.LlmResponse llmResponse = llmService.chatCompletionWithUsage(systemPrompt, userMsg);
         String llmContent = llmResponse.content();
         int discoveryTokens = llmResponse.totalTokens();
-        log.debug("LLM response: {}, tokens: {}", llmContent, discoveryTokens);
+        log.debug("Observation extraction completed: response_chars={}, tokens={}",
+            llmContent == null ? 0 : llmContent.length(), discoveryTokens);
 
         // Check for skip
         String skipReason = XmlParser.extractTag(llmContent, "skip");
         if (skipReason != null) {
-            logHappyPath("LLM skipped observation: {}", skipReason);
-            pending.setStatus("skipped");
-            pending.setCompletedAtEpoch(System.currentTimeMillis());
-            pendingMessageRepository.save(pending);
+            logHappyPath("LLM skipped observation");
+            conversationWriteService.markObservationSkipped(pending.getId(), pending.getSessionDbId());
             return false;
         }
 
         // Parse and save observation
         XmlParser.ParsedObservation parsed = XmlParser.parseObservation(llmContent);
-        saveObservation(conversationId, sessionOpt.map(SessionEntity::getPlatformSource).orElse("claude"),
+        saveObservation(conversationId, pending.getId(),
+            sessionOpt.map(SessionEntity::getPlatformSource).orElse("claude"),
             contentSessionId, projectPath, parsed, promptNumber, discoveryTokens);
 
         // Mark context cache for refresh
@@ -584,10 +483,11 @@ public class AgentService implements LogHelper {
                 obs.setEmbeddingModelId(embeddingService.getModel());
             }
         } catch (org.springframework.web.reactive.function.client.WebClientRequestException e) {
-            logHappyPath("Embedding service unavailable, saving observation without embedding: {}", e.getMessage());
+            logHappyPath("Embedding service unavailable, saving observation without embedding: {}",
+                e.getClass().getSimpleName());
         } catch (Exception e) {
-            logHappyPath("Embedding generation failed for observation '{}', saving without embedding: {}",
-                parsed.title, e.getMessage());
+            logHappyPath("Embedding generation failed for observation, saving without embedding: {}",
+                e.getClass().getSimpleName());
         }
     }
 

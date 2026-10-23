@@ -147,15 +147,16 @@ export class CortexMemClient {
 
   /**
    * Update session userId.
-   * PATCH /api/session/{sessionId}/user
+   * PATCH /api/session/user?contentSessionId=...&platformSource=...
    */
-  async updateSessionUserId(sessionId: string, userId: string): Promise<SessionUserUpdateResponse> {
+  async updateSessionUserId(sessionId: string, userId: string, platformSource = 'claude'): Promise<SessionUserUpdateResponse> {
     this.assertNotClosed();
     this.validateRequired('sessionId', sessionId);
     this.validateRequired('userId', userId);
+    const params = new URLSearchParams({ contentSessionId: sessionId, platformSource });
     return this.requestJSON<SessionUserUpdateResponse>(
       'PATCH',
-      `/api/session/${encodeURIComponent(sessionId)}/user`,
+      `/api/session/user?${params.toString()}`,
       { user_id: userId },
     );
   }

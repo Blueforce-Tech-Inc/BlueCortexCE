@@ -35,6 +35,7 @@ class PendingMessageEventListenerTest {
 
     // Stub AgentService that does nothing (avoids ByteBuddy Java 24 issue)
     private com.ablueforce.cortexce.service.AgentService noopAgentService;
+    private com.ablueforce.cortexce.service.SummaryGenerationService noopSummaryService;
 
     private PendingMessageEventListener listener;
     private UUID messageId;
@@ -43,14 +44,23 @@ class PendingMessageEventListenerTest {
     void setUp() {
         // Create a no-op AgentService subclass that doesn't do anything
         noopAgentService = new com.ablueforce.cortexce.service.AgentService(
-            null, null, null, null, null, null, null, null, null, null, null
+            null, null, null, null, null, null, null, null, null, null
         ) {
             @Override
             public void processPendingMessage(UUID pendingMessageId) {
                 // NOOP — do nothing, prevents NPE from null dependencies
             }
         };
-        listener = new PendingMessageEventListener(noopAgentService, pendingMessageRepository);
+        noopSummaryService = new com.ablueforce.cortexce.service.SummaryGenerationService(
+            null, null, null, null, null, null, null, null, null, null, null, null, null
+        ) {
+            @Override
+            public void processSummaryJob(UUID pendingMessageId) {
+                // NOOP for unsupported-type tests.
+            }
+        };
+        listener = new PendingMessageEventListener(
+            noopAgentService, pendingMessageRepository, noopSummaryService);
         messageId = UUID.randomUUID();
     }
 

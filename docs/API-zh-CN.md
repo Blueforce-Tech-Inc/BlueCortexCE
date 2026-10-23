@@ -279,6 +279,14 @@ body 是纯文本 `Error: Failed to generate context preview`；两个 timeline 
 
 根据内容会话 ID 获取会话信息。
 
+外部 ID 含 `/`、`%`、`?`、`#`、`+`、Unicode 或首尾空格时，使用不会把 ID 放入路径段的查询形式：
+
+```http
+GET /api/session?contentSessionId=<编码后的 ID>&platformSource=codex
+```
+
+`platformSource` 可省略，缺省为 `claude`。旧路径形式也只解析 Claude 平台身份。
+
 **路径参数**:
 - `sessionId` - 内容会话 ID
 
@@ -311,6 +319,8 @@ curl http://localhost:37777/api/session/abc-123-def
 #### PATCH `/api/session/{sessionId}/user`
 
 更新会话关联的用户 ID。
+
+外部 ID 为 opaque 值时，使用 `PATCH /api/session/user?contentSessionId=<编码后的 ID>&platformSource=codex`，请求体不变。`platformSource` 可省略，缺省为 `claude`。
 
 **路径参数**:
 - `sessionId` - 内容会话 ID
@@ -1542,6 +1552,8 @@ WebUI 使用的端点，用于查看和搜索记忆。
 | `project` | string | null | 项目路径过滤 |
 | `platformSource` | string | null | 平台来源过滤（如 `claude`、`cursor`） |
 | `contentSessionId` | string | null | 精确的 content session ID 过滤 |
+| `conversationId` | UUID 字符串 | null | 内部 Conversation 过滤；不包含 standalone 观察 |
+| `standaloneKind` | string | null | `manual`、`extraction` 或 `dlq`；读取 standalone correlation key 时与 `contentSessionId` 配合 |
 | `offset` | int | 0 | 偏移量 |
 | `limit` | int | 20 | 每页数量，静默钳制到 1–100 |
 
@@ -1602,7 +1614,10 @@ curl "http://localhost:37777/api/observations?project=/Users/dev/myproject&platf
   "items": [
     {
       "id": "550e8400-e29b-41d4-a716-446655440000",
-      "session_id": "content-session-uuid",
+      "content_session_id": "content-session-uuid",
+      "conversation_id": "2c17653e-31b2-4f75-9f0e-74b00ea64ed0",
+      "standalone_kind": null,
+      "memory_scope_type": "project",
       "project": "/Users/dev/myproject",
       "type": "feature",
       "title": "Feature implementation",
@@ -1638,6 +1653,9 @@ curl "http://localhost:37777/api/observations?project=/Users/dev/myproject&platf
 |------|------|------|
 | `id` | string | 观察记录 UUID |
 | `content_session_id` | string | Claude Code 内容会话 ID（V13；**不是** `session_id`，实体上有覆盖） |
+| `conversation_id` | string \| null | 本地 Conversation UUID；manual、extraction、DLQ standalone 行明确为 `null` |
+| `standalone_kind` | string \| null | standalone 行为 `manual`、`extraction` 或 `dlq`；Conversation-owned 行为 `null` |
+| `memory_scope_type` | string | 稳定的 Scope 类型（`project` 或 `manual_default`）；不暴露部署内 Scope UUID |
 | `project` | string | 项目路径（`@JsonProperty` 覆盖；**不是** `project_path`） |
 | `type` | string | 观察类型（如 `feature`、`bugfix`） |
 | `title` | string | 观察标题 |
@@ -2026,20 +2044,28 @@ curl http://localhost:37777/api/modes
   ],
   "observations": [
     {
-      "session_id": "content-123",
-      "project_path": "/path/to/project",
+      "content_session_id": "content-123",
+      "platform_source": "claude",
+      "project": "/path/to/project",
       "title": "Feature implementation",
-      "content": "...",
+      "narrative": "...",
       "type": "feature",
-      "facts_json": "[\"...\"]",
-      "concepts_json": "[\"...\"]",
-      "created_at_epoch": 1707878400000
+      "facts": "[\"...\"]",
+      "concepts": "[\"...\"]",
+      "created_at_epoch": 1707878400000,
+      "conversation_id": "source-database-uuid",
+      "standalone_kind": null,
+      "memory_scope_type": "project"
     }
   ],
   "summaries": [...],
   "prompts": [...]
 }
 ```
+
+导出的 Observation JSON 可直接导入。Conversation 行按 `(platform_source, content_session_id)` 重新解析本地 UUID；
+manual/extraction/DLQ 行通过 `conversation_id:null` 和 `standalone_kind` 导入，不创建伪 Session。
+`memory_scope_type` 保留 `manual_default` 与同名 project Scope 的区别，来源库 UUID 不会复用。
 
 **响应示例**:
 ```json

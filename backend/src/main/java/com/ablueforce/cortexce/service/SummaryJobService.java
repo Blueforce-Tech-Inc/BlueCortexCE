@@ -1,6 +1,7 @@
 package com.ablueforce.cortexce.service;
 
 import com.ablueforce.cortexce.entity.PendingMessageEntity;
+import com.ablueforce.cortexce.entity.SessionEntity;
 import com.ablueforce.cortexce.repository.PendingMessageRepository;
 import com.ablueforce.cortexce.repository.SessionRepository;
 import org.slf4j.Logger;
@@ -12,6 +13,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.util.Map;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -57,6 +60,13 @@ public class SummaryJobService {
     public static final List<String> IN_FLIGHT_STATUSES =
         List.of("pending", "processing", "result_persisted");
 
+    public static final String STATUS_PENDING = "pending";
+    public static final String STATUS_PROCESSING = "processing";
+    public static final String STATUS_PROCESSED = "processed";
+    public static final String STATUS_SKIPPED = "skipped";
+    public static final String STATUS_FAILED = "failed";
+    public static final String STATUS_RESULT_PERSISTED = "result_persisted";
+
     private final PendingMessageRepository pendingMessageRepository;
     private final SessionRepository sessionRepository;
 
@@ -90,6 +100,84 @@ public class SummaryJobService {
     }
 
     /**
+     * Close admission for a Conversation and enqueue its one canonical SessionEnd job.
+     * The parent update and job creation share the same row lock and transaction, so a
+     * deletion cannot pass its safety check between the two writes.
+     */
+    @Transactional
+    public PendingMessageEntity enqueueSessionSummaryJob(UUID conversationId,
+                                                         String lastAssistantMessage) {
+        SessionEntity session = lockAndLoadConversation(conversationId);
+        Optional<PendingMessageEntity> existing = pendingMessageRepository
+            .findSummaryJob(conversationId, JOB_KEY_SESSION_SUMMARY);
+
+        if (existing.isEmpty()) {
+            List<PendingMessageEntity> legacy = pendingMessageRepository
+                .findUnkeyedSummarizeJobs(conversationId);
+            if (legacy.size() > 1) {
+                throw new IllegalJobStateException(
+                    "multiple unkeyed summarize jobs exist for conversation " + conversationId
+                        + "; refusing to choose one");
+            }
+            if (legacy.size() == 1) {
+                PendingMessageEntity legacyJob = legacy.get(0);
+                if (!isUntouchedLegacyJob(legacyJob)) {
+                    throw new IllegalJobStateException(
+                        "legacy summarize job " + legacyJob.getId()
+                            + " has processing history; refusing to promote");
+                }
+                legacyJob.setJobKey(JOB_KEY_SESSION_SUMMARY);
+                existing = Optional.of(pendingMessageRepository.save(legacyJob));
+            }
+        }
+
+        Instant now = Instant.now();
+        if (existing.isPresent() && isTerminal(existing.get().getStatus())) {
+            if (!STATUS_COMPLETED.equals(session.getStatus())) {
+                session.setStatus(STATUS_COMPLETED);
+            }
+            if (session.getCompletedAtEpoch() == null) {
+                session.setCompletedAtEpoch(now.toEpochMilli());
+                session.setCompletedAt(OffsetDateTime.ofInstant(now, java.time.ZoneOffset.UTC));
+            }
+            if (lastAssistantMessage != null && !lastAssistantMessage.isEmpty()
+                && session.getLastAssistantMessage() == null) {
+                session.setLastAssistantMessage(lastAssistantMessage);
+            }
+            sessionRepository.save(session);
+            return existing.get();
+        }
+        if (!STATUS_COMPLETED.equals(session.getStatus())) {
+            session.setStatus("summarizing");
+        }
+        if (session.getCompletedAtEpoch() == null) {
+            session.setCompletedAtEpoch(now.toEpochMilli());
+            session.setCompletedAt(OffsetDateTime.ofInstant(now, java.time.ZoneOffset.UTC));
+        }
+        if (lastAssistantMessage != null && !lastAssistantMessage.isEmpty()
+            && session.getLastAssistantMessage() == null) {
+            session.setLastAssistantMessage(lastAssistantMessage);
+        }
+        sessionRepository.save(session);
+
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+
+        PendingMessageEntity job = new PendingMessageEntity();
+        job.setSessionDbId(conversationId);
+        job.setContentSessionId(session.getContentSessionId());
+        job.setMessageType(TYPE_SUMMARIZE);
+        job.setJobKey(JOB_KEY_SESSION_SUMMARY);
+        job.setStatus(STATUS_PENDING);
+        job.setRetryCount(0);
+        job.setCreatedAtEpoch(now.toEpochMilli());
+        PendingMessageEntity saved = pendingMessageRepository.save(job);
+        log.info("Created durable summary job {} for conversation {}", saved.getId(), conversationId);
+        return saved;
+    }
+
+    /**
      * Create the canonical SessionEnd job if it does not exist, else return the existing one.
      * Must be called while holding the conversation lock (see {@link #lockConversation}).
      *
@@ -97,9 +185,7 @@ public class SummaryJobService {
      */
     @Transactional
     public PendingMessageEntity ensureSessionSummaryJob(UUID conversationId, String contentSessionId) {
-        if (!lockConversation(conversationId)) {
-            throw new ConversationGoneException(conversationId);
-        }
+        SessionEntity session = lockAndLoadConversation(conversationId);
         Optional<PendingMessageEntity> existing = pendingMessageRepository
             .findSummaryJob(conversationId, JOB_KEY_SESSION_SUMMARY);
         if (existing.isPresent()) {
@@ -107,7 +193,8 @@ public class SummaryJobService {
         }
         PendingMessageEntity job = new PendingMessageEntity();
         job.setSessionDbId(conversationId);
-        job.setContentSessionId(contentSessionId);
+        job.setContentSessionId(session.getContentSessionId() != null
+            ? session.getContentSessionId() : contentSessionId);
         job.setMessageType(TYPE_SUMMARIZE);
         job.setJobKey(JOB_KEY_SESSION_SUMMARY);
         job.setStatus("pending");
@@ -128,7 +215,10 @@ public class SummaryJobService {
      * @return the persisted job
      */
     @Transactional
-    public PendingMessageEntity persistSnapshot(UUID jobId, String canonicalSnapshotJson) {
+    public PendingMessageEntity persistSnapshot(UUID jobId, UUID conversationId,
+                                                Map<String, Object> snapshot,
+                                                String canonicalSnapshotJson) {
+        lockAndLoadConversation(conversationId);
         PendingMessageEntity job = requireJob(jobId);
         byte[] hash = sha256(canonicalSnapshotJson);
         if (job.getSummaryInputSha256() != null) {
@@ -139,16 +229,24 @@ public class SummaryJobService {
             }
             return job;
         }
-        if (!"pending".equals(job.getStatus()) && !"failed".equals(job.getStatus())) {
+        if (!STATUS_PENDING.equals(job.getStatus())
+            && !STATUS_PROCESSING.equals(job.getStatus())
+            && !STATUS_FAILED.equals(job.getStatus())) {
             throw new IllegalJobStateException(
                 "cannot freeze snapshot for job " + jobId + " in status " + job.getStatus());
         }
-        // Stored as raw JSON by the JSONB column mapping; the entity field is a Map in
-        // normal JPA use, so callers that only need the hash can use persistSnapshotHash.
+        job.setSummaryInputSnapshot(snapshot);
         job.setSummaryInputSha256(hash);
-        job.setStatus("processing");
+        job.setStatus(STATUS_PROCESSING);
         job.setStartedProcessingAtEpoch(Instant.now().toEpochMilli());
         return pendingMessageRepository.save(job);
+    }
+
+    /** Backward-compatible hash-only helper for callers outside the SessionEnd worker. */
+    @Transactional
+    public PendingMessageEntity persistSnapshot(UUID jobId, String canonicalSnapshotJson) {
+        PendingMessageEntity job = requireJob(jobId);
+        return persistSnapshot(jobId, job.getSessionDbId(), Map.of(), canonicalSnapshotJson);
     }
 
     /** Persist the snapshot hash alone (no body), for callers that store the body separately. */
@@ -180,16 +278,14 @@ public class SummaryJobService {
      */
     @Transactional
     public PendingMessageEntity markResultPersisted(UUID jobId, UUID conversationId, UUID summaryId) {
-        if (!lockConversation(conversationId)) {
-            throw new ConversationGoneException(conversationId);
-        }
+        lockAndLoadConversation(conversationId);
         PendingMessageEntity job = requireJob(jobId);
         if (job.getResultSummaryId() != null && !job.getResultSummaryId().equals(summaryId)) {
             throw new IllegalJobStateException(
                 "job " + jobId + " already points at a different result");
         }
         job.setResultSummaryId(summaryId);
-        job.setStatus("result_persisted");
+        job.setStatus(STATUS_RESULT_PERSISTED);
         return pendingMessageRepository.save(job);
     }
 
@@ -201,11 +297,9 @@ public class SummaryJobService {
      */
     @Transactional
     public PendingMessageEntity finalizeResult(UUID jobId, UUID conversationId, boolean terminal) {
-        if (!lockConversation(conversationId)) {
-            throw new ConversationGoneException(conversationId);
-        }
+        SessionEntity session = lockAndLoadConversation(conversationId);
         PendingMessageEntity job = requireJob(jobId);
-        if ("processed".equals(job.getStatus())) {
+        if (STATUS_PROCESSED.equals(job.getStatus())) {
             return job;
         }
         if (job.getResultSummaryId() == null) {
@@ -213,10 +307,12 @@ public class SummaryJobService {
                 "cannot finalise job " + jobId + " without a persisted result");
         }
         if (terminal) {
-            job.setStatus("processed");
+            job.setStatus(STATUS_PROCESSED);
             job.setCompletedAtEpoch(Instant.now().toEpochMilli());
+            session.setStatus("completed");
+            sessionRepository.save(session);
         } else {
-            job.setStatus("result_persisted");
+            job.setStatus(STATUS_RESULT_PERSISTED);
         }
         return pendingMessageRepository.save(job);
     }
@@ -227,16 +323,30 @@ public class SummaryJobService {
      */
     @Transactional
     public PendingMessageEntity markSkipped(UUID jobId, UUID conversationId, String reason) {
-        if (!lockConversation(conversationId)) {
-            throw new ConversationGoneException(conversationId);
-        }
+        SessionEntity session = lockAndLoadConversation(conversationId);
         PendingMessageEntity job = requireJob(jobId);
-        if ("processed".equals(job.getStatus()) || "skipped".equals(job.getStatus())) {
+        if (STATUS_PROCESSED.equals(job.getStatus()) || STATUS_SKIPPED.equals(job.getStatus())) {
             return job;
         }
-        job.setStatus("skipped");
+        job.setStatus(STATUS_SKIPPED);
         job.setCompletedAtEpoch(Instant.now().toEpochMilli());
+        session.setStatus("completed");
+        sessionRepository.save(session);
         log.info("Summary job {} skipped: {}", jobId, reason);
+        return pendingMessageRepository.save(job);
+    }
+
+    /** Release a claimed summary job until all previously admitted Observation work drains. */
+    @Transactional
+    public PendingMessageEntity deferUntilObservationQueueDrains(UUID jobId, UUID conversationId) {
+        lockAndLoadConversation(conversationId);
+        PendingMessageEntity job = requireJob(jobId);
+        if (STATUS_PROCESSED.equals(job.getStatus()) || STATUS_SKIPPED.equals(job.getStatus())
+            || STATUS_FAILED.equals(job.getStatus()) || job.getResultSummaryId() != null) {
+            return job;
+        }
+        job.setStatus(STATUS_PENDING);
+        job.setStartedProcessingAtEpoch(null);
         return pendingMessageRepository.save(job);
     }
 
@@ -248,9 +358,7 @@ public class SummaryJobService {
      */
     @Transactional
     public PendingMessageEntity tombstoneResult(UUID jobId, UUID conversationId) {
-        if (!lockConversation(conversationId)) {
-            throw new ConversationGoneException(conversationId);
-        }
+        SessionEntity session = lockAndLoadConversation(conversationId);
         PendingMessageEntity job = requireJob(jobId);
         if (job.getResultSummaryId() == null) {
             return job;
@@ -258,11 +366,73 @@ public class SummaryJobService {
         job.setResultSummaryId(null);
         job.setResultDeletedAt(java.time.OffsetDateTime.now());
         // A deleted result does not un-finish the job.
-        if (!"processed".equals(job.getStatus()) && !"skipped".equals(job.getStatus())) {
-            job.setStatus("processed");
+        if (!STATUS_PROCESSED.equals(job.getStatus()) && !STATUS_SKIPPED.equals(job.getStatus())) {
+            job.setStatus(STATUS_PROCESSED);
             job.setCompletedAtEpoch(Instant.now().toEpochMilli());
         }
+        session.setStatus("completed");
+        sessionRepository.save(session);
         return pendingMessageRepository.save(job);
+    }
+
+    /** Claim one pending job. Duplicate events observe processing and become no-ops. */
+    @Transactional
+    public Optional<PendingMessageEntity> claimForProcessing(UUID jobId) {
+        return claimForProcessing(jobId, Long.MIN_VALUE);
+    }
+
+    /**
+     * Claim a pending job or reclaim a processing job left behind by a crashed worker.
+     * The parent lock serialises duplicate events before the stale decision is made.
+     */
+    @Transactional
+    public Optional<PendingMessageEntity> claimForProcessing(UUID jobId, long staleBeforeEpoch) {
+        PendingMessageEntity current = pendingMessageRepository.findById(jobId).orElse(null);
+        if (current == null) {
+            return Optional.empty();
+        }
+        lockAndLoadConversation(current.getSessionDbId());
+        PendingMessageEntity job = requireJob(jobId);
+        boolean pending = STATUS_PENDING.equals(job.getStatus());
+        boolean staleProcessing = STATUS_PROCESSING.equals(job.getStatus())
+            && (job.getStartedProcessingAtEpoch() == null
+                || job.getStartedProcessingAtEpoch() <= staleBeforeEpoch);
+        if (!pending && !staleProcessing) {
+            return Optional.empty();
+        }
+        job.setStatus(STATUS_PROCESSING);
+        job.setStartedProcessingAtEpoch(Instant.now().toEpochMilli());
+        return Optional.of(pendingMessageRepository.save(job));
+    }
+
+    /** Read a durable job for recovery without exposing the repository to controllers. */
+    @Transactional(readOnly = true)
+    public Optional<PendingMessageEntity> findJob(UUID jobId) {
+        return pendingMessageRepository.findById(jobId);
+    }
+
+    /** Persist a retryable/final failure under the same Conversation lock. */
+    @Transactional
+    public void markFailed(UUID jobId, UUID conversationId, int maxRetries, String reason) {
+        SessionEntity session = lockAndLoadConversation(conversationId);
+        PendingMessageEntity job = requireJob(jobId);
+        if (STATUS_PROCESSED.equals(job.getStatus()) || STATUS_SKIPPED.equals(job.getStatus())) {
+            return;
+        }
+        int nextRetry = (job.getRetryCount() == null ? 0 : job.getRetryCount()) + 1;
+        job.setRetryCount(nextRetry);
+        job.setStartedProcessingAtEpoch(null);
+        if (nextRetry < Math.max(1, maxRetries)) {
+            job.setStatus(STATUS_PENDING);
+            job.setFailedAtEpoch(null);
+        } else {
+            job.setStatus(STATUS_FAILED);
+            job.setFailedAtEpoch(Instant.now().toEpochMilli());
+            session.setStatus("completed");
+            sessionRepository.save(session);
+        }
+        pendingMessageRepository.save(job);
+        log.warn("Summary job {} failed (attempt {}): {}", jobId, nextRetry, reason);
     }
 
     /**
@@ -315,6 +485,30 @@ public class SummaryJobService {
         return pendingMessageRepository.findById(jobId)
             .orElseThrow(() -> new IllegalJobStateException("summary job not found: " + jobId));
     }
+
+    private SessionEntity lockAndLoadConversation(UUID conversationId) {
+        if (!lockConversation(conversationId)) {
+            throw new ConversationGoneException(conversationId);
+        }
+        return sessionRepository.findById(conversationId)
+            .orElseThrow(() -> new ConversationGoneException(conversationId));
+    }
+
+    private boolean isUntouchedLegacyJob(PendingMessageEntity job) {
+        return STATUS_PENDING.equals(job.getStatus())
+            && (job.getRetryCount() == null || job.getRetryCount() == 0)
+            && job.getStartedProcessingAtEpoch() == null
+            && job.getCompletedAtEpoch() == null
+            && job.getFailedAtEpoch() == null;
+    }
+
+    private boolean isTerminal(String status) {
+        return STATUS_PROCESSED.equals(status)
+            || STATUS_SKIPPED.equals(status)
+            || STATUS_FAILED.equals(status);
+    }
+
+    private static final String STATUS_COMPLETED = "completed";
 
     static byte[] sha256(String value) {
         try {

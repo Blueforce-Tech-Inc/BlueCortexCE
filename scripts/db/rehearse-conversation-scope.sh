@@ -71,8 +71,15 @@ apply_pre_v20() {
 }
 
 apply_v20() {
-  { echo "SET app.manual_sentinel_reviewed = 'true';"
-    cat "$MIGRATION_DIR"/V20*.sql; } | psql_db -v ON_ERROR_STOP=1 2>&1
+  # V20 deliberately contains no transaction-control or psql-only statements: Flyway
+  # owns the JDBC transaction. The rehearsal supplies the transaction wrapper so the
+  # raw-psql execution has the same all-or-nothing failure behaviour.
+  { echo "BEGIN;"
+    echo "SET LOCAL app.manual_sentinel_reviewed = 'true';"
+    cat "$MIGRATION_DIR"/V20*.sql
+    echo "COMMIT;"
+    echo "SELECT 'V20 one-shot migration committed.';"; } |
+    psql_db -v ON_ERROR_STOP=1 2>&1
 }
 
 info "1. V1-V19 replay from empty"

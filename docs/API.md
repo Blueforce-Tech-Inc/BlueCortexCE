@@ -320,6 +320,14 @@ curl http://localhost:37777/api/session/abc-123-def
 }
 ```
 
+For external IDs containing `/`, `%`, `?`, `#`, `+`, Unicode, or boundary spaces, use the opaque-safe query form instead of a path segment:
+
+```http
+GET /api/session?contentSessionId=<encoded-id>&platformSource=codex
+```
+
+`platformSource` is optional and defaults to `claude`. The legacy path form also resolves only the Claude identity.
+
 ### Update Session User
 
 ```
@@ -332,6 +340,8 @@ Content-Type: application/json
 ```
 
 Updates the user ID associated with a session.
+
+For opaque external IDs, use `PATCH /api/session/user?contentSessionId=<encoded-id>&platformSource=codex` with the same JSON body. `platformSource` is optional and defaults to `claude`.
 
 **Path Parameters**:
 - `sessionId` — Content session ID
@@ -1588,6 +1598,8 @@ Returns a paginated list of observations, optionally filtered by project. Result
 | `project` | string | No | null | Project path filter (returns all if omitted) |
 | `platformSource` | string | No | null | Platform source filter (e.g., `claude`, `cursor`) |
 | `contentSessionId` | string | No | null | Exact content session ID filter |
+| `conversationId` | UUID string | No | null | Internal Conversation filter; excludes standalone observations |
+| `standaloneKind` | string | No | null | `manual`, `extraction`, or `dlq`; use with `contentSessionId` for standalone correlation-key reads |
 | `offset` | int | No | 0 | Pagination offset (0-based) |
 | `limit` | int | No | 20 | Items per page, silently clamped to 1–100 |
 
@@ -1648,6 +1660,9 @@ take raw query strings, were aligned to one shared rule for the same reason.
     {
       "id": "550e8400-e29b-41d4-a716-446655440000",
       "content_session_id": "content-session-uuid",
+      "conversation_id": "2c17653e-31b2-4f75-9f0e-74b00ea64ed0",
+      "standalone_kind": null,
+      "memory_scope_type": "project",
       "project": "/Users/dev/myproject",
       "type": "feature",
       "title": "Feature implementation",
@@ -1683,6 +1698,9 @@ take raw query strings, were aligned to one shared rule for the same reason.
 |-------|------|-------------|
 | `id` | string | Observation UUID |
 | `content_session_id` | string | Claude Code content session ID (V13; **not** `session_id` — the entity overrides it) |
+| `conversation_id` | string \| null | Local Conversation UUID; explicitly `null` for manual, extraction, and DLQ standalone rows |
+| `standalone_kind` | string \| null | `manual`, `extraction`, or `dlq` for standalone rows; `null` for Conversation-owned rows |
+| `memory_scope_type` | string | Stable Scope kind (`project` or `manual_default`); no deployment-local Scope UUID is exposed |
 | `project` | string | Project path (`@JsonProperty` override; **not** `project_path`) |
 | `type` | string | Observation type (e.g., `feature`, `bugfix`) |
 | `title` | string | Observation title |
@@ -2065,14 +2083,18 @@ Bulk import all data types in a single request. Includes duplicate checking.
   ],
   "observations": [
     {
-      "session_id": "content-123",
-      "project_path": "/path/to/project",
+      "content_session_id": "content-123",
+      "platform_source": "claude",
+      "project": "/path/to/project",
       "title": "Feature implementation",
-      "content": "...",
+      "narrative": "...",
       "type": "feature",
-      "facts_json": "[\"...\"]",
-      "concepts_json": "[\"...\"]",
-      "created_at_epoch": 1707878400000
+      "facts": "[\"...\"]",
+      "concepts": "[\"...\"]",
+      "created_at_epoch": 1707878400000,
+      "conversation_id": "source-database-uuid",
+      "standalone_kind": null,
+      "memory_scope_type": "project"
     }
   ],
   "summaries": [...],
@@ -2080,7 +2102,7 @@ Bulk import all data types in a single request. Includes duplicate checking.
 }
 ```
 
-> **Note**: All fields use snake_case naming. Array fields like `facts` and `concepts` must be passed as JSON strings (`facts_json`, `concepts_json`), not as native JSON arrays. The `session_id` in observations references `content_session_id` from sessions.
+> **Note**: Conversation observations accept legacy import names or the exported aliases (`content_session_id`, `project`, `narrative`, `facts`, and related fields). Standalone rows set `conversation_id` to `null`, provide `standalone_kind`, and never require or create a Session. `memory_scope_type` distinguishes `manual_default` from a project literally named `manual-memories`; imports resolve Scope IDs locally and ignore source UUIDs.
 
 **Response** (`200 OK`):
 ```json

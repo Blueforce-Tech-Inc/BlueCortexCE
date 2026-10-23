@@ -1,7 +1,19 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import { app } from './app';
+
+vi.mock('../../src', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src')>();
+  return {
+    ...actual,
+    CortexMemClient: class extends actual.CortexMemClient {
+      override async healthCheck() {
+        return { status: 'ok', service: 'test' };
+      }
+    },
+  };
+});
 
 /**
  * Pins the demo's 404 / 405 contract.

@@ -62,6 +62,13 @@ def _to_str(v: object, default: str = "") -> str:
     return default
 
 
+def _nullable_string(v: object) -> str | None:
+    """Preserve an explicit JSON null while safely coercing scalar strings."""
+    if v is None:
+        return None
+    return _to_str(v)
+
+
 def _str_field(data: dict, *keys: str) -> str:
     """``_first_non_null`` + :func:`_to_str` for a string-typed field."""
     return _to_str(_first_non_null(data, *keys))
@@ -283,7 +290,7 @@ class SessionStartResponse:
 
 @dataclass
 class SessionUserUpdateResponse:
-    """Response from PATCH /api/session/{sessionId}/user.
+    """Response from PATCH /api/session/user?contentSessionId=...&platformSource=....
 
     Wire format uses camelCase keys (``sessionId``, ``userId``),
     matching the backend Jackson @JsonProperty annotations.
@@ -546,6 +553,9 @@ class Observation:
     """
 
     id: str = ""
+    conversation_id: str | None = None
+    standalone_kind: str | None = None
+    platform_source: str = ""
     session_id: str = ""
     project_path: str = ""
     type: str = ""
@@ -597,6 +607,10 @@ class Observation:
             "type": self.type,
             "narrative": self.content,
         }
+        d["conversation_id"] = self.conversation_id
+        d["standalone_kind"] = self.standalone_kind
+        if self.platform_source:
+            d["platform_source"] = self.platform_source
         # omitempty fields (Go SDK: json:"...,omitempty")
         if self.title:
             d["title"] = self.title
@@ -647,6 +661,9 @@ class Observation:
         # against unexpected wire types (matches JS SDK's safeStringArray/safeRecord).
         return cls(
             id=_to_str(data.get("id")),
+            conversation_id=_nullable_string(data.get("conversation_id")),
+            standalone_kind=_nullable_string(data.get("standalone_kind")),
+            platform_source=_to_str(data.get("platform_source")),
             session_id=_to_str(data.get("content_session_id")),
             project_path=_to_str(data.get("project")),
             type=_to_str(data.get("type")),

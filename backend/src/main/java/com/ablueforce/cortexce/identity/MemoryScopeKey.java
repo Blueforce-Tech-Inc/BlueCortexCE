@@ -3,7 +3,6 @@ package com.ablueforce.cortexce.identity;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -145,12 +144,12 @@ public final class MemoryScopeKey {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof MemoryScopeKey other)) return false;
-        return scopeType.equals(other.scopeType) && Arrays.equals(sha256, other.sha256);
+        return scopeType.equals(other.scopeType) && scopeKey.equals(other.scopeKey);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(scopeType, Arrays.hashCode(sha256));
+        return Objects.hash(scopeType, scopeKey);
     }
 
     @Override

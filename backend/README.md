@@ -178,6 +178,10 @@ responses are **not** interchangeable:
 | GET | `/api/extraction/{templateName}/latest` | Get latest extraction result |
 | GET | `/api/extraction/{templateName}/history` | Get extraction history |
 
+Extraction templates exclude manually saved standalone memories by default. A template may opt in
+by setting `include-standalone-manual: true` under its
+`app.memory.extraction.templates[]` entry; this can send user-saved content to the configured LLM.
+
 ### Cursor
 
 | Method | Path | Description |

@@ -5,13 +5,14 @@ import com.ablueforce.cortexce.entity.SessionEntity;
 import com.ablueforce.cortexce.identity.ExternalSessionRef;
 import com.ablueforce.cortexce.identity.PlatformSource;
 import com.ablueforce.cortexce.entity.UserPromptEntity;
-import com.ablueforce.cortexce.repository.UserPromptRepository;
 import com.ablueforce.cortexce.service.AgentService;
 import com.ablueforce.cortexce.service.SessionManagementService;
-import com.ablueforce.cortexce.service.SummaryGenerationService;
+import com.ablueforce.cortexce.service.SummaryJobService;
 import com.ablueforce.cortexce.service.ContextCacheService;
+import com.ablueforce.cortexce.service.ConversationWriteService;
 import com.ablueforce.cortexce.service.RateLimitService;
 import com.ablueforce.cortexce.service.SSEBroadcaster;
+import com.ablueforce.cortexce.event.PendingMessageEventPublisher;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -24,7 +25,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -55,23 +55,26 @@ public class IngestionController {
 
     private final AgentService agentService;
     private final SessionManagementService sessionManagementService;
-    private final SummaryGenerationService summaryGenerationService;
-    private final UserPromptRepository userPromptRepository;
+    private final SummaryJobService summaryJobService;
+    private final ConversationWriteService conversationWriteService;
+    private final PendingMessageEventPublisher pendingMessageEventPublisher;
     private final ContextCacheService contextCacheService;
     private final RateLimitService rateLimitService;
     private final SSEBroadcaster sseBroadcaster;
 
     public IngestionController(AgentService agentService,
                                SessionManagementService sessionManagementService,
-                               SummaryGenerationService summaryGenerationService,
-                               UserPromptRepository userPromptRepository,
+                               SummaryJobService summaryJobService,
+                               ConversationWriteService conversationWriteService,
+                               PendingMessageEventPublisher pendingMessageEventPublisher,
                                ContextCacheService contextCacheService,
                                RateLimitService rateLimitService,
                                SSEBroadcaster sseBroadcaster) {
         this.agentService = agentService;
         this.sessionManagementService = sessionManagementService;
-        this.summaryGenerationService = summaryGenerationService;
-        this.userPromptRepository = userPromptRepository;
+        this.summaryJobService = summaryJobService;
+        this.conversationWriteService = conversationWriteService;
+        this.pendingMessageEventPublisher = pendingMessageEventPublisher;
         this.contextCacheService = contextCacheService;
         this.rateLimitService = rateLimitService;
         this.sseBroadcaster = sseBroadcaster;
@@ -150,11 +153,13 @@ public class IngestionController {
         SessionEntity session = sessionManagementService.getOrCreate(ref, cwd, null);
         java.util.UUID sessionDbId = session.getId();
 
-        // Fire and forget — async observation extraction
-        agentService.processToolUseAsync(
+        // Admission is committed under the Conversation row lock before SessionEnd can
+        // close the queue. The event is only a wake-up; the persisted row is authoritative.
+        agentService.enqueueToolUse(
             sessionDbId, contentSessionId,
             toolName, toolInput, toolResponse, cwd, null
-        );
+        ).ifPresent(pendingId -> pendingMessageEventPublisher.publishPendingMessageEvent(
+            pendingId, "observation"));
 
         return ResponseEntity.ok(Map.of("status", "accepted"));
     }
@@ -216,8 +221,17 @@ public class IngestionController {
         UUID conversationId = resolved.get().getId();
         log.debug("Session end: conversation={} ({})", conversationId, ref.logKey());
 
-        // Fire-and-forget: marks the conversation completed and generates the summary.
-        summaryGenerationService.completeSessionAsync(conversationId, lastAssistantMessage);
+        // Persist the terminal job before publishing an in-process event. The job is the
+        // source of truth if the event is lost or the process restarts.
+        final com.ablueforce.cortexce.entity.PendingMessageEntity job;
+        try {
+            job = summaryJobService.enqueueSessionSummaryJob(conversationId, lastAssistantMessage);
+        } catch (SummaryJobService.IllegalJobStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("error", e.getMessage()));
+        }
+        pendingMessageEventPublisher.publishPendingMessageEvent(
+            job.getId(), SummaryJobService.TYPE_SUMMARIZE);
 
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
@@ -249,7 +263,6 @@ public class IngestionController {
         description = "User prompt event request",
         required = true,
         content = @Content(schema = @Schema(implementation = com.ablueforce.cortexce.dto.ApiRequests.UserPromptRequest.class)))
-    @Transactional
     public ResponseEntity<Map<String, String>> handleUserPrompt(@org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.UserPromptRequest body) {
         String contentSessionId = body.sessionId();
         String promptText = body.promptText();
@@ -293,21 +306,8 @@ public class IngestionController {
         prompt.setPromptNumber(promptNumber);
         prompt.setProjectPath(cwd);  // Set project path from cwd
         prompt.setCreatedAtEpoch(Instant.now().toEpochMilli());
-        UserPromptEntity saved = userPromptRepository.save(prompt);
-
-        // Broadcast SSE event for new_prompt after transaction commits (fixes race condition)
-        // TypeScript useSSE.ts expects "prompt" key
-        Map<String, Object> eventData = new HashMap<>();
-        eventData.put("type", "new_prompt");
-        eventData.put("prompt", saved);
-        org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
-            new org.springframework.transaction.support.TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    sseBroadcaster.broadcast(eventData, "new_prompt");
-                }
-            }
-        );
+        UserPromptEntity saved = conversationWriteService.savePrompt(prompt);
+        sseBroadcaster.broadcast(Map.of("type", "new_prompt", "prompt", saved), "new_prompt");
 
         return ResponseEntity.ok(Map.of("status", "ok"));
     }
@@ -399,13 +399,6 @@ public class IngestionController {
         if (projectPath != null) {
             contextCacheService.markForRefresh(projectPath);
         }
-
-        // Broadcast SSE event for new observation so WebUI can see real-time updates
-        // TypeScript useSSE.ts expects "observation" key
-        Map<String, Object> obsEventData = new HashMap<>();
-        obsEventData.put("type", "new_observation");
-        obsEventData.put("observation", observation);
-        sseBroadcaster.broadcast(obsEventData, "new_observation");
 
         return ResponseEntity.ok(observation);
     }

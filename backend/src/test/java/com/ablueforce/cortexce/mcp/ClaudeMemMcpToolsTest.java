@@ -1,11 +1,17 @@
 package com.ablueforce.cortexce.mcp;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.ablueforce.cortexce.config.Constants;
 import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.ablueforce.cortexce.entity.SummaryEntity;
 import com.ablueforce.cortexce.repository.ObservationRepository;
 import com.ablueforce.cortexce.repository.SessionRepository;
 import com.ablueforce.cortexce.repository.SummaryRepository;
+import com.ablueforce.cortexce.service.EmbeddingService;
+import com.ablueforce.cortexce.service.SearchService;
+import com.ablueforce.cortexce.service.TimelineService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -16,6 +22,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
@@ -52,6 +59,15 @@ class ClaudeMemMcpToolsTest {
     @Mock
     private com.ablueforce.cortexce.service.MemoryScopeService memoryScopeService;
 
+    @Mock
+    private EmbeddingService embeddingService;
+
+    @Mock
+    private TimelineService timelineService;
+
+    @Mock
+    private SearchService searchService;
+
     private ClaudeMemMcpTools tools;
 
     @BeforeEach
@@ -59,8 +75,85 @@ class ClaudeMemMcpToolsTest {
         // Only the repositories these two tools touch are wired; the rest of the
         // constructor is unused by the paths under test.
         tools = new ClaudeMemMcpTools(
-                null, null, observationRepository, null, summaryRepository, sessionRepository,
+                searchService, embeddingService, observationRepository, timelineService, summaryRepository, sessionRepository,
                 memoryScopeService);
+    }
+
+    @Nested
+    @DisplayName("failure details do not expose submitted content")
+    class FailureDisclosure {
+
+        @Test
+        void searchDoesNotLogQueryText() {
+            String canary = "private-search-canary-2c61";
+            when(embeddingService.embed(canary)).thenReturn(new float[]{0.25f});
+            when(searchService.search(any())).thenReturn(
+                new SearchService.SearchResult(List.of(), "tsvector", false));
+            ListAppender<ILoggingEvent> logs = captureToolLogs();
+
+            try {
+                tools.search(canary, "/p", 5, null, null, null, null);
+                assertLogsDoNotContain(logs, canary);
+            } finally {
+                detachToolLogs(logs);
+            }
+        }
+
+        @Test
+        void saveMemoryReturnsGenericErrorWhenEmbeddingFails() {
+            String canary = "private-memory-canary-7f3a";
+            when(memoryScopeService.resolveManualDefault()).thenReturn(UUID.randomUUID());
+            when(embeddingService.embed(canary)).thenThrow(new IllegalStateException(canary));
+            ListAppender<ILoggingEvent> logs = captureToolLogs();
+
+            try {
+                Map<String, Object> result = tools.saveMemory(canary, null, null, null);
+
+                assertThat(result).containsEntry("success", false)
+                    .containsEntry("error", "Failed to save memory");
+                assertThat(result.toString()).doesNotContain(canary);
+                assertLogsDoNotContain(logs, canary);
+            } finally {
+                detachToolLogs(logs);
+            }
+        }
+
+        @Test
+        void timelineReturnsGenericErrorWhenLookupFails() {
+            String canary = "private-query-canary-9b21";
+            when(timelineService.getTimelineMap("/p", null, canary, null, null))
+                .thenThrow(new IllegalStateException(canary));
+            ListAppender<ILoggingEvent> logs = captureToolLogs();
+
+            try {
+                Map<String, Object> result = tools.timeline("/p", null, canary, null, null);
+
+                assertThat(result).containsEntry("error", "Timeline query failed");
+                assertThat(result.toString()).doesNotContain(canary);
+                assertLogsDoNotContain(logs, canary);
+            } finally {
+                detachToolLogs(logs);
+            }
+        }
+    }
+
+    private static ListAppender<ILoggingEvent> captureToolLogs() {
+        Logger logger = (Logger) LoggerFactory.getLogger(ClaudeMemMcpTools.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        return appender;
+    }
+
+    private static void assertLogsDoNotContain(ListAppender<ILoggingEvent> logs, String canary) {
+        assertThat(logs.list).allSatisfy(event ->
+            assertThat(event.getFormattedMessage()).doesNotContain(canary));
+    }
+
+    private static void detachToolLogs(ListAppender<ILoggingEvent> appender) {
+        Logger logger = (Logger) LoggerFactory.getLogger(ClaudeMemMcpTools.class);
+        logger.detachAppender(appender);
+        appender.stop();
     }
 
     private static ObservationEntity obs(long epoch) {

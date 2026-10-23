@@ -16,7 +16,25 @@ public interface PendingMessageRepository extends JpaRepository<PendingMessageEn
 
     List<PendingMessageEntity> findByStatusOrderByCreatedAtEpochAsc(String status);
 
+    /** Summary jobs that need initial processing or crash recovery. */
+    @Query("""
+        SELECT p FROM PendingMessageEntity p
+        WHERE p.messageType = 'summarize'
+        AND (
+            p.status IN ('pending', 'result_persisted')
+            OR (p.status = 'processing'
+                AND (p.startedProcessingAtEpoch IS NULL OR p.startedProcessingAtEpoch <= :staleBeforeEpoch))
+        )
+        ORDER BY p.createdAtEpoch ASC, p.id ASC
+        """)
+    List<PendingMessageEntity> findRecoverableSummaryJobs(
+        @Param("staleBeforeEpoch") long staleBeforeEpoch);
+
     List<PendingMessageEntity> findBySessionDbIdAndStatusOrderByCreatedAtEpochAsc(UUID sessionDbId, String status);
+
+    @Query("SELECT COUNT(p) FROM PendingMessageEntity p WHERE p.sessionDbId = :sessionDbId "
+        + "AND p.messageType = 'observation' AND p.status IN ('pending', 'processing')")
+    long countOpenObservationJobs(@Param("sessionDbId") UUID sessionDbId);
 
     /** Delete the queue rows owned by one conversation (used when the conversation goes). */
     @Modifying
@@ -102,11 +120,14 @@ public interface PendingMessageRepository extends JpaRepository<PendingMessageEn
     Long findLastProcessedEpoch();
 
     // Count stale messages
-    @Query("SELECT COUNT(p) FROM PendingMessageEntity p WHERE p.status = 'processing' AND p.createdAtEpoch < :threshold")
+    @Query("SELECT COUNT(p) FROM PendingMessageEntity p WHERE p.messageType = 'observation' "
+        + "AND p.status = 'processing' AND (p.startedProcessingAtEpoch IS NULL OR p.startedProcessingAtEpoch < :threshold)")
     long countStale(@Param("threshold") long thresholdEpoch);
 
     @Modifying
-    @Query("UPDATE PendingMessageEntity p SET p.status = :newStatus WHERE p.status = :oldStatus AND p.createdAtEpoch < :beforeEpoch")
+    @Query("UPDATE PendingMessageEntity p SET p.status = :newStatus, p.startedProcessingAtEpoch = NULL "
+        + "WHERE p.messageType = 'observation' AND p.status = :oldStatus "
+        + "AND (p.startedProcessingAtEpoch IS NULL OR p.startedProcessingAtEpoch < :beforeEpoch)")
     int updateStaleMessages(
         @Param("oldStatus") String oldStatus,
         @Param("newStatus") String newStatus,

@@ -29,8 +29,6 @@
 --   PLATFORM_SOURCE_NOT_NORMALISABLE      a stored platform value cannot be canonicalised
 --   CHILD_PARENT_PLATFORM_MISMATCH        a child's platform differs from its parent's
 
-BEGIN;
-
 -- ============================================================================
 -- 0. Fail fast if the schema is not what this migration expects
 -- ============================================================================
@@ -251,8 +249,8 @@ BEGIN
         SELECT b.content_session_id
         FROM v20_bucket b JOIN blank ON blank.id = b.parent_id
         WHERE b.content_session_id = 'manual-memories'
-          AND (b.status <> 'completed'
-               OR b.project_path <> 'manual-memories'
+          AND (b.status IS DISTINCT FROM 'completed'
+               OR b.project_path IS DISTINCT FROM 'manual-memories'
                OR NOT (blank.up_blank AND blank.lam_blank)
                OR b.observations = 0
                OR b.manual_markers <> b.observations
@@ -627,7 +625,3 @@ INSERT INTO mem_identity_flags (flag_name, enabled) VALUES
     ('conversation_identity_v2', TRUE),
     ('memory_scope_read_v2',     TRUE)
 ON CONFLICT (flag_name) DO UPDATE SET enabled = EXCLUDED.enabled, updated_at = now();
-
-COMMIT;
-
-\echo 'V20 one-shot migration committed.'

@@ -139,7 +139,7 @@ public class QualityScorer {
             return (float) analysis.qualityScore();
             
         } catch (Exception e) {
-            log.warn("LLM scoring failed, falling back to rule-based: {}", e.getMessage());
+            log.warn("LLM scoring failed, falling back to rule-based: {}", e.getClass().getSimpleName());
             return estimateQuality(feedback != null ? feedback : FeedbackType.UNKNOWN, 
                 content, null, toolUsageCount);
         }
@@ -185,7 +185,7 @@ public class QualityScorer {
             };
             
         } catch (Exception e) {
-            log.warn("LLM feedback inference failed: {}", e.getMessage());
+            log.warn("LLM feedback inference failed: {}", e.getClass().getSimpleName());
             return null;
         }
     }

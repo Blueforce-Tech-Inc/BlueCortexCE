@@ -176,7 +176,7 @@ public class TimelineService {
                 return result.observations().get(0).getId();
             }
         } catch (Exception e) {
-            log.warn("Failed to find anchor by query: {}", e.getMessage());
+            log.warn("Failed to find timeline anchor by query: {}", e.getClass().getSimpleName());
         }
         return null;
     }

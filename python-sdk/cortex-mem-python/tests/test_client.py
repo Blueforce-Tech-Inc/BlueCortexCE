@@ -5,6 +5,7 @@ import json
 import pytest
 import requests
 import responses
+from urllib.parse import parse_qs, urlsplit
 
 from cortex_mem import CortexMemClient, APIError, BadRequestError, NotFoundError, RateLimitError, CortexError, ValidationError, UnprocessableError
 from cortex_mem.version import __version__
@@ -110,7 +111,7 @@ class TestSession:
     def test_update_session_user_id(self):
         responses.add(
             responses.PATCH,
-            f"{BASE}/api/session/s1/user",
+            f"{BASE}/api/session/user",
             json={"status": "ok", "sessionId": "s1", "userId": "u1"},
             status=200,
         )
@@ -119,6 +120,24 @@ class TestSession:
         assert resp.status == "ok"
         assert resp.session_id == "s1"
         assert resp.user_id == "u1"
+        query = parse_qs(urlsplit(responses.calls[0].request.url).query)
+        assert query == {"contentSessionId": ["s1"], "platformSource": ["claude"]}
+
+    @responses.activate
+    def test_update_session_user_id_uses_opaque_query_identity(self):
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/api/session/user",
+            json={"status": "ok"},
+            status=200,
+        )
+        c = _client()
+        c.update_session_user_id("s/?#% 雪", "u1", platform_source="codex")
+        query = parse_qs(urlsplit(responses.calls[0].request.url).query)
+        assert query == {
+            "contentSessionId": ["s/?#% 雪"],
+            "platformSource": ["codex"],
+        }
 
 
 # ==================== Capture ====================
@@ -1602,13 +1621,13 @@ class TestJSONDecodeResilience:
         """update_session_user_id must raise rather than return an empty DTO."""
         responses.add(
             responses.PATCH,
-            f"{BASE}/api/session/s1/user",
+            f"{BASE}/api/session/user",
             body="not json",
             status=200,
             content_type="text/plain",
         )
         c = _client()
-        with pytest.raises(CortexError, match="failed to parse /api/session/s1/user response"):
+        with pytest.raises(CortexError, match="failed to parse /api/session/user response"):
             c.update_session_user_id("s1", "u1")
 
     @responses.activate
@@ -1616,7 +1635,7 @@ class TestJSONDecodeResilience:
         """A genuinely empty 200 body still yields the documented default DTO."""
         responses.add(
             responses.PATCH,
-            f"{BASE}/api/session/s1/user",
+            f"{BASE}/api/session/user",
             body="",
             status=200,
             content_type="application/json",

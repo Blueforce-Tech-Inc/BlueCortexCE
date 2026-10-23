@@ -59,16 +59,16 @@ with CortexMemClient(base_url="http://localhost:37777") as client:
 
 | 方法 | 说明 |
 |------|------|
-| `start_session(session_id, project_path, user_id=None)` | 启动或恢复会话 |
-| `update_session_user_id(session_id, user_id)` | 更新会话用户 ID |
+| `start_session(session_id, project_path, user_id=None, platform_source=None)` | 启动或恢复会话 |
+| `update_session_user_id(session_id, user_id, platform_source="claude")` | 更新会话用户 ID |
 
 ### 捕获（fire-and-forget）
 
 | 方法 | 说明 |
 |------|------|
-| `record_observation(session_id, project_path, tool_name, **kwargs)` | 记录工具使用观察 |
-| `record_session_end(session_id, project_path, ...)` | 信号会话结束 |
-| `record_user_prompt(session_id, prompt_text, ...)` | 记录用户提示 |
+| `record_observation(session_id, project_path, tool_name, platform_source=None, **kwargs)` | 记录工具使用观察 |
+| `record_session_end(session_id, project_path, platform_source=None, ...)` | 信号会话结束 |
+| `record_user_prompt(session_id, prompt_text, ..., platform_source=None)` | 记录用户提示 |
 
 ### 检索
 

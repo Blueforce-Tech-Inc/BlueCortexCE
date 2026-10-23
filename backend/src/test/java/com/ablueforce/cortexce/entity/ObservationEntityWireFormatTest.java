@@ -116,6 +116,8 @@ class ObservationEntityWireFormatTest {
         assertTrue(!json.contains("memoryScopeId"), "wire leaked memoryScopeId: " + json);
         assertTrue(!advertisedProperties(ObservationEntity.class).contains("memory_scope_id"),
             "OpenAPI must not advertise memory_scope_id");
+        assertTrue(json.contains("\"memory_scope_type\":null"),
+            "scope kind is a stable, non-UUID export field");
     }
 
     @Test

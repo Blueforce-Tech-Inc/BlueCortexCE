@@ -350,7 +350,7 @@ Plugin listens to 8 OpenClaw Gateway lifecycle events:
 
 | Event | When | Plugin Action |
 |-------|------|--------------|
-| `session_start` | User starts new session (`/new`, `/reset`) | Initialize claude-mem session |
+| `session_start` | User starts or resumes a session (`/new`, `/reset`, gateway restore) | Initialize claude-mem session; when OpenClaw supplies `resumedFrom`, continue that Conversation identity |
 | `after_compaction` | After context compaction | Re-initialize session |
 | `before_agent_start` | Before Agent executes | Track workspace directory |
 | `before_prompt_build` | Before every LLM call | **Inject memory context via appendSystemContext** |

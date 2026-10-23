@@ -6,8 +6,13 @@ import java.util.Map;
 public record SessionEndRequest(
     String sessionId,
     String projectPath,
-    String lastAssistantMessage
+    String lastAssistantMessage,
+    String platformSource
 ) {
+    public SessionEndRequest(String sessionId, String projectPath, String lastAssistantMessage) {
+        this(sessionId, projectPath, lastAssistantMessage, null);
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -16,13 +21,15 @@ public record SessionEndRequest(
         private String sessionId;
         private String projectPath;
         private String lastAssistantMessage;
+        private String platformSource;
 
         public Builder sessionId(String sessionId) { this.sessionId = sessionId; return this; }
         public Builder projectPath(String projectPath) { this.projectPath = projectPath; return this; }
         public Builder lastAssistantMessage(String msg) { this.lastAssistantMessage = msg; return this; }
+        public Builder platformSource(String platformSource) { this.platformSource = platformSource; return this; }
 
         public SessionEndRequest build() {
-            return new SessionEndRequest(sessionId, projectPath, lastAssistantMessage);
+            return new SessionEndRequest(sessionId, projectPath, lastAssistantMessage, platformSource);
         }
     }
 
@@ -36,6 +43,9 @@ public record SessionEndRequest(
         }
         if (lastAssistantMessage != null) {
             map.put("last_assistant_message", lastAssistantMessage);
+        }
+        if (platformSource != null) {
+            map.put("platform_source", platformSource);
         }
         return map;
     }

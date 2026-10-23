@@ -23,6 +23,7 @@ export interface ObservationRequest {
   session_id: string;
   cwd: string;
   tool_name: string;
+  platform_source?: string;
   tool_input?: unknown;
   tool_response?: unknown;
   /** Accepted but discarded by the tool-use path — use `updateObservation`. */
@@ -105,6 +106,12 @@ export interface ObservationUpdate {
  */
 export interface Observation {
   id: string;
+  /** Parsed from wire field "conversation_id"; null denotes a standalone observation. */
+  conversationId?: string | null;
+  /** Parsed from wire field "standalone_kind" (manual, extraction, or dlq). */
+  standaloneKind?: string | null;
+  /** Parsed from wire field "platform_source". */
+  platformSource?: string;
   /** Parsed from wire field "content_session_id" */
   sessionId: string;
   /** Parsed from wire field "project" */
@@ -156,6 +163,13 @@ export interface Observation {
 export function parseObservation(raw: Record<string, unknown>): Observation {
   return {
     id: safeStringOr(raw.id, ''),
+    ...(Object.prototype.hasOwnProperty.call(raw, 'conversation_id')
+      ? { conversationId: raw.conversation_id === null ? null : safeStringOr(raw.conversation_id, '') }
+      : {}),
+    ...(Object.prototype.hasOwnProperty.call(raw, 'standalone_kind')
+      ? { standaloneKind: raw.standalone_kind === null ? null : safeStringOr(raw.standalone_kind, '') }
+      : {}),
+    ...(typeof raw.platform_source === 'string' ? { platformSource: raw.platform_source } : {}),
     sessionId: safeStringOr(firstNonNullOr(raw, ['content_session_id', 'sessionId']), ''),
     projectPath: safeStringOr(firstNonNullOr(raw, ['project', 'projectPath']), ''),
     type: safeStringOr(raw.type, ''),

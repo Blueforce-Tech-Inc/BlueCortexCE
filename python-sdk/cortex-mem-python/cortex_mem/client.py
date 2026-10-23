@@ -232,6 +232,7 @@ class CortexMemClient:
         session_id: str,
         project_path: str,
         user_id: str | None = None,
+        platform_source: str | None = None,
     ) -> SessionStartResponse:
         """Start or resume a session. POST /api/session/start."""
         self._assert_not_closed()
@@ -245,11 +246,15 @@ class CortexMemClient:
         }
         if user_id:
             body["user_id"] = user_id
+        if platform_source:
+            body["platform_source"] = platform_source
         data = self._request_json("POST", "/api/session/start", json_body=body) or {}
         return SessionStartResponse.from_wire(data)
 
-    def update_session_user_id(self, session_id: str, user_id: str) -> SessionUserUpdateResponse:
-        """Update session userId. PATCH /api/session/{session_id}/user.
+    def update_session_user_id(
+        self, session_id: str, user_id: str, platform_source: str = "claude"
+    ) -> SessionUserUpdateResponse:
+        """Update session userId using the opaque-safe query identity route.
 
         Cross-SDK parity: Go UpdateSessionUserId, JS updateSessionUserId.
         """
@@ -258,8 +263,8 @@ class CortexMemClient:
             raise ValidationError("session_id is required", field="session_id")
         if not user_id:
             raise ValidationError("user_id is required", field="user_id")
-        path = f"/api/session/{quote(session_id, safe='')}/user"
-        data = self._request_json("PATCH", path, json_body={"user_id": user_id}) or {}
+        params = {"contentSessionId": session_id, "platformSource": platform_source}
+        data = self._request_json("PATCH", "/api/session/user", json_body={"user_id": user_id}, params=params) or {}
         return SessionUserUpdateResponse.from_wire(data)
 
     # ==================== Capture (fire-and-forget) ====================
@@ -275,6 +280,7 @@ class CortexMemClient:
         prompt_number: int = 0,
         source: str = "",
         extracted_data: dict | None = None,
+        platform_source: str | None = None,
     ) -> None:
         """Record a tool-use observation. POST /api/ingest/tool-use (fire-and-forget).
 
@@ -321,6 +327,8 @@ class CortexMemClient:
             body["source"] = source
         if extracted_data is not None:
             body["extractedData"] = extracted_data
+        if platform_source:
+            body["platform_source"] = platform_source
         self._fire_and_forget("RecordObservation", "POST", "/api/ingest/tool-use", json_body=body)
 
     def record_session_end(
@@ -328,6 +336,7 @@ class CortexMemClient:
         session_id: str,
         project_path: str,
         last_assistant_message: str | None = None,
+        platform_source: str | None = None,
     ) -> None:
         """Signal session end. POST /api/ingest/session-end (fire-and-forget).
 
@@ -350,6 +359,8 @@ class CortexMemClient:
         }
         if last_assistant_message:
             body["last_assistant_message"] = last_assistant_message
+        if platform_source:
+            body["platform_source"] = platform_source
         self._fire_and_forget("RecordSessionEnd", "POST", "/api/ingest/session-end", json_body=body)
 
     def record_user_prompt(
@@ -358,6 +369,7 @@ class CortexMemClient:
         prompt_text: str,
         project_path: str,
         prompt_number: int = 0,
+        platform_source: str | None = None,
     ) -> None:
         """Record a user prompt. POST /api/ingest/user-prompt (fire-and-forget).
 
@@ -386,6 +398,8 @@ class CortexMemClient:
         }
         if prompt_number:
             body["prompt_number"] = prompt_number
+        if platform_source:
+            body["platform_source"] = platform_source
         self._fire_and_forget("RecordUserPrompt", "POST", "/api/ingest/user-prompt", json_body=body)
 
     # ==================== Retrieval ====================

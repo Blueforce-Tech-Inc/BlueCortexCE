@@ -68,6 +68,7 @@ export class ApiClient {
       session_id: sessionId,
       project_path: this.projectName,
       cwd: cwd || "",
+      platform_source: "codex",
     });
     return result?.success !== false;
   }
@@ -88,6 +89,7 @@ export class ApiClient {
       tool_input: toolInput,
       tool_response: toolResponse,
       cwd: cwd || "",
+      platform_source: "codex",
     });
   }
 
@@ -98,6 +100,7 @@ export class ApiClient {
     await this.post("/api/ingest/session-end", {
       session_id: sessionId,
       last_assistant_message: lastAssistantMessage || "",
+      platform_source: "codex",
     });
   }
 

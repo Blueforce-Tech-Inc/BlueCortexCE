@@ -28,13 +28,23 @@ func (c *httpClient) StartSession(ctx context.Context, req dto.SessionStartReque
 }
 
 func (c *httpClient) UpdateSessionUserId(ctx context.Context, sessionID, userID string) (*dto.SessionUserUpdateResponse, error) {
+	return c.UpdateSessionUserIdForPlatform(ctx, sessionID, userID, "claude")
+}
+
+func (c *httpClient) UpdateSessionUserIdForPlatform(ctx context.Context, sessionID, userID, platformSource string) (*dto.SessionUserUpdateResponse, error) {
 	if strings.TrimSpace(sessionID) == "" {
 		return nil, &ValidationError{Field: "sessionID", Message: "sessionID is required"}
 	}
 	if strings.TrimSpace(userID) == "" {
 		return nil, &ValidationError{Field: "userID", Message: "userID is required"}
 	}
-	path := fmt.Sprintf("/api/session/%s/user", url.PathEscape(sessionID))
+	if strings.TrimSpace(platformSource) == "" {
+		return nil, &ValidationError{Field: "platformSource", Message: "platformSource is required"}
+	}
+	query := url.Values{}
+	query.Set("contentSessionId", sessionID)
+	query.Set("platformSource", platformSource)
+	path := "/api/session/user?" + query.Encode()
 	return doRequestJSON[dto.SessionUserUpdateResponse](c, ctx, http.MethodPatch, path, map[string]string{"user_id": userID}, nil)
 }
 

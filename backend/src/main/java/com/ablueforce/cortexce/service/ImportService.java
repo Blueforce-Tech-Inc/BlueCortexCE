@@ -9,8 +9,11 @@ import com.ablueforce.cortexce.repository.SessionRepository;
 import com.ablueforce.cortexce.repository.SummaryRepository;
 import com.ablueforce.cortexce.repository.UserPromptRepository;
 import com.ablueforce.cortexce.common.LogHelper;
+import com.ablueforce.cortexce.identity.ExternalSessionRef;
+import com.ablueforce.cortexce.identity.MemoryScopeKey;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,15 +25,22 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 @Service
 public class ImportService implements LogHelper {
 
     private static final Logger log = LoggerFactory.getLogger(ImportService.class);
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final Set<String> STANDALONE_KINDS = Set.of("manual", "extraction", "dlq");
+    private static final String MANUAL_SENTINEL = MemoryScopeKey.LEGACY_MANUAL_PROJECT_PATH;
 
     @Override
     public Logger getLogger() {
@@ -42,17 +52,23 @@ public class ImportService implements LogHelper {
     private final SummaryRepository summaryRepository;
     private final UserPromptRepository userPromptRepository;
     private final SessionManagementService sessionManagementService;
+    private final MemoryScopeService memoryScopeService;
+    private final ConversationWriteService conversationWriteService;
 
     public ImportService(SessionRepository sessionRepository,
                         ObservationRepository observationRepository,
                         SummaryRepository summaryRepository,
                         UserPromptRepository userPromptRepository,
-                        SessionManagementService sessionManagementService) {
+                        SessionManagementService sessionManagementService,
+                        MemoryScopeService memoryScopeService,
+                        ConversationWriteService conversationWriteService) {
         this.sessionRepository = sessionRepository;
         this.observationRepository = observationRepository;
         this.summaryRepository = summaryRepository;
         this.userPromptRepository = userPromptRepository;
         this.sessionManagementService = sessionManagementService;
+        this.memoryScopeService = memoryScopeService;
+        this.conversationWriteService = conversationWriteService;
     }
 
     /**
@@ -137,6 +153,7 @@ public class ImportService implements LogHelper {
      */
     public record SessionImportData(
         String contentSessionId,
+        @JsonAlias("project")
         String projectPath,
         String userPrompt,
         Long startedAtEpoch,
@@ -149,16 +166,23 @@ public class ImportService implements LogHelper {
      * Import observation data.
      */
     public record ObservationImportData(
+        @JsonAlias({"content_session_id", "session_id"})
         String sessionId,       // external session id (opaque, platform-scoped)
         String platformSource,  // owning platform; null means the Claude compatibility default
+        @JsonAlias("project")
         String projectPath,
         String type,
         String title,
         String subtitle,
+        @JsonAlias("narrative")
         String content,         // narrative
+        @JsonAlias("facts")
         String factsJson,       // JSON array string
+        @JsonAlias("concepts")
         String conceptsJson,    // JSON array string
+        @JsonAlias("files_read")
         String filesReadJson,   // JSON array string
+        @JsonAlias("files_modified")
         String filesModifiedJson, // JSON array string
         Integer promptNumber,
         Long createdAtEpoch,
@@ -167,7 +191,14 @@ public class ImportService implements LogHelper {
         List<Double> embedding768,
         List<Double> embedding1024,
         List<Double> embedding1536,
-        String embeddingModelId
+        String embeddingModelId,
+        @JsonAlias("standalone_kind")
+        String standaloneKind,
+        @JsonAlias("memory_scope_type")
+        String memoryScopeType,
+        String source,
+        @JsonAlias("extractedData")
+        Map<String, Object> extractedData
     ) {}
 
     /**
@@ -176,6 +207,7 @@ public class ImportService implements LogHelper {
     public record SummaryImportData(
         String sessionId,       // external session id
         String platformSource,
+        @JsonAlias("project")
         String projectPath,
         String request,
         String investigated,
@@ -193,12 +225,19 @@ public class ImportService implements LogHelper {
      * Import user prompt data.
      */
     public record UserPromptImportData(
+        @JsonAlias({"content_session_id", "session_id"})
         String sessionId,       // external session id
         String platformSource,
         Integer promptNumber,
         String promptText,
         Long createdAtEpoch
     ) {}
+
+    private record ObservationImportKey(UUID conversationId, UUID memoryScopeId, String standaloneKind,
+                                        String platformSource, String correlationKey, String title,
+                                        long createdAtEpoch) {}
+
+    private record PromptImportKey(UUID conversationId, Integer promptNumber) {}
 
     // ==========================================================================
     // Helper Methods
@@ -215,22 +254,12 @@ public class ImportService implements LogHelper {
         if (contentSessionId == null || contentSessionId.isBlank()) {
             throw new IllegalArgumentException("sessionId is required");
         }
-        com.ablueforce.cortexce.identity.ExternalSessionRef ref =
-            com.ablueforce.cortexce.identity.ExternalSessionRef.of(platformSource, contentSessionId);
+        ExternalSessionRef ref = ExternalSessionRef.of(platformSource, contentSessionId);
         return sessionRepository.findByPlatformSourceAndContentSessionId(
                 ref.platformSource(), ref.contentSessionId())
             .orElseThrow(() -> new IllegalArgumentException(
                 "unknown session for import: " + ref.logKey()
                     + " (import the session before its children)"));
-    }
-
-    /** Same as {@link #resolveImportParent} but returns null instead of throwing (bulk scan). */
-    private SessionEntity resolveImportParentQuietly(String contentSessionId, String platformSource) {
-        try {
-            return resolveImportParent(contentSessionId, platformSource);
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
     }
 
     private OffsetDateTime epochToOffsetDateTime(Long epoch) {
@@ -243,7 +272,7 @@ public class ImportService implements LogHelper {
         try {
             return MAPPER.readValue(json, new TypeReference<List<String>>() {});
         } catch (JsonProcessingException e) {
-            log.warn("Failed to parse JSON array: {}", e.getMessage());
+            log.warn("Failed to parse JSON array: {}", e.getClass().getSimpleName());
             return new ArrayList<>();
         }
     }
@@ -276,10 +305,9 @@ public class ImportService implements LogHelper {
 
         // Import identity is (platform, external id): the same external id on two platforms
         // is two independent conversations and must not be merged.
-        com.ablueforce.cortexce.identity.ExternalSessionRef ref;
+        ExternalSessionRef ref;
         try {
-            ref = com.ablueforce.cortexce.identity.ExternalSessionRef.of(
-                data.platformSource(), data.contentSessionId());
+            ref = ExternalSessionRef.of(data.platformSource(), data.contentSessionId());
         } catch (IllegalArgumentException e) {
             return ImportResult.error(e.getMessage());
         }
@@ -309,42 +337,53 @@ public class ImportService implements LogHelper {
 
         long createdAtEpoch = data.createdAtEpoch() != null ? data.createdAtEpoch() : System.currentTimeMillis();
 
-        SessionEntity parent;
+        ExternalSessionRef ref;
         try {
-            parent = resolveImportParent(data.sessionId(), data.platformSource());
+            ref = ExternalSessionRef.of(data.platformSource(), data.sessionId());
         } catch (IllegalArgumentException e) {
             return ImportResult.error(e.getMessage());
         }
-        Optional<ObservationEntity> existing = observationRepository.findBySessionIdAndTitleAndCreatedAtEpoch(
-            parent.getId(), data.title(), createdAtEpoch
-        );
+        boolean standalone = data.standaloneKind() != null;
+        SessionEntity parent = null;
+        UUID memoryScopeId;
+        if (standalone) {
+            try {
+                memoryScopeId = resolveStandaloneScope(data);
+            } catch (IllegalArgumentException e) {
+                return ImportResult.error(e.getMessage());
+            }
+        } else {
+            try {
+                parent = resolveImportParent(ref.contentSessionId(), ref.platformSource());
+            } catch (IllegalArgumentException e) {
+                return ImportResult.error(e.getMessage());
+            }
+            conversationWriteService.lockForChildMutation(parent.getId());
+            String projectPath = data.projectPath() != null && !data.projectPath().isBlank()
+                ? data.projectPath() : parent.getProjectPath();
+            if (projectPath == null || projectPath.isBlank()) {
+                return ImportResult.error("projectPath is required");
+            }
+            if ("manual_default".equals(data.memoryScopeType())) {
+                return ImportResult.error("conversation observations cannot use manual_default scope");
+            }
+            memoryScopeId = memoryScopeService.resolveProjectScope(projectPath);
+        }
+        String projectPath = data.projectPath() != null && !data.projectPath().isBlank()
+            ? data.projectPath() : parent == null ? null : parent.getProjectPath();
+        if (projectPath == null || projectPath.isBlank()) {
+            return ImportResult.error("projectPath is required");
+        }
+        Optional<ObservationEntity> existing = standalone
+            ? observationRepository.findByMemoryScopeIdAndStandaloneKindAndPlatformSourceAndContentSessionIdAndTitleAndCreatedAtEpoch(
+                memoryScopeId, data.standaloneKind(), ref.platformSource(), ref.contentSessionId(), data.title(), createdAtEpoch)
+            : observationRepository.findBySessionIdAndTitleAndCreatedAtEpoch(parent.getId(), data.title(), createdAtEpoch);
         if (existing.isPresent()) {
             log.debug("Observation already exists: {} - {}", data.sessionId(), data.title());
             return ImportResult.duplicate(existing.get().getId().toString());
         }
 
-        ObservationEntity obs = new ObservationEntity();
-        obs.setConversationId(parent.getId());
-        obs.setPlatformSource(parent.getPlatformSource());
-        obs.setContentSessionId(data.sessionId());
-        obs.setProjectPath(data.projectPath());
-        obs.setType(data.type() != null ? data.type() : "unknown");
-        obs.setTitle(data.title());
-        obs.setSubtitle(data.subtitle());
-        obs.setContent(data.content());
-        obs.setFacts(parseJsonArray(data.factsJson()));
-        obs.setConcepts(parseJsonArray(data.conceptsJson()));
-        obs.setFilesRead(parseJsonArray(data.filesReadJson()));
-        obs.setFilesModified(parseJsonArray(data.filesModifiedJson()));
-        obs.setPromptNumber(data.promptNumber() != null ? data.promptNumber() : 1);
-        obs.setDiscoveryTokens(data.discoveryTokens() != null ? data.discoveryTokens() : 0);
-        // Embedding vectors
-        obs.setEmbedding768(toFloatArray(data.embedding768()));
-        obs.setEmbedding1024(toFloatArray(data.embedding1024()));
-        obs.setEmbedding1536(toFloatArray(data.embedding1536()));
-        obs.setEmbeddingModelId(data.embeddingModelId());
-        obs.setCreatedAtEpoch(createdAtEpoch);
-        obs.setCreatedAt(epochToOffsetDateTime(createdAtEpoch));
+        ObservationEntity obs = toObservation(data, ref, parent, projectPath, memoryScopeId, createdAtEpoch);
 
         obs = observationRepository.save(obs);
         logSuccess("Imported observation: {} - {}", data.sessionId(), data.title());
@@ -356,20 +395,42 @@ public class ImportService implements LogHelper {
     public BulkImportResult importObservations(List<ObservationImportData> observations) {
         BulkImportResult result = new BulkImportResult();
 
-        // Duplicate detection is scoped per conversation UUID. Grouping by the external id
-        // would deduplicate two platforms against each other.
-        Set<java.util.UUID> conversationIds = observations.stream()
-            .map(o -> resolveImportParentQuietly(o.sessionId(), o.platformSource()))
-            .filter(java.util.Objects::nonNull)
+        Map<ExternalSessionRef, SessionEntity> parentByRef = new HashMap<>();
+        Map<ObservationImportData, UUID> standaloneScopeByData = new IdentityHashMap<>();
+        for (ObservationImportData data : observations) {
+            if (data.sessionId() == null || data.sessionId().isBlank()
+                || data.title() == null || data.title().isBlank()) {
+                continue;
+            }
+            try {
+                ExternalSessionRef ref = ExternalSessionRef.of(data.platformSource(), data.sessionId());
+                if (data.standaloneKind() != null) {
+                    standaloneScopeByData.put(data, resolveStandaloneScope(data));
+                } else {
+                    parentByRef.put(ref, resolveImportParent(ref.contentSessionId(), ref.platformSource()));
+                }
+            } catch (IllegalArgumentException ignored) {
+                // The record is reported as an import error in the validation pass below.
+            }
+        }
+        Set<UUID> conversationIds = parentByRef.values().stream()
             .map(SessionEntity::getId)
             .collect(java.util.stream.Collectors.toSet());
+        conversationWriteService.lockForChildMutations(conversationIds);
 
-        List<ObservationEntity> existingObs = conversationIds.isEmpty()
+        List<ObservationEntity> existingConversationObs = conversationIds.isEmpty()
             ? List.of()
             : observationRepository.findByConversationIdIn(new java.util.ArrayList<>(conversationIds));
+        List<UUID> standaloneScopeIds = standaloneScopeByData.values().stream().distinct().toList();
+        List<String> standaloneKinds = standaloneScopeByData.keySet().stream()
+            .map(ObservationImportData::standaloneKind).distinct().toList();
+        List<ObservationEntity> existingStandaloneObs = standaloneScopeIds.isEmpty()
+            ? List.of()
+            : observationRepository.findByMemoryScopeIdInAndStandaloneKindIn(standaloneScopeIds, standaloneKinds);
 
-        Set<String> duplicateKeys = existingObs.stream()
-            .map(o -> o.getConversationId() + "|" + o.getTitle() + "|" + o.getCreatedAtEpoch())
+        Set<ObservationImportKey> duplicateKeys = java.util.stream.Stream
+            .concat(existingConversationObs.stream(), existingStandaloneObs.stream())
+            .map(ImportService::observationImportKey)
             .collect(java.util.stream.Collectors.toSet());
 
         // Step 4: Separate new observations from validation errors
@@ -386,39 +447,51 @@ public class ImportService implements LogHelper {
                     continue;
                 }
 
-                long createdAtEpoch = data.createdAtEpoch() != null ? data.createdAtEpoch() : System.currentTimeMillis();
-                String key = data.sessionId() + "|" + data.title() + "|" + createdAtEpoch;
+                ExternalSessionRef ref = ExternalSessionRef.of(data.platformSource(), data.sessionId());
+                boolean standalone = data.standaloneKind() != null;
+                SessionEntity parent = standalone ? null : parentByRef.get(ref);
+                if (!standalone && parent == null) {
+                    result = result.addError("unknown session for import: " + ref.logKey());
+                    continue;
+                }
 
+                long createdAtEpoch = data.createdAtEpoch() != null ? data.createdAtEpoch() : System.currentTimeMillis();
+
+                String projectPath = data.projectPath() != null && !data.projectPath().isBlank()
+                    ? data.projectPath() : parent == null ? null : parent.getProjectPath();
+                if (projectPath == null || projectPath.isBlank()) {
+                    result = result.addError("projectPath is required");
+                    continue;
+                }
+
+                UUID memoryScopeId;
+                if (standalone) {
+                    memoryScopeId = standaloneScopeByData.get(data);
+                    if (memoryScopeId == null) {
+                        memoryScopeId = resolveStandaloneScope(data);
+                    }
+                } else {
+                    if ("manual_default".equals(data.memoryScopeType())) {
+                        result = result.addError("conversation observations cannot use manual_default scope");
+                        continue;
+                    }
+                    memoryScopeId = memoryScopeService.resolveProjectScope(projectPath);
+                }
+
+                ObservationEntity candidate = toObservation(
+                    data, ref, parent, projectPath, memoryScopeId, createdAtEpoch);
+                ObservationImportKey key = observationImportKey(candidate);
                 if (duplicateKeys.contains(key)) {
                     result = result.addDuplicate();
                     continue;
                 }
-                duplicateKeys.add(key); // prevent duplicates within the same batch
 
-                ObservationEntity obs = new ObservationEntity();
-                obs.setContentSessionId(data.sessionId());
-                obs.setProjectPath(data.projectPath());
-                obs.setType(data.type() != null ? data.type() : "unknown");
-                obs.setTitle(data.title());
-                obs.setSubtitle(data.subtitle());
-                obs.setContent(data.content());
-                obs.setFacts(parseJsonArray(data.factsJson()));
-                obs.setConcepts(parseJsonArray(data.conceptsJson()));
-                obs.setFilesRead(parseJsonArray(data.filesReadJson()));
-                obs.setFilesModified(parseJsonArray(data.filesModifiedJson()));
-                obs.setPromptNumber(data.promptNumber() != null ? data.promptNumber() : 1);
-                obs.setDiscoveryTokens(data.discoveryTokens() != null ? data.discoveryTokens() : 0);
-                obs.setEmbedding768(toFloatArray(data.embedding768()));
-                obs.setEmbedding1024(toFloatArray(data.embedding1024()));
-                obs.setEmbedding1536(toFloatArray(data.embedding1536()));
-                obs.setEmbeddingModelId(data.embeddingModelId());
-                obs.setCreatedAtEpoch(createdAtEpoch);
-                obs.setCreatedAt(epochToOffsetDateTime(createdAtEpoch));
-
-                toSave.add(obs);
+                duplicateKeys.add(key);
+                toSave.add(candidate);
             } catch (Exception e) {
-                logFailure("Error preparing observation: {}", e.getMessage());
-                result = result.addError(e.getMessage());
+                logFailure("Error preparing observation: {}", e.getClass().getSimpleName());
+                result = result.addError("observation could not be prepared ("
+                    + e.getClass().getSimpleName() + ")");
             }
         }
 
@@ -435,6 +508,99 @@ public class ImportService implements LogHelper {
             result.imported(), result.duplicates(), result.errors());
 
         return result;
+    }
+
+    private UUID resolveStandaloneScope(ObservationImportData data) {
+        String kind = data.standaloneKind();
+        if (kind == null || kind.isBlank() || !STANDALONE_KINDS.contains(kind)) {
+            throw new IllegalArgumentException("standaloneKind must be manual, extraction, or dlq");
+        }
+        if (data.projectPath() == null || data.projectPath().isBlank()) {
+            throw new IllegalArgumentException("projectPath is required for standalone observations");
+        }
+        String expectedSource = switch (kind) {
+            case "manual" -> "manual";
+            case "extraction" -> "llm_extraction";
+            case "dlq" -> "dlq";
+            default -> throw new IllegalArgumentException("unsupported standaloneKind");
+        };
+        if (data.source() != null && !expectedSource.equals(data.source())) {
+            throw new IllegalArgumentException("source does not match standaloneKind");
+        }
+        if ("extraction".equals(kind) && (data.type() == null || !data.type().startsWith("extracted_"))) {
+            throw new IllegalArgumentException("extraction observations require an extracted_ type");
+        }
+        if ("dlq".equals(kind) && (data.type() == null || !data.type().startsWith("dlq_"))) {
+            throw new IllegalArgumentException("DLQ observations require a dlq_ type");
+        }
+
+        String scopeType = data.memoryScopeType();
+        if (scopeType == null || scopeType.isBlank()) {
+            scopeType = "manual".equals(kind) && MANUAL_SENTINEL.equals(data.projectPath())
+                ? "manual_default" : "project";
+        }
+        if ("manual_default".equals(scopeType)) {
+            if (!"manual".equals(kind) || !MANUAL_SENTINEL.equals(data.projectPath())) {
+                throw new IllegalArgumentException("manual_default scope requires a manual sentinel observation");
+            }
+            return memoryScopeService.resolveManualDefault();
+        }
+        if (!"project".equals(scopeType)) {
+            throw new IllegalArgumentException("memoryScopeType must be project or manual_default");
+        }
+        return memoryScopeService.resolveProjectScope(data.projectPath());
+    }
+
+    private ObservationEntity toObservation(ObservationImportData data, ExternalSessionRef ref,
+                                            SessionEntity parent, String projectPath, UUID memoryScopeId,
+                                            long createdAtEpoch) {
+        String kind = data.standaloneKind();
+        ObservationEntity observation = new ObservationEntity();
+        observation.setConversationId(parent == null ? null : parent.getId());
+        observation.setStandaloneKind(kind);
+        observation.setPlatformSource(parent == null ? ref.platformSource() : parent.getPlatformSource());
+        observation.setContentSessionId(ref.contentSessionId());
+        observation.setProjectPath(projectPath);
+        observation.setMemoryScopeId(memoryScopeId);
+        observation.setType(data.type() != null ? data.type() : "unknown");
+        observation.setTitle(data.title());
+        observation.setSubtitle(data.subtitle());
+        observation.setContent(data.content());
+        observation.setFacts(parseJsonArray(data.factsJson()));
+        observation.setConcepts(parseJsonArray(data.conceptsJson()));
+        observation.setFilesRead(parseJsonArray(data.filesReadJson()));
+        observation.setFilesModified(parseJsonArray(data.filesModifiedJson()));
+        observation.setPromptNumber(data.promptNumber() != null ? data.promptNumber() : 1);
+        observation.setDiscoveryTokens(data.discoveryTokens() != null ? data.discoveryTokens() : 0);
+        observation.setEmbedding768(toFloatArray(data.embedding768()));
+        observation.setEmbedding1024(toFloatArray(data.embedding1024()));
+        observation.setEmbedding1536(toFloatArray(data.embedding1536()));
+        observation.setEmbeddingModelId(data.embeddingModelId());
+        observation.setSource(data.source() != null ? data.source() : sourceForStandaloneKind(kind));
+        observation.setExtractedData(data.extractedData());
+        observation.setCreatedAtEpoch(createdAtEpoch);
+        observation.setCreatedAt(epochToOffsetDateTime(createdAtEpoch));
+        return observation;
+    }
+
+    private static String sourceForStandaloneKind(String kind) {
+        if (kind == null) return null;
+        return switch (kind) {
+            case "manual" -> "manual";
+            case "extraction" -> "llm_extraction";
+            case "dlq" -> "dlq";
+            default -> null;
+        };
+    }
+
+    private static ObservationImportKey observationImportKey(ObservationEntity observation) {
+        if (observation.getConversationId() != null) {
+            return new ObservationImportKey(observation.getConversationId(), null, null, null, null,
+                observation.getTitle(), observation.getCreatedAtEpoch());
+        }
+        return new ObservationImportKey(null, observation.getMemoryScopeId(), observation.getStandaloneKind(),
+            observation.getPlatformSource(), observation.getContentSessionId(), observation.getTitle(),
+            observation.getCreatedAtEpoch());
     }
 
     @Transactional
@@ -455,6 +621,7 @@ public class ImportService implements LogHelper {
         } catch (IllegalArgumentException e) {
             return ImportResult.error(e.getMessage());
         }
+        conversationWriteService.lockForChildMutation(summaryParent.getId());
         List<SummaryEntity> existing = summaryRepository.findByConversationId(summaryParent.getId());
 
         if (!existing.isEmpty()) {
@@ -502,6 +669,7 @@ public class ImportService implements LogHelper {
         } catch (IllegalArgumentException e) {
             return ImportResult.error(e.getMessage());
         }
+        conversationWriteService.lockForChildMutation(promptParent.getId());
         Optional<UserPromptEntity> existing = userPromptRepository.findByConversationIdAndPromptNumber(
             promptParent.getId(), data.promptNumber()
         );
@@ -534,18 +702,29 @@ public class ImportService implements LogHelper {
     public BulkImportResult importUserPrompts(List<UserPromptImportData> prompts) {
         BulkImportResult result = new BulkImportResult();
 
-        Set<java.util.UUID> conversationIds = prompts.stream()
-            .map(p -> resolveImportParentQuietly(p.sessionId(), p.platformSource()))
-            .filter(java.util.Objects::nonNull)
+        Map<ExternalSessionRef, SessionEntity> parentByRef = new HashMap<>();
+        for (UserPromptImportData data : prompts) {
+            if (data.sessionId() == null || data.sessionId().isBlank()) {
+                continue;
+            }
+            try {
+                ExternalSessionRef ref = ExternalSessionRef.of(data.platformSource(), data.sessionId());
+                parentByRef.put(ref, resolveImportParent(data.sessionId(), data.platformSource()));
+            } catch (IllegalArgumentException ignored) {
+                // The record is reported as an import error in the validation pass below.
+            }
+        }
+        Set<UUID> conversationIds = parentByRef.values().stream()
             .map(SessionEntity::getId)
             .collect(java.util.stream.Collectors.toSet());
+        conversationWriteService.lockForChildMutations(conversationIds);
 
         List<UserPromptEntity> existingPrompts = conversationIds.isEmpty()
             ? List.of()
             : userPromptRepository.findByConversationIdIn(new java.util.ArrayList<>(conversationIds));
 
-        Set<String> duplicateKeys = existingPrompts.stream()
-            .map(p -> p.getConversationId() + "|" + p.getPromptNumber())
+        Set<PromptImportKey> duplicateKeys = existingPrompts.stream()
+            .map(p -> new PromptImportKey(p.getConversationId(), p.getPromptNumber()))
             .collect(java.util.stream.Collectors.toSet());
 
         // Step 4: Separate new prompts from validation errors
@@ -562,27 +741,36 @@ public class ImportService implements LogHelper {
                     continue;
                 }
 
-                String key = data.sessionId() + "|" + data.promptNumber();
+                ExternalSessionRef ref = ExternalSessionRef.of(data.platformSource(), data.sessionId());
+                SessionEntity parent = parentByRef.get(ref);
+                if (parent == null) {
+                    result = result.addError("unknown session for import: " + ref.logKey());
+                    continue;
+                }
 
+                PromptImportKey key = new PromptImportKey(parent.getId(), data.promptNumber());
                 if (duplicateKeys.contains(key)) {
                     result = result.addDuplicate();
                     continue;
                 }
-                duplicateKeys.add(key); // prevent duplicates within the same batch
 
                 long createdAtEpoch = data.createdAtEpoch() != null ? data.createdAtEpoch() : System.currentTimeMillis();
 
                 UserPromptEntity prompt = new UserPromptEntity();
+                prompt.setConversationId(parent.getId());
+                prompt.setPlatformSource(parent.getPlatformSource());
                 prompt.setContentSessionId(data.sessionId());
                 prompt.setPromptNumber(data.promptNumber());
                 prompt.setPromptText(data.promptText());
                 prompt.setCreatedAtEpoch(createdAtEpoch);
                 prompt.setCreatedAt(epochToOffsetDateTime(createdAtEpoch));
 
+                duplicateKeys.add(key);
                 toSave.add(prompt);
             } catch (Exception e) {
-                logFailure("Error preparing user prompt: {}", e.getMessage());
-                result = result.addError(e.getMessage());
+                logFailure("Error preparing user prompt: {}", e.getClass().getSimpleName());
+                result = result.addError("user prompt could not be prepared ("
+                    + e.getClass().getSimpleName() + ")");
             }
         }
 

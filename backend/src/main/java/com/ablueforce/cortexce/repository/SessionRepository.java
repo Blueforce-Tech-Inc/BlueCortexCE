@@ -2,12 +2,14 @@ package com.ablueforce.cortexce.repository;
 
 import com.ablueforce.cortexce.entity.SessionEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,21 +23,45 @@ public interface SessionRepository extends JpaRepository<SessionEntity, UUID> {
      * <p>{@code platformSource} is compared after the same normalisation the writer applied
      * (NULL/blank legacy rows count as {@code claude}), so a legacy row is still found.
      */
-    @Query("""
-        SELECT s FROM SessionEntity s
-        WHERE s.contentSessionId = :contentSessionId
-        AND COALESCE(NULLIF(TRIM(BOTH ' ' FROM s.platformSource), ''), 'claude') = :platformSource
-        """)
+    @Query(value = """
+        SELECT * FROM mem_sessions s
+        WHERE s.platform_source COLLATE "C" = CAST(:platformSource AS text) COLLATE "C"
+          AND s.content_session_id COLLATE "C" = CAST(:contentSessionId AS text) COLLATE "C"
+        """, nativeQuery = true)
     Optional<SessionEntity> findByPlatformSourceAndContentSessionId(
         @Param("platformSource") String platformSource,
         @Param("contentSessionId") String contentSessionId);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("""
-        SELECT s FROM SessionEntity s
-        WHERE s.contentSessionId = :contentSessionId
-        AND COALESCE(s.platformSource, 'claude') = :platformSource
-        """)
+    /** Insert a Conversation only if its exact composite external identity is absent. */
+    @Modifying
+    @Query(value = """
+        INSERT INTO mem_sessions (
+            content_session_id, project_path, user_prompt, started_at, started_at_epoch,
+            completed_at, completed_at_epoch, status, platform_source
+        ) VALUES (
+            :contentSessionId, :projectPath, :userPrompt, :startedAt, :startedAtEpoch,
+            :completedAt, :completedAtEpoch, :status, :platformSource
+        )
+        ON CONFLICT (platform_source COLLATE "C", content_session_id COLLATE "C") DO NOTHING
+        """, nativeQuery = true)
+    int insertIfIdentityAbsent(
+        @Param("contentSessionId") String contentSessionId,
+        @Param("projectPath") String projectPath,
+        @Param("userPrompt") String userPrompt,
+        @Param("startedAt") OffsetDateTime startedAt,
+        @Param("startedAtEpoch") long startedAtEpoch,
+        @Param("completedAt") OffsetDateTime completedAt,
+        @Param("completedAtEpoch") Long completedAtEpoch,
+        @Param("status") String status,
+        @Param("platformSource") String platformSource
+    );
+
+    @Query(value = """
+        SELECT * FROM mem_sessions s
+        WHERE s.content_session_id COLLATE "C" = CAST(:contentSessionId AS text) COLLATE "C"
+          AND COALESCE(s.platform_source, 'claude') COLLATE "C" = CAST(:platformSource AS text) COLLATE "C"
+        FOR UPDATE
+        """, nativeQuery = true)
     Optional<SessionEntity> findForViewerDeletion(
         @Param("contentSessionId") String contentSessionId,
         @Param("platformSource") String platformSource

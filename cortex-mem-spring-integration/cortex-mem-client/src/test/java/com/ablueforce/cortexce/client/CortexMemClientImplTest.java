@@ -911,6 +911,33 @@ class CortexMemClientImplTest {
     }
 
     @Test
+    void listObservations_preservesConversationAndStandaloneIdentity() throws Exception {
+        String json = """
+            {"items":[
+              {"id":"conversation-row","conversation_id":"72b3f2b2-7f52-44cf-bec4-56606442e57b",
+               "standalone_kind":null,"platform_source":"codex"},
+              {"id":"manual-row","conversation_id":null,
+               "standalone_kind":"manual","platform_source":"claude"}
+            ],"hasMore":false} """;
+        server.enqueue(new MockResponse()
+            .setBody(json)
+            .addHeader("Content-Type", "application/json"));
+
+        PagedObservationResponse result = client.listObservations(ObservationsRequest.builder()
+            .project("/proj")
+            .build());
+
+        assertThat(result.items()).hasSize(2);
+        assertThat(result.items().get(0).conversationId())
+            .isEqualTo("72b3f2b2-7f52-44cf-bec4-56606442e57b");
+        assertThat(result.items().get(0).standaloneKind()).isNull();
+        assertThat(result.items().get(0).platformSource()).isEqualTo("codex");
+        assertThat(result.items().get(1).conversationId()).isNull();
+        assertThat(result.items().get(1).standaloneKind()).isEqualTo("manual");
+        assertThat(result.items().get(1).platformSource()).isEqualTo("claude");
+    }
+
+    @Test
     void getObservationsByIds_sendsCorrectBody() throws Exception {
         // The fixture used to be the JSON array "[]" while the SDK maps this response
         // as an object, so extraction threw and the old catch-all discarded it. The
@@ -1368,8 +1395,24 @@ class CortexMemClientImplTest {
         assertThat(result).containsKey("status");
         RecordedRequest req = server.takeRequest();
         assertThat(req.getMethod()).isEqualTo("PATCH");
-        assertThat(req.getPath()).isEqualTo("/api/session/sess-1/user");
+        assertThat(req.getRequestUrl().encodedPath()).isEqualTo("/api/session/user");
+        assertThat(req.getRequestUrl().queryParameter("contentSessionId")).isEqualTo("sess-1");
+        assertThat(req.getRequestUrl().queryParameter("platformSource")).isEqualTo("claude");
         assertThat(req.getBody().readUtf8()).contains("user-42");
+    }
+
+    @Test
+    void updateSessionUserId_usesEncodedOpaqueIdentityAndPlatform() throws Exception {
+        server.enqueue(new MockResponse()
+            .setBody("{\"status\":\"ok\"}")
+            .addHeader("Content-Type", "application/json"));
+
+        client.updateSessionUserId("s/?#% 雪", "user-42", "codex");
+
+        RecordedRequest req = server.takeRequest();
+        assertThat(req.getRequestUrl().encodedPath()).isEqualTo("/api/session/user");
+        assertThat(req.getRequestUrl().queryParameter("contentSessionId")).isEqualTo("s/?#% 雪");
+        assertThat(req.getRequestUrl().queryParameter("platformSource")).isEqualTo("codex");
     }
 
     @Test

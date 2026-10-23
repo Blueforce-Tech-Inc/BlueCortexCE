@@ -5,6 +5,27 @@ import (
 	"testing"
 )
 
+func TestObservationConversationIdentityFields(t *testing.T) {
+	var conversation Observation
+	if err := json.Unmarshal([]byte(`{"conversation_id":"72b3f2b2-7f52-44cf-bec4-56606442e57b","standalone_kind":null,"platform_source":"codex"}`), &conversation); err != nil {
+		t.Fatalf("unmarshal conversation identity: %v", err)
+	}
+	if conversation.ConversationID == nil || *conversation.ConversationID != "72b3f2b2-7f52-44cf-bec4-56606442e57b" {
+		t.Fatalf("unexpected conversation ID: %#v", conversation.ConversationID)
+	}
+	if conversation.StandaloneKind != nil || conversation.PlatformSource != "codex" {
+		t.Fatalf("unexpected remaining identity fields: %#v", conversation)
+	}
+
+	var standalone Observation
+	if err := json.Unmarshal([]byte(`{"conversation_id":null,"standalone_kind":"manual","platform_source":"claude"}`), &standalone); err != nil {
+		t.Fatalf("unmarshal standalone identity: %v", err)
+	}
+	if standalone.ConversationID != nil || standalone.StandaloneKind == nil || *standalone.StandaloneKind != "manual" {
+		t.Fatalf("unexpected standalone identity: %#v", standalone)
+	}
+}
+
 // stringPtr returns a pointer to the given string value.
 func stringPtr(s string) *string { return &s }
 

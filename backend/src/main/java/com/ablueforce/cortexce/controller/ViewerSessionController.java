@@ -40,6 +40,19 @@ public class ViewerSessionController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Opaque-safe deletion route. External session IDs may contain slash, percent, Unicode,
+     * or boundary spaces, so the query form is the canonical transport.
+     */
+    @DeleteMapping("/sessions")
+    public ResponseEntity<Void> deleteSessionByQuery(
+        @RequestParam String platformSource,
+        @RequestParam String contentSessionId
+    ) {
+        viewerSessionService.deleteSession(platformSource, contentSessionId);
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/observation/{id}")
     public ResponseEntity<Void> deleteObservation(@PathVariable UUID id) {
         viewerSessionService.deleteObservation(id);

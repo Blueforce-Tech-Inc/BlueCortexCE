@@ -32,6 +32,13 @@ VALUES
  ('f0000000-0000-0000-0000-000000000007', 'conflict-orphan-window', '/work/delta', 'claude', 'completed', NULL, NULL, 1800000006000)
 ON CONFLICT (id) DO NOTHING;
 
+-- Scenario 0: the reserved manual parent has a NULL status. SQL's ordinary
+-- "<>" comparison treats that as UNKNOWN; V20 must fail closed instead of
+-- allowing the observations to fall through to conversation backfill.
+UPDATE mem_sessions
+   SET status = NULL
+ WHERE content_session_id = 'manual-memories';
+
 -- Scenario 1: manual marker carrying a foreign non-empty source.
 INSERT INTO mem_observations (id, content_session_id, project_path, platform_source, type, title,
                               subtitle, content, prompt_number, created_at_epoch, source)

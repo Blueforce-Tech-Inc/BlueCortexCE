@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -97,4 +98,6 @@ public interface SummaryRepository extends JpaRepository<SummaryEntity, UUID> {
      */
     @Query("SELECT s FROM SummaryEntity s WHERE s.conversationId = :conversationId ORDER BY s.createdAtEpoch DESC")
     List<SummaryEntity> findByConversationId(@Param("conversationId") UUID conversationId);
+
+    Optional<SummaryEntity> findByConversationIdAndSummaryJobKey(UUID conversationId, String summaryJobKey);
 }

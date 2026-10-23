@@ -50,6 +50,7 @@ public class MemoryRefineService {
     private static final int REFINE_BATCH_SIZE = 20;
 
     private final ObservationRepository observationRepository;
+    private final ConversationWriteService conversationWriteService;
     private final QualityScorer qualityScorer;
     private final LlmService llmService;
 
@@ -60,11 +61,13 @@ public class MemoryRefineService {
     private final ConcurrentHashMap<String, ReentrantLock> projectLocks = new ConcurrentHashMap<>();
 
     public MemoryRefineService(ObservationRepository observationRepository,
+                             ConversationWriteService conversationWriteService,
                              QualityScorer qualityScorer,
                              LlmService llmService,
                              @Value("${app.memory.refine-enabled:true}") boolean refineEnabled,
                              @Lazy @Autowired(required = false) StructuredExtractionService extractionService) {
         this.observationRepository = observationRepository;
+        this.conversationWriteService = conversationWriteService;
         this.qualityScorer = qualityScorer;
         this.llmService = llmService;
         this.refineEnabled = refineEnabled;
@@ -272,7 +275,8 @@ public class MemoryRefineService {
                     try {
                         extractionService.runExtraction(projectPath);
                     } catch (Exception e) {
-                        log.warn("Extraction failed during deep refine, will retry later: {}", e.getMessage());
+                        log.warn("Extraction failed during deep refine, will retry later: {}",
+                            e.getClass().getSimpleName());
                     } finally {
                         lock.unlock();
                         projectLocks.remove(projectPath, lock);
@@ -338,12 +342,16 @@ public class MemoryRefineService {
      * Delete low-quality observations.
      */
     private void deleteLowQualityObservations(List<ObservationEntity> observations) {
-        List<java.util.UUID> ids = observations.stream()
-            .map(ObservationEntity::getId)
-            .collect(Collectors.toList());
-        
-        observationRepository.deleteAllById(ids);
-        log.info("Deleted {} low-quality observations", ids.size());
+        int deleted = 0;
+        for (ObservationEntity observation : observations) {
+            if (conversationWriteService.deleteLowQualityObservation(
+                observation.getId(), observation.getConversationId(), observation.getProjectPath(),
+                observation.getType(), observation.getSource(),
+                observation.getQualityScore(), deleteThreshold)) {
+                deleted++;
+            }
+        }
+        log.info("Deleted {} low-quality observations", deleted);
     }
 
     /**
@@ -351,50 +359,40 @@ public class MemoryRefineService {
      * Uses LLM for intelligent decisions.
      */
     private void refineObservations(List<ObservationEntity> observations, String projectPath) {
-        // Group by session for potential merging
-        var bySession = observations.stream()
-            .collect(Collectors.groupingBy(ObservationEntity::getContentSessionId));
-
-        // Track surviving observations (merge deletes some, so we can't saveAll blindly)
-        List<ObservationEntity> survivors = new java.util.ArrayList<>(observations);
-
-        for (var entry : bySession.entrySet()) {
-            List<ObservationEntity> sessionObs = entry.getValue();
-
-            if (sessionObs.size() > 1) {
-                // Merge observations from same session — deletes all but the first
-                ObservationEntity primary = mergeObservations(sessionObs);
-                if (primary == null) {
-                    // Merge failed, skip — don't mark as refined
-                    survivors.removeAll(sessionObs);
-                } else {
-                    // Only the primary survives
-                    survivors.removeAll(sessionObs);
-                    survivors.add(primary);
-                }
+        // External IDs are only unique within a platform. Group by the internal Conversation
+        // UUID so a same-ID conversation on another platform can never be merged into it.
+        java.util.Map<UUID, List<ObservationEntity>> byConversation = new java.util.LinkedHashMap<>();
+        for (ObservationEntity observation : observations) {
+            if (observation.getConversationId() == null) {
+                continue;
             } else {
-                // Rewrite single observation
-                rewriteObservation(sessionObs.get(0));
+                byConversation.computeIfAbsent(observation.getConversationId(), ignored -> new java.util.ArrayList<>())
+                    .add(observation);
             }
         }
 
-        // Mark surviving observations as refined
         OffsetDateTime now = OffsetDateTime.now();
-        for (ObservationEntity obs : survivors) {
-            obs.setRefinedAt(now);
+        for (List<ObservationEntity> conversationObservations : byConversation.values()) {
+            if (conversationObservations.size() > 1) {
+                String mergedContent = mergeObservations(conversationObservations);
+                if (mergedContent != null) {
+                    conversationWriteService.mergeRefinedObservations(
+                        conversationObservations.get(0).getConversationId(),
+                        conversationObservations, mergedContent, now);
+                }
+            } else {
+                rewriteAndPersist(conversationObservations.get(0), now);
+            }
         }
-        if (!survivors.isEmpty()) {
-            observationRepository.saveAll(survivors);
-        }
-        
-        log.info("Refined {} observations", observations.size());
+
+        log.info("Processed {} refinement candidates", observations.size());
     }
 
     /**
      * Merge multiple observations into one.
      * @return the merged primary observation, or null if merge failed
      */
-    private ObservationEntity mergeObservations(List<ObservationEntity> observations) {
+    private String mergeObservations(List<ObservationEntity> observations) {
         if (observations.size() < 2) return null;
         
         // Build merge prompt
@@ -419,22 +417,10 @@ public class MemoryRefineService {
             );
             
             if (mergedContent != null && !mergedContent.isEmpty()) {
-                // Update first observation with merged content (caller will save via saveAll)
-                ObservationEntity primary = observations.get(0);
-                primary.setContent(mergedContent);
-
-                // Delete others immediately (structural change, not just field update)
-                List<UUID> toDeleteIds = observations.stream()
-                    .skip(1)
-                    .map(ObservationEntity::getId)
-                    .collect(Collectors.toList());
-                observationRepository.deleteAllById(toDeleteIds);
-
-                log.info("Merged {} observations into one via LLM", observations.size());
-                return primary;
+                return mergedContent;
             }
         } catch (Exception e) {
-            log.error("Failed to merge observations via LLM: {}", e.getMessage());
+            log.error("Failed to merge observations via LLM: {}", e.getClass().getSimpleName());
         }
         return null;
     }
@@ -442,7 +428,17 @@ public class MemoryRefineService {
     /**
      * Rewrite single observation for better quality.
      */
-    private void rewriteObservation(ObservationEntity observation) {
+    private void rewriteAndPersist(ObservationEntity observation, OffsetDateTime refinedAt) {
+        String improvedContent = rewriteObservation(observation);
+        if (improvedContent == null || improvedContent.isEmpty()) {
+            return;
+        }
+        conversationWriteService.persistRefinedObservation(
+            observation.getId(), observation.getConversationId(), observation.getTitle(),
+            observation.getContent(), improvedContent, refinedAt);
+    }
+
+    private String rewriteObservation(ObservationEntity observation) {
         String rewritePrompt = String.format(
             "Improve the following observation to make it more concise and valuable:\n\nTitle: %s\nContent: %s\n\nProvide an improved version that captures the key insights more clearly.",
             observation.getTitle() != null ? observation.getTitle() : "Untitled",
@@ -455,13 +451,11 @@ public class MemoryRefineService {
                 rewritePrompt
             );
             
-            if (improvedContent != null && !improvedContent.isEmpty()) {
-                observation.setContent(improvedContent);
-                log.info("Rewrote observation {} via LLM", observation.getId());
-            }
+            return improvedContent;
         } catch (Exception e) {
-            log.error("Failed to rewrite observation via LLM: {}", e.getMessage());
+            log.error("Failed to rewrite observation via LLM: {}", e.getClass().getSimpleName());
         }
+        return null;
     }
 
     /**

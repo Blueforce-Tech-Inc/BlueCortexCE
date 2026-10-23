@@ -1,7 +1,10 @@
 package com.ablueforce.cortexce.service;
 
 import com.ablueforce.cortexce.config.Constants;
+import com.ablueforce.cortexce.entity.ObservationEntity;
+import com.ablueforce.cortexce.entity.PendingMessageEntity;
 import com.ablueforce.cortexce.entity.SessionEntity;
+import com.ablueforce.cortexce.entity.SummaryEntity;
 import com.ablueforce.cortexce.identity.PlatformSource;
 import com.ablueforce.cortexce.repository.PendingMessageRepository;
 import com.ablueforce.cortexce.repository.ObservationRepository;
@@ -32,7 +35,7 @@ public class ViewerSessionService {
     private final SummaryRepository summaryRepository;
     private final UserPromptRepository userPromptRepository;
     private final AgentService agentService;
-    private final SummaryGenerationService summaryGenerationService;
+    private final SummaryJobService summaryJobService;
     private final SSEBroadcaster sseBroadcaster;
     private final PendingMessageRepository pendingMessageRepository;
 
@@ -42,7 +45,7 @@ public class ViewerSessionService {
                                 SummaryRepository summaryRepository,
                                 UserPromptRepository userPromptRepository,
                                 AgentService agentService,
-                                SummaryGenerationService summaryGenerationService,
+                                SummaryJobService summaryJobService,
                                 PendingMessageRepository pendingMessageRepository,
                                 SSEBroadcaster sseBroadcaster) {
         this.jdbcTemplate = jdbcTemplate;
@@ -51,7 +54,7 @@ public class ViewerSessionService {
         this.summaryRepository = summaryRepository;
         this.userPromptRepository = userPromptRepository;
         this.agentService = agentService;
-        this.summaryGenerationService = summaryGenerationService;
+        this.summaryJobService = summaryJobService;
         this.pendingMessageRepository = pendingMessageRepository;
         this.sseBroadcaster = sseBroadcaster;
     }
@@ -134,7 +137,7 @@ public class ViewerSessionService {
         String status = current.getStatus() == null ? "" : current.getStatus().toLowerCase();
         if (List.of("active", "queued", "processing", "summarizing").contains(status)
             || agentService.isSessionProcessing(conversationId)
-            || summaryGenerationService.isSessionSummarizing(conversationId.toString())) {
+            || summaryJobService.hasInFlightSummaryJob(conversationId)) {
             throw new ResponseStatusException(
                 HttpStatus.CONFLICT,
                 "Session is still active or has queued work"
@@ -177,7 +180,10 @@ public class ViewerSessionService {
 
     @Transactional
     public void deleteObservation(UUID id) {
-        if (!observationRepository.existsById(id)) {
+        ObservationEntity observation = observationRepository.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Observation not found"));
+        lockForChildMutation(observation.getConversationId());
+        if (observationRepository.findById(id).isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Observation not found");
         }
         observationRepository.deleteByIdForViewer(id);
@@ -190,8 +196,19 @@ public class ViewerSessionService {
 
     @Transactional
     public void deleteSummary(UUID id) {
-        if (!summaryRepository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Summary not found");
+        SummaryEntity summary = summaryRepository.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Summary not found"));
+
+        lockForChildMutation(summary.getConversationId());
+
+        Optional<PendingMessageEntity> owner = pendingMessageRepository.findByResultSummaryId(id);
+        if (owner.isPresent()) {
+            PendingMessageEntity job = owner.get();
+            if (SummaryJobService.IN_FLIGHT_STATUSES.contains(job.getStatus())) {
+                throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Summary is still being generated");
+            }
+            summaryJobService.tombstoneResult(job.getId(), job.getSessionDbId());
         }
         summaryRepository.deleteByIdForViewer(id);
         broadcastAfterCommit(Map.of(
@@ -208,6 +225,22 @@ public class ViewerSessionService {
                 sseBroadcaster.broadcast(event, String.valueOf(event.get("type")));
             }
         });
+    }
+
+    private void lockForChildMutation(UUID conversationId) {
+        if (conversationId == null) {
+            return;
+        }
+        if (sessionRepository.lockSessionForUpdate(conversationId).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Conversation not found");
+        }
+        SessionEntity session = sessionRepository.findById(conversationId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Conversation not found"));
+        if ("summarizing".equals(session.getStatus())
+            || summaryJobService.hasInFlightSummaryJob(conversationId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "Conversation has an in-flight SessionEnd summary");
+        }
     }
 
     private String optionalFilter(String value) {

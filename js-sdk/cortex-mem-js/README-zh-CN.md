@@ -110,7 +110,7 @@ Go 与 Python SDK 的切分方式相同。**Java** SDK 重试的范围更大—�
 | 方法 | HTTP | 说明 |
 |------|------|------|
 | `startSession(req)` | `POST /api/session/start` | 启动或恢复会话 |
-| `updateSessionUserId(sessionId, userId)` | `PATCH /api/session/{sessionId}/user` | 更新会话用户 |
+| `updateSessionUserId(sessionId, userId, platformSource?)` | `PATCH /api/session/user?contentSessionId=...&platformSource=...` | 更新会话用户；默认 Claude 平台 |
 
 #### 捕获（fire-and-forget）
 
@@ -350,11 +350,11 @@ fire-and-forget，会吞掉后端返回的一切。若不做检查，`tool_name`
 SDK 使用与后端 API 完全一致的 JSON 字段名。字段命名因端点而异：
 
 **Session：**
-- `session_id`、`project_path` (snake_case) — `SessionStartRequest`
+- `session_id`、`project_path`、`platform_source` (snake_case) — `SessionStartRequest`；省略平台时默认为 `claude`
 - `user_id` (snake_case) — `SessionStartRequest` 可选字段
 
 **Observation（采集）：**
-- `session_id`、`cwd`、`tool_name` (snake_case) — `ObservationRequest`
+- `session_id`、`cwd`、`tool_name`、`platform_source` (snake_case) — `ObservationRequest`
 - `extractedData` (camelCase) — 后端 `@JsonProperty` 覆盖
 
 上面这些描述的是**映射关系**，而不是值的最终去向。在 tool-use 路径上——也就是

@@ -500,6 +500,10 @@ SDK 建模的是后端**真实的** wire 形态，而字段名并不总能提示
 - **命名。** 当 wire 名与 Java 名不同时，record 组件用 `@JsonProperty` 标注：
   `content_session_id` → `sessionId`、`project` → `projectPath`、`extractedData` 为
   camelCase，其余大多是 snake_case。
+- **会话身份。** SessionStart、tool-use、SessionEnd 和 user-prompt 请求接受可选的
+  `platform_source`；省略时保持 Claude 默认值。更新会话用户时，通过
+  `/api/session/user` 的 `contentSessionId`、`platformSource` 查询参数传递身份，避免
+  把 opaque 外部 ID 放进 URL 路径。
 
 四个 JSONB 列表列在四家 SDK 里解码方式一致——Go、Python、JS、Java 都交给你真正的
 `List<String>`，无论 wire 上是哪种形态。`refinedFromIds` 是唯一的例外；同一张表在各自
@@ -768,7 +772,7 @@ mvn clean install -DskipTests
 | 客户端方法 | 后端端点 | V14 | Phase 3 |
 |------------|---------|-----|---------|
 | `startSession()` | `POST /api/session/start` | | ✅ userId |
-| `updateSessionUserId()` | `PATCH /api/session/{sessionId}/user` | | ✅ 新增 |
+| `updateSessionUserId()` | `PATCH /api/session/user?contentSessionId=...&platformSource=...` | | ✅ 新增 |
 | `recordObservation()` | `POST /api/ingest/tool-use` | ⚠️ source, extractedData —— 该端点接受但**不落库** | |
 | `recordSessionEnd()` | `POST /api/ingest/session-end` | | |
 | `recordUserPrompt()` | `POST /api/ingest/user-prompt` | | |

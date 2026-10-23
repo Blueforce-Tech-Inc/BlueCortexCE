@@ -13,6 +13,7 @@ export interface SessionStartRequest {
   session_id: string;
   project_path: string;
   user_id?: string;
+  platform_source?: string;
 }
 
 /**
@@ -39,6 +40,7 @@ export interface SessionEndRequest {
   session_id: string;
   cwd: string;
   last_assistant_message?: string;
+  platform_source?: string;
 }
 
 /**
@@ -53,11 +55,12 @@ export interface UserPromptRequest {
   prompt_text: string;
   cwd: string;
   prompt_number?: number;
+  platform_source?: string;
 }
 
 /**
  * Response from updating session userId.
- * PATCH /api/session/{sessionId}/user
+ * PATCH /api/session/user?contentSessionId=...&platformSource=...
  */
 export interface SessionUserUpdateResponse {
   status: string;

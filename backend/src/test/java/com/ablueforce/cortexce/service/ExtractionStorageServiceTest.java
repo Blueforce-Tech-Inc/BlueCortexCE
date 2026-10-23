@@ -1,5 +1,8 @@
 package com.ablueforce.cortexce.service;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.ablueforce.cortexce.config.ExtractionConfig.TemplateConfig;
 import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.ablueforce.cortexce.identity.MemoryScopeKey;
@@ -11,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
@@ -154,22 +158,32 @@ class ExtractionStorageServiceTest {
             if (e.getId() == null) e.setId(UUID.randomUUID());
             return e;
         });
+        ListAppender<ILoggingEvent> logs = captureStorageLogs();
 
-        storageService.storeDLQ("/tmp/beta", "user_preferences", "LLM timeout");
+        try {
+            storageService.storeDLQ("/tmp/beta", "user_preferences",
+                new IllegalStateException("private-extraction-canary"));
 
-        ArgumentCaptor<ObservationEntity> captor = ArgumentCaptor.forClass(ObservationEntity.class);
-        verify(observationRepository).save(captor.capture());
-        ObservationEntity saved = captor.getValue();
+            ArgumentCaptor<ObservationEntity> captor = ArgumentCaptor.forClass(ObservationEntity.class);
+            verify(observationRepository).save(captor.capture());
+            ObservationEntity saved = captor.getValue();
 
-        assertThat(saved.getConversationId()).isNull();
-        assertThat(saved.getStandaloneKind()).isEqualTo("dlq");
-        assertThat(saved.getMemoryScopeId()).isEqualTo(SCOPE_ID);
-        assertThat(saved.getContentSessionId()).isEqualTo("dlq:extraction");
-        assertThat(saved.getType()).isEqualTo("dlq_user_preferences");
-        assertThat(saved.getSource()).isEqualTo("dlq");
-        assertThat(saved.getProjectPath()).isEqualTo("/tmp/beta");
-        // The DLQ key is shared across projects, so scope must come from the row, not the key.
-        verify(memoryScopeService).resolveProjectScope("/tmp/beta");
+            assertThat(saved.getConversationId()).isNull();
+            assertThat(saved.getStandaloneKind()).isEqualTo("dlq");
+            assertThat(saved.getMemoryScopeId()).isEqualTo(SCOPE_ID);
+            assertThat(saved.getContentSessionId()).isEqualTo("dlq:extraction");
+            assertThat(saved.getType()).isEqualTo("dlq_user_preferences");
+            assertThat(saved.getSource()).isEqualTo("dlq");
+            assertThat(saved.getProjectPath()).isEqualTo("/tmp/beta");
+            assertThat(saved.getExtractedData()).containsEntry("error", "IllegalStateException");
+            assertThat(saved.getExtractedData().toString()).doesNotContain("private-extraction-canary");
+            assertThat(logs.list).allSatisfy(event ->
+                assertThat(event.getFormattedMessage()).doesNotContain("private-extraction-canary"));
+            // The DLQ key is shared across projects, so scope must come from the row, not the key.
+            verify(memoryScopeService).resolveProjectScope("/tmp/beta");
+        } finally {
+            detachStorageLogs(logs);
+        }
     }
 
     @Test
@@ -185,8 +199,8 @@ class ExtractionStorageServiceTest {
             return e;
         });
 
-        storageService.storeDLQ("/tmp/a", "t", "err");
-        storageService.storeDLQ("/tmp/b", "t", "err");
+        storageService.storeDLQ("/tmp/a", "t", new IllegalArgumentException("err"));
+        storageService.storeDLQ("/tmp/b", "t", new IllegalArgumentException("err"));
 
         ArgumentCaptor<ObservationEntity> captor = ArgumentCaptor.forClass(ObservationEntity.class);
         verify(observationRepository, times(2)).save(captor.capture());
@@ -204,12 +218,26 @@ class ExtractionStorageServiceTest {
             return e;
         });
 
-        storageService.storeDLQ("/tmp/p", "t", "e");
+        storageService.storeDLQ("/tmp/p", "t", new IllegalArgumentException("e"));
         ObservationEntity src2 = new ObservationEntity();
         src2.setId(UUID.randomUUID());
         storageService.storeExtractionResult(makeTemplate("t"), Map.of("k", "v"),
             List.of(src2), "ext:k", "/tmp/p");
 
         verify(memoryScopeService, never()).resolveManualDefault();
+    }
+
+    private static ListAppender<ILoggingEvent> captureStorageLogs() {
+        Logger logger = (Logger) LoggerFactory.getLogger(ExtractionStorageService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        return appender;
+    }
+
+    private static void detachStorageLogs(ListAppender<ILoggingEvent> appender) {
+        Logger logger = (Logger) LoggerFactory.getLogger(ExtractionStorageService.class);
+        logger.detachAppender(appender);
+        appender.stop();
     }
 }

@@ -15,8 +15,16 @@ public record ObservationRequest(
     String source,
     // V14: structured key-value data — same story as source above: accepted and
     // discarded by the tool-use path; updateObservation persists it.
-    Map<String, Object> extractedData
+    Map<String, Object> extractedData,
+    String platformSource
 ) {
+    public ObservationRequest(String sessionId, String projectPath, String toolName, Object toolInput,
+                              Object toolResponse, Integer promptNumber, String source,
+                              Map<String, Object> extractedData) {
+        this(sessionId, projectPath, toolName, toolInput, toolResponse, promptNumber, source,
+            extractedData, null);
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -30,6 +38,7 @@ public record ObservationRequest(
         private Integer promptNumber;
         private String source;
         private Map<String, Object> extractedData;
+        private String platformSource;
 
         public Builder sessionId(String sessionId) { this.sessionId = sessionId; return this; }
         public Builder projectPath(String projectPath) { this.projectPath = projectPath; return this; }
@@ -39,9 +48,11 @@ public record ObservationRequest(
         public Builder promptNumber(Integer promptNumber) { this.promptNumber = promptNumber; return this; }
         public Builder source(String source) { this.source = source; return this; }
         public Builder extractedData(Map<String, Object> extractedData) { this.extractedData = extractedData; return this; }
+        public Builder platformSource(String platformSource) { this.platformSource = platformSource; return this; }
 
         public ObservationRequest build() {
-            return new ObservationRequest(sessionId, projectPath, toolName, toolInput, toolResponse, promptNumber, source, extractedData);
+            return new ObservationRequest(sessionId, projectPath, toolName, toolInput, toolResponse,
+                promptNumber, source, extractedData, platformSource);
         }
     }
 
@@ -81,6 +92,9 @@ public record ObservationRequest(
         }
         if (extractedData != null) {
             map.put("extractedData", extractedData);
+        }
+        if (platformSource != null) {
+            map.put("platform_source", platformSource);
         }
         return map;
     }

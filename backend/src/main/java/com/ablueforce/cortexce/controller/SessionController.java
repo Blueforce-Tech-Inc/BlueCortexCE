@@ -165,9 +165,9 @@ public class SessionController {
         try {
             session = sessionManagementService.getOrCreate(ref, projectPath, null);
         } catch (Exception e) {
-            log.error("Failed to initialize session {}: {}", ref.logKey(), e.getMessage());
+            log.error("Failed to initialize conversation (exception_type={})", e.getClass().getSimpleName());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Failed to initialize session: " + e.getMessage()));
+                .body(Map.of("error", "Failed to initialize session"));
         }
         
         // Phase 3: Set userId on session (null is OK — means single-user mode)
@@ -199,7 +199,7 @@ public class SessionController {
                     context = contextService.generateContext(
                         projectPath,
                         new ContextService.ContextConfig(),
-                        contentSessionId
+                        session.getId()
                     );
                     log.debug("Generated fresh context for project {} (cache miss)", projectPath);
                 }
@@ -272,10 +272,38 @@ public class SessionController {
                 s.getStartedAt() != null ? s.getStartedAt().toString() : ""
             ));
         } catch (Exception e) {
-            log.error("Failed to get session {}: {}", sessionId, e.getMessage());
+            log.error("Failed to get conversation (exception_type={})", e.getClass().getSimpleName());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Failed to get session: " + e.getMessage()));
+                .body(Map.of("error", "Failed to get session"));
         }
+    }
+
+    /** Canonical lookup for opaque external IDs that cannot safely occupy a path segment. */
+    @GetMapping
+    public ResponseEntity<Object> getSessionByIdentity(
+            @RequestParam String contentSessionId,
+            @RequestParam(required = false) String platformSource) {
+        try {
+            Optional<SessionEntity> session = sessionManagementService.find(
+                ExternalSessionRef.of(platformSource, contentSessionId));
+            if (session.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Session not found"));
+            }
+            return ResponseEntity.ok(toGetSessionResponse(session.get()));
+        } catch (PlatformSource.InvalidPlatformSourceException | ExternalSessionRef.InvalidExternalSessionRefException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    private static com.ablueforce.cortexce.dto.ApiResponses.GetSessionResponse toGetSessionResponse(SessionEntity s) {
+        return new com.ablueforce.cortexce.dto.ApiResponses.GetSessionResponse(
+            s.getId().toString(),
+            s.getContentSessionId() != null ? s.getContentSessionId() : "",
+            s.getProjectPath() != null ? s.getProjectPath() : "",
+            s.getStatus() != null ? s.getStatus() : "",
+            s.getStartedAt() != null ? s.getStartedAt().toString() : ""
+        );
     }
 
     // ==========================================================================
@@ -350,6 +378,38 @@ public class SessionController {
         return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.UpdateSessionUserIdResponse(
             "ok", sessionId, userId != null ? userId : ""
         ));
+    }
+
+    /** Canonical user update route for opaque external IDs; absent platform means Claude. */
+    @PatchMapping("/user")
+    public ResponseEntity<Object> updateSessionUserIdByIdentity(
+            @RequestParam String contentSessionId,
+            @RequestParam(required = false) String platformSource,
+            @org.springframework.web.bind.annotation.RequestBody com.ablueforce.cortexce.dto.ApiRequests.SessionUserUpdateRequest body) {
+        try {
+            Optional<SessionEntity> resolved = sessionManagementService.find(
+                ExternalSessionRef.of(platformSource, contentSessionId));
+            if (resolved.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Session not found"));
+            }
+            SessionEntity session = resolved.get();
+            String oldUserId = session.getUserId();
+            session.setUserId(body.userId());
+            sessionManagementService.save(session);
+            log.info("Updated session {} userId: {} -> {}", session.getId(), oldUserId, body.userId());
+            if (extractionService.isPresent() && session.getProjectPath() != null) {
+                try {
+                    extractionService.get().reExtractForSession(session.getId(), session.getProjectPath());
+                } catch (Exception e) {
+                    log.warn("Re-extraction failed after userId update: {}", e.getClass().getSimpleName());
+                }
+            }
+            return ResponseEntity.ok(new com.ablueforce.cortexce.dto.ApiResponses.UpdateSessionUserIdResponse(
+                "ok", session.getContentSessionId(), body.userId() != null ? body.userId() : ""));
+        } catch (PlatformSource.InvalidPlatformSourceException | ExternalSessionRef.InvalidExternalSessionRefException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     /**

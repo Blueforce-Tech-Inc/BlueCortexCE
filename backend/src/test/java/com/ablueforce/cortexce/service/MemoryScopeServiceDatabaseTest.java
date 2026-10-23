@@ -94,7 +94,7 @@ class MemoryScopeServiceDatabaseTest {
             return;
         }
         for (UUID id : created) {
-            jdbc.update("DELETE FROM mem_memory_scopes WHERE id = :id",
+            jdbc.update("DELETE FROM mem_memory_scopes WHERE id = :id AND scope_type = 'project'",
                 new MapSqlParameterSource("id", id));
         }
         created.clear();

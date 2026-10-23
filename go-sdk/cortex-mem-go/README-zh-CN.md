@@ -387,6 +387,7 @@ SDK 自带的适配器也继承了这个陷阱——`eino` 与 `genkit` 的 retr
 SDK 使用与后端 API 完全一致的 JSON 字段名：
 
 - `session_id` (snake_case)
+- `platform_source` (snake_case；可选，省略时默认为 `claude`)
 - `project_path` → 工具观察中使用 `cwd`
 - `type` → 工具观察中使用 `tool_name`
 - `requiredConcepts` (camelCase)

@@ -126,9 +126,18 @@ public interface CortexMemClient {
     List<Map<String, Object>> getExtractionHistory(String projectPath, String templateName, String userId, int limit);
 
     /**
-     * Update session userId. Calls PATCH /api/session/{sessionId}/user.
+     * Update session userId. Calls PATCH /api/session/user with the opaque
+     * session identity in query parameters. The two-argument overload targets
+     * the default Claude platform.
      */
     Map<String, Object> updateSessionUserId(String sessionId, String userId);
+
+    default Map<String, Object> updateSessionUserId(String sessionId, String userId, String platformSource) {
+        if (platformSource != null && !platformSource.isBlank() && !"claude".equals(platformSource)) {
+            throw new UnsupportedOperationException("This client implementation does not support platform-scoped session updates");
+        }
+        return updateSessionUserId(sessionId, userId);
+    }
 
     /**
      * Manually trigger extraction for a project.

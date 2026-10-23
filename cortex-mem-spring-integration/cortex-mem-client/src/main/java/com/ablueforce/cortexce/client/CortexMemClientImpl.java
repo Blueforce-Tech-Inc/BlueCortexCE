@@ -416,11 +416,21 @@ public class CortexMemClientImpl implements CortexMemClient {
     @Override
     @SuppressWarnings("unchecked")
     public Map<String, Object> updateSessionUserId(String sessionId, String userId) {
+        return updateSessionUserId(sessionId, userId, "claude");
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> updateSessionUserId(String sessionId, String userId, String platformSource) {
         requireNonBlank(sessionId, "sessionId");
         requireNonBlank(userId, "userId");
+        requireNonBlank(platformSource, "platformSource");
         // Propagates errors: caller needs to know if the update succeeded.
         Map<String, Object> result = restClient.patch()
-            .uri("/api/session/{sessionId}/user", sessionId)
+            .uri(uriBuilder -> uriBuilder.path("/api/session/user")
+                .queryParam("contentSessionId", sessionId)
+                .queryParam("platformSource", platformSource)
+                .build())
             .body(Map.of("user_id", userId))
             .retrieve()
             .body(new ParameterizedTypeReference<>() {});
@@ -971,7 +981,10 @@ public class CortexMemClientImpl implements CortexMemClient {
             raw.get("access_count") != null ? ((Number) raw.get("access_count")).intValue() : null,
             str(raw.get("refined_at")),
             str(raw.get("refined_from_ids")),
-            str(raw.get("user_comment"))
+            str(raw.get("user_comment")),
+            str(raw.get("conversation_id")),
+            str(raw.get("standalone_kind")),
+            str(raw.get("platform_source"))
         );
     }
 

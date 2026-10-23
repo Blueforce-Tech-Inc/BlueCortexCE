@@ -95,12 +95,12 @@ OBS_COUNT=$(echo "$OBSERVATIONS" | jq 'length')
 
 echo "Found $OBS_COUNT observations"
 
-# Step 2: Extract session IDs
-echo "Step 2: Extracting session IDs..."
-# Extract unique content session IDs and build JSON array
-CONTENT_SESSION_IDS=$(echo "$OBSERVATIONS" | jq '[.[].content_session_id] | unique' 2>/dev/null || echo "[]")
+# Step 2: Extract real Conversation references, excluding standalone rows.
+echo "Step 2: Extracting Conversation references..."
+SESSION_REFS=$(echo "$OBSERVATIONS" | jq '[.[] | select((has("conversation_id") | not) or .conversation_id != null) | select(.content_session_id != null and .content_session_id != "") | {contentSessionId: .content_session_id, platformSource: (.platform_source // "claude")}] | unique_by([.platformSource, .contentSessionId])' 2>/dev/null || echo "[]")
+CONTENT_SESSION_IDS=$(echo "$SESSION_REFS" | jq '[.[].contentSessionId] | unique' 2>/dev/null || echo "[]")
 
-if [ "$CONTENT_SESSION_IDS" = "[]" ] || [ "$CONTENT_SESSION_IDS" = "null" ]; then
+if [ "$SESSION_REFS" = "[]" ] || [ "$SESSION_REFS" = "null" ]; then
     echo "No sessions found"
     SESSIONS="[]"
     SESSIONS_COUNT=0
@@ -108,7 +108,7 @@ else
     # Step 3: Batch query sessions
     echo "Step 3: Fetching session metadata..."
     # Create JSON payload properly
-    JSON_PAYLOAD=$(jq -n --argjson ids "$CONTENT_SESSION_IDS" '{contentSessionIds: $ids}')
+    JSON_PAYLOAD=$(jq -n --argjson refs "$SESSION_REFS" --argjson ids "$CONTENT_SESSION_IDS" '{sessionRefs: $refs, contentSessionIds: $ids}')
     SESSIONS_RESPONSE=$(curl -s -X POST "$API_URL/api/sdk-sessions/batch" \
         -H "Content-Type: application/json" \
         -d "$JSON_PAYLOAD")

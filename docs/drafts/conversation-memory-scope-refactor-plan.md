@@ -332,7 +332,7 @@ git -C webui grep -n -E 'content_session_id|platform_source|session_deleted|sess
 | Session catalog/detail | Viewer SessionRef `(platform,id)` | 用复合外部引用解析 UUID；子项按 UUID 计数 | 保持 Viewer 字段与分页 wire。 |
 | Session delete | Viewer SessionRef | 规范 DELETE query/body 携带完整复合外部身份，解析 UUID 后校验状态并只删该 UUID 的 conversation 子行 | manual rows/Scopes 永不受影响；Observation 删除按既有 FK 处理其 feedback；其他 feedback 保留并由 `ON DELETE SET NULL` 清除被删会话引用；SSE 回传平台+外部 ID。旧 path endpoint 仅兼容可安全路由的 ID。 |
 | Import | 旧 snapshot 可能只有裸 ID | 先补平台默认，再生成 Conversation UUID mapping，按 project 解析 Scope | Import report 给出缺省/冲突/隔离计数；不静默吞记录。 |
-| Export | 现有兼容字段与 `/api/sdk-sessions/batch` | 保留旧 wire `content_session_id/session_id` 字符串（manual 继续输出 sentinel `manual-memories`，extraction/DLQ 继续输出各自 correlation key），新增稳定 `platform_source` 与来源库 `conversation_id` 诊断字段；所有 standalone 行的 `conversation_id` 为 null，并带 `standalone_kind`。批量 Session metadata 使用真实 Conversation 的 `sessionRefs` 复合对象；standalone 行不请求 Session metadata。旧 `contentSessionIds` 请求明确限定 Claude | 旧导出消费者继续可读；schema version 增加且旧数据可读。导入不得复用来源库 UUID；Scope ID 不导出，按 project path 重建映射。跨平台同 ID 的两个 Session 必须在导出和 round-trip 后仍是两个 Conversation。 |
+| Export | 现有兼容字段与 `/api/sdk-sessions/batch` | 保留旧 wire `content_session_id/session_id` 字符串（manual 继续输出 sentinel `manual-memories`，extraction/DLQ 继续输出各自 correlation key），新增稳定 `platform_source`、来源库 `conversation_id` 诊断字段和非 UUID 的 `memory_scope_type`；所有 standalone 行的 `conversation_id` 为 null，并带 `standalone_kind`。批量 Session metadata 使用真实 Conversation 的 `sessionRefs` 复合对象；standalone 行不请求 Session metadata。旧 `contentSessionIds` 请求明确限定 Claude | 旧导出消费者继续可读；schema version 增加且旧数据可读。导入不得复用来源库 Conversation UUID 或 Scope UUID；Scope 由 `memory_scope_type` 与 project path 在目标库重建映射。跨平台同 ID 的两个 Session 必须在导出和 round-trip 后仍是两个 Conversation。 |
 
 ## 8. 执行阶段与停止门
 
@@ -958,7 +958,9 @@ f7b865e  build: pair WebUI gitlink and static viewer with the v2 identity wire  
 
 ### 16.6 Scope 轴残留 site 分类（每处有结论）
 
-ObservationRepository 的 31 处 project 谓词全部改为经 `memory_scope_id` 解析（`COLLATE "C"` 精确匹配）。以下残留**刻意保留**原始 `project_path` 语义，因为它们属于 Summary/Session（conversation-owned）读路径，规划 §4.3 第 7 条明确此类不改成 Scope 计数：
+ObservationRepository 中所有 project-scoped Observation 查询均以 `memory_scope_id` 解析 Scope，不再以 Observation 的展示用 `project_path` 决定归属；单项目和多项目谓词对 project key 使用 `COLLATE "C"` 精确比较。唯一兼容例外是请求路径精确等于 `manual-memories` 时，同时纳入字面同名 project Scope 和固定 `manual_default` Scope。Conversation-only 查询仍限制在非空 `conversation_id`，不会因这个兼容例外读入 standalone 行。
+
+这里不再固定写查询条数：共享 SQL 谓词和派生查询会随实现调整，精确数量不是验收依据。以下残留**刻意保留**原始 `project_path` 语义，因为它们属于 Summary/Session（conversation-owned）读路径，规划 §4.3 第 7 条明确此类不改成 Scope 计数：
 
 | Site | 读者 | 结论 |
 |---|---|---|
@@ -972,4 +974,4 @@ ObservationRepository 的 31 处 project 谓词全部改为经 `memory_scope_id`
 
 会话轴残留为零：`findByContentSessionId`/`deleteByContentSessionId`/`findByContentSessionIdIn` 均已删除；仅存的两处合法用途是 `findStandaloneByCorrelationKeyAndType`（standalone 兼容 key + kind，非会话身份）与 `findByPlatformSourceAndContentSessionId`（复合身份）。
 
-**最终建议**：执行这次聚焦式重构，但不能把它缩减为“V20 加一个 Scope 表”或“把唯一索引改成复合索引”。低风险的关键在于：先保护伪会话删除、固定 Scope 语义、把已有 UUID 用作关系真值、补齐所有身份路径、只读盘点后分阶段迁移、保持 wire 兼容，并把允许跨平台重复 ID 设为单独的不可逆发布门。
+**最终实施结论**：本次重构不能缩减为“V20 加一个 Scope 表”或“把唯一索引改成复合索引”。实际采用用户裁定的单事务 V20 模型：迁移前只读盘点，迁移内完成 fail-closed 判定与回填；遇到不能证明安全的数据形状即整体失败，允许停机和人工介入，不设计回滚、checkpoint、影子读或分阶段发布。实现仍须保护伪会话删除、固定 Scope 语义、以已有 UUID 作为关系真值、补齐所有身份路径并保持 wire 兼容。WebUI gitlink 可从干净 clone 获取且指向配套版本仍是独立发布门。

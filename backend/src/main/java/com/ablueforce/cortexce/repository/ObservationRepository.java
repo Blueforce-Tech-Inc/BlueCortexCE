@@ -17,6 +17,27 @@ import java.util.UUID;
 @Repository
 public interface ObservationRepository extends JpaRepository<ObservationEntity, UUID> {
 
+    String PROJECT_SCOPE_FILTER = "\n" + """
+        memory_scope_id IN (
+            SELECT id FROM mem_memory_scopes
+            WHERE (scope_type = 'project'
+                   AND scope_key = cast(:project AS text) COLLATE "C")
+               OR (scope_type = 'manual_default'
+                   AND scope_key = 'manual-default-v1'
+                   AND cast(:project AS text) COLLATE "C" = 'manual-memories' COLLATE "C")
+        )
+        """;
+
+    String MULTI_PROJECT_SCOPE_FILTER = "\n" + """
+        memory_scope_id IN (
+            SELECT id FROM mem_memory_scopes
+            WHERE (scope_type = 'project' AND scope_key COLLATE "C" IN (:projects))
+               OR (scope_type = 'manual_default'
+                   AND scope_key = 'manual-default-v1'
+                   AND 'manual-memories' COLLATE "C" IN (:projects))
+        )
+        """;
+
     // Paged query with optional project and platformSource filter
     /**
      * Paged observation list with the frozen identity precedence.
@@ -34,10 +55,16 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      */
     @Query("""
         SELECT o FROM ObservationEntity o
-        WHERE (:project IS NULL OR o.memoryScopeId IN (
-                 SELECT ms.id FROM com.ablueforce.cortexce.entity.MemoryScopeEntity ms
-                 WHERE ms.scopeType = 'project'
-                   AND ms.scopeKey = :project))
+        WHERE (
+                 (:project IS NULL AND :includeManualDefault = false)
+                 OR (:project IS NOT NULL AND o.memoryScopeId IN (
+                     SELECT ms.id FROM com.ablueforce.cortexce.entity.MemoryScopeEntity ms
+                     WHERE ms.scopeType = 'project'
+                       AND ms.scopeKey = :project))
+                 OR (:includeManualDefault = true AND o.memoryScopeId IN (
+                     SELECT ms.id FROM com.ablueforce.cortexce.entity.MemoryScopeEntity ms
+                     WHERE ms.scopeType = 'manual_default'
+                       AND ms.scopeKey = 'manual-default-v1')))
         AND (:platformSource IS NULL OR COALESCE(o.platformSource, 'claude') = :platformSource)
         AND (:conversationId IS NULL OR o.conversationId = :conversationId)
         AND (:standaloneKind IS NULL OR o.standaloneKind = :standaloneKind)
@@ -52,6 +79,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         @Param("conversationId") UUID conversationId,
         @Param("contentSessionId") String contentSessionId,
         @Param("standaloneKind") String standaloneKind,
+        @Param("includeManualDefault") boolean includeManualDefault,
         Pageable pageable
     );
 
@@ -122,8 +150,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     // Find by project, ordered by creation time (descending), limited
     @Query(value = """
         SELECT * FROM mem_observations
-        WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
-                        WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
+        WHERE """ + PROJECT_SCOPE_FILTER + """
         ORDER BY created_at_epoch DESC
         LIMIT :limit
         """, nativeQuery = true)
@@ -135,8 +162,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     // Find recent observations for a project with offset
     @Query(value = """
         SELECT * FROM mem_observations
-        WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
-                        WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
+        WHERE """ + PROJECT_SCOPE_FILTER + """
         ORDER BY created_at_epoch DESC
         LIMIT :limit OFFSET :offset
         """, nativeQuery = true)
@@ -149,7 +175,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     // Find by multiple projects (worktree support)
     @Query(value = """
         SELECT * FROM mem_observations
-        WHERE project_path IN (:projects)
+        WHERE """ + MULTI_PROJECT_SCOPE_FILTER + """
         ORDER BY created_at_epoch DESC
         LIMIT :limit
         """, nativeQuery = true)
@@ -161,8 +187,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     // pgvector semantic search on embedding_768
     @Query(value = """
         SELECT * FROM mem_observations
-        WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
-                        WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
+        WHERE """ + PROJECT_SCOPE_FILTER + """
         AND embedding_768 IS NOT NULL
         AND created_at_epoch > :minEpoch
         ORDER BY embedding_768 <=> cast(:queryVector as vector)
@@ -178,8 +203,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     // pgvector semantic search on embedding_1024 (default for bge-m3)
     @Query(value = """
         SELECT * FROM mem_observations
-        WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
-                        WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
+        WHERE """ + PROJECT_SCOPE_FILTER + """
         AND embedding_1024 IS NOT NULL
         AND created_at_epoch > :minEpoch
         ORDER BY embedding_1024 <=> cast(:queryVector as vector)
@@ -195,8 +219,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     // pgvector semantic search on embedding_1536
     @Query(value = """
         SELECT * FROM mem_observations
-        WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
-                        WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
+        WHERE """ + PROJECT_SCOPE_FILTER + """
         AND embedding_1536 IS NOT NULL
         AND created_at_epoch > :minEpoch
         ORDER BY embedding_1536 <=> cast(:queryVector as vector)
@@ -212,8 +235,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     // tsvector full-text search
     @Query(value = """
         SELECT * FROM mem_observations
-        WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
-                        WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
+        WHERE """ + PROJECT_SCOPE_FILTER + """
         AND search_vector @@ plainto_tsquery('english', :query)
         ORDER BY ts_rank(search_vector, plainto_tsquery('english', :query)) DESC
         LIMIT :limit
@@ -227,8 +249,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     // Filter by source
     @Query(value = """
         SELECT * FROM mem_observations
-        WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
-                        WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
+        WHERE """ + PROJECT_SCOPE_FILTER + """
         AND source = :source
         ORDER BY created_at_epoch DESC
         LIMIT :limit
@@ -242,8 +263,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     // Composable AND filter with offset
     @Query(value = """
         SELECT * FROM mem_observations
-        WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
-                        WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
+        WHERE """ + PROJECT_SCOPE_FILTER + """
         AND (:type IS NULL OR type = :type)
         AND (:source IS NULL OR source = :source)
         AND (:concept IS NULL OR concepts @> to_jsonb(:concept))
@@ -264,7 +284,11 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     );
 
     // Count by project
-    long countByProjectPath(String projectPath);
+    @Query(value = """
+        SELECT count(*) FROM mem_observations
+        WHERE """ + PROJECT_SCOPE_FILTER + """
+        """, nativeQuery = true)
+    long countByProjectPath(@Param("project") String projectPath);
 
     // Find all observations for a project, ordered by creation time (descending)
     //
@@ -276,11 +300,29 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     // auditing to fill it in. In PostgreSQL NULLs sort last under DESC, so
     // ordering by created_at silently returned the oldest non-NULL rows instead
     // of the newest ones.
-    List<ObservationEntity> findByProjectPathOrderByCreatedAtEpochDesc(String projectPath);
+    @Query(value = """
+        SELECT * FROM mem_observations
+        WHERE """ + PROJECT_SCOPE_FILTER + """
+        ORDER BY created_at_epoch DESC
+        """, nativeQuery = true)
+    List<ObservationEntity> findByProjectPathOrderByCreatedAtEpochDesc(
+        @Param("project") String projectPath);
 
     // Find recent observations for a project with pagination (avoids loading all into memory)
     // Sorted on created_at_epoch for the same reason as above.
-    Page<ObservationEntity> findByProjectPathOrderByCreatedAtEpochDesc(String projectPath, Pageable pageable);
+    @Query(value = """
+        SELECT * FROM mem_observations
+        WHERE """ + PROJECT_SCOPE_FILTER + """
+        ORDER BY created_at_epoch DESC
+        """,
+        countQuery = """
+        SELECT count(*) FROM mem_observations
+        WHERE """ + PROJECT_SCOPE_FILTER + """
+        """,
+        nativeQuery = true)
+    Page<ObservationEntity> findByProjectPathOrderByCreatedAtEpochDesc(
+        @Param("project") String projectPath,
+        Pageable pageable);
 
     // Find observations for a session, ordered ascending (for summary generation)
     /**
@@ -337,8 +379,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         WITH semantic_results AS (
             SELECT *, 1.0 as score_type
             FROM mem_observations
-            WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
-                        WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
+            WHERE """ + PROJECT_SCOPE_FILTER + """
             AND embedding_1024 IS NOT NULL
             AND created_at_epoch > :minEpoch
             ORDER BY embedding_1024 <=> cast(:queryVector as vector)
@@ -347,8 +388,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         fulltext_results AS (
             SELECT *, 0.8 as score_type
             FROM mem_observations
-            WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
-                        WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
+            WHERE """ + PROJECT_SCOPE_FILTER + """
             AND search_vector @@ plainto_tsquery('english', :query)
             LIMIT :limit
         )
@@ -384,8 +424,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
             COUNT(*) as count,
             ARRAY_AGG(id ORDER BY created_at_epoch DESC) as ids
         FROM mem_observations
-        WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
-                        WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
+        WHERE """ + PROJECT_SCOPE_FILTER + """
         AND created_at_epoch BETWEEN :startEpoch AND :endEpoch
         GROUP BY DATE(to_timestamp(created_at_epoch / 1000))
         ORDER BY obs_date DESC
@@ -403,8 +442,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     // FIX: When concepts is empty, skip the concepts filter entirely
     @Query(value = """
         SELECT * FROM mem_observations
-        WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
-                        WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
+        WHERE """ + PROJECT_SCOPE_FILTER + """
         AND type IN (:types)
         AND (:conceptsEmpty = true OR EXISTS (
             SELECT 1 FROM jsonb_array_elements_text(concepts::jsonb) elem
@@ -423,8 +461,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
 
     @Query(value = """
         SELECT * FROM mem_observations
-        WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
-                        WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
+        WHERE """ + PROJECT_SCOPE_FILTER + """
         AND type IN (:types)
         AND COALESCE(platform_source, 'claude') = :platformSource
         AND (:conceptsEmpty = true OR EXISTS (
@@ -448,7 +485,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     // FIX: When concepts is empty, skip the concepts filter entirely
     @Query(value = """
         SELECT * FROM mem_observations
-        WHERE project_path IN (:projects)
+        WHERE """ + MULTI_PROJECT_SCOPE_FILTER + """
         AND type IN (:types)
         AND (:conceptsEmpty = true OR EXISTS (
             SELECT 1 FROM jsonb_array_elements_text(concepts::jsonb) elem
@@ -471,18 +508,19 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      */
     @Query(value = """
         SELECT o.* FROM mem_observations o
-        WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
+        WHERE o.memory_scope_id IN (SELECT id FROM mem_memory_scopes
                         WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
         AND o.type IN (:types)
         AND (:conceptsEmpty = true OR EXISTS (
             SELECT 1 FROM jsonb_array_elements_text(o.concepts::jsonb) elem
             WHERE elem IN (:concepts)
         ))
-        AND o.content_session_id IN (
-            SELECT content_session_id FROM mem_observations
-            WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
+        AND o.conversation_id IN (
+            SELECT conversation_id FROM mem_observations
+            WHERE conversation_id IS NOT NULL
+              AND memory_scope_id IN (SELECT id FROM mem_memory_scopes
                         WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
-            GROUP BY content_session_id
+            GROUP BY conversation_id
             ORDER BY MAX(created_at_epoch) DESC
             LIMIT :sessionLimit
         )
@@ -500,7 +538,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
 
     @Query(value = """
         SELECT o.* FROM mem_observations o
-        WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
+        WHERE o.memory_scope_id IN (SELECT id FROM mem_memory_scopes
                         WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
         AND o.type IN (:types)
         AND COALESCE(o.platform_source, 'claude') = :platformSource
@@ -508,12 +546,13 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
             SELECT 1 FROM jsonb_array_elements_text(o.concepts::jsonb) elem
             WHERE elem IN (:concepts)
         ))
-        AND o.content_session_id IN (
-            SELECT content_session_id FROM mem_observations
-            WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
+        AND o.conversation_id IN (
+            SELECT conversation_id FROM mem_observations
+            WHERE conversation_id IS NOT NULL
+              AND memory_scope_id IN (SELECT id FROM mem_memory_scopes
                         WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
               AND COALESCE(platform_source, 'claude') = :platformSource
-            GROUP BY content_session_id
+            GROUP BY conversation_id
             ORDER BY MAX(created_at_epoch) DESC
             LIMIT :sessionLimit
         )
@@ -549,6 +588,20 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         @Param("conversationId") UUID conversationId,
         @Param("title") String title,
         @Param("createdAtEpoch") long createdAtEpoch
+    );
+
+    Optional<ObservationEntity> findByMemoryScopeIdAndStandaloneKindAndPlatformSourceAndContentSessionIdAndTitleAndCreatedAtEpoch(
+        UUID memoryScopeId,
+        String standaloneKind,
+        String platformSource,
+        String contentSessionId,
+        String title,
+        long createdAtEpoch
+    );
+
+    List<ObservationEntity> findByMemoryScopeIdInAndStandaloneKindIn(
+        List<UUID> memoryScopeIds,
+        List<String> standaloneKinds
     );
 
     // ==========================================================================
@@ -597,8 +650,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      */
     @Query(value = """
         SELECT * FROM mem_observations
-        WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
-                        WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
+        WHERE """ + PROJECT_SCOPE_FILTER + """
         AND (
             EXISTS (
                 SELECT 1 FROM jsonb_array_elements_text(files_read::jsonb) elem
@@ -635,8 +687,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      */
     @Query(value = """
         SELECT * FROM mem_observations
-        WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
-                        WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
+        WHERE """ + PROJECT_SCOPE_FILTER + """
         AND quality_score >= :minQuality
         ORDER BY quality_score DESC, created_at_epoch DESC
         LIMIT :limit
@@ -657,8 +708,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      */
     @Query(value = """
         SELECT * FROM mem_observations
-        WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
-                        WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
+        WHERE """ + PROJECT_SCOPE_FILTER + """
         AND quality_score < :threshold
         AND type NOT LIKE 'extracted_%'
         -- Standalone rows (manual/extraction/dlq) never enter destruction or rewriting.
@@ -695,8 +745,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      */
     @Query(value = """
         SELECT * FROM mem_observations
-        WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
-                        WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
+        WHERE """ + PROJECT_SCOPE_FILTER + """
         AND (last_accessed_at IS NULL OR last_accessed_at < :accessThreshold)
         AND (quality_score IS NULL OR quality_score < :qualityThreshold)
         AND type NOT LIKE 'extracted_%'
@@ -734,8 +783,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      */
     @Query(value = """
         SELECT * FROM mem_observations
-        WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
-                        WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
+        WHERE """ + PROJECT_SCOPE_FILTER + """
         AND (refined_at IS NULL OR refined_at < :cooldownThreshold)
         AND type NOT LIKE 'extracted_%'
         -- Standalone rows (manual/extraction/dlq) never enter destruction or rewriting.
@@ -772,8 +820,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
             COUNT(CASE WHEN quality_score < 0.4 AND quality_score IS NOT NULL THEN 1 END) as low,
             COUNT(CASE WHEN quality_score IS NULL THEN 1 END) as unknown
         FROM mem_observations
-        WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
-                        WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
+        WHERE """ + PROJECT_SCOPE_FILTER + """
         """, nativeQuery = true)
     Object[] getQualityDistribution(@Param("project") String project);
 
@@ -781,7 +828,14 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      * Find all distinct project paths that have observations.
      * Used by scheduled refinement fallback.
      */
-    @Query("SELECT DISTINCT o.projectPath FROM ObservationEntity o WHERE o.projectPath IS NOT NULL")
+    @Query(value = """
+        SELECT DISTINCT CASE WHEN ms.scope_type = 'manual_default'
+                             THEN 'manual-memories' ELSE ms.scope_key END AS project_path
+        FROM mem_observations o
+        JOIN mem_memory_scopes ms ON ms.id = o.memory_scope_id
+        WHERE ms.scope_type IN ('project', 'manual_default')
+        ORDER BY project_path
+        """, nativeQuery = true)
     List<String> findDistinctProjects();
 
     // ===== Phase 3: Structured Extraction Methods =====
@@ -792,15 +846,16 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      */
     @Query(value = """
         SELECT * FROM mem_observations
-        WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
-                        WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
+        WHERE """ + PROJECT_SCOPE_FILTER + """
         AND source IN (:sources)
+        AND (:includeStandaloneManual = true OR standalone_kind IS DISTINCT FROM 'manual')
         ORDER BY created_at_epoch DESC
         LIMIT :limit
         """, nativeQuery = true)
     List<ObservationEntity> findBySourceIn(
         @Param("project") String project,
         @Param("sources") List<String> sources,
+        @Param("includeStandaloneManual") boolean includeStandaloneManual,
         @Param("limit") int limit);
 
     /**
@@ -808,8 +863,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      */
     @Query(value = """
         SELECT * FROM mem_observations
-        WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
-                        WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
+        WHERE """ + PROJECT_SCOPE_FILTER + """
         AND source IN (:sources)
         AND created_at_epoch > :sinceEpoch
         ORDER BY created_at_epoch ASC
@@ -840,8 +894,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      */
     @Query(value = """
         SELECT * FROM mem_observations
-        WHERE memory_scope_id IN (SELECT id FROM mem_memory_scopes
-                        WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
+        WHERE """ + PROJECT_SCOPE_FILTER + """
         AND type LIKE :typePattern
         ORDER BY created_at_epoch DESC
         LIMIT :limit

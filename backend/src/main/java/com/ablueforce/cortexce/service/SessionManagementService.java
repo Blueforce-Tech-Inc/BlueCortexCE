@@ -7,14 +7,12 @@ import com.ablueforce.cortexce.repository.SessionRepository;
 import com.ablueforce.cortexce.common.LogHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -91,9 +89,9 @@ public class SessionManagementService implements LogHelper {
     /**
      * Return the Conversation for {@code ref}, creating it if absent.
      *
-     * <p>Concurrency: the insert relies on {@code ux_sessions_platform_content}. Two
-     * simultaneous first-writers both attempt the insert; the loser sees an integrity
-     * violation and re-reads, so both callers end up with the same UUID and exactly one row.
+     * <p>Concurrency: an insert-on-conflict operation targets the exact composite identity.
+     * Concurrent first-writers therefore converge on the canonical row without aborting the
+     * losing PostgreSQL transaction.
      *
      * <p>The project path and user prompt are only used when the row is created. They are
      * never overwritten on an existing Conversation: a resumed session may legitimately pass
@@ -106,31 +104,12 @@ public class SessionManagementService implements LogHelper {
             return existing.get();
         }
 
-        SessionEntity candidate = new SessionEntity();
-        candidate.setPlatformSource(ref.platformSource());
-        candidate.setContentSessionId(ref.contentSessionId());
-        candidate.setProjectPath(effectiveProjectPath(projectPath));
-        candidate.setUserPrompt(userPrompt);
         Instant now = Instant.now();
-        // started_at must be set explicitly: JPA inserts every column, so the column DEFAULT
-        // never applies and the API would otherwise serialise an empty timestamp.
-        candidate.setStartedAt(OffsetDateTime.ofInstant(now, ZoneOffset.UTC));
-        candidate.setStartedAtEpoch(now.toEpochMilli());
-        candidate.setStatus("active");
-
-        try {
-            return Objects.requireNonNull(sessionRepository.saveAndFlush(candidate),
-                "session insert returned null");
-        } catch (DataIntegrityViolationException e) {
-            // Lost the race against a concurrent creator (or a unique violation on a
-            // different constraint). Re-read; the committed row is authoritative.
-            Optional<SessionEntity> winner = find(ref);
-            if (winner.isPresent()) {
-                log.debug("Conversation creation raced; using existing row {}", winner.get().getId());
-                return winner.get();
-            }
-            throw e;
-        }
+        OffsetDateTime startedAt = OffsetDateTime.ofInstant(now, ZoneOffset.UTC);
+        sessionRepository.insertIfIdentityAbsent(ref.contentSessionId(), effectiveProjectPath(projectPath),
+            userPrompt, startedAt, now.toEpochMilli(), null, null, "active", ref.platformSource());
+        return find(ref).orElseThrow(() -> new IllegalStateException(
+            "conversation insert did not produce the requested identity: " + ref.logKey()));
     }
 
     /**
@@ -145,17 +124,15 @@ public class SessionManagementService implements LogHelper {
         if (existing.isPresent()) {
             return existing.get();
         }
-        SessionEntity session = new SessionEntity();
-        session.setPlatformSource(ref.platformSource());
-        session.setContentSessionId(ref.contentSessionId());
-        session.setProjectPath(effectiveProjectPath(projectPath));
-        session.setUserPrompt(userPrompt);
         Instant started = startedAtEpoch != null ? Instant.ofEpochMilli(startedAtEpoch) : Instant.now();
-        session.setStartedAt(OffsetDateTime.ofInstant(started, ZoneOffset.UTC));
-        session.setStartedAtEpoch(started.toEpochMilli());
-        session.setCompletedAtEpoch(completedAtEpoch);
-        session.setStatus(status != null && !status.isBlank() ? status : "active");
-        return sessionRepository.saveAndFlush(session);
+        OffsetDateTime completedAt = completedAtEpoch == null ? null
+            : OffsetDateTime.ofInstant(Instant.ofEpochMilli(completedAtEpoch), ZoneOffset.UTC);
+        sessionRepository.insertIfIdentityAbsent(ref.contentSessionId(), effectiveProjectPath(projectPath),
+            userPrompt, OffsetDateTime.ofInstant(started, ZoneOffset.UTC), started.toEpochMilli(),
+            completedAt, completedAtEpoch,
+            status != null && !status.isBlank() ? status : "active", ref.platformSource());
+        return find(ref).orElseThrow(() -> new IllegalStateException(
+            "import insert did not produce the requested identity: " + ref.logKey()));
     }
 
     // -------------------------------------------------------------------------

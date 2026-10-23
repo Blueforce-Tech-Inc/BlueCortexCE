@@ -47,13 +47,13 @@
  * then checked against the backend's `@JsonProperty` names, endpoint by
  * endpoint, and they agree:
  *
- *   POST /api/session/start            session_id, project_path, user_id
- *   PATCH /api/session/{id}/user       user_id
- *   POST /api/ingest/tool-use          session_id, cwd, tool_name, tool_input,
+ *   POST /api/session/start            session_id, project_path, user_id, platform_source
+ *   PATCH /api/session/user            user_id + opaque identity query
+ *   POST /api/ingest/tool-use          session_id, cwd, tool_name, platform_source, tool_input,
  *                                      tool_response, prompt_number, source,
  *                                      extractedData
- *   POST /api/ingest/session-end       session_id, cwd, last_assistant_message
- *   POST /api/ingest/user-prompt       session_id, prompt_text, cwd, prompt_number
+ *   POST /api/ingest/session-end       session_id, cwd, last_assistant_message, platform_source
+ *   POST /api/ingest/user-prompt       session_id, prompt_text, cwd, prompt_number, platform_source
  *   POST /api/memory/experiences       task, project, count, source,
  *                                      requiredConcepts, userId
  *   POST /api/memory/icl-prompt        task, project, maxChars, userId
@@ -84,12 +84,12 @@ const ENDPOINTS: Endpoint[] = [
   {
     verb: 'POST',
     path: '/api/session/start',
-    keys: ['session_id', 'project_path', 'user_id'],
-    call: (c) => c.startSession({ session_id: 's1', project_path: '/p', user_id: 'u1' }),
+    keys: ['session_id', 'project_path', 'user_id', 'platform_source'],
+    call: (c) => c.startSession({ session_id: 's1', project_path: '/p', user_id: 'u1', platform_source: 'codex' }),
   },
   {
     verb: 'PATCH',
-    path: '/api/session/s1/user',
+    path: '/api/session/user',
     keys: ['user_id'],
     call: (c) => c.updateSessionUserId('s1', 'u1'),
   },
@@ -97,7 +97,7 @@ const ENDPOINTS: Endpoint[] = [
     verb: 'POST',
     path: '/api/ingest/tool-use',
     keys: [
-      'session_id', 'cwd', 'tool_name', 'tool_input',
+      'session_id', 'cwd', 'tool_name', 'platform_source', 'tool_input',
       'tool_response', 'prompt_number', 'source', 'extractedData',
     ],
     call: (c) =>
@@ -105,6 +105,7 @@ const ENDPOINTS: Endpoint[] = [
         session_id: 's1',
         cwd: '/p',
         tool_name: 'Read',
+        platform_source: 'codex',
         tool_input: { file: 'a.txt' },
         tool_response: 'ok',
         prompt_number: 3,
@@ -115,14 +116,14 @@ const ENDPOINTS: Endpoint[] = [
   {
     verb: 'POST',
     path: '/api/ingest/session-end',
-    keys: ['session_id', 'cwd', 'last_assistant_message'],
-    call: (c) => c.recordSessionEnd({ session_id: 's1', cwd: '/p', last_assistant_message: 'bye' }),
+    keys: ['session_id', 'cwd', 'last_assistant_message', 'platform_source'],
+    call: (c) => c.recordSessionEnd({ session_id: 's1', cwd: '/p', last_assistant_message: 'bye', platform_source: 'codex' }),
   },
   {
     verb: 'POST',
     path: '/api/ingest/user-prompt',
-    keys: ['session_id', 'prompt_text', 'cwd', 'prompt_number'],
-    call: (c) => c.recordUserPrompt({ session_id: 's1', prompt_text: 'hi', cwd: '/p', prompt_number: 2 }),
+    keys: ['session_id', 'prompt_text', 'cwd', 'prompt_number', 'platform_source'],
+    call: (c) => c.recordUserPrompt({ session_id: 's1', prompt_text: 'hi', cwd: '/p', prompt_number: 2, platform_source: 'codex' }),
   },
   {
     verb: 'POST',
@@ -235,7 +236,7 @@ describe('outgoing wire format — the exact key set of every request body', () 
     // per-endpoint expectations have to be re-measured, not edited by hand.
     expect(ENDPOINTS.map((e) => `${e.verb} ${e.path}`)).toEqual([
       'POST /api/session/start',
-      'PATCH /api/session/s1/user',
+      'PATCH /api/session/user',
       'POST /api/ingest/tool-use',
       'POST /api/ingest/session-end',
       'POST /api/ingest/user-prompt',
@@ -311,11 +312,11 @@ const WIRE_FORMAT_SECTIONS: Array<
     {
       Session: {
         paths: ['POST /api/session/start'],
-        published: ['session_id', 'project_path', 'user_id'],
+        published: ['session_id', 'project_path', 'user_id', 'platform_source'],
       },
       'Observation (capture)': {
         paths: ['POST /api/ingest/tool-use'],
-        published: ['session_id', 'cwd', 'tool_name', 'extractedData'],
+        published: ['session_id', 'cwd', 'tool_name', 'platform_source', 'extractedData'],
       },
       'Experience & ICL': {
         paths: ['POST /api/memory/experiences', 'POST /api/memory/icl-prompt'],
@@ -333,11 +334,11 @@ const WIRE_FORMAT_SECTIONS: Array<
     {
       Session: {
         paths: ['POST /api/session/start'],
-        published: ['session_id', 'project_path', 'user_id'],
+        published: ['session_id', 'project_path', 'user_id', 'platform_source'],
       },
       'Observation（采集）': {
         paths: ['POST /api/ingest/tool-use'],
-        published: ['session_id', 'cwd', 'tool_name', 'extractedData'],
+        published: ['session_id', 'cwd', 'tool_name', 'platform_source', 'extractedData'],
       },
       'Experience 和 ICL': {
         paths: ['POST /api/memory/experiences', 'POST /api/memory/icl-prompt'],

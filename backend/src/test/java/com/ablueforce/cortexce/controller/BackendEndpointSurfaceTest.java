@@ -44,8 +44,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * reflecting over {@code @*Mapping} annotations. The running server publishes
  * <em>more</em> than what is pinned here: the MCP transport and the Spring Boot
  * actuator are registered by the framework and springdoc publishes neither, so the
- * whole server answers 77 operations across 72 paths while this test pins 71 across
- * 66. The remaining six are pinned by {@link BackendTransportEndpointSurfaceTest},
+ * whole server answers 80 operations across 74 paths while this test pins 74 across
+ * 68. The remaining six are pinned by {@link BackendTransportEndpointSurfaceTest},
  * and the running server is compared against both by
  * {@code scripts/check-api-doc-surface.py}.
  *
@@ -76,6 +76,7 @@ class BackendEndpointSurfaceTest {
             "DELETE /api/cursor/register/{projectName}",
             "DELETE /api/memory/observations/{id}",
             "DELETE /api/observation/{id}",
+            "DELETE /api/sessions",
             "DELETE /api/sessions/{platformSource}/{contentSessionId}",
             "DELETE /api/summary/{id}",
             "GET /api/context/inject",
@@ -105,6 +106,7 @@ class BackendEndpointSurfaceTest {
             "GET /api/readiness",
             "GET /api/search",
             "GET /api/search/by-file",
+            "GET /api/session",
             "GET /api/session/{sessionId}",
             "GET /api/sessions",
             "GET /api/settings",
@@ -117,6 +119,7 @@ class BackendEndpointSurfaceTest {
             "GET /api/version",
             "GET /stream",
             "PATCH /api/memory/observations/{id}",
+            "PATCH /api/session/user",
             "PATCH /api/session/{sessionId}/user",
             "POST /api/context/generate",
             "POST /api/context/semantic",
@@ -175,10 +178,10 @@ class BackendEndpointSurfaceTest {
         List<Class<?>> controllers = controllers();
         assertTrue(controllers.size() >= 14,
                 "the controller package must be scannable, found " + controllers.size() + " classes");
-        assertEquals(71, EXPECTED_OPERATIONS.size(),
-                "the pinned surface is expected to hold 71 operations");
-        assertEquals(66, expectedPathCount(),
-                "the pinned surface is expected to span 66 distinct paths");
+        assertEquals(74, EXPECTED_OPERATIONS.size(),
+                "the pinned surface is expected to hold 74 operations");
+        assertEquals(68, expectedPathCount(),
+                "the pinned surface is expected to span 68 distinct paths");
     }
 
     private int expectedPathCount() {

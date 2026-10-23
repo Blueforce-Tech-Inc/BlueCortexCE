@@ -1364,8 +1364,14 @@ func TestUpdateSessionUserId(t *testing.T) {
 		if r.Method != http.MethodPatch {
 			t.Errorf("expected PATCH, got %s", r.Method)
 		}
-		if !strings.HasSuffix(r.URL.Path, "/sess-1/user") {
-			t.Errorf("expected path to end with /sess-1/user, got %s", r.URL.Path)
+		if r.URL.Path != "/api/session/user" {
+			t.Errorf("expected path /api/session/user, got %s", r.URL.Path)
+		}
+		if got := r.URL.Query().Get("contentSessionId"); got != "sess-1" {
+			t.Errorf("expected contentSessionId=sess-1, got %q", got)
+		}
+		if got := r.URL.Query().Get("platformSource"); got != "claude" {
+			t.Errorf("expected platformSource=claude, got %q", got)
 		}
 		var body map[string]any
 		json.NewDecoder(r.Body).Decode(&body)
@@ -1388,6 +1394,32 @@ func TestUpdateSessionUserId(t *testing.T) {
 	}
 	if resp.UserID != "user-42" {
 		t.Errorf("expected userId=user-42, got %v", resp.UserID)
+	}
+}
+
+func TestUpdateSessionUserIdForPlatformEncodesOpaqueIdentity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch || r.URL.Path != "/api/session/user" {
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.String())
+		}
+		if got := r.URL.Query().Get("contentSessionId"); got != "s/?#% 雪" {
+			t.Errorf("opaque session ID changed in transport: %q", got)
+		}
+		if got := r.URL.Query().Get("platformSource"); got != "codex" {
+			t.Errorf("expected platformSource=codex, got %q", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	}))
+	defer server.Close()
+
+	client := newTestClient(server)
+	updater, ok := client.(cortexmem.PlatformSessionUserUpdater)
+	if !ok {
+		t.Fatal("client does not expose PlatformSessionUserUpdater")
+	}
+	if _, err := updater.UpdateSessionUserIdForPlatform(context.Background(), "s/?#% 雪", "user-1", "codex"); err != nil {
+		t.Fatalf("UpdateSessionUserIdForPlatform failed: %v", err)
 	}
 }
 

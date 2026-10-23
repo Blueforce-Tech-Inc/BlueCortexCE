@@ -1,6 +1,7 @@
 package com.ablueforce.cortexce.controller;
 
 import com.ablueforce.cortexce.service.MemoryRefineService;
+import com.ablueforce.cortexce.service.ConversationWriteService;
 import com.ablueforce.cortexce.service.ExpRagService;
 import com.ablueforce.cortexce.repository.ObservationRepository;
 import com.ablueforce.cortexce.event.MemoryRefineEventPublisher;
@@ -47,15 +48,18 @@ public class MemoryController {
     private final ExpRagService expRagService;
     private final ObservationRepository observationRepository;
     private final MemoryRefineEventPublisher eventPublisher;
+    private final ConversationWriteService conversationWriteService;
 
     public MemoryController(MemoryRefineService memoryRefineService,
                           ExpRagService expRagService,
                           ObservationRepository observationRepository,
-                          MemoryRefineEventPublisher eventPublisher) {
+                          MemoryRefineEventPublisher eventPublisher,
+                          ConversationWriteService conversationWriteService) {
         this.memoryRefineService = memoryRefineService;
         this.expRagService = expRagService;
         this.observationRepository = observationRepository;
         this.eventPublisher = eventPublisher;
+        this.conversationWriteService = conversationWriteService;
     }
 
     /**
@@ -249,6 +253,11 @@ public class MemoryController {
             return ResponseEntity.status(404).body(Map.of("error", "Observation not found: " + request.observationId()));
         }
         var obs = optObs.get();
+        conversationWriteService.lockForChildMutation(obs.getConversationId());
+        obs = observationRepository.findById(obsId).orElse(null);
+        if (obs == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "Observation not found: " + request.observationId()));
+        }
         obs.setFeedbackType(request.feedbackType());
         if (request.comment() != null) {
             obs.setUserComment(request.comment());
@@ -284,6 +293,7 @@ public class MemoryController {
             content = @Content(schema = @Schema(type = "object", example = "{\"error\":\"title must be a string\"}"))),
         @ApiResponse(responseCode = "404", description = "Observation with given UUID not found")
     })
+    @Transactional
     public ResponseEntity<Map<String, Object>> updateObservation(
             @Parameter(description = "UUID of the observation to update", required = true, example = "550e8400-e29b-41d4-a716-446655440000")
             @PathVariable UUID id,
@@ -305,6 +315,11 @@ public class MemoryController {
             @org.springframework.web.bind.annotation.RequestBody Map<String, Object> body) {
 
         ObservationEntity observation = observationRepository.findById(id).orElse(null);
+        if (observation == null) {
+            return ResponseEntity.notFound().build();
+        }
+        conversationWriteService.lockForChildMutation(observation.getConversationId());
+        observation = observationRepository.findById(id).orElse(null);
         if (observation == null) {
             return ResponseEntity.notFound().build();
         }
@@ -413,7 +428,7 @@ public class MemoryController {
             if (item instanceof String s) {
                 result.add(s);
             } else {
-                log.warn("Non-string item in '{}' list: {} (type {})", fieldName, item,
+                log.warn("Non-string item in '{}' list (type {})", fieldName,
                     item != null ? item.getClass().getName() : "null");
                 return null; // Fail-fast: caller returns 400
             }
@@ -433,9 +448,15 @@ public class MemoryController {
             content = @Content(schema = @Schema(type = "object", example = "{\"status\":\"deleted\",\"id\":\"550e8400-e29b-41d4-a716-446655440000\"}"))),
         @ApiResponse(responseCode = "404", description = "Observation with given UUID not found")
     })
+    @Transactional
     public ResponseEntity<Map<String, String>> deleteObservation(
             @Parameter(description = "UUID of the observation to delete", required = true, example = "550e8400-e29b-41d4-a716-446655440000")
             @PathVariable UUID id) {
+        ObservationEntity observation = observationRepository.findById(id).orElse(null);
+        if (observation == null) {
+            return ResponseEntity.notFound().build();
+        }
+        conversationWriteService.lockForChildMutation(observation.getConversationId());
         if (!observationRepository.existsById(id)) {
             return ResponseEntity.notFound().build();
         }

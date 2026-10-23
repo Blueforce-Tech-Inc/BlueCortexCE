@@ -231,6 +231,28 @@ class TestTypeConversionHelpers:
         assert obs.project_path == "/tmp/phase3-acceptance-test"
         assert obs.content == "Testing hook mode compatibility"
 
+    def test_observation_identity_fields_round_trip(self):
+        conversation = Observation.from_wire({
+            "id": "conversation-observation",
+            "conversation_id": "72b3f2b2-7f52-44cf-bec4-56606442e57b",
+            "standalone_kind": None,
+            "platform_source": "codex",
+        })
+        assert conversation.conversation_id == "72b3f2b2-7f52-44cf-bec4-56606442e57b"
+        assert conversation.standalone_kind is None
+        assert conversation.to_dict()["conversation_id"] == conversation.conversation_id
+        assert conversation.to_dict()["standalone_kind"] is None
+
+        standalone = Observation.from_wire({
+            "id": "standalone-observation",
+            "conversation_id": None,
+            "standalone_kind": "manual",
+            "platform_source": "claude",
+        })
+        assert standalone.conversation_id is None
+        assert standalone.standalone_kind == "manual"
+        assert Observation.from_wire(standalone.to_dict()).standalone_kind == "manual"
+
     def test_observation_from_wire_parses_comma_separated_refined_from_ids(self):
         """Pin the shape the backend actually sends for refined_from_ids.
 

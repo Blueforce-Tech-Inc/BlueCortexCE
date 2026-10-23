@@ -62,7 +62,7 @@ public class LlmQualityScorer {
             return parseAnalysisResponse(response);
 
         } catch (Exception e) {
-            log.error("Failed to analyze quality with LLM: {}", e.getMessage());
+            log.error("Failed to analyze quality with LLM: {}", e.getClass().getSimpleName());
             return LlmQualityAnalysis.defaultAnalysis();
         }
     }
@@ -106,7 +106,7 @@ public class LlmQualityScorer {
             return FeedbackType.PARTIAL;
 
         } catch (Exception e) {
-            log.error("Failed to infer feedback with LLM: {}", e.getMessage());
+            log.error("Failed to infer feedback with LLM: {}", e.getClass().getSimpleName());
             return null;
         }
     }
@@ -145,7 +145,7 @@ public class LlmQualityScorer {
             return new LlmQualityAnalysis(score, feedbackType, reasoning);
 
         } catch (Exception e) {
-            log.warn("Failed to parse LLM response: {}", e.getMessage());
+            log.warn("Failed to parse LLM quality response: {}", e.getClass().getSimpleName());
             return LlmQualityAnalysis.defaultAnalysis();
         }
     }

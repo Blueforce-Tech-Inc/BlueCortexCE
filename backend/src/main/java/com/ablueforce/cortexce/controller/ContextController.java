@@ -127,7 +127,8 @@ public class ContextController {
                         ));
                     }
                 } catch (Exception e) {
-                    log.error("Failed to generate context for project {}: {}", projectPath, e.getMessage());
+                    log.error("Failed to generate context for project {}: {}",
+                        projectPath, e.getClass().getSimpleName());
                     if (contextBuilder.length() > 0) {
                         contextBuilder.append("\n---\n\n");
                     }
@@ -153,7 +154,7 @@ public class ContextController {
 
             return ResponseEntity.ok(new ContextInjectResponse(finalContext, updateFiles));
         } catch (Exception e) {
-            log.error("Failed to inject context: {}", e.getMessage());
+            log.error("Failed to inject context: {}", e.getClass().getSimpleName());
             return ResponseEntity.status(500).body(null);
         }
     }
@@ -292,7 +293,8 @@ public class ContextController {
             String context = contextService.generateContext(projectPath);
             return ResponseEntity.ok(new GenerateContextResponse(context));
         } catch (Exception e) {
-            log.error("Failed to generate context for project {}: {}", projectPath, e.getMessage());
+            log.error("Failed to generate context for project {}: {}",
+                projectPath, e.getClass().getSimpleName());
             return ResponseEntity.status(500).body(null);
         }
     }
@@ -409,7 +411,8 @@ public class ContextController {
                     platformSource
             );
         } catch (Exception e) {
-            log.error("Failed to generate context preview for project {}: {}", project, e.getMessage());
+            log.error("Failed to generate context preview for project {}: {}",
+                project, e.getClass().getSimpleName());
             return "Error: Failed to generate context preview";
         }
     }
@@ -451,7 +454,8 @@ public class ContextController {
                     priorMessages.assistantMessage()
             ));
         } catch (Exception e) {
-            log.error("Failed to get prior messages for project {}: {}", project, e.getMessage());
+            log.error("Failed to get prior messages for project {}: {}",
+                project, e.getClass().getSimpleName());
             return ResponseEntity.ok(new PriorMessagesResponse("", ""));
         }
     }
@@ -544,7 +548,7 @@ public class ContextController {
             return Map.of("context", context.toString().trim(), "count", observations.size());
 
         } catch (Exception e) {
-            log.warn("Semantic context query failed: {}", e.getMessage());
+            log.warn("Semantic context query failed: {}", e.getClass().getSimpleName());
             return Map.of("context", "", "count", 0);
         }
     }

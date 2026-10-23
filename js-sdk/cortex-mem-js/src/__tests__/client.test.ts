@@ -197,26 +197,32 @@ describe('CortexMemClient', () => {
   });
 
   describe('updateSessionUserId', () => {
-    it('should call PATCH /api/session/{id}/user', async () => {
+    it('should call PATCH /api/session/user with a platform-scoped identity', async () => {
       fetchMock = mockFetch(200, { status: 'ok', sessionId: 'sess-1', userId: 'alice' });
       client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
 
       const result = await client.updateSessionUserId('sess-1', 'alice');
       expect(result.userId).toBe('alice');
       const [url, opts] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(url).toContain('/api/session/sess-1/user');
+      const parsedUrl = new URL(url);
+      expect(parsedUrl.pathname).toBe('/api/session/user');
+      expect(parsedUrl.searchParams.get('contentSessionId')).toBe('sess-1');
+      expect(parsedUrl.searchParams.get('platformSource')).toBe('claude');
       expect(opts.method).toBe('PATCH');
       const body = JSON.parse(opts.body);
       expect(body.user_id).toBe('alice');
     });
 
-    it('should URL-encode sessionId', async () => {
-      fetchMock = mockFetch(200, { status: 'ok', sessionId: 's/1', userId: 'alice' });
+    it('should URL-encode opaque sessionId and accept an explicit platform', async () => {
+      fetchMock = mockFetch(200, { status: 'ok', sessionId: 's/?#% 雪', userId: 'alice' });
       client = new CortexMemClient({ fetch: fetchMock as unknown as typeof globalThis.fetch });
 
-      await client.updateSessionUserId('s/1', 'alice');
+      await client.updateSessionUserId('s/?#% 雪', 'alice', 'codex');
       const [url] = (fetchMock as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(url).toContain('/api/session/s%2F1/user');
+      const parsedUrl = new URL(url);
+      expect(parsedUrl.pathname).toBe('/api/session/user');
+      expect(parsedUrl.searchParams.get('contentSessionId')).toBe('s/?#% 雪');
+      expect(parsedUrl.searchParams.get('platformSource')).toBe('codex');
     });
 
     it('should throw on missing userId', async () => {
@@ -1783,6 +1789,28 @@ describe('parseObservation', () => {
     expect(obs.feedbackType).toBe('SUCCESS');
     // Verify feedback_type wire → canonical field mapping
     expect(obs.feedbackType).toBe(raw.feedback_type);
+  });
+
+  it('preserves Conversation and standalone identity, including explicit nulls', () => {
+    const conversation = parseObservation({
+      id: 'conversation-observation',
+      conversation_id: '72b3f2b2-7f52-44cf-bec4-56606442e57b',
+      standalone_kind: null,
+      platform_source: 'codex',
+    });
+    expect(conversation.conversationId).toBe('72b3f2b2-7f52-44cf-bec4-56606442e57b');
+    expect(conversation.standaloneKind).toBeNull();
+    expect(conversation.platformSource).toBe('codex');
+
+    const standalone = parseObservation({
+      id: 'manual-observation',
+      conversation_id: null,
+      standalone_kind: 'manual',
+      platform_source: 'claude',
+    });
+    expect(standalone.conversationId).toBeNull();
+    expect(standalone.standaloneKind).toBe('manual');
+    expect(standalone.platformSource).toBe('claude');
   });
 
   // The fixture above uses real arrays, which is not what the backend sends.

@@ -88,9 +88,10 @@ public class ExtractionController {
                 null
             ));
         } catch (Exception e) {
-            log.error("Failed to get latest extraction for template {}: {}", templateName, e.getMessage());
+            log.error("Failed to get latest extraction for template {}: {}",
+                templateName, e.getClass().getSimpleName());
             return ResponseEntity.status(500).body(Map.of(
-                "error", "Failed to get extraction: " + e.getMessage()
+                "error", "Failed to get extraction"
             ));
         }
     }
@@ -140,9 +141,10 @@ public class ExtractionController {
 
             return ResponseEntity.ok(result);
         } catch (Exception e) {
-            log.error("Failed to get extraction history for template {}: {}", templateName, e.getMessage());
+            log.error("Failed to get extraction history for template {}: {}",
+                templateName, e.getClass().getSimpleName());
             return ResponseEntity.status(500).body(Map.of(
-                "error", "Failed to get extraction history: " + e.getMessage()
+                "error", "Failed to get extraction history"
             ));
         }
     }
@@ -178,9 +180,10 @@ public class ExtractionController {
                 "ok", projectPath, "Extraction completed"
             ));
         } catch (Exception e) {
-            log.error("Failed to trigger extraction for project {}: {}", projectPath, e.getMessage());
+            log.error("Failed to trigger extraction for project {}: {}",
+                projectPath, e.getClass().getSimpleName());
             return ResponseEntity.status(500).body(Map.of(
-                "error", "Failed to trigger extraction: " + e.getMessage()
+                "error", "Failed to trigger extraction"
             ));
         }
     }

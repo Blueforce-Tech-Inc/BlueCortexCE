@@ -128,7 +128,7 @@ public class LlmService {
 
             return new LlmResponse(content, totalTokens);
         } catch (Exception e) {
-            log.error("LLM call failed: {}", e.getMessage());
+            log.error("LLM call failed: {}", e.getClass().getSimpleName());
             return LlmResponse.empty();
         }
     }
@@ -175,9 +175,10 @@ public class LlmService {
             // Re-throw config errors (e.g., "AI not configured")
             throw e;
         } catch (Exception e) {
-            String preview = response != null ? response.substring(0, Math.min(200, response.length())) : "null";
-            log.error("Structured LLM call failed. Raw response was: [{}]. Error: {}", preview, e.getMessage());
-            throw new IllegalStateException("Structured LLM call failed: " + e.getMessage(), e);
+            log.error("Structured LLM call failed: response_present={}, response_chars={}, error_type={}",
+                response != null, response == null ? 0 : response.length(), e.getClass().getSimpleName());
+            throw new IllegalStateException(
+                "Structured LLM call failed (" + e.getClass().getSimpleName() + ")");
         }
     }
 }

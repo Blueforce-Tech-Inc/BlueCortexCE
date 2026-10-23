@@ -7,6 +7,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.*;
 import org.hibernate.annotations.Array;
+import org.hibernate.annotations.Formula;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.slf4j.Logger;
@@ -261,6 +262,11 @@ public class ObservationEntity {
     @JsonIgnore
     private UUID memoryScopeId;
 
+    @Formula("(select ms.scope_type from mem_memory_scopes ms where ms.id = memory_scope_id)")
+    @JsonProperty("memory_scope_type")
+    @JsonInclude(JsonInclude.Include.ALWAYS)
+    private String memoryScopeType;
+
     // V20 identity accessors
 
     public UUID getConversationId() { return conversationId; }
@@ -271,6 +277,8 @@ public class ObservationEntity {
 
     public UUID getMemoryScopeId() { return memoryScopeId; }
     public void setMemoryScopeId(UUID memoryScopeId) { this.memoryScopeId = memoryScopeId; }
+
+    public String getMemoryScopeType() { return memoryScopeType; }
 
     // Getters and Setters for quality fields
 

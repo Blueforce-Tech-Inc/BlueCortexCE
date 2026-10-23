@@ -104,7 +104,7 @@ public class ExtractionStorageService {
      * @throws RuntimeException if DLQ storage fails (caller should handle)
      */
     @Transactional
-    public void storeDLQ(String projectPath, String templateName, String errorMsg) {
+    public void storeDLQ(String projectPath, String templateName, Throwable failure) {
         // A DLQ entry is a standalone observation in the project scope of the observation it
         // failed to summarise — the parent path, never a shared synthetic parent's path, since
         // one DLQ key legitimately spans several projects.
@@ -123,13 +123,14 @@ public class ExtractionStorageService {
         dlq.setTitle("DLQ: " + templateName);
         dlq.setContent("Extraction failed for template: " + templateName);
         dlq.setSource("dlq");
-        dlq.setExtractedData(Map.of("error", errorMsg, "template", templateName));
+        String errorType = failure == null ? "UnknownFailure" : failure.getClass().getSimpleName();
+        dlq.setExtractedData(Map.of("error", errorType, "template", templateName));
         dlq.setCreatedAt(Instant.now().atOffset(java.time.ZoneOffset.UTC));
         dlq.setCreatedAtEpoch(System.currentTimeMillis());
         dlq.setPromptNumber(0);
         dlq.setConcepts(List.of("dlq", templateName));
 
         observationRepository.save(dlq);
-        log.warn("Stored DLQ entry for template '{}': {}", templateName, errorMsg);
+        log.warn("Stored DLQ entry for template '{}' (error_type={})", templateName, errorType);
     }
 }

@@ -95,14 +95,16 @@ var wireCases = []wireCase{
 		method:   http.MethodPost,
 		full: func() (any, func(cortexmem.Client) error) {
 			return dto.SessionStartRequest{
-					SessionID:   "sess-1",
-					ProjectPath: "/proj",
-					UserID:      "user-1",
+					SessionID:      "sess-1",
+					ProjectPath:    "/proj",
+					UserID:         "user-1",
+					PlatformSource: "codex",
 				}, func(c cortexmem.Client) error {
 					_, err := c.StartSession(context.Background(), dto.SessionStartRequest{
-						SessionID:   "sess-1",
-						ProjectPath: "/proj",
-						UserID:      "user-1",
+						SessionID:      "sess-1",
+						ProjectPath:    "/proj",
+						UserID:         "user-1",
+						PlatformSource: "codex",
 					})
 					return err
 				}
@@ -119,7 +121,7 @@ var wireCases = []wireCase{
 					return err
 				}
 		},
-		fullKeys:    []string{"project_path", "session_id", "user_id"},
+		fullKeys:    []string{"platform_source", "project_path", "session_id", "user_id"},
 		minimalKeys: []string{"project_path", "session_id"},
 	},
 	{
@@ -129,24 +131,26 @@ var wireCases = []wireCase{
 		method:   http.MethodPost,
 		full: func() (any, func(cortexmem.Client) error) {
 			return dto.ObservationRequest{
-					SessionID:     "sess-1",
-					ProjectPath:   "/proj",
-					ToolName:      "Edit",
-					ToolInput:     map[string]any{"file": "main.go"},
-					ToolResponse:  map[string]any{"ok": true},
-					PromptNumber:  7,
-					Source:        "manual",
-					ExtractedData: map[string]any{"k": "v"},
+					SessionID:      "sess-1",
+					ProjectPath:    "/proj",
+					ToolName:       "Edit",
+					ToolInput:      map[string]any{"file": "main.go"},
+					ToolResponse:   map[string]any{"ok": true},
+					PromptNumber:   7,
+					Source:         "manual",
+					ExtractedData:  map[string]any{"k": "v"},
+					PlatformSource: "codex",
 				}, func(c cortexmem.Client) error {
 					return c.RecordObservation(context.Background(), dto.ObservationRequest{
-						SessionID:     "sess-1",
-						ProjectPath:   "/proj",
-						ToolName:      "Edit",
-						ToolInput:     map[string]any{"file": "main.go"},
-						ToolResponse:  map[string]any{"ok": true},
-						PromptNumber:  7,
-						Source:        "manual",
-						ExtractedData: map[string]any{"k": "v"},
+						SessionID:      "sess-1",
+						ProjectPath:    "/proj",
+						ToolName:       "Edit",
+						ToolInput:      map[string]any{"file": "main.go"},
+						ToolResponse:   map[string]any{"ok": true},
+						PromptNumber:   7,
+						Source:         "manual",
+						ExtractedData:  map[string]any{"k": "v"},
+						PlatformSource: "codex",
 					})
 				}
 		},
@@ -164,7 +168,7 @@ var wireCases = []wireCase{
 				}
 		},
 		fullKeys: []string{
-			"cwd", "extractedData", "prompt_number", "session_id", "source",
+			"cwd", "extractedData", "platform_source", "prompt_number", "session_id", "source",
 			"tool_input", "tool_name", "tool_response",
 		},
 		minimalKeys: []string{"cwd", "session_id", "tool_name"},
@@ -179,11 +183,13 @@ var wireCases = []wireCase{
 					SessionID:            "sess-1",
 					ProjectPath:          "/proj",
 					LastAssistantMessage: "done",
+					PlatformSource:       "codex",
 				}, func(c cortexmem.Client) error {
 					return c.RecordSessionEnd(context.Background(), dto.SessionEndRequest{
 						SessionID:            "sess-1",
 						ProjectPath:          "/proj",
 						LastAssistantMessage: "done",
+						PlatformSource:       "codex",
 					})
 				}
 		},
@@ -198,7 +204,7 @@ var wireCases = []wireCase{
 					})
 				}
 		},
-		fullKeys:    []string{"cwd", "last_assistant_message", "session_id"},
+		fullKeys:    []string{"cwd", "last_assistant_message", "platform_source", "session_id"},
 		minimalKeys: []string{"cwd", "session_id"},
 	},
 	{
@@ -208,16 +214,18 @@ var wireCases = []wireCase{
 		method:   http.MethodPost,
 		full: func() (any, func(cortexmem.Client) error) {
 			return dto.UserPromptRequest{
-					SessionID:    "sess-1",
-					PromptText:   "hello",
-					ProjectPath:  "/proj",
-					PromptNumber: 3,
+					SessionID:      "sess-1",
+					PromptText:     "hello",
+					ProjectPath:    "/proj",
+					PromptNumber:   3,
+					PlatformSource: "codex",
 				}, func(c cortexmem.Client) error {
 					return c.RecordUserPrompt(context.Background(), dto.UserPromptRequest{
-						SessionID:    "sess-1",
-						PromptText:   "hello",
-						ProjectPath:  "/proj",
-						PromptNumber: 3,
+						SessionID:      "sess-1",
+						PromptText:     "hello",
+						ProjectPath:    "/proj",
+						PromptNumber:   3,
+						PlatformSource: "codex",
 					})
 				}
 		},
@@ -235,7 +243,7 @@ var wireCases = []wireCase{
 				}
 		},
 		fullKeys: []string{
-			"cwd", "prompt_number", "prompt_text", "session_id",
+			"cwd", "platform_source", "prompt_number", "prompt_text", "session_id",
 		},
 		minimalKeys: []string{"cwd", "prompt_text", "session_id"},
 	},
@@ -453,9 +461,9 @@ var wireCases = []wireCase{
 	},
 	{
 		// Built inline in the client, not from a DTO.
-		name:     "PATCH /api/session/{id}/user",
-		endpoint: "/api/session/sess-1/user",
-		contract: "PATCH /api/session/{id}/user",
+		name:     "PATCH /api/session/user",
+		endpoint: "/api/session/user",
+		contract: "PATCH /api/session/user",
 		method:   http.MethodPatch,
 		full: func() (any, func(cortexmem.Client) error) {
 			return map[string]string{"user_id": "user-1"}, func(c cortexmem.Client) error {
@@ -601,7 +609,7 @@ func TestWireFormat_MinimalKeySet(t *testing.T) {
 // backend/src/main/java/com/ablueforce/cortexce/dto/ApiRequests.java.
 var backendRequestRecords = map[string]string{
 	"POST /api/session/start":      "SessionStartRequest",
-	"PATCH /api/session/{id}/user": "SessionUserUpdateRequest",
+	"PATCH /api/session/user":      "SessionUserUpdateRequest",
 	"POST /api/ingest/tool-use":    "ToolUseRequest",
 	"POST /api/ingest/session-end": "SessionEndRequest",
 	"POST /api/ingest/user-prompt": "UserPromptRequest",

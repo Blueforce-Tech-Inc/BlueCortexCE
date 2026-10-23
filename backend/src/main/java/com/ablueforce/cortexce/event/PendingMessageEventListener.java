@@ -3,6 +3,7 @@ package com.ablueforce.cortexce.event;
 import com.ablueforce.cortexce.entity.PendingMessageEntity;
 import com.ablueforce.cortexce.repository.PendingMessageRepository;
 import com.ablueforce.cortexce.service.AgentService;
+import com.ablueforce.cortexce.service.SummaryGenerationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.event.EventListener;
@@ -24,11 +25,14 @@ public class PendingMessageEventListener {
 
     private final AgentService agentService;
     private final PendingMessageRepository pendingMessageRepository;
+    private final SummaryGenerationService summaryGenerationService;
 
     public PendingMessageEventListener(AgentService agentService,
-                                       PendingMessageRepository pendingMessageRepository) {
+                                       PendingMessageRepository pendingMessageRepository,
+                                       SummaryGenerationService summaryGenerationService) {
         this.agentService = agentService;
         this.pendingMessageRepository = pendingMessageRepository;
+        this.summaryGenerationService = summaryGenerationService;
     }
 
     /**
@@ -44,14 +48,8 @@ public class PendingMessageEventListener {
                 agentService.processPendingMessage(event.getPendingMessageId());
                 log.info("Processed pending message: {}", event.getPendingMessageId());
             } else if ("summarize".equals(event.getMessageType())) {
-                // A summarize row is a durable job, not dead-letter fodder. The generic
-                // "unsupported type -> failed" branch below used to destroy these rows
-                // within one scheduler cycle, which made crash recovery impossible: a
-                // restarted worker would find no job and regenerate the summary (or let
-                // the conversation be deleted mid-flight). Recovery is owned by the
-                // summary job path; anything arriving here is only ever re-checked.
-                log.info("Summarize job observed by scheduler: {} (recovery handled by the summary job path)",
-                    event.getPendingMessageId());
+                summaryGenerationService.processSummaryJob(event.getPendingMessageId());
+                log.info("Processed durable summarize job: {}", event.getPendingMessageId());
             } else {
                 // Mark unsupported message types as failed (dead-letter)
                 log.warn("Unsupported pending message type: {}, marking as failed", event.getMessageType());
@@ -63,6 +61,11 @@ public class PendingMessageEventListener {
             }
         } catch (Exception e) {
             log.error("Failed to process PendingMessageEvent: {}", event, e);
+            if ("summarize".equals(event.getMessageType())) {
+                // SummaryGenerationService records retry state under the Conversation lock.
+                // Do not bypass that state machine with a blind status update here.
+                return;
+            }
             // Mark as failed to prevent infinite retry by the scheduled task
             // Use explicit null check instead of ifPresent lambda to ensure
             // exceptions from save() are contained within this catch block

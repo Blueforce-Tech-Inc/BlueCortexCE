@@ -342,14 +342,35 @@ export default function claudeMemJavaPlugin(api: OpenClawPluginApi): void {
   // ------------------------------------------------------------------
   const sessionIds = new Map<string, string>();
   const workspaceDirsBySessionKey = new Map<string, string>();
+  const lastAssistantMessagesBySessionKey = new Map<string, string>();
+  const pendingWritesBySessionKey = new Map<string, Promise<unknown>>();
+
+  function enqueueSessionWrite(sessionKey: string, write: () => Promise<unknown>): Promise<unknown> {
+    const previous = pendingWritesBySessionKey.get(sessionKey) || Promise.resolve();
+    const current = previous.catch(() => undefined).then(write);
+    pendingWritesBySessionKey.set(sessionKey, current);
+    void current.then(
+      () => {
+        if (pendingWritesBySessionKey.get(sessionKey) === current) {
+          pendingWritesBySessionKey.delete(sessionKey);
+        }
+      },
+      () => {
+        if (pendingWritesBySessionKey.get(sessionKey) === current) {
+          pendingWritesBySessionKey.delete(sessionKey);
+        }
+      }
+    );
+    return current;
+  }
 
   /**
    * Get or create content session ID for OpenClaw session
    */
-  function getContentSessionId(sessionKey?: string): string {
+  function getContentSessionId(sessionKey?: string, hostSessionId?: string): string {
     const key = sessionKey || "default";
     if (!sessionIds.has(key)) {
-      sessionIds.set(key, `openclaw-${key}-${Date.now()}`);
+      sessionIds.set(key, `openclaw-${hostSessionId || key}`);
     }
     return sessionIds.get(key)!;
   }
@@ -358,14 +379,15 @@ export default function claudeMemJavaPlugin(api: OpenClawPluginApi): void {
   // Event: session_start — init claude-mem session
   // Java API: POST /api/session/start
   // ------------------------------------------------------------------
-  api.on("session_start", async (_event, ctx) => {
-    const contentSessionId = getContentSessionId(ctx.sessionKey);
+  api.on("session_start", async (event, ctx) => {
+    const contentSessionId = getContentSessionId(ctx.sessionKey, event.resumedFrom || event.sessionId);
 
     // Java backend uses /api/session/start (not /api/sessions/init)
     await workerPost(workerPort, "/api/session/start", {
       session_id: contentSessionId,
       project_path: projectName,
       cwd: ctx.workspaceDir || "",
+      platform_source: "openclaw",
     }, api.logger);
 
     api.logger.info(`[claude-mem] Session initialized: ${contentSessionId}`);
@@ -383,6 +405,7 @@ export default function claudeMemJavaPlugin(api: OpenClawPluginApi): void {
       session_id: contentSessionId,
       project_path: projectName,
       cwd: ctx.workspaceDir || "",
+      platform_source: "openclaw",
     }, api.logger);
 
     api.logger.info(`[claude-mem] Session re-initialized after compaction: ${contentSessionId}`);
@@ -450,7 +473,7 @@ export default function claudeMemJavaPlugin(api: OpenClawPluginApi): void {
   // Java API: POST /api/ingest/tool-use
   // Note: No longer syncing MEMORY.md — context is injected via before_prompt_build
   // ------------------------------------------------------------------
-  api.on("tool_result_persist", (event, ctx) => {
+  api.on("tool_result_persist", async (event, ctx) => {
     const toolName = event.toolName;
     if (!toolName || toolName.startsWith("memory_")) return;
 
@@ -470,13 +493,15 @@ export default function claudeMemJavaPlugin(api: OpenClawPluginApi): void {
 
     // Java backend uses /api/ingest/tool-use (not /api/sessions/observations)
     // tool_input must be JSON string (not object) for Java backend
-    workerPostFireAndForget(workerPort, "/api/ingest/tool-use", {
+    const sessionKey = ctx.sessionKey || "default";
+    await enqueueSessionWrite(sessionKey, () => workerPost(workerPort, "/api/ingest/tool-use", {
       session_id: contentSessionId,
       tool_name: toolName,
       tool_input: JSON.stringify(event.params || {}),
       tool_response: toolResponseText,
       cwd: ctx.workspaceDir || "",
-    }, api.logger);
+      platform_source: "openclaw",
+    }, api.logger));
   });
 
   // ------------------------------------------------------------------
@@ -484,8 +509,7 @@ export default function claudeMemJavaPlugin(api: OpenClawPluginApi): void {
   // Java API: POST /api/ingest/session-end (combines summarize + complete)
   // ------------------------------------------------------------------
   api.on("agent_end", async (event, ctx) => {
-    const contentSessionId = getContentSessionId(ctx.sessionKey);
-
+    const key = ctx.sessionKey || "default";
     // Extract last assistant message for summarization
     let lastAssistantMessage = "";
     if (Array.isArray(event.messages)) {
@@ -505,20 +529,25 @@ export default function claudeMemJavaPlugin(api: OpenClawPluginApi): void {
       }
     }
 
-    // Java backend uses /api/ingest/session-end (combines summarize + complete)
-    workerPostFireAndForget(workerPort, "/api/ingest/session-end", {
-      session_id: contentSessionId,
-      last_assistant_message: lastAssistantMessage,
-    }, api.logger);
+    lastAssistantMessagesBySessionKey.set(key, lastAssistantMessage);
   });
 
   // ------------------------------------------------------------------
-  // Event: session_end — clean up session tracking
+  // Event: session_end — finalize only after the host closes the conversation
   // ------------------------------------------------------------------
-  api.on("session_end", async (_event, ctx) => {
+  api.on("session_end", async (event, ctx) => {
     const key = ctx.sessionKey || "default";
+    const contentSessionId = getContentSessionId(ctx.sessionKey, event.sessionId);
+    const lastAssistantMessage = lastAssistantMessagesBySessionKey.get(key) || "";
+
+    await enqueueSessionWrite(key, () => workerPost(workerPort, "/api/ingest/session-end", {
+      session_id: contentSessionId,
+      last_assistant_message: lastAssistantMessage,
+      platform_source: "openclaw",
+    }, api.logger));
     sessionIds.delete(key);
     workspaceDirsBySessionKey.delete(key);
+    lastAssistantMessagesBySessionKey.delete(key);
   });
 
   // ------------------------------------------------------------------
@@ -528,6 +557,7 @@ export default function claudeMemJavaPlugin(api: OpenClawPluginApi): void {
   api.on("gateway_start", async () => {
     workspaceDirsBySessionKey.clear();
     sessionIds.clear();
+    lastAssistantMessagesBySessionKey.clear();
     circuitReset();
     contextCache.clear();
     api.logger.info("[claude-mem] Gateway started — session tracking, circuit breaker, and context cache reset");

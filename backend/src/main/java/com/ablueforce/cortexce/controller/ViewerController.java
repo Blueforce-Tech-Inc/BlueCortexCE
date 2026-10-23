@@ -6,6 +6,7 @@ import com.ablueforce.cortexce.config.ModeConfig.Mode;
 import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.ablueforce.cortexce.entity.SessionEntity;
 import com.ablueforce.cortexce.identity.ExternalSessionRef;
+import com.ablueforce.cortexce.identity.MemoryScopeKey;
 import com.ablueforce.cortexce.service.SessionManagementService;
 import com.ablueforce.cortexce.entity.SummaryEntity;
 import com.ablueforce.cortexce.entity.UserPromptEntity;
@@ -126,9 +127,20 @@ public class ViewerController {
         int validatedLimit = Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE);
         int validatedOffset = Math.max(0, offset);
         try {
-            UUID convId = resolveConversationFilter(conversationId, platformSource, contentSessionId, standaloneKind);
+            boolean manualSentinel = MemoryScopeKey.LEGACY_MANUAL_PROJECT_PATH.equals(contentSessionId);
+            if (manualSentinel && standaloneKind != null && !standaloneKind.isBlank()
+                && !"manual".equals(standaloneKind)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "manual-memories requires standaloneKind=manual");
+            }
+            String effectiveStandaloneKind = manualSentinel ? "manual" : standaloneKind;
+            boolean includeManualDefault = manualSentinel
+                && (project == null || project.isBlank()
+                    || MemoryScopeKey.LEGACY_MANUAL_PROJECT_PATH.equals(project));
+            UUID convId = resolveConversationFilter(conversationId, platformSource, contentSessionId,
+                effectiveStandaloneKind);
             Page<ObservationEntity> result = observationRepository.findAllPaged(project, platformSource,
-                convId, contentSessionId, standaloneKind,
+                convId, contentSessionId, effectiveStandaloneKind, includeManualDefault,
                 new OffsetPageRequest(0, validatedLimit, validatedOffset,
                     Sort.by(Sort.Direction.DESC, "createdAt")));
             return ResponseEntity.ok(PagedResponse.of(result));
@@ -170,7 +182,7 @@ public class ViewerController {
             return id;
         }
         if (contentSessionId != null && !contentSessionId.isBlank()
-            && !"manual-memories".equals(contentSessionId)) {
+            && !MemoryScopeKey.LEGACY_MANUAL_PROJECT_PATH.equals(contentSessionId)) {
             return sessionManagementService.find(ExternalSessionRef.of(platformSource, contentSessionId))
                 .map(SessionEntity::getId)
                 // No such conversation: answer with an empty set rather than every row.
@@ -203,8 +215,9 @@ public class ViewerController {
     ) {
         int validatedLimit = Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE);
         int validatedOffset = Math.max(0, offset);
+        UUID ownerConversationId = resolveOwnerConversationFilter(conversationId, platformSource, contentSessionId);
         Page<SummaryEntity> result = summaryRepository.findAllPaged(project, platformSource,
-            parseConversationId(conversationId), contentSessionId,
+            ownerConversationId, null,
             new OffsetPageRequest(0, validatedLimit, validatedOffset,
                 Sort.by(Sort.Direction.DESC, "createdAt")));
         return ResponseEntity.ok(PagedResponse.of(result));
@@ -234,8 +247,9 @@ public class ViewerController {
     ) {
         int validatedLimit = Math.min(Math.max(1, limit), Constants.MAX_PAGE_SIZE);
         int validatedOffset = Math.max(0, offset);
+        UUID ownerConversationId = resolveOwnerConversationFilter(conversationId, platformSource, contentSessionId);
         Page<UserPromptEntity> result = userPromptRepository.findAllPaged(project, platformSource,
-            parseConversationId(conversationId), contentSessionId,
+            ownerConversationId, null,
             new OffsetPageRequest(0, validatedLimit, validatedOffset,
                 Sort.by(Sort.Direction.DESC, "createdAt")));
         return ResponseEntity.ok(PagedResponse.of(result));
@@ -380,9 +394,8 @@ public class ViewerController {
             try {
                 queryVector = embeddingService.embed(query);
             } catch (Exception e) {
-                // P0: Log embedding failure at WARN level for debugging
-                log.warn("Embedding failed for query: {}, falling back to text search: {}",
-                    query.substring(0, Math.min(50, query.length())), e.getMessage());
+                log.warn("Embedding failed for Viewer search, falling back to text search: {}",
+                    e.getClass().getSimpleName());
             }
         }
 
@@ -398,7 +411,7 @@ public class ViewerController {
                 result.observations().size()
             ));
         } catch (Exception e) {
-            log.error("Search failed for project {}: {}", project, e.getMessage());
+            log.error("Search failed for project {}: {}", project, e.getClass().getSimpleName());
             return ResponseEntity.status(500).body(new com.ablueforce.cortexce.dto.ApiResponses.SearchResponse(
                 List.of(),
                 null,
@@ -702,9 +715,9 @@ public class ViewerController {
 
             return ResponseEntity.ok(timeline);
         } catch (Exception e) {
-            log.error("Timeline query failed for project {}: {}", project, e.getMessage());
+            log.error("Timeline query failed for project {}: {}", project, e.getClass().getSimpleName());
             return ResponseEntity.status(500).body(Map.of(
-                "error", "Timeline query failed: " + e.getMessage()
+                "error", "Timeline query failed"
             ));
         }
     }
@@ -802,7 +815,7 @@ public class ViewerController {
         // platforms sharing one external id in a single request. Legacy contentSessionIds is
         // still accepted and means "the Claude platform".
         Object refsObj = request.get("sessionRefs");
-        if (refsObj instanceof List<?> refsList && !refsList.isEmpty()) {
+        if (refsObj instanceof List<?> refsList) {
             List<Map<String, Object>> out = new ArrayList<>();
             for (Object entry : refsList) {
                 if (!(entry instanceof Map<?, ?> ref)) continue;
@@ -862,6 +875,37 @@ public class ViewerController {
 
     private static UUID parseConversationId(String raw) {
         return raw == null || raw.isBlank() ? null : UUID.fromString(raw);
+    }
+
+    /**
+     * Resolve the owner filter before querying Summary/Prompt rows. Once external IDs are
+     * composite identities, those repositories must never filter a child table by the bare
+     * content ID. A missing external identity resolves to the zero UUID so the endpoint
+     * returns an empty page rather than accidentally listing another platform's rows.
+     */
+    private UUID resolveOwnerConversationFilter(String conversationId, String platformSource,
+                                                String contentSessionId) {
+        UUID explicit = parseConversationId(conversationId);
+        if (explicit != null) {
+            if (contentSessionId != null && !contentSessionId.isBlank()) {
+                Optional<SessionEntity> byExternal = sessionManagementService.find(
+                    ExternalSessionRef.of(platformSource, contentSessionId));
+                if (byExternal.isEmpty() || !explicit.equals(byExternal.get().getId())) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "conversationId does not match contentSessionId/platformSource");
+                }
+            }
+            return explicit;
+        }
+        if (contentSessionId == null || contentSessionId.isBlank()) {
+            return null;
+        }
+        if (MemoryScopeKey.LEGACY_MANUAL_PROJECT_PATH.equals(contentSessionId)) {
+            return new UUID(0, 0);
+        }
+        return sessionManagementService.find(ExternalSessionRef.of(platformSource, contentSessionId))
+            .map(SessionEntity::getId)
+            .orElse(new UUID(0, 0));
     }
 
     /**

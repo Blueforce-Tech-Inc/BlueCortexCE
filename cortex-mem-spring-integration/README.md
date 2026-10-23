@@ -529,6 +529,10 @@ names suggest:
 - **Naming.** Record components are annotated with `@JsonProperty` where the wire name
   differs from the Java name: `content_session_id` → `sessionId`, `project` →
   `projectPath`, `extractedData` is camelCase, and most others are snake_case.
+- **Conversation identity.** Session-start, tool-use, session-end, and user-prompt
+  requests accept optional `platform_source`; omission preserves the Claude default.
+  Session-user updates send `contentSessionId` and `platformSource` as query parameters
+  to `/api/session/user`, keeping opaque external IDs out of URL paths.
 
 The four JSONB list columns decode identically in all four SDKs — Go, Python, JS and Java
 all hand you a real `List<String>`, whichever shape the wire used. `refinedFromIds` is the
@@ -808,7 +812,7 @@ The client talks to these Cortex CE endpoints:
 | Client Method | Backend Endpoint | V14 | Phase 3 |
 |---------------|-----------------|-----|---------|
 | `startSession()` | `POST /api/session/start` | | ✅ userId |
-| `updateSessionUserId()` | `PATCH /api/session/{sessionId}/user` | | ✅ NEW |
+| `updateSessionUserId()` | `PATCH /api/session/user?contentSessionId=...&platformSource=...` | | ✅ NEW |
 | `recordObservation()` | `POST /api/ingest/tool-use` | ⚠️ source, extractedData — accepted but **not persisted** by that endpoint | |
 | `recordSessionEnd()` | `POST /api/ingest/session-end` | | |
 | `recordUserPrompt()` | `POST /api/ingest/user-prompt` | | |

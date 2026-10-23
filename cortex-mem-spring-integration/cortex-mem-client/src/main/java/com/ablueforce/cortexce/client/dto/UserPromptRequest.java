@@ -7,8 +7,13 @@ public record UserPromptRequest(
     String sessionId,
     String projectPath,
     String promptText,
-    Integer promptNumber
+    Integer promptNumber,
+    String platformSource
 ) {
+    public UserPromptRequest(String sessionId, String projectPath, String promptText, Integer promptNumber) {
+        this(sessionId, projectPath, promptText, promptNumber, null);
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -18,14 +23,16 @@ public record UserPromptRequest(
         private String projectPath;
         private String promptText;
         private Integer promptNumber;
+        private String platformSource;
 
         public Builder sessionId(String sessionId) { this.sessionId = sessionId; return this; }
         public Builder projectPath(String projectPath) { this.projectPath = projectPath; return this; }
         public Builder promptText(String promptText) { this.promptText = promptText; return this; }
         public Builder promptNumber(Integer promptNumber) { this.promptNumber = promptNumber; return this; }
+        public Builder platformSource(String platformSource) { this.platformSource = platformSource; return this; }
 
         public UserPromptRequest build() {
-            return new UserPromptRequest(sessionId, projectPath, promptText, promptNumber);
+            return new UserPromptRequest(sessionId, projectPath, promptText, promptNumber, platformSource);
         }
     }
 
@@ -42,6 +49,9 @@ public record UserPromptRequest(
         }
         if (promptNumber != null) {
             map.put("prompt_number", promptNumber);
+        }
+        if (platformSource != null) {
+            map.put("platform_source", platformSource);
         }
         return map;
     }
