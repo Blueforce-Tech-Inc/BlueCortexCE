@@ -4,6 +4,7 @@ import com.ablueforce.cortexce.config.Constants;
 import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.ablueforce.cortexce.entity.SessionEntity;
 import com.ablueforce.cortexce.entity.SummaryEntity;
+import com.ablueforce.cortexce.identity.MemoryScopeKey;
 import com.ablueforce.cortexce.repository.ObservationRepository;
 import com.ablueforce.cortexce.repository.SessionRepository;
 import com.ablueforce.cortexce.service.MemoryScopeService;
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -198,13 +200,30 @@ public class ClaudeMemMcpTools {
             .filter(id -> id != null)
             .collect(Collectors.toList());
 
-        List<ObservationEntity> observations = observationRepository.findAllById(uuids);
+        if (uuids.isEmpty()) {
+            response.put("observations", List.of());
+            response.put("count", 0);
+            return response;
+        }
 
-        // Apply project filter if specified
+        List<ObservationEntity> observations;
         if (project != null && !project.isBlank()) {
-            observations = observations.stream()
-                .filter(o -> project.equals(o.getProjectPath()))
-                .collect(Collectors.toList());
+            List<UUID> scopeIds = new ArrayList<>();
+            UUID projectScopeId = memoryScopeService.findProjectScope(project);
+            if (projectScopeId != null) {
+                scopeIds.add(projectScopeId);
+            }
+            if (MemoryScopeKey.LEGACY_MANUAL_PROJECT_PATH.equals(project)) {
+                UUID manualDefaultScopeId = memoryScopeService.find(MemoryScopeKey.manualDefault());
+                if (manualDefaultScopeId != null && !scopeIds.contains(manualDefaultScopeId)) {
+                    scopeIds.add(manualDefaultScopeId);
+                }
+            }
+            observations = scopeIds.isEmpty()
+                ? List.of()
+                : observationRepository.findAllByIdInAndMemoryScopeIdIn(uuids, scopeIds);
+        } else {
+            observations = observationRepository.findAllById(uuids);
         }
 
         // Apply ordering if specified. Match the same case-insensitive two-value

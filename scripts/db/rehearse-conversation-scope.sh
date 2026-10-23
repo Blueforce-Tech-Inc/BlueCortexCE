@@ -11,29 +11,35 @@
 #   4. Re-running V20 on the already-migrated database is rejected by the baseline
 #      guard rather than half-applied.
 #
-# The script never touches a production database: it refuses to run unless the target
-# database name ends with a rehearsal suffix, and it drops that database each cycle.
+# Point this only at a disposable PostgreSQL instance. The script refuses an existing
+# target database, creates the target itself, and only drops/recreates that database
+# after it has successfully created it during this run.
 #
 # Usage:
 #   scripts/db/rehearse-conversation-scope.sh \
-#       --container memscope-v20 --database v20 --migration-dir backend/src/main/resources/db/migration
+#       --container memscope-v20 --database v20_review_20261023_rehearsal --migration-dir backend/src/main/resources/db/migration
+#   scripts/db/rehearse-conversation-scope.sh \
+#       --container memscope-v20 --database v20_scale_rehearsal --scale-observations 100000
 #
 # Exit code is 0 only when every expectation holds.
 
 set -uo pipefail
+export LC_ALL=C
 
 CONTAINER="${CONTAINER:-memscope-v20}"
-DATABASE="${DATABASE:-v20}"
+DATABASE="${DATABASE:-v20_rehearsal_$(date +%s)_$$}"
 MIGRATION_DIR="${MIGRATION_DIR:-backend/src/main/resources/db/migration}"
 BASE_FIXTURE="${BASE_FIXTURE:-scripts/db/conversation-scope-fixture.sql}"
 CONFLICT_FIXTURE="${CONFLICT_FIXTURE:-scripts/db/conversation-scope-conflict-fixture.sql}"
 PGUSER="${PGUSER:-postgres}"
+SCALE_OBSERVATIONS=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --container) CONTAINER="$2"; shift 2 ;;
     --database)  DATABASE="$2"; shift 2 ;;
     --migration-dir) MIGRATION_DIR="$2"; shift 2 ;;
+    --scale-observations) SCALE_OBSERVATIONS="$2"; shift 2 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -46,6 +52,46 @@ case "$DATABASE" in
     exit 2
     ;;
 esac
+case "$DATABASE" in
+  ''|*[!a-zA-Z0-9_]*)
+    echo "REFUSING: database names may contain only ASCII letters, digits, and underscores." >&2
+    exit 2
+    ;;
+esac
+if [ "${#DATABASE}" -gt 63 ]; then
+  echo "REFUSING: database names must be at most 63 ASCII characters." >&2
+  exit 2
+fi
+
+case "$SCALE_OBSERVATIONS" in
+  ''|*[!0-9]*) echo "REFUSING: --scale-observations must be a non-negative integer." >&2; exit 2 ;;
+esac
+if [ "$SCALE_OBSERVATIONS" -gt 1000000 ]; then
+  echo "REFUSING: --scale-observations is capped at 1000000." >&2
+  exit 2
+fi
+if [ "$SCALE_OBSERVATIONS" -gt 0 ]; then
+  case "$DATABASE" in
+    *_rehearsal) ;;
+    *) echo "REFUSING: scale runs require a database name ending in _rehearsal." >&2; exit 2 ;;
+  esac
+fi
+
+admin_psql() {
+  docker exec -i "$CONTAINER" psql -U "$PGUSER" -d postgres -v "database=$DATABASE" "$@"
+}
+
+if ! EXISTS=$(admin_psql -X -tA -f - <<'SQL'
+SELECT 1 FROM pg_database WHERE datname = :'database';
+SQL
+); then
+  echo "REFUSING: could not verify whether target database '$DATABASE' already exists." >&2
+  exit 2
+fi
+if [ "$EXISTS" = "1" ]; then
+  echo "REFUSING: target database '$DATABASE' already exists; choose a new disposable name." >&2
+  exit 2
+fi
 
 PASS=0
 FAIL=0
@@ -57,9 +103,23 @@ info() { printf '\n== %s\n' "$1"; }
 psql_db() { docker exec -i "$CONTAINER" psql -U "$PGUSER" -d "$DATABASE" "$@"; }
 scalar()  { psql_db -X -tA -c "$1" 2>/dev/null | tr -d '[:space:]'; }
 
+DATABASE_CREATED=0
 recreate() {
-  docker exec "$CONTAINER" psql -U "$PGUSER" -d postgres -q \
-    -c "DROP DATABASE IF EXISTS $DATABASE" -c "CREATE DATABASE $DATABASE" >/dev/null 2>&1
+  if [ "$DATABASE_CREATED" -eq 0 ]; then
+    if ! admin_psql -q -f - >/dev/null 2>&1 <<'SQL'
+CREATE DATABASE :"database";
+SQL
+    then
+      return 1
+    fi
+    DATABASE_CREATED=1
+    return 0
+  fi
+
+  admin_psql -q -f - >/dev/null 2>&1 <<'SQL'
+DROP DATABASE :"database";
+CREATE DATABASE :"database";
+SQL
 }
 
 apply_pre_v20() {
@@ -83,7 +143,10 @@ apply_v20() {
 }
 
 info "1. V1-V19 replay from empty"
-recreate
+if ! recreate; then
+  echo "failed creating target database '$DATABASE'" >&2
+  exit 2
+fi
 if apply_pre_v20; then ok "V1-V19 applied"; else bad "V1-V19 applied"; fi
 [ "$(scalar "select count(*) from mem_sessions")" = "0" ] \
   && ok "baseline schema is empty" || bad "baseline schema is empty"
@@ -142,7 +205,8 @@ DUP=$(scalar "select count(*) from mem_sessions where content_session_id='dup-ex
 [ "$DUP" = "2" ] && ok "duplicate-id rows retained (2)" || bad "duplicate-id rows retained (got $DUP)"
 
 info "4. V20 refuses to run twice (baseline guard)"
-recreate; apply_pre_v20
+recreate || { echo "failed recreating owned rehearsal database '$DATABASE'" >&2; exit 2; }
+apply_pre_v20
 psql_db -q -v ON_ERROR_STOP=1 -f - < "$BASE_FIXTURE" >/dev/null 2>&1
 apply_v20 >/dev/null 2>&1
 OUT2=$(apply_v20)
@@ -154,7 +218,8 @@ else
 fi
 
 info "5. Conflict fixture aborts the migration and rolls back completely"
-recreate; apply_pre_v20
+recreate || { echo "failed recreating owned rehearsal database '$DATABASE'" >&2; exit 2; }
+apply_pre_v20
 psql_db -q -v ON_ERROR_STOP=1 -f - < "$BASE_FIXTURE" >/dev/null 2>&1
 psql_db -q -v ON_ERROR_STOP=1 -f - < "$CONFLICT_FIXTURE" >/dev/null 2>&1 \
   && ok "conflict fixture loaded" || bad "conflict fixture loaded"
@@ -185,6 +250,88 @@ AFTER_SRC=$(scalar "select count(*) from mem_observations where source='manual'"
                                   || bad "observation row count unchanged ($BEFORE_OBS -> $AFTER_OBS)"
 [ "$BEFORE_SRC" = "$AFTER_SRC" ] && ok "no source rewritten during the aborted run" \
                                   || bad "no source rewritten during the aborted run ($BEFORE_SRC -> $AFTER_SRC)"
+
+if [ "$SCALE_OBSERVATIONS" -gt 0 ]; then
+  info "6. V20 representative-volume rehearsal ($SCALE_OBSERVATIONS observations)"
+  recreate || { echo "failed recreating owned rehearsal database '$DATABASE'" >&2; exit 2; }
+  apply_pre_v20 || { bad "V1-V19 applied for scale rehearsal"; }
+  psql_db -q -v ON_ERROR_STOP=1 -f - < "$BASE_FIXTURE" >/dev/null 2>&1 \
+    && ok "base fixture loaded for scale rehearsal" || bad "base fixture loaded for scale rehearsal"
+
+  SCALE_SESSIONS=$(((SCALE_OBSERVATIONS + 9) / 10))
+  psql_db -v ON_ERROR_STOP=1 -v scale_observations="$SCALE_OBSERVATIONS" \
+    -v scale_sessions="$SCALE_SESSIONS" <<'SQL' >/dev/null \
+    && ok "representative rows seeded ($SCALE_SESSIONS sessions)" \
+    || bad "representative rows seeded"
+BEGIN;
+INSERT INTO mem_sessions (id, content_session_id, project_path, platform_source, status, started_at_epoch)
+SELECT md5('v20-scale-session-row-' || n)::uuid,
+       'v20-scale-session-' || lpad(n::text, 8, '0'),
+       '/scale/project-' || (n % 100)::text,
+       CASE WHEN n % 2 = 0 THEN 'claude' ELSE 'codex' END,
+       'completed', 1800000000000 + n
+FROM generate_series(1, :scale_sessions) AS rows(n);
+
+INSERT INTO mem_observations (content_session_id, project_path, platform_source, type, title,
+                              content, prompt_number, created_at_epoch, source)
+SELECT 'v20-scale-session-' || lpad((((n - 1) / 10) + 1)::text, 8, '0'),
+       '/scale/project-' || ((n / 1000) % 100)::text,
+       'claude', 'feature', 'Scale observation ' || n,
+       'Synthetic migration rehearsal observation ' || n,
+       (n % 30)::integer, 1800000000000 + n, 'tool_result'
+FROM generate_series(1, :scale_observations) AS rows(n);
+
+INSERT INTO mem_summaries (content_session_id, project_path, platform_source, request, completed,
+                           prompt_number, created_at_epoch)
+SELECT 'v20-scale-session-' || lpad(n::text, 8, '0'),
+       '/scale/project-' || (n % 100)::text, 'claude', 'scale request', 'scale completed',
+       1, 1800000000000 + n
+FROM generate_series(1, :scale_sessions) AS rows(n);
+
+INSERT INTO mem_user_prompts (content_session_id, project_path, platform_source, prompt_number,
+                              prompt_text, created_at_epoch)
+SELECT 'v20-scale-session-' || lpad(n::text, 8, '0'),
+       '/scale/project-' || (n % 100)::text, 'claude', 1,
+       'Synthetic prompt ' || n, 1800000000000 + n
+FROM generate_series(1, :scale_sessions) AS rows(n);
+
+INSERT INTO mem_pending_messages (id, session_db_id, content_session_id, message_type, status,
+                                  retry_count, created_at_epoch)
+SELECT md5('v20-scale-pending-' || n)::uuid,
+       md5('v20-scale-session-row-' || n)::uuid,
+       'v20-scale-session-' || lpad(n::text, 8, '0'),
+       'observation', 'processed', 0, 1800000000000 + n
+FROM generate_series(1, :scale_sessions) AS rows(n);
+COMMIT;
+SQL
+
+  BEFORE_OBS=$(scalar "select count(*) from mem_observations")
+  BEFORE_SIZE=$(scalar "select pg_database_size(current_database())")
+  STARTED_AT=$(scalar "select extract(epoch from clock_timestamp())")
+  OUT4=$(apply_v20)
+  FINISHED_AT=$(scalar "select extract(epoch from clock_timestamp())")
+  ELAPSED=$(scalar "select round(($FINISHED_AT::numeric - $STARTED_AT::numeric), 3)")
+  AFTER_SIZE=$(scalar "select pg_database_size(current_database())")
+  if echo "$OUT4" | grep -q 'V20 one-shot migration committed'; then
+    ok "V20 committed on representative volume in ${ELAPSED}s"
+  else
+    bad "V20 committed on representative volume"
+    echo "$OUT4" | tail -5
+  fi
+
+  AFTER_OBS=$(scalar "select count(*) from mem_observations")
+  SCOPED=$(scalar "select count(memory_scope_id) from mem_observations")
+  SCALE_SCOPED=$(scalar "select count(*) from mem_observations where title like 'Scale observation %' and memory_scope_id is not null and conversation_id is not null")
+  [ "$BEFORE_OBS" = "$AFTER_OBS" ] && [ "$AFTER_OBS" = "$SCOPED" ] \
+    && ok "all observations retained and scoped ($AFTER_OBS)" \
+    || bad "all observations retained and scoped (before=$BEFORE_OBS after=$AFTER_OBS scoped=$SCOPED)"
+  [ "$SCALE_SCOPED" = "$SCALE_OBSERVATIONS" ] \
+    && ok "all scale observations belong to Conversations ($SCALE_SCOPED)" \
+    || bad "all scale observations belong to Conversations ($SCALE_SCOPED/$SCALE_OBSERVATIONS)"
+  printf '  Database size: %.1f MiB before, %.1f MiB after migration\n' \
+    "$(awk "BEGIN {print $BEFORE_SIZE / 1048576}")" \
+    "$(awk "BEGIN {print $AFTER_SIZE / 1048576}")"
+fi
 
 printf '\n== RESULT: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

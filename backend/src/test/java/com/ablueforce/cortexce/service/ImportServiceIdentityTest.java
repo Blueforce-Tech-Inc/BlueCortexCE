@@ -39,13 +39,15 @@ class ImportServiceIdentityTest {
     @Mock private SessionManagementService sessionManagementService;
     @Mock private MemoryScopeService memoryScopeService;
     @Mock private ConversationWriteService conversationWriteService;
+    @Mock private StandaloneObservationImportLock standaloneObservationImportLock;
 
     private ImportService service;
 
     @BeforeEach
     void setUp() {
         service = new ImportService(sessionRepository, observationRepository, summaryRepository,
-            userPromptRepository, sessionManagementService, memoryScopeService, conversationWriteService);
+            userPromptRepository, sessionManagementService, memoryScopeService, conversationWriteService,
+            standaloneObservationImportLock);
     }
 
     @Test

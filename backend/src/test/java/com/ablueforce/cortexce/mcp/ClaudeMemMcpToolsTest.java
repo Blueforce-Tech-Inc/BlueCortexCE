@@ -6,6 +6,7 @@ import ch.qos.logback.core.read.ListAppender;
 import com.ablueforce.cortexce.config.Constants;
 import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.ablueforce.cortexce.entity.SummaryEntity;
+import com.ablueforce.cortexce.identity.MemoryScopeKey;
 import com.ablueforce.cortexce.repository.ObservationRepository;
 import com.ablueforce.cortexce.repository.SessionRepository;
 import com.ablueforce.cortexce.repository.SummaryRepository;
@@ -31,6 +32,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 /**
@@ -209,6 +211,63 @@ class ClaudeMemMcpToolsTest {
                     .as("repository order must be preserved when orderBy is not recognised")
                     .extracting(ObservationEntity::getCreatedAtEpoch)
                     .containsExactly(100L, 200L);
+        }
+    }
+
+    @Nested
+    @DisplayName("get_observations project ownership")
+    class ProjectScope {
+
+        @Test
+        void invalidObservationIdsReturnEmptyWithoutAnEmptyInQuery() {
+            Map<String, Object> result = tools.getObservations(
+                List.of("not-a-uuid"), "/scope/owner/path", null, null);
+
+            assertThat(result).containsEntry("observations", List.of())
+                .containsEntry("count", 0);
+            org.mockito.Mockito.verifyNoInteractions(observationRepository, memoryScopeService);
+        }
+
+        @Test
+        void filtersByScopeIdRatherThanDisplayProjectPath() {
+            UUID observationId = UUID.randomUUID();
+            UUID projectScopeId = UUID.randomUUID();
+            ObservationEntity observation = obs(100L);
+            observation.setId(observationId);
+            observation.setProjectPath("/stale/display/path");
+            when(memoryScopeService.findProjectScope("/scope/owner/path")).thenReturn(projectScopeId);
+            when(observationRepository.findAllByIdInAndMemoryScopeIdIn(
+                List.of(observationId), List.of(projectScopeId))).thenReturn(List.of(observation));
+
+            Map<String, Object> result = tools.getObservations(
+                List.of(observationId.toString()), "/scope/owner/path", null, null);
+
+            assertThat(result.get("observations")).isEqualTo(List.of(observation));
+            org.mockito.Mockito.verify(observationRepository).findAllByIdInAndMemoryScopeIdIn(
+                List.of(observationId), List.of(projectScopeId));
+            org.mockito.Mockito.verify(observationRepository, org.mockito.Mockito.never()).findAllById(any());
+        }
+
+        @Test
+        void legacyManualSentinelIncludesProjectAndManualDefaultScopes() {
+            UUID observationId = UUID.randomUUID();
+            UUID projectScopeId = UUID.randomUUID();
+            UUID manualDefaultScopeId = UUID.randomUUID();
+            ObservationEntity observation = obs(100L);
+            observation.setId(observationId);
+            when(memoryScopeService.findProjectScope(MemoryScopeKey.LEGACY_MANUAL_PROJECT_PATH))
+                .thenReturn(projectScopeId);
+            when(memoryScopeService.find(MemoryScopeKey.manualDefault())).thenReturn(manualDefaultScopeId);
+            when(observationRepository.findAllByIdInAndMemoryScopeIdIn(
+                eq(List.of(observationId)), eq(List.of(projectScopeId, manualDefaultScopeId))))
+                .thenReturn(List.of(observation));
+
+            Map<String, Object> result = tools.getObservations(
+                List.of(observationId.toString()), MemoryScopeKey.LEGACY_MANUAL_PROJECT_PATH, null, null);
+
+            assertThat(result.get("observations")).isEqualTo(List.of(observation));
+            org.mockito.Mockito.verify(observationRepository).findAllByIdInAndMemoryScopeIdIn(
+                List.of(observationId), List.of(projectScopeId, manualDefaultScopeId));
         }
     }
 

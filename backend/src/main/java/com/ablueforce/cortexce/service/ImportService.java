@@ -54,6 +54,7 @@ public class ImportService implements LogHelper {
     private final SessionManagementService sessionManagementService;
     private final MemoryScopeService memoryScopeService;
     private final ConversationWriteService conversationWriteService;
+    private final StandaloneObservationImportLock standaloneObservationImportLock;
 
     public ImportService(SessionRepository sessionRepository,
                         ObservationRepository observationRepository,
@@ -61,7 +62,8 @@ public class ImportService implements LogHelper {
                         UserPromptRepository userPromptRepository,
                         SessionManagementService sessionManagementService,
                         MemoryScopeService memoryScopeService,
-                        ConversationWriteService conversationWriteService) {
+                        ConversationWriteService conversationWriteService,
+                        StandaloneObservationImportLock standaloneObservationImportLock) {
         this.sessionRepository = sessionRepository;
         this.observationRepository = observationRepository;
         this.summaryRepository = summaryRepository;
@@ -69,6 +71,7 @@ public class ImportService implements LogHelper {
         this.sessionManagementService = sessionManagementService;
         this.memoryScopeService = memoryScopeService;
         this.conversationWriteService = conversationWriteService;
+        this.standaloneObservationImportLock = standaloneObservationImportLock;
     }
 
     /**
@@ -235,7 +238,24 @@ public class ImportService implements LogHelper {
 
     private record ObservationImportKey(UUID conversationId, UUID memoryScopeId, String standaloneKind,
                                         String platformSource, String correlationKey, String title,
-                                        long createdAtEpoch) {}
+                                        long createdAtEpoch) {
+        String advisoryLockKey() {
+            if (conversationId != null || memoryScopeId == null || standaloneKind == null) {
+                throw new IllegalStateException("advisory lock requested for a non-standalone import key");
+            }
+            return "standalone-observation-import-v1"
+                + encode(memoryScopeId.toString())
+                + encode(standaloneKind)
+                + encode(platformSource)
+                + encode(correlationKey)
+                + encode(title)
+                + encode(Long.toString(createdAtEpoch));
+        }
+
+        private static String encode(String value) {
+            return value.length() + ":" + value;
+        }
+    }
 
     private record PromptImportKey(UUID conversationId, Integer promptNumber) {}
 
@@ -352,6 +372,9 @@ public class ImportService implements LogHelper {
             } catch (IllegalArgumentException e) {
                 return ImportResult.error(e.getMessage());
             }
+            ObservationImportKey importKey = standaloneObservationImportKey(
+                memoryScopeId, ref, data.standaloneKind(), data.title(), createdAtEpoch);
+            standaloneObservationImportLock.lock(List.of(importKey.advisoryLockKey()));
         } else {
             try {
                 parent = resolveImportParent(ref.contentSessionId(), ref.platformSource());
@@ -397,12 +420,15 @@ public class ImportService implements LogHelper {
 
         Map<ExternalSessionRef, SessionEntity> parentByRef = new HashMap<>();
         Map<ObservationImportData, UUID> standaloneScopeByData = new IdentityHashMap<>();
+        Map<ObservationImportData, Long> createdAtByData = new IdentityHashMap<>();
         for (ObservationImportData data : observations) {
             if (data.sessionId() == null || data.sessionId().isBlank()
                 || data.title() == null || data.title().isBlank()) {
                 continue;
             }
             try {
+                createdAtByData.put(data, data.createdAtEpoch() != null
+                    ? data.createdAtEpoch() : System.currentTimeMillis());
                 ExternalSessionRef ref = ExternalSessionRef.of(data.platformSource(), data.sessionId());
                 if (data.standaloneKind() != null) {
                     standaloneScopeByData.put(data, resolveStandaloneScope(data));
@@ -417,6 +443,15 @@ public class ImportService implements LogHelper {
             .map(SessionEntity::getId)
             .collect(java.util.stream.Collectors.toSet());
         conversationWriteService.lockForChildMutations(conversationIds);
+
+        Set<String> standaloneLockKeys = new HashSet<>();
+        standaloneScopeByData.forEach((data, scopeId) -> {
+            ExternalSessionRef ref = ExternalSessionRef.of(data.platformSource(), data.sessionId());
+            long createdAtEpoch = createdAtByData.get(data);
+            standaloneLockKeys.add(standaloneObservationImportKey(
+                scopeId, ref, data.standaloneKind(), data.title(), createdAtEpoch).advisoryLockKey());
+        });
+        standaloneObservationImportLock.lock(standaloneLockKeys);
 
         List<ObservationEntity> existingConversationObs = conversationIds.isEmpty()
             ? List.of()
@@ -455,7 +490,8 @@ public class ImportService implements LogHelper {
                     continue;
                 }
 
-                long createdAtEpoch = data.createdAtEpoch() != null ? data.createdAtEpoch() : System.currentTimeMillis();
+                long createdAtEpoch = createdAtByData.computeIfAbsent(data,
+                    ignored -> data.createdAtEpoch() != null ? data.createdAtEpoch() : System.currentTimeMillis());
 
                 String projectPath = data.projectPath() != null && !data.projectPath().isBlank()
                     ? data.projectPath() : parent == null ? null : parent.getProjectPath();
@@ -601,6 +637,15 @@ public class ImportService implements LogHelper {
         return new ObservationImportKey(null, observation.getMemoryScopeId(), observation.getStandaloneKind(),
             observation.getPlatformSource(), observation.getContentSessionId(), observation.getTitle(),
             observation.getCreatedAtEpoch());
+    }
+
+    private static ObservationImportKey standaloneObservationImportKey(UUID memoryScopeId,
+                                                                        ExternalSessionRef ref,
+                                                                        String standaloneKind,
+                                                                        String title,
+                                                                        long createdAtEpoch) {
+        return new ObservationImportKey(null, memoryScopeId, standaloneKind, ref.platformSource(),
+            ref.contentSessionId(), title, createdAtEpoch);
     }
 
     @Transactional

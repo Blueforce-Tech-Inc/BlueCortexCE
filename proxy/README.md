@@ -323,6 +323,24 @@ echo '{"session_id":"test-123","cwd":"/tmp"}' | \
   node wrapper.js session-start --url http://127.0.0.1:37777
 ```
 
+### 10.3 Run the Isolated Proxy-to-Backend E2E Test
+
+The test requires an explicit backend URL and expected application version. It checks
+`/api/health` and `/api/version`, then invokes the real `wrapper.js` CLI for SessionStart
+and UserPromptSubmit and verifies the resulting Conversation and prompt through the API.
+It also checks the direct SessionStart `updateFiles` wire field, confines any file writes
+to a generated temporary workspace, and removes that workspace afterward.
+
+```bash
+PROXY_E2E_SERVER_URL=http://127.0.0.1:37819 \
+PROXY_E2E_EXPECTED_VERSION=0.1.0-beta \
+PROXY_E2E_TMPDIR=/tmp \
+node java/proxy/test-full-flow.mjs
+```
+
+The created Conversation and prompt remain in the backend database for inspection. Run
+this only against a disposable or review backend if those rows are not wanted in normal data.
+
 ---
 
 ## 11. Troubleshooting

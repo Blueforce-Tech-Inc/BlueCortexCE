@@ -17,6 +17,13 @@ import java.util.UUID;
 @Repository
 public interface ObservationRepository extends JpaRepository<ObservationEntity, UUID> {
 
+    String OBSERVATION_ENTITY_SELECT = """
+        SELECT o.*,
+               (SELECT ms.scope_type FROM mem_memory_scopes ms WHERE ms.id = o.memory_scope_id)
+                   AS "memoryScopeType"
+        FROM mem_observations o
+        """;
+
     String PROJECT_SCOPE_FILTER = "\n" + """
         memory_scope_id IN (
             SELECT id FROM mem_memory_scopes
@@ -81,6 +88,11 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         @Param("standaloneKind") String standaloneKind,
         @Param("includeManualDefault") boolean includeManualDefault,
         Pageable pageable
+    );
+
+    List<ObservationEntity> findAllByIdInAndMemoryScopeIdIn(
+        List<UUID> ids,
+        List<UUID> memoryScopeIds
     );
 
     /**
@@ -148,8 +160,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     );
 
     // Find by project, ordered by creation time (descending), limited
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE """ + PROJECT_SCOPE_FILTER + """
         ORDER BY created_at_epoch DESC
         LIMIT :limit
@@ -160,8 +171,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     );
 
     // Find recent observations for a project with offset
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE """ + PROJECT_SCOPE_FILTER + """
         ORDER BY created_at_epoch DESC
         LIMIT :limit OFFSET :offset
@@ -173,8 +183,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     );
 
     // Find by multiple projects (worktree support)
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE """ + MULTI_PROJECT_SCOPE_FILTER + """
         ORDER BY created_at_epoch DESC
         LIMIT :limit
@@ -185,8 +194,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     );
 
     // pgvector semantic search on embedding_768
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE """ + PROJECT_SCOPE_FILTER + """
         AND embedding_768 IS NOT NULL
         AND created_at_epoch > :minEpoch
@@ -201,8 +209,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     );
 
     // pgvector semantic search on embedding_1024 (default for bge-m3)
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE """ + PROJECT_SCOPE_FILTER + """
         AND embedding_1024 IS NOT NULL
         AND created_at_epoch > :minEpoch
@@ -217,8 +224,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     );
 
     // pgvector semantic search on embedding_1536
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE """ + PROJECT_SCOPE_FILTER + """
         AND embedding_1536 IS NOT NULL
         AND created_at_epoch > :minEpoch
@@ -233,8 +239,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     );
 
     // tsvector full-text search
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE """ + PROJECT_SCOPE_FILTER + """
         AND search_vector @@ plainto_tsquery('english', :query)
         ORDER BY ts_rank(search_vector, plainto_tsquery('english', :query)) DESC
@@ -247,8 +252,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     );
 
     // Filter by source
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE """ + PROJECT_SCOPE_FILTER + """
         AND source = :source
         ORDER BY created_at_epoch DESC
@@ -261,8 +265,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     );
 
     // Composable AND filter with offset
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE """ + PROJECT_SCOPE_FILTER + """
         AND (:type IS NULL OR type = :type)
         AND (:source IS NULL OR source = :source)
@@ -300,8 +303,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     // auditing to fill it in. In PostgreSQL NULLs sort last under DESC, so
     // ordering by created_at silently returned the oldest non-NULL rows instead
     // of the newest ones.
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE """ + PROJECT_SCOPE_FILTER + """
         ORDER BY created_at_epoch DESC
         """, nativeQuery = true)
@@ -310,8 +312,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
 
     // Find recent observations for a project with pagination (avoids loading all into memory)
     // Sorted on created_at_epoch for the same reason as above.
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE """ + PROJECT_SCOPE_FILTER + """
         ORDER BY created_at_epoch DESC
         """,
@@ -346,7 +347,10 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      * compatibility value rather than a conversation identity.
      */
     @Query(value = """
-        SELECT o.* FROM mem_observations o
+        SELECT o.*,
+               (SELECT scope.scope_type FROM mem_memory_scopes scope WHERE scope.id = o.memory_scope_id)
+                   AS "memoryScopeType"
+        FROM mem_observations o
         JOIN mem_memory_scopes ms ON ms.id = o.memory_scope_id
         WHERE ms.scope_type = 'project'
           AND ms.scope_key = cast(:project AS text) COLLATE "C"
@@ -364,8 +368,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         @Param("limit") int limit);
 
     // Batch: find observations across multiple sessions (avoids N+1 query)
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE conversation_id IN (:conversationIds)
         ORDER BY created_at_epoch DESC
         LIMIT :limit
@@ -377,8 +380,11 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     // P2: Hybrid search combining pgvector semantic + tsvector full-text
     @Query(value = """
         WITH semantic_results AS (
-            SELECT *, 1.0 as score_type
-            FROM mem_observations
+            SELECT o.*,
+                   (SELECT scope.scope_type FROM mem_memory_scopes scope WHERE scope.id = o.memory_scope_id)
+                       AS "memoryScopeType",
+                   1.0 as score_type
+            FROM mem_observations o
             WHERE """ + PROJECT_SCOPE_FILTER + """
             AND embedding_1024 IS NOT NULL
             AND created_at_epoch > :minEpoch
@@ -386,8 +392,11 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
             LIMIT :limit
         ),
         fulltext_results AS (
-            SELECT *, 0.8 as score_type
-            FROM mem_observations
+            SELECT o.*,
+                   (SELECT scope.scope_type FROM mem_memory_scopes scope WHERE scope.id = o.memory_scope_id)
+                       AS "memoryScopeType",
+                   0.8 as score_type
+            FROM mem_observations o
             WHERE """ + PROJECT_SCOPE_FILTER + """
             AND search_vector @@ plainto_tsquery('english', :query)
             LIMIT :limit
@@ -440,8 +449,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     // P1: Uses parameterized binding - concepts list is validated before query
     // FIX: Using jsonb_array_elements_text for proper text comparison
     // FIX: When concepts is empty, skip the concepts filter entirely
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE """ + PROJECT_SCOPE_FILTER + """
         AND type IN (:types)
         AND (:conceptsEmpty = true OR EXISTS (
@@ -459,8 +467,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         @Param("limit") int limit
     );
 
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE """ + PROJECT_SCOPE_FILTER + """
         AND type IN (:types)
         AND COALESCE(platform_source, 'claude') = :platformSource
@@ -483,8 +490,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     // P0: Query observations for multiple projects with type and concept filtering (worktree support)
     // FIX: Using jsonb_array_elements_text for proper text comparison
     // FIX: When concepts is empty, skip the concepts filter entirely
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE """ + MULTI_PROJECT_SCOPE_FILTER + """
         AND type IN (:types)
         AND (:conceptsEmpty = true OR EXISTS (
@@ -507,7 +513,10 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      * Used by Preview API to respect sessionCount setting.
      */
     @Query(value = """
-        SELECT o.* FROM mem_observations o
+        SELECT o.*,
+               (SELECT scope.scope_type FROM mem_memory_scopes scope WHERE scope.id = o.memory_scope_id)
+                   AS "memoryScopeType"
+        FROM mem_observations o
         WHERE o.memory_scope_id IN (SELECT id FROM mem_memory_scopes
                         WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
         AND o.type IN (:types)
@@ -537,7 +546,10 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     );
 
     @Query(value = """
-        SELECT o.* FROM mem_observations o
+        SELECT o.*,
+               (SELECT scope.scope_type FROM mem_memory_scopes scope WHERE scope.id = o.memory_scope_id)
+                   AS "memoryScopeType"
+        FROM mem_observations o
         WHERE o.memory_scope_id IN (SELECT id FROM mem_memory_scopes
                         WHERE scope_type = 'project' AND scope_key = cast(:project AS text) COLLATE "C")
         AND o.type IN (:types)
@@ -621,8 +633,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      *                    content hash must not suppress each other.
      * @return Existing observation if found within window, null otherwise
      */
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE content_hash = :contentHash
         AND created_at_epoch > :windowStart
         AND memory_scope_id = :memoryScopeId
@@ -648,8 +659,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      * @param limit Maximum results
      * @return Observations related to the folder
      */
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE """ + PROJECT_SCOPE_FILTER + """
         AND (
             EXISTS (
@@ -685,8 +695,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      * @param limit Maximum results
      * @return High-quality observations
      */
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE """ + PROJECT_SCOPE_FILTER + """
         AND quality_score >= :minQuality
         ORDER BY quality_score DESC, created_at_epoch DESC
@@ -706,8 +715,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      * @param threshold Quality threshold for deletion
      * @return Low-quality observations
      */
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE """ + PROJECT_SCOPE_FILTER + """
         AND quality_score < :threshold
         AND type NOT LIKE 'extracted_%'
@@ -743,8 +751,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      * @param qualityThreshold Quality threshold
      * @return Stale observations
      */
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE """ + PROJECT_SCOPE_FILTER + """
         AND (last_accessed_at IS NULL OR last_accessed_at < :accessThreshold)
         AND (quality_score IS NULL OR quality_score < :qualityThreshold)
@@ -781,8 +788,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      * @param cooldownThreshold Timestamp for cooldown threshold
      * @return Observations ready for refinement
      */
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE """ + PROJECT_SCOPE_FILTER + """
         AND (refined_at IS NULL OR refined_at < :cooldownThreshold)
         AND type NOT LIKE 'extracted_%'
@@ -844,8 +850,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      * Find observations where source is IN a list of values.
      * Required for extraction source filtering (findBySource takes single String).
      */
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE """ + PROJECT_SCOPE_FILTER + """
         AND source IN (:sources)
         AND (:includeStandaloneManual = true OR standalone_kind IS DISTINCT FROM 'manual')
@@ -861,8 +866,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     /**
      * Find new observations since a given epoch for incremental extraction.
      */
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE """ + PROJECT_SCOPE_FILTER + """
         AND source IN (:sources)
         AND created_at_epoch > :sinceEpoch
@@ -878,8 +882,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     /**
      * Global type query (cross-project) for dead letter queue retry.
      */
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE type = :type
         ORDER BY created_at_epoch DESC
         LIMIT :limit
@@ -892,8 +895,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      * Wildcard type query using LIKE for ICL integration.
      * findByAllFiltersWithOffset uses exact match (=), so it won't work for patterns like "extracted_%".
      */
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE """ + PROJECT_SCOPE_FILTER + """
         AND type LIKE :typePattern
         ORDER BY created_at_epoch DESC
@@ -913,8 +915,7 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
      * <p>Extraction output keeps its synthetic key as a compatibility value, so it is looked
      * up by that key together with the kind — never treated as a conversation identity.
      */
-    @Query(value = """
-        SELECT * FROM mem_observations
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
         WHERE standalone_kind = :kind
         AND content_session_id = cast(:correlationKey AS text) COLLATE "C"
         AND type = :type

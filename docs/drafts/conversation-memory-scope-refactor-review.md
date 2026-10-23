@@ -1,7 +1,7 @@
 # Conversation / Memory Scope Refactor Review
 
 > **Purpose**: Track the substantive review findings and one-shot remediation for the conversation/memory-scope refactor.
-> **Status**: Local review and remediation complete for R1–R38. The paired WebUI fix is published and this parent change records its gitlink.
+> **Status**: Local review and remediation complete through R46. The paired WebUI fix is published and this parent change records its gitlink.
 > **Scope**: Parent repository `main` after adopting `codex/conversation-memory-scope-refactor` at `3409dda`.
 > **Constraints**: V20 remains one atomic Flyway migration. The deployment accepts downtime and manual intervention after a failed migration; rollback, checkpointing, shadow reads, and phased migration are intentionally out of scope and are not review defects.
 
@@ -16,10 +16,10 @@
 
 | Findings | Current status | Evidence |
 |---|---|---|
-| R1–R38 | Remediated in the current local worktree | Backend, database, Viewer, SDK, proxy, and agent-client regression tests listed below pass. |
+| R1–R46 | Remediated in the current local worktree | Backend, database, Viewer, SDK, proxy, agent-client, MCP, and migration checks are recorded below. |
 | R25 | Resolved | WebUI fix `2a3b7463` is published to child `origin/main`; this parent change points `webui` at that reachable commit, and the local Viewer bundle matches the backend static artifact. |
 
-R33–R38 were the final local review fixes: standalone export/import now round-trips with local Scope reconstruction; multi-project and derived Observation queries use authoritative Scope ownership; OpenClaw resumes retain the prior identity; the legacy `manual-memories` selector includes both its literal project Scope and `manual_default`; and structured extraction excludes standalone manual memories by default. The `includeStandaloneManual` opt-in remains explicit and defaults to false.
+R33–R46 are the latest local review fixes: standalone export/import now round-trips with local Scope reconstruction; multi-project and derived Observation queries use authoritative Scope ownership; OpenClaw resumes retain the prior identity; the legacy `manual-memories` selector includes both its literal project Scope and `manual_default`; structured extraction excludes standalone manual memories by default; concurrent standalone imports serialize around duplicate checks; native Observation queries hydrate the `memory_scope_type` field; Viewer deletion tests exercise and assert the current query-based DELETE endpoint; all V20 rehearsal modes refuse existing or unverifiable databases and only recreate a database created by the current run; the proxy E2E invokes the actual wrapper CLI; MCP `get_observations` filters by authoritative Scope ownership; and native Enter/Space tests no longer depend on a headless-renderer animation-frame wait that can hang after menu dismissal. The `includeStandaloneManual` opt-in remains explicit and defaults to false.
 
 ## Confirmed Findings
 
@@ -257,32 +257,92 @@ R33–R38 were the final local review fixes: standalone export/import now round-
 - **Required fix**: add a default-false template property `includeStandaloneManual`; make the repository candidate query exclude `standalone_kind='manual'` unless that flag is true, without changing source/order/limit semantics; cover default exclusion and explicit opt-in on the V20 database.
 - **Disposition**: Implemented. The candidate SQL excludes manual standalone rows before applying the limit unless the default-false template option opts in; tests cover both modes against V20.
 
+### R39 — Concurrent standalone imports can create duplicate observations
+
+- **Evidence**: conversation-owned imports serialize on the parent Session row, but standalone rows have no parent row to lock. Their duplicate check and insert were separate operations, and V20 intentionally has no unique constraint for this logical import key.
+- **Failure scenario**: two instances import the same standalone row at once; both see no existing row and both insert it. The duplicate key is `(memory_scope_id, standalone_kind, platform_source, content_session_id, title, created_at_epoch)`.
+- **Required fix**: serialize single and bulk standalone imports on a transaction-scoped lock derived from that full logical key. Acquire multiple batch locks in stable order; keep the existing duplicate semantics and schema unchanged.
+- **Disposition**: Implemented with PostgreSQL transaction-level advisory locks. Lock acquisition requires an existing transaction and is held through duplicate lookup and insert. Eight concurrent imports against V20 produce one row, one `imported`, seven `duplicates`, and zero errors. Additional real-database tests cover cross-platform same-ID conversations and standalone `manual_default` re-import through single and bulk APIs.
+
+### R40 — Native Observation queries fail when the Scope formula is hydrated
+
+- **Evidence**: `ObservationEntity.memoryScopeType` is a Hibernate `@Formula`, but multiple native repository queries return `SELECT * FROM mem_observations`. PostgreSQL has no physical `memoryScopeType` column, and those result sets omit the formula alias Hibernate requires.
+- **Failure scenario**: `SessionStart` requests context for a project with existing observations; `ObservationRepository.findByTypeAndConcepts` returns a native entity query and Hibernate fails with SQLState `42703` / missing result column `memoryScopeType`, producing HTTP 500. The same mapping risk exists in the other native queries returning `ObservationEntity`.
+- **Required fix**: preserve the `memory_scope_type` wire field and include the formula alias in every native query that hydrates `ObservationEntity`; leave scalar, aggregate, and count queries unchanged. Add V20-backed tests exercising populated native results and the SessionStart path.
+- **Disposition**: Fixed. Every native query returning `ObservationEntity` now selects the formula alias; aggregate/count queries remain unchanged. A real V20 repository test returns populated context rows with `memory_scope_type=project`, and packaged SessionStart succeeds against a database containing existing observations.
+
+### R41 — Viewer deletion lifecycle tests mock a retired endpoint
+
+- **Evidence**: the browser fixture matched `DELETE /api/sessions/claude/owned-session`, but `deleteSession` sends `DELETE /api/sessions?platformSource=claude&contentSessionId=owned-session`. The fixture therefore returned its generic success response without blocking or observing the real request in the `late-delete-response` and `live-before-delete` scenarios.
+- **Failure scenario**: a regression changes the Viewer DELETE URL or its pending-request behavior; the fixture does not intercept it, so those lifecycle tests no longer exercise the API race they claim to cover and can report misleading results.
+- **Required fix**: intercept the actual query-based URL and assert that the two API-driven scenarios reached that handler.
+- **Disposition**: Fixed in the child test fixture. All six deletion lifecycle browser scenarios pass, including an explicit assertion that the asynchronous-delete cases reached the DELETE handler.
+
+### R42 — Scale rehearsal could proceed after its database safety probe failed
+
+- **Evidence**: the new scale-mode guard used a psql variable inside `psql -c`; psql does not interpolate variables in `-c`. The query returned a syntax error, and the script did not treat the failed existence check as fatal before calling `recreate`, which drops the named database.
+- **Failure scenario**: a scale run targets an existing `_rehearsal` database; if the existence probe errors, the script can mistake the empty result for “not present” and drop the target before recreating it.
+- **Required fix**: restrict scale database identifiers, use a safely constructed existence query, and abort if the probe itself fails or finds an existing database.
+- **Disposition**: Fixed. Re-running against the populated scale database exits before any drop; post-check confirmed its 100,013 observations and database size were unchanged.
+
+### R43 — Proxy full-flow test bypasses the proxy wrapper
+
+- **Evidence**: `proxy/java/proxy/test-full-flow.mjs` previously sent SessionStart directly with Axios and manually applied the returned `updateFiles`; it never launched `proxy/wrapper.js`. The script therefore verified backend behavior but could not detect a broken wrapper command, hook-event mapping, request body, or response handling.
+- **Failure scenario**: `wrapper.js` sends SessionStart to the wrong endpoint or drops required event fields while the direct Axios test continues to pass, leaving the Claude Code client path unverified.
+- **Required fix**: run the actual wrapper CLI against the version-verified backend, then read the resulting Conversation and submitted prompt back through the API. Keep the direct SessionStart check for its camelCase `updateFiles` compatibility contract, and keep all filesystem activity inside the generated temporary workspace.
+- **Disposition**: Implemented. Targeted end-to-end verification is recorded below.
+
+### R44 — MCP `get_observations` filters project by display path
+
+- **Evidence**: `ClaudeMemMcpTools.getObservations` fetched rows by ID, then applied `project.equals(o.getProjectPath())` in Java. The refactor defines `memory_scope_id` as the authoritative project owner and explicitly permits a retained/display `project_path` to differ from the Scope key.
+- **Failure scenario**: an Observation belongs to project Scope `/repo/current` but has display path `/repo/old`; `get_observations(ids, project=/repo/current)` incorrectly drops it. Conversely, a row with a stale display path matching the requested project can appear while its Scope belongs elsewhere.
+- **Required fix**: resolve the exact project Scope without creating one and query the requested Observation IDs by `memory_scope_id`. Preserve the legacy `manual-memories` selector by including both its project Scope and `manual_default` Scope.
+- **Disposition**: Implemented. MCP unit tests cover scope filtering, sentinel behavior, and an all-invalid ID list; a PostgreSQL V20 test changes the display path independently and verifies owner-scope inclusion and foreign-scope exclusion.
+
+### R45 — Standard migration rehearsal can drop a pre-existing database
+
+- **Evidence**: the standard (non-scale) path accepted names such as `v20` and immediately called `DROP DATABASE IF EXISTS $DATABASE`; only scale mode checked whether the database existed. The database name was also interpolated into SQL without identifier quoting.
+- **Failure scenario**: an operator points `--container` at a PostgreSQL instance that already has a database named `v20` or `*_copy`; the rehearsal drops that database before replaying migrations. A specially formed allowed name could also alter the interpolated SQL.
+- **Required fix**: validate database names in every mode, probe the server and refuse any existing target before DDL, create the database on the first cycle, and only drop/recreate that database after this process has created it. Quote database identifiers through psql variable substitution and use a unique default target name.
+- **Disposition**: Implemented and verified. The script refuses the existing `v20` database before DDL, rejects a SQL-shaped name before connecting, and passes the complete 100,000-observation rehearsal on a newly created target (26/26).
+
+### R46 — Native keyboard browser tests can hang on animation-frame settling
+
+- **Evidence**: `session-keyboard-actions.browser.test.ts` awaited four `requestAnimationFrame` callbacks through `Runtime.evaluate` after each native key. On the local headless Chrome run, Enter and Space both dispatched successfully and opened the menu, but the animation-frame promise never completed after Escape dismissed it; the suite ended at its 30-second timeout without reaching the assertions.
+- **Failure scenario**: a correct native keyboard interaction closes the menu, then the test waits forever for renderer animation frames. CI reports a timeout rather than verifying the Enter/Space behavior.
+- **Required fix**: wait from the Bun test process for observable UI state instead of awaiting renderer frames, and bound DevTools HTTP/WebSocket/CDP waits so infrastructure stalls fail with a specific error.
+- **Disposition**: Implemented. Both native key cases pass, and the complete Viewer suite passes 76/76.
+
 ## Verification Results
 
 Verification run on 2026-10-23 against a dedicated PostgreSQL 16.12 review container; no user database was migrated.
 
-- Backend: `./mvnw test` passed 306 tests with zero failures and zero skips. Real-database tests used `conversation_scope_flyway_rehearsal`; the Flyway runner used `conversation_scope_review_flyway_rehearsal`; both were at V20. An initial invocation mistakenly targeted the older `conversation_scope_rehearsal` database and errored before any fixture write because `mem_memory_scopes` was absent; the corrected run passed. This includes 13 real-database Scope tests, the Scope query regression, and the Flyway runner test.
-- Migration: Flyway/JDBC replayed all 18 versioned migrations from an empty disposable database through V20. The separate psql rehearsal passed 21/21 checks, including atomic rollback on conflicting fixtures.
+- Backend: the final database-enabled `./mvnw test` passed 313 tests with 0 failures, 0 errors, and 0 skips, including the Flyway/JDBC smoke test. Both the PostgreSQL integration URL and Flyway smoke-test URL pointed at isolated V20 rehearsal databases.
+- Post-R39 targeted verification: `ImportServiceIdentityTest` and `ImportServiceDatabaseTest` passed 7/7 against the isolated V20 rehearsal database; the database class asserts V20 and cleans its fixture rows/scopes/conversations.
+- Post-R40 targeted verification: `ImportServiceDatabaseTest` and `ObservationRepositoryScopeQueryTest` passed 5/5; the populated native context query now hydrates `memory_scope_type` correctly.
+- Post-R44 targeted verification: `ClaudeMemMcpToolsTest` and `ImportServiceDatabaseTest` passed 14/14 against V20, including Scope-vs-display-path behavior, the legacy sentinel, and the invalid-ID empty-list case.
+- Migration: Flyway/JDBC replayed all 18 versioned migrations from an empty disposable database through V20. The standard psql rehearsal passed its 21 migration checks, including atomic rollback on conflicting fixtures. The updated scale mode passed all 26 checks with 100,000 synthetic observations, 10,000 sessions, 10,000 summaries, 10,000 prompts, and 10,000 pending rows in addition to the base fixture; 100,013 observations remained and all received Scopes. V20 took 9.731 seconds in this latest local run; database size was 98.2 MiB before and 198.6 MiB after migration. The safety checks refused the pre-existing `v20` target and a SQL-shaped database name without issuing DDL.
 - Runtime API: the packaged service started on port 37819 against the isolated V20 database. Health returned 200; SessionStart returned the existing camelCase `updateFiles` field; the same opaque ID containing `/`, `?`, `#`, `%`, and Unicode created distinct Claude/Codex UUIDs; query identity lookup, UserPrompt, SessionEnd, catalog isolation, and query-based deletion worked. A delete while the summary job was pending correctly returned 409; retry after the job became terminal returned 204.
+- Proxy E2E: `test-full-flow.mjs` verified `claude-mem-java` and exact version `0.1.0-beta` on port 37819, invoked the actual wrapper CLI for SessionStart and UserPromptSubmit, verified the Conversation and prompt through the API, checked the direct SessionStart `updateFiles` field, and applied any returned file update only inside an automatically removed temporary workspace.
 - Identity race: eight concurrent HTTP SessionStart requests for the same `(platform_source, content_session_id)` all returned 200 and the same UUID.
 - Clients: JS SDK passed 396 tests plus TypeScript lint; Python SDK passed 489 tests; Go SDK `go test ./...` passed; Java Spring integration `mvn -o test` passed. OpenClaw `npm test` passed 2/2 and Codex watcher `npm test` passed 1/1 in the final local pass.
-- Viewer: the focused session suite passed 13 tests and Viewer TypeScript checking passed in the final local pass. Parent static bundle and local child bundle are byte-identical and contain both standalone-row exclusion and query-based opaque deletion.
+- Viewer: `bun test tests/ui/viewer/deletion-lifecycle.browser.test.ts` passed 6/6 after the fixture correction. The focused native Enter/Space cases passed 2/2, and the complete `bun test tests/ui/viewer` run passed 76/76 with 208 assertions. Viewer TypeScript checking passed in the final local pass. Parent static bundle and local child bundle are byte-identical and contain both standalone-row exclusion and query-based opaque deletion.
 - Additional checks: `node --check proxy/wrapper.js` and `git diff --check` passed.
 
 ## Remaining Limits
 
 - Clean-clone Viewer reproducibility is restored by published WebUI commit `2a3b7463` and the parent gitlink update included with this review remediation.
 - Bugbot was requested, but this runtime exposes no Bugbot subagent invocation tool. The review therefore used local source/diff inspection and tests; it does not claim a Bugbot result.
-- The proxy full-flow script hardcodes `127.0.0.1:37777` and writes a fixed `/tmp/claude-mem-test` path, so it was not run against the unrelated service that may occupy that port. Proxy syntax and request construction were inspected, but a controlled proxy-to-this-build e2e remains unverified.
-- The full browser suite was not rerun; the known Enter/Space headless-browser failures remain outside this focused Viewer verification.
-- Import identity behavior passed service tests, but concurrent import creation was not exercised against a real PostgreSQL-backed import endpoint.
+- The keyboard-test repair is currently local to the WebUI submodule worktree and is not committed or published yet. The deletion lifecycle fixture correction also remains a local submodule change.
+- The 9.731-second V20 timing is one synthetic local run (an earlier equivalent run measured 15.226 seconds), not a production-database estimate; actual disk speed, WAL policy, concurrent workload, and data distribution can change lock duration.
+- Actual OpenClaw host-runtime event semantics remain unverified by explicit user direction; plugin unit tests and build checks do not claim host-runtime coverage.
 
 ## Repair Disposition
 
 - R1-R24 and R26-R29 are repaired in the local implementation and covered by the focused backend, database, client, plugin, or wire-contract checks above.
 - R25 is fully repaired and published; the parent gitlink is updated to the reachable paired Viewer commit.
 - R30 cleanup now deletes only project scopes, preserving the migration-owned manual-default singleton. R31 mocks the JS SDK health check so the example test does not call a live worker. R32 keeps SessionController failure responses and logs free of exception messages while preserving status codes and JSON `error` fields; dedicated canary tests cover both SessionStart and legacy session lookup failures.
-- R33-R38 are repaired locally: export-shaped standalone imports rebuild local Scope links; all Observation project analytics and multi-project queries use Scope ownership; OpenClaw resume identity uses `resumedFrom`; the legacy manual selector includes both matching Scopes; and extraction excludes standalone manual rows unless explicitly opted in.
+- R33-R46 are repaired locally: export-shaped standalone imports rebuild local Scope links; all Observation project analytics and multi-project queries use Scope ownership; OpenClaw resume identity uses `resumedFrom`; the legacy manual selector includes both matching Scopes; extraction excludes standalone manual rows unless explicitly opted in; concurrent standalone imports serialize around duplicate checks; native Observation queries hydrate `memory_scope_type`; deletion lifecycle tests intercept the current API; all migration rehearsal modes fail closed on existing or unverifiable targets and only recreate their own database; the proxy E2E invokes the actual wrapper CLI; MCP project filters use Scope ownership; and the native keyboard browser test avoids renderer-dependent animation-frame settling.
 
 ## Non-Findings (Explicitly Accepted)
 
