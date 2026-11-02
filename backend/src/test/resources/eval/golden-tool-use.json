@@ -2335,6 +2335,186 @@
       "expectObservation": false,
       "notes": "no conclusion",
       "titleAction": "diagnose"
+    },
+    {
+      "id": "remove-dependency",
+      "category": "config-change",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo/payments",
+      "occurredAt": "2026-11-03T10:01:00Z",
+      "toolInput": "file_path=pom.xml old_string=\"  <dependency><groupId>org.apache.commons</groupId><artifactId>commons-lang3</artifactId></dependency>\" new_string=\"\"",
+      "toolOutput": "Edit applied. pom.xml no longer declares org.apache.commons:commons-lang3; the build resolves without it.",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "remove",
+        "commons-lang3",
+        "pom"
+      ],
+      "titleVerb": "remove",
+      "titleSubject": [
+        "dependency"
+      ],
+      "titleIdentifiers": [
+        "commons-lang3",
+        "pom.xml"
+      ],
+      "factsKeywords": [
+        "commons-lang3",
+        "pom.xml"
+      ],
+      "conceptsKeywords": [
+        "what-changed",
+        "trade-off"
+      ],
+      "titleAction": "remove"
+    },
+    {
+      "id": "remove-dead-code",
+      "category": "refactor",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo/orders",
+      "occurredAt": "2026-11-03T10:05:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/orders/OrderService.java old_string=\"  public void legacySync(Order order) { warehouse.push(order); }\" new_string=\"\"",
+      "toolOutput": "Edit applied. OrderService.legacySync was removed; nothing else references legacySync.",
+      "expectObservation": true,
+      "expectedType": "refactor",
+      "titleKeywords": [
+        "remove",
+        "dead",
+        "code",
+        "orderservice"
+      ],
+      "titleVerb": "remove",
+      "titleSubject": [
+        "dead",
+        "code"
+      ],
+      "titleIdentifiers": [
+        "OrderService",
+        "legacySync"
+      ],
+      "factsKeywords": [
+        "legacySync",
+        "OrderService"
+      ],
+      "conceptsKeywords": [
+        "what-changed",
+        "pattern"
+      ],
+      "titleAction": "remove"
+    },
+    {
+      "id": "remove-stale-config",
+      "category": "config-change",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo/search",
+      "occurredAt": "2026-11-03T10:09:00Z",
+      "toolInput": "file_path=src/main/resources/application.yml old_string=\"legacy-search:\\n  enabled: true\" new_string=\"\"",
+      "toolOutput": "Edit applied. application.yml no longer defines legacy-search.enabled; the search module reads only search-v2.",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "remove",
+        "legacy",
+        "search",
+        "application"
+      ],
+      "titleVerb": "remove",
+      "titleSubject": [
+        "stale",
+        "setting"
+      ],
+      "titleIdentifiers": [
+        "legacy-search.enabled",
+        "application.yml"
+      ],
+      "factsKeywords": [
+        "legacy-search",
+        "search-v2"
+      ],
+      "conceptsKeywords": [
+        "what-changed",
+        "trade-off"
+      ],
+      "titleAction": "remove"
+    },
+    {
+      "id": "remove-deprecated-endpoint",
+      "category": "config-change",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo/users",
+      "occurredAt": "2026-11-03T10:14:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/users/UserController.java old_string=\"  @GetMapping(\\\"/v1/users\\\")\\n  public List<UserDto> listLegacy() { return service.listLegacy(); }\" new_string=\"\"",
+      "toolOutput": "Edit applied. UserController.listLegacy and the /v1/users mapping were removed; /v2/users remains.",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "remove",
+        "deprecated",
+        "endpoint",
+        "usercontroller"
+      ],
+      "titleVerb": "remove",
+      "titleSubject": [
+        "deprecated",
+        "endpoint"
+      ],
+      "titleIdentifiers": [
+        "UserController",
+        "/v1/users"
+      ],
+      "factsKeywords": [
+        "listLegacy",
+        "/v1/users",
+        "/v2/users"
+      ],
+      "conceptsKeywords": [
+        "what-changed",
+        "trade-off"
+      ],
+      "titleAction": "remove"
+    },
+    {
+      "id": "remove-feature-flag",
+      "category": "config-change",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo/flags",
+      "occurredAt": "2026-11-03T10:19:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/flags/FeatureFlags.java old_string=\"  public static final String LEGACY_SEARCH = \\\"legacy-search\\\";\" new_string=\"\"",
+      "toolOutput": "Edit applied. FeatureFlags.LEGACY_SEARCH constant was removed; callers use SEARCH_V2.",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "remove",
+        "feature",
+        "flag",
+        "legacy"
+      ],
+      "titleVerb": "remove",
+      "titleSubject": [
+        "feature",
+        "flag"
+      ],
+      "titleIdentifiers": [
+        "FeatureFlags",
+        "LEGACY_SEARCH"
+      ],
+      "factsKeywords": [
+        "LEGACY_SEARCH",
+        "FeatureFlags",
+        "SEARCH_V2"
+      ],
+      "conceptsKeywords": [
+        "what-changed",
+        "trade-off"
+      ],
+      "titleAction": "remove"
     }
   ]
 }
