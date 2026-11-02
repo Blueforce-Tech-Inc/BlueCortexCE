@@ -8,6 +8,7 @@
 #
 # Usage:
 #   env -u CI -u GITHUB_ACTIONS ./scripts/eval-model-quality.sh
+#   EVAL_PROVIDER=anthropic ./scripts/eval-model-quality.sh
 #   EVAL_MAX_CALLS=10 EVAL_LIMIT=10 ./scripts/eval-model-quality.sh
 #   EVAL_REPORT=/tmp/eval.md ./scripts/eval-model-quality.sh
 set -euo pipefail
@@ -21,7 +22,7 @@ if [[ -n "${CI:-}" || -n "${GITHUB_ACTIONS:-}" ]]; then
 fi
 
 if [[ ! -f "$ROOT/backend/.env" ]]; then
-  echo "backend/.env is required (OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL)." >&2
+  echo "backend/.env is required (OPENAI_* and/or ANTHROPIC_* provider variables)." >&2
   exit 2
 fi
 
@@ -30,7 +31,13 @@ set -a
 . "$ROOT/backend/.env"
 set +a
 
-for name in OPENAI_API_KEY OPENAI_BASE_URL OPENAI_MODEL; do
+EVAL_PROVIDER="${EVAL_PROVIDER:-openai}"
+if [[ "$EVAL_PROVIDER" == "anthropic" ]]; then
+  required=(ANTHROPIC_API_KEY ANTHROPIC_BASE_URL ANTHROPIC_MODEL)
+else
+  required=(OPENAI_API_KEY OPENAI_BASE_URL OPENAI_MODEL)
+fi
+for name in "${required[@]}"; do
   if [[ -z "${!name:-}" ]]; then
     echo "$name is empty; refusing to run the real evaluation." >&2
     exit 2
@@ -38,10 +45,15 @@ for name in OPENAI_API_KEY OPENAI_BASE_URL OPENAI_MODEL; do
 done
 
 export REAL_LLM_EVAL=1
+export EVAL_PROVIDER
 export EVAL_MAX_CALLS="${EVAL_MAX_CALLS:-20}"
 export EVAL_REPORT="${EVAL_REPORT:-$ROOT/docs/archive/$(date +%F)_model-output-quality-eval.md}"
 
-echo "model=$OPENAI_MODEL base_url=$OPENAI_BASE_URL max_calls=$EVAL_MAX_CALLS report=$EVAL_REPORT"
+if [[ "$EVAL_PROVIDER" == "anthropic" ]]; then
+  echo "provider=anthropic model=$ANTHROPIC_MODEL base_url=$ANTHROPIC_BASE_URL max_calls=$EVAL_MAX_CALLS report=$EVAL_REPORT"
+else
+  echo "provider=openai model=$OPENAI_MODEL base_url=$OPENAI_BASE_URL max_calls=$EVAL_MAX_CALLS report=$EVAL_REPORT"
+fi
 
 cd "$ROOT/backend"
 mvn -q -DskipTests test-compile \

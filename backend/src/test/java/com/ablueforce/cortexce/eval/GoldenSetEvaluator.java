@@ -7,6 +7,9 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.anthropic.AnthropicChatModel;
+import org.springframework.ai.anthropic.AnthropicChatOptions;
+import org.springframework.ai.anthropic.api.AnthropicApi;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
@@ -46,9 +49,19 @@ public final class GoldenSetEvaluator {
             System.exit(2);
         }
 
-        String apiKey = requireEnv("OPENAI_API_KEY");
-        String baseUrl = envOr("OPENAI_BASE_URL", "https://api.deepseek.com");
-        String modelName = envOr("OPENAI_MODEL", "deepseek-chat");
+        String provider = envOr("EVAL_PROVIDER", "openai").toLowerCase(Locale.ROOT);
+        String apiKey;
+        String baseUrl;
+        String modelName;
+        if ("anthropic".equals(provider)) {
+            apiKey = requireEnv("ANTHROPIC_API_KEY");
+            baseUrl = envOr("ANTHROPIC_BASE_URL", "https://api.anthropic.com");
+            modelName = envOr("ANTHROPIC_MODEL", "claude-sonnet-4-5");
+        } else {
+            apiKey = requireEnv("OPENAI_API_KEY");
+            baseUrl = envOr("OPENAI_BASE_URL", "https://api.deepseek.com");
+            modelName = envOr("OPENAI_MODEL", "deepseek-chat");
+        }
         int maxCalls = Integer.parseInt(envOr("EVAL_MAX_CALLS", "20"));
         int limit = Integer.parseInt(envOr("EVAL_LIMIT", String.valueOf(Integer.MAX_VALUE)));
         double temperature = Double.parseDouble(envOr("EVAL_TEMPERATURE", "0.0"));
@@ -63,10 +76,10 @@ public final class GoldenSetEvaluator {
             System.exit(2);
         }
 
-        ChatModel model = buildModel(apiKey, baseUrl, modelName, temperature);
+        ChatModel model = buildModel(provider, apiKey, baseUrl, modelName, temperature);
         System.out.printf(Locale.ROOT,
-                "Evaluating %d sample(s) with %s at %s (cap=%d, temperature=%.1f)%n",
-                planned, modelName, baseUrl, maxCalls, temperature);
+                "Evaluating %d sample(s) with %s (%s) at %s (cap=%d, temperature=%.1f)%n",
+                planned, modelName, provider, baseUrl, maxCalls, temperature);
 
         List<GoldenSetScorer.Outcome> outcomes = new ArrayList<>();
         int calls = 0;
@@ -96,7 +109,7 @@ public final class GoldenSetEvaluator {
         GoldenSetScorer.Aggregate aggregate = GoldenSetScorer.score(outcomes);
         String reportPath = envOr("EVAL_REPORT",
                 "docs/archive/" + LocalDate.now() + "_model-output-quality-eval.md");
-        String report = renderReport(modelName, baseUrl, temperature, calls, maxCalls, aggregate);
+        String report = renderReport(provider, modelName, baseUrl, temperature, calls, maxCalls, aggregate);
         Path path = Path.of(reportPath);
         if (path.getParent() != null) {
             Files.createDirectories(path.getParent());
@@ -124,7 +137,17 @@ public final class GoldenSetEvaluator {
         }
     }
 
-    private static ChatModel buildModel(String apiKey, String baseUrl, String modelName, double temperature) {
+    private static ChatModel buildModel(String provider, String apiKey, String baseUrl,
+                                        String modelName, double temperature) {
+        if ("anthropic".equals(provider)) {
+            AnthropicApi api = AnthropicApi.builder().apiKey(apiKey).baseUrl(baseUrl).build();
+            AnthropicChatOptions options = AnthropicChatOptions.builder()
+                    .model(modelName)
+                    .temperature(temperature)
+                    .maxTokens(1024)
+                    .build();
+            return AnthropicChatModel.builder().anthropicApi(api).defaultOptions(options).build();
+        }
         OpenAiApi api = OpenAiApi.builder().apiKey(apiKey).baseUrl(baseUrl).build();
         OpenAiChatOptions options = OpenAiChatOptions.builder()
                 .model(modelName)
@@ -168,12 +191,12 @@ public final class GoldenSetEvaluator {
         }
     }
 
-    private static String renderReport(String modelName, String baseUrl, double temperature,
+    private static String renderReport(String provider, String modelName, String baseUrl, double temperature,
                                        int calls, int maxCalls, GoldenSetScorer.Aggregate agg) {
         StringBuilder sb = new StringBuilder();
         sb.append("# Model output quality evaluation\n\n");
         sb.append("- Date: ").append(LocalDate.now()).append('\n');
-        sb.append("- Provider: OpenAI-compatible, model `").append(modelName).append("`, base URL `")
+        sb.append("- Provider: ").append(provider).append(", model `").append(modelName).append("`, base URL `")
                 .append(baseUrl).append("`\n");
         sb.append("- Samples: ").append(agg.total).append("; real calls used: ").append(calls)
                 .append(" (cap ").append(maxCalls).append("); temperature: ").append(temperature).append('\n');
