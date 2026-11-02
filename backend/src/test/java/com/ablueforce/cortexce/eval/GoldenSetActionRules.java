@@ -62,7 +62,7 @@ public final class GoldenSetActionRules {
             Map.entry("fix", "modify"), Map.entry("change", "modify"),
             Map.entry("refactor", "modify"), Map.entry("convert", "modify"),
             Map.entry("migrate", "modify"), Map.entry("set", "modify"),
-            Map.entry("enable", "modify"),
+            Map.entry("enable", "modify"), Map.entry("extend", "modify"),
             Map.entry("remove", "remove"),
             Map.entry("harden", "secure"), Map.entry("restrict", "secure"),
             Map.entry("redact", "secure"),

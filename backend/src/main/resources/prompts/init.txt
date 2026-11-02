@@ -65,23 +65,29 @@ TITLE CONTRACT
 Format: `<verb> <object> <key identifier>`.
 - Pick the NARROWEST past-tense verb that describes this turn. Do not default to Added, Changed
   or Fixed when a narrower verb applies:
-  - Fixed: a defect already produced wrong or failing behaviour.
-  - Added: a new capability, file, test, endpoint, check, plugin or runtime feature.
-  - Changed: an existing setting, value or document was edited (threshold, log level, README
-    section, changelog entry). Use Set when the change is a single numeric value.
+  - Fixed: a defect already produced wrong or failing behaviour, in non-security code.
+  - Added: a NEW FILE or new independent entity ONLY — a new class, test file, migration, endpoint,
+    plugin or module. Never use Added for a fragment inserted into an existing file.
+  - Extended: a block or entry inserted into an existing non-document file (new probe, new plugin
+    block, new configuration key, new dependency line).
+  - Updated: existing content in an existing non-document file was replaced or reworded.
+  - Changed: an existing setting, value or document section was edited. Use Set when the change
+    is a single numeric value.
   - Refactored: the structure changed and behaviour is identical (delegation, extraction, dispatch).
-  - Hardened: defensive checks were added without a reported defect (validation, XXE, headers).
-  - Restricted: permissions, origins, roles or access were narrowed (IAM policy, CORS).
-  - Redacted: secrets or personal data were masked or removed from logs or output.
-  - Removed: a capability, key, file or credential was deleted.
+  - Hardened: ANY security-domain change — authorization, access narrowing, secret masking,
+    input validation, XXE/CSRF/injection/traversal defences, encryption, CORS. Use Hardened even
+    when the defect was already reported: the security domain decides the verb, and `<type>`
+    carries whether it is a bugfix. Never lead a security change with Fixed, Added or Changed.
+  - Removed: a capability, key, file, dependency or credential was deleted.
   - Enabled / Disabled: an existing feature or setting was switched on or off.
   - Converted: the artifact's form changed (single-stage to multi-stage build, format migration).
   - Recorded: an ADR or decision record was written.
-  - Documented: an existing API, migration or reference document was extended.
+  - Documented: a new or edited section in an existing document (README, runbook, API reference).
   - Migrated: schema, data or platform moved to a new version.
-  The verb describes the semantic action, not the file edit: a new plugin, check, endpoint, test
-  or file is `Added` even inside a config file; editing README/CHANGELOG/CONTRIBUTING is `Changed`;
-  a numeric setting is `Set`. Never use Raised, Improved, Updated or any verb outside this list.
+  The verb describes the semantic action, not the file edit. A new test file is `Added`, but a
+  class, probe or config entry inserted into an existing file is `Extended`; a new section in an
+  existing document is `Documented`. Never encode defect origin in the verb — `<type>` carries
+  bugfix versus refactor or change. Never use Raised, Improved or any verb outside this list.
 - The object is what changed, named the way the requester would say it: "pagination",
   "login log", "connection pool", "log level", "line endings", "authorization", "parameterized
   test", "CORS policy". Name the capability in plain words, not only the annotation or class that

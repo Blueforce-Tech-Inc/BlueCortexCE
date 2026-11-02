@@ -43,6 +43,7 @@ public final class GoldenSetScorer {
                     "implementing")),
             Map.entry("refactor", Set.of("refactor", "refactored", "refactors", "refactoring",
                     "extract", "extracted", "split", "simplified", "restructure", "restructured")),
+            Map.entry("extend", Set.of("extend", "extended", "extends", "extending")),
             Map.entry("change", Set.of("change", "changed", "changes", "changing", "adjust",
                     "adjusted", "modify", "modified", "modifies", "tune", "tuned", "update",
                     "updated", "updates", "updating", "revise", "revised", "refresh", "refreshed")),
