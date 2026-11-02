@@ -545,3 +545,102 @@ restores the "OpenAPI property set == serialized key set" invariant pinned by
 `ObservationEntityWireFormatTest`; the field is additive and does not touch the WebUI contract
 (`hasMore`, `updateFiles`, `CLAUDE_MEM_*`).
 
+## 7.11 Round 5 — metric correctness and the remaining title ceiling
+
+### 7.11.1 A6 title contract: definition, variants, result
+
+The round-4 contract (`verb class + subject tokens + every identifier`) was kept and the prompt
+was rewritten to name the narrowest verb (Fixed/Added/Changed/Set/Refactored/Hardened/Restricted/
+Redacted/Removed/Enabled/Converted/Recorded/Documented/Migrated), to name the capability in plain
+words, and to end with the file path or class. Three prompt variants were measured (82 samples,
+3 repeats, temperature 0):
+
+| variant | change | LongCat A6 | MiniMax A6 | LongCat concepts | MiniMax concepts |
+|---|---|---|---|---|---|
+| v4 (round 4) | baseline contract | 62% | 47% | 76% | 71% |
+| v5a | verb table + subject/path instruction | 77% | 53% | 77% | 72% |
+| v5b | v5a + exhaustive verb bullet list | 69% | 65% | 78% | 82% |
+| v5c (shipped) | v5b trimmed + Set/toggle/path-length rules + type guidance | 70% | 53% | 83% | 80% |
+
+v5c is shipped because it has the best concepts/facts/type balance and no title-length rejection;
+v5b was better for MiniMax titles but regressed LongCat by 8pp, so the model-specific gain was
+rejected rather than tuned into the fixture. **A6 still FAILs** (70% / 53% vs 80%) and was not
+relaxed. Remaining failures are semantic, not identifier loss (identifier hit 100% LongCat /
+95% MiniMax): the model says `pageOffset` for `pagination`, `site session flags` for `HttpOnly
+cookie`, `deploy role S3 access` for `IAM policy`, and `root logger` for `log level`. Round 6
+will add category few-shot title examples instead of more rule text.
+
+Metric normalization (not threshold relaxation): subject/keyword canonicalization now folds
+regular plurals (`line endings` = `line ending`, `credentials` = `credential`, `values` = `value`)
+and maps `flakiness → flaky`, `backtracking/catastrophic → redos`. The 80% gate and the
+"every identifier" clause are unchanged. All before/after metrics were re-scored with the same
+normalizer so the comparison stays apples-to-apples.
+
+### 7.11.2 A5 facts informative precision
+
+`facts informative precision` = share of extracted facts carrying an object/setting/value a
+later reader can act on; process noise ("edit applied", "tests run: 360") is not counted.
+
+| model | round 4 | round 5 | gate |
+|---|---|---|---|
+| LongCat | 78% | 83% | ≥ 75% PASS |
+| MiniMax | 79% | 77% | ≥ 75% PASS |
+
+The 1.75pp LongCat deficit from the request is closed; MiniMax lost 2pp but stays above the
+gate, and trace-support stayed 100% for both.
+
+### 7.11.3 Concepts: the count was not the problem
+
+Adding the closed two-slot contract in round 4 dropped recall from 75.8% (LongCat) to 71%
+(MiniMax) because `gotcha` was ranked first and swallowed every edge case. Round 5 reordered the
+second slot (pattern → trade-off → gotcha), defined `pattern` as a reusable primitive/scaffold,
+`trade-off` as an accepted cost, `gotcha` as a durable trap/default, and made config → trade-off,
+docs → pattern, ADR → trade-off:
+
+| model | round 4 | round 5 |
+|---|---|---|
+| LongCat | 76% | 83% |
+| MiniMax | 71% | 80% |
+
+The "only two concepts" restriction was not the cause: precision also rose to 83% / 80%, and the
+same two-slot count now recalls more of the expected concepts than the round-3 free-form prompt.
+
+### 7.11.4 A3/A4 gate counter bug
+
+The v3/v4 report mapped `skipFn` to "must-record samples skipped" and `skipFp` to "low-value
+samples recorded"; the counters mean the opposite (false-positive skip = a record-worthy turn was
+skipped). The gate now uses `skipFp` for A3 and `skipFn` for A4, and `GoldenSetReplayTest`
+asserts the same direction. Result: A3 0/0 (PASS), A4 1 (LongCat, PASS) and 0 (MiniMax, PASS).
+The old labels made A3 look like a skip bug when the real finding was one low-value turn
+recorded; the prompt now also says a grep that only locates an identifier is a skip and the skip
+line must close its tag.
+
+### 7.11.5 Verification
+
+`./scripts/verify-local.sh` — see 7.11.6 for the recorded run.
+
+### 7.11.6 Verification result
+
+`./scripts/verify-local.sh` — **ALL CHECKS PASSED**, 2026-11-03:
+
+- tests **458 / 0 failures / 0 errors / 0 skipped** (L1 444, L2 7, L3 6, L4 1, reports 74)
+  against the gate `--require-zero-skips --min-tests 423 --require-layers --require-baseline`;
+- Flyway V23 on a freshly recreated `cortexce_flyway_rehearsal` (pgvector 0.8.1);
+- doc checker self-test (18 cases) passed; EN/ZH references (80 operations) matched the live
+  server; `/api/observations` still `{hasMore,items}`;
+- proxy E2E executed with 0 skipped.
+
+The scorer change forced a one-time re-score of every recorded fixture (golden-set before/after
+and both summary baselines) so the committed metrics and `GoldenSetReplayTest` agree; raw model
+outputs were not edited.
+
+### 7.11.7 Rejected alternatives
+
+- Raising the concept count to 3 to "cover" more gold labels — precision drops and the contract
+  becomes non-deterministic.
+- Lowering A6 to 65% because MiniMax reached 65% in v5b — the user-set 80% gate is not a target
+  to move.
+- Rewriting the produced title in post-processing (injecting identifiers) — that would test the
+  rewriter, not the model.
+- Letting the submission off with a warning — the gate would become decorative.
+
