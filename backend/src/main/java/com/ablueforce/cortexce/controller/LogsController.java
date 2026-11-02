@@ -63,6 +63,22 @@ public class LogsController {
     private String logDir;
 
     /**
+     * Whether the log API is exposed at all. Default true: the Viewer UI LogsModal
+     * and any existing CLI integration keep working unchanged.
+     */
+    @Value("${claudemem.logs.api-enabled:true}")
+    private boolean logApiEnabled;
+
+    /**
+     * Optional shared secret. Empty (the default) preserves today's behaviour; when
+     * set, callers must send {@code X-Log-Token}. Operators who expose the worker
+     * beyond the loopback interface can enable protection without breaking clients
+     * that never configured it.
+     */
+    @Value("${claudemem.logs.api-token:}")
+    private String logApiToken;
+
+    /**
      * GET /api/logs — retrieve application logs.
      *
      * <p>Supports:
@@ -82,8 +98,10 @@ public class LogsController {
         content = @Content(schema = @Schema(type = "object", example = "{\"logs\":\"[2025-01-02 14:30:45] [INFO] message\",\"path\":\"/logs\",\"totalLines\":100,\"returnedLines\":50,\"exists\":true}")))
     public ResponseEntity<Map<String, Object>> getLogs(
             @Parameter(description = "Maximum number of log lines to return (1-10000, default 1000)", required = false, example = "1000")
-            @RequestParam(defaultValue = "1000") int lines) {
+            @RequestParam(defaultValue = "1000") int lines,
+            @RequestHeader(value = "X-Log-Token", required = false) String token) {
 
+        assertLogApiAllowed(token);
         int validatedLines = Math.min(Math.max(1, lines), 10000);
 
         List<String> logLines = new ArrayList<>();
@@ -158,7 +176,9 @@ public class LogsController {
         @ApiResponse(responseCode = "500", description = "Failed to clear log file due to IO error",
             content = @Content(schema = @Schema(type = "object", example = "{\"error\":\"Failed to clear log file\"}")))
     })
-    public ResponseEntity<Map<String, String>> clearLogs() {
+    public ResponseEntity<Map<String, String>> clearLogs(
+            @RequestHeader(value = "X-Log-Token", required = false) String token) {
+        assertLogApiAllowed(token);
         Path todayLog = getLogFile(0);
         if (Files.exists(todayLog)) {
             try {
@@ -182,6 +202,27 @@ public class LogsController {
                 "message", "No log file to clear",
                 "path", todayLog.toString()
         ));
+    }
+
+    /**
+     * Gate for the log endpoints.
+     *
+     * <p>Log lines contain tool names, file paths and error text, so an exposed worker
+     * should not hand them to anyone who can reach the port. Both switches are off by
+     * default only in the sense that the old behaviour is preserved: the API stays on
+     * and unauthenticated unless the operator opts in. A disabled API answers 404
+     * rather than 403 so the endpoint does not advertise itself.
+     */
+    private void assertLogApiAllowed(String headerToken) {
+        if (!logApiEnabled) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.NOT_FOUND);
+        }
+        if (logApiToken != null && !logApiToken.isBlank()
+            && (headerToken == null || !logApiToken.equals(headerToken))) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.FORBIDDEN, "missing or invalid X-Log-Token");
+        }
     }
 
     /**

@@ -41,9 +41,16 @@ class LogsControllerTest {
     @BeforeEach
     void setUp() throws Exception {
         controller = new LogsController();
-        Field field = LogsController.class.getDeclaredField("logDir");
+        setField("logDir", logDir.toString());
+        // @Value defaults are not applied when the controller is constructed by hand.
+        setField("logApiEnabled", true);
+        setField("logApiToken", "");
+    }
+
+    private void setField(String name, Object value) throws Exception {
+        Field field = LogsController.class.getDeclaredField(name);
         field.setAccessible(true);
-        field.set(controller, logDir.toString());
+        field.set(controller, value);
     }
 
     private void writeLog(int dayOffset, String... lines) throws IOException {
@@ -65,9 +72,47 @@ class LogsControllerTest {
 
     @SuppressWarnings("unchecked")
     private Map<String, Object> call(int lines) {
-        ResponseEntity<Map<String, Object>> response = controller.getLogs(lines);
+        ResponseEntity<Map<String, Object>> response = controller.getLogs(lines, null);
         assertEquals(200, response.getStatusCode().value());
         return (Map<String, Object>) response.getBody();
+    }
+
+    // --- access control: opt-in switches, default behaviour unchanged ---
+
+    @Test
+    void logApiCanBeTurnedOff() throws Exception {
+        setField("logApiEnabled", false);
+        var error = org.junit.jupiter.api.Assertions.assertThrows(
+            org.springframework.web.server.ResponseStatusException.class,
+            () -> controller.getLogs(10, null));
+        assertEquals(404, error.getStatusCode().value());
+    }
+
+    @Test
+    void clearApiCanBeTurnedOff() throws Exception {
+        setField("logApiEnabled", false);
+        var error = org.junit.jupiter.api.Assertions.assertThrows(
+            org.springframework.web.server.ResponseStatusException.class,
+            () -> controller.clearLogs(null));
+        assertEquals(404, error.getStatusCode().value());
+    }
+
+    @Test
+    void tokenIsOptionalButEnforcedWhenConfigured() throws Exception {
+        setField("logApiToken", "s3cret");
+        var denied = org.junit.jupiter.api.Assertions.assertThrows(
+            org.springframework.web.server.ResponseStatusException.class,
+            () -> controller.getLogs(10, null));
+        assertEquals(403, denied.getStatusCode().value());
+
+        var wrong = org.junit.jupiter.api.Assertions.assertThrows(
+            org.springframework.web.server.ResponseStatusException.class,
+            () -> controller.getLogs(10, "nope"));
+        assertEquals(403, wrong.getStatusCode().value());
+
+        // A correct token keeps the existing response shape.
+        ResponseEntity<Map<String, Object>> ok = controller.getLogs(10, "s3cret");
+        assertEquals(200, ok.getStatusCode().value());
     }
 
     private static int intOf(Map<String, Object> body, String key) {
