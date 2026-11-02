@@ -81,6 +81,30 @@ class GoldenSetDataTest {
     }
 
     @Test
+    @DisplayName("action labels are the six-enum values and match the trace-derived class")
+    void actionLabelsCannotDrift() throws Exception {
+        GoldenSet golden = load();
+
+        long unclassifiable = 0;
+        for (GoldenSet.Sample sample : golden.samples) {
+            assertThat(sample.titleAction).as(sample.id + " action label").isNotNull();
+            if (GoldenSetActionRules.UNCLASSIFIABLE.equals(sample.titleAction)) {
+                unclassifiable++;
+                continue;
+            }
+            assertThat(sample.titleAction).as(sample.id + " action label")
+                    .isIn(GoldenSetActionRules.ACTIONS);
+            assertThat(sample.titleAction)
+                    .as(sample.id + " label must equal the mechanical derivation; edit the rule, "
+                            + "not the label")
+                    .isEqualTo(GoldenSetActionRules.derive(sample));
+        }
+        assertThat(unclassifiable / (double) golden.samples.size())
+                .as("unclassifiable share of the golden set")
+                .isLessThanOrEqualTo(0.10);
+    }
+
+    @Test
     @DisplayName("skip samples cover pure read, listing, status, multi-step and no-conclusion forms")
     void skipCoverage() throws Exception {
         GoldenSet golden = load();

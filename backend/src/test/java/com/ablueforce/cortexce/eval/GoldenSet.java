@@ -35,11 +35,19 @@ public class GoldenSet {
         public List<String> titleKeywords = new ArrayList<>();
 
         /**
-         * Contract title metric, part 1: the verb class the first title token must belong to.
+         * Diagnostic title metric, part 1: the verb class the first title token must belong to.
          * One of fix/add/refactor/change/harden/remove/migrate/document/record/restrict/
          * enable/convert/set/redact/update (see {@code GoldenSetScorer.VERB_CLASSES}).
+         * Kept for the pre-round-6 reports; A6 now reads {@link #titleAction}.
          */
         public String titleVerb;
+
+        /**
+         * A6 action class, mechanically derived from the tool trace by
+         * {@code GoldenSetActionRules#derive}: create, modify, remove, secure, document,
+         * diagnose or unclassifiable. Labels are never hand-picked.
+         */
+        public String titleAction;
 
         /**
          * Contract title metric, part 2: the object/symptom noun tokens the title must name.

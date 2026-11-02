@@ -105,8 +105,14 @@ class GoldenSetReplayTest {
                     .isCloseTo(doubleValue(expected, "titleNormalizedHitRate"), within(1e-9));
             assertThat(agg.titleExactHitRate).as(name + " title exact")
                     .isCloseTo(doubleValue(expected, "titleExactHitRate"), within(1e-9));
+            assertThat(agg.titleActionHitRate).as(name + " title action")
+                    .isCloseTo(doubleValue(expected, "titleActionHitRate"), within(1e-9));
+            assertThat(agg.titleSubjectHitRate).as(name + " title subject")
+                    .isCloseTo(doubleValue(expected, "titleSubjectHitRate"), within(1e-9));
             assertThat(agg.titleContractHitRate).as(name + " title contract")
                     .isCloseTo(doubleValue(expected, "titleContractHitRate"), within(1e-9));
+            assertThat(agg.titleVerbContractHitRate).as(name + " title verb contract (diagnostic)")
+                    .isCloseTo(doubleValue(expected, "titleVerbContractHitRate"), within(1e-9));
             assertThat(agg.factsInformativeRate).as(name + " facts informative")
                     .isCloseTo(doubleValue(expected, "factsInformativeRate"), within(1e-9));
             assertThat(agg.typeAccuracy).as(name + " type")

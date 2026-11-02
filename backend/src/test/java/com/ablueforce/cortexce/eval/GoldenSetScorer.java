@@ -214,8 +214,13 @@ public final class GoldenSetScorer {
         public boolean titleNormalizedHit;
         public double titleCoverage;
         public boolean titleVerbClassHit;
+        public boolean titleActionHit;
+        public String titleActionExpected;
+        public String titleActionActual;
         public boolean titleSubjectHit;
         public boolean titleContractHit;
+        /** Diagnostic: the old verb+subject+identifier contract, kept for before/after. */
+        public boolean titleVerbContractHit;
         public boolean typeMatch;
         /** Legacy keyword precision (share of facts mentioning an expected keyword). */
         public double factsPrecision;
@@ -264,8 +269,12 @@ public final class GoldenSetScorer {
         public double titleNormalizedHitRate;
         public double titleIdentifierHitRate;
         public double titleVerbClassHitRate;
+        public double titleActionHitRate;
+        public int titleActionSamples;
+        public int titleActionUnclassifiable;
         public double titleSubjectHitRate;
         public double titleContractHitRate;
+        public double titleVerbContractHitRate;
         public double typeAccuracy;
         /** Legacy keyword precision, retained for before/after comparison. */
         public double factsPrecision;
@@ -315,9 +324,13 @@ public final class GoldenSetScorer {
         double titleNormalizedHits = 0;
         double titleIdentifierHits = 0;
         double titleVerbClassHits = 0;
+        double titleActionHits = 0;
         double titleSubjectHits = 0;
         double titleContractHits = 0;
+        double titleVerbContractHits = 0;
         int titleSamples = 0;
+        int titleActionSamples = 0;
+        int titleActionUnclassifiable = 0;
         int typedSamples = 0;
         int typeHits = 0;
         double factsP = 0;
@@ -403,14 +416,27 @@ public final class GoldenSetScorer {
                 score.titleSubjectHit = subject.isEmpty()
                         || coverage(subject, obs.title) >= TITLE_COVERAGE_FLOOR;
                 score.titleVerbClassHit = verbClassHit(sample.titleVerb, obs.title);
-                score.titleContractHit = score.titleVerbClassHit && score.titleSubjectHit
+                score.titleActionExpected = sample.titleAction;
+                score.titleActionActual = GoldenSetActionRules.actionForTitle(obs.title);
+                score.titleActionHit = actionHit(sample, obs.title);
+                boolean actionScored = !GoldenSetActionRules.UNCLASSIFIABLE.equals(sample.titleAction);
+                score.titleContractHit = actionScored && score.titleActionHit
+                        && score.titleSubjectHit && score.titleIdentifierHit;
+                score.titleVerbContractHit = score.titleVerbClassHit && score.titleSubjectHit
                         && score.titleIdentifierHit;
                 titleExactHits += score.titleExactHit ? 1 : 0;
                 titleNormalizedHits += score.titleNormalizedHit ? 1 : 0;
                 titleIdentifierHits += score.titleIdentifierHit ? 1 : 0;
                 titleVerbClassHits += score.titleVerbClassHit ? 1 : 0;
+                if (actionScored) {
+                    titleActionHits += score.titleActionHit ? 1 : 0;
+                    titleActionSamples++;
+                } else {
+                    titleActionUnclassifiable++;
+                }
                 titleSubjectHits += score.titleSubjectHit ? 1 : 0;
                 titleContractHits += score.titleContractHit ? 1 : 0;
+                titleVerbContractHits += score.titleVerbContractHit ? 1 : 0;
                 titleSamples++;
                 type.titleNormalizedHit += score.titleNormalizedHit ? 1 : 0;
 
@@ -441,6 +467,10 @@ public final class GoldenSetScorer {
                 } else if (!score.titleNormalizedHit) {
                     score.problems.add("title coverage " + pct(score.titleCoverage)
                             + " (expected keywords " + sample.titleKeywords + ")");
+                }
+                if (!score.titleActionHit && actionScored) {
+                    score.problems.add("title action '" + sample.titleAction + "' missing: title leads '"
+                            + score.titleActionActual + "' (got '" + obs.title + "')");
                 }
                 if (!score.titleVerbClassHit) {
                     score.problems.add("title verb class '" + sample.titleVerb
@@ -478,8 +508,12 @@ public final class GoldenSetScorer {
         agg.titleNormalizedHitRate = ratio(titleNormalizedHits, titleSamples);
         agg.titleIdentifierHitRate = ratio(titleIdentifierHits, titleSamples);
         agg.titleVerbClassHitRate = ratio(titleVerbClassHits, titleSamples);
+        agg.titleActionHitRate = ratio(titleActionHits, titleActionSamples);
+        agg.titleActionSamples = titleActionSamples;
+        agg.titleActionUnclassifiable = titleActionUnclassifiable;
         agg.titleSubjectHitRate = ratio(titleSubjectHits, titleSamples);
         agg.titleContractHitRate = ratio(titleContractHits, titleSamples);
+        agg.titleVerbContractHitRate = ratio(titleVerbContractHits, titleSamples);
         agg.typeAccuracy = ratio(typeHits, typedSamples);
         agg.factsPrecision = fieldSamples == 0 ? 0 : factsP / fieldSamples;
         agg.factsInformativeRate = fieldSamples == 0 ? 0 : factsInformative / fieldSamples;
@@ -694,6 +728,20 @@ public final class GoldenSetScorer {
             }
         }
         return subject.isEmpty() ? sample.titleKeywords : subject;
+    }
+
+    /** A6: the title's leading verb maps to the trace-derived action class. */
+    static boolean actionHit(GoldenSet.Sample sample, String title) {
+        if (GoldenSetActionRules.UNCLASSIFIABLE.equals(sample.titleAction)) {
+            return true;
+        }
+        return sample.titleAction != null
+                && sample.titleAction.equals(GoldenSetActionRules.actionForTitle(title));
+    }
+
+    /** Verb lemma for a single token, or {@code null} when it is not a contract verb. */
+    static String verbLemma(String token) {
+        return VERB_LEMMAS.get(token);
     }
 
     /** Whether the first title token belongs to the declared verb class. */

@@ -156,23 +156,25 @@ class GoldenSetScorerTest {
     }
 
     @Test
-    @DisplayName("contract title hit requires verb class, subject and every identifier")
+    @DisplayName("contract title hit requires action class, subject and every identifier")
     void contractTitleHit() {
         GoldenSet.Sample sample = sample("refactor", true, "refactor",
                 List.of("refactor", "invoiceservice", "delegates"), List.of("InvoiceService"));
         sample.titleVerb = "refactor";
         sample.titleSubject = List.of("delegation");
+        sample.titleAction = "modify";
 
         GoldenSetScorer.SampleScore hit = scoreOne(sample,
                 observation("refactor", "Refactored InvoiceService to delegate tax and mail rendering"));
         assertThat(hit.titleVerbClassHit).isTrue();
+        assertThat(hit.titleActionHit).isTrue();
         assertThat(hit.titleSubjectHit).isTrue();
         assertThat(hit.titleContractHit).isTrue();
 
-        GoldenSetScorer.SampleScore wrongVerb = scoreOne(sample,
-                observation("refactor", "Changed InvoiceService delegation to new helpers"));
-        assertThat(wrongVerb.titleVerbClassHit).isFalse();
-        assertThat(wrongVerb.titleContractHit).isFalse();
+        GoldenSetScorer.SampleScore wrongAction = scoreOne(sample,
+                observation("refactor", "Added InvoiceService delegation helpers"));
+        assertThat(wrongAction.titleActionHit).isFalse();
+        assertThat(wrongAction.titleContractHit).isFalse();
 
         GoldenSetScorer.SampleScore missingSubject = scoreOne(sample,
                 observation("refactor", "Refactored InvoiceService constructor only"));
@@ -186,17 +188,21 @@ class GoldenSetScorerTest {
     }
 
     @Test
-    @DisplayName("update and change belong to the same contract verb class")
+    @DisplayName("the retired verb dimension still folds update into change")
     void updateAndChangeShareClass() {
         GoldenSet.Sample sample = sample("docs-update", true, "change",
                 List.of("update", "changelog"), List.of("CHANGELOG.md"));
         sample.titleVerb = "update";
         sample.titleSubject = List.of("changelog");
+        sample.titleAction = "document";
 
         GoldenSetScorer.SampleScore score = scoreOne(sample,
                 observation("change", "Changed CHANGELOG.md entry for 2.4.0"));
         assertThat(score.titleVerbClassHit).isTrue();
-        assertThat(score.titleContractHit).isTrue();
+        assertThat(score.titleVerbContractHit).isTrue();
+        // "Changed" maps to modify while the trace is a documentation edit, so A6 misses even
+        // though the legacy verb contract passes. Both dimensions are reported separately.
+        assertThat(score.titleActionHit).isFalse();
     }
 
     @Test
@@ -262,6 +268,7 @@ class GoldenSetScorerTest {
         sample.expectedType = expectedType;
         sample.titleKeywords = titleKeywords;
         sample.titleIdentifiers = titleIdentifiers;
+        sample.titleAction = expectObservation ? "modify" : "diagnose";
         sample.factsKeywords = List.of();
         sample.conceptsKeywords = List.of();
         return sample;

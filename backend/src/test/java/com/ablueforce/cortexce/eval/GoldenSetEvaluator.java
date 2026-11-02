@@ -376,10 +376,15 @@ public final class GoldenSetEvaluator {
         row(sb, "call failures", String.valueOf(agg.callFailures));
         row(sb, "title exact-hit rate (legacy)", pct(agg.titleExactHitRate));
         row(sb, "title normalized hit rate (legacy)", pct(agg.titleNormalizedHitRate));
-        row(sb, "title verb-class hit rate", pct(agg.titleVerbClassHitRate));
+        row(sb, "title action-class hit rate (A6)", pct(agg.titleActionHitRate)
+                + " (" + agg.titleActionSamples + " scored, "
+                + agg.titleActionUnclassifiable + " unclassifiable)");
+        row(sb, "title verb-class hit rate (diagnostic, retired)", pct(agg.titleVerbClassHitRate));
         row(sb, "title subject hit rate", pct(agg.titleSubjectHitRate));
-        row(sb, "title contract hit rate (verb + subject + all identifiers)",
+        row(sb, "title contract hit rate (action + subject + all identifiers)",
                 pct(agg.titleContractHitRate));
+        row(sb, "title verb contract hit rate (verb + subject + identifiers, diagnostic)",
+                pct(agg.titleVerbContractHitRate));
         row(sb, "title identifier hit rate", pct(agg.titleIdentifierHitRate));
         row(sb, "type accuracy", pct(agg.typeAccuracy));
         row(sb, "facts keyword precision (legacy) / recall",
@@ -405,8 +410,16 @@ public final class GoldenSetEvaluator {
                 agg.skipFn <= Math.max(1, agg.skipTp / 20));
         gate(sb, "A5", "facts informative precision", ">= 75%",
                 pct(agg.factsInformativeRate), agg.factsInformativeRate >= 0.75);
-        gate(sb, "A6", "title contract hit (verb + subject + identifiers)", ">= 80%",
-                pct(agg.titleContractHitRate), agg.titleContractHitRate >= 0.80);
+        gate(sb, "A6a", "title action class (trace-derived)", ">= 80%",
+                pct(agg.titleActionHitRate), agg.titleActionHitRate >= 0.80);
+        gate(sb, "A6b", "title subject", ">= 90%",
+                pct(agg.titleSubjectHitRate), agg.titleSubjectHitRate >= 0.90);
+        gate(sb, "A6c", "title identifiers", "= 100%",
+                pct(agg.titleIdentifierHitRate), agg.titleIdentifierHitRate >= 1.0);
+        gate(sb, "A6", "all three title dimensions together", "all pass",
+                pct(agg.titleContractHitRate),
+                agg.titleActionHitRate >= 0.80 && agg.titleSubjectHitRate >= 0.90
+                        && agg.titleIdentifierHitRate >= 1.0);
         sb.append('\n');
 
         if (!agg.statusCounts.isEmpty()) {
@@ -560,8 +573,12 @@ public final class GoldenSetEvaluator {
         metrics.put("titleNormalizedHitRate", agg.titleNormalizedHitRate);
         metrics.put("titleIdentifierHitRate", agg.titleIdentifierHitRate);
         metrics.put("titleVerbClassHitRate", agg.titleVerbClassHitRate);
+        metrics.put("titleActionHitRate", agg.titleActionHitRate);
+        metrics.put("titleActionSamples", agg.titleActionSamples);
+        metrics.put("titleActionUnclassifiable", agg.titleActionUnclassifiable);
         metrics.put("titleSubjectHitRate", agg.titleSubjectHitRate);
         metrics.put("titleContractHitRate", agg.titleContractHitRate);
+        metrics.put("titleVerbContractHitRate", agg.titleVerbContractHitRate);
         metrics.put("typeAccuracy", agg.typeAccuracy);
         metrics.put("factsPrecision", agg.factsPrecision);
         metrics.put("factsInformativeRate", agg.factsInformativeRate);
@@ -588,13 +605,13 @@ public final class GoldenSetEvaluator {
     private static void printSummary(GoldenSetScorer.Aggregate agg, int calls, long durationMs, Path path) {
         System.out.printf(Locale.ROOT,
                 "%ncontract=%s skip=%s (TP/FP/FN/TN=%d/%d/%d/%d) formatErrors=%d "
-                        + "titleExact=%s titleNorm=%s titleContract=%s type=%s "
+                        + "titleExact=%s titleNorm=%s titleAction=%s titleContract=%s type=%s "
                         + "factsP/R=%s/%s actionable=%s support=%s "
                         + "conceptsP/R=%s/%s calls=%d duration=%dms consistency=%s%nreport=%s%n",
                 pct(agg.contractPassRate), pct(agg.skipAccuracy),
                 agg.skipTp, agg.skipFp, agg.skipFn, agg.skipTn, agg.formatErrors,
                 pct(agg.titleExactHitRate), pct(agg.titleNormalizedHitRate),
-                pct(agg.titleContractHitRate), pct(agg.typeAccuracy),
+                pct(agg.titleActionHitRate), pct(agg.titleContractHitRate), pct(agg.typeAccuracy),
                 pct(agg.factsPrecision), pct(agg.factsRecall), pct(agg.factsInformativeRate),
                 pct(agg.factsSupportRate),
                 pct(agg.conceptsPrecision), pct(agg.conceptsRecall), calls, durationMs,
