@@ -1,0 +1,1813 @@
+{
+  "version": "2026-11-03-summary-42",
+  "samples": [
+    {
+      "id": "sum-bug-offbyone-pagination-single",
+      "category": "bug-fix",
+      "lastAssistantMessage": "Edit applied. OrderQuery.pageOffset now returns (page * size) without the extra -1. OrderQueryTest#firstPageStartsAtZero passes.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/orders/OrderQuery.java old_string=\"int offset = page * size - 1\" new_string=\"int offset = page * size\"\nEdit applied. OrderQuery.pageOffset now returns (page * size) without the extra -1. OrderQueryTest#firstPageStartsAtZero passes.",
+      "observations": [
+        {
+          "type": "bugfix",
+          "title": "Fix pagination in OrderQuery",
+          "content": "Edit applied. OrderQuery.pageOffset now returns (page * size) without the extra -1. OrderQueryTest#firstPageStartsAtZero passes.",
+          "facts": [
+            "Edit applied.",
+            "OrderQuery.pageOffset now returns (page * size) without the extra -1.",
+            "OrderQueryTest#firstPageStartsAtZero passes."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "offset",
+        "page"
+      ],
+      "learnedKeywords": [
+        "page",
+        "size",
+        "offset"
+      ],
+      "requestIdentifiers": [
+        "OrderQuery"
+      ],
+      "learnedIdentifiers": [
+        "OrderQuery"
+      ],
+      "keySample": true,
+      "notes": "single-observation session"
+    },
+    {
+      "id": "sum-bug-offbyone-pagination-chain",
+      "category": "bug-fix",
+      "lastAssistantMessage": "Edit applied. OrderQuery.pageOffset now returns (page * size) without the extra -1. OrderQueryTest#firstPageStartsAtZero passes. Next I will run the full verification suite.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/orders/OrderQuery.java old_string=\"int offset = page * size - 1\" new_string=\"int offset = page * size\"\nEdit applied. OrderQuery.pageOffset now returns (page * size) without the extra -1. OrderQueryTest#firstPageStartsAtZero passes.",
+      "observations": [
+        {
+          "type": "discovery",
+          "title": "Read Fix pagination in OrderQuery",
+          "content": "Inspected file_path=src/main/java/com/acme/orders/OrderQuery.java old_string=\"int offset = page * size - 1\" new_string=\"int offset = page * size\"",
+          "facts": []
+        },
+        {
+          "type": "bugfix",
+          "title": "Fix pagination in OrderQuery",
+          "content": "Edit applied. OrderQuery.pageOffset now returns (page * size) without the extra -1. OrderQueryTest#firstPageStartsAtZero passes.",
+          "facts": [
+            "Edit applied.",
+            "OrderQuery.pageOffset now returns (page * size) without the extra -1.",
+            "OrderQueryTest#firstPageStartsAtZero passes."
+          ]
+        },
+        {
+          "type": "discovery",
+          "title": "Verified Fix pagination in OrderQuery",
+          "content": "OrderQueryTest#firstPageStartsAtZero passes.",
+          "facts": [
+            "OrderQueryTest#firstPageStartsAtZero passes."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "offset",
+        "page"
+      ],
+      "learnedKeywords": [
+        "page",
+        "size",
+        "offset"
+      ],
+      "requestIdentifiers": [
+        "OrderQuery"
+      ],
+      "learnedIdentifiers": [
+        "OrderQuery"
+      ],
+      "keySample": false,
+      "notes": "three-step discovery/change/verify session"
+    },
+    {
+      "id": "sum-bug-null-cache-single",
+      "category": "bug-fix",
+      "lastAssistantMessage": "Edit applied. UserCache.get now loads through computeIfAbsent, so two concurrent callers cannot both write a null placeholder. CacheConcurrencyTest passes.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/cache/UserCache.java old_string=\"return cache.get(id);\" new_string=\"return cache.computeIfAbsent(id, loader::load);\"\nEdit applied. UserCache.get now loads through computeIfAbsent, so two concurrent callers cannot both write a null placeholder. CacheConcurrencyTest passes.",
+      "observations": [
+        {
+          "type": "bugfix",
+          "title": "Fix race in UserCache",
+          "content": "Edit applied. UserCache.get now loads through computeIfAbsent, so two concurrent callers cannot both write a null placeholder. CacheConcurrencyTest passes.",
+          "facts": [
+            "Edit applied.",
+            "UserCache.get now loads through computeIfAbsent, so two concurrent callers cannot both write a null placeholder.",
+            "CacheConcurrencyTest passes."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "cache",
+        "concurrent"
+      ],
+      "learnedKeywords": [
+        "computeIfAbsent",
+        "concurrent",
+        "null"
+      ],
+      "requestIdentifiers": [
+        "UserCache"
+      ],
+      "learnedIdentifiers": [
+        "UserCache",
+        "computeIfAbsent"
+      ],
+      "keySample": false,
+      "notes": "single-observation session"
+    },
+    {
+      "id": "sum-bug-null-cache-chain",
+      "category": "bug-fix",
+      "lastAssistantMessage": "Edit applied. UserCache.get now loads through computeIfAbsent, so two concurrent callers cannot both write a null placeholder. CacheConcurrencyTest passes. Next I will run the full verification suite.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/cache/UserCache.java old_string=\"return cache.get(id);\" new_string=\"return cache.computeIfAbsent(id, loader::load);\"\nEdit applied. UserCache.get now loads through computeIfAbsent, so two concurrent callers cannot both write a null placeholder. CacheConcurrencyTest passes.",
+      "observations": [
+        {
+          "type": "discovery",
+          "title": "Read Fix race in UserCache",
+          "content": "Inspected file_path=src/main/java/com/acme/cache/UserCache.java old_string=\"return cache.get(id);\" new_string=\"return cache.computeIfAbsent(id, loader::load);\"",
+          "facts": []
+        },
+        {
+          "type": "bugfix",
+          "title": "Fix race in UserCache",
+          "content": "Edit applied. UserCache.get now loads through computeIfAbsent, so two concurrent callers cannot both write a null placeholder. CacheConcurrencyTest passes.",
+          "facts": [
+            "Edit applied.",
+            "UserCache.get now loads through computeIfAbsent, so two concurrent callers cannot both write a null placeholder.",
+            "CacheConcurrencyTest passes."
+          ]
+        },
+        {
+          "type": "discovery",
+          "title": "Verified Fix race in UserCache",
+          "content": "CacheConcurrencyTest passes.",
+          "facts": [
+            "CacheConcurrencyTest passes."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "cache",
+        "concurrent"
+      ],
+      "learnedKeywords": [
+        "computeIfAbsent",
+        "concurrent",
+        "null"
+      ],
+      "requestIdentifiers": [
+        "UserCache"
+      ],
+      "learnedIdentifiers": [
+        "UserCache",
+        "computeIfAbsent"
+      ],
+      "keySample": true,
+      "notes": "three-step discovery/change/verify session"
+    },
+    {
+      "id": "sum-bug-timezone-report-single",
+      "category": "bug-fix",
+      "lastAssistantMessage": "Added DailyReportTest#reportUsesBusinessTimezone. It pins 2026-11-01T23:30Z and expects the Asia/Shanghai business date 2026-11-02. The test reproduces the reported off-by-one-day bug and now passes after the fix.",
+      "toolTrace": "[Edit]\nfile_path=src/test/java/com/acme/reporting/DailyReportTest.java new_string=\"@Test void reportUsesBusinessTimezone() { ... ZoneId.of(\\\"Asia/Shanghai\\\") ... }\"\nAdded DailyReportTest#reportUsesBusinessTimezone. It pins 2026-11-01T23:30Z and expects the Asia/Shanghai business date 2026-11-02. The test reproduces the reported off-by-one-day bug and now passes after the fix.",
+      "observations": [
+        {
+          "type": "feature",
+          "title": "Add timezone in DailyReportTest",
+          "content": "Added DailyReportTest#reportUsesBusinessTimezone. It pins 2026-11-01T23:30Z and expects the Asia/Shanghai business date 2026-11-02. The test reproduces the reported off-by-one-day bug and now passes after the fix.",
+          "facts": [
+            "Added DailyReportTest#reportUsesBusinessTimezone.",
+            "It pins 2026-11-01T23:30Z and expects the Asia/Shanghai business date 2026-11-02.",
+            "The test reproduces the reported off-by-one-day bug and now passes after the fix."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "timezone",
+        "report"
+      ],
+      "learnedKeywords": [
+        "Asia/Shanghai",
+        "2026-11-02",
+        "2026-11-01T23:30Z"
+      ],
+      "requestIdentifiers": [
+        "DailyReportTest",
+        "reportUsesBusinessTimezone"
+      ],
+      "learnedIdentifiers": [
+        "DailyReportTest",
+        "reportUsesBusinessTimezone"
+      ],
+      "keySample": false,
+      "notes": "single-observation session"
+    },
+    {
+      "id": "sum-bug-timezone-report-chain",
+      "category": "bug-fix",
+      "lastAssistantMessage": "Added DailyReportTest#reportUsesBusinessTimezone. It pins 2026-11-01T23:30Z and expects the Asia/Shanghai business date 2026-11-02. The test reproduces the reported off-by-one-day bug and now passes after the fix. Next I will run the full verification suite.",
+      "toolTrace": "[Edit]\nfile_path=src/test/java/com/acme/reporting/DailyReportTest.java new_string=\"@Test void reportUsesBusinessTimezone() { ... ZoneId.of(\\\"Asia/Shanghai\\\") ... }\"\nAdded DailyReportTest#reportUsesBusinessTimezone. It pins 2026-11-01T23:30Z and expects the Asia/Shanghai business date 2026-11-02. The test reproduces the reported off-by-one-day bug and now passes after the fix.",
+      "observations": [
+        {
+          "type": "discovery",
+          "title": "Read Add timezone in DailyReportTest",
+          "content": "Inspected file_path=src/test/java/com/acme/reporting/DailyReportTest.java new_string=\"@Test void reportUsesBusinessTimezone() { ... ZoneId.of(\\\"Asia/Shanghai\\\") ... }\"",
+          "facts": []
+        },
+        {
+          "type": "feature",
+          "title": "Add timezone in DailyReportTest",
+          "content": "Added DailyReportTest#reportUsesBusinessTimezone. It pins 2026-11-01T23:30Z and expects the Asia/Shanghai business date 2026-11-02. The test reproduces the reported off-by-one-day bug and now passes after the fix.",
+          "facts": [
+            "Added DailyReportTest#reportUsesBusinessTimezone.",
+            "It pins 2026-11-01T23:30Z and expects the Asia/Shanghai business date 2026-11-02.",
+            "The test reproduces the reported off-by-one-day bug and now passes after the fix."
+          ]
+        },
+        {
+          "type": "discovery",
+          "title": "Verified Add timezone in DailyReportTest",
+          "content": "The test reproduces the reported off-by-one-day bug and now passes after the fix.",
+          "facts": [
+            "The test reproduces the reported off-by-one-day bug and now passes after the fix."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "timezone",
+        "report"
+      ],
+      "learnedKeywords": [
+        "Asia/Shanghai",
+        "2026-11-02",
+        "2026-11-01T23:30Z"
+      ],
+      "requestIdentifiers": [
+        "DailyReportTest",
+        "reportUsesBusinessTimezone"
+      ],
+      "learnedIdentifiers": [
+        "DailyReportTest",
+        "reportUsesBusinessTimezone"
+      ],
+      "keySample": false,
+      "notes": "three-step discovery/change/verify session"
+    },
+    {
+      "id": "sum-bug-payment-missing-order-single",
+      "category": "bug-fix",
+      "lastAssistantMessage": "Edit applied. PaymentService now throws PaymentNotFoundException for a missing orderId instead of returning null. PaymentServiceTest#missingOrderThrows passes.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/payment/PaymentService.java new_string=\"return repository.findByOrderId(orderId).orElseThrow(() -> new PaymentNotFoundException(orderId));\"\nEdit applied. PaymentService now throws PaymentNotFoundException for a missing orderId instead of returning null. PaymentServiceTest#missingOrderThrows passes.",
+      "observations": [
+        {
+          "type": "bugfix",
+          "title": "Fix missing order in PaymentService",
+          "content": "Edit applied. PaymentService now throws PaymentNotFoundException for a missing orderId instead of returning null. PaymentServiceTest#missingOrderThrows passes.",
+          "facts": [
+            "Edit applied.",
+            "PaymentService now throws PaymentNotFoundException for a missing orderId instead of returning null.",
+            "PaymentServiceTest#missingOrderThrows passes."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "payment",
+        "missing",
+        "order"
+      ],
+      "learnedKeywords": [
+        "PaymentNotFoundException",
+        "orderId"
+      ],
+      "requestIdentifiers": [
+        "PaymentService"
+      ],
+      "learnedIdentifiers": [
+        "PaymentService",
+        "PaymentNotFoundException"
+      ],
+      "keySample": false,
+      "notes": "single-observation session"
+    },
+    {
+      "id": "sum-bug-payment-missing-order-chain",
+      "category": "bug-fix",
+      "lastAssistantMessage": "Edit applied. PaymentService now throws PaymentNotFoundException for a missing orderId instead of returning null. PaymentServiceTest#missingOrderThrows passes. Next I will run the full verification suite.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/payment/PaymentService.java new_string=\"return repository.findByOrderId(orderId).orElseThrow(() -> new PaymentNotFoundException(orderId));\"\nEdit applied. PaymentService now throws PaymentNotFoundException for a missing orderId instead of returning null. PaymentServiceTest#missingOrderThrows passes.",
+      "observations": [
+        {
+          "type": "discovery",
+          "title": "Read Fix missing order in PaymentService",
+          "content": "Inspected file_path=src/main/java/com/acme/payment/PaymentService.java new_string=\"return repository.findByOrderId(orderId).orElseThrow(() -> new PaymentNotFoundException",
+          "facts": []
+        },
+        {
+          "type": "bugfix",
+          "title": "Fix missing order in PaymentService",
+          "content": "Edit applied. PaymentService now throws PaymentNotFoundException for a missing orderId instead of returning null. PaymentServiceTest#missingOrderThrows passes.",
+          "facts": [
+            "Edit applied.",
+            "PaymentService now throws PaymentNotFoundException for a missing orderId instead of returning null.",
+            "PaymentServiceTest#missingOrderThrows passes."
+          ]
+        },
+        {
+          "type": "discovery",
+          "title": "Verified Fix missing order in PaymentService",
+          "content": "PaymentServiceTest#missingOrderThrows passes.",
+          "facts": [
+            "PaymentServiceTest#missingOrderThrows passes."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "payment",
+        "missing",
+        "order"
+      ],
+      "learnedKeywords": [
+        "PaymentNotFoundException",
+        "orderId"
+      ],
+      "requestIdentifiers": [
+        "PaymentService"
+      ],
+      "learnedIdentifiers": [
+        "PaymentService",
+        "PaymentNotFoundException"
+      ],
+      "keySample": false,
+      "notes": "three-step discovery/change/verify session"
+    },
+    {
+      "id": "sum-bug-csv-crlf-single",
+      "category": "bug-fix",
+      "lastAssistantMessage": "Edit applied. CsvExporter now normalises embedded line endings to CRLF before quoting. CsvExporterTest#multilineFieldKeepsRowCount passes.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/export/CsvExporter.java new_string=\"writer.write(line.replaceAll(\\\"\\\\r?\\\\n\\\", \\\"\\\\r\\\\n\\\"));\"\nEdit applied. CsvExporter now normalises embedded line endings to CRLF before quoting. CsvExporterTest#multilineFieldKeepsRowCount passes.",
+      "observations": [
+        {
+          "type": "bugfix",
+          "title": "Fix line endings in CsvExporter",
+          "content": "Edit applied. CsvExporter now normalises embedded line endings to CRLF before quoting. CsvExporterTest#multilineFieldKeepsRowCount passes.",
+          "facts": [
+            "Edit applied.",
+            "CsvExporter now normalises embedded line endings to CRLF before quoting.",
+            "CsvExporterTest#multilineFieldKeepsRowCount passes."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "csv",
+        "line endings"
+      ],
+      "learnedKeywords": [
+        "CRLF",
+        "line endings"
+      ],
+      "requestIdentifiers": [
+        "CsvExporter"
+      ],
+      "learnedIdentifiers": [
+        "CsvExporter"
+      ],
+      "keySample": false,
+      "notes": "single-observation session"
+    },
+    {
+      "id": "sum-bug-csv-crlf-chain",
+      "category": "bug-fix",
+      "lastAssistantMessage": "Edit applied. CsvExporter now normalises embedded line endings to CRLF before quoting. CsvExporterTest#multilineFieldKeepsRowCount passes. Next I will run the full verification suite.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/export/CsvExporter.java new_string=\"writer.write(line.replaceAll(\\\"\\\\r?\\\\n\\\", \\\"\\\\r\\\\n\\\"));\"\nEdit applied. CsvExporter now normalises embedded line endings to CRLF before quoting. CsvExporterTest#multilineFieldKeepsRowCount passes.",
+      "observations": [
+        {
+          "type": "discovery",
+          "title": "Read Fix line endings in CsvExporter",
+          "content": "Inspected file_path=src/main/java/com/acme/export/CsvExporter.java new_string=\"writer.write(line.replaceAll(\\\"\\\\r?\\\\n\\\", \\\"\\\\r\\\\n\\\"));\"",
+          "facts": []
+        },
+        {
+          "type": "bugfix",
+          "title": "Fix line endings in CsvExporter",
+          "content": "Edit applied. CsvExporter now normalises embedded line endings to CRLF before quoting. CsvExporterTest#multilineFieldKeepsRowCount passes.",
+          "facts": [
+            "Edit applied.",
+            "CsvExporter now normalises embedded line endings to CRLF before quoting.",
+            "CsvExporterTest#multilineFieldKeepsRowCount passes."
+          ]
+        },
+        {
+          "type": "discovery",
+          "title": "Verified Fix line endings in CsvExporter",
+          "content": "CsvExporterTest#multilineFieldKeepsRowCount passes.",
+          "facts": [
+            "CsvExporterTest#multilineFieldKeepsRowCount passes."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "csv",
+        "line endings"
+      ],
+      "learnedKeywords": [
+        "CRLF",
+        "line endings"
+      ],
+      "requestIdentifiers": [
+        "CsvExporter"
+      ],
+      "learnedIdentifiers": [
+        "CsvExporter"
+      ],
+      "keySample": false,
+      "notes": "three-step discovery/change/verify session"
+    },
+    {
+      "id": "sum-bug-race-counter-single",
+      "category": "bug-fix",
+      "lastAssistantMessage": "Edit applied. CounterService.increment uses AtomicLong.incrementAndGet instead of a get/set pair. CounterServiceConcurrencyTest passes with 1000 threads producing 1000.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/metrics/CounterService.java new_string=\"return counter.incrementAndGet();\" old_string=\"counter.set(counter.get() + 1); return counter.get();\"\nEdit applied. CounterService.increment uses AtomicLong.incrementAndGet instead of a get/set pair. CounterServiceConcurrencyTest passes with 1000 threads producing 1000.",
+      "observations": [
+        {
+          "type": "bugfix",
+          "title": "Fix race in CounterService",
+          "content": "Edit applied. CounterService.increment uses AtomicLong.incrementAndGet instead of a get/set pair. CounterServiceConcurrencyTest passes with 1000 threads producing 1000.",
+          "facts": [
+            "Edit applied.",
+            "CounterService.increment uses AtomicLong.incrementAndGet instead of a get/set pair.",
+            "CounterServiceConcurrencyTest passes with 1000 threads producing 1000."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "counter",
+        "AtomicLong"
+      ],
+      "learnedKeywords": [
+        "AtomicLong",
+        "incrementAndGet"
+      ],
+      "requestIdentifiers": [
+        "CounterService"
+      ],
+      "learnedIdentifiers": [
+        "CounterService",
+        "AtomicLong"
+      ],
+      "keySample": false,
+      "notes": "single-observation session"
+    },
+    {
+      "id": "sum-bug-race-counter-chain",
+      "category": "bug-fix",
+      "lastAssistantMessage": "Edit applied. CounterService.increment uses AtomicLong.incrementAndGet instead of a get/set pair. CounterServiceConcurrencyTest passes with 1000 threads producing 1000. Next I will run the full verification suite.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/metrics/CounterService.java new_string=\"return counter.incrementAndGet();\" old_string=\"counter.set(counter.get() + 1); return counter.get();\"\nEdit applied. CounterService.increment uses AtomicLong.incrementAndGet instead of a get/set pair. CounterServiceConcurrencyTest passes with 1000 threads producing 1000.",
+      "observations": [
+        {
+          "type": "discovery",
+          "title": "Read Fix race in CounterService",
+          "content": "Inspected file_path=src/main/java/com/acme/metrics/CounterService.java new_string=\"return counter.incrementAndGet();\" old_string=\"counter.set(counter.get() + 1); return c",
+          "facts": []
+        },
+        {
+          "type": "bugfix",
+          "title": "Fix race in CounterService",
+          "content": "Edit applied. CounterService.increment uses AtomicLong.incrementAndGet instead of a get/set pair. CounterServiceConcurrencyTest passes with 1000 threads producing 1000.",
+          "facts": [
+            "Edit applied.",
+            "CounterService.increment uses AtomicLong.incrementAndGet instead of a get/set pair.",
+            "CounterServiceConcurrencyTest passes with 1000 threads producing 1000."
+          ]
+        },
+        {
+          "type": "discovery",
+          "title": "Verified Fix race in CounterService",
+          "content": "CounterServiceConcurrencyTest passes with 1000 threads producing 1000.",
+          "facts": [
+            "CounterServiceConcurrencyTest passes with 1000 threads producing 1000."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "counter",
+        "AtomicLong"
+      ],
+      "learnedKeywords": [
+        "AtomicLong",
+        "incrementAndGet"
+      ],
+      "requestIdentifiers": [
+        "CounterService"
+      ],
+      "learnedIdentifiers": [
+        "CounterService",
+        "AtomicLong"
+      ],
+      "keySample": false,
+      "notes": "three-step discovery/change/verify session"
+    },
+    {
+      "id": "sum-bug-n-plus-one-single",
+      "category": "bug-fix",
+      "lastAssistantMessage": "Edit applied. OrderRepository now fetches order items in the same query. QueryCountTest shows 1 SQL statement instead of 1 + N.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/orders/OrderRepository.java new_string=\"@EntityGraph(attributePaths = \\\"items\\\") List<Order> findAllByCustomerId(String customerId);\"\nEdit applied. OrderRepository now fetches order items in the same query. QueryCountTest shows 1 SQL statement instead of 1 + N.",
+      "observations": [
+        {
+          "type": "bugfix",
+          "title": "Fix n+1 in OrderRepository",
+          "content": "Edit applied. OrderRepository now fetches order items in the same query. QueryCountTest shows 1 SQL statement instead of 1 + N.",
+          "facts": [
+            "Edit applied.",
+            "OrderRepository now fetches order items in the same query.",
+            "QueryCountTest shows 1 SQL statement instead of 1 + N."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "query",
+        "items"
+      ],
+      "learnedKeywords": [
+        "EntityGraph",
+        "SQL",
+        "1 + N"
+      ],
+      "requestIdentifiers": [
+        "OrderRepository"
+      ],
+      "learnedIdentifiers": [
+        "OrderRepository",
+        "EntityGraph"
+      ],
+      "keySample": true,
+      "notes": "single-observation session"
+    },
+    {
+      "id": "sum-bug-n-plus-one-chain",
+      "category": "bug-fix",
+      "lastAssistantMessage": "Edit applied. OrderRepository now fetches order items in the same query. QueryCountTest shows 1 SQL statement instead of 1 + N. Next I will run the full verification suite.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/orders/OrderRepository.java new_string=\"@EntityGraph(attributePaths = \\\"items\\\") List<Order> findAllByCustomerId(String customerId);\"\nEdit applied. OrderRepository now fetches order items in the same query. QueryCountTest shows 1 SQL statement instead of 1 + N.",
+      "observations": [
+        {
+          "type": "discovery",
+          "title": "Read Fix n+1 in OrderRepository",
+          "content": "Inspected file_path=src/main/java/com/acme/orders/OrderRepository.java new_string=\"@EntityGraph(attributePaths = \\\"items\\\") List<Order> findAllByCustomerId(String custome",
+          "facts": []
+        },
+        {
+          "type": "bugfix",
+          "title": "Fix n+1 in OrderRepository",
+          "content": "Edit applied. OrderRepository now fetches order items in the same query. QueryCountTest shows 1 SQL statement instead of 1 + N.",
+          "facts": [
+            "Edit applied.",
+            "OrderRepository now fetches order items in the same query.",
+            "QueryCountTest shows 1 SQL statement instead of 1 + N."
+          ]
+        },
+        {
+          "type": "discovery",
+          "title": "Verified Fix n+1 in OrderRepository",
+          "content": "QueryCountTest shows 1 SQL statement instead of 1 + N.",
+          "facts": [
+            "QueryCountTest shows 1 SQL statement instead of 1 + N."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "query",
+        "items"
+      ],
+      "learnedKeywords": [
+        "EntityGraph",
+        "SQL",
+        "1 + N"
+      ],
+      "requestIdentifiers": [
+        "OrderRepository"
+      ],
+      "learnedIdentifiers": [
+        "OrderRepository",
+        "EntityGraph"
+      ],
+      "keySample": false,
+      "notes": "three-step discovery/change/verify session"
+    },
+    {
+      "id": "sum-refactor-invoice-single",
+      "category": "refactor",
+      "lastAssistantMessage": "Edit applied. InvoiceService delegates tax, rendering and mail to TaxCalculator, InvoiceRenderer and MailGateway. No behaviour change: InvoiceServiceTest stays green.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/billing/InvoiceService.java new_string=\"renderer.render(taxCalculator.calculate(invoice), invoice)\"\nEdit applied. InvoiceService delegates tax, rendering and mail to TaxCalculator, InvoiceRenderer and MailGateway. No behaviour change: InvoiceServiceTest stays green.",
+      "observations": [
+        {
+          "type": "refactor",
+          "title": "Refactor delegation in InvoiceService",
+          "content": "Edit applied. InvoiceService delegates tax, rendering and mail to TaxCalculator, InvoiceRenderer and MailGateway. No behaviour change: InvoiceServiceTest stays green.",
+          "facts": [
+            "Edit applied.",
+            "InvoiceService delegates tax, rendering and mail to TaxCalculator, InvoiceRenderer and MailGateway.",
+            "No behaviour change: InvoiceServiceTest stays green."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "invoice",
+        "tax",
+        "rendering"
+      ],
+      "learnedKeywords": [
+        "TaxCalculator",
+        "InvoiceRenderer",
+        "MailGateway"
+      ],
+      "requestIdentifiers": [
+        "InvoiceService"
+      ],
+      "learnedIdentifiers": [
+        "InvoiceService"
+      ],
+      "keySample": false,
+      "notes": "single-observation session"
+    },
+    {
+      "id": "sum-refactor-invoice-chain",
+      "category": "refactor",
+      "lastAssistantMessage": "Edit applied. InvoiceService delegates tax, rendering and mail to TaxCalculator, InvoiceRenderer and MailGateway. No behaviour change: InvoiceServiceTest stays green. Next I will run the full verification suite.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/billing/InvoiceService.java new_string=\"renderer.render(taxCalculator.calculate(invoice), invoice)\"\nEdit applied. InvoiceService delegates tax, rendering and mail to TaxCalculator, InvoiceRenderer and MailGateway. No behaviour change: InvoiceServiceTest stays green.",
+      "observations": [
+        {
+          "type": "discovery",
+          "title": "Read Refactor delegation in InvoiceService",
+          "content": "Inspected file_path=src/main/java/com/acme/billing/InvoiceService.java new_string=\"renderer.render(taxCalculator.calculate(invoice), invoice)\"",
+          "facts": []
+        },
+        {
+          "type": "refactor",
+          "title": "Refactor delegation in InvoiceService",
+          "content": "Edit applied. InvoiceService delegates tax, rendering and mail to TaxCalculator, InvoiceRenderer and MailGateway. No behaviour change: InvoiceServiceTest stays green.",
+          "facts": [
+            "Edit applied.",
+            "InvoiceService delegates tax, rendering and mail to TaxCalculator, InvoiceRenderer and MailGateway.",
+            "No behaviour change: InvoiceServiceTest stays green."
+          ]
+        },
+        {
+          "type": "discovery",
+          "title": "Verified Refactor delegation in InvoiceService",
+          "content": "No behaviour change: InvoiceServiceTest stays green.",
+          "facts": [
+            "No behaviour change: InvoiceServiceTest stays green."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "invoice",
+        "tax",
+        "rendering"
+      ],
+      "learnedKeywords": [
+        "TaxCalculator",
+        "InvoiceRenderer",
+        "MailGateway"
+      ],
+      "requestIdentifiers": [
+        "InvoiceService"
+      ],
+      "learnedIdentifiers": [
+        "InvoiceService"
+      ],
+      "keySample": true,
+      "notes": "three-step discovery/change/verify session"
+    },
+    {
+      "id": "sum-refactor-config-loader-single",
+      "category": "refactor",
+      "lastAssistantMessage": "Edit applied. ConfigLoader returns an unmodifiable map and exposes typed accessors. ConfigLoaderTest passes with the same values.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/config/ConfigLoader.java new_string=\"return properties.entrySet().stream().collect(toUnmodifiableMap(...))\"\nEdit applied. ConfigLoader returns an unmodifiable map and exposes typed accessors. ConfigLoaderTest passes with the same values.",
+      "observations": [
+        {
+          "type": "refactor",
+          "title": "Refactor unmodifiable map in ConfigLoader",
+          "content": "Edit applied. ConfigLoader returns an unmodifiable map and exposes typed accessors. ConfigLoaderTest passes with the same values.",
+          "facts": [
+            "Edit applied.",
+            "ConfigLoader returns an unmodifiable map and exposes typed accessors.",
+            "ConfigLoaderTest passes with the same values."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "config",
+        "unmodifiable"
+      ],
+      "learnedKeywords": [
+        "unmodifiable",
+        "map",
+        "typed accessors"
+      ],
+      "requestIdentifiers": [
+        "ConfigLoader"
+      ],
+      "learnedIdentifiers": [
+        "ConfigLoader"
+      ],
+      "keySample": false,
+      "notes": "single-observation session"
+    },
+    {
+      "id": "sum-refactor-config-loader-chain",
+      "category": "refactor",
+      "lastAssistantMessage": "Edit applied. ConfigLoader returns an unmodifiable map and exposes typed accessors. ConfigLoaderTest passes with the same values. Next I will run the full verification suite.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/config/ConfigLoader.java new_string=\"return properties.entrySet().stream().collect(toUnmodifiableMap(...))\"\nEdit applied. ConfigLoader returns an unmodifiable map and exposes typed accessors. ConfigLoaderTest passes with the same values.",
+      "observations": [
+        {
+          "type": "discovery",
+          "title": "Read Refactor unmodifiable map in ConfigLoader",
+          "content": "Inspected file_path=src/main/java/com/acme/config/ConfigLoader.java new_string=\"return properties.entrySet().stream().collect(toUnmodifiableMap(...))\"",
+          "facts": []
+        },
+        {
+          "type": "refactor",
+          "title": "Refactor unmodifiable map in ConfigLoader",
+          "content": "Edit applied. ConfigLoader returns an unmodifiable map and exposes typed accessors. ConfigLoaderTest passes with the same values.",
+          "facts": [
+            "Edit applied.",
+            "ConfigLoader returns an unmodifiable map and exposes typed accessors.",
+            "ConfigLoaderTest passes with the same values."
+          ]
+        },
+        {
+          "type": "discovery",
+          "title": "Verified Refactor unmodifiable map in ConfigLoader",
+          "content": "ConfigLoaderTest passes with the same values.",
+          "facts": [
+            "ConfigLoaderTest passes with the same values."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "config",
+        "unmodifiable"
+      ],
+      "learnedKeywords": [
+        "unmodifiable",
+        "map",
+        "typed accessors"
+      ],
+      "requestIdentifiers": [
+        "ConfigLoader"
+      ],
+      "learnedIdentifiers": [
+        "ConfigLoader"
+      ],
+      "keySample": false,
+      "notes": "three-step discovery/change/verify session"
+    },
+    {
+      "id": "sum-refactor-sql-repository-single",
+      "category": "refactor",
+      "lastAssistantMessage": "Edit applied. UserRepository replaces string-concatenated SQL with a JPQL @Query. UserRepositoryTest returns the same tenant rows.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/users/UserRepository.java new_string=\"@Query(\\\"select u from User u where u.tenantId = :tenantId\\\")\"\nEdit applied. UserRepository replaces string-concatenated SQL with a JPQL @Query. UserRepositoryTest returns the same tenant rows.",
+      "observations": [
+        {
+          "type": "refactor",
+          "title": "Refactor jpql in UserRepository",
+          "content": "Edit applied. UserRepository replaces string-concatenated SQL with a JPQL @Query. UserRepositoryTest returns the same tenant rows.",
+          "facts": [
+            "Edit applied.",
+            "UserRepository replaces string-concatenated SQL with a JPQL @Query.",
+            "UserRepositoryTest returns the same tenant rows."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "jpql",
+        "sql",
+        "repository"
+      ],
+      "learnedKeywords": [
+        "JPQL",
+        "@Query",
+        "tenant"
+      ],
+      "requestIdentifiers": [
+        "UserRepository"
+      ],
+      "learnedIdentifiers": [
+        "UserRepository",
+        "@Query"
+      ],
+      "keySample": false,
+      "notes": "single-observation session"
+    },
+    {
+      "id": "sum-refactor-sql-repository-chain",
+      "category": "refactor",
+      "lastAssistantMessage": "Edit applied. UserRepository replaces string-concatenated SQL with a JPQL @Query. UserRepositoryTest returns the same tenant rows. Next I will run the full verification suite.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/users/UserRepository.java new_string=\"@Query(\\\"select u from User u where u.tenantId = :tenantId\\\")\"\nEdit applied. UserRepository replaces string-concatenated SQL with a JPQL @Query. UserRepositoryTest returns the same tenant rows.",
+      "observations": [
+        {
+          "type": "discovery",
+          "title": "Read Refactor jpql in UserRepository",
+          "content": "Inspected file_path=src/main/java/com/acme/users/UserRepository.java new_string=\"@Query(\\\"select u from User u where u.tenantId = :tenantId\\\")\"",
+          "facts": []
+        },
+        {
+          "type": "refactor",
+          "title": "Refactor jpql in UserRepository",
+          "content": "Edit applied. UserRepository replaces string-concatenated SQL with a JPQL @Query. UserRepositoryTest returns the same tenant rows.",
+          "facts": [
+            "Edit applied.",
+            "UserRepository replaces string-concatenated SQL with a JPQL @Query.",
+            "UserRepositoryTest returns the same tenant rows."
+          ]
+        },
+        {
+          "type": "discovery",
+          "title": "Verified Refactor jpql in UserRepository",
+          "content": "UserRepositoryTest returns the same tenant rows.",
+          "facts": [
+            "UserRepositoryTest returns the same tenant rows."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "jpql",
+        "sql",
+        "repository"
+      ],
+      "learnedKeywords": [
+        "JPQL",
+        "@Query",
+        "tenant"
+      ],
+      "requestIdentifiers": [
+        "UserRepository"
+      ],
+      "learnedIdentifiers": [
+        "UserRepository",
+        "@Query"
+      ],
+      "keySample": false,
+      "notes": "three-step discovery/change/verify session"
+    },
+    {
+      "id": "sum-test-repro-timezone-single",
+      "category": "test-add",
+      "lastAssistantMessage": "File written. DailyReportTest#reportUsesBusinessTimezone reproduces the reported UTC-vs-business-date bug for Asia/Shanghai. mvn -Dtest=DailyReportTest test: 1 test, 1 failure (expected 2026-11-02, got 2026-11-01).",
+      "toolTrace": "[Write]\nfile_path=src/test/java/com/acme/reporting/DailyReportTest.java content=@Test void reportUsesBusinessTimezone() { Instant at = Instant.parse(\\\"2026-11-01T23:30:00Z\\\"); assertThat(report.dateAt(at, ZoneId.of(\\\"Asia/Shanghai\\\"))).isEqualTo(LocalDate.of(2026, 11, 2)); }\nFile written. DailyReportTest#reportUsesBusinessTimezone reproduces the reported UTC-vs-business-date bug for Asia/Shanghai. mvn -Dtest=DailyReportTest test: 1 test, 1 failure (expected 2026-11-02, got 2026-11-01).",
+      "observations": [
+        {
+          "type": "feature",
+          "title": "Add timezone in DailyReportTest",
+          "content": "File written. DailyReportTest#reportUsesBusinessTimezone reproduces the reported UTC-vs-business-date bug for Asia/Shanghai. mvn -Dtest=DailyReportTest test: 1 test, 1 failure (expected 2026-11-02, got 2026-11-01).",
+          "facts": [
+            "File written.",
+            "DailyReportTest#reportUsesBusinessTimezone reproduces the reported UTC-vs-business-date bug for Asia/Shanghai.",
+            "mvn -Dtest=DailyReportTest test: 1 test, 1 failure (expected 2026-11-02, got 2026-11-01)."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "timezone",
+        "test"
+      ],
+      "learnedKeywords": [
+        "Asia/Shanghai",
+        "2026-11-02"
+      ],
+      "requestIdentifiers": [
+        "DailyReportTest",
+        "reportUsesBusinessTimezone"
+      ],
+      "learnedIdentifiers": [
+        "DailyReportTest",
+        "reportUsesBusinessTimezone"
+      ],
+      "keySample": false,
+      "notes": "single-observation session"
+    },
+    {
+      "id": "sum-test-repro-timezone-chain",
+      "category": "test-add",
+      "lastAssistantMessage": "File written. DailyReportTest#reportUsesBusinessTimezone reproduces the reported UTC-vs-business-date bug for Asia/Shanghai. mvn -Dtest=DailyReportTest test: 1 test, 1 failure (expected 2026-11-02, got 2026-11-01). Next I will run the full verification suite.",
+      "toolTrace": "[Write]\nfile_path=src/test/java/com/acme/reporting/DailyReportTest.java content=@Test void reportUsesBusinessTimezone() { Instant at = Instant.parse(\\\"2026-11-01T23:30:00Z\\\"); assertThat(report.dateAt(at, ZoneId.of(\\\"Asia/Shanghai\\\"))).isEqualTo(LocalDate.of(2026, 11, 2)); }\nFile written. DailyReportTest#reportUsesBusinessTimezone reproduces the reported UTC-vs-business-date bug for Asia/Shanghai. mvn -Dtest=DailyReportTest test: 1 test, 1 failure (expected 2026-11-02, got 2026-11-01).",
+      "observations": [
+        {
+          "type": "discovery",
+          "title": "Read Add timezone in DailyReportTest",
+          "content": "Inspected file_path=src/test/java/com/acme/reporting/DailyReportTest.java content=@Test void reportUsesBusinessTimezone() { Instant at = Instant.parse(\\\"2026-11-01T23:30:",
+          "facts": []
+        },
+        {
+          "type": "feature",
+          "title": "Add timezone in DailyReportTest",
+          "content": "File written. DailyReportTest#reportUsesBusinessTimezone reproduces the reported UTC-vs-business-date bug for Asia/Shanghai. mvn -Dtest=DailyReportTest test: 1 test, 1 failure (expected 2026-11-02, got 2026-11-01).",
+          "facts": [
+            "File written.",
+            "DailyReportTest#reportUsesBusinessTimezone reproduces the reported UTC-vs-business-date bug for Asia/Shanghai.",
+            "mvn -Dtest=DailyReportTest test: 1 test, 1 failure (expected 2026-11-02, got 2026-11-01)."
+          ]
+        },
+        {
+          "type": "discovery",
+          "title": "Verified Add timezone in DailyReportTest",
+          "content": "mvn -Dtest=DailyReportTest test: 1 test, 1 failure (expected 2026-11-02, got 2026-11-01).",
+          "facts": [
+            "mvn -Dtest=DailyReportTest test: 1 test, 1 failure (expected 2026-11-02, got 2026-11-01)."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "timezone",
+        "test"
+      ],
+      "learnedKeywords": [
+        "Asia/Shanghai",
+        "2026-11-02"
+      ],
+      "requestIdentifiers": [
+        "DailyReportTest",
+        "reportUsesBusinessTimezone"
+      ],
+      "learnedIdentifiers": [
+        "DailyReportTest",
+        "reportUsesBusinessTimezone"
+      ],
+      "keySample": false,
+      "notes": "three-step discovery/change/verify session"
+    },
+    {
+      "id": "sum-test-repro-login-single",
+      "category": "test-add",
+      "lastAssistantMessage": "File written. LoginControllerTest#lockedAccountReturns423 fails with status 401, reproducing the reported wrong status for locked accounts.",
+      "toolTrace": "[Write]\nfile_path=src/test/java/com/acme/auth/LoginControllerTest.java content=@Test void lockedAccountReturns423() { when(users.isLocked(\\\"bob\\\")).thenReturn(true); mockMvc.perform(post(\\\"/login\\\")).andExpect(status().isLocked()); }\nFile written. LoginControllerTest#lockedAccountReturns423 fails with status 401, reproducing the reported wrong status for locked accounts.",
+      "observations": [
+        {
+          "type": "feature",
+          "title": "Add locked account in LoginControllerTest",
+          "content": "File written. LoginControllerTest#lockedAccountReturns423 fails with status 401, reproducing the reported wrong status for locked accounts.",
+          "facts": [
+            "File written.",
+            "LoginControllerTest#lockedAccountReturns423 fails with status 401, reproducing the reported wrong status for locked accounts."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "login",
+        "locked",
+        "test"
+      ],
+      "learnedKeywords": [
+        "401",
+        "423",
+        "locked"
+      ],
+      "requestIdentifiers": [
+        "LoginControllerTest"
+      ],
+      "learnedIdentifiers": [
+        "LoginControllerTest",
+        "lockedAccountReturns423"
+      ],
+      "keySample": false,
+      "notes": "single-observation session"
+    },
+    {
+      "id": "sum-test-repro-login-chain",
+      "category": "test-add",
+      "lastAssistantMessage": "File written. LoginControllerTest#lockedAccountReturns423 fails with status 401, reproducing the reported wrong status for locked accounts. Next I will run the full verification suite.",
+      "toolTrace": "[Write]\nfile_path=src/test/java/com/acme/auth/LoginControllerTest.java content=@Test void lockedAccountReturns423() { when(users.isLocked(\\\"bob\\\")).thenReturn(true); mockMvc.perform(post(\\\"/login\\\")).andExpect(status().isLocked()); }\nFile written. LoginControllerTest#lockedAccountReturns423 fails with status 401, reproducing the reported wrong status for locked accounts.",
+      "observations": [
+        {
+          "type": "discovery",
+          "title": "Read Add locked account in LoginControllerTest",
+          "content": "Inspected file_path=src/test/java/com/acme/auth/LoginControllerTest.java content=@Test void lockedAccountReturns423() { when(users.isLocked(\\\"bob\\\")).thenReturn(true); mo",
+          "facts": []
+        },
+        {
+          "type": "feature",
+          "title": "Add locked account in LoginControllerTest",
+          "content": "File written. LoginControllerTest#lockedAccountReturns423 fails with status 401, reproducing the reported wrong status for locked accounts.",
+          "facts": [
+            "File written.",
+            "LoginControllerTest#lockedAccountReturns423 fails with status 401, reproducing the reported wrong status for locked accounts."
+          ]
+        },
+        {
+          "type": "discovery",
+          "title": "Verified Add locked account in LoginControllerTest",
+          "content": "LoginControllerTest#lockedAccountReturns423 fails with status 401, reproducing the reported wrong status for locked accounts.",
+          "facts": [
+            "LoginControllerTest#lockedAccountReturns423 fails with status 401, reproducing the reported wrong status for locked accounts."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "login",
+        "locked",
+        "test"
+      ],
+      "learnedKeywords": [
+        "401",
+        "423",
+        "locked"
+      ],
+      "requestIdentifiers": [
+        "LoginControllerTest"
+      ],
+      "learnedIdentifiers": [
+        "LoginControllerTest",
+        "lockedAccountReturns423"
+      ],
+      "keySample": false,
+      "notes": "three-step discovery/change/verify session"
+    },
+    {
+      "id": "sum-test-integration-order-single",
+      "category": "test-add",
+      "lastAssistantMessage": "File written. OrderApiIT#createOrderReturns201 posts a valid order and asserts 201 plus a Location header. Testcontainers starts PostgreSQL 16.",
+      "toolTrace": "[Write]\nfile_path=src/test/java/com/acme/orders/OrderApiIT.java content=@SpringBootTest(webEnvironment = RANDOM_PORT) class OrderApiIT { @Test void createOrderReturns201() { ... } }\nFile written. OrderApiIT#createOrderReturns201 posts a valid order and asserts 201 plus a Location header. Testcontainers starts PostgreSQL 16.",
+      "observations": [
+        {
+          "type": "feature",
+          "title": "Add integration test in OrderApiIT",
+          "content": "File written. OrderApiIT#createOrderReturns201 posts a valid order and asserts 201 plus a Location header. Testcontainers starts PostgreSQL 16.",
+          "facts": [
+            "File written.",
+            "OrderApiIT#createOrderReturns201 posts a valid order and asserts 201 plus a Location header.",
+            "Testcontainers starts PostgreSQL 16."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "order",
+        "test"
+      ],
+      "learnedKeywords": [
+        "201",
+        "Location",
+        "PostgreSQL 16"
+      ],
+      "requestIdentifiers": [
+        "OrderApiIT"
+      ],
+      "learnedIdentifiers": [
+        "OrderApiIT",
+        "createOrderReturns201"
+      ],
+      "keySample": true,
+      "notes": "single-observation session"
+    },
+    {
+      "id": "sum-test-integration-order-chain",
+      "category": "test-add",
+      "lastAssistantMessage": "File written. OrderApiIT#createOrderReturns201 posts a valid order and asserts 201 plus a Location header. Testcontainers starts PostgreSQL 16. Next I will run the full verification suite.",
+      "toolTrace": "[Write]\nfile_path=src/test/java/com/acme/orders/OrderApiIT.java content=@SpringBootTest(webEnvironment = RANDOM_PORT) class OrderApiIT { @Test void createOrderReturns201() { ... } }\nFile written. OrderApiIT#createOrderReturns201 posts a valid order and asserts 201 plus a Location header. Testcontainers starts PostgreSQL 16.",
+      "observations": [
+        {
+          "type": "discovery",
+          "title": "Read Add integration test in OrderApiIT",
+          "content": "Inspected file_path=src/test/java/com/acme/orders/OrderApiIT.java content=@SpringBootTest(webEnvironment = RANDOM_PORT) class OrderApiIT { @Test void createOrderReturns20",
+          "facts": []
+        },
+        {
+          "type": "feature",
+          "title": "Add integration test in OrderApiIT",
+          "content": "File written. OrderApiIT#createOrderReturns201 posts a valid order and asserts 201 plus a Location header. Testcontainers starts PostgreSQL 16.",
+          "facts": [
+            "File written.",
+            "OrderApiIT#createOrderReturns201 posts a valid order and asserts 201 plus a Location header.",
+            "Testcontainers starts PostgreSQL 16."
+          ]
+        },
+        {
+          "type": "discovery",
+          "title": "Verified Add integration test in OrderApiIT",
+          "content": "Testcontainers starts PostgreSQL 16.",
+          "facts": [
+            "Testcontainers starts PostgreSQL 16."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "order",
+        "test"
+      ],
+      "learnedKeywords": [
+        "201",
+        "Location",
+        "PostgreSQL 16"
+      ],
+      "requestIdentifiers": [
+        "OrderApiIT"
+      ],
+      "learnedIdentifiers": [
+        "OrderApiIT",
+        "createOrderReturns201"
+      ],
+      "keySample": false,
+      "notes": "three-step discovery/change/verify session"
+    },
+    {
+      "id": "sum-security-redact-log-single",
+      "category": "security-fix",
+      "lastAssistantMessage": "Edit applied. LogSanitizer redacts password, token and secret values before logging. LogSanitizerTest#redactsCredentials passes for all three keys.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/security/LogSanitizer.java new_string=\"value.replaceAll(\\\"(password|token|secret)=\\\\\\\\S+\\\", \\\"$1=***\\\")\"\nEdit applied. LogSanitizer redacts password, token and secret values before logging. LogSanitizerTest#redactsCredentials passes for all three keys.",
+      "observations": [
+        {
+          "type": "bugfix",
+          "title": "Redact credentials in LogSanitizer",
+          "content": "Edit applied. LogSanitizer redacts password, token and secret values before logging. LogSanitizerTest#redactsCredentials passes for all three keys.",
+          "facts": [
+            "Edit applied.",
+            "LogSanitizer redacts password, token and secret values before logging.",
+            "LogSanitizerTest#redactsCredentials passes for all three keys."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "credentials",
+        "redact",
+        "log"
+      ],
+      "learnedKeywords": [
+        "password",
+        "token",
+        "secret"
+      ],
+      "requestIdentifiers": [
+        "LogSanitizer"
+      ],
+      "learnedIdentifiers": [
+        "LogSanitizer",
+        "redactsCredentials"
+      ],
+      "keySample": false,
+      "notes": "single-observation session"
+    },
+    {
+      "id": "sum-security-redact-log-chain",
+      "category": "security-fix",
+      "lastAssistantMessage": "Edit applied. LogSanitizer redacts password, token and secret values before logging. LogSanitizerTest#redactsCredentials passes for all three keys. Next I will run the full verification suite.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/security/LogSanitizer.java new_string=\"value.replaceAll(\\\"(password|token|secret)=\\\\\\\\S+\\\", \\\"$1=***\\\")\"\nEdit applied. LogSanitizer redacts password, token and secret values before logging. LogSanitizerTest#redactsCredentials passes for all three keys.",
+      "observations": [
+        {
+          "type": "discovery",
+          "title": "Read Redact credentials in LogSanitizer",
+          "content": "Inspected file_path=src/main/java/com/acme/security/LogSanitizer.java new_string=\"value.replaceAll(\\\"(password|token|secret)=\\\\\\\\S+\\\", \\\"$1=***\\\")\"",
+          "facts": []
+        },
+        {
+          "type": "bugfix",
+          "title": "Redact credentials in LogSanitizer",
+          "content": "Edit applied. LogSanitizer redacts password, token and secret values before logging. LogSanitizerTest#redactsCredentials passes for all three keys.",
+          "facts": [
+            "Edit applied.",
+            "LogSanitizer redacts password, token and secret values before logging.",
+            "LogSanitizerTest#redactsCredentials passes for all three keys."
+          ]
+        },
+        {
+          "type": "discovery",
+          "title": "Verified Redact credentials in LogSanitizer",
+          "content": "LogSanitizerTest#redactsCredentials passes for all three keys.",
+          "facts": [
+            "LogSanitizerTest#redactsCredentials passes for all three keys."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "credentials",
+        "redact",
+        "log"
+      ],
+      "learnedKeywords": [
+        "password",
+        "token",
+        "secret"
+      ],
+      "requestIdentifiers": [
+        "LogSanitizer"
+      ],
+      "learnedIdentifiers": [
+        "LogSanitizer",
+        "redactsCredentials"
+      ],
+      "keySample": true,
+      "notes": "three-step discovery/change/verify session"
+    },
+    {
+      "id": "sum-security-sql-injection-single",
+      "category": "security-fix",
+      "lastAssistantMessage": "Edit applied. UserDao.findByEmail uses a parameter placeholder instead of string concatenation. SqlInjectionTest#emailWithQuoteReturnsEmpty passes.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/users/UserDao.java new_string=\"jdbcTemplate.query(\\\"select * from users where email = ?\\\", mapper, email)\"\nEdit applied. UserDao.findByEmail uses a parameter placeholder instead of string concatenation. SqlInjectionTest#emailWithQuoteReturnsEmpty passes.",
+      "observations": [
+        {
+          "type": "bugfix",
+          "title": "Fix sql injection in UserDao",
+          "content": "Edit applied. UserDao.findByEmail uses a parameter placeholder instead of string concatenation. SqlInjectionTest#emailWithQuoteReturnsEmpty passes.",
+          "facts": [
+            "Edit applied.",
+            "UserDao.findByEmail uses a parameter placeholder instead of string concatenation.",
+            "SqlInjectionTest#emailWithQuoteReturnsEmpty passes."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "sql",
+        "injection"
+      ],
+      "learnedKeywords": [
+        "placeholder",
+        "parameter",
+        "UserDao"
+      ],
+      "requestIdentifiers": [
+        "UserDao"
+      ],
+      "learnedIdentifiers": [
+        "UserDao"
+      ],
+      "keySample": false,
+      "notes": "single-observation session"
+    },
+    {
+      "id": "sum-security-sql-injection-chain",
+      "category": "security-fix",
+      "lastAssistantMessage": "Edit applied. UserDao.findByEmail uses a parameter placeholder instead of string concatenation. SqlInjectionTest#emailWithQuoteReturnsEmpty passes. Next I will run the full verification suite.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/users/UserDao.java new_string=\"jdbcTemplate.query(\\\"select * from users where email = ?\\\", mapper, email)\"\nEdit applied. UserDao.findByEmail uses a parameter placeholder instead of string concatenation. SqlInjectionTest#emailWithQuoteReturnsEmpty passes.",
+      "observations": [
+        {
+          "type": "discovery",
+          "title": "Read Fix sql injection in UserDao",
+          "content": "Inspected file_path=src/main/java/com/acme/users/UserDao.java new_string=\"jdbcTemplate.query(\\\"select * from users where email = ?\\\", mapper, email)\"",
+          "facts": []
+        },
+        {
+          "type": "bugfix",
+          "title": "Fix sql injection in UserDao",
+          "content": "Edit applied. UserDao.findByEmail uses a parameter placeholder instead of string concatenation. SqlInjectionTest#emailWithQuoteReturnsEmpty passes.",
+          "facts": [
+            "Edit applied.",
+            "UserDao.findByEmail uses a parameter placeholder instead of string concatenation.",
+            "SqlInjectionTest#emailWithQuoteReturnsEmpty passes."
+          ]
+        },
+        {
+          "type": "discovery",
+          "title": "Verified Fix sql injection in UserDao",
+          "content": "SqlInjectionTest#emailWithQuoteReturnsEmpty passes.",
+          "facts": [
+            "SqlInjectionTest#emailWithQuoteReturnsEmpty passes."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "sql",
+        "injection"
+      ],
+      "learnedKeywords": [
+        "placeholder",
+        "parameter",
+        "UserDao"
+      ],
+      "requestIdentifiers": [
+        "UserDao"
+      ],
+      "learnedIdentifiers": [
+        "UserDao"
+      ],
+      "keySample": false,
+      "notes": "three-step discovery/change/verify session"
+    },
+    {
+      "id": "sum-security-path-traversal-single",
+      "category": "security-fix",
+      "lastAssistantMessage": "Edit applied. FileDownloadController rejects names that escape the base directory. PathTraversalTest#dotDotSlashIs400 passes.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/files/FileDownloadController.java new_string=\"Path resolved = base.resolve(name).normalize(); if (!resolved.startsWith(base)) { throw new InvalidPathException(name); }\"\nEdit applied. FileDownloadController rejects names that escape the base directory. PathTraversalTest#dotDotSlashIs400 passes.",
+      "observations": [
+        {
+          "type": "bugfix",
+          "title": "Fix path traversal in FileDownloadController",
+          "content": "Edit applied. FileDownloadController rejects names that escape the base directory. PathTraversalTest#dotDotSlashIs400 passes.",
+          "facts": [
+            "Edit applied.",
+            "FileDownloadController rejects names that escape the base directory.",
+            "PathTraversalTest#dotDotSlashIs400 passes."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "path",
+        "traversal"
+      ],
+      "learnedKeywords": [
+        "normalize",
+        "base directory",
+        "InvalidPathException"
+      ],
+      "requestIdentifiers": [
+        "FileDownloadController"
+      ],
+      "learnedIdentifiers": [
+        "FileDownloadController"
+      ],
+      "keySample": false,
+      "notes": "single-observation session"
+    },
+    {
+      "id": "sum-security-path-traversal-chain",
+      "category": "security-fix",
+      "lastAssistantMessage": "Edit applied. FileDownloadController rejects names that escape the base directory. PathTraversalTest#dotDotSlashIs400 passes. Next I will run the full verification suite.",
+      "toolTrace": "[Edit]\nfile_path=src/main/java/com/acme/files/FileDownloadController.java new_string=\"Path resolved = base.resolve(name).normalize(); if (!resolved.startsWith(base)) { throw new InvalidPathException(name); }\"\nEdit applied. FileDownloadController rejects names that escape the base directory. PathTraversalTest#dotDotSlashIs400 passes.",
+      "observations": [
+        {
+          "type": "discovery",
+          "title": "Read Fix path traversal in FileDownloadController",
+          "content": "Inspected file_path=src/main/java/com/acme/files/FileDownloadController.java new_string=\"Path resolved = base.resolve(name).normalize(); if (!resolved.startsWith(base)) {",
+          "facts": []
+        },
+        {
+          "type": "bugfix",
+          "title": "Fix path traversal in FileDownloadController",
+          "content": "Edit applied. FileDownloadController rejects names that escape the base directory. PathTraversalTest#dotDotSlashIs400 passes.",
+          "facts": [
+            "Edit applied.",
+            "FileDownloadController rejects names that escape the base directory.",
+            "PathTraversalTest#dotDotSlashIs400 passes."
+          ]
+        },
+        {
+          "type": "discovery",
+          "title": "Verified Fix path traversal in FileDownloadController",
+          "content": "PathTraversalTest#dotDotSlashIs400 passes.",
+          "facts": [
+            "PathTraversalTest#dotDotSlashIs400 passes."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "path",
+        "traversal"
+      ],
+      "learnedKeywords": [
+        "normalize",
+        "base directory",
+        "InvalidPathException"
+      ],
+      "requestIdentifiers": [
+        "FileDownloadController"
+      ],
+      "learnedIdentifiers": [
+        "FileDownloadController"
+      ],
+      "keySample": false,
+      "notes": "three-step discovery/change/verify session"
+    },
+    {
+      "id": "sum-security-secret-config-single",
+      "category": "security-fix",
+      "lastAssistantMessage": "Edit applied. application.yml no longer contains a literal API key; it reads ACME_API_KEY from the environment. SecretScanTest passes.",
+      "toolTrace": "[Edit]\nfile_path=src/main/resources/application.yml old_string=\"api-key: sk-live-123\" new_string=\"api-key: ${ACME_API_KEY}\"\nEdit applied. application.yml no longer contains a literal API key; it reads ACME_API_KEY from the environment. SecretScanTest passes.",
+      "observations": [
+        {
+          "type": "bugfix",
+          "title": "Remove hardcoded api key in application.yml",
+          "content": "Edit applied. application.yml no longer contains a literal API key; it reads ACME_API_KEY from the environment. SecretScanTest passes.",
+          "facts": [
+            "Edit applied.",
+            "application.yml no longer contains a literal API key; it reads ACME_API_KEY from the environment.",
+            "SecretScanTest passes."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "api",
+        "key"
+      ],
+      "learnedKeywords": [
+        "ACME_API_KEY",
+        "application.yml",
+        "environment"
+      ],
+      "requestIdentifiers": [
+        "application.yml"
+      ],
+      "learnedIdentifiers": [
+        "application.yml",
+        "ACME_API_KEY"
+      ],
+      "keySample": false,
+      "notes": "single-observation session"
+    },
+    {
+      "id": "sum-security-secret-config-chain",
+      "category": "security-fix",
+      "lastAssistantMessage": "Edit applied. application.yml no longer contains a literal API key; it reads ACME_API_KEY from the environment. SecretScanTest passes. Next I will run the full verification suite.",
+      "toolTrace": "[Edit]\nfile_path=src/main/resources/application.yml old_string=\"api-key: sk-live-123\" new_string=\"api-key: ${ACME_API_KEY}\"\nEdit applied. application.yml no longer contains a literal API key; it reads ACME_API_KEY from the environment. SecretScanTest passes.",
+      "observations": [
+        {
+          "type": "discovery",
+          "title": "Read Remove hardcoded api key in application.yml",
+          "content": "Inspected file_path=src/main/resources/application.yml old_string=\"api-key: sk-live-123\" new_string=\"api-key: ${ACME_API_KEY}\"",
+          "facts": []
+        },
+        {
+          "type": "bugfix",
+          "title": "Remove hardcoded api key in application.yml",
+          "content": "Edit applied. application.yml no longer contains a literal API key; it reads ACME_API_KEY from the environment. SecretScanTest passes.",
+          "facts": [
+            "Edit applied.",
+            "application.yml no longer contains a literal API key; it reads ACME_API_KEY from the environment.",
+            "SecretScanTest passes."
+          ]
+        },
+        {
+          "type": "discovery",
+          "title": "Verified Remove hardcoded api key in application.yml",
+          "content": "SecretScanTest passes.",
+          "facts": [
+            "SecretScanTest passes."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "api",
+        "key"
+      ],
+      "learnedKeywords": [
+        "ACME_API_KEY",
+        "application.yml",
+        "environment"
+      ],
+      "requestIdentifiers": [
+        "application.yml"
+      ],
+      "learnedIdentifiers": [
+        "application.yml",
+        "ACME_API_KEY"
+      ],
+      "keySample": false,
+      "notes": "three-step discovery/change/verify session"
+    },
+    {
+      "id": "sum-config-hikari-pool-single",
+      "category": "config-change",
+      "lastAssistantMessage": "Edit applied. application.yml sets Hikari maximum-pool-size to 20 and minimum-idle to 5. ConfigBindingTest binds both values.",
+      "toolTrace": "[Edit]\nfile_path=src/main/resources/application.yml new_string=\"spring.datasource.hikari.maximum-pool-size: 20\\nspring.datasource.hikari.minimum-idle: 5\"\nEdit applied. application.yml sets Hikari maximum-pool-size to 20 and minimum-idle to 5. ConfigBindingTest binds both values.",
+      "observations": [
+        {
+          "type": "change",
+          "title": "Change hikari pool in maximum-pool-size",
+          "content": "Edit applied. application.yml sets Hikari maximum-pool-size to 20 and minimum-idle to 5. ConfigBindingTest binds both values.",
+          "facts": [
+            "Edit applied.",
+            "application.yml sets Hikari maximum-pool-size to 20 and minimum-idle to 5.",
+            "ConfigBindingTest binds both values."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "hikari",
+        "pool",
+        "size"
+      ],
+      "learnedKeywords": [
+        "maximum-pool-size",
+        "minimum-idle",
+        "20"
+      ],
+      "requestIdentifiers": [
+        "application.yml"
+      ],
+      "learnedIdentifiers": [
+        "maximum-pool-size",
+        "application.yml"
+      ],
+      "keySample": false,
+      "notes": "single-observation session"
+    },
+    {
+      "id": "sum-config-hikari-pool-chain",
+      "category": "config-change",
+      "lastAssistantMessage": "Edit applied. application.yml sets Hikari maximum-pool-size to 20 and minimum-idle to 5. ConfigBindingTest binds both values. Next I will run the full verification suite.",
+      "toolTrace": "[Edit]\nfile_path=src/main/resources/application.yml new_string=\"spring.datasource.hikari.maximum-pool-size: 20\\nspring.datasource.hikari.minimum-idle: 5\"\nEdit applied. application.yml sets Hikari maximum-pool-size to 20 and minimum-idle to 5. ConfigBindingTest binds both values.",
+      "observations": [
+        {
+          "type": "discovery",
+          "title": "Read Change hikari pool in maximum-pool-size",
+          "content": "Inspected file_path=src/main/resources/application.yml new_string=\"spring.datasource.hikari.maximum-pool-size: 20\\nspring.datasource.hikari.minimum-idle: 5\"",
+          "facts": []
+        },
+        {
+          "type": "change",
+          "title": "Change hikari pool in maximum-pool-size",
+          "content": "Edit applied. application.yml sets Hikari maximum-pool-size to 20 and minimum-idle to 5. ConfigBindingTest binds both values.",
+          "facts": [
+            "Edit applied.",
+            "application.yml sets Hikari maximum-pool-size to 20 and minimum-idle to 5.",
+            "ConfigBindingTest binds both values."
+          ]
+        },
+        {
+          "type": "discovery",
+          "title": "Verified Change hikari pool in maximum-pool-size",
+          "content": "ConfigBindingTest binds both values.",
+          "facts": [
+            "ConfigBindingTest binds both values."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "hikari",
+        "pool",
+        "size"
+      ],
+      "learnedKeywords": [
+        "maximum-pool-size",
+        "minimum-idle",
+        "20"
+      ],
+      "requestIdentifiers": [
+        "application.yml"
+      ],
+      "learnedIdentifiers": [
+        "maximum-pool-size",
+        "application.yml"
+      ],
+      "keySample": false,
+      "notes": "three-step discovery/change/verify session"
+    },
+    {
+      "id": "sum-config-feature-flags-single",
+      "category": "config-change",
+      "lastAssistantMessage": "Edit applied. feature-flags.yml enables checkout-v2 and disables legacy-search. FlagBindingTest binds both booleans.",
+      "toolTrace": "[Edit]\nfile_path=src/main/resources/feature-flags.yml new_string=\"checkout-v2: true\\nlegacy-search: false\"\nEdit applied. feature-flags.yml enables checkout-v2 and disables legacy-search. FlagBindingTest binds both booleans.",
+      "observations": [
+        {
+          "type": "change",
+          "title": "Enable feature flags in feature-flags.yml",
+          "content": "Edit applied. feature-flags.yml enables checkout-v2 and disables legacy-search. FlagBindingTest binds both booleans.",
+          "facts": [
+            "Edit applied.",
+            "feature-flags.yml enables checkout-v2 and disables legacy-search.",
+            "FlagBindingTest binds both booleans."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "feature",
+        "flags"
+      ],
+      "learnedKeywords": [
+        "checkout-v2",
+        "legacy-search",
+        "false"
+      ],
+      "requestIdentifiers": [
+        "checkout-v2",
+        "legacy-search"
+      ],
+      "learnedIdentifiers": [
+        "checkout-v2",
+        "legacy-search"
+      ],
+      "keySample": true,
+      "notes": "single-observation session"
+    },
+    {
+      "id": "sum-config-feature-flags-chain",
+      "category": "config-change",
+      "lastAssistantMessage": "Edit applied. feature-flags.yml enables checkout-v2 and disables legacy-search. FlagBindingTest binds both booleans. Next I will run the full verification suite.",
+      "toolTrace": "[Edit]\nfile_path=src/main/resources/feature-flags.yml new_string=\"checkout-v2: true\\nlegacy-search: false\"\nEdit applied. feature-flags.yml enables checkout-v2 and disables legacy-search. FlagBindingTest binds both booleans.",
+      "observations": [
+        {
+          "type": "discovery",
+          "title": "Read Enable feature flags in feature-flags.yml",
+          "content": "Inspected file_path=src/main/resources/feature-flags.yml new_string=\"checkout-v2: true\\nlegacy-search: false\"",
+          "facts": []
+        },
+        {
+          "type": "change",
+          "title": "Enable feature flags in feature-flags.yml",
+          "content": "Edit applied. feature-flags.yml enables checkout-v2 and disables legacy-search. FlagBindingTest binds both booleans.",
+          "facts": [
+            "Edit applied.",
+            "feature-flags.yml enables checkout-v2 and disables legacy-search.",
+            "FlagBindingTest binds both booleans."
+          ]
+        },
+        {
+          "type": "discovery",
+          "title": "Verified Enable feature flags in feature-flags.yml",
+          "content": "FlagBindingTest binds both booleans.",
+          "facts": [
+            "FlagBindingTest binds both booleans."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "feature",
+        "flags"
+      ],
+      "learnedKeywords": [
+        "checkout-v2",
+        "legacy-search",
+        "false"
+      ],
+      "requestIdentifiers": [
+        "checkout-v2",
+        "legacy-search"
+      ],
+      "learnedIdentifiers": [
+        "checkout-v2",
+        "legacy-search"
+      ],
+      "keySample": false,
+      "notes": "three-step discovery/change/verify session"
+    },
+    {
+      "id": "sum-deploy-k8s-probe-single",
+      "category": "deploy-change",
+      "lastAssistantMessage": "Edit applied. deployment.yaml adds a readinessProbe on /api/health:37777 with initialDelaySeconds 15. kubectl apply --dry-run=client succeeds.",
+      "toolTrace": "[Edit]\nfile_path=deploy/deployment.yaml new_string=\"readinessProbe:\\n  httpGet: { path: /api/health, port: 37777 }\\n  initialDelaySeconds: 15\"\nEdit applied. deployment.yaml adds a readinessProbe on /api/health:37777 with initialDelaySeconds 15. kubectl apply --dry-run=client succeeds.",
+      "observations": [
+        {
+          "type": "change",
+          "title": "Add readiness probe in deployment.yaml",
+          "content": "Edit applied. deployment.yaml adds a readinessProbe on /api/health:37777 with initialDelaySeconds 15. kubectl apply --dry-run=client succeeds.",
+          "facts": [
+            "Edit applied.",
+            "deployment.yaml adds a readinessProbe on /api/health:37777 with initialDelaySeconds 15.",
+            "kubectl apply --dry-run=client succeeds."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "readiness",
+        "probe",
+        "health"
+      ],
+      "learnedKeywords": [
+        "readinessProbe",
+        "/api/health",
+        "initialDelaySeconds"
+      ],
+      "requestIdentifiers": [
+        "deployment.yaml",
+        "/api/health"
+      ],
+      "learnedIdentifiers": [
+        "deployment.yaml",
+        "/api/health"
+      ],
+      "keySample": false,
+      "notes": "single-observation session"
+    },
+    {
+      "id": "sum-deploy-k8s-probe-chain",
+      "category": "deploy-change",
+      "lastAssistantMessage": "Edit applied. deployment.yaml adds a readinessProbe on /api/health:37777 with initialDelaySeconds 15. kubectl apply --dry-run=client succeeds. Next I will run the full verification suite.",
+      "toolTrace": "[Edit]\nfile_path=deploy/deployment.yaml new_string=\"readinessProbe:\\n  httpGet: { path: /api/health, port: 37777 }\\n  initialDelaySeconds: 15\"\nEdit applied. deployment.yaml adds a readinessProbe on /api/health:37777 with initialDelaySeconds 15. kubectl apply --dry-run=client succeeds.",
+      "observations": [
+        {
+          "type": "discovery",
+          "title": "Read Add readiness probe in deployment.yaml",
+          "content": "Inspected file_path=deploy/deployment.yaml new_string=\"readinessProbe:\\n  httpGet: { path: /api/health, port: 37777 }\\n  initialDelaySeconds: 15\"",
+          "facts": []
+        },
+        {
+          "type": "change",
+          "title": "Add readiness probe in deployment.yaml",
+          "content": "Edit applied. deployment.yaml adds a readinessProbe on /api/health:37777 with initialDelaySeconds 15. kubectl apply --dry-run=client succeeds.",
+          "facts": [
+            "Edit applied.",
+            "deployment.yaml adds a readinessProbe on /api/health:37777 with initialDelaySeconds 15.",
+            "kubectl apply --dry-run=client succeeds."
+          ]
+        },
+        {
+          "type": "discovery",
+          "title": "Verified Add readiness probe in deployment.yaml",
+          "content": "kubectl apply --dry-run=client succeeds.",
+          "facts": [
+            "kubectl apply --dry-run=client succeeds."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "readiness",
+        "probe",
+        "health"
+      ],
+      "learnedKeywords": [
+        "readinessProbe",
+        "/api/health",
+        "initialDelaySeconds"
+      ],
+      "requestIdentifiers": [
+        "deployment.yaml",
+        "/api/health"
+      ],
+      "learnedIdentifiers": [
+        "deployment.yaml",
+        "/api/health"
+      ],
+      "keySample": true,
+      "notes": "three-step discovery/change/verify session"
+    },
+    {
+      "id": "sum-deploy-docker-multistage-single",
+      "category": "deploy-change",
+      "lastAssistantMessage": "Edit applied. Dockerfile is now multi-stage: build with maven, runtime with eclipse-temurin:21-jre. Image size drops from 780MB to 210MB.",
+      "toolTrace": "[Edit]\nfile_path=Dockerfile new_string=\"FROM eclipse-temurin:21-jre AS runtime\\nCOPY --from=build /app/target/app.jar /app/app.jar\"\nEdit applied. Dockerfile is now multi-stage: build with maven, runtime with eclipse-temurin:21-jre. Image size drops from 780MB to 210MB.",
+      "observations": [
+        {
+          "type": "change",
+          "title": "Convert multi-stage in Dockerfile",
+          "content": "Edit applied. Dockerfile is now multi-stage: build with maven, runtime with eclipse-temurin:21-jre. Image size drops from 780MB to 210MB.",
+          "facts": [
+            "Edit applied.",
+            "Dockerfile is now multi-stage: build with maven, runtime with eclipse-temurin:21-jre.",
+            "Image size drops from 780MB to 210MB."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "docker",
+        "multi-stage",
+        "build"
+      ],
+      "learnedKeywords": [
+        "eclipse-temurin:21-jre",
+        "multi-stage",
+        "780MB"
+      ],
+      "requestIdentifiers": [
+        "Dockerfile"
+      ],
+      "learnedIdentifiers": [
+        "Dockerfile",
+        "eclipse-temurin:21-jre"
+      ],
+      "keySample": false,
+      "notes": "single-observation session"
+    },
+    {
+      "id": "sum-deploy-docker-multistage-chain",
+      "category": "deploy-change",
+      "lastAssistantMessage": "Edit applied. Dockerfile is now multi-stage: build with maven, runtime with eclipse-temurin:21-jre. Image size drops from 780MB to 210MB. Next I will run the full verification suite.",
+      "toolTrace": "[Edit]\nfile_path=Dockerfile new_string=\"FROM eclipse-temurin:21-jre AS runtime\\nCOPY --from=build /app/target/app.jar /app/app.jar\"\nEdit applied. Dockerfile is now multi-stage: build with maven, runtime with eclipse-temurin:21-jre. Image size drops from 780MB to 210MB.",
+      "observations": [
+        {
+          "type": "discovery",
+          "title": "Read Convert multi-stage in Dockerfile",
+          "content": "Inspected file_path=Dockerfile new_string=\"FROM eclipse-temurin:21-jre AS runtime\\nCOPY --from=build /app/target/app.jar /app/app.jar\"",
+          "facts": []
+        },
+        {
+          "type": "change",
+          "title": "Convert multi-stage in Dockerfile",
+          "content": "Edit applied. Dockerfile is now multi-stage: build with maven, runtime with eclipse-temurin:21-jre. Image size drops from 780MB to 210MB.",
+          "facts": [
+            "Edit applied.",
+            "Dockerfile is now multi-stage: build with maven, runtime with eclipse-temurin:21-jre.",
+            "Image size drops from 780MB to 210MB."
+          ]
+        },
+        {
+          "type": "discovery",
+          "title": "Verified Convert multi-stage in Dockerfile",
+          "content": "Image size drops from 780MB to 210MB.",
+          "facts": [
+            "Image size drops from 780MB to 210MB."
+          ]
+        }
+      ],
+      "requestKeywords": [
+        "docker",
+        "multi-stage",
+        "build"
+      ],
+      "learnedKeywords": [
+        "eclipse-temurin:21-jre",
+        "multi-stage",
+        "780MB"
+      ],
+      "requestIdentifiers": [
+        "Dockerfile"
+      ],
+      "learnedIdentifiers": [
+        "Dockerfile",
+        "eclipse-temurin:21-jre"
+      ],
+      "keySample": false,
+      "notes": "three-step discovery/change/verify session"
+    }
+  ]
+}

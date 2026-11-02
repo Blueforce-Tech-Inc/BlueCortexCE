@@ -5,6 +5,8 @@ Write progress notes of what was done, what was learned, and what's next. This i
 
 Claude's Full Response to User:
 
+{{lastAssistantMessage}}
+
 <summary>
   <request>[Short title capturing the user's request AND the substance of what was discussed/done]</request>
   <investigated>[What has been explored so far? What was examined?]</investigated>
