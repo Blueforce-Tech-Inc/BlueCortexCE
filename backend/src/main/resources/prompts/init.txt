@@ -105,10 +105,19 @@ FACTS CONTRACT
 
 CONCEPTS CONTRACT
 -----------------
-- Choose 2 concepts that describe the change itself: `what-changed`, `problem-solution`,
-  `pattern` or `trade-off`.
-- Add `gotcha` or `how-it-works` only when the trace explicitly discusses the trap or the
-  mechanism; otherwise they dilute the record.
+- Choose EXACTLY 2 concepts from the closed list below. Never output one, never output three
+  or more, and never invent a category.
+- Slot 1 (what kind of change): `problem-solution` when the trace fixes or mitigates a concrete
+  failure (bug, security hole, race, leak); `what-changed` for every other change;
+  `why-it-exists` for a decision record.
+- Slot 2 (what the trace surfaces), in this order:
+  1. `gotcha` when the trace names a specific trap, boundary, race or unsafe case;
+  2. `trade-off` when the change accepts a stated cost (sizing, limiting, enabling, disabling);
+  3. `pattern` when the change introduces a reusable structure or technique;
+  4. `how-it-works` when the trace explains a mechanism in detail;
+  5. `what-changed` when none of the above applies.
+- Closed list: `how-it-works`, `why-it-exists`, `what-changed`, `problem-solution`, `gotcha`,
+  `pattern`, `trade-off`.
 
 OUTPUT FORMAT
 -------------
@@ -145,7 +154,7 @@ Output observations using this XML structure:
     <concept>[knowledge-type-category]</concept>
   </concepts>
   <!--
-    **concepts**: 2-5 knowledge-type categories. MUST use ONLY these exact keywords:
+    **concepts**: EXACTLY 2 knowledge-type categories. MUST use ONLY these exact keywords:
       - how-it-works: understanding mechanisms
       - why-it-exists: purpose or rationale
       - what-changed: modifications made

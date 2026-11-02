@@ -375,10 +375,16 @@ public final class GoldenSetEvaluator {
         row(sb, "validation rejections", String.valueOf(agg.validationRejections));
         row(sb, "call failures", String.valueOf(agg.callFailures));
         row(sb, "title exact-hit rate (legacy)", pct(agg.titleExactHitRate));
-        row(sb, "title normalized hit rate", pct(agg.titleNormalizedHitRate));
+        row(sb, "title normalized hit rate (legacy)", pct(agg.titleNormalizedHitRate));
+        row(sb, "title verb-class hit rate", pct(agg.titleVerbClassHitRate));
+        row(sb, "title subject hit rate", pct(agg.titleSubjectHitRate));
+        row(sb, "title contract hit rate (verb + subject + all identifiers)",
+                pct(agg.titleContractHitRate));
         row(sb, "title identifier hit rate", pct(agg.titleIdentifierHitRate));
         row(sb, "type accuracy", pct(agg.typeAccuracy));
-        row(sb, "facts precision / recall", pct(agg.factsPrecision) + " / " + pct(agg.factsRecall));
+        row(sb, "facts keyword precision (legacy) / recall",
+                pct(agg.factsPrecision) + " / " + pct(agg.factsRecall));
+        row(sb, "facts informative precision", pct(agg.factsInformativeRate));
         row(sb, "facts trace-support rate", pct(agg.factsSupportRate));
         row(sb, "concepts precision / recall", pct(agg.conceptsPrecision) + " / " + pct(agg.conceptsRecall));
         row(sb, "skip consistency across repeats", pct(agg.repeatConsistency)
@@ -394,9 +400,10 @@ public final class GoldenSetEvaluator {
         gate(sb, "A3", "must-record samples skipped", "= 0", String.valueOf(agg.skipFn), agg.skipFn == 0);
         gate(sb, "A4", "low-value samples recorded", "<= max(1, TP/20)", String.valueOf(agg.skipFp),
                 agg.skipFp <= Math.max(1, agg.skipTp / 20));
-        gate(sb, "A5", "facts precision", ">= 75%", pct(agg.factsPrecision), agg.factsPrecision >= 0.75);
-        gate(sb, "A6", "normalized title hit", ">= 80%", pct(agg.titleNormalizedHitRate),
-                agg.titleNormalizedHitRate >= 0.80);
+        gate(sb, "A5", "facts informative precision", ">= 75%",
+                pct(agg.factsInformativeRate), agg.factsInformativeRate >= 0.75);
+        gate(sb, "A6", "title contract hit (verb + subject + identifiers)", ">= 80%",
+                pct(agg.titleContractHitRate), agg.titleContractHitRate >= 0.80);
         sb.append('\n');
 
         if (!agg.statusCounts.isEmpty()) {
@@ -407,33 +414,43 @@ public final class GoldenSetEvaluator {
         }
 
         sb.append("## Per run (single vs average vs worst)\n\n");
-        sb.append("| run | samples | skip accuracy | title normalized | facts P | facts R | format errors |\n");
-        sb.append("|---|---|---|---|---|---|---|\n");
-        double avgSkip = 0, avgTitle = 0, avgFactsP = 0, avgFactsR = 0;
-        double worstSkip = 1, worstTitle = 1, worstFactsP = 1, worstFactsR = 1;
+        sb.append("| run | samples | skip accuracy | title normalized | title contract | facts P | facts actionable | facts R | format errors |\n");
+        sb.append("|---|---|---|---|---|---|---|---|---|\n");
+        double avgSkip = 0, avgTitle = 0, avgContract = 0, avgFactsP = 0, avgActionable = 0, avgFactsR = 0;
+        double worstSkip = 1, worstTitle = 1, worstContract = 1, worstFactsP = 1, worstActionable = 1, worstFactsR = 1;
         for (GoldenSetScorer.RunSummary run : agg.runs) {
             sb.append("| ").append(run.runIndex).append(" | ").append(run.samples)
                     .append(" | ").append(pct(run.skipAccuracy))
                     .append(" | ").append(pct(run.titleNormalizedHitRate))
+                    .append(" | ").append(pct(run.titleContractHitRate))
                     .append(" | ").append(pct(run.factsPrecision))
+                    .append(" | ").append(pct(run.factsInformativeRate))
                     .append(" | ").append(pct(run.factsRecall))
                     .append(" | ").append(run.formatErrors).append(" |\n");
             avgSkip += run.skipAccuracy;
             avgTitle += run.titleNormalizedHitRate;
+            avgContract += run.titleContractHitRate;
             avgFactsP += run.factsPrecision;
+            avgActionable += run.factsInformativeRate;
             avgFactsR += run.factsRecall;
             worstSkip = Math.min(worstSkip, run.skipAccuracy);
             worstTitle = Math.min(worstTitle, run.titleNormalizedHitRate);
+            worstContract = Math.min(worstContract, run.titleContractHitRate);
             worstFactsP = Math.min(worstFactsP, run.factsPrecision);
+            worstActionable = Math.min(worstActionable, run.factsInformativeRate);
             worstFactsR = Math.min(worstFactsR, run.factsRecall);
         }
         int runs = Math.max(1, agg.runs.size());
         sb.append("\n- average: skip ").append(pct(avgSkip / runs))
                 .append(", title ").append(pct(avgTitle / runs))
+                .append(", title contract ").append(pct(avgContract / runs))
                 .append(", facts P/R ").append(pct(avgFactsP / runs)).append("/").append(pct(avgFactsR / runs))
+                .append(", facts actionable ").append(pct(avgActionable / runs))
                 .append("\n- worst run: skip ").append(pct(worstSkip))
                 .append(", title ").append(pct(worstTitle))
+                .append(", title contract ").append(pct(worstContract))
                 .append(", facts P/R ").append(pct(worstFactsP)).append("/").append(pct(worstFactsR))
+                .append(", facts actionable ").append(pct(worstActionable))
                 .append("\n\n");
 
         sb.append("## Per type\n\n");
@@ -448,14 +465,15 @@ public final class GoldenSetEvaluator {
         sb.append('\n');
 
         sb.append("## Per sample\n\n");
-        sb.append("| id | category | expected | actual | contract | title norm | title exact | type | facts P/R | concepts P/R | ms |\n");
-        sb.append("|---|---|---|---|---|---|---|---|---|---|---|\n");
+        sb.append("| id | category | expected | actual | contract | title norm | title contract | title exact | type | facts P/R | facts actionable | concepts P/R | ms |\n");
+        sb.append("|---|---|---|---|---|---|---|---|---|---|---|---|---|\n");
         for (GoldenSetScorer.SampleScore score : agg.scores) {
             String actual = score.actualSkip ? "skip"
                     : (score.parsed ? "observation"
                     : (score.callFailed ? "call-failed"
                     : (score.validationRejected ? "validation-rejected" : "malformed")));
             String titleNorm = score.parsed ? pct(score.titleCoverage) : "-";
+            String titleContract = score.parsed ? (score.titleContractHit ? "hit" : "MISS") : "-";
             String titleExact = score.parsed ? (score.titleExactHit ? "hit" : "miss") : "-";
             String type = score.parsed ? (score.typeMatch ? "match" : "MISS") : "-";
             String facts = score.parsed
@@ -468,9 +486,11 @@ public final class GoldenSetEvaluator {
                     .append(" | ").append(actual)
                     .append(" | ").append(score.contractPass ? "pass" : "FAIL")
                     .append(" | ").append(titleNorm)
+                    .append(" | ").append(titleContract)
                     .append(" | ").append(titleExact)
                     .append(" | ").append(type)
                     .append(" | ").append(facts)
+                    .append(" | ").append(score.parsed ? pct(score.factsInformativeRate) : "-")
                     .append(" | ").append(concepts)
                     .append(" | ").append(score.elapsedMs).append(" |\n");
         }
@@ -506,11 +526,14 @@ public final class GoldenSetEvaluator {
                 .append(" `prompts/observation.txt`; the baseline phase replays a checked-in prompt snapshot.\n");
         sb.append("- `EVAL_VALIDATE=1` applies the production deterministic guard in-memory (no duplicate")
                 .append(" lookup), so the “after” numbers include the guard and the “before” numbers do not.\n");
-        sb.append("- Title hit requires every declared identifier verbatim and keyword coverage ≥ 0.8;")
-                .append(" keywords are normalized for case, punctuation, CamelCase and a small synonym table.\n");
-        sb.append("- Facts/concepts recall is the primary field signal; precision counts produced items that")
-                .append(" mention an expected keyword. Trace-support rate is measured independently against")
-                .append(" the recorded tool input/output.\n");
+        sb.append("- Title contract hit requires (1) the leading verb to belong to the declared verb class,")
+                .append(" (2) the declared subject tokens to reach coverage ≥ 0.8, and (3) every declared")
+                .append(" identifier to appear verbatim. The legacy keyword-coverage metric is reported")
+                .append(" alongside for before/after comparison.\n");
+        sb.append("- Facts informative precision (A5) counts produced facts that name a concrete object")
+                .append(" (identifier, path, number, status code or quoted value), state an actionable outcome,")
+                .append(" and are trace-grounded; legacy keyword precision is reported alongside.")
+                .append(" Concepts recall is the primary concepts signal.\n");
         sb.append("- The golden set is hand-authored and describes this set, not all production traffic.\n");
         sb.append("- Real calls are manual-only and never retried; CI only replays fixtures.\n");
         return sb.toString();
@@ -533,8 +556,12 @@ public final class GoldenSetEvaluator {
         metrics.put("titleExactHitRate", agg.titleExactHitRate);
         metrics.put("titleNormalizedHitRate", agg.titleNormalizedHitRate);
         metrics.put("titleIdentifierHitRate", agg.titleIdentifierHitRate);
+        metrics.put("titleVerbClassHitRate", agg.titleVerbClassHitRate);
+        metrics.put("titleSubjectHitRate", agg.titleSubjectHitRate);
+        metrics.put("titleContractHitRate", agg.titleContractHitRate);
         metrics.put("typeAccuracy", agg.typeAccuracy);
         metrics.put("factsPrecision", agg.factsPrecision);
+        metrics.put("factsInformativeRate", agg.factsInformativeRate);
         metrics.put("factsRecall", agg.factsRecall);
         metrics.put("factsSupportRate", agg.factsSupportRate);
         metrics.put("conceptsPrecision", agg.conceptsPrecision);
@@ -558,12 +585,15 @@ public final class GoldenSetEvaluator {
     private static void printSummary(GoldenSetScorer.Aggregate agg, int calls, long durationMs, Path path) {
         System.out.printf(Locale.ROOT,
                 "%ncontract=%s skip=%s (TP/FP/FN/TN=%d/%d/%d/%d) formatErrors=%d "
-                        + "titleExact=%s titleNorm=%s type=%s factsP/R=%s/%s support=%s "
+                        + "titleExact=%s titleNorm=%s titleContract=%s type=%s "
+                        + "factsP/R=%s/%s actionable=%s support=%s "
                         + "conceptsP/R=%s/%s calls=%d duration=%dms consistency=%s%nreport=%s%n",
                 pct(agg.contractPassRate), pct(agg.skipAccuracy),
                 agg.skipTp, agg.skipFp, agg.skipFn, agg.skipTn, agg.formatErrors,
-                pct(agg.titleExactHitRate), pct(agg.titleNormalizedHitRate), pct(agg.typeAccuracy),
-                pct(agg.factsPrecision), pct(agg.factsRecall), pct(agg.factsSupportRate),
+                pct(agg.titleExactHitRate), pct(agg.titleNormalizedHitRate),
+                pct(agg.titleContractHitRate), pct(agg.typeAccuracy),
+                pct(agg.factsPrecision), pct(agg.factsRecall), pct(agg.factsInformativeRate),
+                pct(agg.factsSupportRate),
                 pct(agg.conceptsPrecision), pct(agg.conceptsRecall), calls, durationMs,
                 pct(agg.repeatConsistency), path);
         if (!agg.problems.isEmpty()) {

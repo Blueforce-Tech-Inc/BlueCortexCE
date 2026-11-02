@@ -28,10 +28,26 @@ public class GoldenSet {
         public boolean expectObservation;
         public String expectedType;
 
-        /** Normalized keyword expectations for the title (case/punctuation/paraphrase tolerant). */
+        /**
+         * Legacy mixed keyword list (verb + subject + file name). Kept as evidence for the
+         * pre-2026-11-03 reports; the gate does not read it any more.
+         */
         public List<String> titleKeywords = new ArrayList<>();
 
-        /** Identifiers that must appear verbatim in the title (case-sensitive). */
+        /**
+         * Contract title metric, part 1: the verb class the first title token must belong to.
+         * One of fix/add/refactor/change/harden/remove/migrate/document/record/restrict/
+         * enable/convert/set/redact/update (see {@code GoldenSetScorer.VERB_CLASSES}).
+         */
+        public String titleVerb;
+
+        /**
+         * Contract title metric, part 2: the object/symptom noun tokens the title must name.
+         * All declared tokens are required (coverage ≥ 0.8 over a 1-3 token phrase).
+         */
+        public List<String> titleSubject = new ArrayList<>();
+
+        /** Identifiers that must appear verbatim in the title (case-sensitive), all of them. */
         public List<String> titleIdentifiers = new ArrayList<>();
 
         public List<String> factsKeywords = new ArrayList<>();

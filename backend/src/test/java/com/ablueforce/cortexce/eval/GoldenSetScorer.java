@@ -5,9 +5,12 @@ import com.ablueforce.cortexce.util.XmlParser;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * Pure scoring logic for the golden-set evaluation.
@@ -24,6 +27,87 @@ public final class GoldenSetScorer {
      * keyword must appear; it is deliberately not lowered when a run misses it.
      */
     static final double TITLE_COVERAGE_FLOOR = 0.8;
+
+    /**
+     * Verb classes for the contract title metric. The title contract fixes the format
+     * {@code <verb> <object> <key identifier>}, so the first token decides the class and only
+     * morphology / well-established synonyms fold into the same class. Splitting "change" and
+     * "update" is deliberate: docs samples declare "update", config samples declare "change".
+     */
+    static final Map<String, Set<String>> VERB_CLASSES = Map.ofEntries(
+            Map.entry("fix", Set.of("fix", "fixed", "fixes", "fixing", "repair", "repaired",
+                    "repairs", "resolve", "resolved", "resolves", "correct", "corrected",
+                    "patch", "patched", "deflake", "deflaked")),
+            Map.entry("add", Set.of("add", "added", "adds", "adding", "create", "created",
+                    "creates", "introduce", "introduced", "implement", "implemented",
+                    "implementing")),
+            Map.entry("refactor", Set.of("refactor", "refactored", "refactors", "refactoring",
+                    "extract", "extracted", "split", "simplified", "restructure", "restructured")),
+            Map.entry("change", Set.of("change", "changed", "changes", "changing", "adjust",
+                    "adjusted", "modify", "modified", "modifies", "tune", "tuned", "update",
+                    "updated", "updates", "updating", "revise", "revised", "refresh", "refreshed")),
+            Map.entry("harden", Set.of("harden", "hardened", "hardens", "strengthen",
+                    "strengthened", "secure", "secured")),
+            Map.entry("remove", Set.of("remove", "removed", "removes", "removing", "delete",
+                    "deleted", "deletes", "drop", "dropped", "strip", "stripped")),
+            Map.entry("migrate", Set.of("migrate", "migrated", "migrates", "migrating")),
+            Map.entry("document", Set.of("document", "documented", "documents", "documenting",
+                    "describe", "described")),
+            Map.entry("record", Set.of("record", "recorded", "records", "recording", "log",
+                    "logged")),
+            Map.entry("restrict", Set.of("restrict", "restricted", "restricts", "limit",
+                    "limited", "constrain", "constrained", "pin", "pinned")),
+            Map.entry("enable", Set.of("enable", "enabled", "enables", "enabling", "disable",
+                    "disabled", "disables", "disabling", "toggle", "toggled")),
+            Map.entry("convert", Set.of("convert", "converted", "converts", "converting",
+                    "replace", "replaced", "transform", "transformed")),
+            Map.entry("set", Set.of("set", "sets", "setting", "configure", "configured",
+                    "default", "defaulted")),
+            Map.entry("redact", Set.of("redact", "redacted", "redacts", "mask", "masked",
+                    "sanitize", "sanitized")));
+
+    /** Reverse index: token → class, built once so scoring is a lookup. */
+    private static final Map<String, String> VERB_LEMMAS = reverseVerbClasses();
+
+    /** Concrete named objects: identifiers, paths, endpoints, emails or quoted values. */
+    private static final Pattern FACT_IDENTIFIER = Pattern.compile(
+            "[A-Za-z][A-Za-z0-9]*(?:[A-Z][A-Za-z0-9]*)+"            // CamelCase
+                    + "|[A-Za-z0-9]+(?:_[A-Za-z0-9]+)+"              // snake_case
+                    + "|[A-Za-z0-9]+(?:-[A-Za-z0-9]+)+"              // kebab-case
+                    + "|[A-Za-z0-9_./-]+\\.(?:java|xml|ya?ml|md|sql|json|sh|tf|txt|properties|jar)"
+                    + "|/[A-Za-z0-9_./{}-]+"                         // path or endpoint
+                    + "|[A-Za-z0-9._-]+@[A-Za-z0-9._-]+"            // email
+                    + "|\"[^\"\\n]{2,}\"");                          // quoted literal
+
+    /** Numeric anchors: counts, versions, percentages and status codes. */
+    private static final Pattern FACT_NUMBER = Pattern.compile(
+            "\\d+(?:[.:/]\\d+)*|\\b[1-5]\\d\\d\\b");
+
+    /** Change/behaviour relations that make an anchored fact actionable. */
+    private static final Pattern FACT_OUTCOME = Pattern.compile(
+            "\\d|%|->|→"
+                    + "|\\b(?:now|instead|returns?|returned|throws?|threw|rejects?|rejected"
+                    + "|accepts?|accepted|sets?|uses?|used|calls?|called|delegates?|delegated"
+                    + "|replaces?|replaced|removes?|removed|adds?|added|enables?|enabled"
+                    + "|disables?|disabled|restricts?|restricted|converts?|converted|migrates?"
+                    + "|migrated|hardens?|hardened|redacts?|redacted|masks?|masked|normalizes?"
+                    + "|normalized|pins?|pinned|caps?|capped|reduces?|reduced|increases?"
+                    + "|increased|defaults?|defaulted|requires?|required|expects?|expected"
+                    + "|asserts?|asserted|matches?|matched|equals?|contains?|loads?|loaded"
+                    + "|fetches?|fetched|closes?|closed|enforces?|enforced|blocks?|blocked"
+                    + "|fails?|failed|passes?|passed|keeps?|kept|drops?|dropped|skips?|skipped"
+                    + "|defers?|deferred|finalizes?|finalized|issues?|renders?|rendered|writes?"
+                    + "|written|exceeds?|exceeded)\\b");
+
+    /**
+     * Statements that describe the observation process instead of the change. They are only
+     * treated as informative when they also carry a concrete value (number/status) after the
+     * artifact name, matching the §7.8 decision on identifier-bearing pass statements.
+     */
+    private static final Pattern FACT_PROCESS_ONLY = Pattern.compile(
+            "^(?:edit applied|file written|file created|file saved|no change|read \\d|listed \\d"
+                    + "|found \\d|searched \\d|tests? run|tests? pass|lint pass|build succeed"
+                    + "|check pass|command completed)");
 
     /**
      * Small deterministic paraphrase table. Keys are canonical tokens; values are the canonical
@@ -54,6 +138,7 @@ public final class GoldenSetScorer {
             Map.entry("migrates", "migrate"), Map.entry("migrated", "migrate"),
             Map.entry("migrating", "migrate"),
             Map.entry("delegates", "delegate"), Map.entry("delegated", "delegate"),
+            Map.entry("delegation", "delegate"),
             Map.entry("redacts", "redact"), Map.entry("redacted", "redact"),
             Map.entry("redaction", "redact"), Map.entry("masks", "redact"), Map.entry("masked", "redact"),
             Map.entry("concurrency", "concurrent"), Map.entry("concurrently", "concurrent"),
@@ -123,8 +208,14 @@ public final class GoldenSetScorer {
         public boolean titleIdentifierHit;
         public boolean titleNormalizedHit;
         public double titleCoverage;
+        public boolean titleVerbClassHit;
+        public boolean titleSubjectHit;
+        public boolean titleContractHit;
         public boolean typeMatch;
+        /** Legacy keyword precision (share of facts mentioning an expected keyword). */
         public double factsPrecision;
+        /** Contract precision: share of produced facts that are actionable and grounded. */
+        public double factsInformativeRate;
         public double factsRecall;
         public double factsSupportRate;
         public double conceptsPrecision;
@@ -139,7 +230,9 @@ public final class GoldenSetScorer {
         public int samples;
         public double skipAccuracy;
         public double titleNormalizedHitRate;
+        public double titleContractHitRate;
         public double factsPrecision;
+        public double factsInformativeRate;
         public double factsRecall;
         public int formatErrors;
     }
@@ -165,8 +258,14 @@ public final class GoldenSetScorer {
         public double titleExactHitRate;
         public double titleNormalizedHitRate;
         public double titleIdentifierHitRate;
+        public double titleVerbClassHitRate;
+        public double titleSubjectHitRate;
+        public double titleContractHitRate;
         public double typeAccuracy;
+        /** Legacy keyword precision, retained for before/after comparison. */
         public double factsPrecision;
+        /** Contract precision used by gate A5. */
+        public double factsInformativeRate;
         public double factsRecall;
         public double factsSupportRate;
         public double conceptsPrecision;
@@ -210,10 +309,14 @@ public final class GoldenSetScorer {
         double titleExactHits = 0;
         double titleNormalizedHits = 0;
         double titleIdentifierHits = 0;
+        double titleVerbClassHits = 0;
+        double titleSubjectHits = 0;
+        double titleContractHits = 0;
         int titleSamples = 0;
         int typedSamples = 0;
         int typeHits = 0;
         double factsP = 0;
+        double factsInformative = 0;
         double factsR = 0;
         double factsSupport = 0;
         double conceptsP = 0;
@@ -291,9 +394,18 @@ public final class GoldenSetScorer {
                 score.titleIdentifierHit = identifiersPresent(sample.titleIdentifiers, obs.title);
                 score.titleNormalizedHit = score.titleIdentifierHit
                         && (sample.titleKeywords.isEmpty() || score.titleCoverage >= TITLE_COVERAGE_FLOOR);
+                List<String> subject = subjectTokens(sample);
+                score.titleSubjectHit = subject.isEmpty()
+                        || coverage(subject, obs.title) >= TITLE_COVERAGE_FLOOR;
+                score.titleVerbClassHit = verbClassHit(sample.titleVerb, obs.title);
+                score.titleContractHit = score.titleVerbClassHit && score.titleSubjectHit
+                        && score.titleIdentifierHit;
                 titleExactHits += score.titleExactHit ? 1 : 0;
                 titleNormalizedHits += score.titleNormalizedHit ? 1 : 0;
                 titleIdentifierHits += score.titleIdentifierHit ? 1 : 0;
+                titleVerbClassHits += score.titleVerbClassHit ? 1 : 0;
+                titleSubjectHits += score.titleSubjectHit ? 1 : 0;
+                titleContractHits += score.titleContractHit ? 1 : 0;
                 titleSamples++;
                 type.titleNormalizedHit += score.titleNormalizedHit ? 1 : 0;
 
@@ -305,11 +417,13 @@ public final class GoldenSetScorer {
 
                 score.factsRecall = recall(sample.factsKeywords, obs.facts);
                 score.factsPrecision = precision(sample.factsKeywords, obs.facts);
+                score.factsInformativeRate = informativeRate(obs.facts, sample);
                 score.factsSupportRate = supportRate(obs.facts, sample);
                 score.conceptsRecall = recall(sample.conceptsKeywords, obs.concepts);
                 score.conceptsPrecision = precision(sample.conceptsKeywords, obs.concepts);
 
                 factsP += score.factsPrecision;
+                factsInformative += score.factsInformativeRate;
                 factsR += score.factsRecall;
                 factsSupport += score.factsSupportRate;
                 conceptsP += score.conceptsPrecision;
@@ -322,6 +436,14 @@ public final class GoldenSetScorer {
                 } else if (!score.titleNormalizedHit) {
                     score.problems.add("title coverage " + pct(score.titleCoverage)
                             + " (expected keywords " + sample.titleKeywords + ")");
+                }
+                if (!score.titleVerbClassHit) {
+                    score.problems.add("title verb class '" + sample.titleVerb
+                            + "' missing (got '" + obs.title + "')");
+                }
+                if (!score.titleSubjectHit) {
+                    score.problems.add("title subject " + subject
+                            + " missing (got '" + obs.title + "')");
                 }
                 if (!score.typeMatch) {
                     score.problems.add("type '" + obs.type + "' != expected '"
@@ -350,8 +472,12 @@ public final class GoldenSetScorer {
         agg.titleExactHitRate = ratio(titleExactHits, titleSamples);
         agg.titleNormalizedHitRate = ratio(titleNormalizedHits, titleSamples);
         agg.titleIdentifierHitRate = ratio(titleIdentifierHits, titleSamples);
+        agg.titleVerbClassHitRate = ratio(titleVerbClassHits, titleSamples);
+        agg.titleSubjectHitRate = ratio(titleSubjectHits, titleSamples);
+        agg.titleContractHitRate = ratio(titleContractHits, titleSamples);
         agg.typeAccuracy = ratio(typeHits, typedSamples);
         agg.factsPrecision = fieldSamples == 0 ? 0 : factsP / fieldSamples;
+        agg.factsInformativeRate = fieldSamples == 0 ? 0 : factsInformative / fieldSamples;
         agg.factsRecall = fieldSamples == 0 ? 0 : factsR / fieldSamples;
         agg.factsSupportRate = fieldSamples == 0 ? 0 : factsSupport / fieldSamples;
         agg.conceptsPrecision = fieldSamples == 0 ? 0 : conceptsP / fieldSamples;
@@ -377,7 +503,9 @@ public final class GoldenSetScorer {
             summary.samples = run.total;
             summary.skipAccuracy = run.skipAccuracy;
             summary.titleNormalizedHitRate = run.titleNormalizedHitRate;
+            summary.titleContractHitRate = run.titleContractHitRate;
             summary.factsPrecision = run.factsPrecision;
+            summary.factsInformativeRate = run.factsInformativeRate;
             summary.factsRecall = run.factsRecall;
             summary.formatErrors = run.formatErrors;
             summaries.add(summary);
@@ -480,6 +608,127 @@ public final class GoldenSetScorer {
             }
         }
         return (double) useful / actualItems.size();
+    }
+
+    /**
+     * Contract facts precision (gate A5): share of produced facts that are actionable and
+     * trace-grounded. "Actionable" is fixed before measurement: the fact names a concrete object
+     * (identifier, path, version, number, status code, quoted value) AND states a value, behaviour
+     * or comparison a later reader can act on. Process statements ("edit applied", "tests pass" with
+     * no artifact) are excluded unless they name the exact artifact.
+     */
+    public static double informativeRate(List<String> facts, GoldenSet.Sample sample) {
+        if (facts == null || facts.isEmpty()) {
+            return 1.0;
+        }
+        int informative = 0;
+        for (String fact : facts) {
+            if (isInformative(fact) && isSupported(fact, sample)) {
+                informative++;
+            }
+        }
+        return (double) informative / facts.size();
+    }
+
+    /** Pure, trace-independent half of the A5 definition (unit-testable). */
+    public static boolean isInformative(String fact) {
+        if (fact == null || fact.isBlank()) {
+            return false;
+        }
+        String trimmed = fact.trim();
+        boolean hasIdentifier = FACT_IDENTIFIER.matcher(trimmed).find();
+        boolean hasAnchor = hasIdentifier || FACT_NUMBER.matcher(trimmed).find();
+        boolean hasOutcome = FACT_OUTCOME.matcher(trimmed).find();
+        if (FACT_PROCESS_ONLY.matcher(trimmed.toLowerCase(Locale.ROOT)).find()) {
+            // Process noise is only actionable when it names the concrete artifact it talks about.
+            return hasIdentifier && hasOutcome;
+        }
+        return hasAnchor && hasOutcome;
+    }
+
+    private static boolean isSupported(String fact, GoldenSet.Sample sample) {
+        if (sample == null) {
+            return true;
+        }
+        String evidence = (sample.toolName == null ? "" : sample.toolName) + "\n"
+                + (sample.toolInput == null ? "" : sample.toolInput) + "\n"
+                + (sample.toolOutput == null ? "" : sample.toolOutput);
+        return ExtractionValidationService.isSupported(fact, evidence);
+    }
+
+    /**
+     * Subject tokens for the contract metric. New samples declare {@code titleSubject}; older ones
+     * fall back to the legacy keyword list with verb-class words and identifier fragments removed.
+     */
+    static List<String> subjectTokens(GoldenSet.Sample sample) {
+        if (sample.titleSubject != null && !sample.titleSubject.isEmpty()) {
+            return sample.titleSubject;
+        }
+        if (sample.titleKeywords == null || sample.titleKeywords.isEmpty()) {
+            return List.of();
+        }
+        Set<String> identifierTokens = new LinkedHashSet<>();
+        if (sample.titleIdentifiers != null) {
+            for (String identifier : sample.titleIdentifiers) {
+                identifierTokens.addAll(List.of(canonicalize(identifier).split(" ")));
+            }
+        }
+        List<String> subject = new ArrayList<>();
+        for (String keyword : sample.titleKeywords) {
+            String canonical = canonicalize(keyword);
+            if (canonical.isEmpty()) {
+                continue;
+            }
+            if (VERB_LEMMAS.containsKey(canonical)) {
+                continue;
+            }
+            boolean identifierFragment = !identifierTokens.isEmpty()
+                    && identifierTokens.contains(canonical);
+            if (!identifierFragment) {
+                subject.add(keyword);
+            }
+        }
+        return subject.isEmpty() ? sample.titleKeywords : subject;
+    }
+
+    /** Whether the first title token belongs to the declared verb class. */
+    static boolean verbClassHit(String expectedVerb, String title) {
+        if (expectedVerb == null || expectedVerb.isBlank()) {
+            return true;
+        }
+        String expected = expectedVerb.toLowerCase(Locale.ROOT);
+        if ("update".equals(expected)) {
+            // "Updated" and "Changed" both satisfy the change class; fixtures may declare either.
+            expected = "change";
+        }
+        for (String token : tokenize(title)) {
+            String lemma = VERB_LEMMAS.get(token);
+            if (lemma != null) {
+                return lemma.equals(expected);
+            }
+            // Only the leading verb decides the class; stop at the first non-verb word.
+            return false;
+        }
+        return false;
+    }
+
+    private static List<String> tokenize(String value) {
+        List<String> tokens = new ArrayList<>();
+        if (value == null) {
+            return tokens;
+        }
+        for (String raw : value.toLowerCase(Locale.ROOT).split("[^a-z0-9]+")) {
+            if (!raw.isEmpty()) {
+                tokens.add(SYNONYMS.getOrDefault(raw, raw));
+            }
+        }
+        return tokens;
+    }
+
+    private static Map<String, String> reverseVerbClasses() {
+        Map<String, String> index = new LinkedHashMap<>();
+        VERB_CLASSES.forEach((verbClass, forms) -> forms.forEach(form -> index.put(form, verbClass)));
+        return Map.copyOf(index);
     }
 
     /** Fraction of produced facts that the deterministic guard would keep as trace-grounded. */

@@ -1,0 +1,656 @@
+{
+  "provider" : "anthropic",
+  "model" : "MiniMax-M3",
+  "phase" : "after",
+  "promptDir" : "current",
+  "validate" : true,
+  "entries" : [ {
+    "id" : "bug-offbyone-pagination",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1678,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed OrderQuery.pageOffset first-page zero offset</title>\n  <subtitle>OrderQuery.pageOffset now calculates page * size, and the first-page regression test passes.</subtitle>\n  <facts>\n    <fact>OrderQuery.pageOffset returns page * size instead of page * size - 1.</fact>\n    <fact>OrderQueryTest#firstPageStartsAtZero passes after the offset correction.</fact>\n  </facts>\n  <narrative>OrderQuery pagination used an extra subtraction that made the first page start one position before offset zero. The offset calculation now directly uses page * size, restoring the expected zero-based first-page boundary.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/orders/OrderQuery.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "bug-offbyone-pagination",
+    "runIndex" : 1,
+    "status" : "200",
+    "elapsedMs" : 1806,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed OrderQuery.pageOffset first-page zero offset</title>\n  <subtitle>OrderQuery.pageOffset now returns page * size, correcting the first-page pagination boundary.</subtitle>\n  <facts>\n    <fact>OrderQuery.pageOffset changed from page * size - 1 to page * size.</fact>\n    <fact>OrderQueryTest#firstPageStartsAtZero passes after the pageOffset change.</fact>\n    <fact>The first page now starts at offset 0 instead of offset -1.</fact>\n  </facts>\n  <narrative>Pagination logic in OrderQuery.java used an extra subtraction of 1 when calculating offsets, causing the first page to resolve to -1. The calculation now uses page * size directly, and OrderQueryTest#firstPageStartsAtZero verifies the corrected zero-based boundary.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/orders/OrderQuery.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "bug-offbyone-pagination",
+    "runIndex" : 2,
+    "status" : "200",
+    "elapsedMs" : 1516,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed OrderQuery.pageOffset first-page offset calculation</title>\n  <subtitle>First-page pagination now starts at zero instead of subtracting one from the computed offset.</subtitle>\n  <facts>\n    <fact>OrderQuery.pageOffset now calculates the offset as (page * size).</fact>\n    <fact>OrderQueryTest#firstPageStartsAtZero passes after the offset change.</fact>\n    <fact>src/main/java/com/acme/orders/OrderQuery.java previously calculated the offset as (page * size - 1).</fact>\n  </facts>\n  <narrative>OrderQuery.pageOffset was corrected to remove the extra subtraction of one from the pagination offset. The change ensures the first page begins at offset zero, with OrderQueryTest#firstPageStartsAtZero verifying the corrected behavior.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/orders/OrderQuery.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "bug-null-cache",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1473,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed UserCache.get concurrent null placeholder race</title>\n  <subtitle>UserCache.get now atomically loads missing entries through computeIfAbsent.</subtitle>\n  <facts>\n    <fact>UserCache.get changed from `cache.get(id)` to `cache.computeIfAbsent(id, loader::load)` in src/main/java/com/acme/cache/UserCache.java.</fact>\n    <fact>UserCache.get prevents two concurrent callers from both writing a null placeholder.</fact>\n    <fact>CacheConcurrencyTest passes after the UserCache.get change.</fact>\n  </facts>\n  <narrative>The cache lookup path was hardened against concurrent misses by replacing the separate get operation with `computeIfAbsent(id, loader::load)`. The atomic computation ensures concurrent callers cannot both observe a missing entry and race while writing a null placeholder. CacheConcurrencyTest validates the corrected behavior.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/cache/UserCache.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "bug-null-cache",
+    "runIndex" : 1,
+    "status" : "200",
+    "elapsedMs" : 1886,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed UserCache.get concurrent null placeholder race</title>\n  <subtitle>UserCache.get now atomically loads missing entries through computeIfAbsent.</subtitle>\n  <facts>\n    <fact>UserCache.get changed from `return cache.get(id);` to `return cache.computeIfAbsent(id, loader::load);`.</fact>\n    <fact>UserCache.get uses `computeIfAbsent` with `loader::load` so concurrent callers cannot both write a null placeholder.</fact>\n    <fact>CacheConcurrencyTest passes after the UserCache.get change.</fact>\n  </facts>\n  <narrative>UserCache.get now combines lookup and loading in a single `computeIfAbsent` operation. This prevents concurrent callers from both attempting to insert a null placeholder while an entry is being loaded, and the concurrency regression test passes.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/cache/UserCache.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "bug-null-cache",
+    "runIndex" : 2,
+    "status" : "200",
+    "elapsedMs" : 1678,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed UserCache.get concurrent null placeholder race</title>\n  <subtitle>UserCache.get now atomically loads missing entries through computeIfAbsent.</subtitle>\n  <facts>\n    <fact>UserCache.get uses cache.computeIfAbsent(id, loader::load) instead of cache.get(id).</fact>\n    <fact>UserCache.get prevents two concurrent callers from both writing a null placeholder.</fact>\n    <fact>CacheConcurrencyTest passes after the UserCache.get change.</fact>\n  </facts>\n  <narrative>UserCache.get now delegates absent-entry loading to the cache's atomic computeIfAbsent operation. This closes the concurrent-call race in which multiple callers could observe a missing ID and both write a null placeholder; CacheConcurrencyTest validates the corrected behavior.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/cache/UserCache.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "bug-timezone-report",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 7340,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added DailyReportTest#reportUsesBusinessTimezone for Asia/Shanghai date</title>\n  <subtitle>Regression test pins the UTC-to-business-date boundary that previously produced an off-by-one-day result.</subtitle>\n  <facts>\n    <fact>DailyReportTest#reportUsesBusinessTimezone was added to src/test/java/com/acme/reporting/DailyReportTest.java.</fact>\n    <fact>DailyReportTest#reportUsesBusinessTimezone pins 2026-11-01T23:30Z and expects the Asia/Shanghai business date 2026-11-02.</fact>\n    <fact>DailyReportTest#reportUsesBusinessTimezone reproduces the reported off-by-one-day bug and passes after the fix.</fact>\n  </facts>\n  <narrative>The reporting regression suite now captures the business-timezone date boundary using Asia/Shanghai. The test fixes the UTC instant 2026-11-01T23:30Z and verifies that the report uses the next business date, 2026-11-02, preventing recurrence of the off-by-one-day defect.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/test/java/com/acme/reporting/DailyReportTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "bug-timezone-report",
+    "runIndex" : 1,
+    "status" : "200",
+    "elapsedMs" : 3119,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added DailyReportTest#reportUsesBusinessTimezone for off-by-one-day bug</title>\n  <subtitle>The regression test pins a UTC timestamp and expects the Asia/Shanghai business date.</subtitle>\n  <facts>\n    <fact>DailyReportTest#reportUsesBusinessTimezone pins 2026-11-01T23:30Z and expects the Asia/Shanghai business date 2026-11-02.</fact>\n    <fact>DailyReportTest#reportUsesBusinessTimezone uses ZoneId.of(\"Asia/Shanghai\").</fact>\n    <fact>DailyReportTest#reportUsesBusinessTimezone passes after the production fix and reproduces the reported off-by-one-day bug.</fact>\n  </facts>\n  <narrative>A regression test was added for the daily report business-date boundary. The test exercises 2026-11-01T23:30Z in the Asia/Shanghai business timezone and verifies that the resulting date is 2026-11-02, preventing recurrence of the reported off-by-one-day defect.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/test/java/com/acme/reporting/DailyReportTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "bug-timezone-report",
+    "runIndex" : 2,
+    "status" : "200",
+    "elapsedMs" : 3073,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added DailyReportTest#reportUsesBusinessTimezone for Asia/Shanghai date boundary</title>\n  <subtitle>Regression test pins a UTC timestamp to the expected Asia/Shanghai business date.</subtitle>\n  <facts>\n    <fact>DailyReportTest#reportUsesBusinessTimezone uses ZoneId.of(\"Asia/Shanghai\").</fact>\n    <fact>DailyReportTest#reportUsesBusinessTimezone pins 2026-11-01T23:30Z and expects the business date 2026-11-02.</fact>\n    <fact>DailyReportTest#reportUsesBusinessTimezone reproduces the reported off-by-one-day bug and passes after the fix.</fact>\n  </facts>\n  <narrative>A regression test was added for daily-report date calculation at the business-timezone boundary. The test fixes the business timezone to Asia/Shanghai, uses the UTC timestamp 2026-11-01T23:30Z, and verifies that the resulting business date is 2026-11-02. The test now passes with the corrected production behavior.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/test/java/com/acme/reporting/DailyReportTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "bug-payment-missing-order",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1461,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed PaymentService missing orderId null return</title>\n  <subtitle>PaymentService now throws PaymentNotFoundException instead of returning null for an unknown orderId.</subtitle>\n  <facts>\n    <fact>PaymentService returns repository.findByOrderId(orderId).orElseThrow(() -> new PaymentNotFoundException(orderId)).</fact>\n    <fact>PaymentService now throws PaymentNotFoundException for a missing orderId instead of returning null.</fact>\n    <fact>PaymentServiceTest#missingOrderThrows passes.</fact>\n  </facts>\n  <narrative>The missing-order path in PaymentService was changed to unwrap repository.findByOrderId(orderId) with orElseThrow and construct PaymentNotFoundException(orderId). This removes the ambiguous null result for unknown orders and makes PaymentServiceTest#missingOrderThrows pass.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/payment/PaymentService.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "bug-connection-leak",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1816,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed ConnectionPool.borrow connection leak on caller exceptions</title>\n  <subtitle>Borrowed connections now close automatically when callers throw exceptions.</subtitle>\n  <facts>\n    <fact>ConnectionPool.borrow uses try-with-resources around dataSource.getConnection().</fact>\n    <fact>PoolLeakTest reports activeConnections back to 0 after 100 failing calls.</fact>\n  </facts>\n  <narrative>ConnectionPool.borrow previously allowed caller exceptions to bypass connection cleanup and leak pooled connections. The method now scopes each borrowed JDBC Connection in try-with-resources, ensuring the connection closes on exceptional exits and preventing active connections from accumulating after repeated failures.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/db/ConnectionPool.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "bug-jwt-expiry",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1492,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed JwtVerifier expiration equality boundary</title>\n  <subtitle>JwtVerifier now rejects tokens expiring exactly at the current instant.</subtitle>\n  <facts>\n    <fact>src/main/java/com/acme/auth/JwtVerifier.java rejects expiration when claims.getExpiration().isBefore(now) or claims.getExpiration().isEqual(now).</fact>\n    <fact>JwtVerifierTest#expiredAtExactBoundary passes after the expiration-boundary change.</fact>\n  </facts>\n  <narrative>The JWT expiration check previously accepted a token whose expiration timestamp equaled the current instant because it only rejected strictly earlier timestamps. The comparison now covers both before and equality, ensuring tokens are invalid at the exact expiration boundary; the targeted JwtVerifierTest#expiredAtExactBoundary test passes.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/auth/JwtVerifier.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "bug-csv-crlf",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1519,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed CsvExporter embedded line endings in CsvExporterTest#multilineFieldKeepsRowCount</title>\n  <subtitle>Embedded line endings are normalized to CRLF before CSV quoting, preserving row counts for multiline fields.</subtitle>\n  <facts>\n    <fact>src/main/java/com/acme/export/CsvExporter.java normalizes embedded line endings with line.replaceAll(\"\\\\r?\\\\n\", \"\\\\r\\\\n\") before quoting.</fact>\n    <fact>CsvExporterTest#multilineFieldKeepsRowCount passes after the line-ending normalization change.</fact>\n  </facts>\n  <narrative>CsvExporter now converts embedded LF or CRLF line endings to CRLF before writing and quoting CSV fields. The multiline row-count regression is resolved because multiline content no longer introduces inconsistent physical line endings that can be miscounted as separate CSV rows.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/export/CsvExporter.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "bug-race-counter",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1385,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed CounterService.increment lost updates with incrementAndGet</title>\n  <subtitle>AtomicLong.incrementAndGet prevents concurrent increments from overwriting each other.</subtitle>\n  <facts>\n    <fact>CounterService.increment returns counter.incrementAndGet() instead of counter.set(counter.get() + 1).</fact>\n    <fact>CounterServiceConcurrencyTest passes with 1000 threads producing a counter value of 1000.</fact>\n  </facts>\n  <narrative>CounterService.increment now uses the atomic increment-and-return operation on AtomicLong, removing the race-prone get/set sequence. The concurrency test confirms that 1000 concurrent thread increments produce exactly 1000 rather than losing updates.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/metrics/CounterService.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "bug-n-plus-one",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1748,
+    "raw" : "<observation>\n  <type>optimization</type>\n  <title>Optimized OrderRepository.findAllByCustomerId with @EntityGraph items fetching</title>\n  <subtitle>Order items are fetched in the same query, reducing customer orders retrieval from 1 + N statements to 1.</subtitle>\n  <facts>\n    <fact>OrderRepository.findAllByCustomerId(String customerId) now uses @EntityGraph(attributePaths = \"items\").</fact>\n    <fact>OrderRepository.findAllByCustomerId(String customerId) executes 1 SQL statement instead of 1 + N.</fact>\n    <fact>QueryCountTest verifies the optimized query count for customer order retrieval.</fact>\n  </facts>\n  <narrative>OrderRepository.findAllByCustomerId(String customerId) was changed to eagerly fetch order items through an EntityGraph. This removes the N+1 query pattern, so QueryCountTest now observes a single SQL statement for the repository operation instead of one initial statement plus one statement per item.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/orders/OrderRepository.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "bug-dateformat-locale",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3946,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed DateFormatter Turkish locale month names with Locale.ROOT</title>\n  <subtitle>DateFormatter now formats month names consistently under Turkish default locales.</subtitle>\n  <facts>\n    <fact>DateTimeFormatter.ofPattern(pattern, Locale.ROOT) now pins date formatting to the root locale.</fact>\n    <fact>DateFormatterTest#turkishLocaleUsesRoot passes with Locale.ROOT formatting.</fact>\n    <fact>Turkish default locales no longer produce dotless-i month names in DateFormatter output.</fact>\n  </facts>\n  <narrative>DateFormatter was hardened against locale-sensitive pattern formatting by explicitly using Locale.ROOT. This prevents the Turkish locale’s dotted and dotless i behavior from changing month names, and DateFormatterTest#turkishLocaleUsesRoot verifies the corrected behavior.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/i18n/DateFormatter.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "bug-regex-redos",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1383,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed UrlValidator long input regex performance</title>\n  <subtitle>UrlValidator now uses a linear URL pattern, and UrlValidatorTest#longInputFinishesUnder100ms passes.</subtitle>\n  <facts>\n    <fact>src/main/java/com/acme/validation/UrlValidator.java defines URL as Pattern.compile(\"^https?://[^\\\\s]+$\").</fact>\n    <fact>UrlValidator replaces a nested-quantifier regex with the linear pattern ^https?://[^\\\\s]+$.</fact>\n    <fact>UrlValidatorTest#longInputFinishesUnder100ms passes after the UrlValidator pattern change.</fact>\n  </facts>\n  <narrative>UrlValidator was hardened against pathological regex processing time by replacing a nested-quantifier expression with a linear pattern requiring an HTTP or HTTPS scheme and one or more non-whitespace characters. The performance regression test UrlValidatorTest#longInputFinishesUnder100ms confirms that long input completes under the 100ms threshold.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/validation/UrlValidator.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "bug-file-encoding",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1322,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed FileReaderFactory platform encoding with UTF-8</title>\n  <subtitle>FileReaderFactory now reads files deterministically as UTF-8, preserving accents on GBK-default JVMs.</subtitle>\n  <facts>\n    <fact>FileReaderFactory constructs InputStreamReader with StandardCharsets.UTF_8.</fact>\n    <fact>FileReaderFactoryTest#utf8FileKeepsAccents passes on a GBK-default JVM.</fact>\n  </facts>\n  <narrative>FileReaderFactory previously depended on the JVM platform encoding when creating an InputStreamReader. The reader is now explicitly configured with StandardCharsets.UTF_8, preventing accented UTF-8 content from being corrupted when the application runs on a GBK-default system.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/files/FileReaderFactory.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "bug-file-encoding",
+    "runIndex" : 1,
+    "status" : "200",
+    "elapsedMs" : 1690,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed FileReaderFactory UTF-8 decoding on GBK-default JVM</title>\n  <subtitle>FileReaderFactory now explicitly decodes files as UTF-8, preserving accented characters independently of platform defaults.</subtitle>\n  <facts>\n    <fact>src/main/java/com/acme/files/FileReaderFactory.java opens readers with new InputStreamReader(in, StandardCharsets.UTF_8).</fact>\n    <fact>FileReaderFactoryTest#utf8FileKeepsAccents passes on a GBK-default JVM.</fact>\n    <fact>FileReaderFactory previously used the platform-default character encoding, which could corrupt UTF-8 accented characters on GBK systems.</fact>\n  </facts>\n  <narrative>FileReaderFactory was changed to specify StandardCharsets.UTF_8 when constructing the InputStreamReader. The added or updated FileReaderFactoryTest#utf8FileKeepsAccents verifies that UTF-8 accented content remains intact when the JVM default charset is GBK, preventing platform-dependent decoding failures.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n    <file>src/main/java/com/acme/files/FileReaderFactory.java</file>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/files/FileReaderFactory.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "bug-file-encoding",
+    "runIndex" : 2,
+    "status" : "200",
+    "elapsedMs" : 1485,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed FileReaderFactory default charset for UTF-8 accents</title>\n  <subtitle>FileReaderFactory now explicitly decodes files as UTF-8 instead of using the platform default charset.</subtitle>\n  <facts>\n    <fact>src/main/java/com/acme/files/FileReaderFactory.java uses new InputStreamReader(in, StandardCharsets.UTF_8).</fact>\n    <fact>FileReaderFactoryTest#utf8FileKeepsAccents passes on a GBK-default JVM.</fact>\n  </facts>\n  <narrative>FileReaderFactory previously depended on the JVM platform default charset, which could corrupt accented UTF-8 text when running on systems such as GBK-default JVMs. Reader creation now specifies StandardCharsets.UTF_8, and the regression test confirms accented content remains intact.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/files/FileReaderFactory.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "refactor-invoice",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2231,
+    "raw" : "<observation>\n  <type>refactor</type>\n  <title>Refactored InvoiceService tax and rendering delegation</title>\n  <subtitle>InvoiceService now delegates tax calculation and invoice rendering to dedicated collaborators.</subtitle>\n  <facts>\n    <fact>InvoiceService.java now calls renderer.render(taxCalculator.calculate(invoice), invoice).</fact>\n    <fact>InvoiceService delegates tax, rendering and mail to TaxCalculator, InvoiceRenderer and MailGateway.</fact>\n    <fact>InvoiceServiceTest remains green after the InvoiceService refactoring.</fact>\n  </facts>\n  <narrative>InvoiceService was restructured to separate tax calculation, rendering and mail responsibilities behind TaxCalculator, InvoiceRenderer and MailGateway. The observable behavior remains unchanged, with InvoiceServiceTest staying green after the refactor.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/billing/InvoiceService.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "refactor-invoice",
+    "runIndex" : 1,
+    "status" : "200",
+    "elapsedMs" : 2251,
+    "raw" : "<observation>\n  <type>refactor</type>\n  <title>Refactored InvoiceService tax and rendering delegation</title>\n  <subtitle>InvoiceService now delegates tax calculation and invoice rendering to dedicated collaborators without behavior changes.</subtitle>\n  <facts>\n    <fact>InvoiceService calls renderer.render(taxCalculator.calculate(invoice), invoice).</fact>\n    <fact>InvoiceService delegates tax calculation to TaxCalculator and rendering to InvoiceRenderer.</fact>\n    <fact>InvoiceServiceTest stays green after the InvoiceService refactor.</fact>\n  </facts>\n  <narrative>InvoiceService was restructured to move tax calculation and invoice rendering into TaxCalculator and InvoiceRenderer. The resulting renderer.render(taxCalculator.calculate(invoice), invoice) flow preserves existing behavior, with InvoiceServiceTest remaining green.</narrative>\n  <concepts>\n    <concept>pattern</concept>\n    <concept>what-changed</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/billing/InvoiceService.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "refactor-invoice",
+    "runIndex" : 2,
+    "status" : "200",
+    "elapsedMs" : 2388,
+    "raw" : "<observation>\n  <type>refactor</type>\n  <title>Refactored InvoiceService invoice rendering delegation</title>\n  <subtitle>InvoiceService delegates tax calculation and invoice rendering to dedicated collaborators without changing behavior.</subtitle>\n  <facts>\n    <fact>InvoiceService.java calls renderer.render(taxCalculator.calculate(invoice), invoice).</fact>\n    <fact>InvoiceService delegates tax, rendering and mail responsibilities to TaxCalculator, InvoiceRenderer and MailGateway.</fact>\n    <fact>InvoiceServiceTest stays green after the InvoiceService refactor.</fact>\n  </facts>\n  <narrative>InvoiceService was restructured to delegate tax calculation to TaxCalculator and invoice rendering to InvoiceRenderer, while mail handling remains delegated to MailGateway. The refactor preserves existing behavior, with InvoiceServiceTest remaining green.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n    <file>src/main/java/com/acme/billing/InvoiceService.java</file>\n    <file>src/test/java/com/acme/billing/InvoiceServiceTest.java</file>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/billing/InvoiceService.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "refactor-auth-controller",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1404,
+    "raw" : "<observation>\n  <type>refactor</type>\n  <title>Refactored AuthController JWT issuance into TokenService.issue</title>\n  <subtitle>AuthController delegates token creation to TokenService without changing observed test behavior.</subtitle>\n  <facts>\n    <fact>src/main/java/com/acme/auth/AuthController.java now returns tokenService.issue(authentication).</fact>\n    <fact>AuthController no longer constructs JWTs inline.</fact>\n    <fact>AuthControllerTest remained unchanged and was green.</fact>\n  </facts>\n  <narrative>JWT creation responsibility was extracted from AuthController and delegated to TokenService.issue(authentication). The controller now returns the issued token directly while the existing AuthControllerTest remains unchanged and passing.</narrative>\n  <concepts>\n    <concept>pattern</concept>\n    <concept>what-changed</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/auth/AuthController.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "refactor-config-loader",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2417,
+    "raw" : "<observation>\n  <type>refactor</type>\n  <title>Refactored ConfigLoader to return an unmodifiable map with typed accessors</title>\n  <subtitle>ConfigLoader now exposes configuration through an immutable map and typed access methods.</subtitle>\n  <facts>\n    <fact>ConfigLoader returns properties.entrySet().stream().collect(toUnmodifiableMap(...)).</fact>\n    <fact>ConfigLoader exposes typed accessors for configuration values.</fact>\n    <fact>ConfigLoaderTest passes with the same configuration values.</fact>\n  </facts>\n  <narrative>ConfigLoader was refactored so its property collection is returned as an unmodifiable map, preventing callers from mutating the loaded configuration. Typed accessors expose values through a more controlled interface, while existing expected values remain unchanged in ConfigLoaderTest.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/config/ConfigLoader.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "refactor-order-mapper",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2039,
+    "raw" : "<observation>\n  <type>refactor</type>\n  <title>Refactored OrderMapper entity conversion to mapper.convertValue</title>\n  <subtitle>OrderMapper now maps entities to OrderDto through one conversion call instead of 40 handwritten setters.</subtitle>\n  <facts>\n    <fact>src/main/java/com/acme/orders/OrderMapper.java returns mapper.convertValue(entity, OrderDto.class).</fact>\n    <fact>OrderMapper previously contained 40 hand-written setters for entity-to-OrderDto mapping.</fact>\n    <fact>OrderMapperTest compares the same OrderDto fields after the refactor.</fact>\n  </facts>\n  <narrative>OrderMapper was simplified by replacing 40 hand-written property assignments with a single mapper.convertValue(entity, OrderDto.class) call. The existing OrderMapperTest continues to verify the resulting DTO fields, preserving the expected mapping behavior while reducing repetitive mapping code.</narrative>\n  <concepts>\n    <concept>pattern</concept>\n    <concept>what-changed</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/orders/OrderMapper.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "refactor-retry-policy",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 6335,
+    "raw" : "<observation>\n  <type>refactor</type>\n  <title>Refactored RetryPolicy delay calculation into BackoffStrategy</title>\n  <subtitle>RetryPolicy now delegates retry timing while preserving the expected 100/200/400 delay sequence.</subtitle>\n  <facts>\n    <fact>RetryPolicy.java calls backoff.nextDelay(attempt) for delay calculation.</fact>\n    <fact>RetryPolicyTest asserts the retry delay sequence 100/200/400.</fact>\n    <fact>BackoffStrategy owns the extracted delay calculation behavior used by RetryPolicy.</fact>\n  </facts>\n  <narrative>RetryPolicy was refactored to extract retry delay calculation into BackoffStrategy. The RetryPolicy implementation now returns backoff.nextDelay(attempt), while RetryPolicyTest retains coverage for the established 100/200/400 delay sequence, demonstrating preserved behavior through a reusable strategy boundary.</narrative>\n  <concepts>\n    <concept>pattern</concept>\n    <concept>how-it-works</concept>\n  </concepts>\n  <files_read>\n    <file>src/main/java/com/acme/resilience/RetryPolicy.java</file>\n    <file>src/main/java/com/acme/resilience/RetryPolicyTest.java</file>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/resilience/RetryPolicy.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "refactor-logging-filter",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1429,
+    "raw" : "<observation>\n  <type>refactor</type>\n  <title>Refactored LoggingFilter timing into logExchange</title>\n  <subtitle>LoggingFilter now delegates exchange timing and header capture to logExchange.</subtitle>\n  <facts>\n    <fact>LoggingFilter invokes logExchange(exchange, StopWatch.createStarted()) in src/main/java/com/acme/web/LoggingFilter.java.</fact>\n    <fact>LoggingFilter moves timing and header capture into logExchange.</fact>\n    <fact>LoggingFilterTest verifies the same access-log line after the refactor.</fact>\n  </facts>\n  <narrative>LoggingFilter was restructured so the exchange timing setup and header capture occur inside logExchange. The call site now supplies an exchange and a started StopWatch, while LoggingFilterTest continues to assert the resulting access-log line, preserving observable behavior.</narrative>\n  <concepts>\n    <concept>pattern</concept>\n    <concept>how-it-works</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/web/LoggingFilter.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "refactor-sql-repository",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2444,
+    "raw" : "<observation>\n  <type>refactor</type>\n  <title>Refactored UserRepository tenant lookup to JPQL @Query</title>\n  <subtitle>UserRepository now uses a parameterized tenantId query while preserving the same tenant-filtered results.</subtitle>\n  <facts>\n    <fact>UserRepository.java uses @Query(\"select u from User u where u.tenantId = :tenantId\").</fact>\n    <fact>UserRepositoryTest returns the same tenant rows after replacing string-concatenated SQL with JPQL.</fact>\n  </facts>\n  <narrative>UserRepository tenant filtering was changed from string-concatenated SQL to a JPQL @Query with the named :tenantId parameter. The existing UserRepositoryTest confirms that the query continues to return the same tenant rows, preserving behavior while removing SQL construction from repository code.</narrative>\n  <concepts>\n    <concept>pattern</concept>\n    <concept>what-changed</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/users/UserRepository.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "refactor-event-bus",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1691,
+    "raw" : "<observation>\n  <type>refactor</type>\n  <title>Refactored EventBus dispatch to listener map</title>\n  <subtitle>EventBus now dispatches events through listeners grouped by event type.</subtitle>\n  <facts>\n    <fact>src/main/java/com/acme/events/EventBus.java dispatches events with listeners.getOrDefault(type, List.of()).forEach(listener -&gt; listener.on(event)).</fact>\n    <fact>EventBus replaced the previous if/else dispatch chain with a listener map keyed by event type.</fact>\n    <fact>EventBusTest dispatches the same three events after the EventBus refactor.</fact>\n  </facts>\n  <narrative>EventBus dispatch was reorganized from an explicit conditional chain into map-based listener registration and lookup. Each event type resolves to a listener list, with List.of() providing the empty-list fallback, and every matching listener receives the event through on(event). The existing EventBusTest coverage continues to dispatch the same three events.</narrative>\n  <concepts>\n    <concept>pattern</concept>\n    <concept>what-changed</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/events/EventBus.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "refactor-feature-flag",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1226,
+    "raw" : "<observation>\n  <type>refactor</type>\n  <title>Refactored FeatureFlagService evaluation to Flags.isEnabled</title>\n  <subtitle>FeatureFlagService now delegates feature evaluation to Flags.isEnabled without changing its on/off behavior.</subtitle>\n  <facts>\n    <fact>FeatureFlagService returns flags.isEnabled(flag, context).</fact>\n    <fact>FeatureFlagServiceTest retains the same on/off matrix.</fact>\n  </facts>\n  <narrative>FeatureFlagService was simplified to delegate flag evaluation directly to Flags.isEnabled using the supplied flag and context. Existing FeatureFlagServiceTest coverage preserves the established on/off behavior matrix.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/flags/FeatureFlagService.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "test-repro-timezone",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1659,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added DailyReportTest#reportUsesBusinessTimezone for Asia/Shanghai date boundary</title>\n  <subtitle>Regression test captures UTC-to-business-timezone date conversion failing across the Asia/Shanghai midnight boundary.</subtitle>\n  <facts>\n    <fact>DailyReportTest#reportUsesBusinessTimezone calls report.dateAt with Instant.parse(\"2026-11-01T23:30:00Z\") and ZoneId.of(\"Asia/Shanghai\").</fact>\n    <fact>DailyReportTest#reportUsesBusinessTimezone expects LocalDate.of(2026, 11, 2) from the business-timezone conversion.</fact>\n    <fact>mvn -Dtest=DailyReportTest test reports 1 test and 1 failure because the actual date is 2026-11-01 instead of 2026-11-02.</fact>\n  </facts>\n  <narrative>A focused regression test was added for the reported UTC-versus-business-date bug. The test pins the Asia/Shanghai business timezone and verifies that 2026-11-01T23:30:00Z maps to 2026-11-02, exposing the current incorrect 2026-11-01 result.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/test/java/com/acme/reporting/DailyReportTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "test-repro-timezone",
+    "runIndex" : 1,
+    "status" : "200",
+    "elapsedMs" : 2024,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added DailyReportTest#reportUsesBusinessTimezone for Asia/Shanghai date</title>\n  <subtitle>A regression test demonstrates the UTC-versus-business-date mismatch at the Asia/Shanghai day boundary.</subtitle>\n  <facts>\n    <fact>DailyReportTest#reportUsesBusinessTimezone parses 2026-11-01T23:30:00Z and expects LocalDate.of(2026, 11, 2) for Asia/Shanghai.</fact>\n    <fact>mvn -Dtest=DailyReportTest test reports 1 test and 1 failure because report.dateAt returns 2026-11-01 instead of 2026-11-02.</fact>\n    <fact>DailyReportTest#reportUsesBusinessTimezone reproduces the reported UTC-vs-business-date bug for Asia/Shanghai.</fact>\n  </facts>\n  <narrative>DailyReportTest#reportUsesBusinessTimezone was added to pin the expected business-date conversion across the UTC day boundary. The test uses 2026-11-01T23:30:00Z with ZoneId.of(\"Asia/Shanghai\") and expects 2026-11-02. Its failure, receiving 2026-11-01, provides a concrete regression case for the reported UTC-versus-business-date defect.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/test/java/com/acme/reporting/DailyReportTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "test-repro-timezone",
+    "runIndex" : 2,
+    "status" : "200",
+    "elapsedMs" : 2000,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added DailyReportTest#reportUsesBusinessTimezone for UTC business-date boundary</title>\n  <subtitle>Regression test confirms report.dateAt must advance 2026-11-01T23:30:00Z to 2026-11-02 in Asia/Shanghai.</subtitle>\n  <facts>\n    <fact>DailyReportTest#reportUsesBusinessTimezone calls report.dateAt with Instant.parse(\"2026-11-01T23:30:00Z\") and ZoneId.of(\"Asia/Shanghai\").</fact>\n    <fact>DailyReportTest#reportUsesBusinessTimezone expects LocalDate.of(2026, 11, 2).</fact>\n    <fact>mvn -Dtest=DailyReportTest test reports 1 test and 1 failure, with expected 2026-11-02 and actual 2026-11-01.</fact>\n  </facts>\n  <narrative>A regression test was added for the reported UTC-versus-business-date bug. The test pins the Asia/Shanghai date boundary using 2026-11-01T23:30:00Z and demonstrates that report.dateAt currently returns 2026-11-01 instead of the business-local date 2026-11-02.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/test/java/com/acme/reporting/DailyReportTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "test-repro-login",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1520,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added LoginControllerTest#lockedAccountReturns423 for locked accounts</title>\n  <subtitle>Regression test reproduces the incorrect HTTP status returned for a locked account.</subtitle>\n  <facts>\n    <fact>LoginControllerTest#lockedAccountReturns423 stubs users.isLocked(\"bob\") to return true.</fact>\n    <fact>LoginControllerTest#lockedAccountReturns423 sends POST /login and expects status 423.</fact>\n    <fact>LoginControllerTest#lockedAccountReturns423 currently fails with status 401.</fact>\n  </facts>\n  <narrative>A regression test was added to capture the reported locked-account response bug. The test establishes that a locked \"bob\" account should receive HTTP 423 Locked from POST /login, but the current implementation returns HTTP 401 Unauthorized.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/test/java/com/acme/auth/LoginControllerTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "test-unit-retry",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1922,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added RetryPolicyTest#delayDoubles for exponential retry delays</title>\n  <subtitle>Parameterized coverage verifies retry delays double from 100 ms through 400 ms.</subtitle>\n  <facts>\n    <fact>RetryPolicyTest#delayDoubles covers attempts 1, 2, and 3 with expected delays of 100, 200, and 400 milliseconds.</fact>\n    <fact>RetryPolicyTest#delayDoubles uses @ParameterizedTest with @CsvSource values \"1,100\", \"2,200\", and \"3,400\".</fact>\n    <fact>RetryPolicyTest#delayDoubles passed 3 test cases.</fact>\n  </facts>\n  <narrative>The retry policy gained parameterized regression coverage for exponential backoff. RetryPolicyTest#delayDoubles verifies that policy.delay(attempt) returns 100 milliseconds for attempt 1, 200 milliseconds for attempt 2, and 400 milliseconds for attempt 3, with all 3 cases passing.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/test/java/com/acme/resilience/RetryPolicyTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "test-integration-order",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2947,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added OrderApiIT#createOrderReturns201 for order creation</title>\n  <subtitle>Integration test verifies successful order creation, including the 201 status and Location header.</subtitle>\n  <facts>\n    <fact>src/test/java/com/acme/orders/OrderApiIT.java adds OrderApiIT#createOrderReturns201.</fact>\n    <fact>OrderApiIT#createOrderReturns201 posts a valid order and asserts HTTP 201 with a Location header.</fact>\n    <fact>OrderApiIT uses @SpringBootTest(webEnvironment = RANDOM_PORT), and Testcontainers starts PostgreSQL 16.</fact>\n  </facts>\n  <narrative>The new OrderApiIT integration test exercises the order creation HTTP flow against a randomly ported Spring Boot application backed by PostgreSQL 16 in Testcontainers. The test confirms that a valid order request produces HTTP 201 and includes the expected Location response header.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>how-it-works</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/test/java/com/acme/orders/OrderApiIT.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "test-parameterized-csv",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2818,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added CsvExporterTest#quotingIsStable for CSV escaping edge cases</title>\n  <subtitle>Parameterized coverage verifies stable CSV quoting for commas, quotes, and newlines.</subtitle>\n  <facts>\n    <fact>CsvExporterTest#quotingIsStable uses @ParameterizedTest with the values \"a,b\", \"a\\\"b\", and \"a\\nb\".</fact>\n    <fact>CsvExporterTest#quotingIsStable covers CSV quoting behavior for commas, quotes, and newlines.</fact>\n    <fact>All 3 CsvExporterTest#quotingIsStable cases pass.</fact>\n  </facts>\n  <narrative>The CSV exporter test suite gained a parameterized regression test named CsvExporterTest#quotingIsStable. The test exercises three delimiter and control-character cases—commas, embedded quotes, and embedded newlines—to verify quoting remains stable across CSV escaping scenarios.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/test/java/com/acme/export/CsvExporterTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "test-security-headers",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1763,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added SecurityHeadersTest#responseHasCspAndNosniff</title>\n  <subtitle>Security header tests verify CSP default-src and nosniff protections.</subtitle>\n  <facts>\n    <fact>SecurityHeadersTest#responseHasCspAndNosniff asserts the Content-Security-Policy response header contains default-src 'self'.</fact>\n    <fact>SecurityHeadersTest#responseHasCspAndNosniff asserts the X-Content-Type-Options response header equals nosniff.</fact>\n    <fact>SecurityHeadersTest includes 2 passing tests.</fact>\n  </facts>\n  <narrative>The security header test suite now verifies that responses include a restrictive Content-Security-Policy and prevent MIME sniffing with X-Content-Type-Options: nosniff. The new regression coverage guards both browser security headers.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>problem-solution</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/test/java/com/acme/web/SecurityHeadersTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "test-repro-null-cache",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2573,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added CacheConcurrencyTest#concurrentReadersNeverSeeNull for UserCache race</title>\n  <subtitle>A 1000-reader parallel regression test reproduces the intermittent null returned by UserCache.</subtitle>\n  <facts>\n    <fact>CacheConcurrencyTest#concurrentReadersNeverSeeNull runs 1000 parallel calls to cache.get(\"k\").</fact>\n    <fact>CacheConcurrencyTest#concurrentReadersNeverSeeNull asserts that cache.get(\"k\") is not null for every parallel reader.</fact>\n    <fact>CacheConcurrencyTest#concurrentReadersNeverSeeNull fails before the UserCache fix and passes after the fix.</fact>\n  </facts>\n  <narrative>The concurrency regression coverage now exercises UserCache with 1000 parallel readers and requires every cache.get(\"k\") result to be non-null. The test reproduces the intermittent null behavior before the production fix and validates that the fix prevents null observations under concurrent reads.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/test/java/com/acme/cache/CacheConcurrencyTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "test-repro-null-cache",
+    "runIndex" : 1,
+    "status" : "200",
+    "elapsedMs" : 2860,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added CacheConcurrencyTest#concurrentReadersNeverSeeNull for intermittent UserCache null</title>\n  <subtitle>A 1000-reader parallel regression test reproduces UserCache's intermittent null return.</subtitle>\n  <facts>\n    <fact>CacheConcurrencyTest#concurrentReadersNeverSeeNull runs 1000 parallel calls to cache.get(\"k\").</fact>\n    <fact>CacheConcurrencyTest#concurrentReadersNeverSeeNull asserts that cache.get(\"k\") is not null for every parallel reader.</fact>\n    <fact>CacheConcurrencyTest#concurrentReadersNeverSeeNull fails before the UserCache fix and passes after the fix.</fact>\n  </facts>\n  <narrative>The new concurrency regression test exercises UserCache through 1000 parallel readers and verifies that concurrent cache.get(\"k\") calls never observe null. The test reproduces the intermittent null failure before the production fix and serves as a repeatable verification of the corrected behavior.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/test/java/com/acme/cache/CacheConcurrencyTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "test-repro-null-cache",
+    "runIndex" : 2,
+    "status" : "200",
+    "elapsedMs" : 2469,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added CacheConcurrencyTest#concurrentReadersNeverSeeNull for UserCache race</title>\n  <subtitle>Parallel readers regression test reproduces intermittent null values from UserCache.</subtitle>\n  <facts>\n    <fact>CacheConcurrencyTest#concurrentReadersNeverSeeNull launches 1000 parallel calls to cache.get(\"k\").</fact>\n    <fact>CacheConcurrencyTest#concurrentReadersNeverSeeNull asserts that every cache.get(\"k\") result is non-null.</fact>\n    <fact>CacheConcurrencyTest#concurrentReadersNeverSeeNull fails before the UserCache fix and passes afterward.</fact>\n  </facts>\n  <narrative>A regression test was added for the intermittent null observed in UserCache. The test exercises 1000 concurrent readers against cache.get(\"k\"), ensuring concurrent access never exposes a null result and guarding the race through a deterministic parallel workload.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/test/java/com/acme/cache/CacheConcurrencyTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "test-contract-openapi",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1585,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added OpenApiContractTest#generatedSpecMatchesCommittedFile for schema drift</title>\n  <subtitle>The API contract test compares springdoc output with the committed OpenAPI document.</subtitle>\n  <facts>\n    <fact>OpenApiContractTest#generatedSpecMatchesCommittedFile diffs springdoc output against docs/openapi.yaml.</fact>\n    <fact>OpenApiContractTest#generatedSpecMatchesCommittedFile fails when the generated schema drifts from docs/openapi.yaml.</fact>\n    <fact>The new test is located at src/test/java/com/acme/api/OpenApiContractTest.java.</fact>\n  </facts>\n  <narrative>Added an executable OpenAPI contract regression test. The test generates the API specification through springdoc, compares it with the committed docs/openapi.yaml, and fails on schema drift, protecting the published contract from unreviewed changes.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/test/java/com/acme/api/OpenApiContractTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "test-flaky-clock",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1695,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added fixed Clock to SchedulerTest to eliminate Thread.sleep flakiness</title>\n  <subtitle>SchedulerTest now uses a deterministic UTC clock and passed 20 consecutive runs.</subtitle>\n  <facts>\n    <fact>src/test/java/com/acme/scheduling/SchedulerTest.java configures scheduler.clock with Clock.fixed(Instant.parse(\"2026-11-03T00:00:00Z\"), ZoneOffset.UTC).</fact>\n    <fact>SchedulerTest replaces Thread.sleep with Clock.fixed to remove timing-related flakiness.</fact>\n    <fact>SchedulerTest passed 20 consecutive runs after the deterministic clock change.</fact>\n  </facts>\n  <narrative>SchedulerTest was updated to control time through a fixed clock pinned to 2026-11-03T00:00:00Z in UTC instead of relying on Thread.sleep. This makes scheduling assertions deterministic and removes timing-dependent test flakiness.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/test/java/com/acme/scheduling/SchedulerTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "security-redact-log",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2804,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed LogSanitizer credential redaction for password, token and secret</title>\n  <subtitle>LogSanitizer now masks credential values before sensitive parameters reach logs.</subtitle>\n  <facts>\n    <fact>LogSanitizer replaces values matching password, token, or secret with *** using the key preserved before the equals sign.</fact>\n    <fact>LogSanitizerTest#redactsCredentials passes for password, token, and secret keys.</fact>\n    <fact>The redaction expression in src/main/java/com/acme/security/LogSanitizer.java targets password, token, and secret assignments.</fact>\n  </facts>\n  <narrative>Credential leakage in logs was mitigated by updating LogSanitizer to replace the values of password, token, and secret assignments with ***. The targeted LogSanitizerTest#redactsCredentials verifies the masking behavior for all three credential keys.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/security/LogSanitizer.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "security-redact-log",
+    "runIndex" : 1,
+    "status" : "200",
+    "elapsedMs" : 2507,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed LogSanitizer credential redaction for password, token and secret</title>\n  <subtitle>LogSanitizer now masks sensitive query-style values before log output.</subtitle>\n  <facts>\n    <fact>src/main/java/com/acme/security/LogSanitizer.java replaces password, token, or secret values matching \\S+ with ***.</fact>\n    <fact>LogSanitizerTest#redactsCredentials passes for password, token, and secret keys.</fact>\n  </facts>\n  <narrative>LogSanitizer now redacts credential values associated with the password, token, and secret keys before messages are logged. The regression coverage in LogSanitizerTest#redactsCredentials confirms masking works for all three sensitive keys.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/security/LogSanitizer.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "security-redact-log",
+    "runIndex" : 2,
+    "status" : "200",
+    "elapsedMs" : 3043,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed LogSanitizer credential redaction for password token secret</title>\n  <subtitle>LogSanitizer masks credential values before logs expose sensitive data.</subtitle>\n  <facts>\n    <fact>src/main/java/com/acme/security/LogSanitizer.java replaces password, token, and secret values with *** using the pattern (password|token|secret)=\\S+.</fact>\n    <fact>LogSanitizerTest#redactsCredentials passes for the password, token, and secret keys.</fact>\n  </facts>\n  <narrative>LogSanitizer now prevents credential values from appearing in logs by replacing the complete value following password, token, or secret with ***. The targeted regression test verifies redaction across all three supported keys.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/security/LogSanitizer.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "security-sql-injection",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2430,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed UserDao.findByEmail SQL injection via parameter placeholder</title>\n  <subtitle>UserDao.findByEmail now binds email values safely and returns no rows for quoted input.</subtitle>\n  <facts>\n    <fact>UserDao.findByEmail executes `select * from users where email = ?` with the email value passed as a query parameter.</fact>\n    <fact>SqlInjectionTest#emailWithQuoteReturnsEmpty passes after the UserDao.findByEmail change.</fact>\n  </facts>\n  <narrative>UserDao.findByEmail was changed from string concatenation to a JDBC parameter placeholder and mapper binding. The quoted-email SQL injection case now returns an empty result, with SqlInjectionTest#emailWithQuoteReturnsEmpty passing as coverage for the concrete vulnerability.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/users/UserDao.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "security-authz-admin",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1736,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed AdminController authorization for ROLE_ADMIN access</title>\n  <subtitle>AdminController now rejects requests lacking ROLE_ADMIN on every endpoint.</subtitle>\n  <facts>\n    <fact>src/main/java/com/acme/admin/AdminController.java uses @PreAuthorize(\"hasRole('ADMIN')\") to require ROLE_ADMIN.</fact>\n    <fact>AdminController enforces ROLE_ADMIN authorization on every endpoint.</fact>\n    <fact>AdminAuthorizationTest#userRoleGets403 passes for requests with the user role.</fact>\n  </facts>\n  <narrative>AdminController endpoint authorization was hardened with @PreAuthorize(\"hasRole('ADMIN')\"), preventing non-administrator access. The regression test AdminAuthorizationTest#userRoleGets403 confirms that a user role receives HTTP 403.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/admin/AdminController.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "security-csrf",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1720,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed CsrfFilter mismatched token rejection</title>\n  <subtitle>CsrfFilter now returns HTTP 403 when request tokens do not match.</subtitle>\n  <facts>\n    <fact>src/main/java/com/acme/web/CsrfFilter.java rejects mismatched tokens with response.sendError(403).</fact>\n    <fact>CsrfFilter returns immediately after sending the HTTP 403 response for a mismatched csrfToken.</fact>\n    <fact>CsrfFilterTest#postWithoutTokenIs403 passes after the CsrfFilter change.</fact>\n  </facts>\n  <narrative>CsrfFilter now compares the supplied csrfToken with the request and terminates state-changing requests with HTTP 403 when the values mismatch. The immediate return prevents request processing after the rejection, and CsrfFilterTest#postWithoutTokenIs403 verifies the fixed behavior.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/web/CsrfFilter.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "security-secret-config",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1433,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Changed application.yml api-key to environment variable</title>\n  <subtitle>application.yml now reads ACME_API_KEY from the environment instead of storing a literal API key.</subtitle>\n  <facts>\n    <fact>src/main/resources/application.yml configures api-key as ${ACME_API_KEY}.</fact>\n    <fact>src/main/resources/application.yml no longer contains the literal value sk-live-123.</fact>\n    <fact>SecretScanTest passes after the configuration change.</fact>\n  </facts>\n  <narrative>The API key configuration was externalized so deployments provide ACME_API_KEY through the environment. This removes the hard-coded live credential from src/main/resources/application.yml and satisfies SecretScanTest.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>problem-solution</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/resources/application.yml</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "security-xxe",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1414,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed XmlImportService XXE via disallow-doctype-decl</title>\n  <subtitle>XmlImportService now disables DOCTYPE declarations, and XxeTest#externalEntityIsRejected passes.</subtitle>\n  <facts>\n    <fact>src/main/java/com/acme/import/XmlImportService.java sets http://apache.org/xml/features/disallow-doctype-decl to true.</fact>\n    <fact>XxeTest#externalEntityIsRejected passes after XmlImportService disables DOCTYPE declarations.</fact>\n  </facts>\n  <narrative>XmlImportService was hardened against XML external entity injection by enabling the JAXP disallow-doctype-decl feature. The verified regression test XxeTest#externalEntityIsRejected confirms that external entities are rejected.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/import/XmlImportService.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "security-path-traversal",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2073,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed FileDownloadController path traversal escape</title>\n  <subtitle>Download names are normalized and rejected when they resolve outside the base directory.</subtitle>\n  <facts>\n    <fact>FileDownloadController resolves and normalizes base.resolve(name), then rejects paths that do not start with base using InvalidPathException(name).</fact>\n    <fact>PathTraversalTest#dotDotSlashIs400 passes after the FileDownloadController path validation change.</fact>\n  </facts>\n  <narrative>FileDownloadController now prevents directory traversal by normalizing each requested download path and verifying that the result remains under the configured base directory. Names escaping the base are rejected with InvalidPathException, and the dot-dot-slash regression test confirms a 400 response.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/files/FileDownloadController.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "security-rate-limit",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2545,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed RateLimiter empty token bucket response</title>\n  <subtitle>RateLimiter now throws TooManyRequestsException when the token bucket cannot consume another request.</subtitle>\n  <facts>\n    <fact>src/main/java/com/acme/web/RateLimiter.java calls bucket.tryConsume(1) and throws TooManyRequestsException when consumption fails.</fact>\n    <fact>RateLimiter returns HTTP 429 when the token bucket is empty.</fact>\n    <fact>RateLimiterTest#eleventhRequestIs429 passes.</fact>\n  </facts>\n  <narrative>The rate-limiting path now rejects requests that exceed the available token-bucket capacity by throwing TooManyRequestsException, producing the expected 429 response. The eleventh-request behavior is covered by RateLimiterTest#eleventhRequestIs429, which passes after the change.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/web/RateLimiter.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "security-cookie-httponly",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2282,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Hardened SessionCookieConfig session cookie flags</title>\n  <subtitle>Session cookies now use HttpOnly, Secure, and SameSite=Strict protections.</subtitle>\n  <facts>\n    <fact>SessionCookieConfig sets cookie.setHttpOnly(true).</fact>\n    <fact>SessionCookieConfig sets cookie.setSecure(true).</fact>\n    <fact>SessionCookieConfig sets cookie.setSameSite(Strict), and SessionCookieTest#flagsArePresent passes.</fact>\n  </facts>\n  <narrative>The session cookie configuration was hardened with HttpOnly, Secure, and SameSite=Strict flags. The existing SessionCookieTest#flagsArePresent test validates the configured flags and passes with the change.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n    <file>src/main/java/com/acme/auth/SessionCookieConfig.java</file>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/auth/SessionCookieConfig.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "config-hikari-pool",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1788,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Changed Hikari pool sizing in application.yml</title>\n  <subtitle>Configured a maximum of 20 connections and five minimum idle connections for the datasource pool.</subtitle>\n  <facts>\n    <fact>src/main/resources/application.yml sets spring.datasource.hikari.maximum-pool-size to 20.</fact>\n    <fact>src/main/resources/application.yml sets spring.datasource.hikari.minimum-idle to 5.</fact>\n    <fact>ConfigBindingTest binds both spring.datasource.hikari.maximum-pool-size and spring.datasource.hikari.minimum-idle.</fact>\n  </facts>\n  <narrative>The Spring datasource configuration now explicitly defines HikariCP pool sizing with a maximum of 20 connections and a minimum idle pool of 5. Configuration binding coverage verifies that both properties are resolved by ConfigBindingTest.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>trade-off</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/resources/application.yml</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "config-hikari-pool",
+    "runIndex" : 1,
+    "status" : "200",
+    "elapsedMs" : 1535,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Changed Hikari pool sizing in application.yml</title>\n  <subtitle>Configured a larger maximum pool and five idle connections for the datasource.</subtitle>\n  <facts>\n    <fact>src/main/resources/application.yml sets spring.datasource.hikari.maximum-pool-size to 20.</fact>\n    <fact>src/main/resources/application.yml sets spring.datasource.hikari.minimum-idle to 5.</fact>\n    <fact>ConfigBindingTest binds both spring.datasource.hikari.maximum-pool-size and spring.datasource.hikari.minimum-idle.</fact>\n  </facts>\n  <narrative>The Spring datasource configuration now explicitly establishes Hikari pool bounds, with a maximum of 20 connections and a minimum of 5 idle connections. ConfigBindingTest verifies that both configuration values bind successfully.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>trade-off</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/resources/application.yml</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "config-hikari-pool",
+    "runIndex" : 2,
+    "status" : "200",
+    "elapsedMs" : 1735,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Configured Hikari pool sizing in application.yml</title>\n  <subtitle>HikariCP now uses a maximum pool size of 20 and maintains five idle connections.</subtitle>\n  <facts>\n    <fact>src/main/resources/application.yml sets spring.datasource.hikari.maximum-pool-size to 20.</fact>\n    <fact>src/main/resources/application.yml sets spring.datasource.hikari.minimum-idle to 5.</fact>\n    <fact>ConfigBindingTest binds both Hikari configuration values.</fact>\n  </facts>\n  <narrative>The Spring datasource configuration now explicitly sizes HikariCP with a maximum of 20 connections and a minimum idle pool of 5. ConfigBindingTest validates that both properties bind correctly.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>trade-off</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/resources/application.yml</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "config-flyway-baseline",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1710,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Changed Flyway baseline configuration in pom.xml</title>\n  <subtitle>Flyway now baselines existing schemas at version 1 when migration is enabled.</subtitle>\n  <facts>\n    <fact>pom.xml sets flyway.baselineVersion to 1.</fact>\n    <fact>pom.xml sets flyway.baselineOnMigrate to true.</fact>\n  </facts>\n  <narrative>The Maven configuration enables Flyway baseline-on-migrate behavior and defines baseline version 1, allowing migration against a non-empty existing schema while preserving version 1 as the baseline.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>pom.xml</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "config-log-level",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1934,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Changed logback-spring.xml root logger to INFO with JSON appender</title>\n  <subtitle>Production logging now emits root-level INFO events through the JSON appender.</subtitle>\n  <facts>\n    <fact>src/main/resources/logback-spring.xml sets the root logger level to INFO.</fact>\n    <fact>src/main/resources/logback-spring.xml routes root logger output to the JSON appender via appender-ref ref=\"JSON\".</fact>\n    <fact>LogbackConfigTest parses the updated logback-spring.xml configuration.</fact>\n  </facts>\n  <narrative>The Logback Spring configuration was updated so the root logger records INFO-level output and sends those events through the JSON appender, providing structured application logs.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>how-it-works</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/resources/logback-spring.xml</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "config-cors",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1859,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Changed CorsConfig /api/** CORS allowlist and methods</title>\n  <subtitle>CorsConfig now permits only https://app.acme.com using GET and POST for /api/** endpoints.</subtitle>\n  <facts>\n    <fact>CorsConfig maps /api/** with allowedOrigins(\"https://app.acme.com\").</fact>\n    <fact>CorsConfig permits only the GET and POST methods for /api/** requests.</fact>\n    <fact>CorsConfigTest asserts that an origin other than https://app.acme.com is rejected.</fact>\n  </facts>\n  <narrative>The CORS policy for API routes was tightened to an explicit production origin and method allowlist. The accompanying CorsConfigTest verifies that an unapproved origin is rejected, reducing cross-origin access from arbitrary origins.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>problem-solution</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/web/CorsConfig.java</file>\n    <file>src/test/java/com/acme/web/CorsConfigTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "config-timeout",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1401,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Changed WebClientConfig response timeout to five seconds</title>\n  <subtitle>WebClientConfig now limits response waits, with WebClientConfigTest reading the configured timeout.</subtitle>\n  <facts>\n    <fact>WebClientConfig.java configures HttpClient.create().responseTimeout(Duration.ofSeconds(5)).</fact>\n    <fact>WebClientConfigTest reads the response timeout from the WebClientConfig bean.</fact>\n  </facts>\n  <narrative>WebClientConfig was updated to apply a five-second response timeout to the configured HttpClient. WebClientConfigTest exercises the configuration by reading the timeout from the bean.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/java/com/acme/web/WebClientConfig.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "config-feature-flags",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1478,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Changed feature-flags.yml checkout-v2 and legacy-search values</title>\n  <subtitle>Feature flag configuration now enables checkout-v2 and disables legacy-search for FlagBindingTest binding.</subtitle>\n  <facts>\n    <fact>src/main/resources/feature-flags.yml sets checkout-v2 to true.</fact>\n    <fact>src/main/resources/feature-flags.yml sets legacy-search to false.</fact>\n    <fact>FlagBindingTest binds the checkout-v2 and legacy-search boolean values.</fact>\n  </facts>\n  <narrative>The feature flag configuration in src/main/resources/feature-flags.yml was updated so checkout-v2 is enabled and legacy-search is disabled. The resulting values are covered by FlagBindingTest, which binds both boolean properties.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>how-it-works</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>src/main/resources/feature-flags.yml</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "config-docker-healthcheck",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2538,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added Dockerfile HEALTHCHECK for /actuator/health</title>\n  <subtitle>Docker images now check the actuator health endpoint every 30 seconds.</subtitle>\n  <facts>\n    <fact>Dockerfile defines HEALTHCHECK --interval=30s with curl -f http://localhost:8080/actuator/health.</fact>\n    <fact>The Dockerfile HEALTHCHECK returns exit code 1 when curl fails against http://localhost:8080/actuator/health.</fact>\n    <fact>docker build succeeds after adding the HEALTHCHECK directive.</fact>\n  </facts>\n  <narrative>The container image now includes a native Docker health probe that calls the Spring Boot actuator health endpoint every 30 seconds. The probe uses curl's failure status to mark unhealthy containers via exit code 1, and the resulting image builds successfully.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>how-it-works</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>Dockerfile</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "config-maven-plugin",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 13387,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Added jacoco-maven-plugin 0.8.12 coverage reporting to pom.xml</title>\n  <subtitle>Maven verification now generates JaCoCo coverage output at target/site/jacoco/jacoco.xml.</subtitle>\n  <facts>\n    <fact>pom.xml configures org.jacoco:jacoco-maven-plugin with version 0.8.12.</fact>\n    <fact>mvn verify writes coverage output to target/site/jacoco/jacoco.xml.</fact>\n  </facts>\n  <narrative>The Maven build was configured with jacoco-maven-plugin 0.8.12. Running mvn verify now produces a machine-readable JaCoCo coverage report at target/site/jacoco/jacoco.xml.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>how-it-works</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>pom.xml</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "docs-api-observations",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2525,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Changed /api/observations pagination contract in docs/API.md</title>\n  <subtitle>API documentation now identifies the hasMore and items fields returned by GET /api/observations.</subtitle>\n  <facts>\n    <fact>docs/API.md documents that GET /api/observations returns hasMore and items.</fact>\n    <fact>docs/API.md states that the pagination contract matches the controller.</fact>\n  </facts>\n  <narrative>The API documentation was updated to describe the pagination response for GET /api/observations, naming the hasMore and items fields and aligning the documented contract with the controller implementation.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>how-it-works</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>docs/API.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "docs-readme-setup",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1617,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Added local setup instructions to README.md</title>\n  <subtitle>README.md now documents the three-step local development startup process.</subtitle>\n  <facts>\n    <fact>README.md requires JDK 21 for local setup.</fact>\n    <fact>README.md instructs developers to run docker compose up -d postgres for the PostgreSQL service.</fact>\n    <fact>README.md instructs developers to run mvn spring-boot:run to start the application.</fact>\n  </facts>\n  <narrative>The project setup documentation in README.md was expanded with a concise three-step workflow covering the required JDK 21 runtime, startup of the PostgreSQL container through docker compose, and application launch with Maven Spring Boot.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>how-it-works</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>README.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "docs-runbook",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1245,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Added queue recovery steps to docs/runbook.md</title>\n  <subtitle>Queue recovery now documents inspecting pending_messages, restarting the worker, and verifying /api/health.</subtitle>\n  <facts>\n    <fact>docs/runbook.md documents checking pending_messages during queue recovery.</fact>\n    <fact>docs/runbook.md documents restarting the worker during queue recovery.</fact>\n    <fact>docs/runbook.md documents verifying /api/health after queue recovery.</fact>\n  </facts>\n  <narrative>The queue recovery runbook was added at docs/runbook.md with a three-step procedure: inspect pending_messages, restart the worker, and verify the /api/health endpoint.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>how-it-works</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>docs/runbook.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "docs-changelog",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2546,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Added CHANGELOG.md 2.4.0 release entry</title>\n  <subtitle>Documented offline replay evaluation and the V20 migration conflict fix.</subtitle>\n  <facts>\n    <fact>CHANGELOG.md adds a 2.4.0 release section dated 2026-11-03.</fact>\n    <fact>CHANGELOG.md records \"Added offline replay evaluation\" under version 2.4.0.</fact>\n    <fact>CHANGELOG.md records \"Fixed V20 migration conflict\" under version 2.4.0.</fact>\n  </facts>\n  <narrative>The CHANGELOG.md release notes now announce version 2.4.0, dated 2026-11-03, with the offline replay evaluation capability and the V20 migration conflict fix.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>why-it-exists</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>CHANGELOG.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "docs-architecture-adr",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2836,
+    "raw" : "<observation>\n  <type>decision</type>\n  <title>Recorded ADR 0007 extracted-fact persistence validation</title>\n  <subtitle>ADR 0007 requires validating extracted facts against tool output before persistence and describes rejection handling.</subtitle>\n  <facts>\n    <fact>docs/adr/0007-extraction-validation.md records validation of extracted facts against tool output before persistence.</fact>\n    <fact>docs/adr/0007-extraction-validation.md describes the rejection path for facts that fail validation.</fact>\n  </facts>\n  <narrative>ADR 0007 documents the architectural decision to validate extracted facts against originating tool output before persisting them. The ADR also defines how rejected facts are handled, providing a durable rationale and control for the extraction workflow.</narrative>\n  <concepts>\n    <concept>why-it-exists</concept>\n    <concept>how-it-works</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>docs/adr/0007-extraction-validation.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "docs-migration-guide",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2613,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Changed V20 migration prerequisites in docs/MIGRATION.md</title>\n  <subtitle>Migration documentation now requires a mem_sessions backup and manual sentinel review configuration.</subtitle>\n  <facts>\n    <fact>docs/MIGRATION.md V20 instructions require backing up mem_sessions before migration.</fact>\n    <fact>docs/MIGRATION.md V20 instructions require app.manual_sentinel_reviewed=true when running the migration.</fact>\n  </facts>\n  <narrative>The V20 migration procedure in docs/MIGRATION.md now documents two explicit prerequisites: create a backup of mem_sessions and set app.manual_sentinel_reviewed=true before running the migration.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>docs/MIGRATION.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "docs-security-policy",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1412,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Added SECURITY.md vulnerability disclosure policy</title>\n  <subtitle>SECURITY.md directs vulnerability reports to security@acme.com instead of public issues.</subtitle>\n  <facts>\n    <fact>SECURITY.md specifies security@acme.com as the vulnerability reporting channel.</fact>\n    <fact>SECURITY.md forbids opening public issues for vulnerabilities.</fact>\n  </facts>\n  <narrative>The project now includes a security policy documenting the private disclosure process for vulnerabilities and explicitly instructing reporters not to create public issues.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>how-it-works</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>SECURITY.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "docs-contributing",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1982,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Changed CONTRIBUTING.md pull request verification requirement</title>\n  <subtitle>Contributor guidance now requires the local verification script and identifies four test layers.</subtitle>\n  <facts>\n    <fact>CONTRIBUTING.md requires running ./scripts/verify-local.sh before opening a pull request.</fact>\n    <fact>CONTRIBUTING.md names four test layers in the local verification instructions.</fact>\n  </facts>\n  <narrative>CONTRIBUTING.md was updated to make ./scripts/verify-local.sh a prerequisite for opening a pull request. The contributor guidance also documents four test layers covered by the local verification process.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>how-it-works</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>CONTRIBUTING.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "deploy-k8s-probe",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1568,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Added readinessProbe /api/health to deployment.yaml</title>\n  <subtitle>Deployment readiness now checks the health endpoint on port 37777 after a 15-second delay.</subtitle>\n  <facts>\n    <fact>deploy/deployment.yaml configures readinessProbe.httpGet.path as /api/health.</fact>\n    <fact>deploy/deployment.yaml configures readinessProbe.httpGet.port as 37777.</fact>\n    <fact>deploy/deployment.yaml configures readinessProbe.initialDelaySeconds as 15.</fact>\n  </facts>\n  <narrative>The deployment manifest now defines a Kubernetes readiness probe that requests /api/health on port 37777, with readiness checks beginning after a 15-second initial delay.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>how-it-works</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>deploy/deployment.yaml</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "deploy-k8s-probe",
+    "runIndex" : 1,
+    "status" : "200",
+    "elapsedMs" : 1808,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Added readinessProbe /api/health to deployment.yaml</title>\n  <subtitle>Deployment readiness now checks the health endpoint on port 37777 after a 15-second startup delay.</subtitle>\n  <facts>\n    <fact>deploy/deployment.yaml configures readinessProbe.httpGet.path as /api/health.</fact>\n    <fact>deploy/deployment.yaml configures readinessProbe.httpGet.port as 37777.</fact>\n    <fact>deploy/deployment.yaml configures readinessProbe.initialDelaySeconds as 15.</fact>\n    <fact>kubectl apply --dry-run=client succeeds for deploy/deployment.yaml.</fact>\n  </facts>\n  <narrative>The Kubernetes deployment manifest now defines a readiness probe against the application health endpoint at /api/health on port 37777. Kubernetes waits 15 seconds after startup before performing the readiness check, and the updated manifest passes client-side dry-run validation.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>how-it-works</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>deploy/deployment.yaml</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "deploy-k8s-probe",
+    "runIndex" : 2,
+    "status" : "200",
+    "elapsedMs" : 36571,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Added readinessProbe /api/health to deployment.yaml</title>\n  <subtitle>Deployment readiness now checks the service health endpoint after a 15-second startup delay.</subtitle>\n  <facts>\n    <fact>deploy/deployment.yaml defines readinessProbe.httpGet.path as /api/health.</fact>\n    <fact>deploy/deployment.yaml defines readinessProbe.httpGet.port as 37777 and initialDelaySeconds as 15.</fact>\n    <fact>kubectl apply --dry-run=client succeeds after the readinessProbe configuration was added.</fact>\n  </facts>\n  <narrative>The deployment manifest now includes a readiness probe targeting /api/health on port 37777. Kubernetes waits 15 seconds after container startup before performing the health check, allowing the deployment to expose readiness only after the health endpoint responds.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>how-it-works</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>deploy/deployment.yaml</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "deploy-github-actions",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 14384,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Changed .github/workflows/ci.yml backend matrix to JDK 21 and 25</title>\n  <subtitle>The CI workflow now tests the backend against Java 21 and Java 25.</subtitle>\n  <facts>\n    <fact>.github/workflows/ci.yml sets strategy.matrix.java to [21, 25].</fact>\n    <fact>.github/workflows/ci.yml backend jobs run on JDK 21 and JDK 25.</fact>\n    <fact>The workflow syntax check passes.</fact>\n  </facts>\n  <narrative>The CI workflow was updated to expand backend compatibility coverage across JDK 21 and JDK 25 using a matrix strategy. The modified workflow remains syntactically valid.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>.github/workflows/ci.yml</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "deploy-docker-multistage",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3977,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Changed Dockerfile runtime stage to eclipse-temurin:21-jre</title>\n  <subtitle>Dockerfile now builds with Maven and runs the packaged application in a smaller Java 21 JRE image.</subtitle>\n  <facts>\n    <fact>Dockerfile defines a runtime stage using FROM eclipse-temurin:21-jre AS runtime.</fact>\n    <fact>Dockerfile copies /app/target/app.jar into the runtime image with COPY --from=build /app/target/app.jar /app/app.jar.</fact>\n    <fact>Docker image size changes from 780MB to 210MB after the multi-stage runtime configuration.</fact>\n  </facts>\n  <narrative>Dockerfile was converted into a multi-stage build that retains the Maven build stage and serves the resulting application JAR from an eclipse-temurin:21-jre runtime image. The runtime image no longer carries the build toolchain and is reduced from 780MB to 210MB.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>trade-off</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>Dockerfile</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "deploy-terraform-iam",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1636,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Changed aws_iam_role_policy deploy S3 permissions to read-only</title>\n  <subtitle>The deploy IAM role now uses AmazonS3ReadOnlyAccess instead of full S3 access.</subtitle>\n  <facts>\n    <fact>infra/main.tf defines aws_iam_role_policy.deploy with policy_arn = \"arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess\".</fact>\n    <fact>aws_iam_role_policy.deploy grants the deploy role read-only S3 access through AmazonS3ReadOnlyAccess.</fact>\n    <fact>terraform validate succeeds for the changed infra/main.tf configuration.</fact>\n  </facts>\n  <narrative>The deploy role policy in infra/main.tf was changed from full S3 access to the managed AmazonS3ReadOnlyAccess policy, limiting the role's S3 permissions to read-only operations. Terraform validation succeeds with the updated policy definition.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>trade-off</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>infra/main.tf</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "deploy-helm-values",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2291,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Changed infra/values.yaml replicaCount and memory limit</title>\n  <subtitle>Helm deployment configuration now requests three pods with a 2Gi memory cap.</subtitle>\n  <facts>\n    <fact>infra/values.yaml sets replicaCount to 3.</fact>\n    <fact>infra/values.yaml sets resources.limits.memory to 2Gi.</fact>\n    <fact>helm template renders 3 pods with the updated infra/values.yaml configuration.</fact>\n  </facts>\n  <narrative>The Helm values in infra/values.yaml were updated to run three replicas and enforce a 2Gi memory limit. Template rendering confirmed that the deployment produces three pods under the revised configuration.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>trade-off</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>infra/values.yaml</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "deploy-rollback-script",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1545,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added scripts/rollback.sh for deployment/claude-mem rollbacks</title>\n  <subtitle>Rollback script undoes the claude-mem deployment and waits for rollout completion.</subtitle>\n  <facts>\n    <fact>scripts/rollback.sh runs kubectl rollout undo deployment/claude-mem.</fact>\n    <fact>scripts/rollback.sh runs kubectl rollout status deployment/claude-mem after rollback initiation.</fact>\n    <fact>scripts/rollback.sh enables strict error handling with set -euo pipefail.</fact>\n  </facts>\n  <narrative>The deployment rollback workflow was automated in scripts/rollback.sh. The script immediately initiates an undo for deployment/claude-mem, then waits for the rollout status, while strict shell error handling prevents execution from continuing after failures.</narrative>\n  <concepts>\n    <concept>how-it-works</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>scripts/rollback.sh</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "deploy-canary",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1500,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Changed infra/canary.yaml rollout weight and rollback threshold</title>\n  <subtitle>Canary traffic now reaches 10 percent with rollback above a 2 percent error rate.</subtitle>\n  <facts>\n    <fact>infra/canary.yaml sets canary.enabled to true.</fact>\n    <fact>infra/canary.yaml sets canary.weight to 10 for a 10 percent canary rollout.</fact>\n    <fact>infra/canary.yaml sets canary.errorThreshold to 0.02, rolling back above a 2 percent error rate.</fact>\n  </facts>\n  <narrative>The canary deployment configuration was updated to enable progressive rollout, route 10 percent of traffic to the canary, and trigger rollback when the observed error rate exceeds 2 percent.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>trade-off</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>infra/canary.yaml</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "skip-read-for-question",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 819,
+    "raw" : "<skip>Only read src/main/java/com/acme/orders/OrderQuery.java; no code, tests, configuration, or documentation changed.</skip>"
+  }, {
+    "id" : "skip-read-for-question",
+    "runIndex" : 1,
+    "status" : "200",
+    "elapsedMs" : 966,
+    "raw" : "<skip>Only read src/main/java/com/acme/orders/OrderQuery.java; no code, test, configuration, or documentation change was made.</skip>"
+  }, {
+    "id" : "skip-read-for-question",
+    "runIndex" : 2,
+    "status" : "200",
+    "elapsedMs" : 1151,
+    "raw" : "<skip>Only read src/main/java/com/acme/orders/OrderQuery.java without making changes.</skip>"
+  }, {
+    "id" : "skip-file-listing",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 999,
+    "raw" : "<skip>Only listed Java source files without making changes.</skip>"
+  }, {
+    "id" : "skip-git-status",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1237,
+    "raw" : "<skip>Only viewed git status; no code, test, configuration, deployment, or documentation changes.</skip>"
+  }, {
+    "id" : "skip-view-logs",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1009,
+    "raw" : "<skip>Only viewed logs/app.log command output without changing code, configuration, tests, or documentation.</skip>"
+  }, {
+    "id" : "skip-multi-step-explore",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 921,
+    "raw" : "<skip>Search-only turn found fetchSymbol usages but made no code, test, configuration, deployment, or documentation changes.</skip>"
+  }, {
+    "id" : "skip-multi-step-explore",
+    "runIndex" : 1,
+    "status" : "200",
+    "elapsedMs" : 728,
+    "raw" : "<skip>Only searched for fetchSymbol references; no code, test, configuration, deployment, or documentation changes were made.</skip>"
+  }, {
+    "id" : "skip-multi-step-explore",
+    "runIndex" : 2,
+    "status" : "200",
+    "elapsedMs" : 828,
+    "raw" : "<skip>Searched for fetchSymbol without modifying code or producing a deliverable</skip>"
+  }, {
+    "id" : "skip-repeated-confirmation",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 812,
+    "raw" : "<skip>src/main/java/com/acme/orders/OrderQuery.java was already read and recorded earlier; no change.</skip>"
+  }, {
+    "id" : "skip-package-install",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 812,
+    "raw" : "<skip>Dependency installation completed without modifying any manifest or lockfile.</skip>"
+  }, {
+    "id" : "skip-format-only",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1552,
+    "raw" : "<skip>Only ran `mvn spotless:check`; no files or configuration were changed.</skip>"
+  }, {
+    "id" : "skip-abandoned-exploration",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1498,
+    "raw" : "<skip>Search found no matches for legacyBillingAdapter and made no repository changes.</skip>"
+  }, {
+    "id" : "skip-abandoned-exploration",
+    "runIndex" : 1,
+    "status" : "200",
+    "elapsedMs" : 1428,
+    "raw" : "<skip>Grep found no matches and exploration ended without a deliverable.</skip>"
+  }, {
+    "id" : "skip-abandoned-exploration",
+    "runIndex" : 2,
+    "status" : "200",
+    "elapsedMs" : 1145,
+    "raw" : "<skip>Grep for legacyBillingAdapter found no matches and made no code, test, configuration, deployment, or documentation changes.</skip>"
+  }, {
+    "id" : "skip-read-docs",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 836,
+    "raw" : "<skip>Only read docs/ARCHITECTURE.md; no code, tests, configuration, deployment, or documentation changed.</skip>"
+  }, {
+    "id" : "skip-grep-search",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1332,
+    "raw" : "<skip>Only a read-only search for hasMore; no code, test, configuration, or documentation change.</skip>"
+  }, {
+    "id" : "skip-open-file-to-explain",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 834,
+    "raw" : "<skip>Only read UserCache.java to explain existing behavior; no file changes or deliverables.</skip>"
+  }, {
+    "id" : "skip-test-output-view",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 889,
+    "raw" : "<skip>Test command only confirmed existing results; no source, test, configuration, or documentation change.</skip>"
+  }, {
+    "id" : "skip-docker-ps",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 752,
+    "raw" : "<skip>No change; command only showed existing PostgreSQL and Redis containers running.</skip>"
+  }, {
+    "id" : "skip-empty-diff",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3490,
+    "raw" : "<skip>git diff --stat only confirmed no changes; no deliverable was produced</skip>"
+  }, {
+    "id" : "skip-mvn-version",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2329,
+    "raw" : "<skip>Only viewed Maven and Java version information; no project change.</skip>"
+  }, {
+    "id" : "skip-cat-file",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 1329,
+    "raw" : "<skip>Only read src/main/resources/application.yml to answer a configuration question; no changes made.</skip>"
+  }, {
+    "id" : "skip-ls-tree",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 703,
+    "raw" : "<skip>Directory listing only; no code, tests, configuration, deployment, or documentation changed.</skip>"
+  }, {
+    "id" : "skip-read-config-to-answer",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 866,
+    "raw" : "<skip>Only read pom.xml to report the Java version; no changes were made.</skip>"
+  }, {
+    "id" : "skip-no-conclusion",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 932,
+    "raw" : "<skip>Only grep results were inspected, with no code, test, configuration, documentation, or deployment change.</skip>"
+  } ]
+}

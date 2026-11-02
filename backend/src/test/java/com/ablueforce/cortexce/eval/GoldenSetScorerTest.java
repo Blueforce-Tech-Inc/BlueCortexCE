@@ -155,6 +155,85 @@ class GoldenSetScorerTest {
                 List.of("Fixed pagination off-by-one", "updated the readme"))).isEqualTo(0.5);
     }
 
+    @Test
+    @DisplayName("contract title hit requires verb class, subject and every identifier")
+    void contractTitleHit() {
+        GoldenSet.Sample sample = sample("refactor", true, "refactor",
+                List.of("refactor", "invoiceservice", "delegates"), List.of("InvoiceService"));
+        sample.titleVerb = "refactor";
+        sample.titleSubject = List.of("delegation");
+
+        GoldenSetScorer.SampleScore hit = scoreOne(sample,
+                observation("refactor", "Refactored InvoiceService to delegate tax and mail rendering"));
+        assertThat(hit.titleVerbClassHit).isTrue();
+        assertThat(hit.titleSubjectHit).isTrue();
+        assertThat(hit.titleContractHit).isTrue();
+
+        GoldenSetScorer.SampleScore wrongVerb = scoreOne(sample,
+                observation("refactor", "Changed InvoiceService delegation to new helpers"));
+        assertThat(wrongVerb.titleVerbClassHit).isFalse();
+        assertThat(wrongVerb.titleContractHit).isFalse();
+
+        GoldenSetScorer.SampleScore missingSubject = scoreOne(sample,
+                observation("refactor", "Refactored InvoiceService constructor only"));
+        assertThat(missingSubject.titleSubjectHit).isFalse();
+        assertThat(missingSubject.titleContractHit).isFalse();
+
+        GoldenSetScorer.SampleScore loweredCase = scoreOne(sample,
+                observation("refactor", "Refactored invoice service delegation"));
+        assertThat(loweredCase.titleIdentifierHit).isFalse();
+        assertThat(loweredCase.titleContractHit).isFalse();
+    }
+
+    @Test
+    @DisplayName("update and change belong to the same contract verb class")
+    void updateAndChangeShareClass() {
+        GoldenSet.Sample sample = sample("docs-update", true, "change",
+                List.of("update", "changelog"), List.of("CHANGELOG.md"));
+        sample.titleVerb = "update";
+        sample.titleSubject = List.of("changelog");
+
+        GoldenSetScorer.SampleScore score = scoreOne(sample,
+                observation("change", "Changed CHANGELOG.md entry for 2.4.0"));
+        assertThat(score.titleVerbClassHit).isTrue();
+        assertThat(score.titleContractHit).isTrue();
+    }
+
+    @Test
+    @DisplayName("informative facts need a concrete object plus an actionable outcome")
+    void informativeFactsDefinition() {
+        assertThat(GoldenSetScorer.isInformative(
+                "OrderQuery.pageOffset now returns page * size")).isTrue();
+        assertThat(GoldenSetScorer.isInformative(
+                "CsvExporter writes \\n instead of \\r\\n")).isTrue();
+        assertThat(GoldenSetScorer.isInformative(
+                "429 is returned once a client exceeds 10 requests per minute")).isTrue();
+        assertThat(GoldenSetScorer.isInformative(
+                "OrderQueryTest#firstPageStartsAtZero passes")).isTrue();
+
+        assertThat(GoldenSetScorer.isInformative("Edit applied to OrderQuery.java")).isFalse();
+        assertThat(GoldenSetScorer.isInformative(
+                "Tests run: 360, Failures: 0, Errors: 0, Skipped: 0")).isFalse();
+        assertThat(GoldenSetScorer.isInformative("Added a test for pagination")).isFalse();
+        assertThat(GoldenSetScorer.isInformative("updated the readme")).isFalse();
+    }
+
+    @Test
+    @DisplayName("informative precision also requires trace grounding")
+    void informativePrecisionIsGrounded() {
+        GoldenSet.Sample sample = sample("bug-fix", true, "bugfix", List.of("fix"), List.of());
+        sample.toolName = "Edit";
+        sample.toolInput = "file_path=src/main/java/OrderQuery.java";
+        sample.toolOutput = "OrderQuery.pageOffset now returns page * size.";
+
+        double rate = GoldenSetScorer.informativeRate(List.of(
+                "OrderQuery.pageOffset now returns page * size",
+                "Telemetry dashboards now show 42 alerts per minute",
+                "Edit applied to OrderQuery.java"), sample);
+
+        assertThat(rate).isCloseTo(1.0 / 3.0, within(1e-9));
+    }
+
     private static GoldenSetScorer.SampleScore scoreOne(GoldenSet.Sample sample,
                                                         XmlParser.ParsedObservation observation) {
         GoldenSetScorer.Aggregate agg = GoldenSetScorer.score(List.of(outcome(sample, false, observation)));

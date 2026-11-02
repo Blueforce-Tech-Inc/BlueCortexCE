@@ -49,12 +49,22 @@ class GoldenSetDataTest {
             if (!sample.expectObservation) {
                 assertThat(sample.expectedType).as(sample.id).isNull();
                 assertThat(sample.titleKeywords).as(sample.id).isEmpty();
+                assertThat(sample.titleVerb).as(sample.id).isNull();
+                assertThat(sample.titleSubject).as(sample.id).isEmpty();
                 assertThat(sample.titleIdentifiers).as(sample.id).isEmpty();
                 continue;
             }
             assertThat(sample.expectedType).as(sample.id).isIn(ALLOWED_TYPES);
             assertThat(sample.titleKeywords).as(sample.id).isNotEmpty();
+            assertThat(sample.titleVerb).as(sample.id)
+                    .isNotBlank()
+                    .isIn(GoldenSetScorer.VERB_CLASSES.keySet());
+            assertThat(sample.titleSubject).as(sample.id).isNotEmpty();
             assertThat(sample.titleIdentifiers).as(sample.id).isNotEmpty();
+            String titleContract = sample.titleVerb + " " + String.join(" ", sample.titleSubject)
+                    + " " + String.join(" ", sample.titleIdentifiers);
+            assertThat(titleContract).as(sample.id + " contract tokens")
+                    .doesNotContainIgnoringCase("null");
             assertThat(sample.factsKeywords).as(sample.id).isNotEmpty();
             assertThat(sample.conceptsKeywords).as(sample.id)
                     .isNotEmpty().allMatch(ALLOWED_CONCEPTS::contains);
