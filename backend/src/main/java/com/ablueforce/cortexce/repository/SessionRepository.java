@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,6 +32,22 @@ public interface SessionRepository extends JpaRepository<SessionEntity, UUID> {
     Optional<SessionEntity> findByPlatformSourceAndContentSessionId(
         @Param("platformSource") String platformSource,
         @Param("contentSessionId") String contentSessionId);
+
+    /**
+     * Batch form of {@link #findByPlatformSourceAndContentSessionId}: one query for N ids.
+     *
+     * <p>Uses the same byte-exact ({@code COLLATE "C"}) comparison as the single-row lookup
+     * and the same {@code ux_sessions_platform_content} index, so callers that batch a
+     * response never see a different match rule than callers that look rows up one by one.
+     */
+    @Query(value = """
+        SELECT * FROM mem_sessions s
+        WHERE s.platform_source COLLATE "C" = CAST(:platformSource AS text) COLLATE "C"
+          AND s.content_session_id COLLATE "C" IN (:contentSessionIds)
+        """, nativeQuery = true)
+    List<SessionEntity> findByPlatformSourceAndContentSessionIdIn(
+        @Param("platformSource") String platformSource,
+        @Param("contentSessionIds") Collection<String> contentSessionIds);
 
     /** Insert a Conversation only if its exact composite external identity is absent. */
     @Modifying

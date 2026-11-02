@@ -13,6 +13,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -74,6 +80,57 @@ public class SessionManagementService implements LogHelper {
         }
         return sessionRepository.findByPlatformSourceAndContentSessionId(
             PlatformSource.DEFAULT_SOURCE, contentSessionId);
+    }
+
+    /**
+     * Batch form of {@link #findLegacyClaude(String)}: one query per request, not one per id.
+     *
+     * <p>A missing id stays absent, which is what the single-id lookup's empty
+     * {@link Optional} means; duplicate input ids collapse here and are re-expanded by the
+     * caller when the response shape requires one entry per input id.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, SessionEntity> findLegacyClaudeBatch(Collection<String> contentSessionIds) {
+        List<String> ids = contentSessionIds == null
+            ? List.of()
+            : contentSessionIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, SessionEntity> found = new LinkedHashMap<>();
+        for (SessionEntity session : sessionRepository.findByPlatformSourceAndContentSessionIdIn(
+                PlatformSource.DEFAULT_SOURCE, ids)) {
+            found.putIfAbsent(session.getContentSessionId(), session);
+        }
+        return found;
+    }
+
+    /**
+     * Batch form of {@link #find(ExternalSessionRef)}.
+     *
+     * <p>Requests are grouped by platform, so a mixed-platform batch issues one query per
+     * platform present rather than one per ref.
+     */
+    @Transactional(readOnly = true)
+    public Map<ExternalSessionRef, SessionEntity> findBatch(Collection<ExternalSessionRef> refs) {
+        if (refs == null || refs.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, List<String>> idsByPlatform = new LinkedHashMap<>();
+        for (ExternalSessionRef ref : refs) {
+            idsByPlatform.computeIfAbsent(ref.platformSource(), key -> new ArrayList<>())
+                .add(ref.contentSessionId());
+        }
+        Map<ExternalSessionRef, SessionEntity> found = new LinkedHashMap<>();
+        for (Map.Entry<String, List<String>> entry : idsByPlatform.entrySet()) {
+            List<String> ids = entry.getValue().stream().distinct().toList();
+            for (SessionEntity session : sessionRepository.findByPlatformSourceAndContentSessionIdIn(
+                    entry.getKey(), ids)) {
+                found.putIfAbsent(
+                    new ExternalSessionRef(entry.getKey(), session.getContentSessionId()), session);
+            }
+        }
+        return found;
     }
 
     /** Resolve by internal UUID — the unambiguous key every child table now uses. */

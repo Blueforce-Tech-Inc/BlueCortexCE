@@ -79,7 +79,9 @@ class ImportServiceDatabaseTest {
             SELECT version FROM flyway_schema_history
             WHERE success ORDER BY installed_rank DESC LIMIT 1
             """, String.class);
-        assertThat(version).isEqualTo("20");
+        assertThat(Integer.parseInt(version))
+            .as("V20 must be applied; later migrations may have followed")
+            .isGreaterThanOrEqualTo(20);
     }
 
     @AfterEach

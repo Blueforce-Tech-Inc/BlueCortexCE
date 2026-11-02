@@ -30,7 +30,9 @@ class ConversationScopeFlywayDatabaseTest {
 
         flyway.migrate();
 
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("20");
+        assertThat(Integer.parseInt(flyway.info().current().getVersion().getVersion()))
+            .as("V20 must be applied; later migrations may have followed")
+            .isGreaterThanOrEqualTo(20);
         assertThat(flyway.info().pending()).isEmpty();
         DriverManagerDataSource dataSource = new DriverManagerDataSource(url, user, password);
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);

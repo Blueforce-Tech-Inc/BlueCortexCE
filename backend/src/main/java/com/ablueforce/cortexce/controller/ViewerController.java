@@ -816,14 +816,20 @@ public class ViewerController {
         // still accepted and means "the Claude platform".
         Object refsObj = request.get("sessionRefs");
         if (refsObj instanceof List<?> refsList) {
-            List<Map<String, Object>> out = new ArrayList<>();
+            // One batched lookup per platform instead of one query per ref.
+            List<ExternalSessionRef> refs = new ArrayList<>();
             for (Object entry : refsList) {
                 if (!(entry instanceof Map<?, ?> ref)) continue;
                 Object cid = ref.get("contentSessionId");
                 Object ps = ref.get("platformSource");
                 if (!(cid instanceof String contentId) || contentId.isBlank()) continue;
                 String platform = ps instanceof String s2 && !s2.isBlank() ? s2 : "claude";
-                sessionManagementService.find(ExternalSessionRef.of(platform, contentId))
+                refs.add(ExternalSessionRef.of(platform, contentId));
+            }
+            Map<ExternalSessionRef, SessionEntity> found = sessionManagementService.findBatch(refs);
+            List<Map<String, Object>> out = new ArrayList<>();
+            for (ExternalSessionRef ref : refs) {
+                Optional.ofNullable(found.get(ref))
                     .map(ViewerController::sessionToMap)
                     .ifPresent(out::add);
             }
@@ -845,9 +851,11 @@ public class ViewerController {
         }
 
         try {
+            // One batched lookup for the whole request, then re-expanded in input order.
+            Map<String, SessionEntity> found = sessionManagementService.findLegacyClaudeBatch(contentSessionIds);
             List<Map<String, Object>> result = new ArrayList<>();
             for (String contentId : contentSessionIds) {
-                sessionManagementService.findLegacyClaude(contentId)
+                Optional.ofNullable(found.get(contentId))
                     .map(ViewerController::sessionToMap)
                     .ifPresent(result::add);
             }
