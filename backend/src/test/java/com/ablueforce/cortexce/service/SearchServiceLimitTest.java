@@ -15,6 +15,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -74,6 +75,28 @@ class SearchServiceLimitTest {
             data.add(obs);
         }
         return data;
+    }
+
+    /** Stub the scored tsvector query plus the batch load that resolves its ids. */
+    private void stubFullText(int count) {
+        List<ObservationEntity> entities = rows(count, null, null);
+        List<Object[]> scored = entities.stream()
+                .map(entity -> new Object[]{entity.getId(), 0.42})
+                .toList();
+        when(repository.fullTextSearchScored(anyString(), anyString(), anyInt()))
+                .thenReturn(scored);
+        when(repository.findAllById(any())).thenReturn(entities);
+    }
+
+    /** Stub the scored hybrid query plus the batch load that resolves its ids. */
+    private void stubHybrid(int count) {
+        List<ObservationEntity> entities = rows(count, null, null);
+        List<Object[]> scored = entities.stream()
+                .map(entity -> new Object[]{entity.getId(), 0.61, 0.0})
+                .toList();
+        when(repository.hybridSearchScored(anyString(), anyString(), anyString(), anyLong(),
+                anyDouble(), anyInt())).thenReturn(scored);
+        when(repository.findAllById(any())).thenReturn(entities);
     }
 
     /** The SQL LIMIT the service asked the repository for. */
@@ -252,20 +275,22 @@ class SearchServiceLimitTest {
     @Test
     @DisplayName("full-text fallback results are trimmed to limit as well")
     void fullTextPath_trimsToLimit() {
-        when(repository.fullTextSearch(anyString(), anyString(), anyInt()))
-                .thenReturn(rows(40, null, null));
+        stubFullText(40);
 
         SearchService.SearchRequest req = new SearchService.SearchRequest(
                 "/tmp", "auth bug", null, null, null, null, null, null, 20, 0, null);
 
-        assertThat(searchService.search(req).observations()).hasSize(20);
+        SearchService.SearchResult result = searchService.search(req);
+
+        assertThat(result.observations()).hasSize(20);
+        assertThat(result.observations()).allSatisfy(obs ->
+                assertThat(obs.getSearchScore()).isEqualTo(0.42));
     }
 
     @Test
     @DisplayName("an empty query vector is rejected and the trimmed full-text result is used")
     void invalidQueryVector_fallsThroughToTrimmedResult() {
-        when(repository.fullTextSearch(anyString(), anyString(), anyInt()))
-                .thenReturn(rows(40, null, null));
+        stubFullText(40);
 
         // A zero-length vector serialises to "[]", which VectorValidator rejects, so hybrid is skipped.
         SearchService.SearchRequest req = new SearchService.SearchRequest(
@@ -280,8 +305,7 @@ class SearchServiceLimitTest {
     @Test
     @DisplayName("the hybrid path is trimmed to limit as well")
     void hybridPath_trimsToLimit() {
-        when(repository.hybridSearch(anyString(), anyString(), anyString(), anyLong(), anyInt()))
-                .thenReturn(rows(40, null, null));
+        stubHybrid(40);
 
         SearchService.SearchRequest req = new SearchService.SearchRequest(
                 "/tmp", "auth bug", new float[]{0.5f, 0.25f}, null, null, null, null, null, 20, 0, null);
@@ -291,13 +315,14 @@ class SearchServiceLimitTest {
         assertThat(result.strategy()).isEqualTo("hybrid");
         assertThat(result.fellBack()).isFalse();
         assertThat(result.observations()).hasSize(20);
+        assertThat(result.observations()).allSatisfy(obs ->
+                assertThat(obs.getSearchScore()).isEqualTo(0.61));
     }
 
     @Test
     @DisplayName("the hybrid path also honours the MAX_PAGE_SIZE clamp")
     void hybridPath_isClamped() {
-        when(repository.hybridSearch(anyString(), anyString(), anyString(), anyLong(), anyInt()))
-                .thenReturn(rows(200, null, null));
+        stubHybrid(200);
 
         SearchService.SearchRequest req = new SearchService.SearchRequest(
                 "/tmp", "auth bug", new float[]{0.5f, 0.25f}, null, null, null, null, null,
@@ -306,6 +331,24 @@ class SearchServiceLimitTest {
         SearchService.SearchResult result = searchService.search(req);
 
         assertThat(result.observations()).hasSize(Constants.MAX_PAGE_SIZE);
+    }
+
+    @Test
+    @DisplayName("hybrid rows fall back to ts_rank when no semantic score is present")
+    void hybridPath_textOnlyRowUsesTsRank() {
+        List<ObservationEntity> entities = rows(1, null, null);
+        when(repository.hybridSearchScored(anyString(), anyString(), anyString(), anyLong(),
+                anyDouble(), anyInt())).thenReturn(List.<Object[]>of(
+                new Object[]{entities.get(0).getId(), 0.0, 0.37}));
+        when(repository.findAllById(any())).thenReturn(entities);
+
+        SearchService.SearchRequest req = new SearchService.SearchRequest(
+                "/tmp", "auth bug", new float[]{0.5f, 0.25f}, null, null, null, null, null, 20, 0, null);
+
+        SearchService.SearchResult result = searchService.search(req);
+
+        assertThat(result.observations()).hasSize(1);
+        assertThat(result.observations().get(0).getSearchScore()).isEqualTo(0.37);
     }
 
     // ===== short and empty repository results pass through unchanged =====

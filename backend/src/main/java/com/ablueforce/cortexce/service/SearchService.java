@@ -5,12 +5,17 @@ import com.ablueforce.cortexce.entity.ObservationEntity;
 import com.ablueforce.cortexce.repository.ObservationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * Hybrid search service.
@@ -38,6 +43,14 @@ public class SearchService {
     private static final Logger log = LoggerFactory.getLogger(SearchService.class);
     /** Page size used when the caller passes a non-positive limit. Package-private for tests. */
     static final int DEFAULT_LIMIT = 20;
+
+    /**
+     * Cosine-similarity floor for the semantic half. Text-only rows are floored by the lexical
+     * predicate instead ({@code @@ plainto_tsquery}), which is equivalent to {@code ts_rank > 0}.
+     * 0.5 is the initial operating value; it is a configuration knob, not a test-only constant.
+     */
+    @Value("${cortexce.search.min-similarity:0.5}")
+    private double minSimilarity = 0.5;
 
     private final ObservationRepository observationRepository;
 
@@ -76,9 +89,10 @@ public class SearchService {
             if (com.ablueforce.cortexce.util.VectorValidator.isValidVector(vectorStr)) {
                 try {
                     log.debug("Using hybrid search (pgvector + tsvector) for project={}", project);
-                    List<ObservationEntity> results = observationRepository.hybridSearch(
-                        project, query, vectorStr, minEpoch, limit * 2
+                    List<Object[]> rows = observationRepository.hybridSearchScored(
+                        project, query, vectorStr, minEpoch, minSimilarity, limit * 2
                     );
+                    List<ObservationEntity> results = loadScored(rows, true);
                     List<ObservationEntity> filtered = applyPostFilters(results, request, limit);
                     return new SearchResult(filtered, "hybrid", false);
                 } catch (IllegalArgumentException e) {
@@ -112,7 +126,8 @@ public class SearchService {
         // PATH 3: Full-text search fallback
         log.debug("Full-text search fallback for project={}", project);
         try {
-            List<ObservationEntity> results = observationRepository.fullTextSearch(project, query, limit * 2);
+            List<Object[]> rows = observationRepository.fullTextSearchScored(project, query, limit * 2);
+            List<ObservationEntity> results = loadScored(rows, false);
             List<ObservationEntity> filtered = applyPostFilters(results, request, limit);
             return new SearchResult(filtered, "tsvector", query != null && request.queryVector() != null);
         } catch (Exception e) {
@@ -178,6 +193,45 @@ public class SearchService {
     }
 
     /**
+     * Resolve scored native rows ({@code [id, score]} for text, {@code [id, semantic, text]}
+     * for hybrid) into entities in score order, attaching the relevance score. One {@code IN}
+     * query loads all rows, so this adds no per-result round trip.
+     * <p>
+     * Hybrid rows show the cosine similarity when the row was a vector hit and fall back to
+     * ts_rank for text-only hits; a row matched by neither half is absent by construction.
+     */
+    private List<ObservationEntity> loadScored(List<Object[]> rows, boolean hybrid) {
+        if (rows == null || rows.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Map<UUID, Double> scores = new LinkedHashMap<>();
+        for (Object[] row : rows) {
+            UUID id = (UUID) row[0];
+            double score;
+            if (hybrid) {
+                double semantic = row[1] == null ? 0.0 : ((Number) row[1]).doubleValue();
+                double text = row[2] == null ? 0.0 : ((Number) row[2]).doubleValue();
+                score = semantic > 0 ? semantic : text;
+            } else {
+                score = row[1] == null ? 0.0 : ((Number) row[1]).doubleValue();
+            }
+            scores.put(id, score);
+        }
+        Map<UUID, ObservationEntity> loaded = new LinkedHashMap<>();
+        observationRepository.findAllById(scores.keySet())
+            .forEach(entity -> loaded.put(entity.getId(), entity));
+        List<ObservationEntity> results = new ArrayList<>(scores.size());
+        scores.forEach((id, score) -> {
+            ObservationEntity entity = loaded.get(id);
+            if (entity != null) {
+                entity.setSearchScore(score);
+                results.add(entity);
+            }
+        });
+        return results;
+    }
+
+    /**
      * Apply source/type/concept filters and offset as post-processing on semantic search results.
      * Needed because hybrid and full-text search queries don't support source filtering or offset natively.
      * Fetches limit*2 results to compensate for filtering reducing the result set, then trims back to
@@ -238,14 +292,7 @@ public class SearchService {
      * Convert float array to PostgreSQL vector string format: [0.1,0.2,...].
      */
     private String vectorToString(float[] vector) {
-        StringBuilder sb = new StringBuilder("[");
-        for (int i = 0; i < vector.length; i++) {
-            if (i > 0) sb.append(",");
-            // P3: Format with 4 decimal places for readability and storage efficiency
-            sb.append(String.format("%.4f", vector[i]));
-        }
-        sb.append("]");
-        return sb.toString();
+        return EmbeddingService.toVectorLiteral(vector);
     }
 
     /** Convert blank strings to null for composable AND filter. */

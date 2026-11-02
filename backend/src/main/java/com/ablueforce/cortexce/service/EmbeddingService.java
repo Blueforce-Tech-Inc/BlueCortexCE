@@ -124,6 +124,21 @@ public class EmbeddingService {
     }
 
     /**
+     * Format a vector as the PostgreSQL literal {@code [0.1,0.2,...]}.
+     * Shared by the search path and the repair sweep so both send the same shape.
+     */
+    public static String toVectorLiteral(float[] vector) {
+        StringBuilder literal = new StringBuilder("[");
+        for (int i = 0; i < vector.length; i++) {
+            if (i > 0) {
+                literal.append(',');
+            }
+            literal.append(String.format("%.4f", vector[i]));
+        }
+        return literal.append(']').toString();
+    }
+
+    /**
      * Short, non-sensitive classification of an embedding failure.
      * The exception message is deliberately not used: it can contain request bodies.
      */

@@ -178,14 +178,17 @@ class L3AcceptanceTest extends HttpLayerTestSupport {
 
         // docs/ARCHITECTURE.md: path 2 = query + embedding → hybrid; fell_back
         // stays false. The offline EmbeddingModel makes this deterministic.
+        // The client encodes the space once; writing %20 here would reach the server as a
+        // literal percent sequence and turn the query into a non-matching term.
         ResponseEntity<String> search = get("/api/search?project=" + project
-                + "&query=deterministic%20testing");
+                + "&query=deterministic testing");
         assertEquals(HttpStatus.OK, search.getStatusCode(), search.getBody());
         JsonNode body = json(search);
         assertEquals("hybrid", body.path("strategy").asText(), body.toString());
         assertFalse(body.path("fell_back").asBoolean(), body.toString());
         assertTrue(body.path("observations").isArray());
-        assertTrue(body.path("observations").toString().contains("l3-hybrid-observation"));
+        assertTrue(body.path("observations").toString().contains("l3-hybrid-observation"),
+                body.toString());
     }
 
     @Test

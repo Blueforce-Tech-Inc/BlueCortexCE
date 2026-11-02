@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -238,14 +239,22 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         @Param("limit") int limit
     );
 
-    // tsvector full-text search
-    @Query(value = OBSERVATION_ENTITY_SELECT + """
+    /**
+     * tsvector search returning {@code [id, ts_rank]} rows. The lexical predicate
+     * ({@code @@ plainto_tsquery}) is the text relevance floor: rows with no matching term are
+     * never candidates, and {@code ts_rank > 0} is asserted explicitly so the floor is visible in
+     * the query rather than implied.
+     */
+    @Query(value = """
+        SELECT o.id, ts_rank(o.search_vector, plainto_tsquery('english', :query)) AS score
+        FROM mem_observations o
         WHERE """ + PROJECT_SCOPE_FILTER + """
-        AND search_vector @@ plainto_tsquery('english', :query)
-        ORDER BY ts_rank(search_vector, plainto_tsquery('english', :query)) DESC
+        AND o.search_vector @@ plainto_tsquery('english', :query)
+        AND ts_rank(o.search_vector, plainto_tsquery('english', :query)) > 0
+        ORDER BY score DESC
         LIMIT :limit
         """, nativeQuery = true)
-    List<ObservationEntity> fullTextSearch(
+    List<Object[]> fullTextSearchScored(
         @Param("project") String project,
         @Param("query") String query,
         @Param("limit") int limit
@@ -294,30 +303,116 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
     long countByProjectPath(@Param("project") String projectPath);
 
     /**
-     * Rows whose embedding attempt failed or never happened, newest first.
+     * Predicate for "this row still needs an embedding", shared by the backlog queries and
+     * the conditional writes of the repair sweep.
      *
-     * <p>Rows with {@code embedding_state='skipped'} are excluded on purpose: they carry
-     * no text to embed, so retrying them forever would keep the backlog non-empty.
-     * Rows written before V21 have a NULL state and are claimed exactly once.
+     * <p>It is intentionally repeated inside every UPDATE: a sweep and a worker (or two
+     * sweeps) can touch the same row, and the write must be a claim, not a blind overwrite.
+     * Rows with {@code embedding_state='skipped'} are excluded because they carry no text
+     * to embed; rows written before V21 have a NULL state and are claimed exactly once.
+     */
+    String EMBEDDING_MISSING_PREDICATE = """
+        embedding_768 IS NULL
+          AND embedding_1024 IS NULL
+          AND embedding_1536 IS NULL
+          AND (embedding_state IS NULL OR embedding_state = 'failed')
+        """;
+
+    /**
+     * Rows whose embedding attempt failed or never happened, newest first.
      */
     @Query(value = OBSERVATION_ENTITY_SELECT + """
-        WHERE o.embedding_768 IS NULL
-          AND o.embedding_1024 IS NULL
-          AND o.embedding_1536 IS NULL
-          AND (o.embedding_state IS NULL OR o.embedding_state = 'failed')
+        WHERE
+        """ + EMBEDDING_MISSING_PREDICATE + """
         ORDER BY o.created_at_epoch DESC
         LIMIT :limit
         """, nativeQuery = true)
     List<ObservationEntity> findMissingEmbeddings(@Param("limit") int limit);
 
+    /** How many of those rows one id still needs. A 0 means "already done, do not embed". */
+    @Query(value = """
+        SELECT count(*) FROM mem_observations
+        WHERE id = :id
+          AND
+        """ + EMBEDDING_MISSING_PREDICATE, nativeQuery = true)
+    long countEmbeddingMissingById(@Param("id") UUID id);
+
+    /**
+     * Claim one row by writing only its vector columns.
+     *
+     * <p>The UPDATE re-checks {@link #EMBEDDING_MISSING_PREDICATE}: whichever writer first
+     * moves the row out of that state wins, and the loser gets 0 affected rows instead of
+     * overwriting a completed row (or the body a worker just edited).
+     */
+    @Transactional
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+        UPDATE mem_observations
+        SET embedding_768 = cast(:vector as vector),
+            embedding_model_id = :model,
+            embedding_state = 'ready',
+            embedding_error = NULL
+        WHERE id = :id
+          AND
+        """ + EMBEDDING_MISSING_PREDICATE, nativeQuery = true)
+    int applyEmbedding768IfMissing(@Param("id") UUID id,
+                                   @Param("vector") String vector,
+                                   @Param("model") String model);
+
+    @Transactional
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+        UPDATE mem_observations
+        SET embedding_1024 = cast(:vector as vector),
+            embedding_model_id = :model,
+            embedding_state = 'ready',
+            embedding_error = NULL
+        WHERE id = :id
+          AND
+        """ + EMBEDDING_MISSING_PREDICATE, nativeQuery = true)
+    int applyEmbedding1024IfMissing(@Param("id") UUID id,
+                                    @Param("vector") String vector,
+                                    @Param("model") String model);
+
+    @Transactional
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+        UPDATE mem_observations
+        SET embedding_1536 = cast(:vector as vector),
+            embedding_model_id = :model,
+            embedding_state = 'ready',
+            embedding_error = NULL
+        WHERE id = :id
+          AND
+        """ + EMBEDDING_MISSING_PREDICATE, nativeQuery = true)
+    int applyEmbedding1536IfMissing(@Param("id") UUID id,
+                                    @Param("vector") String vector,
+                                    @Param("model") String model);
+
+    /**
+     * Record a terminal-for-now outcome without touching the observation body.
+     *
+     * <p>Only {@code embedding_state}/{@code embedding_error} change, and only while the row
+     * is still unembedded, so a repeat call cannot resurrect a row another writer completed.
+     */
+    @Transactional
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+        UPDATE mem_observations
+        SET embedding_state = :state,
+            embedding_error = :error
+        WHERE id = :id
+          AND
+        """ + EMBEDDING_MISSING_PREDICATE, nativeQuery = true)
+    int markEmbeddingOutcomeIfMissing(@Param("id") UUID id,
+                                      @Param("state") String state,
+                                      @Param("error") String error);
+
     /** Count of rows awaiting an embedding retry. Exposed through the queue health indicator. */
     @Query(value = """
         SELECT count(*) FROM mem_observations o
-        WHERE o.embedding_768 IS NULL
-          AND o.embedding_1024 IS NULL
-          AND o.embedding_1536 IS NULL
-          AND (o.embedding_state IS NULL OR o.embedding_state = 'failed')
-        """, nativeQuery = true)
+        WHERE
+        """ + EMBEDDING_MISSING_PREDICATE, nativeQuery = true)
     long countMissingEmbeddings();
 
     // Find all observations for a project, ordered by creation time (descending)
@@ -404,52 +499,54 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         @Param("conversationIds") List<UUID> conversationIds,
         @Param("limit") int limit);
 
-    // P2: Hybrid search combining pgvector semantic + tsvector full-text
+    /**
+     * Hybrid search returning {@code [id, semantic_score, text_score]} rows.
+     * <p>
+     * The semantic half applies the cosine-similarity floor ({@code :minSimilarity}) inside the
+     * query, so an unrelated query never contributes candidates. The text half keeps the lexical
+     * floor ({@code @@ plainto_tsquery}) and is scored with {@code ts_rank}. Rows are deduplicated
+     * with the semantic score preferred, and ordering is semantic-first then text-first so the two
+     * strategies stay explainable: cosine for vector hits, ts_rank for text-only hits.
+     */
     @Query(value = """
         WITH semantic_results AS (
-            SELECT o.*,
-                   (SELECT scope.scope_type FROM mem_memory_scopes scope WHERE scope.id = o.memory_scope_id)
-                       AS "memoryScopeType",
-                   1.0 as score_type
+            SELECT o.id AS id, 1.0 AS score_type,
+                   (1.0 - (o.embedding_1024 <=> cast(:queryVector as vector))) AS similarity
             FROM mem_observations o
             WHERE """ + PROJECT_SCOPE_FILTER + """
-            AND embedding_1024 IS NOT NULL
-            AND created_at_epoch > :minEpoch
-            ORDER BY embedding_1024 <=> cast(:queryVector as vector)
+            AND o.embedding_1024 IS NOT NULL
+            AND o.created_at_epoch > :minEpoch
+            AND (1.0 - (o.embedding_1024 <=> cast(:queryVector as vector))) >= :minSimilarity
+            ORDER BY o.embedding_1024 <=> cast(:queryVector as vector)
             LIMIT :limit
         ),
         fulltext_results AS (
-            SELECT o.*,
-                   (SELECT scope.scope_type FROM mem_memory_scopes scope WHERE scope.id = o.memory_scope_id)
-                       AS "memoryScopeType",
-                   0.8 as score_type
+            SELECT o.id AS id, 0.8 AS score_type,
+                   ts_rank(o.search_vector, plainto_tsquery('english', :query)) AS similarity
             FROM mem_observations o
             WHERE """ + PROJECT_SCOPE_FILTER + """
-            AND search_vector @@ plainto_tsquery('english', :query)
+            AND o.search_vector @@ plainto_tsquery('english', :query)
+            AND ts_rank(o.search_vector, plainto_tsquery('english', :query)) > 0
             LIMIT :limit
         )
-        SELECT * FROM (
-            SELECT DISTINCT ON (id) *
-            FROM (
-                SELECT * FROM semantic_results
-                UNION ALL
-                SELECT * FROM fulltext_results
-            ) combined_inner
-            ORDER BY id, score_type DESC
-        ) deduped
-        ORDER BY
-            CASE WHEN score_type = 1.0 THEN
-                (1.0 - (embedding_1024 <=> cast(:queryVector as vector)))
-            ELSE
-                ts_rank(search_vector, plainto_tsquery('english', :query))
-            END DESC
+        SELECT id,
+               MAX(CASE WHEN score_type = 1.0 THEN similarity ELSE 0 END) AS semantic_score,
+               MAX(CASE WHEN score_type = 0.8 THEN similarity ELSE 0 END) AS text_score
+        FROM (
+            SELECT * FROM semantic_results
+            UNION ALL
+            SELECT * FROM fulltext_results
+        ) combined
+        GROUP BY id
+        ORDER BY semantic_score DESC, text_score DESC
         LIMIT :limit
         """, nativeQuery = true)
-    List<ObservationEntity> hybridSearch(
+    List<Object[]> hybridSearchScored(
         @Param("project") String project,
         @Param("query") String query,
         @Param("queryVector") String queryVector,
         @Param("minEpoch") long minEpoch,
+        @Param("minSimilarity") double minSimilarity,
         @Param("limit") int limit
     );
 

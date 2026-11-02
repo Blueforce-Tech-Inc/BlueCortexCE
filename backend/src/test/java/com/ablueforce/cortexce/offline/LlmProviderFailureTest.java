@@ -453,8 +453,16 @@ class LlmProviderFailureTest {
         assertThat(recovered.getBody()).isNotNull();
         assertThat(recovered.getBody().strategy()).isEqualTo("hybrid");
         assertThat(recovered.getBody().fellBack()).isFalse();
-        assertThat(recovered.getBody().observations()).extracting(ObservationEntity::getTitle)
-            .containsExactly(OfflineAiTestModels.OBSERVATION_TITLE);
+        // The similarity floor still applies on the hybrid path: a token that exists nowhere
+        // must not resurrect the only row in the project just because it is the only candidate.
+        assertThat(recovered.getBody().observations()).isEmpty();
+
+        // A related query still returns the row through the text half of the hybrid search.
+        ResponseEntity<ApiResponses.SearchResponse> related = controller.search(
+            fixture.projectPath(), "offline deterministic observation", null, null, null, 20, 0, null);
+        assertThat(related.getBody()).isNotNull();
+        assertThat(related.getBody().observations()).extracting(ObservationEntity::getTitle)
+            .contains(OfflineAiTestModels.OBSERVATION_TITLE);
     }
 
     @Test

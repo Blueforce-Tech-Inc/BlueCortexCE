@@ -227,7 +227,7 @@ class OfflineAiChainIntegrationTest {
     }
 
     @Test
-    @DisplayName("query search takes the vector branch instead of the full-text fallback")
+    @DisplayName("the vector branch applies the similarity floor and still serves related text")
     void embeddingAvailableSearchUsesVectorBranch() {
         Fixture fixture = newConversation("search");
         UUID pendingId = agentService.enqueueToolUse(
@@ -258,10 +258,18 @@ class OfflineAiChainIntegrationTest {
         assertThat(body).isNotNull();
         assertThat(body.strategy()).isEqualTo("hybrid");
         assertThat(body.fellBack()).isFalse();
-        assertThat(body.observations()).extracting(ObservationEntity::getTitle)
-            .containsExactly(OfflineAiTestModels.OBSERVATION_TITLE);
+        // The hash embedding of a token that exists nowhere is not similar to the row;
+        // before the floor this returned the only candidate regardless of relevance.
+        assertThat(body.observations()).isEmpty();
 
-        // The same query without a vector has no lexical hit at all. Without this
+        // A related query still returns the row through the text half of the hybrid search.
+        ResponseEntity<ApiResponses.SearchResponse> related = controller.search(
+            fixture.projectPath(), OfflineAiTestModels.OBSERVATION_TITLE, null, null, null, 20, 0, null);
+        assertThat(related.getBody()).isNotNull();
+        assertThat(related.getBody().observations()).extracting(ObservationEntity::getTitle)
+            .contains(OfflineAiTestModels.OBSERVATION_TITLE);
+
+        // The same unrelated query without a vector has no lexical hit at all. Without this
         // assertion, "found something" could also mean the tsvector branch matched.
         SearchService.SearchResult textOnly = searchService.search(new SearchService.SearchRequest(
             fixture.projectPath(), NEVER_PRESENT_TOKEN, null,

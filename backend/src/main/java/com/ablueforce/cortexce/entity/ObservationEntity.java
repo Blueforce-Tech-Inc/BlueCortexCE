@@ -31,6 +31,14 @@ public class ObservationEntity {
     private UUID id;
 
     /**
+     * Relevance score returned by a scored native search (cosine similarity for the semantic half,
+     * ts_rank for text-only rows). Not a database column; null outside search responses.
+     */
+    @Transient
+    @JsonProperty("search_score")
+    private Double searchScore;
+
+    /**
      * Session identifier — FK to {@code mem_sessions.content_session_id} (Claude Code session id).
      */
     @Column(name = "content_session_id", nullable = false)
@@ -329,6 +337,9 @@ public class ObservationEntity {
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
+
+    public Double getSearchScore() { return searchScore; }
+    public void setSearchScore(Double searchScore) { this.searchScore = searchScore; }
 
     public String getContentSessionId() { return contentSessionId; }
     public void setContentSessionId(String contentSessionId) { this.contentSessionId = contentSessionId; }

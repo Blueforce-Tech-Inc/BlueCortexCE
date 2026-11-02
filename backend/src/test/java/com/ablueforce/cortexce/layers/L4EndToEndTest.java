@@ -114,7 +114,7 @@ class L4EndToEndTest extends HttpLayerTestSupport {
 
             // 4. Retrieval branch: query + embedding → hybrid, no fallback.
             ResponseEntity<String> search = get("/api/search?project=" + project
-                    + "&query=offline%20deterministic%20observation");
+                    + "&query=offline deterministic observation");
             assertEquals(HttpStatus.OK, search.getStatusCode(), search.getBody());
             JsonNode searchBody = json(search);
             assertEquals("hybrid", searchBody.path("strategy").asText(), searchBody.toString());
