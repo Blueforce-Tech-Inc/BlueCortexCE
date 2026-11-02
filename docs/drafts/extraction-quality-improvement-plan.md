@@ -304,4 +304,52 @@ leaves A5 unmet for LongCat by 1.75 points. Decision record:
 
 New tests: `processNoiseIsDropped`, `noiseOnlyFactsReject` (12 tests in the class).
 
+### 7.9 Audit gap closure (2026-11-03)
+
+Input: `/tmp/cortexce-audit/quality-gap-audit.md` (read-only audit, no build run). Every claim that
+could be expressed as a test was re-checked by a test; the table below records what survived.
+
+| audit claim | result | evidence |
+|---|---|---|
+| read-then-lock lets a second worker claim the same job | confirmed | `ObservationClaimDatabaseTest`: 8 concurrent claimers, exactly one winner, a claimed row is invisible afterwards |
+| embedding failure degrades silently | confirmed | `LlmProviderFailureTest.embeddingFailureIsRecordedAndRepairedByBackfill` |
+| the listener's exception branch bypasses the retry budget | confirmed | `PendingMessageEventListenerTest` retryable / terminal / unrecordable branches |
+| `/api/health` carries `checks` | **wrong** | liveness is `{service,status,timestamp}`; checks live on `/api/readiness` |
+| latest migration is V20 | outdated | the suite now pins “≥ 20 and no pending”; latest is V23 |
+| local verify can reuse any `postgresql` container | **unsafe in practice** | the shared container held 94/100 clients; the suite's cached contexts exhausted it |
+
+#### Decisions
+
+| # | decision | rejected alternative | why | blast radius | rollback |
+|---|---|---|---|---|---|
+| 1 | conditional `UPDATE … WHERE status='pending'` is the only ownership arbiter; the Conversation row lock stays for serialization with SessionEnd | `SELECT … FOR UPDATE SKIP LOCKED` | one atomic statement is enough; SKIP LOCKED would add a second ordering rule and still need the Conversation lock; the conditional update also makes every completion path self-checking | `PendingMessageRepository` + `ConversationWriteService` | revert the three call sites; rows remain in the old states |
+| 2 | dedicated `embedding_state` / `embedding_error` columns plus a scheduled backfill sweep | reuse `embedding_model_id IS NULL`; queue `failed` | the queue row is gone once the observation is stored, so it cannot describe an embedding that failed after admission; the dedicated column stays queryable forever and the sweep is idempotent | one migration + one scheduled bean | `claudemem.embedding.backfill.enabled=false`; columns are nullable |
+| 3 | listener failures go through `markObservationFailed` with the same `retry_count` budget; terminal failures only get a `failure_kind` | listener writes `failed` directly | a direct write cannot see how many attempts already happened and can overwrite a completed row; the job and the listener must share one classification (`RetryPolicy`) | listener + service | revert the listener call; stale recovery still closes the row |
+| 4 | `queueDepth` = pending + processing; add `queueFailed`, `queueFailedLast24h`, `embeddingBacklog` and `recent_failure_kinds` | rename/re-shape existing fields | WebUI reads the existing names; additive fields cannot break it | readiness payload + health indicator + V22 partial indexes | ignore the new fields; nothing consumes them |
+| 5 | `--min-tests 423` + `--require-baseline` with `scripts/test-baseline.json` | a single total floor only | a total floor cannot see a layer being replaced by cheap tests elsewhere; the per-layer ratchet can | CI + `verify-local.sh` + TESTING docs | lower the floor and delete the baseline file (both visible in review) |
+| 6 | the contract probe pins **error-body shape** (a message key) and key success fields; it does not unify error shapes | make every error use one envelope | unifying would break callers that already match on `path`/`status`; the gate only needs the shape not to drift silently | one checker, no runtime change | drop the probes from `contract_probes` |
+| 7 | `/api/logs` stays enabled and unauthenticated by default; opt-in `claudemem.logs.api-enabled=false` or `api-token` | protect by default | the WebUI LogsModal has no token flow; changing the default would break an existing integration | `LogsController` only | flip the two properties back |
+| 8 | loopback host mapping in compose; `USER app` in the image, `SERVER_ADDRESS=0.0.0.0` inside the container namespace | keep 0.0.0.0 host mapping; run as root with a `read_only` rootfs | the host mapping is the actual exposure; the container namespace needs a non-local bind for the health probe; non-root is the portable fix | compose + Dockerfile | revert both files |
+| 9 | one batched `IN` lookup for `/api/sdk-sessions/batch`; composite indexes added, none dropped | per-id lookups; dropping the superseded single-column indexes | the batch fix removes N+1 without changing match semantics; dropping indexes is a separate measurable decision | repository + service + controller + V23 | revert the two controller branches; indexes can be dropped |
+| 10 | V20 conflicts are rehearsed in a **sibling disposable database** created by the test | reusing the shared rehearsal DB | the shared DB is already at V23 and must stay consistent for every other DB test | one gated test, no production change | delete the test class |
+
+#### What the audit's “must run” list became
+
+Converted to tests: the claim race (1), the index set and batch equivalence (2, 9), the listener
+budget (3), the V20 conflict/cleanup/re-run loop (5), the queue/failure observability fields (4).
+Not convertible: real-provider latency and cost, CI secret availability, production WebUI runtime
+behaviour, and planner choices that only appear at production data volume. Those stay as
+run-time checks; the index existence test is the part that can be asserted without volume.
+
+#### Verification
+
+`./scripts/verify-local.sh` — **ALL CHECKS PASSED**: 423 tests / 0 failures / 0 errors / 0 skipped
+(L1 409, L2 7, L3 6, L4 1); Flyway V23; the EN/ZH reference surface (80 operations) matched the
+live server; response shapes printed by the probe
+(`/api/health` `{service,status,timestamp}`, `/api/readiness` `{checks,status,timestamp}`,
+`/api/observations` `{hasMore,items}`, 404/400 bodies carry a message key); proxy E2E executed
+with 0 skipped. The Docker image was built and started once: `ConfigUser=app`, runtime uid 100,
+container health `healthy`, `/api/health` reachable through the loopback-only mapping.
+
+
 
