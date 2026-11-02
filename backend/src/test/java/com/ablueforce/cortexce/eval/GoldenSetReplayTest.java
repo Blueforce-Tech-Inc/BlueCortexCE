@@ -66,10 +66,10 @@ class GoldenSetReplayTest {
             assertThat(a.formatErrors).as(name + " format errors").isZero();
             assertThat(a.skipAccuracy).as(name + " skip accuracy")
                     .isGreaterThanOrEqualTo(b.skipAccuracy);
-            assertThat(a.skipFn).as(name + " must-record samples skipped")
-                    .isLessThanOrEqualTo(b.skipFn);
-            assertThat(a.skipFp).as(name + " low-value samples recorded")
-                    .isLessThanOrEqualTo(Math.max(1, b.skipFp));
+            assertThat(a.skipFp).as(name + " must-record samples skipped")
+                    .isLessThanOrEqualTo(b.skipFp);
+            assertThat(a.skipFn).as(name + " low-value samples recorded")
+                    .isLessThanOrEqualTo(Math.max(1, b.skipFn));
             assertThat(a.factsPrecision).as(name + " facts precision")
                     .isGreaterThanOrEqualTo(b.factsPrecision);
             assertThat(a.factsRecall).as(name + " facts recall")

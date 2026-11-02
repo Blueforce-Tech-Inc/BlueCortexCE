@@ -152,7 +152,12 @@ public final class GoldenSetScorer {
             Map.entry("nullpointer", "nullpointer"), Map.entry("npe", "nullpointer"),
             Map.entry("timezone", "timezone"),
             Map.entry("db", "database"),
-            Map.entry("docs", "doc"), Map.entry("documentation", "doc"));
+            Map.entry("docs", "doc"), Map.entry("documentation", "doc"),
+            // "line endings" / "flaky clock" are the trace's wording; the model often writes the
+            // singular or the derived noun. Folding them keeps the metric about the noun being
+            // named, not about which inflection the model picked.
+            Map.entry("flakiness", "flaky"),
+            Map.entry("backtracking", "redos"), Map.entry("catastrophic", "redos"));
 
     private GoldenSetScorer() {
     }
@@ -766,9 +771,31 @@ public final class GoldenSetScorer {
             if (raw.isEmpty()) {
                 continue;
             }
-            tokens.add(SYNONYMS.getOrDefault(raw, raw));
+            tokens.add(foldPlural(SYNONYMS.getOrDefault(raw, raw)));
         }
         return String.join(" ", tokens);
+    }
+
+    /**
+     * Folds regular English plurals so "line endings" and "line ending" are the same keyword.
+     * Words ending in {@code ss}/{@code us}/{@code is} are left alone ("status", "analysis",
+     * "class" stay distinct from a stripped stem).
+     */
+    private static String foldPlural(String token) {
+        if (token.length() <= 4) {
+            return token;
+        }
+        if (token.endsWith("ies")) {
+            return token.substring(0, token.length() - 3) + "y";
+        }
+        if (token.endsWith("sses")) {
+            return token.substring(0, token.length() - 2);
+        }
+        if (token.endsWith("s")
+                && !token.endsWith("ss") && !token.endsWith("us") && !token.endsWith("is")) {
+            return token.substring(0, token.length() - 1);
+        }
+        return token;
     }
 
     /**

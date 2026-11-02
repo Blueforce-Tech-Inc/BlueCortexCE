@@ -397,9 +397,12 @@ public final class GoldenSetEvaluator {
         sb.append("| id | criterion | threshold | observed | status |\n|---|---|---|---|---|\n");
         gate(sb, "A1", "format errors", "= 0", String.valueOf(agg.formatErrors), agg.formatErrors == 0);
         gate(sb, "A2", "skip accuracy", ">= 95%", pct(agg.skipAccuracy), agg.skipAccuracy >= 0.95);
-        gate(sb, "A3", "must-record samples skipped", "= 0", String.valueOf(agg.skipFn), agg.skipFn == 0);
-        gate(sb, "A4", "low-value samples recorded", "<= max(1, TP/20)", String.valueOf(agg.skipFp),
-                agg.skipFp <= Math.max(1, agg.skipTp / 20));
+        // skipFp = a record-worthy sample was skipped (the failure A3 guards); skipFn = a
+        // low-value sample was recorded (the failure A4 guards). The two counters were
+        // reported under each other's labels in the v3 report, so pin them here.
+        gate(sb, "A3", "must-record samples skipped", "= 0", String.valueOf(agg.skipFp), agg.skipFp == 0);
+        gate(sb, "A4", "low-value samples recorded", "<= max(1, TP/20)", String.valueOf(agg.skipFn),
+                agg.skipFn <= Math.max(1, agg.skipTp / 20));
         gate(sb, "A5", "facts informative precision", ">= 75%",
                 pct(agg.factsInformativeRate), agg.factsInformativeRate >= 0.75);
         gate(sb, "A6", "title contract hit (verb + subject + identifiers)", ">= 80%",
