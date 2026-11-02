@@ -106,7 +106,7 @@ git submodule update --init --recursive
    `flyway_schema_history` 中没有失败记录。
 5. 用一次 `mvn -B clean install` 跑完 L1–L4，`MEMSCOPE_*` 指向该库。
 6. 执行 `python3 scripts/check-test-results.py --require-zero-skips
-   --min-tests 354 --require-layers`。
+   --min-tests 360 --require-layers`。
 7. 执行两项文档一致性检查：检查器自测，再用中英文 API 参考对比运行中的服务。
 8. 对该服务跑 proxy E2E，`node --test` 只要报告有跳过就判失败（这是 L3 的 proxy 转发部分）。
 
@@ -125,7 +125,7 @@ git submodule update --init --recursive
 
 | 层次 | 证明什么 | 由谁执行 | 单独重跑 |
 |------|----------|----------|----------|
-| **L1** 单元 + 集成（331 个用例） | 服务、控制器、实体、仓储契约，以及依赖模型的链路（离线替身）。 | `.layers.*` 之外的全部 Surefire 类 | `mvn -B test -Dtest='!L2HttpRegressionTest,!L3AcceptanceTest,!L4EndToEndTest'` |
+| **L1** 单元 + 集成（346 个用例） | 服务、控制器、实体、仓储契约，以及依赖模型的链路（离线替身）。 | `.layers.*` 之外的全部 Surefire 类 | `mvn -B test -Dtest='!L2HttpRegressionTest,!L3AcceptanceTest,!L4EndToEndTest'` |
 | **L2** HTTP 回归（7 个用例） | 真实启动的应用（`RANDOM_PORT`）：`/v3/api-docs` 发布的每个操作都被调用一次；缺参数 → 400、旧路径 → 404、非法 UUID → 400、`limit`/`offset` 钳制、`{items,hasMore}` 分页信封。 | `L2HttpRegressionTest` | `mvn -B test -Dtest=L2HttpRegressionTest` |
 | **L3** 验收（6 个用例） | 把文档声明的能力变成断言：Hook 生命周期、三类 ingest 写入、检索分支、context inject、settings/modes 字段、SSE 事件、MCP 工具列表加一次真实调用。每条断言在类 javadoc 中标注出处（`docs/API.md`、`AGENTS.md`、`docs/ARCHITECTURE.md`）。proxy 转发由 `verify-local.sh` 第 8 步覆盖。 | `L3AcceptanceTest` + proxy `npm test` | `mvn -B test -Dtest=L3AcceptanceTest`（再 `cd proxy && npm test`） |
 | **L4** 端到端（1 个用例） | 真实服务 + 专用库上的一条完整用户路径：会话开始 → 写入 → 检索 → context inject → 会话结束 → 摘要，校验数据库终态与 SSE 事件。等待全部是基于条件的轮询，不使用 `sleep`。 | `L4EndToEndTest` | `mvn -B test -Dtest=L4EndToEndTest` |
@@ -268,7 +268,7 @@ kill "$APP_PID" && wait "$APP_PID" 2>/dev/null || true
 docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$TEST_DB" -tAc \
   "SELECT version FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 1"
 
-# 4. 对该库跑完整测试套件：354 个用例、0 跳过。
+# 4. 对该库跑完整测试套件：360 个用例、0 跳过。
 MEMSCOPE_TEST_DB_URL="jdbc:postgresql://127.0.0.1:$PG_PORT/$TEST_DB" \
 MEMSCOPE_TEST_DB_USER="$PG_USER" MEMSCOPE_TEST_DB_PASSWORD="$PG_PASSWORD" \
 MEMSCOPE_FLYWAY_TEST_URL="jdbc:postgresql://127.0.0.1:$PG_PORT/$TEST_DB" \
@@ -281,7 +281,7 @@ mvn -B clean install
 > 会迁移它自己的数据库。
 >
 > CI 会跑同一套测试，然后执行 `python3 scripts/check-test-results.py
-> --require-zero-skips --min-tests 354 --require-layers`；因此「构建成功但 48 个
+> --require-zero-skips --min-tests 360 --require-layers`；因此「构建成功但 48 个
 > DB 用例被跳过」或「某一层整个消失」都会直接失败。
 > CI 使用自己的 `pgvector/pgvector:pg16` service 容器，而不是复用本地容器。
 
@@ -382,17 +382,23 @@ mvn -B -Dtest=LlmProviderFailureTest test
 `insufficient_balance_error` 表示鉴权已通过但账户余额不足以生成内容，
 不是协议或配置错误。
 
-**MiniMax 复验，2026-11-02：** 更换 `ANTHROPIC_API_KEY` 后，以
-`SMOKE_PROVIDER=anthropic SMOKE_SKIP_PROBES=1` 实测仍返回 HTTP 402
-`insufficient_balance_error`（code 1008），`MiniMax-M3` 未产出可解析回答，
-Anthropic 链路未能跑通。启动日志确认分支真实生效、未静默回退：
+**MiniMax 复验，2026-11-02：** 第一次更换后的 key 仍返回 HTTP 402
+`insufficient_balance_error`（code 1008）。再次更换 key 后，
+`SMOKE_PROVIDER=anthropic SMOKE_SKIP_PROBES=1` 在 `MiniMax-M3` 上端到端通过：
+HTTP 200，回答被 `XmlParser` 接受（observation 标题
+`Fixed PaymentService authorization failure for missing order IDs`）；入库向量为
+**1024 维**；`GET /api/search` 返回 `strategy=hybrid`、`fell_back=false`、
+`hits=1`，耗时 **0.131 秒**；`/api/context/inject` 返回 observation 标题与
+`updateFiles`；队列终态 **`processed:1`**，无 failed/pending 残留。从队列
+admission 到 observation 落库耗时 **2.72 秒**（chat + ingest embedding），
+chat 本身的耗时未单独埋点。该次冒烟消耗 **3 次真实调用**（1 chat + 2 embedding），
+在 5 次上限内。启动日志确认分支真实生效：
 `Creating Anthropic-compatible ChatModel: baseUrl=https://api.minimaxi.com/anthropic,
 model=MiniMax-M3` 与 `Creating ChatClient with model: AnthropicChatModel`。
 切换本身用两次重启复验（V20 rehearsal 库、两个 key 同时存在）：
 `provider=openai` 只创建 `OpenAiChatModel`（LongCat），`provider=anthropic`
 只创建 `AnthropicChatModel`（MiniMax），两次均健康，无
-`BeanDefinitionOverrideException`。该次真实路径消耗 1 次真实调用，重启检查
-未消耗模型调用。
+`BeanDefinitionOverrideException`；重启检查未消耗模型调用。
 
 #### 两种协议的切换方式
 
@@ -444,7 +450,7 @@ GitHub Actions 工作流配置在 `.github/workflows/`：
     容器，映射到宿主机 **5433**（GitHub runner 自带的 PostgreSQL 已占用 5432），
     用应用自身的 Flyway 配置迁移到 V20，执行 `mvn -B clean install`（不带
     `-DskipTests`），然后执行 `python3 scripts/check-test-results.py
-    --require-zero-skips --min-tests 354 --require-layers`。任何一个 DB 用例被
+    --require-zero-skips --min-tests 360 --require-layers`。任何一个 DB 用例被
     跳过、用例总数下降、或某一层没有执行任何用例，都会让 job 失败，因此
     「BUILD SUCCESS 但 48 个跳过」不可能通过 CI。
   - 仅 JDK 21 的 job 会在 37777 启动服务，运行
@@ -520,7 +526,8 @@ cd backend
 
 | 日期 | 变更 |
 |------|------|
-| 2026-11-02 | **双协议 provider、LongCat 真实链路、embedding 请求修复。** LongCat（OpenAI 兼容，`https://api.longcat.chat/openai`，`LongCat-2.5`）跑通完整真实路径：提取 chat → `XmlParser` 接受回答 → observation 落库并写入 **1024 维**向量 → `GET /api/search` 返回 `strategy=hybrid`、`fell_back=false`、命中 1 条（0.11 秒）→ `/api/context/inject` 含 observation 标题与 `updateFiles` → 队列表终态 `processed`，非 `failed`。embedding 探针用 `BAAI/bge-m3` 返回 **1024 维、0.29 秒**。由此产生两处修复：(1) OpenAI 专属的 `dimensions` 字段被 SiliconFlow 拒绝（`400 code 20015`），改为由 `spring.ai.openai.embedding.send-dimensions` 显式开启（默认 `false`）；(2) 提取提示词让跳过的模型「不必输出」，而解析器只认 `<skip>`，导致纯文本跳过被判为 malformed——两个模板现要求 `<skip>reason</skip>`，并补齐 `<subtitle>` / `<narrative>` 闭合标签。`OPENAI_API_KEY` 已映射进 `spring.ai.openai.api-key`，普通变量名真正生效。openai/anthropic 切换现由 **bean 注册层**决定（`@ConditionalOnProperty` 绑 `claudemem.llm.provider`），而不是靠方法返回 null：两个 key 都存在时，旧写法仍会留下两个 `ChatModel` 定义，`getBean(ChatModel.class)` 会抛 `NoUniqueBeanDefinitionException`——由新增的上下文级测试抓出。新增 `SpringAiConfigProviderBranchTest`（5 个用例：互斥、真实 Spring 上下文中只存在一个 bean、空 key 抑制、embedding 不随 chat provider 切换）与 `XmlParserTest`（4 个用例：围栏内 observation、`<skip>`、无标签纯文本拒绝、未闭合标签）。文档补上 openai/anthropic 切换对照表、重启要求与确认当前分支的方法。MiniMax 用更新后的 `ANTHROPIC_API_KEY` 重新实测，仍返回 **`402 insufficient_balance_error`（code 1008）**，没有可解析回答，Anthropic 链路未跑通——**待账户充值后复验**，不计为通过。Anthropic bean 本身已由启动日志确认生效；两次重启的切换检查通过（`provider=openai` 只创建 `OpenAiChatModel`，`provider=anthropic` 只创建 `AnthropicChatModel`，两次均健康），无 `BeanDefinitionOverrideException`。用例数 345 → 354 / 0 跳过，`--min-tests` 345 → 354。中英文同步更新 |
+| 2026-11-02 | **Golden 样例集输出质量评估与 MiniMax 最终复验。** 新增仅手动执行、在 CI 下拒绝运行的评估工具（`scripts/eval-model-quality.sh` + `GoldenSetEvaluator`，`EVAL_MAX_CALLS` 默认上限 20），对 **12 条真实感 tool-use 轨迹**打分，覆盖 bug 修复、重构、测试新增、配置变更、安全修复、文档更新，以及 2 条应跳过的低价值变更；每条含期望（是否产 observation / 是否 skip、type、title 关键词、facts/concepts 关键词）。打分逻辑为纯离线 `GoldenSetScorer`，由 6 个单测覆盖。LongCat 实测：**12/12 次调用，0 失败、0 格式错误；契约合格率 92%，skip 判定准确率 92%（TP/FP/FN/TN 2/1/0/9），type 100%，title 完全命中 44%，facts 54%/94%，concepts 57%/83%**。唯一的漏产是一条时区小回归测试被跳过；title 未命中属改写措辞，不是格式错误。报告见 `docs/archive/2026-11-02_model-output-quality-eval.md`。MiniMax 在 key 再次更新后复验**端到端通过**：HTTP 200，回答被 `XmlParser` 接受，入库向量 1024 维，`GET /api/search` 返回 `strategy=hybrid`/`fell_back=false`/`hits=1`，耗时 0.131 秒；`/api/context/inject` 返回 observation 标题与 `updateFiles`；队列终态 `processed:1`；**3 次真实调用**，队列 admission 到落库 2.72 秒。用例数 354 → **360** / 0 跳过（新增 6 个离线打分单测）；`--min-tests` 354 → 360。中英文同步更新 |
+| 2026-11-02 | **双协议 provider、LongCat 真实链路、embedding 请求修复。** LongCat（OpenAI 兼容，`https://api.longcat.chat/openai`，`LongCat-2.5`）跑通完整真实路径：提取 chat → `XmlParser` 接受回答 → observation 落库并写入 **1024 维**向量 → `GET /api/search` 返回 `strategy=hybrid`、`fell_back=false`、命中 1 条（0.11 秒）→ `/api/context/inject` 含 observation 标题与 `updateFiles` → 队列表终态 `processed`，非 `failed`。embedding 探针用 `BAAI/bge-m3` 返回 **1024 维、0.29 秒**。由此产生两处修复：(1) OpenAI 专属的 `dimensions` 字段被 SiliconFlow 拒绝（`400 code 20015`），改为由 `spring.ai.openai.embedding.send-dimensions` 显式开启（默认 `false`）；(2) 提取提示词让跳过的模型「不必输出」，而解析器只认 `<skip>`，导致纯文本跳过被判为 malformed——两个模板现要求 `<skip>reason</skip>`，并补齐 `<subtitle>` / `<narrative>` 闭合标签。`OPENAI_API_KEY` 已映射进 `spring.ai.openai.api-key`，普通变量名真正生效。openai/anthropic 切换现由 **bean 注册层**决定（`@ConditionalOnProperty` 绑 `claudemem.llm.provider`），而不是靠方法返回 null：两个 key 都存在时，旧写法仍会留下两个 `ChatModel` 定义，`getBean(ChatModel.class)` 会抛 `NoUniqueBeanDefinitionException`——由新增的上下文级测试抓出。新增 `SpringAiConfigProviderBranchTest`（5 个用例：互斥、真实 Spring 上下文中只存在一个 bean、空 key 抑制、embedding 不随 chat provider 切换）与 `XmlParserTest`（4 个用例：围栏内 observation、`<skip>`、无标签纯文本拒绝、未闭合标签）。文档补上 openai/anthropic 切换对照表、重启要求与确认当前分支的方法。MiniMax 用当时更新的 `ANTHROPIC_API_KEY` 重新实测，仍返回 **`402 insufficient_balance_error`（code 1008）**，那次没有可解析回答，Anthropic 链路未跑通；随后再次更换 key 的复验已端到端通过，记录见上一条。Anthropic bean 本身已由启动日志确认生效；两次重启的切换检查通过（`provider=openai` 只创建 `OpenAiChatModel`，`provider=anthropic` 只创建 `AnthropicChatModel`，两次均健康），无 `BeanDefinitionOverrideException`。用例数 345 → 354 / 0 跳过，`--min-tests` 345 → 354。中英文同步更新 |
 | 2026-11-02 | 为三条依赖大模型的链路（自动 observation 提取、自动摘要、语义检索）补上测试作用域离线替身（`OfflineAiTestModels` 的 `ChatModel` + `EmbeddingModel`）与 `OfflineAiChainIntegrationTest`。生产配置未改动。实测 `cortexce_flyway_rehearsal` 上 319 个用例 / 0 失败 / 0 跳过；不设 `MEMSCOPE_*` 时为 319 个用例 / 22 跳过。CI 门禁的 `--min-tests` 由 300 调至 319；中英文同步更新 |
 | 2026-11-02 | 第 8 节：补全 `backend-tests.yml` Quality Gates（JDK 21/25 的 DB 全量测试 + 零跳过门禁、API 文档一致性、proxy E2E）与 `webui` typecheck job，并写明上游 Bun 套件为何不在范围内、viewer 契约改由 `WebUiWireContractTest` 固定。第 6 节建库步骤加入可重复执行的 `DROP DATABASE ... WITH (FORCE)`。已在本机已运行的 `postgres:16` 容器（vector `0.8.2`）上复验：JDK 21 与 JDK 25 均为 316 个用例 / 0 失败 / 0 跳过；中英文同步更新 |
 | 2026-11-02 | 第 6 节：把「再 `docker run -p 5432:5432 ...` 起一个新容器」改成可直接复制执行的流程——复用本机已在运行的 PostgreSQL 容器，在其中创建专用库 `cortexce_flyway_rehearsal`，用 `pg_available_extensions` 核实 pgvector，迁移到 V20，再用 `MEMSCOPE_*` 跑 `mvn -B clean install`。同时纠正「本机容器没有 pgvector」的错误判断：本机 `postgres:16` 容器报告 vector `0.8.2`，镜像 tag 不能作为证据。已在该库实测 313 个用例 / 0 失败 / 0 跳过（新增 `WebUiWireContractTest` 后为 316）；中英文同步更新 |

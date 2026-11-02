@@ -8,7 +8,7 @@ disappears entirely. This script makes those states fail.
 Usage:
     python3 scripts/check-test-results.py                      # failures/errors/no tests
     python3 scripts/check-test-results.py --require-zero-skips # CI: skips are failures
-    python3 scripts/check-test-results.py --min-tests 354      # guard against test loss
+    python3 scripts/check-test-results.py --min-tests 360      # guard against test loss
     python3 scripts/check-test-results.py --require-layers     # L1-L4 must all be present
 
 Layers are inferred from the test class name: classes under
