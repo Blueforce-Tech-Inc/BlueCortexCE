@@ -293,6 +293,33 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         """, nativeQuery = true)
     long countByProjectPath(@Param("project") String projectPath);
 
+    /**
+     * Rows whose embedding attempt failed or never happened, newest first.
+     *
+     * <p>Rows with {@code embedding_state='skipped'} are excluded on purpose: they carry
+     * no text to embed, so retrying them forever would keep the backlog non-empty.
+     * Rows written before V21 have a NULL state and are claimed exactly once.
+     */
+    @Query(value = OBSERVATION_ENTITY_SELECT + """
+        WHERE o.embedding_768 IS NULL
+          AND o.embedding_1024 IS NULL
+          AND o.embedding_1536 IS NULL
+          AND (o.embedding_state IS NULL OR o.embedding_state = 'failed')
+        ORDER BY o.created_at_epoch DESC
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<ObservationEntity> findMissingEmbeddings(@Param("limit") int limit);
+
+    /** Count of rows awaiting an embedding retry. Exposed through the queue health indicator. */
+    @Query(value = """
+        SELECT count(*) FROM mem_observations o
+        WHERE o.embedding_768 IS NULL
+          AND o.embedding_1024 IS NULL
+          AND o.embedding_1536 IS NULL
+          AND (o.embedding_state IS NULL OR o.embedding_state = 'failed')
+        """, nativeQuery = true)
+    long countMissingEmbeddings();
+
     // Find all observations for a project, ordered by creation time (descending)
     //
     // Ordered by created_at_epoch, not created_at. Every hand-written @Query in

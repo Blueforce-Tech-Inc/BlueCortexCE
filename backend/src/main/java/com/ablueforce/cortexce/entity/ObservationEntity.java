@@ -112,6 +112,16 @@ public class ObservationEntity {
     @JsonProperty("embedding_model_id")
     private String embeddingModelId;
 
+    /** ready | failed | skipped; null for rows written before V21. */
+    @Column(name = "embedding_state", length = 16)
+    @JsonProperty("embedding_state")
+    private String embeddingState;
+
+    /** Short failure classification, never message text. */
+    @Column(name = "embedding_error", length = 64)
+    @JsonProperty("embedding_error")
+    private String embeddingError;
+
     // V17: Observation feedback tracking fields
     @Column(name = "generated_by_model")
     @JsonProperty("generated_by_model")
@@ -433,6 +443,12 @@ public class ObservationEntity {
 
     public String getEmbeddingModelId() { return embeddingModelId; }
     public void setEmbeddingModelId(String embeddingModelId) { this.embeddingModelId = embeddingModelId; }
+
+    public String getEmbeddingState() { return embeddingState; }
+    public void setEmbeddingState(String embeddingState) { this.embeddingState = embeddingState; }
+
+    public String getEmbeddingError() { return embeddingError; }
+    public void setEmbeddingError(String embeddingError) { this.embeddingError = embeddingError; }
 
     public String getGeneratedByModel() { return generatedByModel; }
     public void setGeneratedByModel(String generatedByModel) { this.generatedByModel = generatedByModel; }

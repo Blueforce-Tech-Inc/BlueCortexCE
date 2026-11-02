@@ -115,6 +115,10 @@ public class PendingMessageEntity {
     @Column(name = "failed_at_epoch")
     private Long failedAtEpoch;
 
+    /** Short failure classification, never message text. */
+    @Column(name = "failure_kind", length = 64)
+    private String failureKind;
+
     // Getters and Setters
 
     public UUID getId() { return id; }
@@ -170,6 +174,9 @@ public class PendingMessageEntity {
 
     public Long getFailedAtEpoch() { return failedAtEpoch; }
     public void setFailedAtEpoch(Long failedAtEpoch) { this.failedAtEpoch = failedAtEpoch; }
+
+    public String getFailureKind() { return failureKind; }
+    public void setFailureKind(String failureKind) { this.failureKind = failureKind; }
 
     // V20 durable summary job accessors
 

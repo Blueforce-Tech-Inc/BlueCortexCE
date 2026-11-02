@@ -2,6 +2,7 @@ package com.ablueforce.cortexce.event;
 
 import com.ablueforce.cortexce.entity.PendingMessageEntity;
 import com.ablueforce.cortexce.repository.PendingMessageRepository;
+import com.ablueforce.cortexce.service.ConversationWriteService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -9,6 +10,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -25,13 +27,19 @@ import static org.mockito.Mockito.*;
  * - message not found → no-ops
  * - exception during save → does not propagate
  * - exception during find → does not propagate
+ * - exception escaping the worker → goes through the retry budget, not a blind dead-letter
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class PendingMessageEventListenerTest {
 
+    private static final int CONFIGURED_MAX_RETRIES = 3;
+
     @Mock
     private PendingMessageRepository pendingMessageRepository;
+
+    @Mock
+    private ConversationWriteService conversationWriteService;
 
     // Stub AgentService that does nothing (avoids ByteBuddy Java 24 issue)
     private com.ablueforce.cortexce.service.AgentService noopAgentService;
@@ -60,7 +68,8 @@ class PendingMessageEventListenerTest {
             }
         };
         listener = new PendingMessageEventListener(
-            noopAgentService, pendingMessageRepository, noopSummaryService);
+            noopAgentService, pendingMessageRepository, noopSummaryService, conversationWriteService);
+        ReflectionTestUtils.setField(listener, "maxRetries", CONFIGURED_MAX_RETRIES);
         messageId = UUID.randomUUID();
     }
 
@@ -133,5 +142,65 @@ class PendingMessageEventListenerTest {
 
         // When/Then: should NOT throw — self-protected
         listener.handlePendingMessageEvent(event);
+    }
+
+    // ===== observation failures escaping the worker =====
+
+    @Test
+    void retryableFailureEscapingWorkerUsesFullRetryBudget() {
+        PendingMessageEventListener retryListener = listenerWithAgentFailingWith(
+            new RuntimeException("LLM provider returned 429"));
+
+        retryListener.handlePendingMessageEvent(observationEvent());
+
+        verify(conversationWriteService).markObservationFailed(
+            eq(messageId), eq(CONFIGURED_MAX_RETRIES), anyLong(), anyString());
+        // The old implementation dead-lettered here without consulting the budget.
+        verify(pendingMessageRepository, never()).save(any());
+    }
+
+    @Test
+    void terminalFailureEscapingWorkerDoesNotConsumeTheBudget() {
+        PendingMessageEventListener retryListener = listenerWithAgentFailingWith(
+            new RuntimeException("Gemini API error: 401 Unauthorized"));
+
+        retryListener.handlePendingMessageEvent(observationEvent());
+
+        verify(conversationWriteService).markObservationFailed(eq(messageId), eq(1), anyLong(), anyString());
+        verify(pendingMessageRepository, never()).save(any());
+    }
+
+    @Test
+    void unrecordableFailureLeavesRowProcessingAndDoesNotPropagate() {
+        PendingMessageEventListener retryListener = listenerWithAgentFailingWith(
+            new RuntimeException("LLM provider unavailable"));
+        doThrow(new RuntimeException("lock timeout"))
+            .when(conversationWriteService).markObservationFailed(any(), anyInt(), anyLong(), anyString());
+
+        // Must not throw: the async executor would otherwise lose the only record.
+        retryListener.handlePendingMessageEvent(observationEvent());
+
+        verify(pendingMessageRepository, never()).save(any());
+    }
+
+    private PendingMessageEventListener listenerWithAgentFailingWith(RuntimeException failure) {
+        com.ablueforce.cortexce.service.AgentService failingAgent =
+            new com.ablueforce.cortexce.service.AgentService(
+                null, null, null, null, null, null, null, null, null, null, null
+            ) {
+                @Override
+                public void processPendingMessage(UUID pendingMessageId) {
+                    throw failure;
+                }
+            };
+        PendingMessageEventListener retryListener = new PendingMessageEventListener(
+            failingAgent, pendingMessageRepository, noopSummaryService, conversationWriteService);
+        ReflectionTestUtils.setField(retryListener, "maxRetries", CONFIGURED_MAX_RETRIES);
+        return retryListener;
+    }
+
+    private PendingMessageEvent observationEvent() {
+        return new PendingMessageEvent(
+            messageId, "observation", PendingMessageEvent.EventSource.SCHEDULED);
     }
 }

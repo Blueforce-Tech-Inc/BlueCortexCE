@@ -263,11 +263,9 @@ public class LlmService {
     }
 
     private static String abbreviate(String message) {
-        if (message == null) {
-            return "no message";
-        }
-        String singleLine = message.replaceAll("\\s+", " ").trim();
-        return singleLine.length() <= 160 ? singleLine : singleLine.substring(0, 160) + "...";
+        // Provider error bodies can echo request headers. LogSanitizer keeps the
+        // diagnostic value while masking anything that looks like a credential.
+        return com.ablueforce.cortexce.util.LogSanitizer.safeDetail(message, 160);
     }
 
     public boolean isAvailable() {

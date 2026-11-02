@@ -18,6 +18,7 @@ import com.ablueforce.cortexce.service.AgentService;
 import com.ablueforce.cortexce.service.ContextCacheService;
 import com.ablueforce.cortexce.service.ConversationWriteService;
 import com.ablueforce.cortexce.service.EmbeddingService;
+import com.ablueforce.cortexce.service.EmbeddingBackfillService;
 import com.ablueforce.cortexce.service.ExtractionValidationService;
 import com.ablueforce.cortexce.service.LlmService;
 import com.ablueforce.cortexce.service.MemoryScopeService;
@@ -96,6 +97,7 @@ import static org.mockito.Mockito.mock;
     ModeService.class,
     LlmService.class,
     EmbeddingService.class,
+    EmbeddingBackfillService.class,
     SummaryJobService.class,
     SummaryResultPersistenceService.class,
     SummaryGenerationService.class,
@@ -118,6 +120,7 @@ class LlmProviderFailureTest {
     @Autowired private SummaryGenerationService summaryGenerationService;
     @Autowired private SearchService searchService;
     @Autowired private EmbeddingService embeddingService;
+    @Autowired private EmbeddingBackfillService embeddingBackfillService;
     @Autowired private ObservationRepository observationRepository;
     @Autowired private SummaryRepository summaryRepository;
     @Autowired private PendingMessageRepository pendingMessageRepository;
@@ -144,6 +147,7 @@ class LlmProviderFailureTest {
         registry.add("claudemem.stale-message.recovery-interval-ms", () -> "86400000");
         registry.add("app.memory.refine-enabled", () -> "false");
         registry.add("claudemem.max-retries", () -> String.valueOf(CONFIGURED_MAX_RETRIES));
+        registry.add("claudemem.embedding.backfill-interval-ms", () -> "86400000");
     }
 
     @BeforeEach
@@ -451,6 +455,66 @@ class LlmProviderFailureTest {
         assertThat(recovered.getBody().fellBack()).isFalse();
         assertThat(recovered.getBody().observations()).extracting(ObservationEntity::getTitle)
             .containsExactly(OfflineAiTestModels.OBSERVATION_TITLE);
+    }
+
+    @Test
+    @DisplayName("embedding failure is visible on the row and repaired by the backfill sweep")
+    void embeddingFailureIsRecordedAndRepairedByBackfill() {
+        Fixture fixture = newConversation("embed-backfill");
+        embeddingModel.failWith(new IllegalStateException("503 Service Unavailable"));
+
+        UUID pendingId = enqueue(fixture, "echo embed");
+        agentService.processPendingMessage(pendingId);
+
+        // The observation itself still lands: an embedding outage must not lose the memory.
+        assertThat(pendingMessageRepository.findById(pendingId).orElseThrow().getStatus())
+            .isEqualTo("processed");
+        ObservationEntity observation = observationRepository
+            .findByConversationIdOrderByCreatedAtEpochAsc(fixture.session().getId()).get(0);
+
+        // ...but the outage is now on the row instead of only in a log line.
+        assertThat(observation.getEmbeddingState()).isEqualTo(EmbeddingService.STATE_FAILED);
+        assertThat(observation.getEmbeddingError()).isNotBlank();
+        assertThat(observation.getEmbedding1024()).isNull();
+        assertThat(observation.getEmbeddingModelId()).isNull();
+
+        embeddingModel.succeed();
+        assertThat(embeddingBackfillService.backfill(10))
+            .as("the sweep must find at least the row that just failed")
+            .isGreaterThanOrEqualTo(1);
+
+        ObservationEntity repaired = observationRepository.findById(observation.getId()).orElseThrow();
+        assertThat(repaired.getEmbeddingState()).isEqualTo(EmbeddingService.STATE_READY);
+        assertThat(repaired.getEmbeddingError()).isNull();
+        assertThat(repaired.getEmbedding1024()).isNotNull().hasSize(1024);
+        assertThat(repaired.getEmbeddingModelId()).isNotBlank();
+    }
+
+    @Test
+    @DisplayName("a row with no text to embed is marked skipped and never re-scanned")
+    void unembeddableRowIsSkippedNotRetriedForever() {
+        Fixture fixture = newConversation("embed-skip");
+        createObservation(fixture);
+        ObservationEntity observation = observationRepository
+            .findByConversationIdOrderByCreatedAtEpochAsc(fixture.session().getId()).get(0);
+
+        // Strip everything the embedder would consume and forget the previous vector.
+        observation.setTitle(" ");
+        observation.setContent(null);
+        observation.setFacts(List.of());
+        observation.setEmbedding768(null);
+        observation.setEmbedding1024(null);
+        observation.setEmbedding1536(null);
+        observation.setEmbeddingModelId(null);
+        observation.setEmbeddingState(null);
+        observationRepository.saveAndFlush(observation);
+
+        assertThat(embeddingBackfillService.repair(observation)).isFalse();
+        assertThat(observation.getEmbeddingState()).isEqualTo(EmbeddingService.STATE_SKIPPED);
+
+        assertThat(observationRepository.findMissingEmbeddings(10))
+            .as("skipped rows carry no text, so they must leave the backlog")
+            .noneMatch(row -> row.getId().equals(observation.getId()));
     }
 
     // ------------------------------------------------------------------

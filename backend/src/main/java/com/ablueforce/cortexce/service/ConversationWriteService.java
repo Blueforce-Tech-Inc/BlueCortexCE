@@ -9,6 +9,8 @@ import com.ablueforce.cortexce.repository.ObservationRepository;
 import com.ablueforce.cortexce.repository.PendingMessageRepository;
 import com.ablueforce.cortexce.repository.SessionRepository;
 import com.ablueforce.cortexce.repository.UserPromptRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +31,8 @@ import java.util.UUID;
 /** Serializes Conversation-owned writes with SessionEnd and Viewer deletion. */
 @Service
 public class ConversationWriteService {
+
+    private static final Logger log = LoggerFactory.getLogger(ConversationWriteService.class);
 
     private final SessionRepository sessionRepository;
     private final PendingMessageRepository pendingMessageRepository;
@@ -210,10 +214,14 @@ public class ConversationWriteService {
         ObservationEntity saved = duplicate.orElseGet(() -> observationRepository.saveAndFlush(observation));
 
         if (pending != null) {
-            pending.setStatus("processed");
-            pending.setCompletedAtEpoch(Instant.now().toEpochMilli());
-            pending.setStartedProcessingAtEpoch(null);
-            pendingMessageRepository.saveAndFlush(pending);
+            // Same conditional rule as the claim: only the worker that still owns a
+            // `processing` row may complete it. A stale read is never trusted.
+            long now = Instant.now().toEpochMilli();
+            if (pendingMessageRepository.completeProcessingObservation(
+                pendingId, conversationId, "processed", now) == 0) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "admitted Observation job is not in a writable state");
+            }
             wakeSummaryIfDrained(session);
         }
         if (duplicate.isEmpty()) {
@@ -222,6 +230,19 @@ public class ConversationWriteService {
         return saved;
     }
 
+    /**
+     * Atomically claim one Observation job.
+     *
+     * <p>The first read is only used to find the parent Conversation. Ownership is decided
+     * by a single conditional UPDATE that requires {@code status = 'pending'}, so two
+     * workers that both read the same row cannot both win it — the second gets zero
+     * affected rows and stops. Reading the row again before the UPDATE would hit the
+     * first-level cache and see the stale {@code pending} snapshot, which is exactly how
+     * the previous implementation allowed duplicate processing.
+     *
+     * @return the claimed row, or empty when another worker owns it, it is not pending,
+     *         or its Conversation no longer accepts work
+     */
     @Transactional
     public Optional<PendingMessageEntity> claimObservationJob(UUID pendingId) {
         PendingMessageEntity current = pendingMessageRepository.findById(pendingId).orElse(null);
@@ -229,59 +250,60 @@ public class ConversationWriteService {
             return Optional.empty();
         }
         SessionEntity session = lockAndLoad(current.getSessionDbId());
+        long now = Instant.now().toEpochMilli();
+        if (pendingMessageRepository.claimPendingObservation(pendingId, now) == 0) {
+            return Optional.empty();
+        }
         PendingMessageEntity pending = pendingMessageRepository.findById(pendingId).orElse(null);
-        if (pending == null || !"observation".equals(pending.getMessageType())
-            || !"pending".equals(pending.getStatus())) {
+        if (pending == null) {
             return Optional.empty();
         }
         if (!"active".equals(session.getStatus()) && !"summarizing".equals(session.getStatus())) {
-            pending.setStatus("failed");
-            pending.setFailedAtEpoch(Instant.now().toEpochMilli());
-            pending.setCompletedAtEpoch(Instant.now().toEpochMilli());
-            pendingMessageRepository.save(pending);
+            pendingMessageRepository.failClaimedObservation(pendingId, now);
             wakeSummaryIfDrained(session);
             return Optional.empty();
         }
-        pending.setStatus("processing");
-        pending.setStartedProcessingAtEpoch(Instant.now().toEpochMilli());
-        return Optional.of(pendingMessageRepository.saveAndFlush(pending));
+        return Optional.of(pending);
     }
 
     @Transactional
     public void markObservationSkipped(UUID pendingId, UUID conversationId) {
         SessionEntity session = lockAndLoad(conversationId);
-        PendingMessageEntity pending = requireProcessingObservation(pendingId, conversationId);
-        pending.setStatus("skipped");
-        pending.setCompletedAtEpoch(Instant.now().toEpochMilli());
-        pending.setStartedProcessingAtEpoch(null);
-        pendingMessageRepository.saveAndFlush(pending);
+        long now = Instant.now().toEpochMilli();
+        if (pendingMessageRepository.completeProcessingObservation(
+            pendingId, conversationId, "skipped", now) == 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                "admitted Observation job is not in a writable state");
+        }
         wakeSummaryIfDrained(session);
     }
 
+    /**
+     * Record one failed attempt for a job this caller still owns.
+     *
+     * <p>The retry budget is applied by the conditional UPDATE itself: a row that is no
+     * longer {@code processing} (already completed, skipped, or re-queued by another
+     * worker) is left untouched. The old read-then-write version could observe a cached
+     * {@code processing} snapshot and push a {@code processed} row back into the queue.
+     */
     @Transactional
-    public void markObservationFailed(UUID pendingId, int maxRetries, long nowEpoch) {
+    public void markObservationFailed(UUID pendingId, int maxRetries, long nowEpoch, String failureKind) {
         PendingMessageEntity current = pendingMessageRepository.findById(pendingId).orElse(null);
         if (current == null || !"observation".equals(current.getMessageType())) {
             return;
         }
         SessionEntity session = lockAndLoad(current.getSessionDbId());
-        PendingMessageEntity pending = pendingMessageRepository.findById(pendingId).orElse(null);
-        if (pending == null || !"processing".equals(pending.getStatus())) {
+        int updated = pendingMessageRepository.failProcessingObservation(
+            pendingId, Math.max(1, maxRetries), nowEpoch,
+            failureKind == null ? "UNKNOWN" : failureKind);
+        if (updated == 0) {
+            log.debug("Observation job {} was not owned by this worker; leaving it unchanged", pendingId);
             return;
         }
-        int retryCount = (pending.getRetryCount() == null ? 0 : pending.getRetryCount()) + 1;
-        pending.setRetryCount(retryCount);
-        pending.setStartedProcessingAtEpoch(null);
-        if (retryCount < Math.max(1, maxRetries)) {
-            pending.setStatus("pending");
-            pending.setFailedAtEpoch(null);
-        } else {
-            pending.setStatus("failed");
-            pending.setFailedAtEpoch(nowEpoch);
-            pending.setCompletedAtEpoch(nowEpoch);
-        }
-        pendingMessageRepository.saveAndFlush(pending);
-        if ("failed".equals(pending.getStatus())) {
+        boolean terminal = pendingMessageRepository.findById(pendingId)
+            .map(row -> "failed".equals(row.getStatus()))
+            .orElse(false);
+        if (terminal) {
             wakeSummaryIfDrained(session);
         }
     }

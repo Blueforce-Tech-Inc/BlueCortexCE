@@ -8,6 +8,7 @@ import com.ablueforce.cortexce.entity.PendingMessageEntity;
 import com.ablueforce.cortexce.entity.SessionEntity;
 import com.ablueforce.cortexce.repository.PendingMessageRepository;
 import com.ablueforce.cortexce.repository.SessionRepository;
+import com.ablueforce.cortexce.util.LogSanitizer;
 import com.ablueforce.cortexce.util.XmlParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -298,14 +299,16 @@ public class AgentService implements LogHelper {
         } catch (DataIntegrityViolationException e) {
             logDataIn("Duplicate pending message detected (concurrent insert): id={}", pendingMessageId);
             conversationWriteService.markObservationFailed(
-                pendingMessageId, maxRetries, System.currentTimeMillis());
+                pendingMessageId, maxRetries, System.currentTimeMillis(),
+                RetryPolicy.failureKind(e));
         } catch (Exception e) {
             String failureKind = e instanceof LlmService.ProviderFailureException provider
                 ? provider.kind().name() : "NON_PROVIDER";
             log.error("Error processing pending Observation {}: failure={}, error={}: {}",
                 pendingMessageId, failureKind, e.getClass().getSimpleName(), e.getMessage());
             conversationWriteService.markObservationFailed(
-                pendingMessageId, isRetryableException(e) ? maxRetries : 1, System.currentTimeMillis());
+                pendingMessageId, RetryPolicy.isRetryable(e) ? maxRetries : 1,
+                System.currentTimeMillis(), RetryPolicy.failureKind(e));
         }
     }
 
@@ -351,9 +354,9 @@ public class AgentService implements LogHelper {
         }
         String llmContent = llmResponse.content();
         int discoveryTokens = llmResponse.totalTokens();
-        log.debug("Observation extraction completed: response_chars={}, tokens={}, head={}",
+        log.debug("Observation extraction completed: response_chars={}, tokens={}, response_fingerprint={}",
             llmContent == null ? 0 : llmContent.length(), discoveryTokens,
-            llmContent == null ? "" : llmContent.substring(0, Math.min(2000, llmContent.length())));
+            LogSanitizer.fingerprint(llmContent));
 
         // Check for skip
         String skipReason = XmlParser.extractTag(llmContent, "skip");
@@ -388,52 +391,19 @@ public class AgentService implements LogHelper {
     }
 
     /**
-     * Get the depth of the pending message queue.
+     * Depth of the work queue: pending rows plus rows currently being processed.
+     *
+     * <p>Counting only {@code pending} made a stuck worker look idle: the row it holds
+     * disappears from the depth while nothing is moving. The readiness check consumes
+     * this value, so it must describe outstanding work, not only waiting work.
      */
     public long getQueueDepth() {
-        return pendingMessageRepository.countByStatus("pending");
+        return pendingMessageRepository.countOpenJobs();
     }
 
     // ========================================================================
     // Private helpers
     // ========================================================================
-
-    /**
-     * Check if exception is retryable.
-     * Returns false for unrecoverable auth errors to prevent endless retry loops
-     * (aligned with TS v10.6.3 commit 07ab7000).
-     */
-    private boolean isRetryableException(Exception e) {
-        // A classified provider failure carries the decision: only transient kinds
-        // (429 / timeout / 5xx) are retried; auth and unusable answers are terminal.
-        if (e instanceof LlmService.ProviderFailureException provider) {
-            return provider.kind().isTransient();
-        }
-        // Unrecoverable auth errors - do NOT retry (prevents 77K+ retry loops)
-        if (e.getMessage() != null) {
-            String msg = e.getMessage();
-            if (msg.contains("API_KEY_INVALID") ||
-                msg.contains("API key expired") ||
-                msg.contains("API key not valid") ||
-                msg.contains("PERMISSION_DENIED") ||
-                msg.contains("Gemini API error: 400") ||
-                msg.contains("Gemini API error: 401") ||
-                msg.contains("Gemini API error: 403")) {
-                return false;
-            }
-        }
-        // Network/timeouts are retryable
-        if (e instanceof java.net.SocketTimeoutException ||
-            e instanceof java.net.ConnectException ||
-            e instanceof java.util.concurrent.TimeoutException) {
-            return true;
-        }
-        // LLM service errors are retryable
-        if (e.getMessage() != null && e.getMessage().contains("LLM")) {
-            return true;
-        }
-        return false;
-    }
 
     /**
      * Calculate SHA-256 hash for deduplication (collision-resistant).
@@ -497,41 +467,35 @@ public class AgentService implements LogHelper {
 
     /**
      * Generate embedding for observation.
+     *
+     * <p>A failure is recorded on the row ({@code embedding_state=failed}) instead of
+     * being swallowed. Before V21 the only trace of an outage was a WARN line in the
+     * log, so semantic search degraded silently and nothing ever repaired the rows.
      */
     private void generateEmbedding(XmlParser.ParsedObservation parsed, ObservationEntity obs) {
+        String textToEmbed = EmbeddingService.buildObservationText(
+            parsed.title, parsed.narrative, parsed.facts);
+        if (textToEmbed.isBlank()) {
+            obs.setEmbeddingState(EmbeddingService.STATE_SKIPPED);
+            return;
+        }
         try {
-            String textToEmbed = buildEmbeddingText(parsed.title, parsed.narrative, parsed.facts);
-            if (textToEmbed != null && !textToEmbed.isBlank()) {
-                float[] vector = embeddingService.embed(textToEmbed);
-                int dim = vector.length;
-                switch (dim) {
-                    case 768 -> obs.setEmbedding768(vector);
-                    case 1024 -> obs.setEmbedding1024(vector);
-                    case 1536 -> obs.setEmbedding1536(vector);
-                    default -> log.warn("Unsupported embedding dimension: {} (supported: 768, 1024, 1536)", dim);
-                }
-                obs.setEmbeddingModelId(embeddingService.getModel());
+            if (embeddingService.applyVector(obs, embeddingService.embed(textToEmbed))) {
+                return;
             }
+            obs.setEmbeddingState(EmbeddingService.STATE_FAILED);
+            obs.setEmbeddingError("unsupported-dimension");
         } catch (org.springframework.web.reactive.function.client.WebClientRequestException e) {
+            obs.setEmbeddingState(EmbeddingService.STATE_FAILED);
+            obs.setEmbeddingError(EmbeddingService.classifyFailure(e));
             logHappyPath("Embedding service unavailable, saving observation without embedding: {}",
                 e.getClass().getSimpleName());
         } catch (Exception e) {
+            obs.setEmbeddingState(EmbeddingService.STATE_FAILED);
+            obs.setEmbeddingError(EmbeddingService.classifyFailure(e));
             logHappyPath("Embedding generation failed for observation, saving without embedding: {}",
                 e.getClass().getSimpleName());
         }
-    }
-
-    /**
-     * Build text for embedding from observation fields.
-     */
-    private String buildEmbeddingText(String title, String narrative, List<String> facts) {
-        StringBuilder sb = new StringBuilder();
-        if (title != null) sb.append(title).append(". ");
-        if (narrative != null) sb.append(narrative).append(" ");
-        if (facts != null && !facts.isEmpty()) {
-            sb.append(String.join("; ", facts));
-        }
-        return sb.toString().trim();
     }
 
     // ========================================================================

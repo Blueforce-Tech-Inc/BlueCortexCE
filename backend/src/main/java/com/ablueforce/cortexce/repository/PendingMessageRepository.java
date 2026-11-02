@@ -43,6 +43,30 @@ public interface PendingMessageRepository extends JpaRepository<PendingMessageEn
 
     long countByStatus(String status);
 
+    /** Everything that is still work: pending rows plus rows currently being processed. */
+    @Query("SELECT COUNT(p) FROM PendingMessageEntity p WHERE p.status IN ('pending', 'processing')")
+    long countOpenJobs();
+
+    /** Failed rows since an epoch, used for the "is the queue failing right now?" signal. */
+    @Query("""
+        SELECT COUNT(p) FROM PendingMessageEntity p
+        WHERE p.status = 'failed' AND p.failedAtEpoch >= :sinceEpoch
+        """)
+    long countFailedSince(@Param("sinceEpoch") long sinceEpoch);
+
+    /** Recent failure classifications, newest first (bounded so health checks stay cheap). */
+    @Query(value = """
+        SELECT failure_kind FROM mem_pending_messages
+        WHERE status = 'failed' AND failed_at_epoch >= :sinceEpoch
+        ORDER BY failed_at_epoch DESC
+        LIMIT 100
+        """, nativeQuery = true)
+    List<String> findRecentFailureKinds(@Param("sinceEpoch") long sinceEpoch);
+
+    /** Oldest row still waiting, or null when the queue is empty. */
+    @Query("SELECT MIN(p.createdAtEpoch) FROM PendingMessageEntity p WHERE p.status = 'pending'")
+    Long findOldestPendingEpoch();
+
     // ========================================================================
     // V20 durable summary job queries
     // ========================================================================
@@ -134,33 +158,120 @@ public interface PendingMessageRepository extends JpaRepository<PendingMessageEn
         @Param("beforeEpoch") long beforeEpoch
     );
 
+    // ========================================================================
+    // Atomic Observation job state transitions
+    //
+    // Every transition is a single conditional UPDATE that names the exact state it
+    // requires. The Java layer never decides "this row is still mine" from an earlier
+    // read: two workers can read the same `pending` row, and only the UPDATE can tell
+    // them apart. A zero row count means "somebody else owns it now", never "retry".
+    // ========================================================================
+
     /**
-     * P1: Mark message as failed with retry logic.
-     * If retry_count < maxRetries, moves back to 'pending' for retry.
-     * Otherwise marks as 'failed' permanently.
+     * Claim one Observation job. Exactly one concurrent caller can win:
+     * the row is moved to {@code processing} only while it is still {@code pending}.
      *
-     * BUG FIX: Must check retry_count + 1 < maxRetries because retry_count
-     * is incremented in the same statement. Original bug: used retry_count < maxRetries
-     * which resulted in maxRetries + 1 actual attempts.
+     * @return 1 when this caller owns the job, 0 when another worker already did
      */
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+        UPDATE mem_pending_messages
+        SET status = 'processing',
+            started_processing_at_epoch = :now
+        WHERE id = :id
+          AND message_type = 'observation'
+          AND status = 'pending'
+        """, nativeQuery = true)
+    int claimPendingObservation(
+        @Param("id") UUID id,
+        @Param("now") long now
+    );
+
+    /**
+     * Close a freshly claimed job because its Conversation no longer accepts work.
+     * Requires {@code processing}, so it cannot rewrite a completed or unclaimed row.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+        UPDATE mem_pending_messages
+        SET status = 'failed',
+            failed_at_epoch = :now,
+            completed_at_epoch = :now,
+            started_processing_at_epoch = NULL
+        WHERE id = :id
+          AND message_type = 'observation'
+          AND status = 'processing'
+        """, nativeQuery = true)
+    int failClaimedObservation(
+        @Param("id") UUID id,
+        @Param("now") long now
+    );
+
+    /**
+     * Record one failed attempt and apply the retry budget.
+     *
+     * <p>Reads {@code retry_count} only from the row it is currently updating, and
+     * requires {@code processing}: a job that another worker already completed or
+     * re-queued is never touched, so a late failure cannot resurrect it.
+     *
+     * <p>{@code retry_count + 1 < maxRetries} is deliberate: the counter is incremented
+     * in the same statement, so this gives exactly {@code maxRetries} attempts.
+     *
+     * @return 1 when the row was still owned by this caller, 0 otherwise
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
         UPDATE mem_pending_messages
         SET status = CASE
-            WHEN retry_count + 1 < :maxRetries THEN 'pending'
-            ELSE 'failed'
+                WHEN retry_count + 1 < :maxRetries THEN 'pending'
+                ELSE 'failed'
             END,
             retry_count = retry_count + 1,
             started_processing_at_epoch = NULL,
             failed_at_epoch = CASE
                 WHEN retry_count + 1 >= :maxRetries THEN :now
                 ELSE NULL
-                END
-        WHERE id = :id AND status IN ('pending', 'processing')
+            END,
+            completed_at_epoch = CASE
+                WHEN retry_count + 1 >= :maxRetries THEN :now
+                ELSE completed_at_epoch
+            END,
+            failure_kind = CASE
+                WHEN retry_count + 1 >= :maxRetries THEN :failureKind
+                ELSE failure_kind
+            END
+        WHERE id = :id
+          AND message_type = 'observation'
+          AND status = 'processing'
         """, nativeQuery = true)
-    int markFailedWithRetry(
+    int failProcessingObservation(
         @Param("id") UUID id,
         @Param("maxRetries") int maxRetries,
+        @Param("now") long now,
+        @Param("failureKind") String failureKind
+    );
+
+    /**
+     * Close a job that this caller still owns ({@code processing}) as
+     * {@code processed} or {@code skipped}.
+     *
+     * @return 1 when the row was still owned by this caller, 0 otherwise
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+        UPDATE mem_pending_messages
+        SET status = :status,
+            completed_at_epoch = :now,
+            started_processing_at_epoch = NULL
+        WHERE id = :id
+          AND session_db_id = :sessionDbId
+          AND message_type = 'observation'
+          AND status = 'processing'
+        """, nativeQuery = true)
+    int completeProcessingObservation(
+        @Param("id") UUID id,
+        @Param("sessionDbId") UUID sessionDbId,
+        @Param("status") String status,
         @Param("now") long now
     );
 

@@ -90,14 +90,41 @@ class ConversationWriteServiceTest {
         when(observationRepository.findDuplicateByContentHash(eq("digest"), anyLong(), any(UUID.class)))
             .thenReturn(Optional.empty());
         when(observationRepository.saveAndFlush(observation)).thenReturn(observation);
-        when(pendingMessageRepository.saveAndFlush(observationJob)).thenReturn(observationJob);
+        when(pendingMessageRepository.completeProcessingObservation(
+            eq(pendingId), eq(conversationId), eq("processed"), anyLong())).thenReturn(1);
 
         ObservationEntity saved = service.saveObservation(conversationId, pendingId, observation, 0);
 
         assertThat(saved).isSameAs(observation);
-        assertThat(observationJob.getStatus()).isEqualTo("processed");
+        verify(pendingMessageRepository).completeProcessingObservation(
+            eq(pendingId), eq(conversationId), eq("processed"), anyLong());
         verify(pendingMessageEventPublisher).publishPendingMessageEvent(summaryId, "summarize");
         verify(sseBroadcaster).broadcast(anyMap(), eq("new_observation"));
+    }
+
+    @Test
+    void observationIsRejectedWhenAnotherWorkerOwnsTheJob() {
+        UUID pendingId = UUID.randomUUID();
+        PendingMessageEntity observationJob = new PendingMessageEntity();
+        observationJob.setId(pendingId);
+        observationJob.setSessionDbId(conversationId);
+        observationJob.setMessageType("observation");
+        observationJob.setStatus("processing");
+        ObservationEntity observation = observation(conversationId);
+
+        when(pendingMessageRepository.findById(pendingId)).thenReturn(Optional.of(observationJob));
+        when(observationRepository.findDuplicateByContentHash(eq("digest"), anyLong(), any(UUID.class)))
+            .thenReturn(Optional.empty());
+        when(observationRepository.saveAndFlush(observation)).thenReturn(observation);
+        // The conditional UPDATE reports that the row is no longer ours.
+        when(pendingMessageRepository.completeProcessingObservation(
+            eq(pendingId), eq(conversationId), eq("processed"), anyLong())).thenReturn(0);
+
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
+            () -> service.saveObservation(conversationId, pendingId, observation, 0));
+
+        assertThat(error.getStatusCode().value()).isEqualTo(409);
+        verify(sseBroadcaster, never()).broadcast(anyMap(), any());
     }
 
     private ObservationEntity observation(UUID conversationId) {

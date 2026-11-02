@@ -1,5 +1,6 @@
 package com.ablueforce.cortexce.service;
 
+import com.ablueforce.cortexce.entity.ObservationEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.embedding.EmbeddingModel;
@@ -16,6 +17,13 @@ import java.util.Optional;
  */
 @Service
 public class EmbeddingService {
+
+    /** A vector is stored; the row is complete. */
+    public static final String STATE_READY = "ready";
+    /** The provider call or dimension check failed; the backfill sweep retries it. */
+    public static final String STATE_FAILED = "failed";
+    /** There was no text to embed; the backfill sweep must not retry it. */
+    public static final String STATE_SKIPPED = "skipped";
 
     private static final Logger log = LoggerFactory.getLogger(EmbeddingService.class);
 
@@ -62,5 +70,68 @@ public class EmbeddingService {
 
     public String getModel() {
         return embeddingModel.map(m -> m.getClass().getSimpleName()).orElse("unknown");
+    }
+
+    /**
+     * Build the text that represents an observation in vector space.
+     * Shared by the write path and the backfill sweep so a repaired row is embedded
+     * from exactly the same input it would have used on first write.
+     */
+    public static String buildObservationText(String title, String narrative, List<String> facts) {
+        StringBuilder sb = new StringBuilder();
+        // A whitespace-only title must not turn into the text ".", which would be sent to
+        // the provider and recorded as a real attempt.
+        if (title != null && !title.isBlank()) {
+            sb.append(title.strip()).append(". ");
+        }
+        if (narrative != null && !narrative.isBlank()) {
+            sb.append(narrative.strip()).append(" ");
+        }
+        if (facts != null && !facts.isEmpty()) {
+            sb.append(facts.stream()
+                .filter(fact -> fact != null && !fact.isBlank())
+                .map(String::strip)
+                .reduce((left, right) -> left + "; " + right)
+                .orElse(""));
+        }
+        return sb.toString().trim();
+    }
+
+    /**
+     * Store a model vector in the column that matches its dimension.
+     *
+     * @return true when the vector was applied; false when the dimension is unsupported,
+     *         in which case the caller must record a visible failure instead of silently
+     *         saving a row that looks embedded
+     */
+    public boolean applyVector(ObservationEntity observation, float[] vector) {
+        if (vector == null || observation == null) {
+            return false;
+        }
+        switch (vector.length) {
+            case 768 -> observation.setEmbedding768(vector);
+            case 1024 -> observation.setEmbedding1024(vector);
+            case 1536 -> observation.setEmbedding1536(vector);
+            default -> {
+                log.warn("Unsupported embedding dimension: {} (supported: 768, 1024, 1536)", vector.length);
+                return false;
+            }
+        }
+        observation.setEmbeddingModelId(getModel());
+        observation.setEmbeddingState(STATE_READY);
+        observation.setEmbeddingError(null);
+        return true;
+    }
+
+    /**
+     * Short, non-sensitive classification of an embedding failure.
+     * The exception message is deliberately not used: it can contain request bodies.
+     */
+    public static String classifyFailure(Throwable error) {
+        if (error == null) {
+            return "unknown";
+        }
+        String name = error.getClass().getSimpleName();
+        return name.length() > 64 ? name.substring(0, 64) : name;
     }
 }
