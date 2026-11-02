@@ -46,6 +46,28 @@ class LogSanitizerTest {
     }
 
     @Test
+    @DisplayName("a failed provider call is still diagnosable after masking")
+    void failureReasonSurvivesMasking() {
+        // The real shape kept by LlmService.abbreviate: provider status, model, error body
+        // and request id, with a credential the provider echoed back.
+        String body = "429 Too Many Requests from longcat model longcat-flash: "
+            + "{\"error\":{\"message\":\"rate limit exceeded\",\"type\":\"rate_limit_error\"},"
+            + "\"request_id\":\"req-4f2a91\"} api_key=sk-live-abcdef123456";
+
+        String detail = LogSanitizer.safeDetail(body, 300);
+
+        assertThat(detail)
+            .as("status, provider, model, error type and request id identify the failure")
+            .contains("429")
+            .contains("longcat-flash")
+            .contains("rate limit exceeded")
+            .contains("rate_limit_error")
+            .contains("req-4f2a91")
+            .doesNotContain("sk-live")
+            .contains("api_key=***");
+    }
+
+    @Test
     @DisplayName("fingerprint identifies a model answer without writing it")
     void fingerprintIsStableAndDoesNotLeakThePayload() {
         String payload = "narrative with a token sk-live-1234567890";

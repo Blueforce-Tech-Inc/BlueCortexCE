@@ -74,6 +74,8 @@ public class ControllableAiTestModels {
     public static final class MutableEmbeddingModel implements EmbeddingModel {
 
         private final int dimensions;
+        private final java.util.concurrent.atomic.AtomicInteger embedCalls =
+            new java.util.concurrent.atomic.AtomicInteger();
         private volatile RuntimeException failure;
 
         public MutableEmbeddingModel(int dimensions) {
@@ -88,6 +90,15 @@ public class ControllableAiTestModels {
             this.failure = failure;
         }
 
+        /** Number of text-to-vector calls, used to prove a repair does not re-embed. */
+        public int embedCalls() {
+            return embedCalls.get();
+        }
+
+        public void resetEmbedCalls() {
+            embedCalls.set(0);
+        }
+
         @Override
         public EmbeddingResponse call(EmbeddingRequest request) {
             List<String> instructions = request.getInstructions();
@@ -100,6 +111,7 @@ public class ControllableAiTestModels {
 
         @Override
         public float[] embed(String text) {
+            embedCalls.incrementAndGet();
             return vectorFor(text);
         }
 
