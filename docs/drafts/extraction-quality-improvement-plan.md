@@ -725,3 +725,118 @@ observable from the trace (subject + identifier, with the verb class reported di
 Flyway V23 on a recreated `cortexce_flyway_rehearsal` (pgvector 0.8.1), docs checker self-test
 plus EN/ZH reference vs the live server, and proxy E2E with 0 skipped.
 
+## 7.13 Round 7 — A6 action classes derived from the trace
+
+### 7.13.1 Decision (user-owned)
+
+A6 no longer scores the hand-picked verb keyword. The first title token must map to the **action
+class that the tool trace mechanically implies**. The six classes are `create`, `modify`,
+`remove`, `secure`, `document`, `diagnose`; a trace that fits none is `unclassifiable` and leaves
+the A6 denominator. The rule table was written before any round-7 answer was scored and lives in
+`GoldenSetActionRules`, with precedence (first match wins):
+
+1. `diagnose` — Read/Grep/Glob/LS, or a Shell call whose output reports no change (clean tree,
+   unchanged lockfile, no reformatting, passing checks).
+2. `document` — changed path is `*.md`, under `docs/`, or README/CHANGELOG/CONTRIBUTING/SECURITY.
+3. `secure` — diff or outcome mentions authorization/roles/permissions/credentials/passwords/
+   secrets/API keys/IAM/redaction/sanitizing/XXE/DOCTYPE/CSRF/injection/traversal/HttpOnly/
+   SameSite/CORS/encryption/rate limiting/429.
+4. `remove` — the edit replaces a non-empty value with an empty one.
+5. `create` — a `Write` that reports a written/created file, or an `Edit` to `src/test` whose
+   outcome starts with “Added …”.
+6. `modify` — every other edit to existing code, configuration or deployment.
+
+A6 passes only when **identifiers = 100%**, **subject ≥ 90%** and **action ≥ 80%**. The retired
+verb contract is still computed and printed as a diagnostic so v5c/v6 reports stay comparable.
+
+Label distribution over the 82 samples: `modify` 33, `secure` 11, `create` 10, `document` 8,
+`diagnose` 20, `remove` 0, `unclassifiable` 0 (0.0%, limit 10%). The `remove` branch is
+implemented and unit-tested but no golden sample exercises it — an honest gap, not a pass.
+
+### 7.13.2 Anti-drift test
+
+`GoldenSetDataTest.actionLabelsCannotDrift` recomputes every sample's class with the production
+rule and fails if the stored label differs, if a label is outside the six-value enum plus
+`unclassifiable`, or if `unclassifiable` exceeds 10% of the set. Changing a label by hand without
+changing the rule is now a red build.
+
+### 7.13.3 Result — A6 still fails; this is the model/prompt boundary
+
+Re-run on 82 samples, 108 calls, 13 key samples ×3, temperature 0:
+
+| dimension | LongCat v7 | MiniMax v7 | gate |
+|---|---|---|---|
+| identifiers | **100%** (60/60) PASS | 95.2% (59/62) FAIL | = 100% |
+| subject | 86.7% (52/60) FAIL | 79.0% (49/62) FAIL | ≥ 90% |
+| action | **76.7%** (46/60) FAIL | **77.4%** (48/62) FAIL | ≥ 80% |
+| all three | 65.0% FAIL | 59.7% FAIL | all pass |
+| legacy verb contract (diagnostic) | 73.3% | 53.2% | — |
+| legacy verb class (diagnostic) | 81.7% | 72.6% | — |
+| facts informative (A5) | 80.7% PASS | 81.5% PASS | ≥ 75% |
+| concepts P/R | 85.0% / 83.3% | 81.5% / 81.5% | — |
+| type accuracy | 91.7% | 95.2% | — |
+| skip accuracy / A3 / A4 | 100% / 0 / 0 | 100% / 0 / 0 | PASS |
+| A1 format / A2 | 0 / 100% | 0 / 100% | PASS |
+
+LongCat produced 60 scored titles because 2 observations were rejected by validation; the
+remaining A1–A5 gates still pass.
+
+Before/after on the same scorer (v6 fixtures re-scored offline with the new metric):
+LongCat action 77.0% / subject 90.2% / identifiers 98.4%; MiniMax action 80.6% / subject 80.6% /
+identifiers 96.8%. The v7 identifier rule moved LongCat 98.4% → 100% but MiniMax 96.8% → 95.2%
+(three misses: `UserCache`+`computeIfAbsent`, `CacheConcurrencyTest`+`UserCache`,
+`deployment.yaml`+`/api/health`).
+
+### 7.13.4 Systematic misjudgements (evidence for the capability boundary)
+
+Action misses are not random; they cluster into two contradictions between the prompt and the
+new taxonomy:
+
+1. **`secure` vs `modify` — 4 LongCat / 9 MiniMax** (plus 1 LongCat `secure → create` for the
+   redacted credential). Titles lead with `Fixed` for security
+   defects: `Fixed SQL injection in UserDao.findByEmail…`, `Fixed XXE vulnerability…`,
+   `Fixed path traversal…`, `Fixed RateLimiter missing 429…`. The prompt reserves `Hardened`
+   for defensive checks *without* a reported defect, so `Fixed` is prompt-correct while the
+   action class is domain-based (`secure`). The leading verb alone cannot carry the security
+   domain, so this class is under-observed by construction.
+2. **`create` vs `modify`/`document` — 7 LongCat / 4 MiniMax.** Titles lead with `Added` for
+   line insertions into existing artifacts: `Added Docker HEALTHCHECK… in Dockerfile`,
+   `Added jacoco-maven-plugin 0.8.12 in pom.xml`, `Added readinessProbe… to deployment.yaml`,
+   `Added queue recovery runbook in docs/runbook.md`. The prompt says a new plugin/check/
+   endpoint/test/file is `Added` even inside a config, while the action rule says an edit to an
+   existing file is `modify` (or `document` for docs).
+
+Also observed: `Hardened` on a refactor sample (`config-loader`), `Changed` on
+`CHANGELOG.md` (document), and `Added` on a deflaked existing test.
+
+Subject misses remain the previously documented shape: two-token subjects scored at 50% and
+concept nouns absent from the trace (`race`, `redos`, `encoding`, `delegation`, `hardcoded`,
+`httponly`, `iam`). MiniMax additionally lost `helm/values` and `security/policy` because the
+title used the file instead of the subject words.
+
+Per the round-7 decision, the threshold was not touched and the prompt was not swapped again to
+chase the action number. This is recorded as a known limitation: with the current prompt,
+`Fixed`-led security fixes and `Added`-led insertions into existing files are systematically
+mapped to the wrong action class.
+
+### 7.13.5 Rejected alternatives
+
+- Lowering the action gate to 75% (or reporting the v6 sample instead of v7) — forbidden by the
+  decision and would hide the regression caused by the identifier rule.
+- Remapping `fix → secure` or `add → create/document` inside the title mapper — that turns the
+  action class into a second verb synonym table and removes the only domain signal the metric
+  added.
+- Deriving the action from the whole title instead of its leading verb — would let the subject
+  words decide the action, so the two dimensions stop being independent.
+- Dropping the `create`-led config/docs samples from A6 — selection bias after seeing the answers.
+- Another prompt iteration to lift the action number — explicitly excluded by the decision.
+
+### 7.13.6 Verification and artifacts
+
+- `./scripts/verify-local.sh` — **ALL CHECKS PASSED**, 2026-11-03, L1–L4 executed, 0 skipped.
+- Unit + replay + data/anti-drift tests pass: `GoldenSetScorerTest`, `GoldenSetReplayTest`,
+  `GoldenSetDataTest`.
+- Reports: `docs/archive/2026-11-03_model-output-quality-eval-{longcat,minimax}-after-v7.md`;
+  fixtures `{longcat,minimax}-after-v7[-metrics].json`. The v6 reports remain as published under
+  the retired verb contract and are not rewritten.
+
