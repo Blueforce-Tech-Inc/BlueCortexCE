@@ -89,17 +89,81 @@ git submodule update --init --recursive
 
 ### 5. Running Tests
 
+#### Preferred entry point: one command
+
+```bash
+./scripts/verify-local.sh
+```
+
+From a clean database, this script proves the test base is green without
+hand-run steps:
+
+1. locates a running PostgreSQL container that actually provides pgvector
+   (decided by `pg_available_extensions`, never by the image tag). A missing
+   container is a failure, not a silent skip.
+2. drops and recreates the dedicated `cortexce_flyway_rehearsal` database.
+3. enables the `vector` extension and asserts it is usable.
+4. boots the application once so Flyway migrates, then asserts the recorded
+   version equals the newest file in `backend/src/main/resources/db/migration`
+   and that `flyway_schema_history` contains no failed migration.
+5. runs L1–L4 in one `mvn -B clean install`, with `MEMSCOPE_*` pointed at that
+   database.
+6. runs `python3 scripts/check-test-results.py --require-zero-skips
+   --min-tests 354 --require-layers`.
+7. runs both documentation consistency checks: the checker self-test, then the
+   published EN/ZH API references against the live server.
+8. runs the proxy E2E against that server and fails if `node --test` reported
+   any skipped test (this is the proxy-forwarding part of L3).
+
+Every step prints its name. On failure the script prints `STEP FAILED: <step>`,
+the command's own reason, and exits non-zero; it never falls through to a later
+step that could mask the failure. Overrides: `PG_CONTAINER`, `PG_PORT`,
+`PG_USER`, `PG_PASSWORD`, `TEST_DB`, `VERIFY_MIN_TESTS`, `VERIFY_APP_PORT`,
+`VERIFY_E2E_PORT`, `VERIFY_LOG_DIR`.
+
+The step-by-step instructions below are kept so a single failing step can be
+reproduced in isolation.
+
+#### The four layers
+
+The suite is split into four layers. `check-test-results.py` infers the layer
+from the class name (`com.ablueforce.cortexce.layers.L2*` → L2, `L3*` → L3,
+`L4*` → L4, everything else → L1) and `--require-layers` fails when a layer
+executed no tests at all, so deleting a layer cannot look green.
+
+| Layer | What it proves | Executed by | Single-layer re-run |
+|-------|----------------|-------------|---------------------|
+| **L1** unit + integration (331 tests) | Services, controllers, entities, repository contracts, and the model-dependent chains with offline doubles. | Every Surefire class outside `.layers.*` | `mvn -B test -Dtest='!L2HttpRegressionTest,!L3AcceptanceTest,!L4EndToEndTest'` |
+| **L2** HTTP regression (7 tests) | A real started application (`RANDOM_PORT`): every operation published in `/v3/api-docs` is called once; missing parameters → 400, legacy paths → 404, malformed UUIDs → 400, `limit`/`offset` clamping, `{items,hasMore}` envelopes. | `L2HttpRegressionTest` | `mvn -B test -Dtest=L2HttpRegressionTest` |
+| **L3** acceptance (6 tests) | Documented capabilities become assertions: hook lifecycle, the three ingest writes, retrieval branches, context inject, settings/modes fields, SSE events, the MCP tool catalog plus one call. Each assertion names its source (`docs/API.md`, `AGENTS.md`, `docs/ARCHITECTURE.md`) in the class javadoc. Proxy forwarding is exercised by step 8 of `verify-local.sh`. | `L3AcceptanceTest` + proxy `npm test` | `mvn -B test -Dtest=L3AcceptanceTest` (then `cd proxy && npm test`) |
+| **L4** end-to-end (1 test) | One full user path against a real server and the dedicated database: session start → prompt → tool-use → search → context inject → session end → summary, asserting the database terminal state and the SSE events. Waiting is condition-based polling, never `sleep`. | `L4EndToEndTest` | `mvn -B test -Dtest=L4EndToEndTest` |
+
+L2–L4 need the `MEMSCOPE_*` variables (see below); without them they skip
+rather than fail locally, and the CI gate rejects any skip:
+
+```bash
+export MEMSCOPE_TEST_DB_URL="jdbc:postgresql://127.0.0.1:5432/cortexce_flyway_rehearsal"
+export MEMSCOPE_TEST_DB_USER=postgres MEMSCOPE_TEST_DB_PASSWORD=123456
+export MEMSCOPE_FLYWAY_TEST_URL="$MEMSCOPE_TEST_DB_URL"
+export MEMSCOPE_FLYWAY_TEST_USER="$MEMSCOPE_TEST_DB_USER"
+export MEMSCOPE_FLYWAY_TEST_PASSWORD="$MEMSCOPE_TEST_DB_PASSWORD"
+cd backend
+```
+
 #### Prerequisites
 
-- PostgreSQL 16 + pgvector running on localhost:5432
+- A running PostgreSQL 16 container with the pgvector extension **available**
+  (verify with `pg_available_extensions`, not by the image name — see the
+  database-setup block in [Running Tests](#running-tests))
 - Java 21+
 - Required API keys in `.env`
 
-> **PostgreSQL port**: `5432` above assumes a native install or the `docker run -p 5432:5432`
-> used in Troubleshooting. This project's own `docker compose up -d` publishes the database on
-> host port **5433** instead (`"${POSTGRES_PORT:-5433}:5432"` in `docker-compose.yml`), and
-> that path also needs `SPRING_DATASOURCE_URL` pointed at the published port. Check which one
-> you actually have before concluding the database is down — see `docs/DEPLOYMENT.md`.
+> **PostgreSQL port**: `5432` above is the host port published by the local
+> container used in this guide. This project's own `docker compose up -d` publishes
+> the database on host port **5433** instead (`"${POSTGRES_PORT:-5433}:5432"` in
+> `docker-compose.yml`); either path works as long as `SPRING_DATASOURCE_URL` and
+> the `MEMSCOPE_*` URLs point at the same published port. Check what is actually
+> running before concluding the database is down — see `docs/DEPLOYMENT.md`.
 
 #### Run Regression Tests
 
@@ -171,6 +235,230 @@ not DB_PASSWORD").
 | `DB_PASSWORD` | **the backend only** | `123456` | The backend's own variable — `application.yml` reads `${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:123456}}`. The test scripts do **not** read it |
 | `SPRING_AI_OPENAI_API_KEY` | the backend, the two Docker suites, `java-sdk-e2e-test.sh` | - | OpenAI/DeepSeek API key |
 | `SPRING_AI_OPENAI_EMBEDDING_API_KEY` | the backend, the two Docker suites | - | Embedding API key |
+| `MEMSCOPE_TEST_DB_URL` | `mvn test` (`ImportServiceDatabaseTest`, `MemoryScopeServiceDatabaseTest`, `ObservationRepositoryScopeQueryTest`, `OfflineAiChainIntegrationTest`, `LlmProviderFailureTest`, `L2HttpRegressionTest`, `L3AcceptanceTest`, `L4EndToEndTest`) | - | JDBC URL of a disposable PostgreSQL + pgvector database already migrated to the latest Flyway version. Unset ⇒ the 48 DB-gated tests skip. `ImportServiceDatabaseTest`, `OfflineAiChainIntegrationTest`, `LlmProviderFailureTest` and the three layer tests additionally require the database name to match `*_flyway_rehearsal` |
+| `MEMSCOPE_TEST_DB_USER` / `MEMSCOPE_TEST_DB_PASSWORD` | same | postgres | Credentials for `MEMSCOPE_TEST_DB_URL` |
+| `MEMSCOPE_FLYWAY_TEST_URL` | `ConversationScopeFlywayDatabaseTest` | - | JDBC URL of a disposable `*_flyway_rehearsal` database; the test runs the migrations itself |
+| `MEMSCOPE_FLYWAY_TEST_USER` / `MEMSCOPE_FLYWAY_TEST_PASSWORD` | same | postgres | Credentials for `MEMSCOPE_FLYWAY_TEST_URL` |
+
+```bash
+# Reuse the PostgreSQL container that is already running on this machine and
+# create a dedicated database inside it. All commands are copy-paste from the
+# project root; adjust the four variables if your container/port/credentials
+# differ (find them with `docker ps` and `docker inspect`).
+PG_CONTAINER=postgresql            # running container that has pgvector available
+PG_PORT=5432                       # host port published by that container
+PG_USER=postgres
+PG_PASSWORD=123456
+TEST_DB=cortexce_flyway_rehearsal  # must end in _flyway_rehearsal
+
+# 1. Confirm the container and that pgvector is actually available.
+#    Do not infer this from the image tag: postgres:16 images may or may not
+#    ship pgvector, so query pg_available_extensions.
+docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Ports}}' | grep -i postgres
+docker exec "$PG_CONTAINER" psql -U "$PG_USER" -tAc \
+  "SELECT default_version FROM pg_available_extensions WHERE name='vector'"
+
+# 2. Create a dedicated database and enable the extension. Never reuse a
+#    business database for this; the tests truncate tables. The DROP line makes
+#    this block re-runnable from a clean state.
+docker exec "$PG_CONTAINER" psql -U "$PG_USER" \
+  -c "DROP DATABASE IF EXISTS $TEST_DB WITH (FORCE)"
+docker exec "$PG_CONTAINER" psql -U "$PG_USER" -c "CREATE DATABASE $TEST_DB"
+docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$TEST_DB" \
+  -c "CREATE EXTENSION IF NOT EXISTS vector"
+
+# 3. Migrate to V20 by booting the backend once against that database.
+#    Flyway runs at startup; stop the process right after the health check.
+#    (Skip `package` if target/cortex-ce-*.jar already exists.)
+cd backend
+mvn -B -DskipTests package
+SPRING_DATASOURCE_URL="jdbc:postgresql://127.0.0.1:$PG_PORT/$TEST_DB" \
+SPRING_DATASOURCE_USERNAME="$PG_USER" SPRING_DATASOURCE_PASSWORD="$PG_PASSWORD" \
+SERVER_PORT=37888 java -jar target/cortex-ce-*.jar &
+APP_PID=$!
+until curl -sf http://127.0.0.1:37888/api/health >/dev/null; do sleep 1; done
+kill "$APP_PID" && wait "$APP_PID" 2>/dev/null || true
+
+# Expected: 20
+docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$TEST_DB" -tAc \
+  "SELECT version FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 1"
+
+# 4. Run the full suite against the dedicated database: 354 tests, 0 skipped.
+MEMSCOPE_TEST_DB_URL="jdbc:postgresql://127.0.0.1:$PG_PORT/$TEST_DB" \
+MEMSCOPE_TEST_DB_USER="$PG_USER" MEMSCOPE_TEST_DB_PASSWORD="$PG_PASSWORD" \
+MEMSCOPE_FLYWAY_TEST_URL="jdbc:postgresql://127.0.0.1:$PG_PORT/$TEST_DB" \
+MEMSCOPE_FLYWAY_TEST_USER="$PG_USER" MEMSCOPE_FLYWAY_TEST_PASSWORD="$PG_PASSWORD" \
+mvn -B clean install
+```
+
+> The database must already be at the latest Flyway version: these tests assert
+> the V20 conversation-scope schema. `V20` migrations are not run by the tests
+> that use `MEMSCOPE_TEST_DB_URL`; only `ConversationScopeFlywayDatabaseTest`
+> migrates its own database.
+>
+> CI runs the same suite and then `python3 scripts/check-test-results.py
+> --require-zero-skips --min-tests 354 --require-layers`, so a build that reports
+> success while the 48 DB-gated tests were skipped, or while a whole layer
+> disappeared, fails. CI provisions its own `pgvector/pgvector:pg16`
+> service container instead of reusing a local one.
+
+#### Offline verification of the three LLM-dependent chains
+
+Three chains need a model: automatic observation extraction, automatic session
+summary, and semantic search. `backend/src/test/java/com/ablueforce/cortexce/offline/`
+supplies both model beans as test-scoped `@TestConfiguration` beans
+(`OfflineAiTestModels`), so **no API key and no outbound network are needed**.
+Production configuration is untouched: `SpringAiConfig` still builds the real
+`ChatModel` / `EmbeddingModel` (and the `ChatClient` over it) exactly as before;
+the doubles exist only in test sources and only when a test imports them.
+
+| Chain | Test | What it asserts |
+|-------|------|-----------------|
+| Observation extraction | `ingestProducesObservation` | `enqueueToolUse` → `processPendingMessage` writes one `mem_observations` row with the fake model's title/facts and a 1024-dim embedding; the queue row ends `processed` |
+| Session summary | `sessionEndProducesSummary` | `enqueueSessionSummaryJob` → `processSummaryJob` writes one `mem_summaries` row, the job ends `processed` with `result_summary_id`, the session ends `completed` |
+| Semantic search | `embeddingAvailableSearchUsesVectorBranch` | `ViewerController.search` returns `strategy=hybrid`, `fell_back=false` and the row; the same query without a vector returns `tsvector` and **zero** rows, so the hit cannot come from full-text |
+
+The doubles are pure functions of the prompt / embedded text: fixed XML for the
+observation and summary prompts, SHA-256-expanded 1024-dim vectors for any text.
+The tests never sleep and never wait on the `@Async` event listener — they call
+the two worker entry points synchronously and assert the queue state, so repeated
+runs are identical. They run only when `MEMSCOPE_TEST_DB_URL` matches
+`*_flyway_rehearsal`, exactly like the other DB-backed tests.
+
+```bash
+# Same MEMSCOPE_* variables as step 4; runs the offline chain proof alone.
+MEMSCOPE_TEST_DB_URL="jdbc:postgresql://127.0.0.1:5432/cortexce_flyway_rehearsal" \
+MEMSCOPE_TEST_DB_USER=postgres MEMSCOPE_TEST_DB_PASSWORD=123456 \
+mvn -B -Dtest=OfflineAiChainIntegrationTest test
+```
+
+#### Provider failure behaviour (401/403, 429, timeout, unusable, empty)
+
+`LlmService.chatCompletionWithUsage` no longer collapses every failure into an
+empty string. It returns an `LlmResponse` whose `failure` field is a
+`FailureKind`, and the observation/summary workers apply one policy to it:
+
+| Kind | Source | Retry |
+|------|--------|-------|
+| `AUTHENTICATION` | 401/403, `invalid api key`, `permission_denied` (the whole cause chain is inspected, so an HTTP wrapper cannot hide it) | **no** — terminal on the first attempt |
+| `RATE_LIMIT` | 429, `rate limit`, `too many requests`, `quota exceeded` | bounded (`claudemem.max-retries`, default 3) |
+| `TIMEOUT` | `SocketTimeoutException`, `TimeoutException`, `timed out` | bounded |
+| `UNAVAILABLE` | 5xx, `ConnectException`, `connection refused/reset`, Spring AI `TransientAiException` | bounded |
+| `INVALID_RESPONSE` | null `ChatResponse` or blank content | **no** — repeating the prompt cannot help |
+| `UNKNOWN` | anything unrecognised | **no** (treated as permanent) |
+
+What the workers guarantee, asserted in `LlmProviderFailureTest` by calling the
+worker entry points synchronously (no sleeps):
+
+- **Observable.** A failed job ends `failed`, with `retry_count` and
+  `failed_at_epoch` written; it never ends `processed`.
+- **Bounded.** A transient failure consumes the configured budget and then stops;
+  auth and deterministic unusable answers fail immediately instead of burning
+  three identical retries (`AgentService.isRetryableException`,
+  `SummaryJobService`).
+- **No pollution.** The dedup query excludes `failed`, so the next normal ingest
+  still succeeds, and the conversation stays `active` rather than being
+  corrupted by the attempt.
+
+`chatCompletion(...)` keeps its old signature and behaviour for callers that
+only need text; the failure metadata is additive, so no public endpoint changed.
+
+```bash
+# Same MEMSCOPE_* variables; runs the failure matrix alone.
+mvn -B -Dtest=LlmProviderFailureTest test
+```
+
+#### Manual real-provider smoke (never part of CI)
+
+`scripts/real-llm-smoke.sh` spends real quota, so it is a manual step and is
+not referenced by `verify-local.sh` or any workflow. It sources
+`backend/.env` without printing values, refuses to run when `CI` is set, starts
+the application with the real beans, and uses at most five calls (2 chat + 3
+embedding) with a 30 s client timeout and no retry:
+
+1. `GET /api/test/embedding` — one embedding call, asserts the returned width
+   equals `SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS` (1024) and that
+   `mem_observations.embedding_1024` is `vector(1024)`;
+2. `GET /api/test/llm` — one chat call;
+3. `POST /api/ingest/tool-use` → the worker's real chat call plus its embedding,
+   then polls `mem_observations` (the row exists only if `XmlParser` accepted
+   the answer);
+4. `GET /api/search` — one embedding call, asserts `strategy=hybrid` and a hit;
+5. `GET /api/context/inject`, then reads `mem_pending_messages` back to prove
+   the job did not end in `failed`.
+
+If either probe fails (401/402/403/429/timeout), it reports the HTTP status and
+provider error with keys redacted, skips the remaining calls, and exits non-zero.
+`SMOKE_ONLY=embedding` runs step 1 alone (one call), which is the cheapest way
+to check a new embedding provider.
+
+Provider selection is explicit; nothing is guessed from the key:
+
+| `.env` / shell | Meaning |
+|---------------|---------|
+| `CLAUDEMEM_LLM_PROVIDER` | `openai` (default) or `anthropic`; picks the chat bean |
+| `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL` | OpenAI-compatible chat (`openai` branch) |
+| `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_MODEL` | Anthropic-protocol chat (`anthropic` branch), e.g. MiniMax at `https://api.minimaxi.com/anthropic` |
+| `SPRING_AI_OPENAI_EMBEDDING_API_KEY`, `..._BASE_URL`, `..._MODEL`, `..._DIMENSIONS` | Embedding provider, independent of the chat provider |
+| `SPRING_AI_OPENAI_EMBEDDING_SEND_DIMENSIONS` | `false` (default) omits the OpenAI-only `dimensions` field; set `true` only for models that actually accept it (`text-embedding-3-*`) |
+
+These plain names are mapped to Spring properties in `application.yml`
+(`spring.ai.openai.api-key/base-url/chat.options.model`,
+`spring.ai.anthropic.api-key/base-url/chat.options.model`,
+`spring.ai.openai.embedding.*`) because Spring Boot does not relax-bind them
+on its own. Override the branch for one run with
+`SMOKE_PROVIDER=anthropic`. A 402 `insufficient_balance_error` means
+authentication succeeded but the account cannot pay for generation; it is not a
+protocol or configuration failure.
+
+**MiniMax re-check, 2026-11-02:** with an updated `ANTHROPIC_API_KEY`,
+`SMOKE_PROVIDER=anthropic SMOKE_SKIP_PROBES=1` still returned HTTP 402
+`insufficient_balance_error` (code 1008) from `MiniMax-M3`, so no observation
+was parsed and the Anthropic chain could not run. The startup log did confirm
+the branch was real, not silently falling back: `Creating Anthropic-compatible
+ChatModel: baseUrl=https://api.minimaxi.com/anthropic, model=MiniMax-M3` and
+`Creating ChatClient with model: AnthropicChatModel`. The switch itself was
+re-verified by two restarts against the V20 rehearsal DB with both keys present:
+`provider=openai` created only `OpenAiChatModel` (LongCat) and
+`provider=anthropic` created only `AnthropicChatModel` (MiniMax), both healthy,
+with no `BeanDefinitionOverrideException`. That run spent one real call; the
+restart checks spent none.
+
+#### Switching between the two protocols
+
+Both protocols are supported and selected by configuration only — no code
+change:
+
+| | OpenAI-compatible (default) | Anthropic-compatible |
+|---|---|---|
+| Switch | `CLAUDEMEM_LLM_PROVIDER=openai` | `CLAUDEMEM_LLM_PROVIDER=anthropic` |
+| Key | `OPENAI_API_KEY` | `ANTHROPIC_API_KEY` |
+| Base URL | `OPENAI_BASE_URL`, e.g. `https://api.longcat.chat/openai` | `ANTHROPIC_BASE_URL`, e.g. `https://api.minimaxi.com/anthropic` |
+| Model | `OPENAI_MODEL`, e.g. `LongCat-2.5` | `ANTHROPIC_MODEL`, e.g. `MiniMax-M3` |
+| Wire request | `POST {base}/v1/chat/completions` | `POST {base}/v1/messages` |
+| Embedding | unchanged, always the OpenAI-compatible embedding branch | unchanged, same branch |
+
+Practical notes:
+
+- Restart the application after changing the provider or its keys; the
+  `ChatModel` is built once at startup. Hot switching is not implemented.
+- Confirm what is active in the startup log: `Creating OpenAI-compatible
+  ChatModel: baseUrl=…, model=…` versus `Creating Anthropic-compatible
+  ChatModel: baseUrl=…, model=…`. In a non-`prod` profile,
+  `GET /api/test/llm` is the live connectivity check.
+- `GET /api/version` reports application/JDK/Spring versions only; it does not
+  name the chat provider.
+- The two branches are mutually exclusive at **bean-registration** level:
+  `claudemem.llm.provider` decides which `@Bean` is registered, so the other
+  branch has no bean definition at all (an empty key additionally suppresses
+  the selected branch). `SpringAiConfigProviderBranchTest` pins this offline
+  in a real `ApplicationContext` — with both keys present, exactly one
+  `ChatModel` exists and `getBean(ChatModel.class)` is unambiguous — and
+  fixes the fact that embeddings do not follow the chat provider.
+- Do not include a trailing `/v1` in the base URL; the SDK appends the protocol
+  path itself.
+
+
 
 ### 7. MCP Protocol Auto-Detection
 
@@ -188,7 +476,28 @@ The unified script runs the appropriate tests automatically. No manual protocol 
 
 GitHub Actions workflows are configured in `.github/workflows/`:
 
-- `docker.yml` - Docker image build and push
+- `docker.yml` — Docker image build and push.
+- `backend-tests.yml` — **Quality Gates**, the check that decides whether the test
+  base is actually green:
+  - `backend` (matrix: JDK 21 and JDK 25) starts a `pgvector/pgvector:pg16`
+    service container published on host port **5433** (GitHub's runner already
+    owns 5432), migrates it to V20 with the application's own Flyway
+    configuration, runs `mvn -B clean install` (no `-DskipTests`), and then
+    runs `python3 scripts/check-test-results.py --require-zero-skips
+    --min-tests 354 --require-layers`. A skipped DB test, a test-count drop, or
+    a layer that executed nothing fails the job, so "BUILD SUCCESS with
+    48 skipped" cannot pass CI.
+  - On JDK 21 only, the same job boots the server on 37777 and runs
+    `scripts/check-api-doc-surface.py` (API reference vs. live REST/actuator/MCP
+    surface, EN and ZH must agree) plus the proxy E2E (`npm ci && npm test` with
+    `PROXY_E2E_*`). The proxy test refuses to skip when `GITHUB_ACTIONS=true`.
+  - `webui` checks out the submodule, runs `npm install --no-audit --no-fund`
+    and `npm run typecheck`. The upstream Bun test suite is **deliberately out
+    of scope**: it belongs to the WebUI fork, and gating this repository on an
+    upstream test's Bun compatibility would block unrelated work. Our own
+    contract with the viewer is pinned in the backend instead
+    (`WebUiWireContractTest`: `hasMore`, `updateFiles`, `CLAUDE_MEM_*`). The job
+    never modifies the submodule.
 
 ## Best Practices
 
@@ -202,17 +511,20 @@ GitHub Actions workflows are configured in `.github/workflows/`:
 ### PostgreSQL Connection Failed
 
 ```bash
-# Check PostgreSQL status
-docker ps | grep postgres
+# Check what is actually running
+docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Ports}}' | grep -i postgres
 
-# Start PostgreSQL
-docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=123456 pgvector/pgvector:pg16
+# Reuse an existing container instead of starting a second, empty one:
+# see "Running Tests" for creating a dedicated database inside it.
+docker exec <container> psql -U postgres -tAc \
+  "SELECT default_version FROM pg_available_extensions WHERE name='vector'"
 ```
 
 If you started the backend with this project's `docker compose up -d`, PostgreSQL is
-**already running on 5433** and your data is in that container — the `docker run` above
-would start a second, *empty* database on 5432 and make the problem look worse. Point
-`SPRING_DATASOURCE_URL` at `jdbc:postgresql://127.0.0.1:5433/claude_mem` instead.
+**already running on 5433** and your data is in that container — starting another
+container would create a second, *empty* database on a different port and make the
+problem look worse. Point `SPRING_DATASOURCE_URL` at
+`jdbc:postgresql://127.0.0.1:5433/claude_mem` instead.
 
 ### Server Not Running
 
@@ -257,6 +569,10 @@ cd backend
 
 | Date | Change |
 |------|--------|
+| 2026-11-02 | **Dual-protocol providers, LongCat real chain, embedding request fix.** LongCat (`OpenAI-compatible`, `https://api.longcat.chat/openai`, `LongCat-2.5`) completed the full real path: extraction chat → `XmlParser` accepted the answer → observation persisted with a **1024-dimension** vector → `GET /api/search` returned `strategy=hybrid`, `fell_back=false`, 1 hit (0.11 s) → `/api/context/inject` contained the observation title and `updateFiles` → the queue row ended `processed`, not `failed`. The embedding probe returns **1024 dimensions in 0.29 s** with `BAAI/bge-m3`. Two fixes came out of this: (1) the OpenAI-only `dimensions` field was rejected by SiliconFlow (`400 code 20015`), so it is now opt-in through `spring.ai.openai.embedding.send-dimensions` (default `false`); (2) the extraction prompts told a skipping model to say nothing while the parser expected `<skip>`, so a plain-text skip was classified as malformed — both prompts now require `<skip>reason</skip>`, and `<subtitle>`/`<narrative>` in the templates were closed. `OPENAI_API_KEY` is now mapped into `spring.ai.openai.api-key`, so the plain name really takes effect. The openai/anthropic switch is now decided at **bean-registration** level (`@ConditionalOnProperty` on `claudemem.llm.provider`), not by a method returning null: with both keys present, the old arrangement still exposed two `ChatModel` definitions and `getBean(ChatModel.class)` raised `NoUniqueBeanDefinitionException` — caught by the new context-level test. Added `SpringAiConfigProviderBranchTest` (5 tests: mutual exclusion, registration-level single bean in a real context, empty-key suppression, embedding independent of the chat provider) and `XmlParserTest` (4 tests: fenced observation, `<skip>`, untagged text rejection, unclosed tags). Documented the openai/anthropic switch table, restart requirement and how to confirm the active branch. MiniMax was re-attempted with the updated `ANTHROPIC_API_KEY`: it still returns **`402 insufficient_balance_error` (code 1008)**, so no answer was parseable and the Anthropic chain did not run — **pending account top-up before re-verification**, not counted as passing. The Anthropic bean itself was confirmed active from the startup log, and a two-restart switch check (`provider=openai` → only `OpenAiChatModel`; `provider=anthropic` → only `AnthropicChatModel`, both healthy) passed without `BeanDefinitionOverrideException`. Suite 345 → 354 tests / 0 skipped; `--min-tests` 345 → 354. EN+ZH in sync |
+| 2026-11-02 | Added test-scoped offline doubles for the three model-dependent chains (`OfflineAiTestModels`: `ChatModel` + `EmbeddingModel`) and `OfflineAiChainIntegrationTest` (observation extraction, session summary, semantic search on the vector branch). No production configuration changed. Verified 319 tests / 0 failures / 0 skipped against `cortexce_flyway_rehearsal`, and 319 / 22 skipped with the `MEMSCOPE_*` variables unset. The CI gate's `--min-tests` moved from 300 to 319; EN+ZH in sync |
+| 2026-11-02 | Section 8: documented the `backend-tests.yml` Quality Gates job (DB-backed suite on JDK 21/25 with zero-skip gate, API doc surface, proxy E2E) and the `webui` typecheck job, including why the upstream Bun suite is out of scope and where the viewer contract is pinned (`WebUiWireContractTest`). Added the re-runnable `DROP DATABASE ... WITH (FORCE)` step to the Section 6 block. Re-verified the full suite locally against the already-running `postgres:16` container (vector `0.8.2`): 316 tests / 0 failures / 0 skipped on both JDK 21 and JDK 25; EN+ZH in sync |
+| 2026-11-02 | Section 6: replaced "run a new `docker run -p 5432:5432 ...`" with a copy-paste procedure that reuses an already running PostgreSQL container, creates a dedicated `cortexce_flyway_rehearsal` database inside it, verifies pgvector with `pg_available_extensions`, migrates to V20, and runs `mvn -B clean install` with the `MEMSCOPE_*` variables. Corrected the earlier assumption that a locally running container lacks pgvector: `postgres:16` on this machine reports vector `0.8.2`; the image tag is not evidence. Verified 313 tests / 0 failures / 0 skipped against that database (316 after adding `WebUiWireContractTest`); EN+ZH in sync |
 | 2026-10-20 | Section 6: the table listed the **backend's** `DB_USERNAME` / `DB_PASSWORD` as if the test scripts read them — the scripts read `DB_USER` / `DB_PASS`, as `scripts/README.md` states outright ("Note: the variable is DB_PASS, not DB_PASSWORD"); it also gave `DB_NAME` the docker-compose default `claude_mem` instead of the suites' `claude_mem_dev`, and omitted `DB_HOST`, which `regression-test.sh:41` still reads. The table now names the reader of each variable and its real default, and restores the `DB_HOST` / `DB_USER` / `DB_PASS` rows. This **supplements, and does not rewrite**, the 2026-05-04 entry below: that entry changed those names for the backend's sake without noticing the table is about test variables, so `DB_HOST` was dropped as "fictitious" while the scripts kept reading it; EN+ZH in sync |
 | 2026-10-03 | "Server Not Running" pointed only at `./mvnw spring-boot:run`, which does **not** read `.env` — no dotenv dependency and no `spring.config.import` exist in the Spring Boot config, so a user whose keys live in a `.env` file gets a service that boots and then fails on the first LLM/embedding call. Documented `scripts/start.sh` (loads `.env`, pins 37777, `--build`/`--background`) and the fact that `start.sh` reads `backend/.env` while `start-all.sh` and `docker compose` read the repo-root `.env` — a user who created only the root `.env` gets a keyless backend from `start.sh`. EN+ZH in sync |
 | 2026-10-02 | Documented the PostgreSQL port split (`:5433`) in Prerequisites and in "PostgreSQL Connection Failed" — a user who started the backend with `docker compose up -d` and then followed the troubleshooting `docker run -p 5432:5432` would start a second, *empty* database on 5432 while their data sat in the compose container on 5433. Verified `run-all-e2e.sh` really does run 10 local suites and `phase3-acceptance-test.sh` really does define 15 test functions, so both counts were left unchanged; EN+ZH in sync |

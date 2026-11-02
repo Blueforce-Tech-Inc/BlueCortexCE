@@ -155,7 +155,7 @@ cortexce/
 │   │   │   │   ├── mcp/               # MCP tool integration
 │   │   │   │   └── util/              # Utility classes
 │   │   │   └── resources/
-│   │   │       ├── application.properties  # Application config
+│   │   │       ├── application.yml       # Application config
 │   │   │       └── db/migration/      # Flyway migrations
 │   │   └── test/                      # Test sources
 │   └── pom.xml                        # Maven configuration

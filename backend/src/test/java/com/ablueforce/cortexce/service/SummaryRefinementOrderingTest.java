@@ -73,8 +73,9 @@ class SummaryRefinementOrderingTest {
         when(observations.findByConversationIdOrderByCreatedAtEpochAsc(conversationId))
             .thenReturn(List.of(observation));
         when(jobs.persistSnapshot(eq(jobId), eq(conversationId), anyMap(), anyString())).thenReturn(job);
-        when(llm.chatCompletion("system", "user"))
-            .thenReturn("<summary><request>r</request><learned>l</learned><completed>c</completed></summary>");
+        when(llm.chatCompletionWithUsage("system", "user"))
+            .thenReturn(new LlmService.LlmResponse(
+                "<summary><request>r</request><learned>l</learned><completed>c</completed></summary>", 0));
         when(resultPersistence.persist(eq(jobId), eq(conversationId), any(SummaryEntity.class)))
             .thenReturn(savedSummary);
         when(qualityScorer.isLlmAvailable()).thenReturn(false);

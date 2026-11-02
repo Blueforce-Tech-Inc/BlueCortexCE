@@ -297,8 +297,10 @@ public class AgentService implements LogHelper {
             conversationWriteService.markObservationFailed(
                 pendingMessageId, maxRetries, System.currentTimeMillis());
         } catch (Exception e) {
-            log.error("Error processing pending Observation {}: {}",
-                pendingMessageId, e.getClass().getSimpleName());
+            String failureKind = e instanceof LlmService.ProviderFailureException provider
+                ? provider.kind().name() : "NON_PROVIDER";
+            log.error("Error processing pending Observation {}: failure={}, error={}: {}",
+                pendingMessageId, failureKind, e.getClass().getSimpleName(), e.getMessage());
             conversationWriteService.markObservationFailed(
                 pendingMessageId, isRetryableException(e) ? maxRetries : 1, System.currentTimeMillis());
         }
@@ -338,10 +340,17 @@ public class AgentService implements LogHelper {
 
         // Call LLM
         LlmService.LlmResponse llmResponse = llmService.chatCompletionWithUsage(systemPrompt, userMsg);
+        if (llmResponse.failed()) {
+            // Surface the classified failure instead of letting an empty string fall
+            // through to the XML parser, where every cause would look like "unparseable".
+            throw new LlmService.ProviderFailureException(
+                llmResponse.failure(), llmResponse.failureDetail());
+        }
         String llmContent = llmResponse.content();
         int discoveryTokens = llmResponse.totalTokens();
-        log.debug("Observation extraction completed: response_chars={}, tokens={}",
-            llmContent == null ? 0 : llmContent.length(), discoveryTokens);
+        log.debug("Observation extraction completed: response_chars={}, tokens={}, head={}",
+            llmContent == null ? 0 : llmContent.length(), discoveryTokens,
+            llmContent == null ? "" : llmContent.substring(0, Math.min(2000, llmContent.length())));
 
         // Check for skip
         String skipReason = XmlParser.extractTag(llmContent, "skip");
@@ -379,6 +388,11 @@ public class AgentService implements LogHelper {
      * (aligned with TS v10.6.3 commit 07ab7000).
      */
     private boolean isRetryableException(Exception e) {
+        // A classified provider failure carries the decision: only transient kinds
+        // (429 / timeout / 5xx) are retried; auth and unusable answers are terminal.
+        if (e instanceof LlmService.ProviderFailureException provider) {
+            return provider.kind().isTransient();
+        }
         // Unrecoverable auth errors - do NOT retry (prevents 77K+ retry loops)
         if (e.getMessage() != null) {
             String msg = e.getMessage();

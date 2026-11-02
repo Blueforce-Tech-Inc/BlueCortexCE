@@ -6,6 +6,7 @@ import com.ablueforce.cortexce.entity.PendingMessageEntity;
 import com.ablueforce.cortexce.entity.SessionEntity;
 import com.ablueforce.cortexce.entity.SummaryEntity;
 import com.ablueforce.cortexce.event.MemoryRefineEventPublisher;
+import com.ablueforce.cortexce.exception.DataValidationException;
 import com.ablueforce.cortexce.repository.ObservationRepository;
 import com.ablueforce.cortexce.repository.PendingMessageRepository;
 import com.ablueforce.cortexce.repository.SummaryRepository;
@@ -167,8 +168,13 @@ public class SummaryGenerationService implements LogHelper {
             logDataIn("Generating summary for conversation {} ({} observations)",
                 conversationId, observations.size());
 
-            String llmResponse = llmService.chatCompletion(systemPrompt, userPrompt);
-            XmlParser.ParsedSummary parsed = XmlParser.parseSummary(llmResponse);
+            LlmService.LlmResponse llmResponse =
+                llmService.chatCompletionWithUsage(systemPrompt, userPrompt);
+            if (llmResponse.failed()) {
+                throw new LlmService.ProviderFailureException(
+                    llmResponse.failure(), llmResponse.failureDetail());
+            }
+            XmlParser.ParsedSummary parsed = XmlParser.parseSummary(llmResponse.content());
             int lastPromptNumber = lastPromptNumber(observations);
 
             SummaryEntity saved = persistSummaryResult(
@@ -180,11 +186,24 @@ public class SummaryGenerationService implements LogHelper {
             eventPublisher.publishRefineEvent(session.getProjectPath(), session.getContentSessionId());
             logSuccess("Summary saved for conversation {} as {}", conversationId, saved.getId());
         } catch (Exception e) {
-            log.error("Failed to process summary job {} for conversation {}: {}",
-                jobId, conversationId, e.getClass().getSimpleName());
+            String reason = e instanceof LlmService.ProviderFailureException provider
+                ? "LLM_" + provider.kind().name()
+                : e.getClass().getSimpleName();
+            // Only transient provider failures get the configured retry budget. Auth,
+            // an unusable answer, and unparseable content are terminal: repeating the
+            // same prompt would produce the same unusable result, just later.
+            int attempts;
+            if (e instanceof LlmService.ProviderFailureException provider) {
+                attempts = provider.kind().isTransient() ? maxRetries : 1;
+            } else if (e instanceof DataValidationException) {
+                attempts = 1;
+            } else {
+                attempts = maxRetries;
+            }
+            log.error("Failed to process summary job {} for conversation {}: failure={}, error={}",
+                jobId, conversationId, reason, e.getMessage());
             try {
-                summaryJobService.markFailed(jobId, conversationId, maxRetries,
-                    e.getClass().getSimpleName());
+                summaryJobService.markFailed(jobId, conversationId, attempts, reason);
             } catch (SummaryJobService.ConversationGoneException gone) {
                 log.debug("Summary job {} disappeared with conversation {}", jobId, conversationId);
             } catch (Exception stateFailure) {

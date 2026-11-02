@@ -46,11 +46,17 @@ cortexce/
 
 ## API Endpoints
 
-- `POST /api/ingest` - Ingest messages into memory system
-- `POST /api/stream` - Stream processing
-- `GET /api/memory/search` - Semantic search
-- `GET /api/memory/sessions` - Get session list
+- `POST /api/ingest/tool-use` - Ingest tool-use events into memory system
+  (`/user-prompt`, `/observation`, `/session-end` are the sibling routes; there is
+  no handler on the bare `POST /api/ingest` path)
+- `GET /stream` - SSE stream of memory events
+- `GET /api/search` - Search observations (semantic when an embedding model is
+  configured, PostgreSQL full-text fallback otherwise)
+- `GET /api/sessions` - List sessions
 - `GET /api/health` - Health check
+
+> Full, verified endpoint list: `docs/API.md` / `docs/API-zh-CN.md`. Those files are
+> checked against the running server by `scripts/check-api-doc-surface.py`.
 
 ## Database Schema
 
@@ -63,9 +69,10 @@ cortexce/
 ## Build & Run
 
 ```bash
-# Build backend
+# Build backend (runs the test suite; DB-gated tests skip unless the
+# MEMSCOPE_* variables in docs/TESTING.md are set)
 cd backend
-mvn clean install -DskipTests
+mvn clean install
 
 # Run
 java -jar target/cortex-ce-*.jar
@@ -76,10 +83,11 @@ docker-compose up -d
 
 ## Configuration
 
-Configuration managed via `application.properties` or environment variables:
+Configuration is loaded from `backend/src/main/resources/application.yml`
+(profile overrides: `application-dev.yml`, `application-prd.yml`) or environment variables:
 
 - `SPRING_DATASOURCE_URL` - PostgreSQL connection
-- `SPRING_AI_OPENAI_API-KEY` - OpenAI API Key
+- `SPRING_AI_OPENAI_API_KEY` - OpenAI API Key
 - `SERVER_PORT` - Service port (default 37777)
 
 ## Integration
@@ -92,7 +100,7 @@ Integrated via `openclaw-plugin/`, provides search Skill.
 
 ## Requirements
 
-- **Java 21**+
+- **Java 21**+ (the test suite is verified on JDK 21 and JDK 25)
 - **PostgreSQL 16+** (with pgvector extension)
 - **Maven 3.8+**
 - Node.js (for proxy layer)
@@ -121,7 +129,7 @@ Integrated via `openclaw-plugin/`, provides search Skill.
 ## Key Files
 
 - `backend/pom.xml` - Maven configuration
-- `backend/src/main/resources/application.properties` - Application configuration
+- `backend/src/main/resources/application.yml` - Application configuration
 - `docker-compose.yml` - Docker deployment configuration
 
 ## ⚠️ WebUI 子模块 API 契约

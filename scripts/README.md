@@ -26,6 +26,7 @@ This directory contains test and development scripts for the Claude-Mem Java imp
 | `docker-compose-test.sh` | Docker Compose tests | Docker |
 | `mcp-e2e-test.sh` | MCP Server tests (SSE) | Running backend |
 | `mcp-streamable-e2e-test.sh` | MCP Server tests (Streamable HTTP) | Running backend |
+| `check-test-results.py` | Fail when Surefire reports contain failures/errors, too few tests, or (with `--require-zero-skips`) skipped tests | `backend/target/surefire-reports` |
 | `thin-proxy-test.sh` | Thin Proxy tests | Node.js + backend |
 | `webui-integration-test.sh` | WebUI API tests | Running backend |
 | `openclaw-plugin-test.sh` | OpenClaw plugin tests | Node.js + backend |

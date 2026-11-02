@@ -104,6 +104,43 @@ spring:
     property-naming-strategy: SNAKE_CASE
 
   ai:
+    # Explicit bindings: the variables in backend/.env (OPENAI_MODEL,
+    # OPENAI_BASE_URL, ANTHROPIC_MODEL, ANTHROPIC_BASE_URL) are plain names that
+    # Spring Boot does not relax-bind on its own. Mapping them here makes those
+    # values effective while keeping the previous defaults unchanged when the
+    # variables are absent.
+    openai:
+      # OPENAI_API_KEY is a plain name: Spring Boot binds only
+      # SPRING_AI_OPENAI_API_KEY on its own, so the key is mapped explicitly.
+      # An empty value keeps the bean guard (an empty key suppresses the model)
+      # and leaves the previous defaults untouched when the variable is absent.
+      api-key: ${OPENAI_API_KEY:${SPRING_AI_OPENAI_API_KEY:}}
+      base-url: ${OPENAI_BASE_URL:https://api.deepseek.com}
+      chat:
+        options:
+          model: ${OPENAI_MODEL:deepseek-chat}
+      embedding:
+        base-url: ${SPRING_AI_OPENAI_EMBEDDING_BASE_URL:https://api.siliconflow.cn}
+        # Several OpenAI-compatible embedding providers reject the OpenAI-only
+        # `dimensions` request field (SiliconFlow/BAAI bge-m3 answers 400 code
+        # 20015 when it is present) and already return the native width.
+        # Therefore it is opt-in: set
+        # SPRING_AI_OPENAI_EMBEDDING_SEND_DIMENSIONS=true for text-embedding-3-*
+        # style truncation. The declared width stays 1024 and is verified
+        # against the real response, not assumed.
+        send-dimensions: ${SPRING_AI_OPENAI_EMBEDDING_SEND_DIMENSIONS:false}
+        options:
+          model: ${SPRING_AI_OPENAI_EMBEDDING_MODEL:BAAI/bge-m3}
+          dimensions: ${SPRING_AI_OPENAI_EMBEDDING_DIMENSIONS:1024}
+    anthropic:
+      # ANTHROPIC_API_KEY is a plain variable name, so it is mapped explicitly;
+      # without this the @ConditionalOnProperty on spring.ai.anthropic.api-key
+      # would never see it. An empty value still suppresses the bean.
+      api-key: ${ANTHROPIC_API_KEY:}
+      base-url: ${ANTHROPIC_BASE_URL:https://api.anthropic.com}
+      chat:
+        options:
+          model: ${ANTHROPIC_MODEL:claude-sonnet-4-5}
     mcp:
       server:
         name: claude-mem-mcp-server

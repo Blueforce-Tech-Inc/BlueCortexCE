@@ -39,10 +39,13 @@ Cortex CE 的**结构化信息提取**是一个通用的、提示词驱动的系
 
 ### 第 1 步：启用功能
 
-在 `application.properties` 中添加，或设置环境变量：
+在 `application.yml` 中添加，或设置环境变量：
 
-```properties
-app.memory.extraction.enabled=true
+```yaml
+app:
+  memory:
+    extraction:
+      enabled: true
 ```
 
 或通过环境变量：

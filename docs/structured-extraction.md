@@ -39,10 +39,13 @@ The extraction pipeline operates in 5 stages:
 
 ### Step 1: Enable the Feature
 
-Add to `application.properties` or environment variables:
+Add to `application.yml` or environment variables:
 
-```properties
-app.memory.extraction.enabled=true
+```yaml
+app:
+  memory:
+    extraction:
+      enabled: true
 ```
 
 Or via environment variable:

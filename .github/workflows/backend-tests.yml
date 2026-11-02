@@ -1,0 +1,136 @@
+# Quality gates: backend tests with a real database, proxy E2E, API docs, and
+# the WebUI typecheck.
+#
+# Every job starts from a clean checkout. The backend jobs run a PostgreSQL 16
+# container with pgvector, migrate it with the application's own Flyway config,
+# then run the full suite. The 48 DB-gated tests are *not* allowed to skip in
+# CI: scripts/check-test-results.py fails the job when any test is skipped.
+#
+# The suite is layered: L1 unit/integration, L2 HTTP regression, L3 acceptance
+# and L4 end-to-end. The report gate requires all four layers to have executed
+# tests, so deleting a whole layer fails instead of looking green.
+#
+# The WebUI job runs only the upstream `typecheck` script. The upstream Bun test
+# suite is deliberately out of scope: it belongs to the WebUI fork, and pinning
+# it here would make our pipeline depend on whether an upstream test happens to
+# be compatible with the Bun version du jour. Our own integration surface is
+# pinned by backend/src/test/java/.../WebUiWireContractTest.java instead.
+#
+# Local reproduction: docs/TESTING.md section 6, or the same commands below
+# against an already running pgvector container.
+name: Quality Gates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    name: Backend (JDK ${{ matrix.java }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java: ['21', '25']
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cortexce_flyway_rehearsal
+        # 5433 on the host: GitHub's ubuntu image already listens on 5432 for its
+        # own PostgreSQL service, and a service mapping to 5432 fails to bind.
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d cortexce_flyway_rehearsal"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      MEMSCOPE_TEST_DB_URL: jdbc:postgresql://127.0.0.1:5433/cortexce_flyway_rehearsal
+      MEMSCOPE_TEST_DB_USER: postgres
+      MEMSCOPE_TEST_DB_PASSWORD: postgres
+      MEMSCOPE_FLYWAY_TEST_URL: jdbc:postgresql://127.0.0.1:5433/cortexce_flyway_rehearsal
+      MEMSCOPE_FLYWAY_TEST_USER: postgres
+      MEMSCOPE_FLYWAY_TEST_PASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+          cache: maven
+
+      - name: Build the jar used to migrate the test database
+        working-directory: backend
+        run: mvn -B -DskipTests package --no-transfer-progress
+
+      - name: Migrate the test database through the application's Flyway config
+        working-directory: backend
+        run: |
+          SPRING_DATASOURCE_URL="$MEMSCOPE_TEST_DB_URL" \
+          SPRING_DATASOURCE_USERNAME="$MEMSCOPE_TEST_DB_USER" \
+          SPRING_DATASOURCE_PASSWORD="$MEMSCOPE_TEST_DB_PASSWORD" \
+          SERVER_PORT=37889 java -jar target/cortex-ce-*.jar > /tmp/migrate.log 2>&1 &
+          APP_PID=$!
+          trap 'kill "$APP_PID" 2>/dev/null || true' EXIT
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:37889/api/health >/dev/null && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:37889/api/health
+
+      - name: Full test suite (no -DskipTests)
+        working-directory: backend
+        run: mvn -B clean install --no-transfer-progress
+
+      - name: Test report gate (failures, test count, skipped, L1-L4 present)
+        run: python3 scripts/check-test-results.py --require-zero-skips --min-tests 354 --require-layers
+
+      - name: API docs surface and proxy E2E (JDK 21 only)
+        if: matrix.java == '21'
+        run: |
+          cd backend
+          SPRING_DATASOURCE_URL="$MEMSCOPE_TEST_DB_URL" \
+          SPRING_DATASOURCE_USERNAME="$MEMSCOPE_TEST_DB_USER" \
+          SPRING_DATASOURCE_PASSWORD="$MEMSCOPE_TEST_DB_PASSWORD" \
+          SERVER_PORT=37777 java -jar target/cortex-ce-*.jar > /tmp/server.log 2>&1 &
+          APP_PID=$!
+          trap 'kill "$APP_PID" 2>/dev/null || true' EXIT
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:37777/api/health >/dev/null && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:37777/api/health
+          cd ..
+          python3 scripts/check-api-doc-surface.py --server-url http://127.0.0.1:37777
+          cd proxy
+          npm ci
+          PROXY_E2E_SERVER_URL=http://127.0.0.1:37777 \
+          PROXY_E2E_EXPECTED_VERSION=0.1.0-beta \
+          npm test
+
+  webui:
+    name: WebUI typecheck (submodule, read-only)
+    runs-on: ubuntu-latest
+    steps:
+      # The WebUI is a git submodule. It is checked out and typechecked from
+      # here, but never modified: our contract with it is pinned by the backend
+      # tests, not by editing the fork.
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # The upstream repo intentionally gitignores package-lock.json, so
+      # `npm ci` is impossible; its own CI installs with `npm install`.
+      - name: Install WebUI dependencies
+        working-directory: webui
+        run: npm install --no-audit --no-fund
+      - name: Typecheck (root + viewer)
+        working-directory: webui
+        run: npm run typecheck

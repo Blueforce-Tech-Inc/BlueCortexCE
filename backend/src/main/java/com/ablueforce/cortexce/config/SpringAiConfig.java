@@ -28,8 +28,14 @@ public class SpringAiConfig {
 
     private static final Logger log = LoggerFactory.getLogger(SpringAiConfig.class);
 
+    // The provider condition decides *registration*, not just behaviour: the
+    // branch that was not selected must not produce a second ChatModel bean
+    // definition. A bean method that returned null while its definition stayed
+    // registered still made `getBean(ChatModel.class)` report two candidates
+    // (NoUniqueBeanDefinitionException), so the switch lives here.
     @Bean("openAiChatModel")
-    @ConditionalOnProperty(prefix = "spring.ai.openai", name = "api-key")
+    @ConditionalOnProperty(prefix = "claudemem.llm", name = "provider",
+        havingValue = "openai", matchIfMissing = true)
     public ChatModel openAiChatModel(
             @Value("${spring.ai.openai.api-key:}") String apiKey,
             @Value("${spring.ai.openai.base-url:https://api.deepseek.com}") String baseUrl,
@@ -76,7 +82,8 @@ public class SpringAiConfig {
     }
 
     @Bean("anthropicChatModel")
-    @ConditionalOnProperty(prefix = "spring.ai.anthropic", name = "api-key")
+    @ConditionalOnProperty(prefix = "claudemem.llm", name = "provider",
+        havingValue = "anthropic")
     public ChatModel anthropicChatModel(
             @Value("${spring.ai.anthropic.api-key:}") String apiKey,
             @Value("${spring.ai.anthropic.base-url:https://api.anthropic.com}") String baseUrl,
@@ -86,6 +93,12 @@ public class SpringAiConfig {
 
         if (!"anthropic".equals(provider)) {
             log.debug("Anthropic ChatModel skipped, provider is: {}", provider);
+            return null;
+        }
+
+        if (apiKey == null || apiKey.isEmpty()) {
+            log.warn("spring.ai.anthropic.api-key property exists but is empty — ChatModel bean not created. "
+                + "Set ANTHROPIC_API_KEY or remove the property to suppress this warning.");
             return null;
         }
 
@@ -137,9 +150,11 @@ public class SpringAiConfig {
             @Value("${spring.ai.openai.embedding.api-key:}") String apiKey,
             @Value("${spring.ai.openai.embedding.base-url:https://api.siliconflow.cn}") String baseUrl,
             @Value("${spring.ai.openai.embedding.options.model:BAAI/bge-m3}") String model,
-            @Value("${spring.ai.openai.embedding.options.dimensions:1024}") Integer dimensions) {
+            @Value("${spring.ai.openai.embedding.options.dimensions:1024}") Integer dimensions,
+            @Value("${spring.ai.openai.embedding.send-dimensions:false}") boolean sendDimensions) {
 
-        log.info("Creating EmbeddingModel: baseUrl={}, model={}, dimensions={}", baseUrl, model, dimensions);
+        log.info("Creating EmbeddingModel: baseUrl={}, model={}, dimensions={}, sendDimensions={}",
+            baseUrl, model, dimensions, sendDimensions);
 
         OpenAiApi openAiApi = OpenAiApi.builder()
             .apiKey(apiKey)
@@ -147,10 +162,19 @@ public class SpringAiConfig {
             .embeddingsPath("/v1/embeddings")
             .build();
 
-        OpenAiEmbeddingOptions options = OpenAiEmbeddingOptions.builder()
-            .model(model)
-            .dimensions(dimensions)
-            .build();
+        // `dimensions` is an OpenAI-specific request field. Several
+        // OpenAI-compatible providers reject it outright: SiliconFlow/BAAI
+        // bge-m3 answers 400 code 20015 ("The parameter is invalid") when it is
+        // present. Those models already produce the declared width natively, so
+        // the field is only sent when explicitly requested (text-embedding-3-*
+        // style truncation). The declared value is still validated against the
+        // returned vector by callers/the smoke script.
+        OpenAiEmbeddingOptions.Builder optionsBuilder = OpenAiEmbeddingOptions.builder()
+            .model(model);
+        if (sendDimensions) {
+            optionsBuilder.dimensions(dimensions);
+        }
+        OpenAiEmbeddingOptions options = optionsBuilder.build();
 
         return new OpenAiEmbeddingModel(
             openAiApi,

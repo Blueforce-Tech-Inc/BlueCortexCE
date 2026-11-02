@@ -23,10 +23,12 @@
     </properties>
 
     <!-- Spring AI BOM -->
-    <!-- Pin byte-buddy to 1.15.x: Mockito 5.11 (via spring-boot-starter-test BOM)
-         ships 1.14.19, which cannot instrument classes on JDK 24 ("Mockito cannot
-         mock this class"). dependencyManagement upgrades the version while keeping
-         the runtime scope (Hibernate proxies need byte-buddy in BOOT-INF/lib). -->
+    <!-- Pin byte-buddy to 1.17.x: Mockito 5.11 (via spring-boot-starter-test BOM)
+         ships 1.14.19, which cannot instrument classes on JDK 24+ ("Mockito cannot
+         mock this class"). 1.15.11 fixed JDK 24 but still rejects class files
+         compiled for JDK 25; 1.17.8 supports the current JDK 25 release. The
+         dependencyManagement upgrade keeps the runtime scope so Hibernate
+         proxies still resolve byte-buddy from BOOT-INF/lib. -->
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -39,12 +41,12 @@
             <dependency>
                 <groupId>net.bytebuddy</groupId>
                 <artifactId>byte-buddy</artifactId>
-                <version>1.15.11</version>
+                <version>1.17.8</version>
             </dependency>
             <dependency>
                 <groupId>net.bytebuddy</groupId>
                 <artifactId>byte-buddy-agent</artifactId>
-                <version>1.15.11</version>
+                <version>1.17.8</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -135,8 +137,48 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.3.0</version>
+                <executions>
+                    <execution>
+                        <id>enforce-toolchain</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <!-- These match AGENTS.md: Java 21+ and Maven 3.8+.
+                                     The suite is verified on JDK 21 and JDK 25. -->
+                                <requireJavaVersion>
+                                    <version>[21,)</version>
+                                </requireJavaVersion>
+                                <requireMavenVersion>
+                                    <version>[3.8,)</version>
+                                </requireMavenVersion>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <!-- Tests must never write to the developer's ~/.claude-mem. The
+                 settings/log endpoints are part of the L2 surface, so they need a
+                 disposable data directory inside the build output. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <environmentVariables>
+                        <CLAUDE_MEM_DATA_DIR>${project.build.directory}/claude-mem-test-data</CLAUDE_MEM_DATA_DIR>
+                    </environmentVariables>
+                    <systemPropertyVariables>
+                        <claudemem.log.dir>${project.build.directory}/claude-mem-test-data/logs</claudemem.log.dir>
+                    </systemPropertyVariables>
+                </configuration>
             </plugin>
         </plugins>
     </build>

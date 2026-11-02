@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import axios from 'axios';
 
@@ -188,8 +189,21 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  const status = error.response?.status;
-  console.error(`Proxy full-flow E2E failed${status ? ` (HTTP ${status})` : ''}: ${error.message}`);
-  process.exitCode = 1;
+test('proxy full-flow E2E', async (t) => {
+  if (!process.env.PROXY_E2E_SERVER_URL || !process.env.PROXY_E2E_EXPECTED_VERSION) {
+    if (process.env.GITHUB_ACTIONS === 'true') {
+      // A skipped suite is a green build that tested nothing. In GitHub Actions
+      // the server is always started by .github/workflows/backend-tests.yml, so
+      // a missing URL is a broken pipeline, not a developer running `npm test`
+      // offline. GITHUB_ACTIONS (not CI) is the reliable signal: local shells
+      // (including this project's own tooling) often export CI=true.
+      throw new Error(
+        'GitHub Actions must set PROXY_E2E_SERVER_URL and PROXY_E2E_EXPECTED_VERSION; '
+        + 'refusing to pass the proxy gate without running the E2E.',
+      );
+    }
+    t.skip('Set PROXY_E2E_SERVER_URL and PROXY_E2E_EXPECTED_VERSION to run the proxy E2E.');
+    return;
+  }
+  await main();
 });

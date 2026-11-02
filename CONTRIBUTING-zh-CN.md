@@ -155,7 +155,7 @@ cortexce/
 │   │   │   │   ├── mcp/               # MCP 工具集成
 │   │   │   │   └── util/              # 工具类
 │   │   │   └── resources/
-│   │   │       ├── application.properties  # 应用配置
+│   │   │       ├── application.yml       # 应用配置
 │   │   │       └── db/migration/      # Flyway 迁移脚本
 │   │   └── test/                      # 测试代码
 │   └── pom.xml                        # Maven 配置

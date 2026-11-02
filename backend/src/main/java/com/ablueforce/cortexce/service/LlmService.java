@@ -9,9 +9,12 @@ import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.ai.converter.MapOutputConverter;
 import org.springframework.stereotype.Service;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * LLM service for chat completions.
@@ -84,9 +87,70 @@ public class LlmService {
             : "";
     }
 
-    public record LlmResponse(String content, int totalTokens) {
+    /**
+     * Why a provider call produced no usable answer.
+     *
+     * <p>Callers that must decide between "retry" and "give up" cannot do that from an
+     * empty string: a 429 and a 401 both used to look like "". Keeping the kind on the
+     * response lets the observation and summary workers apply one policy — bounded retry
+     * for transient failures, immediate terminal state for permanent ones — without
+     * changing what {@link #chatCompletion} returns.</p>
+     */
+    public enum FailureKind {
+        /** 401/403, invalid or expired key. Retrying cannot fix it. */
+        AUTHENTICATION,
+        /** 429 / quota. Transient. */
+        RATE_LIMIT,
+        /** Read/connect timeout. Transient. */
+        TIMEOUT,
+        /** 5xx, connection refused/reset. Transient. */
+        UNAVAILABLE,
+        /** A 2xx answer with no usable content. Repeating the same prompt cannot help. */
+        INVALID_RESPONSE,
+        /** Anything the classifier does not recognise. Treated as permanent. */
+        UNKNOWN;
+
+        public boolean isTransient() {
+            return this == RATE_LIMIT || this == TIMEOUT || this == UNAVAILABLE;
+        }
+    }
+
+    /**
+     * Response envelope. {@code failure} is {@code null} on success and carries the
+     * classified provider failure otherwise. The two-argument constructor is kept so
+     * existing constructions remain source-compatible.
+     */
+    public record LlmResponse(String content, int totalTokens, FailureKind failure,
+                              String failureDetail) {
+
+        public LlmResponse(String content, int totalTokens) {
+            this(content, totalTokens, null, null);
+        }
+
+        public boolean failed() {
+            return failure != null;
+        }
+
         public static LlmResponse empty() {
             return new LlmResponse("", 0);
+        }
+    }
+
+    /**
+     * Raised by callers that require a usable answer. Carries the classified kind so
+     * failure handling can distinguish a 401 from a 429 without re-parsing messages.
+     */
+    public static final class ProviderFailureException extends RuntimeException {
+
+        private final FailureKind kind;
+
+        public ProviderFailureException(FailureKind kind, String detail) {
+            super(kind + ": " + (detail == null ? "no detail" : detail));
+            this.kind = kind;
+        }
+
+        public FailureKind kind() {
+            return kind;
         }
     }
 
@@ -104,13 +168,18 @@ public class LlmService {
                 .chatResponse();
 
             if (response == null) {
-                log.error("LLM response is null");
-                return LlmResponse.empty();
+                log.error("LLM response is null (provider returned no response)");
+                return failure(FailureKind.INVALID_RESPONSE, "null ChatResponse");
             }
 
             String content = response.getResult() != null && response.getResult().getOutput() != null
                 ? response.getResult().getOutput().getText()
                 : "";
+
+            if (content == null || content.isBlank()) {
+                log.error("LLM response contains no usable content (blank answer)");
+                return failure(FailureKind.INVALID_RESPONSE, "blank content");
+            }
 
             int totalTokens = 0;
             if (response.getMetadata() != null) {
@@ -128,9 +197,77 @@ public class LlmService {
 
             return new LlmResponse(content, totalTokens);
         } catch (Exception e) {
-            log.error("LLM call failed: {}", e.getClass().getSimpleName());
-            return LlmResponse.empty();
+            FailureKind kind = classify(e);
+            log.error("LLM call failed (kind={}): {}: {}",
+                kind, e.getClass().getSimpleName(), abbreviate(e.getMessage()));
+            return failure(kind, e.getClass().getSimpleName() + ": " + abbreviate(e.getMessage()));
         }
+    }
+
+    private static LlmResponse failure(FailureKind kind, String detail) {
+        return new LlmResponse("", 0, kind, detail);
+    }
+
+    /**
+     * Classifies a provider exception by walking the cause chain, so a wrapper added by
+     * the HTTP layer does not hide the status code underneath.
+     */
+    static FailureKind classify(Throwable failure) {
+        StringBuilder messages = new StringBuilder();
+        Set<String> classNames = new LinkedHashSet<>();
+        Throwable current = failure;
+        for (int depth = 0; current != null && depth < 8; depth++) {
+            if (current.getMessage() != null) {
+                messages.append(current.getMessage()).append(' ');
+            }
+            classNames.add(current.getClass().getSimpleName());
+            if (current instanceof java.net.SocketTimeoutException
+                || current instanceof java.util.concurrent.TimeoutException) {
+                return FailureKind.TIMEOUT;
+            }
+            if (current instanceof java.net.ConnectException) {
+                return FailureKind.UNAVAILABLE;
+            }
+            current = current.getCause();
+        }
+
+        String text = messages.toString().toLowerCase(Locale.ROOT);
+        if (containsAny(text, "401", "403", "unauthorized", "forbidden",
+            "invalid api key", "api_key_invalid", "permission_denied", "authentication")) {
+            return FailureKind.AUTHENTICATION;
+        }
+        if (containsAny(text, "429", "rate limit", "rate_limit", "too many requests",
+            "quota exceeded")) {
+            return FailureKind.RATE_LIMIT;
+        }
+        if (containsAny(text, "timed out", "timeout")) {
+            return FailureKind.TIMEOUT;
+        }
+        if (containsAny(text, "500", "502", "503", "504", "service unavailable",
+            "connection refused", "connection reset")) {
+            return FailureKind.UNAVAILABLE;
+        }
+        if (classNames.contains("TransientAiException")) {
+            return FailureKind.UNAVAILABLE;
+        }
+        return FailureKind.UNKNOWN;
+    }
+
+    private static boolean containsAny(String text, String... needles) {
+        for (String needle : needles) {
+            if (text.contains(needle)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String abbreviate(String message) {
+        if (message == null) {
+            return "no message";
+        }
+        String singleLine = message.replaceAll("\\s+", " ").trim();
+        return singleLine.length() <= 160 ? singleLine : singleLine.substring(0, 160) + "...";
     }
 
     public boolean isAvailable() {

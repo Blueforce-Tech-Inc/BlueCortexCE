@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node wrapper.js",
-    "test": "node --experimental-vm-modules node:test"
+    "test": "node --test"
   },
   "keywords": [
     "claude",

@@ -15,11 +15,11 @@ This document describes the REST API for Cortex Community Edition backend.
 > The Chinese version uses that path-style H4 throughout. The difference is deliberate — a
 > path-style heading is the more natural form in Chinese, and both versions expose the same HTTP
 > method and path for every endpoint. The endpoint sets are verified identical (the REST layer's
-> **71** operations across **66** paths, plus the **6** transport operations in
-> [Transport Endpoints](#transport-endpoints) — **77** operations across **72** paths in all, measured
-> 2026-10-21 — count the `get`/`put`/`post`/`delete`/`patch` keys under each entry of `paths` in
-> `/v3/api-docs` for the REST layer; the same 71 are the controllers' `@*Mapping` annotations, minus
-> the one route commented out in place at `ViewerController.java:214`; the six transport operations are
+> **74** operations across **68** paths, plus the **6** transport operations in
+> [Transport Endpoints](#transport-endpoints) — **80** operations across **74** paths in all, measured
+> 2026-11-02 — count the `get`/`put`/`post`/`delete`/`patch` keys under each entry of `paths` in
+> `/v3/api-docs` for the REST layer; the same 74 are the controllers' `@*Mapping` annotations, minus
+> the one route commented out in place at `ViewerController.java:294`; the six transport operations are
 > the MCP transport and the Spring Boot actuator, which springdoc does not publish), so this is a
 > presentation choice, not a content gap. The comparison is no longer a promise: both files are
 > checked against the running server by `scripts/check-api-doc-surface.py` on every regression run. Do not "fix" one side to match the other. Every endpoint heading in this
@@ -341,7 +341,13 @@ Content-Type: application/json
 
 Updates the user ID associated with a session.
 
-For opaque external IDs, use `PATCH /api/session/user?contentSessionId=<encoded-id>&platformSource=codex` with the same JSON body. `platformSource` is optional and defaults to `claude`.
+For opaque external IDs, use the query form with the same JSON body:
+
+```http
+PATCH /api/session/user?contentSessionId=<encoded-id>&platformSource=codex
+```
+
+`platformSource` is optional and defaults to `claude`.
 
 **Path Parameters**:
 - `sessionId` — Content session ID
@@ -1886,6 +1892,7 @@ The paired WebUI uses these singular viewer routes for UUID-backed feed rows:
 DELETE /api/observation/{id}
 DELETE /api/summary/{id}
 DELETE /api/sessions/{platformSource}/{contentSessionId}
+DELETE /api/sessions?platformSource=<platform>&contentSessionId=<encoded-id>
 ```
 
 Successful deletes return `204 No Content` and publish an SSE `item_deleted` or

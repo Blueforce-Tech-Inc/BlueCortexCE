@@ -9,10 +9,10 @@
 > **文档结构说明（中英差异）**：中文版用路径式 H4 标题标注端点（如 ``#### GET `/api/observations` ``），
 > 英文版用描述式 H3 标题（如 `### List Observations`）并在标题下方用代码块给出请求行。这是**有意保留**
 > 的差异——路径式标题在中文语境下更自然，且两版对每个端点都给出了相同的 HTTP 方法与路径。端点集合已核验
-> 完全一致（REST 层的 **71** 个生效操作、**66** 条路径，加上[传输层端点](#传输层端点)一节的 **6** 个传输层操作
-> ——合计 **77** 个操作、**72** 条路径，2026-10-21 实测：REST 层数 `/v3/api-docs` 里 `paths` 每个条目下的
-> `get`/`put`/`post`/`delete`/`patch` 键；与 Controller 里 71 个 `@*Mapping` 注解一致，需排除
-> `ViewerController.java:214` 那个就地注释掉的路由；那 6 个传输层操作是 MCP 传输与 Spring Boot actuator，
+> 完全一致（REST 层的 **74** 个生效操作、**68** 条路径，加上[传输层端点](#传输层端点)一节的 **6** 个传输层操作
+> ——合计 **80** 个操作、**74** 条路径，2026-11-02 实测：REST 层数 `/v3/api-docs` 里 `paths` 每个条目下的
+> `get`/`put`/`post`/`delete`/`patch` 键；与 Controller 里 74 个 `@*Mapping` 注解一致，需排除
+> `ViewerController.java:294` 那个就地注释掉的路由；那 6 个传输层操作是 MCP 传输与 Spring Boot actuator，
 > springdoc 不发布它们），因此这只是呈现方式差异，
 > 不存在内容缺失。请勿为了"对齐"而单方面修改某一版本。
 >
@@ -282,7 +282,7 @@ body 是纯文本 `Error: Failed to generate context preview`；两个 timeline 
 外部 ID 含 `/`、`%`、`?`、`#`、`+`、Unicode 或首尾空格时，使用不会把 ID 放入路径段的查询形式：
 
 ```http
-GET /api/session?contentSessionId=<编码后的 ID>&platformSource=codex
+GET /api/session?contentSessionId=<encoded-id>&platformSource=codex
 ```
 
 `platformSource` 可省略，缺省为 `claude`。旧路径形式也只解析 Claude 平台身份。
@@ -320,7 +320,13 @@ curl http://localhost:37777/api/session/abc-123-def
 
 更新会话关联的用户 ID。
 
-外部 ID 为 opaque 值时，使用 `PATCH /api/session/user?contentSessionId=<编码后的 ID>&platformSource=codex`，请求体不变。`platformSource` 可省略，缺省为 `claude`。
+外部 ID 为 opaque 值时，使用查询形式，请求体不变：
+
+```http
+PATCH /api/session/user?contentSessionId=<encoded-id>&platformSource=codex
+```
+
+`platformSource` 可省略，缺省为 `claude`。
 
 **路径参数**:
 - `sessionId` - 内容会话 ID
@@ -1875,6 +1881,7 @@ GET /api/sessions?project=/path/to/project&platformSource=claude&limit=20&offset
 DELETE /api/observation/{id}
 DELETE /api/summary/{id}
 DELETE /api/sessions/{platformSource}/{contentSessionId}
+DELETE /api/sessions?platformSource=<platform>&contentSessionId=<encoded-id>
 ```
 
 删除成功返回 `204 No Content`，并在数据库事务提交后发布 `item_deleted` 或

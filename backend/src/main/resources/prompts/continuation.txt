@@ -45,7 +45,9 @@ Skip routine operations:
 - Simple file listings
 - Repetitive operations you've already documented
 - If file related research comes back as empty or not found
-- **No output necessary if skipping.**
+- If you decide to skip, output exactly `<skip>short reason</skip>` and nothing
+  else. A plain-text explanation is treated as a malformed answer (the queue job
+  is marked failed), not as a skip.
 
 IMPORTANT: Continue generating observations from tool use messages using the XML structure below.
 
@@ -57,13 +59,13 @@ Output observations using this XML structure:
 <observation>
   <type>[ bugfix | feature | refactor | change | discovery | decision ]</type>
   <title>[**title**: Short title capturing the core action or topic]</title>
-  <subtitle>[**subtitle**: One sentence explanation (max 24 words)]
+  <subtitle>[**subtitle**: One sentence explanation (max 24 words)]</subtitle>
   <facts>
     <fact>[Concise, self-contained statement]</fact>
     <fact>[Concise, self-contained statement]</fact>
     <fact>[Concise, self-contained statement]</fact>
   </facts>
-  <narrative>[**narrative**: Full context: What was done, how it works, why it matters]
+  <narrative>[**narrative**: Full context: What was done, how it works, why it matters]</narrative>
   <concepts>
     <concept>[knowledge-type-category]</concept>
     <concept>[knowledge-type-category]</concept>
