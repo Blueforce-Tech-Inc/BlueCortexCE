@@ -644,3 +644,84 @@ outputs were not edited.
   rewriter, not the model.
 - Letting the submission off with a warning — the gate would become decorative.
 
+## 7.12 Round 6 — category few-shots and the measured title ceiling
+
+### 7.12.1 What changed
+
+`prompts/init.txt` and `prompts/continuation.txt` replaced the single `Good:` example with ten
+category-shaped title examples (bug / security / refactor / test / config×2 / deploy×2 / docs /
+decision) that demonstrate the whole `verb + subject + identifier` contract instead of restating
+it. No rule was relaxed and the A6 gate stayed at 80%.
+
+Both models were re-run on the full set: 82 samples, 108 calls (3 repeats of 13 key samples),
+temperature 0. Full artifacts:
+`docs/archive/2026-11-03_model-output-quality-eval-{longcat,minimax}-after-v6.md` and
+`backend/src/test/resources/eval/fixtures/{longcat,minimax}-after-v6[-metrics].json`.
+
+### 7.12.2 Result: A6 moved, A1–A5 held, A6 still fails
+
+| metric | LongCat v5c | LongCat v6 | MiniMax v5c | MiniMax v6 |
+|---|---|---|---|---|
+| title contract (A6) | 70% | **72%** (44/61) | 53% | **61%** (38/62) |
+| title verb class | 84% | 80% | 73% | 76% |
+| title subject | 84% | **90%** | 76% | **81%** |
+| title identifiers | 100% | 98% | 95% | 97% |
+| facts informative (A5) | 83% | 79% | 77% | 75% |
+| concepts P/R | 83/83% | 82/82% | 80/80% | **85/85%** |
+| type accuracy | 90% | 93% | 92% | **95%** |
+| skip accuracy / A3 / A4 | 99% / 0 / 1 | 100% / 0 / 0 | 100% / 0 / 0 | 100% / 0 / 0 |
+
+- A1–A5 PASS on both models (A5 stays above the 75% floor: 79% / 75%).
+- **A6 FAIL on both** (72% / 61% vs 80%). The gate was not lowered.
+- Few-shots lifted the subject dimension a lot (90% / 81%) but the **verb class became the
+  binding constraint** (80% / 76%): the conjunction fails even when the subject is right.
+
+### 7.12.3 Why the remaining A6 gap is a label-ambiguity ceiling, not model quality
+
+Two measured causes, both on the sample side:
+
+1. **One accepted verb per sample, though the trace supports several classes.** The same action is
+   labelled `set` for `config-timeout` but `change` for `config-hikari-pool`; `add` for
+   `docs-runbook` but `change` for `docs-contributing`; `harden` for `security-authz-admin` but
+   `restrict` for `deploy-terraform-iam`. The prompt can only emit one leading verb, so at least
+   one of each pair is unreachable by construction. Observed counter-examples: LongCat
+   `Set Hikari maximum-pool-size to 20 …` for a sample labelled `change`, MiniMax
+   `Documented … CONTRIBUTING.md` for a sample labelled `change`, LongCat
+   `Restricted AdminController endpoints authorization to ROLE_ADMIN` for a sample labelled
+   `harden`.
+2. **Concept nouns that are not in the trace.** 12 of 82 declared subject tokens do not occur
+   verbatim in the recorded tool input/output (`pagination`, `race`×2, `n+1`, `redos`,
+   `encoding`, `integration`, `hardcoded`, `multi-stage`; the three `delegation` tokens and
+   `flaky` are covered by the scorer's synonym folding). The prompt tells the model to copy the
+   trace's wording, so those tokens are unachievable from the evidence provided.
+
+Quantitatively, fixing cause 1 alone (accepting the trace-equivalent class for the 10 samples
+where the prompt's own rule produces the alternative) would lift LongCat ~79% and MiniMax ~73% —
+still under 80%. Fixing cause 2 as well would push both over the gate, but only by rewriting
+what the metric counts. That is exactly the relaxation the round-5/6 constraint forbids, so it
+was rejected rather than shipped.
+
+### 7.12.4 Decision and rejected alternatives
+
+- **Gate unchanged at 80%; A6 remains FAIL and is recorded as an open gap**, not waived and not
+  re-labelled.
+- Rejected: adding a per-sample verb-equivalence set (would clear 80% on both models while
+  emptying the verb dimension of meaning).
+- Rejected: inflating the synonym table (`concurrent → race`, `charset → encoding`,
+  `password/token → credentials`) so that paraphrases count as the missing nouns.
+- Rejected: trimming the untraceable subject tokens only after seeing the v6 answers — the same
+  selection bias already refused in 7.11.7.
+- Rejected: post-processing the title to inject the expected noun.
+
+The honest next step is a contract decision, not another prompt variant: either the sample-side
+verb labels are collapsed into declared equivalence groups (documented with per-sample trace
+justification and both strict/grouped numbers), or A6 is re-scoped to the dimensions that are
+observable from the trace (subject + identifier, with the verb class reported diagnostically).
+
+### 7.12.5 Verification
+
+`./scripts/verify-local.sh` — **ALL CHECKS PASSED**, 2026-11-03: L1–L4 all executed with
+0 skipped, gate `--min-tests 423 --require-zero-skips --require-layers --require-baseline`,
+Flyway V23 on a recreated `cortexce_flyway_rehearsal` (pgvector 0.8.1), docs checker self-test
+plus EN/ZH reference vs the live server, and proxy E2E with 0 skipped.
+
