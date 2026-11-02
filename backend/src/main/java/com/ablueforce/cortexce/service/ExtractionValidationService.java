@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 /**
  * Deterministic post-validation of one extracted observation. No model call.
@@ -25,6 +26,8 @@ import java.util.UUID;
  * <ol>
  *   <li>title must not be blank and must not exceed {@code max-title-length};</li>
  *   <li>each fact must be supported by the observed tool input/output, otherwise it is dropped;</li>
+ *   <li>process-noise facts (“helm lint passes”, “tests are green”) are dropped unless they carry
+ *       an observed number or status code;</li>
  *   <li>facts are deduplicated and capped at {@code max-facts};</li>
  *   <li>if no fact survives, the observation is rejected;</li>
  *   <li>a same-scope, same-type observation with an equal normalized title makes this a duplicate,
@@ -128,6 +131,8 @@ public class ExtractionValidationService {
                     dropped.add(trimmed);
                 } else if (!isSupported(trimmed, evidence)) {
                     dropped.add(trimmed);
+                } else if (isProcessNoise(trimmed)) {
+                    dropped.add(trimmed);
                 } else {
                     kept.add(trimmed);
                 }
@@ -172,6 +177,32 @@ public class ExtractionValidationService {
             }
         }
         return hits * 2 >= tokens.size();
+    }
+
+    private static final Pattern PROCESS_PASS = Pattern.compile(
+            "\\b(tests?|build|suite|lint|checkstyle|checks?|ci|pipeline|workflow"
+                    + "|mvn|gradle|pytest|helm|npm|docker|maven)\\b.*"
+                    + "\\b(pass|passes|passed|green|succeeds|succeeded|ok)\\b",
+            Pattern.CASE_INSENSITIVE);
+    private static final Pattern HAS_DIGIT = Pattern.compile("[0-9]");
+    /** A token that names something concrete: a qualified name, a path, or a CamelCase identifier. */
+    private static final Pattern NAMED_ARTIFACT = Pattern.compile(
+            "[A-Za-z0-9_]+\\.[A-Za-z0-9_]+|[A-Za-z0-9_]+/[A-Za-z0-9_]+|#|[a-z][A-Z]");
+
+    /**
+     * True when a fact only announces that a check passed. The facts contract calls these process
+     * noise: they carry no observed value, so they are dropped unless the fact also states a
+     * number, a status code, or the exact test/file/command that ran (“PaymentServiceTest passes”).
+     */
+    public static boolean isProcessNoise(String fact) {
+        if (fact == null) {
+            return false;
+        }
+        String spaced = fact.replaceAll("([a-z0-9])([A-Z])", "$1 $2");
+        if (!PROCESS_PASS.matcher(spaced).find() || HAS_DIGIT.matcher(fact).find()) {
+            return false;
+        }
+        return !NAMED_ARTIFACT.matcher(fact).find();
     }
 
     private String findDuplicate(XmlParser.ParsedObservation parsed, String title, UUID memoryScopeId) {

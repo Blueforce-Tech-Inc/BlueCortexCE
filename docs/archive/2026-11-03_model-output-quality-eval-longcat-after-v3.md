@@ -4,7 +4,7 @@
 - Phase: current
 - Provider: openai, model `deepseek-chat`, base URL `replay`
 - Prompt source: classpath `prompts/` (current production prompt)
-- Samples: 82 unique; runs scored: 3; key repeat: 3; real calls: 108 (cap none); duration: 944733 ms (wall clock; replay calls are 0); temperature: 0.0
+- Samples: 82 unique; runs scored: 3; key repeat: 3; real calls: 0 (cap none); duration: 296 ms; temperature: 0.0
 - Parser: production `XmlParser`; skip detection via `<skip>`.
 
 ## Headline (first run of every sample)
@@ -21,11 +21,22 @@
 | title normalized hit rate | 60% |
 | title identifier hit rate | 100% |
 | type accuracy | 90% |
-| facts precision / recall | 72% / 92% |
+| facts precision / recall | 73% / 92% |
 | facts trace-support rate | 100% |
 | concepts precision / recall | 65% / 71% |
 | skip consistency across repeats | 100% (13 repeated samples) |
 | latency p50 / p95 / max (ms) | 8739 / 13110 / 18197 |
+
+## Acceptance gate (pre-committed in docs/drafts/extraction-quality-improvement-plan.md)
+
+| id | criterion | threshold | observed | status |
+|---|---|---|---|---|
+| A1 | format errors | = 0 | 0 | PASS |
+| A2 | skip accuracy | >= 95% | 100% | PASS |
+| A3 | must-record samples skipped | = 0 | 0 | PASS |
+| A4 | low-value samples recorded | <= max(1, TP/20) | 0 | PASS |
+| A5 | facts precision | >= 75% | 73% | **FAIL** |
+| A6 | normalized title hit | >= 80% | 60% | **FAIL** |
 
 ## Status distribution
 
@@ -37,12 +48,12 @@
 
 | run | samples | skip accuracy | title normalized | facts P | facts R | format errors |
 |---|---|---|---|---|---|---|
-| 0 | 82 | 100% | 60% | 72% | 92% | 0 |
-| 1 | 13 | 100% | 60% | 85% | 100% | 0 |
-| 2 | 13 | 100% | 70% | 83% | 97% | 0 |
+| 0 | 82 | 100% | 60% | 73% | 92% | 0 |
+| 1 | 13 | 100% | 60% | 87% | 100% | 0 |
+| 2 | 13 | 100% | 70% | 85% | 97% | 0 |
 
-- average: skip 100%, title 63%, facts P/R 80%/96%
-- worst run: skip 100%, title 60%, facts P/R 72%/92%
+- average: skip 100%, title 63%, facts P/R 82%/96%
+- worst run: skip 100%, title 60%, facts P/R 73%/92%
 
 ## Per type
 
@@ -117,12 +128,12 @@
 | docs-security-policy | docs-update | observation | observation | pass | 100% | hit | match | 50%/50% | 50%/50% | 6858 |
 | docs-contributing | docs-update | observation | observation | pass | 67% | miss | match | 100%/100% | 50%/50% | 9678 |
 | deploy-k8s-probe | deploy-change | observation | observation | pass | 100% | hit | match | 67%/100% | 50%/50% | 11423 |
-| deploy-github-actions | deploy-change | observation | observation | pass | 100% | hit | match | 67%/100% | 50%/50% | 11065 |
+| deploy-github-actions | deploy-change | observation | observation | pass | 100% | hit | match | 100%/100% | 50%/50% | 11065 |
 | deploy-docker-multistage | deploy-change | observation | observation | pass | 75% | miss | match | 33%/100% | 67%/100% | 10340 |
 | deploy-terraform-iam | deploy-change | observation | observation | pass | 50% | miss | match | 100%/50% | 50%/50% | 8721 |
 | deploy-helm-values | deploy-change | observation | observation | pass | 25% | miss | match | 67%/100% | 50%/50% | 7453 |
 | deploy-rollback-script | deploy-change | observation | observation | pass | 100% | hit | MISS | 67%/100% | 100%/100% | 9013 |
-| deploy-canary | deploy-change | observation | observation | pass | 75% | miss | match | 50%/100% | 50%/50% | 10222 |
+| deploy-canary | deploy-change | observation | observation | pass | 75% | miss | match | 67%/100% | 50%/50% | 10222 |
 | skip-read-for-question | skip-low-value | skip | skip | pass | - | - | - | - | - | 2025 |
 | skip-file-listing | skip-low-value | skip | skip | pass | - | - | - | - | - | 2608 |
 | skip-git-status | skip-low-value | skip | skip | pass | - | - | - | - | - | 3248 |

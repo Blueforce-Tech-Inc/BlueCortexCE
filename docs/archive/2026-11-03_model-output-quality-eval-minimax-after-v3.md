@@ -4,7 +4,7 @@
 - Phase: current
 - Provider: anthropic, model `claude-sonnet-4-5`, base URL `replay`
 - Prompt source: classpath `prompts/` (current production prompt)
-- Samples: 82 unique; runs scored: 3; key repeat: 3; real calls: 108 (cap none); duration: 226368 ms (sum of per-call latencies; wall clock line lost when the replay overwrote this file); temperature: 0.0
+- Samples: 82 unique; runs scored: 3; key repeat: 3; real calls: 0 (cap none); duration: 88 ms; temperature: 0.0
 - Parser: production `XmlParser`; skip detection via `<skip>`.
 
 ## Headline (first run of every sample)
@@ -26,6 +26,17 @@
 | concepts precision / recall | 66% / 71% |
 | skip consistency across repeats | 100% (13 repeated samples) |
 | latency p50 / p95 / max (ms) | 1746 / 4173 / 7146 |
+
+## Acceptance gate (pre-committed in docs/drafts/extraction-quality-improvement-plan.md)
+
+| id | criterion | threshold | observed | status |
+|---|---|---|---|---|
+| A1 | format errors | = 0 | 0 | PASS |
+| A2 | skip accuracy | >= 95% | 99% | PASS |
+| A3 | must-record samples skipped | = 0 | 1 | **FAIL** |
+| A4 | low-value samples recorded | <= max(1, TP/20) | 0 | PASS |
+| A5 | facts precision | >= 75% | 75% | **FAIL** |
+| A6 | normalized title hit | >= 80% | 37% | **FAIL** |
 
 ## Status distribution
 

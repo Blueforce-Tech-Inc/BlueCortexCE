@@ -205,7 +205,7 @@ Three prompt revisions were measured on the same 82 samples / 108 runs per provi
 | Title normalized (≥0.8 coverage) | 12.90% | 59.68% | 0.00% | 37.10% |
 | Title identifiers verbatim | 43.55% | **100%** | 9.68% | 91.94% |
 | Type accuracy | 82.26% | 90.32% | 85.48% | 91.94% |
-| Facts precision / recall / support | 53.36% / 89.52% / 83.92% | 72.45% / 91.67% / **100%** | 66.26% / 88.17% / 91.80% | 75.00% / 90.32% / **100%** |
+| Facts precision / recall / support | 53.36% / 89.52% / 83.92% | 73.25% / 91.67% / **100%** | 66.26% / 88.17% / 91.80% | 75.00% / 90.32% / **100%** |
 | Concepts precision / recall | 52.15% / 75.81% | 65.05% / 70.97% | 49.60% / 72.58% | 65.59% / 70.97% |
 | Format errors / validation rejections | 0 / — | 0 / 0 | 0 / — | 0 / 0 |
 | Repeat consistency | 92.3% | **100%** | 92.3% | **100%** |
@@ -222,7 +222,7 @@ Gate (pre-committed in section 4):
 | A2 | skip accuracy | ≥ 95% | 100% | 98.78% | PASS |
 | A3 | must-record samples skipped | 0 | 0 | 0 | PASS |
 | A4 | low-value samples recorded | ≤ max(1, TP/20) | 0 | 1 | PASS |
-| A5 | facts precision | ≥ 75% | 72.45% | 75.00% | **FAIL (LongCat)** |
+| A5 | facts precision | ≥ 75% | 73.25% | 75.00% | **FAIL (LongCat)** |
 | A6 | normalized title hit | ≥ 80% | 59.68% | 37.10% | **FAIL (both)** |
 | A7 | four-layer regression, 0 skipped | green | 386 tests, 0 failures, 0 skipped | — | PASS |
 | A8 | guard unit tests | pass | 10 tests | — | PASS |
@@ -241,7 +241,7 @@ same fixtures and all were rejected:
 
 Remaining wrong answers (v3, LongCat): `deploy-rollback-script` typed `feature` instead of
 `change`; `deploy-canary` and `bug-timezone-report` produce traceable facts that do not quote the
-declared keywords (facts precision 72.45%); titles such as `Changed Hikari pool sizing in
+declared keywords (facts precision 73.25%); titles such as `Changed Hikari pool sizing in
 application.yml` still drop a config key. MiniMax: `skip-view-logs` records a low-value trace
 (1 FP); 5 titles lose `Asia/Shanghai`, `main.tf`, `logback-spring.xml`, `ACME_API_KEY` or
 `maximum-pool-size`.
@@ -278,5 +278,30 @@ cd backend && mvn -q test -Dtest=GoldenSetReplayTest    # replay == recorded met
    a golden-set for summaries, then wire it into the same replay harness.
 5. **Search relevance.** `SearchService` vector/hybrid branches have no score floor; add a
    configurable minimum similarity and a DB-gated test that an unrelated query returns no rows.
+
+### 7.8 Round 2 — process-noise facts (2026-11-03)
+
+Candidate 2 from 7.7 is implemented: `ExtractionValidationService.isProcessNoise` drops facts whose
+only content is “a check passed”, unless the fact states a number/status code or names the exact
+artifact (`PaymentServiceTest passes`). Three variants were measured offline against the recorded
+fixtures (no extra model calls):
+
+| variant | LongCat facts P / R | MiniMax facts P / R | A5 |
+|---|---|---|---|
+| no filtering (7.4) | 72.45% / 91.67% | 75.00% / 90.32% | FAIL / PASS |
+| drop every pass-statement without a digit | 75.67% / 87.63% | 76.08% / 85.48% | PASS / PASS |
+| **shipped: also keep statements that name the artifact** | **73.25% / 91.67%** | **75.00% / 90.32%** | **FAIL / PASS** |
+
+The middle variant buys 2.4 points of precision for 4 points of recall and contradicts our own
+facts contract, which allows a statement that names the exact test; it was rejected even though it
+would have turned A5 green for LongCat. The shipped rule keeps recall (the stated priority) and
+leaves A5 unmet for LongCat by 1.75 points. Decision record:
+
+| decision | alternatives | why chosen | blast radius | rollback |
+|---|---|---|---|---|
+| keep identifier-bearing pass statements | drop all pass statements | recall is the stated priority; the contract allows named artifacts | one predicate | delete the `isProcessNoise` call and its tests |
+| keep noise filtering in the guard only | filter in the scorer too | one place owns fact quality; the scorer must observe what production persists | a fact list shrinks | set `validation.enabled=false` |
+
+New tests: `processNoiseIsDropped`, `noiseOnlyFactsReject` (12 tests in the class).
 
 

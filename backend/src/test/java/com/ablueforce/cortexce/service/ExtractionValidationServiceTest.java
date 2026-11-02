@@ -105,10 +105,10 @@ class ExtractionValidationServiceTest {
                 List.of("PaymentService throws PaymentNotFoundException",
                         "paymentService throws PaymentNotFoundException",
                         "PaymentNotFoundException is imported",
-                        "PaymentServiceTest#missingOrderThrows passes",
-                        "the module build passes",
+                        "PaymentNotFoundException is thrown for a missing orderId",
+                        "orderId is read from the repository",
                         "PaymentService.java was edited",
-                        "orderId is read from the repository"));
+                        "repository.findByOrderId is called"));
 
         ExtractionValidationService.Result result = validate(parsed);
 
@@ -171,6 +171,32 @@ class ExtractionValidationServiceTest {
         assertThat(result.facts()).containsExactly("unverifiable claim");
         assertThat(result.droppedFacts()).isEmpty();
         verify(observationRepository, never()).findRecentByMemoryScopeId(any(), any());
+    }
+
+    @Test
+    @DisplayName("process-noise facts are dropped unless they carry an observed value or a named artifact")
+    void processNoiseIsDropped() {
+        assertThat(ExtractionValidationService.isProcessNoise("helm lint passes")).isTrue();
+        assertThat(ExtractionValidationService.isProcessNoise("the module build passes")).isTrue();
+        assertThat(ExtractionValidationService.isProcessNoise("mvn test is green")).isTrue();
+        assertThat(ExtractionValidationService.isProcessNoise("12 tests pass")).isFalse();
+        assertThat(ExtractionValidationService.isProcessNoise("mvn test exits with status 0")).isFalse();
+        assertThat(ExtractionValidationService.isProcessNoise("DailyReportTest passes")).isFalse();
+        assertThat(ExtractionValidationService.isProcessNoise("getExpiration passes the claim")).isFalse();
+    }
+
+    @Test
+    @DisplayName("a noise-only fact set rejects the observation")
+    void noiseOnlyFactsReject() {
+        XmlParser.ParsedObservation parsed = observation("Fixed PaymentService missing order crash",
+                List.of("the module build passes"));
+
+        ExtractionValidationService.Result result = service.validate(parsed,
+                "Edit", INPUT, OUTPUT + "\nthe module build passes", scopeId);
+
+        assertThat(result.accepted()).isFalse();
+        assertThat(result.reason()).contains("no verifiable facts");
+        assertThat(result.droppedFacts()).containsExactly("the module build passes");
     }
 
     @Test
