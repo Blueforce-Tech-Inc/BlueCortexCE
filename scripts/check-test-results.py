@@ -10,11 +10,19 @@ Usage:
     python3 scripts/check-test-results.py --require-zero-skips # CI: skips are failures
     python3 scripts/check-test-results.py --min-tests 360      # guard against test loss
     python3 scripts/check-test-results.py --require-layers     # L1-L4 must all be present
+    python3 scripts/check-test-results.py --require-baseline   # no layer may shrink
 
 Layers are inferred from the test class name: classes under
 `com.ablueforce.cortexce.layers.L2*` belong to L2, `L3*` to L3, `L4*` to L4,
 and every other test is L1. `--require-layers` fails when a layer executed no
 tests at all, so deleting a whole layer cannot look green.
+
+`--require-baseline` compares each layer against `scripts/test-baseline.json`
+and fails when a layer executed fewer tests than the recorded baseline. The
+baseline is a ratchet, not a target: raise it with
+`python3 scripts/check-test-results.py --write-baseline` after adding tests.
+This catches "one test was deleted from each error path" changes that keep the
+suite green and the total comfortably above `--min-tests`.
 
 Exit code is 0 only when every check passes.
 """
@@ -23,11 +31,13 @@ from __future__ import annotations
 
 import argparse
 import glob
+import json
 import os
 import sys
 import xml.etree.ElementTree as ET
 
 DEFAULT_REPORTS = os.path.join("backend", "target", "surefire-reports")
+DEFAULT_BASELINE = os.path.join("scripts", "test-baseline.json")
 
 
 def parse_args() -> argparse.Namespace:
@@ -52,6 +62,21 @@ def parse_args() -> argparse.Namespace:
         "--require-layers",
         action="store_true",
         help="fail unless L1, L2, L3 and L4 each executed at least one test",
+    )
+    parser.add_argument(
+        "--baseline",
+        default=DEFAULT_BASELINE,
+        help=f"per-layer baseline file (default: {DEFAULT_BASELINE})",
+    )
+    parser.add_argument(
+        "--require-baseline",
+        action="store_true",
+        help="fail when any layer (or the total) executed fewer tests than the baseline",
+    )
+    parser.add_argument(
+        "--write-baseline",
+        action="store_true",
+        help="rewrite the baseline file from the current reports, then exit",
     )
     return parser.parse_args()
 
@@ -114,6 +139,40 @@ def main() -> int:
                    if layers[name]["tests"] == 0]
         if missing:
             problems.append("layer(s) executed no tests: " + ", ".join(missing))
+
+    executed = {name: layers[name]["tests"] - layers[name]["skipped"]
+                for name in ("L1", "L2", "L3", "L4")}
+    executed_total = tests - skipped
+
+    if args.write_baseline:
+        if problems:
+            print("FAIL: refusing to record a baseline from a red run: "
+                  + "; ".join(problems), file=sys.stderr)
+            return 1
+        payload = {"total": executed_total, "layers": executed}
+        with open(args.baseline, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2)
+            handle.write("\n")
+        print(f"baseline written to {args.baseline}: total={executed_total} {executed}")
+        return 0
+
+    if args.require_baseline:
+        if not os.path.exists(args.baseline):
+            problems.append(f"baseline file not found: {args.baseline}")
+        else:
+            with open(args.baseline, encoding="utf-8") as handle:
+                baseline = json.load(handle)
+            baseline_total = int(baseline.get("total", 0))
+            if executed_total < baseline_total:
+                problems.append(
+                    f"total executed tests dropped from {baseline_total} to {executed_total}")
+            baseline_layers = baseline.get("layers", {})
+            for name in ("L1", "L2", "L3", "L4"):
+                expected = int(baseline_layers.get(name, 0))
+                if executed[name] < expected:
+                    problems.append(
+                        f"{name} executed {executed[name]} tests, below baseline {expected}")
+
     if args.require_zero_skips and skipped:
         problems.append(
             f"{skipped} test(s) were skipped; CI must run them (check MEMSCOPE_* env vars)"

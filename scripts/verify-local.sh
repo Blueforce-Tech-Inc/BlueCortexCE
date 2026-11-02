@@ -11,7 +11,7 @@
 #      assert the recorded version equals the newest file in db/migration;
 #   5. run the full backend suite: L1 unit/integration, L2 HTTP regression,
 #      L3 acceptance and L4 end-to-end in one Maven run;
-#   6. run the zero-skip / min-tests / four-layer gate;
+#   6. run the zero-skip / min-tests / four-layer / baseline-ratchet gate;
 #   7. run both documentation consistency checks (checker self-test, then the
 #      published EN/ZH API reference against the live server);
 #   8. run the proxy E2E against that server and refuse a skipped run (this is
@@ -26,7 +26,7 @@
 # Overrides (all optional):
 #   PG_CONTAINER=postgresql  PG_PORT=5432  PG_USER=postgres  PG_PASSWORD=123456
 #   TEST_DB=cortexce_flyway_rehearsal
-#   VERIFY_MIN_TESTS=380   VERIFY_APP_PORT=37888   VERIFY_E2E_PORT=37777
+#   VERIFY_MIN_TESTS=423   VERIFY_APP_PORT=37888   VERIFY_E2E_PORT=37777
 #   VERIFY_LOG_DIR=/tmp/cortexce-verify
 
 set -euo pipefail
@@ -41,7 +41,7 @@ PG_CONTAINER="${PG_CONTAINER:-}"
 PG_PORT="${PG_PORT:-}"
 APP_PORT="${VERIFY_APP_PORT:-37888}"
 E2E_PORT="${VERIFY_E2E_PORT:-37777}"
-MIN_TESTS="${VERIFY_MIN_TESTS:-380}"
+MIN_TESTS="${VERIFY_MIN_TESTS:-423}"
 LOG_BASE="${TMPDIR:-/tmp}"
 LOG_BASE="${LOG_BASE%/}"
 LOG_DIR="${VERIFY_LOG_DIR:-${LOG_BASE}/cortexce-verify-$$}"
@@ -125,6 +125,16 @@ command -v docker >/dev/null 2>&1 \
 
 if ! docker info >/dev/null 2>&1; then
   fail "locate database" "the Docker daemon is not reachable; start Docker and re-run."
+fi
+
+if [[ -z "$PG_CONTAINER" ]]; then
+  # Prefer the project's dedicated test container. A generic container named
+  # "postgresql" may be shared with unrelated workloads; with max_connections=100
+  # the suite's cached Spring contexts can exhaust it ("sorry, too many clients"),
+  # which would look like a test failure instead of an environment problem.
+  if docker ps --format '{{.Names}}' | grep -qx 'claude-mem-test-pg'; then
+    PG_CONTAINER="claude-mem-test-pg"
+  fi
 fi
 
 if [[ -z "$PG_CONTAINER" ]]; then
@@ -295,17 +305,20 @@ mvn -B clean install > "$LOG_DIR/backend-tests.log" 2>&1 \
        "$(summarize_log "$LOG_DIR/backend-tests.log")"
 
 # --------------------------------------------------------------------------
-# 6. zero-skip + min-tests + four-layer gate
+# 6. zero-skip + min-tests + four-layer + baseline gate
 #
 # A build that reports success while DB tests skipped must not pass. The gate
 # also fails when the total test count drops below the agreed floor, or when
-# any of L1-L4 executed no tests at all.
+# any of L1-L4 executed no tests at all, or when any layer executed fewer tests
+# than scripts/test-baseline.json records. The floor is a hard "must not go
+# below" value; the baseline is a per-layer ratchet that you raise with
+# `python3 scripts/check-test-results.py --write-baseline` after adding tests.
 # --------------------------------------------------------------------------
-step "6/8 Layer gate (--require-zero-skips --min-tests $MIN_TESTS --require-layers)"
+step "6/8 Layer gate (--require-zero-skips --min-tests $MIN_TESTS --require-layers --require-baseline)"
 
 cd "$ROOT"
 GATE_OUTPUT="$(python3 scripts/check-test-results.py --require-zero-skips \
-  --min-tests "$MIN_TESTS" --require-layers 2>&1)" \
+  --min-tests "$MIN_TESTS" --require-layers --require-baseline 2>&1)" \
   || fail "test report gate" "check-test-results.py rejected the Surefire report:" "$GATE_OUTPUT"
 printf '%s\n' "$GATE_OUTPUT"
 
@@ -379,7 +392,7 @@ printf '\nALL CHECKS PASSED\n'
 printf '  database   : %s on 127.0.0.1:%s (pgvector %s)\n' "$TEST_DB" "$PG_PORT" "$EXT_VERSION"
 printf '  migrations : V%s\n' "$APPLIED_VERSION"
 printf '  layers     : L1-L4 all executed, 0 skipped\n'
-printf '  tests      : gate --min-tests %s --require-zero-skips --require-layers\n' "$MIN_TESTS"
+printf '  tests      : gate --min-tests %s --require-zero-skips --require-layers --require-baseline\n' "$MIN_TESTS"
 printf '  docs       : checker self-test + EN/ZH reference vs live server\n'
 printf '  proxy      : E2E executed, 0 skipped (L3 proxy forwarding)\n'
 printf '  logs       : %s\n' "$LOG_DIR"

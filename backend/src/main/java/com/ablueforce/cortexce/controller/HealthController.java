@@ -1,5 +1,7 @@
 package com.ablueforce.cortexce.controller;
 
+import com.ablueforce.cortexce.repository.ObservationRepository;
+import com.ablueforce.cortexce.repository.PendingMessageRepository;
 import com.ablueforce.cortexce.service.AgentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -35,12 +37,21 @@ public class HealthController {
 
     private static final Logger log = LoggerFactory.getLogger(HealthController.class);
 
+    private static final long RECENT_FAILURE_WINDOW_MS = 24L * 60 * 60 * 1000;
+
     private final DataSource dataSource;
     private final AgentService agentService;
+    private final PendingMessageRepository pendingMessageRepository;
+    private final ObservationRepository observationRepository;
 
-    public HealthController(DataSource dataSource, AgentService agentService) {
+    public HealthController(DataSource dataSource,
+                            AgentService agentService,
+                            PendingMessageRepository pendingMessageRepository,
+                            ObservationRepository observationRepository) {
         this.dataSource = dataSource;
         this.agentService = agentService;
+        this.pendingMessageRepository = pendingMessageRepository;
+        this.observationRepository = observationRepository;
     }
 
     /**
@@ -101,6 +112,16 @@ public class HealthController {
         long queueDepth = agentService.getQueueDepth();
         checks.put("queueDepth", queueDepth);
         checks.put("queueStatus", queueDepth < 100 ? "ready" : "degraded");
+
+        // Dead letters and embedding backlog: without these an operator cannot tell a
+        // slow queue from a failing one without reading the log. Read-only, additive
+        // fields; the existing names above are unchanged.
+        long failed = pendingMessageRepository.countByStatus("failed");
+        long recentFailures = pendingMessageRepository.countFailedSince(
+            System.currentTimeMillis() - RECENT_FAILURE_WINDOW_MS);
+        checks.put("queueFailed", failed);
+        checks.put("queueFailedLast24h", recentFailures);
+        checks.put("embeddingBacklog", observationRepository.countMissingEmbeddings());
 
         Map<String, Object> response = new HashMap<>();
         response.put("status", allReady ? "ready" : "not_ready");

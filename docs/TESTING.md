@@ -109,7 +109,14 @@ hand-run steps:
 5. runs L1–L4 in one `mvn -B clean install`, with `MEMSCOPE_*` pointed at that
    database.
 6. runs `python3 scripts/check-test-results.py --require-zero-skips
-   --min-tests 360 --require-layers`.
+   --min-tests 423 --require-layers --require-baseline`. The floor is a hard
+   **must-not-go-below** value (currently 423 executed tests); the baseline adds
+   a per-layer ratchet so no layer can quietly shrink.
+
+The gate fails when any test is skipped, when the total executed count drops
+below 423, when a layer executed no tests, or when any of L1–L4 executed fewer
+tests than `scripts/test-baseline.json` records. Raise both the floor and the
+baseline deliberately (`--write-baseline`) only after adding tests.
 7. runs both documentation consistency checks: the checker self-test, then the
    published EN/ZH API references against the live server.
 8. runs the proxy E2E against that server and fails if `node --test` reported
@@ -133,7 +140,7 @@ executed no tests at all, so deleting a layer cannot look green.
 
 | Layer | What it proves | Executed by | Single-layer re-run |
 |-------|----------------|-------------|---------------------|
-| **L1** unit + integration (346 tests) | Services, controllers, entities, repository contracts, and the model-dependent chains with offline doubles. | Every Surefire class outside `.layers.*` | `mvn -B test -Dtest='!L2HttpRegressionTest,!L3AcceptanceTest,!L4EndToEndTest'` |
+| **L1** unit + integration (409 tests) | Services, controllers, entities, repository contracts, and the model-dependent chains with offline doubles. | Every Surefire class outside `.layers.*` | `mvn -B test -Dtest='!L2HttpRegressionTest,!L3AcceptanceTest,!L4EndToEndTest'` |
 | **L2** HTTP regression (7 tests) | A real started application (`RANDOM_PORT`): every operation published in `/v3/api-docs` is called once; missing parameters → 400, legacy paths → 404, malformed UUIDs → 400, `limit`/`offset` clamping, `{items,hasMore}` envelopes. | `L2HttpRegressionTest` | `mvn -B test -Dtest=L2HttpRegressionTest` |
 | **L3** acceptance (6 tests) | Documented capabilities become assertions: hook lifecycle, the three ingest writes, retrieval branches, context inject, settings/modes fields, SSE events, the MCP tool catalog plus one call. Each assertion names its source (`docs/API.md`, `AGENTS.md`, `docs/ARCHITECTURE.md`) in the class javadoc. Proxy forwarding is exercised by step 8 of `verify-local.sh`. | `L3AcceptanceTest` + proxy `npm test` | `mvn -B test -Dtest=L3AcceptanceTest` (then `cd proxy && npm test`) |
 | **L4** end-to-end (1 test) | One full user path against a real server and the dedicated database: session start → prompt → tool-use → search → context inject → session end → summary, asserting the database terminal state and the SSE events. Waiting is condition-based polling, never `sleep`. | `L4EndToEndTest` | `mvn -B test -Dtest=L4EndToEndTest` |
@@ -279,11 +286,11 @@ APP_PID=$!
 until curl -sf http://127.0.0.1:37888/api/health >/dev/null; do sleep 1; done
 kill "$APP_PID" && wait "$APP_PID" 2>/dev/null || true
 
-# Expected: 20
+# Expected: the newest version in db/migration (currently 23)
 docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$TEST_DB" -tAc \
   "SELECT version FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 1"
 
-# 4. Run the full suite against the dedicated database: 360 tests, 0 skipped.
+# 4. Run the full suite against the dedicated database: 423 tests, 0 skipped.
 MEMSCOPE_TEST_DB_URL="jdbc:postgresql://127.0.0.1:$PG_PORT/$TEST_DB" \
 MEMSCOPE_TEST_DB_USER="$PG_USER" MEMSCOPE_TEST_DB_PASSWORD="$PG_PASSWORD" \
 MEMSCOPE_FLYWAY_TEST_URL="jdbc:postgresql://127.0.0.1:$PG_PORT/$TEST_DB" \
@@ -293,13 +300,14 @@ mvn -B clean install
 
 > The database must already be at the latest Flyway version: these tests assert
 > the V20 conversation-scope schema. `V20` migrations are not run by the tests
-> that use `MEMSCOPE_TEST_DB_URL`; only `ConversationScopeFlywayDatabaseTest`
-> migrates its own database.
+> that use `MEMSCOPE_TEST_DB_URL`; `ConversationScopeFlywayDatabaseTest` and the
+> V20 conflict rehearsal create and migrate their own disposable databases.
 >
 > CI runs the same suite and then `python3 scripts/check-test-results.py
-> --require-zero-skips --min-tests 360 --require-layers`, so a build that reports
-> success while the 48 DB-gated tests were skipped, or while a whole layer
-> disappeared, fails. CI provisions its own `pgvector/pgvector:pg16`
+> --require-zero-skips --min-tests 423 --require-layers --require-baseline`, so a build
+> that reports success while any DB-gated test was skipped, or while a whole layer
+> disappeared, or while a layer executed fewer tests than the recorded baseline,
+> fails. CI provisions its own `pgvector/pgvector:pg16`
 > service container instead of reusing a local one.
 
 #### Offline verification of the three LLM-dependent chains
@@ -487,12 +495,12 @@ GitHub Actions workflows are configured in `.github/workflows/`:
   base is actually green:
   - `backend` (matrix: JDK 21 and JDK 25) starts a `pgvector/pgvector:pg16`
     service container published on host port **5433** (GitHub's runner already
-    owns 5432), migrates it to V20 with the application's own Flyway
-    configuration, runs `mvn -B clean install` (no `-DskipTests`), and then
-    runs `python3 scripts/check-test-results.py --require-zero-skips
-    --min-tests 360 --require-layers`. A skipped DB test, a test-count drop, or
-    a layer that executed nothing fails the job, so "BUILD SUCCESS with
-    48 skipped" cannot pass CI.
+    owns 5432), migrates it to the newest migration with the application's own
+    Flyway configuration, runs `mvn -B clean install` (no `-DskipTests`), and
+    then runs `python3 scripts/check-test-results.py --require-zero-skips
+    --min-tests 423 --require-layers --require-baseline`. A skipped DB test, a
+    total test-count drop, or any layer shrinking below the recorded baseline
+    fails the job, so "BUILD SUCCESS with skipped tests" cannot pass CI.
   - On JDK 21 only, the same job boots the server on 37777 and runs
     `scripts/check-api-doc-surface.py` (API reference vs. live REST/actuator/MCP
     surface, EN and ZH must agree) plus the proxy E2E (`npm ci && npm test` with
@@ -575,6 +583,7 @@ cd backend
 
 | Date | Change |
 |------|--------|
+| 2026-11-03 | **Audit gap closure and a per-layer baseline ratchet.** The gate now runs `--min-tests 423 --require-baseline` against `scripts/test-baseline.json` (L1 409 / L2 7 / L3 6 / L4 1), so a layer cannot shrink even if the total stays above the floor. New database tests: an 8-worker claim race (exactly one winner), queue depth including `processing`, failed counts/reasons, batch-vs-single session lookup equivalence, the V23 index set, and a V20 legacy-conflict rehearsal (readable `TECHNICAL_BUCKET_CONFLICT` / `OBSERVATION_WITHOUT_SCOPE`, documented cleanup, re-run succeeds). The API contract probe now pins error bodies and the real liveness/readiness shapes (`/api/health` is `{service,status,timestamp}`; checks live on `/api/readiness`). `verify-local.sh` prefers the dedicated `claude-mem-test-pg` container because a shared `postgresql` container can be saturated by unrelated clients. Suite 360 → **423** tests / 0 skipped; EN+ZH in sync |
 | 2026-11-02 | **Golden-set output quality evaluation and final MiniMax re-check.** Added a manual-only, CI-refusing evaluation harness (`scripts/eval-model-quality.sh` + `GoldenSetEvaluator`, cap `EVAL_MAX_CALLS`, default 20) over a hand-authored golden set of **12 real-looking tool-use traces** spanning bug-fix, refactor, test-add, config-change, security-fix, docs-update and two low-value traces that must be skipped, each with expected observation/skip, type, title keywords and facts/concepts keywords. Scoring is pure offline logic (`GoldenSetScorer`) covered by 6 unit tests. LongCat run: **12/12 calls, 0 failures, 0 format errors; contract 92%, skip accuracy 92% (TP/FP/FN/TN 2/1/0/9), type 100%, title full-hit 44%, facts 54%/94%, concepts 57%/83%**; the one false positive is a small timezone regression test that was skipped, and title misses are paraphrase misses, not malformed output. Report: `docs/archive/2026-11-02_model-output-quality-eval.md`. MiniMax was re-checked after the key was updated again and **passed end to end**: HTTP 200, answer accepted by `XmlParser`, stored vector 1024-d, `GET /api/search` `strategy=hybrid`/`fell_back=false`/`hits=1` in 0.131 s, `/api/context/inject` returned the observation title and `updateFiles`, queue `processed:1`; **3 real calls**, queue admission → persistence 2.72 s. `EVAL_PROVIDER=anthropic` then ran the same 12 samples on `MiniMax-M3` (**12 calls**): contract 83%, skip accuracy 83% (TP/FP/FN/TN **0/0/2/10** — it produced observations for both low-value traces), type 90% (one `test-add` called `bugfix`), title full-hit 20%, facts 65%/90%, concepts 52%/80%, 0 format errors; report `docs/archive/2026-11-02_model-output-quality-eval-minimax.md`. Suite 354 → **360** tests / 0 skipped (6 offline scorer tests); `--min-tests` 354 → 360. EN+ZH in sync |
 | 2026-11-02 | **Dual-protocol providers, LongCat real chain, embedding request fix.** LongCat (`OpenAI-compatible`, `https://api.longcat.chat/openai`, `LongCat-2.5`) completed the full real path: extraction chat → `XmlParser` accepted the answer → observation persisted with a **1024-dimension** vector → `GET /api/search` returned `strategy=hybrid`, `fell_back=false`, 1 hit (0.11 s) → `/api/context/inject` contained the observation title and `updateFiles` → the queue row ended `processed`, not `failed`. The embedding probe returns **1024 dimensions in 0.29 s** with `BAAI/bge-m3`. Two fixes came out of this: (1) the OpenAI-only `dimensions` field was rejected by SiliconFlow (`400 code 20015`), so it is now opt-in through `spring.ai.openai.embedding.send-dimensions` (default `false`); (2) the extraction prompts told a skipping model to say nothing while the parser expected `<skip>`, so a plain-text skip was classified as malformed — both prompts now require `<skip>reason</skip>`, and `<subtitle>`/`<narrative>` in the templates were closed. `OPENAI_API_KEY` is now mapped into `spring.ai.openai.api-key`, so the plain name really takes effect. The openai/anthropic switch is now decided at **bean-registration** level (`@ConditionalOnProperty` on `claudemem.llm.provider`), not by a method returning null: with both keys present, the old arrangement still exposed two `ChatModel` definitions and `getBean(ChatModel.class)` raised `NoUniqueBeanDefinitionException` — caught by the new context-level test. Added `SpringAiConfigProviderBranchTest` (5 tests: mutual exclusion, registration-level single bean in a real context, empty-key suppression, embedding independent of the chat provider) and `XmlParserTest` (4 tests: fenced observation, `<skip>`, untagged text rejection, unclosed tags). Documented the openai/anthropic switch table, restart requirement and how to confirm the active branch. MiniMax was re-attempted with an updated `ANTHROPIC_API_KEY`: that key still returned **`402 insufficient_balance_error` (code 1008)**, so no answer was parseable and the Anthropic chain did not run on that attempt; the later key re-check that passed end to end is recorded in the entry above. The Anthropic bean itself was confirmed active from the startup log, and a two-restart switch check (`provider=openai` → only `OpenAiChatModel`; `provider=anthropic` → only `AnthropicChatModel`, both healthy) passed without `BeanDefinitionOverrideException`. Suite 345 → 354 tests / 0 skipped; `--min-tests` 345 → 354. EN+ZH in sync |
 | 2026-11-02 | Added test-scoped offline doubles for the three model-dependent chains (`OfflineAiTestModels`: `ChatModel` + `EmbeddingModel`) and `OfflineAiChainIntegrationTest` (observation extraction, session summary, semantic search on the vector branch). No production configuration changed. Verified 319 tests / 0 failures / 0 skipped against `cortexce_flyway_rehearsal`, and 319 / 22 skipped with the `MEMSCOPE_*` variables unset. The CI gate's `--min-tests` moved from 300 to 319; EN+ZH in sync |

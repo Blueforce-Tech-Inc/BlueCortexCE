@@ -312,6 +312,91 @@ def compare(reference_en, reference_zh, served):
 
 
 # --------------------------------------------------------------------------
+# response contracts
+#
+# The endpoint list is not the whole contract. Two things below it drifted
+# silently before and are checked here:
+#
+#   * every error response is a JSON object carrying a message field -- not an
+#     HTML error page, not an empty body. The three shapes the server currently
+#     produces are printed, so a new shape is visible even though this script
+#     does not unify them (unifying would change the published contract).
+#   * the response fields the WebUI reads directly (items/hasMore on the
+#     observation list, status/checks on health) exist and have the right type.
+#     These are pinned by tests as well; the check here catches a server that
+#     starts but no longer honours them.
+# --------------------------------------------------------------------------
+MESSAGE_KEYS = ("error", "message", "detail")
+
+
+def _parse_json(raw):
+    try:
+        return json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def validate_probe(name, status, expected, raw):
+    """Problems for one contract probe. Pure, so the self-test can drive it."""
+    problems = []
+    if status != expected:
+        return ["%s: expected HTTP %s, got %s" % (name, expected, status)]
+    payload = _parse_json(raw)
+    if payload is None:
+        return ["%s: response is not JSON (%r)" % (name, raw[:80])]
+    if not isinstance(payload, dict):
+        return ["%s: response is not a JSON object" % name]
+
+    if expected >= 400:
+        if not any(key in payload for key in MESSAGE_KEYS):
+            problems.append(
+                "%s: error body carries none of %s (keys: %s)"
+                % (name, "/".join(MESSAGE_KEYS), ", ".join(sorted(payload)))
+            )
+    elif name == "GET /api/health":
+        # The liveness payload is {service,status,timestamp}; readiness carries checks.
+        if not isinstance(payload.get("status"), str):
+            problems.append("%s: 'status' must be a string" % name)
+        if not isinstance(payload.get("service"), str):
+            problems.append("%s: 'service' must be a string" % name)
+    elif name == "GET /api/readiness":
+        checks = payload.get("checks")
+        if not isinstance(payload.get("status"), str) or not isinstance(checks, dict):
+            problems.append("%s: expected string 'status' and object 'checks'" % name)
+        else:
+            for field in ("database", "queueDepth", "queueFailed", "embeddingBacklog"):
+                if field not in checks:
+                    problems.append("%s: checks.%s is missing" % (name, field))
+    elif name == "GET /api/observations":
+        if not isinstance(payload.get("items"), list):
+            problems.append("%s: 'items' must be a list" % name)
+        if not isinstance(payload.get("hasMore"), bool):
+            problems.append("%s: 'hasMore' must be a boolean (WebUI pagination)" % name)
+    return problems
+
+
+def contract_probes(base):
+    """Live probes for the response contract. Returns (problems, shapes)."""
+    probes = [
+        ("GET /api/health", "GET", "/api/health", None, 200),
+        ("GET /api/readiness", "GET", "/api/readiness", None, 200),
+        ("GET /api/observations", "GET", "/api/observations?limit=1", None, 200),
+        ("unknown route", "GET", "/api/__contract_probe_not_a_route__", None, 404),
+        ("malformed JSON body", "POST", "/api/ingest/tool-use", b"not-json", 400),
+    ]
+    problems = []
+    shapes = {}
+    for name, method, path, body, expected in probes:
+        headers = {"Content-Type": "application/json"} if body is not None else {}
+        status, raw = fetch(base + path, method=method, body=body, headers=headers)
+        problems.extend(validate_probe(name, status, expected, raw))
+        payload = _parse_json(raw)
+        if isinstance(payload, dict):
+            shapes[name] = "{" + ",".join(sorted(payload)) + "}"
+    return problems, shapes
+
+
+# --------------------------------------------------------------------------
 # self-test
 # --------------------------------------------------------------------------
 def self_test():
@@ -371,12 +456,97 @@ def self_test():
     if query != {"GET /api/observations"}:
         failures.append("the parser kept a query string: %s" % sorted(query))
 
+    # Response contracts: each of these must be reported.
+    probe_cases = [
+        (
+            "an HTML error page",
+            "unknown route", 404, 404,
+            b"<html><body>Not Found</body></html>",
+            True,
+        ),
+        (
+            "an empty error body",
+            "unknown route", 404, 404,
+            b"",
+            True,
+        ),
+        (
+            "an error body without a message field",
+            "unknown route", 404, 404,
+            b'{"code":404}',
+            True,
+        ),
+        (
+            "a missing hasMore",
+            "GET /api/observations", 200, 200,
+            b'{"items":[]}',
+            True,
+        ),
+        (
+            "hasMore has the wrong type",
+            "GET /api/observations", 200, 200,
+            b'{"items":[],"hasMore":"true"}',
+            True,
+        ),
+        (
+            "a health body without queueFailed",
+            "GET /api/readiness", 200, 200,
+            b'{"status":"ready","checks":{"database":"ready","queueDepth":0,'
+            b'"embeddingBacklog":0}}',
+            True,
+        ),
+        (
+            "a liveness body without service",
+            "GET /api/health", 200, 200,
+            b'{"status":"up","timestamp":1}',
+            True,
+        ),
+        (
+            "a liveness body that satisfies the contract",
+            "GET /api/health", 200, 200,
+            b'{"service":"cortex-ce","status":"up","timestamp":1}',
+            False,
+        ),
+        (
+            "a readiness body that satisfies the contract",
+            "GET /api/readiness", 200, 200,
+            b'{"status":"ready","checks":{"database":"ready","queueDepth":0,'
+            b'"queueFailed":0,"embeddingBacklog":0}}',
+            False,
+        ),
+        (
+            "the wrong status code",
+            "GET /api/health", 503, 200,
+            b'{"status":"DOWN"}',
+            True,
+        ),
+        (
+            "a body that satisfies the contract",
+            "GET /api/observations", 200, 200,
+            b'{"items":[],"hasMore":false}',
+            False,
+        ),
+        (
+            "an error body with a message field",
+            "unknown route", 404, 404,
+            b'{"error":"Not Found","path":"/x"}',
+            False,
+        ),
+    ]
+    for name, probe, status, expected, raw, expect_problem in probe_cases:
+        problems = validate_probe(probe, status, expected, raw)
+        if bool(problems) != expect_problem:
+            failures.append(
+                "%s: expected %s, the checker reported %s"
+                % (name, "a problem" if expect_problem else "no problem", problems)
+            )
+
     if failures:
         print("SELF-TEST FAILED")
         for failure in failures:
             print("  - %s" % failure)
         return 1
-    print("SELF-TEST PASSED (%d cases)" % (len(cases) + 2))
+    print("SELF-TEST PASSED (%d cases)" % (len(cases) + 2 + len(probe_cases)))
     return 0
 
 
@@ -435,12 +605,18 @@ def main(argv):
 
     problems += compare(reference_en, reference_zh, served)
 
+    response_problems, shapes = contract_probes(base)
+    problems += response_problems
+
     print("server            : %s" % base)
     print("served operations : %d (%d REST + %d transport)"
           % (len(served), len(served) - len(actuator) - len(mcp),
              len(actuator) + len(mcp)))
     print("English reference : %d endpoints" % len(reference_en))
     print("Chinese reference : %d endpoints" % len(reference_zh))
+    print("response shapes   :")
+    for name, shape in shapes.items():
+        print("  %-24s %s" % (name + ":", shape))
 
     if problems:
         print("")
