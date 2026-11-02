@@ -41,6 +41,8 @@ WHEN TO SKIP
 ------------
 Output exactly `<skip>short reason</skip>` and nothing else when the observed turn:
 - only reads files or searches the codebase to answer a question
+- only locates where an identifier is used or defined (grep/glob search), even when matches are
+  found; naming identifiers does not turn a read-only search into a recordable change
 - only lists or explores directories or project structure
 - only repeats or confirms something already recorded earlier in this session
 - only views command output (git status, logs, ps, docker ps, mvn -v) without acting on it
@@ -48,7 +50,8 @@ Output exactly `<skip>short reason</skip>` and nothing else when the observed tu
 - makes no change to code, tests, configuration, deployment files or documentation
 - ends without a conclusion or deliverable (abandoned exploration)
 A plain-text explanation is treated as a malformed answer (the queue job is marked
-failed), not as a skip.
+failed), not as a skip. The skip line must be exactly `<skip>short reason</skip>`:
+both tags on the same line, nothing before or after.
 
 WHEN TO RECORD (never skip these)
 ---------------------------------
@@ -62,29 +65,63 @@ Produce an observation when the turn:
 A reproduction test is a recordable change even when production code is untouched: use type
 `feature` for "added a test" and name the reproduced bug in the narrative. Reserve `bugfix` for a
 change that fixes production behaviour. Changing only a test (including deflaking it) is `feature`,
-not `bugfix`.
+not `bugfix`. A fixed security hole is `bugfix`; a config, deploy or docs edit is `change`; an
+ADR is `decision`.
 
 TITLE CONTRACT
 --------------
 Format: `<verb> <object> <key identifier>`.
-- Use a past-tense verb: Fixed, Added, Refactored, Changed, Hardened, Removed, Migrated.
-- The object is what changed: "pagination", "login log", "connection pool", "timezone test".
+- Pick the NARROWEST past-tense verb that describes this turn. Do not default to Added, Changed
+  or Fixed when a narrower verb applies:
+  - Fixed: a defect already produced wrong or failing behaviour.
+  - Added: a new capability, file, test, endpoint, check, plugin or runtime feature.
+  - Changed: an existing setting, value or document was edited (threshold, log level, README
+    section, changelog entry). Use Set when the change is a single numeric value.
+  - Refactored: the structure changed and behaviour is identical (delegation, extraction, dispatch).
+  - Hardened: defensive checks were added without a reported defect (validation, XXE, headers).
+  - Restricted: permissions, origins, roles or access were narrowed (IAM policy, CORS).
+  - Redacted: secrets or personal data were masked or removed from logs or output.
+  - Removed: a capability, key, file or credential was deleted.
+  - Enabled / Disabled: an existing feature or setting was switched on or off.
+  - Converted: the artifact's form changed (single-stage to multi-stage build, format migration).
+  - Recorded: an ADR or decision record was written.
+  - Documented: an existing API, migration or reference document was extended.
+  - Migrated: schema, data or platform moved to a new version.
+  The verb describes the semantic action, not the file edit: a new plugin, check, endpoint, test
+  or file is `Added` even inside a config file; editing README/CHANGELOG/CONTRIBUTING is `Changed`;
+  a numeric setting is `Set`. Never use Raised, Improved, Updated or any verb outside this list.
+- The object is what changed, named the way the requester would say it: "pagination",
+  "login log", "connection pool", "log level", "line endings", "authorization", "parameterized
+  test", "CORS policy". Name the capability in plain words, not only the annotation or class that
+  implements it.
+- End the title with the file path or class identifier when the change lives in a config, doc,
+  deploy file or a single class: `... in application.yml`, `... in docs/API.md`,
+  `... in infra/main.tf`, `... in WebClientConfig`. If that would exceed 100 characters, shorten
+  the object wording; never drop the path suffix or an identifier.
 - Copy EVERY identifier that names the changed artifact verbatim: class, method, function,
   test name, file name or path, configuration key, endpoint, image tag. Never translate,
   abbreviate, re-case or paraphrase them, and never drop one to keep the title short:
   `PaymentService` stays `PaymentService`, `computeIfAbsent` stays `computeIfAbsent`,
   `maximum-pool-size` stays `maximum-pool-size`, `/api/health` stays `/api/health`.
-- Also name the decisive cause or symptom noun from the trace, not only the component:
-  `line endings` (not just `CSV`), `expiration boundary`, `canary rollback threshold`,
-  `multi-stage` build. A title that names only the file is incomplete.
+- Also name the decisive cause or symptom noun from the trace, not only the component, and copy
+  the trace's exact wording including plural: `line endings` (not `line ending`, not just `CSV`),
+  `expiration boundary`, `canary rollback threshold`, `multi-stage` build. If the trace calls the
+  test `parameterized`, say `parameterized`; if it narrows `authorization`, say `authorization`.
+  A title that names only the file is incomplete.
 - Length: 20-100 characters.
 - Good: `Fixed UserCache.computeIfAbsent null placeholder race`
+- Good: `Fixed CsvExporter line endings normalization for multiline fields`
+- Good: `Changed Hikari connection pool maximum-pool-size in application.yml`
+- Good: `Restricted CORS origins in CorsConfig.java to https://app.acme.com`
+- Good: `Redacted credentials in LogSanitizer secret values`
+- Good: `Converted Dockerfile to multi-stage with eclipse-temurin:21-jre`
 - Good: `Added readinessProbe /api/health to deployment.yaml`
 - Good: `Enabled canary rollback at a 10 percent threshold in canary.yaml`
 - Good: `Added DailyReportTest#reportUsesBusinessTimezone for Asia/Shanghai`
 - Bad: `修复了订单查询的一个小问题` (vague, identifier lost)
 - Bad: `Improved the payment module` (no verb+object+identifier)
 - Bad: `Changed Hikari pool sizing in application.yml` (drops the `maximum-pool-size` key)
+- Bad: `Raised replicaCount to 3 in infra/values.yaml` (`Raised` is not a contract verb; use Changed)
 
 FACTS CONTRACT
 --------------
@@ -112,10 +149,33 @@ FACTS CONTRACT
 
 CONCEPTS CONTRACT
 -----------------
-- Choose 2 concepts that describe the change itself: `what-changed`, `problem-solution`,
-  `pattern` or `trade-off`.
-- Add `gotcha` or `how-it-works` only when the trace explicitly discusses the trap or the
-  mechanism; otherwise they dilute the record.
+- Choose EXACTLY 2 concepts from the closed list below. Never output one, never output three
+  or more, and never invent a category.
+- Slot 1 (what happened):
+  1. `problem-solution` when the trace fixes a concrete defect (crash, wrong result, security
+     hole, race, leak) or adds a test that pins such a defect. A restriction, hardening, config
+     edit or deployment change with no reported defect is NOT `problem-solution`.
+  2. `why-it-exists` when the trace is a decision record, ADR or policy that explains rationale.
+  3. `what-changed` for every other change (config, deploy, docs, refactor, routine test).
+- Slot 2 (what a future reader should remember), in this order:
+  1. `pattern` when the turn introduces a reusable building block, structure or test scaffold:
+     atomic primitive, graph fetch, extracted collaborator/strategy, map-based dispatch,
+     parameterized cases, contract test, documented procedure. Documentation-only turns are
+     `pattern` because the document becomes the reusable procedure or contract.
+  2. `trade-off` when the change accepts a stated cost: pool size, replica count, memory cap,
+     timeout, traffic weight, build or coverage overhead, disabling a capability.
+  3. `gotcha` when the trace states a durable trap or default a later caller must guard against:
+     null contract, platform locale or charset default, time/expiry boundary, regex complexity,
+     resource leak, redaction rule. Do NOT use `gotcha` merely because the defect involved an
+     edge case when the fix itself is the only lasting knowledge.
+  4. `how-it-works` only when the trace explains a mechanism and makes no change at all; never
+     use it to describe a turn that edited something.
+  5. `what-changed` when none of the above applies.
+- Defaults that decide the ambiguous cases: configuration-only turns are `trade-off`; deployment
+  and CI turns are `trade-off` for sizing, limits or weights and `pattern` for a reusable
+  pipeline or script; documentation-only turns are `pattern`; an ADR is `trade-off`.
+- Closed list: `how-it-works`, `why-it-exists`, `what-changed`, `problem-solution`, `gotcha`,
+  `pattern`, `trade-off`.
 
 IMPORTANT: Continue generating observations from tool use messages using the XML structure below.
 
