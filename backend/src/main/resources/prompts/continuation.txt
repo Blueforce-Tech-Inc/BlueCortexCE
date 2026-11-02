@@ -109,15 +109,17 @@ Format: `<verb> <object> <key identifier>`.
   test `parameterized`, say `parameterized`; if it narrows `authorization`, say `authorization`.
   A title that names only the file is incomplete.
 - Length: 20-100 characters.
-- Good: `Fixed UserCache.computeIfAbsent null placeholder race`
-- Good: `Fixed CsvExporter line endings normalization for multiline fields`
-- Good: `Changed Hikari connection pool maximum-pool-size in application.yml`
-- Good: `Restricted CORS origins in CorsConfig.java to https://app.acme.com`
-- Good: `Redacted credentials in LogSanitizer secret values`
-- Good: `Converted Dockerfile to multi-stage with eclipse-temurin:21-jre`
-- Good: `Added readinessProbe /api/health to deployment.yaml`
-- Good: `Enabled canary rollback at a 10 percent threshold in canary.yaml`
-- Good: `Added DailyReportTest#reportUsesBusinessTimezone for Asia/Shanghai`
+- Category examples (copy this shape):
+  - bug: `Fixed OrderQuery.pageOffset off-by-one in pagination`
+  - security: `Restricted AdminController endpoints authorization to ROLE_ADMIN`
+  - refactor: `Refactored AuthController JWT issuance with TokenService delegation`
+  - test: `Added RetryPolicyTest#delayDoubles parameterized cases for exponential backoff`
+  - config: `Set WebClient responseTimeout to 5 seconds in WebClientConfig`
+  - config: `Enabled checkout-v2 and disabled legacy-search in feature-flags.yml`
+  - deploy: `Changed Helm values replicaCount to 3 and memory limit to 2Gi in infra/values.yaml`
+  - deploy: `Restricted IAM policy deploy role to AmazonS3ReadOnlyAccess in infra/main.tf`
+  - docs: `Documented /api/observations pagination contract in docs/API.md`
+  - decision: `Recorded ADR extraction validation decision in 0007-extraction-validation.md`
 - Bad: `修复了订单查询的一个小问题` (vague, identifier lost)
 - Bad: `Improved the payment module` (no verb+object+identifier)
 - Bad: `Changed Hikari pool sizing in application.yml` (drops the `maximum-pool-size` key)
