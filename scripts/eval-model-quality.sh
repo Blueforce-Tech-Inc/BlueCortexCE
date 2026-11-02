@@ -9,8 +9,14 @@
 # Usage:
 #   env -u CI -u GITHUB_ACTIONS ./scripts/eval-model-quality.sh
 #   EVAL_PROVIDER=anthropic ./scripts/eval-model-quality.sh
-#   EVAL_MAX_CALLS=10 EVAL_LIMIT=10 ./scripts/eval-model-quality.sh
-#   EVAL_REPORT=/tmp/eval.md ./scripts/eval-model-quality.sh
+#   EVAL_LIMIT=20 EVAL_MAX_CALLS=20 ./scripts/eval-model-quality.sh
+#   EVAL_PHASE=after EVAL_VALIDATE=1 EVAL_FIXTURE_OUT=/tmp/longcat-after.json ./scripts/eval-model-quality.sh
+#   EVAL_PHASE=before EVAL_VALIDATE=0 \
+#     EVAL_PROMPT_DIR=backend/src/test/resources/eval/prompts-baseline ./scripts/eval-model-quality.sh
+#   EVAL_FIXTURE_IN=/tmp/longcat-after.json ./scripts/eval-model-quality.sh   # offline replay
+#
+# EVAL_MAX_CALLS defaults to 0 (unlimited). Failed calls are never retried.
+# Key samples are repeated EVAL_KEY_REPEAT times (default 3).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -46,13 +52,13 @@ done
 
 export REAL_LLM_EVAL=1
 export EVAL_PROVIDER
-export EVAL_MAX_CALLS="${EVAL_MAX_CALLS:-20}"
+export EVAL_MAX_CALLS="${EVAL_MAX_CALLS:-0}"
 export EVAL_REPORT="${EVAL_REPORT:-$ROOT/docs/archive/$(date +%F)_model-output-quality-eval.md}"
 
 if [[ "$EVAL_PROVIDER" == "anthropic" ]]; then
-  echo "provider=anthropic model=$ANTHROPIC_MODEL base_url=$ANTHROPIC_BASE_URL max_calls=$EVAL_MAX_CALLS report=$EVAL_REPORT"
+  echo "provider=anthropic model=$ANTHROPIC_MODEL base_url=$ANTHROPIC_BASE_URL max_calls=$EVAL_MAX_CALLS phase=${EVAL_PHASE:-current} report=$EVAL_REPORT"
 else
-  echo "provider=openai model=$OPENAI_MODEL base_url=$OPENAI_BASE_URL max_calls=$EVAL_MAX_CALLS report=$EVAL_REPORT"
+  echo "provider=openai model=$OPENAI_MODEL base_url=$OPENAI_BASE_URL max_calls=$EVAL_MAX_CALLS phase=${EVAL_PHASE:-current} report=$EVAL_REPORT"
 fi
 
 cd "$ROOT/backend"

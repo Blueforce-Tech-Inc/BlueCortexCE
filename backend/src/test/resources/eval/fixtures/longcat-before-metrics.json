@@ -1,0 +1,30 @@
+{
+  "calls": 108,
+  "durationMs": 854098,
+  "total": 82,
+  "formatErrors": 0,
+  "validationRejections": 0,
+  "callFailures": 0,
+  "skipAccuracy": 0.9634146341463414,
+  "skipTp": 17,
+  "skipFp": 0,
+  "skipFn": 3,
+  "skipTn": 62,
+  "contractPassRate": 0.9634146341463414,
+  "titleExactHitRate": 0.24193548387096775,
+  "titleNormalizedHitRate": 0.12903225806451613,
+  "titleIdentifierHitRate": 0.43548387096774194,
+  "typeAccuracy": 0.8225806451612904,
+  "factsPrecision": 0.5336021505376345,
+  "factsRecall": 0.8951612903225806,
+  "factsSupportRate": 0.8392473118279566,
+  "conceptsPrecision": 0.5215053763440858,
+  "conceptsRecall": 0.7580645161290323,
+  "repeatConsistency": 0.9230769230769231,
+  "p50Ms": 7519,
+  "p95Ms": 11117,
+  "maxMs": 29421,
+  "statusCounts": {
+    "200": 82
+  }
+}

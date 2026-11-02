@@ -1,15 +1,16 @@
 package com.ablueforce.cortexce.eval;
 
+import com.ablueforce.cortexce.service.ExtractionValidationService;
 import com.ablueforce.cortexce.util.XmlParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.ai.anthropic.AnthropicChatModel;
+import org.springframework.ai.anthropic.AnthropicChatOptions;
+import org.springframework.ai.anthropic.api.AnthropicApi;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.ai.anthropic.AnthropicChatModel;
-import org.springframework.ai.anthropic.AnthropicChatOptions;
-import org.springframework.ai.anthropic.api.AnthropicApi;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
@@ -20,121 +21,265 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * Manual-only golden-set evaluation against a real OpenAI-compatible provider.
- * <p>
- * This class is a {@code main} entry point, not a JUnit test, so Surefire never
- * picks it up and CI never makes real provider calls. It refuses to run when
- * {@code CI} is set, requires {@code REAL_LLM_EVAL=1}, and hard-caps the number
- * of model calls through {@code EVAL_MAX_CALLS} (default 20).
- * <p>
- * Run it through {@code scripts/eval-model-quality.sh}; the wrapper loads
- * {@code backend/.env} and builds the test classpath.
+ * Manual golden-set evaluation against a real provider. Not a JUnit test: Surefire never picks
+ * it up, so CI never calls a provider.
+ *
+ * <p>Behaviour:</p>
+ * <ul>
+ *   <li>{@code REAL_LLM_EVAL=1} is required unless a recorded fixture is replayed.</p>
+ *   <li>Calls are unthrottled by default ({@code EVAL_MAX_CALLS=0}); a positive value caps them.</li>
+ *   <li>Key samples are repeated {@code EVAL_KEY_REPEAT} times (default 3) for stability.</li>
+ *   <li>A failed call is never retried.</li>
+ *   <li>{@code EVAL_FIXTURE_OUT} records every answer for offline replay; {@code EVAL_FIXTURE_IN}
+ *       replays one without touching the network.</li>
+ *   <li>{@code EVAL_PROMPT_DIR} points at a prompt directory (used to replay the pre-change
+ *       baseline prompt from {@code src/test/resources/eval/prompts-baseline}).</li>
+ *   <li>{@code EVAL_VALIDATE=0} disables the deterministic guard in-memory; default is 1.</li>
+ * </ul>
  */
 public final class GoldenSetEvaluator {
+
+    private static final Pattern STATUS = Pattern.compile("\\b([45]\\d\\d)\\b");
 
     private GoldenSetEvaluator() {
     }
 
     public static void main(String[] args) throws Exception {
-        if (env("REAL_LLM_EVAL") == null || !"1".equals(env("REAL_LLM_EVAL"))) {
-            System.err.println("Refusing to call a real model: set REAL_LLM_EVAL=1 first.");
-            System.exit(2);
-        }
-        if (env("CI") != null || "1".equals(env("GITHUB_ACTIONS"))) {
-            System.err.println("Refusing to run inside CI: real-model evaluation is manual-only.");
-            System.exit(2);
+        String fixtureIn = blankToNull(env("EVAL_FIXTURE_IN"));
+        if (fixtureIn == null) {
+            if (env("REAL_LLM_EVAL") == null || !"1".equals(env("REAL_LLM_EVAL"))) {
+                System.err.println("Refusing to call a real model: set REAL_LLM_EVAL=1 first.");
+                System.exit(2);
+            }
+            if (env("CI") != null || "1".equals(env("GITHUB_ACTIONS"))) {
+                System.err.println("Refusing to run inside CI: real-model evaluation is manual-only.");
+                System.exit(2);
+            }
         }
 
         String provider = envOr("EVAL_PROVIDER", "openai").toLowerCase(Locale.ROOT);
-        String apiKey;
-        String baseUrl;
+        String phase = envOr("EVAL_PHASE", "current");
         String modelName;
+        String baseUrl = null;
+        String apiKey = null;
         if ("anthropic".equals(provider)) {
-            apiKey = requireEnv("ANTHROPIC_API_KEY");
-            baseUrl = envOr("ANTHROPIC_BASE_URL", "https://api.anthropic.com");
             modelName = envOr("ANTHROPIC_MODEL", "claude-sonnet-4-5");
+            if (fixtureIn == null) {
+                apiKey = requireEnv("ANTHROPIC_API_KEY");
+                baseUrl = envOr("ANTHROPIC_BASE_URL", "https://api.anthropic.com");
+            }
         } else {
-            apiKey = requireEnv("OPENAI_API_KEY");
-            baseUrl = envOr("OPENAI_BASE_URL", "https://api.deepseek.com");
             modelName = envOr("OPENAI_MODEL", "deepseek-chat");
+            if (fixtureIn == null) {
+                apiKey = requireEnv("OPENAI_API_KEY");
+                baseUrl = envOr("OPENAI_BASE_URL", "https://api.deepseek.com");
+            }
         }
-        int maxCalls = Integer.parseInt(envOr("EVAL_MAX_CALLS", "20"));
+
+        int maxCalls = Integer.parseInt(envOr("EVAL_MAX_CALLS", "0")); // 0 = unlimited
         int limit = Integer.parseInt(envOr("EVAL_LIMIT", String.valueOf(Integer.MAX_VALUE)));
+        int keyRepeat = Math.max(1, Integer.parseInt(envOr("EVAL_KEY_REPEAT", "3")));
         double temperature = Double.parseDouble(envOr("EVAL_TEMPERATURE", "0.0"));
+        boolean validate = "1".equals(envOr("EVAL_VALIDATE", "1"));
 
         GoldenSet golden = loadGoldenSet();
-        String systemPrompt = resource("prompts/init.txt");
-        String observationTemplate = resource("prompts/observation.txt");
+        String promptDir = blankToNull(env("EVAL_PROMPT_DIR"));
+        String systemPrompt = readPrompt(promptDir, "init.txt");
+        String observationTemplate = readPrompt(promptDir, "observation.txt");
 
-        int planned = Math.min(Math.min(golden.samples.size(), limit), maxCalls);
+        List<GoldenSet.Sample> selected = golden.samples.subList(0, Math.min(golden.samples.size(), limit));
+        List<GoldenSet.Sample> plan = new ArrayList<>();
+        for (GoldenSet.Sample sample : selected) {
+            int runs = sample.keySample ? keyRepeat : 1;
+            for (int run = 0; run < runs; run++) {
+                plan.add(sample);
+            }
+        }
+        int planned = maxCalls > 0 ? Math.min(plan.size(), maxCalls) : plan.size();
         if (planned < 1) {
             System.err.println("No samples selected; nothing to evaluate.");
             System.exit(2);
         }
 
-        ChatModel model = buildModel(provider, apiKey, baseUrl, modelName, temperature);
-        System.out.printf(Locale.ROOT,
-                "Evaluating %d sample(s) with %s (%s) at %s (cap=%d, temperature=%.1f)%n",
-                planned, modelName, provider, baseUrl, maxCalls, temperature);
+        List<GoldenSetScorer.Outcome> outcomes;
+        int calls;
+        long startedAt = System.nanoTime();
+        Map<String, Object> fixture;
+        ChatModel model = null;
+        if (fixtureIn == null) {
+            model = buildModel(provider, apiKey, baseUrl, modelName, temperature);
+            System.out.printf(Locale.ROOT,
+                    "Evaluating %d scenario run(s) (%d samples, key repeat %d) with %s (%s) at %s "
+                            + "(cap=%s, validate=%s, temperature=%.1f)%n",
+                    planned, selected.size(), keyRepeat, modelName, provider, baseUrl,
+                    maxCalls == 0 ? "none" : String.valueOf(maxCalls), validate, temperature);
+        } else {
+            System.out.printf(Locale.ROOT,
+                    "Replaying fixture %s for %s (%s), validate=%s%n",
+                    fixtureIn, modelName, provider, validate);
+        }
 
-        List<GoldenSetScorer.Outcome> outcomes = new ArrayList<>();
-        int calls = 0;
-        int infraFailures = 0;
-        for (int i = 0; i < planned; i++) {
-            GoldenSet.Sample sample = golden.samples.get(i);
-            String userPrompt = fillTemplate(observationTemplate, sample);
-            long started = System.nanoTime();
-            calls++;
-            try {
-                ChatResponse response = model.call(new Prompt(
-                        List.of(new SystemMessage(systemPrompt), new UserMessage(userPrompt))));
-                String raw = response.getResult().getOutput().getText();
-                long elapsedMs = (System.nanoTime() - started) / 1_000_000;
-                outcomes.add(parse(sample, raw, elapsedMs));
-                System.out.printf(Locale.ROOT, "  [%d/%d] %-28s %5d ms%n", i + 1, planned, sample.id, elapsedMs);
-            } catch (Exception e) {
-                long elapsedMs = (System.nanoTime() - started) / 1_000_000;
-                infraFailures++;
-                outcomes.add(new GoldenSetScorer.Outcome(sample, null, false, null, true,
-                        e.getClass().getSimpleName() + ": " + e.getMessage(), elapsedMs));
-                System.out.printf(Locale.ROOT, "  [%d/%d] %-28s CALL FAILED: %s%n",
-                        i + 1, planned, sample.id, e.getMessage());
+        List<Map<String, Object>> recorded = new ArrayList<>();
+        outcomes = new ArrayList<>();
+        calls = 0;
+        Map<String, Integer> runIndexes = new LinkedHashMap<>();
+        if (fixtureIn != null) {
+            ObjectMapper mapper = new ObjectMapper();
+            @SuppressWarnings("unchecked")
+            Map<String, Object> loaded = mapper.readValue(Path.of(fixtureIn).toFile(), Map.class);
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> entries = (List<Map<String, Object>>) loaded.get("entries");
+            for (Map<String, Object> entry : entries) {
+                String id = String.valueOf(entry.get("id"));
+                GoldenSet.Sample sample = find(golden, id);
+                String raw = entry.get("raw") == null ? null : String.valueOf(entry.get("raw"));
+                String error = entry.get("error") == null ? null : String.valueOf(entry.get("error"));
+                String status = entry.get("status") == null ? null : String.valueOf(entry.get("status"));
+                long elapsed = ((Number) entry.getOrDefault("elapsedMs", 0)).longValue();
+                int runIndex = ((Number) entry.getOrDefault("runIndex", 0)).intValue();
+                outcomes.add(toOutcome(sample, raw, error, status, elapsed, runIndex, validate));
+            }
+        } else {
+            for (int i = 0; i < planned; i++) {
+                GoldenSet.Sample sample = plan.get(i);
+                int runIndex = runIndexes.merge(sample.id, 1, Integer::sum) - 1;
+                String userPrompt = fillTemplate(observationTemplate, sample);
+                long started = System.nanoTime();
+                calls++;
+                try {
+                    ChatResponse response = model.call(new Prompt(
+                            List.of(new SystemMessage(systemPrompt), new UserMessage(userPrompt))));
+                    String raw = response.getResult().getOutput().getText();
+                    long elapsedMs = (System.nanoTime() - started) / 1_000_000;
+                    outcomes.add(toOutcome(sample, raw, null, "200", elapsedMs, runIndex, validate));
+                    recorded.add(entry(sample, raw, null, "200", elapsedMs, runIndex));
+                    System.out.printf(Locale.ROOT, "  [%d/%d] %-30s run %d %5d ms%n",
+                            i + 1, planned, sample.id, runIndex, elapsedMs);
+                } catch (Exception e) {
+                    long elapsedMs = (System.nanoTime() - started) / 1_000_000;
+                    String error = e.getClass().getSimpleName() + ": " + e.getMessage();
+                    String status = statusOf(error);
+                    outcomes.add(new GoldenSetScorer.Outcome(sample, null, false, null, true,
+                            error, elapsedMs, status, runIndex, false));
+                    recorded.add(entry(sample, null, error, status, elapsedMs, runIndex));
+                    System.out.printf(Locale.ROOT, "  [%d/%d] %-30s run %d CALL FAILED (%s): %s%n",
+                            i + 1, planned, sample.id, runIndex, status, e.getMessage());
+                }
             }
         }
 
+        long durationMs = (System.nanoTime() - startedAt) / 1_000_000;
         GoldenSetScorer.Aggregate aggregate = GoldenSetScorer.score(outcomes);
+
+        String fixtureOut = blankToNull(env("EVAL_FIXTURE_OUT"));
+        if (fixtureOut != null) {
+            fixture = new LinkedHashMap<>();
+            fixture.put("provider", provider);
+            fixture.put("model", modelName);
+            fixture.put("phase", phase);
+            fixture.put("promptDir", promptDir == null ? "current" : promptDir);
+            fixture.put("validate", validate);
+            fixture.put("entries", recorded);
+            Path fixturePath = Path.of(fixtureOut);
+            if (fixturePath.getParent() != null) {
+                Files.createDirectories(fixturePath.getParent());
+            }
+            new ObjectMapper().writerWithDefaultPrettyPrinter().writeValue(fixturePath.toFile(), fixture);
+            System.out.println("fixture=" + fixturePath);
+        }
+
         String reportPath = envOr("EVAL_REPORT",
                 "docs/archive/" + LocalDate.now() + "_model-output-quality-eval.md");
-        String report = renderReport(provider, modelName, baseUrl, temperature, calls, maxCalls, aggregate);
+        String report = renderReport(provider, modelName, baseUrl, promptDir, phase, temperature,
+                calls, maxCalls, keyRepeat, durationMs, aggregate);
         Path path = Path.of(reportPath);
         if (path.getParent() != null) {
             Files.createDirectories(path.getParent());
         }
         Files.writeString(path, report, StandardCharsets.UTF_8);
 
-        printSummary(aggregate, calls, maxCalls, path);
-        if (infraFailures > 0) {
-            System.err.println("Evaluation could not complete: " + infraFailures + " call(s) failed.");
-            System.exit(1);
+        String metricsOut = blankToNull(env("EVAL_METRICS_OUT"));
+        if (metricsOut != null) {
+            Path metricsPath = Path.of(metricsOut);
+            if (metricsPath.getParent() != null) {
+                Files.createDirectories(metricsPath.getParent());
+            }
+            new ObjectMapper().writerWithDefaultPrettyPrinter()
+                    .writeValue(metricsPath.toFile(), metrics(aggregate, calls, durationMs));
+            System.out.println("metrics=" + metricsPath);
+        }
+
+        printSummary(aggregate, calls, durationMs, path);
+        int callFailures = aggregate.callFailures;
+        if (callFailures > 0) {
+            System.err.println("Warning: " + callFailures + " call(s) failed; see the status distribution.");
         }
     }
 
-    private static GoldenSetScorer.Outcome parse(GoldenSet.Sample sample, String raw, long elapsedMs) {
+    static GoldenSetScorer.Outcome toOutcome(GoldenSet.Sample sample, String raw, String error,
+                                                     String status, long elapsedMs, int runIndex,
+                                                     boolean validate) {
+        if (error != null || raw == null) {
+            return new GoldenSetScorer.Outcome(sample, raw, false, null, true,
+                    error == null ? "no raw answer" : error, elapsedMs, status, runIndex, false);
+        }
         String skip = XmlParser.extractTag(raw, "skip");
         if (skip != null) {
-            return new GoldenSetScorer.Outcome(sample, raw, true, null, false, null, elapsedMs);
+            return new GoldenSetScorer.Outcome(sample, raw, true, null, false, null,
+                    elapsedMs, status, runIndex, false);
         }
+        XmlParser.ParsedObservation observation;
         try {
-            XmlParser.ParsedObservation observation = XmlParser.parseObservation(raw);
-            return new GoldenSetScorer.Outcome(sample, raw, false, observation, false, null, elapsedMs);
+            observation = XmlParser.parseObservation(raw);
         } catch (Exception e) {
             return new GoldenSetScorer.Outcome(sample, raw, false, null, false,
-                    e.getClass().getSimpleName() + ": " + e.getMessage(), elapsedMs);
+                    e.getClass().getSimpleName() + ": " + e.getMessage(), elapsedMs, status, runIndex, false);
         }
+        if (validate) {
+            ExtractionValidationService guard =
+                    new ExtractionValidationService(null, true, 100, 5, 20);
+            ExtractionValidationService.Result result = guard.validate(observation,
+                    sample.toolName, sample.toolInput, sample.toolOutput, null);
+            if (!result.accepted()) {
+                return new GoldenSetScorer.Outcome(sample, raw, false, null, false,
+                        result.reason(), elapsedMs, status, runIndex, true);
+            }
+            observation.facts = result.facts();
+        }
+        return new GoldenSetScorer.Outcome(sample, raw, false, observation, false, null,
+                elapsedMs, status, runIndex, false);
+    }
+
+    private static Map<String, Object> entry(GoldenSet.Sample sample, String raw, String error,
+                                              String status, long elapsedMs, int runIndex) {
+        Map<String, Object> entry = new LinkedHashMap<>();
+        entry.put("id", sample.id);
+        entry.put("runIndex", runIndex);
+        entry.put("status", status);
+        entry.put("elapsedMs", elapsedMs);
+        entry.put("raw", raw);
+        if (error != null) {
+            entry.put("error", error);
+        }
+        return entry;
+    }
+
+    static GoldenSet.Sample find(GoldenSet golden, String id) {
+        return golden.samples.stream().filter(sample -> sample.id.equals(id)).findFirst()
+                .orElseThrow(() -> new IllegalStateException("Fixture references unknown sample " + id));
+    }
+
+    private static String statusOf(String error) {
+        Matcher matcher = STATUS.matcher(error == null ? "" : error);
+        return matcher.find() ? matcher.group(1) : "exception";
     }
 
     private static ChatModel buildModel(String provider, String apiKey, String baseUrl,
@@ -172,7 +317,7 @@ public final class GoldenSetEvaluator {
         return value.length() <= max ? value : value.substring(0, max) + "... [truncated]";
     }
 
-    private static GoldenSet loadGoldenSet() throws Exception {
+    static GoldenSet loadGoldenSet() throws Exception {
         ObjectMapper mapper = new ObjectMapper();
         try (InputStream in = GoldenSetEvaluator.class.getResourceAsStream("/eval/golden-tool-use.json")) {
             if (in == null) {
@@ -180,6 +325,17 @@ public final class GoldenSetEvaluator {
             }
             return mapper.readValue(in, GoldenSet.class);
         }
+    }
+
+    private static String readPrompt(String promptDir, String name) throws Exception {
+        if (promptDir == null) {
+            return resource("prompts/" + name);
+        }
+        Path path = Path.of(promptDir, name);
+        if (!Files.exists(path)) {
+            throw new IllegalStateException("Missing prompt file " + path);
+        }
+        return Files.readString(path, StandardCharsets.UTF_8);
     }
 
     private static String resource(String path) throws Exception {
@@ -191,44 +347,131 @@ public final class GoldenSetEvaluator {
         }
     }
 
-    private static String renderReport(String provider, String modelName, String baseUrl, double temperature,
-                                       int calls, int maxCalls, GoldenSetScorer.Aggregate agg) {
+    private static String renderReport(String provider, String modelName, String baseUrl,
+                                       String promptDir, String phase, double temperature,
+                                       int calls, int maxCalls, int keyRepeat, long durationMs,
+                                       GoldenSetScorer.Aggregate agg) {
         StringBuilder sb = new StringBuilder();
         sb.append("# Model output quality evaluation\n\n");
         sb.append("- Date: ").append(LocalDate.now()).append('\n');
+        sb.append("- Phase: ").append(phase).append('\n');
         sb.append("- Provider: ").append(provider).append(", model `").append(modelName).append("`, base URL `")
-                .append(baseUrl).append("`\n");
-        sb.append("- Samples: ").append(agg.total).append("; real calls used: ").append(calls)
-                .append(" (cap ").append(maxCalls).append("); temperature: ").append(temperature).append('\n');
-        sb.append("- Parser: production `XmlParser` on the raw answer; skip detection via `<skip>`.\n\n");
+                .append(baseUrl == null ? "replay" : baseUrl).append("`\n");
+        sb.append("- Prompt source: ").append(promptDir == null
+                ? "classpath `prompts/` (current production prompt)" : promptDir).append('\n');
+        sb.append("- Samples: ").append(agg.total).append(" unique; runs scored: ").append(agg.runs.size())
+                .append("; key repeat: ").append(keyRepeat).append("; real calls: ").append(calls)
+                .append(" (cap ").append(maxCalls == 0 ? "none" : maxCalls).append("); duration: ")
+                .append(durationMs).append(" ms; temperature: ").append(temperature).append('\n');
+        sb.append("- Parser: production `XmlParser`; skip detection via `<skip>`.\n\n");
 
-        sb.append("## Aggregate\n\n");
+        sb.append("## Headline (first run of every sample)\n\n");
         sb.append("| metric | value |\n|---|---|\n");
         row(sb, "contract pass rate (observation parsed or skip when expected)", pct(agg.contractPassRate));
         row(sb, "skip accuracy", pct(agg.skipAccuracy));
         row(sb, "  skip confusion (TP/FP/FN/TN)",
                 agg.skipTp + "/" + agg.skipFp + "/" + agg.skipFn + "/" + agg.skipTn);
         row(sb, "format errors", String.valueOf(agg.formatErrors));
+        row(sb, "validation rejections", String.valueOf(agg.validationRejections));
         row(sb, "call failures", String.valueOf(agg.callFailures));
-        row(sb, "title full-hit rate", pct(agg.titleFullHitRate));
+        row(sb, "title exact-hit rate (legacy)", pct(agg.titleExactHitRate));
+        row(sb, "title normalized hit rate", pct(agg.titleNormalizedHitRate));
+        row(sb, "title identifier hit rate", pct(agg.titleIdentifierHitRate));
         row(sb, "type accuracy", pct(agg.typeAccuracy));
         row(sb, "facts precision / recall", pct(agg.factsPrecision) + " / " + pct(agg.factsRecall));
+        row(sb, "facts trace-support rate", pct(agg.factsSupportRate));
         row(sb, "concepts precision / recall", pct(agg.conceptsPrecision) + " / " + pct(agg.conceptsRecall));
+        row(sb, "skip consistency across repeats", pct(agg.repeatConsistency)
+                + " (" + agg.repeatedSamples + " repeated samples)");
+        row(sb, "latency p50 / p95 / max (ms)",
+                agg.p50Ms + " / " + agg.p95Ms + " / " + agg.maxMs);
+        sb.append('\n');
+
+        sb.append("## Acceptance gate (pre-committed in docs/drafts/extraction-quality-improvement-plan.md)\n\n");
+        sb.append("| id | criterion | threshold | observed | status |\n|---|---|---|---|---|\n");
+        gate(sb, "A1", "format errors", "= 0", String.valueOf(agg.formatErrors), agg.formatErrors == 0);
+        gate(sb, "A2", "skip accuracy", ">= 95%", pct(agg.skipAccuracy), agg.skipAccuracy >= 0.95);
+        gate(sb, "A3", "must-record samples skipped", "= 0", String.valueOf(agg.skipFn), agg.skipFn == 0);
+        gate(sb, "A4", "low-value samples recorded", "<= max(1, TP/20)", String.valueOf(agg.skipFp),
+                agg.skipFp <= Math.max(1, agg.skipTp / 20));
+        gate(sb, "A5", "facts precision", ">= 75%", pct(agg.factsPrecision), agg.factsPrecision >= 0.75);
+        gate(sb, "A6", "normalized title hit", ">= 80%", pct(agg.titleNormalizedHitRate),
+                agg.titleNormalizedHitRate >= 0.80);
+        sb.append('\n');
+
+        if (!agg.statusCounts.isEmpty()) {
+            sb.append("## Status distribution\n\n| status | calls |\n|---|---|\n");
+            agg.statusCounts.forEach((status, count) ->
+                    sb.append("| ").append(status).append(" | ").append(count).append(" |\n"));
+            sb.append('\n');
+        }
+
+        sb.append("## Per run (single vs average vs worst)\n\n");
+        sb.append("| run | samples | skip accuracy | title normalized | facts P | facts R | format errors |\n");
+        sb.append("|---|---|---|---|---|---|---|\n");
+        double avgSkip = 0, avgTitle = 0, avgFactsP = 0, avgFactsR = 0;
+        double worstSkip = 1, worstTitle = 1, worstFactsP = 1, worstFactsR = 1;
+        for (GoldenSetScorer.RunSummary run : agg.runs) {
+            sb.append("| ").append(run.runIndex).append(" | ").append(run.samples)
+                    .append(" | ").append(pct(run.skipAccuracy))
+                    .append(" | ").append(pct(run.titleNormalizedHitRate))
+                    .append(" | ").append(pct(run.factsPrecision))
+                    .append(" | ").append(pct(run.factsRecall))
+                    .append(" | ").append(run.formatErrors).append(" |\n");
+            avgSkip += run.skipAccuracy;
+            avgTitle += run.titleNormalizedHitRate;
+            avgFactsP += run.factsPrecision;
+            avgFactsR += run.factsRecall;
+            worstSkip = Math.min(worstSkip, run.skipAccuracy);
+            worstTitle = Math.min(worstTitle, run.titleNormalizedHitRate);
+            worstFactsP = Math.min(worstFactsP, run.factsPrecision);
+            worstFactsR = Math.min(worstFactsR, run.factsRecall);
+        }
+        int runs = Math.max(1, agg.runs.size());
+        sb.append("\n- average: skip ").append(pct(avgSkip / runs))
+                .append(", title ").append(pct(avgTitle / runs))
+                .append(", facts P/R ").append(pct(avgFactsP / runs)).append("/").append(pct(avgFactsR / runs))
+                .append("\n- worst run: skip ").append(pct(worstSkip))
+                .append(", title ").append(pct(worstTitle))
+                .append(", facts P/R ").append(pct(worstFactsP)).append("/").append(pct(worstFactsR))
+                .append("\n\n");
+
+        sb.append("## Per type\n\n");
+        sb.append("| category | samples | contract pass | type match | title normalized |\n");
+        sb.append("|---|---|---|---|---|\n");
+        agg.perType.forEach((category, type) -> sb.append("| ").append(category)
+                .append(" | ").append(type.samples)
+                .append(" | ").append(type.contractPass).append("/").append(type.samples)
+                .append(" | ").append(type.typeMatch).append("/").append(type.samples)
+                .append(" | ").append(type.titleNormalizedHit).append("/").append(type.samples)
+                .append(" |\n"));
         sb.append('\n');
 
         sb.append("## Per sample\n\n");
-        sb.append("| id | category | expected | actual | contract | title | type | facts P/R | concepts P/R | ms |\n");
-        sb.append("|---|---|---|---|---|---|---|---|---|---|\n");
+        sb.append("| id | category | expected | actual | contract | title norm | title exact | type | facts P/R | concepts P/R | ms |\n");
+        sb.append("|---|---|---|---|---|---|---|---|---|---|---|\n");
         for (GoldenSetScorer.SampleScore score : agg.scores) {
+            String actual = score.actualSkip ? "skip"
+                    : (score.parsed ? "observation"
+                    : (score.callFailed ? "call-failed"
+                    : (score.validationRejected ? "validation-rejected" : "malformed")));
+            String titleNorm = score.parsed ? pct(score.titleCoverage) : "-";
+            String titleExact = score.parsed ? (score.titleExactHit ? "hit" : "miss") : "-";
+            String type = score.parsed ? (score.typeMatch ? "match" : "MISS") : "-";
+            String facts = score.parsed
+                    ? pct(score.factsPrecision) + "/" + pct(score.factsRecall) : "-";
+            String concepts = score.parsed
+                    ? pct(score.conceptsPrecision) + "/" + pct(score.conceptsRecall) : "-";
             sb.append("| ").append(score.id)
                     .append(" | ").append(score.category)
                     .append(" | ").append(score.expectedSkip ? "skip" : "observation")
-                    .append(" | ").append(score.actualSkip ? "skip" : (score.parsed ? "observation" : (score.callFailed ? "call-failed" : "malformed")))
+                    .append(" | ").append(actual)
                     .append(" | ").append(score.contractPass ? "pass" : "FAIL")
-                    .append(" | ").append(score.parsed ? pct(score.titleCoverage) : "-")
-                    .append(" | ").append(score.parsed ? (score.typeMatch ? "match" : "MISS") : "-")
-                    .append(" | ").append(score.parsed ? pct(score.factsPrecision) + "/" + pct(score.factsRecall) : "-")
-                    .append(" | ").append(score.parsed ? pct(score.conceptsPrecision) + "/" + pct(score.conceptsRecall) : "-")
+                    .append(" | ").append(titleNorm)
+                    .append(" | ").append(titleExact)
+                    .append(" | ").append(type)
+                    .append(" | ").append(facts)
+                    .append(" | ").append(concepts)
                     .append(" | ").append(score.elapsedMs).append(" |\n");
         }
         sb.append('\n');
@@ -259,18 +502,49 @@ public final class GoldenSetEvaluator {
         }
 
         sb.append("## Method and limitations\n\n");
-        sb.append("- The prompt is the production `prompts/init.txt` system message plus `prompts/observation.txt`")
-                .append(" filled with each sample's tool name, cwd, input and output.\n");
-        sb.append("- Each sample costs exactly one chat call; embeddings are not exercised, so this measures")
-                .append(" extraction quality only, not retrieval quality.\n");
-        sb.append("- `facts`/`concepts` precision counts actual items that mention any expected keyword;")
-                .append(" recall counts expected keywords found in the concatenated list. Keyword matching is")
-                .append(" case-insensitive substring matching, so paraphrase misses count as errors.\n");
-        sb.append("- The golden set is small (12 samples) and authored by hand; numbers describe this set,")
-                .append(" not the full distribution of real tool-use traffic.\n");
-        sb.append("- Real calls are manual-only: `scripts/eval-model-quality.sh` refuses to run under CI")
-                .append(" and enforces the `EVAL_MAX_CALLS` cap.\n");
+        sb.append("- The prompt is the production `prompts/init.txt` system message plus the filled")
+                .append(" `prompts/observation.txt`; the baseline phase replays a checked-in prompt snapshot.\n");
+        sb.append("- `EVAL_VALIDATE=1` applies the production deterministic guard in-memory (no duplicate")
+                .append(" lookup), so the “after” numbers include the guard and the “before” numbers do not.\n");
+        sb.append("- Title hit requires every declared identifier verbatim and keyword coverage ≥ 0.8;")
+                .append(" keywords are normalized for case, punctuation, CamelCase and a small synonym table.\n");
+        sb.append("- Facts/concepts recall is the primary field signal; precision counts produced items that")
+                .append(" mention an expected keyword. Trace-support rate is measured independently against")
+                .append(" the recorded tool input/output.\n");
+        sb.append("- The golden set is hand-authored and describes this set, not all production traffic.\n");
+        sb.append("- Real calls are manual-only and never retried; CI only replays fixtures.\n");
         return sb.toString();
+    }
+
+    private static Map<String, Object> metrics(GoldenSetScorer.Aggregate agg, int calls, long durationMs) {
+        Map<String, Object> metrics = new LinkedHashMap<>();
+        metrics.put("calls", calls);
+        metrics.put("durationMs", durationMs);
+        metrics.put("total", agg.total);
+        metrics.put("formatErrors", agg.formatErrors);
+        metrics.put("validationRejections", agg.validationRejections);
+        metrics.put("callFailures", agg.callFailures);
+        metrics.put("skipAccuracy", agg.skipAccuracy);
+        metrics.put("skipTp", agg.skipTp);
+        metrics.put("skipFp", agg.skipFp);
+        metrics.put("skipFn", agg.skipFn);
+        metrics.put("skipTn", agg.skipTn);
+        metrics.put("contractPassRate", agg.contractPassRate);
+        metrics.put("titleExactHitRate", agg.titleExactHitRate);
+        metrics.put("titleNormalizedHitRate", agg.titleNormalizedHitRate);
+        metrics.put("titleIdentifierHitRate", agg.titleIdentifierHitRate);
+        metrics.put("typeAccuracy", agg.typeAccuracy);
+        metrics.put("factsPrecision", agg.factsPrecision);
+        metrics.put("factsRecall", agg.factsRecall);
+        metrics.put("factsSupportRate", agg.factsSupportRate);
+        metrics.put("conceptsPrecision", agg.conceptsPrecision);
+        metrics.put("conceptsRecall", agg.conceptsRecall);
+        metrics.put("repeatConsistency", agg.repeatConsistency);
+        metrics.put("p50Ms", agg.p50Ms);
+        metrics.put("p95Ms", agg.p95Ms);
+        metrics.put("maxMs", agg.maxMs);
+        metrics.put("statusCounts", agg.statusCounts);
+        return metrics;
     }
 
     private static String excerpt(String raw) {
@@ -281,13 +555,17 @@ public final class GoldenSetEvaluator {
         return collapsed.length() <= 400 ? collapsed : collapsed.substring(0, 400) + "... [truncated]";
     }
 
-    private static void printSummary(GoldenSetScorer.Aggregate agg, int calls, int maxCalls, Path path) {
-        System.out.printf(Locale.ROOT, "%ncontract=%s skipAccuracy=%s formatErrors=%d titleFull=%s type=%s factsP/R=%s/%s conceptsP/R=%s/%s calls=%d/%d%nreport=%s%n",
-                pct(agg.contractPassRate), pct(agg.skipAccuracy), agg.formatErrors,
-                pct(agg.titleFullHitRate), pct(agg.typeAccuracy),
-                pct(agg.factsPrecision), pct(agg.factsRecall),
-                pct(agg.conceptsPrecision), pct(agg.conceptsRecall),
-                calls, maxCalls, path);
+    private static void printSummary(GoldenSetScorer.Aggregate agg, int calls, long durationMs, Path path) {
+        System.out.printf(Locale.ROOT,
+                "%ncontract=%s skip=%s (TP/FP/FN/TN=%d/%d/%d/%d) formatErrors=%d "
+                        + "titleExact=%s titleNorm=%s type=%s factsP/R=%s/%s support=%s "
+                        + "conceptsP/R=%s/%s calls=%d duration=%dms consistency=%s%nreport=%s%n",
+                pct(agg.contractPassRate), pct(agg.skipAccuracy),
+                agg.skipTp, agg.skipFp, agg.skipFn, agg.skipTn, agg.formatErrors,
+                pct(agg.titleExactHitRate), pct(agg.titleNormalizedHitRate), pct(agg.typeAccuracy),
+                pct(agg.factsPrecision), pct(agg.factsRecall), pct(agg.factsSupportRate),
+                pct(agg.conceptsPrecision), pct(agg.conceptsRecall), calls, durationMs,
+                pct(agg.repeatConsistency), path);
         if (!agg.problems.isEmpty()) {
             System.out.println("problems:");
             agg.problems.forEach(p -> System.out.println("  - " + p));
@@ -296,6 +574,12 @@ public final class GoldenSetEvaluator {
 
     private static void row(StringBuilder sb, String key, String value) {
         sb.append("| ").append(key).append(" | ").append(value).append(" |\n");
+    }
+
+    private static void gate(StringBuilder sb, String id, String criterion, String threshold,
+                              String observed, boolean met) {
+        sb.append("| ").append(id).append(" | ").append(criterion).append(" | ").append(threshold)
+                .append(" | ").append(observed).append(" | ").append(met ? "PASS" : "**FAIL**").append(" |\n");
     }
 
     private static String pct(double value) {
@@ -309,6 +593,10 @@ public final class GoldenSetEvaluator {
     private static String envOr(String name, String fallback) {
         String value = System.getenv(name);
         return value == null || value.isBlank() ? fallback : value;
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 
     private static String requireEnv(String name) {

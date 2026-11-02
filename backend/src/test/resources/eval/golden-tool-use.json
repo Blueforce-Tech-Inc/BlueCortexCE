@@ -1,185 +1,703 @@
 {
-  "version": "2026-11-02",
+  "version": "2026-11-03-expanded-82",
   "samples": [
     {
-      "id": "bugfix-null-pointer",
-      "category": "bug-fix",
-      "toolName": "Edit",
-      "cwd": "/repo/payment-service",
-      "occurredAt": "2026-11-02T10:00:00Z",
-      "toolInput": "{\"file_path\":\"src/main/java/com/acme/payment/PaymentService.java\",\"old_string\":\"return repository.findByOrderId(orderId).orElseThrow().getAmount();\",\"new_string\":\"return repository.findByOrderId(orderId).map(Payment::getAmount).orElseThrow(() -> new PaymentNotFoundException(orderId));\"}",
-      "toolOutput": "Edit applied to PaymentService.java. Added PaymentNotFoundException handling for a missing orderId. Regression test PaymentServiceTest#missingOrderThrows passes; module build passes.",
-      "expectObservation": true,
-      "expectedType": "bugfix",
-      "titleKeywords": ["NullPointerException", "PaymentService"],
-      "factsKeywords": ["PaymentNotFoundException", "orderId"],
-      "conceptsKeywords": ["problem-solution", "pattern"],
-      "notes": "A real crash fix with a regression test."
+      "id": "bug-offbyone-pagination", "category": "bug-fix", "keySample": true,
+      "toolName": "Edit", "cwd": "/repo/orders", "occurredAt": "2026-11-03T09:12:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/orders/OrderQuery.java old_string=\"int offset = page * size - 1\" new_string=\"int offset = page * size\"",
+      "toolOutput": "Edit applied. OrderQuery.pageOffset now returns (page * size) without the extra -1. OrderQueryTest#firstPageStartsAtZero passes.",
+      "expectObservation": true, "expectedType": "bugfix",
+      "titleKeywords": ["fix", "pagination", "orderquery"], "titleIdentifiers": ["OrderQuery"],
+      "factsKeywords": ["offset", "page", "size"], "conceptsKeywords": ["problem-solution", "what-changed"]
     },
     {
-      "id": "bugfix-cache-race",
-      "category": "bug-fix",
-      "toolName": "Edit",
-      "cwd": "/repo/user-cache",
-      "occurredAt": "2026-11-02T10:05:00Z",
-      "toolInput": "{\"file_path\":\"src/main/java/com/acme/cache/UserCache.java\",\"old_string\":\"if (cached != null) return cached;\nUser user = load(id);\ncache.put(id, user);\nreturn user;\",\"new_string\":\"User user = cache.get(id);\nif (user != null) return user;\nreturn cache.computeIfAbsent(id, this::load);\"}",
-      "toolOutput": "UserCache now loads under computeIfAbsent so concurrent readers cannot overwrite each other. CacheConcurrencyTest with 16 threads passes 100 iterations.",
-      "expectObservation": true,
-      "expectedType": "bugfix",
-      "titleKeywords": ["race", "UserCache"],
-      "factsKeywords": ["computeIfAbsent", "concurrent"],
-      "conceptsKeywords": ["problem-solution", "gotcha"],
-      "notes": "Concurrency bug fixed with an atomic cache operation."
+      "id": "bug-null-cache", "category": "bug-fix", "keySample": true,
+      "toolName": "Edit", "cwd": "/repo/cache", "occurredAt": "2026-11-03T09:20:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/cache/UserCache.java old_string=\"return cache.get(id);\" new_string=\"return cache.computeIfAbsent(id, loader::load);\"",
+      "toolOutput": "Edit applied. UserCache.get now loads through computeIfAbsent, so two concurrent callers cannot both write a null placeholder. CacheConcurrencyTest passes.",
+      "expectObservation": true, "expectedType": "bugfix",
+      "titleKeywords": ["fix", "race", "usercache", "computeifabsent"], "titleIdentifiers": ["UserCache", "computeIfAbsent"],
+      "factsKeywords": ["computeIfAbsent", "concurrent", "null"], "conceptsKeywords": ["problem-solution", "gotcha"]
     },
     {
-      "id": "bugfix-pagination-off-by-one",
-      "category": "bug-fix",
-      "toolName": "Edit",
-      "cwd": "/repo/order-api",
-      "occurredAt": "2026-11-02T10:10:00Z",
-      "toolInput": "{\"file_path\":\"src/main/java/com/acme/order/OrderQuery.java\",\"old_string\":\"int offset = page * size;\",\"new_string\":\"int offset = Math.max(0, page - 1) * size;\"}",
-      "toolOutput": "Pagination now treats page numbers as 1-based; page 1 returns the first page instead of skipping it. OrderQueryTest#firstPageReturnsNewest passes.",
-      "expectObservation": true,
-      "expectedType": "bugfix",
-      "titleKeywords": ["pagination", "off-by-one"],
-      "factsKeywords": ["1-based", "offset"],
-      "conceptsKeywords": ["problem-solution", "gotcha"],
-      "notes": "Off-by-one pagination fix."
+      "id": "bug-timezone-report", "category": "bug-fix", "keySample": true,
+      "toolName": "Edit", "cwd": "/repo/reporting", "occurredAt": "2026-11-03T09:31:00Z",
+      "toolInput": "file_path=src/test/java/com/acme/reporting/DailyReportTest.java new_string=\"@Test void reportUsesBusinessTimezone() { ... ZoneId.of(\\\"Asia/Shanghai\\\") ... }\"",
+      "toolOutput": "Added DailyReportTest#reportUsesBusinessTimezone. It pins 2026-11-01T23:30Z and expects the Asia/Shanghai business date 2026-11-02. The test reproduces the reported off-by-one-day bug and now passes after the fix.",
+      "expectObservation": true, "expectedType": "feature",
+      "titleKeywords": ["add", "timezone", "dailyreport"], "titleIdentifiers": ["DailyReportTest", "reportUsesBusinessTimezone"],
+      "factsKeywords": ["Asia/Shanghai", "2026-11-02", "2026-11-01T23:30Z"], "conceptsKeywords": ["problem-solution", "what-changed"]
     },
     {
-      "id": "refactor-validation-helper",
-      "category": "refactor",
-      "toolName": "Edit",
-      "cwd": "/repo/signup-service",
-      "occurredAt": "2026-11-02T10:15:00Z",
-      "toolInput": "{\"file_path\":\"src/main/java/com/acme/signup/SignupController.java\",\"old_string\":\"if (email == null || !email.contains(\\\"@\\\")) return badRequest();\\nif (name == null || name.isBlank()) return badRequest();\",\"new_string\":\"if (!SignupValidator.isValid(request)) return badRequest();\"}",
-      "toolOutput": "Extracted duplicate signup checks into SignupValidator with the same behaviour. All 24 signup tests pass unchanged.",
-      "expectObservation": true,
-      "expectedType": "refactor",
-      "titleKeywords": ["SignupValidator", "validation"],
-      "factsKeywords": ["24", "SignupValidator"],
-      "conceptsKeywords": ["pattern", "what-changed"],
-      "notes": "Behaviour-preserving refactor; no new tests."
+      "id": "bug-payment-missing-order", "category": "bug-fix",
+      "toolName": "Edit", "cwd": "/repo/payment", "occurredAt": "2026-11-03T09:44:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/payment/PaymentService.java new_string=\"return repository.findByOrderId(orderId).orElseThrow(() -> new PaymentNotFoundException(orderId));\"",
+      "toolOutput": "Edit applied. PaymentService now throws PaymentNotFoundException for a missing orderId instead of returning null. PaymentServiceTest#missingOrderThrows passes.",
+      "expectObservation": true, "expectedType": "bugfix",
+      "titleKeywords": ["fix", "payment", "missing", "order"], "titleIdentifiers": ["PaymentService"],
+      "factsKeywords": ["PaymentNotFoundException", "orderId"], "conceptsKeywords": ["problem-solution", "what-changed"]
     },
     {
-      "id": "refactor-split-service",
-      "category": "refactor",
-      "toolName": "Edit",
-      "cwd": "/repo/billing",
-      "occurredAt": "2026-11-02T10:20:00Z",
-      "toolInput": "{\"file_path\":\"src/main/java/com/acme/billing/InvoiceService.java\",\"old_string\":\"public InvoiceService(...) { /* 380 lines of tax, pdf and mail logic */ }\",\"new_string\":\"public InvoiceService(TaxCalculator tax, InvoiceRenderer renderer, InvoiceMailer mailer) { ... }\"}",
-      "toolOutput": "Split InvoiceService into TaxCalculator, InvoiceRenderer and InvoiceMailer. Existing invoice tests pass; no API change.",
-      "expectObservation": true,
-      "expectedType": "refactor",
-      "titleKeywords": ["InvoiceService", "split"],
-      "factsKeywords": ["TaxCalculator", "InvoiceRenderer"],
-      "conceptsKeywords": ["what-changed", "pattern"],
-      "notes": "God class split into three collaborators."
+      "id": "bug-connection-leak", "category": "bug-fix",
+      "toolName": "Edit", "cwd": "/repo/db", "occurredAt": "2026-11-03T09:50:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/db/ConnectionPool.java new_string=\"try (Connection connection = dataSource.getConnection()) { ... }\"",
+      "toolOutput": "Edit applied. ConnectionPool.borrow now closes the connection with try-with-resources when the caller throws. PoolLeakTest reports activeConnections back to 0 after 100 failing calls.",
+      "expectObservation": true, "expectedType": "bugfix",
+      "titleKeywords": ["fix", "connection", "leak", "connectionpool"], "titleIdentifiers": ["ConnectionPool"],
+      "factsKeywords": ["try-with-resources", "activeConnections", "0"], "conceptsKeywords": ["problem-solution", "gotcha"]
     },
     {
-      "id": "test-timezone-regression",
-      "category": "test-add",
-      "toolName": "Write",
-      "cwd": "/repo/reporting",
-      "occurredAt": "2026-11-02T10:25:00Z",
-      "toolInput": "{\"file_path\":\"src/test/java/com/acme/reporting/DailyReportTest.java\",\"content\":\"@Test void reportUsesBusinessTimezone() { Clock fixed = Clock.fixed(Instant.parse(\\\"2026-11-01T23:30:00Z\\\"), ZoneOffset.UTC); ... assertThat(report.date()).isEqualTo(LocalDate.of(2026, 11, 2)); }\"}",
-      "toolOutput": "Added DailyReportTest#reportUsesBusinessTimezone. The test pins a UTC instant and asserts the Asia/Shanghai business date, covering the DST/timezone regression. Test passes.",
-      "expectObservation": true,
-      "expectedType": "feature",
-      "titleKeywords": ["timezone", "DailyReport"],
-      "factsKeywords": ["Asia/Shanghai", "Clock.fixed"],
-      "conceptsKeywords": ["pattern", "gotcha"],
-      "notes": "New regression test for a timezone bug; no production change."
+      "id": "bug-jwt-expiry", "category": "bug-fix",
+      "toolName": "Edit", "cwd": "/repo/auth", "occurredAt": "2026-11-03T10:02:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/auth/JwtVerifier.java old_string=\"if (claims.getExpiration().before(now))\" new_string=\"if (claims.getExpiration().isBefore(now) || claims.getExpiration().isEqual(now))\"",
+      "toolOutput": "Edit applied. JwtVerifier rejects a token whose expiration equals the current instant. JwtVerifierTest#expiredAtExactBoundary passes.",
+      "expectObservation": true, "expectedType": "bugfix",
+      "titleKeywords": ["fix", "jwt", "expiry", "boundary"], "titleIdentifiers": ["JwtVerifier"],
+      "factsKeywords": ["expiration", "isEqual", "rejects"], "conceptsKeywords": ["problem-solution", "gotcha"]
     },
     {
-      "id": "config-connection-pool",
-      "category": "config-change",
-      "toolName": "Edit",
-      "cwd": "/repo/gateway",
-      "occurredAt": "2026-11-02T10:30:00Z",
-      "toolInput": "{\"file_path\":\"src/main/resources/application.yml\",\"old_string\":\"maximum-pool-size: 10\",\"new_string\":\"maximum-pool-size: ${DB_POOL_SIZE:25}\"}",
-      "toolOutput": "Gateway Hikari pool now defaults to 25 and can be overridden with DB_POOL_SIZE. Config binding test passes; deployment manifest unchanged.",
-      "expectObservation": true,
-      "expectedType": "change",
-      "titleKeywords": ["connection pool", "DB_POOL_SIZE"],
-      "factsKeywords": ["25", "Hikari"],
-      "conceptsKeywords": ["what-changed", "trade-off"],
-      "notes": "Configuration change with a new env override."
+      "id": "bug-csv-crlf", "category": "bug-fix",
+      "toolName": "Edit", "cwd": "/repo/export", "occurredAt": "2026-11-03T10:08:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/export/CsvExporter.java new_string=\"writer.write(line.replaceAll(\\\"\\\\r?\\\\n\\\", \\\"\\\\r\\\\n\\\"));\"",
+      "toolOutput": "Edit applied. CsvExporter now normalises embedded line endings to CRLF before quoting. CsvExporterTest#multilineFieldKeepsRowCount passes.",
+      "expectObservation": true, "expectedType": "bugfix",
+      "titleKeywords": ["fix", "csv", "line", "endings"], "titleIdentifiers": ["CsvExporter"],
+      "factsKeywords": ["CRLF", "multilineFieldKeepsRowCount"], "conceptsKeywords": ["problem-solution", "what-changed"]
     },
     {
-      "id": "security-sql-injection",
-      "category": "security-fix",
-      "toolName": "Edit",
-      "cwd": "/repo/admin-api",
-      "occurredAt": "2026-11-02T10:35:00Z",
-      "toolInput": "{\"file_path\":\"src/main/java/com/acme/admin/UserSearchDao.java\",\"old_string\":\"String sql = \\\"SELECT * FROM users WHERE name LIKE '%\\\" + keyword + \\\"%'\\\";\",\"new_string\":\"String sql = \\\"SELECT * FROM users WHERE name LIKE ?\\\";\\nreturn jdbc.query(sql, (rs, i) -> map(rs), \\\"%\\\" + keyword + \\\"%\\\");\"}",
-      "toolOutput": "Replaced string-concatenated SQL with a parameterized query in UserSearchDao. Added UserSearchDaoTest#keywordCannotInject that passes with a quote payload.",
-      "expectObservation": true,
-      "expectedType": "bugfix",
-      "titleKeywords": ["SQL injection", "parameterized"],
-      "factsKeywords": ["UserSearchDao", "prepared"],
-      "conceptsKeywords": ["problem-solution", "gotcha"],
-      "notes": "Security fix with a malicious-input regression test."
+      "id": "bug-race-counter", "category": "bug-fix",
+      "toolName": "Edit", "cwd": "/repo/metrics", "occurredAt": "2026-11-03T10:15:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/metrics/CounterService.java new_string=\"return counter.incrementAndGet();\" old_string=\"counter.set(counter.get() + 1); return counter.get();\"",
+      "toolOutput": "Edit applied. CounterService.increment uses AtomicLong.incrementAndGet instead of a get/set pair. CounterServiceConcurrencyTest passes with 1000 threads producing 1000.",
+      "expectObservation": true, "expectedType": "bugfix",
+      "titleKeywords": ["fix", "race", "counter", "atomiclong"], "titleIdentifiers": ["CounterService"],
+      "factsKeywords": ["incrementAndGet", "AtomicLong", "1000"], "conceptsKeywords": ["problem-solution", "pattern"]
     },
     {
-      "id": "security-log-redaction",
-      "category": "security-fix",
-      "toolName": "Edit",
-      "cwd": "/repo/auth-service",
-      "occurredAt": "2026-11-02T10:40:00Z",
-      "toolInput": "{\"file_path\":\"src/main/java/com/acme/auth/LoginController.java\",\"old_string\":\"log.info(\\\"login attempt password={}\\\", password);\",\"new_string\":\"log.info(\\\"login attempt user={} password=<redacted>\\\", username);\"}",
-      "toolOutput": "LoginController no longer logs raw passwords; username plus a redacted marker is logged instead. LogRedactionTest asserts the secret never appears.",
-      "expectObservation": true,
-      "expectedType": "bugfix",
-      "titleKeywords": ["password", "redact"],
-      "factsKeywords": ["LoginController", "redacted"],
-      "conceptsKeywords": ["problem-solution", "gotcha"],
-      "notes": "Secret-leak fix in logs."
+      "id": "bug-n-plus-one", "category": "bug-fix",
+      "toolName": "Edit", "cwd": "/repo/orders", "occurredAt": "2026-11-03T10:21:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/orders/OrderRepository.java new_string=\"@EntityGraph(attributePaths = \\\"items\\\") List<Order> findAllByCustomerId(String customerId);\"",
+      "toolOutput": "Edit applied. OrderRepository now fetches order items in the same query. QueryCountTest shows 1 SQL statement instead of 1 + N.",
+      "expectObservation": true, "expectedType": "bugfix",
+      "titleKeywords": ["fix", "n+1", "orderrepository", "entitygraph"], "titleIdentifiers": ["OrderRepository"],
+      "factsKeywords": ["EntityGraph", "1 SQL statement"], "conceptsKeywords": ["problem-solution", "pattern"]
     },
     {
-      "id": "docs-api-errors",
-      "category": "docs-update",
-      "toolName": "Write",
-      "cwd": "/repo/public-api",
-      "occurredAt": "2026-11-02T10:45:00Z",
-      "toolInput": "{\"file_path\":\"docs/errors.md\",\"content\":\"## Error codes\\n\\n| code | meaning | retry |\\n| 429 | rate limited | yes, honour Retry-After |\\n| 409 | idempotency conflict | no |\"}",
-      "toolOutput": "Added docs/errors.md with a retry table for 429 and 409. Link check passes; no code change.",
-      "expectObservation": true,
-      "expectedType": "change",
-      "titleKeywords": ["error codes", "docs"],
-      "factsKeywords": ["429", "409"],
-      "conceptsKeywords": ["why-it-exists", "what-changed"],
-      "notes": "Documentation deliverable for API consumers."
+      "id": "bug-dateformat-locale", "category": "bug-fix",
+      "toolName": "Edit", "cwd": "/repo/i18n", "occurredAt": "2026-11-03T10:27:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/i18n/DateFormatter.java new_string=\"DateTimeFormatter.ofPattern(pattern, Locale.ROOT)\"",
+      "toolOutput": "Edit applied. DateFormatter pins Locale.ROOT so Turkish default locales no longer produce dotless-i month names. DateFormatterTest#turkishLocaleUsesRoot passes.",
+      "expectObservation": true, "expectedType": "bugfix",
+      "titleKeywords": ["fix", "locale", "dateformatter"], "titleIdentifiers": ["DateFormatter"],
+      "factsKeywords": ["Locale.ROOT", "Turkish"], "conceptsKeywords": ["problem-solution", "gotcha"]
     },
     {
-      "id": "skip-read-for-question",
-      "category": "skip-low-value",
-      "toolName": "Read",
-      "cwd": "/repo/frontend",
-      "occurredAt": "2026-11-02T10:50:00Z",
-      "toolInput": "{\"file_path\":\"src/components/Button.tsx\"}",
-      "toolOutput": "Read 42 lines of Button.tsx; the file renders a styled button with variant props.",
-      "expectObservation": false,
-      "expectedType": null,
-      "titleKeywords": [],
-      "factsKeywords": [],
-      "conceptsKeywords": [],
-      "notes": "Routine read to answer a question; nothing was built or changed."
+      "id": "bug-regex-redos", "category": "bug-fix",
+      "toolName": "Edit", "cwd": "/repo/validation", "occurredAt": "2026-11-03T10:33:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/validation/UrlValidator.java new_string=\"private static final Pattern URL = Pattern.compile(\\\"^https?://[^\\\\\\\\s]+$\\\");\"",
+      "toolOutput": "Edit applied. UrlValidator replaces the nested-quantifier regex with a linear pattern. UrlValidatorTest#longInputFinishesUnder100ms passes.",
+      "expectObservation": true, "expectedType": "bugfix",
+      "titleKeywords": ["fix", "redos", "urlvalidator", "regex"], "titleIdentifiers": ["UrlValidator"],
+      "factsKeywords": ["linear pattern", "longInputFinishesUnder100ms"], "conceptsKeywords": ["problem-solution", "gotcha"]
     },
     {
-      "id": "skip-file-listing",
-      "category": "skip-low-value",
-      "toolName": "Bash",
-      "cwd": "/repo/scripts",
-      "occurredAt": "2026-11-02T10:55:00Z",
-      "toolInput": "{\"command\":\"ls -la\"}",
-      "toolOutput": "Listed 12 files in scripts/: build.sh, deploy.sh, README.md, ...",
-      "expectObservation": false,
-      "expectedType": null,
-      "titleKeywords": [],
-      "factsKeywords": [],
-      "conceptsKeywords": [],
-      "notes": "Simple listing explicitly called out as skippable."
+      "id": "bug-file-encoding", "category": "bug-fix", "keySample": true,
+      "toolName": "Edit", "cwd": "/repo/files", "occurredAt": "2026-11-03T10:40:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/files/FileReaderFactory.java new_string=\"new InputStreamReader(in, StandardCharsets.UTF_8)\"",
+      "toolOutput": "Edit applied. FileReaderFactory always opens UTF-8 instead of the platform default. FileReaderFactoryTest#utf8FileKeepsAccents passes on a GBK-default JVM.",
+      "expectObservation": true, "expectedType": "bugfix",
+      "titleKeywords": ["fix", "encoding", "filereaderfactory", "utf-8"], "titleIdentifiers": ["FileReaderFactory"],
+      "factsKeywords": ["UTF-8", "GBK"], "conceptsKeywords": ["problem-solution", "gotcha"]
+    },
+    {
+      "id": "refactor-invoice", "category": "refactor", "keySample": true,
+      "toolName": "Edit", "cwd": "/repo/billing", "occurredAt": "2026-11-03T10:46:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/billing/InvoiceService.java new_string=\"renderer.render(taxCalculator.calculate(invoice), invoice)\"",
+      "toolOutput": "Edit applied. InvoiceService delegates tax, rendering and mail to TaxCalculator, InvoiceRenderer and MailGateway. No behaviour change: InvoiceServiceTest stays green.",
+      "expectObservation": true, "expectedType": "refactor",
+      "titleKeywords": ["refactor", "invoiceservice", "delegates"], "titleIdentifiers": ["InvoiceService"],
+      "factsKeywords": ["TaxCalculator", "InvoiceRenderer", "MailGateway"], "conceptsKeywords": ["what-changed", "pattern"]
+    },
+    {
+      "id": "refactor-auth-controller", "category": "refactor",
+      "toolName": "Edit", "cwd": "/repo/auth", "occurredAt": "2026-11-03T10:52:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/auth/AuthController.java new_string=\"return tokenService.issue(authentication)\"",
+      "toolOutput": "Edit applied. AuthController no longer builds JWTs inline; it calls TokenService.issue. AuthControllerTest unchanged and green.",
+      "expectObservation": true, "expectedType": "refactor",
+      "titleKeywords": ["refactor", "authcontroller", "tokenservice"], "titleIdentifiers": ["AuthController"],
+      "factsKeywords": ["TokenService.issue", "JWT"], "conceptsKeywords": ["what-changed", "pattern"]
+    },
+    {
+      "id": "refactor-config-loader", "category": "refactor",
+      "toolName": "Edit", "cwd": "/repo/config", "occurredAt": "2026-11-03T10:58:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/config/ConfigLoader.java new_string=\"return properties.entrySet().stream().collect(toUnmodifiableMap(...))\"",
+      "toolOutput": "Edit applied. ConfigLoader returns an unmodifiable map and exposes typed accessors. ConfigLoaderTest passes with the same values.",
+      "expectObservation": true, "expectedType": "refactor",
+      "titleKeywords": ["refactor", "configloader", "unmodifiable"], "titleIdentifiers": ["ConfigLoader"],
+      "factsKeywords": ["unmodifiable map", "typed accessors"], "conceptsKeywords": ["what-changed", "pattern"]
+    },
+    {
+      "id": "refactor-order-mapper", "category": "refactor",
+      "toolName": "Edit", "cwd": "/repo/orders", "occurredAt": "2026-11-03T11:04:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/orders/OrderMapper.java new_string=\"return mapper.convertValue(entity, OrderDto.class);\"",
+      "toolOutput": "Edit applied. OrderMapper replaces 40 hand-written setters with a single convertValue call. OrderMapperTest compares the same DTO fields.",
+      "expectObservation": true, "expectedType": "refactor",
+      "titleKeywords": ["refactor", "ordermapper", "convertvalue"], "titleIdentifiers": ["OrderMapper"],
+      "factsKeywords": ["convertValue", "OrderDto"], "conceptsKeywords": ["what-changed", "pattern"]
+    },
+    {
+      "id": "refactor-retry-policy", "category": "refactor",
+      "toolName": "Edit", "cwd": "/repo/resilience", "occurredAt": "2026-11-03T11:10:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/resilience/RetryPolicy.java new_string=\"return backoff.nextDelay(attempt);\"",
+      "toolOutput": "Edit applied. RetryPolicy extracts delay calculation into BackoffStrategy. RetryPolicyTest asserts the same 100/200/400 sequence.",
+      "expectObservation": true, "expectedType": "refactor",
+      "titleKeywords": ["refactor", "retrypolicy", "backoffstrategy"], "titleIdentifiers": ["RetryPolicy"],
+      "factsKeywords": ["BackoffStrategy", "100/200/400"], "conceptsKeywords": ["what-changed", "pattern"]
+    },
+    {
+      "id": "refactor-logging-filter", "category": "refactor",
+      "toolName": "Edit", "cwd": "/repo/web", "occurredAt": "2026-11-03T11:16:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/web/LoggingFilter.java new_string=\"logExchange(exchange, StopWatch.createStarted())\"",
+      "toolOutput": "Edit applied. LoggingFilter moves timing and header capture into logExchange. LoggingFilterTest verifies the same access-log line.",
+      "expectObservation": true, "expectedType": "refactor",
+      "titleKeywords": ["refactor", "loggingfilter", "logexchange"], "titleIdentifiers": ["LoggingFilter"],
+      "factsKeywords": ["logExchange", "StopWatch"], "conceptsKeywords": ["what-changed", "pattern"]
+    },
+    {
+      "id": "refactor-sql-repository", "category": "refactor",
+      "toolName": "Edit", "cwd": "/repo/users", "occurredAt": "2026-11-03T11:22:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/users/UserRepository.java new_string=\"@Query(\\\"select u from User u where u.tenantId = :tenantId\\\")\"",
+      "toolOutput": "Edit applied. UserRepository replaces string-concatenated SQL with a JPQL @Query. UserRepositoryTest returns the same tenant rows.",
+      "expectObservation": true, "expectedType": "refactor",
+      "titleKeywords": ["refactor", "userrepository", "jpql"], "titleIdentifiers": ["UserRepository"],
+      "factsKeywords": ["JPQL", "@Query"], "conceptsKeywords": ["what-changed", "pattern"]
+    },
+    {
+      "id": "refactor-event-bus", "category": "refactor",
+      "toolName": "Edit", "cwd": "/repo/events", "occurredAt": "2026-11-03T11:28:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/events/EventBus.java new_string=\"listeners.getOrDefault(type, List.of()).forEach(listener -> listener.on(event));\"",
+      "toolOutput": "Edit applied. EventBus replaces the if/else dispatch chain with a listener map keyed by event type. EventBusTest dispatches the same three events.",
+      "expectObservation": true, "expectedType": "refactor",
+      "titleKeywords": ["refactor", "eventbus", "listener", "map"], "titleIdentifiers": ["EventBus"],
+      "factsKeywords": ["listener map", "event type"], "conceptsKeywords": ["what-changed", "pattern"]
+    },
+    {
+      "id": "refactor-feature-flag", "category": "refactor",
+      "toolName": "Edit", "cwd": "/repo/flags", "occurredAt": "2026-11-03T11:34:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/flags/FeatureFlagService.java new_string=\"return flags.isEnabled(flag, context)\"",
+      "toolOutput": "Edit applied. FeatureFlagService delegates evaluation to Flags.isEnabled. FeatureFlagServiceTest keeps the same on/off matrix.",
+      "expectObservation": true, "expectedType": "refactor",
+      "titleKeywords": ["refactor", "featureflagservice", "delegates"], "titleIdentifiers": ["FeatureFlagService"],
+      "factsKeywords": ["Flags.isEnabled", "on/off matrix"], "conceptsKeywords": ["what-changed", "pattern"]
+    },
+    {
+      "id": "test-repro-timezone", "category": "test-add", "keySample": true,
+      "toolName": "Write", "cwd": "/repo/reporting", "occurredAt": "2026-11-03T11:40:00Z",
+      "toolInput": "file_path=src/test/java/com/acme/reporting/DailyReportTest.java content=@Test void reportUsesBusinessTimezone() { Instant at = Instant.parse(\\\"2026-11-01T23:30:00Z\\\"); assertThat(report.dateAt(at, ZoneId.of(\\\"Asia/Shanghai\\\"))).isEqualTo(LocalDate.of(2026, 11, 2)); }",
+      "toolOutput": "File written. DailyReportTest#reportUsesBusinessTimezone reproduces the reported UTC-vs-business-date bug for Asia/Shanghai. mvn -Dtest=DailyReportTest test: 1 test, 1 failure (expected 2026-11-02, got 2026-11-01).",
+      "expectObservation": true, "expectedType": "feature",
+      "titleKeywords": ["add", "timezone", "dailyreport"], "titleIdentifiers": ["DailyReportTest", "reportUsesBusinessTimezone"],
+      "factsKeywords": ["Asia/Shanghai", "2026-11-02", "1 failure"], "conceptsKeywords": ["problem-solution", "what-changed"]
+    },
+    {
+      "id": "test-repro-login", "category": "test-add",
+      "toolName": "Write", "cwd": "/repo/auth", "occurredAt": "2026-11-03T11:46:00Z",
+      "toolInput": "file_path=src/test/java/com/acme/auth/LoginControllerTest.java content=@Test void lockedAccountReturns423() { when(users.isLocked(\\\"bob\\\")).thenReturn(true); mockMvc.perform(post(\\\"/login\\\")).andExpect(status().isLocked()); }",
+      "toolOutput": "File written. LoginControllerTest#lockedAccountReturns423 fails with status 401, reproducing the reported wrong status for locked accounts.",
+      "expectObservation": true, "expectedType": "feature",
+      "titleKeywords": ["add", "login", "locked", "test"], "titleIdentifiers": ["LoginControllerTest"],
+      "factsKeywords": ["lockedAccountReturns423", "401"], "conceptsKeywords": ["problem-solution", "what-changed"]
+    },
+    {
+      "id": "test-unit-retry", "category": "test-add",
+      "toolName": "Write", "cwd": "/repo/resilience", "occurredAt": "2026-11-03T11:52:00Z",
+      "toolInput": "file_path=src/test/java/com/acme/resilience/RetryPolicyTest.java content=@ParameterizedTest @CsvSource({\\\"1,100\\\",\\\"2,200\\\",\\\"3,400\\\"}) void delayDoubles(int attempt, long expected) { assertThat(policy.delay(attempt)).isEqualTo(expected); }",
+      "toolOutput": "File written. RetryPolicyTest#delayDoubles covers attempts 1-3 with 100/200/400 ms. 3 tests pass.",
+      "expectObservation": true, "expectedType": "feature",
+      "titleKeywords": ["add", "retrypolicy", "parameterized", "test"], "titleIdentifiers": ["RetryPolicyTest"],
+      "factsKeywords": ["100/200/400", "delayDoubles"], "conceptsKeywords": ["what-changed", "pattern"]
+    },
+    {
+      "id": "test-integration-order", "category": "test-add",
+      "toolName": "Write", "cwd": "/repo/orders", "occurredAt": "2026-11-03T11:58:00Z",
+      "toolInput": "file_path=src/test/java/com/acme/orders/OrderApiIT.java content=@SpringBootTest(webEnvironment = RANDOM_PORT) class OrderApiIT { @Test void createOrderReturns201() { ... } }",
+      "toolOutput": "File written. OrderApiIT#createOrderReturns201 posts a valid order and asserts 201 plus a Location header. Testcontainers starts PostgreSQL 16.",
+      "expectObservation": true, "expectedType": "feature",
+      "titleKeywords": ["add", "integration", "order", "test"], "titleIdentifiers": ["OrderApiIT"],
+      "factsKeywords": ["201", "Testcontainers", "PostgreSQL 16"], "conceptsKeywords": ["what-changed", "pattern"]
+    },
+    {
+      "id": "test-parameterized-csv", "category": "test-add",
+      "toolName": "Write", "cwd": "/repo/export", "occurredAt": "2026-11-03T12:04:00Z",
+      "toolInput": "file_path=src/test/java/com/acme/export/CsvExporterTest.java content=@ParameterizedTest @ValueSource(strings = {\\\"a,b\\\",\\\"a\\\\\\\"b\\\",\\\"a\\\\nb\\\"}) void quotingIsStable(String value) { ... }",
+      "toolOutput": "File written. CsvExporterTest#quotingIsStable covers commas, quotes and newlines; all 3 cases pass.",
+      "expectObservation": true, "expectedType": "feature",
+      "titleKeywords": ["add", "csv", "parameterized", "test"], "titleIdentifiers": ["CsvExporterTest"],
+      "factsKeywords": ["quotingIsStable", "3 cases"], "conceptsKeywords": ["what-changed", "pattern"]
+    },
+    {
+      "id": "test-security-headers", "category": "test-add",
+      "toolName": "Write", "cwd": "/repo/web", "occurredAt": "2026-11-03T12:10:00Z",
+      "toolInput": "file_path=src/test/java/com/acme/web/SecurityHeadersTest.java content=@Test void responseHasCspAndNosniff() { mockMvc.perform(get(\\\"/\\\")).andExpect(header().string(\\\"Content-Security-Policy\\\", containsString(\\\"default-src 'self'\\\"))); }",
+      "toolOutput": "File written. SecurityHeadersTest#responseHasCspAndNosniff asserts Content-Security-Policy and X-Content-Type-Options: nosniff. 2 tests pass.",
+      "expectObservation": true, "expectedType": "feature",
+      "titleKeywords": ["add", "security", "headers", "test"], "titleIdentifiers": ["SecurityHeadersTest"],
+      "factsKeywords": ["Content-Security-Policy", "nosniff"], "conceptsKeywords": ["what-changed", "pattern"]
+    },
+    {
+      "id": "test-repro-null-cache", "category": "test-add", "keySample": true,
+      "toolName": "Write", "cwd": "/repo/cache", "occurredAt": "2026-11-03T12:16:00Z",
+      "toolInput": "file_path=src/test/java/com/acme/cache/CacheConcurrencyTest.java content=@Test void concurrentReadersNeverSeeNull() { IntStream.range(0, 1000).parallel().forEach(i -> assertThat(cache.get(\\\"k\\\")).isNotNull()); }",
+      "toolOutput": "File written. CacheConcurrencyTest#concurrentReadersNeverSeeNull reproduces the intermittent null from UserCache with 1000 parallel readers; it fails before the fix and passes after.",
+      "expectObservation": true, "expectedType": "feature",
+      "titleKeywords": ["add", "cache", "concurrency", "test"], "titleIdentifiers": ["CacheConcurrencyTest", "UserCache"],
+      "factsKeywords": ["1000", "null", "parallel"], "conceptsKeywords": ["problem-solution", "gotcha"]
+    },
+    {
+      "id": "test-contract-openapi", "category": "test-add",
+      "toolName": "Write", "cwd": "/repo/api", "occurredAt": "2026-11-03T12:22:00Z",
+      "toolInput": "file_path=src/test/java/com/acme/api/OpenApiContractTest.java content=@Test void generatedSpecMatchesCommittedFile() { ... }",
+      "toolOutput": "File written. OpenApiContractTest#generatedSpecMatchesCommittedFile diffs springdoc output against docs/openapi.yaml and fails on schema drift.",
+      "expectObservation": true, "expectedType": "feature",
+      "titleKeywords": ["add", "openapi", "contract", "test"], "titleIdentifiers": ["OpenApiContractTest"],
+      "factsKeywords": ["springdoc", "openapi.yaml"], "conceptsKeywords": ["what-changed", "pattern"]
+    },
+    {
+      "id": "test-flaky-clock", "category": "test-add",
+      "toolName": "Edit", "cwd": "/repo/scheduling", "occurredAt": "2026-11-03T12:28:00Z",
+      "toolInput": "file_path=src/test/java/com/acme/scheduling/SchedulerTest.java new_string=\"scheduler.clock = Clock.fixed(Instant.parse(\\\"2026-11-03T00:00:00Z\\\"), ZoneOffset.UTC);\"",
+      "toolOutput": "Edit applied. SchedulerTest now uses Clock.fixed instead of Thread.sleep, removing flakiness. 20 consecutive runs pass.",
+      "expectObservation": true, "expectedType": "feature",
+      "titleKeywords": ["fix", "flaky", "scheduler", "clock"], "titleIdentifiers": ["SchedulerTest"],
+      "factsKeywords": ["Clock.fixed", "Thread.sleep", "20 consecutive"], "conceptsKeywords": ["problem-solution", "pattern"]
+    },
+    {
+      "id": "security-redact-log", "category": "security-fix", "keySample": true,
+      "toolName": "Edit", "cwd": "/repo/security", "occurredAt": "2026-11-03T12:34:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/security/LogSanitizer.java new_string=\"value.replaceAll(\\\"(password|token|secret)=\\\\\\\\S+\\\", \\\"$1=***\\\")\"",
+      "toolOutput": "Edit applied. LogSanitizer redacts password, token and secret values before logging. LogSanitizerTest#redactsCredentials passes for all three keys.",
+      "expectObservation": true, "expectedType": "bugfix",
+      "titleKeywords": ["redact", "credentials", "logsanitizer"], "titleIdentifiers": ["LogSanitizer"],
+      "factsKeywords": ["password", "token", "secret"], "conceptsKeywords": ["problem-solution", "gotcha"]
+    },
+    {
+      "id": "security-sql-injection", "category": "security-fix",
+      "toolName": "Edit", "cwd": "/repo/users", "occurredAt": "2026-11-03T12:40:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/users/UserDao.java new_string=\"jdbcTemplate.query(\\\"select * from users where email = ?\\\", mapper, email)\"",
+      "toolOutput": "Edit applied. UserDao.findByEmail uses a parameter placeholder instead of string concatenation. SqlInjectionTest#emailWithQuoteReturnsEmpty passes.",
+      "expectObservation": true, "expectedType": "bugfix",
+      "titleKeywords": ["fix", "sql", "injection", "userdao"], "titleIdentifiers": ["UserDao"],
+      "factsKeywords": ["parameter placeholder", "SqlInjectionTest"], "conceptsKeywords": ["problem-solution", "gotcha"]
+    },
+    {
+      "id": "security-authz-admin", "category": "security-fix",
+      "toolName": "Edit", "cwd": "/repo/admin", "occurredAt": "2026-11-03T12:46:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/admin/AdminController.java new_string=\"@PreAuthorize(\\\"hasRole('ADMIN')\\\")\"",
+      "toolOutput": "Edit applied. AdminController requires ROLE_ADMIN on every endpoint. AdminAuthorizationTest#userRoleGets403 passes.",
+      "expectObservation": true, "expectedType": "bugfix",
+      "titleKeywords": ["harden", "admincontroller", "authorization"], "titleIdentifiers": ["AdminController"],
+      "factsKeywords": ["ROLE_ADMIN", "403"], "conceptsKeywords": ["problem-solution", "gotcha"]
+    },
+    {
+      "id": "security-csrf", "category": "security-fix",
+      "toolName": "Edit", "cwd": "/repo/web", "occurredAt": "2026-11-03T12:52:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/web/CsrfFilter.java new_string=\"if (!csrfToken.matches(request)) { response.sendError(403); return; }\"",
+      "toolOutput": "Edit applied. CsrfFilter rejects state-changing requests with a mismatched token. CsrfFilterTest#postWithoutTokenIs403 passes.",
+      "expectObservation": true, "expectedType": "bugfix",
+      "titleKeywords": ["fix", "csrf", "csrffilter"], "titleIdentifiers": ["CsrfFilter"],
+      "factsKeywords": ["403", "mismatched token"], "conceptsKeywords": ["problem-solution", "gotcha"]
+    },
+    {
+      "id": "security-secret-config", "category": "security-fix",
+      "toolName": "Edit", "cwd": "/repo/config", "occurredAt": "2026-11-03T12:58:00Z",
+      "toolInput": "file_path=src/main/resources/application.yml old_string=\"api-key: sk-live-123\" new_string=\"api-key: ${ACME_API_KEY}\"",
+      "toolOutput": "Edit applied. application.yml no longer contains a literal API key; it reads ACME_API_KEY from the environment. SecretScanTest passes.",
+      "expectObservation": true, "expectedType": "bugfix",
+      "titleKeywords": ["remove", "hardcoded", "api", "key"], "titleIdentifiers": ["application.yml", "ACME_API_KEY"],
+      "factsKeywords": ["ACME_API_KEY", "SecretScanTest"], "conceptsKeywords": ["problem-solution", "gotcha"]
+    },
+    {
+      "id": "security-xxe", "category": "security-fix",
+      "toolName": "Edit", "cwd": "/repo/import", "occurredAt": "2026-11-03T13:04:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/import/XmlImportService.java new_string=\"factory.setFeature(\\\"http://apache.org/xml/features/disallow-doctype-decl\\\", true);\"",
+      "toolOutput": "Edit applied. XmlImportService disables DOCTYPE declarations, blocking XXE. XxeTest#externalEntityIsRejected passes.",
+      "expectObservation": true, "expectedType": "bugfix",
+      "titleKeywords": ["harden", "xmlimportservice", "xxe"], "titleIdentifiers": ["XmlImportService"],
+      "factsKeywords": ["disallow-doctype-decl", "XxeTest"], "conceptsKeywords": ["problem-solution", "gotcha"]
+    },
+    {
+      "id": "security-path-traversal", "category": "security-fix",
+      "toolName": "Edit", "cwd": "/repo/files", "occurredAt": "2026-11-03T13:10:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/files/FileDownloadController.java new_string=\"Path resolved = base.resolve(name).normalize(); if (!resolved.startsWith(base)) { throw new InvalidPathException(name); }\"",
+      "toolOutput": "Edit applied. FileDownloadController rejects names that escape the base directory. PathTraversalTest#dotDotSlashIs400 passes.",
+      "expectObservation": true, "expectedType": "bugfix",
+      "titleKeywords": ["fix", "path", "traversal", "filedownloadcontroller"], "titleIdentifiers": ["FileDownloadController"],
+      "factsKeywords": ["normalize", "InvalidPathException"], "conceptsKeywords": ["problem-solution", "gotcha"]
+    },
+    {
+      "id": "security-rate-limit", "category": "security-fix",
+      "toolName": "Edit", "cwd": "/repo/web", "occurredAt": "2026-11-03T13:16:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/web/RateLimiter.java new_string=\"if (!bucket.tryConsume(1)) { throw new TooManyRequestsException(); }\"",
+      "toolOutput": "Edit applied. RateLimiter returns 429 when the token bucket is empty. RateLimiterTest#eleventhRequestIs429 passes.",
+      "expectObservation": true, "expectedType": "bugfix",
+      "titleKeywords": ["add", "rate", "limit", "ratelimiter"], "titleIdentifiers": ["RateLimiter"],
+      "factsKeywords": ["429", "token bucket"], "conceptsKeywords": ["problem-solution", "pattern"]
+    },
+    {
+      "id": "security-cookie-httponly", "category": "security-fix",
+      "toolName": "Edit", "cwd": "/repo/auth", "occurredAt": "2026-11-03T13:22:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/auth/SessionCookieConfig.java new_string=\"cookie.setHttpOnly(true); cookie.setSecure(true); cookie.setSameSite(Strict);\"",
+      "toolOutput": "Edit applied. SessionCookieConfig marks the session cookie HttpOnly, Secure and SameSite=Strict. SessionCookieTest#flagsArePresent passes.",
+      "expectObservation": true, "expectedType": "bugfix",
+      "titleKeywords": ["harden", "session", "cookie", "httponly"], "titleIdentifiers": ["SessionCookieConfig"],
+      "factsKeywords": ["HttpOnly", "SameSite"], "conceptsKeywords": ["problem-solution", "gotcha"]
+    },
+    {
+      "id": "config-hikari-pool", "category": "config-change", "keySample": true,
+      "toolName": "Edit", "cwd": "/repo/config", "occurredAt": "2026-11-03T13:28:00Z",
+      "toolInput": "file_path=src/main/resources/application.yml new_string=\"spring.datasource.hikari.maximum-pool-size: 20\\nspring.datasource.hikari.minimum-idle: 5\"",
+      "toolOutput": "Edit applied. application.yml sets Hikari maximum-pool-size to 20 and minimum-idle to 5. ConfigBindingTest binds both values.",
+      "expectObservation": true, "expectedType": "change",
+      "titleKeywords": ["change", "hikari", "pool", "size"], "titleIdentifiers": ["maximum-pool-size"],
+      "factsKeywords": ["20", "minimum-idle", "5"], "conceptsKeywords": ["what-changed", "trade-off"]
+    },
+    {
+      "id": "config-flyway-baseline", "category": "config-change",
+      "toolName": "Edit", "cwd": "/repo", "occurredAt": "2026-11-03T13:34:00Z",
+      "toolInput": "file_path=pom.xml new_string=\"<flyway.baselineVersion>1</flyway.baselineVersion><flyway.baselineOnMigrate>true</flyway.baselineOnMigrate>\"",
+      "toolOutput": "Edit applied. pom.xml enables flyway baselineOnMigrate with baselineVersion 1. Maven build resolves the new property.",
+      "expectObservation": true, "expectedType": "change",
+      "titleKeywords": ["enable", "flyway", "baseline", "migrate"], "titleIdentifiers": ["pom.xml"],
+      "factsKeywords": ["baselineOnMigrate", "baselineVersion"], "conceptsKeywords": ["what-changed", "trade-off"]
+    },
+    {
+      "id": "config-log-level", "category": "config-change",
+      "toolName": "Edit", "cwd": "/repo/config", "occurredAt": "2026-11-03T13:40:00Z",
+      "toolInput": "file_path=src/main/resources/logback-spring.xml new_string=\"<root level=\\\"INFO\\\"><appender-ref ref=\\\"JSON\\\"/></root>\"",
+      "toolOutput": "Edit applied. logback-spring.xml switches the root logger to INFO and the JSON appender. LogbackConfigTest parses the XML.",
+      "expectObservation": true, "expectedType": "change",
+      "titleKeywords": ["change", "logback", "root", "json"], "titleIdentifiers": ["logback-spring.xml"],
+      "factsKeywords": ["INFO", "JSON appender"], "conceptsKeywords": ["what-changed", "trade-off"]
+    },
+    {
+      "id": "config-cors", "category": "config-change",
+      "toolName": "Edit", "cwd": "/repo/web", "occurredAt": "2026-11-03T13:46:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/web/CorsConfig.java new_string=\"registry.addMapping(\\\"/api/**\\\").allowedOrigins(\\\"https://app.acme.com\\\").allowedMethods(\\\"GET\\\",\\\"POST\\\")\"",
+      "toolOutput": "Edit applied. CorsConfig restricts /api/** to https://app.acme.com with GET and POST only. CorsConfigTest asserts a rejected origin.",
+      "expectObservation": true, "expectedType": "change",
+      "titleKeywords": ["restrict", "cors", "corsconfig", "origin"], "titleIdentifiers": ["CorsConfig"],
+      "factsKeywords": ["https://app.acme.com", "GET", "POST"], "conceptsKeywords": ["what-changed", "trade-off"]
+    },
+    {
+      "id": "config-timeout", "category": "config-change",
+      "toolName": "Edit", "cwd": "/repo/web", "occurredAt": "2026-11-03T13:52:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/web/WebClientConfig.java new_string=\"HttpClient.create().responseTimeout(Duration.ofSeconds(5))\"",
+      "toolOutput": "Edit applied. WebClientConfig sets a 5 second response timeout. WebClientConfigTest reads the timeout from the bean.",
+      "expectObservation": true, "expectedType": "change",
+      "titleKeywords": ["set", "webclient", "timeout", "5"], "titleIdentifiers": ["WebClientConfig"],
+      "factsKeywords": ["Duration.ofSeconds(5)", "responseTimeout"], "conceptsKeywords": ["what-changed", "trade-off"]
+    },
+    {
+      "id": "config-feature-flags", "category": "config-change",
+      "toolName": "Edit", "cwd": "/repo/flags", "occurredAt": "2026-11-03T13:58:00Z",
+      "toolInput": "file_path=src/main/resources/feature-flags.yml new_string=\"checkout-v2: true\\nlegacy-search: false\"",
+      "toolOutput": "Edit applied. feature-flags.yml enables checkout-v2 and disables legacy-search. FlagBindingTest binds both booleans.",
+      "expectObservation": true, "expectedType": "change",
+      "titleKeywords": ["enable", "checkout-v2", "disable", "legacy-search"], "titleIdentifiers": ["feature-flags.yml"],
+      "factsKeywords": ["checkout-v2", "legacy-search"], "conceptsKeywords": ["what-changed", "trade-off"]
+    },
+    {
+      "id": "config-docker-healthcheck", "category": "config-change",
+      "toolName": "Edit", "cwd": "/repo", "occurredAt": "2026-11-03T14:04:00Z",
+      "toolInput": "file_path=Dockerfile new_string=\"HEALTHCHECK --interval=30s CMD curl -f http://localhost:8080/actuator/health || exit 1\"",
+      "toolOutput": "Edit applied. Dockerfile adds a 30 second HEALTHCHECK against /actuator/health. docker build succeeds.",
+      "expectObservation": true, "expectedType": "change",
+      "titleKeywords": ["add", "docker", "healthcheck", "actuator"], "titleIdentifiers": ["Dockerfile"],
+      "factsKeywords": ["HEALTHCHECK", "30s", "/actuator/health"], "conceptsKeywords": ["what-changed", "trade-off"]
+    },
+    {
+      "id": "config-maven-plugin", "category": "config-change",
+      "toolName": "Edit", "cwd": "/repo", "occurredAt": "2026-11-03T14:10:00Z",
+      "toolInput": "file_path=pom.xml new_string=\"<plugin><groupId>org.jacoco</groupId><artifactId>jacoco-maven-plugin</artifactId><version>0.8.12</version></plugin>\"",
+      "toolOutput": "Edit applied. pom.xml adds jacoco-maven-plugin 0.8.12. mvn verify writes target/site/jacoco/jacoco.xml.",
+      "expectObservation": true, "expectedType": "change",
+      "titleKeywords": ["add", "jacoco", "plugin", "pom"], "titleIdentifiers": ["jacoco-maven-plugin", "pom.xml"],
+      "factsKeywords": ["0.8.12", "jacoco.xml"], "conceptsKeywords": ["what-changed", "trade-off"]
+    },
+    {
+      "id": "docs-api-observations", "category": "docs-update",
+      "toolName": "Edit", "cwd": "/repo", "occurredAt": "2026-11-03T14:16:00Z",
+      "toolInput": "file_path=docs/API.md new_string=\"GET /api/observations returns hasMore and items; see the pagination contract.\"",
+      "toolOutput": "Edit applied. docs/API.md documents the /api/observations pagination fields hasMore and items, matching the controller.",
+      "expectObservation": true, "expectedType": "change",
+      "titleKeywords": ["document", "observations", "pagination", "api"], "titleIdentifiers": ["API.md", "/api/observations"],
+      "factsKeywords": ["hasMore", "items"], "conceptsKeywords": ["what-changed", "pattern"]
+    },
+    {
+      "id": "docs-readme-setup", "category": "docs-update",
+      "toolName": "Edit", "cwd": "/repo", "occurredAt": "2026-11-03T14:22:00Z",
+      "toolInput": "file_path=README.md new_string=\"## Setup\\n1. Install JDK 21\\n2. docker compose up -d postgres\\n3. mvn spring-boot:run\"",
+      "toolOutput": "Edit applied. README.md now has a three-step local setup with JDK 21, docker compose postgres and mvn spring-boot:run.",
+      "expectObservation": true, "expectedType": "change",
+      "titleKeywords": ["update", "readme", "setup", "docker"], "titleIdentifiers": ["README.md"],
+      "factsKeywords": ["JDK 21", "docker compose", "spring-boot:run"], "conceptsKeywords": ["what-changed", "pattern"]
+    },
+    {
+      "id": "docs-runbook", "category": "docs-update",
+      "toolName": "Write", "cwd": "/repo", "occurredAt": "2026-11-03T14:28:00Z",
+      "toolInput": "file_path=docs/runbook.md content=# Queue runbook\\n1. check pending_messages\\n2. restart worker\\n3. verify /api/health",
+      "toolOutput": "File written. docs/runbook.md documents queue recovery: inspect pending_messages, restart the worker, verify /api/health.",
+      "expectObservation": true, "expectedType": "change",
+      "titleKeywords": ["add", "runbook", "queue", "recovery"], "titleIdentifiers": ["runbook.md"],
+      "factsKeywords": ["pending_messages", "/api/health"], "conceptsKeywords": ["what-changed", "pattern"]
+    },
+    {
+      "id": "docs-changelog", "category": "docs-update",
+      "toolName": "Edit", "cwd": "/repo", "occurredAt": "2026-11-03T14:34:00Z",
+      "toolInput": "file_path=CHANGELOG.md new_string=\"## 2.4.0 - 2026-11-03\\n- Added offline replay evaluation\\n- Fixed V20 migration conflict\"",
+      "toolOutput": "Edit applied. CHANGELOG.md adds the 2.4.0 entry with offline replay evaluation and the V20 migration conflict fix.",
+      "expectObservation": true, "expectedType": "change",
+      "titleKeywords": ["update", "changelog", "2.4.0"], "titleIdentifiers": ["CHANGELOG.md"],
+      "factsKeywords": ["2.4.0", "offline replay"], "conceptsKeywords": ["what-changed", "pattern"]
+    },
+    {
+      "id": "docs-architecture-adr", "category": "docs-update",
+      "toolName": "Write", "cwd": "/repo", "occurredAt": "2026-11-03T14:40:00Z",
+      "toolInput": "file_path=docs/adr/0007-extraction-validation.md content=# ADR 0007\\nDecision: validate extracted facts against tool output before persistence.",
+      "toolOutput": "File written. ADR 0007 records the decision to validate extracted facts against tool output before persistence, with the rejection path described.",
+      "expectObservation": true, "expectedType": "decision",
+      "titleKeywords": ["record", "adr", "extraction", "validation"], "titleIdentifiers": ["0007-extraction-validation.md"],
+      "factsKeywords": ["validate", "before persistence"], "conceptsKeywords": ["why-it-exists", "trade-off"]
+    },
+    {
+      "id": "docs-migration-guide", "category": "docs-update",
+      "toolName": "Edit", "cwd": "/repo", "occurredAt": "2026-11-03T14:46:00Z",
+      "toolInput": "file_path=docs/MIGRATION.md new_string=\"## V20\\nBack up mem_sessions, then run the migration with app.manual_sentinel_reviewed=true.\"",
+      "toolOutput": "Edit applied. docs/MIGRATION.md documents the V20 prerequisite: back up mem_sessions and set app.manual_sentinel_reviewed=true.",
+      "expectObservation": true, "expectedType": "change",
+      "titleKeywords": ["document", "v20", "migration", "sentinel"], "titleIdentifiers": ["MIGRATION.md"],
+      "factsKeywords": ["mem_sessions", "app.manual_sentinel_reviewed"], "conceptsKeywords": ["what-changed", "gotcha"]
+    },
+    {
+      "id": "docs-security-policy", "category": "docs-update",
+      "toolName": "Write", "cwd": "/repo", "occurredAt": "2026-11-03T14:52:00Z",
+      "toolInput": "file_path=SECURITY.md content=# Security policy\\nReport vulnerabilities to security@acme.com. Do not open public issues.",
+      "toolOutput": "File written. SECURITY.md defines the disclosure channel security@acme.com and forbids public issues for vulnerabilities.",
+      "expectObservation": true, "expectedType": "change",
+      "titleKeywords": ["add", "security", "policy", "disclosure"], "titleIdentifiers": ["SECURITY.md"],
+      "factsKeywords": ["security@acme.com", "public issues"], "conceptsKeywords": ["why-it-exists", "pattern"]
+    },
+    {
+      "id": "docs-contributing", "category": "docs-update",
+      "toolName": "Edit", "cwd": "/repo", "occurredAt": "2026-11-03T14:58:00Z",
+      "toolInput": "file_path=CONTRIBUTING.md new_string=\"Run ./scripts/verify-local.sh before opening a pull request.\"",
+      "toolOutput": "Edit applied. CONTRIBUTING.md requires ./scripts/verify-local.sh before a pull request and names the four test layers.",
+      "expectObservation": true, "expectedType": "change",
+      "titleKeywords": ["update", "contributing", "verify-local"], "titleIdentifiers": ["CONTRIBUTING.md"],
+      "factsKeywords": ["verify-local.sh", "four test layers"], "conceptsKeywords": ["what-changed", "pattern"]
+    },
+    {
+      "id": "deploy-k8s-probe", "category": "deploy-change", "keySample": true,
+      "toolName": "Edit", "cwd": "/repo/deploy", "occurredAt": "2026-11-03T15:04:00Z",
+      "toolInput": "file_path=deploy/deployment.yaml new_string=\"readinessProbe:\\n  httpGet: { path: /api/health, port: 37777 }\\n  initialDelaySeconds: 15\"",
+      "toolOutput": "Edit applied. deployment.yaml adds a readinessProbe on /api/health:37777 with initialDelaySeconds 15. kubectl apply --dry-run=client succeeds.",
+      "expectObservation": true, "expectedType": "change",
+      "titleKeywords": ["add", "readiness", "probe", "deployment"], "titleIdentifiers": ["deployment.yaml", "/api/health"],
+      "factsKeywords": ["readinessProbe", "37777", "15"], "conceptsKeywords": ["what-changed", "trade-off"]
+    },
+    {
+      "id": "deploy-github-actions", "category": "deploy-change",
+      "toolName": "Edit", "cwd": "/repo", "occurredAt": "2026-11-03T15:10:00Z",
+      "toolInput": "file_path=.github/workflows/ci.yml new_string=\"strategy:\\n  matrix:\\n    java: [21, 25]\"",
+      "toolOutput": "Edit applied. ci.yml runs the backend on JDK 21 and 25. Workflow syntax check passes.",
+      "expectObservation": true, "expectedType": "change",
+      "titleKeywords": ["add", "ci", "matrix", "jdk"], "titleIdentifiers": ["ci.yml"],
+      "factsKeywords": ["21", "25"], "conceptsKeywords": ["what-changed", "trade-off"]
+    },
+    {
+      "id": "deploy-docker-multistage", "category": "deploy-change",
+      "toolName": "Edit", "cwd": "/repo", "occurredAt": "2026-11-03T15:16:00Z",
+      "toolInput": "file_path=Dockerfile new_string=\"FROM eclipse-temurin:21-jre AS runtime\\nCOPY --from=build /app/target/app.jar /app/app.jar\"",
+      "toolOutput": "Edit applied. Dockerfile is now multi-stage: build with maven, runtime with eclipse-temurin:21-jre. Image size drops from 780MB to 210MB.",
+      "expectObservation": true, "expectedType": "change",
+      "titleKeywords": ["convert", "dockerfile", "multi-stage", "jre"], "titleIdentifiers": ["Dockerfile", "eclipse-temurin:21-jre"],
+      "factsKeywords": ["780MB", "210MB"], "conceptsKeywords": ["what-changed", "trade-off"]
+    },
+    {
+      "id": "deploy-terraform-iam", "category": "deploy-change",
+      "toolName": "Edit", "cwd": "/repo/infra", "occurredAt": "2026-11-03T15:22:00Z",
+      "toolInput": "file_path=infra/main.tf new_string=\"resource \\\"aws_iam_role_policy\\\" \\\"deploy\\\" { policy_arn = \\\"arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess\\\" }\"",
+      "toolOutput": "Edit applied. main.tf attaches AmazonS3ReadOnlyAccess to the deploy role instead of full S3 access. terraform validate succeeds.",
+      "expectObservation": true, "expectedType": "change",
+      "titleKeywords": ["restrict", "iam", "terraform", "s3"], "titleIdentifiers": ["main.tf"],
+      "factsKeywords": ["AmazonS3ReadOnlyAccess", "terraform validate"], "conceptsKeywords": ["what-changed", "trade-off"]
+    },
+    {
+      "id": "deploy-helm-values", "category": "deploy-change",
+      "toolName": "Edit", "cwd": "/repo/infra", "occurredAt": "2026-11-03T15:28:00Z",
+      "toolInput": "file_path=infra/values.yaml new_string=\"replicaCount: 3\\nresources: { limits: { memory: 2Gi } }\"",
+      "toolOutput": "Edit applied. values.yaml raises replicaCount to 3 and caps memory at 2Gi. helm template renders 3 pods.",
+      "expectObservation": true, "expectedType": "change",
+      "titleKeywords": ["change", "helm", "replicas", "memory"], "titleIdentifiers": ["values.yaml"],
+      "factsKeywords": ["replicaCount", "2Gi"], "conceptsKeywords": ["what-changed", "trade-off"]
+    },
+    {
+      "id": "deploy-rollback-script", "category": "deploy-change",
+      "toolName": "Write", "cwd": "/repo/scripts", "occurredAt": "2026-11-03T15:34:00Z",
+      "toolInput": "file_path=scripts/rollback.sh content=set -euo pipefail; kubectl rollout undo deployment/claude-mem; kubectl rollout status deployment/claude-mem",
+      "toolOutput": "File written. scripts/rollback.sh undoes the claude-mem deployment and waits for rollout status. shellcheck reports no errors.",
+      "expectObservation": true, "expectedType": "change",
+      "titleKeywords": ["add", "rollback", "script", "deployment"], "titleIdentifiers": ["rollback.sh"],
+      "factsKeywords": ["kubectl rollout undo", "shellcheck"], "conceptsKeywords": ["what-changed", "pattern"]
+    },
+    {
+      "id": "deploy-canary", "category": "deploy-change",
+      "toolName": "Edit", "cwd": "/repo/infra", "occurredAt": "2026-11-03T15:40:00Z",
+      "toolInput": "file_path=infra/canary.yaml new_string=\"canary: { enabled: true, weight: 10, errorThreshold: 0.02 }\"",
+      "toolOutput": "Edit applied. canary.yaml enables a 10 percent canary and rolls back above a 2 percent error rate. helm lint passes.",
+      "expectObservation": true, "expectedType": "change",
+      "titleKeywords": ["enable", "canary", "rollback", "threshold"], "titleIdentifiers": ["canary.yaml"],
+      "factsKeywords": ["10 percent", "2 percent"], "conceptsKeywords": ["what-changed", "trade-off"]
+    },
+    {
+      "id": "skip-read-for-question", "category": "skip-low-value", "keySample": true,
+      "toolName": "Read", "cwd": "/repo/orders", "occurredAt": "2026-11-03T16:00:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/orders/OrderQuery.java",
+      "toolOutput": "Read 88 lines. OrderQuery builds a JPA Criteria query from page and size; no change was made.",
+      "expectObservation": false, "notes": "pure read to answer a question"
+    },
+    {
+      "id": "skip-file-listing", "category": "skip-low-value",
+      "toolName": "Glob", "cwd": "/repo", "occurredAt": "2026-11-03T16:02:00Z",
+      "toolInput": "pattern=src/main/java/**/*.java",
+      "toolOutput": "Found 214 Java files under src/main/java. No edits.",
+      "expectObservation": false, "notes": "exploratory listing"
+    },
+    {
+      "id": "skip-git-status", "category": "skip-low-value",
+      "toolName": "Shell", "cwd": "/repo", "occurredAt": "2026-11-03T16:04:00Z",
+      "toolInput": "git status --short",
+      "toolOutput": "working tree clean",
+      "expectObservation": false, "notes": "status check only"
+    },
+    {
+      "id": "skip-view-logs", "category": "skip-low-value",
+      "toolName": "Shell", "cwd": "/repo", "occurredAt": "2026-11-03T16:06:00Z",
+      "toolInput": "tail -n 100 logs/app.log",
+      "toolOutput": "INFO Started ClaudeMemApplication in 4.2 seconds; no errors in the last 100 lines.",
+      "expectObservation": false, "notes": "log viewing only"
+    },
+    {
+      "id": "skip-multi-step-explore", "category": "skip-low-value", "keySample": true,
+      "toolName": "Grep", "cwd": "/repo", "occurredAt": "2026-11-03T16:08:00Z",
+      "toolInput": "pattern=fetchSymbol | context=3",
+      "toolOutput": "Searched 34 files; found fetchSymbol in SymbolService.java and two tests. No change was made.",
+      "expectObservation": false, "notes": "multi-step exploration without a change"
+    },
+    {
+      "id": "skip-repeated-confirmation", "category": "skip-low-value",
+      "toolName": "Read", "cwd": "/repo", "occurredAt": "2026-11-03T16:10:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/orders/OrderQuery.java",
+      "toolOutput": "Read the same 88 lines already recorded earlier in this session. No change.",
+      "expectObservation": false, "notes": "repeated confirmation"
+    },
+    {
+      "id": "skip-package-install", "category": "skip-low-value",
+      "toolName": "Shell", "cwd": "/repo", "occurredAt": "2026-11-03T16:12:00Z",
+      "toolInput": "npm install --no-audit",
+      "toolOutput": "added 412 packages in 18s, 0 vulnerabilities. package-lock.json unchanged.",
+      "expectObservation": false, "notes": "dependency install with no change"
+    },
+    {
+      "id": "skip-format-only", "category": "skip-low-value",
+      "toolName": "Shell", "cwd": "/repo", "occurredAt": "2026-11-03T16:14:00Z",
+      "toolInput": "mvn spotless:check",
+      "toolOutput": "spotless check passed; no files reformatted.",
+      "expectObservation": false, "notes": "formatter check only"
+    },
+    {
+      "id": "skip-abandoned-exploration", "category": "skip-low-value", "keySample": true,
+      "toolName": "Grep", "cwd": "/repo", "occurredAt": "2026-11-03T16:16:00Z",
+      "toolInput": "pattern=legacyBillingAdapter",
+      "toolOutput": "No matches found. The exploration ended without a change or conclusion.",
+      "expectObservation": false, "notes": "abandoned exploration, no deliverable"
+    },
+    {
+      "id": "skip-read-docs", "category": "skip-low-value",
+      "toolName": "Read", "cwd": "/repo", "occurredAt": "2026-11-03T16:18:00Z",
+      "toolInput": "file_path=docs/ARCHITECTURE.md",
+      "toolOutput": "Read the architecture overview to answer how the queue works. No documentation change.",
+      "expectObservation": false, "notes": "read documentation to answer"
+    },
+    {
+      "id": "skip-grep-search", "category": "skip-low-value",
+      "toolName": "Grep", "cwd": "/repo", "occurredAt": "2026-11-03T16:20:00Z",
+      "toolInput": "pattern=hasMore",
+      "toolOutput": "Found hasMore in usePagination.ts and three controllers. Read-only search.",
+      "expectObservation": false, "notes": "code search to answer"
+    },
+    {
+      "id": "skip-open-file-to-explain", "category": "skip-low-value",
+      "toolName": "Read", "cwd": "/repo", "occurredAt": "2026-11-03T16:22:00Z",
+      "toolInput": "file_path=src/main/java/com/acme/cache/UserCache.java",
+      "toolOutput": "Read the class to explain computeIfAbsent to the user. No file change.",
+      "expectObservation": false, "notes": "read to explain"
+    },
+    {
+      "id": "skip-test-output-view", "category": "skip-low-value",
+      "toolName": "Shell", "cwd": "/repo", "occurredAt": "2026-11-03T16:24:00Z",
+      "toolInput": "mvn -q test",
+      "toolOutput": "Tests run: 360, Failures: 0, Errors: 0, Skipped: 0. No source change.",
+      "expectObservation": false, "notes": "test output only"
+    },
+    {
+      "id": "skip-docker-ps", "category": "skip-low-value",
+      "toolName": "Shell", "cwd": "/repo", "occurredAt": "2026-11-03T16:26:00Z",
+      "toolInput": "docker ps",
+      "toolOutput": "postgres Up 2 hours; redis Up 2 hours. No change.",
+      "expectObservation": false, "notes": "container status only"
+    },
+    {
+      "id": "skip-empty-diff", "category": "skip-low-value",
+      "toolName": "Shell", "cwd": "/repo", "occurredAt": "2026-11-03T16:28:00Z",
+      "toolInput": "git diff --stat",
+      "toolOutput": "0 files changed, 0 insertions, 0 deletions",
+      "expectObservation": false, "notes": "empty diff"
+    },
+    {
+      "id": "skip-mvn-version", "category": "skip-low-value",
+      "toolName": "Shell", "cwd": "/repo", "occurredAt": "2026-11-03T16:30:00Z",
+      "toolInput": "mvn -v",
+      "toolOutput": "Apache Maven 3.9.9, Java 21.0.5. No change.",
+      "expectObservation": false, "notes": "tool version check"
+    },
+    {
+      "id": "skip-cat-file", "category": "skip-low-value",
+      "toolName": "Read", "cwd": "/repo", "occurredAt": "2026-11-03T16:32:00Z",
+      "toolInput": "file_path=src/main/resources/application.yml",
+      "toolOutput": "Read 120 lines of application.yml to answer a configuration question. No edit.",
+      "expectObservation": false, "notes": "read configuration to answer"
+    },
+    {
+      "id": "skip-ls-tree", "category": "skip-low-value",
+      "toolName": "Shell", "cwd": "/repo", "occurredAt": "2026-11-03T16:34:00Z",
+      "toolInput": "find src -maxdepth 3 -type d | sort",
+      "toolOutput": "Listed 26 directories under src. No change.",
+      "expectObservation": false, "notes": "directory tree listing"
+    },
+    {
+      "id": "skip-read-config-to-answer", "category": "skip-low-value",
+      "toolName": "Read", "cwd": "/repo", "occurredAt": "2026-11-03T16:36:00Z",
+      "toolInput": "file_path=pom.xml",
+      "toolOutput": "Read pom.xml to report the Java version. No edit.",
+      "expectObservation": false, "notes": "read to answer"
+    },
+    {
+      "id": "skip-no-conclusion", "category": "skip-low-value",
+      "toolName": "Grep", "cwd": "/repo", "occurredAt": "2026-11-03T16:38:00Z",
+      "toolInput": "pattern=PaymentGatewayV3",
+      "toolOutput": "Two matches in a deprecated module. The turn ended without a decision, change or conclusion.",
+      "expectObservation": false, "notes": "no conclusion"
     }
   ]
 }
