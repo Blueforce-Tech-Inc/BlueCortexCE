@@ -18,6 +18,7 @@ import com.ablueforce.cortexce.service.AgentService;
 import com.ablueforce.cortexce.service.ConversationWriteService;
 import com.ablueforce.cortexce.service.ContextCacheService;
 import com.ablueforce.cortexce.service.EmbeddingService;
+import com.ablueforce.cortexce.service.ExtractionValidationService;
 import com.ablueforce.cortexce.service.LlmService;
 import com.ablueforce.cortexce.service.MemoryScopeService;
 import com.ablueforce.cortexce.service.ModeService;
@@ -95,6 +96,7 @@ import static org.mockito.Mockito.mock;
     SessionManagementService.class,
     MemoryScopeService.class,
     ConversationWriteService.class,
+    ExtractionValidationService.class,
     TemplateService.class,
     TokenService.class,
     ModeService.class,
@@ -172,7 +174,7 @@ class OfflineAiChainIntegrationTest {
         Fixture fixture = newConversation("observation");
         UUID pendingId = agentService.enqueueToolUse(
             fixture.session().getId(), fixture.session().getContentSessionId(),
-            "Bash", "echo offline-observation", "offline-output",
+            "Bash", "echo fact-one fact-two", "fact-one fact-two output",
             fixture.projectPath(), 1).orElseThrow();
 
         agentService.processPendingMessage(pendingId);
@@ -199,7 +201,7 @@ class OfflineAiChainIntegrationTest {
         Fixture fixture = newConversation("summary");
         UUID pendingId = agentService.enqueueToolUse(
             fixture.session().getId(), fixture.session().getContentSessionId(),
-            "Bash", "echo offline-summary", "offline-output",
+            "Bash", "echo fact-one fact-two", "fact-one fact-two output",
             fixture.projectPath(), 1).orElseThrow();
         agentService.processPendingMessage(pendingId);
 
@@ -230,7 +232,7 @@ class OfflineAiChainIntegrationTest {
         Fixture fixture = newConversation("search");
         UUID pendingId = agentService.enqueueToolUse(
             fixture.session().getId(), fixture.session().getContentSessionId(),
-            "Bash", "echo offline-search", "offline-output",
+            "Bash", "echo offline-search fact-one fact-two", "fact-one fact-two output",
             fixture.projectPath(), 1).orElseThrow();
         agentService.processPendingMessage(pendingId);
         assertThat(embeddingService.isAvailable()).isTrue();

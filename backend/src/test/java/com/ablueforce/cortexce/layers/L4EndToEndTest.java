@@ -46,6 +46,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
                 "app.memory.refine-enabled=false",
                 "claudemem.max-retries=3",
                 "claudemem.sse.timeout-ms=30000",
+                // Wiring test: the offline stand-in's fixed facts do not quote the tool trace,
+                // so the trace-grounding guard (unit-tested separately) is off in this layer.
+                "claudemem.extraction.validation.enabled=false",
                 "logging.level.com.ablueforce=WARN",
                 "logging.level.org.springframework.web=WARN"
         })

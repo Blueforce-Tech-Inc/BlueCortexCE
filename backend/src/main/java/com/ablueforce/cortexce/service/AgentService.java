@@ -79,6 +79,7 @@ public class AgentService implements LogHelper {
     private final LlmService llmService;
     private final TokenService tokenService;
     private final ContextCacheService contextCacheService;
+    private final ExtractionValidationService extractionValidationService;
 
     @Value("${claudemem.max-retries:3}")
     private int maxRetries;
@@ -92,7 +93,8 @@ public class AgentService implements LogHelper {
                         EmbeddingService embeddingService,
                         LlmService llmService,
                         TokenService tokenService,
-                        ContextCacheService contextCacheService) {
+                        ContextCacheService contextCacheService,
+                        ExtractionValidationService extractionValidationService) {
         this.sessionManagementService = sessionManagementService;
         this.templateService = templateService;
         this.pendingMessageRepository = pendingMessageRepository;
@@ -103,6 +105,7 @@ public class AgentService implements LogHelper {
         this.llmService = llmService;
         this.tokenService = tokenService;
         this.contextCacheService = contextCacheService;
+        this.extractionValidationService = extractionValidationService;
     }
 
     // ========================================================================
@@ -360,8 +363,21 @@ public class AgentService implements LogHelper {
             return false;
         }
 
-        // Parse and save observation
+        // Parse, then apply the deterministic guard before anything reaches the database.
+        // The guard is read-only (no scope creation), so a first write in a new project
+        // simply has no duplicate to compare against.
         XmlParser.ParsedObservation parsed = XmlParser.parseObservation(llmContent);
+        java.util.UUID memoryScopeId = memoryScopeService.findProjectScope(projectPath);
+        ExtractionValidationService.Result validation = extractionValidationService.validate(
+            parsed, toolName, toolInput, toolResponse, memoryScopeId);
+        if (!validation.accepted()) {
+            log.warn("Rejected extracted observation: reason={}, title={}, project={}",
+                validation.reason(), parsed.title, projectPath);
+            conversationWriteService.markObservationSkipped(pending.getId(), pending.getSessionDbId());
+            return false;
+        }
+        parsed.facts = validation.facts();
+
         saveObservation(conversationId, pending.getId(),
             sessionOpt.map(SessionEntity::getPlatformSource).orElse("claude"),
             contentSessionId, projectPath, parsed, promptNumber, discoveryTokens);

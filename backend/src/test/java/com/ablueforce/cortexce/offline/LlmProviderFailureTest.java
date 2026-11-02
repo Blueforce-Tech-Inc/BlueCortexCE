@@ -18,6 +18,7 @@ import com.ablueforce.cortexce.service.AgentService;
 import com.ablueforce.cortexce.service.ContextCacheService;
 import com.ablueforce.cortexce.service.ConversationWriteService;
 import com.ablueforce.cortexce.service.EmbeddingService;
+import com.ablueforce.cortexce.service.ExtractionValidationService;
 import com.ablueforce.cortexce.service.LlmService;
 import com.ablueforce.cortexce.service.MemoryScopeService;
 import com.ablueforce.cortexce.service.ModeService;
@@ -89,6 +90,7 @@ import static org.mockito.Mockito.mock;
     SessionManagementService.class,
     MemoryScopeService.class,
     ConversationWriteService.class,
+    ExtractionValidationService.class,
     TemplateService.class,
     TokenService.class,
     ModeService.class,
@@ -458,7 +460,9 @@ class LlmProviderFailureTest {
     private UUID enqueue(Fixture fixture, String toolInput) {
         return agentService.enqueueToolUse(
             fixture.session().getId(), fixture.session().getContentSessionId(),
-            "Bash", toolInput, "offline-output",
+            // The offline stand-in emits facts "fact-one"/"fact-two"; quoting them in the trace
+            // keeps the trace-grounding guard satisfied on the success paths of this test.
+            "Bash", toolInput + " fact-one fact-two", "fact-one fact-two offline-output",
             fixture.projectPath(), 1).orElseThrow();
     }
 

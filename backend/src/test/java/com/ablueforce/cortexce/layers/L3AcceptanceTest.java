@@ -52,6 +52,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
                 "app.memory.refine-enabled=false",
                 "claudemem.max-retries=3",
                 "claudemem.sse.timeout-ms=30000",
+                // This layer proves hook → queue → observation wiring. The offline stand-in
+                // answers with fixed facts that do not quote the tool trace, so the
+                // trace-grounding guard (covered by ExtractionValidationServiceTest) is off here.
+                "claudemem.extraction.validation.enabled=false",
                 "logging.level.com.ablueforce=WARN",
                 "logging.level.org.springframework.web=WARN"
         })

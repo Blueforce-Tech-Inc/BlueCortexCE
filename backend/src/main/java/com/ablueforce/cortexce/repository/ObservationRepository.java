@@ -602,6 +602,21 @@ public interface ObservationRepository extends JpaRepository<ObservationEntity, 
         @Param("createdAtEpoch") long createdAtEpoch
     );
 
+    /**
+     * Most recent observations in one scope. Used by the deterministic validation layer for the
+     * duplicate-title check; the caller compares normalized titles in Java so no database
+     * expression index is required.
+     */
+    @Query("""
+        SELECT o FROM ObservationEntity o
+        WHERE o.memoryScopeId = :memoryScopeId
+        ORDER BY o.createdAtEpoch DESC, o.id DESC
+        """)
+    List<ObservationEntity> findRecentByMemoryScopeId(
+        @Param("memoryScopeId") UUID memoryScopeId,
+        org.springframework.data.domain.Pageable pageable
+    );
+
     Optional<ObservationEntity> findByMemoryScopeIdAndStandaloneKindAndPlatformSourceAndContentSessionIdAndTitleAndCreatedAtEpoch(
         UUID memoryScopeId,
         String standaloneKind,

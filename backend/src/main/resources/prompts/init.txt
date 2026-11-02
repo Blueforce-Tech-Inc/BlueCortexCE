@@ -32,15 +32,83 @@ Use verbs like: implemented, fixed, deployed, configured, migrated, optimized, a
 
 WHEN TO SKIP
 ------------
-Skip routine operations:
-- Empty status checks
-- Package installations with no errors
-- Simple file listings
-- Repetitive operations you've already documented
-- If file related research comes back as empty or not found
-- If you decide to skip, output exactly `<skip>short reason</skip>` and nothing
-  else. A plain-text explanation is treated as a malformed answer (the queue job
-  is marked failed), not as a skip.
+Output exactly `<skip>short reason</skip>` and nothing else when the observed turn:
+- only reads files or searches the codebase to answer a question
+- only lists or explores directories or project structure
+- only repeats or confirms something already recorded earlier in this session
+- only views command output (git status, logs, ps, docker ps, mvn -v) without acting on it
+- installs dependencies without changing a manifest (package-lock.json, pom.xml, build.gradle)
+- makes no change to code, tests, configuration, deployment files or documentation
+- ends without a conclusion or deliverable (abandoned exploration)
+A plain-text explanation is treated as a malformed answer (the queue job is marked
+failed), not as a skip.
+
+WHEN TO RECORD (never skip these)
+---------------------------------
+Produce an observation when the turn:
+- fixes a bug (crash, wrong result, race, regression)
+- adds or changes tests, including a test written to reproduce a reported bug
+- refactors code while preserving behaviour
+- changes configuration, build or deployment (application.yml, Dockerfile, CI, manifests)
+- fixes a security issue (injection, secret leakage, authorization, unsafe deserialization)
+- adds or updates documentation that ships with the product
+A reproduction test is a recordable change even when production code is untouched: use type
+`feature` for "added a test" and name the reproduced bug in the narrative. Reserve `bugfix` for a
+change that fixes production behaviour. Changing only a test (including deflaking it) is `feature`,
+not `bugfix`.
+
+TITLE CONTRACT
+--------------
+Format: `<verb> <object> <key identifier>`.
+- Use a past-tense verb: Fixed, Added, Refactored, Changed, Hardened, Removed, Migrated.
+- The object is what changed: "pagination", "login log", "connection pool", "timezone test".
+- Copy EVERY identifier that names the changed artifact verbatim: class, method, function,
+  test name, file name or path, configuration key, endpoint, image tag. Never translate,
+  abbreviate, re-case or paraphrase them, and never drop one to keep the title short:
+  `PaymentService` stays `PaymentService`, `computeIfAbsent` stays `computeIfAbsent`,
+  `maximum-pool-size` stays `maximum-pool-size`, `/api/health` stays `/api/health`.
+- Also name the decisive cause or symptom noun from the trace, not only the component:
+  `line endings` (not just `CSV`), `expiration boundary`, `canary rollback threshold`,
+  `multi-stage` build. A title that names only the file is incomplete.
+- Length: 20-100 characters.
+- Good: `Fixed UserCache.computeIfAbsent null placeholder race`
+- Good: `Added readinessProbe /api/health to deployment.yaml`
+- Good: `Enabled canary rollback at a 10 percent threshold in canary.yaml`
+- Good: `Added DailyReportTest#reportUsesBusinessTimezone for Asia/Shanghai`
+- Bad: `修复了订单查询的一个小问题` (vague, identifier lost)
+- Bad: `Improved the payment module` (no verb+object+identifier)
+- Bad: `Changed Hikari pool sizing in application.yml` (drops the `maximum-pool-size` key)
+
+FACTS CONTRACT
+--------------
+- A fact must be verifiable from the observed tool input/output. Do not infer, speculate or add
+  opinions ("should be faster", "likely fixes", "this is better").
+- 1-5 facts, each one self-contained statement, no pronouns.
+- Every fact must contain at least one exact identifier, path, number or status code copied from
+  the tool input/output; a fact without an anchor is not verifiable and will be discarded.
+- Each fact must name the changed identifier AND the concrete value, behaviour or comparison it
+  now has: a value (`canary.weight = 10`), a count (`780MB -> 210MB`), an error, or a status code.
+- Do not spend a fact on process noise. "was added to <path>", "the file was edited",
+  "lint passes", "tests are green" are not facts about the change unless they name the exact
+  file or command AND the observed value.
+- bugfix facts describe the broken behaviour and the concrete change:
+  good `PaymentService throws PaymentNotFoundException for a missing orderId`;
+  bad `payment code is now better`.
+- feature/test-add facts describe the new capability or test:
+  good `DailyReportTest#reportUsesBusinessTimezone pins 2026-11-01T23:30Z and expects 2026-11-02`;
+  bad `added some tests`.
+- refactor facts describe structure, not behaviour:
+  good `InvoiceService delegates tax, rendering and mail to three collaborators`;
+  bad `refactored everything`.
+- Good: `infra/canary.yaml sets canary.weight to 10 for a 10 percent rollout`
+- Bad: `helm lint passes for the canary configuration` (process noise, no value)
+
+CONCEPTS CONTRACT
+-----------------
+- Choose 2 concepts that describe the change itself: `what-changed`, `problem-solution`,
+  `pattern` or `trade-off`.
+- Add `gotcha` or `how-it-works` only when the trace explicitly discusses the trap or the
+  mechanism; otherwise they dilute the record.
 
 OUTPUT FORMAT
 -------------
@@ -58,7 +126,7 @@ Output observations using this XML structure:
       - discovery: learning about existing system
       - decision: architectural/design choice with rationale
   -->
-  <title>[**title**: Short title capturing the core action or topic]</title>
+  <title>[**title**: <verb> <object> <key identifier>, identifiers verbatim, max 100 chars]</title>
   <subtitle>[**subtitle**: One sentence explanation (max 24 words)]</subtitle>
   <facts>
     <fact>[Concise, self-contained statement]</fact>
@@ -67,9 +135,9 @@ Output observations using this XML structure:
   </facts>
   <!--
     **facts**: Concise, self-contained statements
-    Each fact is ONE piece of information
-    No pronouns - each fact must stand alone
-    Include specific details: filenames, functions, values
+    Each fact is ONE piece of information and must be verifiable from the tool input/output
+    No pronouns, no speculation, no opinions - each fact must stand alone
+    Include specific details: filenames, functions, values, test names, status codes
   -->
   <narrative>[**narrative**: Full context: What was done, how it works, why it matters]</narrative>
   <concepts>

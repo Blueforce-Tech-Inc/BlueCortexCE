@@ -187,6 +187,14 @@ claudemem:
   # - anthropic: Uses Anthropic-compatible API (Claude, GLM, etc.)
   llm:
     provider: ${CLAUDEMEM_LLM_PROVIDER:openai}
+  # Deterministic post-validation of extracted observations (no model call).
+  # Disabling it bypasses every check and persists the parsed answer unchanged.
+  extraction:
+    validation:
+      enabled: ${CLAUDEMEM_EXTRACTION_VALIDATION_ENABLED:true}
+      max-title-length: ${CLAUDEMEM_EXTRACTION_MAX_TITLE_LENGTH:100}
+      max-facts: ${CLAUDEMEM_EXTRACTION_MAX_FACTS:5}
+      duplicate-lookback: ${CLAUDEMEM_EXTRACTION_DUPLICATE_LOOKBACK:20}
   # Log directory for structured logs (TS-compatible format)
   # Default: ~/.claude-mem/logs
   log.dir: ${CLAUDEMEM_LOG_DIR:${user.home}/.claude-mem/logs}
