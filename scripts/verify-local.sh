@@ -225,7 +225,7 @@ note "container=$PG_CONTAINER host_port=$PG_PORT user=$PG_USER database=$TEST_DB
 # The tests truncate tables, so a business database must never be reused. The
 # DROP makes this block re-runnable from a clean state.
 # --------------------------------------------------------------------------
-step "2/8 Recreate the dedicated test database"
+step "2/8 Create the disposable test database $TEST_DB"
 
 docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d postgres -v ON_ERROR_STOP=1 \
   -c "DROP DATABASE IF EXISTS \"$TEST_DB\" WITH (FORCE)" >/dev/null \

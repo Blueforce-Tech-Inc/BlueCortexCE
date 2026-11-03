@@ -99,18 +99,22 @@ git submodule update --init --recursive
 
 1. 定位一个真正提供 pgvector 的运行中 PostgreSQL 容器（以 `pg_available_extensions`
    为准，不看镜像 tag）。找不到容器是失败，不是静默跳过。
-2. 删除并重建专用库 `cortexce_flyway_rehearsal`。
+2. 为本次运行创建唯一命名的临时库
+   （`cortexce_verify_<时间戳>_<PID>_flyway_rehearsal`），迁移后使用，退出时删除。
+   绝不复用已存在的共享库：本轮曾有 65 个 DB 测试因为共享库被无关项目迁移过
+   （V47–V49 租户字段，`tenant_id NOT NULL`）而误报。`_flyway_rehearsal` 后缀是
+   DB 测试的准入条件。
 3. 启用 `vector` 扩展并断言其可用。
 4. 启动应用一次让 Flyway 完成迁移，随后断言实际版本等于
    `backend/src/main/resources/db/migration` 中最新的文件，且
    `flyway_schema_history` 中没有失败记录。
 5. 用一次 `mvn -B clean install` 跑完 L1–L4，`MEMSCOPE_*` 指向该库。
 6. 执行 `python3 scripts/check-test-results.py --require-zero-skips
-   --min-tests 472 --require-layers --require-baseline`。下限是硬性
-   **不得低于** 值（当前 472 个用例）；baseline 额外提供按层棘轮，任何一层
-   悄悄减少用例都会失败。
+   --min-tests 502 --require-layers --require-baseline`。下限是硬性
+   **不得低于** 值（当前 502 个用例）；baseline 额外提供按层棘轮，任何一层
+   悄悄减少用例都会失败。随后执行评估下限门禁与检索质量回放门禁。
 
-门禁在以下任一情况失败：有用例被跳过；总执行数低于 472；某一层一个用例都没执行；
+门禁在以下任一情况失败：有用例被跳过；总执行数低于 502；某一层一个用例都没执行；
 L1–L4 中任何一层的执行数低于 `scripts/test-baseline.json` 记录。只有在新增用例后，
 才应同时抬高下限并重写 baseline（`--write-baseline`）。
 7. 执行两项文档一致性检查：检查器自测，再用中英文 API 参考对比运行中的服务。
@@ -118,7 +122,8 @@ L1–L4 中任何一层的执行数低于 `scripts/test-baseline.json` 记录。
 
 每一步都会打印自己的名称。失败时脚本打印 `STEP FAILED: <步骤>` 与命令自身的
 原因，以非零退出，绝不继续执行后续步骤去掩盖问题。可覆盖的变量：
-`PG_CONTAINER`、`PG_PORT`、`PG_USER`、`PG_PASSWORD`、`TEST_DB`、
+`PG_CONTAINER`、`PG_PORT`、`PG_USER`、`PG_PASSWORD`、`TEST_DB`（固定使用指定库，
+不自动生成）、`VERIFY_KEEP_DB`（保留自动生成的库以便检查）、
 `VERIFY_MIN_TESTS`、`VERIFY_APP_PORT`、`VERIFY_E2E_PORT`、`VERIFY_LOG_DIR`。
 
 下面的分步说明保留下来，用于单独复现某一个失败步骤。
@@ -131,7 +136,7 @@ L1–L4 中任何一层的执行数低于 `scripts/test-baseline.json` 记录。
 
 | 层次 | 证明什么 | 由谁执行 | 单独重跑 |
 |------|----------|----------|----------|
-| **L1** 单元 + 集成（409 个用例） | 服务、控制器、实体、仓储契约，以及依赖模型的链路（离线替身）。 | `.layers.*` 之外的全部 Surefire 类 | `mvn -B test -Dtest='!L2HttpRegressionTest,!L3AcceptanceTest,!L4EndToEndTest'` |
+| **L1** 单元 + 集成（488 个用例） | 服务、控制器、实体、仓储契约，以及依赖模型的链路（离线替身）。 | `.layers.*` 之外的全部 Surefire 类 | `mvn -B test -Dtest='!L2HttpRegressionTest,!L3AcceptanceTest,!L4EndToEndTest'` |
 | **L2** HTTP 回归（7 个用例） | 真实启动的应用（`RANDOM_PORT`）：`/v3/api-docs` 发布的每个操作都被调用一次；缺参数 → 400、旧路径 → 404、非法 UUID → 400、`limit`/`offset` 钳制、`{items,hasMore}` 分页信封。 | `L2HttpRegressionTest` | `mvn -B test -Dtest=L2HttpRegressionTest` |
 | **L3** 验收（6 个用例） | 把文档声明的能力变成断言：Hook 生命周期、三类 ingest 写入、检索分支、context inject、settings/modes 字段、SSE 事件、MCP 工具列表加一次真实调用。每条断言在类 javadoc 中标注出处（`docs/API.md`、`AGENTS.md`、`docs/ARCHITECTURE.md`）。proxy 转发由 `verify-local.sh` 第 8 步覆盖。 | `L3AcceptanceTest` + proxy `npm test` | `mvn -B test -Dtest=L3AcceptanceTest`（再 `cd proxy && npm test`） |
 | **L4** 端到端（1 个用例） | 真实服务 + 专用库上的一条完整用户路径：会话开始 → 写入 → 检索 → context inject → 会话结束 → 摘要，校验数据库终态与 SSE 事件。等待全部是基于条件的轮询，不使用 `sleep`。 | `L4EndToEndTest` | `mvn -B test -Dtest=L4EndToEndTest` |
@@ -532,6 +537,7 @@ cd backend
 
 | 日期 | 变更 |
 |------|------|
+| 2026-11-04 | **第 14 轮：每次验证使用独立数据库，并补齐三个未测量的页面。** `verify-local.sh` 每次运行创建 `cortexce_verify_<时间戳>_<PID>_flyway_rehearsal`，退出时用 `WITH (FORCE)` 删除，任何一次运行都不可能继承别的项目的 schema——第 13 轮曾有 65 个 DB 测试因为共享库被 V47–V49 加了租户列（`tenant_id NOT NULL`）而误报。`TEST_DB` 固定指定库，`VERIFY_KEEP_DB=1` 保留自动生成的库，两者都写进第 2 步。压测工具（`scripts/load-test.py`）现在记录 p99 与 max、上报服务真实使用的 `strategy`、在同一库内开关 V23 索引、计算 2× 劣化拐点，并按行数命名报告。**5 万条 observation**（`2026-11-04_load-test-50k.md`）：recent p50/p95/p99 **8.59 / 31.05 / 33.73 ms**，deep_page 1.46 / 1.98 / 2.50，type_filter 12.01 / 14.99 / 20.56，hybrid query 5.92 / 7.41 / 8.32；有索引 0.04–0.05 ms，无索引 12.5–13.7 ms（`Limit -> [Gather Merge ->] Sort -> Seq Scan`）；ingest 200 提交 / 200 落库，**45.75 行/秒**，0 重复哈希、0 卡在 `processing`；拐点在 5 万条时出现在 `recent` 与 `type_filter`，另两条未越过。首次测量检索相关性：**60 条真实会话 query / 126 条按时间归因的 observation**，使用真实 `BAAI/bge-m3`（`scripts/build-retrieval-corpus.py`、`scripts/eval-retrieval-quality.py`）。纯向量 hit@1 **0.600** / hit@5 **0.817** / MRR **0.688**；tsvector **0 / 0 / 0，60/60 全空**；hybrid 与纯向量**完全相同**，因为 `search_vector` 用 `english` 配置且 `plainto_tsquery` 是 AND 语义，中文 query 匹配不到任何词。identifier-OR（MRR 0.565）、RRF、query 截断（0.595 / 0.512）与 `simple` 分析器都实测过，均未超过向量，因此不改生产融合，改为把 `scripts/check-retrieval-quality.py` 作为第 6c 步回放基线（hybrid hit@1 ≥ 0.50、hit@5 ≥ 0.75、MRR ≥ 0.63、query ≥ 40、hybrid MRR 与 vector 差距 ≤ 0.02）。LongCat p95 38,925 ms 由流式探针复放 A11 同一批 prompt 归因：聚合时长 **网络 7.2% / 推理 69.8% / 生成 23.0%**，p95 样本中推理占 **95.9%**，30 次基线调用与 60 次 A11 调用均为 **0 重试**。删掉 `<narrative>` 与可选字段只影响生成（生成 p50 −34% / −55% / −39%），总时长 p50 仅 −20.8% / −8.0% / −15.1%；`reasoning_effort: low` 没有帮助（总 p50 +37.8%、推理 +61.1%），`enable_thinking: false` 被忽略。报告因此建议在 worker 层设上限（连接 5 秒 / 读取 120 秒、最多 3 次尝试、退避 2 秒 / 5 秒），超时后把消息标记 `retry`；A11 维持 1.5× 基线，供应商抖动交给 A13 覆盖。用例数保持 502 / 0 跳过；中英文同步更新 |
 | 2026-11-03 | **第 9 轮：指标可达性与结果可复现。** 标识符未达 100% 的剩余缺口全部归因为模型漏抄：逐条判定后既没有标题截断，也没有 trace 中不可获取的标识，**剔除数为 0**，因此按能力边界记录并留证，未下调任何门槛。主体评分收紧为「token 必须真实出现在 trace 中」，不可达标签退出 A6b 分母并逐条列出，旧口径保留为诊断指标。`temperature 0` 下全量重复 3 次，量化逐指标方差（type 标准差 LongCat 2.75pp / MiniMax 3.27pp），并列出 3 次中 type 或动作类发生变化的样本 **18/87（LongCat）**、**13/87（MiniMax）**；不一致横跨所有类别，因此提取流程改为**默认采样 3 次并多数投票**（`cortexce.extraction.consistency-samples`，设为 `1` 可关闭；代价为延迟与 token ×3）。新增 `scripts/gen-real-golden.py`，从真实 commit 机械生成 **36 条样例**，通过 `EVAL_GOLDEN=real` 独立统计（标识符 LongCat 81.8%、MiniMax 61.1%）。新增 p50/p95 延迟与 token 基线，A11/A12 门槛为 **p95 ≤ 基线 1.5×**。用例数 462 → **472** / 0 跳过；`--min-tests` 423 → 472。中英文同步更新 |
 | 2026-11-03 | **审计缺口收口 + 按层 baseline 棘轮。** 门禁改为 `--min-tests 423 --require-baseline`，基线文件 `scripts/test-baseline.json`（L1 409 / L2 7 / L3 6 / L4 1），即使总数仍高于下限，任何一层用例减少也会失败。新增数据库测试：8 线程并发领取（只允许一个成功）、队列深度把 `processing` 计入、failed 计数与最近失败原因可查询、批量与单条会话查询结果一致、V23 索引集存在、V20 legacy 冲突演练（可读的 `TECHNICAL_BUCKET_CONFLICT` / `OBSERVATION_WITHOUT_SCOPE`，按文档清理后重跑成功）。契约检查器现在校验错误响应体与真实健康形态（`/api/health` 为 `{service,status,timestamp}`，checks 在 `/api/readiness`）。`verify-local.sh` 优先使用专用容器 `claude-mem-test-pg`，因为共享的 `postgresql` 容器可能被无关客户端占满连接。用例数 360 → **423** / 0 跳过；中英文同步更新 |
 | 2026-11-02 | **Golden 样例集输出质量评估与 MiniMax 最终复验。** 新增仅手动执行、在 CI 下拒绝运行的评估工具（`scripts/eval-model-quality.sh` + `GoldenSetEvaluator`，`EVAL_MAX_CALLS` 默认上限 20），对 **12 条真实感 tool-use 轨迹**打分，覆盖 bug 修复、重构、测试新增、配置变更、安全修复、文档更新，以及 2 条应跳过的低价值变更；每条含期望（是否产 observation / 是否 skip、type、title 关键词、facts/concepts 关键词）。打分逻辑为纯离线 `GoldenSetScorer`，由 6 个单测覆盖。LongCat 实测：**12/12 次调用，0 失败、0 格式错误；契约合格率 92%，skip 判定准确率 92%（TP/FP/FN/TN 2/1/0/9），type 100%，title 完全命中 44%，facts 54%/94%，concepts 57%/83%**。唯一的漏产是一条时区小回归测试被跳过；title 未命中属改写措辞，不是格式错误。报告见 `docs/archive/2026-11-02_model-output-quality-eval.md`。MiniMax 在 key 再次更新后复验**端到端通过**：HTTP 200，回答被 `XmlParser` 接受，入库向量 1024 维，`GET /api/search` 返回 `strategy=hybrid`/`fell_back=false`/`hits=1`，耗时 0.131 秒；`/api/context/inject` 返回 observation 标题与 `updateFiles`；队列终态 `processed:1`；**3 次真实调用**，队列 admission 到落库 2.72 秒。随后用 `EVAL_PROVIDER=anthropic` 对同样 12 条样例跑 `MiniMax-M3`（**12 次调用**）：契约 83%，skip 判定准确率 83%（TP/FP/FN/TN **0/0/2/10**，两条低价值轨迹都产出了 observation），type 90%（一条 `test-add` 被判为 `bugfix`），title 完全命中 20%，facts 65%/90%，concepts 52%/80%，0 格式错误；报告见 `docs/archive/2026-11-02_model-output-quality-eval-minimax.md`。用例数 354 → **360** / 0 跳过（新增 6 个离线打分单测）；`--min-tests` 354 → 360。中英文同步更新 |

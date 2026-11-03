@@ -125,6 +125,26 @@ public final class GoldenSetEvaluator {
             System.exit(2);
         }
 
+        // Diagnostic mode for latency attribution: write the exact system/user pair for
+        // every planned call and exit without contacting the provider. The streaming
+        // probe (scripts/probe-provider-latency.py) replays these prompts so the measured
+        // network/prefill/generation split belongs to the same requests A11 scored.
+        String dumpPrompts = blankToNull(env("EVAL_DUMP_PROMPTS"));
+        if (dumpPrompts != null) {
+            Path directory = Path.of(dumpPrompts);
+            Files.createDirectories(directory);
+            int index = 0;
+            for (GoldenSet.Sample sample : plan.subList(0, planned)) {
+                Files.writeString(directory.resolve(index + "_system.txt"), systemPrompt,
+                        StandardCharsets.UTF_8);
+                Files.writeString(directory.resolve(index + "_user.txt"),
+                        fillTemplate(observationTemplate, sample), StandardCharsets.UTF_8);
+                index++;
+            }
+            System.out.printf(Locale.ROOT, "Dumped %d prompt pair(s) to %s%n", index, directory);
+            System.exit(0);
+        }
+
         List<GoldenSetScorer.Outcome> outcomes;
         int calls;
         long startedAt = System.nanoTime();

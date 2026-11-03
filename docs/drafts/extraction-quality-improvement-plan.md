@@ -1772,3 +1772,196 @@ a freshly migrated rehearsal database).
 `./scripts/verify-local.sh`: 502 tests (L1 488 / L2 7 / L3 6 / L4 1), 0 failures, 0
 skipped; replay 6/6 including the two r13-final fixtures; gate monotonicity stable with
 `callSuccessRate 0.99` in both gate files; EN/ZH API surface 80/80; proxy E2E 0 skipped.
+
+## 12. Round 14 — measured pages: load knee, test-DB isolation, retrieval relevance, latency attribution
+
+Round 13 measured the base under load but reported only the 10k numbers; the 1k/5k/10k run
+behind `0e17b3b` had been committed without a report. Round 14 closes four gaps: it turns
+that load run into a capacity statement at 50k rows, makes the test database disposable
+instead of shared, measures retrieval relevance for the first time, and attributes the
+LongCat p95 to a phase instead of leaving it as one opaque number.
+
+### 12.1 The load harness reports p99, throughput, index evidence and the knee
+
+`scripts/load-test.py` now records p99 and max alongside p50/p95, reports the service's
+own `strategy` (read from the response, not guessed from the request path), measures the
+V23 index with and without it in the same database, computes the degradation knee
+(first row count whose p95 exceeds 2× the 1k baseline) and names the report after the
+size it measured. `2026-11-04_load-test-50k.md` is the result at 50,000 observations:
+
+| path | 1k p95 | 50k p50/p95/p99 | 2× knee |
+|---|---|---|---|
+| recent (scope index) | 7.38 | **8.59 / 31.05 / 33.73 ms** | 50k (14.76) |
+| deep_page | 4.89 | 1.46 / 1.98 / 2.50 ms | not crossed |
+| type_filter | 6.03 | 12.01 / 14.99 / 20.56 ms | 50k (12.06) |
+| query (hybrid) | 15.26 | 5.92 / 7.41 / 8.32 ms | not crossed |
+
+Index evidence at 50k (`EXPLAIN ANALYZE` with the index dropped and recreated): 0.04/0.05/0.04 ms
+with the index versus 13.69/13.59/12.52 ms without it, and the no-index plan is
+`Limit -> [Gather Merge ->] Sort -> Seq Scan` in all three cases. The index is the reason the
+scope, type and project paths stay flat, not an accident of small tables.
+
+Ingest → persisted: 200 posted, 200 accepted, 200 persisted, enqueue 92.23 events/s
+(p95 506.78 ms), persistence **45.75 rows/s**, 0 duplicate content hashes, 0 rows stuck in
+`processing`.
+
+Capacity conclusion: 50k rows is not a capacity limit for the indexed paths — the knee for
+`recent` and `type_filter` is the expected effect of a bigger recent window plus sort,
+and it lands at 50k, so the next measurement belongs at 100k. Every measured path stays
+under 32 ms p95 at 50k. The hybrid query path is constant because the stub provider keeps
+embedding latency out of the number; that path's real cost is the embedding call, measured
+separately (11.3).
+
+### 12.2 The test database is disposable by default
+
+`verify-local.sh` used to reuse one shared `cortexce_flyway_rehearsal` database. In round
+13, **65 DB-gated tests failed against that database** because an unrelated project's
+migrations had run in it (V47–V49 added tenancy columns and `tenant_id NOT NULL`); the
+suite went green only after switching to a different database. A shared test database is a
+fragile dependency, not an incident.
+
+The script now creates `cortexce_verify_<timestamp>_<pid>_flyway_rehearsal` on every run —
+the `_flyway_rehearsal` suffix is the admission condition the DB tests check — drops it on
+exit (`WITH (FORCE)`, ignoring failure), and keeps two explicit overrides: `TEST_DB` pins a
+named database and disables auto-creation, `VERIFY_KEEP_DB=1` keeps the generated database
+for inspection. `docs/TESTING.md` / `docs/TESTING-zh-CN.md` document this as step 2 and list
+both overrides; the ZH copy also had a stale `--min-tests 472` and an L1 count of 409 while
+the baseline file said 502 / 488, both now corrected.
+
+### 12.3 Retrieval relevance is measured on real requests, and hybrid ties vector
+
+Until round 14 the retrieval story had thresholds but no relevance number. The corpus is
+built from real Claude Code transcripts (`scripts/build-retrieval-corpus.py`): every user
+prompt of at least 30 characters that produced at least one `Edit`/`Write`/`MultiEdit`
+becomes a query, and the observations written while answering it become the ground-truth
+set. That is temporal attribution, not a hand-picked answer, and the rationale for each
+query is stored next to it. Result: **60 queries, 126 observations**
+(`backend/src/test/resources/eval/retrieval-corpus-real.json`).
+
+`scripts/eval-retrieval-quality.py` replays them through a disposable database and the
+production SQL shapes with **real `BAAI/bge-m3` embeddings (1024 dims)**, not hash
+stand-ins:
+
+| path | hit@1 | hit@5 | MRR | empty |
+|---|---:|---:|---:|---:|
+| vector | 0.600 | 0.817 | **0.688** | 0 |
+| tsvector (`plainto_tsquery('english', …)`) | 0.000 | 0.000 | 0.000 | **60/60** |
+| hybrid | 0.600 | 0.817 | **0.688** | 0 |
+| hybrid, no similarity floor | 0.600 | 0.817 | 0.688 | 0 |
+| RRF fusion | 0.600 | 0.817 | 0.688 | 0 |
+| simple analyzer / hybrid-simple / hybrid-simple-RRF | 0.000 / 0.600 / 0.600 | 0.000 / 0.817 / 0.817 | 0.000 / 0.688 / 0.688 | 60 / 0 / 0 |
+| identifier OR | 0.517 | 0.650 | 0.565 | 5 |
+| identifier OR + RRF | 0.583 | 0.767 | 0.660 | 0 |
+| vector, query truncated to first 120 chars | 0.500 | 0.733 | 0.595 | 0 |
+| vector, query truncated to last 120 chars | 0.417 | 0.667 | 0.512 | 0 |
+
+The cause of the tie is structural, not a fusion-weight problem: the full-text half is
+**empty for every query**. `search_vector` uses the `english` configuration and
+`plainto_tsquery` joins terms with AND, so a Chinese prompt produces a tsquery that matches
+nothing; hybrid then returns exactly the vector ranking. The floor (`minSimilarity 0.5`)
+and the `limit × 2` truncation are therefore not suppressing lexical hits — there are none.
+
+Improvements were measured, not assumed, and none beat vector on this corpus: identifier OR
+loses recall (5 empty results), RRF is identical because one arm is empty, query truncation
+loses context in both directions, and a character-based "simple" analyzer still returns
+nothing because `to_tsvector('simple', …)` treats a whole Chinese run as one token that no
+query term matches.
+
+The production fusion was therefore **not changed**. What was added is a replay gate,
+`scripts/check-retrieval-quality.py` (step 6c of `verify-local.sh`): it reads the committed
+baseline and fails if hybrid hit@1 < 0.50, hit@5 < 0.75, MRR < 0.63, the corpus drops below
+40 queries, or hybrid MRR trails vector by more than 0.02. A real fix — a Chinese
+tokenizer/`zhparser` or a `zh` text-search configuration — can then raise the floors
+deliberately; until that exists, the gate protects against a silent regression.
+
+Artifacts: `2026-11-04_retrieval-quality-real.md` / `.json`,
+`backend/src/test/resources/eval/retrieval-quality-baseline.json`.
+
+### 12.4 The LongCat p95 is reasoning time, not our call path
+
+A11 records one elapsed number per call, so 38,925 ms could have been the network, the
+prompt, the retry tower or the answer. `GoldenSetEvaluator` now has a diagnostic mode
+(`EVAL_DUMP_PROMPTS`) that writes the exact system/user pair of every planned call without
+contacting the provider, and `scripts/probe-provider-latency.py` replays those pairs over
+SSE, timestamping each phase:
+
+- **network** — request sent → response headers (connect, upload, first byte)
+- **prefill** — headers → first delta (queue + prompt processing)
+- **reasoning** — first `reasoning_content` delta → first answer delta
+- **generation** — first answer delta → final chunk
+
+30 baseline calls on the A11 prompts (`2026-11-04_longcat-latency.md`):
+
+| phase | p50 | p95 | p99 |
+|---|---:|---:|---:|
+| total | 19,884 | 45,178 | 88,823 |
+| network | 1,657 | 1,999 | 2,777 |
+| prefill | 0 | 2 | 7 |
+| reasoning | 11,316 | **43,309** | 83,048 |
+| generation | 4,730 | 9,001 | 24,170 |
+| completion tokens | 1,075 | 2,648 | — |
+
+Aggregated over all 30 calls: **network 7.2%, reasoning 69.8%, generation 23.0%**. Per-call
+reasoning share is p50 59.2% / p95 95.4%; **21/30 calls spend more than half their time
+reasoning**, and 13/30 spend more than 10% waiting on the network. At p95, reasoning is
+**95.9%** of the elapsed time. `prefill` is 0 ms because headers and the first delta arrive
+together — the queueing cost is inside the network number, not a separate phase.
+
+**Retries are not part of this number.** The probe never retries; 30 baseline calls and the
+60 A11 calls produced **0 errors and 0 retries**. A11's p95 therefore contains no backoff.
+The production client, however, is built with Spring AI's `DEFAULT_RETRY_TEMPLATE` (10
+attempts, exponential backoff capped at 180 s), so outside the evaluation a 5xx run can add
+minutes of real time that would be indistinguishable from generation.
+
+**Verdict: the provider is slow at reasoning, and our call path is not.** Network is 7% in
+aggregate and only a tail effect; generation is 23% and scales with the answer, not with the
+schema. Answering "can we cap the narrative or drop fields?" — measured, on the same prompts:
+
+| variant | generation p50 | total p50 | completion tokens p50 |
+|---|---:|---:|---:|
+| no `<narrative>` | 4,591 (−34.4%) | 15,755 (−20.8%) | 1,180 (+22.9%) |
+| no narrative/concepts/files_read | 3,141 (−55.1%) | 18,292 (−8.0%) | 1,220 (+27.1%) |
+| "do not narrate" instruction | 4,241 (−39.4%) | 16,877 (−15.1%) | 1,155 (+20.3%) |
+
+They reduce the part of the call that was never the bottleneck; reasoning is untouched, and
+the answer gets longer (fewer structural hints → more free-form tokens). So neither
+mitigation moves p95 in a way worth changing the output contract for.
+
+`reasoning_effort: low` was expected to be the real lever, because a single prompt went from
+997 → 213 reasoning tokens (32.1 s → 22.3 s). On 10 A11 prompts it **inverted**: total p50
++37.8%, reasoning p50 +61.1%, completion tokens +51.7%. A re-run of the same ten prompts
+with token accounting enabled (`baseline-10`) puts that swing in context: reasoning tokens
+went 718 → 901 (+25.5%) and completion tokens 1,253 → 1,456 (+16.2%) — more thinking, not
+less — but a plain re-run of the identical prompts already moved total p50 +15.6%, so the
+provider's session-to-session variance is the dominant term, not a parameter effect.
+`enable_thinking: false` is ignored outright (reasoning still 997 tokens). One call of note:
+`terse` produced a 142.7 s stream stall (stream opened, then a long gap), the same jitter
+class.
+
+**Worker-level recommendation** (no threshold change):
+
+- Bound the call: connect timeout 5 s, read timeout 120 s, at most 3 attempts with 2 s / 5 s
+  backoff. The current 10-attempt tower can hold a worker for many minutes during a provider
+  outage, while the observed max is 89 s.
+- A timeout cannot be salvaged by keeping half-parsed fields: extraction parses the XML only
+  after the response completes. Mark the message `retry` and let stale recovery re-claim it
+  (r13 measured 0 lost / 0 duplicate / 0 stuck under SIGKILL).
+- Keep A11 at 1.5× baseline. Its p95 is provider reasoning; lowering the threshold would
+  encode a provider change as a code failure. A13 (≥99% call success) plus the printed
+  failure count already makes provider jitter visible.
+- If p95 must come down, the lever is the model's reasoning budget or a faster model —
+  not the output schema, which buys at most one fifth of the time.
+
+### 12.5 Verification
+
+`./scripts/verify-local.sh` passes all eight steps: 502 tests (L1 488 / L2 7 / L3 6 / L4 1),
+0 failures, 0 skipped, on a freshly created and then deleted database; the eval gate
+(`check-eval-gates.py`) and the new retrieval replay gate (6c) both pass; EN/ZH API surface
+80/80; proxy E2E 0 skipped. Artifacts for this round:
+`2026-11-04_load-test-50k.md`, `2026-11-04_retrieval-quality-real.md` / `.json`,
+`backend/src/test/resources/eval/retrieval-corpus-real.json`,
+`backend/src/test/resources/eval/retrieval-quality-baseline.json`,
+`2026-11-04_longcat-latency.md` / `.json`, plus
+`scripts/probe-provider-latency.py` (replayable with `--report-only` from the recorded JSON).
+
+
