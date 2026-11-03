@@ -109,12 +109,12 @@ hand-run steps:
 5. runs L1–L4 in one `mvn -B clean install`, with `MEMSCOPE_*` pointed at that
    database.
 6. runs `python3 scripts/check-test-results.py --require-zero-skips
-   --min-tests 493 --require-layers --require-baseline`. The floor is a hard
-   **must-not-go-below** value (currently 493 executed tests); the baseline adds
+   --min-tests 502 --require-layers --require-baseline`. The floor is a hard
+   **must-not-go-below** value (currently 502 executed tests); the baseline adds
    a per-layer ratchet so no layer can quietly shrink.
 
 The gate fails when any test is skipped, when the total executed count drops
-below 493, when a layer executed no tests, or when any of L1–L4 executed fewer
+below 502, when a layer executed no tests, or when any of L1–L4 executed fewer
 tests than `scripts/test-baseline.json` records. Raise both the floor and the
 baseline deliberately (`--write-baseline`) only after adding tests.
 7. runs both documentation consistency checks: the checker self-test, then the
@@ -290,7 +290,7 @@ kill "$APP_PID" && wait "$APP_PID" 2>/dev/null || true
 docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$TEST_DB" -tAc \
   "SELECT version FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 1"
 
-# 4. Run the full suite against the dedicated database: 493 tests, 0 skipped.
+# 4. Run the full suite against the dedicated database: 502 tests, 0 skipped.
 MEMSCOPE_TEST_DB_URL="jdbc:postgresql://127.0.0.1:$PG_PORT/$TEST_DB" \
 MEMSCOPE_TEST_DB_USER="$PG_USER" MEMSCOPE_TEST_DB_PASSWORD="$PG_PASSWORD" \
 MEMSCOPE_FLYWAY_TEST_URL="jdbc:postgresql://127.0.0.1:$PG_PORT/$TEST_DB" \
@@ -304,7 +304,7 @@ mvn -B clean install
 > V20 conflict rehearsal create and migrate their own disposable databases.
 >
 > CI runs the same suite and then `python3 scripts/check-test-results.py
-> --require-zero-skips --min-tests 493 --require-layers --require-baseline`, so a build
+> --require-zero-skips --min-tests 502 --require-layers --require-baseline`, so a build
 > that reports success while any DB-gated test was skipped, or while a whole layer
 > disappeared, or while a layer executed fewer tests than the recorded baseline,
 > fails. CI provisions its own `pgvector/pgvector:pg16`
@@ -498,7 +498,7 @@ GitHub Actions workflows are configured in `.github/workflows/`:
     owns 5432), migrates it to the newest migration with the application's own
     Flyway configuration, runs `mvn -B clean install` (no `-DskipTests`), and
     then runs `python3 scripts/check-test-results.py --require-zero-skips
-    --min-tests 493 --require-layers --require-baseline`. A skipped DB test, a
+    --min-tests 502 --require-layers --require-baseline`. A skipped DB test, a
     total test-count drop, or any layer shrinking below the recorded baseline
     fails the job, so "BUILD SUCCESS with skipped tests" cannot pass CI.
   - On JDK 21 only, the same job boots the server on 37777 and runs
@@ -583,6 +583,7 @@ cd backend
 
 | Date | Change |
 |------|--------|
+| 2026-11-04 | **Round 13: the provider-failure count is a gate, and the base is measured under load.** The six r12 “all attempts returned no content” failures were a dropped content block, not a provider outage: the Anthropic response carried a `thinking` block first, Spring AI emits one `Generation` per block, and the adapter read only `getResult()`, so the text block was discarded. `ChatResponseText.extract` now joins every text block and ignores non-text ones, pinned by 6 unit tests; the clean run has 0 failures in 60 calls. A13 gates provider call success at ≥99% as at most `max(1, floor(calls × (1 - rate)))` failed calls per run (`callSuccessRate` in both gate files), while every report still prints the failure count next to the latency. A12 was paid back instead of waived: the candidate lists are comma-separated single lines, only rank 1 contributes identifiers, `<title_budget>` is an empty element, the duplicate prompt paragraphs were collapsed and the narrative is one sentence, so MiniMax p95 tokens fell 6,093 → **5,544** (limit 6,072) and p95 latency 6,615 ms (limit 8,472); LongCat 7,128 tokens / 38,925 ms with 0 failures (the 99% floor still allows 1). The output budget moved 4096 → 8192 because LongCat counts `reasoning_content` against it and one sample spent the whole budget on reasoning. New real-load evidence: `--mode soak` (10k observations, search p50/p95 by path, V23 index on/off plans, queue throughput), `--mode concurrency` (20 sessions × 10 events with concurrent session-end — this exposed a lost update where `ContextCacheService` wrote a stale `active` status over a completed session, fixed with `@DynamicUpdate` on `SessionEntity`, plus a 20-job × 8-worker claim test) and `--mode fault` (pool exhaustion, embedding reject/timeout, SIGKILL mid-processing: 0 lost, 0 duplicate, 0 stuck, stale recovery drained 10 rows). Suite 493 → **502** tests / 0 skipped; `--min-tests` 493 → 502. EN+ZH in sync |
 | 2026-11-03 | **Round 12: identifiers as observations; gates may only rise.** `TraceSignals` ranks touched artifacts by changed lines (ties keep edit-stat order; extensionless build files such as `backend/Dockerfile` are parsed) and exposes `<candidate_artifacts>`, `<candidate_identifiers>`, `<title_subject_candidate>`, `<title_identifier_required>` and `<title_budget>`. Rank 1 equals the golden identifier on **60/60** real samples and the candidate list contains it on 60/60. The title contract requires the exact identifier as the last token, and the budget states how many characters remain for the verb and object under the 100-character validator. Real set (60 samples): identifier/subject **97.67% / 97.67%** MiniMax and **100% / 100%** LongCat (90% target met); auditable type 89.47% / 83.33%; action 97.67% / 89.58%. The one MiniMax miss omitted a file basename (100% of misses); no class, configuration-key or endpoint miss. Floors `identifier 0.90` / `subject 0.90` are written into `scripts/eval-gates.json` (raised, never lowered), with `eval-gates-floor.json`, `check-eval-gates.py` (step 6b) and the replay monotonicity test; the same guard now covers `test-baseline.json` through `test-baseline-floor.json`. Latency: MiniMax successful-call p95 8,157 ms (within A11), but six provider failures inflate the aggregate to 14,357 ms; MiniMax p95 tokens 6,093 vs 6,072 (+0.35%) after the three-sentence narrative cap and prompt trim, while LongCat passes both. Suite 485 → **493** tests / 0 skipped; `--min-tests` 485 → 493. EN+ZH in sync |
 | 2026-11-03 | **Round 11: evidence before “capability boundary”.** A capture proxy compared the real request bodies of both providers: system prompt byte-identical (15,963 chars, same sha), one user turn, `temperature 0`, no `top_p`/stop, and `max_tokens 4096` on both after the LongCat truncation fix; Anthropic reports cached prompt tokens separately, so evaluation now uses one `jtokkit` estimate for both. Type no longer rests on prose: `TraceSignals` computes file-kind counts, rename-only, added public API, security text and defect evidence and injects them as facts (never a label); the path pattern now rejects an extension that is a prefix of a longer one (`index.h` from `index.html`, `Object.c` from `Object.create`). The labels were cross-checked against those signals: 0 contradictions, then 12 reviewed (10 relabelled, 2 kept as rule overrides) and pinned in `TYPE_OVERRIDES` so regeneration reproduces them. Real set (60 samples): type raw 79.2% MiniMax / 72.1% LongCat, **auditable 83.7% / 81.6%** (six `bugfix` labels have no defect or security evidence the model can see); action 97.9% / 88.4%; identifier and subject 56.25% / 74.42%, so the 90% target is recorded as unmet with cluster evidence, and those two floors are ratcheted at the measured values in `GoldenSetRealReplayTest` while action and auditable type gate at 80%. Suite 474 → **485** tests / 0 skipped; `--min-tests` 474 → 485. EN+ZH in sync |
 | 2026-11-03 | **Round 9: metric reachability and reproducibility.** Identifiers remain below 100% only because of model copying: every miss was attributed, none was a truncated title or a label absent from the trace, so the exclusion count is **0** and the residual is recorded as a capability boundary (no threshold lowered). Subject scoring now requires the token to occur in the trace; unreachable labels leave the A6b denominator and are listed, while the legacy subject metric stays as a diagnostic. Three full repetitions at `temperature 0` measured per-metric variance (type σ 2.75pp LongCat / 3.27pp MiniMax) and named the **18/87** (LongCat) and **13/87** (MiniMax) samples that changed type or action class; the disagreements span every category, so extraction now samples **3 times and takes the majority vote by default** (`cortexce.extraction.consistency-samples`, `1` disables it; cost is 3× latency and tokens). Added `scripts/gen-real-golden.py`, which mechanically derives **36 samples from real commits** and is scored separately with `EVAL_GOLDEN=real` (identifiers LongCat 81.8%, MiniMax 61.1%). Added p50/p95 latency and token baselines with A11/A12 at **p95 ≤ 1.5× baseline**. Suite 462 → **472** tests / 0 skipped; `--min-tests` 423 → 472. EN+ZH in sync |

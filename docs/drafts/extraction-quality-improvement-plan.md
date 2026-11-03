@@ -1652,3 +1652,123 @@ was edited in this round.
 0 skipped; replay 4/4; gate monotonicity stable; EN/ZH API surface 80/80; proxy E2E
 0 skipped. Both r12 fixtures replay offline with no provider call.
 
+
+## 11. Round 13 — the failure count becomes a gate, and the base is measured under load
+
+Round 12 closed the identifier/subject targets. Round 13 does three things: explain and
+remove the provider failures that polluted the r12 latency number, pay the A12 cost back
+without touching the threshold, and measure the service under real load rather than only
+on the evaluation set.
+
+### 11.1 An empty answer was a dropped content block
+
+The r12 MiniMax run had six `all attempts returned no content` failures out of 60 calls.
+The raw Anthropic responses were captured and archived
+(`2026-11-03_real-history-eval-minimax-r13-diag.md`, fixture `minimax-real-r13-diag.json`):
+HTTP 200, a `content` array whose **first** element was a `thinking` block, and the text
+answer in a later element. Spring AI's `AnthropicChatModel` emits one `Generation` per
+content block, and the adapter read only `getResult()`, so the first non-text block
+became the whole answer and the text block was discarded. The status was 200 and
+`stop_reason` was normal; nothing was truncated or filtered.
+
+`ChatResponseText.extract` now concatenates every text block and ignores non-text blocks;
+six unit tests pin the thinking-first, multi-text, empty-content and null-content cases.
+The clean r13 run has **0 failures in 60 calls**.
+
+A13 makes this a gate rather than an anecdote: provider call success ≥ 99%, applied as at
+most `max(1, floor(calls × (1 - rate)))` failed calls per run, so one provider hiccup over
+60 calls fails the run exactly like a 98% long-run rate would. A11 stays computed over
+successful responses, but every report prints the failure count and rate next to the
+latency, so a run cannot show a flattering p95 while hiding its failures.
+
+### 11.2 A12 was paid back, not waived
+
+Three compressions, no threshold change:
+
+- `<candidate_artifacts>` and `<candidate_identifiers>` became comma-separated single
+  lines (`path [changed_lines], path [changed_lines]`) instead of one XML element per
+  entry, and only the rank-1 artifact contributes identifiers — supporting files already
+  appear in `<files_touched>` and cannot be the title subject.
+- `<title_budget>` became an empty element with its arithmetic in attributes; the prose
+  sentences it used to carry were already stated in the prompt.
+- The prompt's identifier paragraph and its duplicate explanation of `<title_contract>`
+  were collapsed into one rule, and the narrative rule became "one sentence, only when
+  the title and facts do not already convey what was done or why it matters".
+
+The first attempt also folded the eight mechanical-signal type rules into five shorter
+lines and dropped the "end the title with the edited artifact's path" rule. That run
+measured auditable type 78.6% (floor 0.80) and identifiers 93.75% (A6c requires 100%),
+so the type table and the path rule were restored: they are decision rules the model
+follows, not duplicated prose, and removing them cost accuracy rather than tokens. The
+tokens saved by the other three changes were unaffected.
+
+Measured on the 60-sample real set with `max_tokens 8192`:
+
+| provider | p95 tokens | A12 limit | p95 latency | A11 limit | call failures |
+|---|---|---|---|---|---|
+| MiniMax | **5,544** (was 6,093) | 6,072 | **6,615 ms** | 8,472 ms | 0/60 |
+| LongCat | 7,128 | 8,644 | 38,925 ms | 50,574 ms | 0/60 |
+
+Both pass without the previously offered 6,300 relaxation, so no threshold was edited.
+The output budget moved from 4096 to 8192 because LongCat counts `reasoning_content`
+against the same budget and one sample spent all 4096 on reasoning and returned no text;
+that is a budget bug, not a model failure, and reporting it as a failure would corrupt
+A13. Fixtures `minimax-real-r13-final` / `longcat-real-r13-final` replay offline with the
+metrics above.
+
+### 11.3 Search and queue capacity at 10k observations
+
+`scripts/load-test.py --mode soak` seeds a disposable database to 1k/5k/10k rows and
+measures `/api/search` over four paths with 100 sequential requests each
+(`2026-11-03_load-test-10k.md`):
+
+- recent (V23 scope index): p95 7.48 ms at 1k → **9.91 ms at 10k**; no volume effect.
+- deep_page: p95 7.69 → 3.41 ms.
+- type_filter: p95 16.73 → 8.16 ms.
+- full_text (GIN fallback): p95 13.35 → 31.57 → **78.98 ms**; the first path to degrade,
+  crossing 2× at 5k rows.
+
+The V23 indexes were toggled off in the same database to prove they are what serves the
+queries: scope_recent 0.24 ms vs 7.02 ms (`Limit -> Sort -> Seq Scan`), type_recent
+0.07 vs 3.22 ms, project_recent 0.08 vs 7.82 ms.
+
+Queue: 200 posted, 200 accepted, 200 persisted, 48.5 events/s at enqueue (p95 918 ms),
+0 duplicate hashes, 0 rows left in processing. Every measured path stays under 80 ms p95
+at 10k rows; the next capacity check belongs at 100k, where full-text is the expected
+limiter.
+
+### 11.4 Twenty concurrent ingests while session-end closes the same sessions
+
+`--mode concurrency` posts ten events per session across 20 sessions and closes every
+session while the waves are still in flight (a wave is closed once 65% of its events are
+accepted, which makes the race deterministic instead of a function of sleep timing):
+161 events accepted, 161 persisted, 0 lost, 0 duplicate content hashes, 0 rows stuck in
+`processing`, 20/20 sessions `completed`, queue drained.
+
+The first run exposed a real defect: 19/20 sessions completed and one stayed `active`
+with its summary already persisted. `ContextCacheService` loads a `SessionEntity`
+without the row lock (refresh sweep, expiry) and saves it later; Hibernate's default
+full-column UPDATE wrote the stale `status='active'` back **after** SessionEnd had
+committed `completed`. `SessionEntity` is now `@DynamicUpdate`, so best-effort writers
+touch only the columns they actually changed; the race test reproduces 20/20 completed,
+and the DB-gated `ObservationClaimDatabaseTest` covers the queue side end to end, adding
+a 20-job × 8-worker claim test on top of the 8-worker single-row race (8/8 green against
+a freshly migrated rehearsal database).
+
+### 11.5 Fault injection: the queue repairs itself, not just the unit tests
+
+`--mode fault` runs three injections against the packaged service and a stub provider
+(`2026-11-03_fault-injection.md`):
+
+| injection | observed | assertion |
+|---|---|---|
+| connection pool exhausted (3 connections, exclusive table lock) | 12 posted / 9 accepted, 3 ingested 500s, 3 search 500s, 0 lost, 9/9 persisted, 0 stuck; search returns 200 after the window | accepted events are never lost; the API may error during the outage |
+| embedding rejected (400, non-retryable) | row state `failed|NonTransientAiException`, backfill repaired to `ready` in 2.13 s | a failed row is recorded and repaired, not silently marked ready |
+| embedding timeout (504 held 25 s) | 0 rows during the outage; after recovery exactly 1 row `ready` (71.82 s) | the job is neither dropped nor duplicated |
+| process killed mid-processing (`chat_delay` 2 s, SIGKILL, restart) | 15 accepted, 10 `processing` at kill, 15 persisted after restart, 0 lost, 0 duplicate, 0 stuck; log `Recovered 10 stale messages (processing > 1 min)` | stale recovery actually drains the queue |
+
+### 11.6 Verification
+
+`./scripts/verify-local.sh`: 502 tests (L1 488 / L2 7 / L3 6 / L4 1), 0 failures, 0
+skipped; replay 6/6 including the two r13-final fixtures; gate monotonicity stable with
+`callSuccessRate 0.99` in both gate files; EN/ZH API surface 80/80; proxy E2E 0 skipped.

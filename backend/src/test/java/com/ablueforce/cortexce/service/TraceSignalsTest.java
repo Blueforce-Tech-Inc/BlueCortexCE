@@ -144,8 +144,15 @@ class TraceSignalsTest {
         assertTrue(signals.identifiers().contains("GoldenSetScorer"));
         assertEquals("GoldenSetScorer", signals.identifiers().get(1));
         String block = TraceSignals.hintBlock(input, output);
-        assertTrue(block.contains("<candidate_artifacts"));
-        assertTrue(block.contains("<candidate_identifiers"));
+        // Both lists are comma-separated single lines: a supporting file may appear in
+        // <files_touched>, but it must not spend tokens inside either candidate list.
+        String artifacts = between(block, "candidate_artifacts");
+        String candidates = between(block, "candidate_identifiers");
+        assertFalse(artifacts.contains("<artifact"));
+        assertTrue(artifacts.contains(" ["));
+        assertFalse(candidates.contains("<identifier>"));
+        assertFalse(candidates.contains("API.md"));
+        assertTrue(candidates.contains("GoldenSetScorer"));
         assertTrue(block.contains(
                 "<title_subject_candidate>backend/src/main/java/com/ablueforce/cortexce/service/"
                         + "GoldenSetScorer.java</title_subject_candidate>"));
@@ -153,7 +160,7 @@ class TraceSignalsTest {
         assertTrue(block.contains("<title_contract>The title MUST end with GoldenSetScorer"));
         assertTrue(block.contains("<title_identifier_required>GoldenSetScorer</title_identifier_required>"));
         assertTrue(block.contains(
-                "<title_budget identifier_chars=\"15\" verb_object_chars=\"85\">"));
+                "<title_budget identifier_chars=\"15\" verb_object_chars=\"85\"/>"));
         assertFalse(block.contains("<type>"));
     }
 
@@ -192,5 +199,13 @@ class TraceSignalsTest {
         assertEquals(0, signals.files());
         assertFalse(signals.docsOnly());
         assertFalse(signals.configOnly());
+    }
+
+    /** Body of {@code <tag>…</tag>}, so an assertion cannot match a neighbouring block. */
+    private static String between(String block, String tag) {
+        int start = block.indexOf("<" + tag + ">");
+        int end = block.indexOf("</" + tag + ">", start);
+        assertTrue(start >= 0 && end > start, "missing <" + tag + "> block");
+        return block.substring(start, end);
     }
 }

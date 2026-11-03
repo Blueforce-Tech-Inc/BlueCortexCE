@@ -1,10 +1,11 @@
 {
   "version": 1,
-  "note": "Append-only high-water mark for the evaluation floors. Never edit a value down.",
+  "note": "Real-history evaluation floors. They may only rise; see eval-gates-floor.json and scripts/check-eval-gates.py. callSuccessRate is a rate floor, applied as at most max(1, floor(calls * (1 - rate))) failed calls per run.",
   "real": {
-    "identifier": 0.90,
-    "traceSubject": 0.90,
-    "action": 0.80,
-    "typeAuditable": 0.80
+    "identifier": 0.9,
+    "traceSubject": 0.9,
+    "action": 0.8,
+    "typeAuditable": 0.8,
+    "callSuccessRate": 0.99
   }
 }

@@ -271,21 +271,18 @@ public final class TraceSignals {
     }
 
     /**
-     * Candidate strings the model may copy into the title. The edited artifact comes first:
-     * its path and its basename (a {@code .java} suffix is dropped, matching how the golden
-     * set names an identifier). Supporting artifacts contribute their basename only, because
-     * their full paths are already listed in {@code <candidate_artifacts>} and the title only
-     * needs the rank-1 name. Class, method, config-key and endpoint names follow in the order
-     * they appear in the trace.
+     * Candidate strings the model may copy into the title: the rank-1 artifact's path and
+     * basename (a {@code .java} suffix is dropped, matching how the golden set names an
+     * identifier) plus the class, method, config-key and endpoint names that literally occur
+     * in the trace. Supporting artifacts stay out of this list; they are already ranked in
+     * {@code <candidate_artifacts>}, and repeating their basenames here only spends tokens on
+     * names the title cannot use.
      */
     private static List<String> identifiers(List<Candidate> artifacts, String text) {
         Set<String> ids = new LinkedHashSet<>();
-        int artifactCount = Math.min(artifacts.size(), 4);
-        for (int i = 0; i < artifactCount && ids.size() < MAX_IDENTIFIERS; i++) {
-            String path = artifacts.get(i).path();
-            if (i == 0) {
-                ids.add(path);
-            }
+        if (!artifacts.isEmpty()) {
+            String path = artifacts.get(0).path();
+            ids.add(path);
             ids.add(identifierOf(path));
         }
         collectInto(ids, CLASS_DECL, text, MAX_SYMBOLS);
@@ -348,10 +345,8 @@ public final class TraceSignals {
             // out in the same channel that supplies the candidates.
             sb.append("  <title_contract>The title MUST end with ")
                     .append(escape(identifierOf(primary.path())))
-                    .append(" copied character for character from the trace. Name the rank-1 "
-                            + "artifact even when another touched file looks more important; never "
-                            + "substitute a class, method or supporting file, and never generalize "
-                            + "a filename.</title_contract>\n");
+                    .append(", copied character for character from the trace; never substitute "
+                            + "another file or generalize the name.</title_contract>\n");
         }
         sb.append("  <files_touched>").append(signals.files()).append("</files_touched>\n");
         sb.append("  <test_files>").append(signals.testFiles()).append("</test_files>\n");
@@ -371,42 +366,42 @@ public final class TraceSignals {
             // classification: the model still writes the title, facts and concepts.
             sb.append("  <title_subject_candidate>").append(escape(primary.path()))
                     .append("</title_subject_candidate>\n");
-            sb.append("  <candidate_artifacts note=\"touched artifacts ranked by changed lines; "
-                    + "rank 1 changed the most lines\">\n");
+            sb.append("  <candidate_artifacts>");
             int rank = 0;
             for (Candidate candidate : signals.artifacts()) {
                 rank++;
-                sb.append("    <artifact rank=\"").append(rank)
-                        .append("\" changed_lines=\"").append(candidate.changedLines()).append("\">")
-                        .append(escape(candidate.path())).append("</artifact>\n");
+                if (rank > 1) {
+                    sb.append(", ");
+                }
+                sb.append(escape(candidate.path())).append(" [")
+                        .append(candidate.changedLines()).append("]");
             }
-            sb.append("  </candidate_artifacts>\n");
+            sb.append("</candidate_artifacts>\n");
         }
         if (!signals.identifiers().isEmpty()) {
-            sb.append("  <candidate_identifiers note=\"identifiers that literally appear in this "
-                    + "change; copy the relevant one(s) verbatim into the title\">\n");
+            // One comma-separated line: per-identifier XML tags cost about fifteen
+            // characters each and the list is read as a set of strings, not as a tree.
+            sb.append("  <candidate_identifiers>");
+            int index = 0;
             for (String identifier : signals.identifiers()) {
-                sb.append("    <identifier>").append(escape(identifier)).append("</identifier>\n");
+                if (index++ > 0) {
+                    sb.append(", ");
+                }
+                sb.append(escape(identifier));
             }
-            sb.append("  </candidate_identifiers>\n");
+            sb.append("</candidate_identifiers>\n");
         }
         if (primary != null) {
             String identifier = identifierOf(primary.path());
-            sb.append("  <title_identifier_required>").append(escape(identifier))
-                    .append("</title_identifier_required>\n");
             // The validator rejects a title over 100 characters, and the required identifier
             // can take most of that budget. Naming the remaining characters turns "keep it
             // short" into arithmetic the model can apply, so a forced suffix does not turn
             // long filenames into rejected observations.
             int verbObjectBudget = Math.max(0, TITLE_MAX_CHARS - identifier.length());
+            sb.append("  <title_identifier_required>").append(escape(identifier))
+                    .append("</title_identifier_required>\n");
             sb.append("  <title_budget identifier_chars=\"").append(identifier.length())
-                    .append("\" verb_object_chars=\"").append(verbObjectBudget).append("\">")
-                    .append("The required identifier occupies ").append(identifier.length())
-                    .append(" of the ").append(TITLE_MAX_CHARS)
-                    .append(" characters, so the verb and object together must be at most ")
-                    .append(verbObjectBudget)
-                    .append(" characters including spaces; two or three words are enough.")
-                    .append("</title_budget>\n");
+                    .append("\" verb_object_chars=\"").append(verbObjectBudget).append("\"/>\n");
         }
         sb.append("</mechanical_signals>");
         return sb.toString();

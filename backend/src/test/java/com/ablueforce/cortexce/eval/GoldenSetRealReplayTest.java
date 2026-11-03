@@ -32,6 +32,20 @@ class GoldenSetRealReplayTest {
         assertReplay(real, "longcat-real-r12-candidates");
     }
 
+    @Test
+    @DisplayName("replaying the round-13 MiniMax fixture reproduces its committed metrics")
+    void minimaxR13ReplayReproducesMetrics() throws Exception {
+        GoldenSet real = GoldenSetEvaluator.loadGoldenSet("real");
+        assertReplay(real, "minimax-real-r13-final");
+    }
+
+    @Test
+    @DisplayName("replaying the round-13 LongCat fixture reproduces its committed metrics")
+    void longcatR13ReplayReproducesMetrics() throws Exception {
+        GoldenSet real = GoldenSetEvaluator.loadGoldenSet("real");
+        assertReplay(real, "longcat-real-r13-final");
+    }
+
     /**
      * Round 12 gate. The identifier and subject floors are the 90% target itself, not a
      * measurement to be lowered later: a gate may only rise. If a fixture misses it the build
@@ -42,8 +56,8 @@ class GoldenSetRealReplayTest {
     @DisplayName("the real-history fixtures clear the 90% identifier and subject floors")
     void realFixturesClearRatchetedFloors() throws Exception {
         GoldenSet real = GoldenSetEvaluator.loadGoldenSet("real");
-        assertFloors(real, "minimax-real-r12-candidates");
-        assertFloors(real, "longcat-real-r12-candidates");
+        assertFloors(real, "minimax-real-r13-final");
+        assertFloors(real, "longcat-real-r13-final");
     }
 
     private static void assertFloors(GoldenSet real, String name) throws Exception {
@@ -57,6 +71,23 @@ class GoldenSetRealReplayTest {
                 .isGreaterThanOrEqualTo(gates.get("identifier"));
         assertThat(agg.titleTraceSubjectHitRate).as(name + " trace-visible subject")
                 .isGreaterThanOrEqualTo(gates.get("traceSubject"));
+        Map<String, Object> metrics = metrics(name);
+        int calls = ((Number) metrics.get("calls")).intValue();
+        int failures = ((Number) metrics.get("callFailures")).intValue();
+        int allowed = GoldenSetScorer.allowedCallFailures(calls, gates.get("callSuccessRate"));
+        assertThat(failures).as(name + " provider call failures (allowance " + allowed + "/"
+                        + calls + " calls)")
+                .isLessThanOrEqualTo(allowed);
+    }
+
+    private static Map<String, Object> metrics(String name) throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        try (InputStream in = resource("/eval/fixtures/" + name + "-metrics.json")) {
+            assertThat(in).as("committed metrics for " + name).isNotNull();
+            @SuppressWarnings("unchecked")
+            Map<String, Object> metrics = mapper.readValue(in, Map.class);
+            return metrics;
+        }
     }
 
     /**
@@ -123,6 +154,7 @@ class GoldenSetRealReplayTest {
                     .isCloseTo(doubleValue(expected, "typeAccuracyAuditable"), within(1e-9));
             assertThat(agg.typeUnverifiable)
                     .isEqualTo(intValue(expected, "typeUnverifiable"));
+            assertThat(agg.callFailures).isEqualTo(intValue(expected, "callFailures"));
             assertThat(agg.p95Tokens).isEqualTo(((Number) expected.get("p95Tokens")).longValue());
         }
     }

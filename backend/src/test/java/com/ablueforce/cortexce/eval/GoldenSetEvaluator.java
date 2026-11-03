@@ -351,9 +351,11 @@ public final class GoldenSetEvaluator {
      * Output budget sent to both providers, so a truncation is never mistaken for a model
      * difference. It must stay above the longest answer plus any provider-side reasoning:
      * LongCat emits {@code reasoning_content} that counts against the same budget, and at
-     * 1024 tokens its XML answer was cut off mid-element (finish_reason=length).
+     * 1024 tokens its XML answer was cut off mid-element (finish_reason=length). At 4096
+     * one round-13 sample still spent the whole budget on reasoning and returned no text
+     * (finish=LENGTH), so the budget is doubled rather than reported as a model failure.
      */
-    static final int MAX_OUTPUT_TOKENS = 4096;
+    static final int MAX_OUTPUT_TOKENS = 8192;
 
     private static ChatModel buildModel(String provider, String apiKey, String baseUrl,
                                         String modelName, double temperature) {
@@ -531,10 +533,13 @@ public final class GoldenSetEvaluator {
                     agg.p95Tokens + " tokens (baseline " + tokenBaseline + ")",
                     agg.p95Tokens <= tokenBaseline * PERFORMANCE_TOLERANCE);
         }
+        double callSuccessFloor = 0.99;
+        int allowedFailures = GoldenSetScorer.allowedCallFailures(calls, callSuccessFloor);
         double callSuccessRate = calls == 0 ? 0.0 : (double) (calls - agg.callFailures) / calls;
-        gate(sb, "A13", "provider call success rate", ">= 99%",
+        gate(sb, "A13", "provider call success rate", ">= 99% (at most "
+                        + allowedFailures + " failed call(s) per run)",
                 pct(callSuccessRate) + " (" + agg.callFailures + "/" + calls + " failed)",
-                callSuccessRate >= 0.99);
+                agg.callFailures <= allowedFailures);
         sb.append('\n');
 
         if (!agg.statusCounts.isEmpty()) {

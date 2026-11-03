@@ -88,38 +88,20 @@ Format: `<verb> <object> <key identifier>`.
   class, probe or config entry inserted into an existing file is `Extended`; a new section in an
   existing document is `Documented`. Never use Raised, Improved or any verb outside this list.
 - The object is what changed, named the way the requester would say it: "pagination",
-  "login log", "connection pool", "log level", "line endings", "authorization", "parameterized
-  test", "CORS policy". Name the capability in plain words, not only the annotation or class that
-  implements it.
-- End the title with the file path or class identifier when the change lives in a config, doc,
-  deploy file or a single class: `... in application.yml`, `... in docs/API.md`,
-  `... in infra/main.tf`, `... in WebClientConfig`. If that would exceed 100 characters, shorten
-  the object wording; never drop the path suffix or an identifier.
+  "login log", "connection pool", "line endings", "CORS policy". Name the capability in plain
+  words, not only the annotation or class that implements it.
+- `<candidate_artifacts>` is ranked by changed lines: rank 1 is the subject, and supporting
+  files appear in facts only. The title MUST END with `<title_identifier_required>`, copied
+  character for character; `<title_contract>` is that same rule and overrides every other
+  preference (do not generalize `...-after-v7.json` to `v7`).
+- Budget the whole title at 100 characters, identifier included; `<title_budget>` states how
+  many remain for the verb and object. Shorten the object when both cannot fit; never drop the
+  identifier, because a terse object is better than a title the validator rejects.
 - The edited artifact is the one named by `file_path`; `read_files` may list supporting files.
-  The title's final identifier is the `file_path` artifact, and supporting files are named only
-  in facts — never instead of the edited one.
-- `<candidate_artifacts>` ranks every touched artifact by changed lines; rank 1 changed the most
-  lines and is this change's subject. The title MUST END with `<title_identifier_required>`,
-  copied character for character. `<title_subject_candidate>` is the rank-1 path: it tells you
-  which artifact to name, not text to paste in full. A supporting file may appear in facts, never
-  as the subject.
-- `<candidate_identifiers>` lists identifiers that literally appear in this change. Copy the
-  candidate for the chosen artifact verbatim; do not shorten it, translate it or invent a
-  different one. When several candidates name the same artifact (a path and its basename), one
-  copy is enough.
-- `<title_contract>` overrides every other naming preference: the title's LAST token is exactly
-  that string. Do not move it into the middle, do not replace it with a symbol or a supporting
-  file, and do not generalize it (`...-after-v7.json` must not become `v7`).
-- Budget the whole title at 100 characters, identifier included. `<title_budget>` states how many
-  characters the identifier takes and how many remain for the verb and object: stay inside that
-  number, counted with spaces. For a 66-character identifier the object has about 30 characters,
-  e.g. `Documented evaluation in <identifier>`; the identifier stays complete, because a terse
-  object is better than a title the validator rejects.
-- Copy EVERY identifier that names the changed artifact verbatim: class, method, function,
-  test name, file name or path, configuration key, endpoint, image tag. Never translate,
-  abbreviate, re-case or paraphrase them, and never drop one to keep the title short:
-  `PaymentService` stays `PaymentService`, `computeIfAbsent` stays `computeIfAbsent`,
-  `maximum-pool-size` stays `maximum-pool-size`, `/api/health` stays `/api/health`.
+  End the title with that artifact's file path or class identifier (`... in application.yml`,
+  `... in docs/API.md`, `... in WebClientConfig`) and name supporting files only in facts. If the
+  full path would exceed 100 characters, shorten the object wording, never the path.
+- `<candidate_identifiers>` are the literal strings to copy. Copy EVERY identifier that names the changed artifact verbatim, never translate, abbreviate, re-case or drop one to keep the title short (`PaymentService`, `maximum-pool-size`, `/api/health`).
 - A replacement keeps BOTH names: the literal or key that was replaced and the file that now
   holds it (`ACME_API_KEY` in `application.yml`, not just `application.yml`). A changed script or
   test keeps its exact file or test identifier (`rollback.sh`, `CacheConcurrencyTest#reads`).
@@ -251,7 +233,7 @@ Output observations using this XML structure:
     No pronouns, no speculation, no opinions - each fact must stand alone
     Include specific details: filenames, functions, values, test names, status codes
   -->
-  <narrative>[**narrative**: At most 3 sentences: what was done, how it works, why it matters. Do not repeat a fact verbatim and do not pad: stay short unless the change genuinely needs the extra explanation]</narrative>
+  <narrative>[**narrative**: One sentence, only when the title and facts do not already convey what was done or why it matters. Do not repeat a fact verbatim and do not pad]</narrative>
   <concepts>
     <concept>[knowledge-type-category]</concept>
     <concept>[knowledge-type-category]</concept>

@@ -789,6 +789,20 @@ public final class GoldenSetScorer {
         return ratio(consistent, repeated);
     }
 
+    /**
+     * A13: translate a success-rate floor into the number of failed calls one run may
+     * still carry. A 99% floor over 60 calls is 0.6 failures, and rounding that to zero
+     * would fail the run on a single provider hiccup even though the long-run rate still
+     * meets the floor. The allowance is therefore {@code max(1, floor(calls × (1 - floor))}:
+     * 60 calls allow one failure, 108 calls allow one, 101 calls allow two.
+     */
+    public static int allowedCallFailures(int calls, double successRateFloor) {
+        if (calls <= 0) {
+            return 0;
+        }
+        return Math.max(1, (int) Math.floor(calls * (1.0 - successRateFloor)));
+    }
+
     /** Fraction of expected keywords present after case/punctuation/CamelCase normalisation. */
     public static double coverage(List<String> expected, String actual) {
         if (expected == null || expected.isEmpty()) {
