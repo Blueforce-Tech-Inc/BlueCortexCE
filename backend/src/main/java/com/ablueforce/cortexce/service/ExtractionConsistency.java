@@ -13,15 +13,18 @@ import java.util.Map;
  * {@code type + leading title verb} signature; ties keep the earliest answer so the result
  * is deterministic given the same responses. Unusable attempts never vote.</p>
  *
- * <p>Cost is linear in attempts: both latency and token spend multiply, which is why the
- * number of attempts is a configuration value and defaults to one (off).</p>
+ * <p>Cost is linear in attempts: token spend multiplies. The attempts run concurrently in
+ * {@code AgentService}, so wall-clock latency stays close to a single call. Because the
+ * token floor only allows 1.5x, a repeat is triggered only for a low-confidence first
+ * answer (see {@link #needsSecondOpinion(Candidate)}); a well-formed answer is accepted
+ * as-is and the configured attempt count is an upper bound, not a fixed cost.</p>
  */
-final class ExtractionConsistency {
+public final class ExtractionConsistency {
 
     private ExtractionConsistency() {
     }
 
-    record Candidate(boolean skipped, boolean parsed, String type, String title) {
+    public record Candidate(boolean skipped, boolean parsed, String type, String title) {
         boolean usable() {
             return skipped || parsed;
         }
@@ -49,8 +52,28 @@ final class ExtractionConsistency {
         }
     }
 
+    /**
+     * A first answer needs a second opinion only when it is malformed: the provider call
+     * failed, the XML did not parse, or the parsed answer carries no type or title. A skip
+     * is a valid answer and never repeats. Well-formed answers are not re-sampled because
+     * three calls per trace exceed the token floor, not because their label is trusted.
+     */
+    public static boolean needsSecondOpinion(Candidate candidate) {
+        if (candidate == null) {
+            return true;
+        }
+        if (candidate.skipped()) {
+            return false;
+        }
+        if (!candidate.parsed()) {
+            return true;
+        }
+        return candidate.type() == null || candidate.type().isBlank()
+                || candidate.title() == null || candidate.title().isBlank();
+    }
+
     /** @return the index of the winning candidate, or -1 when nothing was usable. */
-    static int select(List<Candidate> candidates) {
+    public static int select(List<Candidate> candidates) {
         List<Candidate> usable = new ArrayList<>();
         List<Integer> indexes = new ArrayList<>();
         for (int i = 0; i < candidates.size(); i++) {

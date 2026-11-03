@@ -71,4 +71,18 @@ class ExtractionConsistencyTest {
     void nothingUsable() {
         assertThat(ExtractionConsistency.select(List.of(unusable(), unusable()))).isEqualTo(-1);
     }
+
+    @Test
+    @DisplayName("only malformed first answers trigger a repeat")
+    void secondOpinionOnlyForMalformedAnswers() {
+        assertThat(ExtractionConsistency.needsSecondOpinion(parsed("bugfix", "Fixed retry loop")))
+                .isFalse();
+        assertThat(ExtractionConsistency.needsSecondOpinion(skipped())).isFalse();
+
+        assertThat(ExtractionConsistency.needsSecondOpinion(unusable())).isTrue();
+        assertThat(ExtractionConsistency.needsSecondOpinion(parsed(null, "Fixed retry loop")))
+                .isTrue();
+        assertThat(ExtractionConsistency.needsSecondOpinion(parsed("bugfix", " "))).isTrue();
+        assertThat(ExtractionConsistency.needsSecondOpinion(null)).isTrue();
+    }
 }

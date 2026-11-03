@@ -190,9 +190,11 @@ claudemem:
   # Deterministic post-validation of extracted observations (no model call).
   # Disabling it bypasses every check and persists the parsed answer unchanged.
   extraction:
-    # Attempts per tool trace. Default 3 = majority vote: the round-9 measurement at
-    # temperature 0 found 13 of 87 samples changing type or action between runs. That
-    # stabilises the label at 3x latency and token cost; set 1 to trade stability for cost.
+    # Upper bound on attempts per tool trace. A repeat happens only when the first answer
+    # is malformed (provider failure, unparsable XML, or no type/title); the retries run
+    # concurrently and the majority vote picks the label. Well-formed answers are accepted
+    # as-is, because three calls per trace triple the token spend while the A12 floor
+    # allows 1.5x (measured 2026-11-03). Set 1 to disable the repeat entirely.
     consistency-samples: ${CLAUDEMEM_EXTRACTION_CONSISTENCY_SAMPLES:3}
     validation:
       enabled: ${CLAUDEMEM_EXTRACTION_VALIDATION_ENABLED:true}

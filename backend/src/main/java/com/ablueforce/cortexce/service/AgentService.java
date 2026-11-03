@@ -31,7 +31,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.Objects;
-import java.time.Instant;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /**
  * Agent service — orchestrates LLM interactions and observation/summary persistence.
@@ -369,15 +372,22 @@ public class AgentService implements LogHelper {
             .replace("{{toolOutput}}", templateService.escapeTemplateValue(
                 templateService.truncate(toolResponse, Constants.MAX_TOOL_CONTENT_LENGTH)));
 
-        // Call LLM. With more than one attempt, the most frequent type + leading-title
-        // signature wins; a failed or unparsable attempt never votes.
-        int attempts = Math.max(1, extractionConsistencySamples);
+        // Call LLM. A malformed first answer (provider failure, unparsable XML, or a parsed
+        // answer without type or title) is low confidence: repeat concurrently and keep the
+        // majority. A well-formed answer is accepted as-is, because three calls per trace
+        // triple the token spend while the A12 floor only allows 1.5x. The vote therefore
+        // stabilises malformed answers; label drift on well-formed answers is the documented
+        // cost of that floor (Setting consistency-samples=1 disables the repeat entirely).
+        int maxAttempts = Math.max(1, extractionConsistencySamples);
         List<LlmService.LlmResponse> responses = new ArrayList<>();
+        responses.add(llmService.chatCompletionWithUsage(systemPrompt, userMsg));
+        if (maxAttempts > 1
+                && ExtractionConsistency.needsSecondOpinion(candidateOf(responses.get(0)))) {
+            responses.addAll(callConcurrently(maxAttempts - 1, systemPrompt, userMsg));
+        }
         List<String> raws = new ArrayList<>();
         List<ExtractionConsistency.Candidate> candidates = new ArrayList<>();
-        for (int attempt = 0; attempt < attempts; attempt++) {
-            LlmService.LlmResponse response = llmService.chatCompletionWithUsage(systemPrompt, userMsg);
-            responses.add(response);
+        for (LlmService.LlmResponse response : responses) {
             candidates.add(candidateOf(response));
             raws.add(response.failed() ? null : response.content());
         }
@@ -396,7 +406,7 @@ public class AgentService implements LogHelper {
         String llmContent = raws.get(winner);
         int discoveryTokens = responses.stream().mapToInt(LlmService.LlmResponse::totalTokens).sum();
         log.debug("Observation extraction completed: attempts={}, response_chars={}, tokens={}, response_fingerprint={}",
-            attempts, llmContent == null ? 0 : llmContent.length(), discoveryTokens,
+            responses.size(), llmContent == null ? 0 : llmContent.length(), discoveryTokens,
             LogSanitizer.fingerprint(llmContent));
 
         // Check for skip
@@ -429,6 +439,40 @@ public class AgentService implements LogHelper {
         // Mark context cache for refresh
         contextCacheService.markForRefresh(projectPath);
         return true;
+    }
+
+    /**
+     * Runs the same prompt {@code attempts} times concurrently and returns the answers in
+     * submission order, so a tie in the vote still keeps the earliest answer.
+     */
+    private List<LlmService.LlmResponse> callConcurrently(int attempts, String systemPrompt,
+                                                          String userMsg) {
+        List<LlmService.LlmResponse> responses = new ArrayList<>();
+        List<Future<LlmService.LlmResponse>> futures = new ArrayList<>();
+        ExecutorService executor = Executors.newFixedThreadPool(attempts);
+        try {
+            for (int attempt = 0; attempt < attempts; attempt++) {
+                futures.add(executor.submit(
+                    () -> llmService.chatCompletionWithUsage(systemPrompt, userMsg)));
+            }
+            for (var future : futures) {
+                try {
+                    responses.add(future.get());
+                } catch (ExecutionException e) {
+                    Throwable cause = e.getCause();
+                    if (cause instanceof RuntimeException runtime) {
+                        throw runtime;
+                    }
+                    throw new IllegalStateException("extraction attempt failed", cause);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException("extraction attempt interrupted", e);
+                }
+            }
+        } finally {
+            executor.shutdownNow();
+        }
+        return responses;
     }
 
     /**
