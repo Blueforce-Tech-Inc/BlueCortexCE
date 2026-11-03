@@ -363,14 +363,17 @@ public class AgentService implements LogHelper {
             .replace("{{userPrompt}}", templateService.escapeTemplateValue(userPrompt))
             .replace("{{date}}", now);
 
+        String promptToolInput = templateService.truncate(toolInput, Constants.MAX_TOOL_CONTENT_LENGTH);
+        String promptToolOutput = templateService.truncate(toolResponse, Constants.MAX_TOOL_CONTENT_LENGTH);
         String userMsg = templateService.getObservationPromptTemplate()
             .replace("{{toolName}}", templateService.escapeTemplateValue(toolName))
             .replace("{{occurredAt}}", now)
             .replace("{{cwd}}", templateService.escapeTemplateValue(cwd))
-            .replace("{{toolInput}}", templateService.escapeTemplateValue(
-                templateService.truncate(toolInput, Constants.MAX_TOOL_CONTENT_LENGTH)))
-            .replace("{{toolOutput}}", templateService.escapeTemplateValue(
-                templateService.truncate(toolResponse, Constants.MAX_TOOL_CONTENT_LENGTH)));
+            .replace("{{toolInput}}", templateService.escapeTemplateValue(promptToolInput))
+            .replace("{{toolOutput}}", templateService.escapeTemplateValue(promptToolOutput))
+            // Counts only, inserted raw because it is an XML block; the values are
+            // numbers and yes/no, so no escaping is needed.
+            .replace("{{signals}}", TraceSignals.hintBlock(promptToolInput, promptToolOutput));
 
         // Call LLM. A malformed first answer (provider failure, unparsable XML, or a parsed
         // answer without type or title) is low confidence: repeat concurrently and keep the

@@ -174,7 +174,8 @@ class PromptContractTest {
                 .replace("{{occurredAt}}", "2026-11-03T10:00:00Z")
                 .replace("{{cwd}}", cwd)
                 .replace("{{toolInput}}", toolInput)
-                .replace("{{toolOutput}}", toolOutput);
+                .replace("{{toolOutput}}", toolOutput)
+                .replace("{{signals}}", TraceSignals.hintBlock(toolInput, toolOutput));
     }
 
     private static String observation(String type, String title, String fact) {

@@ -36,7 +36,8 @@ public class TemplateService implements LogHelper {
 
     // Runtime placeholders that MUST be present and replaced
     private static final Set<String> OBSERVATION_PLACEHOLDERS = Set.of(
-        "{{toolName}}", "{{occurredAt}}", "{{cwd}}", "{{toolInput}}", "{{toolOutput}}"
+        "{{toolName}}", "{{occurredAt}}", "{{cwd}}", "{{toolInput}}", "{{toolOutput}}",
+        "{{signals}}"
     );
     private static final Set<String> CONTINUATION_PLACEHOLDERS = Set.of(
         "{{userPrompt}}", "{{date}}"

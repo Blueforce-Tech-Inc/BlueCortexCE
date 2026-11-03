@@ -4,4 +4,5 @@
   <working_directory>{{cwd}}</working_directory>
   <parameters>{{toolInput}}</parameters>
   <outcome>{{toolOutput}}</outcome>
+  {{signals}}
 </observed_from_primary_session>

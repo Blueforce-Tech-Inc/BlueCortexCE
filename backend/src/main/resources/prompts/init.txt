@@ -202,6 +202,21 @@ Output observations using this XML structure:
     Pick by the work done, not by the file touched: a fixed security hole is bugfix;
     a config, deploy or docs edit is change; a new test or new capability is feature;
     an ADR is decision.
+
+    `<mechanical_signals>` in the trace is computed from the trace itself and is reliable:
+      - tests_only_change = yes and source_files = 0 -> feature (a test is a new capability
+        in the suite; never bugfix, never change)
+      - docs_only_change = yes -> change
+      - config_only_change = yes -> change (unless the edit fixes a reported defect)
+      - rename_or_move_only = yes with source_files > 0 -> refactor
+      - security_related_text = yes and the edit closes a hole -> bugfix; if it only adds a
+        new capability behind a new flag or endpoint, it is feature
+      - defect_evidence = yes with source_files > 0 -> bugfix when the edit repairs the
+        described failure; a capability that did not exist before stays feature
+      - none of the above and source_files > 0 -> bugfix when a defect is described, otherwise
+        feature for new behaviour and refactor for identical behaviour
+    The signals are observations, not the answer: they tell you which files moved and which
+    risk paths were touched, and you still choose the type from the six options.
   -->
   <title>[**title**: <verb> <object> <key identifier>, identifiers verbatim, max 100 chars]</title>
   <subtitle>[**subtitle**: One sentence explanation (max 24 words)]</subtitle>
