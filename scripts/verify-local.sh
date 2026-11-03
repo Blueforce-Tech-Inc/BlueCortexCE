@@ -5,7 +5,10 @@
 #
 #   1. locate a running PostgreSQL + pgvector container (reuse the one on this
 #      machine; a missing container is an error, never a silent skip);
-#   2. drop and recreate the dedicated *_flyway_rehearsal database;
+#   2. create a uniquely named disposable database for this run (timestamp + PID,
+#      suffix *_flyway_rehearsal because the DB-gated tests require it), then drop
+#      it on exit; a shared database that another project has migrated is the
+#      known source of false failures, so no pre-existing database is reused;
 #   3. enable the vector extension and prove it is usable;
 #   4. boot the application once so Flyway migrates to the latest version, then
 #      assert the recorded version equals the newest file in db/migration;
@@ -25,7 +28,8 @@
 #
 # Overrides (all optional):
 #   PG_CONTAINER=postgresql  PG_PORT=5432  PG_USER=postgres  PG_PASSWORD=123456
-#   TEST_DB=cortexce_flyway_rehearsal
+#   TEST_DB=<existing-name>   # pin the database instead of generating a unique one
+#   VERIFY_KEEP_DB=1          # keep the database after the run (default: drop it)
 #   VERIFY_MIN_TESTS=502   VERIFY_APP_PORT=37888   VERIFY_E2E_PORT=37777
 #   VERIFY_LOG_DIR=/tmp/cortexce-verify
 
@@ -34,7 +38,16 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-TEST_DB="${TEST_DB:-cortexce_flyway_rehearsal}"
+# A generated name keeps concurrent runs (and other projects) from sharing a
+# database. The "_flyway_rehearsal" suffix is mandatory: DB-gated tests skip
+# unless the database name contains it.
+if [[ -n "${TEST_DB:-}" ]]; then
+  AUTO_DB=0
+else
+  TEST_DB="cortexce_verify_$(date +%Y%m%d%H%M%S)_$$_flyway_rehearsal"
+  AUTO_DB=1
+fi
+KEEP_DB="${VERIFY_KEEP_DB:-0}"
 PG_USER="${PG_USER:-postgres}"
 PG_PASSWORD="${PG_PASSWORD:-123456}"
 PG_CONTAINER="${PG_CONTAINER:-}"
@@ -90,6 +103,13 @@ cleanup() {
     kill "$APP_PID" 2>/dev/null || true
   fi
   wait 2>/dev/null || true
+  # Drop the per-run database so a later run can never inherit this schema or
+  # data. A pinned TEST_DB is left in place, matching the previous behaviour,
+  # and VERIFY_KEEP_DB=1 keeps the generated database for inspection.
+  if [[ "${AUTO_DB:-0}" == "1" && "$KEEP_DB" != "1" && -n "${PG_CONTAINER:-}" ]]; then
+    docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d postgres -v ON_ERROR_STOP=1 \
+      -c "DROP DATABASE IF EXISTS \"$TEST_DB\" WITH (FORCE)" >/dev/null 2>&1 || true
+  fi
 }
 trap cleanup EXIT INT TERM
 

@@ -101,7 +101,12 @@ hand-run steps:
 1. locates a running PostgreSQL container that actually provides pgvector
    (decided by `pg_available_extensions`, never by the image tag). A missing
    container is a failure, not a silent skip.
-2. drops and recreates the dedicated `cortexce_flyway_rehearsal` database.
+2. creates a uniquely named disposable database for this run
+   (`cortexce_verify_<timestamp>_<pid>_flyway_rehearsal`), migrates it, and
+   drops it on exit. A pre-existing shared database is never reused: this round
+   produced false failures because a shared database had been migrated by an
+   unrelated project (V47–V49 tenancy, `tenant_id NOT NULL`). The
+   `_flyway_rehearsal` suffix is required by the DB-gated tests.
 3. enables the `vector` extension and asserts it is usable.
 4. boots the application once so Flyway migrates, then asserts the recorded
    version equals the newest file in `backend/src/main/resources/db/migration`
@@ -125,8 +130,10 @@ baseline deliberately (`--write-baseline`) only after adding tests.
 Every step prints its name. On failure the script prints `STEP FAILED: <step>`,
 the command's own reason, and exits non-zero; it never falls through to a later
 step that could mask the failure. Overrides: `PG_CONTAINER`, `PG_PORT`,
-`PG_USER`, `PG_PASSWORD`, `TEST_DB`, `VERIFY_MIN_TESTS`, `VERIFY_APP_PORT`,
-`VERIFY_E2E_PORT`, `VERIFY_LOG_DIR`.
+`PG_USER`, `PG_PASSWORD`, `TEST_DB` (pins an existing name instead of
+generating one), `VERIFY_KEEP_DB` (keeps the generated database for
+inspection), `VERIFY_MIN_TESTS`, `VERIFY_APP_PORT`, `VERIFY_E2E_PORT`,
+`VERIFY_LOG_DIR`.
 
 The step-by-step instructions below are kept so a single failing step can be
 reproduced in isolation.
