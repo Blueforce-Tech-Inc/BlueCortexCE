@@ -329,6 +329,14 @@ public final class GoldenSetEvaluator {
         return matcher.find() ? matcher.group(1) : "exception";
     }
 
+    /**
+     * Output budget sent to both providers, so a truncation is never mistaken for a model
+     * difference. It must stay above the longest answer plus any provider-side reasoning:
+     * LongCat emits {@code reasoning_content} that counts against the same budget, and at
+     * 1024 tokens its XML answer was cut off mid-element (finish_reason=length).
+     */
+    static final int MAX_OUTPUT_TOKENS = 4096;
+
     private static ChatModel buildModel(String provider, String apiKey, String baseUrl,
                                         String modelName, double temperature) {
         if ("anthropic".equals(provider)) {
@@ -336,7 +344,7 @@ public final class GoldenSetEvaluator {
             AnthropicChatOptions options = AnthropicChatOptions.builder()
                     .model(modelName)
                     .temperature(temperature)
-                    .maxTokens(1024)
+                    .maxTokens(MAX_OUTPUT_TOKENS)
                     .build();
             return AnthropicChatModel.builder().anthropicApi(api).defaultOptions(options).build();
         }
@@ -344,6 +352,7 @@ public final class GoldenSetEvaluator {
         OpenAiChatOptions options = OpenAiChatOptions.builder()
                 .model(modelName)
                 .temperature(temperature)
+                .maxTokens(MAX_OUTPUT_TOKENS)
                 .build();
         return OpenAiChatModel.builder().openAiApi(api).defaultOptions(options).build();
     }
@@ -748,12 +757,17 @@ public final class GoldenSetEvaluator {
      */
     private static List<CallResult> callConcurrently(ChatModel model, String systemPrompt,
                                                      String userPrompt, int n) throws Exception {
+        // One estimator for both providers. Provider-reported prompt tokens are not
+        // comparable: the Anthropic adapter reports input_tokens=1 while the real prompt
+        // sits in cache_read_input_tokens (see docs/archive/2026-11-03_provider-request-alignment.md),
+        // so a cross-provider cost table built from that field is meaningless.
+        int promptTokens = estimateTokens(systemPrompt + "\n" + userPrompt);
         if (n <= 1) {
             long started = System.nanoTime();
             ChatResponse response = model.call(new Prompt(
                     List.of(new SystemMessage(systemPrompt), new UserMessage(userPrompt))));
             long elapsedMs = (System.nanoTime() - started) / 1_000_000;
-            return List.of(resultOf(response, elapsedMs));
+            return List.of(resultOf(response, elapsedMs, promptTokens));
         }
         java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors
                 .newFixedThreadPool(n);
@@ -764,7 +778,8 @@ public final class GoldenSetEvaluator {
                     long started = System.nanoTime();
                     ChatResponse response = model.call(new Prompt(
                             List.of(new SystemMessage(systemPrompt), new UserMessage(userPrompt))));
-                    return resultOf(response, (System.nanoTime() - started) / 1_000_000);
+                    return resultOf(response, (System.nanoTime() - started) / 1_000_000,
+                            promptTokens);
                 }));
             }
             List<CallResult> results = new ArrayList<>();
@@ -777,12 +792,18 @@ public final class GoldenSetEvaluator {
         }
     }
 
-    private static CallResult resultOf(ChatResponse response, long elapsedMs) {
+    private static final com.knuddels.jtokkit.api.Encoding TOKEN_ENCODING =
+            com.knuddels.jtokkit.Encodings.newDefaultEncodingRegistry()
+                    .getEncodingForModel(com.knuddels.jtokkit.api.ModelType.GPT_4);
+
+    static int estimateTokens(String text) {
+        return text == null ? 0 : TOKEN_ENCODING.countTokens(text);
+    }
+
+    private static CallResult resultOf(ChatResponse response, long elapsedMs, int promptTokens) {
         String raw = response.getResult().getOutput().getText();
-        int promptTokens = 0;
         int completionTokens = 0;
         if (response.getMetadata() != null && response.getMetadata().getUsage() != null) {
-            promptTokens = response.getMetadata().getUsage().getPromptTokens();
             completionTokens = response.getMetadata().getUsage().getCompletionTokens();
         }
         return new CallResult(raw, null, promptTokens, completionTokens, elapsedMs);
