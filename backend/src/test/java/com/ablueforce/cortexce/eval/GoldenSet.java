@@ -50,6 +50,13 @@ public class GoldenSet {
         public String titleAction;
 
         /**
+         * Every action actually present in a real commit's diff (round 10). A title hits
+         * A6 when its leading verb maps to any member. Empty for hand-written samples,
+         * which fall back to {@link #titleAction}.
+         */
+        public List<String> titleActions = new ArrayList<>();
+
+        /**
          * Contract title metric, part 2: the object/symptom noun tokens the title must name.
          * All declared tokens are required (coverage ≥ 0.8 over a 1-3 token phrase).
          */

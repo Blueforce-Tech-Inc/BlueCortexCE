@@ -234,6 +234,12 @@ public final class GoldenSetScorer {
         public boolean titleActionHit;
         public String titleActionExpected;
         public String titleActionActual;
+        /** The title the model produced, kept for the round-10 failure-cluster evidence. */
+        public String title;
+        /** Expected identifiers / type, kept so the failure clusters can quote the gap. */
+        public List<String> expectedIdentifiers = new ArrayList<>();
+        public String expectedType;
+        public String actualType;
         public boolean titleSubjectHit;
         /**
          * A6b (round 9): the subject tokens that actually occur in the recorded trace. Tokens
@@ -488,7 +494,11 @@ public final class GoldenSetScorer {
                 score.titleTraceSubjectHit = !score.titleTraceSubjectScored
                         || coverage(traceSubject, obs.title) >= TITLE_COVERAGE_FLOOR;
                 score.titleVerbClassHit = verbClassHit(sample.titleVerb, obs.title);
-                score.titleActionExpected = sample.titleAction;
+                score.title = obs.title;
+                score.expectedIdentifiers = sample.titleIdentifiers;
+                score.expectedType = sample.expectedType;
+                score.actualType = obs.type;
+                score.titleActionExpected = expectedActions(sample).toString();
                 score.titleActionActual = GoldenSetActionRules.actionForTitle(obs.title);
                 score.titleActionHit = actionHit(sample, obs.title);
                 boolean actionScored = !GoldenSetActionRules.UNCLASSIFIABLE.equals(sample.titleAction);
@@ -551,7 +561,7 @@ public final class GoldenSetScorer {
                             + " (expected keywords " + sample.titleKeywords + ")");
                 }
                 if (!score.titleActionHit && actionScored) {
-                    score.problems.add("title action '" + sample.titleAction + "' missing: title leads '"
+                    score.problems.add("title action " + expectedActions(sample) + " missing: title leads '"
                             + score.titleActionActual + "' (got '" + obs.title + "')");
                 }
                 if (!score.titleVerbClassHit) {
@@ -937,13 +947,28 @@ public final class GoldenSetScorer {
                 + (sample.toolOutput == null ? "" : sample.toolOutput);
     }
 
-    /** A6: the title's leading verb maps to the trace-derived action class. */
+    /**
+     * A6: the title's leading verb maps to the trace-derived action class.
+     * A real commit can contain several actions at once; a hit on any member counts.
+     */
     static boolean actionHit(GoldenSet.Sample sample, String title) {
         if (GoldenSetActionRules.UNCLASSIFIABLE.equals(sample.titleAction)) {
             return true;
         }
-        return sample.titleAction != null
-                && sample.titleAction.equals(GoldenSetActionRules.actionForTitle(title));
+        String actual = GoldenSetActionRules.actionForTitle(title);
+        return actual != null && expectedActions(sample).contains(actual);
+    }
+
+    /** Expected action set: the derived diff actions, or the single legacy label. */
+    static Set<String> expectedActions(GoldenSet.Sample sample) {
+        Set<String> expected = new LinkedHashSet<>();
+        if (sample.titleActions != null) {
+            expected.addAll(sample.titleActions);
+        }
+        if (expected.isEmpty() && sample.titleAction != null) {
+            expected.add(sample.titleAction);
+        }
+        return expected;
     }
 
     /** Verb lemma for a single token, or {@code null} when it is not a contract verb. */

@@ -1,22 +1,122 @@
 {
-  "version": "real-git-2026-11-03",
+  "version": "real-git-2026-11-03-r10",
   "samples": [
+    {
+      "id": "real-1fe4ffb124",
+      "category": "config-change",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "2026-11-03T02:53:46Z",
+      "toolInput": "file_path=docs/drafts/extraction-quality-improvement-plan.md\nread_files=docs/drafts/extraction-quality-improvement-plan.md, docs/TESTING-zh-CN.md, docs/TESTING.md, scripts/test-baseline.json, scripts/verify-local.sh, .github/workflows/backend-tests.yml\nold_string=\"\"\nnew_string=\"## 7.19 Round 9 — identifier 100%: every miss attributed\"",
+      "toolOutput": "Read docs/drafts/extraction-quality-improvement-plan.md: (new file) -> ## 7.19 Round 9 — identifier 100%: every miss attributed Read docs/TESTING-zh-CN.md: --min-tests 423 --require-layers --require-baseline`。下限是硬性 -> --min-tests 472 --require-layers --require-baseline`。下限是硬性 Read docs/TESTING.md: --min-tests 423 --require-layers --require-baseline`. The floor is a hard -> --min-tests 472 --require-layers --require-baseline`. The floor is a hard Read scripts/test-baseline.json: \"total\": 423, -> \"total\": 472, Read scripts/verify-local.sh: #   VERIFY_MIN_TESTS=423   VERIFY_APP_PORT=37888   VERIFY_E2E_PORT=37777 -> #   VERIFY_MIN_TESTS=472   VERIFY_APP_PORT=37888   VERIFY_E2E_PORT=37777 Read .github/workflows/backend-tests.yml: run: python3 scripts/check-test-results.py --require-zero-skips --min-tests 423 --require-layers --require-baseline -> run: python3 scripts/check-test-results.py --require-zero-skips --min-tests 472 --require-layers --require-baseline Edit applied. Commit message: Record the round-9 evaluation and ratchet the test floor to 472. Totals: 6 file(s), 188 insertion(s), 17 deletion(s).",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "document",
+        "extraction-quality-improvement-plan.md"
+      ],
+      "titleVerb": "document",
+      "titleSubject": [
+        "extraction-quality-improvement-plan.md"
+      ],
+      "titleIdentifiers": [
+        "extraction-quality-improvement-plan.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "document",
+      "titleActions": [
+        "document",
+        "modify"
+      ],
+      "notes": "generated from 1fe4ffb124edfd8029c7e356e6fe67d28bade27f (Record the round-9 evaluation and ratchet the test floor to 472)"
+    },
+    {
+      "id": "real-d13e2c90cd",
+      "category": "feature",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "2026-11-03T01:45:36Z",
+      "toolInput": "file_path=docs/archive/2026-11-03_real-history-golden-eval-minimax.md\nread_files=docs/archive/2026-11-03_real-history-golden-eval-minimax.md, backend/src/test/resources/eval/fixtures/minimax-real-v9.json, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetRealReplayTest.java, backend/src/test/resources/eval/fixtures/minimax-real-v9-metrics.json\nold_string=\"\"\nnew_string=\"golden set: real (36 samples)\"",
+      "toolOutput": "Read docs/archive/2026-11-03_real-history-golden-eval-minimax.md: (new file) -> golden set: real (36 samples) Read backend/src/test/resources/eval/fixtures/minimax-real-v9.json: (new file) -> { Read backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetRealReplayTest.java: (new file) -> package com.ablueforce.cortexce.eval; Read backend/src/test/resources/eval/fixtures/minimax-real-v9-metrics.json: (new file) -> { Edit applied. Commit message: Archive the real-history MiniMax run and guard it with a replay test. Totals: 4 file(s), 871 insertion(s), 0 deletion(s).",
+      "expectObservation": true,
+      "expectedType": "feature",
+      "titleKeywords": [
+        "document",
+        "2026-11-03_real-history-golden-eval-minimax.md"
+      ],
+      "titleVerb": "document",
+      "titleSubject": [
+        "2026-11-03_real-history-golden-eval-minimax.md"
+      ],
+      "titleIdentifiers": [
+        "2026-11-03_real-history-golden-eval-minimax.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "document",
+      "titleActions": [
+        "document",
+        "create"
+      ],
+      "notes": "generated from d13e2c90cdbfa4b29585fa0944c1076d09d9c169 (Archive the real-history MiniMax run and guard it with a replay test)"
+    },
+    {
+      "id": "real-3b4f737562",
+      "category": "feature",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "2026-11-03T01:42:16Z",
+      "toolInput": "file_path=backend/src/test/resources/eval/fixtures/minimax-after-v9.json\nread_files=backend/src/test/resources/eval/fixtures/minimax-after-v9.json, docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v9.md, backend/src/test/resources/eval/fixtures/minimax-after-v9-metrics.json, backend/src/test/resources/eval/golden-tool-use-real.json, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java, scripts/gen-real-golden.py\nold_string=\"\"\nnew_string=\"{\"",
+      "toolOutput": "Read backend/src/test/resources/eval/fixtures/minimax-after-v9.json: (new file) -> { Read docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v9.md: (new file) -> # Model output quality evaluation Read backend/src/test/resources/eval/fixtures/minimax-after-v9-metrics.json: (new file) -> { Read backend/src/test/resources/eval/golden-tool-use-real.json: \"category\": \"feature\", -> \"category\": \"docs-update\", Read backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java: calls, maxCalls, keyRepeat, durationMs, aggregate); -> /** Read scripts/gen-real-golden.py: 1. document  every changed file is documentation (``docs/``, ``*.md``, ``*.txt``, -> 1. remove    every changed file only deleted lines. Edit applied. Commit message: Archive the MiniMax repeat run and add latency/token verdicts. Totals: 6 file(s), 2897 insertion(s), 38 deletion(s).",
+      "expectObservation": true,
+      "expectedType": "feature",
+      "titleKeywords": [
+        "document",
+        "minimax-after-v9.json"
+      ],
+      "titleVerb": "document",
+      "titleSubject": [
+        "minimax-after-v9.json"
+      ],
+      "titleIdentifiers": [
+        "minimax-after-v9.json"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "document",
+      "titleActions": [
+        "document",
+        "create",
+        "modify"
+      ],
+      "notes": "generated from 3b4f737562880c8ff76d580582ddf025d4ac8fd5 (Archive the MiniMax repeat run and add latency/token verdicts)"
+    },
     {
       "id": "real-77ba40df77",
       "category": "refactor",
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/main/java/com/ablueforce/cortexce/service/ExtractionConsistency.java\nold_string=\"\"\nnew_string=\"package com.ablueforce.cortexce.service;\"",
-      "toolOutput": "Edit applied. Commit message: Add an opt-in majority vote for observation extraction. Totals: 4 file(s), 210 insertion(s), 11 deletion(s). Changed paths: backend/src/main/java/com/ablueforce/cortexce/service/ExtractionConsistency.java, backend/src/test/java/com/ablueforce/cortexce/service/ExtractionConsistencyTest.java, backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java. Other touched: backend/src/test/java/com/ablueforce/cortexce/service/ExtractionConsistencyTest.java, backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java. Verification: not recorded in this commit.",
+      "occurredAt": "2026-11-03T01:25:31Z",
+      "toolInput": "file_path=backend/src/main/java/com/ablueforce/cortexce/service/ExtractionConsistency.java\nread_files=backend/src/main/java/com/ablueforce/cortexce/service/ExtractionConsistency.java, backend/src/test/java/com/ablueforce/cortexce/service/ExtractionConsistencyTest.java, backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java, backend/src/main/resources/application.yml\nold_string=\"\"\nnew_string=\"package com.ablueforce.cortexce.service;\"",
+      "toolOutput": "Read backend/src/main/java/com/ablueforce/cortexce/service/ExtractionConsistency.java: (new file) -> package com.ablueforce.cortexce.service; Read backend/src/test/java/com/ablueforce/cortexce/service/ExtractionConsistencyTest.java: (new file) -> package com.ablueforce.cortexce.service; Read backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java: // Call LLM -> import java.util.ArrayList; Read backend/src/main/resources/application.yml: (new file) -> # Attempts per tool trace. 1 = one call (vote off); 3 = majority vote at 3x latency and Edit applied. Commit message: Add an opt-in majority vote for observation extraction. Totals: 4 file(s), 210 insertion(s), 11 deletion(s).",
       "expectObservation": true,
       "expectedType": "refactor",
       "titleKeywords": [
-        "change",
+        "add",
         "extractionconsistency"
       ],
-      "titleVerb": "change",
+      "titleVerb": "add",
       "titleSubject": [
         "ExtractionConsistency"
       ],
@@ -27,7 +127,11 @@
       "conceptsKeywords": [
         "what-changed"
       ],
-      "titleAction": "modify",
+      "titleAction": "create",
+      "titleActions": [
+        "create",
+        "modify"
+      ],
       "notes": "generated from 77ba40df773490276c448382e4b0ef493725ffe3 (Add an opt-in majority vote for observation extraction)"
     },
     {
@@ -36,16 +140,16 @@
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/test/resources/eval/golden-tool-use-real.json\nold_string=\"\"\nnew_string=\"{\"",
-      "toolOutput": "Edit applied. Commit message: Generate a 36-sample golden set from real git history. Totals: 5 file(s), 1482 insertion(s), 3 deletion(s). Changed paths: backend/src/test/resources/eval/golden-tool-use-real.json, scripts/gen-real-golden.py, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetRealDataTest.java. Other touched: scripts/gen-real-golden.py, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetRealDataTest.java. Verification: not recorded in this commit.",
+      "occurredAt": "2026-11-03T01:23:14Z",
+      "toolInput": "file_path=backend/src/test/resources/eval/golden-tool-use-real.json\nread_files=backend/src/test/resources/eval/golden-tool-use-real.json, scripts/gen-real-golden.py, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetRealDataTest.java, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java, scripts/eval-model-quality.sh\nold_string=\"\"\nnew_string=\"{\"",
+      "toolOutput": "Read backend/src/test/resources/eval/golden-tool-use-real.json: (new file) -> { Read scripts/gen-real-golden.py: (new file) -> #!/usr/bin/env python3 Read backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetRealDataTest.java: (new file) -> package com.ablueforce.cortexce.eval; Read backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java: String report = renderReport(provider, modelName, baseUrl, promptDir, phase, temperature, -> String goldenSet = envOr(\"EVAL_GOLDEN\", \"main\"); Read scripts/eval-model-quality.sh: (new file) -> # EVAL_GOLDEN=real scores the mechanically generated real-history set Edit applied. Commit message: Generate a 36-sample golden set from real git history. Totals: 5 file(s), 1482 insertion(s), 3 deletion(s).",
       "expectObservation": true,
       "expectedType": "change",
       "titleKeywords": [
-        "change",
+        "add",
         "golden-tool-use-real.json"
       ],
-      "titleVerb": "change",
+      "titleVerb": "add",
       "titleSubject": [
         "golden-tool-use-real.json"
       ],
@@ -56,7 +160,11 @@
       "conceptsKeywords": [
         "what-changed"
       ],
-      "titleAction": "modify",
+      "titleAction": "create",
+      "titleActions": [
+        "create",
+        "modify"
+      ],
       "notes": "generated from f0d346eab1f5ca186ada71554f4ec8198846e145 (Generate a 36-sample golden set from real git history)"
     },
     {
@@ -65,9 +173,9 @@
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java\nold_string=\"this(sample, raw, skipped, observation, callFailed, failure, elapsedMs, null, 0, false);\"\nnew_string=\"public final int promptTokens;\"",
-      "toolOutput": "Edit applied. Commit message: Measure run-to-run variance and per-call token cost in the extraction eval. Totals: 3 file(s), 222 insertion(s), 14 deletion(s). Changed paths: backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java, scripts/eval-model-quality.sh. Other touched: backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java, scripts/eval-model-quality.sh. Verification: not recorded in this commit.",
+      "occurredAt": "2026-11-03T01:18:49Z",
+      "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java\nread_files=backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java, scripts/eval-model-quality.sh\nold_string=\"this(sample, raw, skipped, observation, callFailed, failure, elapsedMs, null, 0, false);\"\nnew_string=\"public final int promptTokens;\"",
+      "toolOutput": "Read backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java: this(sample, raw, skipped, observation, callFailed, failure, elapsedMs, null, 0, false); -> public final int promptTokens; Read backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java: int runs = sample.keySample ? keyRepeat : 1; -> boolean repeatAll = \"1\".equals(envOr(\"EVAL_REPEAT_ALL\", \"0\")); Read scripts/eval-model-quality.sh: (new file) -> # EVAL_REPEAT_ALL=1 repeats every sample EVAL_KEY_REPEAT times to measure run-to-run Edit applied. Commit message: Measure run-to-run variance and per-call token cost in the extraction eval. Totals: 3 file(s), 222 insertion(s), 14 deletion(s).",
       "expectObservation": true,
       "expectedType": "refactor",
       "titleKeywords": [
@@ -86,6 +194,9 @@
         "what-changed"
       ],
       "titleAction": "modify",
+      "titleActions": [
+        "modify"
+      ],
       "notes": "generated from 3a2d426fdf0226237abec81c41c0e8c1281d579a (Measure run-to-run variance and per-call token cost in the extraction eval)"
     },
     {
@@ -94,16 +205,16 @@
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java\nold_string=\"String evidence = (sample.toolName == null ? \"\" : sample.toolName) + \"\\n\"\"\nnew_string=\"/**\"",
-      "toolOutput": "Edit applied. Commit message: Require reproduction titles to name both identifiers and score trace-visible subjects. Totals: 5 file(s), 134 insertion(s), 18 deletion(s). Changed paths: backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorerTest.java. Other touched: backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorerTest.java. Verification: not recorded in this commit.",
+      "occurredAt": "2026-11-03T01:16:12Z",
+      "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java\nread_files=backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorerTest.java, backend/src/main/resources/prompts/continuation.txt, backend/src/main/resources/prompts/init.txt\nold_string=\"String evidence = (sample.toolName == null ? \"\" : sample.toolName) + \"\\n\"\"\nnew_string=\"/**\"",
+      "toolOutput": "Read backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java: String evidence = (sample.toolName == null ? \"\" : sample.toolName) + \"\\n\" -> /** Read backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java: row(sb, \"title subject hit rate\", pct(agg.titleSubjectHitRate)); -> row(sb, \"title subject hit rate (legacy, diagnostic)\", pct(agg.titleSubjectHitRate)); Read backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorerTest.java: (new file) -> sample.toolInput = \"file_path=InvoiceService.java delegation of tax rendering\"; Read backend/src/main/resources/prompts/continuation.txt: (new file) -> - A reproduction test names BOTH sides: the test identifier and the class or method whose bug it Read backend/src/main/resources/prompts/init.txt: (new file) -> - A reproduction test names BOTH sides: the test identifier and the class or method whose bug it Edit applied. Commit message: Require reproduction titles to name both identifiers and score trace-visible subjects. Totals: 5 file(s), 134 insertion(s), 18 deletion(s).",
       "expectObservation": true,
       "expectedType": "feature",
       "titleKeywords": [
-        "change",
+        "document",
         "goldensetscorer"
       ],
-      "titleVerb": "change",
+      "titleVerb": "document",
       "titleSubject": [
         "GoldenSetScorer"
       ],
@@ -114,7 +225,11 @@
       "conceptsKeywords": [
         "what-changed"
       ],
-      "titleAction": "modify",
+      "titleAction": "document",
+      "titleActions": [
+        "document",
+        "modify"
+      ],
       "notes": "generated from 864dadf51b4fde7a51470574b2ab1100c31c86e1 (Require reproduction titles to name both identifiers and score trace-visible subjects)"
     },
     {
@@ -123,9 +238,9 @@
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=docs/drafts/extraction-quality-improvement-plan.md\nold_string=\"hooks with the offline model stand-in. The test runs in the L4 layer under the rehearsal\"\nnew_string=\"hooks with the offline model stand-in. The test runs under the rehearsal database gate and is\"",
-      "toolOutput": "Edit applied. Commit message: Record the round 8 verification result and MCP layer attribution. Totals: 1 file(s), 8 insertion(s), 2 deletion(s). Changed paths: docs/drafts/extraction-quality-improvement-plan.md. Verification: not recorded in this commit.",
+      "occurredAt": "2026-11-03T01:04:31Z",
+      "toolInput": "file_path=docs/drafts/extraction-quality-improvement-plan.md\nread_files=docs/drafts/extraction-quality-improvement-plan.md\nold_string=\"hooks with the offline model stand-in. The test runs in the L4 layer under the rehearsal\"\nnew_string=\"hooks with the offline model stand-in. The test runs under the rehearsal database gate and is\"",
+      "toolOutput": "Read docs/drafts/extraction-quality-improvement-plan.md: hooks with the offline model stand-in. The test runs in the L4 layer under the rehearsal -> hooks with the offline model stand-in. The test runs under the rehearsal database gate and is Edit applied. Commit message: Record the round 8 verification result and MCP layer attribution. Totals: 1 file(s), 8 insertion(s), 2 deletion(s).",
       "expectObservation": true,
       "expectedType": "change",
       "titleKeywords": [
@@ -144,6 +259,10 @@
         "what-changed"
       ],
       "titleAction": "document",
+      "titleActions": [
+        "document",
+        "modify"
+      ],
       "notes": "generated from b064308244422d93c24fc7771197a29309ce902c (Record the round 8 verification result and MCP layer attribution)"
     },
     {
@@ -152,9 +271,9 @@
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=docs/drafts/extraction-quality-improvement-plan.md\nold_string=\"\"\nnew_string=\"### 7.14 Round 8 — insertion-scope contract, remove coverage, and a reverted security verb\"",
-      "toolOutput": "Edit applied. Commit message: Record round 8: insertion scope, reverted security verb, summary, search, MCP. Totals: 1 file(s), 139 insertion(s), 0 deletion(s). Changed paths: docs/drafts/extraction-quality-improvement-plan.md. Verification: not recorded in this commit.",
+      "occurredAt": "2026-11-03T01:01:27Z",
+      "toolInput": "file_path=docs/drafts/extraction-quality-improvement-plan.md\nread_files=docs/drafts/extraction-quality-improvement-plan.md\nold_string=\"\"\nnew_string=\"### 7.14 Round 8 — insertion-scope contract, remove coverage, and a reverted security verb\"",
+      "toolOutput": "Read docs/drafts/extraction-quality-improvement-plan.md: (new file) -> ### 7.14 Round 8 — insertion-scope contract, remove coverage, and a reverted security verb Edit applied. Commit message: Record round 8: insertion scope, reverted security verb, summary, search, MCP. Totals: 1 file(s), 139 insertion(s), 0 deletion(s).",
       "expectObservation": true,
       "expectedType": "change",
       "titleKeywords": [
@@ -170,9 +289,14 @@
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
-        "what-changed"
+        "problem-solution"
       ],
       "titleAction": "document",
+      "titleActions": [
+        "document",
+        "secure",
+        "modify"
+      ],
       "notes": "generated from 30a956e462a3ba04b5d50210deb8ec3e3509ded3 (Record round 8: insertion scope, reverted security verb, summary, search, MCP)"
     },
     {
@@ -181,9 +305,9 @@
       "keySample": false,
       "toolName": "Write",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/layers/McpEndToEndTest.java\ncontent=<39 chars shown>",
-      "toolOutput": "Edit applied. Commit message: Exercise the MCP server through a real client handshake. Totals: 1 file(s), 187 insertion(s), 0 deletion(s). Changed paths: backend/src/test/java/com/ablueforce/cortexce/layers/McpEndToEndTest.java. Verification: not recorded in this commit.",
+      "occurredAt": "2026-11-03T00:36:42Z",
+      "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/layers/McpEndToEndTest.java\nread_files=backend/src/test/java/com/ablueforce/cortexce/layers/McpEndToEndTest.java\nold_string=\"\"\nnew_string=\"package com.ablueforce.cortexce.layers;\"",
+      "toolOutput": "Read backend/src/test/java/com/ablueforce/cortexce/layers/McpEndToEndTest.java: (new file) -> package com.ablueforce.cortexce.layers; Edit applied. Commit message: Exercise the MCP server through a real client handshake. Totals: 1 file(s), 187 insertion(s), 0 deletion(s).",
       "expectObservation": true,
       "expectedType": "feature",
       "titleKeywords": [
@@ -202,24 +326,27 @@
         "what-changed"
       ],
       "titleAction": "create",
+      "titleActions": [
+        "create"
+      ],
       "notes": "generated from ba86bf25887dd15cf8d8a76a0e47b35e1bcd2517 (Exercise the MCP server through a real client handshake)"
     },
     {
       "id": "real-a9c8452967",
       "category": "feature",
       "keySample": false,
-      "toolName": "Write",
+      "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/eval/SearchSimilarityEvaluator.java\ncontent=<37 chars shown>",
-      "toolOutput": "Edit applied. Commit message: Quantify the semantic relevance floor with a recorded curve. Totals: 6 file(s), 1210 insertion(s), 0 deletion(s). Changed paths: backend/src/test/java/com/ablueforce/cortexce/eval/SearchSimilarityEvaluator.java, backend/src/test/resources/eval/fixtures/search-similarity-bge-m3.json, backend/src/test/resources/eval/search-similarity-corpus.json. Other touched: backend/src/test/resources/eval/fixtures/search-similarity-bge-m3.json, backend/src/test/resources/eval/search-similarity-corpus.json. Verification: not recorded in this commit.",
+      "occurredAt": "2026-11-03T00:36:33Z",
+      "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/eval/SearchSimilarityEvaluator.java\nread_files=backend/src/test/java/com/ablueforce/cortexce/eval/SearchSimilarityEvaluator.java, backend/src/test/resources/eval/fixtures/search-similarity-bge-m3.json, backend/src/test/resources/eval/search-similarity-corpus.json, backend/src/test/java/com/ablueforce/cortexce/eval/SearchSimilarityReplayTest.java, backend/src/test/resources/eval/fixtures/search-similarity-bge-m3-metrics.json, docs/archive/2026-11-03_search-similarity-eval.md\nold_string=\"\"\nnew_string=\"package com.ablueforce.cortexce.eval;\"",
+      "toolOutput": "Read backend/src/test/java/com/ablueforce/cortexce/eval/SearchSimilarityEvaluator.java: (new file) -> package com.ablueforce.cortexce.eval; Read backend/src/test/resources/eval/fixtures/search-similarity-bge-m3.json: (new file) -> { Read backend/src/test/resources/eval/search-similarity-corpus.json: (new file) -> { Read backend/src/test/java/com/ablueforce/cortexce/eval/SearchSimilarityReplayTest.java: (new file) -> package com.ablueforce.cortexce.eval; Read backend/src/test/resources/eval/fixtures/search-similarity-bge-m3-metrics.json: (new file) -> { Read docs/archive/2026-11-03_search-similarity-eval.md: (new file) -> # Semantic relevance floor evaluation Edit applied. Commit message: Quantify the semantic relevance floor with a recorded curve. Totals: 6 file(s), 1210 insertion(s), 0 deletion(s).",
       "expectObservation": true,
       "expectedType": "feature",
       "titleKeywords": [
-        "add",
+        "document",
         "searchsimilarityevaluator"
       ],
-      "titleVerb": "add",
+      "titleVerb": "document",
       "titleSubject": [
         "SearchSimilarityEvaluator"
       ],
@@ -230,7 +357,11 @@
       "conceptsKeywords": [
         "what-changed"
       ],
-      "titleAction": "create",
+      "titleAction": "document",
+      "titleActions": [
+        "document",
+        "create"
+      ],
       "notes": "generated from a9c8452967f3444805080a2fc0ae1c44ccccf735 (Quantify the semantic relevance floor with a recorded curve)"
     },
     {
@@ -239,9 +370,9 @@
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/main/resources/prompts/continuation.txt\nold_string=\"- Fixed: a defect already produced wrong or failing behaviour, in non-security code.\"\nnew_string=\"- Fixed: a defect already produced wrong or failing behaviour.\"",
-      "toolOutput": "Edit applied. Commit message: Revert the domain-first security verb after type accuracy dropped. Totals: 2 file(s), 10 insertion(s), 14 deletion(s). Changed paths: backend/src/main/resources/prompts/continuation.txt, backend/src/main/resources/prompts/init.txt. Other touched: backend/src/main/resources/prompts/init.txt. Verification: not recorded in this commit.",
+      "occurredAt": "2026-11-03T00:05:33Z",
+      "toolInput": "file_path=backend/src/main/resources/prompts/continuation.txt\nread_files=backend/src/main/resources/prompts/continuation.txt, backend/src/main/resources/prompts/init.txt\nold_string=\"- Fixed: a defect already produced wrong or failing behaviour, in non-security code.\"\nnew_string=\"- Fixed: a defect already produced wrong or failing behaviour.\"",
+      "toolOutput": "Read backend/src/main/resources/prompts/continuation.txt: - Fixed: a defect already produced wrong or failing behaviour, in non-security code. -> - Fixed: a defect already produced wrong or failing behaviour. Read backend/src/main/resources/prompts/init.txt: - Fixed: a defect already produced wrong or failing behaviour, in non-security code. -> - Fixed: a defect already produced wrong or failing behaviour. Edit applied. Commit message: Revert the domain-first security verb after type accuracy dropped. Totals: 2 file(s), 10 insertion(s), 14 deletion(s).",
       "expectObservation": true,
       "expectedType": "change",
       "titleKeywords": [
@@ -249,64 +380,6 @@
         "continuation.txt"
       ],
       "titleVerb": "document",
-      "titleSubject": [
-        "continuation.txt"
-      ],
-      "titleIdentifiers": [
-        "continuation.txt"
-      ],
-      "factsKeywords": [],
-      "conceptsKeywords": [
-        "what-changed"
-      ],
-      "titleAction": "document",
-      "notes": "generated from db8ac0287e5b275842dcecd995d5eeb1c3d6bdd4 (Revert the domain-first security verb after type accuracy dropped)"
-    },
-    {
-      "id": "real-7f5ff5974d",
-      "category": "test-add",
-      "keySample": false,
-      "toolName": "Edit",
-      "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/test/resources/eval/golden-tool-use.json\nold_string=\"\"\nnew_string=\"},\"",
-      "toolOutput": "Edit applied. Commit message: Add five removal samples so the remove action branch is exercised. Totals: 1 file(s), 180 insertion(s), 0 deletion(s). Changed paths: backend/src/test/resources/eval/golden-tool-use.json. Verification: not recorded in this commit.",
-      "expectObservation": true,
-      "expectedType": "feature",
-      "titleKeywords": [
-        "change",
-        "golden-tool-use.json"
-      ],
-      "titleVerb": "change",
-      "titleSubject": [
-        "golden-tool-use.json"
-      ],
-      "titleIdentifiers": [
-        "golden-tool-use.json"
-      ],
-      "factsKeywords": [],
-      "conceptsKeywords": [
-        "what-changed"
-      ],
-      "titleAction": "modify",
-      "notes": "generated from 7f5ff5974d51c6cf3bff5f789db83b94a1805ce2 (Add five removal samples so the remove action branch is exercised)"
-    },
-    {
-      "id": "real-9e6612fdf9",
-      "category": "security-fix",
-      "keySample": false,
-      "toolName": "Edit",
-      "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/main/resources/prompts/continuation.txt\nold_string=\"- Fixed: a defect already produced wrong or failing behaviour.\"\nnew_string=\"- Fixed: a defect already produced wrong or failing behaviour, in non-security code.\"",
-      "toolOutput": "Edit applied. Commit message: Make the security domain and insertion scopes decide the title verb. Totals: 4 file(s), 38 insertion(s), 25 deletion(s). Changed paths: backend/src/main/resources/prompts/continuation.txt, backend/src/main/resources/prompts/init.txt, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetActionRules.java. Other touched: backend/src/main/resources/prompts/init.txt, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetActionRules.java. Verification: not recorded in this commit.",
-      "expectObservation": true,
-      "expectedType": "bugfix",
-      "titleKeywords": [
-        "harden",
-        "continuation.txt"
-      ],
-      "titleVerb": "harden",
       "titleSubject": [
         "continuation.txt"
       ],
@@ -317,7 +390,46 @@
       "conceptsKeywords": [
         "problem-solution"
       ],
-      "titleAction": "secure",
+      "titleAction": "document",
+      "titleActions": [
+        "document",
+        "secure",
+        "modify"
+      ],
+      "notes": "generated from db8ac0287e5b275842dcecd995d5eeb1c3d6bdd4 (Revert the domain-first security verb after type accuracy dropped)"
+    },
+    {
+      "id": "real-9e6612fdf9",
+      "category": "security-fix",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "2026-11-02T23:57:10Z",
+      "toolInput": "file_path=backend/src/main/resources/prompts/continuation.txt\nread_files=backend/src/main/resources/prompts/continuation.txt, backend/src/main/resources/prompts/init.txt, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetActionRules.java, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java\nold_string=\"- Fixed: a defect already produced wrong or failing behaviour.\"\nnew_string=\"- Fixed: a defect already produced wrong or failing behaviour, in non-security code.\"",
+      "toolOutput": "Read backend/src/main/resources/prompts/continuation.txt: - Fixed: a defect already produced wrong or failing behaviour. -> - Fixed: a defect already produced wrong or failing behaviour, in non-security code. Read backend/src/main/resources/prompts/init.txt: - Fixed: a defect already produced wrong or failing behaviour. -> - Fixed: a defect already produced wrong or failing behaviour, in non-security code. Read backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetActionRules.java: Map.entry(\"enable\", \"modify\"), -> Map.entry(\"enable\", \"modify\"), Map.entry(\"extend\", \"modify\"), Read backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java: (new file) -> Map.entry(\"extend\", Set.of(\"extend\", \"extended\", \"extends\", \"extending\")), Edit applied. Commit message: Make the security domain and insertion scopes decide the title verb. Totals: 4 file(s), 38 insertion(s), 25 deletion(s).",
+      "expectObservation": true,
+      "expectedType": "bugfix",
+      "titleKeywords": [
+        "document",
+        "continuation.txt"
+      ],
+      "titleVerb": "document",
+      "titleSubject": [
+        "continuation.txt"
+      ],
+      "titleIdentifiers": [
+        "continuation.txt"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "document",
+      "titleActions": [
+        "document",
+        "secure",
+        "modify"
+      ],
       "notes": "generated from 9e6612fdf9193506697cda57614d9b51aa64932d (Make the security domain and insertion scopes decide the title verb)"
     },
     {
@@ -326,9 +438,9 @@
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=docs/drafts/extraction-quality-improvement-plan.md\nold_string=\"\"\nnew_string=\"## 7.13 Round 7 — A6 action classes derived from the trace\"",
-      "toolOutput": "Edit applied. Commit message: Record round seven: the action-class decision, its results and the boundary evidence. Totals: 1 file(s), 115 insertion(s), 0 deletion(s). Changed paths: docs/drafts/extraction-quality-improvement-plan.md. Verification: not recorded in this commit.",
+      "occurredAt": "2026-11-02T23:47:24Z",
+      "toolInput": "file_path=docs/drafts/extraction-quality-improvement-plan.md\nread_files=docs/drafts/extraction-quality-improvement-plan.md\nold_string=\"\"\nnew_string=\"## 7.13 Round 7 — A6 action classes derived from the trace\"",
+      "toolOutput": "Read docs/drafts/extraction-quality-improvement-plan.md: (new file) -> ## 7.13 Round 7 — A6 action classes derived from the trace Edit applied. Commit message: Record round seven: the action-class decision, its results and the boundary evidence. Totals: 1 file(s), 115 insertion(s), 0 deletion(s).",
       "expectObservation": true,
       "expectedType": "change",
       "titleKeywords": [
@@ -347,24 +459,28 @@
         "what-changed"
       ],
       "titleAction": "document",
+      "titleActions": [
+        "document",
+        "modify"
+      ],
       "notes": "generated from f43cfd6f44becaf57f462b93f7f3ca52d6490963 (Record round seven: the action-class decision, its results and the boundary evidence)"
     },
     {
       "id": "real-e352ba3da3",
       "category": "feature",
       "keySample": false,
-      "toolName": "Write",
+      "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/test/resources/eval/fixtures/longcat-after-v7.json\ncontent=<1 chars shown>",
-      "toolOutput": "Edit applied. Commit message: Archive the round-seven runs under the trace-derived action metric. Totals: 6 file(s), 2475 insertion(s), 0 deletion(s). Changed paths: backend/src/test/resources/eval/fixtures/longcat-after-v7.json, backend/src/test/resources/eval/fixtures/minimax-after-v7.json, docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v7.md. Other touched: backend/src/test/resources/eval/fixtures/minimax-after-v7.json, docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v7.md. Verification: not recorded in this commit.",
+      "occurredAt": "2026-11-02T23:46:58Z",
+      "toolInput": "file_path=backend/src/test/resources/eval/fixtures/longcat-after-v7.json\nread_files=backend/src/test/resources/eval/fixtures/longcat-after-v7.json, backend/src/test/resources/eval/fixtures/minimax-after-v7.json, docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v7.md, docs/archive/2026-11-03_model-output-quality-eval-longcat-after-v7.md, backend/src/test/resources/eval/fixtures/longcat-after-v7-metrics.json, backend/src/test/resources/eval/fixtures/minimax-after-v7-metrics.json\nold_string=\"\"\nnew_string=\"{\"",
+      "toolOutput": "Read backend/src/test/resources/eval/fixtures/longcat-after-v7.json: (new file) -> { Read backend/src/test/resources/eval/fixtures/minimax-after-v7.json: (new file) -> { Read docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v7.md: (new file) -> # Model output quality evaluation Read docs/archive/2026-11-03_model-output-quality-eval-longcat-after-v7.md: (new file) -> # Model output quality evaluation Read backend/src/test/resources/eval/fixtures/longcat-after-v7-metrics.json: (new file) -> { Read backend/src/test/resources/eval/fixtures/minimax-after-v7-metrics.json: (new file) -> { Edit applied. Commit message: Archive the round-seven runs under the trace-derived action metric. Totals: 6 file(s), 2475 insertion(s), 0 deletion(s).",
       "expectObservation": true,
       "expectedType": "feature",
       "titleKeywords": [
-        "add",
+        "document",
         "longcat-after-v7.json"
       ],
-      "titleVerb": "add",
+      "titleVerb": "document",
       "titleSubject": [
         "longcat-after-v7.json"
       ],
@@ -375,7 +491,11 @@
       "conceptsKeywords": [
         "what-changed"
       ],
-      "titleAction": "create",
+      "titleAction": "document",
+      "titleActions": [
+        "document",
+        "create"
+      ],
       "notes": "generated from e352ba3da38770c5fc1de6ff24329875ad6eeb24 (Archive the round-seven runs under the trace-derived action metric)"
     },
     {
@@ -384,9 +504,9 @@
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/main/resources/prompts/continuation.txt\nold_string=\"\"\nnew_string=\"- A replacement keeps BOTH names: the literal or key that was replaced and the file that now\"",
-      "toolOutput": "Edit applied. Commit message: Require both names when a literal is replaced and keep script/test identifiers. Totals: 2 file(s), 6 insertion(s), 0 deletion(s). Changed paths: backend/src/main/resources/prompts/continuation.txt, backend/src/main/resources/prompts/init.txt. Other touched: backend/src/main/resources/prompts/init.txt. Verification: not recorded in this commit.",
+      "occurredAt": "2026-11-02T23:13:42Z",
+      "toolInput": "file_path=backend/src/main/resources/prompts/continuation.txt\nread_files=backend/src/main/resources/prompts/continuation.txt, backend/src/main/resources/prompts/init.txt\nold_string=\"\"\nnew_string=\"- A replacement keeps BOTH names: the literal or key that was replaced and the file that now\"",
+      "toolOutput": "Read backend/src/main/resources/prompts/continuation.txt: (new file) -> - A replacement keeps BOTH names: the literal or key that was replaced and the file that now Read backend/src/main/resources/prompts/init.txt: (new file) -> - A replacement keeps BOTH names: the literal or key that was replaced and the file that now Edit applied. Commit message: Require both names when a literal is replaced and keep script/test identifiers. Totals: 2 file(s), 6 insertion(s), 0 deletion(s).",
       "expectObservation": true,
       "expectedType": "change",
       "titleKeywords": [
@@ -405,53 +525,28 @@
         "what-changed"
       ],
       "titleAction": "document",
+      "titleActions": [
+        "document",
+        "modify"
+      ],
       "notes": "generated from 112de33e233a7f65578766d3609df50a2123bc31 (Require both names when a literal is replaced and keep script/test identifiers)"
-    },
-    {
-      "id": "real-bc3512ae8d",
-      "category": "docs-update",
-      "keySample": false,
-      "toolName": "Edit",
-      "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=docs/drafts/extraction-quality-improvement-plan.md\nold_string=\"\"\nnew_string=\"## 7.12 Round 6 — category few-shots and the measured title ceiling\"",
-      "toolOutput": "Edit applied. Commit message: Record round six: few-shots moved A6 to 72/61 and the ceiling is label ambiguity. Totals: 1 file(s), 81 insertion(s), 0 deletion(s). Changed paths: docs/drafts/extraction-quality-improvement-plan.md. Verification: not recorded in this commit.",
-      "expectObservation": true,
-      "expectedType": "change",
-      "titleKeywords": [
-        "document",
-        "extraction-quality-improvement-plan.md"
-      ],
-      "titleVerb": "document",
-      "titleSubject": [
-        "extraction-quality-improvement-plan.md"
-      ],
-      "titleIdentifiers": [
-        "extraction-quality-improvement-plan.md"
-      ],
-      "factsKeywords": [],
-      "conceptsKeywords": [
-        "what-changed"
-      ],
-      "titleAction": "document",
-      "notes": "generated from bc3512ae8d8021b0fba89d8eb2fe27eb34d65c25 (Record round six: few-shots moved A6 to 72/61 and the ceiling is label ambiguity)"
     },
     {
       "id": "real-28edef5a35",
       "category": "feature",
       "keySample": false,
-      "toolName": "Write",
+      "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/test/resources/eval/fixtures/longcat-after-v6.json\ncontent=<1 chars shown>",
-      "toolOutput": "Edit applied. Commit message: Archive the round-six full runs for both providers. Totals: 6 file(s), 2422 insertion(s), 0 deletion(s). Changed paths: backend/src/test/resources/eval/fixtures/longcat-after-v6.json, backend/src/test/resources/eval/fixtures/minimax-after-v6.json, docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v6.md. Other touched: backend/src/test/resources/eval/fixtures/minimax-after-v6.json, docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v6.md. Verification: not recorded in this commit.",
+      "occurredAt": "2026-11-02T22:56:05Z",
+      "toolInput": "file_path=backend/src/test/resources/eval/fixtures/longcat-after-v6.json\nread_files=backend/src/test/resources/eval/fixtures/longcat-after-v6.json, backend/src/test/resources/eval/fixtures/minimax-after-v6.json, docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v6.md, docs/archive/2026-11-03_model-output-quality-eval-longcat-after-v6.md, backend/src/test/resources/eval/fixtures/longcat-after-v6-metrics.json, backend/src/test/resources/eval/fixtures/minimax-after-v6-metrics.json\nold_string=\"\"\nnew_string=\"{\"",
+      "toolOutput": "Read backend/src/test/resources/eval/fixtures/longcat-after-v6.json: (new file) -> { Read backend/src/test/resources/eval/fixtures/minimax-after-v6.json: (new file) -> { Read docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v6.md: (new file) -> # Model output quality evaluation Read docs/archive/2026-11-03_model-output-quality-eval-longcat-after-v6.md: (new file) -> # Model output quality evaluation Read backend/src/test/resources/eval/fixtures/longcat-after-v6-metrics.json: (new file) -> { Read backend/src/test/resources/eval/fixtures/minimax-after-v6-metrics.json: (new file) -> { Edit applied. Commit message: Archive the round-six full runs for both providers. Totals: 6 file(s), 2422 insertion(s), 0 deletion(s).",
       "expectObservation": true,
       "expectedType": "feature",
       "titleKeywords": [
-        "add",
+        "document",
         "longcat-after-v6.json"
       ],
-      "titleVerb": "add",
+      "titleVerb": "document",
       "titleSubject": [
         "longcat-after-v6.json"
       ],
@@ -462,66 +557,12 @@
       "conceptsKeywords": [
         "what-changed"
       ],
-      "titleAction": "create",
+      "titleAction": "document",
+      "titleActions": [
+        "document",
+        "create"
+      ],
       "notes": "generated from 28edef5a35446eeb6b1b4deab53c3f19181f5327 (Archive the round-six full runs for both providers)"
-    },
-    {
-      "id": "real-e02e436bdd",
-      "category": "docs-update",
-      "keySample": false,
-      "toolName": "Edit",
-      "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/main/resources/prompts/continuation.txt\nold_string=\"- Good: `Fixed UserCache.computeIfAbsent null placeholder race`\"\nnew_string=\"- Category examples (copy this shape):\"",
-      "toolOutput": "Edit applied. Commit message: Show ten category-shaped title examples instead of restating the contract. Totals: 2 file(s), 22 insertion(s), 18 deletion(s). Changed paths: backend/src/main/resources/prompts/continuation.txt, backend/src/main/resources/prompts/init.txt. Other touched: backend/src/main/resources/prompts/init.txt. Verification: not recorded in this commit.",
-      "expectObservation": true,
-      "expectedType": "change",
-      "titleKeywords": [
-        "document",
-        "continuation.txt"
-      ],
-      "titleVerb": "document",
-      "titleSubject": [
-        "continuation.txt"
-      ],
-      "titleIdentifiers": [
-        "continuation.txt"
-      ],
-      "factsKeywords": [],
-      "conceptsKeywords": [
-        "what-changed"
-      ],
-      "titleAction": "document",
-      "notes": "generated from e02e436bddaee1eb2db93befdfb5348870d0a350 (Show ten category-shaped title examples instead of restating the contract)"
-    },
-    {
-      "id": "real-d44a83721d",
-      "category": "docs-update",
-      "keySample": false,
-      "toolName": "Edit",
-      "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=docs/drafts/extraction-quality-improvement-plan.md\nold_string=\"\"\nnew_string=\"## 7.11 Round 5 — metric correctness and the remaining title ceiling\"",
-      "toolOutput": "Edit applied. Commit message: Record round five decisions and the remaining A6 ceiling. Totals: 1 file(s), 99 insertion(s), 0 deletion(s). Changed paths: docs/drafts/extraction-quality-improvement-plan.md. Verification: not recorded in this commit.",
-      "expectObservation": true,
-      "expectedType": "change",
-      "titleKeywords": [
-        "document",
-        "extraction-quality-improvement-plan.md"
-      ],
-      "titleVerb": "document",
-      "titleSubject": [
-        "extraction-quality-improvement-plan.md"
-      ],
-      "titleIdentifiers": [
-        "extraction-quality-improvement-plan.md"
-      ],
-      "factsKeywords": [],
-      "conceptsKeywords": [
-        "what-changed"
-      ],
-      "titleAction": "document",
-      "notes": "generated from d44a83721da81c1affd97f72d664596a07f950c1 (Record round five decisions and the remaining A6 ceiling)"
     },
     {
       "id": "real-6d6df2c321",
@@ -529,9 +570,9 @@
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/main/resources/prompts/continuation.txt\nold_string=\"failed), not as a skip.\"\nnew_string=\"- only locates where an identifier is used or defined (grep/glob search), even when matches are\"",
-      "toolOutput": "Edit applied. Commit message: Make the concept slots category-explicit and the title verb precise. Totals: 2 file(s), 138 insertion(s), 25 deletion(s). Changed paths: backend/src/main/resources/prompts/continuation.txt, backend/src/main/resources/prompts/init.txt. Other touched: backend/src/main/resources/prompts/init.txt. Verification: not recorded in this commit.",
+      "occurredAt": "2026-11-02T22:29:14Z",
+      "toolInput": "file_path=backend/src/main/resources/prompts/continuation.txt\nread_files=backend/src/main/resources/prompts/continuation.txt, backend/src/main/resources/prompts/init.txt\nold_string=\"failed), not as a skip.\"\nnew_string=\"- only locates where an identifier is used or defined (grep/glob search), even when matches are\"",
+      "toolOutput": "Read backend/src/main/resources/prompts/continuation.txt: failed), not as a skip. -> - only locates where an identifier is used or defined (grep/glob search), even when matches are Read backend/src/main/resources/prompts/init.txt: failed), not as a skip. -> - only locates where an identifier is used or defined (grep/glob search), even when matches are Edit applied. Commit message: Make the concept slots category-explicit and the title verb precise. Totals: 2 file(s), 138 insertion(s), 25 deletion(s).",
       "expectObservation": true,
       "expectedType": "change",
       "titleKeywords": [
@@ -547,39 +588,15 @@
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
-        "what-changed"
+        "problem-solution"
       ],
       "titleAction": "document",
+      "titleActions": [
+        "document",
+        "secure",
+        "modify"
+      ],
       "notes": "generated from 6d6df2c321ba8b2bd7e31d20d98cd3c0c37b2a1d (Make the concept slots category-explicit and the title verb precise)"
-    },
-    {
-      "id": "real-0fd4ffcc31",
-      "category": "test-add",
-      "keySample": false,
-      "toolName": "Edit",
-      "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java\nold_string=\"Map.entry(\"docs\", \"doc\"), Map.entry(\"documentation\", \"doc\"));\"\nnew_string=\"Map.entry(\"docs\", \"doc\"), Map.entry(\"documentation\", \"doc\"),\"",
-      "toolOutput": "Edit applied. Commit message: Fix the skip gate counters and fold plurals in keyword scoring. Totals: 3 file(s), 39 insertion(s), 9 deletion(s). Changed paths: backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetReplayTest.java. Other touched: backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetReplayTest.java. Verification: not recorded in this commit.",
-      "expectObservation": true,
-      "expectedType": "feature",
-      "titleKeywords": [
-        "change",
-        "goldensetscorer"
-      ],
-      "titleVerb": "change",
-      "titleSubject": [
-        "GoldenSetScorer"
-      ],
-      "titleIdentifiers": [
-        "GoldenSetScorer"
-      ],
-      "factsKeywords": [],
-      "conceptsKeywords": [
-        "what-changed"
-      ],
-      "titleAction": "modify",
-      "notes": "generated from 0fd4ffcc314ab586a22c81a8a091af8e83e1ef7e (Fix the skip gate counters and fold plurals in keyword scoring)"
     },
     {
       "id": "real-d3431639a9",
@@ -587,9 +604,9 @@
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v4-contract.md\nold_string=\"\"\nnew_string=\"# Model output quality evaluation\"",
-      "toolOutput": "Edit applied. Commit message: Record round four: what moved, what failed and why. Totals: 5 file(s), 1811 insertion(s), 0 deletion(s). Changed paths: docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v4-contract.md, docs/archive/2026-11-03_model-output-quality-eval-longcat-after-v4-contract.md, docs/archive/2026-11-03_summary-chain-eval-minimax.md. Other touched: docs/archive/2026-11-03_model-output-quality-eval-longcat-after-v4-contract.md, docs/archive/2026-11-03_summary-chain-eval-minimax.md. Verification: not recorded in this commit.",
+      "occurredAt": "2026-11-02T21:02:14Z",
+      "toolInput": "file_path=docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v4-contract.md\nread_files=docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v4-contract.md, docs/archive/2026-11-03_model-output-quality-eval-longcat-after-v4-contract.md, docs/archive/2026-11-03_summary-chain-eval-minimax.md, docs/archive/2026-11-03_summary-chain-eval-longcat.md, docs/drafts/extraction-quality-improvement-plan.md\nold_string=\"\"\nnew_string=\"# Model output quality evaluation\"",
+      "toolOutput": "Read docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v4-contract.md: (new file) -> # Model output quality evaluation Read docs/archive/2026-11-03_model-output-quality-eval-longcat-after-v4-contract.md: (new file) -> # Model output quality evaluation Read docs/archive/2026-11-03_summary-chain-eval-minimax.md: (new file) -> # Session-summary quality evaluation Read docs/archive/2026-11-03_summary-chain-eval-longcat.md: (new file) -> # Session-summary quality evaluation Read docs/drafts/extraction-quality-improvement-plan.md: (new file) -> ## 7.10 Round 4 — contract titles, trace-grounded summaries, retrieval floor, repair-claim review Edit applied. Commit message: Record round four: what moved, what failed and why. Totals: 5 file(s), 1811 insertion(s), 0 deletion(s).",
       "expectObservation": true,
       "expectedType": "change",
       "titleKeywords": [
@@ -605,9 +622,15 @@
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
-        "what-changed"
+        "problem-solution"
       ],
       "titleAction": "document",
+      "titleActions": [
+        "document",
+        "secure",
+        "create",
+        "modify"
+      ],
       "notes": "generated from d3431639a9e08572cc95eddb0dd2ba276b38d2d8 (Record round four: what moved, what failed and why)"
     },
     {
@@ -616,9 +639,9 @@
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/repository/EmbeddingBackfillConcurrencyDatabaseTest.java\nold_string=\"\"\nnew_string=\"package com.ablueforce.cortexce.repository;\"",
-      "toolOutput": "Edit applied. Commit message: Make embedding repair claim the row before it writes. Totals: 5 file(s), 603 insertion(s), 16 deletion(s). Changed paths: backend/src/test/java/com/ablueforce/cortexce/repository/EmbeddingBackfillConcurrencyDatabaseTest.java, backend/src/test/java/com/ablueforce/cortexce/service/EmbeddingBackfillServiceTest.java, backend/src/main/java/com/ablueforce/cortexce/service/EmbeddingBackfillService.java. Other touched: backend/src/test/java/com/ablueforce/cortexce/service/EmbeddingBackfillServiceTest.java, backend/src/main/java/com/ablueforce/cortexce/service/EmbeddingBackfillService.java. Verification: not recorded in this commit.",
+      "occurredAt": "2026-11-02T21:01:22Z",
+      "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/repository/EmbeddingBackfillConcurrencyDatabaseTest.java\nread_files=backend/src/test/java/com/ablueforce/cortexce/repository/EmbeddingBackfillConcurrencyDatabaseTest.java, backend/src/test/java/com/ablueforce/cortexce/service/EmbeddingBackfillServiceTest.java, backend/src/main/java/com/ablueforce/cortexce/service/EmbeddingBackfillService.java, backend/src/test/java/com/ablueforce/cortexce/util/LogSanitizerTest.java, backend/src/test/java/com/ablueforce/cortexce/offline/ControllableAiTestModels.java\nold_string=\"\"\nnew_string=\"package com.ablueforce.cortexce.repository;\"",
+      "toolOutput": "Read backend/src/test/java/com/ablueforce/cortexce/repository/EmbeddingBackfillConcurrencyDatabaseTest.java: (new file) -> package com.ablueforce.cortexce.repository; Read backend/src/test/java/com/ablueforce/cortexce/service/EmbeddingBackfillServiceTest.java: (new file) -> package com.ablueforce.cortexce.service; Read backend/src/main/java/com/ablueforce/cortexce/service/EmbeddingBackfillService.java: * <p>Each row is saved on its own; a failure on one row cannot roll back the batch. -> import java.util.UUID; Read backend/src/test/java/com/ablueforce/cortexce/util/LogSanitizerTest.java: (new file) -> @Test Read backend/src/test/java/com/ablueforce/cortexce/offline/ControllableAiTestModels.java: (new file) -> private final java.util.concurrent.atomic.AtomicInteger embedCalls = Edit applied. Commit message: Make embedding repair claim the row before it writes. Totals: 5 file(s), 603 insertion(s), 16 deletion(s).",
       "expectObservation": true,
       "expectedType": "bugfix",
       "titleKeywords": [
@@ -637,36 +660,12 @@
         "problem-solution"
       ],
       "titleAction": "secure",
+      "titleActions": [
+        "secure",
+        "create",
+        "modify"
+      ],
       "notes": "generated from 7093cb5c56831a9b5fe983d55af180731b1ddb1a (Make embedding repair claim the row before it writes)"
-    },
-    {
-      "id": "real-2025b33a95",
-      "category": "docs-update",
-      "keySample": false,
-      "toolName": "Edit",
-      "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=docs/drafts/extraction-quality-improvement-plan.md\nold_string=\"\"\nnew_string=\"### 7.9 Audit gap closure (2026-11-03)\"",
-      "toolOutput": "Edit applied. Commit message: Record the audit gap closure and the alternatives that were rejected. Totals: 1 file(s), 48 insertion(s), 0 deletion(s). Changed paths: docs/drafts/extraction-quality-improvement-plan.md. Verification: not recorded in this commit.",
-      "expectObservation": true,
-      "expectedType": "change",
-      "titleKeywords": [
-        "document",
-        "extraction-quality-improvement-plan.md"
-      ],
-      "titleVerb": "document",
-      "titleSubject": [
-        "extraction-quality-improvement-plan.md"
-      ],
-      "titleIdentifiers": [
-        "extraction-quality-improvement-plan.md"
-      ],
-      "factsKeywords": [],
-      "conceptsKeywords": [
-        "what-changed"
-      ],
-      "titleAction": "document",
-      "notes": "generated from 2025b33a95bfab0e691547267fb6e9a36286a5a1 (Record the audit gap closure and the alternatives that were rejected)"
     },
     {
       "id": "real-f3d12860ff",
@@ -674,9 +673,9 @@
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/controller/LogsControllerTest.java\nold_string=\"Field field = LogsController.class.getDeclaredField(\"logDir\");\"\nnew_string=\"setField(\"logDir\", logDir.toString());\"",
-      "toolOutput": "Edit applied. Commit message: Make the log API optional without changing its default. Totals: 2 file(s), 91 insertion(s), 5 deletion(s). Changed paths: backend/src/test/java/com/ablueforce/cortexce/controller/LogsControllerTest.java, backend/src/main/java/com/ablueforce/cortexce/controller/LogsController.java. Other touched: backend/src/main/java/com/ablueforce/cortexce/controller/LogsController.java. Verification: not recorded in this commit.",
+      "occurredAt": "2026-11-02T19:32:49Z",
+      "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/controller/LogsControllerTest.java\nread_files=backend/src/test/java/com/ablueforce/cortexce/controller/LogsControllerTest.java, backend/src/main/java/com/ablueforce/cortexce/controller/LogsController.java\nold_string=\"Field field = LogsController.class.getDeclaredField(\"logDir\");\"\nnew_string=\"setField(\"logDir\", logDir.toString());\"",
+      "toolOutput": "Read backend/src/test/java/com/ablueforce/cortexce/controller/LogsControllerTest.java: Field field = LogsController.class.getDeclaredField(\"logDir\"); -> setField(\"logDir\", logDir.toString()); Read backend/src/main/java/com/ablueforce/cortexce/controller/LogsController.java: @RequestParam(defaultValue = \"1000\") int lines) { -> /** Edit applied. Commit message: Make the log API optional without changing its default. Totals: 2 file(s), 91 insertion(s), 5 deletion(s).",
       "expectObservation": true,
       "expectedType": "bugfix",
       "titleKeywords": [
@@ -695,65 +694,11 @@
         "problem-solution"
       ],
       "titleAction": "secure",
+      "titleActions": [
+        "secure",
+        "modify"
+      ],
       "notes": "generated from f3d12860ffc770ae7b1e11b158124dff44ea8088 (Make the log API optional without changing its default)"
-    },
-    {
-      "id": "real-6fd827abdc",
-      "category": "feature",
-      "keySample": false,
-      "toolName": "Edit",
-      "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/service/ExtractionValidationServiceTest.java\nold_string=\"\"PaymentServiceTest#missingOrderThrows passes\",\"\nnew_string=\"\"PaymentNotFoundException is thrown for a missing orderId\",\"",
-      "toolOutput": "Edit applied. Commit message: Drop process-noise facts that carry no observed value. Totals: 6 file(s), 121 insertion(s), 17 deletion(s). Changed paths: backend/src/test/java/com/ablueforce/cortexce/service/ExtractionValidationServiceTest.java, backend/src/main/java/com/ablueforce/cortexce/service/ExtractionValidationService.java, docs/drafts/extraction-quality-improvement-plan.md. Other touched: backend/src/main/java/com/ablueforce/cortexce/service/ExtractionValidationService.java, docs/drafts/extraction-quality-improvement-plan.md. Verification: not recorded in this commit.",
-      "expectObservation": true,
-      "expectedType": "change",
-      "titleKeywords": [
-        "change",
-        "extractionvalidationservicetest"
-      ],
-      "titleVerb": "change",
-      "titleSubject": [
-        "ExtractionValidationServiceTest"
-      ],
-      "titleIdentifiers": [
-        "ExtractionValidationServiceTest"
-      ],
-      "factsKeywords": [],
-      "conceptsKeywords": [
-        "what-changed"
-      ],
-      "titleAction": "modify",
-      "notes": "generated from 6fd827abdc3f28b73accfc517c9cf54811c4a1c3 (Drop process-noise facts that carry no observed value)"
-    },
-    {
-      "id": "real-eee7785ec8",
-      "category": "feature",
-      "keySample": false,
-      "toolName": "Edit",
-      "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=docs/archive/2026-11-02_model-output-quality-eval-minimax.md\nold_string=\"\"\nnew_string=\"# Model output quality evaluation\"",
-      "toolOutput": "Edit applied. Commit message: test: support Anthropic provider in quality evaluation. Totals: 5 file(s), 183 insertion(s), 15 deletion(s). Changed paths: docs/archive/2026-11-02_model-output-quality-eval-minimax.md, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java, scripts/eval-model-quality.sh. Other touched: backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java, scripts/eval-model-quality.sh. Verification: not recorded in this commit.",
-      "expectObservation": true,
-      "expectedType": "feature",
-      "titleKeywords": [
-        "change",
-        "2026-11-02_model-output-quality-eval-minimax.md"
-      ],
-      "titleVerb": "change",
-      "titleSubject": [
-        "2026-11-02_model-output-quality-eval-minimax.md"
-      ],
-      "titleIdentifiers": [
-        "2026-11-02_model-output-quality-eval-minimax.md"
-      ],
-      "factsKeywords": [],
-      "conceptsKeywords": [
-        "what-changed"
-      ],
-      "titleAction": "modify",
-      "notes": "generated from eee7785ec8d4e2c9d88b7df9fff39f64e0b32fe0 (test: support Anthropic provider in quality evaluation)"
     },
     {
       "id": "real-3409dda60c",
@@ -761,9 +706,9 @@
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=docs/drafts/conversation-memory-scope-refactor-plan.md\nold_string=\"| 实施 commit 范围 | 待实施 |\"\nnew_string=\"| 实施 commit 范围 | `325c817..f7b865e`（9 个提交，见文末清单） |\"",
-      "toolOutput": "Edit applied. Commit message: docs: record execution evidence for the conversation/scope refactor. Totals: 1 file(s), 69 insertion(s), 11 deletion(s). Changed paths: docs/drafts/conversation-memory-scope-refactor-plan.md. Verification: not recorded in this commit.",
+      "occurredAt": "2026-10-22T18:44:20Z",
+      "toolInput": "file_path=docs/drafts/conversation-memory-scope-refactor-plan.md\nread_files=docs/drafts/conversation-memory-scope-refactor-plan.md\nold_string=\"| 实施 commit 范围 | 待实施 |\"\nnew_string=\"| 实施 commit 范围 | `325c817..f7b865e`（9 个提交，见文末清单） |\"",
+      "toolOutput": "Read docs/drafts/conversation-memory-scope-refactor-plan.md: | 实施 commit 范围 | 待实施 | -> | 实施 commit 范围 | `325c817..f7b865e`（9 个提交，见文末清单） | Edit applied. Commit message: docs: record execution evidence for the conversation/scope refactor. Totals: 1 file(s), 69 insertion(s), 11 deletion(s).",
       "expectObservation": true,
       "expectedType": "change",
       "titleKeywords": [
@@ -779,9 +724,14 @@
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
-        "what-changed"
+        "problem-solution"
       ],
       "titleAction": "document",
+      "titleActions": [
+        "document",
+        "secure",
+        "modify"
+      ],
       "notes": "generated from 3409dda60c344472c82fa1f514bbccfdfc80af4d (docs: record execution evidence for the conversation/scope refactor)"
     },
     {
@@ -790,9 +740,9 @@
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/main/resources/static/index.html\nold_string=\"--color-bg-header: #f6f8fa;\"\nnew_string=\"--color-bg-header: #f8f6f2;\"",
-      "toolOutput": "Edit applied. Commit message: build: pair WebUI gitlink and static viewer with the v2 identity wire. Totals: 3 file(s), 726 insertion(s), 973 deletion(s). Changed paths: backend/src/main/resources/static/index.html, backend/src/main/resources/static/viewer-bundle.js, webui. Other touched: backend/src/main/resources/static/viewer-bundle.js, webui. Verification: not recorded in this commit.",
+      "occurredAt": "2026-10-22T18:36:31Z",
+      "toolInput": "file_path=backend/src/main/resources/static/index.html\nread_files=backend/src/main/resources/static/index.html, backend/src/main/resources/static/viewer-bundle.js, webui\nold_string=\"--color-bg-header: #f6f8fa;\"\nnew_string=\"--color-bg-header: #f8f6f2;\"",
+      "toolOutput": "Read backend/src/main/resources/static/index.html: --color-bg-header: #f6f8fa; -> --color-bg-header: #f8f6f2; Read backend/src/main/resources/static/viewer-bundle.js: \"use strict\";(()=>{var Xm=Object.create;var ju=Object.defineProperty;var $m=Object.getOwnPropertyDescriptor;var Km=Object.getOwnPropertyNames;var Ym=Object.getP -> \"use strict\";(()=>{var vE=Object.create;var Xm=Object.defineProperty;var hE=Object.getOwnPropertyDescriptor;var yE=Object.getOwnPropertyNames;var EE=Object.getP Read webui: Subproject commit 72e7804b13f89b03177f746867e0dd341fb12c8a -> Subproject commit 8d0d2e71bad164b3eeba93a6bc1c9766876c31f9 Edit applied. Commit message: build: pair WebUI gitlink and static viewer with the v2 identity wire. Totals: 3 file(s), 726 insertion(s), 973 deletion(s).",
       "expectObservation": true,
       "expectedType": "bugfix",
       "titleKeywords": [
@@ -811,6 +761,11 @@
         "problem-solution"
       ],
       "titleAction": "secure",
+      "titleActions": [
+        "secure",
+        "create",
+        "modify"
+      ],
       "notes": "generated from f7b865efe5541a9dd50ca388e779d260e1a7ffdb (build: pair WebUI gitlink and static viewer with the v2 identity wire)"
     },
     {
@@ -819,16 +774,16 @@
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/main/java/com/ablueforce/cortexce/repository/PendingMessageRepository.java\nold_string=\"// Dedup: check if a message with same session + tool already exists (not failed)\"\nnew_string=\"\"",
-      "toolOutput": "Edit applied. Commit message: fix: make the refactor start and serve on the real V20 schema. Totals: 6 file(s), 11 insertion(s), 44 deletion(s). Changed paths: backend/src/main/java/com/ablueforce/cortexce/repository/PendingMessageRepository.java, backend/src/main/java/com/ablueforce/cortexce/repository/SessionRepository.java, backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java. Other touched: backend/src/main/java/com/ablueforce/cortexce/repository/SessionRepository.java, backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java. Verification: not recorded in this commit.",
+      "occurredAt": "2026-10-22T18:33:46Z",
+      "toolInput": "file_path=backend/src/main/java/com/ablueforce/cortexce/repository/PendingMessageRepository.java\nread_files=backend/src/main/java/com/ablueforce/cortexce/repository/PendingMessageRepository.java, backend/src/main/java/com/ablueforce/cortexce/repository/SessionRepository.java, backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java, backend/src/main/java/com/ablueforce/cortexce/repository/ObservationRepository.java, backend/src/main/java/com/ablueforce/cortexce/repository/SummaryRepository.java, backend/src/main/java/com/ablueforce/cortexce/service/MemoryScopeService.java\nold_string=\"// Dedup: check if a message with same session + tool already exists (not failed)\"\nnew_string=\"\"",
+      "toolOutput": "Read backend/src/main/java/com/ablueforce/cortexce/repository/PendingMessageRepository.java: // Dedup: check if a message with same session + tool already exists (not failed) -> (no added line) Read backend/src/main/java/com/ablueforce/cortexce/repository/SessionRepository.java: /** -> (no added line) Read backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java: // Dedup — skip if same session+tool+input already exists -> // Dedup — same conversation + tool + input already queued. Scoped on the Read backend/src/main/java/com/ablueforce/cortexce/repository/ObservationRepository.java: AND ms.scopeKey = :project COLLATE \"C\")) -> AND ms.scopeKey = :project)) Read backend/src/main/java/com/ablueforce/cortexce/repository/SummaryRepository.java: @Query(\"SELECT s FROM SummaryEntity s WHERE s.contentSessionId = :contentSessionId ORDER BY s.createdAtEpoch DESC\") -> @Query(\"SELECT s FROM SummaryEntity s WHERE s.conversationId = :conversationId ORDER BY s.createdAtEpoch DESC\") Read backend/src/main/java/com/ablueforce/cortexce/service/MemoryScopeService.java: (new file) -> @org.springframework.beans.factory.annotation.Autowired Edit applied. Commit message: fix: make the refactor start and serve on the real V20 schema. Totals: 6 file(s), 11 insertion(s), 44 deletion(s).",
       "expectObservation": true,
       "expectedType": "bugfix",
       "titleKeywords": [
-        "harden",
+        "remove",
         "pendingmessagerepository"
       ],
-      "titleVerb": "harden",
+      "titleVerb": "remove",
       "titleSubject": [
         "PendingMessageRepository"
       ],
@@ -839,8 +794,798 @@
       "conceptsKeywords": [
         "problem-solution"
       ],
-      "titleAction": "secure",
+      "titleAction": "remove",
+      "titleActions": [
+        "remove",
+        "secure",
+        "modify"
+      ],
       "notes": "generated from a8cc1754bc08d499d85e567350e82fa3d0206a0b (fix: make the refactor start and serve on the real V20 schema)"
+    },
+    {
+      "id": "real-e2c887775a",
+      "category": "bug-fix",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "2026-10-04T09:28:02Z",
+      "toolInput": "file_path=AGENTS.md\nread_files=AGENTS.md, docs/drafts/doc-review-task.md, docs/drafts/patrol-state.json, js-sdk/cortex-mem-js/src/client.ts, docs/drafts/patrol-rotation.md\nold_string=\"| `/api/context/generate` | `updateFiles` | `proxy/proxy.js` |\"\nnew_string=\"| `/api/context/inject` | `updateFiles` | `proxy/proxy.js` |\"",
+      "toolOutput": "Read AGENTS.md: | `/api/context/generate` | `updateFiles` | `proxy/proxy.js` | -> | `/api/context/inject` | `updateFiles` | `proxy/proxy.js` | Read docs/drafts/doc-review-task.md: - **下一方向**: 架构文档（一百五十八轮） -> - **最近完成**: 架构文档（2026-10-04 一百五十八轮，三处，**全在受版本控制的 `AGENTS.md`**）。**DOC-1（已修）** **一张「不可修改的硬契约」表，把字段名挂在一个**从来就没返回过该字段的端点**上，而真正返回它的端点**就在同一张表里、却没被列出**；表下面那条用来自查的命令 Read docs/drafts/patrol-state.json: \"lastDirection\": \"pythonSdk\", -> \"lastDirection\": \"jsSdk\", Read js-sdk/cortex-mem-js/src/client.ts: /** -> (no added line) Read docs/drafts/patrol-rotation.md: (new file) -> | 2026-10-04 17:19 | JS/TS SDK | ✅ New cycle, round 257: **a tracked file told future agents to protect a field on an endpoint that has never returned one, whil Edit applied. Commit message: fix: a hard-contract table that protected a field no endpoint ever returned. Totals: 5 file(s), 19 insertion(s), 13 deletion(s).",
+      "expectObservation": true,
+      "expectedType": "bugfix",
+      "titleKeywords": [
+        "remove",
+        "agents.md"
+      ],
+      "titleVerb": "remove",
+      "titleSubject": [
+        "AGENTS.md"
+      ],
+      "titleIdentifiers": [
+        "AGENTS.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "remove",
+      "titleActions": [
+        "remove",
+        "document",
+        "modify"
+      ],
+      "notes": "generated from e2c887775a67cc64d5c307d263d905886fe93e5c (fix: a hard-contract table that protected a field no endpoint ever returned)"
+    },
+    {
+      "id": "real-cf667b4d8b",
+      "category": "refactor",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "2026-10-03T10:08:12Z",
+      "toolInput": "file_path=backend/src/main/java/com/ablueforce/cortexce/entity/ObservationFeedbackEntity.java\nread_files=backend/src/main/java/com/ablueforce/cortexce/entity/ObservationFeedbackEntity.java, backend/src/main/java/com/ablueforce/cortexce/repository/ObservationFeedbackRepository.java\nold_string=\"/**\"\nnew_string=\"*\"",
+      "toolOutput": "Read backend/src/main/java/com/ablueforce/cortexce/entity/ObservationFeedbackEntity.java: /** -> * Read backend/src/main/java/com/ablueforce/cortexce/repository/ObservationFeedbackRepository.java: * Find all feedback for a specific observation, ordered by creation time. -> * Find all feedback for a specific observation, most recent first. Edit applied. Commit message: fix(backend): drop a mapped column V17 never created, and rename a query that lies. Totals: 2 file(s), 16 insertion(s), 12 deletion(s).",
+      "expectObservation": true,
+      "expectedType": "refactor",
+      "titleKeywords": [
+        "remove",
+        "observationfeedbackentity"
+      ],
+      "titleVerb": "remove",
+      "titleSubject": [
+        "ObservationFeedbackEntity"
+      ],
+      "titleIdentifiers": [
+        "ObservationFeedbackEntity"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "remove",
+      "titleActions": [
+        "remove",
+        "modify"
+      ],
+      "notes": "generated from cf667b4d8b755ed72cfe5f66e230434859a570ab (fix(backend): drop a mapped column V17 never created, and rename a query that lies)"
+    },
+    {
+      "id": "real-a0e77ca4ee",
+      "category": "docs-update",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "2026-09-30T18:21:12Z",
+      "toolInput": "file_path=docs/TESTING.md\nread_files=docs/TESTING.md, docs/TESTING-zh-CN.md, docs/drafts/patrol-state.json, docs/drafts/patrol-rotation.md, docs/drafts/doc-review-task.md\nold_string=\"| Script | Description | Lines |\"\nnew_string=\"| Script | Description |\"",
+      "toolOutput": "Read docs/TESTING.md: | Script | Description | Lines | -> | Script | Description | Read docs/TESTING-zh-CN.md: | 脚本 | 说明 | 行数 | -> | 脚本 | 说明 | Read docs/drafts/patrol-state.json: \"lastDirection\": \"js-ts-sdk\", -> \"lastDirection\": \"demo\", Read docs/drafts/patrol-rotation.md: **Last completed**: JS/TS SDK (2026-10-01 02:11, eighth cycle) -> **Last completed**: Demo (2026-10-01 02:19, eighth cycle) Read docs/drafts/doc-review-task.md: - **最近完成**: 架构文档（2026-10-01 八轮，llm.provider 配置声明核验一致） -> - **最近完成**: 用户指南（2026-10-01 九轮，TESTING.md 移除漂移行数列、修复重复表头，中英同步） Edit applied. Commit message: docs: drop drift-prone script line counts from TESTING guides; record rounds. Totals: 5 file(s), 54 insertion(s), 55 deletion(s).",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "remove",
+        "testing.md"
+      ],
+      "titleVerb": "remove",
+      "titleSubject": [
+        "TESTING.md"
+      ],
+      "titleIdentifiers": [
+        "TESTING.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "remove",
+      "titleActions": [
+        "remove",
+        "document",
+        "modify"
+      ],
+      "notes": "generated from a0e77ca4ee622fd1f62138e2a45dd9825b99b3ff (docs: drop drift-prone script line counts from TESTING guides; record rounds)"
+    },
+    {
+      "id": "real-d958416fdc",
+      "category": "docs-update",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "2026-09-29T20:33:37Z",
+      "toolInput": "file_path=docs/drafts/patrol-state.json\nread_files=docs/drafts/patrol-state.json, docs/drafts/patrol-rotation.md, docs/drafts/doc-review-task.md, backend/README.md, docs/ARCHITECTURE-zh-CN.md, docs/ARCHITECTURE.md\nold_string=\"\"lastDirection\": \"demo\",\"\nnew_string=\"\"lastDirection\": \"backend\",\"",
+      "toolOutput": "Read docs/drafts/patrol-state.json: \"lastDirection\": \"demo\", -> \"lastDirection\": \"backend\", Read docs/drafts/patrol-rotation.md: **Last completed**: Demo (2026-09-30 04:23) -> **Last completed**: Backend (2026-09-30 04:32) Read docs/drafts/doc-review-task.md: - **最近完成**: 设计文档（2026-09-30） -> - **最近完成**: 架构文档（2026-09-30） Read backend/README.md: | GET | `/api/mode` | Get active mode | -> (no added line) Read docs/ARCHITECTURE-zh-CN.md: | Viewer | `/api/observations`, `/api/summaries`, `/api/prompts`, `/api/projects`, `/api/stats?project=...`, `/api/search`, `/api/search/by-file`, `/api/observa -> | Viewer | `/api/observations`, `/api/summaries`, `/api/prompts`, `/api/projects`, `/api/stats?project=...`, `/api/search`, `/api/search/by-file`, `/api/observa Read docs/ARCHITECTURE.md: | Viewer | `/api/observations`, `/api/summaries`, `/api/prompts`, `/api/projects`, `/api/stats?project=...`, `/api/search`, `/api/search/by-file`, `/api/observa -> | Viewer | `/api/observations`, `/api/summaries`, `/api/prompts`, `/api/projects`, `/api/stats?project=...`, `/api/search`, `/api/search/by-file`, `/api/observa Edit applied. Commit message: docs: align architecture and patrol state. Totals: 6 file(s), 11 insertion(s), 12 deletion(s).",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "remove",
+        "patrol-state.json"
+      ],
+      "titleVerb": "remove",
+      "titleSubject": [
+        "patrol-state.json"
+      ],
+      "titleIdentifiers": [
+        "patrol-state.json"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "remove",
+      "titleActions": [
+        "remove",
+        "document",
+        "modify"
+      ],
+      "notes": "generated from d958416fdca890cd8c4353ed283bfbcc95d2574f (docs: align architecture and patrol state)"
+    },
+    {
+      "id": "real-9b424d0d02",
+      "category": "docs-update",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "2026-05-06T10:36:53Z",
+      "toolInput": "file_path=docs/API-zh-CN.md\nread_files=docs/API-zh-CN.md, docs/API.md\nold_string=\"\"CLAUDE_MEM_WORKER_PORT\": \"37777\",\"\nnew_string=\"| 2026-05-06 | 0.1.0-beta+42 | GET /api/settings：修正 6 个示例值以匹配 AppSettings.toMap() 实际默认值（PROVIDER openai→claude、MODEL gpt-4o→claude-sonnet-4-5、MAX_OBSERVATIONS 1\"",
+      "toolOutput": "Read docs/API-zh-CN.md: \"CLAUDE_MEM_WORKER_PORT\": \"37777\", -> | 2026-05-06 | 0.1.0-beta+42 | GET /api/settings：修正 6 个示例值以匹配 AppSettings.toMap() 实际默认值（PROVIDER openai→claude、MODEL gpt-4o→claude-sonnet-4-5、MAX_OBSERVATIONS 1 Read docs/API.md: \"CLAUDE_MEM_WORKER_PORT\": \"37777\", -> | 2026-05-06 | 0.1.0-beta+42 | GET /api/settings: corrected 6 example values to match actual AppSettings.toMap() defaults (PROVIDER openai→claude, MODEL gpt-4o→ Edit applied. Commit message: docs(API): remove 3 spuriously documented fields from GET /api/settings response. Totals: 2 file(s), 2 insertion(s), 8 deletion(s).",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "remove",
+        "api-zh-cn.md"
+      ],
+      "titleVerb": "remove",
+      "titleSubject": [
+        "API-zh-CN.md"
+      ],
+      "titleIdentifiers": [
+        "API-zh-CN.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "remove",
+      "titleActions": [
+        "remove",
+        "document"
+      ],
+      "notes": "generated from 9b424d0d02bf12f97c6f9ffffc664027aa29a509 (docs(API): remove 3 spuriously documented fields from GET /api/settings response)"
+    },
+    {
+      "id": "real-85480a720e",
+      "category": "docs-update",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "2026-05-04T14:58:20Z",
+      "toolInput": "file_path=docs/TESTING-zh-CN.md\nread_files=docs/TESTING-zh-CN.md, docs/TESTING.md\nold_string=\"| `DB_HOST` | 127.0.0.1 | 数据库主机 |\"\nnew_string=\"| `DB_NAME` | claude_mem | 数据库名称 |\"",
+      "toolOutput": "Read docs/TESTING-zh-CN.md: | `DB_HOST` | 127.0.0.1 | 数据库主机 | -> | `DB_NAME` | claude_mem | 数据库名称 | Read docs/TESTING.md: | `DB_HOST` | 127.0.0.1 | Database host | -> | `DB_NAME` | claude_mem | Database name | Edit applied. Commit message: docs: fix TESTING env vars table — remove fictitious DB_HOST/SPRING_AI_MCP_SERVER_PROTOCOL, fix DB_USER→DB_USERNAME/DB_PASS→DB_PASSWORD/DB_NAME default. Totals: 2 file(s), 8 insertion(s), 10 deletion(s).",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "remove",
+        "testing-zh-cn.md"
+      ],
+      "titleVerb": "remove",
+      "titleSubject": [
+        "TESTING-zh-CN.md"
+      ],
+      "titleIdentifiers": [
+        "TESTING-zh-CN.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "remove",
+      "titleActions": [
+        "remove",
+        "document"
+      ],
+      "notes": "generated from 85480a720eef5aada061de367c7beb5cadf489e1 (docs: fix TESTING env vars table — remove fictitious DB_HOST/SPRING_AI_MCP_SERVER_PROTOCOL, fix DB_USER→DB_USERNAME/DB_PASS→DB_PASSWORD/DB_NAME default)"
+    },
+    {
+      "id": "real-c67e7a5ad3",
+      "category": "bug-fix",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "2026-05-04T02:42:56Z",
+      "toolInput": "file_path=python-sdk/cortex-mem-python/cortex_mem/dto.py\nread_files=python-sdk/cortex-mem-python/cortex_mem/dto.py, .gitignore\nold_string=\"else:\"\nnew_string=\"\"",
+      "toolOutput": "Read python-sdk/cortex-mem-python/cortex_mem/dto.py: else: -> (no added line) Read .gitignore: (new file) -> memory/.dreams Edit applied. Commit message: fix(python-sdk): Observation.to_dict() omits access_count when zero (matches docstring and Go SDK omitempty). Totals: 2 file(s), 1 insertion(s), 2 deletion(s).",
+      "expectObservation": true,
+      "expectedType": "bugfix",
+      "titleKeywords": [
+        "remove",
+        "dto.py"
+      ],
+      "titleVerb": "remove",
+      "titleSubject": [
+        "dto.py"
+      ],
+      "titleIdentifiers": [
+        "dto.py"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "remove",
+      "titleActions": [
+        "remove",
+        "modify"
+      ],
+      "notes": "generated from c67e7a5ad3b6ead58d6ff54b0a73cb11aa078977 (fix(python-sdk): Observation.to_dict() omits access_count when zero (matches docstring and Go SDK omitempty))"
+    },
+    {
+      "id": "real-bdf72f2509",
+      "category": "bug-fix",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "2026-05-03T14:51:40Z",
+      "toolInput": "file_path=cortex-mem-spring-integration/cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/CortexMemClientImpl.java\nread_files=cortex-mem-spring-integration/cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/CortexMemClientImpl.java\nold_string=\"/** SDK version for User-Agent header. Update when releasing new SDK versions. */\"\nnew_string=\"\"",
+      "toolOutput": "Read cortex-mem-spring-integration/cortex-mem-client/src/main/java/com/ablueforce/cortexce/client/CortexMemClientImpl.java: /** SDK version for User-Agent header. Update when releasing new SDK versions. */ -> (no added line) Edit applied. Commit message: fix(java-sdk): remove duplicate Javadoc on SDK_VERSION field. Totals: 1 file(s), 0 insertion(s), 1 deletion(s).",
+      "expectObservation": true,
+      "expectedType": "bugfix",
+      "titleKeywords": [
+        "remove",
+        "cortexmemclientimpl"
+      ],
+      "titleVerb": "remove",
+      "titleSubject": [
+        "CortexMemClientImpl"
+      ],
+      "titleIdentifiers": [
+        "CortexMemClientImpl"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "remove",
+      "titleActions": [
+        "remove"
+      ],
+      "notes": "generated from bdf72f25096dfb5a55993c7f37738c2de269f63d (fix(java-sdk): remove duplicate Javadoc on SDK_VERSION field)"
+    },
+    {
+      "id": "real-8ac2a32980",
+      "category": "bug-fix",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "2026-05-03T04:56:34Z",
+      "toolInput": "file_path=backend/Dockerfile\nread_files=backend/Dockerfile, docs/DEPLOYMENT-zh-CN.md, docs/DEPLOYMENT.md\nold_string=\"# Default port (can be overridden by SERVER_PORT env var)\"\nnew_string=\"# Default port (37777 — can be overridden by SERVER_PORT env var)\"",
+      "toolOutput": "Read backend/Dockerfile: # Default port (can be overridden by SERVER_PORT env var) -> # Default port (37777 — can be overridden by SERVER_PORT env var) Read docs/DEPLOYMENT-zh-CN.md: # 带构建参数 -> (no added line) Read docs/DEPLOYMENT.md: # Build with arguments -> (no added line) Edit applied. Commit message: fix(ops): align Dockerfile SERVER_PORT default with project standard (8080→37777). Totals: 3 file(s), 3 insertion(s), 15 deletion(s).",
+      "expectObservation": true,
+      "expectedType": "bugfix",
+      "titleKeywords": [
+        "remove",
+        "dockerfile"
+      ],
+      "titleVerb": "remove",
+      "titleSubject": [
+        "Dockerfile"
+      ],
+      "titleIdentifiers": [
+        "Dockerfile"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "remove",
+      "titleActions": [
+        "remove",
+        "document",
+        "modify"
+      ],
+      "notes": "generated from 8ac2a329806f095962c67a625af9ddd53de3db62 (fix(ops): align Dockerfile SERVER_PORT default with project standard (8080→37777))"
+    },
+    {
+      "id": "real-2025b33a95",
+      "category": "diagnose",
+      "keySample": false,
+      "toolName": "Read",
+      "cwd": "/repo",
+      "occurredAt": "2026-11-02T19:33:33Z",
+      "toolInput": "file_path=docs/drafts/extraction-quality-improvement-plan.md\nread_files=docs/drafts/extraction-quality-improvement-plan.md",
+      "toolOutput": "Read docs/drafts/extraction-quality-improvement-plan.md: (new file) -> ### 7.9 Audit gap closure (2026-11-03) No change applied; investigation only.",
+      "expectObservation": false,
+      "expectedType": "change",
+      "titleKeywords": [
+        "record",
+        "extraction-quality-improvement-plan.md"
+      ],
+      "titleVerb": "record",
+      "titleSubject": [
+        "extraction-quality-improvement-plan.md"
+      ],
+      "titleIdentifiers": [
+        "extraction-quality-improvement-plan.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "diagnose",
+      "titleActions": [
+        "diagnose"
+      ],
+      "notes": "generated from 2025b33a95bfab0e691547267fb6e9a36286a5a1 (Record the audit gap closure and the alternatives that were rejected)"
+    },
+    {
+      "id": "real-e8c8b314d6",
+      "category": "diagnose",
+      "keySample": false,
+      "toolName": "Read",
+      "cwd": "/repo",
+      "occurredAt": "2026-10-19T15:53:29Z",
+      "toolInput": "file_path=docs/drafts/backend-review-findings.md\nread_files=docs/drafts/backend-review-findings.md, docs/archive/2026-10-19_backend-review-evidence-58.md, docs/drafts/cortex-mem-integration-capture-analysis.md, docs/drafts/patrol-state.json, docs/archive/README.md, docs/drafts/patrol-rotation.md",
+      "toolOutput": "Read docs/drafts/backend-review-findings.md: # Backend Review Findings -> - **第 360 轮补充：受影响的不止 README，零覆盖设计稿同样未记载**: Read docs/archive/2026-10-19_backend-review-evidence-58.md: (new file) -> # Backend Review Evidence 58 — 第 360 轮已结案条目的整条正文（第 360 轮迁出） Read docs/drafts/cortex-mem-integration-capture-analysis.md: (new file) -> > **已实现后的更正（2026-10-19）**：本节描述的提案已由 §6 记录为**已实现**（2026-03-18）， Read docs/drafts/patrol-state.json: \"lastDirection\": \"backend\", -> \"lastDirection\": \"java-sdk\", Read docs/archive/README.md: (new file) -> | `2026-10-19_backend-review-evidence-58.md` | `docs/drafts/backend-review-findings.md` | 2026-10-19 | 第 360 轮：写入 P2-112 前字节余量只剩 3173 字节，先迁出 **4 条**——`P2-103`、` Read docs/drafts/patrol-rotation.md: (new file) -> | 2026-10-19 23:55 | Java SDK | ✅ New cycle, round 360: **the repository had moved twelve days forward, so the first job was rebuilding what the current state a No change applied; investigation only.",
+      "expectObservation": false,
+      "expectedType": "change",
+      "titleKeywords": [
+        "record",
+        "backend-review-findings.md"
+      ],
+      "titleVerb": "record",
+      "titleSubject": [
+        "backend-review-findings.md"
+      ],
+      "titleIdentifiers": [
+        "backend-review-findings.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "diagnose",
+      "titleActions": [
+        "diagnose"
+      ],
+      "notes": "generated from e8c8b314d67ebe12ef401ffea5c3b90b34933981 (patrol: round 360 - a blank base-url aborts the whole Spring application)"
+    },
+    {
+      "id": "real-c42d7a9c5d",
+      "category": "diagnose",
+      "keySample": false,
+      "toolName": "Read",
+      "cwd": "/repo",
+      "occurredAt": "2026-10-07T13:35:40Z",
+      "toolInput": "file_path=docs/archive/2026-10-07_health-check-history-36.md\nread_files=docs/archive/2026-10-07_health-check-history-36.md, docs/drafts/patrol-state.json, docs/drafts/patrol-rotation.md, docs/archive/README.md",
+      "toolOutput": "Read docs/archive/2026-10-07_health-check-history-36.md: (new file) -> # 健康检查历史 36 — 第 344、345 轮（第 358 轮迁出） Read docs/drafts/patrol-state.json: \"lastDirection\": \"js-ts-sdk\", -> \"lastDirection\": \"demo\", Read docs/drafts/patrol-rotation.md: **Last completed**: JS/TS SDK (2026-10-07 22:30, round 357) — both axes clean, and the code axis reproduced all three of a docstring's live measurements rather  -> **Last completed**: Demo (2026-10-08 00:00, round 358) — both axes clean, and the code axis's real work was finding the other three demos at all. ChatController Read docs/archive/README.md: (new file) -> | `2026-10-07_health-check-history-36.md` | `docs/drafts/health-check-task.md` | 2026-10-07 | 第 358 轮：写入第 358 轮报告后工作文件达 **1553 行 / 96656 字节**（行数越线、字节未越），一次迁出 ** No change applied; investigation only.",
+      "expectObservation": false,
+      "expectedType": "change",
+      "titleKeywords": [
+        "record",
+        "2026-10-07_health-check-history-36.md"
+      ],
+      "titleVerb": "record",
+      "titleSubject": [
+        "2026-10-07_health-check-history-36.md"
+      ],
+      "titleIdentifiers": [
+        "2026-10-07_health-check-history-36.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "diagnose",
+      "titleActions": [
+        "diagnose"
+      ],
+      "notes": "generated from c42d7a9c5d70573669a7144ddd78fb1ac0dfc0bb (patrol: round 358 - finding the other three demos at all)"
+    },
+    {
+      "id": "real-b5ae725e2a",
+      "category": "diagnose",
+      "keySample": false,
+      "toolName": "Read",
+      "cwd": "/repo",
+      "occurredAt": "2026-10-07T13:25:36Z",
+      "toolInput": "file_path=docs/drafts/patrol-state.json\nread_files=docs/drafts/patrol-state.json, docs/drafts/patrol-rotation.md",
+      "toolOutput": "Read docs/drafts/patrol-state.json: \"lastDirection\": \"python-sdk\", -> \"lastDirection\": \"js-ts-sdk\", Read docs/drafts/patrol-rotation.md: **Last completed**: Python SDK (2026-10-07 22:00, round 356) — both axes clean, and the code axis verified a cross-SDK behavioural difference all the way down t -> **Last completed**: JS/TS SDK (2026-10-07 22:30, round 357) — both axes clean, and the code axis reproduced all three of a docstring's live measurements rather  No change applied; investigation only.",
+      "expectObservation": false,
+      "expectedType": "change",
+      "titleKeywords": [
+        "record",
+        "patrol-state.json"
+      ],
+      "titleVerb": "record",
+      "titleSubject": [
+        "patrol-state.json"
+      ],
+      "titleIdentifiers": [
+        "patrol-state.json"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "diagnose",
+      "titleActions": [
+        "diagnose"
+      ],
+      "notes": "generated from b5ae725e2a08da4784918dc5f3abf9eba709b286 (patrol: round 357 - three live measurements reproduced instead of trusted)"
+    },
+    {
+      "id": "real-9261b542ca",
+      "category": "diagnose",
+      "keySample": false,
+      "toolName": "Read",
+      "cwd": "/repo",
+      "occurredAt": "2026-10-07T13:16:55Z",
+      "toolInput": "file_path=docs/drafts/patrol-state.json\nread_files=docs/drafts/patrol-state.json, docs/drafts/patrol-rotation.md",
+      "toolOutput": "Read docs/drafts/patrol-state.json: \"lastDirection\": \"go-sdk\", -> \"lastDirection\": \"python-sdk\", Read docs/drafts/patrol-rotation.md: **Last completed**: Go SDK (2026-10-07 21:30, round 355) — both axes clean, and the round's lesson was a probe that measured one ninth of the subject. Code: go- -> **Last completed**: Python SDK (2026-10-07 22:00, round 356) — both axes clean, and the code axis verified a cross-SDK behavioural difference all the way down t No change applied; investigation only.",
+      "expectObservation": false,
+      "expectedType": "change",
+      "titleKeywords": [
+        "record",
+        "patrol-state.json"
+      ],
+      "titleVerb": "record",
+      "titleSubject": [
+        "patrol-state.json"
+      ],
+      "titleIdentifiers": [
+        "patrol-state.json"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "diagnose",
+      "titleActions": [
+        "diagnose"
+      ],
+      "notes": "generated from 9261b542ca4eb42b42bf0411b03c5595110aba9f (patrol: round 356 - a cross-SDK difference verified down to a database row)"
+    },
+    {
+      "id": "real-7c557c8d79",
+      "category": "diagnose",
+      "keySample": false,
+      "toolName": "Read",
+      "cwd": "/repo",
+      "occurredAt": "2026-10-07T13:06:20Z",
+      "toolInput": "file_path=docs/archive/2026-10-07_health-check-history-35.md\nread_files=docs/archive/2026-10-07_health-check-history-35.md, docs/drafts/patrol-state.json, docs/drafts/patrol-rotation.md, docs/archive/README.md",
+      "toolOutput": "Read docs/archive/2026-10-07_health-check-history-35.md: (new file) -> # 健康检查历史 35 — 第 342、343 轮（第 355 轮迁出） Read docs/drafts/patrol-state.json: \"lastDirection\": \"java-sdk\", -> \"lastDirection\": \"go-sdk\", Read docs/drafts/patrol-rotation.md: **Last completed**: Java SDK (2026-10-07 21:05, round 354) — both axes clean, and the round's real lesson was that one check was nearly reported as a finding fi -> **Last completed**: Go SDK (2026-10-07 21:30, round 355) — both axes clean, and the round's lesson was a probe that measured one ninth of the subject. Code: go- Read docs/archive/README.md: (new file) -> | `2026-10-07_health-check-history-35.md` | `docs/drafts/health-check-task.md` | 2026-10-07 | 第 355 轮：写入第 355 轮报告后工作文件达 **1508 行 / 95235 字节**（行数越线、字节未越），一次迁出 ** No change applied; investigation only.",
+      "expectObservation": false,
+      "expectedType": "change",
+      "titleKeywords": [
+        "record",
+        "2026-10-07_health-check-history-35.md"
+      ],
+      "titleVerb": "record",
+      "titleSubject": [
+        "2026-10-07_health-check-history-35.md"
+      ],
+      "titleIdentifiers": [
+        "2026-10-07_health-check-history-35.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "diagnose",
+      "titleActions": [
+        "diagnose"
+      ],
+      "notes": "generated from 7c557c8d79f2319b108db0b0f6185ce0e24fe4fa (patrol: round 355 - a probe that measured one ninth of the subject)"
+    },
+    {
+      "id": "real-1dbccd058e",
+      "category": "diagnose",
+      "keySample": false,
+      "toolName": "Read",
+      "cwd": "/repo",
+      "occurredAt": "2026-10-07T12:46:48Z",
+      "toolInput": "file_path=docs/drafts/patrol-state.json\nread_files=docs/drafts/patrol-state.json, docs/drafts/patrol-rotation.md",
+      "toolOutput": "Read docs/drafts/patrol-state.json: \"lastDirection\": \"backend\", -> \"lastDirection\": \"java-sdk\", Read docs/drafts/patrol-rotation.md: **Last completed**: Backend (2026-10-07 20:30, round 353) — the code axis found a comment that named an exception the real execution order can never reach. Time -> **Last completed**: Java SDK (2026-10-07 21:05, round 354) — both axes clean, and the round's real lesson was that one check was nearly reported as a finding fi No change applied; investigation only.",
+      "expectObservation": false,
+      "expectedType": "change",
+      "titleKeywords": [
+        "record",
+        "patrol-state.json"
+      ],
+      "titleVerb": "record",
+      "titleSubject": [
+        "patrol-state.json"
+      ],
+      "titleIdentifiers": [
+        "patrol-state.json"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "diagnose",
+      "titleActions": [
+        "diagnose"
+      ],
+      "notes": "generated from 1dbccd058e056bdb5e9f7ea0acdf8274df658a33 (patrol: round 354 - a check nearly filed as a finding five times over)"
+    },
+    {
+      "id": "real-1f9b5d09e7",
+      "category": "diagnose",
+      "keySample": false,
+      "toolName": "Read",
+      "cwd": "/repo",
+      "occurredAt": "2026-10-07T10:42:53Z",
+      "toolInput": "file_path=docs/archive/2026-10-07_health-check-history-32.md\nread_files=docs/archive/2026-10-07_health-check-history-32.md, docs/drafts/patrol-state.json, docs/drafts/patrol-rotation.md, docs/archive/README.md",
+      "toolOutput": "Read docs/archive/2026-10-07_health-check-history-32.md: (new file) -> # 健康检查历史 27 — 第 337 轮（第 351 轮迁出） Read docs/drafts/patrol-state.json: \"lastDirection\": \"python-sdk\", -> \"lastDirection\": \"js-ts-sdk\", Read docs/drafts/patrol-rotation.md: **Last completed**: Python SDK (2026-10-07 16:10, round 350) — clean on both axes, and the documentation axis contained the round's real lesson. The Python SDK  -> **Last completed**: JS/TS SDK (2026-10-07 16:45, round 351) — the code axis reused the previous round's probe against a different subject, which turned a claim  Read docs/archive/README.md: (new file) -> | `2026-10-07_health-check-history-32.md` | `docs/drafts/health-check-task.md` | 2026-10-07 | 第 351 轮：写入第 351 轮报告后工作文件达 **1555 行 / 97990 字节**（行数越线、字节未越），迁出 **1  No change applied; investigation only.",
+      "expectObservation": false,
+      "expectedType": "change",
+      "titleKeywords": [
+        "record",
+        "2026-10-07_health-check-history-32.md"
+      ],
+      "titleVerb": "record",
+      "titleSubject": [
+        "2026-10-07_health-check-history-32.md"
+      ],
+      "titleIdentifiers": [
+        "2026-10-07_health-check-history-32.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "diagnose",
+      "titleActions": [
+        "diagnose"
+      ],
+      "notes": "generated from 1f9b5d09e77e6223c86182c6eb1bd6c544e82ef5 (patrol: round 351 - a parity claim turned into a statistical one)"
+    },
+    {
+      "id": "real-ed737be6bb",
+      "category": "diagnose",
+      "keySample": false,
+      "toolName": "Read",
+      "cwd": "/repo",
+      "occurredAt": "2026-10-07T10:23:31Z",
+      "toolInput": "file_path=docs/drafts/patrol-state.json\nread_files=docs/drafts/patrol-state.json, docs/drafts/patrol-rotation.md",
+      "toolOutput": "Read docs/drafts/patrol-state.json: \"lastDirection\": \"go-sdk\", -> \"lastDirection\": \"python-sdk\", Read docs/drafts/patrol-rotation.md: **Last completed**: Go SDK (2026-10-07 15:35, round 349) — the code axis verified two load-bearing guarantees by measurement rather than by reading, and the sec -> **Last completed**: Python SDK (2026-10-07 16:10, round 350) — clean on both axes, and the documentation axis contained the round's real lesson. The Python SDK  No change applied; investigation only.",
+      "expectObservation": false,
+      "expectedType": "change",
+      "titleKeywords": [
+        "record",
+        "patrol-state.json"
+      ],
+      "titleVerb": "record",
+      "titleSubject": [
+        "patrol-state.json"
+      ],
+      "titleIdentifiers": [
+        "patrol-state.json"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "diagnose",
+      "titleActions": [
+        "diagnose"
+      ],
+      "notes": "generated from ed737be6bb432156e91572d69fab19dc5da510e9 (patrol: round 350 - clean on both axes, one false finding narrowly avoided)"
+    },
+    {
+      "id": "real-b2d48b12a1",
+      "category": "diagnose",
+      "keySample": false,
+      "toolName": "Read",
+      "cwd": "/repo",
+      "occurredAt": "2026-10-07T10:06:15Z",
+      "toolInput": "file_path=docs/archive/2026-10-07_health-check-history-31.md\nread_files=docs/archive/2026-10-07_health-check-history-31.md, docs/drafts/patrol-state.json, docs/drafts/patrol-rotation.md, docs/archive/README.md",
+      "toolOutput": "Read docs/archive/2026-10-07_health-check-history-31.md: (new file) -> # 健康检查历史 27 — 第 336 轮（第 349 轮迁出） Read docs/drafts/patrol-state.json: \"lastDirection\": \"java-sdk\", -> \"lastDirection\": \"go-sdk\", Read docs/drafts/patrol-rotation.md: **Last completed**: Java SDK (2026-10-07 15:05, round 348) — clean on both axes, and the close calls were the interesting part. The Java SDK has not moved since -> **Last completed**: Go SDK (2026-10-07 15:35, round 349) — the code axis verified two load-bearing guarantees by measurement rather than by reading, and the sec Read docs/archive/README.md: (new file) -> | `2026-10-07_health-check-history-31.md` | `docs/drafts/health-check-task.md` | 2026-10-07 | 第 349 轮：写入第 349 轮报告后工作文件达 **1501 行 / 95826 字节**（行数越线、字节未越），迁出 **1  No change applied; investigation only.",
+      "expectObservation": false,
+      "expectedType": "change",
+      "titleKeywords": [
+        "record",
+        "2026-10-07_health-check-history-31.md"
+      ],
+      "titleVerb": "record",
+      "titleSubject": [
+        "2026-10-07_health-check-history-31.md"
+      ],
+      "titleIdentifiers": [
+        "2026-10-07_health-check-history-31.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "diagnose",
+      "titleActions": [
+        "diagnose"
+      ],
+      "notes": "generated from b2d48b12a18d0c2bd650a7ec8cedaeb9aeea3c8a (patrol: round 349 - two guarantees measured, and a wrong reading avoided)"
+    },
+    {
+      "id": "real-bc3512ae8d",
+      "category": "docs-update",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "2026-11-02T22:56:09Z",
+      "toolInput": "file_path=docs/drafts/extraction-quality-improvement-plan.md\nread_files=docs/drafts/extraction-quality-improvement-plan.md\nold_string=\"\"\nnew_string=\"## 7.12 Round 6 — category few-shots and the measured title ceiling\"",
+      "toolOutput": "Read docs/drafts/extraction-quality-improvement-plan.md: (new file) -> ## 7.12 Round 6 — category few-shots and the measured title ceiling Edit applied. Commit message: Record round six: few-shots moved A6 to 72/61 and the ceiling is label ambiguity. Totals: 1 file(s), 81 insertion(s), 0 deletion(s).",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "document",
+        "extraction-quality-improvement-plan.md"
+      ],
+      "titleVerb": "document",
+      "titleSubject": [
+        "extraction-quality-improvement-plan.md"
+      ],
+      "titleIdentifiers": [
+        "extraction-quality-improvement-plan.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "document",
+      "titleActions": [
+        "document",
+        "modify"
+      ],
+      "notes": "generated from bc3512ae8d8021b0fba89d8eb2fe27eb34d65c25 (Record round six: few-shots moved A6 to 72/61 and the ceiling is label ambiguity)"
+    },
+    {
+      "id": "real-e02e436bdd",
+      "category": "docs-update",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "2026-11-02T22:55:59Z",
+      "toolInput": "file_path=backend/src/main/resources/prompts/continuation.txt\nread_files=backend/src/main/resources/prompts/continuation.txt, backend/src/main/resources/prompts/init.txt\nold_string=\"- Good: `Fixed UserCache.computeIfAbsent null placeholder race`\"\nnew_string=\"- Category examples (copy this shape):\"",
+      "toolOutput": "Read backend/src/main/resources/prompts/continuation.txt: - Good: `Fixed UserCache.computeIfAbsent null placeholder race` -> - Category examples (copy this shape): Read backend/src/main/resources/prompts/init.txt: - Good: `Fixed UserCache.computeIfAbsent null placeholder race` -> - Category examples (copy this shape): Edit applied. Commit message: Show ten category-shaped title examples instead of restating the contract. Totals: 2 file(s), 22 insertion(s), 18 deletion(s).",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "document",
+        "continuation.txt"
+      ],
+      "titleVerb": "document",
+      "titleSubject": [
+        "continuation.txt"
+      ],
+      "titleIdentifiers": [
+        "continuation.txt"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "document",
+      "titleActions": [
+        "document",
+        "modify"
+      ],
+      "notes": "generated from e02e436bddaee1eb2db93befdfb5348870d0a350 (Show ten category-shaped title examples instead of restating the contract)"
+    },
+    {
+      "id": "real-d44a83721d",
+      "category": "docs-update",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "2026-11-02T22:29:22Z",
+      "toolInput": "file_path=docs/drafts/extraction-quality-improvement-plan.md\nread_files=docs/drafts/extraction-quality-improvement-plan.md\nold_string=\"\"\nnew_string=\"## 7.11 Round 5 — metric correctness and the remaining title ceiling\"",
+      "toolOutput": "Read docs/drafts/extraction-quality-improvement-plan.md: (new file) -> ## 7.11 Round 5 — metric correctness and the remaining title ceiling Edit applied. Commit message: Record round five decisions and the remaining A6 ceiling. Totals: 1 file(s), 99 insertion(s), 0 deletion(s).",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "document",
+        "extraction-quality-improvement-plan.md"
+      ],
+      "titleVerb": "document",
+      "titleSubject": [
+        "extraction-quality-improvement-plan.md"
+      ],
+      "titleIdentifiers": [
+        "extraction-quality-improvement-plan.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "document",
+      "titleActions": [
+        "document",
+        "modify"
+      ],
+      "notes": "generated from d44a83721da81c1affd97f72d664596a07f950c1 (Record round five decisions and the remaining A6 ceiling)"
+    },
+    {
+      "id": "real-0fd4ffcc31",
+      "category": "test-add",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "2026-11-02T22:29:14Z",
+      "toolInput": "file_path=backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java\nread_files=backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetReplayTest.java\nold_string=\"Map.entry(\"docs\", \"doc\"), Map.entry(\"documentation\", \"doc\"));\"\nnew_string=\"Map.entry(\"docs\", \"doc\"), Map.entry(\"documentation\", \"doc\"),\"",
+      "toolOutput": "Read backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java: Map.entry(\"docs\", \"doc\"), Map.entry(\"documentation\", \"doc\")); -> Map.entry(\"docs\", \"doc\"), Map.entry(\"documentation\", \"doc\"), Read backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java: gate(sb, \"A3\", \"must-record samples skipped\", \"= 0\", String.valueOf(agg.skipFn), agg.skipFn == 0); -> // skipFp = a record-worthy sample was skipped (the failure A3 guards); skipFn = a Read backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetReplayTest.java: assertThat(a.skipFn).as(name + \" must-record samples skipped\") -> assertThat(a.skipFp).as(name + \" must-record samples skipped\") Edit applied. Commit message: Fix the skip gate counters and fold plurals in keyword scoring. Totals: 3 file(s), 39 insertion(s), 9 deletion(s).",
+      "expectObservation": true,
+      "expectedType": "feature",
+      "titleKeywords": [
+        "change",
+        "goldensetscorer"
+      ],
+      "titleVerb": "change",
+      "titleSubject": [
+        "GoldenSetScorer"
+      ],
+      "titleIdentifiers": [
+        "GoldenSetScorer"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "modify",
+      "titleActions": [
+        "modify"
+      ],
+      "notes": "generated from 0fd4ffcc314ab586a22c81a8a091af8e83e1ef7e (Fix the skip gate counters and fold plurals in keyword scoring)"
+    },
+    {
+      "id": "real-eee7785ec8",
+      "category": "feature",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "2026-11-02T15:48:37Z",
+      "toolInput": "file_path=docs/archive/2026-11-02_model-output-quality-eval-minimax.md\nread_files=docs/archive/2026-11-02_model-output-quality-eval-minimax.md, backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java, scripts/eval-model-quality.sh, docs/TESTING-zh-CN.md, docs/TESTING.md\nold_string=\"\"\nnew_string=\"# Model output quality evaluation\"",
+      "toolOutput": "Read docs/archive/2026-11-02_model-output-quality-eval-minimax.md: (new file) -> # Model output quality evaluation Read backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java: String apiKey = requireEnv(\"OPENAI_API_KEY\"); -> import org.springframework.ai.anthropic.AnthropicChatModel; Read scripts/eval-model-quality.sh: echo \"backend/.env is required (OPENAI_API_KEY, OPENAI_BASE_URL, OPENAI_MODEL).\" >&2 -> #   EVAL_PROVIDER=anthropic ./scripts/eval-model-quality.sh Read docs/TESTING-zh-CN.md: | 2026-11-02 | **Golden 样例集输出质量评估与 MiniMax 最终复验。** 新增仅手动执行、在 CI 下拒绝运行的评估工具（`scripts/eval-model-quality.sh` + `GoldenSetEvaluator`，`EVAL_MAX_CALLS` 默认上限 20），对 ** -> | 2026-11-02 | **Golden 样例集输出质量评估与 MiniMax 最终复验。** 新增仅手动执行、在 CI 下拒绝运行的评估工具（`scripts/eval-model-quality.sh` + `GoldenSetEvaluator`，`EVAL_MAX_CALLS` 默认上限 20），对 ** Read docs/TESTING.md: | 2026-11-02 | **Golden-set output quality evaluation and final MiniMax re-check.** Added a manual-only, CI-refusing evaluation harness (`scripts/eval-model-qua -> | 2026-11-02 | **Golden-set output quality evaluation and final MiniMax re-check.** Added a manual-only, CI-refusing evaluation harness (`scripts/eval-model-qua Edit applied. Commit message: test: support Anthropic provider in quality evaluation. Totals: 5 file(s), 183 insertion(s), 15 deletion(s).",
+      "expectObservation": true,
+      "expectedType": "feature",
+      "titleKeywords": [
+        "document",
+        "2026-11-02_model-output-quality-eval-minimax.md"
+      ],
+      "titleVerb": "document",
+      "titleSubject": [
+        "2026-11-02_model-output-quality-eval-minimax.md"
+      ],
+      "titleIdentifiers": [
+        "2026-11-02_model-output-quality-eval-minimax.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "document",
+      "titleActions": [
+        "document",
+        "create",
+        "modify"
+      ],
+      "notes": "generated from eee7785ec8d4e2c9d88b7df9fff39f64e0b32fe0 (test: support Anthropic provider in quality evaluation)"
     },
     {
       "id": "real-9a0e90bed5",
@@ -848,9 +1593,9 @@
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/main/java/com/ablueforce/cortexce/repository/ObservationRepository.java\nold_string=\"WHERE (:project IS NULL OR o.projectPath = :project)\"\nnew_string=\"WHERE (:project IS NULL OR o.memoryScopeId IN (\"",
-      "toolOutput": "Edit applied. Commit message: refactor(scope): route observation reads through memory scope predicates. Totals: 4 file(s), 145 insertion(s), 38 deletion(s). Changed paths: backend/src/main/java/com/ablueforce/cortexce/repository/ObservationRepository.java, backend/src/main/java/com/ablueforce/cortexce/entity/MemoryScopeEntity.java, backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java. Other touched: backend/src/main/java/com/ablueforce/cortexce/entity/MemoryScopeEntity.java, backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java. Verification: not recorded in this commit.",
+      "occurredAt": "2026-10-22T18:21:29Z",
+      "toolInput": "file_path=backend/src/main/java/com/ablueforce/cortexce/repository/ObservationRepository.java\nread_files=backend/src/main/java/com/ablueforce/cortexce/repository/ObservationRepository.java, backend/src/main/java/com/ablueforce/cortexce/entity/MemoryScopeEntity.java, backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java, backend/src/test/java/com/ablueforce/cortexce/event/PendingMessageEventListenerTest.java\nold_string=\"WHERE (:project IS NULL OR o.projectPath = :project)\"\nnew_string=\"WHERE (:project IS NULL OR o.memoryScopeId IN (\"",
+      "toolOutput": "Read backend/src/main/java/com/ablueforce/cortexce/repository/ObservationRepository.java: WHERE (:project IS NULL OR o.projectPath = :project) -> WHERE (:project IS NULL OR o.memoryScopeId IN ( Read backend/src/main/java/com/ablueforce/cortexce/entity/MemoryScopeEntity.java: (new file) -> package com.ablueforce.cortexce.entity; Read backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java: // Check for duplicate within 30-second window -> private final MemoryScopeService memoryScopeService; Read backend/src/test/java/com/ablueforce/cortexce/event/PendingMessageEventListenerTest.java: null, null, null, null, null, null, null, null, null, null -> null, null, null, null, null, null, null, null, null, null, null Edit applied. Commit message: refactor(scope): route observation reads through memory scope predicates. Totals: 4 file(s), 145 insertion(s), 38 deletion(s).",
       "expectObservation": true,
       "expectedType": "bugfix",
       "titleKeywords": [
@@ -869,6 +1614,11 @@
         "problem-solution"
       ],
       "titleAction": "secure",
+      "titleActions": [
+        "secure",
+        "create",
+        "modify"
+      ],
       "notes": "generated from 9a0e90bed5a093bfd676d2ddebdfac641ff1c646 (refactor(scope): route observation reads through memory scope predicates)"
     },
     {
@@ -877,9 +1627,9 @@
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql\nold_string=\"CREATE TABLE IF NOT EXISTS mem_memory_scopes (\"\nnew_string=\"-- V20: Conversation / Memory Scope identity — one-shot migration.\"",
-      "toolOutput": "Edit applied. Commit message: db: make V20 a single atomic migration with fail-closed conflicts. Totals: 4 file(s), 848 insertion(s), 296 deletion(s). Changed paths: backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql, scripts/db/rehearse-conversation-scope.sh, scripts/db/conversation-scope-conflict-fixture.sql. Other touched: scripts/db/rehearse-conversation-scope.sh, scripts/db/conversation-scope-conflict-fixture.sql. Verification: not recorded in this commit.",
+      "occurredAt": "2026-10-22T17:52:31Z",
+      "toolInput": "file_path=backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql\nread_files=backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql, scripts/db/rehearse-conversation-scope.sh, scripts/db/conversation-scope-conflict-fixture.sql, scripts/db/conversation-scope-fixture.sql\nold_string=\"CREATE TABLE IF NOT EXISTS mem_memory_scopes (\"\nnew_string=\"-- V20: Conversation / Memory Scope identity — one-shot migration.\"",
+      "toolOutput": "Read backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql: CREATE TABLE IF NOT EXISTS mem_memory_scopes ( -> -- V20: Conversation / Memory Scope identity — one-shot migration. Read scripts/db/rehearse-conversation-scope.sh: (new file) -> #!/usr/bin/env bash Read scripts/db/conversation-scope-conflict-fixture.sql: (new file) -> -- conversation-scope-conflict-fixture.sql Read scripts/db/conversation-scope-fixture.sql: DELETE FROM mem_migration_audit; -> -- 7. Extraction bucket: one clean bucket. (Empty or mixed buckets belong in the Edit applied. Commit message: db: make V20 a single atomic migration with fail-closed conflicts. Totals: 4 file(s), 848 insertion(s), 296 deletion(s).",
       "expectObservation": true,
       "expectedType": "bugfix",
       "titleKeywords": [
@@ -898,6 +1648,11 @@
         "problem-solution"
       ],
       "titleAction": "secure",
+      "titleActions": [
+        "secure",
+        "create",
+        "modify"
+      ],
       "notes": "generated from 63b5502fb99ed70f201be208a1f00f1d3d4342fc (db: make V20 a single atomic migration with fail-closed conflicts)"
     },
     {
@@ -906,9 +1661,9 @@
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/main/java/com/ablueforce/cortexce/migration/ConversationScopeBackfillRunner.java\nold_string=\"\"\nnew_string=\"package com.ablueforce.cortexce.migration;\"",
-      "toolOutput": "Edit applied. Commit message: feat(migration): add fail-closed classifier and checkpointed backfill runner. Totals: 4 file(s), 1510 insertion(s), 0 deletion(s). Changed paths: backend/src/main/java/com/ablueforce/cortexce/migration/ConversationScopeBackfillRunner.java, backend/src/test/java/com/ablueforce/cortexce/migration/TechnicalBucketClassifierTest.java, backend/src/main/java/com/ablueforce/cortexce/migration/TechnicalBucketClassifier.java. Other touched: backend/src/test/java/com/ablueforce/cortexce/migration/TechnicalBucketClassifierTest.java, backend/src/main/java/com/ablueforce/cortexce/migration/TechnicalBucketClassifier.java. Verification: not recorded in this commit.",
+      "occurredAt": "2026-10-22T17:25:16Z",
+      "toolInput": "file_path=backend/src/main/java/com/ablueforce/cortexce/migration/ConversationScopeBackfillRunner.java\nread_files=backend/src/main/java/com/ablueforce/cortexce/migration/ConversationScopeBackfillRunner.java, backend/src/test/java/com/ablueforce/cortexce/migration/TechnicalBucketClassifierTest.java, backend/src/main/java/com/ablueforce/cortexce/migration/TechnicalBucketClassifier.java, backend/src/main/java/com/ablueforce/cortexce/migration/BackfillCliMain.java\nold_string=\"\"\nnew_string=\"package com.ablueforce.cortexce.migration;\"",
+      "toolOutput": "Read backend/src/main/java/com/ablueforce/cortexce/migration/ConversationScopeBackfillRunner.java: (new file) -> package com.ablueforce.cortexce.migration; Read backend/src/test/java/com/ablueforce/cortexce/migration/TechnicalBucketClassifierTest.java: (new file) -> package com.ablueforce.cortexce.migration; Read backend/src/main/java/com/ablueforce/cortexce/migration/TechnicalBucketClassifier.java: (new file) -> package com.ablueforce.cortexce.migration; Read backend/src/main/java/com/ablueforce/cortexce/migration/BackfillCliMain.java: (new file) -> package com.ablueforce.cortexce.migration; Edit applied. Commit message: feat(migration): add fail-closed classifier and checkpointed backfill runner. Totals: 4 file(s), 1510 insertion(s), 0 deletion(s).",
       "expectObservation": true,
       "expectedType": "bugfix",
       "titleKeywords": [
@@ -927,6 +1682,10 @@
         "problem-solution"
       ],
       "titleAction": "secure",
+      "titleActions": [
+        "secure",
+        "create"
+      ],
       "notes": "generated from d33efbd8ae1dccbd3b53902414c08b7d55711bea (feat(migration): add fail-closed classifier and checkpointed backfill runner)"
     },
     {
@@ -935,9 +1694,9 @@
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=backend/src/main/java/com/ablueforce/cortexce/service/SummaryJobService.java\nold_string=\"\"\nnew_string=\"package com.ablueforce.cortexce.service;\"",
-      "toolOutput": "Edit applied. Commit message: feat(summary): add durable, resumable SessionEnd summary job. Totals: 1 file(s), 326 insertion(s), 0 deletion(s). Changed paths: backend/src/main/java/com/ablueforce/cortexce/service/SummaryJobService.java. Verification: not recorded in this commit.",
+      "occurredAt": "2026-10-22T17:25:05Z",
+      "toolInput": "file_path=backend/src/main/java/com/ablueforce/cortexce/service/SummaryJobService.java\nread_files=backend/src/main/java/com/ablueforce/cortexce/service/SummaryJobService.java\nold_string=\"\"\nnew_string=\"package com.ablueforce.cortexce.service;\"",
+      "toolOutput": "Read backend/src/main/java/com/ablueforce/cortexce/service/SummaryJobService.java: (new file) -> package com.ablueforce.cortexce.service; Edit applied. Commit message: feat(summary): add durable, resumable SessionEnd summary job. Totals: 1 file(s), 326 insertion(s), 0 deletion(s).",
       "expectObservation": true,
       "expectedType": "bugfix",
       "titleKeywords": [
@@ -956,6 +1715,10 @@
         "problem-solution"
       ],
       "titleAction": "secure",
+      "titleActions": [
+        "secure",
+        "create"
+      ],
       "notes": "generated from cd6b972cfdec3224cf91247b2d0fd6d8e8920a90 (feat(summary): add durable, resumable SessionEnd summary job)"
     },
     {
@@ -964,9 +1727,9 @@
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=scripts/db/conversation-scope-preflight.sql\nold_string=\"\"\nnew_string=\"-- conversation-scope-preflight.sql\"",
-      "toolOutput": "Edit applied. Commit message: db: add V20 additive expansion and read-only preflight for scope refactor. Totals: 3 file(s), 986 insertion(s), 0 deletion(s). Changed paths: scripts/db/conversation-scope-preflight.sql, backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql, scripts/db/conversation-scope-fixture.sql. Other touched: backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql, scripts/db/conversation-scope-fixture.sql. Verification: not recorded in this commit.",
+      "occurredAt": "2026-10-22T17:24:28Z",
+      "toolInput": "file_path=scripts/db/conversation-scope-preflight.sql\nread_files=scripts/db/conversation-scope-preflight.sql, backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql, scripts/db/conversation-scope-fixture.sql\nold_string=\"\"\nnew_string=\"-- conversation-scope-preflight.sql\"",
+      "toolOutput": "Read scripts/db/conversation-scope-preflight.sql: (new file) -> -- conversation-scope-preflight.sql Read backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql: (new file) -> -- V20: Conversation / Memory Scope identity — additive expansion only. Read scripts/db/conversation-scope-fixture.sql: (new file) -> -- conversation-scope-fixture.sql Edit applied. Commit message: db: add V20 additive expansion and read-only preflight for scope refactor. Totals: 3 file(s), 986 insertion(s), 0 deletion(s).",
       "expectObservation": true,
       "expectedType": "bugfix",
       "titleKeywords": [
@@ -985,6 +1748,10 @@
         "problem-solution"
       ],
       "titleAction": "secure",
+      "titleActions": [
+        "secure",
+        "create"
+      ],
       "notes": "generated from 46e467bff6e7bcc217625271c7552cbdb862cce7 (db: add V20 additive expansion and read-only preflight for scope refactor)"
     },
     {
@@ -993,9 +1760,9 @@
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=docs/drafts/conversation-memory-scope-refactor-plan.md\nold_string=\"\"\nnew_string=\"# Conversation 与 Memory Scope 身份边界重构实施蓝图\"",
-      "toolOutput": "Edit applied. Commit message: docs: add conversation and memory scope refactor plan. Totals: 1 file(s), 917 insertion(s), 0 deletion(s). Changed paths: docs/drafts/conversation-memory-scope-refactor-plan.md. Verification: not recorded in this commit.",
+      "occurredAt": "2026-10-22T15:17:36Z",
+      "toolInput": "file_path=docs/drafts/conversation-memory-scope-refactor-plan.md\nread_files=docs/drafts/conversation-memory-scope-refactor-plan.md\nold_string=\"\"\nnew_string=\"# Conversation 与 Memory Scope 身份边界重构实施蓝图\"",
+      "toolOutput": "Read docs/drafts/conversation-memory-scope-refactor-plan.md: (new file) -> # Conversation 与 Memory Scope 身份边界重构实施蓝图 Edit applied. Commit message: docs: add conversation and memory scope refactor plan. Totals: 1 file(s), 917 insertion(s), 0 deletion(s).",
       "expectObservation": true,
       "expectedType": "change",
       "titleKeywords": [
@@ -1014,36 +1781,209 @@
         "what-changed"
       ],
       "titleAction": "document",
+      "titleActions": [
+        "document",
+        "create"
+      ],
       "notes": "generated from 325c817bbf580c0c1451212aa0ca472d7afa7089 (docs: add conversation and memory scope refactor plan)"
     },
     {
-      "id": "real-e8c8b314d6",
+      "id": "real-7149578a88",
       "category": "docs-update",
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
-      "occurredAt": "",
-      "toolInput": "file_path=docs/drafts/backend-review-findings.md\nold_string=\"# Backend Review Findings\"\nnew_string=\"- **第 360 轮补充：受影响的不止 README，零覆盖设计稿同样未记载**:\"",
-      "toolOutput": "Edit applied. Commit message: patrol: round 360 - a blank base-url aborts the whole Spring application. Totals: 6 file(s), 126 insertion(s), 34 deletion(s). Changed paths: docs/drafts/backend-review-findings.md, docs/archive/2026-10-19_backend-review-evidence-58.md, docs/drafts/cortex-mem-integration-capture-analysis.md. Other touched: docs/archive/2026-10-19_backend-review-evidence-58.md, docs/drafts/cortex-mem-integration-capture-analysis.md. Verification: not recorded in this commit.",
+      "occurredAt": "2026-10-07T19:17:39Z",
+      "toolInput": "file_path=docs/drafts/backend-fix-progress.md\nread_files=docs/drafts/backend-fix-progress.md\nold_string=\"\"\nnew_string=\"## 2026-10-02 01:57 | 构建修复第二轮 — docker-e2e 构建上下文 + byte-buddy 方案更正\"",
+      "toolOutput": "Read docs/drafts/backend-fix-progress.md: (new file) -> ## 2026-10-02 01:57 | 构建修复第二轮 — docker-e2e 构建上下文 + byte-buddy 方案更正 Edit applied. Commit message: docs: record byte-buddy/docker-e2e fixes and advance baseline to 95de35b. Totals: 1 file(s), 10 insertion(s), 0 deletion(s).",
       "expectObservation": true,
       "expectedType": "change",
       "titleKeywords": [
         "document",
-        "backend-review-findings.md"
+        "backend-fix-progress.md"
       ],
       "titleVerb": "document",
       "titleSubject": [
-        "backend-review-findings.md"
+        "backend-fix-progress.md"
       ],
       "titleIdentifiers": [
-        "backend-review-findings.md"
+        "backend-fix-progress.md"
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
         "what-changed"
       ],
       "titleAction": "document",
-      "notes": "generated from e8c8b314d67ebe12ef401ffea5c3b90b34933981 (patrol: round 360 - a blank base-url aborts the whole Spring application)"
+      "titleActions": [
+        "document",
+        "modify"
+      ],
+      "notes": "generated from 7149578a88ccebd0603fe39417fa0fa54d3674a6 (docs: record byte-buddy/docker-e2e fixes and advance baseline to 95de35b)"
+    },
+    {
+      "id": "real-95de35b2ea",
+      "category": "bug-fix",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "2026-10-07T19:15:25Z",
+      "toolInput": "file_path=backend/pom.xml\nread_files=backend/pom.xml, scripts/docker-e2e-test.sh\nold_string=\"<!-- Pin test-classpath byte-buddy to 1.15.x for JDK 24 compatibility:\"\nnew_string=\"<!-- Pin byte-buddy to 1.15.x: Mockito 5.11 (via spring-boot-starter-test BOM)\"",
+      "toolOutput": "Read backend/pom.xml: <!-- Pin test-classpath byte-buddy to 1.15.x for JDK 24 compatibility: -> <!-- Pin byte-buddy to 1.15.x: Mockito 5.11 (via spring-boot-starter-test BOM) Read scripts/docker-e2e-test.sh: # Build context must be the parent directory (claude-mem root) to access WebUI source files -> # Build context must be the repository root: the Dockerfile COPYs Edit applied. Commit message: fix: byte-buddy 1.15.11 pin and docker-e2e build context. Totals: 2 file(s), 19 insertion(s), 21 deletion(s).",
+      "expectObservation": true,
+      "expectedType": "bugfix",
+      "titleKeywords": [
+        "change",
+        "pom.xml"
+      ],
+      "titleVerb": "change",
+      "titleSubject": [
+        "pom.xml"
+      ],
+      "titleIdentifiers": [
+        "pom.xml"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "modify",
+      "titleActions": [
+        "modify"
+      ],
+      "notes": "generated from 95de35b2eae7da0012ffd98cc9772d8a049fd78d (fix: byte-buddy 1.15.11 pin and docker-e2e build context)"
+    },
+    {
+      "id": "real-53851b4a23",
+      "category": "docs-update",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "2026-10-07T17:48:19Z",
+      "toolInput": "file_path=docs/archive/2026-10-08_health-check-history-11.md\nread_files=docs/archive/2026-10-08_health-check-history-11.md, docs/archive/README.md\nold_string=\"\"\nnew_string=\"# Health Check History Archive 11（第 312~359+ 轮，2026-10-06 ~ 2026-10-07）\"",
+      "toolOutput": "Read docs/archive/2026-10-08_health-check-history-11.md: (new file) -> # Health Check History Archive 11（第 312~359+ 轮，2026-10-06 ~ 2026-10-07） Read docs/archive/README.md: (new file) -> | `2026-10-08_health-check-history-11.md` | `docs/drafts/health-check-task.md` | 2026-10-08 | 第 312~359+ 轮巡检历史（2026-10-06 ~ 10-07），第三次压缩迁移（含并行进程轮次） | Edit applied. Commit message: docs: third health-check compaction — archive rounds 312-359+ to history-11. Totals: 2 file(s), 1207 insertion(s), 0 deletion(s).",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "document",
+        "2026-10-08_health-check-history-11.md"
+      ],
+      "titleVerb": "document",
+      "titleSubject": [
+        "2026-10-08_health-check-history-11.md"
+      ],
+      "titleIdentifiers": [
+        "2026-10-08_health-check-history-11.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "document",
+      "titleActions": [
+        "document",
+        "secure",
+        "create",
+        "modify"
+      ],
+      "notes": "generated from 53851b4a23099b9e09241bfeee033c3ed0a4c4d3 (docs: third health-check compaction — archive rounds 312-359+ to history-11)"
+    },
+    {
+      "id": "real-f4c6765fb9",
+      "category": "docs-update",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "2026-10-07T17:27:08Z",
+      "toolInput": "file_path=docs/drafts/performance-test-results.md\nread_files=docs/drafts/performance-test-results.md\nold_string=\"\"\nnew_string=\"# Performance Test Results\"",
+      "toolOutput": "Read docs/drafts/performance-test-results.md: (new file) -> # Performance Test Results Edit applied. Commit message: docs: record performance test baseline (scripts/performance-test.sh). Totals: 1 file(s), 34 insertion(s), 0 deletion(s).",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "document",
+        "performance-test-results.md"
+      ],
+      "titleVerb": "document",
+      "titleSubject": [
+        "performance-test-results.md"
+      ],
+      "titleIdentifiers": [
+        "performance-test-results.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "document",
+      "titleActions": [
+        "document",
+        "create"
+      ],
+      "notes": "generated from f4c6765fb9f17ba5b5330896111f91868dbd5cae (docs: record performance test baseline (scripts/performance-test.sh))"
+    },
+    {
+      "id": "real-67083a7bc1",
+      "category": "docs-update",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "2026-10-07T17:14:49Z",
+      "toolInput": "file_path=docs/drafts/backend-fix-progress.md\nread_files=docs/drafts/backend-fix-progress.md\nold_string=\"\"\nnew_string=\"## 2026-10-02 00:56 | 构建修复 — test 作用域 byte-buddy 1.15.11（JDK 24 兼容）\"",
+      "toolOutput": "Read docs/drafts/backend-fix-progress.md: (new file) -> ## 2026-10-02 00:56 | 构建修复 — test 作用域 byte-buddy 1.15.11（JDK 24 兼容） Edit applied. Commit message: docs: record byte-buddy JDK 24 build fix in fix-progress (at top per convention). Totals: 1 file(s), 12 insertion(s), 0 deletion(s).",
+      "expectObservation": true,
+      "expectedType": "change",
+      "titleKeywords": [
+        "document",
+        "backend-fix-progress.md"
+      ],
+      "titleVerb": "document",
+      "titleSubject": [
+        "backend-fix-progress.md"
+      ],
+      "titleIdentifiers": [
+        "backend-fix-progress.md"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "what-changed"
+      ],
+      "titleAction": "document",
+      "titleActions": [
+        "document",
+        "modify"
+      ],
+      "notes": "generated from 67083a7bc168ebad0388ca9b088aa639c435bb65 (docs: record byte-buddy JDK 24 build fix in fix-progress (at top per convention))"
+    },
+    {
+      "id": "real-399c4787c3",
+      "category": "bug-fix",
+      "keySample": false,
+      "toolName": "Edit",
+      "cwd": "/repo",
+      "occurredAt": "2026-10-07T17:12:09Z",
+      "toolInput": "file_path=backend/pom.xml\nread_files=backend/pom.xml\nold_string=\"\"\nnew_string=\"<!-- Pin test-classpath byte-buddy to 1.15.x for JDK 24 compatibility:\"",
+      "toolOutput": "Read backend/pom.xml: (new file) -> <!-- Pin test-classpath byte-buddy to 1.15.x for JDK 24 compatibility: Edit applied. Commit message: fix(build): pin test-classpath byte-buddy to 1.15.11 for JDK 24. Totals: 1 file(s), 18 insertion(s), 0 deletion(s).",
+      "expectObservation": true,
+      "expectedType": "bugfix",
+      "titleKeywords": [
+        "change",
+        "pom.xml"
+      ],
+      "titleVerb": "change",
+      "titleSubject": [
+        "pom.xml"
+      ],
+      "titleIdentifiers": [
+        "pom.xml"
+      ],
+      "factsKeywords": [],
+      "conceptsKeywords": [
+        "problem-solution"
+      ],
+      "titleAction": "modify",
+      "titleActions": [
+        "modify"
+      ],
+      "notes": "generated from 399c4787c316ebc35f30d53f15ed6e17ed1d4372 (fix(build): pin test-classpath byte-buddy to 1.15.11 for JDK 24)"
     }
   ]
 }

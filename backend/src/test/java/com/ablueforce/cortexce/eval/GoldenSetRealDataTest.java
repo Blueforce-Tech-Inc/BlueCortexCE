@@ -25,12 +25,12 @@ class GoldenSetRealDataTest {
             Set.of("create", "modify", "remove", "secure", "document", "diagnose");
 
     @Test
-    @DisplayName("the real-history set has at least 30 mechanically valid samples")
+    @DisplayName("the real-history set has at least 60 mechanically valid samples")
     void realSetIsWellFormed() throws Exception {
         GoldenSet real = load("/eval/golden-tool-use-real.json");
         GoldenSet handwritten = load("/eval/golden-tool-use.json");
 
-        assertThat(real.samples).as("real-history samples").hasSizeGreaterThanOrEqualTo(30);
+        assertThat(real.samples).as("real-history samples").hasSizeGreaterThanOrEqualTo(60);
 
         Set<String> ids = new HashSet<>();
         Set<String> handwrittenIds = new HashSet<>();
@@ -42,8 +42,10 @@ class GoldenSetRealDataTest {
             assertThat(handwrittenIds).as("id collides with the hand-written set: %s", sample.id)
                     .doesNotContain(sample.id);
             assertThat(ACTIONS).as("action class for %s", sample.id).contains(sample.titleAction);
-            assertThat(sample.expectObservation).as("observation expected for %s", sample.id)
-                    .isTrue();
+            assertThat(sample.expectObservation).as("observation expectation for %s", sample.id)
+                    .isEqualTo(!"diagnose".equals(sample.titleAction));
+            assertThat(sample.titleActions).as("action set for %s", sample.id)
+                    .isNotEmpty().allMatch(ACTIONS::contains).contains(sample.titleAction);
 
             List<String> traceVisible = GoldenSetScorer.traceVisibleSubjectTokens(sample);
             assertThat(traceVisible).as("subject tokens must be visible in the trace of %s",
@@ -58,17 +60,20 @@ class GoldenSetRealDataTest {
     }
 
     @Test
-    @DisplayName("the real-history set covers more than one action class")
-    void realSetCoversSeveralActions() throws Exception {
+    @DisplayName("the real-history set covers every action class with at least 10 samples")
+    void realSetCoversEveryAction() throws Exception {
         GoldenSet real = load("/eval/golden-tool-use-real.json");
-        Set<String> actions = new HashSet<>();
-        List<String> types = new ArrayList<>();
+        java.util.Map<String, Integer> counts = new java.util.HashMap<>();
         for (GoldenSet.Sample sample : real.samples) {
-            actions.add(sample.titleAction);
-            types.add(sample.expectedType);
+            for (String action : sample.titleActions.isEmpty()
+                    ? List.of(sample.titleAction) : sample.titleActions) {
+                counts.merge(action, 1, Integer::sum);
+            }
         }
-        assertThat(actions).as("generated actions").hasSizeGreaterThanOrEqualTo(2);
-        assertThat(types).as("generated types").doesNotContainNull();
+        assertThat(counts.keySet()).as("generated actions").containsExactlyInAnyOrderElementsOf(ACTIONS);
+        counts.forEach((action, count) -> assertThat(count)
+                .as("samples covering %s", action).isGreaterThanOrEqualTo(10));
+        assertThat(real.samples).allSatisfy(sample -> assertThat(sample.expectedType).isNotNull());
     }
 
     private static GoldenSet load(String resource) throws Exception {

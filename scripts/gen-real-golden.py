@@ -8,37 +8,63 @@ and is written down before the run; no sample is selected because of a model ans
 Sample construction
 -------------------
 For each qualifying commit we take the real diff and build the tool trace the agent
-would have produced: the path it touched, the first removed line, the first added line,
-and a result line that repeats the commit subject. The identifier is the changed
-artifact named in the trace's ``file_path`` (the file the agent edited); the expected
-action class is derived from the shape of the diff and the commit message, following
-the rules below.
+would have produced. The trace covers **every file the diff touched**: the edited
+file is named by ``file_path``, and all changed paths appear in ``read_files`` and
+in the result lines, so a title that names any changed artifact has that artifact
+visible in the trace. The identifier is the basename of the largest changed file
+(the artifact the agent edited); the expected action set is derived from the shape
+of the diff, following the rules below.
 
-Action rules (first match wins)
--------------------------------
-1. remove    every changed file only deleted lines.
-2. document  every changed file is documentation (``docs/``, ``*.md``, ``*.txt``,
-             ``*.adoc``).
-3. secure    the subject or body mentions a security term
+Action rules (per changed file, then unioned)
+---------------------------------------------
+1. remove    the file only deletes lines (added == 0, deleted > 0); a file that is
+             net-deleting (deleted > added) in a commit whose subject says remove,
+             delete, drop or strip counts as well.
+2. document  the path is documentation (``docs/``, ``*.md``, ``*.txt``, ``*.adoc``).
+3. secure    the commit text or that file's changed lines mention a security term
              (harden, security, auth, credential, secret, redact, sanitize, restrict,
              deny, cors, csrf, xss, injection, traversal, httponly).
-4. create    every changed file is newly added.
+4. create    the file did not exist in the parent commit.
 5. modify    everything else.
+
+The rules above are **facets, not a precedence chain**: each file contributes every
+facet it actually exhibits. A docs deletion is ``{document, remove}``; a modified
+config file is ``{modify}``; a new security migration is ``{create, secure}``; an
+edited doc is ``{document, modify}``. A sample's expected action class is the union
+across files (``titleActions``); a title hits if its leading verb maps to any member.
+This is what makes a commit that adds a file *and* edits a test *and* updates docs
+non-ambiguous. ``titleAction`` keeps the highest-priority member for older readers.
+
+Contradiction exclusions (commit message vs diff)
+-------------------------------------------------
+* add-family subject (add/adds/create/introduce/implement/support) with no newly
+  added file — the message says "add" while the diff only edits.
+* remove-family subject (remove/removes/delete/drop/strip) with no deletion.
+* document-family subject (document/documented/docs) that also touches non-doc files.
+
+Other exclusions (also mechanical, applied before any model sees the sample)
+----------------------------------------------------------------------------
+merge commits, binary or renamed files, commits touching more than six files,
+commits with an empty subject, and commits whose diff has no text lines.
+
+Diagnose samples
+----------------
+The repository's history contains no read-only commits, so diagnose traces are
+reconstructed from commits whose subject states an investigation (audit, patrol,
+verify, measure, inspect, probe). The trace is the set of files that commit names,
+read without editing; no change is claimed. These are marked
+``expectObservation: false`` — the same expectation the hand-written set uses for
+pure reads.
 
 Type mapping (first match wins)
 -------------------------------
-* documentation-only commit  -> change
-* security commit             -> bugfix
-* tests added, no production -> feature
-* refactor/cleanup/rename     -> refactor
-* fix/bug/regression/correct  -> bugfix
-* add/feat/introduce/implement -> feature
-* otherwise                   -> change
-
-Exclusions (also mechanical, applied before any model sees the sample)
-----------------------------------------------------------------------
-merge commits, commits with binary or renamed files, commits touching more than six
-files, commits with an empty subject, and commits whose diff has no text lines.
+* diagnose or documentation-only commit -> change
+* security commit                       -> bugfix
+* tests added, no production            -> feature
+* refactor/cleanup/rename               -> refactor
+* fix/bug/regression/correct            -> bugfix
+* add/feat/introduce/implement          -> feature
+* otherwise                             -> change
 """
 from __future__ import annotations
 
@@ -46,6 +72,7 @@ import argparse
 import json
 import re
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 SECURITY_TERMS = re.compile(
@@ -55,13 +82,18 @@ SECURITY_TERMS = re.compile(
 )
 DOC_EXTS = (".md", ".txt", ".adoc")
 CONVENTIONAL = re.compile(r"^[a-z]+(\([^)]*\))?!?\s*:\s*")
-STOPWORDS = {
-    "the", "a", "an", "and", "or", "for", "to", "of", "in", "on", "with", "from",
-    "make", "keep", "add", "adds", "fix", "fixes", "change", "changes", "update",
-    "updates", "refactor", "refactors", "record", "records", "archive", "archives",
-    "score", "scores", "gate", "gates", "show", "shows", "use", "uses", "move",
-    "moves", "replace", "replaces", "require", "requires", "exercise", "exercises",
-}
+INVESTIGATION = re.compile(
+    r"audit|patrol|investigat|inspect|verify|measure|probe|analysis|survey|examine",
+    re.IGNORECASE,
+)
+ADD_FAMILY = re.compile(r"\b(add|adds|create|creates|introduce|implements?|support)\b", re.I)
+REMOVE_FAMILY = re.compile(r"\b(remove|removes|delete|deletes|drop|drops|strip)\b", re.I)
+DOCUMENT_FAMILY = re.compile(r"\b(document|documents|documented|docs)\b", re.I)
+
+ACTION_PRIORITY = ("remove", "document", "secure", "create", "modify", "diagnose")
+QUOTA = {"create": 10, "modify": 12, "remove": 10,
+         "document": 12, "secure": 10, "diagnose": 10}
+MIN_TOTAL = 60
 
 
 def git(*args: str) -> str:
@@ -121,41 +153,85 @@ def identifier(path: str) -> str:
     return name
 
 
-def subject_words(subject: str) -> list[str]:
-    cleaned = CONVENTIONAL.sub("", subject)
-    return re.findall(r"[A-Za-z][A-Za-z0-9_./-]*", cleaned)
-
-
 def is_doc(path: str) -> bool:
     return path.startswith("docs/") or path.lower().endswith(DOC_EXTS)
 
 
-def action_for(commit: dict, files: list[dict]) -> str:
-    if all(f["added"] == 0 for f in files):
-        return "remove"
-    if all(is_doc(f["path"]) for f in files):
-        return "document"
-    text = commit["subject"] + "\n" + commit["body"]
-    if SECURITY_TERMS.search(text):
-        return "secure"
-    if all(was_added(commit["sha"], f["path"]) for f in files):
-        return "create"
-    return "modify"
+def is_test(path: str) -> bool:
+    return path.startswith("src/test/") or "/test/" in path
 
 
-def was_added(sha: str, path: str) -> bool:
-    result = subprocess.run(["git", "cat-file", "-e", f"{sha}^:{path}"],
-                            capture_output=True)
-    return result.returncode != 0
+def exists_at(sha: str, path: str) -> bool:
+    return subprocess.run(["git", "cat-file", "-e", f"{sha}:{path}"],
+                          capture_output=True).returncode == 0
 
 
-def type_for(commit: dict, files: list[dict], action: str) -> str:
+def existed_before(sha: str, path: str) -> bool:
+    return subprocess.run(["git", "cat-file", "-e", f"{sha}^:{path}"],
+                          capture_output=True).returncode == 0
+
+
+def commit_text(commit: dict) -> str:
+    return commit["subject"] + "\n" + commit["body"]
+
+
+def file_actions(commit: dict, file: dict) -> set[str]:
+    """Every action facet a single file exhibits, not just the first matching rule.
+
+    A documentation deletion is both ``document`` (artifact kind) and ``remove`` (operation);
+    a security edit is both ``secure`` and ``modify``; a new file is ``create`` and, when it
+    is a doc or a security artifact, also ``document``/``secure``. The expected class is the
+    union across files, so a title hits when it names any facet the diff actually has.
+    """
+    found: set[str] = set()
+    subject = CONVENTIONAL.sub("", commit["subject"])
+    is_new = not existed_before(commit["sha"], file["path"])
+    removed, added = first_lines(commit["sha"], file["path"])
+    if is_doc(file["path"]):
+        found.add("document")
+    if SECURITY_TERMS.search(commit_text(commit)) or SECURITY_TERMS.search(removed + "\n" + added):
+        found.add("secure")
+    if file["added"] == 0 and file["deleted"] > 0:
+        found.add("remove")
+    elif file["deleted"] > file["added"] and REMOVE_FAMILY.search(subject):
+        found.add("remove")
+    if is_new:
+        found.add("create")
+    elif "remove" not in found:
+        found.add("modify")
+    return found or {"modify"}
+
+
+def actions_for(commit: dict, files: list[dict]) -> list[str]:
+    found: set[str] = set()
+    for file in files:
+        found |= file_actions(commit, file)
+    return [action for action in ACTION_PRIORITY if action in found]
+
+
+def contradiction(commit: dict, files: list[dict], actions: list[str]) -> str | None:
+    """Only the leading verb is judged: "untrack X, add to gitignore" leads with untrack."""
+    subject = CONVENTIONAL.sub("", commit["subject"]).strip()
+    leading = subject.split()[0].lower() if subject else ""
+    added_any = any(not existed_before(commit["sha"], f["path"]) for f in files)
+    deleted_any = any(not exists_at(commit["sha"], f["path"]) for f in files)
+    doc_only = all(is_doc(f["path"]) for f in files)
+    if ADD_FAMILY.fullmatch(leading) and not added_any:
+        return "message leads with add but the diff only edits existing files"
+    if REMOVE_FAMILY.fullmatch(leading) and not deleted_any and "remove" not in actions:
+        return "message leads with remove but the diff deletes no file"
+    if DOCUMENT_FAMILY.fullmatch(leading) and not doc_only:
+        return "message leads with document but the diff touches non-document files"
+    return None
+
+
+def type_for(commit: dict, files: list[dict], actions: list[str]) -> str:
     text = commit["subject"].lower()
     production = [f for f in files if not is_doc(f["path"]) and not is_test(f["path"])]
     tests = [f for f in files if is_test(f["path"])]
-    if action == "document":
+    if "document" in actions and all(is_doc(f["path"]) for f in files):
         return "change"
-    if action == "secure":
+    if "secure" in actions:
         return "bugfix"
     if tests and not production:
         return "feature"
@@ -168,14 +244,10 @@ def type_for(commit: dict, files: list[dict], action: str) -> str:
     return "change"
 
 
-def is_test(path: str) -> bool:
-    return path.startswith("src/test/") or "/test/" in path
-
-
-def category_for(files: list[dict], action: str, expected_type: str) -> str:
-    if action == "document":
+def category_for(files: list[dict], actions: list[str], expected_type: str) -> str:
+    if "document" in actions and all(is_doc(f["path"]) for f in files):
         return "docs-update"
-    if action == "secure":
+    if "secure" in actions:
         return "security-fix"
     if expected_type == "refactor":
         return "refactor"
@@ -188,100 +260,155 @@ def category_for(files: list[dict], action: str, expected_type: str) -> str:
     return "feature"
 
 
-def concepts_for(action: str, expected_type: str) -> list[str]:
-    if action in ("secure", "remove") or expected_type == "bugfix":
+def concepts_for(actions: list[str], expected_type: str) -> list[str]:
+    if "secure" in actions or "remove" in actions or expected_type == "bugfix":
         return ["problem-solution"]
     return ["what-changed"]
 
 
-def build_sample(commit: dict, files: list[dict], index: int) -> dict | None:
-    action = action_for(commit, files)
-    added = sum(f["added"] for f in files)
-    deleted = sum(f["deleted"] for f in files)
+def trace_output(commit: dict, files: list[dict], mode: str) -> str:
+    lines = []
+    for file in sorted(files, key=lambda f: f["added"] + f["deleted"], reverse=True):
+        removed, added = first_lines(commit["sha"], file["path"])
+        lines.append(f"Read {file['path']}: {removed or '(new file)'} -> {added or '(no added line)'}")
+    totals = (f"{len(files)} file(s), "
+              f"{sum(f['added'] for f in files)} insertion(s), "
+              f"{sum(f['deleted'] for f in files)} deletion(s)")
+    if mode == "diagnose":
+        lines.append("No change applied; investigation only.")
+    else:
+        lines.append(f"Edit applied. Commit message: {commit['subject']}. Totals: {totals}.")
+    return " ".join(lines)
+
+
+def build_sample(commit: dict, files: list[dict], actions: list[str],
+                 mode: str) -> dict:
     ranked = sorted(files, key=lambda f: f["added"] + f["deleted"], reverse=True)
     primary = ranked[0]
-    if action == "create":
-        tool_name = "Write"
-    else:
-        tool_name = "Edit"
+    ident = identifier(primary["path"])
+    expected_type = "change" if mode == "diagnose" else type_for(commit, files, actions)
+    action_set = ["diagnose"] if mode == "diagnose" else actions
+    primary_action = action_set[0]
 
-    old_line, new_line = first_lines(commit["sha"], primary["path"])
-    identifiers = [identifier(primary["path"])]
-    subject = identifiers[0]
-
-    if tool_name == "Write":
-        tool_input = f"file_path={primary['path']}\ncontent=<{len(new_line)} chars shown>"
-    else:
+    if mode == "diagnose":
+        tool_name = "Read"
         tool_input = (f"file_path={primary['path']}\n"
+                      f"read_files={', '.join(f['path'] for f in ranked)}")
+    else:
+        tool_name = "Write" if action_set == ["create"] else "Edit"
+        old_line, new_line = first_lines(commit["sha"], primary["path"])
+        tool_input = (f"file_path={primary['path']}\n"
+                      f"read_files={', '.join(f['path'] for f in ranked)}\n"
                       f"old_string=\"{old_line}\"\nnew_string=\"{new_line}\"")
 
-    other = ", ".join(f["path"] for f in ranked[1:3])
-    tool_output = (f"Edit applied. Commit message: {commit['subject']}. "
-                   f"Totals: {len(files)} file(s), {added} insertion(s), {deleted} deletion(s). "
-                   f"Changed paths: {', '.join(f['path'] for f in ranked[:3])}"
-                   + (f". Other touched: {other}" if other else "")
-                   + ". Verification: not recorded in this commit.")
-
-    expected_type = type_for(commit, files, action)
     verb = {"create": "add", "modify": "change", "remove": "remove",
-            "secure": "harden", "document": "document"}[action]
-    keywords = [verb, subject.lower()] + [i.lower() for i in identifiers[1:]]
+            "secure": "harden", "document": "document", "diagnose": "record"}[primary_action]
     return {
         "id": f"real-{commit['sha'][:10]}",
-        "category": category_for(files, action, expected_type),
+        "category": "diagnose" if mode == "diagnose"
+        else category_for(files, action_set, expected_type),
         "keySample": False,
         "toolName": tool_name,
         "cwd": "/repo",
-        "occurredAt": subprocess.run(
-            ["date", "-u", "-d", f"@{commit['at']}", "+%Y-%m-%dT%H:%M:%SZ"],
-            capture_output=True, text=True).stdout.strip(),
+        "occurredAt": datetime.fromtimestamp(commit["at"], timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "toolInput": tool_input,
-        "toolOutput": tool_output,
-        "expectObservation": True,
+        "toolOutput": trace_output(commit, files, mode),
+        "expectObservation": mode != "diagnose",
         "expectedType": expected_type,
-        "titleKeywords": keywords,
+        "titleKeywords": [verb, ident.lower()],
         "titleVerb": verb,
-        "titleSubject": [subject],
-        "titleIdentifiers": identifiers,
+        "titleSubject": [ident],
+        "titleIdentifiers": [ident],
         "factsKeywords": [],
-        "conceptsKeywords": concepts_for(action, expected_type),
-        "titleAction": action,
+        "conceptsKeywords": concepts_for(action_set, expected_type),
+        "titleAction": primary_action,
+        "titleActions": action_set,
         "notes": f"generated from {commit['sha']} ({commit['subject']})",
     }
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--limit", type=int, default=120,
-                        help="commits to scan before filtering (default 120)")
-    parser.add_argument("--target", type=int, default=36,
-                        help="maximum samples to emit (default 36, the floor is 30)")
+    parser.add_argument("--limit", type=int, default=5000,
+                        help="commits to scan before filtering (default 5000)")
     parser.add_argument("--out", default="backend/src/test/resources/eval/golden-tool-use-real.json")
     args = parser.parse_args()
 
-    samples = []
-    for commit in commits(args.limit):
-        if not commit["subject"]:
+    exclusions: dict[str, int] = {}
+    samples: list[dict] = []
+    used: set[str] = set()
+    filled = {action: 0 for action in QUOTA}
+    history = commits(args.limit)
+
+    for commit in history:
+        if all(filled[a] >= QUOTA[a] for a in QUOTA if a != "diagnose"):
+            break
+        if not commit["subject"] or commit["sha"] in used:
             continue
         files = changed_files(commit["sha"])
-        if not files or len(files) > 6:
+        if not files or len(files) > 6 or not any(f["added"] + f["deleted"] > 0 for f in files):
             continue
-        if not any(f["added"] + f["deleted"] > 0 for f in files):
+        actions = actions_for(commit, files)
+        if not actions:
+            exclusions["no derivable action"] = exclusions.get("no derivable action", 0) + 1
             continue
-        sample = build_sample(commit, files, len(samples))
-        if sample is not None:
-            samples.append(sample)
-        if len(samples) >= args.target:
-            break
+        reason = contradiction(commit, files, actions)
+        if reason:
+            exclusions[reason] = exclusions.get(reason, 0) + 1
+            continue
+        if not any(filled[a] < QUOTA[a] for a in actions):
+            continue
+        samples.append(build_sample(commit, files, actions, "edit"))
+        used.add(commit["sha"])
+        for action in actions:
+            filled[action] += 1
 
-    if len(samples) < 30:
-        raise SystemExit(f"only {len(samples)} samples met the mechanical rules; need at least 30")
+    for commit in history:
+        if filled["diagnose"] >= QUOTA["diagnose"]:
+            break
+        if not commit["subject"] or commit["sha"] in used:
+            continue
+        if not INVESTIGATION.search(commit["subject"]):
+            continue
+        files = changed_files(commit["sha"])
+        if not files or len(files) > 6 or not any(f["added"] + f["deleted"] > 0 for f in files):
+            continue
+        samples.append(build_sample(commit, files, ["diagnose"], "diagnose"))
+        used.add(commit["sha"])
+        filled["diagnose"] += 1
+
+    if len(samples) < MIN_TOTAL:
+        for commit in history:
+            if len(samples) >= MIN_TOTAL:
+                break
+            if not commit["subject"] or commit["sha"] in used:
+                continue
+            files = changed_files(commit["sha"])
+            if not files or len(files) > 6 or not any(f["added"] + f["deleted"] > 0 for f in files):
+                continue
+            actions = actions_for(commit, files)
+            if not actions or contradiction(commit, files, actions):
+                continue
+            samples.append(build_sample(commit, files, actions, "edit"))
+            used.add(commit["sha"])
+            for action in actions:
+                filled[action] += 1
+
+    short = [f"{action}={filled[action]}/{QUOTA[action]}" for action in QUOTA
+             if filled[action] < QUOTA[action]]
+    if short:
+        raise SystemExit("history did not fill every quota: " + ", ".join(short))
+    if len(samples) < MIN_TOTAL:
+        raise SystemExit(f"only {len(samples)} samples, need at least {MIN_TOTAL}")
 
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps({"version": "real-git-2026-11-03", "samples": samples},
+    out.write_text(json.dumps({"version": "real-git-2026-11-03-r10", "samples": samples},
                               indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"wrote {len(samples)} real-history samples to {out}")
+    print("action coverage: " + ", ".join(f"{a}={filled[a]}" for a in QUOTA))
+    if exclusions:
+        print("excluded commits: " + "; ".join(f"{k} ({v})" for k, v in exclusions.items()))
     return 0
 
 
