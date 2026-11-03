@@ -14,7 +14,8 @@
 #      assert the recorded version equals the newest file in db/migration;
 #   5. run the full backend suite: L1 unit/integration, L2 HTTP regression,
 #      L3 acceptance and L4 end-to-end in one Maven run;
-#   6. run the zero-skip / min-tests / four-layer / baseline-ratchet gate;
+#   6. run the zero-skip / min-tests / four-layer / baseline-ratchet gate, then
+#      the evaluation-floor and recorded retrieval-quality replay gates;
 #   7. run both documentation consistency checks (checker self-test, then the
 #      published EN/ZH API reference against the live server);
 #   8. run the proxy E2E against that server and refuse a skipped run (this is
@@ -350,6 +351,11 @@ step "6b/8 Gate monotonicity (scripts/check-eval-gates.py)"
 GATE_FLOOR_OUTPUT="$(python3 scripts/check-eval-gates.py 2>&1)" \
   || fail "evaluation gate" "check-eval-gates.py rejected a lowered floor:" "$GATE_FLOOR_OUTPUT"
 printf '%s\n' "$GATE_FLOOR_OUTPUT"
+
+step "6c/8 Retrieval quality replay gate (scripts/check-retrieval-quality.py)"
+RETRIEVAL_OUTPUT="$(python3 scripts/check-retrieval-quality.py 2>&1)" \
+  || fail "retrieval quality gate" "check-retrieval-quality.py rejected the recorded ranking:" "$RETRIEVAL_OUTPUT"
+printf '%s\n' "$RETRIEVAL_OUTPUT"
 
 # --------------------------------------------------------------------------
 # 7. documentation consistency, twice
