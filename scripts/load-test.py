@@ -764,6 +764,332 @@ def queue_benchmark(port: int, events: int, workers: int) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Fault injection
+# ---------------------------------------------------------------------------
+
+def api_status(port: int, path: str) -> int:
+    try:
+        with urlopen(f"http://127.0.0.1:{port}{path}", timeout=30) as response:
+            response.read()
+            return response.status
+    except HTTPError as error:
+        return error.code
+    except OSError:
+        return 0
+
+
+def search_status(port: int) -> int:
+    return api_status(port, f"/api/search?{urlencode({'project': PROJECT})}&limit=20")
+
+
+def current_observation_state(session: str) -> str:
+    state = psql(
+        "SELECT coalesce(embedding_state, '<null>') || '|' || coalesce(embedding_error, '') "
+        f"FROM mem_observations WHERE content_session_id = '{session}' "
+        "ORDER BY created_at_epoch DESC LIMIT 1;"
+    )
+    # psql prints nothing when the row does not exist yet, which must not be read as
+    # "the write already finished".
+    return state or "<missing>"
+
+
+def fault_pool_exhaustion(port: int) -> dict:
+    """Hold an exclusive lock on mem_observations, then oversubscribe a 3-connection pool.
+
+    Every blocked statement keeps its Hikari connection, so six concurrent readers plus
+    twelve ingests turn a lock wait into real pool exhaustion. The assertion is not that
+    requests fail (they should), but that accepted events survive and the queue recovers.
+    """
+    sessions = [f"fault-pool-{index}" for index in range(4)]
+    before = observation_count()
+    lock = subprocess.Popen(
+        [
+            "docker", "exec", "-i", CONTAINER,
+            "psql", "-U", DB_USER, "-d", DATABASE,
+            "-c", "BEGIN; LOCK TABLE mem_observations IN ACCESS EXCLUSIVE MODE; "
+                  "SELECT pg_sleep(12); COMMIT;",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+    deadline = time.time() + 15
+    while time.time() < deadline:
+        granted = int(psql(
+            "SELECT count(*) FROM pg_locks WHERE relation = 'mem_observations'::regclass "
+            "AND mode = 'AccessExclusiveLock' AND granted;"
+        ))
+        if granted:
+            break
+        time.sleep(0.2)
+
+    ingest_statuses: list[int] = []
+    reads: list[int] = []
+
+    def ingest(index: int) -> None:
+        ingest_statuses.append(
+            post_tool_use(port, sessions[index % len(sessions)], 10_000 + index)[1])
+
+    def read(_index: int) -> None:
+        reads.append(search_status(port))
+
+    started = time.perf_counter()
+    with ThreadPoolExecutor(8) as pool:
+        futures = [pool.submit(ingest, index) for index in range(12)]
+        futures += [pool.submit(read, index) for index in range(6)]
+        for future in futures:
+            future.result()
+    window_seconds = time.perf_counter() - started
+    lock.wait(timeout=30)
+
+    accepted = sum(1 for status in ingest_statuses if status == 200)
+    time.sleep(2)
+    drained = wait_drained(timeout=180)
+    persisted = observation_count() - before
+    stuck = int(psql("SELECT count(*) FROM mem_pending_messages WHERE status = 'processing';"))
+    duplicates = int(psql(
+        "SELECT count(*) FROM ("
+        "  SELECT content_hash, count(*) AS c FROM mem_observations "
+        "  WHERE content_hash IS NOT NULL GROUP BY content_hash HAVING count(*) > 1"
+        ") dup;"
+    ))
+    return {
+        "fault_window_seconds": round(window_seconds, 2),
+        "ingest_posted": len(ingest_statuses),
+        "ingest_accepted": accepted,
+        "ingest_errors": [status for status in ingest_statuses if status != 200],
+        "read_errors": [status for status in reads if status != 200],
+        "drained": drained,
+        "persisted": persisted,
+        "lost": accepted - persisted,
+        "stuck_processing": stuck,
+        "duplicate_hashes": duplicates,
+        "search_after": search_status(port),
+    }
+
+
+def fault_embedding(port: int, model: StubModel) -> dict:
+    """Two embedding outages: a non-retryable rejection, and a provider-side timeout."""
+    healthy_session = "fault-embed-healthy"
+    model.embedding_fault = None
+    post_tool_use(port, healthy_session, 20_001)
+    baseline_deadline = time.time() + 30
+    baseline = "<missing>"
+    while time.time() < baseline_deadline:
+        baseline = current_observation_state(healthy_session)
+        if baseline.startswith("ready"):
+            break
+        time.sleep(1)
+
+    # 1. Non-retryable rejection: the write path must record the failure on the row.
+    reject_session = "fault-embed-reject"
+    model.embedding_fault = "reject"
+    post_tool_use(port, reject_session, 20_002)
+    deadline = time.time() + 30
+    reject_state = "<missing>"
+    while time.time() < deadline:
+        reject_state = current_observation_state(reject_session)
+        if reject_state.startswith("failed"):
+            break
+        time.sleep(1)
+
+    # 2. Provider-side timeout: the client keeps retrying, so the observation is not
+    #    written while the outage lasts. Clear it after 25 s and require the queued
+    #    job to finish exactly once, which is the recovery property under test.
+    timeout_session = "fault-embed-timeout"
+    model.embedding_fault = "timeout"
+    model.embedding_delay = 3
+    started = time.perf_counter()
+    post_tool_use(port, timeout_session, 20_003)
+    time.sleep(25)
+    rows_during_outage = int(psql(
+        f"SELECT count(*) FROM mem_observations WHERE content_session_id = '{timeout_session}';"))
+    model.embedding_fault = None
+    model.embedding_delay = 0.0
+    deadline = time.time() + 320
+    timeout_state = "<missing>"
+    while time.time() < deadline:
+        timeout_state = current_observation_state(timeout_session)
+        if timeout_state.startswith("ready"):
+            break
+        time.sleep(2)
+    recovery_seconds = time.perf_counter() - started
+
+    # The rejection path must be repaired by the backfill sweep now that the endpoint
+    # is healthy again.
+    repair_started = time.perf_counter()
+    deadline = time.time() + 60
+    repaired = "<missing>"
+    while time.time() < deadline:
+        repaired = current_observation_state(reject_session)
+        if repaired.startswith("ready"):
+            break
+        time.sleep(1)
+    repair_seconds = time.perf_counter() - repair_started
+
+    return {
+        "healthy_baseline": baseline,
+        "reject_fault_state": reject_state,
+        "reject_repaired_state": repaired,
+        "reject_repair_seconds": round(repair_seconds, 2),
+        "timeout_rows_during_outage": rows_during_outage,
+        "timeout_state_after_recovery": timeout_state,
+        "timeout_recovery_seconds": round(recovery_seconds, 2),
+        "timeout_rows_final": int(psql(
+            f"SELECT count(*) FROM mem_observations WHERE content_session_id = '{timeout_session}';")),
+    }
+
+
+def fault_kill_restart(port: int, args, model: StubModel, app: subprocess.Popen) -> tuple[dict, subprocess.Popen]:
+    """SIGKILL the service while observation jobs are processing, then restart it."""
+    sessions = [f"fault-kill-{index}" for index in range(3)]
+    before = observation_count()
+    statuses: list[int] = []
+
+    def post(index: int) -> None:
+        statuses.append(post_tool_use(port, sessions[index % len(sessions)], 30_000 + index)[1])
+
+    model.chat_delay = 2.0
+    with ThreadPoolExecutor(6) as pool:
+        list(pool.map(post, range(15)))
+
+    deadline = time.time() + 40
+    processing_at_kill = 0
+    while time.time() < deadline:
+        processing_at_kill = int(psql(
+            "SELECT count(*) FROM mem_pending_messages WHERE status = 'processing';"))
+        if processing_at_kill >= 3:
+            break
+        time.sleep(0.5)
+    app.kill()
+    app.wait(timeout=20)
+    model.chat_delay = 0.0
+
+    accepted = sum(1 for status in statuses if status == 200)
+    restarted = start_app(args.port, args.stub_port, fault=True)
+    wait_health(args.port, restarted)
+    # Startup recovery only picks rows older than the stale threshold, and the periodic
+    # sweep starts after a one-minute initial delay; give both a chance to run.
+    drained = wait_drained(timeout=200)
+    persisted = observation_count() - before
+    stuck = int(psql("SELECT count(*) FROM mem_pending_messages WHERE status = 'processing';"))
+    duplicates = int(psql(
+        "SELECT count(*) FROM ("
+        "  SELECT content_hash, count(*) AS c FROM mem_observations "
+        "  WHERE content_hash IS NOT NULL GROUP BY content_hash HAVING count(*) > 1"
+        ") dup;"
+    ))
+    recovered_log = ""
+    try:
+        with open(f"/tmp/load-test-app-{port}.log", "rb") as log_file:
+            for line in log_file:
+                text = line.decode("utf-8", "replace")
+                if "Recovered" in text and "stale" in text:
+                    # The jar logs with ANSI colours; keep the report plain text.
+                    recovered_log = re.sub(r"\x1b\[[0-9;]*m", "", text).strip()
+    except OSError:
+        pass
+    return {
+        "accepted": accepted,
+        "processing_at_kill": processing_at_kill,
+        "drained": drained,
+        "persisted": persisted,
+        "lost": accepted - persisted,
+        "stuck_processing": stuck,
+        "duplicate_hashes": duplicates,
+        "recovery_log": recovered_log,
+        "search_after": search_status(port),
+    }, restarted
+
+
+def fault_passed(pool: dict, embedding: dict, kill: dict) -> bool:
+    return (
+        pool["lost"] == 0 and pool["stuck_processing"] == 0 and pool["drained"]
+        and pool["search_after"] == 200
+        and embedding["healthy_baseline"].startswith("ready")
+        and embedding["reject_fault_state"].startswith("failed")
+        and embedding["reject_repaired_state"].startswith("ready")
+        and embedding["timeout_state_after_recovery"].startswith("ready")
+        and embedding["timeout_rows_final"] == 1
+        and kill["lost"] == 0 and kill["stuck_processing"] == 0 and kill["drained"]
+        and kill["duplicate_hashes"] == 0 and kill["search_after"] == 200
+    )
+
+
+def render_fault_report(args, pool: dict, embedding: dict, kill: dict) -> str:
+    verdict = "PASS" if fault_passed(pool, embedding, kill) else "FAIL"
+    lines = [
+        "# Fault injection: pool exhaustion, embedding outage, kill during processing",
+        "",
+        f"- Date: {time.strftime('%Y-%m-%d %H:%M:%S')}",
+        f"- Database: {DATABASE} on {CONTAINER}:{DB_PORT} (disposable, Flyway-migrated)",
+        f"- Service: packaged jar on http://127.0.0.1:{args.port}, Hikari pool 3, "
+        "connection timeout 2 s, stale threshold 1 min, recovery every 5 s",
+        "- Model: local OpenAI-compatible stub; chat delay 2 s during the kill, "
+        "embedding endpoint stalls 3 s then answers 504 (provider-side timeout)",
+        "",
+        "## 1. DB connection-pool exhaustion",
+        "",
+        "| metric | value |",
+        "|---|---:|",
+        f"| fault window seconds | {pool['fault_window_seconds']} |",
+        f"| ingest requests posted | {pool['ingest_posted']} |",
+        f"| ingest accepted | {pool['ingest_accepted']} |",
+        f"| ingest error codes | {pool['ingest_errors']} |",
+        f"| search error codes during the lock | {pool['read_errors']} |",
+        f"| queue drained after release | {pool['drained']} |",
+        f"| accepted events persisted | {pool['persisted']} |",
+        f"| accepted events lost | {pool['lost']} |",
+        f"| rows stuck in processing | {pool['stuck_processing']} |",
+        f"| duplicate content hashes | {pool['duplicate_hashes']} |",
+        f"| search status after recovery | {pool['search_after']} |",
+        "",
+        "## 2. Embedding endpoint outage",
+        "",
+        f"`{embedding['healthy_baseline']}` is the healthy baseline: the stub returns a "
+        "1024-wide vector and the row reaches `ready`.",
+        "",
+        "| metric | value |",
+        "|---|---:|",
+        f"| non-retryable rejection: row state | {embedding['reject_fault_state']} |",
+        f"| non-retryable rejection: backfill repair | {embedding['reject_repaired_state']} "
+        f"({embedding['reject_repair_seconds']} s) |",
+        f"| timeout: rows written while the endpoint was down | "
+        f"{embedding['timeout_rows_during_outage']} |",
+        f"| timeout: state after the endpoint recovered | "
+        f"{embedding['timeout_state_after_recovery']} |",
+        f"| timeout: outage start to persisted row (s) | "
+        f"{embedding['timeout_recovery_seconds']} |",
+        f"| timeout: rows written in total | {embedding['timeout_rows_final']} |",
+        "",
+        "A provider-side timeout is retried by the OpenAI client, so the observation is "
+        "not written until the retry budget is spent or the endpoint recovers; the event "
+        "stays in the queue and is written exactly once. A non-retryable rejection is "
+        "recorded as `failed` on the row and repaired by the embedding backfill sweep.",
+        "",
+        "## 3. SIGKILL during processing, then restart",
+        "",
+        "| metric | value |",
+        "|---|---:|",
+        f"| events accepted before the kill | {kill['accepted']} |",
+        f"| jobs processing at the kill | {kill['processing_at_kill']} |",
+        f"| queue drained after restart | {kill['drained']} |",
+        f"| accepted events persisted | {kill['persisted']} |",
+        f"| accepted events lost | {kill['lost']} |",
+        f"| rows stuck in processing | {kill['stuck_processing']} |",
+        f"| duplicate content hashes | {kill['duplicate_hashes']} |",
+        f"| search status after restart | {kill['search_after']} |",
+        f"| recovery log | {kill['recovery_log'] or 'none'} |",
+        "",
+        f"Verdict: {verdict}. The pass condition is persistence and recovery, not the "
+        "absence of errors: during an injected outage the API is allowed to return errors, "
+        "but no accepted event may be lost and no queue row may stay in processing.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
 # Report
 # ---------------------------------------------------------------------------
 
@@ -908,7 +1234,7 @@ def render_report(args, stages: list[dict], indexes: dict, queue: dict) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["soak", "concurrency"], default="soak")
+    parser.add_argument("--mode", choices=["soak", "concurrency", "fault"], default="soak")
     parser.add_argument("--sessions", type=int, default=20)
     parser.add_argument("--per-session", type=int, default=10)
     parser.add_argument("--rows", type=int, default=10000)
@@ -924,10 +1250,24 @@ def main() -> int:
     model = StubModel()
     stub = start_stub(model, args.stub_port)
     create_database()
-    app = start_app(args.port, args.stub_port)
+    app = start_app(args.port, args.stub_port, fault=args.mode == "fault")
     try:
         wait_health(args.port, app)
         seed_base()
+
+        if args.mode == "fault":
+            pool = fault_pool_exhaustion(args.port)
+            print(f"pool: {pool}", flush=True)
+            embedding = fault_embedding(args.port, model)
+            print(f"embedding: {embedding}", flush=True)
+            kill, app = fault_kill_restart(args.port, args, model, app)
+            print(f"kill: {kill}", flush=True)
+            report = render_fault_report(args, pool, embedding, kill)
+            path = Path(args.report or ROOT / "docs/archive/2026-11-03_fault-injection.md")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(report + "\n")
+            print(f"report written to {path}")
+            return 0 if fault_passed(pool, embedding, kill) else 1
 
         if args.mode == "concurrency":
             result = concurrency_benchmark(args.port, args.sessions, args.per_session, args.workers)
