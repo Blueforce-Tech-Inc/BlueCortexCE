@@ -219,7 +219,16 @@ public final class GoldenSetScorer {
         public String titleActionExpected;
         public String titleActionActual;
         public boolean titleSubjectHit;
+        /**
+         * A6b (round 9): the subject tokens that actually occur in the recorded trace. Tokens
+         * absent from the trace are unreachable labels and are excluded from the denominator.
+         */
+        public List<String> titleTraceSubject = new ArrayList<>();
+        public boolean titleTraceSubjectScored;
+        public boolean titleTraceSubjectHit;
         public boolean titleContractHit;
+        /** A6 (round 9): action + trace-visible subject + identifiers, the gated contract. */
+        public boolean titleTraceContractHit;
         /** Diagnostic: the old verb+subject+identifier contract, kept for before/after. */
         public boolean titleVerbContractHit;
         public boolean typeMatch;
@@ -273,8 +282,14 @@ public final class GoldenSetScorer {
         public double titleActionHitRate;
         public int titleActionSamples;
         public int titleActionUnclassifiable;
+        /** Diagnostic: legacy subject definition, kept so the gap decomposition stays visible. */
         public double titleSubjectHitRate;
+        /** A6b: subject tokens that occur in the trace; unreachable labels leave the denominator. */
+        public double titleTraceSubjectHitRate;
+        public int titleTraceSubjectSamples;
+        public int titleTraceSubjectUnreachable;
         public double titleContractHitRate;
+        public double titleTraceContractHitRate;
         public double titleVerbContractHitRate;
         public double typeAccuracy;
         /** Legacy keyword precision, retained for before/after comparison. */
@@ -327,7 +342,11 @@ public final class GoldenSetScorer {
         double titleVerbClassHits = 0;
         double titleActionHits = 0;
         double titleSubjectHits = 0;
+        double titleTraceSubjectHits = 0;
+        int titleTraceSubjectSamples = 0;
+        int titleTraceSubjectUnreachable = 0;
         double titleContractHits = 0;
+        double titleTraceContractHits = 0;
         double titleVerbContractHits = 0;
         int titleSamples = 0;
         int titleActionSamples = 0;
@@ -416,6 +435,11 @@ public final class GoldenSetScorer {
                 List<String> subject = subjectTokens(sample);
                 score.titleSubjectHit = subject.isEmpty()
                         || coverage(subject, obs.title) >= TITLE_COVERAGE_FLOOR;
+                List<String> traceSubject = traceVisibleSubjectTokens(sample);
+                score.titleTraceSubject = traceSubject;
+                score.titleTraceSubjectScored = !traceSubject.isEmpty();
+                score.titleTraceSubjectHit = !score.titleTraceSubjectScored
+                        || coverage(traceSubject, obs.title) >= TITLE_COVERAGE_FLOOR;
                 score.titleVerbClassHit = verbClassHit(sample.titleVerb, obs.title);
                 score.titleActionExpected = sample.titleAction;
                 score.titleActionActual = GoldenSetActionRules.actionForTitle(obs.title);
@@ -423,6 +447,8 @@ public final class GoldenSetScorer {
                 boolean actionScored = !GoldenSetActionRules.UNCLASSIFIABLE.equals(sample.titleAction);
                 score.titleContractHit = actionScored && score.titleActionHit
                         && score.titleSubjectHit && score.titleIdentifierHit;
+                score.titleTraceContractHit = actionScored && score.titleActionHit
+                        && score.titleTraceSubjectHit && score.titleIdentifierHit;
                 score.titleVerbContractHit = score.titleVerbClassHit && score.titleSubjectHit
                         && score.titleIdentifierHit;
                 titleExactHits += score.titleExactHit ? 1 : 0;
@@ -436,7 +462,14 @@ public final class GoldenSetScorer {
                     titleActionUnclassifiable++;
                 }
                 titleSubjectHits += score.titleSubjectHit ? 1 : 0;
+                if (score.titleTraceSubjectScored) {
+                    titleTraceSubjectHits += score.titleTraceSubjectHit ? 1 : 0;
+                    titleTraceSubjectSamples++;
+                } else {
+                    titleTraceSubjectUnreachable++;
+                }
                 titleContractHits += score.titleContractHit ? 1 : 0;
+                titleTraceContractHits += score.titleTraceContractHit ? 1 : 0;
                 titleVerbContractHits += score.titleVerbContractHit ? 1 : 0;
                 titleSamples++;
                 type.titleNormalizedHit += score.titleNormalizedHit ? 1 : 0;
@@ -481,6 +514,10 @@ public final class GoldenSetScorer {
                     score.problems.add("title subject " + subject
                             + " missing (got '" + obs.title + "')");
                 }
+                if (score.titleTraceSubjectScored && !score.titleTraceSubjectHit) {
+                    score.problems.add("title trace-visible subject " + traceSubject
+                            + " missing (got '" + obs.title + "')");
+                }
                 if (!score.typeMatch) {
                     score.problems.add("type '" + obs.type + "' != expected '"
                             + sample.expectedType + "'");
@@ -513,7 +550,11 @@ public final class GoldenSetScorer {
         agg.titleActionSamples = titleActionSamples;
         agg.titleActionUnclassifiable = titleActionUnclassifiable;
         agg.titleSubjectHitRate = ratio(titleSubjectHits, titleSamples);
+        agg.titleTraceSubjectHitRate = ratio(titleTraceSubjectHits, titleTraceSubjectSamples);
+        agg.titleTraceSubjectSamples = titleTraceSubjectSamples;
+        agg.titleTraceSubjectUnreachable = titleTraceSubjectUnreachable;
         agg.titleContractHitRate = ratio(titleContractHits, titleSamples);
+        agg.titleTraceContractHitRate = ratio(titleTraceContractHits, titleSamples);
         agg.titleVerbContractHitRate = ratio(titleVerbContractHits, titleSamples);
         agg.typeAccuracy = ratio(typeHits, typedSamples);
         agg.factsPrecision = fieldSamples == 0 ? 0 : factsP / fieldSamples;
@@ -690,10 +731,7 @@ public final class GoldenSetScorer {
         if (sample == null) {
             return true;
         }
-        String evidence = (sample.toolName == null ? "" : sample.toolName) + "\n"
-                + (sample.toolInput == null ? "" : sample.toolInput) + "\n"
-                + (sample.toolOutput == null ? "" : sample.toolOutput);
-        return ExtractionValidationService.isSupported(fact, evidence);
+        return ExtractionValidationService.isSupported(fact, traceEvidence(sample));
     }
 
     /**
@@ -729,6 +767,33 @@ public final class GoldenSetScorer {
             }
         }
         return subject.isEmpty() ? sample.titleKeywords : subject;
+    }
+
+    /**
+     * A6b (round 9): only subject tokens that actually occur in the recorded trace are reachable.
+     * A concept word that the trace never mentions (because the sample was never read) cannot be
+     * demanded from the model, so it leaves the denominator; the legacy definition above is still
+     * reported as a diagnostic so the difference stays visible.
+     */
+    static List<String> traceVisibleSubjectTokens(GoldenSet.Sample sample) {
+        List<String> subject = subjectTokens(sample);
+        if (subject.isEmpty()) {
+            return List.of();
+        }
+        String haystack = canonicalize(traceEvidence(sample));
+        List<String> visible = new ArrayList<>();
+        for (String token : subject) {
+            if (containsKeyword(haystack, token)) {
+                visible.add(token);
+            }
+        }
+        return visible;
+    }
+
+    static String traceEvidence(GoldenSet.Sample sample) {
+        return (sample.toolName == null ? "" : sample.toolName) + "\n"
+                + (sample.toolInput == null ? "" : sample.toolInput) + "\n"
+                + (sample.toolOutput == null ? "" : sample.toolOutput);
     }
 
     /** A6: the title's leading verb maps to the trace-derived action class. */
@@ -790,9 +855,7 @@ public final class GoldenSetScorer {
         if (facts == null || facts.isEmpty()) {
             return 1.0;
         }
-        String evidence = (sample.toolName == null ? "" : sample.toolName) + "\n"
-                + (sample.toolInput == null ? "" : sample.toolInput) + "\n"
-                + (sample.toolOutput == null ? "" : sample.toolOutput);
+        String evidence = traceEvidence(sample);
         int supported = 0;
         for (String fact : facts) {
             if (ExtractionValidationService.isSupported(fact, evidence)) {

@@ -163,6 +163,7 @@ class GoldenSetScorerTest {
         sample.titleVerb = "refactor";
         sample.titleSubject = List.of("delegation");
         sample.titleAction = "modify";
+        sample.toolInput = "file_path=InvoiceService.java delegation of tax rendering";
 
         GoldenSetScorer.SampleScore hit = scoreOne(sample,
                 observation("refactor", "Refactored InvoiceService to delegate tax and mail rendering"));
@@ -188,6 +189,36 @@ class GoldenSetScorerTest {
     }
 
     @Test
+    @DisplayName("subject tokens absent from the trace are unreachable and leave the denominator")
+    void traceInvisibleSubjectIsUnreachable() {
+        GoldenSet.Sample sample = sample("refactor", true, "refactor",
+                List.of("refactor", "quota", "budget"), List.of("QuotaService"));
+        sample.titleVerb = "refactor";
+        sample.titleSubject = List.of("quota", "budget");
+        sample.titleAction = "modify";
+        sample.toolInput = "file_path=QuotaService.java quota limit calculation";
+
+        GoldenSetScorer.SampleScore scored = scoreOne(sample,
+                observation("refactor", "Refactored QuotaService limit calculation"));
+        assertThat(scored.titleTraceSubject).containsExactly("quota");
+        assertThat(scored.titleTraceSubjectScored).isTrue();
+        assertThat(scored.titleTraceSubjectHit).isTrue();
+        // Legacy view still fails because "budget" is missing; the new gate does not judge it.
+        assertThat(scored.titleSubjectHit).isFalse();
+
+        GoldenSet.Sample onlyInvisible = sample("refactor", true, "refactor",
+                List.of("refactor", "budget"), List.of("QuotaService"));
+        onlyInvisible.titleSubject = List.of("budget");
+        onlyInvisible.titleAction = "modify";
+        onlyInvisible.toolInput = "file_path=QuotaService.java";
+        GoldenSetScorer.SampleScore unreachable = scoreOne(onlyInvisible,
+                observation("refactor", "Refactored QuotaService limit calculation"));
+        assertThat(unreachable.titleTraceSubject).isEmpty();
+        assertThat(unreachable.titleTraceSubjectScored).isFalse();
+        assertThat(unreachable.titleTraceSubjectHit).isTrue();
+    }
+
+    @Test
     @DisplayName("the retired verb dimension still folds update into change")
     void updateAndChangeShareClass() {
         GoldenSet.Sample sample = sample("docs-update", true, "change",
@@ -195,6 +226,7 @@ class GoldenSetScorerTest {
         sample.titleVerb = "update";
         sample.titleSubject = List.of("changelog");
         sample.titleAction = "document";
+        sample.toolInput = "file_path=CHANGELOG.md";
 
         GoldenSetScorer.SampleScore score = scoreOne(sample,
                 observation("change", "Changed CHANGELOG.md entry for 2.4.0"));

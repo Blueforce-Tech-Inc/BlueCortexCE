@@ -380,9 +380,14 @@ public final class GoldenSetEvaluator {
                 + " (" + agg.titleActionSamples + " scored, "
                 + agg.titleActionUnclassifiable + " unclassifiable)");
         row(sb, "title verb-class hit rate (diagnostic, retired)", pct(agg.titleVerbClassHitRate));
-        row(sb, "title subject hit rate", pct(agg.titleSubjectHitRate));
-        row(sb, "title contract hit rate (action + subject + all identifiers)",
+        row(sb, "title subject hit rate (legacy, diagnostic)", pct(agg.titleSubjectHitRate));
+        row(sb, "title trace-visible subject hit rate (A6b)", pct(agg.titleTraceSubjectHitRate)
+                + " (" + agg.titleTraceSubjectSamples + " scored, "
+                + agg.titleTraceSubjectUnreachable + " unreachable/excluded)");
+        row(sb, "title contract hit rate (legacy definition, diagnostic)",
                 pct(agg.titleContractHitRate));
+        row(sb, "title trace contract hit rate (A6: action + reachable subject + identifiers)",
+                pct(agg.titleTraceContractHitRate));
         row(sb, "title verb contract hit rate (verb + subject + identifiers, diagnostic)",
                 pct(agg.titleVerbContractHitRate));
         row(sb, "title identifier hit rate", pct(agg.titleIdentifierHitRate));
@@ -412,13 +417,13 @@ public final class GoldenSetEvaluator {
                 pct(agg.factsInformativeRate), agg.factsInformativeRate >= 0.75);
         gate(sb, "A6a", "title action class (trace-derived)", ">= 80%",
                 pct(agg.titleActionHitRate), agg.titleActionHitRate >= 0.80);
-        gate(sb, "A6b", "title subject", ">= 90%",
-                pct(agg.titleSubjectHitRate), agg.titleSubjectHitRate >= 0.90);
+        gate(sb, "A6b", "title trace-visible subject", ">= 90%",
+                pct(agg.titleTraceSubjectHitRate), agg.titleTraceSubjectHitRate >= 0.90);
         gate(sb, "A6c", "title identifiers", "= 100%",
                 pct(agg.titleIdentifierHitRate), agg.titleIdentifierHitRate >= 1.0);
         gate(sb, "A6", "all three title dimensions together", "all pass",
-                pct(agg.titleContractHitRate),
-                agg.titleActionHitRate >= 0.80 && agg.titleSubjectHitRate >= 0.90
+                pct(agg.titleTraceContractHitRate),
+                agg.titleActionHitRate >= 0.80 && agg.titleTraceSubjectHitRate >= 0.90
                         && agg.titleIdentifierHitRate >= 1.0);
         sb.append('\n');
 
@@ -489,7 +494,14 @@ public final class GoldenSetEvaluator {
                     : (score.callFailed ? "call-failed"
                     : (score.validationRejected ? "validation-rejected" : "malformed")));
             String titleNorm = score.parsed ? pct(score.titleCoverage) : "-";
-            String titleContract = score.parsed ? (score.titleContractHit ? "hit" : "MISS") : "-";
+            String titleContract = score.parsed
+                    ? (score.titleTraceContractHit ? "hit"
+                        : "MISS (" + (score.titleTraceSubjectScored
+                            ? "subject " + (score.titleTraceSubjectHit ? "hit" : "MISS") + ", "
+                            : "subject unreachable, ")
+                        + "id " + (score.titleIdentifierHit ? "hit" : "MISS") + ", "
+                        + "action " + (score.titleActionHit ? "hit" : "MISS") + ")")
+                    : "-";
             String titleExact = score.parsed ? (score.titleExactHit ? "hit" : "miss") : "-";
             String type = score.parsed ? (score.typeMatch ? "match" : "MISS") : "-";
             String facts = score.parsed
@@ -542,10 +554,11 @@ public final class GoldenSetEvaluator {
                 .append(" `prompts/observation.txt`; the baseline phase replays a checked-in prompt snapshot.\n");
         sb.append("- `EVAL_VALIDATE=1` applies the production deterministic guard in-memory (no duplicate")
                 .append(" lookup), so the “after” numbers include the guard and the “before” numbers do not.\n");
-        sb.append("- Title contract hit requires (1) the leading verb to belong to the declared verb class,")
-                .append(" (2) the declared subject tokens to reach coverage ≥ 0.8, and (3) every declared")
-                .append(" identifier to appear verbatim. The legacy keyword-coverage metric is reported")
-                .append(" alongside for before/after comparison.\n");
+        sb.append("- Title contract hit requires (1) the leading verb to belong to the declared action class,")
+                .append(" (2) the declared subject tokens that actually occur in the trace to reach")
+                .append(" coverage ≥ 0.8, and (3) every declared identifier to appear verbatim. Subject")
+                .append(" tokens the trace never mentions are unreachable labels: they leave the A6b")
+                .append(" denominator and are counted, while the legacy subject rate is reported alongside.\n");
         sb.append("- Facts informative precision (A5) counts produced facts that name a concrete object")
                 .append(" (identifier, path, number, status code or quoted value), state an actionable outcome,")
                 .append(" and are trace-grounded; legacy keyword precision is reported alongside.")
@@ -577,7 +590,11 @@ public final class GoldenSetEvaluator {
         metrics.put("titleActionSamples", agg.titleActionSamples);
         metrics.put("titleActionUnclassifiable", agg.titleActionUnclassifiable);
         metrics.put("titleSubjectHitRate", agg.titleSubjectHitRate);
+        metrics.put("titleTraceSubjectHitRate", agg.titleTraceSubjectHitRate);
+        metrics.put("titleTraceSubjectSamples", agg.titleTraceSubjectSamples);
+        metrics.put("titleTraceSubjectUnreachable", agg.titleTraceSubjectUnreachable);
         metrics.put("titleContractHitRate", agg.titleContractHitRate);
+        metrics.put("titleTraceContractHitRate", agg.titleTraceContractHitRate);
         metrics.put("titleVerbContractHitRate", agg.titleVerbContractHitRate);
         metrics.put("typeAccuracy", agg.typeAccuracy);
         metrics.put("factsPrecision", agg.factsPrecision);

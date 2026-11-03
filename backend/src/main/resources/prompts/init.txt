@@ -102,6 +102,8 @@ Format: `<verb> <object> <key identifier>`.
 - A replacement keeps BOTH names: the literal or key that was replaced and the file that now
   holds it (`ACME_API_KEY` in `application.yml`, not just `application.yml`). A changed script or
   test keeps its exact file or test identifier (`rollback.sh`, `CacheConcurrencyTest#reads`).
+- A reproduction test names BOTH sides: the test identifier and the class or method whose bug it
+  reproduces (`Added CacheConcurrencyTest reproducing UserCache null`), never only the test name.
 - Also name the decisive cause or symptom noun from the trace, not only the component, and copy
   the trace's exact wording including plural: `line endings` (not `line ending`, not just `CSV`),
   `expiration boundary`, `canary rollback threshold`, `multi-stage` build. If the trace calls the
