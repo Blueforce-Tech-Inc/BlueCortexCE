@@ -1,0 +1,90 @@
+{
+  "calls" : 261,
+  "durationMs" : 724640,
+  "total" : 87,
+  "formatErrors" : 4,
+  "validationRejections" : 0,
+  "callFailures" : 0,
+  "skipAccuracy" : 1.0,
+  "skipTp" : 20,
+  "skipFp" : 0,
+  "skipFn" : 0,
+  "skipTn" : 67,
+  "contractPassRate" : 0.9540229885057471,
+  "titleExactHitRate" : 0.5238095238095238,
+  "titleNormalizedHitRate" : 0.5555555555555556,
+  "titleIdentifierHitRate" : 0.9682539682539683,
+  "titleVerbClassHitRate" : 0.7301587301587301,
+  "titleActionHitRate" : 0.873015873015873,
+  "titleActionSamples" : 63,
+  "titleActionUnclassifiable" : 0,
+  "titleSubjectHitRate" : 0.7936507936507936,
+  "titleTraceSubjectHitRate" : 0.8867924528301887,
+  "titleTraceSubjectSamples" : 53,
+  "titleTraceSubjectUnreachable" : 10,
+  "titleContractHitRate" : 0.6825396825396826,
+  "titleTraceContractHitRate" : 0.7619047619047619,
+  "titleVerbContractHitRate" : 0.5714285714285714,
+  "typeAccuracy" : 0.9523809523809523,
+  "factsPrecision" : 0.7976190476190473,
+  "factsInformativeRate" : 0.82010582010582,
+  "factsRecall" : 0.8994708994708995,
+  "factsSupportRate" : 1.0,
+  "conceptsPrecision" : 0.8333333333333334,
+  "conceptsRecall" : 0.8333333333333334,
+  "repeatConsistency" : 0.9885057471264368,
+  "p50Ms" : 2585,
+  "p95Ms" : 5648,
+  "maxMs" : 12541,
+  "meanTokens" : 2934,
+  "p50Tokens" : 3940,
+  "p95Tokens" : 4048,
+  "maxTokens" : 4137,
+  "inconsistentSamples" : [ "bug-n-plus-one: type {bugfix, change}", "test-integration-order: type {unparsed, feature}; action {unparsed, create}", "test-flaky-clock: action {create, modify}", "security-redact-log: action {modify, secure}", "security-secret-config: type {bugfix, change}", "security-cookie-httponly: type {bugfix, security}", "config-maven-plugin: action {modify, create}", "docs-readme-setup: type {unparsed, change}; action {unparsed, document}", "deploy-k8s-probe: action {modify, create}", "deploy-rollback-script: type {feature, change}", "skip-file-listing: type {skip, unparsed}; action {skip, unparsed}", "remove-dead-code: type {refactor, change}", "remove-feature-flag: type {refactor, change}" ],
+  "variance" : [ {
+    "metric" : "type accuracy",
+    "min" : 0.8923076923076924,
+    "max" : 0.9682539682539683,
+    "mean" : 0.9376475376475376,
+    "stdDev" : 0.032708452931997783
+  }, {
+    "metric" : "title action class",
+    "min" : 0.8412698412698413,
+    "max" : 0.9076923076923077,
+    "mean" : 0.873992673992674,
+    "stdDev" : 0.02712565349777622
+  }, {
+    "metric" : "title trace-visible subject",
+    "min" : 0.8545454545454545,
+    "max" : 0.8867924528301887,
+    "mean" : 0.8697541452258433,
+    "stdDev" : 0.013228198369650439
+  }, {
+    "metric" : "title identifiers",
+    "min" : 0.9523809523809523,
+    "max" : 0.9682539682539683,
+    "mean" : 0.9581603581603582,
+    "stdDev" : 0.007162282102550736
+  }, {
+    "metric" : "title trace contract",
+    "min" : 0.7142857142857143,
+    "max" : 0.7692307692307693,
+    "mean" : 0.7484737484737485,
+    "stdDev" : 0.024358897855018317
+  }, {
+    "metric" : "facts informative",
+    "min" : 0.7724867724867724,
+    "max" : 0.82010582010582,
+    "mean" : 0.7988129154795821,
+    "stdDev" : 0.019763493961971513
+  }, {
+    "metric" : "skip accuracy",
+    "min" : 0.9885057471264368,
+    "max" : 1.0,
+    "mean" : 0.9961685823754789,
+    "stdDev" : 0.005418442767713001
+  } ],
+  "statusCounts" : {
+    "200" : 87
+  }
+}

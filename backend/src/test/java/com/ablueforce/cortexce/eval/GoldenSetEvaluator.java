@@ -49,6 +49,18 @@ public final class GoldenSetEvaluator {
 
     private static final Pattern STATUS = Pattern.compile("\\b([45]\\d\\d)\\b");
 
+    /**
+     * Round-9 single-attempt baselines on the hand-written set, measured before any
+     * performance floor existed. The gate is p95 ≤ {@code PERFORMANCE_TOLERANCE × baseline};
+     * it may only be tightened. Providers missing here have no baseline yet and receive no
+     * verdict.
+     */
+    static final Map<String, Long> LATENCY_P95_BASELINE_MS = Map.of(
+            "anthropic", 5648L);
+    static final Map<String, Long> TOKEN_P95_BASELINE = Map.of(
+            "anthropic", 4048L);
+    static final double PERFORMANCE_TOLERANCE = 1.5;
+
     private GoldenSetEvaluator() {
     }
 
@@ -214,7 +226,7 @@ public final class GoldenSetEvaluator {
                 "docs/archive/" + LocalDate.now() + "_model-output-quality-eval.md");
         String report = "golden set: " + goldenSet + " (" + golden.samples.size() + " samples)\n\n"
                 + renderReport(provider, modelName, baseUrl, promptDir, phase, temperature,
-                calls, maxCalls, keyRepeat, durationMs, aggregate);
+                calls, maxCalls, keyRepeat, durationMs, aggregate, "main".equalsIgnoreCase(goldenSet));
         Path path = Path.of(reportPath);
         if (path.getParent() != null) {
             Files.createDirectories(path.getParent());
@@ -346,7 +358,10 @@ public final class GoldenSetEvaluator {
     }
 
     static GoldenSet loadGoldenSet() throws Exception {
-        String which = envOr("EVAL_GOLDEN", "main");
+        return loadGoldenSet(envOr("EVAL_GOLDEN", "main"));
+    }
+
+    static GoldenSet loadGoldenSet(String which) throws Exception {
         String resource = "real".equalsIgnoreCase(which)
                 ? "/eval/golden-tool-use-real.json"
                 : "/eval/golden-tool-use.json";
@@ -382,7 +397,7 @@ public final class GoldenSetEvaluator {
     private static String renderReport(String provider, String modelName, String baseUrl,
                                        String promptDir, String phase, double temperature,
                                        int calls, int maxCalls, int keyRepeat, long durationMs,
-                                       GoldenSetScorer.Aggregate agg) {
+                                       GoldenSetScorer.Aggregate agg, boolean performanceGated) {
         StringBuilder sb = new StringBuilder();
         sb.append("# Model output quality evaluation\n\n");
         sb.append("- Date: ").append(LocalDate.now()).append('\n');
@@ -459,6 +474,18 @@ public final class GoldenSetEvaluator {
                 pct(agg.titleTraceContractHitRate),
                 agg.titleActionHitRate >= 0.80 && agg.titleTraceSubjectHitRate >= 0.90
                         && agg.titleIdentifierHitRate >= 1.0);
+        Long latencyBaseline = performanceGated ? LATENCY_P95_BASELINE_MS.get(provider) : null;
+        Long tokenBaseline = performanceGated ? TOKEN_P95_BASELINE.get(provider) : null;
+        if (latencyBaseline != null) {
+            gate(sb, "A11", "p95 latency vs baseline", "<= 1.5x baseline",
+                    agg.p95Ms + " ms (baseline " + latencyBaseline + " ms)",
+                    agg.p95Ms <= latencyBaseline * PERFORMANCE_TOLERANCE);
+        }
+        if (tokenBaseline != null) {
+            gate(sb, "A12", "p95 tokens vs baseline", "<= 1.5x baseline",
+                    agg.p95Tokens + " tokens (baseline " + tokenBaseline + ")",
+                    agg.p95Tokens <= tokenBaseline * PERFORMANCE_TOLERANCE);
+        }
         sb.append('\n');
 
         if (!agg.statusCounts.isEmpty()) {

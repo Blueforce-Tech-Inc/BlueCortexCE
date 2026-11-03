@@ -16,9 +16,9 @@ the rules below.
 
 Action rules (first match wins)
 -------------------------------
-1. document  every changed file is documentation (``docs/``, ``*.md``, ``*.txt``,
-             ``*.adoc``) and nothing was deleted.
-2. remove    every changed file only deleted lines.
+1. remove    every changed file only deleted lines.
+2. document  every changed file is documentation (``docs/``, ``*.md``, ``*.txt``,
+             ``*.adoc``).
 3. secure    the subject or body mentions a security term
              (harden, security, auth, credential, secret, redact, sanitize, restrict,
              deny, cors, csrf, xss, injection, traversal, httponly).
@@ -131,10 +131,10 @@ def is_doc(path: str) -> bool:
 
 
 def action_for(commit: dict, files: list[dict]) -> str:
-    if all(is_doc(f["path"]) for f in files) and all(f["deleted"] == 0 for f in files):
-        return "document"
     if all(f["added"] == 0 for f in files):
         return "remove"
+    if all(is_doc(f["path"]) for f in files):
+        return "document"
     text = commit["subject"] + "\n" + commit["body"]
     if SECURITY_TERMS.search(text):
         return "secure"

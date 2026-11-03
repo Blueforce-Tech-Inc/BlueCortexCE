@@ -119,7 +119,7 @@
     },
     {
       "id": "real-b064308244",
-      "category": "feature",
+      "category": "docs-update",
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
@@ -129,10 +129,10 @@
       "expectObservation": true,
       "expectedType": "change",
       "titleKeywords": [
-        "change",
+        "document",
         "extraction-quality-improvement-plan.md"
       ],
-      "titleVerb": "change",
+      "titleVerb": "document",
       "titleSubject": [
         "extraction-quality-improvement-plan.md"
       ],
@@ -143,7 +143,7 @@
       "conceptsKeywords": [
         "what-changed"
       ],
-      "titleAction": "modify",
+      "titleAction": "document",
       "notes": "generated from b064308244422d93c24fc7771197a29309ce902c (Record the round 8 verification result and MCP layer attribution)"
     },
     {
@@ -235,7 +235,7 @@
     },
     {
       "id": "real-db8ac0287e",
-      "category": "security-fix",
+      "category": "docs-update",
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
@@ -243,12 +243,12 @@
       "toolInput": "file_path=backend/src/main/resources/prompts/continuation.txt\nold_string=\"- Fixed: a defect already produced wrong or failing behaviour, in non-security code.\"\nnew_string=\"- Fixed: a defect already produced wrong or failing behaviour.\"",
       "toolOutput": "Edit applied. Commit message: Revert the domain-first security verb after type accuracy dropped. Totals: 2 file(s), 10 insertion(s), 14 deletion(s). Changed paths: backend/src/main/resources/prompts/continuation.txt, backend/src/main/resources/prompts/init.txt. Other touched: backend/src/main/resources/prompts/init.txt. Verification: not recorded in this commit.",
       "expectObservation": true,
-      "expectedType": "bugfix",
+      "expectedType": "change",
       "titleKeywords": [
-        "harden",
+        "document",
         "continuation.txt"
       ],
-      "titleVerb": "harden",
+      "titleVerb": "document",
       "titleSubject": [
         "continuation.txt"
       ],
@@ -257,9 +257,9 @@
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
-        "problem-solution"
+        "what-changed"
       ],
-      "titleAction": "secure",
+      "titleAction": "document",
       "notes": "generated from db8ac0287e5b275842dcecd995d5eeb1c3d6bdd4 (Revert the domain-first security verb after type accuracy dropped)"
     },
     {
@@ -467,7 +467,7 @@
     },
     {
       "id": "real-e02e436bdd",
-      "category": "feature",
+      "category": "docs-update",
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
@@ -477,10 +477,10 @@
       "expectObservation": true,
       "expectedType": "change",
       "titleKeywords": [
-        "change",
+        "document",
         "continuation.txt"
       ],
-      "titleVerb": "change",
+      "titleVerb": "document",
       "titleSubject": [
         "continuation.txt"
       ],
@@ -491,7 +491,7 @@
       "conceptsKeywords": [
         "what-changed"
       ],
-      "titleAction": "modify",
+      "titleAction": "document",
       "notes": "generated from e02e436bddaee1eb2db93befdfb5348870d0a350 (Show ten category-shaped title examples instead of restating the contract)"
     },
     {
@@ -525,7 +525,7 @@
     },
     {
       "id": "real-6d6df2c321",
-      "category": "security-fix",
+      "category": "docs-update",
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
@@ -533,12 +533,12 @@
       "toolInput": "file_path=backend/src/main/resources/prompts/continuation.txt\nold_string=\"failed), not as a skip.\"\nnew_string=\"- only locates where an identifier is used or defined (grep/glob search), even when matches are\"",
       "toolOutput": "Edit applied. Commit message: Make the concept slots category-explicit and the title verb precise. Totals: 2 file(s), 138 insertion(s), 25 deletion(s). Changed paths: backend/src/main/resources/prompts/continuation.txt, backend/src/main/resources/prompts/init.txt. Other touched: backend/src/main/resources/prompts/init.txt. Verification: not recorded in this commit.",
       "expectObservation": true,
-      "expectedType": "bugfix",
+      "expectedType": "change",
       "titleKeywords": [
-        "harden",
+        "document",
         "continuation.txt"
       ],
-      "titleVerb": "harden",
+      "titleVerb": "document",
       "titleSubject": [
         "continuation.txt"
       ],
@@ -547,9 +547,9 @@
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
-        "problem-solution"
+        "what-changed"
       ],
-      "titleAction": "secure",
+      "titleAction": "document",
       "notes": "generated from 6d6df2c321ba8b2bd7e31d20d98cd3c0c37b2a1d (Make the concept slots category-explicit and the title verb precise)"
     },
     {
@@ -757,7 +757,7 @@
     },
     {
       "id": "real-3409dda60c",
-      "category": "security-fix",
+      "category": "docs-update",
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
@@ -765,12 +765,12 @@
       "toolInput": "file_path=docs/drafts/conversation-memory-scope-refactor-plan.md\nold_string=\"| 实施 commit 范围 | 待实施 |\"\nnew_string=\"| 实施 commit 范围 | `325c817..f7b865e`（9 个提交，见文末清单） |\"",
       "toolOutput": "Edit applied. Commit message: docs: record execution evidence for the conversation/scope refactor. Totals: 1 file(s), 69 insertion(s), 11 deletion(s). Changed paths: docs/drafts/conversation-memory-scope-refactor-plan.md. Verification: not recorded in this commit.",
       "expectObservation": true,
-      "expectedType": "bugfix",
+      "expectedType": "change",
       "titleKeywords": [
-        "harden",
+        "document",
         "conversation-memory-scope-refactor-plan.md"
       ],
-      "titleVerb": "harden",
+      "titleVerb": "document",
       "titleSubject": [
         "conversation-memory-scope-refactor-plan.md"
       ],
@@ -779,9 +779,9 @@
       ],
       "factsKeywords": [],
       "conceptsKeywords": [
-        "problem-solution"
+        "what-changed"
       ],
-      "titleAction": "secure",
+      "titleAction": "document",
       "notes": "generated from 3409dda60c344472c82fa1f514bbccfdfc80af4d (docs: record execution evidence for the conversation/scope refactor)"
     },
     {
@@ -1018,7 +1018,7 @@
     },
     {
       "id": "real-e8c8b314d6",
-      "category": "feature",
+      "category": "docs-update",
       "keySample": false,
       "toolName": "Edit",
       "cwd": "/repo",
@@ -1028,10 +1028,10 @@
       "expectObservation": true,
       "expectedType": "change",
       "titleKeywords": [
-        "change",
+        "document",
         "backend-review-findings.md"
       ],
-      "titleVerb": "change",
+      "titleVerb": "document",
       "titleSubject": [
         "backend-review-findings.md"
       ],
@@ -1042,7 +1042,7 @@
       "conceptsKeywords": [
         "what-changed"
       ],
-      "titleAction": "modify",
+      "titleAction": "document",
       "notes": "generated from e8c8b314d67ebe12ef401ffea5c3b90b34933981 (patrol: round 360 - a blank base-url aborts the whole Spring application)"
     }
   ]
