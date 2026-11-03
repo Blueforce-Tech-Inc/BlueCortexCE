@@ -1,0 +1,91 @@
+{
+  "calls" : 90,
+  "durationMs" : 683681,
+  "total" : 20,
+  "formatErrors" : 0,
+  "validationRejections" : 0,
+  "callFailures" : 0,
+  "skipAccuracy" : 1.0,
+  "skipTp" : 0,
+  "skipFp" : 0,
+  "skipFn" : 0,
+  "skipTn" : 20,
+  "contractPassRate" : 1.0,
+  "titleExactHitRate" : 0.55,
+  "titleNormalizedHitRate" : 0.55,
+  "titleIdentifierHitRate" : 0.95,
+  "titleVerbClassHitRate" : 0.9,
+  "titleActionHitRate" : 0.95,
+  "titleActionSamples" : 20,
+  "titleActionUnclassifiable" : 0,
+  "titleSubjectHitRate" : 0.85,
+  "titleTraceSubjectHitRate" : 0.9230769230769231,
+  "titleTraceSubjectSamples" : 13,
+  "titleTraceSubjectUnreachable" : 7,
+  "unreachableSubjectSamples" : [ "bug-offbyone-pagination: [pagination]", "bug-null-cache: [race]", "bug-race-counter: [race]", "bug-n-plus-one: [n+1]", "bug-regex-redos: [redos]", "bug-file-encoding: [encoding]", "refactor-auth-controller: [delegation]" ],
+  "titleContractHitRate" : 0.75,
+  "titleTraceContractHitRate" : 0.85,
+  "titleVerbContractHitRate" : 0.7,
+  "typeAccuracy" : 0.95,
+  "factsPrecision" : 0.7833333333333333,
+  "factsInformativeRate" : 0.8583333333333334,
+  "factsRecall" : 0.925,
+  "factsSupportRate" : 1.0,
+  "conceptsPrecision" : 0.8,
+  "conceptsRecall" : 0.8,
+  "repeatConsistency" : 1.0,
+  "p50Ms" : 17913,
+  "p95Ms" : 38470,
+  "maxMs" : 92621,
+  "meanTokens" : 13920,
+  "p50Tokens" : 13500,
+  "p95Tokens" : 16085,
+  "maxTokens" : 18168,
+  "inconsistentSamples" : [ ],
+  "variance" : [ {
+    "metric" : "type accuracy",
+    "min" : 0.95,
+    "max" : 1.0,
+    "mean" : 0.9833333333333334,
+    "stdDev" : 0.023570226039551608
+  }, {
+    "metric" : "title action class",
+    "min" : 0.95,
+    "max" : 1.0,
+    "mean" : 0.9833333333333334,
+    "stdDev" : 0.023570226039551608
+  }, {
+    "metric" : "title trace-visible subject",
+    "min" : 0.9230769230769231,
+    "max" : 1.0,
+    "mean" : 0.9743589743589745,
+    "stdDev" : 0.03626188621469472
+  }, {
+    "metric" : "title identifiers",
+    "min" : 0.95,
+    "max" : 1.0,
+    "mean" : 0.9833333333333334,
+    "stdDev" : 0.023570226039551608
+  }, {
+    "metric" : "title trace contract",
+    "min" : 0.85,
+    "max" : 1.0,
+    "mean" : 0.9500000000000001,
+    "stdDev" : 0.07071067811865477
+  }, {
+    "metric" : "facts informative",
+    "min" : 0.7999999999999999,
+    "max" : 0.8666666666666666,
+    "mean" : 0.8416666666666667,
+    "stdDev" : 0.029658550700086994
+  }, {
+    "metric" : "skip accuracy",
+    "min" : 1.0,
+    "max" : 1.0,
+    "mean" : 1.0,
+    "stdDev" : 0.0
+  } ],
+  "statusCounts" : {
+    "200" : 20
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "calls" : 339,
+  "durationMs" : 422666,
+  "total" : 87,
+  "formatErrors" : 0,
+  "validationRejections" : 0,
+  "callFailures" : 5,
+  "skipAccuracy" : 1.0,
+  "skipTp" : 20,
+  "skipFp" : 0,
+  "skipFn" : 0,
+  "skipTn" : 67,
+  "contractPassRate" : 0.9425287356321839,
+  "titleExactHitRate" : 0.532258064516129,
+  "titleNormalizedHitRate" : 0.5967741935483871,
+  "titleIdentifierHitRate" : 0.9516129032258065,
+  "titleVerbClassHitRate" : 0.7580645161290323,
+  "titleActionHitRate" : 0.9193548387096774,
+  "titleActionSamples" : 62,
+  "titleActionUnclassifiable" : 0,
+  "titleSubjectHitRate" : 0.7258064516129032,
+  "titleTraceSubjectHitRate" : 0.8490566037735849,
+  "titleTraceSubjectSamples" : 53,
+  "titleTraceSubjectUnreachable" : 9,
+  "unreachableSubjectSamples" : [ "bug-offbyone-pagination: [pagination]", "bug-null-cache: [race]", "bug-race-counter: [race]", "bug-n-plus-one: [n+1]", "bug-file-encoding: [encoding]", "refactor-auth-controller: [delegation]", "remove-dead-code: [dead, code]", "remove-stale-config: [stale, setting]", "remove-deprecated-endpoint: [deprecated, endpoint]" ],
+  "titleContractHitRate" : 0.6290322580645161,
+  "titleTraceContractHitRate" : 0.7419354838709677,
+  "titleVerbContractHitRate" : 0.5483870967741935,
+  "typeAccuracy" : 0.9193548387096774,
+  "factsPrecision" : 0.7634408602150536,
+  "factsInformativeRate" : 0.7930107526881722,
+  "factsRecall" : 0.8978494623655915,
+  "factsSupportRate" : 1.0,
+  "conceptsPrecision" : 0.8145161290322581,
+  "conceptsRecall" : 0.8145161290322581,
+  "repeatConsistency" : 1.0,
+  "p50Ms" : 2802,
+  "p95Ms" : 8227,
+  "maxMs" : 29039,
+  "meanTokens" : 5822,
+  "p50Tokens" : 4583,
+  "p95Tokens" : 12160,
+  "maxTokens" : 12570,
+  "inconsistentSamples" : [ ],
+  "variance" : [ {
+    "metric" : "type accuracy",
+    "min" : 0.9193548387096774,
+    "max" : 1.0,
+    "mean" : 0.9731182795698925,
+    "stdDev" : 0.03801649361217999
+  }, {
+    "metric" : "title action class",
+    "min" : 0.8888888888888888,
+    "max" : 0.9193548387096774,
+    "mean" : 0.8990442054958184,
+    "stdDev" : 0.014361786475712438
+  }, {
+    "metric" : "title trace-visible subject",
+    "min" : 0.8333333333333334,
+    "max" : 1.0,
+    "mean" : 0.8941299790356395,
+    "stdDev" : 0.0751361045595699
+  }, {
+    "metric" : "title identifiers",
+    "min" : 0.7777777777777778,
+    "max" : 0.9516129032258065,
+    "mean" : 0.8727598566308243,
+    "stdDev" : 0.07187847137620199
+  }, {
+    "metric" : "title trace contract",
+    "min" : 0.6666666666666666,
+    "max" : 0.7419354838709677,
+    "mean" : 0.6917562724014337,
+    "stdDev" : 0.035482060704701335
+  }, {
+    "metric" : "facts informative",
+    "min" : 0.7930107526881722,
+    "max" : 0.9629629629629629,
+    "mean" : 0.8939665471923538,
+    "stdDev" : 0.07297026728331933
+  }, {
+    "metric" : "skip accuracy",
+    "min" : 1.0,
+    "max" : 1.0,
+    "mean" : 1.0,
+    "stdDev" : 0.0
+  } ],
+  "statusCounts" : {
+    "200" : 82,
+    "exception" : 5
+  }
+}
