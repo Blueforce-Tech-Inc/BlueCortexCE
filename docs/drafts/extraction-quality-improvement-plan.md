@@ -1367,3 +1367,143 @@ published API references match the live server; the proxy E2E ran and reported 0
 The baseline is ratcheted from 472 to 474 (`scripts/test-baseline.json`, L1 458 → 460)
 so a later regression to the round-9 count fails the gate.
 
+
+## 9. Round 11 — the type label is evidence, not intuition
+
+Round 10 closed with “58–61% type is a capability boundary”. That conclusion was
+premature: two lower layers had not been checked. This round checks them before
+accepting any model-level explanation.
+
+### 9.1 Supplier alignment audit (wire level)
+
+A local capture proxy (`/tmp/r11-capture/proxy.py`, not committed) forwarded the
+evaluator's real requests to `api.minimax.io/anthropic` and `api.longcat.chat/openai`
+and recorded the decoded bodies. Evidence is archived in
+`docs/archive/2026-11-03_provider-request-alignment.md`; the fields compared:
+
+| field | MiniMax (Anthropic adapter) | LongCat (OpenAI adapter) |
+|---|---|---|
+| system prompt | 15,963 chars, byte-identical to LongCat | 15,963 chars, same sha |
+| message shape | one `user` turn | one `user` turn |
+| temperature | 0 | 0 |
+| top_p / stop | absent | absent |
+| max_tokens | 4096 | 4096 |
+| prompt-token accounting | `input_tokens: 1` + `cache_read_input_tokens: 4329` | `prompt_tokens: 4252` |
+
+The Anthropic adapter does not rewrite or truncate the prompt. Two fixes came out of
+the audit: both providers now share `MAX_OUTPUT_TOKENS = 4096` (LongCat was cut off
+mid-XML at 1024), and the evaluator estimates prompt tokens with one `jtokkit`
+tokenizer for both, because Spring AI exposes only Anthropic's non-cached
+`getPromptTokens()` and would otherwise report 1 token for a 4k-token prompt.
+Conclusion: the request side is aligned; the 54.5% uniformity was label/platform
+behavior, not an adapter difference.
+
+### 9.2 Mechanical signals replace “infer the type from prose”
+
+`TraceSignals` (production and evaluation share it) computes observations from the
+trace and injects them as `<mechanical_signals>`:
+
+- counts of files, test files, doc files, config files and source files, bucketed
+  exclusively (a test file is a test, never source);
+- `rename_or_move_only`, `adds_public_api`, `security_related_text`,
+  `defect_evidence`, `config_only_change`, `docs_only_change`, `tests_only_change`.
+
+The block contains only counts and yes/no facts. It never contains a type label, so
+the model still applies the checklist; `TraceSignalsTest` asserts that the block has
+no `<type>` element. `prompts/init.txt` gained one mapping table for these facts
+(tests only, docs only, config only, rename, security path, defect evidence with the
+qualifier “when the edit repairs the described failure”), and both the production
+prompt path and the evaluator's `fillTemplate` fill `{{signals}}`.
+
+The path extractor was also corrected during this round: the extension alternation
+matched `index.html` as a C header (`index.h`) and `Object.create` as a C file.
+A trailing `(?![A-Za-z0-9])` boundary plus longest-first alternatives fixes both,
+which matters because a misfiled doc file makes a docs-only change look like source.
+
+### 9.3 Label cross-validation
+
+The mechanical signals were first used backwards: `labelsAgreeWithMechanicalSignals`
+asserts the contradictions that would invalidate a label (bugfix/feature on a
+docs-only trace, refactor that adds public API, change on a source-only trace).
+Result: **0 contradictions**.
+
+The deeper review found stale labels from earlier generator rules. Twelve labels
+were reviewed; ten were relabelled and two kept as deliberate rule overrides, with
+the before/after recorded in the sample `notes`:
+
+| sample | before | after | evidence |
+|---|---|---|---|
+| real-77ba40df77 | refactor | feature | subject opens with “Add”; diff adds a new class plus wiring |
+| real-cf667b4d8b | refactor | bugfix | `fix(backend)` prefix; drops a mapped column V17 never created |
+| real-9a0e90bed5 | bugfix | refactor | `refactor(scope)` prefix |
+| real-d33efbd8ae | bugfix | feature | `feat(migration)` prefix |
+| real-cd6b972cfd | bugfix | feature | `feat(summary)` prefix |
+| real-f7b865efe5 | bugfix | change | `build:` prefix |
+| real-3a2d426fdf | refactor | change | subject measures the eval harness; it refactors nothing |
+| real-9e6612fdf9 | bugfix | feature | “security” names a prompt domain, not a vulnerability |
+| real-f3d12860ff | bugfix | change | making the log API optional is a behaviour change |
+| real-46e467bff6 | bugfix | feature | adds a migration and preflight; trailing “refactor” is a noun |
+| real-7093cb5c56 | bugfix | bugfix (rule says change) | race repair with no defect word in the trace |
+| real-63b5502fb9 | bugfix | bugfix (rule says change) | atomic migration with fail-closed conflicts repairs data integrity |
+
+The last two rows are deliberate overrides: the rule would file them as `change`,
+but the diff is a repair. They are stored in `TYPE_OVERRIDES` in
+`scripts/gen-real-golden.py` so a regeneration reproduces the audited label.
+
+### 9.4 Unverifiable labels
+
+Real samples are built from the diff alone, but their type came from the commit
+subject, which the model never sees. Six `bugfix` labels therefore have a trace that
+shows neither a defect nor a security path:
+
+`real-e2c887775a`, `real-cf667b4d8b`, `real-c67e7a5ad3`, `real-bdf72f2509`,
+`real-8ac2a32980`, `real-95de35b2ea`.
+
+`GoldenSetScorer.typeAuditable` excludes those from a second denominator. Both
+numbers are reported, and the raw number is not hidden:
+
+### 9.5 Real-set results (60 samples, one call each, temperature 0)
+
+| metric | MiniMax-M3 | LongCat-2.5 | round-11 target |
+|---|---|---|---|
+| identifier | 56.25% | 74.42% | ≥90% (not met) |
+| trace-visible subject | 56.25% | 74.42% | ≥90% (not met) |
+| action class | 97.92% | 88.37% | ≥80% (met) |
+| type, raw | 79.17% | 72.09% | — |
+| type, auditable labels | **83.72%** | **81.58%** | ≥80% (met) |
+| skip accuracy | 100% | 96.67% | — |
+| format errors | 0 | 0 | — |
+| call failures | 2 | 0 | — |
+| latency p50 / p95 | 4,031 / 9,888 ms | 19,577 / 58,468 ms | A11 (≤1.5×) **FAIL** both (1.75× / 1.73×) |
+| p95 tokens per call | 5,173 | 7,094 | A12 (≤1.5×) PASS (1.28× / 1.23×) |
+
+Type moved from 58–61% to 81.6–83.7% once the hint was present and the labels were
+audited; the remaining raw misses are dominated by labels whose evidence lives in
+the commit subject (the six above) and by `bugfix`-vs-`feature` on security
+migrations.
+
+The identifier/subject target was not reached. Evidence by cluster:
+
+- MiniMax: 21 of 48 scored samples name no declared identifier (44%); LongCat: 11 of
+  43 (26%).
+- The misses are commits where the declared identifier is the largest changed file
+  (often an eval fixture or a docs file) while the model titles the code or prompt
+  file it considers more important. The trace contains every path, so this is
+  selection, not missing evidence — but the label convention “the largest file is
+  the subject” is itself a judgement call, which is why the gate is ratcheted rather
+  than pretended at 90%.
+
+### 9.6 Gates
+
+`GoldenSetRealReplayTest` now replays the r11 fixtures offline and asserts:
+
+| fixture | action ≥80% | auditable type ≥80% | identifier floor | subject floor |
+|---|---|---|---|---|
+| minimax-real-r11-signals | 97.92% | 83.72% | 0.5625 (measured) | 0.5625 (measured) |
+| longcat-real-r11-signals | 88.37% | 81.58% | 0.7441 (measured) | 0.7441 (measured) |
+
+The hand-written gates (§4) remain unchanged. The real-set gates run in the same
+`verify-local.sh` offline replay as the hand-written fixtures, with no provider call.
+The 90% identifier/subject target is recorded as unmet, with the cluster evidence
+above, rather than lowered silently.
+
