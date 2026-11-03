@@ -7,10 +7,24 @@ Claude's Full Response to User:
 
 {{lastAssistantMessage}}
 
+LEARNED AND COMPLETED CONTRACT
+------------------------------
+- `learned` records what the code, configuration or design now does, not what the session
+  process looked like.
+- Every sentence in `learned` must name at least one exact identifier copied verbatim from the
+  session: a class, method, test, file path, configuration key, endpoint or version — and the
+  concrete behaviour, value or comparison now true of it. Example:
+  `OrderQuery.buildPageOffset now clamps a negative page to zero`.
+- Never write opinions, intentions or process notes in `learned` ("the fix looks good",
+  "tests passed", "code was reviewed"). A sentence without an identifier is not a learned fact.
+- Keep `learned` non-empty even for a small change: name the touched identifier and what is now
+  true of it.
+- `completed` follows the same rule: name the shipped identifier and the concrete change.
+
 <summary>
   <request>[Short title capturing the user's request AND the substance of what was discussed/done]</request>
   <investigated>[What has been explored so far? What was examined?]</investigated>
-  <learned>[What have you learned about how things work?]</learned>
+  <learned>[What have you learned about how things work? Name the exact identifiers]</learned>
   <completed>[What work has been completed so far? What has shipped or changed?]</completed>
   <next_steps>[What are you actively working on or planning to work on next in this session?]</next_steps>
   <notes>[Additional insights or observations about the current progress]</notes>

@@ -1,0 +1,15 @@
+{
+  "durationMs" : 160670,
+  "total" : 58,
+  "callFailures" : 0,
+  "formatErrors" : 4,
+  "requestCoverage" : 0.9660493827160493,
+  "requestIdentifierHitRate" : 0.8703703703703703,
+  "requestSupportRate" : 0.8333333333333334,
+  "learnedRecall" : 0.8950617283950615,
+  "learnedIdentifierHitRate" : 0.9259259259259259,
+  "learnedSupportRate" : 0.8703703703703703,
+  "p50Ms" : 2000,
+  "p95Ms" : 8210,
+  "maxMs" : 10776
+}

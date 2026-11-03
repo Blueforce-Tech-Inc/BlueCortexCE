@@ -18,27 +18,27 @@ import static org.assertj.core.api.Assertions.within;
  *
  * <p>Each fixture reproduces its committed metrics exactly, so a change to the summary
  * prompt, the parser, the trace-support rule or the scorer cannot silently move the
- * numbers that were used to fix the A7–A10 thresholds.</p>
+ * numbers that were used to fix the A7–A10a/A10b thresholds.</p>
  */
 class SummaryGoldenSetReplayTest {
 
     @Test
     @DisplayName("replaying LongCat summary fixtures reproduces the committed baseline")
     void longcatReplayReproducesBaseline() throws Exception {
-        replayAndCompare("summary-longcat-baseline");
+        replayAndCompare("summary-longcat-after-v8");
     }
 
     @Test
     @DisplayName("replaying MiniMax summary fixtures reproduces the committed baseline")
     void minimaxReplayReproducesBaseline() throws Exception {
-        replayAndCompare("summary-minimax-baseline");
+        replayAndCompare("summary-minimax-after-v8");
     }
 
     @Test
-    @DisplayName("both committed baselines clear the A7–A10 floors")
+    @DisplayName("both identifier-contract baselines clear the A7–A10 floors")
     void baselinesClearTheGates() throws Exception {
-        SummaryGoldenSetScorer.Aggregate longcat = score("summary-longcat-baseline");
-        SummaryGoldenSetScorer.Aggregate minimax = score("summary-minimax-baseline");
+        SummaryGoldenSetScorer.Aggregate longcat = score("summary-longcat-after-v8");
+        SummaryGoldenSetScorer.Aggregate minimax = score("summary-minimax-after-v8");
 
         assertThat(longcat.requestCoverage)
             .isGreaterThanOrEqualTo(SummaryGoldenSetEvaluator.REQUEST_COVERAGE_FLOOR);
@@ -48,6 +48,8 @@ class SummaryGoldenSetReplayTest {
             .isGreaterThanOrEqualTo(SummaryGoldenSetEvaluator.LEARNED_RECALL_FLOOR);
         assertThat(longcat.learnedSupportRate)
             .isGreaterThanOrEqualTo(SummaryGoldenSetEvaluator.LEARNED_SUPPORT_FLOOR);
+        assertThat(longcat.learnedIdentifierHitRate)
+            .isGreaterThanOrEqualTo(SummaryGoldenSetEvaluator.LEARNED_IDENTIFIER_FLOOR);
 
         assertThat(minimax.requestCoverage)
             .isGreaterThanOrEqualTo(SummaryGoldenSetEvaluator.REQUEST_COVERAGE_FLOOR);
@@ -57,6 +59,8 @@ class SummaryGoldenSetReplayTest {
             .isGreaterThanOrEqualTo(SummaryGoldenSetEvaluator.LEARNED_RECALL_FLOOR);
         assertThat(minimax.learnedSupportRate)
             .isGreaterThanOrEqualTo(SummaryGoldenSetEvaluator.LEARNED_SUPPORT_FLOOR);
+        assertThat(minimax.learnedIdentifierHitRate)
+            .isGreaterThanOrEqualTo(SummaryGoldenSetEvaluator.LEARNED_IDENTIFIER_FLOOR);
     }
 
     private static void replayAndCompare(String name) throws Exception {

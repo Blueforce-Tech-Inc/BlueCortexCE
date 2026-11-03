@@ -44,6 +44,12 @@ public final class SummaryGoldenSetEvaluator {
     static final double REQUEST_SUPPORT_FLOOR = 0.75;
     static final double LEARNED_RECALL_FLOOR = 0.70;
     static final double LEARNED_SUPPORT_FLOOR = 0.60;
+    /**
+     * Floor for the identifier requirement on `learned`, locked from the first measured
+     * baseline of the identifier contract (2026-11-03, both providers). It may only be
+     * raised, never lowered: a summary that cannot name its identifiers is not grounded.
+     */
+    static final double LEARNED_IDENTIFIER_FLOOR = 0.90;
 
     private SummaryGoldenSetEvaluator() {
     }
@@ -308,8 +314,11 @@ public final class SummaryGoldenSetEvaluator {
                 pct(agg.requestSupportRate), agg.requestSupportRate >= REQUEST_SUPPORT_FLOOR);
         gate(sb, "A9", "learned recall", ">= " + pct(LEARNED_RECALL_FLOOR),
                 pct(agg.learnedRecall), agg.learnedRecall >= LEARNED_RECALL_FLOOR);
-        gate(sb, "A10", "learned trace support", ">= " + pct(LEARNED_SUPPORT_FLOOR),
+        gate(sb, "A10a", "learned trace support", ">= " + pct(LEARNED_SUPPORT_FLOOR),
                 pct(agg.learnedSupportRate), agg.learnedSupportRate >= LEARNED_SUPPORT_FLOOR);
+        gate(sb, "A10b", "learned identifier hit", ">= " + pct(LEARNED_IDENTIFIER_FLOOR),
+                pct(agg.learnedIdentifierHitRate),
+                agg.learnedIdentifierHitRate >= LEARNED_IDENTIFIER_FLOOR);
         sb.append('\n');
 
         sb.append("## Per sample\n\n");
