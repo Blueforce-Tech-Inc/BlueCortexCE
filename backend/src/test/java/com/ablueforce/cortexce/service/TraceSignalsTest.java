@@ -70,6 +70,22 @@ class TraceSignalsTest {
     }
 
     @Test
+    void addedProseAboutABugIsNotDefectEvidence() {
+        String output = "Edit backend/src/test/java/Foo.java: removed 1 line(s), added 2 line(s); "
+                + "'int x = 1;' -> '// this is the bug it reproduces'";
+        assertFalse(TraceSignals.of("file_path=backend/src/test/java/Foo.java", output)
+                .defectEvidence());
+    }
+
+    @Test
+    void removedDefectWordingIsEvidence() {
+        String output = "Edit backend/src/main/java/Foo.java: removed 1 line(s), added 1 line(s); "
+                + "'catch (Exception e) { return null; }' -> 'return value;'";
+        assertTrue(TraceSignals.of("file_path=backend/src/main/java/Foo.java", output)
+                .defectEvidence());
+    }
+
+    @Test
     void renameIsDetected() {
         TraceSignals.Signals signals = TraceSignals.of("provider/ModeService.java", "renamed ModeService to MemoryModeService");
         assertTrue(signals.renameOrMove());
@@ -85,6 +101,89 @@ class TraceSignalsTest {
         assertEquals(1, signals.docFiles());
         assertFalse(signals.docsOnly(), "a Dockerfile edit must not look docs-only");
         assertFalse(signals.configOnly());
+    }
+
+    @Test
+    void candidateArtifactsAreRankedByChangedLines() {
+        String input = "file_path=backend/src/main/java/com/ablueforce/cortexce/service/Foo.java\n"
+                + "read_files=backend/src/test/java/com/ablueforce/cortexce/service/FooTest.java";
+        String output = "Edit backend/src/main/java/com/ablueforce/cortexce/service/Foo.java: "
+                + "removed 2 line(s), added 3 line(s); Edit "
+                + "backend/src/test/java/com/ablueforce/cortexce/service/FooTest.java: "
+                + "removed 10 line(s), added 40 line(s)";
+        TraceSignals.Signals signals = TraceSignals.of(input, output);
+        assertEquals(2, signals.artifacts().size());
+        assertEquals("backend/src/test/java/com/ablueforce/cortexce/service/FooTest.java",
+                signals.artifacts().get(0).path());
+        assertEquals(50, signals.artifacts().get(0).changedLines());
+        assertEquals(5, signals.artifacts().get(1).changedLines());
+    }
+
+    @Test
+    void extensionlessArtifactKeepsItsEditStatOrderOnTies() {
+        String input = "file_path=backend/Dockerfile\n"
+                + "read_files=backend/Dockerfile, docs/DEPLOYMENT-zh-CN.md";
+        String output = "Edit backend/Dockerfile: removed 3 line(s), added 3 line(s); "
+                + "'# port' -> '# port 37777' Edit docs/DEPLOYMENT-zh-CN.md: "
+                + "removed 6 line(s), added 0 line(s); '# build' -> '(none)'";
+        TraceSignals.Signals signals = TraceSignals.of(input, output);
+        assertEquals("backend/Dockerfile", signals.artifacts().get(0).path());
+        assertEquals(6, signals.artifacts().get(0).changedLines());
+        assertEquals(6, signals.artifacts().get(1).changedLines());
+    }
+
+    @Test
+    void candidateIdentifiersCarryPathAndBasenameWithoutJavaSuffix() {
+        String input = "file_path=backend/src/main/java/com/ablueforce/cortexce/service/GoldenSetScorer.java\n"
+                + "read_files=docs/API.md";
+        String output = "Edit backend/src/main/java/com/ablueforce/cortexce/service/GoldenSetScorer.java: "
+                + "removed 1 line(s), added 9 line(s)";
+        TraceSignals.Signals signals = TraceSignals.of(input, output);
+        assertTrue(signals.identifiers().contains(
+                "backend/src/main/java/com/ablueforce/cortexce/service/GoldenSetScorer.java"));
+        assertTrue(signals.identifiers().contains("GoldenSetScorer"));
+        assertEquals("GoldenSetScorer", signals.identifiers().get(1));
+        String block = TraceSignals.hintBlock(input, output);
+        assertTrue(block.contains("<candidate_artifacts"));
+        assertTrue(block.contains("<candidate_identifiers"));
+        assertTrue(block.contains(
+                "<title_subject_candidate>backend/src/main/java/com/ablueforce/cortexce/service/"
+                        + "GoldenSetScorer.java</title_subject_candidate>"));
+        assertFalse(block.contains("<title_identifier_candidate>"));
+        assertTrue(block.contains("<title_contract>The title MUST end with GoldenSetScorer"));
+        assertTrue(block.contains("<title_identifier_required>GoldenSetScorer</title_identifier_required>"));
+        assertTrue(block.contains(
+                "<title_budget identifier_chars=\"15\" verb_object_chars=\"85\">"));
+        assertFalse(block.contains("<type>"));
+    }
+
+    @Test
+    void titleBudgetLeavesRoomForTheLongestIdentifier() {
+        String path = "docs/2026-11-03_model-output-quality-eval-minimax-after-v4-contract.md";
+        String input = "file_path=" + path;
+        String output = "Edit " + path + ": removed 0 line(s), added 12 line(s)";
+        String block = TraceSignals.hintBlock(input, output);
+        String identifier = "2026-11-03_model-output-quality-eval-minimax-after-v4-contract.md";
+        int expected = Math.max(0, 100 - identifier.length());
+        assertTrue(block.contains("identifier_chars=\"" + identifier.length() + "\""));
+        assertTrue(block.contains("verb_object_chars=\"" + expected + "\""));
+        assertTrue(block.contains("<title_identifier_required>" + identifier
+                + "</title_identifier_required>"));
+    }
+
+    @Test
+    void candidatesIncludeSymbolsConfigKeysAndEndpoints() {
+        String text = "backend/src/main/java/com/ablueforce/cortexce/service/TokenService.java\n"
+                + "application.yml\n"
+                + "+ public class TokenService {\n"
+                + "+ public String issueToken(String subject) {\n"
+                + "server.port: 37777\n"
+                + "+\"/api/health\"";
+        TraceSignals.Signals signals = TraceSignals.of(text, "");
+        assertTrue(signals.identifiers().contains("TokenService"));
+        assertTrue(signals.identifiers().contains("issueToken"));
+        assertTrue(signals.identifiers().contains("server.port"));
+        assertTrue(signals.identifiers().contains("/api/health"));
     }
 
     @Test

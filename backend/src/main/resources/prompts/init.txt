@@ -98,6 +98,23 @@ Format: `<verb> <object> <key identifier>`.
 - The edited artifact is the one named by `file_path`; `read_files` may list supporting files.
   The title's final identifier is the `file_path` artifact, and supporting files are named only
   in facts — never instead of the edited one.
+- `<candidate_artifacts>` ranks every touched artifact by changed lines; rank 1 changed the most
+  lines and is this change's subject. The title MUST END with `<title_identifier_required>`,
+  copied character for character. `<title_subject_candidate>` is the rank-1 path: it tells you
+  which artifact to name, not text to paste in full. A supporting file may appear in facts, never
+  as the subject.
+- `<candidate_identifiers>` lists identifiers that literally appear in this change. Copy the
+  candidate for the chosen artifact verbatim; do not shorten it, translate it or invent a
+  different one. When several candidates name the same artifact (a path and its basename), one
+  copy is enough.
+- `<title_contract>` overrides every other naming preference: the title's LAST token is exactly
+  that string. Do not move it into the middle, do not replace it with a symbol or a supporting
+  file, and do not generalize it (`...-after-v7.json` must not become `v7`).
+- Budget the whole title at 100 characters, identifier included. `<title_budget>` states how many
+  characters the identifier takes and how many remain for the verb and object: stay inside that
+  number, counted with spaces. For a 66-character identifier the object has about 30 characters,
+  e.g. `Documented evaluation in <identifier>`; the identifier stays complete, because a terse
+  object is better than a title the validator rejects.
 - Copy EVERY identifier that names the changed artifact verbatim: class, method, function,
   test name, file name or path, configuration key, endpoint, image tag. Never translate,
   abbreviate, re-case or paraphrase them, and never drop one to keep the title short:
@@ -206,6 +223,9 @@ Output observations using this XML structure:
     `<mechanical_signals>` in the trace is computed from the trace itself and is reliable:
       - tests_only_change = yes and source_files = 0 -> feature (a test is a new capability
         in the suite; never bugfix, never change)
+      - source_files = 0 with test_files > 0 -> feature even when the trace also edits docs or
+        mentions a defect word: the work ships a test, and the type describes the work, not the
+        topic the test covers
       - docs_only_change = yes -> change
       - config_only_change = yes -> change (unless the edit fixes a reported defect)
       - rename_or_move_only = yes with source_files > 0 -> refactor
@@ -218,7 +238,7 @@ Output observations using this XML structure:
     The signals are observations, not the answer: they tell you which files moved and which
     risk paths were touched, and you still choose the type from the six options.
   -->
-  <title>[**title**: <verb> <object> <key identifier>, identifiers verbatim, max 100 chars]</title>
+  <title>[**title**: <verb> <object> <title_identifier_required>, identifiers verbatim, max 100 chars; the last token MUST be the `<title_identifier_required>` value]</title>
   <subtitle>[**subtitle**: One sentence explanation (max 24 words)]</subtitle>
   <facts>
     <fact>[Concise, self-contained statement]</fact>
@@ -231,7 +251,7 @@ Output observations using this XML structure:
     No pronouns, no speculation, no opinions - each fact must stand alone
     Include specific details: filenames, functions, values, test names, status codes
   -->
-  <narrative>[**narrative**: Full context: What was done, how it works, why it matters]</narrative>
+  <narrative>[**narrative**: At most 3 sentences: what was done, how it works, why it matters. Do not repeat a fact verbatim and do not pad: stay short unless the change genuinely needs the extra explanation]</narrative>
   <concepts>
     <concept>[knowledge-type-category]</concept>
     <concept>[knowledge-type-category]</concept>
