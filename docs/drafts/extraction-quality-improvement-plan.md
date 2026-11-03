@@ -985,3 +985,172 @@ counted in L1 by the layer classifier; it passed locally (1 test, 0 skipped).
 `./scripts/verify-local.sh` — **ALL CHECKS PASSED** (2026-11-03, pgvector 0.8.1, migrations V23):
 L1 448 / L2 7 / L3 6 / L4 1, failures 0, errors 0, **skipped 0**; EN/ZH API references match the
 served 80 operations; proxy E2E executed with 0 skipped.
+
+## 7.19 Round 9 — identifier 100%: every miss attributed
+
+Round 8 left identifiers at 98.5% (LongCat) and 98.4% (MiniMax). Each lost identifier was
+checked against three possible causes, in this order: the title hit the 100-character cap,
+the identifier was copied wrong (model omission), or the identifier never occurs in the
+recorded trace (unreachable label).
+
+The round-8 fixtures contained exactly one lost identifier per model, the same sample:
+
+| model | sample | lost identifier | in trace | model title length | cause |
+|---|---|---|---|---|---|
+| LongCat | `test-repro-null-cache` | `UserCache` | yes (`toolOutput`) | 88 | model omission |
+| MiniMax | `test-repro-null-cache` | `UserCache` | yes (`toolOutput`) | 88 | model omission |
+
+The trace was not truncated (88 < 100), and both identifiers were readable in the output.
+The contract already asked for exact identifiers, but did not say that a reproduction test
+must name the reproduced class as well as the test. Both prompts now contain:
+
+> A reproduction test names BOTH sides: the test identifier and the class or method whose
+> bug it reproduces (`Added CacheConcurrencyTest reproducing UserCache null`), never only
+> the test name.
+
+Result of the retest (round-9 3× run, first pass): `test-repro-null-cache` hits both
+identifiers on both models. The remaining misses show the other two causes are absent:
+
+| model | run | sample | lost identifier | in trace | title length | cause |
+|---|---|---|---|---|---|---|
+| LongCat | 0 | `bug-null-cache` | `computeIfAbsent` | yes | 58 | model omission (paraphrased) |
+| MiniMax | 0 | `bug-null-cache` | `computeIfAbsent` | yes | 58 | model omission (paraphrased) |
+| MiniMax | 0 | `config-hikari-pool` | `maximum-pool-size` | yes | 47 | model omission (paraphrased) |
+| MiniMax | 1 | `security-secret-config` | `api-key`, `secret-token` | yes | 61 | model omission |
+| MiniMax | 2 | `bug-null-cache` | `computeIfAbsent` | yes | 58 | model omission (paraphrased) |
+
+No sample was removed: the "identifier not obtainable from the trace" cause never applied,
+so the exclusion count is **0**. Truncation never applied either. After the contract fix the
+identifier rate is **LongCat 64/65 = 98.5%**, **MiniMax 63/65 = 96.8%** on the first pass;
+across the three repetitions MiniMax ranged 95.2–96.8% and LongCat 98.5–100%. The target
+remains 100% and is **not met**: the residual is model copying, not labeling or truncation,
+so it is recorded as a capability boundary with the evidence above. No threshold was lowered.
+
+## 7.20 Round 9 — subject reachability under a trace-visible definition
+
+The round-8 subject metric (73.8% MiniMax) asked for annotation words even when the recorded
+trace never contained them. The round-9 definition keeps only subject tokens that actually
+occur in the trace (tool name + tool input + tool output); tokens the trace never mentions
+leave the A6b denominator and are listed as unreachable. The legacy definition stays in the
+report as a diagnostic, so old fixtures remain reproducible.
+
+Unreachable subject labels, 10 samples per model (MiniMax had 9 in the round-8 replay because
+one sample failed to parse there):
+
+- LongCat: `config-log-level`, `config-rate-limits`, `deploy-terraform-iam`, `docs-security-policy`,
+  `refactor-logging-filter`, `security-cookie-httponly`, `security-redact-log`,
+  `test-flaky-clock`, `test-repro-null-cache`, `deploy-helm-values`.
+- MiniMax: the same set plus `bug-race-counter` (present once parsing succeeded).
+
+New-definition baselines, measured before the gate was written:
+
+| model | round-8 replay | round-9 first pass | scored | unreachable/excluded |
+|---|---|---|---|---|
+| LongCat | 96.4% (54/56) | 89.1% (49/55) | 55 | 10 |
+| MiniMax | 86.5% (45/52) | 88.7% (47/53) | 53 | 10 |
+
+The pre-committed A6b floor stays **90%**: LongCat passes in the round-8 replay but not in the
+round-9 pass; MiniMax fails both. The remaining misses are reachable tokens the model
+paraphrased (`flaky`, `httponly`, `policy`, `helm`, `level`, `timing`), so this too is a
+capability boundary rather than a labeling defect. The old definition is still printed as
+`title subject hit rate (legacy, diagnostic)`.
+
+## 7.21 Round 9 — reproducibility at temperature 0
+
+Every sample ran three times with `EVAL_REPEAT_ALL=1` (261 calls per model; no retries, no
+call failures). Per-run spread and the full disagreement lists are in
+`2026-11-03_model-output-quality-eval-{longcat,minimax}-after-v9.md`.
+
+| metric | LongCat min–max (σ) | MiniMax min–max (σ) |
+|---|---|---|
+| type accuracy | 89.6–95.4% (2.75pp) | 89.2–96.8% (3.27pp) |
+| title action class | 88.1–91.0% (1.23pp) | 84.1–90.8% (2.71pp) |
+| trace-visible subject | 89.1–98.2% (3.75pp) | 85.5–88.7% (1.32pp) |
+| identifiers | 98.5–100% (0.73pp) | 95.2–96.8% (0.72pp) |
+| facts informative | 81.8–85.8% (1.66pp) | 77.3–82.0% (1.98pp) |
+
+Samples that changed type or action class across the three runs: **LongCat 18/87 (20.7%)**,
+**MiniMax 13/87 (14.9%)**. The disagreements are spread across every category — refactor,
+security, config, docs, deploy, remove, test — not confined to boundary samples, so the
+"acceptable fluctuation band" option was rejected.
+
+Decision: **majority vote, enabled by default at 3 attempts**.
+`ExtractionConsistency` groups answers by `skip` / `unparsable` / `type + leading title verb`,
+keeps the most frequent group, breaks ties by the earliest answer, and never lets a failed or
+unparsable attempt vote. The production cost is explicit and linear:
+
+| model | p95 latency, 1 attempt | p95 latency, 3 attempts | p95 tokens, 1 attempt | p95 tokens, 3 attempts |
+|---|---|---|---|---|
+| LongCat | 33.7 s | ≈ 101 s | 5763 | ≈ 17.3k |
+| MiniMax | 5.6 s | ≈ 17 s | 4048 | ≈ 12.1k |
+
+It is configurable off via `cortexce.extraction.consistency-samples` (environment
+`CLAUDEMEM_EXTRACTION_CONSISTENCY_SAMPLES`), where `1` restores the single-call behavior.
+The vote stabilises the label; it does not repair identifier copying, which is why section
+7.19 remains a capability boundary.
+
+## 7.22 Round 9 — real-history golden set
+
+`scripts/gen-real-golden.py` reads real commits from this repository, takes the diff and the
+files it touched, and builds the single-edit trace the agent would have seen: `file_path`, the
+first removed line, the first added line, and a result line that repeats the commit subject.
+The expected action class and the identifier are derived mechanically; the rules are written
+in the script header and were fixed before any model ran. Exclusions are mechanical: merge
+commits, binary or renamed files, more than six files, empty subjects, and diffs without text.
+
+36 samples (`backend/src/test/resources/eval/golden-tool-use-real.json`) cover 14 Documented,
+10 Hardened (security), 8 Changed and 4 Added commits (types: 16 change, 10 bugfix, 8 feature,
+2 refactor). The scanned history contained no qualifying deletion-only commit, so this set has
+no Removed or Diagnose sample. They are scored with `EVAL_GOLDEN=real` and reported separately
+from the hand-written set; the two are never averaged together.
+
+| model | identifiers | trace-visible subject | action class | type accuracy |
+|---|---|---|---|---|
+| LongCat | 81.8% (27/33) | 81.8% | 42.4% | 51.5% |
+| MiniMax | 61.1% (22/36) | 61.1% | 41.7% | 61.1% |
+
+The real distribution is harder than the hand-written set: commit subjects often name a
+module or a behaviour rather than the edited artifact, and the mechanical action rules use
+commit shape (documentation-only, deletion-only, security wording) rather than tool traces.
+The gap is therefore a finding about prompt behaviour on organic commits, not a failure of
+the A6 gates, which are still computed on the hand-written set. Both fixtures are committed
+and replayed in CI.
+
+## 7.23 Round 9 — latency and token floors
+
+The first 3× run is the baseline, measured before any floor existed. Floors were then fixed
+at **p95 ≤ 1.5× baseline** for the hand-written set; they may only be tightened. Providers
+without a baseline receive no verdict.
+
+| model | p50 latency | p95 latency | max latency | p95 tokens | baseline floor |
+|---|---|---|---|---|---|
+| LongCat | 15.7 s | 33.7 s | 45.6 s | 5763 | 50.6 s / 8645 tokens |
+| MiniMax | 2.6 s | 5.6 s | 12.5 s | 4048 | 8.5 s / 6072 tokens |
+
+A11 (latency) and A12 (tokens) pass on the baselined runs by construction; the value of the
+floor is that later prompt or pipeline changes cannot silently exceed it.
+
+## 7.24 Rejected alternatives (round 9)
+
+- **Remove the unreachable subject labels and lower the gate to the new baseline.** Rejected:
+  the legacy metric must remain comparable, and lowering a previously stated 90% target after
+  seeing the data is exactly what the round-9 instruction forbids.
+- **Treat the 15–21% disagreement as noise and record a fluctuation band.** Rejected: the
+  disagreements span every category, so production labels would flip on ordinary traces, not
+  only on ambiguous ones.
+- **Add another prompt paragraph to force identifier copying.** Rejected for this round: the
+  remaining misses are exact strings already covered by the contract; adding repetition would
+  not create evidence and would obscure the capability boundary.
+- **Generate the real set from model answers or hand-pick "good" commits.** Rejected: the
+  generator is mechanical and committed, and the only human action is excluding unsuitable
+  commits by the rules in the script header.
+
+## 7.25 Round-9 verification
+
+`PG_CONTAINER=claude-mem-test-pg PG_PORT=5433 ./scripts/verify-local.sh` — **ALL CHECKS
+PASSED** (2026-11-03, pgvector 0.8.1, migrations V23):
+
+- tests **472**, failures 0, errors 0, **skipped 0** — L1 458 / L2 7 / L3 6 / L4 1;
+- baseline ratcheted to `scripts/test-baseline.json` = 472 (L1 458 / L2 7 / L3 6 / L4 1) and
+  `--min-tests` raised 423 → 472 in `verify-local.sh` and `backend-tests.yml`;
+- EN/ZH API references still match the 80 served operations; proxy E2E executed with 0 skipped.

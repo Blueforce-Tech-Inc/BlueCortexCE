@@ -106,11 +106,11 @@ git submodule update --init --recursive
    `flyway_schema_history` 中没有失败记录。
 5. 用一次 `mvn -B clean install` 跑完 L1–L4，`MEMSCOPE_*` 指向该库。
 6. 执行 `python3 scripts/check-test-results.py --require-zero-skips
-   --min-tests 423 --require-layers --require-baseline`。下限是硬性
-   **不得低于** 值（当前 423 个用例）；baseline 额外提供按层棘轮，任何一层
+   --min-tests 472 --require-layers --require-baseline`。下限是硬性
+   **不得低于** 值（当前 472 个用例）；baseline 额外提供按层棘轮，任何一层
    悄悄减少用例都会失败。
 
-门禁在以下任一情况失败：有用例被跳过；总执行数低于 423；某一层一个用例都没执行；
+门禁在以下任一情况失败：有用例被跳过；总执行数低于 472；某一层一个用例都没执行；
 L1–L4 中任何一层的执行数低于 `scripts/test-baseline.json` 记录。只有在新增用例后，
 才应同时抬高下限并重写 baseline（`--write-baseline`）。
 7. 执行两项文档一致性检查：检查器自测，再用中英文 API 参考对比运行中的服务。
@@ -274,7 +274,7 @@ kill "$APP_PID" && wait "$APP_PID" 2>/dev/null || true
 docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$TEST_DB" -tAc \
   "SELECT version FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 1"
 
-# 4. 对该库跑完整测试套件：423 个用例、0 跳过。
+# 4. 对该库跑完整测试套件：472 个用例、0 跳过。
 MEMSCOPE_TEST_DB_URL="jdbc:postgresql://127.0.0.1:$PG_PORT/$TEST_DB" \
 MEMSCOPE_TEST_DB_USER="$PG_USER" MEMSCOPE_TEST_DB_PASSWORD="$PG_PASSWORD" \
 MEMSCOPE_FLYWAY_TEST_URL="jdbc:postgresql://127.0.0.1:$PG_PORT/$TEST_DB" \
@@ -287,7 +287,7 @@ mvn -B clean install
 > 与 V20 冲突演练会各自创建并迁移一次性数据库。
 >
 > CI 会跑同一套测试，然后执行 `python3 scripts/check-test-results.py
-> --require-zero-skips --min-tests 423 --require-layers --require-baseline`；因此
+> --require-zero-skips --min-tests 472 --require-layers --require-baseline`；因此
 > 「构建成功但有用例被跳过」「某一层整个消失」或「某层用例数低于 baseline」都会直接失败。
 > CI 使用自己的 `pgvector/pgvector:pg16` service 容器，而不是复用本地容器。
 
@@ -456,7 +456,7 @@ GitHub Actions 工作流配置在 `.github/workflows/`：
     容器，映射到宿主机 **5433**（GitHub runner 自带的 PostgreSQL 已占用 5432），
     用应用自身的 Flyway 配置迁移到最新版本，执行 `mvn -B clean install`（不带
     `-DskipTests`），然后执行 `python3 scripts/check-test-results.py
-    --require-zero-skips --min-tests 423 --require-layers --require-baseline`。
+    --require-zero-skips --min-tests 472 --require-layers --require-baseline`。
     任何一个 DB 用例被跳过、用例总数下降、或某一层低于 baseline，都会让 job 失败，
     因此「BUILD SUCCESS 但有跳过」不可能通过 CI。
   - 仅 JDK 21 的 job 会在 37777 启动服务，运行
@@ -532,6 +532,7 @@ cd backend
 
 | 日期 | 变更 |
 |------|------|
+| 2026-11-03 | **第 9 轮：指标可达性与结果可复现。** 标识符未达 100% 的剩余缺口全部归因为模型漏抄：逐条判定后既没有标题截断，也没有 trace 中不可获取的标识，**剔除数为 0**，因此按能力边界记录并留证，未下调任何门槛。主体评分收紧为「token 必须真实出现在 trace 中」，不可达标签退出 A6b 分母并逐条列出，旧口径保留为诊断指标。`temperature 0` 下全量重复 3 次，量化逐指标方差（type 标准差 LongCat 2.75pp / MiniMax 3.27pp），并列出 3 次中 type 或动作类发生变化的样本 **18/87（LongCat）**、**13/87（MiniMax）**；不一致横跨所有类别，因此提取流程改为**默认采样 3 次并多数投票**（`cortexce.extraction.consistency-samples`，设为 `1` 可关闭；代价为延迟与 token ×3）。新增 `scripts/gen-real-golden.py`，从真实 commit 机械生成 **36 条样例**，通过 `EVAL_GOLDEN=real` 独立统计（标识符 LongCat 81.8%、MiniMax 61.1%）。新增 p50/p95 延迟与 token 基线，A11/A12 门槛为 **p95 ≤ 基线 1.5×**。用例数 462 → **472** / 0 跳过；`--min-tests` 423 → 472。中英文同步更新 |
 | 2026-11-03 | **审计缺口收口 + 按层 baseline 棘轮。** 门禁改为 `--min-tests 423 --require-baseline`，基线文件 `scripts/test-baseline.json`（L1 409 / L2 7 / L3 6 / L4 1），即使总数仍高于下限，任何一层用例减少也会失败。新增数据库测试：8 线程并发领取（只允许一个成功）、队列深度把 `processing` 计入、failed 计数与最近失败原因可查询、批量与单条会话查询结果一致、V23 索引集存在、V20 legacy 冲突演练（可读的 `TECHNICAL_BUCKET_CONFLICT` / `OBSERVATION_WITHOUT_SCOPE`，按文档清理后重跑成功）。契约检查器现在校验错误响应体与真实健康形态（`/api/health` 为 `{service,status,timestamp}`，checks 在 `/api/readiness`）。`verify-local.sh` 优先使用专用容器 `claude-mem-test-pg`，因为共享的 `postgresql` 容器可能被无关客户端占满连接。用例数 360 → **423** / 0 跳过；中英文同步更新 |
 | 2026-11-02 | **Golden 样例集输出质量评估与 MiniMax 最终复验。** 新增仅手动执行、在 CI 下拒绝运行的评估工具（`scripts/eval-model-quality.sh` + `GoldenSetEvaluator`，`EVAL_MAX_CALLS` 默认上限 20），对 **12 条真实感 tool-use 轨迹**打分，覆盖 bug 修复、重构、测试新增、配置变更、安全修复、文档更新，以及 2 条应跳过的低价值变更；每条含期望（是否产 observation / 是否 skip、type、title 关键词、facts/concepts 关键词）。打分逻辑为纯离线 `GoldenSetScorer`，由 6 个单测覆盖。LongCat 实测：**12/12 次调用，0 失败、0 格式错误；契约合格率 92%，skip 判定准确率 92%（TP/FP/FN/TN 2/1/0/9），type 100%，title 完全命中 44%，facts 54%/94%，concepts 57%/83%**。唯一的漏产是一条时区小回归测试被跳过；title 未命中属改写措辞，不是格式错误。报告见 `docs/archive/2026-11-02_model-output-quality-eval.md`。MiniMax 在 key 再次更新后复验**端到端通过**：HTTP 200，回答被 `XmlParser` 接受，入库向量 1024 维，`GET /api/search` 返回 `strategy=hybrid`/`fell_back=false`/`hits=1`，耗时 0.131 秒；`/api/context/inject` 返回 observation 标题与 `updateFiles`；队列终态 `processed:1`；**3 次真实调用**，队列 admission 到落库 2.72 秒。随后用 `EVAL_PROVIDER=anthropic` 对同样 12 条样例跑 `MiniMax-M3`（**12 次调用**）：契约 83%，skip 判定准确率 83%（TP/FP/FN/TN **0/0/2/10**，两条低价值轨迹都产出了 observation），type 90%（一条 `test-add` 被判为 `bugfix`），title 完全命中 20%，facts 65%/90%，concepts 52%/80%，0 格式错误；报告见 `docs/archive/2026-11-02_model-output-quality-eval-minimax.md`。用例数 354 → **360** / 0 跳过（新增 6 个离线打分单测）；`--min-tests` 354 → 360。中英文同步更新 |
 | 2026-11-02 | **双协议 provider、LongCat 真实链路、embedding 请求修复。** LongCat（OpenAI 兼容，`https://api.longcat.chat/openai`，`LongCat-2.5`）跑通完整真实路径：提取 chat → `XmlParser` 接受回答 → observation 落库并写入 **1024 维**向量 → `GET /api/search` 返回 `strategy=hybrid`、`fell_back=false`、命中 1 条（0.11 秒）→ `/api/context/inject` 含 observation 标题与 `updateFiles` → 队列表终态 `processed`，非 `failed`。embedding 探针用 `BAAI/bge-m3` 返回 **1024 维、0.29 秒**。由此产生两处修复：(1) OpenAI 专属的 `dimensions` 字段被 SiliconFlow 拒绝（`400 code 20015`），改为由 `spring.ai.openai.embedding.send-dimensions` 显式开启（默认 `false`）；(2) 提取提示词让跳过的模型「不必输出」，而解析器只认 `<skip>`，导致纯文本跳过被判为 malformed——两个模板现要求 `<skip>reason</skip>`，并补齐 `<subtitle>` / `<narrative>` 闭合标签。`OPENAI_API_KEY` 已映射进 `spring.ai.openai.api-key`，普通变量名真正生效。openai/anthropic 切换现由 **bean 注册层**决定（`@ConditionalOnProperty` 绑 `claudemem.llm.provider`），而不是靠方法返回 null：两个 key 都存在时，旧写法仍会留下两个 `ChatModel` 定义，`getBean(ChatModel.class)` 会抛 `NoUniqueBeanDefinitionException`——由新增的上下文级测试抓出。新增 `SpringAiConfigProviderBranchTest`（5 个用例：互斥、真实 Spring 上下文中只存在一个 bean、空 key 抑制、embedding 不随 chat provider 切换）与 `XmlParserTest`（4 个用例：围栏内 observation、`<skip>`、无标签纯文本拒绝、未闭合标签）。文档补上 openai/anthropic 切换对照表、重启要求与确认当前分支的方法。MiniMax 用当时更新的 `ANTHROPIC_API_KEY` 重新实测，仍返回 **`402 insufficient_balance_error`（code 1008）**，那次没有可解析回答，Anthropic 链路未跑通；随后再次更换 key 的复验已端到端通过，记录见上一条。Anthropic bean 本身已由启动日志确认生效；两次重启的切换检查通过（`provider=openai` 只创建 `OpenAiChatModel`，`provider=anthropic` 只创建 `AnthropicChatModel`，两次均健康），无 `BeanDefinitionOverrideException`。用例数 345 → 354 / 0 跳过，`--min-tests` 345 → 354。中英文同步更新 |

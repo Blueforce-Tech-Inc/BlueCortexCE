@@ -109,12 +109,12 @@ hand-run steps:
 5. runs L1–L4 in one `mvn -B clean install`, with `MEMSCOPE_*` pointed at that
    database.
 6. runs `python3 scripts/check-test-results.py --require-zero-skips
-   --min-tests 423 --require-layers --require-baseline`. The floor is a hard
-   **must-not-go-below** value (currently 423 executed tests); the baseline adds
+   --min-tests 472 --require-layers --require-baseline`. The floor is a hard
+   **must-not-go-below** value (currently 472 executed tests); the baseline adds
    a per-layer ratchet so no layer can quietly shrink.
 
 The gate fails when any test is skipped, when the total executed count drops
-below 423, when a layer executed no tests, or when any of L1–L4 executed fewer
+below 472, when a layer executed no tests, or when any of L1–L4 executed fewer
 tests than `scripts/test-baseline.json` records. Raise both the floor and the
 baseline deliberately (`--write-baseline`) only after adding tests.
 7. runs both documentation consistency checks: the checker self-test, then the
@@ -290,7 +290,7 @@ kill "$APP_PID" && wait "$APP_PID" 2>/dev/null || true
 docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$TEST_DB" -tAc \
   "SELECT version FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 1"
 
-# 4. Run the full suite against the dedicated database: 423 tests, 0 skipped.
+# 4. Run the full suite against the dedicated database: 472 tests, 0 skipped.
 MEMSCOPE_TEST_DB_URL="jdbc:postgresql://127.0.0.1:$PG_PORT/$TEST_DB" \
 MEMSCOPE_TEST_DB_USER="$PG_USER" MEMSCOPE_TEST_DB_PASSWORD="$PG_PASSWORD" \
 MEMSCOPE_FLYWAY_TEST_URL="jdbc:postgresql://127.0.0.1:$PG_PORT/$TEST_DB" \
@@ -304,7 +304,7 @@ mvn -B clean install
 > V20 conflict rehearsal create and migrate their own disposable databases.
 >
 > CI runs the same suite and then `python3 scripts/check-test-results.py
-> --require-zero-skips --min-tests 423 --require-layers --require-baseline`, so a build
+> --require-zero-skips --min-tests 472 --require-layers --require-baseline`, so a build
 > that reports success while any DB-gated test was skipped, or while a whole layer
 > disappeared, or while a layer executed fewer tests than the recorded baseline,
 > fails. CI provisions its own `pgvector/pgvector:pg16`
@@ -498,7 +498,7 @@ GitHub Actions workflows are configured in `.github/workflows/`:
     owns 5432), migrates it to the newest migration with the application's own
     Flyway configuration, runs `mvn -B clean install` (no `-DskipTests`), and
     then runs `python3 scripts/check-test-results.py --require-zero-skips
-    --min-tests 423 --require-layers --require-baseline`. A skipped DB test, a
+    --min-tests 472 --require-layers --require-baseline`. A skipped DB test, a
     total test-count drop, or any layer shrinking below the recorded baseline
     fails the job, so "BUILD SUCCESS with skipped tests" cannot pass CI.
   - On JDK 21 only, the same job boots the server on 37777 and runs
@@ -583,6 +583,7 @@ cd backend
 
 | Date | Change |
 |------|--------|
+| 2026-11-03 | **Round 9: metric reachability and reproducibility.** Identifiers remain below 100% only because of model copying: every miss was attributed, none was a truncated title or a label absent from the trace, so the exclusion count is **0** and the residual is recorded as a capability boundary (no threshold lowered). Subject scoring now requires the token to occur in the trace; unreachable labels leave the A6b denominator and are listed, while the legacy subject metric stays as a diagnostic. Three full repetitions at `temperature 0` measured per-metric variance (type σ 2.75pp LongCat / 3.27pp MiniMax) and named the **18/87** (LongCat) and **13/87** (MiniMax) samples that changed type or action class; the disagreements span every category, so extraction now samples **3 times and takes the majority vote by default** (`cortexce.extraction.consistency-samples`, `1` disables it; cost is 3× latency and tokens). Added `scripts/gen-real-golden.py`, which mechanically derives **36 samples from real commits** and is scored separately with `EVAL_GOLDEN=real` (identifiers LongCat 81.8%, MiniMax 61.1%). Added p50/p95 latency and token baselines with A11/A12 at **p95 ≤ 1.5× baseline**. Suite 462 → **472** tests / 0 skipped; `--min-tests` 423 → 472. EN+ZH in sync |
 | 2026-11-03 | **Audit gap closure and a per-layer baseline ratchet.** The gate now runs `--min-tests 423 --require-baseline` against `scripts/test-baseline.json` (L1 409 / L2 7 / L3 6 / L4 1), so a layer cannot shrink even if the total stays above the floor. New database tests: an 8-worker claim race (exactly one winner), queue depth including `processing`, failed counts/reasons, batch-vs-single session lookup equivalence, the V23 index set, and a V20 legacy-conflict rehearsal (readable `TECHNICAL_BUCKET_CONFLICT` / `OBSERVATION_WITHOUT_SCOPE`, documented cleanup, re-run succeeds). The API contract probe now pins error bodies and the real liveness/readiness shapes (`/api/health` is `{service,status,timestamp}`; checks live on `/api/readiness`). `verify-local.sh` prefers the dedicated `claude-mem-test-pg` container because a shared `postgresql` container can be saturated by unrelated clients. Suite 360 → **423** tests / 0 skipped; EN+ZH in sync |
 | 2026-11-02 | **Golden-set output quality evaluation and final MiniMax re-check.** Added a manual-only, CI-refusing evaluation harness (`scripts/eval-model-quality.sh` + `GoldenSetEvaluator`, cap `EVAL_MAX_CALLS`, default 20) over a hand-authored golden set of **12 real-looking tool-use traces** spanning bug-fix, refactor, test-add, config-change, security-fix, docs-update and two low-value traces that must be skipped, each with expected observation/skip, type, title keywords and facts/concepts keywords. Scoring is pure offline logic (`GoldenSetScorer`) covered by 6 unit tests. LongCat run: **12/12 calls, 0 failures, 0 format errors; contract 92%, skip accuracy 92% (TP/FP/FN/TN 2/1/0/9), type 100%, title full-hit 44%, facts 54%/94%, concepts 57%/83%**; the one false positive is a small timezone regression test that was skipped, and title misses are paraphrase misses, not malformed output. Report: `docs/archive/2026-11-02_model-output-quality-eval.md`. MiniMax was re-checked after the key was updated again and **passed end to end**: HTTP 200, answer accepted by `XmlParser`, stored vector 1024-d, `GET /api/search` `strategy=hybrid`/`fell_back=false`/`hits=1` in 0.131 s, `/api/context/inject` returned the observation title and `updateFiles`, queue `processed:1`; **3 real calls**, queue admission → persistence 2.72 s. `EVAL_PROVIDER=anthropic` then ran the same 12 samples on `MiniMax-M3` (**12 calls**): contract 83%, skip accuracy 83% (TP/FP/FN/TN **0/0/2/10** — it produced observations for both low-value traces), type 90% (one `test-add` called `bugfix`), title full-hit 20%, facts 65%/90%, concepts 52%/80%, 0 format errors; report `docs/archive/2026-11-02_model-output-quality-eval-minimax.md`. Suite 354 → **360** tests / 0 skipped (6 offline scorer tests); `--min-tests` 354 → 360. EN+ZH in sync |
 | 2026-11-02 | **Dual-protocol providers, LongCat real chain, embedding request fix.** LongCat (`OpenAI-compatible`, `https://api.longcat.chat/openai`, `LongCat-2.5`) completed the full real path: extraction chat → `XmlParser` accepted the answer → observation persisted with a **1024-dimension** vector → `GET /api/search` returned `strategy=hybrid`, `fell_back=false`, 1 hit (0.11 s) → `/api/context/inject` contained the observation title and `updateFiles` → the queue row ended `processed`, not `failed`. The embedding probe returns **1024 dimensions in 0.29 s** with `BAAI/bge-m3`. Two fixes came out of this: (1) the OpenAI-only `dimensions` field was rejected by SiliconFlow (`400 code 20015`), so it is now opt-in through `spring.ai.openai.embedding.send-dimensions` (default `false`); (2) the extraction prompts told a skipping model to say nothing while the parser expected `<skip>`, so a plain-text skip was classified as malformed — both prompts now require `<skip>reason</skip>`, and `<subtitle>`/`<narrative>` in the templates were closed. `OPENAI_API_KEY` is now mapped into `spring.ai.openai.api-key`, so the plain name really takes effect. The openai/anthropic switch is now decided at **bean-registration** level (`@ConditionalOnProperty` on `claudemem.llm.provider`), not by a method returning null: with both keys present, the old arrangement still exposed two `ChatModel` definitions and `getBean(ChatModel.class)` raised `NoUniqueBeanDefinitionException` — caught by the new context-level test. Added `SpringAiConfigProviderBranchTest` (5 tests: mutual exclusion, registration-level single bean in a real context, empty-key suppression, embedding independent of the chat provider) and `XmlParserTest` (4 tests: fenced observation, `<skip>`, untagged text rejection, unclosed tags). Documented the openai/anthropic switch table, restart requirement and how to confirm the active branch. MiniMax was re-attempted with an updated `ANTHROPIC_API_KEY`: that key still returned **`402 insufficient_balance_error` (code 1008)**, so no answer was parseable and the Anthropic chain did not run on that attempt; the later key re-check that passed end to end is recorded in the entry above. The Anthropic bean itself was confirmed active from the startup log, and a two-restart switch check (`provider=openai` → only `OpenAiChatModel`; `provider=anthropic` → only `AnthropicChatModel`, both healthy) passed without `BeanDefinitionOverrideException`. Suite 345 → 354 tests / 0 skipped; `--min-tests` 345 → 354. EN+ZH in sync |
