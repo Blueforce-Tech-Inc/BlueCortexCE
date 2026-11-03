@@ -26,6 +26,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -84,6 +85,13 @@ public class AgentService implements LogHelper {
 
     @Value("${claudemem.max-retries:3}")
     private int maxRetries;
+
+    /**
+     * Attempts per trace. One disables the vote (default); three make the extraction pay
+     * three calls to settle a type/action disagreement measured at temperature 0.
+     */
+    @Value("${cortexce.extraction.consistency-samples:1}")
+    private int extractionConsistencySamples;
 
     public AgentService(SessionManagementService sessionManagementService,
                         TemplateService templateService,
@@ -312,6 +320,22 @@ public class AgentService implements LogHelper {
         }
     }
 
+    private ExtractionConsistency.Candidate candidateOf(LlmService.LlmResponse response) {
+        if (response.failed()) {
+            return new ExtractionConsistency.Candidate(false, false, null, null);
+        }
+        String raw = response.content();
+        if (XmlParser.extractTag(raw, "skip") != null) {
+            return new ExtractionConsistency.Candidate(true, false, null, null);
+        }
+        try {
+            XmlParser.ParsedObservation parsed = XmlParser.parseObservation(raw);
+            return new ExtractionConsistency.Candidate(false, true, parsed.type, parsed.title);
+        } catch (Exception e) {
+            return new ExtractionConsistency.Candidate(false, false, null, null);
+        }
+    }
+
     /**
      * Shared observation processing: build prompts, call LLM, parse, and save.
      * Used by both processToolUseAsync and processPendingMessage.
@@ -344,18 +368,34 @@ public class AgentService implements LogHelper {
             .replace("{{toolOutput}}", templateService.escapeTemplateValue(
                 templateService.truncate(toolResponse, Constants.MAX_TOOL_CONTENT_LENGTH)));
 
-        // Call LLM
-        LlmService.LlmResponse llmResponse = llmService.chatCompletionWithUsage(systemPrompt, userMsg);
-        if (llmResponse.failed()) {
-            // Surface the classified failure instead of letting an empty string fall
-            // through to the XML parser, where every cause would look like "unparseable".
-            throw new LlmService.ProviderFailureException(
-                llmResponse.failure(), llmResponse.failureDetail());
+        // Call LLM. With more than one attempt, the most frequent type + leading-title
+        // signature wins; a failed or unparsable attempt never votes.
+        int attempts = Math.max(1, extractionConsistencySamples);
+        List<LlmService.LlmResponse> responses = new ArrayList<>();
+        List<String> raws = new ArrayList<>();
+        List<ExtractionConsistency.Candidate> candidates = new ArrayList<>();
+        for (int attempt = 0; attempt < attempts; attempt++) {
+            LlmService.LlmResponse response = llmService.chatCompletionWithUsage(systemPrompt, userMsg);
+            responses.add(response);
+            candidates.add(candidateOf(response));
+            raws.add(response.failed() ? null : response.content());
         }
-        String llmContent = llmResponse.content();
-        int discoveryTokens = llmResponse.totalTokens();
-        log.debug("Observation extraction completed: response_chars={}, tokens={}, response_fingerprint={}",
-            llmContent == null ? 0 : llmContent.length(), discoveryTokens,
+        int winner = ExtractionConsistency.select(candidates);
+        if (winner < 0) {
+            LlmService.LlmResponse failure = responses.stream()
+                .filter(LlmService.LlmResponse::failed).findFirst().orElse(null);
+            if (failure != null) {
+                throw new LlmService.ProviderFailureException(
+                    failure.failure(), failure.failureDetail());
+            }
+            // Every attempt produced text but none parsed: keep the first answer so the
+            // parser below raises the same error a single attempt would have raised.
+            winner = 0;
+        }
+        String llmContent = raws.get(winner);
+        int discoveryTokens = responses.stream().mapToInt(LlmService.LlmResponse::totalTokens).sum();
+        log.debug("Observation extraction completed: attempts={}, response_chars={}, tokens={}, response_fingerprint={}",
+            attempts, llmContent == null ? 0 : llmContent.length(), discoveryTokens,
             LogSanitizer.fingerprint(llmContent));
 
         // Check for skip
