@@ -14,13 +14,22 @@ import org.springframework.ai.openai.OpenAiEmbeddingModel;
 import org.springframework.ai.openai.OpenAiEmbeddingOptions;
 import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.ai.retry.RetryUtils;
+import org.springframework.ai.retry.TransientAiException;
 import org.springframework.ai.document.MetadataMode;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
+import org.springframework.retry.backoff.ExponentialBackOffPolicy;
+import org.springframework.retry.support.RetryTemplate;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClient;
 
+import java.io.IOException;
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.util.List;
 
 @Configuration
@@ -40,7 +49,12 @@ public class SpringAiConfig {
             @Value("${spring.ai.openai.api-key:}") String apiKey,
             @Value("${spring.ai.openai.base-url:https://api.deepseek.com}") String baseUrl,
             @Value("${spring.ai.openai.chat.options.model:deepseek-chat}") String model,
-            @Value("${claudemem.llm.provider:openai}") String provider) {
+            @Value("${claudemem.llm.provider:openai}") String provider,
+            @Value("${claudemem.llm.connect-timeout-ms:5000}") int connectTimeoutMs,
+            @Value("${claudemem.llm.read-timeout-ms:120000}") int readTimeoutMs,
+            @Value("${claudemem.llm.retry-max-attempts:3}") int retryMaxAttempts,
+            @Value("${claudemem.llm.retry-backoff-ms:2000}") long firstBackoffMs,
+            @Value("${claudemem.llm.retry-max-backoff-ms:5000}") long maxBackoffMs) {
 
         log.debug("OpenAI ChatModel called: apiKey={}, baseUrl={}, model={}, provider={}", 
             apiKey != null ? "set" : "null", baseUrl, model, provider);
@@ -56,12 +70,28 @@ public class SpringAiConfig {
             return null;
         }
 
-        log.info("Creating OpenAI-compatible ChatModel: baseUrl={}, model={}", baseUrl, model);
+        log.info("Creating OpenAI-compatible ChatModel: baseUrl={}, model={}, connect={}ms, read={}ms, "
+                + "attempts={}, backoff={}ms..{}ms",
+            baseUrl, model, connectTimeoutMs, readTimeoutMs,
+            retryMaxAttempts, firstBackoffMs, maxBackoffMs);
 
         try {
+            // Without an explicit request factory the HTTP client has no read timeout, so a
+            // provider that accepts the call and never answers holds a worker forever. The
+            // 120s read bound is the long end of a legitimate reasoning answer; the 5s connect
+            // bound turns a dead endpoint into a fast, classified failure. The JDK client is
+            // used because its per-request read timeout is honoured while a response is still
+            // being awaited; HttpURLConnection's timeout only covers reads after headers.
+            JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(
+                HttpClient.newBuilder()
+                    .connectTimeout(Duration.ofMillis(connectTimeoutMs))
+                    .build());
+            requestFactory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
+
             OpenAiApi openAiApi = OpenAiApi.builder()
                 .apiKey(apiKey)
                 .baseUrl(baseUrl)
+                .restClientBuilder(RestClient.builder().requestFactory(requestFactory))
                 .build();
 
             OpenAiChatOptions options = OpenAiChatOptions.builder()
@@ -71,6 +101,10 @@ public class SpringAiConfig {
             ChatModel chatModel = OpenAiChatModel.builder()
                 .openAiApi(openAiApi)
                 .defaultOptions(options)
+                // Spring AI's default template retries ten times with backoff capped at 3
+                // minutes; one slow response could occupy a worker for ~180s. Three attempts
+                // with 2s/5s spacing bounds that to a few seconds plus the read timeout.
+                .retryTemplate(openAiRetryTemplate(retryMaxAttempts, firstBackoffMs, maxBackoffMs))
                 .build();
             
             log.info("OpenAI ChatModel created successfully: {}", chatModel.getClass().getSimpleName());
@@ -79,6 +113,40 @@ public class SpringAiConfig {
             log.error(">>> Failed to create OpenAI ChatModel: {}", e.getMessage(), e);
             return null;
         }
+    }
+
+    /**
+     * Retry policy for OpenAI-compatible provider calls.
+     *
+     * <p>Retries only what a repeat can fix: {@link TransientAiException} (429/5xx from
+     * Spring AI's own classifier), {@link ResourceAccessException} (the wrapper the REST
+     * client puts around a read/connect timeout, whose cause is a
+     * {@code SocketTimeoutException}) and {@code IOException} (connection resets).
+     * A 401/403 is a {@code NonTransientAiException} and is not in the list, so bad
+     * credentials fail once instead of three times.</p>
+     *
+     * <p>The backoff is exponential with multiplier 2.5 capped at {@code maxBackoffMs},
+     * which for the production defaults (2000 / 5000) yields exactly 2s then 5s: with
+     * three attempts there are only two waits. This is deliberately not Spring AI's
+     * default (ten attempts, backoff capped at 3 minutes).</p>
+     */
+    static RetryTemplate openAiRetryTemplate(int maxAttempts, long firstBackoffMs, long maxBackoffMs) {
+        return RetryTemplate.builder()
+            .maxAttempts(maxAttempts)
+            .customBackoff(openAiBackOff(firstBackoffMs, maxBackoffMs))
+            .retryOn(TransientAiException.class)
+            .retryOn(ResourceAccessException.class)
+            .retryOn(IOException.class)
+            .build();
+    }
+
+    /** The 2s / 5s sequence the retry template sleeps between provider attempts. */
+    static ExponentialBackOffPolicy openAiBackOff(long firstBackoffMs, long maxBackoffMs) {
+        ExponentialBackOffPolicy backOff = new ExponentialBackOffPolicy();
+        backOff.setInitialInterval(firstBackoffMs);
+        backOff.setMultiplier(2.5);
+        backOff.setMaxInterval(maxBackoffMs);
+        return backOff;
     }
 
     @Bean("anthropicChatModel")

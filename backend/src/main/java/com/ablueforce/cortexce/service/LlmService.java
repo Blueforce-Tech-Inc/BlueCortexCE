@@ -218,6 +218,7 @@ public class LlmService {
             }
             classNames.add(current.getClass().getSimpleName());
             if (current instanceof java.net.SocketTimeoutException
+                || current instanceof java.net.http.HttpTimeoutException
                 || current instanceof java.util.concurrent.TimeoutException) {
                 return FailureKind.TIMEOUT;
             }

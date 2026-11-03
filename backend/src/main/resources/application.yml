@@ -187,6 +187,17 @@ claudemem:
   # - anthropic: Uses Anthropic-compatible API (Claude, GLM, etc.)
   llm:
     provider: ${CLAUDEMEM_LLM_PROVIDER:openai}
+    # Bound how long one provider call may occupy a worker. The read timeout must stay
+    # above the longest legitimate reasoning answer (measured LongCat p95 ~50s) and
+    # below the 10-minute stale-message threshold, so a hung provider fails and retries
+    # instead of pinning a worker until the sweeper intervenes.
+    connect-timeout-ms: ${CLAUDEMEM_LLM_CONNECT_TIMEOUT_MS:5000}
+    read-timeout-ms: ${CLAUDEMEM_LLM_READ_TIMEOUT_MS:120000}
+    # Three attempts spaced 2s then 5s. Spring AI's default template is ten attempts with
+    # backoff capped at three minutes, which let one slow response occupy a worker ~180s.
+    retry-max-attempts: ${CLAUDEMEM_LLM_RETRY_MAX_ATTEMPTS:3}
+    retry-backoff-ms: ${CLAUDEMEM_LLM_RETRY_BACKOFF_MS:2000}
+    retry-max-backoff-ms: ${CLAUDEMEM_LLM_RETRY_MAX_BACKOFF_MS:5000}
   # Deterministic post-validation of extracted observations (no model call).
   # Disabling it bypasses every check and persists the parsed answer unchanged.
   extraction:

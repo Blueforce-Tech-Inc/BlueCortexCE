@@ -67,6 +67,8 @@ class RetryPolicyTest {
         assertThat(RetryPolicy.failureKind(new ProviderFailureException(FailureKind.RATE_LIMIT, "429")))
             .isEqualTo("RATE_LIMIT");
         assertThat(RetryPolicy.failureKind(new SocketTimeoutException("read timed out"))).isEqualTo("TIMEOUT");
+        assertThat(RetryPolicy.failureKind(new java.net.http.HttpTimeoutException("request timed out")))
+            .isEqualTo("TIMEOUT");
         assertThat(RetryPolicy.failureKind(new ConnectException("refused"))).isEqualTo("CONNECT");
         assertThat(RetryPolicy.failureKind(new IllegalArgumentException("bad payload"))).isEqualTo("UNKNOWN");
         assertThat(RetryPolicy.failureKind(null)).isEqualTo("UNKNOWN");

@@ -2,6 +2,7 @@ package com.ablueforce.cortexce.service;
 
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
+import java.net.http.HttpTimeoutException;
 import java.util.concurrent.TimeoutException;
 
 /**
@@ -44,6 +45,7 @@ public final class RetryPolicy {
             return false;
         }
         if (error instanceof SocketTimeoutException
+            || error instanceof HttpTimeoutException
             || error instanceof ConnectException
             || error instanceof TimeoutException) {
             return true;
@@ -63,7 +65,8 @@ public final class RetryPolicy {
         if (error instanceof LlmService.ProviderFailureException provider) {
             return provider.kind().name();
         }
-        if (error instanceof SocketTimeoutException || error instanceof TimeoutException) {
+        if (error instanceof SocketTimeoutException || error instanceof HttpTimeoutException
+            || error instanceof TimeoutException) {
             return "TIMEOUT";
         }
         if (error instanceof ConnectException) {
