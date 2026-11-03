@@ -977,5 +977,11 @@ Artifacts: `docs/archive/2026-11-03_search-similarity-eval.md`, fixture
 identity and the five-tool catalogue, then calls `search`, `timeline`, `get_observations`,
 `save_memory` and `recent` over JSON-RPC and checks each answer carries persisted data
 (observation title, narrative, saved memory, summary). Seeding still uses the documented REST
-hooks with the offline model stand-in. The test runs in the L4 layer under the rehearsal
-database gate and passed locally (1 test, 0 skipped).
+hooks with the offline model stand-in. The test runs under the rehearsal database gate and is
+counted in L1 by the layer classifier; it passed locally (1 test, 0 skipped).
+
+### 7.18 Round 8 verification
+
+`./scripts/verify-local.sh` — **ALL CHECKS PASSED** (2026-11-03, pgvector 0.8.1, migrations V23):
+L1 448 / L2 7 / L3 6 / L4 1, failures 0, errors 0, **skipped 0**; EN/ZH API references match the
+served 80 operations; proxy E2E executed with 0 skipped.
