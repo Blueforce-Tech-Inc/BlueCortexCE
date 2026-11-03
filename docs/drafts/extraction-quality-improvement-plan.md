@@ -1965,3 +1965,100 @@ class.
 `scripts/probe-provider-latency.py` (replayable with `--report-only` from the recorded JSON).
 
 
+
+## 13. Round 15: the lexical half, without a provider, and a bounded call
+
+### 13.1 What was actually broken
+
+The recorded retrieval baseline said it plainly: on 60 real Chinese queries the lexical
+path returned **0 results in 60 of 60** cases (`english tsvector` hit@5 0.000), so hybrid
+was arithmetically identical to pure vector. That is not "Chinese is hard"; it is the
+`english` text-search configuration applied to text with no spaces — `to_tsvector` emits
+one lexeme per run of CJK characters, and a query never equals a whole run.
+
+Extension survey first, as the input asked: the test image exposes 48 extensions, of which
+only `pg_trgm 1.6` and `unaccent 1.1` are relevant and installable. `pg_bigm`, `zhparser`
+and `pgroonga` are absent and would need a compile step, so they were excluded rather than
+"recommended". `pg_trgm` was measured before being rejected:
+
+| pg_trgm shape | result |
+|---|---|
+| `word_similarity(query, text)` over 60 queries | hit@5 **0.20** (its trigram hash is 3 bytes wide and the similarity floor is meaningless for 2-4 character queries) |
+| `LIKE ANY(query bigrams)` with a GIN index, 100k rows | **7.63 s** (the `ANY` is only as selective as the hottest bigram) |
+| production token coverage at 100k rows | **0.33 s** |
+
+So the chosen shape is built-in and needs no compiled extension: `cortex_tokens()` turns
+CJK runs into overlapping character bigrams and keeps ASCII identifiers whole;
+`to_tsvector('simple', ...)` stores them in a generated column with a GIN index. The
+`simple` dictionary means no stemming or stopwords to defeat exact identifiers.
+
+### 13.2 The measured effect (60 queries, real bge-m3 embeddings)
+
+| path | hit@1 | hit@5 | MRR | empty |
+|---|---:|---:|---:|---:|
+| vector | 0.617 | 0.817 | 0.696 | 0 |
+| lexical (V24 token coverage) | 0.767 | 0.867 | 0.805 | 0 |
+| english tsvector (what V24 replaced) | 0.000 | 0.000 | 0.000 | 60 |
+| **hybrid (production weighted RRF, w=2.0)** | 0.733 | **0.883** | 0.799 | 0 |
+| additive fusion w=0.25 / 0.75 / 1.0 (rejected) | 0.700 / 0.733 / 0.733 | 0.817 | 0.750 / 0.768 / 0.768 | 0 |
+| lexical ranked by ts_rank_cd (rejected) | 0.683 | 0.817 | 0.738 | 0 |
+
+The lexical half now reaches hit@5 **0.867** from 0, and hybrid beats pure vector by
++0.116 hit@1, +0.066 hit@5 and +0.103 MRR. Additive fusion froze hit@5 at 0.817 because
+cosine (0.6-0.8) swamps token coverage (0.05-0.2); rank fusion removes the scale mismatch,
+and the weight was swept rather than guessed (1.0 / 1.5 / 2.0 / 2.5 / 3.0, k = 10 / 60,
+pool = 40; w=2.0, k=60, pool=40 won). Ranking the same tokens with ts_rank_cd loses 0.067
+MRR against coverage counting. Part of the lexical gain is the file path being indexed at
+weight C: the same run's earlier shape sat at hit@1 0.733 / MRR 0.788 before paths were
+added, so "a query that names a file matches it" is measured, not asserted. The remaining
+retrieval ask — hit@1 ≥ 0.70 and hit@5 ≥ 0.85 — is met at 0.733 / 0.883.
+
+### 13.3 The degraded path, end to end
+
+`scripts/degraded-search-e2e-test.sh` starts the packaged jar under `env -i` (so no
+`SPRING_AI_OPENAI_EMBEDDING_API_KEY` or `OPENAI_API_KEY` can leak from the caller), asserts
+the startup log says `No EmbeddingModel configured`, POSTs one Chinese observation, and
+requires `GET /api/search` to answer `strategy=tsvector`, `fell_back=false`, with the row
+as the first hit; an absent token then returns 0 rows, so the hit is lexical and not
+"return everything". The stored row carries `embedding_state=failed` and no vector. This
+is the setup a real user is most likely to have, and it is the one that used to return
+nothing.
+
+### 13.4 The provider call is now bounded
+
+The round-14 attribution said the retry tower, not generation, was the unbounded part.
+The OpenAI-compatible branch now builds its own client: connect **5 s**, read **120 s**,
+at most **3 attempts** spaced **2 s then 5 s**, retrying only timeouts, 429/5xx and
+connection resets (a 401/403 fails once). `HttpTimeoutException` is classified as
+`TIMEOUT` by both the provider classifier and the queue policy, so a timed-out message is
+marked `retry` instead of `UNKNOWN`. Evidence: a local `HttpServer` that never answers
+makes a call fail in under **6 s** with exactly 3 requests at an 800 ms read timeout —
+the same call previously waited out the hang — and the backoff is asserted as
+2000 / 5000 / 5000 ms. A11 is unaffected: its 60 recorded calls had 0 retries and its
+p95 (38.9 s measured, 50.6 s floor) is below the 120 s read bound, so no successful
+A11 call can reach the new limits. `scripts/real-llm-smoke.sh` then completed a real
+LongCat chat call (2.24 s), an ingest whose answer `XmlParser` accepted, and a
+`strategy=hybrid` search with 1 hit through the new transport.
+
+### 13.5 Capacity at 100,000 observations
+
+| rows | recent p95 | deep_page p95 | type_filter p95 | hybrid query p95 |
+|---:|---:|---:|---:|---:|
+| 1,000 | 7.71 | 4.44 | 4.94 | 7.13 |
+| 10,000 | 10.05 | 2.51 | 6.01 | 6.23 |
+| **100,000** | **2.53** | **2.36** | **29.38** | **5.16** |
+
+`type_filter` is the first path to cross the 2x knee (9.88 ms threshold) and does it at
+100k; the other three do not cross at any measured size. The V23 indexes remain the
+difference between 0.05-0.06 ms and 20-23 ms for the three recency plans. Ingest held
+51.45 persisted rows/s with 0 duplicate hashes and 0 rows stuck in `processing`. Report:
+`docs/archive/2026-11-04_load-test-100k.md`.
+
+### 13.6 Verification
+
+`./scripts/verify-local.sh` passes all eight steps on a freshly created and then deleted
+database: **508** tests (L1 494 / L2 7 / L3 6 / L4 1), 0 failures, 0 skipped; both gates
+(`check-eval-gates.py`, `check-retrieval-quality.py`) pass; EN/ZH API surface 80/80;
+proxy E2E 0 skipped. Artifacts: `2026-11-04_retrieval-quality-real.md` / `.json`,
+`2026-11-04_load-test-100k.md`, `scripts/degraded-search-e2e-test.sh`,
+`V24__chinese_lexical_search.sql`, `SpringAiConfigProviderBranchTest`.
