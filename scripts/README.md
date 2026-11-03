@@ -37,6 +37,7 @@ This directory contains test and development scripts for the Claude-Mem Java imp
 | `demo-v15-extraction-test.sh` | Extraction (userId, ICL isolation) | Backend with extraction enabled |
 | `evo-memory-e2e-test.sh` | Evo-Memory refinement E2E | Running backend |
 | `evo-memory-value-test.sh` | Evo-Memory value demonstration | Running backend |
+| `degraded-search-e2e-test.sh` | Boots the jar with no embedding/LLM key and requires a Chinese write→search hit through the lexical half | Docker + PostgreSQL container + packaged jar |
 | `performance-test.sh` | Performance and stress tests | Running backend |
 | `export-memories.sh` | Export memory data | jq + running backend |
 | `export-test.sh` | Export function tests | jq + running backend |
