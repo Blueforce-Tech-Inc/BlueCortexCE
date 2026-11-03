@@ -77,22 +77,45 @@ class StubModel:
     Titles carry a per-call counter so the duplicate check and the content hash
     never collapse two queued events into one row; the identifier is copied from
     the trace's title contract exactly as the real model would.
+
+    Fault injection switches:
+      chat_delay          seconds to wait before answering a chat request, so a
+                          process kill lands while jobs are mid-flight;
+      embedding_fault     None, or "stall-close": wait embedding_delay seconds and
+                          drop the connection without a response, which is what an
+                          embedding outage looks like from the client side.
     """
 
     def __init__(self) -> None:
         self.calls = 0
         self.lock = threading.Lock()
+        self.chat_delay = 0.0
+        self.embedding_delay = 0.0
+        self.embedding_fault: str | None = None
 
     def answer(self, prompt: str) -> str:
         with self.lock:
             self.calls += 1
             n = self.calls
+        if "<summary>" in prompt or "next_steps" in prompt:
+            return (
+                "<summary>\n"
+                "  <request>Load test ingests events while the session ends.</request>\n"
+                "  <investigated>Concurrent ingest and session-end on the same conversation.</investigated>\n"
+                "  <learned>Admitted observation jobs must drain before the summary completes.</learned>\n"
+                f"  <completed>Queued ten events per session and closed every session mid-flight (call {n}).</completed>\n"
+                "  <next_steps>Verify no observation is lost and no row stays processing.</next_steps>\n"
+                "  <notes>Load harness summary.</notes>\n"
+                "</summary>"
+            )
         identifier = "LoadQueueHandler"
         match = re.search(r"<title_identifier_required>(.*?)</title_identifier_required>", prompt, re.S)
         if match:
             identifier = re.sub(r"<[^>]+>", "", match.group(1)).strip() or identifier
         path = f"src/main/java/com/example/{identifier}.java"
-        match = re.search(r'"file_path"\s*:\s*"([^"]+)"', prompt)
+        # The trace renders tool input either as raw JSON or as an escaped text
+        # block, so match the concrete load-test path anywhere in the prompt.
+        match = re.search(r"([\w./-]+/LoadQueueHandler\d+\.java)", prompt)
         if match:
             path = match.group(1)
         title = f"Added queued observation {n} LoadQueueHandler"
@@ -124,19 +147,59 @@ class StubModel:
 
 def start_stub(model: StubModel, port: int) -> ThreadingHTTPServer:
     class Handler(BaseHTTPRequestHandler):
+        def read_body(self) -> bytes:
+            """Spring AI streams the chat request chunked (and may gzip it)."""
+            body = b""
+            if "chunked" in self.headers.get("Transfer-Encoding", "").lower():
+                while True:
+                    line = self.rfile.readline().strip()
+                    size = int(line.split(b";")[0] or b"0", 16)
+                    if size == 0:
+                        self.rfile.readline()
+                        break
+                    body += self.rfile.read(size)
+                    self.rfile.read(2)
+            else:
+                body = self.rfile.read(int(self.headers.get("Content-Length", "0")))
+            if self.headers.get("Content-Encoding", "").lower() == "gzip":
+                import gzip
+                body = gzip.decompress(body)
+            return body
+
+        def send_json(self, payload: dict) -> None:
+            body = json.dumps(payload).encode()
+            try:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError):
+                # The service under test was killed mid-request; nothing to answer.
+                self.close_connection = True
+
         def do_POST(self):  # noqa: N802 - BaseHTTPRequestHandler contract
-            length = int(self.headers.get("Content-Length", "0"))
-            raw = self.rfile.read(length).decode("utf-8", "replace")
-            prompt = raw
+            raw = self.read_body().decode("utf-8", "replace")
+            if os.environ.get("LOAD_STUB_DEBUG"):
+                with open("/tmp/load-stub-requests.log", "a") as debug:
+                    debug.write(raw[:600] + "\n---\n")
             try:
                 payload = json.loads(raw)
-                prompt = "\n".join(
-                    str(message.get("content", "")) for message in payload.get("messages", [])
-                )
             except json.JSONDecodeError:
-                pass
+                payload = {}
+            if "input" in payload:
+                self.answer_embedding(payload)
+                return
+            # Spring AI sends the system prompt both as a top-level field and,
+            # for some providers, inside messages; joining both keeps the
+            # summary template's <summary> tags visible to the stub.
+            prompt = str(payload.get("system", "")) + "\n" + "\n".join(
+                str(message.get("content", "")) for message in payload.get("messages", [])
+            )
+            if model.chat_delay:
+                time.sleep(model.chat_delay)
             content = model.answer(prompt)
-            body = json.dumps({
+            self.send_json({
                 "id": "stub-" + uuid.uuid4().hex,
                 "object": "chat.completion",
                 "created": int(time.time()),
@@ -151,12 +214,47 @@ def start_stub(model: StubModel, port: int) -> ThreadingHTTPServer:
                     "completion_tokens": max(1, len(content) // 4),
                     "total_tokens": max(2, (len(prompt) + len(content)) // 4),
                 },
-            }).encode()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
+            })
+
+        def answer_embedding(self, payload: dict) -> None:
+            """Answer /v1/embeddings with a real 1024-wide vector, or time out on demand."""
+            if model.embedding_fault == "timeout":
+                # Hold the request and then answer 504: the provider-side timeout
+                # shape. Dropping the socket instead leaves the OpenAI client waiting
+                # with no read timeout, so the failure never becomes observable.
+                time.sleep(model.embedding_delay)
+                try:
+                    self.send_response(504)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                except (BrokenPipeError, ConnectionResetError):
+                    self.close_connection = True
+                return
+            if model.embedding_fault == "reject":
+                # A non-retryable 4xx: the write path gives up at once, records the
+                # failure on the row, and leaves the repair to the backfill sweep.
+                time.sleep(0.2)
+                try:
+                    self.send_response(400)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                except (BrokenPipeError, ConnectionResetError):
+                    self.close_connection = True
+                return
+            inputs = payload.get("input")
+            if isinstance(inputs, str):
+                inputs = [inputs]
+            data = []
+            for index in range(max(1, len(inputs or [""]))):
+                # A deterministic non-zero vector keeps pgvector's HNSW index happy.
+                data.append({"object": "embedding",
+                             "index": index,
+                             "embedding": [((index * 31 + slot) % 97 + 1) / 100.0
+                                           for slot in range(1024)]})
+            self.send_json({"object": "list", "model": "stub-embed",
+                            "data": data, "usage": {"prompt_tokens": 1, "total_tokens": 1}})
 
         def do_GET(self):  # noqa: N802
             body = b'{"data":[]}'
@@ -186,7 +284,7 @@ def jar_path() -> Path:
     return jars[-1]
 
 
-def start_app(port: int, stub_port: int) -> subprocess.Popen:
+def start_app(port: int, stub_port: int, fault: bool = False) -> subprocess.Popen:
     env = dict(os.environ)
     env.update({
         "SERVER_PORT": str(port),
@@ -196,6 +294,17 @@ def start_app(port: int, stub_port: int) -> subprocess.Popen:
         "SPRING_AI_OPENAI_API_KEY": "stub-key",
         "SPRING_AI_OPENAI_BASE_URL": f"http://127.0.0.1:{stub_port}",
         "SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL": "stub-model",
+        # Embeddings have their own base URL, defaulting to a public provider. Route
+        # them to the stub as well, or the fault test measures the internet instead.
+        "SPRING_AI_OPENAI_EMBEDDING_BASE_URL": f"http://127.0.0.1:{stub_port}",
+        "SPRING_AI_OPENAI_EMBEDDING_OPTIONS_MODEL": "stub-embed",
+        # The embedding bean is @ConditionalOnProperty(spring.ai.openai.embedding.api-key);
+        # without this key SpringAiConfig registers no EmbeddingModel and every write
+        # records "Embedding not configured" instead of exercising the provider path.
+        "SPRING_AI_OPENAI_EMBEDDING_API_KEY": "stub-key",
+        # Spring AI retries provider I/O errors by default; one attempt makes the
+        # injected outage visible instead of silently succeeding after recovery.
+        "SPRING_AI_RETRY_MAX_ATTEMPTS": "1",
         "MEMORY_REFINE_ENABLED": "false",
         "EXTRACTION_ENABLED": "false",
         "CLAUDEMEM_EXTRACTION_CONSISTENCY_SAMPLES": "1",
@@ -203,6 +312,21 @@ def start_app(port: int, stub_port: int) -> subprocess.Popen:
         "CLAUDEMEM_RATE_LIMIT_WINDOW_SECONDS": "1",
         "APP_PENDING_MESSAGE_SCHEDULE_INTERVAL_MS": "1000",
     })
+    extra = []
+    if fault:
+        # A small pool makes exhaustion reachable without hundreds of clients; the
+        # short stale threshold and recovery interval keep the kill/restart test to
+        # minutes instead of the ten-minute production default.
+        extra = [
+            "-Dspring.datasource.hikari.maximum-pool-size=3",
+            "-Dspring.datasource.hikari.connection-timeout=2000",
+            "-Dclaudemem.stale-message.threshold-minutes=1",
+            "-Dclaudemem.stale-message.recovery-interval-ms=5000",
+            "-Dclaudemem.embedding.backfill-interval-ms=5000",
+            # One provider attempt, so a 504 is recorded instead of being retried for
+            # minutes and then succeeding once the injected outage ends.
+            "-Dspring.ai.retry.max-attempts=1",
+        ]
     log = open(f"/tmp/load-test-app-{port}.log", "w")
     return subprocess.Popen(
         [
@@ -211,6 +335,7 @@ def start_app(port: int, stub_port: int) -> subprocess.Popen:
             f"-Dclaudemem.rate-limit.window-seconds=1",
             f"-Dclaudemem.extraction.consistency-samples=1",
             f"-Dapp.pending-message.schedule-interval-ms=1000",
+            *extra,
             "-jar", str(jar_path()),
         ],
         cwd=str(ROOT),
@@ -441,9 +566,147 @@ def post_tool_use(port: int, session: str, n: int) -> tuple[float, int]:
         method="POST",
     )
     started = time.perf_counter()
-    with urlopen(request, timeout=30) as response:
-        payload = response.read()
+    try:
+        with urlopen(request, timeout=30) as response:
+            payload = response.read()
+    except HTTPError as error:
+        return time.perf_counter() - started, error.code
+    except OSError:
+        # The service was killed mid-request: the event is not accepted, so it is
+        # excluded from the expected set instead of being counted as lost.
+        return time.perf_counter() - started, 0
     return time.perf_counter() - started, (200 if b"accepted" in payload else 0)
+
+
+def post_session_end(port: int, session: str) -> int:
+    body = json.dumps({
+        "session_id": session,
+        "cwd": PROJECT,
+        "last_assistant_message": "Load test closed this session while events were in flight.",
+    }).encode()
+    request = Request(
+        f"http://127.0.0.1:{port}/api/ingest/session-end",
+        data=body,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=30) as response:
+            return response.status
+    except HTTPError as error:
+        return error.code
+
+
+def wait_drained(timeout: float = 600, require_sessions_closed: bool = False) -> bool:
+    """Wait until no job is pending, processing or mid-finalize.
+
+    `result_persisted` is transient: the summary is saved but the terminal
+    transaction has not run yet. Killing the service in that window leaves the
+    session open, so the concurrency mode waits for it too.
+    """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        open_jobs = int(psql(
+            "SELECT count(*) FROM mem_pending_messages "
+            "WHERE status IN ('pending', 'processing', 'result_persisted');"
+        ))
+        open_sessions = 0
+        if require_sessions_closed:
+            open_sessions = int(psql(
+                "SELECT count(*) FROM mem_sessions "
+                "WHERE content_session_id LIKE 'load-concurrent-%' "
+                "AND status IN ('active', 'summarizing');"
+            ))
+        if open_jobs == 0 and open_sessions == 0:
+            return True
+        time.sleep(1)
+    return False
+
+
+def concurrency_benchmark(port: int, sessions: int, per_session: int, workers: int) -> dict:
+    """20 sessions ingest while session-end closes them mid-flight.
+
+    The warm-up post is required: session-end resolves an existing conversation,
+    so each session must own at least one accepted event before the close wave.
+    """
+    before = observation_count()
+    started = time.perf_counter()
+    statuses = []
+
+    def record(status: int) -> int:
+        statuses.append(status)
+        return status
+
+    def warm(index: int) -> int:
+        return record(post_tool_use(port, f"load-concurrent-{index}", index)[1])
+
+    with ThreadPoolExecutor(min(workers, sessions)) as pool:
+        list(pool.map(warm, range(sessions)))
+
+    remaining = max(0, per_session - 1)
+    wave_statuses: list[int] = []
+
+    def wave(pair: tuple[int, int]) -> int:
+        session, offset = pair
+        status = post_tool_use(port, f"load-concurrent-{session}",
+                               sessions + session * remaining + offset)[1]
+        wave_statuses.append(status)
+        return record(status)
+
+    def close(index: int) -> int:
+        return post_session_end(port, f"load-concurrent-{index}")
+
+    with ThreadPoolExecutor(workers) as ingest_pool, ThreadPoolExecutor(workers) as close_pool:
+        futures = [ingest_pool.submit(wave, (session, offset))
+                   for session in range(sessions) for offset in range(remaining)]
+        # Fire the closes only after most of the wave has been accepted. A fixed sleep
+        # made the accepted share swing between 36% and 92% depending on JIT warm-up,
+        # which left the concurrency claim resting on very few events. Waiting for 65%
+        # keeps session-end genuinely mid-flight while guaranteeing a meaningful load.
+        target = int(len(futures) * 0.65)
+        deadline = time.time() + 5
+        while time.time() < deadline and sum(1 for status in wave_statuses if status == 200) < target:
+            time.sleep(0.05)
+        closes = [close_pool.submit(close, session) for session in range(sessions)]
+        for future in futures:
+            future.result()
+        closed = sum(1 for future in closes if future.result() == 200)
+
+    drained = wait_drained(require_sessions_closed=True)
+    total_seconds = time.perf_counter() - started
+    observed = observation_count() - before
+    accepted = sum(1 for status in statuses if status == 200)
+    expected = accepted
+    rejected = len(statuses) - accepted
+    duplicates = int(psql(
+        "SELECT count(*) FROM ("
+        "  SELECT content_hash, count(*) AS c FROM mem_observations "
+        "  WHERE content_hash IS NOT NULL GROUP BY content_hash HAVING count(*) > 1"
+        ") dup;"
+    ))
+    stuck = int(psql(
+        "SELECT count(*) FROM mem_pending_messages WHERE status = 'processing';"
+    ))
+    completed = int(psql(
+        "SELECT count(*) FROM mem_sessions WHERE content_session_id LIKE 'load-concurrent-%' "
+        "AND status = 'completed';"
+    ))
+    return {
+        "sessions": sessions,
+        "per_session": per_session,
+        "posted": len(statuses),
+        "rejected": rejected,
+        "expected": expected,
+        "accepted": accepted,
+        "closed": closed,
+        "drained": drained,
+        "total_seconds": round(total_seconds, 2),
+        "persisted": observed,
+        "lost": expected - observed,
+        "duplicate_hashes": duplicates,
+        "stuck_processing": stuck,
+        "completed_sessions": completed,
+    }
 
 
 def queue_benchmark(port: int, events: int, workers: int) -> dict:
@@ -503,6 +766,48 @@ def queue_benchmark(port: int, events: int, workers: int) -> dict:
 # ---------------------------------------------------------------------------
 # Report
 # ---------------------------------------------------------------------------
+
+def render_concurrency_report(args, result: dict) -> str:
+    verdict = (
+        "PASS"
+        if result["accepted"] == result["expected"]
+        and result["persisted"] == result["expected"]
+        and result["duplicate_hashes"] == 0
+        and result["stuck_processing"] == 0
+        and result["drained"]
+        else "FAIL"
+    )
+    lines = [
+        "# Concurrency: 20 sessions ingesting while session-end closes them",
+        "",
+        f"- Date: {time.strftime('%Y-%m-%d %H:%M:%S')}",
+        f"- Database: {DATABASE} on {CONTAINER}:{DB_PORT} (disposable, Flyway-migrated)",
+        f"- Service: packaged jar on http://127.0.0.1:{args.port}",
+        f"- Model: local OpenAI-compatible stub, so the queue is the only bottleneck",
+        "",
+        "| metric | value |",
+        "|---|---:|",
+        f"| sessions | {result['sessions']} |",
+        f"| events per session | {result['per_session']} |",
+        f"| ingest requests posted | {result['posted']} |",
+        f"| ingest requests accepted | {result['accepted']} |",
+        f"| ingest requests rejected (409 after session end) | {result['rejected']} |",
+        f"| accepted events expected to persist | {result['expected']} |",
+        f"| session-end requests accepted | {result['closed']} |",
+        f"| sessions marked completed | {result['completed_sessions']} |",
+        f"| queue drained | {result['drained']} |",
+        f"| elapsed seconds | {result['total_seconds']} |",
+        f"| observations persisted | {result['persisted']} |",
+        f"| observations lost | {result['lost']} |",
+        f"| duplicate content hashes | {result['duplicate_hashes']} |",
+        f"| rows stuck in processing | {result['stuck_processing']} |",
+        "",
+        f"Verdict: {verdict}. A job is lost when session-end cancels it; the observed "
+        "count above must equal the accepted ingest count.",
+        "",
+    ]
+    return "\n".join(lines)
+
 
 def render_report(args, stages: list[dict], indexes: dict, queue: dict) -> str:
     lines = [
@@ -603,13 +908,16 @@ def render_report(args, stages: list[dict], indexes: dict, queue: dict) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--mode", choices=["soak", "concurrency"], default="soak")
+    parser.add_argument("--sessions", type=int, default=20)
+    parser.add_argument("--per-session", type=int, default=10)
     parser.add_argument("--rows", type=int, default=10000)
     parser.add_argument("--requests", type=int, default=100)
     parser.add_argument("--events", type=int, default=200)
     parser.add_argument("--workers", type=int, default=20)
     parser.add_argument("--port", type=int, default=37778)
     parser.add_argument("--stub-port", type=int, default=9100)
-    parser.add_argument("--report", default=str(ROOT / "docs/archive/2026-11-03_load-test-10k.md"))
+    parser.add_argument("--report", default=None)
     parser.add_argument("--keep", action="store_true")
     args = parser.parse_args()
 
@@ -620,6 +928,16 @@ def main() -> int:
     try:
         wait_health(args.port, app)
         seed_base()
+
+        if args.mode == "concurrency":
+            result = concurrency_benchmark(args.port, args.sessions, args.per_session, args.workers)
+            print(f"concurrency: {result}", flush=True)
+            report = render_concurrency_report(args, result)
+            path = Path(args.report or ROOT / "docs/archive/2026-11-03_concurrency-ingest.md")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(report + "\n")
+            print(f"report written to {path}")
+            return 0 if result["lost"] == 0 else 1
 
         stages = []
         targets = sorted({1000, min(5000, args.rows), args.rows})
@@ -643,7 +961,7 @@ def main() -> int:
         print(f"queue: {queue}", flush=True)
 
         report = render_report(args, stages, indexes, queue)
-        path = Path(args.report)
+        path = Path(args.report or ROOT / "docs/archive/2026-11-03_load-test-10k.md")
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(report + "\n")
         print(f"report written to {path}")

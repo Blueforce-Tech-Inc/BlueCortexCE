@@ -159,6 +159,70 @@ class ObservationClaimDatabaseTest {
     }
 
     @Test
+    @DisplayName("20 queued jobs claimed by 8 workers while sessions close: no duplicate, no loss")
+    void concurrentClaimsAcrossJobsResolveEveryRowExactlyOnce() throws Exception {
+        int jobs = 20;
+        int workers = 8;
+        List<UUID> queued = new ArrayList<>();
+        for (int i = 0; i < jobs; i++) {
+            queued.add(enqueueOne());
+        }
+        // SessionEnd closes half the conversations while the claims are running.
+        List<UUID> closed = queued.subList(0, jobs / 2).stream()
+            .map(this::conversationIdOf)
+            .toList();
+
+        ExecutorService pool = Executors.newFixedThreadPool(workers);
+        CountDownLatch start = new CountDownLatch(1);
+        List<UUID> claimed = java.util.Collections.synchronizedList(new ArrayList<>());
+        try {
+            List<Future<?>> futures = new ArrayList<>();
+            for (int i = 0; i < workers; i++) {
+                int offset = i;
+                futures.add(pool.submit(() -> {
+                    start.await(10, TimeUnit.SECONDS);
+                    for (int index = offset; index < jobs; index += workers) {
+                        writer.claimObservationJob(queued.get(index)).ifPresent(job -> {
+                            claimed.add(job.getId());
+                            writer.markObservationSkipped(job.getId(), job.getSessionDbId());
+                        });
+                    }
+                    return null;
+                }));
+            }
+            start.countDown();
+            for (UUID conversationId : closed) {
+                jdbc.update("UPDATE mem_sessions SET status = 'completed' WHERE id = ?",
+                    conversationId);
+            }
+            for (Future<?> future : futures) {
+                future.get(60, TimeUnit.SECONDS);
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+
+        String idList = queued.stream()
+            .map(id -> "'" + id + "'")
+            .collect(java.util.stream.Collectors.joining(","));
+        assertThat(claimed).as("each job is won by at most one worker")
+            .hasSizeLessThanOrEqualTo(jobs)
+            .doesNotHaveDuplicates();
+        int pendingLeft = jdbc.queryForObject(
+            "SELECT count(*) FROM mem_pending_messages WHERE id IN (" + idList + ")"
+                + " AND status = 'pending'", Integer.class);
+        assertThat(pendingLeft).as("no job may be lost or left pending").isZero();
+        int failed = jdbc.queryForObject(
+            "SELECT count(*) FROM mem_pending_messages WHERE id IN (" + idList + ")"
+                + " AND status = 'failed'", Integer.class);
+        assertThat(failed + claimed.size()).as("every job resolves to skipped or failed")
+            .isEqualTo(jobs);
+        assertThat(jdbc.queryForObject("""
+            SELECT count(*) FROM mem_observations WHERE project_path LIKE '/claim-test/%'
+            """, Integer.class)).isZero();
+    }
+
+    @Test
     @DisplayName("a claimed row is invisible to the next worker")
     void claimedRowCannotBeClaimedAgain() {
         UUID pendingId = enqueueOne();

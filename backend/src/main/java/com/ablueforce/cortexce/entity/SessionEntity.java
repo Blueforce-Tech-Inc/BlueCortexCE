@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.ablueforce.cortexce.util.SessionStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
+import org.hibernate.annotations.DynamicUpdate;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -20,6 +21,11 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "mem_sessions")
+// Only write the columns the caller actually changed. Several best-effort writers
+// (context-cache refresh, expiry) load a SessionEntity without holding the row lock and
+// save it later; a static full-row UPDATE let those write back the stale `active` status
+// after SessionEnd had already committed `completed`, resurrecting a finished conversation.
+@DynamicUpdate
 public class SessionEntity {
 
     @Id
