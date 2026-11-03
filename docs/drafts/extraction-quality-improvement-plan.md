@@ -1154,3 +1154,216 @@ PASSED** (2026-11-03, pgvector 0.8.1, migrations V23):
 - baseline ratcheted to `scripts/test-baseline.json` = 472 (L1 458 / L2 7 / L3 6 / L4 1) and
   `--min-tests` raised 423 → 472 in `verify-local.sh` and `backend-tests.yml`;
 - EN/ZH API references still match the 80 served operations; proxy E2E executed with 0 skipped.
+
+## 8. Round 10 — audit the label before blaming the model
+
+Round 9 left the real-history set at identifier 42.6% / subject 44.7% against 97–98% on
+the hand-written set. The gap was large enough to suspect the label rather than the model,
+so round 10 starts with the generator, not with the prompt.
+
+### 8.1 What the real-set generator changed
+
+| dimension | round 9 | round 10 |
+|---|---|---|
+| expected action | one class per commit, chosen by precedence (docs deletion counted as `remove` only, a security migration as `secure` only) | `titleActions` = every facet actually present in the diff, computed per file and unioned; a title is correct when its leading verb maps to **any** member |
+| trace | edited file plus the commit subject | `read_files` lists **every** changed path and the tool output has one result line per path with removed/added counts; the commit prose is removed entirely, so the label can only be reached through tool output |
+| identifier | basename of the largest file, which could be absent from the trace | basename of the largest file; the trace names every changed path, so no expected identifier is unreachable |
+| contradictions | none | leading-verb contradictions are dropped: `add` whose diff only edits, `remove` whose diff deletes nothing, `document` whose diff touches non-document files |
+
+The audit excluded 26 commits: 21 add-leading with no new file, 2 remove-leading with no
+deletion, and 3 document-leading commits that touch non-document files. It kept 60
+samples (`real-git-2026-11-03-r10`). Action coverage is counted as a union, so the column
+sums above 60: **create 20, modify 37, remove 10, document 31, secure 16, diagnose 10**,
+every class at or above the required 10. 44 of the 60 commits carry more than one facet;
+16 carry exactly one. `GoldenSetRealDataTest.traceCoversEveryFile` asserts that
+`read_files` paths all appear in the trace and that no `Commit message` leaks in.
+
+The generator is mechanical: no sample is written by hand. It depends on the repository
+history, so adding commits can change the sample it selects; the committed file is the
+snapshot for this round, and `real-git-2026-11-03-r10` is the version marker.
+
+### 8.2 Re-baselined numbers, hand-written and real reported separately
+
+Old numbers stay in §7.22. The hand-written set is unchanged by the audit (it carries no
+`titleActions`); the real set was rescored under the union rule and a trace that covers
+every file.
+
+| set | model | identifier | trace subject | action | type | skip | p95 latency | p95 tokens |
+|---|---|---|---|---|---|---|---|---|
+| hand-written, round 9 (v9) | MiniMax-M3 | 97% | 89% | 87% | 95% | 100% | 5,648 ms | 4,048 |
+| hand-written, round 9 (v9) | LongCat-2.5 | 98% | 89% | 89% | 95% | 100% | 33,716 ms | 5,763 |
+| real, round 10 before prompt fix | MiniMax-M3 | 42.6% | 44.7% | 93.6% | 61.7% | 100% | 12,700 ms | 4,703 |
+| real, round 10 before prompt fix | LongCat-2.5 | 67.3% | 67.3% | 89.8% | 61.2% | 98.3% | 59,495 ms | 7,082 |
+| real, round 10 after prompt fix | MiniMax-M3 | 54.5% | 54.5% | 95.5% | 61.4% | 100% | 12,900 ms | 4,802 |
+| real, round 10 after prompt fix | LongCat-2.5 | 77.0% | 77.0% | 91.7% | 58.0% | 97.0% | 45,155 ms | 6,895 |
+
+The real set is not "harder because the model is worse"; it is a different distribution.
+A hand-written sample is written around one identifier and one verb. A commit touches
+several files and often several kinds of artifact, and its title has to pick the edited
+artifact out of the support files. The raw score of 43–67% on identifiers and subjects
+before the prompt fix is the first honest measurement of that distribution.
+
+### 8.3 Failure clusters
+
+Clusters are disjoint by first failure: a missing identifier is counted once, even when
+the subject is also wrong, because the dominant cause is one shared miss — the title
+names a supporting file instead of the edited one. Scored denominators drop when a call
+fails outright, so cluster counts are reported against the scored samples.
+
+**MiniMax-M3**
+
+| cluster | before (47 scored) | after (44 scored) |
+|---|---|---|
+| missing identifier | 27 (57%) | 20 (45%) |
+| wrong subject | 26 (55%) | 20 (45%) |
+| wrong type | 18 (38%) | 17 (39%) |
+| wrong action class | 3 (6%) | 2 (5%) |
+
+Evidence, after fix (one example per cluster):
+
+- `missing identifier` — `real-46e467bff6` wanted `conversation-scope-preflight.sql`; the
+  title named `V20__conversation_memory_scope_expand.sql`, a support file. The trace
+  contains both paths, so the model chose the wrong artifact.
+- `wrong subject` — `real-63b5502fb9` wanted `harden`; the title began `Expanded`.
+- `wrong type` — `real-d33efbd8ae`/`real-cd6b972cfd`/`real-63b5502fb9` were hardening
+  changes labelled `feature` instead of `bugfix`.
+- `wrong action class` — 2 samples: `real-9e6612fdf9` expected
+  `[document, secure, modify]` but led with the unclassifiable `Clarified`;
+  `real-85480a720e` expected `[remove, document]` but led with `Updated` (modify).
+
+**LongCat-2.5**
+
+| cluster | before (49 scored) | after (48 scored) |
+|---|---|---|
+| missing identifier | 16 (33%) | 11 (23%) |
+| wrong subject | 16 (33%) | 11 (23%) |
+| wrong type | 19 (39%) | 20 (42%) |
+| wrong action class | 5 (10%) | 4 (8%) |
+
+Evidence, before: `real-9a0e90bed5` expected `bugfix` but answered `feature`;
+`real-a8cc1754bc` wanted `PendingMessageRepository` but titled `SummaryRepository` — a
+sibling artifact; `real-63b5502fb9` expected `[secure, create, modify]` but led with
+`Expanded`, which maps to no action class. LongCat misses fewer identifiers than MiniMax
+but misses more action classes: five samples led with a verb that did not map to the
+facet the diff contained.
+
+### 8.4 Targeted prompt fix and its measured effect
+
+The two largest clusters share one cause, and one rule covers both. Added to
+`prompts/init.txt` and `prompts/continuation.txt`:
+
+> The edited artifact is the one named by `file_path`; `read_files` may list supporting
+> files. The title's final identifier is the `file_path` artifact, and supporting files
+> are named only in facts — never instead of the edited one.
+
+A second rule targets the type cluster, which the rare-history sample exposed as
+security hardening mislabelled `feature`:
+
+> Hardening a security control is `bugfix` even when the edit introduces a new class,
+> migration or script.
+
+Before/after on the real set (same 60 samples, same trace, only the prompt changed):
+
+| model | identifier | trace subject | action | type |
+|---|---|---|---|---|
+| MiniMax-M3 | 42.6% → **54.5%** | 44.7% → **54.5%** | 93.6% → **95.5%** | 61.7% → **61.4%** |
+| LongCat-2.5 | 67.3% → **77.0%** | 67.3% → **77.0%** | 89.8% → **91.7%** | 61.2% → **58.0%** |
+
+The identifier/subject rule recovered 9.7 points on LongCat and 11.9 on MiniMax, and the
+action rule stayed flat or moved with it. The type rule did not move MiniMax and LongCat
+drifted 3.2 points down, which is within the 48–44-sample noise but is not an improvement.
+The type plateau is therefore not a prompt wording problem: the model reads a hardening
+commit as a feature (or a change) even when told otherwise. That is recorded as a
+capability boundary in §8.6, not patched further. LongCat's skip accuracy also fell from
+98.3% to 97.0% (one expected observation skipped, one unexpected one produced); the audit
+made those two samples explicit rather than hiding them behind prose.
+
+### 8.5 Voting, latency and the token ceiling
+
+The 3-attempt vote is now concurrent: `AgentService` submits the attempts to a fixed
+pool and reads them back in submission order, so a tie still keeps the earliest answer
+and the wall clock stays close to one call. The default then changed again for cost: a
+repeat fires only when the **first** answer is malformed (provider failure, unparsable
+XML, or no type/title). A well-formed answer is accepted as-is.
+
+Measured on the hand-written set (`EVAL_CONSISTENCY_SAMPLES=3`, concurrency on):
+
+| model | calls | p50 | p95 | max | p95 tokens | A11 (≤1.5×) | A12 (≤1.5×) |
+|---|---|---|---|---|---|---|---|
+| MiniMax-M3, always-3 | 339 | 2,802 ms | 8,227 ms (1.46× 5,648) | 29,039 ms | 12,160 (3.0× 4,048) | **PASS** | **FAIL** |
+| LongCat-2.5, always-3 (first 20 samples) | 90 | 17,913 ms | 38,470 ms (1.14× 33,716) | 92,621 ms | 16,085 (2.79× 5,763) | **PASS** | **FAIL** |
+| MiniMax-M3, production trigger | 113 | 2,476 ms | 6,912 ms (1.22× 5,648) | 664,921 ms (one provider retry) | 4,038 (1.00× 4,048) | **PASS** | **PASS** |
+| LongCat-2.5, production trigger (first 40 samples) | 58 | 13,395 ms | 40,410 ms (1.20× 33,716) | 48,999 ms | 5,678 (0.99× 5,763) | **PASS** | **PASS** |
+
+Concurrent sampling clears A11: three calls overlap instead of queuing. It cannot clear
+A12, and shrinking the context cannot either. `prompts/init.txt` is 15,997 bytes — about
+4.0k tokens — while the single-call p95 is 4,038 tokens (MiniMax) and 5,763 (LongCat).
+The system prompt alone therefore accounts for roughly all of MiniMax's bill and 69% of
+LongCat's. On the real set the trace contributes at most 0.8k tokens at p95 (4,802 −
+~4.0k), so even truncating it to nothing saves 17% — short of the 50% per-call reduction
+that would bring three calls under 1.5×. Even deleting the entire tool trace leaves
+3 × 4.0k ≈ 12k tokens per extraction, above the 6,072 / 8,645-token floors. Truncating
+history or compressing tool output can therefore not bring a 3-call extraction under
+1.5×; the only lever is how often the second and third calls happen. The
+malformed-answer trigger keeps that rate near zero (validation rejections and format
+errors were 0–2 per run), which is why the production-trigger rows clear A12 while the
+always-3 rows do not.
+
+Trade-off, stated plainly: the round-9 motivation for the vote was label instability —
+13 of 87 samples changed type or action between runs at temperature 0. The malformed
+trigger does not catch that instability, because both answers parse. Those flips are now
+unvoted. `consistency-samples` remains the upper bound (3), and `1` disables even the
+malformed repeat; restoring always-3 restores the stability at 3× tokens, which is the
+always-3 row above.
+
+### 8.6 Capability boundaries
+
+After the prompt fix the real set still sits at identifier 54.5% (MiniMax) and 77.0%
+(LongCat), with type at 58–61% for both. These are stated as a boundary, not as remaining
+prompt work:
+
+- **Identifier selection.** When a commit edits one file and also touches support files,
+  the model names a support file 23–45% of the time. The trace contains every path, so
+  this is a selection failure, not a missing-evidence failure; one prompt rule recovers
+  10–12 points and the rest stays. The remaining misses are concentrated in commits whose
+  largest file is an eval fixture or a `docs` file: the model prefers the edited code or
+  prompt and ignores the artifact the diff touched most.
+- **Type under hardening.** A security hardening commit that adds a migration or a
+  runner is read as `feature`/`change`. The explicit rule did not move the score, so the
+  label boundary is the model's prior, not the wording.
+- **Action classes** are effectively solved on the real set (92–96% hit after the union
+  rule), so the audit removed the ambiguity that round 9 was punishing.
+
+### 8.7 Four metrics side by side
+
+Quality on the hand-written set stayed within run-to-run noise when the vote became
+conditional: MiniMax measured 95.1 / 84.9 / 90.2 / 93.4% against round 9's 97 / 89 / 87 /
+95%, so two metrics lost 2–4 points and action gained 3. The real-set numbers are the
+honest distribution; the latency and cost numbers are the always-3 and production-trigger
+rows above.
+
+| dimension | hand-written (v9, round 9) | real (round 10, after fix) | latency p95 | tokens p95 per extraction |
+|---|---|---|---|---|
+| MiniMax-M3 | 97 / 89 / 87 / 95% | 54.5 / 54.5 / 95.5 / 61.4% | 6,912 ms (production) · 8,227 ms (always-3) | 4,038 (production) · 12,160 (always-3) |
+| LongCat-2.5 | 98 / 89 / 89 / 95% | 77.0 / 77.0 / 91.7 / 58.0% | 40,410 ms (production) · 38,470 ms (always-3) | 5,678 (production) · 16,085 (always-3) |
+
+Cell order in the quality columns is identifier / trace-subject / action / type.
+
+### 8.8 Round-10 verification
+
+`./scripts/verify-local.sh` on a database recreated from scratch
+(`cortexce_flyway_rehearsal`, pgvector 0.8.1): `ALL CHECKS PASSED`.
+
+| layer | tests | failures | errors | skipped |
+|---|---|---|---|---|
+| L1 unit/integration | 460 | 0 | 0 | 0 |
+| L2 HTTP regression | 7 | 0 | 0 | 0 |
+| L3 acceptance + proxy forwarding | 6 | 0 | 0 | 0 |
+| L4 end-to-end | 1 | 0 | 0 | 0 |
+| total | 474 | 0 | 0 | 0 |
+
+Flyway migrated to V23 (matches the newest migration file, 0 failed migrations); both
+published API references match the live server; the proxy E2E ran and reported 0 skips.
+The baseline is ratcheted from 472 to 474 (`scripts/test-baseline.json`, L1 458 → 460)
+so a later regression to the round-9 count fails the gate.
+

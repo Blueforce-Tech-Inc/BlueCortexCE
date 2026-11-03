@@ -109,12 +109,12 @@ hand-run steps:
 5. runs L1–L4 in one `mvn -B clean install`, with `MEMSCOPE_*` pointed at that
    database.
 6. runs `python3 scripts/check-test-results.py --require-zero-skips
-   --min-tests 472 --require-layers --require-baseline`. The floor is a hard
-   **must-not-go-below** value (currently 472 executed tests); the baseline adds
+   --min-tests 474 --require-layers --require-baseline`. The floor is a hard
+   **must-not-go-below** value (currently 474 executed tests); the baseline adds
    a per-layer ratchet so no layer can quietly shrink.
 
 The gate fails when any test is skipped, when the total executed count drops
-below 472, when a layer executed no tests, or when any of L1–L4 executed fewer
+below 474, when a layer executed no tests, or when any of L1–L4 executed fewer
 tests than `scripts/test-baseline.json` records. Raise both the floor and the
 baseline deliberately (`--write-baseline`) only after adding tests.
 7. runs both documentation consistency checks: the checker self-test, then the
@@ -290,7 +290,7 @@ kill "$APP_PID" && wait "$APP_PID" 2>/dev/null || true
 docker exec "$PG_CONTAINER" psql -U "$PG_USER" -d "$TEST_DB" -tAc \
   "SELECT version FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 1"
 
-# 4. Run the full suite against the dedicated database: 472 tests, 0 skipped.
+# 4. Run the full suite against the dedicated database: 474 tests, 0 skipped.
 MEMSCOPE_TEST_DB_URL="jdbc:postgresql://127.0.0.1:$PG_PORT/$TEST_DB" \
 MEMSCOPE_TEST_DB_USER="$PG_USER" MEMSCOPE_TEST_DB_PASSWORD="$PG_PASSWORD" \
 MEMSCOPE_FLYWAY_TEST_URL="jdbc:postgresql://127.0.0.1:$PG_PORT/$TEST_DB" \
@@ -304,7 +304,7 @@ mvn -B clean install
 > V20 conflict rehearsal create and migrate their own disposable databases.
 >
 > CI runs the same suite and then `python3 scripts/check-test-results.py
-> --require-zero-skips --min-tests 472 --require-layers --require-baseline`, so a build
+> --require-zero-skips --min-tests 474 --require-layers --require-baseline`, so a build
 > that reports success while any DB-gated test was skipped, or while a whole layer
 > disappeared, or while a layer executed fewer tests than the recorded baseline,
 > fails. CI provisions its own `pgvector/pgvector:pg16`
@@ -498,7 +498,7 @@ GitHub Actions workflows are configured in `.github/workflows/`:
     owns 5432), migrates it to the newest migration with the application's own
     Flyway configuration, runs `mvn -B clean install` (no `-DskipTests`), and
     then runs `python3 scripts/check-test-results.py --require-zero-skips
-    --min-tests 472 --require-layers --require-baseline`. A skipped DB test, a
+    --min-tests 474 --require-layers --require-baseline`. A skipped DB test, a
     total test-count drop, or any layer shrinking below the recorded baseline
     fails the job, so "BUILD SUCCESS with skipped tests" cannot pass CI.
   - On JDK 21 only, the same job boots the server on 37777 and runs
