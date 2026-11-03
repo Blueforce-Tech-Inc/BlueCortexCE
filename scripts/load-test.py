@@ -7,9 +7,9 @@ local OpenAI-compatible stub, seeds observations and measures the paths that
 only degrade under volume. Nothing here runs in CI.
 
 Usage:
-    python3 scripts/load-test.py --rows 10000 --requests 100
+    python3 scripts/load-test.py --rows 50000 --requests 100
 
-The report is written to docs/archive/2026-11-03_load-test-10k.md (or --report).
+The report is written to docs/archive/<date>_load-test-<rows/1000>k.md (or --report).
 """
 
 from __future__ import annotations
@@ -440,23 +440,42 @@ def measure(port: int, path: str, requests: int) -> dict:
     return {
         "p50": round(percentile(samples, 50), 2),
         "p95": round(percentile(samples, 95), 2),
+        "p99": round(percentile(samples, 99), 2),
         "max": round(max(samples), 2),
         "mean": round(statistics.fmean(samples), 2),
     }
 
 
+def probe_strategy(port: int, path: str) -> str:
+    """Read the strategy the server actually chose, so the report cannot mislabel a path.
+
+    With an embedding model configured, a query request runs the hybrid query (pgvector
+    plus tsvector), not the pure tsvector fallback. Recording the server's own strategy
+    keeps the latency table honest.
+    """
+    try:
+        with urlopen(f"http://127.0.0.1:{port}{path}", timeout=10) as response:
+            payload = json.loads(response.read())
+        return payload.get("strategy") or "-"
+    except (HTTPError, OSError, ValueError):
+        return "-"
+
+
 def search_workloads(port: int, requests: int) -> dict:
     project = urlencode({"project": PROJECT})
-    return {
-        "recent": measure(port, f"/api/search?{project}&limit=20", requests),
-        "deep_page": measure(port, f"/api/search?{project}&limit=20&offset=200", requests),
-        "type_filter": measure(port, f"/api/search?{project}&type=feature&limit=20", requests),
-        "full_text": measure(
-            port,
-            f"/api/search?{project}&{urlencode({'query': 'queue handler search path'})}&limit=20",
-            requests,
-        ),
+    query_path = f"/api/search?{project}&{urlencode({'query': 'queue handler search path'})}&limit=20"
+    workloads = {
+        "recent": f"/api/search?{project}&limit=20",
+        "deep_page": f"/api/search?{project}&limit=20&offset=200",
+        "type_filter": f"/api/search?{project}&type=feature&limit=20",
+        "query": query_path,
     }
+    results = {}
+    for name, path in workloads.items():
+        measured = measure(port, path, requests)
+        measured["strategy"] = probe_strategy(port, path)
+        results[name] = measured
+    return results
 
 
 # ---------------------------------------------------------------------------
@@ -1136,37 +1155,40 @@ def render_concurrency_report(args, result: dict) -> str:
 
 
 def render_report(args, stages: list[dict], indexes: dict, queue: dict) -> str:
+    last = stages[-1]
     lines = [
-        "# Load test: 10k observations, search latency, index evidence, queue throughput",
+        f"# Load test: {last['rows']} observations, search latency, index evidence, queue throughput",
         "",
         f"- Date: {time.strftime('%Y-%m-%d %H:%M:%S')}",
         f"- Database: {DATABASE} on {CONTAINER}:{DB_PORT} (disposable, Flyway-migrated)",
         f"- Service: packaged jar on http://127.0.0.1:{args.port}",
         f"- Workload: {args.requests} sequential requests per search path; pages of 20 rows",
-        "- Model: local OpenAI-compatible stub, so queue measurements exclude provider latency",
+        "- Model: local OpenAI-compatible stub; the query path therefore measures the hybrid "
+        "SQL shape (pgvector + tsvector) without provider latency",
         "",
         "## Search latency by table size",
         "",
-        "| rows | path | p50 ms | p95 ms | max ms |",
-        "|---:|---|---:|---:|---:|",
+        "| rows | path | strategy | p50 ms | p95 ms | p99 ms | max ms |",
+        "|---:|---|---|---:|---:|---:|---:|",
     ]
     for stage in stages:
         for path, values in stage["search"].items():
             lines.append(
-                f"| {stage['rows']} | {path} | {values['p50']} | {values['p95']} | {values['max']} |"
+                f"| {stage['rows']} | {path} | {values['strategy']} | {values['p50']} | "
+                f"{values['p95']} | {values['p99']} | {values['max']} |"
             )
 
     lines += [
         "",
-        "## V23 index evidence (10k rows)",
+        f"## V23 index evidence ({last['rows']} rows)",
         "",
-        "| query | index | with index ms | plan | without index ms | plan |",
-        "|---|---|---:|---|---:|---|",
+        "| query | index | index used | with index ms | without index ms | plan without index |",
+        "|---|---|---|---:|---:|---|",
     ]
     for name, value in indexes.items():
         used = ", ".join(value["with_index_used"]) or "none"
         lines.append(
-            f"| {name} | {value['index']} | {value['with_index_ms']} | {used} | "
+            f"| {name} | {value['index']} | {used} | {value['with_index_ms']} | "
             f"{value['without_index_ms']} | {' -> '.join(value['without_index_nodes'])} |"
         )
 
@@ -1188,41 +1210,61 @@ def render_report(args, stages: list[dict], indexes: dict, queue: dict) -> str:
         f"| duplicate content hashes | {queue['duplicate_hashes']} |",
         f"| rows stuck in processing | {queue['stuck_processing']} |",
         "",
-        "## Capacity conclusion",
+        "## Degradation knee (p95 > 2x the 1k-row baseline)",
         "",
+        "| path | strategy | p95 at 1k | 2x threshold | first rows over 2x |",
+        "|---|---|---:|---:|---:|",
     ]
+    first = stages[0]
+    for path in first["search"]:
+        baseline = first["search"][path]["p95"]
+        knee = next(
+            (
+                stage["rows"]
+                for stage in stages[1:]
+                if baseline and stage["search"][path]["p95"] > 2 * baseline
+            ),
+            None,
+        )
+        lines.append(
+            f"| {path} | {first['search'][path]['strategy']} | {baseline} | "
+            f"{round(2 * baseline, 2)} | {knee if knee is not None else 'not crossed'} |"
+        )
 
-    first, last = stages[0], stages[-1]
+    lines += ["", "## Capacity conclusion", ""]
+    crossed = []
+    for path in first["search"]:
+        baseline = first["search"][path]["p95"]
+        knee = next(
+            (
+                stage["rows"]
+                for stage in stages[1:]
+                if baseline and stage["search"][path]["p95"] > 2 * baseline
+            ),
+            None,
+        )
+        if knee is not None:
+            crossed.append(
+                f"{path} ({first['search'][path]['strategy']}) p95 crossed 2x "
+                f"({round(2 * baseline, 2)} ms) at {knee} rows"
+            )
+    if crossed:
+        lines.append("- " + "; ".join(crossed) + ".")
+    else:
+        lines.append(
+            f"- No measured path crossed the 2x p95 threshold between {first['rows']} and "
+            f"{last['rows']} rows; every path stayed inside "
+            f"{max(last['search'][p]['p95'] for p in last['search']) + 1:.0f} ms p95."
+        )
     lines.append(
-        f"- Recent list (V23 scope index): p95 {first['search']['recent']['p95']} ms at "
-        f"{first['rows']} rows -> {last['search']['recent']['p95']} ms at {last['rows']} rows. "
-        "The ordered index scan serves the page, so no degradation was observed."
-    )
-    text_baseline = first["search"]["full_text"]["p95"]
-    crosses = next(
-        (
-            stage["rows"]
-            for stage in stages[1:]
-            if text_baseline and stage["search"]["full_text"]["p95"] > 2 * text_baseline
-        ),
-        None,
+        f"- Queue: {queue['persisted']} of {queue['events']} events persisted "
+        f"({queue['throughput_per_second']} rows/s), {queue['duplicate_hashes']} duplicate "
+        f"hashes, {queue['stuck_processing']} rows left in processing."
     )
     lines.append(
-        f"- Full-text fallback (GIN): p95 {text_baseline} ms at {first['rows']} rows -> "
-        f"{last['search']['full_text']['p95']} ms at {last['rows']} rows. This is the first "
-        "path to degrade as the table grows"
-        + (f", crossing 2x at {crosses} rows." if crosses else ".")
-    )
-    lines.append(
-        f"- Queue: {queue['persisted']} of {queue['events']} events persisted, "
-        f"{queue['duplicate_hashes']} duplicate hashes, {queue['stuck_processing']} rows left "
-        "in processing."
-    )
-    lines.append(
-        f"- At {last['rows']} rows every measured path stays under "
-        f"{max(last['search'][path]['p95'] for path in last['search']) + 1:.0f} ms p95; "
-        "the next capacity check belongs at 100k rows, where the full-text path is expected "
-        "to be the limiter."
+        f"- Highest observed p95 across all paths at {last['rows']} rows: "
+        f"{max(last['search'][p]['p95'] for p in last['search'])} ms "
+        f"({max(last['search'], key=lambda p: last['search'][p]['p95'])})."
     )
     lines.append("")
     return "\n".join(lines)
@@ -1280,7 +1322,11 @@ def main() -> int:
             return 0 if result["lost"] == 0 else 1
 
         stages = []
-        targets = sorted({1000, min(5000, args.rows), args.rows})
+        # Always include the 1k/5k/10k points from the earlier report when the requested
+        # size is larger, so every run produces a directly comparable curve.
+        targets = sorted({t for t in (1000, 5000, 10000, args.rows) if 1000 <= t <= args.rows})
+        if args.rows > targets[-1]:
+            targets.append(args.rows)
         seeded = 0
         for target in targets:
             seed_observations(seeded + 1, target)
@@ -1301,7 +1347,8 @@ def main() -> int:
         print(f"queue: {queue}", flush=True)
 
         report = render_report(args, stages, indexes, queue)
-        path = Path(args.report or ROOT / "docs/archive/2026-11-03_load-test-10k.md")
+        default_name = f"{time.strftime('%Y-%m-%d')}_load-test-{args.rows // 1000}k.md"
+        path = Path(args.report or ROOT / "docs/archive" / default_name)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(report + "\n")
         print(f"report written to {path}")
