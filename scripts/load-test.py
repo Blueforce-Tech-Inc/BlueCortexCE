@@ -323,6 +323,8 @@ def start_app(port: int, stub_port: int, fault: bool = False) -> subprocess.Pope
             "-Dclaudemem.stale-message.threshold-minutes=1",
             "-Dclaudemem.stale-message.recovery-interval-ms=5000",
             "-Dclaudemem.embedding.backfill-interval-ms=5000",
+            # Multi-instance mode: beat every 5 s so a 70 s provider call stays leased.
+            "-Dclaudemem.processing-heartbeat.interval-ms=5000",
             # One provider attempt, so a 504 is recorded instead of being retried for
             # minutes and then succeeding once the injected outage ends.
             "-Dspring.ai.retry.max-attempts=1",
@@ -1169,6 +1171,231 @@ def render_concurrency_report(args, result: dict) -> str:
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Multi-instance queue sharing
+# ---------------------------------------------------------------------------
+
+def insert_pending_observations(count: int, base: int) -> list[str]:
+    """Queue observation jobs directly, so both instances see the same rows.
+
+    The API path only notifies the receiving instance via an in-process event;
+    a direct insert is what forces both schedulers to race for the same job.
+    """
+    epoch = int(time.time() * 1000)
+    sql = f"""
+        INSERT INTO mem_pending_messages (
+            id, session_db_id, content_session_id, message_type, tool_name,
+            tool_input, tool_input_hash, tool_response, cwd, prompt_number,
+            status, retry_count, created_at_epoch)
+        SELECT gen_random_uuid(), s.id, '{SESSION}', 'observation', 'Edit',
+               json_build_object(
+                   'file_path', 'src/main/java/com/example/LoadQueueHandler' || ({base} + g) || '.java',
+                   'old_string', 'return null;',
+                   'new_string', 'return observation;')::text,
+               md5('multi:{base}:' || g),
+               'Edit src/main/java/com/example/LoadQueueHandler' || ({base} + g)
+                   || '.java: removed 1 line(s), added 2 line(s)',
+               '/tmp/cortexce-multi', 1 + (g % 5), 'pending', 0, {epoch} - g
+        FROM generate_series(1, {count}) g
+        CROSS JOIN (SELECT id FROM mem_sessions
+                    WHERE content_session_id = '{SESSION}' LIMIT 1) s
+        RETURNING id;
+    """
+    # `psql -tA` prints one id per line; keep only UUIDs so a stray footer line
+    # cannot inflate the queued-job count.
+    return [line.strip() for line in psql(sql).splitlines()
+            if re.fullmatch(r"[0-9a-f-]{36}", line.strip())]
+
+
+def claimed_lines(port: int) -> int:
+    """Jobs this instance actually won.
+
+    The listener logs "Processed pending message:" even when its claim lost the
+    race (the service returns early), so that line is not attributable work. The
+    service logs "Processing pending message:" only after a non-null claim.
+    """
+    try:
+        with open(f"/tmp/load-test-app-{port}.log", "rb") as log_file:
+            text = log_file.read().decode("utf-8", "replace")
+    except OSError:
+        return 0
+    return len(re.findall(r"Processing pending message:", text))
+
+
+def stale_recovery_lines(port: int) -> int:
+    try:
+        with open(f"/tmp/load-test-app-{port}.log", "rb") as log_file:
+            text = log_file.read().decode("utf-8", "replace")
+    except OSError:
+        return 0
+    return len(re.findall(r"[Rr]ecovered.*[Ss]tale", text))
+
+
+def duplicate_hash_count() -> int:
+    return int(psql(
+        "SELECT count(*) FROM ("
+        "  SELECT content_hash, count(*) AS c FROM mem_observations "
+        "  WHERE content_hash IS NOT NULL GROUP BY content_hash HAVING count(*) > 1"
+        ") dup;"
+    ))
+
+
+def multi_instance(ports: list[int], model: StubModel, fanout: int) -> dict:
+    """Fan out one shared queue to two instances, then prove the lease holds."""
+    started = time.time()
+    before = observation_count()
+
+    # Phase 1: both schedulers see all 60 rows and race for them.
+    fanout_ids = insert_pending_observations(fanout, 1000)
+    fanout_drained = wait_drained(240)
+    observations = observation_count() - before
+    duplicates = duplicate_hash_count()
+    stuck = int(psql("SELECT count(*) FROM mem_pending_messages WHERE status = 'processing';"))
+    pending_left = int(psql("SELECT count(*) FROM mem_pending_messages WHERE status = 'pending';"))
+    workers = {port: claimed_lines(port) for port in ports}
+
+    # Phase 2: a provider call longer than the stale threshold. With a heartbeat,
+    # the lease keeps moving and instance B's sweep must leave the row alone.
+    model.chat_delay = 70.0
+    stale_id = insert_pending_observations(1, 2000)[0]
+    claim_epoch = None
+    claim_deadline = time.time() + 40
+    while time.time() < claim_deadline:
+        row = psql(
+            f"SELECT status || '|' || coalesce(started_processing_at_epoch, 0) "
+            f"FROM mem_pending_messages WHERE id = '{stale_id}';")
+        if row.startswith("processing|"):
+            claim_epoch = int(row.split("|", 1)[1])
+            break
+        time.sleep(0.5)
+
+    samples = []
+    lease_advanced = False
+    t0 = time.time()
+    final_status = "processing"
+    while time.time() - t0 < 120:
+        row = psql(
+            f"SELECT status || '|' || coalesce(started_processing_at_epoch, 0) "
+            f"FROM mem_pending_messages WHERE id = '{stale_id}';")
+        status, lease = row.split("|", 1)
+        final_status = status
+        if claim_epoch is not None:
+            moved = round((int(lease) - claim_epoch) / 1000.0, 1) if int(lease) else None
+            samples.append({
+                "t": round(time.time() - t0, 1),
+                "status": status,
+                "lease_age": moved,
+            })
+            if moved and moved > 0:
+                lease_advanced = True
+        if status != "processing":
+            break
+        time.sleep(5)
+    model.chat_delay = 0.0
+
+    drained_after = wait_drained(90)
+    total_observations = observation_count() - before
+    final_duplicates = duplicate_hash_count()
+    recovered = {port: stale_recovery_lines(port) for port in ports}
+    return {
+        "fanout": len(fanout_ids),
+        "fanout_drained": fanout_drained,
+        "observations": observations,
+        "duplicates": duplicates,
+        "stuck": stuck,
+        "pending_left": pending_left,
+        "workers": workers,
+        "lease_advanced": lease_advanced,
+        "samples": samples,
+        "final_status": final_status,
+        "stale_drained": drained_after,
+        "total_observations": total_observations,
+        "final_duplicates": final_duplicates,
+        "recovered": recovered,
+        "elapsed_seconds": round(time.time() - started, 1),
+    }
+
+
+def render_multi_instance_report(args, result: dict) -> str:
+    fan_ok = (
+        result["observations"] == result["fanout"]
+        and result["duplicates"] == 0
+        and result["stuck"] == 0
+        and result["pending_left"] == 0
+        and result["fanout_drained"]
+    )
+    stale_ok = (
+        result["lease_advanced"]
+        and result["final_status"] in ("processed", "skipped")
+        and result["final_duplicates"] == 0
+    )
+    verdict = "PASS" if fan_ok and stale_ok else "FAIL"
+    workers = ", ".join(f"instance {port}: {count}" for port, count in result["workers"].items())
+    sample_rows = "\n".join(
+        f"| {row['t']} | {row['status']} | "
+        f"{'ended' if row['lease_age'] is None else '+' + str(row['lease_age'])} |"
+        for row in result["samples"]
+    )
+    lines = [
+        "# Multi-instance queue sharing and lease heartbeat",
+        "",
+        f"- Date: {time.strftime('%Y-%m-%d %H:%M:%S')}",
+        f"- Database: {DATABASE} on {CONTAINER}:{DB_PORT} (shared by both instances)",
+        f"- Instances: http://127.0.0.1:{args.port} and http://127.0.0.1:{args.port + 1}",
+        "- Config: stale threshold 1 min, recovery every 5 s, heartbeat every 5 s, "
+        "scheduler poll every 1 s, provider stub chat delay 0 / 70 s",
+        "",
+        "## Claim path",
+        "",
+        "```text",
+        "   instance A                        shared DB                        instance B",
+        "  scheduler poll  ─┐                                                  ┌─ scheduler poll",
+        "                   ├─►  UPDATE ... SET status='processing',             │",
+        "                   │      started_processing_at_epoch=now              │",
+        "                   │      WHERE id=:id AND status='pending'            │",
+        "                   │           └── row-count 1: claimed                │",
+        "                   │           └── row-count 0: someone else won ──────┘",
+        "                   ▼",
+        "  heartbeat every 5 s ──► UPDATE started_processing_at_epoch=now",
+        "                          WHERE id IN (this instance's in-flight) AND status='processing'",
+        "```",
+        "",
+        "## 1. Shared queue fan-out",
+        "",
+        "| metric | value |",
+        "|---|---:|",
+        f"| jobs inserted directly into the queue | {result['fanout']} |",
+        f"| queue drained | {result['fanout_drained']} |",
+        f"| observations persisted | {result['observations']} |",
+        f"| observations lost | {result['fanout'] - result['observations']} |",
+        f"| duplicate content hashes | {result['duplicates']} |",
+        f"| rows left in processing | {result['stuck']} |",
+        f"| rows left pending | {result['pending_left']} |",
+        f"| processed per instance (log) | {workers} |",
+        "",
+        "## 2. Lease heartbeat vs stale recovery",
+        "",
+        f"- Provider delay: 70 s, stale threshold: 60 s, heartbeat: 5 s.",
+        f"- Lease advanced during processing: **{result['lease_advanced']}**.",
+        f"- Final row status: **{result['final_status']}**; queue drained: {result['stale_drained']}; "
+        f"duplicate hashes: {result['final_duplicates']}.",
+        f"- Stale-recovery log lines during the run: "
+        f"{result['recovered']} (zero means no instance reclaimed the live lease).",
+        "",
+        "| elapsed s | status | lease moved past claim |",
+        "|---:|---|---:|",
+        sample_rows or "| - | - | - |",
+        "",
+        f"Verdict: {verdict}. Pass requires every queued job persisted exactly once, "
+        "no row stuck in processing, and a lease that keeps advancing past the stale "
+        "threshold while the provider call is still running.",
+        "",
+        f"Elapsed: {result['elapsed_seconds']} s.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def render_report(args, stages: list[dict], indexes: dict, queue: dict) -> str:
     last = stages[-1]
     lines = [
@@ -1291,7 +1518,7 @@ def render_report(args, stages: list[dict], indexes: dict, queue: dict) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["soak", "concurrency", "fault"], default="soak")
+    parser.add_argument("--mode", choices=["soak", "concurrency", "fault", "multi"], default="soak")
     parser.add_argument("--sessions", type=int, default=20)
     parser.add_argument("--per-session", type=int, default=10)
     parser.add_argument("--rows", type=int, default=10000)
@@ -1307,10 +1534,33 @@ def main() -> int:
     model = StubModel()
     stub = start_stub(model, args.stub_port)
     create_database()
-    app = start_app(args.port, args.stub_port, fault=args.mode == "fault")
+    app = start_app(args.port, args.stub_port, fault=args.mode in ("fault", "multi"))
+    app_b = None
     try:
         wait_health(args.port, app)
         seed_base()
+
+        if args.mode == "multi":
+            # Second instance joins only after the first finished Flyway, so the
+            # two never race the schema history table on a fresh database.
+            app_b = start_app(args.port + 1, args.stub_port, fault=True)
+            wait_health(args.port + 1, app_b)
+            result = multi_instance([args.port, args.port + 1], model, args.events)
+            print(f"multi: {result}", flush=True)
+            report = render_multi_instance_report(args, result)
+            path = Path(args.report or ROOT / "docs/archive/2026-11-04_multi-instance-queue.md")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(report + "\n")
+            print(f"report written to {path}")
+            fan_ok = (result["observations"] == result["fanout"]
+                      and result["duplicates"] == 0
+                      and result["stuck"] == 0
+                      and result["pending_left"] == 0
+                      and result["fanout_drained"])
+            stale_ok = (result["lease_advanced"]
+                        and result["final_status"] in ("processed", "skipped")
+                        and result["final_duplicates"] == 0)
+            return 0 if fan_ok and stale_ok else 1
 
         if args.mode == "fault":
             pool = fault_pool_exhaustion(args.port)
@@ -1370,12 +1620,15 @@ def main() -> int:
         return 0
     finally:
         stub.shutdown()
+        processes = [app] + ([app_b] if app_b is not None else [])
         if not args.keep:
-            app.terminate()
-            try:
-                app.wait(timeout=20)
-            except subprocess.TimeoutExpired:
-                app.kill()
+            for process in processes:
+                process.terminate()
+            for process in processes:
+                try:
+                    process.wait(timeout=20)
+                except subprocess.TimeoutExpired:
+                    process.kill()
 
 
 if __name__ == "__main__":

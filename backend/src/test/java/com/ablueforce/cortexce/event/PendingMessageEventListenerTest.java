@@ -52,7 +52,7 @@ class PendingMessageEventListenerTest {
     void setUp() {
         // Create a no-op AgentService subclass that doesn't do anything
         noopAgentService = new com.ablueforce.cortexce.service.AgentService(
-            null, null, null, null, null, null, null, null, null, null, null
+            null, null, null, null, null, null, null, null, null, null, null, null
         ) {
             @Override
             public void processPendingMessage(UUID pendingMessageId) {
@@ -186,7 +186,7 @@ class PendingMessageEventListenerTest {
     private PendingMessageEventListener listenerWithAgentFailingWith(RuntimeException failure) {
         com.ablueforce.cortexce.service.AgentService failingAgent =
             new com.ablueforce.cortexce.service.AgentService(
-                null, null, null, null, null, null, null, null, null, null, null
+                null, null, null, null, null, null, null, null, null, null, null, null
             ) {
                 @Override
                 public void processPendingMessage(UUID pendingMessageId) {

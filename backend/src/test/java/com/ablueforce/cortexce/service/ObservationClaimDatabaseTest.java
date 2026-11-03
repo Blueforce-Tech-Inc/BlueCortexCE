@@ -71,6 +71,7 @@ class ObservationClaimDatabaseTest {
     @Autowired private PendingMessageRepository pendingMessageRepository;
     @Autowired private SessionRepository sessionRepository;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     @MockBean private SSEBroadcaster sseBroadcaster;
     @MockBean private PendingMessageEventPublisher pendingMessageEventPublisher;
@@ -255,6 +256,46 @@ class ObservationClaimDatabaseTest {
             Integer.class, pendingId)).isZero();
         assertThat(jdbc.queryForObject(
             "SELECT failed_at_epoch FROM mem_pending_messages WHERE id = ?",
+            Long.class, pendingId)).isNull();
+    }
+
+    // ------------------------------------------------------------------
+    // Lease heartbeat vs stale recovery
+    // ------------------------------------------------------------------
+
+    @Test
+    @DisplayName("a heartbeat keeps a running job out of stale recovery and cannot revive a finished row")
+    void heartbeatKeepsRunningJobOutOfStaleRecovery() {
+        UUID pendingId = enqueueOne();
+        assertThat(writer.claimObservationJob(pendingId)).isPresent();
+
+        // A job that has already run for 11 minutes: without a heartbeat the recovery
+        // sweep reclaims it, and a second instance then processes the same trace again.
+        jdbc.update("UPDATE mem_pending_messages SET started_processing_at_epoch = ? WHERE id = ?",
+            System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(11), pendingId);
+
+        long now = System.currentTimeMillis();
+        int beaten = transactionTemplate.execute(status ->
+            pendingMessageRepository.heartbeatProcessing(List.of(pendingId), now));
+        assertThat(beaten).isEqualTo(1);
+
+        int recovered = transactionTemplate.execute(status ->
+            pendingMessageRepository.updateStaleMessages(
+                "processing", "pending", now - TimeUnit.MINUTES.toMillis(10)));
+        assertThat(recovered).as("a lease that keeps beating must never be reclaimed").isZero();
+        assertThat(rowStatus(pendingId)).isEqualTo("processing");
+        assertThat(jdbc.queryForObject(
+            "SELECT started_processing_at_epoch FROM mem_pending_messages WHERE id = ?",
+            Long.class, pendingId)).isEqualTo(now);
+
+        // Once the job resolves, the heartbeat must not touch it: a late beat cannot
+        // turn a skipped row back into a live lease.
+        writer.markObservationSkipped(pendingId, conversationIdOf(pendingId));
+        int lateBeat = transactionTemplate.execute(status ->
+            pendingMessageRepository.heartbeatProcessing(List.of(pendingId), now + 1));
+        assertThat(lateBeat).isZero();
+        assertThat(jdbc.queryForObject(
+            "SELECT started_processing_at_epoch FROM mem_pending_messages WHERE id = ?",
             Long.class, pendingId)).isNull();
     }
 

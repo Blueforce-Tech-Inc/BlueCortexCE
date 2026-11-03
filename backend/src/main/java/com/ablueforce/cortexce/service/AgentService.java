@@ -85,6 +85,7 @@ public class AgentService implements LogHelper {
     private final TokenService tokenService;
     private final ContextCacheService contextCacheService;
     private final ExtractionValidationService extractionValidationService;
+    private final ProcessingHeartbeat processingHeartbeat;
 
     @Value("${claudemem.max-retries:3}")
     private int maxRetries;
@@ -107,7 +108,8 @@ public class AgentService implements LogHelper {
                         LlmService llmService,
                         TokenService tokenService,
                         ContextCacheService contextCacheService,
-                        ExtractionValidationService extractionValidationService) {
+                        ExtractionValidationService extractionValidationService,
+                        ProcessingHeartbeat processingHeartbeat) {
         this.sessionManagementService = sessionManagementService;
         this.templateService = templateService;
         this.pendingMessageRepository = pendingMessageRepository;
@@ -119,6 +121,7 @@ public class AgentService implements LogHelper {
         this.tokenService = tokenService;
         this.contextCacheService = contextCacheService;
         this.extractionValidationService = extractionValidationService;
+        this.processingHeartbeat = processingHeartbeat;
     }
 
     // ========================================================================
@@ -292,6 +295,11 @@ public class AgentService implements LogHelper {
 
         log.info("Processing pending message: {}", pendingMessageId);
 
+        // The heartbeat is what keeps a slow provider call from outliving the stale
+        // threshold while a second instance is watching the same queue. It only covers
+        // ids this JVM actually claimed, and the repository update ignores rows that
+        // are no longer `processing`.
+        processingHeartbeat.start(pendingMessageId);
         try {
             String contentSessionId = pending.getContentSessionId();
             String toolName = pending.getToolName();
@@ -321,6 +329,8 @@ public class AgentService implements LogHelper {
             conversationWriteService.markObservationFailed(
                 pendingMessageId, RetryPolicy.isRetryable(e) ? maxRetries : 1,
                 System.currentTimeMillis(), RetryPolicy.failureKind(e));
+        } finally {
+            processingHeartbeat.stop(pendingMessageId);
         }
     }
 

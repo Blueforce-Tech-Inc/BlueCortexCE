@@ -276,6 +276,31 @@ public interface PendingMessageRepository extends JpaRepository<PendingMessageEn
     );
 
     /**
+     * Refresh the lease on jobs this worker is still processing.
+     *
+     * <p>Stale recovery reclaims rows whose {@code started_processing_at_epoch} is older
+     * than the threshold, and it cannot tell "crashed" from "still working". Without a
+     * heartbeat a slow LLM call (up to 3 x 120 s reads plus retries) can outlive the
+     * 10-minute threshold, and a second instance would then process the same trace again.
+     * The caller only ever passes ids from its own in-flight set, so a heartbeat can
+     * never extend another instance's lease, and the {@code processing} guard means it
+     * cannot resurrect a row that already finished.
+     *
+     * @return number of rows still held in {@code processing} by this worker
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+        UPDATE mem_pending_messages
+        SET started_processing_at_epoch = :now
+        WHERE message_type = 'observation'
+          AND status = 'processing'
+          AND id IN (:ids)
+        """, nativeQuery = true)
+    int heartbeatProcessing(
+        @Param("ids") java.util.Collection<UUID> ids,
+        @Param("now") long now);
+
+    /**
      * Get retry count for a message
      */
     @Query("SELECT p.retryCount FROM PendingMessageEntity p WHERE p.id = :id")
