@@ -1,0 +1,296 @@
+{
+  "provider" : "anthropic",
+  "model" : "MiniMax-M3",
+  "phase" : "after-v9",
+  "promptDir" : "current",
+  "validate" : true,
+  "entries" : [ {
+    "id" : "real-77ba40df77",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2812,
+    "promptTokens" : 245,
+    "completionTokens" : 364,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added opt-in majority vote for observation extraction in ExtractionConsistency</title>\n  <subtitle>ExtractionConsistency now supports consistency voting, with AgentService integration and dedicated tests.</subtitle>\n  <facts>\n    <fact>backend/src/main/java/com/ablueforce/cortexce/service/ExtractionConsistency.java defines the opt-in majority-vote extraction behavior.</fact>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/service/ExtractionConsistencyTest.java adds test coverage for the ExtractionConsistency behavior.</fact>\n    <fact>backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java was updated to integrate the extraction-consistency capability.</fact>\n  </facts>\n  <narrative>The observation extraction pipeline gained an opt-in majority-vote consistency mechanism. The implementation is centralized in ExtractionConsistency, integrated into AgentService, and covered by ExtractionConsistencyTest. The commit reports 4 changed files with 210 insertions and 11 deletions; verification results were not recorded with the commit.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/java/com/ablueforce/cortexce/service/ExtractionConsistency.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/service/ExtractionConsistencyTest.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-f0d346eab1",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 10355,
+    "promptTokens" : 76,
+    "completionTokens" : 336,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added 36-sample real-history golden set in golden-tool-use-real.json</title>\n  <subtitle>Generated evaluation fixtures and test coverage from real git history.</subtitle>\n  <facts>\n    <fact>backend/src/test/resources/eval/golden-tool-use-real.json contains a generated 36-sample golden set from real git history.</fact>\n    <fact>GoldenSetRealDataTest.java was added under backend/src/test/java/com/ablueforce/cortexce/eval/.</fact>\n    <fact>scripts/gen-real-golden.py generated the golden data used by GoldenSetRealDataTest.java.</fact>\n  </facts>\n  <narrative>The evaluation suite gained a golden set sourced from real git history, a generation script at scripts/gen-real-golden.py, and GoldenSetRealDataTest.java to validate the generated fixtures. The commit reported 5 changed files, 1,482 insertions, and 3 deletions, although the changed-path summary identifies the golden JSON and the two supporting files.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/resources/eval/golden-tool-use-real.json</file>\n    <file>scripts/gen-real-golden.py</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetRealDataTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-3a2d426fdf",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 4461,
+    "promptTokens" : 3832,
+    "completionTokens" : 337,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Extended extraction eval with promptTokens and run-to-run variance</title>\n  <subtitle>Golden-set scoring now tracks per-call token cost and compares repeated evaluation runs.</subtitle>\n  <facts>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java adds public final int promptTokens.</fact>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java and scripts/eval-model-quality.sh were changed alongside GoldenSetScorer.java.</fact>\n    <fact>The commit changed 3 files with 222 insertions and 14 deletions.</fact>\n  </facts>\n  <narrative>The extraction evaluation was extended to measure run-to-run variance and per-call token cost. GoldenSetScorer exposes promptTokens through a new public final field, while GoldenSetEvaluator and the model-quality evaluation script were updated to support the expanded measurements. Verification results were not recorded with the commit.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java</file>\n    <file>scripts/eval-model-quality.sh</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-864dadf51b",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2695,
+    "promptTokens" : 1,
+    "completionTokens" : 363,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added trace-visible subject scoring to GoldenSetScorer</title>\n  <subtitle>Golden-set scoring now scores subjects visible in reproduction traces and requires identifier-specific titles.</subtitle>\n  <facts>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java now derives evidence text from a sample toolName value.</fact>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java and backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorerTest.java were changed with GoldenSetScorer.java.</fact>\n    <fact>The change contains 134 insertions and 18 deletions across 5 file(s).</fact>\n  </facts>\n  <narrative>The golden-set evaluation and scoring implementation was extended so reproduction titles must name both identifiers and score trace-visible subjects. The affected implementation is in GoldenSetScorer.java, with evaluator and test updates alongside it; verification was not recorded for the commit.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorerTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-b064308244",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 5028,
+    "promptTokens" : 45,
+    "completionTokens" : 266,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Updated rehearsal test attribution in extraction-quality-improvement-plan.md</title>\n  <subtitle>Replaced the L4 layer description with the rehearsal database gate attribution.</subtitle>\n  <facts>\n    <fact>docs/drafts/extraction-quality-improvement-plan.md now states that the offline model stand-in test runs under the rehearsal database gate.</fact>\n    <fact>The previous wording assigned the offline model stand-in test to the L4 layer under the rehearsal.</fact>\n    <fact>The commit changed 1 file with 8 insertions and 2 deletions.</fact>\n  </facts>\n  <narrative>The extraction quality improvement plan updated the architectural attribution of the test using the offline model stand-in. The test is now described as running under the rehearsal database gate rather than in the L4 layer under the rehearsal, and the commit also records the round 8 verification result and MCP layer attribution.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>docs/drafts/extraction-quality-improvement-plan.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-30a956e462",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2529,
+    "promptTokens" : 1,
+    "completionTokens" : 281,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Documented Round 8 extraction quality plan in docs/drafts/extraction-quality-improvement-plan.md</title>\n  <subtitle>The extraction plan records Round 8 scope rules, coverage removal, and a reverted security verb.</subtitle>\n  <facts>\n    <fact>docs/drafts/extraction-quality-improvement-plan.md contains the heading \"### 7.14 Round 8 — insertion-scope contract, remove coverage, and a reverted security verb\".</fact>\n    <fact>The Round 8 documentation change added 139 lines to docs/drafts/extraction-quality-improvement-plan.md.</fact>\n    <fact>The Round 8 change modified 1 file with 0 deletions.</fact>\n  </facts>\n  <narrative>The extraction quality improvement plan was extended with a Round 8 section describing an insertion-scope contract, removal of coverage, and a reverted security verb. The change preserves the existing plan while adding a reusable documentation section for the latest extraction round.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>docs/drafts/extraction-quality-improvement-plan.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-ba86bf2588",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 5632,
+    "promptTokens" : 1,
+    "completionTokens" : 292,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added McpEndToEndTest MCP client handshake coverage</title>\n  <subtitle>New end-to-end test exercises the MCP server through a real client handshake.</subtitle>\n  <facts>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/layers/McpEndToEndTest.java contains 187 inserted lines.</fact>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/layers/McpEndToEndTest.java was created with 1 file changed and 0 deletions.</fact>\n    <fact>McpEndToEndTest exercises the MCP server through a real client handshake.</fact>\n  </facts>\n  <narrative>McpEndToEndTest adds end-to-end coverage for operating the MCP server via an actual client handshake, validating the integration flow rather than isolated server behavior. The commit adds the test file with 187 lines; no verification result was recorded with the change.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/java/com/ablueforce/cortexce/layers/McpEndToEndTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-a9c8452967",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 5543,
+    "promptTokens" : 1,
+    "completionTokens" : 323,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added SearchSimilarityEvaluator semantic relevance floor curve</title>\n  <subtitle>Recorded evaluation fixtures and similarity scoring support for the semantic relevance floor.</subtitle>\n  <facts>\n    <fact>SearchSimilarityEvaluator.java was added under backend/src/test/java/com/ablueforce/cortexce/eval/.</fact>\n    <fact>backend/src/test/resources/eval/fixtures/search-similarity-bge-m3.json and backend/src/test/resources/eval/search-similarity-corpus.json were changed.</fact>\n    <fact>The recorded commit contains 6 files and 1210 insertions with 0 deletions.</fact>\n  </facts>\n  <narrative>The evaluation suite now includes SearchSimilarityEvaluator and updated search-similarity fixtures and corpus data to quantify and record the semantic relevance floor. The commit summary states the change across 6 files, although the verification result for this commit was not recorded.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/SearchSimilarityEvaluator.java</file>\n    <file>backend/src/test/resources/eval/fixtures/search-similarity-bge-m3.json</file>\n    <file>backend/src/test/resources/eval/search-similarity-corpus.json</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-db8ac0287e",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 4592,
+    "promptTokens" : 1,
+    "completionTokens" : 321,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Updated security defect definition in backend/src/main/resources/prompts/continuation.txt</title>\n  <subtitle>Prompt guidance now classifies all security defects as Fixed without a non-security qualification.</subtitle>\n  <facts>\n    <fact>backend/src/main/resources/prompts/continuation.txt defines Fixed as “a defect already produced wrong or failing behaviour.”</fact>\n    <fact>The commit “Revert the domain-first security verb after type accuracy dropped” changed backend/src/main/resources/prompts/continuation.txt and backend/src/main/resources/prompts/init.txt.</fact>\n    <fact>The commit totals are 2 files, 10 insertions, and 14 deletions; verification was not recorded.</fact>\n  </facts>\n  <narrative>The prompt templates were reverted to the domain-first Fixed definition for security defects, removing the restriction that limited the classification to non-security code. The change affects backend/src/main/resources/prompts/continuation.txt and backend/src/main/resources/prompts/init.txt, restoring consistent use of Fixed for security-related defects.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/resources/prompts/continuation.txt</file>\n    <file>backend/src/main/resources/prompts/init.txt</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-7f5ff5974d",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2119,
+    "promptTokens" : 1,
+    "completionTokens" : 237,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added five removal samples for remove action in golden-tool-use.json</title>\n  <subtitle>Expanded the golden tool-use evaluation dataset with samples that exercise the remove action branch.</subtitle>\n  <facts>\n    <fact>backend/src/test/resources/eval/golden-tool-use.json received 180 inserted lines and 0 deleted lines.</fact>\n    <fact>backend/src/test/resources/eval/golden-tool-use.json added five removal samples for the remove action branch.</fact>\n  </facts>\n  <narrative>The golden tool-use evaluation fixture was expanded with five removal examples, adding coverage for the remove action branch. The commit changed only backend/src/test/resources/eval/golden-tool-use.json, and verification was not recorded.</narrative>\n  <concepts>\n    <concept>pattern</concept>\n    <concept>what-changed</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/resources/eval/golden-tool-use.json</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-9e6612fdf9",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3191,
+    "promptTokens" : 3815,
+    "completionTokens" : 322,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Updated Fixed verb scope in continuation.txt</title>\n  <subtitle>Prompt guidance now reserves “Fixed” for defects in non-security code.</subtitle>\n  <facts>\n    <fact>backend/src/main/resources/prompts/continuation.txt defines “Fixed” as a defect already producing wrong or failing behaviour in non-security code.</fact>\n    <fact>The commit changed 4 files with 38 insertions and 25 deletions.</fact>\n    <fact>backend/src/main/resources/prompts/init.txt and backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetActionRules.java were also changed in the commit.</fact>\n  </facts>\n  <narrative>The title-generation prompt was updated so security defects use a security-specific classification rather than being treated as ordinary non-security fixes. The same commit also updated related prompt and golden-set rule files, although their exact edits were not included in the observed output.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/resources/prompts/continuation.txt</file>\n    <file>backend/src/main/resources/prompts/init.txt</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetActionRules.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-f43cfd6f44",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 4301,
+    "promptTokens" : 1,
+    "completionTokens" : 276,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Documented round seven action classes in extraction-quality-improvement-plan.md</title>\n  <subtitle>The extraction quality plan now records round seven’s A6 action classes, results, and boundary evidence.</subtitle>\n  <facts>\n    <fact>docs/drafts/extraction-quality-improvement-plan.md contains the heading \"## 7.13 Round 7 — A6 action classes derived from the trace\".</fact>\n    <fact>The round seven documentation commit changed 1 file with 115 insertions and 0 deletions.</fact>\n    <fact>The commit message states that round seven records the action-class decision, its results, and boundary evidence.</fact>\n  </facts>\n  <narrative>The extraction quality improvement plan was extended with a round seven section covering A6 action classes derived from trace analysis. The committed documentation captures the action-class decision, its results, and the available boundary evidence, providing a reusable record for subsequent extraction-quality work.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>docs/drafts/extraction-quality-improvement-plan.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-e352ba3da3",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 5707,
+    "promptTokens" : 1,
+    "completionTokens" : 374,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Archived round-seven evaluation fixtures in longcat-after-v7.json and minimax-after-v7.json</title>\n  <subtitle>Round-seven model-output-quality evaluation artifacts were added to the backend fixtures and docs archive.</subtitle>\n  <facts>\n    <fact>backend/src/test/resources/eval/fixtures/longcat-after-v7.json contains the round-seven longcat evaluation fixture.</fact>\n    <fact>backend/src/test/resources/eval/fixtures/minimax-after-v7.json contains the round-seven MiniMax evaluation fixture.</fact>\n    <fact>docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v7.md archives the round-seven model-output-quality evaluation.</fact>\n    <fact>The commit archived 6 files with 2475 insertions and 0 deletions; verification was not recorded.</fact>\n  </facts>\n  <narrative>The round-seven model-output-quality evaluation outputs were archived across backend fixture files and the dated documentation archive. The commit recorded 2475 inserted lines across 6 files without deletions, preserving evaluation data for later comparison and traceability. No verification command or result was captured with the commit.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/resources/eval/fixtures/longcat-after-v7.json</file>\n    <file>backend/src/test/resources/eval/fixtures/minimax-after-v7.json</file>\n    <file>docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v7.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-112de33e23",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3694,
+    "promptTokens" : 55,
+    "completionTokens" : 281,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Updated replacement naming guidance in backend prompt files</title>\n  <subtitle>Prompt instructions now require both replaced literals and new file names, plus exact script and test identifiers.</subtitle>\n  <facts>\n    <fact>backend/src/main/resources/prompts/continuation.txt now contains the instruction “A replacement keeps BOTH names”.</fact>\n    <fact>backend/src/main/resources/prompts/init.txt was modified alongside backend/src/main/resources/prompts/continuation.txt.</fact>\n    <fact>The commit changed 2 files with 6 insertions and 0 deletions.</fact>\n  </facts>\n  <narrative>The backend continuation prompt was updated to require replacement guidance to preserve both the replaced literal or key and the file that contains it. The matching backend prompt instructions also now require exact identifiers for scripts and tests, improving consistency in generated change summaries.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/resources/prompts/continuation.txt</file>\n    <file>backend/src/main/resources/prompts/init.txt</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-bc3512ae8d",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3912,
+    "promptTokens" : 1,
+    "completionTokens" : 286,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Documented Round 6 extraction quality ceiling in extraction-quality-improvement-plan.md</title>\n  <subtitle>Round 6 records category few-shot improvements and identifies label ambiguity as the measured title ceiling.</subtitle>\n  <facts>\n    <fact>docs/drafts/extraction-quality-improvement-plan.md added section \"## 7.12 Round 6 — category few-shots and the measured title ceiling\".</fact>\n    <fact>Round 6 moved A6 from 72/61 to a measured title ceiling caused by label ambiguity.</fact>\n    <fact>docs/drafts/extraction-quality-improvement-plan.md received 81 insertions and 0 deletions.</fact>\n  </facts>\n  <narrative>The extraction quality improvement plan was expanded with a Round 6 section covering category few-shots and the measured title ceiling. The section attributes the ceiling to label ambiguity and records the A6 movement from 72/61, extending the draft as an evolving quality-measurement record.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>docs/drafts/extraction-quality-improvement-plan.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-28edef5a35",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3074,
+    "promptTokens" : 1,
+    "completionTokens" : 374,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Archived round-six longcat and minimax evaluation fixtures</title>\n  <subtitle>Round-six full-run outputs were added for both providers and archived with a minimax quality report.</subtitle>\n  <facts>\n    <fact>backend/src/test/resources/eval/fixtures/longcat-after-v6.json contains the archived round-six longcat full-run output.</fact>\n    <fact>backend/src/test/resources/eval/fixtures/minimax-after-v6.json contains the archived round-six minimax full-run output.</fact>\n    <fact>docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v6.md archives the round-six minimax model-output quality evaluation.</fact>\n    <fact>The recorded commit totals 6 files, 2422 insertions, and 0 deletions.</fact>\n  </facts>\n  <narrative>The evaluation repository now preserves complete round-six results for both the longcat and minimax providers through dedicated JSON fixtures. A dated minimax model-output quality report was also added under docs/archive, making the six-file commit an archive of both providers' full evaluation runs rather than a code behavior change.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/resources/eval/fixtures/longcat-after-v6.json</file>\n    <file>backend/src/test/resources/eval/fixtures/minimax-after-v6.json</file>\n    <file>docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v6.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-e02e436bdd",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2895,
+    "promptTokens" : 1,
+    "completionTokens" : 286,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Updated prompt title guidance with category-shaped examples</title>\n  <subtitle>Prompt templates now model titles by change category instead of repeating the generic title contract.</subtitle>\n  <facts>\n    <fact>backend/src/main/resources/prompts/continuation.txt replaces a UserCache.computeIfAbsent example with the heading \"- Category examples (copy this shape):\".</fact>\n    <fact>backend/src/main/resources/prompts/continuation.txt and backend/src/main/resources/prompts/init.txt received 22 insertions and 18 deletions.</fact>\n    <fact>The recorded commit contains 2 changed files.</fact>\n  </facts>\n  <narrative>The continuation and initialization prompt templates were updated to present category-specific title examples that mirror the required verb, object, and identifier structure. The prompt no longer relies on the single generic UserCache.computeIfAbsent example to communicate the title format.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/resources/prompts/continuation.txt</file>\n    <file>backend/src/main/resources/prompts/init.txt</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-d44a83721d",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3256,
+    "promptTokens" : 1,
+    "completionTokens" : 248,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Documented Round 5 metric correctness and A6 title ceiling in extraction plan</title>\n  <subtitle>The extraction quality plan records round five decisions and the remaining A6 title ceiling.</subtitle>\n  <facts>\n    <fact>docs/drafts/extraction-quality-improvement-plan.md includes the section \"## 7.11 Round 5 — metric correctness and the remaining title ceiling\".</fact>\n    <fact>The Round 5 documentation edit added 99 lines and removed 0 lines from docs/drafts/extraction-quality-improvement-plan.md.</fact>\n  </facts>\n  <narrative>The draft extraction quality improvement plan now captures Round 5 decisions focused on metric correctness and explicitly documents the remaining A6 title ceiling. The change expands the planning document by 99 lines without deleting existing content.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>docs/drafts/extraction-quality-improvement-plan.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-6d6df2c321",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 4239,
+    "promptTokens" : 3774,
+    "completionTokens" : 260,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Updated prompt category slots and title verb guidance</title>\n  <subtitle>Prompt instructions now explicitly constrain concept categories and title verbs.</subtitle>\n  <facts>\n    <fact>backend/src/main/resources/prompts/continuation.txt now includes guidance for locating identifiers with grep/glob searches.</fact>\n    <fact>backend/src/main/resources/prompts/init.txt was updated alongside backend/src/main/resources/prompts/continuation.txt.</fact>\n    <fact>The commit changed 2 files with 138 insertions and 25 deletions.</fact>\n  </facts>\n  <narrative>The prompt resources were revised to make concept-slot categories explicit and title verb selection more precise. The commit also clarified that identifier location searches do not constitute recordable implementation changes.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/resources/prompts/continuation.txt</file>\n    <file>backend/src/main/resources/prompts/init.txt</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-0fd4ffcc31",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2967,
+    "promptTokens" : 148,
+    "completionTokens" : 403,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed skip gate counters and plural keyword scoring in GoldenSetScorer</title>\n  <subtitle>Golden-set evaluation now folds plural keywords and corrects skip-gate counter behavior across scorer and replay tests.</subtitle>\n  <facts>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java keyword mappings include Map.entry(\"docs\", \"doc\") and Map.entry(\"documentation\", \"doc\").</fact>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java was changed in the same commit.</fact>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetReplayTest.java was changed in the same commit.</fact>\n    <fact>Commit message states: \"Fix the skip gate counters and fold plurals in keyword scoring.\"</fact>\n  </facts>\n  <narrative>The golden-set scoring and replay test implementation was updated to correct skip-gate counters and normalize plural keyword forms such as docs and documentation to doc. The commit modified three files under backend/src/test/java/com/ablueforce/cortexce/eval, with 39 insertions and 9 deletions.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetScorer.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetReplayTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-d3431639a9",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3316,
+    "promptTokens" : 1,
+    "completionTokens" : 416,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Documented round four model evaluation results in archived evaluation notes</title>\n  <subtitle>Archived evaluation notes record what improved, what failed, and the rationale across MiniMax and LongCat runs.</subtitle>\n  <facts>\n    <fact>docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v4-contract.md begins with the heading \"# Model output quality evaluation\".</fact>\n    <fact>The round four commit changed 5 files with 1811 insertions and 0 deletions.</fact>\n    <fact>The changed paths include docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v4-contract.md, docs/archive/2026-11-03_model-output-quality-eval-longcat-after-v4-contract.md, and docs/archive/2026-11-03_summary-chain-eval-minimax.md.</fact>\n    <fact>The commit message was \"Record round four: what moved, what failed and why\".</fact>\n  </facts>\n  <narrative>The project gained archived round-four documentation for model output quality evaluation and the MiniMax summary chain evaluation. The commit summarizes what moved, what failed, and why across the MiniMax and LongCat evaluation artifacts, with the primary edited file initialized with the \"# Model output quality evaluation\" heading.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>docs/archive/2026-11-03_model-output-quality-eval-minimax-after-v4-contract.md</file>\n    <file>docs/archive/2026-11-03_model-output-quality-eval-longcat-after-v4-contract.md</file>\n    <file>docs/archive/2026-11-03_summary-chain-eval-minimax.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-7093cb5c56",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3271,
+    "promptTokens" : 1,
+    "completionTokens" : 317,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed embedding repair row claiming before write in EmbeddingBackfillService</title>\n  <subtitle>Embedding backfill now claims each row before writing, with concurrency and service coverage.</subtitle>\n  <facts>\n    <fact>EmbeddingBackfillService now claims the row before it writes embedding repair data.</fact>\n    <fact>EmbeddingBackfillConcurrencyDatabaseTest.java was added under backend/src/test/java/com/ablueforce/cortexce/repository/.</fact>\n    <fact>EmbeddingBackfillServiceTest.java was updated alongside EmbeddingBackfillService.java.</fact>\n  </facts>\n  <narrative>The embedding repair flow was changed to claim database rows before performing writes, preventing concurrent workers from updating the same row. The change includes a new database concurrency test and updates to the existing service test.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/java/com/ablueforce/cortexce/repository/EmbeddingBackfillConcurrencyDatabaseTest.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/service/EmbeddingBackfillServiceTest.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/service/EmbeddingBackfillService.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-2025b33a95",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 4321,
+    "promptTokens" : 1,
+    "completionTokens" : 259,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Documented audit gap closure and rejected alternatives</title>\n  <subtitle>The extraction quality plan records audit-gap closure and alternatives considered on 2026-11-03.</subtitle>\n  <facts>\n    <fact>docs/drafts/extraction-quality-improvement-plan.md contains the section \"7.9 Audit gap closure (2026-11-03)\".</fact>\n    <fact>docs/drafts/extraction-quality-improvement-plan.md received 48 inserted lines and 0 deleted lines.</fact>\n    <fact>The commit message was \"Record the audit gap closure and the alternatives that were rejected.\"</fact>\n  </facts>\n  <narrative>The extraction quality improvement plan was expanded with a dated audit-gap closure section and the alternatives that were rejected. The commit changed one documentation file with 48 insertions and no deletions; verification was not recorded.</narrative>\n  <concepts>\n    <concept>pattern</concept>\n    <concept>what-changed</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>docs/drafts/extraction-quality-improvement-plan.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-f3d12860ff",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3002,
+    "promptTokens" : 1,
+    "completionTokens" : 316,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Changed LogsController log directory setup in LogsControllerTest.java</title>\n  <subtitle>LogsControllerTest now sets the logDir field directly while preserving the existing log API default.</subtitle>\n  <facts>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/controller/LogsControllerTest.java replaced reflective logDir field lookup with setField(\"logDir\", logDir.toString()).</fact>\n    <fact>backend/src/main/java/com/ablueforce/cortexce/controller/LogsController.java was modified alongside LogsControllerTest.java.</fact>\n    <fact>Commit message states the log API remains optional without changing its default.</fact>\n  </facts>\n  <narrative>The log API implementation and its controller test were updated so the test configures the log directory through the existing setField mechanism instead of retrieving and manipulating the declared logDir field directly. The associated LogsController change keeps the log API optional and preserves its default behavior.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/java/com/ablueforce/cortexce/controller/LogsControllerTest.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/controller/LogsController.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-6fd827abdc",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 4521,
+    "promptTokens" : 112,
+    "completionTokens" : 321,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Updated ExtractionValidationServiceTest#missingOrderThrows fact wording</title>\n  <subtitle>Replaced a process-noise test reference with the concrete missing-orderId exception behavior.</subtitle>\n  <facts>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/service/ExtractionValidationServiceTest.java now records “PaymentNotFoundException is thrown for a missing orderId”.</fact>\n    <fact>The commit touched 6 files with 121 insertions and 17 deletions.</fact>\n    <fact>Verification was not recorded in the commit.</fact>\n  </facts>\n  <narrative>The ExtractionValidationServiceTest fact was updated to describe the observable production behavior rather than merely mentioning that PaymentServiceTest#missingOrderThrows passes. The wording now identifies PaymentNotFoundException and the missing orderId condition, making the test record more specific and useful for future investigation.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/test/java/com/ablueforce/cortexce/service/ExtractionValidationServiceTest.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/service/ExtractionValidationService.java</file>\n    <file>docs/drafts/extraction-quality-improvement-plan.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-eee7785ec8",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3067,
+    "promptTokens" : 1,
+    "completionTokens" : 311,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Extended quality evaluation to support Anthropic provider</title>\n  <subtitle>Golden set evaluation now handles Anthropic alongside the existing model-provider workflow.</subtitle>\n  <facts>\n    <fact>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java supports the Anthropic provider.</fact>\n    <fact>scripts/eval-model-quality.sh includes Anthropic provider handling for quality evaluation.</fact>\n    <fact>docs/archive/2026-11-02_model-output-quality-eval-minimax.md now begins with the heading Model output quality evaluation.</fact>\n  </facts>\n  <narrative>The model-output quality evaluation workflow was extended to support the Anthropic provider. Changes touched GoldenSetEvaluator, the evaluation shell script, and the archived evaluation documentation, with the commit containing 183 insertions and 15 deletions across 5 files.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>docs/archive/2026-11-02_model-output-quality-eval-minimax.md</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/eval/GoldenSetEvaluator.java</file>\n    <file>scripts/eval-model-quality.sh</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-3409dda60c",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3611,
+    "promptTokens" : 181,
+    "completionTokens" : 290,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Documented implementation commit range in conversation-memory-scope-refactor-plan.md</title>\n  <subtitle>The refactor plan now identifies nine implementation commits and links the corresponding commit range.</subtitle>\n  <facts>\n    <fact>docs/drafts/conversation-memory-scope-refactor-plan.md sets the implementation commit range to `325c817..f7b865e`.</fact>\n    <fact>docs/drafts/conversation-memory-scope-refactor-plan.md records 9 commits for the implementation scope.</fact>\n    <fact>The documentation edit reports 69 insertions and 11 deletions in docs/drafts/conversation-memory-scope-refactor-plan.md.</fact>\n  </facts>\n  <narrative>The implementation status table in the conversation and scope refactor plan was updated from a pending marker to the concrete commit range `325c817..f7b865e`, identifying 9 implementation commits and pointing readers to the document's closing list. The commit recorded no verification results.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>docs/drafts/conversation-memory-scope-refactor-plan.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-f7b865efe5",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 2597,
+    "promptTokens" : 1,
+    "completionTokens" : 321,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Changed header background color to #f8f6f2 in index.html</title>\n  <subtitle>The WebUI static viewer header color was updated as part of the v2 identity wire commit.</subtitle>\n  <facts>\n    <fact>backend/src/main/resources/static/index.html sets --color-bg-header to #f8f6f2.</fact>\n    <fact>The commit “build: pair WebUI gitlink and static viewer with the v2 identity wire” changed 3 files with 726 insertions and 973 deletions.</fact>\n    <fact>Changed paths include backend/src/main/resources/static/index.html, backend/src/main/resources/static/viewer-bundle.js, and webui.</fact>\n  </facts>\n  <narrative>The static WebUI identity styling was updated by replacing the header background color from #f6f8fa to #f8f6f2. The change was committed alongside the viewer bundle and WebUI gitlink as the v2 identity wire; verification was not recorded for the commit.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/resources/static/index.html</file>\n    <file>backend/src/main/resources/static/viewer-bundle.js</file>\n    <file>webui</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-a8cc1754bc",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3183,
+    "promptTokens" : 1,
+    "completionTokens" : 403,
+    "raw" : "<observation>\n  <type>bugfix</type>\n  <title>Fixed PendingMessageRepository deduplication for real V20 schema</title>\n  <subtitle>Refactored repository and agent-session persistence to align startup and serving with the real V20 schema.</subtitle>\n  <facts>\n    <fact>backend/src/main/java/com/ablueforce/cortexce/repository/PendingMessageRepository.java removed the comment describing same-session and tool deduplication for non-failed messages.</fact>\n    <fact>backend/src/main/java/com/ablueforce/cortexce/repository/SessionRepository.java was modified as part of the V20 schema compatibility fix.</fact>\n    <fact>backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java was modified as part of the V20 schema compatibility fix.</fact>\n    <fact>The commit changed 6 files with 11 insertions and 44 deletions; verification was not recorded in the commit.</fact>\n  </facts>\n  <narrative>The persistence and agent-service implementation was refactored so the backend starts and serves against the real V20 schema. PendingMessageRepository deduplication behavior was adjusted, while SessionRepository and AgentService received corresponding schema-related changes. The recorded commit contains 11 insertions and 44 deletions across 6 files, with no verification results included.</narrative>\n  <concepts>\n    <concept>problem-solution</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/java/com/ablueforce/cortexce/repository/PendingMessageRepository.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/repository/SessionRepository.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-9a0e90bed5",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3659,
+    "promptTokens" : 127,
+    "completionTokens" : 360,
+    "raw" : "<observation>\n  <type>refactor</type>\n  <title>Refactored observation reads to memory scope predicates in ObservationRepository</title>\n  <subtitle>Observation queries now resolve projects through memory scope membership instead of direct project-path equality.</subtitle>\n  <facts>\n    <fact>ObservationRepository.java replaced the predicate `o.projectPath = :project` with `o.memoryScopeId IN (...)`.</fact>\n    <fact>MemoryScopeEntity.java was changed as part of the memory scope routing refactor.</fact>\n    <fact>AgentService.java was changed as part of the memory scope routing refactor.</fact>\n    <fact>The commit `refactor(scope): route observation reads through memory scope predicates` changed 4 files with 145 insertions and 38 deletions.</fact>\n  </facts>\n  <narrative>Observation reads were refactored to use memory scope membership predicates, routing project-scoped lookup through memoryScopeId relationships. The broader change also updated MemoryScopeEntity and AgentService, establishing the entity and service pieces needed for scope-based observation retrieval. Verification was not recorded for the commit.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/java/com/ablueforce/cortexce/repository/ObservationRepository.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/entity/MemoryScopeEntity.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/service/AgentService.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-63b5502fb9",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 4825,
+    "promptTokens" : 1,
+    "completionTokens" : 336,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Converted V20 conversation memory scope migration to atomic fail-closed form</title>\n  <subtitle>V20 now provides one-shot conversation and memory scope identity migration with conflict rehearsal tooling.</subtitle>\n  <facts>\n    <fact>backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql now starts with the V20 one-shot migration comment.</fact>\n    <fact>The V20 change includes 4 files with 848 insertions and 296 deletions.</fact>\n    <fact>scripts/db/rehearse-conversation-scope.sh and scripts/db/conversation-scope-conflict-fixture.sql were updated alongside the V20 migration.</fact>\n  </facts>\n  <narrative>The conversation and memory scope database migration was reorganized as a single atomic, one-shot operation. The accompanying rehearsal script and conflict fixture were also revised to support conflict handling, with the change committed as “db: make V20 a single atomic migration with fail-closed conflicts.” Verification was not recorded in the commit.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>gotcha</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql</file>\n    <file>scripts/db/rehearse-conversation-scope.sh</file>\n    <file>scripts/db/conversation-scope-conflict-fixture.sql</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-d33efbd8ae",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3025,
+    "promptTokens" : 3811,
+    "completionTokens" : 320,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added fail-closed classifier and checkpointed backfill runner</title>\n  <subtitle>Migration code now classifies technical conversations and supports resumable conversation scope backfill.</subtitle>\n  <facts>\n    <fact>ConversationScopeBackfillRunner.java introduces a checkpointed migration runner under com.ablueforce.cortexce.migration.</fact>\n    <fact>TechnicalBucketClassifier.java adds a fail-closed classifier for technical conversation buckets.</fact>\n    <fact>TechnicalBucketClassifierTest.java adds tests for the TechnicalBucketClassifier behavior.</fact>\n  </facts>\n  <narrative>The migration implementation was extended with a fail-closed conversation classifier and a checkpointed backfill runner, accompanied by dedicated classifier tests. The commit changed four files with 1510 insertions and no deletions; verification results were not recorded in the commit.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/java/com/ablueforce/cortexce/migration/ConversationScopeBackfillRunner.java</file>\n    <file>backend/src/main/java/com/ablueforce/cortexce/migration/TechnicalBucketClassifier.java</file>\n    <file>backend/src/test/java/com/ablueforce/cortexce/migration/TechnicalBucketClassifierTest.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-cd6b972cfd",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3350,
+    "promptTokens" : 1,
+    "completionTokens" : 300,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added durable resumable SessionEnd summary job in SummaryJobService</title>\n  <subtitle>SummaryJobService introduces durable and resumable processing for SessionEnd summary jobs.</subtitle>\n  <facts>\n    <fact>backend/src/main/java/com/ablueforce/cortexce/service/SummaryJobService.java defines package com.ablueforce.cortexce.service.</fact>\n    <fact>SummaryJobService.java contains 326 inserted lines for durable, resumable SessionEnd summary processing.</fact>\n    <fact>Commit message is feat(summary): add durable, resumable SessionEnd summary job.</fact>\n  </facts>\n  <narrative>The backend gained a dedicated SummaryJobService for durable, resumable SessionEnd summary jobs. The service was introduced as a new 326-line implementation with package com.ablueforce.cortexce.service, and the associated commit identifies the feature as “feat(summary): add durable, resumable SessionEnd summary job.” No verification results were recorded in the commit.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>backend/src/main/java/com/ablueforce/cortexce/service/SummaryJobService.java</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-46e467bff6",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3111,
+    "promptTokens" : 1,
+    "completionTokens" : 314,
+    "raw" : "<observation>\n  <type>feature</type>\n  <title>Added read-only conversation scope preflight in conversation-scope-preflight.sql</title>\n  <subtitle>New SQL preflight supports validation before applying the V20 conversation memory scope expansion.</subtitle>\n  <facts>\n    <fact>scripts/db/conversation-scope-preflight.sql was added with 986 inserted lines across 3 changed files.</fact>\n    <fact>backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql implements an additive conversation memory scope expansion.</fact>\n    <fact>scripts/db/conversation-scope-fixture.sql provides fixture data for the V20 scope expansion.</fact>\n  </facts>\n  <narrative>The database migration scope was expanded with V20__conversation_memory_scope_expand.sql, alongside a dedicated conversation-scope fixture and a read-only conversation-scope-preflight.sql script. The preflight gives operators a separate validation artifact before applying the additive scope refactor.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>scripts/db/conversation-scope-preflight.sql</file>\n    <file>backend/src/main/resources/db/migration/V20__conversation_memory_scope_expand.sql</file>\n    <file>scripts/db/conversation-scope-fixture.sql</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-325c817bbf",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3612,
+    "promptTokens" : 1,
+    "completionTokens" : 257,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Documented Conversation and Memory Scope refactor plan</title>\n  <subtitle>Added a comprehensive implementation blueprint for clarifying Conversation and Memory Scope identity boundaries.</subtitle>\n  <facts>\n    <fact>docs/drafts/conversation-memory-scope-refactor-plan.md was added with 917 inserted lines and 0 deleted lines.</fact>\n    <fact>The new document is titled “Conversation 与 Memory Scope 身份边界重构实施蓝图”.</fact>\n    <fact>The commit message is “docs: add conversation and memory scope refactor plan”.</fact>\n  </facts>\n  <narrative>A 917-line implementation blueprint was added for refactoring the identity boundaries between Conversation and Memory Scope. The plan is stored under docs/drafts as a durable design and implementation reference; no verification was recorded for this documentation-only commit.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>docs/drafts/conversation-memory-scope-refactor-plan.md</file>\n  </files_modified>\n</observation>"
+  }, {
+    "id" : "real-e8c8b314d6",
+    "runIndex" : 0,
+    "status" : "200",
+    "elapsedMs" : 3857,
+    "promptTokens" : 1,
+    "completionTokens" : 387,
+    "raw" : "<observation>\n  <type>change</type>\n  <title>Documented round 360 blank base-url application abort in backend review findings</title>\n  <subtitle>Backend review notes now identify blank base-url as a Spring startup abort affecting non-README design coverage.</subtitle>\n  <facts>\n    <fact>docs/drafts/backend-review-findings.md now contains the heading “第 360 轮补充：受影响的不止 README，零覆盖设计稿同样未记载”.</fact>\n    <fact>Commit message identifies a blank base-url as the cause of whole Spring application aborts.</fact>\n    <fact>Commit changed 6 files with 126 insertions and 34 deletions, including docs/drafts/backend-review-findings.md, docs/archive/2026-10-19_backend-review-evidence-58.md, and docs/drafts/cortex-mem-integration-capture-analysis.md.</fact>\n    <fact>Verification was not recorded in the commit.</fact>\n  </facts>\n  <narrative>The backend review documentation was updated in round 360 to clarify that the blank base-url startup-abort issue affects more than README coverage, with zero-coverage design drafts also failing to document the behavior. The associated archive and integration-capture analysis files were included in the documentation commit, but no verification result was recorded.</narrative>\n  <concepts>\n    <concept>what-changed</concept>\n    <concept>pattern</concept>\n  </concepts>\n  <files_read>\n  </files_read>\n  <files_modified>\n    <file>docs/drafts/backend-review-findings.md</file>\n    <file>docs/archive/2026-10-19_backend-review-evidence-58.md</file>\n    <file>docs/drafts/cortex-mem-integration-capture-analysis.md</file>\n  </files_modified>\n</observation>"
+  } ]
+}
